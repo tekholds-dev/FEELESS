@@ -802,6 +802,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   any `.env` edit check `grep -c '^SOLANA_RPC_URL=' backend/.env` is 1. The dev server on :51367 is the owner's own `craco start`:
   attach with `preview_start {url}`, never start a second copy.
 
+- 🔁 Trench fill loop guard (`trenchFillAt`): the FIRST fill after a card goes trench is immediate; after that one fill per round and
+  never on a coin held < max(2 min, `minHoldMins`). Why: a trench coin that died on arrival was replaced by a normal runner, which the
+  fill sold seconds later for the next trench coin — 2 real swaps a minute on the owner's $5 Blaze card (21 fills in one hour).
+  `price_agrees` (scan price vs live price within 10%) gates every replacement; a > 50% "loss" in a leg's first 90s is a feed gap,
+  never sold by the instant swap. Other sessions also push to main: `git fetch` + rebase before every push, and check
+  `git stash list` — the owner's update script auto-stashes uncommitted work ("auto-saved by update.sh"), so COMMIT before long tasks.
+
 ## NEXT SESSION — continue here (in this order)
 00000. Owner: devnet SOL for `scripts/devnet-deploy.sh` (B·3), pick an auditor (B·4). Live test: HQ › Fuse › 👛 pick the Fuse wallet, dry run, arm, fund ONE tier with $20,
    watch the audit trail; raise caps after it proves out. HQ bundle pricing is $0.50/coin · 20% cap today (a $20 card = 18.75% over 10
