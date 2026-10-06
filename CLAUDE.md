@@ -1393,3 +1393,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   still 'buying' gets the money as `wantUnits`). By-weight spreading put a whole $2 top-up into the one held coin and sold $1.49
   of it back 7 seconds later. 🆕 `arena_prime.FRESH_SEC` 900: `keep_winners(.., now)` carries a coin bought in the last 15 min
   through a re-shape (found live with "re-shape every 3" on 5-min rounds: two coins sold 3.5 minutes after they were bought).
+- 🧰 Mini box (`FeeCatWidget` bottom right) = 4 tabs: Chat · Music · 💼 Mine · 🔥 Top 10 (`components/MiniDeck.jsx`, `styles/miniDeck.css`
+  `md-*`). Mine = the owner's real tier cards (`/fuses/prime`, owner / staff wallet only) + trader Fuse cards (`/fuses/pnl`) +
+  coins held (`useHeldList`). Top 10 = `topTen(pairs)`: launch coins ≤ 12h by 1h volume from the launch feed, 30s poll, row →
+  `openCoin`. `mini-bar` = a one-line player (prev · play · next · title) on every tab but Music. Moves ≥ 1000% read as `12.4x`.
+  First load ALWAYS runs (`load(true)`); only repeat polls pause while hidden — a `document.hidden` check on the first load left
+  the panes blank in a background pane. Jest cannot resolve `react-router-dom` in a bare component test: use `<a href>`.
+- 🏆 `GET /fuses/strategies` offers ONLY setups that ended up on the replay when at least one did (the rest are counted in `note`);
+  when nothing won, the least-bad ones still show, marked as such.

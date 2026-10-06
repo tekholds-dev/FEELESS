@@ -168,3 +168,13 @@ def test_hunt_buys_only_coins_already_running_on_volume_and_setups_carry_their_o
         r['picks'][1].update(vol1h=120000, chg1h=60)
     got = ps.setups(paths, rounds, now, 5)
     assert {g['key'] for g in got} <= {'rhunt', 'sniper'} and got[0]['key'] == 'rhunt' and got[0]['hours'] == 6.0 and got[0]['cfg']['mom'] == '40'
+
+
+def test_strategies_endpoint_offers_only_winning_setups_when_any_won(monkeypatch):
+    import asyncio, reputation_service as rs
+    S = lambda k, ok: {'key': k, 'name': k, 'why': 'w', 'cfg': {'tp': '100', 'sl': '15', 'rideAt': '15', 'trail': '8', 'confirm': '4', 'minDrop': '10'}, 'n': 9, 'medPct': 1.0 if ok else -5.0, 'upPct': 55, 'profitable': ok}
+    rs._json_save(rs.PG_SIM_PATH, {'byClock': {'5': {'n': 70, 'strategies': [S('steady', False), S('engine', False), S('hunt', False)]}}, 'setups': {'5': [S('rhunt', True), S('sniper', False)]}})
+    got = asyncio.run(rs.fuse_strategies(hours=0.08))
+    assert [s['key'] for s in got['strategies']] == ['rhunt'] and '4 setups that lost' in got['note']
+    rs._json_save(rs.PG_SIM_PATH, {'byClock': {'5': {'n': 70, 'strategies': [S('steady', False), S('engine', False), S('hunt', False)]}}})
+    assert len(asyncio.run(rs.fuse_strategies(hours=0.08))['strategies']) == 3      # nothing won → the least-bad ones are still shown, marked as such

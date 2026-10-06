@@ -4,6 +4,7 @@ import { Music2, MessageCircle, X, Plus, Play, Pause, SkipBack, SkipForward, Shu
 import { FeeCatMark } from './FeeCatMark';
 import EcosystemChat from './EcosystemChat';
 import { parse, songTitle } from './command/ProfileMusic';
+import { MiniMine, MiniTop } from './MiniDeck';
 
 const PLAYLIST_KEY = 'feeless:site-playlist';
 // ▶ Like YouTube: a refresh comes back to the same song at the same second, still playing (or still paused).
@@ -125,6 +126,8 @@ export function FeeCatWidget() {
         <div className="feecat-tabs">
           <button type="button" className={tab === 'chat' ? 'active' : ''} onClick={() => setTab('chat')}><MessageCircle size={13} />Chat</button>
           <button type="button" className={tab === 'music' ? 'active' : ''} onClick={() => setTab('music')}><Music2 size={13} />Music</button>
+          <button type="button" className={tab === 'mine' ? 'active' : ''} onClick={() => setTab('mine')} data-testid="mini-tab-mine">💼 Mine</button>
+          <button type="button" className={tab === 'top' ? 'active' : ''} onClick={() => setTab('top')} data-testid="mini-tab-top">🔥 Top 10</button>
         </div>
         <button type="button" className="feecat-x" onClick={() => setOpen(false)} aria-label="Close"><X size={15} /></button>
       </div>
@@ -146,6 +149,13 @@ export function FeeCatWidget() {
         </> : <p className="feecat-empty">No songs yet — paste a YouTube, Spotify or SoundCloud link below.</p>}
         <div className="feecat-add"><input placeholder="Paste a song link…" value={url} onChange={e => setUrl(e.target.value)} /><button type="button" disabled={!parse(url)} onClick={add}><Plus size={13} /></button></div>
       </div>}
+      {tab === 'mine' && <MiniMine />}
+      {tab === 'top' && <MiniTop />}
+      {tab !== 'music' && songs.length > 0 && <div className="mini-bar" data-testid="mini-player">
+        <button type="button" onClick={() => go(-1)} aria-label="Previous"><SkipBack size={12} /></button>
+        <button type="button" className={playing ? 'is-play' : ''} onClick={() => setPlaying(p => !p)} aria-label={playing ? 'Pause' : 'Play'}>{playing ? <Pause size={13} /> : <Play size={13} />}</button>
+        <button type="button" onClick={() => go(1)} aria-label="Next"><SkipForward size={12} /></button>
+        <b>{song?.title || 'Track ' + (i + 1)}</b></div>}
     </div>}
     {playing && src && <iframe ref={frame} key={`${i}-${nonce}-${src.src}`} onLoad={() => setTimeout(hookEnd, 600)} className={`feecat-frame pm-${src.kind} ${open && tab === 'music' && showVideo ? '' : 'is-background'}`} src={startSrc} title="now playing" allow="autoplay; encrypted-media" />}
     <button type="button" className={`feecat-fab ${open ? 'on' : ''}`} onClick={() => setOpen(o => !o)} data-testid="feecat-fab" aria-label="FeeCat">

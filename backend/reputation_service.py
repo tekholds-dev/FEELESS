@@ -8807,7 +8807,13 @@ async def fuse_strategies(hours: float = Query(1.0, ge=0.01, le=48)):
     clock, v = min(rows, key=lambda kv: abs(kv[0] - want))
     note = '' if abs(clock - want) < 1 else f"Sims play 5–60 min rounds; these are for {int(clock)} min, the nearest to your clock."
     sniper = (_json_load(PG_SIM_PATH, {}).get('setups') or {}).get(str(int(clock))) or []   # 🚀 🎯 whole setups first, each with its own walk-forward proof
-    return {'clock': int(clock), 'n': v.get('n'), 'strategies': sniper + v['strategies'], 'note': note, 'at': _json_load(PG_SIM_PATH, {}).get('at')}
+    rows_all = sniper + v['strategies']
+    win = [x for x in rows_all if x.get('profitable')]
+    if win:   # 🏆 only setups that ENDED UP on the replay are offered; the losing ones are counted, not shown
+        hid = len(rows_all) - len(win)
+        note = (note + ' ' if note else '') + (f"{hid} setup{'s' if hid != 1 else ''} that lost on the replay {'are' if hid != 1 else 'is'} hidden." if hid else '')
+        rows_all = win
+    return {'clock': int(clock), 'n': v.get('n'), 'strategies': rows_all, 'note': note.strip(), 'at': _json_load(PG_SIM_PATH, {}).get('at')}
 
 
 import verdict as _verdict
