@@ -398,6 +398,7 @@ def clean_cfg(p):
     out['pickVerify'] = bool((p or {}).get('pickVerify', True))   # ✅ a hand-picked young coin goes on a real card only once it passes every safety check
     ra_ = (p or {}).get('runnerMinAgeH')
     out['runnerMinAgeH'] = int(_f(ra_)) if ra_ is not None and int(_f(ra_)) in RUNNER_AGES else int(REAL_RUNNER_AGE_H)   # 🕐 the OWNER's youngest launch coin for real money
+    out['scoutPct'] = int(_f((p or {}).get('scoutPct'))) if int(_f((p or {}).get('scoutPct'))) in SCOUT_PCTS else 0   # 🔭 scout ticket, % of the card (0 = off)
     out['moverSwap'] = bool((p or {}).get('moverSwap', True))   # 🚀 a mover takes the seat of a coin that is not moving
     out['edgeGate'] = bool((p or {}).get('edgeGate', True))   # 🧠 real money buys only runners the board's own record does not expect to lose (pick_edge.py)
     out['swapEdge'] = bool((p or {}).get('swapEdge', True))   # ⚖ rotate only when the next coin beats this one by more than the swap costs
@@ -506,6 +507,85 @@ def flat_leg(card, prices, now, hold_sec=FLAT_HOLD_SEC, band=FLAT_BAND):
         if abs(g) <= band:
             out.append((abs(g), l))
     return min(out, key=lambda t: t[0])[1] if out else None
+
+
+# 🔭 SCOUT & PROMOTE (the owner's ask: "5 min should be cycling funds around to find the banger coins to hold through rounds").
+# One seat is the SCOUT: a small ticket (`scoutPct` of the card) that hops onto whatever is moving, round after round, while the
+# other seats HOLD (🍳 min hold). A scout that proves itself is PROMOTED: it becomes a holder at full size, and the weakest holder's
+# seat becomes the next scout. So the fast clock searches with small money and only winners ever get real size.
+SCOUT_PCTS = (0, 10, 15, 20)   # ticket, % of the card (0 = off)
+SCOUT_PROMOTE = 20.0           # a scout up this much since it was bought is promoted to a holder
+SCOUT_CUT = 10.0               # a scout down this much hops to the next mover at once
+SCOUT_ROUNDS = 3               # … and so does one that has not reached +5% after this many rounds
+
+
+def _gain(l, prices):
+    px = _f((prices or {}).get(l.get('pairAddress')))
+    return (px / _f(l['entry']) - 1) * 100 if px > 0 and _f(l.get('entry')) > 0 else 0.0
+
+
+def scout_step(card, prices, hot, cfg, now, pools=(), anchors=()):
+    """One scout decision for a card → the card (unchanged when there is nothing to do). `hot` = movers not on the card, best first.
+    promote (≥ +SCOUT_PROMOTE) → cut / hop (≤ −SCOUT_CUT, or SCOUT_ROUNDS rounds without +5%) → open the first scout seat from the
+    coin that is not moving. Every swap goes through `replace_leg` (true fills, events). Pure."""
+    pct = _f((cfg or {}).get('scoutPct'))
+    if pct <= 0 or card.get('holdAll') or card.get('flooredAt'):
+        return card
+    legs = card.get('legs') or []
+    val = lambda l: _f(l.get('units')) * (_f(prices.get(l['pairAddress'])) or _f(l.get('entry')))
+    total = sum(val(l) for l in legs) + max(0.0, _f(card.get('cash')))
+    ticket = total * pct / 100
+    rot = max(60.0, _f(cfg.get('rotateHours')) * 3600)
+    on = {l['mint'] for l in legs}
+    hot = [x for x in hot or [] if x.get('mint') not in on and _f(x.get('price')) > 0]
+    sc = next((l for l in legs if l.get('scout')), None)
+
+    def hop(c, pair, why, keep_scout=True):
+        """Swap the coin at `pair` for the best mover as a scout-sized ticket; what is left of its money returns to card cash."""
+        nc = replace_leg(c, pair, prices, list(pools), hot, list(anchors), cfg, now)
+        nl = next(l for l in nc['legs'] if l['mint'] not in {x['mint'] for x in c['legs']})
+        v = _f(nl['units']) * _f(nl['entry'])
+        if v > ticket * 1.05 and v > 0:
+            k = ticket / v
+            nc['cash'] = round(_f(nc.get('cash')) + v - ticket, 6); nl['units'] = _f(nl['units']) * k; nl['costUsd'] = round(_f(nl.get('costUsd')) * k, 6)
+        if keep_scout:
+            nl['scout'] = True
+        nc['events'] = nc['events'][:-1] + [{**nc['events'][-1], 'kind': 'rotate', 'why': why.format(sym=nl.get('symbol'), usd=_f(nl['units']) * _f(nl['entry']))}]
+        return nc
+
+    if sc:
+        g = _gain(sc, prices)
+        if g >= SCOUT_PROMOTE:   # 🏅 proven: it holds from now on (its 🍳 hold starts now); the weakest holder's seat scouts next
+            c = {**card, 'legs': [({k: v for k, v in l.items() if k != 'scout'} | {'at': now, 'promotedAt': now}) if l is sc else dict(l) for l in legs],
+                 'events': list(card.get('events') or []) + [{'at': now, 'kind': 'ride', 'symbol': sc.get('symbol'), 'usd': round(val(sc), 4),
+                                                             'why': f"🏅 scout ${sc.get('symbol')} is up {g:+.0f}% — promoted to a holder"}]}
+            weak = sorted((l for l in c['legs'] if l['mint'] != sc['mint'] and l.get('role') == 'runner' and not (l.get('ride') or l.get('frozen') or l.get('picked') or l.get('buying') or l.get('trench'))),
+                          key=lambda l: _gain(l, prices))
+            if weak and hot and _gain(weak[0], prices) < g:
+                try:
+                    before = _f(c.get('cash'))
+                    c = hop(c, weak[0]['pairAddress'], "🔭 new scout ${sym} (${usd:.2f} ticket) takes the weakest seat — its money backs the promoted coin")
+                    freed = _f(c.get('cash')) - before
+                    pl = next(l for l in c['legs'] if l['mint'] == sc['mint']); ppx = _f(prices.get(pl['pairAddress'])) or _f(pl['entry'])
+                    if freed > 0.01 and ppx > 0:   # the promoted coin gets the size the weak seat gave up
+                        pl['units'] = _f(pl['units']) + freed / ppx; pl['costUsd'] = round(_f(pl.get('costUsd')) + freed, 6); c['cash'] = round(before, 6)
+                except (ValueError, StopIteration):
+                    pass
+            return c
+        stale = now - _f(sc.get('at')) >= SCOUT_ROUNDS * rot and g < 5
+        if (g <= -SCOUT_CUT or stale) and hot:
+            try:
+                return hop(card, sc['pairAddress'], f"🔭 scout ${sc.get('symbol')} {'cut at ' + format(g, '+.0f') + '%' if g <= -SCOUT_CUT else 'went nowhere (' + format(g, '+.0f') + '%)'} — hops to ${{sym}} (${{usd:.2f}} ticket)")
+            except (ValueError, StopIteration):
+                return card
+        return card
+    fl = flat_leg(card, prices, now, max(FLAT_HOLD_SEC, _f(cfg.get('minHoldMins')) * 60)) if hot else None
+    if fl:
+        try:
+            return hop(card, fl['pairAddress'], f"🔭 scout seat opened: ${fl.get('symbol')} was not moving — ${{sym}} goes in as a ${{usd:.2f}} ticket")
+        except (ValueError, StopIteration):
+            return card
+    return card
 
 
 def is_hunt(x, cfg):
@@ -1528,7 +1608,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         round_now = _f(c.get('lastRotateAt')) == now
         # a locked (riding / frozen) coin is never topped up: what was just banked off it must not be bought straight back
         # … and neither is a coin whose profit was just skimmed (10 min): that money is for the OTHER coins
-        targets = [l for l in c['legs'] if not l.get('placeholder') and not l.get('ride') and not l.get('frozen') and not (l.get('trimAt') and now - _f(l.get('trimAt')) <= 600 and not (round_now and _f(l.get('trimAt')) < now))] \
+        targets = [l for l in c['legs'] if not l.get('placeholder') and not l.get('scout') and not l.get('ride') and not l.get('frozen') and not (l.get('trimAt') and now - _f(l.get('trimAt')) <= 600 and not (round_now and _f(l.get('trimAt')) < now))] \
             or [l for l in c['legs'] if not l.get('placeholder')]
         if targets:
             # ⚖ NO COIN GETS THE WHOLE POT. Idle cash fills the seats that are furthest under an equal share and never lifts a coin
@@ -1663,7 +1743,7 @@ def balance_small(c, prices, liqs, now, fee, ev):
     # a coin is "small" only when it WENT IN small. A coin whose profit was taken (💰 skim, 🏦 bank, ✂ cut → `skimPx` / `bankedAt` /
     # fresh `trimAt`) or that is locked / riding is small ON PURPOSE: topping it up would buy back what was just sold
     # ($1.93 was skimmed off $SpaceXSI and this rule put $1.13 of it straight back in four seconds later).
-    taken = lambda l: l.get('skimPx') or l.get('bankedAt') or l.get('ride') or l.get('frozen') or (l.get('trimAt') and now - _f(l.get('trimAt')) < 600)
+    taken = lambda l: l.get('scout') or l.get('skimPx') or l.get('bankedAt') or l.get('ride') or l.get('frozen') or (l.get('trimAt') and now - _f(l.get('trimAt')) < 600)
     small = [l for l in legs if not taken(l) and _f(l.get('costUsd')) < SMALL_SHARE * share and val(l) < SMALL_SHARE * share]
     for l in small:
         need = share - val(l)

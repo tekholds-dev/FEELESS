@@ -6182,7 +6182,14 @@ async def _prime_tick_inner(now):
         # frozen / picked coin) gives its seat to a coin that IS — the card's own hunt selection, else ≥ $50K in the hour and up
         # ≥ 20%. One per card per 30 min. Rotation only ever swapped LOSERS, so a flat coin sat on the card for good while a
         # hunt-ready coin waited on the board (2026-10-06: $USDP +2% held, $GOMO +44% / $123K an hour not bought).
-        if real_t and cur and cfg_t.get('moverSwap', True) and not cur.get('holdAll') and not cur.get('flooredAt') and now - _fuse._f(cur.get('moverAt')) >= _prime.MOVER_EVERY_SEC:
+        # 🔭 SCOUT & PROMOTE (cfg `scoutPct` > 0) replaces the plain mover swap: one small ticket hops between movers every round;
+        # a scout that proves itself is promoted to a full-size holder (arena_prime.scout_step).
+        if real_t and cur and _fuse._f(cfg_t.get('scoutPct')) > 0 and now - _fuse._f(cur.get('scoutAt')) >= max(120.0, _fuse._f(cfg_t.get('rotateHours')) * 3600 * 0.9):
+            was_ = cur
+            nw_ = _prime.scout_step(cur, px, [x for x in _prime.movers(r_t, cfg_t) if x.get('mint') not in mine], cfg_t, now, p_t, anchors)
+            if nw_ is not cur:
+                cur = _prime.note_dropped(was_, {**nw_, 'scoutAt': now}, now, cfg_t['rotateHours'], px)
+        elif real_t and cur and cfg_t.get('moverSwap', True) and not cur.get('holdAll') and not cur.get('flooredAt') and now - _fuse._f(cur.get('moverAt')) >= _prime.MOVER_EVERY_SEC:
             hot_ = [x for x in _prime.movers(r_t, cfg_t) if x.get('mint') not in mine]
             fl_ = _prime.flat_leg(cur, px, now, max(_prime.FLAT_HOLD_SEC, _fuse._f(cfg_t.get('minHoldMins')) * 60)) if hot_ else None
             if fl_:

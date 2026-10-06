@@ -1462,3 +1462,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   up · owner hand picks 41 pieces −$1.12 (15% won) vs engine 30 pieces −$0.55 · 6 rug pieces −$0.99. The board's runners took
   ~3.5h to peak: a card that turns over every 15 minutes can never hold one. "NO REAL MOVES, JUST SMALL LOSSES" ⇒ group the
   ledger's closed pieces by HOLD TIME before touching selection.
+- 🔭 SCOUT & PROMOTE (`arena_prime.scout_step`, cfg `scoutPct` 0 / 10 / 15 / 20, Edit Fuse › Coins; `_prime_tick` runs it once a
+  round and it REPLACES the plain mover swap while on): ONE seat is a small ticket that hops onto the best mover; ≥ +20% →
+  promoted to a holder (its 🍳 hold starts, the weakest runner seat becomes the next scout and its freed money sizes the promoted
+  coin); ≤ −10% or 3 rounds without +5% → hops on. `scout` legs are never topped up (`balance_small`, cash spread). This is the
+  owner's "5 min cycles funds to find the banger, holders keep the weight": the fast clock searches with small money, only
+  winners get size. Picker: with verified picks on, rows under 1h read "under 1h", are disabled and sort last (`SwapPicker verify`).

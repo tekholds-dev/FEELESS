@@ -1680,3 +1680,30 @@ def test_min_hold_covers_a_reshape_too():
     assert ap.keep_winners(nc, old, px, {}, 10.0, 2.0, 1000.0 + 40 * 60, 0.0)[1] == 0         # no hold: the 15-min rule is over
     assert ap.keep_winners(nc, old, px, {}, 10.0, 2.0, 1000.0 + 70 * 60, 3600.0)[1] == 0      # past the hold
     assert ap.clean_cfg({'minHoldMins': 180})['minHoldMins'] == 180
+
+
+def _scout_card(**over):
+    L = lambda sym, at=0.0, **kw: {'symbol': sym, 'mint': sym, 'pairAddress': sym, 'role': 'runner', 'entry': 1.0, 'units': 1.0, 'costUsd': 1.0, 'at': at, 'stars': 3, **kw}
+    return {'tpl': 'degen', 'legs': [L('A'), L('B'), L('C'), L('D')], 'cash': 0.0, 'events': [], 'feesUsd': 0.0, **over}
+
+
+def test_scout_seat_opens_small_hops_when_cut_or_stale_and_is_promoted_when_it_proves_itself():
+    cfg = ap.clean_cfg({'scoutPct': 15, 'rotateHours': 0.08, 'minHoldMins': 0})
+    hot = [{'mint': 'H1', 'pairAddress': 'H1', 'symbol': 'H1', 'price': 1.0, 'liq': 500000, 'score': 80, 'vol1h': 90000, 'chg1h': 60},
+           {'mint': 'H2', 'pairAddress': 'H2', 'symbol': 'H2', 'price': 1.0, 'liq': 500000, 'score': 70, 'vol1h': 90000, 'chg1h': 50}]
+    px = {k: 1.0 for k in 'ABCD'} | {'H1': 1.0, 'H2': 1.0}
+    assert ap.scout_step(_scout_card(), px, hot, ap.clean_cfg({}), 4000.0) == _scout_card()                # off by default
+    c1 = ap.scout_step(_scout_card(), px, hot, cfg, 4000.0)                                               # a flat coin gives its seat to a scout
+    sc = next(l for l in c1['legs'] if l.get('scout'))
+    assert sc['mint'] == 'H1' and abs(sc['units'] * sc['entry'] - 0.6) < 0.03 and c1['cash'] > 0.3          # 15% of a $4 card, the rest back to cash
+    assert ap.scout_step(c1, px, hot, cfg, 4100.0) is c1                                                   # nothing to do yet
+    c2 = ap.scout_step(c1, {**px, 'H1': sc['entry'] * 0.88}, hot, cfg, 4100.0)                             # −12% → hops to the next mover, still a ticket
+    s2 = next(l for l in c2['legs'] if l.get('scout'))
+    assert s2['mint'] == 'H2' and 'H1' not in {l['mint'] for l in c2['legs']}
+    c3 = ap.scout_step(c1, px, hot, cfg, 4000.0 + 3 * 288 + 5)                                             # flat after 3 rounds → hops too
+    assert next(l for l in c3['legs'] if l.get('scout'))['mint'] == 'H2'
+    c4 = ap.scout_step(c1, {**px, 'H1': sc['entry'] * 1.25}, hot, cfg, 4200.0)                             # +25% → promoted, a new scout takes the weakest seat
+    p4 = next(l for l in c4['legs'] if l['mint'] == 'H1')
+    assert not p4.get('scout') and p4['at'] == 4200.0 and p4['units'] > sc['units']                          # it got real size
+    assert sum(1 for l in c4['legs'] if l.get('scout')) == 1 and any('promoted' in (e.get('why') or '') for e in c4['events'])
+    assert ap.scout_step(_scout_card(holdAll=True), px, hot, cfg, 4000.0)['legs'][0]['mint'] == 'A'         # ✋ hold all: no scouting
