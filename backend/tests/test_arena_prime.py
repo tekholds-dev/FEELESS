@@ -1607,3 +1607,12 @@ def test_runner_hunt_selection_and_it_beats_the_weather():
         assert [r['mint'] for r in ap.weather_runners([run, slow, young], lvl, 80000, lambda x: x['liq'], cfg)] == ['r']
         assert ap.weather_runners([run, slow, young], lvl, 80000, lambda x: x['liq'], ap.clean_cfg({})) == []
     assert not ap.is_hunt(run, ap.clean_cfg({'runnerMinVolK': 50}))          # both minimums must be set
+
+
+def test_owner_can_set_a_real_card_to_reshape_every_3_rounds_but_nobody_else_can():
+    cfg = ap.clean_cfg({'cycleEvery': 3, 'rotateHours': 0.08})
+    assert ap.real_guard(cfg)[0]['cycleEvery'] == 6                                   # not the owner's choice → raised to 6
+    out, changed = ap.real_guard(cfg, ('cycleEvery',))
+    assert out['cycleEvery'] == 3 and not any('re-shape' in c for c in changed)        # the owner's own 3 sticks
+    assert ap.real_guard(ap.clean_cfg({'cycleEvery': 1}), ('cycleEvery',))[0]['cycleEvery'] == 3   # never under 3
+    assert out['fixEvery'] == 6 and ap.real_guard(ap.clean_cfg({'cycleEvery': 0}), ('cycleEvery',))[0]['cycleEvery'] == 0

@@ -201,7 +201,7 @@ const EDIT = [
   ['sl', '🛑 Card stop', [[0, 'tier'], [10, '−10%'], [15, '−15%'], [20, '−20%'], [30, '−30%']], "Every coin's stop on this card (a coin's own stop still wins). Tier = the tier's built-in stop"],
   ['trenchCoins', '🗑 Trench coins per card', [[1, '1'], [2, '2']], 'How many fresh trench breakouts the 🗑 trench cycle may hold at once. They are the riskiest coins on the site — 2 is the hard max.'],
   ['coins', '🪙 Coins on the card', [[0, 'auto'], [2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6']], 'Your call, at any card size. Auto = sized to the card (each coin at least $0.75). Pick a number and the card holds exactly that many — smaller coins pay more in fees per swap, and the first 5 rounds of network fees are on the wallet reserve.'],
-  ['cycleEvery', '🧩 Re-shape every', [[0, 'off'], [3, '3'], [6, '6'], [12, '12']], 'Rounds between shape changes'],
+  ['cycleEvery', '🧩 Re-shape every', [[0, 'off'], [3, '3'], [6, '6'], [12, '12']], 'Rounds between shape changes. A re-shape sells every coin that is not winning for the new shape, so 3 means more swaps than 6.'],
   ['slMode', '🛑 On a stop', [['replace', '⇄ replace'], ['park', '🅿 park'], ['hold', '❄ hold']], 'Replace with the best coin · sell to SOL and rebuy later · keep holding'],
   ['rescuePct', '🛟 Rescue at', [[0, 'off'], [30, '−30%'], [40, '−40%'], [50, '−50%'], [60, '−60%']], 'On: card this far under its start → safest coins, and a −40% day re-deals into majors. Off: NO fix of any kind — your coins and config stay, only your floor protects the card'],
   ['floorPct', '🧱 Card floor', [[15, '−15%'], [25, '−25%'], [40, '−40%'], [60, '−60%']], 'The WHOLE card this far under its run start → every coin is sold into the anchors, then fresh coins are dealt. This is the card, not one coin: per-coin exits are ⚡ Instant swap above. A tight floor on a small card trips on one bad coin.'],
@@ -343,9 +343,7 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest }) {
   const own = !real && !locked;   // 🃏 an unlocked paper tier keeps ITS OWN exits (unique per card); the shared config stays for the rest
   const saveExit = patch => (own ? save({ tierCfg: { [c.tpl]: patch } }) : save(patch));
   const rowX = e => (own && TIER_KEYS.includes(e[0]) ? seg(e[0], `${e[1]} · this card`, e[2], e[3], cfg?.[e[0]], false, saveExit) : row(e));
-  // 💵 a real card never re-shapes more often than every 6 rounds (a re-shape sells every coin under its keep line) — "3" saved as 6, so it isn't offered
-  const realRow = e => (real && e[0] === 'cycleEvery' ? [e[0], e[1], e[2].filter(o => o[0] !== 3), `${e[3]}. Real money: 6 rounds at the fastest — a re-shape sells every coin that is not winning, so it is never done more often.`] : e);
-  const rows = keys => keys.map(k => EDIT.find(e => e[0] === k)).filter(Boolean).map(realRow).map(rowX);
+  const rows = keys => keys.map(k => EDIT.find(e => e[0] === k)).filter(Boolean).map(rowX);
   const churn = (cfg?.rotateHours || 1) < 0.25 && (cfg?.rotateConfirm || 1) < 3;   // 5-min rounds + low patience = swaps on noise (fees, missed buys)
   const [grp, setGrp] = useState('rounds');
   return <details className="hrt-edit" data-testid="card-editor"><summary>⚙ Edit Fuse {real ? '· 💵 real-money config — paper cards untouched' : locked ? '· 🔒 locked — edits change only this Fuse' : '· this card\'s own exits, patience + hold · shape is shared'}</summary>

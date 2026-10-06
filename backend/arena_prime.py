@@ -453,6 +453,7 @@ REAL_MIN_HOLD = 10.0      # minutes a real buy is held before a ROUND rotation m
                           # ⚡ instant swap, stops and the rug shield are never delayed by it.
 REAL_MIN_CONFIRM = 2      # losing rounds in a row before a real rotation (the owner's degen setting: 2 rounds on a 5-min clock)
 REAL_MIN_INSTANT = 10.0   # ⚡ instant swap is OFF (0) or at least −10% — never inside normal memecoin noise
+REAL_OWNER_RESHAPE = 3    # … unless the OWNER set it: their own 3 is kept (a fix still re-shapes every 6)
 REAL_MAX_RESHAPE = 6      # a real card re-shapes at most every 6 rounds (0 = never stays never) — also while a safe / rescue fix is on
 REAL_MIN_COIN_USD = 0.75  # a real coin under this pays > 0.7% per swap in flat costs → small cards hold fewer, bigger coins
 REAL_DEAL_LEAD = 15.0     # seconds before the bell that a real card's round is decided (sells, then buys, finish inside the countdown)
@@ -501,8 +502,10 @@ def real_guard(cfg, owner_set=()):
         out['rotateConfirm'] = REAL_MIN_CONFIRM; changed.append(f'{REAL_MIN_CONFIRM} losing rounds before a swap')
     if 0 < _f(out.get('instantSwapPct')) < REAL_MIN_INSTANT:
         out['instantSwapPct'] = REAL_MIN_INSTANT; changed.append(f'instant swap −{REAL_MIN_INSTANT:g}%')
-    if 0 < int(_f(out.get('cycleEvery'))) < REAL_MAX_RESHAPE:
-        out['cycleEvery'] = REAL_MAX_RESHAPE; changed.append(f're-shape every {REAL_MAX_RESHAPE} rounds')
+    # THE OWNER PICKS: "re-shape every 3" saved by the owner in Edit Fuse is honoured (never under 3); a value nobody chose is raised to 6
+    least = REAL_OWNER_RESHAPE if 'cycleEvery' in set(owner_set or ()) else REAL_MAX_RESHAPE
+    if 0 < int(_f(out.get('cycleEvery'))) < least:
+        out['cycleEvery'] = least; changed.append(f're-shape every {least} rounds')
     # always on for real money (not owner settings, so never listed as "raised"):
     #  • a safe / rescue FIX re-shaped the card EVERY round — on a 5-min clock that sold and re-bought 2–3 coins every 5 minutes
     out['fixEvery'] = REAL_MAX_RESHAPE

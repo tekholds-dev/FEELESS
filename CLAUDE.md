@@ -1360,3 +1360,5 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   chart = `$SYM $4.40M MC · $price` (`TrenchChart`), My cards = the real card's ALL-TIME P&L (`HqRealCards`, same number as the tile).
 - 🗑 Trench fill follows the card's CURRENT cycle only (it used to fire on `phase == 'trench'` too): an owner who switches Trench
   off gets no more trench coins while the card waits for its next re-shape (a picked cycle with "re-shape: off" re-shapes every 6 rounds).
+- 🧩 Real card "Re-shape every 3" is the OWNER's option (`real_guard`: `REAL_OWNER_RESHAPE` 3 when `cycleEvery` is in `realOwnerSet`;
+  a value nobody chose is still raised to 6; a safe / rescue fix still re-shapes every 6). The button used to snap back to 6.
