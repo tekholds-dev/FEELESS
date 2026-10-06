@@ -6295,7 +6295,7 @@ async def _prime_view():
                 'pendingPayoutUsd': round(max(0.0, _fuse._f(c.get('walletUsd')) - _fuse._f(b.get('bankUsd'))), 4),
                 'math': {**sm.get('math', {}), 'putIn': round(_fuse._f(b.get('fundedUsd')) or start, 4), 'runStartUsd': round(start, 4), 'heldUsd': round(held, 4), 'paidOutUsd': round(paid, 4),
                          'nowUsd': v, 'feesUsd': card_fees, 'pnlUsd': round(v + card_fees - (_fuse._f(b.get('fundedUsd')) or start), 4)}}   # P&L = price result; fees apart
-    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'holdAll': bool(c.get('holdAll')), 'pickCool': {}, 'handsOffUntil': c.get('handsOffUntil') if _prime.hands_off_left(c, time.time()) else None, 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl'], sm.get('valueUsd'), sol_now, px) if c.get('real') else None,
+    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'seatPick': c.get('seatPick'), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'holdAll': bool(c.get('holdAll')), 'pickCool': {}, 'handsOffUntil': c.get('handsOffUntil') if _prime.hands_off_left(c, time.time()) else None, 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl'], sm.get('valueUsd'), sol_now, px) if c.get('real') else None,
              'audit': [{k: e.get(k) for k in ('at', 'kind', 'symbol', 'usd', 'why', 'to', 'mode')} for e in (c.get('events') or [])[-40:][::-1]]} for c in cards.values()]
 
 
@@ -6377,6 +6377,8 @@ async def fuse_prime_admin(request: Request):
         _trench_judge()             # the finalists already scanned are re-judged NOW by the new rules
         _trench_cache['at'] = 0.0   # … and a fresh scan runs on the next warm pass
     pk = body.get('pickSwap') or {}
+    if not pk and (body.get('fillSeat') or {}).get('tpl'):   # 🪑 the owner's pick for the card's EMPTY seat: same checks as a swap pick
+        pk = {**body['fillSeat'], 'pairAddress': '__seat__'}
     if pk.get('tpl') in _prime.TEMPLATES and pk.get('pairAddress'):   # 🎯 the owner picks WHICH coin comes in at the next round (or cancels)
         cand = None
         if pk.get('to'):
@@ -6418,7 +6420,7 @@ async def fuse_prime_admin(request: Request):
             # 🎯 THE OWNER'S PICK IS NEVER COOLED: cool-downs (no back-to-back, left at a loss, removed by the owner) limit the ENGINE
             # only — the owner sells off a peak and buys the same coin back at its new level whenever they choose
             try:
-                cards[pk['tpl']] = _prime.queue_swap(card, pk['pairAddress'], cand)
+                cards[pk['tpl']] = _prime.queue_seat(card, cand) if pk['pairAddress'] == '__seat__' else _prime.queue_swap(card, pk['pairAddress'], cand)
             except ValueError as e:
                 raise HTTPException(400, str(e))
             _json_save(FUSE_HQ_PATH, d)

@@ -1652,3 +1652,13 @@ def test_a_reshape_never_sells_a_coin_bought_in_the_last_15_minutes():
     out, kept = ap.keep_winners(nc, old, px, {}, 10.0, 2.0, 1200.0)
     assert kept == 1 and 'NEW' in {l['mint'] for l in out['legs']} and 'OLD' not in {l['mint'] for l in out['legs']}
     assert ap.keep_winners(nc, old, px, {}, 10.0, 2.0, 5000.0)[1] == 0 and ap.keep_winners(nc, old, px, {}, 10.0, 2.0)[1] == 0   # after 15 min / no clock: the normal rule
+
+
+def test_owner_pick_for_the_empty_seat_is_queued_and_validated():
+    card = {'legs': [{'mint': 'A', 'pairAddress': 'A', 'symbol': 'A'}, {'mint': 'B', 'pairAddress': 'B', 'symbol': 'B', 'swapTo': {'mint': 'Q'}}]}
+    out = ap.queue_seat(card, {'mint': 'N', 'pairAddress': 'N', 'symbol': 'NEW', 'price': 1.0, 'liquidityUsd': 50000, 'junk': 1})
+    assert out['seatPick'] == {'mint': 'N', 'pairAddress': 'N', 'symbol': 'NEW', 'price': 1.0, 'liquidityUsd': 50000} and 'seatPick' not in card
+    assert 'seatPick' not in ap.queue_seat(out, None)
+    for bad in ({'mint': 'A', 'pairAddress': 'A', 'price': 1.0}, {'mint': 'Q', 'pairAddress': 'Q', 'price': 1.0}, {'mint': 'Z', 'pairAddress': 'Z', 'price': 0}):
+        with pytest.raises(ValueError):
+            ap.queue_seat(card, bad)

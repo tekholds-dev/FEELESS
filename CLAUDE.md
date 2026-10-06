@@ -1412,3 +1412,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   half-hour-old "USDF / USDP / USDD" launches with $1.7M seeded pools kept taking the real card's seats through the new-major door
   (exempt from age and from the owner's selection) — "SAME COINS AGAIN" on a real card ⇒ check which DOOR each leg came through
   (`division`, `newMajor`) before touching the feed.
+- 🪑 Fill seat (`arena_prime.queue_seat`, card `seatPick`, `POST /admin/arena/prime {fillSeat: {tpl, to, toPair}}` = the pickSwap
+  path with `pairAddress '__seat__'`: same live-list / pool floor / verified-pick checks; button `fill-seat` on the real card
+  while it holds fewer coins than the owner's count; `SwapPicker out.seat`). The seat refill takes the owner's pick first (leg
+  `picked`), on the next tick, with an equal share; `to: null` cancels. Left alone the engine still fills the seat itself.
