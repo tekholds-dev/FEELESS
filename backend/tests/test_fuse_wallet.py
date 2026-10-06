@@ -1185,3 +1185,13 @@ def test_a_top_up_lifts_every_seat_toward_an_equal_share_not_the_one_coin_that_i
     assert all(abs(by[k]['wantUnits'] - 0.6) < 1e-6 and by[k]['buying'] for k in ('W1', 'W2', 'W3'))
     ride = fw.topup_card({'legs': [L('RIDE', 1.0, ride=True), L('A', 0.5), L('B', 0.5)], 'cash': 0.0, 'startUsd': 2.0}, 1.0, {'RIDE': 1.0, 'A': 1.0, 'B': 1.0}, 100.0, current_usd=2.0)
     assert [round(l['units'], 6) for l in ride['legs']] == [1.0, 1.0, 1.0]         # a rider is never topped up
+
+
+def test_an_exit_that_keeps_failing_gets_more_slippage_and_any_route_a_buy_never_does():
+    F = lambda at, side='sell', st='failed', mint='M': {'card': 'c', 'mint': mint, 'side': side, 'status': st, 'at': at}
+    assert fw.sell_escalation([], 'c', 'M', 1000.0, 100) == (100, 300, False)
+    assert fw.sell_escalation([F(900)], 'c', 'M', 1000.0, 100) == (300, 500, True)
+    assert fw.sell_escalation([F(800), F(900), F(950)], 'c', 'M', 1000.0, 100) == (700, 800, True)
+    assert fw.sell_escalation([F(900)] * 9, 'c', 'M', 1000.0, 100)[0] == 800                       # never past 8%
+    assert fw.sell_escalation([F(10)], 'c', 'M', 1000.0, 100)[2] is False                            # an old failure is forgotten
+    assert fw.sell_escalation([F(900, 'buy'), F(900, st='filled'), F(900, mint='X')], 'c', 'M', 1000.0, 100)[2] is False

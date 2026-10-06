@@ -111,6 +111,23 @@ REBAL_BAND = 0.5   # coins kept through a re-shape: sell / rebuy only when > 50%
 MIN_ORDER_FLOOR = 0.10
 
 
+SELL_SLIP_MAX = 800      # bps — the most slippage an EXIT may use after it has already failed (a first try never goes past 3%)
+SELL_FAIL_WINDOW = 900.0
+
+
+def sell_escalation(ledger, card_id, mint, now, base_bps):
+    """🚪 An exit that keeps failing on slippage must still get out. Counts this coin's FAILED sells in the last 15 min and returns
+    (starting slippage bps, cap bps, wide route?): none → the normal ≤ 3% and one-hop first; 1 → +2% (≤ 5%) and any route;
+    2+ → up to 8%. Buys are never escalated. Why: a $29M coin whose deepest pool is quoted against a stock token refused the
+    same one-hop sell three times at 3% while the card sat on "selling"."""
+    n = sum(1 for r in (ledger or [])[-200:] if r.get('card') == card_id and r.get('mint') == mint and r.get('side') == 'sell'
+            and r.get('status') == 'failed' and 0 <= now - _f(r.get('at')) < SELL_FAIL_WINDOW)
+    if n <= 0:
+        return int(base_bps), 300, False
+    cap = 500 if n == 1 else SELL_SLIP_MAX
+    return min(cap, int(base_bps) + 200 * n), cap, True
+
+
 SEAT_ROOM = 1.25   # a seat must be worth at least the smallest sendable order × this, or its buy can never be sent
 
 

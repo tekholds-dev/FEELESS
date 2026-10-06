@@ -6599,6 +6599,8 @@ async def _fw_quote(order, cfg):
          'amount': str(order['lamports'] if order['side'] == 'buy' else order['atoms']), 'slippageBps': str(cfg['slippageBps'])}
     # 🎯 ONE-HOP route first (coin ⇄ SOL in one pool): a multi-hop route opens accounts for the coins it passes through (rent parked
     # until they close), builds transactions too big to send, and fails more often. Multi-hop only when one hop is missing or costly.
+    if order.get('wide'):   # an exit that already failed one-hop: whatever route Jupiter rates best
+        return await _fw_jup('GET', '/swap/v1/quote', params=q)
     try:
         direct = await _fw_jup('GET', '/swap/v1/quote', params={**q, 'onlyDirectRoutes': 'true'})
         if _fuse._f(direct.get('outAmount')) > 0 and _fuse._f(direct.get('priceImpactPct')) * 100 <= min(1.0, _fuse._f(cfg.get('maxImpactPct')) or 1.0):
@@ -6702,6 +6704,11 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
     now = time.time()
     # `card` must be present on every outcome. Without it, secure-quote refusals (price gap / no sell-back route) were logged but
     # never counted by _fw_record, so the same unsafe mint retried forever instead of reaching the existing bench-and-replace path.
+    slip_cap = 300
+    if order.get('side') == 'sell':   # 🚪 an exit that already failed on slippage gets more room and any route (never a buy)
+        s0_, slip_cap, wide_ = _fw.sell_escalation(_fw_load().get('ledger'), tid, order.get('mint'), now, cfg['slippageBps'])
+        if wide_:
+            cfg = {**cfg, 'slippageBps': s0_}; order = {**order, 'wide': True}
     row = {**order, 'card': tid, 'liq': liq, 'status': 'quoted'}
     if order.get('side') == 'buy':
         # FINAL BUY GATE: cached radar liquidity is never authority for real money.
@@ -6808,7 +6815,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
             book = {**book, 'pending': None}
             async with _fw_lock:
                 d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book); _fw_save(d)
-            slip = min(300, int(cfg['slippageBps']) + 75 * (slip_try + 1))
+            slip = min(slip_cap, int(cfg['slippageBps']) + 75 * (slip_try + 1))
             if ('0x1771' not in msg and '6001' not in msg) or slip_try == 2:
                 row.update(status='failed', err=('slippage exceeded at send' if ('0x1771' in msg or '6001' in msg) else 'simulation failed') + f' (tried ≤{slip / 100:.2f}%)')
                 async with _fw_lock:

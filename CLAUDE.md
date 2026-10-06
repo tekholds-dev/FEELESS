@@ -1401,3 +1401,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   the panes blank in a background pane. Jest cannot resolve `react-router-dom` in a bare component test: use `<a href>`.
 - 🏆 `GET /fuses/strategies` offers ONLY setups that ended up on the replay when at least one did (the rest are counted in `note`);
   when nothing won, the least-bad ones still show, marked as such.
+- 🚪 A FAILING EXIT ESCALATES (`fuse_wallet.sell_escalation`, `SELL_SLIP_MAX` 800 bps; `_fw_execute` + `_fw_quote(order.wide)`):
+  a sell that already failed in the last 15 min starts with +2% slippage per failure (≤ 5% after one, ≤ 8% after two) and takes
+  Jupiter's best route instead of one-hop first. Buys never escalate. Why: $SI's one-hop sell was refused three times at 3%; the
+  keeper sends sells first, so every buy behind it "never landed in 2 min" and the card re-picked seats in a loop with $1.44 idle.
+  SEVERAL "buy never landed" EVENTS + ONE failed sell ⇒ the sell is the jam; read its ledger `err` first.
