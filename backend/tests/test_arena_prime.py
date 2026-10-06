@@ -1398,8 +1398,8 @@ def test_an_empty_seat_is_refilled_with_an_equal_share_when_the_card_has_cash():
 
 def test_the_owner_is_only_blocked_by_the_short_no_back_to_back_rule():
     import arena_prime as ap
-    card = {'rounds': 20, 'cool': {'RECENT': {'at': 1.0, 'round': 19, 'loss': True, 'px': 2.0, 'pair': 'Pr'},
-                                   'OLDLOSS': {'at': 1.0, 'round': 5, 'loss': True, 'px': 2.0, 'pair': 'Po'}, 'LEGACY': 123.0}}
+    card = {'rounds': 20, 'cool': {'RECENT': {'at': 1.0, 'round': 19, 'loss': True, 'pct': -20.0, 'px': 2.0, 'pair': 'Pr'},
+                                   'OLDLOSS': {'at': 1.0, 'round': 5, 'loss': True, 'pct': -20.0, 'px': 2.0, 'pair': 'Po'}, 'LEGACY': 123.0}}
     assert ap.pick_cool(card) == {'RECENT': 3}                                           # left a round ago → 3 more rounds
     assert ap.cool_left(card, 'OLDLOSS') == 0 and ap.cool_left(card, 'LEGACY') == 0 and ap.cool_left(card, 'NEVER') == 0
     assert 'OLDLOSS' in ap.cooling(card, 100.0, 0.08, {'Po': 1.0})                       # the ENGINE still won't deal back a coin under its exit price
@@ -1724,9 +1724,20 @@ def test_a_card_with_no_majors_or_pools_on_offer_fills_with_runners_and_never_cr
 
 
 def test_a_coin_that_is_running_now_skips_the_long_cool_downs_but_not_the_short_one():
-    card = {'rounds': 50, 'ownerOut': {'OWN': 1000.0}, 'cool': {'LOSS': {'at': 1000.0, 'round': 40, 'loss': True, 'px': 2.0, 'pair': 'LOSS'},
-                                                                'JUST': {'at': 9990.0, 'round': 49, 'loss': True, 'px': 2.0, 'pair': 'JUST'}}}
+    card = {'rounds': 50, 'ownerOut': {'OWN': 1000.0}, 'cool': {'LOSS': {'at': 1000.0, 'round': 40, 'loss': True, 'pct': -20.0, 'px': 2.0, 'pair': 'LOSS'},
+                                                                'JUST': {'at': 9990.0, 'round': 49, 'loss': True, 'pct': -20.0, 'px': 2.0, 'pair': 'JUST'}}}
     px = {'LOSS': 1.0, 'JUST': 1.0}
     assert ap.cooling(card, 10000.0, 0.08, px) == {'OWN', 'LOSS', 'JUST'}                        # all three sit out as before
     assert ap.cooling(card, 10000.0, 0.08, px, {'OWN', 'LOSS', 'JUST'}) == {'JUST'}              # running now: only "no back-to-back" holds
     assert 'OWN' in ap.cooling({'ownerOut': {'OWN': 9500.0}}, 10000.0, 0.08, {}, {'OWN'})        # … and a coin the owner removed minutes ago still waits 30 min
+
+
+def test_only_a_real_loss_locks_a_coin_out_a_scratch_exit_sits_out_three_rounds():
+    L = lambda sym, entry: {'symbol': sym, 'mint': sym, 'pairAddress': sym, 'role': 'runner', 'entry': entry, 'units': 1.0}
+    before = {'rounds': 10, 'legs': [L('SCRATCH', 1.0), L('LOSER', 1.0), L('WIN', 1.0)]}
+    after = ap.note_dropped(before, {'rounds': 10, 'legs': []}, 1000.0, 0.08, {'SCRATCH': 0.96, 'LOSER': 0.85, 'WIN': 1.2})
+    assert after['cool']['SCRATCH']['loss'] is False and after['cool']['LOSER']['loss'] is True and after['cool']['WIN']['loss'] is False
+    later = {**after, 'rounds': 20}                                                                # 10 rounds on, prices unchanged
+    assert ap.cooling(later, 1000.0 + 3000, 0.08, {'SCRATCH': 0.96, 'LOSER': 0.85, 'WIN': 1.2}) == {'LOSER'}   # the −4% scratch is free again
+    old = {'rounds': 20, 'cool': {'OLD': {'at': 1.0, 'round': 5, 'loss': True, 'px': 2.0, 'pair': 'OLD'}}}     # a stamp from before `pct`
+    assert ap.cooling(old, 4000.0, 0.08, {'OLD': 1.0}) == set()

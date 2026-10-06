@@ -1505,3 +1505,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   above the pick log): tap a coin → coin drawer (live flow); "swap in for…" select → `pickSwap` for that seat (same warn + ack).
   📈 Swap picker rows carry a baby chart (`GET /fuses/sparks?mints=` → last ~2h of the board's recorded prices, indexed to 1.0,
   ≤ 60 mints, one call per list; `sp-spark` inside the coin cell — the 8-column grid is unchanged) and the ticker opens the drawer.
+- 🩸 ONLY A REAL LOSS LOCKS A COIN OUT (`arena_prime.LOSS_COOL_PCT` 8; cool stamps carry `pct`): "left at a loss → out until its
+  price is back above the exit (≤ 24h)" used to fire on ANY exit under entry — a −1% scratch or the owner's −5% instant swap
+  locked the coin for a day. One card had 106 such stamps and "13 coins clear your settings → 0 buyable". A scratch exit now sits
+  out the 3 rounds only; stamps written before `pct` are not counted as losses.

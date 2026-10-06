@@ -197,6 +197,7 @@ def owner_out(card, mint, now):
 
 
 COOL_ROUNDS = 3   # 🧊 a coin that just LEFT a card isn't dealt back into it for 3 rounds (min 15 min) — fresh coins flow in, no buy-back loop
+LOSS_COOL_PCT = 8.0     # … where a LOSS means it left at −8% or worse (a scratch exit only sits out the 3 rounds)
 LOSS_COOL_SEC = 86400   # 🩸 a coin that left at a LOSS stays out until its price is back above where it was sold (max 24h) — never re-buy a crash
 
 
@@ -224,7 +225,7 @@ def cooling(card, now, rotate_hours, prices=None, running=()):
         by_round = s.get('round') is not None and 'rounds' in (card or {}) and rnd >= int(s['round'])   # a restarted run (rounds back to 0) falls back to time
         if (rnd - int(s['round']) <= COOL_ROUNDS) if by_round else age < win:
             out.add(m)
-        elif s.get('loss') and age < LOSS_COOL_SEC and _f(s.get('px')) > 0 and m not in run:
+        elif s.get('loss') and s.get('pct') is not None and age < LOSS_COOL_SEC and _f(s.get('px')) > 0 and m not in run:   # stamps from before `pct` were "any exit under entry": not counted
             px = _f((prices or {}).get(s.get('pair')))
             if not px or px <= _f(s['px']):
                 out.add(m)
@@ -247,7 +248,10 @@ def note_dropped(before, after, now, rotate_hours, prices=None):
         if l['mint'] in held or l.get('symbol') == 'SOL':   # anchors cool too (cbBTC was sold and re-bought 3× in 30 min by re-shapes); SOL is the card's cash
             continue
         px = _f((prices or {}).get(l.get('pairAddress'))) or _f(l.get('entry'))
-        cool[l['mint']] = {'at': now, 'round': rnd, 'px': px, 'pair': l.get('pairAddress'), 'loss': bool(_f(l.get('entry')) > 0 and px < _f(l['entry']))}
+        # 🩸 a LOSS exit = down LOSS_COOL_PCT or more from entry. A scratch (−1%, a −5% instant swap) is noise: it only sits out
+        # the 3 rounds. "Any exit under entry" locked 106 coins out of one card until they made new highs — it had nothing left to buy.
+        pct_ = (px / _f(l['entry']) - 1) * 100 if _f(l.get('entry')) > 0 else 0.0
+        cool[l['mint']] = {'at': now, 'round': rnd, 'px': px, 'pair': l.get('pairAddress'), 'pct': round(pct_, 2), 'loss': bool(pct_ <= -LOSS_COOL_PCT)}
     return {**after, 'cool': cool}
 
 
