@@ -921,7 +921,7 @@ def totals(ledger, card=None):
 def topup_card(card, usd, prices, now, first=False, current_usd=None):
     """💵 Real money joins the SAME card. First funding: every coin, the cycle phase, the clock and the config stay exactly as
     they are on paper — the card is scaled to the funded $ and its time / P&L start over (the paper run is kept on the record).
-    A later top-up: the new $ is spread over the coins by their current weight and a new run starts at the new total."""
+    A later top-up: the new $ lifts every seat toward an equal share and a new run starts at the new total."""
     c = {**card, 'legs': [dict(l) for l in card.get('legs') or []], 'events': list(card.get('events') or []), 'parked': {k: dict(v) for k, v in (card.get('parked') or {}).items()}}
     px = lambda l: _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
     coins = sum(_f(l.get('units')) * px(l) for l in c['legs'])
@@ -940,11 +940,21 @@ def topup_card(card, usd, prices, now, first=False, current_usd=None):
         c.update(walletUsd=0.0, takenUsd=0.0, compoundedUsd=0.0, feesUsd=0.0, rounds=0, roundWins=0, days=[], lowPct=0.0, realSince=now, lastRoundPct=None)
         start = round(usd, 4)
     else:
-        if coins > 0:
-            for l in c['legs']:
-                share = _f(l.get('units')) * px(l) / coins
-                if px(l) > 0:
-                    l['units'] = _f(l['units']) + usd * share / px(l); l['costUsd'] = _f(l.get('costUsd')) + usd * share
+        # ⚖ the new $ lifts every seat toward an EQUAL share (riders / frozen coins are left as they are). It used to be split by
+        # current weight: a card with one held coin and three seats still waiting on their buys put the WHOLE top-up into that one
+        # coin, and 7 seconds later 75% of it was sold back to fund the others ($2.00 in, $1.49 straight back out).
+        seats = [l for l in c['legs'] if px(l) > 0 and not (l.get('ride') or l.get('frozen'))] or [l for l in c['legs'] if px(l) > 0]
+        if seats:
+            val = lambda l: (_f(l.get('units')) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)) * px(l)
+            share = (sum(val(l) for l in seats) + usd) / len(seats)
+            gaps = [max(0.0, share - val(l)) for l in seats]
+            tot = sum(gaps) or 1.0
+            for l, g in zip(seats, gaps):
+                add = usd * g / tot
+                if l.get('buying') and not _f(l.get('units')):
+                    l['wantUnits'] = _f(l.get('wantUnits')) + add / px(l)   # a seat still waiting on its buy simply waits for more
+                else:
+                    l['units'] = _f(l['units']) + add / px(l); l['costUsd'] = _f(l.get('costUsd')) + add
         else:
             c['cash'] = _f(c.get('cash')) + usd
         start = round(total_before + usd, 4)

@@ -1174,3 +1174,14 @@ def test_a_small_card_holds_only_the_seats_it_can_really_fill():
     assert fw.fit_seats(0.50, 4) == 4 and fw.fit_seats(5.0, 4) == 4 and fw.fit_seats(5.0, 6) == 6
     assert fw.fit_seats(0.30, 6) == 2 and fw.fit_seats(0.20, 4) == 1 and fw.fit_seats(0.0, 4) == 4 and fw.fit_seats(1.0, 0) == 0
     assert fw.min_order({}, 0.39, fw.fit_seats(0.39, 4)) <= 0.39 / 3
+
+
+def test_a_top_up_lifts_every_seat_toward_an_equal_share_not_the_one_coin_that_is_held():
+    L = lambda sym, units=0.0, **kw: {'symbol': sym, 'mint': sym, 'pairAddress': sym, 'role': 'runner', 'units': units, 'entry': 1.0, 'costUsd': units, **kw}
+    card = {'legs': [L('HELD', 0.10), L('W1', buying=True, wantUnits=0.10), L('W2', buying=True, wantUnits=0.10), L('W3', buying=True, wantUnits=0.10)], 'cash': 0.0, 'startUsd': 0.4}
+    out = fw.topup_card(card, 2.0, {k: 1.0 for k in ('HELD', 'W1', 'W2', 'W3')}, 100.0, current_usd=0.4)
+    by = {l['symbol']: l for l in out['legs']}
+    assert abs(by['HELD']['units'] - 0.6) < 1e-6                                  # $0.60, not $2.10
+    assert all(abs(by[k]['wantUnits'] - 0.6) < 1e-6 and by[k]['buying'] for k in ('W1', 'W2', 'W3'))
+    ride = fw.topup_card({'legs': [L('RIDE', 1.0, ride=True), L('A', 0.5), L('B', 0.5)], 'cash': 0.0, 'startUsd': 2.0}, 1.0, {'RIDE': 1.0, 'A': 1.0, 'B': 1.0}, 100.0, current_usd=2.0)
+    assert [round(l['units'], 6) for l in ride['legs']] == [1.0, 1.0, 1.0]         # a rider is never topped up

@@ -1389,3 +1389,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   set to 4 coins had $0.0975 a seat → three seats on "buying… keeper retries" for good while the card bought, trimmed and
   re-bought the one coin it could send. The owner's count comes back by itself as the card grows (seat N opens at N × $0.125).
   "BUYING…" ON SEVERAL SEATS WITH IDLE CASH ⇒ divide the card by its seats before reading the keeper.
+- ⚖ A TOP-UP LIFTS EVERY SEAT TOWARD AN EQUAL SHARE (`fuse_wallet.topup_card`, later top-ups; riders / frozen left alone; a seat
+  still 'buying' gets the money as `wantUnits`). By-weight spreading put a whole $2 top-up into the one held coin and sold $1.49
+  of it back 7 seconds later. 🆕 `arena_prime.FRESH_SEC` 900: `keep_winners(.., now)` carries a coin bought in the last 15 min
+  through a re-shape (found live with "re-shape every 3" on 5-min rounds: two coins sold 3.5 minutes after they were bought).

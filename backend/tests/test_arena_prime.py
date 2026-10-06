@@ -1641,3 +1641,14 @@ def test_owner_sets_the_youngest_launch_coin_real_money_may_buy():
     assert [r['mint'] for r in ap.weather_runners(rows, 'clear', 0, liq, ap.clean_cfg({'runnerMinAgeH': 1}))] == ['y', 'o']
     assert [r['mint'] for r in ap.weather_runners(rows, 'clear', 0, liq, ap.clean_cfg({'runnerMinAgeH': 0}))] == ['y', 'o']   # unknown age is still out
     assert [r['mint'] for r in ap.weather_runners(rows, 'clear', 0, liq)] == ['o']
+
+
+def test_a_reshape_never_sells_a_coin_bought_in_the_last_15_minutes():
+    old = [{'mint': 'NEW', 'pairAddress': 'NEW', 'role': 'runner', 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0, 'at': 1000.0},
+           {'mint': 'OLD', 'pairAddress': 'OLD', 'role': 'runner', 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0, 'at': 10.0}]
+    nc = {'legs': [{'mint': 'X', 'pairAddress': 'X', 'role': 'runner', 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0},
+                   {'mint': 'Y', 'pairAddress': 'Y', 'role': 'runner', 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0}], 'cash': 0.0}
+    px = {'NEW': 1.0, 'OLD': 1.0, 'X': 1.0, 'Y': 1.0}
+    out, kept = ap.keep_winners(nc, old, px, {}, 10.0, 2.0, 1200.0)
+    assert kept == 1 and 'NEW' in {l['mint'] for l in out['legs']} and 'OLD' not in {l['mint'] for l in out['legs']}
+    assert ap.keep_winners(nc, old, px, {}, 10.0, 2.0, 5000.0)[1] == 0 and ap.keep_winners(nc, old, px, {}, 10.0, 2.0)[1] == 0   # after 15 min / no clock: the normal rule

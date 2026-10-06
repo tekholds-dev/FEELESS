@@ -863,18 +863,22 @@ def rotate_anchors(anchors, offset=0):
     return rows[n:] + rows[:n]
 
 
-def keep_winners(nc, old_legs, prices, liqs, pct, in_play_usd):
+FRESH_SEC = 900.0   # a coin bought in the last 15 minutes is never sold by a re-shape (it has not had a round to prove anything)
+
+
+def keep_winners(nc, old_legs, prices, liqs, pct, in_play_usd, now=None):
     """🛡 A re-shape never sells a winner: old coins up ≥ pct% (or ❄ frozen, or riding) are CARRIED into the new card as they are
     (same units + entry); the freshly dealt coins give up their slots and share what's left of the money, so the total stays exactly
     `in_play_usd`. Returns (card or None if every coin is kept → no re-shape, kept count)."""
     again = {l['mint'] for l in nc['legs']}   # ♻ a coin the new shape deals AGAIN is carried as it is — selling it to buy it straight back only pays fees
-    win = [l for l in old_legs if l.get('role') != 'anchor' and _f(l.get('entry')) > 0 and (l.get('frozen') or l.get('ride') or l.get('picked') or l['mint'] in again or
+    new_ = lambda l: now is not None and _f(l.get('at')) > 0 and 0 <= now - _f(l['at']) < FRESH_SEC   # 🆕 just bought: sold 3.5 min later for the next shape = fees for nothing
+    win = [l for l in old_legs if l.get('role') != 'anchor' and _f(l.get('entry')) > 0 and (l.get('frozen') or l.get('ride') or l.get('picked') or l['mint'] in again or new_(l) or
            (_f(pct) > 0 and ((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100 >= _f(pct)))]
     if not win:
         return nc, 0
     want = {l['mint']: _f(l['units']) for l in nc['legs']}
     def carry(l):   # a re-picked (unprotected) coin keeps its entry but only up to its new slot — the rest is trimmed, never sold whole + rebought
-        prot = l.get('frozen') or l.get('ride') or l.get('picked') or (_f(pct) > 0 and ((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100 >= _f(pct))
+        prot = l.get('frozen') or l.get('ride') or l.get('picked') or new_(l) or (_f(pct) > 0 and ((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100 >= _f(pct))
         if prot or l['mint'] not in want or _f(l['units']) <= want[l['mint']]:
             return l
         k = want[l['mint']] / _f(l['units'])
@@ -1438,7 +1442,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 phase = repair_phase
         if nc:
             same = {l['mint'] for l in nc['legs']} <= {l['mint'] for l in c['legs']}
-            nc, kept = keep_winners(nc, c['legs'], prices, liqs, cfg.get('keepWinPct', 5.0), ip)
+            nc, kept = keep_winners(nc, c['legs'], prices, liqs, cfg.get('keepWinPct', 5.0), ip, now)
             if not nc and same:
                 c['phase'] = phase   # ♻ the new shape deals the very coins the card holds → shape moves on, zero trades
             if nc:
