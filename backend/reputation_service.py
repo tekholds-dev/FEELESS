@@ -7501,6 +7501,9 @@ async def _fw_rent_credit(cfg):
         _fw_save(d)
 
 
+_fw_rent_parked: dict = {}   # {sol, accounts, empty, at} from the last sweep's look at the wallet's coin accounts
+
+
 async def _fw_close_empty(cfg, now):
     """♻ Every 2 rounds of the real card's clock (5-min rounds → every 10 min; never under 10, never over 30): close the Fuse wallet's
     EMPTY token accounts (coins fully sold) → their rent deposits come back to the wallet reserve, which paid them (the card never pays
@@ -7520,6 +7523,8 @@ async def _fw_close_empty(cfg, now):
             rows = [{'pubkey': a.get('pubkey'), 'program': pg, 'lamports': (a.get('account') or {}).get('lamports'),
                      'info': (_parsed_info(a.get('account')))} for pg, r in zip(_FW_TOKEN_PROGRAMS, res) for a in (r or {}).get('value') or []]
             empty = _fw.empty_accounts(rows, keep)
+            # ♻ what is parked right now (every open coin account's rent), for the card's rent line
+            _fw_rent_parked.update(sol=sum(_fuse._f(r.get('lamports')) for r in rows) / 1e9, accounts=len(rows), empty=len(empty), at=now)
             if not empty:
                 return
             bh = ((await _krpc(http, 'getLatestBlockhash', [{'commitment': 'finalized'}])) or {}).get('value', {}).get('blockhash')
@@ -7529,7 +7534,7 @@ async def _fw_close_empty(cfg, now):
         rent = round(sum(_fuse._f(r.get('lamports')) for r in rows if r['pubkey'] in {e['pubkey'] for e in empty}) / 1e9, 9)
         closed = [{'mint': e.get('mint'), 'lamports': next((r.get('lamports') for r in rows if r['pubkey'] == e['pubkey']), 0)} for e in empty]
         row = {'id': f'close:{now:.0f}', 'card': 'wallet', 'side': 'close', 'n': len(empty), 'sol': rent, 'sig': sig, 'at': now, 'status': 'sent', 'closed': closed,
-               'why': 'empty coin accounts closed — rent goes back into the card once confirmed'}
+               'why': 'empty coin accounts closed — their rent comes back to the wallet once confirmed'}
     except Exception as e:
         err = str(getattr(e, 'detail', e))[:120]
         # Empty-account cleanup is maintenance, not a card trade. When the shared
@@ -7633,6 +7638,7 @@ def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
               'lastFill': next((o.get('at') for o in rows if o.get('status') == 'filled'), None),
               'gas': _fw.gas_tank(_FW_GAS['sol'], d['books'], cfg.get('reserveSol')) if 'sol' in _FW_GAS else None,
               'landing': _fw.landing(d['ledger'], tid, time.time(), broadcast_only=True),
+              'rent': {**_fw.rent_story(d['ledger'], time.time(), _fw_rent_parked or None, _fuse._f(sol_px)), 'everySec': _fw.close_every(_fuse._f(_prime_real_cfg().get('rotateHours')))},
               'rpc': _rpc_quota_state()}
     # walletUsd is the engine's cumulative realized-profit payout counter and survives reinvests; old real ledgers did not
     # stamp payoutUsd on sell rows, which made PAID OUT EVER falsely show $0. Never infer history from current bankSol.

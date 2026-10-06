@@ -1509,3 +1509,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   price is back above the exit (≤ 24h)" used to fire on ANY exit under entry — a −1% scratch or the owner's −5% instant swap
   locked the coin for a day. One card had 106 such stamps and "13 coins clear your settings → 0 buyable". A scratch exit now sits
   out the 3 rounds only; stamps written before `pct` are not counted as losses.
+- ♻ RENT IS VISIBLE (`fuse_wallet.rent_story`, `keeper.rent`, `hrt-rent` in the real card's Activity; `_fw_rent_parked` set by each
+  sweep's look at the wallet's coin accounts): parked now (SOL, $, accounts, empty ones closing next sweep) · back to the wallet
+  in 24h · last sweeps with tx links · sweep cadence. Measured 2026-10-06: 0.015 SOL parked in 10 accounts, 0.224 SOL returned
+  in 24h over 70 sweeps (the same SOL is re-used). The rule is UNCHANGED and now stated on screen: the WALLET's free (unassigned)
+  SOL fronts rent and gets it back; the card never pays it and its P&L never includes it — crediting refunds INTO a card once
+  made it read $32 in a $6.89 wallet. Moving unassigned SOL into the card is a top-up, the owner's own button.

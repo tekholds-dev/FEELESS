@@ -1141,6 +1141,23 @@ def priority_cap(attempt, boost, sol_usd=0.0):
 CLOSE_MAX = 8   # accounts per close transaction (well inside the size limit)
 
 
+def rent_story(ledger, now, parked=None, sol_px=0.0):
+    """♻ ACCOUNT RENT, in plain numbers. Every coin the wallet holds sits in its own on-chain account, and opening one parks
+    ~0.002 SOL of rent in it. The WALLET fronts that from its free SOL (the card never pays it, so the card's P&L never moves);
+    when the coin is fully sold the empty account is closed and the rent comes straight back to the wallet.
+    → {parkedSol, parkedUsd, accounts, emptyAccounts, back24Sol, back24Usd, sweeps24, lastAt, lastSol, rows: last 6 sweeps}"""
+    cr = [r for r in ledger or [] if r.get('side') == 'close' and r.get('status') == 'credited']
+    d24 = [r for r in cr if now - _f(r.get('at')) < 86400]
+    p = parked or {}
+    out = {'parkedSol': round(_f(p.get('sol')), 6) if parked else None, 'accounts': int(_f(p.get('accounts'))) if parked else None,
+           'emptyAccounts': int(_f(p.get('empty'))) if parked else None, 'back24Sol': round(sum(_f(r.get('sol')) for r in d24), 6), 'sweeps24': len(d24),
+           'lastAt': _f(cr[-1].get('at')) if cr else None, 'lastSol': round(_f(cr[-1].get('sol')), 6) if cr else None,
+           'rows': [{'at': _f(r.get('at')), 'sol': round(_f(r.get('sol')), 6), 'n': int(_f(r.get('n'))), 'sig': r.get('sig')} for r in cr[-6:][::-1]]}
+    if sol_px > 0:
+        out.update(parkedUsd=round(_f(out['parkedSol']) * sol_px, 2) if parked else None, back24Usd=round(out['back24Sol'] * sol_px, 2))
+    return out
+
+
 def close_every(rotate_hours):
     """Seconds between empty-account sweeps: every 2 rounds of the real card's clock, kept between 10 and 30 minutes."""
     return max(600.0, min(1800.0, 2 * _f(rotate_hours) * 3600)) if _f(rotate_hours) > 0 else 1800.0

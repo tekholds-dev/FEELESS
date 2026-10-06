@@ -1214,3 +1214,12 @@ def test_a_new_coin_opens_its_seat_even_under_the_top_up_minimum():
     assert buy and abs(buy[0]['usd'] - 0.09) < 0.01                     # $0.09 opens the seat (it used to be dropped without a word)
     card['legs'][0]['wantUnits'] = 0.03
     assert not [o for o in fw.orders('c', card, book, {'pN': 1.0, 'pO': 1.0}, 100.0, cfg, 1000.0) if o['side'] == 'buy' and o['mint'] == 'NEW']   # dust still is not sent
+
+
+def test_rent_story_counts_what_came_back_and_what_is_parked():
+    L = [{'side': 'close', 'status': 'credited', 'sol': 0.004, 'n': 2, 'sig': 's2', 'at': 1000.0 - 90000}, {'side': 'close', 'status': 'sent', 'sol': 0.006, 'at': 900.0},
+         {'side': 'close', 'status': 'credited', 'sol': 0.006, 'n': 3, 'sig': 's1', 'at': 1000.0}, {'side': 'buy', 'status': 'filled', 'sol': 9, 'at': 1000.0}]   # oldest first, like the ledger
+    r = fw.rent_story(L, 1100.0, {'sol': 0.015, 'accounts': 10, 'empty': 4}, 120.0)
+    assert r['back24Sol'] == 0.006 and r['sweeps24'] == 1 and r['lastAt'] == 1000.0 and r['parkedSol'] == 0.015 and r['parkedUsd'] == 1.8 and r['accounts'] == 10
+    assert r['rows'][0]['sig'] == 's1' and len(r['rows']) == 2 and r['back24Usd'] == 0.72
+    assert fw.rent_story([], 1100.0)['parkedSol'] is None and fw.rent_story([], 1100.0)['back24Sol'] == 0
