@@ -1597,3 +1597,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   coin by itself only when its chart is long enough to read and is not trending down; a 🔁 comeback always may; never read = out;
   the owner's picks are not judged. No qualifying coin = the seat waits in cash. Why: 99 of 119 buys had no readable chart (25% won);
   $darwin ("no chart yet", +22% hour) hit its stop 6 minutes after the buy.
+- 📈 UP NEXT READS THE MARKET'S CHART (`chart_read.points_from_candles/why_not`, `_chart_fill` in `_prime_tick`: real cards, ≤ 14
+  candidates a tick, candles service 15m, 4 min cache, tests never fetch): the board's own price record starts when IT first saw a
+  coin, so the best movers (new to the board) all read "no chart yet" and the meta gate left Coming up EMPTY (12 clearing every
+  setting → 1). ⏭ Coming up is never blank: ready rows (NEXT / 2ND …) then 👀 watching rows (`pipeline.up[].wait` = the reason, dashed,
+  gold), which the owner may still swap in by hand. "N READY · M WATCHING" in the label.

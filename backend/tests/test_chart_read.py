@@ -37,3 +37,16 @@ def test_the_pick_record_learns_the_chart_fields():
     assert f['cread']({'cBars': 0}) == 0 and f['cread']({'cBars': 14}) == 1 and f['cread']({}) is None
     assert f['cstruct']({'cStruct': 'up'}) == 2 and f['cstruct']({}) is None
     assert f['cpos']({'cPos': 0.9}) == 2 and f['cpull']({'cPull': 10}) == 1 and f['cpull']({}) is None
+
+
+def test_market_candles_read_like_the_boards_own_record():
+    t0 = 1_000_000.0
+    rows = [[t0 + i * 900, 1 + i * 0.1, 1.15 + i * 0.1, 0.98 + i * 0.1, 1.1 + i * 0.1, 5000] for i in range(8)]   # 8 rising 15-min candles
+    pts = cr.points_from_candles(rows + [['bad'], [t0, 0, 0, 0, 0]])
+    assert len(pts) == 32
+    k = cr.keys(pts, t0 + 8 * 900)
+    assert k['cBars'] >= 5 and k['cStruct'] == 'up'
+    bars = cr.candles(pts, t0 + 8 * 900)
+    assert abs(bars[-1][0] - 1.7) < 1e-9 and abs(bars[-1][1] - 1.85) < 1e-9 and abs(bars[-1][3] - 1.8) < 1e-9   # open · high · close survive
+    assert cr.why_not({'cBars': 0}) == 'chart too short to read' and cr.why_not({'cBars': 9, 'cStruct': 'down'}) == 'trending down'
+    assert cr.why_not({}) == 'chart not read yet' and cr.why_not(k) == ''

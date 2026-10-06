@@ -6162,6 +6162,8 @@ async def _prime_tick_inner(now):
         tb_ = _edge_load().get('table')
         pth_ = _json_load(RUNNERS_PATH, {}).get('paths') or {}   # 📈 each candidate's own chart read (chart_read.py) joins its snapshot — table or not
         r_t = [{**x, **_pedge._chart.keys(pth_.get(x.get('mint')) or [], now)} for x in r_t]
+        if real_t:   # 📈 a coin new to the board has no record of ours yet — read its chart from the market's own 15-min candles
+            r_t = await _chart_fill(r_t, now)
         if tb_:
             r_t = _pedge.rank(r_t, tb_)
             if cfg_t.get('edgeGate', True):   # real AND paper (paper = real)
@@ -6193,7 +6195,9 @@ async def _prime_tick_inner(now):
             if cb_ready_:
                 r_pre_ = [({**x, 'comeback': cb_ready_[x['mint']]} if x.get('mint') in cb_ready_ else x) for x in r_pre_]
                 r_t = [({**x, 'comeback': cb_ready_[x['mint']]} if x.get('mint') in cb_ready_ else x) for x in r_t]
+        watch_ = []
         if real_t and cfg_t.get('upMeta', True):   # 🧭 UP NEXT IS META: the engine's own buys need a chart it can read, not falling
+            watch_ = [x for x in r_t if not _prime.meta_ready(x)]   # 👀 shown under Coming up as "watching", with the reason
             r_pre_, r_t = _prime.meta_only(r_pre_), _prime.meta_only(r_t)
             _step('chart readable and not trending down (up-next meta)', r_t)
         if real_t:   # 🏊 the owner's own runner pool floor (off unless they set it)
@@ -6263,6 +6267,9 @@ async def _prime_tick_inner(now):
             for x in _prime.flow_rank(free_ + [y for y in scout_ if y.get('mint') not in {z.get('mint') for z in free_}]):   # ⏭ COMING UP: by what each coin looks like now (setup · chart), then hourly move
                 if x.get('mint') and x['mint'] not in seen_u:
                     seen_u.add(x['mint']); up_.append(row_(x))
+            for x in _prime.flow_rank([y for y in watch_ if y.get('mint') not in on_ and not y.get('trenchOnly')]):   # 👀 never an empty list: the closest coins + why not yet
+                if x.get('mint') and x['mint'] not in seen_u and len(up_) < 6:
+                    seen_u.add(x['mint']); up_.append({**row_(x), 'wait': _pedge._chart.why_not(x) or 'not ready'})
             cards[tid]['pipeline'] = {'at': now, 'steps': fun_ + [['not on the card and not cooling', len(free_)]], 'up': up_[:6],
                                       'next': [f"${x.get('symbol')} {_fuse._f(x.get('chg1h')):+.0f}%" for x in sorted(free_, key=lambda x: -_fuse._f(x.get('chg1h')))[:4]],
                                       'scout': [f"${x.get('symbol')} {_fuse._f(x.get('chg1h')):+.0f}%" for x in scout_[:4]]}
@@ -15054,6 +15061,35 @@ class CoinProfileIn(BaseModel):
     website: str = ''
     twitter: str = ''
     telegram: str = ''
+
+
+_CHART_FILL = {}   # pairAddress → (at, keys)
+
+
+async def _chart_fill(rows, now, limit=14):
+    """📈 Candidates whose chart our own record cannot read yet (new to the board) get it from the market's 15-min candles
+    (candles service, last 4h). ≤ `limit` lookups a tick, in parallel, 4 min cache; a miss leaves the row as it was. Tests never fetch."""
+    need = [x for x in rows if not x.get('cBars') and x.get('pairAddress')][:limit]
+    todo = [x['pairAddress'] for x in need if now - (_CHART_FILL.get(x['pairAddress']) or (0, None))[0] > 240]
+    if todo and not os.environ.get('PYTEST_CURRENT_TEST'):
+        async def one(http, pa):
+            try:
+                r = await http.get(f'http://127.0.0.1:5099/api/candles/solana/{pa}', params={'interval': '15m'})
+                return pa, _pedge._chart.keys(_pedge._chart.points_from_candles((r.json() or {}).get('candles') or []), now)
+            except Exception:
+                return pa, None
+        async with httpx.AsyncClient(timeout=5) as http:
+            for pa, k in await asyncio.gather(*(one(http, pa) for pa in todo)):
+                if k is not None:
+                    _CHART_FILL[pa] = (now, k)
+        if len(_CHART_FILL) > 400:
+            for pa in sorted(_CHART_FILL, key=lambda q: _CHART_FILL[q][0])[:200]:
+                _CHART_FILL.pop(pa, None)
+    out = []
+    for x in rows:
+        hit = _CHART_FILL.get(x.get('pairAddress')) if not x.get('cBars') else None
+        out.append({**x, **hit[1]} if hit and hit[1].get('cBars') else x)
+    return out
 
 
 _PUMP_PROFILE = {}   # mint → (at, profile | None)

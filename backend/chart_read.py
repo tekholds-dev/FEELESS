@@ -67,3 +67,28 @@ def keys(points, t):
     if not r:
         return {'cBars': 0}
     return {'cBars': r['bars'], 'cStruct': r['structure'], 'cPos': r['pos'], 'cPull': r['pull'], 'cFvg': r['fvg']}
+
+
+def points_from_candles(rows, bar=BAR_SEC):
+    """Market candles [[ts, o, h, l, c, …]] → [(ts, price)] this module reads: four readings inside each bar (open first, close
+    last, high and low between) so `candles()` rebuilds the same bar. Why: the board's own price record only starts when IT first
+    saw a coin, so the best movers — new to the board — all read "no chart yet" although the market had hours of candles."""
+    out = []
+    for r in rows or []:
+        try:
+            ts, o, h, l, c = float(r[0]), float(r[1]), float(r[2]), float(r[3]), float(r[4])
+        except (TypeError, ValueError, IndexError):
+            continue
+        if min(o, h, l, c) <= 0:
+            continue
+        out += [(ts, o), (ts + bar * 0.3, h), (ts + bar * 0.6, l), (ts + bar - 1, c)]
+    return out
+
+
+def why_not(k):
+    """Plain words for a candidate the engine will not buy yet (keys() fields) — '' when its chart is fine."""
+    if (k or {}).get('cBars') is None:
+        return 'chart not read yet'
+    if not k.get('cBars'):
+        return 'chart too short to read'
+    return 'trending down' if k.get('cStruct') == 'down' else ''

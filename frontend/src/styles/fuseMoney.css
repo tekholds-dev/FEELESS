@@ -414,6 +414,8 @@ body.theme-day .hrt-rent { background: #f1faf5; border-color: #bfe0cf; } body.th
 .hrt-up li { display: grid; grid-template-columns: minmax(0, 1fr) 86px; gap: 6px; align-items: center; animation: hrtIn .2s ease-out both; animation-delay: calc(var(--i, 0) * 45ms); }
 .hrt-up-tag { grid-column: 2 / -1; text-decoration: none; font-size: 10.5px; color: var(--m-accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 body.theme-day .hrt-up-tag { color: #0b7a4a; }
+.hrt-up li.is-wait .hrt-up-coin { opacity: .72; border-style: dashed; } .hrt-up li.is-wait .hrt-up-tag, .hrt-up li.is-wait .hrt-up-n { color: var(--gold); }
+body.theme-day .hrt-up li.is-wait .hrt-up-tag { color: #8a6100; }
 .hrt-up-n { font: 9px var(--m-mono); font-style: normal; letter-spacing: .1em; color: var(--m-accent); }
 .hrt-up li:first-child .hrt-up-coin { border-color: color-mix(in srgb, var(--m-accent) 45%, transparent); background: color-mix(in srgb, var(--m-accent) 8%, transparent); }
 .hrt-up-coin { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto auto; gap: 8px; align-items: baseline; padding: 5px 8px; border-radius: 8px; border: 1px solid transparent; background: none; color: inherit; cursor: pointer; text-align: left; transition: background .15s, border-color .15s, transform .15s; }
