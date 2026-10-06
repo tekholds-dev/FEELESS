@@ -20,13 +20,13 @@ MAX_AGE_H = 48
 # 🚀 OLDER RUNNERS: a launch coin 2–7 days old stays on the board while it is still trading hard in a real pool. The board used to
 # drop every coin past 48h — 61 of the 111 coins in the launch feed (2026-10-06) — yet the record's best age bucket was the OLDEST
 # one, and the Runner hunt can only buy coins 12h+ old. Every safety gate still applies to them.
-OLD_AGE_H = 168
+OLD_AGE_H = 720   # 30 days (it was 7: $SI, $CRAWL, $swordcat, $CZ — Pump's own trending tab — were all past it)
 OLD_MIN_VOL1H = 50_000.0
 OLD_MIN_LIQ = 25_000.0
 
 
 def older_runner(c):
-    """A graduated launch coin past MAX_AGE_H (≤ 7 days) with ≥ $50K traded in the last hour in a pool ≥ $25K."""
+    """A graduated launch coin past MAX_AGE_H (≤ 30 days) with ≥ $50K traded in the last hour in a pool ≥ $25K."""
     a = (c or {}).get('ageH')
     return bool(a is not None and MAX_AGE_H < _f(a) <= OLD_AGE_H and (c or {}).get('stage') != 'curve'
                 and _f(c.get('vol1h')) >= OLD_MIN_VOL1H and _f(c.get('liq')) >= OLD_MIN_LIQ)
@@ -279,7 +279,7 @@ def gates(cfg=None):
     return (   # key, label, test — ALL must pass (unknown forensics fail closed)
         ('prebond', 'Pre-bond or a fresh graduate (<48h)', lambda c: c['stage'] == 'curve' or (c['ageH'] is not None and c['ageH'] <= MAX_AGE_H) or older_runner(c)),   # graduates run too (more coins in the round)
         ('mayhem', 'Not a mayhem-mode coin', lambda c: not c.get('mayhem')),
-        ('age', 'Under 48h old (to 7 days while it trades hard)', lambda c: (c['ageH'] is not None and 0 <= c['ageH'] <= MAX_AGE_H) or older_runner(c)),
+        ('age', 'Under 48h old (to 30 days while it trades hard)', lambda c: (c['ageH'] is not None and 0 <= c['ageH'] <= MAX_AGE_H) or older_runner(c)),
         ('size', f"Market cap ≥ ${g['minMcap'] / 1000:g}K", lambda c: c['mcap'] >= g['minMcap']),
         ('volume', f"1h volume ≥ ${g['minVol1h'] / 1000:g}K", lambda c: c['vol1h'] >= g['minVol1h']),
         ('flow', f"Two-sided flow ({g['minBuyShare']}–{g['maxBuyShare']}% buys, {g['minTrades1h']}+ trades/h)",

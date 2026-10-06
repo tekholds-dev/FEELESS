@@ -23,7 +23,7 @@ def test_gates_fail_closed_and_flag_reasons():
     assert 'Top 10 under 30%' in rn.failed_gates(rn.candidate(pair('a'), {**CLEAN, 'top10Pct': 45}, now_ms=NOW))
     assert 'Creator not flagged (Bot shield / blocklist)' in rn.failed_gates(rn.candidate(pair('a'), CLEAN, creator_flagged=True, now_ms=NOW))
     assert 'Two-sided flow (40–85% buys, 50+ trades/h)' in rn.failed_gates(rn.candidate(pair('a', buys=990, sells=10), CLEAN, now_ms=NOW))
-    assert 'Under 48h old (to 7 days while it trades hard)' in rn.failed_gates(rn.candidate(pair('a', age_h=60), CLEAN, now_ms=NOW))
+    assert 'Under 48h old (to 30 days while it trades hard)' in rn.failed_gates(rn.candidate(pair('a', age_h=60), CLEAN, now_ms=NOW))
 
 
 def test_score_lanes_and_board():
