@@ -122,32 +122,36 @@ def test_with_the_boards_rounds_a_card_buys_only_what_was_offered_and_its_select
     assert res and all(r['trades'] >= 1 for r in res) and all('age' in r['cfg'] and 'edge' not in r['cfg'] for r in res)   # record too short for an edge table
 
 
-def _proof_world(hours=34):
-    """A board that offers one OLD coin in a DEEP pool (drifts up) and one fresh thin coin (bleeds) at every round."""
+def _proof_world(hours=40):
+    """A board that offers one OLD coin in a DEEP pool with buyers in control (drifts up) and one fresh thin coin (bleeds)."""
     now, paths, rounds = 1_000_000.0, {'OLD': [], 'NEW': []}, []
     for i in range(int(hours * 12) + 1):
         t = now - hours * 3600 + i * 300
         paths['OLD'].append([t, 1.0 * (1.0006 ** i)]); paths['NEW'].append([t, 1.0 * (0.997 ** i)])
         if i % 3 == 0:
-            rounds.append({'at': t, 'picks': [{'mint': 'NEW', 'score': 90, 'ageH': 0.5, 'liq': 12000}, {'mint': 'OLD', 'score': 50, 'ageH': 30, 'liq': 120000}]})
+            rounds.append({'at': t, 'picks': [{'mint': 'NEW', 'score': 90, 'ageH': 0.5, 'liq': 12000, 'buyShare': 52}, {'mint': 'OLD', 'score': 50, 'ageH': 30, 'liq': 120000, 'buyShare': 72}]})
     return paths, rounds, now
 
 
 def test_joint_plays_one_whole_config_and_counts_windows():
     paths, rounds, now = _proof_world()
-    deep = ps.joint(ps.prep(paths, rounds, now), {'clock': 15, **ps.SNIPER, 'edge': 0})
-    anyc = ps.joint(ps.prep(paths, rounds, now), {'clock': 15, **ps.SNIPER, 'edge': 0, 'age': 0, 'pool': 0})
-    assert deep['windows'] == len(ps.TUNE_OFFS) and deep['windowsUp'] == deep['windows'] and deep['medPct'] > 0
+    w = ps.prep(paths, rounds, now, 6, (0, 6, 12))
+    deep = ps.joint(w, {'clock': 15, **ps.SNIPER, 'edge': 0})
+    anyc = ps.joint(w, {'clock': 15, **ps.SNIPER, 'edge': 0, 'age': 0, 'pool': 0, 'buy': 0})
+    assert deep['windows'] == 3 and deep['windowsUp'] == 3 and deep['medPct'] > 0 and len(deep['perWindow']) == 3
     assert anyc['medPct'] < deep['medPct']          # letting the fresh thin coin in costs money
     assert ps.joint([], ps.SNIPER) is None
+    assert not ps.fits({'ageH': 30, 'liq': 120000}, {'buy': 65}) and ps.fits({'ageH': 30, 'liq': 120000, 'buyShare': 66}, {'buy': 65})   # unknown buyers = out
 
 
-def test_proven_is_checked_on_other_windows_and_never_claims_a_losing_setup():
+def test_proven_walks_forward_a_fixed_setup_and_never_claims_a_losing_one():
     paths, rounds, now = _proof_world()
-    p = ps.proven(paths, rounds, now, 15)
-    assert p['key'] == 'sniper' and p['profitable'] and p['medPct'] > 0 and (float(p['cfg']['pool']) >= 25 or float(p['cfg']['age']) >= 1)
-    assert p['windows'] == len(ps.CHECK_OFFS) and 'clock' not in p['cfg']
-    bleed = {m: [[t, 1.0 * (0.997 ** i)] for i, (t, _) in enumerate(pts)] for m, pts in paths.items()}   # every coin loses
-    q = ps.proven(bleed, rounds, now, 15)
-    assert q is None or q['profitable'] is False
+    p = ps.proven(paths, rounds, now, 5, {**ps.SNIPER, 'edge': 0}, span=36)
+    assert p['key'] == 'sniper' and p['windows'] >= ps.FWD_MIN and p['profitable'] and p['medPct'] > 0 and 'clock' not in p['cfg']
+    assert p['cfg']['pool'] == '50' and p['cfg']['buy'] == '65'      # the setup is fixed, never tuned to the record
+    few = ps.proven(paths, rounds, now, 5, {**ps.SNIPER, 'edge': 0}, span=6)
+    assert few['windows'] < ps.FWD_MIN and few['profitable'] is False   # too few windows = not proven, whatever they show
+    bleed = {'OLD': [[t, 1.0 * (0.997 ** i)] for i, (t, _) in enumerate(paths['OLD'])], 'NEW': paths['NEW']}   # every coin loses
+    q = ps.proven(bleed, rounds, now, 5, {**ps.SNIPER, 'edge': 0}, span=36)
+    assert q['profitable'] is False and q['medPct'] < 0
     assert ps.proven({}, [], now, 15) is None

@@ -23,6 +23,10 @@ TRAILS = (5, 8, 15, 30)        # … then sell it X% off its peak (rideTrail)
 CONFIRMS = (1, 2, 3, 4)   # ⏳ rounds in a row a coin must be losing before it may be rotated
 AGES = (0, 1, 6, 12)       # 🧬 selection gene: a coin must be at least this many hours old when it is bought (0 = any)
 POOLS = (0, 25, 50, 100)   # 🧬 … and its pool at least this many $K (0 = any). Both read from the runner round's own snapshot.
+RESTS = (0, 15, 30, 60)    # 🪑 minutes a seat stays in cash after its coin LEFT (stop / take / trail / off the feed) before a new coin may take it;
+                           # the coin that left is not bought back for the same time (at least 3 rounds, like the engine's cool-down)
+BUYS = (0, 60, 65, 70)     # 🧬 buyers' share of the last hour's trades a coin needs when bought (0 = any; unknown = out)
+FLOORS = (0, 3, 6)         # 🧠 with `edge` on: the record's estimate must be at least +this % (0 = just not negative)
 EDGES = (0, 1)             # 🧠 1 = buy only coins the board's own record does not expect to lose (pick_edge.py, learned BEFORE the window)
 # 🎯 THE SIM MUST LOSE WHEN A REAL CARD LOSES. Measured 2026-10-05 against the owner's real $5 card (360 fills) and the feed:
 #   · a real swap costs ~1.5% (fill vs mid ≈ 0.25% on buys, 1.6% on sells, plus ~0.76% network on a $0.50 swap) — it was 0.6% here
@@ -61,7 +65,7 @@ def _series(paths, start, steps):
 
 def random_cfg(rng):
     return {'clock': rng.choice(CLOCKS), 'tp': rng.choice(TPS), 'sl': rng.choice(SLS), 'minDrop': rng.choice(DROPS), 'rideAt': rng.choice(RIDES),
-            'trail': rng.choice(TRAILS), 'confirm': rng.choice(CONFIRMS), 'age': rng.choice(AGES), 'pool': rng.choice(POOLS), 'edge': rng.choice(EDGES)}
+            'trail': rng.choice(TRAILS), 'confirm': rng.choice(CONFIRMS), 'age': rng.choice(AGES), 'pool': rng.choice(POOLS), 'edge': rng.choice(EDGES), 'rest': rng.choice(RESTS), 'buy': rng.choice(BUYS), 'floor': rng.choice(FLOORS)}
 
 
 OFFER_MAX_AGE = 45 * 60   # a runner round older than this is not "what the board offers now"
@@ -84,7 +88,9 @@ def fits(p, cfg, table=None):
     """Does this offered coin pass the card's selection genes? Unknown age fails any age rule (fail closed). `edge` on = the
     record's estimate for the coin (edge.score against `table`) must not be negative."""
     age, pool = float(cfg.get('age') or 0), float(cfg.get('pool') or 0) * 1000
-    if cfg.get('edge') and table and (_edge.score(p, table) or -1e9) < 0:
+    if cfg.get('edge') and table and (_edge.score(p, table) or -1e9) < float(cfg.get('floor') or 0):
+        return False
+    if float(cfg.get('buy') or 0) > 0 and _num(p.get('buyShare')) < float(cfg['buy']):
         return False
     return (age <= 0 or (p.get('ageH') is not None and _num(p.get('ageH')) >= age)) and _num(p.get('liq')) >= pool
 
@@ -109,7 +115,12 @@ def simulate(series, mints, cfg, steps, cost=SWAP_COST, offer=None, seats=None, 
     legs = [new(m, each, 0) for m in mints[:seats]]
     cash, every, buys = each * (seats - len(legs)), max(1, cfg['clock'] // STEP_MIN), len(legs)
     ra, tr, floor_g = _ride(cfg)
+    rest_k = int(float(cfg.get('rest') or 0) // STEP_MIN)
+    cool_k = max(rest_k, 3 * every) if 'rest' in cfg else 0
+    waits, sold = [], {}   # steps at which a rested seat opens again · {mint: step it left}
+    mints_on = {l['m'] for l in legs}
     for k in range(1, steps):
+        n0 = len(legs)
         for l in list(legs):
             px = series[l['m']][k]
             if px is None:   # ☠ off the feed: no clean exit — sold well under its last reading
@@ -126,6 +137,10 @@ def simulate(series, mints, cfg, steps, cost=SWAP_COST, offer=None, seats=None, 
                 l.update(ride=True, high=px); continue
             if g >= cfg['tp'] or g <= -cfg['sl']:
                 cash += l['units'] * px * (1 - cost); legs.remove(l)
+        if len(legs) < n0:
+            on_ = {l['m'] for l in legs}
+            sold.update({m: k for m in mints_on - on_}); waits += [k + rest_k] * (n0 - len(legs))
+        mints_on = {l['m'] for l in legs}
         if k % every == 0:   # round end: hold coins that stayed ≥ +80% all round, swap the worst loser, put idle cash back to work
             for l in legs:
                 if ra > 0 and not l['ride'] and l['rmin'] >= min(80.0, ra):
@@ -133,7 +148,7 @@ def simulate(series, mints, cfg, steps, cost=SWAP_COST, offer=None, seats=None, 
                 l['rmin'] = (l['last'] / l['entry'] - 1) * 100   # next round's low starts here
             back = max(0, k - every)
             def pool():
-                on = {l['m'] for l in legs}
+                on = {l['m'] for l in legs} | {m for m, at in sold.items() if k - at < cool_k}
                 if offer is not None:   # the board's own picks right now — by the record's estimate when the card uses it, else best score first
                     ok = [p for p in offer[k] if p['mint'] not in on and p['mint'] in series and series[p['mint']][k] is not None and fits(p, cfg, table)]
                     if cfg.get('edge') and table:
@@ -149,12 +164,14 @@ def simulate(series, mints, cfg, steps, cost=SWAP_COST, offer=None, seats=None, 
                 out = losers[0]
                 usd = out['units'] * out['last'] * (1 - cost)
                 legs.remove(out); legs.append(new(cand[0], usd, k)); buys += 1
-            while cash > 0.5 and len(legs) < seats:   # idle cash / an empty seat → the next coin the board offers
+            waits = [w for w in waits if w > k]
+            while cash > 0.5 and len(legs) + len(waits) < seats:   # idle cash / an empty seat that is not resting → the next coin the board offers
                 cand = pool()
                 if not cand:
                     break
                 part = cash / (seats - len(legs))
                 legs.append(new(cand[0], part, k)); cash -= part; buys += 1
+            mints_on = {l['m'] for l in legs}
     simulate.trades = buys
     value = cash + sum(l['units'] * l['last'] for l in legs)
     return round(value - 100.0, 3)
@@ -193,18 +210,20 @@ def run(paths, now, n=200, hours=24, seed=None, cost=SWAP_COST, rounds=None):
     return out
 
 
-# 🎯 JOINT PROOF. The trait scores below judge each setting ALONE (its median over cards whose other settings are random), so a
-# setup that only works as a whole — older coins AND deep pools AND record-backed AND a tight freeze — never showed up: every
-# single setting read negative while that combination ended up. `proven` plays ONE whole config many times over several windows.
-GENES = {'tp': TPS, 'sl': SLS, 'minDrop': DROPS, 'rideAt': RIDES, 'trail': TRAILS, 'confirm': CONFIRMS, 'age': AGES, 'pool': POOLS, 'edge': EDGES}
-SNIPER = {'tp': 100, 'sl': 15, 'minDrop': 10, 'rideAt': 15, 'trail': 8, 'confirm': 4, 'age': 12, 'pool': 50, 'edge': 1}   # where the search starts
-TUNE_OFFS = (0, 4, 8, 12, 16)     # windows (hours back) a config is TUNED on …
-CHECK_OFFS = (2, 6, 10, 14, 18)   # … and the windows it is then CHECKED on (never tuned on these; they do overlap the tuned ones)
-PROVEN_MIN_N = 24
-PROVEN_WINDOWS = 0.6              # share of checked windows whose typical card must end up
+# 🎯 WHOLE-CONFIG PROOF, WALK-FORWARD. The trait scores below judge each setting ALONE (its median over cards whose other settings
+# are random), so a setup that only works as a whole never showed up. `proven` plays ONE fixed config — SNIPER — on many separate
+# windows, each replayed with only what was known before it (the edge table is learned before the window opens).
+# It is NOT tuned to the record: a search that tuned it window by window did WORSE on the following 3 hours than this fixed setup
+# (2026-10-05, 15 windows: tuned −2.7% vs fixed −0.5% on 5-min rounds) — tuning on two days of prices fits noise.
+# WHAT MATTERED was never the exits (stop, freeze, trail, round length all read the same) — it was WHAT IS BOUGHT.
+SNIPER = {'rest': 0, 'tp': 100, 'sl': 15, 'minDrop': 10, 'rideAt': 15, 'trail': 8, 'confirm': 4, 'age': 12, 'pool': 50, 'edge': 1, 'floor': 3, 'buy': 65}
+FWD_HOURS = 3.0       # each window: the 3 hours after a moment T …
+FWD_STEP = 1.5        # … for a T every 1.5h back through the record (neighbouring windows share half their prices)
+FWD_MIN = 10          # windows needed before anything may be called proven
+PROVEN_WINDOWS = 0.6  # share of windows whose typical card must end up
 
 
-def prep(paths, rounds, now, hours=12, offs=TUNE_OFFS):
+def prep(paths, rounds, now, hours=12, offs=(0,)):
     """The replay material for each window ending `off` hours ago: (steps, series, offers, edge table learned before it)."""
     steps, out = int(hours * 60 // STEP_MIN), []
     for off in offs:
@@ -218,10 +237,10 @@ def prep(paths, rounds, now, hours=12, offs=TUNE_OFFS):
 
 def joint(windows, cfg, per=8, seed=1, cost=SWAP_COST):
     """ONE whole config played `per` times in every window (different first coins / seat counts). → {n, medPct, avgPct, upPct,
-    worstPct, trades, windows, windowsUp} — a card that never bought is not counted; no result at all → None."""
+    worstPct, trades, windows, windowsUp, perWindow} — a card that never bought is not counted; no result at all → None."""
     res, by = [], {}
     for i, (steps, series, of, table) in enumerate(windows or []):
-        c = cfg if table else {k: v for k, v in cfg.items() if k != 'edge'}
+        c = cfg if table else {k: v for k, v in cfg.items() if k not in ('edge', 'floor')}
         rng = random.Random(seed * 1000 + i)
         for _ in range(per):
             seats = rng.randint(4, 6)
@@ -232,36 +251,29 @@ def joint(windows, cfg, per=8, seed=1, cost=SWAP_COST):
     if not res:
         return None
     ps = [r[0] for r in res]
+    per_w = [round(statistics.median(v), 2) for v in by.values()]
     return {'n': len(ps), 'medPct': round(statistics.median(ps), 2), 'avgPct': round(sum(ps) / len(ps), 2), 'upPct': round(sum(1 for p in ps if p > 0) / len(ps) * 100),
             'worstPct': round(min(ps), 1), 'trades': round(statistics.median(r[1] for r in res), 1), 'windows': len(by),
-            'windowsUp': sum(1 for v in by.values() if statistics.median(v) > 0)}
+            'windowsUp': sum(1 for v in per_w if v > 0), 'perWindow': per_w}
 
 
-def proven(paths, rounds, now, clock=15, start=None, hours=12, passes=1):
-    """🎯 The best WHOLE config the record supports for this round length. Starts from `start` (else SNIPER), tries every value of
-    every setting one at a time on the TUNE windows and keeps a change only when the typical card does better; the result is then
-    played on the CHECK windows and THOSE numbers are the proof. `profitable` only when, on the checked windows, the typical card
-    ended up, most windows ended up and enough cards traded. A replay of ~2 days of recorded prices — evidence, never a promise."""
-    tune = prep(paths, rounds, now, hours, TUNE_OFFS)
-    if not tune:
+def proven(paths, rounds, now, clock=15, cfg=None, hours=FWD_HOURS, step=FWD_STEP, span=48.0):
+    """🎯 SNIPER (or `cfg`) on this round length, walk-forward: every `step` hours back through the record one `hours`-long window,
+    each played with only what was known when it opened. medPct = the typical WINDOW (median of each window's typical card).
+    `profitable` only with ≥ FWD_MIN windows, the typical window up AND ≥ 60% of windows up. Evidence from ~2 days, never a promise."""
+    cfg = {'clock': int(clock), **(cfg or SNIPER)}
+    wins, off = [], 0.0
+    while off + hours <= span:
+        wins += [w for w in prep(paths, rounds, now, hours, (off,)) if w[3] or not cfg.get('edge')]   # record-backed setup: a window with no record learned before it is not judged
+        off += step
+    r = joint(wins, cfg, per=12, seed=3)
+    if not r:
         return None
-    key = lambda r: (r or {}).get('medPct', -1e9) if (r or {}).get('n', 0) >= PROVEN_MIN_N // 2 else -1e9
-    cfg = {'clock': int(clock), **(start or SNIPER)}
-    top = key(joint(tune, cfg))
-    for _ in range(passes):
-        for g, vals in GENES.items():
-            for v in vals:
-                if v == cfg[g]:
-                    continue
-                sc = key(joint(tune, {**cfg, g: v}))
-                if sc > top + 0.25:   # a change must clearly help — a tie keeps the setting it had
-                    cfg, top = {**cfg, g: v}, sc
-    chk = joint(prep(paths, rounds, now, hours, CHECK_OFFS), cfg, seed=7)
-    if not chk:
-        return None
-    ok = chk['n'] >= PROVEN_MIN_N and chk['medPct'] > 0 and chk['windowsUp'] >= chk['windows'] * PROVEN_WINDOWS
-    return {'key': 'sniper', 'name': '🎯 Sniper', 'why': 'the whole setup that held up on the replay: few buys, only coins the record backs',
-            'cfg': {k: str(v) for k, v in cfg.items() if k != 'clock'}, **chk, 'hours': hours, 'profitable': bool(ok)}
+    pw = r.pop('perWindow')
+    r.update(medPct=round(statistics.median(pw), 2), avgPct=round(sum(pw) / len(pw), 2), worstPct=round(min(pw), 1))
+    ok = r['windows'] >= FWD_MIN and r['medPct'] > 0 and r['windowsUp'] >= r['windows'] * PROVEN_WINDOWS
+    return {'key': 'sniper', 'name': '🎯 Sniper', 'why': 'few buys, only what the record backs: older coins, deep pools, buyers in control',
+            'cfg': {k: str(v) for k, v in cfg.items() if k != 'clock'}, **r, 'hours': hours, 'profitable': bool(ok)}
 
 
 def learn(results):

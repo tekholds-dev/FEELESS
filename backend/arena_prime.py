@@ -391,6 +391,8 @@ def clean_cfg(p):
     out['recycleEvery'] = int(_f((p or {}).get('recycleEvery'))) if int(_f((p or {}).get('recycleEvery'))) in RECYCLE_EVERY else 3
     out['lockBankPct'] = float(_f((p or {}).get('lockBankPct'))) if (p or {}).get('lockBankPct') is not None and _f((p or {}).get('lockBankPct')) in LOCK_BANKS else LOCK_BANK
     out['runnerMinLiqK'] = int(_f((p or {}).get('runnerMinLiqK'))) if int(_f((p or {}).get('runnerMinLiqK'))) in RUNNER_LIQS else 0   # 🏊 real money buys a runner only in a pool this deep ($K); 0 = the keeper's own floor
+    out['runnerMinBuy'] = int(_f((p or {}).get('runnerMinBuy'))) if int(_f((p or {}).get('runnerMinBuy'))) in RUNNER_BUYS else 0
+    out['edgeFloor'] = int(_f((p or {}).get('edgeFloor'))) if int(_f((p or {}).get('edgeFloor'))) in EDGE_FLOORS else 0
     out['edgeGate'] = bool((p or {}).get('edgeGate', True))   # 🧠 real money buys only runners the board's own record does not expect to lose (pick_edge.py)
     out['swapEdge'] = bool((p or {}).get('swapEdge', True))   # ⚖ rotate only when the next coin beats this one by more than the swap costs
     out['swapCapHr'] = int(_f((p or {}).get('swapCapHr'))) if int(_f((p or {}).get('swapCapHr'))) in SWAP_CAPS else 0   # 🤖 0 = auto
@@ -456,11 +458,16 @@ FLOOR_RESTS = (0, 15, 30, 60)   # 🛌 minutes a floored card rests in its ancho
 RUNNER_LIQS = (0, 25, 50, 100)   # owner's runner pool floor for real money, $K (Edit Fuse › Rounds). The replay's losers sat in pools under $50K.
 
 
-def deep_runners(rows, min_k):
-    """Runners in a pool of at least `min_k` $K (unknown depth = out). New majors / trench coins keep their own rules."""
-    if not _f(min_k):
+RUNNER_BUYS = (0, 55, 60, 65, 70)   # … and only while buyers are at least this share of its last hour's trades (0 = the board's own gate)
+EDGE_FLOORS = (0, 3, 6)             # … and only when the record's estimate for coins like it is at least +this % (0 = just not negative)
+
+
+def deep_runners(rows, min_k, min_buy=0):
+    """Runners in a pool of at least `min_k` $K with buyers ≥ `min_buy`% (unknown = out). New majors / trench coins keep their own rules."""
+    if not _f(min_k) and not _f(min_buy):
         return list(rows or [])
-    return [x for x in rows or [] if x.get('newMajor') or x.get('trenchOnly') or _f(x.get('liq')) >= _f(min_k) * 1000]
+    return [x for x in rows or [] if x.get('newMajor') or x.get('trenchOnly')
+            or (_f(x.get('liq')) >= _f(min_k) * 1000 and (not _f(min_buy) or _f(x.get('buyShare')) >= _f(min_buy)))]
 
 
 REAL_RUNNER_AGE_H = 12.0  # real money never buys a runner younger than this (a 20-min-old coin with a $534K pool went −99.99% in an hour)

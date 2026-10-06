@@ -6075,9 +6075,9 @@ async def _prime_tick_inner(now):
         if tb_:
             r_t = _pedge.rank(r_t, tb_)
             if real_t and cfg_t.get('edgeGate', True):
-                r_t = _pedge.gate(r_t, tb_, 0.0)
+                r_t = _pedge.gate(r_t, tb_, float(cfg_t.get('edgeFloor') or 0))
         if real_t:   # 🏊 the owner's own runner pool floor (off unless they set it)
-            r_t = _prime.deep_runners(r_t, cfg_t.get('runnerMinLiqK'))
+            r_t = _prime.deep_runners(r_t, cfg_t.get('runnerMinLiqK'), cfg_t.get('runnerMinBuy'))
         mine = {l.get('mint') for l in (cur or {}).get('legs') or []}
         p_t = [x for x in p_t if x.get('mint') not in taken or x.get('mint') in mine]
         r_t = [x for x in r_t if x.get('mint') not in taken or x.get('mint') in mine]
@@ -8629,13 +8629,14 @@ async def _pg_sim_tick(now):
     retired = _pgs.retire(_pgs.learn(res24), _pgs.learn(res6), d.get('retired'), now)
     d.update(at=now, summary=_pgs.summary(res), s24=_pgs.summary(res24), s6=_pgs.summary(res6), score=score, retired=retired, best=_pgs.best(score, retired=retired), byClock=_pgs.by_clock(res, retired=retired),
              history=((d.get('history') or []) + [{'at': now, **_pgs.summary(res)}])[-96:])
-    try:   # 🎯 the best WHOLE config per round length, tuned on some windows and checked on others (see pg_sim.proven)
+    try:   # 🎯 the Sniper setup per round length, walk-forward over the whole record (see pg_sim.proven)
         pv_ = {}
         for ck_ in _pgs.CLOCKS:
-            got_ = await asyncio.to_thread(_pgs.proven, paths, rounds_, now, ck_, ((d.get('proven') or {}).get(str(ck_)) or {}).get('cfgNum'))
+            got_ = await asyncio.to_thread(_pgs.proven, paths, rounds_, now, ck_)
             if got_:
-                pv_[str(ck_)] = {**got_, 'cfgNum': {k: float(v) for k, v in got_['cfg'].items()}}
+                pv_[str(ck_)] = got_
         d['proven'] = pv_
+        d['provenLog'] = ((d.get('provenLog') or []) + [{'at': now, **{k: [v['medPct'], v['windowsUp'], v['windows']] for k, v in pv_.items()}}])[-400:]   # how the proof itself moves, run after run
     except Exception as e:
         print('sim proven:', e)
     _json_save(PG_SIM_PATH, d)

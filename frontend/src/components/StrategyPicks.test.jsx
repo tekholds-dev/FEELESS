@@ -19,14 +19,14 @@ test('3 strategies for the card clock, the one in use marked, one tap applies it
 });
 
 test('🎯 Sniper shows what it buys and its checked proof; on a real card one tap also sets the selection', async () => {
-  const sn = { key: 'sniper', name: '🎯 Sniper', why: 'w', cfg: { tp: '100', sl: '15', rideAt: '15', trail: '8', confirm: '4', minDrop: '10', age: '12', pool: '50', edge: '1' }, n: 40, medPct: 5.5, upPct: 60, windows: 5, windowsUp: 3, worstPct: -2.2, trades: 3, hours: 12, profitable: true };
+  const sn = { key: 'sniper', name: '🎯 Sniper', why: 'w', cfg: { tp: '100', sl: '15', rideAt: '15', trail: '8', confirm: '4', minDrop: '10', age: '12', pool: '50', edge: '1', floor: '3', buy: '65' }, n: 40, medPct: 5.5, upPct: 60, windows: 5, windowsUp: 3, worstPct: -2.2, trades: 3, hours: 12, profitable: true };
   global.fetch = jest.fn(async () => ({ json: async () => ({ clock: 30, strategies: [sn], note: '' }) }));
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<StrategyPicks hours={0.5 + 0.001} current={{ rideAt: 15, rideTrail: 8, runnerMinLiqK: 0 }} selection onApply={() => {}} testid="sn" />); });
   await act(() => new Promise(r => setTimeout(r, 10)));
-  expect(el.textContent).toContain('pool ≥ $50K · 12h+ old · 🧠 record-backed');
+  expect(el.textContent).toContain('pool ≥ $50K · 12h+ old · buyers ≥ 65% · 🧠 record-backed');
   expect(el.textContent).toContain('checked · 3/5 windows up');
   expect(el.querySelector('[data-testid="sn-sniper"]').className).not.toContain('is-on');   // same exits, but the pool rule is not on yet
-  expect(stratPatch(sn.cfg, true)).toMatchObject({ runnerMinLiqK: 50, edgeGate: true, sl: 15 });
+  expect(stratPatch(sn.cfg, true)).toMatchObject({ runnerMinLiqK: 50, edgeGate: true, edgeFloor: 3, runnerMinBuy: 65, sl: 15 });
   expect(stratPatch(sn.cfg)).not.toHaveProperty('runnerMinLiqK');
 });

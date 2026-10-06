@@ -1317,13 +1317,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   the coins a REAL card holds; a coin at its stop / instant-swap line, or a rider off its trail, wakes `_prime_tick` at once (one
   wake per coin per 30s). It only wakes the tick — every rule and keeper check still decides. Why: a −15% stop sold at −48%
   ($SpaceX AI fell from +20% between two checks a minute apart). Applies on every clock.
-- 🎯 SNIPER = THE WHOLE-CONFIG PROOF (`pg_sim.prep/joint/proven`, `GENES`, `SNIPER`; `_pg_sim_tick` → `pg_sim.json.proven[clock]`;
-  first card in `GET /fuses/strategies`, `StrategyPicks` key `sniper`): trait scores judge each setting ALONE, so a setup that only
-  works as a whole never showed (every single setting read negative while the combination ended up). `proven` tunes one whole
-  config on the TUNE windows (one setting at a time, a change must clearly help) and reports ONLY its result on the CHECK windows;
-  `profitable` = typical card up, ≥ 60% of windows up, ≥ 24 cards. 2026-10-05 (12h replays): record-backed + ≥ 12h old + pool
-  ≥ $50K + ❄ +15 / −8 + stop 15–20 → 15m +6.2% · 30m +5.5% · 60m +4.6% typical, worst −9%; 5m −5.7% = NOT proven. ~3 buys a
-  card: it mostly WAITS. Two days of data, overlapping windows — evidence, never a promise. Real cards: "Use this" also sets
-  `edgeGate` + `runnerMinLiqK` (`arena_prime.RUNNER_LIQS` 0/25/50/100 $K, `deep_runners`, Edit Fuse › Rounds, off by default — the
-  owner applies it). A time exit and "never rotate" were tested and did not help; the record's best third sits BELOW 0, so the
-  ≥ 0 gate is already the stricter one.
+- 🎯 SNIPER = ONE FIXED SETUP, PROVEN WALK-FORWARD (`pg_sim.SNIPER/prep/joint/proven`; `_pg_sim_tick` → `pg_sim.json.proven[clock]` +
+  `provenLog`; first card in `GET /fuses/strategies`, `StrategyPicks` key `sniper`). Trait scores judge each setting ALONE, so a
+  setup that only works as a whole never showed. `proven` replays SNIPER on a 3h window every 1.5h back through the record, each
+  with only what was known when it opened; `profitable` = ≥ 10 windows, typical window up, ≥ 60% of windows up. IT IS NOT TUNED:
+  a per-window hill-climb did WORSE on the next 3h than the fixed setup (5m: −2.7% vs −0.5%) — tuning on 2 days fits noise.
+  WHAT MATTERS IS WHAT IS BOUGHT, not the exits or the clock (stop / freeze / trail / seat rest / time exit / round length all read
+  the same): record-backed (estimate ≥ +3%) · ≥ 12h old · pool ≥ $50K · buyers ≥ 65% (the biggest single mover). 2026-10-05, per
+  3h window: 5m and 15m +1.05% typical, 10 of 14 up, worst −2.0%; 30m +1.2%, 8 of 12; 60m too few windows. No selection: −14% to
+  −41%. ~1 buy a card per 3h: it mostly WAITS. 12 variants were tried on the same 50h, so the best of them is flattered — small
+  edge, thin evidence, never a promise. Real cards: "Use this" sets the exits + `edgeGate`, `edgeFloor` (0/3/6), `runnerMinLiqK`
+  (0/25/50/100 $K), `runnerMinBuy` (0/55–70) (`arena_prime.deep_runners`, Edit Fuse › Rounds; all off by default — the owner applies).
+  NOT the same as the replay yet: a real card fills an empty runner seat with a pool coin instead of waiting in cash.

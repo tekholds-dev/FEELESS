@@ -1589,4 +1589,7 @@ def test_owner_runner_pool_floor_keeps_only_deep_runners_and_is_off_by_default()
     rows = [{'mint': 'a', 'liq': 30000}, {'mint': 'b', 'liq': 80000}, {'mint': 'c'}, {'mint': 'm', 'liq': 1000, 'newMajor': True}, {'mint': 't', 'liq': 9000, 'trenchOnly': True}]
     assert [r['mint'] for r in ap.deep_runners(rows, 50)] == ['b', 'm', 't']
     assert ap.deep_runners(rows, 0) == rows
+    buy = [{'mint': 'a', 'liq': 80000, 'buyShare': 58}, {'mint': 'b', 'liq': 80000, 'buyShare': 66}, {'mint': 'c', 'liq': 80000}]
+    assert [r['mint'] for r in ap.deep_runners(buy, 50, 65)] == ['b'] and [r['mint'] for r in ap.deep_runners(buy, 0, 65)] == ['b']
+    assert ap.clean_cfg({})['runnerMinBuy'] == 0 and ap.clean_cfg({'runnerMinBuy': 65, 'edgeFloor': 3})['edgeFloor'] == 3 and ap.clean_cfg({'edgeFloor': 4})['edgeFloor'] == 0
     assert ap.clean_cfg({})['runnerMinLiqK'] == 0 and ap.clean_cfg({'runnerMinLiqK': 50})['runnerMinLiqK'] == 50 and ap.clean_cfg({'runnerMinLiqK': 7})['runnerMinLiqK'] == 0
