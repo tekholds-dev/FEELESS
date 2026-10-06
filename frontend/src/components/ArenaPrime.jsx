@@ -10,6 +10,7 @@ import { ShareGifButton } from './ShareGif';
 import { tokenImageUrls } from './terminal/MarketPrimitives';
 import { RoundBell, TrailSummary, CycleBuilder, usd, usdK, pct, txUrl } from './FuseMoney';
 import { StrategyPicks, stratPatch } from './StrategyPicks';
+import { openCoin } from './CoinDrawer';
 import { useTabTitle, cardTitle } from '../lib/tabTitle';
 
 // ⭐ ARENA PRIME: FEELESS's own top-tier cards, FULLY AUTO on paper — auto TP/SL, auto-compound, 2 coins rotate every 6h. Different
@@ -568,7 +569,8 @@ export function HqRealCards({ addr, onCount }) {
       const cf = c.cfgEff || (d.lockCfg?.[c.tpl] ? { ...d.cfg, ...d.lockCfg[c.tpl] } : d.cfg);   // the config this card REALLY runs (real card = its own)
       return <div key={c.id} className="hq-real">
         <div className="hq-real-card"><LiveFuseCard r={primeRow(c)} aura={t.aura} look={t.look} label="💵 REAL · FUSE WALLET" serverOnly />
-          <CardVitals c={c} funded={b.fundedUsd || c.startUsd} onTrail={() => setTrail(c.id)} /><PickLog events={c.audit || c.events} /><PipeLine p={c.pipeline} /></div>
+          <CardVitals c={c} funded={b.fundedUsd || c.startUsd} onTrail={() => setTrail(c.id)} /><ComingUp p={c.pipeline} legs={c.legs} busy={!!busy} onSwap={(l, r) => prime({ pickSwap: { tpl: c.tpl, pairAddress: l.pairAddress, to: r.mint, toPair: r.pairAddress } }, `🎯 $${r.symbol} comes in for $${l.symbol} at the next round`, 'pick')} />
+          <PickLog events={c.audit || c.events} /><PipeLine p={c.pipeline} /></div>
         {trail === c.id && <CardEarnings title={c.label} onClose={() => setTrail(null)} taken={c.walletUsd || 0} compounded={c.compoundedUsd} fees={c.cardFeesUsd}
           gainNow={allTime(c, b.fundedUsd || c.startUsd)} events={(c.audit || c.events || []).map(e => ({ ...e, label: KIND[e.kind] || VITAL_KIND[e.kind] || e.kind }))} />}
         <div className="hq-real-track">
@@ -676,6 +678,23 @@ const PICK_STABLES = new Set(['USDC', 'USDT', 'USDS', 'PYUSD', 'USD1', 'DAI', 'U
 export const isFalling = (m5, h1) => (m5 != null && Number(m5) <= -3) || (h1 != null && Number(h1) <= -8);   // = arena_prime.entry_ok
 export const pickRow = r => ({ mint: r.mint || r.baseAddress, pairAddress: r.pairAddress, symbol: r.symbol, price: r.price ?? r.priceUsd, liq: r.liq ?? r.liquidityUsd,
   chg: r.chg1h ?? r.change1h ?? r.chg24h ?? r.change24h, chg1h: r.chg1h ?? r.change1h ?? null, chg5m: r.chg5m ?? r.change5m ?? null, score: r.score, impostor: r.impostor, real: r.real, trench: r.trench, holders: r.holders, soft: r.soft, outside: r.outside, curve: r.curve, div: r.divisionLabel, watch: r.watch, fails: r.fails, warn: r.warn, pulse: r.pulse, stock: r.stock, ageH: r.ageH ?? null });
+// ⏭ COMING UP: the coins the engine takes next (best hourly move first). Tap a coin → its live flow; pick the seat → it comes in
+// at the next round in that coin's place (the same pick as the 🎯 picker, with the same warning when a check fails).
+export function ComingUp({ p, legs = [], onSwap, busy }) {
+  const rows = p?.up || [];
+  if (!rows.length) return <p className="hrt-up is-empty m-dim" data-testid="coming-up">⏭ Coming up: nothing clears your settings right now — the list fills as coins start moving.</p>;
+  const big = v => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : `$${Math.round((v || 0) / 1e3)}K`);
+  const seats = legs.filter(l => l.symbol !== 'SOL' && !l.ride && !l.frozen);
+  return <div className="hrt-up" data-testid="coming-up"><span className="m-label">⏭ COMING UP · NEXT IN LINE</span>
+    <ol>{rows.map((r, i) => <li key={r.mint} style={{ '--i': i }}>
+      <button type="button" className="hrt-up-coin" onClick={() => openCoin({ mint: r.mint, pairAddress: r.pairAddress, symbol: r.symbol })} data-tip="Open its live flow" data-testid={`up-${r.symbol}`}>
+        <b>${r.symbol}</b><em className={`m-num ${r.chg1h >= 0 ? 'm-pos' : 'm-neg'}`}>{r.chg1h >= 0 ? '+' : ''}{Math.round(r.chg1h)}%</em><small>{big(r.vol1h)}/h</small></button>
+      <select className="m-input hrt-up-sel" disabled={busy || !seats.length} value="" aria-label={`Swap $${r.symbol} in for…`} data-testid={`up-swap-${r.symbol}`}
+        onChange={e => { const l = seats.find(x => x.pairAddress === e.target.value); if (l) onSwap(l, r); }}>
+        <option value="">swap in for…</option>{seats.map(l => <option key={l.pairAddress} value={l.pairAddress}>${l.symbol}</option>)}</select></li>)}</ol>
+    <small className="m-dim">Left alone, the engine takes these in order as seats open.</small></div>;
+}
+
 // 🔎 Why the card has (or has not) a new coin to buy: how many launch coins survive each of its filters, live from the last tick
 export function PipeLine({ p }) {
   if (!p?.steps?.length) return null;
@@ -700,6 +719,13 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
       const seen = new Set(); setRows(raw.map(pickRow).filter(r => r.mint && r.pairAddress && !PICK_STABLES.has(String(r.symbol || '').toUpperCase()) && !seen.has(r.mint) && seen.add(r.mint)).slice(0, lens === 'arena' && s.length < 2 ? 160 : (lens === 'pump' || lens === 'movers') && s.length < 2 ? 60 : 30)); }).catch(() => alive && setRows([])), s.length >= 2 ? 300 : 0);
     return () => { alive = false; clearTimeout(t); }; }, [lens, q, nonce]);
   const live = useLivePrices((rows || []).map(r => r.pairAddress));
+  // 📈 a baby chart per row: the last ~2h of recorded prices (one batched call per list); tap the ticker → the coin's live flow
+  const [sparks, setSparks] = useState({});
+  const mintKey = (rows || []).slice(0, 60).map(r => r.mint).join(',');
+  useEffect(() => { if (!mintKey) return undefined; let alive = true;
+    fetch(apiUrl(`/api/reputation/fuses/sparks?mints=${mintKey}`)).then(r => r.json()).then(x => alive && setSparks(x.sparks || {})).catch(() => {}); return () => { alive = false; }; }, [mintKey]);
+  const line = pts => { if (!pts || pts.length < 3) return null; const lo = Math.min(...pts); const hi = Math.max(...pts); const rg = hi - lo || 1;
+    return <svg className={`sp-spark ${pts[pts.length - 1] >= pts[0] ? 'up' : 'dn'}`} viewBox="0 0 60 16" preserveAspectRatio="none" aria-hidden><polyline points={pts.map((v, i) => `${(i / (pts.length - 1) * 60).toFixed(1)},${(15 - (v - lo) / rg * 14).toFixed(1)}`).join(' ')} /></svg>; };
   const fmt = v => (!v ? '—' : v >= 1 ? `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : `$${Number(v).toPrecision(3)}`);
   const big = v => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(0)}K` : `$${Math.round(v || 0)}`);
   return <div className="sp" data-testid="swap-picker"><header><span className="m-label">{out.seat ? '🪑 FILL THE EMPTY SEAT WITH… ' : `🎯 SWAP $${out.symbol} FOR… `}<small>{out.seat ? 'comes in on the next tick · equal share · live prices' : 'goes in at the next round · its money moves over · live prices'}</small></span>
@@ -712,7 +738,7 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
     <ul>{[...rows].map(r => { const lp = live.get?.(r.pairAddress); const on = have.includes(r.mint);
       const young = verify && r.ageH != null && r.ageH < 1; /* ✅ verified picks: under an hour old cannot go on a real card — shown, sorted last, said up front */ const fl = r.trench ? (tr?.floor || 0) : minLiq; const thin = minLiq > 0 && (r.liq || 0) < fl; const chg = lp?.h1 ?? r.chg1h ?? r.chg;
       const m5 = lp?.m5 ?? r.chg5m; const falling = isFalling(m5, lp?.h1 ?? r.chg1h);   // same rule the engine uses before a real buy
-      return <li key={r.mint} className={r.impostor ? 'is-fake' : ''}><b>${r.symbol}{r.real ? ' ✓' : ''}{r.stock ? <i className="sp-pulse" data-tip="Tokenized stock (xStock) trading in a real Solana pool"> 📈</i> : null}{r.pulse ? <i className="sp-pulse" data-tip="Pump Pulse: a burst of buys in the last 5 minutes" data-testid={`sp-pulse-${r.symbol}`}> ⚡</i> : null}{r.div ? <small className="sp-div" data-tip={r.watch ? 'Watch only in this Gauntlet list (nothing qualified there right now). The engine will not seat it; you still can.' : 'The Gauntlet list where this coin ranks best'}>{r.div}{r.watch ? ' · watch' : ''}</small> : null}</b><span className="m-num fl-tick" key={fmt(lp?.price || r.price)}>{fmt(lp?.price || r.price)}</span>
+      return <li key={r.mint} className={r.impostor ? 'is-fake' : ''}><b><button type="button" className="sp-open" onClick={() => openCoin({ mint: r.mint, pairAddress: r.pairAddress, symbol: r.symbol })} data-tip="Open its live flow" data-testid={`sp-open-${r.symbol}`}>${r.symbol}</button>{line(sparks[r.mint])}{r.real ? ' ✓' : ''}{r.stock ? <i className="sp-pulse" data-tip="Tokenized stock (xStock) trading in a real Solana pool"> 📈</i> : null}{r.pulse ? <i className="sp-pulse" data-tip="Pump Pulse: a burst of buys in the last 5 minutes" data-testid={`sp-pulse-${r.symbol}`}> ⚡</i> : null}{r.div ? <small className="sp-div" data-tip={r.watch ? 'Watch only in this Gauntlet list (nothing qualified there right now). The engine will not seat it; you still can.' : 'The Gauntlet list where this coin ranks best'}>{r.div}{r.watch ? ' · watch' : ''}</small> : null}</b><span className="m-num fl-tick" key={fmt(lp?.price || r.price)}>{fmt(lp?.price || r.price)}</span>
         <em className={`m-num sp-m5 ${(m5 || 0) >= 0 ? 'm-pos' : 'm-neg'}`} data-tip="Move over the last 5 minutes" data-testid={`sp-m5-${r.symbol}`}><i>5m</i> {m5 == null ? '—' : `${m5 >= 0 ? '+' : ''}${Number(m5).toFixed(1)}%`}</em>
         <em className={`m-num ${(chg || 0) >= 0 ? 'm-pos' : 'm-neg'}`} data-tip="Move over the last hour"><i>1h</i> {chg == null ? '—' : `${chg >= 0 ? '+' : ''}${Number(chg).toFixed(1)}%`}</em>
         <small className="sp-fall" data-testid={r.warn ? `sp-warn-${r.symbol}` : falling ? `sp-fall-${r.symbol}` : undefined} data-tip={r.warn ? `${r.warn} You still can — it is your pick.` : falling ? 'Falling right now (−3% or more in 5 minutes, or −8% or more in the hour). The engine would not buy this with real money; you still can — it is your pick.' : undefined}>{r.warn ? '⚠ creator' : falling ? '⚠ falling' : ''}</small><small className="m-num" data-tip={r.curve ? 'Still on Pump’s launch curve: no pool yet, this is the depth of the curve itself. Tradable, very early, highest risk. Only you can pick it — the engine never buys a curve coin by itself.' : undefined}>{r.curve ? 'curve' : 'pool'} {r.liq > 0 ? big(r.liq) : '—'}</small><small className="m-num">{r.outside ? <i className="sp-soft sp-out" data-testid={`sp-out-${r.symbol}`} data-tip={`Outside your trench filter: ${(r.fails || []).join(' · ')}. Shown only so the list is never empty — it passed the safety checks. Not seated by the engine; yours to pick.`}>not in filter</i> : r.soft ? <i className="sp-soft" data-tip={`Near-miss: inside your filter's age and cap band, every safety check passed, it only missed — ${(r.fails || []).join(' · ')}. Not seated by the engine; yours to pick.`}>near-miss</i> : <>{r.trench && r.holders ? `${r.holders} holders · ` : ''}{r.score != null ? `score ${Number(r.score).toFixed(0)}` : ''}</>}</small>

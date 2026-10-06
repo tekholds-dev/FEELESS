@@ -178,3 +178,11 @@ def test_strategies_endpoint_offers_only_winning_setups_when_any_won(monkeypatch
     assert [s['key'] for s in got['strategies']] == ['rhunt'] and '4 setups that lost' in got['note']
     rs._json_save(rs.PG_SIM_PATH, {'byClock': {'5': {'n': 70, 'strategies': [S('steady', False), S('engine', False), S('hunt', False)]}}})
     assert len(asyncio.run(rs.fuse_strategies(hours=0.08))['strategies']) == 3      # nothing won → the least-bad ones are still shown, marked as such
+
+
+def test_sparks_endpoint_returns_indexed_shapes_only_for_tracked_coins():
+    import asyncio, time, reputation_service as rs
+    now = time.time(); m = 'So11111111111111111111111111111111111111112'
+    rs._json_save(rs.RUNNERS_PATH, {'paths': {m: [[now - 600 * i, 2.0 + i * 0.1] for i in range(8, 0, -1)], 'short' * 8: [[now, 1.0]]}})
+    got = asyncio.run(rs.fuse_sparks(mints=f"{m},{'short' * 8},bad"))['sparks']
+    assert list(got) == [m] and got[m][0] == 1.0 and len(got[m]) == 8 and got[m][-1] < 1.0

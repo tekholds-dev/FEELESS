@@ -6241,7 +6241,13 @@ async def _prime_tick_inner(now):
             on_ = {l.get('mint') for l in cards[tid].get('legs') or []}
             free_ = [x for x in r_t if x.get('mint') not in on_ and not x.get('trenchOnly')]
             scout_ = [x for x in _prime.movers(r_pre_, {}) if x.get('mint') not in on_]
-            cards[tid]['pipeline'] = {'at': now, 'steps': fun_ + [['not on the card and not cooling', len(free_)]],
+            row_ = lambda x: {'mint': x.get('mint'), 'pairAddress': x.get('pairAddress'), 'symbol': x.get('symbol'), 'chg1h': _fuse._f(x.get('chg1h')), 'vol1h': _fuse._f(x.get('vol1h')),
+                              'ageH': x.get('ageH'), 'liq': _lq(x)}
+            seen_u, up_ = set(), []
+            for x in sorted(free_, key=lambda x: -_fuse._f(x.get('chg1h'))) + scout_:   # ⏭ COMING UP: what the engine takes next, best hourly move first
+                if x.get('mint') and x['mint'] not in seen_u:
+                    seen_u.add(x['mint']); up_.append(row_(x))
+            cards[tid]['pipeline'] = {'at': now, 'steps': fun_ + [['not on the card and not cooling', len(free_)]], 'up': up_[:6],
                                       'next': [f"${x.get('symbol')} {_fuse._f(x.get('chg1h')):+.0f}%" for x in sorted(free_, key=lambda x: -_fuse._f(x.get('chg1h')))[:4]],
                                       'scout': [f"${x.get('symbol')} {_fuse._f(x.get('chg1h')):+.0f}%" for x in scout_[:4]]}
         taken |= {l.get('mint') for l in (cards[tid] or {}).get('legs') or [] if l.get('role') != 'anchor'}
@@ -8883,6 +8889,20 @@ async def _engine_self_fix(now, sim):
         _json_save(FUSE_HQ_PATH, d)
     ad = _admin_load(); _audit(ad, 'engine', 'self-fix', json.dumps({'paper': pp, 'real': rp})); _admin_save(ad)
     return {**pp, **({'real': rp} if rp else {})}
+
+
+@app.get('/api/reputation/fuses/sparks')
+async def fuse_sparks(mints: str = Query('', max_length=4000)):
+    """📈 Mini chart lines for coin lists: the last ~2 hours of recorded prices (5-min readings) per mint, from the runner board's own
+    record. ≤ 60 mints a call; a coin the board has not tracked returns nothing (the row just shows no line). Cache only — ms."""
+    paths = _json_load(RUNNERS_PATH, {}).get('paths') or {}
+    cut = time.time() - 2.5 * 3600
+    out = {}
+    for m in [x for x in mints.split(',') if 32 <= len(x) <= 44][:60]:
+        pts = [float(p) for t, p in (paths.get(m) or []) if t >= cut and p]
+        if len(pts) >= 3:
+            out[m] = [round(v / pts[0], 5) for v in pts[-30:]]   # indexed to 1.0 at the first point: shape, not price
+    return {'sparks': out}
 
 
 @app.get('/api/reputation/fuses/strategies')

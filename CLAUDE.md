@@ -1501,3 +1501,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   held): `orders` silently dropped a buy under the card's minimum — a pick that inherited a $0.10 seat against a $0.124 minimum
   was never sent, no ledger row, "buy never landed in 2 min → X took the seat", three owner picks in a row ($MINTRO, $KOMO, $IRL).
   "BUY NEVER LANDED" WITH NO LEDGER ROW ⇒ the order was never CREATED: read `fuse_wallet.orders`, not the keeper.
+- ⏭ COMING UP (`pipeline.up` = the coins the engine takes next, best hourly move first, ≤ 6; `ComingUp` under the real card,
+  above the pick log): tap a coin → coin drawer (live flow); "swap in for…" select → `pickSwap` for that seat (same warn + ack).
+  📈 Swap picker rows carry a baby chart (`GET /fuses/sparks?mints=` → last ~2h of the board's recorded prices, indexed to 1.0,
+  ≤ 60 mints, one call per list; `sp-spark` inside the coin cell — the 8-column grid is unchanged) and the ticker opens the drawer.
