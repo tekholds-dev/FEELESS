@@ -229,8 +229,11 @@ const EDIT = [
 const TIER_KEYS = ['rideAt', 'rideTrail', 'rotateMinDrop', 'rotateConfirm', 'minHoldMins', 'instantSwapPct', 'tp', 'sl', 'trenchCoins'];   // = arena_prime.TIER_KEYS
 const CYCLES = [['trench', '🗑 trench'], ['safe', '🛡 safe'], ['classic', 'classic'], ['adaptive', 'adaptive'], ['press', '🔥 press'], ['rescue', '🛟 rescue'], ['auto', '🤖 auto'], ['off', 'off']];
 // ⚙ Edit Fuse groups: [key, tab label, what lives there]
-const CFG_GROUPS = [['rounds', '⏱ Rounds', 'When a round may swap a coin'], ['exits', '⚡ Exits', 'Per-coin: instant swap, stops, winners, riders'],
-  ['shape', '🧬 Shape', 'Which mix of coins the card holds'], ['safety', '🧱 Safety', 'Whole-card floor, rest, rescue, auto-tune'], ['limits', '💵 Limits', 'Hard caps on every real swap']];
+// ⚙ Edit Fuse = the CARD's own settings, in the order a card is built: pick a setup → what it buys → when a round swaps → how
+// a coin leaves → whole-card safety. The Fuse WALLET's hard limits (every real swap, every card) are a separate drawer below.
+const CFG_GROUPS = [['setup', '🎯 Setup', 'One-tap proven setups for this round length'], ['coins', '🪙 Coins', 'Which coins the card may buy and how many it holds'],
+  ['rounds', '⏱ Rounds', 'When a round may swap a coin'], ['exits', '⚡ Exits', 'How a coin leaves: losses, winners, profit'],
+  ['safety', '🧱 Safety', 'Whole-card floor, rest, rescue, auto-tune']];
 
 // ✍ Type exact limits (server clamps every value to its safe range: slippage 0.1–3%, impact 0.2–10%, pool ≥ $0, swap $1+, daily $5+)
 const TYPED = [['slippageBps', 'Slippage %', v => v * 100, v => v / 100, 0.1, 3, 0.1], ['maxImpactPct', 'Max price impact %', v => v, v => v, 0.2, 10, 0.1],
@@ -334,7 +337,9 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest }) {
     } catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };
   // one setting = one line: what it is + what it does on the left, the choices on the right. One group on screen at a time.
-  const seg = (key, label, opts, tip, cur, wallet, to) => <div key={key} className="ce-row"><span><b>{label}</b><small>{tip}</small></span>
+  // one short line per setting on the page; the full explanation is the hover tip (the long paragraphs were the clutter)
+  const brief = t => { const x = String(t || ''); const cut = x.search(/[.:—] /); const one = cut > 20 ? x.slice(0, cut) : x; return one.length > 120 ? `${one.slice(0, 117)}…` : one; };
+  const seg = (key, label, opts, tip, cur, wallet, to) => <div key={key} className="ce-row"><span data-tip={tip}><b>{label}</b><small>{brief(tip)}</small></span>
     <div className="m-seg">{opts.map(([v, t]) => <button key={String(v)} type="button" disabled={busy} className={String(cur) === String(v) ? 'active' : ''} aria-pressed={String(cur) === String(v)} onClick={() => (to ? to({ [key]: v }) : save({ [key]: v }, wallet))}>{t}</button>)}</div></div>;
   // ⏱ a paper tier that isn't locked saves ITS OWN clock (`clocks[tier]`); the real card and locked tiers save their own rotateHours
   const ownClock = !real && !locked;
@@ -347,25 +352,36 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest }) {
   const rowX = e => (own && TIER_KEYS.includes(e[0]) ? seg(e[0], `${e[1]} · this card`, e[2], e[3], cfg?.[e[0]], false, saveExit) : row(e));
   const rows = keys => keys.map(k => EDIT.find(e => e[0] === k)).filter(Boolean).map(rowX);
   const churn = (cfg?.rotateHours || 1) < 0.25 && (cfg?.rotateConfirm || 1) < 3;   // 5-min rounds + low patience = swaps on noise (fees, missed buys)
-  const [grp, setGrp] = useState('rounds');
-  return <details className="hrt-edit" data-testid="card-editor"><summary>⚙ Edit Fuse {real ? '· 💵 real-money config — paper cards untouched' : locked ? '· 🔒 locked — edits change only this Fuse' : '· this card\'s own exits, patience + hold · shape is shared'}</summary>
+  const [grp, setGrp] = useState('setup');
+  const sub = t => <h5 className="m-label ce-sub" key={`h-${t}`}>{t}</h5>;
+  const on = k => Number(cfg?.[k]) > 0;   // a setting's follow-up rows show only while it is switched on (less to read)
+  const trenchOn = String((cfg?.cycles || {})[c.tpl] || '').split(',').includes('trench');
+  return <details className="hrt-edit" data-testid="card-editor"><summary>⚙ Edit Fuse {real ? '· this card’s own settings' : locked ? '· 🔒 locked — edits change only this Fuse' : '· this card\'s own exits, patience + hold · shape is shared'}</summary>
     <div className="m-seg ce-tabs" role="tablist" aria-label="Config groups">{CFG_GROUPS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={grp === k} className={grp === k ? 'active' : ''} data-tip={tip} onClick={() => setGrp(k)} data-testid={`ce-tab-${k}`}>{l}</button>)}</div>
     <div className="ce-group" key={grp} data-testid={`ce-pane-${grp}`}>
-      {grp === 'rounds' && <>{rows(['rotateHours', 'rotateConfirm', 'rotateMinDrop', 'minHoldMins', 'swapEdge', 'edgeGate', 'edgeFloor', 'moverSwap', 'runnerMinAgeH', 'runnerMinLiqK', 'runnerMinBuy', 'runnerMinVolK', 'runnerMinChg1h', 'swapCapHr'])}
-        {c.swapCap && <p className="m-note" data-testid="swap-cap-why">{c.swapCap.why} · used {c.swapCap.used || 0}{c.swapCap.cap ? ` of ${c.swapCap.cap}` : ''} this hour</p>}
+      {grp === 'setup' && <><StrategyPicks hours={cfg?.rotateHours || 1} current={cfg} busy={busy} selection={real} onApply={s => saveExit(stratPatch(s.cfg, real))} testid={`strats-${c.tpl}`} />
         <EnginePick suggest={suggest} cfg={cfg} busy={busy} save={save} />
+        <p className="m-note">“Use this” sets the exits{real ? ' and what the card buys' : ''} in one tap. Every setting it touches is in the other tabs, where you can change any of them.</p></>}
+      {grp === 'coins' && <>{sub('HOW MANY · WHICH MIX')}{rows(['coins'])}
+        <div className="ce-row is-wide"><span><b>🔄 Cycle</b><small>The shapes this card moves through (anchor · mixed · degen · safest …)</small></span><div className="m-seg">{CYCLES.map(([v, t]) => <button key={v} type="button" disabled={busy} className={(cfg?.cycles || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ cycles: { ...(cfg?.cycles || {}), [c.tpl]: v } })}>{t}</button>)}</div></div>
+        {rows(['cycleEvery', ...(trenchOn ? ['trenchCoins'] : [])])}
+        {trenchOn && <TrenchScan call={call} />}
+        {sub(real ? 'LAUNCH COINS THE CARD MAY BUY' : 'LAUNCH COINS')}
+        {rows(['moverSwap', 'runnerMinAgeH', 'runnerMinLiqK', 'runnerMinVolK', 'runnerMinChg1h', 'runnerMinBuy'])}
+        {sub('CHECKS')}{rows(['edgeGate', ...(cfg?.edgeGate !== false ? ['edgeFloor'] : []), ...(real ? ['pickVerify'] : [])])}
+        {!real && <div className="ce-row"><span><b>🔒 Lock tier</b><small>Freeze this tier's whole config so engine tunes never change it</small></span><div className="m-seg">{[[true, 'locked'], [false, 'free']].map(([v, t]) => <button key={t} type="button" disabled={busy} className={!!locked === v ? 'active' : ''} onClick={() => { setBusy(true); call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ lock: c.tpl, on: v }) }).then(() => { toast.success(v ? '🔒 Locked' : 'Unlocked'); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy(false)); }}>{t}</button>)}</div></div>}</>}
+      {grp === 'rounds' && <>{rows(['rotateHours', 'rotateConfirm', 'rotateMinDrop', 'minHoldMins', 'swapEdge', 'swapCapHr'])}
+        {c.swapCap && <p className="m-note" data-testid="swap-cap-why">{c.swapCap.why} · used {c.swapCap.used || 0}{c.swapCap.cap ? ` of ${c.swapCap.cap}` : ''} this hour</p>}
         {churn && <p className="m-note ce-warn" data-testid="churn-warn">⚠ Round rotation is aggressive at {Math.round((cfg?.rotateHours || 0) * 60)}m with patience {cfg?.rotateConfirm || 1}. The ⚡ instant swap (Exits) is separate and fires immediately at its loss.
           <button type="button" className="m-btn" disabled={busy} onClick={() => save({ rotateConfirm: 3 })}>Use 3</button></p>}</>}
-      {grp === 'exits' && <><StrategyPicks hours={cfg?.rotateHours || 1} current={cfg} busy={busy} selection={real} onApply={s => saveExit(stratPatch(s.cfg, real))} testid={`strats-${c.tpl}`} />
-        {rows(['rideAt', 'rideTrail', 'peakSellPct', 'lockBankPct', 'skimAt', 'skimTo', 'tpStakeUsd', 'recyclePct', 'recycleEvery', 'tp', 'sl', 'instantSwapPct', 'slMode', 'keepWinPct'])}</>}
-      {grp === 'shape' && <>{rows(['coins', 'cycleEvery', 'trenchCoins'])}
-        {(cfg?.cycles || {})[c.tpl] === 'trench' && <TrenchScan call={call} />}
-        <div className="ce-row"><span><b>🔄 Cycle</b><small>The shapes this card moves through (anchor · mixed · degen · safest …)</small></span><div className="m-seg">{CYCLES.map(([v, t]) => <button key={v} type="button" disabled={busy} className={(cfg?.cycles || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ cycles: { ...(cfg?.cycles || {}), [c.tpl]: v } })}>{t}</button>)}</div></div>
-      {!real && <div className="ce-row"><span><b>🔒 Lock tier</b><small>Freeze this tier's whole config so engine tunes never change it</small></span><div className="m-seg">{[[true, 'locked'], [false, 'free']].map(([v, t]) => <button key={t} type="button" disabled={busy} className={!!locked === v ? 'active' : ''} onClick={() => { setBusy(true); call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ lock: c.tpl, on: v }) }).then(() => { toast.success(v ? '🔒 Locked' : 'Unlocked'); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy(false)); }}>{t}</button>)}</div></div>}</>}
-      {grp === 'safety' && rows(['pickVerify', 'floorPct', 'floorRestMins', 'rescuePct', 'autoBrain'])}
-      {grp === 'limits' && <TypedLimits keeper={keeper} busy={busy} save={save} />}
+      {grp === 'exits' && <>{sub('A LOSING COIN')}{rows(['sl', 'instantSwapPct', 'slMode'])}
+        {sub('A WINNING COIN')}{rows(['rideAt', ...(on('rideAt') ? ['rideTrail', 'peakSellPct', 'lockBankPct'] : []), 'tp', 'keepWinPct'])}
+        {sub('TAKING PROFIT AUTOMATICALLY')}{rows(['skimAt', ...(on('skimAt') ? ['skimTo'] : []), 'recyclePct', ...(on('recyclePct') ? ['recycleEvery'] : []), 'tpStakeUsd'])}</>}
+      {grp === 'safety' && rows(['floorPct', 'floorRestMins', 'rescuePct', 'autoBrain'])}
     </div>
-    <small className="m-dim">{real ? 'This real card runs its own config — HQ, engine tunes and paper edits never change it.' : 'Clock, exits, patience and hold are this card\'s own (no two cards share them); shape, floor and safety are shared by every paper tier that isn\'t 🔒 locked.'} Limits cover every real buy and sell.</small></details>;
+    <small className="m-dim">{real ? 'These settings belong to this card only — engine tunes and paper edits never change them.' : 'Clock, exits, patience and hold are this card\'s own (no two cards share them); shape, floor and safety are shared by every paper tier that isn\'t 🔒 locked.'}</small>
+    {real && <details className="ce-wallet" data-testid="ce-wallet"><summary>💵 Fuse wallet limits <small>not this card — hard caps on EVERY real buy and sell</small></summary>
+      <TypedLimits keeper={keeper} busy={busy} save={save} /></details>}</details>;
 }
 
 const SHAPE = { anchor: ['⚓', 'anchor', '3 majors + a new major'], mixed: ['⚖', 'mixed', '2 majors + a new major + a runner'], degen: ['🔥', 'degen', '1 major + 3 runners'],

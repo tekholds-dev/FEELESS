@@ -390,6 +390,18 @@ body.theme-day .hrt-fold { background: #fff; border-color: #d8e2dc; } body.theme
 /* ⚙ Edit Fuse v2: group tabs, then one line per setting (name + what it does · choices) */
 .ce-tabs { display: flex; margin: 10px 0 2px; } .ce-tabs > button { flex: 1 1 auto; white-space: nowrap; }
 .ce-group { gap: 0; padding: 4px 12px; }
+/* a setting's name keeps a readable column; wide choice rows drop under it instead of squeezing the name to one word a line */
+.ce-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.ce-row > span { flex: 1 1 240px; min-width: 0; display: grid; gap: 3px; } .ce-row > .m-seg { flex: 0 1 auto; max-width: 100%; }
+.ce-row.is-wide > span { flex-basis: 100%; }
+.ce-sub { margin: 14px 0 0; padding: 0 0 2px; font-size: 10px; letter-spacing: .16em; color: var(--m-accent); border: 0; }
+.ce-group > .ce-sub:first-child { margin-top: 6px; }
+.ce-wallet { margin: 10px 0 2px; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--gold) 5%, transparent); }
+.ce-wallet > summary { cursor: pointer; font-family: var(--m-mono); font-size: 11px; letter-spacing: .08em; color: var(--gold); list-style: none; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; transition: opacity .15s; }
+.ce-wallet > summary::-webkit-details-marker { display: none; } .ce-wallet > summary::before { content: '▸'; } .ce-wallet[open] > summary::before { content: '▾'; }
+.ce-wallet > summary:hover { opacity: .85; } .ce-wallet > summary:active { opacity: .7; } .ce-wallet > summary:focus-visible { outline: 1px solid var(--gold); outline-offset: 3px; border-radius: 4px; }
+.ce-wallet > summary small { color: var(--m-dim); letter-spacing: .06em; text-transform: none; }
+body.theme-day .ce-wallet { background: #fffaf0; border-color: #e3cf9a; } body.theme-day .ce-wallet > summary { color: #8a6400; } body.theme-day .ce-wallet > summary small { color: #5b6f64; }
 .ce-row { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 18px; padding: 10px 0; border-bottom: 1px dashed color-mix(in srgb, var(--m-line) 70%, transparent); }
 .ce-group > .ce-row:last-of-type { border-bottom: 0; }
 .ce-row > span { display: grid; gap: 2px; min-width: 0; } .ce-row > span b { font-size: 13px; font-weight: 600; }

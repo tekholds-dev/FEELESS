@@ -1376,3 +1376,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   sell" all apply). Why: rotation only ever swapped LOSERS — a flat coin held its seat for good while a hunt-ready coin sat on the
   board. 🕐 `runnerMinAgeH` (0/1/6/12, default 12; `weather_runners` reads it): the OWNER may let younger launch coins in; every
   safety gate still applies. The replay backs 12h (under 6h lost ~15% a window) — say so once, then it is the owner's setting.
+- ⚙ Edit Fuse v3 (`CFG_GROUPS`): 🎯 Setup (one-tap proven setups + engine pick) · 🪙 Coins (how many / cycle · launch coins the
+  card may buy · checks) · ⏱ Rounds · ⚡ Exits (a losing coin · a winning coin · taking profit automatically) · 🧱 Safety. Sub-heads
+  = `sub('…')` (`h5.ce-sub`). Each row shows ONE short line (`brief(tip)`), the full text is the hover tip. Follow-up rows show
+  only while their parent is on (`on('rideAt')` → trail / off-peak / bank; skim → goes-to; recycle → every; record gate → floor;
+  trench cycle → trench coins). 💵 The Fuse WALLET's limits are NOT a tab: `details.ce-wallet` under the editor (real card only),
+  labelled "not this card — every real buy and sell". `.ce-row` is flex-wrap with a ≥ 240px name column: a wide choice row drops
+  under its name (a grid squeezed "Off its peak" to one word a line). New card setting ⇒ EDIT + one group's `rows([...])`;
+  a wallet-wide limit ⇒ `TYPED`, never a card tab.
