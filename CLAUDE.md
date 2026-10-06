@@ -1559,3 +1559,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   🧲 pullback first, then the coin's own chart — 🪜 back in its gap · 🧲 dip bought, trend up · 📈 trending up · 🏔 at its highs ·
   ➖ ranging · 📉 trending down · 🆕 no chart yet LAST — plus ≤ 25 pts for the hourly move). Rows carry `tag`, shown under the coin.
   Why: of the real card's last 119 buys, 99 had a chart too short to read (−$1.01, 25% won) and 20 a readable one (+$0.07, 40%).
+- 🆕 A COIN BOUGHT MINUTES AGO IS NEVER THE CARD'S BIGGEST SEAT (`spread_cash(.., cap, fresh)`: for a leg bought < `FRESH_SEC` the
+  idle-cash share is capped at the WHOLE card's equal share): with two coins riding, the equal share among the unlocked ones is
+  half the card each — $AGENCY replaced a finished rider with a $0.48 seat and the freed / parked cash lifted it to $2.03 a minute
+  later (then −9%). Banked money still spreads over the older coins in full (existing rule + test).

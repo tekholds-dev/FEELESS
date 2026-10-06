@@ -1800,3 +1800,14 @@ def test_flow_rank_puts_setups_and_readable_up_trends_ahead_of_a_bigger_hour_wit
     tags = {r['mint']: r['tag'] for r in out}
     assert 'sweep' in tags['swp'] and 'dip bought' in tags['dip'] and tags['new'] == '🆕 no chart yet' and 'down' in tags['dwn'] and tags['bare'] == ''
     assert ap.flow_rank([]) == []
+
+
+def test_idle_cash_never_lifts_a_coin_above_the_whole_cards_equal_share():
+    L = lambda sym, units: {'symbol': sym, 'mint': sym, 'pairAddress': sym, 'units': units, 'entry': 1.0}
+    new, flat = L('NEW', 0.5), L('FLAT', 1.6)          # two riders ($1.7 each) are locked and not in the list
+    px = {'NEW': 1.0, 'FLAT': 1.0}
+    old = ap.spread_cash([new, flat], 1.6, px, [new, flat])
+    assert old[0] > 1.3                                 # without the cap: NEW → $1.85, the card's biggest seat
+    capped = ap.spread_cash([new, flat], 1.6, px, [new, flat], cap=(0.5 + 1.6 + 1.7 + 1.7 + 1.6) / 4, fresh={'NEW'})
+    assert abs(0.5 + capped[0] - 1.775) < 0.01             # the coin bought minutes ago stops at the card's equal share
+    assert ap.spread_cash([new, flat], 1.6, px, [new, flat], cap=1.775) == old      # no fresh coin → the old rule (banked money goes to the others in full)

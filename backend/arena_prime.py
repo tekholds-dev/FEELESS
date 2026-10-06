@@ -1726,7 +1726,10 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             # the equal share is counted over every coin that is NOT locked: a coin skipped only for 10 minutes (just cut) still counts,
             # so the one coin left can't take its share too; a locked rider's banked money does go to the others in full
             open_ = [l for l in c['legs'] if not l.get('placeholder') and not l.get('ride') and not l.get('frozen')]
-            fills = spread_cash(targets, free_cash, prices, open_ if all(t in open_ for t in targets) else None)
+            all_ = [l for l in c['legs'] if not l.get('placeholder')]
+            card_share = (sum((_f(l.get('units')) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)) * (_f(prices.get(l['pairAddress'])) or _f(l.get('entry'))) for l in all_) + max(0.0, _f(c.get('cash')))) / max(1, len(all_))
+            fills = spread_cash(targets, free_cash, prices, open_ if all(t in open_ for t in targets) else None, cap=card_share,
+                                fresh={l['mint'] for l in targets if _f(l.get('at')) > 0 and 0 <= now - _f(l['at']) < FRESH_SEC})
             free_cash = sum(fills)   # what is really spent: cash that would push a coin over its equal share stays cash
             for l, each in zip(targets, fills):
                 if each <= 0:
@@ -1803,7 +1806,7 @@ SMALL_SHARE = 0.5   # a coin PUT IN with < half its equal share is topped up …
 OVER_SHARE = 1.25   # … from card cash first, then from coins holding > 125% of their share
 
 
-def spread_cash(legs, cash, prices, seats=None):
+def spread_cash(legs, cash, prices, seats=None, cap=None, fresh=()):
     """How idle cash is split over a card's coins → [$ per leg]. Each coin is filled toward an EQUAL share of (coins + cash) in
     proportion to how far under it sits; a coin already at or over its share gets nothing. A coin still waiting on its buy counts as
     worth what it was given so far (often $0), so it is filled first — but only up to its share.
@@ -1816,7 +1819,11 @@ def spread_cash(legs, cash, prices, seats=None):
     vals = [val(l) for l in legs]
     every = seats if seats else legs
     share = (sum(val(l) for l in every) + _f(cash)) / len(every) if every else 0.0
-    room = [max(0.0, share - v) for v in vals]
+    # 🆕 a coin bought minutes ago (`fresh`) is never lifted above the WHOLE card's equal share (`cap`): with two coins riding
+    # (locked), the share of the two unlocked ones is half the card each — a replacement bought a minute earlier took the freed
+    # cash and became the card's biggest seat before it had proved anything ($AGENCY: $0.48 seat → $2.03, then −9%).
+    fr = set(fresh or ())
+    room = [max(0.0, (min(share, _f(cap)) if cap is not None and seats and l.get('mint') in fr else share) - v) for l, v in zip(legs, vals)]
     total = sum(room)
     if total <= 0:
         return [0.0] * len(legs) if seats else ([_f(cash) / len(legs)] * len(legs) if legs else [])
