@@ -395,6 +395,7 @@ body.theme-day .hrt-fold { background: #fff; border-color: #d8e2dc; } body.theme
 .ce-row > span { flex: 1 1 240px; min-width: 0; display: grid; gap: 3px; } .ce-row > .m-seg { flex: 0 1 auto; max-width: 100%; }
 .ce-row.is-wide > span { flex-basis: 100%; }
 .ce-adv { margin: 8px 0 2px; width: 100%; justify-content: center; }
+.hrt-split { display: block; font-size: 10.5px; color: var(--m-dim); font-style: normal; }
 .ce-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin: 6px 0 4px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--m-accent); background: color-mix(in srgb, var(--m-accent) 9%, transparent); }
 .ce-meta > span { flex: 1 1 260px; min-width: 0; } .ce-meta b { font-size: 15px; } .ce-meta small { color: var(--m-dim); font-size: 11px; } .ce-meta p { margin: 4px 0 0; font-size: 12px; line-height: 1.4; }
 .ce-meta.is-hold { border-color: #9fe3ff; background: color-mix(in srgb, #9fe3ff 8%, transparent); }
