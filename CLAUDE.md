@@ -1284,3 +1284,25 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`book_value`), never spent (`orders`, `sync_card`), moved out of the book as cash appears (ledger `fix` `owedout:`), PUT IN
   unchanged. `strayFix1` (once, owner's call): the 0.012552 SOL the duplicate keeper put into degen is owed out, every coin cut by
   the same share, run baseline lowered by the same $. A book-vs-chain surplus is NEVER booked as put-in without the owner.
+- 🧠 PICK EDGE (`backend/pick_edge.py`, pure + tested; built every sim tick → `data/edge.json`, `_edge_load`): replaying 200 runner
+  rounds (50h) against their recorded prices showed the board's typical pick −26% three hours later and the hand-written score
+  UPSIDE DOWN (score ≥ 80 → −82%; fresh / thin / hyper-traded coins lost, older coins in deep pools with ≥ 70% buyers held). The
+  table = typical 3h result per feature bucket (age, pool, cap, 1h / 5m move, buyers, turnover, stage), learned ONLY from picks
+  whose outcome is known, a vanished coin = −18% (never dropped). `rank` orders tier-card runners (after `clock_rank`); `gate` =
+  real money buys only runners with estimate ≥ 0 (cfg `edgeGate`, on; Edit Fuse › Rounds; `newMajor` + `trenchOnly` rows keep their
+  own rules; owner picks never limited). `proof`: learn on 60%, rank the rest — the table is USED only while its best third beats
+  its worst by ≥ 10 pts (2026-10-05: +1% vs −75%). `/fuses/forecast.edge` → WeatherStrip line. A ranking, never a promise:
+  even the best group was only about flat.
+- 🎯 THE SIM IS HONEST NOW (`pg_sim`): it used to replay only coins whose path covered the whole window (the survivors) at 0.6% a
+  swap and read "+67% a day" while the real card lost. Now: every coin with a reading is kept (`None` = off the feed → sold
+  `GONE_HAIRCUT` 18% under its last reading), `SWAP_COST` 1.5% (measured on 360 real fills), cards buy ONLY what the runner board
+  offered at that step (`offers(rounds)`), genes `age` / `pool` / `edge` test selection, a card that never bought is not counted.
+  2026-10-05: typical card −20% / 24h; edge on −10% vs off −31%. `byClock.profitable` finally means something. The weather reads
+  these sims, so it is harsher (truer) than before. WHEN A SIM SAYS + AND REAL MONEY SAYS −, AUDIT THE SIM FOR LOOK-AHEAD FIRST.
+- 📏 SMALLEST ORDER FITS THE CARD (`fuse_wallet.min_order`, card `seats`): the owner's `minOrderUsd`, but ≤ 40% of one seat's share
+  (≥ $0.10). A $0.99 card with 4 seats could not buy its 4th coin at a flat $0.25 minimum → "buying…" → swapped for another coin
+  every 2 min, for good. The tier tick gets it as cfg `minOrderUsd`: a seat is opened / a coin trimmed only by an amount the
+  keeper would really send, else ONE `seat-wait` event per 30 min; a stuck seat under the minimum goes back to cash, not to
+  another coin.
+- 🧾 2026-10-05 autopsy of the owner's real card (360 fills): engine-chosen coins −$0.13 on $62 (≈ flat), owner's hand picks
+  −$3.18 on $29 (6% won), trench −$0.71 on $7, fees $0.62; exits inside 15 min −$3.05 (8% won), trims of winners +$3.21 (80% won).

@@ -390,6 +390,7 @@ def clean_cfg(p):
     out['recyclePct'] = float(_f((p or {}).get('recyclePct'))) if _f((p or {}).get('recyclePct')) in RECYCLE_PCTS else 0.0
     out['recycleEvery'] = int(_f((p or {}).get('recycleEvery'))) if int(_f((p or {}).get('recycleEvery'))) in RECYCLE_EVERY else 3
     out['lockBankPct'] = float(_f((p or {}).get('lockBankPct'))) if (p or {}).get('lockBankPct') is not None and _f((p or {}).get('lockBankPct')) in LOCK_BANKS else LOCK_BANK
+    out['edgeGate'] = bool((p or {}).get('edgeGate', True))   # 🧠 real money buys only runners the board's own record does not expect to lose (pick_edge.py)
     out['swapEdge'] = bool((p or {}).get('swapEdge', True))   # ⚖ rotate only when the next coin beats this one by more than the swap costs
     out['swapCapHr'] = int(_f((p or {}).get('swapCapHr'))) if int(_f((p or {}).get('swapCapHr'))) in SWAP_CAPS else 0   # 🤖 0 = auto
     out['coins'] = int(_f((p or {}).get('coins'))) if int(_f((p or {}).get('coins'))) in COIN_COUNTS else 0   # 🪙 0 = auto (size-aware), else the OWNER's count
@@ -1375,13 +1376,18 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     # empty for good — the card sat on 3 coins with cash idle. As soon as there is cash for it, the best coin not on the card takes
     # the seat with an equal share (runner first, then pool). One seat a tick; never while floored / held.
     want_n = int(_f(cfg.get('coins')))
+    c['seats'] = want_n   # the keeper sizes its smallest order to the card's seats (fuse_wallet.min_order)
+    # 💵 on a real card a seat is only opened when the keeper can actually SEND its buy (cfg `minOrderUsd` = this card's smallest
+    # order, 0 on paper) and a coin is only trimmed for it by an amount the keeper would really sell — else the seat waits, said once
+    mo = _f(cfg.get('minOrderUsd'))
+    seat_min = max(mo, 0.10) if mo > 0 else SEAT_MIN_USD
     if want_n and len(c['legs']) < want_n and not c.get('flooredAt') and not c.get('holdAll'):
         _val = lambda x: (_f(x['units']) or (_f(x.get('wantUnits')) if x.get('buying') else 0.0)) * (_f(prices.get(x['pairAddress'])) or _f(x.get('entry')))
         share = (sum(_val(x) for x in c['legs']) + free_cash) / want_n
         role_s, nxt = next(((r, x) for r in ('runner', 'pool') for x in [best(r)] if x), (None, None))
         # no cash for the seat (a rugged coin leaves nothing behind) → the coins sitting ABOVE the new equal share give up their
         # extra (never a locked / riding coin, never one still being bought): 3 coins × $1.03 become 4 × $0.77
-        if nxt and free_cash < min(share, max(SEAT_MIN_USD, share * 0.6)):
+        if nxt and free_cash < min(share, max(seat_min, share * 0.6)):
             need = share - free_cash
             for d_ in sorted((x for x in c['legs'] if not x.get('ride') and not x.get('frozen') and not x.get('buying') and not x.get('placeholder')
                               and _f(x.get('units')) > 0 and _val(x) > share * 1.05), key=_val, reverse=True):
@@ -1389,11 +1395,18 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                     break
                 px_d = _f(prices.get(d_['pairAddress'])) or _f(d_.get('entry'))
                 cut = min(_val(d_) - share, need)
+                if cut < mo:
+                    continue   # too small for the keeper to sell: the cut would never land and the seat would wait on it for good
                 part = cut / _val(d_)
                 got_d = sell_usd(_f(d_['units']) * part, px_d, liqs.get(d_['pairAddress']) or d_.get('liq'))
                 d_['units'] = _f(d_['units']) * (1 - part); d_['costUsd'] = round(_f(d_.get('costUsd')) * (1 - part), 6); d_['trimAt'] = now
                 c['cash'] = round(_f(c['cash']) + got_d, 6); free_cash += got_d; need -= cut; c['feesUsd'] += fee
-        if nxt and free_cash >= SEAT_MIN_USD:
+        if nxt and free_cash < seat_min and mo > 0 and now - _f(c.get('seatWaitAt')) >= 1800:
+            c['seatWaitAt'] = now
+            ev(kind='seat-wait', usd=round(free_cash, 4), why=f"🪑 seat {len(c['legs']) + 1} of {want_n} is waiting: the card has ${free_cash:.2f} free and the smallest order it can send is "
+                                                              f"${seat_min:.2f} — it fills by itself when there is enough (add money, or pick fewer coins in Shape)")
+        if nxt and free_cash >= seat_min:
+            c.pop('seatWaitAt', None)
             usd_s = min(free_cash, share)
             c['legs'].append(_leg(nxt, usd_s, now, role_s))
             c['cash'] = round(_f(c['cash']) - usd_s, 6); free_cash -= usd_s

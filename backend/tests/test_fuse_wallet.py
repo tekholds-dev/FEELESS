@@ -1154,3 +1154,16 @@ def test_money_that_is_not_the_cards_is_off_its_value_at_once_never_spent_and_le
     bk = {'sol': 0.0075, 'legs': {'A': {**bl(0.30)}, 'B': {**bl(0.60), 'pair': 'PB'}}}
     assert fw.orders('t', c, bk, {'PA': 1.0, 'PB': 1.0}, 100.0, cfg, 1000) and fw.orders('t', c, {**bk, 'owedOutSol': 0.006}, {'PA': 1.0, 'PB': 1.0}, 100.0, cfg, 1000) == []
     assert fw.sync_card(c, {**bk, 'owedOutSol': 0.006}, {'PA': 1.0, 'PB': 1.0}, 100.0)['cash'] == 0.15
+
+
+def test_the_smallest_order_is_sized_to_the_cards_seats_so_a_tiny_card_can_still_fill_them():
+    cfg = fw.clean_cfg({'minOrderUsd': 0.25})
+    assert fw.min_order(cfg) == 0.25 and fw.min_order(cfg, 5.0, 4) == 0.25           # $1.25 seats: the owner's minimum stands
+    assert fw.min_order(cfg, 0.99, 4) == 0.1 and fw.min_order(cfg, 1.6, 4) == 0.16   # $0.25 / $0.40 seats: 40% of a seat, never under $0.10
+    assert fw.min_order(fw.clean_cfg({'minOrderUsd': 0.1}), 20, 4) == 0.1            # never ABOVE the owner's setting
+    # a $0.99 card, 4 seats, three coins held + $0.20 cash: the 4th coin's $0.20 buy is sent (it was skipped at a flat $0.25 minimum)
+    bl = lambda units, pair: {'atoms': int(units * 1e6), 'decimals': 6, 'costUsd': units, 'entryPx': 1.0, 'pair': pair}
+    c = {**card([leg('A', 'PA', 0.26, 1.0), leg('B', 'PB', 0.27, 1.0), leg('C', 'PC', 0.26, 1.0), {**leg('D', 'PD', 0.0, 1.0), 'buying': True, 'wantUnits': 0.20}]), 'seats': 4}
+    book = {'sol': 0.0021, 'legs': {'A': bl(0.26, 'PA'), 'B': bl(0.27, 'PB'), 'C': bl(0.26, 'PC')}}
+    o = fw.orders('t', c, book, {'PA': 1.0, 'PB': 1.0, 'PC': 1.0, 'PD': 1.0}, 100.0, {**CFG, 'minOrderUsd': 0.25, 'minLiqUsd': 0, 'arenaMinLiqUsd': 0}, 1000)
+    assert [(x['side'], x['mint']) for x in o] == [('buy', 'D')] and abs(o[0]['usd'] - 0.20) < 0.011

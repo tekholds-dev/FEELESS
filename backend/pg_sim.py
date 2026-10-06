@@ -11,6 +11,8 @@ have history in the window. It walks forward one sample at a time and only ever 
 import random
 import statistics
 
+import pick_edge as _edge
+
 STEP_MIN = 5
 CLOCKS = (5, 15, 30, 60)
 TPS = (50, 100, 200, 300)
@@ -19,36 +21,72 @@ DROPS = (0, 5, 10, 20)
 RIDES = (0, 15, 25, 50, 150)   # ❄ freeze a coin running at +X% (0 = off) — the tier engine's rideAt
 TRAILS = (5, 8, 15, 30)        # … then sell it X% off its peak (rideTrail)
 CONFIRMS = (1, 2, 3, 4)   # ⏳ rounds in a row a coin must be losing before it may be rotated
-SWAP_COST = 0.006          # 0.6% per swap (network + FEELESS-free HQ route + impact) — the card always pays something to move
-
-
+AGES = (0, 1, 6, 12)       # 🧬 selection gene: a coin must be at least this many hours old when it is bought (0 = any)
+POOLS = (0, 25, 50, 100)   # 🧬 … and its pool at least this many $K (0 = any). Both read from the runner round's own snapshot.
+EDGES = (0, 1)             # 🧠 1 = buy only coins the board's own record does not expect to lose (pick_edge.py, learned BEFORE the window)
+# 🎯 THE SIM MUST LOSE WHEN A REAL CARD LOSES. Measured 2026-10-05 against the owner's real $5 card (360 fills) and the feed:
+#   · a real swap costs ~1.5% (fill vs mid ≈ 0.25% on buys, 1.6% on sells, plus ~0.76% network on a $0.50 swap) — it was 0.6% here
+#   · 290 coins that LEFT the feed were on average 18% under their last reading (23% of them down more than half)
+# The old sim replayed only coins whose path covered the WHOLE window — the survivors — and let cards pick among them: it read
+# "typical card +67% a day" while the real card lost. Every rule below removes one of those look-aheads.
+SWAP_COST = 0.015
+GONE_HAIRCUT = 0.18     # a coin that drops off the feed is sold this far under its last reading
+ALIVE_GAP = 20 * 60     # no reading for 20 min = off the feed
 MAX_STEP = 4.0
 
 
 def _series(paths, start, steps):
-    """{mint: [price per step]} for mints whose history covers the whole window (forward-filled within the window)."""
-    out = {}
+    """{mint: [price or None per step]}. None = no live reading at that step (not listed yet, or it left the feed). EVERY coin
+    with a reading inside the window is kept — the ones that died too. A path with a more than MAX_STEP× UP-tick in one step is a
+    launch tick or a bad read (nobody bought the low side) and is left out; a crash of any size is real and stays."""
+    out, end = {}, start + (steps - 1) * STEP_MIN * 60
     for m, pts in (paths or {}).items():
         pts = sorted((float(t), float(p)) for t, p in pts if p and float(p) > 0)
-        if not pts or pts[0][0] > start or pts[-1][0] < start + (steps - 1) * STEP_MIN * 60:
+        if not pts or pts[-1][0] < start - ALIVE_GAP or pts[0][0] > end:
             continue
-        row, j, last = [], 0, pts[0][1]
+        row, j, last, last_t, bad = [], 0, None, 0.0, False
         for k in range(steps):
             t = start + k * STEP_MIN * 60
+            seen = last if row and row[-1] is not None else None
             while j < len(pts) and pts[j][0] <= t:
-                last = pts[j][1]; j += 1
-            row.append(last)
-        # a price that jumps more than MAX_STEP× in one 5-min step is a launch tick or a bad read — nobody could have bought the
-        # low side of it. One such path made the brain report "typical card +107%" and a best card of +3,709%.
-        if any(b > a * MAX_STEP or b < a / MAX_STEP for a, b in zip(row, row[1:])):
-            continue
-        out[m] = row
+                last, last_t = pts[j][1], pts[j][0]; j += 1
+            px = last if last is not None and t - last_t <= ALIVE_GAP else None
+            if px is not None and seen is not None and px > seen * MAX_STEP:
+                bad = True; break
+            row.append(px)
+        if not bad and any(v is not None for v in row):
+            out[m] = row
     return out
 
 
 def random_cfg(rng):
     return {'clock': rng.choice(CLOCKS), 'tp': rng.choice(TPS), 'sl': rng.choice(SLS), 'minDrop': rng.choice(DROPS), 'rideAt': rng.choice(RIDES),
-            'trail': rng.choice(TRAILS), 'confirm': rng.choice(CONFIRMS)}
+            'trail': rng.choice(TRAILS), 'confirm': rng.choice(CONFIRMS), 'age': rng.choice(AGES), 'pool': rng.choice(POOLS), 'edge': rng.choice(EDGES)}
+
+
+OFFER_MAX_AGE = 45 * 60   # a runner round older than this is not "what the board offers now"
+
+
+def offers(rounds, start, steps):
+    """What the runner board OFFERED at each step = the picks of the latest round dealt before it (best score first), each with its
+    own snapshot (age, pool). This is the engine's real, gated choice at that time — the sim buys from it and from nothing else."""
+    rs = sorted(((float(r.get('at') or 0), sorted((p for p in r.get('picks') or [] if p.get('mint')), key=lambda p: -_num(p.get('score')))) for r in rounds or []), key=lambda x: x[0])
+    out, j = [], -1
+    for k in range(steps):
+        t = start + k * STEP_MIN * 60
+        while j + 1 < len(rs) and rs[j + 1][0] <= t:
+            j += 1
+        out.append(rs[j][1] if j >= 0 and t - rs[j][0] <= OFFER_MAX_AGE else [])
+    return out
+
+
+def fits(p, cfg, table=None):
+    """Does this offered coin pass the card's selection genes? Unknown age fails any age rule (fail closed). `edge` on = the
+    record's estimate for the coin (edge.score against `table`) must not be negative."""
+    age, pool = float(cfg.get('age') or 0), float(cfg.get('pool') or 0) * 1000
+    if cfg.get('edge') and table and (_edge.score(p, table) or -1e9) < 0:
+        return False
+    return (age <= 0 or (p.get('ageH') is not None and _num(p.get('ageH')) >= age)) and _num(p.get('liq')) >= pool
 
 
 def _ride(cfg):
@@ -58,65 +96,97 @@ def _ride(cfg):
     return ra, tr, min(80.0, ra / 2)
 
 
-def simulate(series, mints, cfg, steps):
-    """One card, $100 split evenly, walked step by step. Returns the final % (fees included, as a real card would see it)."""
-    if not mints:
-        return 0.0
-    each = 100.0 / len(mints)
-    legs = [{'m': m, 'units': each * (1 - SWAP_COST) / series[m][0], 'entry': series[m][0], 'high': series[m][0], 'ride': False, 'rmin': 0.0} for m in mints]
-    cash, every = 0.0, max(1, cfg['clock'] // STEP_MIN)
+def simulate(series, mints, cfg, steps, cost=SWAP_COST, offer=None, seats=None, table=None):
+    """One card, $100 over `seats` equal seats, walked step by step with ONLY what was known at each step. Returns the final %
+    (swap costs included, as a real card would see it). A coin that leaves the feed is sold GONE_HAIRCUT under its last reading.
+    `offer` (from `offers`) = what the runner board offered at each step: a new coin can only be one of those, live right now and
+    passing the card's selection genes. Without it (tests, no rounds on record) any live coin may come in, best mover first.
+    An empty seat is cash until a coin qualifies. → % ; sets cfg-independent `simulate.trades` to the number of buys made."""
+    mints = [m for m in mints if m in series and series[m][0] is not None]
+    seats = max(1, int(seats or len(mints) or 1))
+    each = 100.0 / seats
+    new = lambda m, usd, k: {'m': m, 'units': usd * (1 - cost) / series[m][k], 'entry': series[m][k], 'high': series[m][k], 'last': series[m][k], 'ride': False, 'rmin': 0.0}
+    legs = [new(m, each, 0) for m in mints[:seats]]
+    cash, every, buys = each * (seats - len(legs)), max(1, cfg['clock'] // STEP_MIN), len(legs)
     ra, tr, floor_g = _ride(cfg)
     for k in range(1, steps):
         for l in list(legs):
             px = series[l['m']][k]
+            if px is None:   # ☠ off the feed: no clean exit — sold well under its last reading
+                cash += l['units'] * l['last'] * (1 - GONE_HAIRCUT) * (1 - cost); legs.remove(l); continue
+            l['last'] = px
             g = (px / l['entry'] - 1) * 100
             l['rmin'] = min(l['rmin'], g)
             if l['ride']:
                 l['high'] = max(l['high'], px)
                 if g < floor_g or px < l['high'] * (1 - tr / 100):   # same rule as the engine: under half the freeze, or tr% off its peak
-                    cash += l['units'] * px * (1 - SWAP_COST); legs.remove(l)
+                    cash += l['units'] * px * (1 - cost); legs.remove(l)
                 continue
             if ra > 0 and g >= ra:   # ❄ frozen: no TP / stop while it runs
                 l.update(ride=True, high=px); continue
             if g >= cfg['tp'] or g <= -cfg['sl']:
-                cash += l['units'] * px * (1 - SWAP_COST); legs.remove(l)
-        if k % every == 0:   # round end: hold coins that stayed ≥ +80% all round, swap the worst loser for last round's best mover
+                cash += l['units'] * px * (1 - cost); legs.remove(l)
+        if k % every == 0:   # round end: hold coins that stayed ≥ +80% all round, swap the worst loser, put idle cash back to work
             for l in legs:
                 if ra > 0 and not l['ride'] and l['rmin'] >= min(80.0, ra):
                     l['ride'] = True
-                l['rmin'] = (series[l['m']][k] / l['entry'] - 1) * 100   # next round's low starts here
-            on = {l['m'] for l in legs}
-            pool = [m for m in series if m not in on]
-            past = lambda m: series[m][k] / series[m][max(0, k - every)] - 1
+                l['rmin'] = (l['last'] / l['entry'] - 1) * 100   # next round's low starts here
+            back = max(0, k - every)
+            def pool():
+                on = {l['m'] for l in legs}
+                if offer is not None:   # the board's own picks right now, best score first
+                    return [p['mint'] for p in offer[k] if p['mint'] not in on and p['mint'] in series and series[p['mint']][k] is not None and fits(p, cfg, table)]
+                live = [m for m in series if m not in on and series[m][k] is not None and series[m][back] is not None]
+                return sorted(live, key=lambda m: -(series[m][k] / series[m][back]))
             for l in legs:   # ⏳ patience: count rounds in a row each coin has been losing
-                l['lose'] = l.get('lose', 0) + 1 if (series[l['m']][k] / l['entry'] - 1) * 100 <= -cfg['minDrop'] else 0
-            losers = sorted((l for l in legs if not l['ride'] and l.get('lose', 0) >= cfg.get('confirm', 1)), key=lambda l: series[l['m']][k] / l['entry'])
-            if losers and pool:
-                out = losers[0]; best = max(pool, key=past)
-                usd = out['units'] * series[out['m']][k] * (1 - SWAP_COST)
-                legs.remove(out)
-                legs.append({'m': best, 'units': usd * (1 - SWAP_COST) / series[best][k], 'entry': series[best][k], 'high': series[best][k], 'ride': False, 'rmin': 0.0})
-            if cash > 0.5 and pool and len(legs) < len(mints):   # idle cash back into the past round's best mover
-                best = max((m for m in series if m not in {l['m'] for l in legs}), key=past, default=None)
-                if best:
-                    legs.append({'m': best, 'units': cash * (1 - SWAP_COST) / series[best][k], 'entry': series[best][k], 'high': series[best][k], 'ride': False, 'rmin': 0.0}); cash = 0.0
-    value = cash + sum(l['units'] * series[l['m']][steps - 1] for l in legs)
+                l['lose'] = l.get('lose', 0) + 1 if (l['last'] / l['entry'] - 1) * 100 <= -cfg['minDrop'] else 0
+            losers = sorted((l for l in legs if not l['ride'] and l.get('lose', 0) >= cfg.get('confirm', 1)), key=lambda l: l['last'] / l['entry'])
+            cand = pool() if losers else []
+            if losers and cand:
+                out = losers[0]
+                usd = out['units'] * out['last'] * (1 - cost)
+                legs.remove(out); legs.append(new(cand[0], usd, k)); buys += 1
+            while cash > 0.5 and len(legs) < seats:   # idle cash / an empty seat → the next coin the board offers
+                cand = pool()
+                if not cand:
+                    break
+                part = cash / (seats - len(legs))
+                legs.append(new(cand[0], part, k)); cash -= part; buys += 1
+    simulate.trades = buys
+    value = cash + sum(l['units'] * l['last'] for l in legs)
     return round(value - 100.0, 3)
 
 
-def run(paths, now, n=200, hours=24, seed=None):
-    """n sim cards over the last `hours` of recorded paths. Returns [{cfg, coins, pct}] (empty if there isn't enough history)."""
+def run(paths, now, n=200, hours=24, seed=None, cost=SWAP_COST, rounds=None):
+    """n sim cards over the last `hours` of recorded paths. Returns [{cfg, coins, pct}] (empty if there isn't enough history).
+    With `rounds` (the runner board's own record) a card buys ONLY what the board offered at that moment — its real, gated picks —
+    filtered by the card's selection genes; a card that never found a coin to buy is not counted. Without rounds: any coin live
+    at the start, whatever became of it afterwards."""
     steps = int(hours * 60 // STEP_MIN)
-    series = _series(paths, now - hours * 3600, steps)
-    if len(series) < 6:
+    start = now - hours * 3600
+    series = _series(paths, start, steps)
+    live0 = sorted(m for m in series if series[m][0] is not None)
+    offer = offers(rounds, start, steps) if rounds else None
+    # 🧠 the edge table a card may use is learned ONLY from picks whose outcome was known before the window opened (no look-ahead)
+    table = _edge.learn(_edge.samples(rounds, paths, start)) if rounds else None
+    if len(live0) < 6 and not (offer and any(offer)):
         return []
     rng = random.Random(seed if seed is not None else int(now // 900))
-    mints = sorted(series)
     out = []
     for _ in range(n):
         cfg = random_cfg(rng)
-        pick = rng.sample(mints, rng.randint(4, min(6, len(mints))))
-        out.append({'cfg': cfg, 'coins': len(pick), 'pct': simulate(series, pick, cfg, steps)})
+        seats = rng.randint(4, 6)
+        if offer is not None:
+            if not table:
+                cfg = {k: v for k, v in cfg.items() if k != 'edge'}   # record too short to learn from → the gene is not judged
+            first = [p['mint'] for p in offer[0] if p['mint'] in series and series[p['mint']][0] is not None and fits(p, cfg, table)]
+            pick = rng.sample(first, min(seats, len(first)))
+        else:
+            cfg = {k: v for k, v in cfg.items() if k not in ('age', 'pool', 'edge')}   # no snapshots to read them from
+            seats = min(seats, len(live0)); pick = rng.sample(live0, seats)
+        pct = simulate(series, pick, cfg, steps, cost, offer, seats, table)
+        if simulate.trades:
+            out.append({'cfg': cfg, 'coins': seats, 'pct': pct, 'trades': simulate.trades})
     return out
 
 

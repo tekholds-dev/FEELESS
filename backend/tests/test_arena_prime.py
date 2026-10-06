@@ -1549,3 +1549,24 @@ def test_auto_profit_taking_stops_once_it_has_sold_25c_of_a_coins_stake():
     assert ap._skim(c, dict(l), 3.0, {}, 300) > 0
     l2 = {**l, 'units': 1.0, 'costUsd': 0.56, 'tpCostUsd': 0.0}
     assert ap.lock_bank(c, l2, 1.12, {}, 300, {**cfg, 'tpStakeUsd': 0, 'lockBankPct': 50}) > 0 and abs(l2['costUsd'] - 0.28) < 1e-6
+
+
+def test_a_real_cards_empty_seat_waits_out_loud_when_the_keeper_could_not_send_its_buy():
+    import arena_prime as ap
+    now = 1_000_000.0
+    leg = lambda m, role, units: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': role, 'units': units, 'entry': 1.0, 'costUsd': units, 'at': now - 9999, 'liq': 5e6}
+    base = {'tpl': 'degen', 'id': 'x', 'label': 'B', 'at': now - 9999, 'lastRotateAt': now, 'startUsd': 1.0, 'roundStartUsd': 1.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
+            'feesUsd': 0.0, 'events': [], 'rounds': 3, 'real': True}
+    px = {'PM': 1.0, 'PA': 1.0, 'PB': 1.0, 'PN': 1.0}
+    new = {'mint': 'N', 'pairAddress': 'PN', 'symbol': 'N', 'price': 1.0, 'score': 70, 'liq': 5e6}
+    cfg = ap.clean_cfg({'rotateHours': 99, 'coins': 4, 'rescuePct': 0, 'compound': False, 'cycles': {'degen': 'off'}, 'lockBankPct': 0, 'tpStakeUsd': 0})
+    card = {**base, 'cash': 0.06, 'legs': [leg('M', 'anchor', 0.30), leg('A', 'runner', 0.31), leg('B', 'runner', 0.30)]}
+    # $0.06 free, coins only cents over an equal share: nothing the keeper would send ($0.10 smallest order) → the seat WAITS, said once
+    c = ap.tick(card, px, [], [new], {**cfg, 'minOrderUsd': 0.10}, now + 30, [], {}, {})
+    assert [l['mint'] for l in c['legs']] == ['M', 'A', 'B'] and c['seats'] == 4 and not any(l.get('trimAt') for l in c['legs'])
+    waits = [e for e in c['events'] if e['kind'] == 'seat-wait']
+    assert len(waits) == 1 and '$0.10' in waits[0]['why']
+    assert len([e for e in ap.tick(c, px, [], [new], {**cfg, 'minOrderUsd': 0.10}, now + 90, [], {}, {})['events'] if e['kind'] == 'seat-wait']) == 1   # not every tick
+    # enough free cash → the seat is filled and the wait is over
+    c2 = ap.tick({**card, 'cash': 0.20}, px, [], [new], {**cfg, 'minOrderUsd': 0.10}, now + 30, [], {}, {})
+    assert [l['mint'] for l in c2['legs']][-1] == 'N' and not [e for e in c2['events'] if e['kind'] == 'seat-wait']

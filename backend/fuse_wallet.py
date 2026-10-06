@@ -108,11 +108,27 @@ REBAL_BAND = 0.5   # coins kept through a re-shape: sell / rebuy only when > 50%
 #                    burnt the daily cap on churn (cbBTC bought 14:20, sold 14:21, bought again) and starved the real new buys
 
 
+MIN_ORDER_FLOOR = 0.10
+
+
+def min_order(cfg, equity_usd=0.0, seats=0):
+    """💵 The smallest order THIS card sends = the owner's `minOrderUsd`, but never more than 40% of one seat's equal share
+    (and never under $0.10). Found live: a $0.99 card with 4 seats has $0.25 seats; at a flat $0.25 minimum it could not buy its
+    4th coin or trim the others to fund it, so that seat sat on "buying…" and was swapped for another coin every 2 minutes,
+    for good. Cards with seats of $0.63 or more are not affected."""
+    mo = _f(clean_cfg(cfg)['minOrderUsd'])
+    if _f(equity_usd) > 0 and int(seats or 0) > 0:
+        mo = min(mo, max(MIN_ORDER_FLOOR, _f(equity_usd) / int(seats) * 0.4))
+    return round(mo, 4)
+
+
 def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
     """The swaps that move the REAL book to the paper target. Sells first (they fund the buys), then buys sized by the SOL the
     card really has (never more). Each order ≤ maxSwapUsd (the rest goes next tick); dust is ignored; SOL needs no swap."""
     cfg = clean_cfg(cfg)
     tgt = target(card, prices)
+    seats_ = max(int(_f(card.get('seats'))), len([l for l in card.get('legs') or [] if not l.get('placeholder')]))
+    cfg = {**cfg, 'minOrderUsd': min_order(cfg, book_value(book, prices, sol_px) if sol_px > 0 else 0.0, seats_)}   # sized to the card's seats
     sells, buys = [], []
     for mint, l in (book.get('legs') or {}).items():
         if mint == SOL_MINT or not l.get('atoms'):

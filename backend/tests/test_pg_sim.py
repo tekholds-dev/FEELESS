@@ -14,7 +14,7 @@ def test_flat_market_costs_only_the_swap_fees_and_sims_are_deterministic():
     a = ps.run(flat, NOW, n=50, seed=7); b = ps.run(flat, NOW, n=50, seed=7)
     assert len(a) == 50 and a == b
     assert all(r['pct'] <= 0 for r in a)                                           # nothing moved → never a fake gain
-    assert all(-1.5 < r['pct'] for r in a if r['cfg']['minDrop'] > 0)              # rotate-only-losers: just the entry cost
+    assert all(-ps.SWAP_COST * 100 - 0.01 < r['pct'] for r in a if r['cfg']['minDrop'] > 0)   # rotate-only-losers: just the entry cost
     churn = [r['pct'] for r in a if r['cfg']['minDrop'] == 0 and r['cfg']['clock'] == 5]
     assert not churn or min(churn) < -20                                            # 'rotate anything' every 5 min = fees eat the card
 
@@ -84,3 +84,39 @@ def test_settings_losing_in_both_windows_are_retired_for_a_day_and_a_trait_never
     good = {'tp': {'50': s(5, 80)}}
     assert '50' in ps.retire(good, good, r, 1000.0 + 3600)['tp']                      # an hour later, looking fine: still sits out its day
     assert ps.retire(good, good, r, 1000.0 + 90000) == {}                             # a day later and no longer losing: back
+
+
+def test_the_sim_keeps_the_coins_that_died_and_sells_them_under_their_last_reading():
+    # M0 stops trading 2h in (off the feed); the others are flat. The old sim dropped M0 from the replay entirely (survivors only).
+    def pts(i):
+        last = 24 if i == 0 else 288
+        return [[NOW - 24 * 3600 + k * 300, 1.0] for k in range(last)]
+    gone = {f'M{i}': pts(i) for i in range(8)}
+    series = ps._series(gone, NOW - 24 * 3600, 288)
+    assert 'M0' in series and series['M0'][0] == 1.0 and series['M0'][-1] is None
+    cfg = {'clock': 60, 'tp': 300, 'sl': 30, 'minDrop': 20, 'confirm': 4}
+    with_dead = ps.simulate(series, ['M0', 'M1', 'M2', 'M3'], cfg, 288)
+    alive = ps.simulate(series, ['M4', 'M1', 'M2', 'M3'], cfg, 288)
+    assert alive == round(-ps.SWAP_COST * 100, 3)                                   # flat coins: just the entry cost
+    assert with_dead < alive - 25 * ps.GONE_HAIRCUT                                  # a quarter of the card took the haircut (+ re-entry costs)
+    # an impossible UP-tick (bad read) drops the path; a crash of any size is real and stays
+    spike = {**gone, 'S': [[NOW - 24 * 3600 + k * 300, 1.0 if k < 50 else 9.0] for k in range(288)], 'R': [[NOW - 24 * 3600 + k * 300, 1.0 if k < 50 else 0.05] for k in range(288)]}
+    s2 = ps._series(spike, NOW - 24 * 3600, 288)
+    assert 'S' not in s2 and s2['R'][-1] == 0.05
+
+
+def test_with_the_boards_rounds_a_card_buys_only_what_was_offered_and_its_selection_genes_apply():
+    mk = lambda px: [[NOW - 6 * 3600 + k * 300, px(k)] for k in range(72)]
+    paths_ = {'OLD': mk(lambda k: 1.0), 'NEW': mk(lambda k: max(0.05, 1.0 - 0.02 * k)), 'X': mk(lambda k: 1.0)}
+    snap = lambda m, age, liq: {'mint': m, 'score': 50, 'ageH': age, 'liq': liq}
+    rounds = [{'at': NOW - 6 * 3600 - 60 + i * 900, 'picks': [snap('NEW', 0.5, 20000), snap('OLD', 20, 200000)]} for i in range(24)]   # X is never offered
+    off = ps.offers(rounds, NOW - 6 * 3600, 72)
+    assert [p['mint'] for p in off[0]] == ['NEW', 'OLD'] and ps.offers([], NOW, 3) == [[], [], []]
+    series = ps._series(paths_, NOW - 6 * 3600, 72)
+    cfg = {'clock': 15, 'tp': 300, 'sl': 20, 'minDrop': 5, 'confirm': 1, 'age': 0, 'pool': 0}
+    loose = ps.simulate(series, ['NEW', 'OLD'], cfg, 72, offer=off, seats=2)
+    strict = ps.simulate(series, ['OLD'], {**cfg, 'age': 12, 'pool': 100}, 72, offer=off, seats=2)      # only OLD qualifies; the other seat waits in cash
+    assert strict > loose and strict > -2 and ps.simulate.trades == 1                                   # never bought NEW, never bought X
+    assert ps.fits({'ageH': None, 'liq': 5e5}, {'age': 1}) is False and ps.fits({'ageH': 2, 'liq': 5e5}, {'age': 1, 'pool': 100})
+    res = ps.run(paths_, NOW, n=40, hours=6, seed=3, rounds=rounds)
+    assert res and all(r['trades'] >= 1 for r in res) and all('age' in r['cfg'] and 'edge' not in r['cfg'] for r in res)   # record too short for an edge table

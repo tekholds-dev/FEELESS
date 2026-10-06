@@ -5683,7 +5683,8 @@ async def _prime_candidates():
     # runners = pre-bond coins passing every gate + CLEAN GRADUATED young coins (<48h, failing ONLY the pre-bond gate)
     young = list(live.get('passing') or []) + [r for r in live.get('dropped') or [] if r.get('gates') == ['Pre-bond (still on the curve)']]
     runners = sorted(({'mint': r['mint'], 'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'price': r.get('price'), 'score': r.get('score'),
-                      'vol1h': r.get('vol1h'), 'buyShare': r.get('buyShare'), 'liq': r.get('liq'), 'ageH': r.get('ageH')} for r in young if _fuse._f(r.get('price')) > 0),   # depth travels with the coin (else every runner read $0 and failed the real-buy floor)
+                      'vol1h': r.get('vol1h'), 'buyShare': r.get('buyShare'), 'liq': r.get('liq'), 'ageH': r.get('ageH'),
+                      'mcap': r.get('mcap'), 'chg1h': r.get('chg1h'), 'chg5m': r.get('chg5m'), 'stage': r.get('stage')} for r in young if _fuse._f(r.get('price')) > 0),   # depth travels with the coin (else every runner read $0 and failed the real-buy floor)
                      key=lambda x: -_fuse._f(x['score']))
     # 🚀 NEW MAJORS (young coins that arrived big: ≤14d, $800K–$50M, $300K+ volume, $100K+ pool) — the secure growth slot when no
     # runner is safe to buy, so a card is never ONLY old majors
@@ -5795,7 +5796,8 @@ async def fuses_forecast():
     rcfg = _runner_cfg()
     safe = [r for r in _runner_cands if _rn.safe_only(r, rcfg) and _fuse._f(r.get('liq')) >= 10000]   # setups only among coins clearing every SAFETY gate
     proof = _trench.meta_proof(_json_load(ENTRY_PROOF_PATH, {}), keys=_prime.ENTRY_SETUPS)
-    return {**_prime.forecast(_json_load(PG_SIM_PATH, {}), _runner_cands), 'entries': [{**e, 'proof': proof.get(e['setup'])} for e in _prime.entries(safe)],
+    eg = _edge_load()
+    return {**_prime.forecast(_json_load(PG_SIM_PATH, {}), _runner_cands), 'edge': {k: eg.get(k) for k in ('n', 'base', 'proof', 'best', 'worst', 'at')} | {'on': bool(eg.get('table'))}, 'entries': [{**e, 'proof': proof.get(e['setup'])} for e in _prime.entries(safe)],
             'setups': [{'key': k, 'ico': v[0], 'name': v[1], 'why': v[2], **(proof.get(k) or {})} for k, v in _prime.ENTRY_SETUPS.items()]}
 
 
@@ -6005,6 +6007,10 @@ async def _prime_tick_inner(now):
             p_t = [x for x in p_t if x.get('mint') in on_ or _prime.entry_ok(x, mom)]
             r_t = [x for x in r_t if x.get('mint') in on_ or _prime.entry_ok(x, mom)]
         book_s = (_fw_load().get('books') or {}).get(tid) or {} if cur and cur.get('real') else {}
+        # 💵 the smallest order this card can send (sized to its seats) — the engine never opens a seat or cuts a coin by less
+        mo_t = _fw.min_order(fw_cfg, _prime.value(cur, px, liqs), int(_fuse._f(cfg_t.get('coins'))) or len(cur.get('legs') or [])) if cur and cur.get('real') else 0.0
+        if mo_t:
+            cfg_t = {**cfg_t, 'minOrderUsd': mo_t}
         stuck = set(_fw.stuck_buys(cur, now, bench, missed=book_s.get('misses'), pending_mint=(book_s.get('pending') or {}).get('toMint') or (book_s.get('pending') or {}).get('mint'))) if cur and cur.get('real') else set()
         if stuck:   # ⏳ the real card swaps a coin whose buy can't land (benched, or refused 15s ago) for a buyable one NOW
             before_ = cur
@@ -6018,6 +6024,11 @@ async def _prime_tick_inner(now):
                 why_x = ((book_s.get('benched') or {}).get(l.get('mint')) or (book_s.get('misses') or {}).get(l.get('mint')) or {}).get('why')
                 why_s += f' ({why_x})' if why_x else ''   # the keeper's own reason, so a refused pick is never silent
                 try:
+                    want_usd = _fuse._f(l.get('wantUnits')) * (_fuse._f(px.get(pa)) or _fuse._f(l.get('entry')))
+                    if mo_t and want_usd < mo_t * 0.98 and want_usd < _fw.LEFTOVER_MIN_USD:
+                        # the seat's money is under the smallest order the keeper sends: another coin would wait just the same
+                        why_s = f"its ${want_usd:.2f} is under the smallest order the card can send (${mo_t:.2f})"
+                        raise ValueError('unfundable seat')
                     tmp = {**cur, 'legs': [{**x, 'units': _fuse._f(x.get('wantUnits'))} if x is l else x for x in cur['legs']]}
                     cur = _prime.replace_leg(tmp, pa, px, p_t, r_t, anchors, cfg_t, now)
                     cur['events'] = cur['events'][:-1] + [{**cur['events'][-1], 'why': f"⏳ ${l.get('symbol')} {why_s} — swapped for a buyable coin"}]
@@ -6027,6 +6038,14 @@ async def _prime_tick_inner(now):
             cur = _prime.note_dropped(before_, cur, now, cfg_t['rotateHours'], px)   # 🧊 the stuck coin cools like any coin that left
         # ⏱ each clock gets ITS coins: fast rounds rank by what is moving now, slow rounds keep depth / score order
         p_t, r_t = _prime.clock_rank(p_t, cfg_t['rotateHours'], mom), _prime.clock_rank(r_t, cfg_t['rotateHours'], mom)
+        # 🧠 EDGE: runners are ranked by what the board's own record says about coins like them (pick_edge.py) — the hand-written score and
+        # the "what is hot now" order both pointed at the coins that lost most. Real money buys only runners the record does not
+        # expect to lose (cfg `edgeGate`, on by default); no table yet / table failing its own test = the order above stands.
+        tb_ = _edge_load().get('table')
+        if tb_:
+            r_t = _pedge.rank(r_t, tb_)
+            if real_t and cfg_t.get('edgeGate', True):
+                r_t = _pedge.gate(r_t, tb_, 0.0)
         mine = {l.get('mint') for l in (cur or {}).get('legs') or []}
         p_t = [x for x in p_t if x.get('mint') not in taken or x.get('mint') in mine]
         r_t = [x for x in r_t if x.get('mint') not in taken or x.get('mint') in mine]
@@ -8540,11 +8559,31 @@ import pg_sim as _pgs
 PG_SIM_PATH = DATA_DIR / 'pg_sim.json'   # its own file: never bloats runners.json
 
 
+import pick_edge as _pedge
+EDGE_PATH = FUSE_HQ_PATH.parent / 'edge.json'
+_edge_state: dict = {}
+
+
+def _edge_load():
+    """The last edge table from disk (once, after a restart) so cards are ranked before the first sim tick."""
+    if not _edge_state and not os.environ.get('PYTEST_CURRENT_TEST'):
+        _edge_state.update(_json_load(EDGE_PATH, {}) or {'at': 0})
+    return _edge_state
+
+
 async def _pg_sim_tick(now):
     """🧠 Background playground: 300 sim cards (random clock / TP / SL / hold / rotate-only-losers) replayed over the REAL recorded
     price paths of the last 24h and 6h, fees on every swap. The brain keeps the trait scores; HQ can apply its pick to the tier engine."""
-    paths = _json_load(RUNNERS_PATH, {}).get('paths') or {}
-    res24, res6 = await asyncio.to_thread(_pgs.run, paths, now, 200, 24), await asyncio.to_thread(_pgs.run, paths, now, 100, 6)
+    rd_ = _json_load(RUNNERS_PATH, {})
+    paths, rounds_ = rd_.get('paths') or {}, rd_.get('rounds') or []
+    res24 = await asyncio.to_thread(_pgs.run, paths, now, 300, 24, None, _pgs.SWAP_COST, rounds_)
+    res6 = await asyncio.to_thread(_pgs.run, paths, now, 200, 6, None, _pgs.SWAP_COST, rounds_)
+    try:   # 🧠 what the board's own record says about its picks (learned only from outcomes already known) → ranking + real-money gate
+        eb_ = await asyncio.to_thread(_pedge.build, rounds_, paths, now)
+        _edge_state.update(eb_)
+        _json_save(EDGE_PATH, eb_)
+    except Exception as e:
+        print('edge build:', e)
     res = res24 + res6
     if not res:
         return 0
