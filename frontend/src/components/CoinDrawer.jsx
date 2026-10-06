@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { openMiniChart } from './MiniChart';
 import { PumpProfile } from './PumpProfile';
 import { createPortal } from 'react-dom';
 import { useCoinEdge } from '../lib/coinEdge';
@@ -75,6 +76,7 @@ export function CoinDrawer({ coin, onClose }) {
         <i className="cd-disco" aria-hidden /><div className="cd-chart-in">
           <div className="cd-chart-bar"><span className="m-label">📈 LIVE CHART</span>
             <div className="m-seg" role="radiogroup" aria-label="Chart timeframe">{CD_TFS.map(t => <button key={t} type="button" role="radio" aria-checked={ctf === t} className={ctf === t ? 'active' : ''} onClick={() => setCtf(t)} data-testid={`cd-ctf-${t}`}>{t.toUpperCase()}</button>)}</div>
+            <button type="button" className="m-btn cd-war" onClick={() => { onClose(); openMiniChart(pair); }} data-testid="cd-mini" data-tip="Mini chart: closes this and keeps the chart floating on every page" aria-label="Mini chart">📌</button>
             <button type="button" className="m-btn cd-war" onClick={() => { onClose(); openWarRoom(pair); }} data-testid="cd-war" data-tip="Open the full war room: big chart, live trades, chat and quick trade">⚔ War room</button></div>
           <React.Suspense fallback={<p className="m-dim cd-chart-wait">Loading chart…</p>}><PriceChart key={`${coin.pairAddress}-${ctf}`} pair={{ ...pair, priceUsd: live?.price ?? null }} interval={ctf} metric="price" showVolume={false} /></React.Suspense>
         </div></div>}

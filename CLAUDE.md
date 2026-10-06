@@ -1654,3 +1654,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (never the card's last one), compound never targets an empty / reserved seat, the seat refills when a coin qualifies. THREE
   versions of this bug so far (stop placeholder, unbought leg "stopped", ride-end leg): A LEG WITH 0 UNITS THAT STILL CARRIES A MINT
   IS A BUY ORDER WAITING TO HAPPEN — whenever a coin is sold whole, the leg must become a placeholder with no want, or leave.
+- 📌 MINI CHART (`components/MiniChart.jsx`: `openMiniChart(pair)` + ONE `MiniChartHost` in the terminal shell, `styles/miniChart.css`
+  `mch-*`): the 📌 button in every chart's toolbar (and in the coin drawer) closes the war room / drawer (`EcosystemWorld` listens to
+  `feeless:mini-chart` → `onClose`) and keeps the SAME `PriceChart` in a 360px floating window on every page — docked bottom-left
+  (FeeCat owns bottom-right), draggable by its header, 1m / 5m / 15m, live price + 5m move, ⚔ reopens the war room, × closes. The
+  coin and the window's place live in localStorage `feeless.miniChart` (survives page changes and reloads).
+- ✨ CARD POPS (`components/CardPops.jsx` `popsFrom` / `nearTargets`, `styles/cardPops.css` `cpop-*`; wrapped around the card art of
+  the real card and every tier card): a number floats off the card when money goes back to work or profit is taken (`+$0.25 ♻
+  COMPOUND`, `💰 PROFIT`, `🏦 BANKED`, `🔒 $SYM LOCKED`) — only for events that arrive AFTER the card is on screen; a folded compound
+  line pops its `lastUsd`, not the half-hour total. A coin in the last quarter before its lock / take-profit line shows a charging
+  chip at the foot of the card (`⚡ $SK +13% · lock +15%`). Overlay only; numbers hidden in lite mode / reduced motion.
+- 2026-10-06 real card, last hour: 44 swaps, $46 turnover on a ~$6 card, buys filled 1.9% above the mid price on average, 10 hand
+  picks. Realized −$0.13; the rest of the fall was open positions + entry cost. TURNOVER × ENTRY COST is the leak to quote, not fees ($0.05).

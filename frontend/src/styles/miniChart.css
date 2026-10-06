@@ -1,0 +1,24 @@
+/* 📌 Mini chart (MiniChart.jsx): a coin's chart floating on every page. Docked bottom-left (the FeeCat box owns bottom-right). */
+.mch { position: fixed; left: 18px; bottom: 18px; z-index: 840; width: 360px; border-radius: 14px; padding: 2px; overflow: hidden; isolation: isolate; box-shadow: 0 18px 44px -18px #000, 0 0 26px -12px rgba(21, 209, 106, .7); animation: mchIn .22s ease both; }
+.mch-edge { position: absolute; left: 50%; top: 50%; width: 200%; aspect-ratio: 1; margin: -100% 0 0 -100%; z-index: -1; background: conic-gradient(#15d16a, #a06eff, #f5c451, #3cdcff, #15d16a); animation: mchSpin 9s linear infinite; }
+.mch-head { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: #08100d; border-radius: 12px 12px 0 0; cursor: grab; touch-action: none; user-select: none; }
+.mch-head:active { cursor: grabbing; } .mch-head b { font-size: 13px; max-width: 86px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mch-head em { font-style: normal; font-size: 12px; } .mch-head u { text-decoration: none; font: 11px "JetBrains Mono", monospace; }
+.mch-acts { margin-left: auto; display: flex; gap: 3px; }
+.mch-acts button { height: 22px; min-width: 24px; padding: 0 5px; border-radius: 6px; border: 1px solid #203129; background: #0a1210; color: #b9cdc2; font: 10px "JetBrains Mono", monospace; cursor: pointer; transition: border-color .15s ease, color .15s ease, background .15s ease; }
+.mch-acts button:hover { border-color: #15d16a88; color: #e7fff3; } .mch-acts button:active { transform: translateY(1px); } .mch-acts button:focus-visible { outline: 2px solid #45e486; outline-offset: 1px; }
+.mch-acts button.active { background: #15d16a; border-color: #15d16a; color: #04140b; }
+.mch-body { background: #070c0b; border-radius: 0 0 12px 12px; overflow: hidden; }
+.mch .chart-area { min-height: 190px !important; height: 190px; } .mch .candle-canvas { height: 190px !important; flex: none; }
+.mch :is(.chart-foot-chips, .chart-style-toggle, .chart-source, .chart-stale-note, .fee-pnl) { display: none !important; }
+.mch-wait { margin: 0; height: 190px; display: grid; place-items: center; font-size: 12px; }
+@keyframes mchIn { from { transform: translateY(14px) scale(.96); } to { transform: none; } }
+@keyframes mchSpin { to { transform: rotate(360deg); } }
+body.fx-lite .mch, body.fx-lite .mch-edge { animation: none; }
+@media (prefers-reduced-motion: reduce) { .mch, .mch-edge { animation: none; } }
+body.theme-day .mch-head { background: #f1faf5; } body.theme-day .mch-body { background: #edf4ef; } body.theme-day .mch-acts button { background: #fff; border-color: #aac7b3; color: #315b43; }
+body.theme-day .mch-acts button.active { background: #0b7a4a; border-color: #0b7a4a; color: #fff; }
+@media (max-width: 640px) { .mch { left: 8px !important; right: 8px; top: auto !important; bottom: 76px !important; width: auto; } .mch .chart-area, .mch .candle-canvas, .mch-wait { height: 150px !important; min-height: 150px !important; } }
+.chart-mini-btn { height: 26px; width: 30px; flex: none; border-radius: 6px; border: 1px solid #203129; background: #0a1210; cursor: pointer; font-size: 12px; transition: border-color .15s ease, transform .1s ease; }
+.chart-mini-btn:hover { border-color: #15d16a88; } .chart-mini-btn:active { transform: translateY(1px); } .chart-mini-btn:focus-visible { outline: 2px solid #45e486; outline-offset: 1px; }
+body.theme-day .chart-mini-btn { background: #fff; border-color: #aac7b3; }

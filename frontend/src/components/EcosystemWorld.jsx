@@ -73,8 +73,10 @@ export default function EcosystemWorld({ ecosystem, pad, initialPair, onClose })
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') onClose?.(); };
     window.addEventListener('keydown', onKey);
+    const onMini = () => onClose?.();   /* 📌 a chart sent to the mini window closes the room it came from */
+    window.addEventListener('feeless:mini-chart', onMini);
     document.body.style.overflow = 'hidden';
-    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
+    return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('feeless:mini-chart', onMini); document.body.style.overflow = ''; };
   }, [onClose]);
 
   const room = `${ecosystem.id}-general`;

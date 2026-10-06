@@ -1831,7 +1831,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             if free_cash < 0.01:
                 pass
             elif last.get('kind') == 'compound' and now - _f(last.get('firstAt') or last.get('at')) < 1800:   # one line per half hour, not one a tick
-                c['events'][-1] = {**last, 'at': now, 'firstAt': last.get('firstAt') or last.get('at'), 'usd': round(_f(last.get('usd')) + free_cash, 4),
+                c['events'][-1] = {**last, 'at': now, 'firstAt': last.get('firstAt') or last.get('at'), 'usd': round(_f(last.get('usd')) + free_cash, 4), 'lastUsd': round(free_cash, 4),
                                    'n': int(last.get('n') or 1) + 1, 'to': [l['symbol'] for l in targets]}
             else:
                 ev(kind='compound', usd=round(free_cash, 4), why='idle cash back into the card', to=[l['symbol'] for l in targets])
