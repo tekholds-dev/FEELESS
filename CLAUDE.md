@@ -1406,3 +1406,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   Jupiter's best route instead of one-hop first. Buys never escalate. Why: $SI's one-hop sell was refused three times at 3%; the
   keeper sends sells first, so every buy behind it "never landed in 2 min" and the card re-picked seats in a loop with $1.44 idle.
   SEVERAL "buy never landed" EVENTS + ONE failed sell ⇒ the sell is the jam; read its ledger `err` first.
+- 💵 THE ENGINE NEVER PICKS A DOLLAR-NAMED TICKER (`fuse_wallet.dollar_named`: USD? / EUR? / ?USD …; filtered from `p_t` + `r_t`
+  in `_prime_tick`; the owner may still pick one). A "new major" must be ≥ 24h old (`_prime_candidates`: `newMajor` only then;
+  younger rows from Pump's top-by-volume list carry `ageH` / `liq` / `chg1h` and face the launch-coin rules). Why: three different
+  half-hour-old "USDF / USDP / USDD" launches with $1.7M seeded pools kept taking the real card's seats through the new-major door
+  (exempt from age and from the owner's selection) — "SAME COINS AGAIN" on a real card ⇒ check which DOOR each leg came through
+  (`division`, `newMajor`) before touching the feed.

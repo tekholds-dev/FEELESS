@@ -111,6 +111,17 @@ REBAL_BAND = 0.5   # coins kept through a re-shape: sell / rebuy only when > 50%
 MIN_ORDER_FLOOR = 0.10
 
 
+import re as _re_dn
+_DOLLAR = _re_dn.compile(r'^(USD|EUR|GBP|JPY)[A-Z0-9]{0,4}$|^[A-Z]{0,3}(USD|USDT|USDC)$')
+
+
+def dollar_named(symbol):
+    """💵 A ticker dressed as a dollar coin (USDF · USDP · USDD · FDUSD …). The ENGINE never picks one: a real stable never moves
+    (it is not a trade), and a fresh launch wearing the name with a huge seeded pool is the classic bait — on 2026-10-06 three
+    different half-hour-old "USD?" launches kept taking the real card's seats through the big-pool door. The owner can still pick one."""
+    return bool(_DOLLAR.match(str(symbol or '').strip().upper().lstrip('$')))
+
+
 SELL_SLIP_MAX = 800      # bps — the most slippage an EXIT may use after it has already failed (a first try never goes past 3%)
 SELL_FAIL_WINDOW = 900.0
 

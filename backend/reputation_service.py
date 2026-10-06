@@ -5696,8 +5696,12 @@ async def _prime_candidates():
         if os.environ.get('PYTEST_CURRENT_TEST'):
             raise RuntimeError('tests never fetch live pools')
         have = {r['mint'] for r in runners}
+        # a "new major" is DAYS old: Pump's top-by-volume list also carries coins minutes old with a huge seeded pool — those are
+        # launch coins and must pass the launch-coin rules (age, the owner's selection), never the big-pool door
+        _age_h = lambda r: ((time.time() * 1000 - _fuse._f(r.get('createdAt'))) / 3.6e6) if _fuse._f(r.get('createdAt')) > 0 else None
         runners += [{'mint': r.get('baseAddress'), 'pairAddress': r.get('pairAddress'), 'symbol': r.get('symbol'), 'price': r.get('priceUsd'), 'score': 60,
-                     'liquidity': r.get('liquidityUsd'), 'buyShare': r.get('buyShare'), 'change24h': r.get('change24h'), 'newMajor': True,
+                     'liquidity': r.get('liquidityUsd'), 'buyShare': r.get('buyShare'), 'change24h': r.get('change24h'), 'newMajor': (_age_h(r) or 0) >= 24,
+                     'ageH': _age_h(r), 'liq': r.get('liquidityUsd'), 'chg1h': r.get('change1h'),
                      'change1h': r.get('change1h'), 'change6h': r.get('change6h'), 'mcap': r.get('mcap'), 'createdAt': r.get('createdAt'), 'volume24h': r.get('volume24h')}
                     for r in (await fuses_discover(lens='risers', chain='solana')).get('pools') or [] if r.get('baseAddress') not in have and _fuse._f(r.get('priceUsd')) > 0]   # 🚀 risers + 🟢 Pump's top 15 by volume (same as the Lab lens)
     except Exception as e:
@@ -6118,6 +6122,8 @@ async def _prime_tick_inner(now):
                     cur = {**cur, 'legs': [x for x in cur['legs'] if x is not l], 'events': list(cur.get('events') or []) + [
                         {'at': now, 'kind': 'rotate', 'symbol': l.get('symbol'), 'usd': 0.0, 'why': f"⏳ ${l.get('symbol')} {why_s} — slot back to card cash"}]}
             cur = _prime.note_dropped(before_, cur, now, cfg_t['rotateHours'], px)   # 🧊 the stuck coin cools like any coin that left
+        # 💵 dollar-named tickers are never the engine's choice (pools, runners, new majors) — see fuse_wallet.dollar_named
+        p_t = [x for x in p_t if not _fw.dollar_named(x.get('symbol'))]; r_t = [x for x in r_t if not _fw.dollar_named(x.get('symbol'))]
         # ⏱ each clock gets ITS coins: fast rounds rank by what is moving now, slow rounds keep depth / score order
         p_t, r_t = _prime.clock_rank(p_t, cfg_t['rotateHours'], mom), _prime.clock_rank(r_t, cfg_t['rotateHours'], mom)
         # 🧠 EDGE: runners are ranked by what the board's own record says about coins like them (pick_edge.py) — the hand-written score and

@@ -1195,3 +1195,10 @@ def test_an_exit_that_keeps_failing_gets_more_slippage_and_any_route_a_buy_never
     assert fw.sell_escalation([F(900)] * 9, 'c', 'M', 1000.0, 100)[0] == 800                       # never past 8%
     assert fw.sell_escalation([F(10)], 'c', 'M', 1000.0, 100)[2] is False                            # an old failure is forgotten
     assert fw.sell_escalation([F(900, 'buy'), F(900, st='filled'), F(900, mint='X')], 'c', 'M', 1000.0, 100)[2] is False
+
+
+def test_dollar_named_tickers_are_never_the_engines_choice():
+    for sym in ('USDF', 'USDP', 'USDD', 'usd1', '$USDC', 'FDUSD', 'PYUSD', 'EURC', 'USDT'):
+        assert fw.dollar_named(sym), sym
+    for sym in ('GOMO', 'Frank', 'SNARKSTR', 'USELESS', 'SI', 'UDR', 'JUP', '', None):
+        assert not fw.dollar_named(sym), sym
