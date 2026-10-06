@@ -14,6 +14,7 @@ from losers (`proof`). A ranking from a short record — never a promise.
 Pure: no I/O, no clock. `paths` = {mint: [[t, price], …]}, `rounds` = [{at, picks: [snapshot]}].
 """
 import bisect
+import chart_read as _chart
 import statistics
 
 HORIZON = 3 * 3600     # the outcome a pick is judged on
@@ -51,6 +52,14 @@ FEATURES = {
     'turn': ('1h volume ÷ pool', ('under 0.25×', '0.25–0.5×', '0.5–1×', '1–2×', 'over 2×'),
              lambda c: None if not _f(c.get('liq')) or c.get('vol1h') is None else _b(_f(c['vol1h']) / _f(c['liq']), (0.25, 0.5, 1, 2))),
     'stage': ('stage', ('on the curve', 'graduated'), lambda c: None if not c.get('stage') else (0 if c['stage'] == 'curve' else 1)),
+    # 📈 the coin's own CHART (chart_read.py, from recorded prices before the pick). 2026-10-06 on 179 judged picks: a chart too
+    # short to read −72% typical vs −12% readable · structure up +1% / range −14% / down −40% · top third of its range −2% vs
+    # bottom third −31% · 5–15% under its high +26% (73% up, 11 picks) vs > 35% under −41%. Fair value gaps and sweeps did NOT
+    # separate winners here (kept in the read, not in the table) — a read earns its place only by this proof.
+    'cread': ('chart', ('too short to read', 'readable'), lambda c: None if c.get('cBars') is None else (1 if c['cBars'] else 0)),
+    'cstruct': ('chart structure', ('down', 'range', 'up'), lambda c: {'down': 0, 'range': 1, 'up': 2}.get(c.get('cStruct'))),
+    'cpos': ('place in its range', ('bottom third', 'middle', 'top third'), lambda c: None if c.get('cPos') is None else _b(_f(c['cPos']), (0.33, 0.66))),
+    'cpull': ('pullback from its high', ('under 5%', '5–15%', '15–35%', 'over 35%'), lambda c: None if c.get('cPull') is None else _b(_f(c['cPull']), (5, 15, 35))),
 }
 
 
@@ -88,6 +97,7 @@ def samples(rounds, paths, upto, horizon=HORIZON):
                 continue
             x, g = _px(ix, m, t0 + horizon)
             last[m] = t0
+            p = {**p, **_chart.keys(list(zip(*ix[m])), t0)}   # 📈 what its chart looked like when it was picked (only readings before t0 are used)
             out.append({'at': t0, 'mint': m, 'snap': p, 'pct': round(max(-CAP, min(CAP, (x * ((1 - GONE) if g > GAP else 1.0) / e - 1) * 100)), 2)})
     return out
 

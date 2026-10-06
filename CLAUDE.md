@@ -1416,3 +1416,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   path with `pairAddress '__seat__'`: same live-list / pool floor / verified-pick checks; button `fill-seat` on the real card
   while it holds fewer coins than the owner's count; `SwapPicker out.seat`). The seat refill takes the owner's pick first (leg
   `picked`), on the next tick, with an equal share; `to: null` cancels. Left alone the engine still fills the seat itself.
+- 📈 CHART READ (`backend/chart_read.py` pure + tested: `candles/read/keys` — 15-min candles from the recorded 5-min prices of the
+  last 4h → structure up / range / down · fair value gap in / above / lost · reclaimed sweep · squeeze · place in range ·
+  pullback from high; None under 5 candles). `pick_edge.samples` attaches `keys()` to each judged pick (readings BEFORE the pick
+  only) and FEATURES learns `cread` / `cstruct` / `cpos` / `cpull`; `_prime_tick` attaches the same keys to live candidates before
+  `rank`. 2026-10-06, 179 picks: chart too short to read −72% typical vs −12% readable · up +1 / range −14 / down −40 · top third
+  of its range −2 vs bottom −31 · 5–15% under its high +26% (11 picks). Out of sample the best-vs-worst spread widened 42 → 58
+  pts (the losers are found better; the top third is unchanged ≈ flat). FVG, sweep and squeeze did NOT separate winners on this
+  record, so they are read but not learned. NEW SIGNAL (stock / options / trench idea) ⇒ add it to `read`, add a FEATURE, compare
+  `proof` with and without it — it ships only if the spread grows.

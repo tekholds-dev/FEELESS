@@ -6131,6 +6131,8 @@ async def _prime_tick_inner(now):
         # expect to lose (cfg `edgeGate`, on by default); no table yet / table failing its own test = the order above stands.
         tb_ = _edge_load().get('table')
         if tb_:
+            pth_ = _json_load(RUNNERS_PATH, {}).get('paths') or {}   # 📈 each candidate's own chart read (chart_read.py) joins its snapshot
+            r_t = [{**x, **_pedge._chart.keys(pth_.get(x.get('mint')) or [], now)} for x in r_t]
             r_t = _pedge.rank(r_t, tb_)
             if cfg_t.get('edgeGate', True):   # real AND paper (paper = real)
                 r_t = _pedge.gate(r_t, tb_, float(cfg_t.get('edgeFloor') or 0))
