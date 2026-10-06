@@ -111,6 +111,19 @@ REBAL_BAND = 0.5   # coins kept through a re-shape: sell / rebuy only when > 50%
 MIN_ORDER_FLOOR = 0.10
 
 
+SEAT_ROOM = 1.25   # a seat must be worth at least the smallest sendable order × this, or its buy can never be sent
+
+
+def fit_seats(equity_usd, seats):
+    """🪑 How many of the owner's seats a card of this size can really FILL: each needs ≥ MIN_ORDER_FLOOR × SEAT_ROOM ($0.125).
+    A $0.39 card set to 4 coins has $0.0975 a seat — under the $0.10 the keeper can send — so three seats sat on "buying…" for
+    good while the card bought, trimmed and re-bought the one coin it could. Never under 2 (1 for a card under $0.25)."""
+    seats = int(seats or 0)
+    if seats <= 0 or _f(equity_usd) <= 0:
+        return seats
+    return max(1 if _f(equity_usd) < 2 * MIN_ORDER_FLOOR * SEAT_ROOM else 2, min(seats, int(_f(equity_usd) // (MIN_ORDER_FLOOR * SEAT_ROOM))))
+
+
 def min_order(cfg, equity_usd=0.0, seats=0):
     """💵 The smallest order THIS card sends = the owner's `minOrderUsd`, but never more than 40% of one seat's equal share
     (and never under $0.10). Found live: a $0.99 card with 4 seats has $0.25 seats; at a flat $0.25 minimum it could not buy its

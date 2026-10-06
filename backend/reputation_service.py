@@ -6078,7 +6078,19 @@ async def _prime_tick_inner(now):
             r_t = [x for x in r_t if x.get('mint') in on_ or _prime.entry_ok(x, mom)]
         book_s = (_fw_load().get('books') or {}).get(tid) or {} if cur and cur.get('real') else {}
         # 💵 the smallest order this card can send (sized to its seats) — the engine never opens a seat or cuts a coin by less
-        mo_t = _fw.min_order(fw_cfg, _prime.value(cur, px, liqs), int(_fuse._f(cfg_t.get('coins'))) or len(cur.get('legs') or [])) if cur and cur.get('real') else 0.0
+        mo_t = 0.0
+        if cur and cur.get('real'):
+            eq_t = _prime.value(cur, px, liqs)
+            want_n = int(_fuse._f(cfg_t.get('coins'))) or len(cur.get('legs') or [])
+            fit_n = _fw.fit_seats(eq_t, want_n)   # 🪑 a card too small for the owner's coin count holds the seats it can really fill
+            if 0 < fit_n < want_n:
+                cfg_t = {**cfg_t, 'coins': fit_n}
+                if cur.get('seatFit') != fit_n:
+                    cur = {**cur, 'seatFit': fit_n, 'events': list(cur.get('events') or []) + [{'at': now, 'kind': 'seat-wait', 'usd': round(eq_t, 4),
+                           'why': f"🪑 the card is worth ${eq_t:.2f}: it holds {fit_n} of your {want_n} coins for now — a seat needs ${_fw.MIN_ORDER_FLOOR * _fw.SEAT_ROOM:.3f} or its buy cannot be sent. Seat {fit_n + 1} opens at ${(fit_n + 1) * _fw.MIN_ORDER_FLOOR * _fw.SEAT_ROOM:.2f}."}]}
+            elif cur.get('seatFit'):
+                cur = {k: v for k, v in cur.items() if k != 'seatFit'}
+            mo_t = _fw.min_order(fw_cfg, eq_t, min(want_n, fit_n) or want_n)
         if mo_t:
             cfg_t = {**cfg_t, 'minOrderUsd': mo_t}
         stuck = set(_fw.stuck_buys(cur, now, bench, missed=book_s.get('misses'), pending_mint=(book_s.get('pending') or {}).get('toMint') or (book_s.get('pending') or {}).get('mint'))) if cur and cur.get('real') else set()

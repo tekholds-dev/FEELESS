@@ -1167,3 +1167,10 @@ def test_the_smallest_order_is_sized_to_the_cards_seats_so_a_tiny_card_can_still
     book = {'sol': 0.0021, 'legs': {'A': bl(0.26, 'PA'), 'B': bl(0.27, 'PB'), 'C': bl(0.26, 'PC')}}
     o = fw.orders('t', c, book, {'PA': 1.0, 'PB': 1.0, 'PC': 1.0, 'PD': 1.0}, 100.0, {**CFG, 'minOrderUsd': 0.25, 'minLiqUsd': 0, 'arenaMinLiqUsd': 0}, 1000)
     assert [(x['side'], x['mint']) for x in o] == [('buy', 'D')] and abs(o[0]['usd'] - 0.20) < 0.011
+
+
+def test_a_small_card_holds_only_the_seats_it_can_really_fill():
+    assert fw.fit_seats(0.39, 4) == 3            # $0.0975 a seat could never be sent → 3 seats at $0.13
+    assert fw.fit_seats(0.50, 4) == 4 and fw.fit_seats(5.0, 4) == 4 and fw.fit_seats(5.0, 6) == 6
+    assert fw.fit_seats(0.30, 6) == 2 and fw.fit_seats(0.20, 4) == 1 and fw.fit_seats(0.0, 4) == 4 and fw.fit_seats(1.0, 0) == 0
+    assert fw.min_order({}, 0.39, fw.fit_seats(0.39, 4)) <= 0.39 / 3

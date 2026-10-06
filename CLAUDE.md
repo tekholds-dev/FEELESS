@@ -1384,3 +1384,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   labelled "not this card — every real buy and sell". `.ce-row` is flex-wrap with a ≥ 240px name column: a wide choice row drops
   under its name (a grid squeezed "Off its peak" to one word a line). New card setting ⇒ EDIT + one group's `rows([...])`;
   a wallet-wide limit ⇒ `TYPED`, never a card tab.
+- 🪑 A SMALL CARD HOLDS THE SEATS IT CAN FILL (`fuse_wallet.fit_seats`, `SEAT_ROOM` 1.25; `_prime_tick` lowers cfg `coins` for
+  that tick + ONE `seat-wait` event, card `seatFit`): a seat needs ≥ $0.125 (smallest sendable order $0.10 × 1.25). A $0.39 card
+  set to 4 coins had $0.0975 a seat → three seats on "buying… keeper retries" for good while the card bought, trimmed and
+  re-bought the one coin it could send. The owner's count comes back by itself as the card grows (seat N opens at N × $0.125).
+  "BUYING…" ON SEVERAL SEATS WITH IDLE CASH ⇒ divide the card by its seats before reading the keeper.
