@@ -5996,7 +5996,25 @@ async def _real_guard_loop():
                     due = [l.get('mint') for c in cards for l in c.get('legs') or [] if l.get('symbol') in hit and now - _guard_seen.get(l.get('mint'), 0) >= 30]
                     if due:
                         _guard_seen.update({m: now for m in due})
-                        await _prime_tick(now)
+                        # ⚡ FAST STOP first: the coin at its stop leaves the card and the keeper sells NOW; the full tick (refill,
+                        # riders, instant swaps) runs after. Waking the whole tick first cost ~2 minutes ($AGENCY: −15% stop sold −31%).
+                        stopped = False
+                        async with _prime_tick_lock:
+                            d_ = _json_load(FUSE_HQ_PATH, {}); cs_ = dict((d_.get('prime') or {}).get('cards') or {})
+                            for tid_, c_ in list(cs_.items()):
+                                if c_ and c_.get('real') and not c_.get('flooredAt') and not c_.get('holdAll'):
+                                    nw_ = _prime.fast_stop(c_, px, rcfg, now)
+                                    if nw_ is not c_:
+                                        cs_[tid_] = _prime.note_dropped(c_, nw_, now, rcfg['rotateHours'], {l.get('pairAddress'): px.get(l.get('mint')) for l in c_.get('legs') or []})
+                                        stopped = True
+                            if stopped:
+                                d_['prime'] = {**(d_.get('prime') or {}), 'cards': cs_}; _json_save(FUSE_HQ_PATH, d_)
+                        if stopped:
+                            try:
+                                await _fw_tick(now)
+                            except Exception as e:
+                                print('fast stop keeper:', str(e)[:120])
+                        await _prime_tick(time.time())
         except Exception as e:
             print('real guard:', str(e)[:120])
         await asyncio.sleep(_prime.GUARD_SEC)

@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePrime, TIER } from './ArenaPrime';
-import { heroCard } from './FuseLanding';
+import { heroCard, cardResult } from './FuseLanding';
 import { CardFx } from './CardFx';
 
 /* ⚡ Home: the best Fuse card on the board right now — one tap opens it. Live numbers from /fuses/prime (one poll a minute),
@@ -11,7 +11,7 @@ export function BestFuseTile({ onOpen }) {
   const d = usePrime(60000);
   const c = heroCard(d?.cards, null);
   if (!c) return null;
-  const t = TIER[c.tier] || TIER.gold; const p = Number(c.pnlPct || 0);
+  const t = TIER[c.tier] || TIER.gold; const p = Number(cardResult(c) || 0);   /* a real card = all time */
   return <a href={HREF} onClick={e => { if (onOpen) { e.preventDefault(); onOpen(HREF); } }} className="bft m-card cfx-host" data-testid="best-fuse-tile" style={{ '--bft': t.look?.accent || '#15d16a' }}
     data-tip={`Best Fuse card right now: ${c.label} (${c.real ? 'real money' : 'paper'}). Tap to open it in the Arena.`}>
     <CardFx kind="grid" />

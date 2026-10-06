@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { CardFx } from './CardFx';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { FuseCard } from './FuseCard';
@@ -68,7 +69,7 @@ export function RunnersPanel({ call }) {
   const sol = d.solUsd ? budget / d.solUsd : null;
   const force = () => call?.('/admin/runners/round', { method: 'POST' }).then(() => { toast.success('New round dealt'); window.dispatchEvent(new Event('feeless:runners')); }).catch(e => toast.error(e.message));
   return <section className="rn" data-testid="runners">
-    <header className="rn-hero">
+    <header className="rn-hero cfx-host"><CardFx kind="embers" tone="gold" />
       <div className="rn-title"><span className="m-label">🏃 FUSE RUNNERS · LIVE</span><h3>Coins come to it.</h3>
         <p>Every Pump.fun coin the feed sees is gated, scored and laned the moment it arrives. Every 15 min a round keeps the best runners and deals in new ones. Each lane has its exit plan baked in.</p></div>
       <ProofRing p={d.proof} need={d.lightMinRounds} />

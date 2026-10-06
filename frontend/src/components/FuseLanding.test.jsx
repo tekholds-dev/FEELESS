@@ -1,7 +1,7 @@
 import React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { FuseLanding, heroCard } from './FuseLanding';
+import { FuseLanding, heroCard, cardResult } from './FuseLanding';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 jest.mock('./FuseCard', () => ({ LiveFuseCard: ({ r, label, look }) => <div data-testid="live-card">{r.name}|{label}|{look}</div> }));
@@ -15,6 +15,11 @@ test('hero = the best card right now, each coin priced live against its own entr
   const c = heroCard(CARDS, new Map([['P1', { price: 3 }]]));
   expect(c.id).toBe('b'); expect(c.legs[0].livePct).toBeCloseTo(50);
   expect(heroCard([], null)).toBeNull();
+  // a REAL card is judged on its ALL-TIME result: +20% "this run" on a card that is −35% all time is not the best card
+  const real = { id: 'r', real: true, pnlPct: 20, math: { putIn: 11, pnlUsd: -3.85 }, legs: CARDS[1].legs };
+  expect(cardResult(real)).toBeCloseTo(-35); expect(cardResult(CARDS[1])).toBe(12);
+  expect(heroCard([real, CARDS[1]], null).id).toBe('b');
+  expect(heroCard([{ ...real, math: { putIn: 10, pnlUsd: 4 } }, CARDS[1]], null).id).toBe('r');
 });
 
 test('landing: live numbers, the card flips to its book, and the buttons lead into the Lab and the Arena', async () => {

@@ -1629,3 +1629,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   gradient frame (`cd-disco`, a rotating conic layer behind a 2px gap — transform only). In the drawer the chart's foot chips /
   style toggle / source note are hidden (they covered the time axis). `.ce.cd { grid-auto-rows: max-content }`: with `auto` rows a
   clipped card (overflow hidden) was squeezed under its content and the next row drew over it (chart axis + the Pump link row cut).
+- ⚡ FAST STOP (`arena_prime.fast_stop`, `GUARD_SEC` 6, in `_real_guard_loop`): the guard no longer only WAKES the tick. A real card's
+  coin at its plain stop is taken off the card by the guard itself (placeholder seat, cool-down stamped, under `_prime_tick_lock`),
+  `_fw_tick` sells at once, THEN the full tick runs (refill, riders, instant swaps). Riders' trails, instant swap, park / hold
+  modes, frozen coins, safe majors and a > 50% "loss" in a leg's first 90s (feed gap) stay with the tick. Why: $AGENCY fell −22%
+  inside ONE minute; waking the whole engine pass (candidates, every card, charts) logged the stop ~2 min later → −31% on a −15% stop.
+  A STOP FILLS FAR PAST ITS LINE ⇒ pull the coin's 1-minute candles and compare the crash minute with the `sl` event + ledger times.
+- 🌪 TOO WILD (`chart_read` `wild` / `cWild` = deepest high → low fall inside ONE 15-min candle over the last hour; `WILD_PCT` =
+  `arena_prime.META_WILD_PCT` 35): the engine does not buy it (meta gate; Coming up reads "watching — too wild: −53% inside one
+  candle this hour"). $AGENCY had fallen 53% in 5 minutes twenty minutes before it was bought. Owner picks are not judged.
+- Start page + home tile: a REAL card's headline = ALL TIME (`FuseLanding.cardResult`: math.pnlUsd ÷ putIn; paper = its run) and
+  `heroCard` ranks on that same number ("+20% this run" sat above "−35% all time"). The small line still says "this run +X%".
+- Card FX also on: Runners hero (embers, gold), Coming up (grid), profile TraderCard (beam), Fuse score (aurora), held cards (grid),
+  my battles (embers). Chart background picker = 40px wide (icon only): a wide select wrapped the toolbar's Alert button onto two lines.

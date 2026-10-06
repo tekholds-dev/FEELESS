@@ -57,7 +57,10 @@ def read(points, t):
     rng = [x[1] - x[2] for x in cs]
     typical = statistics.median(rng[:-2]) or 0.0
     squeeze = round(((rng[-1] + rng[-2]) / 2) / typical, 2) if typical > 0 else None
-    return {'structure': structure, 'fvg': fvg, 'sweep': bool(sweep), 'squeeze': squeeze, 'pos': round((last - lo) / (hi - lo), 3) if hi > lo else 0.5,
+    # 🌪 wild: the deepest fall inside ONE candle over the last hour (high → low, %). A coin that just lost a third of its price
+    # in 15 minutes gaps straight through any stop ($AGENCY: −53% in 5 min, bought 20 min later, −22% in one minute)
+    wild = round(max((1 - x[2] / x[1]) * 100 for x in cs[-4:] if x[1] > 0), 1)
+    return {'wild': wild, 'structure': structure, 'fvg': fvg, 'sweep': bool(sweep), 'squeeze': squeeze, 'pos': round((last - lo) / (hi - lo), 3) if hi > lo else 0.5,
             'pull': round((1 - last / hi) * 100, 2) if hi > 0 else 0.0, 'bars': len(cs)}
 
 
@@ -66,7 +69,10 @@ def keys(points, t):
     r = read(points, t)
     if not r:
         return {'cBars': 0}
-    return {'cBars': r['bars'], 'cStruct': r['structure'], 'cPos': r['pos'], 'cPull': r['pull'], 'cFvg': r['fvg']}
+    return {'cBars': r['bars'], 'cStruct': r['structure'], 'cPos': r['pos'], 'cPull': r['pull'], 'cFvg': r['fvg'], 'cWild': r['wild']}
+
+
+WILD_PCT = 35.0   # a one-candle fall this deep in the last hour = not bought by the engine
 
 
 def points_from_candles(rows, bar=BAR_SEC):
@@ -91,6 +97,8 @@ def why_not(k):
         return 'chart not read yet'
     if not k.get('cBars'):
         return 'chart too short to read'
+    if k.get('cWild') is not None and float(k['cWild']) >= WILD_PCT:
+        return f"too wild: −{float(k['cWild']):.0f}% inside one candle this hour"
     if k.get('cStruct') == 'down':
         return 'trending down'
     if k.get('cStruct') == 'range' and k.get('cPos') is not None and float(k['cPos']) < 0.34:

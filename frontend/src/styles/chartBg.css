@@ -45,7 +45,8 @@
 @keyframes cbgPaw { 0% { transform: translate3d(0, 0, 0) rotate(-12deg); opacity: 0; } 12% { opacity: .5; } 80% { opacity: .35; } 100% { transform: translate3d(40px, -560px, 0) rotate(12deg); opacity: 0; } }
 @keyframes cbgFlip { to { transform: rotateY(360deg); } }
 
-.chart-bg-pick { height: 26px; max-width: 132px; padding: 0 6px; border-radius: 6px; border: 1px solid #203129; background: #0a1210; color: #b9cdc2; font: 10px "JetBrains Mono", monospace; cursor: pointer; transition: border-color .15s ease, color .15s ease; }
+/* compact on purpose: a wide picker pushed the toolbar's other buttons onto two lines (the Alert icon sat above its label) — it shows the scene's icon, the list shows the names */
+.chart-bg-pick { height: 26px; width: 40px; flex: none; padding: 0 4px; text-overflow: clip; border-radius: 6px; border: 1px solid #203129; background: #0a1210; color: #b9cdc2; font: 10px "JetBrains Mono", monospace; cursor: pointer; transition: border-color .15s ease, color .15s ease; }
 .chart-bg-pick:hover { border-color: #15d16a88; color: #e7fff3; } .chart-bg-pick:active { border-color: #15d16a; } .chart-bg-pick:focus-visible { outline: 2px solid #45e486; outline-offset: 1px; }
 
 body.fx-lite .cbg { display: none; }
@@ -53,4 +54,4 @@ body.fx-lite .cbg { display: none; }
 body.theme-day .cbg { background: radial-gradient(ellipse at 50% 45%, #f4faf6 0%, #e6f1ea 75%); }
 body.theme-day .cbg-ring { border-color: rgba(11, 122, 74, .3); box-shadow: none; } body.theme-day .cbg-gate { border-color: rgba(11, 122, 74, .4); } body.theme-day .cbg-word { color: rgba(11, 122, 74, .14); }
 body.theme-day .chart-bg-pick { background: #fff; border-color: #aac7b3; color: #315b43; }
-@media (max-width: 640px) { .cbg-ion:nth-child(n + 7), .cbg-paw:nth-child(n + 6), .cbg-gate:nth-child(n + 6) { display: none; } .chart-bg-pick { max-width: 44px; } .cbg-rung { left: -60px; width: 120px; } }
+@media (max-width: 640px) { .cbg-ion:nth-child(n + 7), .cbg-paw:nth-child(n + 6), .cbg-gate:nth-child(n + 6) { display: none; } .cbg-rung { left: -60px; width: 120px; } }

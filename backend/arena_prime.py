@@ -728,6 +728,7 @@ def flow_rank(rows):
 
 
 META_MIN_POS = 0.34
+META_WILD_PCT = 35.0   # = chart_read.WILD_PCT
 
 
 def meta_ready(x):
@@ -740,6 +741,8 @@ def meta_ready(x):
     if x.get('cBars') is None:
         return False            # never read at all = unknown = not bought (the read is attached to every candidate on a real card)
     if not x.get('cBars') or x.get('cStruct') == 'down':
+        return False
+    if x.get('cWild') is not None and _f(x.get('cWild')) >= META_WILD_PCT:   # 🌪 fell a third inside one candle this hour: it gaps through any stop
         return False
     # ranging at the BOTTOM of its range = drifting down without the label (record: bottom third −31% typical vs top third −2%)
     return not (x.get('cStruct') == 'range' and x.get('cPos') is not None and _f(x.get('cPos')) < META_MIN_POS)
@@ -2071,7 +2074,37 @@ def leg_tp(l, t):
     return _f(l.get('tp')) or t['tp']
 
 
-GUARD_SEC = 10   # ⚡ the real card's coins are price-checked this often BETWEEN ticks
+GUARD_SEC = 6    # ⚡ the real card's coins are price-checked this often BETWEEN ticks
+FAST_GAP_SEC, FAST_GAP_PCT = 90, 50.0   # a > 50% "loss" in a leg's first 90s is a price-feed gap: left to the full tick
+
+
+def fast_stop(card, px_by_mint, cfg, now):
+    """⚡ FAST STOP: a real card's coin AT ITS STOP is taken off the card NOW, by the 6-second guard itself — its seat becomes a
+    reserved placeholder (the next tick refills it) and the keeper sells on its very next pass. → the new card, or the SAME object
+    when no coin is at its stop. Only the plain stop: a rider's trail, the instant swap, park / hold modes, frozen coins and
+    safe majors stay with the full tick. Why (2026-10-06, $AGENCY): −22% inside ONE minute at 17:33; the guard only WOKE the full
+    engine pass (candidates, every card, charts), so the stop was logged at 17:35:02 and sold at 17:35:33 — −31% on a −15% stop."""
+    t = card_template(card.get('tpl'), cfg)
+    mode = cfg.get('slMode', 'replace')
+    c = None
+    for i, l in enumerate(card.get('legs') or []):
+        px, entry, sl = _f((px_by_mint or {}).get(l.get('mint'))), _f(l.get('entry')), leg_sl(l, t)
+        lmode = l.get('slMode') if l.get('slMode') in SL_MODES else mode
+        if (px <= 0 or entry <= 0 or sl <= 0 or _f(l.get('units')) <= 0 or lmode != 'replace' or l.get('buying') or l.get('placeholder') or l.get('frozen')
+                or l.get('ride') or int(l.get('freezeRounds') or 0) > 0 or safe_anchor(l)):
+            continue
+        dd = (px / entry - 1) * 100
+        if dd > -sl or (dd <= -FAST_GAP_PCT and now - _f(l.get('at')) < FAST_GAP_SEC):
+            continue
+        if c is None:
+            c = {**card, 'legs': [dict(x) for x in card['legs']], 'events': list(card.get('events') or [])}
+        out_usd = sell_usd(_f(l['units']), px, l.get('liq'))
+        c['legs'][i] = {**{k: v for k, v in l.items() if k not in ('wantUnits', 'buyingSince')}, 'units': 0.0, 'costUsd': 0.0, 'reserveUsd': round(out_usd, 6),
+                        'buying': False, 'entry': px, 'at': now, 'placeholder': True}
+        c['cash'] = round(_f(c.get('cash')) + out_usd, 6)
+        c['events'].append({'at': now, 'kind': 'sl', 'symbol': l.get('symbol'), 'usd': round(out_usd, 4), 'to': ['cash'], 'fast': True,
+                            'why': f"⚡ {dd:.0f}% ≤ −{sl:g}% — stopped at once, seat reserved for the next coin"})
+    return c if c is not None else card
 
 
 def guard_hits(card, px_by_mint, cfg):

@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { CardFx } from './CardFx';
 import { createPortal } from 'react-dom';
 import { TraderChip } from './TraderChip';
 import { toast } from 'sonner';
@@ -897,7 +898,7 @@ export function FuseScore({ address }) {
   useEffect(() => { let alive = true; if (address) fetch(apiUrl(`/api/reputation/fuses/score/${address}`)).then(r => (r.ok ? r.json() : null)).then(x => alive && setS(x)).catch(() => {}); return () => { alive = false; }; }, [address]);
   if (!s || !s.cards) return null;
   const deg = Math.max(0, Math.min(100, s.score)) * 3.6;
-  return <section className="wp-card fsc" data-testid="fuse-score"><div className="fsc-ring" style={{ '--deg': `${deg}deg` }}><span><b className="m-num">{s.score}</b><small>FUSE</small></span></div>
+  return <section className="wp-card fsc cfx-host" data-testid="fuse-score"><CardFx kind="aurora" /><div className="fsc-ring" style={{ '--deg': `${deg}deg` }}><span><b className="m-num">{s.score}</b><small>FUSE</small></span></div>
     <div className="fsc-body"><h3>⚛️ Fuse score</h3><small className="m-dim">{s.cards} card{s.cards === 1 ? '' : 's'} · performance {s.perf}/75 · reputation {s.rep}/25</small>
       <ul>{s.parts.map(p => <li key={p.label}><span>{p.label}</span><b className={`m-num ${p.points >= 0 ? 'm-pos' : 'm-neg'}`}>{p.points >= 0 ? '+' : ''}{p.points}</b></li>)}</ul></div></section>;
 }
@@ -911,7 +912,7 @@ export function FuseHeldCards({ address }) {
   const live = useLivePrices(held.flatMap(r => r.legs.filter(l => l.soldUsd == null).map(l => l.pairAddress)));
   if (!held.length) return null;
   const bk = liveBook(held, live);
-  return <section className="wp-card fp-held" data-testid="fuse-held"><div className="fp-held-head"><h3>🃏 Fuse cards</h3>
+  return <section className="wp-card fp-held cfx-host" data-testid="fuse-held"><CardFx kind="grid" /><div className="fp-held-head"><h3>🃏 Fuse cards</h3>
     <b className={`m-num fl-tick ${bk.pnlUsd >= 0 ? 'm-pos' : 'm-neg'}`} key={bk.pnlUsd.toFixed(2)}>{m$(bk.pnlUsd)} <small>{pc(bk.pnlPct)}</small><i className="fl-livedot" /></b><small className="m-dim">{held.length} held · {m$(bk.value)} now · live</small></div>
     <div className="fp-held-row">{held.slice(0, 6).map(r => <div key={r.id} className="fp-held-card"><LiveFuseCard r={r} aura={r.onArena ? 'fire' : ''} /><small className="m-dim">{r.mode === 'swap' ? '⇄ swaps weak legs' : '🔒 holds together'}{r.onArena ? ' · 🏟 on Arena' : ''}</small></div>)}</div></section>;
 }
@@ -946,7 +947,7 @@ export function MyBattles({ address }) {
   useEffect(() => { let alive = true; const load = () => address && fetch(apiUrl(`/api/reputation/fuses/battles/${address}`)).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setD(x)).catch(() => {});
     load(); const t = setInterval(() => !document.hidden && load(), 30000); return () => { alive = false; clearInterval(t); }; }, [address]);
   if (!d || (!d.live.length && !d.past.length)) return null;
-  return <section className="wp-card fp-mybattles" data-testid="my-battles"><header className="m-row"><span className="m-label">⚔ MY CARD BATTLES</span>
+  return <section className="wp-card fp-mybattles cfx-host" data-testid="my-battles"><CardFx kind="embers" /><header className="m-row"><span className="m-label">⚔ MY CARD BATTLES</span>
     <small className="m-dim">{d.record.w}W {d.record.l}L {d.record.d}D · bigger move since the bell wins</small><a className="m-btn" href="/terminal/fuse?tab=arena">Arena →</a></header>
     {d.live.map((p, i) => { const me = p[p.mine]; const them = p[p.mine === 'a' ? 'b' : 'a']; const lead = (me.now || 0) - (them.now || 0);
       return <div key={me.key + them.key} className={`fp-mb-live ${lead > 0.05 ? 'is-up' : lead < -0.05 ? 'is-down' : ''}`} style={{ '--i': i }} data-testid={`mb-live-${i}`}>
@@ -977,7 +978,7 @@ export function TraderCard({ address }) {
   const url = `${window.location.origin}/terminal/profile/${address}`;
   const lines = [`Fuse score ${s.score}/100 · ${s.cards} cards`, `⚔ ${b.w || 0}W ${b.l || 0}L ${b.d || 0}D · 🐱 beat FeeCat ${t.catWins}×`, medals.length ? `Season medals ${medals.map(([e, n]) => `${e}×${n}`).join(' ')}` : `Best card ${t.bestPct >= 0 ? '+' : ''}${t.bestPct}%`];
   const xText = encodeURIComponent(`My FEELESS ⚛️ Fuse record: score ${s.score} · ${b.w || 0}-${b.l || 0} in Arena battles · best card ${t.bestPct >= 0 ? '+' : ''}${t.bestPct}%`);
-  return <section className="wp-card fp-trader" data-testid="trader-card">
+  return <section className="wp-card fp-trader cfx-host" data-testid="trader-card"><CardFx kind="beam" />
     <div className="fp-trader-score" style={{ '--deg': `${Math.max(0, Math.min(100, s.score)) * 3.6}deg` }} data-tip={`Performance ${s.perf}/75 + reputation ${s.rep}/25`}><span><b className="m-num">{s.score}</b><small>FUSE</small></span></div>
     <div className="fp-trader-stats">
       <div data-tip="Crowned in a weekly Fuse season (top 3)"><small>SEASON MEDALS</small><b>{medals.length ? medals.map(([e, n]) => <span key={e}>{e}<em>×{n}</em></span>) : <em className="m-dim">none yet</em>}</b></div>

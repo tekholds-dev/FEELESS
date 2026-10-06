@@ -22,10 +22,12 @@ const HOW = [
 ];
 
 // the best card on the board right now, with each coin's LIVE move since the card bought it
+// A card's headline result: a REAL card = all time (everything put in → now, fees apart); paper = its run.
+export const cardResult = c => (c?.real && Number(c.math?.putIn) > 0 && c.math?.pnlUsd != null ? Number(c.math.pnlUsd) / Number(c.math.putIn) * 100 : c?.pnlPct);
 export function heroCard(cards, live) {
   const pool = (cards || []).filter(c => (c.legs || []).length);
   if (!pool.length) return null;
-  const c = pool.reduce((a, b) => ((b.pnlPct ?? -1e9) > (a.pnlPct ?? -1e9) ? b : a));
+  const c = pool.reduce((a, b) => ((cardResult(b) ?? -1e9) > (cardResult(a) ?? -1e9) ? b : a));   /* ranked on the same number the headline shows */
   const legs = c.legs.map(l => { const p = live?.get?.(l.pairAddress)?.price || l.now || l.entry; return { ...l, livePx: p, livePct: l.entry ? (p / l.entry - 1) * 100 : 0 }; });
   return { ...c, legs };
 }
@@ -39,6 +41,7 @@ export function FuseLanding({ onGo, onRun }) {
   const c = heroCard(d?.cards, live);
   const cards = d?.cards || [];
   const tier = TIER[c?.tier] || TIER.gold;
+  const hero = cardResult(c); const allTime = c?.real && hero !== c?.pnlPct ? hero : null;
   const rounds = cards.reduce((n, x) => n + (x.rounds || 0), 0);
   const bell = Math.max(0, Math.min(...cards.filter(x => x.nextRoundAt && !x.resting).map(x => x.nextRoundAt), now + 3600) - now);
   const note = ([n, t, s], i) => <li key={n} style={{ '--i': i }}><b>{n}</b><span><strong>{t}</strong>{s}</span></li>;
@@ -50,7 +53,8 @@ export function FuseLanding({ onGo, onRun }) {
         <h2 className="fld-h">MANY COINS,<br /><em>ONE FUSE.</em></h2>
         <p>Fuse pools, majors and fresh runners into a single card you own. Rounds swap the losers, the winners ride, and you sign every move.</p>
         {c && <div className="fld-hero" data-testid="fld-hero"><span>{c.label} · {c.real ? '💵 real money' : '📄 paper at true fills'}</span>
-          <b key={pct(c.pnlPct)} className={`m-num fl-tick ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(c.pnlPct)}</b><small>this run, right now · {(c.legs || []).map(l => `$${l.symbol}`).join(' · ')}</small></div>}
+          {/* a REAL card's headline is its ALL-TIME result (everything put in → now), the same number as the proof below; "this run" alone read +20% above −35% all time */}
+          <b key={pct(hero)} className={`m-num fl-tick ${hero >= 0 ? 'm-pos' : 'm-neg'}`} data-testid="fld-hero-pct">{pct(hero)}</b><small>{allTime != null ? `all time, fees apart · this run ${pct(c.pnlPct)}` : 'this run, right now'} · {(c.legs || []).map(l => `$${l.symbol}`).join(' · ')}</small></div>}
         <div className="fld-live" data-testid="fld-live">
           <span><small>LIVE TIER CARDS</small><b className="m-num">{cards.length || '—'}</b></span>
           <span><small>ROUNDS PLAYED</small><b key={rounds} className="m-num fl-tick">{rounds ? rounds.toLocaleString() : '—'}</b></span>
