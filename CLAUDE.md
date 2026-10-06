@@ -1482,3 +1482,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`p_t = []`, `a_t = []`, deal with `[]`), so every door that reached for a major or an old pool finds none and a seat with no
   qualifying launch coin WAITS IN CASH. The owner's hand picks stay (a re-shape never drops a pick). Why: "still buying the same
   damn coins, ORCA or something" — anchor / pool seats and the "no runner → take a pool" fallbacks kept re-buying the same majors.
+- ⇄ HAND SWAP is a door too: on a real card it obeys the min age + no dollar-named tickers, and with `newOnly` it brings a launch
+  coin on ANY seat (movers first; the new leg's role becomes `runner`). It used to take the best coin of the SAME KIND — ⇄ on a
+  major's seat is what kept buying $ORCA / $TRUMP (ledger: "⇄ swapped by hand"). READ THE EVENT'S WORDS before blaming the engine.

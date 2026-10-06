@@ -6487,7 +6487,20 @@ async def fuse_prime_admin(request: Request):
                 cfg_r = _prime_real_cfg(d.get('prime') or {}) if card.get('real') else pr['cfg']
                 cool_r = _prime.cooling(card, time.time(), cfg_r['rotateHours'], px)   # 🧊 a hand swap never brings back a coin that just left
                 pools, runners = [x for x in pools if x.get('mint') not in cool_r], [x for x in runners if x.get('mint') not in cool_r]
-                cards[rep['tpl']] = _prime.note_dropped(card, _prime.replace_leg(card, rep['pairAddress'], px, pools, runners, anchors, cfg_r, time.time()), time.time(), cfg_r['rotateHours'], px)
+                anchors_r = anchors
+                if card.get('real'):   # ⏳ the hand swap is a door too: the card's min age and no dollar-named tickers
+                    lim_ = _fuse._f(cfg_r.get('runnerMinAgeH'))
+                    runners = [x for x in runners if not _fw.dollar_named(x.get('symbol')) and not (lim_ > 0 and x.get('ageH') is not None and _fuse._f(x.get('ageH')) < lim_)]
+                if card.get('real') and cfg_r.get('newOnly'):
+                    # 🆕 NEW COINS ONLY: ⇄ on ANY seat brings a launch coin, what is moving first — it used to replace a coin with
+                    # the best of the SAME KIND, so ⇄ on a major's seat bought $ORCA / $TRUMP again and again
+                    runners = sorted(runners, key=lambda x: -_fuse._f(x.get('chg1h')))
+                    pools, anchors_r = runners, runners
+                cards[rep['tpl']] = _prime.note_dropped(card, _prime.replace_leg(card, rep['pairAddress'], px, pools, runners, anchors_r, cfg_r, time.time()), time.time(), cfg_r['rotateHours'], px)
+                if card.get('real') and cfg_r.get('newOnly'):
+                    for l in cards[rep['tpl']]['legs']:
+                        if l.get('mint') not in old_m:
+                            l['role'] = 'runner'   # a launch coin is never a "major": it keeps its stop, rug shield and rotation
                 kick_real_keeper = bool(card.get('real'))   # manual ⇄ on real money runs NOW; keeper enforces sell-confirm-before-buy
                 for l in cards[rep['tpl']]['legs']:   # 👆 YOUR pick: carried through the next re-shape (it once got sold 4 min later)
                     if l.get('mint') not in old_m:
