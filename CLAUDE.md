@@ -1624,3 +1624,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   real-card coin row, full sentence in the tip; "🎯 your pick" for hand picks). Legs bought before this have no line.
 - Entrance keyframes on CONTENT are transform-only (`fpfIn`): starting at opacity 0 leaves the content invisible wherever the
   animation clock is not running (a background pane). NOT BUILT of the six ideas: hands-free user cards (needs the audited contract).
+- 📈 COIN DRAWER HAS THE CHART (`cd-chart` in `CoinDrawer`: the SAME `PriceChart` the war room draws, lazy-loaded, 230px, timeframes
+  1m / 5m / 15m / 1h, `⚔ War room` button ABOVE it; the tick spark line is gone). It floats (`cdFloat`, 4px) on a turning Fuse
+  gradient frame (`cd-disco`, a rotating conic layer behind a 2px gap — transform only). In the drawer the chart's foot chips /
+  style toggle / source note are hidden (they covered the time axis). `.ce.cd { grid-auto-rows: max-content }`: with `auto` rows a
+  clipped card (overflow hidden) was squeezed under its content and the next row drew over it (chart axis + the Pump link row cut).

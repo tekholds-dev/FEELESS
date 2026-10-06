@@ -35,6 +35,9 @@ export function CoinDrawerHost() {
   return coin ? <CoinDrawer coin={coin} onClose={() => setCoin(null)} /> : null;
 }
 
+const PriceChart = React.lazy(() => import('./terminal/PriceChart').then(m => ({ default: m.PriceChart })));   // the SAME chart the war room draws, loaded only when a drawer opens
+const CD_TFS = ['1m', '5m', '15m', '1h'];
+
 export function CoinDrawer({ coin, onClose }) {
   const e = useCoinEdge(coin.mint);
   const live = useLivePrices(coin.pairAddress ? [coin.pairAddress] : []).get(coin.pairAddress);
@@ -45,15 +48,11 @@ export function CoinDrawer({ coin, onClose }) {
   const st = coin.stats; const mv = st?.moves || {};
   const moves = [['5m', live?.m5 ?? mv.m5], ['1h', live?.h1 ?? mv.h1], ['6h', mv.h6], ['24h', mv.h24]].filter(x => x[1] != null && Number.isFinite(Number(x[1])));
   const top = Math.max(10, ...moves.map(x => Math.abs(Number(x[1]))));
-  // 🎚 the timeframe you tap drives the whole card: its move sets the backdrop's colour and heat, and the live price ticks a spark line
+  // 🎚 the timeframe you tap drives the whole card: its move sets the backdrop's colour and heat
   const [tf, setTf] = useState('1h');
   const sel = Number((moves.find(x => x[0] === tf) || moves[0] || [0, 0])[1]) || 0;
   const heat = Math.max(0.25, Math.min(1, Math.abs(sel) / 60));
-  const [ticks, setTicks] = useState([]);
-  useEffect(() => { setTicks([]); }, [coin.mint]);
-  useEffect(() => { const p = Number(live?.price); if (p > 0) setTicks(t => (t[t.length - 1] === p ? t : [...t.slice(-39), p])); }, [live?.price]);
-  const spark = ticks.length > 1 ? (() => { const lo = Math.min(...ticks); const hi = Math.max(...ticks); const r = hi - lo || 1;
-    return ticks.map((v, i) => `${(i / (ticks.length - 1) * 100).toFixed(1)},${(30 - (v - lo) / r * 28).toFixed(1)}`).join(' '); })() : null;
+  const [ctf, setCtf] = useState('5m');   /* the drawer's own chart timeframe */
   const it = e?.intel || {}; const n = v => (v == null ? '—' : `${Number(v).toFixed(1)}%`);
   const vit = e ? [['TOP 10 HOLD', n(it.top10Pct), it.top10Pct != null && it.top10Pct > 30], ['INSIDERS', n(it.insidersHoldingPct), it.insidersHoldingPct > 8], ['DEV HOLDS', n(it.devHoldingPct), it.devHoldingPct > 10],
     ['BUNDLED', it.bundledWallets ? String(it.bundledWallets.length) : '—', (it.bundledWallets || []).length > 1], ['CREATOR', run?.creatorRep || '—', ['suspect', 'high'].includes(run?.creatorRep)],
@@ -72,7 +71,13 @@ export function CoinDrawer({ coin, onClose }) {
         {run && <div data-tip={run.passing ? 'Passes every Fuse Runners gate right now' : (run.gates || []).join(' · ')}><small>RUNNER</small><b className={`m-num ${run.passing ? 'm-pos' : 'm-neg'}`}>{run.passing ? `${Math.round(run.score || 0)} · ${run.lane || ''}` : '✕ gated'}</b><em>{run.passing ? 'passes all gates' : run.gates?.[0]}</em></div>}
       </div>
       {st && <div className="cd-stats" data-testid="cd-stats">{[['MARKET CAP', big(st.mcap)], ['1H VOLUME', big(st.vol1h)], ['POOL', big(st.liq)], ['AGE', age(st.ageH)]].map(([l, x], i) => <div key={l} style={{ '--i': i }}><small>{l}</small><b className="m-num">{x}</b></div>)}</div>}
-      {spark && <svg className="cd-spark" viewBox="0 0 100 32" preserveAspectRatio="none" data-testid="cd-spark" aria-label="Live price since you opened this"><polyline points={spark} /></svg>}
+      {coin.pairAddress && <div className="cd-chart" data-testid="cd-chart-box">
+        <i className="cd-disco" aria-hidden /><div className="cd-chart-in">
+          <div className="cd-chart-bar"><span className="m-label">📈 LIVE CHART</span>
+            <div className="m-seg" role="radiogroup" aria-label="Chart timeframe">{CD_TFS.map(t => <button key={t} type="button" role="radio" aria-checked={ctf === t} className={ctf === t ? 'active' : ''} onClick={() => setCtf(t)} data-testid={`cd-ctf-${t}`}>{t.toUpperCase()}</button>)}</div>
+            <button type="button" className="m-btn cd-war" onClick={() => { onClose(); openWarRoom(pair); }} data-testid="cd-war" data-tip="Open the full war room: big chart, live trades, chat and quick trade">⚔ War room</button></div>
+          <React.Suspense fallback={<p className="m-dim cd-chart-wait">Loading chart…</p>}><PriceChart key={`${coin.pairAddress}-${ctf}`} pair={{ ...pair, priceUsd: live?.price ?? null }} interval={ctf} metric="price" showVolume={false} /></React.Suspense>
+        </div></div>}
       {moves.length > 0 && <div className="cd-moves" data-testid="cd-moves">{moves.map(([l, x], i) => { const n = Number(x); return <div key={l} role="button" tabIndex={0} aria-pressed={tf === l} onClick={() => setTf(l)} onKeyDown={ev => (ev.key === 'Enter' || ev.key === ' ') && setTf(l)}
         className={`${n >= 0 ? 'up' : 'dn'} ${tf === l ? 'on' : ''}`} style={{ '--i': i }} data-testid={`cd-tf-${l}`}><small>{l}</small>
         <span><i style={{ transform: `scaleX(${Math.max(0.04, Math.min(1, Math.abs(n) / top))})` }} /></span><b className="m-num">{n >= 1000 ? `${(n / 100 + 1).toFixed(1)}x` : `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`}</b></div>; })}</div>}

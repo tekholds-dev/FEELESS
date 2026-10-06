@@ -22,7 +22,23 @@
 .cd-live b:nth-of-type(1) { left: 12%; } .cd-live b:nth-of-type(2) { left: 30%; animation-delay: -1.2s; animation-duration: 6.5s; } .cd-live b:nth-of-type(3) { left: 48%; animation-delay: -2.6s; }
 .cd-live b:nth-of-type(4) { left: 64%; animation-delay: -3.4s; animation-duration: 7s; } .cd-live b:nth-of-type(5) { left: 80%; animation-delay: -.6s; } .cd-live b:nth-of-type(6) { left: 92%; animation-delay: -4.1s; animation-duration: 6s; }
 .ce.cd.is-up { --cd-c: #15d16a; } .ce.cd.is-dn { --cd-c: #ff8fa3; } .ce.cd.is-dn .cd-live b { animation-name: cdFall; top: -8px; bottom: auto; }
-.cd-spark { width: 100%; height: 46px; margin: 6px 0 2px; } .cd-spark polyline { fill: none; stroke: var(--cd-c, #15d16a); stroke-width: 1.6; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+/* 📈 the coin's chart, in the drawer: it floats a little on a turning Fuse gradient (green → violet → gold). transform / opacity only. */
+.cd-chart { position: relative; margin: 10px 0 6px; border-radius: 16px; padding: 2px; overflow: hidden; isolation: isolate; animation: cdFloat 5.5s ease-in-out infinite; box-shadow: 0 14px 34px -18px rgba(21, 209, 106, .55), 0 10px 30px -20px rgba(160, 110, 255, .6); }
+.cd-disco { position: absolute; left: 50%; top: 50%; width: 180%; aspect-ratio: 1; margin: -90% 0 0 -90%; z-index: -1; background: conic-gradient(#15d16a, #a06eff, #f5c451, #3cdcff, #ff5fd2, #15d16a); animation: cdDisco 7s linear infinite; }
+.cd-chart-in { position: relative; border-radius: 14px; overflow: hidden; background: #070c0b; }
+.cd-chart-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 7px 9px; border-bottom: 1px solid rgba(21, 209, 106, .16); }
+.cd-chart-bar .m-label { font-size: 9px; margin-right: auto; } .cd-chart-bar .m-seg button { font-size: 10px; padding: 3px 7px; }
+.cd-war { font-size: 11px; padding: 4px 10px; border-color: rgba(160, 110, 255, .6); } .cd-war:hover { border-color: #a06eff; box-shadow: 0 0 14px -4px #a06eff; } .cd-war:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.cd-chart .chart-area { min-height: 230px; height: 230px; } .cd-chart .candle-canvas { height: 230px; flex: none; }
+.cd-chart :is(.chart-foot-chips, .chart-style-toggle, .chart-source, .chart-stale-note) { display: none !important; }   /* the full room has these; here they covered the time axis */
+.ce.cd { grid-auto-rows: max-content; }   /* rows take their content's height and the drawer scrolls; `auto` rows squeezed the clipped cards (chart, profile) and the next row drew over them */   /* a grid item with overflow hidden shrinks under its content: the profile's link row was cut off */
+.cd-chart-wait { margin: 0; height: 230px; display: grid; place-items: center; font-size: 12px; }
+@keyframes cdFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes cdDisco { to { transform: rotate(360deg); } }
+body.fx-lite .cd-chart { animation: none; } body.fx-lite .cd-disco { animation: none; }
+@media (prefers-reduced-motion: reduce) { .cd-chart, .cd-disco { animation: none; } }
+body.theme-day .cd-chart-in { background: #edf4ef; } body.theme-day .cd-chart-bar { border-bottom-color: #cfe6da; } body.theme-day .cd-chart { box-shadow: 0 10px 24px -18px #0006; }
+@media (max-width: 640px) { .cd-chart .chart-area, .cd-chart .candle-canvas, .cd-chart-wait { height: 190px; min-height: 190px; } }
 .cd-moves > div { cursor: pointer; padding: 3px 6px; border-radius: 8px; border: 1px solid transparent; transition: background .15s, border-color .15s; }
 .cd-moves > div:hover { background: color-mix(in srgb, var(--cd-c, #15d16a) 8%, transparent); } .cd-moves > div:active { transform: scale(.99); } .cd-moves > div:focus-visible { outline: 1px solid var(--m-accent); }
 .cd-moves > div.on { border-color: color-mix(in srgb, var(--cd-c, #15d16a) 60%, transparent); background: color-mix(in srgb, var(--cd-c, #15d16a) 12%, transparent); }
