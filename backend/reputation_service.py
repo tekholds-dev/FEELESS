@@ -5855,6 +5855,49 @@ async def fuses_forecast():
             'setups': [{'key': k, 'ico': v[0], 'name': v[1], 'why': v[2], **(proof.get(k) or {})} for k, v in _prime.ENTRY_SETUPS.items()]}
 
 
+DUELS_PATH = FUSE_HQ_PATH.parent / 'fuse_duels.json'
+_proof_cache = {'at': 0.0, 'data': None}
+PROOF_CFG_KEYS = ('rotateHours', 'coins', 'sl', 'rideAt', 'rideTrail', 'scoutPct', 'minHoldMins', 'runnerMinAgeH', 'newOnly', 'skimAt', 'lockBankPct', 'upMeta')
+
+
+async def _proof_build(force=False):
+    """🧾 Fuse proof (fuse_proof.py): the real cards' confirmed swaps with the engine's reason, each real card's verified record, the
+    setups side by side, and the 24h real duels (settled + opened here, own file). 30s cache; kept warm by `_fuse_warm`."""
+    import fuse_proof as _proof
+    now = time.time()
+    if not force and _proof_cache['data'] and now - _proof_cache['at'] < 30:
+        return _proof_cache['data']
+    cards = await _prime_view()
+    ledger = _fw_load().get('ledger') or []
+    real = [c for c in cards if c.get('real')]
+    recs = [_proof.record(c, ledger, now) for c in real]
+    try:
+        strat = (await fuse_strategies(hours=_fuse._f(((real[0].get('cfgEff') or {}).get('rotateHours')) if real else 0) or 1.0)).get('strategies') or []
+    except Exception:
+        strat = []
+    val = lambda c: _fuse._f((c.get('math') or {}).get('nowUsd')) or _fuse._f(c.get('valueUsd'))
+    key = lambda c: f"prime:{c.get('tpl')}"
+    values, labels = {key(c): val(c) for c in cards}, {key(c): c.get('label') for c in cards}
+    store = _json_load(DUELS_PATH, {})
+    st = _proof.duel_step(store, values, labels, [key(c) for c in real], [key(c) for c in sorted((c for c in cards if not c.get('real')), key=lambda c: -_fuse._f(c.get('pnlPct')))], now, pick=store.get('pick'))
+    st['pick'] = store.get('pick') or {}
+    if {k: st.get(k) for k in ('live', 'log', 'rec')} != {k: store.get(k) for k in ('live', 'log', 'rec')}:
+        _json_save(DUELS_PATH, st)
+    data = {'at': now, 'feed': _proof.feed(cards, ledger, now), 'records': recs,
+            'setups': _proof.setups(strat, recs, {c.get('tpl'): {k: (c.get('cfgEff') or {}).get(k) for k in PROOF_CFG_KEYS} for c in real}),
+            'duels': {**_proof.duel_view(st, values, now), 'real': [key(c) for c in real], 'cards': [{'key': key(c), 'label': c.get('label'), 'real': bool(c.get('real'))} for c in cards]},
+            'realLegs': {c.get('tpl'): [{'mint': l.get('mint'), 'pairAddress': l.get('pairAddress'), 'symbol': l.get('symbol')} for l in c.get('legs') or [] if not l.get('buying')] for c in real}}
+    _proof_cache.update(at=now, data=data)
+    return data
+
+
+@app.get('/api/reputation/fuses/proof')
+async def fuses_proof():
+    """🧾 Public: what the real-money cards did (confirmed swaps + the engine's reason + tx), their verified records, the setups
+    side by side and the live 24h duels. Read-only; a losing record reads as a losing record."""
+    return await _proof_build()
+
+
 @app.get('/api/reputation/fuses/contenders')
 async def fuses_contenders():
     """Public: the divisions, their ranked coins (score + cited parts, ▲▼, streak) and who is ⏭ next up for a card seat."""
@@ -6594,6 +6637,14 @@ async def fuse_prime_admin(request: Request):
             except ValueError as e:
                 raise HTTPException(400, str(e))
             _json_save(FUSE_HQ_PATH, d)
+    du = body.get('duel') or {}
+    if du.get('tpl') in _prime.TEMPLATES:   # ⚔ the owner picks who their real card duels next (None = the best other card); the running duel is called off
+        st_ = _json_load(DUELS_PATH, {}); pk_ = dict(st_.get('pick') or {})
+        if du.get('vs') in _prime.TEMPLATES and du['vs'] != du['tpl']:
+            pk_[f"prime:{du['tpl']}"] = f"prime:{du['vs']}"
+        else:
+            pk_.pop(f"prime:{du['tpl']}", None)
+        _json_save(DUELS_PATH, {**st_, 'pick': pk_}); _proof_cache['at'] = 0.0
     sk = body.get('skim') or {}
     if sk.get('tpl') in _prime.TEMPLATES and sk.get('pairAddress'):   # 💰 take ONE coin's profit now (stake keeps riding) → other coins, or held as cash
         async with _admin_lock:
@@ -8389,6 +8440,10 @@ async def _fuse_warm():
             await _data_clean(time.time())
         except Exception as e:
             print('data cleaner:', e)
+    try:   # 🧾 proof + real duels settle on time even with nobody watching
+        await _proof_build()
+    except Exception as e:
+        print('proof:', e)
     try:   # 🏁 the contenders league is kept warm, so the Arena reads it in ms and the tier engine always knows who is next up
         await _contenders_build()
     except Exception as e:

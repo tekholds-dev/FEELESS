@@ -97,7 +97,7 @@ export function FusePage() {
       <button type="button" role="tab" aria-selected={tab === 'runners'} className={tab === 'runners' ? 'active' : ''} onClick={() => go('runners')} data-testid="fuse-tab-runners"><b>1</b> 🏃 Pick runners <em>{runnerPicks.length}/{MAX_RUNNERS}</em></button>
       <button type="button" role="tab" aria-selected={tab === 'lab'} className={tab === 'lab' ? 'active' : ''} onClick={() => go('lab')} data-testid="fuse-step-lab"><b>2</b> 🧪 Build the card</button></div>}
     <div className="fp-body" key={tab}>
-      {tab === 'home' && <FuseLanding onGo={go} />}
+      {tab === 'home' && <FuseLanding onGo={go} onRun={legs => { setRunnerPicks((legs || []).slice(0, 3).map(l => ({ mint: l.mint, symbol: l.symbol, pairAddress: l.pairAddress, lane: 'runner' }))); go('lab'); }} />}
       {tab === 'lab' && <div className="fz-split-view fp-lab"><FuseLab runnerPicks={runnerPicks} onRunnerPicks={setRunnerPicks} incoming={incoming} limits={limits} />
         <aside className="fp-right"><FeaturedFuses onLoad={f => setIncoming({ legs: f.legs, sol: 0, n: Date.now() })} /><FuseSide /></aside></div>}
       {tab === 'runners' && <><RunnerPicker picks={runnerPicks} onPicks={setRunnerPicks} onDone={() => go('lab')} /><details className="hrt-fold fp-trench" data-testid="fp-trench"><summary>🗑 Trench metas <small>five ways to hunt fresh launches — tap one to see what it finds right now</small></summary><TrenchScan /></details></>}

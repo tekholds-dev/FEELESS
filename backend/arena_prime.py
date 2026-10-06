@@ -1092,7 +1092,8 @@ def _leg(c, usd, now, role):
     return {'mint': c['mint'], 'pairAddress': c['pairAddress'], 'symbol': c.get('symbol'), 'role': role, 'entry': px, 'units': usd / px if px > 0 else 0.0,
             'costUsd': round(usd, 6), 'at': now, 'stars': c.get('stars') or stars(c, role), 'firstEntry': px, 'liq': liq, 'midAtEntry': mid,
             **({'newMajor': True} if c.get('newMajor') else {}), **({'arena': True} if c.get('arena') else {}), **({'trench': True} if c.get('trenchOnly') else {}),
-            **({'division': c['division']} if c.get('division') else {})}   # 🏁 which Gauntlet division this coin came in from
+            **({'division': c['division']} if c.get('division') else {}),   # 🏁 which Gauntlet division this coin came in from
+            'bought': {'tag': flow_tag(c)[0], **{k: (None if c.get(k) is None else round(_f(c.get(k)), 1)) for k in ('chg1h', 'vol1h', 'ageH', 'buyShare')}, 'liq': round(liq) if liq else None}}   # 🧾 why it was bought: what the coin looked like at that moment
 
 
 def _picks(t, pools, runners, anchors):
@@ -2010,7 +2011,7 @@ def summary(card, prices, cfg=None):
     rot = _f((cfg or {}).get('rotateHours')) or DEFAULT_CFG['rotateHours']
     paid = round(_f(card.get('walletUsd')), 4)
     legs = [{**{k: l[k] for k in ('mint', 'pairAddress', 'symbol', 'role', 'entry', 'units', 'costUsd')}, 'stars': l.get('stars') or 3,
-             'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'), 'tp': l.get('tp'), 'sl': l.get('sl'), 'division': l.get('division'), 'swapTo': (l.get('swapTo') or {}).get('symbol'), 'ride': bool(l.get('ride')), 'high': l.get('high'), 'rideFrom': l.get('rideFrom'), 'buying': bool(l.get('buying')),
+             'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'), 'tp': l.get('tp'), 'sl': l.get('sl'), 'division': l.get('division'), 'swapTo': (l.get('swapTo') or {}).get('symbol'), 'ride': bool(l.get('ride')), 'high': l.get('high'), 'rideFrom': l.get('rideFrom'), 'bought': l.get('bought'), 'picked': bool(l.get('picked')), 'buying': bool(l.get('buying')),
              'loseRounds': int(l.get('loseRounds') or 0),
              'firstEntry': l.get('firstEntry') or l['entry'], 'at': l.get('at'), 'now': _f(prices.get(l['pairAddress'])) or l['entry'],
              'pnlPct': round(((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100, 2) if l['entry'] else 0.0,

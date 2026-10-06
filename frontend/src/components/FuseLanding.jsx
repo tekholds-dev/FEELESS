@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { usePrime, primeRow, TIER } from './ArenaPrime';
 import { LiveFuseCard } from './FuseCard';
 import { useLivePrices } from '../lib/livePrices';
+import { FuseProof } from './FuseProof';
 import '../styles/fuseLanding.css';
 
 // ⚡ Fuse landing: no box — the page's own dark backdrop, a spotlight comes on, ONE live tier card (its real design) spins up to
@@ -29,7 +30,7 @@ export function heroCard(cards, live) {
   return { ...c, legs };
 }
 
-export function FuseLanding({ onGo }) {
+export function FuseLanding({ onGo, onRun }) {
   const d = usePrime(20000);
   const [lit, setLit] = useState(false);
   const [now, setNow] = useState(Date.now() / 1000);
@@ -67,6 +68,7 @@ export function FuseLanding({ onGo }) {
       </div>
     </div>
     <ol className="fld-how" data-testid="fld-how">{HOW.map(([e, t, s], i) => <li key={t} style={{ '--i': i }}><span aria-hidden="true">{e}</span><b>{i + 1} · {t}</b><p>{s}</p></li>)}</ol>
+    <FuseProof onGo={onGo} onRun={onRun} />
     <small className="m-dim fld-fine">Cards show what happened, never what will. Coins can go to zero; FEELESS never holds your keys and never signs for you.</small>
   </section>;
 }

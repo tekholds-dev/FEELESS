@@ -1611,3 +1611,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   on the switch) and falls back to the plain chart in fx-lite / reduced motion. perspective + preserve-3d, transform / opacity
   only, `.cbg` in `FX_SURFACES`, marks ≤ 28% opacity so candles stay readable. New scene ⇒ `CHART_BGS` + a `kind` branch + CSS + test.
   The Browser pane's screenshots lag one frame behind the DOM while it is in the background — screenshot twice before judging.
+- 🧾 FUSE PROOF (`backend/fuse_proof.py` pure + tested; `_proof_build` 30s cache kept warm in `_fuse_warm`; public `GET /fuses/proof`;
+  `FuseProof.jsx` + `styles/fuseProof.css` `fpf-*`, ONE section on the Fuse landing with three lenses `PROOF_LENSES`):
+  🃏 Pick a card = setups side by side, each with ITS OWN record and its source (`replay` walk-forward windows · `real` = a real
+  card's ledger: put in → now, closed pieces won, profit takes vs full exits; "proven" for a real card needs a POSITIVE result on
+  ≥ 20 closed pieces — a losing card reads as losing) · 🧾 Live proof = the real cards' CONFIRMED swaps (filled + signed, 24h) with
+  the engine's reason from the nearest card event and the tx link (a buy reads "in for $OLD: …") · ⚔ Real duels = each real card vs
+  the best other card for 24h on % result (`duel_step/duel_view`, own file `data/fuse_duels.json`, W/L/D record; the owner may pick
+  the challenger: admin prime `{duel: {tpl, vs}}`, which calls the running duel off with no result). Points only, never a stake.
+  "⚡ Build with its coins" loads a real card's coins into the Lab (the visitor signs every buy); replay setups → My cards.
+- 🧾 WHY IT BOUGHT (`arena_prime._leg` → leg `bought` {tag, chg1h, vol1h, ageH, buyShare, liq}, in the card view; `hrt-why` on each
+  real-card coin row, full sentence in the tip; "🎯 your pick" for hand picks). Legs bought before this have no line.
+- Entrance keyframes on CONTENT are transform-only (`fpfIn`): starting at opacity 0 leaves the content invisible wherever the
+  animation clock is not running (a background pane). NOT BUILT of the six ideas: hands-free user cards (needs the audited contract).
