@@ -660,8 +660,8 @@ export function HqRealCards({ addr, onCount }) {
           {k.rent && <div className="hrt-rent" data-testid="rent-line" data-tip="Every coin sits in its own on-chain account; opening one parks about 0.002 SOL of rent in it. Your WALLET's free (unassigned) SOL fronts that — the card never pays it, so the card's P&L does not move — and the rent comes straight back to the wallet when the empty account is closed. Empty accounts are swept every 2 rounds.">
             <b>♻ ACCOUNT RENT</b>
             <span>{k.rent.parkedSol != null ? <>parked now <em className="m-num">{k.rent.parkedSol.toFixed(4)} SOL{k.rent.parkedUsd != null ? ` (${usd(k.rent.parkedUsd)})` : ''}</em> in {k.rent.accounts} coin accounts{k.rent.emptyAccounts ? ` · ${k.rent.emptyAccounts} empty, closing next sweep` : ''}</> : 'parked: read at the next sweep'}</span>
-            <span>back to your wallet in 24h <em className="m-num m-pos">+{(k.rent.back24Sol || 0).toFixed(4)} SOL{k.rent.back24Usd != null ? ` (${usd(k.rent.back24Usd)})` : ''}</em> · {k.rent.sweeps24 || 0} sweeps{k.rent.lastAt ? ` · last ${ago(k.rent.lastAt)}` : ''} · every {Math.round((k.rent.everySec || 600) / 60)} min</span>
-            {(k.rent.rows || []).length > 0 && <ul>{k.rent.rows.map(r => <li key={r.sig || r.at}><i>{ago(r.at)}</i><span>♻ rent back from {r.n} closed account{r.n === 1 ? '' : 's'}</span><em className="m-num m-pos">+{r.sol.toFixed(5)} SOL</em>
+            <span>swept back <em className="m-num">{k.rent.sweeps24 || 0}×</em> in 24h{k.rent.lastAt ? ` · last ${ago(k.rent.lastAt)}` : ''} · every {Math.round((k.rent.everySec || 600) / 60)} min — <b>the same SOL each time</b>: it is parked when a coin is bought and comes back when that coin is sold. It is never more than the “parked now” figure, and it is not profit.</span>
+            {(k.rent.rows || []).length > 0 && <ul>{k.rent.rows.map(r => <li key={r.sig || r.at}><i>{ago(r.at)}</i><span>♻ {r.n} empty account{r.n === 1 ? '' : 's'} closed — rent returned to the wallet</span><em className="m-num">{r.sol.toFixed(5)} SOL</em>
               {r.sig && <a href={`https://solscan.io/tx/${r.sig}`} target="_blank" rel="noreferrer">tx ↗</a>}</li>)}</ul>}
             <small className="m-dim">This is the wallet's money (your unassigned SOL), not the card's: the card's P&L already leaves rent out. To put unassigned SOL into the card, use Add new money.</small></div>}
           {k.lastFail && <small className="hrt-fail" data-tip={k.lastFail.err}>⚠ last miss: {k.lastFail.side} ${k.lastFail.symbol} · {ago(k.lastFail.at)} — retried automatically {k.lastFail.mint && <button type="button" className="m-btn" disabled={!!busy} onClick={() => retryDead(c.tpl, k.lastFail)}>Retry now</button>}</small>}
@@ -693,13 +693,13 @@ export function ComingUp({ p, legs = [], onSwap, busy }) {
   const big = v => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : `$${Math.round((v || 0) / 1e3)}K`);
   const seats = legs.filter(l => l.symbol !== 'SOL' && !l.ride && !l.frozen);
   return <div className="hrt-up" data-testid="coming-up"><span className="m-label">⏭ COMING UP · NEXT IN LINE</span>
-    <ol>{rows.map((r, i) => <li key={r.mint} style={{ '--i': i }}>
-      <button type="button" className="hrt-up-coin" onClick={() => openCoin({ mint: r.mint, pairAddress: r.pairAddress, symbol: r.symbol })} data-tip="Open its live flow" data-testid={`up-${r.symbol}`}>
-        <b>${r.symbol}</b><em className={`m-num ${r.chg1h >= 0 ? 'm-pos' : 'm-neg'}`}>{r.chg1h >= 0 ? '+' : ''}{Math.round(r.chg1h)}%</em><small>{r.vol1h > 0 ? `${big(r.vol1h)}/h` : r.liq > 0 ? `${big(r.liq)} pool` : ''}</small></button>
+    <ol>{rows.slice(0, 4).map((r, i) => <li key={r.mint} style={{ '--i': i }}>
+      <button type="button" className="hrt-up-coin" onClick={() => openCoin({ mint: r.mint, pairAddress: r.pairAddress, symbol: r.symbol })} data-tip={`${['Takes the next seat that opens', 'Second in line', 'Third in line', 'Fourth in line'][i]} — tap for its live flow`} data-testid={`up-${r.symbol}`}>
+        <i className="hrt-up-n">{['NEXT', '2ND', '3RD', '4TH'][i]}</i><b>${r.symbol}</b><em className={`m-num ${r.chg1h >= 0 ? 'm-pos' : 'm-neg'}`}>{r.chg1h >= 0 ? '+' : ''}{Math.round(r.chg1h)}%</em><small>{r.vol1h > 0 ? `${big(r.vol1h)}/h` : r.liq > 0 ? `${big(r.liq)} pool` : ''}</small></button>
       <select className="m-input hrt-up-sel" disabled={busy || !seats.length} value="" aria-label={`Swap $${r.symbol} in for…`} data-testid={`up-swap-${r.symbol}`}
         onChange={e => { const l = seats.find(x => x.pairAddress === e.target.value); if (l) onSwap(l, r); }}>
         <option value="">swap in for…</option>{seats.map(l => <option key={l.pairAddress} value={l.pairAddress}>${l.symbol}</option>)}</select></li>)}</ol>
-    <small className="m-dim">Left alone, the engine takes these in order as seats open.</small></div>;
+    <small className="m-dim">In this order, one per seat that opens (a stop, a scout hop, a flat coin). “Swap in for…” puts one in at the next round.</small></div>;
 }
 
 // 🔎 Why the card has (or has not) a new coin to buy: how many launch coins survive each of its filters, live from the last tick

@@ -1524,3 +1524,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   tagged safety / soft, with its regret (of the coins it stopped hours ago, how many ran 3×+), a plain sentence naming the gate
   holding the most coins back, and the real card's own pipeline + next in line. The dial (Cold Blood / Voltage / Inferno) and the
   fine-tune fold sit under it. HQ cannot be previewed from a session — it ships on tests; the owner is the first eyes.
+- ♻ The rent line must NEVER show a cumulative "+X SOL back in 24h": the owner read "+0.2283 SOL ($27.44)" as $27 of money to split
+  and asked for half of it in the card. It is the same ~0.015 SOL parked and returned ~70× a day. Screen now says: parked now ·
+  swept N× · "the same SOL each time, never more than parked now, not profit". Any recycled amount is shown as a COUNT, never a sum.
+  ⏭ Coming up = 4 rows, labelled NEXT / 2ND / 3RD / 4TH.
