@@ -1342,3 +1342,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`weather_runners(cfg=)`: the weather is the no-selection result, and the rain rule used the upside-down score). "Use this" on a
   real card sets exits + selection and turns the −15% instant swap off (it would cut before the −30% stop). Skim / bank / recycle
   stay the owner's — they sell a runner early; the replay does not model them.
+- 🚀 OLDER RUNNERS ON THE BOARD (`runners.older_runner`, `OLD_AGE_H` 168, `OLD_MIN_VOL1H` $50K, `OLD_MIN_LIQ` $25K; `_runner_live` keeps
+  those pairs; gates `prebond` + `age` pass them): the board dropped every launch coin past 48h — 61 of 111 in the feed — while
+  Hunt / Sniper / real money can only buy coins 12h+ old (the board's ages were 31 of 39 UNDER 12h). "BETTER COINS" WAS NEVER AN
+  RPC PROBLEM that day (10 of 50 unscanned, one 429): count the feed by AGE before asking for keys. The launch feed itself holds
+  only ~111 coins (trending 95 + new 43) — widening it is the next supply step. 📄 Paper tier cards buy runners by the real-money
+  rules too (≥ 12h old via `weather_runners(.., 'clear')`, record gate on): they had bled to $6–$17 of $20 on launch pumps.

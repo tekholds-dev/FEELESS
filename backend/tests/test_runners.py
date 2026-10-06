@@ -23,7 +23,7 @@ def test_gates_fail_closed_and_flag_reasons():
     assert 'Top 10 under 30%' in rn.failed_gates(rn.candidate(pair('a'), {**CLEAN, 'top10Pct': 45}, now_ms=NOW))
     assert 'Creator not flagged (Bot shield / blocklist)' in rn.failed_gates(rn.candidate(pair('a'), CLEAN, creator_flagged=True, now_ms=NOW))
     assert 'Two-sided flow (40–85% buys, 50+ trades/h)' in rn.failed_gates(rn.candidate(pair('a', buys=990, sells=10), CLEAN, now_ms=NOW))
-    assert 'Under 48h old' in rn.failed_gates(rn.candidate(pair('a', age_h=60), CLEAN, now_ms=NOW))
+    assert 'Under 48h old (to 7 days while it trades hard)' in rn.failed_gates(rn.candidate(pair('a', age_h=60), CLEAN, now_ms=NOW))
 
 
 def test_score_lanes_and_board():
@@ -359,3 +359,14 @@ def test_top10_above_the_limit_passes_only_while_big_holders_are_holding():
         assert not rn.top10_ok({**c, **bad}, g), bad
     assert not rn.top10_ok(c, {**g, 'smartTop10': 30})                                 # HQ can switch the smart band off
     assert not rn.rep_ok({'creatorRep': 'high'}, g)                                    # a reported rugger never passes, whatever the coin does
+
+
+def test_older_runner_stays_on_the_board_only_while_it_trades_hard_in_a_real_pool():
+    import runners as rn
+    ok = {'ageH': 90, 'stage': 'graduated', 'vol1h': 80000, 'liq': 40000}
+    assert rn.older_runner(ok)
+    assert not rn.older_runner({**ok, 'vol1h': 20000}) and not rn.older_runner({**ok, 'liq': 9000})
+    assert not rn.older_runner({**ok, 'ageH': 200}) and not rn.older_runner({**ok, 'ageH': 30}) and not rn.older_runner({**ok, 'stage': 'curve'})
+    gates = {g[0]: g[2] for g in rn.GATES} if isinstance(rn.GATES[0], tuple) else None
+    if gates:
+        assert gates['age'](ok) and gates['prebond'](ok) and not gates['age']({**ok, 'vol1h': 1000})

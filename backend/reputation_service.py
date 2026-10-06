@@ -5264,7 +5264,10 @@ async def _runner_live():
     seen, pairs = set(), []
     for p in [x for rows in got for x in rows]:
         m = (p.get('baseToken') or {}).get('address')
-        if m and m not in seen and (now_ms - _fuse._f(p.get('pairCreatedAt'))) <= _rn.MAX_AGE_H * 3.6e6:
+        age_ms = now_ms - _fuse._f(p.get('pairCreatedAt'))
+        old_ok = (age_ms <= _rn.OLD_AGE_H * 3.6e6 and _fuse._f((p.get('volume') or {}).get('h1')) >= _rn.OLD_MIN_VOL1H
+                  and _fuse._f((p.get('liquidity') or {}).get('usd')) >= _rn.OLD_MIN_LIQ)   # 🚀 older runners still trading hard stay on the board
+        if m and m not in seen and (age_ms <= _rn.MAX_AGE_H * 3.6e6 or old_ok):
             seen.add(m); pairs.append(p)
     busiest = sorted(pairs, key=lambda p: -_fuse._f((p.get('volume') or {}).get('h1')))[:RUNNER_SCANS]   # warmed in the background (cached scans)
     # 🗑 trench breakouts get a holder scan too (they're rarely among the 40 busiest — the scan never reached them before)
@@ -6023,6 +6026,8 @@ async def _prime_tick_inner(now):
         r_t = [x for x in runners if _lq(x) >= floor_of(x) * mg and _confirmed(x)]
         if real_t:   # 🌦 real money buys runners by the weather the engine's own sims measured (rain = strong + deep only · storm = none)
             r_t = _prime.weather_runners(r_t, _real_weather()['level'], _fw.clean_cfg(fw_cfg)['minLiqUsd'], _lq, cfg_t)
+        else:   # 📄 paper = what real money could buy: no runner under 12h old (unknown age = out) — the paper Arena cards bled on launch pumps
+            r_t = _prime.weather_runners(r_t, 'clear', 0, _lq, cfg_t)
         # 🗑 trench coins (strict gate, cached by the warm loop) — only a 🗑 trench slot ever takes one; own pool floor; real money
         # never buys one in a runner storm. The real-money runner age rule doesn't apply to them: the trench gate replaces it.
         tr_floor = _fw.clean_cfg(fw_cfg)['trenchMinLiqUsd']   # paper uses the same floor (paper = what real money could buy)
@@ -6074,7 +6079,7 @@ async def _prime_tick_inner(now):
         tb_ = _edge_load().get('table')
         if tb_:
             r_t = _pedge.rank(r_t, tb_)
-            if real_t and cfg_t.get('edgeGate', True):
+            if cfg_t.get('edgeGate', True):   # real AND paper (paper = real)
                 r_t = _pedge.gate(r_t, tb_, float(cfg_t.get('edgeFloor') or 0))
         if real_t:   # 🏊 the owner's own runner pool floor (off unless they set it)
             r_t = _prime.deep_runners(r_t, cfg_t.get('runnerMinLiqK'), cfg_t.get('runnerMinBuy'), cfg_t.get('runnerMinVolK'), cfg_t.get('runnerMinChg1h'))
