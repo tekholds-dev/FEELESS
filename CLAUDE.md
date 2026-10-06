@@ -1540,3 +1540,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   30% trail, no skim, stop −30, hold 1–3h by clock, age ≥ 12h, +40%). 4 variants each (`META_VARIANTS`), picked by an owner seed so
   no two cards trade in lockstep. The patch never sets the clock or the round patience. Every value is a real option
   (test: `clean_cfg` keeps each one). Built on the record, never a promise.
+- 🅿 PARKED PROFIT (`skimTo: 'round'`, `skimHoldRounds` 1/2/3/6, Edit Fuse › Exits; `_skim` + `lock_bank` + recycle park via
+  `holdCashUsd` + card `skimPark`, `release_parked` in the tick before seats / cash are handled): profit taken from a coin sits in
+  card cash — out of the coins, where a pulled pool cannot take it — for N rounds, then joins the idle cash spread back into the
+  card. `cash` still means "held for the owner, never re-spent".
+- 📈 A coin opened from a Fuse card carries that card's levels (`fuseLevels(l, cfg, label)` → `openWarRoom({.., fuse})` →
+  `WarRoomHost` → `EcosystemWorld` keeps `fuse` on the chart pair → `TrenchChart` strip `chart-fuse` + `PriceChart` lines: ⚛ card
+  entry · 🛑 stop · ❄ locks · 🏔 trail when riding). `WarRoomHost` used to pass only chainId + pairAddress — anything else on the
+  pair was dropped.

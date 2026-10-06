@@ -34,7 +34,7 @@ export default function EcosystemWorld({ ecosystem, pad, initialPair, onClose })
   useEffect(() => {
     if (!initialPair) return;
     let alive = true;
-    searchTokens(initialPair.pairAddress).then(ps => { const p = (ps || []).find(x => x.pairAddress === initialPair.pairAddress && x.chainId === initialPair.chainId); if (alive && p) { setChartPair(p); setLayout('chart'); } }).catch(() => {});
+    searchTokens(initialPair.pairAddress).then(ps => { const p = (ps || []).find(x => x.pairAddress === initialPair.pairAddress && x.chainId === initialPair.chainId); if (alive && p) { setChartPair(initialPair.fuse ? { ...p, fuse: initialPair.fuse } : p); setLayout('chart'); } }).catch(() => {});
     return () => { alive = false; };
   }, [initialPair?.chainId, initialPair?.pairAddress]); // eslint-disable-line react-hooks/exhaustive-deps
   // No coin picked yet: open the room on its top coin, so the chart and tools are there in every layout.

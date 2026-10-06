@@ -197,7 +197,7 @@ test('real card settings include profit skim (when + where) and bank at the lock
   const src = require('fs').readFileSync(require('path').join(__dirname, 'ArenaPrime.jsx'), 'utf8');
   for (const k of ["['skimAt'", "['skimTo'", "['lockBankPct'", 'data-testid={`skim-${l.symbol}`}', 'data-testid={`coin-${l.symbol}`}', 'skim: { tpl: c.tpl, pairAddress: l.pairAddress, to }'])
     expect(src).toContain(k);
-  expect(src).toMatch(/rows\(\['skimAt', \.\.\.\(on\('skimAt'\) \? \['skimTo'\] : \[\]\)/);   // skim is on the Exits tab; "goes to" shows once skim is on                               // both settings are actually on the Exits tab
+  expect(src).toMatch(/rows\(\['skimAt', 'skimTo'/);   // skim (when + where it goes) is on the Exits tab
 });
 
 test('under the real card: seats by state, swaps this hour, profit pulled, Full activity and Share', async () => {

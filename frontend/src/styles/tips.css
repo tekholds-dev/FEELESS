@@ -74,3 +74,8 @@ body.theme-day .bft { background: #fff; }
 /* ☀ DAY LAG: four day-theme animations moved `background-position` across FULL-SCREEN layers (the page gradient, its ::before,
    the particle field, the sweep) — not compositable, so the whole page repainted on every frame. The layers stay; they hold still. */
 body.theme-day, body.theme-day::before, body.theme-day .ambient-background::after, body.theme-day .terminal-app .terminal-main::before { animation: none !important; }
+
+/* ⚛️ a Fuse card's levels on its coin's chart header (opened from the card) */
+.chart-fuse { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; padding: 6px 10px; margin: 0 0 6px; border-radius: 10px; border: 1px solid rgba(21, 209, 106, .35); background: rgba(21, 209, 106, .06); font-size: 12px; }
+.chart-fuse b { font-size: 12.5px; } .chart-fuse em { font-style: normal; font-family: 'JetBrains Mono', monospace; } .chart-fuse .up { color: #15d16a; } .chart-fuse .down { color: #ff8fa3; }
+body.theme-day .chart-fuse { background: #eaf7f0; border-color: #9fd3b6; } body.theme-day .chart-fuse .up { color: #0b7a4a; } body.theme-day .chart-fuse .down { color: #c2334d; }

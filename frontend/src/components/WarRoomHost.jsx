@@ -15,5 +15,5 @@ export function WarRoomHost() {
   }, []);
   if (!pair) return null;
   const eco = ECOSYSTEMS.find(e => e.chainId === pair.chainId) || ECOSYSTEMS[0];
-  return <Suspense fallback={null}><EcosystemWorld ecosystem={eco} initialPair={{ chainId: pair.chainId, pairAddress: pair.pairAddress }} onClose={() => setPair(null)} /></Suspense>;
+  return <Suspense fallback={null}><EcosystemWorld ecosystem={eco} initialPair={{ chainId: pair.chainId, pairAddress: pair.pairAddress, fuse: pair.fuse || null }} onClose={() => setPair(null)} /></Suspense>;
 }

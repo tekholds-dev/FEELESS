@@ -396,6 +396,7 @@ def clean_cfg(p):
     out['skimAt'] = float(_f((p or {}).get('skimAt'))) if _f((p or {}).get('skimAt')) in SKIM_ATS else 0.0
     out['tpStakeUsd'] = float(_f((p or {}).get('tpStakeUsd'))) if (p or {}).get('tpStakeUsd') is not None and _f((p or {}).get('tpStakeUsd')) in TP_STAKES else TP_STAKE_USD
     out['skimTo'] = (p or {}).get('skimTo') if (p or {}).get('skimTo') in SKIM_TOS else 'card'
+    out['skimHoldRounds'] = int(_f((p or {}).get('skimHoldRounds'))) if int(_f((p or {}).get('skimHoldRounds'))) in SKIM_HOLDS else 2
     out['recyclePct'] = float(_f((p or {}).get('recyclePct'))) if _f((p or {}).get('recyclePct')) in RECYCLE_PCTS else 0.0
     out['recycleEvery'] = int(_f((p or {}).get('recycleEvery'))) if int(_f((p or {}).get('recycleEvery'))) in RECYCLE_EVERY else 3
     out['lockBankPct'] = float(_f((p or {}).get('lockBankPct'))) if (p or {}).get('lockBankPct') is not None and _f((p or {}).get('lockBankPct')) in LOCK_BANKS else LOCK_BANK
@@ -816,7 +817,8 @@ def tp_room(l, cfg):
 
 
 SKIM_ATS = (0, 10, 20, 30, 50, 100)   # auto: skim each time the coin gains this % since its entry / last skim (0 = off)
-SKIM_TOS = ('card', 'cash')
+SKIM_TOS = ('card', 'cash', 'round')   # 'round' = parked in card cash for `skimHoldRounds` rounds, then back into the coins
+SKIM_HOLDS = (1, 2, 3, 6)
 RECYCLE_PCTS = (0, 50, 70, 100)        # ♻ every `recycleEvery` rounds this % of each coin's PROFIT goes back over the card's coins (0 = off)
 RECYCLE_EVERY = (1, 2, 3, 4, 6, 12)
 SEAT_MIN_USD = 0.25                   # an empty seat is refilled once the card has at least this much free cash
@@ -840,6 +842,9 @@ def lock_bank(c, l, px, liqs, now, cfg, fee=0.0, gain=None):
     l['tpCostUsd'] = round(_f(l.get('tpCostUsd')) + cost_part, 6)
     l['units'] = _f(l['units']) - sold; l['costUsd'] = round(_f(l.get('costUsd')) - cost_part, 6); l['trimAt'] = l['bankedAt'] = now
     c['cash'] = _f(c.get('cash')) + got; c['takenUsd'] = _f(c.get('takenUsd')) + max(0.0, got - cost_part); c['feesUsd'] = _f(c.get('feesUsd')) + fee
+    if (cfg or {}).get('skimTo') == 'round':   # 🅿 banked money parks like a skim
+        c['holdCashUsd'] = round(_f(c.get('holdCashUsd')) + got, 6)
+        c['skimPark'] = list(c.get('skimPark') or []) + [{'usd': round(got, 6), 'round': int(c.get('rounds') or 0), 'at': now, 'symbol': l.get('symbol')}]
     g_txt = f" (+{gain:.0f}%)" if gain is not None else ''
     c.setdefault('events', []).append({'at': now, 'kind': 'lock-bank', 'symbol': l['symbol'], 'usd': round(got, 4), 'to': ['cash'],
                                        'why': f"🏦 banked {bank * 100:g}% of ${l['symbol']} as it locked{g_txt} — the rest keeps riding"})
@@ -867,12 +872,33 @@ def _skim(c, l, px, liqs, now, to='card', fee=0.0, auto=None, frac=1.0, why=None
     c['cash'] = round(_f(c.get('cash')) + got, 6)
     if to == 'cash':
         c['holdCashUsd'] = round(_f(c.get('holdCashUsd')) + got, 6)   # held for the owner — never put back into coins
+    elif to == 'round':   # 🅿 parked: out of the coins (so a rug cannot take it) for a few rounds, then it goes back to work
+        c['holdCashUsd'] = round(_f(c.get('holdCashUsd')) + got, 6)
+        c['skimPark'] = list(c.get('skimPark') or []) + [{'usd': round(got, 6), 'round': int(c.get('rounds') or 0), 'at': now, 'symbol': l.get('symbol')}]
     c['takenUsd'] = _f(c.get('takenUsd')) + max(0.0, got - cost * part)
     c['feesUsd'] = _f(c.get('feesUsd')) + fee
     c.setdefault('events', []).append({'at': now, 'kind': 'skim', 'symbol': l.get('symbol'), 'usd': round(got, 4), 'to': ['cash'] if to == 'cash' else ['card'],
                                        'why': why or f"💰 {'auto: +' + format(auto, 'g') + '% — ' if auto else ''}profit of ${l.get('symbol')} taken (${got:.2f}), its stake keeps riding — "
-                                              + ('held as cash for you' if to == 'cash' else 'put to work in your other coins')})
+                                              + ('held as cash for you' if to == 'cash' else 'parked in card cash for the next rounds' if to == 'round' else 'put to work in your other coins')})
     return got
+
+
+def release_parked(c, cfg, now):
+    """🅿 Parked profit whose rounds are up goes back to work: it leaves the held cash, and the normal idle-cash spread puts it into
+    the card's coins at this round. Mutates c; → $ released."""
+    park = list(c.get('skimPark') or [])
+    if not park:
+        return 0.0
+    n = int(_f((cfg or {}).get('skimHoldRounds')) or 2); rnd = int(c.get('rounds') or 0)
+    due = [p for p in park if rnd - int(p.get('round') or 0) >= n or rnd < int(p.get('round') or 0)]   # a restarted run releases everything
+    if not due:
+        return 0.0
+    usd = min(sum(_f(p.get('usd')) for p in due), _f(c.get('holdCashUsd')))
+    c['holdCashUsd'] = round(max(0.0, _f(c.get('holdCashUsd')) - usd), 6)
+    c['skimPark'] = [p for p in park if p not in due]
+    if usd > 0.005:
+        c.setdefault('events', []).append({'at': now, 'kind': 'compound', 'usd': round(usd, 4), 'why': f"🅿 ${usd:.2f} of parked profit is back to work after {n} round{'s' if n != 1 else ''}"})
+    return usd
 
 
 def skim_leg(card, pair, prices, liqs, now, to='card'):
@@ -1505,7 +1531,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 if l.get('placeholder') or l.get('buying') or _f(l.get('units')) <= 0:
                     continue
                 px_r = _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
-                _skim(c, l, px_r, liqs, now, 'card', fee, room=tp_room(l, cfg), frac=rp / 100,
+                _skim(c, l, px_r, liqs, now, 'round' if cfg.get('skimTo') == 'round' else 'card', fee, room=tp_room(l, cfg), frac=rp / 100,
                       why=f"♻ round {c['rounds']}: {rp:g}% of ${l.get('symbol')}'s profit recycled into the card's other coins — its stake keeps riding")
         # 📈 streaks: 3 losing rounds → the config is changed (safe cycle); 3 winning rounds → config locked + best coin frozen one round
         for l in c['legs']:   # a coin frozen for one round was protected through this rotation — now it's free again
@@ -1599,6 +1625,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     # 🪑 AN EMPTY SEAT IS REFILLED: the owner asked for N coins; a seat lost to a refused buy ("slot back to card cash") used to stay
     # empty for good — the card sat on 3 coins with cash idle. As soon as there is cash for it, the best coin not on the card takes
     # the seat with an equal share (runner first, then pool). One seat a tick; never while floored / held.
+    release_parked(c, cfg, now)   # 🅿 parked profit whose rounds are up joins the idle cash that is spread below
     want_n = int(_f(cfg.get('coins')))
     c['seats'] = want_n   # the keeper sizes its smallest order to the card's seats (fuse_wallet.min_order)
     # 💵 on a real card a seat is only opened when the keeper can actually SEND its buy (cfg `minOrderUsd` = this card's smallest

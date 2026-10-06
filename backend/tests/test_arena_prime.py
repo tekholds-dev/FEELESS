@@ -1755,3 +1755,16 @@ def test_meta_by_clock_scalper_on_fast_rounds_holder_on_slow_and_every_value_is_
             clean = ap.clean_cfg({**m['patch'], 'rotateHours': hours})
             assert all(float(clean[k]) == float(v) for k, v in m['patch'].items()), (hours, seed)   # nothing snaps to another value when saved
         assert len(seen) == 4                                                                 # four different variants per meta
+
+
+def test_taken_profit_can_park_in_card_cash_for_some_rounds_then_goes_back_to_work():
+    cfg = ap.clean_cfg({'skimTo': 'round', 'skimHoldRounds': 2})
+    assert cfg['skimTo'] == 'round' and cfg['skimHoldRounds'] == 2 and ap.clean_cfg({'skimHoldRounds': 5})['skimHoldRounds'] == 2
+    c = {'rounds': 10, 'cash': 0.0, 'legs': [{'symbol': 'W', 'mint': 'W', 'pairAddress': 'W', 'units': 1.0, 'costUsd': 1.0, 'entry': 1.0}], 'events': []}
+    got = ap._skim(c, c['legs'][0], 1.5, {}, 100.0, 'round')
+    assert got > 0.4 and abs(c['holdCashUsd'] - got) < 1e-6 and c['skimPark'][0]['round'] == 10 and 'parked' in c['events'][-1]['why']
+    assert ap.release_parked(c, cfg, 200.0) == 0.0                              # same round: stays parked (a rug cannot take it)
+    c['rounds'] = 11; assert ap.release_parked(c, cfg, 300.0) == 0.0
+    c['rounds'] = 12; out = ap.release_parked(c, cfg, 400.0)
+    assert abs(out - got) < 1e-6 and c['holdCashUsd'] == 0.0 and not c['skimPark'] and c['cash'] >= got      # back in the spendable cash
+    assert ap.release_parked({'rounds': 3}, cfg, 1.0) == 0.0

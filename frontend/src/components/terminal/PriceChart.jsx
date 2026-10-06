@@ -15,7 +15,7 @@ const LIVE_INTERVAL_SECONDS = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h
 
 const ageLabel = t => { const s = (Date.now() - t) / 1000; return s < 3600 ? `${Math.max(1, Math.round(s / 60))}m` : s < 86400 ? `${Math.round(s / 3600)}h` : s < 86400 * 60 ? `${Math.round(s / 86400)}d` : `${Math.round(s / 86400 / 30)}mo`; };
 
-export const PriceChart = ({ pair, interval, showVolume, metric = 'price', markers = [], feeLive: feeLiveProp, userEntry = null, userTrades = null }) => {
+export const PriceChart = ({ pair, interval, showVolume, metric = 'price', markers = [], feeLive: feeLiveProp, userEntry = null, userTrades = null, fuse = null }) => {
   // Every chart gets the same tools: pages that don't control Fee's overlay get a built-in toggle.
   const [feeOwn, setFeeOwn] = useState(false);
   const feeLive = feeLiveProp ?? feeOwn;
@@ -300,8 +300,15 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     const add = o => { try { entryLinesRef.current.push(ref.series.createPriceLine({ axisLabelVisible: true, ...o })); } catch { /* chart torn down */ } };
     const lv = tradeLevels(userTrades); if (lv.length > 1) lv.forEach(t => add({ price: t.price * ratio, color: t.side === 'sell' ? '#ff8fa3aa' : '#15d16aaa', lineWidth: 1, lineStyle: 2, title: t.title }));
     if (userEntry > 0) add({ price: userEntry * ratio, color: '#f5c542', lineWidth: 2, lineStyle: 0, title: '◆ your entry' });
+    // ⚛️ the Fuse card's own levels for this coin (opened from the card): entry · stop · lock (freeze) · trail once riding
+    if (fuse?.entry > 0) {
+      add({ price: fuse.entry * ratio, color: '#15d16a', lineWidth: 2, lineStyle: 0, title: '⚛ card entry' });
+      if (fuse.stop > 0) add({ price: fuse.stop * ratio, color: '#ff8fa3', lineWidth: 1, lineStyle: 2, title: `🛑 stop −${fuse.slPct}%` });
+      if (fuse.lock > 0) add({ price: fuse.lock * ratio, color: '#9fe3ff', lineWidth: 1, lineStyle: 2, title: `❄ locks +${fuse.lockPct}%` });
+      if (fuse.trail > 0) add({ price: fuse.trail * ratio, color: '#f5c542', lineWidth: 1, lineStyle: 2, title: `🏔 trail −${fuse.trailPct}% off peak` });
+    }
     return drop;
-  }, [userEntry, tradeKey, charting, ratio, displayCandles]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userEntry, tradeKey, charting, ratio, displayCandles, fuse?.entry, fuse?.stop, fuse?.lock, fuse?.trail]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Live ticks: every 3s pull the pair's current price straight from DexScreener and
   // update the forming candle in place (no redraw, zoom preserved).
