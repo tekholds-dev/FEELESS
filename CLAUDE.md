@@ -1548,3 +1548,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `WarRoomHost` → `EcosystemWorld` keeps `fuse` on the chart pair → `TrenchChart` strip `chart-fuse` + `PriceChart` lines: ⚛ card
   entry · 🛑 stop · ❄ locks · 🏔 trail when riding). `WarRoomHost` used to pass only chainId + pairAddress — anything else on the
   pair was dropped.
+- 🔄 REBUY (owner: "sells the coin and rebuys at a new entry"; `arena_prime.rebuy_out/rebuy_in`, `POST /admin/arena/prime {rebuy:
+  {tpl, pairAddress}}`, button `chart-fuse-rebuy` on a Fuse coin's war room strip → event `feeless:fuse-rebuy` → confirmed in
+  `HqRealCards`): step 1 the coin leaves the card whole, its money is held aside (`holdCashUsd`, card `rebuy`) and the seat is
+  spoken for (no refill); step 2 (each tick) once the WALLET no longer holds the coin the money is released and the same coin is
+  queued as an acknowledged `seatPick` → bought at today's price, so the BOOK has a true new entry. Not landed in 10 min → called
+  off, money released. Never "re-base" an entry without the two swaps: `sync_card` copies the book's `entryPx` to the card, and
+  changing the book's cost basis without a trade would falsify realized P&L. First live rebuy = watch the ledger.

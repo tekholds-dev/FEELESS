@@ -79,3 +79,6 @@ body.theme-day, body.theme-day::before, body.theme-day .ambient-background::afte
 .chart-fuse { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; padding: 6px 10px; margin: 0 0 6px; border-radius: 10px; border: 1px solid rgba(21, 209, 106, .35); background: rgba(21, 209, 106, .06); font-size: 12px; }
 .chart-fuse b { font-size: 12.5px; } .chart-fuse em { font-style: normal; font-family: 'JetBrains Mono', monospace; } .chart-fuse .up { color: #15d16a; } .chart-fuse .down { color: #ff8fa3; }
 body.theme-day .chart-fuse { background: #eaf7f0; border-color: #9fd3b6; } body.theme-day .chart-fuse .up { color: #0b7a4a; } body.theme-day .chart-fuse .down { color: #c2334d; }
+.chart-fuse-btn { margin-left: auto; padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(21, 209, 106, .6); background: none; color: inherit; font: inherit; font-size: 11.5px; cursor: pointer; transition: background .15s, transform .15s; }
+.chart-fuse-btn:hover { background: rgba(21, 209, 106, .16); } .chart-fuse-btn:active { transform: scale(.97); } .chart-fuse-btn:focus-visible { outline: 1px solid #15d16a; outline-offset: 2px; }
+body.theme-day .chart-fuse-btn { border-color: #0b7a4a; }

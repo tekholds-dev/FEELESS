@@ -1768,3 +1768,20 @@ def test_taken_profit_can_park_in_card_cash_for_some_rounds_then_goes_back_to_wo
     c['rounds'] = 12; out = ap.release_parked(c, cfg, 400.0)
     assert abs(out - got) < 1e-6 and c['holdCashUsd'] == 0.0 and not c['skimPark'] and c['cash'] >= got      # back in the spendable cash
     assert ap.release_parked({'rounds': 3}, cfg, 1.0) == 0.0
+
+
+def test_rebuy_sells_the_coin_whole_holds_its_money_and_queues_it_back_once_the_sale_landed():
+    L = lambda sym, units=1.0: {'symbol': sym, 'mint': sym, 'pairAddress': sym, 'role': 'runner', 'entry': 1.0, 'units': units, 'costUsd': units, 'liq': 500000}
+    card = {'legs': [L('WIN'), L('B')], 'cash': 0.0, 'events': []}
+    out = ap.rebuy_out(card, 'WIN', {'WIN': 2.0}, {}, 100.0)
+    assert [l['symbol'] for l in out['legs']] == ['B'] and out['rebuy']['mint'] == 'WIN' and out['rebuy']['gainPct'] == 100.0
+    assert out['cash'] > 1.9 and abs(out['holdCashUsd'] - out['cash']) < 1e-6 and len(card['legs']) == 2      # its money is held aside · the input is untouched
+    for bad in ((card, 'NOPE'), (out, 'B'), ({'legs': [L('E', 0.0)], 'events': []}, 'E')):
+        with pytest.raises(ValueError):
+            ap.rebuy_out(bad[0], bad[1], {'B': 1.0, 'E': 1.0, 'NOPE': 1.0}, {}, 100.0)
+    assert ap.rebuy_in(out, True, 200.0) is out                                                  # the sale has not landed: wait
+    back = ap.rebuy_in(out, False, 200.0)                                                        # landed → the same coin takes the empty seat
+    assert back['seatPick']['mint'] == 'WIN' and back['seatPick']['ack'] and 'rebuy' not in back and back['holdCashUsd'] == 0.0
+    late = ap.rebuy_in(out, True, 100.0 + ap.REBUY_WAIT_SEC + 1)                                 # never landed → called off, money free
+    assert 'rebuy' not in late and 'seatPick' not in late and late['holdCashUsd'] == 0.0 and 'called off' in late['events'][-1]['why']
+    assert ap.rebuy_in(card, False, 1.0) is card

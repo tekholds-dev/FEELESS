@@ -6181,6 +6181,9 @@ async def _prime_tick_inner(now):
         if new_only_:
             p_t = []
         _step('not too young · not dollar-named · record gate', r_t)
+        if real_t and cur and cur.get('rebuy'):   # 🔄 a rebuy waits for its sale to land, then the same coin takes the seat at a new entry
+            bl_ = (((_fw_load().get('books') or {}).get(tid) or {}).get('legs') or {}).get(cur['rebuy'].get('mint')) or {}
+            cur = _prime.rebuy_in(cur, _fuse._f(bl_.get('atoms')) > 0, now)
         r_pre_ = list(r_t)   # 🔭 the scout's small ticket may take any SAFE mover (age + checks passed), not only coins on the card's full hunt line
         if real_t:   # 🏊 the owner's own runner pool floor (off unless they set it)
             r_t = _prime.deep_runners(r_t, cfg_t.get('runnerMinLiqK'), cfg_t.get('runnerMinBuy'), cfg_t.get('runnerMinVolK'), cfg_t.get('runnerMinChg1h'))
@@ -6494,6 +6497,20 @@ async def fuse_prime_admin(request: Request):
             except ValueError as e:
                 raise HTTPException(400, str(e))
             _json_save(FUSE_HQ_PATH, d)
+    rb = body.get('rebuy') or {}
+    if rb.get('tpl') in _prime.TEMPLATES and rb.get('pairAddress'):   # 🔄 sell this coin and buy it straight back at today's price (new entry)
+        async with _admin_lock:
+            d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
+            card = cards.get(rb['tpl'])
+            if not card:
+                raise HTTPException(404, 'No card for that tier yet.')
+            px_rb = await _hq_prices([{'chainId': 'solana', 'pairAddress': rb['pairAddress']}])
+            try:
+                cards[rb['tpl']] = _prime.rebuy_out(card, rb['pairAddress'], px_rb, {}, time.time())
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            _json_save(FUSE_HQ_PATH, d)
+            kick_real_keeper = bool(card.get('real'))
     rep = body.get('replace') or {}
     if rep.get('tpl') in _prime.TEMPLATES and rep.get('pairAddress'):   # ⇄ one coin on one Prime card
         pools, runners, anchors = await _prime_candidates()

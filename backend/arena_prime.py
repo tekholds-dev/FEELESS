@@ -1632,7 +1632,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     # order, 0 on paper) and a coin is only trimmed for it by an amount the keeper would really sell — else the seat waits, said once
     mo = _f(cfg.get('minOrderUsd'))
     seat_min = max(mo, 0.10) if mo > 0 else SEAT_MIN_USD
-    if want_n and len(c['legs']) < want_n and not c.get('flooredAt') and not c.get('holdAll'):
+    if want_n and len(c['legs']) < want_n and not c.get('flooredAt') and not c.get('holdAll') and not c.get('rebuy'):   # 🔄 a rebuy's seat is spoken for
         _val = lambda x: (_f(x['units']) or (_f(x.get('wantUnits')) if x.get('buying') else 0.0)) * (_f(prices.get(x['pairAddress'])) or _f(x.get('entry')))
         share = (sum(_val(x) for x in c['legs']) + free_cash) / want_n
         role_s, nxt = next(((r, x) for r in ('runner', 'pool') for x in [best(r)] if x), (None, None))
@@ -2074,6 +2074,52 @@ def queue_swap(card, pair, cand):
     if any((x.get('swapTo') or {}).get('mint') == cand['mint'] for x in c['legs'] if x is not l):
         raise ValueError('That coin is already queued for another seat.')
     l['swapTo'] = {k: cand.get(k) for k in ('mint', 'pairAddress', 'symbol', 'price', 'liquidityUsd', 'division', 'trenchOnly', 'ack') if cand.get(k) is not None}
+    return c
+
+
+REBUY_WAIT_SEC = 600.0   # a rebuy whose sell has not landed after 10 minutes is called off (its money is released)
+
+
+def rebuy_out(card, pair, prices, liqs, now):
+    """🔄 REBUY, step 1 (owner): sell this coin whole so it can be bought straight back at today's price — a NEW entry, so its stop,
+    lock and trail count from here and the gain so far is realized. The coin leaves the card, its money is held aside (never spread
+    into the other coins), and `rebuy` remembers it. Pure; ValueError when the coin is not on the card / not held / already queued."""
+    c = {**card, 'legs': [dict(l) for l in card.get('legs') or []], 'events': list(card.get('events') or [])}
+    l = next((x for x in c['legs'] if x.get('pairAddress') == pair), None)
+    if not l:
+        raise ValueError('That coin is not on this card.')
+    if c.get('rebuy'):
+        raise ValueError(f"${c['rebuy'].get('symbol')} is already being rebought — one at a time.")
+    px = _f((prices or {}).get(pair))
+    if _f(l.get('units')) <= 0 or l.get('buying') or px <= 0:
+        raise ValueError('That coin is not held yet (or has no live price) — nothing to rebuy.')
+    got = sell_usd(_f(l['units']), px, (liqs or {}).get(pair) or l.get('liq'))
+    c['legs'] = [x for x in c['legs'] if x is not l]
+    c['cash'] = round(_f(c.get('cash')) + got, 6); c['holdCashUsd'] = round(_f(c.get('holdCashUsd')) + got, 6)
+    c['rebuy'] = {'mint': l['mint'], 'pairAddress': pair, 'symbol': l.get('symbol'), 'price': px, 'liquidityUsd': _f(l.get('liq')), 'usd': round(got, 6), 'at': now,
+                  'gainPct': round((px / _f(l['entry']) - 1) * 100, 1) if _f(l.get('entry')) > 0 else 0.0, **({'trenchOnly': True} if l.get('trench') else {})}
+    c['events'].append({'at': now, 'kind': 'rotate', 'symbol': l.get('symbol'), 'usd': round(got, 4), 'to': [l.get('symbol')],
+                        'why': f"🔄 rebuy: ${l.get('symbol')} sold at {c['rebuy']['gainPct']:+.0f}% — it is bought back at today's price as soon as the sale lands (new entry)"})
+    return c
+
+
+def rebuy_in(card, still_held, now):
+    """🔄 REBUY, step 2 (each tick): once the wallet no longer holds the coin, its money is released and the coin is queued for the
+    empty seat as the owner's pick (`seatPick`, acknowledged) — the seat refill buys it on this tick. Still held after
+    REBUY_WAIT_SEC → called off, money released. → card (unchanged while the sale is still in flight)."""
+    rb = (card or {}).get('rebuy')
+    if not rb:
+        return card
+    late = now - _f(rb.get('at')) > REBUY_WAIT_SEC
+    if still_held and not late:
+        return card
+    c = {**card, 'events': list(card.get('events') or [])}
+    c.pop('rebuy', None)
+    c['holdCashUsd'] = round(max(0.0, _f(c.get('holdCashUsd')) - _f(rb.get('usd'))), 6)
+    if still_held:
+        c['events'].append({'at': now, 'kind': 'rotate', 'symbol': rb.get('symbol'), 'usd': 0.0, 'why': f"🔄 rebuy of ${rb.get('symbol')} called off — its sale had not landed after 10 minutes; the money is free again"})
+        return c
+    c['seatPick'] = {k: rb.get(k) for k in ('mint', 'pairAddress', 'symbol', 'price', 'liquidityUsd', 'trenchOnly') if rb.get(k) is not None} | {'ack': True}
     return c
 
 
