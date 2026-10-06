@@ -343,7 +343,9 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest }) {
   const own = !real && !locked;   // 🃏 an unlocked paper tier keeps ITS OWN exits (unique per card); the shared config stays for the rest
   const saveExit = patch => (own ? save({ tierCfg: { [c.tpl]: patch } }) : save(patch));
   const rowX = e => (own && TIER_KEYS.includes(e[0]) ? seg(e[0], `${e[1]} · this card`, e[2], e[3], cfg?.[e[0]], false, saveExit) : row(e));
-  const rows = keys => keys.map(k => EDIT.find(e => e[0] === k)).filter(Boolean).map(rowX);
+  // 💵 a real card never re-shapes more often than every 6 rounds (a re-shape sells every coin under its keep line) — "3" saved as 6, so it isn't offered
+  const realRow = e => (real && e[0] === 'cycleEvery' ? [e[0], e[1], e[2].filter(o => o[0] !== 3), `${e[3]}. Real money: 6 rounds at the fastest — a re-shape sells every coin that is not winning, so it is never done more often.`] : e);
+  const rows = keys => keys.map(k => EDIT.find(e => e[0] === k)).filter(Boolean).map(realRow).map(rowX);
   const churn = (cfg?.rotateHours || 1) < 0.25 && (cfg?.rotateConfirm || 1) < 3;   // 5-min rounds + low patience = swaps on noise (fees, missed buys)
   const [grp, setGrp] = useState('rounds');
   return <details className="hrt-edit" data-testid="card-editor"><summary>⚙ Edit Fuse {real ? '· 💵 real-money config — paper cards untouched' : locked ? '· 🔒 locked — edits change only this Fuse' : '· this card\'s own exits, patience + hold · shape is shared'}</summary>
