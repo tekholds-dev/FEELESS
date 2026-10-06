@@ -1,0 +1,19 @@
+/* 🪙 Coin drawer extras: slide-in, stat tiles, animated move bars, reading dots. m-* tokens; transform / opacity only. */
+.ce.cd { animation: cdIn .22s cubic-bezier(.2, .8, .2, 1) both; }
+.cd-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 10px 0 4px; }
+.cd-stats > div { display: grid; gap: 3px; padding: 8px 9px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--m-accent) 22%, transparent); background: color-mix(in srgb, var(--m-accent) 5%, transparent);
+  animation: cdUp .24s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); transition: border-color .15s, transform .15s; }
+.cd-stats > div:hover { border-color: color-mix(in srgb, var(--m-accent) 55%, transparent); transform: translateY(-1px); }
+.cd-stats small, .cd-moves small { font: 9px var(--m-mono); letter-spacing: .12em; color: var(--m-dim); } .cd-stats .m-num { font-size: 13px; }
+.cd-moves { display: grid; gap: 5px; margin: 8px 0; }
+.cd-moves > div { display: grid; grid-template-columns: 30px minmax(0, 1fr) 70px; align-items: center; gap: 8px; animation: cdUp .24s ease-out both; animation-delay: calc(120ms + var(--i, 0) * 60ms); }
+.cd-moves span { height: 7px; border-radius: 6px; background: color-mix(in srgb, var(--m-line) 60%, transparent); overflow: hidden; }
+.cd-moves i { display: block; height: 100%; border-radius: 6px; transform-origin: left; transition: transform .5s cubic-bezier(.2, .8, .2, 1); background: var(--m-accent); }
+.cd-moves .dn i { background: #ff8fa3; } .cd-moves .m-num { font-size: 12px; text-align: right; } .cd-moves .up .m-num { color: var(--m-accent); } .cd-moves .dn .m-num { color: #ff8fa3; }
+.cd-reading { display: flex; align-items: center; gap: 5px; } .cd-reading i { width: 6px; height: 6px; border-radius: 50%; background: var(--m-accent); animation: cdDot 1s ease-in-out infinite; }
+.cd-reading i:nth-child(2) { animation-delay: .15s; } .cd-reading i:nth-child(3) { animation-delay: .3s; margin-right: 4px; }
+@keyframes cdIn { from { opacity: 0; transform: translateX(24px); } } @keyframes cdUp { from { opacity: 0; transform: translateY(6px); } } @keyframes cdDot { 0%, 100% { opacity: .25; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.15); } }
+body.fx-lite .ce.cd, body.fx-lite .cd-stats > div, body.fx-lite .cd-moves > div, body.fx-lite .cd-reading i { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ce.cd, .cd-stats > div, .cd-moves > div, .cd-reading i { animation: none; } .cd-moves i, .cd-stats > div { transition: none; } }
+body.theme-day .cd-stats > div { background: #f1faf5; border-color: #bfe0cf; } body.theme-day .cd-moves span { background: #dbe8e1; } body.theme-day .cd-moves .up .m-num { color: #0b7a4a; } body.theme-day .cd-moves .dn .m-num { color: #c2334d; }
+@media (max-width: 640px) { .cd-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

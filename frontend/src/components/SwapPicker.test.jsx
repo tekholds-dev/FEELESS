@@ -18,9 +18,13 @@ test('the real-card swap picker has every Lab lens + search, flags thin pools an
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<SwapPicker out={{ symbol: 'WIF' }} have={[]} minLiq={20000} onPick={r => picks.push(r)} onClose={() => {}} />); });
   await tick();
-  expect(PICK_LENSES.map(x => x[0])).toEqual(['arena', 'popular', 'majors', 'stocks', 'risers', 'yield', 'deep', 'pump', 'runners', 'volume', 'trench', 'new', 'dip', 'paid']);
-  // 🏁 it opens on EVERY coin the Gauntlet ranks (one list, each with the division it ranks best in; watch rows are pickable)
-  expect(urls[0]).toContain('/fuses/contenders');
+  expect(PICK_LENSES.map(x => x[0])).toEqual(['movers', 'pump', 'volume', 'runners', 'arena', 'majors', 'stocks', 'risers', 'trench', 'dip', 'popular']);   // every list its OWN set of coins
+  // 🚀 it opens on what is MOVING (the live launch feed by hourly move) …
+  expect(urls[0]).toContain('/fuses/discover?lens=movers');
+  expect(el.textContent).toContain('$POP');
+  // 🏁 … and "All ranked" is every coin the Gauntlet ranks (each with the division it ranks best in; watch rows are pickable)
+  await act(async () => { el.querySelector('[data-testid="sp-lens-arena"]').click(); }); await tick();
+  expect(urls.some(u => u.includes('/fuses/contenders'))).toBe(true);
   expect(el.textContent).toContain('$GAUNT'); expect(el.textContent).toContain('🌊 Deepest'); expect(el.textContent).toContain('📉 Dip buys · watch');
   expect(el.querySelector('[data-testid="sp-pick-DIP"]').disabled).toBe(false);
   await act(async () => { el.querySelector('[data-testid="sp-lens-popular"]').click(); }); await tick();

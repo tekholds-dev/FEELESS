@@ -649,8 +649,10 @@ export function HqRealCards({ addr, onCount }) {
 
 // 🎯 Pick the coin that comes in at the next round: the SAME lenses as the Fuse Lab (Popular · Majors · New majors · Top yield ·
 // Deepest · Runners · New 72h · Dip · Dex paid) + search any coin / CA. Live prices, one tap; the server re-checks the pool live.
-export const PICK_LENSES = [['arena', '🏁 Arena'], ['popular', '🔥 Popular'], ['majors', '🪙 Majors'], ['stocks', '📈 Stocks'], ['risers', '🚀 New majors'], ['yield', 'Top yield'], ['deep', 'Deepest'],
-  ['pump', '🆕 Pump live'], ['runners', '🏃 Runners'], ['volume', '🌊 Volume'], ['trench', '🗑 Trench'], ['new', 'New 72h'], ['dip', '📉 Dip'], ['paid', '💳 Dex paid']];
+// 🎯 Each list is a DIFFERENT set of coins (Popular / Top yield / Deepest / New 72h / Dex paid were five sorts of the same ~40 pools:
+// the owner saw the same names under every tab). Movers = the live launch feed by hourly move; everything else is its own source.
+export const PICK_LENSES = [['movers', '🚀 Movers'], ['pump', '🆕 Pump live'], ['volume', '🌊 Volume'], ['runners', '🏃 Runners'], ['arena', '🏁 All ranked'], ['majors', '🪙 Majors'],
+  ['stocks', '📈 Stocks'], ['risers', '🚀 New majors'], ['trench', '🗑 Trench'], ['dip', '📉 Dip'], ['popular', '🏊 Pools']];
 const GAUNTLET = { runners: ['fresh', 'proven'], volume: ['volume'], dip: ['dip'], paid: ['paid'] };
 const PICK_STABLES = new Set(['USDC', 'USDT', 'USDS', 'PYUSD', 'USD1', 'DAI', 'USDE', 'FDUSD']);   // a dollar coin never moves — not a swap-in (= contenders.STABLES)
 export const isFalling = (m5, h1) => (m5 != null && Number(m5) <= -3) || (h1 != null && Number(h1) <= -8);   // = arena_prime.entry_ok
@@ -658,7 +660,7 @@ export const pickRow = r => ({ mint: r.mint || r.baseAddress, pairAddress: r.pai
   chg: r.chg1h ?? r.change1h ?? r.chg24h ?? r.change24h, chg1h: r.chg1h ?? r.change1h ?? null, chg5m: r.chg5m ?? r.change5m ?? null, score: r.score, impostor: r.impostor, real: r.real, trench: r.trench, holders: r.holders, soft: r.soft, outside: r.outside, curve: r.curve, div: r.divisionLabel, watch: r.watch, fails: r.fails, warn: r.warn, pulse: r.pulse, stock: r.stock });
 export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, cool = {}, call }) {
   const [nonce, setNonce] = useState(0);   // bumps when the trench settings are saved → the list reloads
-  const [lens, setLens] = useState('arena'); const [rows, setRows] = useState(null); const [q, setQ] = useState('');
+  const [lens, setLens] = useState('movers'); const [rows, setRows] = useState(null); const [q, setQ] = useState('');
   const [tr, setTr] = useState(null);   // 🗑 trench scan: own pool floor + how many were checked
   const [why, setWhy] = useState('');
   useEffect(() => { let alive = true; setRows(null); setWhy('');
@@ -667,7 +669,7 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
     const t = setTimeout(() => fetch(apiUrl(url)).then(r => (r.ok ? r.json() : null)).then(x => { if (!alive || !x) return; setWhy(x.why || '');
       if (x.checked) setTr({ floor: x.floor || 0, checked: x.checked.length, rules: x.rules, level: Number(x.level) || 0 });
       const raw = x.pools || (x.checked ? x.rows || [] : lens === 'arena' && s.length < 2 ? x.all || [] : (x.divisions || []).filter(dv => (GAUNTLET[lens] || []).includes(dv.key)).flatMap(dv => dv.rows));
-      const seen = new Set(); setRows(raw.map(pickRow).filter(r => r.mint && r.pairAddress && !PICK_STABLES.has(String(r.symbol || '').toUpperCase()) && !seen.has(r.mint) && seen.add(r.mint)).slice(0, lens === 'arena' && s.length < 2 ? 160 : lens === 'pump' && s.length < 2 ? 60 : 30)); }).catch(() => alive && setRows([])), s.length >= 2 ? 300 : 0);
+      const seen = new Set(); setRows(raw.map(pickRow).filter(r => r.mint && r.pairAddress && !PICK_STABLES.has(String(r.symbol || '').toUpperCase()) && !seen.has(r.mint) && seen.add(r.mint)).slice(0, lens === 'arena' && s.length < 2 ? 160 : (lens === 'pump' || lens === 'movers') && s.length < 2 ? 60 : 30)); }).catch(() => alive && setRows([])), s.length >= 2 ? 300 : 0);
     return () => { alive = false; clearTimeout(t); }; }, [lens, q, nonce]);
   const live = useLivePrices((rows || []).map(r => r.pairAddress));
   const fmt = v => (!v ? '—' : v >= 1 ? `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : `$${Number(v).toPrecision(3)}`);

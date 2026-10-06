@@ -1425,3 +1425,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   pts (the losers are found better; the top third is unchanged ≈ flat). FVG, sweep and squeeze did NOT separate winners on this
   record, so they are read but not learned. NEW SIGNAL (stock / options / trench idea) ⇒ add it to `read`, add a FEATURE, compare
   `proof` with and without it — it ships only if the spread grows.
+- 🎯 Swap picker lists are DIFFERENT SETS (`PICK_LENSES`): 🚀 Movers (default; `/fuses/discover?lens=movers` = the live launch feed,
+  up ≥ 10% on the hour on ≥ $20K in a ≥ $10K pool, biggest hourly move first, no dollar-named tickers, each row labelled
+  "30m old · $76K/h") · 🆕 Pump live · 🌊 Volume · 🏃 Runners · 🏁 All ranked · 🪙 Majors · 📈 Stocks · 🚀 New majors · 🗑 Trench ·
+  📉 Dip · 🏊 Pools. Popular / Top yield / Deepest / New 72h / Dex paid were five sorts of the same ~40 pools (the owner saw the
+  same names under every tab) — a new list must be a new SOURCE, never a re-sort.
+- 🪙 Coin drawer accepts a market PAIR too (`asCoin`: `baseToken` → mint / symbol, `stats` from the pair): a pair used to open it
+  with no mint → title "$…" and "Reading the coin…" for good. No read after 6s says so. `styles/coinDrawer.css`: slide-in, four
+  stat tiles (cap · 1h volume · pool · age), animated 5m / 1h / 6h / 24h move bars (transform only), reading dots.

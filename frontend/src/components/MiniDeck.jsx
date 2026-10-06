@@ -60,7 +60,7 @@ export function MiniMine() {
         <em className={`m-num ${pnl >= 0 ? 'm-pos' : 'm-neg'}`}>{pnl >= 0 ? '+' : '−'}{usd(Math.abs(pnl))} all-time · {pct(c.pnlPct)} this run</em></a>; })}
     <span className="m-label">💼 COINS I HOLD</span>
     {held.length ? <ol className="md-list is-plain">{held.slice(0, 12).map((t, i) => <li key={t.mint} style={{ '--i': i }}>
-      <button type="button" onClick={() => openCoin({ chainId: 'solana', baseToken: { address: t.mint, symbol: t.symbol }, pairAddress: t.pairAddress })}><i>{i + 1}</i>
+      <button type="button" onClick={() => openCoin({ mint: t.mint, symbol: t.symbol, pairAddress: t.pairAddress })}><i>{i + 1}</i>
         <b>{t.symbol || `${String(t.mint).slice(0, 4)}…`}</b><span className="m-num">{Number(t.holding).toLocaleString('en-US', { maximumFractionDigits: 2 })}</span>
         {Number.isFinite(Number(t.pnlPct)) ? <em className={`m-num ${Number(t.pnlPct) >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(t.pnlPct)}</em> : <em className="m-num">—</em>}</button></li>)}</ol>
       : <p className="m-note">Nothing from your FEELESS trades is held right now.</p>}</div>;

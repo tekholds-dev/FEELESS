@@ -2799,7 +2799,9 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
             pump_ = []
         have_ = {(r.get('baseToken') or {}).get('address') or r.get('baseAddress') for r in rs_}
         return {'lens': 'risers', 'chain': 'solana', 'pools': rs_ + _fuse.pump_majors(pump_ + base_, have_)}
-    if lens == 'pump':   # 🆕 Pump live: the newest + busiest Pump coins RIGHT NOW, launch-curve coins included (owner picks only)
+    if lens in ('pump', 'movers'):   # 🆕 Pump live · 🚀 Movers (the same live launch feed, ranked by what is RUNNING)
+        mv_ = lens == 'movers'
+    if lens in ('pump', 'movers'):   # 🆕 Pump live: the newest + busiest Pump coins RIGHT NOW, launch-curve coins included (owner picks only)
         try:
             async with httpx.AsyncClient(timeout=10) as http:
                 got_ = await asyncio.gather(*[http.get('http://127.0.0.1:5001/api/market/feed', params={'kind': k, 'chain': 'solana', 'page': pg, 'scope': 'launchpads'})
@@ -2813,8 +2815,15 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
             if not m_ or m_ in seen_p or _fuse._f(p_.get('priceUsd')) <= 0 or _fuse._f((p_.get('volume') or {}).get('h1')) < 1000 or _fuse._f((p_.get('liquidity') or {}).get('usd')) < 5000:
                 continue
             seen_p.add(m_)
-            rows_p.append({'chainId': 'solana', 'pairAddress': p_.get('pairAddress'), **_fuse.leg_meta(p_), **({'curve': True} if p_.get('curve') else {}),
-                           'ageH': round((time.time() * 1000 - _fuse._f(p_.get('pairCreatedAt'))) / 3.6e6, 1) if p_.get('pairCreatedAt') else None})
+            age_ = round((time.time() * 1000 - _fuse._f(p_.get('pairCreatedAt'))) / 3.6e6, 1) if p_.get('pairCreatedAt') else None
+            v1_ = _fuse._f((p_.get('volume') or {}).get('h1'))
+            rows_p.append({'chainId': 'solana', 'pairAddress': p_.get('pairAddress'), **_fuse.leg_meta(p_), **({'curve': True} if p_.get('curve') else {}), 'ageH': age_, 'vol1h': v1_,
+                           # shown under the ticker: how old it is and how hard it trades — what tells one list's coin from another's
+                           'divisionLabel': f"{'?' if age_ is None else f'{age_ * 60:.0f}m' if age_ < 1 else f'{age_:.0f}h' if age_ < 48 else f'{age_ / 24:.0f}d'} old · ${v1_ / 1000:,.0f}K/h"})
+        if mv_:   # 🚀 MOVERS: up ≥ 10% on the hour on ≥ $20K traded in a ≥ $10K pool, biggest hourly move first; no dollar-named tickers
+            rows_p = sorted((r for r in rows_p if r['vol1h'] >= 20000 and _fuse._f(r.get('liquidityUsd')) >= 10000 and _fuse._f(r.get('change1h')) >= 10
+                             and not _fw.dollar_named(r.get('symbol'))), key=lambda r: -_fuse._f(r.get('change1h')))
+            return {'lens': 'movers', 'chain': 'solana', 'pools': rows_p[:60]}
         return {'lens': 'pump', 'chain': 'solana', 'pools': rows_p[:80]}
     lens = lens if lens in _fuse.LENSES else 'popular'
     return {'lens': lens, 'chain': chain, 'pools': _fuse.discover(await _fuse_discover_pairs(chain), lens, chain, now_ms=time.time() * 1000)}
