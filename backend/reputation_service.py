@@ -5774,7 +5774,8 @@ async def _contenders_build():
         on_card = {l.get('mint') for c in cards.values() for l in c.get('legs') or []}
         on_card |= {leg.get(k) for c in (_arena_mega_cache.get('data') or []) for leg in c.get('legs') or [] for k in ('mint', 'baseAddress')}
         on_card.discard(None)
-        data = {**_ct.league(src, on_card, _contenders_cache.get('data')), 'at': now, 'weather': _real_weather()}
+        data = {**_ct.league(src, on_card, _contenders_cache.get('data')), 'at': now, 'weather': _real_weather(),
+                'all': _ct.everyone(src, on_card)}   # 🏁 every ranked coin in one list → the swap picker's Arena lens
         _contenders_cache.update(at=now, data=data)
         return data
 
@@ -6264,7 +6265,9 @@ async def fuse_prime_admin(request: Request):
         cand = None
         if pk.get('to'):
             # only a coin the Gauntlet ranks RIGHT NOW (live price, real pool, not a dollar coin) can be picked
-            row = next((r for dv in ((await _contenders_build()).get('divisions') or []) for r in dv.get('rows') or [] if r.get('mint') == pk['to']), None)
+            ct_ = await _contenders_build()
+            row = next((r for dv in (ct_.get('divisions') or []) for r in dv.get('rows') or [] if r.get('mint') == pk['to']), None)
+            row = row or next((r for r in ct_.get('all') or [] if r.get('mint') == pk['to']), None)   # 🏁 any coin the Gauntlet ranks (Arena lens)
             row = row or next((r for r in _trench_cache.get('rows') or [] if r.get('mint') == pk['to']), None)   # 🗑 a passing trench coin
             if not row and pk.get('toPair'):   # 🔎 any coin from the Lab lenses / search: verified LIVE on its own pool right now
                 lp = (await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pk['toPair']}])).get(pk['toPair']) or {}

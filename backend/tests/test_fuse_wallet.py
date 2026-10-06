@@ -430,11 +430,11 @@ def test_priority_rises_after_txs_that_did_not_land():
 def test_every_keeper_swap_costs_way_under_a_penny_even_a_retry():
     cost = lambda a, b, px: (fw.priority_cap(a, b, px) + fw.BASE_LAMPORTS) / 1e9 * px
     for px in (60.0, 119.0, 200.0, 400.0):
-        assert cost(0, 0, px) <= 0.0025                                                  # first try: a fifth of a cent
-        assert cost(1, 0, px) <= 0.0041 and cost(0, 1, px) <= 0.0041                     # one retry / one recent miss
-        assert all(cost(a, b, px) < 0.01 for a in range(4) for b in range(5))            # never a penny, whatever happens
+        assert cost(0, 0, px) <= 0.0025                                                  # first try (the 5,000-lamport signature fee is most of it when SOL is dear)
+        assert cost(1, 0, px) <= 0.0033 and cost(0, 1, px) <= 0.0033                     # one retry / one recent miss
+        assert all(cost(a, b, px) <= 0.0051 for a in range(4) for b in range(5))         # never over half a cent, whatever happens
         assert fw.priority_cap(1, 0, px) > fw.priority_cap(0, 0, px)                     # a retry still pays a little more to land
-    assert fw.priority_cap(0, 0, 119.0) == 11_807
+    assert fw.priority_cap(0, 0, 119.0) == 3_403 and round(cost(0, 0, 119.0), 4) == 0.001   # a tenth of a cent at today's SOL
 
 
 def test_gas_tank_and_landing_rate():

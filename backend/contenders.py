@@ -188,3 +188,18 @@ def league(sources, on_card=(), prev=None, top_n=TOP_N):
                 r['seat'] = 'next'; nxt = r['mint']; seated.add(r['mint']); next_up[r['mint']] = key
         out.append({'key': key, 'label': label, 'rule': rule, 'role': role, 'rows': rows, 'nextUp': nxt})
     return {'divisions': out, 'nextUp': next_up}
+
+
+def everyone(sources, on_card=(), per_div=25, cap=160):
+    """🏁 EVERY coin the Gauntlet ranks, in one list (for the owner's swap picker): each division's best `per_div`, one row per coin
+    (kept in the division where it scores highest, `division` + `divisionLabel` on the row), best score first. Watch rows
+    (nothing qualified in that division) are kept and flagged `watch` — the owner may still pick one; the engine never seats it."""
+    wide = league(sources, on_card, None, top_n=per_div)
+    best = {}
+    for d in wide['divisions']:
+        for r in d['rows']:
+            row = {**r, 'division': d['key'], 'divisionLabel': d['label']}
+            if r['mint'] not in best or r['score'] > best[r['mint']]['score']:
+                best[r['mint']] = row
+    return sorted(best.values(), key=lambda r: (bool(r.get('watch')), -r['score']))[:cap]
+

@@ -11,14 +11,20 @@ test('the real-card swap picker has every Lab lens + search, flags thin pools an
   global.fetch = jest.fn(async u => { urls.push(String(u));
     if (String(u).includes('search')) return { ok: true, json: async () => ({ pools: [{ baseAddress: 'BTC', pairAddress: 'pb', symbol: 'cbBTC', priceUsd: 60000, liquidityUsd: 9e6, real: true }, { baseAddress: 'FAKE', pairAddress: 'pf', symbol: 'BTC', priceUsd: 1, liquidityUsd: 9e6, impostor: true }] }) };
     if (String(u).includes('/fuses/trench')) return { ok: true, json: async () => ({ floor: 8000, checked: [{}, {}], rules: 'strict', rows: [{ mint: 'TR', pairAddress: 'ptr', symbol: 'TRN', price: 0.001, liq: 9000, holders: 512, score: 74, trench: true }, { mint: 'TT', pairAddress: 'ptt', symbol: 'TTHIN', price: 0.001, liq: 4000, trench: true }] }) };
-    if (String(u).includes('contenders')) return { ok: true, json: async () => ({ divisions: [{ key: 'dip', rows: [{ mint: 'D', pairAddress: 'pd', symbol: 'DIP', price: 1, liq: 80000, score: 70 }] }] }) };
+    if (String(u).includes('contenders')) return { ok: true, json: async () => ({ divisions: [{ key: 'dip', rows: [{ mint: 'D', pairAddress: 'pd', symbol: 'DIP', price: 1, liq: 80000, score: 70 }] }],
+      all: [{ mint: 'G1', pairAddress: 'pg1', symbol: 'GAUNT', price: 1, liq: 300000, score: 88, divisionLabel: '🌊 Deepest' }, { mint: 'D', pairAddress: 'pd', symbol: 'DIP', price: 1, liq: 80000, score: 70, divisionLabel: '📉 Dip buys', watch: true }] }) };
     return { ok: true, json: async () => ({ pools: [{ baseAddress: 'P', pairAddress: 'pp', symbol: 'POP', priceUsd: 2, liquidityUsd: 400000, change24h: 5 }, { baseAddress: 'T', pairAddress: 'pt', symbol: 'THIN', priceUsd: 2, liquidityUsd: 5000 }] }) }; });
   const picks = [];
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<SwapPicker out={{ symbol: 'WIF' }} have={[]} minLiq={20000} onPick={r => picks.push(r)} onClose={() => {}} />); });
   await tick();
-  expect(PICK_LENSES.map(x => x[0])).toEqual(['popular', 'majors', 'stocks', 'risers', 'yield', 'deep', 'pump', 'runners', 'volume', 'trench', 'new', 'dip', 'paid']);
-  expect(urls[0]).toContain('/fuses/discover?lens=popular');
+  expect(PICK_LENSES.map(x => x[0])).toEqual(['arena', 'popular', 'majors', 'stocks', 'risers', 'yield', 'deep', 'pump', 'runners', 'volume', 'trench', 'new', 'dip', 'paid']);
+  // 🏁 it opens on EVERY coin the Gauntlet ranks (one list, each with the division it ranks best in; watch rows are pickable)
+  expect(urls[0]).toContain('/fuses/contenders');
+  expect(el.textContent).toContain('$GAUNT'); expect(el.textContent).toContain('🌊 Deepest'); expect(el.textContent).toContain('📉 Dip buys · watch');
+  expect(el.querySelector('[data-testid="sp-pick-DIP"]').disabled).toBe(false);
+  await act(async () => { el.querySelector('[data-testid="sp-lens-popular"]').click(); }); await tick();
+  expect(urls.some(u => u.includes('/fuses/discover?lens=popular'))).toBe(true);
   expect(el.querySelector('[data-testid="sp-pick-THIN"]').disabled).toBe(true);
   await act(async () => { el.querySelector('[data-testid="sp-pick-POP"]').click(); });
   expect(picks[0]).toMatchObject({ mint: 'P', pairAddress: 'pp' });

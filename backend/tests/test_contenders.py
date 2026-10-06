@@ -50,3 +50,15 @@ def test_lists_never_sit_empty_and_volume_and_trench_divisions_rank():
     assert [r['mint'] for r in d['proven']['rows']] and all(r['watch'] for r in d['proven']['rows']) and d['proven']['nextUp'] is None
     assert [r['mint'] for r in d['volume']['rows']] == ['v1', 'v2'] and d['volume']['nextUp'] == 'v1'
     assert d['trench']['rows'][0]['trenchOnly'] and d['trench']['rows'][0]['score'] == 81
+
+
+def test_everyone_is_one_row_per_coin_across_every_division_for_the_owners_picker():
+    import contenders as ct
+    pool = lambda i, liq=400_000: {'baseAddress': f'M{i}', 'pairAddress': f'P{i}', 'symbol': f'C{i}', 'priceUsd': 1.0, 'liquidityUsd': liq, 'volume24h': 900_000 - i * 1000,
+                                   'change1h': 2, 'change24h': 5, 'aprEst': 40, 'turnover': 1.2, 'buyShare': 58}
+    src = {'popular': [pool(i) for i in range(20)], 'deep': [pool(i) for i in range(10, 30)], 'majors': [pool(40), pool(41)]}
+    rows = ct.everyone(src)
+    mints = [r['mint'] for r in rows]
+    assert len(mints) == len(set(mints)) and len(rows) > len(ct.league(src)['divisions'][0]['rows'])      # far more than the board's top 6
+    assert {'M0', 'M19', 'M29', 'M40'} <= set(mints) and all(r['division'] and r['divisionLabel'] for r in rows)
+    assert rows == sorted(rows, key=lambda r: (bool(r.get('watch')), -r['score'])) and len(ct.everyone(src, cap=5)) == 5

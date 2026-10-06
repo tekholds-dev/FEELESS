@@ -1306,3 +1306,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   another coin.
 - 🧾 2026-10-05 autopsy of the owner's real card (360 fills): engine-chosen coins −$0.13 on $62 (≈ flat), owner's hand picks
   −$3.18 on $29 (6% won), trench −$0.71 on $7, fees $0.62; exits inside 15 min −$3.05 (8% won), trims of winners +$3.21 (80% won).
+- 🏁 Swap picker opens on **Arena** (`contenders.everyone` → `/fuses/contenders.all`, lens `arena`, ≤ 160 rows): EVERY coin the
+  Gauntlet ranks in one list (each division's best 25, one row per coin in the division where it scores highest, `divisionLabel`
+  under the ticker; watch rows flagged and owner-pickable). The board itself still shows 6 per division. `pickSwap` accepts any
+  mint in `all`. Row grid unchanged (the division sits inside the coin cell).
+- 💸 Keeper swap cost v3 (`FIRST_USD` $0.001, `PENNY_USD` $0.005): first try ≈ a tenth of a cent at today's SOL, +$0.001 a retry,
+  never over half a cent. (v2 measured: median $0.0016, p95 $0.004, none over $0.005.) THE FEE PROBLEM WAS NEVER THE SIZE — it was
+  the COUNT: 177 swaps in 6h on a ~$1–2 card = $0.29. Slower clocks cut it; so does every "no pointless swap" rule above.
