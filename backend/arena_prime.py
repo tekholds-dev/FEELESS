@@ -409,6 +409,8 @@ def clean_cfg(p):
     ra_ = (p or {}).get('runnerMinAgeH')
     out['runnerMinAgeH'] = int(_f(ra_)) if ra_ is not None and int(_f(ra_)) in RUNNER_AGES else int(REAL_RUNNER_AGE_H)   # 🕐 the OWNER's youngest launch coin for real money
     out['scoutPct'] = int(_f((p or {}).get('scoutPct'))) if int(_f((p or {}).get('scoutPct'))) in SCOUT_PCTS else 0   # 🔭 scout ticket, % of the card (0 = off)
+    out['trailStep'] = bool((p or {}).get('trailStep', False))   # 🪜 a rider's trail widens as its peak gain grows
+    out['comeback'] = bool((p or {}).get('comeback', True))      # 🔁 a rider that left is bought back when its dip recovers 15%
     out['newOnly'] = bool((p or {}).get('newOnly', False))   # 🆕 the engine fills seats with launch coins only — no majors, no old pools (the owner's own picks are untouched)
     out['moverSwap'] = bool((p or {}).get('moverSwap', True))   # 🚀 a mover takes the seat of a coin that is not moving
     out['edgeGate'] = bool((p or {}).get('edgeGate', True))   # 🧠 real money buys only runners the board's own record does not expect to lose (pick_edge.py)
@@ -608,10 +610,10 @@ def scout_step(card, prices, hot, cfg, now, pools=(), anchors=()):
 # third at the lock, skims +20%, stops at −15%, holds 15 min so one candle cannot shake it out.
 # 15 min and longer = 💎 META HOLDER: 10% scout, freeze +50% / 30% trail, no skim, stop −30%, hold 1–3h by clock, older coins.
 # Every card gets its OWN variant (`seed`): the same idea with slightly different numbers, so no two cards trade in lockstep.
-META_SCALP = {'scoutPct': 20, 'rideAt': 15.0, 'rideTrail': 8.0, 'lockBankPct': 33.0, 'peakSellPct': 75.0, 'skimAt': 20.0, 'recyclePct': 0.0, 'sl': 15.0, 'tp': 100.0,
+META_SCALP = {'trailStep': True, 'comeback': True, 'scoutPct': 20, 'rideAt': 15.0, 'rideTrail': 8.0, 'lockBankPct': 33.0, 'peakSellPct': 75.0, 'skimAt': 20.0, 'recyclePct': 0.0, 'sl': 15.0, 'tp': 100.0,
               'instantSwapPct': 0.0, 'rotateMinDrop': 10.0, 'minHoldMins': 15.0, 'cycleEvery': 6, 'newOnly': True, 'moverSwap': True,
               'runnerMinAgeH': 1, 'runnerMinLiqK': 25, 'runnerMinVolK': 50, 'runnerMinChg1h': 20, 'runnerMinBuy': 55, 'edgeGate': False, 'edgeFloor': 0}
-META_HOLD = {'scoutPct': 10, 'rideAt': 50.0, 'rideTrail': 30.0, 'lockBankPct': 0.0, 'peakSellPct': 50.0, 'skimAt': 0.0, 'recyclePct': 0.0, 'sl': 30.0, 'tp': 300.0,
+META_HOLD = {'trailStep': False, 'comeback': True, 'scoutPct': 10, 'rideAt': 50.0, 'rideTrail': 30.0, 'lockBankPct': 0.0, 'peakSellPct': 50.0, 'skimAt': 0.0, 'recyclePct': 0.0, 'sl': 30.0, 'tp': 300.0,
              'instantSwapPct': 0.0, 'rotateMinDrop': 20.0, 'minHoldMins': 60.0, 'cycleEvery': 6, 'newOnly': True, 'moverSwap': True,
              'runnerMinAgeH': 12, 'runnerMinLiqK': 25, 'runnerMinVolK': 50, 'runnerMinChg1h': 40, 'runnerMinBuy': 0, 'edgeGate': False, 'edgeFloor': 0}
 META_VARIANTS = {'scalp': ({}, {'rideAt': 20.0, 'rideTrail': 10.0}, {'scoutPct': 15, 'skimAt': 30.0}, {'lockBankPct': 25.0, 'rideTrail': 10.0}),
@@ -634,11 +636,64 @@ def meta_for(rotate_hours, seed=0):
                     % (patch['rideAt'], patch['rideTrail'], patch['sl'], patch['minHoldMins']))}
 
 
+TRAIL_STEPS = ((80.0, 25.0), (30.0, 15.0))   # peak gain ≥ +80% → at least a 25% trail · ≥ +30% → at least 15%
+
+
+def trail_for(base, peak_gain_pct):
+    """🪜 STEPPED TRAIL: a rider's trail widens as its PEAK gain grows — tight while it is a small winner (the scalper's 8%), wider
+    once it has really run, so a coin at +90% is not shaken out by the same 8% wiggle that protects a +16% one. Never tighter than
+    the owner's own trail. (2026-10-06: $SNDWITCH was trimmed twice and swapped out on 8% dips on its way to +128%.)"""
+    for at, rt in TRAIL_STEPS:
+        if _f(peak_gain_pct) >= at:
+            return max(_f(base), rt)
+    return _f(base)
+
+
+COMEBACK_SEC = 2 * 3600.0   # how long a rider that left is watched for a comeback
+COMEBACK_UP = 15.0          # … and how far off its dip low it must recover to be bought back
+COMEBACK_DEAD = 0.6         # a coin that fell 60% under its exit is not a dip, it is over
+
+
+def comeback_note(store, before, after, prices, now):
+    """🔁 Remember every RIDER that just left the card (its ride ended) → {mint: {pair, symbol, exit, low, at}}. Pure."""
+    out = {m: dict(v) for m, v in (store or {}).items()}
+    held = {l['mint'] for l in (after or {}).get('legs') or []}
+    for l in (before or {}).get('legs') or []:
+        if l['mint'] in held or not (l.get('ride') or l.get('rideFrom')):
+            continue
+        px = _f((prices or {}).get(l.get('pairAddress'))) or _f(l.get('high')) * 0.9
+        if px > 0:
+            out[l['mint']] = {'pair': l.get('pairAddress'), 'symbol': l.get('symbol'), 'exit': px, 'low': px, 'at': now}
+    return out
+
+
+def comeback_step(store, px_by_mint, now, up=COMEBACK_UP):
+    """🔁 One look at the riders being watched → (store, ready {mint: % off its dip low}). The low is tracked; a coin is READY when
+    it really dipped (≥ 3% under its exit) and has come back `up`% off that low. Dropped after COMEBACK_SEC, or when it fell
+    COMEBACK_DEAD under its exit (not a dip — over). No price for a coin = it just waits."""
+    keep, ready = {}, {}
+    for m, v in (store or {}).items():
+        if now - _f(v.get('at')) > COMEBACK_SEC:
+            continue
+        px = _f((px_by_mint or {}).get(m))
+        if px <= 0:
+            keep[m] = v; continue
+        if px < _f(v['exit']) * (1 - COMEBACK_DEAD):
+            continue
+        low = min(_f(v.get('low')) or px, px)
+        keep[m] = {**v, 'low': low}
+        if low < _f(v['exit']) * 0.97 and px >= low * (1 + up / 100):
+            ready[m] = round((px / low - 1) * 100, 1)
+    return keep, ready
+
+
 def flow_tag(x):
     """What a candidate looks like RIGHT NOW, in one tag → (tag, points). Entry setups first (5m / 1h / buyers), then its own chart
     (chart_read keys on the row): swept the low and came back · dip bought in an up-trend · trending up · at its highs · no chart yet.
     The real card's last 119 buys (2026-10-06): 99 had a chart too short to read and lost $1.01 (25% won); the 20 with a readable
     chart were +$0.07 (40% won) — so "no chart yet" ranks last, whatever its hourly move says."""
+    if x.get('comeback'):
+        return f"🔁 comeback: +{_f(x['comeback']):.0f}% off its dip", 95.0
     st = entry_setup(x)
     if st:
         ic, name, _ = ENTRY_SETUPS[st[0]]
@@ -1383,6 +1438,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         l['roundMin'] = min(_f(l['roundMin']) if l.get('roundMin') is not None else g, g)
         ra, rt = _f(cfg.get('rideAt')) or RIDE_AT, _f(cfg.get('rideTrail')) or RIDE_TRAIL
         floor_g = min(HOLD_MIN, ra / 2)   # a +25% freeze can't demand +80% to keep holding
+        if cfg.get('trailStep') and l.get('ride'):   # 🪜 the more it is up, the more room it gets (see trail_for)
+            rt = trail_for(rt, (max(_f(l.get('high')), px) / l['entry'] - 1) * 100)
         if l.get('ride'):
             l['high'] = max(_f(l.get('high')), px)
             if g >= floor_g and px > l['high'] * (1 - rt / 100):

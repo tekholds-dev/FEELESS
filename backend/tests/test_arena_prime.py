@@ -1811,3 +1811,22 @@ def test_idle_cash_never_lifts_a_coin_above_the_whole_cards_equal_share():
     capped = ap.spread_cash([new, flat], 1.6, px, [new, flat], cap=(0.5 + 1.6 + 1.7 + 1.7 + 1.6) / 4, fresh={'NEW'})
     assert abs(0.5 + capped[0] - 1.775) < 0.01             # the coin bought minutes ago stops at the card's equal share
     assert ap.spread_cash([new, flat], 1.6, px, [new, flat], cap=1.775) == old      # no fresh coin → the old rule (banked money goes to the others in full)
+
+
+def test_trail_widens_as_a_rider_runs_and_never_tightens_the_owners_trail():
+    assert ap.trail_for(8, 16) == 8 and ap.trail_for(8, 45) == 15 and ap.trail_for(8, 128) == 25 and ap.trail_for(30, 128) == 30 and ap.trail_for(20, 45) == 20
+    assert ap.clean_cfg({})['trailStep'] is False and ap.meta_for(0.0833)['patch']['trailStep'] is True
+
+
+def test_a_rider_that_left_is_bought_back_when_its_dip_recovers_15_percent():
+    before = {'legs': [{'mint': 'RUN', 'pairAddress': 'pR', 'symbol': 'RUN', 'ride': True, 'high': 2.0}, {'mint': 'FLAT', 'pairAddress': 'pF', 'symbol': 'FLAT'}]}
+    store = ap.comeback_note({}, before, {'legs': []}, {'pR': 1.5, 'pF': 1.0}, 1000.0)
+    assert list(store) == ['RUN'] and store['RUN']['exit'] == 1.5                     # only the rider is watched
+    s1, r1 = ap.comeback_step(store, {'RUN': 1.48}, 1100.0); assert not r1            # no real dip yet
+    s2, r2 = ap.comeback_step(s1, {'RUN': 1.2}, 1200.0); assert not r2 and s2['RUN']['low'] == 1.2
+    s3, r3 = ap.comeback_step(s2, {'RUN': 1.3}, 1300.0); assert not r3               # +8% off the low: not yet
+    s4, r4 = ap.comeback_step(s3, {'RUN': 1.39}, 1400.0); assert r4 == {'RUN': 15.8}  # +15% off its dip → ready
+    assert ap.flow_tag({'comeback': 15.8})[1] > ap.flow_tag({'chg1h': -10, 'chg5m': 4, 'buyShare': 62, 'vol1h': 40000})[1]   # ahead of any setup
+    assert ap.comeback_step(s2, {'RUN': 0.5}, 1300.0) == ({}, {})                     # −67% under its exit: over, not a dip
+    assert ap.comeback_step(s2, {'RUN': 1.4}, 1000.0 + ap.COMEBACK_SEC + 1) == ({}, {})   # watched for two hours only
+    assert ap.comeback_step(s2, {}, 1300.0)[0] == s2                                 # no price: it just waits

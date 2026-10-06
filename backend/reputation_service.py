@@ -6185,6 +6185,13 @@ async def _prime_tick_inner(now):
             bl_ = (((_fw_load().get('books') or {}).get(tid) or {}).get('legs') or {}).get(cur['rebuy'].get('mint')) or {}
             cur = _prime.rebuy_in(cur, _fuse._f(bl_.get('atoms')) > 0, now)
         r_pre_ = list(r_t)   # 🔭 the scout's small ticket may take any SAFE mover (age + checks passed), not only coins on the card's full hunt line
+        cb_ready_ = {}
+        if real_t and cur and cfg_t.get('comeback', True) and cur.get('comeback'):   # 🔁 riders that left, watched for a recovered dip
+            cb_store_, cb_ready_ = _prime.comeback_step(cur.get('comeback'), {x.get('mint'): _fuse._f(x.get('price')) for x in r_pre_}, now)
+            cur = {**cur, 'comeback': cb_store_}
+            if cb_ready_:
+                r_pre_ = [({**x, 'comeback': cb_ready_[x['mint']]} if x.get('mint') in cb_ready_ else x) for x in r_pre_]
+                r_t = [({**x, 'comeback': cb_ready_[x['mint']]} if x.get('mint') in cb_ready_ else x) for x in r_t]
         if real_t:   # 🏊 the owner's own runner pool floor (off unless they set it)
             r_t = _prime.deep_runners(r_t, cfg_t.get('runnerMinLiqK'), cfg_t.get('runnerMinBuy'), cfg_t.get('runnerMinVolK'), cfg_t.get('runnerMinChg1h'))
             _step('your hunt line (pool · volume · 1h move · buyers)', r_t)
@@ -6192,7 +6199,7 @@ async def _prime_tick_inner(now):
         p_t = [x for x in p_t if x.get('mint') not in taken or x.get('mint') in mine]
         r_t = [x for x in r_t if x.get('mint') not in taken or x.get('mint') in mine]
         a_t = anchors
-        run_ = {x.get('mint') for x in _prime.movers(r_pre_, {}) + _prime.movers(r_pre_, cfg_t)} if real_t else set()   # 🚀 running now → only the short cool-down
+        run_ = ({x.get('mint') for x in _prime.movers(r_pre_, {}) + _prime.movers(r_pre_, cfg_t)} | set(cb_ready_)) if real_t else set()   # 🚀 running now → only the short cool-down
         cool = _prime.cooling(cur, now, cfg_t['rotateHours'], px, run_) - mine   # 🧊 coins this card just dropped sit out a few rounds → new coins flow in
         if cool:
             # 💵 A real stop must stay stopped. Falling back to the unfiltered
@@ -6211,7 +6218,7 @@ async def _prime_tick_inner(now):
         # a scout that proves itself is promoted to a full-size holder (arena_prime.scout_step).
         if real_t and cur and _fuse._f(cfg_t.get('scoutPct')) > 0 and now - _fuse._f(cur.get('scoutAt')) >= max(120.0, _fuse._f(cfg_t.get('rotateHours')) * 3600 * 0.9):
             was_ = cur
-            hot_s = [x for x in _prime.movers(r_t, cfg_t) + _prime.movers(r_pre_, {}) if x.get('mint') not in mine and x.get('mint') not in cool and x.get('mint') not in taken]
+            hot_s = [x for x in [y for y in r_pre_ if y.get('comeback')] + _prime.movers(r_t, cfg_t) + _prime.movers(r_pre_, {}) if x.get('mint') not in mine and x.get('mint') not in cool and x.get('mint') not in taken]
             nw_ = _prime.scout_step(cur, px, _prime.flow_rank(list({x['mint']: x for x in reversed(hot_s)}.values())[::-1]), cfg_t, now, p_t, anchors)   # the scout takes the best-LOOKING mover, not just the biggest hour
             if nw_ is not cur:
                 cur = _prime.note_dropped(was_, {**nw_, 'scoutAt': now}, now, cfg_t['rotateHours'], px)
@@ -6240,6 +6247,8 @@ async def _prime_tick_inner(now):
                 true_usd = _fw.book_value(bk, px, sol_px_t) or None
         cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, a_t, mom, liqs, true_usd=true_usd, blind=bool(real_t and true_usd is None)) if cur else _prime.deal(tid, p_t, r_t, cfg_t, now, [] if new_only_ else anchors)
         cards[tid] = _prime.note_dropped(cur, cards[tid], now, cfg_t['rotateHours'], px)
+        if real_t and cur and cards[tid] and cfg_t.get('comeback', True):   # 🔁 a rider that left this tick is watched for its comeback
+            cards[tid]['comeback'] = _prime.comeback_note(cur.get('comeback'), cur, cards[tid], px, now)
         if real_t and cards[tid]:
             on_ = {l.get('mint') for l in cards[tid].get('legs') or []}
             free_ = [x for x in r_t if x.get('mint') not in on_ and not x.get('trenchOnly')]

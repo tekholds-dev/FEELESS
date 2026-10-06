@@ -1563,3 +1563,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   idle-cash share is capped at the WHOLE card's equal share): with two coins riding, the equal share among the unlocked ones is
   half the card each — $AGENCY replaced a finished rider with a $0.48 seat and the freed / parked cash lifted it to $2.03 a minute
   later (then −9%). Banked money still spreads over the older coins in full (existing rule + test).
+- 🔁 COMEBACK (`arena_prime.comeback_note/comeback_step`, card `comeback`, cfg `comeback` on by default; Edit Fuse › Exits): a
+  RIDER that leaves the card is watched for 2h; once it dipped ≥ 3% under its exit and recovered 15% off that low it is tagged
+  "🔁 comeback" (top of `flow_rank`, 95 pts), exempt from the long cool-downs and first in the scout's list. 60% under its exit =
+  over. 🪜 STEPPED TRAIL (`trail_for`, cfg `trailStep`, on in the meta scalper): a rider's trail is the owner's own under +30%
+  peak gain, ≥ 15% from +30%, ≥ 25% from +80%. Why (57 min of the meta scalper on the real card): 15 trims +$1.90, 100% won ·
+  13 full exits −$0.01, 31% won · three riders left on 8% wiggles ($SNDWITCH swapped out on the way to +128%).
