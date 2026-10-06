@@ -6025,7 +6025,7 @@ async def _prime_tick_inner(now):
                 why_s += f' ({why_x})' if why_x else ''   # the keeper's own reason, so a refused pick is never silent
                 try:
                     want_usd = _fuse._f(l.get('wantUnits')) * (_fuse._f(px.get(pa)) or _fuse._f(l.get('entry')))
-                    if mo_t and want_usd < mo_t * 0.98 and want_usd < _fw.LEFTOVER_MIN_USD:
+                    if mo_t and want_usd < mo_t and want_usd < _fw.LEFTOVER_MIN_USD:
                         # the seat's money is under the smallest order the keeper sends: another coin would wait just the same
                         why_s = f"its ${want_usd:.2f} is under the smallest order the card can send (${mo_t:.2f})"
                         raise ValueError('unfundable seat')
