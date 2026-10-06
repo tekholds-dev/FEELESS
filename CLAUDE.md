@@ -1348,3 +1348,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   RPC PROBLEM that day (10 of 50 unscanned, one 429): count the feed by AGE before asking for keys. The launch feed itself holds
   only ~111 coins (trending 95 + new 43) — widening it is the next supply step. 📄 Paper tier cards buy runners by the real-money
   rules too (≥ 12h old via `weather_runners(.., 'clear')`, record gate on): they had bled to $6–$17 of $20 on launch pumps.
+- ✅ VERIFIED PICKS (replaces "owner picks are never limited" for SAFETY only; cfg `pickVerify`, on by default, Edit Fuse › Safety;
+  `runners.pick_check`, `_pick_verify`, `_creator_state`): a hand pick for a REAL card is queued only when the coin passes every
+  SAFETY gate (holder scan done, top-10, snipers / bundles, spike, dev share + not sold, creator, mayhem) — judged on the runner
+  board's record when it tracks the coin, else on a fresh holder scan of its own pool. Majors / stocks and coins > 7 days in a
+  ≥ $100K pool pass as established. Soft gates (age, size, volume, flow), cool-downs and the edge table still never limit a pick.
+  A refused pick says what is missing; a queued pick that fails before the bell is dropped and the old coin stays. Why: 2026-10-06
+  the owner's hand pick $SpaceX went −98% 3.5 minutes after the bell ($0.38 of a $1 card). WHEN A REAL COIN RUGS, READ THE CARD
+  EVENT THAT BROUGHT IT IN FIRST ("🎯 your pick" vs an engine rotate) before touching an engine gate.
+- 🏷 Browser tab title (`lib/tabTitle.js` `useTabTitle`, a stack — last mounted wins, the page title returns on unmount): an open
+  chart = `$SYM $4.40M MC · $price` (`TrenchChart`), My cards = the real card's ALL-TIME P&L (`HqRealCards`, same number as the tile).

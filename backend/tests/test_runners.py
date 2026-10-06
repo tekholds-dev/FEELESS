@@ -370,3 +370,18 @@ def test_older_runner_stays_on_the_board_only_while_it_trades_hard_in_a_real_poo
     gates = {g[0]: g[2] for g in rn.GATES} if isinstance(rn.GATES[0], tuple) else None
     if gates:
         assert gates['age'](ok) and gates['prebond'](ok) and not gates['age']({**ok, 'vol1h': 1000})
+
+
+def test_verified_pick_needs_every_safety_gate_but_never_a_soft_one():
+    import runners as rn
+    young = rn.candidate(pair('y', age_h=0.2), CLEAN, now_ms=NOW)
+    ok, miss = rn.pick_check({**young, 'mcap': 1, 'vol1h': 0, 'buyShare': 99, 'txns1h': 0})     # soft gates (size, volume, flow) never block a pick
+    assert ok and miss == []
+    ok, miss = rn.pick_check(rn.candidate(pair('u', age_h=0.2), None, now_ms=NOW))               # no holder scan = not verified
+    assert not ok and 'Holder scan done' in miss
+    ok, miss = rn.pick_check({**young, 'devSold': True})
+    assert not ok and any('Dev' in m for m in miss)
+    ok, miss = rn.pick_check({**young, 'creatorFlagged': True})
+    assert not ok
+    assert rn.pick_check({'ageH': 400, 'liq': 250000})[0]                                         # an established coin needs no launch checks
+    assert not rn.pick_check({'ageH': 400, 'liq': 20000})[0] and not rn.pick_check({})[0]         # old but thin / nothing known = fail closed

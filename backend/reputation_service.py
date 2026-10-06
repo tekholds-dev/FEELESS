@@ -5784,6 +5784,41 @@ async def _contenders_build():
         return data
 
 
+def _creator_state(it):
+    """(flagged, rep level) of a scanned coin's creator — the same rule the runner board uses."""
+    creator = (it or {}).get('creator')
+    if not creator:
+        return False, None
+    brec = _block_load()['wallets'].get(creator)
+    flagged = bool((_is_blocked(brec) and brec.get('reported')) or (_shield_cache.get(creator, (0, {}))[1] or {}).get('verdict') == 'bot')
+    try:
+        crep = _quick_rep(creator).get('level')
+    except Exception:
+        crep = None
+    if _is_blocked(brec) and not brec.get('reported') and crep != 'high':
+        crep = 'suspect'
+    return flagged, crep
+
+
+async def _pick_verify(mint, pair_address):
+    """✅ Verify an owner's pick for a REAL card → (ok, [missing], candidate). Majors / stocks pass. A coin the runner board is
+    already tracking is judged on that record (its history catches a dev sale / top-10 spike); any other coin gets a fresh holder
+    scan on its own live pool. Nothing known = not verified (fail closed)."""
+    if mint in _fuse.ALL_MAJORS:
+        return True, [], None
+    c = next((r for r in _runner_cands if r.get('mint') == mint), None)
+    if not c or not c.get('scanned'):
+        lp = (await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pair_address}])).get(pair_address) or {}
+        if (lp.get('baseToken') or {}).get('address') != mint:
+            return False, ['no live pool reading for this coin right now'], None
+        it = await _runner_intel(mint)
+        flagged, crep = _creator_state(it)
+        c = _rn.candidate(lp, it, flagged, False, time.time() * 1000, mayhem=mint in _mayhem_mints, creator_rep=crep,
+                          hist=_runner_track(mint, time.time(), _fuse._f(lp.get('curveProgress')), (it or {}).get('top10Pct'), (it or {}).get('devHoldingPct')))
+    ok, miss = _rn.pick_check(c, _runner_cfg())
+    return ok, miss, c
+
+
 def _pick_row(pair, mint, floor=25_000):
     """A live DexScreener pair → a swap-pick row, or None: the pool must be THIS mint, have a live price, ≥ the pick floor (the owner's `pickMinLiqUsd`), and not be a
     dollar coin (it never moves). Real cards additionally need the real-buy floor (checked by the caller)."""
@@ -6081,6 +6116,15 @@ async def _prime_tick_inner(now):
             r_t = _pedge.rank(r_t, tb_)
             if cfg_t.get('edgeGate', True):   # real AND paper (paper = real)
                 r_t = _pedge.gate(r_t, tb_, float(cfg_t.get('edgeFloor') or 0))
+        if real_t and cur and cfg_t.get('pickVerify', True):   # ✅ a queued pick that turned bad before the bell is dropped, the old coin stays
+            for l_ in cur.get('legs') or []:
+                to_ = l_.get('swapTo') or {}
+                c_ = next((r for r in _runner_cands if r.get('mint') == to_.get('mint')), None) if to_ else None
+                bad_ = _rn.pick_check(c_, _runner_cfg())[1] if c_ and c_.get('scanned') else []
+                if bad_:
+                    l_.pop('swapTo', None)
+                    cur['events'] = list(cur.get('events') or []) + [{'at': now, 'kind': 'rotate', 'symbol': to_.get('symbol'), 'usd': 0.0,
+                                                                       'why': f"✅ your pick ${to_.get('symbol')} failed verification before the bell ({bad_[0]}) — not bought, ${l_.get('symbol')} stays"}]
         if real_t:   # 🏊 the owner's own runner pool floor (off unless they set it)
             r_t = _prime.deep_runners(r_t, cfg_t.get('runnerMinLiqK'), cfg_t.get('runnerMinBuy'), cfg_t.get('runnerMinVolK'), cfg_t.get('runnerMinChg1h'))
         mine = {l.get('mint') for l in (cur or {}).get('legs') or []}
@@ -6314,6 +6358,12 @@ async def fuse_prime_admin(request: Request):
             cand = {'mint': row['mint'], 'pairAddress': row['pairAddress'], 'symbol': row.get('symbol'), 'price': row.get('price'), 'liquidityUsd': row.get('liq'),
                     **({'trenchOnly': True} if row.get('trenchOnly') else {}),
                     'division': next((dv['key'] for dv in (_contenders_cache.get('data') or {}).get('divisions') or [] if any(r.get('mint') == row['mint'] for r in dv.get('rows') or [])), None)}
+        # ✅ VERIFIED PICKS (real cards, on by default): a hand-picked coin is queued only once it passes every safety check.
+        # 2026-10-06: a hand pick rugged 3.5 minutes after the bell (−98%) — picks used to skip every engine check.
+        _pv_miss = []
+        _pr = _json_load(FUSE_HQ_PATH, {}).get('prime') or {}
+        if cand and ((_pr.get('cards') or {}).get(pk['tpl']) or {}).get('real') and _prime.clean_cfg(_pr.get('realCfg') or {})['pickVerify']:
+            _pv_ok, _pv_miss, _ = await _pick_verify(cand['mint'], cand['pairAddress'])
         async with _admin_lock:
             d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
             card = cards.get(pk['tpl'])
@@ -6323,6 +6373,10 @@ async def fuse_prime_admin(request: Request):
                 floor = _fw.liq_floor(_fw_load().get('cfg') or {}, trench=bool(cand.get('trenchOnly')), picked=True)   # 🗑 trench picks use the trench floor
                 if _fuse._f(cand.get('liquidityUsd')) < floor:
                     raise HTTPException(400, f"${cand['symbol']} pool is ${_fuse._f(cand.get('liquidityUsd')):,.0f} — under the ${floor:,.0f} real-buy floor (Edit Fuse › Limits).")
+            if cand and card.get('real') and _pv_miss:
+                raise HTTPException(400, f"✅ Not verified — ${cand['symbol']} was NOT queued. Missing: {'; '.join(_pv_miss[:4])}. "
+                                         + ('The holder scan takes about a minute — try again. ' if any('scan' in m.lower() for m in _pv_miss) else '')
+                                         + 'Verified picks is on in Edit Fuse › Safety.')
             if cand and _prime.hands_off_left(card, time.time()):
                 raise HTTPException(400, f"🔒 Hands-off lock: {int(_prime.hands_off_left(card, time.time()) // 60) + 1} min left — picks wait. The engine and your stops keep working.")
             # 🎯 THE OWNER'S PICK IS NEVER COOLED: cool-downs (no back-to-back, left at a loss, removed by the owner) limit the ENGINE

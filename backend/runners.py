@@ -311,6 +311,31 @@ def exits(cfg=None):
 SOFT_GATES = ('prebond', 'age', 'size', 'volume', 'flow')   # activity / size / age — everything else is a SAFETY gate
 
 
+PICK_OLD_H = 168          # an owner's pick older than 7 days in a pool ≥ PICK_OLD_LIQ is an established coin: no launch checks
+PICK_OLD_LIQ = 100_000.0
+
+
+def pick_check(c, cfg=None):
+    """✅ VERIFIED PICK: may the owner's hand-picked coin go onto a real card? → (ok, [what is missing]). An established coin
+    (> 7 days, pool ≥ $100K) passes. Any younger / unknown-age coin must pass EVERY safety gate — holder scan done, top-10,
+    snipers / bundles, no top-10 spike, dev share + dev not sold, creator not flagged / not a rugger, not mayhem — fail closed.
+    Soft gates (age, size, volume, flow) never block a pick: the owner chooses WHICH coin, the checks only prove it is not a trap."""
+    a = (c or {}).get('ageH')
+    if a is not None and _f(a) > PICK_OLD_H and _f((c or {}).get('liq')) >= PICK_OLD_LIQ:
+        return True, []
+    miss = []
+    for key, label, test in (gates(cfg) if cfg else GATES):
+        if key in SOFT_GATES:
+            continue
+        try:
+            ok = bool(test(c))
+        except (KeyError, TypeError):
+            ok = False
+        if not ok:
+            miss.append(label)
+    return (not miss, miss)
+
+
 def safe_only(c, cfg=None):
     """Passes every SAFETY gate (holder scan done, top-10, snipers / bundles, top-10 spike, dev, creator, mayhem …), whatever the
     soft gates say. For the 🌊 Volume list: a coin with real volume and clean holders is worth SEEING even when its flow band, size

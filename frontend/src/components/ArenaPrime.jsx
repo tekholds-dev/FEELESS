@@ -10,6 +10,7 @@ import { ShareGifButton } from './ShareGif';
 import { tokenImageUrls } from './terminal/MarketPrimitives';
 import { RoundBell, TrailSummary, CycleBuilder, usd, usdK, pct, txUrl } from './FuseMoney';
 import { StrategyPicks, stratPatch } from './StrategyPicks';
+import { useTabTitle, cardTitle } from '../lib/tabTitle';
 
 // ⭐ ARENA PRIME: FEELESS's own top-tier cards, FULLY AUTO on paper — auto TP/SL, auto-compound, 2 coins rotate every 6h. Different
 // from creator picks: these are the public proof the automation works before any trader's config goes auto. "Buy now" loads the
@@ -220,6 +221,7 @@ const EDIT = [
   ['edgeFloor', '🧠 Record must expect at least', [[0, 'not a loss'], [3, '+3%'], [6, '+6%']], 'With “Only coins the record backs” on: how good the record’s estimate for coins like this one must be. Higher = fewer coins, longer waits.'],
   ['swapEdge', '⚖ Stay or swap', [[true, 'on'], [false, 'off']], 'On: at the bell a losing coin is swapped only when the next coin is beating SOL over the last hour AND beats this coin by more than the swap costs (fees + spread + impact, +1%). Otherwise it stays — its stop still protects it. Off: every patient loser is swapped.'],
   ['swapCapHr', '🤖 Swaps an hour', [[0, 'auto'], [2, '2'], [4, '4'], [6, '6'], [8, '8'], [12, '12'], [-1, 'no cap']], 'How many engine rotations (round swaps + trench fills) this card may make in an hour. Auto = tuned from what one swap costs on a card this size, so churn stays under 2% of the card an hour. Stops, instant swaps, rides and your own picks are never capped.'],
+  ['pickVerify', '✅ Verified picks', [[true, 'on'], [false, 'off']], 'On: a coin you pick by hand goes onto this real card only after it passes every safety check — holder scan done, top-10 holders, snipers / bundles, dev share and dev not selling, creator not flagged, no top-10 spike. Coins older than 7 days in a $100K+ pool and majors pass as established. A pick that fails is not queued and you are told what is missing; a queued pick that turns bad before the bell is dropped and your coin stays. Off: any live coin can be picked (a hand pick rugged −98% in 3.5 minutes that way).'],
   ['autoBrain', '🧠 Auto-tune', [[true, 'on'], [false, 'off']], 'Let the sim brain adjust patience / drop (never below 3 on 5m rounds)'],
 ];
 const TIER_KEYS = ['rideAt', 'rideTrail', 'rotateMinDrop', 'rotateConfirm', 'minHoldMins', 'instantSwapPct', 'tp', 'sl', 'trenchCoins'];   // = arena_prime.TIER_KEYS
@@ -358,7 +360,7 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest }) {
         {(cfg?.cycles || {})[c.tpl] === 'trench' && <TrenchScan call={call} />}
         <div className="ce-row"><span><b>🔄 Cycle</b><small>The shapes this card moves through (anchor · mixed · degen · safest …)</small></span><div className="m-seg">{CYCLES.map(([v, t]) => <button key={v} type="button" disabled={busy} className={(cfg?.cycles || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ cycles: { ...(cfg?.cycles || {}), [c.tpl]: v } })}>{t}</button>)}</div></div>
       {!real && <div className="ce-row"><span><b>🔒 Lock tier</b><small>Freeze this tier's whole config so engine tunes never change it</small></span><div className="m-seg">{[[true, 'locked'], [false, 'free']].map(([v, t]) => <button key={t} type="button" disabled={busy} className={!!locked === v ? 'active' : ''} onClick={() => { setBusy(true); call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ lock: c.tpl, on: v }) }).then(() => { toast.success(v ? '🔒 Locked' : 'Unlocked'); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy(false)); }}>{t}</button>)}</div></div>}</>}
-      {grp === 'safety' && rows(['floorPct', 'floorRestMins', 'rescuePct', 'autoBrain'])}
+      {grp === 'safety' && rows(['pickVerify', 'floorPct', 'floorRestMins', 'rescuePct', 'autoBrain'])}
       {grp === 'limits' && <TypedLimits keeper={keeper} busy={busy} save={save} />}
     </div>
     <small className="m-dim">{real ? 'This real card runs its own config — HQ, engine tunes and paper edits never change it.' : 'Clock, exits, patience and hold are this card\'s own (no two cards share them); shape, floor and safety are shared by every paper tier that isn\'t 🔒 locked.'} Limits cover every real buy and sell.</small></details>;
@@ -508,6 +510,8 @@ export function HqRealCards({ addr, onCount }) {
   const real = (d?.cards || []).filter(c => c.real);
   const n = owner ? real.length : 0;
   useEffect(() => { onCount?.(n); }, [n, onCount]);   // My cards hides its "no cards" box under a real card
+  const c0 = owner ? real[0] : null; const f0 = c0 ? (c0.realBook?.fundedUsd || c0.startUsd) : 0;
+  useTabTitle(c0 ? cardTitle(c0.label || 'Fuse card', allTime(c0, f0), f0 > 0 ? allTime(c0, f0) / f0 * 100 : NaN) : '');   // 🏷 the real card's all-time P&L in the browser tab
   if (!owner) return null;
   if (!real.length) return <RecentRuns cards={d?.cards || []} />;
   const act = (tpl, action) => { if (action === 'defund' && !window.confirm('Sell every coin back to SOL? The card goes back to its paper card.')) return;

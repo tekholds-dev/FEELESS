@@ -395,6 +395,7 @@ def clean_cfg(p):
     out['edgeFloor'] = int(_f((p or {}).get('edgeFloor'))) if int(_f((p or {}).get('edgeFloor'))) in EDGE_FLOORS else 0
     out['runnerMinVolK'] = int(_f((p or {}).get('runnerMinVolK'))) if int(_f((p or {}).get('runnerMinVolK'))) in RUNNER_VOLS else 0
     out['runnerMinChg1h'] = int(_f((p or {}).get('runnerMinChg1h'))) if int(_f((p or {}).get('runnerMinChg1h'))) in RUNNER_MOMS else 0
+    out['pickVerify'] = bool((p or {}).get('pickVerify', True))   # ✅ a hand-picked young coin goes on a real card only once it passes every safety check
     out['edgeGate'] = bool((p or {}).get('edgeGate', True))   # 🧠 real money buys only runners the board's own record does not expect to lose (pick_edge.py)
     out['swapEdge'] = bool((p or {}).get('swapEdge', True))   # ⚖ rotate only when the next coin beats this one by more than the swap costs
     out['swapCapHr'] = int(_f((p or {}).get('swapCapHr'))) if int(_f((p or {}).get('swapCapHr'))) in SWAP_CAPS else 0   # 🤖 0 = auto

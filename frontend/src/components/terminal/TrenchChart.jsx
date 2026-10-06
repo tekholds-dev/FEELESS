@@ -17,6 +17,7 @@ import { PriceAlertButton } from './PriceAlertButton';
 import { DipRipTool } from './DipRipTool';
 import { QuickTrade } from './QuickTrade';
 import { TradeTape } from './TradeTape';
+import { useTabTitle, chartTitle } from '../../lib/tabTitle';
 
 const METRIC_LABEL = { price: 'Price', marketCap: 'Market cap', fdv: 'FDV' };
 
@@ -25,6 +26,7 @@ const METRIC_LABEL = { price: 'Price', marketCap: 'Market cap', fdv: 'FDV' };
 export function TrenchChart({ pair: current, defaultInterval = '1m', onExpand, expanded, className = '', aside = null }) {
   const [interval, setInterval] = useState(defaultInterval);
   const [metric, setMetric] = useState('marketCap');
+  useTabTitle(chartTitle(current));   // 🏷 the browser tab reads this coin's market cap + price while its chart is open
   const [volume, setVolume] = useState(true);
   const [showCalls, setShowCalls] = useState(false);
   const [showFee, setShowFee] = useState(false);
