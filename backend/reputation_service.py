@@ -6169,7 +6169,7 @@ async def _prime_tick_inner(now):
             for l_ in cur.get('legs') or []:
                 to_ = l_.get('swapTo') or {}
                 c_ = next((r for r in _runner_cands if r.get('mint') == to_.get('mint')), None) if to_ else None
-                bad_ = _rn.pick_check(c_, _runner_cfg())[1] if c_ and c_.get('scanned') else []
+                bad_ = _rn.pick_check(c_, _runner_cfg())[1] if c_ and c_.get('scanned') and not to_.get('ack') else []   # an acknowledged pick is the owner's call
                 if bad_:
                     l_.pop('swapTo', None)
                     cur['events'] = list(cur.get('events') or []) + [{'at': now, 'kind': 'rotate', 'symbol': to_.get('symbol'), 'usd': 0.0,
@@ -6470,10 +6470,13 @@ async def fuse_prime_admin(request: Request):
                 floor = _fw.liq_floor(_fw_load().get('cfg') or {}, trench=bool(cand.get('trenchOnly')), picked=True)   # 🗑 trench picks use the trench floor
                 if _fuse._f(cand.get('liquidityUsd')) < floor:
                     raise HTTPException(400, f"${cand['symbol']} pool is ${_fuse._f(cand.get('liquidityUsd')):,.0f} — under the ${floor:,.0f} real-buy floor (Edit Fuse › Limits).")
-            if cand and card.get('real') and _pv_miss:
-                raise HTTPException(400, f"✅ Not verified — ${cand['symbol']} was NOT queued. Missing: {'; '.join(_pv_miss[:4])}. "
-                                         + ('The holder scan takes about a minute — try again. ' if any('scan' in m.lower() for m in _pv_miss) else '')
-                                         + 'Verified picks is on in Edit Fuse › Safety.')
+            # ⚠ WARN, NEVER BLOCK (owner's rule: "warn users, don't stop them"): a pick that fails a check comes back as a warning
+            # (HTTP 409 + the list); the owner taps "pick anyway" and the same pick is sent again with `ack` → it goes through,
+            # marked `ack` so the pre-bell re-check leaves it alone. Nothing is ever silently refused.
+            if cand and card.get('real') and _pv_miss and not pk.get('ack'):
+                raise HTTPException(409, f"⚠ ${cand['symbol']} did not pass: {'; '.join(_pv_miss[:5])}.")
+            if cand and pk.get('ack') and _pv_miss:
+                cand['ack'] = True
             if cand and _prime.hands_off_left(card, time.time()):
                 raise HTTPException(400, f"🔒 Hands-off lock: {int(_prime.hands_off_left(card, time.time()) // 60) + 1} min left — picks wait. The engine and your stops keep working.")
             # 🎯 THE OWNER'S PICK IS NEVER COOLED: cool-downs (no back-to-back, left at a loss, removed by the owner) limit the ENGINE

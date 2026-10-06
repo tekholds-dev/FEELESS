@@ -2007,7 +2007,7 @@ def queue_swap(card, pair, cand):
         raise ValueError('That coin is already on this card.')
     if any((x.get('swapTo') or {}).get('mint') == cand['mint'] for x in c['legs'] if x is not l):
         raise ValueError('That coin is already queued for another seat.')
-    l['swapTo'] = {k: cand.get(k) for k in ('mint', 'pairAddress', 'symbol', 'price', 'liquidityUsd', 'division', 'trenchOnly') if cand.get(k) is not None}
+    l['swapTo'] = {k: cand.get(k) for k in ('mint', 'pairAddress', 'symbol', 'price', 'liquidityUsd', 'division', 'trenchOnly', 'ack') if cand.get(k) is not None}
     return c
 
 
@@ -2022,7 +2022,7 @@ def queue_seat(card, cand):
         raise ValueError('That pick has no live price right now.')
     if cand['mint'] in {x['mint'] for x in c['legs']} or any((x.get('swapTo') or {}).get('mint') == cand['mint'] for x in c['legs']):
         raise ValueError('That coin is already on this card.')
-    c['seatPick'] = {k: cand.get(k) for k in ('mint', 'pairAddress', 'symbol', 'price', 'liquidityUsd', 'division', 'trenchOnly') if cand.get(k) is not None}
+    c['seatPick'] = {k: cand.get(k) for k in ('mint', 'pairAddress', 'symbol', 'price', 'liquidityUsd', 'division', 'trenchOnly', 'ack') if cand.get(k) is not None}
     return c
 
 

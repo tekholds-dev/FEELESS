@@ -1492,3 +1492,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🚀 A coin that is RUNNING NOW skips the long cool-downs (`cooling(.., running)`: movers by the default line or the card's hunt
   line): "left at a loss → out until it recovers (≤ 24h)" and "removed by the owner → 6h" no longer hold it; "no back-to-back"
   (3 rounds, 30 min after an owner removal) still does. A card whose owner swaps by hand all day had locked out its own best coins.
+- ⚠ PICK CHECKS WARN, NEVER BLOCK (owner, 2026-10-06: "warn users, don't stop them — they click acknowledge"; this REPLACES the
+  blocking in "VERIFIED PICKS"): a hand pick / fill-seat that fails `pick_check` returns HTTP 409 "⚠ $SYM did not pass: …"; the
+  card shows `pick-warn` (what is missing + "I understand — pick it anyway") and re-sends the same pick with `ack: true` → queued,
+  `swapTo.ack` / `seatPick.ack` kept so the pre-bell re-check leaves it alone. Picker rows under 1h read "⚠ pick" and are
+  clickable. The checks still decide the ENGINE's own buys. Never add a hard refusal to an owner action again: warn + acknowledge.
