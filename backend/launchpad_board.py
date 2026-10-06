@@ -157,6 +157,31 @@ def build_board(candidates, dex_pairs, kind, now_ms=None):
     return out
 
 
+# 🌊 MOVERS: Jupiter's own live rankings (what is trending / most traded on Solana over 5m · 1h · 6h, 100 each). The Pump index
+# pages above are "biggest" and "most recently traded" — a coin running +100% on real volume is in neither unless it is also
+# huge or traded this second. 2026-10-06: the launch feed held 111 coins while Pump's trending tab was full of coins it never saw.
+JUP_LISTS = (('toptrending', '1h'), ('toptraded', '1h'), ('toptrending', '5m'), ('toptrending', '6h'))
+
+
+def jup_candidate(tok):
+    """A Jupiter token-list row → a board candidate, or None. Launchpad coins only (Pump / LetsBONK mints carry their suffix).
+    Whether it graduated is not in the row — the caller re-reads it from the coin's live pair (`dex_candidate`)."""
+    mint = str((tok or {}).get('id') or '')
+    pad = 'pump' if mint.endswith('pump') else 'bonk' if mint.endswith('bonk') else None
+    if not pad:
+        return None
+    created = 0.0
+    try:
+        from datetime import datetime
+        created = datetime.fromisoformat(str((tok.get('firstPool') or {}).get('createdAt') or '').replace('Z', '+00:00')).timestamp() * 1000
+    except (ValueError, TypeError):
+        created = 0.0
+    return {'mint': mint, 'launchpad': pad, 'symbol': tok.get('symbol'), 'name': tok.get('name'), 'image': tok.get('icon'), 'createdAt': created,
+            'marketCap': _f(tok.get('mcap') or tok.get('fdv')), 'athMarketCap': 0.0, 'replies': 0, 'live': False, 'graduated': True, 'curveProgress': None,
+            'socials': sum(1 for k in ('twitter', 'website', 'telegram') if tok.get(k)), 'mover': True,
+            'url': f"https://{'pump.fun/coin' if pad == 'pump' else 'letsbonk.fun/token'}/{mint}"}
+
+
 def dex_candidate(pair):
     """Migrated launchpad coins found in DexScreener discovery. Pump/LetsBONK mints carry their suffix."""
     mint = (pair.get('baseToken') or {}).get('address') or ''

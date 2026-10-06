@@ -1362,3 +1362,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   off gets no more trench coins while the card waits for its next re-shape (a picked cycle with "re-shape: off" re-shapes every 6 rounds).
 - 🧩 Real card "Re-shape every 3" is the OWNER's option (`real_guard`: `REAL_OWNER_RESHAPE` 3 when `cycleEvery` is in `realOwnerSet`;
   a value nobody chose is still raised to 6; a safe / rescue fix still re-shapes every 6). The button used to snap back to 6.
+- 🌊 MOVERS IN THE LAUNCH FEED (`launchpad_board.JUP_LISTS/jup_candidate`, `market.launchpad_board`, provider `Jupiter` =
+  lite-api.jup.ag `/tokens/v2/{toptrending|toptraded}/{5m|1h|6h}`, 100 each, 45s cache; trending board only): launch coins (pump /
+  bonk mints) on Jupiter's live rankings join the candidates FIRST (never cut by `BOARD_MAX`); stage comes from the live pair. The
+  Pump index pages are "biggest" + "most recently traded", so a coin running on volume was in neither. Every board filter, runner
+  gate and real-money rule still applies. FEED THIN ⇒ this is the source to widen (more intervals / categories), not RPC keys.

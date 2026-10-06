@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, Query
 from ecosystem import DEFAULT_MINTS
 from pydantic import BaseModel, Field
 
-from launchpad_board import BOARD_MAX, BONK_PLATFORM_ID, build_board, pump_pages, dex_candidate, launchlab_candidate, pump_candidate
+from launchpad_board import BOARD_MAX, BONK_PLATFORM_ID, JUP_LISTS, build_board, pump_pages, dex_candidate, jup_candidate, launchlab_candidate, pump_candidate
 
 BOARD_SCOPES = ('launchpads', 'pump', 'bonk', 'raydium')
 
@@ -279,6 +279,7 @@ def create_market_router(db, intelligence=None):
         'DexScreener': os.getenv('DEX_API_URL', 'https://api.dexscreener.com'),
         'Pump.fun': os.getenv('PUMP_API_URL', 'https://frontend-api-v3.pump.fun'),
         'LaunchLab': os.getenv('LAUNCHLAB_API_URL', 'https://launch-mint-v1.raydium.io'),
+        'Jupiter': os.getenv('JUP_TOKENS_API_URL', 'https://lite-api.jup.ag'),
     }
 
     async def cached(provider, path, params=None, ttl=60):
@@ -356,12 +357,20 @@ def create_market_router(db, intelligence=None):
         for s in lab_sorts:
             jobs.append(('bonk', cached('LaunchLab', '/get/list', {'sort': s, 'size': 50, 'mintType': 'default', 'includeNsfw': 'false', 'platformId': BONK_PLATFORM_ID}, ttl=20)))
             jobs.append(('raydium', cached('LaunchLab', '/get/list', {'sort': s, 'size': 50, 'mintType': 'default', 'includeNsfw': 'false'}, ttl=20)))
+        if kind != 'new':   # 🌊 movers: Jupiter's live trending / most-traded lists (launch coins only are kept)
+            jobs += [('jup', cached('Jupiter', f'/tokens/v2/{cat}/{iv}', {'limit': 100}, ttl=45)) for cat, iv in JUP_LISTS]
         results = await asyncio.gather(*[job for _pad, job in jobs], return_exceptions=True)
-        candidates, meta = {}, None
+        candidates, meta, movers = {}, None, []
         for (pad, _job), res in zip(jobs, results):
             if isinstance(res, Exception):
                 continue
             data, m = res
+            if pad == 'jup':
+                for tok in data if isinstance(data, list) else []:
+                    cand = jup_candidate(tok)
+                    if cand and cand['mint'] not in candidates:
+                        candidates[cand['mint']] = cand; movers.append(cand['mint'])
+                continue
             meta = meta or m
             rows = data if isinstance(data, list) else (((data or {}).get('data') or {}).get('rows') or [])
             for row in rows:
@@ -381,7 +390,8 @@ def create_market_router(db, intelligence=None):
         if not candidates:
             raise HTTPException(503, 'Launchpad indexes returned no coins.')
         # Priority order, not alphabetical: discovery-seeded, then Pump's active lists, then LaunchLab.
-        mints = (list(seeded) + [m for m in candidates if m not in seeded])[:BOARD_MAX]
+        first = list(seeded) + [m for m in movers if m not in seeded]   # movers are never cut by the board cap
+        mints = (first + [m for m in candidates if m not in set(first)])[:BOARD_MAX]
         dex_pairs = dict(seeded)
         lookup = sorted(m for m in mints if m not in seeded)
         chunks = await asyncio.gather(*[cached('DexScreener', '/tokens/v1/solana/' + ','.join(lookup[i:i + 30]), ttl=20)
@@ -395,6 +405,9 @@ def create_market_router(db, intelligence=None):
                     best = dex_pairs.get(mint)
                     if not best or safe_float((pair.get('volume') or {}).get('h1')) > safe_float((best.get('volume') or {}).get('h1')):
                         dex_pairs[mint] = pair
+        for m in movers:   # a mover's stage (curve / graduated) comes from its live pair, not from the trending row
+            if m in dex_pairs and dex_candidate(dex_pairs[m]):
+                candidates[m] = {**candidates[m], 'graduated': dex_candidate(dex_pairs[m])['graduated']}
         ranked = build_board({m: candidates[m] for m in mints}, dex_pairs, kind)
         meta = {**(meta or provider_meta('DexScreener', datetime.now(timezone.utc).isoformat())), 'provider': 'FEELESS launchpad board',
                 'source_label': 'Pump.fun + LetsBONK + LaunchLab indexes · ranked on DexScreener 5m/1h flow',
