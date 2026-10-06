@@ -203,12 +203,12 @@ def closest(cands, cfg=None, n=5):
 PROOF_SEC, PROOF_KEEP, PROOF_MIN = 3600.0, 60, 5
 
 
-def meta_track(state, passing, price_of, now):
+def meta_track(state, passing, price_of, now, keys=None):
     """📈 Paper proof per meta. `passing` = {meta: [(mint, price)]} right now; a coin a meta passes is noted ONCE at that price and
     settled an hour later at `price_of(mint)` (no price then = −100%: a coin that vanished is a loss, never dropped from the count).
     A coin is not noted again while open or for 6h after. → new state {meta: {open: {mint: {px, at}}, done: [{pct, at, mint}]}}"""
     out = {}
-    for key in METAS:
+    for key in (keys or METAS):   # `keys` = any other set of named reads judged the same way (entry setups)
         s = (state or {}).get(key) or {}
         opened, done = dict(s.get('open') or {}), list(s.get('done') or [])
         for mint, o in list(opened.items()):
@@ -224,11 +224,11 @@ def meta_track(state, passing, price_of, now):
     return out
 
 
-def meta_proof(state):
+def meta_proof(state, keys=None):
     """{meta: {n, medPct, wonPct, proven}} from settled coins. Median, not average (one 10× must not carry a meta); `proven` needs
     ≥ 5 settled, median > 0 and half or more up. A record of the last hour-holds — never a promise."""
     out = {}
-    for key in METAS:
+    for key in (keys or METAS):
         ps = sorted(_f(d.get('pct')) for d in ((state or {}).get(key) or {}).get('done') or [])
         n = len(ps)
         med = (ps[n // 2] if n % 2 else (ps[n // 2 - 1] + ps[n // 2]) / 2) if n else None

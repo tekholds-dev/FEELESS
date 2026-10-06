@@ -524,6 +524,8 @@ ENTRY_SETUPS = {
     'pullback': ('🧲', 'Pullback', 'strong hour, small dip now with buyers still in charge — the retrace into the move'),
 }
 
+ENTRY_RAN = 150.0   # more than +150% on the hour = it already ran (usually a launch pump): not an entry
+
 
 def entry_setup(c):
     """→ (setup key, strength 0–100) or None. Needs a 5m AND a 1h reading, buyers, and ≥ $5K of 1h volume."""
@@ -533,9 +535,9 @@ def entry_setup(c):
     pace = _f(c.get('vol5m')) * 12 / max(1.0, _f(c.get('vol1h')))        # > 1 = the last 5 min are busier than the hour's average
     if h1 <= -8 and m5 >= 2 and buy >= 58:
         return 'sweep', min(100.0, 40 + m5 * 4 + (buy - 58) * 2 + min(20.0, -h1 / 2))
-    if h1 >= 10 and m5 >= 3 and buy >= 58 and pace >= 1.5:
+    if 10 <= h1 <= ENTRY_RAN and m5 >= 3 and buy >= 58 and pace >= 1.5:
         return 'breakout', min(100.0, 40 + m5 * 3 + (buy - 58) * 2 + min(20.0, pace * 5))
-    if h1 >= 15 and -6 <= m5 <= -1 and buy >= 52:
+    if 15 <= h1 <= ENTRY_RAN and -6 <= m5 <= -1 and buy >= 52:
         return 'pullback', min(100.0, 40 + min(25.0, h1 / 2) + (buy - 52) * 2)
     return None
 

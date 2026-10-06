@@ -1530,3 +1530,4 @@ def test_best_entries_now_reads_three_setups_from_live_numbers_and_ranks_by_stre
     rows = ap.entries([c('S', 4, -20, 65), c('S', 4, -20, 65), c('B', 9, 30, 70, v5=4000), c('P', -3, 40, 55), c('X', 3, -9, 59), c('H', 4, -20, 65)], skip={'H'})
     assert len(rows) == 3 and [r['mint'] for r in rows].count('S') == 1 and 'H' not in [r['mint'] for r in rows]
     assert rows == sorted(rows, key=lambda r: -r['strength']) and all(r['name'] and r['why'] and 0 < r['strength'] <= 100 for r in rows)
+    assert ap.entry_setup(c('G', 17, 839, 73, v5=9000)) is None                           # +839% on the hour already ran: not an entry

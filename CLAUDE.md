@@ -1263,3 +1263,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🎯 ENTRIES NOW (`arena_prime.entry_setup/entries`, in `GET /fuses/forecast.entries`, chips in `WeatherStrip`): 🧹 sweep & reclaim
   (1h ≤ −8, 5m ≥ +2, buyers ≥ 58) · 🚀 breakout (1h ≥ +10, 5m ≥ +3, buyers ≥ 58, 5m volume pace ≥ 1.5×) · 🧲 pullback (1h ≥ +15,
   5m −6…−1, buyers ≥ 52). Only coins clearing every SAFETY gate with a ≥ $10K pool; tap opens the chart. A read, never a promise.
+- 🧪 Entry-setup paper record (`trench.meta_track/meta_proof(keys=)` reused, `data/entry_proof.json`, tracked in `_trench_build`):
+  each safe coin showing a setup is noted once and settled 1h later (no price = −100%); `/fuses/forecast` → `entries[].proof` +
+  `setups` (n, median, % up). Chips show the median only from 5 settled. `ENTRY_RAN` 150: more than +150% on the hour is not an
+  entry (a launch pump read as a "breakout"). 🗣 `TRENCH_WORDS` in `lib/fuseGlossary.js` → FuseGuide tab "Trench talk".

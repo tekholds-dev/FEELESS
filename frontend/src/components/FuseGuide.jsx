@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { RISK_DIALS } from '../lib/riskDial';
-import { CYCLE_OPTS, SHAPE_WORDS, CLOCK_WORDS, STOP_WORDS, STRATEGY_WORDS, COIN_WORDS } from '../lib/fuseGlossary';
+import { CYCLE_OPTS, SHAPE_WORDS, CLOCK_WORDS, STOP_WORDS, STRATEGY_WORDS, COIN_WORDS, TRENCH_WORDS } from '../lib/fuseGlossary';
 import '../styles/fuseGuide.css';
 
 // 📖 "What it means": every dial, cycle, shape, clock, stop mode, strategy and coin source in plain words — and you can PICK
 // a dial or a cycle right from it. Centered pop-up (portal), Esc / click outside closes, animates in ≤200ms.
-export const GUIDE_TABS = [['dials', '🎚 Dials'], ['cycles', '🔄 Cycles'], ['shapes', '🧬 Shapes'], ['clocks', '⏱ Clocks & stops'], ['strats', '🧠 Strategies'], ['coins', '⚓ Coins']];
+export const GUIDE_TABS = [['dials', '🎚 Dials'], ['cycles', '🔄 Cycles'], ['shapes', '🧬 Shapes'], ['clocks', '⏱ Clocks & stops'], ['strats', '🧠 Strategies'], ['coins', '⚓ Coins'], ['talk', '🗣 Trench talk']];
 const exit = ([tp, sl]) => `+${tp}% / −${sl}%`;
 
 export function FuseGuide({ dial, onDial, cycle, onCycle, label = '📖 What it means', start = 'dials' }) {
@@ -26,6 +26,7 @@ export function FuseGuide({ dial, onDial, cycle, onCycle, label = '📖 What it 
     clocks: <ul className="fg-list">{[...CLOCK_WORDS, ...STOP_WORDS.map(([l, w]) => [`Stop: ${l}`, w])].map(([l, w]) => <li key={l}><b>{l}</b><span>{w}</span></li>)}</ul>,
     strats: <ul className="fg-list">{STRATEGY_WORDS.map(([k, l, w]) => <li key={k}><b>{l}</b><span>{w}</span></li>)}<li><b>⚖ Honest numbers</b><span>Every strategy is judged on the arena’s typical $5 run (median) and an outlier-proof average — never one lucky run.</span></li></ul>,
     coins: <ul className="fg-list">{COIN_WORDS.map(([l, w]) => <li key={l}><b>{l}</b><span>{w}</span></li>)}</ul>,
+    talk: <ul className="fg-list">{TRENCH_WORDS.map(([l, w]) => <li key={l}><b>{l}</b><span>{w}</span></li>)}</ul>,
   };
   return <>
     <button type="button" className="m-btn fg-open" onClick={() => setOpen(true)} data-tip="Every dial, cycle, shape and strategy in plain words — pick right from the guide" data-testid="fg-open">{label}</button>

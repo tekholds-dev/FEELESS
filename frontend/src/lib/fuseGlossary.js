@@ -44,3 +44,23 @@ export const COIN_WORDS = [
   ['🔔 Bond run', 'Pre-bond at 90%+ of the curve with every box ticked (buys, volume, holders, clean creator).'],
   ['☠ Retired', 'A strategy whose typical arena run AND outlier-proof average are below 0 leaves the trader rails. It gets one test run a day and returns by itself when it wins.'],
 ];
+
+// 🗣 Trench talk: the words traders use, and what FEELESS actually measures for each. Entry setups mirror arena_prime.ENTRY_SETUPS.
+export const TRENCH_WORDS = [
+  ['Meta', 'The theme the market is paying for right now (AI agents, animals, a news story). Coins inside the meta get the volume; the same coin a week later may get none. FEELESS learns new words from launches and chat every few minutes.'],
+  ['Tek (tech)', 'A coin whose pitch is what it DOES (a tool, a bot, a protocol) instead of a joke. Tek coins are judged the same way here: holders, flow and creator first — a pitch is not a safety check.'],
+  ['Runner', 'A launch coin that is moving now with real buyers. Here it also has to pass every safety gate (holders, insiders, dev, creator, flow, volume). Unscanned = out.'],
+  ['Trench', 'The first hours of a launch. Highest reward and highest risk on the site: most trench coins go to zero.'],
+  ['Bonding / graduating', 'A pump coin trades on a curve until enough is bought; then it “graduates” to a normal pool. 🔔 Bond run = 90%+ of the way with every box ticked.'],
+  ['Jeet', 'A holder who sells the first small pump. Lots of jeets = buys under 50% and a chart that cannot hold a green hour.'],
+  ['Cabal / bundle', 'One group holding many wallets. Bundled = several wallets bought in the same block at launch. Our gates cap bundled wallets and insider share.'],
+  ['Sniper', 'A bot that buys in the first seconds. 🎯 Snipers out = they have sold, so their bags no longer hang over the chart.'],
+  ['Holder zones', 'Who holds the supply: top-10 share, insiders, the dev. Under 20% top-10 = spread out · 20–30% = watch · above that only passes while the big holders are not selling.'],
+  ['Dev sold / CTO', 'The creator dumped. A CTO (community takeover) is holders carrying on without them — treated as a new, unproven coin here.'],
+  ['Rug', 'The pool’s liquidity is pulled or the supply is dumped. 🚨 Rug shield sells when a pool loses half of what it had at entry — it limits the loss, it cannot undo it.'],
+  ['🧹 Liquidity sweep & reclaim', 'Price is pushed under a level where stops sit (the flush), then buyers take it straight back. Read here as: red on the hour, green in the last 5 min, 58%+ buys.'],
+  ['🚀 Breakout', 'Up on the hour and still pushing with volume speeding up. A coin already up more than 150% in the hour is not counted — that move is done.'],
+  ['🧲 Pullback / FVG', 'A fast move leaves a gap on the chart (a fair value gap). The pullback into it, with buyers still in charge, is the classic second entry. Read here as: strong hour, small 5-min dip, 52%+ buys.'],
+  ['House money', 'Once a coin doubles, selling your cost leaves a position that cannot lose your own money. The card’s 💰 skim does this in pieces.'],
+  ['Market cap vs pool', 'Market cap is price × supply. What you can actually sell into is the POOL. A $2M coin with a $10K pool cannot be sold for $2M of anything.'],
+];

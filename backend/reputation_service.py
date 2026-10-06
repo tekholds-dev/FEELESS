@@ -5525,10 +5525,24 @@ async def _trench_build(now):
         _json_save(TRENCH_META_PATH, _trench.meta_track(st, passing, lambda m: (jp or {}).get(m), now))
     except Exception as e:
         print('trench proof:', e)
+    try:   # 🎯 the same paper record for the three ENTRY setups: noted once when a safe coin shows the setup, settled 1h later
+        safe = [r for r in _runner_cands if _rn.safe_only(r, _runner_cfg()) and _fuse._f(r.get('liq')) >= 10000]
+        hits = {k: [] for k in _prime.ENTRY_SETUPS}
+        for r in safe:
+            hit = _prime.entry_setup(r)
+            if hit and r.get('mint'):
+                hits[hit[0]].append((r['mint'], r.get('price')))
+        st = _json_load(ENTRY_PROOF_PATH, {})
+        due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
+        jp = await _jup_prices(due) if due else {}
+        _json_save(ENTRY_PROOF_PATH, _trench.meta_track(st, hits, lambda m: (jp or {}).get(m), now, keys=_prime.ENTRY_SETUPS))
+    except Exception as e:
+        print('entry proof:', e)
     return _trench_cache
 
 
 TRENCH_META_PATH = FUSE_HQ_PATH.parent / 'trench_meta.json'
+ENTRY_PROOF_PATH = FUSE_HQ_PATH.parent / 'entry_proof.json'
 
 
 def _trench_judge():
@@ -5745,7 +5759,9 @@ async def fuses_forecast():
     """🌦 Public: the runner weather and where it is heading (sim cards + live launch-coin breadth). Caches only — answers in ms."""
     rcfg = _runner_cfg()
     safe = [r for r in _runner_cands if _rn.safe_only(r, rcfg) and _fuse._f(r.get('liq')) >= 10000]   # setups only among coins clearing every SAFETY gate
-    return {**_prime.forecast(_json_load(PG_SIM_PATH, {}), _runner_cands), 'entries': _prime.entries(safe)}
+    proof = _trench.meta_proof(_json_load(ENTRY_PROOF_PATH, {}), keys=_prime.ENTRY_SETUPS)
+    return {**_prime.forecast(_json_load(PG_SIM_PATH, {}), _runner_cands), 'entries': [{**e, 'proof': proof.get(e['setup'])} for e in _prime.entries(safe)],
+            'setups': [{'key': k, 'ico': v[0], 'name': v[1], 'why': v[2], **(proof.get(k) or {})} for k, v in _prime.ENTRY_SETUPS.items()]}
 
 
 @app.get('/api/reputation/fuses/contenders')

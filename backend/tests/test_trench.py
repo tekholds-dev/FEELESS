@@ -264,3 +264,14 @@ def test_closest_lists_only_safe_coins_that_miss_soft_checks_busiest_first():
                        {**base, 'mint': 'D', 'pairAddress': 'pd', 'scanned': False, 'top10': None}, {**base, 'mint': 'E', 'pairAddress': 'pe', 'creatorRep': 'high'}])
     assert [c['mint'] for c, _ in rows] == ['B', 'A']                                   # unsafe / unscanned / bad creator never listed
     assert rows[0][1] == ['holder count pending'] and any('green' in f for f in rows[1][1])
+
+
+def test_the_paper_record_works_for_any_named_read_not_only_metas():
+    import trench
+    keys = {'sweep': 1, 'breakout': 1}
+    st = trench.meta_track({}, {'sweep': [('A', 1.0)], 'breakout': [('B', 2.0)], 'sprout': [('Z', 1.0)]}, lambda m: 0, 1000, keys=keys)
+    assert set(st) == {'sweep', 'breakout'} and st['sweep']['open']['A']['px'] == 1.0          # only the asked keys are tracked
+    st = trench.meta_track(st, {}, lambda m: {'A': 1.2}.get(m), 1000 + trench.PROOF_SEC, keys=keys)
+    assert st['sweep']['done'][0]['pct'] == 20.0 and st['breakout']['done'][0]['pct'] == -100.0   # no price an hour later = a loss
+    pr = trench.meta_proof(st, keys=keys)
+    assert pr['sweep'] == {'n': 1, 'medPct': 20.0, 'wonPct': 100, 'open': 0, 'proven': False} and set(pr) == {'sweep', 'breakout'}

@@ -466,7 +466,7 @@ export function WeatherStrip() {
     <span className="wx-out">{dot} {out}</span>
     <small>{f.buys}</small>
     {(f.entries || []).length > 0 && <span className="wx-entries" data-testid="wx-entries"><i className="m-label">ENTRIES NOW</i>{f.entries.map(e => <button type="button" key={e.mint} className="wx-entry" onClick={() => openWarRoom({ chainId: 'solana', pairAddress: e.pairAddress, baseToken: { address: e.mint, symbol: e.symbol } })}
-      data-tip={`${e.name}: ${e.why}. 5m ${e.chg5m >= 0 ? '+' : ''}${e.chg5m}% · 1h ${e.chg1h >= 0 ? '+' : ''}${e.chg1h}% · buyers ${Math.round(e.buyShare)}%. Passes every safety gate. A read of the tape right now, never a promise.`}>{e.ico} <b>${e.symbol}</b> <em>{e.name}</em></button>)}</span>}</div>;
+      data-tip={`${e.name}: ${e.why}. 5m ${e.chg5m >= 0 ? '+' : ''}${e.chg5m}% · 1h ${e.chg1h >= 0 ? '+' : ''}${e.chg1h}% · buyers ${Math.round(e.buyShare)}%. Passes every safety gate.${e.proof?.n ? ` Last ${e.proof.n} ${e.name} reads, held 1h on paper: typical ${e.proof.medPct >= 0 ? '+' : ''}${e.proof.medPct}%, ${e.proof.wonPct}% up.` : ' No paper record for this setup yet.'} A read of the tape right now, never a promise.`}>{e.ico} <b>${e.symbol}</b> <em>{e.name}</em>{e.proof?.n >= 5 && <i className={`m-num ${e.proof.medPct >= 0 ? 'm-pos' : 'm-neg'}`}> {e.proof.medPct >= 0 ? '+' : ''}{e.proof.medPct}%</i>}</button>)}</span>}</div>;
 }
 
 /* 🎯 What happened to your picks: the last few "came in" / "refused" lines with the keeper's own reason — a refused pick is never silent. */
