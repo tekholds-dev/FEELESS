@@ -2090,7 +2090,7 @@ def fast_stop(card, px_by_mint, cfg, now):
     for i, l in enumerate(card.get('legs') or []):
         px, entry, sl = _f((px_by_mint or {}).get(l.get('mint'))), _f(l.get('entry')), leg_sl(l, t)
         lmode = l.get('slMode') if l.get('slMode') in SL_MODES else mode
-        if (px <= 0 or entry <= 0 or sl <= 0 or _f(l.get('units')) <= 0 or lmode != 'replace' or l.get('buying') or l.get('placeholder') or l.get('frozen')
+        if (px <= 0 or entry <= 0 or sl <= 0 or _f(l.get('units')) <= 0 or lmode != 'replace' or not l.get('real') or l.get('buying') or l.get('placeholder') or l.get('frozen')   # `real` = the wallet HOLDS it (set by sync_card): a coin just dealt and not bought yet has nothing to stop ($BTT was "stopped" before its buy)
                 or l.get('ride') or int(l.get('freezeRounds') or 0) > 0 or safe_anchor(l)):
             continue
         dd = (px / entry - 1) * 100

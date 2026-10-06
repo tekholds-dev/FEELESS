@@ -1857,7 +1857,7 @@ def test_fast_stop_takes_a_coin_at_its_stop_off_the_card_at_once_and_touches_not
     import arena_prime as ap
     now = 1_000_000.0
     cfg = ap.clean_cfg({'sl': 15})
-    leg = lambda m, px0=1.0, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'units': 2.0, 'entry': px0, 'costUsd': 2.0, 'at': now - 600, 'liq': 1e12, **k}
+    leg = lambda m, px0=1.0, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'units': 2.0, 'entry': px0, 'costUsd': 2.0, 'at': now - 600, 'liq': 1e12, 'real': True, **k}
     card = {'tpl': 'degen', 'real': True, 'cash': 0.0, 'events': [], 'legs': [
         leg('DROP'), leg('OK'), leg('RIDER', ride=True), leg('ICE', frozen=True), leg('HOLD', slMode='hold'), leg('WAIT', buying=True, units=0.0),
         leg('GAP', at=now - 30)]}
@@ -1870,4 +1870,6 @@ def test_fast_stop_takes_a_coin_at_its_stop_off_the_card_at_once_and_touches_not
     assert c['legs'][6]['units'] == 2.0                                                    # −70% thirty seconds after the buy = a feed gap, never fast-sold
     assert card['legs'][0]['units'] == 2.0 and card['events'] == []                        # pure
     assert ap.fast_stop(card, {**px, 'DROP': 0.9}, cfg, now) is card                       # nothing at its stop → the same object, no write
+    fresh = {**card, 'legs': [{k: v for k, v in card['legs'][0].items() if k != 'real'}]}  # dealt this tick, the wallet does not hold it yet
+    assert ap.fast_stop(fresh, px, cfg, now) is fresh
     assert ap.GUARD_SEC <= 6

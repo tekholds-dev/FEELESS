@@ -6179,30 +6179,7 @@ async def _prime_tick_inner(now):
         if mo_t:
             cfg_t = {**cfg_t, 'minOrderUsd': mo_t}
         stuck = set(_fw.stuck_buys(cur, now, bench, missed=book_s.get('misses'), pending_mint=(book_s.get('pending') or {}).get('toMint') or (book_s.get('pending') or {}).get('mint'))) if cur and cur.get('real') else set()
-        if stuck:   # ⏳ the real card swaps a coin whose buy can't land (benched, or refused 15s ago) for a buyable one NOW
-            before_ = cur
-            cool_s = _prime.cooling(cur, now, cfg_t['rotateHours'], px)   # 🧊 … never for a coin that just left this card
-            p_t, r_t = [x for x in p_t if x.get('mint') not in cool_s], [x for x in r_t if x.get('mint') not in cool_s]
-            for pa in stuck:
-                l = next((x for x in cur['legs'] if x.get('pairAddress') == pa), None)
-                if not l:
-                    continue
-                why_s = "couldn't be bought safely — benched" if l.get('mint') in bench else "buy was refused — trying the next best coin" if l.get('mint') in (book_s.get('misses') or {}) else 'buy never landed in 2 min'
-                why_x = ((book_s.get('benched') or {}).get(l.get('mint')) or (book_s.get('misses') or {}).get(l.get('mint')) or {}).get('why')
-                why_s += f' ({why_x})' if why_x else ''   # the keeper's own reason, so a refused pick is never silent
-                try:
-                    want_usd = _fuse._f(l.get('wantUnits')) * (_fuse._f(px.get(pa)) or _fuse._f(l.get('entry')))
-                    if mo_t and want_usd < mo_t and want_usd < _fw.LEFTOVER_MIN_USD:
-                        # the seat's money is under the smallest order the keeper sends: another coin would wait just the same
-                        why_s = f"its ${want_usd:.2f} is under the smallest order the card can send (${mo_t:.2f})"
-                        raise ValueError('unfundable seat')
-                    tmp = {**cur, 'legs': [{**x, 'units': _fuse._f(x.get('wantUnits'))} if x is l else x for x in cur['legs']]}
-                    cur = _prime.replace_leg(tmp, pa, px, p_t, r_t, anchors, cfg_t, now)
-                    cur['events'] = cur['events'][:-1] + [{**cur['events'][-1], 'why': f"⏳ ${l.get('symbol')} {why_s} — swapped for a buyable coin"}]
-                except ValueError:   # nothing buyable of its role: the slot goes back to card cash (refilled next round), never waits forever
-                    cur = {**cur, 'legs': [x for x in cur['legs'] if x is not l], 'events': list(cur.get('events') or []) + [
-                        {'at': now, 'kind': 'rotate', 'symbol': l.get('symbol'), 'usd': 0.0, 'why': f"⏳ ${l.get('symbol')} {why_s} — slot back to card cash"}]}
-            cur = _prime.note_dropped(before_, cur, now, cfg_t['rotateHours'], px)   # 🧊 the stuck coin cools like any coin that left
+        # (the stuck-buy swap runs BELOW, after every filter — see "⏳ STUCK BUYS")
         # ⏳ EVERY door obeys the card's min age on real money (pools, runners, seat refills, replacements, mover swaps): a row whose
         # age is known and under `runnerMinAgeH` is out whatever list it came from. $Grok came in 20 minutes old through a list
         # that was never age-checked and was pulled an hour later (−99.7%).
@@ -6264,6 +6241,33 @@ async def _prime_tick_inner(now):
         if real_t:   # 🏊 the owner's own runner pool floor (off unless they set it)
             r_t = _prime.deep_runners(r_t, cfg_t.get('runnerMinLiqK'), cfg_t.get('runnerMinBuy'), cfg_t.get('runnerMinVolK'), cfg_t.get('runnerMinChg1h'))
             _step('your hunt line (pool · volume · 1h move · buyers)', r_t)
+        # ⏳ STUCK BUYS are replaced HERE, from the fully filtered lists (min age, dollar names, record gate, chart / meta, the owner's
+        # hunt line). This swap used to run before all of them, so a refused buy was replaced by ANY liquid coin: $BTT ("−100% inside
+        # one candle this hour") took a seat, was refused too, and the seat looped through coins the card would never choose.
+        if stuck:   # ⏳ the real card swaps a coin whose buy can't land (benched, or refused 15s ago) for a buyable one NOW
+            before_ = cur
+            cool_s = _prime.cooling(cur, now, cfg_t['rotateHours'], px)   # 🧊 … never for a coin that just left this card
+            p_t, r_t = [x for x in p_t if x.get('mint') not in cool_s], [x for x in r_t if x.get('mint') not in cool_s]
+            for pa in stuck:
+                l = next((x for x in cur['legs'] if x.get('pairAddress') == pa), None)
+                if not l:
+                    continue
+                why_s = "couldn't be bought safely — benched" if l.get('mint') in bench else "buy was refused — trying the next best coin" if l.get('mint') in (book_s.get('misses') or {}) else 'buy never landed in 2 min'
+                why_x = ((book_s.get('benched') or {}).get(l.get('mint')) or (book_s.get('misses') or {}).get(l.get('mint')) or {}).get('why')
+                why_s += f' ({why_x})' if why_x else ''   # the keeper's own reason, so a refused pick is never silent
+                try:
+                    want_usd = _fuse._f(l.get('wantUnits')) * (_fuse._f(px.get(pa)) or _fuse._f(l.get('entry')))
+                    if mo_t and want_usd < mo_t and want_usd < _fw.LEFTOVER_MIN_USD:
+                        # the seat's money is under the smallest order the keeper sends: another coin would wait just the same
+                        why_s = f"its ${want_usd:.2f} is under the smallest order the card can send (${mo_t:.2f})"
+                        raise ValueError('unfundable seat')
+                    tmp = {**cur, 'legs': [{**x, 'units': _fuse._f(x.get('wantUnits'))} if x is l else x for x in cur['legs']]}
+                    cur = _prime.replace_leg(tmp, pa, px, p_t, r_t, anchors, cfg_t, now)
+                    cur['events'] = cur['events'][:-1] + [{**cur['events'][-1], 'why': f"⏳ ${l.get('symbol')} {why_s} — swapped for a buyable coin"}]
+                except ValueError:   # nothing buyable of its role: the slot goes back to card cash (refilled next round), never waits forever
+                    cur = {**cur, 'legs': [x for x in cur['legs'] if x is not l], 'events': list(cur.get('events') or []) + [
+                        {'at': now, 'kind': 'rotate', 'symbol': l.get('symbol'), 'usd': 0.0, 'why': f"⏳ ${l.get('symbol')} {why_s} — slot back to card cash"}]}
+            cur = _prime.note_dropped(before_, cur, now, cfg_t['rotateHours'], px)   # 🧊 the stuck coin cools like any coin that left
         mine = {l.get('mint') for l in (cur or {}).get('legs') or []}
         p_t = [x for x in p_t if x.get('mint') not in taken or x.get('mint') in mine]
         r_t = [x for x in r_t if x.get('mint') not in taken or x.get('mint') in mine]

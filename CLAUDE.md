@@ -1642,3 +1642,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `heroCard` ranks on that same number ("+20% this run" sat above "−35% all time"). The small line still says "this run +X%".
 - Card FX also on: Runners hero (embers, gold), Coming up (grid), profile TraderCard (beam), Fuse score (aurora), held cards (grid),
   my battles (embers). Chart background picker = 40px wide (icon only): a wide select wrapped the toolbar's Alert button onto two lines.
+- ⏳ THE STUCK-BUY SWAP IS A DOOR TOO (`_prime_tick`: the block now runs AFTER min age · dollar names · record gate · chart / meta ·
+  the owner's hunt line, just before `mine`): it used to run before all of them, so a refused buy was replaced by ANY liquid coin
+  ($BTT, "−100% inside one candle", took the seat, was refused too, and the seat looped). No qualifying coin → the seat goes back to
+  card cash. `fast_stop` only acts on legs the wallet HOLDS (`real`, set by `sync_card`): a coin dealt this tick and not bought yet
+  was "stopped" on the gap between its scan price and the live price. EVERY new path that puts a coin on a real card must read the
+  SAME filtered `r_t` — grep `replace_leg(` in `_prime_tick` and check where each call sits relative to the filters.
