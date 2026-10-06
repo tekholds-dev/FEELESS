@@ -366,7 +366,7 @@ def test_older_runner_stays_on_the_board_only_while_it_trades_hard_in_a_real_poo
     ok = {'ageH': 90, 'stage': 'graduated', 'vol1h': 80000, 'liq': 40000}
     assert rn.older_runner(ok)
     assert not rn.older_runner({**ok, 'vol1h': 20000}) and not rn.older_runner({**ok, 'liq': 9000})
-    assert not rn.older_runner({**ok, 'ageH': 200}) and not rn.older_runner({**ok, 'ageH': 30}) and not rn.older_runner({**ok, 'stage': 'curve'})
+    assert rn.older_runner({**ok, 'ageH': 200}) and not rn.older_runner({**ok, 'ageH': 800}) and not rn.older_runner({**ok, 'ageH': 30}) and not rn.older_runner({**ok, 'stage': 'curve'})
     gates = {g[0]: g[2] for g in rn.GATES} if isinstance(rn.GATES[0], tuple) else None
     if gates:
         assert gates['age'](ok) and gates['prebond'](ok) and not gates['age']({**ok, 'vol1h': 1000})

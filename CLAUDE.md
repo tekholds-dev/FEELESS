@@ -1367,3 +1367,5 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   bonk mints) on Jupiter's live rankings join the candidates FIRST (never cut by `BOARD_MAX`); stage comes from the live pair. The
   Pump index pages are "biggest" + "most recently traded", so a coin running on volume was in neither. Every board filter, runner
   gate and real-money rule still applies. FEED THIN ⇒ this is the source to widen (more intervals / categories), not RPC keys.
+- `OLD_AGE_H` is 720 (30 days), not 7: Pump's own trending tab was full of pump coins older than a week still trading hard.
+  NEVER chain `pytest … | tail -1 && git commit`: the pipe hides the failure (a red test was pushed once, fixed minutes later).
