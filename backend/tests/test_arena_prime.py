@@ -1891,3 +1891,23 @@ def test_a_coin_sold_whole_leaves_the_card_and_is_never_compounded_back_into():
     assert c['legs'][0]['units'] > 1.9                                                    # its money went into the coin that stays
     again = ap.tick(c, {'PDON': 1.05, 'PCAT': 1.0}, [], [], cfg, now + 70, [], {}, {})
     assert [l['mint'] for l in again['legs']] == ['CAT']                                  # … and nothing buys DON back
+
+
+def test_the_owner_fills_every_empty_seat_at_once():
+    import arena_prime as ap
+    now = 1_000_000.0
+    cfg = ap.clean_cfg({'rotateHours': 99, 'coins': 4, 'compound': True, 'cycles': {'degen': 'off'}, 'rescuePct': 0, 'rideAt': 0, 'tp': 0, 'cycleEvery': 0, 'sl': 0})
+    leg = lambda m: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0, 'at': now - 9999, 'liq': 1e12}
+    card = {'tpl': 'degen', 'id': 'x', 'label': 'B', 'at': now - 9999, 'lastRotateAt': now, 'cash': 3.0, 'startUsd': 4.0, 'roundStartUsd': 4.0, 'compoundedUsd': 0.0,
+            'takenUsd': 0.0, 'feesUsd': 0.0, 'events': [], 'rounds': 1, 'phase': 'degen', 'legs': [leg('A')]}
+    pick = lambda m: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'price': 1.0, 'liquidityUsd': 1e9, 'ack': True}
+    c = ap.queue_seat(card, pick('X'))
+    c = ap.queue_seat(c, pick('Y'), more=True); c = ap.queue_seat(c, pick('Z'), more=True); c = ap.queue_seat(c, pick('Y'), more=True)   # the same coin twice = once
+    assert c['seatPick']['mint'] == 'X' and [q['mint'] for q in c['seatQueue']] == ['Z', 'Y']
+    assert ap.queue_seat(c, pick('W'))['seatPick']['mint'] == 'W'                          # without `more` a new pick still REPLACES the first
+    out = ap.tick(c, {'PA': 1.0, 'PX': 1.0, 'PY': 1.0, 'PZ': 1.0}, [], [], cfg, now + 10, [], {}, {})
+    assert [l['mint'] for l in out['legs']] == ['A', 'X', 'Z', 'Y'] and all(l.get('picked') for l in out['legs'][1:])   # all three seated on ONE tick
+    assert not out.get('seatPick') and not out.get('seatQueue')
+    assert [e['kind'] for e in out['events']].count('seat') == 3
+    cleared = ap.queue_seat(c, None)
+    assert not cleared.get('seatPick') and not cleared.get('seatQueue')

@@ -1671,3 +1671,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   in; a filled sale above its cost = PROFIT, the $ gained) — never the engine's per-tick "idle cash back into the card" intent.
   ONE pop at a time, ≥ `POP_MIN_USD` $0.05, at most one per `POP_EVERY_MS` 20s, 14px, OUTSIDE the card at its top-right corner
   (`left: 100%`). Paper tier cards keep the engine events under the same limits.
+- 🪑🪑 FILL EVERY SEAT AT ONCE (`arena_prime.queue_seat(card, cand, more=)` → `seatPick` + `seatQueue` ≤ 5, one per coin; view
+  `seatQueue`; `fillSeat.more` from the picker): the owner picks a coin for EACH empty seat — the picker stays open until every seat
+  has one, the button reads "🪑 → $A · $B · $C" — and the seat refill seats ALL of the owner's picks on the same tick (a loop; the
+  engine's own choice still fills one seat a tick). A pick without `more` still replaces the first; `to: null` clears them all.
