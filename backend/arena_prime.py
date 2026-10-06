@@ -598,6 +598,41 @@ def scout_step(card, prices, hot, cfg, now, pools=(), anchors=()):
     return card
 
 
+# ⚡ META BY CLOCK — one coherent setup per round length, built from what this engine's own record showed (2026-10-06):
+#   • exits inside 15 min were the leak (49 of 71, −$1.43) and scratch exits locked coins out → no instant swap on noise, a short hold
+#   • trims of winners were the only steady plus (+$3.21, 80% won) → the SCALPER takes profit early and often
+#   • the board's runners need ~3.5h to peak → the HOLDER freezes late, trails wide and holds
+#   • selection decides more than exits → both buy only coins already moving on real volume, new coins only
+# 5–10 min rounds = 🗡 META SCALPER: a 20% scout ticket hunts every round; everything else locks fast (+15%, 8% trail), banks a
+# third at the lock, skims +20%, stops at −15%, holds 15 min so one candle cannot shake it out.
+# 15 min and longer = 💎 META HOLDER: 10% scout, freeze +50% / 30% trail, no skim, stop −30%, hold 1–3h by clock, older coins.
+# Every card gets its OWN variant (`seed`): the same idea with slightly different numbers, so no two cards trade in lockstep.
+META_SCALP = {'scoutPct': 20, 'rideAt': 15.0, 'rideTrail': 8.0, 'lockBankPct': 33.0, 'peakSellPct': 75.0, 'skimAt': 20.0, 'recyclePct': 0.0, 'sl': 15.0, 'tp': 100.0,
+              'instantSwapPct': 0.0, 'rotateMinDrop': 10.0, 'minHoldMins': 15.0, 'cycleEvery': 6, 'newOnly': True, 'moverSwap': True,
+              'runnerMinAgeH': 1, 'runnerMinLiqK': 25, 'runnerMinVolK': 50, 'runnerMinChg1h': 20, 'runnerMinBuy': 55, 'edgeGate': False, 'edgeFloor': 0}
+META_HOLD = {'scoutPct': 10, 'rideAt': 50.0, 'rideTrail': 30.0, 'lockBankPct': 0.0, 'peakSellPct': 50.0, 'skimAt': 0.0, 'recyclePct': 0.0, 'sl': 30.0, 'tp': 300.0,
+             'instantSwapPct': 0.0, 'rotateMinDrop': 20.0, 'minHoldMins': 60.0, 'cycleEvery': 6, 'newOnly': True, 'moverSwap': True,
+             'runnerMinAgeH': 12, 'runnerMinLiqK': 25, 'runnerMinVolK': 50, 'runnerMinChg1h': 40, 'runnerMinBuy': 0, 'edgeGate': False, 'edgeFloor': 0}
+META_VARIANTS = {'scalp': ({}, {'rideAt': 20.0, 'rideTrail': 10.0}, {'scoutPct': 15, 'skimAt': 30.0}, {'lockBankPct': 25.0, 'rideTrail': 10.0}),
+                 'hold': ({}, {'rideTrail': 20.0, 'scoutPct': 15}, {'rideAt': 100.0}, {'runnerMinChg1h': 20, 'rideTrail': 20.0})}
+
+
+def meta_for(rotate_hours, seed=0):
+    """⚡ The meta setup for a round length → {key, name, why, patch}. `seed` picks the card's own variant (0 = the base numbers).
+    The patch never sets the clock or the round patience — those stay the owner's."""
+    mins = _f(rotate_hours) * 60
+    scalp = 0 < mins <= 10
+    base, var = (META_SCALP, META_VARIANTS['scalp']) if scalp else (META_HOLD, META_VARIANTS['hold'])
+    patch = {**base, **var[int(seed) % len(var)]}
+    if not scalp:
+        patch['minHoldMins'] = 60.0 if mins <= 30 else 120.0 if mins <= 60 else 180.0
+    return {'key': 'scalp' if scalp else 'hold', 'name': '🗡 Meta scalper' if scalp else '💎 Meta holder', 'variant': int(seed) % len(var), 'patch': patch,
+            'why': ('A scout ticket hunts every round; the rest lock gains fast (+%g%%, %g%% trail), bank at the lock, skim, and stop at −%g%%. No exit on one bad candle.'
+                    % (patch['rideAt'], patch['rideTrail'], patch['sl'])) if scalp else
+                   ('Buys coins already running, then gets out of their way: freeze +%g%%, %g%% trail, no skim, stop −%g%%, held at least %g min.'
+                    % (patch['rideAt'], patch['rideTrail'], patch['sl'], patch['minHoldMins']))}
+
+
 def is_hunt(x, cfg):
     """Does this coin pass the card's own 🚀 hunt selection (BOTH a 1h-volume and a 1h-move minimum set, and it clears them)?"""
     v, m = _f((cfg or {}).get('runnerMinVolK')), _f((cfg or {}).get('runnerMinChg1h'))

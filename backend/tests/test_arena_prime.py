@@ -1741,3 +1741,17 @@ def test_only_a_real_loss_locks_a_coin_out_a_scratch_exit_sits_out_three_rounds(
     assert ap.cooling(later, 1000.0 + 3000, 0.08, {'SCRATCH': 0.96, 'LOSER': 0.85, 'WIN': 1.2}) == {'LOSER'}   # the −4% scratch is free again
     old = {'rounds': 20, 'cool': {'OLD': {'at': 1.0, 'round': 5, 'loss': True, 'px': 2.0, 'pair': 'OLD'}}}     # a stamp from before `pct`
     assert ap.cooling(old, 4000.0, 0.08, {'OLD': 1.0}) == set()
+
+
+def test_meta_by_clock_scalper_on_fast_rounds_holder_on_slow_and_every_value_is_a_real_option():
+    sc, ho = ap.meta_for(0.0833), ap.meta_for(0.25)
+    assert sc['key'] == 'scalp' and ho['key'] == 'hold' and ap.meta_for(1.0)['patch']['minHoldMins'] == 120 and ap.meta_for(6)['patch']['minHoldMins'] == 180
+    assert sc['patch']['instantSwapPct'] == 0 and sc['patch']['skimAt'] > 0 and sc['patch']['minHoldMins'] == 15 and ho['patch']['skimAt'] == 0
+    assert 'rotateHours' not in sc['patch'] and 'rotateConfirm' not in sc['patch']            # the clock and the patience stay the owner's
+    for hours in (0.0833, 0.25, 1.0):
+        seen = set()
+        for seed in range(4):
+            m = ap.meta_for(hours, seed); seen.add(tuple(sorted(m['patch'].items())))
+            clean = ap.clean_cfg({**m['patch'], 'rotateHours': hours})
+            assert all(float(clean[k]) == float(v) for k, v in m['patch'].items()), (hours, seed)   # nothing snaps to another value when saved
+        assert len(seen) == 4                                                                 # four different variants per meta

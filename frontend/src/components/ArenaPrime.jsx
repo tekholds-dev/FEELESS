@@ -327,7 +327,7 @@ export function TrenchScan({ call, bare, onSaved }) {
         <small>{r.ok ? (r.trenchWhy || []).map(p => p.why).join(' · ') : (r.fails || []).join(' · ')}</small></li>)}</ul>}</>}</div>;
 }
 
-function CardEditor({ c, cfg, keeper, locked, call, real, suggest }) {
+function CardEditor({ c, cfg, keeper, locked, call, real, suggest, meta }) {
   const [busy, setBusy] = useState(false);
   const save = async (patch, wallet) => {
     setBusy(true);
@@ -365,6 +365,9 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest }) {
   return <details className="hrt-edit" data-testid="card-editor"><summary>⚙ Edit Fuse {real ? '· this card’s own settings' : locked ? '· 🔒 locked — edits change only this Fuse' : '· this card\'s own exits, patience + hold · shape is shared'}</summary>
     {adv && <div className="m-seg ce-tabs" role="tablist" aria-label="Config groups">{CFG_GROUPS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={grp === k} className={grp === k ? 'active' : ''} data-tip={tip} onClick={() => setGrp(k)} data-testid={`ce-tab-${k}`}>{l}</button>)}</div>}
     <div className="ce-group" key={adv ? grp : 'main'} data-testid={`ce-pane-${adv ? grp : 'main'}`}>
+      {!adv && real && meta && <div className={`ce-meta is-${meta.key}`} data-testid="meta-card"><span><b>{meta.name}</b><small> · built for {Math.round((cfg?.rotateHours || 0) * 60)}-minute rounds · your card's own variant</small><p>{meta.why}</p></span>
+        {(() => { const onNow = Object.entries(meta.patch).every(([k, v]) => String(cfg?.[k]) === String(v) || Number(cfg?.[k]) === Number(v));
+          return <button type="button" className={`m-btn ${onNow ? 'is-on' : 'primary m-go'}`} disabled={busy || onNow} onClick={() => save(meta.patch)} data-testid="meta-apply">{onNow ? '✓ Running this' : '⚡ Use the meta'}</button>; })()}</div>}
       {!adv && <>{sub('1 · PICK A SETUP')}<StrategyPicks hours={cfg?.rotateHours || 1} current={cfg} busy={busy} selection={real} onApply={s => saveExit(stratPatch(s.cfg, real))} testid={`strats-${c.tpl}`} />
         {sub('2 · THE DIALS THAT DECIDE A CARD')}{rows(['rotateHours', 'coins', ...(real ? ['newOnly'] : []), 'minHoldMins', 'scoutPct', 'runnerMinAgeH', 'sl'])}
         <p className="m-note">That is everything most cards need. A setup above sets the rest for you.</p></>}
@@ -631,7 +634,7 @@ export function HqRealCards({ addr, onCount }) {
             [`🔒 hold ≥ ${cf?.minHoldMins || 0}m`, 'Every new coin is held at least this long'], [`🔄 ${(cf?.cycles || {})[c.tpl] || c.cycleMode || 'off'}${c.cycleFix ? ` (fix: ${c.cycleFix})` : ''} · ${c.phase || '—'}`, 'Cycle and the shape it is in now'], [`🧩 re-shape every ${cf?.cycleEvery || 6} rounds`, 'How often the card changes shape'],
             [`🛑 stops: ${cf?.slMode || 'replace'}`, 'What happens when a coin hits its stop'], [`🛟 rescue at −${cf?.rescuePct || 50}%`, 'Card this far under its start → safest coins'], [`💧 real buys need $${((k.minLiqUsd || 0) / 1000).toFixed(0)}K pool · 🏟 Arena $${((k.arenaMinLiqUsd ?? k.minLiqUsd ?? 0) / 1000).toFixed(0)}K`, 'Thinner coins stay paper-only; Arena coins (passed every runner gate) have their own floor'],
             [`🪙 min buy $${(k.minOrderUsd || 0).toFixed(2)} · max $${k.maxSwapUsd || 0}`, 'Smallest / largest single real swap'], [`↔ slippage ${((k.slippageBps || 0) / 100).toFixed(1)}%`, 'Retries add a little, never past 3%']].map(([t2, tip]) => <span key={t2} className="m-chip" data-tip={tip}>{t2}</span>)}</div>
-          <CardEditor c={c} cfg={c.cfgEff || (d.locks?.[c.tpl] ? { ...d.cfg, ...(d.lockCfg?.[c.tpl] || {}) } : d.cfg)} keeper={k} locked={!!d.locks?.[c.tpl]} real={!!c.real} call={call} suggest={d.suggest} /></details>
+          <CardEditor c={c} cfg={c.cfgEff || (d.locks?.[c.tpl] ? { ...d.cfg, ...(d.lockCfg?.[c.tpl] || {}) } : d.cfg)} keeper={k} locked={!!d.locks?.[c.tpl]} real={!!c.real} meta={d.meta} call={call} suggest={d.suggest} /></details>
           <div className="hrt-acts">
             <button type="button" className="m-btn" disabled={!!busy || k.selling} onClick={() => act(c.tpl, k.halt ? 'resume' : 'halt')} data-tip={k.halt ? 'Keeper trades again' : 'Keeper stops trading this card (coins stay)'}>{k.halt ? '▶ Resume' : '⏸ Pause'}</button>
             <span className="hrt-top-up"><input className="m-input" type="number" min="1" step="1" placeholder="$" value={amt} onChange={e => setAmt(e.target.value)} aria-label="Top up amount" />

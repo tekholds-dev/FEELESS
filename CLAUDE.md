@@ -1534,3 +1534,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   false = clicks only. Tier cards, dials and anything on real money are still the owner's click.
 - ⚙ HQ Runner settings = 7 vital gates on top (`RUNNER_VITAL`: top-10, buy-share band, 1h volume, cap, insiders, dev) + one fold
   "All N other settings" (lane exits, bond run, light-up, battles). The ⚡ funnel above it says which gate is stopping what.
+- ⚡ META BY CLOCK (`arena_prime.meta_for(rotate_hours, seed)` → `/fuses/prime.meta` → `ce-meta` card on top of Edit Fuse's main
+  pane, real card, one tap): ≤ 10 min = 🗡 META SCALPER (20% scout, lock +15 / 8% trail, bank 33% at the lock, skim +20, stop −15,
+  NO instant swap, hold 15 min, new coins only, movers $50K + 20%, age ≥ 1h) · 15 min+ = 💎 META HOLDER (10% scout, freeze +50 /
+  30% trail, no skim, stop −30, hold 1–3h by clock, age ≥ 12h, +40%). 4 variants each (`META_VARIANTS`), picked by an owner seed so
+  no two cards trade in lockstep. The patch never sets the clock or the round patience. Every value is a real option
+  (test: `clean_cfg` keeps each one). Built on the record, never a promise.
