@@ -17,7 +17,7 @@ test('the real-card swap picker has every Lab lens + search, flags thin pools an
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<SwapPicker out={{ symbol: 'WIF' }} have={[]} minLiq={20000} onPick={r => picks.push(r)} onClose={() => {}} />); });
   await tick();
-  expect(PICK_LENSES.map(x => x[0])).toEqual(['popular', 'majors', 'risers', 'yield', 'deep', 'runners', 'volume', 'trench', 'new', 'dip', 'paid']);
+  expect(PICK_LENSES.map(x => x[0])).toEqual(['popular', 'majors', 'stocks', 'risers', 'yield', 'deep', 'runners', 'volume', 'trench', 'new', 'dip', 'paid']);
   expect(urls[0]).toContain('/fuses/discover?lens=popular');
   expect(el.querySelector('[data-testid="sp-pick-THIN"]').disabled).toBe(true);
   await act(async () => { el.querySelector('[data-testid="sp-pick-POP"]').click(); });

@@ -325,6 +325,25 @@ MAJORS = {   # mint → (symbol, name)
     '63LfDmNb3MQ8mw9MtZ2To9bEA2M71kZUUGq5tiJxcqj9': ('GIGA', 'GIGACHAD'),
 }
 # Majors that never act as a card ANCHOR: stables and liquid-staked SOL track a peg, so a card sitting in them "never moves".
+# 📈 STOCKS AS MAJORS: tokenized stocks that trade in real Solana pools (xStocks; mints taken from Jupiter's VERIFIED list on
+# 2026-10-05, each ≥ $800K deep; a $1 buy with SOL and straight back cost ~0%). They sit beside the crypto majors: an anchor seat,
+# the Majors list, the swap picker. Their own table (the majors batch call is capped at 30 mints) — add a ticker only with its
+# verified mint, never from memory. Issuer rules apply (not offered in every country): the owner decides who may buy them.
+STOCKS = {   # mint → (symbol, name)
+    'Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh': ('NVDAx', 'NVIDIA xStock'),
+    'XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W': ('SPYx', 'S&P 500 xStock'),
+    'Xs3oZwbHvqis4NYcf4YKWmEia2eC84wSiVrcYcTqpH8': ('SPCXx', 'SpaceX xStock'),
+    'Xs8S1uUs1zvS2p7iwtsG3b6fkhpvmwz4GYU3gWAmWHZ': ('QQQx', 'Nasdaq 100 xStock'),
+    'XsueG8BtpquVJX9LVLLEGuViXUungE6WmK5YZ3p3bd1': ('CRCLx', 'Circle xStock'),
+    'XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB': ('TSLAx', 'Tesla xStock'),
+    'XsP7xzNPvEHS1m6qfanPUGjNmdnmsLKEoNAnHjdxxyZ': ('MSTRx', 'MicroStrategy xStock'),
+    'Xs7ZdzSHLU9ftNJsii5fCeJhoRWSC32SQGzGQtePxNu': ('COINx', 'Coinbase xStock'),
+    'Xsa62P5mvPszXL1krVUnU5ar38bBSVcWAB6fmPCo5Zu': ('METAx', 'Meta xStock'),
+    'XsvNBAYkrDRNhA7wPHQfX3ZUXZyZLdnCQDfHZ56bzpg': ('HOODx', 'Robinhood xStock'),
+    'XspzcW1PRtgf6Wj92HCiZdjzKCyFekVD8P5Ueh3dRMX': ('MSFTx', 'Microsoft xStock'),
+}
+STOCK_MIN_LIQ = 250_000.0   # a stock row needs a real pool: thinner = not listed (it would move on a card-sized buy)
+ALL_MAJORS = {**MAJORS, **STOCKS}   # every protected ticker (lookalike checks read this)
 ANCHOR_SKIP = {'USDC', 'JitoSOL'}
 MAJOR_ALIASES = {'BTC': {'cbBTC', 'WBTC'}, 'BITCOIN': {'cbBTC', 'WBTC'}, 'ETH': {'ETH'}, 'ETHEREUM': {'ETH'}, 'WETH': {'ETH'}, 'SOL': {'SOL', 'JitoSOL'}, 'SOLANA': {'SOL'}}
 
@@ -342,16 +361,20 @@ def mark_real(rows, q=''):
     return sorted(out, key=lambda r: (not r['real'], r['impostor'], str(r.get('symbol') or '').upper() not in want, -_f(r.get('liquidityUsd'))))
 
 
-def majors_pools(pairs_by_mint):
-    """One row per real major: its deepest Solana pool (pairs_by_mint = {mint: [dexscreener pairs]})."""
+def majors_pools(pairs_by_mint, table=None):
+    """One row per real major: its deepest Solana pool (pairs_by_mint = {mint: [dexscreener pairs]}). `table` = MAJORS (default)
+    or STOCKS — stock rows carry `stock: True` and need a pool ≥ STOCK_MIN_LIQ."""
     rows = []
-    for m, (sym, name) in MAJORS.items():
+    stocks = table is STOCKS
+    for m, (sym, name) in (MAJORS if table is None else table).items():
         ps = [p for p in pairs_by_mint.get(m) or [] if p.get('chainId') == 'solana' and (p.get('baseToken') or {}).get('address') == m]
         if not ps:
             continue
         p = max(ps, key=lambda x: _f((x.get('liquidity') or {}).get('usd')))
+        if stocks and _f((p.get('liquidity') or {}).get('usd')) < STOCK_MIN_LIQ:
+            continue
         rows.append({'chainId': 'solana', 'pairAddress': p.get('pairAddress'), 'createdAt': p.get('pairCreatedAt'), 'logo': (p.get('info') or {}).get('imageUrl'),
-                     **leg_meta(p), 'name': name, 'real': True, 'impostor': False})
+                     **leg_meta(p), 'name': name, 'real': True, 'impostor': False, **({'stock': True} if stocks else {})})
     return rows
 
 

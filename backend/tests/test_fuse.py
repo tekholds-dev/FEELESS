@@ -155,3 +155,16 @@ def test_new_majors_carry_pumps_top_15():
     assert len(rows) == 19 and rows[0]['symbol'] == 'P18' and all(r['pump'] for r in rows)       # up to 40 by volume (19 qualify here), listed coin skipped
     assert len(fz.pump_majors([mk(i) for i in range(20)], top=15)) == 15
     assert not any(r['symbol'] in ('P99', 'P98') for r in rows)                                    # pre-bond curve + tiny mcap out
+
+
+def test_stocks_are_majors_with_their_own_table_and_need_a_real_pool():
+    from fuse import STOCKS, MAJORS, ALL_MAJORS, majors_pools, STOCK_MIN_LIQ
+    assert len(STOCKS) <= 30 and not set(STOCKS) & set(MAJORS) and set(ALL_MAJORS) == set(STOCKS) | set(MAJORS)
+    assert all(m.startswith('Xs') and sym.endswith('x') for m, (sym, _n) in STOCKS.items())           # xStock mints + tickers only
+    nv = next(m for m, v in STOCKS.items() if v[0] == 'NVDAx'); sp = next(m for m, v in STOCKS.items() if v[0] == 'SPYx')
+    pair = lambda mint, sym, liq: {'chainId': 'solana', 'pairAddress': 'p' + sym, 'baseToken': {'address': mint, 'symbol': sym}, 'priceUsd': '240', 'liquidity': {'usd': liq}, 'volume': {'h24': 9e6}}
+    rows = majors_pools({nv: [pair(nv, 'NVDAx', 5e6), pair(nv, 'NVDAx', 1e5)], sp: [pair(sp, 'SPYx', STOCK_MIN_LIQ - 1)]}, STOCKS)
+    assert [r['symbol'] for r in rows] == ['NVDAx'] and rows[0]['stock'] and rows[0]['real'] and rows[0]['liquidityUsd'] == 5e6   # deepest pool; thin = not listed
+    assert not any(r.get('stock') for r in majors_pools({nv: [pair(nv, 'NVDAx', 5e6)]}))                # the crypto table never lists a stock
+    import fuse_wallet as fw
+    assert fw.lookalike('NVDAx', 'FakeMint', ALL_MAJORS) and not fw.lookalike('NVDAx', nv, ALL_MAJORS)   # a fake stock ticker can't be bought

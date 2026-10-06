@@ -2784,6 +2784,8 @@ async def _fuse_discover_pairs(chain):
 @app.get('/api/reputation/fuses/discover')
 async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solana')):
     """Fuse Lab: browse real pools on the chain you're on, by lens (popular / yield / deep / new)."""
+    if lens == 'stocks':   # 📈 tokenized stocks in real Solana pools (a subset of the majors rows)
+        return {'lens': 'stocks', 'chain': 'solana', 'pools': [x for x in await _majors_rows() if x.get('stock')]}
     if lens == 'majors':   # 🪙 the REAL SOL / BTC / ETH / … on Solana (hard-coded mints), deepest pool each
         return {'lens': 'majors', 'chain': 'solana', 'pools': await _majors_rows()}
     if lens == 'risers':   # 🚀 new majors: young coins that arrived big with real volume
@@ -2806,14 +2808,21 @@ _majors_cache: dict = {'at': 0.0, 'rows': []}
 async def _majors_rows():
     if _majors_cache['rows'] and time.time() - _majors_cache['at'] < 120:
         return _majors_cache['rows']
-    by = {}
+    by, by_s = {}, {}
     try:
         async with httpx.AsyncClient(timeout=8) as http:
-            for p in (await http.get(f"https://api.dexscreener.com/tokens/v1/solana/{','.join(_fuse.MAJORS)}")).json() or []:
+            async def batch(table):
+                return (await http.get(f"https://api.dexscreener.com/tokens/v1/solana/{','.join(table)}")).json() or []
+            got_m, got_s = await asyncio.gather(batch(_fuse.MAJORS), batch(_fuse.STOCKS), return_exceptions=True)   # 📈 stocks = their own batch (≤ 30 mints a call)
+            if isinstance(got_m, Exception):
+                raise got_m
+            for p in got_m:
                 by.setdefault((p.get('baseToken') or {}).get('address'), []).append(p)
+            for p in ([] if isinstance(got_s, Exception) else got_s):
+                by_s.setdefault((p.get('baseToken') or {}).get('address'), []).append(p)
     except Exception:
         return _majors_cache['rows']
-    rows = _fuse.majors_pools(by)
+    rows = _fuse.majors_pools(by) + _fuse.majors_pools(by_s, _fuse.STOCKS)
     _majors_cache.update(at=time.time(), rows=rows)
     return rows
 
@@ -4756,6 +4765,7 @@ async def _battle_tick(now):
         d2['paperLog'] = ((d2.get('paperLog') or []) + done_books)[-60:]
         d2['battleLog'] = ((d2.get('battleLog') or []) + results)[-40:]
         d2['league'] = league
+        d2['leagueReset'] = LEAGUE_RESET   # saved with the season it started — the one-time restart must never run twice
         d2['bracket'] = {'cards': bracket, 'champions': champs, 'season': season_n,
                          'picks': {} if league.get('round') == 0 else ((d2.get('bracket') or {}).get('picks') or {})}
         d2['bracketWins'] = {**(d2.get('bracketWins') or {}), **(d.get('bracketWins') or {})}
@@ -5628,7 +5638,7 @@ async def _prime_candidates():
         if x.get('mint') in arena or x.get('pairAddress') in arena:
             x['arena'] = True
     # 🎭 lookalikes are out of every seat: a coin wearing a major's ticker that is not that major (a "SOL" at $0.0004)
-    real_ = lambda xs: [x for x in xs if not _fw.lookalike(x.get('symbol'), x.get('mint'), _fuse.MAJORS)]
+    real_ = lambda xs: [x for x in xs if not _fw.lookalike(x.get('symbol'), x.get('mint'), _fuse.ALL_MAJORS)]
     return real_(pools), real_(runners), anchors
 
 
@@ -5685,7 +5695,7 @@ def _pick_row(pair, mint, floor=25_000):
     if not pair or (pair.get('baseToken') or {}).get('address') != mint:
         return None
     m = _fuse.leg_meta(pair)
-    if m['priceUsd'] <= 0 or m['liquidityUsd'] < max(5_000, floor) or str(m.get('symbol') or '').upper() in _ct.STABLES or _fw.lookalike(m.get('symbol'), mint, _fuse.MAJORS):
+    if m['priceUsd'] <= 0 or m['liquidityUsd'] < max(5_000, floor) or str(m.get('symbol') or '').upper() in _ct.STABLES or _fw.lookalike(m.get('symbol'), mint, _fuse.ALL_MAJORS):
         return None
     return {'mint': mint, 'pairAddress': pair.get('pairAddress'), 'symbol': m.get('symbol'), 'price': m['priceUsd'], 'liq': m['liquidityUsd']}
 

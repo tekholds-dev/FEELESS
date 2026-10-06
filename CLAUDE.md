@@ -1241,3 +1241,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   a URL: post the 3 scan methods to each `chain_rpc.RPC_POOL` entry and print `provider_of(e)` + status only.
 - 👀 Trench picker never empty (`trench.closest`): nothing passing, no near-miss, no fallback → the 5 busiest fresh coins that pass
   every SAFETY check on the cheap pass and miss only soft ones, as `soft` rows with what they miss. Owner-pickable, never auto-seated.
+- 📈 STOCKS AS MAJORS (`fuse.STOCKS` = 11 xStock mints from Jupiter's VERIFIED list, `ALL_MAJORS`, `STOCK_MIN_LIQ` $250K;
+  `majors_pools(by, STOCKS)` → rows `stock: True`; `_majors_rows` = crypto batch + stock batch; `/fuses/discover?lens=stocks`; picker
+  lens 📈 Stocks). They rank with the anchors and can take an anchor seat. Lookalike checks read `ALL_MAJORS`. Add a ticker ONLY
+  with its verified mint (never from memory) and a read-only SOL → stock → SOL quote (2026-10-05: ~0% round trip on $1).
+- 🔁 `LEAGUE_RESET` one-time Arena league restart: the flag is saved in `d2` at the battle tick's own save. The first version set it
+  on `d` (never saved) → the season would have restarted at EVERY bell. A one-time flag must be written where the tick SAVES.
