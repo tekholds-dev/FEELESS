@@ -1125,3 +1125,32 @@ def test_a_safety_refusal_stands_for_two_minutes_but_a_busy_route_is_retried():
     assert buys(book('sells back for 12.7% less (> 6%)', 1000), 1060) == []            # refused a minute ago: not asked again
     assert buys(book('sells back for 12.7% less (> 6%)', 1000), 1130)                  # two minutes later: a fresh look
     assert buys(book('Jupiter route unavailable (HTTP 429)', 1000), 1010)              # a busy route is not a verdict on the coin
+
+
+def test_the_owners_pick_of_a_pump_curve_coin_is_judged_on_the_curves_depth_the_engine_never_is():
+    cfg = fw.clean_cfg({'minLiqUsd': 80000, 'pickMinLiqUsd': 10000})
+    pair = {'dexId': 'pumpfun', 'priceUsd': '0.00003739', 'marketCap': 37393, 'baseToken': {'address': 'M'}}
+    ok, why, snap = fw.live_buy_market({'side': 'buy', 'mint': 'M', 'picked': True}, pair, cfg)
+    assert ok and 21000 < snap['liq'] < 23000
+    ok2, why2, _ = fw.live_buy_market({'side': 'buy', 'mint': 'M'}, pair, cfg)             # not a pick → no pool = refused, as before
+    assert not ok2 and 'too thin' in why2
+    tiny = {**pair, 'marketCap': 4000}                                                    # a curve barely started is under the pick floor
+    assert not fw.live_buy_market({'side': 'buy', 'mint': 'M', 'picked': True}, tiny, cfg)[0]
+
+
+def test_money_that_is_not_the_cards_is_off_its_value_at_once_never_spent_and_leaves_as_cash_appears():
+    bl = lambda units: {'atoms': int(units * 1e6), 'decimals': 6, 'costUsd': units, 'entryPx': 1.0, 'pair': 'PA'}
+    book = {'sol': 0.002, 'owedOutSol': 0.0125, 'fundedUsd': 5.0, 'legs': {'A': bl(2.0)}}
+    assert fw.book_value(book, {'PA': 1.0}, 100.0) == round(2.0 + 0.2 - 1.25, 6)            # true value now, before any SOL moved
+    b1, out = fw.settle_owed(book)
+    assert out == 0.002 and b1['sol'] == 0 and abs(b1['owedOutSol'] - 0.0105) < 1e-9 and b1['fundedUsd'] == 5.0   # PUT IN never changes
+    assert fw.book_value(b1, {'PA': 1.0}, 100.0) == fw.book_value(book, {'PA': 1.0}, 100.0)  # moving it out changes nothing
+    b2, out2 = fw.settle_owed({**b1, 'sol': 0.02})                                          # a sale landed → the rest leaves, the surplus stays
+    assert abs(out2 - 0.0105) < 1e-9 and b2['owedOutSol'] == 0 and abs(b2['sol'] - 0.0095) < 1e-9 and fw.settle_owed(b2)[1] == 0.0
+    assert fw.settle_owed({'sol': 0.01, 'manualCashSol': 0.01, 'owedOutSol': 0.005})[1] == 0.0   # the owner's ✂ cash is not touched
+    # the keeper never spends owed SOL: $0.75 idle, $0.60 of it owed → nothing to sweep
+    cfg = {**CFG, 'minOrderUsd': 0.25, 'minLiqUsd': 0, 'arenaMinLiqUsd': 0}
+    c = card([leg('A', 'PA', 0.30, 1.0), leg('B', 'PB', 0.60, 1.0)])
+    bk = {'sol': 0.0075, 'legs': {'A': {**bl(0.30)}, 'B': {**bl(0.60), 'pair': 'PB'}}}
+    assert fw.orders('t', c, bk, {'PA': 1.0, 'PB': 1.0}, 100.0, cfg, 1000) and fw.orders('t', c, {**bk, 'owedOutSol': 0.006}, {'PA': 1.0, 'PB': 1.0}, 100.0, cfg, 1000) == []
+    assert fw.sync_card(c, {**bk, 'owedOutSol': 0.006}, {'PA': 1.0, 'PB': 1.0}, 100.0)['cash'] == 0.15

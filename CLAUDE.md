@@ -1275,3 +1275,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `_trench_build` holder-count seats) — with "≤ 1h · $10K–$100K" none of the scanned coins were ever in that band, so it read 0
   whatever was set. Picker rows: pass → near-miss (inside the age + cap band, only crowd / candles missed) → `outside` rows labelled
   "not in filter" with the exact number ("6.3h old — filter ≤ 1h"). `/fuses/trench` adds `inBand` + `nearMiss`.
+- 🆕 PUMP CURVE COINS ARE PICKABLE BY THE OWNER (`fuse.curve_liq/with_curve`, mirrored in `fuse_wallet.live_buy_market` for `picked`
+  orders only): a Pump coin still on its launch curve has no pool figure, so search / the picker hid it ("can't buy <CA>"). Its
+  depth = 2 × √(32.19 × market cap in SOL) (virtual reserves; $37K cap ≈ $24K), judged against the owner's pick floor; the
+  keeper's real quote checks (price gap, sell-back, impact) still decide. The ENGINE never buys a curve coin. Picker lens
+  🆕 Pump live (`/fuses/discover?lens=pump`: newest + busiest launch coins, curve included, 60 rows, tagged `curve`).
+- ↗ MONEY THAT IS NOT THE CARD'S LEAVES IT (`fuse_wallet.settle_owed`, book `owedOutSol`): off the card's value at once
+  (`book_value`), never spent (`orders`, `sync_card`), moved out of the book as cash appears (ledger `fix` `owedout:`), PUT IN
+  unchanged. `strayFix1` (once, owner's call): the 0.012552 SOL the duplicate keeper put into degen is owed out, every coin cut by
+  the same share, run baseline lowered by the same $. A book-vs-chain surplus is NEVER booked as put-in without the owner.

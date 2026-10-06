@@ -145,7 +145,7 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
                       **({'manualCash': True} if manual_cash else {})})
     # `count_sells` = plan view only: the keeper's BUY pass runs after its sells landed (or were refused) and must spend only SOL the
     # book really holds — counting a refused sell's proceeds once let a buy spend SOL the card never had (book SOL went negative)
-    sol_free = _f(book.get('sol')) - _f(book.get('manualCashSol')) - anchor_sol(tgt) + (sum(o['usd'] for o in sells) / sol_px * 0.97 if count_sells else 0.0) if sol_px > 0 else 0.0   # ✂ owner's cash is never spent
+    sol_free = _f(book.get('sol')) - _f(book.get('owedOutSol')) - _f(book.get('manualCashSol')) - anchor_sol(tgt) + (sum(o['usd'] for o in sells) / sol_px * 0.97 if count_sells else 0.0) if sol_px > 0 else 0.0   # ✂ owner's cash is never spent
     for mint, t in tgt.items():
         if mint == SOL_MINT or t['px'] <= 0:
             continue
@@ -271,6 +271,10 @@ def live_buy_market(order, pair, cfg):
         return False, 'live market unavailable or pair/mint mismatch', {}
     px = _f(p.get('priceUsd'))
     liq = _f((p.get('liquidity') or {}).get('usd'))
+    if liq <= 0 and order.get('picked') and p.get('dexId') == 'pumpfun':
+        # 🎯 the OWNER picked a coin still on Pump's launch curve: no pool figure exists, the curve's own depth is used
+        # (= fuse.curve_liq at a conservative $100 SOL). The engine never buys a curve coin by itself.
+        liq = round(2 * (32.19 * _f(p.get('marketCap') or p.get('fdv')) * 100.0) ** 0.5, 2)
     floor = liq_floor(cfg, order.get('arena'), order.get('trench'), order.get('picked'))
     if px <= 0:
         return False, 'live market price unavailable', {'liq': liq}
@@ -609,7 +613,7 @@ def sync_card(card, book, prices, sol_px):
         # floor / rescue / payout math blind. Re-base once on the confirmed money put in (the UI already shows that number).
         start = round(_f(book['fundedUsd']), 4)
         c.update(startUsd=start, roundStartUsd=start, dayStartUsd=start, lowPct=0.0, realBaselineAt=_f(book.get('since')) or 1.0)
-    sol_left = _f(book.get('sol'))
+    sol_left = max(0.0, _f(book.get('sol')) - _f(book.get('owedOutSol')))   # ↗ SOL owed out of the card is not the card's cash
     for l in c['legs']:
         if l['mint'] == SOL_MINT:
             desired = _f(l.get('wantUnits')) or _f(l.get('units'))
@@ -704,8 +708,22 @@ def sync_card(card, book, prices, sol_px):
     return c
 
 
+def settle_owed(book):
+    """↗ MONEY THAT IS NOT THE CARD'S LEAVES IT (`owedOutSol`): SOL that got into a card's book without being put in by the owner
+    (2026-10-05: a second keeper process paid duplicate buys from unassigned wallet SOL). The amount is taken off the card's VALUE
+    at once (`book_value`), is never spent by the keeper (`orders`, `sync_card`), and moves out of the book as card cash appears —
+    it simply becomes unassigned wallet SOL again (nothing on-chain). PUT IN does not change. → (book, SOL moved now)."""
+    b = dict(book)
+    owed = _f(b.get('owedOutSol'))
+    x = min(owed, max(0.0, _f(b.get('sol')) - _f(b.get('manualCashSol'))))
+    if x <= 0:
+        return b, 0.0
+    b['sol'] = round(_f(b.get('sol')) - x, 9); b['owedOutSol'] = round(owed - x, 9)
+    return b, round(x, 9)
+
+
 def book_value(book, prices, sol_px):
-    return round((_f(book.get('sol')) + _f(book.get('bankSol')) + _f(book.get('rentHeldSol'))) * sol_px + sum(held_units(book, m) * (_f(prices.get(l.get('pair'))) or _f(l.get('entryPx')))
+    return round((_f(book.get('sol')) + _f(book.get('bankSol')) + _f(book.get('rentHeldSol')) - _f(book.get('owedOutSol'))) * sol_px + sum(held_units(book, m) * (_f(prices.get(l.get('pair'))) or _f(l.get('entryPx')))
                                                                                   for m, l in (book.get('legs') or {}).items()), 6)
 
 

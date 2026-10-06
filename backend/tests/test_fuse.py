@@ -190,3 +190,16 @@ def test_breed_style_moves_past_the_winner_away_from_the_loser_and_is_never_a_co
         assert fuse.fitness(['A', 'B'], metas, 'gen-1')['fitness'] != fuse.fitness(['A', 'B'], metas, 'degen')['fitness']
     finally:
         fuse.BRED.clear()
+
+
+def test_a_pump_curve_coin_gets_its_curve_depth_and_other_pairs_are_untouched():
+    import fuse
+    assert 23000 < fuse.curve_liq(37393, 121) < 25000 and fuse.curve_liq(0) == 0.0
+    assert fuse.curve_liq(37393) < fuse.curve_liq(37393, 121)                              # unknown SOL price reads thinner, never deeper
+    curve = {'dexId': 'pumpfun', 'priceUsd': '0.00003739', 'marketCap': 37393, 'baseToken': {'address': 'M'}}
+    out = fuse.with_curve(curve)
+    assert out['curve'] and out['liquidity']['usd'] == fuse.curve_liq(37393) and 'liquidity' not in curve
+    pool = {'dexId': 'pumpswap', 'priceUsd': '1', 'marketCap': 37393, 'liquidity': {'usd': 0}}
+    assert fuse.with_curve(pool) is pool and fuse.with_curve({'dexId': 'pumpfun', 'priceUsd': '0', 'marketCap': 5}) .get('curve') is None
+    deep = {'dexId': 'pumpfun', 'priceUsd': '1', 'marketCap': 37393, 'liquidity': {'usd': 9000}}
+    assert fuse.with_curve(deep) is deep

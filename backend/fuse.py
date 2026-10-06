@@ -134,6 +134,25 @@ def real_pools(pairs):
     return sorted((p for p in pairs or [] if vol(p) > 0 and 0 < liq(p) < vol(p) * 2000), key=lambda p: -vol(p))
 
 
+def curve_liq(mcap_usd, sol_px=100.0):
+    """💧 A Pump.fun coin still on its launch CURVE has no pool, but it is tradable: the curve is a constant-product market with
+    virtual reserves (30 SOL against 1.073B coins at launch). Its depth follows from the market cap alone:
+    quote reserve (SOL) = √(32.19 × market cap in SOL) → "liquidity" = 2 × that, in $. $37K cap ≈ $24K. Unknown SOL price = $100
+    (reads a little thin, never deep)."""
+    m, s = _f(mcap_usd), _f(sol_px) or 100.0
+    return round(2 * (32.19 * m * s) ** 0.5, 2) if m > 0 else 0.0
+
+
+def with_curve(pair, sol_px=100.0):
+    """A DexScreener pair of a coin on the Pump curve (no liquidity figure) → the same pair with its curve depth filled in and
+    `curve: True`. Any other pair is returned untouched."""
+    p = pair if isinstance(pair, dict) else {}
+    if p.get('dexId') != 'pumpfun' or _f((p.get('liquidity') or {}).get('usd')) > 0 or _f(p.get('priceUsd')) <= 0:
+        return pair
+    liq = curve_liq(p.get('marketCap') or p.get('fdv'), sol_px)
+    return {**p, 'liquidity': {**(p.get('liquidity') or {}), 'usd': liq}, 'curve': True} if liq > 0 else pair
+
+
 LENSES = ('popular', 'yield', 'deep', 'new')
 
 

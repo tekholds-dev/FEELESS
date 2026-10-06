@@ -2716,10 +2716,11 @@ async def fuses_search(request: Request, q: str = Query(..., min_length=2, max_l
             pairs = got if isinstance(got, list) else (got or {}).get('pairs') or []
         except Exception:
             pairs = []
+    pairs = [_fuse.with_curve(p) for p in pairs]   # 🆕 a coin still on Pump's launch curve is tradable: its curve depth stands in for a pool
     admin = _is_admin_req(request)
     real = {p.get('pairAddress') for p in _fuse.real_pools(pairs)}
     src = pairs if admin else [p for p in pairs if p.get('pairAddress') in real]
-    rows = [{'chainId': p.get('chainId'), 'pairAddress': p.get('pairAddress'), **_fuse.leg_meta(p), **({'thin': True} if p.get('pairAddress') not in real else {})}
+    rows = [{'chainId': p.get('chainId'), 'pairAddress': p.get('pairAddress'), **_fuse.leg_meta(p), **({'thin': True} if p.get('pairAddress') not in real else {}), **({'curve': True} if p.get('curve') else {})}
             for p in src[:20] if p.get('chainId') == 'solana']
     qu = q.strip().upper().lstrip('$')
     if qu in _fuse.MAJOR_ALIASES or any(qu == v[0].upper() for v in _fuse.MAJORS.values()):   # 'BTC' → the real ones, always
@@ -2798,6 +2799,23 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
             pump_ = []
         have_ = {(r.get('baseToken') or {}).get('address') or r.get('baseAddress') for r in rs_}
         return {'lens': 'risers', 'chain': 'solana', 'pools': rs_ + _fuse.pump_majors(pump_ + base_, have_)}
+    if lens == 'pump':   # 🆕 Pump live: the newest + busiest Pump coins RIGHT NOW, launch-curve coins included (owner picks only)
+        try:
+            async with httpx.AsyncClient(timeout=10) as http:
+                got_ = await asyncio.gather(*[http.get('http://127.0.0.1:5001/api/market/feed', params={'kind': k, 'chain': 'solana', 'page': pg, 'scope': 'launchpads'})
+                                              for k in ('new', 'trending') for pg in (1, 2, 3)], return_exceptions=True)
+            raw_ = [x for g in got_ if not isinstance(g, Exception) for x in (g.json().get('pairs') or [])]
+        except Exception:
+            raw_ = []
+        seen_p, rows_p = set(), []
+        for p_ in sorted((_fuse.with_curve(x) for x in raw_), key=lambda x: -_fuse._f((x.get('volume') or {}).get('h1'))):
+            m_ = (p_.get('baseToken') or {}).get('address')
+            if not m_ or m_ in seen_p or _fuse._f(p_.get('priceUsd')) <= 0 or _fuse._f((p_.get('volume') or {}).get('h1')) < 1000 or _fuse._f((p_.get('liquidity') or {}).get('usd')) < 5000:
+                continue
+            seen_p.add(m_)
+            rows_p.append({'chainId': 'solana', 'pairAddress': p_.get('pairAddress'), **_fuse.leg_meta(p_), **({'curve': True} if p_.get('curve') else {}),
+                           'ageH': round((time.time() * 1000 - _fuse._f(p_.get('pairCreatedAt'))) / 3.6e6, 1) if p_.get('pairCreatedAt') else None})
+        return {'lens': 'pump', 'chain': 'solana', 'pools': rows_p[:80]}
     lens = lens if lens in _fuse.LENSES else 'popular'
     return {'lens': lens, 'chain': chain, 'pools': _fuse.discover(await _fuse_discover_pairs(chain), lens, chain, now_ms=time.time() * 1000)}
 
@@ -6231,6 +6249,7 @@ async def fuse_prime_admin(request: Request):
             row = row or next((r for r in _trench_cache.get('rows') or [] if r.get('mint') == pk['to']), None)   # 🗑 a passing trench coin
             if not row and pk.get('toPair'):   # 🔎 any coin from the Lab lenses / search: verified LIVE on its own pool right now
                 lp = (await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pk['toPair']}])).get(pk['toPair']) or {}
+                lp = _fuse.with_curve(lp)   # 🆕 the owner may pick a coin still on Pump's curve (the keeper's quote checks still decide)
                 row = _pick_row(lp, pk['to'], _fw.clean_cfg(_fw_load().get('cfg') or {})['pickMinLiqUsd'])
             if not row:
                 raise HTTPException(400, 'Pick a coin from the live lists — that one has no live pool right now.')
@@ -6921,6 +6940,12 @@ async def _fw_tick(now):
                             for tid, sol_ in freed.items():
                                 _fw_record(d, {'id': f'rentfree:{tid}:{time.time():.0f}', 'card': tid, 'side': 'fix', 'sol': sol_, 'at': time.time(), 'status': 'done',
                                                'why': f'🏦 {sol_:.5f} SOL of coin-account rent moved to the wallet reserve — it is card cash again (the card never pays rent now)'})
+                        for tid, b in list(d['books'].items()):   # ↗ money that is not the card's leaves as card cash appears
+                            nb_, out_ = _fw.settle_owed(b)
+                            if out_ > 0 and not b.get('pending'):
+                                d['books'][tid] = nb_
+                                _fw_record(d, {'id': f'owedout:{tid}:{time.time():.0f}', 'card': tid, 'side': 'fix', 'sol': out_, 'at': time.time(), 'status': 'done',
+                                               'why': f"↗ {out_:.5f} SOL that was never put into this card is unassigned wallet SOL again ({_fuse._f(nb_.get('owedOutSol')):.5f} SOL still to move)"})
                         for st in _fw.strays(bal.get('tokens'), bal.get('decimals'), d['books'], d['ledger'], time.time()):
                             d['books'][st['card']] = _fw.adopt(d['books'][st['card']], st)
                             _fw_record(d, {'card': st['card'], 'side': 'adopt', 'mint': st['mint'], 'symbol': st['symbol'], 'atoms': st['atoms'], 'usd': 0.0, 'at': time.time(),
@@ -7180,6 +7205,40 @@ async def _fw_rent_credit(cfg):
                                    'why': '♻ recovered-coin cash released — it trades in the card again (it was always counted in IN CARD)'})
             d['cashFix1'] = time.time()
             _fw_save(d)
+    if not d.get('strayFix1'):
+        # ↗ OWNER'S CALL (2026-10-05, "pull the 1.51 out, make this all true money"): the chain audit shows the degen book holding
+        # 0.012552 SOL more than its own swaps explain — duplicate buys a second keeper process paid from UNASSIGNED wallet SOL.
+        # It is owed out of the card (`fuse_wallet.settle_owed`), every coin is cut by the same share so the cash to move appears,
+        # and the run baseline drops by the same $ (money out, not a loss). Once.
+        try:
+            sol_px_s = await _sol_usd_live()
+            STRAY_SOL, STRAY_SINCE = 0.012552, 1791180297.888952
+            async with _fw_lock:
+                d = _fw_load(); b = d['books'].get('degen')
+                hit = bool(b) and abs(_fuse._f(b.get('since')) - STRAY_SINCE) < 1 and not b.get('pending') and not b.get('defund') and sol_px_s > 0
+                if hit:
+                    gross = _fw.book_value(b, {}, sol_px_s)
+                    d['books']['degen'] = {**b, 'owedOutSol': STRAY_SOL}
+                    _fw_record(d, {'id': 'strayfix:degen', 'card': 'degen', 'side': 'fix', 'sol': STRAY_SOL, 'usd': round(STRAY_SOL * sol_px_s, 4), 'at': time.time(), 'status': 'done',
+                                   'why': f"↗ {STRAY_SOL} SOL (${STRAY_SOL * sol_px_s:.2f}) in this card was never put in by you (duplicate buys paid from unassigned wallet SOL) — it leaves the card; PUT IN stays ${_fuse._f(b.get('fundedUsd')):.2f}"})
+                if hit or not b or abs(_fuse._f((b or {}).get('since')) - STRAY_SINCE) >= 1:
+                    d['strayFix1'] = time.time(); _fw_save(d)
+            if hit:
+                usd_s = STRAY_SOL * sol_px_s
+                keep_s = max(0.05, min(1.0, (gross - usd_s) / gross)) if gross > 0 else 1.0
+                async with _admin_lock:
+                    h = _json_load(FUSE_HQ_PATH, {}); cd = ((h.get('prime') or {}).get('cards') or {}).get('degen')
+                    if cd and cd.get('real'):
+                        for l in cd.get('legs') or []:
+                            if _fuse._f(l.get('units')) > 0:
+                                l['units'] = _fuse._f(l['units']) * keep_s; l['costUsd'] = round(_fuse._f(l.get('costUsd')) * keep_s, 6); l['trimAt'] = time.time()
+                        for k in ('startUsd', 'dayStartUsd', 'roundStartUsd'):
+                            cd[k] = round(max(0.01, _fuse._f(cd.get(k)) - usd_s), 4)
+                        cd['events'] = list(cd.get('events') or []) + [{'at': time.time(), 'kind': 'brain', 'usd': round(usd_s, 4),
+                            'why': f"↗ ${usd_s:.2f} that was never put into this card is leaving it — every coin cut to {keep_s * 100:.0f}%, baseline lowered by the same $ (not a loss)"}]
+                        _json_save(FUSE_HQ_PATH, h)
+        except Exception as e:
+            print('fuse wallet stray fix (retries next sweep):', str(e)[:120])
     done = {r.get('id') for r in d['ledger'] if r.get('side') == 'close' and r.get('status') in ('credited', 'lost')}
     # only closes that list their coin accounts (this rule) — a refund goes back only to the card that paid that coin's deposit
     todo = [r for r in d['ledger'][-2000:] if r.get('side') == 'close' and r.get('status') == 'sent' and r.get('sig') and r.get('closed') and r['id'] not in done]
