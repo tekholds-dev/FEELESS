@@ -1515,3 +1515,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   in 24h over 70 sweeps (the same SOL is re-used). The rule is UNCHANGED and now stated on screen: the WALLET's free (unassigned)
   SOL fronts rent and gets it back; the card never pays it and its P&L never includes it — crediting refunds INTO a card once
   made it read $32 in a $6.89 wallet. Moving unassigned SOL into the card is a top-up, the owner's own button.
+- ☀ DAY LAG, the real cause: `day-drift` (body + ::before), `day-particles` (`.ambient-background::after`) and `day-sweep`
+  (`.terminal-main::before`) animated `background-position` on FULL-SCREEN layers → the whole page repainted every frame. Stopped in
+  tips.css (`animation: none !important` under `body.theme-day`; the layers stay, still). To find lag: in the page, list
+  `document.getAnimations()` whose keyframes touch anything but `opacity` / `transform` — day theme went 4 → 0.
