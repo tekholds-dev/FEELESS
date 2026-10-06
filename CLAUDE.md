@@ -1447,3 +1447,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   hour later (−99.7%). (2) a VERIFIED PICK is ≥ 1h old (`runners.PICK_MIN_AGE_H`; unknown age = not verified) — $CUM (30 min) and
   the other hand-picked rugs were under an hour. (3) `RUG_LIQ` 0.5 → 0.65: a pool that lost a third of its depth is sold.
   A STOP CANNOT SAVE A PULLED POOL (−99% lands between two price checks): the only defence is not holding minutes-old coins.
+- 🎯 LAUNCH ENTRY (owner: "get in as soon as a coin drops, with X + website registered — your call"): trench META `launch`
+  (`trench.METAS`: ≤ 1h old, cap $10K–$250K, ≥ 150 holders, ≥ 120 trades/h, ≥ $10K 1h + `needSocials` = website AND X set at
+  launch, checked in `precheck`; every trench safety check unchanged). 🎟 A trench / launch coin is a SMALL TICKET: cfg
+  `trenchStakePct` (10 / 15 / 25 / 0 = full seat, default 15) of the card goes in, the rest of that seat returns to card cash;
+  `trenchSlPct` (default 25) is its own stop on the leg (`sl`). Edit Fuse › Coins shows both while the cycle has trench.
+  Switched ON for the real card 2026-10-06 by the owner's delegation: `trenchCfg {mode: 'meta', meta: 'launch'}`, cycle `trench`,
+  1 trench coin. The replay does NOT back coins this young (under 6h lost ~15% a window; 5 rugs that day were all young) — the
+  ticket size is the protection, not the gate. OFF = Cycle back to Press in Edit Fuse › Coins.

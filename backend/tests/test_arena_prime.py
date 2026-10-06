@@ -1662,3 +1662,10 @@ def test_owner_pick_for_the_empty_seat_is_queued_and_validated():
     for bad in ({'mint': 'A', 'pairAddress': 'A', 'price': 1.0}, {'mint': 'Q', 'pairAddress': 'Q', 'price': 1.0}, {'mint': 'Z', 'pairAddress': 'Z', 'price': 0}):
         with pytest.raises(ValueError):
             ap.queue_seat(card, bad)
+
+
+def test_trench_ticket_size_and_stop_are_owner_settings_with_small_defaults():
+    c = ap.clean_cfg({})
+    assert c['trenchStakePct'] == 15 and c['trenchSlPct'] == 25
+    assert ap.clean_cfg({'trenchStakePct': 0, 'trenchSlPct': 0})['trenchStakePct'] == 0 and ap.clean_cfg({'trenchStakePct': 0, 'trenchSlPct': 0})['trenchSlPct'] == 0
+    assert ap.clean_cfg({'trenchStakePct': 40, 'trenchSlPct': 7}) == {**ap.clean_cfg({}), 'trenchStakePct': 15, 'trenchSlPct': 25}

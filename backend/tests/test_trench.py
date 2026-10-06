@@ -229,7 +229,8 @@ def test_a_trench_near_miss_is_only_one_that_passed_every_safety_check():
 def test_trench_metas_set_only_soft_checks_and_the_finalist_pool_is_wide_enough_for_all():
     import trench as tr
     for key, (_l, _b, cfg) in tr.METAS.items():
-        assert set(cfg) == set(tr.OWN_OPTIONS) and all(cfg[k] in tr.OWN_OPTIONS[k] for k in cfg), key   # soft checks, fixed lists
+        soft = {k: v for k, v in cfg.items() if k != 'needSocials'}   # 🎯 Launch also REQUIRES a website + X (stricter, never looser)
+        assert set(soft) == set(tr.OWN_OPTIONS) and all(soft[k] in tr.OWN_OPTIONS[k] for k in soft), key   # soft checks, fixed lists
         g = tr.meta_gate(key)
         assert all(g[k] == tr.TRENCH[k] for k in ('maxTop10', 'maxInsiders', 'maxBundled', 'maxDev', 'maxTop10Jump', 'minBuyShare'))   # safety never moves
     assert tr.meta_gate('nope') is None
@@ -239,7 +240,7 @@ def test_trench_metas_set_only_soft_checks_and_the_finalist_pool_is_wide_enough_
     assert own['mode'] == 'meta' and tr.own_gate(own)['minVol1h'] == 50_000 and tr.own_gate(own)['maxTop10'] == tr.TRENCH['maxTop10']
     assert tr.clean_own({'mode': 'meta', 'meta': 'x'})['meta'] == 'breakout' and tr.clean_own({})['mode'] == 'auto'
     board = tr.meta_board([{'h': 1200}, {'h': 200}], lambda r, g: (r['h'] >= g['minHolders'], []))
-    assert {b['key']: b['pass'] for b in board} == {'sprout': 2, 'breakout': 1, 'flood': 1, 'crowd': 1, 'survivor': 1}
+    assert {b['key']: b['pass'] for b in board} == {'launch': 2, 'sprout': 2, 'breakout': 1, 'flood': 1, 'crowd': 1, 'survivor': 1}
 
 
 def test_meta_proof_settles_after_an_hour_counts_a_vanished_coin_as_a_loss_and_uses_the_median():
@@ -298,3 +299,17 @@ def test_band_miss_says_in_numbers_why_a_coin_is_outside_the_owners_filter():
     assert trench.band_miss({'ageH': 0.2, 'mcap': 4000}, g) == ['cap $4K — filter from $10K'] and trench.band_miss({'mcap': 50000}, g) == ['age unknown']
     # the owner's own filter widens which coins get the holder count (a $10K floor is under every meta's)
     assert trench.loosest({**g, 'maxAgeH': 72})['maxAgeH'] == 72 and trench.loosest()['maxAgeH'] < 72
+
+
+def test_launch_meta_needs_a_website_and_x_set_at_launch_and_is_under_an_hour_old():
+    g = tr.meta_gate('launch')
+    assert g['maxAgeH'] == 1 and g['needSocials'] and g['maxTop10'] == tr.TRENCH['maxTop10']        # safety checks unchanged
+    coin = {'ageH': 0.4, 'mcap': 60000, 'txns1h': 300, 'vol1h': 40000, 'buyShare': 62, 'chg5m': 4, 'chg1h': 30, 'scanned': True, 'top10': 15, 'insiders': 2,
+            'bundled': 0, 'dev': 1, 'top10Jump': 0, 'creatorRep': 'clean', 'site': True, 'x': True}
+    auth = {'mintAuthority': None, 'freezeAuthority': None}
+    assert tr.gate(coin, 300, auth, g)[0]
+    for bad in ({'site': False}, {'x': False}, {'ageH': 1.5}):
+        ok, fails = tr.gate({**coin, **bad}, 300, auth, g)
+        assert not ok
+    assert 'website + X account set at launch' in tr.gate({**coin, 'x': False}, 300, auth, g)[1]
+    assert 'website + X account set at launch' not in tr.gate({**coin, 'x': False}, 300, auth, tr.meta_gate('sprout'))[1]   # only this meta asks for it

@@ -415,6 +415,10 @@ def clean_cfg(p):
     out['compoundStyle'] = (p or {}).get('compoundStyle') if (p or {}).get('compoundStyle') in ('smart', 'even') else 'smart'
     out['roundsPerRun'] = int(_f((p or {}).get('roundsPerRun'))) if int(_f((p or {}).get('roundsPerRun'))) in RUN_ROUNDS else 0
     out['trenchCoins'] = trench_n(p)
+    ts_ = (p or {}).get('trenchStakePct')
+    out['trenchStakePct'] = int(_f(ts_)) if ts_ is not None and int(_f(ts_)) in TRENCH_STAKES else 15   # 🎟 a trench coin's ticket, % of the card (0 = a full equal seat)
+    tl_ = (p or {}).get('trenchSlPct')
+    out['trenchSlPct'] = int(_f(tl_)) if tl_ is not None and int(_f(tl_)) in TRENCH_SLS else 25         # … and its own stop (0 = the card's)
     out['tp'] = clean_exit('tp', (p or {}).get('tp')) or 0.0   # 🎯 card-level TP / SL (0 = the tier template's)
     out['sl'] = clean_exit('sl', (p or {}).get('sl')) or 0.0
     out['tierCfg'] = clean_tier_cfg(p)
@@ -952,6 +956,10 @@ def fit_size(picks, size_usd, min_coin_usd):
     return [p for p in picks if p in keep]
 
 
+TRENCH_STAKES = (0, 10, 15, 25)
+TRENCH_SLS = (0, 15, 20, 25, 30)
+
+
 def trench_n(cfg):
     """🗑 1 or 2 trench coins per card (owner's pick, default 1)."""
     n = int(_f((cfg or {}).get('trenchCoins')) or 1)
@@ -1101,9 +1109,18 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             px = _f(prices.get(l['pairAddress'])) or _f(l['entry'])
             units = _f(l['units']) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)
             out_usd = sell_usd(units, px, liqs.get(l['pairAddress']) or l.get('liq'))
-            c['legs'][c['legs'].index(l)] = _leg(nxt, out_usd, now, 'runner')
+            # 🎟 a trench coin is a SMALL ticket: at most `trenchStakePct` of the card goes in (the rest of the old coin's money
+            # returns to card cash for the other coins), and it carries its own tighter stop — one pulled launch costs a slice, not a seat
+            pct_t = _f(cfg.get('trenchStakePct'))
+            use_usd = min(out_usd, value(c, prices, liqs) * pct_t / 100) if pct_t > 0 else out_usd
+            nl_ = _leg(nxt, use_usd, now, 'runner')
+            if _f(cfg.get('trenchSlPct')) > 0:
+                nl_['sl'] = _f(cfg.get('trenchSlPct'))
+            c['legs'][c['legs'].index(l)] = nl_
+            c['cash'] = round(_f(c.get('cash')) + (out_usd - use_usd), 6)
             c['feesUsd'] = _f(c.get('feesUsd')) + 2 * fee
-            ev(kind='rotate', symbol=l['symbol'], usd=round(out_usd, 4), why=f"🗑 trench cycle — {gain(l):+.1f}% runner swapped for a fresh trench breakout", to=[nxt.get('symbol')])
+            ev(kind='rotate', symbol=l['symbol'], usd=round(use_usd, 4), why=f"🗑 trench cycle — {gain(l):+.1f}% runner swapped for a fresh trench breakout"
+                                                                               + (f" (${use_usd:.2f} ticket = {pct_t:g}% of the card, stop −{_f(cfg.get('trenchSlPct')):g}%)" if pct_t > 0 else ''), to=[nxt.get('symbol')])
             c['trenchFillAt'] = now
 
     # ⚡ INSTANT LOSS SWAP: this is deliberately NOT a round rule. Once a non-anchor coin reaches the owner's configured

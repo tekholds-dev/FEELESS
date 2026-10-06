@@ -36,6 +36,8 @@ def precheck(c, cfg=None):
     """Every check that needs no extra lookup (cheap — runs on the whole feed). → list of failed checks (empty = worth a holder count)."""
     g = {**TRENCH, **(cfg or {})}
     fails = []
+    if g.get('needSocials') and not (c.get('site') and c.get('x')):
+        fails.append('website + X account set at launch')
     age = c.get('ageH')
     if age is None or _f(age) > g['maxAgeH']:
         fails.append(f"fresh (≤ {g['maxAgeH']:g}h old)")
@@ -147,6 +149,10 @@ OWN_OPTIONS = {'minHolders': [100, 150, 200, 300, 400, 600, 1000], 'minTxns1h': 
 # 🧪 TRENCH METAS: named styles of trench hunting. Each one sets ONLY the soft checks (crowd, trades, volume, cap band, age), every
 # value from OWN_OPTIONS; the safety checks are the same in every meta. HQ picks one for the cards; anyone can VIEW what each finds.
 METAS = {
+    # 🎯 LAUNCH: in as soon as a coin drops — but only one that came out with a WEBSITE and an X account already set (a team that
+    # prepared), its first real crowd in, and every safety check passed. `needSocials` is part of this meta's gate, never widened.
+    'launch':   ('🎯 Launch', 'In as it drops: under an hour old, website + X set at launch, first real crowd — highest risk, smallest stake',
+                 {'maxAgeH': 1, 'minMcap': 10_000, 'maxMcap': 250_000, 'minHolders': 150, 'minTxns1h': 120, 'minVol1h': 10_000, 'needSocials': 1}),
     'sprout':   ('🌱 Sprout', 'Minutes old, tiny cap, first real crowd — earliest and riskiest',
                  {'maxAgeH': 1, 'minMcap': 10_000, 'maxMcap': 100_000, 'minHolders': 150, 'minTxns1h': 120, 'minVol1h': 5_000}),
     'breakout': ('🚀 Breakout', 'Broke $20K with a real crowd in its first 6 hours — the classic trench',

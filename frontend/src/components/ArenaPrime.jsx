@@ -200,6 +200,8 @@ const EDIT = [
   ['tp', '🎯 Card take-profit', [[0, 'tier'], [25, '+25%'], [50, '+50%'], [100, '+100%'], [200, '+200%'], [300, '+300%']], "Every coin's take-profit on this card (a coin's own TP still wins). Tier = the tier's built-in TP"],
   ['sl', '🛑 Card stop', [[0, 'tier'], [10, '−10%'], [15, '−15%'], [20, '−20%'], [30, '−30%']], "Every coin's stop on this card (a coin's own stop still wins). Tier = the tier's built-in stop"],
   ['trenchCoins', '🗑 Trench coins per card', [[1, '1'], [2, '2']], 'How many fresh trench breakouts the 🗑 trench cycle may hold at once. They are the riskiest coins on the site — 2 is the hard max.'],
+  ['trenchStakePct', '🎟 Trench ticket size', [[10, '10%'], [15, '15%'], [25, '25%'], [0, 'full seat']], 'How much of the card goes into one trench / launch coin. The rest of that seat’s money goes back to card cash for your other coins, so one pulled launch costs a slice, not a seat.'],
+  ['trenchSlPct', '🛑 Trench coin stop', [[15, '−15%'], [20, '−20%'], [25, '−25%'], [30, '−30%'], [0, 'card stop']], 'A trench / launch coin’s own stop, checked every 10 seconds. A pulled pool can still fall past it between two checks.'],
   ['coins', '🪙 Coins on the card', [[0, 'auto'], [2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6']], 'Your call, at any card size. Auto = sized to the card (each coin at least $0.75). Pick a number and the card holds exactly that many — smaller coins pay more in fees per swap, and the first 5 rounds of network fees are on the wallet reserve.'],
   ['cycleEvery', '🧩 Re-shape every', [[0, 'off'], [3, '3'], [6, '6'], [12, '12']], 'Rounds between shape changes. A re-shape sells every coin that is not winning for the new shape, so 3 means more swaps than 6.'],
   ['slMode', '🛑 On a stop', [['replace', '⇄ replace'], ['park', '🅿 park'], ['hold', '❄ hold']], 'Replace with the best coin · sell to SOL and rebuy later · keep holding'],
@@ -364,7 +366,7 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest }) {
         <p className="m-note">“Use this” sets the exits{real ? ' and what the card buys' : ''} in one tap. Every setting it touches is in the other tabs, where you can change any of them.</p></>}
       {grp === 'coins' && <>{sub('HOW MANY · WHICH MIX')}{rows(['coins'])}
         <div className="ce-row is-wide"><span><b>🔄 Cycle</b><small>The shapes this card moves through (anchor · mixed · degen · safest …)</small></span><div className="m-seg">{CYCLES.map(([v, t]) => <button key={v} type="button" disabled={busy} className={(cfg?.cycles || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ cycles: { ...(cfg?.cycles || {}), [c.tpl]: v } })}>{t}</button>)}</div></div>
-        {rows(['cycleEvery', ...(trenchOn ? ['trenchCoins'] : [])])}
+        {rows(['cycleEvery', ...(trenchOn ? ['trenchCoins', 'trenchStakePct', 'trenchSlPct'] : [])])}
         {trenchOn && <TrenchScan call={call} />}
         {sub(real ? 'LAUNCH COINS THE CARD MAY BUY' : 'LAUNCH COINS')}
         {rows(['moverSwap', 'runnerMinAgeH', 'runnerMinLiqK', 'runnerMinVolK', 'runnerMinChg1h', 'runnerMinBuy'])}
