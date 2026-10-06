@@ -9019,6 +9019,27 @@ async def _verdict_tick(now):
     flips = [r for r in out['rows'] if r['verdict'] in ('keep', 'scrap') and before.get(f"{r['area']}|{r['name']}") not in (None, r['verdict'])]
     hist = ((prev.get('history') or []) + [{'at': now, 'keep': out['keep'], 'scrap': out['scrap'], 'watch': out['watch']}])[-96:]
     _json_save(VERDICT_PATH, {**out, 'history': hist})
+    # 🗑 QUICK SCRAP (owner, 2026-10-06: "auto strengthened and quick scrap"): a STRATEGY the verdict marks ❌ on its own record leaves
+    # the trader rails at once — no click. 📌 a strategy the owner chose to KEEP is never touched, and one that turns ✅ again comes
+    # back by itself. Every move is audited + told to the owner once. (Cards, dials and real money are still the owner's click.)
+    try:
+        async with _admin_lock:
+            dq = _json_load(FUSE_HQ_PATH, {})
+            if dq.get('autoScrap', True):
+                scr = set(dq.get('scrappedStyles') or []); kept = set(dq.get('keptStyles') or []); auto_ = set(dq.get('autoScrapped') or [])
+                bad = {r['name'] for r in out['rows'] if r['area'] == '🏟 Strategy' and r['verdict'] == 'scrap'} - kept
+                good = {r['name'] for r in out['rows'] if r['area'] == '🏟 Strategy' and r['verdict'] == 'keep'}
+                new_out, back_in = bad - scr, (auto_ & scr) & good
+                if new_out or back_in:
+                    scr = (scr | new_out) - back_in; auto_ = (auto_ | new_out) - back_in
+                    dq['scrappedStyles'], dq['autoScrapped'] = sorted(scr), sorted(auto_)
+                    _json_save(FUSE_HQ_PATH, dq)
+                    ad_ = _admin_load(); _audit(ad_, 'engine-auto', 'fuse-auto-scrap', f"scrapped {sorted(new_out)} · restored {sorted(back_in)}"[:200]); _admin_save(ad_)
+                    for w in _owner_wallets():
+                        notify(w, 'admin', '🗑 Fuse auto-scrap: ' + ' · '.join(([f"off the rails: {', '.join(sorted(new_out))}"] if new_out else []) + ([f"back on: {', '.join(sorted(back_in))}"] if back_in else []))
+                               + ' — 📌 Keep in HQ › Fuse overrides it.', url='/terminal/hq?tab=fuse', push=False, once=f"autoscrap-{int(now // 3600)}", meta={'claim': 'Fuse verdict (own records)', 'source': 'auto-scrap'})
+    except Exception as e:
+        print('auto scrap:', e)
     for r in flips[:6]:
         for w in _owner_wallets():
             notify(w, 'admin', f"🧾 Fuse verdict: {r['area']} {r['name']} is now {'✅ working' if r['verdict'] == 'keep' else '❌ not working'} — one click in HQ › Fuse to act on it.",

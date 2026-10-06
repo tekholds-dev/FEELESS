@@ -62,3 +62,19 @@ def test_one_click_verdict_actions_apply_to_one_card_or_the_real_card_and_scrap_
     assert 'degen' in rs._retired([])
     act(area='🏟 Strategy', name='degen', act='keep')
     assert 'degen' not in rs._retired([{'style': 'degen', 'runs': 9, 'avgPct': -3, 'medPct': -2}])   # HQ kept it on the rails
+
+
+def test_a_strategy_the_verdict_scraps_leaves_the_rails_by_itself_unless_the_owner_keeps_it(monkeypatch):
+    import asyncio, reputation_service as rs
+    rows = [{'area': '🏟 Strategy', 'name': 'bad', 'verdict': 'scrap', 'why': 'w'}, {'area': '🏟 Strategy', 'name': 'pinned', 'verdict': 'scrap', 'why': 'w'},
+            {'area': '🏟 Strategy', 'name': 'good', 'verdict': 'keep', 'why': 'w'}, {'area': '⭐ Tier', 'name': 'bad', 'verdict': 'scrap', 'why': 'w'}]
+    async def build(real=False):
+        return {'rows': rows, 'keep': 1, 'scrap': 3, 'watch': 0}
+    monkeypatch.setattr(rs, '_verdict_build', build); monkeypatch.setattr(rs, '_owner_wallets', lambda: [])
+    rs._json_save(rs.FUSE_HQ_PATH, {'keptStyles': ['pinned'], 'scrappedStyles': ['good'], 'autoScrapped': ['good']})
+    asyncio.run(rs._verdict_tick(1000.0))
+    d = rs._json_load(rs.FUSE_HQ_PATH, {})
+    assert d['scrappedStyles'] == ['bad'] and d['autoScrapped'] == ['bad']          # scrapped by itself · the pinned one untouched · the recovered one back on
+    rs._json_save(rs.FUSE_HQ_PATH, {'autoScrap': False})
+    asyncio.run(rs._verdict_tick(2000.0))
+    assert not rs._json_load(rs.FUSE_HQ_PATH, {}).get('scrappedStyles')             # switched off = the owner's click only

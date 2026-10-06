@@ -19,14 +19,21 @@ const LABELS = {
   smartTop10: ['🧠 Smart top-10: passes up to this while big holders are holding', '%'],
 };
 
+// the gates an owner actually moves; everything else (lane exits, bond boxes, light-up, battle length) is one fold away
+const RUNNER_VITAL = ['maxTop10', 'minBuyShare', 'maxBuyShare', 'minVol1h', 'minMcap', 'maxInsiders', 'maxDev'];
+
 export function RunnerSettings({ call }) {
   const [d, setD] = useState(null); const [cfg, setCfg] = useState({});
   useEffect(() => { call('/admin/runners/config').then(x => { setD(x); setCfg(x.cfg); }).catch(e => toast.error(e.message)); }, [call]);
   if (!d) return null;
   const save = async reset => { try { const x = await call('/admin/runners/config', { method: 'POST', body: JSON.stringify(reset ? { reset: true } : { cfg }) }); setCfg(x.cfg); toast.success(reset ? 'Runner settings reset' : 'Runner settings saved — next round uses them'); } catch (e) { toast.error(e.message); } };
   return <details className="m-card rn-settings" data-testid="runner-settings"><summary><span className="m-label">⚙ RUNNER SETTINGS</span> <small className="m-dim">gates · lane exits · light-up</small></summary>
-    <div className="m-grid">{Object.keys(LABELS).filter(k => k in (d.ranges || {})).map(k => { const [lo, hi] = d.ranges[k]; return <label key={k} className="m-field"><span>{LABELS[k][0]} {LABELS[k][1] && <em>({LABELS[k][1]})</em>}</span>
-      <input className="m-input m-num" type="number" min={lo} max={hi} value={cfg[k] ?? ''} onChange={e => setCfg({ ...cfg, [k]: Number(e.target.value) })} data-testid={`rn-${k}`} /><small className="m-dim">{lo}–{hi} · default {d.defaults[k]}</small></label>; })}</div>
+    {(() => { const field = k => { const [lo, hi] = d.ranges[k]; return <label key={k} className="m-field"><span>{LABELS[k][0]} {LABELS[k][1] && <em>({LABELS[k][1]})</em>}</span>
+      <input className="m-input m-num" type="number" min={lo} max={hi} value={cfg[k] ?? ''} onChange={e => setCfg({ ...cfg, [k]: Number(e.target.value) })} data-testid={`rn-${k}`} /><small className="m-dim">{lo}–{hi} · default {d.defaults[k]}</small></label>; };
+      const all = Object.keys(LABELS).filter(k => k in (d.ranges || {})); const vital = RUNNER_VITAL.filter(k => all.includes(k)); const rest = all.filter(k => !vital.includes(k));
+      return <><small className="m-dim">The seven numbers that decide which coins pass. The ⚡ funnel above shows what each gate is stopping right now.</small>
+        <div className="m-grid" data-testid="rn-vital">{vital.map(field)}</div>
+        <details className="adv-cfg" data-testid="rn-all"><summary>All {rest.length} other settings (lane exits · bond run · light-up · battles)</summary><div className="m-grid">{rest.map(field)}</div></details></>; })()}
     <div className="fg-acts"><button type="button" className="m-btn primary" onClick={() => save(false)}>Save settings</button><button type="button" className="m-btn" onClick={() => save(true)}>Reset to defaults</button></div></details>;
 }
 
