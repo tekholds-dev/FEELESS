@@ -1513,7 +1513,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             l['costUsd'] = max(0.0, total_cost - sold_cost)
             l['entry'] = px; c['feesUsd'] += fee
             c['takenUsd'] += proceeds
-            others = [o for o in c['legs'] if o is not l and _f(prices.get(o['pairAddress'])) > 0]
+            others = [o for o in c['legs'] if o is not l and _f(prices.get(o['pairAddress'])) > 0 and (_f(o.get('units')) > 0 or o.get('buying')) and not o.get('placeholder')]   # never into an empty / reserved seat
             label = why if mode == 'ride-end' else f"+{g:.0f}% ≥ +{leg_tp(l, t):g}% · {why}"   # a held runner's exit explains itself
             # 🧬 payoutPct applies to realized PROFIT, never principal. Principal + retained profit stay available to compound/rebuy.
             dna = {'payoutPct': (cfg.get('payouts') or DEFAULT_PAYOUTS).get(card['tpl'], 0), 'compound': cfg.get('compoundStyle', 'smart') if cfg['compound'] else 'off'}
@@ -1544,6 +1544,11 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 rest = proceeds - out_usd
                 c['cash'] += rest
                 ev(kind='tp', symbol=l['symbol'], usd=round(rest, 4), why=label, mode=mode, to=['cash'])
+            # 🚪 SOLD WHOLE = OFF THE CARD. A coin whose ride ended with no replacement ready used to stay as a 0-unit leg; the next
+            # coin's "smart compound" then poured money back INTO it and the keeper re-bought the coin that had just been sold
+            # (2026-10-06: $DONSOM sold 18:24:12, wanted again 13s later for $1.82). The seat refills when a coin qualifies.
+            if _f(l.get('units')) <= 1e-12 and not l.get('buying') and l in c['legs'] and len(c['legs']) > 1:
+                c['legs'].remove(l)
     # 2) stop-loss (sl 0 = never stopped) — what happens follows cfg slMode:
     #    replace → sold and swapped at once for the best gated coin of the same role
     #    park    → sold to cash, the SLOT is kept; bought back when price is back at the stop-out entry with momentum

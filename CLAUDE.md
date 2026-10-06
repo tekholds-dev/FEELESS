@@ -1648,3 +1648,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   card cash. `fast_stop` only acts on legs the wallet HOLDS (`real`, set by `sync_card`): a coin dealt this tick and not bought yet
   was "stopped" on the gap between its scan price and the live price. EVERY new path that puts a coin on a real card must read the
   SAME filtered `r_t` — grep `replace_leg(` in `_prime_tick` and check where each call sits relative to the filters.
+- 🚪 SOLD WHOLE = OFF THE CARD (`arena_prime.tick`, take-profit / ride-end branch): a coin whose ride ended with NO replacement
+  ready stayed on the card as a 0-unit leg; the next coin's "smart compound" poured money back into it and the keeper re-bought the
+  coin that had just been sold ($DONSOM sold 18:24:12, wanted again 13s later: "buying…" + a refused buy). The leg is now removed
+  (never the card's last one), compound never targets an empty / reserved seat, the seat refills when a coin qualifies. THREE
+  versions of this bug so far (stop placeholder, unbought leg "stopped", ride-end leg): A LEG WITH 0 UNITS THAT STILL CARRIES A MINT
+  IS A BUY ORDER WAITING TO HAPPEN — whenever a coin is sold whole, the leg must become a placeholder with no want, or leave.

@@ -1393,8 +1393,10 @@ def test_an_empty_seat_is_refilled_with_an_equal_share_when_the_card_has_cash():
     assert [l['mint'] for l in broke['legs']] == ['A', 'B', 'C', 'N']
     vals = [l['units'] * (2.0 if l['mint'] == 'N' else 1.0) for l in broke['legs']]
     assert all(abs(v - 0.75) < 0.02 for v in vals)                                       # 3 × $1.00 → 4 × $0.75
-    locked = {**card, 'cash': 0.0, 'legs': [{**l, 'ride': True, 'high': 1.0, 'rideFrom': 1.0, 'bankedAt': 1} for l in card['legs']]}
-    assert len(ap.tick(locked, px, [], cand, cfg, now + 10, [], {}, {})['legs']) == 3    # locked coins never give anything up
+    riding = ap.clean_cfg({**cfg, 'rideAt': 15, 'rideTrail': 30, 'lockBankPct': 0, 'peakSellPct': 100, 'tpStakeUsd': 0})
+    locked = {**card, 'cash': 0.0, 'legs': [{**l, 'entry': 0.5, 'costUsd': 0.5, 'ride': True, 'high': 1.0, 'rideFrom': 0.5, 'bankedAt': 1} for l in card['legs']]}   # +100%, at their peak: really riding
+    kept = ap.tick(locked, px, [], cand, riding, now + 10, [], {}, {})
+    assert [l['mint'] for l in kept['legs']] == ['A', 'B', 'C'] and all(l['units'] == 1.0 for l in kept['legs'])    # locked coins never give anything up
     assert len(ap.tick(card, px, [], [], cfg, now + 10, [], {}, {})['legs']) == 3        # no coin to seat → the cash is spread as before
     held = ap.tick({**card, 'holdAll': True}, px, [], cand, cfg, now + 10, [], {}, {})
     assert len(held['legs']) == 3
@@ -1873,3 +1875,19 @@ def test_fast_stop_takes_a_coin_at_its_stop_off_the_card_at_once_and_touches_not
     fresh = {**card, 'legs': [{k: v for k, v in card['legs'][0].items() if k != 'real'}]}  # dealt this tick, the wallet does not hold it yet
     assert ap.fast_stop(fresh, px, cfg, now) is fresh
     assert ap.GUARD_SEC <= 6
+
+
+def test_a_coin_sold_whole_leaves_the_card_and_is_never_compounded_back_into():
+    import arena_prime as ap
+    now = 1_000_000.0
+    cfg = ap.clean_cfg({'rotateHours': 99, 'coins': 0, 'compound': True, 'cycles': {'degen': 'off'}, 'rescuePct': 0, 'rideAt': 15, 'rideTrail': 15, 'lockBankPct': 0,
+                        'peakSellPct': 100, 'tpStakeUsd': 0, 'tp': 0, 'cycleEvery': 0, 'sl': 0})
+    leg = lambda m, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0, 'at': now - 9999, 'liq': 1e12, **k}
+    # DON rode to 1.2× and is back at +5% (under half its freeze): its ride is over and NO replacement is available
+    card = {'tpl': 'degen', 'id': 'x', 'label': 'B', 'at': now - 9999, 'lastRotateAt': now, 'cash': 0.0, 'startUsd': 2.0, 'roundStartUsd': 2.0, 'compoundedUsd': 0.0,
+            'takenUsd': 0.0, 'feesUsd': 0.0, 'events': [], 'rounds': 1, 'phase': 'degen', 'legs': [leg('DON', ride=True, high=1.2, rideFrom=1.0, bankedAt=1), leg('CAT')]}
+    c = ap.tick(card, {'PDON': 1.05, 'PCAT': 1.0}, [], [], cfg, now + 10, [], {}, {})
+    assert [l['mint'] for l in c['legs']] == ['CAT']                                      # sold whole = off the card (it used to linger as a 0-unit seat)
+    assert c['legs'][0]['units'] > 1.9                                                    # its money went into the coin that stays
+    again = ap.tick(c, {'PDON': 1.05, 'PCAT': 1.0}, [], [], cfg, now + 70, [], {}, {})
+    assert [l['mint'] for l in again['legs']] == ['CAT']                                  # … and nothing buys DON back
