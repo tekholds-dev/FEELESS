@@ -1247,3 +1247,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   with its verified mint (never from memory) and a read-only SOL → stock → SOL quote (2026-10-05: ~0% round trip on $1).
 - 🔁 `LEAGUE_RESET` one-time Arena league restart: the flag is saved in `d2` at the battle tick's own save. The first version set it
   on `d` (never saved) → the season would have restarted at EVERY bell. A one-time flag must be written where the tick SAVES.
+- 🙈 NO CARD-WIDE CALL ON A BLIND TICK (`arena_prime.tick(blind=)`, set by `_prime_tick` when a real card's true book can't be read:
+  an order in flight or no SOL price): floor, day fix and rescue are skipped that tick; per-coin stops still run. 2026-10-05: two
+  picks mid-swap (old coins sold, new ones not landed) made the engine's estimate read −40% on a card that had lost nothing → the
+  floor sold all four coins and re-dealt on a $1.07 baseline. A REAL card's floor is judged on `book_value` or not at all.
+- 🧬 STRATEGY GENERATION + SCRAPPING (`fuse.breed_style` / `BRED` / `style_weights`, `fuse_hq.bred_cycle`, `_bred_tick` hourly with the
+  autopilot; `fuse_hq.json` `bredStyles` / `bredScrapped` / `bredN`): ≤ 3 engine-made strategies (`gen-N`) run $5 paper like any
+  style. A child = the best judged style's weights pushed further away from the worst one's (momentum may go negative = fade what
+  ran), seeded, never a copy; one new per 6h. ≥ 6 settled runs with average AND median < 0 → scrapped to the log; both > 0 → owner
+  inbox once. Arena board marks them 🧬 with parent. They never reach a trader rail by themselves.

@@ -208,6 +208,40 @@ STYLES = {   # weights for (grade points 0–100, APR 0–100 scaled, momentum 2
     'meta': {'grade': .25, 'apr': .10, 'momo': .35, 'calm': .0, 'paid': .30},
 }
 
+# 🧬 BRED strategies: weight sets the engine made itself from the arena's own record (`breed_style`). The service fills this from
+# fuse_hq.json; they run in the arena like any style and are scrapped when they lose (`fuse_hq.bred_cycle`).
+BRED = {}
+GENES = ('grade', 'apr', 'momo', 'calm', 'dip', 'paid')
+GENE_MIN, GENE_MAX = {'momo': -0.30}, 0.80   # only momentum may go negative (= fade what already ran)
+
+
+def style_weights(style):
+    return STYLES.get(style) or BRED.get(style) or STYLES['yield']
+
+
+def breed_style(board, table, seed=0, step=0.5, min_runs=3):
+    """🧬 One NEW strategy from the record: start at the best judged style's weights and move further along the line from the worst
+    to the best (what the winner does more of, the child does even more; what the loser leans on, less), plus a small seeded
+    wobble so two children are never the same. board = arena_board rows; table = {style: weights} of every style ever judged.
+    Returns {weights, parent, against} or None when fewer than two styles have a record. Ranking only — never a promise."""
+    import random
+    judged = [r for r in board or [] if r.get('style') in table and int(r.get('runs') or 0) >= min_runs]
+    if len(judged) < 2:
+        return None
+    rank = lambda r: (_f(r.get('medPct', r.get('avgPct'))), _f(r.get('avgPct')))
+    best, worst = max(judged, key=rank), min(judged, key=rank)
+    b, w = table[best['style']], table[worst['style']]
+    rng = random.Random(f"{seed}:{best['style']}:{worst['style']}")
+    taken = {tuple(round(_f(t.get(g)), 2) for g in GENES) for t in table.values()}
+    for _ in range(12):
+        raw = {g: max(GENE_MIN.get(g, 0.0), min(GENE_MAX, _f(b.get(g)) + step * (_f(b.get(g)) - _f(w.get(g))) + rng.uniform(-0.06, 0.06))) for g in GENES}
+        tot = sum(abs(v) for v in raw.values()) or 1.0
+        child = {g: round(v / tot, 2) for g, v in raw.items()}
+        if tuple(child[g] for g in GENES) not in taken and sum(v for v in child.values() if v > 0) > 0:
+            return {'weights': child, 'parent': best['style'], 'against': worst['style']}
+    return None
+
+
 
 def dip_score(m):
     """0–100 per coin: how good a dip-buy it is right now. Needs a real drop (24h ≤ −8%) AND buyers back (1h ≥ 0, buys ≥ 55%);
@@ -232,7 +266,7 @@ def _weights_for(genome, metas):
 
 def fitness(genome, metas, style='yield', sol=0.05, sol_usd=150.0):
     """Score one basket. Returns {fitness, parts} — every part is shown in the UI."""
-    st = STYLES.get(style, STYLES['yield'])
+    st = style_weights(style)
     w = _weights_for(genome, metas)
     ms = [{**metas[pa], 'weight': w[pa] * 100} for pa in genome]
     sc = score(ms)

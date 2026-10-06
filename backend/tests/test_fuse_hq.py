@@ -295,3 +295,19 @@ def test_swaps_per_round_cap_lets_that_many_switch_ins_inside_one_round():
     assert hq.next_switch_at(two) == 1000 + hour                                          # the third waits until the first is a round old
     assert hq.next_switch_at(two, staff=True) == 0.0 and hq.next_switch_at({}) == 0.0
     assert hq.next_switch_at({**two, 'maxSwapsPerRound': 99, 'switchTimes': [1, 2, 3, 4]}) == 2 + hour      # never above the listed max (3)
+
+
+def test_bred_cycle_scraps_a_proven_loser_keeps_the_unjudged_and_asks_for_one_new_at_a_time():
+    import fuse_hq as hq
+    now = 1_000_000.0
+    bred = {'gen-1': {'weights': {'grade': 1}, 'parent': 'steady'}, 'gen-2': {'weights': {'calm': 1}, 'parent': 'steady'}, 'gen-3': {'weights': {'dip': 1}, 'parent': 'dip'}}
+    board = [{'style': 'gen-1', 'runs': 6, 'avgPct': -4.0, 'medPct': -3.0, 'winRate': 20}, {'style': 'gen-2', 'runs': 5, 'avgPct': -9.0, 'medPct': -9.0},
+             {'style': 'gen-3', 'runs': 8, 'avgPct': 3.0, 'medPct': 1.0}]
+    alive, scrapped, proven, want = hq.bred_cycle(bred, board, now, last_at=now - 7 * 3600)
+    assert set(alive) == {'gen-2', 'gen-3'} and [r['style'] for r in scrapped] == ['gen-1'] and scrapped[0]['runs'] == 6 and scrapped[0]['weights'] == {'grade': 1}
+    assert proven == ['gen-3'] and want                                                   # a seat is free and 6h have passed
+    assert not hq.bred_cycle(bred, board, now, last_at=now - 3600)[3]                     # … but never faster than one per 6h
+    assert not hq.bred_cycle({**alive, 'gen-4': {}}, board, now, 0)[3]                    # 3 alive = full
+    # a good average with a losing typical run is NOT proven, and not scrapped either
+    a2, s2, p2, _ = hq.bred_cycle({'g': {}}, [{'style': 'g', 'runs': 9, 'avgPct': 5.0, 'medPct': -1.0}], now)
+    assert a2 == {'g': {}} and not s2 and not p2

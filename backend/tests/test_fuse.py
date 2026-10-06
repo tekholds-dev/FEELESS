@@ -168,3 +168,25 @@ def test_stocks_are_majors_with_their_own_table_and_need_a_real_pool():
     assert not any(r.get('stock') for r in majors_pools({nv: [pair(nv, 'NVDAx', 5e6)]}))                # the crypto table never lists a stock
     import fuse_wallet as fw
     assert fw.lookalike('NVDAx', 'FakeMint', ALL_MAJORS) and not fw.lookalike('NVDAx', nv, ALL_MAJORS)   # a fake stock ticker can't be bought
+
+
+def test_breed_style_moves_past_the_winner_away_from_the_loser_and_is_never_a_copy():
+    import fuse
+    table = dict(fuse.STYLES)
+    board = [{'style': 'steady', 'runs': 62, 'avgPct': -2.1, 'medPct': -1.8}, {'style': 'yield', 'runs': 62, 'avgPct': -6.2, 'medPct': -4.4},
+             {'style': 'degen', 'runs': 62, 'avgPct': -24.5, 'medPct': -26.1}, {'style': 'dip', 'runs': 1, 'avgPct': 50, 'medPct': 50}]
+    kid = fuse.breed_style(board, table, seed=1)
+    assert kid['parent'] == 'steady' and kid['against'] == 'degen'                     # one lucky run (dip, 1 run) is not a record
+    w = kid['weights']
+    assert w['grade'] > fuse.STYLES['degen']['grade'] and w['calm'] > 0 and w['momo'] < 0   # more of the winner, FADES what the loser chased
+    assert w['momo'] >= -0.30 and min(w[g] for g in fuse.GENES if g != 'momo') >= 0 and abs(sum(abs(v) for v in w.values()) - 1) < 0.03
+    assert fuse.breed_style(board, table, seed=1) == kid and fuse.breed_style(board, table, seed=2)['weights'] != w   # seeded, never the same twice
+    assert fuse.breed_style(board[:1], table) is None and fuse.breed_style([], table) is None
+    # a bred style scores baskets through the same fitness as a built-in one
+    fuse.BRED['gen-1'] = w
+    try:
+        metas = {'A': {'liquidityUsd': 5e6, 'volume24h': 1e6, 'change24h': 40, 'aprEst': 50, 'symbol': 'A', 'baseAddress': 'a', 'turnover': 0.2},
+                 'B': {'liquidityUsd': 5e6, 'volume24h': 1e6, 'change24h': -2, 'aprEst': 50, 'symbol': 'B', 'baseAddress': 'b', 'turnover': 0.2}}
+        assert fuse.fitness(['A', 'B'], metas, 'gen-1')['fitness'] != fuse.fitness(['A', 'B'], metas, 'degen')['fitness']
+    finally:
+        fuse.BRED.clear()

@@ -1492,3 +1492,23 @@ def test_a_reserved_seat_with_no_coin_for_a_round_gives_its_money_back_to_the_ca
 
 def test_recycle_every_takes_2_4_and_6_rounds():
     assert [ap.clean_cfg({'recyclePct': 70, 'recycleEvery': n})['recycleEvery'] for n in (2, 4, 6, 5)] == [2, 4, 6, 3]
+
+
+def test_a_real_card_with_money_in_transit_is_never_floored_on_the_engines_estimate():
+    import arena_prime as ap
+    now = 1_000_000.0
+    leg = lambda m, role, units, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': role, 'units': units, 'entry': 1.0, 'costUsd': units, 'at': now - 9999, 'liq': 5e6, **k}
+    # two picks are mid-swap: their money is in the wallet as SOL the engine can't see yet → the estimate reads $2.2 of a $4 card
+    card = {'tpl': 'degen', 'id': 'x', 'label': 'B', 'at': now - 9999, 'lastRotateAt': now, 'cash': 0.0, 'startUsd': 4.0, 'roundStartUsd': 4.0, 'compoundedUsd': 0.0,
+            'takenUsd': 0.0, 'feesUsd': 0.0, 'events': [], 'rounds': 3, 'real': True,
+            'legs': [leg('MAJ', 'anchor', 1.2), leg('R1', 'runner', 1.0), leg('N1', 'runner', 0.0, buying=True, wantUnits=0.9), leg('N2', 'runner', 0.0, buying=True, wantUnits=0.9)]}
+    px = {'PMAJ': 1.0, 'PR1': 1.0, 'PN1': 1.0, 'PN2': 1.0}
+    cfg = ap.clean_cfg({'rotateHours': 0.08, 'floorPct': 40, 'rescuePct': 50, 'compound': False})
+    blind = ap.tick(card, px, [], [], cfg, now + 30, [], {}, {}, blind=True)
+    assert not blind.get('flooredAt') and not blind.get('cycleFix') and {'MAJ', 'R1'} <= {l['mint'] for l in blind['legs']}
+    assert not [e for e in blind['events'] if e['kind'] in ('floor', 'fix')]
+    # the same card read from its TRUE book: $4 → nothing fires; a true −45% → the floor still protects it
+    assert not ap.tick(card, px, [], [], cfg, now + 30, [], {}, {}, true_usd=4.0, blind=True).get('flooredAt')
+    assert ap.tick(card, px, [], [], cfg, now + 30, [], {}, {}, true_usd=2.2).get('flooredAt')
+    # paper cards (and the old call) are judged as before
+    assert ap.tick({**card, 'real': False}, px, [], [], cfg, now + 30, [], {}, {}).get('flooredAt')

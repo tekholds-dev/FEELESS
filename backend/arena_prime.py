@@ -866,7 +866,7 @@ def in_play(card, prices, liqs=None):
     return round(value(card, prices, liqs) - _f(card.get('walletUsd')) - _f(card.get('rentUsd')) - sum(_f(p.get('usd')) for p in (card.get('parked') or {}).values()), 4)
 
 
-def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None, true_usd=None):
+def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None, true_usd=None, blind=False):
     """One automation pass. Returns the updated card (mutated copy) — all actions logged as events with reasons.
     liqs = {pair: pool liquidity $} for TRUE fills (price impact on every paper buy / sell)."""
     liqs = liqs or {}
@@ -876,6 +876,10 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     # 💵 a REAL card is judged on its true book (confirmed coins + SOL), never on the engine's estimate — an estimate that missed
     # unlanded / skipped buys once read −32% on a card really at −20% and the floor sold everything twice in 20 min
     V = (lambda: _f(true_usd)) if true_usd is not None and _f(true_usd) > 0 else (lambda: value(c, prices, liqs))
+    # 🙈 BLIND = a real card whose true book can't be read this tick (an order in flight, no SOL price). The engine's estimate does
+    # not see money in transit (coins sold, new coins not landed yet), so no CARD-WIDE call is made on it: no floor, no day fix,
+    # no rescue. Found live: two picks mid-swap read −40% on a card that had lost nothing → the floor sold every coin.
+    blind = bool(blind) and not (true_usd is not None and _f(true_usd) > 0)
     ev = lambda **e: c['events'].append({'at': now, **e})
     fee = cfg['paperFeeUsd']
 
@@ -1246,7 +1250,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     if rp == 0 and c.get('cycleFix'):   # the owner switched rescue off while a fix was running → it ends NOW (it used to stay on for good)
         ev(kind='streak', why=f"rescue is off — {c['cycleFix']} fix ended, back to the card's own cycle")
         c.pop('cycleFix', None); c.pop('fixUntil', None)
-    if rp < 0 and not c.get('cycleFix') == 'rescue' and (V() / (_f(c['startUsd']) or 1) - 1) * 100 <= rp:
+    if rp < 0 and not blind and not c.get('cycleFix') == 'rescue' and (V() / (_f(c['startUsd']) or 1) - 1) * 100 <= rp:
         c['cycleFix'] = 'rescue'   # 🛟 fell rescuePct% under its start → safest ⇄ breakeven until a new run
         ev(kind='rescue', why=f'card ≤ {rp:.0f}% of its start — 🛟 rescue cycle: safest run ⇄ breakeven runners')
     every = reshape_every(c, cfg)   # a fix re-shapes every `fixEvery` · a picked cycle always cycles (0 = off only when no cycle is picked)
@@ -1366,7 +1370,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     v = V(); start = _f(c['startUsd']) or 1
     day_pct = (v / (_f(c.get('dayStartUsd')) or start) - 1) * 100
     # 🔧 worst day hit −40% → fix the config — ONLY while rescue is on. Rescue OFF = the owner's config and coin floor are the only protection.
-    if _f(cfg.get('rescuePct', RESCUE_PCT)) != 0 and day_pct <= FIX_DAY_PCT and not c.get('flooredAt') and not c.get('cycleFix') and (c.get('fixedAt') is None or now - _f(c['fixedAt']) >= 86400):
+    if not blind and _f(cfg.get('rescuePct', RESCUE_PCT)) != 0 and day_pct <= FIX_DAY_PCT and not c.get('flooredAt') and not c.get('cycleFix') and (c.get('fixedAt') is None or now - _f(c['fixedAt']) >= 86400):
         # The safety state itself must never depend on candidate availability. Arm the safe cycle immediately; a complete safe
         # reshape may happen now, or on a later tick when all required eligible slots exist.
         c['cycleFix'] = 'safe'
@@ -1385,7 +1389,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     #    every pool / runner is sold into the anchor (or cash) at once; the card re-deals fresh the next day.
     v = V(); start = _f(c['startUsd']) or 1
     pct = (v / start - 1) * 100
-    if pct <= -cfg['floorPct'] and not c.get('flooredAt'):
+    if pct <= -cfg['floorPct'] and not c.get('flooredAt') and not blind:
         # 🧱 Floor money goes ONLY into an established major — never into a new major or the owner's pick that happens to sit in the
         # anchor seat (the card's whole $1.65 was moved into $KURA at 4–5% impact, then out again 37s later: −$0.14 for nothing).
         # 💵 A real card with rest OFF re-deals on the next tick, so it goes straight to cash: selling into an anchor only to sell

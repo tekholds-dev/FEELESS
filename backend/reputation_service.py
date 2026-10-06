@@ -4306,6 +4306,40 @@ async def fuse_ids(addrs: str = ''):
         asyncio.create_task(warm())
     return {'ids': out}
 
+def _bred_load():
+    """🧬 Engine-made strategies → `fuse.BRED` (so `fuse.fitness` can score them). Cheap: the hot JSON cache."""
+    bred = _json_load(FUSE_HQ_PATH, {}).get('bredStyles') or {}
+    _fuse.BRED.clear(); _fuse.BRED.update({k: v.get('weights') or {} for k, v in bred.items()})
+    return bred
+
+
+async def _bred_tick(board, now):
+    """🧬 Strategy generation + scrapping (hourly, with the autopilot): losers with a full record are scrapped to the log, a proven
+    one is reported to the owner once, and a free seat gets ONE new strategy bred from the record. Returns the alive ones."""
+    d0 = _json_load(FUSE_HQ_PATH, {})
+    alive, scrapped, proven, want = _hq.bred_cycle(d0.get('bredStyles') or {}, board, now, d0.get('bredAt') or 0)
+    new = None
+    if want:
+        table = {**_fuse.STYLES, **{k: v.get('weights') or {} for k, v in alive.items()}, **{r['style']: r.get('weights') or {} for r in d0.get('bredScrapped') or []}}
+        kid = _fuse.breed_style(board, table, seed=int(d0.get('bredN') or 0) + 1)
+        if kid:
+            new = (f"gen-{int(d0.get('bredN') or 0) + 1}", {**kid, 'at': now})
+    if scrapped or new or set(alive) != set(d0.get('bredStyles') or {}):
+        async with _admin_lock:
+            d = _json_load(FUSE_HQ_PATH, {})
+            cur = {k: v for k, v in (d.get('bredStyles') or {}).items() if k in alive}
+            if new:
+                cur[new[0]] = new[1]; d['bredN'] = int(d.get('bredN') or 0) + 1; d['bredAt'] = now
+            d['bredStyles'] = cur
+            d['bredScrapped'] = (list(d.get('bredScrapped') or []) + scrapped)[-20:]
+            _json_save(FUSE_HQ_PATH, d)
+    for name in proven:
+        for adm in _admin_wallets():
+            notify(adm, 'shield', f"🧬 Engine-made strategy {name} is winning in the arena (average and typical run both up). Open the verdict to decide.",
+                   url='/terminal/command', once=f'bred-proven-{name}', push=False)
+    return _bred_load()
+
+
 async def _fuse_autopilot_tick(now=None):
     """Hourly: settle due arena runs, then enter each strategy's current champion ($5 paper, 3 pools) once per hour —
     the arena proves strategies on its own. Then alert HQ about wallets newly flagged as bots."""
@@ -4313,8 +4347,10 @@ async def _fuse_autopilot_tick(now=None):
     await _fuse_season_tick(now)
     await _arena_settle(now=now)
     arena = _json_load(FUSE_HQ_PATH, {}).get('arena') or []
-    dead = _retired(_hq.arena_board([_hq.arena_value(e, {}, now) for e in arena]))   # ☠ losers: one probe a day, not hourly
-    styles = [st for st in _fuse.STYLES if _hq.autopilot_due(arena, st, now, retired=dead)]
+    board_now = _hq.arena_board([_hq.arena_value(e, {}, now) for e in arena])
+    bred = await _bred_tick(board_now, now)                                             # 🧬 generate a new strategy / scrap a proven loser
+    dead = _retired(board_now) - set(bred)   # ☠ losers: one probe a day, not hourly (a bred one keeps its hourly run until it is judged)
+    styles = [st for st in [*_fuse.STYLES, *bred] if _hq.autopilot_due(arena, st, now, retired=dead)]
     if styles:
         metas, sol_usd = await asyncio.gather(_fuse_candidates(), _sol_usd_live())
         if len(metas) >= 3:
@@ -4325,7 +4361,7 @@ async def _fuse_autopilot_tick(now=None):
                 d = _json_load(FUSE_HQ_PATH, {})
                 for st, c in champs:
                     if _hq.autopilot_due(d.get('arena') or [], st, now, retired=dead):
-                        d['arena'] = ((d.get('arena') or []) + [{**_hq.arena_entry(c, st, prices, now, uuid.uuid4().hex[:10]), 'auto': True}])[-300:]
+                        d['arena'] = ((d.get('arena') or []) + [{**_hq.arena_entry(c, st, prices, now, uuid.uuid4().hex[:10]), 'auto': True}])[-600:]
                 _json_save(FUSE_HQ_PATH, d)
     await _shield_alerts()
 
@@ -4392,7 +4428,11 @@ async def fuse_arena_public():
         if mults:
             rounds.append({'at': r['at'], 'symbols': [p.get('symbol') for p in r['picks']], 'pct': round((sum(mults) / len(mults) - 1) * 100, 2)})
     mega = await _arena_mega(rd, cfg, now)
+    bred = _bred_load(); hq_d = _json_load(FUSE_HQ_PATH, {})
+    board = [{**r, **({'bred': True, 'parent': bred[r['style']].get('parent'), 'against': bred[r['style']].get('against'), 'weights': bred[r['style']].get('weights')} if r['style'] in bred else {})} for r in board]
     return {'board': board, 'outlook': _hq.outlook(board), 'bestStyle': _hq.best_style(board), 'runs': [v for v in sorted(vals, key=lambda v: -v['at']) if v['settled']][:12],
+            'bred': [{'style': k, **{x: v.get(x) for x in ('parent', 'against', 'weights', 'at')}, 'runs': next((r['runs'] for r in board if r['style'] == k), 0)} for k, v in bred.items()],
+            'bredScrapped': [{x: r.get(x) for x in ('style', 'parent', 'runs', 'avgPct', 'medPct', 'scrappedAt')} for r in (hq_d.get('bredScrapped') or [])[-5:]][::-1],
             'runners': {'proof': _rn.proof(rd['rounds'], rd['paths'], now, cfg=cfg), 'rounds': rounds}, 'minSettled': _hq.MIN_SETTLED,
             'mega': [c for c in mega if not c.get('bench') and not c.get('fighterOnly')], 'bench': [c for c in mega if c.get('bench')], 'fighters': [c for c in mega if c.get('fighterOnly')] + _league_extra(mega),
             'battles': _battle_view(mega, now),
@@ -5955,7 +5995,7 @@ async def _prime_tick_inner(now):
                 sol_px_t = 0.0
             if bk and sol_px_t > 0 and not bk.get('pending'):
                 true_usd = _fw.book_value(bk, px, sol_px_t) or None
-        cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, a_t, mom, liqs, true_usd=true_usd) if cur else _prime.deal(tid, p_t, r_t, cfg_t, now, anchors)
+        cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, a_t, mom, liqs, true_usd=true_usd, blind=bool(real_t and true_usd is None)) if cur else _prime.deal(tid, p_t, r_t, cfg_t, now, anchors)
         cards[tid] = _prime.note_dropped(cur, cards[tid], now, cfg_t['rotateHours'], px)
         taken |= {l.get('mint') for l in (cards[tid] or {}).get('legs') or [] if l.get('role') != 'anchor'}
     cards = {k: v for k, v in cards.items() if v}

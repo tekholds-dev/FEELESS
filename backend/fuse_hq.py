@@ -167,6 +167,30 @@ def retired_styles(board):
     return {r['style'] for r in board or [] if r['runs'] >= MIN_SETTLED and r['avgPct'] < 0 and r.get('medPct', r['avgPct']) < 0}
 
 
+BRED_MAX = 3            # 🧬 engine-made strategies alive at once
+BRED_MIN_RUNS = 6       # settled runs before one is judged
+BRED_EVERY = 6 * 3600   # at most one new strategy per 6h (runs take 24h to settle — breeding faster is breeding blind)
+
+
+def bred_cycle(bred, board, now, last_at=0.0):
+    """🧬 GENERATE + SCRAP, one pass. bred = {name: {weights, parent, against, at}}.
+    A bred strategy with ≥ BRED_MIN_RUNS settled runs is judged on the outlier-proof average AND the median: both < 0 → scrapped
+    (its record is kept in the log), both > 0 → proven. Returns (alive, scrapped_rows, proven_names, want_new) — want_new is True
+    when a seat is free and the last one was bred ≥ BRED_EVERY ago. Pure: the caller breeds and saves."""
+    rows = {r['style']: r for r in board or []}
+    alive, scrapped, proven = {}, [], []
+    for name, b in (bred or {}).items():
+        r = rows.get(name) or {}
+        runs, avg, med = int(r.get('runs') or 0), _f(r.get('avgPct')), _f(r.get('medPct', r.get('avgPct')))
+        if runs >= BRED_MIN_RUNS and avg < 0 and med < 0:
+            scrapped.append({'style': name, **b, 'runs': runs, 'avgPct': avg, 'medPct': med, 'winRate': r.get('winRate'), 'scrappedAt': now})
+            continue
+        alive[name] = b
+        if runs >= BRED_MIN_RUNS and avg > 0 and med > 0:
+            proven.append(name)
+    return alive, scrapped, proven, len(alive) < BRED_MAX and now - _f(last_at) >= BRED_EVERY
+
+
 def autopilot_due(arena, style, now, every=AUTOPILOT_EVERY, retired=()):
     """True when `style` has no autopilot arena entry in the last `every` seconds (one paper run per style per hour;
     a retired style only once a day)."""
