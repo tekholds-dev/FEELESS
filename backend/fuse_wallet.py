@@ -328,7 +328,7 @@ def live_buy_market(order, pair, cfg):
         return False, 'live market unavailable or pair/mint mismatch', {}
     px = _f(p.get('priceUsd'))
     liq = _f((p.get('liquidity') or {}).get('usd'))
-    if liq <= 0 and order.get('picked') and p.get('dexId') == 'pumpfun':
+    if liq <= 0 and order.get('picked') and p.get('dexId') in ('pumpfun', 'meteoradbc', 'launchlab', 'raydium-launchlab', 'moonshot'):   # = fuse.CURVE_DEXES
         # 🎯 the OWNER picked a coin still on Pump's launch curve: no pool figure exists, the curve's own depth is used
         # (= fuse.curve_liq at a conservative $100 SOL). The engine never buys a curve coin by itself.
         liq = round(2 * (32.19 * _f(p.get('marketCap') or p.get('fdv')) * 100.0) ** 0.5, 2)

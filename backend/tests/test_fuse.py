@@ -203,3 +203,11 @@ def test_a_pump_curve_coin_gets_its_curve_depth_and_other_pairs_are_untouched():
     assert fuse.with_curve(pool) is pool and fuse.with_curve({'dexId': 'pumpfun', 'priceUsd': '0', 'marketCap': 5}) .get('curve') is None
     deep = {'dexId': 'pumpfun', 'priceUsd': '1', 'marketCap': 37393, 'liquidity': {'usd': 9000}}
     assert fuse.with_curve(deep) is deep
+
+
+def test_curve_coins_from_other_launchpads_get_a_depth_estimate_too():
+    import fuse
+    for dex in ('pumpfun', 'meteoradbc', 'launchlab'):
+        p = fuse.with_curve({'dexId': dex, 'priceUsd': 0.00003, 'marketCap': 30000})
+        assert p.get('curve') and p['liquidity']['usd'] > 5000, dex
+    assert not fuse.with_curve({'dexId': 'raydium', 'priceUsd': 1, 'marketCap': 30000}).get('curve')

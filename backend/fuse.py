@@ -143,11 +143,16 @@ def curve_liq(mcap_usd, sol_px=100.0):
     return round(2 * (32.19 * m * s) ** 0.5, 2) if m > 0 else 0.0
 
 
+# launch curves with no pool figure on DexScreener: Pump.fun, Meteora DBC (stonk.fun & co), LaunchLab, Moonshot. The depth is an
+# ESTIMATE from the cap (Pump's curve shape); the keeper's real quote — price gap, sell-back, impact — is what decides a buy.
+CURVE_DEXES = ('pumpfun', 'meteoradbc', 'launchlab', 'raydium-launchlab', 'moonshot')
+
+
 def with_curve(pair, sol_px=100.0):
     """A DexScreener pair of a coin on the Pump curve (no liquidity figure) → the same pair with its curve depth filled in and
     `curve: True`. Any other pair is returned untouched."""
     p = pair if isinstance(pair, dict) else {}
-    if p.get('dexId') != 'pumpfun' or _f((p.get('liquidity') or {}).get('usd')) > 0 or _f(p.get('priceUsd')) <= 0:
+    if p.get('dexId') not in CURVE_DEXES or _f((p.get('liquidity') or {}).get('usd')) > 0 or _f(p.get('priceUsd')) <= 0:
         return pair
     liq = curve_liq(p.get('marketCap') or p.get('fdv'), sol_px)
     return {**p, 'liquidity': {**(p.get('liquidity') or {}), 'usd': liq}, 'curve': True} if liq > 0 else pair
