@@ -1684,6 +1684,30 @@ def leg_tp(l, t):
     return _f(l.get('tp')) or t['tp']
 
 
+GUARD_SEC = 10   # ⚡ the real card's coins are price-checked this often BETWEEN ticks
+
+
+def guard_hits(card, px_by_mint, cfg):
+    """⚡ FAST GUARD: which coins of a real card need the engine NOW (not at the next ~1-minute tick)? A coin at / under its stop
+    or the instant-swap line, or a riding coin that fell its trail off the peak. → [symbol]. It only WAKES the tick — the tick
+    still decides and still applies every rule (feed-gap check, patience, picks). Why: a stop set at −15% sold at −48% because
+    the coin fell from +20% between two checks a minute apart. Majors, frozen coins and coins still being bought are not watched."""
+    t, out = card_template(card.get('tpl'), cfg), []
+    lines = [x for x in (_f(cfg.get('instantSwapPct')),) if x > 0]
+    for l in card.get('legs') or []:
+        px, entry = _f((px_by_mint or {}).get(l.get('mint'))), _f(l.get('entry'))
+        if px <= 0 or entry <= 0 or _f(l.get('units')) <= 0 or l.get('buying') or l.get('placeholder') or l.get('frozen') or safe_anchor(l):
+            continue
+        if l.get('ride'):
+            if _f(l.get('high')) > 0 and px <= _f(l['high']) * (1 - (_f(cfg.get('rideTrail')) or RIDE_TRAIL) / 100):
+                out.append(l.get('symbol'))
+            continue
+        stops = lines + [x for x in (leg_sl(l, t),) if x > 0]
+        if stops and (px / entry - 1) * 100 <= -min(stops):
+            out.append(l.get('symbol'))
+    return out
+
+
 def leg_sl(l, t):
     return _f(l.get('sl')) or t['sl']
 

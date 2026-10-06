@@ -1570,3 +1570,16 @@ def test_a_real_cards_empty_seat_waits_out_loud_when_the_keeper_could_not_send_i
     # enough free cash → the seat is filled and the wait is over
     c2 = ap.tick({**card, 'cash': 0.20}, px, [], [new], {**cfg, 'minOrderUsd': 0.10}, now + 30, [], {}, {})
     assert [l['mint'] for l in c2['legs']][-1] == 'N' and not [e for e in c2['events'] if e['kind'] == 'seat-wait']
+
+
+def test_fast_guard_names_the_coins_that_need_the_engine_now_and_nothing_else():
+    import arena_prime as ap
+    leg = lambda m, role='runner', **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': role, 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0, **k}
+    cfg = ap.clean_cfg({'instantSwapPct': 15, 'sl': 20, 'rideTrail': 8})
+    card = {'tpl': 'degen', 'legs': [leg('DROP'), leg('OK'), leg('RIDE', ride=True, high=2.0), leg('RIDEOK', ride=True, high=2.0), leg('ICE', frozen=True),
+                                    leg('WAIT', buying=True), leg('SOLX', 'anchor'), leg('PICKED', 'anchor', picked=True), leg('OWN', sl=10), leg('NOPX')]}
+    px = {'DROP': 0.84, 'OK': 0.9, 'RIDE': 1.8, 'RIDEOK': 1.9, 'ICE': 0.2, 'WAIT': 0.2, 'SOLX': 0.2, 'PICKED': 0.5, 'OWN': 0.89}
+    assert ap.guard_hits(card, px, cfg) == ['DROP', 'RIDE', 'PICKED', 'OWN']   # −16% · 10% off its peak · a pick in the anchor seat · its own −10% stop
+    assert ap.guard_hits(card, {}, cfg) == [] and ap.guard_hits({'tpl': 'degen', 'legs': []}, px, cfg) == []
+    off = ap.clean_cfg({'instantSwapPct': 0, 'sl': 20})
+    assert ap.guard_hits({'tpl': 'degen', 'legs': [leg('A'), leg('B')]}, {'A': 0.84, 'B': 0.79}, off) == ['B']   # instant swap off → the stop alone

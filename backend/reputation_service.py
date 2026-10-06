@@ -5471,6 +5471,7 @@ async def _runner_start():
         asyncio.create_task(_runner_loop())
         asyncio.create_task(_fuse_warm_loop())
         asyncio.create_task(_prime_bell_loop())
+        asyncio.create_task(_real_guard_loop())
 
 
 # ---- ⭐ ARENA PRIME (backend/arena_prime.py): FEELESS's top-tier cards, FULLY AUTO on paper — the proof before configs go live ----
@@ -5876,6 +5877,34 @@ async def _prime_bell_loop():
         except Exception as e:
             print('prime bell:', e)
             await asyncio.sleep(30)
+
+
+_guard_seen: dict = {}   # {mint: when the fast guard last woke the tick for it} — one wake per coin per 30s
+
+
+async def _real_guard_loop():
+    """⚡ FAST GUARD for real-money cards: every ~10s ONE batched Jupiter price read for the coins a real card holds; a coin at
+    its stop / instant-swap line (or a rider off its trail) wakes the tier tick at once instead of waiting for the next
+    ~1-minute pass. Reads only; every decision and every order still goes through the normal tick + keeper checks."""
+    await asyncio.sleep(45)
+    while True:
+        try:
+            if _is_keeper():
+                cards = [c for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if c.get('real') and not c.get('flooredAt') and not c.get('holdAll')]
+                mints = [l.get('mint') for c in cards for l in c.get('legs') or [] if l.get('mint') and not _prime.safe_anchor(l)]
+                if mints:
+                    for m in mints:
+                        _jup_px_cache.pop(m, None)   # a FRESH read: the shared 20s cache is too slow for a stop
+                    px = await _jup_prices(mints)
+                    rcfg = _prime_real_cfg(); now = time.time()
+                    hit = [s for c in cards for s in _prime.guard_hits(c, px, rcfg)]
+                    due = [l.get('mint') for c in cards for l in c.get('legs') or [] if l.get('symbol') in hit and now - _guard_seen.get(l.get('mint'), 0) >= 30]
+                    if due:
+                        _guard_seen.update({m: now for m in due})
+                        await _prime_tick(now)
+        except Exception as e:
+            print('real guard:', str(e)[:120])
+        await asyncio.sleep(_prime.GUARD_SEC)
 
 
 def _fw_market_rows(cards, books):

@@ -1313,3 +1313,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 💸 Keeper swap cost v3 (`FIRST_USD` $0.001, `PENNY_USD` $0.005): first try ≈ a tenth of a cent at today's SOL, +$0.001 a retry,
   never over half a cent. (v2 measured: median $0.0016, p95 $0.004, none over $0.005.) THE FEE PROBLEM WAS NEVER THE SIZE — it was
   the COUNT: 177 swaps in 6h on a ~$1–2 card = $0.29. Slower clocks cut it; so does every "no pointless swap" rule above.
+- ⚡ FAST GUARD (`arena_prime.guard_hits`, `GUARD_SEC` 10, `_real_guard_loop`): every ~10s ONE fresh batched Jupiter price read for
+  the coins a REAL card holds; a coin at its stop / instant-swap line, or a rider off its trail, wakes `_prime_tick` at once (one
+  wake per coin per 30s). It only wakes the tick — every rule and keeper check still decides. Why: a −15% stop sold at −48%
+  ($SpaceX AI fell from +20% between two checks a minute apart). Applies on every clock.
