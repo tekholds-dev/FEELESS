@@ -1478,3 +1478,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🌊 Movers come from EVERY venue: `jup_candidate` keeps pump / bonk coins (suffix or `launchpad` tag) and ANY other coin ≤ 30 days
   old as `launchpad: 'other'` ("Solana movers": stonk.fun, Meteora DBC, MetaDAO, plain pools — 28 of Jupiter's 100 trending).
   🔭 The scout's ticket may take any safe mover (`r_pre_`: age + checks passed, $50K / +20%), not only the card's full hunt line.
+- 🆕 NEW COINS ONLY (real card cfg `newOnly`, Edit Fuse main pane + Coins): `_prime_tick` hands the engine NO pools and NO anchors
+  (`p_t = []`, `a_t = []`, deal with `[]`), so every door that reached for a major or an old pool finds none and a seat with no
+  qualifying launch coin WAITS IN CASH. The owner's hand picks stay (a re-shape never drops a pick). Why: "still buying the same
+  damn coins, ORCA or something" — anchor / pool seats and the "no runner → take a pool" fallbacks kept re-buying the same majors.

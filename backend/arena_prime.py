@@ -399,6 +399,7 @@ def clean_cfg(p):
     ra_ = (p or {}).get('runnerMinAgeH')
     out['runnerMinAgeH'] = int(_f(ra_)) if ra_ is not None and int(_f(ra_)) in RUNNER_AGES else int(REAL_RUNNER_AGE_H)   # 🕐 the OWNER's youngest launch coin for real money
     out['scoutPct'] = int(_f((p or {}).get('scoutPct'))) if int(_f((p or {}).get('scoutPct'))) in SCOUT_PCTS else 0   # 🔭 scout ticket, % of the card (0 = off)
+    out['newOnly'] = bool((p or {}).get('newOnly', False))   # 🆕 the engine fills seats with launch coins only — no majors, no old pools (the owner's own picks are untouched)
     out['moverSwap'] = bool((p or {}).get('moverSwap', True))   # 🚀 a mover takes the seat of a coin that is not moving
     out['edgeGate'] = bool((p or {}).get('edgeGate', True))   # 🧠 real money buys only runners the board's own record does not expect to lose (pick_edge.py)
     out['swapEdge'] = bool((p or {}).get('swapEdge', True))   # ⚖ rotate only when the next coin beats this one by more than the swap costs

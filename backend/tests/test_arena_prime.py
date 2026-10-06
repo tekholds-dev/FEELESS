@@ -1707,3 +1707,17 @@ def test_scout_seat_opens_small_hops_when_cut_or_stale_and_is_promoted_when_it_p
     assert not p4.get('scout') and p4['at'] == 4200.0 and p4['units'] > sc['units']                          # it got real size
     assert sum(1 for l in c4['legs'] if l.get('scout')) == 1 and any('promoted' in (e.get('why') or '') for e in c4['events'])
     assert ap.scout_step(_scout_card(holdAll=True), px, hot, cfg, 4000.0)['legs'][0]['mint'] == 'A'         # ✋ hold all: no scouting
+
+
+def test_a_card_with_no_majors_or_pools_on_offer_fills_with_runners_and_never_crashes():
+    R = lambda i: {'mint': f'R{i}', 'pairAddress': f'R{i}', 'symbol': f'R{i}', 'price': 1.0, 'liq': 400000, 'score': 90 - i, 'vol1h': 90000, 'chg1h': 30, 'buyShare': 62, 'ageH': 20}
+    runners = [R(i) for i in range(6)]
+    cfg = ap.clean_cfg({'coins': 4, 'newOnly': True, 'rescuePct': 0, 'cycles': {**{t: 'off' for t in ap.DEFAULT_CYCLES}, 'degen': 'press'}})
+    assert cfg['newOnly'] is True and ap.clean_cfg({})['newOnly'] is False
+    card = ap.deal('degen', [], runners, cfg, 0.0, [])                       # 🆕 new coins only: no pools, no anchors handed to the engine
+    assert card and {l['role'] for l in card['legs']} == {'runner'} and len(card['legs']) == 4
+    px = {l['pairAddress']: l['entry'] for l in card['legs']} | {r['pairAddress']: 1.0 for r in runners}
+    out = ap.tick(card, px, [], runners, cfg, 400.0, [], {}, {})
+    assert all(l['role'] == 'runner' for l in out['legs'])
+    few = ap.tick({**card, 'legs': card['legs'][:3]}, px, [], [r for r in runners if r['mint'] in {l['mint'] for l in card['legs'][:3]}], cfg, 800.0, [], {}, {})
+    assert len(few['legs']) == 3                                             # nothing new qualifies → the seat waits, no old coin is pulled in

@@ -6164,6 +6164,12 @@ async def _prime_tick_inner(now):
                     l_.pop('swapTo', None)
                     cur['events'] = list(cur.get('events') or []) + [{'at': now, 'kind': 'rotate', 'symbol': to_.get('symbol'), 'usd': 0.0,
                                                                        'why': f"✅ your pick ${to_.get('symbol')} failed verification before the bell ({bad_[0]}) — not bought, ${l_.get('symbol')} stays"}]
+        # 🆕 NEW COINS ONLY (cfg `newOnly`): the engine's choices are launch coins and nothing else — every door that reached for a
+        # major or an old pool (shape seats, seat refills, "no runner → take a pool", extra seats) finds none, so a seat with no
+        # qualifying new coin WAITS IN CASH. Coins the owner picked by hand stay (a re-shape never drops a pick).
+        new_only_ = bool(real_t and cfg_t.get('newOnly'))
+        if new_only_:
+            p_t = []
         r_pre_ = list(r_t)   # 🔭 the scout's small ticket may take any SAFE mover (age + checks passed), not only coins on the card's full hunt line
         if real_t:   # 🏊 the owner's own runner pool floor (off unless they set it)
             r_t = _prime.deep_runners(r_t, cfg_t.get('runnerMinLiqK'), cfg_t.get('runnerMinBuy'), cfg_t.get('runnerMinVolK'), cfg_t.get('runnerMinChg1h'))
@@ -6179,6 +6185,8 @@ async def _prime_tick_inner(now):
             r_t = _prime_cool_candidates(r_t, cool, 3, strict=real_t)
         # 🧊 anchors cool too: a major this card just sold isn't bought back for 3 rounds while another major is available
         a_t = _prime_cool_candidates(anchors, cool, 2, strict=real_t and len([x for x in anchors if x.get('mint') not in cool]) >= 1) if cool else anchors
+        if new_only_:
+            a_t = []
         # 🚀 MOVER UPGRADE (real cards, cfg `moverSwap`): a coin that is not moving (±10% of its entry after 20 min, never a rider /
         # frozen / picked coin) gives its seat to a coin that IS — the card's own hunt selection, else ≥ $50K in the hour and up
         # ≥ 20%. One per card per 30 min. Rotation only ever swapped LOSERS, so a flat coin sat on the card for good while a
@@ -6214,7 +6222,7 @@ async def _prime_tick_inner(now):
                 sol_px_t = 0.0
             if bk and sol_px_t > 0 and not bk.get('pending'):
                 true_usd = _fw.book_value(bk, px, sol_px_t) or None
-        cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, a_t, mom, liqs, true_usd=true_usd, blind=bool(real_t and true_usd is None)) if cur else _prime.deal(tid, p_t, r_t, cfg_t, now, anchors)
+        cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, a_t, mom, liqs, true_usd=true_usd, blind=bool(real_t and true_usd is None)) if cur else _prime.deal(tid, p_t, r_t, cfg_t, now, [] if new_only_ else anchors)
         cards[tid] = _prime.note_dropped(cur, cards[tid], now, cfg_t['rotateHours'], px)
         taken |= {l.get('mint') for l in (cards[tid] or {}).get('legs') or [] if l.get('role') != 'anchor'}
     cards = {k: v for k, v in cards.items() if v}
