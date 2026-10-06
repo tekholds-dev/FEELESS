@@ -139,6 +139,7 @@ def sell_escalation(ledger, card_id, mint, now, base_bps):
     return min(cap, int(base_bps) + 200 * n), cap, True
 
 
+NEW_SEAT_MIN = 0.05   # the smallest buy that may open a NEW coin's seat ($)
 SEAT_ROOM = 1.25   # a seat must be worth at least the smallest sendable order × this, or its buy can never be sent
 
 
@@ -220,7 +221,11 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
         rent = 0.0
         usd = min(gap, cfg['maxSwapUsd'], max(0.0, (sol_free - rent) * sol_px))
         last = usd >= LEFTOVER_MIN_USD and usd >= (sol_free - rent) * sol_px * 0.98   # the card's whole leftover SOL → let it in (no stuck cash)
-        if (gap < cfg['minOrderUsd'] or usd < cfg['minOrderUsd']) and not last:
+        # 🪑 a coin the wallet does not hold yet OPENS ITS SEAT with whatever it was given, down to NEW_SEAT_MIN: the smallest-order
+        # rule is for top-ups. A pick that inherited a small seat ($0.10 against a $0.124 minimum) was silently never sent, read
+        # "buy never landed in 2 min", and the engine swapped it for the next coin — three owner picks in a row, no ledger row.
+        floor_b = NEW_SEAT_MIN if held_units(book, mint) <= 0 else cfg['minOrderUsd']
+        if (gap < floor_b or usd < floor_b) and not last:
             continue
         sol_free -= usd / sol_px + rent
         buys.append({'id': f"{card_id}:{now:.0f}:b:{mint[:6]}", 'card': card_id, 'side': 'buy', 'mint': mint, 'pair': t['pair'], 'symbol': t['symbol'],

@@ -1202,3 +1202,15 @@ def test_dollar_named_tickers_are_never_the_engines_choice():
         assert fw.dollar_named(sym), sym
     for sym in ('GOMO', 'Frank', 'SNARKSTR', 'USELESS', 'SI', 'UDR', 'JUP', '', None):
         assert not fw.dollar_named(sym), sym
+
+
+def test_a_new_coin_opens_its_seat_even_under_the_top_up_minimum():
+    card = {'legs': [{'mint': 'NEW', 'pairAddress': 'pN', 'symbol': 'NEW', 'role': 'runner', 'units': 0.0, 'wantUnits': 0.09, 'buying': True, 'entry': 1.0, 'picked': True},
+                     {'mint': 'OLD', 'pairAddress': 'pO', 'symbol': 'OLD', 'role': 'runner', 'units': 1.0, 'entry': 1.0}], 'seats': 4}
+    book = {'sol': 0.01, 'legs': {'OLD': {'atoms': 1_000_000, 'decimals': 6, 'pair': 'pO', 'symbol': 'OLD', 'costUsd': 1.0}}}
+    cfg = fw.clean_cfg({'minOrderUsd': 0.25, 'maxSwapUsd': 5})
+    plan = fw.orders('c', card, book, {'pN': 1.0, 'pO': 1.0}, 100.0, cfg, 1000.0)
+    buy = [o for o in plan if o['side'] == 'buy' and o['mint'] == 'NEW']
+    assert buy and abs(buy[0]['usd'] - 0.09) < 0.01                     # $0.09 opens the seat (it used to be dropped without a word)
+    card['legs'][0]['wantUnits'] = 0.03
+    assert not [o for o in fw.orders('c', card, book, {'pN': 1.0, 'pO': 1.0}, 100.0, cfg, 1000.0) if o['side'] == 'buy' and o['mint'] == 'NEW']   # dust still is not sent

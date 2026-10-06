@@ -1497,3 +1497,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   card shows `pick-warn` (what is missing + "I understand — pick it anyway") and re-sends the same pick with `ack: true` → queued,
   `swapTo.ack` / `seatPick.ack` kept so the pre-bell re-check leaves it alone. Picker rows under 1h read "⚠ pick" and are
   clickable. The checks still decide the ENGINE's own buys. Never add a hard refusal to an owner action again: warn + acknowledge.
+- 🪑 A NEW COIN OPENS ITS SEAT DOWN TO $0.05 (`fuse_wallet.NEW_SEAT_MIN`; the smallest-order rule is for top-ups of coins already
+  held): `orders` silently dropped a buy under the card's minimum — a pick that inherited a $0.10 seat against a $0.124 minimum
+  was never sent, no ledger row, "buy never landed in 2 min → X took the seat", three owner picks in a row ($MINTRO, $KOMO, $IRL).
+  "BUY NEVER LANDED" WITH NO LEDGER ROW ⇒ the order was never CREATED: read `fuse_wallet.orders`, not the keeper.
