@@ -374,10 +374,12 @@ def test_older_runner_stays_on_the_board_only_while_it_trades_hard_in_a_real_poo
 
 def test_verified_pick_needs_every_safety_gate_but_never_a_soft_one():
     import runners as rn
-    young = rn.candidate(pair('y', age_h=0.2), CLEAN, now_ms=NOW)
+    young = rn.candidate(pair('y', age_h=2.0), CLEAN, now_ms=NOW)
+    baby = rn.candidate(pair('b', age_h=0.4), CLEAN, now_ms=NOW)
+    assert not rn.pick_check(baby)[0] and 'at least 1h old' in rn.pick_check(baby)[1][0]        # the first hour cannot be verified
     ok, miss = rn.pick_check({**young, 'mcap': 1, 'vol1h': 0, 'buyShare': 99, 'txns1h': 0})     # soft gates (size, volume, flow) never block a pick
     assert ok and miss == []
-    ok, miss = rn.pick_check(rn.candidate(pair('u', age_h=0.2), None, now_ms=NOW))               # no holder scan = not verified
+    ok, miss = rn.pick_check(rn.candidate(pair('u', age_h=2.0), None, now_ms=NOW))               # no holder scan = not verified
     assert not ok and 'Holder scan done' in miss
     ok, miss = rn.pick_check({**young, 'devSold': True})
     assert not ok and any('Dev' in m for m in miss)

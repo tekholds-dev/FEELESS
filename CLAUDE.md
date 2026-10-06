@@ -1441,3 +1441,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `grid-template-rows: none` (the base `.ce` rows stretched the move bars down the whole panel). LOOK AT THE DRAWER after any CSS.
 - 🌊 Solana war room = chain discovery WOVEN with the live launch board (`market.py` feed, solana, page 1, no scope): it was
   DexScreener discovery only and looked frozen. `TopCoins` + `EcosystemWorld` lists refresh every 20s (were 90s / 60s).
+- 🚨 RUG TIGHTENING (2026-10-06, after 5 pulled coins in one day — every one under 12h old, three under 1h):
+  (1) EVERY DOOR OBEYS THE CARD'S MIN AGE on real money (`_prime_tick` `_too_young` on `p_t` AND `r_t`, age from `ageH` or
+  `createdAt`): $Grok was dealt 20 minutes old through a list that was never age-checked while min age read 6h, and was pulled an
+  hour later (−99.7%). (2) a VERIFIED PICK is ≥ 1h old (`runners.PICK_MIN_AGE_H`; unknown age = not verified) — $CUM (30 min) and
+  the other hand-picked rugs were under an hour. (3) `RUG_LIQ` 0.5 → 0.65: a pool that lost a third of its depth is sold.
+  A STOP CANNOT SAVE A PULLED POOL (−99% lands between two price checks): the only defence is not holding minutes-old coins.

@@ -313,6 +313,7 @@ SOFT_GATES = ('prebond', 'age', 'size', 'volume', 'flow')   # activity / size / 
 
 PICK_OLD_H = 168          # an owner's pick older than 7 days in a pool ≥ PICK_OLD_LIQ is an established coin: no launch checks
 PICK_OLD_LIQ = 100_000.0
+PICK_MIN_AGE_H = 1.0       # a verified pick is at least an hour old (2026-10-06: every hand-picked rug was under an hour old)
 
 
 def pick_check(c, cfg=None):
@@ -324,6 +325,8 @@ def pick_check(c, cfg=None):
     if a is not None and _f(a) > PICK_OLD_H and _f((c or {}).get('liq')) >= PICK_OLD_LIQ:
         return True, []
     miss = []
+    if a is None or _f(a) < PICK_MIN_AGE_H:   # ⏳ the first hour is where a launch gets pulled: holders are still forming, nothing can be verified yet
+        miss.append(f"at least {PICK_MIN_AGE_H:g}h old ({'age unknown' if a is None else f'{_f(a) * 60:.0f} min old'})")
     for key, label, test in (gates(cfg) if cfg else GATES):
         if key in SOFT_GATES:
             continue

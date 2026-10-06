@@ -83,7 +83,7 @@ DEFAULT_CYCLES = {'safe': 'safe', 'balanced': 'adaptive', 'degen': 'classic', 'n
 # ⏱ every tier plays ITS OWN round length (so five cards are five different games, and the sims' clocks all get played live)
 DEFAULT_CLOCKS = {'degen': 0.08, 'next': 0.25, 'balanced': 0.5, 'ever': 1.0, 'safe': 2.0}
 DEFAULT_PAYOUTS = {'safe': 25, 'balanced': 50, 'degen': 0, 'next': 25, 'ever': 75}   # % of every profit take paid straight to the wallet
-RUG_LIQ = 0.5   # 🚨 rug shield: pool liquidity at ≤ 50% of entry = pulled → sell at once
+RUG_LIQ = 0.65  # (was 0.5 — tightened 2026-10-06: a pool that has lost a third of its depth is already being drained) # 🚨 rug shield: pool liquidity at ≤ 65% of entry = being pulled → sell at once
 TRAIL_AT, TRAIL_KEEP = 50.0, 5.0   # 🔒 a coin that ran ≥ +50% is sold before it gives it all back (≤ +5% left)
 FIX_DAY_PCT = -40.0   # 🔧 a tier card whose DAY falls to −40% gets its config fixed: re-dealt fresh on the safe cycle (logged)
 RIDE_AT, RIDE_TRAIL = 150.0, 30.0

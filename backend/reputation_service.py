@@ -6131,6 +6131,16 @@ async def _prime_tick_inner(now):
                     cur = {**cur, 'legs': [x for x in cur['legs'] if x is not l], 'events': list(cur.get('events') or []) + [
                         {'at': now, 'kind': 'rotate', 'symbol': l.get('symbol'), 'usd': 0.0, 'why': f"⏳ ${l.get('symbol')} {why_s} — slot back to card cash"}]}
             cur = _prime.note_dropped(before_, cur, now, cfg_t['rotateHours'], px)   # 🧊 the stuck coin cools like any coin that left
+        # ⏳ EVERY door obeys the card's min age on real money (pools, runners, seat refills, replacements, mover swaps): a row whose
+        # age is known and under `runnerMinAgeH` is out whatever list it came from. $Grok came in 20 minutes old through a list
+        # that was never age-checked and was pulled an hour later (−99.7%).
+        if real_t:
+            def _too_young(x, lim=_fuse._f(cfg_t.get('runnerMinAgeH'))):
+                a_ = x.get('ageH')
+                if a_ is None and _fuse._f(x.get('createdAt')) > 0:
+                    a_ = (time.time() * 1000 - _fuse._f(x.get('createdAt'))) / 3.6e6
+                return lim > 0 and a_ is not None and _fuse._f(a_) < lim and not x.get('trenchOnly')
+            p_t = [x for x in p_t if not _too_young(x)]; r_t = [x for x in r_t if not _too_young(x)]
         # 💵 dollar-named tickers are never the engine's choice (pools, runners, new majors) — see fuse_wallet.dollar_named
         p_t = [x for x in p_t if not _fw.dollar_named(x.get('symbol'))]; r_t = [x for x in r_t if not _fw.dollar_named(x.get('symbol'))]
         # ⏱ each clock gets ITS coins: fast rounds rank by what is moving now, slow rounds keep depth / score order
