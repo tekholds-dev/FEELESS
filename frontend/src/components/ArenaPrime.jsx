@@ -688,7 +688,7 @@ export function ComingUp({ p, legs = [], onSwap, busy }) {
   return <div className="hrt-up" data-testid="coming-up"><span className="m-label">⏭ COMING UP · NEXT IN LINE</span>
     <ol>{rows.map((r, i) => <li key={r.mint} style={{ '--i': i }}>
       <button type="button" className="hrt-up-coin" onClick={() => openCoin({ mint: r.mint, pairAddress: r.pairAddress, symbol: r.symbol })} data-tip="Open its live flow" data-testid={`up-${r.symbol}`}>
-        <b>${r.symbol}</b><em className={`m-num ${r.chg1h >= 0 ? 'm-pos' : 'm-neg'}`}>{r.chg1h >= 0 ? '+' : ''}{Math.round(r.chg1h)}%</em><small>{big(r.vol1h)}/h</small></button>
+        <b>${r.symbol}</b><em className={`m-num ${r.chg1h >= 0 ? 'm-pos' : 'm-neg'}`}>{r.chg1h >= 0 ? '+' : ''}{Math.round(r.chg1h)}%</em><small>{r.vol1h > 0 ? `${big(r.vol1h)}/h` : r.liq > 0 ? `${big(r.liq)} pool` : ''}</small></button>
       <select className="m-input hrt-up-sel" disabled={busy || !seats.length} value="" aria-label={`Swap $${r.symbol} in for…`} data-testid={`up-swap-${r.symbol}`}
         onChange={e => { const l = seats.find(x => x.pairAddress === e.target.value); if (l) onSwap(l, r); }}>
         <option value="">swap in for…</option>{seats.map(l => <option key={l.pairAddress} value={l.pairAddress}>${l.symbol}</option>)}</select></li>)}</ol>
