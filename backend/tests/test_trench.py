@@ -185,6 +185,19 @@ def test_trench_fill_never_loops_one_fill_a_round_and_never_on_a_coin_just_bough
     assert fills(again) == n1 and normal['mint'] in {l['mint'] for l in again['legs']}
 
 
+def test_a_card_switched_off_trench_takes_no_trench_coin_while_it_waits_for_its_next_reshape():
+    anchors, pools, runners = _cands()
+    mk = lambda cyc: ap.clean_cfg({'trenchCoins': 2, 'rotateHours': 0.08, 'cycles': {**{t: 'off' for t in ap.DEFAULT_CYCLES}, 'degen': cyc}, 'rescuePct': 0, 'cycleEvery': 0})
+    card = {**ap.deal('degen', pools, [x for x in runners if not x.get('trenchOnly')], mk('press'), 0.0, anchors, shape='degen'), 'phase': 'trench'}
+    px = {l['pairAddress']: l['entry'] for l in card['legs']}
+    for x in runners:
+        px.setdefault(x['pairAddress'], x['price'])
+    out = ap.tick(card, px, pools, runners, mk('press'), 30.0, anchors, {}, {})       # still in its trench SHAPE, but the owner's cycle is Press now
+    assert not any(l.get('trench') for l in out['legs']) and not any('trench cycle' in (e.get('why') or '') for e in out['events'])
+    on = ap.tick(card, px, pools, runners, mk('trench'), 30.0, anchors, {}, {})       # the same card with Trench still picked does fill
+    assert any(l.get('trench') for l in on['legs'])
+
+
 def test_owner_trench_settings_only_move_the_soft_checks_and_snap_to_the_lists():
     own = tr.clean_own({'mode': 'own', 'minHolders': 170, 'minVol1h': 4200, 'maxMcap': 9e9, 'minMcap': 50000, 'maxAgeH': 5, 'maxTop10': 99, 'minBuyShare': 1})
     assert own['mode'] == 'own' and own['minHolders'] in (150, 200) and own['minVol1h'] == 5000 and own['maxMcap'] == 1_000_000 and own['maxAgeH'] == 6

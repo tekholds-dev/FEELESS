@@ -1035,7 +1035,9 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     # 🗑 TRENCH FILL: a card on the trench cycle holds its 1–2 trench coins as soon as the scan has one — it never waits up to
     # `cycleEvery` rounds for the next re-shape. The weakest normal runner (not winning > +10%, not frozen / riding / picked / waiting
     # on a buy) is sold for the best trench coin. No trench coin passing → the card keeps its normal runners.
-    if not c.get('holdAll') and not c.get('cycleFix') and (c.get('phase') == 'trench' or (cfg.get('cycles') or DEFAULT_CYCLES).get(card['tpl']) == 'trench'):
+    # The card's CURRENT cycle decides, not the shape it happens to be in: an owner who switched Trench off must not get one more
+    # trench coin while the card waits (up to 6 rounds) for its next re-shape.
+    if not c.get('holdAll') and not c.get('cycleFix') and 'trench' in str((cfg.get('cycles') or DEFAULT_CYCLES).get(card['tpl']) or '').split(','):
         # 🔁 NO LOOP: one trench fill per round, and never on a coin bought moments ago. A trench coin that died on arrival was replaced
         # by a normal runner, which this fill sold seconds later for the next trench coin — 2 real swaps a minute, every minute.
         first_fill = c.get('trenchFillAt') is None   # a card that just switched to trench takes its coins at once; after that the loop guard applies

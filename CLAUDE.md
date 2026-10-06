@@ -1358,3 +1358,5 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   EVENT THAT BROUGHT IT IN FIRST ("🎯 your pick" vs an engine rotate) before touching an engine gate.
 - 🏷 Browser tab title (`lib/tabTitle.js` `useTabTitle`, a stack — last mounted wins, the page title returns on unmount): an open
   chart = `$SYM $4.40M MC · $price` (`TrenchChart`), My cards = the real card's ALL-TIME P&L (`HqRealCards`, same number as the tile).
+- 🗑 Trench fill follows the card's CURRENT cycle only (it used to fire on `phase == 'trench'` too): an owner who switches Trench
+  off gets no more trench coins while the card waits for its next re-shape (a picked cycle with "re-shape: off" re-shapes every 6 rounds).
