@@ -692,6 +692,13 @@ def sync_card(card, book, prices, sol_px):
             if _f(l.get('entry')) > 0:
                 l['costUsd'] = round(u * _f(l['entry']), 6)   # SOL anchor cost = SOL really left × its entry (trimmed SOL isn't a loss)
             continue
+        if l.get('placeholder'):
+            # 🛑 A RESERVED SEAT IS NOT A COIN. A stop-out with no replacement ready leaves a placeholder that still carries the
+            # STOPPED coin's mint; this sync used to treat it as "a coin whose buy has not landed" and fund it — so the keeper
+            # bought the coin straight back (2026-10-06: $TikPad stopped at −15%, re-bought 17s later for $1.64, sold at $0.90).
+            # A placeholder holds nothing and wants nothing: whatever the wallet still has of that coin is sold, never topped up.
+            l.update(units=0.0, costUsd=0.0, real=False, buying=False); l.pop('wantUnits', None); l.pop('buyingSince', None)
+            continue
         bl = (book.get('legs') or {}).get(l['mint'])
         if bl:
             held, want = held_units(book, l['mint']), _f(l.get('units'))
@@ -715,10 +722,10 @@ def sync_card(card, book, prices, sol_px):
                 l.pop('buyingSince', None)
     # 🔁 each NEW round: a coin that holds nothing (buy never landed / rotated in) gets an equal share again and the SOL anchor is
     # trimmed to its share, so the keeper re-tries the buy — within every wallet limit (per swap, daily, impact), never more SOL than the card has
-    empty = [l for l in c['legs'] if l['mint'] != SOL_MINT and _f(l.get('units')) <= 0 and not l.get('buying') and not l.get('manualCash')]
+    empty = [l for l in c['legs'] if l['mint'] != SOL_MINT and _f(l.get('units')) <= 0 and not l.get('buying') and not l.get('manualCash') and not l.get('placeholder')]
     # ⏳ coins already WAITING on a buy need SOL too: the SOL anchor used to keep it all (sync gives SOL first), so their orders were
     # never even sent — "buying… keeper retries" for hours. They now trigger the same repair: SOL trimmed to an equal share.
-    waiting = [l for l in c['legs'] if l['mint'] != SOL_MINT and _f(l.get('units')) <= 0 and l.get('buying') and not l.get('manualCash')]
+    waiting = [l for l in c['legs'] if l['mint'] != SOL_MINT and _f(l.get('units')) <= 0 and l.get('buying') and not l.get('manualCash') and not l.get('placeholder')]
     _wpx = lambda l: _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
     if waiting and max(0.0, sol_left - _f(book.get('manualCashSol'))) * sol_px + LEFTOVER_MIN_USD >= sum(_f(l.get('wantUnits')) * _wpx(l) for l in waiting):
         waiting = []   # the free SOL already covers every waiting buy → nothing to repair

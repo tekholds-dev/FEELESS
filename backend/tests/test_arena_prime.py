@@ -1834,3 +1834,15 @@ def test_a_rider_that_left_is_bought_back_when_its_dip_recovers_15_percent():
     assert ap.comeback_step(s2, {'RUN': 0.5}, 1300.0) == ({}, {})                     # −67% under its exit: over, not a dip
     assert ap.comeback_step(s2, {'RUN': 1.4}, 1000.0 + ap.COMEBACK_SEC + 1) == ({}, {})   # watched for two hours only
     assert ap.comeback_step(s2, {}, 1300.0)[0] == s2                                 # no price: it just waits
+
+
+def test_up_next_is_meta_no_chart_and_falling_coins_are_not_bought_by_the_engine():
+    import arena_prime as ap
+    rows = [{'mint': 'NEW', 'cBars': 0, 'chg1h': 22},                                   # 🆕 no chart yet — whatever its hour says
+            {'mint': 'DOWN', 'cBars': 9, 'cStruct': 'down', 'chg1h': 30},               # 📉 trending down
+            {'mint': 'UP', 'cBars': 9, 'cStruct': 'up', 'cPull': 8, 'chg1h': 25},       # 🧲 dip bought, trend up
+            {'mint': 'RANGE', 'cBars': 7, 'cStruct': 'range', 'cPos': 0.5},
+            {'mint': 'UNREAD', 'chg1h': 80},                                            # never read = unknown = out
+            {'mint': 'BACK', 'cBars': 0, 'comeback': 18.0}]                             # 🔁 a rider coming back always may
+    assert [x['mint'] for x in ap.meta_only(rows)] == ['UP', 'RANGE', 'BACK']
+    assert ap.clean_cfg({})['upMeta'] is True and ap.clean_cfg({'upMeta': False})['upMeta'] is False

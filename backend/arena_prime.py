@@ -409,6 +409,7 @@ def clean_cfg(p):
     ra_ = (p or {}).get('runnerMinAgeH')
     out['runnerMinAgeH'] = int(_f(ra_)) if ra_ is not None and int(_f(ra_)) in RUNNER_AGES else int(REAL_RUNNER_AGE_H)   # 🕐 the OWNER's youngest launch coin for real money
     out['scoutPct'] = int(_f((p or {}).get('scoutPct'))) if int(_f((p or {}).get('scoutPct'))) in SCOUT_PCTS else 0   # 🔭 scout ticket, % of the card (0 = off)
+    out['upMeta'] = bool((p or {}).get('upMeta', True))          # 🧭 the engine's own buys need a readable chart that is not trending down
     out['trailStep'] = bool((p or {}).get('trailStep', False))   # 🪜 a rider's trail widens as its peak gain grows
     out['comeback'] = bool((p or {}).get('comeback', True))      # 🔁 a rider that left is bought back when its dip recovers 15%
     out['newOnly'] = bool((p or {}).get('newOnly', False))   # 🆕 the engine fills seats with launch coins only — no majors, no old pools (the owner's own picks are untouched)
@@ -724,6 +725,22 @@ def flow_rank(rows):
         tag, pts = flow_tag(x)
         out.append((-(pts + min(25.0, max(0.0, _f(x.get('chg1h'))) / 4)), i, {**x, 'tag': tag}))
     return [x for _, _, x in sorted(out, key=lambda t: (t[0], t[1]))]
+
+
+def meta_ready(x):
+    """🧭 May the ENGINE buy this coin by itself? Not while its chart is too short to read, and not while it is trending down.
+    A comeback (a rider the card already rode, recovering) always may. The owner's hand picks are never judged here.
+    Why (real card, 2026-10-06): 99 of its last 119 buys had no readable chart — −$1.01, 25% won — against +$0.07 / 40% for the
+    20 with one; that afternoon $darwin ("no chart yet", +22% on the hour) hit its −15% stop six minutes after it was bought."""
+    if x.get('comeback'):
+        return True
+    if x.get('cBars') is None:
+        return False            # never read at all = unknown = not bought (the read is attached to every candidate on a real card)
+    return bool(x.get('cBars')) and x.get('cStruct') != 'down'
+
+
+def meta_only(rows):
+    return [x for x in rows or [] if meta_ready(x)]
 
 
 def is_hunt(x, cfg):
@@ -1551,7 +1568,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             # of deleting the slot. The next tick/round can fill that exact slot from the existing eligible feeds; real sync then
             # reserves confirmed card SOL for it. A transient feed gap must never turn a configured 4-coin card into 3 coins.
             if lmode == 'replace':
-                c['legs'][c['legs'].index(l)] = {**l, 'units': 0.0, 'costUsd': 0.0, 'wantUnits': out_usd / px if px > 0 else 0.0,
+                c['legs'][c['legs'].index(l)] = {**{k: v for k, v in l.items() if k not in ('wantUnits', 'buyingSince')}, 'units': 0.0, 'costUsd': 0.0,   # never `wantUnits`: the seat is reserved, the STOPPED coin is not wanted back
                                                  'reserveUsd': round(out_usd, 6), 'buying': False, 'entry': px, 'at': now, 'placeholder': True}
                 c['cash'] += out_usd
                 ev(kind='sl', symbol=l['symbol'], usd=round(out_usd, 4), why=why + ' — replacement feed temporarily empty; slot reserved', to=['cash'])

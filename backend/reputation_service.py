@@ -6160,9 +6160,9 @@ async def _prime_tick_inner(now):
         # the "what is hot now" order both pointed at the coins that lost most. Real money buys only runners the record does not
         # expect to lose (cfg `edgeGate`, on by default); no table yet / table failing its own test = the order above stands.
         tb_ = _edge_load().get('table')
+        pth_ = _json_load(RUNNERS_PATH, {}).get('paths') or {}   # 📈 each candidate's own chart read (chart_read.py) joins its snapshot — table or not
+        r_t = [{**x, **_pedge._chart.keys(pth_.get(x.get('mint')) or [], now)} for x in r_t]
         if tb_:
-            pth_ = _json_load(RUNNERS_PATH, {}).get('paths') or {}   # 📈 each candidate's own chart read (chart_read.py) joins its snapshot
-            r_t = [{**x, **_pedge._chart.keys(pth_.get(x.get('mint')) or [], now)} for x in r_t]
             r_t = _pedge.rank(r_t, tb_)
             if cfg_t.get('edgeGate', True):   # real AND paper (paper = real)
                 r_t = _pedge.gate(r_t, tb_, float(cfg_t.get('edgeFloor') or 0))
@@ -6193,6 +6193,9 @@ async def _prime_tick_inner(now):
             if cb_ready_:
                 r_pre_ = [({**x, 'comeback': cb_ready_[x['mint']]} if x.get('mint') in cb_ready_ else x) for x in r_pre_]
                 r_t = [({**x, 'comeback': cb_ready_[x['mint']]} if x.get('mint') in cb_ready_ else x) for x in r_t]
+        if real_t and cfg_t.get('upMeta', True):   # 🧭 UP NEXT IS META: the engine's own buys need a chart it can read, not falling
+            r_pre_, r_t = _prime.meta_only(r_pre_), _prime.meta_only(r_t)
+            _step('chart readable and not trending down (up-next meta)', r_t)
         if real_t:   # 🏊 the owner's own runner pool floor (off unless they set it)
             r_t = _prime.deep_runners(r_t, cfg_t.get('runnerMinLiqK'), cfg_t.get('runnerMinBuy'), cfg_t.get('runnerMinVolK'), cfg_t.get('runnerMinChg1h'))
             _step('your hunt line (pool · volume · 1h move · buyers)', r_t)

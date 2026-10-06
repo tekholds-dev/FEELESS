@@ -1223,3 +1223,26 @@ def test_rent_story_counts_what_came_back_and_what_is_parked():
     assert r['back24Sol'] == 0.006 and r['sweeps24'] == 1 and r['lastAt'] == 1000.0 and r['parkedSol'] == 0.015 and r['parkedUsd'] == 1.8 and r['accounts'] == 10
     assert r['rows'][0]['sig'] == 's1' and len(r['rows']) == 2 and r['back24Usd'] == 0.72
     assert fw.rent_story([], 1100.0)['parkedSol'] is None and fw.rent_story([], 1100.0)['back24Sol'] == 0
+
+
+def test_a_stopped_coins_reserved_seat_is_never_bought_back():
+    import fuse_wallet as fw
+    SOL = fw.SOL_MINT
+    # $TikPad hit its stop with no replacement ready: the seat is a placeholder that still carries TikPad's mint (and, from an
+    # earlier sync, even its units). The wallet has already sold it — its SOL is card cash.
+    card = {'rounds': 400, 'rebuyRound': 399, 'rebuyAt': 0, 'legs': [
+        {'mint': 'SK', 'pairAddress': 'Psk', 'role': 'runner', 'units': 2.0, 'entry': 1.0},
+        {'mint': 'TIK', 'pairAddress': 'Ptik', 'role': 'runner', 'units': 1.64, 'costUsd': 1.64, 'wantUnits': 1.64, 'entry': 1.0, 'placeholder': True, 'reserveUsd': 1.64}]}
+    book = {'sol': 1.64 / 150, 'legs': {'SK': {'atoms': 200, 'decimals': 2, 'costUsd': 2.0, 'entryPx': 1.0}}}
+    prices = {'Psk': 1.0, 'Ptik': 0.4}
+    c = fw.sync_card(card, book, prices, 150.0)
+    tik = next(l for l in c['legs'] if l['mint'] == 'TIK')
+    assert tik['units'] == 0 and not tik.get('buying') and 'wantUnits' not in tik and tik['placeholder']
+    o = fw.orders('degen', c, book, prices, 150.0, {'minOrderUsd': 0.1, 'maxSwapUsd': 50, 'armed': True}, 0)
+    assert not [x for x in o if x['side'] == 'buy' and x['mint'] == 'TIK']             # the stopped coin is NOT bought back
+    # … and if the wallet still holds some of it (its sell has not landed), that is sold, not kept
+    book2 = {**book, 'legs': {**book['legs'], 'TIK': {'atoms': 164, 'decimals': 2, 'costUsd': 1.64, 'entryPx': 1.0}}}
+    c2 = fw.sync_card(card, book2, prices, 150.0)
+    assert next(l for l in c2['legs'] if l['mint'] == 'TIK')['units'] == 0
+    o2 = fw.orders('degen', c2, book2, prices, 150.0, {'minOrderUsd': 0.1, 'maxSwapUsd': 50, 'armed': True}, 0)
+    assert [x for x in o2 if x['side'] == 'sell' and x['mint'] == 'TIK'] and not [x for x in o2 if x['side'] == 'buy' and x['mint'] == 'TIK']

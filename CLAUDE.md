@@ -1587,3 +1587,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   half its pool, cap ≤ $250M, a logo — else the row is not offered at all. $VSOF ("$667M" cap, 0.1% traded, no logo) took a real seat.
 - 🅿 Per-coin 💰 has a manual PARK (`skim.to: 'round'`): that coin's profit sits in card cash for the card's own `skimHoldRounds`,
   then `release_parked` puts it back to work.
+- 🛑 A RESERVED SEAT IS NOT A COIN (`fuse_wallet.sync_card`: a `placeholder` leg holds nothing and wants nothing; never in `empty` /
+  `waiting`; the stop-out placeholder in `arena_prime` no longer carries `wantUnits`). A stop with no replacement ready left a
+  placeholder still carrying the STOPPED coin's mint, the sync read it as "a buy that has not landed" and the keeper bought the coin
+  straight back: $TikPad stopped at −15%, re-bought 17s later for $1.64, sold at $0.90. "SELL X … BUY X" SECONDS APART IN THE LEDGER
+  ⇒ look for a placeholder leg with that mint before anything else.
+- 🧭 UP NEXT IS META (`arena_prime.meta_ready/meta_only`, cfg `upMeta` on by default, Edit Fuse › Coins; `_prime_tick` filters `r_t` +
+  the scout's `r_pre_` and adds a pipeline step; the chart read is attached to every candidate, edge table or not): the ENGINE buys a
+  coin by itself only when its chart is long enough to read and is not trending down; a 🔁 comeback always may; never read = out;
+  the owner's picks are not judged. No qualifying coin = the seat waits in cash. Why: 99 of 119 buys had no readable chart (25% won);
+  $darwin ("no chart yet", +22% hour) hit its stop 6 minutes after the buy.
