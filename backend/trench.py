@@ -200,6 +200,23 @@ def closest(cands, cfg=None, n=5):
     return sorted(out, key=lambda x: -_f(x[0].get('vol1h')))[:n]
 
 
+def band_miss(c, cfg=None):
+    """🎛 Is this coin INSIDE the filter's age + market-cap band? → [] or the exact misses in numbers ("6.3h old — filter ≤ 1h").
+    Age and cap band are what the owner's dropdowns promise: a coin outside them is never shown as a near-miss."""
+    g = {**TRENCH, **(cfg or {})}
+    k = lambda v: f"${v / 1e6:.1f}M" if v >= 1e6 else f"${v / 1000:.0f}K"
+    out, age, mc = [], c.get('ageH'), _f(c.get('mcap'))
+    if age is None:
+        out.append('age unknown')
+    elif _f(age) > g['maxAgeH']:
+        out.append(f"{_f(age):.1f}h old — filter ≤ {g['maxAgeH']:g}h")
+    if mc < g['minMcap']:
+        out.append(f"cap {k(mc)} — filter from {k(g['minMcap'])}")
+    elif mc > g['maxMcap']:
+        out.append(f"cap {k(mc)} — filter up to {k(g['maxMcap'])}")
+    return out
+
+
 PROOF_SEC, PROOF_KEEP, PROOF_MIN = 3600.0, 60, 5
 
 

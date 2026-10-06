@@ -1215,7 +1215,7 @@ def test_a_winner_banks_part_as_it_locks_and_is_not_bought_straight_back():
     import arena_prime as ap
     now = 1_000_000.0
     assert ap.clean_cfg({})['lockBankPct'] == 33.0 and ap.clean_cfg({'lockBankPct': 40})['lockBankPct'] == 33.0 and ap.clean_cfg({'lockBankPct': 0})['lockBankPct'] == 0.0
-    cfg = ap.clean_cfg({'rotateHours': 99, 'rideAt': 20, 'rideTrail': 10, 'compound': True, 'cycles': {'degen': 'off'}, 'rescuePct': 0})
+    cfg = ap.clean_cfg({'tpStakeUsd': 0, 'rotateHours': 99, 'rideAt': 20, 'rideTrail': 10, 'compound': True, 'cycles': {'degen': 'off'}, 'rescuePct': 0})
     leg = lambda m, role, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': role, 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0, 'at': now - 9999, 'liq': 1e12, **k}
     card = {'tpl': 'degen', 'id': 'x', 'label': 'B', 'at': now - 9999, 'lastRotateAt': now, 'cash': 0.0, 'startUsd': 3.0, 'roundStartUsd': 3.0, 'compoundedUsd': 0.0,
             'takenUsd': 0.0, 'feesUsd': 0.0, 'events': [], 'rounds': 1, 'legs': [leg('WIN', 'runner'), leg('B', 'runner'), leg('C', 'pool')]}
@@ -1320,7 +1320,7 @@ def test_a_partial_sell_to_cash_is_flagged_so_the_keeper_really_sells_it():
 def test_a_riding_coin_that_never_banked_banks_once_and_only_once():
     import arena_prime as ap
     now = 1_000_000.0
-    cfg = ap.clean_cfg({'rotateHours': 99, 'rideAt': 100, 'rideTrail': 30, 'compound': False, 'cycles': {'degen': 'off'}, 'rescuePct': 0, 'tp': 0})
+    cfg = ap.clean_cfg({'tpStakeUsd': 0, 'rotateHours': 99, 'rideAt': 100, 'rideTrail': 30, 'compound': False, 'cycles': {'degen': 'off'}, 'rescuePct': 0, 'tp': 0})
     leg = lambda m, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0, 'at': now - 9999, 'liq': 1e12, **k}
     card = {'tpl': 'degen', 'id': 'x', 'label': 'B', 'at': now - 9999, 'lastRotateAt': now, 'cash': 0.0, 'startUsd': 2.0, 'roundStartUsd': 2.0, 'compoundedUsd': 0.0,
             'takenUsd': 0.0, 'feesUsd': 0.0, 'events': [], 'rounds': 1,
@@ -1354,7 +1354,7 @@ def test_off_its_peak_only_part_of_the_profit_is_sold_and_the_coin_keeps_riding(
     import arena_prime as ap
     now = 1_000_000.0
     assert ap.clean_cfg({})['peakSellPct'] == 50.0 and ap.clean_cfg({'peakSellPct': 60})['peakSellPct'] == 50.0 and ap.clean_cfg({'peakSellPct': 100})['peakSellPct'] == 100.0
-    cfg = ap.clean_cfg({'rotateHours': 99, 'rideAt': 100, 'rideTrail': 30, 'compound': False, 'cycles': {'degen': 'off'}, 'rescuePct': 0, 'tp': 0, 'lockBankPct': 0})
+    cfg = ap.clean_cfg({'tpStakeUsd': 0, 'rotateHours': 99, 'rideAt': 100, 'rideTrail': 30, 'compound': False, 'cycles': {'degen': 'off'}, 'rescuePct': 0, 'tp': 0, 'lockBankPct': 0})
     leg = lambda m, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0, 'at': now - 9999, 'liq': 1e12, **k}
     card = {'tpl': 'degen', 'id': 'x', 'label': 'B', 'at': now - 9999, 'lastRotateAt': now, 'cash': 0.0, 'startUsd': 2.0, 'roundStartUsd': 2.0, 'compoundedUsd': 0.0,
             'takenUsd': 0.0, 'feesUsd': 0.0, 'events': [], 'rounds': 1, 'legs': [leg('BIG', ride=True, high=10.0, rideFrom=1.0, rideAt=now - 600, bankedAt=now - 600), leg('B')]}
@@ -1531,3 +1531,21 @@ def test_best_entries_now_reads_three_setups_from_live_numbers_and_ranks_by_stre
     assert len(rows) == 3 and [r['mint'] for r in rows].count('S') == 1 and 'H' not in [r['mint'] for r in rows]
     assert rows == sorted(rows, key=lambda r: -r['strength']) and all(r['name'] and r['why'] and 0 < r['strength'] <= 100 for r in rows)
     assert ap.entry_setup(c('G', 17, 839, 73, v5=9000)) is None                           # +839% on the hour already ran: not an entry
+
+
+def test_auto_profit_taking_stops_once_it_has_sold_25c_of_a_coins_stake():
+    import arena_prime as ap
+    cfg = ap.clean_cfg({})
+    assert cfg['tpStakeUsd'] == 0.25 and ap.clean_cfg({'tpStakeUsd': 0})['tpStakeUsd'] == 0 and ap.clean_cfg({'tpStakeUsd': 7})['tpStakeUsd'] == 0.25
+    c = {'cash': 0.0, 'takenUsd': 0.0, 'feesUsd': 0.0, 'events': []}
+    l = {'mint': 'P', 'pairAddress': 'PP', 'symbol': 'P', 'units': 1.0, 'entry': 0.56, 'costUsd': 0.56, 'liq': 5e6}
+    # +100%: a full skim would sell half the coin = $0.28 of stake → capped at the 25c the limit allows
+    got = ap._skim(c, l, 1.12, {}, 100, room=ap.tp_room(l, cfg))
+    assert got > 0 and abs(l['tpCostUsd'] - 0.25) < 1e-6 and abs(l['costUsd'] - 0.31) < 1e-6
+    # every later AUTOMATIC take is refused: skim, bank at the lock … the stake keeps riding
+    assert ap.tp_room(l, cfg) == 0 and ap._skim(c, l, 3.0, {}, 200, room=ap.tp_room(l, cfg)) == 0.0
+    assert ap.lock_bank(c, l, 3.0, {}, 200, {**cfg, 'lockBankPct': 25}) == 0.0 and not l.get('bankedAt') and abs(l['costUsd'] - 0.31) < 1e-6
+    # the OWNER's own 💰 is never limited, and "no limit" keeps the old behaviour
+    assert ap._skim(c, dict(l), 3.0, {}, 300) > 0
+    l2 = {**l, 'units': 1.0, 'costUsd': 0.56, 'tpCostUsd': 0.0}
+    assert ap.lock_bank(c, l2, 1.12, {}, 300, {**cfg, 'tpStakeUsd': 0, 'lockBankPct': 50}) > 0 and abs(l2['costUsd'] - 0.28) < 1e-6

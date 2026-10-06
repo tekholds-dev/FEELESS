@@ -385,6 +385,7 @@ def clean_cfg(p):
     out['clocks'] = {t: (round(min(48.0, max(0.08, _f(ck[t]))), 2) if _f(ck.get(t)) > 0 else DEFAULT_CLOCKS[t]) for t in DEFAULT_CLOCKS}
     out['peakSellPct'] = float(_f((p or {}).get('peakSellPct'))) if _f((p or {}).get('peakSellPct')) in PEAK_SELLS else PEAK_SELL
     out['skimAt'] = float(_f((p or {}).get('skimAt'))) if _f((p or {}).get('skimAt')) in SKIM_ATS else 0.0
+    out['tpStakeUsd'] = float(_f((p or {}).get('tpStakeUsd'))) if (p or {}).get('tpStakeUsd') is not None and _f((p or {}).get('tpStakeUsd')) in TP_STAKES else TP_STAKE_USD
     out['skimTo'] = (p or {}).get('skimTo') if (p or {}).get('skimTo') in SKIM_TOS else 'card'
     out['recyclePct'] = float(_f((p or {}).get('recyclePct'))) if _f((p or {}).get('recyclePct')) in RECYCLE_PCTS else 0.0
     out['recycleEvery'] = int(_f((p or {}).get('recycleEvery'))) if int(_f((p or {}).get('recycleEvery'))) in RECYCLE_EVERY else 3
@@ -596,6 +597,19 @@ def sell_usd(units, px, liq):
 
 # 💰 SKIM THE PROFIT, KEEP THE STAKE. A coin that is up keeps what was put into it riding; only the gain is sold — into the card's
 # other coins (♻ recovery for the ones that are down) or held as cash (🏦 e.g. a tax reserve the owner withdraws).
+# 🧷 AUTO PROFIT-TAKING NEVER EATS THE STAKE: every automatic take (skim, bank at the lock, peak sell, recycle) also sells a slice
+# of what was PUT INTO the coin. Repeated, a winner was whittled to nothing ($phubber: $0.56 in, +63%, $0.09 left riding). Once
+# those takes have removed `tpStakeUsd` of a coin's stake they stop for that coin; it rides on with stops / trail / rug shield.
+TP_STAKE_USD = 0.25
+TP_STAKES = (0, 0.1, 0.25, 0.5, 1.0)   # 0 = no limit (the old behaviour)
+
+
+def tp_room(l, cfg):
+    """$ of this coin's STAKE that automatic profit-taking may still sell (None = no limit)."""
+    lim = _f((cfg or {}).get('tpStakeUsd', TP_STAKE_USD))
+    return None if lim <= 0 else max(0.0, lim - _f(l.get('tpCostUsd')))
+
+
 SKIM_ATS = (0, 10, 20, 30, 50, 100)   # auto: skim each time the coin gains this % since its entry / last skim (0 = off)
 SKIM_TOS = ('card', 'cash')
 RECYCLE_PCTS = (0, 50, 70, 100)        # ♻ every `recycleEvery` rounds this % of each coin's PROFIT goes back over the card's coins (0 = off)
@@ -610,9 +624,15 @@ def lock_bank(c, l, px, liqs, now, cfg, fee=0.0, gain=None):
     bank = _f((cfg or {}).get('lockBankPct', LOCK_BANK)) / 100
     if bank <= 0 or l.get('bankedAt') or _f(l.get('units')) <= 0 or px <= 0:
         return 0.0
+    room = tp_room(l, cfg)
+    if room is not None and _f(l.get('costUsd')) > 0:
+        bank = min(bank, room / _f(l['costUsd']))        # 🧷 never more of the stake than the owner's limit leaves
+        if _f(l['units']) * bank * px < SKIM_MIN_USD:
+            return 0.0
     sold = _f(l['units']) * bank
     got = sell_usd(sold, px, (liqs or {}).get(l['pairAddress']) or l.get('liq'))
     cost_part = _f(l.get('costUsd')) * bank
+    l['tpCostUsd'] = round(_f(l.get('tpCostUsd')) + cost_part, 6)
     l['units'] = _f(l['units']) - sold; l['costUsd'] = round(_f(l.get('costUsd')) - cost_part, 6); l['trimAt'] = l['bankedAt'] = now
     c['cash'] = _f(c.get('cash')) + got; c['takenUsd'] = _f(c.get('takenUsd')) + max(0.0, got - cost_part); c['feesUsd'] = _f(c.get('feesUsd')) + fee
     g_txt = f" (+{gain:.0f}%)" if gain is not None else ''
@@ -621,7 +641,7 @@ def lock_bank(c, l, px, liqs, now, cfg, fee=0.0, gain=None):
     return got
 
 
-def _skim(c, l, px, liqs, now, to='card', fee=0.0, auto=None, frac=1.0, why=None):
+def _skim(c, l, px, liqs, now, to='card', fee=0.0, auto=None, frac=1.0, why=None, room=None):
     """Sell the PROFIT of one coin (or `frac` of it), in place. → $ taken (0 = nothing to take). With frac 1 the part that stays is
     worth what the coin cost."""
     units, cost = _f(l.get('units')), _f(l.get('costUsd'))
@@ -630,6 +650,11 @@ def _skim(c, l, px, liqs, now, to='card', fee=0.0, auto=None, frac=1.0, why=None
     if units <= 0 or px <= 0 or gain < SKIM_MIN_USD:
         return 0.0
     part = gain / value
+    if room is not None:                                  # 🧷 an AUTOMATIC take: capped by what the stake limit still allows
+        part = min(part, room / cost) if cost > 0 else part
+        if value * part < SKIM_MIN_USD:
+            return 0.0
+        l['tpCostUsd'] = round(_f(l.get('tpCostUsd')) + cost * part, 6)
     sold = units * part
     got = sell_usd(sold, px, (liqs or {}).get(l['pairAddress']) or l.get('liq'))
     l['units'] = units - sold; l['costUsd'] = round(cost * (1 - part), 6)
@@ -968,7 +993,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 continue
             px_s = _f(prices.get(l['pairAddress']))
             if px_s > 0 and px_s >= (_f(l.get('skimPx')) or _f(l['entry'])) * (1 + sk / 100):
-                _skim(c, l, px_s, liqs, now, cfg.get('skimTo') or 'card', fee, auto=sk)
+                _skim(c, l, px_s, liqs, now, cfg.get('skimTo') or 'card', fee, auto=sk, room=tp_room(l, cfg))
     # 🗑 TRENCH FILL: a card on the trench cycle holds its 1–2 trench coins as soon as the scan has one — it never waits up to
     # `cycleEvery` rounds for the next re-shape. The weakest normal runner (not winning > +10%, not frozen / riding / picked / waiting
     # on a buy) is sold for the best trench coin. No trench coin passing → the card keeps its normal runners.
@@ -1080,7 +1105,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             # cycling its other seats until the next one is found. Under the floor the ride really is over (swapped, as before).
             ps = _f(cfg.get('peakSellPct', PEAK_SELL))
             if g >= floor_g and 0 < ps < 100:
-                took = _skim(c, l, px, liqs, now, cfg.get('skimTo') or 'card', fee, frac=ps / 100,
+                took = _skim(c, l, px, liqs, now, cfg.get('skimTo') or 'card', fee, room=tp_room(l, cfg), frac=ps / 100,
                              why=f"🏔 ${l['symbol']} fell {rt:g}% from its peak (still {g:+.0f}%) — {ps:g}% of its profit sold, the rest keeps riding")
                 l['high'] = px   # the next {rt}% is counted from here
                 if took:
@@ -1255,7 +1280,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 if l.get('placeholder') or l.get('buying') or _f(l.get('units')) <= 0:
                     continue
                 px_r = _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
-                _skim(c, l, px_r, liqs, now, 'card', fee, frac=rp / 100,
+                _skim(c, l, px_r, liqs, now, 'card', fee, room=tp_room(l, cfg), frac=rp / 100,
                       why=f"♻ round {c['rounds']}: {rp:g}% of ${l.get('symbol')}'s profit recycled into the card's other coins — its stake keeps riding")
         # 📈 streaks: 3 losing rounds → the config is changed (safe cycle); 3 winning rounds → config locked + best coin frozen one round
         for l in c['legs']:   # a coin frozen for one round was protected through this rotation — now it's free again

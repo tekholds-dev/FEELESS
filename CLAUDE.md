@@ -1267,3 +1267,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   each safe coin showing a setup is noted once and settled 1h later (no price = −100%); `/fuses/forecast` → `entries[].proof` +
   `setups` (n, median, % up). Chips show the median only from 5 settled. `ENTRY_RAN` 150: more than +150% on the hour is not an
   entry (a launch pump read as a "breakout"). 🗣 `TRENCH_WORDS` in `lib/fuseGlossary.js` → FuseGuide tab "Trench talk".
+- 🧷 AUTO PROFIT KEEPS THE STAKE (`arena_prime.tp_room`, cfg `tpStakeUsd` 0/0.1/0.25/0.5/1, default 0.25, Edit Fuse › Exits; leg
+  `tpCostUsd`): every automatic take (skim, bank at the lock, peak sell, recycle) also sells a slice of the coin's COST; once those
+  takes removed that much stake they stop for that coin (it rides on with stops / trail / rug shield). The owner's 💰 / ✂ are never
+  limited. Found live: $phubber, $0.56 in, +63%, whittled to $0.09 riding. Old tests pin `tpStakeUsd: 0`.
+- 🎛 THE TRENCH FILTER FILTERS (`trench.band_miss`): the owner's own band is scanned FIRST (`_runner_live` raw pairs by `own_gate`,
+  `_trench_build` holder-count seats) — with "≤ 1h · $10K–$100K" none of the scanned coins were ever in that band, so it read 0
+  whatever was set. Picker rows: pass → near-miss (inside the age + cap band, only crowd / candles missed) → `outside` rows labelled
+  "not in filter" with the exact number ("6.3h old — filter ≤ 1h"). `/fuses/trench` adds `inBand` + `nearMiss`.

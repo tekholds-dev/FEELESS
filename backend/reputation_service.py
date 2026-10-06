@@ -5250,8 +5250,14 @@ async def _runner_live():
             seen.add(m); pairs.append(p)
     busiest = sorted(pairs, key=lambda p: -_fuse._f((p.get('volume') or {}).get('h1')))[:RUNNER_SCANS]   # warmed in the background (cached scans)
     # 🗑 trench breakouts get a holder scan too (they're rarely among the 40 busiest — the scan never reached them before)
-    busiest += [p for p in sorted((p for p in pairs if p not in busiest and _trench.market_pair(p, time.time() * 1000, _trench.widen(len(_trench.WIDEN) - 1))),
-                                  key=lambda p: -_fuse._f((p.get('volume') or {}).get('h1')))[:10]]
+    # 🎛 the OWNER's trench filter first: coins inside their own band (age, cap, trades, volume) are scanned before the engine's
+    # band — with "≤ 1h · $10K–$100K" set, none of the scanned coins were ever in that band, so the filter could only read 0
+    own_t = _trench.clean_own((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('trenchCfg'))
+    own_g = _trench.own_gate(own_t) if own_t['mode'] in ('own', 'meta') else None
+    by_vol = lambda p: -_fuse._f((p.get('volume') or {}).get('h1'))
+    mine_t = sorted((p for p in pairs if p not in busiest and own_g and _trench.market_pair(p, now_ms, own_g)), key=by_vol)[:10]
+    busiest += mine_t
+    busiest += sorted((p for p in pairs if p not in busiest and _trench.market_pair(p, now_ms, _trench.widen(len(_trench.WIDEN) - 1))), key=by_vol)[:max(4, 10 - len(mine_t))]
     # Never block the board on scans: wait ≤6s, the rest keep running and land in the cache for the next refresh.
     tasks = {(p.get('baseToken') or {}).get('address'): asyncio.ensure_future(_runner_intel((p.get('baseToken') or {}).get('address'))) for p in busiest}
     if tasks:
@@ -5493,7 +5499,8 @@ async def _trench_build(now):
     seen, pool = set(), []
     own0 = _trench.clean_own((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('trenchCfg'))
     # finalists by the LOOSEST soft checks (the strictest level that passes wins) — or by the owner's own checks
-    loose = _trench.loosest(_trench.own_gate(own0) if own0['mode'] == 'own' else None)   # wide enough for EVERY meta to have finalists
+    own_g0 = _trench.own_gate(own0) if own0['mode'] in ('own', 'meta') else None
+    loose = _trench.loosest(own_g0)   # wide enough for EVERY meta (and the owner's own filter) to have finalists
     every = list(_runner_cands) or (live.get('passing') or []) + (live.get('dropped') or [])
     _trench_cache['seen'], _trench_cache['funnel'] = len(every), _trench.funnel(every, loose)[:8]   # 🔎 why coins didn't make it
     # ⏩ coins that pass EVERY cheap check and only wait on their holder scan get it now (busiest 12), instead of waiting their turn
@@ -5504,7 +5511,8 @@ async def _trench_build(now):
     for r in every:
         if r.get('mint') and r['mint'] not in seen and not _trench.precheck(r, loose):
             seen.add(r['mint']); pool.append(r)
-    pool = sorted(pool, key=lambda r: -_fuse._f(r.get('vol1h')))[:TRENCH_SCAN]
+    # 🎛 coins that fit the OWNER's filter take the holder-count seats first (busiest first inside each group)
+    pool = sorted(pool, key=lambda r: (bool(own_g0) and bool(_trench.precheck(r, own_g0)), -_fuse._f(r.get('vol1h'))))[:TRENCH_SCAN]
     async def one(r):
         try:
             h = await asyncio.wait_for(_token_holders(r['mint']), 25)
@@ -5585,15 +5593,24 @@ async def fuse_trench(meta: str = Query('', max_length=20)):
                 'rules': f"≤ {g['maxAgeH']:g}h old · ${g['minMcap'] / 1000:g}K–${g['maxMcap'] / 1000:g}K cap · ≥ {g['minHolders']} holders · ≥ {g['minTxns1h']} trades/h · ≥ ${g['minVol1h'] / 1000:g}K 1h volume · safety checks as always"}
     have_ = {x.get('mint') for x in (_trench_cache.get('rows') or [])} | {x.get('mint') for x in (_trench_cache.get('checked') or []) if _trench.soft_only(x.get('fails'))} | {x.get('mint') for x in (_trench_cache.get('fallback') or [])}
     # 👀 never an empty picker: nothing passing and no near-miss → the busiest SAFE fresh coins that only miss soft checks right now
-    close_ = [] if have_ else [{**{k: c_.get(k) for k in keys}, 'score': c_.get('score'), 'soft': True, 'fails': fl_} for c_, fl_ in _trench.closest(_runner_cands, _trench.loosest())]
+    close_ = [] if have_ else [{**{k: c_.get(k) for k in keys}, 'score': c_.get('score'), 'soft': True, 'fails': fl_} for c_, fl_ in _trench.closest(_runner_cands, _trench.loosest(g if own['mode'] in ('own', 'meta') else None))]
+    # 🗑 pickable: the coins that pass — then the NEAR-MISSES (every safety check passed, only crowd / volume / candles missed, and
+    # INSIDE the filter's age + cap band) — then, flagged `outside`, safe coins that are NOT in the owner's band, each with the exact
+    # number that puts it outside ("6.3h old — filter ≤ 1h"). Never auto-seated; the owner may still pick one.
+    strict = own['mode'] in ('own', 'meta')
+    def tag(r):
+        miss = _trench.band_miss(r, g) if strict else []
+        return {**r, 'outside': True, 'soft': True, 'fails': miss} if miss else r
+    extra = [tag(x) for x in
+             [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'soft': True} for r in _trench_cache.get('checked') or [] if not r.get('ok') and _trench.soft_only(r.get('fails'))]
+             + [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'soft': True, 'fails': ['passes the engine scan']} for r in _trench_cache.get('fallback') or []] + close_]
+    seen_m, extra_u = {r.get('mint') for r in _trench_cache.get('rows') or []}, []
+    for x in sorted(extra, key=lambda x: bool(x.get('outside'))):
+        if x.get('mint') not in seen_m:
+            seen_m.add(x.get('mint')); extra_u.append(x)
     return {'cfg': own, 'metas': board, 'options': _trench.OWN_OPTIONS, 'checked': [{k: r.get(k) for k in keys} for r in _trench_cache.get('checked') or []], 'pass': len(_trench_cache.get('rows') or []),
-            # 🗑 pickable: the coins that pass — then the NEAR-MISSES (every safety check passed, only crowd / volume / band / age / candles
-            # missed): never auto-seated as a trench coin, but the owner may pick one (general pick floor, flagged `soft`)
-            'rows': [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'trench': True} for r in _trench_cache.get('rows') or []]
-                    + [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'soft': True} for r in _trench_cache.get('checked') or []
-                       if not r.get('ok') and _trench.soft_only(r.get('fails'))]
-                    + [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'soft': True, 'fails': ['outside your trench settings — it passes the engine scan']}
-                       for r in _trench_cache.get('fallback') or []] + close_,
+            'inBand': sum(1 for r in _runner_cands if not _trench.band_miss(r, g)), 'nearMiss': sum(1 for x in extra_u if not x.get('outside')),
+            'rows': [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'trench': True} for r in _trench_cache.get('rows') or []] + extra_u,
             'floor': _fw.clean_cfg(_fw_load().get('cfg') or {})['trenchMinLiqUsd'], 'level': _trench_cache.get('level'),
             'seen': _trench_cache.get('seen', 0), 'funnel': _trench_cache.get('funnel') or [],
             'at': _trench_cache.get('at'), 'rules': f"≤ {g['maxAgeH']:g}h old · broke ${g['minMcap'] / 1000:g}K · ≥ {g['minHolders']} holders · ≥ {g['minTxns1h']} trades/h · "

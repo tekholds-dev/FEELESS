@@ -275,3 +275,13 @@ def test_the_paper_record_works_for_any_named_read_not_only_metas():
     assert st['sweep']['done'][0]['pct'] == 20.0 and st['breakout']['done'][0]['pct'] == -100.0   # no price an hour later = a loss
     pr = trench.meta_proof(st, keys=keys)
     assert pr['sweep'] == {'n': 1, 'medPct': 20.0, 'wonPct': 100, 'open': 0, 'proven': False} and set(pr) == {'sweep', 'breakout'}
+
+
+def test_band_miss_says_in_numbers_why_a_coin_is_outside_the_owners_filter():
+    import trench
+    g = trench.own_gate(trench.clean_own({'mode': 'own', 'maxAgeH': 1, 'minMcap': 10000, 'maxMcap': 100000}))
+    assert trench.band_miss({'ageH': 0.4, 'mcap': 42000}, g) == []
+    assert trench.band_miss({'ageH': 6.28, 'mcap': 2_429_929}, g) == ['6.3h old — filter ≤ 1h', 'cap $2.4M — filter up to $100K']
+    assert trench.band_miss({'ageH': 0.2, 'mcap': 4000}, g) == ['cap $4K — filter from $10K'] and trench.band_miss({'mcap': 50000}, g) == ['age unknown']
+    # the owner's own filter widens which coins get the holder count (a $10K floor is under every meta's)
+    assert trench.loosest({**g, 'maxAgeH': 72})['maxAgeH'] == 72 and trench.loosest()['maxAgeH'] < 72
