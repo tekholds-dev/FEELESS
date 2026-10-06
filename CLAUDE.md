@@ -1485,3 +1485,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - ⇄ HAND SWAP is a door too: on a real card it obeys the min age + no dollar-named tickers, and with `newOnly` it brings a launch
   coin on ANY seat (movers first; the new leg's role becomes `runner`). It used to take the best coin of the SAME KIND — ⇄ on a
   major's seat is what kept buying $ORCA / $TRUMP (ledger: "⇄ swapped by hand"). READ THE EVENT'S WORDS before blaming the engine.
+- 🔎 PIPELINE (`_prime_tick` `_step`, card `pipeline` {steps, next, scout}, `PipeLine` under the real card): how many launch coins
+  survive each filter on the last tick — safe → wallet pool floor → up on the hour + buyers 55% → weather + min age → record
+  gate → the owner's hunt line → not on the card / not cooling. READ IT BEFORE TOUCHING A GATE: on 2026-10-06 it showed 62 safe,
+  10 clearing every owner setting and only ONE buyable — the cool-downs were the choke, not selection or RPC.
+- 🚀 A coin that is RUNNING NOW skips the long cool-downs (`cooling(.., running)`: movers by the default line or the card's hunt
+  line): "left at a loss → out until it recovers (≤ 24h)" and "removed by the owner → 6h" no longer hold it; "no back-to-back"
+  (3 rounds, 30 min after an owner removal) still does. A card whose owner swaps by hand all day had locked out its own best coins.

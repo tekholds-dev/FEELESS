@@ -204,22 +204,27 @@ def _stamp(v):
     return v if isinstance(v, dict) else {'at': _f(v)}
 
 
-def cooling(card, now, rotate_hours, prices=None):
+def cooling(card, now, rotate_hours, prices=None, running=()):
     """Mints this card dropped recently (still cooling down), plus loss exits still under their exit price.
     Counted in ROUNDS: a coin that left in round N sits out rounds N+1..N+3 and may come back at N+4 at the earliest (a time window
     alone let a coin sold mid-round back in on the 3rd bell — HIGGS was re-bought "within 3–4 rounds"). Old stamps without a round
     fall back to (COOL_ROUNDS + 1) rounds of time."""
     win = max(900.0, (COOL_ROUNDS + 1) * _f(rotate_hours) * 3600)
     rnd = int((card or {}).get('rounds') or 0)
+    # 🚀 `running` = coins that are MOVING right now (up on the hour on real volume). For them only the short "no back-to-back"
+    # rule holds: the long ones (left at a loss → out until it recovers, taken off by the owner → 6h) are about coins going
+    # nowhere. 2026-10-06: 10 coins cleared every one of the owner's settings and 9 of them were locked out by these two rules —
+    # the card "had not moved in an hour" while the coins it had already tried were the ones running.
+    run = set(running or ())
     # 🙅 a coin the OWNER swapped out (pick / hand swap) stays out for hours, not rounds: $PENGU was picked off the card three times
     # in one afternoon and the engine brought it back each time as soon as its 3 rounds were up
-    out = {m for m, at in ((card or {}).get('ownerOut') or {}).items() if now - _f(at) < OWNER_OUT_SEC}
+    out = {m for m, at in ((card or {}).get('ownerOut') or {}).items() if now - _f(at) < (max(win, 1800.0) if m in run else OWNER_OUT_SEC)}
     for m, v in ((card or {}).get('cool') or {}).items():
         s = _stamp(v); age = now - _f(s.get('at'))
         by_round = s.get('round') is not None and 'rounds' in (card or {}) and rnd >= int(s['round'])   # a restarted run (rounds back to 0) falls back to time
         if (rnd - int(s['round']) <= COOL_ROUNDS) if by_round else age < win:
             out.add(m)
-        elif s.get('loss') and age < LOSS_COOL_SEC and _f(s.get('px')) > 0:
+        elif s.get('loss') and age < LOSS_COOL_SEC and _f(s.get('px')) > 0 and m not in run:
             px = _f((prices or {}).get(s.get('pair')))
             if not px or px <= _f(s['px']):
                 out.add(m)

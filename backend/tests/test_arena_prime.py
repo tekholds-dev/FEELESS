@@ -1721,3 +1721,12 @@ def test_a_card_with_no_majors_or_pools_on_offer_fills_with_runners_and_never_cr
     assert all(l['role'] == 'runner' for l in out['legs'])
     few = ap.tick({**card, 'legs': card['legs'][:3]}, px, [], [r for r in runners if r['mint'] in {l['mint'] for l in card['legs'][:3]}], cfg, 800.0, [], {}, {})
     assert len(few['legs']) == 3                                             # nothing new qualifies → the seat waits, no old coin is pulled in
+
+
+def test_a_coin_that_is_running_now_skips_the_long_cool_downs_but_not_the_short_one():
+    card = {'rounds': 50, 'ownerOut': {'OWN': 1000.0}, 'cool': {'LOSS': {'at': 1000.0, 'round': 40, 'loss': True, 'px': 2.0, 'pair': 'LOSS'},
+                                                                'JUST': {'at': 9990.0, 'round': 49, 'loss': True, 'px': 2.0, 'pair': 'JUST'}}}
+    px = {'LOSS': 1.0, 'JUST': 1.0}
+    assert ap.cooling(card, 10000.0, 0.08, px) == {'OWN', 'LOSS', 'JUST'}                        # all three sit out as before
+    assert ap.cooling(card, 10000.0, 0.08, px, {'OWN', 'LOSS', 'JUST'}) == {'JUST'}              # running now: only "no back-to-back" holds
+    assert 'OWN' in ap.cooling({'ownerOut': {'OWN': 9500.0}}, 10000.0, 0.08, {}, {'OWN'})        # … and a coin the owner removed minutes ago still waits 30 min

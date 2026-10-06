@@ -559,7 +559,7 @@ export function HqRealCards({ addr, onCount }) {
       const cf = c.cfgEff || (d.lockCfg?.[c.tpl] ? { ...d.cfg, ...d.lockCfg[c.tpl] } : d.cfg);   // the config this card REALLY runs (real card = its own)
       return <div key={c.id} className="hq-real">
         <div className="hq-real-card"><LiveFuseCard r={primeRow(c)} aura={t.aura} look={t.look} label="💵 REAL · FUSE WALLET" serverOnly />
-          <CardVitals c={c} funded={b.fundedUsd || c.startUsd} onTrail={() => setTrail(c.id)} /><PickLog events={c.audit || c.events} /></div>
+          <CardVitals c={c} funded={b.fundedUsd || c.startUsd} onTrail={() => setTrail(c.id)} /><PickLog events={c.audit || c.events} /><PipeLine p={c.pipeline} /></div>
         {trail === c.id && <CardEarnings title={c.label} onClose={() => setTrail(null)} taken={c.walletUsd || 0} compounded={c.compoundedUsd} fees={c.cardFeesUsd}
           gainNow={allTime(c, b.fundedUsd || c.startUsd)} events={(c.audit || c.events || []).map(e => ({ ...e, label: KIND[e.kind] || VITAL_KIND[e.kind] || e.kind }))} />}
         <div className="hq-real-track">
@@ -667,6 +667,16 @@ const PICK_STABLES = new Set(['USDC', 'USDT', 'USDS', 'PYUSD', 'USD1', 'DAI', 'U
 export const isFalling = (m5, h1) => (m5 != null && Number(m5) <= -3) || (h1 != null && Number(h1) <= -8);   // = arena_prime.entry_ok
 export const pickRow = r => ({ mint: r.mint || r.baseAddress, pairAddress: r.pairAddress, symbol: r.symbol, price: r.price ?? r.priceUsd, liq: r.liq ?? r.liquidityUsd,
   chg: r.chg1h ?? r.change1h ?? r.chg24h ?? r.change24h, chg1h: r.chg1h ?? r.change1h ?? null, chg5m: r.chg5m ?? r.change5m ?? null, score: r.score, impostor: r.impostor, real: r.real, trench: r.trench, holders: r.holders, soft: r.soft, outside: r.outside, curve: r.curve, div: r.divisionLabel, watch: r.watch, fails: r.fails, warn: r.warn, pulse: r.pulse, stock: r.stock, ageH: r.ageH ?? null });
+// 🔎 Why the card has (or has not) a new coin to buy: how many launch coins survive each of its filters, live from the last tick
+export function PipeLine({ p }) {
+  if (!p?.steps?.length) return null;
+  const max = Math.max(1, ...p.steps.map(x => x[1]));
+  return <details className="hrt-pipe" data-testid="pipeline"><summary>🔎 New coins: {p.steps[0][1]} safe → <b className={p.steps[p.steps.length - 1][1] ? 'm-pos' : 'm-neg'}>{p.steps[p.steps.length - 1][1]} buyable now</b>{p.next?.length ? ` · ${p.next[0]}` : ''}</summary>
+    <ol>{p.steps.map(([l, n], i) => <li key={l} style={{ '--i': i }}><span><i style={{ transform: `scaleX(${Math.max(0.02, n / max)})` }} /></span><b className="m-num">{n}</b><small>{l}</small></li>)}</ol>
+    {p.scout?.length > 0 && <small className="m-dim">🔭 the scout could take: {p.scout.join(' · ')}</small>}
+    <small className="m-dim">The biggest drop between two lines is the setting that is holding coins back.</small></details>;
+}
+
 export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, cool = {}, call, verify = false }) {
   const [nonce, setNonce] = useState(0);   // bumps when the trench settings are saved → the list reloads
   const [lens, setLens] = useState('movers'); const [rows, setRows] = useState(null); const [q, setQ] = useState('');

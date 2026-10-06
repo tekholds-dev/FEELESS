@@ -395,6 +395,14 @@ body.theme-day .hrt-fold { background: #fff; border-color: #d8e2dc; } body.theme
 .ce-row > span { flex: 1 1 240px; min-width: 0; display: grid; gap: 3px; } .ce-row > .m-seg { flex: 0 1 auto; max-width: 100%; }
 .ce-row.is-wide > span { flex-basis: 100%; }
 .ce-adv { margin: 8px 0 2px; width: 100%; justify-content: center; }
+.hrt-pipe { margin: 8px auto 0; max-width: 330px; padding: 8px 10px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--m-accent) 25%, transparent); background: rgba(0, 0, 0, .25); font-size: 11.5px; }
+.hrt-pipe > summary { cursor: pointer; list-style: none; transition: opacity .15s; } .hrt-pipe > summary::-webkit-details-marker { display: none; } .hrt-pipe > summary:hover { opacity: .85; } .hrt-pipe > summary:active { opacity: .7; }
+.hrt-pipe > summary:focus-visible { outline: 1px solid var(--m-accent); outline-offset: 3px; border-radius: 4px; }
+.hrt-pipe ol { list-style: none; margin: 8px 0 6px; padding: 0; display: grid; gap: 4px; } .hrt-pipe li { display: grid; grid-template-columns: 54px 26px minmax(0, 1fr); align-items: center; gap: 7px; animation: hrtIn .2s ease-out both; animation-delay: calc(var(--i, 0) * 45ms); }
+.hrt-pipe li span { height: 6px; border-radius: 5px; background: color-mix(in srgb, var(--m-line) 60%, transparent); overflow: hidden; } .hrt-pipe li i { display: block; height: 100%; background: var(--m-accent); transform-origin: left; transition: transform .4s ease-out; }
+.hrt-pipe li .m-num { font-size: 11.5px; text-align: right; } .hrt-pipe li small, .hrt-pipe > small { color: var(--m-dim); font-size: 10.5px; display: block; }
+body.fx-lite .hrt-pipe li { animation: none; } @media (prefers-reduced-motion: reduce) { .hrt-pipe li { animation: none; } .hrt-pipe li i { transition: none; } }
+body.theme-day .hrt-pipe { background: #fff; border-color: #bfe0cf; } body.theme-day .hrt-pipe li span { background: #dbe8e1; }
 .ce-sub { margin: 14px 0 0; padding: 0 0 2px; font-size: 10px; letter-spacing: .16em; color: var(--m-accent); border: 0; }
 .ce-group > .ce-sub:first-child { margin-top: 6px; }
 .ce-wallet { margin: 10px 0 2px; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--gold) 5%, transparent); }

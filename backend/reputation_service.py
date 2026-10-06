@@ -6071,9 +6071,19 @@ async def _prime_tick_inner(now):
         # there is NO fallback to thin pools — that fallback dealt coins the keeper then refused ("pool too thin") while the slot sat in cash
         mg = REAL_LIQ_MARGIN if real_t else 1.0
         p_t = [x for x in pools if _lq(x) >= floor_of(x) * mg] or ([] if real_t else pools)
-        r_t = [x for x in runners if _lq(x) >= floor_of(x) * mg and _confirmed(x)]
+        # 🔎 PIPELINE (real cards): how many launch coins survive each step — shown on the card, so "why no new coin" is a number
+        fun_ = []
+        def _step(label, rows):
+            if real_t:
+                fun_.append([label, len([x for x in rows if not x.get('trenchOnly')])])
+        _step('launch coins that pass every safety gate', runners)
+        r_t = [x for x in runners if _lq(x) >= floor_of(x) * mg]
+        _step(f'pool at least ${floor_of({}) * mg / 1000:,.0f}K (Fuse wallet min pool)', r_t)
+        r_t = [x for x in r_t if _confirmed(x)]
+        _step('up on the hour with buyers at 55%+', r_t)
         if real_t:   # 🌦 real money buys runners by the weather the engine's own sims measured (rain = strong + deep only · storm = none)
             r_t = _prime.weather_runners(r_t, _real_weather()['level'], _fw.clean_cfg(fw_cfg)['minLiqUsd'], _lq, cfg_t)
+            _step(f"runner weather ({_real_weather()['level']}) + min age {_fuse._f(cfg_t.get('runnerMinAgeH')):g}h", r_t)
         else:   # 📄 paper = what real money could buy: no runner under 12h old (unknown age = out) — the paper Arena cards bled on launch pumps
             r_t = _prime.weather_runners(r_t, 'clear', 0, _lq, cfg_t)
         # 🗑 trench coins (strict gate, cached by the warm loop) — only a 🗑 trench slot ever takes one; own pool floor; real money
@@ -6170,14 +6180,17 @@ async def _prime_tick_inner(now):
         new_only_ = bool(real_t and cfg_t.get('newOnly'))
         if new_only_:
             p_t = []
+        _step('not too young · not dollar-named · record gate', r_t)
         r_pre_ = list(r_t)   # 🔭 the scout's small ticket may take any SAFE mover (age + checks passed), not only coins on the card's full hunt line
         if real_t:   # 🏊 the owner's own runner pool floor (off unless they set it)
             r_t = _prime.deep_runners(r_t, cfg_t.get('runnerMinLiqK'), cfg_t.get('runnerMinBuy'), cfg_t.get('runnerMinVolK'), cfg_t.get('runnerMinChg1h'))
+            _step('your hunt line (pool · volume · 1h move · buyers)', r_t)
         mine = {l.get('mint') for l in (cur or {}).get('legs') or []}
         p_t = [x for x in p_t if x.get('mint') not in taken or x.get('mint') in mine]
         r_t = [x for x in r_t if x.get('mint') not in taken or x.get('mint') in mine]
         a_t = anchors
-        cool = _prime.cooling(cur, now, cfg_t['rotateHours'], px) - mine   # 🧊 coins this card just dropped sit out a few rounds → new coins flow in
+        run_ = {x.get('mint') for x in _prime.movers(r_pre_, {}) + _prime.movers(r_pre_, cfg_t)} if real_t else set()   # 🚀 running now → only the short cool-down
+        cool = _prime.cooling(cur, now, cfg_t['rotateHours'], px, run_) - mine   # 🧊 coins this card just dropped sit out a few rounds → new coins flow in
         if cool:
             # 💵 A real stop must stay stopped. Falling back to the unfiltered
             # list when discovery was thin caused sell→immediate-rebuy churn.
@@ -6224,6 +6237,13 @@ async def _prime_tick_inner(now):
                 true_usd = _fw.book_value(bk, px, sol_px_t) or None
         cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, a_t, mom, liqs, true_usd=true_usd, blind=bool(real_t and true_usd is None)) if cur else _prime.deal(tid, p_t, r_t, cfg_t, now, [] if new_only_ else anchors)
         cards[tid] = _prime.note_dropped(cur, cards[tid], now, cfg_t['rotateHours'], px)
+        if real_t and cards[tid]:
+            on_ = {l.get('mint') for l in cards[tid].get('legs') or []}
+            free_ = [x for x in r_t if x.get('mint') not in on_ and not x.get('trenchOnly')]
+            scout_ = [x for x in _prime.movers(r_pre_, {}) if x.get('mint') not in on_]
+            cards[tid]['pipeline'] = {'at': now, 'steps': fun_ + [['not on the card and not cooling', len(free_)]],
+                                      'next': [f"${x.get('symbol')} {_fuse._f(x.get('chg1h')):+.0f}%" for x in sorted(free_, key=lambda x: -_fuse._f(x.get('chg1h')))[:4]],
+                                      'scout': [f"${x.get('symbol')} {_fuse._f(x.get('chg1h')):+.0f}%" for x in scout_[:4]]}
         taken |= {l.get('mint') for l in (cards[tid] or {}).get('legs') or [] if l.get('role') != 'anchor'}
     cards = {k: v for k, v in cards.items() if v}
     try:   # 📏 vs holding SOL: remember SOL's price when each run starts (a new run = a new startUsd)
@@ -6333,7 +6353,7 @@ async def _prime_view():
                 'pendingPayoutUsd': round(max(0.0, _fuse._f(c.get('walletUsd')) - _fuse._f(b.get('bankUsd'))), 4),
                 'math': {**sm.get('math', {}), 'putIn': round(_fuse._f(b.get('fundedUsd')) or start, 4), 'runStartUsd': round(start, 4), 'heldUsd': round(held, 4), 'paidOutUsd': round(paid, 4),
                          'nowUsd': v, 'feesUsd': card_fees, 'pnlUsd': round(v + card_fees - (_fuse._f(b.get('fundedUsd')) or start), 4)}}   # P&L = price result; fees apart
-    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'seatPick': c.get('seatPick'), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'holdAll': bool(c.get('holdAll')), 'pickCool': {}, 'handsOffUntil': c.get('handsOffUntil') if _prime.hands_off_left(c, time.time()) else None, 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl'], sm.get('valueUsd'), sol_now, px) if c.get('real') else None,
+    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'seatPick': c.get('seatPick'), 'pipeline': c.get('pipeline'), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'holdAll': bool(c.get('holdAll')), 'pickCool': {}, 'handsOffUntil': c.get('handsOffUntil') if _prime.hands_off_left(c, time.time()) else None, 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl'], sm.get('valueUsd'), sol_now, px) if c.get('real') else None,
              'audit': [{k: e.get(k) for k in ('at', 'kind', 'symbol', 'usd', 'why', 'to', 'mode')} for e in (c.get('events') or [])[-40:][::-1]]} for c in cards.values()]
 
 
