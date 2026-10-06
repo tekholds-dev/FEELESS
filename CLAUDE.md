@@ -1603,3 +1603,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   setting → 1). ⏭ Coming up is never blank: ready rows (NEXT / 2ND …) then 👀 watching rows (`pipeline.up[].wait` = the reason, dashed,
   gold), which the owner may still swap in by hand. "N READY · M WATCHING" in the label.
   `META_MIN_POS` 0.34: a RANGING coin in the bottom third of its 4h range is watched, not bought (record: bottom third −31% typical vs top −2%).
+- 🎨 CHART BACKGROUNDS (`lib/chartBg.js` `CHART_BGS` + `useChartBg` — ONE choice for every chart, localStorage `feeless.chartBg`;
+  `components/terminal/ChartBg.jsx` + `styles/chartBg.css` `cbg-*`; picker `chart-bg-pick` in the TrenchChart toolbar): ▫ Default ·
+  ⚛ Fuse reactor (3 gyroscope rings + ions around the mark) · 🌀 Warp gate (gates + FUSE flying out of the vanishing point) ·
+  🧬 Fuse helix (a double strand turning in true 3D) · 🐱 FeeCat prowl (the cat swaying, paw prints, flipping FEE coins). The scene
+  is a layer BEHIND the candles: `PriceChart` makes its own background `transparent` while one is on (`bgOn`; the chart is rebuilt
+  on the switch) and falls back to the plain chart in fx-lite / reduced motion. perspective + preserve-3d, transform / opacity
+  only, `.cbg` in `FX_SURFACES`, marks ≤ 28% opacity so candles stay readable. New scene ⇒ `CHART_BGS` + a `kind` branch + CSS + test.
+  The Browser pane's screenshots lag one frame behind the DOM while it is in the background — screenshot twice before judging.

@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ChartBg } from './ChartBg';
+import { useChartBg } from '../../lib/chartBg';
 import { createChart, createSeriesMarkers, CandlestickSeries, HistogramSeries, LineSeries, ColorType } from 'lightweight-charts';
 import { useMarket } from '../../hooks/useMarket';
 import { dexUrl, formatUSD } from '../../lib/dexscreener';
@@ -49,6 +51,11 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   const [candleProvider, setCandleProvider] = useState('');
   const [candlesLoaded, setCandlesLoaded] = useState(false);
   const priceMetric = metric === 'price';
+  const bgKind = useChartBg();
+  const [fxLite, setFxLite] = useState(() => typeof document !== 'undefined' && (document.body.classList.contains('fx-lite') || !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches));
+  useEffect(() => { if (typeof document === 'undefined') return undefined; const sync = () => setFxLite(document.body.classList.contains('fx-lite') || !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+    const o = new MutationObserver(sync); o.observe(document.body, { attributes: true, attributeFilter: ['class'] }); return () => o.disconnect(); }, []);
+  const bgOn = bgKind !== 'default' && !fxLite;   /* lite mode / reduced motion = the plain chart, whatever was picked */
   const [dayMode, setDayMode] = useState(() => typeof document !== 'undefined' && document.body.classList.contains('theme-day'));
   // Candles come only from the FEELESS candle service (Jupiter/Alchemy/Helius behind a shared cache + our own ticks).
   const { data, loading, error } = useMarket(null);
@@ -135,7 +142,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     const chart = createChart(container.current, {
       autoSize: true,
       layout: {
-        background: { type: ColorType.Solid, color: dayMode ? '#edf4ef' : '#080e0d' },
+        background: { type: ColorType.Solid, color: bgOn ? 'transparent' : dayMode ? '#edf4ef' : '#080e0d' },   /* 🎨 a picked scene shows through */
         textColor: dayMode ? '#315b43' : '#8c9b94',
         fontFamily: 'JetBrains Mono',
         fontSize: 10,
@@ -228,7 +235,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     };
     ts.subscribeVisibleLogicalRangeChange(onRange);
     return () => { ts.unsubscribeVisibleLogicalRangeChange(onRange); seriesRef.current = null; markersRef.current = null; chart.remove(); };
-  }, [displayCandles, trail, hasChart, dayMode, showVolume, chartStyle]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [displayCandles, trail, hasChart, dayMode, showVolume, chartStyle, bgOn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Meta overlays (Trenches calls, Fee's trades) snapped to the candle they happened in.
   useEffect(() => {
@@ -376,7 +383,8 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   const feePnlUsd = solUsd && feePnl != null ? Number(feePos?.costSol || 0) * solUsd * feePnl / 100 : null;
   const shortPct = v => (Math.abs(v) >= 1000 ? `${(v / 100 + 1).toFixed(1)}x` : `${v >= 0 ? '+' : ''}${v.toFixed(Math.abs(v) >= 100 ? 0 : 1)}%`);
   const usd = v => `${v < 0 ? '−' : '+'}$${Math.abs(v) >= 1000 ? `${(Math.abs(v) / 1000).toFixed(1)}K` : Math.abs(v).toFixed(2)}`;
-  return <div className="chart-area" data-testid="price-chart">
+  return <div className={`chart-area ${bgOn ? 'has-bg' : ''}`} data-testid="price-chart">
+    {bgOn && <ChartBg kind={bgKind} />}
     {feeLive && feePos && feePnl != null && <div className={`fee-pnl ${feePnl >= 0 ? 'up' : 'down'}`} data-testid="fee-pnl"><span>🐱 Fee is in</span><b>{shortPct(feePnl)}</b>{feePnlUsd != null && <b className="fee-pnl-usd">{usd(feePnlUsd)}</b>}<small>{Number(feePos.costSol).toFixed(2)} SOL{solUsd ? ` ($${(Number(feePos.costSol) * solUsd).toFixed(2)})` : ''}{feePos.peakChange ? ` · peak +${Number(feePos.peakChange).toFixed(1)}%` : ''}</small></div>}
     {charting && !candlesLoaded && <div className="chart-message" data-testid="chart-loading"><span className="loader" />Loading on-chain candles…</div>}
     {charting && !loading && usingFallbackTrail && trail.length < 2 && <div className="chart-message chart-building" role="status" data-testid="chart-building">
