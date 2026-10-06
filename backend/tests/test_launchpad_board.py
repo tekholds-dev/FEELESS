@@ -17,4 +17,11 @@ def test_jupiter_mover_rows_become_launch_candidates_only_for_launchpad_mints():
     assert c['mint'] == 'AbCpump' and c['launchpad'] == 'pump' and c['marketCap'] == 740000 and c['createdAt'] > 1.7e12 and c['socials'] == 1 and c['mover']
     assert lb.jup_candidate({'id': 'XyZbonk', 'symbol': 'B'})['launchpad'] == 'bonk' and lb.jup_candidate({'id': 'XyZbonk'})['createdAt'] == 0.0
     assert lb.jup_candidate({'id': 'So11111111111111111111111111111111111111112'}) is None and lb.jup_candidate({}) is None and lb.jup_candidate(None) is None
+    now = 1_800_000_000_000
+    young = {'id': 'StonkMint111', 'symbol': 'COW', 'launchpad': 'stonkfun', 'mcap': 90000, 'firstPool': {'createdAt': '2027-01-14T00:00:00Z'}}
+    c2 = lb.jup_candidate(young, now)                                              # any venue while it is young
+    assert c2['launchpad'] == 'other' and c2['platformName'] == 'stonkfun' and 'jup.ag' in c2['url'] and lb.LAUNCHPAD_LABELS['other']
+    assert lb.jup_candidate({**young, 'firstPool': {'createdAt': '2025-01-01T00:00:00Z'}}, now) is None    # an old coin from another venue is not a launch
+    assert lb.jup_candidate({'id': 'NoAge111', 'symbol': 'X'}, now) is None                                # unknown age = out
+    assert lb.jup_candidate({'id': 'Tagged111', 'launchpad': 'pump.fun', 'symbol': 'P'}, now)['launchpad'] == 'pump'
     assert ('toptrending', '1h') in lb.JUP_LISTS

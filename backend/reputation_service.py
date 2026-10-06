@@ -6164,6 +6164,7 @@ async def _prime_tick_inner(now):
                     l_.pop('swapTo', None)
                     cur['events'] = list(cur.get('events') or []) + [{'at': now, 'kind': 'rotate', 'symbol': to_.get('symbol'), 'usd': 0.0,
                                                                        'why': f"✅ your pick ${to_.get('symbol')} failed verification before the bell ({bad_[0]}) — not bought, ${l_.get('symbol')} stays"}]
+        r_pre_ = list(r_t)   # 🔭 the scout's small ticket may take any SAFE mover (age + checks passed), not only coins on the card's full hunt line
         if real_t:   # 🏊 the owner's own runner pool floor (off unless they set it)
             r_t = _prime.deep_runners(r_t, cfg_t.get('runnerMinLiqK'), cfg_t.get('runnerMinBuy'), cfg_t.get('runnerMinVolK'), cfg_t.get('runnerMinChg1h'))
         mine = {l.get('mint') for l in (cur or {}).get('legs') or []}
@@ -6186,7 +6187,8 @@ async def _prime_tick_inner(now):
         # a scout that proves itself is promoted to a full-size holder (arena_prime.scout_step).
         if real_t and cur and _fuse._f(cfg_t.get('scoutPct')) > 0 and now - _fuse._f(cur.get('scoutAt')) >= max(120.0, _fuse._f(cfg_t.get('rotateHours')) * 3600 * 0.9):
             was_ = cur
-            nw_ = _prime.scout_step(cur, px, [x for x in _prime.movers(r_t, cfg_t) if x.get('mint') not in mine], cfg_t, now, p_t, anchors)
+            hot_s = [x for x in _prime.movers(r_t, cfg_t) + _prime.movers(r_pre_, {}) if x.get('mint') not in mine and x.get('mint') not in cool and x.get('mint') not in taken]
+            nw_ = _prime.scout_step(cur, px, list({x['mint']: x for x in reversed(hot_s)}.values())[::-1], cfg_t, now, p_t, anchors)
             if nw_ is not cur:
                 cur = _prime.note_dropped(was_, {**nw_, 'scoutAt': now}, now, cfg_t['rotateHours'], px)
         elif real_t and cur and cfg_t.get('moverSwap', True) and not cur.get('holdAll') and not cur.get('flooredAt') and now - _fuse._f(cur.get('moverAt')) >= _prime.MOVER_EVERY_SEC:
@@ -6400,7 +6402,8 @@ async def fuse_prime_admin(request: Request):
                 _fw_save(fd)
     if isinstance(body.get('trenchCfg'), dict):   # 🎛 the owner's trench settings (auto = engine widens by itself · own = these numbers)
         async with _admin_lock:
-            d = _json_load(FUSE_HQ_PATH, {}); d.setdefault('prime', {})['trenchCfg'] = _trench.clean_own(body['trenchCfg'])
+            # a PATCH: only the keys sent change (the editor used to post its whole, up-to-30s-old copy and put an old mode back)
+            d = _json_load(FUSE_HQ_PATH, {}); d.setdefault('prime', {})['trenchCfg'] = _trench.clean_own({**((d.get('prime') or {}).get('trenchCfg') or {}), **body['trenchCfg']})
             _json_save(FUSE_HQ_PATH, d)
         _trench_judge()             # the finalists already scanned are re-judged NOW by the new rules
         _trench_cache['at'] = 0.0   # … and a fresh scan runs on the next warm pass

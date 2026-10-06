@@ -394,6 +394,7 @@ body.theme-day .hrt-fold { background: #fff; border-color: #d8e2dc; } body.theme
 .ce-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; }
 .ce-row > span { flex: 1 1 240px; min-width: 0; display: grid; gap: 3px; } .ce-row > .m-seg { flex: 0 1 auto; max-width: 100%; }
 .ce-row.is-wide > span { flex-basis: 100%; }
+.ce-adv { margin: 8px 0 2px; width: 100%; justify-content: center; }
 .ce-sub { margin: 14px 0 0; padding: 0 0 2px; font-size: 10px; letter-spacing: .16em; color: var(--m-accent); border: 0; }
 .ce-group > .ce-sub:first-child { margin-top: 6px; }
 .ce-wallet { margin: 10px 0 2px; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--gold) 5%, transparent); }

@@ -303,7 +303,7 @@ export function TrenchScan({ call, bare, onSaved }) {
   const own = d.cfg || { mode: 'auto' }; const mine = own.mode === 'own'; const onMeta = own.mode === 'meta' ? own.meta : '';
   const metaName = k => ((d.metas || []).find(m => m.key === k) || {}).label || k;
   const save = async patch => { if (!call) return; setBusy(true);
-    try { await call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ trenchCfg: { ...own, ...patch } }) }); toast.success('Trench settings saved — the list is re-judged now, a fresh scan follows (≤ 2 min)'); await load(); onSaved?.(); }
+    try { await call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ trenchCfg: patch /* only what changed — the server merges it */ }) }); toast.success('Trench settings saved — the list is re-judged now, a fresh scan follows (≤ 2 min)'); await load(); onSaved?.(); }
     catch (e) { toast.error(e.message || 'Could not save'); } finally { setBusy(false); } };
   return <div className="tscan" data-testid="trench-scan"><span className="m-label">🗑 TRENCH SCAN · {d.pass || 0} PASS NOW{d.nearMiss != null && !d.view ? ` · ${d.nearMiss} NEAR-MISS · ${d.inBand || 0} IN YOUR BAND` : ''}{d.view ? ` · 👁 VIEWING ${metaName(d.view)}` : mine ? ' · 🎛 YOUR SETTINGS' : onMeta ? ` · 🧪 ${metaName(onMeta)}` : Number(d.level) > 0 ? ` · 🔧 WIDENED ×${d.level}` : ''}</span>
     {(d.metas || []).length > 0 && <div className="tscan-metas" role="group" aria-label="Trench metas" data-testid="trench-metas">{d.metas.map(m => { const on = call ? onMeta === m.key : view === m.key;
@@ -356,33 +356,38 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest }) {
   const rows = keys => keys.map(k => EDIT.find(e => e[0] === k)).filter(Boolean).map(rowX);
   const churn = (cfg?.rotateHours || 1) < 0.25 && (cfg?.rotateConfirm || 1) < 3;   // 5-min rounds + low patience = swaps on noise (fees, missed buys)
   const [grp, setGrp] = useState('setup');
+  const [adv, setAdv] = useState(false);   // 🎛 MAIN = the six dials that decide a card; everything else is one tap away, never on top
   const sub = t => <h5 className="m-label ce-sub" key={`h-${t}`}>{t}</h5>;
   const on = k => Number(cfg?.[k]) > 0;   // a setting's follow-up rows show only while it is switched on (less to read)
   const trenchOn = String((cfg?.cycles || {})[c.tpl] || '').split(',').includes('trench');
   return <details className="hrt-edit" data-testid="card-editor"><summary>⚙ Edit Fuse {real ? '· this card’s own settings' : locked ? '· 🔒 locked — edits change only this Fuse' : '· this card\'s own exits, patience + hold · shape is shared'}</summary>
-    <div className="m-seg ce-tabs" role="tablist" aria-label="Config groups">{CFG_GROUPS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={grp === k} className={grp === k ? 'active' : ''} data-tip={tip} onClick={() => setGrp(k)} data-testid={`ce-tab-${k}`}>{l}</button>)}</div>
-    <div className="ce-group" key={grp} data-testid={`ce-pane-${grp}`}>
-      {grp === 'setup' && <><StrategyPicks hours={cfg?.rotateHours || 1} current={cfg} busy={busy} selection={real} onApply={s => saveExit(stratPatch(s.cfg, real))} testid={`strats-${c.tpl}`} />
+    {adv && <div className="m-seg ce-tabs" role="tablist" aria-label="Config groups">{CFG_GROUPS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={grp === k} className={grp === k ? 'active' : ''} data-tip={tip} onClick={() => setGrp(k)} data-testid={`ce-tab-${k}`}>{l}</button>)}</div>}
+    <div className="ce-group" key={adv ? grp : 'main'} data-testid={`ce-pane-${adv ? grp : 'main'}`}>
+      {!adv && <>{sub('1 · PICK A SETUP')}<StrategyPicks hours={cfg?.rotateHours || 1} current={cfg} busy={busy} selection={real} onApply={s => saveExit(stratPatch(s.cfg, real))} testid={`strats-${c.tpl}`} />
+        {sub('2 · THE SIX DIALS THAT DECIDE A CARD')}{rows(['rotateHours', 'coins', 'minHoldMins', 'scoutPct', 'runnerMinAgeH', 'sl'])}
+        <p className="m-note">That is everything most cards need. A setup above sets the rest for you.</p></>}
+      {adv && grp === 'setup' && <><StrategyPicks hours={cfg?.rotateHours || 1} current={cfg} busy={busy} selection={real} onApply={s => saveExit(stratPatch(s.cfg, real))} testid={`strats-${c.tpl}`} />
         <EnginePick suggest={suggest} cfg={cfg} busy={busy} save={save} />
         <p className="m-note">“Use this” sets the exits{real ? ' and what the card buys' : ''} in one tap. Every setting it touches is in the other tabs, where you can change any of them.</p></>}
-      {grp === 'coins' && <>{sub('HOW MANY · WHICH MIX')}{rows(['coins'])}
+      {adv && grp === 'coins' && <>{sub('HOW MANY · WHICH MIX')}{rows(['coins'])}
         <div className="ce-row is-wide"><span><b>🔄 Cycle</b><small>The shapes this card moves through (anchor · mixed · degen · safest …)</small></span><div className="m-seg">{CYCLES.map(([v, t]) => <button key={v} type="button" disabled={busy} className={(cfg?.cycles || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ cycles: { ...(cfg?.cycles || {}), [c.tpl]: v } })}>{t}</button>)}</div></div>
         {rows(['cycleEvery', ...(trenchOn ? ['trenchCoins', 'trenchStakePct', 'trenchSlPct'] : [])])}
         {trenchOn && <TrenchScan call={call} />}
         {sub(real ? 'LAUNCH COINS THE CARD MAY BUY' : 'LAUNCH COINS')}
-        {rows(['scoutPct', 'moverSwap', 'runnerMinAgeH', 'runnerMinLiqK', 'runnerMinVolK', 'runnerMinChg1h', 'runnerMinBuy'])}
+        {rows(['scoutPct', ...(on('scoutPct') ? [] : ['moverSwap']), 'runnerMinAgeH', 'runnerMinLiqK', 'runnerMinVolK', 'runnerMinChg1h', 'runnerMinBuy'])}
         {sub('CHECKS')}{rows(['edgeGate', ...(cfg?.edgeGate !== false ? ['edgeFloor'] : []), ...(real ? ['pickVerify'] : [])])}
         {!real && <div className="ce-row"><span><b>🔒 Lock tier</b><small>Freeze this tier's whole config so engine tunes never change it</small></span><div className="m-seg">{[[true, 'locked'], [false, 'free']].map(([v, t]) => <button key={t} type="button" disabled={busy} className={!!locked === v ? 'active' : ''} onClick={() => { setBusy(true); call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ lock: c.tpl, on: v }) }).then(() => { toast.success(v ? '🔒 Locked' : 'Unlocked'); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy(false)); }}>{t}</button>)}</div></div>}</>}
-      {grp === 'rounds' && <>{rows(['rotateHours', 'rotateConfirm', 'rotateMinDrop', 'minHoldMins', 'swapEdge', 'swapCapHr'])}
+      {adv && grp === 'rounds' && <>{rows(['rotateHours', 'rotateConfirm', 'rotateMinDrop', 'minHoldMins', 'swapEdge', 'swapCapHr'])}
         {c.swapCap && <p className="m-note" data-testid="swap-cap-why">{c.swapCap.why} · used {c.swapCap.used || 0}{c.swapCap.cap ? ` of ${c.swapCap.cap}` : ''} this hour</p>}
         {churn && <p className="m-note ce-warn" data-testid="churn-warn">⚠ Round rotation is aggressive at {Math.round((cfg?.rotateHours || 0) * 60)}m with patience {cfg?.rotateConfirm || 1}. The ⚡ instant swap (Exits) is separate and fires immediately at its loss.
           <button type="button" className="m-btn" disabled={busy} onClick={() => save({ rotateConfirm: 3 })}>Use 3</button></p>}</>}
-      {grp === 'exits' && <>{sub('A LOSING COIN')}{rows(['sl', 'instantSwapPct', 'slMode'])}
+      {adv && grp === 'exits' && <>{sub('A LOSING COIN')}{rows(['sl', 'instantSwapPct', 'slMode'])}
         {sub('A WINNING COIN')}{rows(['rideAt', ...(on('rideAt') ? ['rideTrail', 'peakSellPct', 'lockBankPct'] : []), 'tp', 'keepWinPct'])}
         {sub('TAKING PROFIT AUTOMATICALLY')}{rows(['skimAt', ...(on('skimAt') ? ['skimTo'] : []), 'recyclePct', ...(on('recyclePct') ? ['recycleEvery'] : []), 'tpStakeUsd'])}</>}
-      {grp === 'safety' && rows(['floorPct', 'floorRestMins', 'rescuePct', 'autoBrain'])}
+      {adv && grp === 'safety' && rows(['floorPct', 'floorRestMins', 'rescuePct', 'autoBrain'])}
     </div>
     <small className="m-dim">{real ? 'These settings belong to this card only — engine tunes and paper edits never change them.' : 'Clock, exits, patience and hold are this card\'s own (no two cards share them); shape, floor and safety are shared by every paper tier that isn\'t 🔒 locked.'}</small>
+    <button type="button" className="m-btn ce-adv" onClick={() => setAdv(a => !a)} aria-expanded={adv} data-testid="ce-adv">{adv ? '‹ Back to the main dials' : `⚙ All ${EDIT.length} settings`}</button>
     {real && <details className="ce-wallet" data-testid="ce-wallet"><summary>💵 Fuse wallet limits <small>not this card — hard caps on EVERY real buy and sell</small></summary>
       <TypedLimits keeper={keeper} busy={busy} save={save} /></details>}</details>;
 }

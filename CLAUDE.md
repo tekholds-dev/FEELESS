@@ -1468,3 +1468,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   coin); ≤ −10% or 3 rounds without +5% → hops on. `scout` legs are never topped up (`balance_small`, cash spread). This is the
   owner's "5 min cycles funds to find the banger, holders keep the weight": the fast clock searches with small money, only
   winners get size. Picker: with verified picks on, rows under 1h read "under 1h", are disabled and sort last (`SwapPicker verify`).
+- ⚙ Edit Fuse v4 = MAIN + ALL: it opens on ONE pane — 1 · pick a setup · 2 · the six dials that decide a card (`rotateHours`,
+  `coins`, `minHoldMins`, `scoutPct`, `runnerMinAgeH`, `sl`). "⚙ All N settings" (`ce-adv`) reveals the v3 tabs; "‹ Back" hides
+  them. A dial replaced by another is hidden (mover swap while the scout is on). New setting ⇒ EDIT + an ADVANCED tab; the six
+  main dials change only when one of them stops deciding a card.
+- 🎛 Trench settings POST is a PATCH (`{trenchCfg: {only what changed}}`, server merges over the stored cfg): the editor posted its
+  whole ≤ 30s-old copy and twice put an old `mode` back over a newer one. NEVER write a `//` comment in the middle of a one-line
+  JSX / JS statement when patching by string — it swallows the rest of the line (it broke the build twice; use `/* */`).
+- 🌊 Movers come from EVERY venue: `jup_candidate` keeps pump / bonk coins (suffix or `launchpad` tag) and ANY other coin ≤ 30 days
+  old as `launchpad: 'other'` ("Solana movers": stonk.fun, Meteora DBC, MetaDAO, plain pools — 28 of Jupiter's 100 trending).
+  🔭 The scout's ticket may take any safe mover (`r_pre_`: age + checks passed, $50K / +20%), not only the card's full hunt line.

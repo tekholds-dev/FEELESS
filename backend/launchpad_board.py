@@ -10,7 +10,7 @@ import math
 import time
 
 BONK_PLATFORM_ID = 'FfYek5vEz23cMkWsdJwG2oa6EphsvXSHrGpdALN4g6W1'
-LAUNCHPAD_LABELS = {'pump': 'Pump.fun', 'bonk': 'LetsBONK', 'raydium': 'LaunchLab'}
+LAUNCHPAD_LABELS = {'pump': 'Pump.fun', 'bonk': 'LetsBONK', 'raydium': 'LaunchLab', 'other': 'Solana movers'}
 NEW_MAX_AGE_HOURS = 12
 BOARD_MAX = 480   # most coins looked up per board build (DexScreener: 30 a call → ≤ 16 calls a build)
 
@@ -163,12 +163,17 @@ def build_board(candidates, dex_pairs, kind, now_ms=None):
 JUP_LISTS = (('toptrending', '1h'), ('toptraded', '1h'), ('toptrending', '5m'), ('toptrending', '6h'))
 
 
-def jup_candidate(tok):
-    """A Jupiter token-list row → a board candidate, or None. Launchpad coins only (Pump / LetsBONK mints carry their suffix).
-    Whether it graduated is not in the row — the caller re-reads it from the coin's live pair (`dex_candidate`)."""
+JUP_MAX_AGE_D = 30   # a mover from another venue (stonk.fun, Meteora DBC, MetaDAO, a plain Raydium / Meteora pool …) joins while it is this young
+JUP_PADS = {'pump.fun': 'pump', 'letsbonk.fun': 'bonk', 'bonk.fun': 'bonk', 'raydium-launchlab': 'raydium'}
+
+
+def jup_candidate(tok, now_ms=None):
+    """A Jupiter token-list row → a board candidate, or None. Pump / LetsBONK coins by their mint suffix or `launchpad` tag; a coin
+    from ANY other venue joins as 'other' while it is at most JUP_MAX_AGE_D days old (movers are not only on Pump: on 2026-10-06
+    28 of Jupiter's 100 trending coins were young coins from stonk.fun, Meteora DBC, MetaDAO or pools with no launchpad at all).
+    Whether it graduated is not in the row — the caller re-reads it from the coin's live pair where it can."""
     mint = str((tok or {}).get('id') or '')
-    pad = 'pump' if mint.endswith('pump') else 'bonk' if mint.endswith('bonk') else None
-    if not pad:
+    if not mint:
         return None
     created = 0.0
     try:
@@ -176,10 +181,16 @@ def jup_candidate(tok):
         created = datetime.fromisoformat(str((tok.get('firstPool') or {}).get('createdAt') or '').replace('Z', '+00:00')).timestamp() * 1000
     except (ValueError, TypeError):
         created = 0.0
+    pad = 'pump' if mint.endswith('pump') else 'bonk' if mint.endswith('bonk') else JUP_PADS.get(str(tok.get('launchpad') or '').lower())
+    if not pad:
+        now_ms = now_ms or time.time() * 1000
+        if not created or now_ms - created > JUP_MAX_AGE_D * 8.64e7 or mint in ('So11111111111111111111111111111111111111112',):
+            return None
+        pad = 'other'
     return {'mint': mint, 'launchpad': pad, 'symbol': tok.get('symbol'), 'name': tok.get('name'), 'image': tok.get('icon'), 'createdAt': created,
             'marketCap': _f(tok.get('mcap') or tok.get('fdv')), 'athMarketCap': 0.0, 'replies': 0, 'live': False, 'graduated': True, 'curveProgress': None,
-            'socials': sum(1 for k in ('twitter', 'website', 'telegram') if tok.get(k)), 'mover': True,
-            'url': f"https://{'pump.fun/coin' if pad == 'pump' else 'letsbonk.fun/token'}/{mint}"}
+            'socials': sum(1 for k in ('twitter', 'website', 'telegram') if tok.get(k)), 'mover': True, 'platformName': tok.get('launchpad') or None,
+            'url': f"https://pump.fun/coin/{mint}" if pad == 'pump' else f"https://letsbonk.fun/token/{mint}" if pad == 'bonk' else f"https://jup.ag/tokens/{mint}"}
 
 
 def dex_candidate(pair):
