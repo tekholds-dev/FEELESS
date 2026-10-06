@@ -1555,3 +1555,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   queued as an acknowledged `seatPick` → bought at today's price, so the BOOK has a true new entry. Not landed in 10 min → called
   off, money released. Never "re-base" an entry without the two swaps: `sync_card` copies the book's `entryPx` to the card, and
   changing the book's cost basis without a trade would falsify realized P&L. First live rebuy = watch the ledger.
+- ⏭ COMING UP + the scout are ordered by `arena_prime.flow_rank` (`flow_tag`: entry setups 🧹 sweep & reclaim / 🚀 breakout /
+  🧲 pullback first, then the coin's own chart — 🪜 back in its gap · 🧲 dip bought, trend up · 📈 trending up · 🏔 at its highs ·
+  ➖ ranging · 📉 trending down · 🆕 no chart yet LAST — plus ≤ 25 pts for the hourly move). Rows carry `tag`, shown under the coin.
+  Why: of the real card's last 119 buys, 99 had a chart too short to read (−$1.01, 25% won) and 20 a readable one (+$0.07, 40%).

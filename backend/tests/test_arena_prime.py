@@ -1785,3 +1785,18 @@ def test_rebuy_sells_the_coin_whole_holds_its_money_and_queues_it_back_once_the_
     late = ap.rebuy_in(out, True, 100.0 + ap.REBUY_WAIT_SEC + 1)                                 # never landed → called off, money free
     assert 'rebuy' not in late and 'seatPick' not in late and late['holdCashUsd'] == 0.0 and 'called off' in late['events'][-1]['why']
     assert ap.rebuy_in(card, False, 1.0) is card
+
+
+def test_flow_rank_puts_setups_and_readable_up_trends_ahead_of_a_bigger_hour_with_no_chart():
+    rows = [{'mint': 'new', 'chg1h': 700, 'cBars': 0},                                                   # huge hour, no chart yet
+            {'mint': 'dip', 'chg1h': 20, 'cBars': 12, 'cStruct': 'up', 'cPull': 9, 'cPos': 0.7},        # dip bought in an up-trend
+            {'mint': 'swp', 'chg1h': -10, 'chg5m': 4, 'buyShare': 62, 'vol1h': 40000},                  # sweep & reclaim setup
+            {'mint': 'dwn', 'chg1h': 30, 'cBars': 12, 'cStruct': 'down', 'cPull': 40, 'cPos': 0.1},
+            {'mint': 'bare', 'chg1h': 40}]
+    out = ap.flow_rank(rows)
+    order = [r['mint'] for r in out]
+    assert order.index('swp') < order.index('new') and order.index('dip') < order.index('new') and order.index('bare') < order.index('new')
+    assert order[-1] == 'dwn' or order[-1] == 'new'
+    tags = {r['mint']: r['tag'] for r in out}
+    assert 'sweep' in tags['swp'] and 'dip bought' in tags['dip'] and tags['new'] == '🆕 no chart yet' and 'down' in tags['dwn'] and tags['bare'] == ''
+    assert ap.flow_rank([]) == []

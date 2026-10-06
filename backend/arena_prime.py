@@ -634,6 +634,43 @@ def meta_for(rotate_hours, seed=0):
                     % (patch['rideAt'], patch['rideTrail'], patch['sl'], patch['minHoldMins']))}
 
 
+def flow_tag(x):
+    """What a candidate looks like RIGHT NOW, in one tag → (tag, points). Entry setups first (5m / 1h / buyers), then its own chart
+    (chart_read keys on the row): swept the low and came back · dip bought in an up-trend · trending up · at its highs · no chart yet.
+    The real card's last 119 buys (2026-10-06): 99 had a chart too short to read and lost $1.01 (25% won); the 20 with a readable
+    chart were +$0.07 (40% won) — so "no chart yet" ranks last, whatever its hourly move says."""
+    st = entry_setup(x)
+    if st:
+        ic, name, _ = ENTRY_SETUPS[st[0]]
+        return f"{ic} {name.lower()}", 60 + st[1] * 0.4
+    if x.get('cBars') is not None and not x.get('cBars'):
+        return '🆕 no chart yet', 0.0
+    if x.get('cBars'):
+        pull, pos, up = _f(x.get('cPull')), _f(x.get('cPos')), x.get('cStruct') == 'up'
+        if x.get('cFvg') == 'in' and up:
+            return '🪜 back in its gap, trend up', 70.0
+        if up and 5 <= pull <= 15:
+            return '🧲 dip bought, trend up', 75.0
+        if up:
+            return '📈 trending up', 62.0
+        if pos >= 0.66 and x.get('cStruct') != 'down':
+            return '🏔 at its highs', 50.0
+        if x.get('cStruct') == 'down':
+            return '📉 trending down', 10.0
+        return '➖ ranging', 35.0
+    return '', 30.0
+
+
+def flow_rank(rows):
+    """Candidates in the order the card should take them: by `flow_tag` points plus a little for the size of the hourly move
+    (capped — a +700% hour is a launch candle, not three times better than +60%). Adds `tag` to each row."""
+    out = []
+    for i, x in enumerate(rows or []):
+        tag, pts = flow_tag(x)
+        out.append((-(pts + min(25.0, max(0.0, _f(x.get('chg1h'))) / 4)), i, {**x, 'tag': tag}))
+    return [x for _, _, x in sorted(out, key=lambda t: (t[0], t[1]))]
+
+
 def is_hunt(x, cfg):
     """Does this coin pass the card's own 🚀 hunt selection (BOTH a 1h-volume and a 1h-move minimum set, and it clears them)?"""
     v, m = _f((cfg or {}).get('runnerMinVolK')), _f((cfg or {}).get('runnerMinChg1h'))

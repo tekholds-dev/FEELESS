@@ -6212,7 +6212,7 @@ async def _prime_tick_inner(now):
         if real_t and cur and _fuse._f(cfg_t.get('scoutPct')) > 0 and now - _fuse._f(cur.get('scoutAt')) >= max(120.0, _fuse._f(cfg_t.get('rotateHours')) * 3600 * 0.9):
             was_ = cur
             hot_s = [x for x in _prime.movers(r_t, cfg_t) + _prime.movers(r_pre_, {}) if x.get('mint') not in mine and x.get('mint') not in cool and x.get('mint') not in taken]
-            nw_ = _prime.scout_step(cur, px, list({x['mint']: x for x in reversed(hot_s)}.values())[::-1], cfg_t, now, p_t, anchors)
+            nw_ = _prime.scout_step(cur, px, _prime.flow_rank(list({x['mint']: x for x in reversed(hot_s)}.values())[::-1]), cfg_t, now, p_t, anchors)   # the scout takes the best-LOOKING mover, not just the biggest hour
             if nw_ is not cur:
                 cur = _prime.note_dropped(was_, {**nw_, 'scoutAt': now}, now, cfg_t['rotateHours'], px)
         elif real_t and cur and cfg_t.get('moverSwap', True) and not cur.get('holdAll') and not cur.get('flooredAt') and now - _fuse._f(cur.get('moverAt')) >= _prime.MOVER_EVERY_SEC:
@@ -6244,10 +6244,10 @@ async def _prime_tick_inner(now):
             on_ = {l.get('mint') for l in cards[tid].get('legs') or []}
             free_ = [x for x in r_t if x.get('mint') not in on_ and not x.get('trenchOnly')]
             scout_ = [x for x in _prime.movers(r_pre_, {}) if x.get('mint') not in on_]
-            row_ = lambda x: {'mint': x.get('mint'), 'pairAddress': x.get('pairAddress'), 'symbol': x.get('symbol'), 'chg1h': _fuse._f(x.get('chg1h')), 'vol1h': _fuse._f(x.get('vol1h')),
+            row_ = lambda x: {'mint': x.get('mint'), 'pairAddress': x.get('pairAddress'), 'symbol': x.get('symbol'), 'chg1h': _fuse._f(x.get('chg1h')), 'vol1h': _fuse._f(x.get('vol1h')), 'tag': x.get('tag') or '',
                               'ageH': x.get('ageH'), 'liq': _lq(x)}
             seen_u, up_ = set(), []
-            for x in sorted(free_, key=lambda x: -_fuse._f(x.get('chg1h'))) + scout_:   # ⏭ COMING UP: what the engine takes next, best hourly move first
+            for x in _prime.flow_rank(free_ + [y for y in scout_ if y.get('mint') not in {z.get('mint') for z in free_}]):   # ⏭ COMING UP: by what each coin looks like now (setup · chart), then hourly move
                 if x.get('mint') and x['mint'] not in seen_u:
                     seen_u.add(x['mint']); up_.append(row_(x))
             cards[tid]['pipeline'] = {'at': now, 'steps': fun_ + [['not on the card and not cooling', len(free_)]], 'up': up_[:6],

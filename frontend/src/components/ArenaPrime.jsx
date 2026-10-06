@@ -704,11 +704,11 @@ export function ComingUp({ p, legs = [], onSwap, busy }) {
   return <div className="hrt-up" data-testid="coming-up"><span className="m-label">⏭ COMING UP · NEXT IN LINE</span>
     <ol>{rows.slice(0, 4).map((r, i) => <li key={r.mint} style={{ '--i': i }}>
       <button type="button" className="hrt-up-coin" onClick={() => openCoin({ mint: r.mint, pairAddress: r.pairAddress, symbol: r.symbol })} data-tip={`${['Takes the next seat that opens', 'Second in line', 'Third in line', 'Fourth in line'][i]} — tap for its live flow`} data-testid={`up-${r.symbol}`}>
-        <i className="hrt-up-n">{['NEXT', '2ND', '3RD', '4TH'][i]}</i><b>${r.symbol}</b><em className={`m-num ${r.chg1h >= 0 ? 'm-pos' : 'm-neg'}`}>{r.chg1h >= 0 ? '+' : ''}{Math.round(r.chg1h)}%</em><small>{r.vol1h > 0 ? `${big(r.vol1h)}/h` : r.liq > 0 ? `${big(r.liq)} pool` : ''}</small></button>
+        <i className="hrt-up-n">{['NEXT', '2ND', '3RD', '4TH'][i]}</i><b>${r.symbol}</b><em className={`m-num ${r.chg1h >= 0 ? 'm-pos' : 'm-neg'}`}>{r.chg1h >= 0 ? '+' : ''}{Math.round(r.chg1h)}%</em><small>{r.vol1h > 0 ? `${big(r.vol1h)}/h` : r.liq > 0 ? `${big(r.liq)} pool` : ''}</small>{r.tag ? <u className="hrt-up-tag">{r.tag}</u> : null}</button>
       <select className="m-input hrt-up-sel" disabled={busy || !seats.length} value="" aria-label={`Swap $${r.symbol} in for…`} data-testid={`up-swap-${r.symbol}`}
         onChange={e => { const l = seats.find(x => x.pairAddress === e.target.value); if (l) onSwap(l, r); }}>
         <option value="">swap in for…</option>{seats.map(l => <option key={l.pairAddress} value={l.pairAddress}>${l.symbol}</option>)}</select></li>)}</ol>
-    <small className="m-dim">In this order, one per seat that opens (a stop, a scout hop, a flat coin). “Swap in for…” puts one in at the next round.</small></div>;
+    <small className="m-dim">Ordered by what each coin looks like now (dip reclaimed, breakout, trend), then its hourly move. One per seat that opens; “swap in for…” puts one in at the next round.</small></div>;
 }
 
 // 📈 The lines a Fuse card draws on its coin's chart: where it got in, where it stops, where it locks, and its trail once riding
