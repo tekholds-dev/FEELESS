@@ -1583,3 +1583,10 @@ def test_fast_guard_names_the_coins_that_need_the_engine_now_and_nothing_else():
     assert ap.guard_hits(card, {}, cfg) == [] and ap.guard_hits({'tpl': 'degen', 'legs': []}, px, cfg) == []
     off = ap.clean_cfg({'instantSwapPct': 0, 'sl': 20})
     assert ap.guard_hits({'tpl': 'degen', 'legs': [leg('A'), leg('B')]}, {'A': 0.84, 'B': 0.79}, off) == ['B']   # instant swap off → the stop alone
+
+
+def test_owner_runner_pool_floor_keeps_only_deep_runners_and_is_off_by_default():
+    rows = [{'mint': 'a', 'liq': 30000}, {'mint': 'b', 'liq': 80000}, {'mint': 'c'}, {'mint': 'm', 'liq': 1000, 'newMajor': True}, {'mint': 't', 'liq': 9000, 'trenchOnly': True}]
+    assert [r['mint'] for r in ap.deep_runners(rows, 50)] == ['b', 'm', 't']
+    assert ap.deep_runners(rows, 0) == rows
+    assert ap.clean_cfg({})['runnerMinLiqK'] == 0 and ap.clean_cfg({'runnerMinLiqK': 50})['runnerMinLiqK'] == 50 and ap.clean_cfg({'runnerMinLiqK': 7})['runnerMinLiqK'] == 0

@@ -6076,6 +6076,8 @@ async def _prime_tick_inner(now):
             r_t = _pedge.rank(r_t, tb_)
             if real_t and cfg_t.get('edgeGate', True):
                 r_t = _pedge.gate(r_t, tb_, 0.0)
+        if real_t:   # 🏊 the owner's own runner pool floor (off unless they set it)
+            r_t = _prime.deep_runners(r_t, cfg_t.get('runnerMinLiqK'))
         mine = {l.get('mint') for l in (cur or {}).get('legs') or []}
         p_t = [x for x in p_t if x.get('mint') not in taken or x.get('mint') in mine]
         r_t = [x for x in r_t if x.get('mint') not in taken or x.get('mint') in mine]
@@ -8627,6 +8629,15 @@ async def _pg_sim_tick(now):
     retired = _pgs.retire(_pgs.learn(res24), _pgs.learn(res6), d.get('retired'), now)
     d.update(at=now, summary=_pgs.summary(res), s24=_pgs.summary(res24), s6=_pgs.summary(res6), score=score, retired=retired, best=_pgs.best(score, retired=retired), byClock=_pgs.by_clock(res, retired=retired),
              history=((d.get('history') or []) + [{'at': now, **_pgs.summary(res)}])[-96:])
+    try:   # 🎯 the best WHOLE config per round length, tuned on some windows and checked on others (see pg_sim.proven)
+        pv_ = {}
+        for ck_ in _pgs.CLOCKS:
+            got_ = await asyncio.to_thread(_pgs.proven, paths, rounds_, now, ck_, ((d.get('proven') or {}).get(str(ck_)) or {}).get('cfgNum'))
+            if got_:
+                pv_[str(ck_)] = {**got_, 'cfgNum': {k: float(v) for k, v in got_['cfg'].items()}}
+        d['proven'] = pv_
+    except Exception as e:
+        print('sim proven:', e)
     _json_save(PG_SIM_PATH, d)
     wx = _prime.weather(d)
     if wx['level'] != was:   # 🌦 the real card's runner rule just changed → tell the owner once, in plain words
@@ -8702,7 +8713,9 @@ async def fuse_strategies(hours: float = Query(1.0, ge=0.01, le=48)):
     want = hours * 60
     clock, v = min(rows, key=lambda kv: abs(kv[0] - want))
     note = '' if abs(clock - want) < 1 else f"Sims play 5–60 min rounds; these are for {int(clock)} min, the nearest to your clock."
-    return {'clock': int(clock), 'n': v.get('n'), 'strategies': v['strategies'], 'note': note, 'at': _json_load(PG_SIM_PATH, {}).get('at')}
+    pv = (_json_load(PG_SIM_PATH, {}).get('proven') or {}).get(str(int(clock)))
+    sniper = [{k: x for k, x in pv.items() if k != 'cfgNum'}] if pv else []   # 🎯 the whole-config pick first, with its own checked proof
+    return {'clock': int(clock), 'n': v.get('n'), 'strategies': sniper + v['strategies'], 'note': note, 'at': _json_load(PG_SIM_PATH, {}).get('at')}
 
 
 import verdict as _verdict

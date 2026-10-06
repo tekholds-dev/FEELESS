@@ -390,6 +390,7 @@ def clean_cfg(p):
     out['recyclePct'] = float(_f((p or {}).get('recyclePct'))) if _f((p or {}).get('recyclePct')) in RECYCLE_PCTS else 0.0
     out['recycleEvery'] = int(_f((p or {}).get('recycleEvery'))) if int(_f((p or {}).get('recycleEvery'))) in RECYCLE_EVERY else 3
     out['lockBankPct'] = float(_f((p or {}).get('lockBankPct'))) if (p or {}).get('lockBankPct') is not None and _f((p or {}).get('lockBankPct')) in LOCK_BANKS else LOCK_BANK
+    out['runnerMinLiqK'] = int(_f((p or {}).get('runnerMinLiqK'))) if int(_f((p or {}).get('runnerMinLiqK'))) in RUNNER_LIQS else 0   # 🏊 real money buys a runner only in a pool this deep ($K); 0 = the keeper's own floor
     out['edgeGate'] = bool((p or {}).get('edgeGate', True))   # 🧠 real money buys only runners the board's own record does not expect to lose (pick_edge.py)
     out['swapEdge'] = bool((p or {}).get('swapEdge', True))   # ⚖ rotate only when the next coin beats this one by more than the swap costs
     out['swapCapHr'] = int(_f((p or {}).get('swapCapHr'))) if int(_f((p or {}).get('swapCapHr'))) in SWAP_CAPS else 0   # 🤖 0 = auto
@@ -452,6 +453,16 @@ REAL_MIN_COIN_USD = 0.75  # a real coin under this pays > 0.7% per swap in flat 
 REAL_DEAL_LEAD = 15.0     # seconds before the bell that a real card's round is decided (sells, then buys, finish inside the countdown)
 COIN_COUNTS = (0, 2, 3, 4, 5, 6)   # coins on a card: 0 = auto by size · or exactly what the owner picks, at ANY card size
 FLOOR_RESTS = (0, 15, 30, 60)   # 🛌 minutes a floored card rests in its anchors before the re-deal — the OWNER's switch (0 = no rest, re-deal at once)
+RUNNER_LIQS = (0, 25, 50, 100)   # owner's runner pool floor for real money, $K (Edit Fuse › Rounds). The replay's losers sat in pools under $50K.
+
+
+def deep_runners(rows, min_k):
+    """Runners in a pool of at least `min_k` $K (unknown depth = out). New majors / trench coins keep their own rules."""
+    if not _f(min_k):
+        return list(rows or [])
+    return [x for x in rows or [] if x.get('newMajor') or x.get('trenchOnly') or _f(x.get('liq')) >= _f(min_k) * 1000]
+
+
 REAL_RUNNER_AGE_H = 12.0  # real money never buys a runner younger than this (a 20-min-old coin with a $534K pool went −99.99% in an hour)
 
 

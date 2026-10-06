@@ -120,3 +120,34 @@ def test_with_the_boards_rounds_a_card_buys_only_what_was_offered_and_its_select
     assert ps.fits({'ageH': None, 'liq': 5e5}, {'age': 1}) is False and ps.fits({'ageH': 2, 'liq': 5e5}, {'age': 1, 'pool': 100})
     res = ps.run(paths_, NOW, n=40, hours=6, seed=3, rounds=rounds)
     assert res and all(r['trades'] >= 1 for r in res) and all('age' in r['cfg'] and 'edge' not in r['cfg'] for r in res)   # record too short for an edge table
+
+
+def _proof_world(hours=34):
+    """A board that offers one OLD coin in a DEEP pool (drifts up) and one fresh thin coin (bleeds) at every round."""
+    now, paths, rounds = 1_000_000.0, {'OLD': [], 'NEW': []}, []
+    for i in range(int(hours * 12) + 1):
+        t = now - hours * 3600 + i * 300
+        paths['OLD'].append([t, 1.0 * (1.0006 ** i)]); paths['NEW'].append([t, 1.0 * (0.997 ** i)])
+        if i % 3 == 0:
+            rounds.append({'at': t, 'picks': [{'mint': 'NEW', 'score': 90, 'ageH': 0.5, 'liq': 12000}, {'mint': 'OLD', 'score': 50, 'ageH': 30, 'liq': 120000}]})
+    return paths, rounds, now
+
+
+def test_joint_plays_one_whole_config_and_counts_windows():
+    paths, rounds, now = _proof_world()
+    deep = ps.joint(ps.prep(paths, rounds, now), {'clock': 15, **ps.SNIPER, 'edge': 0})
+    anyc = ps.joint(ps.prep(paths, rounds, now), {'clock': 15, **ps.SNIPER, 'edge': 0, 'age': 0, 'pool': 0})
+    assert deep['windows'] == len(ps.TUNE_OFFS) and deep['windowsUp'] == deep['windows'] and deep['medPct'] > 0
+    assert anyc['medPct'] < deep['medPct']          # letting the fresh thin coin in costs money
+    assert ps.joint([], ps.SNIPER) is None
+
+
+def test_proven_is_checked_on_other_windows_and_never_claims_a_losing_setup():
+    paths, rounds, now = _proof_world()
+    p = ps.proven(paths, rounds, now, 15)
+    assert p['key'] == 'sniper' and p['profitable'] and p['medPct'] > 0 and (float(p['cfg']['pool']) >= 25 or float(p['cfg']['age']) >= 1)
+    assert p['windows'] == len(ps.CHECK_OFFS) and 'clock' not in p['cfg']
+    bleed = {m: [[t, 1.0 * (0.997 ** i)] for i, (t, _) in enumerate(pts)] for m, pts in paths.items()}   # every coin loses
+    q = ps.proven(bleed, rounds, now, 15)
+    assert q is None or q['profitable'] is False
+    assert ps.proven({}, [], now, 15) is None
