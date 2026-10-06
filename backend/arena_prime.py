@@ -516,6 +516,44 @@ def forecast(sim, cands=()):
     return {**w, 'trend': trend, 'breadthPct': breadth, 'buyersPct': buyers, 'coins': len(live), 'outlook': outlook, 'buys': buys}
 
 
+# 🎯 BEST ENTRIES NOW — three classic setups, read from live numbers only (5m / 1h move, buyers, volume pace). A read of the
+# tape, never a promise; the caller passes only coins that already clear the SAFETY gates.
+ENTRY_SETUPS = {
+    'sweep': ('🧹', 'Sweep & reclaim', 'flushed over the hour, buyers took it back in the last 5 min'),
+    'breakout': ('🚀', 'Breakout', 'up on the hour and still pushing, volume speeding up'),
+    'pullback': ('🧲', 'Pullback', 'strong hour, small dip now with buyers still in charge — the retrace into the move'),
+}
+
+
+def entry_setup(c):
+    """→ (setup key, strength 0–100) or None. Needs a 5m AND a 1h reading, buyers, and ≥ $5K of 1h volume."""
+    if c.get('chg5m') is None or c.get('chg1h') is None or c.get('buyShare') is None or _f(c.get('vol1h')) < 5000:
+        return None
+    m5, h1, buy = _f(c.get('chg5m')), _f(c.get('chg1h')), _f(c.get('buyShare'))
+    pace = _f(c.get('vol5m')) * 12 / max(1.0, _f(c.get('vol1h')))        # > 1 = the last 5 min are busier than the hour's average
+    if h1 <= -8 and m5 >= 2 and buy >= 58:
+        return 'sweep', min(100.0, 40 + m5 * 4 + (buy - 58) * 2 + min(20.0, -h1 / 2))
+    if h1 >= 10 and m5 >= 3 and buy >= 58 and pace >= 1.5:
+        return 'breakout', min(100.0, 40 + m5 * 3 + (buy - 58) * 2 + min(20.0, pace * 5))
+    if h1 >= 15 and -6 <= m5 <= -1 and buy >= 52:
+        return 'pullback', min(100.0, 40 + min(25.0, h1 / 2) + (buy - 52) * 2)
+    return None
+
+
+def entries(cands, skip=(), n=3):
+    """The n strongest setups among `cands` (one row per coin, coins in `skip` left out), strongest first."""
+    rows, seen = [], set(skip or ())
+    for c in cands or []:
+        hit = entry_setup(c)
+        if not hit or not c.get('mint') or c['mint'] in seen:
+            continue
+        seen.add(c['mint'])
+        ico, name, why = ENTRY_SETUPS[hit[0]]
+        rows.append({'mint': c['mint'], 'symbol': c.get('symbol'), 'pairAddress': c.get('pairAddress'), 'logo': c.get('logo'), 'setup': hit[0], 'ico': ico, 'name': name, 'why': why,
+                     'strength': round(hit[1]), 'chg5m': c.get('chg5m'), 'chg1h': c.get('chg1h'), 'buyShare': c.get('buyShare'), 'liq': c.get('liq')})
+    return sorted(rows, key=lambda r: -r['strength'])[:n]
+
+
 def weather_runners(rows, level, deep_floor, liq_of):
     """Runner candidates real money may BUY in this weather (coins already held are never sold by the weather).
     In ANY weather a runner must be at least REAL_RUNNER_AGE_H old — unknown age = out (fail closed). New majors are days old by rule."""
@@ -994,7 +1032,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                    why=f"{dd:.1f}% ≤ −{instant_loss:g}% instant-loss trigger — sold now; replacement slot reserved", to=['cash'])
 
     # 0) a floored card sits in its anchor (cash-like) until the next day, then is re-dealt fresh at its current value
-    if c.get('flooredAt') and now - c['flooredAt'] >= max(60.0, _f(cfg.get('floorRestMins')) * 60):   # floored → re-dealt with fresh 3★+ coins on the very next tick (a new run)
+    if c.get('flooredAt') and not blind and now - c['flooredAt'] >= max(60.0, _f(cfg.get('floorRestMins')) * 60):   # floored → re-dealt with fresh 3★+ coins on the very next tick (a new run)
         v0 = V()
         keep = {k: c[k] for k in c if k not in ('legs', 'cash', 'lastRotateAt')}
         # a NEW run starts at today's value (its own −floor); the ended run is kept on the record, never hidden

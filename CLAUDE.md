@@ -1256,3 +1256,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   style. A child = the best judged style's weights pushed further away from the worst one's (momentum may go negative = fade what
   ran), seeded, never a copy; one new per 6h. ≥ 6 settled runs with average AND median < 0 → scrapped to the log; both > 0 → owner
   inbox once. Arena board marks them 🧬 with parent. They never reach a trader rail by themselves.
+- 🔁 NO BUY-THEN-TRIM LOOP (`fuse_wallet.idle_sweep`, `SWEEP_WAIT_SEC` 300, book `soldAt` set by `apply_fill`): idle cash waits 5 min
+  after ANY failed / refused buy (the engine is re-picking that seat) and a coin SOLD in the last 10 min is never topped up. Found
+  live: a failed buy's cash was swept into two coins, both were trimmed again 2 min later to seat the replacement (4 swaps for 0).
+  A floored real card is not re-dealt on a blind tick either (its new run must start from the true book value).
+- 🎯 ENTRIES NOW (`arena_prime.entry_setup/entries`, in `GET /fuses/forecast.entries`, chips in `WeatherStrip`): 🧹 sweep & reclaim
+  (1h ≤ −8, 5m ≥ +2, buyers ≥ 58) · 🚀 breakout (1h ≥ +10, 5m ≥ +3, buyers ≥ 58, 5m volume pace ≥ 1.5×) · 🧲 pullback (1h ≥ +15,
+  5m −6…−1, buyers ≥ 52). Only coins clearing every SAFETY gate with a ≥ $10K pool; tap opens the chart. A read, never a promise.

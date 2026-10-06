@@ -1512,3 +1512,21 @@ def test_a_real_card_with_money_in_transit_is_never_floored_on_the_engines_estim
     assert ap.tick(card, px, [], [], cfg, now + 30, [], {}, {}, true_usd=2.2).get('flooredAt')
     # paper cards (and the old call) are judged as before
     assert ap.tick({**card, 'real': False}, px, [], [], cfg, now + 30, [], {}, {}).get('flooredAt')
+    # a floored real card is not re-dealt on a blind tick either: its new run must start from the TRUE value, not from the part
+    # of its sale money the engine can see (the false floor's re-deal set a $1.07 baseline on a $2.39 card → "+129% this run")
+    fl = {**card, 'legs': [], 'cash': 1.0, 'flooredAt': now - 120}
+    assert ap.tick(fl, px, [], [], cfg, now + 30, [], {}, {}, blind=True).get('flooredAt') == now - 120
+
+
+def test_best_entries_now_reads_three_setups_from_live_numbers_and_ranks_by_strength():
+    import arena_prime as ap
+    c = lambda m, m5, h1, buy, v5=1000, v1=12000: {'mint': m, 'symbol': m, 'pairAddress': 'P' + m, 'chg5m': m5, 'chg1h': h1, 'buyShare': buy, 'vol5m': v5, 'vol1h': v1, 'liq': 50000}
+    assert ap.entry_setup(c('S', 4, -20, 65))[0] == 'sweep'                               # flushed on the hour, taken back now
+    assert ap.entry_setup(c('B', 5, 30, 62, v5=3000))[0] == 'breakout'                    # up, still pushing, volume speeding up
+    assert ap.entry_setup(c('B2', 5, 30, 62, v5=500)) is None                             # … not without the volume
+    assert ap.entry_setup(c('P', -3, 40, 55))[0] == 'pullback'                            # strong hour, small dip, buyers in charge
+    assert ap.entry_setup(c('K', -9, -20, 40)) is None and ap.entry_setup(c('F', -3, 40, 45)) is None   # a falling knife / sellers in charge = no setup
+    assert ap.entry_setup({**c('N', 4, -20, 65), 'chg5m': None}) is None and ap.entry_setup(c('T', 4, -20, 65, v1=900)) is None   # no reading / no volume = not judged
+    rows = ap.entries([c('S', 4, -20, 65), c('S', 4, -20, 65), c('B', 9, 30, 70, v5=4000), c('P', -3, 40, 55), c('X', 3, -9, 59), c('H', 4, -20, 65)], skip={'H'})
+    assert len(rows) == 3 and [r['mint'] for r in rows].count('S') == 1 and 'H' not in [r['mint'] for r in rows]
+    assert rows == sorted(rows, key=lambda r: -r['strength']) and all(r['name'] and r['why'] and 0 < r['strength'] <= 100 for r in rows)

@@ -5743,7 +5743,9 @@ def _pick_row(pair, mint, floor=25_000):
 @app.get('/api/reputation/fuses/forecast')
 async def fuses_forecast():
     """🌦 Public: the runner weather and where it is heading (sim cards + live launch-coin breadth). Caches only — answers in ms."""
-    return _prime.forecast(_json_load(PG_SIM_PATH, {}), _runner_cands)
+    rcfg = _runner_cfg()
+    safe = [r for r in _runner_cands if _rn.safe_only(r, rcfg) and _fuse._f(r.get('liq')) >= 10000]   # setups only among coins clearing every SAFETY gate
+    return {**_prime.forecast(_json_load(PG_SIM_PATH, {}), _runner_cands), 'entries': _prime.entries(safe)}
 
 
 @app.get('/api/reputation/fuses/contenders')

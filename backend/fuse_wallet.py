@@ -185,6 +185,9 @@ def refused_now(book, mint, now):
     return bool(m) and now - _f(m.get('last')) < REFUSED_SEC and any(w in str(m.get('why') or '') for w in SAFETY_WORDS)
 
 
+SWEEP_WAIT_SEC = 300   # idle cash waits this long after a failed / refused buy (the engine is re-picking that seat)
+
+
 def idle_sweep(card_id, card, book, tgt, sol_free, sol_px, cfg, now):
     """💤 IDLE CARD CASH GOES BACK INTO THE CARD'S COINS. The engine tops coins up on paper in small pieces; a top-up inside the
     50% re-weigh band (or under the min order) is never sent, the next sync copies the wallet back, and the cash sat in the book
@@ -204,6 +207,14 @@ def idle_sweep(card_id, card, book, tgt, sol_free, sol_px, cfg, now):
     # … nor a coin whose buy was just refused (benched / a miss on record): the sweep must not hammer a coin the checks turned down
     bad = {m for m, b in (book.get('benched') or {}).items() if _f(b.get('until')) > now} | set(book.get('misses') or {})
     ok = [(m, t) for m, t in seats if not t.get('locked') and m not in bad and not (t.get('trim') and now - _f(t.get('trimAt')) < TRIM_SEC)]
+    # 🔁 NO BUY-THEN-TRIM LOOP (found live: a failed buy's cash was swept into two coins, and 2 min later both were trimmed again
+    # to seat the replacement; a coin trimmed for a new seat was bought back 16s later when that seat's buy was refused):
+    # after any failed / refused buy the cash waits SWEEP_WAIT_SEC for the engine's re-pick, and a coin SOLD in the last 10 min
+    # (whatever the reason) is not topped up.
+    if any(now - _f(m.get('last')) < SWEEP_WAIT_SEC for m in (book.get('misses') or {}).values()):
+        return None
+    sold = book.get('soldAt') or {}
+    ok = [(m, t) for m, t in ok if not (0 <= now - _f(sold.get(m, -1e12)) < TRIM_SEC)]
     if not ok:
         return None
     # an equal share among every UNLOCKED coin (a coin skipped only for minutes still counts — else the one coin left takes it all:
@@ -377,6 +388,9 @@ def apply_fill(book, order, fill, sol_px):
         left = max(0, int(l['atoms']) + fill['atoms'])
         l['costUsd'] = round(_f(l.get('costUsd')) * (left / int(l['atoms'])) if int(l['atoms']) else 0.0, 6)
         l['atoms'] = left
+        # 💤 when this coin was last SOLD (any cut, trim or exit): the idle sweep never buys back a coin sold minutes ago
+        at = _f(order.get('at')) or __import__('time').time()
+        b['soldAt'] = {**{m: t for m, t in (b.get('soldAt') or {}).items() if at - _f(t) < 3600}, order['mint']: at}
     sol_move = fill['sol'] + opened
     if opened > 0:   # the reserve fronts that rent (it is refunded to the wallet when the accounts close) — the card gets its full price
         b['rentSol'] = round(_f(b.get('rentSol')) + opened, 9)

@@ -1082,6 +1082,16 @@ def test_idle_card_cash_is_swept_into_the_coin_furthest_under_its_share_when_not
     hold = card([leg('A', 'PA', 0.30, 1.0), leg('B', 'PB', 0.60, 1.0), {**leg('S', 'PS', 0.0, 1.0), 'placeholder': True, 'reserveUsd': 0.6}])
     assert fw.orders('t', hold, {'sol': 0.0075, 'legs': {'A': bl(0.30), 'B': bl(0.60)}}, px, 100.0, cfg, 1000) == []   # a reserved seat keeps its money ($0.15 left < min)
     assert fw.orders('t', c, {**book, 'sol': 0.001}, px, 100.0, cfg, 1000) == []                  # dust stays
+    # 🔁 no buy-then-trim loop: cash waits 5 min after a failed / refused buy (the engine is re-picking that seat) …
+    assert fw.orders('t', c, {**book, 'misses': {'X': {'n': 1, 'last': 900}}}, px, 100.0, cfg, 1000) == []
+    assert fw.orders('t', c, {**book, 'misses': {'X': {'n': 1, 'last': 600}}}, px, 100.0, cfg, 1000)[0]['mint'] == 'A'
+    # … and a coin SOLD minutes ago (trimmed for a new seat, any reason) is never bought straight back
+    sold = fw.apply_fill({**book, 'legs': {**book['legs'], 'A': bl(0.60)}}, {'side': 'sell', 'mint': 'A', 'pair': 'PA', 'symbol': 'A', 'at': 950, 'usd': 0.3},
+                         {'atoms': -300000, 'decimals': 6, 'sol': 0.0, 'feeSol': 0.0}, 100.0)
+    sold = sold[0] if isinstance(sold, tuple) else sold
+    assert sold['soldAt'] == {'A': 950} and fw.held_units(sold, 'A') == 0.30
+    assert fw.orders('t', c, sold, px, 100.0, cfg, 1000)[0]['mint'] in ('B', 'C')
+    assert fw.orders('t', c, sold, px, 100.0, cfg, 950 + fw.TRIM_SEC + 1)[0]['mint'] == 'A'
 
 
 def test_a_small_token_shortage_is_fitted_to_the_wallet_and_a_big_one_still_halts():

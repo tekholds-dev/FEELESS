@@ -464,7 +464,9 @@ export function WeatherStrip() {
     <span>{WX_TREND[f.trend] || WX_TREND.steady}</span>
     {f.breadthPct != null && <span data-testid="wx-breadth"><i className="m-num">{f.breadthPct}%</i> of {f.coins} launch coins green 1h{f.buyersPct != null ? <> · buyers <i className="m-num">{f.buyersPct}%</i></> : null}</span>}
     <span className="wx-out">{dot} {out}</span>
-    <small>{f.buys}</small></div>;
+    <small>{f.buys}</small>
+    {(f.entries || []).length > 0 && <span className="wx-entries" data-testid="wx-entries"><i className="m-label">ENTRIES NOW</i>{f.entries.map(e => <button type="button" key={e.mint} className="wx-entry" onClick={() => openWarRoom({ chainId: 'solana', pairAddress: e.pairAddress, baseToken: { address: e.mint, symbol: e.symbol } })}
+      data-tip={`${e.name}: ${e.why}. 5m ${e.chg5m >= 0 ? '+' : ''}${e.chg5m}% · 1h ${e.chg1h >= 0 ? '+' : ''}${e.chg1h}% · buyers ${Math.round(e.buyShare)}%. Passes every safety gate. A read of the tape right now, never a promise.`}>{e.ico} <b>${e.symbol}</b> <em>{e.name}</em></button>)}</span>}</div>;
 }
 
 /* 🎯 What happened to your picks: the last few "came in" / "refused" lines with the keeper's own reason — a refused pick is never silent. */
