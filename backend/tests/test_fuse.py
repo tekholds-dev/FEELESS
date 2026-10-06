@@ -211,3 +211,15 @@ def test_curve_coins_from_other_launchpads_get_a_depth_estimate_too():
         p = fuse.with_curve({'dexId': dex, 'priceUsd': 0.00003, 'marketCap': 30000})
         assert p.get('curve') and p['liquidity']['usd'] > 5000, dex
     assert not fuse.with_curve({'dexId': 'raydium', 'priceUsd': 1, 'marketCap': 30000}).get('curve')
+
+
+def test_a_new_major_must_trade_like_one():
+    import fuse
+    vsof = {'mcap': 667_384_591, 'volume24h': 734_974, 'liquidityUsd': 2_383_868, 'logo': None}   # the coin that took a real seat
+    why = fuse.solid_major(vsof)
+    assert len(why) == 4 and any('0.1%' in w for w in why) and 'no logo' in why
+    good = {'mcap': 12_000_000, 'volume24h': 3_000_000, 'liquidityUsd': 600_000, 'logo': 'https://x/y.png'}
+    assert fuse.solid_major(good) == []
+    assert fuse.solid_major({**good, 'logo': None}) == ['no logo']
+    assert fuse.solid_major({**good, 'volume24h': 100_000})                       # size nobody trades
+    assert fuse.solid_major({'mcap': 0, 'volume24h': 1, 'liquidityUsd': 1})       # unknown = not solid

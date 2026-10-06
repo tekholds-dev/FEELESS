@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { CardFx } from './CardFx';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { useAdmin } from '../lib/adminCall';
@@ -502,7 +503,7 @@ export function WeatherStrip() {
     load(); const t = setInterval(() => !document.hidden && load(), 60000); return () => { alive = false; clearInterval(t); }; }, []);
   if (!f) return null;
   const [ico, word] = WX[f.level] || WX.clear; const [dot, out] = WX_OUT[f.outlook] || WX_OUT.mixed;
-  return <div className={`wx is-${f.level}`} data-testid="weather-strip" data-tip={`Runner weather, measured by the engine's own sim cards on real recorded prices${f.avgPct != null ? ` (typical sim card ${f.avgPct >= 0 ? '+' : ''}${f.avgPct}% over ${f.n} sims)` : ' (not enough sims yet — reads clear)'}. Heading = the last 6h of sims against the last 24h. A reading of right now, never a promise.`}>
+  return <div className={`wx cfx-host is-${f.level}`} data-testid="weather-strip" data-tip={`Runner weather, measured by the engine's own sim cards on real recorded prices${f.avgPct != null ? ` (typical sim card ${f.avgPct >= 0 ? '+' : ''}${f.avgPct}% over ${f.n} sims)` : ' (not enough sims yet — reads clear)'}. Heading = the last 6h of sims against the last 24h. A reading of right now, never a promise.`}><CardFx kind="aurora" tone={f.level === 'storm' ? 'down' : f.level === 'rain' ? 'gold' : undefined} />
     <b className="wx-now"><i className="wx-ico" aria-hidden="true">{ico}</i>{word}</b>
     <span>{WX_TREND[f.trend] || WX_TREND.steady}</span>
     {f.breadthPct != null && <span data-testid="wx-breadth"><i className="m-num">{f.breadthPct}%</i> of {f.coins} launch coins green 1h{f.buyersPct != null ? <> · buyers <i className="m-num">{f.buyersPct}%</i></> : null}</span>}
@@ -605,13 +606,13 @@ export function HqRealCards({ addr, onCount }) {
             {l.buying || !(l.usd > 0) ? <em className="hrt-buy" data-tip={k.lastFail?.symbol === l.symbol ? `Last try: ${k.lastFail.err} — tap ⇄ to swap it for a coin that can be bought` : l.buying ? 'The keeper has card cash assigned to this coin and retries the buy on its next tick' : 'This slot is empty but the card has no tradable cash assigned to it. Paid-out wallet money is never pulled back into the card; the slot will arm automatically when card cash is available.'}>{l.buying ? (k.lastFail?.symbol === l.symbol ? `⏳ ${String(k.lastFail.err || '').split(' (')[0].slice(0, 34)}` : '⏳ buying… not counted until it lands') : '○ empty · waiting for card cash'}</em> : <><span>{usd(l.costUsd)} → {usd(l.usd)}</span><em className={l.pnlPct >= 0 ? 'm-pos' : 'm-neg'}>{pct(l.pnlPct)}{l.loseRounds > 0 && !l.ride && !l.frozen ? ` · ${l.loseRounds}/${cf?.rotateConfirm || 1} losing` : ''}</em></>}
             {l.symbol !== 'SOL' ? <span className="hrt-ctl">
               {/* ✂ your call, your amount: the ONLY way principal leaves a card. The engine itself pays out profit only. */}
-              {(() => { const gain = (l.usd || 0) - (l.costUsd || 0); const can = gain >= 0.05 && !l.buying;   // 💰 profit only — the stake keeps riding
+              {(() => { const gain = (l.usd || 0) - (l.costUsd || 0); const can = gain >= 0.05 && !l.buying; const parkN = Number(cf?.skimHoldRounds) || 2;   // 💰 profit only — the stake keeps riding
                 return <select className={`m-input hrt-skim ${can ? 'is-on' : ''}`} disabled={!!busy || !can} value="" data-testid={`skim-${l.symbol}`} aria-label={`Take ${l.symbol} profit`}
                   data-tip={can ? `Take ONLY the profit of $${l.symbol} (about ${usd(gain)}). What you put into it (${usd(l.costUsd)}) keeps riding. Choose where the profit goes.` : `No profit to take on $${l.symbol} right now`}
                   onChange={e => { const to = e.target.value; if (!to) return;
-                    if (window.confirm(`Take about ${usd(gain)} profit from $${l.symbol} and ${to === 'cash' ? 'hold it as card cash' : 'put it into your other coins'}? ${usd(l.costUsd)} stays in $${l.symbol}.`))
-                      prime({ skim: { tpl: c.tpl, pairAddress: l.pairAddress, to } }, `💰 Taking $${l.symbol} profit — ${to === 'cash' ? 'held as cash' : 'into your other coins'} once it confirms`, `skim-${l.pairAddress}`); }}>
-                  <option value="">💰{can ? ` ${usd(gain)}` : ''}</option><option value="card">♻ into my other coins</option><option value="cash">🏦 hold as cash</option></select>; })()}
+                    if (window.confirm(`Take about ${usd(gain)} profit from $${l.symbol} and ${to === 'cash' ? 'hold it as card cash' : to === 'round' ? `park it in card cash for ${parkN} round${parkN === 1 ? '' : 's'}, then put it back into the card` : 'put it into your other coins'}? ${usd(l.costUsd)} stays in $${l.symbol}.`))
+                      prime({ skim: { tpl: c.tpl, pairAddress: l.pairAddress, to } }, `💰 Taking $${l.symbol} profit — ${to === 'cash' ? 'held as cash' : to === 'round' ? `parked for ${parkN} round${parkN === 1 ? '' : 's'}` : 'into your other coins'} once it confirms`, `skim-${l.pairAddress}`); }}>
+                  <option value="">💰{can ? ` ${usd(gain)}` : ''}</option><option value="card">♻ into my other coins</option><option value="round">🅿 park {parkN} round{parkN === 1 ? '' : 's'}, then back in</option><option value="cash">🏦 hold as cash</option></select>; })()}
               <span className="hrt-sell" role="group" aria-label={`Sell ${l.symbol}`}>{[[25, '25%'], [50, '50%'], [100, 'All']].map(([p, t]) => <button key={p} type="button" className="m-btn danger" disabled={!!busy || l.buying || !(l.usd > 0)} data-testid={p === 100 ? `sell-${l.symbol}` : `sell-${l.symbol}-${p}`}
                 data-tip={`Sell ${p === 100 ? 'all' : `${p}%`} of your $${l.symbol} (${usd((l.usd || 0) * p / 100)}) to this card's cash. The total changes only after the transaction confirms.`}
                 onClick={() => window.confirm(`Sell ${p === 100 ? 'ALL' : `${p}%`} of $${l.symbol} (about ${usd((l.usd || 0) * p / 100)}) to this card's cash?`) && prime({ manualSell: { tpl: c.tpl, pairAddress: l.pairAddress, pct: p } }, `Selling ${p === 100 ? 'all' : `${p}%`} of $${l.symbol} — card cash updates after confirmation`, `sell-${l.pairAddress}`)}>{t}</button>)}</span>

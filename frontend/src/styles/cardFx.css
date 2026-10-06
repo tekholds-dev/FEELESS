@@ -1,0 +1,41 @@
+/* 🎇 Card FX (CardFx.jsx): four live backdrops for any card. Layers sit BEHIND the content (z-index -1 inside an isolated host). */
+.cfx-host { position: relative; isolation: isolate; }
+.cfx { position: absolute; inset: 0; z-index: -1; overflow: hidden; border-radius: inherit; pointer-events: none; --cfx: 21, 209, 106; --cfx2: 69, 228, 134; }
+.cfx.is-down { --cfx: 255, 107, 139; --cfx2: 255, 143, 163; }
+.cfx.is-gold { --cfx: 245, 196, 81; --cfx2: 255, 214, 106; }
+.cfx i { position: absolute; display: block; will-change: transform, opacity; }
+
+/* 1 · aurora: three soft glows drifting across */
+.cfx-aurora i { width: 70%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, rgba(var(--cfx), .22), rgba(var(--cfx), 0) 62%); animation: cfxDrift 14s ease-in-out infinite alternate; animation-delay: calc(var(--i) * -4.6s); }
+.cfx-aurora i:nth-child(1) { left: -25%; top: -45%; }
+.cfx-aurora i:nth-child(2) { right: -30%; bottom: -55%; background: radial-gradient(circle, rgba(var(--cfx2), .16), rgba(var(--cfx2), 0) 60%); }
+.cfx-aurora i:nth-child(3) { left: 30%; top: 20%; width: 40%; opacity: .7; }
+
+/* 2 · grid: a perspective floor rolling toward you + a horizon glow */
+.cfx-grid { perspective: 320px; }
+.cfx-grid i:nth-child(1) { left: -50%; right: -50%; bottom: -60%; height: 120%; transform-origin: 50% 0; transform: rotateX(62deg);
+  background: repeating-linear-gradient(0deg, rgba(var(--cfx), .2) 0 1px, transparent 1px 26px), repeating-linear-gradient(90deg, rgba(var(--cfx), .16) 0 1px, transparent 1px 26px);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 45%); mask-image: linear-gradient(180deg, transparent, #000 45%); animation: cfxRoll 2.6s linear infinite; }
+.cfx-grid i:nth-child(2) { left: 10%; right: 10%; top: 38%; height: 2px; background: linear-gradient(90deg, transparent, rgba(var(--cfx2), .55), transparent); animation: cfxPulse 3.2s ease-in-out infinite; }
+
+/* 3 · beam: a slow lighthouse sweep + an edge scan line */
+.cfx-beam i:nth-child(1) { left: 50%; top: 50%; width: 160%; aspect-ratio: 1; margin: -80% 0 0 -80%; border-radius: 50%;
+  background: conic-gradient(from 0deg, rgba(var(--cfx), 0) 0 300deg, rgba(var(--cfx), .2) 340deg, rgba(var(--cfx2), .05) 360deg); animation: cfxSpin 9s linear infinite; }
+.cfx-beam i:nth-child(2) { left: 0; right: 0; top: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(var(--cfx2), .8), transparent); animation: cfxScan 4.4s ease-in-out infinite; }
+
+/* 4 · embers: sparks rising from the bottom edge */
+.cfx-embers i { bottom: -6px; left: calc(8% + var(--i) * 13.5%); width: 3px; height: 3px; border-radius: 50%; background: rgba(var(--cfx2), .9); box-shadow: 0 0 6px rgba(var(--cfx), .8);
+  opacity: 0; animation: cfxRise calc(3.2s + var(--i) * .45s) linear infinite; animation-delay: calc(var(--i) * -.7s); }
+
+@keyframes cfxDrift { from { transform: translate3d(-6%, -4%, 0) scale(1); } to { transform: translate3d(14%, 10%, 0) scale(1.18); } }
+@keyframes cfxRoll { from { transform: rotateX(62deg) translate3d(0, 0, 0); } to { transform: rotateX(62deg) translate3d(0, 26px, 0); } }
+@keyframes cfxPulse { 0%, 100% { opacity: .25; transform: scaleX(.7); } 50% { opacity: 1; transform: scaleX(1); } }
+@keyframes cfxSpin { to { transform: rotate(360deg); } }
+@keyframes cfxScan { 0% { transform: translate3d(0, 0, 0); opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { transform: translate3d(0, var(--cfx-h, 220px), 0); opacity: 0; } }
+@keyframes cfxRise { 0% { transform: translate3d(0, 0, 0) scale(1); opacity: 0; } 12% { opacity: .9; } 100% { transform: translate3d(calc((var(--i) - 3) * 6px), -180px, 0) scale(.3); opacity: 0; } }
+
+body.fx-lite .cfx { display: none; }
+@media (prefers-reduced-motion: reduce) { .cfx { display: none; } }
+body.theme-day .cfx { opacity: .55; --cfx: 11, 122, 74; --cfx2: 21, 160, 96; }
+body.theme-day .cfx.is-down { --cfx: 190, 40, 70; --cfx2: 210, 70, 100; }
+@media (max-width: 640px) { .cfx-embers i:nth-child(n + 5) { display: none; } .cfx-aurora i:nth-child(3) { display: none; } }

@@ -1569,3 +1569,21 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   over. 🪜 STEPPED TRAIL (`trail_for`, cfg `trailStep`, on in the meta scalper): a rider's trail is the owner's own under +30%
   peak gain, ≥ 15% from +30%, ≥ 25% from +80%. Why (57 min of the meta scalper on the real card): 15 trims +$1.90, 100% won ·
   13 full exits −$0.01, 31% won · three riders left on 8% wiggles ($SNDWITCH swapped out on the way to +128%).
+- 🟢 PUMP MOVED ITS COIN RECORD: `/coins/{mint}` answers 404, the record lives at `/coins-v2/{mint}` (market.py graduation read,
+  the logo fallback, the rail check all pointed at the dead path → blank logos / "profile not showing"). `launchpad_board.pump_profile`
+  (pure, tested) → `GET /api/reputation/pump-profile/{mint}` (60s cache) → `PumpProfile.jsx` (`usePumpProfile`, `styles/pumpProfile.css`
+  `pp-*`): logo, links (http(s) only), creator → case file, graduated / on the curve, cap vs ATH (Pump's ATH is already in $), 1h
+  volume, pool, replies, live. Shown on the coin page (also when the coin has NO pool yet), compact in the coin drawer; the war
+  room chart's "Profile ↗" opens `/terminal/coin/<chain>/<mint>` (it opened the chat). A PUMP FIELD READS BLANK ⇒ curl the endpoint first.
+- 🎇 Card FX (`CardFx.jsx` kinds aurora · grid · beam · embers, `styles/cardFx.css` `cfx-*`): `<CardFx kind tone />` as the FIRST child
+  of a card with class `cfx-host` (isolated; layers at z-index −1, own DOM nodes — never the card's ::before / ::after; transform +
+  opacity only; hidden in fx-lite / reduced motion; `.cfx` itself is in `FX_SURFACES` — pausing the HOST froze its fade-in half way).
+  On: coin profile cards, Pump profile, weather strip, best-Fuse tile, mini Top 10, share preview. NOT on a grid whose rule styles
+  `> span` (e.g. `hrt-hero`). New card ⇒ pick one of the four, never a fifth one-off backdrop.
+- 🖼 Share = a STILL first (`shareGif.renderShareCard`: the same card at 2×, 1440×810 PNG, dot lattice + corner brackets + UTC stamp),
+  spinning 180° into place (`gifSpin`, re-keyed per design); 🎞 Animate renders the GIF only when asked. Keep `perspective()` INSIDE
+  the transform: a `perspective` parent left the finished image unpainted (blank preview) in Chromium.
+- 🪙 A NEW MAJOR MUST TRADE LIKE ONE (`fuse.solid_major`, applied in `_prime_candidates`): 24h volume ≥ 1% of its market cap, volume ≥
+  half its pool, cap ≤ $250M, a logo — else the row is not offered at all. $VSOF ("$667M" cap, 0.1% traded, no logo) took a real seat.
+- 🅿 Per-coin 💰 has a manual PARK (`skim.to: 'round'`): that coin's profit sits in card cash for the card's own `skimHoldRounds`,
+  then `release_parked` puts it back to work.

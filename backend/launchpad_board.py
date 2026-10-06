@@ -208,3 +208,30 @@ def dex_candidate(pair):
         'socials': len(info.get('socials') or []) + len(info.get('websites') or []),
         'url': f"https://{'pump.fun/coin' if pad == 'pump' else 'letsbonk.fun/token'}/{mint}",
     }
+
+
+# 🟢 PUMP PROFILE: what Pump itself says about a coin, shaped for the coin profile + coin drawer. Pump moved its coin record from
+# `/coins/{mint}` to `/coins-v2/{mint}` (the old path answers 404), which silently blanked the logo fallback, the graduation read
+# and every "pump profile" on the site. Pure: `d` = that record; None when it is not a coin record.
+def _http_url(u):
+    u = str(u or '').strip()
+    return u if u.startswith('https://') or u.startswith('http://') else None
+
+
+def pump_profile(d, now_ms=0):
+    if not isinstance(d, dict) or not d.get('mint') or not d.get('symbol'):
+        return None
+    f = lambda v: float(v or 0) if isinstance(v, (int, float, str)) and str(v).replace('.', '', 1).replace('-', '', 1).isdigit() else 0.0
+    mc, ath, made = f(d.get('usd_market_cap') or d.get('market_cap_usd')), f(d.get('ath_market_cap')), f(d.get('created_timestamp'))
+    ath_usd = max(ath, mc) if ath > 0 else 0.0     # Pump's ATH is already in $ (checked live: SK ath 257,626 beside usd_market_cap 210,549); never under today's cap
+    links = [(k, _http_url(d.get(k))) for k in ('twitter', 'telegram', 'website')]
+    return {'mint': d['mint'], 'name': str(d.get('name') or '')[:60], 'symbol': str(d.get('symbol'))[:20], 'image': _http_url(d.get('image_uri')),
+            'banner': None if d.get('hide_banner') else _http_url(d.get('banner_uri')), 'description': str(d.get('description') or '')[:600],
+            'links': [{'type': 'x' if k == 'twitter' else k, 'url': u} for k, u in links if u],
+            'creator': d.get('creator'), 'createdAt': made or None, 'ageH': round((now_ms - made) / 3.6e6, 1) if made and now_ms else None,
+            'graduated': d.get('complete') is True, 'pool': d.get('pump_swap_pool') or d.get('pool_address'),
+            'mcapUsd': round(mc, 2), 'athUsd': round(ath_usd, 2), 'offAthPct': round((mc / ath_usd - 1) * 100, 1) if ath_usd > 0 and mc > 0 else None,
+            'vol1hUsd': round(f(d.get('volume_1h_usd')), 2), 'liqUsd': round(f(d.get('canonical_pool_liquidity_usd')), 2),
+            'replies': int(f(d.get('reply_count'))), 'live': bool(d.get('is_currently_live')), 'banned': bool(d.get('is_banned')), 'nsfw': bool(d.get('nsfw')),
+            'verified': bool(d.get('verified')), 'cashback': bool(d.get('is_cashback_enabled')),
+            'lastTradeAt': f(d.get('last_trade_timestamp')) or None, 'url': f"https://pump.fun/coin/{d['mint']}"}

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { PumpProfile } from './PumpProfile';
 import { createPortal } from 'react-dom';
 import { useCoinEdge } from '../lib/coinEdge';
 import { useLivePrices } from '../lib/livePrices';
@@ -75,6 +76,7 @@ export function CoinDrawer({ coin, onClose }) {
       {moves.length > 0 && <div className="cd-moves" data-testid="cd-moves">{moves.map(([l, x], i) => { const n = Number(x); return <div key={l} role="button" tabIndex={0} aria-pressed={tf === l} onClick={() => setTf(l)} onKeyDown={ev => (ev.key === 'Enter' || ev.key === ' ') && setTf(l)}
         className={`${n >= 0 ? 'up' : 'dn'} ${tf === l ? 'on' : ''}`} style={{ '--i': i }} data-testid={`cd-tf-${l}`}><small>{l}</small>
         <span><i style={{ transform: `scaleX(${Math.max(0.04, Math.min(1, Math.abs(n) / top))})` }} /></span><b className="m-num">{n >= 1000 ? `${(n / 100 + 1).toFixed(1)}x` : `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`}</b></div>; })}</div>}
+      {coin.mint && <PumpProfile mint={coin.mint} compact />}
       {vit.length > 0 && <div className="cd-vit" data-testid="cd-vitals">{vit.map(([l, x, bad], i) => <div key={l} className={bad ? 'bad' : ''} style={{ '--i': i }}><small>{l}</small><b className="m-num">{x}</b></div>)}</div>}
       {e?.sources?.length > 0 && <div className="cd-src">{e.sources.map(sx => <span key={sx.kind} className="m-chip" data-tip={sx.detail}>{sx.label}</span>)}</div>}
       {e?.signals?.length > 0 && <ul className="cd-sig">{e.signals.map((s, i) => <li key={i} className={s.warn ? 'warn' : ''}><b>{s.text}</b><small className="m-dim">{s.source}</small></li>)}</ul>}

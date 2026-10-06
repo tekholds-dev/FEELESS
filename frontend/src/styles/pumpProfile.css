@@ -1,0 +1,27 @@
+/* 🟢 Pump profile block (PumpProfile.jsx) — coin page, coin drawer, war room chart. Built from m-* tokens. */
+.pp { display: grid; gap: 10px; padding: 14px; overflow: hidden; animation: ppIn .28s ease both; }
+.pp-head { display: flex; gap: 12px; align-items: center; min-width: 0; }
+.pp-logo { width: 56px; height: 56px; flex: none; border-radius: 14px; object-fit: cover; border: 1px solid rgba(21, 209, 106, .45); box-shadow: 0 0 18px -6px rgba(21, 209, 106, .7); background: #06100b; }
+.pp-glyph { display: grid; place-items: center; font: 700 18px "JetBrains Mono", monospace; color: #45e486; }
+.pp-id { display: grid; gap: 6px; min-width: 0; } .pp-id > b { font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .pp-id small { font-weight: 500; opacity: .65; margin-left: 4px; }
+.pp-chips { display: flex; flex-wrap: wrap; gap: 4px; } .pp-chips .m-chip { font-size: 10px; }
+.pp-chips .is-grad { color: #45e486; border-color: rgba(21, 209, 106, .5); } .pp-chips .is-curve { color: var(--gold); border-color: rgba(245, 196, 81, .5); }
+.pp-chips .is-live { color: #ff8fa3; border-color: rgba(255, 143, 163, .6); animation: ppBlink 1.4s ease-in-out infinite; } .pp-chips .is-bad { color: #ff8fa3; border-color: rgba(255, 143, 163, .6); }
+.pp-desc { margin: 0; font-size: 13px; line-height: 1.5; opacity: .85; max-height: 5.9em; overflow: auto; scrollbar-width: thin; overflow-wrap: anywhere; }
+.pp-tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.pp-tiles > div { display: grid; gap: 2px; padding: 8px; border-radius: 10px; border: 1px solid rgba(21, 209, 106, .16); background: rgba(0, 0, 0, .32); animation: ppIn .3s ease both; animation-delay: calc(var(--i) * 45ms); transition: transform .15s ease, border-color .15s ease; }
+.pp-tiles > div:hover { transform: translateY(-2px); border-color: rgba(21, 209, 106, .5); }
+.pp-tiles .m-label { font-size: 9px; } .pp-tiles .m-num { font-size: 15px; } .pp-tiles .bad .m-num { color: #ff8fa3; }
+.pp-foot { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .pp-foot .m-btn { font-size: 11px; padding: 5px 10px; text-decoration: none; }
+.pp-foot .m-btn:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; } .pp-out { margin-left: auto; }
+.pp.is-compact { padding: 10px; gap: 8px; } .pp.is-compact .pp-logo { width: 38px; height: 38px; border-radius: 10px; } .pp.is-compact .pp-id > b { font-size: 14px; }
+.pp.is-compact .pp-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } .pp.is-compact .pp-tiles .m-num { font-size: 13px; }
+@keyframes ppIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes ppBlink { 50% { opacity: .45; } }
+body.fx-lite .pp, body.fx-lite .pp-tiles > div, body.fx-lite .pp-chips .is-live { animation: none; }
+@media (prefers-reduced-motion: reduce) { .pp, .pp-tiles > div, .pp-chips .is-live { animation: none; } .pp-tiles > div:hover { transform: none; } }
+body.theme-day .pp-tiles > div { background: #f1faf5; border-color: #b9dcc8; } body.theme-day .pp-logo { background: #eaf7f0; border-color: #9fd3b6; box-shadow: none; }
+body.theme-day .pp-glyph, body.theme-day .pp-chips .is-grad { color: #0b7a4a; } body.theme-day .pp-chips .is-curve { color: #8a6100; } body.theme-day .pp-tiles .bad .m-num, body.theme-day .pp-chips :is(.is-live, .is-bad) { color: #b3264a; }
+@media (max-width: 640px) { .pp-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } .pp-out { margin-left: 0; } }
+.cp-pump { padding: 0 18px; }
+@media (max-width: 640px) { .cp-pump { padding: 0 10px; } }

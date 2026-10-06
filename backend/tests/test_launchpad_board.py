@@ -25,3 +25,17 @@ def test_jupiter_mover_rows_become_launch_candidates_only_for_launchpad_mints():
     assert lb.jup_candidate({'id': 'NoAge111', 'symbol': 'X'}, now) is None                                # unknown age = out
     assert lb.jup_candidate({'id': 'Tagged111', 'launchpad': 'pump.fun', 'symbol': 'P'}, now)['launchpad'] == 'pump'
     assert ('toptrending', '1h') in lb.JUP_LISTS
+
+
+def test_pump_profile_is_shaped_from_pumps_own_coin_record():
+    import launchpad_board as lb
+    d = {'mint': 'ABCpump', 'name': 'Super Kitty', 'symbol': 'SK', 'image_uri': 'https://img/x.png', 'twitter': 'https://x.com/sk', 'telegram': 'javascript:alert(1)',
+         'website': '', 'creator': 'Dev111', 'created_timestamp': 1_000_000_000_000, 'complete': True, 'pump_swap_pool': 'Pool1', 'market_cap': 1000.0,
+         'usd_market_cap': 200_000.0, 'ath_market_cap': 400_000.0, 'volume_1h_usd': 47_040.3, 'canonical_pool_liquidity_usd': 43_806.4, 'reply_count': 12,
+         'is_currently_live': True, 'description': 'a cat'}
+    p = lb.pump_profile(d, now_ms=1_000_000_000_000 + 7_200_000)
+    assert p['symbol'] == 'SK' and p['image'] == 'https://img/x.png' and p['graduated'] and p['pool'] == 'Pool1' and p['ageH'] == 2.0
+    assert p['links'] == [{'type': 'x', 'url': 'https://x.com/sk'}]                 # only real http(s) links survive (no script URLs, no blanks)
+    assert p['athUsd'] == 400_000.0 and p['offAthPct'] == -50.0                     # Pump's ATH is in $
+    assert p['replies'] == 12 and p['live'] and p['creator'] == 'Dev111' and p['url'].endswith('/coin/ABCpump')
+    assert lb.pump_profile({'statusCode': 404}) is None and lb.pump_profile(None) is None

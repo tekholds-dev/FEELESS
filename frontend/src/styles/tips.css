@@ -82,3 +82,12 @@ body.theme-day .chart-fuse { background: #eaf7f0; border-color: #9fd3b6; } body.
 .chart-fuse-btn { margin-left: auto; padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(21, 209, 106, .6); background: none; color: inherit; font: inherit; font-size: 11.5px; cursor: pointer; transition: background .15s, transform .15s; }
 .chart-fuse-btn:hover { background: rgba(21, 209, 106, .16); } .chart-fuse-btn:active { transform: scale(.97); } .chart-fuse-btn:focus-visible { outline: 1px solid #15d16a; outline-offset: 2px; }
 body.theme-day .chart-fuse-btn { border-color: #0b7a4a; }
+
+/* 🖼 Share card: the still spins 180° into place when the preview opens (and on each new design). */
+.gif-stage { padding: 14px 14px 0; }
+.gif-card .gif-spin { border-radius: 14px; box-shadow: 0 18px 50px -18px #000, 0 0 0 1px rgba(21, 209, 106, .35); animation: gifSpin .75s cubic-bezier(.2, .8, .2, 1) both; transform-origin: 50% 50%; }
+/* perspective lives INSIDE the transform: a `perspective` parent left the finished image unpainted in Chromium (blank preview) */
+@keyframes gifSpin { from { transform: perspective(1400px) rotateY(180deg) scale(.72); opacity: 0; } 45% { opacity: 0; } 60% { opacity: 1; } to { transform: perspective(1400px) rotateY(0deg) scale(1); opacity: 1; } }
+body.fx-lite .gif-card .gif-spin { animation-duration: .01s; }
+@media (prefers-reduced-motion: reduce) { .gif-card .gif-spin { animation: none; } }
+body.theme-day .gif-card .gif-spin { box-shadow: 0 14px 34px -18px #0006, 0 0 0 1px #9fd3b6; }

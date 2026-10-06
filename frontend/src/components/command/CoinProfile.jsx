@@ -8,6 +8,8 @@ import { CoinProfileClaim } from './CoinProfileClaim';
 import { VerifiedTick } from '../terminal/MarketPrimitives';
 import { CoinPassport } from '../CoinPassport';
 import { resolveCoin } from '../../lib/resolveCoin';
+import { PumpProfile, usePumpProfile } from '../PumpProfile';
+import { CardFx } from '../CardFx';
 
 const ago = ts => { const s = Math.max(0, Date.now() / 1000 - ts); return s < 60 ? `${Math.floor(s)}s` : s < 3600 ? `${Math.floor(s / 60)}m` : s < 86400 ? `${Math.floor(s / 3600)}h` : `${Math.floor(s / 86400)}d`; };
 
@@ -32,6 +34,7 @@ export function CoinProfile({ chain, pairAddress }) {
     return () => { alive = false; clearInterval(t); };
   }, [chain, pairAddress]);
   const mint = pair?.baseToken?.address;
+  const pump = usePumpProfile(chain === 'solana' ? (mint || pairAddress) : null);   /* 🟢 Pump's own record fills what the market index lacks (logo, links, creator) */
   const pool = pair?.pairAddress || pairAddress;   // resolved pool (the route may carry a mint)
   useEffect(() => {
     if (!mint) return;
@@ -50,20 +53,21 @@ export function CoinProfile({ chain, pairAddress }) {
     load(); const t = setInterval(load, 15000);
     return () => { alive = false; clearInterval(t); };
   }, [flipped, chain, pool]);
-  if (!pair) return <section className="coin-profile" data-testid="coin-profile"><p className="wp-bio">{missing ? 'No market found for this address yet. Check the address, or try again once the coin has a pool.' : 'Loading coin…'}</p></section>;
+  if (!pair) return <section className="coin-profile" data-testid="coin-profile"><p className="wp-bio">{missing ? (pump?.mint ? 'No pool yet — this coin is still on its launch curve. Here is its Pump profile:' : 'No market found for this address yet. Check the address, or try again once the coin has a pool.') : 'Loading coin…'}</p>{missing && chain === 'solana' && <PumpProfile mint={pairAddress} />}</section>;
   const tx = pair.txns?.h24 || {}; const b = tx.buys || 0; const s = tx.sells || 0;
   const snip = intel?.sniperWallets?.length ?? null; const bund = intel?.bundledWallets?.length ?? null;
   return <section className="coin-profile" data-testid="coin-profile">
-    <div className="cp-banner" style={pair.info?.header ? { backgroundImage: `url(${pair.info.header})` } : undefined} />
+    <div className="cp-banner" style={(pair.info?.header || pump?.banner) ? { backgroundImage: `url(${pair.info?.header || pump.banner})` } : undefined} />
     <div className="cp-head">
-      <div className="cp-logo">{pair.info?.imageUrl ? <img src={pair.info.imageUrl} alt="" /> : <span>{pair.baseToken.symbol.slice(0, 2)}</span>}{chain === 'solana' && <VerifiedTick mint={mint} size={96} />}</div>
+      <div className="cp-logo">{(pair.info?.imageUrl || pump?.image) ? <img src={pair.info?.imageUrl || pump.image} alt="" /> : <span>{pair.baseToken.symbol.slice(0, 2)}</span>}{chain === 'solana' && <VerifiedTick mint={mint} size={96} />}</div>
       <div className="cp-id"><h1>${pair.baseToken.symbol} <small>{pair.baseToken.name}</small></h1><span>{chain} · {pair.dexId} · pool {formatAge(pair.pairCreatedAt)} old · <code>{shortAddress(mint)}</code><CopyBtn value={mint} /></span>
         <div className="cp-links">{(pair.info?.socials || []).map(x => <a key={x.url} href={x.url} target="_blank" rel="noopener noreferrer">{x.type}</a>)}{(pair.info?.websites || []).slice(0, 1).map(x => <a key={x.url} href={x.url} target="_blank" rel="noopener noreferrer">website</a>)}<a href={`/terminal/chat?chain=${chain}&pair=${pool}&room=bulls`}>Chart + trade →</a></div></div>
       <button type="button" className="btn-outline wp-flip-btn" data-testid="coin-flip" onClick={() => setFlipped(f => !f)}>{flipped ? '↺ Profile' : '↻ Activity'}</button>
     </div>
     <CoinPassport pair={pair} />
+    {chain === 'solana' && <div className="cp-pump"><PumpProfile mint={mint} /></div>}
     {!flipped ? <div className="cp-grid">
-      <div className="cp-card"><h4>Market</h4>
+      <div className="cp-card cfx-host"><CardFx kind="grid" /><h4>Market</h4>
         <div className="cp-kv"><span>Price</span><b><LivePrice pair={pair} precise /></b></div>
         <div className="cp-kv"><span>5m / 1h / 24h</span><b>{formatPct(pair.priceChange?.m5)} · {formatPct(pair.priceChange?.h1)} · {formatPct(pair.priceChange?.h24)}</b></div>
         <div className="cp-kv"><span>Market cap</span><b>{formatUSD(pair.marketCap || pair.fdv)}</b></div>
@@ -71,7 +75,7 @@ export function CoinProfile({ chain, pairAddress }) {
         <div className="cp-kv"><span>24h volume</span><b>{formatUSD(pair.volume?.h24)}</b></div>
         <div className="cp-flow"><i style={{ width: `${b + s ? (b / (b + s)) * 100 : 50}%` }} /><small>{b.toLocaleString()} buys · {s.toLocaleString()} sells (24h)</small></div>
       </div>
-      <div className="cp-card"><h4>Holder intel <small>FEELESS on-chain</small></h4>
+      <div className="cp-card cfx-host"><CardFx kind="aurora" /><h4>Holder intel <small>FEELESS on-chain</small></h4>
         {!intel ? <p className="wp-bio">Scanning holders…</p> : <>
           <div className="cp-kv"><span>Top 10 wallets</span><b className={intel.top10Pct > 35 ? 'negative' : 'positive'}>{intel.top10Pct != null ? `${intel.top10Pct.toFixed(1)}%` : '—'}</b></div>
           <div className="cp-kv"><span>Insiders / dev</span><b>{intel.insidersHoldingPct?.toFixed?.(1) ?? '—'}% / {intel.devHoldingPct?.toFixed?.(1) ?? '—'}%</b></div>
@@ -80,8 +84,8 @@ export function CoinProfile({ chain, pairAddress }) {
           {(intel.flags || []).map(f => <p key={f} className="cp-flag">⚠️ {f}</p>)}
         </>}
       </div>
-      <div className="cp-card"><h4>Meta trade tools</h4><DipRipTool pair={pair} /></div>
-      <div className="cp-card"><h4>Creator</h4>
+      <div className="cp-card cfx-host"><CardFx kind="embers" /><h4>Meta trade tools</h4><DipRipTool pair={pair} /></div>
+      <div className="cp-card cfx-host"><CardFx kind="beam" /><h4>Creator</h4>
         {!rep?.creator ? <p className="wp-bio">Finding creator…</p> : <>
           <a className="cp-creator" href={`/terminal/profile/${rep.creator}`}>{shortAddress(rep.creator)} ↗</a>
           {chain === 'solana' && mint && <CreatorFeesCard mint={mint} creator={rep.creator} />}

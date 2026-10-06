@@ -71,7 +71,7 @@ function drawFuseCard(g, fz, imgs, t) {
   g.restore();
 }
 
-function frame(g, card, logo, coin, t, seed) {
+function frame(g, card, logo, coin, t, seed, s = 1) {
   const P = THEMES[card.theme] || PALETTES[card.tone === 'down' ? 'down' : 'up'];
   // Base with two orbiting light pools.
   g.fillStyle = P.base; g.fillRect(0, 0, W, H);
@@ -85,8 +85,8 @@ function frame(g, card, logo, coin, t, seed) {
   for (let i = 0; i < 46; i++) { const px = ((seed[i] * W) + t * 40 * (i % 3 + 1)) % W; const py = H - ((seed[i + 46] * H + t * H * (0.6 + seed[i] * 0.8)) % H); const a = 0.35 + 0.65 * Math.abs(Math.sin((t + seed[i]) * Math.PI * 2)); g.fillStyle = `rgba(${P.spark},${a})`; g.beginPath(); g.arc(px, py, 1 + seed[i + 20] * 2.2, 0, Math.PI * 2); g.fill(); }
   if (THEMES[card.theme]) designFx(g, card.theme, P, t, seed);
   // Film grain: keeps gradients smooth in 256 colours (and makes the loop feel alive).
-  const img = g.getImageData(0, 0, W, H); const d = img.data;
-  for (let p = 0; p < d.length; p += 4) { const n = (Math.random() - 0.5) * 22; d[p] += n; d[p + 1] += n; d[p + 2] += n; }
+  const img = g.getImageData(0, 0, W * s, H * s); const d = img.data;
+  for (let p = 0; p < d.length; p += 4) { const n = (Math.random() - 0.5) * (s > 1 ? 9 : 22); d[p] += n; d[p + 1] += n; d[p + 2] += n; }
   g.putImageData(img, 0, 0);
   // Watermark: big faint FEE (or FeeCat) mark, pulsing.
   if (logo) { g.globalAlpha = (card.mascot ? 0.16 : 0.1) + 0.05 * Math.sin(t * Math.PI * 2); g.drawImage(logo, W - 330, -20, 380, 380); g.globalAlpha = 1; }
@@ -121,6 +121,31 @@ function frame(g, card, logo, coin, t, seed) {
   // Brand mark.
   g.font = '400 20px "Bungee", sans-serif'; g.fillStyle = P.brand; g.fillText(card.mascot ? 'FEECAT' : 'FEELESS', W - 190, H - 52);
   g.font = '500 12px "Space Grotesk", sans-serif'; g.fillStyle = P.foot; g.fillText(card.footer || 'feeless · non-custodial trading', W - 262, H - 34);
+}
+
+// 🖼 The STILL share card (the default): the same card at 2× (1440×810 PNG), drawn once — instant, crisp, small. On top of the
+// animated layout it gets a print finish: a dot lattice inside the panel, corner brackets, and a date stamp.
+function finish(g, P) {
+  g.save();
+  g.fillStyle = `rgba(${P.spark},.07)`;
+  for (let y = 44; y < H - 40; y += 14) for (let x = 44; x < W - 40; x += 14) g.fillRect(x, y, 1.2, 1.2);
+  g.strokeStyle = P.brand; g.lineWidth = 2.5; g.lineCap = 'round';
+  for (const [x, y, dx, dy] of [[40, 40, 1, 1], [W - 40, 40, -1, 1], [40, H - 40, 1, -1], [W - 40, H - 40, -1, -1]]) { g.beginPath(); g.moveTo(x + 22 * dx, y); g.lineTo(x, y); g.lineTo(x, y + 22 * dy); g.stroke(); }
+  const d = new Date(); const stamp = `${d.toISOString().slice(0, 10)} · ${d.toISOString().slice(11, 16)} UTC`;
+  g.font = '600 11px "JetBrains Mono", monospace'; g.fillStyle = P.foot; g.textAlign = 'right'; g.fillText(stamp, W - 56, 62); g.textAlign = 'left';
+  g.restore();
+}
+
+export async function renderShareCard(card) {
+  await document.fonts?.ready;
+  const [logo, coin] = await Promise.all([loadImg(card.mascot === 'feecat' ? '/assets/feecat-mark.png' : '/assets/feeless-logo.png'), loadImg(card.imageUrl)]);
+  if (card.fuse) card = { ...card, coinImgs: await Promise.all((card.fuse.coins || []).slice(0, 6).map(x => loadImg(x.logo))) };
+  const S = 2; const c = document.createElement('canvas'); c.width = W * S; c.height = H * S; const g = c.getContext('2d', { willReadFrequently: true });
+  g.scale(S, S);
+  const seed = Array.from({ length: 120 }, (_, i) => Math.abs(Math.sin(i * 12.9898) * 43758.5453) % 1);
+  frame(g, card, logo, coin, 0.5, seed, S);          // t = 0.5: the count-up has landed, lights mid-orbit
+  finish(g, THEMES[card.theme] || PALETTES[card.tone === 'down' ? 'down' : 'up']);
+  return new Promise(res => c.toBlob(b => res(b), 'image/png'));
 }
 
 export async function renderShareGif(card) {

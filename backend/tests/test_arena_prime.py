@@ -1283,6 +1283,10 @@ def test_skim_takes_only_the_profit_keeps_the_stake_and_sends_it_where_the_owner
     assert card['legs'][0]['units'] == 1.0                                               # pure: the input card is untouched
     tax = ap.skim_leg(card, 'PUP', px, {}, now, to='cash')
     assert abs(tax['holdCashUsd'] - 0.5) < 1e-6 and 'held as cash' in tax['events'][-1]['why']               # held for the owner, never re-spent
+    park = ap.skim_leg({**card, 'rounds': 4}, 'PUP', px, {}, now, to='round')            # 🅿 the owner's manual park: out of the coins…
+    assert abs(park['holdCashUsd'] - 0.5) < 1e-6 and park['skimPark'][0]['round'] == 4 and 'parked' in park['events'][-1]['why']
+    park['rounds'] = 5; assert ap.release_parked(park, {'skimHoldRounds': 2}, now) == 0.0   # …until the card's own park setting says so
+    park['rounds'] = 6; assert abs(ap.release_parked(park, {'skimHoldRounds': 2}, now) - 0.5) < 1e-6 and not park['holdCashUsd'] and not park['skimPark']
     for bad in ('PDOWN', 'PNOPE'):
         try:
             ap.skim_leg(card, bad, px, {}, now); assert False

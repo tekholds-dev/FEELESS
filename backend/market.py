@@ -458,7 +458,7 @@ def create_market_router(db, intelligence=None):
 
         async def read_mint(mint):
             try:
-                data, meta = await cached('Pump.fun', f'/coins/{mint}', ttl=60)
+                data, meta = await cached('Pump.fun', f'/coins-v2/{mint}', ttl=60)
                 return mint, data, meta, None
             except HTTPException as exc:
                 return mint, None, {}, str(exc.detail)

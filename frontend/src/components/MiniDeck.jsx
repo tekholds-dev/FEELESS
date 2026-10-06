@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { CardFx } from './CardFx';
 import { apiUrl } from '../lib/api';
 import { useWallet } from '../hooks/useWallet';
 import { useHeldList } from '../lib/myHoldings';
@@ -26,7 +27,7 @@ export function MiniTop() {
       .then(a => alive && setRows(topTen(a.flatMap(x => x.pairs || [])))); };
     load(true); const t = setInterval(() => load(false), 30000); return () => { alive = false; clearInterval(t); }; }, []);
   if (!rows) return <div className="md is-ghost" />;
-  return <div className="md" data-testid="mini-top"><span className="m-label">🔥 TOP 10 · SOLANA · UNDER 12H · BY 1H VOLUME</span>
+  return <div className="md cfx-host" data-testid="mini-top"><CardFx kind="embers" /><span className="m-label">🔥 TOP 10 · SOLANA · UNDER 12H · BY 1H VOLUME</span>
     {rows.length ? <ol className="md-list">{rows.map((p, i) => <li key={p.baseToken.address} style={{ '--i': i }}>
       <button type="button" onClick={() => openCoin(p)} data-testid={`mini-top-${i}`}><i>{i + 1}</i><TokenAvatar pair={p} size={22} />
         <b>{p.baseToken.symbol}</b><span className="m-num">{usd(p.volume?.h1)}<small>/h</small></span>

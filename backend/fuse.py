@@ -451,7 +451,7 @@ def risers(pairs, now_ms, max_age_d=14, min_mcap=800_000, max_mcap=50_000_000, m
         if k not in best or liq > _f((best[k].get('liquidity') or {}).get('usd')):
             best[k] = p
     score = lambda p: _f((p.get('volume') or {}).get('h24')) * (1 + max(0.0, _f((p.get('priceChange') or {}).get('h24'))) / 100)
-    out = [{'chainId': 'solana', 'pairAddress': p.get('pairAddress'), 'createdAt': p.get('pairCreatedAt'), 'mcap': _f(p.get('marketCap') or p.get('fdv')), **leg_meta(p)}
+    out = [{'chainId': 'solana', 'pairAddress': p.get('pairAddress'), 'createdAt': p.get('pairCreatedAt'), 'mcap': _f(p.get('marketCap') or p.get('fdv')), 'logo': (p.get('info') or {}).get('imageUrl'), **leg_meta(p)}
            for p in sorted(best.values(), key=score, reverse=True)[:limit]]
     return out
 
@@ -469,7 +469,32 @@ def pump_majors(pairs, have=(), top=40, min_mcap=300_000, min_liq=50_000):
         if b not in best or _f((p.get('liquidity') or {}).get('usd')) > _f((best[b].get('liquidity') or {}).get('usd')):
             best[b] = p
     rows = sorted(best.values(), key=lambda p: -_f((p.get('volume') or {}).get('h24')))[:top]
-    return [{'chainId': 'solana', 'pairAddress': p.get('pairAddress'), 'createdAt': p.get('pairCreatedAt'), 'mcap': _f(p.get('marketCap') or p.get('fdv')), 'pump': True, **leg_meta(p)} for p in rows]
+    return [{'chainId': 'solana', 'pairAddress': p.get('pairAddress'), 'createdAt': p.get('pairCreatedAt'), 'mcap': _f(p.get('marketCap') or p.get('fdv')), 'pump': True, 'logo': (p.get('info') or {}).get('imageUrl'), **leg_meta(p)} for p in rows]
+
+
+# 🪙 A NEW MAJOR MUST TRADE LIKE ONE. 2026-10-06: $VSOF took a real-card seat through the new-major door — a "$667M" market cap on
+# $735K of daily volume (0.1% of its size), a pool turning over 0.3× a day, no logo. A coin whose size nobody trades is a number,
+# not a major. Majors carry weight on a card, so the bar is: real trading for its size, a pool that turns over, an identity.
+MAJOR_MIN_VOL_MCAP = 1.0    # 24h volume ≥ 1% of market cap
+MAJOR_MIN_TURNOVER = 0.5    # 24h volume ≥ half the pool
+MAJOR_MAX_MCAP = 250_000_000   # a days-old coin "worth" more than this is not judged a new major (established majors live in MAJORS)
+
+
+def solid_major(row):
+    """→ [] when a new-major row trades like a real one, else the plain reasons it does not. Unknown numbers = not solid."""
+    mc, vol, liq = _f(row.get('mcap')), _f(row.get('volume24h')), _f(row.get('liquidityUsd') or row.get('liquidity') or row.get('liq'))
+    why = []
+    if mc <= 0 or vol <= 0 or liq <= 0:
+        return ['no size / volume / pool reading']
+    if mc > MAJOR_MAX_MCAP:
+        why.append(f'${mc / 1e6:,.0f}M market cap on a coin days old')
+    if vol / mc * 100 < MAJOR_MIN_VOL_MCAP:
+        why.append(f'only {vol / mc * 100:.1f}% of its size traded in 24h')
+    if vol / liq < MAJOR_MIN_TURNOVER:
+        why.append(f'pool turns over {vol / liq:.1f}× a day')
+    if not row.get('logo'):
+        why.append('no logo')
+    return why
 
 
 def rank_anchors(majors, risers=(), now_ms=0, max_new=4, min_liq=250_000):

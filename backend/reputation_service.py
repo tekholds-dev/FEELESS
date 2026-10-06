@@ -5712,7 +5712,8 @@ async def _prime_candidates():
                      'liquidity': r.get('liquidityUsd'), 'buyShare': r.get('buyShare'), 'change24h': r.get('change24h'), 'newMajor': (_age_h(r) or 0) >= 24,
                      'ageH': _age_h(r), 'liq': r.get('liquidityUsd'), 'chg1h': r.get('change1h'),
                      'change1h': r.get('change1h'), 'change6h': r.get('change6h'), 'mcap': r.get('mcap'), 'createdAt': r.get('createdAt'), 'volume24h': r.get('volume24h')}
-                    for r in (await fuses_discover(lens='risers', chain='solana')).get('pools') or [] if r.get('baseAddress') not in have and _fuse._f(r.get('priceUsd')) > 0]   # 🚀 risers + 🟢 Pump's top 15 by volume (same as the Lab lens)
+                    for r in (await fuses_discover(lens='risers', chain='solana')).get('pools') or [] if r.get('baseAddress') not in have and _fuse._f(r.get('priceUsd')) > 0
+                    and not ((_age_h(r) or 0) >= 24 and _fuse.solid_major(r))]   # 🪙 a new major must trade like one (fuse.solid_major) — else it is not offered at all   # 🚀 risers + 🟢 Pump's top 15 by volume (same as the Lab lens)
     except Exception as e:
         if not os.environ.get('PYTEST_CURRENT_TEST'):
             print('new majors:', e)
@@ -14987,7 +14988,7 @@ async def launch_check(mint: str, rail: str = 'pump'):
             return None
         try:
             async with httpx.AsyncClient(timeout=8, headers={'User-Agent': 'Mozilla/5.0'}) as http:
-                r = await http.get(f'https://frontend-api-v3.pump.fun/coins/{mint}')
+                r = await http.get(f'https://frontend-api-v3.pump.fun/coins-v2/{mint}')
             return r.status_code == 200 and (r.json() or {}).get('mint') == mint
         except Exception:
             return None
@@ -15050,6 +15051,31 @@ class CoinProfileIn(BaseModel):
     website: str = ''
     twitter: str = ''
     telegram: str = ''
+
+
+_PUMP_PROFILE = {}   # mint → (at, profile | None)
+
+
+@app.get('/api/reputation/pump-profile/{mint}')
+async def pump_profile_get(mint: str):
+    """🟢 What Pump says about a coin (logo, links, creator, graduated, cap vs its ATH, 1h volume, replies, live). 60s cache; {} when
+    Pump has no record. Read-only, public data."""
+    if not (mint.isalnum() and 30 <= len(mint) <= 48):
+        raise HTTPException(400, 'Not a mint.')
+    hit = _PUMP_PROFILE.get(mint)
+    if hit and time.time() - hit[0] < 60:
+        return hit[1] or {}
+    import launchpad_board as _lb
+    try:
+        async with httpx.AsyncClient(timeout=6, headers={'User-Agent': 'Mozilla/5.0'}) as http:
+            r = await http.get(f'https://frontend-api-v3.pump.fun/coins-v2/{mint}')
+        prof = _lb.pump_profile(r.json() if r.status_code == 200 else None, time.time() * 1000)
+    except Exception:
+        return (hit[1] if hit else None) or {}      # Pump busy: the last copy, never an error wall
+    if len(_PUMP_PROFILE) > 600:
+        _PUMP_PROFILE.clear()
+    _PUMP_PROFILE[mint] = (time.time(), prof)
+    return prof or {}
 
 
 @app.get('/api/reputation/coin-profile/{mint}')
@@ -15361,7 +15387,7 @@ async def token_logo(mint: str):
                 pass
             if mint.endswith('pump'):
                 try:
-                    d = (await http.get(f'https://frontend-api-v3.pump.fun/coins/{mint}', timeout=8)).json()
+                    d = (await http.get(f'https://frontend-api-v3.pump.fun/coins-v2/{mint}', timeout=8)).json()
                     cands.append((d or {}).get('image_uri'))
                 except Exception:
                     pass
