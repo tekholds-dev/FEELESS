@@ -40,7 +40,7 @@ export default function EcosystemWorld({ ecosystem, pad, initialPair, onClose })
   // No coin picked yet: open the room on its top coin, so the chart and tools are there in every layout.
   const roomChain = ecosystem?.chainId || 'solana';
   const roomScope = ['pump', 'bonk', 'raydium'].includes(ecosystem?.id) ? `&scope=${ecosystem.id}` : '';
-  const { data: roomTop } = useMarket(initialPair ? null : `/feed?kind=trending&chain=${roomChain}&page=1${roomScope}`, 60000);
+  const { data: roomTop } = useMarket(initialPair ? null : `/feed?kind=trending&chain=${roomChain}&page=1${roomScope}`, 20000);
   useEffect(() => {
     if (chartPair || initialPair) return;
     const top = (roomTop?.pairs || []).find(p => p.pairAddress && p.chainId === roomChain);
@@ -81,7 +81,7 @@ export default function EcosystemWorld({ ecosystem, pad, initialPair, onClose })
   const { data: community } = useMarket(`/api/intelligence/community?context=${ecosystem.id}`, 30000);
   const { data: online } = useMarket(`/api/chat/${room}/online`, 20000);
   const inRoom = online?.online ?? online?.count ?? online?.users?.length;
-  const fresh = useMarket(`/feed?kind=new&chain=${ecosystem.chainId}`, 60000);
+  const fresh = useMarket(`/feed?kind=new&chain=${ecosystem.chainId}`, 20000);
   const freshCount = fresh.data?.pairs?.length;
 
   const pulse = [

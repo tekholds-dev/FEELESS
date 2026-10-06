@@ -70,8 +70,8 @@ export default function TopCoins({ ecosystem }) {
   const topScreenParam = screen === 'quality' ? '' : `&screen=${screen}`;
   const freshScreenParam = screen === 'new' || screen === 'quality' ? '' : `&screen=${screen}`;
   const freshScreener = screen === 'quality' ? 'new' : screen;
-  const top = useMarket(`/feed?kind=trending&chain=${chain}${topScreenParam}`);
-  const fresh = useMarket(`/feed?kind=new&chain=${chain}${freshScreenParam}`);
+  const top = useMarket(`/feed?kind=trending&chain=${chain}${topScreenParam}`, 20000);   // live lists: every 20s (it was 90s)
+  const fresh = useMarket(`/feed?kind=new&chain=${chain}${freshScreenParam}`, 20000);
   const providers = [...new Set([top.data?.provider, fresh.data?.provider].filter(Boolean))];
   const onSelect = pair => {
     selectPair(pair);

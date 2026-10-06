@@ -531,6 +531,21 @@ def create_market_router(db, intelligence=None):
                 pairs, meta = await dex_boost_feed(kind, chain, page)
             else:
                 pairs, meta = await chain_feed(kind, chain, page)
+                if chain == 'solana' and page == 1 and scope not in BOARD_SCOPES:
+                    # 🌊 the Solana room shows what is moving NOW: the launch board (Pump / LetsBONK / LaunchLab + Jupiter's live
+                    # movers, rebuilt every 20s) is woven into the chain list — it used to be DexScreener discovery only, which
+                    # changes slowly, so the room looked frozen while the launch tabs moved.
+                    try:
+                        board, _ = await launchpad_board(kind)
+                    except HTTPException:
+                        board = []
+                    seen_m, woven = set(), []
+                    for a_, b_ in zip(board[:40] + [None] * 60, list(pairs) + [None] * 60):
+                        for p_ in (a_, b_):
+                            m_ = ((p_ or {}).get('baseToken') or {}).get('address')
+                            if m_ and m_ not in seen_m:
+                                seen_m.add(m_); woven.append(p_)
+                    pairs = woven or pairs
             if fallback_reason:
                 meta = {
                     **meta,

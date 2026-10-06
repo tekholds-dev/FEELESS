@@ -1433,3 +1433,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🪙 Coin drawer accepts a market PAIR too (`asCoin`: `baseToken` → mint / symbol, `stats` from the pair): a pair used to open it
   with no mint → title "$…" and "Reading the coin…" for good. No read after 6s says so. `styles/coinDrawer.css`: slide-in, four
   stat tiles (cap · 1h volume · pool · age), animated 5m / 1h / 6h / 24h move bars (transform only), reading dots.
+- 🪙 Coin drawer is ALIVE (`CoinDrawer`, `coinDrawer.css`): `cd-live` backdrop (3 drifting glows + 6 sparks; green rising when the
+  tapped timeframe is up, pink falling when down; `--heat` set inline from the size of the move, never animated; off in fx-lite /
+  reduced motion) · tap 5m / 1h / 6h / 24h (`cd-tf-*`) to drive it · `cd-spark` live price line since the drawer opened ·
+  `cd-vit` vitals (top-10, insiders, dev, bundled, creator, 5m buys / sells, avg trade, stage; bad values pink) · source chips.
+  NEVER give `.ce.cd` `position: relative` (the drawer is `position: absolute; right: 0` — it jumped to the top-left) and keep
+  `grid-template-rows: none` (the base `.ce` rows stretched the move bars down the whole panel). LOOK AT THE DRAWER after any CSS.
+- 🌊 Solana war room = chain discovery WOVEN with the live launch board (`market.py` feed, solana, page 1, no scope): it was
+  DexScreener discovery only and looked frozen. `TopCoins` + `EcosystemWorld` lists refresh every 20s (were 90s / 60s).
