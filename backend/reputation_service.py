@@ -6139,6 +6139,24 @@ async def _prime_tick_inner(now):
             r_t = _prime_cool_candidates(r_t, cool, 3, strict=real_t)
         # 🧊 anchors cool too: a major this card just sold isn't bought back for 3 rounds while another major is available
         a_t = _prime_cool_candidates(anchors, cool, 2, strict=real_t and len([x for x in anchors if x.get('mint') not in cool]) >= 1) if cool else anchors
+        # 🚀 MOVER UPGRADE (real cards, cfg `moverSwap`): a coin that is not moving (±10% of its entry after 20 min, never a rider /
+        # frozen / picked coin) gives its seat to a coin that IS — the card's own hunt selection, else ≥ $50K in the hour and up
+        # ≥ 20%. One per card per 30 min. Rotation only ever swapped LOSERS, so a flat coin sat on the card for good while a
+        # hunt-ready coin waited on the board (2026-10-06: $USDP +2% held, $GOMO +44% / $123K an hour not bought).
+        if real_t and cur and cfg_t.get('moverSwap', True) and not cur.get('holdAll') and not cur.get('flooredAt') and now - _fuse._f(cur.get('moverAt')) >= _prime.MOVER_EVERY_SEC:
+            hot_ = [x for x in _prime.movers(r_t, cfg_t) if x.get('mint') not in mine]
+            fl_ = _prime.flat_leg(cur, px, now, max(_prime.FLAT_HOLD_SEC, _fuse._f(cfg_t.get('minHoldMins')) * 60)) if hot_ else None
+            if fl_:
+                try:
+                    was_ = cur
+                    nw_ = _prime.replace_leg(cur, fl_['pairAddress'], px, p_t, hot_, anchors, cfg_t, now)
+                    in_ = next((l for l in nw_['legs'] if l.get('mint') not in mine), None)
+                    row_ = next((x for x in hot_ if in_ and x.get('mint') == in_.get('mint')), {})
+                    nw_['events'] = nw_['events'][:-1] + [{**nw_['events'][-1], 'why': f"🚀 mover in: ${(in_ or {}).get('symbol')} is up {_fuse._f(row_.get('chg1h')):+.0f}% on the hour on ${_fuse._f(row_.get('vol1h')) / 1000:,.0f}K volume — ${fl_.get('symbol')} was not moving"}]
+                    nw_['moverAt'] = now
+                    cur = _prime.note_dropped(was_, nw_, now, cfg_t['rotateHours'], px)
+                except ValueError:
+                    pass
         true_usd = None
         if real_t:   # 💵 floor / rescue / fix / runs judge the TRUE book (confirmed coins + card SOL), never the engine's estimate
             bk = (_fw_load().get('books') or {}).get(tid)

@@ -1616,3 +1616,28 @@ def test_owner_can_set_a_real_card_to_reshape_every_3_rounds_but_nobody_else_can
     assert out['cycleEvery'] == 3 and not any('re-shape' in c for c in changed)        # the owner's own 3 sticks
     assert ap.real_guard(ap.clean_cfg({'cycleEvery': 1}), ('cycleEvery',))[0]['cycleEvery'] == 3   # never under 3
     assert out['fixEvery'] == 6 and ap.real_guard(ap.clean_cfg({'cycleEvery': 0}), ('cycleEvery',))[0]['cycleEvery'] == 0
+
+
+def test_a_mover_takes_the_seat_of_a_coin_that_is_not_moving_never_a_rider_or_a_pick():
+    L = lambda sym, entry, at=0.0, **kw: {'symbol': sym, 'mint': sym, 'pairAddress': sym, 'role': 'runner', 'entry': entry, 'at': at, **kw}
+    card = {'legs': [L('FLAT', 1.0), L('RIDE', 1.0, ride=True), L('PICK', 1.0, picked=True), L('LOSER', 1.0), L('NEW', 1.0, at=3000.0), {**L('SOL', 1.0), 'role': 'anchor'}]}
+    px = {'FLAT': 1.02, 'RIDE': 1.01, 'PICK': 1.0, 'LOSER': 0.8, 'NEW': 1.0, 'SOL': 1.0}
+    assert ap.flat_leg(card, px, 3600.0)['symbol'] == 'FLAT'                       # riding / picked / just-bought / anchor / a −20% loser are not "flat"
+    assert ap.flat_leg(card, {**px, 'FLAT': 1.3}, 3600.0) is None                   # a coin that is moving keeps its seat
+    assert ap.flat_leg(card, px, 600.0) is None                                     # nothing has been held 20 minutes yet
+    rows = [{'mint': 'a', 'vol1h': 90000, 'chg1h': 25}, {'mint': 'b', 'vol1h': 90000, 'chg1h': 60}, {'mint': 'c', 'vol1h': 9000, 'chg1h': 90},
+            {'mint': 'd', 'vol1h': 90000}, {'mint': 't', 'vol1h': 90000, 'chg1h': 90, 'trenchOnly': True}]
+    assert [r['mint'] for r in ap.movers(rows, ap.clean_cfg({}))] == ['b', 'a']                                     # default: $50K + up 20%, best first
+    assert [r['mint'] for r in ap.movers(rows, ap.clean_cfg({'runnerMinVolK': 50, 'runnerMinChg1h': 40}))] == ['b']   # the card's own hunt line
+    assert ap.clean_cfg({})['moverSwap'] is True and ap.clean_cfg({'moverSwap': False})['moverSwap'] is False
+
+
+def test_owner_sets_the_youngest_launch_coin_real_money_may_buy():
+    assert ap.clean_cfg({})['runnerMinAgeH'] == 12 and ap.clean_cfg({'runnerMinAgeH': 1})['runnerMinAgeH'] == 1 and ap.clean_cfg({'runnerMinAgeH': 0})['runnerMinAgeH'] == 0
+    assert ap.clean_cfg({'runnerMinAgeH': 5})['runnerMinAgeH'] == 12
+    rows = [{'mint': 'y', 'ageH': 2}, {'mint': 'o', 'ageH': 30}, {'mint': 'u'}]
+    liq = lambda x: 1e6
+    assert [r['mint'] for r in ap.weather_runners(rows, 'clear', 0, liq, ap.clean_cfg({}))] == ['o']
+    assert [r['mint'] for r in ap.weather_runners(rows, 'clear', 0, liq, ap.clean_cfg({'runnerMinAgeH': 1}))] == ['y', 'o']
+    assert [r['mint'] for r in ap.weather_runners(rows, 'clear', 0, liq, ap.clean_cfg({'runnerMinAgeH': 0}))] == ['y', 'o']   # unknown age is still out
+    assert [r['mint'] for r in ap.weather_runners(rows, 'clear', 0, liq)] == ['o']

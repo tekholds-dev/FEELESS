@@ -396,6 +396,9 @@ def clean_cfg(p):
     out['runnerMinVolK'] = int(_f((p or {}).get('runnerMinVolK'))) if int(_f((p or {}).get('runnerMinVolK'))) in RUNNER_VOLS else 0
     out['runnerMinChg1h'] = int(_f((p or {}).get('runnerMinChg1h'))) if int(_f((p or {}).get('runnerMinChg1h'))) in RUNNER_MOMS else 0
     out['pickVerify'] = bool((p or {}).get('pickVerify', True))   # ✅ a hand-picked young coin goes on a real card only once it passes every safety check
+    ra_ = (p or {}).get('runnerMinAgeH')
+    out['runnerMinAgeH'] = int(_f(ra_)) if ra_ is not None and int(_f(ra_)) in RUNNER_AGES else int(REAL_RUNNER_AGE_H)   # 🕐 the OWNER's youngest launch coin for real money
+    out['moverSwap'] = bool((p or {}).get('moverSwap', True))   # 🚀 a mover takes the seat of a coin that is not moving
     out['edgeGate'] = bool((p or {}).get('edgeGate', True))   # 🧠 real money buys only runners the board's own record does not expect to lose (pick_edge.py)
     out['swapEdge'] = bool((p or {}).get('swapEdge', True))   # ⚖ rotate only when the next coin beats this one by more than the swap costs
     out['swapCapHr'] = int(_f((p or {}).get('swapCapHr'))) if int(_f((p or {}).get('swapCapHr'))) in SWAP_CAPS else 0   # 🤖 0 = auto
@@ -468,6 +471,37 @@ EDGE_FLOORS = (0, 3, 6)             # … and only when the record's estimate fo
 
 RUNNER_VOLS = (0, 20, 50, 100)      # … and only with at least this much traded in the last hour ($K)
 RUNNER_MOMS = (0, 20, 40)           # … and only while it is up at least this much on the hour (🚀 Runner hunt: +40% on real volume)
+
+
+RUNNER_AGES = (0, 1, 6, 12)         # youngest launch coin real money may buy, hours (owner's setting; 12 = the replay-backed default)
+MOVER_VOL1H = 50_000.0             # a "mover" when the card has no hunt selection of its own: ≥ $50K traded in the hour …
+MOVER_CHG1H = 20.0                 # … and up ≥ 20% on it
+FLAT_BAND = 10.0                   # a coin within ±10% of its entry …
+FLAT_HOLD_SEC = 1200.0             # … after at least 20 minutes on the card is "not moving"
+MOVER_EVERY_SEC = 1800.0           # at most one mover upgrade per card per 30 minutes
+
+
+def movers(rows, cfg):
+    """Runner candidates that are MOVING right now: the card's own 🚀 hunt selection when it has one, else ≥ $50K traded in the
+    hour and up ≥ 20% on it. Best 1h move first."""
+    hunt = _f((cfg or {}).get('runnerMinVolK')) > 0 and _f((cfg or {}).get('runnerMinChg1h')) > 0
+    ok = (lambda x: is_hunt(x, cfg)) if hunt else (lambda x: _f(x.get('vol1h')) >= MOVER_VOL1H and x.get('chg1h') is not None and _f(x.get('chg1h')) >= MOVER_CHG1H)
+    return sorted((x for x in rows or [] if not x.get('trenchOnly') and ok(x)), key=lambda x: -_f(x.get('chg1h')))
+
+
+def flat_leg(card, prices, now, hold_sec=FLAT_HOLD_SEC, band=FLAT_BAND):
+    """🚀 The seat a mover may take: a runner-seat coin that is NOT moving — within ±`band`% of its entry after `hold_sec` on the
+    card. Never a riding / frozen / owner-picked / trench coin, one waiting on its buy or with a queued pick. Flattest first; None."""
+    out = []
+    for l in (card or {}).get('legs') or []:
+        px = _f((prices or {}).get(l.get('pairAddress')))
+        if (l.get('role') != 'runner' or l.get('ride') or l.get('frozen') or l.get('picked') or l.get('trench') or l.get('buying')
+                or l.get('swapTo') or px <= 0 or _f(l.get('entry')) <= 0 or now - _f(l.get('at')) < hold_sec):
+            continue
+        g = (px / _f(l['entry']) - 1) * 100
+        if abs(g) <= band:
+            out.append((abs(g), l))
+    return min(out, key=lambda t: t[0])[1] if out else None
 
 
 def is_hunt(x, cfg):
@@ -601,7 +635,8 @@ def weather_runners(rows, level, deep_floor, liq_of, cfg=None):
     🚀 A coin passing the card's own hunt selection (`is_hunt`: running on real volume) is bought in ANY weather: the weather is the
     typical result of buying runners with NO selection, and the rain rule ranks by the hand-written score the record showed to be
     upside down (the coins that went 2–5× scored ~54, under RAIN_SCORE)."""
-    rows = [x for x in rows if x.get('newMajor') or (x.get('ageH') is not None and _f(x.get('ageH')) >= REAL_RUNNER_AGE_H)]
+    age_min = _f((cfg or {}).get('runnerMinAgeH')) if (cfg or {}).get('runnerMinAgeH') is not None else REAL_RUNNER_AGE_H   # the owner's own line (0 = any age; unknown age still out)
+    rows = [x for x in rows if x.get('newMajor') or (x.get('ageH') is not None and _f(x.get('ageH')) >= age_min)]
     if level == 'storm':
         return [x for x in rows if x.get('newMajor') or is_hunt(x, cfg)]
     if level == 'rain':

@@ -1369,3 +1369,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   gate and real-money rule still applies. FEED THIN ⇒ this is the source to widen (more intervals / categories), not RPC keys.
 - `OLD_AGE_H` is 720 (30 days), not 7: Pump's own trending tab was full of pump coins older than a week still trading hard.
   NEVER chain `pytest … | tail -1 && git commit`: the pipe hides the failure (a red test was pushed once, fixed minutes later).
+- 🚀 MOVER UPGRADE (real cards, cfg `moverSwap` on by default, Edit Fuse › Rounds; `arena_prime.movers/flat_leg`, block in
+  `_prime_tick` before the tick): a runner-seat coin that is NOT moving (±10% of its entry after 20 min; never riding / frozen /
+  picked / trench / buying) gives its seat to a coin that IS (the card's hunt selection, else ≥ $50K 1h volume and up ≥ 20%), one
+  per card per 30 min (`moverAt`), through `replace_leg` (a normal engine swap: cool-downs, keeper checks, "check the buy then
+  sell" all apply). Why: rotation only ever swapped LOSERS — a flat coin held its seat for good while a hunt-ready coin sat on the
+  board. 🕐 `runnerMinAgeH` (0/1/6/12, default 12; `weather_runners` reads it): the OWNER may let younger launch coins in; every
+  safety gate still applies. The replay backs 12h (under 6h lost ~15% a window) — say so once, then it is the owner's setting.
