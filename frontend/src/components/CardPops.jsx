@@ -18,6 +18,22 @@ export function popsFrom(events, seen) {
   return out.slice(-3);
 }
 
+// 💵 A REAL card pops only what the CHAIN confirmed (its last filled orders), never the engine's intent: idle cash really bought
+// back into a coin = COMPOUND (the $ that went in); a sale that closed above its cost = PROFIT (the $ gained, not the proceeds).
+export const POP_MIN_USD = 0.05;
+const fkey = o => `${Math.round((Number(o.at) || 0) * 10)}-${o.side}-${o.symbol || ''}-${Math.round((Number(o.usd) || 0) * 1e4)}`;
+export function popsFromFills(orders, seen) {
+  const out = [];
+  for (const o of [...(orders || [])].reverse()) {          // the book lists newest first
+    const k = fkey(o);
+    if (o.status !== 'filled' || seen.has(k)) continue;
+    const gain = Number(o.realizedPnlUsd) || 0; const usd = Number(o.usd) || 0;
+    if (o.side === 'buy' && /idle card cash/.test(o.why || '') && usd >= POP_MIN_USD) out.push({ k, ico: '♻', label: 'COMPOUND', text: `+${money(usd)}`, symbol: o.symbol || '' });
+    else if (o.side === 'sell' && gain >= POP_MIN_USD) out.push({ k, ico: '💰', label: 'PROFIT', text: `+${money(gain)}`, symbol: o.symbol || '' });
+  }
+  return out.slice(-1);                                     // one at a time: the newest
+}
+
 // Coins charging toward their lock / take-profit line: within the last quarter of the way there (not riding, not waiting on a buy).
 export function nearTargets(legs, cfg, cardTp) {
   const lock = Number(cfg?.rideAt) || 0;
@@ -28,18 +44,21 @@ export function nearTargets(legs, cfg, cardTp) {
 
 // ✨ The card reacts like a game piece: a number floats up when money compounds or profit is taken (+$0.25 ♻), and a coin close
 // to its lock / take-profit line charges up at the foot of the card. Overlay only — transform / opacity, off in lite mode.
-export function CardPops({ events, legs, cfg, tp }) {
-  const seen = useRef(null);
+export const POP_EVERY_MS = 20000;   // at most one pop every 20s — it marks a moment, it is not a ticker
+export function CardPops({ events, legs, cfg, tp, fills }) {
+  const seen = useRef(null); const lastAt = useRef(0);
   const [pops, setPops] = useState([]);
+  const src = fills || events; const keyOf = fills ? fkey : key;
   useEffect(() => {
-    if (!seen.current) { seen.current = new Set((events || []).map(key)); return undefined; }   // nothing bursts for what was already there
-    const fresh = popsFrom(events, seen.current);
-    (events || []).forEach(e => seen.current.add(key(e)));
-    if (!fresh.length) return undefined;
-    setPops(p => [...p, ...fresh].slice(-4));
-    const t = setTimeout(() => setPops(p => p.filter(x => !fresh.some(f => f.k === x.k))), 2400);
+    if (!seen.current) { seen.current = new Set((src || []).map(keyOf)); return undefined; }   // nothing bursts for what was already there
+    const fresh = (fills ? popsFromFills(fills, seen.current) : popsFrom(events, seen.current).filter(p => p.label !== 'COMPOUND' || Number(p.text.slice(2)) >= POP_MIN_USD)).slice(-1);
+    (src || []).forEach(e => seen.current.add(keyOf(e)));
+    if (!fresh.length || Date.now() - lastAt.current < POP_EVERY_MS) return undefined;
+    lastAt.current = Date.now();
+    setPops(fresh);
+    const t = setTimeout(() => setPops([]), 2600);
     return () => clearTimeout(t);
-  }, [events]);
+  }, [src]);   // eslint-disable-line react-hooks/exhaustive-deps
   const near = nearTargets(legs, cfg, tp);
   if (!pops.length && !near.length) return null;
   return <div className="cpop" aria-hidden data-testid="card-pops">

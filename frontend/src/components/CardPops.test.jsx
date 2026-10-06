@@ -14,12 +14,28 @@ test('pops: only money events that are NEW, and coins in the last quarter before
   expect(nearTargets([{ symbol: 'T', pnlPct: 80, usd: 1 }], { rideAt: 0 }, 100)[0]).toMatchObject({ kind: 'take profit', target: 100 });
 });
 
-test('the card pops a floating number when a compound lands after it was mounted, and shows the charge chip', async () => {
+test('a REAL card pops only confirmed fills: real compound buys ($ in) and sales above cost ($ gained) — one at a time, never dust', () => {
+  const { popsFromFills } = require('./CardPops');
+  const o = [{ at: 9, side: 'sell', status: 'filled', symbol: 'CAT', usd: 2.36, realizedPnlUsd: 0.07, why: 'not on the card any more' },      // newest first, like the book
+    { at: 8, side: 'buy', status: 'filled', symbol: 'SND', usd: 0.99, why: 'card buys its coin' },                                             // a normal buy is not a compound
+    { at: 7, side: 'buy', status: 'filled', symbol: 'DON', usd: 0.25, why: 'idle card cash back into its coin' },
+    { at: 6, side: 'buy', status: 'skipped', symbol: 'X', usd: 5, why: 'idle card cash back into its coin' },                                  // never landed
+    { at: 5, side: 'sell', status: 'filled', symbol: 'L', usd: 1, realizedPnlUsd: -0.3 }, { at: 4, side: 'buy', status: 'filled', symbol: 'D', usd: 0.01, why: 'idle card cash back into its coin' }];
+  expect(popsFromFills(o, new Set())).toEqual([expect.objectContaining({ text: '+$0.07', label: 'PROFIT', symbol: 'CAT' })]);                  // the newest one only
+  expect(popsFromFills(o.slice(2), new Set())).toEqual([expect.objectContaining({ text: '+$0.25', label: 'COMPOUND', symbol: 'DON' })]);
+  expect(popsFromFills(o.slice(3), new Set())).toEqual([]);                                                                                   // skipped · a loss · dust
+});
+
+test('the card pops ONE small number when a real compound lands after it was mounted, then waits before the next; the charge chip shows', async () => {
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   const legs = [{ symbol: 'SK', pnlPct: 13.4, usd: 1 }];
-  await act(async () => { root.render(<CardPops events={[{ at: 1, kind: 'compound', usd: 9 }]} legs={legs} cfg={{ rideAt: 15 }} />); });
+  const f = (at, usd) => ({ at, side: 'buy', status: 'filled', symbol: 'SK', usd, why: 'idle card cash back into its coin' });
+  await act(async () => { root.render(<CardPops fills={[f(1, 9)]} legs={legs} cfg={{ rideAt: 15 }} />); });
   expect(el.querySelector('[data-testid="card-pop"]')).toBeNull();                       // what was already there never bursts
   expect(el.querySelector('[data-testid="card-near"]').textContent).toContain('⚡ $SK +13%'); expect(el.querySelector('[data-testid="card-near"]').textContent).toContain('lock +15%');
-  await act(async () => { root.render(<CardPops events={[{ at: 1, kind: 'compound', usd: 9 }, { at: 50, kind: 'compound', usd: 1.4 }]} legs={legs} cfg={{ rideAt: 15 }} />); });
+  await act(async () => { root.render(<CardPops fills={[f(50, 1.4), f(1, 9)]} legs={legs} cfg={{ rideAt: 15 }} />); });
+  expect(el.querySelectorAll('[data-testid="card-pop"]')).toHaveLength(1);
   expect(el.querySelector('[data-testid="card-pop"]').textContent).toContain('+$1.40'); expect(el.querySelector('[data-testid="card-pop"]').textContent).toContain('COMPOUND');
+  await act(async () => { root.render(<CardPops fills={[f(60, 0.5), f(50, 1.4), f(1, 9)]} legs={legs} cfg={{ rideAt: 15 }} />); });
+  expect(el.querySelector('[data-testid="card-pop"]').textContent).toContain('+$1.40');   // a second fill seconds later does not stack another pop
 });

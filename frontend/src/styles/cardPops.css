@@ -1,18 +1,19 @@
 /* ✨ Card pops (CardPops.jsx): a number floats off the card when money compounds / profit is taken; a coin near its lock charges up. */
 .cpop-wrap { position: relative; display: block; }
 .cpop { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
-.cpop-num { position: absolute; left: 50%; top: 42%; display: grid; justify-items: center; gap: 1px; transform: translate(-50%, 0); animation: cpopRise 2.3s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 140ms); margin-left: calc((var(--i) - 1) * 46px); }
-.cpop-num b { font: 400 26px var(--fz-font, "Bungee"), sans-serif; color: #45e486; text-shadow: 0 0 14px rgba(21, 209, 106, .9), 0 2px 0 #04140b; }
-.cpop-num small { font: 700 9px "JetBrains Mono", monospace; letter-spacing: .12em; color: #d9ffe9; padding: 2px 6px; border-radius: 999px; background: rgba(4, 20, 11, .85); border: 1px solid rgba(21, 209, 106, .5); white-space: nowrap; }
-.cpop-num.is-out b { color: var(--gold, #f5c451); text-shadow: 0 0 14px rgba(245, 196, 81, .9), 0 2px 0 #1a1203; } .cpop-num.is-out small { border-color: rgba(245, 196, 81, .55); }
-.cpop-num.is-lock b { color: #9fe3ff; font-size: 20px; text-shadow: 0 0 14px rgba(120, 220, 255, .9), 0 2px 0 #03121c; } .cpop-num.is-lock small { border-color: rgba(159, 227, 255, .55); }
+/* small, and OUTSIDE the card at its top-right corner — it never covers the card's own numbers */
+.cpop-num { position: absolute; left: 100%; top: -4px; margin-left: 6px; display: grid; justify-items: start; gap: 2px; animation: cpopRise 2.5s cubic-bezier(.2, .8, .2, 1) both; white-space: nowrap; }
+.cpop-num b { font: 700 14px "JetBrains Mono", monospace; color: #45e486; text-shadow: 0 0 10px rgba(21, 209, 106, .7); }
+.cpop-num small { font: 700 8px "JetBrains Mono", monospace; letter-spacing: .1em; color: #d9ffe9; padding: 1px 5px; border-radius: 999px; background: rgba(4, 20, 11, .85); border: 1px solid rgba(21, 209, 106, .45); }
+.cpop-num.is-out b { color: var(--gold, #f5c451); text-shadow: 0 0 10px rgba(245, 196, 81, .7); } .cpop-num.is-out small { border-color: rgba(245, 196, 81, .5); }
+.cpop-num.is-lock b { color: #9fe3ff; text-shadow: 0 0 10px rgba(120, 220, 255, .7); } .cpop-num.is-lock small { border-color: rgba(159, 227, 255, .5); }
 .cpop-near { position: absolute; left: 8px; right: 8px; bottom: 8px; display: grid; gap: 4px; }
 .cpop-charge { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 8px; border-radius: 8px; overflow: hidden; background: rgba(4, 12, 9, .88); border: 1px solid rgba(245, 196, 81, .55); animation: cpopPulse 1.2s ease-in-out infinite; }
 .cpop-charge i { position: absolute; inset: 0; transform-origin: 0 50%; background: linear-gradient(90deg, rgba(21, 209, 106, .35), rgba(245, 196, 81, .45)); transition: transform .5s ease; }
 .cpop-charge b, .cpop-charge small { position: relative; font: 700 10.5px "JetBrains Mono", monospace; color: #fff; white-space: nowrap; } .cpop-charge small { font-weight: 500; opacity: .85; }
-@keyframes cpopRise { 0% { transform: translate(-50%, 18px) scale(.6); opacity: 0; } 14% { transform: translate(-50%, 0) scale(1.18); opacity: 1; } 24% { transform: translate(-50%, -6px) scale(1); opacity: 1; } 80% { opacity: 1; } 100% { transform: translate(-50%, -96px) scale(.92); opacity: 0; } }
+@keyframes cpopRise { 0% { transform: translateY(10px); opacity: 0; } 15% { transform: translateY(0); opacity: 1; } 78% { opacity: 1; } 100% { transform: translateY(-26px); opacity: 0; } }
 @keyframes cpopPulse { 50% { transform: scale(1.03); } }
 body.fx-lite .cpop-num { display: none; } body.fx-lite .cpop-charge { animation: none; }
 @media (prefers-reduced-motion: reduce) { .cpop-num { display: none; } .cpop-charge { animation: none; } }
 body.theme-day .cpop-charge { background: rgba(255, 255, 255, .94); border-color: #c79a1e; } body.theme-day .cpop-charge b, body.theme-day .cpop-charge small { color: #1d3b2b; }
-@media (max-width: 640px) { .cpop-num b { font-size: 20px; } .cpop-num { margin-left: calc((var(--i) - 1) * 34px); } }
+@media (max-width: 640px) { .cpop-num { left: auto; right: 0; top: -22px; margin: 0; justify-items: end; } }

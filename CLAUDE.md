@@ -1666,3 +1666,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   chip at the foot of the card (`⚡ $SK +13% · lock +15%`). Overlay only; numbers hidden in lite mode / reduced motion.
 - 2026-10-06 real card, last hour: 44 swaps, $46 turnover on a ~$6 card, buys filled 1.9% above the mid price on average, 10 hand
   picks. Realized −$0.13; the rest of the fall was open positions + entry cost. TURNOVER × ENTRY COST is the leak to quote, not fees ($0.05).
+- ✨ Card pops, calibrated (owner: "too big, too often, not the real compound"): a REAL card pops only CONFIRMED fills
+  (`popsFromFills(realBook.orders)`: a filled buy whose reason is "idle card cash back into its coin" = COMPOUND, the $ that went
+  in; a filled sale above its cost = PROFIT, the $ gained) — never the engine's per-tick "idle cash back into the card" intent.
+  ONE pop at a time, ≥ `POP_MIN_USD` $0.05, at most one per `POP_EVERY_MS` 20s, 14px, OUTSIDE the card at its top-right corner
+  (`left: 100%`). Paper tier cards keep the engine events under the same limits.
