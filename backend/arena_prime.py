@@ -870,12 +870,13 @@ def rotate_anchors(anchors, offset=0):
 FRESH_SEC = 900.0   # a coin bought in the last 15 minutes is never sold by a re-shape (it has not had a round to prove anything)
 
 
-def keep_winners(nc, old_legs, prices, liqs, pct, in_play_usd, now=None):
+def keep_winners(nc, old_legs, prices, liqs, pct, in_play_usd, now=None, hold_sec=0.0):
     """🛡 A re-shape never sells a winner: old coins up ≥ pct% (or ❄ frozen, or riding) are CARRIED into the new card as they are
     (same units + entry); the freshly dealt coins give up their slots and share what's left of the money, so the total stays exactly
     `in_play_usd`. Returns (card or None if every coin is kept → no re-shape, kept count)."""
     again = {l['mint'] for l in nc['legs']}   # ♻ a coin the new shape deals AGAIN is carried as it is — selling it to buy it straight back only pays fees
-    new_ = lambda l: now is not None and _f(l.get('at')) > 0 and 0 <= now - _f(l['at']) < FRESH_SEC   # 🆕 just bought: sold 3.5 min later for the next shape = fees for nothing
+    # 🍳 the card's own min hold covers a re-shape too: a coin still inside it is carried, whatever the new shape wants
+    new_ = lambda l: now is not None and _f(l.get('at')) > 0 and 0 <= now - _f(l['at']) < max(FRESH_SEC, _f(hold_sec))   # 🆕 just bought: sold 3.5 min later for the next shape = fees for nothing
     win = [l for l in old_legs if l.get('role') != 'anchor' and _f(l.get('entry')) > 0 and (l.get('frozen') or l.get('ride') or l.get('picked') or l['mint'] in again or new_(l) or
            (_f(pct) > 0 and ((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100 >= _f(pct)))]
     if not win:
@@ -1459,7 +1460,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 phase = repair_phase
         if nc:
             same = {l['mint'] for l in nc['legs']} <= {l['mint'] for l in c['legs']}
-            nc, kept = keep_winners(nc, c['legs'], prices, liqs, cfg.get('keepWinPct', 5.0), ip, now)
+            nc, kept = keep_winners(nc, c['legs'], prices, liqs, cfg.get('keepWinPct', 5.0), ip, now, _f(cfg.get('minHoldMins')) * 60)
             if not nc and same:
                 c['phase'] = phase   # ♻ the new shape deals the very coins the card holds → shape moves on, zero trades
             if nc:

@@ -1455,3 +1455,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   Switched ON for the real card 2026-10-06 by the owner's delegation: `trenchCfg {mode: 'meta', meta: 'launch'}`, cycle `trench`,
   1 trench coin. The replay does NOT back coins this young (under 6h lost ~15% a window; 5 rugs that day were all young) — the
   ticket size is the protection, not the gate. OFF = Cycle back to Press in Edit Fuse › Coins.
+- 🍳 LET IT COOK = the card's `minHoldMins` (Edit Fuse › Rounds: off / 15m / 30m / 1h / 2h / 3h) now covers a RE-SHAPE too
+  (`keep_winners(.., hold_sec)`), on top of round rotation, mover swaps and trench fills; stops, rug shield, floor and the owner's
+  hand still act at once. WHY (real card, 2026-10-06, 71 closed pieces in 9h, −$1.67): 49 exits inside 15 min = −$1.43 (4–17%
+  won) · 51 "scratch" exits between −10% and +10% · turnover $46 on a ~$2 card (23×) · only 3 pieces held ≥ 1h, and they ended
+  up · owner hand picks 41 pieces −$1.12 (15% won) vs engine 30 pieces −$0.55 · 6 rug pieces −$0.99. The board's runners took
+  ~3.5h to peak: a card that turns over every 15 minutes can never hold one. "NO REAL MOVES, JUST SMALL LOSSES" ⇒ group the
+  ledger's closed pieces by HOLD TIME before touching selection.

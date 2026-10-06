@@ -1669,3 +1669,14 @@ def test_trench_ticket_size_and_stop_are_owner_settings_with_small_defaults():
     assert c['trenchStakePct'] == 15 and c['trenchSlPct'] == 25
     assert ap.clean_cfg({'trenchStakePct': 0, 'trenchSlPct': 0})['trenchStakePct'] == 0 and ap.clean_cfg({'trenchStakePct': 0, 'trenchSlPct': 0})['trenchSlPct'] == 0
     assert ap.clean_cfg({'trenchStakePct': 40, 'trenchSlPct': 7}) == {**ap.clean_cfg({}), 'trenchStakePct': 15, 'trenchSlPct': 25}
+
+
+def test_min_hold_covers_a_reshape_too():
+    old = [{'mint': 'H', 'pairAddress': 'H', 'role': 'runner', 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0, 'at': 1000.0}]
+    nc = {'legs': [{'mint': 'X', 'pairAddress': 'X', 'role': 'runner', 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0},
+                   {'mint': 'Y', 'pairAddress': 'Y', 'role': 'runner', 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0}], 'cash': 0.0}
+    px = {'H': 1.0, 'X': 1.0, 'Y': 1.0}
+    assert ap.keep_winners(nc, old, px, {}, 10.0, 2.0, 1000.0 + 40 * 60, 3600.0)[1] == 1      # 40 min into a 1h hold: carried
+    assert ap.keep_winners(nc, old, px, {}, 10.0, 2.0, 1000.0 + 40 * 60, 0.0)[1] == 0         # no hold: the 15-min rule is over
+    assert ap.keep_winners(nc, old, px, {}, 10.0, 2.0, 1000.0 + 70 * 60, 3600.0)[1] == 0      # past the hold
+    assert ap.clean_cfg({'minHoldMins': 180})['minHoldMins'] == 180
