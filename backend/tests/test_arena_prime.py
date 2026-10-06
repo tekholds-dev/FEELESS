@@ -1593,3 +1593,17 @@ def test_owner_runner_pool_floor_keeps_only_deep_runners_and_is_off_by_default()
     assert [r['mint'] for r in ap.deep_runners(buy, 50, 65)] == ['b'] and [r['mint'] for r in ap.deep_runners(buy, 0, 65)] == ['b']
     assert ap.clean_cfg({})['runnerMinBuy'] == 0 and ap.clean_cfg({'runnerMinBuy': 65, 'edgeFloor': 3})['edgeFloor'] == 3 and ap.clean_cfg({'edgeFloor': 4})['edgeFloor'] == 0
     assert ap.clean_cfg({})['runnerMinLiqK'] == 0 and ap.clean_cfg({'runnerMinLiqK': 50})['runnerMinLiqK'] == 50 and ap.clean_cfg({'runnerMinLiqK': 7})['runnerMinLiqK'] == 0
+
+
+def test_runner_hunt_selection_and_it_beats_the_weather():
+    cfg = ap.clean_cfg({'runnerMinVolK': 50, 'runnerMinChg1h': 40})
+    assert cfg['runnerMinVolK'] == 50 and cfg['runnerMinChg1h'] == 40 and ap.clean_cfg({'runnerMinVolK': 7})['runnerMinVolK'] == 0
+    run = {'mint': 'r', 'ageH': 20, 'liq': 40000, 'vol1h': 90000, 'chg1h': 55, 'score': 50}
+    slow = {'mint': 's', 'ageH': 20, 'liq': 40000, 'vol1h': 90000, 'chg1h': 5, 'score': 50}
+    young = {**run, 'mint': 'y', 'ageH': 2}
+    blind = {'mint': 'b', 'ageH': 20, 'liq': 40000, 'vol1h': 90000, 'score': 50}
+    assert [r['mint'] for r in ap.deep_runners([run, slow, blind], 25, 0, 50, 40)] == ['r']          # no 1h reading = out
+    for lvl in ('storm', 'rain'):   # a hunt coin is bought in any weather — but never under 12h old
+        assert [r['mint'] for r in ap.weather_runners([run, slow, young], lvl, 80000, lambda x: x['liq'], cfg)] == ['r']
+        assert ap.weather_runners([run, slow, young], lvl, 80000, lambda x: x['liq'], ap.clean_cfg({})) == []
+    assert not ap.is_hunt(run, ap.clean_cfg({'runnerMinVolK': 50}))          # both minimums must be set

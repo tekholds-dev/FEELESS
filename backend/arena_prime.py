@@ -393,6 +393,8 @@ def clean_cfg(p):
     out['runnerMinLiqK'] = int(_f((p or {}).get('runnerMinLiqK'))) if int(_f((p or {}).get('runnerMinLiqK'))) in RUNNER_LIQS else 0   # 🏊 real money buys a runner only in a pool this deep ($K); 0 = the keeper's own floor
     out['runnerMinBuy'] = int(_f((p or {}).get('runnerMinBuy'))) if int(_f((p or {}).get('runnerMinBuy'))) in RUNNER_BUYS else 0
     out['edgeFloor'] = int(_f((p or {}).get('edgeFloor'))) if int(_f((p or {}).get('edgeFloor'))) in EDGE_FLOORS else 0
+    out['runnerMinVolK'] = int(_f((p or {}).get('runnerMinVolK'))) if int(_f((p or {}).get('runnerMinVolK'))) in RUNNER_VOLS else 0
+    out['runnerMinChg1h'] = int(_f((p or {}).get('runnerMinChg1h'))) if int(_f((p or {}).get('runnerMinChg1h'))) in RUNNER_MOMS else 0
     out['edgeGate'] = bool((p or {}).get('edgeGate', True))   # 🧠 real money buys only runners the board's own record does not expect to lose (pick_edge.py)
     out['swapEdge'] = bool((p or {}).get('swapEdge', True))   # ⚖ rotate only when the next coin beats this one by more than the swap costs
     out['swapCapHr'] = int(_f((p or {}).get('swapCapHr'))) if int(_f((p or {}).get('swapCapHr'))) in SWAP_CAPS else 0   # 🤖 0 = auto
@@ -462,12 +464,25 @@ RUNNER_BUYS = (0, 55, 60, 65, 70)   # … and only while buyers are at least thi
 EDGE_FLOORS = (0, 3, 6)             # … and only when the record's estimate for coins like it is at least +this % (0 = just not negative)
 
 
-def deep_runners(rows, min_k, min_buy=0):
-    """Runners in a pool of at least `min_k` $K with buyers ≥ `min_buy`% (unknown = out). New majors / trench coins keep their own rules."""
-    if not _f(min_k) and not _f(min_buy):
+RUNNER_VOLS = (0, 20, 50, 100)      # … and only with at least this much traded in the last hour ($K)
+RUNNER_MOMS = (0, 20, 40)           # … and only while it is up at least this much on the hour (🚀 Runner hunt: +40% on real volume)
+
+
+def is_hunt(x, cfg):
+    """Does this coin pass the card's own 🚀 hunt selection (BOTH a 1h-volume and a 1h-move minimum set, and it clears them)?"""
+    v, m = _f((cfg or {}).get('runnerMinVolK')), _f((cfg or {}).get('runnerMinChg1h'))
+    return v > 0 and m > 0 and _f(x.get('vol1h')) >= v * 1000 and x.get('chg1h') is not None and _f(x.get('chg1h')) >= m
+
+
+def deep_runners(rows, min_k, min_buy=0, min_vol_k=0, min_chg1h=0):
+    """Runners the owner's own selection lets real money buy: pool ≥ `min_k` $K, buyers ≥ `min_buy`%, 1h volume ≥ `min_vol_k` $K,
+    1h move ≥ `min_chg1h`% (each 0 = off; an unknown reading fails a rule that is on). New majors / trench coins keep their own rules."""
+    if not (_f(min_k) or _f(min_buy) or _f(min_vol_k) or _f(min_chg1h)):
         return list(rows or [])
-    return [x for x in rows or [] if x.get('newMajor') or x.get('trenchOnly')
-            or (_f(x.get('liq')) >= _f(min_k) * 1000 and (not _f(min_buy) or _f(x.get('buyShare')) >= _f(min_buy)))]
+    ok = lambda x: (_f(x.get('liq')) >= _f(min_k) * 1000 and (not _f(min_buy) or _f(x.get('buyShare')) >= _f(min_buy))
+                    and (not _f(min_vol_k) or _f(x.get('vol1h')) >= _f(min_vol_k) * 1000)
+                    and (not _f(min_chg1h) or (x.get('chg1h') is not None and _f(x.get('chg1h')) >= _f(min_chg1h))))
+    return [x for x in rows or [] if x.get('newMajor') or x.get('trenchOnly') or ok(x)]
 
 
 REAL_RUNNER_AGE_H = 12.0  # real money never buys a runner younger than this (a 20-min-old coin with a $534K pool went −99.99% in an hour)
@@ -576,14 +591,17 @@ def entries(cands, skip=(), n=3):
     return sorted(rows, key=lambda r: -r['strength'])[:n]
 
 
-def weather_runners(rows, level, deep_floor, liq_of):
+def weather_runners(rows, level, deep_floor, liq_of, cfg=None):
     """Runner candidates real money may BUY in this weather (coins already held are never sold by the weather).
-    In ANY weather a runner must be at least REAL_RUNNER_AGE_H old — unknown age = out (fail closed). New majors are days old by rule."""
+    In ANY weather a runner must be at least REAL_RUNNER_AGE_H old — unknown age = out (fail closed). New majors are days old by rule.
+    🚀 A coin passing the card's own hunt selection (`is_hunt`: running on real volume) is bought in ANY weather: the weather is the
+    typical result of buying runners with NO selection, and the rain rule ranks by the hand-written score the record showed to be
+    upside down (the coins that went 2–5× scored ~54, under RAIN_SCORE)."""
     rows = [x for x in rows if x.get('newMajor') or (x.get('ageH') is not None and _f(x.get('ageH')) >= REAL_RUNNER_AGE_H)]
     if level == 'storm':
-        return [x for x in rows if x.get('newMajor')]
+        return [x for x in rows if x.get('newMajor') or is_hunt(x, cfg)]
     if level == 'rain':
-        return [x for x in rows if x.get('newMajor') or (_f(x.get('score')) >= RAIN_SCORE and _f(liq_of(x)) >= _f(deep_floor))]
+        return [x for x in rows if x.get('newMajor') or is_hunt(x, cfg) or (_f(x.get('score')) >= RAIN_SCORE and _f(liq_of(x)) >= _f(deep_floor))]
     return list(rows)
 
 

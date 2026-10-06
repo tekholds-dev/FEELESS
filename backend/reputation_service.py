@@ -6022,7 +6022,7 @@ async def _prime_tick_inner(now):
         p_t = [x for x in pools if _lq(x) >= floor_of(x) * mg] or ([] if real_t else pools)
         r_t = [x for x in runners if _lq(x) >= floor_of(x) * mg and _confirmed(x)]
         if real_t:   # 🌦 real money buys runners by the weather the engine's own sims measured (rain = strong + deep only · storm = none)
-            r_t = _prime.weather_runners(r_t, _real_weather()['level'], _fw.clean_cfg(fw_cfg)['minLiqUsd'], _lq)
+            r_t = _prime.weather_runners(r_t, _real_weather()['level'], _fw.clean_cfg(fw_cfg)['minLiqUsd'], _lq, cfg_t)
         # 🗑 trench coins (strict gate, cached by the warm loop) — only a 🗑 trench slot ever takes one; own pool floor; real money
         # never buys one in a runner storm. The real-money runner age rule doesn't apply to them: the trench gate replaces it.
         tr_floor = _fw.clean_cfg(fw_cfg)['trenchMinLiqUsd']   # paper uses the same floor (paper = what real money could buy)
@@ -6077,7 +6077,7 @@ async def _prime_tick_inner(now):
             if real_t and cfg_t.get('edgeGate', True):
                 r_t = _pedge.gate(r_t, tb_, float(cfg_t.get('edgeFloor') or 0))
         if real_t:   # 🏊 the owner's own runner pool floor (off unless they set it)
-            r_t = _prime.deep_runners(r_t, cfg_t.get('runnerMinLiqK'), cfg_t.get('runnerMinBuy'))
+            r_t = _prime.deep_runners(r_t, cfg_t.get('runnerMinLiqK'), cfg_t.get('runnerMinBuy'), cfg_t.get('runnerMinVolK'), cfg_t.get('runnerMinChg1h'))
         mine = {l.get('mint') for l in (cur or {}).get('legs') or []}
         p_t = [x for x in p_t if x.get('mint') not in taken or x.get('mint') in mine]
         r_t = [x for x in r_t if x.get('mint') not in taken or x.get('mint') in mine]
@@ -8630,13 +8630,16 @@ async def _pg_sim_tick(now):
     d.update(at=now, summary=_pgs.summary(res), s24=_pgs.summary(res24), s6=_pgs.summary(res6), score=score, retired=retired, best=_pgs.best(score, retired=retired), byClock=_pgs.by_clock(res, retired=retired),
              history=((d.get('history') or []) + [{'at': now, **_pgs.summary(res)}])[-96:])
     try:   # 🎯 the Sniper setup per round length, walk-forward over the whole record (see pg_sim.proven)
-        pv_ = {}
+        pv_, all_ = {}, {}
         for ck_ in _pgs.CLOCKS:
-            got_ = await asyncio.to_thread(_pgs.proven, paths, rounds_, now, ck_)
+            got_ = await asyncio.to_thread(_pgs.setups, paths, rounds_, now, ck_)
             if got_:
-                pv_[str(ck_)] = got_
+                all_[str(ck_)] = got_
+                pv_.update({str(ck_): x for x in got_ if x['key'] == 'sniper'})
+        d['setups'] = all_
         d['proven'] = pv_
-        d['provenLog'] = ((d.get('provenLog') or []) + [{'at': now, **{k: [v['medPct'], v['windowsUp'], v['windows']] for k, v in pv_.items()}}])[-400:]   # how the proof itself moves, run after run
+        d['provenLog'] = ((d.get('provenLog') or []) + [{'at': now, **{k: [v['medPct'], v['windowsUp'], v['windows']] for k, v in pv_.items()},
+                                                        **{f'h{k}': [x['medPct'], x['windowsUp'], x['windows']] for k, v in all_.items() for x in v if x['key'] == 'rhunt'}}])[-400:]   # how the proof itself moves, run after run
     except Exception as e:
         print('sim proven:', e)
     _json_save(PG_SIM_PATH, d)
@@ -8714,8 +8717,7 @@ async def fuse_strategies(hours: float = Query(1.0, ge=0.01, le=48)):
     want = hours * 60
     clock, v = min(rows, key=lambda kv: abs(kv[0] - want))
     note = '' if abs(clock - want) < 1 else f"Sims play 5–60 min rounds; these are for {int(clock)} min, the nearest to your clock."
-    pv = (_json_load(PG_SIM_PATH, {}).get('proven') or {}).get(str(int(clock)))
-    sniper = [{k: x for k, x in pv.items() if k != 'cfgNum'}] if pv else []   # 🎯 the whole-config pick first, with its own checked proof
+    sniper = (_json_load(PG_SIM_PATH, {}).get('setups') or {}).get(str(int(clock))) or []   # 🚀 🎯 whole setups first, each with its own walk-forward proof
     return {'clock': int(clock), 'n': v.get('n'), 'strategies': sniper + v['strategies'], 'note': note, 'at': _json_load(PG_SIM_PATH, {}).get('at')}
 
 

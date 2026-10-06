@@ -155,3 +155,16 @@ def test_proven_walks_forward_a_fixed_setup_and_never_claims_a_losing_one():
     q = ps.proven(bleed, rounds, now, 5, {**ps.SNIPER, 'edge': 0}, span=36)
     assert q['profitable'] is False and q['medPct'] < 0
     assert ps.proven({}, [], now, 15) is None
+
+
+def test_hunt_buys_only_coins_already_running_on_volume_and_setups_carry_their_own_proof():
+    assert ps.fits({'ageH': 20, 'liq': 40000, 'vol1h': 90000, 'chg1h': 55}, ps.HUNT)
+    assert not ps.fits({'ageH': 20, 'liq': 40000, 'vol1h': 90000, 'chg1h': 5}, ps.HUNT)      # not moving
+    assert not ps.fits({'ageH': 20, 'liq': 40000, 'vol1h': 9000, 'chg1h': 55}, ps.HUNT)      # no volume
+    assert not ps.fits({'ageH': 2, 'liq': 40000, 'vol1h': 90000, 'chg1h': 55}, ps.HUNT)      # a launch pump, not a runner
+    assert not ps.fits({'ageH': 20, 'liq': 40000, 'vol1h': 90000}, ps.HUNT)                  # no 1h reading = out
+    paths, rounds, now = _proof_world()
+    for r in rounds:
+        r['picks'][1].update(vol1h=120000, chg1h=60)
+    got = ps.setups(paths, rounds, now, 5)
+    assert {g['key'] for g in got} <= {'rhunt', 'sniper'} and got[0]['key'] == 'rhunt' and got[0]['hours'] == 6.0 and got[0]['cfg']['mom'] == '40'

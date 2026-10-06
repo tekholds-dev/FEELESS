@@ -1329,3 +1329,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   edge, thin evidence, never a promise. Real cards: "Use this" sets the exits + `edgeGate`, `edgeFloor` (0/3/6), `runnerMinLiqK`
   (0/25/50/100 $K), `runnerMinBuy` (0/55–70) (`arena_prime.deep_runners`, Edit Fuse › Rounds; all off by default — the owner applies).
   NOT the same as the replay yet: a real card fills an empty runner seat with a pool coin instead of waiting in cash.
+- 🚀 RUNNER HUNT (owner's call, then measured; `pg_sim.HUNT/SETUPS/setups`, `pg_sim.json.setups[clock]` → first cards in
+  `GET /fuses/strategies`, key `rhunt`): of 92 board picks 21% peaked ≥ 2× within 6h (8% ≥ 3×) after a typical dip of only −6%,
+  ~3.5h after the pick. When picked they were ALREADY up 40%+ on the hour on REAL volume ($75K–$245K 1h vs $32K) and ≥ 12h old.
+  Hunt = age ≥ 12h · pool ≥ $25K · 1h volume ≥ $50K · 1h move ≥ +40% · stop −30 · freeze +50 · trail 30 · record gate OFF (the
+  table marks every coin up > 30% on the hour a loser — true only without the age + volume condition). Walk-forward, 6h windows,
+  2026-10-06: 5m +8.5% typical / +16% average, 11 of 14 up, worst −10%; 15m the same; 60m +21% on 6 windows; ~1 buy a card.
+  UNDER 6h OLD THE SAME RULE LOSES (−15% typical): age separates a runner from a launch pump. Found by a 486-config sweep on 50h,
+  so the level is flattered; the whole neighbourhood (age ≥ 6h + mom ≥ 20) was positive, which is why it ships. Sniper (+15% / −8%)
+  can never hold a 2× — Sniper = don't lose, Hunt = catch runners. Real cards: `runnerMinVolK` (0/20/50/100) + `runnerMinChg1h`
+  (0/20/40) (Edit Fuse › Rounds; `deep_runners`, `is_hunt`); a coin passing BOTH is bought in rain and storm
+  (`weather_runners(cfg=)`: the weather is the no-selection result, and the rain rule used the upside-down score). "Use this" on a
+  real card sets exits + selection and turns the −15% instant swap off (it would cut before the −30% stop). Skim / bank / recycle
+  stay the owner's — they sell a runner early; the replay does not model them.

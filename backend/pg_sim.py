@@ -26,6 +26,8 @@ POOLS = (0, 25, 50, 100)   # 🧬 … and its pool at least this many $K (0 = an
 RESTS = (0, 15, 30, 60)    # 🪑 minutes a seat stays in cash after its coin LEFT (stop / take / trail / off the feed) before a new coin may take it;
                            # the coin that left is not bought back for the same time (at least 3 rounds, like the engine's cool-down)
 BUYS = (0, 60, 65, 70)     # 🧬 buyers' share of the last hour's trades a coin needs when bought (0 = any; unknown = out)
+VOLS = (0, 50, 100)        # 🧬 1h volume a coin needs when bought, $K (0 = any)
+MOMS = (0, 20, 40)         # 🧬 … and its 1h move at least +this % (0 = any): the coins that went 2–5× were already moving on real volume
 FLOORS = (0, 3, 6)         # 🧠 with `edge` on: the record's estimate must be at least +this % (0 = just not negative)
 EDGES = (0, 1)             # 🧠 1 = buy only coins the board's own record does not expect to lose (pick_edge.py, learned BEFORE the window)
 # 🎯 THE SIM MUST LOSE WHEN A REAL CARD LOSES. Measured 2026-10-05 against the owner's real $5 card (360 fills) and the feed:
@@ -65,7 +67,7 @@ def _series(paths, start, steps):
 
 def random_cfg(rng):
     return {'clock': rng.choice(CLOCKS), 'tp': rng.choice(TPS), 'sl': rng.choice(SLS), 'minDrop': rng.choice(DROPS), 'rideAt': rng.choice(RIDES),
-            'trail': rng.choice(TRAILS), 'confirm': rng.choice(CONFIRMS), 'age': rng.choice(AGES), 'pool': rng.choice(POOLS), 'edge': rng.choice(EDGES), 'rest': rng.choice(RESTS), 'buy': rng.choice(BUYS), 'floor': rng.choice(FLOORS)}
+            'trail': rng.choice(TRAILS), 'confirm': rng.choice(CONFIRMS), 'age': rng.choice(AGES), 'pool': rng.choice(POOLS), 'edge': rng.choice(EDGES), 'rest': rng.choice(RESTS), 'buy': rng.choice(BUYS), 'floor': rng.choice(FLOORS), 'vol': rng.choice(VOLS), 'mom': rng.choice(MOMS)}
 
 
 OFFER_MAX_AGE = 45 * 60   # a runner round older than this is not "what the board offers now"
@@ -91,6 +93,10 @@ def fits(p, cfg, table=None):
     if cfg.get('edge') and table and (_edge.score(p, table) or -1e9) < float(cfg.get('floor') or 0):
         return False
     if float(cfg.get('buy') or 0) > 0 and _num(p.get('buyShare')) < float(cfg['buy']):
+        return False
+    if float(cfg.get('vol') or 0) > 0 and _num(p.get('vol1h')) < float(cfg['vol']) * 1000:
+        return False
+    if float(cfg.get('mom') or 0) > 0 and (p.get('chg1h') is None or _num(p.get('chg1h')) < float(cfg['mom'])):
         return False
     return (age <= 0 or (p.get('ageH') is not None and _num(p.get('ageH')) >= age)) and _num(p.get('liq')) >= pool
 
@@ -216,9 +222,18 @@ def run(paths, now, n=200, hours=24, seed=None, cost=SWAP_COST, rounds=None):
 # It is NOT tuned to the record: a search that tuned it window by window did WORSE on the following 3 hours than this fixed setup
 # (2026-10-05, 15 windows: tuned −2.7% vs fixed −0.5% on 5-min rounds) — tuning on two days of prices fits noise.
 # WHAT MATTERED was never the exits (stop, freeze, trail, round length all read the same) — it was WHAT IS BOUGHT.
-SNIPER = {'rest': 0, 'tp': 100, 'sl': 15, 'minDrop': 10, 'rideAt': 15, 'trail': 8, 'confirm': 4, 'age': 12, 'pool': 50, 'edge': 1, 'floor': 3, 'buy': 65}
-FWD_HOURS = 3.0       # each window: the 3 hours after a moment T …
-FWD_STEP = 1.5        # … for a T every 1.5h back through the record (neighbouring windows share half their prices)
+SNIPER = {'rest': 0, 'tp': 100, 'sl': 15, 'minDrop': 10, 'rideAt': 15, 'trail': 8, 'confirm': 4, 'age': 12, 'pool': 50, 'edge': 1, 'floor': 3, 'buy': 65, 'vol': 0, 'mom': 0}
+# 🚀 RUNNER HUNT — the owner's point, measured: of 92 board picks 21% peaked at 2× or more within 6h (8% at 3×+), after a typical
+# dip of only −6%, ~3.5h after the pick. What they shared when picked: ALREADY moving (+40% and more on the hour) on REAL volume
+# ($75K–$245K in the hour, vs $32K for the ones that went nowhere) and NOT brand new. Sniper can never hold one (it sells 8% off a
+# +15% peak). Hunt buys exactly those and gives them room: wide stop, freeze late, trail 30% off the peak. Under 6h old the same
+# rule LOSES (−15% typical) — age is what separates a runner from a launch pump. The record gate must be OFF for it: the table
+# marks every coin already up > 30% on the hour as a loser, because without the age + volume condition most of them are.
+HUNT = {'rest': 0, 'tp': 300, 'sl': 30, 'minDrop': 10, 'rideAt': 50, 'trail': 30, 'confirm': 4, 'age': 12, 'pool': 25, 'edge': 0, 'floor': 0, 'buy': 0, 'vol': 50, 'mom': 40}
+SETUPS = (('rhunt', '🚀 Runner hunt', 'coins already running on real volume, given room to become a 2–5×', HUNT, 6.0),
+          ('sniper', '🎯 Sniper', 'few buys, only what the record backs: older coins, deep pools, buyers in control', None, 3.0))
+FWD_HOURS = 3.0       # each window: the 3 hours (Hunt: 6 — a runner needs ~3.5h to peak) after a moment T, a T every half window back
+                      # through the record (neighbouring windows share half their prices)
 FWD_MIN = 10          # windows needed before anything may be called proven
 PROVEN_WINDOWS = 0.6  # share of windows whose typical card must end up
 
@@ -257,11 +272,13 @@ def joint(windows, cfg, per=8, seed=1, cost=SWAP_COST):
             'windowsUp': sum(1 for v in per_w if v > 0), 'perWindow': per_w}
 
 
-def proven(paths, rounds, now, clock=15, cfg=None, hours=FWD_HOURS, step=FWD_STEP, span=48.0):
+def proven(paths, rounds, now, clock=15, cfg=None, hours=FWD_HOURS, step=None, span=48.0, key='sniper', name='🎯 Sniper',
+           why='few buys, only what the record backs: older coins, deep pools, buyers in control'):
     """🎯 SNIPER (or `cfg`) on this round length, walk-forward: every `step` hours back through the record one `hours`-long window,
     each played with only what was known when it opened. medPct = the typical WINDOW (median of each window's typical card).
     `profitable` only with ≥ FWD_MIN windows, the typical window up AND ≥ 60% of windows up. Evidence from ~2 days, never a promise."""
     cfg = {'clock': int(clock), **(cfg or SNIPER)}
+    step = step or hours / 2
     wins, off = [], 0.0
     while off + hours <= span:
         wins += [w for w in prep(paths, rounds, now, hours, (off,)) if w[3] or not cfg.get('edge')]   # record-backed setup: a window with no record learned before it is not judged
@@ -272,8 +289,18 @@ def proven(paths, rounds, now, clock=15, cfg=None, hours=FWD_HOURS, step=FWD_STE
     pw = r.pop('perWindow')
     r.update(medPct=round(statistics.median(pw), 2), avgPct=round(sum(pw) / len(pw), 2), worstPct=round(min(pw), 1))
     ok = r['windows'] >= FWD_MIN and r['medPct'] > 0 and r['windowsUp'] >= r['windows'] * PROVEN_WINDOWS
-    return {'key': 'sniper', 'name': '🎯 Sniper', 'why': 'few buys, only what the record backs: older coins, deep pools, buyers in control',
+    return {'key': key, 'name': name, 'why': why,
             'cfg': {k: str(v) for k, v in cfg.items() if k != 'clock'}, **r, 'hours': hours, 'profitable': bool(ok)}
+
+
+def setups(paths, rounds, now, clock):
+    """Every whole setup on this round length, each with its own walk-forward proof (best typical window first)."""
+    out = []
+    for key, name, why, cfg, hours in SETUPS:
+        r = proven(paths, rounds, now, clock, cfg, hours, key=key, name=name, why=why)
+        if r:
+            out.append(r)
+    return sorted(out, key=lambda r: (not r['profitable'], -r['medPct']))
 
 
 def learn(results):

@@ -27,6 +27,9 @@ test('🎯 Sniper shows what it buys and its checked proof; on a real card one t
   expect(el.textContent).toContain('pool ≥ $50K · 12h+ old · buyers ≥ 65% · 🧠 record-backed');
   expect(el.textContent).toContain('checked · 3/5 windows up');
   expect(el.querySelector('[data-testid="sn-sniper"]').className).not.toContain('is-on');   // same exits, but the pool rule is not on yet
-  expect(stratPatch(sn.cfg, true)).toMatchObject({ runnerMinLiqK: 50, edgeGate: true, edgeFloor: 3, runnerMinBuy: 65, sl: 15 });
+  expect(stratPatch(sn.cfg, true)).toMatchObject({ runnerMinLiqK: 50, edgeGate: true, edgeFloor: 3, runnerMinBuy: 65, runnerMinVolK: 0, runnerMinChg1h: 0, sl: 15 });
   expect(stratPatch(sn.cfg)).not.toHaveProperty('runnerMinLiqK');
+  const hunt = { ...sn.cfg, edge: '0', floor: '0', buy: '0', vol: '50', mom: '40', sl: '30', rideAt: '50', trail: '30', pool: '25' };
+  expect(stratPatch(hunt, true)).toMatchObject({ runnerMinVolK: 50, runnerMinChg1h: 40, edgeGate: false, instantSwapPct: 0, sl: 30, rideAt: 50, rideTrail: 30 });
+  expect(stratPatch(sn.cfg, true)).not.toHaveProperty('instantSwapPct');
 });
