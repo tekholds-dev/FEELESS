@@ -727,6 +727,9 @@ def flow_rank(rows):
     return [x for _, _, x in sorted(out, key=lambda t: (t[0], t[1]))]
 
 
+META_MIN_POS = 0.34
+
+
 def meta_ready(x):
     """🧭 May the ENGINE buy this coin by itself? Not while its chart is too short to read, and not while it is trending down.
     A comeback (a rider the card already rode, recovering) always may. The owner's hand picks are never judged here.
@@ -736,7 +739,10 @@ def meta_ready(x):
         return True
     if x.get('cBars') is None:
         return False            # never read at all = unknown = not bought (the read is attached to every candidate on a real card)
-    return bool(x.get('cBars')) and x.get('cStruct') != 'down'
+    if not x.get('cBars') or x.get('cStruct') == 'down':
+        return False
+    # ranging at the BOTTOM of its range = drifting down without the label (record: bottom third −31% typical vs top third −2%)
+    return not (x.get('cStruct') == 'range' and x.get('cPos') is not None and _f(x.get('cPos')) < META_MIN_POS)
 
 
 def meta_only(rows):

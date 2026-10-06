@@ -1845,4 +1845,7 @@ def test_up_next_is_meta_no_chart_and_falling_coins_are_not_bought_by_the_engine
             {'mint': 'UNREAD', 'chg1h': 80},                                            # never read = unknown = out
             {'mint': 'BACK', 'cBars': 0, 'comeback': 18.0}]                             # 🔁 a rider coming back always may
     assert [x['mint'] for x in ap.meta_only(rows)] == ['UP', 'RANGE', 'BACK']
+    assert not ap.meta_ready({'cBars': 9, 'cStruct': 'range', 'cPos': 0.2}) and ap.meta_ready({'cBars': 9, 'cStruct': 'range', 'cPos': 0.8})   # bottom of its range = drifting down
+    import chart_read as cr
+    assert cr.why_not({'cBars': 9, 'cStruct': 'range', 'cPos': 0.2}) == 'at the bottom of its range'
     assert ap.clean_cfg({})['upMeta'] is True and ap.clean_cfg({'upMeta': False})['upMeta'] is False

@@ -1602,3 +1602,4 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   coin, so the best movers (new to the board) all read "no chart yet" and the meta gate left Coming up EMPTY (12 clearing every
   setting → 1). ⏭ Coming up is never blank: ready rows (NEXT / 2ND …) then 👀 watching rows (`pipeline.up[].wait` = the reason, dashed,
   gold), which the owner may still swap in by hand. "N READY · M WATCHING" in the label.
+  `META_MIN_POS` 0.34: a RANGING coin in the bottom third of its 4h range is watched, not bought (record: bottom third −31% typical vs top −2%).

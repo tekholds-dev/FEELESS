@@ -91,4 +91,8 @@ def why_not(k):
         return 'chart not read yet'
     if not k.get('cBars'):
         return 'chart too short to read'
-    return 'trending down' if k.get('cStruct') == 'down' else ''
+    if k.get('cStruct') == 'down':
+        return 'trending down'
+    if k.get('cStruct') == 'range' and k.get('cPos') is not None and float(k['cPos']) < 0.34:
+        return 'at the bottom of its range'
+    return ''
