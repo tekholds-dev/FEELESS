@@ -8397,6 +8397,23 @@ def _round_move(p, live):
     return round((now_px / entry - 1) * 100, 2) if now_px > 0 and entry > 0 else None
 
 
+@app.get('/api/reputation/admin/runners/funnel')
+async def admin_runner_funnel(request: Request):
+    """⚡ HQ › Engine, top of the screen: every coin the board sees right now against every gate — how many each gate stops, how
+    many it stops ALONE (its real cost), and what the coins it stopped earlier went on to do. Plus the real card's own pipeline."""
+    _require_admin(request)
+    rd = _json_load(RUNNERS_PATH, {})
+    now = time.time()
+    try:
+        regret = _rn.gate_regret(rd.get('dropLog') or [], await _hq_prices([{'chainId': 'solana', 'pairAddress': e['pairAddress']} for e in (rd.get('dropLog') or [])[-120:] if e.get('pairAddress')]), now)
+    except Exception:
+        regret = []
+    out = _rn.gate_funnel(list(_runner_cands), _runner_cfg(), regret)
+    cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
+    real = next((c for c in cards.values() if c and c.get('real') and c.get('pipeline')), None)
+    return {**out, 'dial': rd.get('cfgDial') or 'custom', 'at': now, 'card': real and {'label': real.get('label') or real.get('tpl'), **real['pipeline']}}
+
+
 @app.get('/api/reputation/admin/runners/suggest')
 async def admin_runner_suggest(request: Request):
     """⚡ Stronger engine found? Every setting where the live config is weaker than the recommended one (with why), plus each

@@ -387,3 +387,18 @@ def test_verified_pick_needs_every_safety_gate_but_never_a_soft_one():
     assert not ok
     assert rn.pick_check({'ageH': 400, 'liq': 250000})[0]                                         # an established coin needs no launch checks
     assert not rn.pick_check({'ageH': 400, 'liq': 20000})[0] and not rn.pick_check({})[0]         # old but thin / nothing known = fail closed
+
+
+def test_gate_funnel_counts_what_each_gate_stops_and_what_it_stops_alone():
+    import runners as rn
+    ok = rn.candidate(pair('ok'), CLEAN, now_ms=NOW)
+    assert rn.failed_gates(ok) == []
+    old = {**ok, 'symbol': 'OLDIE', 'ageH': 900, 'stage': 'graduated', 'vol1h': 1}       # fails soft gates only
+    flagged = {**ok, 'symbol': 'BAD', 'creatorFlagged': True}                          # fails ONE safety gate
+    f = rn.gate_funnel([ok, old, flagged], None, [{'gate': 'Creator not flagged (Bot shield / blocklist)', 'stopped': 9, 'ran': 1, 'rate': 11.1, 'examples': []}])
+    assert f['seen'] == 3 and f['passing'] == 1
+    cr = next(g for g in f['gates'] if g['key'] == 'creator')
+    assert cr['stops'] == 1 and cr['only'] == 1 and cr['kind'] == 'safety' and cr['examples'] == ['$BAD'] and cr['regret']['stopped'] == 9
+    age = next(g for g in f['gates'] if g['key'] == 'age')
+    assert age['kind'] == 'soft' and age['stops'] == 1 and age['only'] == 0                # it fails other soft gates too → not this gate's cost alone
+    assert f['gates'][0]['only'] >= f['gates'][-1]['only'] and rn.gate_funnel([])['seen'] == 0

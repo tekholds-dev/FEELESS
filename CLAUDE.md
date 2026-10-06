@@ -1519,3 +1519,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`.terminal-main::before`) animated `background-position` on FULL-SCREEN layers → the whole page repainted every frame. Stopped in
   tips.css (`animation: none !important` under `body.theme-day`; the layers stay, still). To find lag: in the page, list
   `document.getAnimations()` whose keyframes touch anything but `opacity` / `transform` — day theme went 4 → 0.
+- ⚡ HQ › Fuse › Engine opens on `EngineFunnel` (`runners.gate_funnel`, admin `GET /admin/runners/funnel`, `styles/engineFunnel.css`
+  `ef-*`): coins seen → pass every gate, then ONE row per gate sorted by what it stops ALONE (`only` = its real cost; gold bar),
+  tagged safety / soft, with its regret (of the coins it stopped hours ago, how many ran 3×+), a plain sentence naming the gate
+  holding the most coins back, and the real card's own pipeline + next in line. The dial (Cold Blood / Voltage / Inferno) and the
+  fine-tune fold sit under it. HQ cannot be previewed from a session — it ships on tests; the owner is the first eyes.

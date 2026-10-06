@@ -1,4 +1,5 @@
 import '../../styles/fuseMoney.css';
+import '../../styles/engineFunnel.css';
 import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { Countdown } from '../RunnersPanel';
@@ -92,6 +93,33 @@ export function ContractStatus({ call }) {
       <ul className="fops-steps">{steps.map(([t, ok]) => <li key={t} className={ok ? 'ok' : ''}><i>{ok ? '✓' : '⏳'}</i>{t}</li>)}</ul>
       <small className="m-dim">Test: <code>{cmd}</code></small></div>)}</div>
   </section>;
+}
+
+// HQ › ⚡ Engine, first thing on the screen: the engine as numbers. Every coin the board sees right now against every gate —
+// which gate holds the most coins back BY ITSELF, whether it is a safety or a soft gate, and what the coins it stopped went on to do.
+export function EngineFunnel({ call }) {
+  const [d, setD] = useState(null);
+  useEffect(() => { let alive = true; const load = () => call('/admin/runners/funnel').then(x => alive && setD(x)).catch(() => {});
+    load(); const t = setInterval(() => !document.hidden && load(), 30000); const on = () => load(); window.addEventListener('feeless:runners', on);
+    return () => { alive = false; clearInterval(t); window.removeEventListener('feeless:runners', on); }; }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!d) return <section className="m-card m-live ef is-ghost" />;
+  const max = Math.max(1, ...d.gates.map(g => g.stops));
+  const top = d.gates.find(g => g.only > 0);
+  return <section className="m-card m-live ef" data-testid="engine-funnel">
+    <header><span className="m-label">⚡ THE ENGINE RIGHT NOW</span>
+      <div className="ef-head"><div><small>COINS SEEN</small><b className="m-num">{d.seen}</b></div><i aria-hidden>→</i>
+        <div><small>PASS EVERY GATE</small><b className={`m-num ${d.passing ? 'm-pos' : 'm-neg'}`}>{d.passing}</b></div>
+        <p>{top ? <>The gate holding the most coins back by itself is <b>{top.label}</b>: {top.only} coin{top.only === 1 ? '' : 's'} fail nothing else{top.examples?.length ? ` (${top.examples.join(', ')})` : ''}. It is a <b>{top.kind}</b> gate{top.kind === 'safety' ? ' — loosening it lets riskier coins in' : ' — it is about size / age / activity, not safety'}.</> : 'No coin is one gate away from passing right now.'}</p></div></header>
+    <ol className="ef-rows">{d.gates.map((g, i) => <li key={g.key} className={`ef-${g.kind}`} style={{ '--i': i }} data-testid={`ef-${g.key}`}
+      data-tip={`${g.stops} of ${d.seen} coins fail this gate. ${g.only} of them fail ONLY this gate — that is what switching it off would let in.${g.regret ? ` Of ${g.regret.stopped} coins it stopped hours ago, ${g.regret.ran} later ran 3× or more (${g.regret.rate}%).` : ''}`}>
+      <b>{g.label}</b><em className="ef-kind">{g.kind}</em>
+      <span className="ef-bar"><i style={{ transform: `scaleX(${Math.max(0.01, g.stops / max)})` }} /><u style={{ transform: `scaleX(${Math.max(0, g.only / max)})` }} /></span>
+      <span className="m-num ef-n">{g.stops}<small> stopped</small></span><span className={`m-num ef-n ${g.only ? 'is-cost' : ''}`}>{g.only}<small> only this</small></span>
+      <span className="ef-regret">{g.regret ? <>{g.regret.ran}/{g.regret.stopped} <small>later ran 3×+</small></> : <small>no record yet</small>}</span></li>)}</ol>
+    {d.card?.steps?.length > 0 && <div className="ef-card"><span className="m-label">💵 {d.card.label} · WHAT REACHES THE REAL CARD</span>
+      <ol>{d.card.steps.map(([l, n], i) => <li key={l} style={{ '--i': i }}><b className="m-num">{n}</b><small>{l}</small></li>)}</ol>
+      {d.card.up?.length > 0 && <small className="m-dim">⏭ next in line: {d.card.up.slice(0, 5).map(u => `$${u.symbol} ${u.chg1h >= 0 ? '+' : ''}${Math.round(u.chg1h)}%`).join(' · ')}</small>}</div>}
+    <small className="m-dim">Bright bar = coins failing the gate. Gold bar = coins failing ONLY that gate. Change gates with the dial below (one tap) or the fine-tune fold; every change is audited.</small></section>;
 }
 
 // HQ › ⚡ Engine: ONE dial sets the runner engine (gates + lanes) — Safe / Balanced (recommended) / Degen. Fine-tune below.

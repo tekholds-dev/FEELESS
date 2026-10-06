@@ -349,6 +349,37 @@ def safe_only(c, cfg=None):
         return False
 
 
+def gate_funnel(cands, cfg=None, regret=()):
+    """⚡ THE ENGINE, AS NUMBERS. For every gate: `stops` = coins failing it right now · `only` = coins that fail NOTHING ELSE (what
+    switching just that gate off would let in — the gate's real cost) · `kind` safety / soft · `regret` = of the coins it stopped
+    hours ago, how many later ran 3×+ (`gate_regret`). Sorted by `only`: the gate at the top is the one holding the most coins back.
+    → {seen, passing, gates: [...]}"""
+    gs = gates(cfg) if cfg else GATES
+    rg = {r.get('gate'): r for r in regret or []}
+    rows = {label: {'key': key, 'label': label, 'kind': 'soft' if key in SOFT_GATES else 'safety', 'stops': 0, 'only': 0, 'examples': []} for key, label, _ in gs}
+    passing = 0
+    for c in cands or []:
+        fails = []
+        for _key, label, test in gs:
+            try:
+                ok = bool(test(c))
+            except (KeyError, TypeError):
+                ok = False
+            if not ok:
+                fails.append(label)
+        if not fails:
+            passing += 1
+        for f in fails:
+            rows[f]['stops'] += 1
+        if len(fails) == 1:
+            r = rows[fails[0]]; r['only'] += 1
+            if len(r['examples']) < 3 and c.get('symbol'):
+                r['examples'].append(f"${c['symbol']}")
+    out = sorted(({**r, 'regret': ({k: rg[r['label']].get(k) for k in ('stopped', 'ran', 'rate', 'examples')} if r['label'] in rg else None)} for r in rows.values()),
+                 key=lambda r: (-r['only'], -r['stops']))
+    return {'seen': len(cands or []), 'passing': passing, 'gates': out}
+
+
 def failed_gates(c, cfg=None):
     return [label for _, label, test in (gates(cfg) if cfg else GATES) if not test(c)]
 

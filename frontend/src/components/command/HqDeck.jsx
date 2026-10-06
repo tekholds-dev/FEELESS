@@ -11,7 +11,7 @@ import { RunnersPanel } from '../RunnersPanel';
 import { BundlePricing, RoundsPricing, EngineSuggest, RunnerSettings, CardRules, AutoYieldDefault, FusePayouts } from './FuseAdminSettings';
 import { FuseWallet, CircleProfiles } from './FuseWallet';
 import { FuseFees } from './FuseFees';
-import { ArenaOps, ContractStatus, EngineDial, FeeCatTune, EnginePlayground, SimBrain } from './FuseOpsPanels';
+import { ArenaOps, ContractStatus, EngineDial, FeeCatTune, EnginePlayground, SimBrain, EngineFunnel } from './FuseOpsPanels';
 import { PrimeControls } from '../ArenaPrime';
 import { QuestEngineAdmin } from './QuestEngineAdmin';
 import { LatencyPanel } from './LatencyPanel';
@@ -192,7 +192,7 @@ export function HqDeck({ address, signMessage, onClose }) {
       ['fees', '💲 Fees', <FuseFees call={call} />, 'Every Fuse fee in one place: per-coin first buy, card swaps / sells, round packs — a live $ receipt and every fee paid, clickable down to its transaction.', 'MONEY'],
       ['payouts', '💸 Payouts', <FusePayouts call={call} />, 'Weekly Fee-Back / copy / creator payouts: plan frozen at today\'s SOL price, ONE approval from the fee wallet, credited only from verified transfers.', 'MONEY'],
       ['rules', '🃏 Card rules', <><CardRules call={call} /><AutoYieldDefault call={call} /></>, 'What traders can pick: auto-profit levels, hold/swap, Arena tiers, Fee-Back + copy cuts, and the default 💸 auto-collect.', 'MONEY'],
-      ['engine', '⚡ Engine', <><EngineDial call={call} /><EngineSuggest call={call} /><details className="m-card adv-cfg"><summary>⚛️ Fuse builder (manual basket: name, tagline, creator cut, any pools)</summary><FuseBuilder call={call} /></details><details className="m-card adv-cfg"><summary>⚙ Advanced engine config (FeeCat tune keeps these at the sweet spot)</summary><RunnerSettings call={call} /></details></>, 'Runner engine settings: gates, flow, bond boxes, lanes, battles, auto card. ⚡ shows anything weaker than recommended — one click applies it.', 'SYSTEM'],
+      ['engine', '⚡ Engine', <><EngineFunnel call={call} /><EngineDial call={call} /><EngineSuggest call={call} /><details className="m-card adv-cfg"><summary>⚛️ Fuse builder (manual basket: name, tagline, creator cut, any pools)</summary><FuseBuilder call={call} /></details><details className="m-card adv-cfg"><summary>⚙ Advanced engine config (FeeCat tune keeps these at the sweet spot)</summary><RunnerSettings call={call} /></details></>, 'Runner engine settings: gates, flow, bond boxes, lanes, battles, auto card. ⚡ shows anything weaker than recommended — one click applies it.', 'SYSTEM'],
       ['contract', '⛓ Contract', <ContractStatus call={call} />, 'FUSE Vault + FUSE Card programs: what\'s built, what\'s blocked, how to test. Localnet only — never deployed or funded without you.', 'SYSTEM'],
       ['vault', '🏦 Vault', <><VaultMath /><VaultDesigner call={call} /></>, 'Design only: a future on-chain vault (SOL in → shares, fees in SOL). Localnet v0.1 — never deployed or funded without you.', 'SYSTEM']]} />}{tab === 'badges' && <><QuestEngineAdmin call={call} /><AwardBadges call={call} initial={[...selected]} /></>}
     {tab === 'feecat' && <><FeeCatTune call={call} /><FeeCatPanel call={call} /></>}
