@@ -1837,3 +1837,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 📈 Stock charts DO move: candles are live (NVDAx / SPYx tick every minute) but a stock token moves ~0.05% a candle and some
   (QQQx, CRCLx) print no trade for minutes outside US market hours — on a market-cap chart that reads as frozen. Not a bug; a
   "US market closed" note on stock charts is NOT built.
+- 🎖 CLAN LOGOS (top section of `cover.html`; owner's real references: L7's interlocking glossy green bars on a light studio,
+  SB's fat rounded blue strokes with a silver bevel + slits, the folded-paper white b with ONE blue strip on carbon — and
+  "horrible lol" for the busy studio pieces): ONE bold monogram and nothing else. `GLY` = letter centre-lines on a unit grid
+  (F, Z, L, R; `R_SQ` = the square-bowl R for straight bars), `clanMark` draws them three ways — Interlock (each bar laid over
+  the last with a dark seam) · Round (silver bevel, colour stroke, speed slits) · Fold (white / grey facets, one colour facet)
+  — italic via one skew transform, an 8px side wall from the same shape darkened, a glass half + a sweeping highlight
+  (`source-atop`), a soft drop shadow, on Light studio or Dark carbon. Pieces: Fuse FZ · Fuse F · Fee Reserve FR · Fee Reserve R
+  · FEELESS FL; the colour row recolours them. LESSON: when the owner names a reference, ask for or look at the actual image
+  before drawing — the lightning / beads / crest versions were built from a guess and thrown away.
