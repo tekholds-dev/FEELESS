@@ -1,0 +1,22 @@
+/* 📌 Mini card (MiniCard.jsx): a Fuse card floating on every page — 🃏 card ⇄ 📈 chart, three sizes. Shell = the mini chart's (.mch). */
+.mch.mcd { left: 392px; width: 340px; --mcd-zoom: 1.3; --mcd-h: 210px; }
+.mch.mcd.sz-s { width: 250px; --mcd-zoom: 1; --mcd-h: 160px; } .mch.mcd.sz-l { width: 480px; --mcd-zoom: 1.6; --mcd-h: 320px; }
+.mcd-name { max-width: none !important; flex: 1 1 0; min-width: 0; font-family: "JetBrains Mono", monospace; letter-spacing: .04em; }
+.mcd-body { background: radial-gradient(120% 90% at 50% 0%, #10231a 0%, #070c0b 62%); }
+.mcd-side { animation: mcdFlip .32s cubic-bezier(.2, .8, .2, 1) both; transform-origin: 50% 50%; }
+.mcd-card { display: grid; place-items: center; padding: 18px 18px 22px; } .mcd-card .fcd { zoom: var(--mcd-zoom); }
+.mcd-coins { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px 8px; border-bottom: 1px solid rgba(21, 209, 106, .16); }
+.mcd-coins button { height: 22px; padding: 0 7px; border-radius: 999px; border: 1px solid #203129; background: #0a1210; color: #b9cdc2; font: 10.5px "JetBrains Mono", monospace; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: border-color .15s ease, color .15s ease, background .15s ease; }
+.mcd-coins button em { font-style: normal; font-size: 10px; }
+.mcd-coins button:hover { border-color: #15d16a88; color: #e7fff3; } .mcd-coins button:active { transform: translateY(1px); } .mcd-coins button:focus-visible { outline: 2px solid #45e486; outline-offset: 1px; }
+.mcd-coins button.active { background: #15d16a; border-color: #15d16a; color: #04140b; } .mcd-coins button.active em { color: #04140b; }
+.mcd-tfs { margin-left: auto; display: inline-flex; gap: 3px; } .mcd-tfs button { border-radius: 6px; padding: 0 5px; }
+.mch.mcd .chart-area { min-height: var(--mcd-h) !important; height: var(--mcd-h); } .mch.mcd .candle-canvas { height: var(--mcd-h) !important; } .mch.mcd .mch-wait { height: var(--mcd-h); }
+.fcd-pin { position: absolute; left: -10px; bottom: -10px; z-index: 6; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--m-accent, #15d16a); background: #04100a; font-size: 14px; cursor: pointer; box-shadow: 0 0 14px -4px var(--m-accent, #15d16a); transition: transform .2s ease, background .15s ease; }
+.fcd-pin:hover { transform: translateY(-2px) scale(1.08); background: #0c2217; } .fcd-pin:active { transform: scale(.9); } .fcd-pin:focus-visible { outline: 2px solid var(--m-accent, #15d16a); outline-offset: 2px; }
+@keyframes mcdFlip { from { transform: perspective(700px) rotateY(-32deg) scale(.94); } to { transform: none; } }
+body.fx-lite .mcd-side { animation: none; }
+@media (prefers-reduced-motion: reduce) { .mcd-side { animation: none; } }
+body.theme-day .mcd-body { background: #edf4ef; } body.theme-day .mcd-coins { border-bottom-color: #cfe6da; }
+body.theme-day .mcd-coins button { background: #fff; border-color: #aac7b3; color: #315b43; } body.theme-day .mcd-coins button.active { background: #0b7a4a; border-color: #0b7a4a; color: #fff; } body.theme-day .mcd-coins button.active em { color: #fff; }
+@media (max-width: 640px) { .mch.mcd { bottom: 250px !important; width: auto; --mcd-zoom: 1; --mcd-h: 150px; } .mch.mcd.sz-l { --mcd-zoom: 1.2; --mcd-h: 200px; } }

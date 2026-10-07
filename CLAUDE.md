@@ -1698,3 +1698,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   5m −3…0 → +3% · 0…+3 → 0% · +3…+10 → −41% · over +10 → −77%; 1h 0…+30 → +3…+6% · +30…+100 → −14% · over +100 → −55%.
   The "🚀 breakout" entry tag (5m ≥ +3) therefore never qualifies for an engine buy any more. Real card, same afternoon, 90 min:
   −$1.53 realized, the six worst pieces all bought mid-spike and gone in 1–12 min (five hand picks, −15…−29%).
+- 📌 MINI CARD (`components/MiniCard.jsx`: `openMiniCard(src)` + ONE `MiniCardHost` in the terminal shell beside the mini chart; lazy
+  `MiniCardBody.jsx`; `styles/miniCard.css` `mcd-*`, shell = the mini chart's `.mch`): the 📌 `fcd-pin` button on every
+  `LiveFuseCard` given a `mini` prop (tier cards, the real card, the landing hero, cards you hold) keeps that Fuse card floating on
+  every page. Two sides: 🃏 the SAME card (tier look, still flips to its live money) ⇄ 📈 the chart of any of its coins (coin chips
+  with each coin's %, 1m / 5m / 15m, the card's entry / stop / lock via `MiniChartBody`); ⤢ cycles three sizes (S / M / L = card
+  zoom + chart height tokens `--mcd-zoom` / `--mcd-h`); draggable; card, side, size, place live in localStorage `feeless.miniCard`.
+  `src` = `{kind: 'prime', tpl}` (always read live from `/fuses/prime`) or `{kind: 'row', row}` (a held card travels as a snapshot
+  of its coins; live prices still revalue it). View only — no money button in the window.

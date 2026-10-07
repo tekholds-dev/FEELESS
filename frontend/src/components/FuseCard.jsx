@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { openMiniCard } from './MiniCard';
 import { MetaCard } from './cards/MetaCard';
 import '../styles/fuseLab.css';
 import { tokenImageUrls } from './terminal/MarketPrimitives';
@@ -82,7 +83,7 @@ export function revalue(r, live) {
 // An OWNED Fuse card (a real position from /fuses/pnl): front = the same card, back = live money per leg — what you put in,
 // what you still hold at today's price, what you've already taken out, and the P&L. Never preview numbers.
 const m$ = v => `${v < 0 ? '−' : ''}$${Math.abs(v || 0).toFixed(2)}`;
-export function LiveFuseCard({ r: r0, aura = '', look = null, label = null, serverOnly = false }) {
+export function LiveFuseCard({ r: r0, aura = '', look = null, label = null, serverOnly = false, mini = null }) {
   const [flipped, setFlipped] = useState(false);
   const live = useLivePrices(serverOnly ? [] : r0.legs.filter(l => l.soldUsd == null).map(l => l.pairAddress));
   // serverOnly: real-money cards show the server's Jupiter sell value (a DexScreener pair can sit far off on pre-bond coins)
@@ -110,5 +111,6 @@ export function LiveFuseCard({ r: r0, aura = '', look = null, label = null, serv
   return <div className="fcd" data-testid={`live-card-${r.id}`}>
     <MetaCard card={card} size="md" interactive flipped={flipped} onFlip={setFlipped} back={back} className="fcd-card" />
     <button type="button" className="fcd-flip" aria-label={flipped ? 'Show front' : 'Show live money'} onClick={() => setFlipped(f => !f)} data-testid={`live-card-flip-${r.id}`}>⟲</button>
+    {mini && <button type="button" className="fcd-pin" aria-label="Pin this card: keep it floating on every page" data-tip="📌 Mini card: keeps this card floating on every page — flip it to the chart of its coins, three sizes" onClick={() => openMiniCard(mini.kind === 'row' ? { ...mini, row: mini.row || r0 } : mini)} data-testid={`live-card-pin-${r.id}`}>📌</button>}
   </div>;
 }

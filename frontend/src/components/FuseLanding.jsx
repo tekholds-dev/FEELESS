@@ -66,7 +66,7 @@ export function FuseLanding({ onGo, onRun }) {
       <div className="fld-rig">
         <ul className="fld-notes is-l">{NOTES.slice(0, 2).map(note)}</ul>
         {/* the REAL tier card, in its own design (look + aura), at stage size — ⟲ flips it to its live book */}
-        <div className="fld-card" data-testid="fld-card">{c ? <LiveFuseCard r={primeRow(c)} aura={tier.aura} look={tier.look} label={c.real ? '💵 REAL · FUSE WALLET' : '📄 PAPER · TRUE FILLS'} serverOnly={!!c.real} />
+        <div className="fld-card" data-testid="fld-card">{c ? <LiveFuseCard r={primeRow(c)} aura={tier.aura} look={tier.look} label={c.real ? '💵 REAL · FUSE WALLET' : '📄 PAPER · TRUE FILLS'} serverOnly={!!c.real} mini={{ kind: 'prime', tpl: c.tpl, name: c.label }} />
           : <span className="fld-ghost">Dealing a live card…</span>}</div>
         <ul className="fld-notes is-r">{NOTES.slice(2).map((n, i) => note(n, i + 2))}</ul>
       </div>
