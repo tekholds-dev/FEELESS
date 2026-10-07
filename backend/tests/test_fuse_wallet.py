@@ -1365,3 +1365,11 @@ def test_rent_sweep_runs_early_when_rent_is_what_holds_the_next_buy():
     assert fw.sweep_due(1000.0, 900.0, 600.0, 0.0004, 3) is True
     assert fw.sweep_due(1000.0, 970.0, 600.0, 0.0004, 3) is False               # never more than once a minute
     assert fw.sweep_due(1000.0, 900.0, 600.0, 0.0004, 0) is False               # nothing to close → nothing to gain
+
+
+def test_sol_price_is_never_a_made_up_number():
+    last = {}
+    assert fw.sol_price_pick(116.1, last, 1000.0) == 116.1 and last['px'] == 116.1      # a fresh price is used and remembered
+    assert fw.sol_price_pick(0, last, 1300.0) == 116.1                                  # source silent → last good price (≤ 10 min)
+    assert fw.sol_price_pick(0, last, 1000.0 + fw.SOL_LAST_SEC + 1) == 0.0              # too old → 0: money actions wait
+    assert fw.sol_price_pick(99999, {}, 1000.0) == 0.0                                  # an absurd reading is never used

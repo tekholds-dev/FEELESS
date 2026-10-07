@@ -463,3 +463,31 @@ def test_a_swap_that_reverts_on_slippage_is_sent_again_at_once_with_more_room(mo
     assert rows == [('sell', 'failed', fw.SLIP_ERR), ('sell', 'filled', '')]               # retried in the same pass, no tick lost
     assert state['d']['ledger'][1]['id'] == 'degen:1:s:OLD:r1' and 'OLD' not in out['legs']
     assert state['sent'].count('sendTransaction') == 2
+
+
+def test_every_real_buy_gate_reads_jupiter_when_dexscreener_answers_empty(monkeypatch):
+    import reputation_service as rs
+    import fuse_wallet as fw
+
+    class R:
+        status_code = 200
+        def json(self):
+            return {'schemaVersion': '1.0.0', 'pairs': None, 'pair': None}   # the 2026-10-07 outage: 200 with nothing in it
+
+    class H:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, url, *a, **k): return R()
+    monkeypatch.setattr(rs.httpx, 'AsyncClient', H)
+
+    async def toks(mints):
+        return {'M': {'id': 'M', 'symbol': 'SENTS', 'usdPrice': 0.0005, 'liquidity': 77000.0, 'graduatedPool': 'OTHERPOOL'}}
+    monkeypatch.setattr(rs, '_jup_tokens', toks)
+    live = asyncio.run(rs._fw_live_pairs([{'pair': 'P1', 'mint': 'M', 'side': 'buy'}]))
+    assert live['P1']['pairAddress'] == 'P1' and live['P1']['baseToken']['address'] == 'M'      # keyed by the ORDER's pair
+    ok, why, snap = fw.live_buy_market({'side': 'buy', 'mint': 'M', 'pair': 'P1'}, live['P1'], fw.DEFAULT_CFG)
+    assert ok and snap['liq'] == 77000.0
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text()
+    assert src.count('_fw.live_buy_market(') == 3 and src.count('await _fw_live_pairs(') == 3     # all three gates use the helper

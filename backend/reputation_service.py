@@ -7266,15 +7266,37 @@ async def _fw_secure_buy(order, cfg, q):
     return ok_s, why_s, None if back_l is None else round((back_l / max(1, order['lamports']) - 1) * 100, 2)
 
 
+async def _fw_live_pairs(orders):
+    """📡 FRESH live pairs for real-money buy checks (never cached): DexScreener first, then a fresh Jupiter read for every coin it
+    could not answer (keyed by the order's pair). ONE helper for every buy gate — two of the three gates read DexScreener only, so
+    when its API went empty (2026-10-07) every real buy was refused "live market unavailable"."""
+    want = {str(o.get('pair')): o.get('mint') for o in orders if o.get('pair')}
+    live = {}
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            mr = await http.get('https://api.dexscreener.com/latest/dex/pairs/solana/' + ','.join(sorted(want)[:30]))
+        live = {p.get('pairAddress'): p for p in ((mr.json() if mr.status_code == 200 else {}) or {}).get('pairs') or [] if p}
+    except Exception:
+        live = {}
+    miss = {pa: m for pa, m in want.items() if pa not in live and m}
+    if miss:
+        for m in miss.values():
+            _jup_tok_cache.pop(m, None)
+        toks = await _jup_tokens(list(miss.values()))
+        for pa, m in miss.items():
+            jp = _launchpad_board.jup_pair(toks.get(m)) if toks.get(m) else None
+            if jp:
+                live[pa] = {**jp, 'pairAddress': pa}
+    return live
+
+
 async def _fw_preflight(tid, buys, cfg, now):
     """🔒 Before a swap SELLS anything: can each new coin really be bought? Live pool (one fresh call for all), the owner's limits,
     then a real quote + the secure-buy checks. A coin that fails is booked as a refused buy (→ benched / re-picked) and returned, so
     the keeper keeps the old coin instead of selling it into cash. Read-only: nothing is signed here."""
-    bad, live = set(), {}
+    bad = set()
     try:
-        async with httpx.AsyncClient(timeout=8) as http:
-            mr = await http.get('https://api.dexscreener.com/latest/dex/pairs/solana/' + ','.join(sorted({str(o.get('pair')) for o in buys if o.get('pair')})[:12]))
-        live = {p.get('pairAddress'): p for p in ((mr.json() if mr.status_code == 200 else {}) or {}).get('pairs') or [] if p}
+        live = await _fw_live_pairs(buys)
     except Exception:
         return bad   # no reading = no verdict here: the buy's own final gate still fails closed
     for o in buys:
@@ -7359,15 +7381,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
         # FINAL BUY GATE: cached radar liquidity is never authority for real money.
         # Re-fetch this exact pair immediately before quote/sign and fail closed if it cannot be verified.
         try:
-            async with httpx.AsyncClient(timeout=8) as http:
-                mr = await http.get(f"https://api.dexscreener.com/latest/dex/pairs/solana/{order.get('pair')}")
-            data = mr.json() if mr.status_code == 200 else {}
-            live_pairs = (data or {}).get('pairs') or ([data.get('pair')] if isinstance(data, dict) and data.get('pair') else [])
-            live_pair = next((p for p in live_pairs if p and p.get('pairAddress') == order.get('pair')), None)
-            if not live_pair and order.get('mint'):   # 📡 DexScreener silent → a FRESH Jupiter read of the coin (never a cached one)
-                _jup_tok_cache.pop(order['mint'], None)
-                jp_ = _launchpad_board.jup_pair((await _jup_tokens([order['mint']])).get(order['mint']))
-                live_pair = {**jp_, 'pairAddress': order.get('pair')} if jp_ else None
+            live_pair = (await _fw_live_pairs([order])).get(order.get('pair'))   # 📡 fresh: DexScreener, else Jupiter
             ok_live, why_live, snap = _fw.live_buy_market(order, live_pair, cfg)
         except Exception:
             ok_live, why_live, snap = False, 'live market unavailable — buy refused', {}
@@ -7512,9 +7526,7 @@ async def _fw_execute_swap(tid, sell, buy, book, cfg, sol_px, liq):
         return None
     brow = {**buy, 'usd': sell['usd'], 'liq': liq, 'card': tid}
     try:
-        async with httpx.AsyncClient(timeout=8) as http:
-            mr = await http.get(f"https://api.dexscreener.com/latest/dex/pairs/solana/{buy.get('pair')}")
-        live_pair = next((p for p in ((mr.json() if mr.status_code == 200 else {}) or {}).get('pairs') or [] if p and p.get('pairAddress') == buy.get('pair')), None)
+        live_pair = (await _fw_live_pairs([buy])).get(buy.get('pair'))
         ok, _why, snap = _fw.live_buy_market(buy, live_pair, cfg)
         brow.update(snap)
         if ok:
@@ -10089,12 +10101,26 @@ VAULTS_PATH = DATA_DIR / 'fuse_vaults.json'   # {'vaults': {id: {name, emoji, po
 VAULT_MAX_MGMT_BPS, VAULT_MAX_PERF_BPS = 300, 3000   # ≤3%/yr management, ≤30% performance
 
 
+_SOL_LAST: dict = {}   # {'px', 'at'} — the last good SOL price
+
+
 async def _sol_usd_live():
+    """SOL in $: Jupiter's price (what real swaps route at) → DexScreener's SOL/USDC pool → the last good price (≤ 10 min) → 0.
+    NEVER a made-up number: it used to fall back to a hard-coded $150 when DexScreener answered empty (2026-10-07, SOL was $116) —
+    every real buy then read "~30% above market" and was refused, and card values were priced at $150 SOL. 0 = callers wait."""
+    px = 0.0
     try:
-        p = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': '58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2'}])   # Raydium SOL/USDC
-        return float(next(iter(p.values())).get('priceUsd') or 0) or 150.0
+        px = _fuse._f(((await _jup_prices([_fw.SOL_MINT])) or {}).get(_fw.SOL_MINT))
     except Exception:
-        return 150.0
+        px = 0.0
+    if px <= 0:
+        try:
+            p = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': '58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2', 'mint': _fw.SOL_MINT}])   # Raydium SOL/USDC
+            px = _fuse._f(next(iter(p.values())).get('priceUsd')) if p else 0.0
+        except Exception:
+            px = 0.0
+    px = _fw.sol_price_pick(px, _SOL_LAST, time.time())
+    return px
 
 
 async def _vault_view(vid, v, deposit_sol=10.0):

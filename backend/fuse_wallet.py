@@ -1757,3 +1757,19 @@ def lookalike(symbol, mint, majors):
     sym = str(symbol or '').strip().upper()
     real = {str(v[0]).upper(): m for m, v in (majors or {}).items()}
     return bool(sym) and sym in real and real[sym] != mint and mint not in (majors or {})
+
+
+SOL_LAST_SEC = 600.0
+SOL_SANE = (5.0, 5000.0)
+
+
+def sol_price_pick(px, last, now):
+    """A fresh SOL price inside a sane band is used and remembered in `last`; else the last good one while ≤ 10 min old; else 0
+    (never a hard-coded price — a stale $150 refused every real buy as "30% above market" on 2026-10-07)."""
+    px = _f(px)
+    if SOL_SANE[0] < px < SOL_SANE[1]:
+        last.update(px=px, at=now)
+        return px
+    if _f(last.get('px')) > 0 and now - _f(last.get('at')) <= SOL_LAST_SEC:
+        return _f(last['px'])
+    return 0.0

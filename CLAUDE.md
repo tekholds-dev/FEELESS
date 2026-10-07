@@ -2103,3 +2103,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - ⚡ SWAP NOW = A BUTTON (owner): picker rows `⚡ Swap now` (`sp-pick-*`, `now: true`) + `⏱` (`sp-bell-*`, at the bell); seat picker
   `⚡ Fill now`. Coming up: per coin a target select (🪑 empty seat first when the card has one → `fillSeat`, else "for $COIN") +
   `⚡ Swap now` (`up-now-*`) + `⏱` (`up-bell-*`). The WhenSeg toggle is gone.
+- 💲 SOL PRICE IS NEVER MADE UP (`_sol_usd_live` → Jupiter price v3 first, DexScreener SOL/USDC second, `fuse_wallet.sol_price_pick`
+  last good ≤ 10 min, else 0 = money actions wait). It fell back to a HARD-CODED $150 when DexScreener answered empty (SOL was $116):
+  every real buy read "~30% above market" and was refused, card values priced at $150 SOL. A constant price anywhere money is
+  computed is a bug.
+- 📡 ONE FRESH LIVE-PAIR HELPER FOR EVERY REAL-BUY GATE (`_fw_live_pairs`: DexScreener, then a FRESH Jupiter read keyed by the order's
+  pair): `_fw_preflight` (check the buy before selling), `_fw_execute`'s final gate and the one-transaction swap. Two of the three
+  read DexScreener only → "live market unavailable or pair/mint mismatch" on every buy during the outage. Test pins all three.
