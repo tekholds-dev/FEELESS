@@ -1725,3 +1725,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   lines; gaps + germ also draw soft bands (plain divs appended to the chart container, placed from `priceToCoordinate` /
   `timeToCoordinate` every 300ms, removed with the chart). Read from the candles on screen, labelled "not advice". The edge
   score's weights are hand-set, NOT learned from a record yet — never quote it as proven. `PriceChart` now keeps `chartRef`.
+- ✋ GRAB YOUR LEVELS (`lib/chartGrab.js` pure + tested: `GRAB`, `snapLevel`, `grabLevels`, `withGrab`, `grabOrder`;
+  `components/terminal/ChartGrab.jsx` + `styles/chartGrab.css` `cgr-*`, rendered by `PriceChart` only when `fuse.tpl` is set = a
+  coin opened from the REAL card): a tab sits on each line the card lets the owner move — 🛑 stop + ❄ lock (🎯 take-profit when the
+  card has no lock) while proving, 🏔 trail once riding. Drag = it snaps to the editor's OWN options (`GRAB` lists mirror
+  `arena_prime` LEG_SLS / LEG_TPS / RIDE_ATS / RIDE_TRAILS — change both) and shows the % while held; letting go fires
+  `feeless:fuse-level` → `HqRealCards` asks (`window.confirm`, says "only this coin" for stop / TP → `{leg: {sl|tp}}`, "every coin
+  on the card" for lock / trail → `{realCfg: {rideAt|rideTrail}}`) → saved → `feeless:fuse-level-done` moves the line. A cancelled
+  or unmoved drop changes nothing. `fuseLevels` now also carries `peak` + `tpPct`. Tabs sit at 40% across (top-left is the 🧰 menu).

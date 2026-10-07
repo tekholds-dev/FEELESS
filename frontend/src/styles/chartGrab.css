@@ -1,0 +1,15 @@
+/* ✋ Grab handles (ChartGrab.jsx): drag a Fuse coin's stop / lock / take-profit / trail on its chart. */
+.cgr { position: absolute; inset: 0; z-index: 6; pointer-events: none; overflow: hidden; }
+.cgr-row { position: absolute; left: 0; right: 0; top: 0; height: 0; will-change: transform; }
+.cgr-tab { position: absolute; left: 40%; top: -11px; height: 22px; padding: 0 8px 0 4px; display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; border: 1px solid currentColor; background: rgba(6, 14, 11, .92); color: #b9cdc2; font: 600 10.5px "JetBrains Mono", monospace; cursor: ns-resize; pointer-events: auto; touch-action: none; user-select: none; transition: box-shadow .15s ease, background .15s ease; }
+.cgr-tab i { font-style: normal; opacity: .6; }
+.cgr-tab:hover { box-shadow: 0 0 12px -2px currentColor; background: #0c1a14; } .cgr-tab:active { cursor: grabbing; } .cgr-tab:focus-visible { outline: 2px solid #45e486; outline-offset: 1px; }
+.cgr-line { position: absolute; left: 0; right: 0; top: 0; height: 0; border-top: 1px dashed currentColor; opacity: 0; }
+.cgr-row.is-stop { color: #ff8fa3; } .cgr-row.is-lock { color: #9fe3ff; } .cgr-row.is-tp { color: #45e486; } .cgr-row.is-trail { color: #f5c542; }
+.cgr-row.is-drag .cgr-line { opacity: .9; } .cgr-row.is-drag .cgr-tab { background: currentColor; box-shadow: 0 0 16px -2px currentColor; } .cgr-row.is-drag .cgr-tab > * { color: #04140b; }
+.cgr-row.is-drag .cgr-tab { -webkit-text-fill-color: #04140b; }
+body.theme-day .cgr-tab { background: rgba(255, 255, 255, .95); } body.theme-day .cgr-row.is-stop { color: #b3264a; } body.theme-day .cgr-row.is-lock { color: #0b6a8a; } body.theme-day .cgr-row.is-tp { color: #0b7a4a; } body.theme-day .cgr-row.is-trail { color: #8a6100; }
+body.theme-day .cgr-row.is-drag .cgr-tab { -webkit-text-fill-color: #fff; }
+@media (prefers-reduced-motion: reduce) { .cgr-tab { transition: none; } }
+body.fx-lite .cgr-tab { transition: none; }
+@media (max-width: 640px) { .cgr-tab { height: 26px; top: -13px; font-size: 11px; } }

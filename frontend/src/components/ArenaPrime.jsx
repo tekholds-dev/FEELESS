@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { useAdmin } from '../lib/adminCall';
 import { LiveFuseCard, revalue } from './FuseCard';
+import { grabOrder } from '../lib/chartGrab';
 import { useLivePrices } from '../lib/livePrices';
 import { openWarRoom } from './WarRoomHost';
 import { CardEarnings } from './CardEarnings';
@@ -546,6 +547,9 @@ export function HqRealCards({ addr, onCount }) {
   // 🔄 Rebuy asked from a coin's war room (TrenchChart → `feeless:fuse-rebuy`): confirmed here, where the card and its keeper live
   const rebuyRef = React.useRef(null);
   useEffect(() => { const on = e => rebuyRef.current?.(e.detail); window.addEventListener('feeless:fuse-rebuy', on); return () => window.removeEventListener('feeless:fuse-rebuy', on); }, []);
+  // ✋ a stop / take-profit / lock / trail line dragged on a coin's chart (ChartGrab → `feeless:fuse-level`): asked here, saved here
+  const levelRef = React.useRef(null);
+  useEffect(() => { const on = e => levelRef.current?.(e.detail); window.addEventListener('feeless:fuse-level', on); return () => window.removeEventListener('feeless:fuse-level', on); }, []);
   const [warn, setWarn] = useState(null);         // ⚠ a pick that failed a check, waiting for "pick it anyway": { text, body, ok, tag }
   const [trail, setTrail] = useState(null);       // 📜 full activity pop-up (card id)
   const d = usePrime(10000);   // 💵 live: the server's Jupiter value every 10s (real cards never show DexScreener-only numbers)
@@ -568,6 +572,9 @@ export function HqRealCards({ addr, onCount }) {
   const prime = (body, ok, tag) => { setBusy(tag); call('/admin/arena/prime', { method: 'POST', body: JSON.stringify(body) }).then(() => { toast.success(ok); window.dispatchEvent(new Event('feeless:prime')); })
     .catch(e => { const k = body.pickSwap ? 'pickSwap' : body.fillSeat ? 'fillSeat' : null;
       if (k && body[k].to && !body[k].ack && String(e.message || '').startsWith('⚠')) setWarn({ text: e.message, body: { [k]: { ...body[k], ack: true } }, ok, tag }); else toast.error(e.message); }).finally(() => setBusy('')); };
+  levelRef.current = dd => { const o = grabOrder(dd); if (!o || !window.confirm(o.ask)) return;
+    setBusy('level'); call('/admin/arena/prime', { method: 'POST', body: JSON.stringify(o.body) }).then(() => { toast.success(o.ok); window.dispatchEvent(new CustomEvent('feeless:fuse-level-done', { detail: dd })); window.dispatchEvent(new Event('feeless:prime')); })
+      .catch(e => toast.error(e.message)).finally(() => setBusy('')); };
   rebuyRef.current = f => { if (f?.tpl && f.pairAddress && window.confirm(`Rebuy $${f.symbol}? It is sold whole now and bought straight back at today's price: a new entry, so its stop and lock count from here. Two swaps (about 1% in costs).`)) prime({ rebuy: { tpl: f.tpl, pairAddress: f.pairAddress } }, `🔄 $${f.symbol} sold — buying it back at today's price`, 'rebuy'); };
   const retryDead = (tpl, o) => { setBusy(`retry-${o.side}-${o.mint}`); call('/admin/fuse-wallet/retry-dead', { method: 'POST', body: JSON.stringify({ tpl, side: o.side, mint: o.mint }) }).then(() => { toast.success(`Retrying ${o.side} $${o.symbol}`); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy('')); };
   const ago = t => { const s = Math.max(0, Date.now() / 1000 - (t || 0)); return s < 60 ? `${s.toFixed(0)}s ago` : s < 3600 ? `${(s / 60).toFixed(0)}m ago` : `${(s / 3600).toFixed(1)}h ago`; };
@@ -726,7 +733,7 @@ export function ComingUp({ p, legs = [], onSwap, busy }) {
 export const fuseLevels = (l, cf, label) => { const e = Number(l.entry) || 0; if (!(e > 0)) return null;
   const sl = Number(l.sl) || Number(cf?.sl) || 0; const ra = Number(cf?.rideAt) || 0; const tr = Number(cf?.rideTrail) || 0; const peak = Number(l.peak || l.high) || 0;
   return { card: label, pairAddress: l.pairAddress, symbol: l.symbol, entry: e, stop: sl > 0 && !l.ride ? e * (1 - sl / 100) : null, lock: ra > 0 && !l.ride ? e * (1 + ra / 100) : null,
-    trail: l.ride && peak > 0 && tr > 0 ? peak * (1 - tr / 100) : null, riding: !!l.ride, slPct: sl, lockPct: ra, trailPct: tr }; };
+    trail: l.ride && peak > 0 && tr > 0 ? peak * (1 - tr / 100) : null, riding: !!l.ride, slPct: sl, lockPct: ra, trailPct: tr, peak, tpPct: Number(l.tp) || 0 }; };
 
 // 🔎 Why the card has (or has not) a new coin to buy: how many launch coins survive each of its filters, live from the last tick
 export function PipeLine({ p }) {

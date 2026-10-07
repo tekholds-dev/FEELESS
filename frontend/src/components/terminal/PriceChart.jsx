@@ -3,6 +3,8 @@ import { ChartBg } from './ChartBg';
 import { useChartBg } from '../../lib/chartBg';
 import { ChartToolsMenu, useToolDraw } from './ChartTools';
 import { toolRead, useChartTools } from '../../lib/chartTools';
+import { ChartGrab } from './ChartGrab';
+import { withGrab } from '../../lib/chartGrab';
 import { createChart, createSeriesMarkers, CandlestickSeries, HistogramSeries, LineSeries, ColorType } from 'lightweight-charts';
 import { useMarket } from '../../hooks/useMarket';
 import { dexUrl, formatUSD } from '../../lib/dexscreener';
@@ -19,7 +21,13 @@ const LIVE_INTERVAL_SECONDS = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h
 
 const ageLabel = t => { const s = (Date.now() - t) / 1000; return s < 3600 ? `${Math.max(1, Math.round(s / 60))}m` : s < 86400 ? `${Math.round(s / 3600)}h` : s < 86400 * 60 ? `${Math.round(s / 86400)}d` : `${Math.round(s / 86400 / 30)}mo`; };
 
-export const PriceChart = ({ pair, interval, showVolume, metric = 'price', markers = [], feeLive: feeLiveProp, userEntry = null, userTrades = null, fuse = null }) => {
+export const PriceChart = ({ pair, interval, showVolume, metric = 'price', markers = [], feeLive: feeLiveProp, userEntry = null, userTrades = null, fuse: fuse0 = null }) => {
+  // ✋ a level dragged on this chart and CONFIRMED by the card sits where it was dropped until the card's next read
+  const [grabbed, setGrabbed] = useState(null);
+  useEffect(() => { setGrabbed(null); }, [fuse0?.pairAddress, fuse0?.slPct, fuse0?.lockPct, fuse0?.trailPct, fuse0?.tpPct]);
+  useEffect(() => { const on = e => { const d = e.detail || {}; if (d.pairAddress === fuse0?.pairAddress || d.kind === 'lock' || d.kind === 'trail') setGrabbed(o => ({ ...(o || {}), [d.kind]: d.pct })); };
+    window.addEventListener('feeless:fuse-level-done', on); return () => window.removeEventListener('feeless:fuse-level-done', on); }, [fuse0?.pairAddress]);
+  const fuse = useMemo(() => withGrab(fuse0, grabbed), [fuse0, grabbed]);
   // Every chart gets the same tools: pages that don't control Fee's overlay get a built-in toggle.
   const [feeOwn, setFeeOwn] = useState(false);
   const feeLive = feeLiveProp ?? feeOwn;
@@ -409,6 +417,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     {!priceMetric && !metricAvailable && <div className="chart-message metric-unavailable" role="status" data-testid={`chart-${metric}-unavailable`}><strong>{metricLabel} unavailable</strong><span>The provider did not supply a {metricLabel.toLowerCase()} value for this pair. No value is estimated.</span></div>}
     {charting && hasChart && <div className="candle-canvas" ref={container} data-testid="candlestick-canvas" />}
     {charting && hasChart && displayCandles.length > 0 && <ChartToolsMenu read={toolsRead} />}
+    {charting && hasChart && fuse?.tpl && <ChartGrab seriesRef={seriesRef} container={container} fuse={fuse} ratio={ratio} />}
     {charting && hasChart && <div className="chart-foot-chips">{createdAt && <span className="chart-age" title={new Date(createdAt).toLocaleString()}>🕒 Created {ageLabel(createdAt)} ago</span>}{feeLiveProp === undefined && <button type="button" className={`chart-fee-toggle ${feeOwn ? 'on' : ''}`} onClick={() => setFeeOwn(v => !v)}>🐱 Fee {feeOwn ? 'on' : 'off'}</button>}</div>}
     {charting && hasChart && displayCandles.length > 0 && <button type="button" className="chart-style-toggle" data-testid="chart-style-toggle" onClick={toggleStyle} title="Switch line / candles">{chartStyle === 'line' || (chartStyle === 'auto' && displayCandles.length < 3) ? '▮ Candles' : '〰 Line'}</button>}
     {feeRead && hasChart && <div className={`fee-live-read stance-${feeRead.stance.replace(/\s/g, '-')} ${feeOpen ? '' : 'min'}`} data-testid="fee-live-read">
