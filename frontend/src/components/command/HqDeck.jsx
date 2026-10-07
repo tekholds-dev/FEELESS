@@ -10,6 +10,7 @@ import { FuseDeck, VaultMath } from '../FuseDeck';
 import { RunnersPanel } from '../RunnersPanel';
 import { BundlePricing, RoundsPricing, EngineSuggest, RunnerSettings, CardRules, AutoYieldDefault, FusePayouts } from './FuseAdminSettings';
 import { FuseWallet, CircleProfiles } from './FuseWallet';
+import { HqJump } from './HqJump';
 import { FuseFees } from './FuseFees';
 import { ArenaOps, ContractStatus, EngineDial, FeeCatTune, EnginePlayground, SimBrain, EngineFunnel } from './FuseOpsPanels';
 import { PrimeControls } from '../ArenaPrime';
@@ -67,6 +68,8 @@ export function HqDeck({ address, signMessage, onClose }) {
   // Old tab ids (treasury, circle, reserve) and header shortcuts all land in the one Money tab, on the right section.
   const openTab = (t, pre) => { setPrefill(pre || null); if (['treasury', 'circle', 'reserve'].includes(t)) { setMoneyView(t); setTab('money'); } else setTab(t); };
   const [prefill, setPrefill] = useState(null);
+  // search bar: open the tab, then (Fuse) the deck panel once the deck has mounted
+  const jump = j => { setGrp(null); if (j.view) openTab(j.view); else setTab(j.tab); if (j.panel) [80, 500].forEach(ms => setTimeout(() => window.dispatchEvent(new CustomEvent('feeless:fuse-deck-go', { detail: { panel: j.panel } })), ms)); };
   const [sec, setSec] = useState(null);
   const [holders, setHolders] = useState(null);
   const [asset, setAsset] = useState('fee');
@@ -129,7 +132,7 @@ export function HqDeck({ address, signMessage, onClose }) {
   return <div className="cc-shell" data-testid="hq-shell">
     <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">HQ</h2><small>{role && role !== 'owner' ? `🔑 ${role}` : '👑'} {shortAddress(address)} · session signed · live</small></div><TreasuryPulse call={call} onOpen={openTab} />
       {/* two levels, one row each: pick a group, see only its tools (was four stacked rows of 30 buttons) */}
-      <nav className="cc-tabs cc-nav2" data-testid="cc-nav">{(() => { const groups = TAB_GROUPS.filter(g => g[1].some(allowed)); const cur = grp || (groups.find(g => g[1].includes(tab)) || groups[0] || [''])[0];
+      <nav className="cc-tabs cc-nav2" data-testid="cc-nav"><HqJump tabs={TABS.filter(t => allowed(t[0]))} onGo={jump} />{(() => { const groups = TAB_GROUPS.filter(g => g[1].some(allowed)); const cur = grp || (groups.find(g => g[1].includes(tab)) || groups[0] || [''])[0];
         return <><div className="m-seg cc-groups" role="tablist" aria-label="HQ sections">{groups.map(([group, ids]) => <button key={group} type="button" role="tab" aria-selected={cur === group} className={cur === group ? 'active' : ''} onClick={() => setGrp(group)} data-testid={`cc-group-${group.toLowerCase()}`}>{group}<i className="m-num">{ids.filter(allowed).length}</i></button>)}</div>
           <div className="cc-tab-group" key={cur}>{((groups.find(g => g[0] === cur) || [0, []])[1]).filter(allowed).map(id => TABS.find(t => t[0] === id)).filter(Boolean).map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</div></>; })()}</nav>
       <button type="button" className="cc-close" onClick={onClose} aria-label="Close HQ"><X size={16} /></button></header>
@@ -188,7 +191,8 @@ export function HqDeck({ address, signMessage, onClose }) {
       ['lab', '🧬 Breed & fuse', <FuseLab call={call} />, 'Build mega cards: up to 12 legs (pools, runners or any mix), load a champion, preview it, one-click it with no FEELESS fee, publish it or stage it on the Arena.', 'BUILD'],
       ['pub', '🧪 Engine playground', <><SimBrain call={call} /><EnginePlayground call={call} /></>, 'The engine\'s background field: 8 cards (≥ 4 coins, ≤ 2 pools) battle every bell on every timeframe; winners wait for your ✅ to reach the Arena on the timeframe they proved best.', 'BUILD'],
       ['hq', '💰 HQ · P&L', <FuseHQ call={call} />, 'Real money: every verified Fuse in, live. Arena = $5 runs that prove a strategy before you trust it.', 'MONEY'],
-      ['wallet', '👛 Fuse wallet', <><FuseWallet call={call} /><CircleProfiles call={call} /></>, 'Real money for the tier cards: your Fuse Circle wallet, its funds, hard limits, top-ups (each one starts a new run), dry runs with real quotes and the full audit trail.', 'MONEY'],
+      ['profiles', '🪪 Wallet profiles', <CircleProfiles call={call} />, 'Every Circle wallet you own: search them, name them, edit each profile.', 'MONEY'],
+      ['wallet', '👛 Fuse wallet', <FuseWallet call={call} />, 'Real money for the tier cards: your Fuse Circle wallet, its funds, hard limits, top-ups (each one starts a new run), dry runs with real quotes and the full audit trail.', 'MONEY'],
       ['fees', '💲 Fees', <FuseFees call={call} />, 'Every Fuse fee in one place: per-coin first buy, card swaps / sells, round packs — a live $ receipt and every fee paid, clickable down to its transaction.', 'MONEY'],
       ['payouts', '💸 Payouts', <FusePayouts call={call} />, 'Weekly Fee-Back / copy / creator payouts: plan frozen at today\'s SOL price, ONE approval from the fee wallet, credited only from verified transfers.', 'MONEY'],
       ['rules', '🃏 Card rules', <><CardRules call={call} /><AutoYieldDefault call={call} /></>, 'What traders can pick: auto-profit levels, hold/swap, Arena tiers, Fee-Back + copy cuts, and the default 💸 auto-collect.', 'MONEY'],

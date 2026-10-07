@@ -13,3 +13,14 @@ body.theme-day .cc-groups > button i { background: #0001; }
 .cc-shell .cc-tab-hero { padding: 10px 16px; margin: 0; }
 .cc-shell .cc-tab-hero > div:first-child { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
 .cc-shell .cc-tab-hero h3 { margin: 0; font-size: 16px; } .cc-shell .cc-tab-hero p { margin: 0; font-size: 12.5px; }
+/* HQ search (hqj): one input above the nav, results drop under it */
+.hqj { position: relative; display: flex; align-items: center; gap: 8px; max-width: 420px; color: #9fb4a8; }
+.hqj > svg { position: absolute; left: 11px; pointer-events: none; } .hqj > input { width: 100%; padding-left: 32px; height: 34px; }
+.hqj-list { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; right: 0; margin: 0; padding: 5px; list-style: none; border-radius: 12px; border: 1px solid #15d16a44; background: #07100c; box-shadow: 0 18px 40px -18px #000; animation: hqNavIn .16s ease both; }
+.hqj-list button { display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: #dcebe2; font: inherit; text-align: left; cursor: pointer; transition: background .12s ease, transform .1s ease; }
+.hqj-list button small { font: 700 9.5px "JetBrains Mono", monospace; letter-spacing: .12em; text-transform: uppercase; opacity: .6; }
+.hqj-list button:hover, .hqj-list button.active, .hqj-list button:focus-visible { background: #15d16a; color: #04140b; outline: none; } .hqj-list button:active { transform: translateY(1px); }
+.hqj-none { padding: 9px 10px; font-size: 12px; opacity: .7; }
+body.fx-lite .hqj-list { animation: none; } @media (prefers-reduced-motion: reduce) { .hqj-list { animation: none; } }
+body.theme-day .hqj { color: #4b5f55; } body.theme-day .hqj-list { background: #fff; border-color: #0b7a3e44; } body.theme-day .hqj-list button { color: #10261a; } body.theme-day .hqj-list button.active, body.theme-day .hqj-list button:hover { background: #0b7a3e; color: #fff; }
+@media (max-width: 640px) { .hqj { max-width: none; } }

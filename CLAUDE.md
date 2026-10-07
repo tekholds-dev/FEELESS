@@ -1871,3 +1871,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   gear; `LET` = one block letter per brand reused by all, `letter` / `annulus` / `strokes`, `metal(c, rough, brushed)` + `glow`),
   a BRAND switch (Fuse / Fee Reserve, `brand`, studios cached per brand) → 5 profile pictures + 5 covers on screen; backdrops
   `ghost` (white wall of faint letters) + `matrix` (code). Emissive above ~0.25 washes to pastel under ACES. Planes / Pills / Frame are gone.
+- 🔎 HQ SEARCH (`lib/hqJump.js` `HQ_JUMPS` + `jumpSearch`, `components/command/HqJump.jsx`, `hqj-*` in hqNav.css; on top of the HQ nav,
+  "/" focuses it, ↑↓ Enter, Esc): type "profiles" / "rpc" / "payouts" → the tab opens and (Fuse) the deck panel via
+  `feeless:fuse-deck-go`; Money views via `openTab`. A scoped role only finds places inside its own tabs. 🪪 Wallet profiles is its
+  OWN Fuse deck panel (`profiles`, MONEY) — it sat at the bottom of 👛 Fuse wallet. New HQ panel ⇒ add a row to `HQ_JUMPS`.
