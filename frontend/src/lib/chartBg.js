@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 
 // 🎨 Chart backgrounds: ONE choice for every chart on the site (TrenchChart → PriceChart), kept in this browser.
-// 'default' = the plain chart. The four live scenes are drawn by components/terminal/ChartBg.jsx.
-export const CHART_BGS = [['default', '▫ Default'], ['reactor', '⚛ Fuse reactor'], ['warp', '🌀 Warp gate'], ['helix', '🧬 Fuse helix'], ['cat', '🐱 FeeCat prowl']];
+// 'default' = the plain chart. Two Fuse scenes + two calm ones (sunset over the ocean, aurora night), drawn by components/terminal/ChartBg.jsx.
+export const CHART_BGS = [['default', '▫ Default'], ['reactor', '⚛ Fuse reactor'], ['helix', '🧬 Fuse helix'], ['sunset', '🌅 Sunset ocean'], ['aurora', '🌌 Aurora night']];
 const KEY = 'feeless.chartBg';
 const ok = v => CHART_BGS.some(([k]) => k === v);
 const subs = new Set();

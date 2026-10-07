@@ -1708,3 +1708,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   of its coins; live prices still revalue it). View only — no money button in the window.
 - 📌 Mini chart + mini card charts open on MARKET CAP like the war room (`MiniChartBody metric`, header `$329K MC`, strip levels in MC,
   `mch-metric` button MC ⇄ $). The cap comes from the shared live-price poller (`lib/livePrices` record now carries `mc`) — no new fetch.
+- 🎨 Chart backgrounds are now ▫ Default · ⚛ Fuse reactor · 🧬 Fuse helix · 🌅 Sunset ocean (slow sun, light path on the water,
+  drifting swells) · 🌌 Aurora night (stars, three swaying veils, a ridge). Owner: keep the two Fuse scenes, the rest CALM — Warp gate
+  and FeeCat prowl are retired (a stored 'warp' / 'cat' falls back to Default). A new scene must be calm; each has its own day palette.
