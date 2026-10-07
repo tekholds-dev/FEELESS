@@ -15,15 +15,18 @@ test('open gates: every front-runner with its safety mark; callouts feed with ea
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<TrenchOpen max={10} />); }); await tick(30);
   const q = id => el.querySelector(`[data-testid="${id}"]`);
-  expect(q('trench-open').textContent).toContain('12 FRONT-RUNNERS OF 140 LAUNCH COINS');
-  expect(el.querySelectorAll('.top-coin').length).toBe(10);
-  expect(q('open-C0').className).toContain('is-safe'); expect(q('open-C0').textContent).toContain('✅'); expect(q('open-C0').textContent).toContain('🔥');
-  expect(q('open-C1').className).toContain('is-bad'); expect(q('open-C1').getAttribute('data-tip')).toContain('Not passed: top-10 < 20%');
-  expect(q('open-C2').className).toContain('is-unk'); expect(q('open-C2').textContent).toContain('❔');
-  await act(async () => { q('open-more').click(); }); expect(el.querySelectorAll('.top-coin').length).toBe(12);
+  expect(q('trench-open').textContent).toContain('12 of 140 coins');
+  expect(el.querySelectorAll('.top-tr:not(.top-th)').length).toBe(10);
+  expect(q('open-C0').className).toContain('is-safe'); expect(q('open-C0').textContent).toContain('✅ safe'); expect(q('open-C0').textContent).toContain('🔥'); expect(q('open-C0').textContent).toContain('$C0'); expect(q('open-C0').textContent).toContain('24m');
+  expect(q('open-C1').className).toContain('is-bad'); expect(q('open-C1').querySelector('.top-safe').getAttribute('data-tip')).toContain('Did not pass: top-10 < 20%');
+  expect(q('open-C2').className).toContain('is-unk'); expect(q('open-C2').textContent).toContain('❔ unscanned');
+  await act(async () => { q('open-more').click(); }); expect(el.querySelectorAll('.top-tr:not(.top-th)').length).toBe(12);
   expect(q('trench-open').textContent).toContain('EVERY 3.5 MIN');
-  expect(q('call-kind-leader').textContent).toContain('-12%'); expect(q('call-kind-leader').textContent).toContain('33% up'); expect(q('call-kind-mover').textContent).toContain('2/5');
-  const feed = q('call-feed').textContent; for (const x of ['$C0', '5m ago', '+30%', 'since the call', '$ZED', '2h ago', '-100%', 'after 1h']) expect(feed).toContain(x);
-  await act(async () => { q('open-C0').click(); }); expect(openCoin).toHaveBeenCalledWith({ mint: 'M0', pairAddress: 'P0', symbol: 'C0' });
+  expect(q('call-kind-leader').textContent).toContain('-12%'); expect(q('call-kind-leader').textContent).toContain('33% up'); expect(q('call-kind-mover').textContent).toContain('2 of 5 settled');
+  const feed = q('call-feed').textContent; for (const x of ['$C0', 'volume leader · called 5m ago', '+30%', 'since the call', '$ZED', 'fresh launch · called 2h ago', '-100%', 'after 1h']) expect(feed).toContain(x);
+  await act(async () => { q('open-view-C0').click(); }); expect(openCoin).toHaveBeenCalledWith({ mint: 'M0', pairAddress: 'P0', symbol: 'C0' });
+  // inside the swap picker every row has a Pick button that hands the coin to the picker
+  const picked = jest.fn(); await act(async () => { root.render(<TrenchOpen max={10} onPick={picked} />); }); await tick(30);
+  expect(q('open-view-C0')).toBeNull(); await act(async () => { q('open-pick-C1').click(); }); expect(picked).toHaveBeenCalledWith(expect.objectContaining({ mint: 'M1', symbol: 'C1' }));
   await act(async () => { root.unmount(); });
 });

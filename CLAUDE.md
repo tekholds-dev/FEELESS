@@ -1801,3 +1801,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🎬 Live cover: `frontend/public/cover.html` (standalone, served at `/cover.html`; no app code): a 1500 × 500 canvas — turning
   rays behind the mark, rolling floor, a made-up candle run scrolling by (never a real price), the Fuse helix, the wordmark and
   taglines — with ⬇ still PNG, ⏺ an 8-second loop recorded to video (MediaRecorder; Chrome) and three palettes.
+- 🚪 Open gates v2 (`TrenchOpen`): ONE plain table — # · $COIN (tap = coin drawer) · age · traded / h · 5 min · safety in a WORD
+  (✅ safe · ⚠ failed · ❔ unscanned, the reason in the tip) · one button: **Pick** inside the swap picker (`onPick` ←
+  `TrenchScan onPickRow` ← `SwapPicker`: the row goes through the normal `onPick(pickRow(..))` → warn + acknowledge path), else
+  View. Callouts read as sentences ("🔥 $SYM · volume leader · called 5m ago · +4% since the call"). The first version was tiles
+  whose `flex: 1 1 0` ticker collapsed to nothing (rows read "1 ▢ $159K/h") and a row tap only opened the drawer — the owner
+  could not pick from it. A FLEX CHILD THAT MUST SHOW TEXT NEEDS A REAL MIN WIDTH: use grid columns for rows of data.
+- 🎬 Covers & logos studio (`frontend/public/cover.html`, served at `/cover.html`, standalone; encoder self-hosted at
+  `/assets/gifenc.esm.js`, copied from node_modules — no CDN): four 1500 × 500 covers (FEELESS · FEECAT · FEE RESERVE · FUSE,
+  each its own palette, mark and motion) and two 512 × 512 logos (Fuse spinning coin: atom face / DNA back; the 3D clan F:
+  extruded block F turning on a hex shield with wings, stars, a chrome sweep and a DNA helix passing behind AND in front).
+  Every piece downloads on its own: ⬇ PNG · ⬇ GIF (covers 750 × 250 × 40 frames, logos 512 × 512 × 48) · covers also ⏺ an 8s
+  video loop. New piece ⇒ one entry in `COVERS` / `LOGOS` with a `draw(g, t)` that loops cleanly at t = 0 → 1.

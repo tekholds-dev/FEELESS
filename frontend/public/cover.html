@@ -1,62 +1,126 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FEELESS · live cover</title>
+<title>FEELESS · covers & logos</title>
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
-  :root { color-scheme: dark; } body { margin: 0; min-height: 100vh; display: grid; place-content: center; gap: 14px; background: #030806; color: #cfe3d8; font: 13px "JetBrains Mono", monospace; padding: 16px; }
-  canvas { width: min(1500px, 96vw); aspect-ratio: 3 / 1; border-radius: 14px; border: 1px solid #15d16a44; box-shadow: 0 30px 80px -40px #15d16a; }
-  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; } small { opacity: .7; }
-  button { height: 34px; padding: 0 14px; border-radius: 9px; border: 1px solid #15d16a; background: #15d16a; color: #04140b; font: 700 12px "JetBrains Mono", monospace; cursor: pointer; transition: transform .1s ease, box-shadow .15s ease; }
-  button.alt { background: #0a1210; color: #b9cdc2; border-color: #203129; } button:hover { box-shadow: 0 0 16px -4px #15d16a; } button:active { transform: translateY(1px); } button:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; } button:disabled { opacity: .5; cursor: wait; }
+  :root { color-scheme: dark; } body { margin: 0; background: #030806; color: #cfe3d8; font: 13px "JetBrains Mono", monospace; padding: 22px 16px 60px; }
+  h1 { font: 400 26px "Bungee", sans-serif; margin: 0 0 4px; color: #fff; } p { margin: 0 0 18px; opacity: .7; max-width: 760px; line-height: 1.5; }
+  h2 { font: 700 11px "JetBrains Mono", monospace; letter-spacing: .16em; color: #45e486; margin: 26px 0 10px; }
+  .grid { display: grid; gap: 18px; } .logos { grid-template-columns: repeat(auto-fit, minmax(260px, 340px)); }
+  .item { display: grid; gap: 8px; } .item b { font-size: 13px; color: #fff; }
+  canvas { width: 100%; height: auto; border-radius: 14px; border: 1px solid #15d16a33; background: #000; display: block; }
+  .bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } small { opacity: .65; }
+  button { height: 32px; padding: 0 12px; border-radius: 9px; border: 1px solid #203129; background: #0a1210; color: #b9cdc2; font: 700 11.5px "JetBrains Mono", monospace; cursor: pointer; transition: transform .1s ease, box-shadow .15s ease, border-color .15s ease; }
+  button.go { background: #15d16a; border-color: #15d16a; color: #04140b; } button:hover { border-color: #15d16a; box-shadow: 0 0 14px -5px #15d16a; } button:active { transform: translateY(1px); }
+  button:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; } button:disabled { opacity: .5; cursor: wait; }
 </style></head>
 <body>
-<canvas id="c" width="1500" height="500" aria-label="FEELESS live cover, 1500 by 500"></canvas>
-<div class="bar"><button id="png">⬇ Download still (PNG)</button><button id="rec" class="alt">⏺ Record 8s live loop (video)</button><button id="pal" class="alt">🎨 Royal</button>
-  <small id="note">1500 × 500 — the size X and most profile headers use. The loop repeats every 8 seconds.</small></div>
-<script>
-(() => {
-  const c = document.getElementById('c'), g = c.getContext('2d'), W = 1500, H = 500, T = Math.PI * 2, LOOP = 8000;
-  const seed = Array.from({ length: 400 }, (_, i) => Math.abs(Math.sin(i * 12.9898) * 43758.5453) % 1);
-  const PALS = [['Royal', '#15d16a', '21,209,106', '#020d08', '160,110,255'], ['Blaze', '#ff9a3c', '255,122,47', '#120603', '255,61,90'], ['Nebula', '#b98cff', '160,110,255', '#07030f', '60,220,255']];
-  let pi = 0; const logo = new Image(); logo.src = '/assets/feeless-logo.png';
-  // a made-up candle run that climbs, loops cleanly, and never shows a real price
-  const candles = Array.from({ length: 64 }, (_, i) => { const base = 0.5 + 0.28 * Math.sin(i / 64 * T) + 0.12 * Math.sin(i / 64 * T * 3 + 1); const o = base + (seed[i] - 0.5) * 0.08; const cl = base + (seed[i + 64] - 0.5) * 0.08 + 0.02; return [o, cl, Math.max(o, cl) + seed[i + 128] * 0.05, Math.min(o, cl) - seed[i + 192] * 0.05]; });
-  function draw(ms) {
-    const t = (ms % LOOP) / LOOP; const [, acc, rgb, base, rgb2] = PALS[pi];
-    g.fillStyle = base; g.fillRect(0, 0, W, H);
-    for (const [x, y, r, col, a] of [[W * (0.22 + 0.06 * Math.cos(t * T)), H * 0.3, 620, rgb, 0.42], [W * (0.82 - 0.05 * Math.sin(t * T)), H * 0.8, 560, rgb2, 0.3]]) { const rg = g.createRadialGradient(x, y, 0, x, y, r); rg.addColorStop(0, `rgba(${col},${a})`); rg.addColorStop(1, `rgba(${col},0)`); g.fillStyle = rg; g.fillRect(0, 0, W, H); }
-    g.save(); g.translate(W * 0.2, H * 0.5); g.rotate(t * T / 14);                       // rays turning behind the mark
-    for (let i = 0; i < 14; i++) { g.rotate(T / 14); const gr = g.createLinearGradient(0, 0, 900, 0); gr.addColorStop(0, `rgba(${rgb},.16)`); gr.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = gr; g.beginPath(); g.moveTo(0, 0); g.lineTo(900, -34); g.lineTo(900, 34); g.closePath(); g.fill(); }
-    g.restore();
-    const hz = H * 0.66; g.strokeStyle = `rgba(${rgb},.22)`; g.lineWidth = 1.2;           // floor rolling toward the viewer
-    for (let i = 0; i < 9; i++) { const y = hz + ((i + t * 2) % 9) ** 2 * 2.3; g.globalAlpha = Math.min(1, (y - hz) / 70); g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
-    g.globalAlpha = 1; for (let i = -14; i <= 14; i++) { g.beginPath(); g.moveTo(W / 2 + i * 34, hz); g.lineTo(W / 2 + i * 190, H); g.stroke(); }
-    const cw = 13, x0 = 640, ch = 250, y0 = 96, shift = t * 64;                           // candles scrolling right → left
-    for (let k = 0; k < 64; k++) { const i = (k + Math.floor(shift)) % 64; const [o, cl, hi, lo] = candles[i]; const x = x0 + (k - (shift % 1)) * cw; const up = cl >= o; const Y = v => y0 + ch * (1 - v);
-      const edge = Math.min(1, k / 8, (63 - k) / 8); g.globalAlpha = 0.85 * Math.max(0, edge); g.strokeStyle = g.fillStyle = up ? acc : '#ff8fa3'; g.lineWidth = 1.4;
-      g.beginPath(); g.moveTo(x + 4, Y(hi)); g.lineTo(x + 4, Y(lo)); g.stroke(); g.fillRect(x, Math.min(Y(o), Y(cl)), 8, Math.max(2, Math.abs(Y(o) - Y(cl)))); }
-    g.globalAlpha = 1;
-    for (let i = 0; i < 90; i++) { const x = (seed[i] * W + t * 60 * (1 + (i % 3))) % W; const y = H - ((seed[i + 90] + t * (1 + (i % 2))) % 1) * H; g.fillStyle = `rgba(${i % 4 ? rgb : rgb2},${0.25 + 0.6 * Math.abs(Math.sin((t * 2 + seed[i]) * T))})`; g.beginPath(); g.arc(x, y, 1 + seed[i + 180] * 2, 0, T); g.fill(); }
-    for (let i = 0; i < 18; i++) { const ph = t * T * 2 + i * 0.55; const x = 1270 + Math.sin(ph) * 46, y = 70 + i * 21; const x2 = 1270 - Math.sin(ph) * 46; const z = Math.cos(ph);   // the Fuse helix, turning
-      g.strokeStyle = `rgba(${rgb},.3)`; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x, y); g.lineTo(x2, y); g.stroke();
-      g.fillStyle = `rgba(${rgb},${0.55 + 0.4 * z})`; g.beginPath(); g.arc(x, y, 5 + 2 * z, 0, T); g.fill(); g.fillStyle = `rgba(${rgb2},${0.55 - 0.4 * z})`; g.beginPath(); g.arc(x2, y, 5 - 2 * z, 0, T); g.fill(); }
-    const pulse = 1 + 0.04 * Math.sin(t * T * 2);                                         // mark + wordmark
-    if (logo.complete && logo.naturalWidth) { g.save(); g.shadowColor = acc; g.shadowBlur = 50 + 20 * Math.sin(t * T * 2); g.drawImage(logo, 96 - 120 * (pulse - 1), 110 - 120 * (pulse - 1), 240 * pulse, 240 * pulse); g.restore(); }
-    g.textBaseline = 'alphabetic'; g.shadowColor = acc; g.shadowBlur = 26; g.fillStyle = '#fff'; g.font = '400 118px "Bungee", sans-serif'; g.fillText('FEELESS', 356, 252); g.shadowBlur = 0;
-    g.fillStyle = acc; g.font = '700 30px "JetBrains Mono", monospace'; g.fillText('LESS NOISE. MORE ALPHA.', 362, 304);
-    g.fillStyle = 'rgba(255,255,255,.82)'; g.font = '500 22px "JetBrains Mono", monospace'; g.fillText('MANY COINS, ONE FUSE  ·  NON-CUSTODIAL  ·  SOLANA', 362, 344);
-    g.fillStyle = acc; g.beginPath(); g.arc(372, 386, 6 + 2 * Math.sin(t * T * 4), 0, T); g.fill(); g.fillStyle = 'rgba(255,255,255,.7)'; g.font = '700 16px "JetBrains Mono", monospace'; g.fillText('LIVE', 388, 392);
-    g.strokeStyle = `rgba(${rgb},.5)`; g.lineWidth = 3; g.lineCap = 'round';                // corner brackets
-    for (const [x, y, dx, dy] of [[26, 26, 1, 1], [W - 26, 26, -1, 1], [26, H - 26, 1, -1], [W - 26, H - 26, -1, -1]]) { g.beginPath(); g.moveTo(x + 34 * dx, y); g.lineTo(x, y); g.lineTo(x, y + 34 * dy); g.stroke(); }
-  }
-  let raf = 0; const tick = ms => { draw(ms); raf = requestAnimationFrame(tick); }; raf = requestAnimationFrame(tick);
-  const save = (blob, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
-  document.getElementById('png').onclick = () => c.toBlob(b => b && save(b, 'feeless-cover.png'), 'image/png');
-  document.getElementById('pal').onclick = e => { pi = (pi + 1) % PALS.length; e.target.textContent = `🎨 ${PALS[pi][0]}`; };
-  document.getElementById('rec').onclick = e => { const note = document.getElementById('note');
-    if (!c.captureStream || !window.MediaRecorder) { note.textContent = 'This browser cannot record the canvas — use Chrome, or screen-record this page.'; return; }
-    const rec = new MediaRecorder(c.captureStream(30), { videoBitsPerSecond: 8e6 }); const parts = []; rec.ondataavailable = x => x.data.size && parts.push(x.data);
-    rec.onstop = () => { save(new Blob(parts, { type: rec.mimeType || 'video/webm' }), 'feeless-cover-live.webm'); e.target.disabled = false; e.target.textContent = '⏺ Record 8s live loop (video)'; };
-    e.target.disabled = true; e.target.textContent = '⏺ recording…'; rec.start(); setTimeout(() => rec.stop(), LOOP + 80); };
-})();
+<h1>FEELESS covers & logos</h1>
+<p>Every piece is drawn live in your browser and downloads on its own: a still PNG, an animated GIF, and (covers) a video loop. Covers are 1500 × 500, the size X and most profile headers use. Candles are made up — never a real price.</p>
+<h2>COVERS · 1500 × 500</h2><div class="grid" id="covers"></div>
+<h2>LOGOS · 512 × 512 GIF</h2><div class="grid logos" id="logos"></div>
+<script type="module">
+const T = Math.PI * 2, LOOP = 8000;
+const seed = Array.from({ length: 600 }, (_, i) => Math.abs(Math.sin(i * 12.9898) * 43758.5453) % 1);
+const img = src => { const i = new Image(); i.src = src; return i; };
+const MARK = img('/assets/feeless-logo.png'), CAT = img('/assets/feecat-mark.png');
+const candles = Array.from({ length: 64 }, (_, i) => { const b = 0.5 + 0.28 * Math.sin(i / 64 * T) + 0.12 * Math.sin(i / 64 * T * 3 + 1); const o = b + (seed[i] - 0.5) * 0.08, c = b + (seed[i + 64] - 0.5) * 0.08 + 0.02; return [o, c, Math.max(o, c) + seed[i + 128] * 0.05, Math.min(o, c) - seed[i + 192] * 0.05]; });
+
+// shared pieces ---------------------------------------------------------------------------------------------------------------
+function backdrop(g, W, H, t, base, rgb, rgb2) {
+  g.fillStyle = base; g.fillRect(0, 0, W, H);
+  for (const [x, y, r, col, a] of [[W * (0.22 + 0.06 * Math.cos(t * T)), H * 0.3, W * 0.42, rgb, 0.42], [W * (0.82 - 0.05 * Math.sin(t * T)), H * 0.8, W * 0.38, rgb2, 0.3]]) { const rg = g.createRadialGradient(x, y, 0, x, y, r); rg.addColorStop(0, `rgba(${col},${a})`); rg.addColorStop(1, `rgba(${col},0)`); g.fillStyle = rg; g.fillRect(0, 0, W, H); }
+}
+function rays(g, x, y, len, t, rgb, n = 14, a = 0.16) { g.save(); g.translate(x, y); g.rotate(t * T / n); for (let i = 0; i < n; i++) { g.rotate(T / n); const gr = g.createLinearGradient(0, 0, len, 0); gr.addColorStop(0, `rgba(${rgb},${a})`); gr.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = gr; g.beginPath(); g.moveTo(0, 0); g.lineTo(len, -len * 0.04); g.lineTo(len, len * 0.04); g.closePath(); g.fill(); } g.restore(); }
+function floor(g, W, H, t, rgb) { const hz = H * 0.66; g.strokeStyle = `rgba(${rgb},.22)`; g.lineWidth = 1.2; for (let i = 0; i < 9; i++) { const y = hz + ((i + t * 2) % 9) ** 2 * (H / 217); g.globalAlpha = Math.min(1, (y - hz) / 70); g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); } g.globalAlpha = 1; for (let i = -14; i <= 14; i++) { g.beginPath(); g.moveTo(W / 2 + i * 34, hz); g.lineTo(W / 2 + i * 190, H); g.stroke(); } }
+function sparks(g, W, H, t, rgb, rgb2, n = 90) { for (let i = 0; i < n; i++) { const x = (seed[i] * W + t * 60 * (1 + (i % 3))) % W, y = H - ((seed[i + 90] + t * (1 + (i % 2))) % 1) * H; g.fillStyle = `rgba(${i % 4 ? rgb : rgb2},${0.25 + 0.6 * Math.abs(Math.sin((t * 2 + seed[i]) * T))})`; g.beginPath(); g.arc(x, y, 1 + seed[i + 180] * 2, 0, T); g.fill(); } }
+// the DNA helix: z = which strand is in front (draw `front` false first, then the subject, then `front` true)
+function helix(g, cx, y0, y1, amp, t, rgb, rgb2, front, turns = 2.2, n = 22) { for (let i = 0; i < n; i++) { const k = i / (n - 1), y = y0 + (y1 - y0) * k, ph = t * T * 2 + k * T * turns, z = Math.cos(ph), x = cx + Math.sin(ph) * amp, x2 = cx - Math.sin(ph) * amp;
+  if (!front) { g.strokeStyle = `rgba(${rgb},.28)`; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y); g.lineTo(x2, y); g.stroke(); }
+  if ((z >= 0) === front) { g.fillStyle = `rgba(${rgb},${0.65 + 0.35 * Math.abs(z)})`; g.beginPath(); g.arc(x, y, amp * 0.1 + amp * 0.05 * z, 0, T); g.fill(); }
+  if ((z < 0) === front) { g.fillStyle = `rgba(${rgb2},${0.65 + 0.35 * Math.abs(z)})`; g.beginPath(); g.arc(x2, y, amp * 0.1 - amp * 0.05 * z, 0, T); g.fill(); } } }
+function brackets(g, W, H, rgb) { g.strokeStyle = `rgba(${rgb},.5)`; g.lineWidth = 3; g.lineCap = 'round'; for (const [x, y, dx, dy] of [[26, 26, 1, 1], [W - 26, 26, -1, 1], [26, H - 26, 1, -1], [W - 26, H - 26, -1, -1]]) { g.beginPath(); g.moveTo(x + 34 * dx, y); g.lineTo(x, y); g.lineTo(x, y + 34 * dy); g.stroke(); } }
+function candleRun(g, t, acc) { const cw = 13, x0 = 640, ch = 250, y0 = 96, shift = t * 64; for (let k = 0; k < 64; k++) { const i = (k + Math.floor(shift)) % 64, [o, c, hi, lo] = candles[i], x = x0 + (k - (shift % 1)) * cw, up = c >= o, Y = v => y0 + ch * (1 - v); g.globalAlpha = 0.85 * Math.max(0, Math.min(1, k / 8, (63 - k) / 8)); g.strokeStyle = g.fillStyle = up ? acc : '#ff8fa3'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(x + 4, Y(hi)); g.lineTo(x + 4, Y(lo)); g.stroke(); g.fillRect(x, Math.min(Y(o), Y(c)), 8, Math.max(2, Math.abs(Y(o) - Y(c)))); } g.globalAlpha = 1; }
+function titles(g, t, acc, title, l1, l2, x = 356) { g.shadowColor = acc; g.shadowBlur = 26; g.fillStyle = '#fff'; g.font = `400 ${title.length > 9 ? 92 : 118}px "Bungee", sans-serif`; g.fillText(title, x, 252); g.shadowBlur = 0;
+  g.fillStyle = acc; g.font = '700 30px "JetBrains Mono", monospace'; g.fillText(l1, x + 6, 304); g.fillStyle = 'rgba(255,255,255,.82)'; g.font = '500 22px "JetBrains Mono", monospace'; g.fillText(l2, x + 6, 344);
+  g.fillStyle = acc; g.beginPath(); g.arc(x + 16, 386, 6 + 2 * Math.sin(t * T * 4), 0, T); g.fill(); g.fillStyle = 'rgba(255,255,255,.7)'; g.font = '700 16px "JetBrains Mono", monospace'; g.fillText('LIVE', x + 32, 392); }
+function mark(g, im, t, acc, x = 96, y = 110, s = 240, round = false) { const p = 1 + 0.04 * Math.sin(t * T * 2); if (!(im.complete && im.naturalWidth)) return; g.save(); g.shadowColor = acc; g.shadowBlur = 50 + 20 * Math.sin(t * T * 2);
+  if (round) { const cx = x + s / 2, cy = y + s / 2, r = s * p / 2; g.fillStyle = '#04100a'; g.beginPath(); g.arc(cx, cy, r, 0, T); g.fill(); g.shadowBlur = 0; g.lineWidth = 5; g.strokeStyle = acc; g.stroke(); g.beginPath(); g.arc(cx, cy, r - 3, 0, T); g.clip(); }   /* a mark with its own square background sits in a medallion */
+  g.drawImage(im, x - s * (p - 1) / 2, y - s * (p - 1) / 2, s * p, s * p); g.restore(); }
+
+// covers ---------------------------------------------------------------------------------------------------------------------
+const W = 1500, H = 500;
+const COVERS = [
+  ['feeless', 'FEELESS', (g, t) => { const a = '#15d16a', r = '21,209,106', r2 = '160,110,255'; backdrop(g, W, H, t, '#020d08', r, r2); rays(g, W * 0.2, H * 0.5, 900, t, r); floor(g, W, H, t, r); candleRun(g, t, a); sparks(g, W, H, t, r, r2);
+    helix(g, 1270, 70, 430, 46, t, r, r2, false); helix(g, 1270, 70, 430, 46, t, r, r2, true); mark(g, MARK, t, a); titles(g, t, a, 'FEELESS', 'LESS NOISE. MORE ALPHA.', 'MANY COINS, ONE FUSE  ·  NON-CUSTODIAL  ·  SOLANA'); brackets(g, W, H, r); }],
+  ['feecat', 'FEECAT', (g, t) => { const a = '#ffb347', r = '255,160,60', r2 = '21,209,106'; backdrop(g, W, H, t, '#100803', r, r2); rays(g, W * 0.2, H * 0.5, 900, t, r, 12, 0.14); floor(g, W, H, t, r); candleRun(g, t, '#45e486'); sparks(g, W, H, t, r, r2, 60);
+    for (let i = 0; i < 9; i++) { const ph = (t * 1.5 + i / 9) % 1, px = 420 + ph * 1100, py = 440 + (i % 2 ? -16 : 12); g.globalAlpha = 0.5 * Math.sin(ph * Math.PI); g.fillStyle = a; g.beginPath(); g.ellipse(px, py, 11, 9, 0, 0, T); g.fill(); for (const [dx, dy] of [[-11, -13], [-4, -18], [5, -18], [12, -13]]) { g.beginPath(); g.arc(px + dx, py + dy, 4, 0, T); g.fill(); } } g.globalAlpha = 1;
+    mark(g, CAT, t, a, 70, 100, 260, true); titles(g, t, a, 'FEECAT', 'NINE LIVES. ONE RULE: TRADE LESS, WIN MORE.', 'THE FEELESS TRADING CAT  ·  LEARNS FROM EVERY EXIT'); brackets(g, W, H, r); }],
+  ['reserve', 'FEE RESERVE', (g, t) => { const a = '#f5c451', r = '245,196,81', r2 = '21,209,106'; backdrop(g, W, H, t, '#0f0a02', r, r2); rays(g, W * 0.2, H * 0.5, 950, t, r, 16, 0.2); floor(g, W, H, t, r); sparks(g, W, H, t, r, r2, 70);
+    for (let i = 0; i < 26; i++) { const x = 700 + seed[i] * 760, y = ((seed[i + 26] + t * (1 + seed[i] * 0.6)) % 1) * (H + 60) - 30, w = 16 * Math.abs(Math.cos((t * 3 + seed[i]) * T)); g.fillStyle = `rgba(${r},.8)`; g.beginPath(); g.ellipse(x, y, Math.max(2, w), 16, 0, 0, T); g.fill(); g.strokeStyle = 'rgba(255,240,200,.5)'; g.lineWidth = 1; g.stroke(); }
+    g.save(); g.translate(1230, 250); g.rotate(t * T / 4); g.strokeStyle = `rgba(${r},.55)`; g.lineWidth = 6; g.beginPath(); g.arc(0, 0, 150, 0, T); g.stroke(); for (let i = 0; i < 8; i++) { g.rotate(T / 8); g.beginPath(); g.moveTo(96, 0); g.lineTo(150, 0); g.stroke(); } g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 96, 0, T); g.stroke(); g.restore();
+    mark(g, MARK, t, a); titles(g, t, a, 'FEE RESERVE', 'HOLD $FEE. UNLOCK THE ROOM.', 'HOLDER PERKS  ·  FEE-BACK  ·  RESERVE BADGES'); brackets(g, W, H, r); }],
+  ['fuse', 'FUSE', (g, t) => { const a = '#b98cff', r = '160,110,255', r2 = '21,209,106'; backdrop(g, W, H, t, '#07030f', r, r2); rays(g, W * 0.2, H * 0.5, 900, t, r); floor(g, W, H, t, r); candleRun(g, t, '#45e486'); sparks(g, W, H, t, r, r2);
+    for (const cx of [1150, 1320]) { helix(g, cx, 50, 450, 60, t + (cx > 1200 ? 0.25 : 0), r2, r, false, 2.6, 26); helix(g, cx, 50, 450, 60, t + (cx > 1200 ? 0.25 : 0), r2, r, true, 2.6, 26); }
+    g.save(); g.translate(216, 230); for (let i = 0; i < 3; i++) { g.save(); g.rotate(i * T / 6 + t * T / 3); g.strokeStyle = `rgba(${i % 2 ? r2 : r},.85)`; g.lineWidth = 5; g.shadowColor = a; g.shadowBlur = 18; g.beginPath(); g.ellipse(0, 0, 118, 44, 0, 0, T); g.stroke(); const e = t * T * 2 + i * 2; g.fillStyle = '#fff'; g.beginPath(); g.arc(Math.cos(e) * 118, Math.sin(e) * 44, 8, 0, T); g.fill(); g.restore(); } g.fillStyle = '#45e486'; g.shadowColor = '#15d16a'; g.shadowBlur = 30; g.beginPath(); g.arc(0, 0, 22 + 3 * Math.sin(t * T * 4), 0, T); g.fill(); g.restore();
+    titles(g, t, a, 'FUSE', 'MANY COINS, ONE FUSE.', 'CARDS THAT LOCK WINNERS  ·  EVERY SWAP ON-CHAIN'); brackets(g, W, H, r); }],
+];
+
+// logos ----------------------------------------------------------------------------------------------------------------------
+const S = 512;
+function fuseSpin(g, t) { const r = '160,110,255', r2 = '21,209,106'; backdrop(g, S, S, t, '#07030f', r, r2); rays(g, S / 2, S / 2, 420, t, r, 12, 0.14); sparks(g, S, S, t, r, r2, 50);
+  const a = t * T, sx = Math.cos(a), back = sx < 0; g.save(); g.translate(S / 2, S / 2);
+  g.save(); g.scale(Math.max(0.04, Math.abs(sx)), 1);                                       // the coin, spinning on its upright axis
+  const gr = g.createLinearGradient(-170, -170, 170, 170); gr.addColorStop(0, back ? '#0e2a1c' : '#2a1650'); gr.addColorStop(1, '#070310'); g.fillStyle = gr; g.shadowColor = back ? '#15d16a' : '#b98cff'; g.shadowBlur = 40; g.beginPath(); g.arc(0, 0, 170, 0, T); g.fill(); g.shadowBlur = 0;
+  g.lineWidth = 10; const ed = g.createLinearGradient(-170, 0, 170, 0); ed.addColorStop(0, '#15d16a'); ed.addColorStop(0.5, '#fff'); ed.addColorStop(1, '#a06eff'); g.strokeStyle = ed; g.stroke(); g.lineWidth = 2; g.strokeStyle = 'rgba(255,255,255,.25)'; g.beginPath(); g.arc(0, 0, 150, 0, T); g.stroke();
+  if (back) { helix(g, 0, -120, 120, 46, t, r2, r, false, 2, 16); helix(g, 0, -120, 120, 46, t, r2, r, true, 2, 16); }
+  else { for (let i = 0; i < 3; i++) { g.save(); g.rotate(i * T / 6); g.strokeStyle = `rgba(${i % 2 ? r2 : r},.9)`; g.lineWidth = 5; g.beginPath(); g.ellipse(0, -18, 104, 38, 0, 0, T); g.stroke(); g.restore(); } g.fillStyle = '#45e486'; g.beginPath(); g.arc(0, -18, 16, 0, T); g.fill();
+    g.fillStyle = '#fff'; g.font = '400 50px "Bungee", sans-serif'; g.textAlign = 'center'; g.shadowColor = '#b98cff'; g.shadowBlur = 16; g.fillText('FUSE', 0, 112); g.shadowBlur = 0; g.textAlign = 'left'; }
+  g.restore();
+  for (let i = 0; i < 10; i++) { const e = t * T * 2 + i * T / 10; g.fillStyle = `rgba(${i % 2 ? r : r2},.9)`; g.beginPath(); g.arc(Math.cos(e) * 214, Math.sin(e) * 62, 4 + 2 * Math.sin(e), 0, T); g.fill(); }   // an orbit ring around the coin
+  g.restore(); }
+const F = [[-78, -128], [96, -128], [96, -72], [-18, -72], [-18, -22], [66, -22], [66, 30], [-18, 30], [-18, 128], [-78, 128]];   // a block F
+function clanF(g, t) { const r = '21,209,106', r2 = '160,110,255'; backdrop(g, S, S, t, '#020a06', r, r2); rays(g, S / 2, S / 2, 440, t, r, 16, 0.16); sparks(g, S, S, t, r, r2, 50);
+  g.save(); g.translate(S / 2, S / 2 - 10);
+  const hex = (rad, rot) => { g.beginPath(); for (let i = 0; i < 6; i++) { const a = rot + i * T / 6; g[i ? 'lineTo' : 'moveTo'](Math.cos(a) * rad, Math.sin(a) * rad); } g.closePath(); };
+  const sh = g.createLinearGradient(0, -210, 0, 210); sh.addColorStop(0, '#0f2a1d'); sh.addColorStop(1, '#040807'); g.fillStyle = sh; g.shadowColor = '#15d16a'; g.shadowBlur = 36 + 12 * Math.sin(t * T * 2); hex(204, T / 12); g.fill(); g.shadowBlur = 0;   // the clan shield
+  g.lineWidth = 8; const eg = g.createLinearGradient(-200, -200, 200, 200); eg.addColorStop(0, '#45e486'); eg.addColorStop(0.5, '#eafff4'); eg.addColorStop(1, '#0b7a4a'); g.strokeStyle = eg; g.stroke(); g.lineWidth = 2; g.strokeStyle = 'rgba(69,228,134,.45)'; hex(182, T / 12); g.stroke();
+  for (const s of [-1, 1]) for (let i = 0; i < 3; i++) { g.fillStyle = `rgba(${r},${0.55 - i * 0.15})`; g.beginPath(); g.moveTo(s * (150 + i * 16), 40 + i * 20); g.lineTo(s * (236 + i * 10), -8 + i * 22); g.lineTo(s * (158 + i * 16), 72 + i * 20); g.closePath(); g.fill(); }   // wings
+  helix(g, 0, -170, 170, 96, t, r, r2, false, 1.6, 20);                                    // DNA behind the letter …
+  const yaw = Math.sin(t * T) * 0.6, dx = Math.sin(yaw) * 4.2, sq = Math.cos(yaw * 0.9);     // the 3D F: extruded layers that turn with the yaw
+  const path = (ox, oy) => { g.beginPath(); F.forEach(([x, y], i) => g[i ? 'lineTo' : 'moveTo'](x * sq + ox, y + oy)); g.closePath(); };
+  for (let l = 13; l >= 1; l--) { g.fillStyle = `rgb(${6 + l}, ${52 + l * 4}, ${30 + l * 2})`; path(-dx * l, l * 1.6); g.fill(); }
+  const face = g.createLinearGradient(-80, -130, 90, 130); face.addColorStop(0, '#eafff4'); face.addColorStop(0.35, '#45e486'); face.addColorStop(1, '#0b7a4a'); g.fillStyle = face; g.shadowColor = '#15d16a'; g.shadowBlur = 22; path(0, 0); g.fill(); g.shadowBlur = 0;
+  g.save(); path(0, 0); g.clip(); const sx = -260 + ((t * 2) % 1) * 520; const gl = g.createLinearGradient(sx, 0, sx + 90, 60); gl.addColorStop(0, 'rgba(255,255,255,0)'); gl.addColorStop(0.5, 'rgba(255,255,255,.75)'); gl.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gl; g.fillRect(-200, -200, 400, 400); g.restore();   // chrome sweep
+  g.lineWidth = 3; g.strokeStyle = '#04140b'; path(0, 0); g.stroke(); g.lineWidth = 1.5; g.strokeStyle = 'rgba(255,255,255,.6)'; path(-1.5, -1.5); g.stroke();
+  helix(g, 0, -170, 170, 96, t, r, r2, true, 1.6, 20);                                     // … and in front of it
+  g.fillStyle = '#04140b'; g.strokeStyle = '#45e486'; g.lineWidth = 2; g.beginPath(); g.roundRect(-118, 150, 236, 44, 8); g.fill(); g.stroke();   // ribbon
+  g.fillStyle = '#eafff4'; g.font = '400 26px "Bungee", sans-serif'; g.textAlign = 'center'; g.fillText('FEELESS', 0, 181); g.textAlign = 'left';
+  for (let i = -2; i <= 2; i++) { g.fillStyle = i ? 'rgba(69,228,134,.7)' : '#f5c451'; g.font = `${i ? 16 : 22}px sans-serif`; g.textAlign = 'center'; g.fillText('★', i * 34, -162 + Math.abs(i) * 8); g.textAlign = 'left'; }
+  g.restore(); }
+const LOGOS = [['fuse-spin', 'Fuse — spinning coin', fuseSpin], ['clan-f', '3D clan F with DNA', clanF]];
+
+// page ------------------------------------------------------------------------------------------------------------------------
+const save = (blob, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
+let gifenc = null; const loadGif = async () => (gifenc ||= await import('/assets/gifenc.esm.js'));
+async function makeGif(draw, w, h, scale, frames, btn, name) { const label = btn.textContent; btn.disabled = true;
+  try { const { GIFEncoder, quantize, applyPalette } = await loadGif(); const off = document.createElement('canvas'); off.width = w * scale; off.height = h * scale; const og = off.getContext('2d', { willReadFrequently: true }); const enc = GIFEncoder();
+    for (let f = 0; f < frames; f++) { og.setTransform(scale, 0, 0, scale, 0, 0); draw(og, f / frames); const { data } = og.getImageData(0, 0, off.width, off.height); const pal = quantize(data, 256); enc.writeFrame(applyPalette(data, pal), off.width, off.height, { palette: pal, delay: Math.round(LOOP / frames) });
+      btn.textContent = `GIF ${Math.round((f + 1) / frames * 100)}%`; if (f % 3 === 0) await new Promise(r => setTimeout(r)); }
+    enc.finish(); save(new Blob([enc.bytes()], { type: 'image/gif' }), `${name}.gif`); }
+  catch (e) { btn.textContent = 'GIF failed — try again'; await new Promise(r => setTimeout(r, 2600)); }
+  btn.disabled = false; btn.textContent = label; }
+const live = [];
+function add(host, [id, name, draw], w, h, gifScale, frames, video) { const el = document.createElement('div'); el.className = 'item';
+  el.innerHTML = `<canvas width="${w}" height="${h}" aria-label="${name}"></canvas><div class="bar"><b>${name}</b><button class="go" data-a="png">⬇ PNG</button><button data-a="gif">⬇ GIF</button>${video ? '<button data-a="vid">⏺ Video loop</button>' : ''}<small>${w} × ${h}${gifScale < 1 ? ` · GIF ${w * gifScale} × ${h * gifScale}` : ''}</small></div>`;
+  host.appendChild(el); const c = el.querySelector('canvas'), g = c.getContext('2d'); live.push([c, g, draw]);
+  el.querySelector('[data-a=png]').onclick = () => c.toBlob(b => b && save(b, `feeless-${id}.png`), 'image/png');
+  el.querySelector('[data-a=gif]').onclick = e => makeGif(draw, w, h, gifScale, frames, e.target, `feeless-${id}`);
+  if (video) el.querySelector('[data-a=vid]').onclick = e => { const b = e.target; if (!c.captureStream || !window.MediaRecorder) { b.textContent = 'Use Chrome to record'; return; }
+    const rec = new MediaRecorder(c.captureStream(30), { videoBitsPerSecond: 8e6 }), parts = []; rec.ondataavailable = x => x.data.size && parts.push(x.data);
+    rec.onstop = () => { save(new Blob(parts, { type: rec.mimeType || 'video/webm' }), `feeless-${id}.webm`); b.disabled = false; b.textContent = '⏺ Video loop'; }; b.disabled = true; b.textContent = '⏺ recording 8s…'; rec.start(); setTimeout(() => rec.stop(), LOOP + 80); }; }
+COVERS.forEach(x => add(document.getElementById('covers'), x, W, H, 0.5, 40, true));
+LOGOS.forEach(x => add(document.getElementById('logos'), x, S, S, 1, 48, false));
+const io = new IntersectionObserver(es => es.forEach(e => { e.target.dataset.on = e.isIntersecting ? '1' : ''; }), { rootMargin: '200px' }); live.forEach(([c]) => { c.dataset.on = '1'; io.observe(c); });
+const tick = ms => { const t = (ms % LOOP) / LOOP; live.forEach(([c, g, draw]) => { if (c.dataset.on) { g.setTransform(1, 0, 0, 1, 0, 0); draw(g, t); } }); requestAnimationFrame(tick); }; requestAnimationFrame(tick);
 </script></body></html>

@@ -36,7 +36,7 @@ test('the real-card swap picker has every Lab lens + search, flags thin pools an
   expect(el.textContent).toContain('$DIP');
   // 🗑 trench lens: its own pool floor ($9K passes the $8K trench floor even though the card's floor is $20K), holders shown
   await act(async () => { el.querySelector('[data-testid="sp-lens-trench"]').click(); }); await tick();
-  expect(el.querySelector('[data-testid="sp-trench-note"]').textContent).toContain('2 checked');
+  expect(el.querySelector('[data-testid="sp-trench-note"]').textContent).toContain('2 scanned');
   expect(el.textContent).toContain('512 holders');
   expect(el.querySelector('[data-testid="sp-pick-TRN"]').disabled).toBe(false);
   expect(el.querySelector('[data-testid="sp-pick-TTHIN"]').disabled).toBe(true);
