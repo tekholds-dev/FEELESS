@@ -1,3 +1,4 @@
+import { sharedJson } from '../lib/sharedJson';
 import React, { useCallback, useEffect, useState } from 'react';
 import NumInput from './NumInput';
 import { CardPops } from './CardPops';
@@ -92,8 +93,8 @@ export function PrimeStandings({ cards, live }) {
 
 export function usePrime(ms = 60000) {
   const [d, setD] = useState(null);
-  useEffect(() => { let alive = true; const load = first => (first || !document.hidden) && fetch(apiUrl('/api/reputation/fuses/prime')).then(r => r.json()).then(x => alive && setD(x)).catch(() => {});
-    load(true); const t = setInterval(() => load(false), ms); const now = () => load(true); window.addEventListener('feeless:prime', now);
+  useEffect(() => { let alive = true; const load = (first, fresh = false) => (first || !document.hidden) && sharedJson('/api/reputation/fuses/prime', { fresh }).then(x => alive && x && setD(x)).catch(() => {});
+    load(true); const t = setInterval(() => load(false), ms); const now = () => load(true, true); window.addEventListener('feeless:prime', now);
     return () => { alive = false; clearInterval(t); window.removeEventListener('feeless:prime', now); }; }, [ms]);
   return d;
 }
@@ -503,7 +504,7 @@ export const topThree = (divisions, onCard = [], cool = {}) => { const seen = ne
 export function TopThree({ c, busy, onSwap }) {
   const [rows, setRows] = useState([]); const [i, setI] = useState(0); const [open, setOpen] = useState(null);
   const onCard = (c.legs || []).map(l => l.mint).join(',');
-  useEffect(() => { let alive = true; const load = () => fetch(apiUrl('/api/reputation/fuses/contenders')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setRows(topThree(x.divisions, onCard.split(','), c.pickCool || {}))).catch(() => {});
+  useEffect(() => { let alive = true; const load = () => sharedJson('/api/reputation/fuses/contenders', { maxAge: 15000 }).then(x => alive && x && setRows(topThree(x.divisions, onCard.split(','), c.pickCool || {}))).catch(() => {});
     load(); const t = setInterval(() => !document.hidden && load(), 30000); return () => { alive = false; clearInterval(t); }; }, [onCard]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (open || rows.length < 2) return undefined; const t = setInterval(() => setI(n => (n + 1) % rows.length), 5000); return () => clearInterval(t); }, [rows.length, open]);
   useEffect(() => { if (!open) return undefined; const k = e => e.key === 'Escape' && setOpen(null); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [open]);

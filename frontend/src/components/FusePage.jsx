@@ -1,3 +1,4 @@
+import { sharedJson } from '../lib/sharedJson';
 import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import NumInput from './NumInput';
 import { CardFx } from './CardFx';
@@ -685,7 +686,7 @@ function RealCardFixes({ addr }) {
   const { call } = useAdmin();
   const [cards, setCards] = useState([]);
   const [busy, setBusy] = useState('');
-  const load = useCallback(() => fetch(apiUrl('/api/reputation/fuses/prime')).then(r => r.ok ? r.json() : null).then(x => setCards((x?.cards || []).filter(c => c.real))).catch(() => {}), []);
+  const load = useCallback(e => sharedJson('/api/reputation/fuses/prime', { fresh: !!e }).then(x => setCards((x?.cards || []).filter(c => c.real))).catch(() => {}), []);
   useEffect(() => { if (!addr) return undefined; load(); const t = setInterval(() => !document.hidden && load(), 30000); window.addEventListener('feeless:prime', load); return () => { clearInterval(t); window.removeEventListener('feeless:prime', load); }; }, [addr, load]);
   if (!cards.length) return null;
   const recover = (c, r) => { if (!window.confirm(`Sell old ${r.symbol} still stuck in the Fuse wallet and return the confirmed SOL to ${c.label} card cash?`)) return;

@@ -1,3 +1,4 @@
+import { sharedJson } from '../../lib/sharedJson';
 import React, { useEffect, useState } from 'react';
 import NumInput from '../NumInput';
 import { toast } from 'sonner';
@@ -45,7 +46,7 @@ export function VaultDesigner({ call }) {
   // 🏟 Vault ← Arena: a Prime card's majors + pools become the vault's pools (runners stay on cards — a vault earns pool fees,
   // so it needs deep pools). Each coin's deepest Solana pool is looked up live; max 3.
   const [arena, setArena] = useState([]);
-  useEffect(() => { fetch(apiUrl('/api/reputation/fuses/prime')).then(r => r.json()).then(x => setArena(x.cards || [])).catch(() => {}); }, []);
+  useEffect(() => { sharedJson('/api/reputation/fuses/prime').then(x => x && setArena(x.cards || [])).catch(() => {}); }, []);
   const fromCard = async c => {
     const legs = c.legs.filter(l => l.role !== 'runner').slice(0, 3);
     const hits = await Promise.all(legs.map(l => fetch(apiUrl(`/api/reputation/vaults/pools?q=${encodeURIComponent(l.mint)}`)).then(r => r.json()).then(x => (x.pools || []).find(p => p.pairAddress === l.pairAddress) || (x.pools || [])[0]).catch(() => null)));

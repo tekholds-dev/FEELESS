@@ -1,3 +1,4 @@
+import { sharedJson } from '../lib/sharedJson';
 import React, { useEffect, useState } from 'react';
 import { CardFx } from './CardFx';
 import { apiUrl } from '../lib/api';
@@ -48,7 +49,7 @@ export function MiniMine() {
   const [real, setReal] = useState([]);
   useEffect(() => { if (!addr) return undefined; let alive = true; let t;
     fetch(apiUrl(`/api/reputation/admin/is-admin/${addr}`)).then(r => r.json()).then(d => { if (!alive || !(d.owner || d.admin)) return;
-      const load = first => { if (first || !document.hidden) fetch(apiUrl('/api/reputation/fuses/prime')).then(r => r.json()).then(x => alive && setReal((x.cards || []).filter(c => c.real))).catch(() => {}); };
+      const load = first => { if (first || !document.hidden) sharedJson('/api/reputation/fuses/prime').then(x => alive && x && setReal((x.cards || []).filter(c => c.real))).catch(() => {}); };
       load(true); t = setInterval(() => load(false), 15000); }).catch(() => {});
     return () => { alive = false; clearInterval(t); }; }, [addr]);
   if (!addr) return <div className="md" data-testid="mini-mine"><p className="m-note">Connect a Solana wallet to see what you hold.</p></div>;

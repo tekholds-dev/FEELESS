@@ -2070,3 +2070,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - ⚡ SWAP IN NOW (`arena_prime.now_picks`, pick `swapTo.now`; `pickSwap.now`; `WhenSeg` ⚡ Now | ⏱ At the bell, default Now, on Coming up
   and in the swap picker): a "now" pick is swapped in on the very next tick (`apply_queued(only=now_picks)`, event "🎯 your pick —
   swapped in now") and the route starts that tick at once (`_prime_tick` is locked — never two at a time). Same checks, warn + ack.
+- 🔗 ONE REQUEST PER URL (`lib/sharedJson.js` `sharedJson(path, {maxAge, fresh})`, `markFresh` on `feeless:prime`; `src/setupTests.js` resets it
+  per test): the Fuse page fetched `/fuses/prime` (98 KB) 4× at once on load (slowest 2.1s) and `/fuses/contenders` twice. `usePrime`,
+  `FusePage` real cards, `MiniDeck`, `liveFuse`, `VaultDesigner`, `ArenaContenders`, `TopThree` share it. A new poller of a shared
+  endpoint ⇒ `sharedJson`, never a bare fetch.

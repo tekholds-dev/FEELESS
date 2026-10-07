@@ -1,5 +1,5 @@
+import { sharedJson } from '../lib/sharedJson';
 import React, { useEffect, useState } from 'react';
-import { apiUrl } from '../lib/api';
 import { useLivePrices } from '../lib/livePrices';
 import { TokenAvatar } from './terminal/MarketPrimitives';
 import { openWarRoom } from './WarRoomHost';
@@ -22,7 +22,7 @@ export function liveRow(r, live, key) {
 export function ArenaContenders({ onPick }) {
   const [d, setD] = useState(null);
   const [tab, setTab] = useState('');
-  useEffect(() => { let alive = true; const load = () => fetch(apiUrl('/api/reputation/fuses/contenders')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setD(x)).catch(() => {});
+  useEffect(() => { let alive = true; const load = () => sharedJson('/api/reputation/fuses/contenders', { maxAge: 15000 }).then(x => alive && x && setD(x)).catch(() => {});
     load(); const t = setInterval(() => !document.hidden && load(), 30000); return () => { alive = false; clearInterval(t); }; }, []);
   const divs = (d?.divisions || []).filter(x => x.rows.length);
   const cur = divs.find(x => x.key === tab) || divs[0];

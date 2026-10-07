@@ -1,5 +1,5 @@
+import { sharedJson } from './sharedJson';
 import { useEffect, useRef, useState } from 'react';
-import { apiUrl } from './api';
 
 // The lines a Fuse card draws on one coin's chart: entry, stop, lock (or the trail once it rides). Pure.
 export const fuseLevels = (l, cf, label) => { const e = Number(l.entry) || 0; if (!(e > 0)) return null;
@@ -28,7 +28,7 @@ export function useLiveFuse(snap) {
   const tpl = snap?.tpl; const pair = snap?.pairAddress;
   useEffect(() => { if (!tpl || !pair) { setOut({ state: 'none', fuse: null }); return undefined; }
     let alive = true; let t;
-    const load = () => fetch(apiUrl('/api/reputation/fuses/prime')).then(r => r.json()).then(d => alive && setOut(liveFuseFrom(d, { tpl, pairAddress: pair, mint: snap?.mint }))).catch(() => {})
+    const load = () => sharedJson('/api/reputation/fuses/prime', { maxAge: 2500 }).then(d => alive && d && setOut(liveFuseFrom(d, { tpl, pairAddress: pair, mint: snap?.mint }))).catch(() => {})
       .finally(() => { if (alive) t = setTimeout(load, Date.now() < fast.current ? 3000 : 10000); });
     load(); return () => { alive = false; clearTimeout(t); }; }, [tpl, pair]);   // eslint-disable-line react-hooks/exhaustive-deps
   return { ...out, kick: () => { fast.current = Date.now() + 120000; } };
