@@ -2111,6 +2111,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   pair): `_fw_preflight` (check the buy before selling), `_fw_execute`'s final gate and the one-transaction swap. Two of the three
   read DexScreener only → "live market unavailable or pair/mint mismatch" on every buy during the outage. Test pins all three.
 - 📡 THE BROWSER NEVER CALLS DEXSCREENER'S API (`test_no_browser_dexscreener`): search box, price chart, held signals, live tokens and coin
-  resolve called it straight from the browser and went blank in its outage. They use `/api/market/search?q=` (DexScreener → Jupiter
+  resolve called it straight from the browser and went blank in its outage. They use `/api/market/pairs/{chain}/{pools}` (live prices, chat coin cards, war room, resolve; Jupiter batched by known mint, else per-pool ≤ 8), `/api/market/search?q=` (DexScreener → Jupiter
   `jup_search_pairs`) and `/api/market/tokens/{chain}/{mints}` (DexScreener /tokens/v1 shape, Jupiter for every mint it can't answer).
   Logos on dd.dexscreener.com and links to dexscreener.com pages are fine.

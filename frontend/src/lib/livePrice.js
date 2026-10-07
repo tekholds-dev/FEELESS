@@ -18,7 +18,7 @@ export async function fetchLivePrice(pair) {
   }
   if (!chain || !pair?.pairAddress) return null;
   try {
-    const res = await fetch(`https://api.dexscreener.com/latest/dex/pairs/${chain}/${pair.pairAddress}`);
+    const res = await fetch(`/api/market/pairs/${chain}/${pair.pairAddress}`);
     if (!res.ok) return null;
     const body = await res.json();
     const p = (body?.pairs || [])[0] || body?.pair;
@@ -56,7 +56,7 @@ export async function fetchLivePrices(pairs) {
   for (const [chain, list] of Object.entries(byChain)) {
     for (let i = 0; i < list.length; i += 30) {
       try {
-        const res = await fetch(`https://api.dexscreener.com/latest/dex/pairs/${chain}/${list.slice(i, i + 30).map(p => p.pairAddress).join(',')}`);
+        const res = await fetch(`/api/market/pairs/${chain}/${list.slice(i, i + 30).map(p => p.pairAddress).join(',')}`);
         const body = res.ok ? await res.json() : {};
         (body?.pairs || []).forEach(p => { const u = Number(p.priceUsd); if (u > 0) out.set(`${p.chainId}-${p.baseToken?.address}`, { usd: u, source: 'DexScreener', pair: p }); });
       } catch { /* keep going */ }

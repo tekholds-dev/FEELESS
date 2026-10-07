@@ -19,7 +19,7 @@ async function refresh(force = false) {
   busy = true; lastAt = Date.now();
   const all = [...want.keys()];
   const chunks = []; for (let i = 0; i < all.length; i += 30) chunks.push(all.slice(i, i + 30));
-  await Promise.all(chunks.map(c => Promise.resolve().then(() => fetch(`https://api.dexscreener.com/latest/dex/pairs/solana/${c.join(',')}`)).then(r => { if (r.status === 429) { slowUntil = Date.now() + 60000; return {}; } return r.json(); }).then(d => {
+  await Promise.all(chunks.map(c => Promise.resolve().then(() => fetch(`/api/market/pairs/solana/${c.join(',')}`)).then(r => { if (r.status === 429) { slowUntil = Date.now() + 60000; return {}; } return r.json(); }).then(d => {
     (d.pairs || []).forEach(p => prices.set(p.pairAddress, { price: Number(p.priceUsd) || 0, m5: Number(p.priceChange?.m5) || 0, h1: Number(p.priceChange?.h1) || 0, mc: Number(p.marketCap) || Number(p.fdv) || 0, at: Date.now() }));
   }).catch(() => {})));
   busy = false;

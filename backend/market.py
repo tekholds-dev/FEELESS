@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, Query
 from ecosystem import DEFAULT_MINTS
 from pydantic import BaseModel, Field
 
-from launchpad_board import jup_lookup, jup_search_pairs, jup_pair, keep_last_board, BOARD_MAX, BONK_PLATFORM_ID, JUP_LISTS, JUP_RECENT, PUMP_TREND_PARAMS, PUMP_TREND_PATH, PUMP_TREND_TTL, build_board, pump_pages, pump_trend_rows, dex_candidate, jup_candidate, launchlab_candidate, pump_candidate
+from launchpad_board import JUP_SEARCH, jup_lookup, jup_search_pairs, jup_pair, keep_last_board, BOARD_MAX, BONK_PLATFORM_ID, JUP_LISTS, JUP_RECENT, PUMP_TREND_PARAMS, PUMP_TREND_PATH, PUMP_TREND_TTL, build_board, pump_pages, pump_trend_rows, dex_candidate, jup_candidate, launchlab_candidate, pump_candidate
 
 BOARD_SCOPES = ('launchpads', 'pump', 'bonk', 'raydium')
 
@@ -675,6 +675,56 @@ def create_market_router(db, intelligence=None):
     @router.get('/graduations', response_model=GraduationResult)
     async def graduations(mints: str = Query('', max_length=4000)):
         return await graduation_status(mints.split(','))
+
+    pool_mint = {}     # pool address → mint (learned from every answer) so the Jupiter fallback can batch by mint
+    pool_fb = {}       # pool → (at, pair) — Jupiter fallback answers, 10s
+
+    @router.get('/pairs/{chain}/{pools}')
+    async def pairs_multi(chain: str, pools: str):
+        """📡 DexScreener's /latest/dex/pairs answer ({pairs}) for up to 30 pools — the shared live-price poller, chat coin cards, the
+        war room and coin resolve all used it straight from the browser. Pools DexScreener can't answer (Solana) come from Jupiter: by
+        mint in ONE batched search when the pool's coin is known, else a per-pool lookup (≤ 8 a call). Fallback answers cached 10s."""
+        if chain not in NETWORKS:
+            raise HTTPException(400, 'Unsupported chain')
+        ids = [x for x in pools.split(',') if x and x.isalnum() and len(x) <= 100][:30]
+        if not ids:
+            return {'schemaVersion': '1.0.0', 'pairs': [], 'pair': None}
+        try:
+            data, _meta = await cached('DexScreener', f'/latest/dex/pairs/{chain}/' + ','.join(ids), ttl=10)
+            out = [p for p in (data.get('pairs') or []) if p]
+        except HTTPException:
+            out = []
+        for p in out:
+            if (p.get('baseToken') or {}).get('address'):
+                pool_mint[p.get('pairAddress')] = p['baseToken']['address']
+        have = {p.get('pairAddress') for p in out}
+        miss = [x for x in ids if x not in have]
+        if chain == 'solana' and miss:
+            now = monotonic()
+            for x in list(miss):
+                hit = pool_fb.get(x)
+                if hit and now - hit[0] < 10:
+                    out.append(hit[1]); miss.remove(x)
+            known = {x: pool_mint[x] for x in miss if x in pool_mint}
+            unknown = [x for x in miss if x not in pool_mint][:8]
+            async with httpx.AsyncClient(timeout=8) as http_j:
+                if known:
+                    try:
+                        r = await http_j.get(JUP_SEARCH, params={'query': ','.join(dict.fromkeys(known.values()))})
+                        toks = {t.get('id'): t for t in (r.json() if r.status_code == 200 else []) if isinstance(t, dict)}
+                    except Exception:
+                        toks = {}
+                    for x, m in known.items():
+                        jp = jup_pair(toks.get(m)) if toks.get(m) else None
+                        if jp:
+                            jp = {**jp, 'pairAddress': x}; pool_fb[x] = (now, jp); out.append(jp)
+                got = await asyncio.gather(*[jup_lookup(http_j, x) for x in unknown], return_exceptions=True)
+            for x, jp in zip(unknown, got):
+                if isinstance(jp, dict):
+                    pool_mint[x] = jp['baseToken']['address']; pool_fb[x] = (now, jp); out.append(jp)
+            if len(pool_fb) > 3000:
+                pool_fb.clear()
+        return {'schemaVersion': '1.0.0', 'pairs': out, 'pair': out[0] if len(out) == 1 else None}
 
     @router.get('/tokens/{chain}/{mints}')
     async def tokens(chain: str, mints: str):

@@ -38,7 +38,7 @@ async function findPair(arg) {
 const roomPair = room => { const m = /^coin-([a-z0-9]+)-([A-Za-z0-9]+)-/.exec(room || ''); return m ? { chainId: m[1], pairAddress: m[2] } : null; };
 async function pairFromRoom(room) {
   const r = roomPair(room); if (!r) throw new Error('Use this inside a coin room.');
-  const d = await (await fetch(`https://api.dexscreener.com/latest/dex/pairs/${r.chainId}/${r.pairAddress}`)).json();
+  const d = await (await fetch(`/api/market/pairs/${r.chainId}/${r.pairAddress}`)).json();
   if (!d.pairs?.[0]) throw new Error('Coin data unavailable.'); return d.pairs[0];
 }
 const coinHref = p => `/terminal/chat?chain=${p.chainId}&pair=${p.pairAddress}&room=bulls`;

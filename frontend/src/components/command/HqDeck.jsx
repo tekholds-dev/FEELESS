@@ -696,7 +696,7 @@ function PoolsPanel({ call }) {
   const mint = mints[asset];
   useEffect(() => { if (!mint) return; fetch(`/api/market/search?q=${mint}`).then(r => r.json()).then(d => setPools((d.pairs || []).sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0)))).catch(() => {}); }, [mint]);
   const copy = v => navigator.clipboard?.writeText(v).then(() => toast.success('Copied'));
-  const verify = async () => { setFound(null); try { const d = await (await fetch(`https://api.dexscreener.com/latest/dex/pairs/solana/${check.trim()}`)).json(); setFound(d.pairs?.[0] || false); } catch { setFound(false); } };
+  const verify = async () => { setFound(null); try { const d = await (await fetch(`/api/market/pairs/solana/${check.trim()}`)).json(); setFound(d.pairs?.[0] || false); } catch { setFound(false); } };
   return <section className="cc-panel">
     <div className="cc-toolbar"><select value={asset} onChange={e => setAsset(e.target.value)}>{Object.keys(mints).map(k => <option key={k} value={k}>{k.toUpperCase()}</option>)}</select>{mint && <><code className="pool-mint">{mint}</code><button type="button" onClick={() => copy(mint)}>Copy mint</button><button type="button" onClick={() => copy('So11111111111111111111111111111111111111112')}>Copy SOL mint</button></>}</div>
     <details className="tr-explain" open><summary>🔒 What does "lock" actually lock? (read this first)</summary>

@@ -5,7 +5,7 @@ import { apiUrl } from './api';
 // FEECAT, priced via Jupiter even without a DEX listing). Returns null when nothing knows the address.
 export async function resolveCoin(chain, address) {
   const tryJson = async url => { try { const r = await fetch(url); return r.ok ? await r.json() : null; } catch { return null; } };
-  const pools = await tryJson(`https://api.dexscreener.com/latest/dex/pairs/${chain}/${address}`);
+  const pools = await tryJson(`/api/market/pairs/${chain}/${address}`);
   if (pools?.pairs?.[0]) return pools.pairs[0];
   const tokens = await tryJson(`/api/market/tokens/${chain}/${address}`);
   const deepest = (Array.isArray(tokens) ? tokens : []).filter(x => x.baseToken?.address === address).sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0))[0];

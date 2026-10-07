@@ -51,7 +51,7 @@ async function directPairLookup(key) {
   const match = typeof key === 'string' && key.match(/^\/pair\/([^/]+)\/([^/?]+)/);
   if (!match || !DEX_CHAIN[decodeURIComponent(match[1])] || typeof fetch !== 'function') return null;
   try {
-    const res = await fetch(`https://api.dexscreener.com/latest/dex/pairs/${DEX_CHAIN[decodeURIComponent(match[1])]}/${match[2]}`);
+    const res = await fetch(`/api/market/pairs/${DEX_CHAIN[decodeURIComponent(match[1])]}/${match[2]}`);
     if (!res.ok) return null;
     const body = await res.json();
     const pairs = body?.pairs || (body?.pair ? [body.pair] : []);

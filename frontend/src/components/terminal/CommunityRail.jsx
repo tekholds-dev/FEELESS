@@ -148,7 +148,7 @@ export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair
   const setFloor = v => { setOnFloor(v); window.scrollTo?.({ top: 0 }); };
   const pickCall = async c => {
     try {
-      const res = await fetch(`https://api.dexscreener.com/latest/dex/pairs/${c.chain}/${c.pairAddress}`);
+      const res = await fetch(`/api/market/pairs/${c.chain}/${c.pairAddress}`);
       const body = await res.json();
       const p = (body?.pairs || [])[0];
       if (p) { setActivePair(p); selectPair(p); window.scrollTo?.({ top: 0, behavior: 'smooth' }); }

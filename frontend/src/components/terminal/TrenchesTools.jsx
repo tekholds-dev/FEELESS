@@ -164,7 +164,7 @@ export function TrendingCards({ pairs = [], onPick }) {
       const next = {};
       await Promise.all(Object.entries(byChain).flatMap(([chain, addrs]) => {
         const chunks = []; for (let i = 0; i < addrs.length; i += 30) chunks.push(addrs.slice(i, i + 30));
-        return chunks.map(c => fetch(`https://api.dexscreener.com/latest/dex/pairs/${chain}/${c.join(',')}`).then(r => (r.ok ? r.json() : null)).then(d => (d?.pairs || []).forEach(p => { next[p.pairAddress] = p; })).catch(() => {}));
+        return chunks.map(c => fetch(`/api/market/pairs/${chain}/${c.join(',')}`).then(r => (r.ok ? r.json() : null)).then(d => (d?.pairs || []).forEach(p => { next[p.pairAddress] = p; })).catch(() => {}));
       }));
       setFresh(f => ({ ...f, ...next })); setUpdatedAt(Date.now());
     } finally { setRefreshing(false); }
