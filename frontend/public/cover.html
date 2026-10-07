@@ -18,7 +18,8 @@
 </style></head>
 <body>
 <h1>FEELESS clan logos & covers</h1>
-<p>Real 3D, rendered live in your browser the way the 2011 sniping-clan marks were made: one bold extruded monogram, glossy plastic, studio light, a soft shadow — nothing else. Three constructions, one per reference you sent: <b>Planes</b> (slanted glossy slabs that overlap, tilted and cropped), <b>Pills</b> (fat rounded strokes with a white bevel and slits) and <b>Frame</b> (a white chamfered letter with one colour strip on carbon). Every piece slowly turns; each downloads on its own.</p>
+<p>Real 3D, rendered live in your browser. Five constructions, each taken from a different logo on the sheets you sent: <b>Ring</b> (the brushed-steel ring with one lit blue strip), <b>Chrome</b> (the 7F bevelled chrome block on white), <b>Blades</b> (the gold sharp-wedge mark), <b>Outline</b> (the neon green hollow letter on code) and <b>Gear</b> (the blue metal letter inside a cog). Pick the brand, then a colour; every piece slowly turns and downloads on its own.</p>
+<div class="bar" id="brands" role="group" aria-label="Brand" style="margin-bottom:8px"></div>
 <div class="bar" id="cols" role="group" aria-label="Colour"></div><small id="err"></small>
 <h2>PROFILE PICTURES · 512 × 512</h2><div class="grid sq" id="pfps"></div>
 <h2>COVERS · 1500 × 500</h2><div class="grid wide" id="covers"></div>
@@ -43,27 +44,43 @@ const solid = (shape, mats, depth, bevel, k = 0, z = 0) => { const g = new THREE
 const gloss = c => new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.28, metalness: 0, clearcoat: 0.9, clearcoatRoughness: 0.12, envMap: ENV, envMapIntensity: 0.38 });
 const matte = c => new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.6, metalness: 0, clearcoat: 0.2, envMap: ENV, envMapIntensity: 0.4 });
 
-// the three constructions. Each returns { group, tint: [materials that take the colour], def: its reference colour, look }
+const BRUSH = (() => { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); g.fillStyle = '#808080'; g.fillRect(0, 0, 256, 256); for (let i = 0; i < 900; i++) { const v = 80 + Math.random() * 100 | 0; g.fillStyle = `rgba(${v},${v},${v},.5)`; g.fillRect(Math.random() * 256, Math.random() * 256, 40 + Math.random() * 180, 1); } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(0.7, 0.7); return t; })();
+const metal = (c, r = 0.3, brushed = false) => new THREE.MeshPhysicalMaterial({ color: c, metalness: 1, roughness: r, envMap: ENV, envMapIntensity: 1.3, ...(brushed ? { bumpMap: BRUSH, bumpScale: 0.6 } : {}) });
+const glow = c => new THREE.MeshPhysicalMaterial({ color: c, emissive: c, emissiveIntensity: 0.22, roughness: 0.25, clearcoat: 1, envMap: ENV, envMapIntensity: 0.4 });
+// one block letter per brand (chamfered corner), reused by every construction
+const LET = { F: [[-1.2, -1.4], [-0.45, -1.4], [-0.45, -0.3], [0.7, -0.3], [0.7, 0.32], [-0.45, 0.32], [-0.45, 0.72], [1.3, 0.72], [1.3, 1.4], [-0.85, 1.4], [-1.2, 1.05]],
+  R: [[-1.2, -1.4], [-0.45, -1.4], [-0.45, -0.3], [0.0, -0.3], [0.6, -1.4], [1.4, -1.4], [0.75, -0.25], [1.3, 0.1], [1.3, 1.05], [0.95, 1.4], [-0.85, 1.4], [-1.2, 1.05]] }, R_HOLE = [[-0.45, 0.35], [0.55, 0.35], [0.55, 0.75], [-0.45, 0.75]];
+const tf = (pts, k, s) => pts.map(([x, y]) => [(x + k * y) * s, y * s]);
+const letter = (ch, k = 0, s = 1) => { const sh = polyS(tf(LET[ch], k, s)); if (ch === 'R') { const h = new THREE.Path(); tf(R_HOLE, k, s).forEach(([x, y], i) => h[i ? 'lineTo' : 'moveTo'](x, y)); h.closePath(); sh.holes.push(h); } return sh; };
+const annulus = (R, r, a0 = 0, a1 = T) => { const s = new THREE.Shape(); if (a1 - a0 >= T - 1e-6) { s.absarc(0, 0, R, 0, T, false); const h = new THREE.Path(); h.absarc(0, 0, r, 0, T, true); s.holes.push(h); } else { s.absarc(0, 0, R, a0, a1, false); s.absarc(0, 0, r, a1, a0, true); s.closePath(); } return s; };
+const strokes = (G, pts, w, d, mat, z = 0) => pts.forEach(([x0, y0], i) => { const [x1, y1] = pts[(i + 1) % pts.length], m = new THREE.Mesh(new THREE.BoxGeometry(Math.hypot(x1 - x0, y1 - y0) + w, w, d), mat); m.position.set((x0 + x1) / 2, (y0 + y1) / 2, z + d / 2); m.rotation.z = Math.atan2(y1 - y0, x1 - x0); m.castShadow = true; G.add(m); });
+
+// the five constructions. Each returns { group, tint: [[material, strength, 'e' = also its glow]], def: its reference colour, look }
 const BUILD = {
-  // PLANES — the L7 construction: separate slanted slabs at slightly different heights, so each one really lies over the next
-  planes(ch) { const face = gloss('#1fbf36'), side = gloss('#1fbf36'); const G = new THREE.Group(), k = 0.46;
-    const slab = (s, z) => G.add(solid(s, [face, side], 0.5, 0.035, k, z));
-    if (ch === 'R') { slab(rect(-1.4, 0.66, 2.8, 0.64), 0); slab(rect(0.76, -0.42, 0.64, 1.72), 0.1); slab(rect(-1.4, -1.3, 0.7, 2.6), 0.2); slab(rect(-1.4, -0.42, 2.8, 0.62), 0.3); slab(polyS([[-0.05, -0.42], [0.67, -0.42], [1.5, -1.3], [0.78, -1.3]]), 0.1); }
-    else { slab(rect(-1.4, 0.66, 3.0, 0.64), 0); slab(rect(-1.4, -1.3, 0.7, 2.6), 0.12); slab(rect(-1.4, -0.42, 2.22, 0.62), 0.24); slab(rect(0.44, -1.3, 1.16, 0.64), 0); }
-    return { group: G, tint: [[face, 1], [side, 0.62]], def: '#1fbf36', look: 'light', tilt: -0.3, zoom: 1.02 }; },
-  // PILLS — the SB construction: fat rounded strokes fused together, colour on the face, white on the bevel and sides, slits on top
-  pills(ch) { const face = gloss('#1447e6'), side = gloss('#f4f6fa'), white = gloss('#ffffff'); const G = new THREE.Group(), k = 0.22, w = 0.66;
-    const bar = s => G.add(solid(s, [face, side], 0.42, 0.09, k)); const diag = (x0, y0, x1, y1) => { const L = Math.hypot(x1 - x0, y1 - y0) + w, m = solid(pill(-L / 2, -w / 2, L, w), [face, side], 0.42, 0.09); m.rotation.z = Math.atan2(y1 - y0, x1 - x0); m.position.set((x0 + x1) / 2 + k * (y0 + y1) / 2, (y0 + y1) / 2, 0); G.add(m); };
-    const slit = (x, y, len) => { const m = new THREE.Mesh(new THREE.BoxGeometry(len, 0.07, 0.06), white); m.position.set(x + k * y, y, 0.42 + 0.09); G.add(m); };
-    if (ch === 'R') { bar(pill(-1.5, -1.3, w, 2.6)); bar(pill(-1.5, 0.64, 2.7, w)); bar(pill(0.56, -0.31, w, 1.61)); bar(pill(-1.5, -0.31, 2.7, w)); diag(0.05, -0.2, 1.05, -0.98); slit(-0.2, 0.97, 1.5); slit(-0.2, 0.02, 1.4); }
-    else { bar(pill(-2.2, -1.3, w, 2.6)); bar(pill(-2.2, 0.64, 4.4, w)); bar(pill(-2.2, -0.31, 1.75, w)); diag(1.85, 0.9, 0.55, -0.98); bar(pill(0.2, -1.3, 2.0, w)); slit(0, 0.97, 2.6); slit(1.2, -0.97, 1.2); }
-    return { group: G, tint: [[face, 1]], def: '#1447e6', look: 'ice', tilt: -0.14, zoom: ch === 'R' ? 1.0 : 0.86 }; },
-  // FRAME — the folded-b construction: a white chamfered letter around a square hole, one colour strip, on carbon
-  frame(ch) { const body = matte('#f2f4f8'), strip = gloss('#1f8fff'); const G = new THREE.Group(); const add = (s, m = body, d = 0.6, z = 0) => G.add(solid(s, m, d, 0.03, 0, z));
-    const ring = polyS([[-1.3, -0.2], [0.95, -0.2], [1.3, 0.15], [1.3, 1.4], [-0.6, 1.4], [-1.3, 0.7]]); const hole = new THREE.Path(); [[-0.55, 0.35], [0.55, 0.35], [0.55, 0.85], [-0.55, 0.85]].forEach(([x, y], i) => hole[i ? 'lineTo' : 'moveTo'](x, y)); hole.closePath();
-    if (ch === 'R') { ring.holes.push(hole); add(ring); add(rect(-1.3, -1.4, 0.75, 1.3)); add(polyS([[-0.1, -0.2], [0.65, -0.2], [1.3, -1.4], [0.55, -1.4]])); add(polyS([[0.33, -0.86], [1.01, -0.86], [1.3, -1.4], [0.62, -1.4]]), strip, 0.6, 0.02); }
-    else { add(polyS([[-1.3, -1.4], [-0.55, -1.4], [-0.55, 1.4], [-0.6, 1.4], [-1.3, 0.7]])); add(polyS([[-0.6, 0.72], [1.3, 0.72], [1.3, 1.05], [0.95, 1.4], [-0.6, 1.4]])); add(polyS([[-0.6, -0.3], [0.75, -0.3], [0.75, 0.05], [0.5, 0.3], [-0.6, 0.3]])); add(polyS([[0.2, -0.3], [0.75, -0.3], [0.75, 0.05], [0.5, 0.3], [0.2, 0.3]]), strip, 0.6, 0.02); }
-    return { group: G, tint: [[strip, 1]], def: '#1f8fff', look: 'carbon', tilt: 0, zoom: 1.0 }; },
+  // RING — brushed steel ring, the letter's corners running into it, a black groove and ONE lit strip on the left
+  ring(ch) { const steel = metal('#cfd4da', 0.34, true), dark = gloss('#0b0c0f'), arc = glow('#19a8ff'); const G = new THREE.Group();
+    G.add(solid(annulus(2.0, 1.55), steel, 0.4, 0.08)); G.add(solid(annulus(1.56, 1.4), dark, 0.3, 0)); G.add(solid(letter(ch, 0.12, 0.9), dark, 0.3, 0.14, 0, -0.06)); G.add(solid(letter(ch, 0.12, 0.9), steel, 0.5, 0.06, 0, 0.04)); G.add(solid(annulus(2.03, 1.52, 2.8, 3.75), arc, 0.48, 0.05));
+    return { group: G, tint: [[arc, 1, 'e']], def: '#19a8ff', look: 'light', tilt: 0, zoom: 0.76, floor: -2.3 }; },
+  // CHROME — the 7F build: a fat bevelled chrome block letter with a dark edge, on a blown-out white wall of ghost letters
+  chrome(ch) { const chr = metal("#dfe5ee", 0.06); chr.envMapIntensity = 1.9; const dark = gloss('#15171c'); const G = new THREE.Group();
+    G.add(solid(letter(ch, 0.2, 1.05), dark, 0.35, 0.16, 0, -0.14)); G.add(solid(letter(ch, 0.2, 1.05), chr, 0.55, 0.08));
+    return { group: G, tint: [[chr, 1]], def: '#dfe5ee', look: 'ghost', tilt: -0.05, zoom: 0.92 }; },
+  // BLADES — gold metal cut into separate sharp wedges: long top blade, short mid blade, a tooth pointing down
+  blades(ch) { const gold = metal('#ffb21f', 0.24); const G = new THREE.Group(); const add = pts => G.add(solid(polyS(pts), gold, 0.45, 0.06));
+    add([[-0.95, -0.36], [-0.2, -0.36], [-0.2, -0.7], [-0.95, -1.5]]);
+    if (ch === 'R') { add([[-1.6, 1.4], [1.25, 1.4], [1.6, 1.05], [1.6, 0.78], [-1.0, 0.78]]); add([[-0.95, 0.5], [0.67, 0.5], [0.67, -0.08], [-0.95, -0.08]]); add([[0.95, 0.5], [1.6, 0.5], [1.6, 0.2], [1.3, -0.08], [0.95, -0.08]]); add([[0.1, -0.36], [0.85, -0.36], [1.7, -1.5], [0.95, -1.5]]); }
+    else { add([[-1.6, 1.4], [1.7, 1.4], [1.15, 0.78], [-1.0, 0.78]]); add([[-0.95, 0.5], [0.95, 0.5], [0.5, -0.08], [-0.95, -0.08]]); }
+    return { group: G, tint: [[gold, 1]], def: '#ffb21f', look: 'carbon', tilt: 0, zoom: 0.9 }; },
+  // OUTLINE — a hollow letter drawn as one thick neon tube with a thin white line riding on it, over falling code
+  outline(ch) { const neon = glow('#7ed321'), white = gloss('#ffffff'); const G = new THREE.Group(), pts = tf(LET[ch], 0.1, 1.1);
+    strokes(G, pts, 0.22, 0.3, neon); strokes(G, pts, 0.05, 0.04, white, 0.3); if (ch === 'R') { const h = tf(R_HOLE, 0.1, 1.1); strokes(G, h, 0.22, 0.3, neon); strokes(G, h, 0.05, 0.04, white, 0.3); }
+    strokes(G, [[1.25, 1.75], [1.75, 2.15]].slice(0, 2), 0.14, 0.3, neon);
+    return { group: G, tint: [[neon, 1, 'e']], def: '#7ed321', look: 'matrix', tilt: 0, zoom: 0.84 }; },
+  // GEAR — blue metal letter inside a twelve-tooth cog with an inner ring, on a black disc
+  gear(ch) { const blue = metal('#1560ff', 0.3), dark = gloss('#080a10'); const G = new THREE.Group(), N = 12, pts = [];
+    for (let i = 0; i < N * 4; i++) { const a = (i / (N * 4)) * T, r = (i % 4 < 2) ? 2.1 : 1.82; pts.push([Math.cos(a) * r, Math.sin(a) * r]); } const cog = polyS(pts), h = new THREE.Path(); h.absarc(0, 0, 1.5, 0, T, true); cog.holes.push(h); const disc = new THREE.Shape(); disc.absarc(0, 0, 1.5, 0, T, false);
+    G.add(solid(cog, blue, 0.35, 0.05)); G.add(solid(disc, dark, 0.1, 0, 0, -0.05)); G.add(solid(annulus(1.4, 1.3), blue, 0.28, 0.03)); G.add(solid(letter(ch, 0, 0.74), blue, 0.5, 0.06, 0, 0.05));
+    return { group: G, tint: [[blue, 1]], def: '#1560ff', look: 'carbon', tilt: 0, zoom: 0.74, floor: -2.4 }; },
 };
 
 // backdrops (canvas textures) -------------------------------------------------------------------------------------------------
@@ -71,30 +88,34 @@ const tex = draw => { const c = document.createElement('canvas'); c.width = 1024
 const BACK = {
   light: tex((g, W, H) => { const r = g.createRadialGradient(W / 2, H * 0.45, 20, W / 2, H / 2, W * 0.62); r.addColorStop(0, '#f6f6f7'); r.addColorStop(0.6, '#c9cacd'); r.addColorStop(1, '#8f9196'); g.fillStyle = r; g.fillRect(0, 0, W, H); g.fillStyle = 'rgba(255,255,255,.35)'; g.beginPath(); g.moveTo(0, H); g.lineTo(W * 0.5, 0); g.lineTo(W * 0.14, 0); g.lineTo(0, H * 0.5); g.closePath(); g.fill(); }),
   ice: tex((g, W, H) => { const r = g.createRadialGradient(W / 2, H * 0.4, 20, W / 2, H / 2, W * 0.62); r.addColorStop(0, '#ffffff'); r.addColorStop(0.6, '#e4ebf4'); r.addColorStop(1, '#b3c2d6'); g.fillStyle = r; g.fillRect(0, 0, W, H); g.fillStyle = 'rgba(255,255,255,.5)'; g.beginPath(); g.moveTo(W * 0.55, 0); g.lineTo(W, 0); g.lineTo(W, H * 0.4); g.closePath(); g.fill(); }),
+  ghost: tex((g, W, H) => { const r = g.createRadialGradient(W / 2, H * 0.45, 20, W / 2, H / 2, W * 0.62); r.addColorStop(0, '#ffffff'); r.addColorStop(0.7, '#eef0f3'); r.addColorStop(1, '#cfd3d9'); g.fillStyle = r; g.fillRect(0, 0, W, H); g.font = '900 150px Arial Black, Arial, sans-serif'; g.fillStyle = 'rgba(150,158,170,.16)'; [['F', 40, 150, -0.2], ['E', 820, 170, 0.15], ['S', 60, 470, 0.1], ['7', 860, 480, -0.12], ['L', 430, 120, 0.05]].forEach(([c, x, y, a]) => { g.save(); g.translate(x, y); g.rotate(a); g.fillText(c, 0, 0); g.restore(); }); }),
+  matrix: tex((g, W, H) => { g.fillStyle = '#04070a'; g.fillRect(0, 0, W, H); g.font = '700 13px monospace'; for (let x = 6; x < W; x += 15) { const n = 4 + (x * 7) % 26, y0 = (x * 37) % H; for (let i = 0; i < n; i++) { g.fillStyle = `rgba(110,220,60,${0.03 + 0.2 * (i / n)})`; g.fillText((x * 13 + i * 7) % 2 ? '1' : '0', x, (y0 + i * 15) % H); } } const r = g.createRadialGradient(W / 2, H * 0.45, 10, W / 2, H / 2, W * 0.6); r.addColorStop(0, 'rgba(60,160,40,.14)'); r.addColorStop(1, 'rgba(0,0,0,.65)'); g.fillStyle = r; g.fillRect(0, 0, W, H); }),
   carbon: tex((g, W, H) => { g.fillStyle = '#0c0d11'; g.fillRect(0, 0, W, H); g.lineWidth = 1; for (let i = -H; i < W + H; i += 7) { g.strokeStyle = 'rgba(255,255,255,.04)'; g.beginPath(); g.moveTo(i, 0); g.lineTo(i + H, H); g.stroke(); g.strokeStyle = 'rgba(0,0,0,.4)'; g.beginPath(); g.moveTo(i + H, 0); g.lineTo(i, H); g.stroke(); } const r = g.createRadialGradient(W / 2, H * 0.45, 10, W / 2, H / 2, W * 0.6); r.addColorStop(0, 'rgba(255,255,255,.12)'); r.addColorStop(1, 'rgba(0,0,0,.6)'); g.fillStyle = r; g.fillRect(0, 0, W, H); }),
 };
 
 // a piece = its own little studio ---------------------------------------------------------------------------------------------
 function studio(style, ch, w, h, wide) { const b = BUILD[style](ch), scene = new THREE.Scene(); scene.background = BACK[b.look]; 
-  const cam = new THREE.PerspectiveCamera(wide ? 24 : 30, w / h, 0.1, 100); cam.position.set(0, 0.5, (wide ? 9.2 : 9.6) / b.zoom); cam.lookAt(0, 0, 0);
+  const cam = new THREE.PerspectiveCamera(wide ? 24 : 30, w / h, 0.1, 100); cam.position.set(0, 0.5, (wide ? (b.floor ? 10.6 : 9.2) : 9.6) / b.zoom); cam.lookAt(0, 0, 0);
   const key = new THREE.DirectionalLight('#ffffff', 2.1); key.position.set(-3.5, 6, 6); key.castShadow = true; key.shadow.mapSize.set(1024, 1024); key.shadow.radius = 6; Object.assign(key.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6 }); scene.add(key, new THREE.AmbientLight('#ffffff', 0.22));
-  const rim = new THREE.DirectionalLight(b.look === 'carbon' ? '#7fb6ff' : '#ffffff', 1.1); rim.position.set(5, 2, -3); scene.add(rim);
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.ShadowMaterial({ opacity: b.look === 'carbon' ? 0.55 : 0.28 })); floor.rotation.x = -Math.PI / 2; floor.position.y = -1.75; floor.receiveShadow = true; scene.add(floor);
+  const dk = b.look === 'carbon' || b.look === 'matrix'; const rim = new THREE.DirectionalLight(dk ? '#7fb6ff' : '#ffffff', dk ? 1.6 : 1.1); rim.position.set(5, 2, -3); scene.add(rim);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.ShadowMaterial({ opacity: dk ? 0.55 : 0.28 })); floor.rotation.x = -Math.PI / 2; floor.position.y = b.floor || -1.75; floor.receiveShadow = true; scene.add(floor);
   const holder = new THREE.Group(); holder.add(b.group); holder.rotation.z = b.tilt; if (wide) holder.position.x = -3.1; scene.add(holder);
   return { ...b, scene, cam, w, h, wide }; }
 const NAME = { F: ['FUSE', 'MANY COINS, ONE FUSE'], R: ['FEE RESERVE', 'HOLD $FEE · UNLOCK THE ROOM'] };
-function piece(style, ch, w, h, wide) { let st = null;
-  return (g, t) => { st ||= studio(style, ch, w, h, wide); const col = colOf(st.def); st.tint.forEach(([m, k]) => { m.color.set(col); if (k !== 1) m.color.multiplyScalar(k); });
+let brand = 'F';
+function piece(style, w, h, wide) { const made = {};
+  return (g, t) => { const ch = brand, st = (made[ch] ||= studio(style, ch, w, h, wide)); const col = colOf(st.def); st.tint.forEach(([m, k, e]) => { m.color.set(col); if (k !== 1) m.color.multiplyScalar(k); if (e) m.emissive.copy(m.color); });
     st.group.rotation.y = Math.sin(t * T) * 0.42; st.group.rotation.x = Math.sin(t * T * 2) * 0.05 - 0.06; st.group.position.y = Math.sin(t * T) * 0.05;
     renderer.setViewport(0, 0, w, h); renderer.setScissor(0, 0, w, h); renderer.render(st.scene, st.cam); g.drawImage(renderer.domElement, 0, RH - h, w, h, 0, 0, w, h);
-    if (wide) { const dark = st.look === 'carbon', [n, sub] = NAME[ch]; g.textBaseline = 'alphabetic'; g.save(); g.transform(1, 0, -0.18, 1, 0, 0); g.fillStyle = dark ? '#f2f4f8' : '#16181d'; g.shadowColor = dark ? 'rgba(0,0,0,.7)' : 'rgba(255,255,255,.8)'; g.shadowBlur = 10; g.shadowOffsetY = 3;
-      g.font = `400 ${n.length > 6 ? 96 : 132}px "Bungee", sans-serif`; g.fillText(n, 760, 270); g.shadowBlur = 0; g.shadowOffsetY = 0; g.fillStyle = col === '#f2f4f8' && !dark ? '#16181d' : col; g.fillRect(764, 292, 150, 8); g.fillStyle = dark ? 'rgba(242,244,248,.75)' : 'rgba(22,24,29,.7)'; g.font = '700 24px "JetBrains Mono", monospace'; g.fillText(sub, 764, 340); g.restore(); } }; }
-const STY = [['planes', 'Planes'], ['pills', 'Pills'], ['frame', 'Frame']], BR = [['F', 'Fuse', 'fuse'], ['R', 'Fee Reserve', 'reserve']];
-const PFPS = BR.flatMap(([ch, name, id]) => STY.map(([s, sn]) => [`${id}-${s}`, `${name} — ${sn}`, piece(s, ch, 512, 512, false)]));
-const COVERS = BR.flatMap(([ch, name, id]) => STY.map(([s, sn]) => [`${id}-cover-${s}`, `${name} cover — ${sn}`, piece(s, ch, 1500, 500, true)]));
+    if (wide) { const dark = st.look === 'carbon' || st.look === 'matrix', [n, sub] = NAME[ch]; g.textBaseline = 'alphabetic'; g.save(); g.transform(1, 0, -0.18, 1, 0, 0); g.fillStyle = dark ? '#f2f4f8' : '#16181d'; g.shadowColor = dark ? 'rgba(0,0,0,.7)' : 'rgba(255,255,255,.8)'; g.shadowBlur = 10; g.shadowOffsetY = 3;
+      g.font = `400 ${n.length > 6 ? 96 : 132}px "Bungee", sans-serif`; g.fillText(n, 760, 270); g.shadowBlur = 0; g.shadowOffsetY = 0; g.fillStyle = !dark && new THREE.Color(col).getHSL({}).l > 0.75 ? '#16181d' : col; g.fillRect(764, 292, 150, 8); g.fillStyle = dark ? 'rgba(242,244,248,.75)' : 'rgba(22,24,29,.7)'; g.font = '700 24px "JetBrains Mono", monospace'; g.fillText(sub, 764, 340); g.restore(); } }; }
+const STY = [['ring', 'Ring'], ['chrome', 'Chrome'], ['blades', 'Blades'], ['outline', 'Outline'], ['gear', 'Gear']], BR = [['F', 'Fuse', 'fuse'], ['R', 'Fee Reserve', 'reserve']];
+const PFPS = STY.map(([s, sn]) => [s, sn, piece(s, 512, 512, false)]);
+const COVERS = STY.map(([s, sn]) => [`cover-${s}`, `${sn} cover`, piece(s, 1500, 500, true)]);
 
 // page ------------------------------------------------------------------------------------------------------------------------
 const save = (blob, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
+const bid = () => BR.find(b => b[0] === brand)[2];
 const tag = () => (pick === 'auto' ? '' : `-${COLS.find(c => c[0] === pick)[1].toLowerCase().replace(/\s+/g, '-')}`);
 let gifenc = null; const loadGif = async () => (gifenc ||= await import('/assets/gifenc.esm.js'));
 async function makeGif(draw, w, h, scale, frames, btn, name) { const label = btn.textContent; btn.disabled = true;
@@ -108,14 +129,16 @@ const live = [];
 function add(host, [id, name, draw], w, h, gifScale, frames, video) { const el = document.createElement('div'); el.className = 'item';
   el.innerHTML = `<canvas width="${w}" height="${h}" aria-label="${name}"></canvas><div class="bar"><b>${name}</b><button class="go" data-a="png">⬇ PNG</button><button data-a="gif">⬇ GIF</button>${video ? '<button data-a="vid">⏺ Video</button>' : ''}</div>`;
   host.appendChild(el); const c = el.querySelector('canvas'), g = c.getContext('2d'); live.push([c, g, draw]);
-  el.querySelector('[data-a=png]').onclick = () => c.toBlob(b => b && save(b, `feeless-${id}${tag()}.png`), 'image/png');
-  el.querySelector('[data-a=gif]').onclick = e => makeGif(draw, w, h, gifScale, frames, e.target, `feeless-${id}${tag()}`);
+  el.querySelector('[data-a=png]').onclick = () => c.toBlob(b => b && save(b, `feeless-${bid()}-${id}${tag()}.png`), 'image/png');
+  el.querySelector('[data-a=gif]').onclick = e => makeGif(draw, w, h, gifScale, frames, e.target, `feeless-${bid()}-${id}${tag()}`);
   if (video) el.querySelector('[data-a=vid]').onclick = e => { const b = e.target; if (!c.captureStream || !window.MediaRecorder) { b.textContent = 'Use Chrome to record'; return; }
     const rec = new MediaRecorder(c.captureStream(30), { videoBitsPerSecond: 8e6 }), parts = []; rec.ondataavailable = x => x.data.size && parts.push(x.data);
-    rec.onstop = () => { save(new Blob(parts, { type: rec.mimeType || 'video/webm' }), `feeless-${id}${tag()}.webm`); b.disabled = false; b.textContent = '⏺ Video'; }; b.disabled = true; b.textContent = '⏺ recording 8s…'; rec.start(); setTimeout(() => rec.stop(), LOOP + 80); }; }
+    rec.onstop = () => { save(new Blob(parts, { type: rec.mimeType || 'video/webm' }), `feeless-${bid()}-${id}${tag()}.webm`); b.disabled = false; b.textContent = '⏺ Video'; }; b.disabled = true; b.textContent = '⏺ recording 8s…'; rec.start(); setTimeout(() => rec.stop(), LOOP + 80); }; }
 const cb = document.getElementById('cols');
 COLS.forEach(([k, name]) => { const b = document.createElement('button'); b.textContent = name; b.dataset.k = k; if (k === pick) b.className = 'go'; if (k !== 'auto') b.style.borderColor = k;
   b.onclick = () => { pick = k; cb.querySelectorAll('button').forEach(x => { x.className = x.dataset.k === k ? 'go' : ''; }); }; cb.appendChild(b); });
+const bb = document.getElementById('brands');
+BR.forEach(([k, name]) => { const b = document.createElement('button'); b.textContent = name; b.dataset.k = k; if (k === brand) b.className = 'go'; b.onclick = () => { brand = k; bb.querySelectorAll('button').forEach(x => { x.className = x.dataset.k === k ? 'go' : ''; }); }; bb.appendChild(b); });
 PFPS.forEach(x => add(document.getElementById('pfps'), x, 512, 512, 1, 36, false));
 COVERS.forEach(x => add(document.getElementById('covers'), x, 1500, 500, 0.5, 36, true));
 const io = new IntersectionObserver(es => es.forEach(e => { e.target.dataset.on = e.isIntersecting ? '1' : ''; }), { rootMargin: '150px' }); live.forEach(([c]) => { c.dataset.on = '1'; io.observe(c); });

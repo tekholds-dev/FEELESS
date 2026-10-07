@@ -1867,3 +1867,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   turning, each PNG / GIF / video; colour row (Auto = the reference's own colour). Tone: ACES exposure 0.92, env intensity
   ~0.4 — brighter washes the colours to pastel. WHEN A REFERENCE IS A 3D RENDER, RENDER 3D: four rounds of 2D canvas drawings
   were all rejected.
+- 🎖 `cover.html` v6: FIVE constructions, one per logo on the owner's second reference set (`BUILD` ring · chrome · blades · outline ·
+  gear; `LET` = one block letter per brand reused by all, `letter` / `annulus` / `strokes`, `metal(c, rough, brushed)` + `glow`),
+  a BRAND switch (Fuse / Fee Reserve, `brand`, studios cached per brand) → 5 profile pictures + 5 covers on screen; backdrops
+  `ghost` (white wall of faint letters) + `matrix` (code). Emissive above ~0.25 washes to pastel under ACES. Planes / Pills / Frame are gone.
