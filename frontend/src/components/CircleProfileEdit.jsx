@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 import { uploadImage, useAdmin } from '../lib/adminCall';
 import { apiUrl } from '../lib/api';
+import { CROP } from '../lib/cropImage';
 
 // 🪪 The creator edits one of their own Circle wallets' public profile (name, @handle, bio, picture, cover). The server checks
 // the wallet is one of the owner's Circle wallets and that the session is the creator's; this file only draws the form.
@@ -20,10 +21,10 @@ export function CircleProfileForm({ call, start, onDone }) {
       {[['avatar', 'Picture'], ['banner', 'Cover']].map(([k, label]) => <div key={k} className="fw-grid cp-img">{label}
         <span className="m-row">{edit.profile[k] && <img src={apiUrl(edit.profile[k])} alt="" className={`cp-thumb is-${k}`} />}
           <label className="m-btn cp-up">{up === k ? 'Uploading…' : '⬆ Upload image / GIF'}<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden disabled={!!up} data-testid={`cp-up-${k}`}
-            onChange={async e => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; setUp(k); try { const url = await uploadImage(f); setEdit(x => ({ ...x, profile: { ...x.profile, [k]: url } })); toast.success(`${label} uploaded — press Save`); } catch (err) { toast.error(err.message || 'Upload failed'); } setUp(''); }} /></label>
+            onChange={async e => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; setUp(k); try { const url = await uploadImage(f, CROP[k === 'avatar' ? 'avatar' : 'banner']); if (!url) { setUp(''); return; } setEdit(x => ({ ...x, profile: { ...x.profile, [k]: url } })); toast.success(`${label} uploaded — press Save`); } catch (err) { toast.error(err.message || 'Upload failed'); } setUp(''); }} /></label>
           {edit.profile[k] && <button type="button" className="m-btn" onClick={() => setEdit(x => ({ ...x, profile: { ...x.profile, [k]: '' } }))}>Remove</button>}</span>
         <input className="m-input" placeholder="…or paste an https:// link" value={edit.profile[k]} onChange={e => setEdit(x => ({ ...x, profile: { ...x.profile, [k]: e.target.value } }))} /></div>)}
-      <small className="m-note">GIFs stay animated. From the creator wallet a GIF can be any size (stills up to 25 MB).</small>
+      <small className="m-note">GIFs stay animated and are slimmed on upload (fitted to the picture / cover box, 12 frames a second) so they never lag a page. Covers are shown whole at 3 : 1 — 1500 × 500 is ideal.</small>
       <span className="m-row"><button type="button" className="m-btn primary m-go" onClick={save} data-testid="cp-save">Save profile</button><button type="button" className="m-btn" onClick={() => onDone(false)}>Cancel</button></span></div>;
 }
 

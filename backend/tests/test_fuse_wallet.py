@@ -1246,3 +1246,21 @@ def test_a_stopped_coins_reserved_seat_is_never_bought_back():
     assert next(l for l in c2['legs'] if l['mint'] == 'TIK')['units'] == 0
     o2 = fw.orders('degen', c2, book2, prices, 150.0, {'minOrderUsd': 0.1, 'maxSwapUsd': 50, 'armed': True}, 0)
     assert [x for x in o2 if x['side'] == 'sell' and x['mint'] == 'TIK'] and not [x for x in o2 if x['side'] == 'buy' and x['mint'] == 'TIK']
+
+
+def test_versus_splits_exits_by_who_opened_the_position():
+    import fuse_wallet as fw
+    now = 100_000.0
+    def row(i, side, mint, t, picked=False, units=10, pnl=None, cost=1.0):
+        r = {'card': 'degen', 'status': 'filled', 'side': side, 'mint': mint, 'sig': f's{i}', 'at': now - t, 'units': units}
+        if picked: r['picked'] = True
+        if pnl is not None: r.update(realizedPnlUsd=pnl, costUsd=cost)
+        return r
+    led = [row(1, 'buy', 'A', 500, picked=True), row(2, 'buy', 'A', 400), row(3, 'sell', 'A', 300, units=20, pnl=-0.2, cost=2.0),   # the top-up keeps YOUR side
+           row(4, 'buy', 'B', 500), row(5, 'sell', 'B', 200, pnl=0.1), row(6, 'buy', 'A', 100), row(7, 'sell', 'A', 50, pnl=0.05),   # A re-opened by the engine
+           row(8, 'buy', 'C', 99_000, picked=True), row(9, 'sell', 'C', 98_000, pnl=-5),   # outside the window
+           {**row(10, 'sell', 'B', 10, pnl=9), 'status': 'failed'}, {**row(11, 'buy', 'Z', 10), 'card': 'other'}]
+    v = fw.versus(led, 'degen', now, hours=1)
+    assert v['you'] == {'buys': 1, 'exits': 1, 'won': 0, 'usd': -0.2, 'cost': 2.0, 'pct': -10.0, 'wonPct': 0}
+    assert v['engine']['exits'] == 2 and v['engine']['won'] == 2 and v['engine']['usd'] == 0.15 and v['engine']['pct'] == 7.5
+    assert v['lead'] is None and v['gap'] == 17.5   # under 5 exits a side: no winner called

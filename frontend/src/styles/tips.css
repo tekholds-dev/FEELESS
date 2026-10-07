@@ -101,3 +101,14 @@ body.theme-day .gif-card .gif-spin { box-shadow: 0 14px 34px -18px #0006, 0 0 0 
 /* Arena cuts: the battles fold + the folded paper tier cards */
 .pit-fold { display: grid; gap: 10px; margin: 0 0 12px; } .pit-fold-btn { justify-self: start; }
 .prime-rest { margin-top: 12px; } .prime-rest > summary { cursor: pointer; padding: 8px 10px; } .prime-rest > .prime-row { margin-top: 10px; }
+/* profile cover: always the whole 3:1 picture (the height used to follow the WINDOW width, so a wide screen cropped it) */
+.xp-cover.has-img.has-img { aspect-ratio: 3 / 1 !important; height: auto !important; max-height: none !important; }
+.xp-cover.has-img.has-img img { object-position: center !important; }
+/* profile lag: these three repainted every frame (left / background-position). Same look on transform / opacity only. */
+.feed-bar-flare { left: -30%; animation-name: feedFlareT; }
+@keyframes feedFlareT { 0%, 55% { transform: translateX(0) skewX(-18deg); } 100% { transform: translateX(540%) skewX(-18deg); } }
+.feed-wordmark { animation: none !important; background-position: 40% 0; }
+.trust-ring.loading .tr-num b, .crop-load { animation: trPulseT 1.1s ease-in-out infinite alternate; }
+@keyframes trPulseT { from { opacity: .35; } to { opacity: 1; } }
+body.fx-lite .feed-bar-flare, body.fx-lite .trust-ring.loading .tr-num b { animation: none; }
+@media (prefers-reduced-motion: reduce) { .feed-bar-flare, .trust-ring.loading .tr-num b, .crop-load { animation: none; } }

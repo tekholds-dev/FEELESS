@@ -1,4 +1,5 @@
 import { cropImage } from './cropImage';
+import { slimGif } from './slimGif';
 import { useCallback, useEffect, useState } from 'react';
 import { useWallet } from '../hooks/useWallet';
 import { apiUrl } from './api';
@@ -38,6 +39,8 @@ export async function uploadImage(file, shape) {
   // GIFs keep their animation: no canvas crop (it would flatten them to one frame); the page shows them cover-fit.
   if (shape && file.type !== 'image/gif') { file = await cropImage(file, shape); if (!file) return null; }
   if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) throw new Error('PNG, JPG, WEBP or GIF only.');
+  // animated GIFs are slimmed to the box they are shown in (≤ 12 fps) so a heavy one can never lag the page
+  if (file.type === 'image/gif') file = await slimGif(file, shape?.gif || shape?.out || [1200, 1200]).catch(() => file);
   // A live HQ session (creator/admin) lifts the size cap to 25 MB and keeps art sharper.
   let admin = null;
   try { const x = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); if (x && Date.now() / 1000 - x.ts < 3500) admin = x; } catch { /* none */ }

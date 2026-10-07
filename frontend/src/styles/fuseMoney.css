@@ -561,3 +561,11 @@ body.theme-day .cp-thumb { border-color: #0b7a3e44; }
 @keyframes cpeIn { from { opacity: 0; } to { opacity: 1; } }
 body.fx-lite .cpe-shade { animation: none; } @media (prefers-reduced-motion: reduce) { .cpe-shade { animation: none; } }
 body.theme-day .cpe-shade { background: #0008; }
+/* 👤 you vs 🤖 engine on the real card */
+.hrt-vs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; max-width: 330px; font-size: 11px; line-height: 1.35; }
+.hrt-vs > span { display: grid; gap: 2px; padding: 6px 8px; border-left: 2px solid #ffffff22; background: #ffffff08; border-radius: 0 8px 8px 0; transition: border-color .15s ease, background .15s ease; }
+.hrt-vs > span:hover { background: #ffffff10; } .hrt-vs > span.is-lead { border-left-color: #15d16a; background: #15d16a14; }
+.hrt-vs b { font-family: var(--m-mono); font-size: 10px; letter-spacing: .1em; } .hrt-vs i { font-style: normal; color: var(--m-dim); }
+.hrt-vs small { grid-column: 1 / -1; opacity: .7; }
+body.theme-day .hrt-vs > span { background: #0000000a; border-left-color: #0002; } body.theme-day .hrt-vs > span.is-lead { border-left-color: #0b7a3e; background: #0b7a3e14; }
+@media (max-width: 640px) { .hrt-vs { max-width: none; } }

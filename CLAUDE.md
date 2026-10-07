@@ -1882,3 +1882,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - ✏️ Edit a Circle wallet's profile FROM ITS PROFILE PAGE (`components/CircleProfileEdit.jsx`: `CircleProfileForm` shared with HQ's
   🪪 Wallet profiles, `CircleProfileEditButton` beside 🔎 Case file for an admin wallet viewing someone else's page → pop-up form).
   The owner clicked "Profile ↗" in HQ and found no way to edit there. The server still decides (owner + own Circle wallet only).
+- 👤 YOU vs 🤖 ENGINE (`fuse_wallet.versus` → `realBook.versus` → `Versus` under the real card, `hrt-vs`): the last 24h of exits split by
+  who OPENED the position (buy `picked` = the owner's hand pick; a top-up keeps its side), confirmed fills only, price result. A
+  leader is named only with ≥ 5 exits a side and ≥ 0.5 pts apart. 2026-10-07: 24h you −1.33% on $154 sold · engine −1.99% on $49;
+  6h you −2.92% · engine −1.23% — both negative, 135 hand picks a day.
+- 📉 "WE MISSED THE DIP" WAS TESTED AND IS NOT THE FIX (105 real buys with 1-min candles, 24h): a resting bid 3–12% under the signal
+  filled only on coins that KEPT falling (median −6…−14% an hour later vs −3% at market); dip-then-reclaim (fall 5–20%, back up
+  3–8%) was no better (−3…−25%). The buys that never dipped were the winners. Do not build a wait-for-dip entry on this record.
+- 🪶 GIFs are slimmed on upload (`lib/slimGif.js` `gifPlan` + `slimGif`, ImageDecoder + gifenc, in `uploadImage`): fitted to the box
+  they show in (`CROP.avatar.gif` 256², `CROP.banner.gif` 1200 × 400), ≤ 12 fps, ≤ 72 frames; untouched when already light or the
+  browser has no ImageDecoder. Profile cover = always the whole 3 : 1 picture (tips.css; the height used to follow the WINDOW width
+  and cropped it). Profile lag was NOT the GIFs (1.6 MB, 4.5 fps): `feed-flare` animated `left`, `feed-shine` / `tr-shimmer`
+  animated `background-position` — now transform / opacity (tips.css). Count non-cheap animations before blaming an image.

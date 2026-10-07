@@ -1238,6 +1238,36 @@ def benched(book, now):
 CHURN_SEC = 1800   # a coin sold within 30 min of being bought = a round trip that paid fees both ways for nothing
 
 
+def versus(ledger, card, now, hours=24):
+    """👤 YOU vs 🤖 ENGINE on one real card, from confirmed fills only: every position belongs to whoever OPENED it (a buy flagged
+    `picked` = the owner's hand pick, else the engine; a top-up of an open coin keeps its side). Each side gets the exits of the
+    last `hours`: how many, how many won, realized $ and % of the cost sold. Price result — fees apart. Read-only."""
+    rows = sorted({(r.get('sig') or r.get('id'), r.get('side')): r for r in ledger or [] if r.get('card') == card and r.get('status') == 'filled'
+                   and r.get('side') in ('buy', 'sell')}.values(), key=lambda r: _f(r.get('at')))
+    side_of, units, since = {}, {}, now - hours * 3600
+    out = {k: {'buys': 0, 'exits': 0, 'won': 0, 'usd': 0.0, 'cost': 0.0} for k in ('you', 'engine')}
+    for r in rows:
+        m = r.get('mint') or r.get('symbol'); u = _f(r.get('units')); recent = _f(r.get('at')) >= since
+        if r.get('side') == 'buy':
+            if units.get(m, 0) <= 1e-9:
+                side_of[m] = 'you' if str(r.get('picked')) == 'True' else 'engine'
+                if recent:
+                    out[side_of[m]]['buys'] += 1
+            units[m] = units.get(m, 0) + u
+        else:
+            units[m] = max(0.0, units.get(m, 0) - u)
+            if recent and r.get('realizedPnlUsd') is not None:
+                o = out[side_of.get(m, 'engine')]; pnl = _f(r.get('realizedPnlUsd'))
+                o['exits'] += 1; o['won'] += pnl > 0; o['usd'] += pnl; o['cost'] += _f(r.get('costUsd'))
+    for o in out.values():
+        o['pct'] = round(o['usd'] / o['cost'] * 100, 2) if o['cost'] > 0 else None
+        o['wonPct'] = round(o['won'] / o['exits'] * 100) if o['exits'] else None
+        o['usd'] = round(o['usd'], 4); o['cost'] = round(o['cost'], 4)
+    y, e = out['you']['pct'], out['engine']['pct']
+    lead = None if y is None or e is None or min(out['you']['exits'], out['engine']['exits']) < 5 or abs(y - e) < 0.5 else ('you' if y > e else 'engine')
+    return {'hours': hours, **out, 'lead': lead, 'gap': round(abs(y - e), 2) if y is not None and e is not None else None}
+
+
 def run_report(ledger, card, now, funded_usd=0.0, equity_usd=None, hold_sol_pct=None):
     """🩺 What a REAL run actually did, from the audit ledger only (no guesses): swaps / hour, network fees as % of the money in,
     round trips (bought then sold < 30 min), per-coin realized result, failures + top skip reasons, average fill vs market — and the

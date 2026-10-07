@@ -4,8 +4,8 @@ import { createRoot } from 'react-dom/client';
 // Shapes every upload slot uses. `out` is the saved pixel size, so each slot stores exactly
 // what it displays: sharp on retina, no wasted bytes.
 export const CROP = {
-  avatar: { aspect: 1, round: true, out: [512, 512], title: 'Profile picture' },
-  banner: { aspect: 3, out: [1500, 500], title: 'Banner' },
+  avatar: { aspect: 1, round: true, out: [512, 512], gif: [256, 256], title: 'Profile picture' },
+  banner: { aspect: 3, out: [1500, 500], gif: [1200, 400], title: 'Banner' },
   seasonBanner: { aspect: 16 / 9, out: [1600, 900], title: 'Season banner' },
   badge: { aspect: 280 / 384, out: [560, 768], title: 'Badge card' },
   token: { aspect: 1, round: true, out: [512, 512], title: 'Token image' },

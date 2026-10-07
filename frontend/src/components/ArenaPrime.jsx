@@ -567,6 +567,17 @@ export function PickLog({ events }) {
   return <ul className="hrt-picklog" data-testid="pick-log">{rows.map((r, i) => <li key={`${r.at}-${i}`} className={r.ok ? 'is-ok' : 'is-no'}><b>{r.ok ? '🎯 ✓' : '🎯 ✕'}</b><span>{r.text}</span></li>)}</ul>;
 }
 
+// 👤 YOU vs 🤖 ENGINE: the exits of the last 24h, split by who opened the position (confirmed fills only; price result, fees apart).
+const vsSide = o => (o?.exits ? `${o.exits} exits · ${o.wonPct}% won · ${o.usd >= 0 ? '+' : '−'}$${Math.abs(o.usd).toFixed(2)} (${o.pct >= 0 ? '+' : ''}${o.pct}%)` : 'no exits yet');
+export const versusLine = v => (!v ? '' : v.lead ? `${v.lead === 'you' ? '👤 You are' : '🤖 The engine is'} ahead by ${v.gap} pts` : (v.you?.exits >= 5 && v.engine?.exits >= 5 ? 'Level' : 'Needs 5 exits a side to call it'));
+export function Versus({ v }) {
+  if (!v || !(v.you?.exits || v.engine?.exits)) return null;
+  return <div className="hrt-vs" data-testid="versus" data-tip="Every position belongs to whoever opened it: your hand pick or the engine. Exits of the last 24h, from confirmed swaps only. Price result — fees apart. A record, never a promise.">
+    <span className={v.lead === 'you' ? 'is-lead' : ''}><b>👤 YOU</b><i>{vsSide(v.you)}</i></span>
+    <span className={v.lead === 'engine' ? 'is-lead' : ''}><b>🤖 ENGINE</b><i>{vsSide(v.engine)}</i></span>
+    <small>{versusLine(v)} · last {v.hours}h</small></div>;
+}
+
 export function HqRealCards({ addr, onCount }) {
   const [owner, setOwner] = useState(false);
   useEffect(() => { if (!addr) return; fetch(apiUrl(`/api/reputation/admin/is-admin/${addr}`)).then(r => r.json()).then(d => setOwner(!!(d.owner || d.admin))).catch(() => {}); }, [addr]);
@@ -621,7 +632,7 @@ export function HqRealCards({ addr, onCount }) {
       return <div key={c.id} className="hq-real">
         <div className="hq-real-card"><span className="cpop-wrap"><LiveFuseCard r={primeRow(c)} aura={t.aura} look={t.look} label="💵 REAL · FUSE WALLET" serverOnly mini={{ kind: 'prime', tpl: c.tpl, name: c.label }} /><CardPops fills={b.orders || []} legs={c.legs} cfg={cf} tp={c.tp} /></span>
           <CardVitals c={c} funded={b.fundedUsd || c.startUsd} onTrail={() => setTrail(c.id)} /><ComingUp p={c.pipeline} legs={c.legs} busy={!!busy} onSwap={(l, r) => prime({ pickSwap: { tpl: c.tpl, pairAddress: l.pairAddress, to: r.mint, toPair: r.pairAddress } }, `🎯 $${r.symbol} comes in for $${l.symbol} at the next round`, 'pick')} />
-          <PickLog events={c.audit || c.events} /><PipeLine p={c.pipeline} /></div>
+          <Versus v={c.realBook?.versus} /><PickLog events={c.audit || c.events} /><PipeLine p={c.pipeline} /></div>
         {trail === c.id && <CardEarnings title={c.label} onClose={() => setTrail(null)} taken={c.walletUsd || 0} compounded={c.compoundedUsd} fees={c.cardFeesUsd}
           gainNow={allTime(c, b.fundedUsd || c.startUsd)} events={(c.audit || c.events || []).map(e => ({ ...e, label: KIND[e.kind] || VITAL_KIND[e.kind] || e.kind }))} />}
         <div className="hq-real-track">

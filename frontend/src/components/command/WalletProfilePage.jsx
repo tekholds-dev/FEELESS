@@ -223,7 +223,7 @@ export function WalletProfilePage({ address }) {
   return <><div className={`profile-backdrop pbg-${backdrop}`} aria-hidden="true" data-testid="profile-backdrop" /><div className={`wp-stage ${wide ? 'has-rails' : ''}`}>{wide && <IntelRail address={address} />}<div className={`wallet-profile-page theme-${p.theme || 'grid'} ptier-${tier}`} style={{ '--wp-accent': accent }} data-testid="wallet-profile-page">
     <header className="xp-card" data-testid="profile-header">
       <div className={`xp-cover ${p.bannerUrl ? 'has-img' : ''}`}>
-        {p.bannerUrl ? <img src={p.bannerUrl} alt="" decoding="async" /> : <span className="xp-cover-mark" aria-hidden="true">{p.displayName || shortAddress(address)}</span>}
+        {p.bannerUrl ? <img src={p.bannerUrl} alt="" decoding="async" loading="lazy" /> : <span className="xp-cover-mark" aria-hidden="true">{p.displayName || shortAddress(address)}</span>}
         {edit && <UploadButton label="Cover" shape={CROP.banner} onDone={url => set('bannerUrl', url)} />}
       </div>
       <div className="xp-row">
