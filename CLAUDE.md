@@ -1685,3 +1685,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (≥ 5c); the money follows `skimTo` (card cash · parked · held); a coin under the stake is left alone; the stake keeps its trail.
   Event kind `skim` with `stack: True`. Switched ON at $1 on the owner's real card the same day (their words named the number).
   THE OWNER'S DIRECTION: stop reporting fees; build UNIQUE CARD SYSTEMS (each card its own behaviour) — lead with those.
+- 🎚 POP TIERS (`CardPops.popTier`, `POP_TIERS`, `POP_MIN_USD` 0.20): 20c–$1 the plain number (`t1`) · $1+ green sparks (`t2`) ·
+  $5+ gold, coin burst + ring, "BIG" (`t3`) · $20+ rays + confetti, "JACKPOT" (`t4`); a bigger win stays ~0.5s longer per tier.
+  Tier classes are written as literals in the JSX (`['', 't1', …][tier]`): a template `t${tier}` reads as a dead rule to cssHygiene.
+- 📌 Mini chart shows where you stand (`MiniChartBody.jsx`, lazy): the Fuse card's lines on the chart (carried on `pair.fuse` from
+  where it was opened, else found on the live cards by coin via `usePrime` + `fuseLevels`) AND your own FEELESS trades on the coin
+  (`useMyPosition`: entry line + buy / sell marks) — strip `mch-strip`: ⚛ entry · % since · 🛑 stop · ❄ lock · 👤 your entry · %.

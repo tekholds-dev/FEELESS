@@ -11,6 +11,10 @@
 .mch-body { background: #070c0b; border-radius: 0 0 12px 12px; overflow: hidden; }
 .mch .chart-area { min-height: 190px !important; height: 190px; } .mch .candle-canvas { height: 190px !important; flex: none; }
 .mch :is(.chart-foot-chips, .chart-style-toggle, .chart-source, .chart-stale-note, .fee-pnl) { display: none !important; }
+.mch-strip { display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 4px 8px; border-bottom: 1px solid rgba(21, 209, 106, .16); font: 10.5px "JetBrains Mono", monospace; }
+.mch-strip span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; } .mch-strip em { font-style: normal; } .mch-strip u { text-decoration: none; opacity: .9; }
+.mch-strip .is-stop { color: #ff8fa3; } .mch-strip .is-lock { color: #9fe3ff; } .mch-you { color: var(--gold, #f5c451); }
+body.theme-day .mch-strip { border-bottom-color: #cfe6da; } body.theme-day .mch-strip .is-stop { color: #b3264a; } body.theme-day .mch-strip .is-lock { color: #0b6a8a; } body.theme-day .mch-you { color: #8a6100; }
 .mch-wait { margin: 0; height: 190px; display: grid; place-items: center; font-size: 12px; }
 @keyframes mchIn { from { transform: translateY(14px) scale(.96); } to { transform: none; } }
 @keyframes mchSpin { to { transform: rotate(360deg); } }

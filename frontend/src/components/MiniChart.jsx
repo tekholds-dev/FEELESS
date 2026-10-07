@@ -5,7 +5,7 @@ import { TokenAvatar } from './terminal/MarketPrimitives';
 import { openWarRoom } from './WarRoomHost';
 import '../styles/miniChart.css';
 
-const PriceChart = React.lazy(() => import('./terminal/PriceChart').then(m => ({ default: m.PriceChart })));   // the SAME chart, loaded on first use
+const MiniChartBody = React.lazy(() => import('./MiniChartBody'));   // the SAME chart + your lines, loaded only when a mini chart is open
 const KEY = 'feeless.miniChart';
 const TFS = ['1m', '5m', '15m'];
 const read = () => { try { const v = JSON.parse(window.localStorage.getItem(KEY) || 'null'); return v?.pairAddress ? v : null; } catch { return null; } };
@@ -15,7 +15,8 @@ const px = n => { const v = Number(n); if (!(v > 0)) return '—'; return v >= 1
 // 📌 MINI CHART: openMiniChart(pair) from any chart → the war room / drawer closes and the coin's chart stays in a small floating
 // window on EVERY page (one host, mounted once in the terminal shell; the coin + the window's place are remembered).
 export const openMiniChart = pair => { if (!pair?.pairAddress) return;
-  const coin = { chainId: pair.chainId || 'solana', pairAddress: pair.pairAddress, mint: pair.baseToken?.address || pair.mint || '', symbol: pair.baseToken?.symbol || pair.symbol || '', logo: pair.info?.imageUrl || pair.logo || '' };
+  const coin = { chainId: pair.chainId || 'solana', pairAddress: pair.pairAddress, mint: pair.baseToken?.address || pair.mint || '', symbol: pair.baseToken?.symbol || pair.symbol || '', logo: pair.info?.imageUrl || pair.logo || '',
+    fuse: pair.fuse?.entry > 0 ? pair.fuse : null };   /* a Fuse card's levels travel with the chart */
   window.dispatchEvent(new CustomEvent('feeless:mini-chart', { detail: coin })); };
 
 export function MiniChartHost() {
@@ -42,6 +43,6 @@ export function MiniChartHost() {
         <button type="button" onClick={() => { openWarRoom(pair); }} data-testid="mch-war" data-tip="Open the full war room (the mini chart stays)" aria-label="Open war room">⚔</button>
         <button type="button" onClick={() => setCoin(null)} data-testid="mch-close" aria-label="Close mini chart">×</button></span>
     </header>
-    <div className="mch-body"><React.Suspense fallback={<p className="m-dim mch-wait">Loading chart…</p>}><PriceChart key={`${coin.pairAddress}-${tf}`} pair={pair} interval={tf} metric="price" showVolume={false} /></React.Suspense></div>
+    <div className="mch-body"><React.Suspense fallback={<p className="m-dim mch-wait">Loading chart…</p>}><MiniChartBody pair={pair} tf={tf} fuse={coin.fuse || null} /></React.Suspense></div>
   </aside>, document.body);
 }
