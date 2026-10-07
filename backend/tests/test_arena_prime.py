@@ -1539,22 +1539,29 @@ def test_best_entries_now_reads_three_setups_from_live_numbers_and_ranks_by_stre
     assert ap.entry_setup(c('G', 17, 839, 73, v5=9000)) is None                           # +839% on the hour already ran: not an entry
 
 
-def test_auto_profit_taking_stops_once_it_has_sold_25c_of_a_coins_stake():
+def test_automatic_takes_never_leave_a_coin_worth_less_than_the_owners_keep_riding_floor():
     import arena_prime as ap
     cfg = ap.clean_cfg({})
     assert cfg['tpStakeUsd'] == 0.25 and ap.clean_cfg({'tpStakeUsd': 0})['tpStakeUsd'] == 0 and ap.clean_cfg({'tpStakeUsd': 7})['tpStakeUsd'] == 0.25
+    one = {**cfg, 'tpStakeUsd': 1.0}                                                # the owner's "stop at $1"
     c = {'cash': 0.0, 'takenUsd': 0.0, 'feesUsd': 0.0, 'events': []}
-    l = {'mint': 'P', 'pairAddress': 'PP', 'symbol': 'P', 'units': 1.0, 'entry': 0.56, 'costUsd': 0.56, 'liq': 5e6}
-    # +100%: a full skim would sell half the coin = $0.28 of stake → capped at the 25c the limit allows
-    got = ap._skim(c, l, 1.12, {}, 100, room=ap.tp_room(l, cfg))
-    assert got > 0 and abs(l['tpCostUsd'] - 0.25) < 1e-6 and abs(l['costUsd'] - 0.31) < 1e-6
-    # every later AUTOMATIC take is refused: skim, bank at the lock … the stake keeps riding
-    assert ap.tp_room(l, cfg) == 0 and ap._skim(c, l, 3.0, {}, 200, room=ap.tp_room(l, cfg)) == 0.0
-    assert ap.lock_bank(c, l, 3.0, {}, 200, {**cfg, 'lockBankPct': 25}) == 0.0 and not l.get('bankedAt') and abs(l['costUsd'] - 0.31) < 1e-6
-    # the OWNER's own 💰 is never limited, and "no limit" keeps the old behaviour
-    assert ap._skim(c, dict(l), 3.0, {}, 300) > 0
-    l2 = {**l, 'units': 1.0, 'costUsd': 0.56, 'tpCostUsd': 0.0}
-    assert ap.lock_bank(c, l2, 1.12, {}, 300, {**cfg, 'tpStakeUsd': 0, 'lockBankPct': 50}) > 0 and abs(l2['costUsd'] - 0.28) < 1e-6
+    l = {'mint': 'J', 'pairAddress': 'PJ', 'symbol': 'J', 'units': 1.0, 'entry': 1.13, 'costUsd': 1.13, 'liq': 5e6}
+    px = 2.5                                                                        # +121%: worth $2.50
+    assert abs(ap.tp_room(l, one, px) - 1.5) < 1e-9
+    ap._skim(c, l, px, {}, 100, room=ap.tp_room(l, one, px))                        # skim: the profit ($1.37) fits above the floor
+    ap.lock_bank(c, l, px, {}, 100, {**one, 'lockBankPct': 50})                     # bank 50% at the lock → capped at the floor
+    ap._skim(c, l, px, {}, 120, room=ap.tp_room(l, one, px), frac=0.5)              # peak sell
+    ap._skim(c, l, px, {}, 140, room=ap.tp_room(l, one, px))                        # skim again
+    assert l['units'] * px >= 1.0 - 1e-6                                            # the coin still holds $1: never sold out
+    assert ap.tp_room(l, one, px) < 0.05 and ap._skim(c, l, px, {}, 200, room=ap.tp_room(l, one, px)) == 0.0
+    # a coin worth less than the floor is not touched by an automatic take; the owner's own 💰 is never limited; 0 = no limit
+    small = {**l, 'units': 0.3, 'costUsd': 0.2}
+    assert ap.tp_room(small, one, px) == 0 and ap._skim(c, small, px, {}, 300, room=0.0) == 0.0
+    assert ap._skim(c, dict(small), px, {}, 300) > 0 and ap.tp_room(l, {**cfg, 'tpStakeUsd': 0}, px) is None
+    # the full-stack skim obeys the same floor even when its own stake is set lower
+    card = {'legs': [{**l, 'units': 1.0, 'costUsd': 1.0, 'frozen': True}], 'cash': 0.0, 'events': [], 'takenUsd': 0.0, 'feesUsd': 0.0}
+    ap.stack_skim(card, {'PJ': 2.0}, {}, 400.0, {**one, 'stackSkimUsd': 0.5, 'skimTo': 'card'})
+    assert abs(card['legs'][0]['units'] * 2.0 - 1.0) < 0.02
 
 
 def test_a_real_cards_empty_seat_waits_out_loud_when_the_keeper_could_not_send_its_buy():

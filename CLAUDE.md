@@ -1986,3 +1986,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   chart is open. Before, live ticks started only at the click, so a cold major / stock chart showed flat minutes (the history
   provider prints a candle only when a trade lands): MEW 24 of 30 minutes flat, QQQx 21. The owner runs 5-minute rounds ON PURPOSE
   (a locked coin is held past the round) — do not recommend a slower clock again.
+- 🧷 `tpStakeUsd` = ALWAYS KEEP $X RIDING (replaces "auto profit keeps the stake"): `tp_room(l, cfg, px)` = the $ of VALUE above
+  the floor; skim, bank at the lock, peak sell, recycle and the full-stack skim (`keep = max(stackSkimUsd, tpStakeUsd)`) never leave
+  a coin worth less than it; a coin under the floor is not skimmed at all. The old meaning was "$ of STAKE the takes may remove",
+  so with "$1" set a riding +122% coin ($JIPPI) went from $1.13 to $0.14 in five takes — the owner: "supposed to stop at $1 I
+  set, not sell out". The full-stack skim also cut two hand-frozen coins to $0.50 of value (top-up money included). A SETTING MUST
+  DO WHAT ITS NUMBER SAYS ON SCREEN — when the owner reads it differently from the code, the code is wrong.
