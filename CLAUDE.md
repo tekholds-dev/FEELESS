@@ -1875,3 +1875,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   "/" focuses it, ↑↓ Enter, Esc): type "profiles" / "rpc" / "payouts" → the tab opens and (Fuse) the deck panel via
   `feeless:fuse-deck-go`; Money views via `openTab`. A scoped role only finds places inside its own tabs. 🪪 Wallet profiles is its
   OWN Fuse deck panel (`profiles`, MONEY) — it sat at the bottom of 👛 Fuse wallet. New HQ panel ⇒ add a row to `HQ_JUMPS`.
+- 🪪 Circle wallet profile editor REALLY saves now (`circle_profile_view/merge`, `CIRCLE_PROFILE_KEYS`): it posted name / avatar /
+  banner, the profile stores displayName / avatarUrl / bannerUrl, so only bio + @handle ever stuck. The form has ⬆ upload for
+  picture + cover (`uploadImage`, GIFs stay animated). `upload_cap(mime, role)`: user 2 MB / 6 MB GIF · HQ admin 25 MB · the
+  CREATOR's GIFs up to `OWNER_GIF_CAP` 250 MB (a memory guard, not a product limit). A signed-in upload is judged by the server only.

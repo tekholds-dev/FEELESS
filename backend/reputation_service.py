@@ -819,6 +819,18 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 UPLOAD_TYPES = {'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif'}
 
 
+OWNER_GIF_CAP = 250_000_000   # memory guard only: the creator's GIFs are not size-limited in practice
+
+
+def upload_cap(mime: str, role: str) -> int:
+    """Bytes allowed per upload. Everyone: 2 MB stills / 6 MB GIFs. HQ admins: 25 MB. The creator: 25 MB stills, GIFs up to the memory guard."""
+    if role == 'owner':
+        return OWNER_GIF_CAP if mime == 'image/gif' else 25_000_000
+    if role == 'admin':
+        return 25_000_000
+    return 6_000_000 if mime == 'image/gif' else 2_000_000
+
+
 class UploadPayload(BaseModel):
     dataUrl: str
 
@@ -829,17 +841,20 @@ _upload_ip: dict = {}
 @app.post('/api/reputation/uploads')
 async def upload_image(payload: UploadPayload, request: Request):
     """Images for profiles, launches and seasons. Everyone: 2 MB (animated GIFs: 6 MB). A signed-in creator/admin
-    (HQ session) may upload big GIFs/art up to 25 MB."""
+    (HQ session) may upload big GIFs/art up to 25 MB; the creator wallet's GIFs are not size-limited (250 MB memory guard)."""
     import base64
     import re
     m = re.match(r'^data:(image/(?:png|jpeg|webp|gif));base64,([A-Za-z0-9+/=]+)$', payload.dataUrl or '')
     if not m:
         raise HTTPException(400, 'Only PNG, JPG, WEBP or GIF images are supported.')
     raw = base64.b64decode(m.group(2))
+    role = 'user'
     try:
-        _require_admin(request); cap = 25_000_000
+        role = 'owner' if _require_admin(request) in _owner_wallets() else 'admin'
     except HTTPException:
-        cap = 6_000_000 if m.group(1) == 'image/gif' else 2_000_000   # animated profile covers / avatars
+        pass
+    cap = upload_cap(m.group(1), role)
+    if role == 'user':
         # No sign-in needed to upload, so cap it: 20 images per hour per IP (stops anyone filling the disk).
         ip = request.headers.get('x-forwarded-for', request.client.host if request.client else '?').split(',')[0]
         hits = [x for x in _upload_ip.get(ip, []) if time.time() - x < 3600]
@@ -7897,6 +7912,20 @@ async def _circle_wallets_live():
         return wallets
 
 
+CIRCLE_PROFILE_KEYS = {'name': 'displayName', 'handle': 'handle', 'bio': 'bio', 'avatar': 'avatarUrl', 'banner': 'bannerUrl'}
+
+
+def circle_profile_view(prof: dict) -> dict:
+    """The stored profile in the editor's short field names."""
+    return {k: prof.get(real) for k, real in CIRCLE_PROFILE_KEYS.items()}
+
+
+def circle_profile_merge(prev: dict, edit: dict) -> dict:
+    """The stored profile with the editor's fields laid over it (the editor used short names the profile never stored:
+    name / avatar / banner were silently dropped)."""
+    return {**prev, **{real: edit[k] for k, real in CIRCLE_PROFILE_KEYS.items() if k in edit}}
+
+
 @app.get('/api/reputation/admin/circle/profiles')
 async def circle_profiles(request: Request):
     """Owner: every Circle wallet with its FEELESS profile (so it can be searched + edited from the creator wallet)."""
@@ -7904,7 +7933,7 @@ async def circle_profiles(request: Request):
     ws = await _circle_wallets_live()
     profs = _profiles_load()['profiles']
     return {'wallets': [{'id': w.get('id'), 'address': w.get('address'), 'name': w.get('name'), 'blockchain': w.get('blockchain'),
-                         'profile': {k: (profs.get(w.get('address')) or {}).get(k) for k in ('name', 'handle', 'bio', 'avatar', 'banner')}} for w in ws]}
+                         'profile': circle_profile_view(profs.get(w.get('address')) or {})} for w in ws]}
 
 
 @app.post('/api/reputation/admin/circle/profile')
@@ -7918,10 +7947,10 @@ async def circle_profile_save(request: Request, body: dict):
     async with _profile_lock:
         d = _profiles_load()
         prev = d['profiles'].get(addr, {})
-        clean = _clean_profile({**{k: prev.get(k) for k in ('name', 'handle', 'bio', 'avatar', 'banner')}, **(body.get('profile') or {})})
+        clean = _clean_profile(circle_profile_merge(prev, body.get('profile') or {}))
         if clean.get('handle') and any(a != addr and (v or {}).get('handle') == clean['handle'] for a, v in d['profiles'].items()):
             raise HTTPException(409, f"@{clean['handle']} is taken.")
-        d['profiles'][addr] = {**prev, **{k: clean.get(k) for k in ('name', 'handle', 'bio', 'avatar', 'banner') if k in clean}, 'lastTs': time.time(), 'editedBy': me}
+        d['profiles'][addr] = {**prev, **clean, 'lastTs': time.time(), 'updatedAt': time.time(), 'editedBy': me}
         tmp = PROFILE_PATH.with_suffix('.tmp'); tmp.write_text(json.dumps(d)); tmp.replace(PROFILE_PATH)
     ad = _admin_load(); _audit(ad, me, 'circle-profile', f'{addr[:6]}… {clean.get("handle") or clean.get("name") or ""}'); _admin_save(ad)
     return {'ok': True, 'address': addr, 'profile': d['profiles'][addr]}

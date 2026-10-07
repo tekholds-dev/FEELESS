@@ -260,3 +260,19 @@ def test_feeless_trade_feeds_the_position(monkeypatch, tmp_path):
     asyncio.run(rs.internal_trade(Req(), rs.TradeLanded(wallet=W, signature='6' * 88, inUsd=50, feeBps=50, inputMint=rs.WSOL, outputMint=COIN, inAmount=0.4, outAmount=1000, fill=fill)))
     rows = rs._json_load(rs.FEELESS_TRADES_PATH, {})[W]
     assert rows[-1]['via'] == 'chain' and rows[-1]['usd'] == 57.5 and rows[-1]['price'] == 0.0575
+
+
+def test_upload_caps_the_creator_gif_is_not_size_limited():
+    assert rs.upload_cap('image/gif', 'user') == 6_000_000 and rs.upload_cap('image/png', 'user') == 2_000_000
+    assert rs.upload_cap('image/gif', 'admin') == 25_000_000
+    assert rs.upload_cap('image/gif', 'owner') == rs.OWNER_GIF_CAP >= 200_000_000
+    assert rs.upload_cap('image/png', 'owner') == 25_000_000   # only GIFs are lifted
+
+
+def test_circle_profile_edit_really_saves_name_picture_and_cover():
+    gif = '/api/reputation/uploads/' + 'b' * 32 + '.gif'
+    prev = {'displayName': 'Old', 'bio': 'keep', 'top8': [], 'accent': '#fff'}
+    clean = rs._clean_profile(rs.circle_profile_merge(prev, {'name': 'Fuse Wallet', 'handle': '@fuse_w', 'avatar': gif, 'banner': gif}))
+    assert clean['displayName'] == 'Fuse Wallet' and clean['handle'] == 'fuse_w' and clean['avatarUrl'] == gif and clean['bannerUrl'] == gif
+    assert clean['bio'] == 'keep'   # untouched fields stay
+    assert rs.circle_profile_view(clean) == {'name': 'Fuse Wallet', 'handle': 'fuse_w', 'bio': 'keep', 'avatar': gif, 'banner': gif}

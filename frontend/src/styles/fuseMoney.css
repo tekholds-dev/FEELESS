@@ -549,3 +549,8 @@ body.theme-day .hrt-picklog li { background: #f3f6f4; }
 .hrt-moves li:hover { background: var(--m-surface-2); } .hrt-moves span { color: var(--m-dim); overflow-wrap: anywhere; } .hrt-moves span i { font-style: normal; color: var(--m-ink); font-weight: 700; }
 .hrt-moves .m-num { font-size: inherit; } .hrt-moves small { white-space: nowrap; font-size: 10px; }
 @media (max-width: 640px) { .hrt-moves li { grid-template-columns: 18px minmax(0, 1fr) auto; } .hrt-moves small { display: none; } }
+/* Circle wallet profile editor: picture + cover uploads */
+.cp-img { grid-template-columns: 1fr; font-size: 11.5px; color: var(--m-dim); } .cp-img .m-row { flex-wrap: wrap; gap: 8px; align-items: center; }
+.cp-thumb { height: 48px; border-radius: 10px; border: 1px solid #15d16a44; object-fit: cover; } .cp-thumb.is-avatar { width: 48px; border-radius: 50%; } .cp-thumb.is-banner { width: 144px; }
+.cp-up { cursor: pointer; } .cp-up:focus-within { outline: 2px solid #45e486; outline-offset: 2px; }
+body.theme-day .cp-thumb { border-color: #0b7a3e44; }

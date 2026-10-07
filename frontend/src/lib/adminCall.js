@@ -49,7 +49,7 @@ export async function uploadImage(file, shape) {
     const k = Math.min(1, (admin ? 3000 : 1600) / Math.max(img.width, img.height));
     const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); body = c.toDataURL('image/webp', 0.92);
-  } else if (file.size > cap) throw new Error(`GIFs must be under ${cap / 1_000_000} MB.`);
+  } else if (!admin && file.size > cap) throw new Error(`GIFs must be under ${cap / 1_000_000} MB.`);   // signed in: the server decides (the creator's GIFs have no size limit)
   const headers = { 'Content-Type': 'application/json', ...(admin ? { 'x-admin-address': admin.address, 'x-admin-ts': String(admin.ts), 'x-admin-sig': admin.sig } : {}) };
   const r = await fetch(apiUrl('/api/reputation/uploads'), { method: 'POST', headers, body: JSON.stringify({ dataUrl: body }) });
   const d = await r.json(); if (!r.ok) throw new Error(d.detail || 'Upload failed.');
