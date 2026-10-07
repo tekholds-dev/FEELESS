@@ -397,3 +397,16 @@ def test_trench_smart_entry_not_falling_not_mid_spike_buyers_at_least_55():
     assert not ap.trench_entry({**ok, 'chg5m': 6.0}) and not ap.trench_entry({**ok, 'chg5m': -4.0})
     assert not ap.trench_entry({**ok, 'buyShare': 48}) and not ap.trench_entry({**ok, 'chg1h': -12.0})
     assert not ap.trench_entry({'pairAddress': 'P'}, {'P': {'chg5m': 9.0}})        # the momentum feed counts when the row has none
+
+
+def test_every_picker_list_shows_its_own_record_or_says_whose_it_borrows():
+    import trench
+    mine = {'n': 6, 'medPct': -4.0, 'wonPct': 40, 'proven': False}
+    few = {'n': 2, 'medPct': 10.0, 'wonPct': 100}
+    calls = {'leader': {'n': 60, 'medPct': -1.1, 'wonPct': 48}, 'mover': {'n': 60, 'medPct': -74.9, 'wonPct': 10}, 'fresh': {'n': 3}}
+    out = trench.list_records({'ptrend': few, 'movers': mine, 'volume': few, 'pump': few}, calls, {'n': 38, 'medPct': -5.8}, {'n': 22, 'medPct': -70.2}, 'baby')
+    assert out['movers'] == {**mine, 'src': 'this list'}                                   # own record once it has 5 settled
+    assert out['volume']['medPct'] == -1.1 and out['volume']['src'] == 'volume-leader callout'   # too few → the nearest callout
+    assert out['pump']['src'] == 'this list' and out['pump']['n'] == 2                     # nothing to borrow either → its own few
+    assert out['ptrend']['src'] == 'this list'                                             # Pump trending never borrows
+    assert out['bottom']['medPct'] == -5.8 and out['trench']['src'] == 'trench meta baby'

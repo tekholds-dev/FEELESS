@@ -497,6 +497,7 @@ body.fx-lite .sp { animation: none; }
 body.theme-day .sp { background: #fff; }
 .sp-q { width: 100%; } .sp li.is-fake { opacity: .55; }
 .sp-tnote { display: block; margin: 4px 0 6px; line-height: 1.35; }
+.sp-lens .sp-lp { margin-left: 5px; font: 600 10px/1 'JetBrains Mono', monospace; font-style: normal; opacity: .9; }
 @media (max-width: 980px) { .sp li { grid-template-columns: minmax(0, 1fr) auto auto auto auto; } .sp li small { display: none; } }
 @media (max-width: 640px) { .sp li { grid-template-columns: minmax(0, 1fr) auto auto auto; column-gap: 6px; } .sp li > span.m-num { display: none; } }
 

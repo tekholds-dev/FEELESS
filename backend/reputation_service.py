@@ -5662,6 +5662,7 @@ async def _trench_build(now):
     except Exception as e:
         print('entry proof:', e)
     await _bottom_track(now)
+    await _lens_track(now)
     await _owner_moves_tick(now)
     return _trench_cache
 
@@ -5744,6 +5745,37 @@ async def _bottom_rows(now):
     rows.sort(key=lambda r: -r['score'])
     _bottom_cache['rows'] = rows[:120]
     return _bottom_cache['rows']
+
+
+LENS_PROOF_PATH = FUSE_HQ_PATH.parent / 'lens_proof.json'   # 📏 every picker list's own 1-hour paper record
+LENS_TRACK = ('ptrend', 'movers', 'pump', 'volume')          # the live-feed lists (bottom + trench keep their own files)
+LENS_TOP = 15                                                # the top rows of each list are what a picker actually picks from
+
+
+async def _lens_track(now):
+    """📏 Each live list's top coins are noted once and settled an hour later (no price = −100%) — the owner can see which list
+    pays before picking from it (2026-10-07: hand picks closed inside 15 min lost $8.74 on $97 in a day)."""
+    try:
+        got = await asyncio.gather(*[fuses_discover(lens=k, chain='solana') for k in LENS_TRACK], return_exceptions=True)
+        passing = {k: [(r.get('baseAddress') or r.get('mint'), r.get('priceUsd') or r.get('price')) for r in ((g or {}).get('pools') or [])[:LENS_TOP]]
+                   for k, g in zip(LENS_TRACK, got) if isinstance(g, dict)}
+        st = _json_load(LENS_PROOF_PATH, {})
+        due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
+        jp = await _jup_prices(due) if due else {}
+        _json_save(LENS_PROOF_PATH, _trench.meta_track(st, passing, lambda m: (jp or {}).get(m), now, keys=LENS_TRACK))
+    except Exception as e:
+        print('lens proof:', e)
+
+
+@app.get('/api/reputation/fuses/list-proof')
+async def fuses_list_proof():
+    """📏 Which picker list pays: each list's own record of coins held 1 hour (median, % up, n). A live list without its own record
+    yet borrows the nearest callout record, labelled `src`. A record, never a promise."""
+    lens_ = _trench.meta_proof(_json_load(LENS_PROOF_PATH, {}), keys=LENS_TRACK)
+    call_ = _trench.meta_proof((_json_load(TRENCH_CALLOUT_PATH, {}) or {}).get('state') or {}, keys=('leader', 'mover', 'fresh'))
+    meta_ = _trench.meta_proof(_json_load(TRENCH_META_PATH, {}))
+    tmeta = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('trenchCfg') or {}).get('meta') or 'baby'
+    return {'lists': _trench.list_records(lens_, call_, _trench.meta_proof(_json_load(BOTTOM_PROOF_PATH, {}), keys=('bottom',)).get('bottom'), meta_.get(tmeta), tmeta)}
 
 
 async def _bottom_track(now):
@@ -7952,10 +7984,14 @@ async def _fw_close_empty(cfg, now):
     rent, so its numbers stay exact). One tx, CloseAccount only (destination = the wallet itself), Circle signs, logged + owner inbox."""
     await _fw_rent_credit(cfg)
     every = _fw.close_every(_fuse._f(_prime_real_cfg().get('rotateHours')))
-    if now - _fw_close_at['t'] < every or not cfg.get('armed') or cfg.get('paused') or not _fw_signer_ready():
+    d = _fw_load()
+    held_ = {m for b in d['books'].values() for m in (b.get('legs') or {})}
+    sold_out = {r.get('mint') for r in (d.get('ledger') or [])[-200:] if r.get('side') == 'sell' and r.get('status') == 'filled'
+                and _fuse._f(r.get('at')) > _fw_close_at['t'] and r.get('mint') not in held_}   # coins sold whole since the last sweep = empty accounts
+    gas_ = _fw.gas_tank(_FW_GAS.get('sol'), d['books'], cfg.get('reserveSol'))['sol'] if _FW_GAS.get('sol') is not None else 1.0
+    if not _fw.sweep_due(now, _fw_close_at['t'], every, gas_, len(sold_out)) or not cfg.get('armed') or cfg.get('paused') or not _fw_signer_ready():
         return
     _fw_close_at['t'] = now
-    d = _fw_load()
     if any(b.get('pending') for b in d['books'].values()):
         return
     keep = {m for b in d['books'].values() for m in (b.get('legs') or {})}

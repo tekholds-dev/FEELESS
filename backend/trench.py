@@ -253,6 +253,26 @@ def meta_proof(state, keys=None):
     return out
 
 
+LIST_BORROW = {'movers': ('mover', 'top 5-min movers callout'), 'pump': ('fresh', 'fresh-launch callout'), 'volume': ('leader', 'volume-leader callout')}
+
+
+def list_records(lens, calls, bottom, trench_meta, tmeta):
+    """📏 {picker list: {n, medPct, wonPct, proven, src}} — the list's own record once it has ≥ PROOF_MIN settled coins, else the
+    nearest callout record (`src` says which), else whatever it has so far."""
+    out = {}
+    for k in ('ptrend', 'movers', 'pump', 'volume'):
+        own = (lens or {}).get(k) or {}
+        if own.get('n', 0) >= PROOF_MIN or k not in LIST_BORROW:
+            out[k] = {**own, 'src': 'this list'}
+            continue
+        ck, label = LIST_BORROW[k]
+        b = (calls or {}).get(ck) or {}
+        out[k] = {**b, 'src': label} if b.get('n', 0) >= PROOF_MIN else {**own, 'src': 'this list'}
+    out['bottom'] = {**(bottom or {}), 'src': 'this list'}
+    out['trench'] = {**(trench_meta or {}), 'src': f'trench meta {tmeta}'}
+    return out
+
+
 def clean_own(c):
     """{'mode': 'auto' | 'own', + one allowed value per soft check}. Anything else snaps to the nearest allowed value / the default."""
     c = c if isinstance(c, dict) else {}

@@ -1355,3 +1355,13 @@ def test_slippage_failure_is_retried_not_counted_as_a_refused_buy():
     assert fw.slip_busy({'slipAt': 990.0}, 1000.0) is True and fw.slip_busy({'slipAt': 900.0}, 1000.0) is False and fw.slip_busy({}, 1000.0) is False
     card = {'legs': [{'mint': 'M', 'pairAddress': 'P', 'buying': True, 'buyingSince': 0.0}]}
     assert fw.stuck_buys(card, 1000.0, busy=fw.slip_busy({'slipAt': 990.0}, 1000.0)) == []
+
+
+def test_rent_sweep_runs_early_when_rent_is_what_holds_the_next_buy():
+    # on the clock as before
+    assert fw.sweep_due(1000.0, 0.0, 600.0, 1.0, 0) is True
+    assert fw.sweep_due(1000.0, 900.0, 600.0, 1.0, 5) is False                  # plenty of free SOL → waits for the clock
+    # free SOL can't open two new coin accounts and an empty account waits → sweep now (≥ 1 min since the last)
+    assert fw.sweep_due(1000.0, 900.0, 600.0, 0.0004, 3) is True
+    assert fw.sweep_due(1000.0, 970.0, 600.0, 0.0004, 3) is False               # never more than once a minute
+    assert fw.sweep_due(1000.0, 900.0, 600.0, 0.0004, 0) is False               # nothing to close → nothing to gain

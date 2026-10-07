@@ -2049,3 +2049,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   every live-pool / limit / secure-buy check again, id `…:rN`), the first 2 slippage failures in 15 min are NOT misses, and the
   stuck-buy clock waits 45s (`book.slipAt`). The 3rd counts → bench as before. Safety refusals (price gap, sell-back, thin pool)
   are unchanged. "STUCK BUY / SELL" ⇒ fetch the failed sig's `meta.err` first: 6001 = slippage, anything else is a different bug.
+- 📏 EVERY PICKER LIST HAS ITS OWN RECORD (`_lens_track` in `_trench_build` → `data/lens_proof.json`, top `LENS_TOP` 15 of 🔥 Pump trending ·
+  🚀 Movers · 🆕 New launches · 🌊 Volume, each noted once and judged 1h later, no price = −100%; `trench.list_records` + public
+  `GET /fuses/list-proof`; `SwapPicker` shows the typical % on every tab (`sp-lp-*`) + one line for the open list (`listRecord`)). A list
+  without 5 settled coins borrows the nearest callout record and SAYS so (`src`). 2026-10-07 records (1h): 🔥 volume leaders −1% (48% up) ·
+  🟢 bottoms −6% · sweep / pullback −13…−14% · trench baby −70% · fresh launches −63% · 5-min movers −75%. Real card that day: hand picks
+  sold whole inside 15 min −$8.74 on $97 (90 exits); engine coins ≈ −$1.45; trims of winners +$3.87.
+- ♻ RENT SWEEP RUNS EARLY (`fuse_wallet.sweep_due`, `SWEEP_SOON_SEC` 60): when the wallet's SOL outside the cards can't open 2 new coin
+  accounts and a coin was sold whole since the last sweep, the empty accounts are closed within a minute (the clock was 10–30 min). On
+  5-min rounds the reserve was all parked (7 accounts, 3 empty, 0.0004 SOL free) and the next new coin waited on its rent.

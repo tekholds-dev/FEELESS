@@ -1287,6 +1287,18 @@ def close_every(rotate_hours):
     return max(600.0, min(1800.0, 2 * _f(rotate_hours) * 3600)) if _f(rotate_hours) > 0 else 1800.0
 
 
+SWEEP_SOON_SEC = 60.0   # a sweep is pulled forward to at most once a minute when rent is what's holding buys up
+
+
+def sweep_due(now, last, every, gas_sol, empty_n):
+    """♻ Sweep on the clock (2 rounds, 10–30 min) — or AT ONCE (≥ 1 min since the last) when the wallet's SOL outside the cards can't
+    open two new coin accounts and empty accounts are waiting to give their rent back. On 5-min rounds the reserve was all parked in
+    accounts (3 of 7 empty, 0.0004 SOL free): the next new coin's buy had no rent and waited up to 30 min for the sweep."""
+    if now - _f(last) >= _f(every):
+        return True
+    return int(empty_n or 0) > 0 and _f(gas_sol) < 2 * GAS_RENT_SOL and now - _f(last) >= SWEEP_SOON_SEC
+
+
 def empty_accounts(token_accounts, keep_mints=()):
     """[{pubkey, program}] of the wallet's EMPTY token accounts (0 balance) whose coin no card holds — closing them returns the rent."""
     out = []

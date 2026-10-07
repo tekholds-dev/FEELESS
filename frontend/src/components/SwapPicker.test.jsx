@@ -9,6 +9,7 @@ const tick = () => act(() => new Promise(r => setTimeout(r, 20)));
 test('the real-card swap picker has every Lab lens + search, flags thin pools and lookalikes, and picks with its pool', async () => {
   const urls = [];
   global.fetch = jest.fn(async u => { urls.push(String(u));
+    if (String(u).includes('list-proof')) return { ok: true, json: async () => ({ lists: { volume: { n: 60, medPct: -1.1, wonPct: 48, src: 'volume-leader callout' }, movers: { n: 60, medPct: -74.9, wonPct: 10, src: 'this list' }, ptrend: { n: 2, src: 'this list' } } }) };
     if (String(u).includes('search')) return { ok: true, json: async () => ({ pools: [{ baseAddress: 'BTC', pairAddress: 'pb', symbol: 'cbBTC', priceUsd: 60000, liquidityUsd: 9e6, real: true }, { baseAddress: 'FAKE', pairAddress: 'pf', symbol: 'BTC', priceUsd: 1, liquidityUsd: 9e6, impostor: true }] }) };
     if (String(u).includes('/fuses/trench')) return { ok: true, json: async () => ({ floor: 8000, checked: [{}, {}], rules: 'strict', rows: [{ mint: 'TR', pairAddress: 'ptr', symbol: 'TRN', price: 0.001, liq: 9000, holders: 512, score: 74, trench: true }, { mint: 'TT', pairAddress: 'ptt', symbol: 'TTHIN', price: 0.001, liq: 4000, trench: true }] }) };
     if (String(u).includes('contenders')) return { ok: true, json: async () => ({ divisions: [{ key: 'dip', rows: [{ mint: 'D', pairAddress: 'pd', symbol: 'DIP', price: 1, liq: 80000, score: 70 }] }],
@@ -20,7 +21,12 @@ test('the real-card swap picker has every Lab lens + search, flags thin pools an
   await tick();
   expect(PICK_LENSES.map(x => x[0])).toEqual(['ptrend', 'movers', 'bottom', 'pump', 'volume', 'trench', 'majors', 'arena']);   // every list its OWN set of coins
   // 🚀 it opens on what is MOVING (the live launch feed by hourly move) …
-  expect(urls[0]).toContain('/fuses/discover?lens=ptrend');   // 🔥 Pump's Trending tab opens first
+  expect(urls.find(u => u.includes('/fuses/discover'))).toContain('/fuses/discover?lens=ptrend');   // 🔥 Pump's Trending tab opens first
+  // 📏 every list tab carries its own 1-hour record; the open list explains it (too few settled = "starts now")
+  expect(el.querySelector('[data-testid="sp-lp-movers"]').textContent).toBe('-75%');
+  expect(el.querySelector('[data-testid="sp-lp-volume"]').textContent).toBe('-1%');
+  expect(el.querySelector('[data-testid="sp-lp-ptrend"]')).toBeNull();
+  expect(el.querySelector('[data-testid="sp-list-record"]').textContent).toMatch(/starts now/);
   expect(el.textContent).toContain('$POP');
   // 🏁 … and "All ranked" is every coin the Gauntlet ranks (each with the division it ranks best in; watch rows are pickable)
   await act(async () => { el.querySelector('[data-testid="sp-lens-arena"]').click(); }); await tick();
