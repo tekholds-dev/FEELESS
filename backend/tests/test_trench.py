@@ -313,3 +313,43 @@ def test_launch_meta_needs_a_website_and_x_set_at_launch_and_is_under_an_hour_ol
         assert not ok
     assert 'website + X account set at launch' in tr.gate({**coin, 'x': False}, 300, auth, g)[1]
     assert 'website + X account set at launch' not in tr.gate({**coin, 'x': False}, 300, auth, tr.meta_gate('sprout'))[1]   # only this meta asks for it
+
+
+def _pair(mint, sym, vol1h, vol5m, m5, h1, buys, sells, age_h, now_ms=10_000_000_000.0, px=0.001):
+    return {'baseToken': {'address': mint, 'symbol': sym}, 'pairAddress': 'p' + mint, 'priceUsd': px, 'marketCap': 50_000, 'liquidity': {'usd': 12_000},
+            'pairCreatedAt': now_ms - age_h * 3.6e6, 'volume': {'h1': vol1h, 'm5': vol5m}, 'priceChange': {'m5': m5, 'h1': h1}, 'txns': {'h1': {'buys': buys, 'sells': sells}}}
+
+
+def test_open_gates_lists_every_feed_coin_front_runners_first_and_says_what_each_has_not_passed():
+    now = 10_000_000_000.0
+    pairs = [_pair('A', 'QUIET', 2_000, 100, 0.2, 1, 10, 10, 30), _pair('B', 'RUN', 180_000, 30_000, 9, 60, 700, 300, 0.5), _pair('C', 'OLD', 90_000, 6_000, 1, 12, 300, 250, 400),
+             _pair('B', 'RUN', 1, 1, 0, 0, 1, 1, 1), {'baseToken': {}, 'priceUsd': 1}]
+    board = tr.open_board(pairs, {'B': (True, []), 'C': (False, ['top-10 < 20%'])}, now)
+    assert [r['symbol'] for r in board] == ['RUN', 'OLD', 'QUIET'] and [r['rank'] for r in board] == [1, 2, 3]      # nothing filtered, one row a coin, 400h-old coin included
+    run, old, quiet = board
+    assert run['safe'] is True and run['fails'] == [] and run['soft'] and run['open'] and run['front'] > old['front'] > quiet['front']
+    assert old['safe'] is False and old['fails'] == ['top-10 < 20%']
+    assert quiet['safe'] is None and 'not scanned' in quiet['fails'][0]                                              # unknown is SAID, never hidden
+    assert run['buyShare'] == 70.0 and run['txns1h'] == 1000 and run['ageH'] == 0.5
+
+
+def test_callouts_note_a_leader_once_settle_it_an_hour_later_and_feed_reads_newest_first():
+    now = 10_000_000_000.0
+    board = tr.open_board([_pair('B', 'RUN', 180_000, 30_000, 9, 60, 700, 300, 0.5), _pair('C', 'OLD', 90_000, 6_000, 1, 12, 300, 250, 400),
+                               _pair('A', 'QUIET', 2_000, 100, 0.2, 1, 10, 10, 30)], {}, now)
+    calls = tr.callouts(board)
+    assert [r['symbol'] for r in calls['leader']] == ['RUN', 'OLD', 'QUIET'] and [r['symbol'] for r in calls['mover']] == ['RUN', 'OLD'] and [r['symbol'] for r in calls['fresh']] == ['RUN']
+    passing = {k: [(r['mint'], r['price']) for r in v] for k, v in calls.items()}
+    st = tr.meta_track({}, passing, lambda m: None, 1000.0, keys=tr.CALLOUTS)
+    assert set(st['fresh']['open']) == {'B'} and st['leader']['open']['B']['px'] == 0.001
+    st2 = tr.meta_track(st, passing, lambda m: None, 1210.0, keys=tr.CALLOUTS)                               # 3.5 min later: the same call is not noted twice
+    assert st2['fresh']['open']['B']['at'] == 1000.0
+    feed = tr.callout_feed(st2, {'B': {'symbol': 'RUN', 'pairAddress': 'pB'}}, {'B': 0.0013}, 1300.0)
+    b = next(x for x in feed if x['mint'] == 'B' and x['kind'] == 'fresh')
+    assert b['live'] and b['pct'] == 30.0 and b['symbol'] == 'RUN' and b['mins'] == 5
+    st3 = tr.meta_track(st2, {}, lambda m: {'B': 0.0015}.get(m), 1000.0 + tr.PROOF_SEC, keys=tr.CALLOUTS)   # settled: B +50%, the others vanished = −100%
+    assert st3['fresh']['done'][0]['pct'] == 50.0 and st3['fresh']['open'] == {}
+    assert {d['mint']: d['pct'] for d in st3['leader']['done']} == {'B': 50.0, 'C': -100.0, 'A': -100.0}
+    pr = tr.meta_proof(st3, keys=tr.CALLOUTS)
+    assert pr['fresh']['n'] == 1 and pr['leader']['n'] == 3 and pr['leader']['proven'] is False
+    assert tr.CALLOUT_SEC == 210 and set(tr.CALLOUTS) == {'leader', 'mover', 'fresh'}

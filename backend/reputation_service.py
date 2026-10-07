@@ -5278,6 +5278,7 @@ async def _runner_live():
                   and _fuse._f((p.get('liquidity') or {}).get('usd')) >= _rn.OLD_MIN_LIQ)   # 🚀 older runners still trading hard stay on the board
         if m and m not in seen and (age_ms <= _rn.MAX_AGE_H * 3.6e6 or old_ok):
             seen.add(m); pairs.append(p)
+    _open_pairs[:] = [x for rows in got for x in rows]   # 🚪 the open trench list reads EVERY feed pair, whatever its age
     busiest = sorted(pairs, key=lambda p: -_fuse._f((p.get('volume') or {}).get('h1')))[:RUNNER_SCANS]   # warmed in the background (cached scans)
     # 🗑 trench breakouts get a holder scan too (they're rarely among the 40 busiest — the scan never reached them before)
     # 🎛 the OWNER's trench filter first: coins inside their own band (age, cap, trades, volume) are scanned before the engine's
@@ -5516,6 +5517,52 @@ import trench as _trench
 
 _trench_cache: dict = {'at': 0.0, 'rows': [], 'checked': []}
 _runner_cands: list = []   # every runner candidate of the last board build (filled by _runner_live)
+_open_pairs: list = []    # every raw launch-feed pair of the last board build (the 🚪 open trench list + 📣 callouts read it)
+_open_cache: dict = {'at': 0.0, 'rows': [], 'calls': {}}
+TRENCH_CALLOUT_PATH = FUSE_HQ_PATH.parent / 'trench_callouts.json'
+
+
+def _open_board():
+    """🚪 The open trench list: every launch coin in the feed ranked as a front-runner, each with what it has not passed."""
+    rcfg = _runner_cfg()
+    scanned = {r.get('mint'): (_rn.safe_only(r, rcfg), [str(g) for g in (r.get('gates') or [])][:4]) for r in _runner_cands if r.get('mint') and r.get('scanned')}
+    return _trench.open_board(_open_pairs, scanned, time.time() * 1000)
+
+
+async def _callout_tick(now):
+    """📣 Every ~3.5 min: who the open list calls out (volume leader · mover · fresh launch), each noted once and settled 1h later."""
+    if now - _open_cache['at'] < _trench.CALLOUT_SEC or os.environ.get('PYTEST_CURRENT_TEST') or not _open_pairs:
+        return _open_cache
+    _open_cache['at'] = now
+    board = _open_board()
+    calls = _trench.callouts(board)
+    doc = _json_load(TRENCH_CALLOUT_PATH, {})
+    st = doc.get('state') or {}
+    due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
+    jp = await _jup_prices(due) if due else {}
+    st = _trench.meta_track(st, {k: [(r['mint'], r['price']) for r in v] for k, v in calls.items()}, lambda m: (jp or {}).get(m), now, keys=_trench.CALLOUTS)
+    names = dict(doc.get('names') or {})
+    for v in calls.values():
+        for r in v:
+            names[r['mint']] = {'symbol': r['symbol'], 'pairAddress': r['pairAddress']}
+    keep = {m for s_ in st.values() for m in list((s_.get('open') or {})) + [d.get('mint') for d in s_.get('done') or []]}
+    _json_save(TRENCH_CALLOUT_PATH, {'state': st, 'names': {m: v for m, v in names.items() if m in keep}, 'at': now})
+    _open_cache.update(rows=board, calls={k: [r['mint'] for r in v] for k, v in calls.items()})
+    return _open_cache
+
+
+@app.get('/api/reputation/fuses/trench/open')
+async def fuse_trench_open():
+    """🚪 Open gates: every launch coin the feed sees, front-runners first, nothing filtered (each row says what it has not passed)
+    + 📣 the callouts of the last hours with their result. Coin data only. A list to LOOK at; the engine never buys from it."""
+    rows = _open_board() if _open_pairs else (_open_cache.get('rows') or [])
+    doc = _json_load(TRENCH_CALLOUT_PATH, {})
+    now_px = {r['mint']: r['price'] for r in rows}
+    proof = _trench.meta_proof(doc.get('state') or {}, keys=_trench.CALLOUTS)
+    calling = {m: k for k, v in (_open_cache.get('calls') or {}).items() for m in v}
+    return {'rows': [{**r, 'call': calling.get(r['mint'])} for r in rows], 'seen': len(_open_pairs), 'everySec': _trench.CALLOUT_SEC, 'at': _open_cache.get('at') or None,
+            'kinds': [{'key': k, 'icon': v[0], 'name': v[1], 'rule': v[2], 'proof': proof.get(k)} for k, v in _trench.CALLOUTS.items()],
+            'feed': _trench.callout_feed(doc.get('state') or {}, doc.get('names') or {}, now_px, time.time())}
 TRENCH_SCAN = 8   # on-chain holder counts are heavy: only the 5 busiest coins that already pass every cheap check
 
 
@@ -5639,6 +5686,11 @@ async def fuse_trench(meta: str = Query('', max_length=20)):
     for x in sorted(extra, key=lambda x: bool(x.get('outside'))):
         if x.get('mint') not in seen_m:
             seen_m.add(x.get('mint')); extra_u.append(x)
+    # 🚪 OPEN GATES (owner: "make the trench category the open gates"): after the coins that pass and the near-misses, EVERY other
+    # launch coin the feed sees, front-runners first, each with what it has not passed. Pickable by hand; never auto-seated.
+    for r in (_open_board() if _open_pairs else []):
+        if r.get('mint') not in seen_m:
+            seen_m.add(r.get('mint')); extra_u.append({**{k: r.get(k) for k in keys}, 'chg5m': r.get('chg5m'), 'chg1h': r.get('chg1h'), 'score': r.get('front'), 'soft': True, 'open': True, 'fails': r.get('fails')})
     return {'cfg': own, 'metas': board, 'options': _trench.OWN_OPTIONS, 'checked': [{k: r.get(k) for k in keys} for r in _trench_cache.get('checked') or []], 'pass': len(_trench_cache.get('rows') or []),
             'inBand': sum(1 for r in _runner_cands if not _trench.band_miss(r, g)), 'nearMiss': sum(1 for x in extra_u if not x.get('outside')),
             'rows': [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'trench': True} for r in _trench_cache.get('rows') or []] + extra_u,
@@ -8453,6 +8505,10 @@ async def _fuse_warm():
         await _trench_build(time.time())
     except Exception as e:
         print('trench:', e)
+    try:   # 📣 callouts (~3.5 min): the open trench list's leaders, noted once, settled an hour later
+        await _callout_tick(time.time())
+    except Exception as e:
+        print('callouts:', e)
     if _fuse_warm_n['n'] % 144 == 31:   # ~1h: 🧾 what's working / what's not, always running (owner inbox when something flips)
         try:
             await _verdict_tick(time.time())

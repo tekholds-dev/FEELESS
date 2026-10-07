@@ -1,0 +1,20 @@
+/* 🚪 Open gates + 📣 callouts (TrenchOpen.jsx) */
+.top { display: grid; gap: 8px; margin: 8px 0; padding: 10px; border-radius: 12px; border: 1px solid rgba(21, 209, 106, .18); background: rgba(6, 14, 11, .6); }
+.top-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; } .top-head small { font-size: 11px; line-height: 1.35; }
+.top-rows { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 4px; }
+.top-coin, .top-feed button { width: 100%; display: flex; align-items: center; gap: 7px; padding: 5px 8px; border-radius: 8px; border: 1px solid #1a2b23; background: #08110e; color: #cfe3d8; cursor: pointer; font: 11px "JetBrains Mono", monospace; text-align: left; transition: border-color .15s ease, background .15s ease, transform .1s ease; animation: topIn .22s ease both; }
+.top-coin:hover, .top-feed button:hover { border-color: #15d16a88; background: #0c1a14; } .top-coin:active, .top-feed button:active { transform: translateY(1px); } .top-coin:focus-visible, .top-feed button:focus-visible, .top-more:focus-visible { outline: 2px solid #45e486; outline-offset: 1px; }
+.top-coin i, .top-feed i { font-style: normal; flex: none; width: 18px; opacity: .6; text-align: right; } .top-feed i { opacity: 1; text-align: left; }
+.top-coin b, .top-feed b { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: #eafff4; }
+.top-coin u, .top-feed u { text-decoration: none; } .top-feed u, .top-feed small { opacity: .6; font-size: 10px; } .top-coin em, .top-feed em { font-style: normal; font-size: inherit; } .top-coin s { text-decoration: none; flex: none; }
+.top-coin.is-bad { border-color: rgba(255, 143, 163, .28); } .top-coin.is-unk { border-style: dashed; }
+.top-more { justify-self: start; height: 24px; padding: 0 10px; border-radius: 999px; border: 1px solid #203129; background: #0a1210; color: #b9cdc2; font: 10.5px "JetBrains Mono", monospace; cursor: pointer; transition: border-color .15s ease; }
+.top-more:hover { border-color: #15d16a88; color: #e7fff3; } .top-more:active { transform: translateY(1px); }
+.top-kinds { display: flex; flex-wrap: wrap; gap: 4px 8px; } .top-kind { font: 10.5px "JetBrains Mono", monospace; padding: 2px 8px; border-radius: 999px; border: 1px solid #1a2b23; white-space: nowrap; } .top-kind b { font-weight: 600; }
+.top-feed { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 4px; }
+@keyframes topIn { from { transform: translateY(4px); } to { transform: none; } }
+body.fx-lite .top-coin, body.fx-lite .top-feed button { animation: none; }
+@media (prefers-reduced-motion: reduce) { .top-coin, .top-feed button { animation: none; transition: none; } }
+body.theme-day .top { background: #f4faf6; border-color: #cfe6da; } body.theme-day .top-coin, body.theme-day .top-feed button, body.theme-day .top-more { background: #fff; border-color: #c6dccf; color: #1d4a33; }
+body.theme-day .top-coin b, body.theme-day .top-feed b { color: #0e2c1d; } body.theme-day .top-kind { border-color: #c6dccf; } body.theme-day .top-coin.is-bad { border-color: #e2a3b3; }
+@media (max-width: 640px) { .top-rows, .top-feed { grid-template-columns: 1fr; } }

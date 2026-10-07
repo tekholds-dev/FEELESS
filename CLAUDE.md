@@ -1740,3 +1740,17 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🎨 Chart backgrounds = Default · ⚛ Fuse reactor · 🧬 Fuse helix · 🌅 Sunset ocean · 🌌 Aurora night · 🏔 Misty peaks (dawn, three
   ridges drifting at different speeds, valley fog) · 🌸 Sakura drift (moon over still water, 14 falling petals) · 🪼 Deep sea (sun
   shafts, three rising jellyfish, bubbles). Each calm scene has its own day palette; phones drop a third of the particles.
+- 🚪 OPEN GATES + 📣 CALLOUTS (owner: "make the trench category the open gates — what Pump sees — plus callout tracking every 3–4
+  min"; `trench.open_row/front_score/open_board/callouts/callout_feed`, `_open_pairs` filled by `_runner_live` with EVERY raw feed
+  pair whatever its age, `_open_board`, `_callout_tick` in `_fuse_warm`, public `GET /fuses/trench/open`, `TrenchOpen.jsx` +
+  `styles/trenchOpen.css` `top-*` on top of every `TrenchScan`): the trench list with NO filter — every launch coin the feed sees
+  (Pump's biggest + most recently traded, launch boards, Jupiter live trending), ranked by `front_score` (1h volume, trades, 5-min
+  pace, buyers, green hour: ACTIVITY only), each marked ✅ passed the safety scan · ⚠ did not (`fails`) · ❔ never scanned. The
+  same rows are appended to `/fuses/trench.rows` (`soft` + `open`) so the picker's 🗑 lens lists them after the passing coins:
+  owner-pickable through the usual warn + acknowledge path, NEVER auto-seated — the engine's trench fill still reads only passing
+  coins. 📣 Callouts every `CALLOUT_SEC` 210s: 🔥 volume leader (top 5 by 1h volume) · 🚀 mover (top 5 by 5-min move, ≥ $5K in
+  those 5 min) · 🆕 fresh launch (≤ 1h, ≥ $10K 1h); a coin is noted ONCE per kind at that price and settled 1h later through
+  `meta_track` / `meta_proof` (no price = −100%), `data/trench_callouts.json`; the feed shows the move since the call (live) or
+  the 1h result. Pump's public API has NO callouts / trending endpoint (probed 2026-10-06: only the coin index + currently-live
+  answer) and the fomo app has no public feed — these callouts are FEELESS's own read of the launch feed; say so, never label
+  them "Pump's callouts".

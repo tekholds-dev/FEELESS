@@ -288,3 +288,90 @@ def soft_only(fails):
     """True when a finalist missed ONLY soft checks (crowd size, trades, volume, market-cap band, age, green candles, buyers) — every
     safety check passed. Such a coin is shown in the 🗑 list as a near-miss the owner may pick (never auto-seated as a trench coin)."""
     return bool(fails) and not any(any(w in str(f) for w in SAFETY_FAILS) for f in fails)
+
+
+# 🚪 OPEN GATES: the trench list with NO filter — every launch coin the feed sees (Pump's biggest + most recently traded, the
+# launch boards, Jupiter's live trending), ranked as FRONT-RUNNERS by what is happening right now. Nothing is hidden; each row says
+# what it has NOT passed (`fails`) or that it was never scanned. View + the owner's hand pick only: never auto-seated.
+OPEN_MAX = 60
+
+
+def open_row(pair, now_ms):
+    """A raw feed pair → the flat row the open list shows (None when it has no mint / price)."""
+    base = pair.get('baseToken') or {}
+    px = _f(pair.get('priceUsd'))
+    if not base.get('address') or px <= 0:
+        return None
+    tx = (pair.get('txns') or {}).get('h1') or {}
+    buys, sells = _f(tx.get('buys')), _f(tx.get('sells'))
+    pc, vol = pair.get('priceChange') or {}, pair.get('volume') or {}
+    made = _f(pair.get('pairCreatedAt'))
+    return {'mint': base['address'], 'symbol': base.get('symbol') or '', 'pairAddress': pair.get('pairAddress'), 'price': px,
+            'mcap': _f(pair.get('marketCap') or pair.get('fdv')), 'liq': _f((pair.get('liquidity') or {}).get('usd')),
+            'ageH': round((now_ms - made) / 3.6e6, 2) if made > 0 else None, 'vol1h': _f(vol.get('h1')), 'vol5m': _f(vol.get('m5')),
+            'chg5m': None if pc.get('m5') is None else _f(pc.get('m5')), 'chg1h': None if pc.get('h1') is None else _f(pc.get('h1')),
+            'txns1h': int(buys + sells), 'buyShare': round(buys / (buys + sells) * 100, 1) if buys + sells else None,
+            'curve': not pair.get('graduated') and str(pair.get('marketStage') or '') not in ('graduated', 'amm'), 'logo': (pair.get('info') or {}).get('imageUrl') or ''}
+
+
+def front_score(r):
+    """How much of a front-runner a coin is RIGHT NOW (0–100): 1h volume (log), trades, the 5-min volume pace, buyers, a green hour.
+    Activity only — it says nothing about safety."""
+    import math
+    v = min(40.0, max(0.0, (math.log10(max(_f(r.get('vol1h')), 1.0)) - 3.0) * 16.0))            # $1K → 0 · $300K+ → 40
+    t = min(15.0, _f(r.get('txns1h')) / 40.0)
+    pace = min(15.0, (_f(r.get('vol5m')) * 12.0 / _f(r.get('vol1h')) if _f(r.get('vol1h')) > 0 else 0.0) * 7.5)   # 5m pace vs the hour
+    b = min(15.0, max(0.0, (_f(r.get('buyShare')) - 45.0) * 0.75)) if r.get('buyShare') is not None else 0.0
+    g = min(15.0, max(0.0, _f(r.get('chg1h')) / 4.0)) if r.get('chg1h') is not None else 0.0
+    return round(v + t + pace + b + g, 1)
+
+
+def open_board(pairs, scanned=None, now_ms=0, n=OPEN_MAX):
+    """Every launch coin in the feed, best front-runner first. `scanned` = {mint: (safe: bool, fails: [..])} from the runner board;
+    a coin it never scanned says so. Rows are `soft` (the engine never seats one) and `open`."""
+    out, seen = [], set()
+    for p in pairs or []:
+        r = open_row(p, now_ms)
+        if not r or r['mint'] in seen:
+            continue
+        seen.add(r['mint'])
+        sc = (scanned or {}).get(r['mint'])
+        fails = ['not scanned yet — holders unknown'] if sc is None else list(sc[1] or [])
+        out.append({**r, 'front': front_score(r), 'safe': None if sc is None else bool(sc[0]), 'fails': fails, 'soft': True, 'open': True})
+    out.sort(key=lambda r: -r['front'])
+    for i, r in enumerate(out):
+        r['rank'] = i + 1
+    return out[:n]
+
+
+# 📣 CALLOUTS: every few minutes the open list calls out its leaders — 🔥 volume leader · 🚀 mover · 🆕 fresh launch. A coin is
+# noted ONCE when it first makes a callout, at that price, and settled an hour later (`meta_track` / `meta_proof`: no price = −100%).
+CALLOUT_SEC = 210          # 3.5 minutes
+CALLOUTS = {'leader': ('🔥', 'Volume leader', 'top 5 by 1h volume'),
+            'mover': ('🚀', 'Mover', 'top 5 by 5-min move with ≥ $5K traded in those 5 min'),
+            'fresh': ('🆕', 'Fresh launch', '≤ 1h old, top 5 by 1h volume (≥ $10K)')}
+
+
+def callouts(board, n=5):
+    """{kind: [row …]} — who the open list is calling out right now."""
+    rows = list(board or [])
+    return {'leader': sorted(rows, key=lambda r: -_f(r.get('vol1h')))[:n],
+            'mover': sorted((r for r in rows if r.get('chg5m') is not None and _f(r.get('chg5m')) > 0 and _f(r.get('vol5m')) >= 5000), key=lambda r: -_f(r.get('chg5m')))[:n],
+            'fresh': sorted((r for r in rows if r.get('ageH') is not None and _f(r.get('ageH')) <= 1 and _f(r.get('vol1h')) >= 10000), key=lambda r: -_f(r.get('vol1h')))[:n]}
+
+
+def callout_feed(state, names, price_now, now, n=24):
+    """The callouts as a feed, newest first: open ones with their move since the call (live), settled ones with their 1h result."""
+    out = []
+    for kind in CALLOUTS:
+        s = (state or {}).get(kind) or {}
+        for mint, o in (s.get('open') or {}).items():
+            px = _f((price_now or {}).get(mint))
+            out.append({'kind': kind, 'mint': mint, 'at': _f(o.get('at')), 'px': _f(o.get('px')), 'live': True,
+                        'pct': round((px / _f(o['px']) - 1) * 100, 1) if px > 0 and _f(o.get('px')) > 0 else None})
+        for d in (s.get('done') or [])[-n:]:
+            out.append({'kind': kind, 'mint': d.get('mint'), 'at': _f(d.get('at')) - PROOF_SEC, 'live': False, 'pct': d.get('pct')})
+    for x in out:
+        nm = (names or {}).get(x['mint']) or {}
+        x.update(symbol=nm.get('symbol') or '', pairAddress=nm.get('pairAddress'), mins=max(0, int((now - x['at']) / 60)))
+    return sorted(out, key=lambda x: -x['at'])[:n]
