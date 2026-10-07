@@ -318,3 +318,29 @@ def jup_pair(tok):
             **({'pairCreatedAt': created} if created else {}),
             'info': {'imageUrl': t.get('icon'), 'socials': socials, **({'websites': [{'url': t['website']}]} if t.get('website') else {})},
             'holders': t.get('holderCount')}
+
+
+JUP_SEARCH = 'https://lite-api.jup.ag/tokens/v2/search'
+
+
+def pick_jup_row(rows, address):
+    """The Jupiter row for a MINT or a POOL address (graduated pool / first pool), else None."""
+    for t in rows or []:
+        if address in (t.get('id'), t.get('graduatedPool'), (t.get('firstPool') or {}).get('id')):
+            return t
+    return None
+
+
+async def jup_lookup(http, address):
+    """📡 One coin's DexScreener-shaped pair from Jupiter, by its mint OR a pool address (the war room opens by pool). When the
+    address is a pool, the pair keeps THAT pool address so every caller's key still matches. None when Jupiter doesn't know it."""
+    try:
+        r = await http.get(JUP_SEARCH, params={'query': address}, timeout=8)
+        rows = r.json() if r.status_code == 200 else []
+    except Exception:
+        return None
+    tok = pick_jup_row(rows if isinstance(rows, list) else [], address)
+    p = jup_pair(tok)
+    if p and tok.get('id') != address:
+        p = {**p, 'pairAddress': address}
+    return p

@@ -2930,8 +2930,18 @@ async def _majors_rows():
             for p in ([] if isinstance(got_s, Exception) else got_s):
                 by_s.setdefault((p.get('baseToken') or {}).get('address'), []).append(p)
     except Exception:
-        return _majors_cache['rows']
+        by, by_s = {}, {}
+    # 📡 a major / stock DexScreener left out (outage answered `pairs: null` for everything on 2026-10-07) → Jupiter's data, same shape
+    miss = [m for m in list(_fuse.MAJORS) + list(_fuse.STOCKS) if m not in by and m not in by_s]
+    if miss:
+        toks = await _jup_tokens(miss)
+        for m in miss:
+            jp = _launchpad_board.jup_pair(toks.get(m)) if toks.get(m) else None
+            if jp:
+                (by_s if m in _fuse.STOCKS else by).setdefault(m, []).append(jp)
     rows = _fuse.majors_pools(by) + _fuse.majors_pools(by_s, _fuse.STOCKS)
+    if not rows:
+        return _majors_cache['rows']   # never replace a good list with an empty one
     _majors_cache.update(at=time.time(), rows=rows)
     return rows
 

@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, Query
 from ecosystem import DEFAULT_MINTS
 from pydantic import BaseModel, Field
 
-from launchpad_board import jup_pair, keep_last_board, BOARD_MAX, BONK_PLATFORM_ID, JUP_LISTS, JUP_RECENT, PUMP_TREND_PARAMS, PUMP_TREND_PATH, PUMP_TREND_TTL, build_board, pump_pages, pump_trend_rows, dex_candidate, jup_candidate, launchlab_candidate, pump_candidate
+from launchpad_board import jup_lookup, jup_pair, keep_last_board, BOARD_MAX, BONK_PLATFORM_ID, JUP_LISTS, JUP_RECENT, PUMP_TREND_PARAMS, PUMP_TREND_PATH, PUMP_TREND_TTL, build_board, pump_pages, pump_trend_rows, dex_candidate, jup_candidate, launchlab_candidate, pump_candidate
 
 BOARD_SCOPES = ('launchpads', 'pump', 'bonk', 'raydium')
 
@@ -345,7 +345,28 @@ def create_market_router(db, intelligence=None):
     board_cache = {}
     pair_mem = {}   # 📡 mint → (monotonic, pair): a coin's last good DexScreener snapshot, reused ≤ 5 min when its batch is refused
 
+    board_refreshing = set()
+
     async def launchpad_board(kind):
+        """⚡ The last board answers AT ONCE while a fresh one builds in the background (≤ 5 min old); only a cold start waits.
+        A rebuild takes ~8s (660 coins, two sources): every caller after the 20s mark used to wait for it (🔥 Pump trending: 8.7s)."""
+        hit = board_cache.get(kind)
+        if hit and 20 <= monotonic() - hit[0] < 300:
+            if kind not in board_refreshing:
+                board_refreshing.add(kind)
+
+                async def _bg():
+                    try:
+                        await _build_board(kind)
+                    except Exception:
+                        pass
+                    finally:
+                        board_refreshing.discard(kind)
+                asyncio.create_task(_bg())
+            return hit[1], hit[2]
+        return await _build_board(kind)
+
+    async def _build_board(kind):
         """Ranked Pump.fun + LetsBONK + LaunchLab coins (see launchpad_board.py). Cached 20s per kind."""
         hit = board_cache.get(kind)
         if hit and monotonic() - hit[0] < 20:
@@ -601,6 +622,14 @@ def create_market_router(db, intelligence=None):
                     'fallback_reason': fallback_reason,
                 }
         except HTTPException as primary_error:
+            if chain == 'solana' and page == 1 and scope not in ('pump',):   # 📡 the Solana room never goes blank: the launch board has fallbacks
+                try:
+                    board_, meta_b = await launchpad_board(kind)
+                    if board_:
+                        return MarketResult(**{**meta_b, 'fallback_from': primary_provider, 'fallback_reason': 'DexScreener discovery unavailable — showing the live launch board'},
+                                            source_url='https://pump.fun', label='Live launch board', pairs=board_[:100], page=page)
+                except HTTPException:
+                    pass
             if scope == 'pump':
                 fallback_reason = f'Pump.fun unavailable; using public pool discovery fallback ({primary_error.detail}).'
             chains = SUPPORTED_CHAINS if chain == 'all' else (chain,)
@@ -860,6 +889,10 @@ def create_market_router(db, intelligence=None):
             streamed = pump_network.pair_for(address, await pump_network.sol_price())
             if streamed:
                 return MarketResult(**{**meta, 'provider': 'PumpPortal'}, source_url='https://pumpportal.fun', pairs=[streamed], label='Pump network launch snapshot')
+            async with httpx.AsyncClient(timeout=8) as http_j:   # 📡 DexScreener silent (outage / limit) → Jupiter's data, same pair shape
+                jp = await jup_lookup(http_j, address)
+            if jp:
+                return MarketResult(**{**meta, 'provider': 'Jupiter'}, source_url='https://jup.ag', pairs=[jp], label='Pair snapshot (Jupiter fallback)')
         if intelligence:
             pairs = await intelligence.observe(pairs, meta)
         return MarketResult(**meta, source_url=PROVIDER_URLS['DexScreener'], pairs=pairs, label='Pair snapshot')

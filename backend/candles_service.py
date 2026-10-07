@@ -589,6 +589,9 @@ async def _pair_snapshot(chain, pool):
     try:
         async with httpx.AsyncClient(timeout=8) as http:
             p = ((await http.get(f'https://api.dexscreener.com/latest/dex/pairs/{chain}/{pool}')).json().get('pairs') or [None])[0]
+            if not p and chain == 'solana':   # 📡 DexScreener silent → Jupiter's data for the same pool (the tape needs the coin + price)
+                import launchpad_board as _lb
+                p = await _lb.jup_lookup(http, pool)
     except Exception:
         p = None
     if p:

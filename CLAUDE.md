@@ -2095,3 +2095,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   fallback poured a real card's cash into its ONE frozen coin on paper (the keeper never buys a frozen coin), the engine read $AUTON
   as $6.26 (wallet: $0.49) and the full-stack skim "took" $5.76 that was never in it and PARKED it — 2026-10-07, $5.76 of a $7.41 card
   locked as fake profit while 3 seats sat empty. With every coin locked, cash stays card cash for the seats.
+- 📡 FALLBACKS EVERYWHERE THE WAR ROOM READS (DexScreener outage 2026-10-07): `launchpad_board.jup_lookup(http, mint|pool)` (Jupiter search
+  finds a coin by mint OR any of its pools; the pair keeps the asked pool) → `/api/market/pair` (coin snapshot), candles `_pair_snapshot`
+  (trade tape), `_majors_rows` (🪙 majors + 📈 stocks, never cached empty); `/api/market/feed` on Solana falls back to the live launch
+  board when discovery fails ("What's new on Solana" went blank). ⚡ The launch board answers from its last copy (≤ 5 min) and rebuilds
+  in the background (`board_refreshing`) — a cold rebuild took 8.7s for whoever came after the 20s mark.
+- ⚡ SWAP NOW = A BUTTON (owner): picker rows `⚡ Swap now` (`sp-pick-*`, `now: true`) + `⏱` (`sp-bell-*`, at the bell); seat picker
+  `⚡ Fill now`. Coming up: per coin a target select (🪑 empty seat first when the card has one → `fillSeat`, else "for $COIN") +
+  `⚡ Swap now` (`up-now-*`) + `⏱` (`up-bell-*`). The WhenSeg toggle is gone.

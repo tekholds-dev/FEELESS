@@ -652,7 +652,8 @@ export function HqRealCards({ addr, onCount }) {
       const cf = c.cfgEff || (d.lockCfg?.[c.tpl] ? { ...d.cfg, ...d.lockCfg[c.tpl] } : d.cfg);   // the config this card REALLY runs (real card = its own)
       return <div key={c.id} className="hq-real">
         <div className="hq-real-card"><span className="cpop-wrap"><LiveFuseCard r={primeRow(c)} aura={t.aura} look={t.look} label="💵 REAL · FUSE WALLET" serverOnly mini={{ kind: 'prime', tpl: c.tpl, name: c.label }} /><CardPops fills={b.orders || []} legs={c.legs} cfg={cf} tp={c.tp} /></span>
-          <CardVitals c={c} funded={b.fundedUsd || c.startUsd} onTrail={() => setTrail(c.id)} /><ComingUp p={c.pipeline} legs={c.legs} busy={!!busy} onSwap={(l, r, now) => prime({ pickSwap: { tpl: c.tpl, pairAddress: l.pairAddress, to: r.mint, toPair: r.pairAddress, ...(now ? { now: true } : {}) } }, `🎯 $${r.symbol} comes in for $${l.symbol} ${now ? 'now' : 'at the next round'}`, 'pick')} />
+          <CardVitals c={c} funded={b.fundedUsd || c.startUsd} onTrail={() => setTrail(c.id)} /><ComingUp p={c.pipeline} legs={c.legs} busy={!!busy} emptySeats={Math.max(0, (Number(cf?.coins) || 0) - (c.legs || []).filter(l => !l.placeholder).length)}
+            onFill={r => prime({ fillSeat: { tpl: c.tpl, to: r.mint, toPair: r.pairAddress } }, `🪑 $${r.symbol} fills a seat now`, 'pick')} onSwap={(l, r, now) => prime({ pickSwap: { tpl: c.tpl, pairAddress: l.pairAddress, to: r.mint, toPair: r.pairAddress, ...(now ? { now: true } : {}) } }, `🎯 $${r.symbol} comes in for $${l.symbol} ${now ? 'now' : 'at the next round'}`, 'pick')} />
           <Versus v={c.realBook?.versus} /><PickLog events={c.audit || c.events} /><PipeLine p={c.pipeline} /></div>
         {trail === c.id && <CardEarnings title={c.label} onClose={() => setTrail(null)} taken={c.walletUsd || 0} compounded={c.compoundedUsd} fees={c.cardFeesUsd}
           gainNow={allTime(c, b.fundedUsd || c.startUsd)} events={(c.audit || c.events || []).map(e => ({ ...e, label: KIND[e.kind] || VITAL_KIND[e.kind] || e.kind }))} />}
@@ -786,28 +787,28 @@ export const pickRow = r => ({ mint: r.mint || r.baseAddress, pairAddress: r.pai
   chg: r.chg1h ?? r.change1h ?? r.chg24h ?? r.change24h, chg1h: r.chg1h ?? r.change1h ?? null, chg5m: r.chg5m ?? r.change5m ?? null, chg6h: r.chg6h ?? r.change6h ?? null, chg24h: r.chg24h ?? r.change24h ?? null, score: r.score, impostor: r.impostor, real: r.real, trench: r.trench, holders: r.holders, soft: r.soft, outside: r.outside, curve: r.curve, div: r.divisionLabel, watch: r.watch, fails: r.fails, warn: r.warn, pulse: r.pulse, stock: r.stock, ageH: r.ageH ?? null });
 // ⏭ COMING UP: the coins the engine takes next (best hourly move first). Tap a coin → its live flow; pick the seat → it comes in
 // at the next round in that coin's place (the same pick as the 🎯 picker, with the same warning when a check fails).
-// ⚡ when a hand pick comes in: right now (next engine pass, seconds) or at the round's bell
-export function WhenSeg({ when, setWhen }) {
-  return <span className="m-seg hrt-when" role="group" aria-label="When the pick comes in">{[['now', '⚡ Now'], ['bell', '⏱ At the bell']].map(([k, l]) =>
-    <button key={k} type="button" className={when === k ? 'active' : ''} aria-pressed={when === k} onClick={() => setWhen(k)} data-testid={`when-${k}`}
-      data-tip={k === 'now' ? 'The coin is swapped in on the next engine pass — seconds, not the end of the round' : 'The coin waits for the round bell'}>{l}</button>)}</span>;
-}
-
-export function ComingUp({ p, legs = [], onSwap, busy }) {
-  const [when, setWhen] = useState('now');
+export function ComingUp({ p, legs = [], onSwap, onFill, emptySeats = 0, busy }) {
+  const [target, setTarget] = useState({});   // per coin: which seat it goes into ('' = the first empty seat, else the first coin)
   const rows = p?.up || [];
   if (!rows.length) return <p className="hrt-up is-empty m-dim" data-testid="coming-up">⏭ Coming up: no launch coin clears your settings right now — open 🔎 below to see which filter is holding them.</p>;
   const ready = rows.filter(r => !r.wait).length;
   const big = v => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : `$${Math.round((v || 0) / 1e3)}K`);
-  const seats = legs.filter(l => l.symbol !== 'SOL' && !l.ride && !l.frozen);
-  return <div className="hrt-up cfx-host" data-testid="coming-up"><CardFx kind="grid" /><span className="m-label">⏭ COMING UP · {ready ? `${ready} READY` : 'NONE READY'}{rows.length > ready ? ` · ${Math.min(4, rows.length) - Math.min(4, ready)} WATCHING` : ''}</span><WhenSeg when={when} setWhen={setWhen} />
-    <ol>{rows.slice(0, 4).map((r, i) => <li key={r.mint} className={r.wait ? 'is-wait' : ''} style={{ '--i': i }}>
+  const seats = legs.filter(l => l.symbol !== 'SOL' && !l.ride && !l.frozen && !l.placeholder);
+  const SEAT = '__seat__';
+  const go = (r, now) => { const t = target[r.mint] || (emptySeats > 0 && onFill ? SEAT : seats[0]?.pairAddress);
+    if (t === SEAT) return onFill && onFill(r);
+    const l = seats.find(x => x.pairAddress === t); if (l) onSwap(l, r, now); };
+  const can = (emptySeats > 0 && onFill) || seats.length > 0;
+  return <div className="hrt-up cfx-host" data-testid="coming-up"><CardFx kind="grid" /><span className="m-label">⏭ COMING UP · {ready ? `${ready} READY` : 'NONE READY'}{rows.length > ready ? ` · ${Math.min(4, rows.length) - Math.min(4, ready)} WATCHING` : ''}</span>
+    <ol>{rows.slice(0, 4).map((r, i) => { const t = target[r.mint] || (emptySeats > 0 && onFill ? SEAT : seats[0]?.pairAddress) || ''; return <li key={r.mint} className={r.wait ? 'is-wait' : ''} style={{ '--i': i }}>
       <button type="button" className="hrt-up-coin" onClick={() => openCoin({ mint: r.mint, pairAddress: r.pairAddress, symbol: r.symbol })} data-tip={r.wait ? `Watching, not buying yet: ${r.wait}. The engine takes it once its chart is readable and not falling — you can still swap it in by hand.` : `${['Takes the next seat that opens', 'Second in line', 'Third in line', 'Fourth in line'][i]} — tap for its live flow`} data-testid={`up-${r.symbol}`}>
         <i className="hrt-up-n">{r.wait ? '👀' : ['NEXT', '2ND', '3RD', '4TH'][i]}</i><b>${r.symbol}</b><em className={`m-num ${r.chg1h >= 0 ? 'm-pos' : 'm-neg'}`}>{r.chg1h >= 0 ? '+' : ''}{Math.round(r.chg1h)}%</em><small>{r.vol1h > 0 ? `${big(r.vol1h)}/h` : r.liq > 0 ? `${big(r.liq)} pool` : ''}</small>{r.wait ? <u className="hrt-up-tag">⏳ watching — {r.wait}</u> : r.tag ? <u className="hrt-up-tag">{r.tag}</u> : null}</button>
-      <select className="m-input hrt-up-sel" disabled={busy || !seats.length} value="" aria-label={`Swap $${r.symbol} in for…`} data-testid={`up-swap-${r.symbol}`}
-        onChange={e => { const l = seats.find(x => x.pairAddress === e.target.value); if (l) onSwap(l, r, when === 'now'); }}>
-        <option value="">swap in for…</option>{seats.map(l => <option key={l.pairAddress} value={l.pairAddress}>${l.symbol}</option>)}</select></li>)}</ol>
-    <small className="m-dim">Ordered by what each coin looks like now (dip reclaimed, breakout, trend), then its hourly move. One per seat that opens; “swap in for…” puts one in {when === 'now' ? 'right now' : 'at the next round'}.</small></div>;
+      <span className="hrt-up-acts"><select className="m-input hrt-up-sel" disabled={busy || !can} value={t} aria-label={`Where $${r.symbol} goes`} data-testid={`up-swap-${r.symbol}`}
+        onChange={e => setTarget(o => ({ ...o, [r.mint]: e.target.value }))}>
+        {emptySeats > 0 && onFill && <option value={SEAT}>🪑 empty seat</option>}{seats.map(l => <option key={l.pairAddress} value={l.pairAddress}>for ${l.symbol}</option>)}</select>
+        <button type="button" className="m-btn primary" disabled={busy || !can} onClick={() => go(r, true)} data-tip="Swap it in right now — the next engine pass, seconds" data-testid={`up-now-${r.symbol}`}>⚡ Swap now</button>
+        {t !== SEAT && <button type="button" className="m-btn" disabled={busy || !can} onClick={() => go(r, false)} data-tip="Swap it in at the round bell" aria-label={`Swap $${r.symbol} in at the bell`} data-testid={`up-bell-${r.symbol}`}>⏱</button>}</span></li>; })}</ol>
+    <small className="m-dim">One coin per category, the best from the top of each list (best 1-hour record first). ⚡ Swap now = in right now · ⏱ = at the round bell.</small></div>;
 }
 
 // 📈 The lines a Fuse card draws on its coin's chart: where it got in, where it stops, where it locks, and its trail once riding
@@ -829,7 +830,6 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
   const [tr, setTr] = useState(null);   // 🗑 trench scan: own pool floor + how many were checked
   const [why, setWhy] = useState('');
   const [bproof, setBproof] = useState(null);   // 🟢 the Buy-bottom list's own 1-hour paper record
-  const [when, setWhen] = useState('now');   // ⚡ swap in now or at the bell (a seat fill always comes in on the next tick)
   const [lp, setLp] = useState({});   // 📏 every list's own 1-hour record (one fetch when the picker opens)
   useEffect(() => { let alive = true; fetch(apiUrl('/api/reputation/fuses/list-proof')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setLp(x.lists || {})).catch(() => {}); return () => { alive = false; }; }, []);
   useEffect(() => { let alive = true; setRows(null); setWhy('');
@@ -854,14 +854,14 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
     return <svg className={`sp-spark ${pts[pts.length - 1] >= pts[0] ? 'up' : 'dn'}`} viewBox="0 0 60 16" preserveAspectRatio="none" aria-hidden><polyline points={pts.map((v, i) => `${(i / (pts.length - 1) * 60).toFixed(1)},${(15 - (v - lo) / rg * 14).toFixed(1)}`).join(' ')} /></svg>; };
   const fmt = v => (!v ? '—' : v >= 1 ? `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : `$${Number(v).toPrecision(3)}`);
   const big = v => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(0)}K` : `$${Math.round(v || 0)}`);
-  return <div className="sp" data-testid="swap-picker"><header><span className="m-label">{out.seat ? '🪑 FILL THE EMPTY SEAT WITH… ' : `🎯 SWAP $${out.symbol} FOR… `}<small>{out.seat ? 'comes in on the next tick · equal share · live prices' : `goes in ${when === 'now' ? 'right now' : 'at the next round'} · its money moves over · live prices`}</small></span>{!out.seat && <WhenSeg when={when} setWhen={setWhen} />}
+  return <div className="sp" data-testid="swap-picker"><header><span className="m-label">{out.seat ? '🪑 FILL THE EMPTY SEAT WITH… ' : `🎯 SWAP $${out.symbol} FOR… `}<small>{out.seat ? 'comes in on the next tick · equal share · live prices' : '⚡ Swap now = goes in right now · ⏱ = at the round bell · its money moves over · live prices'}</small></span>
     <span className="m-row">{out.swapTo && <button type="button" className="m-btn" disabled={busy} onClick={() => onPick(null)} data-testid="sp-cancel">✕ Cancel → ${out.swapTo.symbol || out.swapTo}</button>}<button type="button" className="m-btn" onClick={onClose} aria-label="Close picker">Close</button></span></header>
     <div className="m-seg sp-lens" role="tablist" aria-label="Lists">{PICK_LENSES.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={!q.trim() && lens === k} className={!q.trim() && lens === k ? 'active' : ''} onClick={() => { setLens(k); setQ(''); }} data-testid={`sp-lens-${k}`}>{l}{lp[k]?.n >= 5 && <i className={`sp-lp ${lp[k].medPct >= 0 ? 'm-pos' : 'm-neg'}`} data-testid={`sp-lp-${k}`}>{lp[k].medPct >= 0 ? '+' : ''}{Math.round(lp[k].medPct)}%</i>}</button>)}</div>
     {!q.trim() && lp[lens] && lens !== 'bottom' && <small className="m-dim sp-tnote" data-testid="sp-list-record">{listRecord(lp[lens])}</small>}
     <input className="m-input sp-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Search any coin — SOL, BTC, ETH, $TICKER, CA" aria-label="Search any coin" data-testid="sp-search" />
     {lens === 'bottom' && !q.trim() && <small className="m-dim sp-tnote" data-testid="sp-bottom-note">🟢 Dips & bottoms in one list: first the coins that ran, gave 30%+ back and now sit at the low of their range without making new lows (deepest and turning first), then today's dip buys — down on the day with buyers back. {bottomRecord(bproof)} A list for you to pick from; the engine does not buy it by itself.</small>}
     {lens === 'trench' && !q.trim() && tr && <small className="m-dim sp-tnote" data-testid="sp-trench-note" data-tip={`${tr.rules}${tr.level ? ` · crowd checks widened ×${tr.level} (safety checks never move)` : ''}`}>🗑 Pick a brand-new coin: tap <b>Pick</b> on any row below. High risk — check the Safety column, keep it to 1–2 coins. Pool floor {big(tr.floor)} · {tr.checked} scanned.</small>}
-    {lens === 'trench' && !q.trim() && call && <TrenchScan call={call} bare onSaved={() => setNonce(n => n + 1)} onPickRow={r => onPick(pickRow({ ...r, score: r.front, soft: true }), when === 'now')} pickBusy={busy} />}
+    {lens === 'trench' && !q.trim() && call && <TrenchScan call={call} bare onSaved={() => setNonce(n => n + 1)} onPickRow={r => onPick(pickRow({ ...r, score: r.front, soft: true }), true)} pickBusy={busy} />}
     {!rows ? <span className="loader" /> : !rows.length ? <small className="m-dim">{lens === 'trench' && !q.trim() ? 'No fresh coin passes the safety checks right now — the scan re-runs every ~2 min. Try 🌊 Volume.' : (why || 'Nothing live here right now — try another list or search.')}</small> :
     <ul>{[...rows].map(r => { const lp = live.get?.(r.pairAddress); const on = have.includes(r.mint);
       const young = verify && r.ageH != null && r.ageH < 1; /* ✅ verified picks: under an hour old cannot go on a real card — shown, sorted last, said up front */ const fl = r.trench ? (tr?.floor || 0) : minLiq; const thin = minLiq > 0 && (r.liq || 0) < fl; const chg = lp?.h1 ?? r.chg1h ?? r.chg;
@@ -870,8 +870,9 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
         <em className={`m-num sp-m5 ${(m5 || 0) >= 0 ? 'm-pos' : 'm-neg'}`} data-tip="Move over the last 5 minutes" data-testid={`sp-m5-${r.symbol}`}><i>5m</i> {m5 == null ? '—' : `${m5 >= 0 ? '+' : ''}${Number(m5).toFixed(1)}%`}</em>
         <em className={`m-num ${(chg || 0) >= 0 ? 'm-pos' : 'm-neg'}`} data-tip="Move over the last hour"><i>1h</i> {chg == null ? '—' : `${chg >= 0 ? '+' : ''}${Number(chg).toFixed(1)}%`}</em>
         <small className="sp-fall" data-testid={r.warn ? `sp-warn-${r.symbol}` : falling ? `sp-fall-${r.symbol}` : undefined} data-tip={r.warn ? `${r.warn} You still can — it is your pick.` : falling ? 'Falling right now (−3% or more in 5 minutes, or −8% or more in the hour). The engine would not buy this with real money; you still can — it is your pick.' : undefined}>{r.warn ? '⚠ creator' : falling ? '⚠ falling' : ''}</small><small className="m-num" data-tip={r.curve ? 'Still on Pump’s launch curve: no pool yet, this is the depth of the curve itself. Tradable, very early, highest risk. Only you can pick it — the engine never buys a curve coin by itself.' : undefined}>{r.curve ? 'curve' : 'pool'} {r.liq > 0 ? big(r.liq) : '—'}</small><small className="m-num">{r.outside ? <i className="sp-soft sp-out" data-testid={`sp-out-${r.symbol}`} data-tip={`Outside your trench filter: ${(r.fails || []).join(' · ')}. Shown only so the list is never empty — it passed the safety checks. Not seated by the engine; yours to pick.`}>not in filter</i> : r.soft ? <i className="sp-soft" data-tip={`Near-miss: inside your filter's age and cap band, every safety check passed, it only missed — ${(r.fails || []).join(' · ')}. Not seated by the engine; yours to pick.`}>near-miss</i> : <>{r.trench && r.holders ? `${r.holders} holders · ` : ''}{r.score != null ? `score ${Number(r.score).toFixed(0)}` : ''}</>}</small>
-        <button type="button" className="m-btn primary" disabled={busy || on || thin || r.impostor || cool[r.mint] > 0} onClick={() => onPick(r, when === 'now')}
-          data-tip={young ? `$${r.symbol} is ${Math.round(r.ageH * 60)} minutes old — you will get a warning to acknowledge, then it goes in` : cool[r.mint] > 0 ? `$${r.symbol} just left this card — you can pick it again in ${cool[r.mint]} round${cool[r.mint] === 1 ? '' : 's'} (no back-to-back)` : thin ? `Pool under your $${Math.round(fl / 1000)}K pick floor — change it in Edit Fuse › Limits (My own pick min pool)` : undefined} data-testid={`sp-pick-${r.symbol}`}>{on ? 'on card' : young ? '⚠ pick' : cool[r.mint] > 0 ? `in ${cool[r.mint]} rnd` : thin ? 'too thin' : r.impostor ? 'lookalike' : 'Swap in'}</button></li>; })}</ul>}
+        <span className="sp-acts"><button type="button" className="m-btn primary" disabled={busy || on || thin || r.impostor || cool[r.mint] > 0} onClick={() => onPick(r, true)}
+          data-tip={young ? `$${r.symbol} is ${Math.round(r.ageH * 60)} minutes old — you will get a warning to acknowledge, then it goes in` : cool[r.mint] > 0 ? `$${r.symbol} just left this card — you can pick it again in ${cool[r.mint]} round${cool[r.mint] === 1 ? '' : 's'} (no back-to-back)` : thin ? `Pool under your $${Math.round(fl / 1000)}K pick floor — change it in Edit Fuse › Limits (My own pick min pool)` : undefined} data-testid={`sp-pick-${r.symbol}`}>{on ? 'on card' : young ? '⚠ swap now' : cool[r.mint] > 0 ? `in ${cool[r.mint]} rnd` : thin ? 'too thin' : r.impostor ? 'lookalike' : out.seat ? '⚡ Fill now' : '⚡ Swap now'}</button>
+          {!out.seat && !on && !thin && !r.impostor && !(cool[r.mint] > 0) && <button type="button" className="m-btn sp-bell" disabled={busy} onClick={() => onPick(r, false)} data-tip="Swap it in at the round bell instead of now" aria-label={`Swap $${r.symbol} in at the bell`} data-testid={`sp-bell-${r.symbol}`}>⏱</button>}</span></li>; })}</ul>}
   </div>;
 }
 

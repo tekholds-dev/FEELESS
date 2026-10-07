@@ -11,15 +11,20 @@ test('coming up: ready coins first with their place in line, then coins being wa
     { mint: 'B', pairAddress: 'pb', symbol: 'NEW', chg1h: 60, vol1h: 120000, tag: '🆕 no chart yet', wait: 'chart too short to read' },
     { mint: 'C', pairAddress: 'pc', symbol: 'DWN', chg1h: 12, vol1h: 40000, wait: 'trending down' }] };
   const swaps = [];
-  await act(async () => { createRoot(el).render(<ComingUp p={p} legs={[{ symbol: 'OLD', pairAddress: 'po' }]} onSwap={(l, r) => swaps.push([l.symbol, r.symbol])} />); });
+  await act(async () => { createRoot(el).render(<ComingUp p={p} legs={[{ symbol: 'OLD', pairAddress: 'po' }]} onSwap={(l, r, now) => swaps.push([l.symbol, r.symbol, now])} />); });
   const t = el.textContent;
   expect(t).toContain('1 READY'); expect(t).toContain('2 WATCHING');
   expect(el.querySelector('[data-testid="up-RDY"]').textContent).toContain('NEXT');
   expect(el.querySelector('[data-testid="up-NEW"]').textContent).toContain('watching — chart too short to read');
   expect(el.querySelector('[data-testid="up-DWN"]').closest('li').className).toContain('is-wait');
-  const sel = el.querySelector('[data-testid="up-swap-NEW"]');                 // the owner can still put a watched coin in by hand
-  await act(async () => { sel.value = 'po'; sel.dispatchEvent(new Event('change', { bubbles: true })); });
-  expect(swaps).toEqual([['OLD', 'NEW']]);
+  await act(async () => { el.querySelector('[data-testid="up-now-NEW"]').click(); });   // ⚡ Swap now: a watched coin can still go in by hand
+  await act(async () => { el.querySelector('[data-testid="up-bell-RDY"]').click(); });  // ⏱ at the bell
+  expect(swaps).toEqual([['OLD', 'NEW', true], ['OLD', 'RDY', false]]);
+  // an empty seat is the default target, filled now
+  const fills = []; const e3 = document.createElement('div'); document.body.appendChild(e3);
+  await act(async () => { createRoot(e3).render(<ComingUp p={p} legs={[{ symbol: 'OLD', pairAddress: 'po' }]} emptySeats={2} onFill={r => fills.push(r.symbol)} onSwap={() => {}} />); });
+  await act(async () => { e3.querySelector('[data-testid="up-now-RDY"]').click(); });
+  expect(fills).toEqual(['RDY']); expect(e3.querySelector('[data-testid="up-bell-RDY"]')).toBeNull();
   const e2 = document.createElement('div'); document.body.appendChild(e2);
   await act(async () => { createRoot(e2).render(<ComingUp p={{ up: [] }} />); });
   expect(e2.textContent).toContain('which filter is holding them');

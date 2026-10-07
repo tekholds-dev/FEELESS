@@ -94,3 +94,24 @@ def test_jupiter_row_becomes_a_dexscreener_shaped_pair_for_the_fallback():
     assert p['pairCreatedAt'] > 0 and p['info']['websites'][0]['url'] == 'https://f.dev' and p['holders'] == 4039
     assert jup_pair({**tok, 'graduatedPool': None})['pairAddress'] == 'CURVE'          # still on its launch curve
     assert jup_pair({**tok, 'usdPrice': 0}) is None and jup_pair({}) is None            # no price = no pair, never a fake one
+
+
+def test_jupiter_lookup_finds_a_coin_by_mint_or_by_any_of_its_pools_and_keeps_the_asked_pool():
+    import asyncio
+    from launchpad_board import jup_lookup, pick_jup_row
+    row = {'id': 'MINT', 'symbol': 'X', 'usdPrice': 1.0, 'graduatedPool': 'GPOOL', 'firstPool': {'id': 'CURVE'}, 'liquidity': 9e4}
+    assert pick_jup_row([row], 'MINT') is row and pick_jup_row([row], 'GPOOL') is row and pick_jup_row([row], 'CURVE') is row
+    assert pick_jup_row([row], 'OTHER') is None
+
+    class R:
+        status_code = 200
+        def json(self):
+            return [row]
+
+    class H:
+        async def get(self, url, params=None, timeout=None):
+            return R()
+    by_pool = asyncio.run(jup_lookup(H(), 'CURVE'))
+    assert by_pool['pairAddress'] == 'CURVE' and by_pool['baseToken']['address'] == 'MINT'   # the caller's pool key still matches
+    assert asyncio.run(jup_lookup(H(), 'MINT'))['pairAddress'] == 'GPOOL'                   # by mint → its graduated pool
+    assert asyncio.run(jup_lookup(H(), 'NOPE')) is None
