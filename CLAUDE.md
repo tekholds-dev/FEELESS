@@ -1791,3 +1791,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (sparks first, card move as tie-break), one ⚡ pip per seat duel (tip = both coins), the bell clock and a one-line 🎙 call.
   "Full fight, table & throne" mounts the old Battlefield underneath (`PitFold b=`; no live pair = the plain show button).
   Points only — never a bet. Max 2 fights on screen, always.
+- 🖼 Share card v3 (`lib/shareGif.js`): `depthFx` under every design, royal included — god-rays turning behind the mark, a
+  perspective floor rolling toward the viewer, twinkling stars, plus one extra per design (royal data rain · blaze embers · ice
+  snow · nebula shooting star; gold's rays are brighter). Fuse shares add: the all-time % beside the big number (`card.bigSub`),
+  four vitals tiles (`fuse.vitals`: put in · in card now · profit pulled · swaps / hour), a move bar under each coin on the mini
+  card and its "$X in → $Y now" foot (`fuse.foot`). The brand moves to one line under the tiles on fuse shares.
+- ⚔ Stage battles show each fighter's REAL Fuse card (`PitFold` builds `cardNode(key, move)` from the Arena cards → `StageBattles`
+  `.sbt-card`, `zoom: .62`, pointer-events none); the emoji is only the fallback for a card that is off the board.
+- 🎬 Live cover: `frontend/public/cover.html` (standalone, served at `/cover.html`; no app code): a 1500 × 500 canvas — turning
+  rays behind the mark, rolling floor, a made-up candle run scrolling by (never a real price), the Fuse helix, the wordmark and
+  taglines — with ⬇ still PNG, ⏺ an 8-second loop recorded to video (MediaRecorder; Chrome) and three palettes.

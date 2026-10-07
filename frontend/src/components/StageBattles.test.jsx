@@ -24,6 +24,9 @@ test('main stage shows at most TWO live fights with corners, rope, spark pips, t
   const f0 = q('stage-fight-0'); expect(f0.textContent).toContain('Alpha'); expect(f0.textContent).toContain('+2.0%'); expect(f0.textContent).toContain('-1.0%');
   expect(f0.querySelector('.sbt-corner.is-a').className).toContain('is-lead'); expect(f0.querySelectorAll('.sbt-pips li.is-a').length).toBe(2); expect(f0.querySelectorAll('.sbt-pips li.is-b').length).toBe(1);
   expect(q('stage-fight-1').querySelector('.sbt-corner.is-b').className).toContain('is-lead'); expect(q('stage-call-1').textContent).toContain('Delta');
+  // each corner shows the fighter's real Fuse card when the card is on the board (an emoji only when it is not)
+  await act(async () => { root.render(<StageBattles b={b} onFull={onFull} cardNode={(key, mom) => (key === 'Alpha' ? <div data-testid="real-card">{key}:{mom}</div> : null)} />); });
+  expect(q('stage-fight-0').querySelector('[data-testid="stage-card-a"] [data-testid="real-card"]').textContent).toBe('Alpha:2'); expect(q('stage-fight-0').querySelector('.sbt-corner.is-b .sbt-emoji')).not.toBeNull();
   await act(async () => { q('stage-battles-full').click(); }); expect(onFull).toHaveBeenCalled();
   await act(async () => { root.render(<StageBattles b={{ pairs: [] }} onFull={onFull} />); }); expect(q('stage-battles')).toBeNull();
   await act(async () => { root.unmount(); });

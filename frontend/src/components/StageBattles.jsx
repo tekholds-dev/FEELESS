@@ -16,17 +16,18 @@ export function fightRead(p) {
   return { a, b, sa, sb, lead, pull, call, seats };
 }
 
-// ⚔ THE TWO LIVE FIGHTS on the Main Stage, as a show you can read at a glance: two corners squaring up, a rope pulled by who is
+// ⚔ THE TWO LIVE FIGHTS on the Main Stage, as a show you can read at a glance: two corners — each fighter's REAL Fuse card
+// (`cardNode(key, move)`, an emoji only when the card is off the board) — squaring up, a rope pulled by who is
 // winning, one spark pip per seat duel, the bell clock and a one-line call. Points only — never a bet. The full fight (reel, duel
 // board, table) opens underneath.
-export function StageBattles({ b, onFull, full }) {
+export function StageBattles({ b, onFull, full, cardNode }) {
   const pairs = (b?.pairs || []).slice(0, 2);
   if (!pairs.length) return null;
   return <section className="sbt" data-testid="stage-battles">
     <header className="sbt-head"><span className="m-label">⚔ LIVE NOW · {pairs.length} {pairs.length === 1 ? 'FIGHT' : 'FIGHTS'}</span>{b.endsAt ? <span className="sbt-bell">🔔 bell in <Countdown at={b.endsAt} /></span> : null}
       <button type="button" className="m-btn sbt-full" onClick={onFull} aria-expanded={!!full} data-testid="stage-battles-full">{full ? 'Hide the full fight' : 'Full fight, table & throne'}</button></header>
     <div className="sbt-row">{pairs.map((p, i) => { const r = fightRead(p);
-      const corner = k => <div className={`sbt-corner is-${k} ${r.lead === k ? 'is-lead' : r.lead ? 'is-behind' : ''}`}><i className="sbt-emoji" aria-hidden>{p[k].emoji || '🃏'}</i>{r.lead === k && <u className="sbt-crown" aria-label="leading">👑</u>}
+      const corner = k => <div className={`sbt-corner is-${k} ${r.lead === k ? 'is-lead' : r.lead ? 'is-behind' : ''}`}>{(() => { const node = cardNode ? cardNode(p[k].key, r[k]) : null; return node ? <span className="sbt-card" data-testid={`stage-card-${k}`}>{node}</span> : <i className="sbt-emoji" aria-hidden>{p[k].emoji || '🃏'}</i>; })()}{r.lead === k && <u className="sbt-crown" aria-label="leading">👑</u>}
         <b data-tip={p[k].name}>{short(p[k].name)}</b><em className={`m-num ${r[k] >= 0 ? 'm-pos' : 'm-neg'}`} key={sg(r[k])}>{sg(r[k])}</em><small>{k === 'a' ? r.sa : r.sb} ⚡ sparks</small></div>;
       return <article key={`${p.a.key}-${p.b.key}`} className="sbt-fight" style={{ '--i': i }} data-testid={`stage-fight-${i}`}>
         <i className="sbt-glow" aria-hidden /><span className="sbt-tag">FIGHT {i + 1}</span>

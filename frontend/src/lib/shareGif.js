@@ -22,6 +22,31 @@ const THEMES = {
   synth: { base: '#0a0216', pools: ['255,60,190', '60,220,255'], fade: 'rgba(10,2,22,0)', flare: '255,200,240', spark: '120,240,255', kicker: '#ff9be0', big: '#ff5fd2', brand: '#3cdcff', frame: 'rgba(255,95,210,.6)', panel: 'rgba(14,4,30,.58)', text: '#f6e3ff', foot: '#a98fc4' },
 };
 
+// 🌌 DEPTH for every design (royal too), under its signature effect: god-rays turning behind the mark, a perspective floor that
+// scrolls toward the viewer, twinkling stars — then one extra per design (data rain · sunburst · embers · snow · a shooting star).
+// All loop-safe in t (whole turns per loop).
+function depthFx(g, theme, P, t, seed) {
+  const T = Math.PI * 2; const cx = W * 0.8, cy = H * 0.3;
+  g.save(); g.translate(cx, cy); g.rotate(t * T / 12);
+  for (let i = 0; i < 12; i++) { g.rotate(T / 12); const gr = g.createLinearGradient(0, 0, 520, 0); gr.addColorStop(0, `rgba(${P.flare},${theme === 'gold' ? 0.2 : 0.11})`); gr.addColorStop(1, `rgba(${P.flare},0)`);
+    g.fillStyle = gr; g.beginPath(); g.moveTo(0, 0); g.lineTo(520, -30); g.lineTo(520, 30); g.closePath(); g.fill(); }
+  g.restore();
+  if (theme !== 'synth') { const hz = H * 0.7; g.strokeStyle = `rgba(${P.pools[0]},.2)`; g.lineWidth = 1;   // floor (synth draws its own)
+    for (let i = 0; i < 7; i++) { const y = hz + ((i + t) % 7) ** 2 * 3.1; g.globalAlpha = Math.min(1, (y - hz) / 60); g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+    g.globalAlpha = 1; for (let i = -7; i <= 7; i++) { g.beginPath(); g.moveTo(W / 2 + i * 26, hz); g.lineTo(W / 2 + i * 150, H); g.stroke(); } }
+  for (let i = 0; i < 26; i++) { const a = 0.15 + 0.6 * Math.abs(Math.sin((t * 2 + seed[i + 60]) * T)); g.fillStyle = `rgba(${P.flare},${a})`; g.fillRect(seed[i + 30] * W, seed[i + 4] * H * 0.66, 1.6, 1.6); }
+  if (!THEMES[theme]) {            // royal: data rain
+    for (let i = 0; i < 14; i++) { const x = seed[i] * W; const y = ((seed[i + 14] + t * (1 + (i % 3))) % 1) * (H + 80) - 80; const gr = g.createLinearGradient(x, y, x, y + 70); gr.addColorStop(0, `rgba(${P.spark},0)`); gr.addColorStop(1, `rgba(${P.spark},.5)`); g.fillStyle = gr; g.fillRect(x, y, 2, 70); }
+  } else if (theme === 'blaze') {  // embers with tails
+    for (let i = 0; i < 22; i++) { const x = (seed[i] * W + 30 * Math.sin((t + seed[i]) * T)) % W; const y = H - ((seed[i + 22] + t * (1 + (i % 2))) % 1) * H; g.fillStyle = `rgba(255,${150 + (i % 5) * 20},60,${0.25 + 0.6 * (y / H)})`; g.fillRect(x, y, 2.4, 7); }
+  } else if (theme === 'ice') {    // snow
+    for (let i = 0; i < 34; i++) { const x = (seed[i] * W + 22 * Math.sin((t * 2 + seed[i + 34]) * T) + W) % W; const y = ((seed[i + 34] + t * (1 + (i % 2))) % 1) * H; g.fillStyle = `rgba(${P.flare},.7)`; g.beginPath(); g.arc(x, y, 1 + (i % 3) * 0.7, 0, T); g.fill(); }
+  } else if (theme === 'nebula') { // one shooting star per loop
+    const k = (t * 1.6) % 1; const x = W * (0.2 + k * 0.7), y = H * (0.12 + k * 0.3); const gr = g.createLinearGradient(x - 90, y - 38, x, y); gr.addColorStop(0, `rgba(${P.flare},0)`); gr.addColorStop(1, `rgba(${P.flare},${0.9 * Math.sin(k * Math.PI)})`);
+    g.strokeStyle = gr; g.lineWidth = 2.2; g.beginPath(); g.moveTo(x - 90, y - 38); g.lineTo(x, y); g.stroke();
+  }
+}
+
 // One signature effect per design (drawn under the panel; cheap canvas strokes, loop-safe in t).
 function designFx(g, theme, P, t, seed) {
   const T = Math.PI * 2;
@@ -67,7 +92,10 @@ function drawFuseCard(g, fz, imgs, t) {
     g.restore(); g.strokeStyle = c.locked ? '#f5c451' : a1; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, r, 0, T); g.stroke(); });
   coins.forEach((c, i) => { const y = 134 + i * 26; const up = (c.pct || 0) >= 0;
     g.fillStyle = '#fff'; g.font = '700 13px "Space Grotesk", sans-serif'; g.fillText(`${c.locked ? '🔒 ' : ''}$${String(c.symbol || '').slice(0, 9)}`, 14, y);
-    g.fillStyle = up ? '#45e486' : '#ff8fa3'; g.font = '700 13px "JetBrains Mono", monospace'; g.textAlign = 'right'; g.fillText(`${up ? '+' : ''}${Number(c.pct || 0).toFixed(1)}%`, cw - 14, y); g.textAlign = 'left'; });
+    g.fillStyle = up ? '#45e486' : '#ff8fa3'; g.font = '700 13px "JetBrains Mono", monospace'; g.textAlign = 'right'; g.fillText(`${up ? '+' : ''}${Number(c.pct || 0).toFixed(1)}%`, cw - 14, y); g.textAlign = 'left';
+    const mx = Math.max(5, ...coins.map(k => Math.abs(k.pct || 0))); g.fillStyle = 'rgba(255,255,255,.08)'; g.fillRect(14, y + 6, cw - 28, 3);   /* how big each coin's move is, at a glance */
+    g.fillStyle = up ? '#45e486' : '#ff8fa3'; g.fillRect(14, y + 6, (cw - 28) * Math.min(1, Math.abs(c.pct || 0) / mx) * ease(Math.min(1, t * 3 + 0.35)), 3); });
+  if (fz.foot) { g.fillStyle = 'rgba(255,255,255,.06)'; g.beginPath(); g.roundRect(10, ch - 34, cw - 20, 24, 8); g.fill(); g.fillStyle = 'rgba(255,255,255,.85)'; g.font = '700 11px "JetBrains Mono", monospace'; g.textAlign = 'center'; g.fillText(String(fz.foot).slice(0, 26), cw / 2, ch - 18); g.textAlign = 'left'; }
   g.restore();
 }
 
@@ -83,6 +111,7 @@ function frame(g, card, logo, coin, t, seed, s = 1) {
   fl.addColorStop(0, `rgba(${P.flare},0)`); fl.addColorStop(0.5, `rgba(${P.flare},.28)`); fl.addColorStop(1, `rgba(${P.flare},0)`); g.fillStyle = fl; g.fillRect(0, 0, W, H);
   // Sparks drifting upward.
   for (let i = 0; i < 46; i++) { const px = ((seed[i] * W) + t * 40 * (i % 3 + 1)) % W; const py = H - ((seed[i + 46] * H + t * H * (0.6 + seed[i] * 0.8)) % H); const a = 0.35 + 0.65 * Math.abs(Math.sin((t + seed[i]) * Math.PI * 2)); g.fillStyle = `rgba(${P.spark},${a})`; g.beginPath(); g.arc(px, py, 1 + seed[i + 20] * 2.2, 0, Math.PI * 2); g.fill(); }
+  depthFx(g, card.theme, P, t, seed);
   if (THEMES[card.theme]) designFx(g, card.theme, P, t, seed);
   // Film grain: keeps gradients smooth in 256 colours (and makes the loop feel alive).
   const img = g.getImageData(0, 0, W * s, H * s); const d = img.data;
@@ -99,7 +128,13 @@ function frame(g, card, logo, coin, t, seed, s = 1) {
   g.fillStyle = '#ffffff'; g.font = '800 34px "Space Grotesk", sans-serif'; g.fillText(card.title, (coin && !fz ? 134 : 56) + ox, 114);
   const k = ease(Math.min(1, t * 2.2)); const big = card.bigValue != null ? `${card.bigPrefix || ''}${(card.bigValue * k).toFixed(card.bigDigits ?? 1)}${card.bigSuffix || ''}` : card.big;
   g.font = '400 76px "Bungee", sans-serif'; g.fillStyle = P.big; g.shadowColor = g.fillStyle; g.shadowBlur = 18 + 10 * Math.sin(t * Math.PI * 4); g.font = fz ? '400 60px "Bungee", sans-serif' : g.font; g.fillText(big, 54 + ox, 228); g.shadowBlur = 0;
-  g.font = '500 17px "Space Grotesk", sans-serif'; g.fillStyle = P.text; (card.lines || []).slice(0, 3).forEach((l, i) => g.fillText(l, 56 + ox, 274 + i * 26));
+  if (card.bigSub) { const bw = g.measureText(big).width; g.font = '700 20px "JetBrains Mono", monospace'; g.fillStyle = P.text; g.fillText(card.bigSub, 54 + ox + bw + 12, 226); }
+  const vit = fz ? (fz.vitals || []).slice(0, 4) : [];
+  g.font = `500 ${vit.length ? 15 : 17}px "Space Grotesk", sans-serif`; g.fillStyle = P.text; (card.lines || []).slice(0, 3).forEach((l, i) => g.fillText(l, 56 + ox, (vit.length ? 258 : 274) + i * (vit.length ? 21 : 26)));
+  // 🧮 the card's vitals in four tiles (fuse shares): put in · in the card now · profit pulled · swaps
+  vit.forEach((v, i) => { const x = 56 + ox + i * 93, y = 292; g.fillStyle = 'rgba(255,255,255,0.08)'; g.beginPath(); g.roundRect(x, y, 87, 40, 9); g.fill();
+    g.fillStyle = 'rgba(255,255,255,0.55)'; g.font = '600 9px "Space Grotesk", sans-serif'; g.fillText(String(v.label).toUpperCase().slice(0, 14), x + 8, y + 14);
+    g.fillStyle = v.tone === 'bad' ? '#ff8fa3' : v.tone === 'ok' ? '#45e486' : '#ffffff'; g.font = '700 15px "JetBrains Mono", monospace'; g.fillText(String(v.value).slice(0, 9), x + 8, y + 32); });
   // Stats panel (case files): up to 6 labelled pills, 2 columns, coloured by verdict (ok = mint, bad = red).
   (card.stats || []).slice(0, 6).forEach((s, i) => {
     const x = 392 + (i % 2) * 150, y = 136 + Math.floor(i / 2) * 50;
@@ -119,8 +154,9 @@ function frame(g, card, logo, coin, t, seed, s = 1) {
     g.globalAlpha = 1;
   }
   // Brand mark.
-  g.font = '400 20px "Bungee", sans-serif'; g.fillStyle = P.brand; g.fillText(card.mascot ? 'FEECAT' : 'FEELESS', W - 190, H - 52);
-  g.font = '500 12px "Space Grotesk", sans-serif'; g.fillStyle = P.foot; g.fillText(card.footer || 'feeless · non-custodial trading', W - 262, H - 34);
+  const by = vit.length ? H - 42 : H - 52;   /* fuse shares: the brand sits on one line under the vitals */
+  g.font = '400 20px "Bungee", sans-serif'; g.fillStyle = P.brand; g.fillText(card.mascot ? 'FEECAT' : 'FEELESS', W - 190, by);
+  g.font = '500 12px "Space Grotesk", sans-serif'; g.fillStyle = P.foot; if (vit.length) g.fillText(card.footer || 'feeless', 56 + ox, by - 2); else g.fillText(card.footer || 'feeless · non-custodial trading', W - 262, H - 34);
 }
 
 // 🖼 The STILL share card (the default): the same card at 2× (1440×810 PNG), drawn once — instant, crisp, small. On top of the

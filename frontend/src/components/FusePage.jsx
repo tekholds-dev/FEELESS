@@ -255,8 +255,11 @@ export const arenaZone = search => { const q = new URLSearchParams(search || '')
 
 // ⚔ The card battles are a show, not a tool: folded by default (owner cut, 2026-10-06). Closed = its content is not mounted, so
 // none of its animations run. `zone=all` (tests) opens it.
-function PitFold({ children, b }) { const [open, setOpen] = useState(() => new URLSearchParams(window.location.search).get('zone') === 'all'); const live = (b?.pairs || []).length > 0;
-  return <section className="pit-fold" data-testid="pit-fold">{live ? <StageBattles b={b} full={open} onFull={() => setOpen(o => !o)} />
+function PitFold({ children, b, cards = [] }) { const [open, setOpen] = useState(() => new URLSearchParams(window.location.search).get('zone') === 'all'); const live = (b?.pairs || []).length > 0;
+  // each corner shows the fighter's REAL Fuse card (its coins, design, aura) — the same card the full fight uses
+  const cardNode = (key, mom) => { const c = cards.find(x => `${x.kind}:${x.id}` === key); return c?.legs?.length ? <FuseCard c={{ pools: c.legs.map(l => l.pairAddress), fitness: c.activity?.score || 0, bornGen: c.legs.length, legs: c.legs,
+    parts: { grade: c.grade || 'B', aprScore: 0, momentum24h: mom || 0, calm: '—', feeDragPct: 0, impactLegs: 0 } }} style={DIAL_STYLE[c.dial] || 'momentum'} rank={0} budget={20} aura="" /> : null; };
+  return <section className="pit-fold" data-testid="pit-fold">{live ? <StageBattles b={b} full={open} onFull={() => setOpen(o => !o)} cardNode={cardNode} />
     : <button type="button" className="m-btn pit-fold-btn" onClick={() => setOpen(o => !o)} aria-expanded={open} data-testid="pit-fold-btn">⚔ Card battles & league {open ? '— hide' : '— show'}</button>}{open && children}</section>; }
 
 export function ArenaBoard({ onPicks, onLoad }) {
@@ -279,7 +282,7 @@ export function ArenaBoard({ onPicks, onLoad }) {
     <div key={zone} className="az-pane" data-testid={`az-pane-${zone}`}>
     {on('prime') && <ArenaPrime onLoad={legs => onLoad?.(legs)} />}
     {on('gauntlet') && <><ArenaContenders /><FuseSeason /></>}
-    {on('pit') && <PitFold b={a?.battles}>{a?.battles?.pairs?.length > 0 ? <Battlefield b={a.battles} cards={[...mega, ...(a.bench || []), ...(a.fighters || [])]} onLoad={onLoad} />
+    {on('pit') && <PitFold b={a?.battles} cards={[...mega, ...(a?.bench || []), ...(a?.fighters || [])]}>{a?.battles?.pairs?.length > 0 ? <Battlefield b={a.battles} cards={[...mega, ...(a.bench || []), ...(a.fighters || [])]} onLoad={onLoad} />
       : a && <p className="m-dim ar-none">Between fights — the next bell pairs the hottest cards.</p>}</PitFold>}
     {on('pit') && <><header className="ar-head m-card m-live"><span className="m-label">🏟 MAIN STAGE · LIVE</span><h2>Cards that made it.</h2>
       <p className="m-dim">FEELESS cards, runner cards that lit after their rounds, and every trader's open card until it's withdrawn — every one fights in The Pit. The more real activity a card has (FEELESS buys, buyers, $ flow, how far it moved) the hotter it burns.</p>

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FEELESS · live cover</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root { color-scheme: dark; } body { margin: 0; min-height: 100vh; display: grid; place-content: center; gap: 14px; background: #030806; color: #cfe3d8; font: 13px "JetBrains Mono", monospace; padding: 16px; }
+  canvas { width: min(1500px, 96vw); aspect-ratio: 3 / 1; border-radius: 14px; border: 1px solid #15d16a44; box-shadow: 0 30px 80px -40px #15d16a; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; } small { opacity: .7; }
+  button { height: 34px; padding: 0 14px; border-radius: 9px; border: 1px solid #15d16a; background: #15d16a; color: #04140b; font: 700 12px "JetBrains Mono", monospace; cursor: pointer; transition: transform .1s ease, box-shadow .15s ease; }
+  button.alt { background: #0a1210; color: #b9cdc2; border-color: #203129; } button:hover { box-shadow: 0 0 16px -4px #15d16a; } button:active { transform: translateY(1px); } button:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; } button:disabled { opacity: .5; cursor: wait; }
+</style></head>
+<body>
+<canvas id="c" width="1500" height="500" aria-label="FEELESS live cover, 1500 by 500"></canvas>
+<div class="bar"><button id="png">⬇ Download still (PNG)</button><button id="rec" class="alt">⏺ Record 8s live loop (video)</button><button id="pal" class="alt">🎨 Royal</button>
+  <small id="note">1500 × 500 — the size X and most profile headers use. The loop repeats every 8 seconds.</small></div>
+<script>
+(() => {
+  const c = document.getElementById('c'), g = c.getContext('2d'), W = 1500, H = 500, T = Math.PI * 2, LOOP = 8000;
+  const seed = Array.from({ length: 400 }, (_, i) => Math.abs(Math.sin(i * 12.9898) * 43758.5453) % 1);
+  const PALS = [['Royal', '#15d16a', '21,209,106', '#020d08', '160,110,255'], ['Blaze', '#ff9a3c', '255,122,47', '#120603', '255,61,90'], ['Nebula', '#b98cff', '160,110,255', '#07030f', '60,220,255']];
+  let pi = 0; const logo = new Image(); logo.src = '/assets/feeless-logo.png';
+  // a made-up candle run that climbs, loops cleanly, and never shows a real price
+  const candles = Array.from({ length: 64 }, (_, i) => { const base = 0.5 + 0.28 * Math.sin(i / 64 * T) + 0.12 * Math.sin(i / 64 * T * 3 + 1); const o = base + (seed[i] - 0.5) * 0.08; const cl = base + (seed[i + 64] - 0.5) * 0.08 + 0.02; return [o, cl, Math.max(o, cl) + seed[i + 128] * 0.05, Math.min(o, cl) - seed[i + 192] * 0.05]; });
+  function draw(ms) {
+    const t = (ms % LOOP) / LOOP; const [, acc, rgb, base, rgb2] = PALS[pi];
+    g.fillStyle = base; g.fillRect(0, 0, W, H);
+    for (const [x, y, r, col, a] of [[W * (0.22 + 0.06 * Math.cos(t * T)), H * 0.3, 620, rgb, 0.42], [W * (0.82 - 0.05 * Math.sin(t * T)), H * 0.8, 560, rgb2, 0.3]]) { const rg = g.createRadialGradient(x, y, 0, x, y, r); rg.addColorStop(0, `rgba(${col},${a})`); rg.addColorStop(1, `rgba(${col},0)`); g.fillStyle = rg; g.fillRect(0, 0, W, H); }
+    g.save(); g.translate(W * 0.2, H * 0.5); g.rotate(t * T / 14);                       // rays turning behind the mark
+    for (let i = 0; i < 14; i++) { g.rotate(T / 14); const gr = g.createLinearGradient(0, 0, 900, 0); gr.addColorStop(0, `rgba(${rgb},.16)`); gr.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = gr; g.beginPath(); g.moveTo(0, 0); g.lineTo(900, -34); g.lineTo(900, 34); g.closePath(); g.fill(); }
+    g.restore();
+    const hz = H * 0.66; g.strokeStyle = `rgba(${rgb},.22)`; g.lineWidth = 1.2;           // floor rolling toward the viewer
+    for (let i = 0; i < 9; i++) { const y = hz + ((i + t * 2) % 9) ** 2 * 2.3; g.globalAlpha = Math.min(1, (y - hz) / 70); g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+    g.globalAlpha = 1; for (let i = -14; i <= 14; i++) { g.beginPath(); g.moveTo(W / 2 + i * 34, hz); g.lineTo(W / 2 + i * 190, H); g.stroke(); }
+    const cw = 13, x0 = 640, ch = 250, y0 = 96, shift = t * 64;                           // candles scrolling right → left
+    for (let k = 0; k < 64; k++) { const i = (k + Math.floor(shift)) % 64; const [o, cl, hi, lo] = candles[i]; const x = x0 + (k - (shift % 1)) * cw; const up = cl >= o; const Y = v => y0 + ch * (1 - v);
+      const edge = Math.min(1, k / 8, (63 - k) / 8); g.globalAlpha = 0.85 * Math.max(0, edge); g.strokeStyle = g.fillStyle = up ? acc : '#ff8fa3'; g.lineWidth = 1.4;
+      g.beginPath(); g.moveTo(x + 4, Y(hi)); g.lineTo(x + 4, Y(lo)); g.stroke(); g.fillRect(x, Math.min(Y(o), Y(cl)), 8, Math.max(2, Math.abs(Y(o) - Y(cl)))); }
+    g.globalAlpha = 1;
+    for (let i = 0; i < 90; i++) { const x = (seed[i] * W + t * 60 * (1 + (i % 3))) % W; const y = H - ((seed[i + 90] + t * (1 + (i % 2))) % 1) * H; g.fillStyle = `rgba(${i % 4 ? rgb : rgb2},${0.25 + 0.6 * Math.abs(Math.sin((t * 2 + seed[i]) * T))})`; g.beginPath(); g.arc(x, y, 1 + seed[i + 180] * 2, 0, T); g.fill(); }
+    for (let i = 0; i < 18; i++) { const ph = t * T * 2 + i * 0.55; const x = 1270 + Math.sin(ph) * 46, y = 70 + i * 21; const x2 = 1270 - Math.sin(ph) * 46; const z = Math.cos(ph);   // the Fuse helix, turning
+      g.strokeStyle = `rgba(${rgb},.3)`; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x, y); g.lineTo(x2, y); g.stroke();
+      g.fillStyle = `rgba(${rgb},${0.55 + 0.4 * z})`; g.beginPath(); g.arc(x, y, 5 + 2 * z, 0, T); g.fill(); g.fillStyle = `rgba(${rgb2},${0.55 - 0.4 * z})`; g.beginPath(); g.arc(x2, y, 5 - 2 * z, 0, T); g.fill(); }
+    const pulse = 1 + 0.04 * Math.sin(t * T * 2);                                         // mark + wordmark
+    if (logo.complete && logo.naturalWidth) { g.save(); g.shadowColor = acc; g.shadowBlur = 50 + 20 * Math.sin(t * T * 2); g.drawImage(logo, 96 - 120 * (pulse - 1), 110 - 120 * (pulse - 1), 240 * pulse, 240 * pulse); g.restore(); }
+    g.textBaseline = 'alphabetic'; g.shadowColor = acc; g.shadowBlur = 26; g.fillStyle = '#fff'; g.font = '400 118px "Bungee", sans-serif'; g.fillText('FEELESS', 356, 252); g.shadowBlur = 0;
+    g.fillStyle = acc; g.font = '700 30px "JetBrains Mono", monospace'; g.fillText('LESS NOISE. MORE ALPHA.', 362, 304);
+    g.fillStyle = 'rgba(255,255,255,.82)'; g.font = '500 22px "JetBrains Mono", monospace'; g.fillText('MANY COINS, ONE FUSE  ·  NON-CUSTODIAL  ·  SOLANA', 362, 344);
+    g.fillStyle = acc; g.beginPath(); g.arc(372, 386, 6 + 2 * Math.sin(t * T * 4), 0, T); g.fill(); g.fillStyle = 'rgba(255,255,255,.7)'; g.font = '700 16px "JetBrains Mono", monospace'; g.fillText('LIVE', 388, 392);
+    g.strokeStyle = `rgba(${rgb},.5)`; g.lineWidth = 3; g.lineCap = 'round';                // corner brackets
+    for (const [x, y, dx, dy] of [[26, 26, 1, 1], [W - 26, 26, -1, 1], [26, H - 26, 1, -1], [W - 26, H - 26, -1, -1]]) { g.beginPath(); g.moveTo(x + 34 * dx, y); g.lineTo(x, y); g.lineTo(x, y + 34 * dy); g.stroke(); }
+  }
+  let raf = 0; const tick = ms => { draw(ms); raf = requestAnimationFrame(tick); }; raf = requestAnimationFrame(tick);
+  const save = (blob, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
+  document.getElementById('png').onclick = () => c.toBlob(b => b && save(b, 'feeless-cover.png'), 'image/png');
+  document.getElementById('pal').onclick = e => { pi = (pi + 1) % PALS.length; e.target.textContent = `🎨 ${PALS[pi][0]}`; };
+  document.getElementById('rec').onclick = e => { const note = document.getElementById('note');
+    if (!c.captureStream || !window.MediaRecorder) { note.textContent = 'This browser cannot record the canvas — use Chrome, or screen-record this page.'; return; }
+    const rec = new MediaRecorder(c.captureStream(30), { videoBitsPerSecond: 8e6 }); const parts = []; rec.ondataavailable = x => x.data.size && parts.push(x.data);
+    rec.onstop = () => { save(new Blob(parts, { type: rec.mimeType || 'video/webm' }), 'feeless-cover-live.webm'); e.target.disabled = false; e.target.textContent = '⏺ Record 8s live loop (video)'; };
+    e.target.disabled = true; e.target.textContent = '⏺ recording…'; rec.start(); setTimeout(() => rec.stop(), LOOP + 80); };
+})();
+</script></body></html>
