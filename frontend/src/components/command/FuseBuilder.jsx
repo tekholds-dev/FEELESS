@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import NumInput from '../NumInput';
 import { toast } from 'sonner';
 import { apiUrl } from '../../lib/api';
 
@@ -35,9 +36,9 @@ export function FuseBuilder({ call }) {
     <div className="m-card fz-draft"><div className="m-row"><input className="m-input fz-emoji-in" value={draft.emoji} onChange={e => setDraft({ ...draft, emoji: e.target.value })} aria-label="Emoji" />
       <input className="m-input" placeholder="Fuse name (e.g. FEE Core)" value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} aria-label="Name" />
       <input className="m-input" placeholder="Tagline" value={draft.tagline} onChange={e => setDraft({ ...draft, tagline: e.target.value })} aria-label="Tagline" />
-      <label className="m-field"><span>Creator cut of fees %</span><input className="m-input" type="number" min="0" max={(d?.maxCreatorBps || 5000) / 100} value={draft.creatorBps / 100} onChange={e => setDraft({ ...draft, creatorBps: Math.round(Number(e.target.value) * 100) })} /></label></div>
+      <label className="m-field"><span>Creator cut of fees %</span><NumInput className="m-input" type="number" min="0" max={(d?.maxCreatorBps || 5000) / 100} value={draft.creatorBps / 100} onChange={e => setDraft({ ...draft, creatorBps: Math.round(Number(e.target.value) * 100) })} /></label></div>
       {draft.legs.map((l, i) => <div key={l.pairAddress} className="m-row fz-draft-leg"><b>{l.symbol}</b><small className="m-dim">{l.meta ? `${usd(l.meta.liquidityUsd)} liq · ${usd(l.meta.volume24h)} vol · ${l.meta.aprEst}% APR est.` : ''}</small>
-        <label className="m-field"><span>Weight</span><input className="m-input" type="number" min="1" value={l.weight} onChange={e => setDraft({ ...draft, legs: draft.legs.map((x, j) => (j === i ? { ...x, weight: Number(e.target.value) } : x)) })} /></label>
+        <label className="m-field"><span>Weight</span><NumInput className="m-input" type="number" min="1" value={l.weight} onChange={e => setDraft({ ...draft, legs: draft.legs.map((x, j) => (j === i ? { ...x, weight: Number(e.target.value) } : x)) })} /></label>
         <button type="button" className="m-btn danger" onClick={() => setDraft({ ...draft, legs: draft.legs.filter((_, j) => j !== i) })} aria-label="Remove pool">✕</button></div>)}
       <input className="m-input" placeholder="Search pools: SOL USDC, FEE, a ticker or address…" value={q} onChange={e => setQ(e.target.value)} aria-label="Search pools" data-testid="fuse-search" />
       {found.length > 0 && <div className="fz-found">{found.map(p => <button type="button" key={p.pairAddress} className="qb-tile" onClick={() => add(p)}><span><b>{p.symbol}/{p.quote} · {p.chainId}</b><small>{usd(p.liquidityUsd)} liq · {usd(p.volume24h)} vol · {p.aprEst}% APR est. · {p.turnover}× turnover · {p.dex}</small></span></button>)}</div>}

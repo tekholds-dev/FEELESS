@@ -1,4 +1,5 @@
 import '../../styles/fusePage.css';
+import NumInput from '../NumInput';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
@@ -29,7 +30,7 @@ export function RunnerSettings({ call }) {
   const save = async reset => { try { const x = await call('/admin/runners/config', { method: 'POST', body: JSON.stringify(reset ? { reset: true } : { cfg }) }); setCfg(x.cfg); toast.success(reset ? 'Runner settings reset' : 'Runner settings saved — next round uses them'); } catch (e) { toast.error(e.message); } };
   return <details className="m-card rn-settings" data-testid="runner-settings"><summary><span className="m-label">⚙ RUNNER SETTINGS</span> <small className="m-dim">gates · lane exits · light-up</small></summary>
     {(() => { const field = k => { const [lo, hi] = d.ranges[k]; return <label key={k} className="m-field"><span>{LABELS[k][0]} {LABELS[k][1] && <em>({LABELS[k][1]})</em>}</span>
-      <input className="m-input m-num" type="number" min={lo} max={hi} value={cfg[k] ?? ''} onChange={e => setCfg({ ...cfg, [k]: Number(e.target.value) })} data-testid={`rn-${k}`} /><small className="m-dim">{lo}–{hi} · default {d.defaults[k]}</small></label>; };
+      <NumInput className="m-input m-num" type="number" min={lo} max={hi} value={cfg[k] ?? ''} onChange={e => setCfg({ ...cfg, [k]: Number(e.target.value) })} data-testid={`rn-${k}`} /><small className="m-dim">{lo}–{hi} · default {d.defaults[k]}</small></label>; };
       const all = Object.keys(LABELS).filter(k => k in (d.ranges || {})); const vital = RUNNER_VITAL.filter(k => all.includes(k)); const rest = all.filter(k => !vital.includes(k));
       return <><small className="m-dim">The seven numbers that decide which coins pass. The ⚡ funnel above shows what each gate is stopping right now.</small>
         <div className="m-grid" data-testid="rn-vital">{vital.map(field)}</div>
@@ -44,7 +45,7 @@ export function AutoYieldDefault({ call }) {
   const save = async next => { try { setV(await call('/admin/fuses/auto-yield', { method: 'POST', body: JSON.stringify(next) })); toast.success(next.on ? `New cards auto-collect at +${next.at}%` : 'Auto-collect default off'); } catch (e) { toast.error(e.message); } };
   return <div className="m-card m-row ay-default" data-testid="auto-yield-default"><span className="m-label">💸 AUTO-COLLECT DEFAULT</span>
     <label className="m-toggle"><input type="checkbox" checked={v.on} onChange={e => save({ ...v, on: e.target.checked })} />Arm on every new card</label>
-    <label className="m-field"><span>at +%</span><input className="m-input m-num" type="number" min="10" max="1000" value={v.at} onChange={e => setV({ ...v, at: Number(e.target.value) })} onBlur={() => save(v)} /></label>
+    <label className="m-field"><span>at +%</span><NumInput className="m-input m-num" type="number" min="10" max="1000" value={v.at} onChange={e => setV({ ...v, at: Number(e.target.value) })} onBlur={() => save(v)} /></label>
     <small className="m-dim">Example: a $100 card hits <b className="m-pos">${(100 * (1 + v.at / 100)).toFixed(0)}</b> → the holder gets ONE alert with “Collect ${(v.at).toFixed(0)} profit” pre-filled (sells only the ${v.at.toFixed(0)} gain, the $100 keeps riding). They approve it; they can switch it off per card. FEELESS never signs.</small></div>;
 }
 
@@ -60,10 +61,10 @@ export function BundlePricing({ call, initial, swapBps = 0 }) {
   return <div className="cc-block fee-bundle" data-testid="bundle-pricing"><h4>6 · Card bundle pricing (Fuse &amp; runners)</h4>
     <label className="cc-check"><input type="checkbox" checked={b.on} onChange={e => set('on', e.target.checked)} />Flat price per coin when a card is bought all at once</label>
     <div className="cc-mini-grid">
-      <label>$ per coin / pool<input type="number" step="0.01" min="0" max="5" value={b.perLegUsd} onChange={e => set('perLegUsd', Number(e.target.value))} data-testid="bundle-per-leg" /></label>
-      <label>Never more than (% of a leg)<input type="number" step="0.1" min="0.1" max="20" value={b.maxPct} onChange={e => set('maxPct', Number(e.target.value))} /></label>
-      <label>Flat price for legs up to ($)<input type="number" min="1" max="10000" value={b.maxLegUsd} onChange={e => set('maxLegUsd', Number(e.target.value))} /></label>
-      <label data-tip="Every later card swap / sell / switch (rotation, collect, withdraw) pays this per coin instead of a %">$ per card swap / sell (per coin)<input type="number" step="0.01" min="0" max="5" value={b.swapUsd ?? 0.1} onChange={e => set('swapUsd', Number(e.target.value))} data-testid="bundle-swap-usd" /></label></div>
+      <label>$ per coin / pool<NumInput type="number" step="0.01" min="0" max="5" value={b.perLegUsd} onChange={e => set('perLegUsd', Number(e.target.value))} data-testid="bundle-per-leg" /></label>
+      <label>Never more than (% of a leg)<NumInput type="number" step="0.1" min="0.1" max="20" value={b.maxPct} onChange={e => set('maxPct', Number(e.target.value))} /></label>
+      <label>Flat price for legs up to ($)<NumInput type="number" min="1" max="10000" value={b.maxLegUsd} onChange={e => set('maxLegUsd', Number(e.target.value))} /></label>
+      <label data-tip="Every later card swap / sell / switch (rotation, collect, withdraw) pays this per coin instead of a %">$ per card swap / sell (per coin)<NumInput type="number" step="0.01" min="0" max="5" value={b.swapUsd ?? 0.1} onChange={e => set('swapUsd', Number(e.target.value))} data-testid="bundle-swap-usd" /></label></div>
     <ul className="bundle-ex">{[[1, 3], [20, 3], [100, 6]].map(([usd, n]) => { const leg = usd / n; const fee = bundleExample(b, leg, swapBps) * n;
       return <li key={usd}><b>${usd} card · {n} coins</b><span className="m-num">${fee.toFixed(3)} total</span><small>{((fee / usd) * 100).toFixed(2)}%</small></li>; })}
       <li className="is-free"><b>HQ card · 12 coins</b><span className="m-num">$0 FEELESS</span><small>network + partner fees only</small></li></ul>
@@ -79,7 +80,7 @@ export function RoundsPricing({ call, initial }) {
   return <div className="cc-block fee-bundle" data-testid="rounds-pricing"><h4>7 · Card rounds (auto rotations)</h4>
     <small className="cc-empty">Every card runs <b>5 auto rounds</b> (each rotation or buy-back alert = 1). After that the holder buys +5.</small>
     <div className="cc-mini-grid">
-      <label data-tip="What +5 rounds cost the holder, in $ (paid in SOL at that moment's price)">$ per +5 rounds<input type="number" step="0.05" min="0" max="50" value={r.per5Usd} onChange={e => setR({ ...r, per5Usd: Number(e.target.value) })} data-testid="rounds-per5" /></label></div>
+      <label data-tip="What +5 rounds cost the holder, in $ (paid in SOL at that moment's price)">$ per +5 rounds<NumInput type="number" step="0.05" min="0" max="50" value={r.per5Usd} onChange={e => setR({ ...r, per5Usd: Number(e.target.value) })} data-testid="rounds-per5" /></label></div>
     <label className="cc-check"><input type="checkbox" checked={!!r.compoundPay} onChange={e => setR({ ...r, compoundPay: e.target.checked })} data-testid="rounds-compound-ok" />Let the card's compound pay (rounds start now, owed until the next profit take)</label>
     <ul className="bundle-ex">{[5, 20, 50].map(n => <li key={n}><b>{n} rounds total</b><span className="m-num">${(Math.max(0, n - 5) / 5 * r.per5Usd).toFixed(2)}</span><small>first 5 free</small></li>)}</ul>
     <button type="button" className="btn-primary" onClick={save} data-testid="rounds-save">Save card rounds</button></div>;
@@ -126,7 +127,7 @@ export function CardRules({ call }) {
       <label className="m-field"><span>Levels (comma list) · ★ = default</span><input className="m-input m-num" value={lv} onChange={e => setLv(e.target.value)} placeholder="25, 50, 100, 200" data-testid="cr-levels" /></label></div>
     {RULE_GROUPS.map(([title, why, fields]) => <div key={title} className="cr-group"><header><b>{title}</b><small>{why}</small></header>
       <div className="cr-grid">{fields.map(([k, l, u, ex]) => <label key={k} className="m-field cr-f"><span>{l} <small>{u}</small></span>
-        <input className="m-input m-num" type="number" step="any" value={r[k]} onChange={e => setR({ ...r, [k]: Number(e.target.value) })} data-testid={`cr-${k}`} /><em className="cr-ex">{ex(r)}</em></label>)}</div>
+        <NumInput className="m-input m-num" type="number" step="any" value={r[k]} onChange={e => setR({ ...r, [k]: Number(e.target.value) })} data-testid={`cr-${k}`} /><em className="cr-ex">{ex(r)}</em></label>)}</div>
       {title === '🎁 FEE-BACK' && <p className="cr-story" data-testid="cr-story">Pay <b>$1.00</b> in fees → hold {r.fbHoldHours}h: <b>{m$(r.fbHolderPct / 100)}</b> back → {r.fbLoyaltyDays} days: <b>{m$(Math.min(r.fbCapPct, r.fbHolderPct + r.fbLoyaltyPct) / 100)}</b> → hot on the Arena: <b>{m$(Math.min(r.fbCapPct, r.fbHolderPct + r.fbLoyaltyPct + r.fbArenaPct) / 100)}</b> → best case <b>{m$(best / 100)}</b> (cap {r.fbCapPct}%).</p>}</div>)}
     <div className="fg-acts"><button type="button" className="m-btn primary m-go" onClick={() => save({ ...r, yieldLevels: levels })} data-testid="cr-save">Save card rules</button>
       <button type="button" className="m-btn" onClick={() => save(d.defaults)}>Reset to defaults</button></div>

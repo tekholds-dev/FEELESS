@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import NumInput from '../NumInput';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Bell, BellOff, BellRing, Cat, ChevronDown, Radar, Send, SlidersHorizontal, Star, Trash2 } from 'lucide-react';
@@ -61,7 +62,7 @@ function PushPanel({ watchlist }) {
 
 function RuleEditor({ pair, onChange }) {
   const r = { ...RULE_DEFAULTS, ...(pair.alerts || {}) };
-  const num = (k, label, hint, max) => <label className="rule-num"><span>{label}</span><input type="number" min="0" max={max} value={r[k]} onChange={e => onChange({ [k]: Number(e.target.value) })} /><small>{hint}</small></label>;
+  const num = (k, label, hint, max) => <label className="rule-num"><span>{label}</span><NumInput type="number" min="0" max={max} value={r[k]} onChange={e => onChange({ [k]: Number(e.target.value) })} /><small>{hint}</small></label>;
   const tog = (k, label, hint) => <label className="rule-tog"><input type="checkbox" checked={!!r[k]} onChange={e => onChange({ [k]: e.target.checked })} /><span>{label}<small>{hint}</small></span></label>;
   return <div className="rule-editor">
     {num('up', '▲ Up %', 'from star price', 1000)}{num('down', '▼ Down %', 'from star price', 100)}{num('move24h', '24h move %', '0 = off', 100000)}

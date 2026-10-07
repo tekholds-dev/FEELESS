@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import NumInput from './NumInput';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { useWallet } from '../hooks/useWallet';
@@ -45,9 +46,9 @@ export function FusePnl() {
         data-tip={r.guard ? `Armed: ${r.guard.tp ? `TP +${r.guard.tp}%` : ''} ${r.guard.sl ? `SL −${r.guard.sl}%` : ''} ${r.guard.trail ? `trail ${r.guard.trail}%` : ''}${r.guard.firedAt ? ' · fired' : ''}` : 'Set take-profit / stop-loss for the whole basket'} data-testid={`limits-${r.id}`}>🎯</button>
         <button type="button" className="m-btn fl-clear" onClick={() => (exit?.id === r.id ? setExit(null) : unfuse(r))} data-testid={`unfuse-${r.id}`} data-tip="Sell every leg back to SOL — one approval">{exit?.id === r.id ? 'Close' : '↩ Unfuse'}</button></span>}</div>
       {lim?.id === r.id && <div className="fpn-lim" data-testid="limits-editor">
-        <label data-tip="Alert + one-tap exit when the whole basket is up this much."><small>TAKE PROFIT</small><span>+<input className="m-input m-num" inputMode="decimal" value={lim.tp} onChange={e => setLim(l => ({ ...l, tp: e.target.value.replace(/[^0-9.]/g, '') }))} />%</span></label>
-        <label data-tip="Alert + one-tap exit when the basket is down this much."><small>STOP LOSS</small><span>−<input className="m-input m-num" inputMode="decimal" value={lim.sl} onChange={e => setLim(l => ({ ...l, sl: e.target.value.replace(/[^0-9.]/g, '') }))} />%</span></label>
-        <label data-tip="Fires when the basket falls this many points below its best (locks in gains). Leave empty for off."><small>TRAILING</small><span><input className="m-input m-num" inputMode="decimal" placeholder="off" value={lim.trail} onChange={e => setLim(l => ({ ...l, trail: e.target.value.replace(/[^0-9.]/g, '') }))} />%</span></label>
+        <label data-tip="Alert + one-tap exit when the whole basket is up this much."><small>TAKE PROFIT</small><span>+<NumInput className="m-input m-num" inputMode="decimal" value={lim.tp} onChange={e => setLim(l => ({ ...l, tp: e.target.value.replace(/[^0-9.]/g, '') }))} />%</span></label>
+        <label data-tip="Alert + one-tap exit when the basket is down this much."><small>STOP LOSS</small><span>−<NumInput className="m-input m-num" inputMode="decimal" value={lim.sl} onChange={e => setLim(l => ({ ...l, sl: e.target.value.replace(/[^0-9.]/g, '') }))} />%</span></label>
+        <label data-tip="Fires when the basket falls this many points below its best (locks in gains). Leave empty for off."><small>TRAILING</small><span><NumInput className="m-input m-num" inputMode="decimal" placeholder="off" value={lim.trail} onChange={e => setLim(l => ({ ...l, trail: e.target.value.replace(/[^0-9.]/g, '') }))} />%</span></label>
         <p className="fpn-lim-note">Free to set. Fees are paid <b>only once, when you Unfuse</b> (normal FEELESS fee + network). We check every minute and alert your phone + inbox; your wallet still approves the exit — nobody can sell for you.</p>
         <div className="fg-acts"><button type="button" className="m-btn primary m-go" onClick={() => saveLim(false)} data-testid="limits-save">Arm limits</button>{r.guard && <button type="button" className="m-btn" onClick={() => saveLim(true)}>Turn off</button>}</div>
       </div>}

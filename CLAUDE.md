@@ -2023,3 +2023,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   wait for a swap pass in flight instead of being saved over by it (the journal + `merge_owner` stay as the second net). Never take
   `_fw_tick_lock` while holding `_admin_lock` (the keeper pass takes `_admin_lock` inside it). 🅿 a per-coin park carries its own
   rounds (`skim.rounds` → park row `hold`; `release_parked` reads it). `.hrt-split` wraps (it was cut off with …).
+- 🔢 EVERY NUMBER BOX = `components/NumInput.jsx` (`commaNum` / `stripNum`): commas while typing (1,250,000.5; placeholders too), plain
+  digits handed to `onChange` / `onBlur` (callers keep `Number(e.target.value)`), a half-typed decimal survives a parent that stores a
+  number, ↑ / ↓ step when it replaced `type="number"`. 100 inputs moved in one pass — never add a bare `<input type="number">` or
+  `inputMode="decimal"` again (`FeeInputs.UnitInput` is the older whole-number one). Real card split = its OWN row of chips under the
+  hero (`p.hrt-split`: in coins · ◎ cash · 🅿 parked cash, all three always shown): inside the 83px IN CARD NOW tile `.hrt-hero em`
+  (nowrap + ellipsis) out-ranked the "wrap" fix and it still read "in coins…". Hero tiles go 2 × 2 under 1180px and their small lines
+  wrap. A CSS FIX IS NOT DONE UNTIL THE ELEMENT'S scrollWidth ≤ clientWidth ON THE LIVE PAGE.

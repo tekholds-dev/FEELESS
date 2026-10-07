@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import NumInput from '../NumInput';
 import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
 import { errorText } from '../../lib/api';
@@ -69,7 +70,7 @@ export function TreasuryHub({ call, prefill }) {
     <div className="m-card is-hot m-stack"><div className="m-label">SPLIT NOW <em>signed by you · verified on-chain</em></div>
       {!routesOk ? <p className="m-dim">Set a split plan that adds to 100% below first.</p> : <>
         <div className="m-seg">{['SOL', 'wSOL', 'USDC'].map(a => <button key={a} type="button" className={asset === a ? 'active' : ''} onClick={() => { setAsset(a); setAmount(''); }}>{a === 'SOL' ? 'SOL · from wallet' : `${a} · fee account`}</button>)}</div>
-        <div className="m-row"><input className="m-input" style={{ maxWidth: 200 }} inputMode="decimal" placeholder="0" value={amount} onChange={e => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} aria-label="Amount to split" /><span className="m-dim">{unit}{amt ? ` · ${usdOf(amt)}` : ''}</span>
+        <div className="m-row"><NumInput className="m-input" style={{ maxWidth: 200 }} inputMode="decimal" placeholder="0" value={amount} onChange={e => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} aria-label="Amount to split" /><span className="m-dim">{unit}{amt ? ` · ${usdOf(amt)}` : ''}</span>
           {avail != null && <button type="button" className="m-btn" onClick={() => setAmount(String(avail))}>Max {avail}</button>}</div>
         {asset === 'wSOL' && <small className="m-dim">Destinations receive wrapped SOL (they can unwrap in Phantom). Your fee account stays open so fees keep landing.</small>}
         {rows.length > 0 && <dl className="m-kv">{rows.map(r => <React.Fragment key={r.address}><dt>{r.label || shortAddress(r.address)} · {r.pct}%</dt><dd>{r.amount} {unit}{usdOf(r.amount) ? ` · ${usdOf(r.amount)}` : ''} <code>{shortAddress(r.address)}</code></dd></React.Fragment>)}</dl>}

@@ -1,4 +1,5 @@
 import { CROP } from '../lib/cropImage';
+import NumInput from './NumInput';
 import React, { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ImagePlus, Sparkles } from 'lucide-react';
@@ -76,11 +77,11 @@ export function SeasonEditor({ season, call, onDone }) {
       <label>Name<input value={f.name} onChange={e => set('name', e.target.value)} /></label><label>Prize<input value={f.prize} onChange={e => set('prize', e.target.value)} /></label>
       <label className="se-wide">Story / lore<input value={f.theme} onChange={e => set('theme', e.target.value)} /></label>
       <label>Starts<input type="datetime-local" value={f.start} onChange={e => set('start', e.target.value)} /></label><label>Ends<input type="datetime-local" value={f.end} onChange={e => set('end', e.target.value)} /></label>
-      <label>Multiplier<input type="number" step="0.5" min="0.5" max="5" value={f.multiplier} onChange={e => set('multiplier', e.target.value)} /></label>
+      <label>Multiplier<NumInput type="number" step="0.5" min="0.5" max="5" value={f.multiplier} onChange={e => set('multiplier', e.target.value)} /></label>
       <label>Background effect<select value={f.bgFx} onChange={e => set('bgFx', e.target.value)}>{BG_FX.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
       <label>Main color<input type="color" value={f.accent} onChange={e => set('accent', e.target.value)} /></label><label>Glow color<input type="color" value={f.accent2} onChange={e => set('accent2', e.target.value)} /></label>
       <label className="se-wide">Fee Reserve wallet<input placeholder="Solana wallet holding the reserve" value={f.reserveWallet} onChange={e => set('reserveWallet', e.target.value)} /></label>
-      <label>Season badge reward %<input type="number" min="0" max="100" step="0.01" value={f.badgeRewardPct} onChange={e => set('badgeRewardPct', e.target.value)} /></label>
+      <label>Season badge reward %<NumInput type="number" min="0" max="100" step="0.01" value={f.badgeRewardPct} onChange={e => set('badgeRewardPct', e.target.value)} /></label>
       <small className="se-wide">This records the percentage of the named Fee Reserve pool associated with the season badge. It does not transfer funds or grant LP ownership automatically; pay it through a signed distribution or a deployed contract.</small>
       <div className="se-wide se-badge"><span>Season badge</span><ImageDrop shape={CROP.badge} label="Add badge / GIF" value={f.badgeUrl} onChange={v => set('badgeUrl', v)} /></div>
     </div>

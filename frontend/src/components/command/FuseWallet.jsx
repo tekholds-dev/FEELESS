@@ -1,4 +1,5 @@
 import '../../styles/fuseMoney.css';
+import NumInput from '../NumInput';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { usd, txUrl } from '../FuseMoney';
@@ -130,11 +131,11 @@ export function FuseWallet({ call }) {
         <label className="m-toggle"><input type="checkbox" checked={!!cfg?.paused} onChange={e => save({ paused: e.target.checked })} data-testid="fw-paused" /><span>{cfg?.paused ? '⏸ Paused (nothing trades)' : 'Kill switch off'}</span></label></div>
     <details className="hrt-fold" data-testid="fw-limits"><summary><b>2 · Hard limits</b><span>card ≤ ${cfg?.maxCardUsd} · swap ≤ ${cfg?.maxSwapUsd} · day ${cfg?.dailyUsd} · fee reserve {cfg?.reserveSol} SOL · slippage {((cfg?.slippageBps || 0) / 100).toFixed(1)}% · impact {cfg?.maxImpactPct}% — server-enforced; what you fund is what the card gets</span></summary>
 <div className="fw-grid">{LIMITS.map(([k, l, tip]) => <label key={k}>{l}
-      <input className="m-input m-num" type="number" defaultValue={cfg?.[k]} onBlur={e => Number(e.target.value) !== cfg?.[k] && save({ [k]: Number(e.target.value) })} data-testid={`fw-${k}`} /><small className="m-dim">{tip}</small></label>)}</div></details>
+      <NumInput className="m-input m-num" type="number" defaultValue={cfg?.[k]} onBlur={e => Number(e.target.value) !== cfg?.[k] && save({ [k]: Number(e.target.value) })} data-testid={`fw-${k}`} /><small className="m-dim">{tip}</small></label>)}</div></details>
     <div><span className="m-label">3 · TIER CARDS · TOP UP = NEW RUN</span><div className="fw-tiers">{Object.entries(d.tiers || {}).map(([tpl, label]) => { const b = d.books?.[tpl];
       return <div key={tpl} className={`fw-tier ${b ? 'is-real' : ''}`} data-testid={`fw-tier-${tpl}`}><span><b>{label}</b><small className="m-dim">{b ? ` · 💵 ${usd(b.valueUsd)} now · funded ${usd(b.fundedUsd)} · ${b.swaps} swaps${b.halt ? ' · ⏸ halted' : ''}${b.defund ? ' · ↩ selling' : ''}` : ' · 📄 paper'}</small>
         {b && <small className="m-dim" data-testid={`fw-receipt-${tpl}`}>🧾 receipt: in {usd(b.topups || b.fundedUsd)} → bought {usd(b.bought)} · sold {usd(b.sold)} · network fees {usd(b.feesUsd)} · now {usd(b.valueUsd)} ({b.fundedUsd ? `${((b.valueUsd / b.fundedUsd - 1) * 100).toFixed(1)}%` : '—'})</small>}</span>
-        <input className="m-input m-num" inputMode="decimal" placeholder="$" value={amt[tpl] || ''} onChange={e => setAmt(a => ({ ...a, [tpl]: e.target.value.replace(/[^0-9.]/g, '') }))} aria-label={`${label} top-up $`} data-testid={`fw-amt-${tpl}`} />
+        <NumInput className="m-input m-num" inputMode="decimal" placeholder="$" value={amt[tpl] || ''} onChange={e => setAmt(a => ({ ...a, [tpl]: e.target.value.replace(/[^0-9.]/g, '') }))} aria-label={`${label} top-up $`} data-testid={`fw-amt-${tpl}`} />
         <button type="button" className="m-btn" onClick={() => preview(tpl)} data-tip="Real Jupiter quotes for what this $ would buy now — never signs" data-testid={`fw-dry-${tpl}`}>🔍 Dry run</button>
         <span className="m-row"><button type="button" className="m-btn primary m-go" disabled={!d.signer || !cfg?.armed} onClick={() => topup(tpl)} data-testid={`fw-topup-${tpl}`}>💵 {b ? 'Top up' : 'Fund'}</button>
           {b && <><button type="button" className="m-btn" onClick={() => cardAct(tpl, b.halt ? 'resume' : 'halt')}>{b.halt ? '▶' : '⏸'}</button><button type="button" className="m-btn danger" onClick={() => cardAct(tpl, 'defund')} data-tip="Sell every coin back to SOL; the card returns to paper">↩</button></>}</span></div>; })}</div></div>

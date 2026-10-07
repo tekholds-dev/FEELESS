@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import NumInput from './NumInput';
 import { CardFx } from './CardFx';
 import { createPortal } from 'react-dom';
 import { TraderChip } from './TraderChip';
@@ -846,7 +847,7 @@ function ActionPanel({ r, act, setAct, addr, ses, refresh }) {
   }
   if (act.kind === 'limits') {
     const save = async off => { const s = ses(); if (!s) return; try { await post('/api/reputation/fuses/guard', { address: addr, session: s, id: r.id, off, tp: Number(act.tp) || 0, sl: Number(act.sl) || 0, trail: Number(act.trail) || 0 }); toast.success(off ? 'Limits off' : 'Limits armed'); close(); refresh(); } catch (e) { toast.error(e.message); } };
-    const f = (k, label, sign) => <label className="m-field"><span>{label}</span><span className="m-row">{sign}<input className="m-input m-num" inputMode="decimal" placeholder="off" value={act[k]} onChange={e => setAct({ ...act, [k]: e.target.value.replace(/[^0-9.]/g, '') })} />%</span></label>;
+    const f = (k, label, sign) => <label className="m-field"><span>{label}</span><span className="m-row">{sign}<NumInput className="m-input m-num" inputMode="decimal" placeholder="off" value={act[k]} onChange={e => setAct({ ...act, [k]: e.target.value.replace(/[^0-9.]/g, '') })} />%</span></label>;
     const legLim = (pa, k, v) => setAct({ ...act, legs: { ...act.legs, [pa]: { ...(act.legs?.[pa] || {}), [k]: v.replace(/[^0-9.]/g, '') } } });
     const savePlan = async () => { const s = ses(); if (!s) return;
       try { await post('/api/reputation/fuses/plan', { address: addr, session: s, id: r.id, plan: { mode: r.mode || 'hold', onProfit: act.onProfit, legs: Object.fromEntries(Object.entries(act.legs || {}).map(([pa, v]) => [pa, { tp: Number(v.tp) || null, sl: Number(v.sl) || null }])) } });
@@ -855,8 +856,8 @@ function ActionPanel({ r, act, setAct, addr, ses, refresh }) {
       <p className="m-note">Free to set. We check every minute and alert you with a one-tap exit; fees only if you exit.</p>
       <b>Per coin</b><div className="fp-leglims">{live.map(l => { const v = act.legs?.[l.pairAddress] || {}; const g = r.legGuard?.[l.pairAddress];
         return <div key={l.pairAddress} className={`fp-leglim ${g?.firedAt ? 'is-fired' : ''}`}><b>{l.symbol}</b><small className={(l.pnlPct || 0) >= 0 ? 'm-pos' : 'm-neg'}>{pc(l.pnlPct)}</small>
-          <label>TP +<input className="m-input m-num" inputMode="decimal" placeholder="off" value={v.tp ?? ''} onChange={e => legLim(l.pairAddress, 'tp', e.target.value)} data-testid={`leglim-tp-${l.pairAddress}`} />%</label>
-          <label>SL −<input className="m-input m-num" inputMode="decimal" placeholder="off" value={v.sl ?? ''} onChange={e => legLim(l.pairAddress, 'sl', e.target.value)} />%</label>{g?.firedAt && <em>fired</em>}</div>; })}</div>
+          <label>TP +<NumInput className="m-input m-num" inputMode="decimal" placeholder="off" value={v.tp ?? ''} onChange={e => legLim(l.pairAddress, 'tp', e.target.value)} data-testid={`leglim-tp-${l.pairAddress}`} />%</label>
+          <label>SL −<NumInput className="m-input m-num" inputMode="decimal" placeholder="off" value={v.sl ?? ''} onChange={e => legLim(l.pairAddress, 'sl', e.target.value)} />%</label>{g?.firedAt && <em>fired</em>}</div>; })}</div>
       <div className="m-row"><span className="m-dim">On profit</span><div className="m-seg">{[['collect', '💸 Collect'], ['compound', '♻ Compound']].map(([k, l]) => <button key={k} type="button" className={act.onProfit === k ? 'active' : ''} onClick={() => setAct({ ...act, onProfit: k })}>{l}</button>)}</div>
         <button type="button" className="m-btn" onClick={savePlan} data-testid="leglim-save">Save coin limits</button></div>
       <div className="fg-acts"><button type="button" className="m-btn primary m-go" onClick={() => save(false)}>Arm limits</button>{r.guard && <button type="button" className="m-btn" onClick={() => save(true)}>Turn off</button>}<button type="button" className="m-btn" onClick={close}>Cancel</button></div></div>;
@@ -880,7 +881,7 @@ function ActionPanel({ r, act, setAct, addr, ses, refresh }) {
     const orders = topupOrders(r.legs, act.sol, act.mode, addr, act.pick);
     const usdOf = x => (act.solUsd ? m$(Number(x) * act.solUsd) : '');
     return <div className="m-card fp-panel" data-testid="act-panel-topup"><div className="m-row"><b>＋ Top up with SOL</b><small className="m-dim">buys merge into this card · one approval</small></div>
-      <div className="m-row"><label className="m-field"><span>SOL</span><input className="m-input m-num" inputMode="decimal" value={act.sol} onChange={e => setAct({ ...act, sol: e.target.value.replace(/[^0-9.]/g, '') })} data-testid="topup-sol" /></label><small className="m-dim">{usdOf(act.sol)}</small>
+      <div className="m-row"><label className="m-field"><span>SOL</span><NumInput className="m-input m-num" inputMode="decimal" value={act.sol} onChange={e => setAct({ ...act, sol: e.target.value.replace(/[^0-9.]/g, '') })} data-testid="topup-sol" /></label><small className="m-dim">{usdOf(act.sol)}</small>
         <div className="m-seg" role="radiogroup" aria-label="Split">{[['equal', '⚖ Equal', 'Same SOL into every coin'], ['weight', '📊 By weight', 'Keeps the card\'s current mix'], ['one', '🎯 One coin', 'All into the coin you pick']].map(([k, l, tip]) =>
           <button key={k} type="button" role="radio" aria-checked={act.mode === k} className={act.mode === k ? 'active' : ''} data-tip={tip} onClick={() => setAct({ ...act, mode: k, pick: act.pick || live[0]?.pairAddress })} data-testid={`topup-${k}`}>{l}</button>)}</div></div>
       {act.mode === 'one' && <div className="m-seg">{live.map(l => <button key={l.pairAddress} type="button" className={act.pick === l.pairAddress ? 'active' : ''} onClick={() => setAct({ ...act, pick: l.pairAddress })}>{l.symbol}</button>)}</div>}

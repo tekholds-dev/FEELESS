@@ -1,4 +1,5 @@
 import { PanelBoundary } from '../PanelBoundary';
+import NumInput from '../NumInput';
 import { TradeTimeline } from '../TradeTimeline';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { impactPercent, impactBlocks } from '../../lib/impactGuard';
@@ -207,12 +208,12 @@ function QuickTradeInner({ pair }) {
       <small>Max slippage</small>
       <SlippagePicker value={prefs.slippage} onChange={v => setPrefs(p => ({ ...p, slippage: v }))} disabled={busy} />
       <small>Your buy presets</small>
-      {['SOL', 'USD'].map(u => <div key={u} className="qt-settings-row"><span>{u}</span>{presetsFor(prefs, u).map((v, i) => <input key={i} type="number" min="0" step="any" value={v} onChange={e => { const next = [...presetsFor(prefs, u)]; next[i] = e.target.value; setPrefs(p => ({ ...p, [u === 'USD' ? 'presetsUSD' : 'presetsSOL']: next })); }} aria-label={`${u} preset ${i + 1}`} />)}</div>)}
+      {['SOL', 'USD'].map(u => <div key={u} className="qt-settings-row"><span>{u}</span>{presetsFor(prefs, u).map((v, i) => <NumInput key={i} type="number" min="0" step="any" value={v} onChange={e => { const next = [...presetsFor(prefs, u)]; next[i] = e.target.value; setPrefs(p => ({ ...p, [u === 'USD' ? 'presetsUSD' : 'presetsSOL']: next })); }} aria-label={`${u} preset ${i + 1}`} />)}</div>)}
       <div className="qt-settings-row"><button type="button" onClick={() => { setPrefs({ ...DEFAULT_PREFS }); setAmount(PRESETS.SOL[0]); }}>Reset</button><button type="button" className="qt-settings-done" onClick={() => setShowSettings(false)}>Done</button></div>
     </div>}
     {side === 'buy' ? <>
       <div className="qt-row"><span>Amount in</span><div className="qt-seg">{['SOL', 'USD'].map(u => <button type="button" key={u} className={prefs.unit === u ? 'active' : ''} onClick={() => { setPrefs(p => ({ ...p, unit: u })); setAmount(presetsFor(prefs, u)[0]); }}>{u}</button>)}</div></div>
-      <div className="qt-presets">{presetsFor(prefs, prefs.unit).map(v => <button type="button" key={v} className={amount === v ? 'active' : ''} onClick={() => setAmount(v)}>{prefs.unit === 'USD' ? `$${v}` : `${v} SOL`}</button>)}<input type="text" inputMode="decimal" value={amount} onChange={e => setAmount(cleanAmount(e.target.value))} aria-label="Custom amount" /></div>
+      <div className="qt-presets">{presetsFor(prefs, prefs.unit).map(v => <button type="button" key={v} className={amount === v ? 'active' : ''} onClick={() => setAmount(v)}>{prefs.unit === 'USD' ? `$${v}` : `${v} SOL`}</button>)}<NumInput type="text" inputMode="decimal" value={amount} onChange={e => setAmount(cleanAmount(e.target.value))} aria-label="Custom amount" /></div>
       <small className="qt-note">{prefs.unit === 'USD'
         ? `≈ ${solUsd && Number(amount) > 0 ? `${(Number(amount) / solUsd).toFixed(4)} SOL` : '…'} at $${solUsd ? solUsd.toFixed(2) : '…'}/SOL`
         : `≈ ${solUsd && Number(amount) > 0 ? formatUSD(Number(amount) * solUsd) : '…'}`}</small>

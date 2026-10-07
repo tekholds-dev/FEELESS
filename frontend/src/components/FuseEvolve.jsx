@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import NumInput from './NumInput';
 import { toast } from 'sonner';
 import { FuseCard } from './FuseCard';
 
@@ -63,7 +64,7 @@ export function FuseEvolve({ call, onLoad, maxLegs = 10 }) {
     {d && <>
       <div className="fe-chart" aria-label="Best fitness per generation" data-tip="Each bar = the best basket's score in that generation. It never drops (the best always survives).">{d.history.map((h, i) => <i key={h.gen} className={i < shown ? 'on' : ''} style={{ transform: `scaleY(${i < shown ? Math.max(0.04, h.best / top) : 0.02})` }} title={`Gen ${h.gen}: best ${h.best} · avg ${h.avg}`} />)}</div>
       <div className="fe-meta m-dim"><span>{d.pool} live pools in the gene pool</span><span>{d.evaluated} baskets tested</span><span>gen {Math.min(shown, d.history.length)}/{d.history.length}</span>{d.seeded > 0 && <span>🧬 {d.seeded} bloodline seeds</span>}</div>
-      {done && <label className="fe-cut" data-tip="When traders buy a card you published, this % of the FEELESS fee goes to the creator (max 50%)"><span>Publish creator cut</span><input className="m-input m-num" type="number" min="0" max="50" value={cut} onChange={e => setCut(Number(e.target.value))} data-testid="fe-cut" /><span>% of fee</span></label>}
+      {done && <label className="fe-cut" data-tip="When traders buy a card you published, this % of the FEELESS fee goes to the creator (max 50%)"><span>Publish creator cut</span><NumInput className="m-input m-num" type="number" min="0" max="50" value={cut} onChange={e => setCut(Number(e.target.value))} data-testid="fe-cut" /><span>% of fee</span></label>}
       {done && <div className="fe-champs">{d.champions.map((c, i) => <article key={c.pools.join()} className={`fe-champ ${i === 0 ? 'is-top' : ''}`} style={{ animationDelay: `${i * 70}ms` }}>
         <FuseCard c={c} style={d.style || style} rank={i} budget={budget} />
         <div className="fe-acts"><button type="button" className={`m-btn ${i === 0 ? 'primary' : ''}`} onClick={() => onLoad?.(c.legs, sol)} data-testid={`fe-load-${i}`}>Load into Lab →</button>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import NumInput from './NumInput';
 import { apiUrl } from '../lib/api';
 import { FuseCard } from './FuseCard';
 
@@ -24,7 +25,7 @@ export function FuseRail({ call, onUse }) {
   return <section className="frail" data-testid="fuse-rail">
     <header className="frail-head"><div><span className="m-label">🃏 PREBUILT FUSES · LIVE</span><small className="m-dim">Best basket per strategy, bred from live pools in the last 5 min. Drag to tilt · ⟲ to flip.</small></div>
       <div className="frail-ctl"><div className="m-seg" aria-label="Card size" data-testid="frail-budget">{[1, 20, 100].map(n => <button type="button" key={n} className={!custom && budget === n ? 'active' : ''} onClick={() => { setBudget(n); setCustom(''); }} data-tip={`Breed $${n} cards — fee drag + size guard are scored for that size`}>${n}</button>)}</div>
-        <label className="frail-custom" data-tip="Any amount. Cards are bred for the nearest size; Fuse in uses exactly this."><span>$</span><input className="m-input m-num" inputMode="decimal" placeholder="custom" value={custom} onChange={e => setCustom(e.target.value.replace(/[^0-9.]/g, ''))} data-testid="frail-custom" /></label>
+        <label className="frail-custom" data-tip="Any amount. Cards are bred for the nearest size; Fuse in uses exactly this."><span>$</span><NumInput className="m-input m-num" inputMode="decimal" placeholder="custom" value={custom} onChange={e => setCustom(e.target.value.replace(/[^0-9.]/g, ''))} data-testid="frail-custom" /></label>
       {admin && <div className="frail-admin"><div className="m-seg" aria-label="Pools per fuse">{[3, 5, 8, 12].map(n => <button type="button" key={n} className={legs === n ? 'active' : ''} onClick={() => setLegs(n)} data-tip={`${n} pools per basket`}>{n}P</button>)}</div></div>}</div>
     </header>
     <div className="frail-track">{err ? <p className="m-dim">{err}</p> : !d ? Array.from({ length: 4 }, (_, i) => <div key={i} className="frail-ghost" />)

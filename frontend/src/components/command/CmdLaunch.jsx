@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import NumInput from '../NumInput';
 import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
 import { apiUrl, errorText } from '../../lib/api';
@@ -107,7 +108,7 @@ export function CmdLaunch({ rail }) {
       <label className="m-field"><span>Description</span><textarea className="m-input" rows={2} maxLength={280} value={f.description} onChange={e => set('description', e.target.value)} placeholder="One or two lines buyers will see." /></label>
       <div className="m-grid">{[['website', 'Website', 'https://…'], ['twitter', 'X', '@handle'], ['telegram', 'Telegram', '@group']].map(([k, l, ph]) =>
         <label key={k} className="m-field"><span>{l}</span><input className="m-input" value={f[k]} onChange={e => set(k, e.target.value)} placeholder={ph} />{errors[k] && <small className="m-neg">{errors[k]}</small>}</label>)}
-        <label className="m-field"><span>First buy ({kind === 'pump' ? 'SOL' : unit})</span><input className="m-input" inputMode="decimal" value={f.devBuy} onChange={e => set('devBuy', e.target.value.replace(/[^0-9.]/g, ''))} />{errors.devBuy && <small className="m-neg">{errors.devBuy}</small>}</label></div>
+        <label className="m-field"><span>First buy ({kind === 'pump' ? 'SOL' : unit})</span><NumInput className="m-input" inputMode="decimal" value={f.devBuy} onChange={e => set('devBuy', e.target.value.replace(/[^0-9.]/g, ''))} />{errors.devBuy && <small className="m-neg">{errors.devBuy}</small>}</label></div>
       <button type="button" className="m-btn primary wide" disabled={!railOk || Object.keys(errors).length > 0} onClick={() => setStep('review')} data-testid="cmd-launch-review">{Object.values(errors)[0] || 'Review launch →'}</button></div>}
 
     {step === 'review' && <div className="m-card is-hot m-stack m-pop" data-testid="cmd-launch-confirm"><div className="m-label">4 · REVIEW & SIGN</div>

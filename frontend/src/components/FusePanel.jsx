@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import NumInput from './NumInput';
 import { apiUrl } from '../lib/api';
 import { resolveCoin } from '../lib/resolveCoin';
 import { readChatSession } from '../lib/chatSession';
@@ -49,7 +50,7 @@ export function FuseCard({ f }) {
       <div className="m-stat"><small>FEE APR EST.</small><b className="m-num sm">{f.aprEst}%</b></div></div>
     <ul className="fz-legs">{f.legs.map(l => <li key={l.pairAddress}><b>{l.symbol}/{l.quote}</b><span>{usd(l.liquidityUsd)} liq</span><span>{l.turnover}× turnover</span><span className={l.change24h >= 0 ? 'm-pos' : 'm-neg'}>{l.change24h >= 0 ? '+' : ''}{(l.change24h || 0).toFixed(1)}%</span></li>)}</ul>
     {!going ? <button type="button" className="m-btn primary m-go wide" onClick={() => setGoing(true)} data-testid={`fuse-in-${f.id}`}>⚡ Fuse in</button>
-      : <div className="fz-in"><label className="m-field"><span>SOL to fuse</span><input className="m-input" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="0.5" /></label>
+      : <div className="fz-in"><label className="m-field"><span>SOL to fuse</span><NumInput className="m-input" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="0.5" /></label>
         {parts.map(p => <div key={p.pairAddress} className="fz-split"><span>{p.symbol} · {p.weight}%</span><FuseLeg leg={p} sol={p.sol} fuseId={f.id} /></div>)}
         <small className="m-dim">Each leg is its own swap you sign · normal FEELESS fees · {f.creatorBps ? `${f.creatorBps / 100}% of the fee goes to the Fuse's creator` : 'no creator cut'}</small></div>}
   </article>;

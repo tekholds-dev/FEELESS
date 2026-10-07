@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
+import NumInput from '../NumInput';
 import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
 import { RAIL_DEFAULTS, RAIL_PRESETS, railWarnings, checkRail, createLaunchRail, fetchLaunchRail, partnerFees, claimPartnerFees, configPools, claimCreationToll } from '../../lib/launchRail';
@@ -114,7 +115,7 @@ function LaunchTabRules({ call, tab, onSaved }) {
     <div className="m-row">{[['feeless', '🌐 FEELESS rail'], ['pump', '💊 Pump.fun']].map(([k, l]) => <label key={k} className="m-toggle"><input type="checkbox" checked={has(k)} onChange={() => flip(k)} />{l}</label>)}
       <label className="m-toggle"><input type="checkbox" checked={t.banner} onChange={e => setT(x => ({ ...x, banner: e.target.checked }))} />Banner upload</label>
       <label className="m-toggle"><input type="checkbox" checked={t.devBuy} onChange={e => setT(x => ({ ...x, devBuy: e.target.checked }))} />First buy</label>
-      {t.devBuy && <label className="m-field"><span>Max first buy (SOL)</span><input className="m-input" inputMode="decimal" style={{ width: 90 }} value={t.maxDevBuySol} onChange={e => setT(x => ({ ...x, maxDevBuySol: e.target.value.replace(/[^0-9.]/g, '') }))} /></label>}
+      {t.devBuy && <label className="m-field"><span>Max first buy (SOL)</span><NumInput className="m-input" inputMode="decimal" style={{ width: 90 }} value={t.maxDevBuySol} onChange={e => setT(x => ({ ...x, maxDevBuySol: e.target.value.replace(/[^0-9.]/g, '') }))} /></label>}
       <button type="button" className="m-btn primary" disabled={busy || !t.rails.length} onClick={save}>{busy ? 'Saving…' : 'Save launch tab'}</button></div>
     {!t.rails.length && <small className="m-neg">Keep at least one rail on.</small>}</div>;
 }
@@ -135,7 +136,7 @@ function LaunchCosts({ call, costs, onSaved, solPx }) {
   return <div className="m-card m-stack" data-testid="launch-costs">
     <span className="m-label">LAUNCH COSTS <em>applies to every launch from now on</em></span>
     {COST_FIELDS.map(([k, label, why]) => <label key={k} className="lr-cost"><span>{label}{/SOL/.test(label) && solPx ? <em className="usd-hint"> {usd(v[k], solPx)}</em> : null}</span>
-      <input className="m-input" inputMode="decimal" value={v[k]} onChange={e => setV(x => ({ ...x, [k]: e.target.value.replace(/[^0-9.]/g, '') }))} /><small className="m-dim">{why}</small></label>)}
+      <NumInput className="m-input" inputMode="decimal" value={v[k]} onChange={e => setV(x => ({ ...x, [k]: e.target.value.replace(/[^0-9.]/g, '') }))} /><small className="m-dim">{why}</small></label>)}
     <div className="m-note">Not adjustable: pump.fun's own ~1% on the first buy, PumpPortal's 0.5% on the first buy (pump.fun launches only), ~0.02 SOL refundable rent per coin.</div>
     <button type="button" className="m-btn primary" onClick={save}>Save launch costs</button>
   </div>;
@@ -227,13 +228,13 @@ export function LaunchRailAdmin({ call, isOwner }) {
           {warnings.map(w => <span key={w}>⚠ {w}</span>)}
           <em><b className="rail-once">ONE-TIME SETUP</b> {rail?.ready ? 'Launches are LIVE on the current config; creating another only affects new coins.' : 'Sign once and every coin launched on FEELESS uses it — nobody picks it per coin.'} Anti-snipe stack: decaying launch fee + dynamic (volatility) fee + fixed supply, mint & freeze revoked, 100% LP lock.</em>
         </div>
-        <div className="rail-form">{FIELDS.map(([k, l0, why]) => { const l = l0.replace('(SOL)', `(${unit})`); return <label key={k}><span>{l}{/SOL/.test(l) && solPx ? <em className="usd-hint"> {usd(p[k], solPx)}</em> : null}</span><input inputMode="decimal" value={p[k]} onChange={e => setP(v => ({ ...v, [k]: e.target.value.replace(/[^0-9.]/g, '') }))} /><small>{why}</small></label>; })}
+        <div className="rail-form">{FIELDS.map(([k, l0, why]) => { const l = l0.replace('(SOL)', `(${unit})`); return <label key={k}><span>{l}{/SOL/.test(l) && solPx ? <em className="usd-hint"> {usd(p[k], solPx)}</em> : null}</span><NumInput inputMode="decimal" value={p[k]} onChange={e => setP(v => ({ ...v, [k]: e.target.value.replace(/[^0-9.]/g, '') }))} /><small>{why}</small></label>; })}
           <label className="wide"><span>Fee claimer (receives FEELESS's share)</span><input placeholder={wallet?.address || 'Treasury / multisig address'} value={claimer} onChange={e => setClaimer(e.target.value.trim())} /><small>Defaults to your first Solana treasury route, else the signing wallet. Use a multisig.</small></label>
         </div>
         <div className="rail-scope"><div className="bdg-seg" role="radiogroup" aria-label="Who launches on this config">{[['public', '🌐 Public site config'], ['house', '🏠 House config (owner + admins)']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={scope === k} className={scope === k ? 'active' : ''} onClick={() => setScope(k)}>{l}</button>)}</div>
           <small className="cc-empty">{scope === 'public' ? 'Used by the Launch page for everyone. Creating a new one replaces it for new coins only.' : 'Only owners and admins see it on the Launch page, for FEELESS\'s own coins (e.g. your fee reserve coin). Set its fee claimer to the wallet that should earn from it. It never replaces the public config.'}</small>
           {scope === 'house' && <><input placeholder="House config name (e.g. Reserve coins)" maxLength={40} value={houseLabel} onChange={e => setHouseLabel(e.target.value)} />
-            <label className="bdg-pct"><input inputMode="decimal" value={p.poolCreationFeeSol ?? '5'} onChange={e => setP(v => ({ ...v, poolCreationFeeSol: e.target.value.replace(/[^0-9.]/g, '') }))} /><span>SOL outsider toll</span></label>
+            <label className="bdg-pct"><NumInput inputMode="decimal" value={p.poolCreationFeeSol ?? '5'} onChange={e => setP(v => ({ ...v, poolCreationFeeSol: e.target.value.replace(/[^0-9.]/g, '') }))} /><span>SOL outsider toll</span></label>
             <small className="cc-empty">Meteora configs can't block other launchers on-chain, so house configs charge a <b>launch toll</b> paid to your fee claimer. An outsider launching on it pays you {Number(p.poolCreationFeeSol ?? 5) || 0} SOL. You pay it too when you launch, then claim 90% back (Meteora keeps 10%) — so each of your own launches costs ≈ {((Number(p.poolCreationFeeSol ?? 5) || 0) * 0.1).toFixed(3)} SOL. Outsider coins are flagged below and never count as house coins on the site.</small></>}</div>
         <button type="button" className="btn-primary" disabled={!!status || check?.ok === false} onClick={create}>{status || (wallet?.chain === 'solana' ? `Create ${scope === 'house' ? 'house' : 'public'} launch rules (no coin) · sign with ${wallet.address.slice(0, 4)}…` : 'Connect Solana wallet')}</button>
         <small className="cc-empty">The owner or any admin wallet can sign; switch wallets in Phantom and reconnect to use a different one. The transaction is simulated before you're asked to sign.</small>

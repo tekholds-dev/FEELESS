@@ -1,4 +1,5 @@
 import { CopyBtn } from '../CopyBtn';
+import NumInput from '../NumInput';
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Sparkles, Clock, Camera, Gift } from 'lucide-react';
@@ -74,10 +75,10 @@ export function AirdropStudio({ call, asset, holders, selected, onScheduled }) {
     <div className="cc-presets">{PRESETS.map(p => <button key={p.id} type="button" onClick={() => applyPreset(p)}>{p.label}</button>)}{selected.length > 0 && <button type="button" onClick={() => setF(x => ({ ...x, useSelection: true }))}>✅ My selection ({selected.length})</button>}</div>
     <div className="cc-studio-grid">
       <div className="cc-block"><h4><Sparkles size={12} /> Who</h4>
-        <label>Top N holders<input type="number" min="0" placeholder="all" value={f.top} onChange={e => set('top', e.target.value)} /></label>
+        <label>Top N holders<NumInput type="number" min="0" placeholder="all" value={f.top} onChange={e => set('top', e.target.value)} /></label>
         <label><Clock size={12} /> Held at least<select value={f.months} onChange={e => set('months', Number(e.target.value))}>{[0, 1, 3, 6, 9, 12, 24].map(m => <option key={m} value={m}>{m ? `${m} month${m > 1 ? 's' : ''}` : 'any time'}</option>)}</select></label>
-        <label>Min value (USD)<input type="number" min="0" placeholder="0" value={f.minUsd} onChange={e => set('minUsd', e.target.value)} /></label>
-        <label>Max share of supply %<input type="number" min="0" step="any" placeholder="no cap" value={f.maxPct} onChange={e => set('maxPct', e.target.value)} /></label>
+        <label>Min value (USD)<NumInput type="number" min="0" placeholder="0" value={f.minUsd} onChange={e => set('minUsd', e.target.value)} /></label>
+        <label>Max share of supply %<NumInput type="number" min="0" step="any" placeholder="no cap" value={f.maxPct} onChange={e => set('maxPct', e.target.value)} /></label>
         <label className="cc-check"><input type="checkbox" checked={f.snapshot} onChange={e => set('snapshot', e.target.checked)} /><Camera size={12} />Still holding since snapshot</label>
         {f.snapshot && <select value={snapId} onChange={e => setSnapId(e.target.value)}>{!snaps.length && <option value="">No snapshots yet</option>}{snaps.map(s => <option key={s.id} value={s.id}>{s.label || s.asset.toUpperCase()} · {new Date(s.at * 1000).toLocaleDateString()} · {s.holders}</option>)}</select>}
         <label className="cc-check"><input type="checkbox" checked={f.excludePools} onChange={e => set('excludePools', e.target.checked)} />Skip pools / bonding curve</label>
@@ -87,7 +88,7 @@ export function AirdropStudio({ call, asset, holders, selected, onScheduled }) {
         {loadingAges && <small className="cc-empty">Reading each holder's first on-chain activity…</small>}
       </div>
       <div className="cc-block"><h4><Gift size={12} /> How much</h4>
-        <label>Total to drop ({asset.toUpperCase()})<input type="number" min="0" step="any" placeholder="e.g. 1000000" value={total} onChange={e => setTotal(e.target.value)} /></label>
+        <label>Total to drop ({asset.toUpperCase()})<NumInput type="number" min="0" step="any" placeholder="e.g. 1000000" value={total} onChange={e => setTotal(e.target.value)} /></label>
         <div className="cc-modes">{MODES.map(([id, l, d]) => <button key={id} type="button" className={mode === id ? 'active' : ''} onClick={() => setMode(id)} title={d}><b>{l}</b><small>{d}</small></button>)}</div>
         <label>Name<input placeholder="e.g. Diamond Hands S1" value={name} onChange={e => setName(e.target.value)} /></label>
         <label>Send on<input type="datetime-local" value={when} onChange={e => setWhen(e.target.value)} /></label>

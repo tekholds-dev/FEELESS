@@ -1,4 +1,5 @@
 import { useSolPrice, usd } from '../../lib/solPrice';
+import NumInput from '../NumInput';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
@@ -52,11 +53,11 @@ export function PoolCreator({ defaultMint = '', call }) {
     <div className="rail-form">
       <label className="wide"><span>Token mint</span><input value={f.mint} onChange={e => set('mint', e.target.value.trim())} placeholder="Token mint address" />
         <small>{!meta ? 'Paste a Solana token mint.' : meta.error ? `⚠ ${meta.error}` : meta.exists ? <>A pool for this token/SOL already exists: <code>{meta.pool.slice(0, 6)}…</code><CopyBtn value={meta.pool} /></> : `${meta.decimals} decimals · ${meta.program.startsWith('TokenzQd') ? 'Token-2022' : 'SPL token'}${meta.freeze ? ' · ⚠ freeze authority is still on' : ''}`}</small></label>
-      <label><span>Tokens to deposit</span><input inputMode="decimal" value={f.tokens} onChange={e => set('tokens', e.target.value.replace(/[^0-9.]/g, ''))} /><small>From your connected wallet.</small></label>
-      <label><span>SOL to deposit</span><input inputMode="decimal" value={f.sol} onChange={e => set('sol', e.target.value.replace(/[^0-9.]/g, ''))} /><small>{price ? `Opens at ${price.toPrecision(4)} SOL per token${solPx ? ` (${usd(price, solPx).slice(2).replace(/^\$0$/, '<$0.01')})` : ''}.` : 'Sets the opening price.'} {usd(f.sol, solPx)}</small></label>
-      <label><span>Swap fee (bps)</span><input inputMode="numeric" value={f.feeBps} onChange={e => set('feeBps', e.target.value.replace(/\D/g, ''))} /><small>100 = 1%. Minimum 25. Fees accrue to your position in SOL.</small></label>
-      <label><span>Anti-snipe start fee (bps)</span><input inputMode="numeric" value={f.launchFeeBps} onChange={e => set('launchFeeBps', e.target.value.replace(/\D/g, ''))} /><small>0 = off. e.g. 5000 = 50% at open, decaying.</small></label>
-      <label><span>Anti-snipe window (min)</span><input inputMode="numeric" value={f.launchMinutes} onChange={e => set('launchMinutes', e.target.value.replace(/\D/g, ''))} /><small>How long the start fee takes to fall to the swap fee.</small></label>
+      <label><span>Tokens to deposit</span><NumInput inputMode="decimal" value={f.tokens} onChange={e => set('tokens', e.target.value.replace(/[^0-9.]/g, ''))} /><small>From your connected wallet.</small></label>
+      <label><span>SOL to deposit</span><NumInput inputMode="decimal" value={f.sol} onChange={e => set('sol', e.target.value.replace(/[^0-9.]/g, ''))} /><small>{price ? `Opens at ${price.toPrecision(4)} SOL per token${solPx ? ` (${usd(price, solPx).slice(2).replace(/^\$0$/, '<$0.01')})` : ''}.` : 'Sets the opening price.'} {usd(f.sol, solPx)}</small></label>
+      <label><span>Swap fee (bps)</span><NumInput inputMode="numeric" value={f.feeBps} onChange={e => set('feeBps', e.target.value.replace(/\D/g, ''))} /><small>100 = 1%. Minimum 25. Fees accrue to your position in SOL.</small></label>
+      <label><span>Anti-snipe start fee (bps)</span><NumInput inputMode="numeric" value={f.launchFeeBps} onChange={e => set('launchFeeBps', e.target.value.replace(/\D/g, ''))} /><small>0 = off. e.g. 5000 = 50% at open, decaying.</small></label>
+      <label><span>Anti-snipe window (min)</span><NumInput inputMode="numeric" value={f.launchMinutes} onChange={e => set('launchMinutes', e.target.value.replace(/\D/g, ''))} /><small>How long the start fee takes to fall to the swap fee.</small></label>
       <label className="pool-lock"><input type="checkbox" checked={f.lock} onChange={e => set('lock', e.target.checked)} /><span>Lock this liquidity forever</span><small>Recommended. You keep earning fees but can never pull it — holders can verify it.</small></label>
     </div>
     {price && <div className="pool-summary"><span><small>Opening price</small><b>{price.toPrecision(4)} SOL</b></span>{meta?.supply ? <span><small>Implied market cap</small><b>{(price * meta.supply).toLocaleString(undefined, { maximumFractionDigits: 2 })} SOL</b>{solPx && <em className="usd-hint">{usd(price * meta.supply, solPx)}</em>}</span> : null}{share != null && <span><small>Supply in pool</small><b>{share.toFixed(2)}%</b></span>}<span><small>Launch fee</small><b>{Number(f.launchFeeBps) > Number(f.feeBps) && Number(f.launchMinutes) > 0 ? `${Number(f.launchFeeBps) / 100}% → ${Number(f.feeBps) / 100}%` : `${Number(f.feeBps) / 100}% flat`}</b></span></div>}

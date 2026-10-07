@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import NumInput from '../NumInput';
 import { ArrowDownUp, ChevronDown, RefreshCw, Search, ShieldCheck, Wallet } from 'lucide-react';
 import { apiUrl } from '../../lib/api';
 import { useWallet, EVM_CHAINS } from '../../hooks/useWallet';
@@ -106,7 +107,7 @@ export function EvmSwap({ chain, onNetwork }) {
       <button type="button" className="jup-icon" onClick={loadQuote} disabled={busy || !valid} aria-label="Refresh quote"><RefreshCw size={14} className={busy ? 'spin' : ''} /></button></div>
     <div className="jup-panel"><div className="jup-panel-head"><small>You pay</small>{bal != null && <span className="jup-bal">Balance {bal.toLocaleString(undefined, { maximumFractionDigits: 5 })}<button type="button" onClick={() => setAmount(String(from.address === NATIVE ? Math.max(0, Math.floor(bal * 0.97 * 1e6) / 1e6) : bal))}>Max</button></span>}</div>
       <div className="jup-row"><EvmTokenPicker chain={chain} value={from} onChange={t => setFrom(t)} onNetwork={onNetwork} testId="evm-swap-from" />
-        <input className="jup-amount" inputMode="decimal" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} aria-label="Amount" /></div></div>
+        <NumInput className="jup-amount" inputMode="decimal" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} aria-label="Amount" /></div></div>
     <button type="button" className="swap-reverse-button jup-flip" aria-label="Reverse" onClick={() => { if (to) { setFrom(to); setTo(from); } }}><ArrowDownUp size={16} /></button>
     <div className="jup-panel is-receive"><div className="jup-panel-head"><small>You receive</small></div>
       <div className="jup-row">{to ? <EvmTokenPicker chain={chain} value={to} onChange={t => setTo(t)} onNetwork={onNetwork} testId="evm-swap-to" /> : <span className="cc-empty">Loading…</span>}

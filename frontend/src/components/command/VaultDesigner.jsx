@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import NumInput from '../NumInput';
 import { toast } from 'sonner';
 import { apiUrl } from '../../lib/api';
 import { useSolPrice } from '../../lib/solPrice';
@@ -78,7 +79,7 @@ export function VaultDesigner({ call }) {
       data-tip={`${v.why}. Fees: ${v.mgmtBps / 100}%/yr + ${v.perfBps / 100}% of yield · cap ${v.capPct}% of each pool${v.rangePct ? ` · v3 range ±${v.rangePct}%` : ''}`}>
       <i className="vd-pcrest">{v.emoji}</i><b>{v.name}</b><small>{v.why}</small><em>{v.mgmtBps / 100}%/yr · {v.perfBps / 100}% of yield</em><span className="vd-pgo">Load →</span></button>)}</section>
     <section className="m-card vd-sim-box"><div className="m-row"><span className="m-label">🧮 SIMULATE A DEPOSIT</span>
-      <label className="vd-dep"><input className="m-input" inputMode="decimal" value={deposit} onChange={e => setDeposit(e.target.value.replace(/[^0-9.]/g, ''))} aria-label="Deposit in SOL" /><span>SOL</span><em className="m-dim">{$(dep)}</em></label></div>
+      <label className="vd-dep"><NumInput className="m-input" inputMode="decimal" value={deposit} onChange={e => setDeposit(e.target.value.replace(/[^0-9.]/g, ''))} aria-label="Deposit in SOL" /><span>SOL</span><em className="m-dim">{$(dep)}</em></label></div>
       {!(d?.vaults || []).length ? <p className="m-dim">No vault designed yet — build one below and its money math shows here.</p>
         : (d.vaults).map(v => <article key={v.id} className="vd-vault">
           <header className="m-row"><span className="fz-emoji">{v.emoji}</span><b>{v.name}</b><span className="m-chip">{v.status}</span>
@@ -104,14 +105,14 @@ export function VaultDesigner({ call }) {
       <div className="vd-step"><span className="vd-n">1</span><div className="vd-fields"><input className="m-input fz-emoji-in" value={draft.emoji} onChange={e => setDraft({ ...draft, emoji: e.target.value })} aria-label="Emoji" />
         <input className="m-input" placeholder="Vault name (e.g. FEE Yield)" value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} aria-label="Vault name" /></div></div>
       <div className="vd-step"><span className="vd-n">2</span><div className="vd-fields">
-        <label className="m-field" data-tip={`Charged on the whole deposit per year. On ${sol(dep)}: ${$(mgmtSol)}/yr`}><span>Mgmt %/yr (≤{(d?.maxMgmtBps || 300) / 100})</span><input className="m-input" type="number" step="0.1" min="0" value={draft.mgmtBps / 100} onChange={e => setDraft({ ...draft, mgmtBps: Math.round(Number(e.target.value) * 100) })} /></label>
-        <label className="m-field" data-tip="Share of the YIELD only — no yield, no performance fee"><span>Performance % of yield (≤{(d?.maxPerfBps || 3000) / 100})</span><input className="m-input" type="number" min="0" value={draft.perfBps / 100} onChange={e => setDraft({ ...draft, perfBps: Math.round(Number(e.target.value) * 100) })} /></label>
+        <label className="m-field" data-tip={`Charged on the whole deposit per year. On ${sol(dep)}: ${$(mgmtSol)}/yr`}><span>Mgmt %/yr (≤{(d?.maxMgmtBps || 300) / 100})</span><NumInput className="m-input" type="number" step="0.1" min="0" value={draft.mgmtBps / 100} onChange={e => setDraft({ ...draft, mgmtBps: Math.round(Number(e.target.value) * 100) })} /></label>
+        <label className="m-field" data-tip="Share of the YIELD only — no yield, no performance fee"><span>Performance % of yield (≤{(d?.maxPerfBps || 3000) / 100})</span><NumInput className="m-input" type="number" min="0" value={draft.perfBps / 100} onChange={e => setDraft({ ...draft, perfBps: Math.round(Number(e.target.value) * 100) })} /></label>
         <p className="vd-money" data-testid="vd-money">On <b>{sol(dep)}</b> ({$(dep)}){draft.pools.length ? <> at ≈ <b>{apr.toFixed(0)}% APR</b>: holder earns <b className="m-pos">{$(yieldSol - perfSol - mgmtSol)}/yr</b>, FEELESS keeps <b>{$(mgmtSol + perfSol)}/yr</b> ({$(mgmtSol)} mgmt + {$(perfSol)} performance).</> : <> — add pools to see the split.</>}</p></div></div>
       <div className="vd-step"><span className="vd-n">3</span><div className="vd-fields vd-col">
         {draft.pools.map((p, i) => <div key={p.pairAddress} className="vd-leg"><b>{p.symbol}</b><span className={`m-chip ${p.kind === 'v3' ? 'ok' : ''}`}>{p.kind}</span><small className="m-dim">{p.meta ? `${usd(p.meta.liquidityUsd)} deep · ${p.meta.aprEst}% APR` : ''}</small>
-          <label className="m-field" data-tip="Starting share vs the other pools; live weights then follow APR + depth"><span>Weight</span><input className="m-input" type="number" min="1" value={p.weight} onChange={e => setPool(i, { weight: Number(e.target.value) })} /></label>
-          <label className="m-field" data-tip="Never own more than this % of the pool (the vault must not BE the market)"><span>Cap % of pool</span><input className="m-input" type="number" step="0.1" min="0.1" max="10" value={p.capPct} onChange={e => setPool(i, { capPct: Number(e.target.value) })} /></label>
-          {p.kind === 'v3' && <label className="m-field" data-tip="Narrow = more fees while in range, zero fees when price leaves it"><span>Range ±%</span><input className="m-input" type="number" min="2" max="100" value={p.rangePct} onChange={e => setPool(i, { rangePct: Number(e.target.value) })} /></label>}
+          <label className="m-field" data-tip="Starting share vs the other pools; live weights then follow APR + depth"><span>Weight</span><NumInput className="m-input" type="number" min="1" value={p.weight} onChange={e => setPool(i, { weight: Number(e.target.value) })} /></label>
+          <label className="m-field" data-tip="Never own more than this % of the pool (the vault must not BE the market)"><span>Cap % of pool</span><NumInput className="m-input" type="number" step="0.1" min="0.1" max="10" value={p.capPct} onChange={e => setPool(i, { capPct: Number(e.target.value) })} /></label>
+          {p.kind === 'v3' && <label className="m-field" data-tip="Narrow = more fees while in range, zero fees when price leaves it"><span>Range ±%</span><NumInput className="m-input" type="number" min="2" max="100" value={p.rangePct} onChange={e => setPool(i, { rangePct: Number(e.target.value) })} /></label>}
           <button type="button" className="m-btn danger" onClick={() => setDraft({ ...draft, pools: draft.pools.filter((_, j) => j !== i) })} aria-label="Remove pool">✕</button></div>)}
         {draft.pools.length < 3 && <input className="m-input" placeholder="Search Solana pools — SOL, USDC, FEE, BTC…" value={q} onChange={e => setQ(e.target.value)} aria-label="Search pools" data-testid="vault-search" />}
         {found.length > 0 && draft.pools.length < 3 && <div className="vd-found">{found.map(p => <button type="button" key={p.pairAddress} className="vd-hit" onClick={() => add(p)}>

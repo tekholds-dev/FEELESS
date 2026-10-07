@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import NumInput from './NumInput';
 import { cardChoice, keepChoice, PLAN_ROUNDS, PLAN_SWAPS, FREE_ROUNDS } from '../lib/cardChoice';
 import { CardCosts, CycleBuilder } from './FuseMoney';
 import { apiUrl } from '../lib/api';
@@ -153,8 +154,8 @@ export function CardPlan({ legs, plan, setPlan }) {
     <details className="fl-plan-list" open data-testid="plan-list"><summary>Per-coin TP / SL · {legs.length} coins · {Object.values(plan.legs).filter(v => Number(v.tp) || Number(v.sl)).length} set <span aria-hidden="true">▾</span></summary>
     <div className="fl-plan-legs">{legs.map(l => { const v = plan.legs[l.pairAddress] || {}; return <div key={l.pairAddress} className={`fl-plan-leg ${l.runner ? 'is-runner' : ''}`}>
       <b>{l.runner ? '🏃 ' : ''}{l.symbol}</b>
-      <label data-tip="Take profit on this coin: alert + pre-filled sell when it's up this much since your buy">TP +<input className="m-input m-num" inputMode="decimal" placeholder="off" value={v.tp ?? ''} onChange={e => lim(l.pairAddress, 'tp', e.target.value)} data-testid={`plan-tp-${l.pairAddress}`} />%</label>
-      <label data-tip="Stop-loss on this coin: alert + pre-filled sell when it's down this much">SL −<input className="m-input m-num" inputMode="decimal" placeholder="off" value={v.sl ?? ''} onChange={e => lim(l.pairAddress, 'sl', e.target.value)} />%</label>
+      <label data-tip="Take profit on this coin: alert + pre-filled sell when it's up this much since your buy">TP +<NumInput className="m-input m-num" inputMode="decimal" placeholder="off" value={v.tp ?? ''} onChange={e => lim(l.pairAddress, 'tp', e.target.value)} data-testid={`plan-tp-${l.pairAddress}`} />%</label>
+      <label data-tip="Stop-loss on this coin: alert + pre-filled sell when it's down this much">SL −<NumInput className="m-input m-num" inputMode="decimal" placeholder="off" value={v.sl ?? ''} onChange={e => lim(l.pairAddress, 'sl', e.target.value)} />%</label>
       <CoinExtras pa={l.pairAddress} sym={l.symbol} plan={plan} setPlan={setPlan} /></div>; })}</div></details>
     <div className="fl-plan-row"><span>Profit trigger (price move)</span>{seg('at', [[null, 'Off', 'No card-level auto-profit'], ...levels.map(v => [v, `+${v}%`, `Alert when the whole card is up +${v}% from your confirmed buy (fees never mixed into card P&L)`])])}</div>
     <div className="fl-plan-row"><span>Profit split</span><div className="m-seg" role="radiogroup" data-tip="At each profit take: this share goes straight to your wallet, the rest compounds back into the card">{[0, 25, 50, 75, 100].map(v =>
@@ -329,7 +330,7 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
         {runnerPicks.length > 0 && <div className="fl-runner-picks" data-testid="fl-runner-picks"><small>🏃 RUNNERS {runnerPicks.length}/{caps.runners}</small>{runnerPicks.map(r => <span key={r.mint} className="fl-rchip">{r.symbol || `${r.mint.slice(0, 4)}…`}<em>{r.lane}</em>
           <button type="button" aria-label={`Remove ${r.symbol}`} onClick={() => onRunnerPicks(runnerPicks.filter(x => x.mint !== r.mint))}>×</button></span>)}</div>}
         {legsN < 2 ? <div className="fl-hint"><b>{legsN ? 'Pick one more leg' : 'Tap pools on the left'}</b><small>{admin ? 'Up to 12 legs: pools and 🏃 Runners in any mix. ' : 'Up to 3 pools + 3 runners (🏃 Runners lens). '}The preview builds live as you pick.</small></div> : <>
-          <label className="m-field fl-amt"><span>SOL in</span><div className="fl-amt-row"><input className="m-input m-num" inputMode="decimal" value={sol} onChange={e => setSol(e.target.value.replace(/[^0-9.]/g, ''))} aria-label="SOL amount" />
+          <label className="m-field fl-amt"><span>SOL in</span><div className="fl-amt-row"><NumInput className="m-input m-num" inputMode="decimal" value={sol} onChange={e => setSol(e.target.value.replace(/[^0-9.]/g, ''))} aria-label="SOL amount" />
             <div className="m-seg">{['0.5', '1', '5'].map(v => <button type="button" key={v} className={sol === v ? 'active' : ''} onClick={() => setSol(v)}>{v}</button>)}</div></div>
             {prev && <small className="m-dim">≈ {usd(prev.usd)} at {usd(prev.solUsd)}/SOL</small>}</label>
           {!runnerPicks.length && <label className="m-toggle fl-addon" data-tip="Bolts the 2 best Fuse Runners of this round onto your basket as a 20% slice (10% each). Runners are fresh Pump.fun coins — fast, gated, and risky."><input type="checkbox" checked={addon} onChange={e => setAddon(e.target.checked)} data-testid="fl-addon" /><span>🏃 +2 Runners add-on <small>20% slice</small></span></label>}
@@ -359,7 +360,7 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
               : <FuseGo legs={prev.legs} fuse={{ name: backing ? `Back · ${backing.name}`.slice(0, 40) : copy ? `Copy · ${copy.owner}`.slice(0, 40) : 'Lab fuse', copyOf: copy?.id || '', champ: !!copy?.champ, back: backing?.key || '', plan: planBody(plan) }} onClose={() => setGoing(false)} />}
             {admin && <div className="fl-pub"><span className="m-label">PUBLISH AS A FUSE</span><div className="fl-pub-row"><input className="m-input fl-emoji" value={pub.emoji} maxLength={4} onChange={e => setPub(x => ({ ...x, emoji: e.target.value }))} aria-label="Emoji" />
               <input className="m-input" value={pub.name} maxLength={40} placeholder="Fuse name" onChange={e => setPub(x => ({ ...x, name: e.target.value }))} />
-              <label className="fl-cut"><small>CREATOR CUT</small><input className="m-input m-num" inputMode="numeric" value={pub.creatorBps / 100} onChange={e => setPub(x => ({ ...x, creatorBps: Math.min(5000, Math.round((Number(e.target.value) || 0) * 100)) }))} />%</label></div>
+              <label className="fl-cut"><small>CREATOR CUT</small><NumInput className="m-input m-num" inputMode="numeric" value={pub.creatorBps / 100} onChange={e => setPub(x => ({ ...x, creatorBps: Math.min(5000, Math.round((Number(e.target.value) || 0) * 100)) }))} />%</label></div>
               <label className="m-toggle" data-tip="Stage it on the Fuse 🧬 Arena (cards that made it) right away"><input type="checkbox" checked={pub.arena !== false} onChange={e => setPub(x => ({ ...x, arena: e.target.checked }))} data-testid="fl-pub-arena" />🏟 Arena</label>
               <button type="button" className="m-btn primary" disabled={pub.name.trim().length < 2} data-testid="fl-publish" onClick={() => call('/admin/fuses', { method: 'POST', body: JSON.stringify({ ...pub, legs: prev.legs.map(l => ({ chainId: l.chainId, pairAddress: l.pairAddress, symbol: l.symbol, weight: l.weight })) }) })
                 .then(() => { toast.success(`${pub.name} is live${pub.arena !== false ? ' — on the Arena stage' : ' in the Fuse Lab'}`); setPub(x => ({ ...x, name: '' })); }).catch(e => toast.error(e.message))}>Publish for traders</button></div>}

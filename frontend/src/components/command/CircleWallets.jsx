@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import NumInput from '../NumInput';
 import { toast } from 'sonner';
 import { CopyBtn } from '../CopyBtn';
 
@@ -96,7 +97,7 @@ export function CircleMove({ w, call, dests, onDone }) {
     {add ? <div className="m-row"><input className="m-input" style={{ flex: 2 }} placeholder="Wallet address" value={add.address} onChange={e => setAdd(a => ({ ...a, address: e.target.value.trim() }))} /><input className="m-input" style={{ flex: 1 }} placeholder="Label (e.g. Cold wallet)" maxLength={40} value={add.label} onChange={e => setAdd(a => ({ ...a, label: e.target.value }))} /><button type="button" className="m-btn primary" disabled={add.address.length < 32} onClick={saveDest}>Save</button><button type="button" className="m-btn" onClick={() => setAdd(null)}>Cancel</button></div>
       : <button type="button" className="m-btn" onClick={() => setAdd({ address: '', label: '' })}>+ Save another wallet</button>}
     {to && <div className="m-stack">
-      <div className="m-row"><input className="m-input" style={{ flex: 1 }} inputMode="decimal" placeholder={`Amount (${bal?.symbol})`} value={amount} onChange={e => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} />
+      <div className="m-row"><NumInput className="m-input" style={{ flex: 1 }} inputMode="decimal" placeholder={`Amount (${bal?.symbol})`} value={amount} onChange={e => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} />
         <div className="m-seg">{[25, 50, 100].map(p => <button key={p} type="button" onClick={() => setAmount(String(Math.floor(Number(bal?.amount || 0) * p / 100 * 1e6) / 1e6))}>{p === 100 ? 'MAX' : `${p}%`}</button>)}</div></div>
       {sol && bal?.symbol === 'SOL' && amt > 0 && Number(bal.amount) - amt < 0.003 && <small className="m-neg">Leave ~0.003 SOL for Circle's network fee, or the send fails.</small>}
       <div className="m-note row"><span><b>Review</b>{amount || 0} {bal?.symbol} → {dest?.label} <code>{to}</code></span>

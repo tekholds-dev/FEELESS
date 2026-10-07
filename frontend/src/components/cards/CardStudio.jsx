@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import NumInput from '../NumInput';
 import { toast } from 'sonner';
 import { apiUrl, errorText } from '../../lib/api';
 import { CROP, uploadCropped } from '../../lib/cropImage';
@@ -97,8 +98,8 @@ function CardRewards({ call, card, onSaved }) {
     {pools == null ? <p className="m-dim">Loading pools…</p> : !mine.length ? <p className="m-dim">{sid ? 'No badge pool is tied to this season yet.' : 'No badge pools yet.'} Create one in Money › Reserve & badge pools.</p>
       : mine.map(p => <div key={p.id} className="m-stack"><span className="m-dim">{p.name} · pot = {p.pct}% of {p.wallet.slice(0, 4)}…</span>
         {keys.map(([k, l]) => <div key={k} className="m-row">{keys.length > 1 && <span className="cr-key">{l}</span>}
-          <label className="m-field"><span>% of pot</span><input className="m-input" style={{ width: 90 }} inputMode="decimal" placeholder="0" value={v[`${p.id}|${k}`] ?? ''} onChange={e => setV(x => ({ ...x, [`${p.id}|${k}`]: e.target.value.replace(/[^0-9.]/g, '') }))} /></label>
-          <label className="m-field"><span>+ SOL each</span><input className="m-input" style={{ width: 90 }} inputMode="decimal" placeholder="0" value={v[`${p.id}|${k}|sol`] ?? ''} onChange={e => setV(x => ({ ...x, [`${p.id}|${k}|sol`]: e.target.value.replace(/[^0-9.]/g, '') }))} /></label></div>)}</div>)}
+          <label className="m-field"><span>% of pot</span><NumInput className="m-input" style={{ width: 90 }} inputMode="decimal" placeholder="0" value={v[`${p.id}|${k}`] ?? ''} onChange={e => setV(x => ({ ...x, [`${p.id}|${k}`]: e.target.value.replace(/[^0-9.]/g, '') }))} /></label>
+          <label className="m-field"><span>+ SOL each</span><NumInput className="m-input" style={{ width: 90 }} inputMode="decimal" placeholder="0" value={v[`${p.id}|${k}|sol`] ?? ''} onChange={e => setV(x => ({ ...x, [`${p.id}|${k}|sol`]: e.target.value.replace(/[^0-9.]/g, '') }))} /></label></div>)}</div>)}
     {mine.length > 0 && <button type="button" className="m-btn" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save rewards'}</button>}
     {sid && <small className="m-dim">Season reserve share: set the reserve wallet and % in Money › Reserve & badge pools (split by tier weight).</small>}
   </div>;

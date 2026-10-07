@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import NumInput from '../NumInput';
 import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
 import { apiUrl, errorText } from '../../lib/api';
@@ -84,8 +85,8 @@ function Wizard({ call, cards, platforms, wallet, provider, connect, state, setS
         {state.step === 2 && <><span className="m-label">2 · DETAILS</span>
           <div className="m-grid"><label className="m-field"><span>Collection name</span><input className="m-input" maxLength={32} value={f.name} onChange={e => setF(x => ({ ...x, name: e.target.value }))} /></label>
             <label className="m-field"><span>Symbol</span><input className="m-input" maxLength={10} value={f.symbol} onChange={e => setF(x => ({ ...x, symbol: e.target.value.toUpperCase() }))} /></label>
-            <label className="m-field"><span>Max supply (0 = open)</span><input className="m-input" inputMode="numeric" value={f.supply} onChange={e => setF(x => ({ ...x, supply: e.target.value.replace(/\D/g, '') }))} placeholder="0" /></label>
-            <label className="m-field"><span>Royalties %</span><input className="m-input" inputMode="decimal" value={f.royaltyPct} onChange={e => setF(x => ({ ...x, royaltyPct: e.target.value.replace(/[^0-9.]/g, '') }))} /></label></div>
+            <label className="m-field"><span>Max supply (0 = open)</span><NumInput className="m-input" inputMode="numeric" value={f.supply} onChange={e => setF(x => ({ ...x, supply: e.target.value.replace(/\D/g, '') }))} placeholder="0" /></label>
+            <label className="m-field"><span>Royalties %</span><NumInput className="m-input" inputMode="decimal" value={f.royaltyPct} onChange={e => setF(x => ({ ...x, royaltyPct: e.target.value.replace(/[^0-9.]/g, '') }))} /></label></div>
           <label className="m-field"><span>Description</span><textarea className="m-input" rows={3} maxLength={500} value={f.description} onChange={e => setF(x => ({ ...x, description: e.target.value }))} /></label>
           <div className="m-row"><button type="button" className="m-btn" onClick={() => setState(s => ({ ...s, step: 1 }))}>← Card</button><button type="button" className="m-btn primary" disabled={f.name.trim().length < 2 || !f.symbol} onClick={() => setState(s => ({ ...s, step: 3 }))}>Platform →</button></div></>}
         {state.step === 3 && <><span className="m-label">3 · WHERE DOES IT LIVE?</span>

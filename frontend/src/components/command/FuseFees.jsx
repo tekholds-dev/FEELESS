@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import NumInput from '../NumInput';
 import { toast } from 'sonner';
 import { BundlePricing, RoundsPricing } from './FuseAdminSettings';
 import { usd, txUrl } from '../FuseMoney';
@@ -17,9 +18,9 @@ function PrepayPricing({ call, initial }) {
   return <div className="cc-block fee-bundle" data-testid="prepay-pricing"><h4>8 · 💳 Prepaid swaps (paid with the first buy)</h4>
     <label className="cc-check"><input type="checkbox" checked={!!p.on} onChange={e => set('on', e.target.checked)} />Add the first rounds' swap fees to a new card's first buy (HQ / creator wallets never pay it)</label>
     <div className="cc-mini-grid">
-      <label>$ per swap<input type="number" step="0.01" min="0" max="1" value={p.perSwapUsd} onChange={e => set('perSwapUsd', Number(e.target.value))} data-testid="prepay-per" /></label>
-      <label>Swaps per round (5-min rounds: 5–10 max)<input type="number" min="1" max="10" value={p.swapsPerRound} onChange={e => set('swapsPerRound', Number(e.target.value))} /></label>
-      <label>Rounds covered<input type="number" min="1" max="20" value={p.rounds} onChange={e => set('rounds', Number(e.target.value))} /></label></div>
+      <label>$ per swap<NumInput type="number" step="0.01" min="0" max="1" value={p.perSwapUsd} onChange={e => set('perSwapUsd', Number(e.target.value))} data-testid="prepay-per" /></label>
+      <label>Swaps per round (5-min rounds: 5–10 max)<NumInput type="number" min="1" max="10" value={p.swapsPerRound} onChange={e => set('swapsPerRound', Number(e.target.value))} /></label>
+      <label>Rounds covered<NumInput type="number" min="1" max="20" value={p.rounds} onChange={e => set('rounds', Number(e.target.value))} /></label></div>
     <small className="cc-empty">A new card pays <b>${total.toFixed(2)}</b> up front ({(Number(p.swapsPerRound) || 0) * (Number(p.rounds) || 0)} swaps). Those card swaps then pay $0 FEELESS fee until the credit is used.</small>
     <button type="button" className="btn-primary" onClick={save} data-testid="prepay-save">Save prepaid swaps</button></div>;
 }

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import NumInput from '../NumInput';
 import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
 import { errorText } from '../../lib/api';
@@ -89,7 +90,7 @@ export function BadgePools({ call }) {
     {form && <div className="m-card is-hot m-stack m-pop">
       <div className="m-grid"><label className="m-field"><span>Pool name</span><input className="m-input" placeholder="e.g. OG holders" maxLength={40} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></label>
         <label className="m-field"><span>Pool wallet</span><input className="m-input" placeholder="Any Solana address you control (or a Circle wallet)" value={form.wallet} onChange={e => setForm(f => ({ ...f, wallet: e.target.value.trim() }))} /></label>
-        <label className="m-field"><span>% of the wallet that is the pot</span><input className="m-input" inputMode="decimal" placeholder="0" value={form.pct} onChange={e => setForm(f => ({ ...f, pct: e.target.value.replace(/[^0-9.]/g, '') }))} /></label></div>
+        <label className="m-field"><span>% of the wallet that is the pot</span><NumInput className="m-input" inputMode="decimal" placeholder="0" value={form.pct} onChange={e => setForm(f => ({ ...f, pct: e.target.value.replace(/[^0-9.]/g, '') }))} /></label></div>
       <div className="m-field"><span>Season tiers in this pool</span><div className="m-seg">{[{ id: '', name: 'None' }, ...meta.seasons].map(s2 => <button key={s2.id || 'none'} type="button" className={form.seasonId === s2.id ? 'active' : ''} onClick={() => setForm(f => ({ ...f, seasonId: s2.id }))}>{s2.id ? `Tiers from ${s2.name}` : 'No season tiers'}</button>)}</div></div>
       <div className="m-row"><button type="button" className="m-btn primary" disabled={!!busy || form.name.length < 2 || !form.wallet} onClick={saveForm}>{busy || (form.id ? 'Save pool' : 'Create pool')}</button><button type="button" className="m-btn" onClick={() => setForm(null)}>Cancel</button><small className="m-dim">Then set each badge's % in the matrix below.</small></div>
     </div>}
@@ -97,7 +98,7 @@ export function BadgePools({ call }) {
     {meta.pools.length > 0 && <div className="bdg-matrix-wrap"><table className="bdg-matrix" data-testid="badge-matrix">
       <thead><tr><th>Badge</th>{meta.pools.map(p => { const pl = plans[p.id]; return <th key={p.id}><b>{p.name}</b><small>{p.pct}% of {shortAddress(p.wallet)}</small><em>{pl ? `pot ${pl.potSol} SOL${usd(pl.potSol) ? ` · ${usd(pl.potSol)}` : ''}` : '…'}</em></th>; })}</tr></thead>
       <tbody>{!rows.length ? <tr><td colSpan={meta.pools.length + 1} className="cc-empty">Award a badge first (Award tab); it shows up here.</td></tr> : rows.map(r => <tr key={r.key}><td><b>{r.label}</b><small>{r.sub}</small></td>
-        {meta.pools.map(p => <td key={p.id}><label className="bdg-cell"><input inputMode="decimal" aria-label={`${r.label} share of ${p.name}`} placeholder="0" disabled={r.key.startsWith('tier:') && !p.seasonId}
+        {meta.pools.map(p => <td key={p.id}><label className="bdg-cell"><NumInput inputMode="decimal" aria-label={`${r.label} share of ${p.name}`} placeholder="0" disabled={r.key.startsWith('tier:') && !p.seasonId}
           value={grid[p.id]?.[r.key] ?? ''} onChange={e => setGrid(g => ({ ...g, [p.id]: { ...(g[p.id] || {}), [r.key]: e.target.value.replace(/[^0-9.]/g, '') } }))} /><span>%</span></label></td>)}</tr>)}</tbody>
       <tfoot><tr><td>Assigned</td>{meta.pools.map(p => <td key={p.id} className={total(p.id) > 100 ? 'bad' : total(p.id) === 100 ? 'ok' : ''}>{Math.round(total(p.id) * 100) / 100}%</td>)}</tr>
         <tr><td />{meta.pools.map(p => { const pl = plans[p.id]; const mine = wallet?.address === p.wallet; return <td key={p.id} className="bdg-actions-cell">

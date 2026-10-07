@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import NumInput from './NumInput';
 import { toast } from 'sonner';
 import { ShieldCheck, ShieldAlert } from 'lucide-react';
 import { useWallet } from '../hooks/useWallet';
@@ -44,9 +45,9 @@ export function ShieldCommit({ defaultMint = '' }) {
     <header><ShieldCheck size={22} /><div><h3>Shield your launch</h3><small>Public promises buyers can trust. FEELESS verifies them on-chain every 10 minutes — break one and it's on your record forever.</small></div></header>
     <label><small>Coin mint (Solana)</small><input value={f.mint} onChange={set('mint')} placeholder="Your token's mint address" /></label>
     <div className="shield-terms">
-      <label><small>Dev keeps at least</small><div><input type="number" min="50" max="100" value={f.devKeepPct} onChange={set('devKeepPct')} /><em>% of bag</em></div></label>
-      <label><small>For</small><div><input type="number" min="7" max="365" value={f.lockDays} onChange={set('lockDays')} /><em>days</em></div></label>
-      <label><small>No wallet above</small><div><input type="number" min="0.5" max="20" step="0.5" value={f.maxWalletPct} onChange={set('maxWalletPct')} /><em>% supply</em></div></label>
+      <label><small>Dev keeps at least</small><div><NumInput type="number" min="50" max="100" value={f.devKeepPct} onChange={set('devKeepPct')} /><em>% of bag</em></div></label>
+      <label><small>For</small><div><NumInput type="number" min="7" max="365" value={f.lockDays} onChange={set('lockDays')} /><em>days</em></div></label>
+      <label><small>No wallet above</small><div><NumInput type="number" min="0.5" max="20" step="0.5" value={f.maxWalletPct} onChange={set('maxWalletPct')} /><em>% supply</em></div></label>
     </div>
     <label className="shield-check"><input type="checkbox" checked={f.noKnownSnipers} onChange={set('noKnownSnipers')} /><span>No FEELESS-blocklisted snipers or bundlers among early buyers</span></label>
     <button type="button" className="btn-primary" disabled={busy || (wallet?.address && !f.mint)} onClick={commit}>{!wallet?.address ? 'Connect wallet to shield' : busy ? 'Signing…' : 'Sign & activate Shield'}</button>

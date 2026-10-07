@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import NumInput from '../NumInput';
 import { lifiFeeConfig } from '../../lib/lifiFee';
 import { CHAIN_ID, NATIVE, toUnits, fromUnits, lifiServerQuote, executeLifi } from '../../lib/lifiExec';
 import { apiUrl } from '../../lib/api';
@@ -51,7 +52,7 @@ export function EvmTrade({ pair }) {
   return <aside className="quick-trade evm-trade" data-testid="evm-trade">
     <div className="qt-head"><Zap size={14} /><b>Quick trade</b><span className="qt-chain">{chain}</span><div className="qt-side">{['buy', 'sell'].map(x => <button key={x} type="button" className={side === x ? `active ${x}` : ''} onClick={() => { setSide(x); setQuote(null); }}>{x === 'buy' ? 'Buy' : 'Sell'}</button>)}</div></div>
     <label className="evm-row"><small>{side === 'buy' ? 'Pay with' : 'Receive on'}</small><select value={fromChain} onChange={e => { setFromChain(e.target.value); setQuote(null); }}>{Object.keys(CHAIN_ID).map(k => <option key={k} value={k}>{EVM_CHAINS[k].chainName}{k !== chain ? ' (bridge)' : ''}</option>)}</select></label>
-    <label className="evm-row"><small>Amount ({side === 'buy' ? native : `$${pair.baseToken.symbol}`})</small><input inputMode="decimal" value={amount} onChange={e => { setAmount(e.target.value.replace(/[^\d.]/g, '')); setQuote(null); }} /></label>
+    <label className="evm-row"><small>Amount ({side === 'buy' ? native : `$${pair.baseToken.symbol}`})</small><NumInput inputMode="decimal" value={amount} onChange={e => { setAmount(e.target.value.replace(/[^\d.]/g, '')); setQuote(null); }} /></label>
     {quote && <div className="qt-quote"><div><small>You get ≈</small><b>{fromUnits(quote.estimate.toAmount, quote.outDec).toLocaleString(undefined, { maximumFractionDigits: 6 })} {side === 'buy' ? pair.baseToken.symbol : EVM_CHAINS[fromChain]?.nativeCurrency?.symbol}</b></div><div><small>Route</small><b>{quote.toolDetails?.name || quote.tool}{bridging ? ' · bridge' : ''}</b></div><div><small>Est. time</small><b>{Math.ceil((quote.estimate.executionDuration || 30) / 60)} min</b></div></div>}
     <button type="button" className="btn-primary qt-go m-go" disabled={busy || !(Number(amount) > 0)} onClick={quote ? execute : getQuote}>{busy ? (step || 'Working…') : quote ? `Confirm ${side} in wallet` : bridging ? <><ArrowLeftRight size={14} /> Get bridge quote</> : `Get ${side} quote`}</button>
     <small className="qt-note">{lifiPct ? `FEELESS fee ${lifiPct}% (via LI.FI)` : 'FEELESS platform fee: 0%'} · LI.FI provider and network fees appear in the quote · you sign every step · non-custodial</small>
