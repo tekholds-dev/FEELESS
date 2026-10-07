@@ -5750,6 +5750,7 @@ async def _bottom_rows(now):
 LENS_PROOF_PATH = FUSE_HQ_PATH.parent / 'lens_proof.json'   # 📏 every picker list's own 1-hour paper record
 LENS_TRACK = ('ptrend', 'movers', 'pump', 'volume')          # the live-feed lists (bottom + trench keep their own files)
 LENS_TOP = 15                                                # the top rows of each list are what a picker actually picks from
+_lens_rows: dict = {}                                        # {list: [rows in the list's own order]} — refreshed with the record (~2 min)
 
 
 async def _lens_track(now):
@@ -5759,6 +5760,9 @@ async def _lens_track(now):
         got = await asyncio.gather(*[fuses_discover(lens=k, chain='solana') for k in LENS_TRACK], return_exceptions=True)
         passing = {k: [(r.get('baseAddress') or r.get('mint'), r.get('priceUsd') or r.get('price')) for r in ((g or {}).get('pools') or [])[:LENS_TOP]]
                    for k, g in zip(LENS_TRACK, got) if isinstance(g, dict)}
+        for k, g in zip(LENS_TRACK, got):   # ⏭ Coming up walks these lists from the top
+            if isinstance(g, dict):
+                _lens_rows[k] = [{'mint': r.get('baseAddress') or r.get('mint')} for r in (g.get('pools') or [])[:60]]
         st = _json_load(LENS_PROOF_PATH, {})
         due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
         jp = await _jup_prices(due) if due else {}
@@ -5771,11 +5775,15 @@ async def _lens_track(now):
 async def fuses_list_proof():
     """📏 Which picker list pays: each list's own record of coins held 1 hour (median, % up, n). A live list without its own record
     yet borrows the nearest callout record, labelled `src`. A record, never a promise."""
+    return {'lists': _list_records()}
+
+
+def _list_records():
     lens_ = _trench.meta_proof(_json_load(LENS_PROOF_PATH, {}), keys=LENS_TRACK)
     call_ = _trench.meta_proof((_json_load(TRENCH_CALLOUT_PATH, {}) or {}).get('state') or {}, keys=('leader', 'mover', 'fresh'))
     meta_ = _trench.meta_proof(_json_load(TRENCH_META_PATH, {}))
     tmeta = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('trenchCfg') or {}).get('meta') or 'baby'
-    return {'lists': _trench.list_records(lens_, call_, _trench.meta_proof(_json_load(BOTTOM_PROOF_PATH, {}), keys=('bottom',)).get('bottom'), meta_.get(tmeta), tmeta)}
+    return _trench.list_records(lens_, call_, _trench.meta_proof(_json_load(BOTTOM_PROOF_PATH, {}), keys=('bottom',)).get('bottom'), meta_.get(tmeta), tmeta)
 
 
 async def _bottom_track(now):
@@ -6551,7 +6559,30 @@ async def _prime_tick_inner(now):
                      if r.get('mint') in bt_m and r.get('scanned') and not _rn.safety_fails(r, _runner_cfg()) and r['mint'] not in fb_ids
                      and _lq(r) >= floor_of(r) and _fuse._f(r.get('price')) > 0 and (r.get('ageH') is not None and _fuse._f(r.get('ageH')) >= min_age_)]
             fb_ = fb_ + [x for x in bots_ if x['mint'] not in {y.get('mint') for y in fb_}]
-            cfg_t = {**cfg_t, 'seatFallback': list({x.get('mint'): x for x in reversed(fb_)}.values())[::-1][:6]}
+            # ⏭ COMING UP BY CATEGORY (owner: "pick 1 of the best from the top for swap in categories"): each list (Pump trending,
+            # Volume, Dips & bottoms, Movers, New launches, Trench) walked from ITS top; the first coin that passed the safety scan,
+            # clears the pool floor + the card's min age, isn't dollar-named and is a sane entry (not falling / mid-spike / trending
+            # down / too wild / at its highs) is that category's pick. They go FIRST in the 30s seat fallback: what Coming up shows
+            # is what an empty seat takes.
+            cand_by = {r.get('mint'): r for r in _runner_cands if r.get('mint')}
+            seen_by = {x.get('mint'): x for x in list(r_pre_) + list(watch_) if x.get('mint')}
+            def _cat_row(r):
+                c_ = cand_by.get(r.get('mint'))
+                return {**c_, **(seen_by.get(r.get('mint')) or {})} if c_ else None
+            def _cat_ok(r):
+                x = _cat_row(r)
+                return bool(x and x.get('scanned') and not _rn.safety_fails(x, _runner_cfg()) and x['mint'] not in fb_ids and _lq(x) >= floor_of(x)
+                            and _fuse._f(x.get('price')) > 0 and x.get('ageH') is not None and _fuse._f(x.get('ageH')) >= min_age_
+                            and not _fw.dollar_named(x.get('symbol')) and _prime.seat_fallback_ok(x, mom))
+            cat_lists = {**_lens_rows, 'bottom': [{'mint': r.get('baseAddress')} for r in _bottom_cache.get('rows') or []],
+                         'trench': [{'mint': r.get('mint')} for r in _trench_cache.get('rows') or []]}
+            try:
+                cat_picks, cat_miss = _prime.category_picks(cat_lists, _cat_ok, _list_records())
+            except Exception:
+                cat_picks, cat_miss = [], {}
+            cat_rows = [{**_cat_row(p_), 'tag': f"{p_['catLabel']} #{p_['rank']}", 'cat': p_['cat'], 'catRank': p_['rank']} for p_ in cat_picks]
+            fb_ = cat_rows + [x for x in fb_ if x.get('mint') not in {y['mint'] for y in cat_rows}]
+            cfg_t = {**cfg_t, 'seatFallback': list({x.get('mint'): x for x in reversed(fb_)}.values())[::-1][:8], 'catPicks': cat_rows, 'catMiss': cat_miss}
         # 🧊 anchors cool too: a major this card just sold isn't bought back for 3 rounds while another major is available
         a_t = _prime_cool_candidates(anchors, cool, 2, strict=real_t and len([x for x in anchors if x.get('mint') not in cool]) >= 1) if cool else anchors
         if new_only_:
@@ -6622,6 +6653,9 @@ async def _prime_tick_inner(now):
             row_ = lambda x: {'mint': x.get('mint'), 'pairAddress': x.get('pairAddress'), 'symbol': x.get('symbol'), 'chg1h': _fuse._f(x.get('chg1h')), 'vol1h': _fuse._f(x.get('vol1h')), 'tag': x.get('tag') or '',
                               'ageH': x.get('ageH'), 'liq': _lq(x)}
             seen_u, up_ = set(), []
+            for x in cfg_t.get('catPicks') or []:   # ⏭ one per category, best list record first — what an empty seat takes next
+                if x.get('mint') not in on_ and x['mint'] not in seen_u:
+                    seen_u.add(x['mint']); up_.append({**row_(x), 'cat': x.get('cat'), 'catRank': x.get('catRank')})
             for x in _prime.flow_rank(free_ + [y for y in scout_ if y.get('mint') not in {z.get('mint') for z in free_}]):   # ⏭ COMING UP: by what each coin looks like now (setup · chart), then hourly move
                 if x.get('mint') and x['mint'] not in seen_u:
                     seen_u.add(x['mint']); up_.append(row_(x))
@@ -6635,7 +6669,7 @@ async def _prime_tick_inner(now):
             for x, w_ in sorted(wrows_, key=lambda t: peaked_(t[1])):
                 if x.get('mint') and x['mint'] not in seen_u and len(up_) < 6:
                     seen_u.add(x['mint']); up_.append({**row_(x), 'wait': w_ + (' — already ran' if peaked_(w_) else '')})
-            cards[tid]['pipeline'] = {'at': now, 'steps': fun_ + [['not on the card and not cooling', len(free_)]], 'up': up_[:6],
+            cards[tid]['pipeline'] = {'at': now, 'steps': fun_ + [['not on the card and not cooling', len(free_)]], 'up': up_[:6], 'catMiss': cfg_t.get('catMiss') or {},
                                       'next': [f"${x.get('symbol')} {_fuse._f(x.get('chg1h')):+.0f}%" for x in sorted(free_, key=lambda x: -_fuse._f(x.get('chg1h')))[:4]],
                                       'scout': [f"${x.get('symbol')} {_fuse._f(x.get('chg1h')):+.0f}%" for x in scout_[:4]]}
         taken |= {l.get('mint') for l in (cards[tid] or {}).get('legs') or [] if l.get('role') != 'anchor'}

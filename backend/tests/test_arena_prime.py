@@ -93,7 +93,12 @@ def test_stop_loss_replaced_early_cut_when_fading_anchor_never_stopped():
     mints = [l['mint'] for l in out['legs']]
     assert 'r9' in mints and 'r1' not in mints and 'sol' in mints and 'r2' in mints          # r2 −12% not fading → kept
     fade = {'Pr2': {'chg1h': -9, 'buyShare': 38}}
-    cut = ap.tick(out, {**px, 'Pr9': 1}, [], [R('r8', 1)], CFG, 120, SOL, fade)             # −12% ≥ half the stop + fading → early cut
+    early = ap.tick(out, {**px, 'Pr9': 1}, [], [R('r8', 1)], CFG, 120, SOL, fade)           # first 15 min: its "1h down" predates the buy
+    assert 'r2' in [l['mint'] for l in early['legs']]
+    mine = {**out, 'legs': [{**l, 'picked': True} if l['mint'] == 'r2' else l for l in out['legs']]}
+    kept = ap.tick(mine, {**px, 'Pr9': 1}, [], [R('r8', 1)], CFG, 1000, SOL, fade)          # the owner's pick: only its full stop sells it
+    assert 'r2' in [l['mint'] for l in kept['legs']]
+    cut = ap.tick(out, {**px, 'Pr9': 1}, [], [R('r8', 1)], CFG, 1000, SOL, fade)            # −12% ≥ half the stop + fading → early cut
     assert 'r2' not in [l['mint'] for l in cut['legs']] and 'cut early' in [e for e in cut['events'] if e['kind'] == 'sl'][-1]['why']
     rot = ap.tick(cut, {**px, 'Pr9': 1, 'Pr8': 1}, [P('x', 2)], [R('r7', 1)], CFG, 3600 + 61, SOL)
     assert all(e['symbol'] != 'SOL' for e in rot['events'] if e['kind'] == 'rotate')
@@ -2199,3 +2204,15 @@ def test_a_coins_own_park_keeps_its_own_rounds_whatever_the_card_setting():
     done = {**out, 'rounds': 16}
     assert ap.release_parked(done, cfg, 70.0) > 0 and done['skimPark'] == []
     assert 'hold' not in ap.skim_leg(card, 'PT', {'PT': 0.02}, {}, 50.0, 'round', hold=99)['skimPark'][0]   # only the offered choices
+
+
+def test_coming_up_takes_the_best_coin_from_the_top_of_each_category():
+    import arena_prime as ap
+    lists = {'ptrend': [{'mint': 'A'}, {'mint': 'B'}], 'volume': [{'mint': 'A'}, {'mint': 'C'}], 'bottom': [{'mint': 'BAD'}, {'mint': 'D'}],
+             'movers': [], 'pump': [{'mint': 'BAD'}]}
+    ok = lambda r: r['mint'] != 'BAD'
+    picks, misses = ap.category_picks(lists, ok, records={'bottom': {'n': 30, 'medPct': -5}, 'volume': {'n': 60, 'medPct': -1}, 'ptrend': {'n': 2, 'medPct': 50}})
+    # best record first (volume −1 > bottom −5), no record yet after; each list walked from its top, a coin never taken twice
+    assert [(p['cat'], p['mint'], p['rank']) for p in picks] == [('volume', 'A', 1), ('bottom', 'D', 2), ('ptrend', 'B', 2)]
+    assert picks[0]['catLabel'] == '🌊 Volume'
+    assert misses == {'movers': 'list empty right now', 'pump': 'nothing in the top 60 passes', 'trench': 'list empty right now'}

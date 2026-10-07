@@ -920,6 +920,36 @@ def seat_fallback_ok(x, mom=None):
     return not (x.get('cWild') is not None and _f(x.get('cWild')) >= META_WILD_PCT)
 
 
+CATEGORIES = (('ptrend', '🔥 Pump trending'), ('volume', '🌊 Volume'), ('bottom', '🟢 Dips & bottoms'), ('movers', '🚀 Movers'),
+              ('pump', '🆕 New launches'), ('trench', '🗑 Trench'))
+
+
+def category_picks(lists, ok, records=None, limit=6):
+    """⏭ COMING UP = ONE coin per category, the best from the TOP of that list (owner: "pick 1 of the best from the top for swap in
+    categories"). Each list is walked in its own order; the first coin `ok(row)` accepts (safety scan, pool floor, min age, a sane
+    entry, not on the card / cooling) is that category's pick, never one an earlier category already took. Categories are ordered by
+    their own 1-hour record (best median first; no record yet → after). → [{**row, cat, catLabel, rank}] (+ `misses` {cat: why})"""
+    rec = records or {}
+    def score(k):
+        r = rec.get(k) or {}
+        return _f(r.get('medPct')) if _f(r.get('n')) >= 5 else -1e9
+    order = sorted(CATEGORIES, key=lambda kv: -score(kv[0]))
+    out, taken, misses = [], set(), {}
+    for k, label in order:
+        rows = (lists or {}).get(k) or []
+        pick = None
+        for i, r in enumerate(rows[:60]):
+            m = r.get('mint')
+            if m and m not in taken and ok(r):
+                pick = {**r, 'cat': k, 'catLabel': label, 'rank': i + 1}
+                break
+        if pick:
+            taken.add(pick['mint']); out.append(pick)
+        else:
+            misses[k] = 'nothing in the top 60 passes' if rows else 'list empty right now'
+    return out[:limit], misses
+
+
 def meta_only(rows, cfg=None, mom=None):
     """Rows the engine may buy by itself. Two kinds keep their OWN entry rule instead of the chart gate: 🗑 trench rows
     (`trench_entry` — a coin minutes old has no chart to read, so the gate dropped every one and the trench drop never fired)
@@ -1867,7 +1897,11 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         dd = (px / l['entry'] - 1) * 100
         l['peak'] = max(_f(l.get('peak')), dd)
         trail = cfg.get('trail', True) and _f(l['peak']) >= TRAIL_AT and dd <= TRAIL_KEEP   # 🔒 ran +50%, now giving it back
-        if not trail and dd > -leg_sl(l, t) and not (dd <= -leg_sl(l, t) / 2 and fading(mom.get(l['pairAddress']))):   # early cut: half the stop + fading
+        # early cut: half the stop + fading — never on the owner's own pick, never in a coin's first 15 min (its "1h down" was
+        # read BEFORE the buy: a 🟢 buy-bottom pick is down on the hour by definition — $LOOT was cut at −3% 4 min after the owner
+        # picked it with a −6% stop). The owner's full stop still applies to every coin.
+        early_ok = not l.get('picked') and now - _f(l.get('at') or l.get('firstEntry')) >= FRESH_SEC
+        if not trail and dd > -leg_sl(l, t) and not (early_ok and dd <= -leg_sl(l, t) / 2 and fading(mom.get(l['pairAddress']))):
             continue
         out_usd = sell_usd(l['units'], px, liqs.get(l['pairAddress']) or l.get('liq'))
         why = (f"ran +{l['peak']:.0f}%, back to {dd:+.0f}% — locked before it turned red" if trail else

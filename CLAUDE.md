@@ -2058,3 +2058,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - ♻ RENT SWEEP RUNS EARLY (`fuse_wallet.sweep_due`, `SWEEP_SOON_SEC` 60): when the wallet's SOL outside the cards can't open 2 new coin
   accounts and a coin was sold whole since the last sweep, the empty accounts are closed within a minute (the clock was 10–30 min). On
   5-min rounds the reserve was all parked (7 accounts, 3 empty, 0.0004 SOL free) and the next new coin waited on its rent.
+- ⏭ COMING UP = ONE COIN PER CATEGORY (`arena_prime.CATEGORIES/category_picks`, `_lens_rows` cached by `_lens_track`, `_list_records`;
+  in `_prime_tick` → cfg `catPicks` / `catMiss`, pipeline `catMiss`): 🔥 Pump trending · 🌊 Volume · 🟢 Dips & bottoms · 🚀 Movers · 🆕 New
+  launches · 🗑 Trench, each list walked from ITS top; the first coin that passed the safety scan, clears the pool floor + min age, is not
+  dollar-named and is a sane entry (`seat_fallback_ok`) is that category's pick (tag "🌊 Volume #3"); categories ordered by their own
+  1-hour record. They go FIRST in the 30s seat fallback — what Coming up shows is what an empty seat takes. (Before: 0 ready, 6
+  "watching" leftovers: ranging / down-trend / too wild / at its highs.)
+- ✂ EARLY CUT ("half the stop + fading") never touches the owner's own pick or a coin in its first 15 min (`FRESH_SEC`): $LOOT, a
+  buy-bottom pick with a −6% stop, was cut at −3% four minutes after the buy — its "1h down" was read before it was bought. The full
+  stop still applies to every coin.
