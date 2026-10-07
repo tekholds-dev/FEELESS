@@ -344,3 +344,15 @@ async def jup_lookup(http, address):
     if p and tok.get('id') != address:
         p = {**p, 'pairAddress': address}
     return p
+
+
+async def jup_search_pairs(http, query, limit=12):
+    """📡 Jupiter search (CA or ticker) → DexScreener-shaped pairs, best liquidity first. The search fallback when DexScreener's API
+    answers empty: on 2026-10-07 a pasted CA ($Human, $28K pool, graduated) read "no tradable pool" everywhere on the site."""
+    try:
+        r = await http.get(JUP_SEARCH, params={'query': str(query or '').strip().lstrip('$')}, timeout=8)
+        rows = r.json() if r.status_code == 200 else []
+    except Exception:
+        return []
+    out = [p for p in (jup_pair(t) for t in (rows if isinstance(rows, list) else [])[:limit]) if p]
+    return sorted(out, key=lambda p: -_f((p.get('liquidity') or {}).get('usd')))

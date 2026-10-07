@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, Query
 from ecosystem import DEFAULT_MINTS
 from pydantic import BaseModel, Field
 
-from launchpad_board import jup_lookup, jup_pair, keep_last_board, BOARD_MAX, BONK_PLATFORM_ID, JUP_LISTS, JUP_RECENT, PUMP_TREND_PARAMS, PUMP_TREND_PATH, PUMP_TREND_TTL, build_board, pump_pages, pump_trend_rows, dex_candidate, jup_candidate, launchlab_candidate, pump_candidate
+from launchpad_board import jup_lookup, jup_search_pairs, jup_pair, keep_last_board, BOARD_MAX, BONK_PLATFORM_ID, JUP_LISTS, JUP_RECENT, PUMP_TREND_PARAMS, PUMP_TREND_PATH, PUMP_TREND_TTL, build_board, pump_pages, pump_trend_rows, dex_candidate, jup_candidate, launchlab_candidate, pump_candidate
 
 BOARD_SCOPES = ('launchpads', 'pump', 'bonk', 'raydium')
 
@@ -681,13 +681,22 @@ def create_market_router(db, intelligence=None):
         if not q.strip():
             raise HTTPException(400, 'Enter a token or contract address')
         data, meta = await cached('DexScreener', '/latest/dex/search', {'q': q.strip()}, ttl=30)
-        return MarketResult(**meta, source_url=PROVIDER_URLS['DexScreener'], label='Search results', pairs=data.get('pairs') or [])
+        pairs = data.get('pairs') or []
+        if not pairs:   # 📡 DexScreener silent → Jupiter search (CA or ticker), same pair shape
+            async with httpx.AsyncClient(timeout=8) as http_j:
+                pairs = await jup_search_pairs(http_j, q)
+            if pairs:
+                return MarketResult(**{**meta, 'provider': 'Jupiter'}, source_url='https://jup.ag', label='Search results (Jupiter fallback)', pairs=pairs)
+        return MarketResult(**meta, source_url=PROVIDER_URLS['DexScreener'], label='Search results', pairs=pairs)
 
     async def resolve_ca(address):
         data, meta = await cached('DexScreener', '/latest/dex/search', {'q': address}, ttl=60)
         pairs = [p for p in data.get('pairs') or [] if (
             p.get('baseToken', {}).get('address', '').lower() == address.lower() if address.startswith('0x')
             else p.get('baseToken', {}).get('address') == address)]
+        if not pairs and not address.startswith('0x'):   # 📡 Solana CA DexScreener can't answer → Jupiter
+            async with httpx.AsyncClient(timeout=8) as http_j:
+                pairs = [p for p in await jup_search_pairs(http_j, address) if (p.get('baseToken') or {}).get('address') == address]
         pairs.sort(key=lambda p: float(p.get('liquidity', {}).get('usd') or 0), reverse=True)
         return pairs, meta
 

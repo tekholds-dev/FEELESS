@@ -115,3 +115,23 @@ def test_jupiter_lookup_finds_a_coin_by_mint_or_by_any_of_its_pools_and_keeps_th
     assert by_pool['pairAddress'] == 'CURVE' and by_pool['baseToken']['address'] == 'MINT'   # the caller's pool key still matches
     assert asyncio.run(jup_lookup(H(), 'MINT'))['pairAddress'] == 'GPOOL'                   # by mint → its graduated pool
     assert asyncio.run(jup_lookup(H(), 'NOPE')) is None
+
+
+def test_jupiter_search_turns_a_pasted_ca_into_pairs_best_pool_first():
+    import asyncio
+    from launchpad_board import jup_search_pairs
+    rows = [{'id': 'A', 'symbol': 'THIN', 'usdPrice': 1.0, 'liquidity': 5e3, 'graduatedPool': 'PA'},
+            {'id': 'B', 'symbol': 'Human', 'usdPrice': 0.00023, 'liquidity': 28623.0, 'graduatedPool': 'PB'},
+            {'id': 'C', 'symbol': 'NOPX', 'usdPrice': 0, 'graduatedPool': 'PC'}]
+
+    class R:
+        status_code = 200
+        def json(self):
+            return rows
+
+    class H:
+        async def get(self, url, params=None, timeout=None):
+            assert params['query'] == 'Human'                       # a $TICKER loses its $
+            return R()
+    out = asyncio.run(jup_search_pairs(H(), '$Human'))
+    assert [p['baseToken']['symbol'] for p in out] == ['Human', 'THIN']   # deepest first; no price = never listed

@@ -2780,6 +2780,15 @@ async def fuses_search(request: Request, q: str = Query(..., min_length=2, max_l
             pairs = got if isinstance(got, list) else (got or {}).get('pairs') or []
         except Exception:
             pairs = []
+        if not pairs:   # 📡 DexScreener silent (outage / not indexed yet) → Jupiter's data for the same CA or ticker, same pair shape
+            try:
+                key = os.getenv('JUPITER_API_KEY', '')
+                base, hdr = ('https://api.jup.ag/tokens/v2/search', {'x-api-key': key}) if key else (_launchpad_board.JUP_SEARCH, {})
+                jr = await http.get(base, params={'query': q.strip().lstrip('$')}, headers=hdr)
+                toks = jr.json() if jr.status_code == 200 else []
+                pairs = [p_ for p_ in (_launchpad_board.jup_pair(t) for t in (toks if isinstance(toks, list) else [])[:12]) if p_]
+            except Exception:
+                pairs = []
     pairs = [_fuse.with_curve(p) for p in pairs]   # 🆕 a coin still on Pump's launch curve is tradable: its curve depth stands in for a pool
     admin = _is_admin_req(request)
     real = {p.get('pairAddress') for p in _fuse.real_pools(pairs)}
