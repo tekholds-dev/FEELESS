@@ -708,10 +708,12 @@ def flow_tag(x):
             return '🪜 back in its gap, trend up', 70.0
         if up and 5 <= pull <= 15:
             return '🧲 dip bought, trend up', 75.0
+        if at_high(x) and x.get('cStruct') != 'down':
+            return '🏔 at its highs', 40.0
         if up:
             return '📈 trending up', 62.0
         if pos >= 0.66 and x.get('cStruct') != 'down':
-            return '🏔 at its highs', 50.0
+            return '⛰ upper range', 50.0
         if x.get('cStruct') == 'down':
             return '📉 trending down', 10.0
         return '➖ ranging', 35.0
@@ -729,6 +731,12 @@ def flow_rank(rows):
 
 
 META_MIN_POS = 0.34
+META_MIN_PULL = 5.0    # 🏔 closer than this % to its 4h high = AT ITS HIGHS: the engine waits for the dip, it never buys the top
+
+
+def at_high(x):
+    """Is the coin sitting at its highs (less than `META_MIN_PULL`% under its 4h high)? No chart reading = not judged."""
+    return bool((x or {}).get('cBars')) and x.get('cPull') is not None and _f(x.get('cPull')) < META_MIN_PULL
 META_WILD_PCT = 35.0   # = chart_read.WILD_PCT
 
 
@@ -756,7 +764,10 @@ def meta_why(x):
     ch = chase_why(x)
     if ch and not (x or {}).get('comeback'):
         return ('too hot: +%.0f%% in 5 min — waits for it to cool' % _f(x.get('chg5m'))) if _f((x or {}).get('chg5m')) > CHASE_5M else ('too far: +%.0f%% on the hour' % _f(x.get('chg1h')))
-    return _cr.why_not(x)
+    why = _cr.why_not(x)
+    if not why and at_high(x) and not (x or {}).get('comeback'):
+        return 'at its highs: %.0f%% under its 4h high — waits for a %.0f%%+ dip' % (_f(x.get('cPull')), META_MIN_PULL)
+    return why
 
 
 def meta_ready(x):
@@ -773,6 +784,8 @@ def meta_ready(x):
     if not x.get('cBars') or x.get('cStruct') == 'down':
         return False
     if x.get('cWild') is not None and _f(x.get('cWild')) >= META_WILD_PCT:   # 🌪 fell a third inside one candle this hour: it gaps through any stop
+        return False
+    if at_high(x):              # 🏔 owner, 2026-10-06: "15% off dips is good, but if it's up wtf" — record: 5–15% under the high +26%, top of range ≈ flat
         return False
     # ranging at the BOTTOM of its range = drifting down without the label (record: bottom third −31% typical vs top third −2%)
     return not (x.get('cStruct') == 'range' and x.get('cPos') is not None and _f(x.get('cPos')) < META_MIN_POS)

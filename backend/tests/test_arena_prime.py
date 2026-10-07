@@ -1952,3 +1952,16 @@ def test_the_engine_does_not_chase_a_coin_mid_spike_and_says_why():
     assert ap.meta_ready({**hot, 'comeback': 18.0})                                        # a rider coming back is never held by this
     assert ap.chase_why({}) == [] and ap.chase_why(None) == []                             # no reading = not judged
     assert ap.meta_why({'cBars': 9, 'cStruct': 'down'}) == 'trending down'                 # otherwise the chart reason, as before
+
+
+def test_at_its_highs_is_watched_not_bought_the_engine_waits_for_the_dip():
+    top = {'cBars': 9, 'cStruct': 'up', 'cPos': 0.97, 'cPull': 1.2, 'chg5m': 0.5, 'chg1h': 20}
+    dip = {**top, 'cPos': 0.8, 'cPull': 9.0}
+    assert ap.at_high(top) and not ap.meta_ready(top)
+    assert ap.meta_why(top) == 'at its highs: 1% under its 4h high — waits for a 5%+ dip'
+    assert ap.flow_tag(top)[0] == '🏔 at its highs'
+    assert not ap.at_high(dip) and ap.meta_ready(dip) and ap.meta_why(dip) == '' and ap.flow_tag(dip)[0] == '🧲 dip bought, trend up'
+    assert ap.flow_rank([top, dip])[0]['cPull'] == 9.0                       # the dip is taken first
+    assert ap.meta_ready({**top, 'comeback': 18})                            # a comeback is exempt, as everywhere
+    assert not ap.at_high({'cBars': 9, 'cStruct': 'up'})                     # no pull reading = not judged
+    assert ap.meta_only([top, dip]) == [dip]

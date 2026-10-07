@@ -1711,3 +1711,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🎨 Chart backgrounds are now ▫ Default · ⚛ Fuse reactor · 🧬 Fuse helix · 🌅 Sunset ocean (slow sun, light path on the water,
   drifting swells) · 🌌 Aurora night (stars, three swaying veils, a ridge). Owner: keep the two Fuse scenes, the rest CALM — Warp gate
   and FeeCat prowl are retired (a stored 'warp' / 'cat' falls back to Default). A new scene must be calm; each has its own day palette.
+- 🏔 AT ITS HIGHS = WATCHED, NOT BOUGHT (`arena_prime.at_high`, `META_MIN_PULL` 5; inside `meta_ready`, so cfg `upMeta` switches it):
+  a coin less than 5% under its 4h high is not bought by the engine — Coming up reads "watching — at its highs: 1% under its 4h
+  high — waits for a 5%+ dip"; `flow_tag` ranks it under every dip / trend tag (40 pts). A comeback is exempt; no pull reading =
+  not judged; the owner's picks are not judged. Owner: "15% off dips is good, but if it's up wtf" — "at its highs" had been the
+  NEXT coin to swap in. Record: 5–15% under the high +26% typical (11 picks), top third of the range about flat.

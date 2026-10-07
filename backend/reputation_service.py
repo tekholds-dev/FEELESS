@@ -6237,7 +6237,7 @@ async def _prime_tick_inner(now):
         if real_t and cfg_t.get('upMeta', True):   # 🧭 UP NEXT IS META: the engine's own buys need a chart it can read, not falling
             watch_ = [x for x in r_t if not _prime.meta_ready(x)]   # 👀 shown under Coming up as "watching", with the reason
             r_pre_, r_t = _prime.meta_only(r_pre_), _prime.meta_only(r_t)
-            _step('not mid-spike · chart readable · not trending down (up-next meta)', r_t)
+            _step('not mid-spike · not at its highs · chart readable · not trending down (up-next meta)', r_t)
         if real_t:   # 🏊 the owner's own runner pool floor (off unless they set it)
             r_t = _prime.deep_runners(r_t, cfg_t.get('runnerMinLiqK'), cfg_t.get('runnerMinBuy'), cfg_t.get('runnerMinVolK'), cfg_t.get('runnerMinChg1h'))
             _step('your hunt line (pool · volume · 1h move · buyers)', r_t)
