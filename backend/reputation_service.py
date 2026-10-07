@@ -6396,7 +6396,7 @@ async def _prime_tick_inner(now):
         if mo_t:
             cfg_t = {**cfg_t, 'minOrderUsd': mo_t}
         stuck = set(_fw.stuck_buys(cur, now, bench, missed=book_s.get('misses'), pending_mint=(book_s.get('pending') or {}).get('toMint') or (book_s.get('pending') or {}).get('mint'),
-                                     busy=bool(book_s.get('pending')) or now - max([_fuse._f(t) for t in (book_s.get('soldAt') or {}).values()] or [0.0]) < 45)) if cur and cur.get('real') else set()
+                                     busy=bool(book_s.get('pending')) or _fw.slip_busy(book_s, now) or now - max([_fuse._f(t) for t in (book_s.get('soldAt') or {}).values()] or [0.0]) < 45)) if cur and cur.get('real') else set()
         # (the stuck-buy swap runs BELOW, after every filter — see "⏳ STUCK BUYS")
         # ⏳ EVERY door obeys the card's min age on real money (pools, runners, seat refills, replacements, mover swaps): a row whose
         # age is known and under `runnerMinAgeH` is out whatever list it came from. $Grok came in 20 minutes old through a list
@@ -7166,12 +7166,16 @@ _FW_KICK: dict = {}   # {'at': when a real buy was refused / failed} → the rou
 
 def _fw_record(d, row):
     if row.get('side') == 'buy' and row.get('status') in ('skipped', 'failed') and row.get('mint') and row.get('card') in (d.get('books') or {}) \
-            and not any(x in str(row.get('err') or '') for x in _FW_NOT_COIN):   # 🪑 a coin that keeps failing its buy gets benched
+            and not any(x in str(row.get('err') or '') for x in _FW_NOT_COIN) \
+            and not (row.get('status') == 'failed' and _fw.slip_transient(d.get('ledger'), row, _fuse._f(row.get('at')) or time.time())):
+        # 🪑 a coin that keeps failing its buy gets benched — a slippage failure is retried at once instead (the coin is fine, the price ran)
         b, out = _fw.note_miss(d['books'][row['card']], row['mint'], _fuse._f(row.get('at')) or time.time(), str(row.get('err') or ''))
         d['books'][row['card']] = b
         _FW_KICK['at'] = _fuse._f(row.get('at')) or time.time()
         if out:
             print(f"fuse wallet: benched {row.get('symbol')} for 1h — {row.get('err')}")
+    if row.get('side') == 'buy' and row.get('status') == 'failed' and _fw.SLIP_ERR in str(row.get('err') or '') and row.get('card') in (d.get('books') or {}):
+        d['books'][row['card']] = {**d['books'][row['card']], 'slipAt': _fuse._f(row.get('at')) or time.time()}   # ⏳ the seat waits for the retry
     if row.get('id') and any(r.get('id') == row['id'] and r.get('status') == row.get('status') for r in (d.get('ledger') or [])[-50:]):
         return   # the same order outcome is booked once (two ticks resolving one tx can't double the trail)
     d['ledger'] = (d.get('ledger') or [])[-1999:] + [row]   # recent 2000 for fast reads …
@@ -7189,11 +7193,14 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
     now = time.time()
     # `card` must be present on every outcome. Without it, secure-quote refusals (price gap / no sell-back route) were logged but
     # never counted by _fw_record, so the same unsafe mint retried forever instead of reaching the existing bench-and-replace path.
-    slip_cap = 300
-    if order.get('side') == 'sell':   # 🚪 an exit that already failed on slippage gets more room and any route (never a buy)
+    slip_cap, cfg0 = 300, cfg
+    if order.get('side') == 'sell':   # 🚪 an exit that already failed on slippage gets more room and any route
         s0_, slip_cap, wide_ = _fw.sell_escalation(_fw_load().get('ledger'), tid, order.get('mint'), now, cfg['slippageBps'])
         if wide_:
             cfg = {**cfg, 'slippageBps': s0_}; order = {**order, 'wide': True}
+    elif order.get('side') == 'buy':   # 🚪 a buy that just failed on slippage gets a little more room (≤ 5%; the price-gap check still runs)
+        s0_, slip_cap = _fw.buy_escalation(_fw_load().get('ledger'), tid, order.get('mint'), now, cfg['slippageBps'])
+        cfg = {**cfg, 'slippageBps': s0_}
     row = {**order, 'card': tid, 'liq': liq, 'status': 'quoted'}
     if order.get('side') == 'buy':
         # FINAL BUY GATE: cached radar liquidity is never authority for real money.
@@ -7227,7 +7234,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
     try:
         for attempt in range(3):   # 🔁 strong retry: a busy route gets fresh quotes, each with a little more slippage (≤ the 3% hard cap)
             try:
-                q = await _fw_quote(order, {**cfg, 'slippageBps': min(300, int(cfg['slippageBps']) + 75 * attempt)})
+                q = await _fw_quote(order, {**cfg, 'slippageBps': min(max(300, slip_cap), int(cfg['slippageBps']) + 75 * attempt)})
                 break
             except HTTPException:
                 if attempt == 2:
@@ -7319,7 +7326,17 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
                 async with _fw_lock:
                     d = _fw_load(); _fw_record(d, row); _fw_save(d)
                 return book
-    return await _fw_resolve(tid, book, cfg, sol_px, wait=40)
+    book = await _fw_resolve(tid, book, cfg, sol_px, wait=40)
+    # 🔁 SLIPPAGE = RETRY NOW, not "give the seat away": the price ran between the quote and the block (Jupiter 0x1771). The same
+    # order goes again at once — fresh quote, more room (`buy_escalation` / `sell_escalation`), every live-pool / limit / secure-buy
+    # check again — up to `SLIP_RETRIES` times. Before, one such failure re-picked the owner's seat 15s later ($FLY, $LOOP).
+    n_ = int(order.get('slipRetry') or 0)
+    if not book.get('pending') and n_ < _fw.SLIP_RETRIES and order.get('side') in ('buy', 'sell'):
+        last_ = next((r for r in reversed(_fw_load().get('ledger') or []) if r.get('id') == row.get('id')), None)
+        if last_ and last_.get('status') == 'failed' and _fw.SLIP_ERR in str(last_.get('err') or ''):
+            base_id = order.get('baseId') or order.get('id') or f"{tid}:{order.get('mint')}"
+            return await _fw_execute(tid, {**order, 'baseId': base_id, 'id': f'{base_id}:r{n_ + 1}', 'slipRetry': n_ + 1}, book, cfg0, sol_px, liq)
+    return book
 
 
 C2C_COOL_SEC = 600   # after a one-transaction swap fails, that card does plain two-step swaps for 10 minutes
@@ -7466,7 +7483,7 @@ async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
         row = {k: v for k, v in p.items() if k != 'sentAt'}
         # two different problems, two different fixes: "expired" = never reached a block (landing) · "failed on-chain" = it ran and
         # reverted (price moved past slippage) — the audit trail now says which
-        row.update(status='failed', err=f'failed on-chain: {str(chain_err)[:60]}' if chain_err else 'transaction expired — never landed')
+        row.update(status='failed', err=(_fw.chain_err(chain_err) if _fw.SLIP_ERR in _fw.chain_err(chain_err) else f'failed on-chain: {str(chain_err)[:60]}') if chain_err else 'transaction expired — never landed')
         _FW_RAW.pop(p.get('sig'), None)
         book = {**book, 'pending': None}
         async with _fw_lock:
@@ -7495,7 +7512,7 @@ async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
             rows_ = [{**base, 'status': 'failed', 'err': bad}]
             book = {**book, 'halt': True, 'haltWhy': bad}
         else:
-            rows_ = [{**base, 'status': 'failed', 'err': 'tx failed on-chain'}]
+            rows_ = [{**base, 'status': 'failed', 'err': _fw.chain_err((tx.get('meta') or {}).get('err'))}]
         book = {**book, 'pending': None}
         async with _fw_lock:
             d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book)
@@ -7524,7 +7541,7 @@ async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
         row.update(status='failed', err=mismatch)
         book = {**book, 'halt': True, 'haltWhy': mismatch}
     else:
-        row.update(status='failed', err='tx failed on-chain')
+        row.update(status='failed', err=_fw.chain_err((tx.get('meta') or {}).get('err')))
     book = {**book, 'pending': None}
     async with _fw_lock:
         d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book); _fw_record(d, row); _fw_save(d)

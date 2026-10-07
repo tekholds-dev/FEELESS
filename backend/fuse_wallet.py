@@ -139,6 +139,50 @@ def sell_escalation(ledger, card_id, mint, now, base_bps):
     return min(cap, int(base_bps) + 200 * n), cap, True
 
 
+SLIP_ERR = 'slippage exceeded'   # every slippage failure's err starts with this (at send = simulation, on-chain = landed and reverted)
+BUY_SLIP_MAX = 500       # bps — a buy that keeps failing on slippage may use up to 5% (the secure-buy price gap still caps it at 5% over market)
+SLIP_RETRIES = 2         # extra tries the keeper makes AT ONCE after a slippage failure (fresh quote, more room, every check again)
+SLIP_FREE = 3            # slippage failures of one coin in 15 min before they count as a miss (bench / re-pick)
+SLIP_BUSY_SEC = 45       # a seat whose buy just failed on slippage is being retried — the stuck-buy clock waits this long
+
+
+def chain_err(err):
+    """🧾 A reverted swap's on-chain error in words. Jupiter's 6001 (0x1771) = the price moved past the slippage limit between the quote
+    and the block: transient, worth an instant retry — never a reason to give up on the coin."""
+    t = str(err or '')
+    return f'{SLIP_ERR} on-chain (price moved past the limit)' if ('6001' in t or '0x1771' in t) else 'tx failed on-chain'
+
+
+def slip_fails(ledger, card_id, mint, side, now, window=SELL_FAIL_WINDOW):
+    """How many of this coin's `side` orders failed on SLIPPAGE in the last 15 min."""
+    return sum(1 for r in (ledger or [])[-200:] if r.get('card') == card_id and r.get('mint') == mint and r.get('side') == side
+               and r.get('status') == 'failed' and SLIP_ERR in str(r.get('err') or '') and 0 <= now - _f(r.get('at')) < window)
+
+
+def buy_escalation(ledger, card_id, mint, now, base_bps):
+    """🚪 A BUY that failed on slippage gets more room on the next try: none → normal (≤ 3%) · 1 → +1.5% (≤ 4.5%) · 2+ → +2.5% (≤ 5%).
+    Why (2026-10-07): every on-chain failure that day was 0x1771 — the owner's picks $FLY / $LOOP were moving fast, one failure
+    counted as a refusal and the seat was handed to another coin 15s later. → (starting bps, cap bps)"""
+    n = slip_fails(ledger, card_id, mint, 'buy', now)
+    if n <= 0:
+        return int(base_bps), 300
+    cap = 450 if n == 1 else BUY_SLIP_MAX
+    return min(cap, int(base_bps) + (150 if n == 1 else 250)), cap
+
+
+def slip_transient(ledger, row, now):
+    """True when a failed buy is a slippage failure that should be RETRIED, not counted as a miss (fewer than `SLIP_FREE` of them
+    for this coin in 15 min, this one included). A coin that keeps outrunning 5% slippage still ends up benched."""
+    if SLIP_ERR not in str(row.get('err') or ''):
+        return False
+    return slip_fails(ledger, row.get('card'), row.get('mint'), row.get('side'), now) + 1 < SLIP_FREE
+
+
+def slip_busy(book, now):
+    """The keeper is retrying a buy that just failed on slippage → the stuck-buy clock must not re-pick that seat."""
+    return now - _f((book or {}).get('slipAt')) < SLIP_BUSY_SEC
+
+
 NEW_SEAT_MIN = 0.05   # the smallest buy that may open a NEW coin's seat ($)
 SEAT_ROOM = 1.25   # a seat must be worth at least the smallest sendable order × this, or its buy can never be sent
 

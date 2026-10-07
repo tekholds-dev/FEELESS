@@ -2042,3 +2042,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   the pair), and the swap picker opens on 🔥 Pump trending (`lens=ptrend`, Pump's order, "🔥 Pump #N"). Owner, 2026-10-07: had to
   open pump.fun to find LOOP and FLY. The engine's gates and real-money rules are unchanged. Each row also carries holders (`nh`),
   top-10 % (`t10`), dev share (`dh`), dev wallet (`dw`), socials — not used yet.
+- 🔁 SLIPPAGE = RETRY NOW (`fuse_wallet.chain_err/buy_escalation/slip_transient/slip_busy`, `SLIP_RETRIES` 2, `SLIP_FREE` 3, end of
+  `_fw_execute`): 2026-10-07 EVERY on-chain failure was Jupiter 6001 / 0x1771 (price ran past the limit) — and one such failure
+  counted as a refused buy, so 15s later the seat was handed to another coin (the owner's $FLY / $LOOP picks bounced). Now the
+  ledger says "slippage exceeded on-chain", the SAME order goes again at once (fresh quote, buys +1.5% → ≤ 5%, sells as before ≤ 8%,
+  every live-pool / limit / secure-buy check again, id `…:rN`), the first 2 slippage failures in 15 min are NOT misses, and the
+  stuck-buy clock waits 45s (`book.slipAt`). The 3rd counts → bench as before. Safety refusals (price gap, sell-back, thin pool)
+  are unchanged. "STUCK BUY / SELL" ⇒ fetch the failed sig's `meta.err` first: 6001 = slippage, anything else is a different bug.

@@ -438,3 +438,28 @@ def test_an_account_a_provider_could_not_parse_never_crashes_a_scan():
     assert rs._parsed_info({'data': {'parsed': {'info': {'owner': 'W', 'mint': 'M'}}}}) == {'owner': 'W', 'mint': 'M'}
     assert rs._parsed_info({'data': ['AAAA', 'base64']}) == {}                           # raw base64 from some RPCs (Token-2022 extensions)
     assert rs._parsed_info(None) == {} and rs._parsed_info({'data': {'parsed': 'x'}}) == {} and rs._parsed_info([]) == {}
+
+
+def test_a_swap_that_reverts_on_slippage_is_sent_again_at_once_with_more_room(monkeypatch):
+    rs, fw, state, cfg, book, sell, buy = _c2c_env(monkeypatch, direct_out=250, two_leg_out=247)
+    tries = {'tx': 0}
+
+    async def krpc(http, method, params):
+        state['sent'].append(method)
+        if method == 'getTransaction':
+            tries['tx'] += 1
+            tok = lambda amt: {'owner': 'OWNER', 'mint': 'OLD', 'uiTokenAmount': {'amount': str(amt), 'decimals': 0}}
+            if tries['tx'] == 1:   # the first send landed and reverted: Jupiter 6001 (price ran past the limit)
+                return {'transaction': {'message': {'accountKeys': [{'pubkey': 'OWNER', 'signer': True}]}},
+                        'meta': {'err': {'InstructionError': [3, {'Custom': 6001}]}, 'fee': 5000, 'preBalances': [50_000_000], 'postBalances': [49_995_000],
+                                 'preTokenBalances': [tok(100)], 'postTokenBalances': [tok(100)]}}
+            return {'transaction': {'message': {'accountKeys': [{'pubkey': 'OWNER', 'signer': True}]}},
+                    'meta': {'err': None, 'fee': 5000, 'preBalances': [49_995_000], 'postBalances': [49_995_000 + 4_595_000],
+                             'preTokenBalances': [tok(100)], 'postTokenBalances': [tok(0)]}}
+        return 'SIG'
+    monkeypatch.setattr(rs, '_krpc', krpc)
+    out = asyncio.run(rs._fw_execute('degen', {**sell, 'id': 'degen:1:s:OLD'}, book, {**cfg, 'coinToCoin': False}, 120.0, 90000))
+    rows = [(r['side'], r['status'], str(r.get('err') or '')[:17]) for r in state['d']['ledger']]
+    assert rows == [('sell', 'failed', fw.SLIP_ERR), ('sell', 'filled', '')]               # retried in the same pass, no tick lost
+    assert state['d']['ledger'][1]['id'] == 'degen:1:s:OLD:r1' and 'OLD' not in out['legs']
+    assert state['sent'].count('sendTransaction') == 2

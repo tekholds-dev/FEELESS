@@ -1333,3 +1333,25 @@ def test_lost_topup_pays_back_counting_parked_rent_as_reserve():
     assert sol > 0.0089 and usd > 1.0 and b['owedInSol'] < 0.0011
     assert fw.free_for_owed(0.01707, books, 0.015, 0.0) == 0.0             # no rent parked → reserve untouched as before
     assert fw.free_for_owed(0.004, books, 0.015, 0.05) == 0.0              # never under the liquid floor
+
+
+def test_slippage_failure_is_retried_not_counted_as_a_refused_buy():
+    # Jupiter 0x1771 / 6001 = the price ran past the limit — named as slippage; any other revert stays generic
+    assert fw.chain_err({'InstructionError': [6, {'Custom': 6001}]}).startswith(fw.SLIP_ERR)
+    assert fw.chain_err({'InstructionError': [2, {'Custom': 1}]}) == 'tx failed on-chain'
+    S = lambda at, side='buy', mint='M', err=fw.SLIP_ERR + ' on-chain': {'card': 'c', 'mint': mint, 'side': side, 'status': 'failed', 'err': err, 'at': at}
+    # buys escalate on slippage only: +1.5% (≤ 4.5%), then +2.5% (≤ 5%), never further; an old or other-coin failure is forgotten
+    assert fw.buy_escalation([], 'c', 'M', 1000.0, 100) == (100, 300)
+    assert fw.buy_escalation([S(900)], 'c', 'M', 1000.0, 100) == (250, 450)
+    assert fw.buy_escalation([S(900), S(950)], 'c', 'M', 1000.0, 300) == (500, 500)
+    assert fw.buy_escalation([S(10), S(900, mint='X'), S(900, err='live pool too thin')], 'c', 'M', 1000.0, 100) == (100, 300)
+    # the first slippage failures are transient (no miss → the seat is not re-picked); the 3rd in 15 min counts
+    row = S(1000)
+    assert fw.slip_transient([], row, 1000.0) is True
+    assert fw.slip_transient([S(900)], row, 1000.0) is True
+    assert fw.slip_transient([S(900), S(950)], row, 1000.0) is False
+    assert fw.slip_transient([], S(1000, err='buy price 9% above market (> 5%)'), 1000.0) is False   # a safety refusal still counts
+    # while the keeper retries, the stuck-buy clock waits
+    assert fw.slip_busy({'slipAt': 990.0}, 1000.0) is True and fw.slip_busy({'slipAt': 900.0}, 1000.0) is False and fw.slip_busy({}, 1000.0) is False
+    card = {'legs': [{'mint': 'M', 'pairAddress': 'P', 'buying': True, 'buyingSince': 0.0}]}
+    assert fw.stuck_buys(card, 1000.0, busy=fw.slip_busy({'slipAt': 990.0}, 1000.0)) == []
