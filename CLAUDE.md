@@ -1846,3 +1846,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`source-atop`), a soft drop shadow, on Light studio or Dark carbon. Pieces: Fuse FZ · Fuse F · Fee Reserve FR · Fee Reserve R
   · FEELESS FL; the colour row recolours them. LESSON: when the owner names a reference, ask for or look at the actual image
   before drawing — the lightning / beads / crest versions were built from a guess and thrown away.
+- 📊 EVERY chart opens on MARKET CAP: the coin drawer's chart was the last one on price (`CoinDrawer` now passes `marketCap` from
+  the shared live-price record's `mc` and `metric="marketCap"` when it is known, price only when it is not). War room, mini
+  chart and mini card already did.
+- 🎖 Clan logos v2 (`cover.html` `MARKS`): FOUR bespoke design ideas per brand, all on screen side by side (no style picker) —
+  1 Interlock (hard-slanted planes with a dark seam, an extra floating plane on the F) · 2 Fused (rounded strokes that SHARE a
+  stroke: Fuse = FZ on one top bar, Fee Reserve = the F's bars closing into the R's bowl; silver bevel + slits) · 3 Frame (the
+  letter cut out of a chamfered plate with `destination-out`, four folded facets, one colour strip) · 4 Stencil (a slanted hex
+  emblem with the letter knocked through). `clan(design, 'F' | 'R', palette)`; backdrop Light studio / Dark carbon; the colour
+  row recolours them. The typed-letter version (`GLY`, style picker) is gone.

@@ -17,10 +17,10 @@
 <body>
 <h1>FEELESS covers & logos</h1>
 <p>Every piece is drawn live in your browser and downloads on its own: a still PNG, an animated GIF, and (covers) a video loop. Covers are 1500 × 500, the size X and most profile headers use. Dark studio look: brushed-metal 3D marks, lightning, shockwaves, a wet floor. Pick a colour on top — it repaints every piece, and what you see is what downloads. Candles are made up — never a real price.</p>
-<h2>CLAN LOGOS · 512 × 512 · CLEAN</h2>
-<p style="margin-bottom:10px">Built in the language of the old sniping-clan marks you sent: one bold monogram, flat glossy colour, a thin bevel, a clean backdrop — nothing else on the canvas. Pick a style and a backdrop; the colour row below recolours them too.</p>
-<div class="bar" id="cstyles" role="group" aria-label="Clan style"></div><div class="bar" id="cbacks" role="group" aria-label="Backdrop" style="margin-top:6px"></div>
-<div class="grid logos" id="clan" style="margin-top:12px"></div>
+<h2>CLAN LOGOS · 4 IDEAS EACH · 512 × 512</h2>
+<p style="margin-bottom:10px">Four design ideas for each brand, drawn from the marks you sent: <b>Interlock</b> (slanted planes with a seam), <b>Fused</b> (rounded strokes that share a stroke, bevel + slits), <b>Frame</b> (the letter cut out of a folded plate, one colour strip) and <b>Stencil</b> (the letter knocked through a slanted hex). One mark on a clean backdrop — nothing else. Pick the backdrop here; the colour row below recolours them.</p>
+<div class="bar" id="cbacks" role="group" aria-label="Backdrop"></div>
+<div class="grid" id="clan" style="margin-top:12px;grid-template-columns:repeat(4,minmax(0,1fr))"></div>
 <h2>STUDIO PIECES — DESIGN</h2><div class="bar" id="designs" role="group" aria-label="Design"></div>
 <h2>COLOUR</h2><div class="bar" id="pals" role="group" aria-label="Colour"></div>
 <h2>COVERS · 1500 × 500</h2><div class="grid" id="covers"></div>
@@ -147,43 +147,54 @@ const LOGOS = [
 ];
 
 // CLAN LOGOS -------------------------------------------------------------------------------------------------------------------
-// One bold monogram, nothing else. Letters are centre-lines on a unit grid (x 0–1, y 0–1.4), drawn three ways:
-//   interlock = slanted bars that overlap with a dark seam (the L7 look) · round = fat rounded strokes with a silver bevel and
-//   speed slits (the SB look) · fold = folded-paper facets in whites and greys with ONE colour strip (the folded-b look).
-const GLY = { F: [[[0, 1.4], [0, 0], [1, 0]], [[0, 0.66], [0.74, 0.66]]], Z: [[[0, 0], [1, 0], [0, 1.4], [1, 1.4]]], L: [[[0, 0], [0, 1.4], [1, 1.4]]],
-  R: [[[0, 1.4], [0, 0], [0.82, 0], [1, 0.18], [1, 0.5], [0.82, 0.68], [0, 0.68]], [[0.46, 0.68], [1, 1.4]]] };
-const R_SQ = [[[0, 1.4], [0, 0], [1, 0], [1, 0.68], [0, 0.68]], [[0.46, 0.68], [1, 1.4]]];
-let cstyle = 'interlock', cback = 'light';
+// FOUR DESIGN IDEAS per brand, each a bespoke mark (not a typed letter), in the language of the owner's references:
+//   1 INTERLOCK — hard-slanted planes laid over each other with a dark seam (the L7 mark)
+//   2 FUSED     — fat rounded strokes where the letters SHARE a stroke, silver bevel, speed slits (the SB mark)
+//   3 FRAME     — a chamfered plate with the letter cut out of it, folded-paper facets, ONE colour strip (the folded b)
+//   4 STENCIL   — a slanted hex emblem in solid colour with the letter knocked clean through it
+// Fuse = F (FZ in the fused one) · Fee Reserve = R (FR in the fused one). One mark, a soft shadow, a clean backdrop — nothing else.
+let cback = 'light';
 const layer = document.createElement('canvas'), ext = document.createElement('canvas'); layer.width = layer.height = ext.width = ext.height = 512;
 const CARBON = (() => { const c = document.createElement('canvas'); c.width = c.height = 512; const g = c.getContext('2d'); g.fillStyle = '#0b0c10'; g.fillRect(0, 0, 512, 512); g.lineWidth = 1; for (let i = -512; i < 1024; i += 6) { g.strokeStyle = 'rgba(255,255,255,.035)'; g.beginPath(); g.moveTo(i, 0); g.lineTo(i + 512, 512); g.stroke(); g.strokeStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.moveTo(i + 512, 0); g.lineTo(i, 512); g.stroke(); } return c; })();
 const shade = (hex, k) => { const n = parseInt(hex.slice(1), 16), f = v => Math.max(0, Math.min(255, Math.round(v * k))); return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`; };
-function clanBack(g, t) { if (cback === 'dark') { g.drawImage(CARBON, 0, 0); const r = g.createRadialGradient(256, 230, 0, 256, 230, 330); r.addColorStop(0, 'rgba(255,255,255,.10)'); r.addColorStop(1, 'rgba(0,0,0,.55)'); g.fillStyle = r; g.fillRect(0, 0, S, S); return; }
+function clanBack(g) { if (cback === 'dark') { g.drawImage(CARBON, 0, 0); const r = g.createRadialGradient(256, 230, 0, 256, 230, 330); r.addColorStop(0, 'rgba(255,255,255,.10)'); r.addColorStop(1, 'rgba(0,0,0,.55)'); g.fillStyle = r; g.fillRect(0, 0, S, S); return; }
   const r = g.createRadialGradient(256, 230, 20, 256, 256, 380); r.addColorStop(0, '#fbfbfc'); r.addColorStop(0.6, '#d5d7dc'); r.addColorStop(1, '#a4a7ae'); g.fillStyle = r; g.fillRect(0, 0, S, S);
-  g.fillStyle = 'rgba(255,255,255,.34)'; g.beginPath(); g.moveTo(0, 330); g.lineTo(512, 60); g.lineTo(512, 0); g.lineTo(0, 0); g.closePath(); g.fill(); }   // the studio reflection
-function clanMark(l, letters, col, deep) { const U = letters.length > 1 ? 112 : 150, gap = 0.3, w = 0.36, total = letters.length + gap * (letters.length - 1);
-  l.setTransform(1, 0, 0, 1, 0, 0); l.clearRect(0, 0, 512, 512); l.translate(256 + 0.17 * 0.7 * U, 256); l.transform(1, 0, -0.24, 1, 0, 0); l.scale(U, U); l.translate(-total / 2, -0.7);
-  const fill = l.createLinearGradient(0, -0.2, 0, 1.6); fill.addColorStop(0, shade(col, 1.18)); fill.addColorStop(0.55, col); fill.addColorStop(1, shade(col, 0.72));
-  const silver = l.createLinearGradient(0, -0.2, 0, 1.6); silver.addColorStop(0, '#ffffff'); silver.addColorStop(0.5, '#cfd4de'); silver.addColorStop(1, '#8b93a3');
-  const path = pts => { l.beginPath(); pts.forEach(([x, y], i) => l[i ? 'lineTo' : 'moveTo'](x, y)); };
-  letters.forEach((ch, li) => { l.save(); l.translate(li * (1 + gap), 0); const strokes = ch === 'R' && cstyle !== 'round' ? R_SQ : GLY[ch];   /* straight bars need a square bowl; the chamfered one is for round strokes */
-    if (cstyle === 'round') { l.lineCap = l.lineJoin = 'round'; strokes.forEach(pts => { path(pts); l.strokeStyle = silver; l.lineWidth = w + 0.13; l.stroke(); }); strokes.forEach(pts => { path(pts); l.strokeStyle = '#3a404d'; l.lineWidth = w + 0.035; l.stroke(); });
-      strokes.forEach(pts => { path(pts); l.strokeStyle = fill; l.lineWidth = w; l.stroke(); });
-      strokes.forEach(pts => pts.slice(1).forEach((b, i) => { const a = pts[i]; if (Math.abs(a[1] - b[1]) > 0.01 || Math.abs(a[0] - b[0]) < 0.5) return; const x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]);   // speed slits in the long horizontal strokes
-        l.lineCap = 'round'; l.strokeStyle = silver; l.lineWidth = 0.05; l.beginPath(); l.moveTo(x0 + 0.24, a[1]); l.lineTo(x1 - 0.2, a[1]); l.stroke(); l.lineCap = 'round'; })); }
-    else if (cstyle === 'fold') { const facets = ['#f6f8fb', '#c5cad5', '#e3e7ee', '#a9b0bd', '#eef1f6', '#b9c0cc']; let k = li * 2; l.lineCap = 'square'; l.lineJoin = 'miter';
-      strokes.forEach(pts => pts.slice(1).forEach((b, i) => { const a = pts[i]; l.beginPath(); l.moveTo(a[0], a[1]); l.lineTo(b[0], b[1]); l.strokeStyle = '#2a2e38'; l.lineWidth = w + 0.03; l.stroke(); l.strokeStyle = facets[k++ % facets.length]; l.lineWidth = w; l.stroke(); }));
-      if (li === letters.length - 1) { const last = strokes[strokes.length - 1], a = last[last.length - 2], b = last[last.length - 1], m = [a[0] + (b[0] - a[0]) * 0.45, a[1] + (b[1] - a[1]) * 0.45]; l.beginPath(); l.moveTo(m[0], m[1]); l.lineTo(b[0], b[1]); l.strokeStyle = '#2a2e38'; l.lineWidth = w + 0.03; l.lineCap = 'square'; l.stroke(); l.strokeStyle = fill; l.lineWidth = w; l.stroke(); } }   // the one colour strip
-    else { l.lineCap = 'square'; l.lineJoin = 'miter'; strokes.forEach(pts => pts.slice(1).forEach((b, i) => { const a = pts[i]; l.beginPath(); l.moveTo(a[0], a[1]); l.lineTo(b[0], b[1]); l.strokeStyle = deep; l.lineWidth = w + 0.05; l.stroke(); l.strokeStyle = fill; l.lineWidth = w; l.stroke(); })); }   // interlock: each bar laid over the last with a dark seam
-    l.restore(); });
-  l.setTransform(1, 0, 0, 1, 0, 0); }
-const clan = (letters, def) => (g, t) => { const P = pal(def), col = P[1][1], deep = shade(P[1][0], 0.7); const l = layer.getContext('2d'), e = ext.getContext('2d'); clanBack(g, t);
-  clanMark(l, letters, col, deep);
+  g.fillStyle = 'rgba(255,255,255,.34)'; g.beginPath(); g.moveTo(0, 330); g.lineTo(512, 60); g.lineTo(512, 0); g.lineTo(0, 0); g.closePath(); g.fill(); }
+const poly = (l, pts) => { l.beginPath(); pts.forEach(([x, y], i) => l[i ? 'lineTo' : 'moveTo'](x, y)); l.closePath(); };
+const MARKS = {
+  interlock(l, ch, fill, deep) { l.transform(1, 0, -0.46, 1, 0, 0); l.scale(0.9, 0.9); const bar = (x, y, w, h) => { l.fillStyle = deep; l.fillRect(x - 5, y - 5, w + 10, h + 10); l.fillStyle = fill; l.fillRect(x, y, w, h); };
+    const leg = pts => { poly(l, pts); l.lineJoin = 'miter'; l.strokeStyle = deep; l.lineWidth = 10; l.stroke(); l.fillStyle = fill; l.fill(); };
+    if (ch === 'R') { bar(-140, -130, 280, 64); bar(76, -130, 64, 172); bar(-140, -130, 70, 260); bar(-140, -22, 280, 62); leg([[-6, 40], [66, 40], [150, 130], [78, 130]]); }
+    else { bar(-140, -130, 300, 64); bar(-140, -130, 70, 260); bar(-140, -22, 222, 62); bar(44, 66, 116, 64); } },
+  fused(l, ch, fill, deep) { l.transform(1, 0, -0.22, 1, 0, 0); l.scale(0.88, 0.88); l.lineCap = l.lineJoin = 'round'; const w = 60;
+    const silver = l.createLinearGradient(0, -170, 0, 170); silver.addColorStop(0, '#ffffff'); silver.addColorStop(0.5, '#cfd4de'); silver.addColorStop(1, '#8b93a3');
+    const paths = ch === 'R' ? [l2 => { l2.moveTo(-150, 124); l2.lineTo(-150, -112); l2.lineTo(96, -112); l2.quadraticCurveTo(168, -112, 168, -52); l2.quadraticCurveTo(168, 8, 96, 8); l2.lineTo(-150, 8); }, l2 => { l2.moveTo(28, 8); l2.lineTo(160, 124); }]
+      : [l2 => { l2.moveTo(-170, 124); l2.lineTo(-170, -112); l2.lineTo(170, -112); l2.lineTo(18, 124); l2.lineTo(176, 124); }, l2 => { l2.moveTo(-170, 6); l2.lineTo(-58, 6); }];
+    for (const [st, lw] of [[silver, w + 22], ['#2f3440', w + 7], [fill, w]]) paths.forEach(pt => { l.beginPath(); pt(l); l.strokeStyle = st; l.lineWidth = lw; l.stroke(); });
+    l.strokeStyle = silver; l.lineWidth = 7; for (const [x0, x1, y] of (ch === 'R' ? [[-96, 70, -112], [-96, 60, 8]] : [[-110, 96, -112], [70, 132, 124]])) { l.beginPath(); l.moveTo(x0, y); l.lineTo(x1, y); l.stroke(); } },
+  frame(l, ch, fill) { l.scale(0.98, 0.98); const plate = [[-160, -160], [112, -160], [160, -112], [160, 160], [-112, 160], [-160, 112]]; l.save(); poly(l, plate); l.clip();
+    [['#f7f9fc', [[0, 0], [-170, -170], [170, -170]]], ['#c3c9d4', [[0, 0], [170, -170], [170, 170]]], ['#a7aebb', [[0, 0], [170, 170], [-170, 170]]], ['#e1e5ec', [[0, 0], [-170, 170], [-170, -170]]]].forEach(([c, tri]) => { l.fillStyle = c; poly(l, tri); l.fill(); });
+    l.fillStyle = fill; if (ch === 'R') poly(l, [[84, 44], [128, 44], [160, 96], [160, 160], [154, 160]]); else l.fillRect(-64, 12, 150, 22); l.fill(); l.restore();   // the one colour strip
+    l.globalCompositeOperation = 'destination-out'; l.fillStyle = '#000';
+    if (ch === 'R') { l.fillRect(-64, -92, 138, 62); poly(l, [[-64, 40], [40, 40], [128, 170], [-64, 170]]); l.fill(); } else { l.fillRect(-64, -92, 240, 62); l.fillRect(-64, 34, 240, 140); l.fillRect(88, -30, 90, 70); }
+    l.globalCompositeOperation = 'source-over'; },
+  stencil(l, ch, fill, deep) { l.transform(1, 0, -0.2, 1, 0, 0); const hex = k => Array.from({ length: 6 }, (_, i) => [Math.cos(i * T / 6) * 196 * k, Math.sin(i * T / 6) * 172 * k]);
+    l.fillStyle = fill; poly(l, hex(1)); l.fill(); l.strokeStyle = deep; l.lineWidth = 8; l.lineJoin = 'miter'; l.stroke(); l.strokeStyle = 'rgba(255,255,255,.55)'; l.lineWidth = 3; poly(l, hex(0.86)); l.stroke();
+    l.globalCompositeOperation = 'destination-out'; l.fillStyle = '#000'; l.transform(1, 0, -0.18, 1, 0, 0);
+    if (ch === 'R') { l.fillRect(-74, -100, 150, 44); l.fillRect(-74, -100, 48, 200); l.fillRect(30, -100, 46, 118); l.fillRect(-74, -24, 150, 42); poly(l, [[-6, 18], [44, 18], [98, 100], [48, 100]]); l.fill(); }
+    else { l.fillRect(-74, -100, 164, 44); l.fillRect(-74, -100, 48, 200); l.fillRect(-74, -24, 122, 42); }
+    l.globalCompositeOperation = 'source-over'; },
+};
+const clan = (design, ch, def) => (g, t) => { const P = pal(def), col = P[1][1], deep = shade(P[1][0], 0.7); const l = layer.getContext('2d'), e = ext.getContext('2d'); clanBack(g);
+  l.setTransform(1, 0, 0, 1, 0, 0); l.globalCompositeOperation = 'source-over'; l.clearRect(0, 0, 512, 512); l.translate(256, 256);
+  const fill = l.createLinearGradient(0, -170, 0, 170); fill.addColorStop(0, shade(col, 1.18)); fill.addColorStop(0.55, col); fill.addColorStop(1, shade(col, 0.72)); MARKS[design](l, ch, fill, deep); l.setTransform(1, 0, 0, 1, 0, 0);
   l.globalCompositeOperation = 'source-atop'; l.fillStyle = 'rgba(255,255,255,.16)'; l.beginPath(); l.moveTo(0, 300); l.lineTo(512, 120); l.lineTo(512, 0); l.lineTo(0, 0); l.closePath(); l.fill();   // glass: the upper half catches the light
   const sx = -260 + ((t * 1.5) % 1) * 1100; const gl = l.createLinearGradient(sx, 0, sx + 120, 80); gl.addColorStop(0, 'rgba(255,255,255,0)'); gl.addColorStop(0.5, 'rgba(255,255,255,.5)'); gl.addColorStop(1, 'rgba(255,255,255,0)'); l.fillStyle = gl; l.fillRect(0, 0, 512, 512); l.globalCompositeOperation = 'source-over';
-  e.globalCompositeOperation = 'source-over'; e.clearRect(0, 0, 512, 512); e.drawImage(layer, 0, 0); e.globalCompositeOperation = 'source-atop'; e.fillStyle = cstyle === 'fold' ? '#3d4350' : deep; e.fillRect(0, 0, 512, 512);   // the same shape, dark = its side wall
-  const bob = Math.sin(t * T) * 4; g.save(); g.translate(0, bob - 6); g.shadowColor = cback === 'dark' ? 'rgba(0,0,0,.8)' : 'rgba(40,44,54,.45)'; g.shadowBlur = 26; g.shadowOffsetY = 18; g.drawImage(ext, 9, 9); g.shadowColor = 'transparent';
+  e.globalCompositeOperation = 'source-over'; e.clearRect(0, 0, 512, 512); e.drawImage(layer, 0, 0); e.globalCompositeOperation = 'source-atop'; e.fillStyle = design === 'frame' ? '#3d4350' : deep; e.fillRect(0, 0, 512, 512);   // the same shape, dark = its side wall
+  g.save(); g.translate(0, Math.sin(t * T) * 4 - 6); g.shadowColor = cback === 'dark' ? 'rgba(0,0,0,.8)' : 'rgba(40,44,54,.45)'; g.shadowBlur = 26; g.shadowOffsetY = 18; g.drawImage(ext, 9, 9); g.shadowColor = 'transparent';
   for (let k = 8; k >= 1; k--) g.drawImage(ext, k, k); g.drawImage(layer, 0, 0); g.restore(); };
-const CLAN = [['fuse-fz', 'Fuse — FZ', clan(['F', 'Z'], 'fusion')], ['fuse-f', 'Fuse — F', clan(['F'], 'fusion')], ['reserve-fr', 'Fee Reserve — FR', clan(['F', 'R'], 'chrome')], ['reserve-r', 'Fee Reserve — R', clan(['R'], 'chrome')], ['feeless-fl', 'FEELESS — FL', clan(['F', 'L'], 'royal')]];
+const IDEAS = [['interlock', '1 · Interlock'], ['fused', '2 · Fused'], ['frame', '3 · Frame'], ['stencil', '4 · Stencil']];
+const CLAN = [...IDEAS.map(([d, n]) => [`fuse-${d}`, `Fuse — ${n}`, clan(d, 'F', 'fusion')]), ...IDEAS.map(([d, n]) => [`reserve-${d}`, `Fee Reserve — ${n}`, clan(d, 'R', 'chrome')])];
 
 // page ------------------------------------------------------------------------------------------------------------------------
 const save = (blob, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
@@ -206,7 +217,6 @@ function add(host, [id, name, draw], w, h, gifScale, frames, video) { const el =
     rec.onstop = () => { save(new Blob(parts, { type: rec.mimeType || 'video/webm' }), `feeless-${id}.webm`); b.disabled = false; b.textContent = '⏺ Video loop'; }; b.disabled = true; b.textContent = '⏺ recording 8s…'; rec.start(); setTimeout(() => rec.stop(), LOOP + 80); }; }
 const seg = (id, opts, get, set) => { const host = document.getElementById(id); opts.forEach(([k, name]) => { const b = document.createElement('button'); b.textContent = name; b.dataset.k = k; if (k === get()) b.className = 'go';
   b.onclick = () => { set(k); host.querySelectorAll('button').forEach(x => { x.className = x.dataset.k === k ? 'go' : ''; }); }; host.appendChild(b); }); };
-seg('cstyles', [['interlock', 'Interlock — slanted bars'], ['round', 'Round — bevel + slits'], ['fold', 'Fold — paper facets']], () => cstyle, k => { cstyle = k; });
 seg('cbacks', [['light', 'Light studio'], ['dark', 'Dark carbon']], () => cback, k => { cback = k; });
 CLAN.forEach(x => add(document.getElementById('clan'), [`${x[0]}`, x[1], x[2]], S, S, 1, 36, false));
 const db = document.getElementById('designs');
