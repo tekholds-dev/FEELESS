@@ -1287,3 +1287,12 @@ def test_a_keeper_save_never_erases_a_top_up_made_while_it_was_swapping():
     for i in range(25):
         b = fw.owner_add(b, 1.0, 0.01, 2000.0 + i)
     assert len(b['ownerAdds']) == fw.OWNER_ADDS_MAX and b['fundedUsd'] == 37.0
+
+
+def test_a_top_up_does_not_lift_a_small_ticket_to_a_full_seat():
+    import fuse_wallet as fw
+    leg = lambda m, usd, **kw: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'units': usd, 'entry': 1.0, 'costUsd': usd, 'role': 'runner', **kw}
+    card = {'legs': [leg('A', 1.0), leg('B', 1.0), leg('T', 0.3, ticket=True)], 'cash': 0.0, 'events': [], 'startUsd': 2.3, 'real': True}
+    out = fw.topup_card(card, 2.0, {'PA': 1.0, 'PB': 1.0, 'PT': 1.0}, 100.0)
+    val = {l['mint']: (l.get('units') or 0) + (l.get('wantUnits') or 0) for l in out['legs']}
+    assert abs(val['T'] - 0.3) < 1e-6 and val['A'] > 1.5 and val['B'] > 1.5
