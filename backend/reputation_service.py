@@ -5554,7 +5554,7 @@ def _open_board():
     rcfg = _runner_cfg()
     scanned = {}
     for r in _runner_cands:
-        if r.get('mint') and r.get('scanned'):
+        if r.get('mint') and r.get('scanned') and _fuse._f(r.get('top10')) > 0:   # a scan with no top-10 reading is not a scan (it read "top-10 hold 0%" = safe)
             bad = _rn.safety_fails(r, rcfg)
             scanned[r['mint']] = (not bad, bad[:4], {k: r.get(k) for k in ('top10', 'dev', 'insiders', 'bundled')})
     return _trench.open_board(_open_pairs, scanned, time.time() * 1000)
@@ -6459,6 +6459,14 @@ async def _prime_tick_inner(now):
             fb_ids = {x.get('mint') for x in r_t} | set(cool) | mine
             fb_ = [x for x in _prime.flow_rank([y for y in list(r_pre_) + list(watch_) if not y.get('trenchOnly')])
                    if x.get('mint') not in fb_ids and _prime.seat_fallback_ok(x, mom)]
+            # 🟢 … then BUY-BOTTOM coins (the owner's dips: far under their high, at the low of their range, no longer sliding) that
+            # passed every safety check, clear the pool floor and the card's min age — a dip before a coin that already ran
+            bt_m = {r.get('baseAddress'): r.get('divisionLabel') for r in _bottom_cache.get('rows') or []}
+            min_age_ = _fuse._f(cfg_t.get('runnerMinAgeH'))
+            bots_ = [{**r, 'tag': '🟢 buy bottom', 'bottomWhy': bt_m[r['mint']]} for r in _runner_cands
+                     if r.get('mint') in bt_m and r.get('scanned') and not _rn.safety_fails(r, _runner_cfg()) and r['mint'] not in fb_ids
+                     and _lq(r) >= floor_of(r) and _fuse._f(r.get('price')) > 0 and (r.get('ageH') is not None and _fuse._f(r.get('ageH')) >= min_age_)]
+            fb_ = fb_ + [x for x in bots_ if x['mint'] not in {y.get('mint') for y in fb_}]
             cfg_t = {**cfg_t, 'seatFallback': list({x.get('mint'): x for x in reversed(fb_)}.values())[::-1][:6]}
         # 🧊 anchors cool too: a major this card just sold isn't bought back for 3 rounds while another major is available
         a_t = _prime_cool_candidates(anchors, cool, 2, strict=real_t and len([x for x in anchors if x.get('mint') not in cool]) >= 1) if cool else anchors
@@ -6533,9 +6541,16 @@ async def _prime_tick_inner(now):
             for x in _prime.flow_rank(free_ + [y for y in scout_ if y.get('mint') not in {z.get('mint') for z in free_}]):   # ⏭ COMING UP: by what each coin looks like now (setup · chart), then hourly move
                 if x.get('mint') and x['mint'] not in seen_u:
                     seen_u.add(x['mint']); up_.append(row_(x))
-            for x in _prime.flow_rank([y for y in watch_ if y.get('mint') not in on_ and not y.get('trenchOnly')]):   # 👀 never an empty list: the closest coins + why not yet
+            # 👀 watching, DIPS FIRST: buy-bottom coins the 30s seat fallback may take, then coins waiting on their chart; a coin that
+            # already ran (at its highs / too far / too hot / too wild) goes LAST — the owner: "next up giving stuff that peaked"
+            for x in (cfg_t.get('seatFallback') or []):
+                if x.get('bottomWhy') and x.get('mint') not in seen_u and x.get('mint') not in on_ and len(up_) < 6:
+                    seen_u.add(x['mint']); up_.append({**row_(x), 'tag': '🟢 buy bottom', 'wait': f"dip — {x['bottomWhy']} · takes a seat that stays empty 30s"})
+            peaked_ = lambda w: any(k in w for k in ('at its highs', 'too far', 'too hot', 'too wild'))
+            wrows_ = [(x, _prime.meta_why(x) or 'not ready') for x in _prime.flow_rank([y for y in watch_ if y.get('mint') not in on_ and not y.get('trenchOnly')])]
+            for x, w_ in sorted(wrows_, key=lambda t: peaked_(t[1])):
                 if x.get('mint') and x['mint'] not in seen_u and len(up_) < 6:
-                    seen_u.add(x['mint']); up_.append({**row_(x), 'wait': _prime.meta_why(x) or 'not ready'})
+                    seen_u.add(x['mint']); up_.append({**row_(x), 'wait': w_ + (' — already ran' if peaked_(w_) else '')})
             cards[tid]['pipeline'] = {'at': now, 'steps': fun_ + [['not on the card and not cooling', len(free_)]], 'up': up_[:6],
                                       'next': [f"${x.get('symbol')} {_fuse._f(x.get('chg1h')):+.0f}%" for x in sorted(free_, key=lambda x: -_fuse._f(x.get('chg1h')))[:4]],
                                       'scout': [f"${x.get('symbol')} {_fuse._f(x.get('chg1h')):+.0f}%" for x in scout_[:4]]}

@@ -2148,3 +2148,12 @@ def test_take_the_initial_and_leave_the_profit_by_hand_and_automatically_for_tre
             ap._take_stake(c2, l2, 0.016, {}, 70.0, 'card', auto=50)
     assert c2['legs'][0]['house'] and not c2['legs'][1].get('house') and 'auto: +50%' in c2['events'][-1]['why']
     assert ap.clean_cfg({'trenchHouseAt': 100})['trenchHouseAt'] == 100 and ap.clean_cfg({'trenchHouseAt': 7})['trenchHouseAt'] == 0 and ap.clean_cfg({})['trenchHouseAt'] == 0
+
+
+def test_the_seat_fallback_never_takes_a_coin_at_its_highs_and_a_thinly_traded_big_cap_is_not_a_new_major():
+    import arena_prime as ap, fuse
+    ok = {'pairAddress': 'P', 'chg5m': 1.0, 'chg1h': 20.0, 'cStruct': 'up', 'cBars': 12, 'cPull': 12.0}
+    assert ap.seat_fallback_ok(ok) and not ap.seat_fallback_ok({**ok, 'cPull': 1.0})        # 1% under its 4h high = it already ran
+    usor = {'mcap': 19_691_360, 'volume24h': 225_446, 'liquidityUsd': 401_487, 'logo': 'x'}
+    assert any('traded in 24h' in w for w in fuse.solid_major(usor))                         # 1.1% of its size a day: painted, not a major
+    assert fuse.solid_major({**usor, 'volume24h': 2_000_000}) == []

@@ -911,9 +911,9 @@ SEAT_FALLBACK_SEC = 30.0   # 🪑 a seat with no qualifying coin takes the next-
 
 def seat_fallback_ok(x, mom=None):
     """May this watched coin take a seat that has been empty for 30s? Not falling right now, not mid-spike, not trending down,
-    not too wild. (At its highs / chart too short / under the hunt line are the things the fallback waives.)"""
-    if not entry_ok(x, mom) or chase_why(x) or x.get('cStruct') == 'down':
-        return False
+    not too wild, not at its highs. (Chart too short / under the hunt line are the things the fallback waives.)"""
+    if not entry_ok(x, mom) or chase_why(x) or x.get('cStruct') == 'down' or at_high(x):   # 🏔 never a coin sitting at its highs: the fallback
+        return False                                                                          # was filling seats with coins that had already peaked
     return not (x.get('cWild') is not None and _f(x.get('cWild')) >= META_WILD_PCT)
 
 

@@ -1974,3 +1974,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   in the wallet), the card started a run that counted it, read −54% and the floor sold everything. "WHERE DID MY TOP-UP GO" ⇒
   compare `fundedUsd` in the book with the ledger's top-up rows and read `reconciliation.outsideCardUsd` before anything else.
   Same race still open for ↗ withdraw-cash / ✂ manual cash (owner writes during a keeper pass) — journal them the same way next.
+- 🏔 2026-10-07 "next up giving stuff that peaked": the 30s seat fallback waived "at its highs" and filled seats with coins that had
+  already run ($POD '🏔 at its highs', $Frank, $USOR). Now `seat_fallback_ok` refuses a coin at its highs; the fallback list is
+  pullback coins, then 🟢 BUY-BOTTOM coins that passed safety + pool floor + min age (`bottomWhy`); Coming up shows dips first and
+  peaked coins LAST, tagged "already ran". `MAJOR_MIN_VOL_MCAP` 3% (a $19.7M "cap" trading 1.1% a day is painted, not a major).
+  `_open_board`: a scan with no top-10 reading is NOT a scan (it showed "top-10 hold 0% · safe"). The pipeline that day:
+  72 safe → 22 old enough → 2 after the chart rule → 0 free: the +40% hunt line and the "not mid-spike / not at its highs" rule
+  pull opposite ways, so the engine's own line almost never has a coin and seats are filled by fallback / trench / hand picks.

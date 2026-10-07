@@ -475,7 +475,7 @@ def pump_majors(pairs, have=(), top=40, min_mcap=300_000, min_liq=50_000):
 # 🪙 A NEW MAJOR MUST TRADE LIKE ONE. 2026-10-06: $VSOF took a real-card seat through the new-major door — a "$667M" market cap on
 # $735K of daily volume (0.1% of its size), a pool turning over 0.3× a day, no logo. A coin whose size nobody trades is a number,
 # not a major. Majors carry weight on a card, so the bar is: real trading for its size, a pool that turns over, an identity.
-MAJOR_MIN_VOL_MCAP = 1.0    # 24h volume ≥ 1% of market cap
+MAJOR_MIN_VOL_MCAP = 3.0    # 24h volume ≥ 3% of market cap (was 1%: $USOR, $19.7M "cap", 1.1% traded, $9K an hour, no socials, took a real seat)
 MAJOR_MIN_TURNOVER = 0.5    # 24h volume ≥ half the pool
 MAJOR_MAX_MCAP = 250_000_000   # a days-old coin "worth" more than this is not judged a new major (established majors live in MAJORS)
 
