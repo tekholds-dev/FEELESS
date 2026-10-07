@@ -791,6 +791,37 @@ def settle_owed(book):
     return b, round(x, 9)
 
 
+def lost_topups(book, ledger, card):
+    """💵 Top-ups the ledger says the owner made that never reached this book (a keeper pass saved over them — see `merge_owner`)
+    → {'usd', 'sol', 'rows'} or None. The gap is PUT-IN-by-the-ledger minus the book's `fundedUsd`; it is matched to the newest
+    top-up rows that are not in the book's journal (`ownerAdds`), newest first, for their exact SOL."""
+    gap = round(funded_from_ledger(book, ledger, card) - _f(book.get('fundedUsd')), 4)
+    if gap < 0.5:
+        return None
+    seen = {a.get('id') for a in book.get('ownerAdds') or []}
+    tops = sorted((r for r in ledger or [] if r.get('card') == card and r.get('side') == 'topup' and r.get('status') == 'done'
+                   and _f(r.get('at')) >= _f(book.get('since')) + 60 and f"top:{_f(r.get('at')):.3f}" not in seen), key=lambda r: -_f(r.get('at')))
+    usd, sol, rows = 0.0, 0.0, []
+    for r in tops:
+        if usd + _f(r.get('usd')) <= gap + 0.01:
+            usd += _f(r.get('usd')); sol += _f(r.get('sol')); rows.append(_f(r.get('at')))
+    return {'usd': round(usd, 4), 'sol': round(sol, 9), 'rows': rows} if usd >= 0.5 and sol > 0 else None
+
+
+def settle_owed_in(book, free, now):
+    """↘ MONEY THAT IS THE CARD'S COMES BACK TO IT (`owedInSol` / `owedInUsd`): a top-up the books lost is credited from the
+    wallet's FREE SOL (never the fee reserve, never another card's) as far as there is any, the rest as more frees up. PUT IN
+    rises by the same share of the $. → (book, SOL credited now, $ credited now)."""
+    owed, usd = _f(book.get('owedInSol')), _f(book.get('owedInUsd'))
+    x = min(owed, max(0.0, _f(free)))
+    if owed <= 0 or x < 1e-6:
+        return book, 0.0, 0.0
+    part = round(usd * x / owed, 4)
+    b = owner_add(book, part, x, now)   # journalled like a top-up: a keeper pass in flight cannot save over it
+    b['owedInSol'], b['owedInUsd'] = round(owed - x, 9), round(usd - part, 4)
+    return b, round(x, 9), part
+
+
 def book_value(book, prices, sol_px):
     return round((_f(book.get('sol')) + _f(book.get('bankSol')) + _f(book.get('rentHeldSol')) - _f(book.get('owedOutSol'))) * sol_px + sum(held_units(book, m) * (_f(prices.get(l.get('pair'))) or _f(l.get('entryPx')))
                                                                                   for m, l in (book.get('legs') or {}).items()), 6)

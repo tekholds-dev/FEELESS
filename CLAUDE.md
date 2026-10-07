@@ -2006,3 +2006,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   0 unread): every booked coin is in the wallet; the rebuilt card cash is 0.0248 SOL above the book = the two top-ups the keeper
   race erased ($2 today 12:09, $1 on 10-06 evening: ledger top-ups $17, book put-in $14). That SOL is in the wallet (unassigned +
   rent parked in coin accounts). NEVER credit it to the card without the owner pressing Top up.
+- ↘ LOST TOP-UPS COME BACK (owner: "assign what's supposed to be in card and what's supposed to be in wallet FIRST";
+  `fuse_wallet.lost_topups` = ledger put-in − book `fundedUsd`, matched to the newest un-journalled top-up rows; book
+  `owedInSol` / `owedInUsd`; `settle_owed_in` credits from the wallet's FREE SOL only (never the fee reserve), the rest as SOL
+  frees up; once per book `lostTopFix`; ledger `fix` rows `losttop:` / `owedin:`; the card's run baseline rises by the same $).
+  The mirror of `owedOutSol`. 2026-10-07: $3.00 (0.02556 SOL) — the 12:09 $2 and the 10-06 21:44 $1.

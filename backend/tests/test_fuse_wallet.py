@@ -1304,3 +1304,19 @@ def test_realized_split_is_the_cards_confirmed_sales_winners_losers_and_net():
     led = [r(1, 0.5), r(2, -1.25), r(3, 0.25), r(3, 0.25), {**r(4, 9), 'status': 'failed'}, {**r(5, 9), 'card': 'x'}, {'card': 'degen', 'side': 'buy', 'status': 'filled', 'sig': 'b'}]
     assert fw.realized_split(led, 'degen') == {'winsUsd': 0.75, 'lossesUsd': -1.25, 'netUsd': -0.5, 'nWin': 2, 'nLoss': 1}
     assert fw.realized_split([], 'degen')['netUsd'] == 0
+
+
+def test_top_ups_the_books_lost_are_found_from_the_ledger_and_come_back_from_free_wallet_sol():
+    import fuse_wallet as fw
+    top = lambda usd, sol, at: {'card': 'degen', 'side': 'topup', 'status': 'done', 'usd': usd, 'sol': sol, 'at': at}
+    led = [top(5.0, 0.0414, 1000.0), top(2.0, 0.0164, 2000.0), top(1.0, 0.0083, 3000.0), top(1.0, 0.0085, 4000.0), top(2.0, 0.01707, 5000.0), top(2.0, 0.01706, 6000.0)]
+    book = {'since': 1000.0, 'sol': 0.0, 'fundedUsd': 10.0, 'ownerAdds': [{'id': 'top:6000.000', 'sol': 0.01706, 'usd': 2.0}], 'legs': {}}   # the ledger says $13
+    lost = fw.lost_topups(book, led, 'degen')
+    assert lost == {'usd': 3.0, 'sol': 0.02557, 'rows': [5000.0, 4000.0]}                 # the newest un-journalled rows that add up to the gap
+    assert fw.lost_topups({**book, 'fundedUsd': 13.0}, led, 'degen') is None             # books already whole
+    b = {**book, 'owedInSol': lost['sol'], 'owedInUsd': lost['usd']}
+    b1, sol1, usd1 = fw.settle_owed_in(b, 0.0111, 7000.0)                                 # only part of it is free in the wallet right now
+    assert sol1 == 0.0111 and abs(usd1 - 1.3023) < 0.001 and abs(b1['fundedUsd'] - 11.3023) < 0.001 and b1['sol'] == 0.0111 and abs(b1['owedInSol'] - 0.01447) < 1e-6
+    b2, sol2, usd2 = fw.settle_owed_in(b1, 0.05, 8000.0)                                  # the rest once more SOL frees up
+    assert abs(b2['fundedUsd'] - 13.0) < 0.001 and b2['owedInSol'] == 0 and abs(b2['sol'] - 0.02557) < 1e-9 and len(b2['ownerAdds']) == 3
+    assert fw.settle_owed_in(b2, 1.0, 9000.0) == (b2, 0.0, 0.0) and fw.settle_owed_in(b, 0.0, 9000.0)[1] == 0.0

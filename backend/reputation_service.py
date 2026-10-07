@@ -7495,6 +7495,7 @@ async def _fw_tick(now):
                 if cfg.get('address'):
                     bal = await _fw_balances(cfg['address'])
                     _FW_GAS.update(sol=bal['sol'], at=time.time()); _FW_BAL.update(bal=bal, at=time.time(), addr=cfg['address'])
+                    owed_in_done = {}
                     async with _fw_lock:   # 🧹 adopt keeper coins no card books (they sell back to SOL inside their card next tick)
                         d = _fw_load()
                         missing = _fw.reconcile(bal.get('tokens'), d['books'])
@@ -7521,6 +7522,23 @@ async def _fw_tick(now):
                             for tid, sol_ in freed.items():
                                 _fw_record(d, {'id': f'rentfree:{tid}:{time.time():.0f}', 'card': tid, 'side': 'fix', 'sol': sol_, 'at': time.time(), 'status': 'done',
                                                'why': f'🏦 {sol_:.5f} SOL of coin-account rent moved to the wallet reserve — it is card cash again (the card never pays rent now)'})
+                        # ↘ TOP-UPS THE BOOKS LOST come back from the wallet's free SOL (owner, 2026-10-07: "assign what's supposed to be
+                        # in card and what's supposed to be in wallet"). Found once per book from the ledger (`lost_topups`), then
+                        # credited as free SOL allows; the card's run baseline rises by the same $ (money in, not a gain).
+                        if not sol_short and not missing:
+                            for tid, b in list(d['books'].items()):
+                                if not b.get('lostTopFix') and not b.get('pending') and not b.get('defund'):
+                                    lost_ = _fw.lost_topups(b, d['ledger'], tid)
+                                    b = d['books'][tid] = {**b, 'lostTopFix': time.time(), **({'owedInSol': lost_['sol'], 'owedInUsd': lost_['usd']} if lost_ else {})}
+                                    if lost_:
+                                        _fw_record(d, {'id': f'losttop:{tid}', 'card': tid, 'side': 'fix', 'sol': lost_['sol'], 'usd': lost_['usd'], 'at': time.time(), 'status': 'done',
+                                                       'why': f"↘ ${lost_['usd']:.2f} of your top-ups ({len(lost_['rows'])}) never reached this card's books (a save bug, fixed) — it is being put into the card from the wallet's unassigned SOL"})
+                                free_in = _fw.free_sol(bal.get('sol'), d['books'], cfg.get('reserveSol'))
+                                nb_, in_sol, in_usd = _fw.settle_owed_in(b, free_in, time.time()) if not b.get('pending') else (b, 0.0, 0.0)
+                                if in_sol > 0:
+                                    d['books'][tid] = nb_; owed_in_done[tid] = owed_in_done.get(tid, 0.0) + in_usd
+                                    _fw_record(d, {'id': f'owedin:{tid}:{time.time():.0f}', 'card': tid, 'side': 'fix', 'sol': in_sol, 'usd': in_usd, 'at': time.time(), 'status': 'done',
+                                                   'why': f"↘ {in_sol:.5f} SOL (${in_usd:.2f}) of a lost top-up is in the card now — PUT IN ${_fuse._f(nb_.get('fundedUsd')):.2f} ({_fuse._f(nb_.get('owedInSol')):.5f} SOL still to come as wallet SOL frees up)"})
                         for tid, b in list(d['books'].items()):   # ↗ money that is not the card's leaves as card cash appears
                             nb_, out_ = _fw.settle_owed(b)
                             if out_ > 0 and not b.get('pending'):
@@ -7533,6 +7551,17 @@ async def _fw_tick(now):
                                            'status': 'done', 'why': '🧹 recovered: keeper coins no card counted — sold back to SOL inside the card'})
                             print(f"fuse wallet: adopted stray {st['symbol']} into {st['card']}")
                         _fw_save(d)
+                    if owed_in_done:   # the card's run baseline rises by the money that came in (it is not a gain)
+                        async with _admin_lock:
+                            h = _json_load(FUSE_HQ_PATH, {})
+                            for tid_, usd_ in owed_in_done.items():
+                                cd = ((h.get('prime') or {}).get('cards') or {}).get(tid_)
+                                if cd and cd.get('real'):
+                                    for k_ in ('startUsd', 'dayStartUsd', 'roundStartUsd'):
+                                        cd[k_] = round(_fuse._f(cd.get(k_)) + usd_, 4)
+                                    cd['events'] = list(cd.get('events') or []) + [{'at': time.time(), 'kind': 'topup', 'usd': round(usd_, 4), 'to': ['card'],
+                                        'why': f"↘ ${usd_:.2f} of a top-up the books had lost is in the card now — baseline raised by the same $ (money in, not a gain)"}]
+                            _json_save(FUSE_HQ_PATH, h)
                     await _fw_deposit_scan(cfg, time.time())
                     _rpc_quota_notice()
             except Exception as e:
