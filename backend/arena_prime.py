@@ -845,6 +845,17 @@ def meta_ready(x):
     return not (x.get('cStruct') == 'range' and x.get('cPos') is not None and _f(x.get('cPos')) < META_MIN_POS)
 
 
+SEAT_FALLBACK_SEC = 30.0   # 🪑 a seat with no qualifying coin takes the next-best one after 30 seconds
+
+
+def seat_fallback_ok(x, mom=None):
+    """May this watched coin take a seat that has been empty for 30s? Not falling right now, not mid-spike, not trending down,
+    not too wild. (At its highs / chart too short / under the hunt line are the things the fallback waives.)"""
+    if not entry_ok(x, mom) or chase_why(x) or x.get('cStruct') == 'down':
+        return False
+    return not (x.get('cWild') is not None and _f(x.get('cWild')) >= META_WILD_PCT)
+
+
 def meta_only(rows, cfg=None, mom=None):
     """Rows the engine may buy by itself. Two kinds keep their OWN entry rule instead of the chart gate: 🗑 trench rows
     (`trench_entry` — a coin minutes old has no chart to read, so the gate dropped every one and the trench drop never fired)
@@ -1463,6 +1474,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         if role == 'runner' and cfg.get('strictRunners'):   # 🌧 runner weather is bad: only runners with real flow + buyers get in
             src = [x for x in src if _f(x.get('vol1h')) >= STRICT_VOL1H and (x.get('buyShare') is None or _f(x.get('buyShare')) >= STRICT_BUYS)]
         return next((x for x in src if x['mint'] not in have() and _f(x.get('price')) > 0 and price_agrees(x, prices)), None)
+    def fallback_coin():   # 🪑 the next-best watched coin (see reputation_service: `seatFallback`), never one on the card
+        return next((x for x in cfg.get('seatFallback') or [] if x.get('mint') not in have() and _f(x.get('price')) > 0 and price_agrees(x, prices)), None)
     # A prior replace may have reserved its slot when that feed had no eligible candidate. Heal it as soon as one exists.
     # This runs before TP/stops/rotation, preserves the configured slot count, and spends only the cash already returned by that sale.
     for l in list(c['legs']):
@@ -1471,6 +1484,9 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         role_h = l.get('role') or 'runner'
         # the seat's own kind first; none eligible → any buyable coin (a seat must end in a coin, not wait on one feed)
         nxt = best(role_h, l.get('trench')) or next((x for x in (best(r_) for r_ in ('runner', 'pool') if r_ != role_h) if x), None)
+        fb_used = False
+        if not nxt and now - _f(l.get('at')) >= SEAT_FALLBACK_SEC:
+            nxt = fallback_coin(); fb_used = bool(nxt)
         if not nxt and now - _f(l.get('at')) >= max(120.0, _f(cfg.get('rotateHours')) * 3600):
             # 🔔 NO COIN FOR A WHOLE ROUND → the seat is given up and its money goes back to work in the card's coins (it used to
             # sit reserved for as long as the feed stayed empty: $0.66 idle on a $2.40 card). The seat refills when a coin qualifies.
@@ -1484,7 +1500,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             continue
         c['legs'][c['legs'].index(l)] = _leg(nxt, usd, now, nxt.get('role') if nxt.get('role') in ('runner', 'pool') else role_h)
         c['cash'] = max(0.0, c['cash'] - usd)
-        ev(kind='replace', symbol=l.get('symbol'), usd=round(usd, 4), why='reserved replacement slot filled from eligible feed', to=[nxt.get('symbol')])
+        ev(kind='replace', symbol=l.get('symbol'), usd=round(usd, 4), why='reserved seat filled — next-best coin after 30s (none cleared the full line)' if fb_used else 'reserved replacement slot filled from eligible feed', to=[nxt.get('symbol')])
     c.setdefault('dayAt', c['at']); c.setdefault('dayStartUsd', c['startUsd']); c.setdefault('days', []); c.setdefault('lowPct', 0.0)
 
     # 🏦 a coin already riding that has not banked yet (the setting came on later, or its bank never reached the chain) banks once now
@@ -1941,6 +1957,10 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
           _val = lambda x: (_f(x['units']) or (_f(x.get('wantUnits')) if x.get('buying') else 0.0)) * (_f(prices.get(x['pairAddress'])) or _f(x.get('entry')))
           share = (sum(_val(x) for x in c['legs']) + free_cash) / want_n
           role_s, nxt = next(((r, x) for r in ('runner', 'pool') for x in [best(r)] if x), (None, None))
+          c.setdefault('seatEmptyAt', now)
+          fb_seat = False
+          if not nxt and now - _f(c.get('seatEmptyAt')) >= SEAT_FALLBACK_SEC:
+              nxt = fallback_coin(); role_s, fb_seat = ('runner', True) if nxt else (None, False)
           sp_ = c.get('seatPick')   # 🪑 the owner's own pick for this seat comes first
           if sp_ and sp_.get('mint') not in {x['mint'] for x in c['legs']} and (_f(prices.get(sp_['pairAddress'])) or _f(sp_.get('price'))) > 0:
               role_s, nxt = 'runner', {**sp_, 'price': _f(prices.get(sp_['pairAddress'])) or _f(sp_.get('price')), 'liq': sp_.get('liquidityUsd')}
@@ -1983,8 +2003,10 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                       c['legs'][-1]['trench'] = True
               c['cash'] = round(_f(c['cash']) - usd_s, 6); free_cash -= usd_s
               ev(kind='seat', symbol=nxt.get('symbol'), usd=round(usd_s, 4), why=(f"🎯 your pick ${nxt.get('symbol')} fills seat {len(c['legs'])} of {want_n} with an equal share" if mine_ else
-                                                                                 f"🪑 empty seat filled — ${nxt.get('symbol')} takes seat {len(c['legs'])} of {want_n} with an equal share"), to=[nxt.get('symbol')])
+                                                                                 f"🪑 empty seat filled — ${nxt.get('symbol')} takes seat {len(c['legs'])} of {want_n} with an equal share" + (' · ⏱ next-best coin after 30s (none cleared the full line)' if fb_seat else '')), to=[nxt.get('symbol')])
       # 🪑 every empty seat is filled on this SAME tick (owner: "auto fills seats in 30 secs"; the engine used to seat one a tick)
+      if not want_n or len(c['legs']) >= want_n:
+          c.pop('seatEmptyAt', None)
       if not ((seated_pick and c.get('seatQueue')) or (seated_any and want_n and len(c['legs']) < want_n)):
           break
     if cfg['compound'] and free_cash > 0.01 and c['legs']:

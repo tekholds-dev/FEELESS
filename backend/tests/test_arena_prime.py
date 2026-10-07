@@ -2072,3 +2072,24 @@ def test_meta_gate_lets_trench_rows_use_their_own_entry_and_a_hunt_coin_sit_at_i
     assert ap.meta_only([run]) == [] and ap.meta_only([run], {}) == []                                      # at its highs: watched …
     assert ap.meta_only([run], hunt) == [run]                                                               # … unless it passes the card's hunt line
     assert ap.meta_only([{**run, 'cStruct': 'down'}], hunt) == [] and ap.meta_only([{**run, 'chg5m': 8.0}], hunt) == []   # trend + spike rules still hold
+
+
+def test_a_seat_with_no_qualifying_coin_takes_the_next_best_one_after_30_seconds():
+    import arena_prime as ap
+    mk = lambda i: {'mint': f'R{i}', 'pairAddress': f'PR{i}', 'symbol': f'R{i}', 'price': 1.0, 'liq': 500_000, 'liquidityUsd': 500_000, 'score': 90 - i, 'stars': 3, 'chg1h': 5.0}
+    held, watched = [mk(i) for i in range(3)], {**mk(9), 'chg5m': 1.0, 'cStruct': 'up'}
+    base = {'coins': 4, 'rotateHours': 0.25, 'rescuePct': 0, 'cycleEvery': 0, 'cycles': {t: 'off' for t in ap.DEFAULT_CYCLES}, 'lockBankPct': 0, 'tpStakeUsd': 0}
+    cfg = {**ap.clean_cfg(base), 'seatFallback': [watched]}
+    card = ap.deal('degen', [], held, ap.clean_cfg({**base, 'coins': 3}), 0.0, [], shape='degen')
+    card = {**card, 'cash': card.get('cash', 0) + 5.0}
+    px = {x['pairAddress']: 1.0 for x in held + [watched]}
+    t1 = ap.tick(card, px, [], held, cfg, 100.0, [], {}, {})                      # nothing qualifies: the seat starts waiting
+    assert len(t1['legs']) == 3 and t1['seatEmptyAt'] == 100.0
+    t2 = ap.tick(t1, px, [], held, cfg, 120.0, [], {}, {})                        # 20s: still waiting
+    assert len(t2['legs']) == 3
+    t3 = ap.tick(t2, px, [], held, cfg, 131.0, [], {}, {})                        # 31s: the next-best coin takes it
+    assert 'R9' in {l['mint'] for l in t3['legs']} and 'seatEmptyAt' not in t3 and any('after 30s' in (e.get('why') or '') for e in t3['events'])
+    # the fallback never takes a coin that is falling, mid-spike, trending down or too wild
+    ok = {'pairAddress': 'P', 'chg5m': 1.0, 'chg1h': 20.0, 'cStruct': 'range', 'cWild': 5}
+    assert ap.seat_fallback_ok(ok) and not ap.seat_fallback_ok({**ok, 'chg5m': -5.0}) and not ap.seat_fallback_ok({**ok, 'chg5m': 9.0})
+    assert not ap.seat_fallback_ok({**ok, 'cStruct': 'down'}) and not ap.seat_fallback_ok({**ok, 'cWild': 60})

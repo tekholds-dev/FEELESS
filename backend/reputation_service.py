@@ -6391,6 +6391,15 @@ async def _prime_tick_inner(now):
             # list when discovery was thin caused sell→immediate-rebuy churn.
             p_t = _prime_cool_candidates(p_t, cool, 2, strict=real_t)
             r_t = _prime_cool_candidates(r_t, cool, 3, strict=real_t)
+        # 🪑 30-SECOND SEAT FALLBACK (real card; owner: "fill seats should be 30 secs, not the round"): when no coin clears the card's
+        # full line, a seat empty for 30s takes the NEXT-BEST coin — one that passed safety, pool floor, weather, min age and the
+        # record gate but is still being watched (at its highs / chart too short / under the hunt line). Never one falling now,
+        # mid-spike, trending down, too wild, cooling or already on the card.
+        if real_t and cur:
+            fb_ids = {x.get('mint') for x in r_t} | set(cool) | mine
+            fb_ = [x for x in _prime.flow_rank([y for y in list(r_pre_) + list(watch_) if not y.get('trenchOnly')])
+                   if x.get('mint') not in fb_ids and _prime.seat_fallback_ok(x, mom)]
+            cfg_t = {**cfg_t, 'seatFallback': list({x.get('mint'): x for x in reversed(fb_)}.values())[::-1][:6]}
         # 🧊 anchors cool too: a major this card just sold isn't bought back for 3 rounds while another major is available
         a_t = _prime_cool_candidates(anchors, cool, 2, strict=real_t and len([x for x in anchors if x.get('mint') not in cool]) >= 1) if cool else anchors
         if new_only_:

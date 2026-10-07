@@ -1925,3 +1925,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   🚀 Runner hunt line by the owner's delegation ("fix to have better chance"): age ≥ 12h · pool ≥ $25K · 1h volume ≥ $50K ·
   1h ≥ +40% · record gate off; the owner's exits unchanged; trench stays open for new coins as tickets
   (`data/realcfg_before_hunt.json`). Walk-forward that day: hunt +3.7% typical per 6h window on 15m, 7 of 9 windows up — thin.
+- 🪑 30-SECOND SEAT FALLBACK (`SEAT_FALLBACK_SEC`, `seat_fallback_ok`, cfg `seatFallback` built per tick for the real card, card
+  `seatEmptyAt`): an empty or reserved seat with no coin clearing the card's FULL line takes the next-best WATCHED coin after 30s
+  (passed safety, pool floor, weather, min age, record gate; fails only at-its-highs / chart too short / the hunt line) — never
+  one falling, mid-spike, trending down, too wild, cooling or on the card. Owner: "fill seats should be 30 secs, not the round".
+  It trades selectivity for filled seats: when results are judged, split exits by the event text "after 30s".
