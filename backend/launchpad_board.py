@@ -12,6 +12,7 @@ import time
 BONK_PLATFORM_ID = 'FfYek5vEz23cMkWsdJwG2oa6EphsvXSHrGpdALN4g6W1'
 LAUNCHPAD_LABELS = {'pump': 'Pump.fun', 'bonk': 'LetsBONK', 'raydium': 'LaunchLab', 'other': 'Solana movers'}
 NEW_MAX_AGE_HOURS = 12
+TREND_MIN_MC, TREND_MIN_VOL1H, TREND_MIN_TX1H = 15_000, 5_000, 30   # what a launch coin needs to be listed on the trending board
 BOARD_MAX = 660   # most coins looked up per board build (DexScreener: 30 a call → ≤ 22 calls a build)
 
 
@@ -137,7 +138,9 @@ def build_board(candidates, dex_pairs, kind, now_ms=None):
             continue                                                     # dead chart: down 85%+ from a real ATH
         sc, reasons, age_h = score(cand, fl, now_ms)
         if kind == 'trending':
-            if mc < 25_000 or fl['volH1'] < 15_000 or fl['txH1'] < 60 or fl['chH1'] < -40:
+            # 2026-10-07: was cap ≥ $25K · $15K/h · 60 trades — only ~125 launch coins clear that at any moment, so every list
+            # read the same whatever was pulled. The BOARD shows more; the engine's own gates (volume, flow, safety) are unchanged.
+            if mc < TREND_MIN_MC or fl['volH1'] < TREND_MIN_VOL1H or fl['txH1'] < TREND_MIN_TX1H or fl['chH1'] < -40:
                 continue
         else:
             if age_h is None or age_h > NEW_MAX_AGE_HOURS or mc < 7_000 or fl['volH1'] < 2_500 or fl['txH1'] < 20 or fl['chH1'] < -50:

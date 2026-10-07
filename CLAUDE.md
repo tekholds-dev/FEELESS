@@ -1934,3 +1934,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   = 9 live rankings (+ most traded 5m / 6h / 24h, organic score 1h, trending 24h) + `JUP_RECENT` (Jupiter's newest launches on every
   launchpad, both boards); Pump last-traded pages to offset 250, newest to 150; `BOARD_MAX` 660. Measure with
   `/api/market/feed?chain=solana&kind=trending&scope=launchpads&page=N` pair counts before and after any feed change.
+  THE SOURCES WERE NOT THE CHOKE: nine rankings moved the feed 125 → 129. `build_board` listed a trending launch coin only with
+  cap ≥ $25K · ≥ $15K/h · ≥ 60 trades/h; now `TREND_MIN_MC` $15K · `TREND_MIN_VOL1H` $5K · `TREND_MIN_TX1H` 30. Display only — the
+  runner gates and the real-money lines are unchanged. "SAME LIST" ⇒ count candidates in vs pairs out of `build_board` first.
