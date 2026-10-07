@@ -808,6 +808,20 @@ def lost_topups(book, ledger, card):
     return {'usd': round(usd, 4), 'sol': round(sol, 9), 'rows': rows} if usd >= 0.5 and sol > 0 else None
 
 
+OWED_LIQUID_MIN = 0.00204 + 0.001   # liquid SOL the wallet always keeps after paying a card back (one new coin account + fees)
+
+
+def free_for_owed(wallet_sol, books, reserve_sol, parked_rent=0.0):
+    """SOL that may pay a card back what the books lost. Rent parked in the wallet's coin accounts IS the fee reserve's money
+    (it returns on every close sweep), so it counts toward the reserve — else a reserve busy fronting rent never frees anything
+    and the owner's lost top-up waits forever (2026-10-07: $1.17 stuck while 0.0106 SOL sat as rent). Never below
+    `OWED_LIQUID_MIN` of liquid SOL left for the next new coin + fees."""
+    cards = sum(_f(b.get('sol')) + _f(b.get('bankSol')) for b in (books or {}).values())
+    by_reserve = _f(wallet_sol) + max(0.0, _f(parked_rent)) - _f(reserve_sol) - cards
+    by_liquid = _f(wallet_sol) - cards - OWED_LIQUID_MIN
+    return round(max(0.0, min(by_reserve, by_liquid)), 9)
+
+
 def settle_owed_in(book, free, now):
     """↘ MONEY THAT IS THE CARD'S COMES BACK TO IT (`owedInSol` / `owedInUsd`): a top-up the books lost is credited from the
     wallet's FREE SOL (never the fee reserve, never another card's) as far as there is any, the rest as more frees up. PUT IN

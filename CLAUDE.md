@@ -2030,3 +2030,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   hero (`p.hrt-split`: in coins · ◎ cash · 🅿 parked cash, all three always shown): inside the 83px IN CARD NOW tile `.hrt-hero em`
   (nowrap + ellipsis) out-ranked the "wrap" fix and it still read "in coins…". Hero tiles go 2 × 2 under 1180px and their small lines
   wrap. A CSS FIX IS NOT DONE UNTIL THE ELEMENT'S scrollWidth ≤ clientWidth ON THE LIVE PAGE.
+- ↘ LOST TOP-UP PAYBACK COUNTS PARKED RENT AS RESERVE (`fuse_wallet.free_for_owed`, `OWED_LIQUID_MIN` 0.00304 SOL; used by the
+  owed-in settle with `_fw_rent_parked.sol`): rent parked in the wallet's coin accounts is the fee reserve's money (it returns on
+  every close sweep), so it counts toward the 0.015 reserve; liquid SOL never goes under one new coin account + fees. Found
+  2026-10-07: $1.17 of the owner's lost top-ups sat "still to come" for hours — the reserve was busy fronting 0.0106 SOL of rent,
+  so `free_sol` read 0 and the card was never paid back.

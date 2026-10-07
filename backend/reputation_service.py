@@ -7580,7 +7580,7 @@ async def _fw_tick(now):
                                     if lost_:
                                         _fw_record(d, {'id': f'losttop:{tid}', 'card': tid, 'side': 'fix', 'sol': lost_['sol'], 'usd': lost_['usd'], 'at': time.time(), 'status': 'done',
                                                        'why': f"↘ ${lost_['usd']:.2f} of your top-ups ({len(lost_['rows'])}) never reached this card's books (a save bug, fixed) — it is being put into the card from the wallet's unassigned SOL"})
-                                free_in = _fw.free_sol(bal.get('sol'), d['books'], cfg.get('reserveSol'))
+                                free_in = _fw.free_for_owed(bal.get('sol'), d['books'], cfg.get('reserveSol'), _fuse._f((_fw_rent_parked or {}).get('sol')))
                                 nb_, in_sol, in_usd = _fw.settle_owed_in(b, free_in, time.time()) if not b.get('pending') else (b, 0.0, 0.0)
                                 if in_sol > 0:
                                     d['books'][tid] = nb_; owed_in_done[tid] = owed_in_done.get(tid, 0.0) + in_usd

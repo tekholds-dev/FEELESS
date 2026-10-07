@@ -1320,3 +1320,16 @@ def test_top_ups_the_books_lost_are_found_from_the_ledger_and_come_back_from_fre
     b2, sol2, usd2 = fw.settle_owed_in(b1, 0.05, 8000.0)                                  # the rest once more SOL frees up
     assert abs(b2['fundedUsd'] - 13.0) < 0.001 and b2['owedInSol'] == 0 and abs(b2['sol'] - 0.02557) < 1e-9 and len(b2['ownerAdds']) == 3
     assert fw.settle_owed_in(b2, 1.0, 9000.0) == (b2, 0.0, 0.0) and fw.settle_owed_in(b, 0.0, 9000.0)[1] == 0.0
+
+
+def test_lost_topup_pays_back_counting_parked_rent_as_reserve():
+    import fuse_wallet as fw
+    books = {'degen': {'sol': 0.0037, 'owedInSol': 0.00996, 'owedInUsd': 1.17, 'fundedUsd': 15.83}}
+    # 2026-10-07 live numbers: wallet 0.01707 SOL, reserve 0.015, 0.0106 SOL parked as coin-account rent
+    assert fw.free_sol(0.01707, books, 0.015) == 0.0                      # the old rule: nothing ever frees
+    free = fw.free_for_owed(0.01707, books, 0.015, 0.0106)
+    assert abs(free - (0.01707 + 0.0106 - 0.015 - 0.0037)) < 1e-9          # 0.00897 SOL frees — it was stuck at 0
+    b, sol, usd = fw.settle_owed_in(books['degen'], free, 1.0)
+    assert sol > 0.0089 and usd > 1.0 and b['owedInSol'] < 0.0011
+    assert fw.free_for_owed(0.01707, books, 0.015, 0.0) == 0.0             # no rent parked → reserve untouched as before
+    assert fw.free_for_owed(0.004, books, 0.015, 0.05) == 0.0              # never under the liquid floor
