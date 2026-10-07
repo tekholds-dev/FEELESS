@@ -1829,3 +1829,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   reference only: Fee Reserve's mark is a slanted R (`RESERVE_R`); FEELESS and Fuse use the slanted F with DNA. Crazier: `beams`
   (light shafts from the floor), `shock` (rings rolling out over the floor), `bolts` (lightning crawling around the mark, new
   shape 24× a loop from the seed table) and `flecks` (sparks thrown off the hot edge) on every piece. New colour ⇒ one `PALS` row.
+- 🎬 Covers & logos v4 (`cover.html`): a DESIGN picker next to the colours — Slab (clean bars) · Blade (old sniping-clan
+  monogram: pointed cut ends `BLADE_F` / `BLADE_R`, a slash through the letter via `metal(.., slash)`, three steel blade wings a
+  side) · Crest (steel shield plate `PLATE`, the cut letter on it, a name ribbon, three stars). `glyphArt(g, t, P, 'F' | 'R', k,
+  dna)` draws the chosen design for every F / R piece; the design + colour are in the download's file name. The clan references
+  (L7, SpaceBound, eRa) were worked from memory of the genre, not looked up — no logo of theirs is copied.
+- 📈 Stock charts DO move: candles are live (NVDAx / SPYx tick every minute) but a stock token moves ~0.05% a candle and some
+  (QQQx, CRCLx) print no trade for minutes outside US market hours — on a market-cap chart that reads as frozen. Not a bug; a
+  "US market closed" note on stock charts is NOT built.

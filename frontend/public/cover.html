@@ -17,6 +17,7 @@
 <body>
 <h1>FEELESS covers & logos</h1>
 <p>Every piece is drawn live in your browser and downloads on its own: a still PNG, an animated GIF, and (covers) a video loop. Covers are 1500 × 500, the size X and most profile headers use. Dark studio look: brushed-metal 3D marks, lightning, shockwaves, a wet floor. Pick a colour on top — it repaints every piece, and what you see is what downloads. Candles are made up — never a real price.</p>
+<h2>DESIGN</h2><div class="bar" id="designs" role="group" aria-label="Design"></div>
 <h2>COLOUR</h2><div class="bar" id="pals" role="group" aria-label="Colour"></div>
 <h2>COVERS · 1500 × 500</h2><div class="grid" id="covers"></div>
 <h2>PROFILE PICTURES & LOGOS · 512 × 512</h2><div class="grid logos" id="logos"></div>
@@ -40,7 +41,7 @@ function studio(g, W, H, t, lights) {
 function grainVignette(g, W, H, t) { g.save(); g.globalAlpha = 0.07; g.globalCompositeOperation = 'overlay'; const ox = Math.floor(t * 40) * 37 % 256, oy = Math.floor(t * 40) * 91 % 256; for (let y = -oy; y < H; y += 256) for (let x = -ox; x < W; x += 256) g.drawImage(NOISE, x, y); g.restore();
   const v = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.72); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.82)'); g.fillStyle = v; g.fillRect(0, 0, W, H); }
 // a brushed-metal 3D glyph: `polys` = flat shapes (already slanted), cols = [deep, mid, hot] of the iridescent face
-function metal(g, polys, t, cols, depth = 16, scale = 1) {
+function metal(g, polys, t, cols, depth = 16, scale = 1, slash = false) {
   const path = (ox, oy) => { g.beginPath(); polys.forEach(p => { p.forEach(([x, y], i) => g[i ? 'lineTo' : 'moveTo'](x * scale + ox, y * scale + oy)); g.closePath(); }); };
   const yaw = Math.sin(t * T) * 0.5, dx = (0.9 + yaw) * scale, dy = 1.15 * scale;                       // the side walls swing with the light
   g.save(); g.shadowColor = 'rgba(0,0,0,.85)'; g.shadowBlur = 40 * scale; g.shadowOffsetY = 26 * scale; g.fillStyle = '#000'; path(dx * depth, dy * depth); g.fill(); g.restore();
@@ -52,6 +53,9 @@ function metal(g, polys, t, cols, depth = 16, scale = 1) {
   g.globalAlpha = 0.3; g.globalCompositeOperation = 'overlay'; for (let y = y0 - 256; y < y1 + 256; y += 256) for (let x = x0 - 256; x < x1 + 256; x += 256) g.drawImage(NOISE, x, y); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';   // brushed grain
   const sx = x0 - 160 * scale + sh * (x1 - x0 + 320 * scale); const gl = g.createLinearGradient(sx, y0, sx + 110 * scale, y1); gl.addColorStop(0, 'rgba(255,255,255,0)'); gl.addColorStop(0.5, 'rgba(255,255,255,.55)'); gl.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gl; g.fillRect(x0 - 200, y0 - 200, x1 - x0 + 400, y1 - y0 + 400);   // light bar
   const dk = g.createLinearGradient(0, y0, 0, y1); dk.addColorStop(0, 'rgba(255,255,255,.16)'); dk.addColorStop(0.5, 'rgba(0,0,0,0)'); dk.addColorStop(1, 'rgba(0,0,0,.45)'); g.fillStyle = dk; g.fillRect(x0 - 200, y0 - 200, x1 - x0 + 400, y1 - y0 + 400);
+  if (slash) { const my = y0 + (y1 - y0) * 0.56, h = 9 * scale, k = 0.42;   // the clan slash: a clean cut through the letter, lit on its upper lip
+    g.fillStyle = 'rgba(2,2,4,.96)'; g.beginPath(); g.moveTo(x0 - 40, my + (x1 - x0) * k / 2); g.lineTo(x1 + 40, my - (x1 - x0) * k / 2); g.lineTo(x1 + 40, my - (x1 - x0) * k / 2 + h); g.lineTo(x0 - 40, my + (x1 - x0) * k / 2 + h); g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = 1.2 * scale; g.beginPath(); g.moveTo(x0 - 40, my + (x1 - x0) * k / 2); g.lineTo(x1 + 40, my - (x1 - x0) * k / 2); g.stroke(); }
   g.restore();
   g.lineJoin = 'round'; g.lineWidth = 1.6 * scale; g.strokeStyle = 'rgba(255,255,255,.5)'; path(-0.8 * scale, -0.8 * scale); g.stroke(); g.lineWidth = 1 * scale; g.strokeStyle = 'rgba(0,0,0,.6)'; path(0, 0); g.stroke();
 }
@@ -66,6 +70,21 @@ function dnaBeads(g, cx, y0, y1, amp, t, c1, c2, front, n = 13, turns = 1.5) { f
 // glyphs (flat, already slanted like the reference mark)
 const RESERVE_R = [[[-96, -112], [-34, -112], [-94, 116], [-156, 116]], [[-16, -112], [128, -112], [150, -88], [136, -60], [-30, -60]], [[92, -44], [150, -44], [134, 2], [118, 14], [76, 14]], [[-44, -8], [100, -8], [86, 38], [-58, 38]], [[22, 54], [86, 54], [140, 116], [74, 116]]];   // a slanted R (the owner's C picture was a style reference only)
 const FUSE_F = [[[-66, -112], [150, -112], [130, -60], [-86, -60]], [[-94, -38], [78, -38], [58, 14], [-114, 14]], [[-122, 36], [-46, 36], [-76, 116], [-152, 116]]];
+// ✂ DESIGNS (the old sniping-clan logo language: a hard forward slant, pointed cut ends, a slash through the letter, blade wings,
+// a crest plate with a ribbon). slab = plain bars · blade = pointed monogram + slash + wings · crest = shield plate + ribbon + stars.
+const BLADE_F = [[[-70, -116], [172, -116], [124, -62], [-92, -62]], [[-98, -40], [100, -40], [58, 12], [-118, 12]], [[-124, 34], [-50, 34], [-106, 132], [-142, 98]]];
+const BLADE_R = [[[-104, -116], [-38, -116], [-110, 132], [-150, 98]], [[-20, -116], [156, -116], [112, -64], [-36, -64]], [[96, -48], [152, -48], [124, 10], [70, 10]], [[-50, -8], [112, -8], [60, 40], [-66, 40]], [[20, 56], [84, 56], [166, 132], [98, 122]]];
+const PLATE = [[[0, -196], [156, -122], [176, 44], [0, 196], [-176, 44], [-156, -122]]];
+const wings = s => [0, 1, 2].map(i => [[s * 150, -6 - i * 40], [s * (262 + i * 16), -64 - i * 46], [s * 176, 26 - i * 40]]);
+let design = 'slab';
+function glyphArt(g, t, P, letter, k = 1, dna = true) { const steel = ['#0a0c12', '#2a3142', P[1][1]];
+  const helix = front => dna && dnaBeads(g, 6, -200 * k, 200 * k, (design === 'crest' ? 205 : 165) * k, t, P[1][1], P[1][2], front);
+  if (design === 'crest') { metal(g, PLATE, t, steel, 10, k); helix(false); g.save(); g.lineWidth = 2 * k; g.strokeStyle = P[3]; g.globalAlpha = 0.7; g.beginPath(); PLATE[0].forEach(([x, y], i) => g[i ? 'lineTo' : 'moveTo'](x * 0.88 * k, y * 0.88 * k)); g.closePath(); g.stroke(); g.restore();
+    g.save(); g.translate(8 * k, -22 * k); metal(g, letter === 'R' ? BLADE_R : BLADE_F, t, P[1], 12, 0.66 * k, true); g.restore();
+    g.fillStyle = '#05060a'; g.strokeStyle = P[3]; g.lineWidth = 2 * k; g.beginPath(); g.roundRect(-112 * k, 104 * k, 224 * k, 40 * k, 6 * k); g.fill(); g.stroke(); g.fillStyle = '#eef2fa'; g.font = `400 ${24 * k}px "Bungee", sans-serif`; g.textAlign = 'center'; g.fillText(letter === 'R' ? 'FEE RESERVE' : 'FUSE', 0, 133 * k, 204 * k);
+    for (let i = -1; i <= 1; i++) { g.fillStyle = i ? P[3] : '#ffffff'; g.font = `${(i ? 15 : 21) * k}px sans-serif`; g.fillText('★', i * 30 * k, (-150 + Math.abs(i) * 8) * k); } g.textAlign = 'left'; helix(true); return; }
+  if (design === 'blade') { for (const sd of [-1, 1]) metal(g, wings(sd), t, steel, 6, k); helix(false); metal(g, letter === 'R' ? BLADE_R : BLADE_F, t, P[1], 20, 1.08 * k, true); helix(true); return; }
+  helix(false); metal(g, letter === 'R' ? RESERVE_R : FUSE_F, t, P[1], 20, 1.1 * k); helix(true); }
 // 🎨 COLOURS: every piece has its own default; the picker on top repaints ALL of them in one palette (Auto = each its own).
 const PALS = { chrome: ['Chrome', ['#0a2a8a', '#1fa8ff', '#ff2a3c'], ['31,168,255', '255,42,60', '140,90,255'], '#1fa8ff'], royal: ['Royal', ['#063d22', '#19d874', '#eafff4'], ['21,209,106', '40,90,255', '255,255,255'], '#19d874'],
   fusion: ['Fusion', ['#3a0f8a', '#9a6bff', '#1fffa0'], ['154,107,255', '31,255,160', '60,160,255'], '#9a6bff'], gold: ['Gold', ['#5a2c00', '#ffb347', '#fff3c4'], ['255,150,40', '255,220,120', '255,90,40'], '#ffb347'],
@@ -101,11 +120,11 @@ const cover = (def, subject, title, sub, line, candle) => (g, t) => { const P = 
   if (candle) candleRun(g, t, P[3], 930, 70, 250); shock(g, 250, FL + 6, t, L[0][0], 300);
   onFloor(g, 250, 212, FL, t, () => { g.scale(1.32, 1.32); subject(g, t, P); }); g.save(); g.translate(250, 212); bolts(g, t, L[1][0], 210); flecks(g, t, L[0][0], 170); g.restore();
   words(g, t, 520, title, sub, line, P[3]); grainVignette(g, W, H, t); };
-const fMark = (g, t, P) => { dnaBeads(g, 10, -190, 190, 150, t, P[1][1], P[1][2], false); metal(g, FUSE_F, t, P[1], 18, 1.05); dnaBeads(g, 10, -190, 190, 150, t, P[1][1], P[1][2], true); };
+const fMark = (g, t, P) => glyphArt(g, t, P, 'F', 0.95);
 const COVERS = [
   ['feeless', 'FEELESS', cover('royal', fMark, 'FEELESS', 'LESS NOISE. MORE ALPHA.', 'NON-CUSTODIAL TRADING TERMINAL  ·  SOLANA', true)],
   ['feecat', 'FEECAT', cover('gold', (g, t, P) => metalCat(g, t, 300, P[1][0], P[1][1]), 'FEECAT', 'NINE LIVES. TRADES LESS, WINS MORE.', 'THE FEELESS TRADING CAT  ·  LEARNS FROM EVERY EXIT', true)],
-  ['reserve', 'FEE RESERVE', cover('chrome', (g, t, P) => metal(g, RESERVE_R, t, P[1], 18, 1.05), 'FEE RESERVE', 'HOLD $FEE. UNLOCK THE ROOM.', 'HOLDER ROOMS  ·  FEE-BACK  ·  RESERVE BADGES', false)],
+  ['reserve', 'FEE RESERVE', cover('chrome', (g, t, P) => glyphArt(g, t, P, 'R', 0.95, false), 'FEE RESERVE', 'HOLD $FEE. UNLOCK THE ROOM.', 'HOLDER ROOMS  ·  FEE-BACK  ·  RESERVE BADGES', false)],
   ['fuse', 'FUSE', cover('fusion', fMark, 'FUSE', 'MANY COINS, ONE FUSE.', 'CARDS THAT LOCK WINNERS  ·  EVERY SWAP ON-CHAIN', true)],
 ];
 
@@ -114,12 +133,12 @@ const S = 512;
 const pfp = (def, subject, spin) => (g, t) => { const P = pal(def), L = lightsOf(P), cx = S / 2 - 6, cy = S / 2 - 26; studio(g, S, S, t, L); beams(g, cx, 398, t, L[0][0], 470); shock(g, cx, 404, t, L[0][0], 250);
   onFloor(g, cx, cy, 398, spin ? 0 : t, () => { if (spin) { const sx = Math.cos(t * T); g.scale(Math.max(0.06, Math.abs(sx)) * (sx < 0 ? -1 : 1), 1); } subject(g, t, P); });
   g.save(); g.translate(cx, cy); bolts(g, t, L[1][0], 230); flecks(g, t, L[0][0], 180); g.restore(); grainVignette(g, S, S, t); };
-const bigF = (g, t, P) => { dnaBeads(g, 6, -200, 200, 170, t, P[1][1], P[1][2], false); metal(g, FUSE_F, t, P[1], 20, 1.12); dnaBeads(g, 6, -200, 200, 170, t, P[1][1], P[1][2], true); };
+const bigF = (g, t, P) => glyphArt(g, t, P, 'F', 1);
 const LOGOS = [
   ['feeless-f', 'FEELESS — clan F with DNA', pfp('royal', bigF)],
   ['fuse-pfp', 'Fuse — chrome F with DNA', pfp('fusion', bigF)],
-  ['fuse-spin', 'Fuse — spinning F', pfp('fusion', (g, t, P) => metal(g, FUSE_F, t, P[1], 14, 1.12), true)],
-  ['reserve-pfp', 'Fee Reserve — profile picture', pfp('chrome', (g, t, P) => metal(g, RESERVE_R, t, P[1], 20, 1.14))],
+  ['fuse-spin', 'Fuse — spinning F', pfp('fusion', (g, t, P) => glyphArt(g, t, P, 'F', 1, false), true)],
+  ['reserve-pfp', 'Fee Reserve — profile picture', pfp('chrome', (g, t, P) => glyphArt(g, t, P, 'R', 1, false))],
   ['feecat-pfp', 'FeeCat — profile picture', pfp('gold', (g, t, P) => metalCat(g, t, 360, P[1][0], P[1][1]))],
 ];
 
@@ -137,11 +156,14 @@ const live = [];
 function add(host, [id, name, draw], w, h, gifScale, frames, video) { const el = document.createElement('div'); el.className = 'item';
   el.innerHTML = `<canvas width="${w}" height="${h}" aria-label="${name}"></canvas><div class="bar"><b>${name}</b><button class="go" data-a="png">⬇ PNG</button><button data-a="gif">⬇ GIF</button>${video ? '<button data-a="vid">⏺ Video loop</button>' : ''}<small>${w} × ${h}${gifScale < 1 ? ` · GIF ${w * gifScale} × ${h * gifScale}` : ''}</small></div>`;
   host.appendChild(el); const c = el.querySelector('canvas'), g = c.getContext('2d'); live.push([c, g, draw]);
-  el.querySelector('[data-a=png]').onclick = () => c.toBlob(b => b && save(b, `feeless-${id}${pick === 'auto' ? '' : `-${pick}`}.png`), 'image/png');
-  el.querySelector('[data-a=gif]').onclick = e => makeGif(draw, w, h, gifScale, frames, e.target, `feeless-${id}${pick === 'auto' ? '' : `-${pick}`}`);
+  el.querySelector('[data-a=png]').onclick = () => c.toBlob(b => b && save(b, `feeless-${id}${design === 'slab' ? '' : `-${design}`}${pick === 'auto' ? '' : `-${pick}`}.png`), 'image/png');
+  el.querySelector('[data-a=gif]').onclick = e => makeGif(draw, w, h, gifScale, frames, e.target, `feeless-${id}${design === 'slab' ? '' : `-${design}`}${pick === 'auto' ? '' : `-${pick}`}`);
   if (video) el.querySelector('[data-a=vid]').onclick = e => { const b = e.target; if (!c.captureStream || !window.MediaRecorder) { b.textContent = 'Use Chrome to record'; return; }
     const rec = new MediaRecorder(c.captureStream(30), { videoBitsPerSecond: 8e6 }), parts = []; rec.ondataavailable = x => x.data.size && parts.push(x.data);
     rec.onstop = () => { save(new Blob(parts, { type: rec.mimeType || 'video/webm' }), `feeless-${id}.webm`); b.disabled = false; b.textContent = '⏺ Video loop'; }; b.disabled = true; b.textContent = '⏺ recording 8s…'; rec.start(); setTimeout(() => rec.stop(), LOOP + 80); }; }
+const db = document.getElementById('designs');
+[['slab', 'Slab — clean bars'], ['blade', 'Blade — cut monogram + wings'], ['crest', 'Crest — shield, ribbon, stars']].forEach(([k, name]) => { const b = document.createElement('button'); b.textContent = name; b.dataset.k = k; if (k === design) b.className = 'go';
+  b.onclick = () => { design = k; db.querySelectorAll('button').forEach(x => { x.className = x.dataset.k === k ? 'go' : ''; }); }; db.appendChild(b); });
 const pb = document.getElementById('pals');
 [['auto', 'Auto — each its own'], ...Object.entries(PALS).map(([k, v]) => [k, v[0]])].forEach(([k, name]) => { const b = document.createElement('button'); b.textContent = name; b.dataset.k = k; if (k === 'auto') b.className = 'go'; if (PALS[k]) b.style.borderColor = PALS[k][3];
   b.onclick = () => { pick = k; pb.querySelectorAll('button').forEach(x => { x.className = x.dataset.k === k ? 'go' : ''; }); }; pb.appendChild(b); });
