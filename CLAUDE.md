@@ -1823,3 +1823,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   FEELESS clan F with DNA · FeeCat pfp · Fuse spinning F), each PNG / GIF (+ video for covers). No cartoon rays, grids or emoji.
   The Fee Reserve PAGE (`/terminal/alpha`) has no picture of its own, and it renders a stray "Off the radar." block under the
   rooms — not fixed here.
+- 🎬 Covers & logos v3 (`cover.html`): 🎨 COLOUR picker on top — Auto (each piece its own) · Chrome · Royal · Fusion · Gold · Ice ·
+  Blaze · Toxic · Blood · Steel (`PALS[key] = [name, [deep, mid, hot], [3 light rgb], accent]`, `pal(default)`); one tap repaints
+  EVERY piece and the download is what is on screen (the colour is in the file name). The owner's C picture was a STYLE
+  reference only: Fee Reserve's mark is a slanted R (`RESERVE_R`); FEELESS and Fuse use the slanted F with DNA. Crazier: `beams`
+  (light shafts from the floor), `shock` (rings rolling out over the floor), `bolts` (lightning crawling around the mark, new
+  shape 24× a loop from the seed table) and `flecks` (sparks thrown off the hot edge) on every piece. New colour ⇒ one `PALS` row.

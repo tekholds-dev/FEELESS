@@ -16,7 +16,8 @@
 </style></head>
 <body>
 <h1>FEELESS covers & logos</h1>
-<p>Every piece is drawn live in your browser and downloads on its own: a still PNG, an animated GIF, and (covers) a video loop. Covers are 1500 × 500, the size X and most profile headers use. Dark studio look: brushed-metal 3D marks, slow lights, a wet floor. Candles are made up — never a real price.</p>
+<p>Every piece is drawn live in your browser and downloads on its own: a still PNG, an animated GIF, and (covers) a video loop. Covers are 1500 × 500, the size X and most profile headers use. Dark studio look: brushed-metal 3D marks, lightning, shockwaves, a wet floor. Pick a colour on top — it repaints every piece, and what you see is what downloads. Candles are made up — never a real price.</p>
+<h2>COLOUR</h2><div class="bar" id="pals" role="group" aria-label="Colour"></div>
 <h2>COVERS · 1500 × 500</h2><div class="grid" id="covers"></div>
 <h2>PROFILE PICTURES & LOGOS · 512 × 512</h2><div class="grid logos" id="logos"></div>
 <script type="module">
@@ -63,9 +64,24 @@ function dnaBeads(g, cx, y0, y1, amp, t, c1, c2, front, n = 13, turns = 1.5) { f
   for (const [sgn, col, zz] of [[1, c1, z], [-1, c2, -z]]) { if ((zz >= 0) !== front) continue; const x = cx + sgn * Math.sin(ph) * amp, r = amp * (0.06 + 0.022 * zz); const rg = g.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r); rg.addColorStop(0, '#fff'); rg.addColorStop(0.3, col); rg.addColorStop(1, '#05060a'); g.fillStyle = rg; g.globalAlpha = 0.55 + 0.45 * Math.abs(zz); g.beginPath(); g.arc(x, y, r, 0, T); g.fill(); }
   if (!front) { g.globalAlpha = 0.22; g.strokeStyle = '#8a93a8'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(cx + Math.sin(ph) * amp, y); g.lineTo(cx - Math.sin(ph) * amp, y); g.stroke(); } } g.globalAlpha = 1; }
 // glyphs (flat, already slanted like the reference mark)
-const RESERVE = [[[-58, -92], [150, -92], [128, -34], [-14, -34], [-22, -12], [-90, -12]], [[-96, 12], [-28, 12], [-36, 34], [112, 34], [86, 104], [-132, 104]]];
+const RESERVE_R = [[[-96, -112], [-34, -112], [-94, 116], [-156, 116]], [[-16, -112], [128, -112], [150, -88], [136, -60], [-30, -60]], [[92, -44], [150, -44], [134, 2], [118, 14], [76, 14]], [[-44, -8], [100, -8], [86, 38], [-58, 38]], [[22, 54], [86, 54], [140, 116], [74, 116]]];   // a slanted R (the owner's C picture was a style reference only)
 const FUSE_F = [[[-66, -112], [150, -112], [130, -60], [-86, -60]], [[-94, -38], [78, -38], [58, 14], [-114, 14]], [[-122, 36], [-46, 36], [-76, 116], [-152, 116]]];
-const C_RES = ['#0a2a8a', '#1fa8ff', '#ff2a3c'], C_FUSE = ['#3a0f8a', '#9a6bff', '#1fffa0'], C_FEE = ['#063d22', '#19d874', '#eafff4'];
+// 🎨 COLOURS: every piece has its own default; the picker on top repaints ALL of them in one palette (Auto = each its own).
+const PALS = { chrome: ['Chrome', ['#0a2a8a', '#1fa8ff', '#ff2a3c'], ['31,168,255', '255,42,60', '140,90,255'], '#1fa8ff'], royal: ['Royal', ['#063d22', '#19d874', '#eafff4'], ['21,209,106', '40,90,255', '255,255,255'], '#19d874'],
+  fusion: ['Fusion', ['#3a0f8a', '#9a6bff', '#1fffa0'], ['154,107,255', '31,255,160', '60,160,255'], '#9a6bff'], gold: ['Gold', ['#5a2c00', '#ffb347', '#fff3c4'], ['255,150,40', '255,220,120', '255,90,40'], '#ffb347'],
+  ice: ['Ice', ['#0b3a66', '#8fe3ff', '#ffffff'], ['120,220,255', '190,240,255', '90,120,255'], '#8fe3ff'], blaze: ['Blaze', ['#5a0a00', '#ff5a1f', '#ffe14d'], ['255,90,31', '255,40,80', '255,200,60'], '#ff7a2f'],
+  toxic: ['Toxic', ['#1d3a00', '#a6ff1f', '#f4ff8a'], ['166,255,31', '31,255,160', '255,255,120'], '#a6ff1f'], blood: ['Blood', ['#3a0008', '#ff1f3c', '#ffd0d6'], ['255,31,60', '160,20,60', '255,120,140'], '#ff3b55'],
+  steel: ['Steel', ['#1a1e28', '#aab4c8', '#ffffff'], ['170,180,200', '110,130,170', '255,255,255'], '#c9d2e3'] };
+let pick = 'auto'; const pal = def => PALS[pick === 'auto' ? def : pick];
+const lightsOf = P => [[P[2][0], 0.34], [P[2][1], 0.22], [P[2][2], 0.14]];
+// ⚡ CRAZIER: lightning crawling around the mark, shockwave rings rolling out over the floor, sparks thrown off the hot edge
+function bolts(g, t, rgb, R) { const f = Math.floor(t * 24); g.save(); g.lineCap = 'round'; g.shadowColor = `rgb(${rgb})`; g.shadowBlur = 18;
+  for (let b = 0; b < 3; b++) { const s0 = (f * 7 + b * 31) % 500; if (seed[s0] < 0.45) continue; let a = seed[s0 + 1] * T, r = R * (0.75 + seed[s0 + 2] * 0.2), x = Math.cos(a) * r, y = Math.sin(a) * r * 0.8; g.beginPath(); g.moveTo(x, y);
+    for (let k = 1; k <= 7; k++) { a += (seed[(s0 + k * 3) % 590] - 0.5) * 0.5; r += (seed[(s0 + k * 5) % 590] - 0.35) * R * 0.16; g.lineTo(Math.cos(a) * r + (seed[(s0 + k) % 590] - 0.5) * 16, Math.sin(a) * r * 0.8 + (seed[(s0 + k * 2) % 590] - 0.5) * 16); }
+    g.strokeStyle = `rgba(${rgb},.9)`; g.lineWidth = 2.4; g.stroke(); g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 0.9; g.stroke(); } g.restore(); }
+function shock(g, cx, y, t, rgb, W0) { for (let i = 0; i < 3; i++) { const k = (t * 2 + i / 3) % 1; g.strokeStyle = `rgba(${rgb},${0.55 * (1 - k)})`; g.lineWidth = 3 * (1 - k) + 0.6; g.beginPath(); g.ellipse(cx, y, W0 * (0.25 + k * 0.95), W0 * (0.05 + k * 0.17), 0, 0, T); g.stroke(); } }
+function flecks(g, t, rgb, R) { for (let i = 0; i < 26; i++) { const k = (t * 2 + seed[i + 300]) % 1, a = -0.9 + seed[i + 330] * 1.2, d = R * (0.5 + k * 1.3); const x = Math.cos(a) * d + R * 0.3, y = Math.sin(a) * d - R * 0.25 + k * k * R * 0.5; g.fillStyle = `rgba(${i % 3 ? rgb : '255,255,255'},${0.9 * (1 - k)})`; g.fillRect(x, y, 2.4, 2.4 + 5 * (1 - k)); } }
+function beams(g, cx, cy, t, rgb, R) { g.save(); g.translate(cx, cy); g.globalCompositeOperation = 'lighter'; for (let i = 0; i < 7; i++) { const a = -Math.PI / 2 + (i - 3) * 0.24 + Math.sin(t * T + i) * 0.05, w = 0.05 + 0.03 * Math.sin(t * T * 2 + i * 2); const gr = g.createLinearGradient(0, 0, Math.cos(a) * R, Math.sin(a) * R); gr.addColorStop(0, `rgba(${rgb},.3)`); gr.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = gr; g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a - w) * R, Math.sin(a - w) * R); g.lineTo(Math.cos(a + w) * R, Math.sin(a + w) * R); g.closePath(); g.fill(); } g.restore(); }
 // the cat mark as metal: the PNG's black falls away (lighter), a moving tint gives it a lit edge
 const catBuf = document.createElement('canvas'); catBuf.width = catBuf.height = 512;
 function metalCat(g, t, size, tintA, tintB) { if (!(CAT.complete && CAT.naturalWidth)) return; const c = catBuf.getContext('2d'); c.globalCompositeOperation = 'source-over'; c.clearRect(0, 0, 512, 512); c.filter = 'grayscale(1) brightness(1.5) contrast(1.25)'; c.drawImage(CAT, 0, 0, 512, 512); c.filter = 'none';
@@ -81,24 +97,30 @@ function candleRun(g, t, acc, x0 = 700, y0 = 110, ch = 230) { const cw = 12, shi
 
 // covers ---------------------------------------------------------------------------------------------------------------------
 const W = 1500, H = 500, FL = 392;
-const cover = (lights, subject, acc, title, sub, line, extra) => (g, t) => { studio(g, W, H, t, lights); if (extra) extra(g, t); const kl = g.createRadialGradient(250, 210, 0, 250, 210, 360); kl.addColorStop(0, `rgba(${lights[0][0]},.34)`); kl.addColorStop(1, `rgba(${lights[0][0]},0)`); g.fillStyle = kl; g.fillRect(0, 0, 640, H);   /* key light behind the mark */
-  onFloor(g, 250, 212, FL, t, () => { g.scale(1.32, 1.32); subject(g, t); }); words(g, t, 520, title, sub, line, acc); grainVignette(g, W, H, t); };
+const cover = (def, subject, title, sub, line, candle) => (g, t) => { const P = pal(def), L = lightsOf(P); studio(g, W, H, t, L); beams(g, 250, FL, t, L[0][0], 520);
+  if (candle) candleRun(g, t, P[3], 930, 70, 250); shock(g, 250, FL + 6, t, L[0][0], 300);
+  onFloor(g, 250, 212, FL, t, () => { g.scale(1.32, 1.32); subject(g, t, P); }); g.save(); g.translate(250, 212); bolts(g, t, L[1][0], 210); flecks(g, t, L[0][0], 170); g.restore();
+  words(g, t, 520, title, sub, line, P[3]); grainVignette(g, W, H, t); };
+const fMark = (g, t, P) => { dnaBeads(g, 10, -190, 190, 150, t, P[1][1], P[1][2], false); metal(g, FUSE_F, t, P[1], 18, 1.05); dnaBeads(g, 10, -190, 190, 150, t, P[1][1], P[1][2], true); };
 const COVERS = [
-  ['feeless', 'FEELESS', cover([['21,209,106', 0.3], ['40,90,255', 0.18], ['255,255,255', 0.06]], (g, t) => { if (MARK.complete && MARK.naturalWidth) { g.save(); g.shadowColor = '#15d16a'; g.shadowBlur = 40; g.drawImage(MARK, -130, -130, 260, 260); g.restore(); } }, '#19d874', 'FEELESS', 'LESS NOISE. MORE ALPHA.', 'NON-CUSTODIAL TRADING TERMINAL  ·  SOLANA', (g, t) => candleRun(g, t, '#19d874', 930, 70, 250))],
-  ['feecat', 'FEECAT', cover([['255,150,40', 0.26], ['21,209,106', 0.16], ['255,255,255', 0.05]], (g, t) => metalCat(g, t, 300, '#5a2c00', '#ffb347'), '#ffb347', 'FEECAT', 'NINE LIVES. TRADES LESS, WINS MORE.', 'THE FEELESS TRADING CAT  ·  LEARNS FROM EVERY EXIT', (g, t) => candleRun(g, t, '#ffb347', 930, 70, 250))],
-  ['reserve', 'FEE RESERVE', cover([['31,168,255', 0.3], ['255,42,60', 0.2], ['140,90,255', 0.14]], (g, t) => metal(g, RESERVE, t, C_RES, 18, 1.15), '#1fa8ff', 'FEE RESERVE', 'HOLD $FEE. UNLOCK THE ROOM.', 'HOLDER ROOMS  ·  FEE-BACK  ·  RESERVE BADGES')],
-  ['fuse', 'FUSE', cover([['154,107,255', 0.3], ['31,255,160', 0.18], ['60,160,255', 0.12]], (g, t) => { dnaBeads(g, 10, -190, 190, 150, t, '#9a6bff', '#1fffa0', false); metal(g, FUSE_F, t, C_FUSE, 18, 1.05); dnaBeads(g, 10, -190, 190, 150, t, '#9a6bff', '#1fffa0', true); }, '#9a6bff', 'FUSE', 'MANY COINS, ONE FUSE.', 'CARDS THAT LOCK WINNERS  ·  EVERY SWAP ON-CHAIN', (g, t) => candleRun(g, t, '#1fffa0', 930, 70, 250))],
+  ['feeless', 'FEELESS', cover('royal', fMark, 'FEELESS', 'LESS NOISE. MORE ALPHA.', 'NON-CUSTODIAL TRADING TERMINAL  ·  SOLANA', true)],
+  ['feecat', 'FEECAT', cover('gold', (g, t, P) => metalCat(g, t, 300, P[1][0], P[1][1]), 'FEECAT', 'NINE LIVES. TRADES LESS, WINS MORE.', 'THE FEELESS TRADING CAT  ·  LEARNS FROM EVERY EXIT', true)],
+  ['reserve', 'FEE RESERVE', cover('chrome', (g, t, P) => metal(g, RESERVE_R, t, P[1], 18, 1.05), 'FEE RESERVE', 'HOLD $FEE. UNLOCK THE ROOM.', 'HOLDER ROOMS  ·  FEE-BACK  ·  RESERVE BADGES', false)],
+  ['fuse', 'FUSE', cover('fusion', fMark, 'FUSE', 'MANY COINS, ONE FUSE.', 'CARDS THAT LOCK WINNERS  ·  EVERY SWAP ON-CHAIN', true)],
 ];
 
 // profile pictures / logos ----------------------------------------------------------------------------------------------------
 const S = 512;
-const pfp = (lights, subject) => (g, t) => { studio(g, S, S, t, lights); onFloor(g, S / 2 - 6, S / 2 - 26, 398, t, () => subject(g, t)); grainVignette(g, S, S, t); };
+const pfp = (def, subject, spin) => (g, t) => { const P = pal(def), L = lightsOf(P), cx = S / 2 - 6, cy = S / 2 - 26; studio(g, S, S, t, L); beams(g, cx, 398, t, L[0][0], 470); shock(g, cx, 404, t, L[0][0], 250);
+  onFloor(g, cx, cy, 398, spin ? 0 : t, () => { if (spin) { const sx = Math.cos(t * T); g.scale(Math.max(0.06, Math.abs(sx)) * (sx < 0 ? -1 : 1), 1); } subject(g, t, P); });
+  g.save(); g.translate(cx, cy); bolts(g, t, L[1][0], 230); flecks(g, t, L[0][0], 180); g.restore(); grainVignette(g, S, S, t); };
+const bigF = (g, t, P) => { dnaBeads(g, 6, -200, 200, 170, t, P[1][1], P[1][2], false); metal(g, FUSE_F, t, P[1], 20, 1.12); dnaBeads(g, 6, -200, 200, 170, t, P[1][1], P[1][2], true); };
 const LOGOS = [
-  ['reserve-pfp', 'Fee Reserve — profile picture', pfp([['31,168,255', 0.34], ['255,42,60', 0.24], ['140,90,255', 0.16]], (g, t) => metal(g, RESERVE, t, C_RES, 20, 1.25))],
-  ['fuse-pfp', 'Fuse — chrome F with DNA', pfp([['154,107,255', 0.34], ['31,255,160', 0.2], ['60,160,255', 0.14]], (g, t) => { dnaBeads(g, 6, -200, 200, 170, t, '#9a6bff', '#1fffa0', false); metal(g, FUSE_F, t, C_FUSE, 20, 1.12); dnaBeads(g, 6, -200, 200, 170, t, '#9a6bff', '#1fffa0', true); })],
-  ['feeless-f', 'FEELESS — clan F with DNA', pfp([['21,209,106', 0.34], ['40,90,255', 0.18], ['255,255,255', 0.07]], (g, t) => { dnaBeads(g, 6, -200, 200, 170, t, '#19d874', '#8ea0ff', false); metal(g, FUSE_F, t, C_FEE, 22, 1.12); dnaBeads(g, 6, -200, 200, 170, t, '#19d874', '#8ea0ff', true); })],
-  ['feecat-pfp', 'FeeCat — profile picture', pfp([['255,150,40', 0.3], ['21,209,106', 0.16], ['255,255,255', 0.05]], (g, t) => metalCat(g, t, 360, '#5a2c00', '#ffb347'))],
-  ['fuse-spin', 'Fuse — spinning F', (g, t) => { studio(g, S, S, t, [['154,107,255', 0.34], ['31,255,160', 0.2], ['60,160,255', 0.14]]); const sx = Math.cos(t * T); onFloor(g, S / 2 - 6, S / 2 - 26, 398, 0, () => { g.scale(Math.max(0.06, Math.abs(sx)) * (sx < 0 ? -1 : 1), 1); metal(g, FUSE_F, t, C_FUSE, Math.round(6 + 14 * Math.abs(sx)), 1.12); }); dnaBeads(g, S / 2, 40, 470, 200, t, '#9a6bff', '#1fffa0', true, 12, 1.3); grainVignette(g, S, S, t); }],
+  ['feeless-f', 'FEELESS — clan F with DNA', pfp('royal', bigF)],
+  ['fuse-pfp', 'Fuse — chrome F with DNA', pfp('fusion', bigF)],
+  ['fuse-spin', 'Fuse — spinning F', pfp('fusion', (g, t, P) => metal(g, FUSE_F, t, P[1], 14, 1.12), true)],
+  ['reserve-pfp', 'Fee Reserve — profile picture', pfp('chrome', (g, t, P) => metal(g, RESERVE_R, t, P[1], 20, 1.14))],
+  ['feecat-pfp', 'FeeCat — profile picture', pfp('gold', (g, t, P) => metalCat(g, t, 360, P[1][0], P[1][1]))],
 ];
 
 // page ------------------------------------------------------------------------------------------------------------------------
@@ -115,11 +137,14 @@ const live = [];
 function add(host, [id, name, draw], w, h, gifScale, frames, video) { const el = document.createElement('div'); el.className = 'item';
   el.innerHTML = `<canvas width="${w}" height="${h}" aria-label="${name}"></canvas><div class="bar"><b>${name}</b><button class="go" data-a="png">⬇ PNG</button><button data-a="gif">⬇ GIF</button>${video ? '<button data-a="vid">⏺ Video loop</button>' : ''}<small>${w} × ${h}${gifScale < 1 ? ` · GIF ${w * gifScale} × ${h * gifScale}` : ''}</small></div>`;
   host.appendChild(el); const c = el.querySelector('canvas'), g = c.getContext('2d'); live.push([c, g, draw]);
-  el.querySelector('[data-a=png]').onclick = () => c.toBlob(b => b && save(b, `feeless-${id}.png`), 'image/png');
-  el.querySelector('[data-a=gif]').onclick = e => makeGif(draw, w, h, gifScale, frames, e.target, `feeless-${id}`);
+  el.querySelector('[data-a=png]').onclick = () => c.toBlob(b => b && save(b, `feeless-${id}${pick === 'auto' ? '' : `-${pick}`}.png`), 'image/png');
+  el.querySelector('[data-a=gif]').onclick = e => makeGif(draw, w, h, gifScale, frames, e.target, `feeless-${id}${pick === 'auto' ? '' : `-${pick}`}`);
   if (video) el.querySelector('[data-a=vid]').onclick = e => { const b = e.target; if (!c.captureStream || !window.MediaRecorder) { b.textContent = 'Use Chrome to record'; return; }
     const rec = new MediaRecorder(c.captureStream(30), { videoBitsPerSecond: 8e6 }), parts = []; rec.ondataavailable = x => x.data.size && parts.push(x.data);
     rec.onstop = () => { save(new Blob(parts, { type: rec.mimeType || 'video/webm' }), `feeless-${id}.webm`); b.disabled = false; b.textContent = '⏺ Video loop'; }; b.disabled = true; b.textContent = '⏺ recording 8s…'; rec.start(); setTimeout(() => rec.stop(), LOOP + 80); }; }
+const pb = document.getElementById('pals');
+[['auto', 'Auto — each its own'], ...Object.entries(PALS).map(([k, v]) => [k, v[0]])].forEach(([k, name]) => { const b = document.createElement('button'); b.textContent = name; b.dataset.k = k; if (k === 'auto') b.className = 'go'; if (PALS[k]) b.style.borderColor = PALS[k][3];
+  b.onclick = () => { pick = k; pb.querySelectorAll('button').forEach(x => { x.className = x.dataset.k === k ? 'go' : ''; }); }; pb.appendChild(b); });
 COVERS.forEach(x => add(document.getElementById('covers'), x, W, H, 0.5, 40, true));
 LOGOS.forEach(x => add(document.getElementById('logos'), x, S, S, 1, 48, false));
 const io = new IntersectionObserver(es => es.forEach(e => { e.target.dataset.on = e.isIntersecting ? '1' : ''; }), { rootMargin: '200px' }); live.forEach(([c]) => { c.dataset.on = '1'; io.observe(c); });
