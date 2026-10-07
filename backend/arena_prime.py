@@ -937,16 +937,22 @@ def category_picks(lists, ok, records=None, limit=6):
     out, taken, misses = [], set(), {}
     for k, label in order:
         rows = (lists or {}).get(k) or []
-        pick = None
+        pick, why = None, {}
         for i, r in enumerate(rows[:60]):
             m = r.get('mint')
-            if m and m not in taken and ok(r):
+            if not m or m in taken:
+                continue
+            v = ok(r)   # True = takes it · a string = the first check it failed (counted, so the screen can say what blocks a list)
+            if v is True:
                 pick = {**r, 'cat': k, 'catLabel': label, 'rank': i + 1}
                 break
+            w = v if isinstance(v, str) and v else 'did not pass'
+            why[w] = why.get(w, 0) + 1
         if pick:
             taken.add(pick['mint']); out.append(pick)
         else:
-            misses[k] = 'nothing in the top 60 passes' if rows else 'list empty right now'
+            top = sorted(why.items(), key=lambda kv: -kv[1])[:3]
+            misses[k] = ('top 60: ' + ' · '.join(f'{n} {w}' for w, n in top)) if top else ('nothing in the top 60 passes' if rows else 'list empty right now')
     return out[:limit], misses
 
 

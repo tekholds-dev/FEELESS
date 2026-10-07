@@ -2210,12 +2210,12 @@ def test_coming_up_takes_the_best_coin_from_the_top_of_each_category():
     import arena_prime as ap
     lists = {'ptrend': [{'mint': 'A'}, {'mint': 'B'}], 'volume': [{'mint': 'A'}, {'mint': 'C'}], 'bottom': [{'mint': 'BAD'}, {'mint': 'D'}],
              'movers': [], 'pump': [{'mint': 'BAD'}]}
-    ok = lambda r: r['mint'] != 'BAD'
+    ok = lambda r: True if r['mint'] != 'BAD' else 'too young'
     picks, misses = ap.category_picks(lists, ok, records={'bottom': {'n': 30, 'medPct': -5}, 'volume': {'n': 60, 'medPct': -1}, 'ptrend': {'n': 2, 'medPct': 50}})
     # best record first (volume −1 > bottom −5), no record yet after; each list walked from its top, a coin never taken twice
     assert [(p['cat'], p['mint'], p['rank']) for p in picks] == [('volume', 'A', 1), ('bottom', 'D', 2), ('ptrend', 'B', 2)]
     assert picks[0]['catLabel'] == '🌊 Volume'
-    assert misses == {'movers': 'list empty right now', 'pump': 'nothing in the top 60 passes', 'trench': 'list empty right now'}
+    assert misses == {'movers': 'list empty right now', 'pump': 'top 60: 1 too young', 'trench': 'list empty right now'}
 
 
 def test_swap_in_now_brings_the_pick_in_on_the_next_tick_not_at_the_bell():

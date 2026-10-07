@@ -6569,11 +6569,27 @@ async def _prime_tick_inner(now):
             def _cat_row(r):
                 c_ = cand_by.get(r.get('mint'))
                 return {**c_, **(seen_by.get(r.get('mint')) or {})} if c_ else None
-            def _cat_ok(r):
+            def _cat_ok(r):   # True, or the FIRST check it failed (shown per category under Coming up)
                 x = _cat_row(r)
-                return bool(x and x.get('scanned') and not _rn.safety_fails(x, _runner_cfg()) and x['mint'] not in fb_ids and _lq(x) >= floor_of(x)
-                            and _fuse._f(x.get('price')) > 0 and x.get('ageH') is not None and _fuse._f(x.get('ageH')) >= min_age_
-                            and not _fw.dollar_named(x.get('symbol')) and _prime.seat_fallback_ok(x, mom))
+                if not x:
+                    return 'not on the runner board yet'
+                if not x.get('scanned'):
+                    return 'holder scan not done'
+                if _rn.safety_fails(x, _runner_cfg()):
+                    return 'failed safety'
+                if x['mint'] in fb_ids:
+                    return 'on the card / cooling / already next'
+                if _lq(x) < floor_of(x):
+                    return 'pool under your floor'
+                if _fuse._f(x.get('price')) <= 0:
+                    return 'no live price'
+                if x.get('ageH') is None or _fuse._f(x.get('ageH')) < min_age_:
+                    return f'under your {min_age_:g}h min age'
+                if _fw.dollar_named(x.get('symbol')):
+                    return 'dollar-named'
+                if not _prime.seat_fallback_ok(x, mom):
+                    return 'falling / spiking / at its highs'
+                return True
             cat_lists = {**_lens_rows, 'bottom': [{'mint': r.get('baseAddress')} for r in _bottom_cache.get('rows') or []],
                          'trench': [{'mint': r.get('mint')} for r in _trench_cache.get('rows') or []]}
             try:
