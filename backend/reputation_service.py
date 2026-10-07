@@ -2823,7 +2823,7 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
         except Exception:
             pass
         return {'lens': 'bottom', 'chain': 'solana', 'pools': rows_b, 'proof': _trench.meta_proof(_json_load(BOTTOM_PROOF_PATH, {}), keys=('bottom',)).get('bottom')}
-    feed_lens = lens if lens in ('pump', 'movers', 'volume') else None   # 🆕 New launches (newest first) · 🚀 Movers · 🌊 Volume (busiest first): one live launch feed
+    feed_lens = lens if lens in ('pump', 'movers', 'volume', 'ptrend') else None   # 🆕 New launches (newest first) · 🚀 Movers · 🌊 Volume (busiest first): one live launch feed
     if feed_lens:
         mv_ = lens == 'movers'
     if feed_lens:   # 🆕 Pump live: the newest + busiest Pump coins RIGHT NOW, launch-curve coins included (owner picks only)
@@ -2843,12 +2843,18 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
             age_ = round((time.time() * 1000 - _fuse._f(p_.get('pairCreatedAt'))) / 3.6e6, 1) if p_.get('pairCreatedAt') else None
             v1_ = _fuse._f((p_.get('volume') or {}).get('h1'))
             rows_p.append({'chainId': 'solana', 'pairAddress': p_.get('pairAddress'), **_fuse.leg_meta(p_), **({'curve': True} if p_.get('curve') else {}), 'ageH': age_, 'vol1h': v1_,
+                           **({'pumpTrend': p_['pumpTrend']} if p_.get('pumpTrend') else {}),
                            # shown under the ticker: how old it is and how hard it trades — what tells one list's coin from another's
                            'divisionLabel': f"{'?' if age_ is None else f'{age_ * 60:.0f}m' if age_ < 1 else f'{age_:.0f}h' if age_ < 48 else f'{age_ / 24:.0f}d'} old · ${v1_ / 1000:,.0f}K/h"})
         if mv_:   # 🚀 MOVERS: up ≥ 10% on the hour on ≥ $20K traded in a ≥ $10K pool, biggest hourly move first; no dollar-named tickers
             rows_p = sorted((r for r in rows_p if r['vol1h'] >= 20000 and _fuse._f(r.get('liquidityUsd')) >= 10000 and _fuse._f(r.get('change1h')) >= 10
                              and not _fw.dollar_named(r.get('symbol'))), key=lambda r: -_fuse._f(r.get('change1h')))
             return {'lens': 'movers', 'chain': 'solana', 'pools': rows_p[:150]}
+        if lens == 'ptrend':   # 🔥 Pump's own Trending tab, in Pump's order (refreshed every 10 min)
+            rows_p = sorted((r for r in rows_p if r.get('pumpTrend')), key=lambda r: r['pumpTrend'])
+            for r in rows_p:
+                r['divisionLabel'] = f"🔥 Pump #{r['pumpTrend']} · {r['divisionLabel']}"
+            return {'lens': 'ptrend', 'chain': 'solana', 'pools': rows_p[:150]}
         if lens == 'pump':   # 🆕 newest first (≤ 48h old; unknown age last)
             rows_p = sorted((r for r in rows_p if r.get('ageH') is None or r['ageH'] <= 48), key=lambda r: (r.get('ageH') is None, r.get('ageH') or 0))
         return {'lens': lens, 'chain': 'solana', 'pools': rows_p[:300]}   # 🌊 owner: "more than 80 — flood with coins"

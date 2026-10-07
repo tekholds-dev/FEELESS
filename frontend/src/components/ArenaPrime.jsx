@@ -771,7 +771,7 @@ export function HqRealCards({ addr, onCount }) {
 // 🎯 Each list is a DIFFERENT set of coins (Popular / Top yield / Deepest / New 72h / Dex paid were five sorts of the same ~40 pools:
 // the owner saw the same names under every tab). Movers = the live launch feed by hourly move; everything else is its own source.
 // 7 lists, each its OWN set of coins and as many as the feed has (owner: "6–7 categories, more coins, a line chart on every row")
-export const PICK_LENSES = [['movers', '🚀 Movers'], ['bottom', '🟢 Dips & bottoms'], ['pump', '🆕 New launches'], ['volume', '🌊 Volume'], ['trench', '🗑 Trench'], ['majors', '🪙 Majors & stocks'], ['arena', '🏁 All ranked']];
+export const PICK_LENSES = [['ptrend', '🔥 Pump trending'], ['movers', '🚀 Movers'], ['bottom', '🟢 Dips & bottoms'], ['pump', '🆕 New launches'], ['volume', '🌊 Volume'], ['trench', '🗑 Trench'], ['majors', '🪙 Majors & stocks'], ['arena', '🏁 All ranked']];
 const LENS_URLS = { majors: ['majors', 'stocks', 'risers'] };   // one tab, three sources (majors · stock tokens · new majors)
 // 📈 every row gets a line: the board's recorded prices when it has them, else the coin's own 24h → 6h → 1h → 5m → now moves
 export const moveLine = r => { const now = 1; const back = c => (c == null || !Number.isFinite(Number(c)) || Number(c) <= -99 ? null : now / (1 + Number(c) / 100));
@@ -814,7 +814,7 @@ export function PipeLine({ p }) {
 
 export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, cool = {}, call, verify = false }) {
   const [nonce, setNonce] = useState(0);   // bumps when the trench settings are saved → the list reloads
-  const [lens, setLens] = useState('movers'); const [rows, setRows] = useState(null); const [q, setQ] = useState('');
+  const [lens, setLens] = useState('ptrend'); const [rows, setRows] = useState(null); const [q, setQ] = useState('');
   const [tr, setTr] = useState(null);   // 🗑 trench scan: own pool floor + how many were checked
   const [why, setWhy] = useState('');
   const [bproof, setBproof] = useState(null);   // 🟢 the Buy-bottom list's own 1-hour paper record

@@ -18,9 +18,9 @@ test('the real-card swap picker has every Lab lens + search, flags thin pools an
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<SwapPicker out={{ symbol: 'WIF' }} have={[]} minLiq={20000} onPick={r => picks.push(r)} onClose={() => {}} />); });
   await tick();
-  expect(PICK_LENSES.map(x => x[0])).toEqual(['movers', 'bottom', 'pump', 'volume', 'trench', 'majors', 'arena']);   // every list its OWN set of coins
+  expect(PICK_LENSES.map(x => x[0])).toEqual(['ptrend', 'movers', 'bottom', 'pump', 'volume', 'trench', 'majors', 'arena']);   // every list its OWN set of coins
   // 🚀 it opens on what is MOVING (the live launch feed by hourly move) …
-  expect(urls[0]).toContain('/fuses/discover?lens=movers');
+  expect(urls[0]).toContain('/fuses/discover?lens=ptrend');   // 🔥 Pump's Trending tab opens first
   expect(el.textContent).toContain('$POP');
   // 🏁 … and "All ranked" is every coin the Gauntlet ranks (each with the division it ranks best in; watch rows are pickable)
   await act(async () => { el.querySelector('[data-testid="sp-lens-arena"]').click(); }); await tick();

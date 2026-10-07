@@ -39,3 +39,32 @@ def test_pump_profile_is_shaped_from_pumps_own_coin_record():
     assert p['athUsd'] == 400_000.0 and p['offAthPct'] == -50.0                     # Pump's ATH is in $
     assert p['replies'] == 12 and p['live'] and p['creator'] == 'Dev111' and p['url'].endswith('/coin/ABCpump')
     assert lb.pump_profile({'statusCode': 404}) is None and lb.pump_profile(None) is None
+
+
+def test_pump_trending_board_rows_keep_pumps_order_and_skip_bad_rows():
+    import launchpad_board as lb
+    data = {'board': 'movers', 'entries': [
+        {'m': 'AHmD5jaFKqWMGswNkTSwAfvaWNHVY8m6JJro9LFppump', 'c': 'solana:mainnet', 't': 'FLY', 'n': 'fly', 'mc': 752603.7, 'age': 4162,
+         'gd': 1791396954000, 'tw': True, 'ws': True, 'tg': False, 'lp': 'pump'},
+        {'m': 'bad mint!', 'c': 'solana:mainnet', 't': 'X'},
+        {'m': '0xabc', 'c': 'base:mainnet', 't': 'BASE'},
+        {'m': 'LoopMint1111111111111111111111111111111pump', 'c': 'solana:mainnet', 't': 'LOOP', 'mc': 158000, 'age': 600},
+        {'m': 'AHmD5jaFKqWMGswNkTSwAfvaWNHVY8m6JJro9LFppump', 'c': 'solana:mainnet', 't': 'FLY'},   # duplicate
+    ]}
+    rows = lb.pump_trend_rows(data, now_ms=2_000_000_000_000)
+    assert [r['symbol'] for r in rows] == ['FLY', 'LOOP'] and [r['pumpTrend'] for r in rows] == [1, 2]
+    fly = rows[0]
+    assert fly['launchpad'] == 'pump' and fly['graduated'] and fly['socials'] == 2 and fly['createdAt'] == 2_000_000_000_000 - 4_162_000
+    assert lb.PUMP_TREND_TTL == 600 and lb.PUMP_TREND_PARAMS['surface'] == 'TRENDING'
+    assert lb.pump_trend_rows(None) == [] and lb.pump_trend_rows({'entries': None}) == []
+
+
+def test_pump_trending_coin_is_listed_even_under_the_trending_floors():
+    import launchpad_board as lb
+    cand = lb.pump_trend_rows({'entries': [{'m': 'LoopMint1111111111111111111111111111111pump', 'c': 'solana', 't': 'LOOP', 'mc': 9000, 'age': 600}]},
+                              now_ms=2_000_000_000_000)[0]
+    pair = {'pairAddress': 'P1', 'baseToken': {'address': cand['mint'], 'symbol': 'LOOP'}, 'priceUsd': '0.0001', 'marketCap': 9000, 'fdv': 9000,
+            'volume': {'h1': 1000, 'h24': 2000, 'm5': 100}, 'txns': {'h1': {'buys': 10, 'sells': 5}, 'm5': {'buys': 2, 'sells': 1}, 'h24': {'buys': 20, 'sells': 10}},
+            'priceChange': {'h1': 5, 'm5': 1, 'h24': 10}, 'liquidity': {'usd': 8000}, 'pairCreatedAt': 2_000_000_000_000 - 600_000}
+    out = lb.build_board({cand['mint']: cand}, {cand['mint']: pair}, 'trending', now_ms=2_000_000_000_000)
+    assert out and out[0]['pumpTrend'] == 1          # $9K cap / $1K an hour is under the board's floors — Pump trends it, so it shows

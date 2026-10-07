@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, Query
 from ecosystem import DEFAULT_MINTS
 from pydantic import BaseModel, Field
 
-from launchpad_board import BOARD_MAX, BONK_PLATFORM_ID, JUP_LISTS, JUP_RECENT, build_board, pump_pages, dex_candidate, jup_candidate, launchlab_candidate, pump_candidate
+from launchpad_board import BOARD_MAX, BONK_PLATFORM_ID, JUP_LISTS, JUP_RECENT, PUMP_TREND_PARAMS, PUMP_TREND_PATH, PUMP_TREND_TTL, build_board, pump_pages, pump_trend_rows, dex_candidate, jup_candidate, launchlab_candidate, pump_candidate
 
 BOARD_SCOPES = ('launchpads', 'pump', 'bonk', 'raydium')
 
@@ -280,6 +280,7 @@ def create_market_router(db, intelligence=None):
         'Pump.fun': os.getenv('PUMP_API_URL', 'https://frontend-api-v3.pump.fun'),
         'LaunchLab': os.getenv('LAUNCHLAB_API_URL', 'https://launch-mint-v1.raydium.io'),
         'Jupiter': os.getenv('JUP_TOKENS_API_URL', 'https://lite-api.jup.ag'),
+        'PumpBoard': os.getenv('PUMP_BOARD_API_URL', 'https://advanced-indexer.pump.fun'),   # 🔥 Pump's own trending board
     }
 
     async def cached(provider, path, params=None, ttl=60):
@@ -360,12 +361,20 @@ def create_market_router(db, intelligence=None):
         if kind != 'new':   # 🌊 movers: Jupiter's live trending / most-traded lists (launch coins only are kept)
             jobs += [('jup', cached('Jupiter', f'/tokens/v2/{cat}/{iv}', {'limit': 100}, ttl=45)) for cat, iv in JUP_LISTS]
         jobs.append(('jup', cached('Jupiter', JUP_RECENT, {'limit': 100}, ttl=30)))   # 🆕 the newest launches on every launchpad (both boards)
+        jobs.append(('ptrend', cached('PumpBoard', PUMP_TREND_PATH, dict(PUMP_TREND_PARAMS), ttl=PUMP_TREND_TTL)))   # 🔥 Pump's Trending tab, every 10 min
         results = await asyncio.gather(*[job for _pad, job in jobs], return_exceptions=True)
-        candidates, meta, movers = {}, None, []
+        candidates, meta, movers, trend_first = {}, None, [], []
         for (pad, _job), res in zip(jobs, results):
             if isinstance(res, Exception):
                 continue
             data, m = res
+            if pad == 'ptrend':   # 🔥 Pump's own trending order goes FIRST
+                for cand in pump_trend_rows(data):
+                    if cand['mint'] not in candidates:
+                        candidates[cand['mint']] = cand; trend_first.append(cand['mint'])
+                    elif not candidates[cand['mint']].get('pumpTrend'):
+                        candidates[cand['mint']]['pumpTrend'] = cand['pumpTrend']; trend_first.append(cand['mint'])
+                continue
             if pad == 'jup':
                 for tok in data if isinstance(data, list) else []:
                     cand = jup_candidate(tok)
@@ -391,7 +400,8 @@ def create_market_router(db, intelligence=None):
         if not candidates:
             raise HTTPException(503, 'Launchpad indexes returned no coins.')
         # Priority order, not alphabetical: discovery-seeded, then Pump's active lists, then LaunchLab.
-        first = list(seeded) + [m for m in movers if m not in seeded]   # movers are never cut by the board cap
+        first = trend_first + [m for m in list(seeded) + movers if m not in set(trend_first)]   # Pump trending + movers are never cut by the board cap
+        first = list(dict.fromkeys(first))
         mints = (first + [m for m in candidates if m not in set(first)])[:BOARD_MAX]
         dex_pairs = dict(seeded)
         lookup = sorted(m for m in mints if m not in seeded)

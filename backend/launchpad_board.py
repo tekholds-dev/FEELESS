@@ -39,6 +39,39 @@ def _clamp(value, lo=0.0, hi=1.0):
     return max(lo, min(hi, value))
 
 
+# 🔥 PUMP'S OWN TRENDING BOARD (the Trending tab on pump.fun: FLY, LOOP …). Not in the public coin index — pump.fun's page reads it
+# from its board indexer. Refreshed every PUMP_TREND_TTL (owner: "keep pump fun trending updating every 10 min"); its coins join
+# the launch feed FIRST and are never cut by the board cap. Found 2026-10-07: the owner had to open pump.fun to find LOOP and FLY.
+PUMP_TREND_PATH = '/boards/trending'
+PUMP_TREND_PARAMS = {'tier': 'web', 'surface': 'TRENDING', 'platform': 'WEB', 'limit': 150, 'chains': 'solana'}
+PUMP_TREND_TTL = 600
+
+
+def pump_trend_candidate(e, rank, now_ms=None):
+    """One row of Pump's trending board → a board candidate (rank 1 = top of Pump's list), or None."""
+    mint = str((e or {}).get('m') or '')
+    if not mint.isalnum() or not str(e.get('c') or 'solana').startswith('solana'):
+        return None
+    now_ms = now_ms or time.time() * 1000
+    age = _f(e.get('age'))
+    pad = 'pump' if (e.get('lp') or e.get('pg')) == 'pump' or mint.endswith('pump') else 'bonk' if mint.endswith('bonk') else 'other'
+    return {'mint': mint, 'launchpad': pad, 'symbol': e.get('t'), 'name': e.get('n'), 'image': e.get('i'),
+            'createdAt': now_ms - age * 1000 if age > 0 else 0.0, 'marketCap': _f(e.get('mc')), 'athMarketCap': _f(e.get('ath')),
+            'replies': 0, 'live': bool(e.get('lv')), 'graduated': bool(e.get('gd')), 'curveProgress': None,
+            'socials': sum(1 for k in ('tw', 'ws', 'tg') if e.get(k)), 'mover': True, 'pumpTrend': rank,
+            'platformName': 'Pump trending', 'url': f'https://pump.fun/coin/{mint}'}
+
+
+def pump_trend_rows(data, now_ms=None):
+    """The board snapshot → candidates in Pump's own order."""
+    out = []
+    for e in (data or {}).get('entries') or [] if isinstance(data, dict) else []:
+        c = pump_trend_candidate(e, len(out) + 1, now_ms)
+        if c and c['mint'] not in {x['mint'] for x in out}:
+            out.append(c)
+    return out
+
+
 def pump_candidate(coin):
     mint = coin.get('mint')
     if not isinstance(mint, str) or not mint.isalnum() or coin.get('is_banned') or coin.get('nsfw'):
@@ -140,7 +173,7 @@ def build_board(candidates, dex_pairs, kind, now_ms=None):
         if kind == 'trending':
             # 2026-10-07: was cap ≥ $25K · $15K/h · 60 trades — only ~125 launch coins clear that at any moment, so every list
             # read the same whatever was pulled. The BOARD shows more; the engine's own gates (volume, flow, safety) are unchanged.
-            if mc < TREND_MIN_MC or fl['volH1'] < TREND_MIN_VOL1H or fl['txH1'] < TREND_MIN_TX1H or fl['chH1'] < -40:
+            if not cand.get('pumpTrend') and (mc < TREND_MIN_MC or fl['volH1'] < TREND_MIN_VOL1H or fl['txH1'] < TREND_MIN_TX1H or fl['chH1'] < -40):
                 continue
         else:
             if age_h is None or age_h > NEW_MAX_AGE_HOURS or mc < 7_000 or fl['volH1'] < 2_500 or fl['txH1'] < 20 or fl['chH1'] < -50:
@@ -154,7 +187,7 @@ def build_board(candidates, dex_pairs, kind, now_ms=None):
             'platformName': cand.get('platformName'), 'graduated': cand['graduated'], 'curveProgress': cand['curveProgress'],
             'replyCount': cand['replies'], 'athMarketCap': cand['athMarketCap'] or None, 'isLive': cand['live'],
             'marketStage': 'new' if kind == 'new' else pair.get('marketStage'), 'launchpadUrl': cand['url'],
-            'quality': {'score': sc, 'reasons': reasons[:3]},
+            'quality': {'score': sc, 'reasons': reasons[:3]}, **({'pumpTrend': cand['pumpTrend']} if cand.get('pumpTrend') else {}),
         })
     out.sort(key=lambda p: -p['quality']['score'])
     return out

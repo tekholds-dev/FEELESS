@@ -2035,3 +2035,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   every close sweep), so it counts toward the 0.015 reserve; liquid SOL never goes under one new coin account + fees. Found
   2026-10-07: $1.17 of the owner's lost top-ups sat "still to come" for hours — the reserve was busy fronting 0.0106 SOL of rent,
   so `free_sol` read 0 and the card was never paid back.
+- 🔥 PUMP'S OWN TRENDING TAB IS A SOURCE (`launchpad_board.PUMP_TREND_PATH/PARAMS/TTL` 600s, `pump_trend_rows`; market base `PumpBoard`
+  = `https://advanced-indexer.pump.fun` `/boards/trending?tier=web&surface=TRENDING&platform=WEB&limit=150&chains=solana`, found by
+  reading pump.fun's own JS — it is NOT on frontend-api-v3, which has no trending sort): refreshed every 10 min, its coins go FIRST
+  into the launch feed (never cut by `BOARD_MAX`), listed on the trending board even under the board's floors (`pumpTrend` rank on
+  the pair), and the swap picker opens on 🔥 Pump trending (`lens=ptrend`, Pump's order, "🔥 Pump #N"). Owner, 2026-10-07: had to
+  open pump.fun to find LOOP and FLY. The engine's gates and real-money rules are unchanged. Each row also carries holders (`nh`),
+  top-10 % (`t10`), dev share (`dh`), dev wallet (`dw`), socials — not used yet.
