@@ -30,3 +30,10 @@ test('seven picker lists, and a row with no recorded prices still gets a line fr
   expect(pts.length).toBe(5); expect(pts[0]).toBeCloseTo(0.5); expect(pts[2]).toBeCloseTo(1.25); expect(pts[4]).toBe(1);
   expect(moveLine({ chg1h: 10 })).toBeNull(); expect(moveLine({ chg1h: 10, chg5m: 1, chg24h: -100 }).length).toBe(3);   // a −100% reading is skipped, never divided by zero
 });
+
+test('a real card splits into coins, free cash and parked profit that add up to what is in the card', () => {
+  const { cardSplit } = require('./ArenaPrime');
+  const sp = cardSplit({ valueUsd: 5.32, parkedUsd: 0.06, legs: [{ usd: 1.22 }, { usd: 0.5 }, { usd: 0.49 }, { usd: 0.22 }] });
+  expect(sp.coins).toBeCloseTo(2.43); expect(sp.parked).toBe(0.06); expect(sp.cash).toBeCloseTo(2.83);
+  expect(cardSplit({ valueUsd: 1, legs: [{ usd: 1.2 }] }).cash).toBe(0); expect(cardSplit(null)).toEqual({ coins: 0, parked: 0, cash: 0 });
+});

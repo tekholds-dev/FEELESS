@@ -1992,3 +1992,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   so with "$1" set a riding +122% coin ($JIPPI) went from $1.13 to $0.14 in five takes — the owner: "supposed to stop at $1 I
   set, not sell out". The full-stack skim also cut two hand-frozen coins to $0.50 of value (top-up money included). A SETTING MUST
   DO WHAT ITS NUMBER SAYS ON SCREEN — when the owner reads it differently from the code, the code is wrong.
+- 🅿 A NEW PICK TAKES ONLY ITS SEAT FROM THE PARK: with a seat pick queued, parked profit is released only as far as that seat
+  needs (an equal share beside the coins held, oldest park rows first, a row is split); the rest stays parked with its rounds. It
+  used to release the WHOLE park (a $4 six-round park ended on one pick). 🧱 Safety has OFF switches (Edit Fuse › Safety, real
+  card): card floor `floorPct` 0 = off (guarded in the tick), 🎟 `youngTicket` on / off (card `ticketOff`), ✅ check my picks,
+  🧷 always keep riding (no limit), 🔁 same coin again (any time), rescue (off), auto-tune. The real card's split line is
+  `cardSplit`: coins (the legs) · ◎ free cash · 🅿 parked — it used to print value − parked as "coins", so $2.77 of free cash read as coins.

@@ -6274,7 +6274,7 @@ async def _prime_tick_inner(now):
         if real_t:
             cfg_t = _prime_real_cfg(d.get('prime') or {})   # 💵 the real card runs ITS OWN config — paper edits / locks / engine tunes never touch it
         if cur is not None:   # 🔁 the card carries its own "no same coin unless it dipped" rule (arena_prime.cooling / note_dropped read it)
-            cur = {**cur, 'rebuyDip': int(cfg_t.get('rebuyDipPct') or 0)}
+            cur = {**cur, 'rebuyDip': int(cfg_t.get('rebuyDipPct') or 0), 'ticketOff': bool(real_t and not cfg_t.get('youngTicket', True))}
         # 🎯 PAPER = REAL: every tier (paper too) only rotates into coins real money could buy (pool ≥ minLiqUsd), so paper results are an
         # honest preview. ✅ Runners also need confirmation: rising over the last hour with buyers in control (≥55% buys) — no buying the top.
         def _lq(x):

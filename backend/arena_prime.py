@@ -426,6 +426,8 @@ def clean_cfg(p):
     for k, (lo, hi) in CFG_RANGES.items():
         if k in (p or {}):
             out[k] = min(hi, max(lo, _f(p[k])))
+    if (p or {}).get('floorPct') is not None and _f(p['floorPct']) == 0:
+        out['floorPct'] = 0.0   # 🧱 0 = card floor OFF (the owner's switch; every other value is clamped to its range)
     out['rotateHours'], out['rotateCount'] = round(float(out['rotateHours']), 2), int(out['rotateCount'])
     for k in ('on', 'compound'):
         if k in (p or {}):
@@ -462,6 +464,7 @@ def clean_cfg(p):
     ra_ = (p or {}).get('runnerMinAgeH')
     out['runnerMinAgeH'] = int(_f(ra_)) if ra_ is not None and int(_f(ra_)) in RUNNER_AGES else int(REAL_RUNNER_AGE_H)   # 🕐 the OWNER's youngest launch coin for real money
     out['rebuyDipPct'] = int(_f((p or {}).get('rebuyDipPct'))) if int(_f((p or {}).get('rebuyDipPct'))) in REBUY_DIPS else 0   # 🔁 a coin that left comes back only after this dip (0 = off)
+    out['youngTicket'] = bool((p or {}).get('youngTicket', True))   # 🎟 a hand pick under 12h old goes in as a small ticket (owner's switch)
     out['scoutPct'] = int(_f((p or {}).get('scoutPct'))) if int(_f((p or {}).get('scoutPct'))) in SCOUT_PCTS else 0   # 🔭 scout ticket, % of the card (0 = off)
     out['trenchAuto'] = bool((p or {}).get('trenchAuto', True))   # 🗑 may the ENGINE seat a trench coin by itself? off = trench coins are the owner's hand picks only
     out['upMeta'] = bool((p or {}).get('upMeta', True))          # 🧭 the engine's own buys need a readable chart that is not trending down
@@ -2050,10 +2053,23 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     # 🪑 THE OWNER'S OWN SEAT PICKS OUTRANK PARKED PROFIT: with picks queued for empty seats, parked profit is released now to
     # fund them (2026-10-06: three picks waited on a one-coin card whose whole $1.50 of cash was parked and whose coin was locked)
     if (c.get('seatPick') or c.get('seatQueue')) and c.get('skimPark') and int(_f(cfg.get('coins'))) > len(c['legs']):
-        rel_ = min(sum(_f(p.get('usd')) for p in c['skimPark']), _f(c.get('holdCashUsd')))
-        c['holdCashUsd'] = round(max(0.0, _f(c.get('holdCashUsd')) - rel_), 6); c['skimPark'] = []
+        # … but ONLY what those seats need (an equal share each, less the cash already free): the rest stays parked for its rounds.
+        # 2026-10-07: one pick released a whole $4 park six rounds early ("when new coin came in, stopped my 6 rnd park").
+        want_p = int(_f(cfg.get('coins')))
+        n_p = min(want_p - len(c['legs']), (1 if c.get('seatPick') else 0) + len(c.get('seatQueue') or []))
+        val_p = sum((_f(x['units']) or (_f(x.get('wantUnits')) if x.get('buying') else 0.0)) * (_f(prices.get(x['pairAddress'])) or _f(x.get('entry'))) for x in c['legs'])
+        free_p = max(0.0, _f(c['cash']) - _f(c.get('holdCashUsd')) - sum(_f(l.get('reserveUsd')) for l in c['legs'] if l.get('placeholder')))
+        need_p = max(0.0, n_p * (val_p + free_p) / max(1, want_p - n_p) - free_p)   # each picked seat = an equal share of the coins + the money released for it
+        rel_, keep_rows = 0.0, []
+        for p in c['skimPark']:                       # oldest first; a row is split when only part of it is needed
+            take = min(_f(p.get('usd')), max(0.0, need_p - rel_))
+            rel_ += take
+            if _f(p.get('usd')) - take > 0.005:
+                keep_rows.append({**p, 'usd': round(_f(p.get('usd')) - take, 6)})
+        rel_ = min(rel_, _f(c.get('holdCashUsd')))
+        c['holdCashUsd'] = round(max(0.0, _f(c.get('holdCashUsd')) - rel_), 6); c['skimPark'] = keep_rows
         if rel_ > 0.005:
-            c.setdefault('events', []).append({'at': now, 'kind': 'compound', 'usd': round(rel_, 4), 'why': f"🅿 ${rel_:.2f} of parked profit released for the seats you picked"})
+            c.setdefault('events', []).append({'at': now, 'kind': 'compound', 'usd': round(rel_, 4), 'why': f"🅿 ${rel_:.2f} of parked profit released for the seat{'s' if n_p > 1 else ''} you picked — the rest stays parked for its rounds"})
     reserved_cash = sum(_f(l.get('reserveUsd')) for l in c['legs'] if l.get('placeholder')) + _f(c.get('holdCashUsd'))   # + cash the owner sold out by hand
     free_cash = max(0.0, _f(c['cash']) - reserved_cash)
     # 🪑 AN EMPTY SEAT IS REFILLED: the owner asked for N coins; a seat lost to a refused buy ("slot back to card cash") used to stay
@@ -2112,7 +2128,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
               mine_ = bool(sp_ and sp_.get('mint') == nxt.get('mint'))
               tick_s = False
               if mine_:
-                  usd_s, tick_s = young_ticket(sp_, share * want_n, usd_s)   # 🎟 a young hand pick is a small ticket
+                  usd_s, tick_s = (usd_s, False) if c.get('ticketOff') else young_ticket(sp_, share * want_n, usd_s)   # 🎟 a young hand pick is a small ticket (owner can switch it off)
               c['legs'].append(_leg(nxt, usd_s, now, role_s))
               seated_any = True
               if tick_s:
@@ -2188,7 +2204,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     #    every pool / runner is sold into the anchor (or cash) at once; the card re-deals fresh the next day.
     v = V(); start = _f(c['startUsd']) or 1
     pct = (v / start - 1) * 100
-    if pct <= -cfg['floorPct'] and not c.get('flooredAt') and not blind:
+    if _f(cfg['floorPct']) > 0 and pct <= -cfg['floorPct'] and not c.get('flooredAt') and not blind:   # 0 = the owner switched the card floor OFF
         # 🧱 Floor money goes ONLY into an established major — never into a new major or the owner's pick that happens to sit in the
         # anchor seat (the card's whole $1.65 was moved into $KURA at 4–5% impact, then out again 37s later: −$0.14 for nothing).
         # 💵 A real card with rest OFF re-deals on the next tick, so it goes straight to cash: selling into an anchor only to sell
@@ -2661,7 +2677,7 @@ def apply_queued(c, prices, liqs, now, fee=0.0, only=None, why='🎯 your pick �
         spare = max(0.0, usd - share)
         if spare > 0.01:
             usd -= spare; c['cash'] = _f(c.get('cash')) + spare
-        usd_t, tick_ = young_ticket(to, total, usd)
+        usd_t, tick_ = (usd, False) if c.get('ticketOff') else young_ticket(to, total, usd)
         if tick_:
             c['cash'] = _f(c.get('cash')) + (usd - usd_t); usd = usd_t
         c['legs'][i] = {**_leg({**to, 'price': live}, max(0.0, usd), now, 'anchor' if l.get('role') == 'anchor' and not tick_ else ('runner' if tick_ else l.get('role') or 'pool')), 'picked': True,

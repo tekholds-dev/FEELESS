@@ -2164,3 +2164,27 @@ def test_the_seat_fallback_never_takes_a_coin_at_its_highs_and_a_thinly_traded_b
     usor = {'mcap': 19_691_360, 'volume24h': 225_446, 'liquidityUsd': 401_487, 'logo': 'x'}
     assert any('traded in 24h' in w for w in fuse.solid_major(usor))                         # 1.1% of its size a day: painted, not a major
     assert fuse.solid_major({**usor, 'volume24h': 2_000_000}) == []
+
+
+def test_a_new_pick_releases_only_what_its_seat_needs_from_the_park_and_safety_switches_have_off():
+    import arena_prime as ap
+    assert ap.clean_cfg({'floorPct': 0})['floorPct'] == 0 and ap.clean_cfg({'floorPct': 2})['floorPct'] == 5 and ap.clean_cfg({})['floorPct'] == 60
+    assert ap.clean_cfg({})['youngTicket'] is True and ap.clean_cfg({'youngTicket': False})['youngTicket'] is False
+    mk = lambda i: {'mint': f'R{i}', 'pairAddress': f'PR{i}', 'symbol': f'R{i}', 'price': 1.0, 'liq': 500_000, 'liquidityUsd': 500_000, 'score': 90 - i, 'stars': 3}
+    runners = [mk(i) for i in range(3)]
+    base = {'coins': 4, 'rotateHours': 0.25, 'rescuePct': 0, 'cycleEvery': 0, 'cycles': {t: 'off' for t in ap.DEFAULT_CYCLES}, 'lockBankPct': 0, 'tpStakeUsd': 0, 'skimTo': 'round', 'skimHoldRounds': 6, 'floorPct': 0}
+    cfg = ap.clean_cfg(base)
+    card = ap.deal('degen', [], runners, ap.clean_cfg({**base, 'coins': 3}), 0.0, [], shape='degen')
+    worth = sum(l['units'] * l['entry'] for l in card['legs'])
+    card = {**card, 'cash': card.get('cash', 0) + 60.0, 'holdCashUsd': 60.0, 'skimPark': [{'usd': 60.0, 'round': int(card.get('rounds') or 0), 'at': 0.0, 'symbol': 'R0'}],
+            'seatPick': {'mint': 'NEW', 'pairAddress': 'PN', 'symbol': 'NEW', 'price': 1.0, 'liquidityUsd': 400_000, 'ack': True, 'ageH': 40}}
+    out = ap.tick(card, {**{x['pairAddress']: 1.0 for x in runners}, 'PN': 1.0}, [], runners, cfg, 100.0, [], {}, {})
+    new = next(l for l in out['legs'] if l['mint'] == 'NEW')
+    share = worth / 3                                                          # an equal seat beside the three coins already held
+    assert abs(new['units'] * new['entry'] - share) < 1.0                          # the pick got its equal seat …
+    left = sum(p['usd'] for p in out['skimPark'])
+    assert abs(left - (60.0 - share)) < 1.0 and left > 10 and abs(out['holdCashUsd'] - left) < 0.01   # … and the rest of the park is still parked
+    assert out['skimPark'][0]['round'] == card['skimPark'][0]['round']               # with its original rounds
+    # floor OFF: a card far under its start is not sold out
+    deep = {**out, 'startUsd': 100.0, 'dayStartUsd': 100.0, 'roundStartUsd': 100.0}
+    assert not any(e.get('kind') == 'floor' for e in ap.tick(deep, {**{x['pairAddress']: 1.0 for x in runners}, 'PN': 1.0}, [], runners, cfg, 130.0, [], {}, {})['events'])
