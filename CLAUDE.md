@@ -1855,3 +1855,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   letter cut out of a chamfered plate with `destination-out`, four folded facets, one colour strip) · 4 Stencil (a slanted hex
   emblem with the letter knocked through). `clan(design, 'F' | 'R', palette)`; backdrop Light studio / Dark carbon; the colour
   row recolours them. The typed-letter version (`GLY`, style picker) is gone.
+- 🎖 `cover.html` v5 = REAL 3D, everything before it cleared (owner: "they don't reference the images — clear all this"). The 2011
+  sniping-clan marks were Cinema-4D renders, so the page renders true geometry: three.js (self-hosted in
+  `public/assets/three/`: three.module.js + three.core.js + RoomEnvironment.js, via an import map — no CDN), ONE WebGLRenderer
+  whose viewport is drawn into each piece's 2D canvas (so PNG / GIF / video keep working), `ExtrudeGeometry` with a bevel,
+  glossy clearcoat plastic, a key light with a soft shadow on a `ShadowMaterial` floor, studio backdrop textures. Three
+  constructions = one per reference: **Planes** (L7: separate hard-slanted slabs at different heights so they really overlap,
+  green, tilted, light grey studio) · **Pills** (SB: fused rounded strokes, colour face + white bevel and sides, white slits,
+  icy white studio; Fuse = FZ on one top bar) · **Frame** (the folded b: white chamfered letter around a square hole, one
+  colour strip, dark carbon). 6 profile pictures + 6 covers (the mark left, the name in clean italic caps right), each slowly
+  turning, each PNG / GIF / video; colour row (Auto = the reference's own colour). Tone: ACES exposure 0.92, env intensity
+  ~0.4 — brighter washes the colours to pastel. WHEN A REFERENCE IS A 3D RENDER, RENDER 3D: four rounds of 2D canvas drawings
+  were all rejected.

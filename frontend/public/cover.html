@@ -1,203 +1,101 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FEELESS · covers & logos</title>
+<title>FEELESS · clan logos & covers</title>
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script type="importmap">{ "imports": { "three": "/assets/three/three.module.js" } }</script>
 <style>
   :root { color-scheme: dark; } body { margin: 0; background: #030806; color: #cfe3d8; font: 13px "JetBrains Mono", monospace; padding: 22px 16px 60px; }
-  h1 { font: 400 26px "Bungee", sans-serif; margin: 0 0 4px; color: #fff; } p { margin: 0 0 18px; opacity: .7; max-width: 760px; line-height: 1.5; }
+  h1 { font: 400 26px "Bungee", sans-serif; margin: 0 0 4px; color: #fff; } p { margin: 0 0 14px; opacity: .72; max-width: 820px; line-height: 1.5; }
   h2 { font: 700 11px "JetBrains Mono", monospace; letter-spacing: .16em; color: #45e486; margin: 26px 0 10px; }
-  .grid { display: grid; gap: 18px; } .logos { grid-template-columns: repeat(auto-fit, minmax(260px, 340px)); }
-  .item { display: grid; gap: 8px; } .item b { font-size: 13px; color: #fff; }
-  canvas { width: 100%; height: auto; border-radius: 14px; border: 1px solid #15d16a33; background: #000; display: block; }
+  .grid { display: grid; gap: 16px; } .sq { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); } .wide { grid-template-columns: repeat(auto-fill, minmax(460px, 1fr)); }
+  .item { display: grid; gap: 8px; } .item b { font-size: 12.5px; color: #fff; }
+  canvas { width: 100%; height: auto; border-radius: 12px; border: 1px solid #15d16a33; background: #000; display: block; }
   .bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } small { opacity: .65; }
-  button { height: 32px; padding: 0 12px; border-radius: 9px; border: 1px solid #203129; background: #0a1210; color: #b9cdc2; font: 700 11.5px "JetBrains Mono", monospace; cursor: pointer; transition: transform .1s ease, box-shadow .15s ease, border-color .15s ease; }
+  button { height: 30px; padding: 0 11px; border-radius: 9px; border: 1px solid #203129; background: #0a1210; color: #b9cdc2; font: 700 11px "JetBrains Mono", monospace; cursor: pointer; transition: transform .1s ease, box-shadow .15s ease, border-color .15s ease; }
   button.go { background: #15d16a; border-color: #15d16a; color: #04140b; } button:hover { border-color: #15d16a; box-shadow: 0 0 14px -5px #15d16a; } button:active { transform: translateY(1px); }
   button:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; } button:disabled { opacity: .5; cursor: wait; }
+  #err { color: #ff8fa3; }
 </style></head>
 <body>
-<h1>FEELESS covers & logos</h1>
-<p>Every piece is drawn live in your browser and downloads on its own: a still PNG, an animated GIF, and (covers) a video loop. Covers are 1500 × 500, the size X and most profile headers use. Dark studio look: brushed-metal 3D marks, lightning, shockwaves, a wet floor. Pick a colour on top — it repaints every piece, and what you see is what downloads. Candles are made up — never a real price.</p>
-<h2>CLAN LOGOS · 4 IDEAS EACH · 512 × 512</h2>
-<p style="margin-bottom:10px">Four design ideas for each brand, drawn from the marks you sent: <b>Interlock</b> (slanted planes with a seam), <b>Fused</b> (rounded strokes that share a stroke, bevel + slits), <b>Frame</b> (the letter cut out of a folded plate, one colour strip) and <b>Stencil</b> (the letter knocked through a slanted hex). One mark on a clean backdrop — nothing else. Pick the backdrop here; the colour row below recolours them.</p>
-<div class="bar" id="cbacks" role="group" aria-label="Backdrop"></div>
-<div class="grid" id="clan" style="margin-top:12px;grid-template-columns:repeat(4,minmax(0,1fr))"></div>
-<h2>STUDIO PIECES — DESIGN</h2><div class="bar" id="designs" role="group" aria-label="Design"></div>
-<h2>COLOUR</h2><div class="bar" id="pals" role="group" aria-label="Colour"></div>
-<h2>COVERS · 1500 × 500</h2><div class="grid" id="covers"></div>
-<h2>PROFILE PICTURES & LOGOS · 512 × 512</h2><div class="grid logos" id="logos"></div>
+<h1>FEELESS clan logos & covers</h1>
+<p>Real 3D, rendered live in your browser the way the 2011 sniping-clan marks were made: one bold extruded monogram, glossy plastic, studio light, a soft shadow — nothing else. Three constructions, one per reference you sent: <b>Planes</b> (slanted glossy slabs that overlap, tilted and cropped), <b>Pills</b> (fat rounded strokes with a white bevel and slits) and <b>Frame</b> (a white chamfered letter with one colour strip on carbon). Every piece slowly turns; each downloads on its own.</p>
+<div class="bar" id="cols" role="group" aria-label="Colour"></div><small id="err"></small>
+<h2>PROFILE PICTURES · 512 × 512</h2><div class="grid sq" id="pfps"></div>
+<h2>COVERS · 1500 × 500</h2><div class="grid wide" id="covers"></div>
 <script type="module">
-const T = Math.PI * 2, LOOP = 8000;
-const seed = Array.from({ length: 600 }, (_, i) => Math.abs(Math.sin(i * 12.9898) * 43758.5453) % 1);
-const img = src => { const i = new Image(); i.src = src; return i; };
-const MARK = img('/assets/feeless-logo.png'), CAT = img('/assets/feecat-mark.png');
-const candles = Array.from({ length: 64 }, (_, i) => { const b = 0.5 + 0.28 * Math.sin(i / 64 * T) + 0.12 * Math.sin(i / 64 * T * 3 + 1); const o = b + (seed[i] - 0.5) * 0.08, c = b + (seed[i + 64] - 0.5) * 0.08 + 0.02; return [o, c, Math.max(o, c) + seed[i + 128] * 0.05, Math.min(o, c) - seed[i + 192] * 0.05]; });
+import * as THREE from 'three';
+import { RoomEnvironment } from '/assets/three/RoomEnvironment.js';
+const T = Math.PI * 2, LOOP = 8000, RW = 1500, RH = 512;
+let renderer; try { renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); } catch (e) { document.getElementById('err').textContent = 'This browser could not start 3D (WebGL).'; throw e; }
+renderer.setPixelRatio(1); renderer.setSize(RW, RH, false); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.92; renderer.setScissorTest(true);
+const ENV = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
 
-// DARK STUDIO LOOK -------------------------------------------------------------------------------------------------------------
-// Everything is lit like a product shot: near-black room, slow out-of-focus lights, film grain, a vignette, a wet floor that
-// reflects the subject. Subjects are brushed-metal 3D glyphs (extruded, slanted, iridescent) with a light bar sweeping across.
-const NOISE = (() => { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'), d = g.createImageData(256, 256); for (let i = 0; i < d.data.length; i += 4) { const v = Math.random() * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; } g.putImageData(d, 0, 0); return c; })();
-function studio(g, W, H, t, lights) {
-  const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#05060a'); bg.addColorStop(0.62, '#0a0c12'); bg.addColorStop(1, '#020203'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
-  lights.forEach(([rgb, a], i) => { const x = W * (0.12 + 0.76 * seed[i * 7 + 3]) + Math.sin(t * T + i * 1.7) * W * 0.05, y = H * (0.15 + 0.6 * seed[i * 7 + 5]) + Math.cos(t * T + i) * H * 0.05, r = Math.min(W, H) * (0.22 + 0.3 * seed[i * 7 + 1]);
-    const rg = g.createRadialGradient(x, y, 0, x, y, r); rg.addColorStop(0, `rgba(${rgb},${a})`); rg.addColorStop(0.55, `rgba(${rgb},${a * 0.35})`); rg.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = rg; g.fillRect(0, 0, W, H); });
-  for (let i = 0; i < 26; i++) { const x = seed[i + 40] * W, y = seed[i + 80] * H * 0.9, r = 3 + seed[i + 120] * 14, a = 0.05 + 0.1 * Math.abs(Math.sin((t + seed[i]) * T)); g.fillStyle = `rgba(${lights[i % lights.length][0]},${a})`; g.beginPath(); g.arc(x + Math.sin(t * T + i) * 12, y, r, 0, T); g.fill(); }   // bokeh
-}
-function grainVignette(g, W, H, t) { g.save(); g.globalAlpha = 0.07; g.globalCompositeOperation = 'overlay'; const ox = Math.floor(t * 40) * 37 % 256, oy = Math.floor(t * 40) * 91 % 256; for (let y = -oy; y < H; y += 256) for (let x = -ox; x < W; x += 256) g.drawImage(NOISE, x, y); g.restore();
-  const v = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.72); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.82)'); g.fillStyle = v; g.fillRect(0, 0, W, H); }
-// a brushed-metal 3D glyph: `polys` = flat shapes (already slanted), cols = [deep, mid, hot] of the iridescent face
-function metal(g, polys, t, cols, depth = 16, scale = 1, slash = false) {
-  const path = (ox, oy) => { g.beginPath(); polys.forEach(p => { p.forEach(([x, y], i) => g[i ? 'lineTo' : 'moveTo'](x * scale + ox, y * scale + oy)); g.closePath(); }); };
-  const yaw = Math.sin(t * T) * 0.5, dx = (0.9 + yaw) * scale, dy = 1.15 * scale;                       // the side walls swing with the light
-  g.save(); g.shadowColor = 'rgba(0,0,0,.85)'; g.shadowBlur = 40 * scale; g.shadowOffsetY = 26 * scale; g.fillStyle = '#000'; path(dx * depth, dy * depth); g.fill(); g.restore();
-  for (let l = depth; l >= 1; l--) { const k = l / depth; g.fillStyle = `rgb(${Math.round(8 + 18 * (1 - k))},${Math.round(10 + 22 * (1 - k))},${Math.round(16 + 34 * (1 - k))})`; path(dx * l, dy * l); g.fill(); }
-  const b = polys.flat(); const x0 = Math.min(...b.map(q => q[0])) * scale, x1 = Math.max(...b.map(q => q[0])) * scale, y0 = Math.min(...b.map(q => q[1])) * scale, y1 = Math.max(...b.map(q => q[1])) * scale;
-  const sh = (t * 2) % 1; const face = g.createLinearGradient(x0, y1, x1, y0); const hot = 0.72 + 0.2 * Math.sin(t * T);   // the hot tip breathes along the edge
-  face.addColorStop(0, cols[0]); face.addColorStop(0.38, cols[1]); face.addColorStop(Math.min(0.97, hot), cols[1]); face.addColorStop(1, cols[2]); g.fillStyle = face; path(0, 0); g.fill();
-  g.save(); path(0, 0); g.clip();
-  g.globalAlpha = 0.3; g.globalCompositeOperation = 'overlay'; for (let y = y0 - 256; y < y1 + 256; y += 256) for (let x = x0 - 256; x < x1 + 256; x += 256) g.drawImage(NOISE, x, y); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';   // brushed grain
-  const sx = x0 - 160 * scale + sh * (x1 - x0 + 320 * scale); const gl = g.createLinearGradient(sx, y0, sx + 110 * scale, y1); gl.addColorStop(0, 'rgba(255,255,255,0)'); gl.addColorStop(0.5, 'rgba(255,255,255,.55)'); gl.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gl; g.fillRect(x0 - 200, y0 - 200, x1 - x0 + 400, y1 - y0 + 400);   // light bar
-  const dk = g.createLinearGradient(0, y0, 0, y1); dk.addColorStop(0, 'rgba(255,255,255,.16)'); dk.addColorStop(0.5, 'rgba(0,0,0,0)'); dk.addColorStop(1, 'rgba(0,0,0,.45)'); g.fillStyle = dk; g.fillRect(x0 - 200, y0 - 200, x1 - x0 + 400, y1 - y0 + 400);
-  if (slash) { const my = y0 + (y1 - y0) * 0.56, h = 9 * scale, k = 0.42;   // the clan slash: a clean cut through the letter, lit on its upper lip
-    g.fillStyle = 'rgba(2,2,4,.96)'; g.beginPath(); g.moveTo(x0 - 40, my + (x1 - x0) * k / 2); g.lineTo(x1 + 40, my - (x1 - x0) * k / 2); g.lineTo(x1 + 40, my - (x1 - x0) * k / 2 + h); g.lineTo(x0 - 40, my + (x1 - x0) * k / 2 + h); g.closePath(); g.fill();
-    g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = 1.2 * scale; g.beginPath(); g.moveTo(x0 - 40, my + (x1 - x0) * k / 2); g.lineTo(x1 + 40, my - (x1 - x0) * k / 2); g.stroke(); }
-  g.restore();
-  g.lineJoin = 'round'; g.lineWidth = 1.6 * scale; g.strokeStyle = 'rgba(255,255,255,.5)'; path(-0.8 * scale, -0.8 * scale); g.stroke(); g.lineWidth = 1 * scale; g.strokeStyle = 'rgba(0,0,0,.6)'; path(0, 0); g.stroke();
-}
-// the subject + its reflection on the wet floor
-function onFloor(g, cx, cy, floorY, t, drawSubject) { const bob = Math.sin(t * T) * 6;
-  g.save(); g.translate(cx, floorY * 2 - cy - bob + 30); g.scale(1, -1); g.globalAlpha = 0.22; drawSubject(); g.restore();
-  const fade = g.createLinearGradient(0, floorY, 0, floorY + 220); fade.addColorStop(0, 'rgba(3,3,5,.35)'); fade.addColorStop(1, 'rgba(3,3,5,1)'); g.fillStyle = fade; g.fillRect(cx - 420, floorY, 840, 240);
-  g.save(); g.translate(cx, cy + bob); drawSubject(); g.restore(); }
-function dnaBeads(g, cx, y0, y1, amp, t, c1, c2, front, n = 13, turns = 1.5) { for (let i = 0; i < n; i++) { const k = i / (n - 1), y = y0 + (y1 - y0) * k, ph = t * T * 2 + k * T * turns, z = Math.cos(ph);
-  for (const [sgn, col, zz] of [[1, c1, z], [-1, c2, -z]]) { if ((zz >= 0) !== front) continue; const x = cx + sgn * Math.sin(ph) * amp, r = amp * (0.06 + 0.022 * zz); const rg = g.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r); rg.addColorStop(0, '#fff'); rg.addColorStop(0.3, col); rg.addColorStop(1, '#05060a'); g.fillStyle = rg; g.globalAlpha = 0.55 + 0.45 * Math.abs(zz); g.beginPath(); g.arc(x, y, r, 0, T); g.fill(); }
-  if (!front) { g.globalAlpha = 0.22; g.strokeStyle = '#8a93a8'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(cx + Math.sin(ph) * amp, y); g.lineTo(cx - Math.sin(ph) * amp, y); g.stroke(); } } g.globalAlpha = 1; }
-// glyphs (flat, already slanted like the reference mark)
-const RESERVE_R = [[[-96, -112], [-34, -112], [-94, 116], [-156, 116]], [[-16, -112], [128, -112], [150, -88], [136, -60], [-30, -60]], [[92, -44], [150, -44], [134, 2], [118, 14], [76, 14]], [[-44, -8], [100, -8], [86, 38], [-58, 38]], [[22, 54], [86, 54], [140, 116], [74, 116]]];   // a slanted R (the owner's C picture was a style reference only)
-const FUSE_F = [[[-66, -112], [150, -112], [130, -60], [-86, -60]], [[-94, -38], [78, -38], [58, 14], [-114, 14]], [[-122, 36], [-46, 36], [-76, 116], [-152, 116]]];
-// ✂ DESIGNS (the old sniping-clan logo language: a hard forward slant, pointed cut ends, a slash through the letter, blade wings,
-// a crest plate with a ribbon). slab = plain bars · blade = pointed monogram + slash + wings · crest = shield plate + ribbon + stars.
-const BLADE_F = [[[-70, -116], [172, -116], [124, -62], [-92, -62]], [[-98, -40], [100, -40], [58, 12], [-118, 12]], [[-124, 34], [-50, 34], [-106, 132], [-142, 98]]];
-const BLADE_R = [[[-104, -116], [-38, -116], [-110, 132], [-150, 98]], [[-20, -116], [156, -116], [112, -64], [-36, -64]], [[96, -48], [152, -48], [124, 10], [70, 10]], [[-50, -8], [112, -8], [60, 40], [-66, 40]], [[20, 56], [84, 56], [166, 132], [98, 122]]];
-const PLATE = [[[0, -196], [156, -122], [176, 44], [0, 196], [-176, 44], [-156, -122]]];
-const wings = s => [0, 1, 2].map(i => [[s * 150, -6 - i * 40], [s * (262 + i * 16), -64 - i * 46], [s * 176, 26 - i * 40]]);
-let design = 'slab';
-function glyphArt(g, t, P, letter, k = 1, dna = true) { const steel = ['#0a0c12', '#2a3142', P[1][1]];
-  const helix = front => dna && dnaBeads(g, 6, -200 * k, 200 * k, (design === 'crest' ? 205 : 165) * k, t, P[1][1], P[1][2], front);
-  if (design === 'crest') { metal(g, PLATE, t, steel, 10, k); helix(false); g.save(); g.lineWidth = 2 * k; g.strokeStyle = P[3]; g.globalAlpha = 0.7; g.beginPath(); PLATE[0].forEach(([x, y], i) => g[i ? 'lineTo' : 'moveTo'](x * 0.88 * k, y * 0.88 * k)); g.closePath(); g.stroke(); g.restore();
-    g.save(); g.translate(8 * k, -22 * k); metal(g, letter === 'R' ? BLADE_R : BLADE_F, t, P[1], 12, 0.66 * k, true); g.restore();
-    g.fillStyle = '#05060a'; g.strokeStyle = P[3]; g.lineWidth = 2 * k; g.beginPath(); g.roundRect(-112 * k, 104 * k, 224 * k, 40 * k, 6 * k); g.fill(); g.stroke(); g.fillStyle = '#eef2fa'; g.font = `400 ${24 * k}px "Bungee", sans-serif`; g.textAlign = 'center'; g.fillText(letter === 'R' ? 'FEE RESERVE' : 'FUSE', 0, 133 * k, 204 * k);
-    for (let i = -1; i <= 1; i++) { g.fillStyle = i ? P[3] : '#ffffff'; g.font = `${(i ? 15 : 21) * k}px sans-serif`; g.fillText('★', i * 30 * k, (-150 + Math.abs(i) * 8) * k); } g.textAlign = 'left'; helix(true); return; }
-  if (design === 'blade') { for (const sd of [-1, 1]) metal(g, wings(sd), t, steel, 6, k); helix(false); metal(g, letter === 'R' ? BLADE_R : BLADE_F, t, P[1], 20, 1.08 * k, true); helix(true); return; }
-  helix(false); metal(g, letter === 'R' ? RESERVE_R : FUSE_F, t, P[1], 20, 1.1 * k); helix(true); }
-// 🎨 COLOURS: every piece has its own default; the picker on top repaints ALL of them in one palette (Auto = each its own).
-const PALS = { chrome: ['Chrome', ['#0a2a8a', '#1fa8ff', '#ff2a3c'], ['31,168,255', '255,42,60', '140,90,255'], '#1fa8ff'], royal: ['Royal', ['#063d22', '#19d874', '#eafff4'], ['21,209,106', '40,90,255', '255,255,255'], '#19d874'],
-  fusion: ['Fusion', ['#3a0f8a', '#9a6bff', '#1fffa0'], ['154,107,255', '31,255,160', '60,160,255'], '#9a6bff'], gold: ['Gold', ['#5a2c00', '#ffb347', '#fff3c4'], ['255,150,40', '255,220,120', '255,90,40'], '#ffb347'],
-  ice: ['Ice', ['#0b3a66', '#8fe3ff', '#ffffff'], ['120,220,255', '190,240,255', '90,120,255'], '#8fe3ff'], blaze: ['Blaze', ['#5a0a00', '#ff5a1f', '#ffe14d'], ['255,90,31', '255,40,80', '255,200,60'], '#ff7a2f'],
-  toxic: ['Toxic', ['#1d3a00', '#a6ff1f', '#f4ff8a'], ['166,255,31', '31,255,160', '255,255,120'], '#a6ff1f'], blood: ['Blood', ['#3a0008', '#ff1f3c', '#ffd0d6'], ['255,31,60', '160,20,60', '255,120,140'], '#ff3b55'],
-  steel: ['Steel', ['#1a1e28', '#aab4c8', '#ffffff'], ['170,180,200', '110,130,170', '255,255,255'], '#c9d2e3'] };
-let pick = 'auto'; const pal = def => PALS[pick === 'auto' ? def : pick];
-const lightsOf = P => [[P[2][0], 0.34], [P[2][1], 0.22], [P[2][2], 0.14]];
-// ⚡ CRAZIER: lightning crawling around the mark, shockwave rings rolling out over the floor, sparks thrown off the hot edge
-function bolts(g, t, rgb, R) { const f = Math.floor(t * 24); g.save(); g.lineCap = 'round'; g.shadowColor = `rgb(${rgb})`; g.shadowBlur = 18;
-  for (let b = 0; b < 3; b++) { const s0 = (f * 7 + b * 31) % 500; if (seed[s0] < 0.45) continue; let a = seed[s0 + 1] * T, r = R * (0.75 + seed[s0 + 2] * 0.2), x = Math.cos(a) * r, y = Math.sin(a) * r * 0.8; g.beginPath(); g.moveTo(x, y);
-    for (let k = 1; k <= 7; k++) { a += (seed[(s0 + k * 3) % 590] - 0.5) * 0.5; r += (seed[(s0 + k * 5) % 590] - 0.35) * R * 0.16; g.lineTo(Math.cos(a) * r + (seed[(s0 + k) % 590] - 0.5) * 16, Math.sin(a) * r * 0.8 + (seed[(s0 + k * 2) % 590] - 0.5) * 16); }
-    g.strokeStyle = `rgba(${rgb},.9)`; g.lineWidth = 2.4; g.stroke(); g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 0.9; g.stroke(); } g.restore(); }
-function shock(g, cx, y, t, rgb, W0) { for (let i = 0; i < 3; i++) { const k = (t * 2 + i / 3) % 1; g.strokeStyle = `rgba(${rgb},${0.55 * (1 - k)})`; g.lineWidth = 3 * (1 - k) + 0.6; g.beginPath(); g.ellipse(cx, y, W0 * (0.25 + k * 0.95), W0 * (0.05 + k * 0.17), 0, 0, T); g.stroke(); } }
-function flecks(g, t, rgb, R) { for (let i = 0; i < 26; i++) { const k = (t * 2 + seed[i + 300]) % 1, a = -0.9 + seed[i + 330] * 1.2, d = R * (0.5 + k * 1.3); const x = Math.cos(a) * d + R * 0.3, y = Math.sin(a) * d - R * 0.25 + k * k * R * 0.5; g.fillStyle = `rgba(${i % 3 ? rgb : '255,255,255'},${0.9 * (1 - k)})`; g.fillRect(x, y, 2.4, 2.4 + 5 * (1 - k)); } }
-function beams(g, cx, cy, t, rgb, R) { g.save(); g.translate(cx, cy); g.globalCompositeOperation = 'lighter'; for (let i = 0; i < 7; i++) { const a = -Math.PI / 2 + (i - 3) * 0.24 + Math.sin(t * T + i) * 0.05, w = 0.05 + 0.03 * Math.sin(t * T * 2 + i * 2); const gr = g.createLinearGradient(0, 0, Math.cos(a) * R, Math.sin(a) * R); gr.addColorStop(0, `rgba(${rgb},.3)`); gr.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = gr; g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a - w) * R, Math.sin(a - w) * R); g.lineTo(Math.cos(a + w) * R, Math.sin(a + w) * R); g.closePath(); g.fill(); } g.restore(); }
-// the cat mark as metal: the PNG's black falls away (lighter), a moving tint gives it a lit edge
-const catBuf = document.createElement('canvas'); catBuf.width = catBuf.height = 512;
-function metalCat(g, t, size, tintA, tintB) { if (!(CAT.complete && CAT.naturalWidth)) return; const c = catBuf.getContext('2d'); c.globalCompositeOperation = 'source-over'; c.clearRect(0, 0, 512, 512); c.filter = 'grayscale(1) brightness(1.5) contrast(1.25)'; c.drawImage(CAT, 0, 0, 512, 512); c.filter = 'none';
-  c.globalCompositeOperation = 'multiply'; const gr = c.createLinearGradient(0, 512, 512, 0); const k = 0.5 + 0.3 * Math.sin(t * T); gr.addColorStop(0, tintA); gr.addColorStop(k, tintB); gr.addColorStop(1, '#ffffff'); c.fillStyle = gr; c.fillRect(0, 0, 512, 512);
-  c.globalCompositeOperation = 'lighter'; const sx = -200 + ((t * 2) % 1) * 900; const gl = c.createLinearGradient(sx, 0, sx + 140, 512); gl.addColorStop(0, 'rgba(255,255,255,0)'); gl.addColorStop(0.5, 'rgba(255,255,255,.16)'); gl.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = gl; c.fillRect(0, 0, 512, 512);
-  c.globalCompositeOperation = 'multiply'; c.filter = 'grayscale(1) brightness(1.5) contrast(1.6)'; c.drawImage(CAT, 0, 0, 512, 512); c.filter = 'none';   // keep the black of the mark black
-  g.save(); g.globalCompositeOperation = 'lighter'; g.drawImage(catBuf, -size / 2, -size / 2, size, size); g.restore(); }
-function words(g, t, x, title, sub, line, col) { g.textBaseline = 'alphabetic'; const tg = g.createLinearGradient(x, 150, x, 262); tg.addColorStop(0, '#ffffff'); tg.addColorStop(0.55, '#c9d2e3'); tg.addColorStop(1, '#6f7a92'); g.fillStyle = tg; g.shadowColor = 'rgba(0,0,0,.9)'; g.shadowBlur = 18; g.shadowOffsetY = 8;
-  g.font = `400 ${title.length > 8 ? 88 : 112}px "Bungee", sans-serif`; g.fillText(title, x, 250); g.shadowBlur = 0; g.shadowOffsetY = 0;
-  g.fillStyle = col; g.font = '700 28px "JetBrains Mono", monospace'; g.fillText(sub, x + 4, 302); g.fillStyle = 'rgba(214,222,238,.72)'; g.font = '500 20px "JetBrains Mono", monospace'; g.fillText(line, x + 4, 340);
-  g.fillStyle = col; g.beginPath(); g.arc(x + 12, 382, 5 + 2 * Math.sin(t * T * 4), 0, T); g.fill(); g.fillStyle = 'rgba(214,222,238,.7)'; g.font = '700 15px "JetBrains Mono", monospace'; g.fillText('LIVE', x + 26, 387); }
-function candleRun(g, t, acc, x0 = 700, y0 = 110, ch = 230) { const cw = 12, shift = t * 64; for (let k = 0; k < 62; k++) { const i = (k + Math.floor(shift)) % 64, [o, c, hi, lo] = candles[i], x = x0 + (k - (shift % 1)) * cw, up = c >= o, Y = v => y0 + ch * (1 - v); g.globalAlpha = 0.5 * Math.max(0, Math.min(1, k / 8, (61 - k) / 8)); g.strokeStyle = g.fillStyle = up ? acc : '#ff4d63'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x + 3.5, Y(hi)); g.lineTo(x + 3.5, Y(lo)); g.stroke(); g.fillRect(x, Math.min(Y(o), Y(c)), 7, Math.max(2, Math.abs(Y(o) - Y(c)))); } g.globalAlpha = 1; }
+// colours: Auto = each style keeps the colour of its reference (green planes, blue pills, blue strip)
+const COLS = [['auto', 'Auto'], ['#1fbf36', 'Clan green'], ['#1447e6', 'Royal blue'], ['#8a4dff', 'Purple'], ['#e8242b', 'Red'], ['#ffb21f', 'Gold'], ['#17c9c3', 'Teal'], ['#f2f4f8', 'White'], ['#16181d', 'Black']];
+let pick = 'auto'; const colOf = def => (pick === 'auto' ? def : pick);
 
-// covers ---------------------------------------------------------------------------------------------------------------------
-const W = 1500, H = 500, FL = 392;
-const cover = (def, subject, title, sub, line, candle) => (g, t) => { const P = pal(def), L = lightsOf(P); studio(g, W, H, t, L); beams(g, 250, FL, t, L[0][0], 520);
-  if (candle) candleRun(g, t, P[3], 930, 70, 250); shock(g, 250, FL + 6, t, L[0][0], 300);
-  onFloor(g, 250, 212, FL, t, () => { g.scale(1.32, 1.32); subject(g, t, P); }); g.save(); g.translate(250, 212); bolts(g, t, L[1][0], 210); flecks(g, t, L[0][0], 170); g.restore();
-  words(g, t, 520, title, sub, line, P[3]); grainVignette(g, W, H, t); };
-const fMark = (g, t, P) => glyphArt(g, t, P, 'F', 0.95);
-const COVERS = [
-  ['feeless', 'FEELESS', cover('royal', fMark, 'FEELESS', 'LESS NOISE. MORE ALPHA.', 'NON-CUSTODIAL TRADING TERMINAL  ·  SOLANA', true)],
-  ['feecat', 'FEECAT', cover('gold', (g, t, P) => metalCat(g, t, 300, P[1][0], P[1][1]), 'FEECAT', 'NINE LIVES. TRADES LESS, WINS MORE.', 'THE FEELESS TRADING CAT  ·  LEARNS FROM EVERY EXIT', true)],
-  ['reserve', 'FEE RESERVE', cover('chrome', (g, t, P) => glyphArt(g, t, P, 'R', 0.95, false), 'FEE RESERVE', 'HOLD $FEE. UNLOCK THE ROOM.', 'HOLDER ROOMS  ·  FEE-BACK  ·  RESERVE BADGES', false)],
-  ['fuse', 'FUSE', cover('fusion', fMark, 'FUSE', 'MANY COINS, ONE FUSE.', 'CARDS THAT LOCK WINNERS  ·  EVERY SWAP ON-CHAIN', true)],
-];
+// shapes -------------------------------------------------------------------------------------------------------------------------
+const rect = (x, y, w, h) => { const s = new THREE.Shape(); s.moveTo(x, y); s.lineTo(x + w, y); s.lineTo(x + w, y + h); s.lineTo(x, y + h); s.closePath(); return s; };
+const polyS = pts => { const s = new THREE.Shape(); pts.forEach(([x, y], i) => s[i ? 'lineTo' : 'moveTo'](x, y)); s.closePath(); return s; };
+const pill = (x, y, w, h) => { const r = Math.min(w, h) / 2, s = new THREE.Shape(); s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.absarc(x + w - r, y + r, r, -Math.PI / 2, 0, false); s.lineTo(x + w, y + h - r); s.absarc(x + w - r, y + h - r, r, 0, Math.PI / 2, false); s.lineTo(x + r, y + h); s.absarc(x + r, y + h - r, r, Math.PI / 2, Math.PI, false); s.lineTo(x, y + r); s.absarc(x + r, y + r, r, Math.PI, Math.PI * 1.5, false); return s; };
+const shear = k => new THREE.Matrix4().makeShear(0, 0, k, 0, 0, 0);
+const solid = (shape, mats, depth, bevel, k = 0, z = 0) => { const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 4, curveSegments: 20 }); if (k) g.applyMatrix4(shear(k)); const m = new THREE.Mesh(g, mats); m.position.z = z; m.castShadow = m.receiveShadow = true; return m; };
+const gloss = c => new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.28, metalness: 0, clearcoat: 0.9, clearcoatRoughness: 0.12, envMap: ENV, envMapIntensity: 0.38 });
+const matte = c => new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.6, metalness: 0, clearcoat: 0.2, envMap: ENV, envMapIntensity: 0.4 });
 
-// profile pictures / logos ----------------------------------------------------------------------------------------------------
-const S = 512;
-const pfp = (def, subject, spin) => (g, t) => { const P = pal(def), L = lightsOf(P), cx = S / 2 - 6, cy = S / 2 - 26; studio(g, S, S, t, L); beams(g, cx, 398, t, L[0][0], 470); shock(g, cx, 404, t, L[0][0], 250);
-  onFloor(g, cx, cy, 398, spin ? 0 : t, () => { if (spin) { const sx = Math.cos(t * T); g.scale(Math.max(0.06, Math.abs(sx)) * (sx < 0 ? -1 : 1), 1); } subject(g, t, P); });
-  g.save(); g.translate(cx, cy); bolts(g, t, L[1][0], 230); flecks(g, t, L[0][0], 180); g.restore(); grainVignette(g, S, S, t); };
-const bigF = (g, t, P) => glyphArt(g, t, P, 'F', 1);
-const LOGOS = [
-  ['feeless-f', 'FEELESS — clan F with DNA', pfp('royal', bigF)],
-  ['fuse-pfp', 'Fuse — chrome F with DNA', pfp('fusion', bigF)],
-  ['fuse-spin', 'Fuse — spinning F', pfp('fusion', (g, t, P) => glyphArt(g, t, P, 'F', 1, false), true)],
-  ['reserve-pfp', 'Fee Reserve — profile picture', pfp('chrome', (g, t, P) => glyphArt(g, t, P, 'R', 1, false))],
-  ['feecat-pfp', 'FeeCat — profile picture', pfp('gold', (g, t, P) => metalCat(g, t, 360, P[1][0], P[1][1]))],
-];
-
-// CLAN LOGOS -------------------------------------------------------------------------------------------------------------------
-// FOUR DESIGN IDEAS per brand, each a bespoke mark (not a typed letter), in the language of the owner's references:
-//   1 INTERLOCK — hard-slanted planes laid over each other with a dark seam (the L7 mark)
-//   2 FUSED     — fat rounded strokes where the letters SHARE a stroke, silver bevel, speed slits (the SB mark)
-//   3 FRAME     — a chamfered plate with the letter cut out of it, folded-paper facets, ONE colour strip (the folded b)
-//   4 STENCIL   — a slanted hex emblem in solid colour with the letter knocked clean through it
-// Fuse = F (FZ in the fused one) · Fee Reserve = R (FR in the fused one). One mark, a soft shadow, a clean backdrop — nothing else.
-let cback = 'light';
-const layer = document.createElement('canvas'), ext = document.createElement('canvas'); layer.width = layer.height = ext.width = ext.height = 512;
-const CARBON = (() => { const c = document.createElement('canvas'); c.width = c.height = 512; const g = c.getContext('2d'); g.fillStyle = '#0b0c10'; g.fillRect(0, 0, 512, 512); g.lineWidth = 1; for (let i = -512; i < 1024; i += 6) { g.strokeStyle = 'rgba(255,255,255,.035)'; g.beginPath(); g.moveTo(i, 0); g.lineTo(i + 512, 512); g.stroke(); g.strokeStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.moveTo(i + 512, 0); g.lineTo(i, 512); g.stroke(); } return c; })();
-const shade = (hex, k) => { const n = parseInt(hex.slice(1), 16), f = v => Math.max(0, Math.min(255, Math.round(v * k))); return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`; };
-function clanBack(g) { if (cback === 'dark') { g.drawImage(CARBON, 0, 0); const r = g.createRadialGradient(256, 230, 0, 256, 230, 330); r.addColorStop(0, 'rgba(255,255,255,.10)'); r.addColorStop(1, 'rgba(0,0,0,.55)'); g.fillStyle = r; g.fillRect(0, 0, S, S); return; }
-  const r = g.createRadialGradient(256, 230, 20, 256, 256, 380); r.addColorStop(0, '#fbfbfc'); r.addColorStop(0.6, '#d5d7dc'); r.addColorStop(1, '#a4a7ae'); g.fillStyle = r; g.fillRect(0, 0, S, S);
-  g.fillStyle = 'rgba(255,255,255,.34)'; g.beginPath(); g.moveTo(0, 330); g.lineTo(512, 60); g.lineTo(512, 0); g.lineTo(0, 0); g.closePath(); g.fill(); }
-const poly = (l, pts) => { l.beginPath(); pts.forEach(([x, y], i) => l[i ? 'lineTo' : 'moveTo'](x, y)); l.closePath(); };
-const MARKS = {
-  interlock(l, ch, fill, deep) { l.transform(1, 0, -0.46, 1, 0, 0); l.scale(0.9, 0.9); const bar = (x, y, w, h) => { l.fillStyle = deep; l.fillRect(x - 5, y - 5, w + 10, h + 10); l.fillStyle = fill; l.fillRect(x, y, w, h); };
-    const leg = pts => { poly(l, pts); l.lineJoin = 'miter'; l.strokeStyle = deep; l.lineWidth = 10; l.stroke(); l.fillStyle = fill; l.fill(); };
-    if (ch === 'R') { bar(-140, -130, 280, 64); bar(76, -130, 64, 172); bar(-140, -130, 70, 260); bar(-140, -22, 280, 62); leg([[-6, 40], [66, 40], [150, 130], [78, 130]]); }
-    else { bar(-140, -130, 300, 64); bar(-140, -130, 70, 260); bar(-140, -22, 222, 62); bar(44, 66, 116, 64); } },
-  fused(l, ch, fill, deep) { l.transform(1, 0, -0.22, 1, 0, 0); l.scale(0.88, 0.88); l.lineCap = l.lineJoin = 'round'; const w = 60;
-    const silver = l.createLinearGradient(0, -170, 0, 170); silver.addColorStop(0, '#ffffff'); silver.addColorStop(0.5, '#cfd4de'); silver.addColorStop(1, '#8b93a3');
-    const paths = ch === 'R' ? [l2 => { l2.moveTo(-150, 124); l2.lineTo(-150, -112); l2.lineTo(96, -112); l2.quadraticCurveTo(168, -112, 168, -52); l2.quadraticCurveTo(168, 8, 96, 8); l2.lineTo(-150, 8); }, l2 => { l2.moveTo(28, 8); l2.lineTo(160, 124); }]
-      : [l2 => { l2.moveTo(-170, 124); l2.lineTo(-170, -112); l2.lineTo(170, -112); l2.lineTo(18, 124); l2.lineTo(176, 124); }, l2 => { l2.moveTo(-170, 6); l2.lineTo(-58, 6); }];
-    for (const [st, lw] of [[silver, w + 22], ['#2f3440', w + 7], [fill, w]]) paths.forEach(pt => { l.beginPath(); pt(l); l.strokeStyle = st; l.lineWidth = lw; l.stroke(); });
-    l.strokeStyle = silver; l.lineWidth = 7; for (const [x0, x1, y] of (ch === 'R' ? [[-96, 70, -112], [-96, 60, 8]] : [[-110, 96, -112], [70, 132, 124]])) { l.beginPath(); l.moveTo(x0, y); l.lineTo(x1, y); l.stroke(); } },
-  frame(l, ch, fill) { l.scale(0.98, 0.98); const plate = [[-160, -160], [112, -160], [160, -112], [160, 160], [-112, 160], [-160, 112]]; l.save(); poly(l, plate); l.clip();
-    [['#f7f9fc', [[0, 0], [-170, -170], [170, -170]]], ['#c3c9d4', [[0, 0], [170, -170], [170, 170]]], ['#a7aebb', [[0, 0], [170, 170], [-170, 170]]], ['#e1e5ec', [[0, 0], [-170, 170], [-170, -170]]]].forEach(([c, tri]) => { l.fillStyle = c; poly(l, tri); l.fill(); });
-    l.fillStyle = fill; if (ch === 'R') poly(l, [[84, 44], [128, 44], [160, 96], [160, 160], [154, 160]]); else l.fillRect(-64, 12, 150, 22); l.fill(); l.restore();   // the one colour strip
-    l.globalCompositeOperation = 'destination-out'; l.fillStyle = '#000';
-    if (ch === 'R') { l.fillRect(-64, -92, 138, 62); poly(l, [[-64, 40], [40, 40], [128, 170], [-64, 170]]); l.fill(); } else { l.fillRect(-64, -92, 240, 62); l.fillRect(-64, 34, 240, 140); l.fillRect(88, -30, 90, 70); }
-    l.globalCompositeOperation = 'source-over'; },
-  stencil(l, ch, fill, deep) { l.transform(1, 0, -0.2, 1, 0, 0); const hex = k => Array.from({ length: 6 }, (_, i) => [Math.cos(i * T / 6) * 196 * k, Math.sin(i * T / 6) * 172 * k]);
-    l.fillStyle = fill; poly(l, hex(1)); l.fill(); l.strokeStyle = deep; l.lineWidth = 8; l.lineJoin = 'miter'; l.stroke(); l.strokeStyle = 'rgba(255,255,255,.55)'; l.lineWidth = 3; poly(l, hex(0.86)); l.stroke();
-    l.globalCompositeOperation = 'destination-out'; l.fillStyle = '#000'; l.transform(1, 0, -0.18, 1, 0, 0);
-    if (ch === 'R') { l.fillRect(-74, -100, 150, 44); l.fillRect(-74, -100, 48, 200); l.fillRect(30, -100, 46, 118); l.fillRect(-74, -24, 150, 42); poly(l, [[-6, 18], [44, 18], [98, 100], [48, 100]]); l.fill(); }
-    else { l.fillRect(-74, -100, 164, 44); l.fillRect(-74, -100, 48, 200); l.fillRect(-74, -24, 122, 42); }
-    l.globalCompositeOperation = 'source-over'; },
+// the three constructions. Each returns { group, tint: [materials that take the colour], def: its reference colour, look }
+const BUILD = {
+  // PLANES — the L7 construction: separate slanted slabs at slightly different heights, so each one really lies over the next
+  planes(ch) { const face = gloss('#1fbf36'), side = gloss('#1fbf36'); const G = new THREE.Group(), k = 0.46;
+    const slab = (s, z) => G.add(solid(s, [face, side], 0.5, 0.035, k, z));
+    if (ch === 'R') { slab(rect(-1.4, 0.66, 2.8, 0.64), 0); slab(rect(0.76, -0.42, 0.64, 1.72), 0.1); slab(rect(-1.4, -1.3, 0.7, 2.6), 0.2); slab(rect(-1.4, -0.42, 2.8, 0.62), 0.3); slab(polyS([[-0.05, -0.42], [0.67, -0.42], [1.5, -1.3], [0.78, -1.3]]), 0.1); }
+    else { slab(rect(-1.4, 0.66, 3.0, 0.64), 0); slab(rect(-1.4, -1.3, 0.7, 2.6), 0.12); slab(rect(-1.4, -0.42, 2.22, 0.62), 0.24); slab(rect(0.44, -1.3, 1.16, 0.64), 0); }
+    return { group: G, tint: [[face, 1], [side, 0.62]], def: '#1fbf36', look: 'light', tilt: -0.3, zoom: 1.02 }; },
+  // PILLS — the SB construction: fat rounded strokes fused together, colour on the face, white on the bevel and sides, slits on top
+  pills(ch) { const face = gloss('#1447e6'), side = gloss('#f4f6fa'), white = gloss('#ffffff'); const G = new THREE.Group(), k = 0.22, w = 0.66;
+    const bar = s => G.add(solid(s, [face, side], 0.42, 0.09, k)); const diag = (x0, y0, x1, y1) => { const L = Math.hypot(x1 - x0, y1 - y0) + w, m = solid(pill(-L / 2, -w / 2, L, w), [face, side], 0.42, 0.09); m.rotation.z = Math.atan2(y1 - y0, x1 - x0); m.position.set((x0 + x1) / 2 + k * (y0 + y1) / 2, (y0 + y1) / 2, 0); G.add(m); };
+    const slit = (x, y, len) => { const m = new THREE.Mesh(new THREE.BoxGeometry(len, 0.07, 0.06), white); m.position.set(x + k * y, y, 0.42 + 0.09); G.add(m); };
+    if (ch === 'R') { bar(pill(-1.5, -1.3, w, 2.6)); bar(pill(-1.5, 0.64, 2.7, w)); bar(pill(0.56, -0.31, w, 1.61)); bar(pill(-1.5, -0.31, 2.7, w)); diag(0.05, -0.2, 1.05, -0.98); slit(-0.2, 0.97, 1.5); slit(-0.2, 0.02, 1.4); }
+    else { bar(pill(-2.2, -1.3, w, 2.6)); bar(pill(-2.2, 0.64, 4.4, w)); bar(pill(-2.2, -0.31, 1.75, w)); diag(1.85, 0.9, 0.55, -0.98); bar(pill(0.2, -1.3, 2.0, w)); slit(0, 0.97, 2.6); slit(1.2, -0.97, 1.2); }
+    return { group: G, tint: [[face, 1]], def: '#1447e6', look: 'ice', tilt: -0.14, zoom: ch === 'R' ? 1.0 : 0.86 }; },
+  // FRAME — the folded-b construction: a white chamfered letter around a square hole, one colour strip, on carbon
+  frame(ch) { const body = matte('#f2f4f8'), strip = gloss('#1f8fff'); const G = new THREE.Group(); const add = (s, m = body, d = 0.6, z = 0) => G.add(solid(s, m, d, 0.03, 0, z));
+    const ring = polyS([[-1.3, -0.2], [0.95, -0.2], [1.3, 0.15], [1.3, 1.4], [-0.6, 1.4], [-1.3, 0.7]]); const hole = new THREE.Path(); [[-0.55, 0.35], [0.55, 0.35], [0.55, 0.85], [-0.55, 0.85]].forEach(([x, y], i) => hole[i ? 'lineTo' : 'moveTo'](x, y)); hole.closePath();
+    if (ch === 'R') { ring.holes.push(hole); add(ring); add(rect(-1.3, -1.4, 0.75, 1.3)); add(polyS([[-0.1, -0.2], [0.65, -0.2], [1.3, -1.4], [0.55, -1.4]])); add(polyS([[0.33, -0.86], [1.01, -0.86], [1.3, -1.4], [0.62, -1.4]]), strip, 0.6, 0.02); }
+    else { add(polyS([[-1.3, -1.4], [-0.55, -1.4], [-0.55, 1.4], [-0.6, 1.4], [-1.3, 0.7]])); add(polyS([[-0.6, 0.72], [1.3, 0.72], [1.3, 1.05], [0.95, 1.4], [-0.6, 1.4]])); add(polyS([[-0.6, -0.3], [0.75, -0.3], [0.75, 0.05], [0.5, 0.3], [-0.6, 0.3]])); add(polyS([[0.2, -0.3], [0.75, -0.3], [0.75, 0.05], [0.5, 0.3], [0.2, 0.3]]), strip, 0.6, 0.02); }
+    return { group: G, tint: [[strip, 1]], def: '#1f8fff', look: 'carbon', tilt: 0, zoom: 1.0 }; },
 };
-const clan = (design, ch, def) => (g, t) => { const P = pal(def), col = P[1][1], deep = shade(P[1][0], 0.7); const l = layer.getContext('2d'), e = ext.getContext('2d'); clanBack(g);
-  l.setTransform(1, 0, 0, 1, 0, 0); l.globalCompositeOperation = 'source-over'; l.clearRect(0, 0, 512, 512); l.translate(256, 256);
-  const fill = l.createLinearGradient(0, -170, 0, 170); fill.addColorStop(0, shade(col, 1.18)); fill.addColorStop(0.55, col); fill.addColorStop(1, shade(col, 0.72)); MARKS[design](l, ch, fill, deep); l.setTransform(1, 0, 0, 1, 0, 0);
-  l.globalCompositeOperation = 'source-atop'; l.fillStyle = 'rgba(255,255,255,.16)'; l.beginPath(); l.moveTo(0, 300); l.lineTo(512, 120); l.lineTo(512, 0); l.lineTo(0, 0); l.closePath(); l.fill();   // glass: the upper half catches the light
-  const sx = -260 + ((t * 1.5) % 1) * 1100; const gl = l.createLinearGradient(sx, 0, sx + 120, 80); gl.addColorStop(0, 'rgba(255,255,255,0)'); gl.addColorStop(0.5, 'rgba(255,255,255,.5)'); gl.addColorStop(1, 'rgba(255,255,255,0)'); l.fillStyle = gl; l.fillRect(0, 0, 512, 512); l.globalCompositeOperation = 'source-over';
-  e.globalCompositeOperation = 'source-over'; e.clearRect(0, 0, 512, 512); e.drawImage(layer, 0, 0); e.globalCompositeOperation = 'source-atop'; e.fillStyle = design === 'frame' ? '#3d4350' : deep; e.fillRect(0, 0, 512, 512);   // the same shape, dark = its side wall
-  g.save(); g.translate(0, Math.sin(t * T) * 4 - 6); g.shadowColor = cback === 'dark' ? 'rgba(0,0,0,.8)' : 'rgba(40,44,54,.45)'; g.shadowBlur = 26; g.shadowOffsetY = 18; g.drawImage(ext, 9, 9); g.shadowColor = 'transparent';
-  for (let k = 8; k >= 1; k--) g.drawImage(ext, k, k); g.drawImage(layer, 0, 0); g.restore(); };
-const IDEAS = [['interlock', '1 · Interlock'], ['fused', '2 · Fused'], ['frame', '3 · Frame'], ['stencil', '4 · Stencil']];
-const CLAN = [...IDEAS.map(([d, n]) => [`fuse-${d}`, `Fuse — ${n}`, clan(d, 'F', 'fusion')]), ...IDEAS.map(([d, n]) => [`reserve-${d}`, `Fee Reserve — ${n}`, clan(d, 'R', 'chrome')])];
+
+// backdrops (canvas textures) -------------------------------------------------------------------------------------------------
+const tex = draw => { const c = document.createElement('canvas'); c.width = 1024; c.height = 512; draw(c.getContext('2d'), 1024, 512); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; };
+const BACK = {
+  light: tex((g, W, H) => { const r = g.createRadialGradient(W / 2, H * 0.45, 20, W / 2, H / 2, W * 0.62); r.addColorStop(0, '#f6f6f7'); r.addColorStop(0.6, '#c9cacd'); r.addColorStop(1, '#8f9196'); g.fillStyle = r; g.fillRect(0, 0, W, H); g.fillStyle = 'rgba(255,255,255,.35)'; g.beginPath(); g.moveTo(0, H); g.lineTo(W * 0.5, 0); g.lineTo(W * 0.14, 0); g.lineTo(0, H * 0.5); g.closePath(); g.fill(); }),
+  ice: tex((g, W, H) => { const r = g.createRadialGradient(W / 2, H * 0.4, 20, W / 2, H / 2, W * 0.62); r.addColorStop(0, '#ffffff'); r.addColorStop(0.6, '#e4ebf4'); r.addColorStop(1, '#b3c2d6'); g.fillStyle = r; g.fillRect(0, 0, W, H); g.fillStyle = 'rgba(255,255,255,.5)'; g.beginPath(); g.moveTo(W * 0.55, 0); g.lineTo(W, 0); g.lineTo(W, H * 0.4); g.closePath(); g.fill(); }),
+  carbon: tex((g, W, H) => { g.fillStyle = '#0c0d11'; g.fillRect(0, 0, W, H); g.lineWidth = 1; for (let i = -H; i < W + H; i += 7) { g.strokeStyle = 'rgba(255,255,255,.04)'; g.beginPath(); g.moveTo(i, 0); g.lineTo(i + H, H); g.stroke(); g.strokeStyle = 'rgba(0,0,0,.4)'; g.beginPath(); g.moveTo(i + H, 0); g.lineTo(i, H); g.stroke(); } const r = g.createRadialGradient(W / 2, H * 0.45, 10, W / 2, H / 2, W * 0.6); r.addColorStop(0, 'rgba(255,255,255,.12)'); r.addColorStop(1, 'rgba(0,0,0,.6)'); g.fillStyle = r; g.fillRect(0, 0, W, H); }),
+};
+
+// a piece = its own little studio ---------------------------------------------------------------------------------------------
+function studio(style, ch, w, h, wide) { const b = BUILD[style](ch), scene = new THREE.Scene(); scene.background = BACK[b.look]; 
+  const cam = new THREE.PerspectiveCamera(wide ? 24 : 30, w / h, 0.1, 100); cam.position.set(0, 0.5, (wide ? 9.2 : 9.6) / b.zoom); cam.lookAt(0, 0, 0);
+  const key = new THREE.DirectionalLight('#ffffff', 2.1); key.position.set(-3.5, 6, 6); key.castShadow = true; key.shadow.mapSize.set(1024, 1024); key.shadow.radius = 6; Object.assign(key.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6 }); scene.add(key, new THREE.AmbientLight('#ffffff', 0.22));
+  const rim = new THREE.DirectionalLight(b.look === 'carbon' ? '#7fb6ff' : '#ffffff', 1.1); rim.position.set(5, 2, -3); scene.add(rim);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.ShadowMaterial({ opacity: b.look === 'carbon' ? 0.55 : 0.28 })); floor.rotation.x = -Math.PI / 2; floor.position.y = -1.75; floor.receiveShadow = true; scene.add(floor);
+  const holder = new THREE.Group(); holder.add(b.group); holder.rotation.z = b.tilt; if (wide) holder.position.x = -3.1; scene.add(holder);
+  return { ...b, scene, cam, w, h, wide }; }
+const NAME = { F: ['FUSE', 'MANY COINS, ONE FUSE'], R: ['FEE RESERVE', 'HOLD $FEE · UNLOCK THE ROOM'] };
+function piece(style, ch, w, h, wide) { let st = null;
+  return (g, t) => { st ||= studio(style, ch, w, h, wide); const col = colOf(st.def); st.tint.forEach(([m, k]) => { m.color.set(col); if (k !== 1) m.color.multiplyScalar(k); });
+    st.group.rotation.y = Math.sin(t * T) * 0.42; st.group.rotation.x = Math.sin(t * T * 2) * 0.05 - 0.06; st.group.position.y = Math.sin(t * T) * 0.05;
+    renderer.setViewport(0, 0, w, h); renderer.setScissor(0, 0, w, h); renderer.render(st.scene, st.cam); g.drawImage(renderer.domElement, 0, RH - h, w, h, 0, 0, w, h);
+    if (wide) { const dark = st.look === 'carbon', [n, sub] = NAME[ch]; g.textBaseline = 'alphabetic'; g.save(); g.transform(1, 0, -0.18, 1, 0, 0); g.fillStyle = dark ? '#f2f4f8' : '#16181d'; g.shadowColor = dark ? 'rgba(0,0,0,.7)' : 'rgba(255,255,255,.8)'; g.shadowBlur = 10; g.shadowOffsetY = 3;
+      g.font = `400 ${n.length > 6 ? 96 : 132}px "Bungee", sans-serif`; g.fillText(n, 760, 270); g.shadowBlur = 0; g.shadowOffsetY = 0; g.fillStyle = col === '#f2f4f8' && !dark ? '#16181d' : col; g.fillRect(764, 292, 150, 8); g.fillStyle = dark ? 'rgba(242,244,248,.75)' : 'rgba(22,24,29,.7)'; g.font = '700 24px "JetBrains Mono", monospace'; g.fillText(sub, 764, 340); g.restore(); } }; }
+const STY = [['planes', 'Planes'], ['pills', 'Pills'], ['frame', 'Frame']], BR = [['F', 'Fuse', 'fuse'], ['R', 'Fee Reserve', 'reserve']];
+const PFPS = BR.flatMap(([ch, name, id]) => STY.map(([s, sn]) => [`${id}-${s}`, `${name} — ${sn}`, piece(s, ch, 512, 512, false)]));
+const COVERS = BR.flatMap(([ch, name, id]) => STY.map(([s, sn]) => [`${id}-cover-${s}`, `${name} cover — ${sn}`, piece(s, ch, 1500, 500, true)]));
 
 // page ------------------------------------------------------------------------------------------------------------------------
 const save = (blob, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
+const tag = () => (pick === 'auto' ? '' : `-${COLS.find(c => c[0] === pick)[1].toLowerCase().replace(/\s+/g, '-')}`);
 let gifenc = null; const loadGif = async () => (gifenc ||= await import('/assets/gifenc.esm.js'));
 async function makeGif(draw, w, h, scale, frames, btn, name) { const label = btn.textContent; btn.disabled = true;
   try { const { GIFEncoder, quantize, applyPalette } = await loadGif(); const off = document.createElement('canvas'); off.width = w * scale; off.height = h * scale; const og = off.getContext('2d', { willReadFrequently: true }); const enc = GIFEncoder();
@@ -208,25 +106,18 @@ async function makeGif(draw, w, h, scale, frames, btn, name) { const label = btn
   btn.disabled = false; btn.textContent = label; }
 const live = [];
 function add(host, [id, name, draw], w, h, gifScale, frames, video) { const el = document.createElement('div'); el.className = 'item';
-  el.innerHTML = `<canvas width="${w}" height="${h}" aria-label="${name}"></canvas><div class="bar"><b>${name}</b><button class="go" data-a="png">⬇ PNG</button><button data-a="gif">⬇ GIF</button>${video ? '<button data-a="vid">⏺ Video loop</button>' : ''}<small>${w} × ${h}${gifScale < 1 ? ` · GIF ${w * gifScale} × ${h * gifScale}` : ''}</small></div>`;
+  el.innerHTML = `<canvas width="${w}" height="${h}" aria-label="${name}"></canvas><div class="bar"><b>${name}</b><button class="go" data-a="png">⬇ PNG</button><button data-a="gif">⬇ GIF</button>${video ? '<button data-a="vid">⏺ Video</button>' : ''}</div>`;
   host.appendChild(el); const c = el.querySelector('canvas'), g = c.getContext('2d'); live.push([c, g, draw]);
-  el.querySelector('[data-a=png]').onclick = () => c.toBlob(b => b && save(b, `feeless-${id}${design === 'slab' ? '' : `-${design}`}${pick === 'auto' ? '' : `-${pick}`}.png`), 'image/png');
-  el.querySelector('[data-a=gif]').onclick = e => makeGif(draw, w, h, gifScale, frames, e.target, `feeless-${id}${design === 'slab' ? '' : `-${design}`}${pick === 'auto' ? '' : `-${pick}`}`);
+  el.querySelector('[data-a=png]').onclick = () => c.toBlob(b => b && save(b, `feeless-${id}${tag()}.png`), 'image/png');
+  el.querySelector('[data-a=gif]').onclick = e => makeGif(draw, w, h, gifScale, frames, e.target, `feeless-${id}${tag()}`);
   if (video) el.querySelector('[data-a=vid]').onclick = e => { const b = e.target; if (!c.captureStream || !window.MediaRecorder) { b.textContent = 'Use Chrome to record'; return; }
     const rec = new MediaRecorder(c.captureStream(30), { videoBitsPerSecond: 8e6 }), parts = []; rec.ondataavailable = x => x.data.size && parts.push(x.data);
-    rec.onstop = () => { save(new Blob(parts, { type: rec.mimeType || 'video/webm' }), `feeless-${id}.webm`); b.disabled = false; b.textContent = '⏺ Video loop'; }; b.disabled = true; b.textContent = '⏺ recording 8s…'; rec.start(); setTimeout(() => rec.stop(), LOOP + 80); }; }
-const seg = (id, opts, get, set) => { const host = document.getElementById(id); opts.forEach(([k, name]) => { const b = document.createElement('button'); b.textContent = name; b.dataset.k = k; if (k === get()) b.className = 'go';
-  b.onclick = () => { set(k); host.querySelectorAll('button').forEach(x => { x.className = x.dataset.k === k ? 'go' : ''; }); }; host.appendChild(b); }); };
-seg('cbacks', [['light', 'Light studio'], ['dark', 'Dark carbon']], () => cback, k => { cback = k; });
-CLAN.forEach(x => add(document.getElementById('clan'), [`${x[0]}`, x[1], x[2]], S, S, 1, 36, false));
-const db = document.getElementById('designs');
-[['slab', 'Slab — clean bars'], ['blade', 'Blade — cut monogram + wings'], ['crest', 'Crest — shield, ribbon, stars']].forEach(([k, name]) => { const b = document.createElement('button'); b.textContent = name; b.dataset.k = k; if (k === design) b.className = 'go';
-  b.onclick = () => { design = k; db.querySelectorAll('button').forEach(x => { x.className = x.dataset.k === k ? 'go' : ''; }); }; db.appendChild(b); });
-const pb = document.getElementById('pals');
-[['auto', 'Auto — each its own'], ...Object.entries(PALS).map(([k, v]) => [k, v[0]])].forEach(([k, name]) => { const b = document.createElement('button'); b.textContent = name; b.dataset.k = k; if (k === 'auto') b.className = 'go'; if (PALS[k]) b.style.borderColor = PALS[k][3];
-  b.onclick = () => { pick = k; pb.querySelectorAll('button').forEach(x => { x.className = x.dataset.k === k ? 'go' : ''; }); }; pb.appendChild(b); });
-COVERS.forEach(x => add(document.getElementById('covers'), x, W, H, 0.5, 40, true));
-LOGOS.forEach(x => add(document.getElementById('logos'), x, S, S, 1, 48, false));
-const io = new IntersectionObserver(es => es.forEach(e => { e.target.dataset.on = e.isIntersecting ? '1' : ''; }), { rootMargin: '200px' }); live.forEach(([c]) => { c.dataset.on = '1'; io.observe(c); });
+    rec.onstop = () => { save(new Blob(parts, { type: rec.mimeType || 'video/webm' }), `feeless-${id}${tag()}.webm`); b.disabled = false; b.textContent = '⏺ Video'; }; b.disabled = true; b.textContent = '⏺ recording 8s…'; rec.start(); setTimeout(() => rec.stop(), LOOP + 80); }; }
+const cb = document.getElementById('cols');
+COLS.forEach(([k, name]) => { const b = document.createElement('button'); b.textContent = name; b.dataset.k = k; if (k === pick) b.className = 'go'; if (k !== 'auto') b.style.borderColor = k;
+  b.onclick = () => { pick = k; cb.querySelectorAll('button').forEach(x => { x.className = x.dataset.k === k ? 'go' : ''; }); }; cb.appendChild(b); });
+PFPS.forEach(x => add(document.getElementById('pfps'), x, 512, 512, 1, 36, false));
+COVERS.forEach(x => add(document.getElementById('covers'), x, 1500, 500, 0.5, 36, true));
+const io = new IntersectionObserver(es => es.forEach(e => { e.target.dataset.on = e.isIntersecting ? '1' : ''; }), { rootMargin: '150px' }); live.forEach(([c]) => { c.dataset.on = '1'; io.observe(c); });
 const tick = ms => { const t = (ms % LOOP) / LOOP; live.forEach(([c, g, draw]) => { if (c.dataset.on) { g.setTransform(1, 0, 0, 1, 0, 0); draw(g, t); } }); requestAnimationFrame(tick); }; requestAnimationFrame(tick);
 </script></body></html>
