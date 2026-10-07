@@ -874,6 +874,37 @@ def meta_ready(x):
     return not (x.get('cStruct') == 'range' and x.get('cPos') is not None and _f(x.get('cPos')) < META_MIN_POS)
 
 
+BOTTOM_MIN_PULL, BOTTOM_MAX_POS, BOTTOM_MIN_VOL1H = 30.0, 0.35, 10_000.0
+
+
+def buy_bottom(x):
+    """🟢 BUY BOTTOM (the owner's name for it; their example: $LOOT, 55% under its high, at the bottom of its range, flat). A coin
+    that RAN, gave most of it back and is now sitting at the low of its range without making new lows:
+      • ≥ 30% under its high (the chart's own 4h high when we have it, else the 6h / 24h change),
+      • in the bottom third of its range when the chart is readable,
+      • not sliding right now (5 min ≥ −1%, 1 hour ≥ −10%), buyers ≥ 50% when known, still trading (≥ $10K this hour).
+    → {'score', 'why', 'pull'} or None. A LIST for the owner to pick from, never an engine buy: on the pick record, coins bought in
+    the bottom third of their range lost 31% typically three hours later — this list keeps its own 1-hour paper record."""
+    g = lambda *ks: next((x.get(k) for k in ks if (x or {}).get(k) is not None), None)
+    if g('cPull') is not None:
+        pull = _f(x['cPull'])
+    else:
+        c6, c24 = g('chg6h', 'change6h'), g('chg24h', 'change24h')
+        if c6 is None and c24 is None:
+            return None
+        pull = max(0.0, -min(_f(c6), _f(c24)))
+    m5, h1, bs = g('chg5m', 'change5m'), g('chg1h', 'change1h'), g('buyShare')
+    bs = None if bs is None else (_f(bs) * 100 if 0 < _f(bs) <= 1 else _f(bs))
+    if pull < BOTTOM_MIN_PULL or (g('cPos') is not None and _f(x['cPos']) > BOTTOM_MAX_POS) or _f(g('vol1h')) < BOTTOM_MIN_VOL1H:
+        return None
+    if (m5 is not None and _f(m5) < -1) or (h1 is not None and _f(h1) < -10) or (bs is not None and bs < 50):
+        return None
+    score = min(60.0, pull * 0.8) + (min(20.0, max(0.0, bs - 50)) if bs is not None else 0.0) + (min(20.0, max(0.0, _f(m5)) * 4) if m5 is not None else 0.0)
+    why = ' · '.join(p for p in (f"{pull:.0f}% under its high", 'bottom of its range' if g('cPos') is not None else '', f"5m {_f(m5):+.0f}%" if m5 is not None else '',
+                                 f"buyers {bs:.0f}%" if bs is not None else '') if p)
+    return {'score': round(score, 1), 'why': why, 'pull': round(pull, 1)}
+
+
 SEAT_FALLBACK_SEC = 30.0   # 🪑 a seat with no qualifying coin takes the next-best one after 30 seconds
 
 

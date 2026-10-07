@@ -18,7 +18,7 @@ test('the real-card swap picker has every Lab lens + search, flags thin pools an
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<SwapPicker out={{ symbol: 'WIF' }} have={[]} minLiq={20000} onPick={r => picks.push(r)} onClose={() => {}} />); });
   await tick();
-  expect(PICK_LENSES.map(x => x[0])).toEqual(['movers', 'pump', 'volume', 'runners', 'arena', 'majors', 'stocks', 'risers', 'trench', 'dip', 'popular']);   // every list its OWN set of coins
+  expect(PICK_LENSES.map(x => x[0])).toEqual(['movers', 'bottom', 'pump', 'volume', 'runners', 'arena', 'majors', 'stocks', 'risers', 'trench', 'dip', 'popular']);   // every list its OWN set of coins
   // 🚀 it opens on what is MOVING (the live launch feed by hourly move) …
   expect(urls[0]).toContain('/fuses/discover?lens=movers');
   expect(el.textContent).toContain('$POP');

@@ -2109,3 +2109,19 @@ def test_every_paper_card_has_its_own_pick_rule_and_no_coin_is_shared():
                      {'mint': 'B', 'symbol': 'B', 'pairAddress': 'pb'}, {'mint': 'C', 'symbol': 'C', 'pairAddress': 'pc'}]}
     assert ap.shared_leg(card, {'S', 'A', 'B'}) == 'pb'      # never SOL, never a rider
     assert ap.shared_leg(card, {'Z'}) is None
+
+
+def test_buy_bottom_is_a_coin_far_under_its_high_at_the_low_of_its_range_and_no_longer_sliding():
+    import arena_prime as ap
+    loot = {'cPull': 55.3, 'cPos': 0.11, 'chg5m': 0.5, 'chg1h': -2.0, 'buyShare': 56, 'vol1h': 40_000}
+    hit = ap.buy_bottom(loot)
+    assert hit and hit['pull'] == 55.3 and '55% under its high' in hit['why'] and 'bottom of its range' in hit['why'] and 'buyers 56%' in hit['why']
+    assert ap.buy_bottom({**loot, 'cPull': 12}) is None                # not a dip
+    assert ap.buy_bottom({**loot, 'cPos': 0.7}) is None                # already back up its range
+    assert ap.buy_bottom({**loot, 'chg5m': -4}) is None                # still making lows
+    assert ap.buy_bottom({**loot, 'chg1h': -25}) is None and ap.buy_bottom({**loot, 'buyShare': 41}) is None and ap.buy_bottom({**loot, 'vol1h': 900}) is None
+    # no chart of ours: the 6h / 24h change stands in for the pullback; nothing known = not listed
+    assert ap.buy_bottom({'change6h': -48, 'change24h': -10, 'change5m': 1, 'change1h': 0, 'buyShare': 0.6, 'vol1h': 20_000})['pull'] == 48
+    assert ap.buy_bottom({'vol1h': 50_000}) is None
+    deep, shallow = ap.buy_bottom({**loot, 'cPull': 70})['score'], ap.buy_bottom({**loot, 'cPull': 35})['score']
+    assert deep > shallow                                               # deeper + turning ranks first

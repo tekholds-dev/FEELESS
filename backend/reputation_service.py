@@ -2814,6 +2814,9 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
             pump_ = []
         have_ = {(r.get('baseToken') or {}).get('address') or r.get('baseAddress') for r in rs_}
         return {'lens': 'risers', 'chain': 'solana', 'pools': rs_ + _fuse.pump_majors(pump_ + base_, have_)}
+    if lens == 'bottom':   # 🟢 Buy bottom: coins far under their high, at the low of their range, no longer sliding
+        rows_b = await _bottom_rows(time.time())
+        return {'lens': 'bottom', 'chain': 'solana', 'pools': rows_b, 'proof': _trench.meta_proof(_json_load(BOTTOM_PROOF_PATH, {}), keys=('bottom',)).get('bottom')}
     if lens in ('pump', 'movers'):   # 🆕 Pump live · 🚀 Movers (the same live launch feed, ranked by what is RUNNING)
         mv_ = lens == 'movers'
     if lens in ('pump', 'movers'):   # 🆕 Pump live: the newest + busiest Pump coins RIGHT NOW, launch-curve coins included (owner picks only)
@@ -5643,11 +5646,59 @@ async def _trench_build(now):
         _json_save(ENTRY_PROOF_PATH, _trench.meta_track(st, hits, lambda m: (jp or {}).get(m), now, keys=_prime.ENTRY_SETUPS))
     except Exception as e:
         print('entry proof:', e)
+    await _bottom_track(now)
     return _trench_cache
 
 
 TRENCH_META_PATH = FUSE_HQ_PATH.parent / 'trench_meta.json'
 ENTRY_PROOF_PATH = FUSE_HQ_PATH.parent / 'entry_proof.json'
+BOTTOM_PROOF_PATH = FUSE_HQ_PATH.parent / 'bottom_proof.json'   # 🟢 the Buy-bottom list's own 1-hour paper record
+_bottom_cache: dict = {'at': 0.0, 'rows': []}
+
+
+async def _bottom_rows(now):
+    """🟢 The Buy-bottom list (arena_prime.buy_bottom) from the live launch feed, deepest + turning first; 60s cache. Each coin's own
+    chart read (the board's recorded prices) joins its row when we have one."""
+    if now - _bottom_cache['at'] < 60 or os.environ.get('PYTEST_CURRENT_TEST'):
+        return _bottom_cache['rows']
+    _bottom_cache['at'] = now
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            got = await asyncio.gather(*[http.get('http://127.0.0.1:5001/api/market/feed', params={'kind': k, 'chain': 'solana', 'page': pg, 'scope': 'launchpads'})
+                                         for k in ('trending', 'new') for pg in (1, 2, 3, 4)], return_exceptions=True)
+        raw = [x for g in got if not isinstance(g, Exception) for x in (g.json().get('pairs') or [])]
+    except Exception:
+        return _bottom_cache['rows']
+    paths = _json_load(RUNNERS_PATH, {}).get('paths') or {}
+    seen, rows = set(), []
+    for p_ in raw:
+        m_ = (p_.get('baseToken') or {}).get('address')
+        if not m_ or m_ in seen or _fuse._f(p_.get('priceUsd')) <= 0 or _fuse._f((p_.get('liquidity') or {}).get('usd')) < 8000:
+            continue
+        seen.add(m_)
+        meta = _fuse.leg_meta(p_); tx = (p_.get('txns') or {}).get('h1') or {}
+        b_, s_ = _fuse._f(tx.get('buys')), _fuse._f(tx.get('sells'))
+        row = {'chainId': 'solana', 'pairAddress': p_.get('pairAddress'), **meta, 'vol1h': _fuse._f((p_.get('volume') or {}).get('h1')),
+               'buyShare': round(b_ / (b_ + s_) * 100) if b_ + s_ else meta.get('buyShare'), **_pedge._chart.keys(paths.get(m_) or [], now)}
+        hit = _prime.buy_bottom(row)
+        if hit and not _fw.dollar_named(row.get('symbol')):
+            rows.append({**row, 'score': hit['score'], 'bottom': True, 'divisionLabel': hit['why']})
+    rows.sort(key=lambda r: -r['score'])
+    _bottom_cache['rows'] = rows[:120]
+    return _bottom_cache['rows']
+
+
+async def _bottom_track(now):
+    """Note each coin on the Buy-bottom list once and settle it an hour later (no price then = −100%) → the list's own record."""
+    try:
+        rows = await _bottom_rows(now)
+        st = _json_load(BOTTOM_PROOF_PATH, {})
+        due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
+        jp = await _jup_prices(due) if due else {}
+        _json_save(BOTTOM_PROOF_PATH, _trench.meta_track(st, {'bottom': [(r['baseAddress'], r.get('priceUsd')) for r in rows[:40] if r.get('baseAddress')]},
+                                                         lambda m: (jp or {}).get(m), now, keys=('bottom',)))
+    except Exception as e:
+        print('bottom proof:', e)
 PICK_STYLE_PATH = FUSE_HQ_PATH.parent / 'pick_style.json'   # 👤 how the owner picks (pick_style.py): one note per hand pick
 HUMAN_TIERS_DEFAULT = ['next']                               # which PAPER cards pick like the owner (HQ › Fuse › Arena › Cards)
 

@@ -15,3 +15,10 @@ test('a paper card that picks like the owner: which cards and what the tip says'
   expect(humanTip(h)).toMatch(/last 30 picks: age 1h–9h/); expect(humanTip(h)).toMatch(/Paper only/);
   expect(humanTip({ ...h, ready: false, picks: 3, words: [] })).toMatch(/3 of 8 noted/);
 });
+
+test('buy-bottom lens is in the picker and says its own record honestly', () => {
+  const { PICK_LENSES, bottomRecord } = require('./ArenaPrime');
+  expect(PICK_LENSES.map(x => x[0])).toContain('bottom');
+  expect(bottomRecord({ n: 12, medPct: -4.2, wonPct: 33 })).toBe('Its own record: 12 coins held 1 hour, typical -4.2%, 33% up.');
+  expect(bottomRecord(null)).toMatch(/starts now \(0 of 5 settled\)/);
+});

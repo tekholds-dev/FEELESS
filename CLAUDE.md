@@ -1949,3 +1949,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `shared_leg`, in `_prime_tick` for paper only): a paper card is never offered a coin another card holds (anchors too while another
   major is free; SOL exempt) and a coin it already shares is swapped for its own, one a tick (event "🧪 unique coins"). The exits were
   already per card; the SELECTION was the same picker five times, so five cards proved nothing about what to buy.
+- 🟢 BUY BOTTOM (the owner's term; example $LOOT: 55% under its high, bottom of its range, flat): `arena_prime.buy_bottom` (≥ 30%
+  under its high — the chart's 4h high when read, else the 6h / 24h change · bottom third of its range · 5 min ≥ −1%, 1h ≥ −10% ·
+  buyers ≥ 50% · ≥ $10K/h) → `_bottom_rows` (launch feed, 60s cache, ≤ 120) → `/fuses/discover?lens=bottom` → picker lens
+  `🟢 Buy bottom` (second tab; each row's label says why). Own 1-hour paper record (`_bottom_track` in `_trench_build`,
+  `data/bottom_proof.json`, shown in the lens note). A LIST for hand picks, never an engine buy: on the pick record the bottom
+  third of a range lost 31% typically — let its own record decide before the engine may use it.
