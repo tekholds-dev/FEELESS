@@ -5371,6 +5371,15 @@ async def _runner_live():
     mine_t = sorted((p for p in pairs if p not in busiest and own_g and _trench.market_pair(p, now_ms, own_g)), key=by_vol)[:10]
     busiest += mine_t
     busiest += sorted((p for p in pairs if p not in busiest and _trench.market_pair(p, now_ms, _trench.widen(len(_trench.WIDEN) - 1))), key=by_vol)[:max(4, 10 - len(mine_t))]
+    # ⏭ THE TOP OF EVERY CATEGORY LIST is on the board and scanned first: Coming up picks from the top of 🔥 Pump trending / 🌊 Volume /
+    # 🚀 Movers / 🆕 New / 🟢 Bottoms, and those coins read "holder scan not done" or "not on the runner board yet" (older than the
+    # board's age window). Top 8 a list, ≤ 30 extra scans (launch facts are read once per coin; a re-scan is 4 RPC calls).
+    cat_m = {r.get('mint') for rows in _lens_rows.values() for r in rows[:8]} | {r.get('baseAddress') for r in (_bottom_cache.get('rows') or [])[:8]}
+    feed_by = {(x.get('baseToken') or {}).get('address'): x for rows in got for x in rows}
+    for m_c in cat_m:
+        if m_c and m_c in feed_by and m_c not in seen:
+            seen.add(m_c); pairs.append(feed_by[m_c])
+    busiest += [p for p in pairs if (p.get('baseToken') or {}).get('address') in cat_m and p not in busiest][:30]
     # Never block the board on scans: wait ≤6s, the rest keep running and land in the cache for the next refresh.
     tasks = {(p.get('baseToken') or {}).get('address'): asyncio.ensure_future(_runner_intel((p.get('baseToken') or {}).get('address'))) for p in busiest}
     if tasks:
