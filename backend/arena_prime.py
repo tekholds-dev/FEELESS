@@ -732,6 +732,33 @@ META_MIN_POS = 0.34
 META_WILD_PCT = 35.0   # = chart_read.WILD_PCT
 
 
+# 🔥 DON'T CHASE. The board's own record (2026-10-06, 184 judged picks, typical result 3 hours later) by what the coin was doing at
+# the buy: 5-min move −3…0% → +3% · 0…+3% → 0% · +3…+10% → −41% · over +10% → −77%; 1-hour move 0…+30% → +3…+6% · +30…+100% → −14%
+# · over +100% → −55% (85 picks). Buying INTO the candle is the single worst entry on the record; that afternoon the owner's hand
+# picks bought mid-spike lost 15–29% inside 1–5 minutes ($DEXPAD −29% in one minute, $BISCOTTI −24% in two).
+CHASE_5M, CHASE_1H = 3.0, 100.0
+
+
+def chase_why(x):
+    """→ the plain reasons a coin is being CHASED right now ([] = it is not): up more than 3% in the last 5 minutes, or more than
+    100% on the hour. No reading = not judged."""
+    out = []
+    if (x or {}).get('chg5m') is not None and _f(x['chg5m']) > CHASE_5M:
+        out.append(f"running hot: +{_f(x['chg5m']):.0f}% in the last 5 min (coins bought mid-spike lost most on the record)")
+    if (x or {}).get('chg1h') is not None and _f(x['chg1h']) > CHASE_1H:
+        out.append(f"already +{_f(x['chg1h']):.0f}% on the hour (over +100% lost about half, typically)")
+    return out
+
+
+def meta_why(x):
+    """Plain words for a candidate the engine will not buy yet ('' = it may): chasing first, then its chart."""
+    import chart_read as _cr
+    ch = chase_why(x)
+    if ch and not (x or {}).get('comeback'):
+        return ('too hot: +%.0f%% in 5 min — waits for it to cool' % _f(x.get('chg5m'))) if _f((x or {}).get('chg5m')) > CHASE_5M else ('too far: +%.0f%% on the hour' % _f(x.get('chg1h')))
+    return _cr.why_not(x)
+
+
 def meta_ready(x):
     """🧭 May the ENGINE buy this coin by itself? Not while its chart is too short to read, and not while it is trending down.
     A comeback (a rider the card already rode, recovering) always may. The owner's hand picks are never judged here.
@@ -739,6 +766,8 @@ def meta_ready(x):
     20 with one; that afternoon $darwin ("no chart yet", +22% on the hour) hit its −15% stop six minutes after it was bought."""
     if x.get('comeback'):
         return True
+    if chase_why(x):
+        return False            # 🔥 mid-spike: wait for the pause, never buy into the candle
     if x.get('cBars') is None:
         return False            # never read at all = unknown = not bought (the read is attached to every candidate on a real card)
     if not x.get('cBars') or x.get('cStruct') == 'down':

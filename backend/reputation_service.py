@@ -6237,7 +6237,7 @@ async def _prime_tick_inner(now):
         if real_t and cfg_t.get('upMeta', True):   # 🧭 UP NEXT IS META: the engine's own buys need a chart it can read, not falling
             watch_ = [x for x in r_t if not _prime.meta_ready(x)]   # 👀 shown under Coming up as "watching", with the reason
             r_pre_, r_t = _prime.meta_only(r_pre_), _prime.meta_only(r_t)
-            _step('chart readable and not trending down (up-next meta)', r_t)
+            _step('not mid-spike · chart readable · not trending down (up-next meta)', r_t)
         if real_t:   # 🏊 the owner's own runner pool floor (off unless they set it)
             r_t = _prime.deep_runners(r_t, cfg_t.get('runnerMinLiqK'), cfg_t.get('runnerMinBuy'), cfg_t.get('runnerMinVolK'), cfg_t.get('runnerMinChg1h'))
             _step('your hunt line (pool · volume · 1h move · buyers)', r_t)
@@ -6334,7 +6334,7 @@ async def _prime_tick_inner(now):
                     seen_u.add(x['mint']); up_.append(row_(x))
             for x in _prime.flow_rank([y for y in watch_ if y.get('mint') not in on_ and not y.get('trenchOnly')]):   # 👀 never an empty list: the closest coins + why not yet
                 if x.get('mint') and x['mint'] not in seen_u and len(up_) < 6:
-                    seen_u.add(x['mint']); up_.append({**row_(x), 'wait': _pedge._chart.why_not(x) or 'not ready'})
+                    seen_u.add(x['mint']); up_.append({**row_(x), 'wait': _prime.meta_why(x) or 'not ready'})
             cards[tid]['pipeline'] = {'at': now, 'steps': fun_ + [['not on the card and not cooling', len(free_)]], 'up': up_[:6],
                                       'next': [f"${x.get('symbol')} {_fuse._f(x.get('chg1h')):+.0f}%" for x in sorted(free_, key=lambda x: -_fuse._f(x.get('chg1h')))[:4]],
                                       'scout': [f"${x.get('symbol')} {_fuse._f(x.get('chg1h')):+.0f}%" for x in scout_[:4]]}
@@ -6556,7 +6556,8 @@ async def fuse_prime_admin(request: Request):
         _pv_miss = []
         _pr = _json_load(FUSE_HQ_PATH, {}).get('prime') or {}
         if cand and ((_pr.get('cards') or {}).get(pk['tpl']) or {}).get('real') and _prime.clean_cfg(_pr.get('realCfg') or {})['pickVerify']:
-            _pv_ok, _pv_miss, _ = await _pick_verify(cand['mint'], cand['pairAddress'])
+            _pv_ok, _pv_miss, _pv_c = await _pick_verify(cand['mint'], cand['pairAddress'])
+            _pv_miss = list(_pv_miss or []) + _prime.chase_why(_pv_c)   # 🔥 a warning, never a block: you can still pick it
         async with _admin_lock:
             d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
             card = cards.get(pk['tpl'])

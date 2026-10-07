@@ -1691,3 +1691,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 📌 Mini chart shows where you stand (`MiniChartBody.jsx`, lazy): the Fuse card's lines on the chart (carried on `pair.fuse` from
   where it was opened, else found on the live cards by coin via `usePrime` + `fuseLevels`) AND your own FEELESS trades on the coin
   (`useMyPosition`: entry line + buy / sell marks) — strip `mch-strip`: ⚛ entry · % since · 🛑 stop · ❄ lock · 👤 your entry · %.
+- 🔥 DON'T CHASE (`arena_prime.chase_why/meta_why`, `CHASE_5M` 3, `CHASE_1H` 100; inside `meta_ready`, so cfg `upMeta` switches it):
+  the engine does not buy a coin that is up > 3% in the last 5 minutes or > 100% on the hour — Coming up reads "watching — too hot:
+  +14% in 5 min — waits for it to cool". A comeback is exempt. The owner's hand pick of such a coin gets the same reasons as a
+  WARNING through the 409 + acknowledge path (never a block). Evidence = the pick record's own buckets (184 picks, 3h result):
+  5m −3…0 → +3% · 0…+3 → 0% · +3…+10 → −41% · over +10 → −77%; 1h 0…+30 → +3…+6% · +30…+100 → −14% · over +100 → −55%.
+  The "🚀 breakout" entry tag (5m ≥ +3) therefore never qualifies for an engine buy any more. Real card, same afternoon, 90 min:
+  −$1.53 realized, the six worst pieces all bought mid-spike and gone in 1–12 min (five hand picks, −15…−29%).

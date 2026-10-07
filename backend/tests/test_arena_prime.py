@@ -1939,3 +1939,16 @@ def test_full_stack_skims_every_locked_coin_down_to_its_stake_and_again_as_it_gr
     assert ap.stack_skim(not_full, px, {}, now, cfg) == 0.0 and not_full['legs'][0]['units'] == 1.5   # one coin still proving = no full stack, no skim
     assert ap.stack_skim({'cash': 0.0, 'events': [], 'legs': [leg('A', 1.5)]}, px, {}, now, ap.clean_cfg({})) == 0.0   # off by default
     assert ap.clean_cfg({'stackSkimUsd': 0.5})['stackSkimUsd'] == 0.5 and ap.clean_cfg({'stackSkimUsd': 7})['stackSkimUsd'] == 0.0
+
+
+def test_the_engine_does_not_chase_a_coin_mid_spike_and_says_why():
+    import arena_prime as ap
+    ok = {'cBars': 9, 'cStruct': 'up', 'cPos': 0.7, 'chg5m': 1.5, 'chg1h': 28}
+    assert ap.meta_ready(ok) and ap.chase_why(ok) == [] and ap.meta_why(ok) == ''
+    hot = {**ok, 'chg5m': 14.0}
+    assert not ap.meta_ready(hot) and 'running hot: +14%' in ap.chase_why(hot)[0] and ap.meta_why(hot).startswith('too hot: +14% in 5 min')
+    far = {**ok, 'chg1h': 181.0}
+    assert not ap.meta_ready(far) and 'already +181%' in ap.chase_why(far)[0] and ap.meta_why(far) == 'too far: +181% on the hour'
+    assert ap.meta_ready({**hot, 'comeback': 18.0})                                        # a rider coming back is never held by this
+    assert ap.chase_why({}) == [] and ap.chase_why(None) == []                             # no reading = not judged
+    assert ap.meta_why({'cBars': 9, 'cStruct': 'down'}) == 'trending down'                 # otherwise the chart reason, as before
