@@ -1706,3 +1706,5 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   zoom + chart height tokens `--mcd-zoom` / `--mcd-h`); draggable; card, side, size, place live in localStorage `feeless.miniCard`.
   `src` = `{kind: 'prime', tpl}` (always read live from `/fuses/prime`) or `{kind: 'row', row}` (a held card travels as a snapshot
   of its coins; live prices still revalue it). View only — no money button in the window.
+- 📌 Mini chart + mini card charts open on MARKET CAP like the war room (`MiniChartBody metric`, header `$329K MC`, strip levels in MC,
+  `mch-metric` button MC ⇄ $). The cap comes from the shared live-price poller (`lib/livePrices` record now carries `mc`) — no new fetch.

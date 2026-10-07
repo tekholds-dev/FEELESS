@@ -25,7 +25,7 @@ export default function MiniCardBody({ src, side, size, tf, setTf }) {
   const leg = c ? (c.legs || []).find(x => x.pairAddress === l.pairAddress) : null;
   const entry = leg ? 0 : l.tokens > 0 ? (l.usd || 0) / l.tokens : 0;
   const fuse = leg ? fuseLevels(leg, c.cfgEff || d.cfg, c.label) : entry > 0 ? { card: src.name, pairAddress: l.pairAddress, symbol: l.symbol, entry } : null;
-  const pair = { chainId: 'solana', pairAddress: l.pairAddress, baseToken: { address: l.mint, symbol: l.symbol }, priceUsd: live.get?.(l.pairAddress)?.price ?? l.priceNow ?? null };
+  const pair = { chainId: 'solana', pairAddress: l.pairAddress, baseToken: { address: l.mint, symbol: l.symbol }, priceUsd: live.get?.(l.pairAddress)?.price ?? l.priceNow ?? null, marketCap: live.get?.(l.pairAddress)?.mc || null };
   return <div className="mcd-side mcd-chart" key="chart" data-testid="mcd-chart">
     <div className="mcd-coins" role="tablist" aria-label="Coins on this card">
       {coins.map((x, i) => { const p = Number(x.pnlPct); return <button key={x.pairAddress} type="button" role="tab" aria-selected={x === l} className={x === l ? 'active' : ''} onClick={() => setPick(i)} data-testid={`mcd-coin-${x.symbol}`}>

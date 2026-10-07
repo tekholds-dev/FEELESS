@@ -1,5 +1,5 @@
 /* 📌 Mini card (MiniCard.jsx): a Fuse card floating on every page — 🃏 card ⇄ 📈 chart, three sizes. Shell = the mini chart's (.mch). */
-.mch.mcd { left: 392px; width: 340px; --mcd-zoom: 1.3; --mcd-h: 210px; }
+.mch.mcd { left: 416px; width: 340px; --mcd-zoom: 1.3; --mcd-h: 210px; }
 .mch.mcd.sz-s { width: 250px; --mcd-zoom: 1; --mcd-h: 160px; } .mch.mcd.sz-l { width: 480px; --mcd-zoom: 1.6; --mcd-h: 320px; }
 .mcd-name { max-width: none !important; flex: 1 1 0; min-width: 0; font-family: "JetBrains Mono", monospace; letter-spacing: .04em; }
 .mcd-body { background: radial-gradient(120% 90% at 50% 0%, #10231a 0%, #070c0b 62%); }

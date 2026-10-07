@@ -1,9 +1,9 @@
 /* 📌 Mini chart (MiniChart.jsx): a coin's chart floating on every page. Docked bottom-left (the FeeCat box owns bottom-right). */
-.mch { position: fixed; left: 18px; bottom: 18px; z-index: 840; width: 360px; border-radius: 14px; padding: 2px; overflow: hidden; isolation: isolate; box-shadow: 0 18px 44px -18px #000, 0 0 26px -12px rgba(21, 209, 106, .7); animation: mchIn .22s ease both; }
+.mch { position: fixed; left: 18px; bottom: 18px; z-index: 840; width: 384px; border-radius: 14px; padding: 2px; overflow: hidden; isolation: isolate; box-shadow: 0 18px 44px -18px #000, 0 0 26px -12px rgba(21, 209, 106, .7); animation: mchIn .22s ease both; }
 .mch-edge { position: absolute; left: 50%; top: 50%; width: 200%; aspect-ratio: 1; margin: -100% 0 0 -100%; z-index: -1; background: conic-gradient(#15d16a, #a06eff, #f5c451, #3cdcff, #15d16a); animation: mchSpin 9s linear infinite; }
 .mch-head { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: #08100d; border-radius: 12px 12px 0 0; cursor: grab; touch-action: none; user-select: none; }
-.mch-head:active { cursor: grabbing; } .mch-head b { font-size: 13px; max-width: 86px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mch-head em { font-style: normal; font-size: 12px; } .mch-head u { text-decoration: none; font: 11px "JetBrains Mono", monospace; }
+.mch-head:active { cursor: grabbing; } .mch-head b { font-size: 13px; max-width: 74px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mch-head em { font-style: normal; font-size: 12px; white-space: nowrap; } .mch-head u { text-decoration: none; font: 11px "JetBrains Mono", monospace; }
 .mch-acts { margin-left: auto; display: flex; gap: 3px; }
 .mch-acts button { height: 22px; min-width: 24px; padding: 0 5px; border-radius: 6px; border: 1px solid #203129; background: #0a1210; color: #b9cdc2; font: 10px "JetBrains Mono", monospace; cursor: pointer; transition: border-color .15s ease, color .15s ease, background .15s ease; }
 .mch-acts button:hover { border-color: #15d16a88; color: #e7fff3; } .mch-acts button:active { transform: translateY(1px); } .mch-acts button:focus-visible { outline: 2px solid #45e486; outline-offset: 1px; }
