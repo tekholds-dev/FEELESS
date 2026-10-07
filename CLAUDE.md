@@ -1813,3 +1813,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   extruded block F turning on a hex shield with wings, stars, a chrome sweep and a DNA helix passing behind AND in front).
   Every piece downloads on its own: ⬇ PNG · ⬇ GIF (covers 750 × 250 × 40 frames, logos 512 × 512 × 48) · covers also ⏺ an 8s
   video loop. New piece ⇒ one entry in `COVERS` / `LOGOS` with a `draw(g, t)` that loops cleanly at t = 0 → 1.
+- 🎬 Covers & logos v2 = DARK STUDIO (owner: "dark and realistic, all live — not that"; reference = the slanted chrome glyph they
+  sent). `cover.html`: `studio` (near-black room, slow out-of-focus lights, bokeh) + `grainVignette` + `onFloor` (the subject and
+  its reflection on a wet floor) + `metal(g, polys, t, [deep, mid, hot])` = a brushed-metal 3D glyph (extruded walls that swing
+  with the light, iridescent face whose hot tip breathes, noise grain, a light bar sweeping across, rim line) + `dnaBeads`
+  (13 chrome beads, behind then in front) + `metalCat` (the cat mark as lit metal; its black falls away). Glyph polys: `RESERVE`
+  (the reference mark, rebuilt as vectors — the sent picture has its pastel background baked in) and `FUSE_F` (the same language
+  as an F). Pieces: 4 covers (FEELESS · FEECAT · FEE RESERVE · FUSE) + 5 squares (Fee Reserve pfp · Fuse chrome F with DNA ·
+  FEELESS clan F with DNA · FeeCat pfp · Fuse spinning F), each PNG / GIF (+ video for covers). No cartoon rays, grids or emoji.
+  The Fee Reserve PAGE (`/terminal/alpha`) has no picture of its own, and it renders a stray "Off the radar." block under the
+  rooms — not fixed here.

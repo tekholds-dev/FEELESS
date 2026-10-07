@@ -16,9 +16,9 @@
 </style></head>
 <body>
 <h1>FEELESS covers & logos</h1>
-<p>Every piece is drawn live in your browser and downloads on its own: a still PNG, an animated GIF, and (covers) a video loop. Covers are 1500 × 500, the size X and most profile headers use. Candles are made up — never a real price.</p>
+<p>Every piece is drawn live in your browser and downloads on its own: a still PNG, an animated GIF, and (covers) a video loop. Covers are 1500 × 500, the size X and most profile headers use. Dark studio look: brushed-metal 3D marks, slow lights, a wet floor. Candles are made up — never a real price.</p>
 <h2>COVERS · 1500 × 500</h2><div class="grid" id="covers"></div>
-<h2>LOGOS · 512 × 512 GIF</h2><div class="grid logos" id="logos"></div>
+<h2>PROFILE PICTURES & LOGOS · 512 × 512</h2><div class="grid logos" id="logos"></div>
 <script type="module">
 const T = Math.PI * 2, LOOP = 8000;
 const seed = Array.from({ length: 600 }, (_, i) => Math.abs(Math.sin(i * 12.9898) * 43758.5453) % 1);
@@ -26,79 +26,80 @@ const img = src => { const i = new Image(); i.src = src; return i; };
 const MARK = img('/assets/feeless-logo.png'), CAT = img('/assets/feecat-mark.png');
 const candles = Array.from({ length: 64 }, (_, i) => { const b = 0.5 + 0.28 * Math.sin(i / 64 * T) + 0.12 * Math.sin(i / 64 * T * 3 + 1); const o = b + (seed[i] - 0.5) * 0.08, c = b + (seed[i + 64] - 0.5) * 0.08 + 0.02; return [o, c, Math.max(o, c) + seed[i + 128] * 0.05, Math.min(o, c) - seed[i + 192] * 0.05]; });
 
-// shared pieces ---------------------------------------------------------------------------------------------------------------
-function backdrop(g, W, H, t, base, rgb, rgb2) {
-  g.fillStyle = base; g.fillRect(0, 0, W, H);
-  for (const [x, y, r, col, a] of [[W * (0.22 + 0.06 * Math.cos(t * T)), H * 0.3, W * 0.42, rgb, 0.42], [W * (0.82 - 0.05 * Math.sin(t * T)), H * 0.8, W * 0.38, rgb2, 0.3]]) { const rg = g.createRadialGradient(x, y, 0, x, y, r); rg.addColorStop(0, `rgba(${col},${a})`); rg.addColorStop(1, `rgba(${col},0)`); g.fillStyle = rg; g.fillRect(0, 0, W, H); }
+// DARK STUDIO LOOK -------------------------------------------------------------------------------------------------------------
+// Everything is lit like a product shot: near-black room, slow out-of-focus lights, film grain, a vignette, a wet floor that
+// reflects the subject. Subjects are brushed-metal 3D glyphs (extruded, slanted, iridescent) with a light bar sweeping across.
+const NOISE = (() => { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'), d = g.createImageData(256, 256); for (let i = 0; i < d.data.length; i += 4) { const v = Math.random() * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; } g.putImageData(d, 0, 0); return c; })();
+function studio(g, W, H, t, lights) {
+  const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#05060a'); bg.addColorStop(0.62, '#0a0c12'); bg.addColorStop(1, '#020203'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  lights.forEach(([rgb, a], i) => { const x = W * (0.12 + 0.76 * seed[i * 7 + 3]) + Math.sin(t * T + i * 1.7) * W * 0.05, y = H * (0.15 + 0.6 * seed[i * 7 + 5]) + Math.cos(t * T + i) * H * 0.05, r = Math.min(W, H) * (0.22 + 0.3 * seed[i * 7 + 1]);
+    const rg = g.createRadialGradient(x, y, 0, x, y, r); rg.addColorStop(0, `rgba(${rgb},${a})`); rg.addColorStop(0.55, `rgba(${rgb},${a * 0.35})`); rg.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = rg; g.fillRect(0, 0, W, H); });
+  for (let i = 0; i < 26; i++) { const x = seed[i + 40] * W, y = seed[i + 80] * H * 0.9, r = 3 + seed[i + 120] * 14, a = 0.05 + 0.1 * Math.abs(Math.sin((t + seed[i]) * T)); g.fillStyle = `rgba(${lights[i % lights.length][0]},${a})`; g.beginPath(); g.arc(x + Math.sin(t * T + i) * 12, y, r, 0, T); g.fill(); }   // bokeh
 }
-function rays(g, x, y, len, t, rgb, n = 14, a = 0.16) { g.save(); g.translate(x, y); g.rotate(t * T / n); for (let i = 0; i < n; i++) { g.rotate(T / n); const gr = g.createLinearGradient(0, 0, len, 0); gr.addColorStop(0, `rgba(${rgb},${a})`); gr.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = gr; g.beginPath(); g.moveTo(0, 0); g.lineTo(len, -len * 0.04); g.lineTo(len, len * 0.04); g.closePath(); g.fill(); } g.restore(); }
-function floor(g, W, H, t, rgb) { const hz = H * 0.66; g.strokeStyle = `rgba(${rgb},.22)`; g.lineWidth = 1.2; for (let i = 0; i < 9; i++) { const y = hz + ((i + t * 2) % 9) ** 2 * (H / 217); g.globalAlpha = Math.min(1, (y - hz) / 70); g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); } g.globalAlpha = 1; for (let i = -14; i <= 14; i++) { g.beginPath(); g.moveTo(W / 2 + i * 34, hz); g.lineTo(W / 2 + i * 190, H); g.stroke(); } }
-function sparks(g, W, H, t, rgb, rgb2, n = 90) { for (let i = 0; i < n; i++) { const x = (seed[i] * W + t * 60 * (1 + (i % 3))) % W, y = H - ((seed[i + 90] + t * (1 + (i % 2))) % 1) * H; g.fillStyle = `rgba(${i % 4 ? rgb : rgb2},${0.25 + 0.6 * Math.abs(Math.sin((t * 2 + seed[i]) * T))})`; g.beginPath(); g.arc(x, y, 1 + seed[i + 180] * 2, 0, T); g.fill(); } }
-// the DNA helix: z = which strand is in front (draw `front` false first, then the subject, then `front` true)
-function helix(g, cx, y0, y1, amp, t, rgb, rgb2, front, turns = 2.2, n = 22) { for (let i = 0; i < n; i++) { const k = i / (n - 1), y = y0 + (y1 - y0) * k, ph = t * T * 2 + k * T * turns, z = Math.cos(ph), x = cx + Math.sin(ph) * amp, x2 = cx - Math.sin(ph) * amp;
-  if (!front) { g.strokeStyle = `rgba(${rgb},.28)`; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y); g.lineTo(x2, y); g.stroke(); }
-  if ((z >= 0) === front) { g.fillStyle = `rgba(${rgb},${0.65 + 0.35 * Math.abs(z)})`; g.beginPath(); g.arc(x, y, amp * 0.1 + amp * 0.05 * z, 0, T); g.fill(); }
-  if ((z < 0) === front) { g.fillStyle = `rgba(${rgb2},${0.65 + 0.35 * Math.abs(z)})`; g.beginPath(); g.arc(x2, y, amp * 0.1 - amp * 0.05 * z, 0, T); g.fill(); } } }
-function brackets(g, W, H, rgb) { g.strokeStyle = `rgba(${rgb},.5)`; g.lineWidth = 3; g.lineCap = 'round'; for (const [x, y, dx, dy] of [[26, 26, 1, 1], [W - 26, 26, -1, 1], [26, H - 26, 1, -1], [W - 26, H - 26, -1, -1]]) { g.beginPath(); g.moveTo(x + 34 * dx, y); g.lineTo(x, y); g.lineTo(x, y + 34 * dy); g.stroke(); } }
-function candleRun(g, t, acc) { const cw = 13, x0 = 640, ch = 250, y0 = 96, shift = t * 64; for (let k = 0; k < 64; k++) { const i = (k + Math.floor(shift)) % 64, [o, c, hi, lo] = candles[i], x = x0 + (k - (shift % 1)) * cw, up = c >= o, Y = v => y0 + ch * (1 - v); g.globalAlpha = 0.85 * Math.max(0, Math.min(1, k / 8, (63 - k) / 8)); g.strokeStyle = g.fillStyle = up ? acc : '#ff8fa3'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(x + 4, Y(hi)); g.lineTo(x + 4, Y(lo)); g.stroke(); g.fillRect(x, Math.min(Y(o), Y(c)), 8, Math.max(2, Math.abs(Y(o) - Y(c)))); } g.globalAlpha = 1; }
-function titles(g, t, acc, title, l1, l2, x = 356) { g.shadowColor = acc; g.shadowBlur = 26; g.fillStyle = '#fff'; g.font = `400 ${title.length > 9 ? 92 : 118}px "Bungee", sans-serif`; g.fillText(title, x, 252); g.shadowBlur = 0;
-  g.fillStyle = acc; g.font = '700 30px "JetBrains Mono", monospace'; g.fillText(l1, x + 6, 304); g.fillStyle = 'rgba(255,255,255,.82)'; g.font = '500 22px "JetBrains Mono", monospace'; g.fillText(l2, x + 6, 344);
-  g.fillStyle = acc; g.beginPath(); g.arc(x + 16, 386, 6 + 2 * Math.sin(t * T * 4), 0, T); g.fill(); g.fillStyle = 'rgba(255,255,255,.7)'; g.font = '700 16px "JetBrains Mono", monospace'; g.fillText('LIVE', x + 32, 392); }
-function mark(g, im, t, acc, x = 96, y = 110, s = 240, round = false) { const p = 1 + 0.04 * Math.sin(t * T * 2); if (!(im.complete && im.naturalWidth)) return; g.save(); g.shadowColor = acc; g.shadowBlur = 50 + 20 * Math.sin(t * T * 2);
-  if (round) { const cx = x + s / 2, cy = y + s / 2, r = s * p / 2; g.fillStyle = '#04100a'; g.beginPath(); g.arc(cx, cy, r, 0, T); g.fill(); g.shadowBlur = 0; g.lineWidth = 5; g.strokeStyle = acc; g.stroke(); g.beginPath(); g.arc(cx, cy, r - 3, 0, T); g.clip(); }   /* a mark with its own square background sits in a medallion */
-  g.drawImage(im, x - s * (p - 1) / 2, y - s * (p - 1) / 2, s * p, s * p); g.restore(); }
+function grainVignette(g, W, H, t) { g.save(); g.globalAlpha = 0.07; g.globalCompositeOperation = 'overlay'; const ox = Math.floor(t * 40) * 37 % 256, oy = Math.floor(t * 40) * 91 % 256; for (let y = -oy; y < H; y += 256) for (let x = -ox; x < W; x += 256) g.drawImage(NOISE, x, y); g.restore();
+  const v = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.72); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.82)'); g.fillStyle = v; g.fillRect(0, 0, W, H); }
+// a brushed-metal 3D glyph: `polys` = flat shapes (already slanted), cols = [deep, mid, hot] of the iridescent face
+function metal(g, polys, t, cols, depth = 16, scale = 1) {
+  const path = (ox, oy) => { g.beginPath(); polys.forEach(p => { p.forEach(([x, y], i) => g[i ? 'lineTo' : 'moveTo'](x * scale + ox, y * scale + oy)); g.closePath(); }); };
+  const yaw = Math.sin(t * T) * 0.5, dx = (0.9 + yaw) * scale, dy = 1.15 * scale;                       // the side walls swing with the light
+  g.save(); g.shadowColor = 'rgba(0,0,0,.85)'; g.shadowBlur = 40 * scale; g.shadowOffsetY = 26 * scale; g.fillStyle = '#000'; path(dx * depth, dy * depth); g.fill(); g.restore();
+  for (let l = depth; l >= 1; l--) { const k = l / depth; g.fillStyle = `rgb(${Math.round(8 + 18 * (1 - k))},${Math.round(10 + 22 * (1 - k))},${Math.round(16 + 34 * (1 - k))})`; path(dx * l, dy * l); g.fill(); }
+  const b = polys.flat(); const x0 = Math.min(...b.map(q => q[0])) * scale, x1 = Math.max(...b.map(q => q[0])) * scale, y0 = Math.min(...b.map(q => q[1])) * scale, y1 = Math.max(...b.map(q => q[1])) * scale;
+  const sh = (t * 2) % 1; const face = g.createLinearGradient(x0, y1, x1, y0); const hot = 0.72 + 0.2 * Math.sin(t * T);   // the hot tip breathes along the edge
+  face.addColorStop(0, cols[0]); face.addColorStop(0.38, cols[1]); face.addColorStop(Math.min(0.97, hot), cols[1]); face.addColorStop(1, cols[2]); g.fillStyle = face; path(0, 0); g.fill();
+  g.save(); path(0, 0); g.clip();
+  g.globalAlpha = 0.3; g.globalCompositeOperation = 'overlay'; for (let y = y0 - 256; y < y1 + 256; y += 256) for (let x = x0 - 256; x < x1 + 256; x += 256) g.drawImage(NOISE, x, y); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';   // brushed grain
+  const sx = x0 - 160 * scale + sh * (x1 - x0 + 320 * scale); const gl = g.createLinearGradient(sx, y0, sx + 110 * scale, y1); gl.addColorStop(0, 'rgba(255,255,255,0)'); gl.addColorStop(0.5, 'rgba(255,255,255,.55)'); gl.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gl; g.fillRect(x0 - 200, y0 - 200, x1 - x0 + 400, y1 - y0 + 400);   // light bar
+  const dk = g.createLinearGradient(0, y0, 0, y1); dk.addColorStop(0, 'rgba(255,255,255,.16)'); dk.addColorStop(0.5, 'rgba(0,0,0,0)'); dk.addColorStop(1, 'rgba(0,0,0,.45)'); g.fillStyle = dk; g.fillRect(x0 - 200, y0 - 200, x1 - x0 + 400, y1 - y0 + 400);
+  g.restore();
+  g.lineJoin = 'round'; g.lineWidth = 1.6 * scale; g.strokeStyle = 'rgba(255,255,255,.5)'; path(-0.8 * scale, -0.8 * scale); g.stroke(); g.lineWidth = 1 * scale; g.strokeStyle = 'rgba(0,0,0,.6)'; path(0, 0); g.stroke();
+}
+// the subject + its reflection on the wet floor
+function onFloor(g, cx, cy, floorY, t, drawSubject) { const bob = Math.sin(t * T) * 6;
+  g.save(); g.translate(cx, floorY * 2 - cy - bob + 30); g.scale(1, -1); g.globalAlpha = 0.22; drawSubject(); g.restore();
+  const fade = g.createLinearGradient(0, floorY, 0, floorY + 220); fade.addColorStop(0, 'rgba(3,3,5,.35)'); fade.addColorStop(1, 'rgba(3,3,5,1)'); g.fillStyle = fade; g.fillRect(cx - 420, floorY, 840, 240);
+  g.save(); g.translate(cx, cy + bob); drawSubject(); g.restore(); }
+function dnaBeads(g, cx, y0, y1, amp, t, c1, c2, front, n = 13, turns = 1.5) { for (let i = 0; i < n; i++) { const k = i / (n - 1), y = y0 + (y1 - y0) * k, ph = t * T * 2 + k * T * turns, z = Math.cos(ph);
+  for (const [sgn, col, zz] of [[1, c1, z], [-1, c2, -z]]) { if ((zz >= 0) !== front) continue; const x = cx + sgn * Math.sin(ph) * amp, r = amp * (0.06 + 0.022 * zz); const rg = g.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r); rg.addColorStop(0, '#fff'); rg.addColorStop(0.3, col); rg.addColorStop(1, '#05060a'); g.fillStyle = rg; g.globalAlpha = 0.55 + 0.45 * Math.abs(zz); g.beginPath(); g.arc(x, y, r, 0, T); g.fill(); }
+  if (!front) { g.globalAlpha = 0.22; g.strokeStyle = '#8a93a8'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(cx + Math.sin(ph) * amp, y); g.lineTo(cx - Math.sin(ph) * amp, y); g.stroke(); } } g.globalAlpha = 1; }
+// glyphs (flat, already slanted like the reference mark)
+const RESERVE = [[[-58, -92], [150, -92], [128, -34], [-14, -34], [-22, -12], [-90, -12]], [[-96, 12], [-28, 12], [-36, 34], [112, 34], [86, 104], [-132, 104]]];
+const FUSE_F = [[[-66, -112], [150, -112], [130, -60], [-86, -60]], [[-94, -38], [78, -38], [58, 14], [-114, 14]], [[-122, 36], [-46, 36], [-76, 116], [-152, 116]]];
+const C_RES = ['#0a2a8a', '#1fa8ff', '#ff2a3c'], C_FUSE = ['#3a0f8a', '#9a6bff', '#1fffa0'], C_FEE = ['#063d22', '#19d874', '#eafff4'];
+// the cat mark as metal: the PNG's black falls away (lighter), a moving tint gives it a lit edge
+const catBuf = document.createElement('canvas'); catBuf.width = catBuf.height = 512;
+function metalCat(g, t, size, tintA, tintB) { if (!(CAT.complete && CAT.naturalWidth)) return; const c = catBuf.getContext('2d'); c.globalCompositeOperation = 'source-over'; c.clearRect(0, 0, 512, 512); c.filter = 'grayscale(1) brightness(1.5) contrast(1.25)'; c.drawImage(CAT, 0, 0, 512, 512); c.filter = 'none';
+  c.globalCompositeOperation = 'multiply'; const gr = c.createLinearGradient(0, 512, 512, 0); const k = 0.5 + 0.3 * Math.sin(t * T); gr.addColorStop(0, tintA); gr.addColorStop(k, tintB); gr.addColorStop(1, '#ffffff'); c.fillStyle = gr; c.fillRect(0, 0, 512, 512);
+  c.globalCompositeOperation = 'lighter'; const sx = -200 + ((t * 2) % 1) * 900; const gl = c.createLinearGradient(sx, 0, sx + 140, 512); gl.addColorStop(0, 'rgba(255,255,255,0)'); gl.addColorStop(0.5, 'rgba(255,255,255,.16)'); gl.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = gl; c.fillRect(0, 0, 512, 512);
+  c.globalCompositeOperation = 'multiply'; c.filter = 'grayscale(1) brightness(1.5) contrast(1.6)'; c.drawImage(CAT, 0, 0, 512, 512); c.filter = 'none';   // keep the black of the mark black
+  g.save(); g.globalCompositeOperation = 'lighter'; g.drawImage(catBuf, -size / 2, -size / 2, size, size); g.restore(); }
+function words(g, t, x, title, sub, line, col) { g.textBaseline = 'alphabetic'; const tg = g.createLinearGradient(x, 150, x, 262); tg.addColorStop(0, '#ffffff'); tg.addColorStop(0.55, '#c9d2e3'); tg.addColorStop(1, '#6f7a92'); g.fillStyle = tg; g.shadowColor = 'rgba(0,0,0,.9)'; g.shadowBlur = 18; g.shadowOffsetY = 8;
+  g.font = `400 ${title.length > 8 ? 88 : 112}px "Bungee", sans-serif`; g.fillText(title, x, 250); g.shadowBlur = 0; g.shadowOffsetY = 0;
+  g.fillStyle = col; g.font = '700 28px "JetBrains Mono", monospace'; g.fillText(sub, x + 4, 302); g.fillStyle = 'rgba(214,222,238,.72)'; g.font = '500 20px "JetBrains Mono", monospace'; g.fillText(line, x + 4, 340);
+  g.fillStyle = col; g.beginPath(); g.arc(x + 12, 382, 5 + 2 * Math.sin(t * T * 4), 0, T); g.fill(); g.fillStyle = 'rgba(214,222,238,.7)'; g.font = '700 15px "JetBrains Mono", monospace'; g.fillText('LIVE', x + 26, 387); }
+function candleRun(g, t, acc, x0 = 700, y0 = 110, ch = 230) { const cw = 12, shift = t * 64; for (let k = 0; k < 62; k++) { const i = (k + Math.floor(shift)) % 64, [o, c, hi, lo] = candles[i], x = x0 + (k - (shift % 1)) * cw, up = c >= o, Y = v => y0 + ch * (1 - v); g.globalAlpha = 0.5 * Math.max(0, Math.min(1, k / 8, (61 - k) / 8)); g.strokeStyle = g.fillStyle = up ? acc : '#ff4d63'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x + 3.5, Y(hi)); g.lineTo(x + 3.5, Y(lo)); g.stroke(); g.fillRect(x, Math.min(Y(o), Y(c)), 7, Math.max(2, Math.abs(Y(o) - Y(c)))); } g.globalAlpha = 1; }
 
 // covers ---------------------------------------------------------------------------------------------------------------------
-const W = 1500, H = 500;
+const W = 1500, H = 500, FL = 392;
+const cover = (lights, subject, acc, title, sub, line, extra) => (g, t) => { studio(g, W, H, t, lights); if (extra) extra(g, t); const kl = g.createRadialGradient(250, 210, 0, 250, 210, 360); kl.addColorStop(0, `rgba(${lights[0][0]},.34)`); kl.addColorStop(1, `rgba(${lights[0][0]},0)`); g.fillStyle = kl; g.fillRect(0, 0, 640, H);   /* key light behind the mark */
+  onFloor(g, 250, 212, FL, t, () => { g.scale(1.32, 1.32); subject(g, t); }); words(g, t, 520, title, sub, line, acc); grainVignette(g, W, H, t); };
 const COVERS = [
-  ['feeless', 'FEELESS', (g, t) => { const a = '#15d16a', r = '21,209,106', r2 = '160,110,255'; backdrop(g, W, H, t, '#020d08', r, r2); rays(g, W * 0.2, H * 0.5, 900, t, r); floor(g, W, H, t, r); candleRun(g, t, a); sparks(g, W, H, t, r, r2);
-    helix(g, 1270, 70, 430, 46, t, r, r2, false); helix(g, 1270, 70, 430, 46, t, r, r2, true); mark(g, MARK, t, a); titles(g, t, a, 'FEELESS', 'LESS NOISE. MORE ALPHA.', 'MANY COINS, ONE FUSE  ·  NON-CUSTODIAL  ·  SOLANA'); brackets(g, W, H, r); }],
-  ['feecat', 'FEECAT', (g, t) => { const a = '#ffb347', r = '255,160,60', r2 = '21,209,106'; backdrop(g, W, H, t, '#100803', r, r2); rays(g, W * 0.2, H * 0.5, 900, t, r, 12, 0.14); floor(g, W, H, t, r); candleRun(g, t, '#45e486'); sparks(g, W, H, t, r, r2, 60);
-    for (let i = 0; i < 9; i++) { const ph = (t * 1.5 + i / 9) % 1, px = 420 + ph * 1100, py = 440 + (i % 2 ? -16 : 12); g.globalAlpha = 0.5 * Math.sin(ph * Math.PI); g.fillStyle = a; g.beginPath(); g.ellipse(px, py, 11, 9, 0, 0, T); g.fill(); for (const [dx, dy] of [[-11, -13], [-4, -18], [5, -18], [12, -13]]) { g.beginPath(); g.arc(px + dx, py + dy, 4, 0, T); g.fill(); } } g.globalAlpha = 1;
-    mark(g, CAT, t, a, 70, 100, 260, true); titles(g, t, a, 'FEECAT', 'NINE LIVES. ONE RULE: TRADE LESS, WIN MORE.', 'THE FEELESS TRADING CAT  ·  LEARNS FROM EVERY EXIT'); brackets(g, W, H, r); }],
-  ['reserve', 'FEE RESERVE', (g, t) => { const a = '#f5c451', r = '245,196,81', r2 = '21,209,106'; backdrop(g, W, H, t, '#0f0a02', r, r2); rays(g, W * 0.2, H * 0.5, 950, t, r, 16, 0.2); floor(g, W, H, t, r); sparks(g, W, H, t, r, r2, 70);
-    for (let i = 0; i < 26; i++) { const x = 700 + seed[i] * 760, y = ((seed[i + 26] + t * (1 + seed[i] * 0.6)) % 1) * (H + 60) - 30, w = 16 * Math.abs(Math.cos((t * 3 + seed[i]) * T)); g.fillStyle = `rgba(${r},.8)`; g.beginPath(); g.ellipse(x, y, Math.max(2, w), 16, 0, 0, T); g.fill(); g.strokeStyle = 'rgba(255,240,200,.5)'; g.lineWidth = 1; g.stroke(); }
-    g.save(); g.translate(1230, 250); g.rotate(t * T / 4); g.strokeStyle = `rgba(${r},.55)`; g.lineWidth = 6; g.beginPath(); g.arc(0, 0, 150, 0, T); g.stroke(); for (let i = 0; i < 8; i++) { g.rotate(T / 8); g.beginPath(); g.moveTo(96, 0); g.lineTo(150, 0); g.stroke(); } g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 96, 0, T); g.stroke(); g.restore();
-    mark(g, MARK, t, a); titles(g, t, a, 'FEE RESERVE', 'HOLD $FEE. UNLOCK THE ROOM.', 'HOLDER PERKS  ·  FEE-BACK  ·  RESERVE BADGES'); brackets(g, W, H, r); }],
-  ['fuse', 'FUSE', (g, t) => { const a = '#b98cff', r = '160,110,255', r2 = '21,209,106'; backdrop(g, W, H, t, '#07030f', r, r2); rays(g, W * 0.2, H * 0.5, 900, t, r); floor(g, W, H, t, r); candleRun(g, t, '#45e486'); sparks(g, W, H, t, r, r2);
-    for (const cx of [1150, 1320]) { helix(g, cx, 50, 450, 60, t + (cx > 1200 ? 0.25 : 0), r2, r, false, 2.6, 26); helix(g, cx, 50, 450, 60, t + (cx > 1200 ? 0.25 : 0), r2, r, true, 2.6, 26); }
-    g.save(); g.translate(216, 230); for (let i = 0; i < 3; i++) { g.save(); g.rotate(i * T / 6 + t * T / 3); g.strokeStyle = `rgba(${i % 2 ? r2 : r},.85)`; g.lineWidth = 5; g.shadowColor = a; g.shadowBlur = 18; g.beginPath(); g.ellipse(0, 0, 118, 44, 0, 0, T); g.stroke(); const e = t * T * 2 + i * 2; g.fillStyle = '#fff'; g.beginPath(); g.arc(Math.cos(e) * 118, Math.sin(e) * 44, 8, 0, T); g.fill(); g.restore(); } g.fillStyle = '#45e486'; g.shadowColor = '#15d16a'; g.shadowBlur = 30; g.beginPath(); g.arc(0, 0, 22 + 3 * Math.sin(t * T * 4), 0, T); g.fill(); g.restore();
-    titles(g, t, a, 'FUSE', 'MANY COINS, ONE FUSE.', 'CARDS THAT LOCK WINNERS  ·  EVERY SWAP ON-CHAIN'); brackets(g, W, H, r); }],
+  ['feeless', 'FEELESS', cover([['21,209,106', 0.3], ['40,90,255', 0.18], ['255,255,255', 0.06]], (g, t) => { if (MARK.complete && MARK.naturalWidth) { g.save(); g.shadowColor = '#15d16a'; g.shadowBlur = 40; g.drawImage(MARK, -130, -130, 260, 260); g.restore(); } }, '#19d874', 'FEELESS', 'LESS NOISE. MORE ALPHA.', 'NON-CUSTODIAL TRADING TERMINAL  ·  SOLANA', (g, t) => candleRun(g, t, '#19d874', 930, 70, 250))],
+  ['feecat', 'FEECAT', cover([['255,150,40', 0.26], ['21,209,106', 0.16], ['255,255,255', 0.05]], (g, t) => metalCat(g, t, 300, '#5a2c00', '#ffb347'), '#ffb347', 'FEECAT', 'NINE LIVES. TRADES LESS, WINS MORE.', 'THE FEELESS TRADING CAT  ·  LEARNS FROM EVERY EXIT', (g, t) => candleRun(g, t, '#ffb347', 930, 70, 250))],
+  ['reserve', 'FEE RESERVE', cover([['31,168,255', 0.3], ['255,42,60', 0.2], ['140,90,255', 0.14]], (g, t) => metal(g, RESERVE, t, C_RES, 18, 1.15), '#1fa8ff', 'FEE RESERVE', 'HOLD $FEE. UNLOCK THE ROOM.', 'HOLDER ROOMS  ·  FEE-BACK  ·  RESERVE BADGES')],
+  ['fuse', 'FUSE', cover([['154,107,255', 0.3], ['31,255,160', 0.18], ['60,160,255', 0.12]], (g, t) => { dnaBeads(g, 10, -190, 190, 150, t, '#9a6bff', '#1fffa0', false); metal(g, FUSE_F, t, C_FUSE, 18, 1.05); dnaBeads(g, 10, -190, 190, 150, t, '#9a6bff', '#1fffa0', true); }, '#9a6bff', 'FUSE', 'MANY COINS, ONE FUSE.', 'CARDS THAT LOCK WINNERS  ·  EVERY SWAP ON-CHAIN', (g, t) => candleRun(g, t, '#1fffa0', 930, 70, 250))],
 ];
 
-// logos ----------------------------------------------------------------------------------------------------------------------
+// profile pictures / logos ----------------------------------------------------------------------------------------------------
 const S = 512;
-function fuseSpin(g, t) { const r = '160,110,255', r2 = '21,209,106'; backdrop(g, S, S, t, '#07030f', r, r2); rays(g, S / 2, S / 2, 420, t, r, 12, 0.14); sparks(g, S, S, t, r, r2, 50);
-  const a = t * T, sx = Math.cos(a), back = sx < 0; g.save(); g.translate(S / 2, S / 2);
-  g.save(); g.scale(Math.max(0.04, Math.abs(sx)), 1);                                       // the coin, spinning on its upright axis
-  const gr = g.createLinearGradient(-170, -170, 170, 170); gr.addColorStop(0, back ? '#0e2a1c' : '#2a1650'); gr.addColorStop(1, '#070310'); g.fillStyle = gr; g.shadowColor = back ? '#15d16a' : '#b98cff'; g.shadowBlur = 40; g.beginPath(); g.arc(0, 0, 170, 0, T); g.fill(); g.shadowBlur = 0;
-  g.lineWidth = 10; const ed = g.createLinearGradient(-170, 0, 170, 0); ed.addColorStop(0, '#15d16a'); ed.addColorStop(0.5, '#fff'); ed.addColorStop(1, '#a06eff'); g.strokeStyle = ed; g.stroke(); g.lineWidth = 2; g.strokeStyle = 'rgba(255,255,255,.25)'; g.beginPath(); g.arc(0, 0, 150, 0, T); g.stroke();
-  if (back) { helix(g, 0, -120, 120, 46, t, r2, r, false, 2, 16); helix(g, 0, -120, 120, 46, t, r2, r, true, 2, 16); }
-  else { for (let i = 0; i < 3; i++) { g.save(); g.rotate(i * T / 6); g.strokeStyle = `rgba(${i % 2 ? r2 : r},.9)`; g.lineWidth = 5; g.beginPath(); g.ellipse(0, -18, 104, 38, 0, 0, T); g.stroke(); g.restore(); } g.fillStyle = '#45e486'; g.beginPath(); g.arc(0, -18, 16, 0, T); g.fill();
-    g.fillStyle = '#fff'; g.font = '400 50px "Bungee", sans-serif'; g.textAlign = 'center'; g.shadowColor = '#b98cff'; g.shadowBlur = 16; g.fillText('FUSE', 0, 112); g.shadowBlur = 0; g.textAlign = 'left'; }
-  g.restore();
-  for (let i = 0; i < 10; i++) { const e = t * T * 2 + i * T / 10; g.fillStyle = `rgba(${i % 2 ? r : r2},.9)`; g.beginPath(); g.arc(Math.cos(e) * 214, Math.sin(e) * 62, 4 + 2 * Math.sin(e), 0, T); g.fill(); }   // an orbit ring around the coin
-  g.restore(); }
-const F = [[-78, -128], [96, -128], [96, -72], [-18, -72], [-18, -22], [66, -22], [66, 30], [-18, 30], [-18, 128], [-78, 128]];   // a block F
-function clanF(g, t) { const r = '21,209,106', r2 = '160,110,255'; backdrop(g, S, S, t, '#020a06', r, r2); rays(g, S / 2, S / 2, 440, t, r, 16, 0.16); sparks(g, S, S, t, r, r2, 50);
-  g.save(); g.translate(S / 2, S / 2 - 10);
-  const hex = (rad, rot) => { g.beginPath(); for (let i = 0; i < 6; i++) { const a = rot + i * T / 6; g[i ? 'lineTo' : 'moveTo'](Math.cos(a) * rad, Math.sin(a) * rad); } g.closePath(); };
-  const sh = g.createLinearGradient(0, -210, 0, 210); sh.addColorStop(0, '#0f2a1d'); sh.addColorStop(1, '#040807'); g.fillStyle = sh; g.shadowColor = '#15d16a'; g.shadowBlur = 36 + 12 * Math.sin(t * T * 2); hex(204, T / 12); g.fill(); g.shadowBlur = 0;   // the clan shield
-  g.lineWidth = 8; const eg = g.createLinearGradient(-200, -200, 200, 200); eg.addColorStop(0, '#45e486'); eg.addColorStop(0.5, '#eafff4'); eg.addColorStop(1, '#0b7a4a'); g.strokeStyle = eg; g.stroke(); g.lineWidth = 2; g.strokeStyle = 'rgba(69,228,134,.45)'; hex(182, T / 12); g.stroke();
-  for (const s of [-1, 1]) for (let i = 0; i < 3; i++) { g.fillStyle = `rgba(${r},${0.55 - i * 0.15})`; g.beginPath(); g.moveTo(s * (150 + i * 16), 40 + i * 20); g.lineTo(s * (236 + i * 10), -8 + i * 22); g.lineTo(s * (158 + i * 16), 72 + i * 20); g.closePath(); g.fill(); }   // wings
-  helix(g, 0, -170, 170, 96, t, r, r2, false, 1.6, 20);                                    // DNA behind the letter …
-  const yaw = Math.sin(t * T) * 0.6, dx = Math.sin(yaw) * 4.2, sq = Math.cos(yaw * 0.9);     // the 3D F: extruded layers that turn with the yaw
-  const path = (ox, oy) => { g.beginPath(); F.forEach(([x, y], i) => g[i ? 'lineTo' : 'moveTo'](x * sq + ox, y + oy)); g.closePath(); };
-  for (let l = 13; l >= 1; l--) { g.fillStyle = `rgb(${6 + l}, ${52 + l * 4}, ${30 + l * 2})`; path(-dx * l, l * 1.6); g.fill(); }
-  const face = g.createLinearGradient(-80, -130, 90, 130); face.addColorStop(0, '#eafff4'); face.addColorStop(0.35, '#45e486'); face.addColorStop(1, '#0b7a4a'); g.fillStyle = face; g.shadowColor = '#15d16a'; g.shadowBlur = 22; path(0, 0); g.fill(); g.shadowBlur = 0;
-  g.save(); path(0, 0); g.clip(); const sx = -260 + ((t * 2) % 1) * 520; const gl = g.createLinearGradient(sx, 0, sx + 90, 60); gl.addColorStop(0, 'rgba(255,255,255,0)'); gl.addColorStop(0.5, 'rgba(255,255,255,.75)'); gl.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gl; g.fillRect(-200, -200, 400, 400); g.restore();   // chrome sweep
-  g.lineWidth = 3; g.strokeStyle = '#04140b'; path(0, 0); g.stroke(); g.lineWidth = 1.5; g.strokeStyle = 'rgba(255,255,255,.6)'; path(-1.5, -1.5); g.stroke();
-  helix(g, 0, -170, 170, 96, t, r, r2, true, 1.6, 20);                                     // … and in front of it
-  g.fillStyle = '#04140b'; g.strokeStyle = '#45e486'; g.lineWidth = 2; g.beginPath(); g.roundRect(-118, 150, 236, 44, 8); g.fill(); g.stroke();   // ribbon
-  g.fillStyle = '#eafff4'; g.font = '400 26px "Bungee", sans-serif'; g.textAlign = 'center'; g.fillText('FEELESS', 0, 181); g.textAlign = 'left';
-  for (let i = -2; i <= 2; i++) { g.fillStyle = i ? 'rgba(69,228,134,.7)' : '#f5c451'; g.font = `${i ? 16 : 22}px sans-serif`; g.textAlign = 'center'; g.fillText('★', i * 34, -162 + Math.abs(i) * 8); g.textAlign = 'left'; }
-  g.restore(); }
-const LOGOS = [['fuse-spin', 'Fuse — spinning coin', fuseSpin], ['clan-f', '3D clan F with DNA', clanF]];
+const pfp = (lights, subject) => (g, t) => { studio(g, S, S, t, lights); onFloor(g, S / 2 - 6, S / 2 - 26, 398, t, () => subject(g, t)); grainVignette(g, S, S, t); };
+const LOGOS = [
+  ['reserve-pfp', 'Fee Reserve — profile picture', pfp([['31,168,255', 0.34], ['255,42,60', 0.24], ['140,90,255', 0.16]], (g, t) => metal(g, RESERVE, t, C_RES, 20, 1.25))],
+  ['fuse-pfp', 'Fuse — chrome F with DNA', pfp([['154,107,255', 0.34], ['31,255,160', 0.2], ['60,160,255', 0.14]], (g, t) => { dnaBeads(g, 6, -200, 200, 170, t, '#9a6bff', '#1fffa0', false); metal(g, FUSE_F, t, C_FUSE, 20, 1.12); dnaBeads(g, 6, -200, 200, 170, t, '#9a6bff', '#1fffa0', true); })],
+  ['feeless-f', 'FEELESS — clan F with DNA', pfp([['21,209,106', 0.34], ['40,90,255', 0.18], ['255,255,255', 0.07]], (g, t) => { dnaBeads(g, 6, -200, 200, 170, t, '#19d874', '#8ea0ff', false); metal(g, FUSE_F, t, C_FEE, 22, 1.12); dnaBeads(g, 6, -200, 200, 170, t, '#19d874', '#8ea0ff', true); })],
+  ['feecat-pfp', 'FeeCat — profile picture', pfp([['255,150,40', 0.3], ['21,209,106', 0.16], ['255,255,255', 0.05]], (g, t) => metalCat(g, t, 360, '#5a2c00', '#ffb347'))],
+  ['fuse-spin', 'Fuse — spinning F', (g, t) => { studio(g, S, S, t, [['154,107,255', 0.34], ['31,255,160', 0.2], ['60,160,255', 0.14]]); const sx = Math.cos(t * T); onFloor(g, S / 2 - 6, S / 2 - 26, 398, 0, () => { g.scale(Math.max(0.06, Math.abs(sx)) * (sx < 0 ? -1 : 1), 1); metal(g, FUSE_F, t, C_FUSE, Math.round(6 + 14 * Math.abs(sx)), 1.12); }); dnaBeads(g, S / 2, 40, 470, 200, t, '#9a6bff', '#1fffa0', true, 12, 1.3); grainVignette(g, S, S, t); }],
+];
 
 // page ------------------------------------------------------------------------------------------------------------------------
 const save = (blob, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
