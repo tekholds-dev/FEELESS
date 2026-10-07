@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChartBg } from './ChartBg';
 import { useChartBg } from '../../lib/chartBg';
+import { ChartToolsMenu, useToolDraw } from './ChartTools';
+import { toolRead, useChartTools } from '../../lib/chartTools';
 import { createChart, createSeriesMarkers, CandlestickSeries, HistogramSeries, LineSeries, ColorType } from 'lightweight-charts';
 import { useMarket } from '../../hooks/useMarket';
 import { dexUrl, formatUSD } from '../../lib/dexscreener';
@@ -34,6 +36,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   }, [pair?.chainId, pair?.baseToken?.address, pair?.pairCreatedAt]);
   const container = useRef(null);
   const seriesRef = useRef(null);
+  const chartRef = useRef(null);
   const lastBarRef = useRef(null);
   const markersRef = useRef(null);
   const [livePrice, setLivePrice] = useState(null);
@@ -203,6 +206,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       lastBarRef.current = lineData.length ? { ...lineData[lineData.length - 1] } : null;
       line.priceScale().applyOptions({ scaleMargins: { top: .16, bottom: .16 } });
     }
+    chartRef.current = chart;
     const ts = chart.timeScale();
     const n = sparse ? lineData.length : displayCandles.length || trail.length;
     if (rangeRef.current) ts.setVisibleLogicalRange(rangeRef.current);
@@ -234,7 +238,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       }).catch(() => { st.exhausted = true; }).finally(() => { st.loading = false; });
     };
     ts.subscribeVisibleLogicalRangeChange(onRange);
-    return () => { ts.unsubscribeVisibleLogicalRangeChange(onRange); seriesRef.current = null; markersRef.current = null; chart.remove(); };
+    return () => { ts.unsubscribeVisibleLogicalRangeChange(onRange); seriesRef.current = null; chartRef.current = null; markersRef.current = null; chart.remove(); };
   }, [displayCandles, trail, hasChart, dayMode, showVolume, chartStyle, bgOn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Meta overlays (Trenches calls, Fee's trades) snapped to the candle they happened in.
@@ -316,6 +320,11 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     }
     return drop;
   }, [userEntry, tradeKey, charting, ratio, displayCandles, fuse?.entry, fuse?.stop, fuse?.lock, fuse?.trail]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 🧰 chart tools (FVG · magnets · gun line · germ · meta edge): read from the candles on screen, drawn on every chart
+  const toolsOn = useChartTools();
+  const toolsRead = useMemo(() => (charting && toolsOn.length ? toolRead(displayCandles, toolsOn) : null), [charting, toolsOn, displayCandles]);
+  useToolDraw(seriesRef, chartRef, container, toolsRead, [dayMode, showVolume, chartStyle, bgOn, hasChart]);
 
   // Live ticks: every 3s pull the pair's current price straight from DexScreener and
   // update the forming candle in place (no redraw, zoom preserved).
@@ -399,6 +408,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     {!priceMetric && metricAvailable && !loading && !hasChart && !usingFallbackTrail && <div className="metric-snapshot" data-testid={`chart-${metric}-snapshot`}><span className="metric-snapshot-label">{metricLabel} snapshot</span><strong>{formatUSD(metricValue)}</strong><small>Provider supplied the current {metricLabel.toLowerCase()} only. Historical {metricLabel.toLowerCase()} candles are unavailable.</small></div>}
     {!priceMetric && !metricAvailable && <div className="chart-message metric-unavailable" role="status" data-testid={`chart-${metric}-unavailable`}><strong>{metricLabel} unavailable</strong><span>The provider did not supply a {metricLabel.toLowerCase()} value for this pair. No value is estimated.</span></div>}
     {charting && hasChart && <div className="candle-canvas" ref={container} data-testid="candlestick-canvas" />}
+    {charting && hasChart && displayCandles.length > 0 && <ChartToolsMenu read={toolsRead} />}
     {charting && hasChart && <div className="chart-foot-chips">{createdAt && <span className="chart-age" title={new Date(createdAt).toLocaleString()}>🕒 Created {ageLabel(createdAt)} ago</span>}{feeLiveProp === undefined && <button type="button" className={`chart-fee-toggle ${feeOwn ? 'on' : ''}`} onClick={() => setFeeOwn(v => !v)}>🐱 Fee {feeOwn ? 'on' : 'off'}</button>}</div>}
     {charting && hasChart && displayCandles.length > 0 && <button type="button" className="chart-style-toggle" data-testid="chart-style-toggle" onClick={toggleStyle} title="Switch line / candles">{chartStyle === 'line' || (chartStyle === 'auto' && displayCandles.length < 3) ? '▮ Candles' : '〰 Line'}</button>}
     {feeRead && hasChart && <div className={`fee-live-read stance-${feeRead.stance.replace(/\s/g, '-')} ${feeOpen ? '' : 'min'}`} data-testid="fee-live-read">

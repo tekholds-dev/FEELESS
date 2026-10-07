@@ -1716,3 +1716,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   high — waits for a 5%+ dip"; `flow_tag` ranks it under every dip / trend tag (40 pts). A comeback is exempt; no pull reading =
   not judged; the owner's picks are not judged. Owner: "15% off dips is good, but if it's up wtf" — "at its highs" had been the
   NEXT coin to swap in. Record: 5–15% under the high +26% typical (11 picks), top third of the range about flat.
+- 🧰 CHART TOOLS on EVERY chart (`lib/chartTools.js` pure + tested, `components/terminal/ChartTools.jsx` `ChartToolsMenu` + `useToolDraw`,
+  `styles/chartTools.css` `ctl-*`; the 🧰 button lives INSIDE `PriceChart`, top-left, so the war room, coin drawer, mini chart and
+  mini card all get it; one choice for the site, localStorage `feeless.chartTools`): 🪜 FVG (open 3-candle gaps; shrink as they
+  fill, gone once traded through) · 🧲 Magnets (untaken equal highs / lows, ×N touches) · 🔫 Gun line (nearest swing high overhead =
+  the trigger; above every swing = "fired") · 🦠 Germ (base candle of the biggest run on screen; a close under it = lost) ·
+  ⚡ Meta edge (all four + `edgeRead`: score 0–100, 🟢 EDGE / 🟡 WAIT / 🔴 NO EDGE, one-line plan, reasons on tap). Levels = price
+  lines; gaps + germ also draw soft bands (plain divs appended to the chart container, placed from `priceToCoordinate` /
+  `timeToCoordinate` every 300ms, removed with the chart). Read from the candles on screen, labelled "not advice". The edge
+  score's weights are hand-set, NOT learned from a record yet — never quote it as proven. `PriceChart` now keeps `chartRef`.
