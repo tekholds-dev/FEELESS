@@ -402,3 +402,10 @@ def test_gate_funnel_counts_what_each_gate_stops_and_what_it_stops_alone():
     age = next(g for g in f['gates'] if g['key'] == 'age')
     assert age['kind'] == 'soft' and age['stops'] == 1 and age['only'] == 0                # it fails other soft gates too → not this gate's cost alone
     assert f['gates'][0]['only'] >= f['gates'][-1]['only'] and rn.gate_funnel([])['seen'] == 0
+
+
+def test_safety_fails_names_only_safety_gates_and_fails_closed():
+    import runners as rn
+    labels = [label for key, label, _t in rn.GATES if key not in rn.SOFT_GATES]
+    assert rn.safety_fails({}) == labels or set(rn.safety_fails({})) <= set(labels)     # an empty record passes nothing it can't read
+    assert all(l in labels for l in rn.safety_fails({'scanned': False}))

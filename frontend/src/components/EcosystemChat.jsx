@@ -98,7 +98,6 @@ function registerCalls(room, messages) {
       body: JSON.stringify({ room, messageId: String(m.id), caller: m.profile?.hidden ? 'anon' : (m.username || 'anon'), callerAddress: m.profile?.address || m.address || null, chain, pairAddress, ts: m.ts }) }).catch(() => {});
   }));
 }
-const detectAddress = text => text.match(/\b0x[a-fA-F0-9]{40}\b/)?.[0] || text.match(/\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/)?.[0];
 
 // A Pump user's callout shown inside a FEELESS coin chat. Clearly pill-marked so it never reads as a FEELESS post.
 const PumpChatRow = ({ call, mint, size }) => <div className={`chat-size-${size} chat-message pump-chat-message`} data-testid={`pump-callout-${call.id}`}>

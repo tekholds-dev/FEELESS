@@ -91,3 +91,9 @@ body.theme-day .chart-fuse-btn { border-color: #0b7a4a; }
 body.fx-lite .gif-card .gif-spin { animation-duration: .01s; }
 @media (prefers-reduced-motion: reduce) { .gif-card .gif-spin { animation: none; } }
 body.theme-day .gif-card .gif-spin { box-shadow: 0 14px 34px -18px #0006, 0 0 0 1px #9fd3b6; }
+
+/* war room: the coin chat beside the chart is a 240–300px column — nothing inside may be wider than it (a coin card message was) */
+.eco-chart-chat .chat-messages { overflow-x: hidden; }
+.eco-chart-chat :is(.chat-message, .chat-token-wrap, .chat-message > *) { min-width: 0; max-width: 100%; box-sizing: border-box; }
+.eco-chart-chat .chat-identity { flex-wrap: wrap; gap: 4px 6px; } .eco-chart-chat .chat-identity > span:first-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eco-chart-chat .intelligence-card.tilt-card { padding: 10px !important; }

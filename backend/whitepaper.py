@@ -7,8 +7,7 @@ from fastapi import APIRouter, Response
 from ecosystem import DEFAULT_MINTS
 from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.enums import TA_LEFT
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, KeepTogether, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, KeepTogether
 from reportlab.lib.pagesizes import A4
 
 CHAPTERS = [

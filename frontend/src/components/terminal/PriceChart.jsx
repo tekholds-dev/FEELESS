@@ -70,7 +70,6 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   const [dayMode, setDayMode] = useState(() => typeof document !== 'undefined' && document.body.classList.contains('theme-day'));
   // Candles come only from the FEELESS candle service (Jupiter/Alchemy/Helius behind a shared cache + our own ticks).
   const { data, loading, error } = useMarket(null);
-  const providerError = error || data?.error;
   const metricLabel = metric === 'marketCap' ? 'Market cap' : 'FDV';
   const metricValue = metric === 'marketCap' ? pair?.marketCap : pair?.fdv;
   const metricAvailable = metricValue !== null && metricValue !== undefined && metricValue !== '' && Number.isFinite(Number(metricValue));

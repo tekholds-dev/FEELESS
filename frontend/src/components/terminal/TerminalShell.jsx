@@ -2,7 +2,7 @@ import { useWalletTotal, fmtTotal } from '../WalletBalance';
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Atom, Home, CandlestickChart, Rocket, Star, MessageCircle, Trophy, Bell, FileText, Settings, Menu, Wallet, Globe2, ArrowUpRight, X, Cat, Activity, Sun, Moon, UserRound, ShieldCheck, Lock } from 'lucide-react';
+import { Atom, Home, CandlestickChart, Rocket, Star, MessageCircle, Trophy, Bell, FileText, Settings, Menu, Wallet, Globe2, ArrowUpRight, X, Cat, Activity, Sun, Moon, UserRound, ShieldCheck } from 'lucide-react';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { apiUrl } from '../../lib/api';
 import { FeelessMark, FeelessWordmark } from '../FeelessLogo';

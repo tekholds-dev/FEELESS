@@ -3,7 +3,7 @@ import { TrendingCards, TrenchLanding, TrenchBar, HotCalls, LiveCalls, CallerBoa
 import { LivePrice } from './LiveCells';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageCircle, Radio, Rocket, Compass, Star, BarChart3, ArrowUpRight, CandlestickChart, Layers3, Zap } from 'lucide-react';
+import { MessageCircle, Radio, Rocket, Compass, Star, BarChart3, ArrowUpRight, CandlestickChart, Layers3 } from 'lucide-react';
 import EcosystemChat from '../EcosystemChat';
 import { useWorkspace } from '../../hooks/useWorkspace';
 
@@ -13,7 +13,7 @@ import { TokenFocus } from './TokenFocus';
 import { useMarket } from '../../hooks/useMarket';
 import { AdBanner } from '../AdBanner';
 import { RadarPanel } from '../command/MetaPanels';
-import { formatUSD, pairKey, coinIdentity, coinRoom, normalizeRoomPerspective, shortAddress, formatTime } from '../../lib/dexscreener';
+import { formatUSD, pairKey, coinIdentity, coinRoom, normalizeRoomPerspective, shortAddress } from '../../lib/dexscreener';
 import { apiUrl } from '../../lib/api';
 import { BoltLegend, BoltSignal, PumpPulseBanner } from './BoltSignal';
 import { DegenWeather } from './DegenWeather';

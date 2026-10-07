@@ -1754,3 +1754,20 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   the 1h result. Pump's public API has NO callouts / trending endpoint (probed 2026-10-06: only the coin index + currently-live
   answer) and the fomo app has no public feed — these callouts are FEELESS's own read of the launch feed; say so, never label
   them "Pump's callouts".
+- 🍼 Trench meta `baby` (first in `trench.METAS`; owner: "trench should be a yolo top trending / new, no snipe or rug, brand new
+  baby"): ≤ 3h old, cap $10K–$1M, ≥ 100 holders, ≥ 60 trades/h, ≥ $5K 1h — the loosest crowd checks the option lists allow —
+  with every safety check (top-10, insiders, bundles, dev, creator, mint + freeze, buyers ≥ 55%, green) unchanged. Set on the
+  owner's real card 2026-10-06 (`trenchCfg {mode: 'meta', meta: 'baby'}`; previous value in `data/realcfg_before_baby.json`). The
+  trench ticket size + its own stop (`trenchStakePct` / `trenchSlPct`) are still what limits the damage; the replay does not back
+  coins this young.
+- ⚛ FUSE ROOM (`components/FuseRoom.jsx` + `styles/fuseRoom.css` `frm-*`, mounted once in `FusePage` → every Fuse tab): a slim
+  glass tab on the right edge (spinning ring mark) opens a 330px glass panel, hides again with ›; open / room remembered
+  (`feeless.fuseRoom`); it polls ONLY while open. Three rooms `FUSE_ROOMS`: 🔥 Big moves (`bigMoves`: a real card's sale that won
+  or lost ≥ 10%, any swap ≥ $5, a callout ≥ ±25% — never all activity) · 💬 Lounge (the `fuse-lab` chat) · 🎯 Radar (entry setups
+  now + the top front-runners with their safety mark). Glass = translucent gradient + inner highlight, NO backdrop-filter (the
+  page behind is animated). War-room coin chat (`.eco-chart-chat`, a 240–300px column): message children get `min-width: 0;
+  max-width: 100%` (a coin card message was wider than the column) — rules in tips.css.
+- 🧹 Cleanup pass 2026-10-06: every unused import / variable eslint (`no-unused-vars`) and pyflakes report was removed (14
+  frontend, 5 backend; `env_loader` imports are side-effect imports and stay). Animation audit on Fuse › Arena: 163 running, ALL
+  transform / opacity (to re-check: list `document.getAnimations()` whose keyframes touch anything else). NOT done: the
+  reputation_service.py split, the 91 `exhaustive-deps` suppressions.

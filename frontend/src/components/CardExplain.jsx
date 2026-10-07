@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { FuseCard } from './FuseCard';
 
 // 🔍 Explain this card: a quick, plain-words breakdown of the Lab's live card — every line of it. Click outside or Esc → Lab.
 const $ = v => { const n = v || 0; return n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e4 ? `$${(n / 1e3).toFixed(1)}K` : n >= 100 ? `$${Math.round(n)}` : `$${n.toFixed(2)}`; };

@@ -93,7 +93,7 @@ def test_trench_endpoint_lists_finalists_and_the_rules():
     out = asyncio.run(rs.fuse_trench())
     assert out['pass'] == 1 and len(out['checked']) == 2 and '400 holders' in out['rules'] and 'revoked' in out['rules']
     # 🗑 pickable rows (only passing coins) + the trench pool floor, for the swap picker's Trench list
-    assert [r['mint'] for r in out['rows']] == [GOOD['mint']] and out['rows'][0]['trench'] and out['floor'] == 8000
+    assert [r['mint'] for r in out['rows'] if not r.get('open')] == [GOOD['mint']] and out['rows'][0]['trench'] and out['floor'] == 8000
     rs._trench_cache.update(checked=[], rows=[])
 
 
@@ -235,12 +235,12 @@ def test_trench_metas_set_only_soft_checks_and_the_finalist_pool_is_wide_enough_
         assert all(g[k] == tr.TRENCH[k] for k in ('maxTop10', 'maxInsiders', 'maxBundled', 'maxDev', 'maxTop10Jump', 'minBuyShare'))   # safety never moves
     assert tr.meta_gate('nope') is None
     lo = tr.loosest()
-    assert lo['minHolders'] == 150 and lo['maxAgeH'] == 48 and lo['maxMcap'] == 1_000_000 and lo['minMcap'] == 10_000
+    assert lo['minHolders'] == 100 and lo['maxAgeH'] == 48 and lo['maxMcap'] == 1_000_000 and lo['minMcap'] == 10_000
     own = tr.clean_own({'mode': 'meta', 'meta': 'flood'})
     assert own['mode'] == 'meta' and tr.own_gate(own)['minVol1h'] == 50_000 and tr.own_gate(own)['maxTop10'] == tr.TRENCH['maxTop10']
     assert tr.clean_own({'mode': 'meta', 'meta': 'x'})['meta'] == 'breakout' and tr.clean_own({})['mode'] == 'auto'
     board = tr.meta_board([{'h': 1200}, {'h': 200}], lambda r, g: (r['h'] >= g['minHolders'], []))
-    assert {b['key']: b['pass'] for b in board} == {'launch': 2, 'sprout': 2, 'breakout': 1, 'flood': 1, 'crowd': 1, 'survivor': 1}
+    assert {b['key']: b['pass'] for b in board} == {'baby': 2, 'launch': 2, 'sprout': 2, 'breakout': 1, 'flood': 1, 'crowd': 1, 'survivor': 1}
 
 
 def test_meta_proof_settles_after_an_hour_counts_a_vanished_coin_as_a_loss_and_uses_the_median():
@@ -353,3 +353,13 @@ def test_callouts_note_a_leader_once_settle_it_an_hour_later_and_feed_reads_newe
     pr = tr.meta_proof(st3, keys=tr.CALLOUTS)
     assert pr['fresh']['n'] == 1 and pr['leader']['n'] == 3 and pr['leader']['proven'] is False
     assert tr.CALLOUT_SEC == 210 and set(tr.CALLOUTS) == {'leader', 'mover', 'fresh'}
+
+
+def test_baby_meta_is_the_loosest_crowd_check_and_keeps_every_safety_check():
+    g, base = tr.meta_gate('baby'), tr.TRENCH
+    assert list(tr.METAS)[0] == 'baby'
+    for k in ('minHolders', 'minTxns1h', 'minMcap'):
+        assert g[k] == min(tr.OWN_OPTIONS[k])                                   # nothing looser exists
+    assert g['maxMcap'] == max(tr.OWN_OPTIONS['maxMcap']) and g['maxAgeH'] == 3
+    for k in ('minBuyShare', 'maxTop10', 'maxInsiders', 'maxBundled', 'maxDev', 'maxTop10Jump'):
+        assert g[k] == base[k]                                                  # anti-snipe / anti-rug: identical to every other meta

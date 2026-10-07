@@ -349,6 +349,21 @@ def safe_only(c, cfg=None):
         return False
 
 
+def safety_fails(c, cfg=None):
+    """The labels of every SAFETY gate this coin does not pass ([] = safe). An unreadable value fails closed."""
+    out = []
+    for key, label, test in (gates(cfg) if cfg else GATES):
+        if key in SOFT_GATES:
+            continue
+        try:
+            ok = bool(test(c))
+        except (KeyError, TypeError):
+            ok = False
+        if not ok:
+            out.append(label)
+    return out
+
+
 def gate_funnel(cands, cfg=None, regret=()):
     """⚡ THE ENGINE, AS NUMBERS. For every gate: `stops` = coins failing it right now · `only` = coins that fail NOTHING ELSE (what
     switching just that gate off would let in — the gate's real cost) · `kind` safety / soft · `regret` = of the coins it stopped

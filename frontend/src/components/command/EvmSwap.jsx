@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowDownUp, ChevronDown, RefreshCw, Search, ShieldCheck, Wallet } from 'lucide-react';
-import { toast } from 'sonner';
 import { apiUrl } from '../../lib/api';
 import { useWallet, EVM_CHAINS } from '../../hooks/useWallet';
 import { CHAIN_ID, NATIVE, toUnits, fromUnits, lifiServerQuote, executeLifi } from '../../lib/lifiExec';

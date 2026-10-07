@@ -15,7 +15,6 @@ import '../styles/runners.css';
 // run with $5 at live prices. The Fuse button only lights when the last 24h of rounds actually won. One shared /runners poll (20s).
 export const LANES = [['scalp', '🔥', 'SCALP', 'Pre-bond rush'], ['runner', '🏃', 'RUNNERS', '1–48h momentum'], ['hold', '💎', 'HOLD', 'Stayed 2+ rounds']];
 const pct = v => `${v >= 0 ? '+' : ''}${Math.abs(v) >= 1000 ? `${(1 + v / 100).toFixed(1)}x` : `${(v || 0).toFixed(1)}%`}`;
-const usd = v => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Math.round(v || 0)}`);
 export const ago = at => { const m = Math.max(1, Math.round((Date.now() / 1000 - at) / 60)); return m < 60 ? `${m}m` : m < 2880 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`; };
 const pairOf = r => ({ chainId: 'solana', baseToken: { address: r.mint, symbol: r.symbol }, info: { imageUrl: r.logo } });
 

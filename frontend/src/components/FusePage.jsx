@@ -27,7 +27,7 @@ import { FuseSide } from './FuseSide';
 import { FuseGo } from './FuseGo';
 import { RunnersPanel, Countdown } from './RunnersPanel';
 import { FuseCard, LiveFuseCard } from './FuseCard';
-import { openWarRoom } from './WarRoomHost';
+import { FuseRoom } from './FuseRoom';
 import { useLivePrices } from '../lib/livePrices';
 import { liveBook, liveStagePct } from '../lib/fuseLive';
 import '../styles/runners.css';
@@ -89,7 +89,7 @@ export function FusePage() {
   const addr = wallet?.chain === 'solana' ? wallet.address : null;
   const limits = useFuseLimits(addr);
   const go = t => { setTab(t); const u = new URL(window.location.href); u.searchParams.set('tab', t); window.history.replaceState(null, '', u); };
-  return <section className="fuse-page" data-testid="fuse-page"><FuseFx />
+  return <section className="fuse-page" data-testid="fuse-page"><FuseFx /><FuseRoom />
     <header className="fp-head"><h1 className="fp-title"><span className="fp-zap" data-text="Fuse">Fuse<i className="fp-bolt" aria-hidden="true" /><i className="fp-bolt b2" aria-hidden="true" /></span> <DnaHelix /></h1><p className="m-dim">Fuse pools + fresh runners into one card. You sign every move; we show every fee.</p>
       <div className="m-seg fp-tabs" role="tablist" aria-label="Fuse">{TOP_TABS.map(([k, l, sub]) => <button key={k} type="button" role="tab" aria-selected={topOf(tab) === k} className={topOf(tab) === k ? 'active' : ''} data-testid={`fuse-tab-${k}`} onClick={() => go(k)}>
         <b>{l}{k === 'lab' && runnerPicks.length ? ` · ${runnerPicks.length}` : ''}</b><small>{sub}</small></button>)}</div></header>

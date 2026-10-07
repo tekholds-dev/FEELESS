@@ -8,7 +8,6 @@ const mc = v => (!(v > 0) ? '—' : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : `$$
 const pct = v => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}%`;
 const coinImg = mint => (mint ? `https://dd.dexscreener.com/ds-data/tokens/solana/${mint}.png` : null);
 const link = pa => `${window.location.origin}/terminal/chat?chain=solana&pair=${pa}&room=bulls`;
-const held = s => { const m = Math.max(1, Math.round(s / 60)); return m < 60 ? `${m}m` : `${Math.round(m / 60)}h`; };
 
 // FeeCat's paper trades → degen but useful posts: entry, move, size and the rule that fired. Always labelled paper.
 export function feecatPosts(cat) {

@@ -15,7 +15,6 @@ const ACCENT = { yield: ['#15d16a', '#6ad7ff'], momentum: ['#ff8a3d', '#f5c451']
 // The coin a leg shows: the leg's own mint (card legs / runners / a SOL anchor), else the coin a pool buys. Never empty.
 export const legPair = l => { const t = legTarget(l) || {}; const address = l.mint || t.mint || l.baseAddress;
   return { chainId: l.chainId || 'solana', baseToken: { address, symbol: l.symbol || t.symbol }, info: { imageUrl: address === l.baseAddress || address === l.mint ? (l.logo || l.imageUrl || null) : null } }; };
-const usd = v => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Math.round(v || 0)}`);
 
 // The back's money math for a budget: each leg's $ slice and what its last-24h move did to it, then the basket total
 // minus the estimated network-fee drag. A replay of the last 24h, not a forecast.

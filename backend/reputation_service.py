@@ -858,7 +858,7 @@ async def upload_image(payload: UploadPayload, request: Request):
 
 @app.get('/api/reputation/uploads/{name}')
 async def get_upload(name: str):
-    from fastapi.responses import JSONResponse, FileResponse
+    from fastapi.responses import FileResponse
     import re
     if not re.match(r'^[a-f0-9]{32}\.(png|jpg|webp|gif)$', name):
         raise HTTPException(404, 'Not found')
@@ -5525,7 +5525,11 @@ TRENCH_CALLOUT_PATH = FUSE_HQ_PATH.parent / 'trench_callouts.json'
 def _open_board():
     """🚪 The open trench list: every launch coin in the feed ranked as a front-runner, each with what it has not passed."""
     rcfg = _runner_cfg()
-    scanned = {r.get('mint'): (_rn.safe_only(r, rcfg), [str(g) for g in (r.get('gates') or [])][:4]) for r in _runner_cands if r.get('mint') and r.get('scanned')}
+    scanned = {}
+    for r in _runner_cands:
+        if r.get('mint') and r.get('scanned'):
+            bad = _rn.safety_fails(r, rcfg)
+            scanned[r['mint']] = (not bad, bad[:4])
     return _trench.open_board(_open_pairs, scanned, time.time() * 1000)
 
 
