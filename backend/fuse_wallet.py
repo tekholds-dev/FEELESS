@@ -1266,6 +1266,17 @@ def benched(book, now):
 CHURN_SEC = 1800   # a coin sold within 30 min of being bought = a round trip that paid fees both ways for nothing
 
 
+def realized_split(ledger, card):
+    """What a real card's CONFIRMED sales came to, all time: winners, losers and the net (price result — fees apart). One row per
+    (tx, side). The card used to show the engine's running "taken" tally instead ($66.81 "profit pulled" on a card that was down
+    $7: every recycled dollar was counted again each time it was taken)."""
+    rows = {(r.get('sig') or r.get('id'), r.get('side')): r for r in ledger or [] if r.get('card') == card and r.get('status') == 'filled'
+            and r.get('side') == 'sell' and r.get('realizedPnlUsd') is not None}.values()
+    pn = [_f(r.get('realizedPnlUsd')) for r in rows]
+    wins, losses = sum(x for x in pn if x > 0), sum(x for x in pn if x < 0)
+    return {'winsUsd': round(wins, 4), 'lossesUsd': round(losses, 4), 'netUsd': round(wins + losses, 4), 'nWin': sum(1 for x in pn if x > 0), 'nLoss': sum(1 for x in pn if x < 0)}
+
+
 def versus(ledger, card, now, hours=24):
     """👤 YOU vs 🤖 ENGINE on one real card, from confirmed fills only: every position belongs to whoever OPENED it (a buy flagged
     `picked` = the owner's hand pick, else the engine; a top-up of an open coin keeps its side). Each side gets the exits of the

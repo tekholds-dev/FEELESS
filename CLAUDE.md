@@ -1998,3 +1998,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   card): card floor `floorPct` 0 = off (guarded in the tick), 🎟 `youngTicket` on / off (card `ticketOff`), ✅ check my picks,
   🧷 always keep riding (no limit), 🔁 same coin again (any time), rescue (off), auto-tune. The real card's split line is
   `cardSplit`: coins (the legs) · ◎ free cash · 🅿 parked — it used to print value − parked as "coins", so $2.77 of free cash read as coins.
+- 🅿 PARKED MEANS PARKED (owner: "parked 6 rnds means just that" — this REPLACES both pick-release rules): nothing releases a
+  park before its rounds are up; a pick with no free cash is funded by trimming coins above an equal share, or waits. Split line
+  = "in coins · ◎ cash for a seat · 🅿 parked". "PROFIT PULLED" (`takenUsd`, the engine's running tally: $66.81 on a card down $7 —
+  one path adds whole proceeds, and recycled money is counted every time) is gone from the real card: `fuse_wallet.realized_split`
+  → `realBook.realized` → "SOLD SO FAR" = net of confirmed sales, winners / losers in the tip. 2026-10-07 chain audit (1,172 swaps,
+  0 unread): every booked coin is in the wallet; the rebuilt card cash is 0.0248 SOL above the book = the two top-ups the keeper
+  race erased ($2 today 12:09, $1 on 10-06 evening: ledger top-ups $17, book put-in $14). That SOL is in the wallet (unassigned +
+  rent parked in coin accounts). NEVER credit it to the card without the owner pressing Top up.

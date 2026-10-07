@@ -8031,7 +8031,7 @@ def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
     return {'since': b.get('since'), 'fundedUsd': b.get('fundedUsd'), 'feesUsd': round(_fuse._f(b.get('feesUsd')), 4),
             'paidOutEverUsd': paid_ever, 'paidOutSol': round(_fuse._f(b.get('bankSol')), 9),
             'profitAvailableUsd': round(profit_available, 4), 'profitCashAvailableUsd': round(payout_cash, 4), 'recoverable': recoverable, 'offCard': off_card,
-            'wallet': cfg['address'], 'keeper': keeper, 'versus': _fw.versus(d['ledger'], tid, time.time()), 'deadOrders': dead,
+            'wallet': cfg['address'], 'keeper': keeper, 'versus': _fw.versus(d['ledger'], tid, time.time()), 'realized': _fw.realized_split(d['ledger'], tid), 'deadOrders': dead,
             'reconciliation': {'cardEquityUsd': round(_fuse._f(equity_usd), 4),
                                'cardCashSol': round(_fuse._f(b.get('sol')), 9),
                                'cardCashUsd': round(_fuse._f(b.get('sol')) * _fuse._f(sol_px), 4) if sol_px else None,

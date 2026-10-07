@@ -1296,3 +1296,11 @@ def test_a_top_up_does_not_lift_a_small_ticket_to_a_full_seat():
     out = fw.topup_card(card, 2.0, {'PA': 1.0, 'PB': 1.0, 'PT': 1.0}, 100.0)
     val = {l['mint']: (l.get('units') or 0) + (l.get('wantUnits') or 0) for l in out['legs']}
     assert abs(val['T'] - 0.3) < 1e-6 and val['A'] > 1.5 and val['B'] > 1.5
+
+
+def test_realized_split_is_the_cards_confirmed_sales_winners_losers_and_net():
+    import fuse_wallet as fw
+    r = lambda i, pnl, **kw: {'card': 'degen', 'side': 'sell', 'status': 'filled', 'sig': f's{i}', 'realizedPnlUsd': pnl, **kw}
+    led = [r(1, 0.5), r(2, -1.25), r(3, 0.25), r(3, 0.25), {**r(4, 9), 'status': 'failed'}, {**r(5, 9), 'card': 'x'}, {'card': 'degen', 'side': 'buy', 'status': 'filled', 'sig': 'b'}]
+    assert fw.realized_split(led, 'degen') == {'winsUsd': 0.75, 'lossesUsd': -1.25, 'netUsd': -0.5, 'nWin': 2, 'nLoss': 1}
+    assert fw.realized_split([], 'degen')['netUsd'] == 0

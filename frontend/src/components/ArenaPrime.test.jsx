@@ -200,14 +200,14 @@ test('real card settings include profit skim (when + where) and bank at the lock
   expect(src).toMatch(/rows\(\['skimAt', 'skimTo'/);   // skim (when + where it goes) is on the Exits tab
 });
 
-test('under the real card: seats by state, swaps this hour, profit pulled, Full activity and Share', async () => {
+test('under the real card: seats by state, swaps this hour, what its sales came to, Full activity and Share', async () => {
   const { CardVitals } = require('./ArenaPrime');
-  const c = { label: '🔥 Prime Blaze', valueUsd: 5.5, cardFeesUsd: 0.3, takenUsd: 2.03, rounds: 180, stack: { seats: 4, locked: 1 }, swapCap: { cap: 6, used: 2, why: 'six an hour' },
+  const c = { label: '🔥 Prime Blaze', valueUsd: 5.5, cardFeesUsd: 0.3, takenUsd: 66.81, realBook: { realized: { netUsd: -2.03, winsUsd: 3.1, lossesUsd: -5.13, nWin: 9, nLoss: 14 } }, rounds: 180, stack: { seats: 4, locked: 1 }, swapCap: { cap: 6, used: 2, why: 'six an hour' },
     legs: [{ symbol: 'SPACE', usd: 2.5, costUsd: 0.24, pnlPct: 937, ride: true }, { symbol: 'UP', usd: 1.1, costUsd: 1, pnlPct: 8 }, { symbol: 'FLAT', usd: 1, costUsd: 1, pnlPct: 0 }, { symbol: 'NEW', usd: 0, buying: true }] };
   const onTrail = jest.fn();
   const el = await mount(<CardVitals c={c} funded={5} onTrail={onTrail} />);
   expect([...el.querySelectorAll('.cv-seats li')].map(li => li.className)).toEqual(['is-locked', 'is-winning', 'is-proving', 'is-buying']);
-  expect(el.textContent).toContain('2 / 6'); expect(el.textContent).toContain('$2.03'); expect(el.textContent).toContain('$SPACE +937.0%');
+  expect(el.textContent).toContain('2 / 6'); expect(el.textContent).toContain('SOLD SO FAR'); expect(el.textContent).toContain('−$2.03'); expect(el.textContent).not.toContain('66.81'); expect(el.textContent).toContain('$SPACE +937.0%');
   await act(async () => { el.querySelector('[data-testid="full-activity"]').click(); });
   expect(onTrail).toHaveBeenCalled();
   expect(el.textContent).toContain('Share');

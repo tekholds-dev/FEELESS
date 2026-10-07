@@ -2050,26 +2050,9 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 c = nc
     # 4) idle cash goes back to work when compounding. Cash reserved for an empty replacement slot is untouchable.
     release_parked(c, cfg, now)   # 🅿 parked profit whose rounds are up joins the idle cash — BEFORE free cash is counted (it used to wait one more tick)
-    # 🪑 THE OWNER'S OWN SEAT PICKS OUTRANK PARKED PROFIT: with picks queued for empty seats, parked profit is released now to
-    # fund them (2026-10-06: three picks waited on a one-coin card whose whole $1.50 of cash was parked and whose coin was locked)
-    if (c.get('seatPick') or c.get('seatQueue')) and c.get('skimPark') and int(_f(cfg.get('coins'))) > len(c['legs']):
-        # … but ONLY what those seats need (an equal share each, less the cash already free): the rest stays parked for its rounds.
-        # 2026-10-07: one pick released a whole $4 park six rounds early ("when new coin came in, stopped my 6 rnd park").
-        want_p = int(_f(cfg.get('coins')))
-        n_p = min(want_p - len(c['legs']), (1 if c.get('seatPick') else 0) + len(c.get('seatQueue') or []))
-        val_p = sum((_f(x['units']) or (_f(x.get('wantUnits')) if x.get('buying') else 0.0)) * (_f(prices.get(x['pairAddress'])) or _f(x.get('entry'))) for x in c['legs'])
-        free_p = max(0.0, _f(c['cash']) - _f(c.get('holdCashUsd')) - sum(_f(l.get('reserveUsd')) for l in c['legs'] if l.get('placeholder')))
-        need_p = max(0.0, n_p * (val_p + free_p) / max(1, want_p - n_p) - free_p)   # each picked seat = an equal share of the coins + the money released for it
-        rel_, keep_rows = 0.0, []
-        for p in c['skimPark']:                       # oldest first; a row is split when only part of it is needed
-            take = min(_f(p.get('usd')), max(0.0, need_p - rel_))
-            rel_ += take
-            if _f(p.get('usd')) - take > 0.005:
-                keep_rows.append({**p, 'usd': round(_f(p.get('usd')) - take, 6)})
-        rel_ = min(rel_, _f(c.get('holdCashUsd')))
-        c['holdCashUsd'] = round(max(0.0, _f(c.get('holdCashUsd')) - rel_), 6); c['skimPark'] = keep_rows
-        if rel_ > 0.005:
-            c.setdefault('events', []).append({'at': now, 'kind': 'compound', 'usd': round(rel_, 4), 'why': f"🅿 ${rel_:.2f} of parked profit released for the seat{'s' if n_p > 1 else ''} you picked — the rest stays parked for its rounds"})
+    # 🅿 PARKED MEANS PARKED (owner, 2026-10-07: "parked 6 rnds means just that"): nothing releases a park before its rounds are
+    # up — not a queued pick, not an empty seat. A seat with no free cash is funded by trimming the coins above an equal share
+    # (below), or waits. (Two earlier rules released the park for a pick: first all of it, then one seat's share.)
     reserved_cash = sum(_f(l.get('reserveUsd')) for l in c['legs'] if l.get('placeholder')) + _f(c.get('holdCashUsd'))   # + cash the owner sold out by hand
     free_cash = max(0.0, _f(c['cash']) - reserved_cash)
     # 🪑 AN EMPTY SEAT IS REFILLED: the owner asked for N coins; a seat lost to a refused buy ("slot back to card cash") used to stay

@@ -37,3 +37,9 @@ test('a real card splits into coins, free cash and parked profit that add up to 
   expect(sp.coins).toBeCloseTo(2.43); expect(sp.parked).toBe(0.06); expect(sp.cash).toBeCloseTo(2.83);
   expect(cardSplit({ valueUsd: 1, legs: [{ usd: 1.2 }] }).cash).toBe(0); expect(cardSplit(null)).toEqual({ coins: 0, parked: 0, cash: 0 });
 });
+
+test('the card shows what its confirmed sales came to, never a recycled running total', () => {
+  const { soldNet, signedUsd } = require('./ArenaPrime');
+  expect(soldNet({ takenUsd: 66.81, realBook: { realized: { netUsd: -6.02 } } })).toBe(-6.02); expect(soldNet({ takenUsd: 66.81 })).toBe(0);
+  expect(signedUsd(-6.02)).toBe('−$6.02'); expect(signedUsd(1.5)).toBe('+$1.50');
+});

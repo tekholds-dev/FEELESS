@@ -1916,11 +1916,11 @@ def test_the_owner_fills_every_empty_seat_at_once():
     assert [l['mint'] for l in out['legs']] == ['A', 'X', 'Z', 'Y'] and all(l.get('picked') for l in out['legs'][1:])   # all three seated on ONE tick
     assert not out.get('seatPick') and not out.get('seatQueue')
     assert [e['kind'] for e in out['events']].count('seat') == 3
-    # every dollar of card cash is PARKED profit and nothing is free: the owner's seat picks still come in (parked money is released for them)
+    # every dollar of card cash is PARKED profit: parked means parked — the picks do NOT break it; the park keeps its rounds
     parked = {**c, 'cash': 3.0, 'holdCashUsd': 3.0, 'skimPark': [{'usd': 3.0, 'round': 1, 'at': now}]}
     got = ap.tick(parked, {'PA': 1.0, 'PX': 1.0, 'PY': 1.0, 'PZ': 1.0}, [], [], cfg, now + 10, [], {}, {})
-    assert [l['mint'] for l in got['legs']] == ['A', 'X', 'Z', 'Y'] and not got.get('skimPark') and got['holdCashUsd'] == 0
-    assert any('released for the seats you picked' in str(e.get('why')) for e in got['events'])
+    assert got['holdCashUsd'] == 3.0 and sum(p['usd'] for p in got['skimPark']) == 3.0 and got['skimPark'][0]['round'] == 1
+    assert not any('released for the seat' in str(e.get('why')) for e in got['events'])
     kept = ap.tick({**parked, 'seatPick': None, 'seatQueue': []}, {'PA': 1.0}, [], [], cfg, now + 10, [], {}, {})
     assert kept['holdCashUsd'] == 3.0 and len(kept['legs']) == 1                           # no picks → parked profit stays parked
     cleared = ap.queue_seat(c, None)
@@ -2166,7 +2166,7 @@ def test_the_seat_fallback_never_takes_a_coin_at_its_highs_and_a_thinly_traded_b
     assert fuse.solid_major({**usor, 'volume24h': 2_000_000}) == []
 
 
-def test_a_new_pick_releases_only_what_its_seat_needs_from_the_park_and_safety_switches_have_off():
+def test_parked_profit_stays_parked_when_a_pick_comes_in_and_safety_switches_have_off():
     import arena_prime as ap
     assert ap.clean_cfg({'floorPct': 0})['floorPct'] == 0 and ap.clean_cfg({'floorPct': 2})['floorPct'] == 5 and ap.clean_cfg({})['floorPct'] == 60
     assert ap.clean_cfg({})['youngTicket'] is True and ap.clean_cfg({'youngTicket': False})['youngTicket'] is False
@@ -2179,12 +2179,10 @@ def test_a_new_pick_releases_only_what_its_seat_needs_from_the_park_and_safety_s
     card = {**card, 'cash': card.get('cash', 0) + 60.0, 'holdCashUsd': 60.0, 'skimPark': [{'usd': 60.0, 'round': int(card.get('rounds') or 0), 'at': 0.0, 'symbol': 'R0'}],
             'seatPick': {'mint': 'NEW', 'pairAddress': 'PN', 'symbol': 'NEW', 'price': 1.0, 'liquidityUsd': 400_000, 'ack': True, 'ageH': 40}}
     out = ap.tick(card, {**{x['pairAddress']: 1.0 for x in runners}, 'PN': 1.0}, [], runners, cfg, 100.0, [], {}, {})
-    new = next(l for l in out['legs'] if l['mint'] == 'NEW')
-    share = worth / 3                                                          # an equal seat beside the three coins already held
-    assert abs(new['units'] * new['entry'] - share) < 1.0                          # the pick got its equal seat …
-    left = sum(p['usd'] for p in out['skimPark'])
-    assert abs(left - (60.0 - share)) < 1.0 and left > 10 and abs(out['holdCashUsd'] - left) < 0.01   # … and the rest of the park is still parked
-    assert out['skimPark'][0]['round'] == card['skimPark'][0]['round']               # with its original rounds
+    assert sum(p['usd'] for p in out['skimPark']) == 60.0 and out['holdCashUsd'] == 60.0   # the whole park is untouched …
+    assert out['skimPark'][0]['round'] == card['skimPark'][0]['round']
+    new = next((l for l in out['legs'] if l['mint'] == 'NEW'), None)
+    assert new and new['units'] * new['entry'] > 5                                 # … and the pick still got a seat, funded by trimming the bigger coins
     # floor OFF: a card far under its start is not sold out
     deep = {**out, 'startUsd': 100.0, 'dayStartUsd': 100.0, 'roundStartUsd': 100.0}
     assert not any(e.get('kind') == 'floor' for e in ap.tick(deep, {**{x['pairAddress']: 1.0 for x in runners}, 'PN': 1.0}, [], runners, cfg, 130.0, [], {}, {})['events'])
