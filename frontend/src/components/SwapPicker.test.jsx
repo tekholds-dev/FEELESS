@@ -110,3 +110,16 @@ test('activity lists what the card did — recycles and cash put back to work �
   expect(rows[1]).toContain('$SAPLING');
   expect(rows[1]).toContain('recycled');
 });
+
+test('a pick can be swapped in now or wait for the bell', async () => {
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ pools: [{ baseAddress: 'P', pairAddress: 'pp', symbol: 'POP', priceUsd: 2, liquidityUsd: 400000 }] }) }));
+  const picks = [];
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<SwapPicker out={{ symbol: 'WIF' }} have={[]} minLiq={0} onPick={(r, now) => picks.push([r.symbol, now])} onClose={() => {}} />); });
+  await tick();
+  expect(el.querySelector('[data-testid="when-now"]').getAttribute('aria-pressed')).toBe('true');   // ⚡ now is the default
+  await act(async () => { el.querySelector('[data-testid="sp-pick-POP"]').click(); });
+  await act(async () => { el.querySelector('[data-testid="when-bell"]').click(); });
+  await act(async () => { el.querySelector('[data-testid="sp-pick-POP"]').click(); });
+  expect(picks).toEqual([['POP', true], ['POP', false]]);
+});

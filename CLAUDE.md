@@ -2067,3 +2067,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - ✂ EARLY CUT ("half the stop + fading") never touches the owner's own pick or a coin in its first 15 min (`FRESH_SEC`): $LOOT, a
   buy-bottom pick with a −6% stop, was cut at −3% four minutes after the buy — its "1h down" was read before it was bought. The full
   stop still applies to every coin.
+- ⚡ SWAP IN NOW (`arena_prime.now_picks`, pick `swapTo.now`; `pickSwap.now`; `WhenSeg` ⚡ Now | ⏱ At the bell, default Now, on Coming up
+  and in the swap picker): a "now" pick is swapped in on the very next tick (`apply_queued(only=now_picks)`, event "🎯 your pick —
+  swapped in now") and the route starts that tick at once (`_prime_tick` is locked — never two at a time). Same checks, warn + ack.

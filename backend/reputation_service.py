@@ -6888,6 +6888,7 @@ async def fuse_prime_admin(request: Request):
             cand = {'mint': row['mint'], 'pairAddress': row['pairAddress'], 'symbol': row.get('symbol'), 'price': row.get('price'), 'liquidityUsd': row.get('liq'),
                     **({'ageH': round(_fuse._f(_age_c), 2)} if _age_c is not None else {}),
                     **({'trenchOnly': True} if row.get('trenchOnly') else {}),
+                    **({'now': True} if pk.get('now') and pk['pairAddress'] != '__seat__' else {}),
                     'division': next((dv['key'] for dv in (_contenders_cache.get('data') or {}).get('divisions') or [] if any(r.get('mint') == row['mint'] for r in dv.get('rows') or [])), None)}
         # ✅ VERIFIED PICKS (real cards, on by default): a hand-picked coin is queued only once it passes every safety check.
         # 2026-10-06: a hand pick rugged 3.5 minutes after the bell (−98%) — picks used to skip every engine check.
@@ -6921,6 +6922,8 @@ async def fuse_prime_admin(request: Request):
             except ValueError as e:
                 raise HTTPException(400, str(e))
             _json_save(FUSE_HQ_PATH, d)
+        if cand and cand.get('now'):   # ⚡ swap in NOW: run the engine pass at once (it is locked — never two at a time)
+            asyncio.create_task(_prime_tick(time.time()))
         if cand:   # 👤 the pick is in: note what the coin looked like (teaches the paper cards that pick like the owner)
             await _pick_style_note(cand['mint'], cand.get('symbol'), cand.get('pairAddress'))
     hm = body.get('human') or {}

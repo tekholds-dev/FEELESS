@@ -1772,6 +1772,9 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
 
     # 0b) 🚨 RUG SHIELD (real-world add-on): a coin whose pool liquidity fell to ≤ half of what it had at entry is sold at once to
     #     cash — before the stop, the trail or the floor. Anchors (majors) are exempt; frozen coins too (the owner's call).
+    now_ = now_picks(c) if not c.get('flooredAt') else set()   # ⚡ the owner said "swap in now": no wait for the bell
+    if now_:
+        apply_queued(c, prices, liqs, now, fee, only=now_, why='🎯 your pick — swapped in now')
     near = near_stop_picks(c, prices, t) if not c.get('flooredAt') else set()   # 🎯 your pick comes in 5 points before the stop, not after it
     if near:
         apply_queued(c, prices, liqs, now, fee, only=near, why=f'🎯 your pick — swapped in early: the coin was within {PICK_NEAR_STOP:g}% of its stop')
@@ -2601,8 +2604,13 @@ def queue_swap(card, pair, cand):
         raise ValueError('That coin is already on this card.')
     if any((x.get('swapTo') or {}).get('mint') == cand['mint'] for x in c['legs'] if x is not l):
         raise ValueError('That coin is already queued for another seat.')
-    l['swapTo'] = {k: cand.get(k) for k in ('mint', 'pairAddress', 'symbol', 'price', 'liquidityUsd', 'division', 'trenchOnly', 'ack', 'ageH') if cand.get(k) is not None}
+    l['swapTo'] = {k: cand.get(k) for k in ('mint', 'pairAddress', 'symbol', 'price', 'liquidityUsd', 'division', 'trenchOnly', 'ack', 'ageH', 'now') if cand.get(k) is not None}
     return c
+
+
+def now_picks(c):
+    """⚡ Picks the owner asked to swap in NOW (not at the bell) → {pairAddress}. Same swap as the bell's, on the very next tick."""
+    return {l['pairAddress'] for l in c.get('legs') or [] if (l.get('swapTo') or {}).get('now')}
 
 
 REBUY_WAIT_SEC = 600.0   # a rebuy whose sell has not landed after 10 minutes is called off (its money is released)

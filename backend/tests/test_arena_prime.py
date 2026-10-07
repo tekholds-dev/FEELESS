@@ -2216,3 +2216,18 @@ def test_coming_up_takes_the_best_coin_from_the_top_of_each_category():
     assert [(p['cat'], p['mint'], p['rank']) for p in picks] == [('volume', 'A', 1), ('bottom', 'D', 2), ('ptrend', 'B', 2)]
     assert picks[0]['catLabel'] == '🌊 Volume'
     assert misses == {'movers': 'list empty right now', 'pump': 'nothing in the top 60 passes', 'trench': 'list empty right now'}
+
+
+def test_swap_in_now_brings_the_pick_in_on_the_next_tick_not_at_the_bell():
+    card = ap.deal('degen', [P('a', 1)], [R('r1', 1), R('r2', 1)], CFG, 0, SOL)
+    r1 = next(l for l in card['legs'] if l['mint'] == 'r1')['pairAddress']
+    r2 = next(l for l in card['legs'] if l['mint'] == 'r2')['pairAddress']
+    px = {'Psol': 1, 'Pa': 1, 'Pr1': 1, 'Pr2': 1, 'Pn': 1, 'Pw': 1}
+    q = ap.queue_swap(card, r1, {'mint': 'n', 'pairAddress': 'Pn', 'symbol': 'N', 'price': 1.0, 'now': True})
+    q = ap.queue_swap(q, r2, {'mint': 'w', 'pairAddress': 'Pw', 'symbol': 'W', 'price': 1.0})   # a plain pick
+    assert ap.now_picks(q) == {r1}
+    out = ap.tick(q, px, [], [], CFG, 60, SOL)                                               # a minute in: no bell yet
+    mints = [l['mint'] for l in out['legs']]
+    assert 'n' in mints and 'r1' not in mints                                                 # ⚡ swapped in now
+    assert 'r2' in mints and 'w' not in mints                                                 # the plain pick still waits for the bell
+    assert any(e.get('why') == '🎯 your pick — swapped in now' for e in out['events'])
