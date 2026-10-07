@@ -2674,14 +2674,23 @@ async def _jup_tokens(mints):
             need.append(m)
     if need:
         key = os.getenv('JUPITER_API_KEY', '')
-        base, hdr = ('https://api.jup.ag/tokens/v2/search', {'x-api-key': key}) if key else ('https://lite-api.jup.ag/tokens/v2/search', {})
+        srcs = ([('https://api.jup.ag/tokens/v2/search', {'x-api-key': key})] if key else []) + [('https://lite-api.jup.ag/tokens/v2/search', {})]
         async with httpx.AsyncClient(timeout=8) as http:
             async def one(chunk):
-                try:
-                    r = await http.get(base, params={'query': ','.join(chunk)}, headers=hdr)
-                    return r.json() if r.status_code == 200 else []
-                except Exception:
-                    return []
+                # every source, twice: a 429 / blip on one (a restart's burst refused OCTO's real buy as "live market unavailable")
+                # falls through to the other instead of reading as "Jupiter doesn't know this coin"
+                for attempt in range(2):
+                    for base, hdr in srcs:
+                        try:
+                            r = await http.get(base, params={'query': ','.join(chunk)}, headers=hdr)
+                            if r.status_code == 200:
+                                rows = r.json()
+                                if isinstance(rows, list):
+                                    return rows
+                        except Exception:
+                            pass
+                    await asyncio.sleep(0.6)
+                return []
             for rows in await asyncio.gather(*[one(need[i:i + 100]) for i in range(0, len(need), 100)]):
                 for t in rows if isinstance(rows, list) else []:
                     if t.get('id'):
