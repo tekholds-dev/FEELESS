@@ -2179,8 +2179,12 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         round_now = _f(c.get('lastRotateAt')) == now
         # a locked (riding / frozen) coin is never topped up: what was just banked off it must not be bought straight back
         # … and neither is a coin whose profit was just skimmed (10 min): that money is for the OTHER coins
+        # NO FALLBACK INTO LOCKED COINS: with every coin locked the cash stays card cash for the empty seats. The old fallback ("else
+        # every coin") poured a real card's cash into its one FROZEN coin on paper — the keeper never buys a frozen coin, so the
+        # engine then read AUTON as $6.26 (real: $0.49), the full-stack skim "took" $5.76 that was never in it and parked it
+        # (2026-10-07). Unlocked coins skipped only for a 10-min cut / ticket / scout are still the fallback.
         targets = [l for l in c['legs'] if not l.get('placeholder') and not l.get('scout') and not l.get('ticket') and not l.get('house') and not l.get('ride') and not l.get('frozen') and not (l.get('trimAt') and now - _f(l.get('trimAt')) <= 600 and not (round_now and _f(l.get('trimAt')) < now))] \
-            or [l for l in c['legs'] if not l.get('placeholder')]
+            or [l for l in c['legs'] if not l.get('placeholder') and not l.get('ride') and not l.get('frozen') and not l.get('ticket') and not l.get('house') and not l.get('scout')]
         if targets:
             # ⚖ NO COIN GETS THE WHOLE POT. Idle cash fills the seats that are furthest under an equal share and never lifts a coin
             # above it. It used to go entirely to whichever coin was waiting on a buy: $1.15 of freed cash went into ONE coin, which

@@ -2231,3 +2231,21 @@ def test_swap_in_now_brings_the_pick_in_on_the_next_tick_not_at_the_bell():
     assert 'n' in mints and 'r1' not in mints                                                 # ⚡ swapped in now
     assert 'r2' in mints and 'w' not in mints                                                 # the plain pick still waits for the bell
     assert any(e.get('why') == '🎯 your pick — swapped in now' for e in out['events'])
+
+
+def test_idle_cash_never_pours_into_a_locked_coin_so_no_phantom_skim_gets_parked():
+    card = ap.deal('degen', [P('a', 1)], [R('r1', 1)], CFG, 0, SOL)
+    card['legs'] = [l for l in card['legs'] if l['mint'] == 'r1']
+    leg = card['legs'][0]
+    leg.update(frozen=True, units=0.5, costUsd=0.5, entry=1.0)
+    card['cash'] = 6.0; card['startUsd'] = 6.5
+    cfg = {**CFG, 'stackSkimUsd': 0.5, 'skimTo': 'round', 'tpStakeUsd': 0, 'floorPct': 0, 'rescuePct': 0}
+    out = ap.tick(card, {'Pr1': 1.0, 'Psol': 1, 'Pa': 1}, [], [], cfg, 60, SOL)
+    r1 = next(l for l in out['legs'] if l['mint'] == 'r1')
+    assert abs(r1['units'] - 0.5) < 1e-9                       # the frozen coin was not topped up on paper
+    assert not out.get('skimPark') and not _f_or0(out.get('holdCashUsd'))   # nothing "skimmed" off money it never held
+    assert out['cash'] >= 5.99                                  # the card's cash stays cash for the empty seats
+
+
+def _f_or0(v):
+    return float(v or 0)

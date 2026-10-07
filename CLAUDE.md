@@ -2091,3 +2091,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `_jup_tokens`, `_pair_mint` pair → mint map learned from every answer; legs pass `mint`), and the keeper's FINAL BUY GATE (a fresh
   Jupiter read, never cached; quote checks still decide). Data sources stay DexScreener + our indexes + Jupiter — the banned chart
   source never (its name may not even appear in code: `test_no_geckoterminal`).
+- 🔒 IDLE CASH NEVER GOES INTO A LOCKED COIN, NOT EVEN AS A FALLBACK (`arena_prime.tick` compound `targets`): the old "else every coin"
+  fallback poured a real card's cash into its ONE frozen coin on paper (the keeper never buys a frozen coin), the engine read $AUTON
+  as $6.26 (wallet: $0.49) and the full-stack skim "took" $5.76 that was never in it and PARKED it — 2026-10-07, $5.76 of a $7.41 card
+  locked as fake profit while 3 seats sat empty. With every coin locked, cash stays card cash for the seats.
