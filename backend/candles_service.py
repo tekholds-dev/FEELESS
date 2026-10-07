@@ -115,6 +115,39 @@ def _record_tick(store: dict, chain: str, pair: str, price: float, volume):
     store[key] = [t for t in ticks if t['t'] >= cutoff][-MAX_TICKS_PER_PAIR:]
 
 
+# 📈 ALWAYS LIVE: every major and stock token is recorded all the time (pair → mint), not only after someone opens its chart.
+# A chart opened cold used to show flat minutes — the history provider prints a candle only when a trade lands, and the live
+# 15s ticks that sharpen it started at the click ("stocks charts don't move ever", "make sure stocks and all major coins move").
+_always_hot: dict = {'at': 0.0, 'pairs': {}}
+ALWAYS_REFRESH = 600
+ALWAYS_GAP, ALWAYS_KEEP = 55, 3000
+
+
+def always_pairs(lists):
+    """Discover rows (majors / stocks) → {pairAddress: mint}. Pure."""
+    out = {}
+    for rows in lists or []:
+        for r in rows or []:
+            if r.get('pairAddress') and (r.get('baseAddress') or r.get('mint')):
+                out[r['pairAddress']] = r.get('baseAddress') or r.get('mint')
+    return out
+
+
+async def _refresh_always(http, now):
+    if now - _always_hot['at'] < ALWAYS_REFRESH and _always_hot['pairs']:
+        return
+    _always_hot['at'] = now
+    got = []
+    for lens in ('majors', 'stocks'):
+        try:
+            got.append((await http.get(f'http://127.0.0.1:5077/api/reputation/fuses/discover?lens={lens}&chain=solana')).json().get('pools') or [])
+        except Exception:
+            pass
+    pairs = always_pairs(got)
+    if pairs:
+        _always_hot['pairs'] = pairs
+
+
 async def _poll_hot_pairs():
     """Server-side price recorder: every pair anyone opened in the last 30 min gets a
     price tick every 15s, so candles build even while providers throttle us."""
@@ -128,12 +161,14 @@ async def _poll_hot_pairs():
                 chain, pair = k.split(':', 1)
                 if chain in DEX_CHAIN:
                     by_chain.setdefault(chain, []).append(pair)
-            if by_chain:
+            if True:   # majors + stocks tick even when nobody has a chart open
                 store = _load()
                 async with httpx.AsyncClient(timeout=8) as http:
-                    sol_pairs = by_chain.pop('solana', [])
+                    await _refresh_always(http, now)
+                    always = _always_hot['pairs']
+                    sol_pairs = sorted(set(by_chain.pop('solana', [])) | set(always))
                     if sol_pairs:
-                        mints = {p: await _pair_base_token('solana', p) for p in sol_pairs}
+                        mints = {p: always.get(p) or await _pair_base_token('solana', p) for p in sol_pairs}
                         ids = sorted({m for m in mints.values() if m})
                         prices = {}
                         for i in range(0, len(ids), 50):
@@ -142,9 +177,16 @@ async def _poll_hot_pairs():
                                 prices.update({k: float(v.get('usdPrice') or 0) for k, v in (r.json() or {}).items()})
                             except Exception:
                                 pass
+                        hot_now = {k.split(':', 1)[1] for k in _hot_pairs if k.startswith('solana:')}
                         for p, m in mints.items():
                             if prices.get(m, 0) > 0:
+                                if p not in hot_now:   # nobody is watching: one tick a minute is enough to keep every 1-min candle moving,
+                                    tk = store.get(_pair_key('solana', p)) or []   # and only ~2 days are kept (the store is rewritten every pass)
+                                    if tk and now - tk[-1]['t'] < ALWAYS_GAP:
+                                        continue
                                 _record_tick(store, 'solana', p, prices[m], None)
+                                if p not in hot_now and len(store.get(_pair_key('solana', p)) or []) > ALWAYS_KEEP:
+                                    store[_pair_key('solana', p)] = store[_pair_key('solana', p)][-ALWAYS_KEEP:]
                     for chain, pairs in by_chain.items():
                         for i in range(0, len(pairs), 30):
                             res = await http.get(f'https://api.dexscreener.com/latest/dex/pairs/{DEX_CHAIN[chain]}/{",".join(pairs[i:i + 30])}')

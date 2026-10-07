@@ -1981,3 +1981,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `_open_board`: a scan with no top-10 reading is NOT a scan (it showed "top-10 hold 0% · safe"). The pipeline that day:
   72 safe → 22 old enough → 2 after the chart rule → 0 free: the +40% hunt line and the "not mid-spike / not at its highs" rule
   pull opposite ways, so the engine's own line almost never has a coin and seats are filled by fallback / trench / hand picks.
+- 📈 MAJORS + STOCKS ARE ALWAYS RECORDED (`candles_service._always_hot`, `always_pairs`, `_refresh_always` every 10 min from the
+  majors + stocks lists): a tick a minute while nobody watches (`ALWAYS_GAP` 55s, last `ALWAYS_KEEP` 3000 kept), every 15s while a
+  chart is open. Before, live ticks started only at the click, so a cold major / stock chart showed flat minutes (the history
+  provider prints a candle only when a trade lands): MEW 24 of 30 minutes flat, QQQx 21. The owner runs 5-minute rounds ON PURPOSE
+  (a locked coin is held past the round) — do not recommend a slower clock again.
