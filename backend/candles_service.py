@@ -592,6 +592,14 @@ async def _pair_snapshot(chain, pool):
             if not p and chain == 'solana':   # 📡 DexScreener silent → Jupiter's data for the same pool (the tape needs the coin + price)
                 import launchpad_board as _lb
                 p = await _lb.jup_lookup(http, pool)
+                if p:   # the tape converts SOL legs to $ with priceUsd / priceNative — Jupiter's row has no native price, so derive it
+                    try:
+                        sol = float((((await http.get('https://lite-api.jup.ag/price/v3', params={'ids': 'So11111111111111111111111111111111111111112'})).json() or {})
+                                     .get('So11111111111111111111111111111111111111112') or {}).get('usdPrice') or 0)
+                    except Exception:
+                        sol = 0.0
+                    if sol > 0:
+                        p = {**p, 'priceNative': str(float(p.get('priceUsd') or 0) / sol)}
     except Exception:
         p = None
     if p:
