@@ -396,6 +396,7 @@ def clean_cfg(p):
     out['skimAt'] = float(_f((p or {}).get('skimAt'))) if _f((p or {}).get('skimAt')) in SKIM_ATS else 0.0
     out['tpStakeUsd'] = float(_f((p or {}).get('tpStakeUsd'))) if (p or {}).get('tpStakeUsd') is not None and _f((p or {}).get('tpStakeUsd')) in TP_STAKES else TP_STAKE_USD
     out['skimTo'] = (p or {}).get('skimTo') if (p or {}).get('skimTo') in SKIM_TOS else 'card'
+    out['stackSkimUsd'] = float(_f((p or {}).get('stackSkimUsd'))) if _f((p or {}).get('stackSkimUsd')) in STACK_SKIMS else 0.0   # 💚 full stack: each locked coin keeps this $
     out['skimHoldRounds'] = int(_f((p or {}).get('skimHoldRounds'))) if int(_f((p or {}).get('skimHoldRounds'))) in SKIM_HOLDS else 2
     out['recyclePct'] = float(_f((p or {}).get('recyclePct'))) if _f((p or {}).get('recyclePct')) in RECYCLE_PCTS else 0.0
     out['recycleEvery'] = int(_f((p or {}).get('recycleEvery'))) if int(_f((p or {}).get('recycleEvery'))) in RECYCLE_EVERY else 3
@@ -943,6 +944,42 @@ SEAT_MIN_USD = 0.25                   # an empty seat is refilled once the card 
 SKIM_MIN_USD = 0.05                   # a gain smaller than this isn't worth a swap
 
 
+STACK_SKIMS = (0, 0.5, 1, 2, 5)   # 💚 full-stack skim: the $ each locked coin keeps (0 = off)
+STACK_SKIM_MIN = 0.05
+
+
+def stack_skim(c, prices, liqs, now, cfg, fee=0.0):
+    """💚 FULL STACK → SKIM TO THE STAKE (the owner's system: "once we lock all coins it's love — it skims down to a dollar, then
+    anything above"). While EVERY coin on the card is locked (riding / frozen), each coin is cut down to `stackSkimUsd` of value
+    and whatever it grows above that is taken again, tick after tick. The money goes where the card's skims go (`skimTo`: card
+    cash · parked for rounds · held for the owner). The stake keeps riding with its trail and stops; a coin worth less than the
+    stake is left alone. Mutates c; → $ taken."""
+    keep = _f(cfg.get('stackSkimUsd'))
+    if keep <= 0 or not stack(c, prices, cfg)['full']:
+        return 0.0
+    to, took = cfg.get('skimTo', 'card'), 0.0
+    for l in c['legs']:
+        px = _f(prices.get(l['pairAddress']))
+        units, cost = _f(l.get('units')), _f(l.get('costUsd'))
+        value = units * px
+        if px <= 0 or units <= 0 or l.get('buying') or l.get('placeholder') or value - keep < max(STACK_SKIM_MIN, keep * 0.03):
+            continue
+        part = (value - keep) / value
+        got = sell_usd(units * part, px, (liqs or {}).get(l['pairAddress']) or l.get('liq'))
+        l['units'] = units * (1 - part); l['costUsd'] = round(cost * (1 - part), 6); l['trimAt'] = now; l['skimPx'] = px; l['bankedAt'] = l.get('bankedAt') or now
+        c['cash'] = round(_f(c.get('cash')) + got, 6)
+        if to in ('cash', 'round'):
+            c['holdCashUsd'] = round(_f(c.get('holdCashUsd')) + got, 6)
+        if to == 'round':
+            c['skimPark'] = list(c.get('skimPark') or []) + [{'usd': round(got, 6), 'round': int(c.get('rounds') or 0), 'at': now, 'symbol': l.get('symbol')}]
+        c['takenUsd'] = _f(c.get('takenUsd')) + max(0.0, got - cost * part); c['feesUsd'] = _f(c.get('feesUsd')) + fee
+        c.setdefault('events', []).append({'at': now, 'kind': 'skim', 'symbol': l.get('symbol'), 'usd': round(got, 4), 'to': ['cash' if to == 'cash' else 'card'], 'stack': True,
+                                           'why': f"💚 full stack — ${l.get('symbol')} skimmed down to its ${keep:g} stake (${got:.2f} taken"
+                                                  + (', held as cash for you)' if to == 'cash' else ', parked for the next rounds)' if to == 'round' else ', card cash)')})
+        took += got
+    return took
+
+
 def lock_bank(c, l, px, liqs, now, cfg, fee=0.0, gain=None):
     """🏦 BANK ON THE LOCK: `lockBankPct` of a winner is sold when it locks, so a round-tripped run still paid. Once per ride
     (`bankedAt`). In place → $ banked."""
@@ -1345,6 +1382,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             if px_b > 0 and px_b > _f(l.get('entry')):
                 lock_bank(c, l, px_b, liqs, now, cfg, fee, (px_b / _f(l['entry']) - 1) * 100 if _f(l.get('entry')) > 0 else None)
     # 💰 AUTO SKIM (owner's setting): every `skimAt`% a coin gains since its entry / last skim, its profit is taken and its stake rides on
+    stack_skim(c, prices, liqs, now, cfg, fee)   # 💚 every coin locked → each is skimmed down to its stake, and again as it grows
     sk = _f(cfg.get('skimAt'))
     if sk > 0 and not c.get('flooredAt'):
         for l in c['legs']:

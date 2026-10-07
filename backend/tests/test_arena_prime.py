@@ -1918,3 +1918,24 @@ def test_the_owner_fills_every_empty_seat_at_once():
     assert kept['holdCashUsd'] == 3.0 and len(kept['legs']) == 1                           # no picks → parked profit stays parked
     cleared = ap.queue_seat(c, None)
     assert not cleared.get('seatPick') and not cleared.get('seatQueue')
+
+
+def test_full_stack_skims_every_locked_coin_down_to_its_stake_and_again_as_it_grows():
+    import arena_prime as ap
+    now = 1_000_000.0
+    cfg = ap.clean_cfg({'stackSkimUsd': 1, 'skimTo': 'cash'})
+    leg = lambda m, units, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'units': units, 'entry': 1.0, 'costUsd': units, 'at': now - 9999, 'liq': 1e12, 'ride': True, 'high': 2.0, **k}
+    px = {'PA': 2.0, 'PB': 2.0, 'PC': 0.4}
+    full = {'cash': 0.0, 'events': [], 'takenUsd': 0.0, 'feesUsd': 0.0, 'rounds': 3, 'legs': [leg('A', 1.5), leg('B', 0.7), leg('C', 1.0)]}   # worth $3.00 · $1.40 · $0.40
+    took = ap.stack_skim(full, px, {}, now, cfg)
+    a, b, c3 = full['legs']
+    assert abs(a['units'] * 2.0 - 1.0) < 1e-6 and abs(b['units'] * 2.0 - 1.0) < 1e-6        # both cut down to a $1 stake
+    assert c3['units'] == 1.0                                                               # under the stake: left alone
+    assert abs(took - 2.4) < 0.01 and abs(full['holdCashUsd'] - 2.4) < 0.01                 # $2.00 + $0.40 taken, held for the owner (skimTo: cash)
+    assert a['trimAt'] == now and full['events'][-1]['stack'] and 'full stack' in full['events'][-1]['why']
+    assert ap.stack_skim(full, px, {}, now + 60, cfg) == 0.0                                # nothing above the stake → nothing sold
+    assert abs(ap.stack_skim(full, {**px, 'PA': 3.0}, {}, now + 120, cfg) - 0.5) < 0.01     # A grew to $1.50 → the 50c above is taken again
+    not_full = {'cash': 0.0, 'events': [], 'legs': [leg('A', 1.5), leg('B', 0.7, ride=False)]}
+    assert ap.stack_skim(not_full, px, {}, now, cfg) == 0.0 and not_full['legs'][0]['units'] == 1.5   # one coin still proving = no full stack, no skim
+    assert ap.stack_skim({'cash': 0.0, 'events': [], 'legs': [leg('A', 1.5)]}, px, {}, now, ap.clean_cfg({})) == 0.0   # off by default
+    assert ap.clean_cfg({'stackSkimUsd': 0.5})['stackSkimUsd'] == 0.5 and ap.clean_cfg({'stackSkimUsd': 7})['stackSkimUsd'] == 0.0

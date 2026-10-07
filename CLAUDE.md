@@ -1679,3 +1679,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   empty seat, `skimPark` is released at once to fund them (event "parked profit released for the seats you picked"). Found live:
   three picks waited on a ONE-coin card whose whole $1.50 of cash was parked and whose only coin was locked (untrimmable).
   `release_parked` now also runs BEFORE `free_cash` is computed (released money used to sit one more tick).
+- 💚 FULL STACK → SKIM TO THE STAKE (owner's system, 2026-10-06: "once we lock all coins it's love — it skims down to a dollar, then
+  anything above"; `arena_prime.stack_skim`, cfg `stackSkimUsd` 0 / 0.5 / 1 / 2 / 5, off by default, Edit Fuse › Exits): while EVERY
+  coin is locked (`stack().full`), each coin is cut down to that $ of value and whatever grows above it is taken again every tick
+  (≥ 5c); the money follows `skimTo` (card cash · parked · held); a coin under the stake is left alone; the stake keeps its trail.
+  Event kind `skim` with `stack: True`. Switched ON at $1 on the owner's real card the same day (their words named the number).
+  THE OWNER'S DIRECTION: stop reporting fees; build UNIQUE CARD SYSTEMS (each card its own behaviour) — lead with those.
