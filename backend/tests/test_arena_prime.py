@@ -1909,5 +1909,12 @@ def test_the_owner_fills_every_empty_seat_at_once():
     assert [l['mint'] for l in out['legs']] == ['A', 'X', 'Z', 'Y'] and all(l.get('picked') for l in out['legs'][1:])   # all three seated on ONE tick
     assert not out.get('seatPick') and not out.get('seatQueue')
     assert [e['kind'] for e in out['events']].count('seat') == 3
+    # every dollar of card cash is PARKED profit and nothing is free: the owner's seat picks still come in (parked money is released for them)
+    parked = {**c, 'cash': 3.0, 'holdCashUsd': 3.0, 'skimPark': [{'usd': 3.0, 'round': 1, 'at': now}]}
+    got = ap.tick(parked, {'PA': 1.0, 'PX': 1.0, 'PY': 1.0, 'PZ': 1.0}, [], [], cfg, now + 10, [], {}, {})
+    assert [l['mint'] for l in got['legs']] == ['A', 'X', 'Z', 'Y'] and not got.get('skimPark') and got['holdCashUsd'] == 0
+    assert any('released for the seats you picked' in str(e.get('why')) for e in got['events'])
+    kept = ap.tick({**parked, 'seatPick': None, 'seatQueue': []}, {'PA': 1.0}, [], [], cfg, now + 10, [], {}, {})
+    assert kept['holdCashUsd'] == 3.0 and len(kept['legs']) == 1                           # no picks → parked profit stays parked
     cleared = ap.queue_seat(c, None)
     assert not cleared.get('seatPick') and not cleared.get('seatQueue')

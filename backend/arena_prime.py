@@ -1746,12 +1746,19 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                     nc['events'] = list(nc.get('events') or []) + [{'kind': 'keep', 'at': now, 'why': f'🛡 {kept} winning / frozen coin{"s" if kept > 1 else ""} carried into the {phase} shape — never sold by a re-shape'}]
                 c = nc
     # 4) idle cash goes back to work when compounding. Cash reserved for an empty replacement slot is untouchable.
+    release_parked(c, cfg, now)   # 🅿 parked profit whose rounds are up joins the idle cash — BEFORE free cash is counted (it used to wait one more tick)
+    # 🪑 THE OWNER'S OWN SEAT PICKS OUTRANK PARKED PROFIT: with picks queued for empty seats, parked profit is released now to
+    # fund them (2026-10-06: three picks waited on a one-coin card whose whole $1.50 of cash was parked and whose coin was locked)
+    if (c.get('seatPick') or c.get('seatQueue')) and c.get('skimPark') and int(_f(cfg.get('coins'))) > len(c['legs']):
+        rel_ = min(sum(_f(p.get('usd')) for p in c['skimPark']), _f(c.get('holdCashUsd')))
+        c['holdCashUsd'] = round(max(0.0, _f(c.get('holdCashUsd')) - rel_), 6); c['skimPark'] = []
+        if rel_ > 0.005:
+            c.setdefault('events', []).append({'at': now, 'kind': 'compound', 'usd': round(rel_, 4), 'why': f"🅿 ${rel_:.2f} of parked profit released for the seats you picked"})
     reserved_cash = sum(_f(l.get('reserveUsd')) for l in c['legs'] if l.get('placeholder')) + _f(c.get('holdCashUsd'))   # + cash the owner sold out by hand
     free_cash = max(0.0, _f(c['cash']) - reserved_cash)
     # 🪑 AN EMPTY SEAT IS REFILLED: the owner asked for N coins; a seat lost to a refused buy ("slot back to card cash") used to stay
     # empty for good — the card sat on 3 coins with cash idle. As soon as there is cash for it, the best coin not on the card takes
     # the seat with an equal share (runner first, then pool). One seat a tick; never while floored / held.
-    release_parked(c, cfg, now)   # 🅿 parked profit whose rounds are up joins the idle cash that is spread below
     want_n = int(_f(cfg.get('coins')))
     c['seats'] = want_n   # the keeper sizes its smallest order to the card's seats (fuse_wallet.min_order)
     # 💵 on a real card a seat is only opened when the keeper can actually SEND its buy (cfg `minOrderUsd` = this card's smallest

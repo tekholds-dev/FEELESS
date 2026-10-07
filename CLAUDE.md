@@ -1675,3 +1675,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `seatQueue`; `fillSeat.more` from the picker): the owner picks a coin for EACH empty seat — the picker stays open until every seat
   has one, the button reads "🪑 → $A · $B · $C" — and the seat refill seats ALL of the owner's picks on the same tick (a loop; the
   engine's own choice still fills one seat a tick). A pick without `more` still replaces the first; `to: null` clears them all.
+- 🪑 THE OWNER'S SEAT PICKS OUTRANK PARKED PROFIT (`arena_prime.tick`, before free cash is counted): with seat picks queued and an
+  empty seat, `skimPark` is released at once to fund them (event "parked profit released for the seats you picked"). Found live:
+  three picks waited on a ONE-coin card whose whole $1.50 of cash was parked and whose only coin was locked (untrimmable).
+  `release_parked` now also runs BEFORE `free_cash` is computed (released money used to sit one more tick).
