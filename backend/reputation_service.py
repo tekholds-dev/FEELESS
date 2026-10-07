@@ -37,6 +37,8 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
+import ds_pace
+ds_pace.install(110, 20)   # 📡 this process's share of DexScreener's ~300/min per IP (market service takes 150)
 from fastapi.responses import JSONResponse, Response
 from urllib.parse import quote
 from fastapi import FastAPI, HTTPException, Query, Request

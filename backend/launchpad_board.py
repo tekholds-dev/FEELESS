@@ -275,3 +275,12 @@ def pump_profile(d, now_ms=0):
             'replies': int(f(d.get('reply_count'))), 'live': bool(d.get('is_currently_live')), 'banned': bool(d.get('is_banned')), 'nsfw': bool(d.get('nsfw')),
             'verified': bool(d.get('verified')), 'cashback': bool(d.get('is_cashback_enabled')),
             'lastTradeAt': f(d.get('last_trade_timestamp')) or None, 'url': f"https://pump.fun/coin/{d['mint']}"}
+
+
+def keep_last_board(hit, ranked, failed, now):
+    """📡 True = serve the previous board: this build lost DexScreener batches AND came out empty or under a third of the last one,
+    while that one is < 10 min old. 2026-10-07: a 429 burst built an EMPTY board, it was cached as fresh, and every list went blank.
+    `hit` = (built_at, rows, meta) or None."""
+    if not hit or not failed or now - hit[0] > 600:
+        return False
+    return len(ranked) < max(1, len(hit[1]) // 3)

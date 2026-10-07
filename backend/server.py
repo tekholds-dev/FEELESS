@@ -16,6 +16,8 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 load_dotenv(ROOT_DIR / 'market.env')
 from market import create_market_router
+import ds_pace
+ds_pace.install(150, 30)   # 📡 this process's share of DexScreener's ~300/min per IP (reputation service takes 110)
 from intelligence import Intelligence
 from trading import TradingService
 from whitepaper import router as docs_router

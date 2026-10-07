@@ -2074,3 +2074,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   per test): the Fuse page fetched `/fuses/prime` (98 KB) 4× at once on load (slowest 2.1s) and `/fuses/contenders` twice. `usePrime`,
   `FusePage` real cards, `MiniDeck`, `liveFuse`, `VaultDesigner`, `ArenaContenders`, `TopThree` share it. A new poller of a shared
   endpoint ⇒ `sharedJson`, never a bare fetch.
+- 📡 DEXSCREENER PACING (`backend/ds_pace.py`, `install(rpm, slow_rpm)` patches `httpx.AsyncClient.send` for api.dexscreener.com only;
+  server.py 150 + 30 slow · reputation_service 110 + 20 slow — together under the ~300/min per IP): requests wait for a slot (≤ 12s)
+  instead of bursting, and a 429 pauses the host for its Retry-After (default 15s). 2026-10-07: after restarts 5001 alone sent 100–190
+  DexScreener calls a minute (the launch board looked up 660 coins in 22 batches every 20s per board), 34 reputation call sites
+  had no pacing, DexScreener answered 429 and the launch feed went EMPTY — every list, Coming up and the seat refill with it.
+  Board: batches 45s, `pair_mem` reuses a coin's last good snapshot ≤ 5 min when its batch is refused, `launchpad_board.keep_last_board`
+  serves the last good board (stale-marked) instead of an empty / collapsed one. Jupiter ranking lists: 2 min (5m/1h), 5 min (6h/24h),
+  recent 1 min — the keeper's quotes share that free tier. "LISTS EMPTY" ⇒ `curl :5001/api/market/feed…` pair count + grep 429 in
+  /tmp/feeless-api.log before touching a gate.

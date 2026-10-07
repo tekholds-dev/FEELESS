@@ -68,3 +68,14 @@ def test_pump_trending_coin_is_listed_even_under_the_trending_floors():
             'priceChange': {'h1': 5, 'm5': 1, 'h24': 10}, 'liquidity': {'usd': 8000}, 'pairCreatedAt': 2_000_000_000_000 - 600_000}
     out = lb.build_board({cand['mint']: cand}, {cand['mint']: pair}, 'trending', now_ms=2_000_000_000_000)
     assert out and out[0]['pumpTrend'] == 1          # $9K cap / $1K an hour is under the board's floors — Pump trends it, so it shows
+
+
+def test_a_board_built_while_dexscreener_refused_us_never_replaces_a_good_one():
+    from launchpad_board import keep_last_board
+    good = (100.0, list(range(120)), {})
+    assert keep_last_board(good, [], 5, 130.0) is True                 # empty after refused batches → keep the last good board
+    assert keep_last_board(good, list(range(30)), 3, 130.0) is True    # collapsed under a third → keep it
+    assert keep_last_board(good, list(range(90)), 3, 130.0) is False   # a normal shrink is real
+    assert keep_last_board(good, [], 0, 130.0) is False                # nothing refused → an empty board is the truth
+    assert keep_last_board(good, [], 5, 800.0) is False                # the last board is too old to stand in
+    assert keep_last_board(None, [], 5, 130.0) is False

@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, Query
 from ecosystem import DEFAULT_MINTS
 from pydantic import BaseModel, Field
 
-from launchpad_board import BOARD_MAX, BONK_PLATFORM_ID, JUP_LISTS, JUP_RECENT, PUMP_TREND_PARAMS, PUMP_TREND_PATH, PUMP_TREND_TTL, build_board, pump_pages, pump_trend_rows, dex_candidate, jup_candidate, launchlab_candidate, pump_candidate
+from launchpad_board import keep_last_board, BOARD_MAX, BONK_PLATFORM_ID, JUP_LISTS, JUP_RECENT, PUMP_TREND_PARAMS, PUMP_TREND_PATH, PUMP_TREND_TTL, build_board, pump_pages, pump_trend_rows, dex_candidate, jup_candidate, launchlab_candidate, pump_candidate
 
 BOARD_SCOPES = ('launchpads', 'pump', 'bonk', 'raydium')
 
@@ -343,6 +343,7 @@ def create_market_router(db, intelligence=None):
         }
 
     board_cache = {}
+    pair_mem = {}   # 📡 mint → (monotonic, pair): a coin's last good DexScreener snapshot, reused ≤ 5 min when its batch is refused
 
     async def launchpad_board(kind):
         """Ranked Pump.fun + LetsBONK + LaunchLab coins (see launchpad_board.py). Cached 20s per kind."""
@@ -359,8 +360,9 @@ def create_market_router(db, intelligence=None):
             jobs.append(('bonk', cached('LaunchLab', '/get/list', {'sort': s, 'size': 50, 'mintType': 'default', 'includeNsfw': 'false', 'platformId': BONK_PLATFORM_ID}, ttl=20)))
             jobs.append(('raydium', cached('LaunchLab', '/get/list', {'sort': s, 'size': 50, 'mintType': 'default', 'includeNsfw': 'false'}, ttl=20)))
         if kind != 'new':   # 🌊 movers: Jupiter's live trending / most-traded lists (launch coins only are kept)
-            jobs += [('jup', cached('Jupiter', f'/tokens/v2/{cat}/{iv}', {'limit': 100}, ttl=45)) for cat, iv in JUP_LISTS]
-        jobs.append(('jup', cached('Jupiter', JUP_RECENT, {'limit': 100}, ttl=30)))   # 🆕 the newest launches on every launchpad (both boards)
+            # 📡 Jupiter's free tier is shared with the keeper's own swap quotes: fast lists every 2 min, slow (6h / 24h) every 5 min
+            jobs += [('jup', cached('Jupiter', f'/tokens/v2/{cat}/{iv}', {'limit': 100}, ttl=120 if iv in ('5m', '1h') else 300)) for cat, iv in JUP_LISTS]
+        jobs.append(('jup', cached('Jupiter', JUP_RECENT, {'limit': 100}, ttl=60)))   # 🆕 the newest launches on every launchpad (both boards)
         jobs.append(('ptrend', cached('PumpBoard', PUMP_TREND_PATH, dict(PUMP_TREND_PARAMS), ttl=PUMP_TREND_TTL)))   # 🔥 Pump's Trending tab, every 10 min
         results = await asyncio.gather(*[job for _pad, job in jobs], return_exceptions=True)
         candidates, meta, movers, trend_first = {}, None, [], []
@@ -405,10 +407,13 @@ def create_market_router(db, intelligence=None):
         mints = (first + [m for m in candidates if m not in set(first)])[:BOARD_MAX]
         dex_pairs = dict(seeded)
         lookup = sorted(m for m in mints if m not in seeded)
-        chunks = await asyncio.gather(*[cached('DexScreener', '/tokens/v1/solana/' + ','.join(lookup[i:i + 30]), ttl=20)
+        # 📡 45s per batch (was 20s: 22 batches × 2 boards every 20s ≈ 130 DexScreener calls a minute from this alone → 429s)
+        chunks = await asyncio.gather(*[cached('DexScreener', '/tokens/v1/solana/' + ','.join(lookup[i:i + 30]), ttl=45)
                                         for i in range(0, len(lookup), 30)], return_exceptions=True)
+        failed = 0
         for res in chunks:
             if isinstance(res, Exception):
+                failed += 1
                 continue
             for pair in res[0] if isinstance(res[0], list) else []:
                 mint = (pair.get('baseToken') or {}).get('address')
@@ -416,6 +421,15 @@ def create_market_router(db, intelligence=None):
                     best = dex_pairs.get(mint)
                     if not best or safe_float((pair.get('volume') or {}).get('h1')) > safe_float((best.get('volume') or {}).get('h1')):
                         dex_pairs[mint] = pair
+        now_m = monotonic()
+        for m_, p_ in list(dex_pairs.items()):
+            pair_mem[m_] = (now_m, p_)
+        for m_ in mints:   # a batch DexScreener refused → that coin's last good snapshot (≤ 5 min), never a hole in the board
+            if m_ not in dex_pairs and m_ in pair_mem and now_m - pair_mem[m_][0] < 300:
+                dex_pairs[m_] = pair_mem[m_][1]
+        if len(pair_mem) > 4000:
+            for k_ in sorted(pair_mem, key=lambda k: pair_mem[k][0])[:len(pair_mem) - 3000]:
+                pair_mem.pop(k_, None)
         for m in movers:   # a mover's stage (curve / graduated) comes from its live pair, not from the trending row
             if m in dex_pairs and dex_candidate(dex_pairs[m]):
                 candidates[m] = {**candidates[m], 'graduated': dex_candidate(dex_pairs[m])['graduated']}
@@ -424,6 +438,8 @@ def create_market_router(db, intelligence=None):
                 'source_label': 'Pump.fun + LetsBONK + LaunchLab indexes · ranked on DexScreener 5m/1h flow',
                 'coverage': {'discovery': 'Launchpad indexes (recent trades, top market cap, newest, live)', 'snapshot': 'DexScreener pair snapshots',
                              'graduation': 'Launchpad completion flags', 'stream': 'Polling snapshot, 20s'}}
+        if keep_last_board(hit, ranked, failed, monotonic()):   # 📡 never swap a good board for an empty one built while DexScreener refused us
+            return hit[1], {**hit[2], 'stale': True, 'error': 'DexScreener is rate-limiting — showing the last good board'}
         board_cache[kind] = (monotonic(), ranked, meta)
         return ranked, meta
 
