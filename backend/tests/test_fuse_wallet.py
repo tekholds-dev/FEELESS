@@ -1271,3 +1271,19 @@ def test_a_small_ticket_is_never_topped_up_by_the_idle_sweep():
     import fuse_wallet as fw, inspect
     src = inspect.getsource(fw)
     assert "l.get('ticket') or l.get('scout')" in src        # target() marks tickets locked → idle_sweep / re-weigh skip them
+
+
+def test_a_keeper_save_never_erases_a_top_up_made_while_it_was_swapping():
+    import fuse_wallet as fw
+    loaded = {'sol': 0.010, 'fundedUsd': 12.0, 'legs': {}}                       # what the keeper pass read
+    stored = fw.owner_add(loaded, 2.0, 0.017, 1000.0)                            # the owner tops up mid-pass
+    assert stored['sol'] == 0.027 and stored['fundedUsd'] == 14.0 and len(stored['ownerAdds']) == 1
+    mine = {**loaded, 'sol': 0.004}                                              # the keeper spent 0.006 on a buy meanwhile
+    out = fw.merge_owner(stored, mine)
+    assert out['sol'] == 0.021 and out['fundedUsd'] == 14.0 and out['ownerAdds'] == stored['ownerAdds']
+    assert fw.merge_owner(out, mine)['sol'] == 0.021                             # the keeper's in-memory copy saved again: applied once, not twice
+    assert fw.merge_owner(out, out) is out and fw.merge_owner({}, mine) is mine and fw.merge_owner(None, mine) is mine
+    b = loaded
+    for i in range(25):
+        b = fw.owner_add(b, 1.0, 0.01, 2000.0 + i)
+    assert len(b['ownerAdds']) == fw.OWNER_ADDS_MAX and b['fundedUsd'] == 37.0

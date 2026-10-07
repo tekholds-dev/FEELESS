@@ -1968,3 +1968,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   🆕 New launches (feed, newest first ≤ 48h) · 🌊 Volume (feed, busiest first) · 🗑 Trench · 🪙 Majors & stocks (majors + stocks +
   new majors, `LENS_URLS`) · 🏁 All ranked. Up to 300 rows each. EVERY row has a line: recorded prices (sparks, 3 batches of 60)
   else `moveLine` from its own 24h / 6h / 1h / 5m moves.
+- 🧷 A KEEPER SAVE NEVER ERASES A TOP-UP (`fuse_wallet.owner_add` journals every top-up on the book as `ownerAdds`; `merge_owner`
+  inside `_fw_keep` applies any entry the keeper's copy has not seen — every keeper save goes through `_fw_keep`). 2026-10-07: a $2
+  top-up landed 20s into a keeper swap pass; the pass saved its older book over it → the book never got the SOL (it sat UNASSIGNED
+  in the wallet), the card started a run that counted it, read −54% and the floor sold everything. "WHERE DID MY TOP-UP GO" ⇒
+  compare `fundedUsd` in the book with the ledger's top-up rows and read `reconciliation.outsideCardUsd` before anything else.
+  Same race still open for ↗ withdraw-cash / ✂ manual cash (owner writes during a keeper pass) — journal them the same way next.

@@ -958,6 +958,33 @@ def totals(ledger, card=None):
             'topups': round(sum(_f(o.get('usd')) for o in rows if o.get('side') == 'topup'), 4)}
 
 
+OWNER_ADDS_MAX = 20
+
+
+def owner_add(book, usd, sol, now):
+    """💵 Credit new money to a card's book AND journal it (`ownerAdds`). The journal is what lets a keeper tick that loaded the
+    book before the top-up, and saves after it, put the money back in (`merge_owner`)."""
+    adds = (list(book.get('ownerAdds') or []) + [{'id': f"top:{now:.3f}", 'sol': round(sol, 9), 'usd': round(usd, 4), 'at': now}])[-OWNER_ADDS_MAX:]
+    return {**book, 'sol': round(_f(book.get('sol')) + sol, 9), 'fundedUsd': round(_f(book.get('fundedUsd')) + usd, 4), 'ownerAdds': adds}
+
+
+def merge_owner(stored, mine):
+    """🧷 A KEEPER SAVE NEVER ERASES A TOP-UP. The keeper loads a book, swaps for seconds, then saves its copy. A top-up written
+    in between used to vanish (2026-10-07: $2 topped up 20s into a swap pass → the book never got it, the card started a run that
+    counted it, read −54% and sold everything at its floor; the SOL sat unassigned in the wallet). Every top-up is journalled on
+    the stored book; any entry the keeper's copy has not seen is applied to it here. Idempotent."""
+    have = {a.get('id') for a in (mine or {}).get('ownerAdds') or []}
+    miss = [a for a in (stored or {}).get('ownerAdds') or [] if a.get('id') not in have]
+    if not miss or mine is None:
+        return mine
+    out = dict(mine)
+    for a in miss:
+        out['sol'] = round(_f(out.get('sol')) + _f(a.get('sol')), 9)
+        out['fundedUsd'] = round(_f(out.get('fundedUsd')) + _f(a.get('usd')), 4)
+    out['ownerAdds'] = (list(mine.get('ownerAdds') or []) + miss)[-OWNER_ADDS_MAX:]
+    return out
+
+
 def topup_card(card, usd, prices, now, first=False, current_usd=None):
     """💵 Real money joins the SAME card. First funding: every coin, the cycle phase, the clock and the config stay exactly as
     they are on paper — the card is scaled to the funded $ and its time / P&L start over (the paper run is kept on the record).

@@ -7087,6 +7087,7 @@ async def _fw_preflight(tid, buys, cfg, now):
 def _fw_keep(d, tid, book):
     """Save a card's book without losing the miss / bench counts written meanwhile by _fw_record."""
     old = (d.get('books') or {}).get(tid) or {}
+    book = _fw.merge_owner(old, book)   # 🧷 a top-up written while this keeper pass was running is put back in, never overwritten
     return {**book, 'misses': old.get('misses', book.get('misses') or {}), 'benched': old.get('benched', book.get('benched') or {})}
 
 
@@ -8426,7 +8427,7 @@ async def fuse_wallet_topup(request: Request):
             truth = _fw.sync_card(card, b, px, sol_px)
             current = _prime.value(truth, px)
             new = _fw.topup_card(truth, usd, px, now, current_usd=current)
-            d['books'][tid] = {**b, 'sol': round(_fuse._f(b.get('sol')) + usd / sol_px, 9), 'fundedUsd': round(_fuse._f(b.get('fundedUsd')) + usd, 4)}
+            d['books'][tid] = _fw.owner_add(b, usd, usd / sol_px, now)   # journalled: a keeper pass in flight can't save over it
         _fw_record(d, {'card': tid, 'side': 'topup', 'usd': usd, 'sol': round(usd / sol_px, 9), 'at': now, 'by': me, 'status': 'done',
                        'why': 'funded — new real run' if first else 'new money top-up — new run'})
         _fw_save(d)
