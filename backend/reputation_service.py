@@ -5648,6 +5648,30 @@ async def _trench_build(now):
 
 TRENCH_META_PATH = FUSE_HQ_PATH.parent / 'trench_meta.json'
 ENTRY_PROOF_PATH = FUSE_HQ_PATH.parent / 'entry_proof.json'
+PICK_STYLE_PATH = FUSE_HQ_PATH.parent / 'pick_style.json'   # 👤 how the owner picks (pick_style.py): one note per hand pick
+HUMAN_TIERS_DEFAULT = ['next']                               # which PAPER cards pick like the owner (HQ › Fuse › Arena › Cards)
+
+
+def _human_style():
+    """👤 The owner's pick style for the paper cards switched to it → (tiers, profile | None, picks noted)."""
+    log = _json_load(PICK_STYLE_PATH, {}).get('log') or []
+    tiers = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('humanTiers')
+    return (HUMAN_TIERS_DEFAULT if tiers is None else [t for t in tiers if t in _prime.TEMPLATES]), _ps.profile(log), len(log)
+
+
+async def _pick_style_note(mint, symbol, pair_address):
+    """Note what a hand-picked coin looks like right now (the board's own row, else a fresh read of its pool). Never raises."""
+    try:
+        c = next((r for r in _runner_cands if r.get('mint') == mint), None)
+        if not c and pair_address:
+            lp = (await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pair_address}])).get(pair_address) or {}
+            c = _rn.candidate(lp, None, False, False, time.time() * 1000) if lp else None
+        feats = _ps.snap(c)
+        if feats:
+            d = _json_load(PICK_STYLE_PATH, {})
+            d['log'] = _ps.note(d.get('log'), mint, symbol, feats, time.time()); _json_save(PICK_STYLE_PATH, d)
+    except Exception:
+        pass
 
 
 def _trench_judge():
@@ -6181,6 +6205,7 @@ async def _prime_tick_inner(now):
     before_runs = {tid: max((_fuse._f(r.get('at')) for r in (c or {}).get('runs') or []), default=0.0) for tid, c in cards.items()}   # newest run already recorded
     taken = set()   # 🎲 coins already on a tier dealt earlier this tick — later tiers pick OTHER coins when they can (no 5 identical cards)
     order_t = sorted(_prime.TEMPLATES, key=lambda t: 0 if (cards.get(t) or {}).get('real') else 1)   # real cards pick first
+    hs_tiers, hs_prof, _hs_n = _human_style()
     for tid in order_t:
         cur = cards.get(tid)
         liqs = {k: _fuse._f((v.get('liquidity') or {}).get('usd')) for k, v in pairs_.items()}
@@ -6269,6 +6294,7 @@ async def _prime_tick_inner(now):
         # 🧠 EDGE: runners are ranked by what the board's own record says about coins like them (pick_edge.py) — the hand-written score and
         # the "what is hot now" order both pointed at the coins that lost most. Real money buys only runners the record does not
         # expect to lose (cfg `edgeGate`, on by default); no table yet / table failing its own test = the order above stands.
+        human_t = bool(not real_t and hs_prof and tid in hs_tiers)
         tb_ = _edge_load().get('table')
         pth_ = _json_load(RUNNERS_PATH, {}).get('paths') or {}   # 📈 each candidate's own chart read (chart_read.py) joins its snapshot — table or not
         r_t = [{**x, **_pedge._chart.keys(pth_.get(x.get('mint')) or [], now)} for x in r_t]
@@ -6276,8 +6302,10 @@ async def _prime_tick_inner(now):
             r_t = await _chart_fill(r_t, now)
         if tb_:
             r_t = _pedge.rank(r_t, tb_)
-            if cfg_t.get('edgeGate', True):   # real AND paper (paper = real)
+            if cfg_t.get('edgeGate', True) and not human_t:   # real AND paper (paper = real); a 👤 card is ordered by the owner's style instead
                 r_t = _pedge.gate(r_t, tb_, float(cfg_t.get('edgeFloor') or 0))
+        if human_t:   # 👤 this PAPER card buys what the owner would pick: closest to their own picks first (pick_style.py)
+            r_t = _ps.rank(r_t, hs_prof)
         if real_t and cur and cfg_t.get('pickVerify', True):   # ✅ a queued pick that turned bad before the bell is dropped, the old coin stays
             for l_ in cur.get('legs') or []:
                 to_ = l_.get('swapTo') or {}
@@ -6528,7 +6556,8 @@ async def fuse_prime():
     """⭐ Arena Prime cards (paper, fully auto) with every automation event + the config they run."""
     _rc = _prime_real_cfg() if any((c or {}).get('real') for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values()) else {}
     _seed = sum(ord(ch) for ch in ''.join(sorted(_owner_wallets()))[:44]) if _rc else 0   # ⚡ each owner's card gets its own variant of the meta
-    return {'meta': _prime.meta_for(_fuse._f(_rc.get('rotateHours')) or 1.0, _seed) if _rc else None, 'cards': await _prime_view(), 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'weather': _real_weather(), 'suggest': _json_load(PG_SIM_PATH, {}).get('byClock') or {}, 'realGuard': _prime.real_guard({**_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'instantSwapPct': _fuse._f(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('instantSwapPct'))}, (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or ())[1], 'paperMatch': _fw.paper_match(_fw_load().get('quoteAudit')), 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'lockCfg': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}), 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner'), 'realOwnerSet': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or []}
+    _ht, _hp, _hn = _human_style()
+    return {'meta': _prime.meta_for(_fuse._f(_rc.get('rotateHours')) or 1.0, _seed) if _rc else None, 'cards': await _prime_view(), 'humanStyle': {'tiers': _ht, 'picks': _hn, 'need': _ps.MIN_PICKS, 'ready': bool(_hp), 'words': _ps.words(_hp)}, 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'weather': _real_weather(), 'suggest': _json_load(PG_SIM_PATH, {}).get('byClock') or {}, 'realGuard': _prime.real_guard({**_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'instantSwapPct': _fuse._f(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('instantSwapPct'))}, (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or ())[1], 'paperMatch': _fw.paper_match(_fw_load().get('quoteAudit')), 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'lockCfg': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}), 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner'), 'realOwnerSet': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or []}
 
 
 @app.post('/api/reputation/admin/arena/prime')
@@ -6655,6 +6684,15 @@ async def fuse_prime_admin(request: Request):
             except ValueError as e:
                 raise HTTPException(400, str(e))
             _json_save(FUSE_HQ_PATH, d)
+        if cand:   # 👤 the pick is in: note what the coin looked like (teaches the paper cards that pick like the owner)
+            await _pick_style_note(cand['mint'], cand.get('symbol'), cand.get('pairAddress'))
+    hm = body.get('human') or {}
+    if hm.get('tpl') in _prime.TEMPLATES:   # 👤 switch a PAPER card to / from the owner's pick style
+        async with _admin_lock:
+            d = _json_load(FUSE_HQ_PATH, {}); pr_ = d.setdefault('prime', {})
+            cur_ = set(HUMAN_TIERS_DEFAULT if pr_.get('humanTiers') is None else pr_['humanTiers'])
+            (cur_.add if hm.get('on') else cur_.discard)(hm['tpl'])
+            pr_['humanTiers'] = sorted(cur_); _json_save(FUSE_HQ_PATH, d)
     rb = body.get('rebuy') or {}
     if rb.get('tpl') in _prime.TEMPLATES and rb.get('pairAddress'):   # 🔄 sell this coin and buy it straight back at today's price (new entry)
         async with _admin_lock:
@@ -9009,6 +9047,7 @@ PG_SIM_PATH = DATA_DIR / 'pg_sim.json'   # its own file: never bloats runners.js
 
 
 import pick_edge as _pedge
+import pick_style as _ps
 EDGE_PATH = FUSE_HQ_PATH.parent / 'edge.json'
 _edge_state: dict = {}
 

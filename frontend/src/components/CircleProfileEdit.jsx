@@ -24,7 +24,7 @@ export function CircleProfileForm({ call, start, onDone }) {
             onChange={async e => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; setUp(k); try { const url = await uploadImage(f, CROP[k === 'avatar' ? 'avatar' : 'banner']); if (!url) { setUp(''); return; } setEdit(x => ({ ...x, profile: { ...x.profile, [k]: url } })); toast.success(`${label} uploaded — press Save`); } catch (err) { toast.error(err.message || 'Upload failed'); } setUp(''); }} /></label>
           {edit.profile[k] && <button type="button" className="m-btn" onClick={() => setEdit(x => ({ ...x, profile: { ...x.profile, [k]: '' } }))}>Remove</button>}</span>
         <input className="m-input" placeholder="…or paste an https:// link" value={edit.profile[k]} onChange={e => setEdit(x => ({ ...x, profile: { ...x.profile, [k]: e.target.value } }))} /></div>)}
-      <small className="m-note">GIFs stay animated and are slimmed on upload (fitted to the picture / cover box, 12 frames a second) so they never lag a page. Covers are shown whole at 3 : 1 — 1500 × 500 is ideal.</small>
+      <small className="m-note">GIFs stay animated and are slimmed on upload (fitted to the picture / cover box, at most 20 frames a second) so they never lag a page. Covers are shown whole at 3 : 1 — 1500 × 500 is ideal.</small>
       <span className="m-row"><button type="button" className="m-btn primary m-go" onClick={save} data-testid="cp-save">Save profile</button><button type="button" className="m-btn" onClick={() => onDone(false)}>Cancel</button></span></div>;
 }
 

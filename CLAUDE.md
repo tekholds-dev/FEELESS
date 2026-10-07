@@ -1894,3 +1894,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   browser has no ImageDecoder. Profile cover = always the whole 3 : 1 picture (tips.css; the height used to follow the WINDOW width
   and cropped it). Profile lag was NOT the GIFs (1.6 MB, 4.5 fps): `feed-flare` animated `left`, `feed-shine` / `tr-shimmer`
   animated `background-position` — now transform / opacity (tips.css). Count non-cheap animations before blaming an image.
+- 👤 PICKS LIKE THE OWNER (`backend/pick_style.py` pure + tested: `snap/note/profile/match/rank/words`; `data/pick_style.json`;
+  `_pick_style_note` after every queued hand pick / fill-seat; `_human_style`; `prime.humanTiers`, default `['next']`; admin prime
+  `{human: {tpl, on}}`; `/fuses/prime.humanStyle`; button `prime-human-<tpl>` in HQ › Fuse › Arena › Cards, chip `prime-human`):
+  a PAPER tier card switched to it orders its runner candidates by how close they sit to the owner's own picks (age, pool, cap,
+  1h volume, 1h / 5m move, buyers: the middle 80% of the last 120 picks; needs 8) and skips the edge gate. It copies HOW the owner
+  picks, never their trades; never real money; "not every card" — one by default. Its own record says whether the habit wins.
+- 🎞 cover.html GIFs = a 4s loop at 15 fps (60 frames; covers 1200 × 400): the 8s / 36-frame export played at 4.5 fps and read as
+  lag on the profile. `slimGif` caps at 20 fps / 96 frames so it never re-chops a smooth GIF. "LAG" ON AN IMAGE ⇒ check its fps first.

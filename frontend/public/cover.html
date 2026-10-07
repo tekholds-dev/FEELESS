@@ -26,7 +26,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { RoomEnvironment } from '/assets/three/RoomEnvironment.js';
-const T = Math.PI * 2, LOOP = 8000, RW = 1500, RH = 512;
+const T = Math.PI * 2, LOOP = 8000, GIF_LOOP = 4000, RW = 1500, RH = 512;
 let renderer; try { renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); } catch (e) { document.getElementById('err').textContent = 'This browser could not start 3D (WebGL).'; throw e; }
 renderer.setPixelRatio(1); renderer.setSize(RW, RH, false); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.92; renderer.setScissorTest(true);
 const ENV = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
@@ -120,7 +120,7 @@ const tag = () => (pick === 'auto' ? '' : `-${COLS.find(c => c[0] === pick)[1].t
 let gifenc = null; const loadGif = async () => (gifenc ||= await import('/assets/gifenc.esm.js'));
 async function makeGif(draw, w, h, scale, frames, btn, name) { const label = btn.textContent; btn.disabled = true;
   try { const { GIFEncoder, quantize, applyPalette } = await loadGif(); const off = document.createElement('canvas'); off.width = w * scale; off.height = h * scale; const og = off.getContext('2d', { willReadFrequently: true }); const enc = GIFEncoder();
-    for (let f = 0; f < frames; f++) { og.setTransform(scale, 0, 0, scale, 0, 0); draw(og, f / frames); const { data } = og.getImageData(0, 0, off.width, off.height); const pal = quantize(data, 256); enc.writeFrame(applyPalette(data, pal), off.width, off.height, { palette: pal, delay: Math.round(LOOP / frames) });
+    for (let f = 0; f < frames; f++) { og.setTransform(scale, 0, 0, scale, 0, 0); draw(og, f / frames); const { data } = og.getImageData(0, 0, off.width, off.height); const pal = quantize(data, 256); enc.writeFrame(applyPalette(data, pal), off.width, off.height, { palette: pal, delay: Math.round(GIF_LOOP / frames) });
       btn.textContent = `GIF ${Math.round((f + 1) / frames * 100)}%`; if (f % 3 === 0) await new Promise(r => setTimeout(r)); }
     enc.finish(); save(new Blob([enc.bytes()], { type: 'image/gif' }), `${name}.gif`); }
   catch (e) { btn.textContent = 'GIF failed — try again'; await new Promise(r => setTimeout(r, 2600)); }
@@ -139,8 +139,8 @@ COLS.forEach(([k, name]) => { const b = document.createElement('button'); b.text
   b.onclick = () => { pick = k; cb.querySelectorAll('button').forEach(x => { x.className = x.dataset.k === k ? 'go' : ''; }); }; cb.appendChild(b); });
 const bb = document.getElementById('brands');
 BR.forEach(([k, name]) => { const b = document.createElement('button'); b.textContent = name; b.dataset.k = k; if (k === brand) b.className = 'go'; b.onclick = () => { brand = k; bb.querySelectorAll('button').forEach(x => { x.className = x.dataset.k === k ? 'go' : ''; }); }; bb.appendChild(b); });
-PFPS.forEach(x => add(document.getElementById('pfps'), x, 512, 512, 1, 36, false));
-COVERS.forEach(x => add(document.getElementById('covers'), x, 1500, 500, 0.5, 36, true));
+PFPS.forEach(x => add(document.getElementById('pfps'), x, 512, 512, 1, 60, false));
+COVERS.forEach(x => add(document.getElementById('covers'), x, 1500, 500, 0.8, 60, true));
 const io = new IntersectionObserver(es => es.forEach(e => { e.target.dataset.on = e.isIntersecting ? '1' : ''; }), { rootMargin: '150px' }); live.forEach(([c]) => { c.dataset.on = '1'; io.observe(c); });
 const tick = ms => { const t = (ms % LOOP) / LOOP; live.forEach(([c, g, draw]) => { if (c.dataset.on) { g.setTransform(1, 0, 0, 1, 0, 0); draw(g, t); } }); requestAnimationFrame(tick); }; requestAnimationFrame(tick);
 </script></body></html>

@@ -1,9 +1,9 @@
 import { GIFEncoder, quantize, applyPalette } from 'gifenc';
 
-// 🪶 Slim an animated GIF before upload so it never lags a page: no bigger than the box it is shown in, ≤ 12 frames a second,
-// ≤ 72 frames. `gifPlan` is the pure decision (tested); `slimGif` does it in the browser (ImageDecoder — Chrome / Edge / Safari 17;
+// 🪶 Slim an animated GIF before upload so it never lags a page: no bigger than the box it is shown in, ≤ 20 frames a second,
+// ≤ 96 frames. `gifPlan` is the pure decision (tested); `slimGif` does it in the browser (ImageDecoder — Chrome / Edge / Safari 17;
 // anywhere else the file goes up untouched).
-export const GIF_FPS = 12, GIF_MAX_FRAMES = 72;
+export const GIF_FPS = 20, GIF_MAX_FRAMES = 96;
 
 // → null when the GIF is already light, else { w, h, frames: [source frame indexes], delay ms }
 export function gifPlan({ w, h, frames, durMs }, out, fps = GIF_FPS, maxFrames = GIF_MAX_FRAMES) {
