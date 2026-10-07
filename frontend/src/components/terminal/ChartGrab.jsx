@@ -3,7 +3,7 @@ import { grabLevels, snapLevel } from '../../lib/chartGrab';
 import '../../styles/chartGrab.css';
 
 // ✋ Grab handles on a Fuse coin's chart: one tab per level the card lets you move (stop · lock / take-profit · trail). Drag it up
-// or down — it snaps to the editor's own options and shows the new % while you hold it; letting go ASKS (event
+// or down — it moves 1% at a time and shows the new % while you hold it; letting go ASKS (event
 // `feeless:fuse-level` → the real card confirms and saves). Nothing changes on a cancelled drop.
 export function ChartGrab({ seriesRef, container, fuse, ratio = 1 }) {
   const levels = grabLevels(fuse); const key = levels.map(l => `${l.kind}:${l.pct}`).join('|');
@@ -21,6 +21,6 @@ export function ChartGrab({ seriesRef, container, fuse, ratio = 1 }) {
   return <div className="cgr" data-testid="chart-grab">{levels.map(l => { const on = drag?.kind === l.kind; const y = on ? yOf(drag.price) : ys[l.kind]; if (y == null) return null; const pct = on ? drag.pct : l.pct;
     return <div key={l.kind} className={`cgr-row is-${l.kind} ${on ? 'is-drag' : ''}`} style={{ transform: `translateY(${y}px)` }}>
       <button type="button" className="cgr-tab" onPointerDown={down(l)} onPointerMove={move} onPointerUp={up} onPointerCancel={up} data-testid={`grab-${l.kind}`} aria-label={`Drag to move the ${l.name}`}
-        data-tip={`Grab and drag: ${l.name} ${l.sign > 0 ? '+' : '−'}${l.pct}% ${l.base === 'peak' ? 'off its peak' : 'from entry'} — ${l.scope === 'coin' ? 'this coin only' : 'the card\'s setting (every coin)'}. Snaps to ${l.list.join(' / ')}%. Asks before saving.`}>
+        data-tip={`Grab and drag: ${l.name} ${l.sign > 0 ? '+' : '−'}${l.pct}% ${l.base === 'peak' ? 'off its peak' : 'from entry'} — ${l.scope === 'coin' ? 'this coin only' : 'the card\'s setting (every coin)'}. Moves 1% at a time (${l.min}–${l.max}%). Asks before saving.`}>
         <i aria-hidden>⠿</i>{l.ic} {l.sign > 0 ? '+' : '−'}{pct}%</button><i className="cgr-line" aria-hidden /></div>; })}</div>;
 }

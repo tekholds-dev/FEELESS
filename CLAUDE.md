@@ -1733,3 +1733,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `feeless:fuse-level` → `HqRealCards` asks (`window.confirm`, says "only this coin" for stop / TP → `{leg: {sl|tp}}`, "every coin
   on the card" for lock / trail → `{realCfg: {rideAt|rideTrail}}`) → saved → `feeless:fuse-level-done` moves the line. A cancelled
   or unmoved drop changes nothing. `fuseLevels` now also carries `peak` + `tpPct`. Tabs sit at 40% across (top-left is the 🧰 menu).
+- ✋ DRAGGED LEVELS MOVE IN 1% STEPS (replaces "snaps to the editor's options"): `arena_prime.STEP_RANGE` sl 5–50 · tp 10–500 ·
+  rideAt 5–200 · rideTrail 3–50 + `step_ok` (a whole % in range) accepted by `set_leg`, `clean_exit` and `clean_cfg` next to the
+  old lists; `lib/chartGrab.js` `GRAB` min / max mirror it (change both). Edit Fuse shows a dragged value as its own chip
+  ("✋ +17%") and the per-coin TP / SL selects add it as an option, so a custom value never reads blank.
+- 🎨 Chart backgrounds = Default · ⚛ Fuse reactor · 🧬 Fuse helix · 🌅 Sunset ocean · 🌌 Aurora night · 🏔 Misty peaks (dawn, three
+  ridges drifting at different speeds, valley fog) · 🌸 Sakura drift (moon over still water, 14 falling petals) · 🪼 Deep sea (sun
+  shafts, three rising jellyfish, bubbles). Each calm scene has its own day palette; phones drop a third of the particles.

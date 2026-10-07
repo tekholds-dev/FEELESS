@@ -1,19 +1,18 @@
-// ✋ GRAB YOUR LEVELS: on a Fuse coin's chart the card's stop / take-profit / lock / trail lines can be dragged. A drag never
-// free-types a number: it snaps to the SAME options the card's editor offers (= arena_prime LEG_SLS / LEG_TPS / RIDE_ATS /
-// RIDE_TRAILS — change both). stop + tp are this COIN's own; lock + trail are the CARD's (every coin) and say so.
+// ✋ GRAB YOUR LEVELS: on a Fuse coin's chart the card's stop / take-profit / lock / trail lines can be dragged. A drag moves in
+// 1% STEPS inside a fixed range per level (= arena_prime.STEP_RANGE — change both). stop + tp are this COIN's own; lock + trail are the CARD's (every coin) and say so.
 export const GRAB = {
-  stop: { ic: '🛑', name: 'stop', list: [10, 15, 20, 30], sign: -1, base: 'entry', scope: 'coin' },
-  tp: { ic: '🎯', name: 'take-profit', list: [25, 50, 100, 200, 300], sign: 1, base: 'entry', scope: 'coin' },
-  lock: { ic: '❄', name: 'lock', list: [10, 15, 20, 25, 50, 100, 150], sign: 1, base: 'entry', scope: 'card' },
-  trail: { ic: '🏔', name: 'trail', list: [5, 8, 10, 15, 20, 30], sign: -1, base: 'peak', scope: 'card' },
+  stop: { ic: '🛑', name: 'stop', min: 5, max: 50, sign: -1, base: 'entry', scope: 'coin' },
+  tp: { ic: '🎯', name: 'take-profit', min: 10, max: 500, sign: 1, base: 'entry', scope: 'coin' },
+  lock: { ic: '❄', name: 'lock', min: 5, max: 200, sign: 1, base: 'entry', scope: 'card' },
+  trail: { ic: '🏔', name: 'trail', min: 3, max: 50, sign: -1, base: 'peak', scope: 'card' },
 };
 const priceAt = (g, base, pct) => base * (1 + g.sign * pct / 100);
 
-// the option nearest to where the line was dropped → { pct, price }
+// where the line was dropped, to the nearest whole % inside its range → { pct, price }
 export function snapLevel(kind, price, base) {
   const g = GRAB[kind]; if (!g || !(base > 0) || !(price > 0)) return null;
   const want = g.sign * (price / base - 1) * 100;
-  const pct = g.list.reduce((a, b) => (Math.abs(b - want) < Math.abs(a - want) ? b : a), g.list[0]);
+  const pct = Math.max(g.min, Math.min(g.max, Math.round(want)));   /* 1% steps, held inside the range */
   return { pct, price: priceAt(g, base, pct) };
 }
 
@@ -40,7 +39,7 @@ export function withGrab(f, ov) {
 
 // the admin body + plain words for a dropped level (HqRealCards confirms, then posts)
 export function grabOrder(d) {
-  const g = GRAB[d?.kind]; if (!g || !d.tpl || !d.pairAddress || !g.list.includes(d.pct)) return null; const s = `$${d.symbol || 'coin'}`;
+  const g = GRAB[d?.kind]; if (!g || !d.tpl || !d.pairAddress || !(Number.isInteger(d.pct) && d.pct >= g.min && d.pct <= g.max)) return null; const s = `$${d.symbol || 'coin'}`;
   if (d.kind === 'stop') return { body: { leg: { tpl: d.tpl, pairAddress: d.pairAddress, sl: d.pct } }, ask: `Move ${s}'s stop to −${d.pct}% from its entry? Only this coin.`, ok: `🛑 ${s} stops at −${d.pct}%` };
   if (d.kind === 'tp') return { body: { leg: { tpl: d.tpl, pairAddress: d.pairAddress, tp: d.pct } }, ask: `Set ${s}'s take-profit to +${d.pct}% from its entry? Only this coin.`, ok: `🎯 ${s} takes profit at +${d.pct}%` };
   if (d.kind === 'lock') return { body: { realCfg: { rideAt: d.pct } }, ask: `Move the lock to +${d.pct}%? This is the CARD's setting: every coin on it locks at +${d.pct}% from now on.`, ok: `❄ Coins lock at +${d.pct}%` };

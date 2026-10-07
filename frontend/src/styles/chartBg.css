@@ -36,6 +36,31 @@
 .cbg-ridge { left: 0; right: 0; bottom: 0; height: 26%; background: #04080d; clip-path: polygon(0 62%, 9% 40%, 17% 58%, 28% 18%, 37% 50%, 46% 30%, 55% 62%, 66% 24%, 76% 54%, 86% 34%, 94% 56%, 100% 42%, 100% 100%, 0 100%); }
 .cbg-aurora .cbg-mark { left: 82%; top: 20%; width: clamp(44px, 9%, 84px); opacity: .18; animation: cbgDrift 14s ease-in-out infinite alternate; }
 
+/* 5 · 🏔 Misty peaks: dawn behind three ridges that drift at different speeds, fog rolling through the valleys */
+.cbg.cbg-peaks { background: linear-gradient(180deg, #1b1836 0%, #4a3560 30%, #b06a78 56%, #f0b48a 74%, #2a2540 100%); }
+.cbg-dawn { left: 62%; top: 34%; width: clamp(90px, 20%, 190px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, #fff1cf 0%, #ffd29a 40%, rgba(255, 190, 130, 0) 72%); opacity: .7; animation: cbgBreath 11s ease-in-out infinite alternate; }
+.cbg-peak { left: -12%; bottom: 0; width: 124%; height: calc(66% - var(--i) * 15%); background: linear-gradient(180deg, #5d4a78 0%, #3c3358 100%); opacity: .9; animation: cbgParallax calc(46s - var(--i) * 9s) ease-in-out infinite alternate; }
+.cbg-peak:nth-of-type(3) { background: linear-gradient(180deg, #3a3156 0%, #25213c 100%); } .cbg-peak:nth-of-type(4) { background: linear-gradient(180deg, #1c1a30 0%, #0d0c18 100%); opacity: 1; }
+.cbg-fog { left: -40%; top: calc(46% + var(--i) * 15%); width: 110%; height: 20%; border-radius: 50%; background: radial-gradient(ellipse at 50% 50%, rgba(255, 236, 226, .3) 0%, rgba(255, 236, 226, .1) 42%, transparent 70%); animation: cbgFog calc(52s + var(--i) * 17s) ease-in-out infinite alternate; animation-delay: calc(var(--i) * -19s); }
+.cbg-peaks .cbg-mark { left: 16%; top: 20%; width: clamp(44px, 9%, 84px); opacity: .14; animation: cbgDrift 15s ease-in-out infinite alternate; }
+
+/* 6 · 🌸 Sakura drift: a warm moon over still water, petals falling on a slow breeze */
+.cbg.cbg-sakura { background: linear-gradient(180deg, #0c0a20 0%, #1e1436 46%, #3b1f48 79%, #140e24 79.2%, #090612 100%); }
+.cbg-moon { left: 70%; top: 14%; width: clamp(70px, 15%, 150px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 42% 40%, #fffaf0 0%, #ffe6b8 55%, #f3c98c 100%); box-shadow: 0 0 60px 18px rgba(255, 220, 170, .18); opacity: .62; animation: cbgBreath 13s ease-in-out infinite alternate; }
+.cbg-pond { left: 0; right: 0; bottom: 0; height: 20.8%; background: repeating-linear-gradient(180deg, rgba(255, 190, 215, .12) 0 1px, transparent 1px 13px); animation: cbgShimmer 7s ease-in-out infinite alternate; }
+.cbg-petal { top: -14px; width: 10px; height: 8px; border-radius: 90% 12% 90% 12%; background: linear-gradient(135deg, #ffe0ea 0%, #ff9fbe 100%); opacity: 0; animation: cbgPetal calc(13s + var(--i) * .8s) linear infinite; animation-delay: calc(var(--i) * -1.9s); }
+.cbg-petal:nth-of-type(3n) { width: 7px; height: 6px; } .cbg-petal:nth-of-type(4n) { background: linear-gradient(135deg, #fff 0%, #ffc4d8 100%); }
+.cbg-sakura .cbg-mark { left: 15%; top: 22%; width: clamp(44px, 9%, 84px); opacity: .14; animation: cbgDrift 14s ease-in-out infinite alternate; }
+
+/* 7 · 🪼 Deep sea: sun shafts swaying from the surface, jellyfish rising, slow bubbles */
+.cbg.cbg-deep { background: linear-gradient(180deg, #0d4a5c 0%, #07293a 40%, #041420 72%, #02080f 100%); }
+.cbg-ray { left: calc(8% + var(--i) * 23%); top: -12%; width: 13%; height: 96%; background: linear-gradient(180deg, rgba(150, 235, 255, .26) 0%, rgba(150, 235, 255, .07) 55%, transparent 100%); transform-origin: 50% 0; animation: cbgRay calc(12s + var(--i) * 3s) ease-in-out infinite alternate; animation-delay: calc(var(--i) * -4s); }
+.cbg-jelly { left: calc(16% + var(--i) * 31%); bottom: -90px; width: 44px; height: 30px; border-radius: 50% 50% 42% 42% / 78% 78% 22% 22%; background: radial-gradient(ellipse at 50% 96%, rgba(200, 170, 255, .14) 0%, rgba(150, 215, 255, .52) 100%); box-shadow: inset 0 -5px 10px rgba(255, 255, 255, .16); opacity: .7; animation: cbgRise calc(44s + var(--i) * 13s) linear infinite; animation-delay: calc(var(--i) * -17s); }
+.cbg-jelly u { top: 92%; left: calc(18% + 26% * var(--n, 0)); width: 2px; height: 36px; border-radius: 2px; background: linear-gradient(180deg, rgba(170, 220, 255, .6), transparent); transform-origin: 50% 0; animation: cbgTent 3.6s ease-in-out infinite alternate; }
+.cbg-jelly u:nth-child(2) { --n: 1; height: 46px; animation-delay: -1.2s; } .cbg-jelly u:nth-child(3) { --n: 2; animation-delay: -2.4s; }
+.cbg-bub { bottom: -10px; width: 6px; height: 6px; border-radius: 50%; border: 1px solid rgba(190, 240, 255, .5); opacity: 0; animation: cbgBub calc(15s + var(--i) * 1.3s) linear infinite; animation-delay: calc(var(--i) * -2.3s); }
+.cbg-deep .cbg-mark { left: 84%; top: 22%; width: clamp(44px, 9%, 84px); opacity: .13; animation: cbgDrift 16s ease-in-out infinite alternate; }
+
 @keyframes cbgTilt { from { transform: rotateX(8deg) rotateY(-10deg); } to { transform: rotateX(-6deg) rotateY(12deg); } }
 @keyframes cbgGyro { from { transform: rotateX(70deg) rotateZ(0); } to { transform: rotateX(70deg) rotateZ(360deg); } }
 @keyframes cbgGyro2 { from { transform: rotateY(68deg) rotateZ(0); } to { transform: rotateY(68deg) rotateZ(-360deg); } }
@@ -49,6 +74,14 @@
 @keyframes cbgDrift { from { transform: translate(-50%, -50%); } to { transform: translate(-50%, -62%); } }
 @keyframes cbgTwinkle { from { opacity: .12; transform: scale(.8); } to { opacity: .75; transform: scale(1.3); } }
 @keyframes cbgVeil { from { transform: translateX(-7%) skewX(-10deg) scaleY(.9); opacity: .55; } to { transform: translateX(9%) skewX(12deg) scaleY(1.08); opacity: 1; } }
+@keyframes cbgParallax { from { transform: translateX(-2.5%); } to { transform: translateX(2.5%); } }
+@keyframes cbgFog { from { transform: translateX(0) scaleX(1); opacity: .6; } to { transform: translateX(60%) scaleX(1.25); opacity: 1; } }
+@keyframes cbgShimmer { from { opacity: .35; transform: translateY(0); } to { opacity: 1; transform: translateY(3px); } }
+@keyframes cbgPetal { 0% { transform: translate3d(0, 0, 0) rotate(0); opacity: 0; } 8% { opacity: .8; } 50% { transform: translate3d(-70px, 320px, 0) rotate(260deg); } 88% { opacity: .6; } 100% { transform: translate3d(-40px, 660px, 0) rotate(520deg); opacity: 0; } }
+@keyframes cbgRay { from { transform: skewX(-16deg) scaleX(.85); opacity: .45; } to { transform: skewX(-7deg) scaleX(1.2); opacity: 1; } }
+@keyframes cbgRise { 0% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(26px, -380px, 0); } 100% { transform: translate3d(-10px, -780px, 0); } }
+@keyframes cbgTent { from { transform: scaleY(.72) skewX(-7deg); } to { transform: scaleY(1.12) skewX(7deg); } }
+@keyframes cbgBub { 0% { transform: translate3d(0, 0, 0) scale(.6); opacity: 0; } 10% { opacity: .7; } 100% { transform: translate3d(14px, -640px, 0) scale(1.3); opacity: 0; } }
 @keyframes cbgTurn { to { transform: rotateY(360deg); } }
 @keyframes cbgFloat { from { transform: translate(-50%, -50%) rotateY(-25deg); } to { transform: translate(-50%, -40%) rotateY(25deg); } }
 
@@ -62,6 +95,9 @@ body.theme-day .cbg { background: radial-gradient(ellipse at 50% 45%, #f4faf6 0%
 body.theme-day .cbg-ring { border-color: rgba(11, 122, 74, .3); box-shadow: none; }
 body.theme-day .cbg.cbg-sunset { background: linear-gradient(180deg, #dfe6f6 0%, #f6dccb 34%, #ffd1a6 58%, #cfe3ee 58.2%, #e4f0f4 100%); } body.theme-day .cbg-sea { background: linear-gradient(180deg, #c4dcea 0%, #dcebf1 100%); } body.theme-day .cbg-sun { opacity: .6; }
 body.theme-day .cbg-glint { background: linear-gradient(90deg, transparent, #f08a3c, transparent); } body.theme-day .cbg-swell { background: repeating-linear-gradient(90deg, rgba(40, 100, 140, .2) 0 70px, transparent 70px 190px); }
+body.theme-day .cbg.cbg-peaks { background: linear-gradient(180deg, #dfe4f6 0%, #f3d9dc 46%, #ffe2c4 74%, #d9dcea 100%); } body.theme-day .cbg-peak { background: linear-gradient(180deg, #b9bcd8 0%, #cfd2e6 100%); opacity: .8; } body.theme-day .cbg-peak:nth-of-type(3) { background: #a9adcc; } body.theme-day .cbg-peak:nth-of-type(4) { background: #9498bb; opacity: .8; }
+body.theme-day .cbg.cbg-sakura { background: linear-gradient(180deg, #f1e9f6 0%, #fbe3ec 79%, #e9e2f2 79.2%, #f2eef8 100%); } body.theme-day .cbg-petal { background: linear-gradient(135deg, #ffb3cc 0%, #f0709c 100%); } body.theme-day .cbg-pond { background: repeating-linear-gradient(180deg, rgba(200, 90, 140, .16) 0 1px, transparent 1px 13px); }
+body.theme-day .cbg.cbg-deep { background: linear-gradient(180deg, #d6f1f6 0%, #c3e2ee 55%, #b3d3e4 100%); } body.theme-day .cbg-ray { background: linear-gradient(180deg, rgba(255, 255, 255, .7) 0%, transparent 100%); } body.theme-day .cbg-jelly { background: radial-gradient(ellipse at 50% 96%, rgba(150, 110, 220, .2) 0%, rgba(70, 140, 200, .5) 100%); } body.theme-day .cbg-bub { border-color: rgba(40, 110, 150, .5); }
 body.theme-day .cbg.cbg-aurora { background: linear-gradient(180deg, #e6ecf8 0%, #e3f3ee 100%); } body.theme-day .cbg-star { background: #6f86b3; } body.theme-day .cbg-ridge { background: #b9cbd2; }
 body.theme-day .chart-bg-pick { background: #fff; border-color: #aac7b3; color: #315b43; }
-@media (max-width: 640px) { .cbg-ion:nth-child(n + 7), .cbg-star:nth-child(n + 13) { display: none; } .cbg-rung { left: -60px; width: 120px; } }
+@media (max-width: 640px) { .cbg-ion:nth-child(n + 7), .cbg-star:nth-child(n + 13), .cbg-petal:nth-of-type(n + 10), .cbg-bub:nth-of-type(n + 7) { display: none; } .cbg-rung { left: -60px; width: 120px; } }

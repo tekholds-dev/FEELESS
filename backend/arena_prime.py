@@ -88,6 +88,17 @@ TRAIL_AT, TRAIL_KEEP = 50.0, 5.0   # 🔒 a coin that ran ≥ +50% is sold befor
 FIX_DAY_PCT = -40.0   # 🔧 a tier card whose DAY falls to −40% gets its config fixed: re-dealt fresh on the safe cycle (logged)
 RIDE_AT, RIDE_TRAIL = 150.0, 30.0
 RIDE_ATS, RIDE_TRAILS = (0, 10, 15, 20, 25, 50, 100, 150), (5, 8, 10, 15, 20, 30)   # rideAt 0 = off; +10–25% = the owner's 5-min degen lock
+# ✋ a level DRAGGED on the chart moves in 1% steps: any whole % inside these ranges is valid next to the editor's lists
+STEP_RANGE = {'sl': (5, 50), 'tp': (10, 500), 'rideAt': (5, 200), 'rideTrail': (3, 50)}
+
+
+def step_ok(key, v):
+    """Is `v` a whole percent inside the drag range of `key` (sl · tp · rideAt · rideTrail)?"""
+    lo, hi = STEP_RANGE.get(key, (1, 0))
+    try:
+        return float(v) == int(float(v)) and lo <= float(v) <= hi
+    except (TypeError, ValueError):
+        return False
 KEEP_WINS = (0, 5, 10, 20)   # 🛡 a coin up ≥ this % (or ❄ frozen) is CARRIED into the next shape — a re-shape never sells a winner (0 = off)   # ⚙ Edit Fuse: ❄ freeze a coin running +X% · ⇄ swap it −Y% from its peak   # 🏇 ride a runner from +150%, sell only when it falls 30% from its new high
 HOLD_MIN = 80.0      # 🏇 a held coin must stay ≥ +80% (a whole round ≥ +80% also earns a hold); under it → swapped
 MIN_CYCLE_COINS = 3  # every cycle shape holds at least 3 coins (else the card keeps its current coins)
@@ -132,9 +143,9 @@ def clean_exit(k, v):
     """One per-card exit value, validated exactly like the shared config (None = not allowed)."""
     v = _f(v)
     if k == 'rideAt':
-        return float(v) if v in RIDE_ATS else None
+        return float(v) if v in RIDE_ATS or step_ok(k, v) else None
     if k == 'rideTrail':
-        return float(v) if v in RIDE_TRAILS else None
+        return float(v) if v in RIDE_TRAILS or step_ok(k, v) else None
     if k == 'rotateMinDrop':
         return max(0.0, min(50.0, v))
     if k == 'rotateConfirm':
@@ -144,9 +155,9 @@ def clean_exit(k, v):
     if k == 'instantSwapPct':
         return max(0.0, min(50.0, v))
     if k == 'tp':
-        return float(v) if v == 0 or v in LEG_TPS else None
+        return float(v) if v == 0 or v in LEG_TPS or step_ok(k, v) else None
     if k == 'sl':
-        return float(v) if v == 0 or v in LEG_SLS else None
+        return float(v) if v == 0 or v in LEG_SLS or step_ok(k, v) else None
     if k == 'trenchCoins':
         return int(v) if int(v) in TRENCH_COINS else None
     return None
@@ -383,9 +394,9 @@ def clean_cfg(p):
     cyc = (p or {}).get('cycles') if isinstance((p or {}).get('cycles'), dict) else {}
     out['cycles'] = {t: (cyc.get(t) if valid_cycle(cyc.get(t)) else DEFAULT_CYCLES.get(t, 'off')) for t in DEFAULT_CYCLES}
     out['rotateMinDrop'] = max(0.0, min(50.0, _f((p or {}).get('rotateMinDrop', ROTATE_MIN_DROP))))
-    out['rideAt'] = float(_f((p or {}).get('rideAt'))) if (p or {}).get('rideAt') is not None and _f((p or {}).get('rideAt')) in RIDE_ATS else RIDE_AT
+    out['rideAt'] = float(_f((p or {}).get('rideAt'))) if (p or {}).get('rideAt') is not None and (_f((p or {}).get('rideAt')) in RIDE_ATS or step_ok('rideAt', (p or {}).get('rideAt'))) else RIDE_AT
     out['keepWinPct'] = float(_f((p or {}).get('keepWinPct'))) if (p or {}).get('keepWinPct') is not None and _f((p or {}).get('keepWinPct')) in KEEP_WINS else 5.0
-    out['rideTrail'] = float(_f((p or {}).get('rideTrail'))) if _f((p or {}).get('rideTrail')) in RIDE_TRAILS else RIDE_TRAIL
+    out['rideTrail'] = float(_f((p or {}).get('rideTrail'))) if (_f((p or {}).get('rideTrail')) in RIDE_TRAILS or step_ok('rideTrail', (p or {}).get('rideTrail'))) else RIDE_TRAIL
     rsc = _f((p or {}).get('rescuePct', -RESCUE_PCT))
     out['rescuePct'] = 0.0 if (p or {}).get('rescuePct') is not None and rsc == 0 else max(20.0, min(80.0, rsc))   # 0 = rescue off
     out['rotateConfirm'] = int(max(1, min(6, _f((p or {}).get('rotateConfirm', ROTATE_CONFIRM)))))
@@ -2249,8 +2260,9 @@ def set_leg(card, pair, frozen=None, sl_mode=None, tp=None, sl=None):
         leg['slMode'] = sl_mode or None
     for key, val, allowed in (('tp', tp, LEG_TPS), ('sl', sl, LEG_SLS)):   # 🎯 this coin's own TP / SL; 0 clears it back to the tier's
         if val is not None:
-            if _f(val) and _f(val) not in allowed:
-                raise ValueError(f"{key.upper()} must be one of {', '.join(str(a) for a in allowed)} (or 0 to follow the tier)")
+            if _f(val) and _f(val) not in allowed and not step_ok(key, val):
+                lo, hi = STEP_RANGE[key]
+                raise ValueError(f"{key.upper()} must be a whole % from {lo} to {hi} (or 0 to follow the tier)")
             if _f(val):
                 leg[key] = _f(val)
             else:

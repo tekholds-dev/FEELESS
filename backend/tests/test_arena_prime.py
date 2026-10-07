@@ -574,7 +574,7 @@ def test_one_tap_redeal_keeps_the_money():
 
 def test_freeze_at_x_and_swap_y_from_peak_are_configurable():
     cfg = ap.clean_cfg({'lockBankPct': 0, 'peakSellPct': 100, 'compound': False, 'trail': False, 'rotateHours': 99, 'rideAt': 25, 'rideTrail': 10, 'cycles': {'degen': 'off'}})
-    assert cfg['rideAt'] == 25 and cfg['rideTrail'] == 10 and ap.clean_cfg({'rideAt': 7})['rideAt'] == ap.RIDE_AT
+    assert cfg['rideAt'] == 25 and cfg['rideTrail'] == 10 and ap.clean_cfg({'rideAt': 7.5})['rideAt'] == ap.RIDE_AT
     r = {'mint': 'R', 'pairAddress': 'PR', 'symbol': 'R', 'role': 'runner', 'entry': 1.0, 'units': 10.0, 'costUsd': 10.0}
     card = {'id': 'prime-degen', 'tpl': 'degen', 'label': 'x', 'at': 0, 'lastRotateAt': 0, 'cash': 0.0, 'feesUsd': 0.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
             'events': [], 'startUsd': 10.0, 'legs': [r]}
@@ -885,7 +885,7 @@ def test_a_coin_can_carry_its_own_take_profit_and_stop_and_zero_follows_the_tier
     back = ap.set_leg(c, 'P1', tp=0)
     assert 'tp' not in back['legs'][0] and ap.leg_tp(back['legs'][0], {'tp': 300, 'sl': 35}) == 300 and back['legs'][0]['sl'] == 15
     with pytest.raises(ValueError):
-        ap.set_leg(card, 'P1', sl=7)
+        ap.set_leg(card, 'P1', sl=4)
 
 
 def test_fast_clocks_rank_coins_by_what_is_moving_now_and_slow_clocks_keep_their_order():
@@ -977,9 +977,9 @@ def test_every_tier_card_plays_its_own_unique_exits_and_a_shared_edit_applies_to
     own = {t: tuple(ap.tier_cfg(cfg, t)[k] for k in ('rideAt', 'rideTrail', 'rotateConfirm', 'minHoldMins')) for t in ap.TEMPLATES}
     assert len(set(own.values())) == len(ap.TEMPLATES)                                      # no two cards share their exits
     assert ap.tier_cfg(cfg, 'degen')['rideAt'] == 15 and ap.tier_cfg(cfg, 'degen')['rideTrail'] == 8
-    c2 = ap.clean_cfg({**cfg, 'tierCfg': {**cfg['tierCfg'], 'degen': {**cfg['tierCfg']['degen'], 'rideAt': 10, 'tp': 50, 'bogus': 1, 'rideTrail': 7}}})
+    c2 = ap.clean_cfg({**cfg, 'tierCfg': {**cfg['tierCfg'], 'degen': {**cfg['tierCfg']['degen'], 'rideAt': 10, 'tp': 50, 'bogus': 1, 'rideTrail': 2}}})
     d = ap.tier_cfg(c2, 'degen')
-    assert d['rideAt'] == 10 and d['tp'] == 50 and 'bogus' not in c2['tierCfg']['degen'] and c2['tierCfg']['degen'].get('rideTrail') is None   # 7 isn't an option
+    assert d['rideAt'] == 10 and d['tp'] == 50 and 'bogus' not in c2['tierCfg']['degen'] and c2['tierCfg']['degen'].get('rideTrail') is None   # 2 is under the range
     assert ap.card_template('degen', d)['tp'] == 50 and ap.card_template('degen', {})['tp'] == ap.TEMPLATES['degen']['tp']
 
 
@@ -1965,3 +1965,23 @@ def test_at_its_highs_is_watched_not_bought_the_engine_waits_for_the_dip():
     assert ap.meta_ready({**top, 'comeback': 18})                            # a comeback is exempt, as everywhere
     assert not ap.at_high({'cBars': 9, 'cStruct': 'up'})                     # no pull reading = not judged
     assert ap.meta_only([top, dip]) == [dip]
+
+
+def test_dragged_levels_move_in_one_percent_steps_inside_fixed_ranges():
+    assert ap.step_ok('sl', 17) and ap.step_ok('sl', 5) and ap.step_ok('sl', 50) and not ap.step_ok('sl', 4) and not ap.step_ok('sl', 51)
+    assert not ap.step_ok('sl', 17.5) and not ap.step_ok('sl', 'x') and not ap.step_ok('nope', 10)
+    card = {'legs': [{'pairAddress': 'P1', 'symbol': 'AAA'}]}
+    c = ap.set_leg(card, 'P1', sl=17, tp=63)
+    assert c['legs'][0]['sl'] == 17 and c['legs'][0]['tp'] == 63
+    for bad in ({'sl': 4}, {'sl': 17.5}, {'tp': 501}, {'tp': 9}):
+        try:
+            ap.set_leg(card, 'P1', **bad)
+            assert False, bad
+        except ValueError as e:
+            assert 'whole %' in str(e)
+    assert 'sl' not in ap.set_leg(c, 'P1', sl=0)['legs'][0]                       # 0 still clears it back to the tier's
+    cfg = ap.clean_cfg({'rideAt': 17, 'rideTrail': 12})
+    assert cfg['rideAt'] == 17.0 and cfg['rideTrail'] == 12.0
+    assert ap.clean_cfg({'rideAt': 17.5})['rideAt'] == ap.RIDE_AT and ap.clean_cfg({'rideTrail': 2})['rideTrail'] == ap.RIDE_TRAIL
+    assert ap.clean_cfg({'rideAt': 0})['rideAt'] == 0.0                           # off is still off
+    assert ap.clean_exit('sl', 17) == 17.0 and ap.clean_exit('rideTrail', 12) == 12.0 and ap.clean_exit('sl', 3) is None
