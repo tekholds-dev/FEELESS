@@ -285,7 +285,7 @@ def soft_only(fails):
 # 🚪 OPEN GATES: the trench list with NO filter — every launch coin the feed sees (Pump's biggest + most recently traded, the
 # launch boards, Jupiter's live trending), ranked as FRONT-RUNNERS by what is happening right now. Nothing is hidden; each row says
 # what it has NOT passed (`fails`) or that it was never scanned. View + the owner's hand pick only: never auto-seated.
-OPEN_MAX = 60
+OPEN_MAX = 200
 
 
 def open_row(pair, now_ms):
@@ -329,7 +329,8 @@ def open_board(pairs, scanned=None, now_ms=0, n=OPEN_MAX):
         seen.add(r['mint'])
         sc = (scanned or {}).get(r['mint'])
         fails = ['not scanned yet — holders unknown'] if sc is None else list(sc[1] or [])
-        out.append({**r, 'front': front_score(r), 'safe': None if sc is None else bool(sc[0]), 'fails': fails, 'soft': True, 'open': True})
+        facts = {k: v for k, v in ((sc[2] if sc is not None and len(sc) > 2 else None) or {}).items() if v is not None}   # holder facts of a scanned coin
+        out.append({**r, **facts, 'front': front_score(r), 'safe': None if sc is None else bool(sc[0]), 'fails': fails, 'soft': True, 'open': True})
     out.sort(key=lambda r: -r['front'])
     for i, r in enumerate(out):
         r['rank'] = i + 1

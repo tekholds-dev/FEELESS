@@ -1937,3 +1937,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   THE SOURCES WERE NOT THE CHOKE: nine rankings moved the feed 125 → 129. `build_board` listed a trending launch coin only with
   cap ≥ $25K · ≥ $15K/h · ≥ 60 trades/h; now `TREND_MIN_MC` $15K · `TREND_MIN_VOL1H` $5K · `TREND_MIN_TX1H` 30. Display only — the
   runner gates and the real-money lines are unchanged. "SAME LIST" ⇒ count candidates in vs pairs out of `build_board` first.
+- 🚪 Open gates v3 (`TrenchOpen`, `top-*`): one coin a row with everything on it — logo · $COIN (age + cap under it) · pool · traded/h
+  · 5 min · 1 hour · buyers · safety word · Pick / View — and a second line saying WHY (`whyLine`: top-10 / dev / insiders / bundled
+  for a scanned coin via `open_board` facts, else what failed / never scanned). Filter seg (All · ✅ Safe · ❔ Unscanned · ⚠ Failed,
+  with counts) + sort seg (Busiest · Newest · 5 min · 1 hour); "Show all" scrolls inside 560px. NEVER `.m-num` in a dense row (22px:
+  "$658K" overlapped the safety column) — use `top-n`. `OPEN_MAX` 200; picker shows 25 rows first. Pump live lens = 300 rows,
+  Movers 150, both read 6 feed pages (owner: "more than 80 — flood with coins").

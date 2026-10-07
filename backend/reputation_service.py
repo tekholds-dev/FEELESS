@@ -2820,7 +2820,7 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
         try:
             async with httpx.AsyncClient(timeout=10) as http:
                 got_ = await asyncio.gather(*[http.get('http://127.0.0.1:5001/api/market/feed', params={'kind': k, 'chain': 'solana', 'page': pg, 'scope': 'launchpads'})
-                                              for k in ('new', 'trending') for pg in (1, 2, 3)], return_exceptions=True)
+                                              for k in ('new', 'trending') for pg in (1, 2, 3, 4, 5, 6)], return_exceptions=True)
             raw_ = [x for g in got_ if not isinstance(g, Exception) for x in (g.json().get('pairs') or [])]
         except Exception:
             raw_ = []
@@ -2838,8 +2838,8 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
         if mv_:   # 🚀 MOVERS: up ≥ 10% on the hour on ≥ $20K traded in a ≥ $10K pool, biggest hourly move first; no dollar-named tickers
             rows_p = sorted((r for r in rows_p if r['vol1h'] >= 20000 and _fuse._f(r.get('liquidityUsd')) >= 10000 and _fuse._f(r.get('change1h')) >= 10
                              and not _fw.dollar_named(r.get('symbol'))), key=lambda r: -_fuse._f(r.get('change1h')))
-            return {'lens': 'movers', 'chain': 'solana', 'pools': rows_p[:60]}
-        return {'lens': 'pump', 'chain': 'solana', 'pools': rows_p[:80]}
+            return {'lens': 'movers', 'chain': 'solana', 'pools': rows_p[:150]}
+        return {'lens': 'pump', 'chain': 'solana', 'pools': rows_p[:300]}   # 🌊 owner: "more than 80 — flood with coins"
     lens = lens if lens in _fuse.LENSES else 'popular'
     return {'lens': lens, 'chain': chain, 'pools': _fuse.discover(await _fuse_discover_pairs(chain), lens, chain, now_ms=time.time() * 1000)}
 
@@ -5544,7 +5544,7 @@ def _open_board():
     for r in _runner_cands:
         if r.get('mint') and r.get('scanned'):
             bad = _rn.safety_fails(r, rcfg)
-            scanned[r['mint']] = (not bad, bad[:4])
+            scanned[r['mint']] = (not bad, bad[:4], {k: r.get(k) for k in ('top10', 'dev', 'insiders', 'bundled')})
     return _trench.open_board(_open_pairs, scanned, time.time() * 1000)
 
 
