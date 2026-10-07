@@ -2093,3 +2093,19 @@ def test_a_seat_with_no_qualifying_coin_takes_the_next_best_one_after_30_seconds
     ok = {'pairAddress': 'P', 'chg5m': 1.0, 'chg1h': 20.0, 'cStruct': 'range', 'cWild': 5}
     assert ap.seat_fallback_ok(ok) and not ap.seat_fallback_ok({**ok, 'chg5m': -5.0}) and not ap.seat_fallback_ok({**ok, 'chg5m': 9.0})
     assert not ap.seat_fallback_ok({**ok, 'cStruct': 'down'}) and not ap.seat_fallback_ok({**ok, 'cWild': 60})
+
+
+def test_every_paper_card_has_its_own_pick_rule_and_no_coin_is_shared():
+    import arena_prime as ap
+    styles = {t: ap.tier_cfg({}, t).get('pickStyle') for t in ap.TEMPLATES}
+    assert len(set(styles.values())) == len(ap.TEMPLATES) and all(v in ap.PICK_STYLES for v in styles.values())   # five cards, five rules
+    hunt, snipe = ap.tier_cfg({'edgeGate': True}, 'safe'), ap.tier_cfg({}, 'balanced')
+    assert hunt['runnerMinChg1h'] == 40 and hunt['runnerMinVolK'] == 50 and hunt['edgeGate'] is False
+    assert snipe['runnerMinBuy'] == 65 and snipe['edgeFloor'] == 3 and snipe['edgeGate'] is True
+    assert ap.tier_cfg({'tierCfg': {'safe': {'sl': 22}}}, 'safe')['sl'] == 22 and ap.tier_cfg({'tierCfg': {'safe': {'sl': 22}}}, 'safe')['pickStyle'] == 'hunt'   # its own exits still win
+    rows = [{'mint': 'A'}, {'mint': 'B'}, {'mint': 'C'}]
+    assert ap.unique_rows(rows, {'B'}) == [{'mint': 'A'}, {'mint': 'C'}] and ap.unique_rows(rows, {'A', 'B', 'C'}) == []
+    card = {'legs': [{'mint': 'S', 'symbol': 'SOL', 'pairAddress': 'ps'}, {'mint': 'A', 'symbol': 'A', 'pairAddress': 'pa', 'ride': True},
+                     {'mint': 'B', 'symbol': 'B', 'pairAddress': 'pb'}, {'mint': 'C', 'symbol': 'C', 'pairAddress': 'pc'}]}
+    assert ap.shared_leg(card, {'S', 'A', 'B'}) == 'pb'      # never SOL, never a rider
+    assert ap.shared_leg(card, {'Z'}) is None

@@ -513,12 +513,41 @@ def safe_anchor(l):
     return l.get('role') == 'anchor' and not l.get('newMajor') and not l.get('picked')
 
 
+# 🧪 EVERY PAPER CARD IS ITS OWN EXPERIMENT (owner, 2026-10-07: "all paper needs unique coins and configs"). The exits were already
+# each card's own (`DEFAULT_TIER_CFG`); the SELECTION was the same picker five times, so the cards held the same coins and proved
+# nothing about what to buy. Each paper tier now picks by a different rule, and no coin sits on two cards (`unique_rows`):
+#   💎 safe → 🚀 runner hunt (older coins already running on real volume) · 🥇 balanced → 🎯 sniper (record-backed, deep pool,
+#   buyers in control) · ⚡ next → 👤 picks like the owner (pick_style) · ♾ ever → majors + stocks · 🔥 degen → the engine's order.
+DEFAULT_TIER_PICK = {
+    'safe': {'pickStyle': 'hunt', 'runnerMinAgeH': 12, 'runnerMinLiqK': 25, 'runnerMinVolK': 50, 'runnerMinChg1h': 40, 'runnerMinBuy': 0, 'edgeGate': False},
+    'balanced': {'pickStyle': 'sniper', 'runnerMinAgeH': 12, 'runnerMinLiqK': 50, 'runnerMinVolK': 0, 'runnerMinChg1h': 0, 'runnerMinBuy': 65, 'edgeGate': True, 'edgeFloor': 3},
+    'next': {'pickStyle': 'human'},
+    'ever': {'pickStyle': 'majors'},
+    'degen': {'pickStyle': 'engine'},
+}
+PICK_STYLES = {'hunt': '🚀 runner hunt', 'sniper': '🎯 sniper', 'human': '👤 picks like you', 'majors': '🪙 majors', 'engine': '🧠 engine order'}
+
+
+def unique_rows(rows, taken):
+    """Candidates no OTHER card holds (`taken` = their mints). An empty result stays empty — the seat waits rather than copy a card."""
+    return [x for x in rows or [] if x.get('mint') not in (taken or ())]
+
+
+def shared_leg(card, taken):
+    """The first coin on this card that another card also holds → its pairAddress, or None. Never SOL (cash-like), a placeholder,
+    a coin still being bought, a frozen / riding coin or the owner's pick."""
+    for l in (card or {}).get('legs') or []:
+        if l.get('mint') in (taken or ()) and l.get('symbol') != 'SOL' and not (l.get('placeholder') or l.get('buying') or l.get('frozen') or l.get('ride') or l.get('picked')):
+            return l.get('pairAddress')
+    return None
+
+
 def tier_cfg(cfg, tid):
     """The shared paper config as ONE tier plays it: its own round clock (`clocks[tier]`). Locked tiers and the real card have their
     own whole config and never go through here."""
     hours = _f(((cfg or {}).get('clocks') or {}).get(tid))
     own = ((cfg or {}).get('tierCfg') or {}).get(tid) or {}   # 🃏 this card's own exits
-    out = {**(cfg or {}), **{k: v for k, v in own.items() if k in TIER_KEYS}}
+    out = {**(cfg or {}), **(DEFAULT_TIER_PICK.get(tid) or {}), **{k: v for k, v in own.items() if k in TIER_KEYS}}
     return {**out, 'rotateHours': hours} if hours > 0 else out
 
 

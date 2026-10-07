@@ -1943,3 +1943,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   with counts) + sort seg (Busiest · Newest · 5 min · 1 hour); "Show all" scrolls inside 560px. NEVER `.m-num` in a dense row (22px:
   "$658K" overlapped the safety column) — use `top-n`. `OPEN_MAX` 200; picker shows 25 rows first. Pump live lens = 300 rows,
   Movers 150, both read 6 feed pages (owner: "more than 80 — flood with coins").
+- 🧪 EVERY PAPER CARD = ITS OWN EXPERIMENT (`arena_prime.DEFAULT_TIER_PICK` merged in `tier_cfg`, `PICK_STYLES`, card view `pickStyle`,
+  shown in the league-table lane): 💎 safe = 🚀 runner hunt (12h+, $50K/h, +40%) · 🥇 balanced = 🎯 sniper (record gate floor 3, $50K
+  pool, buyers 65%) · ⚡ next = 👤 picks like the owner · ♾ ever = majors · degen = engine order. UNIQUE COINS (`unique_rows`,
+  `shared_leg`, in `_prime_tick` for paper only): a paper card is never offered a coin another card holds (anchors too while another
+  major is free; SOL exempt) and a coin it already shares is swapped for its own, one a tick (event "🧪 unique coins"). The exits were
+  already per card; the SELECTION was the same picker five times, so five cards proved nothing about what to buy.

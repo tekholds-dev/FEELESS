@@ -6350,7 +6350,7 @@ async def _prime_tick_inner(now):
             watch_ = [x for x in r_t if not _prime.meta_ready(x)]   # 👀 shown under Coming up as "watching", with the reason
             r_pre_, r_t = _prime.meta_only(r_pre_, cfg_t, mom), _prime.meta_only(r_t, cfg_t, mom)
             _step('not mid-spike · not at its highs · chart readable · not trending down (up-next meta)', r_t)
-        if real_t:   # 🏊 the owner's own runner pool floor (off unless they set it)
+        if real_t or cfg_t.get('pickStyle') in ('hunt', 'sniper'):   # 🏊 the owner's own runner line (real) · a paper card's own pick style
             r_t = _prime.deep_runners(r_t, cfg_t.get('runnerMinLiqK'), cfg_t.get('runnerMinBuy'), cfg_t.get('runnerMinVolK'), cfg_t.get('runnerMinChg1h'))
             _step('your hunt line (pool · volume · 1h move · buyers)', r_t)
         # ⏳ STUCK BUYS are replaced HERE, from the fully filtered lists (min age, dollar names, record gate, chart / meta, the owner's
@@ -6439,6 +6439,24 @@ async def _prime_tick_inner(now):
                 sol_px_t = 0.0
             if bk and sol_px_t > 0 and not bk.get('pending'):
                 true_usd = _fw.book_value(bk, px, sol_px_t) or None
+        if not real_t:   # 🧪 UNIQUE COINS: a paper card never holds a coin another card holds (anchors too, while another major is free)
+            taken_ = {l.get('mint') for t2, c2 in cards.items() if t2 != tid for l in (c2 or {}).get('legs') or [] if l.get('symbol') != 'SOL'}
+            p_t, r_t = _prime.unique_rows(p_t, taken_), _prime.unique_rows(r_t, taken_)
+            a_t = _prime.unique_rows(a_t, taken_) or a_t
+            dup_ = _prime.shared_leg(cur, taken_) if cur and not cur.get('flooredAt') else None
+            if dup_:   # a coin it already shares is swapped for one of its own (one a tick, on paper)
+                try:
+                    was_u = cur
+                    new_u = _prime.replace_leg(cur, dup_, px, p_t, r_t, a_t, cfg_t, now)
+                    old_m = {l.get('mint') for l in was_u.get('legs') or []}
+                    for l_ in new_u['legs']:
+                        if l_.get('mint') not in old_m:
+                            l_.pop('picked', None)   # the engine's swap, not a hand pick
+                    new_u['events'][-1]['why'] = '🧪 unique coins — another card already holds it, this card takes one of its own'
+                    new_u.pop('ownerOut', None) if not was_u.get('ownerOut') else None
+                    cur = _prime.note_dropped(was_u, new_u, now, cfg_t['rotateHours'], px)
+                except Exception:
+                    cur = was_u
         cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, a_t, mom, liqs, true_usd=true_usd, blind=bool(real_t and true_usd is None)) if cur else _prime.deal(tid, p_t, r_t, cfg_t, now, [] if new_only_ else anchors)
         if cards[tid] is not None:
             cards[tid]['rebuyDip'] = int(cfg_t.get('rebuyDipPct') or 0)
@@ -6570,7 +6588,7 @@ async def _prime_view():
                 'pendingPayoutUsd': round(max(0.0, _fuse._f(c.get('walletUsd')) - _fuse._f(b.get('bankUsd'))), 4),
                 'math': {**sm.get('math', {}), 'putIn': round(_fuse._f(b.get('fundedUsd')) or start, 4), 'runStartUsd': round(start, 4), 'heldUsd': round(held, 4), 'paidOutUsd': round(paid, 4),
                          'nowUsd': v, 'feesUsd': card_fees, 'pnlUsd': round(v + card_fees - (_fuse._f(b.get('fundedUsd')) or start), 4)}}   # P&L = price result; fees apart
-    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'seatPick': c.get('seatPick'), 'seatQueue': c.get('seatQueue') or [], 'pipeline': c.get('pipeline'), 'parkedUsd': round(sum(_fuse._f(x.get('usd')) for x in c.get('skimPark') or []), 4), 'parkedN': len(c.get('skimPark') or []), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'holdAll': bool(c.get('holdAll')), 'pickCool': {}, 'handsOffUntil': c.get('handsOffUntil') if _prime.hands_off_left(c, time.time()) else None, 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl'], sm.get('valueUsd'), sol_now, px) if c.get('real') else None,
+    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'seatPick': c.get('seatPick'), 'seatQueue': c.get('seatQueue') or [], 'pipeline': c.get('pipeline'), 'parkedUsd': round(sum(_fuse._f(x.get('usd')) for x in c.get('skimPark') or []), 4), 'parkedN': len(c.get('skimPark') or []), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'pickStyle': None if c.get('real') else _eff(c).get('pickStyle'), 'holdAll': bool(c.get('holdAll')), 'pickCool': {}, 'handsOffUntil': c.get('handsOffUntil') if _prime.hands_off_left(c, time.time()) else None, 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl'], sm.get('valueUsd'), sol_now, px) if c.get('real') else None,
              'audit': [{k: e.get(k) for k in ('at', 'kind', 'symbol', 'usd', 'why', 'to', 'mode')} for e in (c.get('events') or [])[-40:][::-1]]} for c in cards.values()]
 
 

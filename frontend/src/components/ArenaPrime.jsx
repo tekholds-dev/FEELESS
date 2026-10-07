@@ -64,7 +64,9 @@ export const primeGroups = cards => { const all = cards || []; const real = all.
 
 // 🏁 THE LEAGUE TABLE on top of Prime League: every tier card as a lane in one race, best first — rank, tier, 💵 real / 📄 paper,
 // a bar for its result, and the real card's gap to the best paper card in one line. Tap a lane → that card (its fold opens).
-export const standings = (cards, live) => (cards || []).map(c => { const r = arenaRow(c, live); return { tpl: c.tpl, id: c.id, name: (TIER[c.tier] || TIER.gold).name, label: c.label, real: !!c.real, pct: Number(r.pnlPct) || 0, usd: Number(r.valueUsd) || 0 }; })
+// 🧪 each paper card picks its coins by its own rule (arena_prime.PICK_STYLES)
+export const PICK_STYLES = { hunt: '🚀 runner hunt', sniper: '🎯 sniper', human: '👤 picks like you', majors: '🪙 majors', engine: '🧠 engine order' };
+export const standings = (cards, live) => (cards || []).map(c => { const r = arenaRow(c, live); return { tpl: c.tpl, id: c.id, name: (TIER[c.tier] || TIER.gold).name, label: c.label, style: PICK_STYLES[c.pickStyle] || '', real: !!c.real, pct: Number(r.pnlPct) || 0, usd: Number(r.valueUsd) || 0 }; })
   .sort((x, y) => y.pct - x.pct).map((r, i) => ({ ...r, rank: i + 1 }));
 export function PrimeStandings({ cards, live }) {
   const rows = standings(cards, live); if (rows.length < 2) return null;
@@ -73,8 +75,8 @@ export function PrimeStandings({ cards, live }) {
   return <div className="pls" data-testid="prime-standings">
     <div className="pls-head"><span className="m-label">🏁 LEAGUE TABLE · LIVE</span>{real && paper && <small className="pls-gap" data-testid="prime-gap">💵 real <b className={real.pct >= 0 ? 'm-pos' : 'm-neg'}>{real.pct >= 0 ? '+' : ''}{real.pct.toFixed(1)}%</b> · best 📄 paper {paper.name} <b className={paper.pct >= 0 ? 'm-pos' : 'm-neg'}>{paper.pct >= 0 ? '+' : ''}{paper.pct.toFixed(1)}%</b> · gap <b>{Math.abs(paper.pct - real.pct).toFixed(1)} pts</b></small>}</div>
     <ol className="pls-lanes">{rows.map(r => <li key={r.id} style={{ '--i': r.rank - 1 }}><button type="button" className={`pls-lane ${r.real ? 'is-real' : ''} ${r.pct >= 0 ? 'is-up' : 'is-down'}`} onClick={() => go(r.tpl)} data-testid={`lane-${r.tpl}`}
-      data-tip={`${r.label} · ${r.real ? 'real money' : 'paper at true fills'} · worth $${r.usd.toFixed(2)} — tap to see the card`}>
-      <i className="pls-rank">{r.rank === 1 ? '👑' : r.rank}</i><b>{r.name}</b><u>{r.real ? '💵 REAL' : '📄'}</u>
+      data-tip={`${r.label} · ${r.real ? 'real money' : `paper at true fills${r.style ? ` · picks its coins by its own rule: ${r.style} · no coin it holds is on another card` : ''}`} · worth $${r.usd.toFixed(2)} — tap to see the card`}>
+      <i className="pls-rank">{r.rank === 1 ? '👑' : r.rank}</i><b>{r.name}</b><u>{r.real ? '💵 REAL' : r.style || '📄'}</u>
       <span className="pls-track"><span className="pls-bar" style={{ transform: `scaleX(${Math.max(0.03, Math.abs(r.pct) / top).toFixed(3)})` }} /></span>
       <em className={`m-num ${r.pct >= 0 ? 'm-pos' : 'm-neg'}`} key={r.pct.toFixed(1)}>{r.pct >= 0 ? '+' : ''}{r.pct.toFixed(1)}%</em></button></li>)}</ol>
   </div>;
