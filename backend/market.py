@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, Query
 from ecosystem import DEFAULT_MINTS
 from pydantic import BaseModel, Field
 
-from launchpad_board import BOARD_MAX, BONK_PLATFORM_ID, JUP_LISTS, build_board, pump_pages, dex_candidate, jup_candidate, launchlab_candidate, pump_candidate
+from launchpad_board import BOARD_MAX, BONK_PLATFORM_ID, JUP_LISTS, JUP_RECENT, build_board, pump_pages, dex_candidate, jup_candidate, launchlab_candidate, pump_candidate
 
 BOARD_SCOPES = ('launchpads', 'pump', 'bonk', 'raydium')
 
@@ -359,6 +359,7 @@ def create_market_router(db, intelligence=None):
             jobs.append(('raydium', cached('LaunchLab', '/get/list', {'sort': s, 'size': 50, 'mintType': 'default', 'includeNsfw': 'false'}, ttl=20)))
         if kind != 'new':   # 🌊 movers: Jupiter's live trending / most-traded lists (launch coins only are kept)
             jobs += [('jup', cached('Jupiter', f'/tokens/v2/{cat}/{iv}', {'limit': 100}, ttl=45)) for cat, iv in JUP_LISTS]
+        jobs.append(('jup', cached('Jupiter', JUP_RECENT, {'limit': 100}, ttl=30)))   # 🆕 the newest launches on every launchpad (both boards)
         results = await asyncio.gather(*[job for _pad, job in jobs], return_exceptions=True)
         candidates, meta, movers = {}, None, []
         for (pad, _job), res in zip(jobs, results):

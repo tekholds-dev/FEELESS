@@ -4,11 +4,11 @@ def test_the_pump_pull_is_wide_and_deep_pages_are_cached_longer():
     import launchpad_board as lb
     t = lb.pump_pages('trending')
     assert sorted(off for s, off, _ in t if s == 'market_cap') == [0, 50, 100, 150, 200]          # Pump's 250 biggest coins
-    assert sorted(off for s, off, _ in t if s == 'last_trade_timestamp') == [0, 50, 100, 150]     # + its 200 most recently traded
+    assert sorted(off for s, off, _ in t if s == 'last_trade_timestamp') == [0, 50, 100, 150, 200, 250]   # + its 300 most recently traded
     assert all(ttl >= 20 for *_, ttl in t) and min(ttl for s, off, ttl in t if s == 'market_cap' and off) >= 120   # deep pages refresh slowly
     n = lb.pump_pages('new')
-    assert {s for s, *_ in n} == {'created_timestamp', 'last_trade_timestamp'} and len(n) == 6
-    assert lb.BOARD_MAX >= 450
+    assert {s for s, *_ in n} == {'created_timestamp', 'last_trade_timestamp'} and len(n) == 7
+    assert lb.BOARD_MAX >= 600
 
 
 def test_jupiter_mover_rows_become_launch_candidates_only_for_launchpad_mints():
@@ -24,7 +24,7 @@ def test_jupiter_mover_rows_become_launch_candidates_only_for_launchpad_mints():
     assert lb.jup_candidate({**young, 'firstPool': {'createdAt': '2025-01-01T00:00:00Z'}}, now) is None    # an old coin from another venue is not a launch
     assert lb.jup_candidate({'id': 'NoAge111', 'symbol': 'X'}, now) is None                                # unknown age = out
     assert lb.jup_candidate({'id': 'Tagged111', 'launchpad': 'pump.fun', 'symbol': 'P'}, now)['launchpad'] == 'pump'
-    assert ('toptrending', '1h') in lb.JUP_LISTS
+    assert ('toptrending', '1h') in lb.JUP_LISTS and ('toptraded', '5m') in lb.JUP_LISTS and len(lb.JUP_LISTS) == 9 and lb.JUP_RECENT.endswith('/recent')
 
 
 def test_pump_profile_is_shaped_from_pumps_own_coin_record():

@@ -12,16 +12,16 @@ import time
 BONK_PLATFORM_ID = 'FfYek5vEz23cMkWsdJwG2oa6EphsvXSHrGpdALN4g6W1'
 LAUNCHPAD_LABELS = {'pump': 'Pump.fun', 'bonk': 'LetsBONK', 'raydium': 'LaunchLab', 'other': 'Solana movers'}
 NEW_MAX_AGE_HOURS = 12
-BOARD_MAX = 480   # most coins looked up per board build (DexScreener: 30 a call → ≤ 16 calls a build)
+BOARD_MAX = 660   # most coins looked up per board build (DexScreener: 30 a call → ≤ 22 calls a build)
 
 
 def pump_pages(kind):
     """Which Pump.fun index pages a board reads → [(sort, offset, cache seconds)]. The first pages are live (20s); deeper pages
     move slowly and are cached longer so the wide pull doesn't burst Pump's rate limit."""
     if kind == 'new':
-        return [('created_timestamp', 0, 20), ('created_timestamp', 50, 20), ('created_timestamp', 100, 45),
+        return [('created_timestamp', 0, 20), ('created_timestamp', 50, 20), ('created_timestamp', 100, 45), ('created_timestamp', 150, 45),
                 ('last_trade_timestamp', 0, 20), ('last_trade_timestamp', 50, 20), ('last_trade_timestamp', 100, 45)]
-    return ([('last_trade_timestamp', off, 20 if off < 100 else 45) for off in (0, 50, 100, 150)]
+    return ([('last_trade_timestamp', off, 20 if off < 100 else 45) for off in (0, 50, 100, 150, 200, 250)]
             + [('market_cap', off, 60 if off == 0 else 180) for off in (0, 50, 100, 150, 200)])
 
 
@@ -160,7 +160,11 @@ def build_board(candidates, dex_pairs, kind, now_ms=None):
 # 🌊 MOVERS: Jupiter's own live rankings (what is trending / most traded on Solana over 5m · 1h · 6h, 100 each). The Pump index
 # pages above are "biggest" and "most recently traded" — a coin running +100% on real volume is in neither unless it is also
 # huge or traded this second. 2026-10-06: the launch feed held 111 coins while Pump's trending tab was full of coins it never saw.
-JUP_LISTS = (('toptrending', '1h'), ('toptraded', '1h'), ('toptrending', '5m'), ('toptrending', '6h'))
+JUP_LISTS = (('toptrending', '1h'), ('toptraded', '1h'), ('toptrending', '5m'), ('toptrending', '6h'),
+             # 2026-10-07 (owner: "more pump and other platform coins — list looking the same"): the feed held ~125 coins. Five more
+             # live rankings (most traded now / over 6h / over a day, organic score, a day of trending) roughly double the movers.
+             ('toptraded', '5m'), ('toptraded', '6h'), ('toporganicscore', '1h'), ('toptrending', '24h'), ('toptraded', '24h'))
+JUP_RECENT = '/tokens/v2/recent'   # … and Jupiter's newest launches across EVERY launchpad (pump, bonk, LaunchLab, stonk.fun, Meteora DBC …)
 
 
 JUP_MAX_AGE_D = 30   # a mover from another venue (stonk.fun, Meteora DBC, MetaDAO, a plain Raydium / Meteora pool …) joins while it is this young

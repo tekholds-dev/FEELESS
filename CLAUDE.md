@@ -1930,3 +1930,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (passed safety, pool floor, weather, min age, record gate; fails only at-its-highs / chart too short / the hunt line) — never
   one falling, mid-spike, trending down, too wild, cooling or on the card. Owner: "fill seats should be 30 secs, not the round".
   It trades selectivity for filled seats: when results are judged, split exits by the event text "after 30s".
+- 🌊 FEED WIDENED AGAIN (2026-10-07, "list looking the same"; before: trending 125 coins, new 40, runner board saw 71): `JUP_LISTS`
+  = 9 live rankings (+ most traded 5m / 6h / 24h, organic score 1h, trending 24h) + `JUP_RECENT` (Jupiter's newest launches on every
+  launchpad, both boards); Pump last-traded pages to offset 250, newest to 150; `BOARD_MAX` 660. Measure with
+  `/api/market/feed?chain=solana&kind=trending&scope=launchpads&page=N` pair counts before and after any feed change.
