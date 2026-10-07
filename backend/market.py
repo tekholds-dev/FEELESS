@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, Query
 from ecosystem import DEFAULT_MINTS
 from pydantic import BaseModel, Field
 
-from launchpad_board import keep_last_board, BOARD_MAX, BONK_PLATFORM_ID, JUP_LISTS, JUP_RECENT, PUMP_TREND_PARAMS, PUMP_TREND_PATH, PUMP_TREND_TTL, build_board, pump_pages, pump_trend_rows, dex_candidate, jup_candidate, launchlab_candidate, pump_candidate
+from launchpad_board import jup_pair, keep_last_board, BOARD_MAX, BONK_PLATFORM_ID, JUP_LISTS, JUP_RECENT, PUMP_TREND_PARAMS, PUMP_TREND_PATH, PUMP_TREND_TTL, build_board, pump_pages, pump_trend_rows, dex_candidate, jup_candidate, launchlab_candidate, pump_candidate
 
 BOARD_SCOPES = ('launchpads', 'pump', 'bonk', 'raydium')
 
@@ -366,6 +366,7 @@ def create_market_router(db, intelligence=None):
         jobs.append(('ptrend', cached('PumpBoard', PUMP_TREND_PATH, dict(PUMP_TREND_PARAMS), ttl=PUMP_TREND_TTL)))   # 🔥 Pump's Trending tab, every 10 min
         results = await asyncio.gather(*[job for _pad, job in jobs], return_exceptions=True)
         candidates, meta, movers, trend_first = {}, None, [], []
+        jup_rows = {}   # 📡 mint → Jupiter token row (already fetched): the fallback pair when DexScreener has none
         for (pad, _job), res in zip(jobs, results):
             if isinstance(res, Exception):
                 continue
@@ -379,6 +380,8 @@ def create_market_router(db, intelligence=None):
                 continue
             if pad == 'jup':
                 for tok in data if isinstance(data, list) else []:
+                    if tok.get('id'):
+                        jup_rows[tok['id']] = tok
                     cand = jup_candidate(tok)
                     if cand and cand['mint'] not in candidates:
                         candidates[cand['mint']] = cand; movers.append(cand['mint'])
@@ -427,6 +430,23 @@ def create_market_router(db, intelligence=None):
         for m_ in mints:   # a batch DexScreener refused → that coin's last good snapshot (≤ 5 min), never a hole in the board
             if m_ not in dex_pairs and m_ in pair_mem and now_m - pair_mem[m_][0] < 300:
                 dex_pairs[m_] = pair_mem[m_][1]
+        # 📡 FALLBACK — DexScreener had nothing for these coins (refused, or its API answering empty as on 2026-10-07): Jupiter's
+        # token data (rows already in hand first, then Jupiter search, 100 mints a call, cached 60s) in the same pair shape.
+        # Only DexScreener + our own indexes + Jupiter (sitewide data rule).
+        miss = [m_ for m_ in mints if m_ not in dex_pairs]
+        for m_ in miss:
+            jp_ = jup_pair(jup_rows.get(m_)) if m_ in jup_rows else None
+            if jp_:
+                dex_pairs[m_] = jp_
+        miss = [m_ for m_ in mints if m_ not in dex_pairs][:500]
+        if miss:
+            got_j = await asyncio.gather(*[cached('Jupiter', '/tokens/v2/search', {'query': ','.join(miss[i:i + 100])}, ttl=60)
+                                           for i in range(0, len(miss), 100)], return_exceptions=True)
+            for res in got_j:
+                for tok in (res[0] if not isinstance(res, Exception) and isinstance(res[0], list) else []):
+                    jp_ = jup_pair(tok)
+                    if jp_ and jp_['baseToken']['address'] in candidates:
+                        dex_pairs[jp_['baseToken']['address']] = jp_
         if len(pair_mem) > 4000:
             for k_ in sorted(pair_mem, key=lambda k: pair_mem[k][0])[:len(pair_mem) - 3000]:
                 pair_mem.pop(k_, None)

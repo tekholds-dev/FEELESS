@@ -284,3 +284,37 @@ def keep_last_board(hit, ranked, failed, now):
     if not hit or not failed or now - hit[0] > 600:
         return False
     return len(ranked) < max(1, len(hit[1]) // 3)
+
+
+def _iso_ms(v):
+    try:
+        from datetime import datetime
+        return datetime.fromisoformat(str(v or '').replace('Z', '+00:00')).timestamp() * 1000
+    except (ValueError, TypeError):
+        return 0.0
+
+
+def jup_pair(tok):
+    """📡 A Jupiter token row → a DexScreener-SHAPED pair (the same fields every reader uses), or None. The fallback when DexScreener's
+    API answers empty: 2026-10-07 it returned `pairs: null` even for SOL/USDC (from any IP) while its website worked — the launch feed,
+    every picker list and Coming up went blank. Pair = the graduated pool, else the first pool (the launch curve). `source: 'jupiter'`."""
+    t = tok or {}
+    mint, px = str(t.get('id') or ''), _f(t.get('usdPrice'))
+    pool = t.get('graduatedPool') or (t.get('firstPool') or {}).get('id')
+    if not mint or not pool or px <= 0:
+        return None
+    st = {k: t.get(f'stats{k}') or {} for k in ('5m', '1h', '6h', '24h')}
+    vol = {k: _f(s.get('buyVolume')) + _f(s.get('sellVolume')) for k, s in st.items()}
+    created = _iso_ms((t.get('firstPool') or {}).get('createdAt'))
+    socials = [{'type': k, 'url': t[k]} for k in ('twitter', 'telegram') if t.get(k)]
+    return {'chainId': 'solana', 'dexId': 'pumpswap' if t.get('graduatedPool') and mint.endswith('pump') else 'pumpfun' if mint.endswith('pump') else 'jupiter',
+            'pairAddress': pool, 'url': f'https://jup.ag/tokens/{mint}', 'source': 'jupiter',
+            'baseToken': {'address': mint, 'name': t.get('name'), 'symbol': t.get('symbol')},
+            'quoteToken': {'address': 'So11111111111111111111111111111111111111112', 'name': 'Wrapped SOL', 'symbol': 'SOL'},
+            'priceUsd': str(px), 'liquidity': {'usd': _f(t.get('liquidity'))}, 'marketCap': _f(t.get('mcap')), 'fdv': _f(t.get('fdv') or t.get('mcap')),
+            'volume': {'m5': vol['5m'], 'h1': vol['1h'], 'h6': vol['6h'], 'h24': vol['24h']},
+            'priceChange': {'m5': _f(st['5m'].get('priceChange')), 'h1': _f(st['1h'].get('priceChange')), 'h6': _f(st['6h'].get('priceChange')), 'h24': _f(st['24h'].get('priceChange'))},
+            'txns': {k2: {'buys': int(_f(st[k].get('numBuys'))), 'sells': int(_f(st[k].get('numSells')))} for k, k2 in (('5m', 'm5'), ('1h', 'h1'), ('6h', 'h6'), ('24h', 'h24'))},
+            **({'pairCreatedAt': created} if created else {}),
+            'info': {'imageUrl': t.get('icon'), 'socials': socials, **({'websites': [{'url': t['website']}]} if t.get('website') else {})},
+            'holders': t.get('holderCount')}

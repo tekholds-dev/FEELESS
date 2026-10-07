@@ -2083,3 +2083,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   serves the last good board (stale-marked) instead of an empty / collapsed one. Jupiter ranking lists: 2 min (5m/1h), 5 min (6h/24h),
   recent 1 min — the keeper's quotes share that free tier. "LISTS EMPTY" ⇒ `curl :5001/api/market/feed…` pair count + grep 429 in
   /tmp/feeless-api.log before touching a gate.
+- 📡 ALWAYS A FALLBACK (owner: "always fallbacks, like the RPCs"): when DexScreener has no pair for a coin (refused OR its API answering
+  empty — 2026-10-07 `pairs: null` even for SOL/USDC from every IP, website fine), Jupiter's token data stands in, in the SAME pair
+  shape (`launchpad_board.jup_pair`: graduated pool else the launch curve, price, liquidity, cap, 5m/1h/6h/24h volume + moves + buys /
+  sells, holders, socials; `source: 'jupiter'`). Wired into: the launch board (Jupiter rows already fetched first, then
+  `/tokens/v2/search` 100 mints a call, 60s), `_fuse_pairs` (also fixed: it asked DexScreener for only the first 30 pairs per chain;
+  `_jup_tokens`, `_pair_mint` pair → mint map learned from every answer; legs pass `mint`), and the keeper's FINAL BUY GATE (a fresh
+  Jupiter read, never cached; quote checks still decide). Data sources stay DexScreener + our indexes + Jupiter — the banned chart
+  source never (its name may not even appear in code: `test_no_geckoterminal`).

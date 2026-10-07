@@ -79,3 +79,18 @@ def test_a_board_built_while_dexscreener_refused_us_never_replaces_a_good_one():
     assert keep_last_board(good, [], 0, 130.0) is False                # nothing refused → an empty board is the truth
     assert keep_last_board(good, [], 5, 800.0) is False                # the last board is too old to stand in
     assert keep_last_board(None, [], 5, 130.0) is False
+
+
+def test_jupiter_row_becomes_a_dexscreener_shaped_pair_for_the_fallback():
+    from launchpad_board import jup_pair
+    tok = {'id': 'MINTpump', 'symbol': 'FLY', 'name': 'fly', 'icon': 'https://x/i.png', 'usdPrice': 0.00037, 'liquidity': 43783.7, 'mcap': 336627.0,
+           'graduatedPool': 'POOL', 'firstPool': {'id': 'CURVE', 'createdAt': '2026-10-07T12:00:00Z'}, 'holderCount': 4039, 'twitter': 'https://x.com/f', 'website': 'https://f.dev',
+           'stats5m': {'priceChange': -16.2, 'buyVolume': 15722.0, 'sellVolume': 19217.0, 'numBuys': 305, 'numSells': 254},
+           'stats1h': {'priceChange': -42.1, 'buyVolume': 550499.0, 'sellVolume': 591509.0, 'numBuys': 10314, 'numSells': 8183}}
+    p = jup_pair(tok)
+    assert p['pairAddress'] == 'POOL' and p['baseToken']['address'] == 'MINTpump' and p['source'] == 'jupiter'   # the graduated pool
+    assert float(p['priceUsd']) == 0.00037 and p['liquidity']['usd'] == 43783.7 and p['marketCap'] == 336627.0
+    assert p['volume']['h1'] == 550499.0 + 591509.0 and p['txns']['h1'] == {'buys': 10314, 'sells': 8183} and p['priceChange']['m5'] == -16.2
+    assert p['pairCreatedAt'] > 0 and p['info']['websites'][0]['url'] == 'https://f.dev' and p['holders'] == 4039
+    assert jup_pair({**tok, 'graduatedPool': None})['pairAddress'] == 'CURVE'          # still on its launch curve
+    assert jup_pair({**tok, 'usdPrice': 0}) is None and jup_pair({}) is None            # no price = no pair, never a fake one

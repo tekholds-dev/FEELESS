@@ -38,6 +38,7 @@ from typing import Optional
 
 import httpx
 import ds_pace
+import launchpad_board as _launchpad_board
 ds_pace.install(110, 20)   # 📡 this process's share of DexScreener's ~300/min per IP (market service takes 150)
 from fastapi.responses import JSONResponse, Response
 from urllib.parse import quote
@@ -2658,26 +2659,72 @@ FUSES_PATH = DATA_DIR / 'fuses.json'   # {'fuses': {id: {...}}, 'buys': [{fuse, 
 _fuse_pairs_cache: dict = {}
 
 
+_jup_tok_cache: dict = {}   # mint → (at, Jupiter token row) — 60s
+_pair_mint: dict = {}       # pairAddress → mint, learned from every pair answer (the fallback looks coins up by mint)
+
+
+async def _jup_tokens(mints):
+    """📡 Jupiter token rows for these mints (100 per call, cached 60s). The fallback for DexScreener (sitewide data rule: DexScreener, our indexes, Jupiter)."""
+    now, out, need = time.time(), {}, []
+    for m in dict.fromkeys(x for x in mints if x):
+        hit = _jup_tok_cache.get(m)
+        if hit and now - hit[0] < 60:
+            out[m] = hit[1]
+        else:
+            need.append(m)
+    if need:
+        key = os.getenv('JUPITER_API_KEY', '')
+        base, hdr = ('https://api.jup.ag/tokens/v2/search', {'x-api-key': key}) if key else ('https://lite-api.jup.ag/tokens/v2/search', {})
+        async with httpx.AsyncClient(timeout=8) as http:
+            async def one(chunk):
+                try:
+                    r = await http.get(base, params={'query': ','.join(chunk)}, headers=hdr)
+                    return r.json() if r.status_code == 200 else []
+                except Exception:
+                    return []
+            for rows in await asyncio.gather(*[one(need[i:i + 100]) for i in range(0, len(need), 100)]):
+                for t in rows if isinstance(rows, list) else []:
+                    if t.get('id'):
+                        _jup_tok_cache[t['id']] = (now, t); out[t['id']] = t
+    return out
+
+
 async def _fuse_pairs(legs):
-    """Live DexScreener pairs for every leg: one batched call per chain (≤30 pairs), cached 60s."""
-    out, need = {}, {}
+    """Live pairs for every leg, cached 60s: DexScreener first (30 a call — it used to ask for only the first 30 per chain), and for
+    any Solana pair it could not answer, Jupiter's token data in the same pair shape (`source: 'jupiter'`, keyed by the leg's pair)
+    — 2026-10-07 DexScreener's API answered empty for every pair and live depth, the rug shield and the final buy check went blind."""
+    out, need, mint_of = {}, {}, {}
     for leg in legs:
         hit = _fuse_pairs_cache.get(leg['pairAddress'])
         if hit and time.time() - hit[0] < 60:
             out[leg['pairAddress']] = hit[1]
         else:
             need.setdefault(leg['chainId'], []).append(leg['pairAddress'])
+            m_ = leg.get('mint') or leg.get('baseAddress') or _pair_mint.get(leg['pairAddress'])
+            if m_:
+                mint_of[leg['pairAddress']] = m_
     if need:
         async with httpx.AsyncClient(timeout=8) as http:
             async def one(chain, pairs):
                 try:
-                    r = await http.get(f'https://api.dexscreener.com/latest/dex/pairs/{chain}/{",".join(pairs[:30])}')
+                    r = await http.get(f'https://api.dexscreener.com/latest/dex/pairs/{chain}/{",".join(pairs)}')
                     return (r.json() or {}).get('pairs') or []
                 except Exception:
                     return []
-            for rows in await asyncio.gather(*[one(c, p) for c, p in need.items()]):
+            jobs = [one(c, ps[i:i + 30]) for c, ps in need.items() for i in range(0, len(ps), 30)]
+            for rows in await asyncio.gather(*jobs):
                 for p in rows:
                     _fuse_pairs_cache[p.get('pairAddress')] = (time.time(), p); out[p.get('pairAddress')] = p
+                    if (p.get('baseToken') or {}).get('address'):
+                        _pair_mint[p.get('pairAddress')] = p['baseToken']['address']
+        miss = {pa: m for pa, m in mint_of.items() if pa not in out and pa in (need.get('solana') or [])}
+        if miss:
+            toks = await _jup_tokens(list(miss.values()))
+            for pa, m in miss.items():
+                jp = _launchpad_board.jup_pair(toks.get(m)) if toks.get(m) else None
+                if jp:
+                    jp = {**jp, 'pairAddress': pa}
+                    _fuse_pairs_cache[pa] = (time.time(), jp); out[pa] = jp
     return out
 
 
@@ -4593,7 +4640,7 @@ async def fuse_paper(key: str = Query(..., max_length=120)):
     live = ((d.get('battles') or {}).get('paper') or {}).get(key)
     view = None
     if live:
-        pairs_ = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in live.get('legs') or []])
+        pairs_ = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in live.get('legs') or []])
         view = _pgb.paper_view(live, {k: _fuse._f(v.get('priceUsd')) for k, v in pairs_.items()}, {k: _fuse._f((v.get('liquidity') or {}).get('usd')) for k, v in pairs_.items()})
     past = [x for x in reversed(d.get('paperLog') or []) if x.get('key') == key][:10]
     rec = {'won': sum(1 for x in past if x.get('result') == 'won'), 'lost': sum(1 for x in past if x.get('result') == 'lost'),
@@ -4705,9 +4752,9 @@ async def _battle_tick(now):
     b = d.get('battles') or {}
     # 📜 paper books: every fighting card is marked live at true fills (what selling it all would really pay)
     paper = dict(b.get('paper') or {})
-    pairs_px = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for k in paper for l in paper[k].get('legs') or []] +
-                                 [{'chainId': 'solana', 'pairAddress': l['pairAddress']} for r in ((d.get('league') or {}).get('field') or []) for l in r.get('legs') or [] if l.get('pairAddress')] +
-                                 [{'chainId': 'solana', 'pairAddress': l['pairAddress']} for c in mega for l in c.get('legs') or [] if l.get('pairAddress')]) if (paper or mega) else {}
+    pairs_px = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for k in paper for l in paper[k].get('legs') or []] +
+                                 [{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for r in ((d.get('league') or {}).get('field') or []) for l in r.get('legs') or [] if l.get('pairAddress')] +
+                                 [{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for c in mega for l in c.get('legs') or [] if l.get('pairAddress')]) if (paper or mega) else {}
     ppx = {k: _fuse._f(v.get('priceUsd')) for k, v in pairs_px.items()}
     pliq = {k: _fuse._f((v.get('liquidity') or {}).get('usd')) for k, v in pairs_px.items()}
     if b.get('pairs'):   # a fighter without a book (dealt before books existed / joined late) gets one now — both sides from the same moment
@@ -5018,7 +5065,7 @@ async def _arena_mega(rd, cfg, now):
         champ_id = None   # 🔒 HQ verifies every big engine card before it reaches the Arena (🎨 pick it in the playground)
     if champ_id and not any(x.get('src') == champ_id for x in out):
         cc = pgb['cards'][champ_id]; r_ = pgb['record'][champ_id]
-        cpx = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in cc['legs']])
+        cpx = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in cc['legs']])
         mv_ = [(_fuse._f(cpx.get(l['pairAddress'])) / l['entry'] - 1) * 100 for l in cc['legs'] if _fuse._f(cpx.get(l['pairAddress'])) > 0 and _fuse._f(l.get('entry')) > 0]
         pct_ = round(sum(mv_) / len(mv_), 2) if mv_ else 0.0
         nm_ = cc.get('name') or 'Engine champ'
@@ -6338,7 +6385,7 @@ async def _prime_tick_inner(now):
     # one pair fetch → live price AND momentum for EVERY coin on the cards (majors + pools too, not only runner-board coins)
     books = (_fw_load().get('books') or {})
     market_rows = _fw_market_rows(cards, books)
-    pairs_ = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in market_rows]) if market_rows else {}
+    pairs_ = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in market_rows]) if market_rows else {}
     px = {k: _fuse._f(v.get('priceUsd')) for k, v in pairs_.items()}
     jup = await _jup_prices([l.get('mint') for l in market_rows])
     for l in market_rows:   # 🎯 confirmed book holdings waiting on a sell need live prices too
@@ -6757,7 +6804,7 @@ async def _prime_view():
         return []
     fw_books = _fw_load().get('books') or {}
     market_rows = _fw_market_rows(cards, fw_books)
-    px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in market_rows])
+    px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in market_rows])
     jup = await _jup_prices([l.get('mint') for l in market_rows])
     px.update({l['pairAddress']: jup[l['mint']] for l in market_rows if jup.get(l.get('mint'))})
     cyc = _prime_cfg().get('cycles') or _prime.DEFAULT_CYCLES
@@ -6897,7 +6944,7 @@ async def fuse_prime_admin(request: Request):
             row = row or next((r for r in ct_.get('all') or [] if r.get('mint') == pk['to']), None)   # 🏁 any coin the Gauntlet ranks (Arena lens)
             row = row or next((r for r in _trench_cache.get('rows') or [] if r.get('mint') == pk['to']), None)   # 🗑 a passing trench coin
             if not row and pk.get('toPair'):   # 🔎 any coin from the Lab lenses / search: verified LIVE on its own pool right now
-                lp = (await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pk['toPair']}])).get(pk['toPair']) or {}
+                lp = (await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pk['toPair'], 'mint': pk.get('to')}])).get(pk['toPair']) or {}
                 lp = _fuse.with_curve(lp)   # 🆕 the owner may pick a coin still on Pump's curve (the keeper's quote checks still decide)
                 row = _pick_row(lp, pk['to'], _fw.clean_cfg(_fw_load().get('cfg') or {})['pickMinLiqUsd'])
             if not row:
@@ -6983,7 +7030,7 @@ async def fuse_prime_admin(request: Request):
                 raise HTTPException(404, 'No card for that tier yet.')
             if _prime.hands_off_left(card, time.time()):
                 raise HTTPException(400, f"🔒 Hands-off lock: {int(_prime.hands_off_left(card, time.time()) // 60) + 1} min left — hand swaps wait. The engine and your stops keep working.")
-            px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in card['legs']])
+            px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in card['legs']])
             try:
                 old_m = {l.get('mint') for l in card['legs']}
                 cfg_r = _prime_real_cfg(d.get('prime') or {}) if card.get('real') else pr['cfg']
@@ -7017,7 +7064,7 @@ async def fuse_prime_admin(request: Request):
             card = cards.get(ms['tpl'])
             if not card or not card.get('real'):
                 raise HTTPException(400, 'Manual sell-to-cash is only available on a real card.')
-            px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in card.get('legs') or []])
+            px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in card.get('legs') or []])
             try:
                 # ✂ the owner's manual sell: one coin or every coin, any % (25 / 50 / 100) — the only way principal ever leaves a card
                 pairs_ms = [l['pairAddress'] for l in card.get('legs') or [] if l.get('mint') != _fw.SOL_MINT and _fuse._f(l.get('units')) > 0] if ms.get('all') else [ms['pairAddress']]
@@ -7043,7 +7090,7 @@ async def fuse_prime_admin(request: Request):
             card = cards.get(sk['tpl'])
             if not card:
                 raise HTTPException(404, 'No card for that tier yet.')
-            px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in card.get('legs') or []])
+            px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in card.get('legs') or []])
             try:
                 cards[sk['tpl']] = (_prime.stake_leg(card, sk['pairAddress'], px, {}, time.time(), sk.get('to') or 'cash') if sk.get('stake')   # 🏠 the initial out, profit rides
                                     else _prime.skim_leg(card, sk['pairAddress'], px, {}, time.time(), sk.get('to') or 'card', hold=sk.get('rounds')))
@@ -7298,6 +7345,10 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
             data = mr.json() if mr.status_code == 200 else {}
             live_pairs = (data or {}).get('pairs') or ([data.get('pair')] if isinstance(data, dict) and data.get('pair') else [])
             live_pair = next((p for p in live_pairs if p and p.get('pairAddress') == order.get('pair')), None)
+            if not live_pair and order.get('mint'):   # 📡 DexScreener silent → a FRESH Jupiter read of the coin (never a cached one)
+                _jup_tok_cache.pop(order['mint'], None)
+                jp_ = _launchpad_board.jup_pair((await _jup_tokens([order['mint']])).get(order['mint']))
+                live_pair = {**jp_, 'pairAddress': order.get('pair')} if jp_ else None
             ok_live, why_live, snap = _fw.live_buy_market(order, live_pair, cfg)
         except Exception:
             ok_live, why_live, snap = False, 'live market unavailable — buy refused', {}
@@ -8107,7 +8158,7 @@ async def _paper_quote_audit(now):
         return 0
     k = int(now // 300)
     pick = [legs[(k * 4 + i) % len(legs)] for i in range(min(4, len(legs)))]
-    pairs_ = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in pick])
+    pairs_ = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in pick])
     sol_px = await _sol_usd_live()
     rows = []
     for l in pick:
@@ -8354,7 +8405,7 @@ async def fuse_wallet_view(request: Request):
     sol_px = await _sol_usd_live()
     cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
     market_rows = _fw_market_rows(cards, d.get('books') or {})
-    px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in market_rows]) if market_rows else {}
+    px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in market_rows]) if market_rows else {}
     jup = await _jup_prices([l.get('mint') for l in market_rows]) if market_rows else {}
     px.update({l['pairAddress']: jup[l['mint']] for l in market_rows if jup.get(l.get('mint'))})
     books = {tid: {**b, 'valueUsd': _fw.book_value(b, px, sol_px), 'label': (cards.get(tid) or {}).get('label') or tid, **_fw.totals(d['ledger'], tid)} for tid, b in d['books'].items()}
@@ -8565,7 +8616,7 @@ async def fuse_wallet_preview(request: Request):
     if tid not in _prime.TEMPLATES or not cards.get(tid) or not 1 <= usd <= 50000:
         raise HTTPException(400, 'Pick a dealt tier and $1–$50,000.')
     card, sol_px = cards[tid], await _sol_usd_live()
-    px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in card['legs']])
+    px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in card['legs']])
     scale = usd / (_prime.value({**card, 'walletUsd': 0, 'parked': {}}, px) or 1)
     want = {**card, 'legs': [{**l, 'units': l['units'] * scale} for l in card['legs']]}
     cfg = {**_fw_cfg(), 'maxSwapUsd': 10000, 'minOrderUsd': 0.25}
@@ -8610,7 +8661,7 @@ async def fuse_wallet_topup(request: Request):
             raise HTTPException(400, f"Not enough free SOL in the Fuse wallet for ${usd:.2f} (network-fee reserve {cfg['reserveSol']} SOL is kept back).")
         cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
         card = cards.get(tid)
-        px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in (card or {}).get('legs') or []]) if card else {}
+        px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in (card or {}).get('legs') or []]) if card else {}
         jup = await _jup_prices([l.get('mint') for l in (card or {}).get('legs') or []]) if card else {}
         if card:
             px.update({l['pairAddress']: jup[l['mint']] for l in card.get('legs') or [] if jup.get(l.get('mint'))})
@@ -8694,7 +8745,7 @@ async def fuse_wallet_payout_profit(request: Request):
     card = cards.get(tid)
     if not card:
         raise HTTPException(404, 'Card not found.')
-    pairs_ = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in card.get('legs') or []])
+    pairs_ = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in card.get('legs') or []])
     px = {k: _fuse._f(v.get('priceUsd')) for k, v in pairs_.items()}
     jup = await _jup_prices([l.get('mint') for l in card.get('legs') or []])
     for l in card.get('legs') or []:
@@ -9277,7 +9328,7 @@ async def _pg_battle_tick(now):
     cards = dict(b.get('cards') or {})
     scrapped = set(b.get('scrapped') or [])   # 🗑 dead strategies stay off the field (record kept)
     want = [k for k in scs if k not in scrapped][:cfg['cards']]
-    legs = [{'chainId': 'solana', 'pairAddress': l['pairAddress']} for k in want for l in (cards.get(k) or scs[k])['legs']]
+    legs = [{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for k in want for l in (cards.get(k) or scs[k])['legs']]
     live = await _runner_live()
     cand = [r for r in live.get('passing') or [] if r.get('pairAddress')]
     pairs_ = await _fuse_pairs(legs + [{'chainId': 'solana', 'pairAddress': r['pairAddress']} for r in cand[:12]])
