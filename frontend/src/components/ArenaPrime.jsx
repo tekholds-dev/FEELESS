@@ -15,6 +15,7 @@ import { RoundBell, TrailSummary, CycleBuilder, usd, usdK, pct, txUrl } from './
 import { StrategyPicks, stratPatch } from './StrategyPicks';
 import { openCoin } from './CoinDrawer';
 import { TrenchOpen } from './TrenchOpen';
+import '../styles/primeLeague.css';
 import { useTabTitle, cardTitle } from '../lib/tabTitle';
 
 // ⭐ ARENA PRIME: FEELESS's own top-tier cards, FULLY AUTO on paper — auto TP/SL, auto-compound, 2 coins rotate every 6h. Different
@@ -61,6 +62,24 @@ export const primeGroups = cards => { const all = cards || []; const real = all.
   const paper = all.filter(c => !c.real); const best = [...paper].sort((x, y) => (y.pnlPct || 0) - (x.pnlPct || 0))[0];
   const rest = paper.filter(c => c !== best); return rest.length ? [[...real, ...(best ? [best] : [])], rest] : [all]; };
 
+// 🏁 THE LEAGUE TABLE on top of Prime League: every tier card as a lane in one race, best first — rank, tier, 💵 real / 📄 paper,
+// a bar for its result, and the real card's gap to the best paper card in one line. Tap a lane → that card (its fold opens).
+export const standings = (cards, live) => (cards || []).map(c => { const r = arenaRow(c, live); return { tpl: c.tpl, id: c.id, name: (TIER[c.tier] || TIER.gold).name, label: c.label, real: !!c.real, pct: Number(r.pnlPct) || 0, usd: Number(r.valueUsd) || 0 }; })
+  .sort((x, y) => y.pct - x.pct).map((r, i) => ({ ...r, rank: i + 1 }));
+export function PrimeStandings({ cards, live }) {
+  const rows = standings(cards, live); if (rows.length < 2) return null;
+  const top = Math.max(5, ...rows.map(r => Math.abs(r.pct))); const real = rows.find(r => r.real); const paper = rows.find(r => !r.real);
+  const go = tpl => { const el = document.querySelector(`[data-testid="prime-${tpl}"]`); if (!el) return; const fold = el.closest('details'); if (fold) fold.open = true; el.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+  return <div className="pls" data-testid="prime-standings">
+    <div className="pls-head"><span className="m-label">🏁 LEAGUE TABLE · LIVE</span>{real && paper && <small className="pls-gap" data-testid="prime-gap">💵 real <b className={real.pct >= 0 ? 'm-pos' : 'm-neg'}>{real.pct >= 0 ? '+' : ''}{real.pct.toFixed(1)}%</b> · best 📄 paper {paper.name} <b className={paper.pct >= 0 ? 'm-pos' : 'm-neg'}>{paper.pct >= 0 ? '+' : ''}{paper.pct.toFixed(1)}%</b> · gap <b>{Math.abs(paper.pct - real.pct).toFixed(1)} pts</b></small>}</div>
+    <ol className="pls-lanes">{rows.map(r => <li key={r.id} style={{ '--i': r.rank - 1 }}><button type="button" className={`pls-lane ${r.real ? 'is-real' : ''} ${r.pct >= 0 ? 'is-up' : 'is-down'}`} onClick={() => go(r.tpl)} data-testid={`lane-${r.tpl}`}
+      data-tip={`${r.label} · ${r.real ? 'real money' : 'paper at true fills'} · worth $${r.usd.toFixed(2)} — tap to see the card`}>
+      <i className="pls-rank">{r.rank === 1 ? '👑' : r.rank}</i><b>{r.name}</b><u>{r.real ? '💵 REAL' : '📄'}</u>
+      <span className="pls-track"><span className="pls-bar" style={{ transform: `scaleX(${Math.max(0.03, Math.abs(r.pct) / top).toFixed(3)})` }} /></span>
+      <em className={`m-num ${r.pct >= 0 ? 'm-pos' : 'm-neg'}`} key={r.pct.toFixed(1)}>{r.pct >= 0 ? '+' : ''}{r.pct.toFixed(1)}%</em></button></li>)}</ol>
+  </div>;
+}
+
 export function usePrime(ms = 60000) {
   const [d, setD] = useState(null);
   useEffect(() => { let alive = true; const load = first => (first || !document.hidden) && fetch(apiUrl('/api/reputation/fuses/prime')).then(r => r.json()).then(x => alive && setD(x)).catch(() => {});
@@ -82,6 +101,7 @@ export function ArenaPrime({ onLoad }) {
       {d.paperMatch?.n > 0 && <span className="m-chip ok" data-tip="Every ~5 min the coins on these cards are priced the way paper fills them AND with a real Jupiter quote for the same $. + = real gives more coins than paper." data-testid="paper-match">📏 Paper vs real quotes: avg {d.paperMatch.avgDevPct >= 0 ? '+' : ''}{d.paperMatch.avgDevPct}% · {d.paperMatch.within2Pct}% within 2% · {d.paperMatch.n} checks</span>}
       {d.weather && <span className={`m-chip ${d.weather.level === 'clear' ? 'ok' : 'warn'}`} data-testid="prime-weather" data-tip={`Runner weather for REAL money, measured by the engine's own sim cards on real recorded prices${d.weather.avgPct != null ? ` (${d.weather.avgPct >= 0 ? '+' : ''}${d.weather.avgPct}% over ${d.weather.n} sims)` : ''}. Clear = every gated runner · Rain = only strong runners in deep pools · Storm = no runners, new majors only. Paper keeps trading everything.`}>{WEATHER[d.weather.level] || WEATHER.clear}</span>}
       {d.realGuard?.length > 0 && <span className="m-chip ok" data-testid="prime-guard" data-tip={`Real-money guard is holding these floors over the saved config: ${d.realGuard.join(' · ')}. A real round trip costs about 2%, so real coins are never flipped on small dips.`}>🛡 Real guard on · {d.realGuard.length}</span>}</header>
+    <PrimeStandings cards={d.cards} live={live} />
     {primeGroups(d.cards).map((grp, gi) => { const row = <div className="prime-row" key={gi}>{grp.map(c0 => { const rv = arenaRow(c0, live); const c = { ...c0, pnlPct: rv.pnlPct, valueUsd: rv.valueUsd }; const putIn = c.real ? (c.realBook?.fundedUsd || c.fundedUsd || c.startUsd) : (c.math?.putIn || c.startUsd); /* paper: everything ever put in, never a restart's lower start */ const t = TIER[c.tier] || TIER.gold; return <article key={c.id} className={`prime-card t-${c.tpl} tier-${c.tier || 'gold'} ${c.pnlPct >= 10 ? 'is-hot' : ''}`} data-testid={`prime-${c.tpl}`}>
       <span className="prime-tier" aria-hidden="true"><i className="pt-ring" /><i className="pt-sweep" />{Array.from({ length: 6 }, (_, i) => <i key={i} className="pt-spark" style={{ '--i': i }} />)}</span>
       <b className="prime-badge">{t.name}</b><span className={`prime-real ${c.real ? 'is-real' : 'is-paper'}`} data-tip={c.real ? `Real money from the FEELESS Fuse wallet since ${new Date((c.realSince || 0) * 1000).toLocaleDateString()} — every swap is on-chain` : 'Paper at true fills — same engine, same entries, no money'} data-testid={`prime-real-${c.tpl}`}>{c.real ? '💵 REAL MONEY' : '📄 PAPER'}</span>{d.roundWinner?.id === c.id && <span className="prime-crown" data-testid={`prime-crown-${c.tpl}`} data-tip="Best card of the last round">🏆 ROUND WINNER</span>}{c.why && <small className="prime-why">{c.why}</small>}

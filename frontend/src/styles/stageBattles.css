@@ -1,0 +1,31 @@
+/* ⚔ Stage battles (StageBattles.jsx): the two live fights as a show. transform / opacity only. */
+.sbt { display: grid; gap: 10px; margin: 0 0 14px; }
+.sbt-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; } .sbt-bell { font: 11px "JetBrains Mono", monospace; color: var(--gold, #f5c451); } .sbt-full { margin-left: auto; }
+.sbt-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.sbt-fight { position: relative; isolation: isolate; overflow: hidden; display: grid; gap: 10px; padding: 16px 14px 12px; border-radius: 16px; border: 1px solid rgba(255, 154, 60, .32); background: linear-gradient(180deg, rgba(40, 18, 10, .7), rgba(8, 10, 12, .86)); animation: sbtIn .3s ease both; animation-delay: calc(var(--i) * 90ms); }
+.sbt-glow { position: absolute; left: 50%; top: -40%; width: 120%; aspect-ratio: 1; margin-left: -60%; z-index: -1; background: radial-gradient(circle, rgba(255, 154, 60, .2) 0%, transparent 62%); animation: sbtPulse 3.4s ease-in-out infinite alternate; }
+.sbt-tag { position: absolute; left: 12px; top: 8px; font: 600 9px "JetBrains Mono", monospace; letter-spacing: .18em; color: #ff9a3c; opacity: .8; }
+.sbt-ring { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px; margin-top: 6px; }
+.sbt-corner { position: relative; display: grid; justify-items: center; gap: 2px; min-width: 0; text-align: center; }
+.sbt-corner.is-a { animation: sbtJabA 2.6s ease-in-out infinite; } .sbt-corner.is-b { animation: sbtJabB 2.6s ease-in-out infinite; animation-delay: -1.3s; }
+.sbt-emoji { font-style: normal; font-size: 38px; line-height: 1; filter: none; } .sbt-corner.is-behind { opacity: .72; }
+.sbt-corner b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: #fff; } .sbt-corner em { font-style: normal; font-size: 18px; } .sbt-corner small { font: 10px "JetBrains Mono", monospace; opacity: .7; }
+.sbt-crown { position: absolute; top: -14px; text-decoration: none; font-size: 16px; animation: sbtBob 1.4s ease-in-out infinite alternate; }
+.sbt-vs { position: relative; display: grid; place-items: center; width: 46px; height: 46px; } .sbt-vs b { font: 400 15px var(--fz-font, "JetBrains Mono"), monospace; color: #ffd9a8; }
+.sbt-vs i { position: absolute; font-style: normal; font-size: 30px; opacity: 0; animation: sbtClash 2.6s ease-in-out infinite; }
+.sbt-rope { position: relative; height: 8px; border-radius: 999px; background: linear-gradient(90deg, rgba(21, 209, 106, .5), rgba(255, 255, 255, .08) 50%, rgba(160, 110, 255, .5)); }
+.sbt-knot { position: absolute; left: 50%; top: -5px; width: 18px; height: 18px; margin-left: -9px; border-radius: 50%; background: #ffd9a8; box-shadow: 0 0 14px #ff9a3c; transition: transform .8s cubic-bezier(.2, .8, .2, 1); }
+.sbt-pips { list-style: none; margin: 0; padding: 0; display: flex; justify-content: center; gap: 6px; }
+.sbt-pips li { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .14); opacity: .45; } .sbt-pips i { font-style: normal; font-size: 12px; }
+.sbt-pips li.is-a { opacity: 1; border-color: #15d16a; background: rgba(21, 209, 106, .18); } .sbt-pips li.is-b { opacity: 1; border-color: #a06eff; background: rgba(160, 110, 255, .2); }
+.sbt-call { margin: 0; text-align: center; font-size: 12px; color: #ffe7cc; }
+@keyframes sbtIn { from { transform: translateY(10px) scale(.98); } to { transform: none; } }
+@keyframes sbtPulse { from { opacity: .5; transform: scale(.94); } to { opacity: 1; transform: scale(1.06); } }
+@keyframes sbtJabA { 0%, 70%, 100% { transform: none; } 80% { transform: translateX(12px) rotate(3deg); } 88% { transform: translateX(-3px); } }
+@keyframes sbtJabB { 0%, 70%, 100% { transform: none; } 80% { transform: translateX(-12px) rotate(-3deg); } 88% { transform: translateX(3px); } }
+@keyframes sbtClash { 0%, 72%, 100% { opacity: 0; transform: scale(.4); } 82% { opacity: 1; transform: scale(1.25) rotate(12deg); } 92% { opacity: 0; transform: scale(1.6); } }
+@keyframes sbtBob { from { transform: translateY(0); } to { transform: translateY(-4px) rotate(6deg); } }
+body.fx-lite :is(.sbt-fight, .sbt-glow, .sbt-corner, .sbt-vs i, .sbt-crown) { animation: none; } body.fx-lite .sbt-knot { transition: none; }
+@media (prefers-reduced-motion: reduce) { :is(.sbt-fight, .sbt-glow, .sbt-corner, .sbt-vs i, .sbt-crown) { animation: none; } .sbt-knot { transition: none; } }
+body.theme-day .sbt-fight { background: linear-gradient(180deg, #fff3e6, #fbfdfc); border-color: #e3b889; } body.theme-day .sbt-corner b { color: #2a1708; } body.theme-day .sbt-call { color: #5a3a17; } body.theme-day .sbt-vs b { color: #a85a12; } body.theme-day .sbt-tag { color: #a85a12; }
+@media (max-width: 640px) { .sbt-row { grid-template-columns: 1fr; } .sbt-emoji { font-size: 30px; } .sbt-full { margin-left: 0; } }

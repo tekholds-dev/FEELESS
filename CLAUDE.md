@@ -1782,3 +1782,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   Fuse › Coins "🗑 Engine may buy trench coins"): off = `_prime_tick` hands the engine NO trench rows — they stay listed and
   hand-pickable. Set OFF on the owner's real card the same day (`data/realcfg_before_trenchauto.json`). NOT cut: Edit Fuse's
   "All settings" — the real card runs on settings that live only there (skim, stack skim, hunt line), so it stays one click away.
+- 🏁 Prime League opens on the LEAGUE TABLE (`ArenaPrime.standings` + `PrimeStandings`, `styles/primeLeague.css` `pls-*`): every
+  tier card as a lane in one race, best first (👑 leader, 💵 REAL lane marked, a bar per result, live %), one line with the real
+  card's gap to the best paper card; a lane tap scrolls to that card and opens its fold. Then the real card + best paper card,
+  then the folded rest.
+- ⚔ Main Stage shows the TWO live fights again (`StageBattles.jsx` + `fightRead`, `styles/stageBattles.css` `sbt-*`): two corners
+  jabbing at each other with a 💥 clash, 👑 on the leader, live % since the bell, a rope whose knot slides toward the leader
+  (sparks first, card move as tie-break), one ⚡ pip per seat duel (tip = both coins), the bell clock and a one-line 🎙 call.
+  "Full fight, table & throne" mounts the old Battlefield underneath (`PitFold b=`; no live pair = the plain show button).
+  Points only — never a bet. Max 2 fights on screen, always.
