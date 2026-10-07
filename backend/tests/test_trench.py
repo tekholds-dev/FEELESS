@@ -235,27 +235,27 @@ def test_trench_metas_set_only_soft_checks_and_the_finalist_pool_is_wide_enough_
         assert all(g[k] == tr.TRENCH[k] for k in ('maxTop10', 'maxInsiders', 'maxBundled', 'maxDev', 'maxTop10Jump', 'minBuyShare'))   # safety never moves
     assert tr.meta_gate('nope') is None
     lo = tr.loosest()
-    assert lo['minHolders'] == 100 and lo['maxAgeH'] == 48 and lo['maxMcap'] == 1_000_000 and lo['minMcap'] == 10_000
-    own = tr.clean_own({'mode': 'meta', 'meta': 'flood'})
-    assert own['mode'] == 'meta' and tr.own_gate(own)['minVol1h'] == 50_000 and tr.own_gate(own)['maxTop10'] == tr.TRENCH['maxTop10']
+    assert lo['minHolders'] == 100 and lo['maxMcap'] == 1_000_000 and lo['minMcap'] == 10_000
+    own = tr.clean_own({'mode': 'meta', 'meta': 'baby'})
+    assert own['mode'] == 'meta' and tr.own_gate(own)['minVol1h'] == 5_000 and tr.own_gate(own)['maxTop10'] == tr.TRENCH['maxTop10']
     assert tr.clean_own({'mode': 'meta', 'meta': 'x'})['meta'] == 'breakout' and tr.clean_own({})['mode'] == 'auto'
     board = tr.meta_board([{'h': 1200}, {'h': 200}], lambda r, g: (r['h'] >= g['minHolders'], []))
-    assert {b['key']: b['pass'] for b in board} == {'baby': 2, 'launch': 2, 'sprout': 2, 'breakout': 1, 'flood': 1, 'crowd': 1, 'survivor': 1}
+    assert {b['key']: b['pass'] for b in board} == {'baby': 2, 'breakout': 1} and list(tr.METAS) == ['baby', 'breakout']   # two metas, not seven
 
 
 def test_meta_proof_settles_after_an_hour_counts_a_vanished_coin_as_a_loss_and_uses_the_median():
     import trench as tr
-    st = tr.meta_track({}, {'flood': [('A', 1.0), ('B', 2.0), ('G', 1.0)]}, lambda m: 0, 0.0)
-    assert set(st['flood']['open']) == {'A', 'B', 'G'} and st['sprout'] == {'open': {}, 'done': []}
-    st = tr.meta_track(st, {'flood': [('A', 5.0)]}, lambda m: 0, 1800.0)                       # still open: not noted twice, not settled
-    assert st['flood']['open']['A']['px'] == 1.0 and not st['flood']['done']
-    st = tr.meta_track(st, {'flood': [('A', 1.2)]}, {'A': 1.2, 'B': 1.0}.get, 3700.0)          # settled: A +20%, B −50%, G vanished
-    assert sorted(d['pct'] for d in st['flood']['done']) == [-100.0, -50.0, 20.0] and not st['flood']['open']   # A not re-opened for 6h
-    p = tr.meta_proof(st)['flood']
+    st = tr.meta_track({}, {'breakout': [('A', 1.0), ('B', 2.0), ('G', 1.0)]}, lambda m: 0, 0.0)
+    assert set(st['breakout']['open']) == {'A', 'B', 'G'} and st['baby'] == {'open': {}, 'done': []}
+    st = tr.meta_track(st, {'breakout': [('A', 5.0)]}, lambda m: 0, 1800.0)                       # still open: not noted twice, not settled
+    assert st['breakout']['open']['A']['px'] == 1.0 and not st['breakout']['done']
+    st = tr.meta_track(st, {'breakout': [('A', 1.2)]}, {'A': 1.2, 'B': 1.0}.get, 3700.0)          # settled: A +20%, B −50%, G vanished
+    assert sorted(d['pct'] for d in st['breakout']['done']) == [-100.0, -50.0, 20.0] and not st['breakout']['open']   # A not re-opened for 6h
+    p = tr.meta_proof(st)['breakout']
     assert (p['n'], p['medPct'], p['wonPct'], p['proven']) == (3, -50.0, 33, False)
-    good = {'flood': {'done': [{'pct': x} for x in (4, 6, 8, -3, 900)]}}
-    assert tr.meta_proof(good)['flood'] == {'n': 5, 'medPct': 6.0, 'wonPct': 80, 'open': 0, 'proven': True}   # median: the 900% doesn't carry it
-    assert tr.meta_proof({})['crowd'] == {'n': 0, 'medPct': None, 'wonPct': None, 'open': 0, 'proven': False}
+    good = {'breakout': {'done': [{'pct': x} for x in (4, 6, 8, -3, 900)]}}
+    assert tr.meta_proof(good)['breakout'] == {'n': 5, 'medPct': 6.0, 'wonPct': 80, 'open': 0, 'proven': True}   # median: the 900% doesn't carry it
+    assert tr.meta_proof({})['baby'] == {'n': 0, 'medPct': None, 'wonPct': None, 'open': 0, 'proven': False}
 
 
 def test_an_unscanned_coin_is_reported_apart_and_top10_passes_higher_only_while_holders_hold():
@@ -301,8 +301,8 @@ def test_band_miss_says_in_numbers_why_a_coin_is_outside_the_owners_filter():
     assert trench.loosest({**g, 'maxAgeH': 72})['maxAgeH'] == 72 and trench.loosest()['maxAgeH'] < 72
 
 
-def test_launch_meta_needs_a_website_and_x_set_at_launch_and_is_under_an_hour_old():
-    g = tr.meta_gate('launch')
+def test_a_gate_that_needs_socials_wants_a_website_and_x_set_at_launch():
+    g = {**tr.meta_gate('baby'), 'maxAgeH': 1, 'needSocials': 1}   # the retired 🎯 Launch meta's gate: the check itself is kept
     assert g['maxAgeH'] == 1 and g['needSocials'] and g['maxTop10'] == tr.TRENCH['maxTop10']        # safety checks unchanged
     coin = {'ageH': 0.4, 'mcap': 60000, 'txns1h': 300, 'vol1h': 40000, 'buyShare': 62, 'chg5m': 4, 'chg1h': 30, 'scanned': True, 'top10': 15, 'insiders': 2,
             'bundled': 0, 'dev': 1, 'top10Jump': 0, 'creatorRep': 'clean', 'site': True, 'x': True}
@@ -312,7 +312,7 @@ def test_launch_meta_needs_a_website_and_x_set_at_launch_and_is_under_an_hour_ol
         ok, fails = tr.gate({**coin, **bad}, 300, auth, g)
         assert not ok
     assert 'website + X account set at launch' in tr.gate({**coin, 'x': False}, 300, auth, g)[1]
-    assert 'website + X account set at launch' not in tr.gate({**coin, 'x': False}, 300, auth, tr.meta_gate('sprout'))[1]   # only this meta asks for it
+    assert 'website + X account set at launch' not in tr.gate({**coin, 'x': False}, 300, auth, tr.meta_gate('baby'))[1]   # a plain meta never asks for it
 
 
 def _pair(mint, sym, vol1h, vol5m, m5, h1, buys, sells, age_h, now_ms=10_000_000_000.0, px=0.001):

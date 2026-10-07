@@ -1985,3 +1985,25 @@ def test_dragged_levels_move_in_one_percent_steps_inside_fixed_ranges():
     assert ap.clean_cfg({'rideAt': 17.5})['rideAt'] == ap.RIDE_AT and ap.clean_cfg({'rideTrail': 2})['rideTrail'] == ap.RIDE_TRAIL
     assert ap.clean_cfg({'rideAt': 0})['rideAt'] == 0.0                           # off is still off
     assert ap.clean_exit('sl', 17) == 17.0 and ap.clean_exit('rideTrail', 12) == 12.0 and ap.clean_exit('sl', 3) is None
+
+
+def test_a_queued_pick_comes_in_early_when_its_coin_is_within_five_points_of_the_stop_else_at_the_bell():
+    t = {'sl': 15, 'tp': 300}
+    leg = lambda pair, px0, **kw: {'pairAddress': pair, 'mint': 'm' + pair, 'symbol': pair.upper(), 'entry': px0, 'units': 10.0, 'costUsd': 10 * px0, 'role': 'runner', **kw}
+    pick = {'pairAddress': 'new', 'mint': 'mnew', 'symbol': 'NEW', 'price': 2.0}
+    c = {'legs': [leg('a', 1.0, swapTo=pick), leg('b', 1.0, swapTo=pick), leg('c', 1.0), leg('d', 1.0, swapTo=pick, sl=30)], 'cash': 0.0, 'events': []}
+    prices = {'a': 0.89, 'b': 0.93, 'c': 0.86, 'd': 0.80, 'new': 2.0}                 # a −11% (inside 5 of −15) · b −7% · c no pick · d −20% but its own stop is −30
+    assert ap.near_stop_picks(c, prices, t) == {'a'}
+    assert ap.near_stop_picks(c, {**prices, 'd': 0.74}, t) == {'a', 'd'}                # −26% is within 5 of ITS −30
+    assert ap.near_stop_picks(c, {}, t) == set()                                        # no live price = not judged
+    n = ap.apply_queued(c, prices, {}, 100.0, only={'a'}, why='early')
+    assert n == 1 and c['legs'][0]['symbol'] == 'NEW' and c['legs'][0]['picked'] and c['legs'][1].get('swapTo') and c['events'][-1]['why'] == 'early'
+    assert ap.apply_queued(c, prices, {}, 100.0) == 2                                   # the bell still brings in every other pick
+    assert ap.PICK_NEAR_STOP == 5.0
+
+
+def test_trench_auto_is_a_real_switch_on_by_default():
+    assert ap.clean_cfg({})['trenchAuto'] is True and ap.clean_cfg({'trenchAuto': False})['trenchAuto'] is False
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text()
+    assert "cfg_t.get('trenchAuto', True) and not (real_t" in src          # the ONLY place trench coins join the engine's candidates

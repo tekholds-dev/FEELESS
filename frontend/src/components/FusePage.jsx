@@ -245,12 +245,17 @@ export const stageTier = cards => (cards || []).reduce((top, c) => (['calm', 'wa
 // 🏟 Arena zones: [key, name, what happens there]. One zone on screen at a time; `?zone=` deep-links it (old links land on the first).
 export const ARENA_ZONES = [
   ['prime', '👑 Prime League', "FEELESS's own tier cards, fully automatic — one runs on real money"],
-  ['pit', '⚔ The Pit', 'Cards fight head to head for the Throne; below it, every card that made the Main Stage'],
+  ['pit', '🏟 Main Stage', 'Every card that made the stage — load one or buy it. The card battles are folded at the top'],
   ['gauntlet', '🏁 The Gauntlet', "Coins ranked live for the next card seat, and this week's Crown Race"],
   ['proving', '🧪 Proving Ground', 'Runner rounds, dial proof and strategies — where the engine earns its record'],
 ];
 const ZONE_ALIAS = { crown: 'gauntlet', stage: 'pit' };   // old links still land in the right place
 export const arenaZone = search => { const q = new URLSearchParams(search || '').get('zone'); const z = ZONE_ALIAS[q] || q; return z === 'all' || ARENA_ZONES.some(x => x[0] === z) ? z : 'prime'; };
+
+// ⚔ The card battles are a show, not a tool: folded by default (owner cut, 2026-10-06). Closed = its content is not mounted, so
+// none of its animations run. `zone=all` (tests) opens it.
+function PitFold({ children }) { const [open, setOpen] = useState(() => new URLSearchParams(window.location.search).get('zone') === 'all');
+  return <section className="pit-fold" data-testid="pit-fold"><button type="button" className="m-btn pit-fold-btn" onClick={() => setOpen(o => !o)} aria-expanded={open} data-testid="pit-fold-btn">⚔ Card battles & league {open ? '— hide' : '— show'}</button>{open && children}</section>; }
 
 export function ArenaBoard({ onPicks, onLoad }) {
   const [a, setA] = useState(null);
@@ -272,9 +277,8 @@ export function ArenaBoard({ onPicks, onLoad }) {
     <div key={zone} className="az-pane" data-testid={`az-pane-${zone}`}>
     {on('prime') && <ArenaPrime onLoad={legs => onLoad?.(legs)} />}
     {on('gauntlet') && <><ArenaContenders /><FuseSeason /></>}
-    {on('pit') && <div className="ar-sky" aria-hidden="true">{Array.from({ length: TIER_FX[top].embers + 6 }, (_, i) => <i key={i} style={{ '--i': i }} />)}</div>}
-    {on('pit') && (a?.battles?.pairs?.length > 0 ? <Battlefield b={a.battles} cards={[...mega, ...(a.bench || []), ...(a.fighters || [])]} onLoad={onLoad} />
-      : a && <p className="m-dim ar-none">The Pit is between fights — the next bell pairs the hottest cards.</p>)}
+    {on('pit') && <PitFold>{a?.battles?.pairs?.length > 0 ? <Battlefield b={a.battles} cards={[...mega, ...(a.bench || []), ...(a.fighters || [])]} onLoad={onLoad} />
+      : a && <p className="m-dim ar-none">Between fights — the next bell pairs the hottest cards.</p>}</PitFold>}
     {on('pit') && <><header className="ar-head m-card m-live"><span className="m-label">🏟 MAIN STAGE · LIVE</span><h2>Cards that made it.</h2>
       <p className="m-dim">FEELESS cards, runner cards that lit after their rounds, and every trader's open card until it's withdrawn — every one fights in The Pit. The more real activity a card has (FEELESS buys, buyers, $ flow, how far it moved) the hotter it burns.</p>
       <div className="ar-legend">{Object.keys(TIER_FX).map(k => <span key={k} className={`ar-chip t-${k}`}>{k}</span>)}</div></header>

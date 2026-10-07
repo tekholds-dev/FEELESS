@@ -1771,3 +1771,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   frontend, 5 backend; `env_loader` imports are side-effect imports and stay). Animation audit on Fuse › Arena: 163 running, ALL
   transform / opacity (to re-check: list `document.getAnimations()` whose keyframes touch anything else). NOT done: the
   reputation_service.py split, the 91 `exhaustive-deps` suppressions.
+- 🎯 A QUEUED PICK COMES IN 5 POINTS BEFORE THE STOP (`arena_prime.near_stop_picks`, `PICK_NEAR_STOP` 5; `apply_queued(only=, why=)`,
+  run every tick BEFORE the stop pass): a coin with a pick waiting (`swapTo`) that is within 5 % points of its own stop is swapped
+  for the pick NOW ("swapped in early"), else at the round bell as before. No live price / not bought / no stop = waits for the bell.
+- ✂ THE OWNER'S CUTS (2026-10-06, "do all those you suggested"): (1) Prime League = the real card(s) + the ONE best paper card
+  (`ArenaPrime.primeGroups`); the other paper cards sit in `details.prime-rest` (they still run and keep their record). (2) The
+  Pit zone is now 🏟 Main Stage: the stage first-class, the battles / league / throne behind `PitFold` (a button; closed = NOT
+  mounted, so none of its animations run; `zone=all` opens it for tests); the ember sky (`ar-sky`) is gone. (3) Trench metas = TWO
+  (`baby`, `breakout`); the `needSocials` check stays in the gate for a custom gate. (4) `trenchAuto` (cfg bool, default on; Edit
+  Fuse › Coins "🗑 Engine may buy trench coins"): off = `_prime_tick` hands the engine NO trench rows — they stay listed and
+  hand-pickable. Set OFF on the owner's real card the same day (`data/realcfg_before_trenchauto.json`). NOT cut: Edit Fuse's
+  "All settings" — the real card runs on settings that live only there (skim, stack skim, hunt line), so it stays one click away.

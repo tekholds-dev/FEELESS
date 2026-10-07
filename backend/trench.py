@@ -146,27 +146,15 @@ OWN_OPTIONS = {'minHolders': [100, 150, 200, 300, 400, 600, 1000], 'minTxns1h': 
                'minMcap': [10_000, 15_000, 20_000, 30_000, 50_000], 'maxMcap': [100_000, 150_000, 250_000, 400_000, 600_000, 1_000_000], 'maxAgeH': [1, 3, 6, 12, 24, 48]}
 
 
-# 🧪 TRENCH METAS: named styles of trench hunting. Each one sets ONLY the soft checks (crowd, trades, volume, cap band, age), every
+# 🧪 TRENCH METAS: TWO named styles (owner cut the list from seven, 2026-10-06: five that all passed 0 were noise). Each one sets ONLY the soft checks (crowd, trades, volume, cap band, age), every
 # value from OWN_OPTIONS; the safety checks are the same in every meta. HQ picks one for the cards; anyone can VIEW what each finds.
 METAS = {
     # 🍼 BABY (owner, 2026-10-06: "trench should be a yolo top trending / new, no snipe or rug, brand new baby"): the loosest crowd
     # checks the options allow — it only has to be NEW and TRADING — with every anti-snipe / anti-rug check exactly as always.
     'baby':     ('🍼 Baby', 'YOLO: brand new and trending — under 3 hours old, any cap to $1M, barely any crowd needed. Snipers, bundles, dev, creator, mint + freeze still checked',
                  {'maxAgeH': 3, 'minMcap': 10_000, 'maxMcap': 1_000_000, 'minHolders': 100, 'minTxns1h': 60, 'minVol1h': 5_000}),
-    # 🎯 LAUNCH: in as soon as a coin drops — but only one that came out with a WEBSITE and an X account already set (a team that
-    # prepared), its first real crowd in, and every safety check passed. `needSocials` is part of this meta's gate, never widened.
-    'launch':   ('🎯 Launch', 'In as it drops: under an hour old, website + X set at launch, first real crowd — highest risk, smallest stake',
-                 {'maxAgeH': 1, 'minMcap': 10_000, 'maxMcap': 250_000, 'minHolders': 150, 'minTxns1h': 120, 'minVol1h': 10_000, 'needSocials': 1}),
-    'sprout':   ('🌱 Sprout', 'Minutes old, tiny cap, first real crowd — earliest and riskiest',
-                 {'maxAgeH': 1, 'minMcap': 10_000, 'maxMcap': 100_000, 'minHolders': 150, 'minTxns1h': 120, 'minVol1h': 5_000}),
     'breakout': ('🚀 Breakout', 'Broke $20K with a real crowd in its first 6 hours — the classic trench',
                  {'maxAgeH': 6, 'minMcap': 20_000, 'maxMcap': 150_000, 'minHolders': 400, 'minTxns1h': 250, 'minVol1h': 10_000}),
-    'flood':    ('🌊 Flood', 'Volume first: $50K+ an hour and 400+ trades, any cap up to $600K',
-                 {'maxAgeH': 12, 'minMcap': 20_000, 'maxMcap': 600_000, 'minHolders': 300, 'minTxns1h': 400, 'minVol1h': 50_000}),
-    'crowd':    ('🏟 Crowd', '1,000+ holders — the crowd is already in, cap $50K to $1M',
-                 {'maxAgeH': 24, 'minMcap': 50_000, 'maxMcap': 1_000_000, 'minHolders': 1000, 'minTxns1h': 180, 'minVol1h': 20_000}),
-    'survivor': ('🕰 Survivor', 'Still alive and trading after a day or two — past the rug window',
-                 {'maxAgeH': 48, 'minMcap': 30_000, 'maxMcap': 1_000_000, 'minHolders': 600, 'minTxns1h': 180, 'minVol1h': 10_000}),
 }
 
 

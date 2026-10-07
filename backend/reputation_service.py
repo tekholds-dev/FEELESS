@@ -6207,7 +6207,8 @@ async def _prime_tick_inner(now):
         # 🗑 trench coins (strict gate, cached by the warm loop) — only a 🗑 trench slot ever takes one; own pool floor; real money
         # never buys one in a runner storm. The real-money runner age rule doesn't apply to them: the trench gate replaces it.
         tr_floor = _fw.clean_cfg(fw_cfg)['trenchMinLiqUsd']   # paper uses the same floor (paper = what real money could buy)
-        if not (real_t and _real_weather()['level'] == 'storm'):
+        # 🗑 `trenchAuto` off (the owner's switch): the engine is handed NO trench coin — they stay on the list for the owner's hand
+        if cfg_t.get('trenchAuto', True) and not (real_t and _real_weather()['level'] == 'storm'):
             r_t = r_t + [x for x in _trench_cache.get('rows') or [] if _lq(x) >= tr_floor * mg and x.get('mint') not in {y.get('mint') for y in r_t}]
         # 🪑 coins real money couldn't buy safely (2× in 10 min) are benched 1h for EVERY tier — paper never trades what real can't
         bench = set().union(*[_fw.benched(b, now) for b in (_fw_load().get('books') or {}).values()] or [set()])

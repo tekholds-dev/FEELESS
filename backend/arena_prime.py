@@ -421,6 +421,7 @@ def clean_cfg(p):
     ra_ = (p or {}).get('runnerMinAgeH')
     out['runnerMinAgeH'] = int(_f(ra_)) if ra_ is not None and int(_f(ra_)) in RUNNER_AGES else int(REAL_RUNNER_AGE_H)   # 🕐 the OWNER's youngest launch coin for real money
     out['scoutPct'] = int(_f((p or {}).get('scoutPct'))) if int(_f((p or {}).get('scoutPct'))) in SCOUT_PCTS else 0   # 🔭 scout ticket, % of the card (0 = off)
+    out['trenchAuto'] = bool((p or {}).get('trenchAuto', True))   # 🗑 may the ENGINE seat a trench coin by itself? off = trench coins are the owner's hand picks only
     out['upMeta'] = bool((p or {}).get('upMeta', True))          # 🧭 the engine's own buys need a readable chart that is not trending down
     out['trailStep'] = bool((p or {}).get('trailStep', False))   # 🪜 a rider's trail widens as its peak gain grows
     out['comeback'] = bool((p or {}).get('comeback', True))      # 🔁 a rider that left is bought back when its dip recovers 15%
@@ -1532,6 +1533,9 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
 
     # 0b) 🚨 RUG SHIELD (real-world add-on): a coin whose pool liquidity fell to ≤ half of what it had at entry is sold at once to
     #     cash — before the stop, the trail or the floor. Anchors (majors) are exempt; frozen coins too (the owner's call).
+    near = near_stop_picks(c, prices, t) if not c.get('flooredAt') else set()   # 🎯 your pick comes in 5 points before the stop, not after it
+    if near:
+        apply_queued(c, prices, liqs, now, fee, only=near, why=f'🎯 your pick — swapped in early: the coin was within {PICK_NEAR_STOP:g}% of its stop')
     for l in list(c['legs']):
         lq, lq0 = _f(liqs.get(l['pairAddress'])), _f(l.get('liq'))
         if safe_anchor(l) or l.get('frozen') or lq <= 0 or lq0 <= 0 or lq > lq0 * RUG_LIQ:
@@ -2418,13 +2422,13 @@ def queue_seat(card, cand, more=False):
     return c
 
 
-def apply_queued(c, prices, liqs, now, fee=0.0):
+def apply_queued(c, prices, liqs, now, fee=0.0, only=None, why='🎯 your pick — swapped in at the round'):
     """At the round: every queued pick is swapped in (the old coin is sold at what selling pays, the pick is bought with that money and
     carried as `picked` so a re-shape never drops it). Mutates the working card; returns how many swaps it made."""
     n = 0
     for i, l in enumerate(list(c['legs'])):
         to = l.get('swapTo')
-        if not to:
+        if not to or (only is not None and l['pairAddress'] not in only):
             continue
         px = _f(prices.get(l['pairAddress'])) or l['entry']
         units = _f(l['units']) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)
@@ -2441,9 +2445,25 @@ def apply_queued(c, prices, liqs, now, fee=0.0):
             usd -= spare; c['cash'] = _f(c.get('cash')) + spare
         c['legs'][i] = {**_leg({**to, 'price': live}, max(0.0, usd), now, 'anchor' if l.get('role') == 'anchor' else l.get('role') or 'pool'), 'picked': True}
         c['feesUsd'] = round(_f(c.get('feesUsd')) + 2 * fee, 4)
-        c.setdefault('events', []).append({'at': now, 'kind': 'rotate', 'symbol': l.get('symbol'), 'usd': round(usd, 4), 'why': '🎯 your pick — swapped in at the round', 'to': [to.get('symbol')]})
+        c.setdefault('events', []).append({'at': now, 'kind': 'rotate', 'symbol': l.get('symbol'), 'usd': round(usd, 4), 'why': why, 'to': [to.get('symbol')]})
         n += 1
     return n
+
+
+PICK_NEAR_STOP = 5.0   # 🎯 a queued pick does not wait for the bell once the coin it replaces is this close (in % points) to its stop
+
+
+def near_stop_picks(c, prices, t):
+    """Coins with a queued pick (`swapTo`) that are within `PICK_NEAR_STOP` points of their own stop RIGHT NOW → {pairAddress}.
+    The owner already chose what replaces them: swapping now saves the last points before the stop would sell it anyway.
+    No live price, not bought yet, or no stop on the coin = not judged (the pick waits for the round as before)."""
+    out = set()
+    for l in c.get('legs') or []:
+        px, e, sl = _f((prices or {}).get(l['pairAddress'])), _f(l.get('entry')), leg_sl(l, t)
+        if l.get('swapTo') and px > 0 and e > 0 and sl > 0 and _f(l.get('units')) > 0 and not l.get('buying'):
+            if (px / e - 1) * 100 <= -(sl - PICK_NEAR_STOP):
+                out.add(l['pairAddress'])
+    return out
 
 
 def replace_leg(card, pair, prices, pools, runners, anchors, cfg, now):

@@ -104,10 +104,6 @@ body.theme-day .fp-runner, body.theme-day .fp-banner, body.theme-day .fp-dock, b
 /* 🏟 ARENA STAGE — effects scale with each card's real activity (server tier: calm / warm / hot / blazing).
    Hard-coded counts per tier, transform/opacity only, none under fx-lite / reduced motion. */
 .fp-arena { position: relative; isolation: isolate; }
-.ar-sky { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
-.ar-sky i { position: absolute; bottom: -10px; left: calc(var(--i) * 5.3% + 2%); width: 4px; height: 4px; border-radius: 50%; background: var(--m-accent); opacity: 0;
-  animation: arRise calc(9s + var(--i) * .37s) linear calc(var(--i) * -.9s) infinite; }
-.ar-tier-hot .ar-sky i, .ar-tier-blazing .ar-sky i { background: var(--rn-fire, #ff9a3c); }
 .ar-head { display: grid; gap: 6px; } .ar-head h2 { margin: 0; font-family: var(--fz-font); font-size: 22px; } .ar-head p { margin: 0; font-size: 12.5px; }
 .ar-legend { display: flex; gap: 6px; flex-wrap: wrap; } .ar-chip { font-family: var(--m-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--m-line); }
 .ar-chip.t-warm { border-color: var(--m-accent); } .ar-chip.t-hot { border-color: var(--rn-fire, #ff9a3c); } .ar-chip.t-blazing { border-color: #ffd36b; color: #ffd36b; }
@@ -128,14 +124,13 @@ body.theme-day .fp-runner, body.theme-day .fp-banner, body.theme-day .fp-dock, b
 .ar-act { display: grid; grid-template-columns: auto 1fr auto; gap: 6px; align-items: center; width: min(100%, 200px); cursor: help; } .ar-act small { font-family: var(--m-mono); font-size: 9px; letter-spacing: .12em; color: var(--m-dim); }
 .ar-act > i { display: block; height: 5px; border-radius: 5px; background: linear-gradient(90deg, #0b6b42, var(--m-accent), var(--rn-fire, #ff9a3c)); transform-origin: left; transition: transform .6s var(--m-ease); }
 .ar-act em { font-style: normal; font-size: 11px; } .ar-meta .m-btn { margin-top: 4px; }
-@keyframes arRise { 0% { opacity: 0; transform: translateY(0); } 15% { opacity: .5; } 100% { opacity: 0; transform: translateY(-900px); } }
 @keyframes arDeal { from { opacity: 0; transform: translateY(24px) rotate(-3deg) scale(.94); } }
 @keyframes arBreathe { from { transform: scale(.94); } to { transform: scale(1.04); } }
 @keyframes arShock { 0% { opacity: .7; transform: scale(.6); } 100% { opacity: 0; transform: scale(1.35); } }
 @keyframes arEmber { 0% { opacity: 0; transform: translate(0, 0); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(calc((var(--i) - 7) * 3px), -320px); } }
-body.fx-lite .ar-sky, body.fx-lite .ar-embers, body.fx-lite .ar-ring { display: none; } body.fx-lite .ar-card, body.fx-lite .ar-heat, body.fx-lite .fp-full, body.fx-lite .fp-wchip { animation: none; }
-@media (prefers-reduced-motion: reduce) { .ar-sky, .ar-embers, .ar-ring { display: none; } .ar-card, .ar-heat, .fp-full, .fp-wchip { animation: none; } }
-body.theme-day .ar-sky i { background: #0b8a55; } body.theme-day .fp-wchip { background: #fff; }
+body.fx-lite .ar-embers, body.fx-lite .ar-ring { display: none; } body.fx-lite .ar-card, body.fx-lite .ar-heat, body.fx-lite .fp-full, body.fx-lite .fp-wchip { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ar-embers, .ar-ring { display: none; } .ar-card, .ar-heat, .fp-full, .fp-wchip { animation: none; } }
+body.theme-day .fp-wchip { background: #fff; }
 @media (max-width: 640px) { .fp-full { grid-template-columns: 1fr; justify-items: center; } .ar-stage { grid-template-columns: 1fr; } }
 
 /* HQ › Fees: card bundle pricing + vault wallet status + Fuse fees tile. */
