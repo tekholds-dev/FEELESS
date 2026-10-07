@@ -5656,11 +5656,54 @@ async def _trench_build(now):
     except Exception as e:
         print('entry proof:', e)
     await _bottom_track(now)
+    await _owner_moves_tick(now)
     return _trench_cache
 
 
 TRENCH_META_PATH = FUSE_HQ_PATH.parent / 'trench_meta.json'
 ENTRY_PROOF_PATH = FUSE_HQ_PATH.parent / 'entry_proof.json'
+OWNER_MOVES_PATH = FUSE_HQ_PATH.parent / 'owner_moves.json'   # 🧾 the owner's hand moves on each real card, scored 30 min later (owner_moves.py)
+CALL_RUN_PCT = 25.0   # 📣 a callout that is up this much since the call is worth a chat line
+
+
+async def _owner_moves_tick(now):
+    """🧾 Every ~2 min: note the owner's new moves on each real card (from the card's own activity), judge the ones that are 30 min
+    old, and post what is worth knowing in the Fuse room: a lock as it happens, a move that turned out good, a callout that ran.
+    Coin moves in % only — never the card's $ result."""
+    try:
+        hq = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
+        st = _json_load(OWNER_MOVES_PATH, {})
+        led = _fw_load().get('ledger') or []
+        posts = []
+        for tid, c in hq.items():
+            if not c.get('real'):
+                continue
+            log = dict(st.get(tid) or {})
+            if not log.get('seenAt'):
+                log['seenAt'] = now - 150   # first look: only what just happened (older events have no price of their moment)
+            sym = {r['symbol']: {'mint': r['mint'], 'pair': r.get('pair')} for r in led[-800:] if r.get('card') == tid and r.get('symbol') and r.get('mint')}
+            sym.update({l.get('symbol'): {'mint': l.get('mint'), 'pair': l.get('pairAddress')} for l in c.get('legs') or [] if l.get('mint')})
+            fresh = {h_[1] for e in c.get('events') or [] if _fuse._f(e.get('at')) > _fuse._f(log.get('seenAt')) for h_ in [_om.classify(e)] if h_ and h_[1]}
+            due = [r['mint'] for r in log.get('rows') or [] if r.get('pct') is None and now - _fuse._f(r.get('at')) >= _om.SETTLE_SEC]
+            mints = list(dict.fromkeys([sym[x]['mint'] for x in fresh if x in sym] + due))
+            jp = (await _jup_prices(mints)) if mints else {}
+            log, added = _om.collect(log, c, lambda x: ({**sym[x], 'px': (jp or {}).get(sym[x]['mint'])} if x in sym else None), now)
+            log, done = _om.settle(log, lambda m: (jp or {}).get(m), now)
+            st[tid] = log
+            posts += _om.calls(added, done)
+        _json_save(OWNER_MOVES_PATH, st)
+        doc = _json_load(TRENCH_CALLOUT_PATH, {})   # 📣 a callout that ran
+        now_px = {r['mint']: r['price'] for r in (_open_board() if _open_pairs else (_open_cache.get('rows') or []))}
+        for x in _trench.callout_feed(doc.get('state') or {}, doc.get('names') or {}, now_px, now):
+            if x.get('live') and x.get('pct') is not None and x['pct'] >= CALL_RUN_PCT and x.get('symbol'):
+                mins = max(1, round((now - _fuse._f(x.get('at'))) / 60))
+                posts.append((f"callrun:{x['mint']}:{x['kind']}", f"📣 ${x['symbol']} was called out as a {_trench.CALLOUTS[x['kind']][1].lower()} {mins}m ago — {x['pct']:+.0f}% since the call."))
+        for key, text in posts[:4]:
+            _fuse_chat('fuse-lab', text, key)
+    except Exception as e:
+        print('owner moves:', str(e)[:120])
+
+
 BOTTOM_PROOF_PATH = FUSE_HQ_PATH.parent / 'bottom_proof.json'   # 🟢 the Buy-bottom list's own 1-hour paper record
 _bottom_cache: dict = {'at': 0.0, 'rows': []}
 
@@ -6378,6 +6421,9 @@ async def _prime_tick_inner(now):
                 r_t = _pedge.gate(r_t, tb_, float(cfg_t.get('edgeFloor') or 0))
         if human_t:   # 👤 this PAPER card buys what the owner would pick: closest to their own picks first (pick_style.py)
             r_t = _ps.rank(r_t, hs_prof)
+            # … and EXITS the way the owner does: the real card's own stop / lock / trail / hold / patience (its coins stay its own)
+            rc_h = _prime_real_cfg(d.get('prime') or {})
+            cfg_t = {**cfg_t, **{k: rc_h[k] for k in _prime.TIER_KEYS if k != 'trenchCoins' and rc_h.get(k) is not None}}
         if real_t and cur and cfg_t.get('pickVerify', True):   # ✅ a queued pick that turned bad before the bell is dropped, the old coin stays
             for l_ in cur.get('legs') or []:
                 to_ = l_.get('swapTo') or {}
@@ -6673,7 +6719,8 @@ async def fuse_prime():
     _rc = _prime_real_cfg() if any((c or {}).get('real') for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values()) else {}
     _seed = sum(ord(ch) for ch in ''.join(sorted(_owner_wallets()))[:44]) if _rc else 0   # ⚡ each owner's card gets its own variant of the meta
     _ht, _hp, _hn = _human_style()
-    return {'meta': _prime.meta_for(_fuse._f(_rc.get('rotateHours')) or 1.0, _seed) if _rc else None, 'cards': await _prime_view(), 'humanStyle': {'tiers': _ht, 'picks': _hn, 'need': _ps.MIN_PICKS, 'ready': bool(_hp), 'words': _ps.words(_hp)}, 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'weather': _real_weather(), 'suggest': _json_load(PG_SIM_PATH, {}).get('byClock') or {}, 'realGuard': _prime.real_guard({**_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'instantSwapPct': _fuse._f(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('instantSwapPct'))}, (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or ())[1], 'paperMatch': _fw.paper_match(_fw_load().get('quoteAudit')), 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'lockCfg': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}), 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner'), 'realOwnerSet': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or []}
+    return {'meta': _prime.meta_for(_fuse._f(_rc.get('rotateHours')) or 1.0, _seed) if _rc else None, 'cards': await _prime_view(), 'humanStyle': {'tiers': _ht, 'picks': _hn, 'need': _ps.MIN_PICKS, 'ready': bool(_hp), 'words': _ps.words(_hp),
+                           'moves': _om.summary(next((v for k, v in _json_load(OWNER_MOVES_PATH, {}).items() if isinstance(v, dict)), {}))}, 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'weather': _real_weather(), 'suggest': _json_load(PG_SIM_PATH, {}).get('byClock') or {}, 'realGuard': _prime.real_guard({**_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'instantSwapPct': _fuse._f(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('instantSwapPct'))}, (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or ())[1], 'paperMatch': _fw.paper_match(_fw_load().get('quoteAudit')), 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'lockCfg': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}), 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner'), 'realOwnerSet': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or []}
 
 
 @app.post('/api/reputation/admin/arena/prime')
@@ -6735,7 +6782,7 @@ async def fuse_prime_admin(request: Request):
                 (pr.get('cards') or {}).pop(body['redeal'], None)
         _json_save(FUSE_HQ_PATH, d)
     if body.get('fix') in _prime.TEMPLATES:   # 🔧 (outside the HQ lock — never hold both locks at once)
-        async with _fw_lock:
+        async with _fw_tick_lock, _fw_lock:
             fd = _fw_load(); b_ = fd['books'].get(body['fix'])
             if b_ is not None:
                 b_['misses'] = {}   # every coin gets fresh retries (benched coins stay benched — they really failed the safety checks)
@@ -6906,7 +6953,7 @@ async def fuse_prime_admin(request: Request):
             px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in card.get('legs') or []])
             try:
                 cards[sk['tpl']] = (_prime.stake_leg(card, sk['pairAddress'], px, {}, time.time(), sk.get('to') or 'cash') if sk.get('stake')   # 🏠 the initial out, profit rides
-                                    else _prime.skim_leg(card, sk['pairAddress'], px, {}, time.time(), sk.get('to') or 'card'))
+                                    else _prime.skim_leg(card, sk['pairAddress'], px, {}, time.time(), sk.get('to') or 'card', hold=sk.get('rounds')))
                 kick_real_keeper = bool(card.get('real'))
             except ValueError as e:
                 raise HTTPException(400, str(e))
@@ -8247,7 +8294,7 @@ async def fuse_wallet_recover_sell(request: Request):
     if not cfg.get('address') or not cfg.get('armed') or cfg.get('paused'):
         raise HTTPException(400, 'Fuse wallet must be armed and running.')
     bal = await _fw_balances(cfg['address'])
-    async with _fw_lock:
+    async with _fw_tick_lock, _fw_lock:   # 🧷 waits for a keeper pass in flight: an owner write and a swap pass never interleave
         d = _fw_load()
         if tid not in d['books']:
             raise HTTPException(404, 'That tier has no real card book.')
@@ -8293,7 +8340,7 @@ async def fuse_wallet_recover_sell_all(request: Request):
     if not card or not card.get('real'):
         raise HTTPException(400, 'That tier is not a real card.')
     bal = await _fw_balances(cfg['address'])
-    async with _fw_lock:
+    async with _fw_tick_lock, _fw_lock:   # 🧷 waits for a keeper pass in flight: an owner write and a swap pass never interleave
         d = _fw_load(); book = d['books'].get(tid)
         if not book:
             raise HTTPException(400, 'That tier is not funded.')
@@ -8336,7 +8383,7 @@ async def fuse_wallet_cfg(request: Request):
     """Owner only: pick the Fuse Circle wallet and set the hard limits. Arming needs signing enabled + a picked wallet."""
     me = _require_owner(request)
     body = await request.json()
-    async with _fw_lock:
+    async with _fw_tick_lock, _fw_lock:   # 🧷 waits for a keeper pass in flight: an owner write and a swap pass never interleave
         d = _fw_load()
         cfg = _fw.clean_cfg({**(d.get('cfg') or {}), **{k: v for k, v in body.items() if k in _fw.DEFAULT_CFG}})
         if cfg['armed'] and (not cfg['address'] or not _fw_signer_ready()):
@@ -8443,7 +8490,7 @@ async def fuse_wallet_topup(request: Request):
         raise HTTPException(400, 'Arm the Fuse wallet first (signing must be enabled).')
     bal, sol_px = await _fw_balances(cfg['address']), await _sol_usd_live()
     now = time.time()
-    async with _fw_lock:
+    async with _fw_tick_lock, _fw_lock:   # 🧷 waits for a keeper pass in flight: an owner write and a swap pass never interleave
         d = _fw_load()
         if usd / sol_px > _fw.free_sol(bal['sol'], d['books'], cfg['reserveSol']):
             raise HTTPException(400, f"Not enough free SOL in the Fuse wallet for ${usd:.2f} (network-fee reserve {cfg['reserveSol']} SOL is kept back).")
@@ -8492,7 +8539,7 @@ async def fuse_wallet_retry_dead(request: Request):
     tid, side, mint = body.get('tpl'), body.get('side'), str(body.get('mint') or '').strip()
     if tid not in _prime.TEMPLATES or side not in ('buy', 'sell') or not mint:
         raise HTTPException(400, 'Pick a failed buy/sell on a funded card.')
-    async with _fw_lock:
+    async with _fw_tick_lock, _fw_lock:   # 🧷 waits for a keeper pass in flight: an owner write and a swap pass never interleave
         d = _fw_load(); b = d['books'].get(tid)
         if not b:
             raise HTTPException(400, 'That tier is not funded.')
@@ -8539,7 +8586,7 @@ async def fuse_wallet_payout_profit(request: Request):
     for l in card.get('legs') or []:
         if jup.get(l.get('mint')):
             px[l['pairAddress']] = jup[l['mint']]
-    async with _fw_lock:
+    async with _fw_tick_lock, _fw_lock:   # 🧷 waits for a keeper pass in flight: an owner write and a swap pass never interleave
         d = _fw_load(); b = d['books'].get(tid)
         if not b:
             raise HTTPException(400, 'That tier is not funded.')
@@ -8567,7 +8614,7 @@ async def fuse_wallet_withdraw_cash(request: Request):
     if tid not in _prime.TEMPLATES:
         raise HTTPException(400, 'Pick a funded tier.')
     sol_px = await _sol_usd_live()
-    async with _fw_lock:
+    async with _fw_tick_lock, _fw_lock:   # 🧷 waits for a keeper pass in flight: an owner write and a swap pass never interleave
         d = _fw_load(); b = d['books'].get(tid)
         if not b:
             raise HTTPException(400, 'That tier is not funded.')
@@ -8598,7 +8645,7 @@ async def fuse_wallet_reinvest_paid(request: Request):
     if tid not in _prime.TEMPLATES:
         raise HTTPException(400, 'Pick a funded tier.')
     now = time.time()
-    async with _fw_lock:
+    async with _fw_tick_lock, _fw_lock:   # 🧷 waits for a keeper pass in flight: an owner write and a swap pass never interleave
         d = _fw_load(); b = d['books'].get(tid)
         if not b:
             raise HTTPException(400, 'That tier is not funded.')
@@ -8624,7 +8671,7 @@ async def fuse_wallet_card(request: Request):
     me = _require_owner(request)
     body = await request.json()
     tid, act = body.get('tpl'), body.get('action')
-    async with _fw_lock:
+    async with _fw_tick_lock, _fw_lock:   # 🧷 waits for a keeper pass in flight: an owner write and a swap pass never interleave
         d = _fw_load(); b = d['books'].get(tid)
         if not b or act not in ('defund', 'resume', 'halt'):
             raise HTTPException(400, 'Pick a funded tier and defund / halt / resume.')
@@ -9197,6 +9244,7 @@ PG_SIM_PATH = DATA_DIR / 'pg_sim.json'   # its own file: never bloats runners.js
 
 import pick_edge as _pedge
 import pick_style as _ps
+import owner_moves as _om
 EDGE_PATH = FUSE_HQ_PATH.parent / 'edge.json'
 _edge_state: dict = {}
 

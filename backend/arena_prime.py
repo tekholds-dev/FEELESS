@@ -1199,7 +1199,7 @@ def lock_bank(c, l, px, liqs, now, cfg, fee=0.0, gain=None):
     return got
 
 
-def _skim(c, l, px, liqs, now, to='card', fee=0.0, auto=None, frac=1.0, why=None, room=None):
+def _skim(c, l, px, liqs, now, to='card', fee=0.0, auto=None, frac=1.0, why=None, room=None, hold=None):
     """Sell the PROFIT of one coin (or `frac` of it), in place. → $ taken (0 = nothing to take). With frac 1 the part that stays is
     worth what the coin cost."""
     units, cost = _f(l.get('units')), _f(l.get('costUsd'))
@@ -1221,7 +1221,8 @@ def _skim(c, l, px, liqs, now, to='card', fee=0.0, auto=None, frac=1.0, why=None
         c['holdCashUsd'] = round(_f(c.get('holdCashUsd')) + got, 6)   # held for the owner — never put back into coins
     elif to == 'round':   # 🅿 parked: out of the coins (so a rug cannot take it) for a few rounds, then it goes back to work
         c['holdCashUsd'] = round(_f(c.get('holdCashUsd')) + got, 6)
-        c['skimPark'] = list(c.get('skimPark') or []) + [{'usd': round(got, 6), 'round': int(c.get('rounds') or 0), 'at': now, 'symbol': l.get('symbol')}]
+        c['skimPark'] = list(c.get('skimPark') or []) + [{'usd': round(got, 6), 'round': int(c.get('rounds') or 0), 'at': now, 'symbol': l.get('symbol'),
+                                                          **({'hold': int(hold)} if hold and int(_f(hold)) in SKIM_HOLDS else {})}]   # 🅿 this park's OWN rounds (a per-coin choice)
     c['takenUsd'] = _f(c.get('takenUsd')) + max(0.0, got - cost * part)
     c['feesUsd'] = _f(c.get('feesUsd')) + fee
     c.setdefault('events', []).append({'at': now, 'kind': 'skim', 'symbol': l.get('symbol'), 'usd': round(got, 4), 'to': ['cash'] if to == 'cash' else ['card'],
@@ -1281,7 +1282,7 @@ def release_parked(c, cfg, now):
     if not park:
         return 0.0
     n = int(_f((cfg or {}).get('skimHoldRounds')) or 2); rnd = int(c.get('rounds') or 0)
-    due = [p for p in park if rnd - int(p.get('round') or 0) >= n or rnd < int(p.get('round') or 0)]   # a restarted run releases everything
+    due = [p for p in park if rnd - int(p.get('round') or 0) >= int(p.get('hold') or n) or rnd < int(p.get('round') or 0)]   # each park keeps its own rounds; a restarted run releases everything
     if not due:
         return 0.0
     usd = min(sum(_f(p.get('usd')) for p in due), _f(c.get('holdCashUsd')))
@@ -1292,7 +1293,7 @@ def release_parked(c, cfg, now):
     return usd
 
 
-def skim_leg(card, pair, prices, liqs, now, to='card'):
+def skim_leg(card, pair, prices, liqs, now, to='card', hold=None):
     """Owner's 💰: take the profit of ONE coin now. Pure; ValueError when the coin isn't on the card or has no profit to take."""
     c = {**card, 'legs': [dict(l) for l in card['legs']], 'events': list(card.get('events') or [])}
     l = next((x for x in c['legs'] if x['pairAddress'] == pair), None)
@@ -1300,7 +1301,7 @@ def skim_leg(card, pair, prices, liqs, now, to='card'):
         raise ValueError('That coin is not on this card.')
     if l.get('buying') or l.get('placeholder'):
         raise ValueError('That coin is still being bought.')
-    if not _skim(c, l, _f((prices or {}).get(pair)) or _f(l.get('entry')), liqs, now, to if to in SKIM_TOS else 'card'):
+    if not _skim(c, l, _f((prices or {}).get(pair)) or _f(l.get('entry')), liqs, now, to if to in SKIM_TOS else 'card', hold=hold):
         raise ValueError(f"${l.get('symbol')} has no profit to take right now.")
     return c
 

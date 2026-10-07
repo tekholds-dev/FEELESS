@@ -2186,3 +2186,16 @@ def test_parked_profit_stays_parked_when_a_pick_comes_in_and_safety_switches_hav
     # floor OFF: a card far under its start is not sold out
     deep = {**out, 'startUsd': 100.0, 'dayStartUsd': 100.0, 'roundStartUsd': 100.0}
     assert not any(e.get('kind') == 'floor' for e in ap.tick(deep, {**{x['pairAddress']: 1.0 for x in runners}, 'PN': 1.0}, [], runners, cfg, 130.0, [], {}, {})['events'])
+
+
+def test_a_coins_own_park_keeps_its_own_rounds_whatever_the_card_setting():
+    import arena_prime as ap
+    leg = {'mint': 'T', 'pairAddress': 'PT', 'symbol': 'T', 'role': 'runner', 'units': 100.0, 'entry': 0.01, 'costUsd': 1.0, 'liq': 500_000, 'at': 0.0}
+    card = {'legs': [leg], 'cash': 0.0, 'events': [], 'rounds': 10}
+    out = ap.skim_leg(card, 'PT', {'PT': 0.02}, {}, 50.0, 'round', hold=6)
+    assert out['skimPark'][0]['hold'] == 6 and out['skimPark'][0]['round'] == 10
+    cfg = {'skimHoldRounds': 1}
+    assert ap.release_parked({**out, 'rounds': 12}, cfg, 60.0) == 0.0                 # the card says 1 round — this park said 6
+    done = {**out, 'rounds': 16}
+    assert ap.release_parked(done, cfg, 70.0) > 0 and done['skimPark'] == []
+    assert 'hold' not in ap.skim_leg(card, 'PT', {'PT': 0.02}, {}, 50.0, 'round', hold=99)['skimPark'][0]   # only the offered choices

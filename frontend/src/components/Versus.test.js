@@ -43,3 +43,10 @@ test('the card shows what its confirmed sales came to, never a recycled running 
   expect(soldNet({ takenUsd: 66.81, realBook: { realized: { netUsd: -6.02 } } })).toBe(-6.02); expect(soldNet({ takenUsd: 66.81 })).toBe(0);
   expect(signedUsd(-6.02)).toBe('−$6.02'); expect(signedUsd(1.5)).toBe('+$1.50');
 });
+
+test("the owner's scored moves read as one line", () => {
+  const { movesLine } = require('./ArenaPrime');
+  expect(movesLine({ pick: { label: '🎯 pick', n: 12, good: 5, bad: 3, medPct: 3.1 }, skim: { label: '💰 profit take', n: 4, good: 2, bad: 0, medPct: -6 } }))
+    .toBe('🎯 pick 12 · 5 good · 3 bad · typical +3.1%  |  💰 profit take 4 · 2 good · typical -6%');
+  expect(movesLine(null)).toBe('');
+});

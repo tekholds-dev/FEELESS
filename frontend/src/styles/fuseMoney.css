@@ -569,3 +569,5 @@ body.theme-day .cpe-shade { background: #0008; }
 .hrt-vs small { grid-column: 1 / -1; opacity: .7; }
 body.theme-day .hrt-vs > span { background: #0000000a; border-left-color: #0002; } body.theme-day .hrt-vs > span.is-lead { border-left-color: #0b7a3e; background: #0b7a3e14; }
 @media (max-width: 640px) { .hrt-vs { max-width: none; } }
+/* the card's "in coins · cash for a seat · parked" line always shows whole (it was cut off with …) */
+.hrt-split { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.35; overflow-wrap: anywhere; }

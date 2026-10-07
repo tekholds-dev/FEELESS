@@ -2011,3 +2011,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `owedInSol` / `owedInUsd`; `settle_owed_in` credits from the wallet's FREE SOL only (never the fee reserve), the rest as SOL
   frees up; once per book `lostTopFix`; ledger `fix` rows `losttop:` / `owedin:`; the card's run baseline rises by the same $).
   The mirror of `owedOutSol`. 2026-10-07: $3.00 (0.02556 SOL) — the 12:09 $2 and the 10-06 21:44 $1.
+- 🧾 OWNER MOVES ARE RECORDED AND SCORED (`backend/owner_moves.py` pure + tested; `_owner_moves_tick` every ~2 min in
+  `_trench_build`; `data/owner_moves.json`): picks, hand swaps, rebuys, profit takes, initial-out, ✂ cuts are read from the real
+  card's own events (`classify`), noted with the coin's price, judged 30 min later (brought in → up 10% = good; sold → down 10% =
+  good; no price after 2h = −100%). `/fuses/prime.humanStyle.moves` (`movesLine` in the 👤 tip). The 👤 paper card now also EXITS
+  with the owner's own stop / lock / trail / hold (`TIER_KEYS` from the real cfg). 💬 Fuse room calls (`owner_moves.calls`,
+  `_fuse_chat` once per key, ≤ 4 a pass): ❄ a lock as it happens · ✅ a good call / good exit with the coin's % since · 📣 a
+  callout up ≥ `CALL_RUN_PCT` 25%. Coin moves in % only, never the card's $ result.
+- 🧷 PERMANENT: OWNER MONEY WRITES NEVER INTERLEAVE WITH A KEEPER PASS — the ten owner routes that write a wallet book (top-up,
+  withdraw cash, pay out profit, reinvest, config, recover sells, retry, card, 🔧 fix) take `_fw_tick_lock` THEN `_fw_lock`, so they
+  wait for a swap pass in flight instead of being saved over by it (the journal + `merge_owner` stay as the second net). Never take
+  `_fw_tick_lock` while holding `_admin_lock` (the keeper pass takes `_admin_lock` inside it). 🅿 a per-coin park carries its own
+  rounds (`skim.rounds` → park row `hold`; `release_parked` reads it). `.hrt-split` wraps (it was cut off with …).
