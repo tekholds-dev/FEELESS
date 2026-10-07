@@ -1955,3 +1955,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `🟢 Buy bottom` (second tab; each row's label says why). Own 1-hour paper record (`_bottom_track` in `_trench_build`,
   `data/bottom_proof.json`, shown in the lens note). A LIST for hand picks, never an engine buy: on the pick record the bottom
   third of a range lost 31% typically — let its own record decide before the engine may use it.
+- 🏠 TAKE THE INITIAL, LEAVE THE PROFIT (`arena_prime._take_stake/stake_leg`, leg `house`; admin prime `{skim: {.., stake: true}}`;
+  per-coin 💰 option "🏠 take my initial, leave the profit"; cfg `trenchHouseAt` 0/30/50/100/200 in Edit Fuse › Coins = automatic,
+  once, for trench / ticket coins — money follows `skimTo`). A `house` coin is never topped up (spread, balance, keeper sweep).
+  On a REAL card the book's cost basis falls in proportion to the sale (not to 0): the flag says "initial out", the ledger stays true.
+- 🔄 WAR-ROOM REBUY: the server side always worked (sold + bought back in 15s on 2026-10-07) — the chart kept the levels it was
+  OPENED with, so the old entry / stop / lock stayed on screen and it looked dead; and the button only fired while My cards was
+  mounted underneath. Now `lib/liveFuse.js` (`fuseLevels` lives here, `liveFuseFrom`, `useLiveFuse`: card read every 10s, 3s after a
+  kick; card view `rebuying`) feeds the strip AND the chart lines; `TrenchChart` asks + posts the rebuy itself (any page) and shows
+  selling → buying back → "new entry $x". A chart opened from a card must READ THE CARD, never keep a snapshot.
+- 🎯 Swap picker = 7 lists (`PICK_LENSES`): 🚀 Movers · 🟢 Dips & bottoms (buy-bottom rows + the Gauntlet's dip buys, one tab) ·
+  🆕 New launches (feed, newest first ≤ 48h) · 🌊 Volume (feed, busiest first) · 🗑 Trench · 🪙 Majors & stocks (majors + stocks +
+  new majors, `LENS_URLS`) · 🏁 All ranked. Up to 300 rows each. EVERY row has a line: recorded prices (sparks, 3 batches of 60)
+  else `moveLine` from its own 24h / 6h / 1h / 5m moves.

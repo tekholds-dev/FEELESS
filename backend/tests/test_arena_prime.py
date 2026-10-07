@@ -2125,3 +2125,26 @@ def test_buy_bottom_is_a_coin_far_under_its_high_at_the_low_of_its_range_and_no_
     assert ap.buy_bottom({'vol1h': 50_000}) is None
     deep, shallow = ap.buy_bottom({**loot, 'cPull': 70})['score'], ap.buy_bottom({**loot, 'cPull': 35})['score']
     assert deep > shallow                                               # deeper + turning ranks first
+
+
+def test_take_the_initial_and_leave_the_profit_by_hand_and_automatically_for_trench_coins():
+    import arena_prime as ap, pytest
+    leg = lambda **kw: {'mint': 'T', 'pairAddress': 'PT', 'symbol': 'T', 'role': 'runner', 'units': 100.0, 'entry': 0.01, 'costUsd': 1.0, 'liq': 500_000, 'at': 0.0, **kw}
+    card = {'legs': [leg()], 'cash': 0.0, 'events': [], 'rounds': 3}
+    out = ap.stake_leg(card, 'PT', {'PT': 0.02}, {}, 50.0, 'cash')                 # 2×: half the coins pay the whole initial back
+    l = out['legs'][0]
+    assert abs(l['units'] - 50.0) < 0.5 and l['costUsd'] == 0.0 and l['house'] and l['trimAt'] == 50.0
+    assert 0.95 < out['cash'] <= 1.0 and out['holdCashUsd'] == out['cash'] and '🏠' in out['events'][-1]['why']
+    assert card['legs'][0]['units'] == 100.0                                         # pure
+    with pytest.raises(ValueError):
+        ap.stake_leg(out, 'PT', {'PT': 0.03}, {}, 60.0)                              # only once
+    with pytest.raises(ValueError):
+        ap.stake_leg(card, 'PT', {'PT': 0.0099}, {}, 50.0)                           # under water: no initial to take and still leave profit
+    assert ap.stake_leg(card, 'PT', {'PT': 0.02}, {}, 50.0, 'round')['skimPark'][0]['symbol'] == 'T'
+    # automatic, trench / ticket coins only, at the owner's gain
+    c2 = {'legs': [leg(trench=True), leg(mint='N', pairAddress='PN', symbol='N')], 'cash': 0.0, 'events': [], 'rounds': 3}
+    for l2 in c2['legs']:
+        if (l2.get('trench') or l2.get('ticket')) and not l2.get('house') and 0.016 >= l2['entry'] * 1.5:
+            ap._take_stake(c2, l2, 0.016, {}, 70.0, 'card', auto=50)
+    assert c2['legs'][0]['house'] and not c2['legs'][1].get('house') and 'auto: +50%' in c2['events'][-1]['why']
+    assert ap.clean_cfg({'trenchHouseAt': 100})['trenchHouseAt'] == 100 and ap.clean_cfg({'trenchHouseAt': 7})['trenchHouseAt'] == 0 and ap.clean_cfg({})['trenchHouseAt'] == 0

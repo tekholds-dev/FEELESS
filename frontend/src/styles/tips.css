@@ -112,3 +112,5 @@ body.theme-day .gif-card .gif-spin { box-shadow: 0 14px 34px -18px #0006, 0 0 0 
 @keyframes trPulseT { from { opacity: .35; } to { opacity: 1; } }
 body.fx-lite .feed-bar-flare, body.fx-lite .trust-ring.loading .tr-num b { animation: none; }
 @media (prefers-reduced-motion: reduce) { .feed-bar-flare, .trust-ring.loading .tr-num b, .crop-load { animation: none; } }
+/* war room Fuse strip while a rebuy is running */
+.chart-fuse.is-busy { border-color: var(--gold, #f5c451); } .chart-fuse-btn:disabled { opacity: .75; cursor: progress; }

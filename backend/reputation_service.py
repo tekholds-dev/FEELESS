@@ -2816,10 +2816,17 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
         return {'lens': 'risers', 'chain': 'solana', 'pools': rs_ + _fuse.pump_majors(pump_ + base_, have_)}
     if lens == 'bottom':   # 🟢 Buy bottom: coins far under their high, at the low of their range, no longer sliding
         rows_b = await _bottom_rows(time.time())
+        try:   # 📉 + today's dip buys (the Gauntlet's own division) in the SAME list — one tab, not two
+            have_b = {r.get('baseAddress') for r in rows_b}
+            dips_ = next((dv.get('rows') or [] for dv in ((await _contenders_build()).get('divisions') or []) if dv.get('key') == 'dip'), [])
+            rows_b = list(rows_b) + [{**r, 'divisionLabel': f"📉 dip buy{' · watch' if r.get('watch') else ''}: down on the day, buyers back"} for r in dips_ if r.get('mint') not in have_b]
+        except Exception:
+            pass
         return {'lens': 'bottom', 'chain': 'solana', 'pools': rows_b, 'proof': _trench.meta_proof(_json_load(BOTTOM_PROOF_PATH, {}), keys=('bottom',)).get('bottom')}
-    if lens in ('pump', 'movers'):   # 🆕 Pump live · 🚀 Movers (the same live launch feed, ranked by what is RUNNING)
+    feed_lens = lens if lens in ('pump', 'movers', 'volume') else None   # 🆕 New launches (newest first) · 🚀 Movers · 🌊 Volume (busiest first): one live launch feed
+    if feed_lens:
         mv_ = lens == 'movers'
-    if lens in ('pump', 'movers'):   # 🆕 Pump live: the newest + busiest Pump coins RIGHT NOW, launch-curve coins included (owner picks only)
+    if feed_lens:   # 🆕 Pump live: the newest + busiest Pump coins RIGHT NOW, launch-curve coins included (owner picks only)
         try:
             async with httpx.AsyncClient(timeout=10) as http:
                 got_ = await asyncio.gather(*[http.get('http://127.0.0.1:5001/api/market/feed', params={'kind': k, 'chain': 'solana', 'page': pg, 'scope': 'launchpads'})
@@ -2842,7 +2849,9 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
             rows_p = sorted((r for r in rows_p if r['vol1h'] >= 20000 and _fuse._f(r.get('liquidityUsd')) >= 10000 and _fuse._f(r.get('change1h')) >= 10
                              and not _fw.dollar_named(r.get('symbol'))), key=lambda r: -_fuse._f(r.get('change1h')))
             return {'lens': 'movers', 'chain': 'solana', 'pools': rows_p[:150]}
-        return {'lens': 'pump', 'chain': 'solana', 'pools': rows_p[:300]}   # 🌊 owner: "more than 80 — flood with coins"
+        if lens == 'pump':   # 🆕 newest first (≤ 48h old; unknown age last)
+            rows_p = sorted((r for r in rows_p if r.get('ageH') is None or r['ageH'] <= 48), key=lambda r: (r.get('ageH') is None, r.get('ageH') or 0))
+        return {'lens': lens, 'chain': 'solana', 'pools': rows_p[:300]}   # 🌊 owner: "more than 80 — flood with coins"
     lens = lens if lens in _fuse.LENSES else 'popular'
     return {'lens': lens, 'chain': chain, 'pools': _fuse.discover(await _fuse_discover_pairs(chain), lens, chain, now_ms=time.time() * 1000)}
 
@@ -6639,7 +6648,7 @@ async def _prime_view():
                 'pendingPayoutUsd': round(max(0.0, _fuse._f(c.get('walletUsd')) - _fuse._f(b.get('bankUsd'))), 4),
                 'math': {**sm.get('math', {}), 'putIn': round(_fuse._f(b.get('fundedUsd')) or start, 4), 'runStartUsd': round(start, 4), 'heldUsd': round(held, 4), 'paidOutUsd': round(paid, 4),
                          'nowUsd': v, 'feesUsd': card_fees, 'pnlUsd': round(v + card_fees - (_fuse._f(b.get('fundedUsd')) or start), 4)}}   # P&L = price result; fees apart
-    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'seatPick': c.get('seatPick'), 'seatQueue': c.get('seatQueue') or [], 'pipeline': c.get('pipeline'), 'parkedUsd': round(sum(_fuse._f(x.get('usd')) for x in c.get('skimPark') or []), 4), 'parkedN': len(c.get('skimPark') or []), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'pickStyle': None if c.get('real') else _eff(c).get('pickStyle'), 'holdAll': bool(c.get('holdAll')), 'pickCool': {}, 'handsOffUntil': c.get('handsOffUntil') if _prime.hands_off_left(c, time.time()) else None, 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl'], sm.get('valueUsd'), sol_now, px) if c.get('real') else None,
+    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'seatPick': c.get('seatPick'), 'rebuying': (c.get('rebuy') or {}).get('mint'), 'seatQueue': c.get('seatQueue') or [], 'pipeline': c.get('pipeline'), 'parkedUsd': round(sum(_fuse._f(x.get('usd')) for x in c.get('skimPark') or []), 4), 'parkedN': len(c.get('skimPark') or []), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'pickStyle': None if c.get('real') else _eff(c).get('pickStyle'), 'holdAll': bool(c.get('holdAll')), 'pickCool': {}, 'handsOffUntil': c.get('handsOffUntil') if _prime.hands_off_left(c, time.time()) else None, 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl'], sm.get('valueUsd'), sol_now, px) if c.get('real') else None,
              'audit': [{k: e.get(k) for k in ('at', 'kind', 'symbol', 'usd', 'why', 'to', 'mode')} for e in (c.get('events') or [])[-40:][::-1]]} for c in cards.values()]
 
 
@@ -6881,7 +6890,8 @@ async def fuse_prime_admin(request: Request):
                 raise HTTPException(404, 'No card for that tier yet.')
             px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress']} for l in card.get('legs') or []])
             try:
-                cards[sk['tpl']] = _prime.skim_leg(card, sk['pairAddress'], px, {}, time.time(), sk.get('to') or 'card')
+                cards[sk['tpl']] = (_prime.stake_leg(card, sk['pairAddress'], px, {}, time.time(), sk.get('to') or 'cash') if sk.get('stake')   # 🏠 the initial out, profit rides
+                                    else _prime.skim_leg(card, sk['pairAddress'], px, {}, time.time(), sk.get('to') or 'card'))
                 kick_real_keeper = bool(card.get('real'))
             except ValueError as e:
                 raise HTTPException(400, str(e))

@@ -4,6 +4,7 @@ import { CardFx } from './CardFx';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { useAdmin } from '../lib/adminCall';
+import { fuseLevels } from '../lib/liveFuse';
 import { LiveFuseCard, revalue } from './FuseCard';
 import { grabOrder } from '../lib/chartGrab';
 import { useLivePrices } from '../lib/livePrices';
@@ -242,6 +243,7 @@ const EDIT = [
   ['sl', '🛑 Card stop', [[0, 'tier'], [10, '−10%'], [15, '−15%'], [20, '−20%'], [30, '−30%']], "Every coin's stop on this card (a coin's own stop still wins). Tier = the tier's built-in stop"],
   ['trenchCoins', '🗑 Trench coins per card', [[1, '1'], [2, '2']], 'How many fresh trench breakouts the 🗑 trench cycle may hold at once. They are the riskiest coins on the site — 2 is the hard max.'],
   ['trenchStakePct', '🎟 Trench ticket size', [[10, '10%'], [15, '15%'], [25, '25%'], [0, 'full seat']], 'How much of the card goes into one trench / launch coin. The rest of that seat’s money goes back to card cash for your other coins, so one pulled launch costs a slice, not a seat.'],
+  ['trenchHouseAt', '🏠 Take the initial out', [[0, 'off'], [30, 'at +30%'], [50, 'at +50%'], [100, 'at 2×'], [200, 'at 3×']], 'Trench coins, young hand picks and other small tickets: once the coin is up this much, what you put into it is sold out ONCE and only the profit keeps riding. A pulled pool can then only take profit, never your initial. The money goes where “Skim goes to” says (your other coins · parked · held as cash).'],
   ['trenchSlPct', '🛑 Trench coin stop', [[15, '−15%'], [20, '−20%'], [25, '−25%'], [30, '−30%'], [0, 'card stop']], 'A trench / launch coin’s own stop, checked every 10 seconds. A pulled pool can still fall past it between two checks.'],
   ['coins', '🪙 Coins on the card', [[0, 'auto'], [2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6']], 'Your call, at any card size. Auto = sized to the card (each coin at least $0.75). Pick a number and the card holds exactly that many — smaller coins pay more in fees per swap, and the first 5 rounds of network fees are on the wallet reserve.'],
   ['cycleEvery', '🧩 Re-shape every', [[0, 'off'], [3, '3'], [6, '6'], [12, '12']], 'Rounds between shape changes. A re-shape sells every coin that is not winning for the new shape, so 3 means more swaps than 6.'],
@@ -423,7 +425,7 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest, meta }) {
         <p className="m-note">“Use this” sets the exits{real ? ' and what the card buys' : ''} in one tap. Every setting it touches is in the other tabs, where you can change any of them.</p></>}
       {adv && grp === 'coins' && <>{sub('HOW MANY · WHICH MIX')}{rows(['coins', ...(real ? ['newOnly'] : [])])}
         <div className="ce-row is-wide"><span><b>🔄 Cycle</b><small>The shapes this card moves through (anchor · mixed · degen · safest …)</small></span><div className="m-seg">{CYCLES.map(([v, t]) => <button key={v} type="button" disabled={busy} className={(cfg?.cycles || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ cycles: { ...(cfg?.cycles || {}), [c.tpl]: v } })}>{t}</button>)}</div></div>
-        {rows(['cycleEvery', ...(trenchOn ? ['trenchCoins', 'trenchStakePct', 'trenchSlPct'] : [])])}
+        {rows(['cycleEvery', ...(trenchOn ? ['trenchCoins', 'trenchStakePct', 'trenchSlPct'] : []), 'trenchHouseAt'])}
         {trenchOn && <TrenchScan call={call} />}
         {sub(real ? 'LAUNCH COINS THE CARD MAY BUY' : 'LAUNCH COINS')}
         {rows(['scoutPct', ...(on('scoutPct') ? [] : ['moverSwap']), 'rebuyDipPct', 'runnerMinAgeH', ...(real ? ['upMeta', 'trenchAuto'] : []), 'runnerMinLiqK', 'runnerMinVolK', 'runnerMinChg1h', 'runnerMinBuy'])}
@@ -595,9 +597,6 @@ export function HqRealCards({ addr, onCount }) {
   const [busy, setBusy] = useState('');
   const [amt, setAmt] = useState('');
   const [pickFor, setPickFor] = useState(null);   // which coin's 🎯 picker is open
-  // 🔄 Rebuy asked from a coin's war room (TrenchChart → `feeless:fuse-rebuy`): confirmed here, where the card and its keeper live
-  const rebuyRef = React.useRef(null);
-  useEffect(() => { const on = e => rebuyRef.current?.(e.detail); window.addEventListener('feeless:fuse-rebuy', on); return () => window.removeEventListener('feeless:fuse-rebuy', on); }, []);
   // ✋ a stop / take-profit / lock / trail line dragged on a coin's chart (ChartGrab → `feeless:fuse-level`): asked here, saved here
   const levelRef = React.useRef(null);
   useEffect(() => { const on = e => levelRef.current?.(e.detail); window.addEventListener('feeless:fuse-level', on); return () => window.removeEventListener('feeless:fuse-level', on); }, []);
@@ -626,7 +625,6 @@ export function HqRealCards({ addr, onCount }) {
   levelRef.current = dd => { const o = grabOrder(dd); if (!o || !window.confirm(o.ask)) return;
     setBusy('level'); call('/admin/arena/prime', { method: 'POST', body: JSON.stringify(o.body) }).then(() => { toast.success(o.ok); window.dispatchEvent(new CustomEvent('feeless:fuse-level-done', { detail: dd })); window.dispatchEvent(new Event('feeless:prime')); })
       .catch(e => toast.error(e.message)).finally(() => setBusy('')); };
-  rebuyRef.current = f => { if (f?.tpl && f.pairAddress && window.confirm(`Rebuy $${f.symbol}? It is sold whole now and bought straight back at today's price: a new entry, so its stop and lock count from here. Two swaps (about 1% in costs).`)) prime({ rebuy: { tpl: f.tpl, pairAddress: f.pairAddress } }, `🔄 $${f.symbol} sold — buying it back at today's price`, 'rebuy'); };
   const retryDead = (tpl, o) => { setBusy(`retry-${o.side}-${o.mint}`); call('/admin/fuse-wallet/retry-dead', { method: 'POST', body: JSON.stringify({ tpl, side: o.side, mint: o.mint }) }).then(() => { toast.success(`Retrying ${o.side} $${o.symbol}`); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy('')); };
   const ago = t => { const s = Math.max(0, Date.now() / 1000 - (t || 0)); return s < 60 ? `${s.toFixed(0)}s ago` : s < 3600 ? `${(s / 60).toFixed(0)}m ago` : `${(s / 3600).toFixed(1)}h ago`; };
   const fee = v => (v > 0 && v < 0.01 ? `$${v.toFixed(4)}` : usd(v));
@@ -671,9 +669,11 @@ export function HqRealCards({ addr, onCount }) {
                 return <select className={`m-input hrt-skim ${can ? 'is-on' : ''}`} disabled={!!busy || !can} value="" data-testid={`skim-${l.symbol}`} aria-label={`Take ${l.symbol} profit`}
                   data-tip={can ? `Take ONLY the profit of $${l.symbol} (about ${usd(gain)}). What you put into it (${usd(l.costUsd)}) keeps riding. Choose where the profit goes.` : `No profit to take on $${l.symbol} right now`}
                   onChange={e => { const to = e.target.value; if (!to) return;
+                    if (to === 'stake') { if (window.confirm(`Take your initial (${usd(l.costUsd)}) out of $${l.symbol} and leave only the profit (about ${usd(gain)}) riding? The initial is held as card cash for you.`))
+                      prime({ skim: { tpl: c.tpl, pairAddress: l.pairAddress, to: 'cash', stake: true } }, `🏠 Taking your initial out of $${l.symbol} — only profit rides once it confirms`, `skim-${l.pairAddress}`); return; }
                     if (window.confirm(`Take about ${usd(gain)} profit from $${l.symbol} and ${to === 'cash' ? 'hold it as card cash' : to === 'round' ? `park it in card cash for ${parkN} round${parkN === 1 ? '' : 's'}, then put it back into the card` : 'put it into your other coins'}? ${usd(l.costUsd)} stays in $${l.symbol}.`))
                       prime({ skim: { tpl: c.tpl, pairAddress: l.pairAddress, to } }, `💰 Taking $${l.symbol} profit — ${to === 'cash' ? 'held as cash' : to === 'round' ? `parked for ${parkN} round${parkN === 1 ? '' : 's'}` : 'into your other coins'} once it confirms`, `skim-${l.pairAddress}`); }}>
-                  <option value="">💰{can ? ` ${usd(gain)}` : ''}</option><option value="card">♻ into my other coins</option><option value="round">🅿 park {parkN} round{parkN === 1 ? '' : 's'}, then back in</option><option value="cash">🏦 hold as cash</option></select>; })()}
+                  <option value="">💰{can ? ` ${usd(gain)}` : ''}</option><option value="card">♻ into my other coins</option><option value="round">🅿 park {parkN} round{parkN === 1 ? '' : 's'}, then back in</option><option value="cash">🏦 hold as cash</option>{!l.house && <option value="stake">🏠 take my initial, leave the profit</option>}</select>; })()}
               <span className="hrt-sell" role="group" aria-label={`Sell ${l.symbol}`}>{[[25, '25%'], [50, '50%'], [100, 'All']].map(([p, t]) => <button key={p} type="button" className="m-btn danger" disabled={!!busy || l.buying || !(l.usd > 0)} data-testid={p === 100 ? `sell-${l.symbol}` : `sell-${l.symbol}-${p}`}
                 data-tip={`Sell ${p === 100 ? 'all' : `${p}%`} of your $${l.symbol} (${usd((l.usd || 0) * p / 100)}) to this card's cash. The total changes only after the transaction confirms.`}
                 onClick={() => window.confirm(`Sell ${p === 100 ? 'ALL' : `${p}%`} of $${l.symbol} (about ${usd((l.usd || 0) * p / 100)}) to this card's cash?`) && prime({ manualSell: { tpl: c.tpl, pairAddress: l.pairAddress, pct: p } }, `Selling ${p === 100 ? 'all' : `${p}%`} of $${l.symbol} — card cash updates after confirmation`, `sell-${l.pairAddress}`)}>{t}</button>)}</span>
@@ -755,14 +755,17 @@ export function HqRealCards({ addr, onCount }) {
 // Deepest · Runners · New 72h · Dip · Dex paid) + search any coin / CA. Live prices, one tap; the server re-checks the pool live.
 // 🎯 Each list is a DIFFERENT set of coins (Popular / Top yield / Deepest / New 72h / Dex paid were five sorts of the same ~40 pools:
 // the owner saw the same names under every tab). Movers = the live launch feed by hourly move; everything else is its own source.
-export const PICK_LENSES = [['movers', '🚀 Movers'], ['bottom', '🟢 Buy bottom'], ['pump', '🆕 Pump live'], ['volume', '🌊 Volume'], ['runners', '🏃 Runners'], ['arena', '🏁 All ranked'], ['majors', '🪙 Majors'],
-  ['stocks', '📈 Stocks'], ['risers', '🚀 New majors'], ['trench', '🗑 Trench'], ['dip', '📉 Dip'], ['popular', '🏊 Pools']];
-const GAUNTLET = { runners: ['fresh', 'proven'], volume: ['volume'], dip: ['dip'], paid: ['paid'] };
+// 7 lists, each its OWN set of coins and as many as the feed has (owner: "6–7 categories, more coins, a line chart on every row")
+export const PICK_LENSES = [['movers', '🚀 Movers'], ['bottom', '🟢 Dips & bottoms'], ['pump', '🆕 New launches'], ['volume', '🌊 Volume'], ['trench', '🗑 Trench'], ['majors', '🪙 Majors & stocks'], ['arena', '🏁 All ranked']];
+const LENS_URLS = { majors: ['majors', 'stocks', 'risers'] };   // one tab, three sources (majors · stock tokens · new majors)
+// 📈 every row gets a line: the board's recorded prices when it has them, else the coin's own 24h → 6h → 1h → 5m → now moves
+export const moveLine = r => { const now = 1; const back = c => (c == null || !Number.isFinite(Number(c)) || Number(c) <= -99 ? null : now / (1 + Number(c) / 100));
+  const pts = [back(r.chg24h), back(r.chg6h), back(r.chg1h), back(r.chg5m), now].filter(v => v != null); return pts.length >= 3 ? pts : null; };
 const PICK_STABLES = new Set(['USDC', 'USDT', 'USDS', 'PYUSD', 'USD1', 'DAI', 'USDE', 'FDUSD']);   // a dollar coin never moves — not a swap-in (= contenders.STABLES)
 export const bottomRecord = p => (p && p.n >= 5 ? `Its own record: ${p.n} coins held 1 hour, typical ${p.medPct >= 0 ? '+' : ''}${p.medPct}%, ${p.wonPct}% up.` : `Its own record starts now (${p?.n || 0} of 5 settled).`);
 export const isFalling = (m5, h1) => (m5 != null && Number(m5) <= -3) || (h1 != null && Number(h1) <= -8);   // = arena_prime.entry_ok
 export const pickRow = r => ({ mint: r.mint || r.baseAddress, pairAddress: r.pairAddress, symbol: r.symbol, price: r.price ?? r.priceUsd, liq: r.liq ?? r.liquidityUsd,
-  chg: r.chg1h ?? r.change1h ?? r.chg24h ?? r.change24h, chg1h: r.chg1h ?? r.change1h ?? null, chg5m: r.chg5m ?? r.change5m ?? null, score: r.score, impostor: r.impostor, real: r.real, trench: r.trench, holders: r.holders, soft: r.soft, outside: r.outside, curve: r.curve, div: r.divisionLabel, watch: r.watch, fails: r.fails, warn: r.warn, pulse: r.pulse, stock: r.stock, ageH: r.ageH ?? null });
+  chg: r.chg1h ?? r.change1h ?? r.chg24h ?? r.change24h, chg1h: r.chg1h ?? r.change1h ?? null, chg5m: r.chg5m ?? r.change5m ?? null, chg6h: r.chg6h ?? r.change6h ?? null, chg24h: r.chg24h ?? r.change24h ?? null, score: r.score, impostor: r.impostor, real: r.real, trench: r.trench, holders: r.holders, soft: r.soft, outside: r.outside, curve: r.curve, div: r.divisionLabel, watch: r.watch, fails: r.fails, warn: r.warn, pulse: r.pulse, stock: r.stock, ageH: r.ageH ?? null });
 // ⏭ COMING UP: the coins the engine takes next (best hourly move first). Tap a coin → its live flow; pick the seat → it comes in
 // at the next round in that coin's place (the same pick as the 🎯 picker, with the same warning when a check fails).
 export function ComingUp({ p, legs = [], onSwap, busy }) {
@@ -782,10 +785,7 @@ export function ComingUp({ p, legs = [], onSwap, busy }) {
 }
 
 // 📈 The lines a Fuse card draws on its coin's chart: where it got in, where it stops, where it locks, and its trail once riding
-export const fuseLevels = (l, cf, label) => { const e = Number(l.entry) || 0; if (!(e > 0)) return null;
-  const sl = Number(l.sl) || Number(cf?.sl) || 0; const ra = Number(cf?.rideAt) || 0; const tr = Number(cf?.rideTrail) || 0; const peak = Number(l.peak || l.high) || 0;
-  return { card: label, pairAddress: l.pairAddress, symbol: l.symbol, entry: e, stop: sl > 0 && !l.ride ? e * (1 - sl / 100) : null, lock: ra > 0 && !l.ride ? e * (1 + ra / 100) : null,
-    trail: l.ride && peak > 0 && tr > 0 ? peak * (1 - tr / 100) : null, riding: !!l.ride, slPct: sl, lockPct: ra, trailPct: tr, peak, tpPct: Number(l.tp) || 0 }; };
+export { fuseLevels } from '../lib/liveFuse';
 
 // 🔎 Why the card has (or has not) a new coin to buy: how many launch coins survive each of its filters, live from the last tick
 export function PipeLine({ p }) {
@@ -805,18 +805,22 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
   const [bproof, setBproof] = useState(null);   // 🟢 the Buy-bottom list's own 1-hour paper record
   useEffect(() => { let alive = true; setRows(null); setWhy('');
     const s = q.trim();
-    const url = s.length >= 2 ? `/api/reputation/fuses/search?q=${encodeURIComponent(s)}` : lens === 'trench' ? '/api/reputation/fuses/trench' : lens === 'arena' || GAUNTLET[lens] ? '/api/reputation/fuses/contenders' : `/api/reputation/fuses/discover?lens=${lens}&chain=solana`;
-    const t = setTimeout(() => fetch(apiUrl(url)).then(r => (r.ok ? r.json() : null)).then(x => { if (!alive || !x) return; setWhy(x.why || ''); setBproof(x.proof || null);
+    const url = s.length >= 2 ? `/api/reputation/fuses/search?q=${encodeURIComponent(s)}` : lens === 'trench' ? '/api/reputation/fuses/trench' : lens === 'arena' ? '/api/reputation/fuses/contenders' : `/api/reputation/fuses/discover?lens=${lens}&chain=solana`;
+    const many = s.length < 2 && LENS_URLS[lens];
+    const get = many ? Promise.all(many.map(k => fetch(apiUrl(`/api/reputation/fuses/discover?lens=${k}&chain=solana`)).then(r => (r.ok ? r.json() : null)).catch(() => null))).then(xs => ({ pools: xs.flatMap(x => (x && x.pools) || []) }))
+      : fetch(apiUrl(url)).then(r => (r.ok ? r.json() : null));
+    const t = setTimeout(() => get.then(x => { if (!alive || !x) return; setWhy(x.why || ''); setBproof(x.proof || null);
       if (x.checked) setTr({ floor: x.floor || 0, checked: x.checked.length, rules: x.rules, level: Number(x.level) || 0 });
-      const raw = x.pools || (x.checked ? x.rows || [] : lens === 'arena' && s.length < 2 ? x.all || [] : (x.divisions || []).filter(dv => (GAUNTLET[lens] || []).includes(dv.key)).flatMap(dv => dv.rows));
-      const seen = new Set(); setRows(raw.map(pickRow).filter(r => r.mint && r.pairAddress && !PICK_STABLES.has(String(r.symbol || '').toUpperCase()) && !seen.has(r.mint) && seen.add(r.mint)).slice(0, lens === 'arena' && s.length < 2 ? 160 : (lens === 'pump' || lens === 'movers' || lens === 'bottom') && s.length < 2 ? 300 : 30)); }).catch(() => alive && setRows([])), s.length >= 2 ? 300 : 0);
+      const raw = x.pools || (x.checked ? x.rows || [] : x.all || (x.divisions || []).flatMap(dv => dv.rows));
+      const seen = new Set(); setRows(raw.map(pickRow).filter(r => r.mint && r.pairAddress && !PICK_STABLES.has(String(r.symbol || '').toUpperCase()) && !seen.has(r.mint) && seen.add(r.mint)).slice(0, s.length < 2 ? 300 : 30)); }).catch(() => alive && setRows([])), s.length >= 2 ? 300 : 0);
     return () => { alive = false; clearTimeout(t); }; }, [lens, q, nonce]);
   const live = useLivePrices((rows || []).map(r => r.pairAddress));
   // 📈 a baby chart per row: the last ~2h of recorded prices (one batched call per list); tap the ticker → the coin's live flow
   const [sparks, setSparks] = useState({});
-  const mintKey = (rows || []).slice(0, 60).map(r => r.mint).join(',');
-  useEffect(() => { if (!mintKey) return undefined; let alive = true;
-    fetch(apiUrl(`/api/reputation/fuses/sparks?mints=${mintKey}`)).then(r => r.json()).then(x => alive && setSparks(x.sparks || {})).catch(() => {}); return () => { alive = false; }; }, [mintKey]);
+  const mintKey = (rows || []).slice(0, 180).map(r => r.mint).join(',');
+  useEffect(() => { if (!mintKey) return undefined; let alive = true; const ms = mintKey.split(','); setSparks({});
+    for (let i = 0; i < ms.length; i += 60) fetch(apiUrl(`/api/reputation/fuses/sparks?mints=${ms.slice(i, i + 60).join(',')}`)).then(r => r.json()).then(x => alive && setSparks(o => ({ ...o, ...(x.sparks || {}) }))).catch(() => {});
+    return () => { alive = false; }; }, [mintKey]);
   const line = pts => { if (!pts || pts.length < 3) return null; const lo = Math.min(...pts); const hi = Math.max(...pts); const rg = hi - lo || 1;
     return <svg className={`sp-spark ${pts[pts.length - 1] >= pts[0] ? 'up' : 'dn'}`} viewBox="0 0 60 16" preserveAspectRatio="none" aria-hidden><polyline points={pts.map((v, i) => `${(i / (pts.length - 1) * 60).toFixed(1)},${(15 - (v - lo) / rg * 14).toFixed(1)}`).join(' ')} /></svg>; };
   const fmt = v => (!v ? '—' : v >= 1 ? `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : `$${Number(v).toPrecision(3)}`);
@@ -825,14 +829,14 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
     <span className="m-row">{out.swapTo && <button type="button" className="m-btn" disabled={busy} onClick={() => onPick(null)} data-testid="sp-cancel">✕ Cancel → ${out.swapTo.symbol || out.swapTo}</button>}<button type="button" className="m-btn" onClick={onClose} aria-label="Close picker">Close</button></span></header>
     <div className="m-seg sp-lens" role="tablist" aria-label="Lists">{PICK_LENSES.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={!q.trim() && lens === k} className={!q.trim() && lens === k ? 'active' : ''} onClick={() => { setLens(k); setQ(''); }} data-testid={`sp-lens-${k}`}>{l}</button>)}</div>
     <input className="m-input sp-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Search any coin — SOL, BTC, ETH, $TICKER, CA" aria-label="Search any coin" data-testid="sp-search" />
-    {lens === 'bottom' && !q.trim() && <small className="m-dim sp-tnote" data-testid="sp-bottom-note">🟢 Coins that ran, gave 30%+ back and now sit at the low of their range without making new lows — deepest and turning first. {bottomRecord(bproof)} A list for you to pick from; the engine does not buy it by itself.</small>}
+    {lens === 'bottom' && !q.trim() && <small className="m-dim sp-tnote" data-testid="sp-bottom-note">🟢 Dips & bottoms in one list: first the coins that ran, gave 30%+ back and now sit at the low of their range without making new lows (deepest and turning first), then today's dip buys — down on the day with buyers back. {bottomRecord(bproof)} A list for you to pick from; the engine does not buy it by itself.</small>}
     {lens === 'trench' && !q.trim() && tr && <small className="m-dim sp-tnote" data-testid="sp-trench-note" data-tip={`${tr.rules}${tr.level ? ` · crowd checks widened ×${tr.level} (safety checks never move)` : ''}`}>🗑 Pick a brand-new coin: tap <b>Pick</b> on any row below. High risk — check the Safety column, keep it to 1–2 coins. Pool floor {big(tr.floor)} · {tr.checked} scanned.</small>}
     {lens === 'trench' && !q.trim() && call && <TrenchScan call={call} bare onSaved={() => setNonce(n => n + 1)} onPickRow={r => onPick(pickRow({ ...r, score: r.front, soft: true }))} pickBusy={busy} />}
     {!rows ? <span className="loader" /> : !rows.length ? <small className="m-dim">{lens === 'trench' && !q.trim() ? 'No fresh coin passes the safety checks right now — the scan re-runs every ~2 min. Try 🌊 Volume.' : (why || 'Nothing live here right now — try another list or search.')}</small> :
     <ul>{[...rows].map(r => { const lp = live.get?.(r.pairAddress); const on = have.includes(r.mint);
       const young = verify && r.ageH != null && r.ageH < 1; /* ✅ verified picks: under an hour old cannot go on a real card — shown, sorted last, said up front */ const fl = r.trench ? (tr?.floor || 0) : minLiq; const thin = minLiq > 0 && (r.liq || 0) < fl; const chg = lp?.h1 ?? r.chg1h ?? r.chg;
       const m5 = lp?.m5 ?? r.chg5m; const falling = isFalling(m5, lp?.h1 ?? r.chg1h);   // same rule the engine uses before a real buy
-      return <li key={r.mint} className={r.impostor ? 'is-fake' : ''}><b><button type="button" className="sp-open" onClick={() => openCoin({ mint: r.mint, pairAddress: r.pairAddress, symbol: r.symbol })} data-tip="Open its live flow" data-testid={`sp-open-${r.symbol}`}>${r.symbol}</button>{line(sparks[r.mint])}{r.real ? ' ✓' : ''}{r.stock ? <i className="sp-pulse" data-tip="Tokenized stock (xStock) trading in a real Solana pool"> 📈</i> : null}{r.pulse ? <i className="sp-pulse" data-tip="Pump Pulse: a burst of buys in the last 5 minutes" data-testid={`sp-pulse-${r.symbol}`}> ⚡</i> : null}{r.div ? <small className="sp-div" data-tip={r.watch ? 'Watch only in this Gauntlet list (nothing qualified there right now). The engine will not seat it; you still can.' : 'The Gauntlet list where this coin ranks best'}>{r.div}{r.watch ? ' · watch' : ''}</small> : null}</b><span className="m-num fl-tick" key={fmt(lp?.price || r.price)}>{fmt(lp?.price || r.price)}</span>
+      return <li key={r.mint} className={r.impostor ? 'is-fake' : ''}><b><button type="button" className="sp-open" onClick={() => openCoin({ mint: r.mint, pairAddress: r.pairAddress, symbol: r.symbol })} data-tip="Open its live flow" data-testid={`sp-open-${r.symbol}`}>${r.symbol}</button>{line(sparks[r.mint] || moveLine({ ...r, chg5m: lp?.m5 ?? r.chg5m, chg1h: lp?.h1 ?? r.chg1h }))}{r.real ? ' ✓' : ''}{r.stock ? <i className="sp-pulse" data-tip="Tokenized stock (xStock) trading in a real Solana pool"> 📈</i> : null}{r.pulse ? <i className="sp-pulse" data-tip="Pump Pulse: a burst of buys in the last 5 minutes" data-testid={`sp-pulse-${r.symbol}`}> ⚡</i> : null}{r.div ? <small className="sp-div" data-tip={r.watch ? 'Watch only in this Gauntlet list (nothing qualified there right now). The engine will not seat it; you still can.' : 'The Gauntlet list where this coin ranks best'}>{r.div}{r.watch ? ' · watch' : ''}</small> : null}</b><span className="m-num fl-tick" key={fmt(lp?.price || r.price)}>{fmt(lp?.price || r.price)}</span>
         <em className={`m-num sp-m5 ${(m5 || 0) >= 0 ? 'm-pos' : 'm-neg'}`} data-tip="Move over the last 5 minutes" data-testid={`sp-m5-${r.symbol}`}><i>5m</i> {m5 == null ? '—' : `${m5 >= 0 ? '+' : ''}${Number(m5).toFixed(1)}%`}</em>
         <em className={`m-num ${(chg || 0) >= 0 ? 'm-pos' : 'm-neg'}`} data-tip="Move over the last hour"><i>1h</i> {chg == null ? '—' : `${chg >= 0 ? '+' : ''}${Number(chg).toFixed(1)}%`}</em>
         <small className="sp-fall" data-testid={r.warn ? `sp-warn-${r.symbol}` : falling ? `sp-fall-${r.symbol}` : undefined} data-tip={r.warn ? `${r.warn} You still can — it is your pick.` : falling ? 'Falling right now (−3% or more in 5 minutes, or −8% or more in the hour). The engine would not buy this with real money; you still can — it is your pick.' : undefined}>{r.warn ? '⚠ creator' : falling ? '⚠ falling' : ''}</small><small className="m-num" data-tip={r.curve ? 'Still on Pump’s launch curve: no pool yet, this is the depth of the curve itself. Tradable, very early, highest risk. Only you can pick it — the engine never buys a curve coin by itself.' : undefined}>{r.curve ? 'curve' : 'pool'} {r.liq > 0 ? big(r.liq) : '—'}</small><small className="m-num">{r.outside ? <i className="sp-soft sp-out" data-testid={`sp-out-${r.symbol}`} data-tip={`Outside your trench filter: ${(r.fails || []).join(' · ')}. Shown only so the list is never empty — it passed the safety checks. Not seated by the engine; yours to pick.`}>not in filter</i> : r.soft ? <i className="sp-soft" data-tip={`Near-miss: inside your filter's age and cap band, every safety check passed, it only missed — ${(r.fails || []).join(' · ')}. Not seated by the engine; yours to pick.`}>near-miss</i> : <>{r.trench && r.holders ? `${r.holders} holders · ` : ''}{r.score != null ? `score ${Number(r.score).toFixed(0)}` : ''}</>}</small>

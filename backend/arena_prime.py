@@ -488,6 +488,7 @@ def clean_cfg(p):
     ts_ = (p or {}).get('trenchStakePct')
     out['trenchStakePct'] = int(_f(ts_)) if ts_ is not None and int(_f(ts_)) in TRENCH_STAKES else 15   # 🎟 a trench coin's ticket, % of the card (0 = a full equal seat)
     tl_ = (p or {}).get('trenchSlPct')
+    out['trenchHouseAt'] = int(_f((p or {}).get('trenchHouseAt'))) if int(_f((p or {}).get('trenchHouseAt'))) in HOUSE_ATS else 0   # 🏠 a trench / ticket coin's initial comes out at this gain (0 = off)
     out['trenchSlPct'] = int(_f(tl_)) if tl_ is not None and int(_f(tl_)) in TRENCH_SLS else 25         # … and its own stop (0 = the card's)
     out['tp'] = clean_exit('tp', (p or {}).get('tp')) or 0.0   # 🎯 card-level TP / SL (0 = the tier template's)
     out['sl'] = clean_exit('sl', (p or {}).get('sl')) or 0.0
@@ -1221,6 +1222,50 @@ def _skim(c, l, px, liqs, now, to='card', fee=0.0, auto=None, frac=1.0, why=None
     return got
 
 
+HOUSE_ATS = (0, 30, 50, 100, 200)   # 🏠 cfg `trenchHouseAt`: 0 = off
+
+
+def _take_stake(c, l, px, liqs, now, to='cash', fee=0.0, auto=None):
+    """🏠 TAKE THE INITIAL, LEAVE THE PROFIT (in place). Sells as much of a winning coin as it COST; what stays cost nothing —
+    house money — and keeps riding with its stop / trail. Only when the coin is worth more than it cost (and both parts are worth
+    sending). `to`: 'cash' held for the owner · 'round' parked a few rounds · 'card' back into the other coins. → $ taken."""
+    units, cost = _f(l.get('units')), _f(l.get('costUsd'))
+    value = units * px
+    if units <= 0 or px <= 0 or cost < SKIM_MIN_USD or value - cost < SKIM_MIN_USD or l.get('house'):
+        return 0.0
+    part = cost / value
+    sold = units * part
+    got = sell_usd(sold, px, (liqs or {}).get(l['pairAddress']) or l.get('liq'))
+    l['units'] = units - sold; l['costUsd'] = 0.0; l['house'] = True
+    l['trimAt'] = now; l['skimPx'] = px
+    c['cash'] = round(_f(c.get('cash')) + got, 6)
+    if to == 'cash':
+        c['holdCashUsd'] = round(_f(c.get('holdCashUsd')) + got, 6)
+    elif to == 'round':
+        c['holdCashUsd'] = round(_f(c.get('holdCashUsd')) + got, 6)
+        c['skimPark'] = list(c.get('skimPark') or []) + [{'usd': round(got, 6), 'round': int(c.get('rounds') or 0), 'at': now, 'symbol': l.get('symbol')}]
+    c['feesUsd'] = _f(c.get('feesUsd')) + fee
+    c.setdefault('events', []).append({'at': now, 'kind': 'skim', 'symbol': l.get('symbol'), 'usd': round(got, 4), 'to': ['cash'] if to == 'cash' else ['card'], 'house': True,
+                                       'why': f"🏠 {'auto: +' + format(auto, 'g') + '% — ' if auto else ''}initial of ${l.get('symbol')} taken out (${got:.2f}) — only its profit keeps riding — "
+                                              + ('held as cash for you' if to == 'cash' else 'parked in card cash for the next rounds' if to == 'round' else 'put to work in your other coins')})
+    return got
+
+
+def stake_leg(card, pair, prices, liqs, now, to='cash'):
+    """Owner's 🏠: take the initial out of ONE coin now, profit rides. Pure; ValueError when it can't."""
+    c = {**card, 'legs': [dict(l) for l in card['legs']], 'events': list(card.get('events') or [])}
+    l = next((x for x in c['legs'] if x['pairAddress'] == pair), None)
+    if not l:
+        raise ValueError('That coin is not on this card.')
+    if l.get('buying') or l.get('placeholder'):
+        raise ValueError('That coin is still being bought.')
+    if l.get('house'):
+        raise ValueError(f"${l.get('symbol')}'s initial is already out — what is left is profit.")
+    if not _take_stake(c, l, _f((prices or {}).get(pair)) or _f(l.get('entry')), liqs, now, to if to in SKIM_TOS else 'cash'):
+        raise ValueError(f"${l.get('symbol')} is not worth more than it cost yet — there is no initial to take out and still leave profit.")
+    return c
+
+
 def release_parked(c, cfg, now):
     """🅿 Parked profit whose rounds are up goes back to work: it leaves the held cash, and the normal idle-cash spread puts it into
     the card's coins at this round. Mutates c; → $ released."""
@@ -1571,6 +1616,16 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 lock_bank(c, l, px_b, liqs, now, cfg, fee, (px_b / _f(l['entry']) - 1) * 100 if _f(l.get('entry')) > 0 else None)
     # 💰 AUTO SKIM (owner's setting): every `skimAt`% a coin gains since its entry / last skim, its profit is taken and its stake rides on
     stack_skim(c, prices, liqs, now, cfg, fee)   # 💚 every coin locked → each is skimmed down to its stake, and again as it grows
+    # 🏠 TRENCH / TICKET COINS: at +`trenchHouseAt`% the initial comes out once and only profit rides (owner: "take initial and
+    # just leave profit, for safety"). The money follows `skimTo` (held · parked · back into the other coins).
+    ha = _f(cfg.get('trenchHouseAt'))
+    if ha > 0 and not c.get('flooredAt'):
+        for l in c['legs']:
+            if not (l.get('trench') or l.get('ticket')) or l.get('house') or l.get('placeholder') or l.get('buying') or _f(l.get('units')) <= 0 or _f(l.get('entry')) <= 0:
+                continue
+            px_h = _f(prices.get(l['pairAddress']))
+            if px_h > 0 and px_h >= _f(l['entry']) * (1 + ha / 100):
+                _take_stake(c, l, px_h, liqs, now, cfg.get('skimTo') or 'card', fee, auto=ha)
     sk = _f(cfg.get('skimAt'))
     if sk > 0 and not c.get('flooredAt'):
         for l in c['legs']:
@@ -2076,7 +2131,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         round_now = _f(c.get('lastRotateAt')) == now
         # a locked (riding / frozen) coin is never topped up: what was just banked off it must not be bought straight back
         # … and neither is a coin whose profit was just skimmed (10 min): that money is for the OTHER coins
-        targets = [l for l in c['legs'] if not l.get('placeholder') and not l.get('scout') and not l.get('ticket') and not l.get('ride') and not l.get('frozen') and not (l.get('trimAt') and now - _f(l.get('trimAt')) <= 600 and not (round_now and _f(l.get('trimAt')) < now))] \
+        targets = [l for l in c['legs'] if not l.get('placeholder') and not l.get('scout') and not l.get('ticket') and not l.get('house') and not l.get('ride') and not l.get('frozen') and not (l.get('trimAt') and now - _f(l.get('trimAt')) <= 600 and not (round_now and _f(l.get('trimAt')) < now))] \
             or [l for l in c['legs'] if not l.get('placeholder')]
         if targets:
             # ⚖ NO COIN GETS THE WHOLE POT. Idle cash fills the seats that are furthest under an equal share and never lifts a coin
@@ -2218,7 +2273,7 @@ def balance_small(c, prices, liqs, now, fee, ev):
     # a coin is "small" only when it WENT IN small. A coin whose profit was taken (💰 skim, 🏦 bank, ✂ cut → `skimPx` / `bankedAt` /
     # fresh `trimAt`) or that is locked / riding is small ON PURPOSE: topping it up would buy back what was just sold
     # ($1.93 was skimmed off $SpaceXSI and this rule put $1.13 of it straight back in four seconds later).
-    taken = lambda l: l.get('scout') or l.get('ticket') or l.get('skimPx') or l.get('bankedAt') or l.get('ride') or l.get('frozen') or (l.get('trimAt') and now - _f(l.get('trimAt')) < 600)
+    taken = lambda l: l.get('scout') or l.get('ticket') or l.get('house') or l.get('skimPx') or l.get('bankedAt') or l.get('ride') or l.get('frozen') or (l.get('trimAt') and now - _f(l.get('trimAt')) < 600)
     small = [l for l in legs if not taken(l) and _f(l.get('costUsd')) < SMALL_SHARE * share and val(l) < SMALL_SHARE * share]
     for l in small:
         need = share - val(l)
@@ -2289,7 +2344,7 @@ def summary(card, prices, cfg=None):
     rot = _f((cfg or {}).get('rotateHours')) or DEFAULT_CFG['rotateHours']
     paid = round(_f(card.get('walletUsd')), 4)
     legs = [{**{k: l[k] for k in ('mint', 'pairAddress', 'symbol', 'role', 'entry', 'units', 'costUsd')}, 'stars': l.get('stars') or 3,
-             'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'), 'tp': l.get('tp'), 'sl': l.get('sl'), 'division': l.get('division'), 'swapTo': (l.get('swapTo') or {}).get('symbol'), 'ride': bool(l.get('ride')), 'high': l.get('high'), 'rideFrom': l.get('rideFrom'), 'bought': l.get('bought'), 'picked': bool(l.get('picked')), 'buying': bool(l.get('buying')),
+             'house': bool(l.get('house')), 'ticket': bool(l.get('ticket')), 'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'), 'tp': l.get('tp'), 'sl': l.get('sl'), 'division': l.get('division'), 'swapTo': (l.get('swapTo') or {}).get('symbol'), 'ride': bool(l.get('ride')), 'high': l.get('high'), 'rideFrom': l.get('rideFrom'), 'bought': l.get('bought'), 'picked': bool(l.get('picked')), 'buying': bool(l.get('buying')),
              'loseRounds': int(l.get('loseRounds') or 0),
              'firstEntry': l.get('firstEntry') or l['entry'], 'at': l.get('at'), 'now': _f(prices.get(l['pairAddress'])) or l['entry'],
              'pnlPct': round(((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100, 2) if l['entry'] else 0.0,

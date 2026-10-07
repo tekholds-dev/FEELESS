@@ -18,7 +18,7 @@ test('the real-card swap picker has every Lab lens + search, flags thin pools an
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<SwapPicker out={{ symbol: 'WIF' }} have={[]} minLiq={20000} onPick={r => picks.push(r)} onClose={() => {}} />); });
   await tick();
-  expect(PICK_LENSES.map(x => x[0])).toEqual(['movers', 'bottom', 'pump', 'volume', 'runners', 'arena', 'majors', 'stocks', 'risers', 'trench', 'dip', 'popular']);   // every list its OWN set of coins
+  expect(PICK_LENSES.map(x => x[0])).toEqual(['movers', 'bottom', 'pump', 'volume', 'trench', 'majors', 'arena']);   // every list its OWN set of coins
   // 🚀 it opens on what is MOVING (the live launch feed by hourly move) …
   expect(urls[0]).toContain('/fuses/discover?lens=movers');
   expect(el.textContent).toContain('$POP');
@@ -27,13 +27,14 @@ test('the real-card swap picker has every Lab lens + search, flags thin pools an
   expect(urls.some(u => u.includes('/fuses/contenders'))).toBe(true);
   expect(el.textContent).toContain('$GAUNT'); expect(el.textContent).toContain('🌊 Deepest'); expect(el.textContent).toContain('📉 Dip buys · watch');
   expect(el.querySelector('[data-testid="sp-pick-DIP"]').disabled).toBe(false);
-  await act(async () => { el.querySelector('[data-testid="sp-lens-popular"]').click(); }); await tick();
-  expect(urls.some(u => u.includes('/fuses/discover?lens=popular'))).toBe(true);
+  await act(async () => { el.querySelector('[data-testid="sp-lens-majors"]').click(); }); await tick();
+  for (const k of ['majors', 'stocks', 'risers']) expect(urls.some(u => u.includes(`/fuses/discover?lens=${k}`))).toBe(true);   // one tab, three sources
   expect(el.querySelector('[data-testid="sp-pick-THIN"]').disabled).toBe(true);
   await act(async () => { el.querySelector('[data-testid="sp-pick-POP"]').click(); });
   expect(picks[0]).toMatchObject({ mint: 'P', pairAddress: 'pp' });
-  await act(async () => { el.querySelector('[data-testid="sp-lens-dip"]').click(); }); await tick();
-  expect(el.textContent).toContain('$DIP');
+  await act(async () => { el.querySelector('[data-testid="sp-lens-bottom"]').click(); }); await tick();   // 🟢 dips + buy-bottom coins are ONE tab
+  expect(urls.some(u => u.includes('lens=bottom'))).toBe(true); expect(el.querySelector('[data-testid="sp-lens-dip"]')).toBeNull();
+  expect(el.querySelector('[data-testid="sp-bottom-note"]').textContent).toMatch(/Dips & bottoms/);
   // 🗑 trench lens: its own pool floor ($9K passes the $8K trench floor even though the card's floor is $20K), holders shown
   await act(async () => { el.querySelector('[data-testid="sp-lens-trench"]').click(); }); await tick();
   expect(el.querySelector('[data-testid="sp-trench-note"]').textContent).toContain('2 scanned');

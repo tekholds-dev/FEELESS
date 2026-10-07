@@ -18,7 +18,15 @@ test('a paper card that picks like the owner: which cards and what the tip says'
 
 test('buy-bottom lens is in the picker and says its own record honestly', () => {
   const { PICK_LENSES, bottomRecord } = require('./ArenaPrime');
-  expect(PICK_LENSES.map(x => x[0])).toContain('bottom');
+  expect(PICK_LENSES.map(x => x[0])).toContain('bottom'); expect(PICK_LENSES.map(x => x[0])).not.toContain('dip');
   expect(bottomRecord({ n: 12, medPct: -4.2, wonPct: 33 })).toBe('Its own record: 12 coins held 1 hour, typical -4.2%, 33% up.');
   expect(bottomRecord(null)).toMatch(/starts now \(0 of 5 settled\)/);
+});
+
+test('seven picker lists, and a row with no recorded prices still gets a line from its own moves', () => {
+  const { PICK_LENSES, moveLine } = require('./ArenaPrime');
+  expect(PICK_LENSES.length).toBe(7);
+  const pts = moveLine({ chg24h: 100, chg6h: 50, chg1h: -20, chg5m: 0 });
+  expect(pts.length).toBe(5); expect(pts[0]).toBeCloseTo(0.5); expect(pts[2]).toBeCloseTo(1.25); expect(pts[4]).toBe(1);
+  expect(moveLine({ chg1h: 10 })).toBeNull(); expect(moveLine({ chg1h: 10, chg5m: 1, chg24h: -100 }).length).toBe(3);   // a −100% reading is skipped, never divided by zero
 });

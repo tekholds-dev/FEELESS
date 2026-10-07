@@ -80,7 +80,7 @@ def target(card, prices):
         px = _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
         t = out.setdefault(l['mint'], {'units': 0.0, 'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'px': px, 'role': l.get('role'), 'arena': bool(l.get('arena')), 'trench': bool(l.get('trench')), 'picked': bool(l.get('picked')),
                                        'trim': bool(l.get('trimAt')) and _f(l.get('trimAt')) > 0, 'trimAt': _f(l.get('trimAt')),
-                                       'manualCash': bool(l.get('manualCash')), 'locked': bool(l.get('ride') or l.get('frozen') or l.get('ticket') or l.get('scout'))})   # 🎟 a small ticket (scout / trench drop / young hand pick) is never topped up to a full seat
+                                       'manualCash': bool(l.get('manualCash')), 'locked': bool(l.get('ride') or l.get('frozen') or l.get('ticket') or l.get('scout') or l.get('house'))})   # 🎟 a small ticket (scout / trench drop / young hand pick) is never topped up to a full seat
         t['units'] += _f(l.get('units')) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)   # a coin whose buy hasn't landed is still WANTED
     return out
 
