@@ -1914,3 +1914,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   takes the seat of the WEAKEST runner-seat coin making ≤ `TRENCH_VICTIM_USD` $0.10 (never riding / frozen / picked / just
   bought); no such coin → it waits in the queue, retried every tick, and the 30 min run from the swap. `trenchAuto` back ON for the real card.
   The earlier evidence still stands: coins this young lost on the replay — the small ticket + its own stop is the protection.
+- 🧾 2026-10-07 night autopsy ($4.63 → $2.31): ONE hand pick ($TRALA, minutes old, $1.50 of the card incl. a $0.30 idle-cash
+  top-up 48s after the buy) was pulled 90 seconds later → the −40% floor sold everything at 02:15. Fixes: (1) 🎟 `young_ticket`
+  (`YOUNG_PICK_H` 12, `YOUNG_PICK_PCT` 15, `YOUNG_PICK_SL` 25; picks carry `ageH`): a hand pick under 12h old goes in as ≤ 15% of
+  the card with its own −25% stop, the rest back to card cash — sized, never blocked. (2) leg `ticket` (young pick, trench drop)
+  and `scout` are `locked` for the keeper's idle sweep and skipped by `spread_cash` / `balance_small`: a small ticket is never
+  topped up to a full seat. (3) `meta_only(rows, cfg, mom)`: 🗑 trench rows use `trench_entry` instead of the chart gate (a coin
+  minutes old has no chart, so EVERY trench row was dropped and the 30-min trench drop never fired once all night); a coin
+  passing the card's hunt line may sit at its highs (spike / wild / down-trend still apply). (4) Real card selection set to the
+  🚀 Runner hunt line by the owner's delegation ("fix to have better chance"): age ≥ 12h · pool ≥ $25K · 1h volume ≥ $50K ·
+  1h ≥ +40% · record gate off; the owner's exits unchanged; trench stays open for new coins as tickets
+  (`data/realcfg_before_hunt.json`). Walk-forward that day: hunt +3.7% typical per 6h window on 15m, 7 of 9 windows up — thin.

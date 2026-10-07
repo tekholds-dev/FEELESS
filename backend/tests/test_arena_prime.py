@@ -2041,3 +2041,34 @@ def test_every_empty_seat_is_filled_on_the_same_tick():
     out = ap.tick(card, {x['pairAddress']: 1.0 for x in runners}, [], runners, cfg, 100.0, [], {}, {})
     real = [l for l in out['legs'] if not l.get('placeholder')]
     assert len(real) == 4 and len({l['mint'] for l in real}) == 4 and sum(1 for e in out['events'] if e.get('kind') == 'seat') == 3
+
+
+def test_a_young_hand_pick_is_a_small_ticket_and_an_older_one_keeps_its_seat():
+    import arena_prime as ap
+    assert ap.young_ticket({'ageH': 0.4}, 4.0, 1.5) == (0.6, True)                 # 15% of a $4 card
+    assert ap.young_ticket({'ageH': 30}, 4.0, 1.5) == (1.5, False) and ap.young_ticket({}, 4.0, 1.5) == (1.5, False)   # old / age unknown: untouched
+    assert ap.young_ticket({'ageH': 0.4, 'trenchOnly': True}, 4.0, 1.5) == (1.5, False)   # a trench pick has its own ticket rule
+    mk = lambda i: {'mint': f'R{i}', 'pairAddress': f'PR{i}', 'symbol': f'R{i}', 'price': 1.0, 'liq': 500_000, 'liquidityUsd': 500_000, 'score': 90 - i, 'stars': 3}
+    runners = [mk(i) for i in range(4)]
+    cfg = ap.clean_cfg({'coins': 4, 'rotateHours': 0.25, 'rescuePct': 0, 'cycleEvery': 0, 'cycles': {t: 'off' for t in ap.DEFAULT_CYCLES}})
+    c = ap.deal('degen', [], runners, cfg, 0.0, [], shape='degen')
+    total = sum(l['units'] * l['entry'] for l in c['legs']) + c.get('cash', 0)
+    c['legs'][0]['swapTo'] = {'mint': 'NEW', 'pairAddress': 'PN', 'symbol': 'NEW', 'price': 2.0, 'liquidityUsd': 40_000, 'ageH': 0.5}
+    px = {l['pairAddress']: l['entry'] for l in c['legs']} | {'PN': 2.0}
+    cash0 = c.get('cash', 0)
+    assert ap.apply_queued(c, px, {}, 50.0) == 1
+    nl = c['legs'][0]
+    assert nl['mint'] == 'NEW' and nl['ticket'] and nl['picked'] and nl['sl'] == ap.YOUNG_PICK_SL and nl['role'] == 'runner'
+    assert abs(nl['units'] * nl['entry'] - total * 0.15) < 0.05 and c['cash'] > cash0   # the rest of the seat is back in card cash
+    assert '🎟' in c['events'][-1]['why']
+
+
+def test_meta_gate_lets_trench_rows_use_their_own_entry_and_a_hunt_coin_sit_at_its_highs():
+    import arena_prime as ap
+    tr = {'trenchOnly': True, 'pairAddress': 'T', 'chg5m': 1.0, 'chg1h': 30.0, 'buyShare': 62}             # no chart at all
+    assert ap.meta_only([tr]) == [tr] and ap.meta_only([{**tr, 'chg5m': 9.0}]) == []
+    run = {'mint': 'H', 'cBars': 12, 'cStruct': 'up', 'cPull': 1.0, 'cPos': 0.95, 'chg5m': 1.0, 'chg1h': 55.0, 'vol1h': 90_000}
+    hunt = {'runnerMinVolK': 50, 'runnerMinChg1h': 40}
+    assert ap.meta_only([run]) == [] and ap.meta_only([run], {}) == []                                      # at its highs: watched …
+    assert ap.meta_only([run], hunt) == [run]                                                               # … unless it passes the card's hunt line
+    assert ap.meta_only([{**run, 'cStruct': 'down'}], hunt) == [] and ap.meta_only([{**run, 'chg5m': 8.0}], hunt) == []   # trend + spike rules still hold

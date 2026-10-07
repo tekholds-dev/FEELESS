@@ -845,8 +845,22 @@ def meta_ready(x):
     return not (x.get('cStruct') == 'range' and x.get('cPos') is not None and _f(x.get('cPos')) < META_MIN_POS)
 
 
-def meta_only(rows):
-    return [x for x in rows or [] if meta_ready(x)]
+def meta_only(rows, cfg=None, mom=None):
+    """Rows the engine may buy by itself. Two kinds keep their OWN entry rule instead of the chart gate: 🗑 trench rows
+    (`trench_entry` — a coin minutes old has no chart to read, so the gate dropped every one and the trench drop never fired)
+    and coins passing the card's own 🚀 hunt line, for which only "at its highs" is waived (a coin up 40% on the hour on real
+    volume IS at its highs; the replay that backs the hunt had no such rule) — spike, too-wild and down-trend still apply."""
+    out = []
+    for x in rows or []:
+        if x.get('trenchOnly'):
+            ok = trench_entry(x, mom)
+        elif cfg and is_hunt(x, cfg) and at_high(x):
+            ok = meta_ready({**x, 'cPull': None})
+        else:
+            ok = meta_ready(x)
+        if ok:
+            out.append(x)
+    return out
 
 
 def is_hunt(x, cfg):
@@ -1532,6 +1546,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             nl_ = _leg(nxt, use_usd, now, 'runner')
             if _f(cfg.get('trenchSlPct')) > 0:
                 nl_['sl'] = _f(cfg.get('trenchSlPct'))
+            if pct_t > 0:
+                nl_['ticket'] = True   # 🎟 never topped up to a full seat (the sweep put $0.30 back into a fresh coin 48s after it was bought)
             c['legs'][c['legs'].index(l)] = nl_
             c['cash'] = round(_f(c.get('cash')) + (out_usd - use_usd), 6)
             c['feesUsd'] = _f(c.get('feesUsd')) + 2 * fee
@@ -1953,9 +1969,14 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
           if nxt and free_cash >= seat_min:
               c.pop('seatWaitAt', None)
               usd_s = min(free_cash, share)
+              mine_ = bool(sp_ and sp_.get('mint') == nxt.get('mint'))
+              tick_s = False
+              if mine_:
+                  usd_s, tick_s = young_ticket(sp_, share * want_n, usd_s)   # 🎟 a young hand pick is a small ticket
               c['legs'].append(_leg(nxt, usd_s, now, role_s))
               seated_any = True
-              mine_ = bool(sp_ and sp_.get('mint') == nxt.get('mint'))
+              if tick_s:
+                  c['legs'][-1].update(ticket=True, sl=YOUNG_PICK_SL)
               if mine_:
                   c['legs'][-1]['picked'] = True; c.pop('seatPick', None); seated_pick = True
                   if sp_.get('trenchOnly'):
@@ -1973,7 +1994,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         round_now = _f(c.get('lastRotateAt')) == now
         # a locked (riding / frozen) coin is never topped up: what was just banked off it must not be bought straight back
         # … and neither is a coin whose profit was just skimmed (10 min): that money is for the OTHER coins
-        targets = [l for l in c['legs'] if not l.get('placeholder') and not l.get('scout') and not l.get('ride') and not l.get('frozen') and not (l.get('trimAt') and now - _f(l.get('trimAt')) <= 600 and not (round_now and _f(l.get('trimAt')) < now))] \
+        targets = [l for l in c['legs'] if not l.get('placeholder') and not l.get('scout') and not l.get('ticket') and not l.get('ride') and not l.get('frozen') and not (l.get('trimAt') and now - _f(l.get('trimAt')) <= 600 and not (round_now and _f(l.get('trimAt')) < now))] \
             or [l for l in c['legs'] if not l.get('placeholder')]
         if targets:
             # ⚖ NO COIN GETS THE WHOLE POT. Idle cash fills the seats that are furthest under an equal share and never lifts a coin
@@ -2115,7 +2136,7 @@ def balance_small(c, prices, liqs, now, fee, ev):
     # a coin is "small" only when it WENT IN small. A coin whose profit was taken (💰 skim, 🏦 bank, ✂ cut → `skimPx` / `bankedAt` /
     # fresh `trimAt`) or that is locked / riding is small ON PURPOSE: topping it up would buy back what was just sold
     # ($1.93 was skimmed off $SpaceXSI and this rule put $1.13 of it straight back in four seconds later).
-    taken = lambda l: l.get('scout') or l.get('skimPx') or l.get('bankedAt') or l.get('ride') or l.get('frozen') or (l.get('trimAt') and now - _f(l.get('trimAt')) < 600)
+    taken = lambda l: l.get('scout') or l.get('ticket') or l.get('skimPx') or l.get('bankedAt') or l.get('ride') or l.get('frozen') or (l.get('trimAt') and now - _f(l.get('trimAt')) < 600)
     small = [l for l in legs if not taken(l) and _f(l.get('costUsd')) < SMALL_SHARE * share and val(l) < SMALL_SHARE * share]
     for l in small:
         need = share - val(l)
@@ -2404,7 +2425,7 @@ def queue_swap(card, pair, cand):
         raise ValueError('That coin is already on this card.')
     if any((x.get('swapTo') or {}).get('mint') == cand['mint'] for x in c['legs'] if x is not l):
         raise ValueError('That coin is already queued for another seat.')
-    l['swapTo'] = {k: cand.get(k) for k in ('mint', 'pairAddress', 'symbol', 'price', 'liquidityUsd', 'division', 'trenchOnly', 'ack') if cand.get(k) is not None}
+    l['swapTo'] = {k: cand.get(k) for k in ('mint', 'pairAddress', 'symbol', 'price', 'liquidityUsd', 'division', 'trenchOnly', 'ack', 'ageH') if cand.get(k) is not None}
     return c
 
 
@@ -2468,7 +2489,7 @@ def queue_seat(card, cand, more=False):
         raise ValueError('That pick has no live price right now.')
     if cand['mint'] in {x['mint'] for x in c['legs']} or any((x.get('swapTo') or {}).get('mint') == cand['mint'] for x in c['legs']):
         raise ValueError('That coin is already on this card.')
-    pick = {k: cand.get(k) for k in ('mint', 'pairAddress', 'symbol', 'price', 'liquidityUsd', 'division', 'trenchOnly', 'ack') if cand.get(k) is not None}
+    pick = {k: cand.get(k) for k in ('mint', 'pairAddress', 'symbol', 'price', 'liquidityUsd', 'division', 'trenchOnly', 'ack', 'ageH') if cand.get(k) is not None}
     cur = c.get('seatPick')
     if not cur or cur.get('mint') == pick['mint'] or not more:
         c['seatPick'] = pick                      # the first pick (or a change of it)
@@ -2498,11 +2519,31 @@ def apply_queued(c, prices, liqs, now, fee=0.0, only=None, why='🎯 your pick �
         spare = max(0.0, usd - share)
         if spare > 0.01:
             usd -= spare; c['cash'] = _f(c.get('cash')) + spare
-        c['legs'][i] = {**_leg({**to, 'price': live}, max(0.0, usd), now, 'anchor' if l.get('role') == 'anchor' else l.get('role') or 'pool'), 'picked': True}
+        usd_t, tick_ = young_ticket(to, total, usd)
+        if tick_:
+            c['cash'] = _f(c.get('cash')) + (usd - usd_t); usd = usd_t
+        c['legs'][i] = {**_leg({**to, 'price': live}, max(0.0, usd), now, 'anchor' if l.get('role') == 'anchor' and not tick_ else ('runner' if tick_ else l.get('role') or 'pool')), 'picked': True,
+                        **({'ticket': True, 'sl': YOUNG_PICK_SL} if tick_ else {})}
+        if tick_:
+            why = f"{why} · 🎟 under 12h old: a ${usd:.2f} ticket ({YOUNG_PICK_PCT:g}% of the card), stop −{YOUNG_PICK_SL:g}%, never topped up"
         c['feesUsd'] = round(_f(c.get('feesUsd')) + 2 * fee, 4)
         c.setdefault('events', []).append({'at': now, 'kind': 'rotate', 'symbol': l.get('symbol'), 'usd': round(usd, 4), 'why': why, 'to': [to.get('symbol')]})
         n += 1
     return n
+
+
+YOUNG_PICK_H, YOUNG_PICK_PCT, YOUNG_PICK_SL = 12.0, 15.0, 25.0
+
+
+def young_ticket(pick, card_usd, usd):
+    """🎟 A HAND PICK OF A YOUNG COIN IS A SMALL TICKET. A coin under 12 hours old (age known) goes in with at most 15% of the
+    card and its own −25% stop; the rest of the seat's money returns to card cash for the other coins, and the ticket is never
+    topped up. The owner may still pick anything — this only sizes it. Why: every big single loss on the real card was a hand
+    pick minutes-to-hours old ($TRALA: $1.50 of a $4.60 card, pool pulled 90 seconds later; $SpaceX −98%). → (usd in, is ticket)"""
+    age = (pick or {}).get('ageH')
+    if age is None or _f(age) >= YOUNG_PICK_H or (pick or {}).get('trenchOnly'):
+        return usd, False
+    return min(usd, max(0.0, _f(card_usd)) * YOUNG_PICK_PCT / 100), True
 
 
 PICK_NEAR_STOP = 5.0   # 🎯 a queued pick does not wait for the bell once the coin it replaces is this close (in % points) to its stop

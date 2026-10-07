@@ -1265,3 +1265,9 @@ def test_versus_splits_exits_by_who_opened_the_position():
     assert v['you'] == {'buys': 1, 'exits': 1, 'won': 0, 'usd': -0.2, 'cost': 2.0, 'pct': -10.0, 'wonPct': 0}
     assert v['engine']['exits'] == 2 and v['engine']['won'] == 2 and v['engine']['usd'] == 0.15 and v['engine']['pct'] == 7.5
     assert v['lead'] is None and v['gap'] == 17.5   # under 5 exits a side: no winner called
+
+
+def test_a_small_ticket_is_never_topped_up_by_the_idle_sweep():
+    import fuse_wallet as fw, inspect
+    src = inspect.getsource(fw)
+    assert "l.get('ticket') or l.get('scout')" in src        # target() marks tickets locked → idle_sweep / re-weigh skip them
