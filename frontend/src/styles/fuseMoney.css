@@ -554,3 +554,10 @@ body.theme-day .hrt-picklog li { background: #f3f6f4; }
 .cp-thumb { height: 48px; border-radius: 10px; border: 1px solid #15d16a44; object-fit: cover; } .cp-thumb.is-avatar { width: 48px; border-radius: 50%; } .cp-thumb.is-banner { width: 144px; }
 .cp-up { cursor: pointer; } .cp-up:focus-within { outline: 2px solid #45e486; outline-offset: 2px; }
 body.theme-day .cp-thumb { border-color: #0b7a3e44; }
+/* creator's ✏️ on a wallet profile page: the form in a centred pop-up */
+.cpe-shade { position: fixed; inset: 0; z-index: 400; display: grid; place-items: center; padding: 16px; background: #000c; animation: cpeIn .16s ease both; }
+.cpe-pop { width: min(460px, 100%); max-height: calc(100vh - 32px); overflow: auto; scrollbar-width: thin; } .cpe-pop .ff-detail { display: grid; gap: 10px; }
+.cpe-btn:disabled { opacity: .6; cursor: wait; }
+@keyframes cpeIn { from { opacity: 0; } to { opacity: 1; } }
+body.fx-lite .cpe-shade { animation: none; } @media (prefers-reduced-motion: reduce) { .cpe-shade { animation: none; } }
+body.theme-day .cpe-shade { background: #0008; }

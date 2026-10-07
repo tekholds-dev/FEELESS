@@ -1879,3 +1879,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   banner, the profile stores displayName / avatarUrl / bannerUrl, so only bio + @handle ever stuck. The form has ⬆ upload for
   picture + cover (`uploadImage`, GIFs stay animated). `upload_cap(mime, role)`: user 2 MB / 6 MB GIF · HQ admin 25 MB · the
   CREATOR's GIFs up to `OWNER_GIF_CAP` 250 MB (a memory guard, not a product limit). A signed-in upload is judged by the server only.
+- ✏️ Edit a Circle wallet's profile FROM ITS PROFILE PAGE (`components/CircleProfileEdit.jsx`: `CircleProfileForm` shared with HQ's
+  🪪 Wallet profiles, `CircleProfileEditButton` beside 🔎 Case file for an admin wallet viewing someone else's page → pop-up form).
+  The owner clicked "Profile ↗" in HQ and found no way to edit there. The server still decides (owner + own Circle wallet only).
