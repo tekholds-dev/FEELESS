@@ -56,7 +56,7 @@ export function TrenchWars() {
 export function PnlTracker({ address }) {
   const [d, setD] = useState(null);
   const [names, setNames] = useState({});
-  useEffect(() => { fetch(`/api/reputation/pnl/${address}`).then(r => r.json()).then(x => { setD(x); x.tokens.slice(0, 20).forEach(t => fetch(`https://api.dexscreener.com/latest/dex/tokens/${t.mint}`).then(r => r.json()).then(z => setNames(n => ({ ...n, [t.mint]: z.pairs?.[0]?.baseToken?.symbol || t.mint.slice(0, 4) }))).catch(() => {})); }).catch(() => {}); }, [address]);
+  useEffect(() => { fetch(`/api/reputation/pnl/${address}`).then(r => r.json()).then(x => { setD(x); x.tokens.slice(0, 20).forEach(t => fetch(`/api/market/search?q=${t.mint}`).then(r => r.json()).then(z => setNames(n => ({ ...n, [t.mint]: z.pairs?.[0]?.baseToken?.symbol || t.mint.slice(0, 4) }))).catch(() => {})); }).catch(() => {}); }, [address]);
   if (!d?.tokens) return null;
   const total = (d.tokens || []).reduce((s, t) => s + t.realizedSol, 0);
   return <section className="wp-card pnl-tracker" data-testid="pnl-tracker">

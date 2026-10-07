@@ -8,7 +8,7 @@ const sym = {};
 async function symbolOf(mint) {
   if (mint === 'So11111111111111111111111111111111111111112') return 'SOL';
   if (sym[mint]) return sym[mint];
-  sym[mint] = fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`).then(r => r.json()).then(d => d.pairs?.find(p => p.baseToken?.address === mint)?.baseToken?.symbol || shortAddress(mint)).catch(() => shortAddress(mint));
+  sym[mint] = fetch(`/api/market/search?q=${mint}`).then(r => r.json()).then(d => d.pairs?.find(p => p.baseToken?.address === mint)?.baseToken?.symbol || shortAddress(mint)).catch(() => shortAddress(mint));
   return sym[mint];
 }
 

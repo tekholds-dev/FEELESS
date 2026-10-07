@@ -28,7 +28,7 @@ const TIER_NAME = ['Trencher', 'Fee Friend ($10+)', 'Fee Insider ($100+)', 'Fee 
 async function findPair(arg) {
   const q = String(arg || '').trim().replace(/^\$/, '').replace(/^CA:/i, '');
   if (!q) throw new Error('Add a $TICKER or CA.');
-  const d = await (await fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(q)}`)).json();
+  const d = await (await fetch(`/api/market/search?q=${encodeURIComponent(q)}`)).json();
   const pairs = (d.pairs || []).filter(p => (p.baseToken?.address === q) || p.baseToken?.symbol?.toLowerCase() === q.toLowerCase());
   // Rank by real 24h volume — liquidity alone is easy to fake on junk pools.
   const best = (pairs.length ? pairs : d.pairs || []).sort((a, b) => (b.volume?.h24 || 0) - (a.volume?.h24 || 0))[0];

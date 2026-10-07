@@ -38,7 +38,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     const mint = pair?.baseToken?.address;
     if (pair?.pairCreatedAt || !mint || !pair?.chainId) return undefined;
     let alive = true;
-    fetch(`https://api.dexscreener.com/token-pairs/v1/${pair.chainId}/${mint}`).then(r => r.json())
+    fetch(`/api/market/tokens/${pair.chainId}/${mint}`).then(r => r.json())
       .then(list => { const ts = (list || []).map(x => x.pairCreatedAt).filter(Boolean); if (alive && ts.length) setCreatedAt(Math.min(...ts)); }).catch(() => {});
     return () => { alive = false; };
   }, [pair?.chainId, pair?.baseToken?.address, pair?.pairCreatedAt]);

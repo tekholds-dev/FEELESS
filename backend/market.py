@@ -676,6 +676,30 @@ def create_market_router(db, intelligence=None):
     async def graduations(mints: str = Query('', max_length=4000)):
         return await graduation_status(mints.split(','))
 
+    @router.get('/tokens/{chain}/{mints}')
+    async def tokens(chain: str, mints: str):
+        """📡 DexScreener's /tokens/v1 answer (a list of pairs) for up to 30 mints — with Jupiter standing in for every mint it can't
+        answer (Solana). The browser used to call DexScreener directly (search box, price chart, held signals, live tokens, coin
+        resolve), so its outage blanked those with no fallback. Same response shape, cached 20s."""
+        if chain not in NETWORKS:
+            raise HTTPException(400, 'Unsupported chain')
+        ids = [m for m in mints.split(',') if m and m.isalnum() and len(m) <= 64][:30]
+        if not ids:
+            return []
+        try:
+            data, _meta = await cached('DexScreener', f'/tokens/v1/{chain}/' + ','.join(ids), ttl=20)
+        except HTTPException:
+            data = []
+        out = [p for p in (data if isinstance(data, list) else []) if p]
+        have = {(p.get('baseToken') or {}).get('address') for p in out}
+        miss = [m for m in ids if m not in have]
+        if chain == 'solana' and miss:
+            async with httpx.AsyncClient(timeout=8) as http_j:
+                got = await asyncio.gather(*[jup_search_pairs(http_j, m, limit=3) for m in miss[:10]], return_exceptions=True)
+            for m, ps in zip(miss, got):
+                out += [p for p in (ps if isinstance(ps, list) else []) if (p.get('baseToken') or {}).get('address') == m][:1]
+        return out
+
     @router.get('/search', response_model=MarketResult)
     async def search(q: str = Query(min_length=1, max_length=120)):
         if not q.strip():

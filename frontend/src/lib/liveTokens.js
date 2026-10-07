@@ -16,7 +16,7 @@ export function useLiveTokenMarkets(chain, mints) {
       const stale = list.filter(m => !cache.has(m) || Date.now() - cache.get(m).at > TTL);
       for (let i = 0; i < stale.length; i += 30) {
         try {
-          const res = await fetch(`https://api.dexscreener.com/tokens/v1/${chain}/${stale.slice(i, i + 30).join(',')}`);
+          const res = await fetch(`/api/market/tokens/${chain}/${stale.slice(i, i + 30).join(',')}`);
           const pairs = res.ok ? await res.json() : [];
           const best = {};
           (Array.isArray(pairs) ? pairs : []).forEach(p => {

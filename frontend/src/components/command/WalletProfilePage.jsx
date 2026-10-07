@@ -195,7 +195,7 @@ export function WalletProfilePage({ address }) {
   const addCoin = coin => setDraft(d => (d.top8.some(t => t.pairAddress === coin.pairAddress) || d.top8.length >= 8 ? d : { ...d, top8: [...d.top8, coin] }));
   const addByCa = async () => {
     try {
-      const r = await (await fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(ca.trim())}`)).json();
+      const r = await (await fetch(`/api/market/search?q=${encodeURIComponent(ca.trim())}`)).json();
       const pr = (r.pairs || []).sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0))[0];
       if (!pr) throw new Error('No market found for that address.');
       addCoin({ chain: pr.chainId, pairAddress: pr.pairAddress, mint: pr.baseToken?.address, symbol: pr.baseToken?.symbol, imageUrl: pr.info?.imageUrl || '' });

@@ -194,7 +194,7 @@ function EcosystemChatInner({ ecosystem, room: roomProp, compact = false, onConn
     if (tm) {
       const q = tm[2].replace(/^\$/, '');
       try {
-        const r = await fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(q)}`);
+        const r = await fetch(`/api/market/search?q=${encodeURIComponent(q)}`);
         const pairs = ((await r.json()).pairs || []).filter(p => /^(0x|[1-9A-HJ-NP-Za-km-z]{32})/.test(q) ? p.baseToken?.address?.toLowerCase() === q.toLowerCase() : p.baseToken?.symbol?.toLowerCase() === q.toLowerCase());
         const best = pairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0))[0];
         if (!best) throw new Error(`No live pool found for ${tm[2]}.`);

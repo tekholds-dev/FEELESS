@@ -694,7 +694,7 @@ function PoolsPanel({ call }) {
   const [check, setCheck] = useState(''); const [found, setFound] = useState(null);
   useEffect(() => { fetch('/api/market/assets').then(r => r.json()).then(d => setMints(Object.fromEntries((d.assets || []).filter(a => a.mint).map(a => [a.id, a.mint])))).catch(() => {}); }, []);
   const mint = mints[asset];
-  useEffect(() => { if (!mint) return; fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`).then(r => r.json()).then(d => setPools((d.pairs || []).sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0)))).catch(() => {}); }, [mint]);
+  useEffect(() => { if (!mint) return; fetch(`/api/market/search?q=${mint}`).then(r => r.json()).then(d => setPools((d.pairs || []).sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0)))).catch(() => {}); }, [mint]);
   const copy = v => navigator.clipboard?.writeText(v).then(() => toast.success('Copied'));
   const verify = async () => { setFound(null); try { const d = await (await fetch(`https://api.dexscreener.com/latest/dex/pairs/solana/${check.trim()}`)).json(); setFound(d.pairs?.[0] || false); } catch { setFound(false); } };
   return <section className="cc-panel">

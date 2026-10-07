@@ -19,7 +19,7 @@ export function HeldSignals() {
   useEffect(() => {
     if (!key) return undefined;
     let alive = true;
-    const load = () => fetch(`https://api.dexscreener.com/tokens/v1/solana/${key}`).then(r => (r.ok ? r.json() : [])).then(list => {
+    const load = () => fetch(`/api/market/tokens/solana/${key}`).then(r => (r.ok ? r.json() : [])).then(list => {
       const best = {};
       (Array.isArray(list) ? list : []).forEach(p => { const m = p.baseToken?.address; if (m && (!best[m] || (p.liquidity?.usd || 0) > (best[m].liquidity?.usd || 0))) best[m] = p; });
       if (alive) setPairs(best);

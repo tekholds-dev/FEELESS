@@ -17,7 +17,8 @@ async function searchCoins(q, chainId) {
   // Official ecosystem assets always appear first, even if the viewer is currently on another network.
   const own = assets.filter(a => a.pair && ([a.id, a.label, a.pair.baseToken?.symbol, a.pair.baseToken?.name].some(v => officialTerms.has(String(v || '').toLowerCase()) || String(v || '').toLowerCase().includes(ql)))).map(a => ({ ...a.pair, info: a.pair.info || { imageUrl: a.logo }, _own: true }));
   const terms = [q, ...(ALIASES[ql] || [])].slice(0, 3);
-  const lists = await Promise.all(terms.map(t => fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(t)}`).then(r => r.json()).then(d => d.pairs || []).catch(() => [])));
+  // 📡 our own search: DexScreener first, Jupiter when DexScreener is silent (a pasted CA read "nothing found" during its outage)
+  const lists = await Promise.all(terms.map(t => fetch(`/api/market/search?q=${encodeURIComponent(t)}`).then(r => r.json()).then(d => d.pairs || []).catch(() => [])));
   return rankSearch([...own, ...lists.flat()].filter(p => p._own || !chainId || p.chainId === chainId), q);
 }
 // Most trusted first: FEELESS assets, a pasted contract, exact $SYMBOL; within each tier, real depth beats hype —
