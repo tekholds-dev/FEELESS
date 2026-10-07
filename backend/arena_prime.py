@@ -1036,6 +1036,7 @@ SKIM_TOS = ('card', 'cash', 'round')   # 'round' = parked in card cash for `skim
 SKIM_HOLDS = (1, 2, 3, 6)
 RECYCLE_PCTS = (0, 50, 70, 100)        # ♻ every `recycleEvery` rounds this % of each coin's PROFIT goes back over the card's coins (0 = off)
 RECYCLE_EVERY = (1, 2, 3, 4, 6, 12)
+TRENCH_VICTIM_USD = 0.10              # … in place of the weakest coin, which must be making no more than 10c
 TRENCH_DROP_SEC = 1800                # 🗑 a card on the trench cycle takes the best trench coin on the list every 30 minutes
 SEAT_MIN_USD = 0.25                   # an empty seat is refilled once the card has at least this much free cash
 SKIM_MIN_USD = 0.05                   # a gain smaller than this isn't worth a swap
@@ -1505,13 +1506,18 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         held_t = sum(1 for l in c['legs'] if l.get('trench'))
         # … and when the trench seat is already taken, the drop ROTATES it: a trench coin that is not winning gives its seat to the
         # best one on the list now (a winner / rider keeps the seat — nothing is dropped that tick)
-        for _ in range((max(0, trench_n(cfg) - held_t) or (1 if held_t and not first_fill else 0)) if fill_due else 0):
+        # 🗑 ONE trench coin every 30 minutes (owner: "every 30 mins it puts a trench in — it waits in queue for the weakest link, or
+        # one only profiting no more than 10c"): it takes the seat of the WEAKEST coin whose profit is ≤ TRENCH_VICTIM_USD. No such
+        # coin (every seat is winning more, riding, frozen, your pick or just bought) → the drop stays queued and is tried again
+        # every tick until one qualifies; the 30 minutes then run from that swap.
+        for _ in range((max(1, trench_n(cfg) - held_t) if first_fill else 1) if fill_due else 0):
             nxt = next((x for x in rated(runners, 'runner') if x.get('trenchOnly') and x['mint'] not in have() and _f(x.get('price')) > 0 and price_agrees(x, prices)), None)
             def gain(l):
                 px = _f(prices.get(l['pairAddress'])); return (px / _f(l['entry']) - 1) * 100 if px > 0 and _f(l.get('entry')) > 0 else 0.0
-            rot_t = sum(1 for l in c['legs'] if l.get('trench')) >= trench_n(cfg)   # rotating the trench seat itself
-            victims = [l for l in c['legs'] if l.get('role') == 'runner' and bool(l.get('trench')) == rot_t and not l.get('frozen') and not l.get('ride')
-                       and not l.get('picked') and not l.get('placeholder') and (_f(l.get('units')) > 0 or l.get('buying')) and gain(l) <= 10
+            def profit(l):
+                px = _f(prices.get(l['pairAddress'])); return _f(l.get('units')) * (px - _f(l.get('entry'))) if px > 0 else 0.0
+            victims = [l for l in c['legs'] if l.get('role') == 'runner' and not l.get('frozen') and not l.get('ride')
+                       and not l.get('picked') and not l.get('placeholder') and (_f(l.get('units')) > 0 or l.get('buying')) and profit(l) <= TRENCH_VICTIM_USD
                        and (first_fill or l.get('buying') or now - _f(l.get('at')) >= hold_s)]
             if not nxt or not victims:
                 break

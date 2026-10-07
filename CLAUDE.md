@@ -1910,6 +1910,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   comes back only after it dipped that far under its exit price AND is ≥ 3% off its low — running or not; owner picks never
   limited. Set to 15 on the real card. (4) 🗑 TRENCH DROP every 30 min (`TRENCH_DROP_SEC`): a card on the trench cycle takes the
   best coin of the WHOLE trench list — owner-filter passes, engine-scan passes, then coins missing only a crowd / age / size line
-  (`soft_only`) — no trench setting decides; SAFETY always; `trench_entry` = not falling, 5 min ≤ +3%, buyers ≥ 55%. When the
-  trench seat is taken, the drop rotates it unless that coin is winning (> +10%) / riding. `trenchAuto` back ON for the real card.
+  (`soft_only`) — no trench setting decides; SAFETY always; `trench_entry` = not falling, 5 min ≤ +3%, buyers ≥ 55%. ONE drop per 30 min: it
+  takes the seat of the WEAKEST runner-seat coin making ≤ `TRENCH_VICTIM_USD` $0.10 (never riding / frozen / picked / just
+  bought); no such coin → it waits in the queue, retried every tick, and the 30 min run from the swap. `trenchAuto` back ON for the real card.
   The earlier evidence still stands: coins this young lost on the replay — the small ticket + its own stop is the protection.

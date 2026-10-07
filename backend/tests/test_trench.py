@@ -365,24 +365,30 @@ def test_baby_meta_is_the_loosest_crowd_check_and_keeps_every_safety_check():
         assert g[k] == base[k]                                                  # anti-snipe / anti-rug: identical to every other meta
 
 
-def test_every_30_minutes_the_trench_seat_takes_the_best_coin_on_the_list_and_a_winner_keeps_it():
+def test_every_30_minutes_one_trench_coin_takes_the_weakest_seat_or_waits_until_a_coin_makes_10c_or_less():
     anchors, pools, runners = _cands()
-    cfg = ap.clean_cfg({'trenchCoins': 1, 'rotateHours': 0.25, 'minHoldMins': 10, 'cycles': {**{t: 'off' for t in ap.DEFAULT_CYCLES}, 'degen': 'trench'}, 'rescuePct': 0, 'cycleEvery': 0})
+    cfg = ap.clean_cfg({'trenchCoins': 1, 'rotateHours': 0.25, 'minHoldMins': 10, 'cycles': {**{t: 'off' for t in ap.DEFAULT_CYCLES}, 'degen': 'trench'}, 'rescuePct': 0, 'cycleEvery': 0,
+                        'rideAt': 0, 'tp': 0, 'lockBankPct': 0, 'tpStakeUsd': 0, 'skimAt': 0})
     card = ap.deal('degen', pools, [x for x in runners if not x.get('trenchOnly')], cfg, 0.0, anchors, shape='degen')
     px = {l['pairAddress']: l['entry'] for l in card['legs']}
     for x in runners:
         px.setdefault(x['pairAddress'], x['price'])
     drops = lambda c: sum(1 for e in c['events'] if 'trench drop' in (e.get('why') or ''))
     out = ap.tick(card, px, pools, runners, cfg, 30.0, anchors, {}, {})
-    first = next(l for l in out['legs'] if l.get('trench')); assert drops(out) == 1
-    mid = ap.tick(out, px, pools, runners, cfg, 30.0 + 900, anchors, {}, {})      # a round later: not yet
-    assert drops(mid) == 1 and first['mint'] in {l['mint'] for l in mid['legs']}
-    late = ap.tick(mid, px, pools, runners, cfg, 30.0 + ap.TRENCH_DROP_SEC + 5, anchors, {}, {})   # 30 min: the flat trench coin is rotated
-    nxt = next(l for l in late['legs'] if l.get('trench'))
-    assert drops(late) == 2 and nxt['mint'] != first['mint'] and sum(1 for l in late['legs'] if l.get('trench')) == 1
-    win = {**px, nxt['pairAddress']: nxt['entry'] * 1.3}                           # a trench coin that is WINNING keeps its seat
-    keep = ap.tick(late, win, pools, runners, cfg, 30.0 + 2 * ap.TRENCH_DROP_SEC + 10, anchors, {}, {})
-    assert nxt['mint'] in {l['mint'] for l in keep['legs']} and drops(keep) == 2
+    assert drops(out) == 1
+    mid = ap.tick(out, px, pools, runners, cfg, 30.0 + 900, anchors, {}, {})      # 15 min later: not yet
+    assert drops(mid) == 1
+    # 30 min: every runner seat is winning more than 10c → the drop WAITS in the queue (nothing is sold for it)
+    up = {**px, **{l['pairAddress']: l['entry'] * 1.2 for l in mid['legs'] if l.get('role') == 'runner'}}
+    t1 = 30.0 + ap.TRENCH_DROP_SEC + 5
+    wait = ap.tick(mid, up, pools, runners, cfg, t1, anchors, {}, {})
+    assert drops(wait) == 1 and all(l['units'] * (up[l['pairAddress']] - l['entry']) > ap.TRENCH_VICTIM_USD for l in wait['legs'] if l.get('role') == 'runner')
+    # … one coin slips back to +0 → it is the weakest link: the queued trench coin takes ITS seat on the next tick
+    weak = next(l for l in wait['legs'] if l.get('role') == 'runner')
+    slip = {**up, weak['pairAddress']: weak['entry']}
+    late = ap.tick(wait, slip, pools, runners, cfg, t1 + 30, anchors, {}, {})
+    assert drops(late) == 2 and weak['mint'] not in {l['mint'] for l in late['legs']} and late['trenchFillAt'] == t1 + 30
+    assert drops(ap.tick(late, slip, pools, runners, cfg, t1 + 60, anchors, {}, {})) == 2   # the next one is 30 min away
 
 
 def test_trench_smart_entry_not_falling_not_mid_spike_buyers_at_least_55():
