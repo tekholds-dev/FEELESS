@@ -216,6 +216,28 @@ def _stamp(v):
     return v if isinstance(v, dict) else {'at': _f(v)}
 
 
+REBUY_DIPS = (0, 10, 15, 20)   # 🔁 cfg `rebuyDipPct`: 0 = off
+REBUY_DIP_SEC = 86400          # … the rule watches a coin for a day after it left
+REBUY_BOUNCE = 3.0             # … and "raised" = at least 3% up off the low it made
+
+
+def dip_ready(stamp, px, dip_pct):
+    """🔁 May a coin that LEFT this card come back? Only after a real dip that is turning: its lowest price since the exit is at
+    least `dip_pct` under the exit price AND it now trades ≥ 3% above that low. No price / no low yet = no."""
+    ex, low = _f((stamp or {}).get('px')), _f((stamp or {}).get('low'))
+    return bool(ex > 0 and low > 0 and _f(px) > 0 and low <= ex * (1 - _f(dip_pct) / 100) and _f(px) >= low * (1 + REBUY_BOUNCE / 100))
+
+
+def cool_track(card, prices):
+    """Keep each cool stamp's LOW (the lowest price seen since the coin left) — `dip_ready` reads it. In place; returns the card."""
+    for v in ((card or {}).get('cool') or {}).values():
+        if isinstance(v, dict) and v.get('pair'):
+            px = _f((prices or {}).get(v['pair']))
+            if px > 0 and (not _f(v.get('low')) or px < _f(v['low'])):
+                v['low'] = px
+    return card
+
+
 def cooling(card, now, rotate_hours, prices=None, running=()):
     """Mints this card dropped recently (still cooling down), plus loss exits still under their exit price.
     Counted in ROUNDS: a coin that left in round N sits out rounds N+1..N+3 and may come back at N+4 at the earliest (a time window
@@ -231,8 +253,13 @@ def cooling(card, now, rotate_hours, prices=None, running=()):
     # 🙅 a coin the OWNER swapped out (pick / hand swap) stays out for hours, not rounds: $PENGU was picked off the card three times
     # in one afternoon and the engine brought it back each time as soon as its 3 rounds were up
     out = {m for m, at in ((card or {}).get('ownerOut') or {}).items() if now - _f(at) < (max(win, 1800.0) if m in run else OWNER_OUT_SEC)}
+    dip = _f((card or {}).get('rebuyDip'))
     for m, v in ((card or {}).get('cool') or {}).items():
         s = _stamp(v); age = now - _f(s.get('at'))
+        # 🔁 NO SAME COIN AGAIN (cfg `rebuyDipPct`, the owner's rule): a coin that left this card in the last day comes back only
+        # after a real dip that is turning (`dip_ready`) — running or not. The short "no back-to-back" rule below still applies.
+        if dip > 0 and age < REBUY_DIP_SEC and not dip_ready(s, (prices or {}).get(s.get('pair')), dip):
+            out.add(m); continue
         by_round = s.get('round') is not None and 'rounds' in (card or {}) and rnd >= int(s['round'])   # a restarted run (rounds back to 0) falls back to time
         if (rnd - int(s['round']) <= COOL_ROUNDS) if by_round else age < win:
             out.add(m)
@@ -254,7 +281,8 @@ def note_dropped(before, after, now, rotate_hours, prices=None):
     # a re-deal / re-shape builds a NEW card dict: the stamps of the card before it must come along, or every cool-down ends there
     # (Human was sold at −18% and bought back two rounds later, straight after a floor re-deal)
     cool = {m: _stamp(v) for m, v in {**((before or {}).get('cool') or {}), **(after.get('cool') or {})}.items()}
-    cool = {m: v for m, v in cool.items() if now - _f(v.get('at')) < (LOSS_COOL_SEC if v.get('loss') else keep) or (v.get('round') is not None and rnd - int(v['round']) <= COOL_ROUNDS)}
+    long_ = _f(after.get('rebuyDip')) > 0   # 🔁 the dip rule watches every coin that left for a day
+    cool = {m: v for m, v in cool.items() if now - _f(v.get('at')) < (LOSS_COOL_SEC if (v.get('loss') or long_) else keep) or (v.get('round') is not None and rnd - int(v['round']) <= COOL_ROUNDS)}
     for l in (before or {}).get('legs') or []:
         if l['mint'] in held or l.get('symbol') == 'SOL':   # anchors cool too (cbBTC was sold and re-bought 3× in 30 min by re-shapes); SOL is the card's cash
             continue
@@ -262,11 +290,24 @@ def note_dropped(before, after, now, rotate_hours, prices=None):
         # 🩸 a LOSS exit = down LOSS_COOL_PCT or more from entry. A scratch (−1%, a −5% instant swap) is noise: it only sits out
         # the 3 rounds. "Any exit under entry" locked 106 coins out of one card until they made new highs — it had nothing left to buy.
         pct_ = (px / _f(l['entry']) - 1) * 100 if _f(l.get('entry')) > 0 else 0.0
-        cool[l['mint']] = {'at': now, 'round': rnd, 'px': px, 'pair': l.get('pairAddress'), 'pct': round(pct_, 2), 'loss': bool(pct_ <= -LOSS_COOL_PCT)}
-    return {**after, 'cool': cool}
+        cool[l['mint']] = {'at': now, 'round': rnd, 'px': px, 'low': px, 'pair': l.get('pairAddress'), 'pct': round(pct_, 2), 'loss': bool(pct_ <= -LOSS_COOL_PCT)}
+    return cool_track({**after, 'cool': cool}, prices)
 
 
 ENTRY_MAX_DROP_5M, ENTRY_MAX_DROP_1H = 3.0, 8.0
+
+
+def trench_entry(row, mom=None):
+    """🗑 SMART ENTRY for a trench drop: not falling right now (`entry_ok`), not mid-spike (5 min ≤ +3% — buys made into a faster
+    candle lost 41–77% of the time on the record) and buyers at least 55% when known. No reading = that part is not judged."""
+    m = {**((mom or {}).get((row or {}).get('pairAddress')) or {}), **{k: row[k] for k in ('chg5m', 'buyShare') if (row or {}).get(k) is not None}}
+    if not entry_ok(row, mom) or (m.get('chg5m') is not None and _f(m['chg5m']) > CHASE_5M_TRENCH):
+        return False
+    bs = _f(m.get('buyShare')); bs = bs * 100 if 0 < bs <= 1 else bs
+    return not (m.get('buyShare') is not None and bs < 55)
+
+
+CHASE_5M_TRENCH = 3.0
 
 
 def entry_ok(row, mom=None):
@@ -420,6 +461,7 @@ def clean_cfg(p):
     out['pickVerify'] = bool((p or {}).get('pickVerify', True))   # ✅ a hand-picked young coin goes on a real card only once it passes every safety check
     ra_ = (p or {}).get('runnerMinAgeH')
     out['runnerMinAgeH'] = int(_f(ra_)) if ra_ is not None and int(_f(ra_)) in RUNNER_AGES else int(REAL_RUNNER_AGE_H)   # 🕐 the OWNER's youngest launch coin for real money
+    out['rebuyDipPct'] = int(_f((p or {}).get('rebuyDipPct'))) if int(_f((p or {}).get('rebuyDipPct'))) in REBUY_DIPS else 0   # 🔁 a coin that left comes back only after this dip (0 = off)
     out['scoutPct'] = int(_f((p or {}).get('scoutPct'))) if int(_f((p or {}).get('scoutPct'))) in SCOUT_PCTS else 0   # 🔭 scout ticket, % of the card (0 = off)
     out['trenchAuto'] = bool((p or {}).get('trenchAuto', True))   # 🗑 may the ENGINE seat a trench coin by itself? off = trench coins are the owner's hand picks only
     out['upMeta'] = bool((p or {}).get('upMeta', True))          # 🧭 the engine's own buys need a readable chart that is not trending down
@@ -994,6 +1036,7 @@ SKIM_TOS = ('card', 'cash', 'round')   # 'round' = parked in card cash for `skim
 SKIM_HOLDS = (1, 2, 3, 6)
 RECYCLE_PCTS = (0, 50, 70, 100)        # ♻ every `recycleEvery` rounds this % of each coin's PROFIT goes back over the card's coins (0 = off)
 RECYCLE_EVERY = (1, 2, 3, 4, 6, 12)
+TRENCH_DROP_SEC = 1800                # 🗑 a card on the trench cycle takes the best trench coin on the list every 30 minutes
 SEAT_MIN_USD = 0.25                   # an empty seat is refilled once the card has at least this much free cash
 SKIM_MIN_USD = 0.05                   # a gain smaller than this isn't worth a swap
 
@@ -1454,16 +1497,20 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         # 🔁 NO LOOP: one trench fill per round, and never on a coin bought moments ago. A trench coin that died on arrival was replaced
         # by a normal runner, which this fill sold seconds later for the next trench coin — 2 real swaps a minute, every minute.
         first_fill = c.get('trenchFillAt') is None   # a card that just switched to trench takes its coins at once; after that the loop guard applies
-        fill_due = first_fill or now - _f(c.get('trenchFillAt')) >= max(120.0, _f(cfg.get('rotateHours')) * 3600)
+        fill_due = first_fill or now - _f(c.get('trenchFillAt')) >= TRENCH_DROP_SEC   # 🗑 one trench drop every 30 min (owner's cadence; was once a round)
         cap_t = swap_cap(cfg, value(c, prices, liqs), len(c['legs']))
         if not first_fill and cap_t['cap'] and swaps_last_hour(c, now) >= cap_t['cap']:
             fill_due = False   # 🤖 the hourly cap covers trench fills too
         hold_s = max(120.0, _f(cfg.get('minHoldMins')) * 60)
-        for _ in range(max(0, trench_n(cfg) - sum(1 for l in c['legs'] if l.get('trench'))) if fill_due else 0):
+        held_t = sum(1 for l in c['legs'] if l.get('trench'))
+        # … and when the trench seat is already taken, the drop ROTATES it: a trench coin that is not winning gives its seat to the
+        # best one on the list now (a winner / rider keeps the seat — nothing is dropped that tick)
+        for _ in range((max(0, trench_n(cfg) - held_t) or (1 if held_t and not first_fill else 0)) if fill_due else 0):
             nxt = next((x for x in rated(runners, 'runner') if x.get('trenchOnly') and x['mint'] not in have() and _f(x.get('price')) > 0 and price_agrees(x, prices)), None)
             def gain(l):
                 px = _f(prices.get(l['pairAddress'])); return (px / _f(l['entry']) - 1) * 100 if px > 0 and _f(l.get('entry')) > 0 else 0.0
-            victims = [l for l in c['legs'] if l.get('role') == 'runner' and not l.get('trench') and not l.get('frozen') and not l.get('ride')
+            rot_t = sum(1 for l in c['legs'] if l.get('trench')) >= trench_n(cfg)   # rotating the trench seat itself
+            victims = [l for l in c['legs'] if l.get('role') == 'runner' and bool(l.get('trench')) == rot_t and not l.get('frozen') and not l.get('ride')
                        and not l.get('picked') and not l.get('placeholder') and (_f(l.get('units')) > 0 or l.get('buying')) and gain(l) <= 10
                        and (first_fill or l.get('buying') or now - _f(l.get('at')) >= hold_s)]
             if not nxt or not victims:
@@ -1482,7 +1529,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             c['legs'][c['legs'].index(l)] = nl_
             c['cash'] = round(_f(c.get('cash')) + (out_usd - use_usd), 6)
             c['feesUsd'] = _f(c.get('feesUsd')) + 2 * fee
-            ev(kind='rotate', symbol=l['symbol'], usd=round(use_usd, 4), why=f"🗑 trench cycle — {gain(l):+.1f}% runner swapped for a fresh trench breakout"
+            ev(kind='rotate', symbol=l['symbol'], usd=round(use_usd, 4), why=f"🗑 trench drop — {gain(l):+.1f}% {'trench coin' if l.get('trench') else 'runner'} swapped for the best trench coin on the list"
                                                                                + (f" (${use_usd:.2f} ticket = {pct_t:g}% of the card, stop −{_f(cfg.get('trenchSlPct')):g}%)" if pct_t > 0 else ''), to=[nxt.get('symbol')])
             c['trenchFillAt'] = now
 
@@ -1867,7 +1914,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
           q_ = list(c['seatQueue']); c['seatPick'] = q_.pop(0)
           if q_: c['seatQueue'] = q_
           else: c.pop('seatQueue', None)
-      seated_pick = False
+      seated_pick = False; seated_any = False
       if want_n and len(c['legs']) < want_n and not c.get('flooredAt') and not c.get('holdAll') and not c.get('rebuy'):   # 🔄 a rebuy's seat is spoken for
           _val = lambda x: (_f(x['units']) or (_f(x.get('wantUnits')) if x.get('buying') else 0.0)) * (_f(prices.get(x['pairAddress'])) or _f(x.get('entry')))
           share = (sum(_val(x) for x in c['legs']) + free_cash) / want_n
@@ -1901,6 +1948,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
               c.pop('seatWaitAt', None)
               usd_s = min(free_cash, share)
               c['legs'].append(_leg(nxt, usd_s, now, role_s))
+              seated_any = True
               mine_ = bool(sp_ and sp_.get('mint') == nxt.get('mint'))
               if mine_:
                   c['legs'][-1]['picked'] = True; c.pop('seatPick', None); seated_pick = True
@@ -1909,7 +1957,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
               c['cash'] = round(_f(c['cash']) - usd_s, 6); free_cash -= usd_s
               ev(kind='seat', symbol=nxt.get('symbol'), usd=round(usd_s, 4), why=(f"🎯 your pick ${nxt.get('symbol')} fills seat {len(c['legs'])} of {want_n} with an equal share" if mine_ else
                                                                                  f"🪑 empty seat filled — ${nxt.get('symbol')} takes seat {len(c['legs'])} of {want_n} with an equal share"), to=[nxt.get('symbol')])
-      if not (seated_pick and c.get('seatQueue')):
+      # 🪑 every empty seat is filled on this SAME tick (owner: "auto fills seats in 30 secs"; the engine used to seat one a tick)
+      if not ((seated_pick and c.get('seatQueue')) or (seated_any and want_n and len(c['legs']) < want_n)):
           break
     if cfg['compound'] and free_cash > 0.01 and c['legs']:
         waiting = [l for l in c['legs'] if l.get('buying') and not l.get('placeholder')]   # 👛 a pending real buy owns its slice first

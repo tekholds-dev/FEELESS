@@ -110,7 +110,7 @@ def test_a_card_switched_to_the_trench_cycle_takes_its_trench_coins_on_the_next_
     out = ap.tick(card, px, pools, runners, cfg, 30.0, anchors, {}, {})
     tl = [l for l in out['legs'] if l.get('trench')]
     assert 1 <= len(tl) <= 2 and any(l['mint'] == win['mint'] for l in out['legs'])
-    assert any('trench cycle' in (e.get('why') or '') for e in out['events'])
+    assert any('trench drop' in (e.get('why') or '') for e in out['events'])
     again = ap.tick(out, {**px, **{l['pairAddress']: l['entry'] for l in out['legs'] if l.get('trench')}}, pools, runners, cfg, 60.0, anchors, {}, {})
     assert len([l for l in again['legs'] if l.get('trench')]) == len(tl)                # stays put — no churn once it holds them
     off = ap.tick(card, px, pools, runners, ap.clean_cfg({**cfg, 'cycles': {t: 'off' for t in ap.DEFAULT_CYCLES}}), 30.0, anchors, {}, {})
@@ -174,7 +174,7 @@ def test_trench_fill_never_loops_one_fill_a_round_and_never_on_a_coin_just_bough
     for x in runners:
         px.setdefault(x['pairAddress'], x['price'])
     out = ap.tick(card, px, pools, runners, cfg, 30.0, anchors, {}, {})          # the first fill is immediate
-    fills = lambda c: sum(1 for e in c['events'] if 'trench cycle' in (e.get('why') or ''))
+    fills = lambda c: sum(1 for e in c['events'] if 'trench drop' in (e.get('why') or ''))
     n1 = fills(out); assert n1 >= 1 and out.get('trenchFillAt') == 30.0
     # a trench coin is replaced by a NORMAL runner (as an instant swap / stop does) seconds later …
     tl = next(l for l in out['legs'] if l.get('trench'))
@@ -193,7 +193,7 @@ def test_a_card_switched_off_trench_takes_no_trench_coin_while_it_waits_for_its_
     for x in runners:
         px.setdefault(x['pairAddress'], x['price'])
     out = ap.tick(card, px, pools, runners, mk('press'), 30.0, anchors, {}, {})       # still in its trench SHAPE, but the owner's cycle is Press now
-    assert not any(l.get('trench') for l in out['legs']) and not any('trench cycle' in (e.get('why') or '') for e in out['events'])
+    assert not any(l.get('trench') for l in out['legs']) and not any('trench drop' in (e.get('why') or '') for e in out['events'])
     on = ap.tick(card, px, pools, runners, mk('trench'), 30.0, anchors, {}, {})       # the same card with Trench still picked does fill
     assert any(l.get('trench') for l in on['legs'])
 
@@ -363,3 +363,31 @@ def test_baby_meta_is_the_loosest_crowd_check_and_keeps_every_safety_check():
     assert g['maxMcap'] == max(tr.OWN_OPTIONS['maxMcap']) and g['maxAgeH'] == 3
     for k in ('minBuyShare', 'maxTop10', 'maxInsiders', 'maxBundled', 'maxDev', 'maxTop10Jump'):
         assert g[k] == base[k]                                                  # anti-snipe / anti-rug: identical to every other meta
+
+
+def test_every_30_minutes_the_trench_seat_takes_the_best_coin_on_the_list_and_a_winner_keeps_it():
+    anchors, pools, runners = _cands()
+    cfg = ap.clean_cfg({'trenchCoins': 1, 'rotateHours': 0.25, 'minHoldMins': 10, 'cycles': {**{t: 'off' for t in ap.DEFAULT_CYCLES}, 'degen': 'trench'}, 'rescuePct': 0, 'cycleEvery': 0})
+    card = ap.deal('degen', pools, [x for x in runners if not x.get('trenchOnly')], cfg, 0.0, anchors, shape='degen')
+    px = {l['pairAddress']: l['entry'] for l in card['legs']}
+    for x in runners:
+        px.setdefault(x['pairAddress'], x['price'])
+    drops = lambda c: sum(1 for e in c['events'] if 'trench drop' in (e.get('why') or ''))
+    out = ap.tick(card, px, pools, runners, cfg, 30.0, anchors, {}, {})
+    first = next(l for l in out['legs'] if l.get('trench')); assert drops(out) == 1
+    mid = ap.tick(out, px, pools, runners, cfg, 30.0 + 900, anchors, {}, {})      # a round later: not yet
+    assert drops(mid) == 1 and first['mint'] in {l['mint'] for l in mid['legs']}
+    late = ap.tick(mid, px, pools, runners, cfg, 30.0 + ap.TRENCH_DROP_SEC + 5, anchors, {}, {})   # 30 min: the flat trench coin is rotated
+    nxt = next(l for l in late['legs'] if l.get('trench'))
+    assert drops(late) == 2 and nxt['mint'] != first['mint'] and sum(1 for l in late['legs'] if l.get('trench')) == 1
+    win = {**px, nxt['pairAddress']: nxt['entry'] * 1.3}                           # a trench coin that is WINNING keeps its seat
+    keep = ap.tick(late, win, pools, runners, cfg, 30.0 + 2 * ap.TRENCH_DROP_SEC + 10, anchors, {}, {})
+    assert nxt['mint'] in {l['mint'] for l in keep['legs']} and drops(keep) == 2
+
+
+def test_trench_smart_entry_not_falling_not_mid_spike_buyers_at_least_55():
+    ok = {'pairAddress': 'P', 'chg5m': 1.0, 'chg1h': 40.0, 'buyShare': 60}
+    assert ap.trench_entry(ok) and ap.trench_entry({'pairAddress': 'P'})            # no reading = not judged
+    assert not ap.trench_entry({**ok, 'chg5m': 6.0}) and not ap.trench_entry({**ok, 'chg5m': -4.0})
+    assert not ap.trench_entry({**ok, 'buyShare': 48}) and not ap.trench_entry({**ok, 'chg1h': -12.0})
+    assert not ap.trench_entry({'pairAddress': 'P'}, {'P': {'chg5m': 9.0}})        # the momentum feed counts when the row has none

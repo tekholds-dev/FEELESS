@@ -6213,6 +6213,8 @@ async def _prime_tick_inner(now):
         real_t = bool((cur or {}).get('real'))
         if real_t:
             cfg_t = _prime_real_cfg(d.get('prime') or {})   # 💵 the real card runs ITS OWN config — paper edits / locks / engine tunes never touch it
+        if cur is not None:   # 🔁 the card carries its own "no same coin unless it dipped" rule (arena_prime.cooling / note_dropped read it)
+            cur = {**cur, 'rebuyDip': int(cfg_t.get('rebuyDipPct') or 0)}
         # 🎯 PAPER = REAL: every tier (paper too) only rotates into coins real money could buy (pool ≥ minLiqUsd), so paper results are an
         # honest preview. ✅ Runners also need confirmation: rising over the last hour with buyers in control (≥55% buys) — no buying the top.
         def _lq(x):
@@ -6249,7 +6251,16 @@ async def _prime_tick_inner(now):
         tr_floor = _fw.clean_cfg(fw_cfg)['trenchMinLiqUsd']   # paper uses the same floor (paper = what real money could buy)
         # 🗑 `trenchAuto` off (the owner's switch): the engine is handed NO trench coin — they stay on the list for the owner's hand
         if cfg_t.get('trenchAuto', True) and not (real_t and _real_weather()['level'] == 'storm'):
-            r_t = r_t + [x for x in _trench_cache.get('rows') or [] if _lq(x) >= tr_floor * mg and x.get('mint') not in {y.get('mint') for y in r_t}]
+            # 🗑 THE TRENCH DROP reads the whole trench LIST, not the trench settings (owner: "no settings or configs — one of the
+            # best possible coins from the trench list"): coins passing the owner's filter, then the engine scan's own passes, then
+            # coins that clear every SAFETY check and miss only a crowd / age / size line. Safety is never skipped. Smart entry
+            # (`trench_entry`: not falling, not mid-spike, buyers ≥ 55%) decides WHEN; best trench score first.
+            tr_all, tr_seen = [], {y.get('mint') for y in r_t}
+            for x in (list(_trench_cache.get('rows') or []) + list(_trench_cache.get('fallback') or [])
+                      + [y for y in _trench_cache.get('checked') or [] if not y.get('ok') and _trench.soft_only(y.get('fails'))]):
+                if x.get('mint') not in tr_seen and _lq(x) >= tr_floor * mg and _prime.trench_entry(x, mom):
+                    tr_seen.add(x.get('mint')); tr_all.append({**x, 'trenchOnly': True})
+            r_t = r_t + sorted(tr_all, key=lambda x: -_fuse._f(x.get('trenchScore') or x.get('score')))
         # 🪑 coins real money couldn't buy safely (2× in 10 min) are benched 1h for EVERY tier — paper never trades what real can't
         bench = set().union(*[_fw.benched(b, now) for b in (_fw_load().get('books') or {}).values()] or [set()])
         if bench:
@@ -6275,7 +6286,8 @@ async def _prime_tick_inner(now):
             mo_t = _fw.min_order(fw_cfg, eq_t, min(want_n, fit_n) or want_n)
         if mo_t:
             cfg_t = {**cfg_t, 'minOrderUsd': mo_t}
-        stuck = set(_fw.stuck_buys(cur, now, bench, missed=book_s.get('misses'), pending_mint=(book_s.get('pending') or {}).get('toMint') or (book_s.get('pending') or {}).get('mint'))) if cur and cur.get('real') else set()
+        stuck = set(_fw.stuck_buys(cur, now, bench, missed=book_s.get('misses'), pending_mint=(book_s.get('pending') or {}).get('toMint') or (book_s.get('pending') or {}).get('mint'),
+                                     busy=bool(book_s.get('pending')) or now - max([_fuse._f(t) for t in (book_s.get('soldAt') or {}).values()] or [0.0]) < 45)) if cur and cur.get('real') else set()
         # (the stuck-buy swap runs BELOW, after every filter — see "⏳ STUCK BUYS")
         # ⏳ EVERY door obeys the card's min age on real money (pools, runners, seat refills, replacements, mover swaps): a row whose
         # age is known and under `runnerMinAgeH` is out whatever list it came from. $Grok came in 20 minutes old through a list
@@ -6419,6 +6431,8 @@ async def _prime_tick_inner(now):
             if bk and sol_px_t > 0 and not bk.get('pending'):
                 true_usd = _fw.book_value(bk, px, sol_px_t) or None
         cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, a_t, mom, liqs, true_usd=true_usd, blind=bool(real_t and true_usd is None)) if cur else _prime.deal(tid, p_t, r_t, cfg_t, now, [] if new_only_ else anchors)
+        if cards[tid] is not None:
+            cards[tid]['rebuyDip'] = int(cfg_t.get('rebuyDipPct') or 0)
         cards[tid] = _prime.note_dropped(cur, cards[tid], now, cfg_t['rotateHours'], px)
         if real_t and cur and cards[tid] and cfg_t.get('comeback', True):   # 🔁 a rider that left this tick is watched for its comeback
             cards[tid]['comeback'] = _prime.comeback_note(cur.get('comeback'), cur, cards[tid], px, now)

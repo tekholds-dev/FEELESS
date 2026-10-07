@@ -1902,3 +1902,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   picks, never their trades; never real money; "not every card" — one by default. Its own record says whether the habit wins.
 - 🎞 cover.html GIFs = a 4s loop at 15 fps (60 frames; covers 1200 × 400): the 8s / 36-frame export played at 4.5 fps and read as
   lag on the profile. `slimGif` caps at 20 fps / 96 frames so it never re-chops a smooth GIF. "LAG" ON AN IMAGE ⇒ check its fps first.
+- 🌙 OWNER'S NIGHT RULES (2026-10-07, all on the real card): (1) 🪑 EVERY empty seat is filled on the SAME tick (the engine seated
+  one a tick). (2) ⏳ `STUCK_BUY_SEC` 30: a seat whose buy has not gone out in 30s is re-picked (another coin, or cash) — but the
+  clock does NOT run while the keeper is `busy` with another order for the card (one in flight, or a sale in the last 45s): a swap
+  is sell-then-buy a tick apart and would re-pick its coin for good. (3) 🔁 NO SAME COIN AGAIN (cfg `rebuyDipPct` 0/10/15/20, Edit
+  Fuse › Coins; card `rebuyDip`; `dip_ready`, `cool_track` keeps each stamp's `low`): a coin that left the card in the last day
+  comes back only after it dipped that far under its exit price AND is ≥ 3% off its low — running or not; owner picks never
+  limited. Set to 15 on the real card. (4) 🗑 TRENCH DROP every 30 min (`TRENCH_DROP_SEC`): a card on the trench cycle takes the
+  best coin of the WHOLE trench list — owner-filter passes, engine-scan passes, then coins missing only a crowd / age / size line
+  (`soft_only`) — no trench setting decides; SAFETY always; `trench_entry` = not falling, 5 min ≤ +3%, buyers ≥ 55%. When the
+  trench seat is taken, the drop rotates it unless that coin is winning (> +10%) / riding. `trenchAuto` back ON for the real card.
+  The earlier evidence still stands: coins this young lost on the replay — the small ticket + its own stop is the protection.

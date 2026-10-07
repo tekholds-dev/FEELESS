@@ -1195,7 +1195,7 @@ def close_tx(owner, accounts, blockhash):
     return base64.b64encode(bytes(Transaction.new_unsigned(msg))).decode()
 
 
-STUCK_BUY_SEC = 120     # ⏳ a coin still 'buying' after 2 min with NO refusal on record (no order could be sent) is swapped out
+STUCK_BUY_SEC = 30      # ⏳ a coin still 'buying' after 30s with NO refusal on record (no order could be sent) is swapped out (owner: "20–30 sec fallbacks"; was 2 min)
 RETRY_SEC = 15          # … and a coin whose buy WAS refused / failed is swapped for the next best coin 15s later (owner: "15 sec, try a new one")
 MISS_LIMIT = 2          # a coin that fails the buy checks this many times …
 MISS_WINDOW = 1800      # … within 30 minutes is benched for this card (≥ 2× QUIET_SEC: a quietly re-logged skip must still add up)
@@ -1388,7 +1388,7 @@ def money_trail(rows, book, since, now, sol_px, prices=None):
             'routeRentBackUsd': route_back, 'unexplainedUsd': unexplained}
 
 
-def stuck_buys(card, now, benched_mints=(), secs=STUCK_BUY_SEC, missed=None, pending_mint=None):
+def stuck_buys(card, now, benched_mints=(), secs=STUCK_BUY_SEC, missed=None, pending_mint=None, busy=False):
     """⏳ Legs of a real card waiting on a buy that won't land → [pairAddress]. Benched coins at once · a coin whose buy was refused or
     failed (`missed` = the book's {mint: {first, …}}) `RETRY_SEC` after that miss · any other after `secs`. A coin with a transaction
     in flight (`pending_mint`) is NEVER swapped — it may still land."""
@@ -1399,7 +1399,9 @@ def stuck_buys(card, now, benched_mints=(), secs=STUCK_BUY_SEC, missed=None, pen
             continue
         since = now if l.get('buyingSince') is None else _f(l['buyingSince'])
         miss_at = _f((missed.get(m) or {}).get('last') or (missed.get(m) or {}).get('first'))
-        if m in bench or now - since >= secs or (miss_at and now - miss_at >= RETRY_SEC):
+        # `busy` = the keeper is working on another order for this card (one in flight, or a sale that just landed): this buy is only
+        # QUEUED behind it, so the 30s clock does not run — else every swap (sell, then buy a tick later) would re-pick its coin for good
+        if m in bench or (not busy and now - since >= secs) or (miss_at and now - miss_at >= RETRY_SEC):
             out.append(l['pairAddress'])
     return out
 

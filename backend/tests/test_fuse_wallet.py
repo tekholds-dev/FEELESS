@@ -793,10 +793,11 @@ def test_phantom_rent_credits_are_undone_once():
 def test_a_buy_that_never_lands_is_flagged_stuck():
     import fuse_wallet as fw
     card = {'legs': [{'mint': 'A', 'pairAddress': 'Pa', 'buying': True, 'buyingSince': 0},
-                     {'mint': 'B', 'pairAddress': 'Pb', 'buying': True, 'buyingSince': 500},
-                     {'mint': 'C', 'pairAddress': 'Pc', 'buying': True, 'buyingSince': 590},
+                     {'mint': 'B', 'pairAddress': 'Pb', 'buying': True, 'buyingSince': 590},   # 20s: under the 30s fallback
+                     {'mint': 'C', 'pairAddress': 'Pc', 'buying': True, 'buyingSince': 595},
                      {'mint': 'D', 'pairAddress': 'Pd', 'units': 3}]}
     assert fw.stuck_buys(card, 610) == ['Pa'] and fw.stuck_buys(card, 610, {'C'}) == ['Pa', 'Pc']   # benched = at once
+    assert fw.stuck_buys(card, 610, busy=True) == [] and fw.stuck_buys(card, 610, {'C'}, busy=True) == ['Pc']   # queued behind another order: the 30s clock waits
     # ⏱ a REFUSED buy is re-picked 15s after the refusal (not a tick later) — but never while its transaction is still in flight
     assert fw.stuck_buys(card, 610, missed={'B': {'first': 600, 'last': 600}}) == ['Pa']
     assert fw.stuck_buys(card, 616, missed={'B': {'first': 600, 'last': 600}}) == ['Pa', 'Pb']

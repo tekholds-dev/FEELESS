@@ -2007,3 +2007,37 @@ def test_trench_auto_is_a_real_switch_on_by_default():
     import pathlib
     src = (pathlib.Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text()
     assert "cfg_t.get('trenchAuto', True) and not (real_t" in src          # the ONLY place trench coins join the engine's candidates
+
+
+def test_a_coin_that_left_comes_back_only_after_a_real_dip_that_is_turning():
+    import arena_prime as ap
+    card = {'rounds': 20, 'rebuyDip': 15, 'cool': {'M': {'at': 0.0, 'round': 2, 'px': 1.0, 'low': 1.0, 'pair': 'P', 'pct': 2.0, 'loss': False}}}
+    cool = lambda px, c=card: 'M' in ap.cooling(ap.cool_track(c, {'P': px}), 5000.0, 0.25, {'P': px}, running={'M'})
+    assert cool(1.2)            # running higher: still the same coin — out
+    assert cool(0.9)            # −10%: not a real dip yet
+    assert cool(0.84)           # −16% and still at its low: falling, not turning
+    assert not cool(0.88)       # low 0.84 (−16%), now +4.8% off it: a dip that is turning → may come back
+    assert ap.dip_ready({'px': 1.0, 'low': 0.8}, 0.83, 20) and not ap.dip_ready({'px': 1.0, 'low': 0.86}, 0.9, 20)
+    assert not ap.dip_ready({'px': 1.0}, 0.5, 15)                                   # no low on record = no
+    off = {**card, 'rebuyDip': 0, 'cool': {'M': dict(card['cool']['M'], low=1.0)}}
+    assert 'M' not in ap.cooling(off, 5000.0, 0.25, {'P': 1.2})                     # rule off: only the short cool-down (long over)
+    # the stamp is kept for a day while the rule is on, and carries a low from the moment it is written
+    before = {'legs': [{'mint': 'M', 'pairAddress': 'P', 'symbol': 'M', 'entry': 1.0}], 'rounds': 1}
+    after = ap.note_dropped(before, {'legs': [], 'rounds': 1, 'rebuyDip': 15}, 10.0, 0.25, {'P': 1.1})
+    assert after['cool']['M']['low'] == 1.1
+    later = ap.note_dropped({'legs': []}, {**after, 'rounds': 60}, 10.0 + 6 * 3600, 0.25, {'P': 0.9})
+    assert later['cool']['M']['low'] == 0.9 and ap.clean_cfg({'rebuyDipPct': 15})['rebuyDipPct'] == 15 and ap.clean_cfg({'rebuyDipPct': 7})['rebuyDipPct'] == 0
+
+
+def test_every_empty_seat_is_filled_on_the_same_tick():
+    import arena_prime as ap
+    mk = lambda i, role='runner': {'mint': f'R{i}', 'pairAddress': f'PR{i}', 'symbol': f'R{i}', 'price': 1.0, 'liq': 500_000, 'liquidityUsd': 500_000, 'score': 90 - i, 'stars': 3, 'chg1h': 5.0}
+    runners = [mk(i) for i in range(8)]
+    cfg = ap.clean_cfg({'coins': 4, 'rotateHours': 0.25, 'rescuePct': 0, 'cycleEvery': 0, 'cycles': {t: 'off' for t in ap.DEFAULT_CYCLES}, 'lockBankPct': 0, 'tpStakeUsd': 0, 'upMeta': False})
+    card = ap.deal('degen', [], runners[:4], cfg, 0.0, [], shape='degen')
+    gone = card['legs'][1:]                                                          # three seats emptied, their money back in card cash
+    card = {**card, 'legs': card['legs'][:1], 'cash': card.get('cash', 0) + sum(l['units'] * l['entry'] for l in gone)}
+    assert len(card['legs']) == 1 and card['cash'] > 1
+    out = ap.tick(card, {x['pairAddress']: 1.0 for x in runners}, [], runners, cfg, 100.0, [], {}, {})
+    real = [l for l in out['legs'] if not l.get('placeholder')]
+    assert len(real) == 4 and len({l['mint'] for l in real}) == 4 and sum(1 for e in out['events'] if e.get('kind') == 'seat') == 3
