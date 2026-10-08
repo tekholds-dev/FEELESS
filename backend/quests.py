@@ -132,7 +132,8 @@ DAILY = [('checkin', 'Check in', 'signin', 1, 10), ('trade', 'Make a trade', 'tr
 WEEKLY = [('checkins', 'Check in 5 days', 'signin', 5, 60), ('trades', '10 trades', 'trades', 10, 80), ('volume', 'Trade $500', 'volume_usd', 500, 120),
           ('rooms', 'Chat in 3 rooms', 'chat_rooms', 3, 50), ('warroom', 'Trade from a war room', 'warroom_trade', 1, 70), ('cases', 'Open 5 case files', 'case_open', 5, 40),
           ('fuse', 'Fuse a card', 'fuse_card', 1, 60), ('battle', 'Win an Arena battle', 'battle_win', 1, 80),
-          ('backwin', 'Back 3 battle winners', 'back_win', 3, 90), ('bracket', 'Call a bracket champion', 'bracket_win', 1, 150)]
+          ('backwin', 'Back 3 battle winners', 'back_win', 3, 90), ('bracket', 'Call a bracket champion', 'bracket_win', 1, 150),
+          ('rug', 'Flag a rug wallet (evidence-checked)', 'rug_found', 1, 60)]
 
 
 def merge(defaults, overrides):

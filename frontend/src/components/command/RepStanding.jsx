@@ -90,6 +90,8 @@ function DarkSide() {
   </section>;
 }
 
+import { RugBounty } from '../RugBounty';
+
 export function RepStanding() {
-  return <div className="rep-v2"><div className="rep-top"><MyStanding /><DarkSide /></div><MemeTerms /><div className="rep-top"><RugReport /><ShieldLeaderboard /></div></div>;
+  return <div className="rep-v2"><div className="rep-top"><MyStanding /><DarkSide /></div><MemeTerms /><div className="rep-top"><RugReport /><ShieldLeaderboard /></div><RugBounty /></div>;
 }

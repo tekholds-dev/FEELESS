@@ -1,0 +1,14 @@
+/* 🪙 Rug bounty (RugBounty.jsx) — m-* tokens, transform / opacity only. */
+.rb { display: grid; gap: 8px; padding: 12px 14px; }
+.rb > header { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; } .rb > header small { opacity: .7; font: 10.5px "JetBrains Mono", monospace; }
+.rb-seg { justify-self: start; } .rb-seg button { font-size: 11px; }
+.rb-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.rb-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 5px 8px; border-left: 2px solid #ff8fc866; border-radius: 0 8px 8px 0; background: #ffffff08; font-size: 11.5px; animation: rbIn .2s ease-out both; animation-delay: calc(var(--i, 0) * 40ms); transition: background .15s; }
+.rb-list li:hover { background: #ffffff10; } .rb-coin { font: 700 11.5px "JetBrains Mono", monospace; color: #45e486; text-decoration: none; } .rb-coin:hover, .rb-coin:focus-visible { text-decoration: underline; outline: none; }
+.rb-what { opacity: .85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .rb-who { display: inline-flex; gap: 6px; } .rb-who a { color: #c9a6ff; text-decoration: none; font-weight: 600; } .rb-who a:hover { text-decoration: underline; }
+.rb-list i { font-style: normal; font: 10px "JetBrains Mono", monospace; opacity: .6; } .rb-rank { font: 700 12px "JetBrains Mono", monospace; color: #ffd36b; min-width: 14px; } .rb-pts { color: #45e486; font-size: inherit; font-style: normal; }
+.rb-empty { margin: 0; font-size: 12px; line-height: 1.5; } .rb-rule { font-size: 10.5px; line-height: 1.5; }
+@keyframes rbIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+body.fx-lite .rb-list li { animation: none; } @media (prefers-reduced-motion: reduce) { .rb-list li { animation: none; transition: none; } }
+body.theme-day .rb-list li { background: #f1faf5; border-left-color: #d96aa5; } body.theme-day .rb-coin, body.theme-day .rb-pts { color: #0b7a4a; } body.theme-day .rb-who a { color: #5a3aa8; } body.theme-day .rb-rank { color: #8a6100; }
+@media (max-width: 640px) { .rb-list li { grid-template-columns: auto minmax(0, 1fr) auto; } .rb-who { display: none; } }

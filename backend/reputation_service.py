@@ -6228,6 +6228,26 @@ async def fuses_proof():
     return await _proof_build()
 
 
+_bounty_cache = {'at': 0.0, 'data': None}
+
+
+@app.get('/api/reputation/bounty')
+async def rug_bounty():
+    """🪙 Public: the rug bounty board — recent catches (coins with the wallets FEELESS's forensics proved bundled / sniped, and who found them first) and the
+    top finders this week and all time, with the season points they earned (bounty.py). Accepted reports only; anonymous ones never rank. 60s cache."""
+    import bounty as _bo
+    now = time.time()
+    if _bounty_cache['data'] and now - _bounty_cache['at'] < 60:
+        return _bounty_cache['data']
+    b = _bo.board(_block_load()['wallets'], now)
+    profs = _profiles_load()['profiles']
+    name = lambda a: (profs.get(primary_of(a)) or {}).get('displayName') or (profs.get(primary_of(a)) or {}).get('handle') or f'{a[:4]}…{a[-4:]}'
+    out = {**b, 'recent': [{**c, 'finders': [{'address': a, 'name': name(a)} for a in c['finders']]} for c in b['recent']],
+           'week': [{**r, 'address': r['by'], 'name': name(r['by'])} for r in b['week']], 'all': [{**r, 'address': r['by'], 'name': name(r['by'])} for r in b['all']], 'at': now}
+    _bounty_cache.update(at=now, data=out)
+    return out
+
+
 _whosin_cache: dict = {}
 
 
@@ -10402,7 +10422,7 @@ async def _quest_raw(me, board=None):
             'launches': score_creator(creator)['tokenCount'] if creator else 0, 'points': int(pts.get('total') or 0),
             'signin_days': sorted(days), 'streak': max(_streak(days), int(pts.get('streak') or 0)),
             'fee_usd': await _fee_usd(me), 'fee_mints': [m for m in (await _ecosystem_mints()).values() if m], 'first_seen': st.get('first'),
-            'events': {**(st.get('events') or {}), **(fz := _fuse_quest_stats(mine))['events']}, 'fuse': fz['counts'],
+            'events': {**(st.get('events') or {}), **(fz := _fuse_quest_stats(mine))['events'], 'rug_found': __import__('bounty').find_events(_block_load()['wallets'], mine)}, 'fuse': fz['counts'],
             'alerts_set': sum(len(e.get('watch') or []) for e in _push_load()['subs'].values() if (e.get('prefs') or {}).get('address') in mine)}
 
 
