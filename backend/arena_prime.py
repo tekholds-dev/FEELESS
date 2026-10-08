@@ -942,7 +942,25 @@ def seat_fallback_ok(x, mom=None):
     not too wild, not at its highs. (Chart too short / under the hunt line are the things the fallback waives.)"""
     if not entry_ok(x, mom) or chase_why(x) or x.get('cStruct') == 'down' or at_high(x):   # 🏔 never a coin sitting at its highs: the fallback
         return False                                                                          # was filling seats with coins that had already peaked
-    return not (x.get('cWild') is not None and _f(x.get('cWild')) >= META_WILD_PCT)
+    if x.get('cWild') is not None and _f(x.get('cWild')) >= META_WILD_PCT:
+        return False
+    # EVIDENCE FLOOR (owner, 2026-10-08: "why put me in this coin"): the fallback took $Attention+ with NO 1h volume reading and buyers at exactly
+    # 50% — a coin nothing says is moving. A filler seat still needs real flow: a known 1h volume ≥ FALLBACK_MIN_VOL and buyers ≥ FALLBACK_MIN_BUY.
+    if x.get('vol1h') is None or _f(x.get('vol1h')) < FALLBACK_MIN_VOL:
+        return False
+    return x.get('buyShare') is not None and _f(x.get('buyShare')) >= FALLBACK_MIN_BUY
+
+
+FALLBACK_MIN_VOL, FALLBACK_MIN_BUY = 10_000.0, 55.0
+
+
+def thin_flow(x):
+    """A coin the engine would buy by itself whose KNOWN flow is thin: buyers under FALLBACK_MIN_BUY % or 1h volume under FALLBACK_MIN_VOL.
+    Majors, stocks, comebacks, trench rows and anchors keep their own rules. An unknown number is not judged here."""
+    if x.get('newMajor') or x.get('stock') or x.get('comeback') or x.get('trenchOnly') or x.get('anchor'):
+        return False
+    bs, v1 = x.get('buyShare'), x.get('vol1h')
+    return (bs is not None and _f(bs) < FALLBACK_MIN_BUY) or (v1 is not None and _f(v1) < FALLBACK_MIN_VOL)
 
 
 # ⏭ Coming up = THREE doors (owner, 2026-10-07: "1 top trench, pump and volume — never in the highs"): the trench's top coin always

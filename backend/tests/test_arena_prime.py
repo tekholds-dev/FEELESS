@@ -2102,9 +2102,12 @@ def test_a_seat_with_no_qualifying_coin_takes_the_next_best_one_after_30_seconds
     t3 = ap.tick(t2, px, [], held, cfg, 131.0, [], {}, {})                        # 31s: the next-best coin takes it
     assert 'R9' in {l['mint'] for l in t3['legs']} and 'seatEmptyAt' not in t3 and any('after 30s' in (e.get('why') or '') for e in t3['events'])
     # the fallback never takes a coin that is falling, mid-spike, trending down or too wild
-    ok = {'pairAddress': 'P', 'chg5m': 1.0, 'chg1h': 20.0, 'cStruct': 'range', 'cWild': 5}
+    ok = {'pairAddress': 'P', 'chg5m': 1.0, 'chg1h': 20.0, 'cStruct': 'range', 'cWild': 5, 'vol1h': 40_000, 'buyShare': 62}
     assert ap.seat_fallback_ok(ok) and not ap.seat_fallback_ok({**ok, 'chg5m': -5.0}) and not ap.seat_fallback_ok({**ok, 'chg5m': 9.0})
     assert not ap.seat_fallback_ok({**ok, 'cStruct': 'down'}) and not ap.seat_fallback_ok({**ok, 'cWild': 60})
+    # evidence floor: $Attention+ was taken with no 1h volume reading and buyers at 50% — a filler seat needs real flow
+    assert not ap.seat_fallback_ok({**ok, 'vol1h': None}) and not ap.seat_fallback_ok({**ok, 'vol1h': 4_000})
+    assert not ap.seat_fallback_ok({**ok, 'buyShare': 50}) and not ap.seat_fallback_ok({**ok, 'buyShare': None})
 
 
 def test_every_paper_card_has_its_own_pick_rule_and_no_coin_is_shared():
@@ -2164,7 +2167,7 @@ def test_take_the_initial_and_leave_the_profit_by_hand_and_automatically_for_tre
 
 def test_the_seat_fallback_never_takes_a_coin_at_its_highs_and_a_thinly_traded_big_cap_is_not_a_new_major():
     import arena_prime as ap, fuse
-    ok = {'pairAddress': 'P', 'chg5m': 1.0, 'chg1h': 20.0, 'cStruct': 'up', 'cBars': 12, 'cPull': 12.0}
+    ok = {'pairAddress': 'P', 'chg5m': 1.0, 'chg1h': 20.0, 'cStruct': 'up', 'cBars': 12, 'cPull': 12.0, 'vol1h': 40_000, 'buyShare': 62}
     assert ap.seat_fallback_ok(ok) and not ap.seat_fallback_ok({**ok, 'cPull': 1.0})        # 1% under its 4h high = it already ran
     usor = {'mcap': 19_691_360, 'volume24h': 225_446, 'liquidityUsd': 401_487, 'logo': 'x'}
     assert any('traded in 24h' in w for w in fuse.solid_major(usor))                         # 1.1% of its size a day: painted, not a major
@@ -2303,3 +2306,12 @@ def test_dips_and_bottoms_is_an_engine_door_with_its_own_record():
     assert 'bottom' in [k for k, _ in ap.CATEGORIES]
     picks, _ = ap.category_picks({'bottom': [{'mint': 'B1'}]}, lambda r: True, {'bottom': {'n': 60, 'medPct': 1.4}})
     assert [p['cat'] for p in picks] == ['bottom']
+
+
+def test_thin_flow_blocks_a_coin_the_engine_would_buy_on_50_percent_buyers():
+    import arena_prime as ap
+    assert ap.thin_flow({'buyShare': 50.0, 'vol1h': None}) is True          # $Attention+: buyers 50%, no volume reading
+    assert ap.thin_flow({'buyShare': 70.0, 'vol1h': 3_000}) is True
+    assert ap.thin_flow({'buyShare': 70.0, 'vol1h': 40_000}) is False
+    assert ap.thin_flow({'buyShare': None, 'vol1h': None}) is False           # unknown is not judged here
+    assert ap.thin_flow({'buyShare': 10.0, 'newMajor': True}) is False and ap.thin_flow({'buyShare': 10.0, 'trenchOnly': True}) is False

@@ -7149,6 +7149,10 @@ async def _prime_tick_inner(now):
                     a_ = (time.time() * 1000 - _fuse._f(x.get('createdAt'))) / 3.6e6
                 return lim > 0 and a_ is not None and _fuse._f(a_) < lim and not x.get('trenchOnly')
             p_t = [x for x in p_t if not _too_young(x)]; r_t = [x for x in r_t if not _too_young(x)]
+            # 🩺 EVIDENCE FLOOR (owner, 2026-10-08: "why put me in this coin" — $Attention+ came in as a ride-end replacement with buyers at 50% and no
+            # 1h volume reading): a coin the engine buys by itself needs buyers ≥ FALLBACK_MIN_BUY when that number is known, and 1h volume ≥ FALLBACK_MIN_VOL
+            # when THAT is known. Majors, stocks, comebacks and trench rows keep their own rules; the owner's hand picks are never judged.
+            p_t = [x for x in p_t if not _prime.thin_flow(x)]; r_t = [x for x in r_t if not _prime.thin_flow(x)]
         # 💵 dollar-named tickers are never the engine's choice (pools, runners, new majors) — see fuse_wallet.dollar_named
         p_t = [x for x in p_t if not _fw.dollar_named(x.get('symbol'))]; r_t = [x for x in r_t if not _fw.dollar_named(x.get('symbol'))]
         # ⏱ each clock gets ITS coins: fast rounds rank by what is moving now, slow rounds keep depth / score order
