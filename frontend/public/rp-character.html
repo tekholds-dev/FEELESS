@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FEELESS · RP character</title>
+<script type="importmap">{ "imports": { "three": "/assets/three/three.module.js" } }</script>
+<style>
+  :root { color-scheme: dark; --g: #15d16a; --g2: #45e486; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #030806; color: #cfe3d8; font: 13px "JetBrains Mono", ui-monospace, monospace; min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+  .wrap { width: min(520px, 100%); display: grid; gap: 12px; }
+  h1 { margin: 0; font: 800 15px "JetBrains Mono", monospace; letter-spacing: .16em; color: var(--g2); }
+  small { opacity: .65; line-height: 1.5; }
+  .stage { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid #15d16a44; background: #000; aspect-ratio: 4 / 5; touch-action: none; cursor: grab; box-shadow: 0 0 40px -14px #15d16a; }
+  .stage:active { cursor: grabbing; } canvas { display: block; width: 100%; height: 100%; }
+  .tag { position: absolute; left: 12px; top: 10px; font-size: 10px; letter-spacing: .18em; color: var(--g2); text-transform: uppercase; pointer-events: none; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .lab { font-size: 10px; letter-spacing: .16em; opacity: .7; width: 64px; }
+  .sw { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #ffffff22; cursor: pointer; padding: 0; transition: transform .15s, border-color .15s; }
+  .sw:hover, .sw:focus-visible { transform: scale(1.12); border-color: var(--g2); outline: none; } .sw.on { border-color: #fff; box-shadow: 0 0 10px var(--g); }
+  button.b { font: 700 12px "JetBrains Mono", monospace; padding: 8px 14px; border-radius: 10px; border: 1px solid #15d16a66; background: #07130d; color: var(--g2); cursor: pointer; transition: transform .15s, box-shadow .15s, background .15s; }
+  button.b:hover, button.b:focus-visible { box-shadow: 0 0 14px #15d16a66; transform: translateY(-1px); outline: none; } button.b:active { transform: translateY(1px); }
+  button.b.go { background: linear-gradient(180deg, #15d16a, #0b8f47); color: #02150b; border-color: #45e486; } button.b:disabled { opacity: .5; cursor: wait; }
+  @media (prefers-reduced-motion: reduce) { .sw, button.b { transition: none; } }
+</style></head>
+<body>
+<div class="wrap">
+  <h1>⚛ FEELESS · STREET CHARACTER</h1>
+  <div class="stage" id="stage"><span class="tag">drag to turn · low-poly · original model</span></div>
+  <div class="row"><span class="lab">HOODIE</span><span id="sw-hood" class="row"></span></div>
+  <div class="row"><span class="lab">SKIN</span><span id="sw-skin" class="row"></span></div>
+  <div class="row"><span class="lab">CAP</span><span id="sw-cap" class="row"></span></div>
+  <div class="row"><button class="b" id="spin">⏸ Spin</button><button class="b" id="png">⬇ PNG</button><button class="b go" id="gif">⬇ GIF (3s loop)</button><small id="msg"></small></div>
+  <small>Every shape is built in code from boxes and cylinders (no GTA / Rockstar / Sony assets), so the model is yours to use. Runs in any modern browser, nothing to install.</small>
+</div>
+<script type="module">
+import * as THREE from 'three';
+
+const W = 480, H = 600;
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); renderer.setSize(W, H, false);
+renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x040a07); scene.fog = new THREE.Fog(0x040a07, 7, 14);
+const cam = new THREE.PerspectiveCamera(30, W / H, 0.1, 50); cam.position.set(0, 1.35, 7.4); cam.lookAt(0, 0.95, 0);
+
+// lights: soft sky, warm key, royal-green rim from behind, pink fill
+scene.add(new THREE.HemisphereLight(0xdfeee6, 0x1a2a22, 1.5));
+const key = new THREE.DirectionalLight(0xfff3e4, 2.6); key.position.set(2.5, 4.5, 5); scene.add(key);
+const rim = new THREE.PointLight(0x15d16a, 14, 12); rim.position.set(-2.5, 2.2, -2.6); scene.add(rim);
+const fill = new THREE.PointLight(0xff5fa8, 6, 10); fill.position.set(2.6, 1.0, 2.2); scene.add(fill);
+
+// floor: dark disc + neon ring + a few city blocks far behind
+const floor = new THREE.Mesh(new THREE.CylinderGeometry(2.1, 2.1, 0.08, 48), new THREE.MeshStandardMaterial({ color: 0x0b1712, roughness: 0.35, metalness: 0.4 }));
+floor.position.y = -0.04; scene.add(floor);
+const ring = new THREE.Mesh(new THREE.TorusGeometry(2.05, 0.025, 8, 96), new THREE.MeshBasicMaterial({ color: 0x45e486 })); ring.rotation.x = Math.PI / 2; scene.add(ring);
+const city = new THREE.Group(); scene.add(city);
+for (let i = 0; i < 16; i++) {
+  const a = (i / 16) * Math.PI * 2, r = 6.5 + (i % 3) * 0.9, h = 1.6 + ((i * 7) % 5) * 0.8;
+  const b = new THREE.Mesh(new THREE.BoxGeometry(1.2, h, 1.2), new THREE.MeshStandardMaterial({ color: 0x0c1a14, roughness: 0.8 }));
+  b.position.set(Math.sin(a) * r, h / 2 - 0.1, -Math.abs(Math.cos(a)) * r - 2); city.add(b);
+  for (let k = 0; k < 4; k++) { const w = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.12), new THREE.MeshBasicMaterial({ color: (i + k) % 3 ? 0x45e486 : 0xffc857 }));
+    w.position.set(b.position.x + (k % 2 ? 0.25 : -0.25), 0.4 + k * (h / 4.5), b.position.z + 0.61); city.add(w); }
+}
+
+// ---- the character: every part is a flat-shaded primitive ----
+const mats = {
+  skin: new THREE.MeshStandardMaterial({ color: 0xc68a63, roughness: 0.8, flatShading: true }),
+  hood: new THREE.MeshStandardMaterial({ color: 0x15281f, roughness: 0.85, flatShading: true }),
+  trim: new THREE.MeshStandardMaterial({ color: 0x15d16a, roughness: 0.5, flatShading: true, emissive: 0x0a5a2e, emissiveIntensity: 0.6 }),
+  jeans: new THREE.MeshStandardMaterial({ color: 0x1d2b46, roughness: 0.9, flatShading: true }),
+  shoe: new THREE.MeshStandardMaterial({ color: 0xf2f4f3, roughness: 0.55, flatShading: true }),
+  sole: new THREE.MeshStandardMaterial({ color: 0x15d16a, roughness: 0.5, flatShading: true }),
+  cap: new THREE.MeshStandardMaterial({ color: 0x0a0d0c, roughness: 0.8, flatShading: true }),
+  lens: new THREE.MeshStandardMaterial({ color: 0x05080a, roughness: 0.15, metalness: 0.8 }),
+  gold: new THREE.MeshStandardMaterial({ color: 0xffc857, roughness: 0.25, metalness: 0.9 }),
+  screen: new THREE.MeshBasicMaterial({ color: 0x45e486 }),
+  hair: new THREE.MeshStandardMaterial({ color: 0x120b08, roughness: 0.9, flatShading: true }),
+};
+const add = (parent, geo, mat, x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); parent.add(m); return m; };
+const cyl = (rt, rb, h, seg = 8) => new THREE.CylinderGeometry(rt, rb, h, seg);
+
+const rig = new THREE.Group(); scene.add(rig);
+const body = new THREE.Group(); rig.add(body);
+
+// legs
+const legs = [];
+for (const s of [-1, 1]) {
+  const leg = new THREE.Group(); leg.position.set(s * 0.17, 0.95, 0); body.add(leg);
+  add(leg, cyl(0.13, 0.105, 0.9), mats.jeans, 0, -0.45, 0);
+  add(leg, new THREE.BoxGeometry(0.2, 0.1, 0.4), mats.shoe, 0, -0.9, 0.07);
+  add(leg, new THREE.BoxGeometry(0.21, 0.04, 0.42), mats.sole, 0, -0.96, 0.07);
+  add(leg, new THREE.BoxGeometry(0.2, 0.06, 0.1), mats.trim, 0, -0.86, 0.19);
+  legs.push(leg);
+}
+// torso (hoodie)
+const torso = new THREE.Group(); torso.position.y = 1.0; body.add(torso);
+add(torso, cyl(0.33, 0.27, 0.66, 8), mats.hood, 0, 0.33, 0, 1, 1, 0.62);
+add(torso, cyl(0.285, 0.285, 0.1, 8), mats.hood, 0, 0.0, 0, 1, 1, 0.66);            // hem
+add(torso, new THREE.BoxGeometry(0.05, 0.55, 0.02), mats.trim, 0, 0.32, 0.2);         // zip line
+add(torso, new THREE.BoxGeometry(0.2, 0.2, 0.012), mats.trim, 0.1, 0.42, 0.205);      // chest block "F"
+add(torso, new THREE.BoxGeometry(0.2, 0.05, 0.015), mats.hood, 0.1, 0.44, 0.21);
+add(torso, new THREE.BoxGeometry(0.06, 0.05, 0.015), mats.hood, 0.06, 0.37, 0.21);
+add(torso, new THREE.TorusGeometry(0.2, 0.07, 6, 8, Math.PI), mats.hood, 0, 0.7, -0.02, 1, 0.7, 0.9).rotation.x = Math.PI / 2;   // hood behind the neck
+// neck + head
+const neck = add(torso, cyl(0.09, 0.1, 0.14), mats.skin, 0, 0.72, 0);
+const head = new THREE.Group(); head.position.set(0, 0.98, 0); torso.add(head);
+add(head, new THREE.IcosahedronGeometry(0.25, 1), mats.skin, 0, 0, 0, 0.92, 1.08, 0.98);
+add(head, new THREE.BoxGeometry(0.05, 0.06, 0.06), mats.skin, 0, -0.02, 0.25);               // nose
+add(head, new THREE.BoxGeometry(0.14, 0.02, 0.02), mats.hair, 0, -0.13, 0.215);                // moustache line
+add(head, new THREE.BoxGeometry(0.2, 0.1, 0.05), mats.hair, 0, -0.2, 0.17);                    // short beard
+for (const s of [-1, 1]) add(head, new THREE.BoxGeometry(0.05, 0.1, 0.05), mats.skin, s * 0.235, -0.01, 0);   // ears
+// sunglasses
+for (const s of [-1, 1]) add(head, new THREE.BoxGeometry(0.15, 0.085, 0.03), mats.lens, s * 0.09, 0.05, 0.23);
+add(head, new THREE.BoxGeometry(0.05, 0.02, 0.03), mats.lens, 0, 0.065, 0.23);
+add(head, new THREE.BoxGeometry(0.4, 0.02, 0.03), mats.lens, 0, 0.075, 0.2, 1, 1, 0.6);
+// backwards cap
+const capMesh = add(head, new THREE.SphereGeometry(0.265, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), mats.cap, 0, 0.1, -0.01, 1, 1, 1.02);
+const brim = add(head, new THREE.BoxGeometry(0.3, 0.025, 0.17), mats.cap, 0, 0.12, -0.3);
+const capBadge = add(head, new THREE.BoxGeometry(0.1, 0.07, 0.01), mats.trim, 0, 0.26, 0.255); capBadge.rotation.x = -0.5;
+// chain
+const chain = add(torso, new THREE.TorusGeometry(0.17, 0.016, 6, 16), mats.gold, 0, 0.6, 0.06, 1, 1.15, 1); chain.rotation.x = 1.25;
+add(torso, new THREE.OctahedronGeometry(0.045), mats.gold, 0, 0.42, 0.2);
+// arms
+const arms = {};
+for (const s of [-1, 1]) {
+  const arm = new THREE.Group(); arm.position.set(s * 0.37, 0.6, 0); torso.add(arm);
+  add(arm, cyl(0.085, 0.075, 0.34), mats.hood, 0, -0.17, 0);
+  const fore = new THREE.Group(); fore.position.set(0, -0.34, 0); arm.add(fore);
+  add(fore, cyl(0.075, 0.062, 0.32), mats.hood, 0, -0.16, 0);
+  add(fore, cyl(0.078, 0.078, 0.06), mats.trim, 0, -0.3, 0);               // cuff
+  add(fore, new THREE.BoxGeometry(0.1, 0.12, 0.08), mats.skin, 0, -0.38, 0);
+  arms[s] = { arm, fore };
+}
+// left arm hangs relaxed; right arm raised, holding a glowing phone
+arms[-1].arm.rotation.z = 0.12;
+arms[1].arm.rotation.z = -0.28; arms[1].arm.rotation.x = -0.5; arms[1].fore.rotation.x = -1.35;
+const phone = add(arms[1].fore, new THREE.BoxGeometry(0.11, 0.2, 0.02), new THREE.MeshStandardMaterial({ color: 0x0a0d0c, roughness: 0.3 }), 0, -0.4, 0.07);
+add(phone, new THREE.PlaneGeometry(0.095, 0.18), mats.screen, 0, 0, 0.0115);
+const glow = new THREE.PointLight(0x45e486, 2.2, 1.6); glow.position.set(0, 0, 0.18); phone.add(glow);
+// wrist watch on the left hand
+add(arms[-1].fore, cyl(0.082, 0.082, 0.04), mats.gold, 0, -0.27, 0);
+
+// ---- designer: outfit pickers ----
+const palette = (id, list, apply) => {
+  const box = document.getElementById(id);
+  list.forEach(([name, hex], i) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'sw' + (i === 0 ? ' on' : ''); b.style.background = '#' + hex.toString(16).padStart(6, '0'); b.title = name; b.setAttribute('aria-label', name);
+    b.onclick = () => { box.querySelectorAll('.sw').forEach(x => x.classList.remove('on')); b.classList.add('on'); apply(hex); }; box.appendChild(b); });
+};
+palette('sw-hood', [['Night green', 0x15281f], ['Black', 0x121415], ['Royal green', 0x0f7a3e], ['Violet', 0x3a2468], ['Crimson', 0x7a1f2b], ['White', 0xdfe6e2]], h => mats.hood.color.setHex(h));
+palette('sw-skin', [['Tan', 0xc68a63], ['Light', 0xf0c9a8], ['Deep', 0x6b4330], ['Medium', 0x9a6a49], ['Olive', 0xb08a5a]], h => mats.skin.color.setHex(h));
+palette('sw-cap', [['Black', 0x0a0d0c], ['Green', 0x0f7a3e], ['White', 0xe8ecea], ['Gold', 0xc9962a], ['Pink', 0xd04b8a]], h => mats.cap.color.setHex(h));
+
+// ---- loop: breathing, a small head tilt and a turntable ----
+let spin = true, yaw = -0.5, drag = null, t0 = performance.now();
+const pose = t => {                       // t in seconds; everything repeats every 3s so the GIF loops cleanly
+  const u = (t / 3) * Math.PI * 2;
+  torso.position.y = 1.0 + Math.sin(u * 2) * 0.008;
+  head.rotation.y = Math.sin(u) * 0.18; head.rotation.z = Math.sin(u * 2) * 0.03;
+  arms[-1].arm.rotation.x = Math.sin(u) * 0.05;
+  arms[1].fore.rotation.x = -1.35 + Math.sin(u * 2) * 0.04;
+  legs[0].rotation.x = Math.sin(u) * 0.015; legs[1].rotation.x = -Math.sin(u) * 0.015;
+  ring.material.color.setHSL(0.4, 0.75, 0.5 + Math.sin(u * 2) * 0.06);
+};
+const draw = () => renderer.render(scene, cam);
+function frame(now) { const t = (now - t0) / 1000; pose(t % 3); if (spin && !drag) yaw += 0.012; rig.rotation.y = yaw; draw(); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+
+stage.addEventListener('pointerdown', e => { drag = { x: e.clientX, yaw }; stage.setPointerCapture(e.pointerId); });
+stage.addEventListener('pointermove', e => { if (drag) yaw = drag.yaw + (e.clientX - drag.x) * 0.012; });
+stage.addEventListener('pointerup', () => { drag = null; });
+const spinBtn = document.getElementById('spin');
+spinBtn.onclick = () => { spin = !spin; spinBtn.textContent = spin ? '⏸ Spin' : '▶ Spin'; };
+if (matchMedia('(prefers-reduced-motion: reduce)').matches) { spin = false; spinBtn.textContent = '▶ Spin'; }
+
+// ---- exports ----
+const msg = document.getElementById('msg');
+const save = (blob, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
+document.getElementById('png').onclick = () => { draw(); renderer.domElement.toBlob(b => save(b, 'feeless-rp-character.png')); };
+const gifBtn = document.getElementById('gif');
+gifBtn.onclick = async () => {
+  gifBtn.disabled = true; const wasSpin = spin; spin = false; msg.textContent = 'rendering…';
+  try {
+    const { GIFEncoder, quantize, applyPalette } = await import('/assets/gifenc.esm.js');
+    const N = 48, gw = 360, gh = 450, off = document.createElement('canvas'); off.width = gw; off.height = gh; const og = off.getContext('2d', { willReadFrequently: true });
+    const enc = GIFEncoder(), keepYaw = yaw;
+    for (let i = 0; i < N; i++) {
+      pose((i / N) * 3); rig.rotation.y = -0.5 + (i / N) * Math.PI * 2; draw();
+      og.drawImage(renderer.domElement, 0, 0, gw, gh); const { data } = og.getImageData(0, 0, gw, gh); const pal = quantize(data, 256);
+      enc.writeFrame(applyPalette(data, pal), gw, gh, { palette: pal, delay: 62 }); msg.textContent = `frame ${i + 1}/${N}`; await new Promise(r => setTimeout(r, 0));
+    }
+    enc.finish(); yaw = keepYaw; const blob = new Blob([enc.bytes()], { type: 'image/gif' }); save(blob, 'feeless-rp-character.gif'); msg.textContent = `saved · ${(blob.size / 1024).toFixed(0)} KB`; window.__gifBytes = blob.size;
+  } catch (e) { msg.textContent = 'GIF export failed: ' + (e?.message || e); } finally { spin = wasSpin; gifBtn.disabled = false; }
+};
+</script>
+</body></html>
