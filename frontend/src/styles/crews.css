@@ -1,0 +1,20 @@
+/* 🛡 Crews (Crews.jsx) — m-* tokens, transform / opacity only. */
+.crw { display: grid; gap: 12px; } .crw-mine, .crw-board { display: grid; gap: 8px; padding: 12px 14px; }
+.crw header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; } .crw header small { opacity: .7; font: 10.5px "JetBrains Mono", monospace; } .crw header .m-btn { margin-left: auto; }
+.crw-name { font: 800 15px "JetBrains Mono", monospace; color: #45e486; }
+.crw-mem, .crw-board ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.crw-mem li { display: grid; grid-template-columns: minmax(0, 1fr) 64px auto; gap: 10px; align-items: center; padding: 4px 8px; border-left: 2px solid #15d16a55; border-radius: 0 8px 8px 0; background: #ffffff08; font-size: 11.5px; }
+.crw-mem li a { color: inherit; text-decoration: none; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .crw-mem li a:hover { color: #45e486; } .crw-mem em, .crw-board em { font-style: normal; font-size: inherit; text-align: right; } .crw small { opacity: .7; }
+.crw-invite { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; } .crw-invite code { flex: 1 1 220px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 5px 9px; border-radius: 8px; background: #00000040; border: 1px solid #15d16a33; font-size: 11px; }
+.crw-room > summary { cursor: pointer; font: 700 11.5px "JetBrains Mono", monospace; list-style: none; transition: color .15s; } .crw-room > summary::-webkit-details-marker { display: none; } .crw-room > summary:hover { color: #45e486; }
+.crw-chat { height: 340px; margin-top: 8px; border-radius: 12px; overflow: hidden; border: 1px solid #15d16a33; }
+.crw-forms { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; } .crw-forms form { display: flex; flex-wrap: wrap; gap: 6px; } .crw-forms .m-input { flex: 1 1 130px; min-width: 0; } .crw-forms .crw-tag { flex: 0 0 70px; text-transform: uppercase; }
+.crw-hint { margin: 0; font-size: 12px; line-height: 1.5; }
+.crw-board li { display: grid; grid-template-columns: 22px 44px minmax(0, 1fr) auto 60px auto; gap: 10px; align-items: center; padding: 5px 8px; border-left: 2px solid #9b5cff88; border-radius: 0 8px 8px 0; background: #ffffff08; font-size: 11.5px; animation: crwIn .2s ease-out both; animation-delay: calc(var(--i, 0) * 40ms); transition: background .15s; }
+.crw-board li:hover { background: #ffffff10; } .crw-board li.is-off { opacity: .6; border-left-color: #ffffff2a; }
+.crw-rank { font: 700 12px "JetBrains Mono", monospace; color: #ffd36b; } .crw-tagc { font: 800 11px "JetBrains Mono", monospace; padding: 1px 6px; border-radius: 6px; border: 1px solid #9b5cff88; color: #c9a6ff; text-align: center; }
+.crw-rname { color: inherit; text-decoration: none; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .crw-note { white-space: nowrap; } .crw-rule { font-size: 10.5px; line-height: 1.5; }
+@keyframes crwIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+body.fx-lite .crw-board li { animation: none; } @media (prefers-reduced-motion: reduce) { .crw-board li, .crw-room > summary { animation: none; transition: none; } }
+body.theme-day .crw-mem li, body.theme-day .crw-board li { background: #f1faf5; } body.theme-day .crw-name { color: #0b7a4a; } body.theme-day .crw-tagc { color: #5a3aa8; } body.theme-day .crw-rank { color: #8a6100; } body.theme-day .crw-invite code { background: #fff; }
+@media (max-width: 640px) { .crw-board li { grid-template-columns: 18px 40px minmax(0, 1fr) 56px; } .crw-board li > small { display: none; } .crw-mem li { grid-template-columns: minmax(0, 1fr) 56px; } .crw-mem li small { display: none; } }

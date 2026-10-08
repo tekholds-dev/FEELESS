@@ -2267,6 +2267,9 @@ async def _holding_usd(owner: str, mint: str):
 
 @app.get('/api/reputation/chat/gate')
 async def chat_gate(room: str, address: Optional[str] = None):
+    _is_crew, _crew_ok = _crew_room_ok(room, address or '')
+    if _is_crew:
+        return {'gated': True, 'allowed': _crew_ok, 'symbol': 'crew', 'minUsd': 0, 'holdingUsd': None}
     eg = await evm_gate(room, address or '')
     if eg:
         return eg
@@ -2315,6 +2318,9 @@ async def chat_post(payload: ChatPost):
     elif not _verify_wallet(payload.address, _chat_message_to_sign(payload.room, payload.address, payload.ts, text), payload.signature):
         raise HTTPException(401, 'Signature does not match this wallet.')
     is_admin = primary_of(payload.address) in {primary_of(w) for w in _admin_wallets()}  # admins post anywhere, unthrottled
+    _is_crew, _crew_ok = _crew_room_ok(payload.room, payload.address)
+    if _is_crew and not _crew_ok and not is_admin:
+        raise HTTPException(403, 'Only crew members can post in a crew room.')
     if payload.room == 'feeless-updates' and not is_admin:
         raise HTTPException(403, 'Updates is read-only — only FEELESS admins post here.')
     if not is_admin and payload.room in _ALPHA and not await _alpha_allowed(payload.room, payload.address):
@@ -6226,6 +6232,140 @@ async def fuses_proof():
     """🧾 Public: what the real-money cards did (confirmed swaps + the engine's reason + tx), their verified records, the setups
     side by side and the live 24h duels. Read-only; a losing record reads as a losing record."""
     return await _proof_build()
+
+
+# ---- 🛡 Crews (crews.py): 2–8 wallets, an invite code, a members-only-post room, a weekly board of verified results ------------------------------
+CREWS_PATH = FUSE_HQ_PATH.parent / 'crews.json'
+_crews_lock = asyncio.Lock()
+_crew_cache = {'at': 0.0, 'data': None}
+
+
+def _crew_pieces(members, now):
+    """Closed track-record pieces (verified FEELESS trades, price result) per member wallet, last 7 days."""
+    import track_record as _tr
+    trades = _json_load(FEELESS_TRADES_PATH, {}); out = {}
+    for m in members:
+        rows = [x for w in (set(linked_of(m)) | {m}) for x in (trades.get(w) or [])]
+        out[m] = [p for p in _tr.trade_receipts(rows)[0] if now - p['at'] <= 7 * 86400]
+    return out
+
+
+def _crew_name(a):
+    pr = _profiles_load()['profiles'].get(primary_of(a)) or {}
+    return pr.get('displayName') or pr.get('handle') or f'{a[:4]}…{a[-4:]}'
+
+
+def _crew_view(c, pieces, with_code=False):
+    import crews as _cr
+    mem = [{'address': m, 'name': _crew_name(m), 'owner': m == c['owner'], **_cr.stats(pieces.get(m, []))} for m in c['members']]
+    return {'id': c['id'], 'name': c['name'], 'tag': c['tag'], 'room': f"crew-{c['id']}", 'members': mem, 'max': _cr.MAX_MEMBERS, 'created': c.get('created'),
+            **({'code': c['code']} if with_code else {})}
+
+
+@app.get('/api/reputation/crews')
+async def crews_board():
+    """🛡 Public: the weekly crew board — crews ranked by their members' VERIFIED FEELESS trade results over 7 days (needs ≥ 2 members and ≥ 5 closed trades to rank). 60s cache."""
+    import crews as _cr
+    now = time.time()
+    if _crew_cache['data'] and now - _crew_cache['at'] < 60:
+        return _crew_cache['data']
+    st = _json_load(CREWS_PATH, {})
+    members = [m for c in (st.get('crews') or {}).values() for m in c['members']]
+    out = {'board': _cr.board(st, _crew_pieces(members, now), now)[:40], 'total': len(st.get('crews') or {}), 'rule': f'Ranked by what members\' verified FEELESS trades did in the last 7 days (price result, fees apart). A crew ranks with ≥ {_cr.MIN_MEMBERS} members and ≥ {_cr.MIN_TRADES} closed trades. Everyone signs their own trades — a crew shares no money.', 'at': now}
+    _crew_cache.update(at=now, data=out)
+    return out
+
+
+@app.get('/api/reputation/crews/mine')
+async def crew_mine(address: str, session: str):
+    """My crew with its members' week and the invite code (members only — needs the chat session)."""
+    me = _session_or_401(address, session); st = _json_load(CREWS_PATH, {})
+    import crews as _cr
+    c = _cr.crew_of(st, me)
+    return {'crew': _crew_view(c, _crew_pieces(c['members'], time.time()), with_code=True) if c else None}
+
+
+@app.get('/api/reputation/crews/{cid}')
+async def crew_public(cid: str):
+    st = _json_load(CREWS_PATH, {}); c = (st.get('crews') or {}).get(cid)
+    if not c:
+        raise HTTPException(404, 'No such crew.')
+    return {'crew': _crew_view(c, _crew_pieces(c['members'], time.time()))}
+
+
+class CrewCreate(BaseModel):
+    address: str
+    session: str
+    name: str = Field(..., max_length=40)
+    tag: str = Field(..., max_length=8)
+
+
+class CrewJoin(BaseModel):
+    address: str
+    session: str
+    code: str = Field(..., max_length=32)
+
+
+class CrewWho(BaseModel):
+    address: str
+    session: str
+
+
+@app.post('/api/reputation/crews/create')
+async def crew_create(p: CrewCreate):
+    import crews as _cr
+    me = _session_or_401(p.address, p.session)
+    if _is_blocked(_block_load()['wallets'].get(me)):
+        raise HTTPException(403, 'This wallet cannot start a crew.')
+    async with _crews_lock:
+        st = _json_load(CREWS_PATH, {})
+        try:
+            c = _cr.create(st, me, p.name, p.tag, time.time())
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        _json_save(CREWS_PATH, st)
+    _crew_cache['data'] = None
+    return {'crew': _crew_view(c, {}, with_code=True)}
+
+
+@app.post('/api/reputation/crews/join')
+async def crew_join(p: CrewJoin):
+    import crews as _cr
+    me = _session_or_401(p.address, p.session)
+    if _is_blocked(_block_load()['wallets'].get(me)):
+        raise HTTPException(403, 'This wallet cannot join a crew.')
+    async with _crews_lock:
+        st = _json_load(CREWS_PATH, {})
+        try:
+            c = _cr.join(st, me, p.code)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        _json_save(CREWS_PATH, st)
+    _crew_cache['data'] = None
+    return {'crew': _crew_view(c, _crew_pieces(c['members'], time.time()), with_code=True)}
+
+
+@app.post('/api/reputation/crews/leave')
+async def crew_leave(p: CrewWho):
+    import crews as _cr
+    me = _session_or_401(p.address, p.session)
+    async with _crews_lock:
+        st = _json_load(CREWS_PATH, {})
+        try:
+            _cr.leave(st, me)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        _json_save(CREWS_PATH, st)
+    _crew_cache['data'] = None
+    return {'ok': True}
+
+
+def _crew_room_ok(room, address):
+    """crew-<id> rooms: only members post (anyone may read — crew rooms are public to read). → (is_crew_room, allowed)."""
+    if not str(room).startswith('crew-'):
+        return False, True
+    c = (_json_load(CREWS_PATH, {}).get('crews') or {}).get(room[5:])
+    return True, bool(c and primary_of(address) in {primary_of(m) for m in c['members']})
 
 
 # ---- ⚡ Free hourly call (predict.py): the engine's doors put a coin each on a ballot; pick the one that leads the next hour; points only --------
