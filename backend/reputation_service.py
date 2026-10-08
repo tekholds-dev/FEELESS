@@ -958,6 +958,9 @@ async def token_intel(chain: str, mint: str):
         out['topHolders'] = rows[:12]
         out['top10Pct'] = round(sum(r['pct'] or 0 for r in wallets[:10]), 2) if supply else None
         out['poolPct'] = round(sum(r['pct'] or 0 for r in rows if r['kind'] == 'program'), 2) if supply else None
+        if not holders:   # 🩺 NO HOLDER READING IS NOT "0% HELD": a refused / empty getTokenLargestAccounts used to be cached as top-10 = 0% (a clean-looking scan)
+            out['top10Pct'] = None   # for the whole TTL — running coins read 'scanned, top-10 0' and the board called them unscanned. None = incomplete → retried in 60s
+            out['poolPct'] = None
 
         # 🧬 LAUNCH FACTS NEVER CHANGE. Who created the coin and who bought in its first slots is read ONCE per coin
         # (`_launch_facts`, kept on disk); every later scan re-reads only the holders (4 calls instead of ~60). The full scan every

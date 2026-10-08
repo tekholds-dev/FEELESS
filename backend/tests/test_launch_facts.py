@@ -36,3 +36,27 @@ def test_launch_forensics_are_read_once_and_later_scans_only_read_holders(monkey
     assert 'getSignaturesForAddress' not in calls and 'getTransaction' not in calls                              # … no launch re-read
     assert 'getTokenAccountsByOwner' not in calls                                                                # flagged balances reused (15 min)
     rs._launch_facts.pop(mint, None); rs._intel_cache.pop(mint, None); rs._flag_hold.pop(mint, None)
+
+
+def test_an_empty_holder_reading_is_incomplete_not_zero_percent(monkeypatch):
+    rs = pytest.importorskip('reputation_service')
+
+    async def fake_rpc(http, method, params, scan=True):
+        if method == 'getTokenSupply':
+            return {'value': {'uiAmount': 1_000_000_000.0}}
+        if method == 'getTokenLargestAccounts':
+            return {'value': []}          # a node that refuses the holder lookup
+        if method == 'getSignaturesForAddress':
+            return []
+        return {'value': []}
+
+    async def none(*a, **k):
+        return None
+    monkeypatch.setattr(rs, '_rpc', fake_rpc)
+    monkeypatch.setattr(rs, '_record_offenders', none)
+    monkeypatch.setattr(rs, 'funder_lookup', lambda w: None)
+    mint = 'EmptyHoldersTestMint11111111111111111111pump'
+    rs._launch_facts.pop(mint, None); rs._intel_cache.pop(mint, None)
+    out = asyncio.run(rs.token_intel('solana', mint))
+    assert out['top10Pct'] is None and out['poolPct'] is None      # → the retry-after-60s path, never a clean 0%
+    rs._launch_facts.pop(mint, None); rs._intel_cache.pop(mint, None)
