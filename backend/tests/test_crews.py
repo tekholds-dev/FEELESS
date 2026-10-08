@@ -13,9 +13,9 @@ def test_create_join_leave_with_one_crew_each_and_a_member_cap():
     assert c['members'] == ['A', 'B']
     with pytest.raises(ValueError): cr.join(st, 'B', c['code'])                        # already in
     with pytest.raises(ValueError): cr.join(st, 'Z', 'nope')                           # unknown code
-    for w in 'CDEFGH': cr.join(st, w, c['code'])
-    assert len(c['members']) == 8
-    with pytest.raises(ValueError): cr.join(st, 'I', c['code'])                        # full
+    for w in 'CDE': cr.join(st, w, c['code'])
+    assert len(c['members']) == 5 and c['seats'] == 5                                    # $25 buys 5 seats including the owner
+    with pytest.raises(ValueError): cr.join(st, 'F', c['code'])                        # full
     cr.leave(st, 'A')                                                                   # the owner leaves → the longest-standing member leads
     assert c['owner'] == 'B' and 'A' not in st['by']
     with pytest.raises(ValueError): cr.leave(st, 'A')
@@ -48,3 +48,26 @@ def test_the_board_ranks_on_verified_weekly_results_and_leaves_thin_crews_unrank
     assert [r['name'] for r in rows] == ['Bravo', 'Alpha', 'Solo']
     assert rows[0]['pct'] == 15.0 and rows[0]['ranked'] and rows[1]['pct'] == 2.5 and rows[2]['ranked'] is False
     assert rows[0]['active'] == 2 and rows[0]['wonPct'] == 100
+
+
+def test_a_crew_costs_25_with_5_seats_and_each_5_more_seats_cost_5_never_reusing_a_payment():
+    assert cr.price('create') == 25.0 and cr.price('seats') == 5.0 and cr.price('create', {'createUsd': 30}) == 30.0
+    st = {}
+    c = cr.create(st, 'A', 'Paid Crew', 'PC', 1, paid={'sig': 'S1', 'usd': 25.0, 'at': 1, 'kind': 'create'})
+    assert c['seats'] == 5 and c['paid'][0]['usd'] == 25.0 and cr.sig_used(st, 'S1') and not cr.sig_used(st, 'S2')
+    for w in 'BCDE': cr.join(st, w, c['code'])
+    with pytest.raises(ValueError) as e: cr.join(st, 'F', c['code'])
+    assert '$5' in str(e.value)                                                         # the refusal says what adding seats costs
+    with pytest.raises(ValueError): cr.add_seats(st, 'B', {'sig': 'X', 'usd': 5, 'at': 2})   # only the owner buys seats
+    cr.add_seats(st, 'A', {'sig': 'S2', 'usd': 5.0, 'at': 2, 'kind': 'seats'})
+    assert c['seats'] == 10 and cr.sig_used(st, 'S2') and len(c['paid']) == 2
+    cr.join(st, 'F', c['code'])                                                         # the 6th member fits now
+    assert [r['seats'] for r in cr.board(st, {}, 10)] == [10]
+
+
+def test_check_new_refuses_before_anyone_pays():
+    st = {}
+    cr.create(st, 'A', 'Taken', 'TK', 1)
+    for owner, name, tag in (('A', 'Other', 'OT'), ('B', 'taken', 'XX'), ('B', 'Fresh', 'tk'), ('B', 'x', 'ZZ')):
+        with pytest.raises(ValueError): cr.check_new(st, owner, name, tag)
+    assert cr.check_new(st, 'B', ' Fresh  Crew ', 'fc') == ('Fresh Crew', 'FC')

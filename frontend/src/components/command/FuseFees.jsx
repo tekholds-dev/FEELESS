@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import NumInput from '../NumInput';
 import { toast } from 'sonner';
-import { BundlePricing, RoundsPricing } from './FuseAdminSettings';
+import { BundlePricing, RoundsPricing, CrewsPricing } from './FuseAdminSettings';
 import { usd, txUrl } from '../FuseMoney';
 import '../../styles/fuseMoney.css';
 
@@ -49,6 +49,7 @@ export function FuseFees({ call }) {
     <BundlePricing call={call} initial={d.bundle} swapBps={d.swapBps} />
     <RoundsPricing call={call} initial={d.rounds} />
     <PrepayPricing call={call} initial={d.prepay} />
+    <CrewsPricing call={call} initial={d.crews} />
     <div className="m-card fw"><span className="m-label">📒 EVERY FEE PAID · TAP A TYPE, THEN A ROW</span>
       <div className="ff-kinds" role="tablist">{[['all', '∑ All', 'Every Fuse fee'], ...KINDS].map(([k, l, tip]) => { const t = k === 'all' ? { n: (d.rows || []).length, usd: d.allUsd } : (d.totals || {})[k] || { n: 0, usd: 0 };
         return <button key={k} type="button" role="tab" aria-selected={kind === k} className={`ff-kind ${kind === k ? 'active' : ''}`} data-tip={tip} onClick={() => { setKind(k); setRow(null); }} data-testid={`ff-${k}`}>

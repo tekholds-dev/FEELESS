@@ -86,6 +86,24 @@ export function RoundsPricing({ call, initial }) {
     <button type="button" className="btn-primary" onClick={save} data-testid="rounds-save">Save card rounds</button></div>;
 }
 
+// Core › Fees › 🛡 Crews: what starting a crew costs (5 seats including its owner) and what each +5 seats cost. Paid in SOL to the fee wallet, verified on-chain;
+// the revenue line + last payments read the crew records, each linking to its transaction.
+export const crewCost = (seats, c) => (Number(c.createUsd) || 0) + (Number(c.packUsd) || 0) * Math.ceil(Math.max(0, seats - 5) / 5);
+export function CrewsPricing({ call, initial }) {
+  const [c, setC] = useState(initial || { createUsd: 25, packUsd: 5 }); const [rev, setRev] = useState(null);
+  useEffect(() => { if (initial) setC(initial); }, [initial]);
+  useEffect(() => { let alive = true; call('/admin/crews/revenue').then(x => alive && setRev(x)).catch(() => {}); return () => { alive = false; }; }, [call]);
+  const save = async () => { try { setC((await call('/admin/fees/crews', { method: 'POST', body: JSON.stringify(c) })).crews); toast.success('Crew pricing saved.'); } catch (e) { toast.error(e.message); } };
+  return <div className="cc-block fee-bundle" data-testid="crews-pricing"><h4>9 · 🛡 Crews (paid in SOL to the fee wallet)</h4>
+    <small className="cc-empty">A crew starts with <b>5 seats including its owner</b>; the owner adds <b>+5 seats</b> any time. Each is one SOL transfer the buyer signs to your fee wallet, re-read on-chain and never reused. Staff wallets are free. Joining by invite is free.</small>
+    <div className="cc-mini-grid">
+      <label data-tip="What starting a crew costs in $, paid in SOL at that moment's price (5 seats incl. the owner)">$ to start a crew<NumInput type="number" step="1" min="0" max="500" value={c.createUsd} onChange={e => setC({ ...c, createUsd: Number(e.target.value) })} data-testid="crews-create" /></label>
+      <label data-tip="What +5 seats cost the crew owner, in $">$ per +5 seats<NumInput type="number" step="1" min="0" max="500" value={c.packUsd} onChange={e => setC({ ...c, packUsd: Number(e.target.value) })} data-testid="crews-pack" /></label></div>
+    <ul className="bundle-ex">{[5, 10, 15, 25].map(n => <li key={n}><b>{n} seats</b><span className="m-num">${crewCost(n, c).toFixed(2)}</span><small>{n === 5 ? 'to start' : `+${(n - 5) / 5} pack${n > 10 ? 's' : ''}`}</small></li>)}</ul>
+    {rev && <small className="cc-empty" data-testid="crews-revenue">Paid so far: <b>${rev.totalUsd.toFixed(2)}</b> from {rev.payments} payment{rev.payments === 1 ? '' : 's'} · {rev.crews} crew{rev.crews === 1 ? '' : 's'}.{(rev.recent || []).filter(r => r.sig).slice(0, 3).map(r => <a key={r.sig} href={`https://solscan.io/tx/${r.sig}`} target="_blank" rel="noopener noreferrer"> [{r.tag}] ${r.usd} ↗</a>)}</small>}
+    <button type="button" className="btn-primary" onClick={save} data-testid="crews-save">Save crew pricing</button></div>;
+}
+
 // HQ › Fuse › Card rules: what traders can pick (auto-profit levels, counted after fees from their confirmed buy),
 // the swap-mode trigger, the Arena top tier, and Fuse Fee-Back (share of fees paid on a card, unlocked by holding it;
 // loyalty + Arena bonuses; cap). The book shows earned / paid / owed per wallet; "Paid" records a payout you sent.

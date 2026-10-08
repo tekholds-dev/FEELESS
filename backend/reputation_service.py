@@ -6255,11 +6255,60 @@ def _crew_name(a):
     return pr.get('displayName') or pr.get('handle') or f'{a[:4]}…{a[-4:]}'
 
 
+def _crew_cfg():
+    return (_fee_cfg().get('crews') or {})
+
+
 def _crew_view(c, pieces, with_code=False):
     import crews as _cr
     mem = [{'address': m, 'name': _crew_name(m), 'owner': m == c['owner'], **_cr.stats(pieces.get(m, []))} for m in c['members']]
-    return {'id': c['id'], 'name': c['name'], 'tag': c['tag'], 'room': f"crew-{c['id']}", 'members': mem, 'max': _cr.MAX_MEMBERS, 'created': c.get('created'),
-            **({'code': c['code']} if with_code else {})}
+    return {'id': c['id'], 'name': c['name'], 'tag': c['tag'], 'room': f"crew-{c['id']}", 'members': mem, 'seats': c.get('seats', _cr.BASE_SEATS), 'created': c.get('created'),
+            'packUsd': _cr.price('seats', _crew_cfg()), 'packSeats': _cr.PACK_SEATS, **({'code': c['code']} if with_code else {})}
+
+
+async def _verify_sol_payment(sig, mine, min_usd, st):
+    """💳 A SOL transfer one of `mine` signed to the fee wallet, confirmed on-chain, worth ≥ 97% of `min_usd` (SOL re-priced now) and never used before
+    (crews and card rounds share the used-signature rule). → {sig, usd, lamports}; raises HTTPException."""
+    import crews as _cr
+    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', sig or ''):
+        raise HTTPException(400, 'Send the payment first — no signature yet.')
+    if _cr.sig_used(st, sig) or sig in (_json_load(FUSE_HQ_PATH, {}).get('roundSigs') or []):
+        raise HTTPException(409, 'That payment was already used.')
+    to = await _rounds_pay_to()
+    if not to:
+        raise HTTPException(503, 'Fee wallet not set — crews cannot be paid for right now.')
+    tx = None
+    async with httpx.AsyncClient(timeout=20) as http:
+        for _ in range(5):
+            tx = await _rpc(http, 'getTransaction', [sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+            if tx:
+                break
+            await asyncio.sleep(2)
+    lam = max((_hq.paid_lamports(tx, w, to) for w in mine), default=0)
+    usd = lam / 1e9 * (await _sol_usd_live() or 0)
+    if usd <= 0:
+        raise HTTPException(400, 'No confirmed SOL payment from your wallet to the fee wallet in that transaction.')
+    if usd < min_usd * 0.97:
+        raise HTTPException(400, f'That payment was ${usd:.2f} — this needs ${min_usd:.2f}. It is kept: add the difference and send again, or ask for a refund.')
+    return {'sig': sig, 'usd': round(usd, 2), 'lamports': lam, 'at': time.time()}
+
+
+@app.get('/api/reputation/crews/price')
+async def crew_price(address: str = '', name: str = '', tag: str = ''):
+    """💳 What a crew costs, in SOL right now, and where it is paid; with `name` + `tag` it also says whether they are free (checked BEFORE you pay)."""
+    import crews as _cr
+    cfg = _crew_cfg(); sol = await _sol_usd_live() or 0; to = await _rounds_pay_to()
+    me = primary_of(address) if address else ''
+    free = bool(me and _is_staff(me))
+    cu, pu = _cr.price('create', cfg), _cr.price('seats', cfg)
+    out = {'payTo': to, 'solUsd': round(sol, 2), 'free': free, 'baseSeats': _cr.BASE_SEATS, 'packSeats': _cr.PACK_SEATS,
+           'create': {'usd': cu, 'sol': round(cu / sol, 6) if sol > 0 else None}, 'seats': {'usd': pu, 'sol': round(pu / sol, 6) if sol > 0 else None}, 'ok': True, 'why': ''}
+    if name or tag:
+        try:
+            _cr.check_new(_json_load(CREWS_PATH, {}), me, name, tag)
+        except ValueError as e:
+            out.update(ok=False, why=str(e))
+    return out
 
 
 @app.get('/api/reputation/crews')
@@ -6285,6 +6334,44 @@ async def crew_mine(address: str, session: str):
     return {'crew': _crew_view(c, _crew_pieces(c['members'], time.time()), with_code=True) if c else None}
 
 
+@app.get('/api/reputation/crews/of/{address}')
+async def crew_of_wallet(address: str):
+    """🛡 Public: the crew a wallet is in (tag + name) — for the chip beside names. Nothing else."""
+    import crews as _cr
+    c = _cr.crew_of(_json_load(CREWS_PATH, {}), primary_of(address))
+    return {'crew': {'id': c['id'], 'tag': c['tag'], 'name': c['name']} if c else None}
+
+
+@app.get('/api/reputation/admin/crews/revenue')
+async def admin_crews_revenue(request: Request):
+    """💳 Owner only: what crews have paid the fee wallet — total, count and the last payments (every one links to its on-chain tx)."""
+    _require_owner(request)
+    st = _json_load(CREWS_PATH, {}); rows = []
+    for c in (st.get('crews') or {}).values():
+        for x in c.get('paid') or []:
+            rows.append({'crew': c['name'], 'tag': c['tag'], 'kind': x.get('kind'), 'usd': x.get('usd'), 'at': x.get('at'), 'sig': x.get('sig'), 'by': x.get('by'), 'staff': bool(x.get('staff'))})
+    rows.sort(key=lambda r: -(r['at'] or 0))
+    return {'totalUsd': round(sum(r['usd'] or 0 for r in rows), 2), 'payments': len([r for r in rows if r['usd']]), 'crews': len(st.get('crews') or {}), 'recent': rows[:25]}
+
+
+@app.post('/api/reputation/admin/fees/crews')
+async def admin_fees_crews(request: Request, body: dict):
+    """Core › Fees: what a crew costs ($ to start, 5 seats incl. the owner) and what +5 seats cost (owner only; 0–500)."""
+    import crews as _cr
+    admin = _require_owner(request)
+    def num(v, d):
+        try:
+            return max(0.0, min(500.0, round(float(v), 2)))
+        except (TypeError, ValueError):
+            return d
+    cfg = {'createUsd': num(body.get('createUsd'), _cr.CREATE_USD), 'packUsd': num(body.get('packUsd'), _cr.PACK_USD)}
+    async with _admin_lock:
+        d = _admin_load(); d.setdefault('fees', {})['crews'] = cfg
+        _audit(d, admin, 'fees', f"crews · ${cfg['createUsd']:g} to start · ${cfg['packUsd']:g} per +{_cr.PACK_SEATS} seats")
+        _admin_save(d)
+    return {'crews': cfg}
+
+
 @app.get('/api/reputation/crews/{cid}')
 async def crew_public(cid: str):
     st = _json_load(CREWS_PATH, {}); c = (st.get('crews') or {}).get(cid)
@@ -6298,6 +6385,7 @@ class CrewCreate(BaseModel):
     session: str
     name: str = Field(..., max_length=40)
     tag: str = Field(..., max_length=8)
+    signature: str = Field(default='', max_length=100)    # the SOL payment YOU signed to the fee wallet (staff start crews free)
 
 
 class CrewJoin(BaseModel):
@@ -6311,21 +6399,53 @@ class CrewWho(BaseModel):
     session: str
 
 
+class CrewSeats(BaseModel):
+    address: str
+    session: str
+    signature: str = Field(default='', max_length=100)
+
+
 @app.post('/api/reputation/crews/create')
 async def crew_create(p: CrewCreate):
+    """🛡 Start a crew: $25 in SOL to the fee wallet (verified on-chain, never reused; staff free) buys 5 seats including you. Name + tag are checked BEFORE the
+    payment is accepted, and a payment is only consumed when the crew is made — if anything fails, the same signature can be sent again."""
     import crews as _cr
-    me = _session_or_401(p.address, p.session)
+    me = _session_or_401(p.address, p.session); mine = set(linked_of(me)) | {me}
     if _is_blocked(_block_load()['wallets'].get(me)):
         raise HTTPException(403, 'This wallet cannot start a crew.')
     async with _crews_lock:
         st = _json_load(CREWS_PATH, {})
         try:
-            c = _cr.create(st, me, p.name, p.tag, time.time())
+            name, tag = _cr.check_new(st, me, p.name, p.tag)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        paid = {'sig': '', 'usd': 0.0, 'at': time.time(), 'kind': 'create', 'staff': True} if _is_staff(me) else await _verify_sol_payment(p.signature, mine, _cr.price('create', _crew_cfg()), st)
+        paid['kind'] = 'create'; paid['by'] = me
+        c = _cr.create(st, me, name, tag, time.time(), paid=paid)
+        _json_save(CREWS_PATH, st)
+    _crew_cache['data'] = None
+    return {'crew': _crew_view(c, {}, with_code=True)}
+
+
+@app.post('/api/reputation/crews/seats')
+async def crew_seats(p: CrewSeats):
+    """➕ The crew owner adds 5 seats for $5 in SOL to the fee wallet (verified on-chain, never reused; staff free)."""
+    import crews as _cr
+    me = _session_or_401(p.address, p.session); mine = set(linked_of(me)) | {me}
+    async with _crews_lock:
+        st = _json_load(CREWS_PATH, {})
+        c0 = _cr.crew_of(st, me)
+        if not c0 or c0['owner'] != me:
+            raise HTTPException(403, 'Only the crew owner can add seats.')
+        paid = {'sig': '', 'usd': 0.0, 'at': time.time(), 'staff': True} if _is_staff(me) else await _verify_sol_payment(p.signature, mine, _cr.price('seats', _crew_cfg()), st)
+        paid['kind'] = 'seats'; paid['by'] = me
+        try:
+            c = _cr.add_seats(st, me, paid)
         except ValueError as e:
             raise HTTPException(400, str(e))
         _json_save(CREWS_PATH, st)
     _crew_cache['data'] = None
-    return {'crew': _crew_view(c, {}, with_code=True)}
+    return {'crew': _crew_view(c, _crew_pieces(c['members'], time.time()), with_code=True)}
 
 
 @app.post('/api/reputation/crews/join')
@@ -6358,6 +6478,40 @@ async def crew_leave(p: CrewWho):
         _json_save(CREWS_PATH, st)
     _crew_cache['data'] = None
     return {'ok': True}
+
+
+CREW_PRIZES = (150, 100, 60)   # season points to EACH member of the week's top 3 ranked crews
+
+
+async def _crew_season_tick(now):
+    """Once a week (the first pass after Monday 00:00 UTC): the top 3 RANKED crews (verified results over the last 7 days) pay their members season
+    points (150 / 100 / 60 each), an inbox note and a line in the Fuse chat. Recorded in crews.json so it never repeats."""
+    import crews as _cr
+    week0 = int((now // 86400 - time.gmtime(now).tm_wday) * 86400)
+    async with _crews_lock:
+        st = _json_load(CREWS_PATH, {})
+        if st.get('awardedWeek') == week0 or not st.get('crews'):
+            return
+        members = [m for c in st['crews'].values() for m in c['members']]
+        top = [r for r in _cr.board(st, _crew_pieces(members, now), now) if r['ranked']][:3]
+        st['awardedWeek'] = week0; st.setdefault('awards', []).append({'week': week0, 'top': [{'id': r['id'], 'name': r['name'], 'pct': r['pct']} for r in top]})
+        st['awards'] = st['awards'][-26:]
+        _json_save(CREWS_PATH, st)
+    medal = ['🥇', '🥈', '🥉']
+    for i, r in enumerate(top):
+        c = st['crews'].get(r['id'])
+        for w in (c or {}).get('members') or []:
+            season_award(w, CREW_PRIZES[i], 'crew-week')
+            try:
+                notify(w, 'crew', f"{medal[i]} Your crew {c['name']} placed #{i + 1} this week ({r['pct']:+.1f}%): +{CREW_PRIZES[i]} season points", url='/terminal/leaderboard?lens=crews', once=f'crew:{week0}', push=False, meta={'source': 'crew'})
+            except Exception:
+                pass
+    if top:
+        try:
+            _fuse_chat('fuse-lab', '🛡 Crews of the week: ' + ' · '.join(f"{medal[i]} [{r['tag']}] {r['name']} {r['pct']:+.1f}%" for i, r in enumerate(top)), f'crew-week-{week0}')
+        except Exception:
+            pass
+    _crew_cache['data'] = None
 
 
 def _crew_room_ok(room, address):
@@ -9392,6 +9546,10 @@ async def _fuse_warm():
         await _predict_tick(time.time())
     except Exception as e:
         print('predict:', e)
+    try:   # 🛡 crews: the week's top 3 pay their members season points, once
+        await _crew_season_tick(time.time())
+    except Exception as e:
+        print('crews:', e)
     if _fuse_warm_n['n'] % 144 == 31:   # ~1h: 🧾 what's working / what's not, always running (owner inbox when something flips)
         try:
             await _verdict_tick(time.time())
@@ -12246,7 +12404,7 @@ async def admin_fuse_fee_list(request: Request):
     _require_admin(request)
     rows = [r for v in _json_load(FEE_LEDGER_PATH, {}).values() for r in (v or [])]
     cfg = _fee_cfg()
-    return {**_hq.fee_list(_json_load(FUSE_HQ_PATH, {}).get('positions') or [], rows), 'bundle': _hq.clean_bundle(cfg.get('bundle')), 'rounds': _rounds_cfg(), 'prepay': _hq.clean_prepay(cfg.get('prepay')),
+    return {**_hq.fee_list(_json_load(FUSE_HQ_PATH, {}).get('positions') or [], rows), 'bundle': _hq.clean_bundle(cfg.get('bundle')), 'rounds': _rounds_cfg(), 'crews': {'createUsd': __import__('crews').price('create', cfg.get('crews')), 'packUsd': __import__('crews').price('seats', cfg.get('crews'))}, 'prepay': _hq.clean_prepay(cfg.get('prepay')),
             'swapBps': int(cfg['platformFeeBps'] or 0), 'example': _hq.fee_plan(cfg.get('bundle'), _rounds_cfg(), 3, 20, 10)}
 
 
@@ -12909,7 +13067,7 @@ async def admin_fees_set(request: Request, payload: FeeCfg):
                      'lifiIntegrator': integrator, 'lifiFeeBps': payload.lifiFeeBps if integrator else 0,
                      'engine': payload.engine, 'ultraFallback': payload.ultraFallback, 'feeAccountSol': payload.feeAccountSol,
                      'feeAccountUsdc': payload.feeAccountUsdc, 'priorityMaxLamports': payload.priorityMaxLamports,
-                     'vaultFeeWallet': payload.vaultFeeWallet, **{k: v for k, v in (d.get('fees') or {}).items() if k in ('bundle', 'rounds', 'prepay')}}
+                     'vaultFeeWallet': payload.vaultFeeWallet, **{k: v for k, v in (d.get('fees') or {}).items() if k in ('bundle', 'rounds', 'prepay', 'crews')}}
         tier_txt = ' / '.join(f"{float(tiers.get(k, 0)):g}%" for k in ('0', '1', '2', '3'))
         _audit(d, admin, 'fees', f"{'Swap API' if payload.engine == 'swap' else 'Ultra'} · fee {payload.platformFeeBps / 100:.2f}% · Ultra fallback {'on' if payload.ultraFallback else 'off'} · "
                                  f"holder discounts {tier_txt} · promo {promo['discountPct']:.0f}% · speed tip ≤ {payload.priorityMaxLamports / 1e9:.4f} SOL")
