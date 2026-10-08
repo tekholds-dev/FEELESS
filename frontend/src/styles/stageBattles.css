@@ -2,9 +2,9 @@
 .sbt { display: grid; gap: 10px; margin: 0 0 14px; }
 .sbt-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; } .sbt-bell { font: 11px "JetBrains Mono", monospace; color: var(--gold, #f5c451); } .sbt-full { margin-left: auto; }
 .sbt-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
-.sbt-fight { position: relative; isolation: isolate; overflow: hidden; display: grid; gap: 10px; padding: 16px 14px 12px; border-radius: 16px; border: 1px solid rgba(255, 154, 60, .32); background: linear-gradient(180deg, rgba(40, 18, 10, .7), rgba(8, 10, 12, .86)); animation: sbtIn .3s ease both; animation-delay: calc(var(--i) * 90ms); }
-.sbt-glow { position: absolute; left: 50%; top: -40%; width: 120%; aspect-ratio: 1; margin-left: -60%; z-index: -1; background: radial-gradient(circle, rgba(255, 154, 60, .2) 0%, transparent 62%); animation: sbtPulse 3.4s ease-in-out infinite alternate; }
-.sbt-tag { position: absolute; left: 12px; top: 8px; font: 600 9px "JetBrains Mono", monospace; letter-spacing: .18em; color: #ff9a3c; opacity: .8; }
+.sbt-fight { position: relative; isolation: isolate; overflow: hidden; display: grid; gap: 10px; padding: 16px 14px 12px; border-radius: 16px; border: 1px solid rgba(155, 92, 255, .42); background: radial-gradient(120% 70% at 50% 0%, rgba(120, 60, 220, .3), transparent 70%), linear-gradient(180deg, rgba(26, 12, 48, .82), rgba(8, 5, 16, .92)); box-shadow: 0 0 28px -12px #7d3cff, inset 0 0 40px -22px #9b5cff; animation: sbtIn .3s ease both; animation-delay: calc(var(--i) * 90ms); }
+.sbt-glow { position: absolute; left: 50%; top: -40%; width: 120%; aspect-ratio: 1; margin-left: -60%; z-index: -1; background: radial-gradient(circle, rgba(155, 92, 255, .3) 0%, rgba(21, 209, 106, .06) 38%, transparent 66%); animation: sbtPulse 3.4s ease-in-out infinite alternate; }
+.sbt-tag { position: absolute; left: 12px; top: 8px; font: 600 9px "JetBrains Mono", monospace; letter-spacing: .18em; color: #b98cff; opacity: .9; }
 .sbt-ring { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px; margin-top: 6px; }
 .sbt-corner { position: relative; display: grid; justify-items: center; gap: 2px; min-width: 0; text-align: center; }
 .sbt-corner.is-a { animation: sbtJabA 2.6s ease-in-out infinite; } .sbt-corner.is-b { animation: sbtJabB 2.6s ease-in-out infinite; animation-delay: -1.3s; }
@@ -12,21 +12,28 @@
 .sbt-emoji { font-style: normal; font-size: 38px; line-height: 1; filter: none; } .sbt-corner.is-behind { opacity: .72; }
 .sbt-corner b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: #fff; } .sbt-corner em { font-style: normal; font-size: 18px; } .sbt-corner small { font: 10px "JetBrains Mono", monospace; opacity: .7; }
 .sbt-crown { position: absolute; top: -14px; text-decoration: none; font-size: 16px; animation: sbtBob 1.4s ease-in-out infinite alternate; }
-.sbt-vs { position: relative; display: grid; place-items: center; width: 46px; height: 46px; } .sbt-vs b { font: 400 15px var(--fz-font, "JetBrains Mono"), monospace; color: #ffd9a8; }
+.sbt-vs { position: relative; display: grid; place-items: center; width: 70px; height: 70px; } .sbt-vs b { font: 400 30px var(--fz-font, "JetBrains Mono"), monospace; color: transparent; background: linear-gradient(90deg, #15d16a, #b98cff 55%, #6fe7ff); -webkit-background-clip: text; background-clip: text; filter: drop-shadow(0 0 7px rgba(125, 60, 255, .85)); }
 .sbt-vs i { position: absolute; font-style: normal; font-size: 30px; opacity: 0; animation: sbtClash 2.6s ease-in-out infinite; }
 .sbt-rope { position: relative; height: 8px; border-radius: 999px; background: linear-gradient(90deg, rgba(21, 209, 106, .5), rgba(255, 255, 255, .08) 50%, rgba(160, 110, 255, .5)); }
-.sbt-knot { position: absolute; left: 50%; top: -5px; width: 18px; height: 18px; margin-left: -9px; border-radius: 50%; background: #ffd9a8; box-shadow: 0 0 14px #ff9a3c; transition: transform .8s cubic-bezier(.2, .8, .2, 1); }
+.sbt-knot { position: absolute; left: 50%; top: -5px; width: 18px; height: 18px; margin-left: -9px; border-radius: 50%; background: #f3e9ff; box-shadow: 0 0 14px #9b5cff, 0 0 4px #15d16a; transition: transform .8s cubic-bezier(.2, .8, .2, 1); }
 .sbt-pips { list-style: none; margin: 0; padding: 0; display: flex; justify-content: center; gap: 6px; }
 .sbt-pips li { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .14); opacity: .45; } .sbt-pips i { font-style: normal; font-size: 12px; }
 .sbt-pips li.is-a { opacity: 1; border-color: #15d16a; background: rgba(21, 209, 106, .18); } .sbt-pips li.is-b { opacity: 1; border-color: #a06eff; background: rgba(160, 110, 255, .2); }
-.sbt-call { margin: 0; text-align: center; font-size: 12px; color: #ffe7cc; }
+.sbt-call { margin: 0; text-align: center; font-size: 12px; color: #e8dcff; }
 @keyframes sbtIn { from { transform: translateY(10px) scale(.98); } to { transform: none; } }
 @keyframes sbtPulse { from { opacity: .5; transform: scale(.94); } to { opacity: 1; transform: scale(1.06); } }
 @keyframes sbtJabA { 0%, 70%, 100% { transform: none; } 80% { transform: translateX(12px) rotate(3deg); } 88% { transform: translateX(-3px); } }
 @keyframes sbtJabB { 0%, 70%, 100% { transform: none; } 80% { transform: translateX(-12px) rotate(-3deg); } 88% { transform: translateX(3px); } }
 @keyframes sbtClash { 0%, 72%, 100% { opacity: 0; transform: scale(.4); } 82% { opacity: 1; transform: scale(1.25) rotate(12deg); } 92% { opacity: 0; transform: scale(1.6); } }
+@keyframes sbtSpark { 0% { opacity: 0; transform: translate(0, 0) scale(.5); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.1); } }
 @keyframes sbtBob { from { transform: translateY(0); } to { transform: translateY(-4px) rotate(6deg); } }
-body.fx-lite :is(.sbt-fight, .sbt-glow, .sbt-corner, .sbt-vs i, .sbt-crown) { animation: none; } body.fx-lite .sbt-knot { transition: none; }
-@media (prefers-reduced-motion: reduce) { :is(.sbt-fight, .sbt-glow, .sbt-corner, .sbt-vs i, .sbt-crown) { animation: none; } .sbt-knot { transition: none; } }
-body.theme-day .sbt-fight { background: linear-gradient(180deg, #fff3e6, #fbfdfc); border-color: #e3b889; } body.theme-day .sbt-corner b { color: #2a1708; } body.theme-day .sbt-call { color: #5a3a17; } body.theme-day .sbt-vs b { color: #a85a12; } body.theme-day .sbt-tag { color: #a85a12; }
+body.fx-lite :is(.sbt-fight, .sbt-glow, .sbt-corner, .sbt-vs i, .sbt-crown, .sbt-spark) { animation: none; } body.fx-lite .sbt-spark, body.fx-lite .sbt-crowd { display: none; } body.fx-lite .sbt-knot { transition: none; }
+@media (prefers-reduced-motion: reduce) { :is(.sbt-fight, .sbt-glow, .sbt-corner, .sbt-vs i, .sbt-crown, .sbt-spark) { animation: none; } .sbt-spark, .sbt-crowd { display: none; } .sbt-knot { transition: none; } }
+body.theme-day .sbt-fight { background: linear-gradient(180deg, #f1e9ff, #fbfdfc); border-color: #c4a6f0; box-shadow: none; } body.theme-day .sbt-corner b { color: #2a1708; } body.theme-day .sbt-call { color: #3a2468; } body.theme-day .sbt-vs b { filter: none; } body.theme-day .sbt-tag { color: #5a3aa8; }
 @media (max-width: 640px) { .sbt-card { zoom: .46; } .sbt-row { grid-template-columns: 1fr; } .sbt-emoji { font-size: 30px; } .sbt-full { margin-left: 0; } }
+
+/* 🧍 ringside crowd + sparks around the VS */
+.sbt-spark { position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: #d9bfff; box-shadow: 0 0 8px #9b5cff; opacity: 0; text-decoration: none; animation: sbtSpark 1.9s ease-out infinite; animation-delay: calc(var(--k) * .55s); }
+.sbt-crowd { position: relative; height: 86px; margin: -4px -6px -2px; pointer-events: none; } .sbt-crowd canvas { display: block; width: 100%; height: 100%; }
+.sbt-crowd::after { content: ""; position: absolute; left: 4%; right: 4%; bottom: 2px; height: 1px; background: linear-gradient(90deg, transparent, rgba(155, 92, 255, .6), rgba(21, 209, 106, .5), transparent); }
+@media (max-width: 640px) { .sbt-crowd { height: 70px; } }

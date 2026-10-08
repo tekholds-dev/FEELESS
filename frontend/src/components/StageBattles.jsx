@@ -1,5 +1,6 @@
 import React from 'react';
 import { Countdown } from './RunnersPanel';
+const StageCrowd = React.lazy(() => import('./StageCrowd'));
 import '../styles/stageBattles.css';
 
 const sg = v => `${v >= 0 ? '+' : ''}${Number(v || 0).toFixed(1)}%`;
@@ -31,7 +32,8 @@ export function StageBattles({ b, onFull, full, cardNode }) {
         <b data-tip={p[k].name}>{short(p[k].name)}</b><em className={`m-num ${r[k] >= 0 ? 'm-pos' : 'm-neg'}`} key={sg(r[k])}>{sg(r[k])}</em><small>{k === 'a' ? r.sa : r.sb} ⚡ sparks</small></div>;
       return <article key={`${p.a.key}-${p.b.key}`} className="sbt-fight" style={{ '--i': i }} data-testid={`stage-fight-${i}`}>
         <i className="sbt-glow" aria-hidden /><span className="sbt-tag">FIGHT {i + 1}</span>
-        <div className="sbt-ring">{corner('a')}<span className="sbt-vs" aria-hidden><i>💥</i><b>VS</b></span>{corner('b')}</div>
+        <div className="sbt-ring">{corner('a')}<span className="sbt-vs" aria-hidden><i>💥</i><b>VS</b><s className="sbt-spark" style={{ '--dx': '-26px', '--dy': '-22px', '--k': 0 }} /><s className="sbt-spark" style={{ '--dx': '24px', '--dy': '-26px', '--k': 1 }} /><s className="sbt-spark" style={{ '--dx': '2px', '--dy': '-34px', '--k': 2 }} /></span>{corner('b')}</div>
+        <React.Suspense fallback={null}><StageCrowd lead={r.lead} seed={i + 1} /></React.Suspense>
         <div className="sbt-rope" aria-label={`Rope: ${r.lead ? `${p[r.lead].name} is pulling` : 'level'}`}><i className="sbt-knot" style={{ transform: `translateX(${(-r.pull * 46).toFixed(1)}%)` }} /></div>
         {r.seats.length > 0 && <ol className="sbt-pips" aria-label="Seat duels">{r.seats.map(s => <li key={s.seat} className={s.win === 'a' ? 'is-a' : s.win === 'b' ? 'is-b' : ''}
           data-tip={`Seat ${s.seat}: $${s.a?.symbol} ${sg(s.a?.pct)} vs $${s.b?.symbol} ${sg(s.b?.pct)}${s.win ? ` — spark to $${s[s.win]?.symbol}` : ' — level'}`}><i>⚡</i></li>)}</ol>}
