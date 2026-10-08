@@ -34,6 +34,15 @@ body.theme-day .sbt-fight { background: linear-gradient(180deg, #f1e9ff, #fbfdfc
 
 /* 🧍 ringside crowd + sparks around the VS */
 .sbt-spark { position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: #d9bfff; box-shadow: 0 0 8px #9b5cff; opacity: 0; text-decoration: none; animation: sbtSpark 1.9s ease-out infinite; animation-delay: calc(var(--k) * .55s); }
-.sbt-crowd { position: relative; height: 86px; margin: -4px -6px -2px; pointer-events: none; } .sbt-crowd canvas { display: block; width: 100%; height: 100%; }
+.sbt-crowd { position: relative; height: 120px; margin: -4px -6px -2px; pointer-events: none; overflow: hidden; } .sbt-crowd canvas { display: block; width: 100%; height: 100%; }
 .sbt-crowd::after { content: ""; position: absolute; left: 4%; right: 4%; bottom: 2px; height: 1px; background: linear-gradient(90deg, transparent, rgba(155, 92, 255, .6), rgba(21, 209, 106, .5), transparent); }
-@media (max-width: 640px) { .sbt-crowd { height: 70px; } }
+@media (max-width: 640px) { .sbt-crowd { height: 104px; } }
+/* name tags that ride on each walker's head: the last card they bought above, badges beside the name */
+.sbt-pt { position: absolute; left: 0; top: 0; display: grid; justify-items: center; gap: 1px; white-space: nowrap; pointer-events: none; will-change: transform; }
+.sbt-pt-top { font: 600 8.5px "JetBrains Mono", monospace; letter-spacing: .04em; color: #c9a6ff; max-width: 104px; overflow: hidden; text-overflow: ellipsis; }
+.sbt-pt-name { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px 1px 2px; border-radius: 999px; background: rgba(10, 6, 24, .82); border: 1px solid rgba(155, 92, 255, .5); box-shadow: 0 0 10px -4px #9b5cff; }
+.sbt-pt-name b { font: 700 10px "JetBrains Mono", monospace; color: #f3e9ff; max-width: 64px; overflow: hidden; text-overflow: ellipsis; padding-left: 3px; }
+.sbt-pt-badge { width: 15px; height: 15px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(21, 209, 106, .6); background: #0a0618; }
+.sbt-pt-ico { font-style: normal; font-size: 11px; line-height: 1; }
+.sbt-pt-demo { text-decoration: none; font: 700 7px "JetBrains Mono", monospace; letter-spacing: .1em; color: #ffd36b; text-transform: uppercase; padding: 0 3px; border-radius: 4px; border: 1px solid rgba(255, 211, 107, .5); }
+body.theme-day .sbt-pt-top { color: #5a3aa8; } body.theme-day .sbt-pt-name { background: rgba(255, 255, 255, .92); border-color: #b9a0ee; box-shadow: none; } body.theme-day .sbt-pt-name b { color: #2a1750; } body.theme-day .sbt-pt-demo { color: #8a6100; border-color: #d8b24a; }

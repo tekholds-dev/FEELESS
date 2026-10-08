@@ -6252,6 +6252,58 @@ async def fuses_my_edge():
     return _owner_edge_rec()
 
 
+_crowd_cache = {'at': 0.0, 'data': None}
+
+
+@app.get('/api/reputation/fuses/crowd')
+async def fuses_crowd():
+    """🧍 Public: the REAL people around the Arena — wallets with a verified Fuse position (their LAST card by name) and wallets that backed a fight
+    in the last 24h — newest first, with their display name and up to 3 earned badges (featured first, else rarest). Nobody is invented: no
+    holders / backers → an empty list and the stage shows anonymous fans without a tag. House wallets, bots and the blocklisted are left out. 60s cache."""
+    now = time.time()
+    if _crowd_cache['data'] and now - _crowd_cache['at'] < 60:
+        return _crowd_cache['data']
+    d = _json_load(FUSE_HQ_PATH, {})
+    cand = {}
+    for x in d.get('positions') or []:                       # real Fuse buyers, the latest card each
+        w = x.get('wallet')
+        if not w:
+            continue
+        c = cand.setdefault(w, {'why': 'holder', 'at': 0, 'card': None})
+        if (x.get('at') or 0) >= c['at']:
+            c['at'] = x.get('at') or 0; c['card'] = (x.get('name') or '')[:28] or None
+    for w, ts in (d.get('backLog') or {}).items():           # backed a fight in the last day
+        recent = [t for t in ts if now - t < 86400]
+        if recent:
+            c = cand.setdefault(w, {'why': 'backer', 'at': 0, 'card': None}); c['at'] = max(c['at'], max(recent))
+    skip = set(_protected_wallets())
+    bots = set()
+    for w in list(cand)[:30]:                                # bot-shield bots never get a tag
+        try:
+            if ((await _shield_of(w)) or {}).get('verdict') == 'bot':
+                bots.add(w)
+        except Exception:
+            pass
+    ranked = [(w, c) for w, c in sorted(cand.items(), key=lambda kv: -kv[1]['at']) if w not in skip and w not in bots and not _is_blocked(_block_load()['wallets'].get(w))][:8]
+    profs = _profiles_load()['profiles']
+
+    async def one(w, c):
+        pr = profs.get(primary_of(w)) or {}
+        try:
+            bd = (await wallet_badges(w)).get('badges') or []
+        except Exception:
+            bd = []
+        bd = [b for b in bd if b.get('id') not in ('blocklisted', 'flagged-creator')]
+        feat = [b for b in bd if b.get('id') in (pr.get('featuredBadges') or [])]
+        top = (feat + [b for b in bd if b not in feat])[:3]
+        return {'address': w, 'name': pr.get('displayName') or pr.get('handle') or f'{w[:4]}…{w[-4:]}', 'why': c['why'], 'lastCard': c['card'], 'at': c['at'],
+                'badges': [{k: b.get(k) for k in ('id', 'label', 'icon', 'art', 'rarity', 'tone')} for b in top]}
+    people = await asyncio.gather(*[one(w, c) for w, c in ranked])
+    out = {'people': list(people), 'at': now}
+    _crowd_cache.update(at=now, data=out)
+    return out
+
+
 _paymap_cache = {'at': 0.0, 'data': None}
 
 
