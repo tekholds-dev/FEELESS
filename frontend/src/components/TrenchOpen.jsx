@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../lib/api';
 import { openCoin } from './CoinDrawer';
 import '../styles/trenchOpen.css';
+import { TrenchVital } from './CoinVital';
 
 const big = v => { const n = Number(v) || 0; return n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${n.toFixed(0)}`; };
 const sg = v => (v == null ? '—' : Math.abs(v) >= 1000 ? `${(v / 100 + 1).toFixed(1)}x` : `${v >= 0 ? '+' : ''}${Number(v).toFixed(0)}%`);
@@ -50,7 +51,7 @@ export function TrenchOpen({ max = 10, onPick, busy }) {
         <span className="top-safe" data-tip={sf[3]}>{sf[0]} {sf[1]}</span>
         {onPick ? <button type="button" className="m-btn primary top-act" disabled={!!busy} onClick={() => onPick(r)} data-testid={`open-pick-${r.symbol}`}>Pick</button>
           : <button type="button" className="m-btn top-act" onClick={() => open(r)} data-testid={`open-view-${r.symbol}`}>View</button>}
-        <small className="top-why">{whyLine(r)}</small></div>; })}
+        <small className="top-why">{whyLine(r)}</small>{r.tv && <span className="top-tv"><TrenchVital r={r} mini /></span>}</div>; })}
       {!rows.length && <small className="m-dim top-none">No coin in this filter right now.</small>}
     </div>
     {list.length > max && <button type="button" className="top-more" onClick={() => setAll(a => !a)} aria-expanded={all} data-testid="open-more">{all ? 'Show fewer' : `Show all ${list.length}`}</button>}

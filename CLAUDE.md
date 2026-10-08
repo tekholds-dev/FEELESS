@@ -2200,3 +2200,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🎛 COMING UP FILTER = real card cfg `vitalMin` (0/35/50/65) · `organicMin` (0/5/10/20/30) · `noSerial` (`jup_audit.filter_why`, `UpFilter` above Coming
   up, saved as `realCfg`): `_prime_tick` filters r_t + the scout list (pipeline step "your vital filter"), category picks (`_cat_ok` → "your vital filter")
   and the 30s seat fallback. No Jupiter reading = not judged. The owner's own picks are never filtered.
+- 🗑 TRENCH VITAL (`jup_audit.trench_verdict` → row `tv` on any row that is trench / on the curve / < 6h old; `TrenchVital` in CoinVital.jsx, `tvl-*`):
+  🔥 HEAT (5m pace vs the hour, buyers, holders arriving, net buyers, a sane 5m candle — > +40% in 5m = "chasing") vs ☠ RUG (top-10, bundles,
+  snipers, insiders, dev, serial launcher, bots, no site / 𝕏, pool drain, < 15 min old, live authority; worst three weigh most) → call 🔥 SEND IT
+  (heat ≥ 60, rug ≤ 35) · ☠ RUG BAIT (rug ≥ 65) · 🧊 COLD (heat < 35) · 👀 WATCH. Ten-cell meters; replaces the plain vital on new coins (picker, Coming
+  up) and sits mini under each Open gates row (`top-tv`). Hand-set weights, NOT learned — a read for a small ticket, never a promise.
+- Coming up filter selects (`.hrt-upf`) are pill-sized with a high-specificity rule (`.hrt-up .hrt-upf select.m-input`): the Fuse page's .m-input font /
+  padding blew them up and a plain `padding` wiped the arrow's room (the arrow sat on the text).

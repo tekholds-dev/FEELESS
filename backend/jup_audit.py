@@ -151,3 +151,89 @@ def filter_why(f, scan=None, cfg=None):
     if om and f.get('organicPct') is not None and _f(f['organicPct']) < om:
         return f"{_f(f['organicPct']):.0f}% organic — your filter wants {om}%+"
     return None
+
+
+# 🗑 TRENCH VITAL — the degen read for brand-new coins (owner: "create your own meta degen vitals for the trench swap"). A coin minutes old has
+# no chart and no record, so the plain vital (spread, dev, crew, flow) says little. Two meters decide a trench entry:
+#   🔥 HEAT  — is it SENDING right now: 5-min pace vs its hour, buyers' share, holders arriving, net buyers, a green 5 min that is not a
+#             vertical candle (> +40% in 5 min = chasing).
+#   ☠ RUG   — can it be pulled on you: top-10 / bundles / snipers / insiders, dev share, a serial launcher, bot volume, no site or 𝕏, a
+#             draining pool, mint / freeze live, the first 15 minutes.
+# CALL = 🔥 SEND IT (heat ≥ 60, rug ≤ 35) · ☠ RUG BAIT (rug ≥ 65) · 🧊 COLD (heat < 35) · 👀 WATCH. A read for a small ticket — never a promise.
+def trench_verdict(f, row=None):
+    f, r = f or {}, row or {}
+    heat_p, rug_p, tags = [], [], []
+    v1, v5 = _f(r.get('vol1h')), _f(r.get('vol5m'))
+    if v1 > 0 and v5 > 0:
+        pace = v5 * 12 / v1
+        heat_p.append(min(1.0, pace / 2.5))
+        if pace >= 1.5:
+            tags.append(('⚡', f"5m pace {pace:.1f}×", 'good'))
+        elif pace < 0.5:
+            tags.append(('💤', f"5m pace {pace:.1f}× — fading", 'bad'))
+    bs = r.get('buyShare')
+    if bs is not None:
+        heat_p.append(max(0.0, min(1.0, (_f(bs) - 40) / 30)))
+    hc = f.get('holderChg1h')
+    if hc is not None:
+        heat_p.append(max(0.0, min(1.0, _f(hc) / 100)))
+        if _f(hc) >= 50:
+            tags.append(('👥', f"holders +{min(999, _f(hc)):.0f}%/h", 'good'))
+    nb, tr = f.get('netBuyers1h'), f.get('traders1h')
+    if nb is not None and _f(tr) >= 50:
+        heat_p.append(max(0.0, min(1.0, _f(nb) / _f(tr) / 0.6)))
+    c5 = r.get('chg5m')
+    if c5 is not None:
+        heat_p.append(1.0 if 2 <= _f(c5) <= 25 else 0.6 if 0 <= _f(c5) < 2 else 0.4 if _f(c5) <= 40 else 0.1 if _f(c5) > 40 else 0.15)
+        if _f(c5) > 40:
+            tags.append(('🧗', f"+{_f(c5):.0f}% in 5m — chasing", 'bad'))
+    # ☠ rug side (each part 0–1, worst parts weigh most)
+    t10 = r.get('top10') if r.get('top10') is not None else f.get('top10')
+    if t10 is not None:
+        rug_p.append(max(0.0, min(1.0, (_f(t10) - 15) / 30)))
+    for k, cap, lab in (('bundledN', 6, 'bundled'), ('snipersN', 25, 'snipers')):
+        if r.get(k) is not None:
+            n = int(_f(r[k])); rug_p.append(min(1.0, n / cap))
+            if n >= cap / 2:
+                tags.append(('🎯' if k == 'snipersN' else '📦', f"{n} {lab}", 'bad'))
+    if r.get('insiders') is not None:
+        rug_p.append(min(1.0, _f(r['insiders']) / 25))
+    dev = r.get('dev') if r.get('dev') is not None else f.get('devPct')
+    if dev is not None:
+        rug_p.append(min(1.0, _f(dev) / 15))
+        if _f(dev) >= 8:
+            tags.append(('👤', f"dev holds {_f(dev):.0f}%", 'bad'))
+    cw = crew(f)['kind']
+    if cw != 'unknown':
+        rug_p.append({'serial': 0.8, 'fresh': 0.45, 'mixed': 0.35, 'popular': 0.1}[cw])
+        if cw == 'popular':
+            tags.append(('🔥', f"popular crew {f.get('devGrads')}/{f.get('devMints')}", 'good'))
+        elif cw == 'serial':
+            tags.append(('☠', f"serial launcher {f.get('devGrads') or 0}/{f.get('devMints')}", 'bad'))
+    org = f.get('organicPct')
+    if org is not None:
+        rug_p.append(0.7 if _f(org) < 3 else 0.4 if _f(org) < 10 else 0.1)
+    if not (r.get('site') or r.get('x')) and ('site' in r or 'x' in r):
+        rug_p.append(0.6); tags.append(('🙈', 'no site or 𝕏', 'bad'))
+    elif r.get('site') and r.get('x'):
+        tags.append(('🌐', 'site + 𝕏', 'good'))
+    if f.get('liqChg1h') is not None and _f(f['liqChg1h']) <= -25:
+        rug_p.append(1.0); tags.append(('🩸', f"pool {_f(f['liqChg1h']):.0f}%/h", 'bad'))
+    age = r.get('ageH')
+    if age is not None and _f(age) < 0.25:
+        rug_p.append(0.6); tags.append(('⏱', f"{max(1, round(_f(age) * 60))}m old", 'bad'))
+    if authority_bad(f):
+        rug_p.append(1.0); tags.insert(0, ('⛔', 'dev can mint / freeze', 'bad'))
+    heat = round(sum(heat_p) / len(heat_p) * 100) if heat_p else None
+    worst = sorted(rug_p, reverse=True)
+    rug = round((sum(worst[:3]) / min(3, len(worst)) * 0.6 + sum(worst) / len(worst) * 0.4) * 100) if worst else None
+    if authority_bad(f) or (rug is not None and rug >= 65):
+        call = ('☠', 'RUG BAIT', 'bad')
+    elif heat is not None and heat >= 60 and (rug is None or rug <= 35):
+        call = ('🔥', 'SEND IT', 'good')
+    elif heat is not None and heat < 35:
+        call = ('🧊', 'COLD', 'warn')
+    else:
+        call = ('👀', 'WATCH', 'warn')
+    order = {'bad': 0, 'good': 1}
+    return {'heat': heat, 'rug': rug, 'call': call, 'tags': sorted(tags, key=lambda x: order.get(x[2], 2))[:4]}

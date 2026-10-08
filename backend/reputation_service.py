@@ -2944,6 +2944,9 @@ def _clean_rows(rows):
         if jf:
             r['vital'] = _ja.verdict(jf, r)
             r['crew'] = r['vital'].get('crew')
+        age_ = r.get('ageH')
+        if r.get('trench') or r.get('curve') or (age_ is not None and _fuse._f(age_) < 6):   # 🗑 brand-new coins get the degen read too
+            r['tv'] = _ja.trench_verdict(jf, r)
             r['holders'] = r.get('holders') or jf.get('holders')
     return rows
 

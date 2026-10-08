@@ -42,3 +42,17 @@ def test_growth_signals_and_the_owners_vital_filter():
     import arena_prime as ap
     c = ap.clean_cfg({'vitalMin': 50, 'organicMin': 20, 'noSerial': True})
     assert (c['vitalMin'], c['organicMin'], c['noSerial']) == (50, 20, True) and ap.clean_cfg({'vitalMin': 7})['vitalMin'] == 0
+
+
+def test_trench_vital_heat_vs_rug_and_the_call():
+    hot = ja.trench_verdict({'holderChg1h': 120, 'netBuyers1h': 300, 'traders1h': 500, 'devMints': 6, 'devGrads': 3, 'organicPct': 20, 'top10': 14, 'mintOff': True, 'freezeOff': True},
+                            {'vol1h': 40000, 'vol5m': 9000, 'buyShare': 66, 'chg5m': 8, 'ageH': 1.5, 'site': 'x', 'x': 'y', 'top10': 14, 'bundledN': 0, 'snipersN': 2, 'dev': 0})
+    assert hot['call'][1] == 'SEND IT' and hot['heat'] >= 60 and hot['rug'] <= 35
+    assert any('5m pace' in t for _i, t, _c in hot['tags'])
+    bait = ja.trench_verdict({'devMints': 900, 'devGrads': 3, 'organicPct': 1, 'top10': 60}, {'top10': 60, 'bundledN': 6, 'snipersN': 30, 'dev': 12, 'ageH': 0.1, 'site': None, 'x': None})
+    assert bait['call'][1] == 'RUG BAIT' and bait['rug'] >= 65 and bait['tags'][0][2] == 'bad'
+    assert ja.trench_verdict({'mintOff': False}, {})['call'][1] == 'RUG BAIT'
+    cold = ja.trench_verdict({}, {'vol1h': 40000, 'vol5m': 300, 'buyShare': 40, 'chg5m': -6})
+    assert cold['call'][1] == 'COLD' and any('fading' in t for _i, t, _c in cold['tags'])
+    chase = ja.trench_verdict({}, {'chg5m': 80})
+    assert any('chasing' in t for _i, t, _c in chase['tags'])

@@ -29,6 +29,7 @@ body.theme-day .top-sym, body.theme-day .top-feed b { color: #0e2c1d; } body.the
 .top-av { position: relative; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; overflow: hidden; background: #12251c; color: #7fe0ae; font-weight: 700; font-size: 12px; }
 .top-av img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .top-coin { display: grid; min-width: 0; } .top-coin small { font-size: 10px; opacity: .6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-tv { grid-column: 3 / -1; min-width: 0; }
 .top-why { grid-column: 3 / -1; font-size: 10px; line-height: 1.3; opacity: .62; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .top-tr.is-bad { border-color: rgba(255, 143, 163, .28); } .top-tr.is-bad .top-why { color: #ff8fa3; opacity: .85; } .top-tr.is-safe .top-why { color: #7fe0ae; }
 .top-act { height: 26px; min-height: 0; padding: 0 10px; font-size: 11px; justify-self: end; } .top-none { padding: 8px; }

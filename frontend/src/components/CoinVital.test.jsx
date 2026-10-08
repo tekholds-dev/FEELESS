@@ -32,3 +32,13 @@ test('lists sort organic first and the filters drop what the owner does not want
   expect(applyView(rows, { sort: 'list', on: { serial: true, bots: true } }).map(r => r.symbol)).toEqual(['C', 'N']);
   expect(applyView(rows, { sort: 'list', on: { b: true } }).map(r => r.symbol)).toEqual(['A', 'C']);   // a filter needing a reading drops unread rows
 });
+
+test('a brand-new coin shows the trench vital: call, heat vs rug meters, tags', async () => {
+  const r = { symbol: 'NEWB', tv: { heat: 72, rug: 22, call: ['🔥', 'SEND IT', 'good'], tags: [['⚡', '5m pace 2.4×', 'good']] }, vital: { grade: 'B', score: 66, tone: 'good', word: 'GOOD', bars: {} } };
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<CoinVital r={r} />); });
+  const t = el.querySelector('[data-testid="tvl-NEWB"]');
+  expect(t.querySelector('.tvl-call').textContent).toContain('SEND IT'); expect(t.querySelector('.tvl-call.is-send')).not.toBeNull();
+  expect(t.querySelectorAll('.tvl-heat .tvl-c.on').length).toBe(7); expect(t.querySelectorAll('.tvl-rug .tvl-c.on').length).toBe(2);
+  expect(t.textContent).toContain('5m pace 2.4×'); expect(t.textContent).toContain('🫀 B');
+});

@@ -46,8 +46,26 @@ export function statLine(r) {
     Number(r.holders) > 0 && `${Number(r.holders).toLocaleString()} holders`, r.vital?.organicPct != null && `🌱 ${Math.round(r.vital.organicPct)}% organic`].filter(Boolean);
 }
 
+// 🗑 TRENCH VITAL (backend jup_audit.trench_verdict → row `tv`): the degen read for coins under 6h / on the curve / trench rows.
+// 🔥 HEAT (is it sending: 5m pace, buyers, holders arriving, net buyers, a sane 5m candle) vs ☠ RUG (top-10, bundles, snipers, insiders, dev,
+// serial launcher, bots, no socials, pool drain, minutes old, live authority) → one call. Ten-cell meters light up on arrival.
+const Meter = ({ k, label, val }) => <span className={`tvl-m tvl-${k}`} data-tip={`${label} ${val == null ? 'not read yet' : `${val}/100`}`}>
+  <span className="tvl-ml">{label}</span><span className="tvl-cells">{Array.from({ length: 10 }, (_, i) => <span key={i} className={`tvl-c ${val != null && val >= (i + 1) * 10 - 5 ? 'on' : ''}`} style={{ '--i': i }} />)}</span>
+  <span className="tvl-mv">{val == null ? '—' : val}</span></span>;
+export function TrenchVital({ r, mini = false }) {
+  const t = r?.tv; if (!t) return null;
+  const [ic, word, tone] = t.call || ['👀', 'WATCH', 'warn'];
+  return <div className={`tvl tvl-${tone} ${mini ? 'is-mini' : ''}`} data-testid={`tvl-${r.symbol}`}>
+    <span className={`tvl-call ${word === 'SEND IT' ? 'is-send' : ''}`} data-tip="Degen call for a small ticket — heat vs rug risk. A read, never a promise.">{ic} {word}</span>
+    <span className="tvl-meters"><Meter k="heat" label="🔥 HEAT" val={t.heat} /><Meter k="rug" label="☠ RUG" val={t.rug} /></span>
+    {!mini && t.tags?.length > 0 && <span className="tvl-tags">{t.tags.map(([i2, txt, tn]) => <span key={txt} className={`tvl-tag ${tn}`}>{i2} {txt}</span>)}
+      {r.vital && <span className={`tvl-tag tvl-grade cvl-${r.vital.tone}`} data-tip={`Vital ${r.vital.score}/100 — ${r.vital.word}`}>🫀 {r.vital.grade}</span>}</span>}
+  </div>;
+}
+
 export function CoinVital({ r, live = false }) {
   const v = r?.vital;
+  if (r?.tv) return <TrenchVital r={r} />;   // a brand-new coin: the degen read decides more than spread / dev / crew
   if (!v) return <RowVitals r={r} live={live} />;
   const crew = v.crew || r.crew;
   return <div className={`cvl cvl-${v.tone}`} data-testid={`cvl-${r.symbol}`}>
