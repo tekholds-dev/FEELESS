@@ -12,10 +12,10 @@ test('the vital shows a grade, four bars, the crew and the deciding facts; a coi
       crew: { kind: 'serial', icon: '☠', label: 'serial launcher', why: 'dev launched 1076 coins, 22 graduated' } } };
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<CoinVital r={r} />); });
-  const v = el.querySelector('[data-testid="cv-TT"]');
-  expect(v.className).toContain('cv-bad'); expect(v.querySelector('.cv-grade b').textContent).toBe('D');
-  expect(v.querySelectorAll('.cv-bar').length).toBe(4); expect(v.querySelectorAll('.cv-bar.bad').length).toBe(2);
-  expect(v.querySelector('.cv-crew.is-serial').textContent).toContain('serial launcher');
+  const v = el.querySelector('[data-testid="cvl-TT"]');
+  expect(v.className).toContain('cvl-bad'); expect(v.querySelector('.cvl-grade .cvl-g').textContent).toBe('D');
+  expect(v.querySelectorAll('.cvl-bar').length).toBe(4); expect(v.querySelectorAll('.cvl-bar.bad').length).toBe(2);
+  expect(v.querySelector('.cvl-crew.is-serial').textContent).toContain('serial launcher');
   expect(v.textContent).toContain('bots — 3% of volume is organic');
   expect(statLine(r)).toEqual(['48m old', '$635K cap', '$1.2M/h', '52% buys', '3,103 holders']);
   const el2 = document.createElement('div'); document.body.appendChild(el2);

@@ -2184,7 +2184,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   runs and replaces it. Live mint / freeze authority = hard out (`authority_bad`). Jupiter's % never feeds the top-10 spike / dev-sold history.
 - 👥 CREWS (`jup_audit.crew`, from the dev wallet's launch record devMints / devMigrations): 🔥 popular crew (≥ 3 graduated, ≥ 20%) · ☠ serial
   launcher (≥ 50 launches, < 5% graduated) · 🆕 fresh dev (≤ 3) · ⚪ mixed. A READ, never a block ($TikTok's dev: 1,076 launches, 22 graduated, still +10,000%).
-- 🫀 THE VITAL (`CoinVital.jsx` + `styles/coinVital.css` `cv-*`, `jup_audit.verdict` → row `vital`; replaces the long RowVitals chip line in Coming
+- 🫀 THE VITAL (`CoinVital.jsx` + `styles/coinVital.css` `cvl-*` (NOT `cv-*`: CardVitals already owns `.cv-bar` — a 4px bar with overflow hidden — and clipped the vital bars to dashes), `jup_audit.verdict` → row `vital`; replaces the long RowVitals chip line in Coming
   up + the swap picker): grade ring A–F + score, four bars (🧩 holders · 👤 dev · 👥 crew · 🌱 organic flow = organic share of 1h volume), the 3 facts
   that decide it (bad first: 🐋 top-10 · 📦 bundles · 🕵 insiders · 👤 dev · ☠ crew · 🤖 bots) + one stats line. Not read yet → the old chip line.
 - 🔄 NEW TO YOU (picker lens `fresh`, opens first): Pump trending · movers · Pump live · volume · dips · the Arena's ranked coins woven one from each in
