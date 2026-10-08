@@ -24,7 +24,7 @@
 <body>
 <div class="wrap">
   <h1>⚛ FEELESS · STREET CHARACTER</h1>
-  <div class="stage" id="stage"><span class="tag">drag to turn · low-poly · original model</span></div>
+  <div class="stage" id="stage"><span class="tag">drag to turn · original model</span></div>
   <div class="row"><span class="lab">HOODIE</span><span id="sw-hood" class="row"></span></div>
   <div class="row"><span class="lab">SKIN</span><span id="sw-skin" class="row"></span></div>
   <div class="row"><span class="lab">CAP</span><span id="sw-cap" class="row"></span></div>
@@ -42,7 +42,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.A
 stage.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene(); scene.background = new THREE.Color(0x040a07); scene.fog = new THREE.Fog(0x040a07, 7, 14);
-const cam = new THREE.PerspectiveCamera(30, W / H, 0.1, 50); cam.position.set(0, 1.35, 7.4); cam.lookAt(0, 0.95, 0);
+const cam = new THREE.PerspectiveCamera(30, W / H, 0.1, 50); cam.position.set(0, 1.45, 7.8); cam.lookAt(0, 1.05, 0);
 
 // lights: soft sky, warm key, royal-green rim from behind, pink fill
 scene.add(new THREE.HemisphereLight(0xdfeee6, 0x1a2a22, 1.5));
@@ -63,83 +63,93 @@ for (let i = 0; i < 16; i++) {
     w.position.set(b.position.x + (k % 2 ? 0.25 : -0.25), 0.4 + k * (h / 4.5), b.position.z + 0.61); city.add(w); }
 }
 
-// ---- the character: every part is a flat-shaded primitive ----
+// ---- the character: smooth, rounded forms (capsules + spheres, soft-shaded fabric) ----
+const phys = (color, o = {}) => new THREE.MeshPhysicalMaterial({ color, roughness: 0.6, ...o });
 const mats = {
-  skin: new THREE.MeshStandardMaterial({ color: 0xc68a63, roughness: 0.8, flatShading: true }),
-  hood: new THREE.MeshStandardMaterial({ color: 0x15281f, roughness: 0.85, flatShading: true }),
-  trim: new THREE.MeshStandardMaterial({ color: 0x15d16a, roughness: 0.5, flatShading: true, emissive: 0x0a5a2e, emissiveIntensity: 0.6 }),
-  jeans: new THREE.MeshStandardMaterial({ color: 0x1d2b46, roughness: 0.9, flatShading: true }),
-  shoe: new THREE.MeshStandardMaterial({ color: 0xf2f4f3, roughness: 0.55, flatShading: true }),
-  sole: new THREE.MeshStandardMaterial({ color: 0x15d16a, roughness: 0.5, flatShading: true }),
-  cap: new THREE.MeshStandardMaterial({ color: 0x0a0d0c, roughness: 0.8, flatShading: true }),
-  lens: new THREE.MeshStandardMaterial({ color: 0x05080a, roughness: 0.15, metalness: 0.8 }),
-  gold: new THREE.MeshStandardMaterial({ color: 0xffc857, roughness: 0.25, metalness: 0.9 }),
+  skin: phys(0xc68a63, { roughness: 0.55, sheen: 0.4, sheenColor: new THREE.Color(0xffb08a), clearcoat: 0.08 }),
+  hood: phys(0x15281f, { roughness: 0.92, sheen: 1, sheenRoughness: 0.5, sheenColor: new THREE.Color(0x4a8a6a) }),
+  trim: phys(0x15d16a, { roughness: 0.45, emissive: 0x0a5a2e, emissiveIntensity: 0.55 }),
+  jeans: phys(0x1d2b46, { roughness: 0.95, sheen: 0.6, sheenColor: new THREE.Color(0x4d6aa0) }),
+  shoe: phys(0xf2f4f3, { roughness: 0.4, clearcoat: 0.3 }),
+  sole: phys(0x15d16a, { roughness: 0.5 }),
+  cap: phys(0x0a0d0c, { roughness: 0.85, sheen: 0.5 }),
+  lens: phys(0x05080a, { roughness: 0.08, metalness: 0.7, clearcoat: 1 }),
+  gold: phys(0xffc857, { roughness: 0.22, metalness: 1 }),
   screen: new THREE.MeshBasicMaterial({ color: 0x45e486 }),
-  hair: new THREE.MeshStandardMaterial({ color: 0x120b08, roughness: 0.9, flatShading: true }),
+  hair: phys(0x120b08, { roughness: 0.9 }),
+  body: phys(0x0a0d0c, { roughness: 0.25, clearcoat: 1 }),
 };
 const add = (parent, geo, mat, x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); parent.add(m); return m; };
-const cyl = (rt, rb, h, seg = 8) => new THREE.CylinderGeometry(rt, rb, h, seg);
+const cap = (r, len) => new THREE.CapsuleGeometry(r, len, 10, 28);
+const ball = (r, w = 32, h = 24) => new THREE.SphereGeometry(r, w, h);
+const roundRect = (w, h, r, depth) => { const sh = new THREE.Shape(); const x = -w / 2, y = -h / 2;
+  sh.moveTo(x + r, y); sh.lineTo(x + w - r, y); sh.quadraticCurveTo(x + w, y, x + w, y + r); sh.lineTo(x + w, y + h - r); sh.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  sh.lineTo(x + r, y + h); sh.quadraticCurveTo(x, y + h, x, y + h - r); sh.lineTo(x, y + r); sh.quadraticCurveTo(x, y, x + r, y);
+  const g = new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: true, bevelSize: 0.006, bevelThickness: 0.006, bevelSegments: 4, curveSegments: 12 }); g.translate(0, 0, -depth / 2); return g; };
 
 const rig = new THREE.Group(); scene.add(rig);
 const body = new THREE.Group(); rig.add(body);
 
-// legs
+// legs: one smooth capsule each, rounded trainers
 const legs = [];
 for (const s of [-1, 1]) {
-  const leg = new THREE.Group(); leg.position.set(s * 0.17, 0.95, 0); body.add(leg);
-  add(leg, cyl(0.13, 0.105, 0.9), mats.jeans, 0, -0.45, 0);
-  add(leg, new THREE.BoxGeometry(0.2, 0.1, 0.4), mats.shoe, 0, -0.9, 0.07);
-  add(leg, new THREE.BoxGeometry(0.21, 0.04, 0.42), mats.sole, 0, -0.96, 0.07);
-  add(leg, new THREE.BoxGeometry(0.2, 0.06, 0.1), mats.trim, 0, -0.86, 0.19);
+  const leg = new THREE.Group(); leg.position.set(s * 0.15, 1.12, 0); body.add(leg);
+  add(leg, cap(0.112, 0.74), mats.jeans, 0, -0.55, 0, 1.08, 1, 1);
+  add(leg, new THREE.TorusGeometry(0.105, 0.03, 12, 32), mats.jeans, 0, -1.0, 0).rotation.x = Math.PI / 2;      // cuff
+  const shoe = add(leg, cap(0.085, 0.17), mats.shoe, 0, -1.09, 0.07, 1.15, 0.85, 1); shoe.rotation.x = Math.PI / 2;
+  const sole = add(leg, cap(0.09, 0.17), mats.sole, 0, -1.145, 0.07, 1.2, 0.3, 1); sole.rotation.x = Math.PI / 2;
+  add(leg, ball(0.05, 20, 14), mats.trim, 0, -1.06, 0.2, 1.1, 0.5, 0.7);                                           // toe swoosh
   legs.push(leg);
 }
-// torso (hoodie)
-const torso = new THREE.Group(); torso.position.y = 1.0; body.add(torso);
-add(torso, cyl(0.33, 0.27, 0.66, 8), mats.hood, 0, 0.33, 0, 1, 1, 0.62);
-add(torso, cyl(0.285, 0.285, 0.1, 8), mats.hood, 0, 0.0, 0, 1, 1, 0.66);            // hem
-add(torso, new THREE.BoxGeometry(0.05, 0.55, 0.02), mats.trim, 0, 0.32, 0.2);         // zip line
-add(torso, new THREE.BoxGeometry(0.2, 0.2, 0.012), mats.trim, 0.1, 0.42, 0.205);      // chest block "F"
-add(torso, new THREE.BoxGeometry(0.2, 0.05, 0.015), mats.hood, 0.1, 0.44, 0.21);
-add(torso, new THREE.BoxGeometry(0.06, 0.05, 0.015), mats.hood, 0.06, 0.37, 0.21);
-add(torso, new THREE.TorusGeometry(0.2, 0.07, 6, 8, Math.PI), mats.hood, 0, 0.7, -0.02, 1, 0.7, 0.9).rotation.x = Math.PI / 2;   // hood behind the neck
+// torso: a soft capsule hoodie with shoulders, hem band and a thick hood
+const torso = new THREE.Group(); torso.position.y = 1.13; body.add(torso);
+add(torso, cap(0.255, 0.2), mats.hood, 0, 0.37, 0, 1.12, 1, 0.78);
+add(torso, new THREE.TorusGeometry(0.255, 0.04, 14, 40), mats.hood, 0, 0.02, 0, 1.12, 0.78, 1).rotation.x = Math.PI / 2;   // hem
+for (const s of [-1, 1]) add(torso, ball(0.12, 24, 18), mats.hood, s * 0.3, 0.6, 0);                                           // shoulders
+const hoodRing = add(torso, new THREE.TorusGeometry(0.17, 0.075, 16, 40), mats.hood, 0, 0.72, -0.02, 1, 1, 0.8); hoodRing.rotation.x = Math.PI / 2 - 0.35;
+add(torso, new THREE.CapsuleGeometry(0.012, 0.5, 6, 12), mats.trim, 0, 0.36, 0.2);                                              // zip
+const logoTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); g.fillStyle = '#15d16a'; g.font = '800 104px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('F', 64, 70); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; })();
+add(torso, new THREE.PlaneGeometry(0.17, 0.17), new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, polygonOffset: true, polygonOffsetFactor: -2 }), 0.1, 0.46, 0.2);
 // neck + head
-const neck = add(torso, cyl(0.09, 0.1, 0.14), mats.skin, 0, 0.72, 0);
-const head = new THREE.Group(); head.position.set(0, 0.98, 0); torso.add(head);
-add(head, new THREE.IcosahedronGeometry(0.25, 1), mats.skin, 0, 0, 0, 0.92, 1.08, 0.98);
-add(head, new THREE.BoxGeometry(0.05, 0.06, 0.06), mats.skin, 0, -0.02, 0.25);               // nose
-add(head, new THREE.BoxGeometry(0.14, 0.02, 0.02), mats.hair, 0, -0.13, 0.215);                // moustache line
-add(head, new THREE.BoxGeometry(0.2, 0.1, 0.05), mats.hair, 0, -0.2, 0.17);                    // short beard
-for (const s of [-1, 1]) add(head, new THREE.BoxGeometry(0.05, 0.1, 0.05), mats.skin, s * 0.235, -0.01, 0);   // ears
-// sunglasses
-for (const s of [-1, 1]) add(head, new THREE.BoxGeometry(0.15, 0.085, 0.03), mats.lens, s * 0.09, 0.05, 0.23);
-add(head, new THREE.BoxGeometry(0.05, 0.02, 0.03), mats.lens, 0, 0.065, 0.23);
-add(head, new THREE.BoxGeometry(0.4, 0.02, 0.03), mats.lens, 0, 0.075, 0.2, 1, 1, 0.6);
-// backwards cap
-const capMesh = add(head, new THREE.SphereGeometry(0.265, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), mats.cap, 0, 0.1, -0.01, 1, 1, 1.02);
-const brim = add(head, new THREE.BoxGeometry(0.3, 0.025, 0.17), mats.cap, 0, 0.12, -0.3);
-const capBadge = add(head, new THREE.BoxGeometry(0.1, 0.07, 0.01), mats.trim, 0, 0.26, 0.255); capBadge.rotation.x = -0.5;
-// chain
-const chain = add(torso, new THREE.TorusGeometry(0.17, 0.016, 6, 16), mats.gold, 0, 0.6, 0.06, 1, 1.15, 1); chain.rotation.x = 1.25;
-add(torso, new THREE.OctahedronGeometry(0.045), mats.gold, 0, 0.42, 0.2);
-// arms
+add(torso, cap(0.072, 0.1), mats.skin, 0, 0.76, 0);
+const head = new THREE.Group(); head.position.set(0, 1.02, 0); torso.add(head);
+add(head, ball(0.25, 40, 28), mats.skin, 0, 0.01, 0, 0.9, 1.06, 0.96);                                    // skull
+add(head, ball(0.2, 32, 22), mats.skin, 0, -0.08, 0.035, 0.95, 0.95, 0.92);                               // jaw + chin
+add(head, ball(0.035, 18, 14), mats.skin, 0, -0.03, 0.24, 1, 1.15, 1.1);                                   // nose
+for (const s of [-1, 1]) { add(head, ball(0.04, 16, 12), mats.skin, s * 0.225, -0.01, 0, 0.55, 1.2, 0.8); }   // ears, cheeks
+add(head, new THREE.CapsuleGeometry(0.013, 0.1, 6, 12), mats.hair, 0, -0.115, 0.225).rotation.z = Math.PI / 2;   // moustache
+add(head, ball(0.16, 28, 18), mats.hair, 0, -0.19, 0.075, 1, 0.55, 0.9);                                   // short beard
+// sunglasses: smooth lenses on a thin frame
+for (const s of [-1, 1]) add(head, ball(0.075, 24, 16), mats.lens, s * 0.092, 0.05, 0.215, 1, 0.7, 0.28);
+add(head, new THREE.CapsuleGeometry(0.01, 0.06, 4, 10), mats.lens, 0, 0.065, 0.235).rotation.z = Math.PI / 2;
+add(head, new THREE.CapsuleGeometry(0.008, 0.39, 4, 12), mats.lens, 0, 0.075, 0.185).rotation.z = Math.PI / 2;
+// backwards cap: a smooth dome with a curved brim
+add(head, new THREE.SphereGeometry(0.268, 36, 18, 0, Math.PI * 2, 0, Math.PI * 0.46), mats.cap, 0, 0.07, -0.015, 1.0, 1.02, 1.04);
+add(head, new THREE.TorusGeometry(0.255, 0.014, 10, 48), mats.cap, 0, 0.088, -0.012, 1, 1.02, 1).rotation.x = Math.PI / 2;
+const brim = add(head, ball(0.16, 28, 10), mats.cap, 0, 0.1, -0.29, 1, 0.1, 0.78); brim.rotation.x = 0.2;
+add(head, ball(0.04, 16, 12), mats.trim, 0, 0.27, 0.07, 1.2, 0.5, 0.2);
+// chain + pendant
+const chain = add(torso, new THREE.TorusGeometry(0.17, 0.011, 10, 48), mats.gold, 0, 0.6, 0.05, 1, 1.2, 1); chain.rotation.x = 1.2;
+add(torso, ball(0.04, 18, 14), mats.gold, 0, 0.43, 0.185, 1, 1.2, 0.6);
+// arms: capsule upper arm + forearm, rounded hands
 const arms = {};
 for (const s of [-1, 1]) {
-  const arm = new THREE.Group(); arm.position.set(s * 0.37, 0.6, 0); torso.add(arm);
-  add(arm, cyl(0.085, 0.075, 0.34), mats.hood, 0, -0.17, 0);
-  const fore = new THREE.Group(); fore.position.set(0, -0.34, 0); arm.add(fore);
-  add(fore, cyl(0.075, 0.062, 0.32), mats.hood, 0, -0.16, 0);
-  add(fore, cyl(0.078, 0.078, 0.06), mats.trim, 0, -0.3, 0);               // cuff
-  add(fore, new THREE.BoxGeometry(0.1, 0.12, 0.08), mats.skin, 0, -0.38, 0);
+  const arm = new THREE.Group(); arm.position.set(s * 0.335, 0.6, 0); torso.add(arm);
+  add(arm, cap(0.083, 0.19), mats.hood, 0, -0.19, 0);
+  const fore = new THREE.Group(); fore.position.set(0, -0.37, 0); arm.add(fore);
+  add(fore, ball(0.082, 20, 16), mats.hood, 0, 0, 0);
+  add(fore, cap(0.07, 0.19), mats.hood, 0, -0.18, 0);
+  add(fore, new THREE.TorusGeometry(0.072, 0.022, 12, 28), mats.trim, 0, -0.34, 0).rotation.x = Math.PI / 2;
+  add(fore, ball(0.062, 20, 16), mats.skin, 0, -0.41, 0.005, 1, 1.15, 0.85);
+  add(fore, ball(0.026, 14, 10), mats.skin, s * -0.05, -0.4, 0.04, 1, 1.4, 1);                              // thumb
   arms[s] = { arm, fore };
 }
-// left arm hangs relaxed; right arm raised, holding a glowing phone
-arms[-1].arm.rotation.z = 0.12;
-arms[1].arm.rotation.z = -0.28; arms[1].arm.rotation.x = -0.5; arms[1].fore.rotation.x = -1.35;
-const phone = add(arms[1].fore, new THREE.BoxGeometry(0.11, 0.2, 0.02), new THREE.MeshStandardMaterial({ color: 0x0a0d0c, roughness: 0.3 }), 0, -0.4, 0.07);
-add(phone, new THREE.PlaneGeometry(0.095, 0.18), mats.screen, 0, 0, 0.0115);
+arms[-1].arm.rotation.z = -0.14;
+arms[1].arm.rotation.z = 0.42; arms[1].arm.rotation.x = -0.25; arms[1].fore.rotation.x = -1.25;
+const phone = add(arms[1].fore, roundRect(0.1, 0.19, 0.022, 0.012), mats.body, 0, -0.43, 0.075);
+add(phone, roundRect(0.086, 0.172, 0.016, 0.002), mats.screen, 0, 0, 0.007);
 const glow = new THREE.PointLight(0x45e486, 2.2, 1.6); glow.position.set(0, 0, 0.18); phone.add(glow);
-// wrist watch on the left hand
-add(arms[-1].fore, cyl(0.082, 0.082, 0.04), mats.gold, 0, -0.27, 0);
+add(arms[-1].fore, new THREE.TorusGeometry(0.066, 0.02, 12, 28), mats.gold, 0, -0.3, 0).rotation.x = Math.PI / 2;   // watch band
 
 // ---- designer: outfit pickers ----
 const palette = (id, list, apply) => {
@@ -155,10 +165,10 @@ palette('sw-cap', [['Black', 0x0a0d0c], ['Green', 0x0f7a3e], ['White', 0xe8ecea]
 let spin = true, yaw = -0.5, drag = null, t0 = performance.now();
 const pose = t => {                       // t in seconds; everything repeats every 3s so the GIF loops cleanly
   const u = (t / 3) * Math.PI * 2;
-  torso.position.y = 1.0 + Math.sin(u * 2) * 0.008;
+  torso.position.y = 1.13 + Math.sin(u * 2) * 0.008;
   head.rotation.y = Math.sin(u) * 0.18; head.rotation.z = Math.sin(u * 2) * 0.03;
   arms[-1].arm.rotation.x = Math.sin(u) * 0.05;
-  arms[1].fore.rotation.x = -1.35 + Math.sin(u * 2) * 0.04;
+  arms[1].fore.rotation.x = -1.25 + Math.sin(u * 2) * 0.04;
   legs[0].rotation.x = Math.sin(u) * 0.015; legs[1].rotation.x = -Math.sin(u) * 0.015;
   ring.material.color.setHSL(0.4, 0.75, 0.5 + Math.sin(u * 2) * 0.06);
 };
