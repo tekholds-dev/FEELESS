@@ -2893,17 +2893,21 @@ def _cand_map():
     return {c.get('mint'): c for c in _runner_cands if c.get('mint')}
 
 
-def _read_for(r, cmap=None):
+def _read_for(r, cmap=None, lens=None):
     """🎢 / 🧲 / 🔥 The read that fits this coin (jup_audit.pick_read), with the runner board's curve %, curve speed and 5-min flow filled in."""
     m = r.get('mint') or r.get('baseAddress')
     c = (cmap if cmap is not None else _cand_map()).get(m) or {}
     x = {k: c.get(k) for k in ('vol5m', 'vol1h', 'chg5m', 'chg1h', 'chg24h', 'txns1h', 'buyShare', 'ageH', 'curveSpeed', 'top10', 'dev', 'insiders') if c.get(k) is not None}
     x.update({k: v for k, v in r.items() if v is not None})
+    for a_, b_ in (('change5m', 'chg5m'), ('change1h', 'chg1h'), ('change6h', 'chg6h'), ('change24h', 'chg24h'), ('marketCap', 'mcap'), ('volume24h', 'vol24h')):
+        if x.get(b_) is None and x.get(a_) is not None:
+            x[b_] = x[a_]
     if c.get('stage') == 'curve' and c.get('curve') is not None:
         x['curvePct'] = c.get('curve')
     if c.get('bundled') is not None and x.get('bundledN') is None:
         x['bundledN'] = c.get('bundled')
-    return _ja.pick_read((_jup_facts.get(m) or (0, None))[1], x)
+    jf_ = (_jup_facts.get(m) or (0, None))[1]
+    return _ja.read_for_lens(lens, jf_, x) if lens else _ja.pick_read(jf_, x)
 
 
 _coin_read_cache: dict = {}   # mint → (at, read) — 15s
@@ -3006,11 +3010,20 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
     out = await _fuses_discover_raw(lens, chain)
     _disc_cache[key_] = (time.time(), out)   # lists returned as they are (majors, pools…); a dressed launch list replaces this below
     rows = out.get('pools') if isinstance(out, dict) else None
+    if rows and lens in ('majors', 'stocks', 'risers'):   # 🐋 the majors / stocks tab gets its own TREND read
+        for r in rows:
+            r['tv'] = _read_for(r, {}, lens)
     if not rows or lens in ('majors', 'stocks', 'popular', 'yield', 'deep', 'new'):
         return out
     live = [r for r in rows if r.get('vol1h') is None or _fuse._f(r.get('vol1h')) >= PICK_DEAD_VOL1H]
     await _jup_lite([r.get('baseAddress') or r.get('mint') for r in live])
     _clean_rows(live)
+    if lens in _ja.LENS_READ and _ja.LENS_READ[lens] != 'auto':   # 🚀 / 🌊 / 🧲 / 🔥 every tab its OWN read (the curve read still wins on the curve)
+        cmap_l = _cand_map()
+        for r in live:
+            tv_ = _read_for(r, cmap_l, lens)
+            if tv_:
+                r['tv'] = tv_
     if not os.environ.get('PYTEST_CURRENT_TEST'):
         for r in [x for x in live if not x.get('scanned')][:PICK_SCAN_TOP]:
             m = r.get('baseAddress') or r.get('mint')
@@ -6023,7 +6036,8 @@ async def _owner_moves_tick(now):
 
 CALL_PROOF_PATH = FUSE_HQ_PATH.parent / 'call_proof.json'   # 🗑 each trench-vital CALL's own 1-hour record (send / watch / cold / bait)
 CALL_KEYS = {'SEND IT': 'send', 'WATCH': 'watch', 'COLD': 'cold', 'RUG BAIT': 'bait', 'BOND RUN': 'bond', 'EARLY RUSH': 'rush', 'DUMPING': 'dump',
-             'SLOW CURVE': 'slow', 'BUY THE DIP': 'dip', 'FALLING KNIFE': 'knife', 'DEAD DIP': 'deaddip'}
+             'SLOW CURVE': 'slow', 'BUY THE DIP': 'dip', 'FALLING KNIFE': 'knife', 'DEAD DIP': 'deaddip', 'BREAKOUT': 'breakout', 'BLOW-OFF TOP': 'blowoff',
+             'COOLING': 'cooling', 'VOLUME SURGE': 'surge', 'WASH TRADED': 'wash', 'DRYING UP': 'dry', 'TREND UP': 'tup', 'TREND DOWN': 'tdown', 'CHOP': 'chop'}
 CALL_AUTO_MIN = 10   # the engine takes 🔥 SEND IT coins by itself only after ≥ 10 settled calls with a typical result up and half or more up
 _call_cache: dict = {'at': 0.0, 'send': [], 'proof': {}}
 
@@ -6049,6 +6063,14 @@ async def _call_track(now):
                 by[k].append((m, r['price']))
             if k == 'send' and r.get('safe') is True:
                 send.append({**r, 'tv': tv})
+        for (lens_, _c), (_at, doc_) in list(_disc_cache.items()):   # 🚀 / 🌊 / 🐋 each tab's own calls are scored too (the dressed lists in the cache)
+            if lens_ not in ('movers', 'ptrend', 'volume', 'majors', 'stocks') or not isinstance(doc_, dict):
+                continue
+            for r in doc_.get('pools') or []:
+                k_ = CALL_KEYS.get(((r.get('tv') or {}).get('call') or [None, None])[1])
+                m_ = r.get('baseAddress') or r.get('mint'); p_ = _fuse._f(r.get('priceUsd') or r.get('price'))
+                if k_ and k_ != 'watch' and m_ and p_ > 0 and (m_, p_) not in by[k_]:
+                    by[k_].append((m_, p_))
         st = _json_load(CALL_PROOF_PATH, {})
         due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
         jp = await _jup_prices(due) if due else {}

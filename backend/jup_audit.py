@@ -366,3 +366,138 @@ def pick_read(f, row=None):
         t = trench_verdict(f, r)
         return {**t, 'kind': 'trench', 'meters': [['🔥 HEAT', t['heat']], ['☠ RUG', t['rug']]]}
     return None
+
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+# 🚀 MOVER · 🌊 FLOW · 🐋 TREND — one read per pick-list category (owner, 2026-10-08: "all other categories have meta data no other has —
+# loving BOND RUN and it being measured"). Same shape as every read: two meters → one call → ≤ 4 tags; each call scored on its own record.
+def _clip(x):
+    return max(0.0, min(1.0, x))
+
+
+def mover_verdict(f, row=None):
+    """🚀 A coin running on the hour: 🚀 MOMENTUM (1h move, 5 min still going, buyers, pace) × 🧯 BLOW-OFF (5 min turning down after a
+    huge hour, sellers taking over, pace fading, a vertical 5-min candle). BREAKOUT · BLOW-OFF TOP · COOLING · WATCH."""
+    f, r = f or {}, row or {}
+    c1, c5, bs = r.get('chg1h'), r.get('chg5m'), r.get('buyShare')
+    v1, v5 = _f(r.get('vol1h')), _f(r.get('vol5m'))
+    pace = v5 * 12 / v1 if v1 > 0 and v5 > 0 else None
+    up, top, tags = [], [], []
+    if c1 is not None:
+        up.append(_clip(_f(c1) / 60)); top.append(_clip((_f(c1) - 150) / 300))
+        tags.append(('🚀', f"{_f(c1):+.0f}% on the hour", 'good' if _f(c1) > 0 else 'bad'))
+    if c5 is not None:
+        up.append(_clip((_f(c5) + 1) / 8))
+        top.append(_clip(-_f(c5) / 10) if c1 is not None and _f(c1) > 50 else 0.0)
+        if _f(c5) > 40:
+            top.append(1.0); tags.append(('🧗', f"+{_f(c5):.0f}% in 5m — vertical", 'bad'))
+    if bs is not None:
+        up.append(_clip((_f(bs) - 45) / 25)); top.append(_clip((50 - _f(bs)) / 15))
+    if pace is not None:
+        up.append(_clip(pace / 2)); top.append(_clip((0.6 - pace) / 0.6))
+        if pace < 0.6:
+            tags.append(('💤', f"pace {pace:.1f}× — fading", 'bad'))
+    mom = round(sum(up) / len(up) * 100) if up else None
+    blow = round(sum(top) / len(top) * 100) if top else None
+    if authority_bad(f):
+        call = ('☠', 'RUG BAIT', 'bad')
+    elif blow is not None and blow >= 55:
+        call = ('🧯', 'BLOW-OFF TOP', 'bad')
+    elif mom is not None and mom >= 60 and (blow is None or blow <= 35):
+        call = ('🚀', 'BREAKOUT', 'good')
+    elif mom is not None and mom < 35:
+        call = ('🧊', 'COOLING', 'warn')
+    else:
+        call = ('👀', 'WATCH', 'warn')
+    order = {'bad': 0, 'good': 1}
+    return {'kind': 'mover', 'call': call, 'meters': [['🚀 MOMENTUM', mom], ['🧯 BLOW-OFF', blow]], 'tags': sorted(tags, key=lambda x: order.get(x[2], 2))[:4]}
+
+
+def flow_verdict(f, row=None):
+    """🌊 A busy coin: 🌊 SURGE (5-min pace vs its hour, trades per hour, real buyers) × 🧪 WASH (bot share of volume, few real buyers for the
+    trades, the same wallets trading). VOLUME SURGE · WASH TRADED · DRYING UP · WATCH."""
+    f, r = f or {}, row or {}
+    v1, v5, tx = _f(r.get('vol1h')), _f(r.get('vol5m')), r.get('txns1h')
+    pace = v5 * 12 / v1 if v1 > 0 and v5 > 0 else None
+    sg, ws, tags = [], [], []
+    if pace is not None:
+        sg.append(_clip(pace / 2.2))
+        tags.append(('🌊', f"5m pace {pace:.1f}×", 'good' if pace >= 1.3 else 'bad' if pace < 0.5 else 'warn'))
+    if tx is not None:
+        sg.append(_clip(int(_f(tx)) / 1500))
+    org = f.get('organicPct')
+    if org is not None:
+        ws.append(_clip((15 - _f(org)) / 15))
+        if _f(org) < 5:
+            tags.append(('🤖', f"{_f(org):.0f}% organic", 'bad'))
+    rb, tr = f.get('realBuyers1h'), f.get('traders1h')
+    if rb is not None and _f(tr) >= 100:
+        share = _f(rb) / _f(tr); ws.append(_clip((0.08 - share) / 0.08)); sg.append(_clip(share / 0.2))
+        tags.append(('🧍', f"{int(_f(rb))} real buyers / {int(_f(tr)):,} traders", 'good' if share >= 0.1 else 'bad'))
+    surge = round(sum(sg) / len(sg) * 100) if sg else None
+    wash = round(sum(ws) / len(ws) * 100) if ws else None
+    dw = dead_why(r)
+    if dw or (pace is not None and pace < 0.35):
+        call = ('🏜', 'DRYING UP', 'bad')
+    elif wash is not None and wash >= 65:
+        call = ('🧪', 'WASH TRADED', 'bad')
+    elif surge is not None and surge >= 60 and (wash is None or wash <= 40):
+        call = ('🌊', 'VOLUME SURGE', 'good')
+    else:
+        call = ('👀', 'WATCH', 'warn')
+    order = {'bad': 0, 'good': 1}
+    return {'kind': 'flow', 'call': call, 'meters': [['🌊 SURGE', surge], ['🧪 WASH', wash]], 'tags': sorted(tags, key=lambda x: order.get(x[2], 2))[:4]}
+
+
+def trend_verdict(f, row=None):
+    """🐋 A major / stock / deep pool: 📈 TREND (5m · 1h · 6h · 24h all pointing the same way, buyers) × 🌀 CHOP (the timeframes disagree,
+    thin volume for its size). TREND UP · TREND DOWN · CHOP · WATCH."""
+    r = row or {}
+    ch = [_f(r[k]) for k in ('chg5m', 'chg1h', 'chg6h', 'chg24h') if r.get(k) is not None]
+    tags = []
+    if not ch:
+        return {'kind': 'trend', 'call': ('👀', 'WATCH', 'warn'), 'meters': [['📈 TREND', None], ['🌀 CHOP', None]], 'tags': []}
+    ups = sum(1 for x in ch if x > 0); dns = sum(1 for x in ch if x < 0)
+    agree = max(ups, dns) / len(ch)
+    strength = _clip(sum(abs(x) for x in ch[1:] or ch) / (len(ch[1:] or ch) * 8))
+    trend = round((agree * 0.6 + strength * 0.4) * 100)
+    vol, mc = _f(r.get('vol24h') or r.get('vol1h', 0) * 24), _f(r.get('mcap'))
+    turn = vol / mc if mc > 0 and vol > 0 else None
+    chop = round((1 - agree) * 100 * (1.2 if turn is not None and turn < 0.02 else 1))
+    chop = min(100, chop)
+    tags.append(('🧭', ' · '.join(f"{lab} {x:+.1f}%" for lab, x in zip(('5m', '1h', '6h', '24h'), [r.get(k) for k in ('chg5m', 'chg1h', 'chg6h', 'chg24h')]) if x is not None)[:60], 'warn'))
+    if turn is not None and turn < 0.02:
+        tags.append(('🐢', f"{turn * 100:.1f}% of its cap traded", 'bad'))
+    if agree >= 0.75 and ups > dns and trend >= 55:
+        call = ('📈', 'TREND UP', 'good')
+    elif agree >= 0.75 and dns > ups and trend >= 55:
+        call = ('📉', 'TREND DOWN', 'bad')
+    elif chop >= 45:
+        call = ('🌀', 'CHOP', 'warn')
+    else:
+        call = ('👀', 'WATCH', 'warn')
+    return {'kind': 'trend', 'call': call, 'meters': [['📈 TREND', trend], ['🌀 CHOP', chop]], 'tags': tags[:4]}
+
+
+LENS_READ = {'movers': 'mover', 'ptrend': 'mover', 'volume': 'flow', 'majors': 'trend', 'stocks': 'trend', 'risers': 'trend', 'bottom': 'dip',
+             'pump': 'auto', 'trench': 'trench', 'fresh': 'auto', 'arena': 'auto'}
+
+
+def read_for_lens(lens, f, row=None):
+    """The category's OWN read. A coin on its launch curve always gets the curve read (that is what matters most on the curve)."""
+    r = row or {}
+    if r.get('curvePct') is not None and _f(r['curvePct']) < 100:
+        return curve_verdict(f, r)
+    kind = LENS_READ.get(lens, 'auto')
+    if kind == 'mover':
+        return mover_verdict(f, r)
+    if kind == 'flow':
+        return flow_verdict(f, r)
+    if kind == 'trend':
+        return trend_verdict(f, r)
+    if kind == 'dip':
+        return dip_verdict(f, r)
+    if kind == 'trench':
+        t = trench_verdict(f, r)
+        return {**t, 'kind': 'trench', 'meters': [['🔥 HEAT', t['heat']], ['☠ RUG', t['rug']]]}
+    return pick_read(f, r)

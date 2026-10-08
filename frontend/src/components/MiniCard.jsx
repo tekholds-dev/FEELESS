@@ -29,7 +29,7 @@ export function MiniCardHost() {
   const down = e => { if (e.target.closest('button, a')) return; const r = e.currentTarget.parentElement.getBoundingClientRect(); drag.current = { dx: e.clientX - r.left, dy: e.clientY - r.top }; e.currentTarget.setPointerCapture?.(e.pointerId); };
   const move = e => { if (!drag.current) return; set({ pos: { x: Math.max(4, Math.min(window.innerWidth - 120, e.clientX - drag.current.dx)), y: Math.max(4, Math.min(window.innerHeight - 60, e.clientY - drag.current.dy)) } }); };
   const up = () => { drag.current = null; };
-  return createPortal(<aside className={`mch mcd ${SZ_CLASS[size]}`} style={pos ? { left: pos.x, top: pos.y, bottom: 'auto' } : undefined} data-testid="mini-card" aria-label={`Mini card ${src.name}`}>
+  return createPortal(<aside className={`mch mcd ${SZ_CLASS[size]} ${st.max ? 'is-max' : ''}`} style={pos && !st.max ? { left: pos.x, top: pos.y, bottom: 'auto' } : undefined} data-testid="mini-card" aria-label={`Mini card ${src.name}`}>
     <i className="mch-edge" aria-hidden />
     <header className="mch-head" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} data-tip="Drag to move">
       <b className="mcd-name">{src.name}</b>
@@ -39,6 +39,7 @@ export function MiniCardHost() {
         <button type="button" onClick={() => set({ size: SIZES[(SIZES.indexOf(size) + 1) % SIZES.length] })} data-testid="mcd-size" data-tip={`Size: ${SZ_NAME[size]} — tap to change`} aria-label={`Size ${SZ_NAME[size]}, change`}>⤢</button>
         <button type="button" onClick={() => setSt(null)} data-testid="mcd-close" aria-label="Close mini card">×</button></span>
     </header>
+    <button type="button" className="mch-max" onClick={() => set({ max: !st.max })} aria-pressed={!!st.max} data-testid="mcd-max" data-tip={st.max ? 'Back to the small window' : 'Expand — the card / its chart big on top of the page'} aria-label={st.max ? 'Shrink mini card' : 'Expand mini card'}>{st.max ? '🗗' : '⛶'}</button>
     <div className="mch-body mcd-body"><React.Suspense fallback={<p className="m-dim mch-wait">Loading card…</p>}>
       <MiniCardBody src={src} side={side} size={size} tf={st.tf || '5m'} setTf={tf => set({ tf })} /></React.Suspense></div>
   </aside>, document.body);

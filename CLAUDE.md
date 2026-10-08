@@ -2239,3 +2239,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `battle_seats` — the league replaced it), `_globe_row`, unused locals/imports (pyflakes clean except env_loader side-effect imports). Build = 0
   warnings. Re-run the "never imported" scan after deleting anything (one deletion orphaned toast / use-toast). Not done: moving ethers / wagmi out of
   the main bundle (wallet connect rework), the reputation_service.py split.
+- 🏷 EVERY PICK TAB HAS ITS OWN READ (`jup_audit.read_for_lens`, `LENS_READ`; discover rows `tv`; the curve read always wins on the curve):
+  🚀 Movers / Pump trending = `mover_verdict` (🚀 MOMENTUM × 🧯 BLOW-OFF → BREAKOUT · BLOW-OFF TOP · COOLING) · 🌊 Volume = `flow_verdict`
+  (🌊 SURGE × 🧪 WASH → VOLUME SURGE · WASH TRADED · DRYING UP) · 🪙 Majors & stocks = `trend_verdict` (📈 TREND × 🌀 CHOP → TREND UP / DOWN · CHOP)
+  · 🟢 Dips = dip read · 🗑 Trench = SEND IT · New to you / New launches / All ranked = `pick_read`. Every call is scored in `call_proof.json`
+  (`_call_track` also reads the dressed tab lists in `_disc_cache`). `tvl-k-mover` pink · `-flow` cyan · `-trend` gold.
+- ⛶ Mini chart + mini card have a corner expand button (`mch-max` / `mcd-max`, `.mch.is-max` = 84vw × 70vh chart, remembered). Open gates rows are
+  neutral with a slim left edge in the call's colour (`top-tr.call-*`); the mini call is a compact pill (flex, never stretched).

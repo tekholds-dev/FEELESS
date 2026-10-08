@@ -39,6 +39,10 @@ test('mini chart: opens from any chart, closes the room it came from, survives a
   expect(m().textContent).toContain('$ST');                                               // …the chart is still there on the next one
   await act(async () => { m().querySelector('[data-testid="mch-war"]').click(); });
   expect(openWarRoom).toHaveBeenCalledWith(expect.objectContaining({ pairAddress: 'PX' }));
+  await act(async () => { m().querySelector('[data-testid="mch-max"]').click(); });   // ⛶ corner expand
+  expect(m().className).toContain('is-max');
+  await act(async () => { m().querySelector('[data-testid="mch-max"]').click(); });
+  expect(m().className).not.toContain('is-max');
   await act(async () => { m().querySelector('[data-testid="mch-close"]').click(); });
   expect(m()).toBeNull(); expect(window.localStorage.getItem('feeless.miniChart')).toBeNull();
 });

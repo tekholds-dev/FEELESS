@@ -114,3 +114,21 @@ def test_coin_read_gives_the_vital_and_the_read_for_one_coin(monkeypatch):
     from fastapi import HTTPException
     with pytest.raises(HTTPException):
         asyncio.run(rs.coin_read('nope'))
+
+
+def test_every_category_has_its_own_read():
+    bo = ja.mover_verdict({}, {'chg1h': 80, 'chg5m': 5, 'buyShare': 64, 'vol1h': 60000, 'vol5m': 9000})
+    assert bo['kind'] == 'mover' and bo['call'][1] == 'BREAKOUT'
+    top = ja.mover_verdict({}, {'chg1h': 600, 'chg5m': -12, 'buyShare': 38, 'vol1h': 60000, 'vol5m': 2000})
+    assert top['call'][1] == 'BLOW-OFF TOP'
+    surge = ja.flow_verdict({'organicPct': 30, 'realBuyers1h': 120, 'traders1h': 600}, {'vol1h': 100000, 'vol5m': 20000, 'txns1h': 1800})
+    assert surge['kind'] == 'flow' and surge['call'][1] == 'VOLUME SURGE'
+    wash = ja.flow_verdict({'organicPct': 1, 'realBuyers1h': 5, 'traders1h': 900}, {'vol1h': 100000, 'vol5m': 9000, 'txns1h': 1800})
+    assert wash['call'][1] == 'WASH TRADED'
+    assert ja.flow_verdict({}, {'vol1h': 100000, 'vol5m': 1000, 'txns1h': 900})['call'][1] == 'DRYING UP'
+    up = ja.trend_verdict({}, {'chg5m': 0.5, 'chg1h': 3, 'chg6h': 9, 'chg24h': 14, 'vol24h': 9e6, 'mcap': 2e8})
+    assert up['kind'] == 'trend' and up['call'][1] == 'TREND UP'
+    assert ja.trend_verdict({}, {'chg5m': -0.5, 'chg1h': -4, 'chg6h': -9, 'chg24h': -15})['call'][1] == 'TREND DOWN'
+    assert ja.trend_verdict({}, {'chg5m': 0.5, 'chg1h': -1, 'chg6h': 2, 'chg24h': -3})['call'][1] == 'CHOP'
+    assert ja.read_for_lens('volume', {}, {'vol1h': 1})['kind'] == 'flow' and ja.read_for_lens('majors', {}, {'chg1h': 1})['kind'] == 'trend'
+    assert ja.read_for_lens('movers', {}, {'curvePct': 40})['kind'] == 'curve'          # on the curve, the curve read always wins

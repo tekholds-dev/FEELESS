@@ -25,10 +25,11 @@ export function MiniChartHost() {
   const [coin, setCoin] = useState(read);
   const [tf, setTf] = useState('5m');
   const [metric, setMetric] = useState('marketCap');   // MC first, like the war room; tap to see price
-  const [pos, setPos] = useState(() => read()?.pos || null);   // {x, y} from the left / top once dragged; null = docked bottom-left
+  const [pos, setPos] = useState(() => read()?.pos || null);
+  const [max, setMax] = useState(() => !!read()?.max);   // ⛶ corner button: the window fills most of the screen, tap again to shrink   // {x, y} from the left / top once dragged; null = docked bottom-left
   const drag = useRef(null);
   useEffect(() => { const on = e => { setCoin(c => ({ ...e.detail, pos: c?.pos || null })); }; window.addEventListener('feeless:mini-chart', on); return () => window.removeEventListener('feeless:mini-chart', on); }, []);
-  useEffect(() => { write(coin ? { ...coin, pos } : null); }, [coin, pos]);
+  useEffect(() => { write(coin ? { ...coin, pos, max } : null); }, [coin, pos, max]);
   const live = useLivePrices(coin?.pairAddress ? [coin.pairAddress] : []).get(coin?.pairAddress);
   if (!coin) return null;
   const pair = { chainId: coin.chainId, pairAddress: coin.pairAddress, baseToken: { address: coin.mint, symbol: coin.symbol }, info: { imageUrl: coin.logo }, priceUsd: live?.price ?? null, marketCap: live?.mc || null };
@@ -37,7 +38,7 @@ export function MiniChartHost() {
   const down = e => { if (e.target.closest('button, a')) return; const r = e.currentTarget.parentElement.getBoundingClientRect(); drag.current = { dx: e.clientX - r.left, dy: e.clientY - r.top }; e.currentTarget.setPointerCapture?.(e.pointerId); };
   const move = e => { if (!drag.current) return; setPos({ x: Math.max(4, Math.min(window.innerWidth - 120, e.clientX - drag.current.dx)), y: Math.max(4, Math.min(window.innerHeight - 60, e.clientY - drag.current.dy)) }); };
   const up = () => { drag.current = null; };
-  return createPortal(<aside className="mch" style={pos ? { left: pos.x, top: pos.y, bottom: 'auto' } : undefined} data-testid="mini-chart" aria-label={`Mini chart $${coin.symbol}`}>
+  return createPortal(<aside className={`mch ${max ? 'is-max' : ''}`} style={pos && !max ? { left: pos.x, top: pos.y, bottom: 'auto' } : undefined} data-testid="mini-chart" aria-label={`Mini chart $${coin.symbol}`}>
     <i className="mch-edge" aria-hidden />
     <header className="mch-head" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} data-tip="Drag to move">
       <TokenAvatar pair={pair} size={22} /><b>${coin.symbol || `${(coin.mint || '').slice(0, 4)}…`}</b>
@@ -48,6 +49,7 @@ export function MiniChartHost() {
         <button type="button" onClick={() => { openWarRoom(pair); }} data-testid="mch-war" data-tip="Open the full war room (the mini chart stays)" aria-label="Open war room">⚔</button>
         <button type="button" onClick={() => setCoin(null)} data-testid="mch-close" aria-label="Close mini chart">×</button></span>
     </header>
+    <button type="button" className="mch-max" onClick={() => setMax(m => !m)} aria-pressed={max} data-testid="mch-max" data-tip={max ? 'Back to the small window' : 'Expand — a big chart on top of the page'} aria-label={max ? 'Shrink mini chart' : 'Expand mini chart'}>{max ? '🗗' : '⛶'}</button>
     <div className="mch-body"><React.Suspense fallback={<p className="m-dim mch-wait">Loading chart…</p>}><MiniChartBody pair={pair} tf={tf} fuse={coin.fuse || null} metric={metric} /></React.Suspense></div>
   </aside>, document.body);
 }

@@ -26,3 +26,15 @@ body.theme-day .mch-acts button.active { background: #0b7a4a; border-color: #0b7
 .chart-mini-btn { height: 26px; width: 30px; flex: none; border-radius: 6px; border: 1px solid #203129; background: #0a1210; cursor: pointer; font-size: 12px; transition: border-color .15s ease, transform .1s ease; }
 .chart-mini-btn:hover { border-color: #15d16a88; } .chart-mini-btn:active { transform: translateY(1px); } .chart-mini-btn:focus-visible { outline: 2px solid #45e486; outline-offset: 1px; }
 body.theme-day .chart-mini-btn { background: #fff; border-color: #aac7b3; }
+/* ⛶ corner expand (mini chart + mini card): the window fills most of the screen; the chart grows with it */
+.mch-max { position: absolute; right: 8px; bottom: 8px; z-index: 3; width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgba(21, 209, 106, .45); background: rgba(6, 12, 10, .85);
+  color: #c9f5dc; font-size: 14px; line-height: 1; cursor: pointer; transition: transform .15s ease, background .15s ease, box-shadow .15s ease; }
+.mch-max:hover { background: #15d16a; color: #04140b; transform: scale(1.08); box-shadow: 0 0 12px rgba(21, 209, 106, .5); }
+.mch-max:active { transform: scale(.96); } .mch-max:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.mch.is-max { left: 8vw !important; right: auto; top: 7vh !important; bottom: auto !important; width: 84vw; z-index: 900; }
+.mch.is-max .chart-area { min-height: 70vh !important; height: 70vh; } .mch.is-max .candle-canvas { height: 70vh !important; } .mch.is-max .mch-wait { height: 70vh; }
+.mch.mcd.is-max { --mcd-zoom: 2.1; --mcd-h: 68vh; }
+.mch.is-max .mch-head b { max-width: 240px; }
+body.theme-day .mch-max { background: rgba(255, 255, 255, .9); color: #0b7a3e; border-color: #8fd1ae; }
+@media (prefers-reduced-motion: reduce) { .mch-max { transition: none; } }
+@media (max-width: 640px) { .mch.is-max { left: 8px !important; right: 8px; top: 64px !important; bottom: 76px !important; width: auto; } .mch.is-max .chart-area, .mch.is-max .candle-canvas, .mch.is-max .mch-wait { height: 60vh !important; min-height: 60vh !important; } }

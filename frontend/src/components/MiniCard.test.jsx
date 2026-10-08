@@ -37,6 +37,8 @@ test('mini card: opens from a Fuse card, flips card ⇄ chart of any of its coin
   await act(async () => { openMiniCard({ kind: 'row', name: 'My Fuse', row: { id: 'r1', name: 'My Fuse', legs: [{ pairAddress: 'PZ', symbol: 'ZZZ', usd: 2, tokens: 4 }] } }); }); await tick(50);
   expect(q('stub-card').textContent).toBe('My Fuse||1');
   await act(async () => { q('mcd-side-chart').click(); }); await tick(20); expect(q('stub-chart').dataset.fuse).toBe('0.5');   // entry = $ in ÷ coins
+  await act(async () => { q('mcd-max').click(); });   // ⛶ corner expand
+  expect(document.querySelector('[data-testid="mini-card"]').className).toContain('is-max');
   await act(async () => { q('mcd-close').click(); });
   expect(m()).toBeNull(); expect(window.localStorage.getItem('feeless.miniCard')).toBeNull();
   await act(async () => { root2.unmount(); });

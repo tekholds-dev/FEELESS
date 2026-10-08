@@ -54,3 +54,12 @@ test('curve and dip reads render their own meters and call', async () => {
   const k = el.querySelector('[data-testid="tvl-DIP"]');
   expect(k.className).toContain('tvl-k-dip'); expect(k.textContent).toContain('🔪 KNIFE'); expect(k.querySelector('.tvl-call.is-send')).toBeNull();
 });
+
+test('every category read gets its own look and tip', async () => {
+  const row = (s, kind, word) => ({ symbol: s, tv: { kind, call: ['•', word, 'good'], meters: [['A', 70], ['B', 20]], tags: [] } });
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<div><CoinVital r={row('MV', 'mover', 'BREAKOUT')} /><CoinVital r={row('FL', 'flow', 'VOLUME SURGE')} /><CoinVital r={row('TR', 'trend', 'TREND UP')} /></div>); });
+  expect(el.querySelector('[data-testid="tvl-MV"]').className).toContain('tvl-k-mover');
+  expect(el.querySelector('[data-testid="tvl-FL"] .tvl-call').getAttribute('data-tip')).toContain('Flow read');
+  expect(el.querySelector('[data-testid="tvl-TR"]').className).toContain('tvl-k-trend');
+});

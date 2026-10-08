@@ -117,3 +117,17 @@ body.theme-day .tvl-k-curve.tvl-good .tvl-call { color: #1f5fa8; } body.theme-da
 body.theme-day .hrt-held-go { color: #145a8a; border-color: #8fb8d8; } body.theme-day .hrt-held-go:hover { background: #145a8a; color: #fff; }
 @media (prefers-reduced-motion: reduce) { .hrt-held-go { transition: none; } }
 .hrt-held-go option { background: #0b120e; color: #d8f5e4; } body.theme-day .hrt-held-go option { background: #fff; color: #123; }
+/* 🚀 mover · 🌊 flow · 🐋 trend reads: own accents */
+.tvl.tvl-k-mover { border-color: rgba(255, 110, 170, .3); background: linear-gradient(100deg, rgba(255, 90, 160, .12), rgba(0, 0, 0, .2) 55%); }
+.tvl-k-mover .tvl-heat .tvl-c.on, .tvl-k-mover .tvl-heat .tvl-c.on:nth-child(n+7) { background: linear-gradient(90deg, #ff9ad0, #ff4f9a); box-shadow: 0 0 5px rgba(255, 79, 154, .45); }
+.tvl-k-mover.tvl-good .tvl-call { color: #ff8fc8; box-shadow: 0 0 14px rgba(255, 79, 154, .4); }
+.tvl.tvl-k-flow { border-color: rgba(80, 220, 230, .3); background: linear-gradient(100deg, rgba(60, 220, 255, .12), rgba(0, 0, 0, .2) 55%); }
+.tvl-k-flow .tvl-heat .tvl-c.on, .tvl-k-flow .tvl-heat .tvl-c.on:nth-child(n+7) { background: linear-gradient(90deg, #8af0ff, #2fc8e8); box-shadow: 0 0 5px rgba(47, 200, 232, .45); }
+.tvl-k-flow.tvl-good .tvl-call { color: #7fe9ff; box-shadow: 0 0 14px rgba(47, 200, 232, .4); }
+.tvl.tvl-k-trend { border-color: rgba(245, 196, 81, .3); background: linear-gradient(100deg, rgba(245, 196, 81, .12), rgba(0, 0, 0, .2) 55%); }
+.tvl-k-trend .tvl-heat .tvl-c.on, .tvl-k-trend .tvl-heat .tvl-c.on:nth-child(n+7) { background: linear-gradient(90deg, #ffe08a, #f5b941); box-shadow: 0 0 5px rgba(245, 185, 65, .45); }
+.tvl-k-trend.tvl-good .tvl-call { color: #ffd76a; box-shadow: 0 0 14px rgba(245, 185, 65, .4); }
+body.theme-day .tvl.tvl-k-mover { background: linear-gradient(100deg, rgba(255, 90, 160, .14), rgba(236, 246, 240, .7) 55%); border-color: #f0c0d8; }
+body.theme-day .tvl.tvl-k-flow { background: linear-gradient(100deg, rgba(60, 220, 255, .14), rgba(236, 246, 240, .7) 55%); border-color: #b4e3ec; }
+body.theme-day .tvl.tvl-k-trend { background: linear-gradient(100deg, rgba(245, 196, 81, .16), rgba(236, 246, 240, .7) 55%); border-color: #ecd59c; }
+body.theme-day .tvl-k-mover.tvl-good .tvl-call { color: #a8246e; } body.theme-day .tvl-k-flow.tvl-good .tvl-call { color: #0f6f86; } body.theme-day .tvl-k-trend.tvl-good .tvl-call { color: #8a6100; }

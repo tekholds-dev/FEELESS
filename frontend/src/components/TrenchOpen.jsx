@@ -40,7 +40,7 @@ export function TrenchOpen({ max = 10, onPick, busy }) {
       <div className="m-seg top-seg" role="group" aria-label="Sort">{SORTS.map(([k, label]) => <button key={k} type="button" className={sort === k ? 'active' : ''} aria-pressed={sort === k} onClick={() => setSort(k)} data-testid={`open-s-${k}`}>{label}</button>)}</div></div>
     <div className={`top-table ${all ? 'is-all' : ''}`} role="table" aria-label="Open gates">
       <div className="top-tr top-th" role="row"><span>#</span><span /><span>Coin</span><span>Pool</span><span>Traded / h</span><span>5 min</span><span>1 hour</span><span>Buyers</span><span>Safety</span><span /></div>
-      {rows.map((r, i) => { const sf = SAFE(r); return <div key={r.mint} className={`top-tr ${sf[2]}`} role="row" data-testid={`open-${r.symbol}`}>
+      {rows.map((r, i) => { const sf = SAFE(r); return <div key={r.mint} className={`top-tr ${sf[2]} ${r.tv?.call ? `call-${r.tv.call[2]}` : ''}`} role="row" data-testid={`open-${r.symbol}`}>
         <span className="top-rank">{sort === 'front' && f === 'all' ? r.rank : i + 1}</span>
         <span className="top-av" aria-hidden="true">{String(r.symbol || '?').slice(0, 1)}{r.logo && <img src={r.logo} alt="" loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; }} />}</span>
         <span className="top-coin"><button type="button" className="top-sym" onClick={() => open(r)} data-tip={`Open $${r.symbol}: chart, holders, flow · ${r.txns1h} trades this hour${r.curve ? ' · still on its launch curve' : ''}`}>${r.symbol}{r.call && <i aria-label={`called out: ${KIND[r.call]}`}>{ICON[r.call]}</i>}</button>

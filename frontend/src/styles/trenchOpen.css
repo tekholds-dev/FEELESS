@@ -36,3 +36,11 @@ body.theme-day .top-sym, body.theme-day .top-feed b { color: #0e2c1d; } body.the
 body.theme-day .top-av { background: #e3f2ea; color: #0b7a4a; } body.theme-day .top-table.is-all .top-th { background: #f4faf6; color: #4b6a5b; } body.theme-day .top-tr:not(.top-th):hover { background: #f1faf5; }
 body.theme-day .top-tr.is-bad .top-why { color: #b3264a; } body.theme-day .top-tr.is-safe .top-why { color: #0b7a4a; }
 @media (max-width: 640px) { .top-tr { grid-template-columns: 22px minmax(84px, 1fr) 54px 46px 70px 52px; } .top-tr > :nth-child(1), .top-tr > :nth-child(4), .top-tr > :nth-child(7), .top-tr > :nth-child(8) { display: none; } .top-why { grid-column: 1 / -1; white-space: normal; } .top-feed button { grid-template-columns: 18px minmax(60px, auto) 1fr auto; } .top-feed u { display: none; } }
+/* meta rows (owner: "clean the green, make this meta"): neutral rows, one slim left edge coloured by the degen call, the call is a compact pill */
+.top-tr:not(.top-th) { border-color: rgba(255, 255, 255, .06); background: linear-gradient(90deg, rgba(255, 255, 255, .025), rgba(0, 0, 0, .15)); box-shadow: inset 3px 0 0 transparent; }
+.top-tr:not(.top-th):hover { border-color: rgba(255, 255, 255, .14); background: linear-gradient(90deg, rgba(255, 255, 255, .05), rgba(0, 0, 0, .1)); }
+.top-tr.call-good { box-shadow: inset 3px 0 0 #ff9a3d; } .top-tr.call-warn { box-shadow: inset 3px 0 0 rgba(245, 196, 81, .55); } .top-tr.call-bad { box-shadow: inset 3px 0 0 #ff6b86; }
+.top-tv .tvl.is-mini { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 2px 0 0; }
+.top-tv .tvl.is-mini .tvl-call { flex: none; padding: 3px 9px; border-radius: 999px; font-size: 10px; }
+.top-tv .tvl.is-mini .tvl-meters { flex: 0 1 240px; }
+body.theme-day .top-tr:not(.top-th) { background: #fff; border-color: #dfe8e3; }
