@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { ShareGifButton } from '../ShareGif';
 import { apiUrl } from '../../lib/api';
 
+import { tiny } from '../../lib/num';
 const CATS = [['coins', '🪙 FEELESS coins'], ['feecat', '🐱 FeeCat trades'], ['movers', '🚀 Top movers · 3 days'], ['reps', '🛡 Top reputation']];
 const mc = v => (!(v > 0) ? '—' : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : `$${(v / 1e3).toFixed(1)}K`);
 const pct = v => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}%`;
@@ -64,7 +65,7 @@ export function MarketingPanel({ call }) {
   </section>;
 }
 
-const $c = v => { const n = Number(v); return !Number.isFinite(n) || !n ? '—' : n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(1)}K` : n >= 1 ? `$${n.toFixed(2)}` : `$${n.toPrecision(3)}`; };
+const $c = v => { const n = Number(v); return !Number.isFinite(n) || !n ? '—' : n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(1)}K` : n >= 1 ? `$${n.toFixed(2)}` : `$${tiny(n, 3)}`; };
 const pctC = v => { const n = Number(v); return Number.isFinite(n) ? `${n >= 0 ? '+' : ''}${Math.abs(n) >= 900 ? `${(n / 100 + 1).toFixed(1)}x` : `${n.toFixed(1)}%`}` : '—'; };
 
 // Every FEELESS coin with its logo: live stats, a detailed ready-to-post write-up and a downloadable GIF.

@@ -3,10 +3,11 @@ import { sharedJson } from '../lib/sharedJson';
 import { ShareGifButton } from './ShareGif';
 import '../styles/trackRecord.css';
 
+import { tiny } from '../lib/num';
 // 📜 TRACK RECORD (beside the raw swap list in ReceiptsCard): proof of what a wallet really did — verified FEELESS trades (closed pieces + open lots priced live) and its chat calls with the
 // result since. From FEELESS's own records, price result, fees apart (GET /receipts/{address}). A losing entry shows as losing. Never self-reported.
 const pct = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${(v * 100).toFixed(Math.abs(v) >= 1 ? 0 : 1)}%`);
-const px = v => (!(v > 0) ? '—' : v >= 1 ? `$${v.toFixed(2)}` : `$${Number(v.toPrecision(3))}`);
+const px = v => (!(v > 0) ? '—' : v >= 1 ? `$${v.toFixed(2)}` : `$${tiny(v, 3)}`);
 const ago = at => { const m = Math.max(1, Math.round((Date.now() / 1000 - at) / 60)); return m < 60 ? `${m}m` : m < 2880 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`; };
 const hold = m => (m < 60 ? `${Math.round(m)}m` : m < 2880 ? `${(m / 60).toFixed(1)}h` : `${(m / 1440).toFixed(1)}d`);
 export const KINDS = { trade: ['✅', 'closed trade'], open: ['🟢', 'still holding'], call: ['📣', 'call'] };

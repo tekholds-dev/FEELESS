@@ -4,6 +4,7 @@ import { apiUrl } from '../lib/api';
 import '../styles/fuseMoney.css';
 import { LiveFuseCard } from './FuseCard';
 
+import { tiny } from '../lib/num';
 // 💵 Fuse money, in plain words — shared by every card surface (tier cards, My cards, battle corners, profile, Lab):
 // MoneyMath (PUT IN → STILL IN CARD + PAID OUT = NOW, profit apart from fees), RoundBell (10s countdown into every round),
 // PaperAudit (a card's paper book: true-fill entries → now), CardShowcase (3-card 3D shuffle), CardCosts (fee receipt).
@@ -61,7 +62,7 @@ export function PaperAudit({ k, name, onClose }) {
           <div className="pa-side"><MoneyMath putIn={b.startUsd} held={b.valueUsd} paidOut={0} fees={b.feesUsd} compact />
             <TrailSummary events={[]} legs={b.legs.map(l => ({ symbol: l.symbol, usd: l.nowUsd }))} /></div></div>
         <div className="pa-rows" role="table">{b.legs.map(l => <div key={l.pairAddress} className="pa-row" role="row">
-          <b>${l.symbol}</b><span data-tip={`mid $${l.mid} · paid $${l.entry} (impact included)`}>in @ <i className="m-num">${Number(l.entry).toPrecision(4)}</i> → <i className="m-num">${Number(l.now).toPrecision(4)}</i></span>
+          <b>${l.symbol}</b><span data-tip={`mid $${l.mid} · paid $${l.entry} (impact included)`}>in @ <i className="m-num">${tiny(Number(l.entry), 4)}</i> → <i className="m-num">${tiny(Number(l.now), 4)}</i></span>
           <span className="m-num">{usd(l.inUsd)} → {usd(l.nowUsd)}</span><em className={`m-num ${l.pct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(l.pct)}</em></div>)}</div>
         <small className="m-dim">this battle: best {pct(b.hiPct)} · worst {pct(b.loPct)} · dealt {ago(b.at)} ago</small></>
         : <small className="m-dim">Not fighting right now — its finished books are below.</small>}
@@ -129,7 +130,7 @@ export function CoinTable({ legs = [] }) {
   return <div className="ctab" role="table" aria-label="Entry and P&L per coin" data-testid="coin-table">
     <div className="ctab-row is-head" role="row"><span>COIN</span><span>ENTRY → NOW</span><span>$ IN → NOW</span><span>P&L</span></div>
     {legs.map(l => <div key={l.pairAddress} className="ctab-row" role="row"><b>{l.role === 'runner' ? '🏃 ' : ''}${l.symbol}</b>
-      <span className="m-num">{l.entryPx ? `$${Number(l.entryPx).toPrecision(3)}` : '—'} → {l.nowPx ? `$${Number(l.nowPx).toPrecision(3)}` : '—'}</span>
+      <span className="m-num">{l.entryPx ? `$${tiny(Number(l.entryPx), 3)}` : '—'} → {l.nowPx ? `$${tiny(Number(l.nowPx), 3)}` : '—'}</span>
       <span className="m-num">{usd(l.inUsd)} → {usd(l.nowUsd)}</span>
       <em className={`m-num fl-tick ${l.pct >= 0 ? 'm-pos' : 'm-neg'}`} key={(l.pct || 0).toFixed(1)}>{l.nowPx ? pct(l.pct) : '—'}</em></div>)}</div>;
 }

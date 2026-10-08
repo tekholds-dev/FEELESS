@@ -23,6 +23,9 @@ export function rowVitals(r, edge, mine) {
   const t10 = n0(r.top10) ?? n0(r.t10) ?? n0(intel.top10Pct); const dev = n0(r.dev) ?? n0(r.dh) ?? n0(intel.devHoldingPct); const ins = n0(r.insiders) ?? n0(intel.insidersHoldingPct);
   const buys = n0(r.buyShare) ?? n0(edge?.pulse?.buyShare);
   const out = [];
+  const cl = r.clean;   // 🧼 the 10-point clean score (backend coin_clean.py): every failed / unknown check is in the tip
+  if (cl && Number.isFinite(cl.score)) out.push({ k: 'clean', t: `🧼 ${cl.score}/10`, tone: cl.score >= 8 ? 'good' : cl.score <= 4 ? 'bad' : '',
+    tip: `Clean score ${cl.score}/10 — ${cl.tier}.${cl.fails?.length ? ` Failed: ${cl.fails.join(' · ')}.` : ''}${cl.unknown?.length ? ` Not read yet: ${cl.unknown.join(' · ')}.` : ''} A score, never a promise.` });
   if (r.pad) out.push({ k: 'pad', t: `🚀 ${r.pad}`, tip: 'The launchpad this coin came from' });
   if (age(r.ageH)) out.push({ k: 'age', t: age(r.ageH), tip: 'Age of the coin' });
   if (big(r.mcap)) out.push({ k: 'cap', t: `${big(r.mcap)} cap`, tip: 'Market cap' });

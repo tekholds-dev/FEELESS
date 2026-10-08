@@ -23,6 +23,7 @@ import { useTabTitle, cardTitle } from '../lib/tabTitle';
 import { RowVitals } from './RowVitals';
 import { PayMap } from './PayMap';
 
+import { tiny } from '../lib/num';
 // ⭐ ARENA PRIME: FEELESS's own top-tier cards, FULLY AUTO on paper — auto TP/SL, auto-compound, 2 coins rotate every 6h. Different
 // from creator picks: these are the public proof the automation works before any trader's config goes auto. "Buy now" loads the
 // card into the Lab (traders: up to 3 pools + 3 runners; you approve one wallet transaction).
@@ -123,7 +124,7 @@ export function ArenaPrime({ onLoad }) {
       <span className="cpop-wrap"><LiveFuseCard r={primeRow(c)} aura={t.aura} look={t.look} label={c.real ? '💵 REAL · FUSE WALLET' : '📄 PAPER · TRUE FILLS'} serverOnly={!!c.real} mini={{ kind: 'prime', tpl: c.tpl, name: c.label }} /><CardPops events={c.events} legs={c.legs} cfg={c.cfgEff} tp={c.tp} /></span>
       <ul className="prime-legs">{c.legs.map(l => ({ ...l, pnlPct: l.pnlPct ?? (l.costUsd ? (l.usd / l.costUsd - 1) * 100 : 0) })).map(l => <li key={l.pairAddress}><b role="button" tabIndex={0} className="pl-open" data-tip="Open its chart — trade this coin on its own" onClick={() => openWarRoom({ chainId: 'solana', pairAddress: l.pairAddress, baseToken: { address: l.mint, symbol: l.symbol } })}>${l.symbol}</b>{l.division && DIVISION[l.division] && l.role !== 'anchor' && <small className="pl-div" data-tip="The Gauntlet division this coin came in from">{DIVISION[l.division]}</small>}<small className={`pl-${l.role}`} data-tip={l.ride ? 'Riding: frozen through rounds until it falls 30% from its high' : undefined}>{l.ride ? '🏇 riding' : l.role === 'anchor' ? '⚓ anchor' : l.role}</small><i data-tip={`${l.stars || 3}★ — ${l.role === 'anchor' ? 'eligible major; protected from stops and advanced on configured re-shapes' : l.role === 'pool' ? 'depth + volume' : 'runner score'}`}>{'★'.repeat(l.stars || 3)}</i>
         <em key={l.pnlPct.toFixed(1)} className={`m-num fl-tick ${l.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{l.pnlPct >= 0 ? '+' : ''}{l.pnlPct.toFixed(1)}%</em></li>)}</ul>
-      {c.parked?.length > 0 && <ul className="prime-parked">{c.parked.map(p => <li key={p.pairAddress} data-tip="Stopped out and sold to SOL — the slot is kept; it's bought back when price returns to its entry with momentum">🅿 ${p.symbol} <b className="m-num">${p.usd.toFixed(2)}</b> parked · back at ${Number(p.backAt).toPrecision(3)}</li>)}</ul>}
+      {c.parked?.length > 0 && <ul className="prime-parked">{c.parked.map(p => <li key={p.pairAddress} data-tip="Stopped out and sold to SOL — the slot is kept; it's bought back when price returns to its entry with momentum">🅿 ${p.symbol} <b className="m-num">${p.usd.toFixed(2)}</b> parked · back at ${tiny(Number(p.backAt), 3)}</li>)}</ul>}
       <div className="prime-stats"><span data-tip={`Profit = now ${usd(c.valueUsd)} − put in ${usd(putIn)} (fees apart)`}><small>PROFIT</small><b key={c.pnlPct.toFixed(1)} className={`m-num fl-tick ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{usdK(c.valueUsd - putIn)}</b><small className={`ps-pct ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(c.pnlPct)}</small></span>
             <span data-tip="Confirmed SOL already segregated from the card and unavailable to future buys"><small>PAID OUT</small><b className="m-num m-pos">{usdK(c.walletUsd)}</b>{c.pendingPayoutUsd > 0 && <small className="m-dim"> · {usd(c.pendingPayoutUsd)} settling</small>}</span>
         {c.floored ? <span data-tip="Floored: everything moved into the anchor; the card is re-dealt with fresh 3★+ coins (Arena picks first) on the next tick — a new run"><small>FLOORED</small><b className="m-num">re-dealing…</b></span>
@@ -787,7 +788,7 @@ export const bottomRecord = p => (p && p.n >= 5 ? `Its own record: ${p.n} coins 
 export const listRecord = p => (p && p.n >= 5 ? `📏 ${p.src === 'this list' ? 'This list' : `Borrowed from the ${p.src}`}: ${p.n} coins held 1 hour — typical ${p.medPct >= 0 ? '+' : ''}${p.medPct}%, ${p.wonPct}% ended up. A record, never a promise.` : '📏 This list’s record starts now — coins are judged 1 hour after they are listed.');
 export const isFalling = (m5, h1) => (m5 != null && Number(m5) <= -3) || (h1 != null && Number(h1) <= -8);   // = arena_prime.entry_ok
 export const pickRow = r => ({ mint: r.mint || r.baseAddress, pairAddress: r.pairAddress, symbol: r.symbol, price: r.price ?? r.priceUsd, liq: r.liq ?? r.liquidityUsd,
-  chg: r.chg1h ?? r.change1h ?? r.chg24h ?? r.change24h, chg1h: r.chg1h ?? r.change1h ?? null, chg5m: r.chg5m ?? r.change5m ?? null, chg6h: r.chg6h ?? r.change6h ?? null, chg24h: r.chg24h ?? r.change24h ?? null, score: r.score, impostor: r.impostor, real: r.real, trench: r.trench, holders: r.holders, soft: r.soft, outside: r.outside, curve: r.curve, div: r.divisionLabel, watch: r.watch, fails: r.fails, warn: r.warn, pulse: r.pulse, stock: r.stock, ageH: r.ageH ?? null, pad: r.pad || r.launchpadLabel, mcap: r.mcap ?? r.marketCap, vol1h: r.vol1h, buyShare: r.buyShare, top10: r.top10 ?? r.t10, dev: r.dev ?? r.dh, insiders: r.insiders, bundledN: r.bundledN, snipersN: r.snipersN, bundledPct: r.bundledPct, scanned: r.scanned, site: r.site, x: r.x, tg: r.tg });
+  chg: r.chg1h ?? r.change1h ?? r.chg24h ?? r.change24h, chg1h: r.chg1h ?? r.change1h ?? null, chg5m: r.chg5m ?? r.change5m ?? null, chg6h: r.chg6h ?? r.change6h ?? null, chg24h: r.chg24h ?? r.change24h ?? null, score: r.score, impostor: r.impostor, real: r.real, trench: r.trench, holders: r.holders, soft: r.soft, outside: r.outside, curve: r.curve, div: r.divisionLabel, watch: r.watch, fails: r.fails, warn: r.warn, pulse: r.pulse, stock: r.stock, ageH: r.ageH ?? null, pad: r.pad || r.launchpadLabel, mcap: r.mcap ?? r.marketCap, vol1h: r.vol1h, buyShare: r.buyShare, top10: r.top10 ?? r.t10, dev: r.dev ?? r.dh, insiders: r.insiders, bundledN: r.bundledN, snipersN: r.snipersN, clean: r.clean, bundledPct: r.bundledPct, scanned: r.scanned, site: r.site, x: r.x, tg: r.tg });
 // ⏭ COMING UP: the coins the engine takes next (best hourly move first). Tap a coin → its live flow; pick the seat → it comes in
 // at the next round in that coin's place (the same pick as the 🎯 picker, with the same warning when a check fails).
 export function ComingUp({ p, legs = [], onSwap, onFill, emptySeats = 0, busy }) {
@@ -836,7 +837,11 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
   const [bproof, setBproof] = useState(null);   // 🟢 the Buy-bottom list's own 1-hour paper record
   const [lp, setLp] = useState({});   // 📏 every list's own 1-hour record (one fetch when the picker opens)
   useEffect(() => { let alive = true; fetch(apiUrl('/api/reputation/fuses/list-proof')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setLp(x.lists || {})).catch(() => {}); return () => { alive = false; }; }, []);
-  useEffect(() => { let alive = true; setRows(null); setWhy('');
+  // 🔄 every list refreshes every 20s while it is open (owner: "new coins flow and lists update every 20 secs") — in place, no blank flash
+  const [tick, setTick] = useState(0);
+  useEffect(() => { const t = setInterval(() => !document.hidden && setTick(n => n + 1), 20000); return () => clearInterval(t); }, []);
+  const listKey = React.useRef('');
+  useEffect(() => { let alive = true; const key_ = `${lens}|${q}|${nonce}`; if (listKey.current !== key_) { listKey.current = key_; setRows(null); setWhy(''); }
     const s = q.trim();
     const url = s.length >= 2 ? `/api/reputation/fuses/search?q=${encodeURIComponent(s)}` : lens === 'trench' ? '/api/reputation/fuses/trench' : lens === 'arena' ? '/api/reputation/fuses/contenders' : `/api/reputation/fuses/discover?lens=${lens}&chain=solana`;
     const many = s.length < 2 && LENS_URLS[lens];
@@ -846,7 +851,7 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
       if (x.checked) setTr({ floor: x.floor || 0, checked: x.checked.length, rules: x.rules, level: Number(x.level) || 0 });
       const raw = x.pools || (x.checked ? x.rows || [] : x.all || (x.divisions || []).flatMap(dv => dv.rows));
       const seen = new Set(); setRows(raw.map(pickRow).filter(r => r.mint && r.pairAddress && !PICK_STABLES.has(String(r.symbol || '').toUpperCase()) && !seen.has(r.mint) && seen.add(r.mint)).slice(0, s.length < 2 ? 300 : 30)); }).catch(() => alive && setRows([])), s.length >= 2 ? 300 : 0);
-    return () => { alive = false; clearTimeout(t); }; }, [lens, q, nonce]);
+    return () => { alive = false; clearTimeout(t); }; }, [lens, q, nonce, tick]);
   const live = useLivePrices((rows || []).map(r => r.pairAddress));
   // 📈 a baby chart per row: the last ~2h of recorded prices (one batched call per list); tap the ticker → the coin's live flow
   const [sparks, setSparks] = useState({});
@@ -856,7 +861,7 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
     return () => { alive = false; }; }, [mintKey]);
   const line = pts => { if (!pts || pts.length < 3) return null; const lo = Math.min(...pts); const hi = Math.max(...pts); const rg = hi - lo || 1;
     return <svg className={`sp-spark ${pts[pts.length - 1] >= pts[0] ? 'up' : 'dn'}`} viewBox="0 0 60 16" preserveAspectRatio="none" aria-hidden><polyline points={pts.map((v, i) => `${(i / (pts.length - 1) * 60).toFixed(1)},${(15 - (v - lo) / rg * 14).toFixed(1)}`).join(' ')} /></svg>; };
-  const fmt = v => (!v ? '—' : v >= 1 ? `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : `$${Number(v).toPrecision(3)}`);
+  const fmt = v => (!v ? '—' : v >= 1 ? `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : `$${tiny(Number(v), 3)}`);
   const big = v => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(0)}K` : `$${Math.round(v || 0)}`);
   return <div className="sp" data-testid="swap-picker"><header><span className="m-label">{out.seat ? '🪑 FILL THE EMPTY SEAT WITH… ' : `🎯 SWAP $${out.symbol} FOR… `}<small>{out.seat ? 'comes in on the next tick · equal share · live prices' : '⚡ Swap now = goes in right now · ⏱ = at the round bell · its money moves over · live prices'}</small></span>
     <span className="m-row">{out.swapTo && <button type="button" className="m-btn" disabled={busy} onClick={() => onPick(null)} data-testid="sp-cancel">✕ Cancel → ${out.swapTo.symbol || out.swapTo}</button>}<button type="button" className="m-btn" onClick={onClose} aria-label="Close picker">Close</button></span></header>

@@ -5,6 +5,7 @@ import { useWorkspace } from '../../hooks/useWorkspace';
 import { currentSubscription, enablePush, readPushPrefs } from '../../lib/push';
 import { useWallet } from '../../hooks/useWallet';
 
+import { tiny } from '../../lib/num';
 const DIPS = [10, 20, 30];
 const RIPS = [25, 50, 100];
 
@@ -25,7 +26,7 @@ export function DipRipTool({ pair }) {
       setTimeout(() => updateWatch?.(pair, { alerts: { [key]: target } }), 0);
       if (!(await currentSubscription())) await enablePush([...watchlist, { ...pair, alerts: { [key]: target } }], { ...readPushPrefs(), ...(wallet?.address ? { address: wallet.address } : {}) });
       setArmed(`${dir === 'down' ? 'Dip' : 'Rip'} ${pct}%`);
-      toast.success(`🎯 Armed: push alert when ${pair.baseToken?.symbol} ${dir === 'down' ? 'dips' : 'rips'} ${pct}% (~$${target.toPrecision(4)})`);
+      toast.success(`🎯 Armed: push alert when ${pair.baseToken?.symbol} ${dir === 'down' ? 'dips' : 'rips'} ${pct}% (~$${tiny(target, 4)})`);
     } catch (e) { toast.error(e.message); }
   };
   return <div className="dip-rip" data-testid="dip-rip-tool">

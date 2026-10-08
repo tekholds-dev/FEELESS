@@ -6,6 +6,7 @@ import { tokenImageUrls } from './terminal/MarketPrimitives';
 import { legTarget } from '../lib/fuseGo';
 import { useLivePrices } from '../lib/livePrices';
 
+import { tiny } from '../lib/num';
 // A Fuse champion as a collectible card: drag to tilt, ⟲ to flip. Front = grade crest + the fused pools;
 // back = every number behind its score. Grade sets rarity, strategy sets the design.
 const RARITY = { A: 'legendary', B: 'epic', C: 'rare', D: 'common', F: 'common' };
@@ -24,7 +25,7 @@ export function cardMath(c, budget = 20) {
   const gross = legs.reduce((a, l) => a + l.pnl, 0); const fees = budget * (Number(c.parts?.feeDragPct) || 0) / 100;
   return { legs, gross, fees, net: gross - fees, end: budget + gross - fees };
 }
-const fmtPx = v => (v >= 1 ? v.toFixed(3) : v >= 0.001 ? v.toFixed(5) : v.toPrecision(3));
+const fmtPx = v => (v >= 1 ? v.toFixed(3) : v >= 0.001 ? v.toFixed(5) : tiny(v, 3));
 const sgn = v => `${v >= 0 ? '+' : '−'}$${Math.abs(v).toFixed(Math.abs(v) < 1 ? 2 : 2)}`;
 
 export function FuseCard({ c, style = 'yield', rank = 0, budget = 20, aura = '', autoFlip = 0 }) {

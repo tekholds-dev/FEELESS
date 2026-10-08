@@ -3,13 +3,14 @@ import NumInput from './NumInput';
 import { createPortal } from 'react-dom';
 import { ShareGifButton } from './ShareGif';
 
+import { tiny } from '../lib/num';
 // 📜 Where the profit went: a slide-in window for ONE card — profit taken out (sits in the wallet as SOL), profit compounded back
 // in (and into which coins), fees paid (shown apart, never inside P&L) and every automation step with its reason.
 // Real cards get one button: 💸 Collect (sell just the gain, one approval). Click outside / Esc closes.
 // 🪟 Card window: the same slide-in also carries the card's actions (＋ Top up · ⇄ Switch · ↩ Withdraw …), its coins with ❄ freeze
 // (a frozen coin is never touched by the engine — only you switch it) and every auto the engine fired in the last 24h.
 const $ = v => `$${Math.abs(v || 0).toFixed(2)}`;
-const px = v => (v >= 1 ? v.toFixed(2) : v >= 0.001 ? v.toFixed(5) : Number(v).toPrecision(3));
+const px = v => (v >= 1 ? v.toFixed(2) : v >= 0.001 ? v.toFixed(5) : tiny(Number(v), 3));
 const ago = t => { const s = Date.now() / 1000 - t; return s < 3600 ? `${Math.max(1, Math.round(s / 60))}m` : s < 86400 ? `${Math.round(s / 3600)}h` : `${Math.round(s / 86400)}d`; };
 
 export function CardEarnings({ title, events = [], taken = 0, compounded = 0, fees, gainNow, onCollect, onClose, paper, actions, legs, onFreeze, autos, extra, onMode, cardMode, onCoinCfg, book }) {

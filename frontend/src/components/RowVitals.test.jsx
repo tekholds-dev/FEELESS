@@ -31,3 +31,8 @@ test('bundled and sniper wallets show as counts; an unscanned row says so', () =
   expect(t).toEqual(expect.arrayContaining(['insiders 4%', '2 bundled', '1 snipers']));
   expect(rowVitals({ scanned: false }, null).map(i => i.t)).toEqual(['🔍 holders not read yet']);
 });
+
+test('the clean score shows first, with every failed and unread check in its tip', () => {
+  const v = rowVitals({ clean: { score: 4, tier: 'risky', fails: ['pool $25K+'], unknown: ['snipers hold under 3%'] } }, null);
+  expect(v[0].t).toBe('🧼 4/10'); expect(v[0].tone).toBe('bad'); expect(v[0].tip).toContain('pool $25K+'); expect(v[0].tip).toContain('Not read yet');
+});

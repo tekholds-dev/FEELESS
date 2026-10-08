@@ -891,6 +891,7 @@ _intel_cache: dict = {}
 _launch_facts: dict = {}   # mint → {creator, bundled, snipers, createSlot, historyComplete, at} — read once, kept on disk
 _flag_hold: dict = {}      # mint → (at, {wallet: % held})
 FLAG_HOLD_TTL = 900.0
+SIG_PAGES = 8   # launch facts: page back up to 8,000 txs to reach a coin's creation (read once per coin, kept on disk)
 INTEL_TTL = 900   # holders re-read every 15 min (launch facts are read once): a re-scan is 4 calls. 2026-10-08: at 300s a ~100-coin board needed 1.3 calls/s of re-scans against a 0.5/s budget, so 184 of 200 feed coins (14 of 18 RUNNING ones) read 'not scanned yet' and nothing running could ever be bought
 SYSTEM_PROGRAM = '11111111111111111111111111111111'
 
@@ -967,11 +968,24 @@ async def token_intel(chain: str, mint: str):
         # 3 minutes for ~70 coins was ~80K calls an hour — it rate-limited every key, and coins sat "unscanned" for good.
         creator, bundled, snipers = None, set(), set()
         lf = _launch_facts.get(mint)
+        if lf and lf.get('historyComplete') is False:   # an old read that never reached the launch (wrong creator, fake 0 bundles) is redone once
+            lf = None
         if lf:
             creator, bundled, snipers = lf.get('creator'), set(lf.get('bundled') or []), set(lf.get('snipers') or [])
             out['createSlot'] = lf.get('createSlot'); out['historyComplete'] = lf.get('historyComplete')
         else:
-            sigs = await _rpc(http, 'getSignaturesForAddress', [mint, {'limit': 1000}]) or []
+            # 🧬 page back to the LAUNCH (≤ SIG_PAGES × 1000 txs): a busy coin has > 1000 txs, and the "oldest of the last 1000" was a random
+            # mid-life trader — read as the creator, with 0 bundled / 0 snipers (2026-10-08 $giftr: wrong creator, real creator held 4.4%).
+            sigs, before, page = [], None, []
+            for _ in range(SIG_PAGES):
+                page = await _rpc(http, 'getSignaturesForAddress', [mint, {'limit': 1000, **({'before': before} if before else {})}]) or []
+                sigs += page
+                if len(page) < 1000:
+                    break
+                before = page[-1].get('signature')
+            if sigs and len(page) >= 1000:   # still not at the launch: no launch facts from a guess
+                out['createSlot'], out['historyComplete'] = None, False
+                sigs = []
             if sigs:
                 oldest = sorted(sigs, key=lambda x: (x.get('slot') or 0))[:40]
                 create_slot = oldest[0].get('slot')
@@ -998,17 +1012,25 @@ async def token_intel(chain: str, mint: str):
                     (bundled if tx.get('slot') == create_slot else snipers).add(payer)
                 snipers -= bundled
                 out['createSlot'] = create_slot
-                out['historyComplete'] = len(sigs) < 1000
+                out['historyComplete'] = True
             if creator:
                 _launch_facts[mint] = {'creator': creator, 'bundled': sorted(bundled), 'snipers': sorted(snipers), 'createSlot': out.get('createSlot'),
                                        'historyComplete': out.get('historyComplete'), 'at': time.time()}
+        if mint.endswith('pump') and not os.environ.get('PYTEST_CURRENT_TEST'):   # 🟢 Pump's own record names the creator — it wins over our read (cached 60s, public)
+            try:
+                pc = (await pump_profile_get(mint) or {}).get('creator')
+                if pc:
+                    creator = pc
+            except Exception:
+                pass
         out['creator'] = creator
-        out['bundledWallets'] = sorted(bundled)
-        out['sniperWallets'] = sorted(snipers)
+        known = out.get('historyComplete') is not False   # launch never reached → bundles / snipers UNKNOWN, never a fake 0
+        out['bundledWallets'] = sorted(bundled) if known else None
+        out['sniperWallets'] = sorted(snipers) if known else None
         insiders = bundled | snipers
-        out['insidersHoldingPct'] = round(sum(r['pct'] or 0 for r in wallets if r['owner'] in insiders), 2) if supply else None
-        out['snipersHoldingPct'] = round(sum(r['pct'] or 0 for r in wallets if r['owner'] in snipers), 2) if supply else None
-        out['bundledHoldingPct'] = round(sum(r['pct'] or 0 for r in wallets if r['owner'] in bundled), 2) if supply else None
+        out['insidersHoldingPct'] = round(sum(r['pct'] or 0 for r in wallets if r['owner'] in insiders), 2) if supply and known else None
+        out['snipersHoldingPct'] = round(sum(r['pct'] or 0 for r in wallets if r['owner'] in snipers), 2) if supply and known else None
+        out['bundledHoldingPct'] = round(sum(r['pct'] or 0 for r in wallets if r['owner'] in bundled), 2) if supply and known else None
         out['devHoldingPct'] = round(sum(r['pct'] or 0 for r in wallets if r['owner'] == creator), 2) if supply and creator else None
         # Live holding of every flagged wallet (not just top holders): 0 = sold out, shown struck through.
         if supply:
@@ -1041,17 +1063,17 @@ async def token_intel(chain: str, mint: str):
                     notify(creator, 'snipers', f"Every sniper on your coin {coin['symbol']} has sold out", url, once=f'snipers:{mint}',
                            meta={'mint': mint, 'symbol': coin['symbol'], 'name': coin['name'], 'mcap': coin['mcap'], 'flagged': len(fh)})
     flags = []
-    if len(out['bundledWallets']) >= 3:
-        flags.append(f"{len(out['bundledWallets'])} wallets bought in the same block as the mint — a bundled launch.")
-    if len(out['sniperWallets']) >= 5:
-        flags.append(f"{len(out['sniperWallets'])} wallets sniped within ~1 second of launch.")
+    if len(out['bundledWallets'] or []) >= 3:
+        flags.append(f"{len(out['bundledWallets'] or [])} wallets bought in the same block as the mint — a bundled launch.")
+    if len(out['sniperWallets'] or []) >= 5:
+        flags.append(f"{len(out['sniperWallets'] or [])} wallets sniped within ~1 second of launch.")
     if (out.get('insidersHoldingPct') or 0) >= 10:
         flags.append(f"Bundlers/snipers still hold {out['insidersHoldingPct']}% of supply among the top holders.")
     if (out.get('top10Pct') or 0) >= 35:
         flags.append(f"Top 10 wallets hold {out['top10Pct']}% of supply (excluding pools).")
     if (out.get('devHoldingPct') or 0) >= 5:
         flags.append(f"Creator still holds {out['devHoldingPct']}% of supply.")
-    all_offenders = out.get('bundledWallets', []) + out.get('sniperWallets', [])
+    all_offenders = (out.get('bundledWallets') or []) + (out.get('sniperWallets') or [])
     flagged_funders = {w: funder_lookup(w) for w in all_offenders}
     flagged_funders = {w: v for w, v in flagged_funders.items() if v}
     if flagged_funders:
@@ -1069,7 +1091,7 @@ async def token_intel(chain: str, mint: str):
         flags.append(f"Known crew inside: ring {r0['id']} ({r0['size']} wallets, {r0['launchesHit']} launches hit{rugs}).")
     out['flags'] = flags
     out['flaggedFunders'] = flagged_funders
-    await _record_offenders(mint, out.get('bundledWallets', []), out.get('sniperWallets', []))
+    await _record_offenders(mint, out.get('bundledWallets') or [], out.get('sniperWallets') or [])
     bl = _block_load()
     out['walletRecords'] = {w: {'strikes': len(bl['wallets'].get(w, {}).get('mints', {})), 'blocked': _is_blocked(bl['wallets'].get(w)),
                                  'flaggedFunder': flagged_funders.get(w)}
@@ -2161,8 +2183,8 @@ async def add_to_blocklist(payload: BlockPayload):
     flag and a penalty line; the wallet's full record stays public."""
     payload.reporter = _session_or_401(payload.reporter, payload.session)
     intel = await token_intel('solana', payload.mint)
-    evidence = {w: 'bundler' for w in intel.get('bundledWallets', [])}
-    evidence.update({w: 'sniper' for w in intel.get('sniperWallets', []) if w not in evidence})
+    evidence = {w: 'bundler' for w in intel.get('bundledWallets') or []}
+    evidence.update({w: 'sniper' for w in intel.get('sniperWallets') or [] if w not in evidence})
     accepted, rejected, fresh = [], [], []
     async with _block_lock:
         d = _block_load()
@@ -2878,13 +2900,35 @@ PICK_DEAD_VOL1H = 3_000.0   # a launch coin trading under this an hour is dead f
 PICK_SCAN_TOP = 15          # the top rows of the list the owner opens get a holder scan queued (one scan per coin in flight)
 
 
+import coin_clean as _clean
+
+
+def _clean_rows(rows):
+    """🧼 + 🧬 on every pick row: holder facts from the scan cache and the 10-point clean score (cache reads only, never a fetch)."""
+    for r in rows or []:
+        m = r.get('baseAddress') or r.get('mint')
+        if not m:
+            continue
+        r.update(_holder_facts(m))
+        hit = _intel_cache.get(m)
+        it = hit[1] if hit else {}
+        rep = None
+        if (it or {}).get('creator'):
+            try:
+                rep = _quick_rep(it['creator']).get('level')
+            except Exception:
+                rep = None
+        r['clean'] = _clean.score(r, it if (it or {}).get('top10Pct') is not None else {}, rep)
+    return rows
+
+
 def _holder_facts(mint):
     """Holder facts for a picker row from the scan CACHE only (never a fetch): top-10 · dev · insiders · bundled / sniper wallets, or scanned=False."""
     hit = _intel_cache.get(mint)
     it = hit[1] if hit else None
     if not it or it.get('top10Pct') is None:
         return {'scanned': False}
-    cnt = lambda v: len(v) if isinstance(v, list) else int(_fuse._f(v))
+    cnt = lambda v: len(v) if isinstance(v, list) else (None if v is None else int(_fuse._f(v)))
     return {'scanned': True, 'top10': it.get('top10Pct'), 'dev': it.get('devHoldingPct'), 'insiders': it.get('insidersHoldingPct'),
             'bundledN': cnt(it.get('bundledWallets')), 'snipersN': cnt(it.get('sniperWallets')), 'bundledPct': it.get('bundledHoldingPct')}
 
@@ -2898,10 +2942,7 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
     if not rows or lens in ('majors', 'stocks', 'popular', 'yield', 'deep', 'new'):
         return out
     live = [r for r in rows if r.get('vol1h') is None or _fuse._f(r.get('vol1h')) >= PICK_DEAD_VOL1H]
-    for r in live:
-        m = r.get('baseAddress') or r.get('mint')
-        if m:
-            r.update(_holder_facts(m))
+    _clean_rows(live)
     if not os.environ.get('PYTEST_CURRENT_TEST'):
         for r in [x for x in live if not x.get('scanned')][:PICK_SCAN_TOP]:
             m = r.get('baseAddress') or r.get('mint')
@@ -6001,6 +6042,14 @@ def _trench_judge():
 
 @app.get('/api/reputation/fuses/trench')
 async def fuse_trench(meta: str = Query('', max_length=20)):
+    """🗑 The trench list + 🧼 the 10-point clean score and holder facts on every row (owner, 2026-10-08: $giftr, a rug, came from this list)."""
+    out = await _fuse_trench_raw(meta)
+    if isinstance(out, dict) and out.get('rows'):
+        _clean_rows(out['rows'])
+    return out
+
+
+async def _fuse_trench_raw(meta=''):
     """🗑 The trench scan's latest finalists (coin data only): holders, market cap, age and every check passed / failed.
     `meta` = VIEW the same finalists through a named 🧪 meta (read-only; the cards follow HQ's saved setting)."""
     keys = ('mint', 'symbol', 'pairAddress', 'price', 'liq', 'holders', 'mcap', 'ageH', 'vol1h', 'buyShare', 'ok', 'fails', 'trenchWhy', 'trenchScore', 'trenchLevel')

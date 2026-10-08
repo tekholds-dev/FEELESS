@@ -46,6 +46,7 @@ import { CardStudio } from '../cards/CardStudio';
 import { IntelDesk } from './IntelDesk';
 import { FeeBook } from './FeeBook';
 import { useMoneyPulse, refreshPulse } from '../../lib/moneyPulse';
+import { tiny } from '../../lib/num';
 const NftStudio = lazy(() => import('../nft/NftStudio').then(m => ({ default: m.NftStudio })));
 
 const SESSION_KEY = 'feeless:cc-session';
@@ -172,7 +173,7 @@ export function HqDeck({ address, signMessage, onClose }) {
         <button type="button" onClick={loadHolders}><RefreshCw size={13} />Refresh</button>
         <button type="button" onClick={() => download(`${asset}-holders.csv`, csv([['owner', 'amount', 'pct', 'usd', 'blocked'], ...visible.map(r => [r.owner, r.amount, r.pct.toFixed(4), r.usd ?? '', r.blocked])]))}><Download size={13} />CSV</button>
       </div>
-      {holders && <div className="cc-kpis"><span><small>Holders</small><b>{holders.holders?.toLocaleString() ?? '—'}</b></span><span><small>Price</small><b>{holders.price ? `$${holders.price.toPrecision(4)}` : '—'}</b></span><span><small>Selected</small><b>{selected.size}</b></span><span><small>Blocklisted</small><b>{(holders.rows || []).filter(r => r.blocked).length}</b></span></div>}
+      {holders && <div className="cc-kpis"><span><small>Holders</small><b>{holders.holders?.toLocaleString() ?? '—'}</b></span><span><small>Price</small><b>{holders.price ? `$${tiny(holders.price, 4)}` : '—'}</b></span><span><small>Selected</small><b>{selected.size}</b></span><span><small>Blocklisted</small><b>{(holders.rows || []).filter(r => r.blocked).length}</b></span></div>}
       {selected.size > 0 && <div className="cc-selbar"><b>{selected.size} selected</b><button type="button" className="btn-primary" onClick={() => setTab('studio')}><Gift size={13} />Airdrop them</button><button type="button" onClick={() => setTab('badges')}>Award a badge</button></div>}
       {!holders ? <p className="cc-empty">Reading every {asset.toUpperCase()} token account from the chain…</p> : holders.error ? <p className="cc-empty">{holders.error}</p>
         : <div className="cc-table"><div className="cc-tr cc-th"><span /><span>#</span><span>Wallet</span><span>Amount</span><span>Share</span><span>Value</span><span>Tags</span></div>

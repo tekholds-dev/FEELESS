@@ -6,6 +6,7 @@ import { useWallet, EVM_CHAINS } from '../../hooks/useWallet';
 import { CHAIN_ID, NATIVE, toUnits, fromUnits, lifiServerQuote, executeLifi } from '../../lib/lifiExec';
 import { moneyConfirmed } from '../../lib/moneyConfirm';
 
+import { tiny } from '../../lib/num';
 // Same-chain swaps on EVM networks (Base, Ethereum, BNB, Arbitrum, …) through LI.FI, in the same compact card
 // as the Solana swap. Quotes come from the FEELESS server (key + fee server-side, route verified); execution
 // re-checks the route in the browser, switches the wallet to the right network and approves exact amounts only.
@@ -53,7 +54,7 @@ function EvmTokenPicker({ chain, value, onChange, onNetwork, testId }) {
       <div className="tkp-list">
         {!q && <button type="button" role="option" aria-selected={value?.address === NATIVE} onClick={() => pick(nativeToken(chain))}>{av(nativeToken(chain))}<b>{nativeToken(chain).symbol}</b><em>{nativeToken(chain).name}</em><code>native</code></button>}
         {rows.filter(t => t.address !== NATIVE).map(t => <button key={t.address} type="button" role="option" aria-selected={value?.address === t.address} className={value?.address === t.address ? 'sel' : ''} onClick={() => pick(t)}>
-          {av(t)}<b>{t.symbol}</b><em>{t.name}</em><code>{t.priceUSD ? `$${Number(t.priceUSD) < 0.01 ? Number(t.priceUSD).toPrecision(2) : Number(t.priceUSD).toFixed(2)}` : `${t.address.slice(0, 6)}…`}</code></button>)}
+          {av(t)}<b>{t.symbol}</b><em>{t.name}</em><code>{t.priceUSD ? `$${Number(t.priceUSD) < 0.01 ? tiny(Number(t.priceUSD), 2) : Number(t.priceUSD).toFixed(2)}` : `${t.address.slice(0, 6)}…`}</code></button>)}
         {!rows.length && q && <p>No match on {EVM_CHAINS[chain]?.chainName}. Paste the token's contract address.</p>}
       </div>
     </div>}

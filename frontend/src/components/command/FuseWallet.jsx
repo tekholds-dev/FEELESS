@@ -6,6 +6,7 @@ import { usd, txUrl } from '../FuseMoney';
 import { CircleProfileForm, profileDraft } from '../CircleProfileEdit';
 import '../../styles/fuseMoney.css';
 
+import { tiny } from '../../lib/num';
 // HQ › Fuse › 👛 Fuse wallet (owner only): the Circle wallet that funds FEELESS's tier cards with REAL money.
 // 1 · pick the wallet + see its funds · 2 · hard limits · 3 · top up a tier (resets it as a new real run) or ↩ defund ·
 // 4 · 🔍 dry run = real Jupiter quotes for what a top-up would buy (never signs) · 5 · the audit trail (every order + tx).
@@ -154,7 +155,7 @@ export function FuseWallet({ call }) {
       <div className="fw-table" role="table" data-testid="fw-ledger"><div className="fw-row is-head" role="row"><span>WHEN</span><span>CARD</span><span>WHAT</span><span>$</span><span>FILL</span><span>FEE</span><span>TX</span></div>
         {(d.ledger || []).map((o, i) => <div key={i} className="fw-row" role="row"><span className="m-dim">{new Date(o.at * 1000).toLocaleTimeString()}</span><span>{o.card}</span>
           <span>{o.side} {o.symbol ? `$${o.symbol}` : ''} <em className={`fw-st s-${o.status}`}>{ST[o.status] || o.status}</em>{o.err ? <small className="m-dim"> · {o.err}</small> : null}</span>
-          <span className="m-num">{usd(o.usd)}</span><span className="m-num">{o.px ? `$${Number(o.px).toPrecision(4)}` : o.impactPct != null ? `${o.impactPct}% imp` : '—'}</span><span className="m-num">{o.feeUsd != null ? usd(o.feeUsd) : '—'}</span>
+          <span className="m-num">{usd(o.usd)}</span><span className="m-num">{o.px ? `$${tiny(Number(o.px), 4)}` : o.impactPct != null ? `${o.impactPct}% imp` : '—'}</span><span className="m-num">{o.feeUsd != null ? usd(o.feeUsd) : '—'}</span>
           {o.sig ? <a href={txUrl(o.sig)} target="_blank" rel="noreferrer">tx ↗</a> : <span className="m-dim">—</span>}</div>)}
         {!d.ledger?.length && <small className="m-dim">No orders yet — top-ups and every keeper swap land here (dry runs are shown above, never stored).</small>}</div></details>
   </section>;

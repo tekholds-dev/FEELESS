@@ -25,12 +25,12 @@ test('mini chart: opens from any chart, closes the room it came from, survives a
   expect(m().querySelector('[data-testid="mch-strip"]').textContent).toContain('$1.10M');
   await act(async () => { m().querySelector('[data-testid="mch-metric"]').click(); }); await tick(20);
   expect(m().querySelector('[data-testid="stub-chart"]').dataset.metric).toBe('price');
-  expect(closed).toHaveBeenCalled(); expect(m().textContent).toContain('$ST'); expect(m().textContent).toContain('$0.001230'); expect(m().textContent).toContain('+4.2%');
+  expect(closed).toHaveBeenCalled(); expect(m().textContent).toContain('$ST'); expect(m().textContent).toContain('$0.00123'); expect(m().textContent).toContain('+4.2%');
   expect(m().querySelector('[data-testid="stub-chart"]').textContent).toBe('PX:5m');
   // the mini chart draws the Fuse card's lines (found on the live cards by coin) AND your own trade entry, and says where you stand
   expect(m().querySelector('[data-testid="stub-chart"]').dataset.fuse).toBe('0.0011'); expect(m().querySelector('[data-testid="stub-chart"]').dataset.me).toBe('0.001');
   const strip = m().querySelector('[data-testid="mch-strip"]').textContent;
-  for (const x of ['⚛', '$0.001100', '+11.8%', '🛑', '❄', '👤', '$0.001000', '+23.0%']) expect(strip).toContain(x);
+  for (const x of ['⚛', '$0.0011', '+11.8%', '🛑', '❄', '👤', '$0.001', '+23.0%']) expect(strip).toContain(x);
   await act(async () => { m().querySelector('[data-testid="mch-tf-1m"]').click(); }); await tick(20);
   expect(m().querySelector('[data-testid="stub-chart"]').textContent).toBe('PX:1m');
   await act(async () => { root.unmount(); });                                             // leave the page…

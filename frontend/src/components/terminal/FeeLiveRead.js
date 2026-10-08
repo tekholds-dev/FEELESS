@@ -1,3 +1,4 @@
+import { tiny } from '../../lib/num';
 // Fee's live chart read — rules only, computed from the real candles and pair stats on screen.
 // Returns levels to draw and a plain-English read. Nothing here is invented or predicted.
 export function computeFeeRead(candles, pair, position) {
@@ -28,7 +29,7 @@ export function computeFeeRead(candles, pair, position) {
   else if (vwap && price < vwap && flow1 != null && flow1 < 0.45) stance = 'staying out';
   if (position) {
     const entry = Number(position.entryPriceUsd);
-    if (entry) lines.unshift(`I'm in from $${entry.toPrecision(4)} — ${(((price - entry) / entry) * 100).toFixed(1)}% now. Stop −10%, target +22%.`);
+    if (entry) lines.unshift(`I'm in from $${tiny(entry, 4)} — ${(((price - entry) / entry) * 100).toFixed(1)}% now. Stop −10%, target +22%.`);
   }
   return { price, support, resistance, vwap, liq, liqRatio, flow1, stance, lines, entry: position ? Number(position.entryPriceUsd) || null : null };
 }

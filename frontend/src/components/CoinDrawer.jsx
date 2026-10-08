@@ -11,6 +11,7 @@ import { investigate } from './CaseFile';
 import '../styles/fusePage.css';
 import '../styles/coinDrawer.css';
 
+import { tiny } from '../lib/num';
 // 🪙 ONE coin drawer, sitewide: openCoin({ mint, pairAddress, symbol, logo, runner }) from anywhere → this panel slides in with
 // everything FEELESS knows about the coin (the coin edge: signals with sources, verification, runner gates + bond boxes, live
 // price) and the three things you do with a coin: 📈 Chart · 🔎 Case file · ＋ Add to card. Mounted once (CoinDrawerHost).
@@ -28,7 +29,7 @@ export const asCoin = d => { if (!d) return null; const b = d.baseToken || {};
 const big = v => (!v ? '—' : v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Math.round(v)}`);
 const age = h => (h == null ? '—' : h < 1 ? `${Math.round(h * 60)}m` : h < 48 ? `${Math.round(h)}h` : `${Math.round(h / 24)}d`);
 const pc = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`);
-const px = v => (v >= 1 ? v.toFixed(3) : v >= 0.001 ? v.toFixed(6) : v ? v.toPrecision(3) : '—');
+const px = v => (v >= 1 ? v.toFixed(3) : v >= 0.001 ? v.toFixed(6) : v ? tiny(v, 3) : '—');
 
 export function CoinDrawerHost() {
   const [coin, setCoin] = useState(null);

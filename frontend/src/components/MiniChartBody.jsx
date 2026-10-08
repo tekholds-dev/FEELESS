@@ -3,7 +3,8 @@ import { PriceChart } from './terminal/PriceChart';
 import { useMyPosition } from './terminal/TrenchChart';
 import { usePrime, fuseLevels } from './ArenaPrime';
 
-const pp = v => (Number(v) > 0 ? `$${Number(v) >= 1 ? Number(v).toFixed(2) : Number(v).toPrecision(4)}` : '—');
+import { tiny } from '../lib/num';
+const pp = v => (Number(v) > 0 ? `$${Number(v) >= 1 ? Number(v).toFixed(2) : tiny(Number(v), 4)}` : '—');
 const mcf = v => { const n = Number(v); if (!(n > 0)) return '—'; return n >= 1e9 ? `$${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(1)}K` : `$${n.toFixed(0)}`; };
 const sg = v => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
 

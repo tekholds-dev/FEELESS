@@ -5,13 +5,14 @@ import { TokenAvatar } from './terminal/MarketPrimitives';
 import { openWarRoom } from './WarRoomHost';
 import '../styles/miniChart.css';
 
+import { tiny } from '../lib/num';
 const MiniChartBody = React.lazy(() => import('./MiniChartBody'));   // the SAME chart + your lines, loaded only when a mini chart is open
 const KEY = 'feeless.miniChart';
 const TFS = ['1m', '5m', '15m'];
 const read = () => { try { const v = JSON.parse(window.localStorage.getItem(KEY) || 'null'); return v?.pairAddress ? v : null; } catch { return null; } };
 const write = v => { try { if (v) window.localStorage.setItem(KEY, JSON.stringify(v)); else window.localStorage.removeItem(KEY); } catch { /* private window: lasts for this visit */ } };
 const mcf = n => { const v = Number(n); if (!(v > 0)) return ''; return v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${v.toFixed(0)}`; };
-const px = n => { const v = Number(n); if (!(v > 0)) return '—'; return v >= 1 ? `$${v.toFixed(2)}` : `$${v.toPrecision(4)}`; };
+const px = n => { const v = Number(n); if (!(v > 0)) return '—'; return v >= 1 ? `$${v.toFixed(2)}` : `$${tiny(v, 4)}`; };
 
 // 📌 MINI CHART: openMiniChart(pair) from any chart → the war room / drawer closes and the coin's chart stays in a small floating
 // window on EVERY page (one host, mounted once in the terminal shell; the coin + the window's place are remembered).

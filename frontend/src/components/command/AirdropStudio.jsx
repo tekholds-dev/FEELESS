@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Sparkles, Clock, Camera, Gift } from 'lucide-react';
 import { shortAddress, formatUSD } from '../../lib/dexscreener';
 
+import { tiny } from '../../lib/num';
 const DAY = 86400;
 const PRESETS = [
   { id: 'top10', label: '🏆 Top 10 holders', f: { top: 10 } },
@@ -112,7 +113,7 @@ export function Snapshots({ call, asset }) {
   return <section className="cc-panel">
     <p className="cc-note">A snapshot freezes every holder and balance right now. Compare later to see who's new, who left, and who never sold — then airdrop the diamond hands.</p>
     <div className="cc-toolbar"><input placeholder="Label (e.g. Pre-listing)" value={label} onChange={e => setLabel(e.target.value)} /><button type="button" className="btn-primary" onClick={take}><Camera size={13} />Snapshot {asset.toUpperCase()} now</button></div>
-    {snaps.map(s => <div key={s.id} className="cc-drop"><div className="cc-drop-top"><b>📸 {s.label || s.asset.toUpperCase()}</b><em>{s.holders} holders</em><small>{new Date(s.at * 1000).toLocaleString()} · price {s.price ? `$${Number(s.price).toPrecision(4)}` : '—'}</small></div>
+    {snaps.map(s => <div key={s.id} className="cc-drop"><div className="cc-drop-top"><b>📸 {s.label || s.asset.toUpperCase()}</b><em>{s.holders} holders</em><small>{new Date(s.at * 1000).toLocaleString()} · price {s.price ? `$${tiny(Number(s.price), 4)}` : '—'}</small></div>
       <div className="cc-drop-actions"><button type="button" onClick={() => call(`/admin/snapshots/${s.id}/diff`).then(setDiff).catch(e => toast.error(e.message))}>Compare with now</button></div></div>)}
     {diff && <div className="cc-block"><h4>Since {diff.snap.label || 'snapshot'}</h4>
       <div className="cc-kpis cc-kpis-5">{Object.entries(diff.counts).map(([k, v]) => <span key={k} className={`d-${k}`}><small>{k}</small><b>{v}</b></span>)}</div>

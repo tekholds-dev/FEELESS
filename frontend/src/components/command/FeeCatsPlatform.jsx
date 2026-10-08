@@ -7,6 +7,7 @@ import '../../styles/brain-adapters.css';
 import '../../styles/feecatPage.css';
 import { FeeCatBrain } from './FuseOpsPanels';
 
+import { tiny } from '../../lib/num';
 const OWNER_KEY = 'feeless-paper-owner';
 const api = async (path, options = {}) => {
   const response = await fetch(path, { headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }, ...options });
@@ -31,7 +32,7 @@ const tradeCard = event => ({
   title: `$${eventSymbol(event)}`,
   tone: event.type === 'SELL' && Number(event.pnlSol) < 0 ? 'down' : 'up',
   big: event.type === 'BUY' ? 'ENTRY' : `${Number(event.pnlSol || 0) >= 0 ? '+' : '−'}${Math.abs(Number(event.pnlSol || 0)).toFixed(4)} SOL`,
-  lines: [event.type === 'BUY' ? `BUY · entry MC ${usd(event.marketCapUsd)}` : `SELL · entry MC ${usd(event.entryMarketCapUsd)} · exit MC ${usd(event.marketCapUsd)}`, event.priceNative ? `Execution price ${Number(event.priceNative).toPrecision(6)} SOL` : 'Execution price unavailable', `Receipt ${event.id?.slice(0, 10) || '—'}`],
+  lines: [event.type === 'BUY' ? `BUY · entry MC ${usd(event.marketCapUsd)}` : `SELL · entry MC ${usd(event.entryMarketCapUsd)} · exit MC ${usd(event.marketCapUsd)}`, event.priceNative ? `Execution price ${tiny(Number(event.priceNative), 6)} SOL` : 'Execution price unavailable', `Receipt ${event.id?.slice(0, 10) || '—'}`],
   footer: 'FEELESS · trade receipt',
 });
 

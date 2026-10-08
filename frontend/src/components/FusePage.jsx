@@ -37,6 +37,7 @@ import '../styles/runners.css';
 import '../styles/fusePage.css';
 import '../styles/cardWindow.css';
 
+import { tiny } from '../lib/num';
 // Fuse 🧬 — the whole Fuse product in one tab: Lab (build + featured) · Runners (pick ≤3 fresh coins) · Arena (proof)
 // · My cards (live cards + every action). Runner picks and "Load" carry across tabs. Every money action is a normal
 // wallet-signed FuseGo approval; the server re-checks every signature before anything counts.
@@ -570,7 +571,7 @@ export function CardConfig({ c, onClose, onLoad, onBack, onBuyBack }) {
             <div className="ccx-row is-head" role="row"><span>COIN</span><span>WEIGHT</span><span>ENTRY → NOW</span><span>P&L</span></div>
             {rows.map((l, i) => <div key={l.pairAddress} className="ccx-row" role="row" style={{ '--i': i }}><b>{l.runner ? '🏃' : '⚓'} ${l.symbol}</b>
               <span className="ccx-w"><i style={{ transform: `scaleX(${Math.min(1, (Number(l.weight) || 0) / 100)})` }} /><em className="m-num">{Math.round(Number(l.weight) || 0)}%</em></span>
-              <span className="m-num">{l.entry ? `$${Number(l.entry).toPrecision(3)}` : '—'} → {l.px ? `$${Number(l.px).toPrecision(3)}` : '—'}</span>
+              <span className="m-num">{l.entry ? `$${tiny(Number(l.entry), 3)}` : '—'} → {l.px ? `$${tiny(Number(l.px), 3)}` : '—'}</span>
               <em className={`m-num fl-tick ${(l.pct || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={l.pct == null ? 'x' : l.pct.toFixed(1)}>{l.pct == null ? '—' : pc(l.pct)}{l.nowUsd != null && <small> · {fmt$(l.nowUsd)}</small>}</em></div>)}</div></div>
         <div className="ccx-side">
           <section className="ccx-legend ccx-pane" data-testid="cfg-legend"><span className="m-label">🧬 HOW THIS CARD PLAYS</span>

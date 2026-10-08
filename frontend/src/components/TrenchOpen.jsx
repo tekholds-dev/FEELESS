@@ -26,7 +26,7 @@ const mv = v => `top-n ${v == null ? '' : Number(v) >= 0 ? 'm-pos' : 'm-neg'}`;
 export function TrenchOpen({ max = 10, onPick, busy }) {
   const [d, setD] = useState(null); const [all, setAll] = useState(false); const [f, setF] = useState('all'); const [sort, setSort] = useState('front');
   useEffect(() => { let alive = true; const load = first => (first || !document.hidden) && fetch(apiUrl('/api/reputation/fuses/trench/open')).then(r => r.json()).then(x => alive && setD(x)).catch(() => {});
-    load(true); const t = setInterval(() => load(false), 60000); return () => { alive = false; clearInterval(t); }; }, []);
+    load(true); const t = setInterval(() => load(false), 20000); return () => { alive = false; clearInterval(t); }; }, []);
   if (!d || !(d.rows || []).length) return null;
   const keyOf = SORTS.find(x => x[0] === sort)[2];
   const list = d.rows.filter(FILTERS.find(x => x[0] === f)[2]).slice().sort((a, b) => keyOf(a) - keyOf(b));

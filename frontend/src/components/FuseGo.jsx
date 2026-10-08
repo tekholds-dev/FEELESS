@@ -9,6 +9,7 @@ import { readChatSession } from '../lib/chatSession';
 import { impactPercent } from '../lib/impactGuard';
 import { useLivePrices } from '../lib/livePrices';
 
+import { tiny } from '../lib/num';
 // ⚡ One-click Fuse in. Quote + simulate every leg in parallel (refreshed every 10s while open), show the exact
 // review (coin, SOL in, est. out, fee), ONE wallet approval for all legs, then send + confirm each leg live.
 const REFRESH_MS = 10000;
@@ -31,7 +32,7 @@ export function quoteLine(r) {
     networkUsd: lamports / 1e9 * solUsd, impact: impactPercent(q), price: tokens ? usd / tokens : null, weight: Number(r.leg?.weight) || null,
     pool: r.leg?.dex || route[0] || 'best route', route, liq, share: liq ? usd / liq * 100 : null, side: r.request?.input_mint === r.order?.input_mint && r.order?.output_mint === 'So11111111111111111111111111111111111111112' ? 'sell' : 'buy' };
 }
-const fmt = n => (n == null ? '—' : n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : n >= 1 ? n.toFixed(2) : n.toPrecision(3));
+const fmt = n => (n == null ? '—' : n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : n >= 1 ? n.toFixed(2) : tiny(n, 3));
 
 export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position, onLanded }) {
   const sell = side === 'sell';
@@ -145,13 +146,13 @@ export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position, on
       {lines.length > 0 && <div className="fg-rcpt" data-testid="fg-before"><div className="fg-rcpt-head"><span className="m-label">RECEIPT · BEFORE YOU SIGN</span></div>
         <table><thead><tr><th>Coin</th><th>Live</th><th>Pay</th><th>Get ≈</th><th data-tip="The swap fails rather than give you less than this">Min ≥</th><th>FEELESS fee</th><th>Network</th><th>Impact</th></tr></thead>
           <tbody>{lines.map(l => { const lp = live.get(l.pairAddress); return <tr key={l.symbol}><td>{l.symbol}</td>
-            <td className="fg-live" data-tip="Live price (10s) and its last-5-minute move">{lp ? <><span className="m-num fl-tick" key={lp.price}>${lp.price < 0.01 ? lp.price.toPrecision(3) : lp.price.toFixed(4)}</span><small className={lp.m5 >= 0 ? 'm-pos' : 'm-neg'}>{lp.m5 >= 0 ? '+' : ''}{lp.m5.toFixed(1)}% 5m</small></> : '—'}</td><td>{l.sol} SOL<small>{usd2(l.usd)}</small></td><td>{fmt(l.tokens)}</td><td data-tip={`slippage ${(l.slip / 100).toFixed(1)}%`}>{fmt(l.min)}</td><td>{usd2(l.feeUsd)}</td><td>{usd2(l.networkUsd)}</td><td className={l.impact > 1 ? 'm-neg' : ''}>{l.impact != null ? `${l.impact.toFixed(2)}%` : '—'}</td></tr>; })}</tbody>
+            <td className="fg-live" data-tip="Live price (10s) and its last-5-minute move">{lp ? <><span className="m-num fl-tick" key={lp.price}>${lp.price < 0.01 ? tiny(lp.price, 3) : lp.price.toFixed(4)}</span><small className={lp.m5 >= 0 ? 'm-pos' : 'm-neg'}>{lp.m5 >= 0 ? '+' : ''}{lp.m5.toFixed(1)}% 5m</small></> : '—'}</td><td>{l.sol} SOL<small>{usd2(l.usd)}</small></td><td>{fmt(l.tokens)}</td><td data-tip={`slippage ${(l.slip / 100).toFixed(1)}%`}>{fmt(l.min)}</td><td>{usd2(l.feeUsd)}</td><td>{usd2(l.networkUsd)}</td><td className={l.impact > 1 ? 'm-neg' : ''}>{l.impact != null ? `${l.impact.toFixed(2)}%` : '—'}</td></tr>; })}</tbody>
           <tfoot><tr><td>Total</td><td /><td>{tot.sol.toFixed(4)} SOL<small>{usd2(tot.usd)}</small></td><td /><td /><td>{usd2(tot.fee)}</td><td>{usd2(tot.net)}</td><td /></tr></tfoot></table>
         {!sell && <details className="fg-how" data-testid="fg-how"><summary>How your money moves</summary>
           <ol className="fg-flow"><li><b>1</b>Your wallet sends {tot.sol.toFixed(4)} SOL ({usd2(tot.usd)}) — split by the Fuse weights.</li>
             {lines.map(l => <li key={l.symbol}><b>{l.symbol}</b><span>{l.weight ? `${Math.round(l.weight)}% → ` : ''}{l.sol} SOL ({usd2(l.usd)}) is swapped through <em>{l.route.length ? l.route.join(' → ') : l.pool}</em>
               {l.liq ? <> (pool depth {usd2(l.liq)}; your slice is <em>{l.share < 0.01 ? '<0.01' : l.share.toFixed(2)}%</em> of it{l.impact > 1 ? ' — big enough to move the price' : ''})</> : null}.
-              You get ≈ {fmt(l.tokens)} {l.symbol}{l.price ? <> at ≈ ${l.price < 0.01 ? l.price.toPrecision(3) : l.price.toFixed(4)} each</> : null}.
+              You get ≈ {fmt(l.tokens)} {l.symbol}{l.price ? <> at ≈ ${l.price < 0.01 ? tiny(l.price, 3) : l.price.toFixed(4)} each</> : null}.
               {l.feeUsd > 0 ? <> {usd2(l.feeUsd)} ({(l.feeBps / 100).toFixed(2)}%) is the FEELESS fee</> : <> No FEELESS fee</>}; {usd2(l.networkUsd)} goes to Solana validators.</span></li>)}
             <li><b>✓</b>The coins land in <em>your</em> wallet. FEELESS never holds them. From here each one moves with its own price — up or down. You don't earn the pool's trading fees (that's for liquidity providers); you own the coins.</li>
             <li><b>↩</b>Exit any time with Unfuse (one approval, same fees once) or set 🎯 limits to get pinged at your target.</li></ol>
