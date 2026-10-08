@@ -654,6 +654,11 @@ async def run_engine(store, cats):
                 store.setdefault('scan', {}).setdefault('brainRejects', []).append({'symbol': sym, 'why': fe['why'], 'at': now})
                 store['scan']['brainRejects'] = store['scan']['brainRejects'][-10:]
                 continue
+            pg = feecat_brain.proof_gate(cat.get('exits') or [], now)
+            if pg['sit_out']:
+                store.setdefault('scan', {}).setdefault('brainRejects', []).append({'symbol': sym, 'why': pg['why'], 'at': now})
+                store['scan']['brainRejects'] = store['scan']['brainRejects'][-10:]
+                continue
             # Setup memory: her own closed trades decide whether this kind of entry deserves more, less or no size.
             ce = feecat_brain.crowd_edge((p.get('baseToken') or {}).get('address'), crowd_feed)
             setup = feecat_brain.setup_features(p, now, fresh=bool(p.get('_fresh')), gap=bool(gap), fuse=fe['tag'], crowd=ce['tag'])

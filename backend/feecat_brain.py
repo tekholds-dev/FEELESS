@@ -185,6 +185,15 @@ def _window(exits, now, secs):
             'netSol': round(sum(e['pnlSol'] for e in rows), 5)}
 
 
+def proof_gate(exits: list, now: float) -> dict:
+    """New entries only while her record isn't red on BOTH windows (24h n>=5 and 72h n>=10, net SOL < 0 each).
+    Exits keep running; the 72h window rolls off, so she comes back by herself. It can only make her trade LESS."""
+    w = {k: _window(exits, now, s) for k, s, _ in STRENGTH_WINDOWS}
+    red = all(w[k]['n'] >= m and w[k]['netSol'] < 0 for k, _, m in STRENGTH_WINDOWS)
+    return {'sit_out': red, 'windows': w,
+            'why': f"red on 24h ({w['24h']['netSol']:+.4f} SOL) AND 72h ({w['72h']['netSol']:+.4f} SOL) — no new entries until one window is green" if red else 'record not red on both windows'}
+
+
 def strength(exits: list, now: float, prev: dict = None, disc: dict = None) -> dict:
     """→ {level, mult, pending, windows, why}. `prev` = last result (for the two-checks rule)."""
     prev = prev or {}
