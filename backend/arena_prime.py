@@ -488,6 +488,7 @@ def clean_cfg(p):
     ra_ = (p or {}).get('runnerMinAgeH')
     out['runnerMinAgeH'] = int(_f(ra_)) if ra_ is not None and int(_f(ra_)) in RUNNER_AGES else int(REAL_RUNNER_AGE_H)   # 🕐 the OWNER's youngest launch coin for real money
     out['rebuyDipPct'] = int(_f((p or {}).get('rebuyDipPct'))) if int(_f((p or {}).get('rebuyDipPct'))) in REBUY_DIPS else 0   # 🔁 a coin that left comes back only after this dip (0 = off)
+    out['ticketRide'] = bool((p or {}).get('ticketRide', False))   # 🎰 ride or rug: a ticket has NO stop — it rugs (the ticket is lost) or runs to the 🏠 pull
     out['youngTicket'] = bool((p or {}).get('youngTicket', True))   # 🎟 a hand pick under 12h old goes in as a small ticket (owner's switch)
     out['scoutPct'] = int(_f((p or {}).get('scoutPct'))) if int(_f((p or {}).get('scoutPct'))) in SCOUT_PCTS else 0   # 🔭 scout ticket, % of the card (0 = off)
     out['trenchAuto'] = bool((p or {}).get('trenchAuto', True))   # 🗑 may the ENGINE seat a trench coin by itself? off = trench coins are the owner's hand picks only
@@ -1827,7 +1828,9 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             pct_t = _f(cfg.get('trenchStakePct'))
             use_usd = min(out_usd, value(c, prices, liqs) * pct_t / 100) if pct_t > 0 else out_usd
             nl_ = _leg(nxt, use_usd, now, 'runner')
-            if _f(cfg.get('trenchSlPct')) > 0:
+            if cfg.get('ticketRide') or c.get('ticketRide'):
+                nl_.update(slMode='hold', rideOrRug=True)
+            elif _f(cfg.get('trenchSlPct')) > 0:
                 nl_['sl'] = _f(cfg.get('trenchSlPct'))
             if pct_t > 0:
                 nl_['ticket'] = True   # 🎟 never topped up to a full seat (the sweep put $0.30 back into a fresh coin 48s after it was bought)
@@ -1843,7 +1846,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     instant_loss = _f(cfg.get('instantSwapPct'))
     if instant_loss > 0 and not c.get('holdAll'):
         for l in list(c['legs']):
-            if safe_anchor(l) or l.get('frozen') or l.get('ride') or l.get('placeholder') or l.get('buying') or int(l.get('freezeRounds') or 0) > 0:
+            if safe_anchor(l) or l.get('frozen') or l.get('ride') or l.get('rideOrRug') or l.get('placeholder') or l.get('buying') or int(l.get('freezeRounds') or 0) > 0:
                 continue
             px = _f(prices.get(l['pairAddress']))
             if px <= 0 or _f(l.get('entry')) <= 0 or _f(l.get('units')) <= 0:
@@ -2267,7 +2270,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
               c['legs'].append(_leg(nxt, usd_s, now, role_s))
               seated_any = True
               if tick_s:
-                  c['legs'][-1].update(ticket=True, sl=YOUNG_PICK_SL)
+                  c['legs'][-1].update(ticket_marks(c.get('ticketRide'), YOUNG_PICK_SL))
               if mine_:
                   c['legs'][-1]['picked'] = True; c.pop('seatPick', None); seated_pick = True
                   if sp_.get('trenchOnly'):
@@ -2825,9 +2828,9 @@ def apply_queued(c, prices, liqs, now, fee=0.0, only=None, why='🎯 your pick �
         if tick_:
             c['cash'] = _f(c.get('cash')) + (usd - usd_t); usd = usd_t
         c['legs'][i] = {**_leg({**to, 'price': live}, max(0.0, usd), now, 'anchor' if l.get('role') == 'anchor' and not tick_ else ('runner' if tick_ else l.get('role') or 'pool')), 'picked': True,
-                        **({'ticket': True, 'sl': YOUNG_PICK_SL} if tick_ else {})}
+                        **(ticket_marks(c.get('ticketRide'), YOUNG_PICK_SL) if tick_ else {})}
         if tick_:
-            why = f"{why} · 🎟 under 12h old: a ${usd:.2f} ticket ({YOUNG_PICK_PCT:g}% of the card), stop −{YOUNG_PICK_SL:g}%, never topped up"
+            why = f"{why} · 🎟 under 12h old: a ${usd:.2f} ticket ({YOUNG_PICK_PCT:g}% of the card), " + ('🎰 ride or rug — no stop' if c.get('ticketRide') else f'stop −{YOUNG_PICK_SL:g}%') + ', never topped up'
         c['feesUsd'] = round(_f(c.get('feesUsd')) + 2 * fee, 4)
         c.setdefault('events', []).append({'at': now, 'kind': 'rotate', 'symbol': l.get('symbol'), 'usd': round(usd, 4), 'why': why, 'to': [to.get('symbol')]})
         n += 1
@@ -2835,6 +2838,13 @@ def apply_queued(c, prices, liqs, now, fee=0.0, only=None, why='🎯 your pick �
 
 
 YOUNG_PICK_H, YOUNG_PICK_PCT, YOUNG_PICK_SL = 12.0, 15.0, 25.0
+
+
+def ticket_marks(ride, sl):
+    """🎰 What a NEW ticket leg (young hand pick / trench coin) carries. Owner (2026-10-08, trenching new narratives): "if it gets rugged oh well,
+    gotta be a good one, and pull". ride = no stop of any kind (per-coin stop mode 'hold', the instant swap skips it): the ticket is a slice of the
+    card, so a rug costs that slice; a runner is never cut on a dip and the 🏠 pull (`trenchHouseAt`) takes the initial out. Off = its own stop."""
+    return {'ticket': True, 'slMode': 'hold', 'rideOrRug': True} if ride else ({'ticket': True, 'sl': sl} if sl else {'ticket': True})
 
 
 def young_ticket(pick, card_usd, usd):

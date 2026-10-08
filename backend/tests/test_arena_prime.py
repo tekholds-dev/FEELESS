@@ -2315,3 +2315,16 @@ def test_thin_flow_blocks_a_coin_the_engine_would_buy_on_50_percent_buyers():
     assert ap.thin_flow({'buyShare': 70.0, 'vol1h': 40_000}) is False
     assert ap.thin_flow({'buyShare': None, 'vol1h': None}) is False           # unknown is not judged here
     assert ap.thin_flow({'buyShare': 10.0, 'newMajor': True}) is False and ap.thin_flow({'buyShare': 10.0, 'trenchOnly': True}) is False
+
+
+def test_ride_or_rug_tickets_carry_no_stop_and_the_plain_ticket_keeps_its_own():
+    import arena_prime as ap
+    assert ap.clean_cfg({})['ticketRide'] is False and ap.clean_cfg({'ticketRide': True})['ticketRide'] is True
+    assert ap.ticket_marks(True, 25) == {'ticket': True, 'slMode': 'hold', 'rideOrRug': True}
+    assert ap.ticket_marks(False, 25) == {'ticket': True, 'sl': 25}
+    now = 1_000_000.0
+    leg = lambda m, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'units': 2.0, 'entry': 1.0, 'costUsd': 2.0, 'at': now - 600, 'liq': 1e12, 'real': True, **k}
+    card = {'tpl': 'degen', 'real': True, 'cash': 0.0, 'events': [], 'legs': [leg('YOLO', **ap.ticket_marks(True, 25)), leg('SAFE', **ap.ticket_marks(False, 25))]}
+    c = ap.fast_stop(card, {'YOLO': 0.4, 'SAFE': 0.7}, ap.clean_cfg({'sl': 15}), now)
+    assert c['legs'][0]['units'] == 2.0 and not c['legs'][0].get('placeholder')       # −60%: rug or run, it stays
+    assert c['legs'][1]['placeholder']                                               # −30% under its own −25%: stopped

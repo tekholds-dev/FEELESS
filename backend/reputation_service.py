@@ -7066,6 +7066,29 @@ async def _real_ride_fix(now):
     return True
 
 
+async def _ticket_ride_fix(now):
+    """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
+    once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
+    Old value: data/realcfg_before_ticketride.json. Off again = Edit Fuse › Safety › 🎰 Tickets: ride or rug → off."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('rugFix1') or not rc:
+            return False
+        _json_save(DATA_DIR / 'realcfg_before_ticketride.json', {'ticketRide': rc.get('ticketRide', False)})
+        pr['realCfg'] = _prime.clean_cfg({**rc, 'ticketRide': True})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'ticketRide'})
+        for c in (pr.get('cards') or {}).values():
+            if c.get('real'):
+                c['ticketRide'] = True
+                for l in c.get('legs') or []:
+                    if l.get('ticket') and not l.get('placeholder'):
+                        l.pop('sl', None); l.update(slMode='hold', rideOrRug=True)
+        pr['rugFix1'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _prime_reset_paper(now):
     """🔁 Start every paper tier card over at $20, once. Their old runs go to the permanent record + `prime.archive`; the tick deals
     fresh cards at the new size right after. Real-money cards keep running exactly as they are."""
@@ -7136,6 +7159,7 @@ async def _prime_tick_inner(now):
     await _prime_reset_paper(now)
     await _real_hold_fix(now)
     await _real_ride_fix(now)
+    await _ticket_ride_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
         return 0
@@ -7173,7 +7197,7 @@ async def _prime_tick_inner(now):
         if real_t:
             cfg_t = _prime_real_cfg(d.get('prime') or {})   # 💵 the real card runs ITS OWN config — paper edits / locks / engine tunes never touch it
         if cur is not None:   # 🔁 the card carries its own "no same coin unless it dipped" rule (arena_prime.cooling / note_dropped read it)
-            cur = {**cur, 'rebuyDip': int(cfg_t.get('rebuyDipPct') or 0), 'ticketOff': bool(real_t and not cfg_t.get('youngTicket', True))}
+            cur = {**cur, 'rebuyDip': int(cfg_t.get('rebuyDipPct') or 0), 'ticketOff': bool(real_t and not cfg_t.get('youngTicket', True)), 'ticketRide': bool(real_t and cfg_t.get('ticketRide'))}
         # 🎯 PAPER = REAL: every tier (paper too) only rotates into coins real money could buy (pool ≥ minLiqUsd), so paper results are an
         # honest preview. ✅ Runners also need confirmation: rising over the last hour with buyers in control (≥55% buys) — no buying the top.
         def _lq(x):

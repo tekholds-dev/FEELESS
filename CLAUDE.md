@@ -2165,3 +2165,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🧹 DUST = ONE CLICK (`DustCleanup` `cleanAll`, button `dc-clean-all` "🧹 Clean all N coins — one click"): every non-gas coin with its best action;
   burns are confirmed in that same click (one `window.confirm` naming what burns), then it runs. Solana = ONE wallet approval for all swaps + closes;
   swaps quote 4 at a time. EVM tokens still need one wallet prompt each (one tx per token per chain — EVM can't batch-sign).
+- 🎰 RIDE OR RUG (owner, 2026-10-08, trenching new narratives: "if it gets rugged oh well, gotta be a good one, and pull"; cfg `ticketRide`, Edit Fuse ›
+  Safety under 🎟 Small ticket; `arena_prime.ticket_marks`): a TICKET (young hand pick / trench coin, ≤ 15% of the card) carries NO stop — per-coin stop
+  mode 'hold' + `rideOrRug` (the stop pass, `fast_stop` and the instant swap skip it). It rugs (that slice is lost) or runs until 🏠 `trenchHouseAt`
+  pulls the initial out. The rug shield (pool collapse) still sells what's left. `_ticket_ride_fix` (once, `rugFix1`) switched the real card on,
+  tickets already on it included; old value in data/realcfg_before_ticketride.json. Chip "🎰 ride or rug" on the coin row.

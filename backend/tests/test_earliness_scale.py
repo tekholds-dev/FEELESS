@@ -52,3 +52,16 @@ def test_real_ride_fix_turns_the_freeze_back_on_once():
     assert pr['realCfg']['rideAt'] == 15.0 and pr['realCfg']['rideTrail'] == 8.0 and pr['realCfg']['rotateHours'] == 0.08
     assert json.loads((rs.DATA_DIR / 'realcfg_before_ride.json').read_text())['rideAt'] == 0.0
     assert asyncio.run(rs._real_ride_fix(2000.0)) is False
+
+
+def test_ticket_ride_fix_switches_the_real_card_to_ride_or_rug_once_tickets_included():
+    import asyncio, json
+    import reputation_service as rs
+    rs.FUSE_HQ_PATH.write_text(json.dumps({'prime': {'realCfg': {'rotateHours': 0.08}, 'cards': {'degen': {'real': True, 'legs': [
+        {'symbol': 'T', 'ticket': True, 'sl': 25}, {'symbol': 'N', 'sl': 15}]}}}}))
+    assert asyncio.run(rs._ticket_ride_fix(1000.0)) is True
+    pr = json.loads(rs.FUSE_HQ_PATH.read_text())['prime']
+    assert pr['realCfg']['ticketRide'] is True and pr['realCfg']['rotateHours'] == 0.08 and 'ticketRide' in pr['realOwnerSet']
+    t, n = pr['cards']['degen']['legs']
+    assert t['slMode'] == 'hold' and t['rideOrRug'] and 'sl' not in t and n['sl'] == 15 and 'slMode' not in n   # only tickets
+    assert asyncio.run(rs._ticket_ride_fix(2000.0)) is False
