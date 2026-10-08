@@ -6228,6 +6228,49 @@ async def fuses_proof():
     return await _proof_build()
 
 
+_whosin_cache: dict = {}
+
+
+@app.get('/api/reputation/coin/{mint}/whos-in')
+async def coin_whos_in(mint: str):
+    """👥 Public: who is inside one coin — its top on-chain holders tagged by FEELESS's own forensics (dev · sniper · bundled · pool · flagged) and the
+    verified FEELESS traders in it (early-buyer rank, still in or out, result). Names are profile names; badges are featured earned badges (whos_in.py).
+    Uses the cached holder scan when there is one, else runs it (≤ 9s). 45s cache."""
+    import whos_in as _wi
+    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', mint):
+        raise HTTPException(400, 'Not a Solana mint.')
+    now = time.time(); hit = _whosin_cache.get(mint)
+    if hit and now - hit[0] < 45:
+        return hit[1]
+    ci = _intel_cache.get(mint)
+    intel = ci[1] if ci else None
+    if intel is None:
+        try:
+            intel = await asyncio.wait_for(token_intel('solana', mint), 9)
+        except Exception:
+            intel = {}
+    profs = _profiles_load()['profiles']; bl = _block_load()['wallets']
+    nm = lambda a: (profs.get(primary_of(a)) or {}).get('displayName') or (profs.get(primary_of(a)) or {}).get('handle')
+    top = intel.get('topHolders') or []
+    owners = [h.get('owner') for h in top if h.get('owner')]
+    holders = _wi.tag_holders(top, intel.get('creator') or '', intel.get('sniperWallets'), intel.get('bundledWallets'),
+                              [o for o in owners if _is_blocked(bl.get(o))], {o: nm(o) for o in owners if nm(o)})
+    trades = {w: rs for w, rs in _json_load(FEELESS_TRADES_PATH, {}).items() if any(r.get('token') == mint for r in rs or [])}
+    traders = []
+    for r in _wi.feeless_traders(trades, mint):
+        try:
+            if ((await _shield_of(r['address'])) or {}).get('verdict') == 'bot':
+                continue
+        except Exception:
+            pass
+        pr = profs.get(primary_of(r['address'])) or {}
+        traders.append({**r, 'name': nm(r['address']) or _wi.short(r['address']),
+                        'badges': [{'id': b, 'art': _wi.badge_art(b)} for b in (pr.get('featuredBadges') or []) if _wi.badge_art(b)][:2]})
+    out = {'mint': mint, 'holders': holders, 'traders': traders, 'verdict': _wi.verdict(holders), 'scanned': bool(top), 'at': now}
+    _whosin_cache[mint] = (now, out)
+    return out
+
+
 _track_cache: dict = {}
 
 

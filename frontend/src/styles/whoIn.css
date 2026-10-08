@@ -1,0 +1,18 @@
+/* 👥 Who's in (WhoIn.jsx) — m-* tokens, transform / opacity only. */
+.wi { margin: 8px 0; padding: 7px 10px; border-left: 2px solid #15d16a55; background: #15d16a0a; border-radius: 0 8px 8px 0; font-size: 11.5px; }
+.wi > summary { cursor: pointer; list-style: none; font: 700 11.5px "JetBrains Mono", monospace; transition: color .15s; } .wi > summary::-webkit-details-marker { display: none; }
+.wi > summary:hover, .wi > summary:focus-visible { color: #45e486; outline: none; } .wi[open] > summary { margin-bottom: 6px; }
+.wi ul { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 3px; }
+.wi li { display: grid; align-items: center; gap: 8px; padding: 3px 6px; border-radius: 6px; animation: wiIn .18s ease-out both; animation-delay: calc(var(--i, 0) * 35ms); transition: background .15s; } .wi li:hover { background: #ffffff0d; }
+.wi-tr li { grid-template-columns: 30px minmax(0, 1fr) auto; } .wi-hs li { grid-template-columns: minmax(0, 1fr) 70px 46px auto; }
+.wi-rank { font: 700 10.5px "JetBrains Mono", monospace; color: #45e486; } .wi-name { display: inline-flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: inherit; text-decoration: none; font-weight: 600; } .wi-name:hover, .wi-name:focus-visible { color: #45e486; outline: none; }
+.wi-badge { width: 15px; height: 15px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(21, 209, 106, .6); }
+.wi em { font-style: normal; font-size: inherit; text-align: right; } .wi-hs .m-num { font-size: inherit; }
+.wi-bar { height: 5px; border-radius: 999px; background: #ffffff12; overflow: hidden; } .wi-bar i { display: block; height: 100%; background: #9b5cff; transform-origin: left; transition: transform .3s ease; }
+.wi-tags { display: inline-flex; gap: 3px; flex-wrap: wrap; justify-content: flex-end; }
+.wi-tag { font: 600 9px "JetBrains Mono", monospace; font-style: normal; padding: 1px 6px; border-radius: 999px; border: 1px solid #ffffff2a; color: #cfe3d8; white-space: nowrap; }
+.wi-tag.t-dev { color: #ffd36b; border-color: #ffd36b66; } .wi-tag.t-sniper, .wi-tag.t-bundled { color: #ff8fc8; border-color: #ff8fc866; } .wi-tag.t-flagged { color: #ff8fa3; border-color: #ff8fa3aa; } .wi-tag.t-pool { color: #8fb3a0; }
+@keyframes wiIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+body.fx-lite .wi li { animation: none; } @media (prefers-reduced-motion: reduce) { .wi li, .wi > summary, .wi-bar i { animation: none; transition: none; } }
+body.theme-day .wi { background: #eaf7f0; } body.theme-day .wi-rank { color: #0b7a4a; } body.theme-day .wi-tag { color: #345; border-color: #b9dcc8; } body.theme-day .wi-tag.t-dev { color: #8a6100; } body.theme-day .wi-tag.t-sniper, body.theme-day .wi-tag.t-bundled { color: #a8246e; } body.theme-day .wi-tag.t-flagged { color: #b4233f; }
+@media (max-width: 640px) { .wi-hs li { grid-template-columns: minmax(0, 1fr) 44px auto; } .wi-bar { display: none; } }
