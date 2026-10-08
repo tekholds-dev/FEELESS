@@ -5942,6 +5942,7 @@ async def _trench_build(now):
     except Exception as e:
         print('entry proof:', e)
     await _bottom_track(now)
+    await _call_track(now)
     await _lens_track(now)
     await _owner_moves_tick(now)
     return _trench_cache
@@ -5989,6 +5990,53 @@ async def _owner_moves_tick(now):
             _fuse_chat('fuse-lab', text, key)
     except Exception as e:
         print('owner moves:', str(e)[:120])
+
+
+CALL_PROOF_PATH = FUSE_HQ_PATH.parent / 'call_proof.json'   # 🗑 each trench-vital CALL's own 1-hour record (send / watch / cold / bait)
+CALL_KEYS = {'SEND IT': 'send', 'WATCH': 'watch', 'COLD': 'cold', 'RUG BAIT': 'bait'}
+CALL_AUTO_MIN = 10   # the engine takes 🔥 SEND IT coins by itself only after ≥ 10 settled calls with a typical result up and half or more up
+_call_cache: dict = {'at': 0.0, 'send': [], 'proof': {}}
+
+
+async def _call_track(now):
+    """🗑 Score the trench vital's calls (owner, 2026-10-08: "do all suggestions"): every coin on the open list gets its call; each coin is noted
+    ONCE per call at its price and settled an hour later (no price then = −100%) → `call_proof.json`, `meta_proof` per call. The SAFE 🔥 SEND IT
+    coins are kept in `_call_cache['send']` for the engine — used only once `send` is proven with ≥ CALL_AUTO_MIN settled."""
+    try:
+        rows = _open_board() if _open_pairs else []
+        await _jup_lite([r.get('mint') for r in rows])
+        by, send = {k: [] for k in CALL_KEYS.values()}, []
+        for r in rows:
+            m = r.get('mint')
+            if not m or _fuse._f(r.get('price')) <= 0:
+                continue
+            tv = _ja.trench_verdict((_jup_facts.get(m) or (0, None))[1], r)
+            k = CALL_KEYS.get(tv['call'][1])
+            if k:
+                by[k].append((m, r['price']))
+            if k == 'send' and r.get('safe') is True:
+                send.append({**r, 'tv': tv})
+        st = _json_load(CALL_PROOF_PATH, {})
+        due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
+        jp = await _jup_prices(due) if due else {}
+        st = _trench.meta_track(st, by, lambda m: (jp or {}).get(m), now, keys=tuple(by))
+        _json_save(CALL_PROOF_PATH, st)
+        _call_cache.update(at=now, send=sorted(send, key=lambda x: -_fuse._f(x['tv'].get('heat')))[:10], proof=_trench.meta_proof(st, keys=tuple(by)))
+    except Exception as e:
+        print('call proof:', e)
+
+
+def _sendit_ready():
+    p = (_call_cache.get('proof') or {}).get('send') or {}
+    return bool(p.get('proven') and int(p.get('n') or 0) >= CALL_AUTO_MIN)
+
+
+@app.get('/api/reputation/fuses/call-proof')
+async def fuse_call_proof():
+    """Each trench-vital call's own 1-hour record + whether the engine is taking 🔥 SEND IT coins yet."""
+    if not _call_cache.get('proof'):
+        _call_cache['proof'] = _trench.meta_proof(_json_load(CALL_PROOF_PATH, {}), keys=tuple(CALL_KEYS.values()))
+    return {'proof': _call_cache.get('proof') or {}, 'auto': _sendit_ready(), 'autoMin': CALL_AUTO_MIN, 'send': [r.get('symbol') for r in _call_cache.get('send') or []]}
 
 
 BOTTOM_PROOF_PATH = FUSE_HQ_PATH.parent / 'bottom_proof.json'   # 🟢 the Buy-bottom list's own 1-hour paper record
@@ -7328,7 +7376,10 @@ async def _prime_tick_inner(now):
             # coins that clear every SAFETY check and miss only a crowd / age / size line. Safety is never skipped. Smart entry
             # (`trench_entry`: not falling, not mid-spike, buyers ≥ 55%) decides WHEN; best trench score first.
             tr_all, tr_seen = [], {y.get('mint') for y in r_t}
-            for x in (list(_trench_cache.get('rows') or []) + list(_trench_cache.get('fallback') or [])
+            # 🔥 SEND IT first — only once the call has PROVEN itself on its own record and the owner's switch is on (safe coins only)
+            sendit_ = [{**x, 'trenchScore': 100 + _fuse._f((x.get('tv') or {}).get('heat')), 'sendIt': True} for x in (_call_cache.get('send') or [])] \
+                if (cfg_t.get('sendItAuto', True) and _sendit_ready()) else []
+            for x in (sendit_ + list(_trench_cache.get('rows') or []) + list(_trench_cache.get('fallback') or [])
                       + [y for y in _trench_cache.get('checked') or [] if not y.get('ok') and _trench.soft_only(y.get('fails'))]):
                 if x.get('mint') not in tr_seen and _lq(x) >= tr_floor * mg and _prime.trench_entry(x, mom):
                     tr_seen.add(x.get('mint')); tr_all.append({**x, 'trenchOnly': True})
@@ -7753,7 +7804,7 @@ async def _prime_view():
                 'pendingPayoutUsd': round(max(0.0, _fuse._f(c.get('walletUsd')) - _fuse._f(b.get('bankUsd'))), 4),
                 'math': {**sm.get('math', {}), 'putIn': round(_fuse._f(b.get('fundedUsd')) or start, 4), 'runStartUsd': round(start, 4), 'heldUsd': round(held, 4), 'paidOutUsd': round(paid, 4),
                          'nowUsd': v, 'feesUsd': card_fees, 'pnlUsd': round(v + card_fees - (_fuse._f(b.get('fundedUsd')) or start), 4)}}   # P&L = price result; fees apart
-    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'seatPick': c.get('seatPick'), 'rebuying': (c.get('rebuy') or {}).get('mint'), 'seatQueue': c.get('seatQueue') or [], 'pipeline': c.get('pipeline'), 'parkedUsd': round(sum(_fuse._f(x.get('usd')) for x in c.get('skimPark') or []), 4), 'parkedN': len(c.get('skimPark') or []), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'pickStyle': None if c.get('real') else _eff(c).get('pickStyle'), 'holdAll': bool(c.get('holdAll')), 'pickCool': {}, 'handsOffUntil': c.get('handsOffUntil') if _prime.hands_off_left(c, time.time()) else None, 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl'], sm.get('valueUsd'), sol_now, px) if c.get('real') else None,
+    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'seatPick': c.get('seatPick'), 'rebuying': (c.get('rebuy') or {}).get('mint'), 'seatQueue': c.get('seatQueue') or [], 'pipeline': c.get('pipeline'), 'parkedUsd': round(sum(_fuse._f(x.get('usd')) for x in c.get('skimPark') or []), 4), 'parkedN': len(c.get('skimPark') or []), 'heldUsd': round(max(0.0, _fuse._f(c.get('holdCashUsd')) - sum(_fuse._f(x.get('usd')) for x in c.get('skimPark') or [])), 4), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'pickStyle': None if c.get('real') else _eff(c).get('pickStyle'), 'holdAll': bool(c.get('holdAll')), 'pickCool': {}, 'handsOffUntil': c.get('handsOffUntil') if _prime.hands_off_left(c, time.time()) else None, 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl'], sm.get('valueUsd'), sol_now, px) if c.get('real') else None,
              'audit': [{k: e.get(k) for k in ('at', 'kind', 'symbol', 'usd', 'why', 'to', 'mode')} for e in (c.get('events') or [])[-40:][::-1]]} for c in cards.values()]
 
 
@@ -9796,6 +9847,8 @@ async def fuse_wallet_card(request: Request):
                     cs[tid]['paperBefore'] = _fw.paper_snapshot(cs[tid]); _json_save(FUSE_HQ_PATH, h)
         _fw_save(d)
     ad = _admin_load(); _audit(ad, me, f'fuse-wallet-{act}', tid); _admin_save(ad)
+    if act in ('defund', 'resume'):
+        _fw_kick_now()   # ↩ sell all / ▶ resume start NOW (they waited for the keeper's next scheduled pass)
     return {'ok': True}
 
 

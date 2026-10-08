@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { sharedJson } from '../lib/sharedJson';
 import { RowVitals } from './RowVitals';
 import '../styles/coinVital.css';
 
@@ -52,11 +53,21 @@ export function statLine(r) {
 const Meter = ({ k, label, val }) => <span className={`tvl-m tvl-${k}`} data-tip={`${label} ${val == null ? 'not read yet' : `${val}/100`}`}>
   <span className="tvl-ml">{label}</span><span className="tvl-cells">{Array.from({ length: 10 }, (_, i) => <span key={i} className={`tvl-c ${val != null && val >= (i + 1) * 10 - 5 ? 'on' : ''}`} style={{ '--i': i }} />)}</span>
   <span className="tvl-mv">{val == null ? '—' : val}</span></span>;
+// 📏 each call's own 1-hour record (backend _call_track → /fuses/call-proof), one shared read for every row
+const CALL_KEY = { 'SEND IT': 'send', WATCH: 'watch', COLD: 'cold', 'RUG BAIT': 'bait' };
+function useCallProof() {
+  const [d, setD] = useState(null);
+  useEffect(() => { let on = true; sharedJson('/api/reputation/fuses/call-proof', { maxAge: 120000 }).then(x => on && setD(x)).catch(() => {}); return () => { on = false; }; }, []);
+  return d;
+}
+export const callRecord = (p, auto) => (!p || !p.n ? 'No calls settled yet — every call is noted and checked an hour later.'
+  : `This call's record: ${p.medPct >= 0 ? '+' : ''}${p.medPct}% typical an hour later · ${p.wonPct}% up · ${p.n} settled.${auto ? ' The engine is taking these.' : ''}`);
 export function TrenchVital({ r, mini = false }) {
+  const cp = useCallProof();
   const t = r?.tv; if (!t) return null;
   const [ic, word, tone] = t.call || ['👀', 'WATCH', 'warn'];
   return <div className={`tvl tvl-${tone} ${mini ? 'is-mini' : ''}`} data-testid={`tvl-${r.symbol}`}>
-    <span className={`tvl-call ${word === 'SEND IT' ? 'is-send' : ''}`} data-tip="Degen call for a small ticket — heat vs rug risk. A read, never a promise.">{ic} {word}</span>
+    <span className={`tvl-call ${word === 'SEND IT' ? 'is-send' : ''}`} data-tip={`Degen call for a small ticket — heat vs rug risk. ${callRecord(cp?.proof?.[CALL_KEY[word]], word === 'SEND IT' && cp?.auto)} A read, never a promise.`}>{ic} {word}</span>
     <span className="tvl-meters"><Meter k="heat" label="🔥 HEAT" val={t.heat} /><Meter k="rug" label="☠ RUG" val={t.rug} /></span>
     {!mini && t.tags?.length > 0 && <span className="tvl-tags">{t.tags.map(([i2, txt, tn]) => <span key={txt} className={`tvl-tag ${tn}`}>{i2} {txt}</span>)}
       {r.vital && <span className={`tvl-tag tvl-grade cvl-${r.vital.tone}`} data-tip={`Vital ${r.vital.score}/100 — ${r.vital.word}`}>🫀 {r.vital.grade}</span>}</span>}

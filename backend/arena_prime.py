@@ -470,7 +470,9 @@ def clean_cfg(p):
     out['minHoldMins'] = max(0.0, min(240.0, _f((p or {}).get('minHoldMins', MIN_HOLD_MINS))))
     ck = (p or {}).get('clocks') if isinstance((p or {}).get('clocks'), dict) else {}
     out['clocks'] = {t: (round(min(48.0, max(0.08, _f(ck[t]))), 2) if _f(ck.get(t)) > 0 else DEFAULT_CLOCKS[t]) for t in DEFAULT_CLOCKS}
-    out['peakSellPct'] = float(_f((p or {}).get('peakSellPct'))) if _f((p or {}).get('peakSellPct')) in PEAK_SELLS else PEAK_SELL
+    _ps = (p or {}).get('peakSellPct')
+    out['peakSellPct'] = float(_f(_ps)) if _ps is not None and _f(_ps) in PEAK_SELLS else PEAK_SELL
+    out['rideEnd'] = (p or {}).get('rideEnd') if (p or {}).get('rideEnd') in RIDE_ENDS else 'swap'
     out['skimAt'] = float(_f((p or {}).get('skimAt'))) if _f((p or {}).get('skimAt')) in SKIM_ATS else 0.0
     out['tpStakeUsd'] = float(_f((p or {}).get('tpStakeUsd'))) if (p or {}).get('tpStakeUsd') is not None and _f((p or {}).get('tpStakeUsd')) in TP_STAKES else TP_STAKE_USD
     out['skimTo'] = (p or {}).get('skimTo') if (p or {}).get('skimTo') in SKIM_TOS else 'card'
@@ -491,6 +493,7 @@ def clean_cfg(p):
     out['vitalMin'] = int(_f((p or {}).get('vitalMin'))) if int(_f((p or {}).get('vitalMin'))) in (0, 35, 50, 65) else 0        # 🎛 Coming up / engine: min vital score
     out['organicMin'] = int(_f((p or {}).get('organicMin'))) if int(_f((p or {}).get('organicMin'))) in (0, 5, 10, 20, 30) else 0   # … min organic share of 1h volume
     out['noSerial'] = bool((p or {}).get('noSerial', False))                                                                    # … skip serial launchers
+    out['sendItAuto'] = bool((p or {}).get('sendItAuto', True))   # 🔥 the engine may take SEND IT coins as trench tickets — only once that call is PROVEN
     out['ticketRide'] = bool((p or {}).get('ticketRide', False))   # 🎰 ride or rug: a ticket has NO stop — it rugs (the ticket is lost) or runs to the 🏠 pull
     out['youngTicket'] = bool((p or {}).get('youngTicket', True))   # 🎟 a hand pick under 12h old goes in as a small ticket (owner's switch)
     out['scoutPct'] = int(_f((p or {}).get('scoutPct'))) if int(_f((p or {}).get('scoutPct'))) in SCOUT_PCTS else 0   # 🔭 scout ticket, % of the card (0 = off)
@@ -1402,7 +1405,10 @@ def stake_leg(card, pair, prices, liqs, now, to='cash'):
     return c
 
 
-def clamp_hold(c):
+HOLD_SETTLE_SEC = 180   # a take's sale needs a moment to land in the wallet: no clamp while one is in flight
+
+
+def clamp_hold(c, now=None):
     """🅿 Parked profit can never be more than the card's REAL cash. On a real card the keeper's network fees come out of that same cash
     (hundreds of swaps), so the engine's earmark drifted above it (2026-10-08: $1.835 earmarked, $1.23 of cash — $0.60 of "parked" that no
     longer existed, shown on the card). The shortfall comes off the NEWEST park rows first (the oldest keep their rounds). Mutates c;
@@ -1410,6 +1416,8 @@ def clamp_hold(c):
     hold, cash = _f(c.get('holdCashUsd')), _f(c.get('cash'))
     if not c.get('real') or hold <= cash + 1e-6:
         return 0.0
+    if now is not None and any(l.get('trimAt') and now - _f(l['trimAt']) < HOLD_SETTLE_SEC for l in c.get('legs') or []):
+        return 0.0   # 2026-10-08 $fone: the 🏠 $0.99 "held for you" was clamped away BEFORE its sale landed, then spent as idle cash
     cut = hold - max(0.0, cash)
     c['holdCashUsd'] = round(max(0.0, cash), 6)
     left, rows = cut, [dict(p) for p in (c.get('skimPark') or [])]
@@ -1454,7 +1462,9 @@ def skim_leg(card, pair, prices, liqs, now, to='card', hold=None):
 
 
 LOCK_BANKS, LOCK_BANK = (0, 25, 33, 50), 33.0
-PEAK_SELLS, PEAK_SELL = (25, 50, 75, 100), 50.0   # 🏔 off its peak: % of the PROFIT sold while the coin keeps riding (100 = swap the whole coin)   # 🏦 % of a winner sold the moment it locks (0 = off)
+PEAK_SELLS, PEAK_SELL = (0, 25, 50, 75, 100), 50.0   # 0 = sell NOTHING off its peak, keep riding (owner, 2026-10-08)
+RIDE_ENDS = ('swap', 'keep', 'cash')   # ride over (under its floor): ⇄ swap for the next coin · 🧷 keep the coin (normal stops apply) · 💵 sell to card cash
+   # 🏔 off its peak: % of the PROFIT sold while the coin keeps riding (100 = swap the whole coin)   # 🏦 % of a winner sold the moment it locks (0 = off)
 
 # ⚖ SWAP ONLY WHEN IT PAYS. A rotation sells one coin and buys another: it costs the spread + price impact twice + two network fees.
 SWAP_EDGE_MARGIN = 1.0     # the next coin must beat the old one by the swap's cost PLUS this many % (1h move)
@@ -1920,7 +1930,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         # making highs; it is sold only when it falls 30% from its NEW high. (A 200× never gets cut at +150%.)
         l['roundMin'] = min(_f(l['roundMin']) if l.get('roundMin') is not None else g, g)
         ra, rt = _f(cfg.get('rideAt')) or RIDE_AT, _f(cfg.get('rideTrail')) or RIDE_TRAIL
-        floor_g = min(HOLD_MIN, ra / 2)   # a +25% freeze can't demand +80% to keep holding
+        floor_g = min(HOLD_MIN, (_f(l.get('rideAtPct')) or ra) / 2)   # a +25% freeze can't demand +80%; a frozen coin keeps the line it froze at
         if cfg.get('trailStep') and l.get('ride'):   # 🪜 the more it is up, the more room it gets (see trail_for)
             rt = trail_for(rt, (max(_f(l.get('high')), px) / l['entry'] - 1) * 100)
         if l.get('ride'):
@@ -1932,6 +1942,9 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             # the coin keeps riding from here (the trail re-arms at this price). A big coin gets room to go again — the card keeps
             # cycling its other seats until the next one is found. Under the floor the ride really is over (swapped, as before).
             ps = _f(cfg.get('peakSellPct', PEAK_SELL))
+            if g >= floor_g and ps <= 0:
+                l['high'] = px   # 🏔 "sell nothing off its peak": it just keeps riding; the trail re-arms from here (only its floor ends the ride)
+                continue
             if g >= floor_g and 0 < ps < 100:
                 took = _skim(c, l, px, liqs, now, cfg.get('skimTo') or 'card', fee, room=tp_room(l, cfg, px), frac=ps / 100,
                              why=f"🏔 ${l['symbol']} fell {rt:g}% from its peak (still {g:+.0f}%) — {ps:g}% of its profit sold, the rest keeps riding")
@@ -1940,6 +1953,15 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                     c['events'][-1]['kind'] = 'peak-sell'
                 continue
             l['ride'] = False
+            end_ = cfg.get('rideEnd') if cfg.get('rideEnd') in RIDE_ENDS else 'swap'
+            if end_ == 'keep':   # 🧷 ride over, the coin STAYS — its normal stop / TP / rotation rules take over again
+                ev(kind='ride-end', symbol=l['symbol'], usd=round(l['units'] * px, 4), why=f"{why_end} — ride over, kept on the card (your setting)", to=[l['symbol']])
+                continue
+            if end_ == 'cash' and len(c['legs']) > 1:   # 💵 ride over → sold to card cash, no new coin chosen for it (the seat refills by the normal rules)
+                usd = sell_usd(l['units'], px, liqs.get(l['pairAddress']) or l.get('liq'))
+                c['legs'].remove(l); c['cash'] = round(_f(c.get('cash')) + usd, 6); c['feesUsd'] += fee
+                ev(kind='ride-end', symbol=l['symbol'], usd=round(usd, 4), why=f"{why_end} — sold to card cash (your setting)", to=['cash'])
+                continue
             nxt = best(l.get('role') or 'runner', l.get('trench'))
             if nxt:   # 🏇 ride over → SWAPPED for the best coin of its kind (the gain moves into it)
                 usd = sell_usd(l['units'], px, liqs.get(l['pairAddress']) or l.get('liq'))
@@ -1948,8 +1970,10 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 continue
             mode, frac, why = 'ride-end', 1.0, f"{why_end} — sold" 
         elif _f(cfg.get('rideAt', RIDE_AT)) > 0 and g >= ra and l.get('role') != 'anchor' and _f(l.get('units')) > 0:   # never 'ride' a coin you don't hold
-            l.update(ride=True, high=px, rideFrom=l['entry'], rideAt=now)
-            ev(kind='ride', symbol=l['symbol'], usd=round(l['units'] * px, 4), why=f"+{g:.0f}% ≥ +{ra:g}% — ❄ frozen (riding) until it falls {rt:g}% from its peak, then swapped", to=[l['symbol']])
+            l.update(ride=True, high=px, rideFrom=l['entry'], rideAt=now, rideAtPct=ra)
+            ps_ = _f(cfg.get('peakSellPct', PEAK_SELL)); end_ = cfg.get('rideEnd') if cfg.get('rideEnd') in RIDE_ENDS else 'swap'
+            then_ = ('keeps riding' if ps_ <= 0 else f'{ps_:g}% of its profit is sold' if ps_ < 100 else 'it is sold') + f" when it falls {rt:g}% from its peak; under +{min(HOLD_MIN, ra / 2):g}% the ride ends → " + {'swap': 'swapped', 'keep': 'kept on the card', 'cash': 'sold to card cash'}[end_]
+            ev(kind='ride', symbol=l['symbol'], usd=round(l['units'] * px, 4), why=f"+{g:.0f}% ≥ +{ra:g}% — ❄ frozen (riding): {then_}", to=[l['symbol']])
             lock_bank(c, l, px, liqs, now, cfg, fee, g)
             continue
         elif l.get('house') and not l.get('ride'):
@@ -2210,7 +2234,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                     nc['events'] = list(nc.get('events') or []) + [{'kind': 'keep', 'at': now, 'why': f'🛡 {kept} winning / frozen coin{"s" if kept > 1 else ""} carried into the {phase} shape — never sold by a re-shape'}]
                 c = nc
     # 4) idle cash goes back to work when compounding. Cash reserved for an empty replacement slot is untouchable.
-    clamp_hold(c)                 # 🅿 never more parked than the card really holds in cash (fees come out of that cash)
+    clamp_hold(c, now)            # 🅿 never more parked than the card really holds in cash (fees come out of that cash)
     release_parked(c, cfg, now)   # 🅿 parked profit whose rounds are up joins the idle cash — BEFORE free cash is counted (it used to wait one more tick)
     # 🅿 PARKED MEANS PARKED (owner, 2026-10-07: "parked 6 rnds means just that"): nothing releases a park before its rounds are
     # up — not a queued pick, not an empty seat. A seat with no free cash is funded by trimming the coins above an equal share

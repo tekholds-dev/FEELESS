@@ -96,3 +96,6 @@ body.theme-day .tvl-call { background: #fff7ee; } body.theme-day .tvl-good .tvl-
 body.theme-day .tvl-bad .tvl-call, body.theme-day .tvl-tag.bad { color: #b4233f; } body.theme-day .tvl-mv { color: #123; } body.theme-day .tvl-c { background: rgba(0, 0, 0, .08); }
 body.theme-day .tvl-ml, body.theme-day .tvl-tag { color: #355; }
 @media (max-width: 640px) { .tvl { grid-template-columns: minmax(0, 1fr); } .tvl-m { grid-template-columns: 54px minmax(0, 1fr) 24px; } }
+/* 🏠 held-for-you chip in the real card's split line (fuseMoney.css is at its budget) */
+.hrt-split > .is-held { border-color: rgba(154, 215, 255, .45); } .hrt-split > .is-held b { color: #9ad7ff; }
+body.theme-day .hrt-split > .is-held b { color: #145a8a; }

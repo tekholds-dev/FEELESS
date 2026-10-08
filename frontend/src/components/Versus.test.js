@@ -39,6 +39,8 @@ test('a real card splits into coins, free cash and parked profit that add up to 
   // real card: cash is the BOOK's confirmed card SOL (not value − coins, where price lag landed); parked comes out of it; the three add up
   const r = cardSplit({ real: true, valueUsd: 4.04, parkedUsd: 0.05, legs: [{ usd: 3.8366 }], realBook: { reconciliation: { cardCashUsd: 0.1748, cardEquityUsd: 4.0402 } } });
   expect(r.cash).toBeCloseTo(0.1248); expect(r.parked).toBe(0.05); expect(r.coins).toBeCloseTo(3.8654); expect(r.coins + r.cash + r.parked).toBeCloseTo(4.0402);
+  const h = cardSplit({ real: true, valueUsd: 5, parkedUsd: 0.7, heldUsd: 0.99, legs: [], realBook: { reconciliation: { cardCashUsd: 2.9, cardEquityUsd: 5 } } });
+  expect(h.held).toBeCloseTo(0.99); expect(h.parked).toBeCloseTo(0.7); expect(h.cash).toBeCloseTo(1.21); expect(h.coins + h.cash + h.parked + h.held).toBeCloseTo(5);
 });
 
 test('the card shows what its confirmed sales came to, never a recycled running total', () => {

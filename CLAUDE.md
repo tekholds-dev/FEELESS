@@ -2207,3 +2207,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   up) and sits mini under each Open gates row (`top-tv`). Hand-set weights, NOT learned — a read for a small ticket, never a promise.
 - Coming up filter selects (`.hrt-upf`) are pill-sized with a high-specificity rule (`.hrt-up .hrt-upf select.m-input`): the Fuse page's .m-input font /
   padding blew them up and a plain `padding` wiped the arrow's room (the arrow sat on the text).
+- 🏁 RIDE OPTIONS (owner, 2026-10-08: "it says swap off its peak, don't want that"): `peakSellPct` 0 = sell NOTHING off its peak, keep riding (trail
+  re-arms) · `rideEnd` swap | keep (ride over, coin stays, normal stops) | cash (sold to card cash, no new coin) — Edit Fuse › Exits; the freeze event
+  says what will happen. A frozen coin keeps ITS freeze line (`rideAtPct`): $UDR froze at +20% and was sold 45s later "under +75%" because the next tick
+  read rideAt 0 → default 150. Real card set: freeze +30 · stepped trail · 🏠 pull +50 · ride end = keep (backup data/realcfg_before_meta1008.json).
+- 🏠 HELD CASH IS NOT CLAMPED WHILE A TAKE IS LANDING (`clamp_hold(c, now)`, `HOLD_SETTLE_SEC` 180 after any `trimAt`): the $fone 🏠 $0.99 "held for
+  you" was clamped to the pre-sale wallet cash and then spent as idle cash (restored by hand, backup data/fuse_hq_before_fone_hold.json). The split line
+  shows 🏠 held for you (`heldUsd` = holdCashUsd − parked).
+- 🔥 CALL RECORD (`_call_track` in `_trench_build`, `data/call_proof.json`, `GET /fuses/call-proof`): every open-list coin's trench-vital call (send /
+  watch / cold / bait) noted once at its price, settled 1h later (no price = −100%); the call badge tip shows its record. The engine puts SAFE 🔥 SEND IT
+  coins FIRST in the trench drop only once `send` is proven with ≥ `CALL_AUTO_MIN` 10 settled (cfg `sendItAuto`, on; Edit Fuse › Coins).
+- Owner buttons: ↩ Sell all / ▶ resume also start the keeper at once (`_fw_kick_now`).

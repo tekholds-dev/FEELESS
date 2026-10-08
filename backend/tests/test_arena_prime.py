@@ -2350,3 +2350,31 @@ def test_take_profit_counts_from_the_last_take_and_a_house_coin_is_never_whittle
     house = {**card, 'legs': [dict(l, **({'house': True} if l['mint'] == 'r1' else {})) for l in card['legs']]}
     three = ap.tick(house, px, [], [], cfg, 60, SOL[:1], mom)
     assert not [e for e in three['events'] if e.get('kind') == 'tp']        # initial already out → house money rides
+
+
+def test_ride_options_keep_riding_keep_the_coin_or_cash_and_the_floor_is_the_line_it_froze_at():
+    # 2026-10-08: $UDR froze at +20% and was sold 45s later at +38% "under +75%" — the next tick read a different freeze line
+    base = ap.clean_cfg({**CFG, 'rideAt': 20, 'rideTrail': 10, 'instantSwapPct': 0, 'lockBankPct': 0, 'tpStakeUsd': 0})
+    def riding(cfg, px_now, **leg_kw):
+        card = ap.deal('degen', [P('a', 1)], [R('r1', 1), R('r2', 1)], cfg, 0, SOL[:1])
+        l = next(x for x in card['legs'] if x['mint'] == 'r1')
+        l.update(priced=True, entry=1.0, units=10.0, costUsd=10.0, ride=True, high=1.5, rideFrom=1.0, rideAtPct=20, **leg_kw)
+        px = {x['pairAddress']: (px_now if x['mint'] == 'r1' else 1.0) for x in card['legs']}
+        return ap.tick(card, px, [], [R('r9', 1)], cfg, 60, SOL[:1]), l['pairAddress']
+    out, pa = riding(ap.clean_cfg({**base, 'rideAt': 0}), 1.38)                   # cfg read 0 this tick: the coin keeps ITS +20% line → floor +10
+    assert any(x['pairAddress'] == pa and x.get('ride') for x in out['legs'])     # +38% is above +10%: still riding (it was sold before)
+    out, pa = riding(ap.clean_cfg({**base, 'peakSellPct': 0}), 1.3)                # 13% off a 1.5 peak, still +30%: sell NOTHING, keep riding
+    l = next(x for x in out['legs'] if x['pairAddress'] == pa)
+    assert l['units'] == 10.0 and l.get('ride') and not [e for e in out['events'] if e.get('kind') in ('peak-sell', 'skim')]
+    out, pa = riding(ap.clean_cfg({**base, 'rideEnd': 'keep'}), 1.05)              # under its floor: ride over, coin STAYS
+    l = next(x for x in out['legs'] if x['pairAddress'] == pa)
+    assert not l.get('ride') and l['units'] == 10.0 and 'kept on the card' in [e for e in out['events'] if e.get('kind') == 'ride-end'][-1]['why']
+    out, pa = riding(ap.clean_cfg({**base, 'rideEnd': 'cash'}), 1.05)              # under its floor: sold to card cash, no new coin
+    assert not any(x['pairAddress'] == pa for x in out['legs']) and 'card cash' in [e for e in out['events'] if e.get('kind') == 'ride-end'][-1]['why']
+    assert ap.clean_cfg({'rideEnd': 'nope'})['rideEnd'] == 'swap' and ap.clean_cfg({'peakSellPct': 0})['peakSellPct'] == 0
+
+
+def test_held_cash_is_not_clamped_while_a_take_is_still_landing():
+    c = {'real': True, 'cash': 0.5, 'holdCashUsd': 1.5, 'skimPark': [], 'legs': [{'symbol': 'F', 'trimAt': 1000.0}]}
+    assert ap.clamp_hold(dict(c), now=1060.0) == 0.0                                # the 🏠 sale has not landed yet: the earmark stays
+    assert ap.clamp_hold(dict(c), now=1300.0) == 1.0                                # long after: cash really is short → clamped

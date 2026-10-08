@@ -56,3 +56,27 @@ def test_trench_vital_heat_vs_rug_and_the_call():
     assert cold['call'][1] == 'COLD' and any('fading' in t for _i, t, _c in cold['tags'])
     chase = ja.trench_verdict({}, {'chg5m': 80})
     assert any('chasing' in t for _i, t, _c in chase['tags'])
+
+
+def test_send_it_calls_are_scored_and_the_engine_waits_for_proof(monkeypatch):
+    import asyncio, json
+    import reputation_service as rs
+    hot = {'mint': 'H', 'symbol': 'HOT', 'price': 1.0, 'safe': True, 'vol1h': 40000, 'vol5m': 9000, 'buyShare': 66, 'chg5m': 8, 'ageH': 1.5, 'site': 'x', 'x': 'y', 'top10': 14}
+    cold = {'mint': 'C', 'symbol': 'ICE', 'price': 1.0, 'safe': True, 'vol1h': 40000, 'vol5m': 300, 'buyShare': 40, 'chg5m': -6}
+    monkeypatch.setattr(rs, '_open_pairs', [1])
+    monkeypatch.setattr(rs, '_open_board', lambda: [hot, cold])
+    async def lite(ms): return {}
+    async def prices(ms): return {m: 1.2 for m in ms}
+    monkeypatch.setattr(rs, '_jup_lite', lite); monkeypatch.setattr(rs, '_jup_prices', prices)
+    rs._jup_facts['H'] = (0, {'holderChg1h': 120, 'netBuyers1h': 300, 'traders1h': 500, 'devMints': 6, 'devGrads': 3, 'organicPct': 20, 'top10': 14})
+    asyncio.run(rs._call_track(1000.0))
+    st = json.loads(rs.CALL_PROOF_PATH.read_text())
+    assert 'H' in st['send']['open'] and 'C' in st['cold']['open']
+    assert [r['symbol'] for r in rs._call_cache['send']] == ['HOT'] and not rs._sendit_ready()   # nothing settled yet → the engine waits
+    asyncio.run(rs._call_track(1000.0 + 3700))                                                   # an hour later: settled at +20%
+    assert rs._call_cache['proof']['send']['n'] == 1 and rs._call_cache['proof']['send']['medPct'] == 20.0
+    assert not rs._sendit_ready()                                                                # 1 settled < 10 → still waiting
+    rs._call_cache['proof'] = {'send': {'n': 12, 'medPct': 8.0, 'wonPct': 60, 'proven': True}}
+    assert rs._sendit_ready()
+    import arena_prime as ap
+    assert ap.clean_cfg({})['sendItAuto'] is True and ap.clean_cfg({'sendItAuto': False})['sendItAuto'] is False
