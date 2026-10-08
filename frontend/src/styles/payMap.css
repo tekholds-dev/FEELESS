@@ -1,0 +1,17 @@
+/* 📊 What pays (PayMap.jsx) — built from m-* tokens. */
+.pm { max-width: 330px; margin-top: 8px; font-size: 11px; line-height: 1.4; border-left: 2px solid #15d16a55; background: #15d16a0a; border-radius: 0 8px 8px 0; padding: 6px 8px; }
+.pm > summary { cursor: pointer; font: 700 11px "JetBrains Mono", monospace; letter-spacing: .04em; color: var(--m-text, #cfe3d8); list-style: none; transition: color .15s; } .pm > summary::-webkit-details-marker { display: none; }
+.pm > summary:hover, .pm > summary:focus-visible { color: #45e486; outline: none; }
+.pm[open] > summary { margin-bottom: 6px; }
+.pm-adv { margin: 0 0 8px; padding: 0 0 0 14px; display: grid; gap: 5px; color: #cfe3d8; } .pm-adv li::marker { color: #45e486; }
+.pm-grid { display: grid; gap: 8px; }
+.pm-grid p { display: grid; grid-template-columns: 96px minmax(0, 1fr) 54px 70px; gap: 6px; align-items: center; margin: 2px 0; animation: pmIn .2s ease-out both; animation-delay: calc(var(--i, 0) * 45ms); }
+.pm-grid p b { font: 600 11px "JetBrains Mono", monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pm-grid p span { height: 6px; border-radius: 999px; background: #ffffff10; overflow: hidden; } .pm-grid p span i { display: block; height: 100%; transform-origin: left; background: #ff8fa3; transition: transform .35s ease; }
+.pm-grid p.up span i { background: #15d16a; } .pm-grid p em { font: 700 11px "JetBrains Mono", monospace; font-style: normal; text-align: right; } .pm-grid p.up em { color: #45e486; } .pm-grid p.dn em { color: #ff8fa3; }
+.pm-grid p small { opacity: .65; text-align: right; white-space: nowrap; }
+.pm-grid > div:nth-child(2) p { grid-template-columns: minmax(0, 1fr) 54px 96px; }
+@keyframes pmIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+body.fx-lite .pm-grid p { animation: none; } @media (prefers-reduced-motion: reduce) { .pm-grid p, .pm > summary, .pm-grid p span i { animation: none; transition: none; } }
+body.theme-day .pm { background: #eaf7f0; border-color: #1a9a52; } body.theme-day .pm-adv { color: #123; } body.theme-day .pm-grid p.up em { color: #0b7a4a; } body.theme-day .pm-grid p.dn em { color: #b4233f; } body.theme-day .pm > summary { color: #123; }
+@media (max-width: 640px) { .pm-grid p { grid-template-columns: 78px minmax(0, 1fr) 54px; } .pm-grid p small { display: none; } }

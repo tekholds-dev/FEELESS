@@ -6228,6 +6228,24 @@ async def fuses_proof():
     return await _proof_build()
 
 
+_paymap_cache = {'at': 0.0, 'data': None}
+
+
+@app.get('/api/reputation/fuses/pay-map')
+async def fuses_pay_map():
+    """📊 Public: what pays on the real card — closed pieces by hold time, opener (hand pick vs engine), exit kind and hour, with plain-words
+    advice that cites the numbers (pay_map.py). Confirmed fills only, price result, fees apart. 60s cache. A record, never a promise."""
+    import pay_map as _pm
+    now = time.time()
+    if _paymap_cache['data'] and now - _paymap_cache['at'] < 60:
+        return _paymap_cache['data']
+    ledger = _store.Ledger(FUSE_WALLET_PATH).rows(limit=100000) or _fw_load().get('ledger') or []   # the append-only table keeps every row; the KV copy is trimmed
+    cards = sorted({r.get('card') for r in ledger if r.get('card') and r.get('card') != 'wallet'})
+    out = {'cards': {c: _pm.pay_map(ledger, c, now) for c in cards}, 'at': now}
+    _paymap_cache.update(at=now, data=out)
+    return out
+
+
 @app.get('/api/reputation/fuses/contenders')
 async def fuses_contenders():
     """Public: the divisions, their ranked coins (score + cited parts, ▲▼, streak) and who is ⏭ next up for a card seat."""

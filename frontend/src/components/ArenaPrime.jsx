@@ -21,6 +21,7 @@ import { TrenchOpen } from './TrenchOpen';
 import '../styles/primeLeague.css';
 import { useTabTitle, cardTitle } from '../lib/tabTitle';
 import { RowVitals } from './RowVitals';
+import { PayMap } from './PayMap';
 
 // ⭐ ARENA PRIME: FEELESS's own top-tier cards, FULLY AUTO on paper — auto TP/SL, auto-compound, 2 coins rotate every 6h. Different
 // from creator picks: these are the public proof the automation works before any trader's config goes auto. "Buy now" loads the
@@ -655,7 +656,7 @@ export function HqRealCards({ addr, onCount }) {
         <div className="hq-real-card"><span className="cpop-wrap"><LiveFuseCard r={primeRow(c)} aura={t.aura} look={t.look} label="💵 REAL · FUSE WALLET" serverOnly mini={{ kind: 'prime', tpl: c.tpl, name: c.label }} /><CardPops fills={b.orders || []} legs={c.legs} cfg={cf} tp={c.tp} /></span>
           <CardVitals c={c} funded={b.fundedUsd || c.startUsd} onTrail={() => setTrail(c.id)} /><ComingUp p={c.pipeline} legs={c.legs} busy={!!busy} emptySeats={Math.max(0, (Number(cf?.coins) || 0) - (c.legs || []).filter(l => !l.placeholder).length)}
             onFill={r => prime({ fillSeat: { tpl: c.tpl, to: r.mint, toPair: r.pairAddress } }, `🪑 $${r.symbol} fills a seat now`, 'pick')} onSwap={(l, r, now) => prime({ pickSwap: { tpl: c.tpl, pairAddress: l.pairAddress, to: r.mint, toPair: r.pairAddress, ...(now ? { now: true } : {}) } }, `🎯 $${r.symbol} comes in for $${l.symbol} ${now ? 'now' : 'at the next round'}`, 'pick')} />
-          <Versus v={c.realBook?.versus} /><PickLog events={c.audit || c.events} /><PipeLine p={c.pipeline} /></div>
+          <Versus v={c.realBook?.versus} /><PayMap card={c.tpl || 'degen'} /><PickLog events={c.audit || c.events} /><PipeLine p={c.pipeline} /></div>
         {trail === c.id && <CardEarnings title={c.label} onClose={() => setTrail(null)} taken={c.walletUsd || 0} compounded={c.compoundedUsd} fees={c.cardFeesUsd}
           gainNow={allTime(c, b.fundedUsd || c.startUsd)} events={(c.audit || c.events || []).map(e => ({ ...e, label: KIND[e.kind] || VITAL_KIND[e.kind] || e.kind }))} />}
         <div className="hq-real-track">
