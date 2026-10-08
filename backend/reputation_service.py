@@ -6938,6 +6938,25 @@ async def _real_hold_fix(now):
     return True
 
 
+async def _real_ride_fix(now):
+    """❄ OWNER'S DESIGN (2026-10-08: "if one coin runs it should be frozen on the card and skimming"): the real card's freeze (`rideAt`) was found at 0 = OFF,
+    so no coin ever locked — the lock bank (50%), the full-stack skim, the off-its-peak sell and the stepped trail all start at the lock and never ran
+    (the ledger shows plain skims only). Once, it goes back to the 5-min lock the trail (8%) was already set for: freeze at +15%. Old value: data/realcfg_before_ride.json."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('rideFix1') or not rc:
+            return False
+        if _fuse._f(rc.get('rideAt')) > 0:
+            pr['rideFix1'] = now; _json_save(FUSE_HQ_PATH, d); return False
+        _json_save(DATA_DIR / 'realcfg_before_ride.json', {'rideAt': rc.get('rideAt'), 'rideTrail': rc.get('rideTrail')})
+        pr['realCfg'] = _prime.clean_cfg({**rc, 'rideAt': 15.0, 'rideTrail': _fuse._f(rc.get('rideTrail')) or 8.0})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'rideAt', 'rideTrail'})
+        pr['rideFix1'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _prime_reset_paper(now):
     """🔁 Start every paper tier card over at $20, once. Their old runs go to the permanent record + `prime.archive`; the tick deals
     fresh cards at the new size right after. Real-money cards keep running exactly as they are."""
@@ -7007,6 +7026,7 @@ async def _prime_tick_inner(now):
     await _prime_unique_fix(now)
     await _prime_reset_paper(now)
     await _real_hold_fix(now)
+    await _real_ride_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
         return 0

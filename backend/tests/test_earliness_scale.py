@@ -41,3 +41,14 @@ def test_real_hold_fix_runs_once_and_keeps_a_backup(tmp_path, monkeypatch):
     assert pr['realCfg']['minHoldMins'] == 30.0 and pr['realCfg']['trenchHouseAt'] == 100 and pr['realCfg']['rotateHours'] == 0.08   # the 5-min clock stays
     assert 'minHoldMins' in pr['realOwnerSet'] and json.loads((rs.DATA_DIR / 'realcfg_before_hold30.json').read_text())['minHoldMins'] == 0.0
     assert asyncio.run(rs._real_hold_fix(2000.0)) is False
+
+
+def test_real_ride_fix_turns_the_freeze_back_on_once():
+    import asyncio, json
+    import reputation_service as rs
+    rs.FUSE_HQ_PATH.write_text(json.dumps({'prime': {'realCfg': {'rideAt': 0.0, 'rideTrail': 8.0, 'rotateHours': 0.08}}}))
+    assert asyncio.run(rs._real_ride_fix(1000.0)) is True
+    pr = json.loads(rs.FUSE_HQ_PATH.read_text())['prime']
+    assert pr['realCfg']['rideAt'] == 15.0 and pr['realCfg']['rideTrail'] == 8.0 and pr['realCfg']['rotateHours'] == 0.08
+    assert json.loads((rs.DATA_DIR / 'realcfg_before_ride.json').read_text())['rideAt'] == 0.0
+    assert asyncio.run(rs._real_ride_fix(2000.0)) is False
