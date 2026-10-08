@@ -7,7 +7,8 @@ export default function StageCrowd({ lead = '', seed = 1, count = 3 }) {
   const ref = useRef(null); const crowd = useRef(null); const [off, setOff] = useState(false);
   useEffect(() => {
     const cv = ref.current; if (!cv) return undefined;
-    if (document.body.classList.contains('fx-lite') || matchMedia('(prefers-reduced-motion: reduce)').matches) { setOff(true); return undefined; }
+    // no WebGL / matchMedia (tests, very old browsers), fx-lite or reduced motion → no crowd, and three.js is never even loaded
+    if (typeof window.matchMedia !== 'function' || !window.WebGLRenderingContext || document.body.classList.contains('fx-lite') || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setOff(true); return undefined; }
     let alive = true, io = null;
     import('../lib/miniCrowd').then(m => { if (!alive) return; const c = m.createCrowd(cv, { count, seed }); crowd.current = c;
       c.start().then(() => { if (alive) { c.setLead(lead); cv.dataset.ready = '1'; } }).catch(() => alive && setOff(true));
