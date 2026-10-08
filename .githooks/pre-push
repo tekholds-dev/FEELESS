@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Pushes to main must pass the gate (scripts/gate.sh). Other branches / tag pushes are not gated.
+while read -r _lref _lsha rref _rsha; do
+  case "$rref" in refs/heads/main) exec bash "$(git rev-parse --show-toplevel)/scripts/gate.sh" ;; esac
+done
+exit 0

@@ -80,7 +80,7 @@ ENGINE_VERSION = 'live-v2'  # v3 logic below is additive; keeps the existing tra
 LEADER_ID = 'leader'
 MARKET_FEED = 'http://127.0.0.1:5001/api/market/feed?kind={kind}&chain=solana&page={page}'
 RULES = {'minLiquidity': 40_000, 'minVolume24h': 100_000, 'minMarketCap': 150_000, 'maxMarketCap': 50_000_000,
-         'minAgeHours': 3, 'h1Min': 3, 'h1Max': 40, 'h6Max': 120, 'h24Max': 400, 'minBuySellRatio': 1.2,
+         'minAgeHours': 3, 'coreMinAgeHours': 72, 'h1Min': 3, 'h1Max': 40, 'h6Max': 120, 'h24Max': 400, 'minBuySellRatio': 1.2,
          'maxPositions': 5, 'cooldownHours': 2,
          # safety gates at entry
          'maxM5Chase': 8, 'maxTop10Pct': 35, 'maxInsiderPct': 20, 'maxDevPct': 10, 'maxSnipers': 15, 'maxBundled': 10,
@@ -198,7 +198,7 @@ def _qualifies(p, now):
     age_h = (now * 1000 - _num(p.get('pairCreatedAt'), now * 1000)) / 3_600_000
     R = {**RULES, **_ENTRY_TUNE}
     checks = [(liq >= R['minLiquidity'], 'liquidity'), (vol >= R['minVolume24h'], 'volume'),
-              (R['minMarketCap'] <= mc <= R['maxMarketCap'], 'market cap band'), (age_h >= R['minAgeHours'], 'too new'),
+              (R['minMarketCap'] <= mc <= R['maxMarketCap'], 'market cap band'), (age_h >= max(R['minAgeHours'], R.get('coreMinAgeHours', 0)), 'too new'),
               (m5 > 0, '5m momentum'), (m5 <= R['maxM5Chase'], 'chasing a 5m spike'), (R['h1Min'] <= h1 <= R['h1Max'], '1h move'), (0 < h6 <= R['h6Max'], '6h trend'),
               (h24 <= R['h24Max'], 'overextended'), (sells == 0 or buys / max(sells, 1) >= R['minBuySellRatio'], 'buy pressure')]
     for ok, why in checks:
@@ -226,7 +226,7 @@ def _buy_analysis(p, size, sym, safety='', conviction=1.0):
             f"• Order flow: {b:.0f} buys vs {s:.0f} sells in the last hour ({(b / max(b + s, 1)) * 100:.0f}% buys) — buyers are in control.\n"
             f"• Momentum: 5m {_num(ch.get('m5')):+.1f}%, 1h {_num(ch.get('h1')):+.1f}%, 6h {_num(ch.get('h6')):+.1f}% — trending up without being vertical (my cap is +{R['h1Max']}% 1h / +{R['h6Max']}% 6h).\n"
             f"• Liquidity: {_fmt_usd(liq)} ({(liq / mc * 100) if mc else 0:.1f}% of {_fmt_usd(mc)} market cap) — deep enough to get out.\n"
-            f"• Activity: {_fmt_usd(vol)} traded in 24h; pool is {age_h:.1f}h old (I skip anything under {R['minAgeHours']}h).\n"
+            f"• Activity: {_fmt_usd(vol)} traded in 24h; pool is {age_h:.1f}h old (I skip anything under {max(R['minAgeHours'], R.get('coreMinAgeHours', 0)):g}h).\n"
             f"• Holders (FEELESS on-chain intel): {safety or 'checked'} — I skip anything with top-10 over {R['maxTop10Pct']}%, insiders over {R['maxInsiderPct']}%, dev over {R['maxDevPct']}% or heavy sniping/bundling.\n"
             f"• Size: {conviction}× conviction — cleaner holder distribution earns a bigger position.\n\n"
             f"Plan (trench + stock mindset): this is a {int(R['starterFraction'] * 100)}% starter. If it dips {R['add1At']}% and {R['add2At']}% from here while liquidity, volume and buyers still hold, "

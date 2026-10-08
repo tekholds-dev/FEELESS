@@ -2114,3 +2114,5 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   resolve called it straight from the browser and went blank in its outage. They use `/api/market/pairs/{chain}/{pools}` (live prices, chat coin cards, war room, resolve; Jupiter batched by known mint, else per-pool ≤ 8), `/api/market/search?q=` (DexScreener → Jupiter
   `jup_search_pairs`) and `/api/market/tokens/{chain}/{mints}` (DexScreener /tokens/v1 shape, Jupiter for every mint it can't answer).
   Logos on dd.dexscreener.com and links to dexscreener.com pages are fine.
+- 🚦 PUSH GATE IS CODE NOW (`scripts/gate.sh`, `.githooks/pre-push` on `core.hooksPath`): pytest + jest + craco build on real exit codes (+ no "command center" in the bundle) before any push to `main`; red = the push is refused. Run `bash scripts/gate.sh` yourself first. New clone: `git config core.hooksPath .githooks`.
+- 🐱 FEECAT CORE LANE SKIPS COINS UNDER 3 DAYS (`coreMinAgeHours` 72; fresh lane window unchanged): her own record 2026-10-08 — thesis-broken/pulled-pool exits were 23 of 60 exits (−0.92 SOL), setups <6h −36% avg, 1–3d −60%, 3d+ +16%. Sizing may only shrink; this makes her trade less.
