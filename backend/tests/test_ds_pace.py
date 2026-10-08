@@ -51,3 +51,22 @@ def test_both_services_install_their_share_under_the_ip_limit():
     assert 'ds_pace.install(110, 20)' in (root / 'reputation_service.py').read_text()
     assert 'ds_pace.install(150, 30)' in (root / 'server.py').read_text()
     assert 110 + 150 < 300
+
+
+def test_background_work_leaves_the_reserve_for_someone_clicking():
+    """The launch board rebuild drained every slot; a coin snapshot then waited 3–10s for one."""
+    import ds_pace
+    t = [0.0]
+    b = ds_pace.Bucket(60, burst=6, clock=lambda: t[0])
+    took = 0
+    while b.wait_for(background=True) == 0:
+        took += 1
+    assert took == 3 and b.tokens >= 6 * ds_pace.RESERVE          # the background stops with the reserve intact
+    assert b.wait_for() == 0 and b.wait_for() == 0                 # a click goes straight through
+    assert b.wait_for(background=True) > 0
+
+
+def test_a_recent_answer_goes_out_at_once_inside_its_window():
+    import market
+    assert market.swr_window(10) == 30 and market.swr_window(30) == 90 and market.swr_window(60) == 180
+    assert market.swr_window(600) == 300 and market.swr_window(0) == 30

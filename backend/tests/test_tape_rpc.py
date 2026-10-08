@@ -26,3 +26,10 @@ def test_failed_or_unrelated_tx_is_skipped():
 
 def test_dust_spam_without_a_sol_leg_is_not_a_trade():
     assert cs.parse_rpc_swap(tx(1.0374, 1.03805, 1_000_000_000, 999_994_816), COIN, 0.00036, 150.0) is None
+
+
+def test_the_tape_walks_every_rpc_lane_and_keeps_the_keepers_first_lane_for_last():
+    """One fixed key used to feed the tape; when its plan ran out every coin read 'waiting for trades…'."""
+    import candles_service as cs
+    assert cs.tape_lanes(['k1', 'k2', 'k3', 'pub1', 'pub2'], ['k1', 'k2', 'k3']) == ['k2', 'k3', 'pub1', 'pub2', 'k1']
+    assert cs.tape_lanes(['pub1'], []) == ['pub1']

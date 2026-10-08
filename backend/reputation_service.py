@@ -34,7 +34,8 @@ import os
 import time
 import uuid
 from pathlib import Path
-from typing import Optional
+import random
+from typing import List, Optional
 
 import httpx
 import ds_pace
@@ -10514,6 +10515,8 @@ async def runners_force_round(request: Request):
 
 class FuseLiteIn(BaseModel):
     budgetUsd: float = Field(default=10, ge=1, le=10000)
+    again: int = Field(default=0, ge=0)                 # a nonce: 'Breed again' = a different random breed, never the cached one
+    avoid: List[str] = Field(default_factory=list, max_length=12)   # coins the other baskets already hold → this one is unique
 
 
 @app.post('/api/reputation/fuses/best3')
@@ -10522,7 +10525,7 @@ async def fuse_best3(p: FuseLiteIn):
     paper arena (else yield). Cached 2 min per budget bucket so it stays cheap."""
     bucket = 5 if p.budgetUsd < 12 else 20 if p.budgetUsd < 60 else 100
     hit = _fuse_lite_cache.get(bucket)
-    if hit and time.time() - hit[0] < 120:
+    if hit and time.time() - hit[0] < 120 and not p.again and not p.avoid:
         return hit[1]
     d = _json_load(FUSE_HQ_PATH, {})
     style = _hq.best_style(_hq.arena_board([_hq.arena_value(e, {}, time.time()) for e in d.get('arena') or []]))
@@ -10532,12 +10535,22 @@ async def fuse_best3(p: FuseLiteIn):
         for r in _fuse.discover(raw, lens, 'solana', now_ms=time.time() * 1000, limit=12):
             cands.setdefault(r['pairAddress'], r)
     metas = dict(list(cands.items())[:40])
+    seed = int(time.time() // 120) + bucket * 7919 + p.again   # each budget breeds its own random basket, 'Breed again' a new one
+    if p.again or p.avoid:
+        taken = set(p.avoid)
+        fresh_ = {k: v for k, v in metas.items() if v.get('baseAddress') not in taken}
+        if len(fresh_) >= 8:
+            metas = fresh_
+        keys_ = sorted(metas)
+        random.Random(seed).shuffle(keys_)
+        metas = {k: metas[k] for k in keys_[:max(8, int(len(keys_) * 0.6))]}   # a random 60% of the pools: no two breeds start alike
     sol_usd = await _sol_usd_live()
-    ev = await asyncio.to_thread(_fuse.evolve, metas, 3, 14, 28, style, bucket / sol_usd, sol_usd, int(time.time() // 120))
+    ev = await asyncio.to_thread(_fuse.evolve, metas, 3, 14, 28, style, bucket / sol_usd, sol_usd, seed)
     c = ev['champions'][0] if ev['champions'] else None
     out = {'style': style, 'solUsd': sol_usd, 'proven': style != 'yield' or any(r['style'] == 'yield' and r['runs'] >= _hq.MIN_SETTLED for r in _hq.arena_board([_hq.arena_value(e, {}, time.time()) for e in d.get('arena') or []])),
            'champion': c and _champ_view(c, metas)}
-    _fuse_lite_cache[bucket] = (time.time(), out)
+    if not p.again and not p.avoid:
+        _fuse_lite_cache[bucket] = (time.time(), out)
     return out
 
 

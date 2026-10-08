@@ -8,6 +8,7 @@ requests wait for a slot instead of bursting (never longer than `MAX_WAIT`), and
 (default 15) — the next callers wait it out instead of hammering. Pure pacing: payloads, URLs and caching are unchanged.
 """
 import asyncio
+import contextvars
 import time
 
 import httpx
@@ -17,6 +18,13 @@ SLOW_PATHS = ('/token-profiles', '/token-boosts', '/community-takeovers', '/orde
 MAX_WAIT = 12.0          # a request never waits longer than this for a slot (callers have caches + stale data behind them)
 COOL_DEFAULT = 15.0      # a 429 without Retry-After pauses this long
 COOL_MAX = 60.0
+RESERVE = 0.34          # share of the burst a BACKGROUND rebuild leaves for someone clicking (a coin snapshot waited 3–10s behind the launch board)
+_bg = contextvars.ContextVar('ds_bg', default=False)
+
+
+def background(on=True):
+    """Mark this task (and tasks it starts) as background work: its DexScreener calls never take the reserved slots."""
+    return _bg.set(bool(on))
 
 
 class Bucket:
@@ -38,15 +46,17 @@ class Bucket:
         self.at = now
         return now
 
-    def wait_for(self):
-        """Seconds until this request may go (0 = now); takes the slot when it returns 0."""
+    def wait_for(self, background=False):
+        """Seconds until this request may go (0 = now); takes the slot when it returns 0. Background work needs the reserve
+        left untouched, so an interactive request finds a slot at once."""
         now = self._fill()
         if now < self.cool_until:
             return self.cool_until - now
-        if self.tokens >= 1:
+        need = 1 + (self.cap * RESERVE if background else 0)
+        if self.tokens >= need:
             self.tokens -= 1
             return 0.0
-        return (1 - self.tokens) / self.rate
+        return (need - self.tokens) / self.rate
 
     def cool(self, secs):
         self.limited += 1
@@ -75,7 +85,7 @@ async def acquire(path, sleep=asyncio.sleep):
         return
     waited = 0.0
     while waited < MAX_WAIT:
-        w = b.wait_for()
+        w = b.wait_for(_bg.get())
         if w <= 0:
             return
         b.waits += 1

@@ -1,5 +1,6 @@
 """Cached, provider-labelled public market data. No trading or custody."""
 import asyncio
+import contextvars
 import hashlib
 import json
 import os
@@ -9,6 +10,7 @@ from time import monotonic
 from typing import Any, Literal
 
 import httpx
+import ds_pace
 from fastapi import APIRouter, HTTPException, Query
 
 from ecosystem import DEFAULT_MINTS
@@ -116,6 +118,11 @@ def _mongo_safe(v):
     if isinstance(v, list):
         return [_mongo_safe(x) for x in v]
     return v
+
+
+def swr_window(ttl):
+    """How old a cached provider answer may be and still go out at once while it is refreshed behind: 3× its ttl, 30s–5 min."""
+    return min(300.0, max(30.0, 3.0 * float(ttl or 0)))
 
 
 class MarketResult(BaseModel):
@@ -283,6 +290,9 @@ def create_market_router(db, intelligence=None):
         'PumpBoard': os.getenv('PUMP_BOARD_API_URL', 'https://advanced-indexer.pump.fun'),   # 🔥 Pump's own trending board
     }
 
+    refreshing = set()
+    _fresh = contextvars.ContextVar('market_fresh', default=False)
+
     async def cached(provider, path, params=None, ttl=60):
         params = params or {}
         key = hashlib.sha256(json.dumps([provider, path, params], sort_keys=True).encode()).hexdigest()
@@ -294,7 +304,24 @@ def create_market_router(db, intelligence=None):
                 if now - fetched_at > MARKET_CACHE_RETENTION:
                     await db.market_cache.delete_one({'key': key})
                     hit = None
-            if hit and (now - datetime.fromisoformat(hit['fetched_at'])).total_seconds() < ttl:
+            age = (now - datetime.fromisoformat(hit['fetched_at'])).total_seconds() if hit else None
+            if hit and age < ttl:
+                return hit['data'], provider_meta(provider, hit['fetched_at'])
+            if hit and _fresh.get() is False and age < swr_window(ttl):
+                # ⚡ a recent answer goes out AT ONCE and is refreshed behind it (a click used to wait up to 12s for a provider slot)
+                if key not in refreshing:
+                    refreshing.add(key)
+
+                    async def _again():
+                        tok = _fresh.set(True)
+                        try:
+                            ds_pace.background()
+                            await cached(provider, path, params, ttl)
+                        except Exception:
+                            pass
+                        finally:
+                            _fresh.reset(tok); refreshing.discard(key)
+                    asyncio.create_task(_again())
                 return hit['data'], provider_meta(provider, hit['fetched_at'])
             error = None
             queue = requests[provider]
@@ -357,6 +384,7 @@ def create_market_router(db, intelligence=None):
 
                 async def _bg():
                     try:
+                        ds_pace.background()   # the rebuild leaves DexScreener slots free for whoever is clicking
                         await _build_board(kind)
                     except Exception:
                         pass

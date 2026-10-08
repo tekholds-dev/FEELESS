@@ -2293,3 +2293,10 @@ def test_list_paused_needs_enough_settled_coins_and_a_clear_loss():
     assert ap.list_paused({'movers': {'n': 12, 'medPct': -71}}, 'movers') is False
     assert ap.list_paused({'movers': {'n': 60, 'medPct': -5}}, 'movers') is False
     assert ap.list_paused({}, 'movers') is False
+
+
+def test_dips_and_bottoms_is_an_engine_door_with_its_own_record():
+    import arena_prime as ap
+    assert 'bottom' in [k for k, _ in ap.CATEGORIES]
+    picks, _ = ap.category_picks({'bottom': [{'mint': 'B1'}]}, lambda r: True, {'bottom': {'n': 60, 'medPct': 1.4}})
+    assert [p['cat'] for p in picks] == ['bottom']

@@ -191,12 +191,18 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
   const [best, setBest] = useState({ budget: 20, busy: false, style: null });
   const load = (legs, s) => { setManual(false); setPicked(legs); if (s) setSol(s.toFixed(4)); scrollToMix(); };
   // Find it: the best basket for EACH budget ($5 / $20 / $100 — small budgets punish many pools, big ones thin pools), as cards.
-  const findBest = () => { setBest(b => ({ ...b, busy: true, cards: null }));
-    Promise.all([5, 20, 100].map(budgetUsd => fetch(apiUrl('/api/reputation/fuses/best3'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ budgetUsd }) })
-      .then(r => r.json()).then(d => (d.champion ? { ...d, budget: budgetUsd } : null)).catch(() => null)))
-      .then(list => { const cards = list.filter(Boolean); if (!cards.length) throw new Error('No live pools right now.');
-        setBest(b => ({ ...b, busy: false, cards, style: cards[0].style, proven: cards[0].proven })); })
-      .catch(e => { setBest(b => ({ ...b, busy: false })); toast.error(e.message); }); };
+  // Each budget breeds its OWN random basket (a nonce per click) and avoids the coins the earlier baskets already hold, so the three differ.
+  const findBest = async () => { setBest(b => ({ ...b, busy: true, cards: null }));
+    const again = Math.floor(Math.random() * 1e6) + 1; const cards = []; const avoid = [];
+    try {
+      for (const budgetUsd of [5, 20, 100]) {
+        const d = await fetch(apiUrl('/api/reputation/fuses/best3'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ budgetUsd, again, avoid: avoid.slice(0, 12) }) })
+          .then(r => r.json()).catch(() => null);
+        if (d && d.champion) { cards.push({ ...d, budget: budgetUsd }); (d.champion.legs || []).forEach(l => l.baseAddress && avoid.push(l.baseAddress)); }
+      }
+      if (!cards.length) throw new Error('No live pools right now.');
+      setBest(b => ({ ...b, busy: false, cards, style: cards[0].style, proven: cards[0].proven }));
+    } catch (e) { setBest(b => ({ ...b, busy: false })); toast.error(e.message); } };
 
   useEffect(() => { let alive = true; setPools(null);
     const url = lens === 'runners' ? '/api/reputation/runners/discover' : `/api/reputation/fuses/discover?lens=${lens}&chain=${chain}`;

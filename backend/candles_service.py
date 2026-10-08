@@ -700,21 +700,53 @@ def parse_rpc_swap(tx, base, price_usd, sol_usd, pool=None):
             'usd': round(usd, 2), 'price': usd / amt if amt else price_usd, 'wallet': who, 'tx': sig}
 
 
-async def _rpc_trades(pool, base, price_usd, sol_usd, limit=60):  # dust spam is common: look back far enough
-    key_ = os.environ.get('ALCHEMY_API_KEY')
-    if not key_ or not base:
+_tape_rows: dict = {}   # signature -> parsed row (None = not a swap): a transaction is read ONCE, later refreshes fetch only new ones
+_tape_bad: dict = {}    # rpc url -> skip until (it refused / is out of quota)
+TAPE_NEW = 25           # new transactions read per refresh
+
+
+def tape_lanes(pool_urls, keeper_lanes):
+    """RPC order for the trade tape: every other keyed lane, then the public nodes, the keeper's own first lane LAST (its quota
+    is for real swaps)."""
+    first = list(keeper_lanes[:1])
+    return [u for u in pool_urls if u not in first] + first
+
+
+async def _rpc_trades(pool, base, price_usd, sol_usd, limit=40):
+    """The pool's latest swaps straight from Solana RPC, walking EVERY lane (it used one fixed Alchemy key: when that plan ran out
+    the tape read "waiting for trades…" on every coin)."""
+    import chain_rpc
+    if not base:
         return None
-    url = f'https://solana-mainnet.g.alchemy.com/v2/{key_}'
-    try:
-        async with httpx.AsyncClient(timeout=10) as http:
-            sigs = (await http.post(url, json={'jsonrpc': '2.0', 'id': 1, 'method': 'getSignaturesForAddress', 'params': [pool, {'limit': limit}]})).json().get('result') or []
-            batch = [{'jsonrpc': '2.0', 'id': i, 'method': 'getTransaction', 'params': [s['signature'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}]}
-                     for i, s in enumerate(sigs) if not s.get('err')]
-            txs = (await http.post(url, json=batch)).json() if batch else []
-    except Exception:
-        return None
-    rows = [parse_rpc_swap(r.get('result'), base, price_usd, sol_usd, pool) for r in sorted(txs if isinstance(txs, list) else [], key=lambda r: r.get('id', 0))]
-    return [r for r in rows if r]
+    now = time.time()
+    async with httpx.AsyncClient(timeout=10) as http:
+        for url in tape_lanes(list(chain_rpc.RPC_POOL), list(chain_rpc.KEEPER_LANES)):
+            if _tape_bad.get(url, 0) > now:
+                continue
+            try:
+                r = await http.post(url, json={'jsonrpc': '2.0', 'id': 1, 'method': 'getSignaturesForAddress', 'params': [pool, {'limit': limit}]})
+                sigs = r.json().get('result') if r.status_code == 200 else None
+                if not isinstance(sigs, list):
+                    raise ValueError('no signatures')
+                ok = [x['signature'] for x in sigs if not x.get('err')]
+                new = [x for x in ok if x not in _tape_rows][:TAPE_NEW]
+                if new:
+                    batch = [{'jsonrpc': '2.0', 'id': i, 'method': 'getTransaction', 'params': [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}]}
+                             for i, x in enumerate(new)]
+                    rr = await http.post(url, json=batch)
+                    txs = rr.json() if rr.status_code == 200 else None
+                    if not isinstance(txs, list) or not any(isinstance(t, dict) and t.get('result') for t in txs):
+                        raise ValueError('no transactions')
+                    for t in txs:
+                        if isinstance(t, dict) and t.get('result') and isinstance(t.get('id'), int) and t['id'] < len(new):
+                            _tape_rows[new[t['id']]] = parse_rpc_swap(t['result'], base, price_usd, sol_usd, pool)
+                if len(_tape_rows) > 20000:
+                    for k in list(_tape_rows)[:5000]:
+                        _tape_rows.pop(k, None)
+                return [_tape_rows[x] for x in ok if _tape_rows.get(x)]
+            except Exception:
+                _tape_bad[url] = now + 60
+    return None
 
 
 @app.get('/api/candles/health')

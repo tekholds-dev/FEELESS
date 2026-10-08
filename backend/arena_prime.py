@@ -947,7 +947,7 @@ def seat_fallback_ok(x, mom=None):
 
 # ⏭ Coming up = THREE doors (owner, 2026-10-07: "1 top trench, pump and volume — never in the highs"): the trench's top coin always
 # first, then Pump trending and Volume by their own 1-hour record. The other lists stay in the picker; they no longer feed this row.
-CATEGORIES = (('trench', '🗑 Trench'), ('ptrend', '🔥 Pump trending'), ('volume', '🌊 Volume'))
+CATEGORIES = (('trench', '🗑 Trench'), ('ptrend', '🔥 Pump trending'), ('volume', '🌊 Volume'), ('bottom', '🟢 Dips & bottoms'))
 
 
 LOSING_LIST_N = 30        # settled coins before a list can be paused
