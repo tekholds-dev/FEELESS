@@ -1949,7 +1949,11 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             ev(kind='ride', symbol=l['symbol'], usd=round(l['units'] * px, 4), why=f"+{g:.0f}% ≥ +{ra:g}% — ❄ frozen (riding) until it falls {rt:g}% from its peak, then swapped", to=[l['symbol']])
             lock_bank(c, l, px, liqs, now, cfg, fee, g)
             continue
-        elif g >= leg_tp(l, t):
+        elif l.get('house') and not l.get('ride'):
+            continue   # 🏠 initial already out: what is left is house money — it rides (stops, trail, rug shield still apply), no TP whittling it to dust
+        elif (px / max(_f(l['entry']), _f(l.get('tpPx'))) - 1) * 100 >= leg_tp(l, t):
+            # measured from the LAST take (`tpPx`): on a real card `sync_card` puts the book's ORIGINAL entry back every tick, so a coin at +100%
+            # read +100% again 20s after its take and sold half of what was left, again and again ($TikTok, 2026-10-08: 7 takes in 8 min → dust)
             mode, frac, why = exit_plan(g, mom.get(l['pairAddress']))
         else:
             continue
@@ -1964,7 +1968,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             profit = max(0.0, proceeds - sold_cost)
             l['units'] = max(0.0, before_units - sold)
             l['costUsd'] = max(0.0, total_cost - sold_cost)
-            l['entry'] = px; c['feesUsd'] += fee
+            l['entry'] = px; l['tpPx'] = px; c['feesUsd'] += fee
             c['takenUsd'] += proceeds
             others = [o for o in c['legs'] if o is not l and _f(prices.get(o['pairAddress'])) > 0 and (_f(o.get('units')) > 0 or o.get('buying')) and not o.get('placeholder')]   # never into an empty / reserved seat
             label = why if mode == 'ride-end' else f"+{g:.0f}% ≥ +{leg_tp(l, t):g}% · {why}"   # a held runner's exit explains itself

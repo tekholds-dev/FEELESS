@@ -2328,3 +2328,25 @@ def test_ride_or_rug_tickets_carry_no_stop_and_the_plain_ticket_keeps_its_own():
     c = ap.fast_stop(card, {'YOLO': 0.4, 'SAFE': 0.7}, ap.clean_cfg({'sl': 15}), now)
     assert c['legs'][0]['units'] == 2.0 and not c['legs'][0].get('placeholder')       # −60%: rug or run, it stays
     assert c['legs'][1]['placeholder']                                               # −30% under its own −25%: stopped
+
+
+def test_take_profit_counts_from_the_last_take_and_a_house_coin_is_never_whittled():
+    # $TikTok 2026-10-08: the real card's sync put the ORIGINAL entry back each tick → +100% read again 20s after the take → 7 takes, coin to dust
+    cfg = ap.clean_cfg({**CFG, 'rideAt': 0, 'instantSwapPct': 0})
+    card = ap.deal('degen', [P('a', 1)], [R('r1', 1), R('r2', 1)], cfg, 0, SOL[:1])
+    leg = next(l for l in card['legs'] if l['mint'] == 'r1')
+    leg.update(tp=100, priced=True, entry=1.0, units=10.0, costUsd=10.0)
+    px = {l['pairAddress']: (2.2 if l['mint'] == 'r1' else 1.0) for l in card['legs']}
+    mom = {leg['pairAddress']: {'chg1h': 50, 'buyShare': 60, 'vol5m': 1000, 'vol1h': 10000}}
+    one = ap.tick(card, px, [], [], cfg, 60, SOL[:1], mom)
+    l1 = next(l for l in one['legs'] if l['mint'] == 'r1')
+    took = [e for e in one['events'] if e.get('kind') == 'tp']
+    assert len(took) == 1 and l1['units'] < 10 and l1['tpPx'] == 2.2
+    l1['entry'] = 1.0                                                     # the real card's sync puts the book's first entry back
+    two = ap.tick(one, px, [], [], cfg, 90, SOL[:1], mom)
+    assert len([e for e in two['events'] if e.get('kind') == 'tp']) == 1  # same price → no second take
+    l2 = next(l for l in two['legs'] if l['mint'] == 'r1')
+    assert abs(l2['units'] - l1['units']) < 1e-9
+    house = {**card, 'legs': [dict(l, **({'house': True} if l['mint'] == 'r1' else {})) for l in card['legs']]}
+    three = ap.tick(house, px, [], [], cfg, 60, SOL[:1], mom)
+    assert not [e for e in three['events'] if e.get('kind') == 'tp']        # initial already out → house money rides

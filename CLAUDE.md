@@ -2173,3 +2173,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🔁 BUY RETRY = 5% (owner, 2026-10-08: "buy retry should open slip to 5% max on retry only"; `fuse_wallet.buy_escalation` / `retry_slip`): a buy's FIRST
   try uses the normal slippage (≤ 3%); ANY retry after a slippage failure — at once at send, or the next order for that coin within 15 min — goes straight
   to 5% (`BUY_SLIP_MAX`), never higher. Sells keep their steps (≤ 8%). The secure-buy checks (≤ 5% over market, sell-back) still run on every try.
+- 🎯 TAKE-PROFIT COUNTS FROM THE LAST TAKE (`arena_prime.tick` TP branch, leg `tpPx`): on a real card `sync_card` puts the book's ORIGINAL entry back every
+  tick, so a coin at +100% read +100% again seconds after its take and sold half of what was left again and again ($TikTok 2026-10-08: the 🏠 pull took its
+  $0.74 initial, then 7 TPs in 8 min → dust). TP now fires only when the price is +TP% above max(entry, `tpPx`); a `house` coin (initial already out) gets NO
+  TP — it rides on stops / trail / rug shield. Any per-tick take on a real card must carry its OWN last-take price (`skimPx`, `tpPx`), never trust `entry`.
