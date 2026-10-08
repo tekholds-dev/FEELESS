@@ -8051,6 +8051,19 @@ async def fuse_prime_admin(request: Request):
             except ValueError as e:
                 raise HTTPException(400, str(e))
             _json_save(FUSE_HQ_PATH, d)
+    rh = body.get('releaseHeld') or {}
+    if rh.get('tpl') in _prime.TEMPLATES:   # ↩ the owner's held-for-you cash goes back into the card's coins
+        async with _admin_lock:
+            d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
+            if not cards.get(rh['tpl']):
+                raise HTTPException(400, 'No such card.')
+            try:
+                px_h = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in cards[rh['tpl']].get('legs') or [] if l.get('pairAddress') == rh.get('pairAddress')]) if rh.get('pairAddress') else {}
+                cards[rh['tpl']], _held = _prime.release_held(cards[rh['tpl']], time.time(), rh.get('pairAddress'), px_h)
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            _json_save(FUSE_HQ_PATH, d)
+            kick_real_keeper = kick_real_keeper or bool(cards[rh['tpl']].get('real'))
     ms = body.get('manualSell') or {}
     if ms.get('tpl') in _prime.TEMPLATES and (ms.get('pairAddress') or ms.get('all')):
         async with _admin_lock:

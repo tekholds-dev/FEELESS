@@ -1390,6 +1390,36 @@ def _take_stake(c, l, px, liqs, now, to='cash', fee=0.0, auto=None):
     return got
 
 
+OWNER_ADD_SEC = 3600   # a coin the owner put held cash into is not trimmed back to an equal share for an hour
+
+
+def release_held(card, now, pair=None, prices=None, liqs=None):
+    """↩ The owner puts the cash HELD FOR THEM (🏠 initial out / 💰 to cash) back to work: it stops being held and the engine spreads it into the
+    card's coins like any idle cash. Parked profit keeps its own rounds. Not a top-up — the money is already the card's, PUT IN is unchanged.
+    Pure; ValueError when nothing is held."""
+    c = {**card, 'events': list(card.get('events') or [])}
+    parked = sum(_f(p.get('usd')) for p in c.get('skimPark') or [])
+    held = max(0.0, _f(c.get('holdCashUsd')) - parked)
+    if held < 0.01:
+        raise ValueError('Nothing is held for you on this card.')
+    c['holdCashUsd'] = round(parked, 6)
+    if pair:   # → ONE coin of the owner's choice: the card's target for it grows by the held $ (the keeper buys the difference)
+        c['legs'] = [dict(l) for l in card.get('legs') or []]
+        l = next((x for x in c['legs'] if x.get('pairAddress') == pair), None)
+        if not l or l.get('placeholder') or l.get('buying') or _f(l.get('units')) <= 0:
+            raise ValueError('Pick a coin the card holds right now.')
+        px = _f((prices or {}).get(pair)) or _f(l.get('entry'))
+        if px <= 0:
+            raise ValueError(f"No live price for ${l.get('symbol')} yet — try again in a moment.")
+        bpx = buy_px(px, held, (liqs or {}).get(pair) or l.get('liq'))
+        l['units'] = _f(l['units']) + held / bpx; l['costUsd'] = round(_f(l.get('costUsd')) + held, 6); l['ownerAddAt'] = now
+        c['cash'] = round(max(0.0, _f(c.get('cash')) - held), 6)
+        c['events'].append({'at': now, 'kind': 'compound', 'usd': round(held, 4), 'to': [l.get('symbol')], 'why': f"↩ ${held:.2f} held for you put into ${l.get('symbol')} by you"})
+        return c, held
+    c['events'].append({'at': now, 'kind': 'compound', 'usd': round(held, 4), 'why': f"↩ ${held:.2f} held for you put back to work by you — spread into the coins"})
+    return c, held
+
+
 def stake_leg(card, pair, prices, liqs, now, to='cash'):
     """Owner's 🏠: take the initial out of ONE coin now, profit rides. Pure; ValueError when it can't."""
     c = {**card, 'legs': [dict(l) for l in card['legs']], 'events': list(card.get('events') or [])}
@@ -2276,6 +2306,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
           if nxt and free_cash < min(share, max(seat_min, share * 0.6)):
               need = share - free_cash
               for d_ in sorted((x for x in c['legs'] if not x.get('ride') and not x.get('frozen') and not x.get('buying') and not x.get('placeholder')
+                                and not (x.get('ownerAddAt') and now - _f(x['ownerAddAt']) < OWNER_ADD_SEC)
                                 and _f(x.get('units')) > 0 and _val(x) > share * 1.05), key=_val, reverse=True):
                   if need < 0.05:
                       break
@@ -2474,7 +2505,8 @@ def balance_small(c, prices, liqs, now, fee, ev):
         take = min(max(0.0, _f(c.get('cash'))), need)
         c['cash'] = _f(c.get('cash')) - take
         rest = need - take
-        for d in sorted((x for x in legs if x not in small and not x.get('frozen') and not x.get('ride') and val(x) > OVER_SHARE * share), key=val, reverse=True):
+        for d in sorted((x for x in legs if x not in small and not x.get('frozen') and not x.get('ride') and not (x.get('ownerAddAt') and now - _f(x['ownerAddAt']) < OWNER_ADD_SEC)
+                         and val(x) > OVER_SHARE * share), key=val, reverse=True):
             if rest < 0.01:
                 break
             cut = min(val(d) - share, rest)

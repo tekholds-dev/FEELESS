@@ -2378,3 +2378,26 @@ def test_held_cash_is_not_clamped_while_a_take_is_still_landing():
     c = {'real': True, 'cash': 0.5, 'holdCashUsd': 1.5, 'skimPark': [], 'legs': [{'symbol': 'F', 'trimAt': 1000.0}]}
     assert ap.clamp_hold(dict(c), now=1060.0) == 0.0                                # the 🏠 sale has not landed yet: the earmark stays
     assert ap.clamp_hold(dict(c), now=1300.0) == 1.0                                # long after: cash really is short → clamped
+
+
+def test_held_for_you_goes_back_to_work_and_parked_keeps_its_rounds():
+    import pytest
+    c = {'cash': 2.9, 'holdCashUsd': 1.68, 'skimPark': [{'usd': 0.69, 'round': 3}], 'events': []}
+    out, held = ap.release_held(c, 100.0)
+    assert abs(held - 0.99) < 1e-6 and abs(out['holdCashUsd'] - 0.69) < 1e-6 and out['cash'] == 2.9   # not a top-up: same cash, no longer held
+    assert 'put back to work' in out['events'][-1]['why'] and c['holdCashUsd'] == 1.68                # pure
+    with pytest.raises(ValueError):
+        ap.release_held(out, 101.0)                                                                  # only parked left → nothing held
+
+
+def test_held_for_you_into_one_coin_of_your_choice():
+    import pytest
+    c = {'cash': 2.9, 'holdCashUsd': 1.68, 'skimPark': [{'usd': 0.69, 'round': 3}], 'events': [],
+         'legs': [{'pairAddress': 'PZ', 'symbol': 'ZCAT', 'units': 10.0, 'costUsd': 1.0, 'entry': 0.1, 'liq': 1e9}, {'pairAddress': 'PK', 'symbol': 'KITTY', 'units': 5.0, 'costUsd': 1.0, 'entry': 0.2}]}
+    out, held = ap.release_held(c, 100.0, 'PZ', {'PZ': 0.1})
+    z = out['legs'][0]
+    assert abs(z['units'] - 19.9) < 0.1 and abs(z['costUsd'] - 1.99) < 1e-6 and z['ownerAddAt'] == 100.0
+    assert abs(out['cash'] - 1.91) < 1e-6 and abs(out['holdCashUsd'] - 0.69) < 1e-6 and out['events'][-1]['to'] == ['ZCAT']
+    assert c['legs'][0]['units'] == 10.0                                                  # pure
+    with pytest.raises(ValueError):
+        ap.release_held(c, 100.0, 'NOPE', {})

@@ -2225,3 +2225,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   tags}; `TrenchVital` renders any of them (`tvl-k-curve` blue, `tvl-k-dip` green). Every call is scored in `call_proof.json` (bond, rush, dump, slow,
   dip, knife, deaddip). 💀 DEAD (`dead_why`: nothing in 5 min, < $3K or < 20 trades an hour) = never under Coming up, never an engine buy on the real
   card (pipeline step "alive", `_cat_ok` "dead", 30s seat fallback).
+- 🏠 HELD FOR YOU → BACK TO WORK (`arena_prime.release_held`, admin prime `{releaseHeld: {tpl, pairAddress?}}`, select `hrt-held-go` on the 🏠 chip):
+  into the card (it becomes idle card cash, spread into the coins) or into ONE coin (its target grows by the held $, the keeper buys the difference;
+  leg `ownerAddAt` → not a donor for `balance_small` / seat trims for `OWNER_ADD_SEC` 1h). Not a top-up: PUT IN unchanged. Parked profit keeps its rounds.
