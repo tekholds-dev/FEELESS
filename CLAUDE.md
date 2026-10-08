@@ -2162,3 +2162,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 💵 REAL CARD SPLIT = THE BOOK (`ArenaPrime.cardSplit`): ◎ cash = `realBook.reconciliation.cardCashUsd` (confirmed card SOL, the "Withdraw card cash"
   number) minus parked; coins = `cardEquityUsd` − that cash; the three add up to IN CARD NOW. It was `value − coins − parked`, so every cent of price
   lag between the leg prices and the card value read as cash ($0.20 shown vs $0.17 on the book). Paper cards keep the old split.
+- 🧹 DUST = ONE CLICK (`DustCleanup` `cleanAll`, button `dc-clean-all` "🧹 Clean all N coins — one click"): every non-gas coin with its best action;
+  burns are confirmed in that same click (one `window.confirm` naming what burns), then it runs. Solana = ONE wallet approval for all swaps + closes;
+  swaps quote 4 at a time. EVM tokens still need one wallet prompt each (one tx per token per chain — EVM can't batch-sign).

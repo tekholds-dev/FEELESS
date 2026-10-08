@@ -65,18 +65,19 @@ export default function DustCleanup() {
   const selectDust = () => setPick(Object.fromEntries(rows.filter(r => !r.native).filter(r => r.best === 'burn' || r.best === 'close' || r.best === 'dust').map(r => [key(r), true])));
   const mark = (ks, s) => setState(o => ({ ...o, ...Object.fromEntries(ks.map(k => [k, s])) }));
 
-  const runSolana = async () => {
+  const runSolana = async q => {
     if (!provider || provider.publicKey?.toString() !== addr) throw new Error('Reconnect your Solana wallet and try again.');
     const { web3, connection } = await relayConnection();
     const quoted = [];
-    for (const r of p.swaps) {
+    const quoteOne = async r => {   // 4 at a time — 30 coins quote in a few seconds, not one by one
       mark([key(r)], 'quoting');
       try { const order = await trade('/quote', { input_mint: r.mint, output_mint: SOL_MINT, amount: atomsToUi(r.raw, r.decimals), slippage_bps: 300, wallet: addr });
         await trade('/simulate', { order_id: order.order_id }); quoted.push({ r, order }); mark([key(r)], 'ready'); }
       catch (e) { mark([key(r)], 'failed'); note(`$${r.symbol}: no swap route — ${e.message}`, 'bad'); }
-    }
+    };
+    for (let i = 0; i < q.swaps.length; i += 4) await Promise.all(q.swaps.slice(i, i + 4).map(quoteOne));
     let closeTxs = [];
-    const closeRows = [...p.burns, ...p.closes];
+    const closeRows = [...q.burns, ...q.closes];
     if (closeRows.length) {
       const res = await fetch(apiUrl('/api/reputation/wallet-dust/solana/close-tx'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: addr, accounts: closeRows.map(r => r.pubkey) }) });
       const d = await res.json(); if (!res.ok) throw new Error(d.detail || 'Could not build the cleanup.');
@@ -107,8 +108,8 @@ export default function DustCleanup() {
   };
 
   // EVM: one LI.FI swap per token, each on ITS OWN chain into that chain's gas (the wallet is switched to the chain first)
-  const runEvm = async () => {
-    for (const r of p.swaps.concat(p.dust)) {
+  const runEvm = async q => {
+    for (const r of q.swaps.concat(q.dust)) {
       const k = key(r); mark([k], 'quoting');
       const gas = (rows.find(x => x.native && x.chainId === r.chainId) || {}).symbol || 'gas';
       try { const quote = await lifiServerQuote({ fromChain: r.chainId, toChain: r.chainId, fromToken: r.address, toToken: NATIVE, fromAmount: r.raw, fromAddress: addr, slippage: 0.01 });
@@ -119,12 +120,20 @@ export default function DustCleanup() {
     }
   };
 
-  const go = async () => {
-    if (!p.chosen.length) return;
+  // 🧹 ONE CLICK: every coin that isn't gas, each with its best action, in one go (Solana = ONE wallet approval for all of it; EVM = your wallet
+  // asks once per token, that's how EVM works). Burns are confirmed in the same click — a burned coin is gone for good.
+  const allPick = () => Object.fromEntries(rows.filter(r => !r.native && state[key(r)] !== 'done').map(r => [key(r), true]));
+  const cleanAll = async () => {
+    const pk = allPick(); const q = plan(rows, pk, act); if (!q.chosen.length) return;
+    if (q.burns.length && !window.confirm(`Clean all ${q.chosen.length} coins?\n🔥 ${q.burns.length} will be BURNED (${usd(q.burnUsd)}) — gone for good.\n↩ ${q.swaps.length + q.dust.length} swapped to gas · ♻ rent back ◎${q.rentSol.toFixed(4)}`)) return;
+    setPick(pk); setAck(true); await go(q, true);
+  };
+  const go = async (q = p, acked = ack) => {
+    if (!q?.chosen?.length) return;
     if (!canSign) { toast.error('You are only looking at this address — connect that wallet to clean it.'); return; }
-    if (p.burns.length && !ack) { toast.error('Tick the box: burned coins are gone for good.'); return; }
+    if (q.burns.length && !acked) { toast.error('Tick the box: burned coins are gone for good.'); return; }
     setBusy(true); setErr('');
-    try { if (chain === 'solana') await runSolana(); else await runEvm(); toast.success('Cleanup finished — see the activity below.'); }
+    try { if (chain === 'solana') await runSolana(q); else await runEvm(q); toast.success('Cleanup finished — see the activity below.'); }
     catch (e) { setErr(e.message); note(e.message, 'bad'); }
     finally { setBusy(false); setTimeout(load, 4000); }
   };
@@ -146,6 +155,7 @@ export default function DustCleanup() {
         <span><small>Worth swapping</small><b className="m-num">{usd(data?.summary?.swapUsd || 0)}</b></span>
         <span className="dc-tools"><button type="button" className="m-btn" onClick={selectDust} disabled={!rows.length || busy} data-testid="dc-select-dust">Select dust</button>
           <button type="button" className="m-btn" onClick={load} disabled={busy} data-testid="dc-refresh">↻ Re-read</button></span></div>
+      {canSign && rows.some(r => !r.native) && <button type="button" className="m-btn primary m-go dc-all" disabled={busy} onClick={cleanAll} data-testid="dc-clean-all">{busy ? 'Working…' : `🧹 Clean all ${rows.filter(r => !r.native && state[key(r)] !== 'done').length} coins — one click`}</button>}
       {err && <p className="dc-err" role="alert">{err}</p>}
       {!canSign && <p className="m-note dc-ro">👁 Looking only — connect this wallet to clean it.</p>}
       {!data ? <div className="dc-loading" aria-busy="true"><i /><i /><i /></div> : !rows.length ? <p className="m-dim dc-empty">No coins in this wallet — nothing to clean.</p>
@@ -165,7 +175,7 @@ export default function DustCleanup() {
           {p.burns.length ? ` · 🔥 ${p.burns.length} burn${p.burns.length === 1 ? '' : 's'} (${usd(p.burnUsd)} destroyed)` : ''}
           {p.burns.length + p.closes.length ? ` · ♻ ◎${p.rentSol.toFixed(4)} rent back` : ''}</p>
         {p.burns.length > 0 && <label className="dc-ack"><input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)} data-testid="dc-ack" /> Burned coins are gone for good — I only burn what I don't want.</label>}
-        <button type="button" className="m-btn primary m-go" disabled={busy} onClick={go} data-testid="dc-go">{busy ? 'Working…' : `🧹 Clean up ${p.chosen.length}`}</button></div>}
+        <button type="button" className="m-btn primary m-go" disabled={busy} onClick={() => go()} data-testid="dc-go">{busy ? 'Working…' : `🧹 Clean up ${p.chosen.length}`}</button></div>}
       {log.length > 0 && <ol className="dc-log" aria-live="polite" data-testid="dc-log">{log.map(l => <li key={l.t + l.text} className={l.tone}><time>{new Date(l.t).toLocaleTimeString()}</time>{l.text}</li>)}</ol>}
     </>}
   </section>;

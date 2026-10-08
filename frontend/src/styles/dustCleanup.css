@@ -24,6 +24,7 @@
 .dc-pick input { width: 16px; height: 16px; accent-color: #15d16a; cursor: pointer; }
 .dc-coin { display: grid; min-width: 0; } .dc-coin b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .dc-coin small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dc-act { width: 150px; font-size: 12px; }
+.dc-all { width: 100%; margin: 4px 0 10px; padding: 12px; font-size: 14px; }
 .dc-chain { display: flex; align-items: baseline; gap: 8px; padding: 10px 4px 2px; list-style: none; border-bottom: 1px solid var(--m-line); }
 .dc-chain b { font: 700 11px 'JetBrains Mono', monospace; letter-spacing: .14em; text-transform: uppercase; color: #45e486; }
 .dc-chain small { font: 11px 'JetBrains Mono', monospace; }

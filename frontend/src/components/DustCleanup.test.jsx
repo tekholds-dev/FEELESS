@@ -46,3 +46,17 @@ test('EVM reads every chain the wallet holds, grouped by chain; the native coin 
   expect(p.chosen.map(r => r.symbol).sort()).toEqual(['CAKE', 'PEPE']);   // native gas never chosen
   expect(p.dust.map(r => r.symbol)).toEqual(['PEPE']); expect(p.swaps.map(r => r.symbol)).toEqual(['CAKE']);
 });
+
+test('one click cleans every coin: one confirm for the burns, then it runs without the tick box', async () => {
+  global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({ rows, summary: { dust: 2, rentBackSol: 0.00408, swapUsd: 12.5 } }) }));
+  window.confirm = jest.fn(() => false);
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<DustCleanup />); });
+  await act(async () => { await Promise.resolve(); });
+  const btn = el.querySelector('[data-testid="dc-clean-all"]');
+  expect(btn.textContent).toContain('Clean all 3 coins');
+  const calls = global.fetch.mock.calls.length;
+  await act(async () => { btn.click(); });
+  expect(window.confirm).toHaveBeenCalledTimes(1); expect(window.confirm.mock.calls[0][0]).toContain('BURNED');
+  expect(global.fetch.mock.calls.length).toBe(calls);   // said no → nothing sent
+});
