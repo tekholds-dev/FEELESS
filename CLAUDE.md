@@ -2246,3 +2246,23 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`_call_track` also reads the dressed tab lists in `_disc_cache`). `tvl-k-mover` pink · `-flow` cyan · `-trend` gold.
 - ⛶ Mini chart + mini card have a corner expand button (`mch-max` / `mcd-max`, `.mch.is-max` = 84vw × 70vh chart, remembered). Open gates rows are
   neutral with a slim left edge in the call's colour (`top-tr.call-*`); the mini call is a compact pill (flex, never stretched).
+- ⚡ CHART LOADING, THE THREE REAL CAUSES (2026-10-08; charts on new coins took 7–20s, then the service froze): (1) `candles_service._load()` parsed the
+  33 MB tick store on EVERY chart request / tick / stream message and `_save` re-wrote it each tick → the event loop froze, health timed out and
+  keep-alive killed the service (RSS 948 MB). Now ONE in-memory store (`_mem`, re-read only if the file changed), `_LAZY_SAVE` on at startup, written by
+  `_flush_loop` every `FLUSH_SEC` 20s in a thread + on shutdown (RSS 334 MB; 30 charts at once ≤ 2.2s, health 66 ms meanwhile). (2) `_pair_base_token`:
+  each of the chart's four callers did its own 8s DexScreener wait on an un-indexed pool → ONE shared lookup (`_base_flight`), DexScreener + Jupiter at
+  once, a miss kept 45s; `_accept_mint_hint` is capped at `HINT_BUDGET` 2.5s (Jupiter proof first, then any RPC lane) and a miss sits out 30s.
+  (3) `_late_history` waited for ALL providers before using any → each is used as it lands. Frontend: `PriceChart`'s live-stream effect is keyed by
+  the POOL (refs for `pair` / `ratio`) — a parent rebuilding `pair` each render reconnected the websocket on every tick; `warmCoin` (hover) warms ONE
+  timeframe after 140 ms (`candles.prefetchInterval`), not six per row passed over. "CHARTS SLOW" ⇒ `curl :5099/api/candles/health` time + the service's RSS first.
+- 🫀 CARD LIVE (`components/CardLive.jsx` + `lib/cardActivity.js` pure + tested + `styles/cardLive.css` `clv-*`; inside `.fcd` of BOTH `FuseCard` and
+  `LiveFuseCard` → tier cards, the real card, held cards, landing hero, mini card, Arena stage, prebuilt rail): heat 0–3 from the coins' live 5-MINUTE moves
+  (avg |m5| ≥ 1.5 / 4 / 9; one coin ≥ 15% lights a sleepy card) — activity, not profit. Edge ring beats faster with heat (4.2 → 1s), tinted up / down /
+  flat / ice (every coin locked); sparks 0 / 4 / 7 / 11 rising or falling; one-shot sweep when the card's value changes; gold scan line while a coin is
+  buying; ONE chip for the hottest coin ("🔥 $SYM +22% 5m"). transform + opacity only, `.clv` is an fxPause surface, lite / reduced motion keep a still
+  ring. `LiveFuseCard` reads the live poller even when `serverOnly` (for m5 only — the real card's value stays the server's).
+- ⚡ QUICK LOOK ON EVERY LIST (`TrenchQuick`, opened by the ticker in every `SwapPicker` tab and every Open-gates card; replaces the side drawer there):
+  live chart + the tab's read + vital + ten fact tiles + Pick / War room / Mini chart / Case file / Copy CA, ← → through the list. 🏷 CALL CHIPS
+  (`callLanes`, `sp-call-*`) on every tab filter the list by its own read (BREAKOUT 7 · WASH TRADED 142 …). `jup_audit.fill_row` gives every list row the
+  facts its source never carried (cap, logo, 5-min volume, trades / h, holders, curve %) — only empty fields, the runner board first, then Jupiter.
+  Trench Open gates = ⚡ Split (🆕 newest | THE READS lanes Hot · Curve · Dips · Watch · Avoid) or ≡ List (`feeless.openLayout`).

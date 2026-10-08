@@ -108,7 +108,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     if (!pair?.pairAddress) return undefined;
     let alive = true;
     const load = () => fetchFeelessCandles(pair.chainId, pair.pairAddress, interval, undefined, pair.baseToken?.address)
-      .then(res => { if (!res?.partial) cacheCandles(pair.chainId, pair.pairAddress, interval, res); if (alive && Array.isArray(res?.candles)) { setFeelessCandles(res.candles); setCandleProvider(res.provider || 'FEELESS'); if (res.partial) setTimeout(() => { if (alive) load(); }, 2500); } })
+      .then(res => { cacheCandles(pair.chainId, pair.pairAddress, interval, res);   /* partial (own ticks) too: a remount paints them at once, the next load replaces them */ if (alive && Array.isArray(res?.candles)) { setFeelessCandles(res.candles); setCandleProvider(res.provider || 'FEELESS'); if (res.partial) setTimeout(() => { if (alive) load(); }, 2500); } })
       .catch(() => {})
       .finally(() => { if (alive) setCandlesLoaded(true); });
     load();
@@ -335,7 +335,12 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
 
   // Live ticks: every 3s pull the pair's current price straight from DexScreener and
   // update the forming candle in place (no redraw, zoom preserved).
+  // The stream is keyed by the POOL, never by the pair object or the cap ratio: a parent that rebuilds `pair` each render (or passes a live
+  // cap) used to tear the websocket down and reconnect on every price tick (10 "connection open" a minute for one coin).
+  const pairLive = useRef(pair); pairLive.current = pair;
+  const ratioLive = useRef(ratio); ratioLive.current = ratio;
   useEffect(() => {
+    const pair = pairLive.current;   // eslint-disable-line no-shadow
     if (!charting || !pair?.pairAddress || !pair?.chainId) return undefined;
     const bucket = LIVE_INTERVAL_SECONDS[interval] || 3600;
     let alive = true;
@@ -343,7 +348,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       try {
         if (!alive || !(usd > 0)) return;
         setLivePrice({ usd, change: live?.change24h, at: Date.now(), source: live?.source });
-        const value = usd * ratio;
+        const value = usd * ratioLive.current;
         const ref = seriesRef.current;
         const last = lastBarRef.current;
         if (!ref || !last) return;
@@ -371,7 +376,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     };
     const tick = async () => {
       if (document.hidden) return;
-      try { const live = await fetchLivePrice(pair); apply(Number(live?.usd), live); } catch { /* next tick */ }
+      try { const live = await fetchLivePrice(pairLive.current); apply(Number(live?.usd), live); } catch { /* next tick */ }
     };
     // Solana: server pushes every new price over one shared websocket per pool (fan-out, scales with
     // pools not users). Polling stays on as a slower safety net and takes over if the stream drops.
@@ -388,7 +393,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     let n = 0;
     const timer = setInterval(() => { n += 1; if (!streaming || n % 4 === 0) tick(); }, 1200);   // ≤1.5s freshness; ~5s when streaming
     return () => { alive = false; clearInterval(timer); try { ws?.close(); } catch { /* ignore */ } };
-  }, [charting, interval, pair, pair?.baseToken?.address, pair?.chainId, pair?.pairAddress, ratio]);
+  }, [charting, interval, pair?.baseToken?.address, pair?.chainId, pair?.pairAddress]);
   const [livePx, setLivePx] = useState(null);
   useEffect(() => { if (!feePos) return undefined; const t = setInterval(() => { const b = lastBarRef.current; if (b) setLivePx(b.close ?? b.value); }, 1200); return () => clearInterval(t); }, [feePos]);
   // The last bar is a market cap when the chart shows MC: convert back to a price before comparing to entry.

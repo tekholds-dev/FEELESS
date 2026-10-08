@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { CardLive } from './CardLive';
 import { openMiniCard } from './MiniCard';
 import { MetaCard } from './cards/MetaCard';
 import '../styles/fuseLab.css';
@@ -54,7 +55,8 @@ export function FuseCard({ c, style = 'yield', rank = 0, budget = 20, aura = '',
       <dt>${budget} → </dt><dd className={m.net >= 0 ? 'up' : 'down'}><b>${m.end.toFixed(2)}</b></dd><dt>Calm · APR</dt><dd>{p.calm} · {p.aprScore}</dd></dl>
     <small className="fcd-note">{isLive ? 'Live: each coin from its real entry at today\'s price (10s), true fills.' : (c.legs.some(l => l.replayH && l.replayH < 24) ? 'Replay of each coin\'s recent move (last hour, last 5 min if under 1h old) — never since launch, not a promise.' : 'Replay of the last 24h, not a promise.')} APR = pool fee rate (busy-ness), not paid to holders.</small>
   </div>;
-  return <div className="fcd" data-testid={`fuse-card-${rank}`} onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)} onFocus={() => setHold(true)} onBlur={() => setHold(false)}>
+  return <div className="fcd" data-testid={`fuse-card-${rank}`} data-live="1" onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)} onFocus={() => setHold(true)} onBlur={() => setHold(false)}>
+    <CardLive legs={c.legs.map(l => ({ symbol: l.symbol, m5: live.get(l.pairAddress)?.m5 }))} pnlPct={m.net} />
     <MetaCard card={card} size="md" interactive flipped={flipped} onFlip={setFlipped} back={back} className="fcd-card" />
     <button type="button" className="fcd-flip" aria-label={flipped ? 'Show front' : 'Show details'} onClick={() => setFlipped(f => !f)} data-testid={`fuse-card-flip-${rank}`}>⟲</button>
   </div>;
@@ -85,7 +87,7 @@ export function revalue(r, live) {
 const m$ = v => `${v < 0 ? '−' : ''}$${Math.abs(v || 0).toFixed(2)}`;
 export function LiveFuseCard({ r: r0, aura = '', look = null, label = null, serverOnly = false, mini = null }) {
   const [flipped, setFlipped] = useState(false);
-  const live = useLivePrices(serverOnly ? [] : r0.legs.filter(l => l.soldUsd == null).map(l => l.pairAddress));
+  const live = useLivePrices(r0.legs.filter(l => l.soldUsd == null).map(l => l.pairAddress));   // serverOnly cards read it too: only for the 5-min moves that drive the card's live effects
   // serverOnly: real-money cards show the server's Jupiter sell value (a DexScreener pair can sit far off on pre-bond coins)
   const r = serverOnly ? r0 : revalue(r0, live);   // every 3s: held tokens × the live price (server P&L every 30s backs it)
   const legs = [...r.legs].sort((a, b) => (b.usd || 0) - (a.usd || 0));
@@ -108,7 +110,9 @@ export function LiveFuseCard({ r: r0, aura = '', look = null, label = null, serv
       <dt>P&L</dt><dd className={up ? 'up' : 'down'}><b>{m$(r.pnlUsd)} ({up ? '+' : ''}{r.pnlPct.toFixed(1)}%)</b></dd></dl>
     <small className="fcd-note">● Live prices every 3s · {label && label.includes('PAPER') ? 'paper at true fills' : 'exact fills from chain'} · fees apart.</small>
   </div>;
+  const act = r.closed ? null : r.legs.map(l => ({ symbol: l.symbol, m5: live.get(l.pairAddress)?.m5, pct: l.pnlPct, buying: !!l.buying, locked: !!(l.riding || l.frozen), sold: l.soldUsd != null }));
   return <div className="fcd" data-testid={`live-card-${r.id}`}>
+    {act && <CardLive legs={act} pnlPct={r.pnlPct} value={r.valueUsd} />}
     <MetaCard card={card} size="md" interactive flipped={flipped} onFlip={setFlipped} back={back} className="fcd-card" />
     <button type="button" className="fcd-flip" aria-label={flipped ? 'Show front' : 'Show live money'} onClick={() => setFlipped(f => !f)} data-testid={`live-card-flip-${r.id}`}>⟲</button>
     {mini && <button type="button" className="fcd-pin" aria-label="Pin this card: keep it floating on every page" data-tip="📌 Mini card: keeps this card floating on every page — flip it to the chart of its coins, three sizes" onClick={() => openMiniCard(mini.kind === 'row' ? { ...mini, row: mini.row || r0 } : mini)} data-testid={`live-card-pin-${r.id}`}>📌</button>}

@@ -33,7 +33,33 @@ def facts(tok):
             'organicPct': round(org / vol * 100, 1) if vol > 0 else None,
             'traders1h': num(s1.get('numTraders')), 'realBuyers1h': num(s1.get('numOrganicBuyers')),
             'holderChg1h': num(s1.get('holderChange')), 'netBuyers1h': num(s1.get('numNetBuyers')), 'liqChg1h': num(s1.get('liquidityChange')),
-            'verified': bool(t.get('isVerified')), 'launchpad': t.get('launchpad')}
+            'verified': bool(t.get('isVerified')), 'launchpad': t.get('launchpad'),
+            'mcap': num(t.get('mcap')), 'logo': t.get('icon') or None, 'vol5m': _vol(t.get('stats5m')),
+            'trades1h': (_f(s1.get('numBuys')) + _f(s1.get('numSells'))) or None}
+
+
+def _vol(st):
+    v = _f((st or {}).get('buyVolume')) + _f((st or {}).get('sellVolume'))
+    return v or None
+
+
+FILL = (('mcap', 'mcap'), ('logo', 'logo'), ('vol5m', 'vol5m'), ('txns1h', 'trades1h'), ('holders', 'holders'))
+
+
+def fill_row(row, jf=None, cand=None):
+    """The facts a list row shows but its source never carried (cap, logo, 5-min volume, trades an hour, holders, curve %): taken from the
+    runner board's record of the coin, else Jupiter's. Only EMPTY fields are filled — a row's own number is never replaced. In place."""
+    c, j = cand or {}, jf or {}
+    if row.get('mcap') in (None, 0) and row.get('marketCap') not in (None, 0):
+        row['mcap'] = row['marketCap']
+    for k, jk in FILL:
+        if row.get(k) in (None, '', 0):
+            v = c.get(k) if c.get(k) not in (None, '', 0) else j.get(jk)
+            if v not in (None, '', 0):
+                row[k] = v
+    if row.get('curvePct') is None and c.get('stage') == 'curve' and c.get('curve') is not None:
+        row['curvePct'] = c.get('curve')
+    return row
 
 
 # 👥 CREW = the people who run the coin, read from the dev's own launch record (Jupiter counts every coin the dev wallet minted and how
@@ -297,6 +323,8 @@ def curve_verdict(f, row=None):
         call = _call('BOND RUN', '🎢', 'good')
     elif bond is not None and bond < 40 and pace_v is not None and pace_v >= 70 and (bs is None or _f(bs) >= 60):
         call = _call('EARLY RUSH', '🚀', 'good')
+    elif bond is not None and bond >= 85:
+        call = _call('NEAR BOND', '🔔', 'good')   # 🔔 85%+ along its curve: about to graduate, whatever the pace
     elif pace_v is not None and pace_v < 35:
         call = _call('SLOW CURVE', '⏳', 'warn')
     else:
@@ -353,6 +381,15 @@ def dip_verdict(f, row=None):
         call = _call('WATCH', '👀', 'warn')
     order = {'bad': 0, 'good': 1}
     return {'kind': 'dip', 'call': call, 'meters': [['🧲 BOUNCE', bounce], ['🔪 KNIFE', knife]], 'tags': sorted(tags, key=lambda x: order.get(x[2], 2))[:4]}
+
+
+def open_read(f, row=None):
+    """🚪 Open gates: EVERY coin gets a read — the one that fits (curve / dip / new) else 🚀 mover (up ≥ 20% on the hour) else 🌊 flow."""
+    r = row or {}
+    t = pick_read(f, r)
+    if t:
+        return t
+    return mover_verdict(f, r) if r.get('chg1h') is not None and _f(r['chg1h']) >= 20 else flow_verdict(f, r)
 
 
 def pick_read(f, row=None):

@@ -3011,8 +3011,13 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
     _disc_cache[key_] = (time.time(), out)   # lists returned as they are (majors, pools…); a dressed launch list replaces this below
     rows = out.get('pools') if isinstance(out, dict) else None
     if rows and lens in ('majors', 'stocks', 'risers'):   # 🐋 the majors / stocks tab gets its own TREND read
+        try:
+            await _jup_lite([r.get('baseAddress') or r.get('mint') for r in rows])
+        except Exception:
+            pass
         for r in rows:
             r['tv'] = _read_for(r, {}, lens)
+            _ja.fill_row(r, (_jup_facts.get(r.get('baseAddress') or r.get('mint')) or (0, None))[1])
     if not rows or lens in ('majors', 'stocks', 'popular', 'yield', 'deep', 'new'):
         return out
     live = [r for r in rows if r.get('vol1h') is None or _fuse._f(r.get('vol1h')) >= PICK_DEAD_VOL1H]
@@ -3029,6 +3034,10 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
             m = r.get('baseAddress') or r.get('mint')
             if m:
                 asyncio.ensure_future(_runner_intel(m))
+    cmap_f = _cand_map()   # the quick look's tiles: cap, logo, 5-min volume, trades an hour, curve % on EVERY tab's rows
+    for r in live:
+        m_ = r.get('baseAddress') or r.get('mint')
+        _ja.fill_row(r, (_jup_facts.get(m_) or (0, None))[1], cmap_f.get(m_))
     res_ = {**out, 'pools': live, 'dead': len(rows) - len(live)}
     _disc_cache[key_] = (time.time(), res_)
     return res_
@@ -5910,6 +5919,14 @@ async def fuse_trench_open():
     rows = _open_board() if _open_pairs else (_open_cache.get('rows') or [])
     await _jup_lite([r.get('mint') for r in rows])
     rows = _clean_rows([dict(r) for r in rows])
+    cmap_ = _cand_map()
+    for r in rows:   # 🚪 every coin gets a read (split view: reads column) + 🔔 its curve % when the runner board has it
+        c_ = cmap_.get(r.get('mint')) or {}
+        if c_.get('stage') == 'curve' and c_.get('curve') is not None:
+            r['curvePct'] = round(_fuse._f(c_['curve']))
+        if not r.get('tv'):
+            x_ = {**{k: c_.get(k) for k in ('vol5m', 'chg6h', 'chg24h') if c_.get(k) is not None}, **{k: v for k, v in r.items() if v is not None}}
+            r['tv'] = _ja.open_read((_jup_facts.get(r.get('mint')) or (0, None))[1], x_)
     doc = _json_load(TRENCH_CALLOUT_PATH, {})
     now_px = {r['mint']: r['price'] for r in rows}
     proof = _trench.meta_proof(doc.get('state') or {}, keys=_trench.CALLOUTS)
@@ -6037,7 +6054,7 @@ async def _owner_moves_tick(now):
 CALL_PROOF_PATH = FUSE_HQ_PATH.parent / 'call_proof.json'   # 🗑 each trench-vital CALL's own 1-hour record (send / watch / cold / bait)
 CALL_KEYS = {'SEND IT': 'send', 'WATCH': 'watch', 'COLD': 'cold', 'RUG BAIT': 'bait', 'BOND RUN': 'bond', 'EARLY RUSH': 'rush', 'DUMPING': 'dump',
              'SLOW CURVE': 'slow', 'BUY THE DIP': 'dip', 'FALLING KNIFE': 'knife', 'DEAD DIP': 'deaddip', 'BREAKOUT': 'breakout', 'BLOW-OFF TOP': 'blowoff',
-             'COOLING': 'cooling', 'VOLUME SURGE': 'surge', 'WASH TRADED': 'wash', 'DRYING UP': 'dry', 'TREND UP': 'tup', 'TREND DOWN': 'tdown', 'CHOP': 'chop'}
+             'COOLING': 'cooling', 'VOLUME SURGE': 'surge', 'WASH TRADED': 'wash', 'DRYING UP': 'dry', 'TREND UP': 'tup', 'TREND DOWN': 'tdown', 'CHOP': 'chop', 'NEAR BOND': 'near'}
 CALL_AUTO_MIN = 10   # the engine takes 🔥 SEND IT coins by itself only after ≥ 10 settled calls with a typical result up and half or more up
 _call_cache: dict = {'at': 0.0, 'send': [], 'proof': {}}
 

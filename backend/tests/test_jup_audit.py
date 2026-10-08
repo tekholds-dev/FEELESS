@@ -132,3 +132,27 @@ def test_every_category_has_its_own_read():
     assert ja.trend_verdict({}, {'chg5m': 0.5, 'chg1h': -1, 'chg6h': 2, 'chg24h': -3})['call'][1] == 'CHOP'
     assert ja.read_for_lens('volume', {}, {'vol1h': 1})['kind'] == 'flow' and ja.read_for_lens('majors', {}, {'chg1h': 1})['kind'] == 'trend'
     assert ja.read_for_lens('movers', {}, {'curvePct': 40})['kind'] == 'curve'          # on the curve, the curve read always wins
+
+
+def test_near_bond_and_open_read_give_every_coin_a_read():
+    # 🔔 85%+ along its curve with a slow pace = NEAR BOND (not SLOW CURVE)
+    near = ja.curve_verdict({}, {'curvePct': 91, 'vol1h': 20000, 'vol5m': 200, 'buyShare': 52, 'chg5m': 0})
+    assert near['call'][1] == 'NEAR BOND'
+    # 🚪 an older coin that is no dip / curve / new coin still gets a read: mover when up on the hour, else flow
+    assert ja.open_read({}, {'ageH': 40, 'chg1h': 60, 'chg5m': 3, 'buyShare': 62, 'vol1h': 50000, 'vol5m': 6000})['kind'] == 'mover'
+    assert ja.open_read({}, {'ageH': 40, 'chg1h': 2, 'vol1h': 50000, 'vol5m': 4000, 'txns1h': 900})['kind'] == 'flow'
+    assert ja.open_read({}, {'ageH': 2, 'chg1h': 5})['kind'] == 'trench'
+
+
+def test_a_list_row_gets_the_facts_its_source_never_carried_and_keeps_its_own():
+    """Movers / Volume / Majors rows had no cap, logo, 5-min volume or trades an hour: the quick look showed '—' on every tile."""
+    import jup_audit as ja
+    jf = ja.facts({'mcap': 420000, 'icon': 'https://x/logo.png', 'holderCount': 900, 'stats5m': {'buyVolume': 3000, 'sellVolume': 1000},
+                   'stats1h': {'numBuys': 300, 'numSells': 200, 'buyVolume': 1, 'sellVolume': 1}})
+    assert jf['mcap'] == 420000 and jf['vol5m'] == 4000 and jf['trades1h'] == 500
+    row = ja.fill_row({'symbol': 'RUN', 'holders': 1200, 'vol1h': 50000}, jf, {'vol5m': 7000, 'stage': 'curve', 'curve': 61})
+    assert row['mcap'] == 420000 and row['logo'] == 'https://x/logo.png' and row['txns1h'] == 500
+    assert row['holders'] == 1200          # the row's own number is never replaced
+    assert row['vol5m'] == 7000            # the runner board's reading beats Jupiter's
+    assert row['curvePct'] == 61
+    assert ja.fill_row({'marketCap': 5}, None, None)['mcap'] == 5 and 'logo' not in ja.fill_row({}, {}, {})

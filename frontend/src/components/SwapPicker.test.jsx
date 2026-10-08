@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { SwapPicker, PICK_LENSES } from './ArenaPrime';
 
 jest.mock('../lib/livePrices', () => ({ useLivePrices: () => new Map() }));
+jest.mock('./terminal/PriceChart', () => ({ PriceChart: () => null }));   // the quick look's chart (lightweight-charts is ESM-only)
+jest.mock('../lib/candles', () => ({ prefetchAllIntervals: () => {}, prefetchInterval: () => {} }));
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const tick = () => act(() => new Promise(r => setTimeout(r, 20)));
 
@@ -122,4 +124,27 @@ test('a pick can be swapped in now or wait for the bell', async () => {
   await act(async () => { el.querySelector('[data-testid="sp-pick-POP"]').click(); });   // ⚡ Swap now
   await act(async () => { el.querySelector('[data-testid="sp-bell-POP"]').click(); });   // ⏱ at the bell
   expect(picks).toEqual([['POP', true], ['POP', false]]);
+});
+
+test('every tab filters by its own calls and opens the quick look (chart + vitals + pick) from the ticker', async () => {
+  const { callLanes } = require('./ArenaPrime');
+  const rows = [{ tv: { call: ['🚀', 'BREAKOUT', 'good'] } }, { tv: { call: ['🚀', 'BREAKOUT', 'good'] } }, { tv: { call: ['🧯', 'BLOW-OFF TOP', 'bad'] } }, { tv: { call: ['👀', 'WATCH', 'warn'] } }, {}];
+  expect(callLanes(rows)).toEqual([['BREAKOUT', 'good', '🚀', 2], ['WATCH', 'warn', '👀', 1], ['BLOW-OFF TOP', 'bad', '🧯', 1]]);   // good first, then by count
+  global.fetch = jest.fn(async u => (String(u).includes('list-proof') ? { ok: true, json: async () => ({ lists: {} }) } : String(u).includes('sparks') ? { ok: true, json: async () => ({ sparks: {} }) }
+    : { ok: true, json: async () => ({ pools: [{ baseAddress: 'A', pairAddress: 'pa', symbol: 'RUN', priceUsd: 2, liquidityUsd: 400000, vol1h: 90000, top10: 18, tv: { kind: 'mover', call: ['🚀', 'BREAKOUT', 'good'], meters: [['🚀', 80], ['🧯', 20]], tags: [] } },
+      { baseAddress: 'B', pairAddress: 'pb', symbol: 'TOP', priceUsd: 2, liquidityUsd: 400000, tv: { kind: 'mover', call: ['🧯', 'BLOW-OFF TOP', 'bad'], meters: [['🚀', 30], ['🧯', 90]], tags: [] } }] }) }));
+  const picks = [];
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<SwapPicker out={{ symbol: 'WIF' }} have={[]} onPick={(r, now) => picks.push([r.symbol, now])} onClose={() => {}} />); });
+  await tick();
+  expect(el.querySelector('[data-testid="sp-call-all"]').textContent).toBe('All 2');
+  await act(async () => { el.querySelector('[data-testid="sp-call-BLOW-OFF-TOP"]').click(); });
+  expect(el.querySelector('[data-testid="sp-open-TOP"]')).not.toBeNull(); expect(el.querySelector('[data-testid="sp-open-RUN"]')).toBeNull();
+  await act(async () => { el.querySelector('[data-testid="sp-call-all"]').click(); });
+  await act(async () => { el.querySelector('[data-testid="sp-open-RUN"]').click(); }); await tick();
+  const q = document.querySelector('[data-testid="trench-quick"]');
+  expect(q).not.toBeNull(); expect(q.textContent).toContain('$RUN'); expect(q.querySelector('[data-testid="tql-vitals"]').textContent).toContain('18%');   // top-10 tile from the row
+  expect(q.querySelector('.tql-safe')).toBeNull();   // a list with no safety scan says nothing about safety (never a made-up "unscanned")
+  await act(async () => { q.querySelector('[data-testid="tql-pick"]').click(); });
+  expect(picks).toEqual([['RUN', true]]); expect(document.querySelector('[data-testid="trench-quick"]')).toBeNull();
 });

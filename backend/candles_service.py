@@ -41,17 +41,73 @@ def _empty_store():
     return {}
 
 
+_mem = {'path': None, 'mtime': None, 'store': None, 'dirty': False}
+_LAZY_SAVE = False      # the running service: saves are written by `_flush_loop`, not on every tick
+FLUSH_SEC = 20
+
+
 def _load() -> dict:
-    if STORE_PATH.exists():
+    """The price store, parsed ONCE and kept in memory (re-read only when the file changed under us). It is a 33 MB file: every chart
+    request, every recorded tick and every stream message used to parse it again (and every tick re-wrote it), which froze the event
+    loop — charts sat on "Loading candles", the health check timed out and keep-alive killed the service."""
+    path = str(STORE_PATH)
+    try:
+        mtime = STORE_PATH.stat().st_mtime_ns if STORE_PATH.exists() else None
+    except OSError:
+        mtime = None
+    if _mem['store'] is not None and _mem['path'] == path and (_mem['dirty'] or _mem['mtime'] == mtime):
+        return _mem['store']
+    store = _empty_store()
+    if mtime is not None:
         try:
-            return json.loads(STORE_PATH.read_text())
+            store = json.loads(STORE_PATH.read_text())
         except Exception:
-            pass
-    return _empty_store()
+            store = _empty_store()
+    _mem.update(path=path, mtime=mtime, store=store, dirty=False)
+    return store
+
+
+def _write_store(text):
+    tmp = STORE_PATH.with_suffix('.tmp')
+    tmp.write_text(text)
+    tmp.replace(STORE_PATH)
 
 
 def _save(store: dict):
-    STORE_PATH.write_text(json.dumps(store))
+    _mem.update(path=str(STORE_PATH), store=store)
+    if _LAZY_SAVE:
+        _mem['dirty'] = True
+        return
+    _write_store(json.dumps(store))
+    _mem.update(mtime=STORE_PATH.stat().st_mtime_ns, dirty=False)
+
+
+async def _flush_store():
+    """Write the store when it changed. The 33 MB dump runs in a thread; a tick landing mid-dump just means one more try."""
+    if not _mem['dirty'] or _mem['store'] is None:
+        return False
+    store = _mem['store']; _mem['dirty'] = False
+    for _ in range(3):
+        try:
+            text = await asyncio.to_thread(json.dumps, store)
+            break
+        except RuntimeError:   # "dictionary changed size during iteration": a tick was recorded while dumping
+            text = None
+    if text is None:
+        text = json.dumps(store)
+    await asyncio.to_thread(_write_store, text)
+    if not _mem['dirty']:
+        _mem['mtime'] = STORE_PATH.stat().st_mtime_ns
+    return True
+
+
+async def _flush_loop():
+    while True:
+        await asyncio.sleep(FLUSH_SEC)
+        try:
+            await _flush_store()
+        except Exception:
+            pass
 
 
 def _pair_key(chain: str, pair_address: str) -> str:
@@ -212,7 +268,18 @@ app.add_middleware(_GZip, minimum_size=1024)   # ⚡ every list over 1KB goes co
 
 @app.on_event('startup')
 async def _start_poller():
+    global _LAZY_SAVE
+    _LAZY_SAVE = True   # ticks live in memory; the file is written every FLUSH_SEC and on shutdown
     asyncio.create_task(_poll_hot_pairs())
+    asyncio.create_task(_flush_loop())
+
+
+@app.on_event('shutdown')
+async def _stop_flush():
+    try:
+        await _flush_store()
+    except Exception:
+        pass
 app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in (os.environ.get('ALLOWED_ORIGINS') or '*').split(',') if o.strip()], allow_methods=['*'], allow_headers=['*'])
 
 
@@ -299,7 +366,29 @@ def _b58decode(v: str) -> bytes:
     return b'\x00' * (len(v) - len(v.lstrip('1'))) + raw
 
 
+_hint_miss: dict = {}   # pair key -> when a hint could not be verified (not re-tried for 30s)
+HINT_BUDGET = 2.5       # s: a chart never waits longer than this for the coin hint to be verified
+
+
 async def _accept_mint_hint(chain, pair, mint):
+    """Bounded wrapper: the check runs at most HINT_BUDGET inside a chart request (it keeps going behind it), a miss sits out 30s.
+    It used to block every candle request of a new coin for up to 6s per poll."""
+    key = f'{chain}:{pair}'
+    if chain != 'solana' or key in _base_token or not mint or time.time() - _hint_miss.get(key, 0) < 30:
+        return
+    task = asyncio.create_task(_verify_mint_hint(chain, pair, mint))
+    try:
+        await asyncio.wait_for(asyncio.shield(task), timeout=HINT_BUDGET)
+    except Exception:
+        pass
+    if key not in _base_token and task.done():
+        _hint_miss[key] = time.time()
+        if len(_hint_miss) > 4000:
+            for k in list(_hint_miss)[:1000]:
+                _hint_miss.pop(k, None)
+
+
+async def _verify_mint_hint(chain, pair, mint):
     """A browser may tell us which coin a pool trades (DexScreener hasn't indexed brand-new pools).
     Trusted only if the pool account's on-chain data actually contains that mint, so one client can't
     point everyone's chart at a different coin."""
@@ -308,17 +397,30 @@ async def _accept_mint_hint(chain, pair, mint):
         return
     if mint == pair:
         _base_token[key] = mint; return
-    rpc = os.environ.get('SOLANA_RPC_URL', '').strip()
-    if not rpc:
-        return
     try:
         from solders.pubkey import Pubkey
         # pump.fun bonding curve: the pool address is derived from the mint.
         if str(Pubkey.find_program_address([b'bonding-curve', bytes(Pubkey.from_string(mint))], Pubkey.from_string(PUMP_PROGRAM))[0]) == pair:
             _base_token[key] = mint; return
-        async with httpx.AsyncClient(timeout=6) as http:
-            r = await http.post(rpc, json={'jsonrpc': '2.0', 'id': 1, 'method': 'getAccountInfo', 'params': [pair, {'encoding': 'jsonParsed'}]})
-        v = ((r.json() or {}).get('result') or {}).get('value') or {}
+        import chain_rpc
+        v = None
+        async with httpx.AsyncClient(timeout=2.5) as http:
+            try:   # fastest proof: Jupiter knows the coin by any of its pools
+                from launchpad_board import jup_lookup
+                jp = await jup_lookup(http, pair)
+                if ((jp or {}).get('baseToken') or {}).get('address') == mint:
+                    _base_token[key] = mint; return
+            except Exception:
+                pass   # any lane may answer (one fixed endpoint, when rate-limited, left the hint unverified)
+            for rpc in tape_lanes(list(chain_rpc.RPC_POOL), list(chain_rpc.KEEPER_LANES))[:3]:
+                try:
+                    r = await http.post(rpc, json={'jsonrpc': '2.0', 'id': 1, 'method': 'getAccountInfo', 'params': [pair, {'encoding': 'jsonParsed'}]})
+                    res = (r.json() or {}).get('result') if r.status_code == 200 else None
+                    if isinstance(res, dict):
+                        v = res.get('value') or {}; break
+                except Exception:
+                    continue
+        v = v or {}
         d = v.get('data')
         if isinstance(d, dict):  # a token account (e.g. a curve vault) states its own mint
             if ((d.get('parsed') or {}).get('info') or {}).get('mint') == mint:
@@ -331,18 +433,60 @@ async def _accept_mint_hint(chain, pair, mint):
         pass
 
 
+_base_miss: dict = {}     # pair key -> when a lookup found nothing (not asked again for 45s)
+_base_flight: dict = {}   # pair key -> the lookup in flight (the chart's four callers share ONE)
+BASE_MISS_SEC = 45
+
+
 async def _pair_base_token(chain, pair):
+    """The coin a pool trades. One lookup at a time per pool, a miss is remembered 45s: a brand-new pool DexScreener has not indexed
+    used to cost every caller (the build + each of three providers) its own 8s wait — the 7–10s of "Loading candles" on new coins."""
     key = f'{chain}:{pair}'
     if key in _base_token:
         return _base_token[key]
+    if time.time() - _base_miss.get(key, 0) < BASE_MISS_SEC:
+        return None
+    task = _base_flight.get(key)
+    if not task or task.done():
+        task = _base_flight[key] = asyncio.create_task(_base_lookup(chain, pair, key))
     try:
-        async with httpx.AsyncClient(timeout=8) as http:
-            p = ((await http.get(f'https://api.dexscreener.com/latest/dex/pairs/{chain}/{pair}')).json().get('pairs') or [None])[0]
-        addr = (p or {}).get('baseToken', {}).get('address')
+        return await asyncio.shield(task)
+    except Exception:
+        return None
+
+
+async def _base_lookup(chain, pair, key):
+    addr = None
+    try:
+        async with httpx.AsyncClient(timeout=3.5) as http:
+            async def ds():
+                p = ((await http.get(f'https://api.dexscreener.com/latest/dex/pairs/{chain}/{pair}')).json().get('pairs') or [None])[0]
+                return (p or {}).get('baseToken', {}).get('address')
+
+            async def jup():   # DexScreener has not indexed a brand-new pool (or is silent): Jupiter finds a coin by any of its pools
+                from launchpad_board import jup_lookup
+                return (((await jup_lookup(http, pair)) or {}).get('baseToken') or {}).get('address')
+            jobs = [asyncio.create_task(ds())] + ([asyncio.create_task(jup())] if chain == 'solana' else [])
+            for fut in asyncio.as_completed(jobs):   # both at once, first real answer wins
+                try:
+                    addr = await fut
+                except Exception:
+                    addr = None
+                if addr:
+                    break
+            for j in jobs:
+                j.cancel()
+            await asyncio.gather(*jobs, return_exceptions=True)
     except Exception:
         addr = None
     if addr:
         _base_token[key] = addr
+    else:
+        _base_miss[key] = time.time()
+        if len(_base_miss) > 4000:
+            for k in list(_base_miss)[:1000]:
+                _base_miss.pop(k, None)
+    _base_flight.pop(key, None)
     return addr
 
 
@@ -513,7 +657,10 @@ async def get_candles(chain: str, pair_address: str, interval: str = Query('1h')
         if len(own) >= 2:
             return {'candles': _fill_gaps(own, interval_seconds), 'provider': 'FEELESS', 'interval': interval, 'tickCount': len(ticks), 'partial': True,
                     'source': 'FEELESS-recorded prices; full provider history is loading.'}
-        return await task
+        try:   # nothing recorded yet: wait a little longer for a provider, then say "loading" instead of hanging the chart
+            return await asyncio.wait_for(asyncio.shield(task), timeout=1.5)
+        except asyncio.TimeoutError:
+            return {'candles': [], 'provider': 'FEELESS', 'interval': interval, 'tickCount': len(ticks), 'partial': True, 'source': 'Provider history is loading.'}
 
 
 _resp_cache: dict = {}
@@ -535,18 +682,53 @@ async def _build_candles(chain, pair_address, interval):
         mint = await _pair_base_token(chain, pair_address) or pair_address
         anchor = await _stream_price(mint)
     agrees = lambda h: bool(h) and len(h) >= 1 and (not anchor or anchor / 3 <= h[-1][4] <= anchor * 3)
-    # Charts must be ready: take the first provider with a full history (FULL_HISTORY bars); if each is thin, keep the
-    # longest one that agrees with the live price instead of the first short answer.
+    # Charts must be ready: the three providers are asked AT ONCE (they used to be asked one after another — a new coin with a short
+    # Jupiter history then waited on Alchemy and Helius: 8–15s of "Loading candles"). The longest history that agrees with the live price
+    # wins; a full one (FULL_HISTORY bars) answers at once. A provider still running after PROVIDER_BUDGET finishes in the background
+    # and replaces the cached answer when it is longer.
+    tasks = {asyncio.create_task(fn(chain, pair_address, interval)): name for name, fn in (('Jupiter', jupiter_candles), ('Alchemy', alchemy_candles), ('Helius swaps', helius_candles))}
     hist, provider = [], None
-    for name, fn in (('Jupiter', jupiter_candles), ('Alchemy', alchemy_candles), ('Helius swaps', helius_candles)):
-        try:
-            h = await fn(chain, pair_address, interval)
-        except Exception:
-            h = None
-        if agrees(h) and len(h) > len(hist):
-            hist, provider = h, name
+    pending, deadline = set(tasks), time.time() + PROVIDER_BUDGET
+    while pending and len(hist) < FULL_HISTORY and time.time() < deadline:
+        done, pending = await asyncio.wait(pending, timeout=max(0.05, deadline - time.time()), return_when=asyncio.FIRST_COMPLETED)
+        for t in done:
+            h = None if t.cancelled() or t.exception() else t.result()
+            if agrees(h) and len(h) > len(hist):
+                hist, provider = h, tasks[t]
+    if pending:
         if len(hist) >= FULL_HISTORY:
-            break
+            for t in pending:
+                t.cancel()
+        else:
+            asyncio.create_task(_late_history(chain, pair_address, interval, {t: tasks[t] for t in pending}, agrees, len(hist)))
+    return _candles_out(chain, pair_address, interval, hist, provider, own, ticks)
+
+
+PROVIDER_BUDGET = 2.5   # s: what a chart waits for provider history before it paints what it has
+
+
+async def _late_history(chain, pair_address, interval, tasks, agrees, have):
+    """A slow provider's history, when it arrives and is longer than what was served, becomes the cached answer for the next poll."""
+    try:
+        pending, deadline = set(tasks), time.time() + 25
+        while pending and time.time() < deadline:   # each provider is used the moment it lands (waiting for ALL of them kept a good history back for the slowest)
+            done, pending = await asyncio.wait(pending, timeout=max(0.05, deadline - time.time()), return_when=asyncio.FIRST_COMPLETED)
+            for t in done:
+                h = None if t.cancelled() or t.exception() else t.result()
+                if agrees(h) and len(h) > have:
+                    have = len(h)
+                    ticks = _load().get(_pair_key(chain, pair_address), [])
+                    _candles_out(chain, pair_address, interval, h, tasks[t], _bucket_candles(ticks, INTERVAL_SECONDS.get(interval, 3600)), ticks)
+            if have >= FULL_HISTORY:
+                break
+        for t in pending:
+            t.cancel()
+    except Exception:
+        pass
+
+
+def _candles_out(chain, pair_address, interval, hist, provider, own, ticks):
+    interval_seconds = INTERVAL_SECONDS.get(interval, 3600)
     if hist and len(hist) >= 2:
         # FEELESS's own 15s ticks override/extend the provider bars, so the newest candle is live.
         own_by_t = {c[0]: c for c in own}

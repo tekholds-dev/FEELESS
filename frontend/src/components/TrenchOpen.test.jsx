@@ -2,7 +2,12 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-jest.mock('./CoinDrawer', () => ({ openCoin: jest.fn() }));
+jest.mock('./CoinDrawer', () => ({ openCoin: jest.fn(), addToCard: jest.fn() }));
+jest.mock('./terminal/PriceChart', () => ({ PriceChart: ({ interval }) => <div data-testid="pc">{interval}</div> }));
+jest.mock('./WarRoomHost', () => ({ openWarRoom: jest.fn() }));
+jest.mock('./MiniChart', () => ({ openMiniChart: jest.fn() }));
+jest.mock('../lib/candles', () => ({ prefetchAllIntervals: jest.fn(), prefetchInterval: jest.fn() }));
+beforeEach(() => { try { localStorage.clear(); } catch { /* none */ } });
 const tick = ms => act(() => new Promise(r => setTimeout(r, ms)));
 
 test('open gates: every front-runner with its safety mark; callouts feed with each kind\'s record; tap opens the coin', async () => {
@@ -16,6 +21,8 @@ test('open gates: every front-runner with its safety mark; callouts feed with ea
   await act(async () => { root.render(<TrenchOpen max={10} />); }); await tick(30);
   const q = id => el.querySelector(`[data-testid="${id}"]`);
   expect(q('trench-open').textContent).toContain('12 of 140 coins');
+  expect(q('open-split')).not.toBeNull();   // ⚡ split is the default; ≡ List = the OG table
+  await act(async () => { q('open-l-list').click(); }); expect(q('open-split')).toBeNull(); expect(localStorage.getItem('feeless.openLayout')).toBe('list');
   expect(el.querySelectorAll('.top-tr:not(.top-th)').length).toBe(10);
   expect(q('open-C0').className).toContain('is-safe'); expect(q('open-C0').textContent).toContain('✅ safe'); expect(q('open-C0').textContent).toContain('🔥'); expect(q('open-C0').textContent).toContain('$C0'); expect(q('open-C0').textContent).toContain('24m');
   expect(q('open-C1').className).toContain('is-bad'); expect(q('open-C1').querySelector('.top-safe').getAttribute('data-tip')).toContain('Did not pass: top-10 < 20%');
@@ -24,9 +31,39 @@ test('open gates: every front-runner with its safety mark; callouts feed with ea
   expect(q('trench-open').textContent).toContain('EVERY 3.5 MIN');
   expect(q('call-kind-leader').textContent).toContain('-12%'); expect(q('call-kind-leader').textContent).toContain('33% up'); expect(q('call-kind-mover').textContent).toContain('2 of 5 settled');
   const feed = q('call-feed').textContent; for (const x of ['$C0', 'volume leader · called 5m ago', '+30%', 'since the call', '$ZED', 'fresh launch · called 2h ago', '-100%', 'after 1h']) expect(feed).toContain(x);
-  await act(async () => { q('open-view-C0').click(); }); expect(openCoin).toHaveBeenCalledWith({ mint: 'M0', pairAddress: 'P0', symbol: 'C0' });
+  await act(async () => { q('open-view-C0').click(); }); expect(document.querySelector('[data-testid="trench-quick"]').textContent).toContain('$C0');   // ⚡ quick look, not the side drawer
+  expect(openCoin).not.toHaveBeenCalled(); await act(async () => { document.querySelector('.tql-x').click(); }); expect(document.querySelector('[data-testid="trench-quick"]')).toBeNull();
+  await act(async () => { q('call-feed').querySelectorAll('button')[1].click(); }); expect(openCoin).toHaveBeenCalledWith(expect.objectContaining({ mint: 'MZ' }));   // a callout coin no longer on the list still opens the drawer
   // inside the swap picker every row has a Pick button that hands the coin to the picker
   const picked = jest.fn(); await act(async () => { root.render(<TrenchOpen max={10} onPick={picked} />); }); await tick(30);
   expect(q('open-view-C0')).toBeNull(); await act(async () => { q('open-pick-C1').click(); }); expect(picked).toHaveBeenCalledWith(expect.objectContaining({ mint: 'M1', symbol: 'C1' }));
+  await act(async () => { root.unmount(); });
+});
+
+test('split view: newest column youngest first, reads column by lane (hot calls ordered BOND RUN → NEAR BOND → SEND IT), quick look shows every vital + picks', async () => {
+  const tv = (word, tone, kind = 'trench', m = 70) => ({ kind, call: ['•', word, tone], meters: [['A', m], ['B', 20]], tags: [] });
+  const rows = [
+    { mint: 'A', pairAddress: 'PA', symbol: 'OLD', ageH: 5, mcap: 1e5, tv: tv('SEND IT', 'good'), safe: true, top10: 18, dev: 1, buyShare: 64, vol1h: 60000, vol5m: 9000, txns1h: 800 },
+    { mint: 'B', pairAddress: 'PB', symbol: 'BABY', ageH: 0.05, mcap: 9000, tv: tv('NEAR BOND', 'good', 'curve', 91), curvePct: 91, safe: null },
+    { mint: 'C', pairAddress: 'PC', symbol: 'RUN', ageH: 1, mcap: 3e4, tv: tv('BOND RUN', 'good', 'curve', 80), curvePct: 80, safe: true, insiders: 12 },
+    { mint: 'D', pairAddress: 'PD', symbol: 'RUG', ageH: 0.5, mcap: 2e4, tv: tv('RUG BAIT', 'bad'), safe: false, fails: ['top-10'] },
+    { mint: 'E', pairAddress: 'PE', symbol: 'MEH', ageH: 3, mcap: 2e4, tv: tv('WATCH', 'warn'), safe: null }];
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ rows, seen: 5, kinds: [], feed: [] }) }));
+  const { TrenchOpen } = require('./TrenchOpen');
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const picked = jest.fn();
+  await act(async () => { root.render(<TrenchOpen max={10} onPick={picked} />); }); await tick(30);
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  const syms = col => [...q(col).querySelectorAll('.tsp-card')].map(x => x.getAttribute('data-testid'));
+  expect(syms('split-new')).toEqual(['rc-BABY', 'rc-RUG', 'rc-RUN', 'rc-MEH', 'rc-OLD']);
+  expect(syms('split-reads')).toEqual(['rc-RUN', 'rc-BABY', 'rc-OLD']);   // 🔥 hot lane: best call first
+  expect(q('split-reads').textContent).toContain('NEAR BOND · 1'); expect(q('lane-avoid').textContent).toContain('1');
+  expect(q('split-new').querySelector('[data-testid="rc-BABY"]').textContent).toContain('🔔 91%');
+  await act(async () => { q('lane-avoid').click(); }); expect(syms('split-reads')).toEqual(['rc-RUG']);
+  await act(async () => { q('split-new').querySelector('[data-testid="rc-OLD"]').click(); }); await tick(30);
+  const ql = () => document.querySelector('[data-testid="trench-quick"]');
+  expect(ql().textContent).toContain('$OLD'); expect(ql().querySelector('[data-testid="tql-vitals"]').textContent).toContain('TOP 10'); expect(ql().textContent).toContain('18%');
+  expect(ql().querySelector('[data-testid="pc"]')).not.toBeNull();   // the live chart is in the panel
+  await act(async () => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' })); }); expect(ql().textContent).toContain('$MEH');   // ← → walk the same list
+  await act(async () => { ql().querySelector('[data-testid="tql-pick"]').click(); }); expect(picked).toHaveBeenCalledWith(expect.objectContaining({ mint: 'E' })); expect(ql()).toBeNull();
   await act(async () => { root.unmount(); });
 });
