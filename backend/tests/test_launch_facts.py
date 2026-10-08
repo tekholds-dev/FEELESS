@@ -60,3 +60,29 @@ def test_an_empty_holder_reading_is_incomplete_not_zero_percent(monkeypatch):
     out = asyncio.run(rs.token_intel('solana', mint))
     assert out['top10Pct'] is None and out['poolPct'] is None      # → the retry-after-60s path, never a clean 0%
     rs._launch_facts.pop(mint, None); rs._intel_cache.pop(mint, None)
+
+
+def test_one_scan_per_coin_in_flight_and_a_failed_one_is_not_re_queued_for_45s(monkeypatch):
+    rs = pytest.importorskip('reputation_service')
+    calls = []
+
+    async def slow_intel(chain, mint):
+        calls.append(mint)
+        await asyncio.sleep(0.05)
+        return {'mint': mint, 'top10Pct': 12.0, 'checkedAt': 1}
+
+    monkeypatch.setattr(rs, 'token_intel', slow_intel)
+    rs._intel_cache.pop('DedupeMint', None); rs._intel_inflight.clear(); rs._intel_failed.clear()
+
+    async def go():
+        return await asyncio.gather(*[rs._runner_intel('DedupeMint') for _ in range(8)])   # 8 board builds ask for the same coin at once
+    out = asyncio.run(go())
+    assert len(calls) == 1 and all(o and o['top10Pct'] == 12.0 for o in out)
+
+    async def boom(chain, mint):
+        calls.append('boom')
+        raise RuntimeError('pool exhausted')
+    monkeypatch.setattr(rs, 'token_intel', boom)
+    calls.clear(); rs._intel_cache.pop('FailMint', None)
+    assert asyncio.run(rs._runner_intel('FailMint')) is None and asyncio.run(rs._runner_intel('FailMint')) is None
+    assert calls == ['boom']       # the second ask inside 45s never reaches the RPC

@@ -5300,16 +5300,38 @@ def _runner_cfg():
 _runner_sem = asyncio.Semaphore(4)
 
 
-async def _runner_intel(mint):
+_intel_inflight: dict = {}   # mint → the ONE scan in flight (every board build used to queue its own copy of the same scan behind the 4-slot semaphore)
+_intel_failed: dict = {}     # mint → when its last scan failed (not asked again for 45s, so the coins behind it get their turn)
+
+
+def _intel_fresh(mint):
     hit = _intel_cache.get(mint)
-    # an INCOMPLETE scan (no top-10 — RPC hiccup) is retried after 60s instead of failing the coin for the whole TTL
-    if hit and time.time() - hit[0] < (INTEL_TTL if (hit[1] or {}).get('top10Pct') is not None else 60):
-        return hit[1]
+    return hit[1] if hit and time.time() - hit[0] < (INTEL_TTL if (hit[1] or {}).get('top10Pct') is not None else 60) else None
+
+
+async def _runner_intel_scan(mint):
     async with _runner_sem:
+        got = _intel_fresh(mint)   # a copy that waited in the queue finds the scan already done
+        if got is not None:
+            return got
         try:
             return await asyncio.wait_for(token_intel('solana', mint), 12)
         except Exception:
+            _intel_failed[mint] = time.time()
             return None
+
+
+async def _runner_intel(mint):
+    got = _intel_fresh(mint)
+    if got is not None:
+        return got
+    if time.time() - _intel_failed.get(mint, 0.0) < 45:
+        return None
+    task = _intel_inflight.get(mint)
+    if task is None:
+        task = _intel_inflight[mint] = asyncio.ensure_future(_runner_intel_scan(mint))
+        task.add_done_callback(lambda _t, m=mint: _intel_inflight.pop(m, None))
+    return await asyncio.shield(task)
 
 
 _runner_widen = {'level': 0, 'at': 0.0, 'log': []}
