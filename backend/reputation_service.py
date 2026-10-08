@@ -5670,7 +5670,7 @@ async def _callout_tick(now):
     st = doc.get('state') or {}
     due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
     jp = await _jup_prices(due) if due else {}
-    st = _trench.meta_track(st, {k: [(r['mint'], r['price']) for r in v] for k, v in calls.items()}, lambda m: (jp or {}).get(m), now, keys=_trench.CALLOUTS)
+    st = _trench.meta_track(st, {k: [(r['mint'], r['price'], r.get('ageH')) for r in v] for k, v in calls.items()}, lambda m: (jp or {}).get(m), now, keys=_trench.CALLOUTS)
     names = dict(doc.get('names') or {})
     for v in calls.values():
         for r in v:
@@ -5692,6 +5692,7 @@ async def fuse_trench_open():
     calling = {m: k for k, v in (_open_cache.get('calls') or {}).items() for m in v}
     return {'rows': [{**r, 'call': calling.get(r['mint'])} for r in rows], 'seen': len(_open_pairs), 'everySec': _trench.CALLOUT_SEC, 'at': _open_cache.get('at') or None,
             'kinds': [{'key': k, 'icon': v[0], 'name': v[1], 'rule': v[2], 'proof': proof.get(k)} for k, v in _trench.CALLOUTS.items()],
+            'earliness': _trench.earliness(doc.get('state') or {}),
             'feed': _trench.callout_feed(doc.get('state') or {}, doc.get('names') or {}, now_px, time.time())}
 TRENCH_SCAN = 8   # on-chain holder counts are heavy: only the 5 busiest coins that already pass every cheap check
 
@@ -6920,6 +6921,23 @@ async def _prime_unique_fix(now):
     return True
 
 
+async def _real_hold_fix(now):
+    """🍳 OWNER'S CALL (2026-10-08, "do all" after the pay-map): once, the real card lets a coin cook — min hold 30 min (round rotation, mover swaps,
+    trench fills and re-shapes wait; stops, rug shield, floor, the owner's hand still act at once) and a trench / ticket coin's initial comes out at +100%.
+    Evidence: held 30+ min 61% won +$5.32, sold inside 15 min 28% won −$17.55. The 5-min clock is untouched. Old values: data/realcfg_before_hold30.json."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        if pr.get('holdFix1') or not pr.get('realCfg'):
+            return False
+        rc = pr['realCfg']; new = {'minHoldMins': 30.0, 'trenchHouseAt': 100}
+        _json_save(DATA_DIR / 'realcfg_before_hold30.json', {k: rc.get(k) for k in new})
+        pr['realCfg'] = _prime.clean_cfg({**rc, **new})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(new))
+        pr['holdFix1'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _prime_reset_paper(now):
     """🔁 Start every paper tier card over at $20, once. Their old runs go to the permanent record + `prime.archive`; the tick deals
     fresh cards at the new size right after. Real-money cards keep running exactly as they are."""
@@ -6988,6 +7006,7 @@ def _paper_broke(d, cards, px, now):
 async def _prime_tick_inner(now):
     await _prime_unique_fix(now)
     await _prime_reset_paper(now)
+    await _real_hold_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
         return 0
@@ -7061,7 +7080,7 @@ async def _prime_tick_inner(now):
         # never buys one in a runner storm. The real-money runner age rule doesn't apply to them: the trench gate replaces it.
         tr_floor = _fw.clean_cfg(fw_cfg)['trenchMinLiqUsd']   # paper uses the same floor (paper = what real money could buy)
         # 🗑 `trenchAuto` off (the owner's switch): the engine is handed NO trench coin — they stay on the list for the owner's hand
-        if cfg_t.get('trenchAuto', True) and not (real_t and (_real_weather()['level'] == 'storm' or _prime.list_paused(_list_records(), 'trench'))):
+        if cfg_t.get('trenchAuto', True) and not (real_t and (_real_weather()['level'] == 'storm')):
             # 🗑 THE TRENCH DROP reads the whole trench LIST, not the trench settings (owner: "no settings or configs — one of the
             # best possible coins from the trench list"): coins passing the owner's filter, then the engine scan's own passes, then
             # coins that clear every SAFETY check and miss only a crowd / age / size line. Safety is never skipped. Smart entry
@@ -7281,8 +7300,8 @@ async def _prime_tick_inner(now):
         # 🔭 SCOUT & PROMOTE (cfg `scoutPct` > 0) replaces the plain mover swap: one small ticket hops between movers every round;
         # a scout that proves itself is promoted to a full-size holder (arena_prime.scout_step).
         _lrec = _list_records() if real_t else {}
-        _movers_off = _prime.list_paused(_lrec, 'movers')   # movers' own 1h record is a clear loser → neither the scout nor the mover swap buys from it
-        if real_t and cur and not _movers_off and _fuse._f(cfg_t.get('scoutPct')) > 0 and now - _fuse._f(cur.get('scoutAt')) >= max(120.0, _fuse._f(cfg_t.get('rotateHours')) * 3600 * 0.9):
+        _movers_off = _prime.list_paused(_lrec, 'movers')   # movers' own 1h record is a clear loser → the FULL-SIZE mover swap sits out (the scout's small ticket still hunts)
+        if real_t and cur and _fuse._f(cfg_t.get('scoutPct')) > 0 and now - _fuse._f(cur.get('scoutAt')) >= max(120.0, _fuse._f(cfg_t.get('rotateHours')) * 3600 * 0.9):
             was_ = cur
             hot_s = [x for x in [y for y in r_pre_ if y.get('comeback')] + _prime.movers(r_t, cfg_t) + _prime.movers(r_pre_, {}) if x.get('mint') not in mine and x.get('mint') not in cool and x.get('mint') not in taken]
             nw_ = _prime.scout_step(cur, px, _prime.flow_rank(list({x['mint']: x for x in reversed(hot_s)}.values())[::-1]), cfg_t, now, p_t, anchors)   # the scout takes the best-LOOKING mover, not just the biggest hour

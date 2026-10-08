@@ -6,6 +6,7 @@ into plain sentences that cite them. It never changes a card: the owner decides 
 · whole coins leaving −$23.8 (24% won)."""
 from collections import defaultdict
 
+SIZE_BUCKETS = (('<$0.50', 0, 0.5), ('$0.50-2', 0.5, 2), ('$2+', 2, 1e9))   # a piece's cost
 HOLD_BUCKETS = (('<5m', 0, 5), ('5-15m', 5, 15), ('15-30m', 15, 30), ('30-60m', 30, 60), ('1-3h', 60, 180), ('3h+', 180, 1e9))
 TRIM_WORDS = ('trim', 'lock', 'skim', 'peak', 'bank', 'recycle', 'profit')
 
@@ -53,8 +54,10 @@ def _agg(ps):
     if not n:
         return {'n': 0, 'wonPct': None, 'usd': 0.0, 'cost': 0.0, 'pct': None, 'avgRet': None}
     usd, cost = sum(p['usd'] for p in ps), sum(p['cost'] for p in ps)
+    hrs = sum(p['cost'] * max(p['hold'], 0.5) / 60.0 for p in ps)   # $-hours the money was in coins
     return {'n': n, 'wonPct': round(100 * sum(1 for p in ps if p['usd'] > 0) / n), 'usd': round(usd, 2), 'cost': round(cost, 2),
-            'pct': round(100 * usd / cost, 1) if cost > 0 else None, 'avgRet': round(100 * sum(p['ret'] for p in ps) / n, 1)}
+            'pct': round(100 * usd / cost, 1) if cost > 0 else None, 'avgRet': round(100 * sum(p['ret'] for p in ps) / n, 1),
+            'perHr': round(100 * usd / hrs, 1) if hrs > 0 else None}   # profit SPEED: % of the money per hour it sat in coins
 
 
 def bucket_of(minutes):
@@ -67,6 +70,7 @@ def pay_map(ledger, card, now, hours=None):
     by_hold = {l: _agg([p for p in ps if bucket_of(p['hold']) == l]) for l, _, _ in HOLD_BUCKETS}
     by_kind = {k: _agg([p for p in ps if p['kind'] == k]) for k in ('trim', 'whole', 'recovery')}
     by_opener = {'you': _agg([p for p in ps if p['you']]), 'engine': _agg([p for p in ps if not p['you']])}
+    by_size = {l: _agg([p for p in ps if a <= p['cost'] < b]) for l, a, b in SIZE_BUCKETS}
     blocks = {}
     for p in ps:
         import time as _t
@@ -92,5 +96,10 @@ def pay_map(ledger, card, now, hours=None):
         best, worst = max(good, key=lambda kv: kv[1]['pct'] if kv[1]['pct'] is not None else -999), min(good, key=lambda kv: kv[1]['pct'] if kv[1]['pct'] is not None else 999)
         if best[1]['pct'] is not None and worst[1]['pct'] is not None and best[1]['pct'] - worst[1]['pct'] >= 3:
             adv.append({'key': 'hour', 'text': f"Best 4-hour window (UTC): {best[0]} at {best[1]['pct']:+.1f}% ({best[1]['n']} pieces). Worst: {worst[0]} at {worst[1]['pct']:+.1f}% ({worst[1]['n']} pieces)."})
-    return {'pieces': len(ps), 'netUsd': round(sum(p['usd'] for p in ps), 2), 'byHold': by_hold, 'byKind': by_kind, 'byOpener': by_opener, 'byHour': by_hour, 'advice': adv,
+    sz = [v for v in by_size.values() if v['n'] >= 40 and v['pct'] is not None]
+    if len(sz) >= 2:
+        lo, hi = min(v['pct'] for v in sz), max(v['pct'] for v in sz)
+        adv.append({'key': 'scale', 'text': ("Size doesn't change the result: every size bucket lands within " + f"{hi - lo:.1f} pts of each other, so $2 and $100 are ONE population — learn from all of it and scale the stake; the only difference is how fast the money earns (turnover × % per hour)."
+                    if hi - lo < 3 else f"Size DOES change the result here ({lo:+.1f}% to {hi:+.1f}%): small pieces pay more in swap cost — fix the cost, not the picks.")})
+    return {'pieces': len(ps), 'bySize': by_size, 'netUsd': round(sum(p['usd'] for p in ps), 2), 'byHold': by_hold, 'byKind': by_kind, 'byOpener': by_opener, 'byHour': by_hour, 'advice': adv,
             'note': 'Price result of confirmed fills, matched first-in-first-out; fees apart. A record of what happened, never a promise.'}

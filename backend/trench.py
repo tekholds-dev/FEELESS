@@ -229,12 +229,14 @@ def meta_track(state, passing, price_of, now, keys=None):
         for mint, o in list(opened.items()):
             if now - _f(o.get('at')) >= PROOF_SEC:
                 px = _f(price_of(mint))
-                done.append({'mint': mint, 'at': now, 'pct': round((px / _f(o['px']) - 1) * 100, 2) if px > 0 and _f(o.get('px')) > 0 else -100.0})
+                done.append({'mint': mint, 'at': now, 'pct': round((px / _f(o['px']) - 1) * 100, 2) if px > 0 and _f(o.get('px')) > 0 else -100.0,
+                             **({'age': o['age']} if o.get('age') is not None else {})})
                 opened.pop(mint)
         recent = {d['mint'] for d in done if now - _f(d.get('at')) < 6 * 3600}
-        for mint, px in (passing or {}).get(key) or []:
+        for item in (passing or {}).get(key) or []:
+            mint, px = item[0], item[1]
             if mint and _f(px) > 0 and mint not in opened and mint not in recent:
-                opened[mint] = {'px': _f(px), 'at': now}
+                opened[mint] = {'px': _f(px), 'at': now, **({'age': round(_f(item[2]), 3)} if len(item) > 2 and item[2] is not None else {})}   # age (h) when we first saw it
         out[key] = {'open': opened, 'done': done[-PROOF_KEEP:]}
     return out
 
@@ -250,6 +252,23 @@ def meta_proof(state, keys=None):
         won = round(sum(1 for x in ps if x > 0) / n * 100) if n else None
         out[key] = {'n': n, 'medPct': None if med is None else round(med, 1), 'wonPct': won, 'open': len(((state or {}).get(key) or {}).get('open') or {}),
                     'proven': bool(n >= PROOF_MIN and med > 0 and won >= 50)}
+    return out
+
+
+AGE_BUCKETS = (('<15m', 0, 0.25), ('15-60m', 0.25, 1), ('1-3h', 1, 3), ('3h+', 3, 1e9))
+
+
+def earliness(state, keys=None):
+    """⏱ Does being EARLY pay? Settled coins grouped by how old they were when first seen: {bucket: {n, medPct, wonPct, big (≥ +50%), dead (≤ −90%)}}.
+    Only coins whose age was recorded count. A record, never a promise: it says whether the earliest door is worth more than a later one."""
+    out = {}
+    done = [d for k in (keys or CALLOUTS) for d in ((state or {}).get(k) or {}).get('done') or [] if d.get('age') is not None]
+    for label, a, b in AGE_BUCKETS:
+        ps = sorted(_f(d.get('pct')) for d in done if a <= _f(d.get('age')) < b)
+        n = len(ps)
+        med = (ps[n // 2] if n % 2 else (ps[n // 2 - 1] + ps[n // 2]) / 2) if n else None
+        out[label] = {'n': n, 'medPct': None if med is None else round(med, 1), 'wonPct': round(sum(1 for x in ps if x > 0) / n * 100) if n else None,
+                      'big': sum(1 for x in ps if x >= 50), 'dead': sum(1 for x in ps if x <= -90)}
     return out
 
 

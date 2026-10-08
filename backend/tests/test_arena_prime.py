@@ -2281,10 +2281,13 @@ def test_category_picks_pauses_a_list_whose_own_record_is_a_clear_loser():
     lists = {'trench': [{'mint': 'T1'}], 'ptrend': [{'mint': 'P1'}], 'volume': [{'mint': 'V1'}]}
     rec = {'trench': {'n': 34, 'medPct': -72.0}, 'ptrend': {'n': 60, 'medPct': -2.5}, 'volume': {'n': 60, 'medPct': -6.3}}
     picks, miss = ap.category_picks(lists, lambda r: True, rec)
-    assert [p['cat'] for p in picks] == ['ptrend', 'volume']
-    assert 'paused' in miss['trench']
-    thin = {'trench': {'n': 10, 'medPct': -72.0}}   # too few settled coins to judge
-    assert 'trench' in [p['cat'] for p in ap.category_picks(lists, lambda r: True, thin)[0]]
+    assert [p['cat'] for p in picks] == ['trench', 'ptrend', 'volume']   # trench is a small ticket: a median never pauses it
+    lists['volume'] = [{'mint': 'V1'}]
+    bad = {**rec, 'volume': {'n': 60, 'medPct': -40.0}}
+    p2, m2 = ap.category_picks(lists, lambda r: True, bad)
+    assert 'volume' not in [p['cat'] for p in p2] and 'paused' in m2['volume']
+    thin = {'volume': {'n': 10, 'medPct': -72.0}}   # too few settled coins to judge
+    assert 'volume' in [p['cat'] for p in ap.category_picks(lists, lambda r: True, thin)[0]]
 
 
 def test_list_paused_needs_enough_settled_coins_and_a_clear_loss():

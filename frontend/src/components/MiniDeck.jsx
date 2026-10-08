@@ -48,7 +48,7 @@ export function MiniMine() {
   // 💵 the owner's real-money tier cards live in /fuses/prime (not in the trader positions) — shown to the owner / staff wallet only
   const [real, setReal] = useState([]);
   useEffect(() => { if (!addr) return undefined; let alive = true; let t;
-    fetch(apiUrl(`/api/reputation/admin/is-admin/${addr}`)).then(r => r.json()).then(d => { if (!alive || !(d.owner || d.admin)) return;
+    sharedJson(`/api/reputation/admin/is-admin/${addr}`, { maxAge: 60000 }).then(d => { if (!alive || !(d?.owner || d?.admin)) return;
       const load = first => { if (first || !document.hidden) sharedJson('/api/reputation/fuses/prime').then(x => alive && x && setReal((x.cards || []).filter(c => c.real))).catch(() => {}); };
       load(true); t = setInterval(() => load(false), 15000); }).catch(() => {});
     return () => { alive = false; clearInterval(t); }; }, [addr]);

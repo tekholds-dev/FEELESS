@@ -57,7 +57,9 @@ export function TrenchOpen({ max = 10, onPick, busy }) {
     <div className="top-head"><span className="m-label">📣 CALLOUTS · CHECKED EVERY {Math.round((d.everySec || 210) / 60 * 10) / 10} MIN</span>
       <small className="m-dim">A coin is called once when it first leads a list; we then track what it did. Record so far:</small>
       <span className="top-kinds">{(d.kinds || []).map(k => <span key={k.key} className="top-kind" data-testid={`call-kind-${k.key}`} data-tip={`${k.name}: ${k.rule}. Settled 1 hour after the call (no price then = −100%). A record, never a promise.`}>
-        {k.icon} {k.name}: {k.proof?.n >= 5 ? <b className={k.proof.medPct > 0 ? 'm-pos' : 'm-neg'}>typical {sg(k.proof.medPct)} after 1h · {k.proof.wonPct}% up</b> : <b className="m-dim">{k.proof?.n || 0} of 5 settled — too early</b>}</span>)}</span></div>
+        {k.icon} {k.name}: {k.proof?.n >= 5 ? <b className={k.proof.medPct > 0 ? 'm-pos' : 'm-neg'}>typical {sg(k.proof.medPct)} after 1h · {k.proof.wonPct}% up</b> : <b className="m-dim">{k.proof?.n || 0} of 5 settled — too early</b>}</span>)}
+        {Object.entries(d.earliness || {}).filter(([, v]) => v.n >= 5).map(([label, v]) => <span key={label} className="top-kind" data-testid={`early-${label}`} data-tip="Does being early pay? Coins grouped by how old they were when first called out; settled 1 hour later. A record, never a promise.">
+          ⏱ seen at {label}: <b className={v.medPct > 0 ? 'm-pos' : 'm-neg'}>typical {sg(v.medPct)} · {v.big} ran +50% · {v.dead} died</b></span>)}</span></div>
     {(d.feed || []).length ? <ul className="top-feed" data-testid="call-feed">{d.feed.slice(0, 8).map(c => <li key={`${c.kind}-${c.mint}-${c.at}`}><button type="button" onClick={() => open(c)}>
       <i>{ICON[c.kind]}</i><b>${c.symbol || `${String(c.mint).slice(0, 4)}…`}</b><span>{KIND[c.kind]} · called {c.mins < 60 ? `${c.mins}m` : `${Math.round(c.mins / 60)}h`} ago</span>
       <em className={`m-num ${Number(c.pct) >= 0 ? 'm-pos' : 'm-neg'}`}>{sg(c.pct)}</em><u>{c.live ? 'since the call' : 'after 1h'}</u></button></li>)}</ul>

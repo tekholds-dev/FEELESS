@@ -950,6 +950,9 @@ def seat_fallback_ok(x, mom=None):
 CATEGORIES = (('trench', '🗑 Trench'), ('ptrend', '🔥 Pump trending'), ('volume', '🌊 Volume'), ('bottom', '🟢 Dips & bottoms'))
 
 
+# Lists bought as small TICKETS (a 10x lottery: tiny money in, initial out at the gain, the rest rides) are never paused by a median — the owner
+# turned $1-2 into 5x on three Pump coins, and a median can't see a fat tail. Full-size seats still obey it.
+TICKET_LISTS = ('trench',)
 LOSING_LIST_N = 30        # settled coins before a list can be paused
 LOSING_LIST_MED = -20.0   # median 1h result at or under this = the engine stops buying from it
 
@@ -975,7 +978,7 @@ def category_picks(lists, ok, records=None, limit=6):
         rows = (lists or {}).get(k) or []
         pick, why = None, {}
         r_ = rec.get(k) or {}
-        if _f(r_.get('n')) >= LOSING_LIST_N and _f(r_.get('medPct')) <= LOSING_LIST_MED:
+        if k not in TICKET_LISTS and _f(r_.get('n')) >= LOSING_LIST_N and _f(r_.get('medPct')) <= LOSING_LIST_MED:
             # a list whose own settled record is a clear loser is not bought by the engine (still listed, hand-pickable)
             misses[k] = f"paused — its own record: median {_f(r_.get('medPct')):+.0f}% an hour later over {int(_f(r_.get('n')))} coins"
             continue

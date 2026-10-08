@@ -1,4 +1,5 @@
 import { cropImage } from './cropImage';
+import { sharedJson } from './sharedJson';
 import { slimGif } from './slimGif';
 import { useCallback, useEffect, useState } from 'react';
 import { useWallet } from '../hooks/useWallet';
@@ -15,7 +16,7 @@ export function useAdmin() {
   const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
     if (!address) { setIsAdmin(false); return; }
-    fetch(apiUrl(`/api/reputation/admin/is-admin/${address}`)).then(r => r.json()).then(d => setIsAdmin(!!d.admin)).catch(() => setIsAdmin(false));
+    sharedJson(`/api/reputation/admin/is-admin/${address}`, { maxAge: 60000 }).then(d => setIsAdmin(!!d?.admin)).catch(() => setIsAdmin(false));
   }, [address]);
   const call = useCallback(async (path, opts = {}) => {
     let s = read(address);
