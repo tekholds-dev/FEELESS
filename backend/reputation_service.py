@@ -7060,7 +7060,7 @@ async def _prime_tick_inner(now):
         # never buys one in a runner storm. The real-money runner age rule doesn't apply to them: the trench gate replaces it.
         tr_floor = _fw.clean_cfg(fw_cfg)['trenchMinLiqUsd']   # paper uses the same floor (paper = what real money could buy)
         # 🗑 `trenchAuto` off (the owner's switch): the engine is handed NO trench coin — they stay on the list for the owner's hand
-        if cfg_t.get('trenchAuto', True) and not (real_t and _real_weather()['level'] == 'storm'):
+        if cfg_t.get('trenchAuto', True) and not (real_t and (_real_weather()['level'] == 'storm' or _prime.list_paused(_list_records(), 'trench'))):
             # 🗑 THE TRENCH DROP reads the whole trench LIST, not the trench settings (owner: "no settings or configs — one of the
             # best possible coins from the trench list"): coins passing the owner's filter, then the engine scan's own passes, then
             # coins that clear every SAFETY check and miss only a crowd / age / size line. Safety is never skipped. Smart entry
@@ -7279,13 +7279,15 @@ async def _prime_tick_inner(now):
         # hunt-ready coin waited on the board (2026-10-06: $USDP +2% held, $GOMO +44% / $123K an hour not bought).
         # 🔭 SCOUT & PROMOTE (cfg `scoutPct` > 0) replaces the plain mover swap: one small ticket hops between movers every round;
         # a scout that proves itself is promoted to a full-size holder (arena_prime.scout_step).
-        if real_t and cur and _fuse._f(cfg_t.get('scoutPct')) > 0 and now - _fuse._f(cur.get('scoutAt')) >= max(120.0, _fuse._f(cfg_t.get('rotateHours')) * 3600 * 0.9):
+        _lrec = _list_records() if real_t else {}
+        _movers_off = _prime.list_paused(_lrec, 'movers')   # movers' own 1h record is a clear loser → neither the scout nor the mover swap buys from it
+        if real_t and cur and not _movers_off and _fuse._f(cfg_t.get('scoutPct')) > 0 and now - _fuse._f(cur.get('scoutAt')) >= max(120.0, _fuse._f(cfg_t.get('rotateHours')) * 3600 * 0.9):
             was_ = cur
             hot_s = [x for x in [y for y in r_pre_ if y.get('comeback')] + _prime.movers(r_t, cfg_t) + _prime.movers(r_pre_, {}) if x.get('mint') not in mine and x.get('mint') not in cool and x.get('mint') not in taken]
             nw_ = _prime.scout_step(cur, px, _prime.flow_rank(list({x['mint']: x for x in reversed(hot_s)}.values())[::-1]), cfg_t, now, p_t, anchors)   # the scout takes the best-LOOKING mover, not just the biggest hour
             if nw_ is not cur:
                 cur = _prime.note_dropped(was_, {**nw_, 'scoutAt': now}, now, cfg_t['rotateHours'], px)
-        elif real_t and cur and cfg_t.get('moverSwap', True) and not cur.get('holdAll') and not cur.get('flooredAt') and now - _fuse._f(cur.get('moverAt')) >= _prime.MOVER_EVERY_SEC:
+        elif real_t and cur and not _movers_off and cfg_t.get('moverSwap', True) and not cur.get('holdAll') and not cur.get('flooredAt') and now - _fuse._f(cur.get('moverAt')) >= _prime.MOVER_EVERY_SEC:
             hot_ = [x for x in _prime.movers(r_t, cfg_t) if x.get('mint') not in mine]
             fl_ = _prime.flat_leg(cur, px, now, max(_prime.FLAT_HOLD_SEC, _fuse._f(cfg_t.get('minHoldMins')) * 60)) if hot_ else None
             if fl_:

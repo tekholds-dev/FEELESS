@@ -950,6 +950,16 @@ def seat_fallback_ok(x, mom=None):
 CATEGORIES = (('trench', '🗑 Trench'), ('ptrend', '🔥 Pump trending'), ('volume', '🌊 Volume'))
 
 
+LOSING_LIST_N = 30        # settled coins before a list can be paused
+LOSING_LIST_MED = -20.0   # median 1h result at or under this = the engine stops buying from it
+
+
+def list_paused(records, key):
+    """True when a list's OWN settled 1h record is a clear loser (n >= LOSING_LIST_N, median <= LOSING_LIST_MED)."""
+    r = (records or {}).get(key) or {}
+    return _f(r.get('n')) >= LOSING_LIST_N and _f(r.get('medPct')) <= LOSING_LIST_MED
+
+
 def category_picks(lists, ok, records=None, limit=6):
     """⏭ COMING UP = ONE coin per category, the best from the TOP of that list (owner: "pick 1 of the best from the top for swap in
     categories"). Each list is walked in its own order; the first coin `ok(row)` accepts (safety scan, pool floor, min age, a sane
@@ -964,6 +974,11 @@ def category_picks(lists, ok, records=None, limit=6):
     for k, label in order:
         rows = (lists or {}).get(k) or []
         pick, why = None, {}
+        r_ = rec.get(k) or {}
+        if _f(r_.get('n')) >= LOSING_LIST_N and _f(r_.get('medPct')) <= LOSING_LIST_MED:
+            # a list whose own settled record is a clear loser is not bought by the engine (still listed, hand-pickable)
+            misses[k] = f"paused — its own record: median {_f(r_.get('medPct')):+.0f}% an hour later over {int(_f(r_.get('n')))} coins"
+            continue
         for i, r in enumerate(rows[:60]):
             m = r.get('mint')
             if not m or m in taken:

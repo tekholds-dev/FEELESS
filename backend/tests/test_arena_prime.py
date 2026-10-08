@@ -2274,3 +2274,22 @@ def test_parked_profit_never_exceeds_the_real_cash_and_the_newest_rows_give_way(
     assert ap.clamp_hold(ok) == 0.0 and ok['holdCashUsd'] == 1.0                                       # cash covers it: untouched
     paper = {'real': False, 'cash': 0.1, 'holdCashUsd': 1.0, 'skimPark': [{'usd': 1.0}]}
     assert ap.clamp_hold(paper) == 0.0 and paper['holdCashUsd'] == 1.0                                  # a paper card's cash is exact
+
+
+def test_category_picks_pauses_a_list_whose_own_record_is_a_clear_loser():
+    import arena_prime as ap
+    lists = {'trench': [{'mint': 'T1'}], 'ptrend': [{'mint': 'P1'}], 'volume': [{'mint': 'V1'}]}
+    rec = {'trench': {'n': 34, 'medPct': -72.0}, 'ptrend': {'n': 60, 'medPct': -2.5}, 'volume': {'n': 60, 'medPct': -6.3}}
+    picks, miss = ap.category_picks(lists, lambda r: True, rec)
+    assert [p['cat'] for p in picks] == ['ptrend', 'volume']
+    assert 'paused' in miss['trench']
+    thin = {'trench': {'n': 10, 'medPct': -72.0}}   # too few settled coins to judge
+    assert 'trench' in [p['cat'] for p in ap.category_picks(lists, lambda r: True, thin)[0]]
+
+
+def test_list_paused_needs_enough_settled_coins_and_a_clear_loss():
+    import arena_prime as ap
+    assert ap.list_paused({'movers': {'n': 60, 'medPct': -71}}, 'movers') is True
+    assert ap.list_paused({'movers': {'n': 12, 'medPct': -71}}, 'movers') is False
+    assert ap.list_paused({'movers': {'n': 60, 'medPct': -5}}, 'movers') is False
+    assert ap.list_paused({}, 'movers') is False
