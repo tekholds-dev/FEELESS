@@ -97,3 +97,20 @@ def test_curve_dip_reads_and_the_dead_check():
     assert ja.dead_why({'vol1h': 50000, 'vol5m': 2000, 'txns1h': 300}) is None
     assert ja.pick_read({}, {'curvePct': 30})['kind'] == 'curve' and ja.pick_read({}, {'chg1h': -25})['kind'] == 'dip'
     assert ja.pick_read({}, {'ageH': 1})['kind'] == 'trench' and ja.pick_read({}, {'ageH': 50, 'chg1h': 5}) is None
+
+
+def test_coin_read_gives_the_vital_and_the_read_for_one_coin(monkeypatch):
+    import asyncio
+    import reputation_service as rs
+    async def lite(ms): return {}
+    monkeypatch.setattr(rs, '_jup_lite', lite)
+    m = 'So1aNaMint1111111111111111111111111111111111'
+    rs._jup_facts[m] = (0, {'top10': 14, 'devMints': 6, 'devGrads': 3, 'organicPct': 20, 'holderChg1h': 60, 'mintOff': True, 'freezeOff': True})
+    monkeypatch.setattr(rs, '_runner_cands', [{'mint': m, 'symbol': 'GARY', 'ageH': 2.0, 'vol1h': 40000, 'vol5m': 9000, 'buyShare': 66, 'chg5m': 6, 'chg1h': 20}])
+    rs._coin_read_cache.clear()
+    out = asyncio.run(rs.coin_read(m))
+    assert out['vital']['grade'] and out['tv']['kind'] == 'trench' and out['tv']['call'][1] in ('SEND IT', 'WATCH') and out['onBoard']
+    import pytest
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException):
+        asyncio.run(rs.coin_read('nope'))

@@ -122,8 +122,11 @@ export default function EcosystemWorld({ ecosystem, pad, initialPair, onClose })
 
       <div className="eco-world-grid">
         <div className="eco-chat-col" data-testid="eco-world-chat">
-          <div className="eco-chat-label"><Radio size={13} /> LIVE COMMUNITY · #{room}</div>
-          <EcosystemChat key={room} ecosystem={{ ...ecosystem, id: room, name: ecosystem.name }} />
+          {/* ONE chat (owner): with a coin's chart open, this column IS that coin's room; otherwise the chain's room */}
+          {chartPair ? <><div className="eco-chat-label"><Radio size={13} /> ${chartPair.baseToken?.symbol || ''} CHAT · traders on this coin</div>
+            <EcosystemChat key={chartPair.pairAddress} room={`coin-${chartPair.chainId}-${chartPair.pairAddress}-trenches`} ecosystem={{ id: `coin-${chartPair.pairAddress}`, name: `$${chartPair.baseToken?.symbol || ''}` }} /></>
+            : <><div className="eco-chat-label"><Radio size={13} /> LIVE COMMUNITY · #{room}</div>
+            <EcosystemChat key={room} ecosystem={{ ...ecosystem, id: room, name: ecosystem.name }} /></>}
         </div>
 
         <div className="eco-right-col custom-scroll">
@@ -134,8 +137,7 @@ export default function EcosystemWorld({ ecosystem, pad, initialPair, onClose })
                 <i>{chartPair.baseToken.address.slice(0, 4)}…{chartPair.baseToken.address.slice(-4)}</i> ⧉</button>}
               <a className="m-btn cv-profile" href={`/terminal/coin/${chartPair.chainId}/${chartPair.baseToken?.address || chartPair.pairAddress}`} target="_blank" rel="noreferrer" data-testid="chart-profile" data-tip="This coin's full profile: Pump record, links, creator, holders">Profile ↗</a><button type="button" className="eco-chart-x" aria-label={chartBig ? 'Shrink chart' : 'Expand chart'} title={chartBig ? 'Shrink (Esc)' : 'Expand'} onClick={() => { if (!chartBig) setWinPos(centred()); setChartBig(b => !b); setTimeout(() => window.dispatchEvent(new Event('resize')), 60); }}>{chartBig ? '⤡' : '⤢'}</button><button type="button" className="eco-chart-x" aria-label="Close chart" onClick={() => { setChartPair(null); setChartBig(false); }}><X size={14} /></button></div>
             <ChartVitals pair={liveChartPair} />
-            <div className="eco-chart-body"><React.Suspense fallback={<div className="chart-message"><span className="loader" />Loading chart…</div>}><TrenchChart key={chartPair.pairAddress} pair={liveChartPair} className="eco-trench"
-              aside={<div className="eco-chart-chat" data-testid="eco-chart-chat"><EcosystemChat key={chartPair.pairAddress} compact room={`coin-${chartPair.chainId}-${chartPair.pairAddress}-trenches`} ecosystem={{ id: `coin-${chartPair.pairAddress}`, name: `$${chartPair.baseToken?.symbol || ''}` }} /></div>} /></React.Suspense></div>
+            <div className="eco-chart-body"><React.Suspense fallback={<div className="chart-message"><span className="loader" />Loading chart…</div>}><TrenchChart key={chartPair.pairAddress} pair={liveChartPair} className="eco-trench" /></React.Suspense></div>
           </div>}
           {(ecosystem?.chainId || 'solana') === 'solana' && <DegenWeather compact scope={['pump', 'bonk', 'raydium'].includes(ecosystem?.id) ? ecosystem.id : 'launchpads'} />}
           <div className="activity-pulse" data-testid="eco-activity-pulse">

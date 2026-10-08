@@ -76,9 +76,9 @@ export function TrenchVital({ r, mini = false }) {
   </div>;
 }
 
-export function CoinVital({ r, live = false }) {
+export function CoinVital({ r, live = false, only }) {
   const v = r?.vital;
-  if (r?.tv) return <TrenchVital r={r} />;   // a brand-new coin: the degen read decides more than spread / dev / crew
+  if (r?.tv && only !== 'vital') return <TrenchVital r={r} />;   // a brand-new coin: the degen read decides more than spread / dev / crew
   if (!v) return <RowVitals r={r} live={live} />;
   const crew = v.crew || r.crew;
   return <div className={`cvl cvl-${v.tone}`} data-testid={`cvl-${r.symbol}`}>

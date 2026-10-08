@@ -2228,3 +2228,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🏠 HELD FOR YOU → BACK TO WORK (`arena_prime.release_held`, admin prime `{releaseHeld: {tpl, pairAddress?}}`, select `hrt-held-go` on the 🏠 chip):
   into the card (it becomes idle card cash, spread into the coins) or into ONE coin (its target grows by the held $, the keeper buys the difference;
   leg `ownerAddAt` → not a donor for `balance_small` / seat trims for `OWNER_ADD_SEC` 1h). Not a top-up: PUT IN unchanged. Parked profit keeps its rounds.
+- 🫀 CHART HEADER = THE FEELESS EDGE (`ChartVitals` + `useCoinRead` ← `GET /api/reputation/coin-read/{mint}`, 15s cache, re-read 20s; `chartVitals.css`):
+  status chips + socials, then the vital (`CoinVital only="vital"`) beside the read that fits (🔥 / 🎢 / 🧲 `TrenchVital`), then one `cv-nums` line (cap ·
+  1h · pool · age · 5m). The 8 plain tiles + the Pump radar strip are gone (owner: "the stuff on top of the chart isn't vitals to give the FEELESS edge").
+- 💬 ONE CHAT in the war room (`EcosystemWorld`): with a coin's chart open the left chat column IS that coin's room (`coin-<chain>-<pair>-trenches`);
+  the chart's own `aside` chat (`eco-chart-chat`) is gone.

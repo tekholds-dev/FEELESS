@@ -1,14 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { usePumpProfile } from '../PumpProfile';
-import { useCoinEdge, fetchEdgeIntel } from '../../lib/coinEdge';
+import { useCoinEdge } from '../../lib/coinEdge';
+import { sharedJson } from '../../lib/sharedJson';
+import { CoinVital, TrenchVital } from '../CoinVital';
 import '../../styles/chartVitals.css';
 
-// 🧬 The strip under a coin chart's title: its socials, the vitals a trader checks first (cap, 1h volume, pool, age, top-10,
-// dev, insiders, buyers) and the Pump radar (5m flow + FEELESS read). Reads the SAME shared pollers as everything else
-// (usePumpProfile · useCoinEdge · one intel scan per coin per minute) — no poller of its own.
 const big = v => { const n = Number(v); if (!(n > 0)) return '—'; return n >= 1e9 ? `$${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(n >= 1e5 ? 0 : 1)}K` : `$${n.toFixed(0)}`; };
 const ageOf = ms => { if (!ms) return '—'; const h = (Date.now() - ms) / 36e5; return h < 1 ? `${Math.max(1, Math.round(h * 60))}m` : h < 48 ? `${h.toFixed(h < 10 ? 1 : 0)}h` : `${Math.round(h / 24)}d`; };
-const pct = v => (Number.isFinite(Number(v)) && v !== null ? `${Number(v).toFixed(Number(v) < 10 ? 1 : 0)}%` : '—');
 const move = v => (Number.isFinite(Number(v)) && v !== null ? `${v >= 0 ? '+' : ''}${Number(v).toFixed(Math.abs(v) < 100 ? 1 : 0)}%` : '—');
 const SOC = { x: ['𝕏', 'X / Twitter'], twitter: ['𝕏', 'X / Twitter'], telegram: ['✈', 'Telegram'], website: ['🌐', 'Website'], discord: ['💬', 'Discord'] };
 
@@ -25,36 +23,39 @@ export function socialsOf(pair, pump) {
   return out;
 }
 
+// 🫀 one coin's FEELESS edge (GET /api/reputation/coin-read/{mint}): its vital + the read that fits it — shared, re-read every 20s
+export function useCoinRead(mint) {
+  const [d, setD] = useState(null);
+  useEffect(() => {
+    let alive = true; setD(null);
+    if (!mint) return undefined;
+    const load = () => sharedJson(`/api/reputation/coin-read/${mint}`, { maxAge: 15000 }).then(x => alive && setD(x)).catch(() => {});
+    load(); const t = setInterval(() => { if (!document.hidden) load(); }, 20000);
+    return () => { alive = false; clearInterval(t); };
+  }, [mint]);
+  return d;
+}
+
+// The strip above a coin chart = THE FEELESS EDGE (owner, 2026-10-08: "the stuff on top of the chart isn't vitals to give the FEELESS edge"):
+// status chips + socials, then the 🫀 vital (grade ring, five bars, the deciding facts, crew) beside the read that fits the coin (🔥 SEND IT ·
+// 🎢 curve · 🧲 dip, with its meters and its own record), then one quiet line of plain numbers.
 export function ChartVitals({ pair }) {
   const mint = pair?.baseToken?.address;
   const pump = usePumpProfile(mint);
   const edge = useCoinEdge(mint);
-  const [intel, setIntel] = useState(null);
-  useEffect(() => {
-    let alive = true; setIntel(null);
-    if (mint) fetchEdgeIntel(mint).then(i => alive && setIntel(i)).catch(() => {});
-    return () => { alive = false; };
-  }, [mint]);
+  const read = useCoinRead(mint);
   if (!pair) return null;
   const socials = socialsOf(pair, pump);
-  const t10 = intel?.top10Pct; const dev = intel?.devHoldingPct; const ins = intel?.insidersHoldingPct;
   const pulse = edge?.pulse; const run = edge?.runner;
-  const buys = Number.isFinite(pulse?.buyShare) ? pulse.buyShare : null;
-  const vit = [
-    ['CAP', big(pair.marketCap ?? pair.fdv ?? pump?.mcapUsd), '', 'Market cap right now'],
-    ['1H VOL', big(pair.volume?.h1 ?? pump?.vol1hUsd), '', 'Traded in the last hour'],
-    ['POOL', big(pair.liquidity?.usd ?? pump?.liqUsd), '', 'Liquidity in the pool: what a sale can really get'],
-    ['AGE', ageOf(pair.pairCreatedAt) !== '—' ? ageOf(pair.pairCreatedAt) : (pump?.ageH != null ? `${pump.ageH.toFixed(1)}h` : '—'), '', 'Time since the pool opened'],
-    ['TOP 10', pct(t10), t10 > 30 ? 'bad' : t10 != null && t10 < 20 ? 'good' : '', 'Share of the supply held by the 10 biggest wallets (lower = safer)'],
-    ['DEV', pct(dev), dev > 10 ? 'bad' : dev != null && dev <= 3 ? 'good' : '', 'Share the creator still holds'],
-    ['INSIDERS', pct(ins), ins > 15 ? 'bad' : ins != null && ins < 5 ? 'good' : '', 'Share held by wallets that were in at the start'],
-    ['BUYERS 5M', buys == null ? '—' : `${buys}%`, buys != null && buys >= 55 ? 'good' : buys != null && buys < 45 ? 'bad' : '', 'Share of the last 5 minutes\' trades that were buys'],
-  ];
   const off = pump?.offAthPct;
+  const sym = pair.baseToken?.symbol || 'COIN';
+  const row = { ...(read?.row || {}), symbol: sym, vital: read?.vital, tv: read?.tv, mcap: pair.marketCap ?? pair.fdv ?? pump?.mcapUsd, vol1h: pair.volume?.h1 ?? pump?.vol1hUsd,
+    ageH: read?.row?.ageH ?? (pair.pairCreatedAt ? (Date.now() - pair.pairCreatedAt) / 36e5 : pump?.ageH), buyShare: pulse?.buyShare ?? read?.row?.buyShare };
+  const nums = [['cap', big(row.mcap)], ['1h', big(row.vol1h)], ['pool', big(pair.liquidity?.usd ?? pump?.liqUsd)], ['age', ageOf(pair.pairCreatedAt) !== '—' ? ageOf(pair.pairCreatedAt) : (pump?.ageH != null ? `${pump.ageH.toFixed(1)}h` : '—')],
+    ['5m', pulse ? `${move(pulse.m5Change)} · ${pulse.buys + pulse.sells} trades` : '—']];
   return <div className="cv" data-testid="chart-vitals">
     <div className="cv-row cv-top">
       {pump?.mint && <span className={`m-chip ${pump.graduated ? 'is-grad' : 'is-curve'}`} data-tip={pump.graduated ? 'Bonded: it left Pump\'s launch curve' : 'Still on Pump\'s launch curve'}>{pump.graduated ? '🎓 graduated' : '📈 on the curve'}</span>}
-      {run?.lane && <span className="m-chip" data-tip="The Fuse Runners lane this coin would play in">{run.lane}</span>}
       {edge?.snipersOut && <span className="m-chip is-grad" data-tip="Every flagged sniper has sold out">🎯 snipers out</span>}
       {edge?.verify && ['gold', 'verified'].includes(edge.verify.level) && <span className="m-chip is-grad" data-tip="FEELESS verified">✔ verified</span>}
       {run && run.passing === false && <span className="m-chip is-bad" data-tip={(run.gates || []).join(' · ')}>⚠ fails {run.gates?.[0] ? run.gates[0].split(' ').slice(0, 3).join(' ') : 'a gate'}</span>}
@@ -66,15 +67,10 @@ export function ChartVitals({ pair }) {
         {pump?.url && <a className="m-btn cv-link" href={pump.url} target="_blank" rel="noopener noreferrer" data-tip="This coin on pump.fun">Pump ↗</a>}
       </span>
     </div>
-    <div className="cv-grid">{vit.map(([l, v, tone, tip], i) => <div key={l} className={`cv-t ${tone}`} data-tip={tip} style={{ '--i': i }}><small className="m-label">{l}</small><b>{v}</b></div>)}</div>
-    <div className="cv-radar" data-testid="chart-pump-radar" data-tip="Pump radar: the last 5 minutes of flow on this coin">
-      <span className="m-label">📡 PUMP RADAR · 5M</span>
-      {pulse ? <>
-        <span className={`cv-mv ${pulse.m5Change >= 0 ? 'up' : 'down'}`}>{move(pulse.m5Change)}</span>
-        <span className="cv-bar" aria-hidden="true"><i style={{ transform: `scaleX(${(buys ?? 50) / 100})` }} /></span>
-        <small>{buys ?? '—'}% buys · {pulse.buys + pulse.sells} trades · {big(pulse.volumeM5)}</small>
-      </> : <small className="m-dim">reading flow…</small>}
-      {run?.score != null && <span className="m-chip" data-tip="FEELESS runner score, 0–100, with cited parts in the case file">score {Math.round(run.score)}</span>}
+    <div className="cv-edge" data-testid="chart-edge">
+      {read ? <>{row.vital && <CoinVital r={row} only="vital" />}{row.tv && <TrenchVital r={row} />}
+        {!row.vital && !row.tv && <small className="m-dim">No FEELESS read for this coin yet.</small>}</> : <small className="m-dim cv-reading">reading the FEELESS edge…</small>}
     </div>
+    <div className="cv-nums">{nums.map(([k, v]) => <span key={k}><small>{k}</small> {v}</span>)}</div>
   </div>;
 }

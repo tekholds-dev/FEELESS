@@ -2940,6 +2940,38 @@ def _read_for(r, cmap=None):
     return _ja.pick_read((_jup_facts.get(m) or (0, None))[1], x)
 
 
+_coin_read_cache: dict = {}   # mint → (at, read) — 15s
+
+
+@app.get('/api/reputation/coin-read/{mint}')
+async def coin_read(mint: str):
+    """🫀 + 🔥/🎢/🧲 THE FEELESS EDGE for one coin (war room / chart header): its vital (grade, five bars, the three deciding facts, crew) and the
+    read that fits it (new coin → SEND IT · on its curve → curve · off its high → dip). Jupiter's audit + our own scan + the runner board's flow.
+    Cached 15s per coin. A read, never a promise."""
+    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', mint or ''):
+        raise HTTPException(400, 'Not a Solana mint.')
+    hit = _coin_read_cache.get(mint)
+    if hit and time.time() - hit[0] < 15:
+        return hit[1]
+    await _jup_lite([mint])
+    jf = (_jup_facts.get(mint) or (0, None))[1]
+    c = _cand_map().get(mint) or {}
+    row = {'mint': mint, 'symbol': c.get('symbol'), **{k: c.get(k) for k in ('ageH', 'vol1h', 'vol5m', 'chg5m', 'chg1h', 'buyShare', 'txns1h', 'mcap', 'liq', 'site', 'x') if c.get(k) is not None}}
+    row.update(_holder_facts(mint))
+    if c.get('bundled') is not None and row.get('bundledN') is None:
+        row['bundledN'] = c.get('bundled')
+    if jf and row.get('holders') is None:
+        row['holders'] = jf.get('holders')
+    vital = _ja.verdict(jf, row) if jf else None
+    tv = _read_for(row) or ({**(t_ := _ja.trench_verdict(jf, row)), 'kind': 'trench', 'meters': [['🔥 HEAT', t_['heat']], ['☠ RUG', t_['rug']]]} if jf or c else None)
+    out = {'mint': mint, 'row': row, 'vital': vital, 'tv': tv, 'facts': jf, 'onBoard': bool(c)}
+    _coin_read_cache[mint] = (time.time(), out)
+    if len(_coin_read_cache) > 600:
+        for k in sorted(_coin_read_cache, key=lambda k: _coin_read_cache[k][0])[:200]:
+            _coin_read_cache.pop(k, None)
+    return out
+
+
 def _up_vital(u):
     """A Coming up row + 🫀 its vital and, for a coin under 6h / a trench coin, 🗑 the degen read."""
     jf = (_jup_facts.get(u.get('mint')) or (0, None))[1]
