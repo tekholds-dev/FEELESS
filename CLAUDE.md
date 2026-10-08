@@ -2189,5 +2189,5 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   that decide it (bad first: 🐋 top-10 · 📦 bundles · 🕵 insiders · 👤 dev · ☠ crew · 🤖 bots) + one stats line. Not read yet → the old chip line.
 - 🔄 NEW TO YOU (picker lens `fresh`, opens first): Pump trending · movers · Pump live · volume · dips · the Arena's ranked coins woven one from each in
   turn, MINUS every coin the real card bought / sold / holds in the last 24h (`from` tag on each row).
-- 📡 A LIST'S TOP COINS ARE ALWAYS ON THE RUNNER BOARD (`_runner_live`): the top 20 of every category list (was 8); a coin the launch feed never carried
+- 📡 A LIST'S TOP COINS ARE ALWAYS ON THE RUNNER BOARD (`_runner_live`): the top 60 of every category list (was 8; = what Coming up walks); a coin the launch feed never carried
   gets its pair built from Jupiter's row (`launchpad_board.jup_pair`) — 2026-10-08 Coming up read "43 of Pump trending's top 60 not on the runner board yet".

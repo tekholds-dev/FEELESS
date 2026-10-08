@@ -5564,12 +5564,12 @@ async def _runner_live():
     # ⏭ THE TOP OF EVERY CATEGORY LIST is on the board and scanned first: Coming up picks from the top of 🔥 Pump trending / 🌊 Volume /
     # 🚀 Movers / 🆕 New / 🟢 Bottoms, and those coins read "holder scan not done" or "not on the runner board yet" (older than the
     # board's age window). Top 8 a list, ≤ 30 extra scans (launch facts are read once per coin; a re-scan is 4 RPC calls).
-    cat_m = {r.get('mint') for rows in _lens_rows.values() for r in rows[:20]} | {r.get('baseAddress') for r in (_bottom_cache.get('rows') or [])[:20]}   # top 20 a list (Jupiter's audit judges the ones our scan can't reach)
+    cat_m = {r.get('mint') for rows in _lens_rows.values() for r in rows[:60]} | {r.get('baseAddress') for r in (_bottom_cache.get('rows') or [])[:60]}   # top 60 a list = what Coming up walks (Jupiter's audit judges the ones our scan can't reach)
     feed_by = {(x.get('baseToken') or {}).get('address'): x for rows in got for x in rows}
     miss_c = [m_c for m_c in cat_m if m_c and m_c not in feed_by and m_c not in seen]
     if miss_c and not os.environ.get('PYTEST_CURRENT_TEST'):   # 📡 a list's top coin the launch feed never carried ("43 not on the runner board yet"):
         try:                                                    # its pair is built from Jupiter's row (same shape) so it is judged like any other
-            for m_c, t_c in (await _jup_tokens(miss_c[:100])).items():
+            for m_c, t_c in (await _jup_tokens(miss_c[:300])).items():
                 pr_c = _launchpad_board.jup_pair(t_c)
                 if pr_c:
                     feed_by[m_c] = pr_c
