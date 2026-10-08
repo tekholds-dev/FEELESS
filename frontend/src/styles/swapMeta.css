@@ -1,0 +1,76 @@
+/* ⚡ Swap card v2 (owner: "love the layout — not a dead black card, make it meta"). Same layout; new skin:
+   an aurora backdrop (emerald top-left, violet bottom-right, ice top-right) on a deep green→navy base, a light beam that runs around the
+   edge (one rotating layer, transform only — replaces the animated --swap-angle border, which repainted every frame), glass panels with a
+   lit top edge, gradient amounts, glowing token pills, a spinning flip, and a sheen on the main button. Keyframes: swm* only. */
+.swap-desk { animation: none !important; isolation: isolate; overflow: hidden;
+  background:
+    radial-gradient(120% 70% at 12% 0%, rgba(21, 209, 106, 0.22), transparent 60%),
+    radial-gradient(90% 60% at 100% 100%, rgba(124, 92, 255, 0.24), transparent 62%),
+    radial-gradient(55% 40% at 92% 8%, rgba(124, 200, 255, 0.14), transparent 70%),
+    linear-gradient(160deg, #07170f, #0a1020 72%) !important;
+  background-clip: padding-box !important; border: 1px solid rgba(69, 228, 134, 0.26) !important;
+  box-shadow: 0 26px 70px -30px rgba(21, 209, 106, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important; }
+.swap-desk::before { content: ''; position: absolute; inset: -60%; z-index: -1; pointer-events: none;
+  background: conic-gradient(from 0deg, transparent 0 68%, rgba(69, 228, 134, 0.7) 78%, rgba(124, 200, 255, 0.6) 86%, rgba(124, 92, 255, 0.5) 90%, transparent 97%);
+  animation: swmSpin 10s linear infinite; }
+.swap-desk::after { content: ''; position: absolute; inset: 1.5px; z-index: -1; pointer-events: none; border-radius: 19px;
+  background:
+    radial-gradient(120% 70% at 12% 0%, rgba(21, 209, 106, 0.2), transparent 60%),
+    radial-gradient(90% 60% at 100% 100%, rgba(124, 92, 255, 0.22), transparent 62%),
+    radial-gradient(1px 1px at 1px 1px, rgba(255, 255, 255, 0.07) 1px, transparent 0) 0 0 / 18px 18px,
+    linear-gradient(160deg, #07170f, #0a1020 72%); }
+.swap-desk .jup-card { background: transparent !important; border: 0 !important; box-shadow: none !important; }
+.swap-desk .jup-title { letter-spacing: .02em; }
+.swap-desk .jup-title svg { color: #45e486; filter: drop-shadow(0 0 6px rgba(69, 228, 134, 0.6)); }
+.swap-desk .jup-chip, .swap-desk .jup-icon { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.12); transition: transform .15s, color .15s, border-color .15s, background .15s; }
+.swap-desk .jup-chip:hover, .swap-desk .jup-icon:hover:not(:disabled) { transform: translateY(-1px); background: rgba(69, 228, 134, 0.12); }
+.swap-desk .jup-chip:active, .swap-desk .jup-icon:active:not(:disabled) { transform: translateY(0) scale(.96); }
+.swap-desk .jup-chip:focus-visible, .swap-desk .jup-icon:focus-visible, .swap-desk .jup-quick button:focus-visible, .swap-desk .jup-flip:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.swap-desk .jup-panel { position: relative; background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08); transition: border-color .2s, box-shadow .2s, transform .2s; }
+.swap-desk .jup-panel:hover { border-color: rgba(69, 228, 134, 0.3) !important; }
+.swap-desk .jup-panel:focus-within { border-color: rgba(69, 228, 134, 0.6) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 0 3px rgba(69, 228, 134, 0.12); }
+.swap-desk .jup-panel.is-receive { background: linear-gradient(180deg, rgba(124, 92, 255, 0.1), rgba(21, 209, 106, 0.05)) !important; }
+.swap-desk .jup-amount { background: linear-gradient(90deg, #ffffff, #b9ffd8) !important; -webkit-background-clip: text !important; background-clip: text !important; -webkit-text-fill-color: transparent; }
+.swap-desk .jup-amount::placeholder { -webkit-text-fill-color: rgba(255, 255, 255, 0.28); }
+.swap-desk .jup-out { color: #45e486; text-shadow: 0 0 18px rgba(69, 228, 134, 0.35); }
+.swap-desk .jup-row .tkp-btn { background: rgba(255, 255, 255, 0.08) !important; border-color: rgba(255, 255, 255, 0.16) !important; transition: transform .15s, border-color .15s, box-shadow .15s !important; }
+.swap-desk .jup-row .tkp-btn:hover { transform: translateY(-1px); border-color: rgba(69, 228, 134, 0.6) !important; box-shadow: 0 0 0 3px rgba(69, 228, 134, 0.14), 0 6px 18px -8px rgba(69, 228, 134, 0.6); }
+.swap-desk .jup-row .tkp-btn:active { transform: scale(.97); }
+.swap-desk .jup-quick button { transition: transform .15s, color .15s, border-color .15s, background .15s; }
+.swap-desk .jup-quick button:hover { transform: translateY(-1px); background: rgba(69, 228, 134, 0.1); }
+.swap-desk .jup-quick button:active { background: #45e486; color: #04130b; transform: scale(.96); }
+.swap-desk .jup-flip { border: 0 !important; background: linear-gradient(135deg, #15d16a, #7c5cff) !important; color: #04130b !important; box-shadow: 0 0 0 4px #0a1513, 0 8px 22px -6px rgba(124, 92, 255, 0.6);
+  transition: transform .35s cubic-bezier(.3, 1.6, .5, 1), box-shadow .2s !important; }
+.swap-desk .jup-flip:hover:not(:disabled) { transform: rotate(180deg) scale(1.06); }
+.swap-desk .jup-flip:active:not(:disabled) { transform: rotate(180deg) scale(.92); }
+.swap-desk .jup-cta .btn-primary { position: relative; overflow: hidden; background: linear-gradient(100deg, #0b7a3e, #15d16a 45%, #45e486 70%, #7cc8ff) !important; color: #03110a !important;
+  box-shadow: 0 14px 30px -14px rgba(21, 209, 106, 0.8); transition: transform .15s, box-shadow .15s !important; }
+.swap-desk .jup-cta .btn-primary::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, 0.45) 50%, transparent 65%); transform: translateX(-120%); pointer-events: none; }
+.swap-desk .jup-cta .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 18px 36px -14px rgba(21, 209, 106, 0.95); }
+.swap-desk .jup-cta .btn-primary:hover:not(:disabled)::after { animation: swmSheen .9s ease; }
+.swap-desk .jup-cta .btn-primary:active:not(:disabled) { transform: translateY(0) scale(.99); }
+.swap-desk .jup-cta .btn-primary:disabled { filter: saturate(.55); opacity: .8; }
+.swap-desk .jup-rate span { padding: 3px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.05); }
+/* fee chips under the card are buttons now (td-fee) */
+button.td-fee { text-align: left; cursor: pointer; font: inherit; color: inherit; transition: transform .15s, border-color .15s, background .15s; }
+button.td-fee:hover { transform: translateY(-1px); border-color: rgba(69, 228, 134, 0.45); }
+button.td-fee:active { transform: scale(.98); } button.td-fee:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.td-fee-more { margin: 2px 0 0; font-size: 11.5px; color: var(--muted); animation: swmIn .18s ease both; }
+/* off-screen: the edge beam pauses (lib/fxPause FX_SURFACES) */
+.swap-desk.fx-off::before { animation-play-state: paused; }
+@keyframes swmSpin { to { transform: rotate(360deg); } }
+@keyframes swmSheen { to { transform: translateX(120%); } }
+@keyframes swmIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+body.fx-lite .swap-desk::before { animation: none; opacity: .35; }
+@media (prefers-reduced-motion: reduce) { .swap-desk::before { animation: none; opacity: .35; } .swap-desk .jup-cta .btn-primary:hover::after { animation: none; } .td-fee-more { animation: none; } }
+body.theme-day .swap-desk { background: linear-gradient(160deg, #dff3e8, #e2e6fb 72%) !important; border-color: rgba(11, 122, 62, 0.3) !important; box-shadow: 0 22px 50px -30px rgba(11, 122, 62, 0.45) !important; }
+body.theme-day .swap-desk::after { background: radial-gradient(120% 70% at 12% 0%, rgba(21, 209, 106, 0.18), transparent 60%), radial-gradient(90% 60% at 100% 100%, rgba(124, 92, 255, 0.16), transparent 62%), linear-gradient(160deg, #eaf7f0, #eceffd 72%); }
+body.theme-day .swap-desk .jup-panel { background: rgba(255, 255, 255, 0.55) !important; border-color: rgba(11, 122, 62, 0.16) !important; }
+body.theme-day .swap-desk .jup-panel.is-receive { background: rgba(236, 232, 255, 0.6) !important; }
+body.theme-day .swap-desk .jup-amount { background: linear-gradient(90deg, #0a1f14, #0b7a3e) !important; -webkit-background-clip: text !important; background-clip: text !important; }
+body.theme-day .swap-desk .jup-out { color: #076a45; text-shadow: none; }
+body.theme-day .swap-desk .jup-flip { box-shadow: 0 0 0 4px #eaf3ef, 0 8px 22px -8px rgba(124, 92, 255, 0.5); }
+@media (max-width: 640px) { .swap-desk::before { inset: -90%; } }
+/* one column (under 1180px): the Top 10 column must scroll with the page — sticky made it slide OVER the swap card */
+@media (max-width: 1179px) { .trade-left { position: static !important; } }

@@ -2148,3 +2148,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   RSS (US, 1h cache; tap → its first YouTube video plays) · Spotify search ONLY when `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` are set (tracks
   still play through YouTube). ▶ plays now, ＋ queues (max 20). ▶▶ NEXT KEEPS GOING like YouTube: at the end of the queue (repeat-all) — button or the
   song ending — `GET /music/next` adds another song by the same artist that is not queued, ≤ 8 min, never a "MIX"; nothing found → loops.
+- ⚡ SWAP CARD v2 (`styles/swapMeta.css`, imported by SwapWorkspace; owner: "not a dead black card"): aurora backdrop (emerald / violet / ice) on a deep
+  green→navy base, ONE rotating conic beam on the edge (`.swap-desk::before`, transform only — the old `--swap-angle` custom-property animation repainted
+  every frame and is off), glass panels, gradient amount, glowing token pills, gradient flip that spins, sheen on Get quote; `.swap-desk` is an fxPause
+  surface. Fee chips are BUTTONS (`td-fee-free` → loads $FEE into the swap · `td-fee-sol` → why that fee · `td-fee-bridge` → Bridge tab). Under 1180px
+  `.trade-left` is NOT sticky (it slid over the swap card). 🧹 Dust: Cronos balances read in batches of 10 across 3 public nodes (`CRONOS_RPCS`; one
+  68-call batch came back as ONE error object = "0 coins"); Cronos connect = the browser's own EVM wallet switched to Cronos (never the Solana wallet's
+  paired side); any address can be LOOKED at without connecting (cleaning still needs that wallet).

@@ -22,6 +22,7 @@ import { apiUrl, errorText, cleanAmount } from '../../lib/api';
 import { ReputationBadge } from '../terminal/ReputationBadge';
 import { TradeTimeline } from '../TradeTimeline';
 
+import '../../styles/swapMeta.css';
 const API = apiUrl('/api/trading');
 const SOL = 'So11111111111111111111111111111111111111112';
 const PENDING_ORDER_STORAGE_KEY = 'feeless.pending-swap-order';

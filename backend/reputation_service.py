@@ -18677,6 +18677,7 @@ async def circle_transfer(request: Request, p: CircleSendIn):
 # ---- 🧹 WALLET DUST CLEANUP (Trade › 🧹 Dust): read every coin a USER's wallet holds; they choose swap / burn + close; THEY sign ----
 import dust as _dust
 _EVM_ADDR = r'^0x[0-9a-fA-F]{40}$'
+CRONOS_RPCS = ('https://evm.cronos.org', 'https://cronos-evm-rpc.publicnode.com', 'https://cronos.drpc.org')
 _lifi_tok_cache: dict = {}
 
 
@@ -18686,8 +18687,15 @@ class DustCloseIn(BaseModel):
 
 
 async def _sol_token_accounts(http, owner):
-    res = await asyncio.gather(*[_rpc(http, 'getTokenAccountsByOwner', [owner, {'programId': pg}, {'encoding': 'jsonParsed'}], scan=False)
-                                 for pg in _dust.TOKEN_PROGRAMS], return_exceptions=True)
+    async def read(pg):   # a busy public node is retried twice (1s apart) before the wallet reads as "busy"
+        for k in range(3):
+            try:
+                return await _rpc(http, 'getTokenAccountsByOwner', [owner, {'programId': pg}, {'encoding': 'jsonParsed'}], scan=False)
+            except Exception as e:
+                if k == 2:
+                    return e
+                await asyncio.sleep(1.0)
+    res = await asyncio.gather(*[read(pg) for pg in _dust.TOKEN_PROGRAMS])
     out = []
     for pg, r in zip(_dust.TOKEN_PROGRAMS, res):
         if isinstance(r, Exception):
@@ -18743,8 +18751,22 @@ async def wallet_dust_cronos(address: str):
             toks = [t for t in ((r.json().get('tokens') or {}).get('25') or []) if t.get('address') and t['address'] != '0x0000000000000000000000000000000000000000']
             _lifi_tok_cache[25] = hit = (time.time(), toks)
         toks = hit[1]
-        rr = await http.post('https://evm.cronos.org', json=_dust.balance_calls(address, toks))
-        res = {x.get('id'): x.get('result') for x in (rr.json() if isinstance(rr.json(), list) else [])}
+        calls = _dust.balance_calls(address, toks)
+        res = {}
+
+        async def batch(chunk):   # the public node refuses big batches (68 calls came back as ONE error object → "0 coins")
+            for rpc_ in CRONOS_RPCS:
+                try:
+                    j = (await http.post(rpc_, json=chunk)).json()
+                    if isinstance(j, list):
+                        return {x.get('id'): x.get('result') for x in j}
+                except Exception:
+                    continue
+            return {}
+        for got in await asyncio.gather(*[batch(calls[k:k + 10]) for k in range(0, len(calls), 10)]):
+            res.update(got)
+        if not res:
+            raise HTTPException(503, 'Cronos RPC did not answer — try again in a few seconds.')
     rows = _dust.evm_rows(toks, res)
     native = int(res.get(0) or '0x0', 16) / 1e18 if res.get(0) else 0.0
     return {'chain': 'cronos', 'address': address, 'rows': rows, 'nativeCro': native, 'swapMinUsd': _dust.SWAP_MIN_USD,

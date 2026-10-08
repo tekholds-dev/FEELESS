@@ -34,7 +34,12 @@ export function plan(rows, pick, act) {
 export default function DustCleanup() {
   const { wallet, provider, connect, switchTo } = useWallet() || {};
   const [chain, setChain] = useState('solana');
-  const addr = chain === 'solana' ? (wallet?.chain === 'solana' ? wallet.address : null) : (wallet?.chain === 'evm' ? wallet.address : null);
+  // 👁 read ANY address (no wallet needed to look); cleaning still needs that wallet connected to sign
+  const [lookAt, setLookAt] = useState('');
+  const own = chain === 'solana' ? (wallet?.chain === 'solana' ? wallet.address : null) : (wallet?.chain === 'evm' ? wallet.address : null);
+  const lookOk = chain === 'solana' ? /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(lookAt.trim()) : /^0x[0-9a-fA-F]{40}$/.test(lookAt.trim());
+  const addr = own || (lookOk ? lookAt.trim() : null);
+  const canSign = Boolean(own) && addr === own;
   const [data, setData] = useState(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
   const [pick, setPick] = useState({}); const [act, setAct] = useState({}); const [state, setState] = useState({});
   const [log, setLog] = useState([]); const [ack, setAck] = useState(false);
@@ -106,6 +111,7 @@ export default function DustCleanup() {
 
   const go = async () => {
     if (!p.chosen.length) return;
+    if (!canSign) { toast.error('You are only looking at this address — connect that wallet to clean it.'); return; }
     if (p.burns.length && !ack) { toast.error('Tick the box: burned coins are gone for good.'); return; }
     setBusy(true); setErr('');
     try { if (chain === 'solana') await runSolana(); else await runCronos(); toast.success('Cleanup finished — see the activity below.'); }
@@ -116,9 +122,12 @@ export default function DustCleanup() {
   return <section className="m-card m-live dc" data-testid="dust-cleanup">
     <header className="dc-head"><div><span className="m-label">🧹 DUST CLEANUP</span><b>Turn leftovers back into gas</b>
       <small className="m-dim">Reads every coin in your wallet. Swap what is worth something, burn + close the rest to get the account rent back. Your wallet signs every step.</small></div>
-      <div className="m-seg" role="radiogroup" aria-label="Chain">{CHAINS.map(([k, l]) => <button type="button" key={k} role="radio" aria-checked={chain === k} className={chain === k ? 'active' : ''} onClick={() => { setChain(k); setData(null); }} data-testid={`dc-chain-${k}`}>{l}</button>)}</div></header>
-    {!addr ? <div className="dc-empty"><p className="m-dim">Connect your {chain === 'solana' ? 'Solana' : 'EVM'} wallet to read its coins.</p>
-      <button type="button" className="m-btn primary m-go" onClick={() => (chain === 'solana' ? connect?.('solana') : (switchTo ? switchTo('cronos') : connect?.('evm')))?.catch?.(e => setErr(e.message))} data-testid="dc-connect">Connect wallet</button></div>
+      <div className="m-seg" role="radiogroup" aria-label="Chain">{CHAINS.map(([k, l]) => <button type="button" key={k} role="radio" aria-checked={chain === k} className={chain === k ? 'active' : ''} onClick={() => { setChain(k); setData(null); setErr(''); setLookAt(''); }} data-testid={`dc-chain-${k}`}>{l}</button>)}</div></header>
+    {!own && <div className="dc-look"><input className="m-input" value={lookAt} onChange={e => setLookAt(e.target.value)} placeholder={chain === 'solana' ? 'or paste any Solana address to look' : 'or paste any 0x… Cronos address to look'} aria-label="Address to read" data-testid="dc-look" />
+      {lookAt && !lookOk && <small className="dc-err">Not a {chain === 'solana' ? 'Solana' : '0x'} address.</small>}</div>}
+    {err && !addr && <p className="dc-err" role="alert">{err}</p>}
+    {!addr ? <div className="dc-empty"><p className="m-dim">Connect your {chain === 'solana' ? 'Solana' : 'Cronos (EVM — Crypto.com DeFi, MetaMask, Trust…)'} wallet to read and clean its coins.</p>
+      <button type="button" className="m-btn primary m-go" onClick={() => Promise.resolve(chain === 'solana' ? connect?.('solana') : connect?.('evm', undefined, { chain: 'cronos' })).catch(e => setErr(e.message))} data-testid="dc-connect">Connect wallet</button></div>
       : <>
       <div className="dc-sum" data-testid="dc-summary">
         <span><small>Coins</small><b className="m-num">{data ? rows.length : '…'}</b></span>
@@ -128,6 +137,7 @@ export default function DustCleanup() {
         <span className="dc-tools"><button type="button" className="m-btn" onClick={selectDust} disabled={!rows.length || busy} data-testid="dc-select-dust">Select dust</button>
           <button type="button" className="m-btn" onClick={load} disabled={busy} data-testid="dc-refresh">↻ Re-read</button></span></div>
       {err && <p className="dc-err" role="alert">{err}</p>}
+      {!canSign && <p className="m-note dc-ro">👁 Looking only — connect this wallet to clean it.</p>}
       {!data ? <div className="dc-loading" aria-busy="true"><i /><i /><i /></div> : !rows.length ? <p className="m-dim dc-empty">No coins in this wallet — nothing to clean.</p>
         : <ul className="dc-list">{rows.map((r, i) => { const k = key(r); const a = act[k] || r.best; const st = state[k];
           return <li key={k} className={`dc-row ${pick[k] ? 'is-on' : ''} ${st ? `is-${st}` : ''}`} style={{ '--i': Math.min(i, 12) }}>

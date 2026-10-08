@@ -99,15 +99,21 @@ function GetGas() {
   </div>;
 }
 
-function FeeExplainer() {
-  const [f, setF] = useState(null);
+// Fee chips are BUTTONS (owner: "all btns route and work"): 0% → loads $FEE into the swap · the % chip → why that fee (tier discounts) ·
+// bridge & gas → opens the Bridge tab.
+const FEE_MINT = '49MmWE8sgNjuw342Eu7tB9thsVFtvTfKigUw9KSppump';
+function FeeExplainer({ onMode }) {
+  const [f, setF] = useState(null); const [why, setWhy] = useState(false);
   useEffect(() => { fetch(apiUrl('/api/reputation/fees/public')).then(x => x.json()).then(setF).catch(() => {}); }, []);
   const pct = f ? (f.platformFeeBps / 100).toFixed(2) : null;
   const best = f ? Math.max(...Object.values(f.tierDiscountPct || { 0: 0 })) : 0;
   return <div className="td-fees" data-testid="td-fees">
-    <span className="td-fee good" title="Buying $FEE, FEECAT or rFEE with SOL, USDC or USDT is free. Selling them pays the platform fee."><b>0%</b>buying $FEE · FEECAT · rFEE</span>
-    <span className="td-fee" title={f && Number(pct) > 0 ? `Charged on eligible Solana swaps, reduced up to ${best}% by holder tier. The exact fee is shown on every quote before you sign.` : 'No FEELESS fee is active right now.'}><b>{pct == null ? '…' : Number(pct) > 0 ? `≤${pct}%` : '0%'}</b>other Solana swaps</span>
-    <span className="td-fee" title={f?.lifi ? 'EVM swaps, bridges and gas carry the FEELESS fee through LI.FI (LI.FI adds its own 0.25%); shown on every quote before you sign.' : 'No FEELESS fee on EVM routes yet; provider and network fees are itemized before signing.'}><ShieldCheck size={14} /><b>{f?.lifi ? `${(f.lifi.fee * 100).toFixed(2)}%` : '0%'}</b>bridge &amp; gas</span>
+    <button type="button" className="td-fee good" data-tip="Buying $FEE, FEECAT or rFEE with SOL, USDC or USDT is free. Selling them pays the platform fee. Tap: load $FEE into the swap."
+      onClick={() => { onMode?.('swap'); window.dispatchEvent(new CustomEvent('feeless:swap-set-output', { detail: { mint: FEE_MINT, symbol: 'FEE', name: 'FEELESS' } })); }} data-testid="td-fee-free"><b>0%</b>buying $FEE · FEECAT · rFEE</button>
+    <button type="button" className="td-fee" aria-expanded={why} onClick={() => setWhy(w => !w)} data-testid="td-fee-sol"><b>{pct == null ? '…' : Number(pct) > 0 ? `≤${pct}%` : '0%'}</b>other Solana swaps</button>
+    {why && <p className="td-fee-more">{f && Number(pct) > 0 ? `Charged on eligible Solana swaps, cut by up to ${best}% by your $FEE holder tier. The exact fee is on every quote before you sign — never a surprise.` : 'No FEELESS fee is active right now.'}</p>}
+    <button type="button" className="td-fee" data-tip="EVM swaps, bridges and gas go through LI.FI; every fee is itemised on the quote before you sign. Tap: open Bridge." onClick={() => onMode?.('bridge')} data-testid="td-fee-bridge">
+      <ShieldCheck size={14} /><b>{f?.lifi ? `${(f.lifi.fee * 100).toFixed(2)}%` : '0%'}</b>bridge &amp; gas</button>
   </div>;
 }
 
@@ -120,7 +126,7 @@ export function TradeDesk({ swap }) {
     {mode === 'bridge' && <Bridge />}
     {mode === 'gas' && <GetGas />}
     {mode === 'dust' && <React.Suspense fallback={<p className="m-dim">Loading…</p>}><DustCleanup /></React.Suspense>}
-    <FeeExplainer />
+    <FeeExplainer onMode={setMode} />
   </section>;
 }
 
