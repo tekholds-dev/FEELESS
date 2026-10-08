@@ -2170,3 +2170,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   mode 'hold' + `rideOrRug` (the stop pass, `fast_stop` and the instant swap skip it). It rugs (that slice is lost) or runs until 🏠 `trenchHouseAt`
   pulls the initial out. The rug shield (pool collapse) still sells what's left. `_ticket_ride_fix` (once, `rugFix1`) switched the real card on,
   tickets already on it included; old value in data/realcfg_before_ticketride.json. Chip "🎰 ride or rug" on the coin row.
+- 🔁 BUY RETRY = 5% (owner, 2026-10-08: "buy retry should open slip to 5% max on retry only"; `fuse_wallet.buy_escalation` / `retry_slip`): a buy's FIRST
+  try uses the normal slippage (≤ 3%); ANY retry after a slippage failure — at once at send, or the next order for that coin within 15 min — goes straight
+  to 5% (`BUY_SLIP_MAX`), never higher. Sells keep their steps (≤ 8%). The secure-buy checks (≤ 5% over market, sell-back) still run on every try.

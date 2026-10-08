@@ -8273,7 +8273,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
             book = {**book, 'pending': None}
             async with _fw_lock:
                 d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book); _fw_save(d)
-            slip = min(slip_cap, int(cfg['slippageBps']) + 75 * (slip_try + 1))
+            slip = _fw.retry_slip(order['side'], slip_cap, cfg['slippageBps'], slip_try)   # a BUY retry opens to 5% max, first try stays normal
             if ('0x1771' not in msg and '6001' not in msg) or slip_try == 2:
                 row.update(status='failed', err=('slippage exceeded at send' if ('0x1771' in msg or '6001' in msg) else 'simulation failed') + f' (tried ≤{slip / 100:.2f}%)')
                 async with _fw_lock:

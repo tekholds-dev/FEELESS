@@ -173,14 +173,21 @@ def slip_fails(ledger, card_id, mint, side, now, window=SELL_FAIL_WINDOW):
 
 
 def buy_escalation(ledger, card_id, mint, now, base_bps):
-    """🚪 A BUY that failed on slippage gets more room on the next try: none → normal (≤ 3%) · 1 → +1.5% (≤ 4.5%) · 2+ → +2.5% (≤ 5%).
+    """🚪 A BUY that failed on slippage: the FIRST try uses the normal slippage (≤ 3%); every RETRY opens straight to 5% (`BUY_SLIP_MAX`) —
+    owner, 2026-10-08: "buy retry should open slip to 5% max, on retry only". (Was +1.5% → 4.5% → 5% in steps; a fast coin outran each step.)
     Why (2026-10-07): every on-chain failure that day was 0x1771 — the owner's picks $FLY / $LOOP were moving fast, one failure
     counted as a refusal and the seat was handed to another coin 15s later. → (starting bps, cap bps)"""
     n = slip_fails(ledger, card_id, mint, 'buy', now)
     if n <= 0:
         return int(base_bps), 300
-    cap = 450 if n == 1 else BUY_SLIP_MAX
-    return min(cap, int(base_bps) + (150 if n == 1 else 250)), cap
+    return BUY_SLIP_MAX, BUY_SLIP_MAX
+
+
+def retry_slip(side, cap, base_bps, try_n):
+    """Slippage for the keeper's AT-ONCE retry after a slippage failure at send: a buy goes to 5% max, a sell keeps its steps."""
+    if side == 'buy':
+        return BUY_SLIP_MAX
+    return min(cap, int(base_bps) + 75 * (try_n + 1))
 
 
 def slip_transient(ledger, row, now):

@@ -1350,8 +1350,9 @@ def test_slippage_failure_is_retried_not_counted_as_a_refused_buy():
     S = lambda at, side='buy', mint='M', err=fw.SLIP_ERR + ' on-chain': {'card': 'c', 'mint': mint, 'side': side, 'status': 'failed', 'err': err, 'at': at}
     # buys escalate on slippage only: +1.5% (≤ 4.5%), then +2.5% (≤ 5%), never further; an old or other-coin failure is forgotten
     assert fw.buy_escalation([], 'c', 'M', 1000.0, 100) == (100, 300)
-    assert fw.buy_escalation([S(900)], 'c', 'M', 1000.0, 100) == (250, 450)
-    assert fw.buy_escalation([S(900), S(950)], 'c', 'M', 1000.0, 300) == (500, 500)
+    assert fw.buy_escalation([S(900)], 'c', 'M', 1000.0, 100) == (500, 500)          # a retry opens straight to 5%
+    assert fw.buy_escalation([S(900), S(950)], 'c', 'M', 1000.0, 300) == (500, 500)   # … and never past it
+    assert fw.retry_slip('buy', 300, 100, 0) == 500 and fw.retry_slip('sell', 300, 100, 0) == 175   # at-send retry: buy 5% max, sells keep their steps
     assert fw.buy_escalation([S(10), S(900, mint='X'), S(900, err='live pool too thin')], 'c', 'M', 1000.0, 100) == (100, 300)
     # the first slippage failures are transient (no miss → the seat is not re-picked); the 3rd in 15 min counts
     row = S(1000)
