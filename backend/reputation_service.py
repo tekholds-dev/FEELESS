@@ -2903,8 +2903,29 @@ PICK_SCAN_TOP = 15          # the top rows of the list the owner opens get a hol
 import coin_clean as _clean
 
 
+import jup_audit as _ja
+_jup_facts: dict = {}   # mint → (at, jup_audit.facts) — Jupiter's audit for every listed coin (holder %, dev record, organic flow)
+JUP_FACTS_TTL = 180
+
+
+async def _jup_lite(mints):
+    """🧪 Jupiter audit facts for these coins (batched 100 a call through `_jup_tokens`, each coin re-read at most every 3 min).
+    Owner, 2026-10-08: only ~19 of 271 listed coins were ever holder-scanned (one RPC lane answers), so the lists ran in circles."""
+    now = time.time()
+    need = [m for m in dict.fromkeys(mints) if m and now - _jup_facts.get(m, (0.0, None))[0] > JUP_FACTS_TTL]
+    if need and not os.environ.get('PYTEST_CURRENT_TEST'):
+        try:
+            got = await _jup_tokens(need[:800])
+        except Exception:
+            got = {}
+        for m, t in (got or {}).items():
+            _jup_facts[m] = (now, _ja.facts(t))
+    return {m: _jup_facts[m][1] for m in mints if m in _jup_facts}
+
+
 def _clean_rows(rows):
-    """🧼 + 🧬 on every pick row: holder facts from the scan cache and the 10-point clean score (cache reads only, never a fetch)."""
+    """🧼 + 🧬 on every pick row: holder facts from the scan cache and the 10-point clean score (cache reads only, never a fetch).
+    + 🫀 `vital` (jup_audit.verdict: grade, 3 deciding facts, 4 bars) and 👥 `crew` from Jupiter's audit when it has been read."""
     for r in rows or []:
         m = r.get('baseAddress') or r.get('mint')
         if not m:
@@ -2919,6 +2940,11 @@ def _clean_rows(rows):
             except Exception:
                 rep = None
         r['clean'] = _clean.score(r, it if (it or {}).get('top10Pct') is not None else {}, rep)
+        jf = (_jup_facts.get(m) or (0, None))[1]
+        if jf:
+            r['vital'] = _ja.verdict(jf, r)
+            r['crew'] = r['vital'].get('crew')
+            r['holders'] = r.get('holders') or jf.get('holders')
     return rows
 
 
@@ -2927,6 +2953,9 @@ def _holder_facts(mint):
     hit = _intel_cache.get(mint)
     it = hit[1] if hit else None
     if not it or it.get('top10Pct') is None:
+        jf = (_jup_facts.get(mint) or (0, None))[1]
+        if jf and jf.get('top10') is not None:   # 🧪 our scan has not landed: Jupiter's audit is the holder reading (insiders / bundles unknown)
+            return {'scanned': 'jup', 'top10': round(_fuse._f(jf['top10']), 1), 'dev': jf.get('devPct'), 'insiders': None, 'bundledN': None, 'snipersN': None}
         return {'scanned': False}
     cnt = lambda v: len(v) if isinstance(v, list) else (None if v is None else int(_fuse._f(v)))
     return {'scanned': True, 'top10': it.get('top10Pct'), 'dev': it.get('devHoldingPct'), 'insiders': it.get('insidersHoldingPct'),
@@ -2942,6 +2971,7 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
     if not rows or lens in ('majors', 'stocks', 'popular', 'yield', 'deep', 'new'):
         return out
     live = [r for r in rows if r.get('vol1h') is None or _fuse._f(r.get('vol1h')) >= PICK_DEAD_VOL1H]
+    await _jup_lite([r.get('baseAddress') or r.get('mint') for r in live])
     _clean_rows(live)
     if not os.environ.get('PYTEST_CURRENT_TEST'):
         for r in [x for x in live if not x.get('scanned')][:PICK_SCAN_TOP]:
@@ -2953,6 +2983,30 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
 
 async def _fuses_discover_raw(lens, chain):
     """Fuse Lab: browse real pools on the chain you're on, by lens (popular / yield / deep / new)."""
+    if lens == 'fresh':   # 🔄 NEW TO YOU (owner, 2026-10-08: "no new coins, I'm running in circles — cycle different coins from the Arena and FEELESS
+        # sitewide"): every list FEELESS shows (Pump trending · movers · Pump live · volume · dips · the Arena's ranked coins) woven together one
+        # coin from each in turn, MINUS every coin the real card bought, sold or holds in the last 24h. Safety facts ride on every row as usual.
+        now_ = time.time()
+        touched = {r.get('mint') for r in (_fw_load().get('ledger') or []) if now_ - _fuse._f(r.get('at')) < 86400 and r.get('status') in ('filled', 'confirmed', 'sent', None)}
+        for c_ in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values():
+            if c_.get('real'):
+                touched |= {l.get('mint') for l in c_.get('legs') or []}
+        srcs = await asyncio.gather(*[_fuses_discover_raw(k, chain) for k in ('ptrend', 'movers', 'pump', 'volume', 'bottom')], return_exceptions=True)
+        lists = [list((x or {}).get('pools') or []) if isinstance(x, dict) else [] for x in srcs]
+        try:
+            arena_ = (await _contenders_build()).get('all') or []
+        except Exception:
+            arena_ = []
+        lists.append([{**r, 'baseAddress': r.get('mint') or r.get('baseAddress')} for r in arena_ if not r.get('watch')])
+        tags = ['🔥 Pump trending', '🚀 Movers', '🆕 Pump live', '🌊 Volume', '🟢 Dips', '🏁 Arena']
+        out_, seen_ = [], set(touched)
+        for i in range(max((len(x) for x in lists), default=0)):
+            for k, rows_ in enumerate(lists):
+                if i < len(rows_):
+                    r = rows_[i]; m = r.get('baseAddress') or r.get('mint') or (r.get('baseToken') or {}).get('address')
+                    if m and m not in seen_:
+                        seen_.add(m); out_.append({**r, 'baseAddress': m, 'from': tags[k]})
+        return {'lens': 'fresh', 'chain': 'solana', 'pools': out_[:300], 'skipped': len(touched)}
     if lens == 'stocks':   # 📈 tokenized stocks in real Solana pools (a subset of the majors rows)
         return {'lens': 'stocks', 'chain': 'solana', 'pools': [x for x in await _majors_rows() if x.get('stock')]}
     if lens == 'majors':   # 🪙 the REAL SOL / BTC / ETH / … on Solana (hard-coded mints), deepest pool each
@@ -5521,17 +5575,25 @@ async def _runner_live():
     if tasks:
         await asyncio.wait(list(tasks.values()), timeout=6)
     intel = {m: t.result() for m, t in tasks.items() if t.done() and not t.cancelled() and t.exception() is None}
+    try:   # 🧪 every coin gets a holder reading: Jupiter's audit stands in until our own scan lands (one batched read, 3-min cache)
+        jlite = await _jup_lite([(p.get('baseToken') or {}).get('address') for p in pairs])
+    except Exception:
+        jlite = {}
     blocks = _block_load()['wallets']
     out_pairs = {e['pair'] for e in _radar['events'] if e['kind'] == 'snipers-out'}
     cands = []
     smart = _smart_buyers(time.time())
     for p in pairs:
         m = (p.get('baseToken') or {}).get('address'); it = intel.get(m) or (_intel_cache.get(m) or (0, None))[1]
+        if not it or it.get('top10Pct') is None:
+            it = _ja.lite_intel(jlite.get(m)) or it
         creator = (it or {}).get('creator')
         brec = blocks.get(creator) if creator else None
         # ⛔ hard out: a creator REPORTED for a rug, or a bot. One blocklisted only for sniping OTHER launches is a warning (same as the
         # rug shield) — treated as suspect, so its coin must prove itself on its own numbers (`runners.banger_proof`).
-        flagged = bool(creator and ((_is_blocked(brec) and brec.get('reported')) or (_shield_cache.get(creator, (0, {}))[1] or {}).get('verdict') == 'bot'))
+        flagged = bool(creator and ((_is_blocked(brec) and brec.get('reported')) or (_shield_cache.get(creator, (0, {}))[1] or {}).get('verdict') == 'bot')) \
+            or _ja.authority_bad(jlite.get(m))   # ⛔ the dev can still mint / freeze
+
         crep = None
         if creator:
             try:
@@ -5540,7 +5602,7 @@ async def _runner_live():
                 crep = None
             if _is_blocked(brec) and not brec.get('reported') and crep != 'high':
                 crep = 'suspect'
-        hist = _runner_track(m, time.time(), _fuse._f(p.get('curveProgress')), (it or {}).get('top10Pct'), (it or {}).get('devHoldingPct'))
+        hist = _runner_track(m, time.time(), _fuse._f(p.get('curveProgress')), *((None, None) if (it or {}).get('source') == 'jupiter' else ((it or {}).get('top10Pct'), (it or {}).get('devHoldingPct'))))   # Jupiter's % is another method — never mix it into the spike / dev-sold history
         cands.append(_rn.candidate(p, it, flagged, p.get('pairAddress') in out_pairs or m in out_pairs, now_ms, mayhem=m in _mayhem_mints, creator_rep=crep,
                                    hist=hist, smart=smart.get(m, 0)))
     # 🔧 auto-widen: a dead board (fewer than 3 passing) loosens the SOFT gates a step (max 3, hard floors); a full board
@@ -5787,6 +5849,8 @@ async def fuse_trench_open():
     """🚪 Open gates: every launch coin the feed sees, front-runners first, nothing filtered (each row says what it has not passed)
     + 📣 the callouts of the last hours with their result. Coin data only. A list to LOOK at; the engine never buys from it."""
     rows = _open_board() if _open_pairs else (_open_cache.get('rows') or [])
+    await _jup_lite([r.get('mint') for r in rows])
+    rows = _clean_rows([dict(r) for r in rows])
     doc = _json_load(TRENCH_CALLOUT_PATH, {})
     now_px = {r['mint']: r['price'] for r in rows}
     proof = _trench.meta_proof(doc.get('state') or {}, keys=_trench.CALLOUTS)
@@ -6045,6 +6109,7 @@ async def fuse_trench(meta: str = Query('', max_length=20)):
     """🗑 The trench list + 🧼 the 10-point clean score and holder facts on every row (owner, 2026-10-08: $giftr, a rug, came from this list)."""
     out = await _fuse_trench_raw(meta)
     if isinstance(out, dict) and out.get('rows'):
+        await _jup_lite([r.get('mint') or r.get('baseAddress') for r in out['rows']])
         _clean_rows(out['rows'])
     return out
 

@@ -19,13 +19,14 @@ test('the real-card swap picker has every Lab lens + search, flags thin pools an
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<SwapPicker out={{ symbol: 'WIF' }} have={[]} minLiq={20000} onPick={r => picks.push(r)} onClose={() => {}} />); });
   await tick();
-  expect(PICK_LENSES.map(x => x[0])).toEqual(['ptrend', 'movers', 'bottom', 'pump', 'volume', 'trench', 'majors', 'arena']);   // every list its OWN set of coins
+  expect(PICK_LENSES.map(x => x[0])).toEqual(['fresh', 'ptrend', 'movers', 'bottom', 'pump', 'volume', 'trench', 'majors', 'arena']);   // every list its OWN set of coins
   // 🚀 it opens on what is MOVING (the live launch feed by hourly move) …
-  expect(urls.find(u => u.includes('/fuses/discover'))).toContain('/fuses/discover?lens=ptrend');   // 🔥 Pump's Trending tab opens first
+  expect(urls.find(u => u.includes('/fuses/discover'))).toContain('/fuses/discover?lens=fresh');   // 🔄 New to you opens first (every list woven, minus what the card touched in 24h)
   // 📏 every list tab carries its own 1-hour record; the open list explains it (too few settled = "starts now")
   expect(el.querySelector('[data-testid="sp-lp-movers"]').textContent).toBe('-75%');
   expect(el.querySelector('[data-testid="sp-lp-volume"]').textContent).toBe('-1%');
   expect(el.querySelector('[data-testid="sp-lp-ptrend"]')).toBeNull();
+  await act(async () => { el.querySelector('[data-testid="sp-lens-ptrend"]').click(); }); await tick();   // a list with its own record explains it
   expect(el.querySelector('[data-testid="sp-list-record"]').textContent).toMatch(/starts now/);
   expect(el.textContent).toContain('$POP');
   // 🏁 … and "All ranked" is every coin the Gauntlet ranks (each with the division it ranks best in; watch rows are pickable)

@@ -1,0 +1,40 @@
+/* 🫀 The vital (CoinVital.jsx): grade ring + four bars + the three deciding facts. m-* tokens, transform / opacity only. */
+.cv { grid-column: 1 / -1; display: grid; grid-template-columns: 44px auto minmax(0, 1fr); align-items: center; gap: 10px; padding: 6px 8px; margin-top: 2px;
+  border-radius: 10px; border: 1px solid rgba(21, 209, 106, .16); background: linear-gradient(90deg, rgba(21, 209, 106, .07), rgba(0, 0, 0, .18) 60%); min-width: 0;
+  animation: cvIn .22s ease-out both; }
+.cv.cv-warn { border-color: rgba(255, 196, 92, .28); background: linear-gradient(90deg, rgba(255, 196, 92, .08), rgba(0, 0, 0, .18) 60%); }
+.cv.cv-bad { border-color: rgba(255, 143, 163, .32); background: linear-gradient(90deg, rgba(255, 143, 163, .09), rgba(0, 0, 0, .18) 60%); }
+.cv-grade { width: 44px; height: 44px; border-radius: 50%; display: grid; place-content: center; text-align: center; line-height: 1;
+  border: 2px solid #15d16a; box-shadow: 0 0 12px rgba(21, 209, 106, .35), inset 0 0 10px rgba(21, 209, 106, .2); color: #45e486; }
+.cv-warn .cv-grade { border-color: var(--gold, #ffc45c); color: var(--gold, #ffc45c); box-shadow: 0 0 12px rgba(255, 196, 92, .3), inset 0 0 10px rgba(255, 196, 92, .15); }
+.cv-bad .cv-grade { border-color: #ff8fa3; color: #ff8fa3; box-shadow: 0 0 12px rgba(255, 143, 163, .35), inset 0 0 10px rgba(255, 143, 163, .15); }
+.cv-grade b { font: 800 18px "JetBrains Mono", monospace; }
+.cv-grade small { font: 600 9px "JetBrains Mono", monospace; opacity: .75; }
+.cv-bars { display: flex; gap: 5px; align-items: flex-end; }
+.cv-bar { display: grid; justify-items: center; gap: 2px; cursor: default; }
+.cv-bar i { width: 8px; height: 30px; border-radius: 4px; background: rgba(255, 255, 255, .07); overflow: hidden; display: flex; align-items: flex-end; }
+.cv-bar em { display: block; width: 100%; height: 100%; border-radius: 4px; background: linear-gradient(0deg, #9a7a2c, var(--gold, #ffc45c)); transform-origin: bottom; transition: transform .35s ease-out; }
+.cv-bar.good em { background: linear-gradient(0deg, #0e8a47, #45e486); } .cv-bar.bad em { background: linear-gradient(0deg, #a33a52, #ff8fa3); }
+.cv-bar small { font-size: 10px; line-height: 1; }
+.cv-bar:hover i { box-shadow: 0 0 0 1px rgba(69, 228, 134, .5); }
+.cv-body { display: grid; gap: 3px; min-width: 0; }
+.cv-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cv-word { font: 800 11px "JetBrains Mono", monospace; letter-spacing: .14em; color: #45e486; }
+.cv-warn .cv-word { color: var(--gold, #ffc45c); } .cv-bad .cv-word { color: #ff8fa3; }
+.cv-crew { font: 600 10px "JetBrains Mono", monospace; font-style: normal; padding: 1px 8px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .15); color: var(--m-dim, #8fb3a0); }
+.cv-crew.is-popular { color: #ffb347; border-color: rgba(255, 179, 71, .5); box-shadow: 0 0 8px rgba(255, 179, 71, .25); }
+.cv-crew.is-serial { color: #ff8fa3; border-color: rgba(255, 143, 163, .5); }
+.cv-crew.is-fresh { color: #9ad7ff; border-color: rgba(154, 215, 255, .4); }
+.cv-flags { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.cv-flags i { font: 500 11px "JetBrains Mono", monospace; font-style: normal; color: var(--m-dim, #8fb3a0); }
+.cv-flags i.bad { color: #ff8fa3; } .cv-flags i.good { color: #45e486; }
+.cv-stats { font: 10px "JetBrains Mono", monospace; color: var(--m-dim, #8fb3a0); opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@keyframes cvIn { from { transform: translateY(3px); } to { transform: none; } }
+body.fx-lite .cv { animation: none; }
+@media (prefers-reduced-motion: reduce) { .cv { animation: none; } .cv-bar em { transition: none; } }
+body.theme-day .cv { background: linear-gradient(90deg, rgba(21, 209, 106, .1), rgba(236, 246, 240, .7) 60%); border-color: #b9dcc8; }
+body.theme-day .cv.cv-bad { background: linear-gradient(90deg, rgba(255, 143, 163, .14), rgba(236, 246, 240, .7) 60%); }
+body.theme-day .cv-grade { color: #0b7a3e; } body.theme-day .cv-bad .cv-grade, body.theme-day .cv-bad .cv-word, body.theme-day .cv-flags i.bad { color: #b4233f; }
+body.theme-day .cv-word, body.theme-day .cv-flags i.good { color: #0b7a3e; } body.theme-day .cv-warn .cv-word, body.theme-day .cv-warn .cv-grade { color: #8a6200; }
+body.theme-day .cv-bar i { background: rgba(0, 0, 0, .08); } body.theme-day .cv-flags i, body.theme-day .cv-stats { color: #355; }
+@media (max-width: 640px) { .cv { grid-template-columns: 40px minmax(0, 1fr); } .cv-bars { display: none; } .cv-grade { width: 40px; height: 40px; } }

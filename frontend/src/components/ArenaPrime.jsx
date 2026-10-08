@@ -20,7 +20,7 @@ import { openCoin } from './CoinDrawer';
 import { TrenchOpen } from './TrenchOpen';
 import '../styles/primeLeague.css';
 import { useTabTitle, cardTitle } from '../lib/tabTitle';
-import { RowVitals } from './RowVitals';
+import { CoinVital } from './CoinVital';
 import { PayMap } from './PayMap';
 
 import { tiny } from '../lib/num';
@@ -783,7 +783,7 @@ export function HqRealCards({ addr, onCount }) {
 // 🎯 Each list is a DIFFERENT set of coins (Popular / Top yield / Deepest / New 72h / Dex paid were five sorts of the same ~40 pools:
 // the owner saw the same names under every tab). Movers = the live launch feed by hourly move; everything else is its own source.
 // 7 lists, each its OWN set of coins and as many as the feed has (owner: "6–7 categories, more coins, a line chart on every row")
-export const PICK_LENSES = [['ptrend', '🔥 Pump trending'], ['movers', '🚀 Movers'], ['bottom', '🟢 Dips & bottoms'], ['pump', '🆕 New launches'], ['volume', '🌊 Volume'], ['trench', '🗑 Trench'], ['majors', '🪙 Majors & stocks'], ['arena', '🏁 All ranked']];
+export const PICK_LENSES = [['fresh', '🔄 New to you'], ['ptrend', '🔥 Pump trending'], ['movers', '🚀 Movers'], ['bottom', '🟢 Dips & bottoms'], ['pump', '🆕 New launches'], ['volume', '🌊 Volume'], ['trench', '🗑 Trench'], ['majors', '🪙 Majors & stocks'], ['arena', '🏁 All ranked']];
 const LENS_URLS = { majors: ['majors', 'stocks', 'risers'] };   // one tab, three sources (majors · stock tokens · new majors)
 // 📈 every row gets a line: the board's recorded prices when it has them, else the coin's own 24h → 6h → 1h → 5m → now moves
 export const moveLine = r => { const now = 1; const back = c => (c == null || !Number.isFinite(Number(c)) || Number(c) <= -99 ? null : now / (1 + Number(c) / 100));
@@ -794,7 +794,7 @@ export const bottomRecord = p => (p && p.n >= 5 ? `Its own record: ${p.n} coins 
 export const listRecord = p => (p && p.n >= 5 ? `📏 ${p.src === 'this list' ? 'This list' : `Borrowed from the ${p.src}`}: ${p.n} coins held 1 hour — typical ${p.medPct >= 0 ? '+' : ''}${p.medPct}%, ${p.wonPct}% ended up. A record, never a promise.` : '📏 This list’s record starts now — coins are judged 1 hour after they are listed.');
 export const isFalling = (m5, h1) => (m5 != null && Number(m5) <= -3) || (h1 != null && Number(h1) <= -8);   // = arena_prime.entry_ok
 export const pickRow = r => ({ mint: r.mint || r.baseAddress, pairAddress: r.pairAddress, symbol: r.symbol, price: r.price ?? r.priceUsd, liq: r.liq ?? r.liquidityUsd,
-  chg: r.chg1h ?? r.change1h ?? r.chg24h ?? r.change24h, chg1h: r.chg1h ?? r.change1h ?? null, chg5m: r.chg5m ?? r.change5m ?? null, chg6h: r.chg6h ?? r.change6h ?? null, chg24h: r.chg24h ?? r.change24h ?? null, score: r.score, impostor: r.impostor, real: r.real, trench: r.trench, holders: r.holders, soft: r.soft, outside: r.outside, curve: r.curve, div: r.divisionLabel, watch: r.watch, fails: r.fails, warn: r.warn, pulse: r.pulse, stock: r.stock, ageH: r.ageH ?? null, pad: r.pad || r.launchpadLabel, mcap: r.mcap ?? r.marketCap, vol1h: r.vol1h, buyShare: r.buyShare, top10: r.top10 ?? r.t10, dev: r.dev ?? r.dh, insiders: r.insiders, bundledN: r.bundledN, snipersN: r.snipersN, clean: r.clean, bundledPct: r.bundledPct, scanned: r.scanned, site: r.site, x: r.x, tg: r.tg });
+  chg: r.chg1h ?? r.change1h ?? r.chg24h ?? r.change24h, chg1h: r.chg1h ?? r.change1h ?? null, chg5m: r.chg5m ?? r.change5m ?? null, chg6h: r.chg6h ?? r.change6h ?? null, chg24h: r.chg24h ?? r.change24h ?? null, score: r.score, impostor: r.impostor, real: r.real, trench: r.trench, holders: r.holders, soft: r.soft, outside: r.outside, curve: r.curve, div: r.divisionLabel || r.from, watch: r.watch, vital: r.vital, crew: r.crew, fails: r.fails, warn: r.warn, pulse: r.pulse, stock: r.stock, ageH: r.ageH ?? null, pad: r.pad || r.launchpadLabel, mcap: r.mcap ?? r.marketCap, vol1h: r.vol1h, buyShare: r.buyShare, top10: r.top10 ?? r.t10, dev: r.dev ?? r.dh, insiders: r.insiders, bundledN: r.bundledN, snipersN: r.snipersN, clean: r.clean, bundledPct: r.bundledPct, scanned: r.scanned, site: r.site, x: r.x, tg: r.tg });
 // ⏭ COMING UP: the coins the engine takes next (best hourly move first). Tap a coin → its live flow; pick the seat → it comes in
 // at the next round in that coin's place (the same pick as the 🎯 picker, with the same warning when a check fails).
 export function ComingUp({ p, legs = [], onSwap, onFill, emptySeats = 0, busy }) {
@@ -813,7 +813,7 @@ export function ComingUp({ p, legs = [], onSwap, onFill, emptySeats = 0, busy })
     <ol>{rows.slice(0, 4).map((r, i) => { const t = target[r.mint] || (emptySeats > 0 && onFill ? SEAT : seats[0]?.pairAddress) || ''; return <li key={r.mint} className={r.wait ? 'is-wait' : ''} style={{ '--i': i }}>
       <button type="button" className="hrt-up-coin" onClick={() => openCoin({ mint: r.mint, pairAddress: r.pairAddress, symbol: r.symbol })} data-tip={r.wait ? `Watching, not buying yet: ${r.wait}. The engine takes it once its chart is readable and not falling — you can still swap it in by hand.` : `${['Takes the next seat that opens', 'Second in line', 'Third in line', 'Fourth in line'][i]} — tap for its live flow`} data-testid={`up-${r.symbol}`}>
         <i className="hrt-up-n">{r.wait ? '👀' : ['NEXT', '2ND', '3RD', '4TH'][i]}</i><b>${r.symbol}</b><em className={`m-num ${r.chg1h >= 0 ? 'm-pos' : 'm-neg'}`}>{r.chg1h >= 0 ? '+' : ''}{Math.round(r.chg1h)}%</em><small>{r.vol1h > 0 ? `${big(r.vol1h)}/h` : r.liq > 0 ? `${big(r.liq)} pool` : ''}</small>{r.wait ? <u className="hrt-up-tag">⏳ watching — {r.wait}</u> : r.tag ? <u className="hrt-up-tag">{r.tag}</u> : null}</button>
-      <RowVitals r={r} live />
+      <CoinVital r={r} live />
       <span className="hrt-up-acts"><select className="m-input hrt-up-sel" disabled={busy || !can} value={t} aria-label={`Where $${r.symbol} goes`} data-testid={`up-swap-${r.symbol}`}
         onChange={e => setTarget(o => ({ ...o, [r.mint]: e.target.value }))}>
         {emptySeats > 0 && onFill && <option value={SEAT}>🪑 empty seat</option>}{seats.map(l => <option key={l.pairAddress} value={l.pairAddress}>for ${l.symbol}</option>)}</select>
@@ -837,7 +837,7 @@ export function PipeLine({ p }) {
 
 export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, cool = {}, call, verify = false }) {
   const [nonce, setNonce] = useState(0);   // bumps when the trench settings are saved → the list reloads
-  const [lens, setLens] = useState('ptrend'); const [rows, setRows] = useState(null); const [q, setQ] = useState('');
+  const [lens, setLens] = useState('fresh'); const [rows, setRows] = useState(null); const [q, setQ] = useState('');
   const [tr, setTr] = useState(null);   // 🗑 trench scan: own pool floor + how many were checked
   const [why, setWhy] = useState('');
   const [bproof, setBproof] = useState(null);   // 🟢 the Buy-bottom list's own 1-hour paper record
@@ -887,7 +887,7 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
         <small className="sp-fall" data-testid={r.warn ? `sp-warn-${r.symbol}` : falling ? `sp-fall-${r.symbol}` : undefined} data-tip={r.warn ? `${r.warn} You still can — it is your pick.` : falling ? 'Falling right now (−3% or more in 5 minutes, or −8% or more in the hour). The engine would not buy this with real money; you still can — it is your pick.' : undefined}>{r.warn ? '⚠ creator' : falling ? '⚠ falling' : ''}</small><small className="m-num" data-tip={r.curve ? 'Still on Pump’s launch curve: no pool yet, this is the depth of the curve itself. Tradable, very early, highest risk. Only you can pick it — the engine never buys a curve coin by itself.' : undefined}>{r.curve ? 'curve' : 'pool'} {r.liq > 0 ? big(r.liq) : '—'}</small><small className="m-num">{r.outside ? <i className="sp-soft sp-out" data-testid={`sp-out-${r.symbol}`} data-tip={`Outside your trench filter: ${(r.fails || []).join(' · ')}. Shown only so the list is never empty — it passed the safety checks. Not seated by the engine; yours to pick.`}>not in filter</i> : r.soft ? <i className="sp-soft" data-tip={`Near-miss: inside your filter's age and cap band, every safety check passed, it only missed — ${(r.fails || []).join(' · ')}. Not seated by the engine; yours to pick.`}>near-miss</i> : <>{r.trench && r.holders ? `${r.holders} holders · ` : ''}{r.score != null ? `score ${Number(r.score).toFixed(0)}` : ''}</>}</small>
         <span className="sp-acts"><button type="button" className="m-btn primary" disabled={busy || on || thin || r.impostor || cool[r.mint] > 0} onClick={() => onPick(r, true)}
           data-tip={young ? `$${r.symbol} is ${Math.round(r.ageH * 60)} minutes old — you will get a warning to acknowledge, then it goes in` : cool[r.mint] > 0 ? `$${r.symbol} just left this card — you can pick it again in ${cool[r.mint]} round${cool[r.mint] === 1 ? '' : 's'} (no back-to-back)` : thin ? `Pool under your $${Math.round(fl / 1000)}K pick floor — change it in Edit Fuse › Limits (My own pick min pool)` : undefined} data-testid={`sp-pick-${r.symbol}`}>{on ? 'on card' : young ? '⚠ swap now' : cool[r.mint] > 0 ? `in ${cool[r.mint]} rnd` : thin ? 'too thin' : r.impostor ? 'lookalike' : out.seat ? '⚡ Fill now' : '⚡ Swap now'}</button>
-          {!out.seat && !on && !thin && !r.impostor && !(cool[r.mint] > 0) && <button type="button" className="m-btn sp-bell" disabled={busy} onClick={() => onPick(r, false)} data-tip="Swap it in at the round bell instead of now" aria-label={`Swap $${r.symbol} in at the bell`} data-testid={`sp-bell-${r.symbol}`}>⏱</button>}</span><RowVitals r={r} live={idx < 25} /></li>; })}</ul>}
+          {!out.seat && !on && !thin && !r.impostor && !(cool[r.mint] > 0) && <button type="button" className="m-btn sp-bell" disabled={busy} onClick={() => onPick(r, false)} data-tip="Swap it in at the round bell instead of now" aria-label={`Swap $${r.symbol} in at the bell`} data-testid={`sp-bell-${r.symbol}`}>⏱</button>}</span><CoinVital r={r} live={idx < 25} /></li>; })}</ul>}
   </div>;
 }
 

@@ -2177,3 +2177,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   tick, so a coin at +100% read +100% again seconds after its take and sold half of what was left again and again ($TikTok 2026-10-08: the 🏠 pull took its
   $0.74 initial, then 7 TPs in 8 min → dust). TP now fires only when the price is +TP% above max(entry, `tpPx`); a `house` coin (initial already out) gets NO
   TP — it rides on stops / trail / rug shield. Any per-tick take on a real card must carry its OWN last-take price (`skimPx`, `tpPx`), never trust `entry`.
+- 🧪 JUPITER AUDIT = A HOLDER READING FOR EVERY COIN (`backend/jup_audit.py` pure + tested; `_jup_lite` batched through `_jup_tokens`, 3-min cache
+  `_jup_facts`): 2026-10-08 only ~19 of 271 listed coins had ever been holder-scanned (one RPC lane answers; a new coin costs ~40 calls) and unscanned =
+  never bought, so the lists ran in circles. Now a coin our scan has not reached gets `lite_intel` (top-10 = Jupiter's topHoldersPercentage, dev
+  balance, creator = dev; insiders / bundles UNKNOWN = None) on the runner board, picker rows (`scanned: 'jup'`) and Open gates; our full scan still
+  runs and replaces it. Live mint / freeze authority = hard out (`authority_bad`). Jupiter's % never feeds the top-10 spike / dev-sold history.
+- 👥 CREWS (`jup_audit.crew`, from the dev wallet's launch record devMints / devMigrations): 🔥 popular crew (≥ 3 graduated, ≥ 20%) · ☠ serial
+  launcher (≥ 50 launches, < 5% graduated) · 🆕 fresh dev (≤ 3) · ⚪ mixed. A READ, never a block ($TikTok's dev: 1,076 launches, 22 graduated, still +10,000%).
+- 🫀 THE VITAL (`CoinVital.jsx` + `styles/coinVital.css` `cv-*`, `jup_audit.verdict` → row `vital`; replaces the long RowVitals chip line in Coming
+  up + the swap picker): grade ring A–F + score, four bars (🧩 holders · 👤 dev · 👥 crew · 🌱 organic flow = organic share of 1h volume), the 3 facts
+  that decide it (bad first: 🐋 top-10 · 📦 bundles · 🕵 insiders · 👤 dev · ☠ crew · 🤖 bots) + one stats line. Not read yet → the old chip line.
+- 🔄 NEW TO YOU (picker lens `fresh`, opens first): Pump trending · movers · Pump live · volume · dips · the Arena's ranked coins woven one from each in
+  turn, MINUS every coin the real card bought / sold / holds in the last 24h (`from` tag on each row).
