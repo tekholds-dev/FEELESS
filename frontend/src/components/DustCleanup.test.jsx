@@ -32,3 +32,17 @@ test('reads the wallet, selects dust, and a burn needs the acknowledge box befor
   await act(async () => { el.querySelector('[data-testid="dc-go"]').click(); });
   expect(global.fetch.mock.calls.length).toBe(calls);   // not acknowledged → nothing built, nothing sent
 });
+
+test('EVM reads every chain the wallet holds, grouped by chain; the native coin is gas and cannot be picked', async () => {
+  const { grouped, plan: pl } = require('./DustCleanup');
+  const evm = [
+    { chain: 'bsc', chainId: 56, address: '0xT1', symbol: 'CAKE', usd: 3, best: 'swap', actions: ['swap'], raw: '1', ui: 1 },
+    { chain: 'ethereum', chainId: 1, address: '0x0000000000000000000000000000000000000000', symbol: 'ETH', usd: 9, best: 'gas', native: true, actions: [], raw: '1', ui: 1 },
+    { chain: 'ethereum', chainId: 1, address: '0xT2', symbol: 'PEPE', usd: 0.1, best: 'dust', actions: ['swap'], raw: '1', ui: 1 },
+  ];
+  const chains = [{ chain: 'ethereum', usd: 9.1, coins: 2 }, { chain: 'bsc', usd: 3, coins: 1 }];
+  expect(grouped(evm, chains).map(r => r.symbol)).toEqual(['ETH', 'PEPE', 'CAKE']);
+  const p = pl(evm, { '1:0x0000000000000000000000000000000000000000': true, '1:0xT2': true, '56:0xT1': true }, {});
+  expect(p.chosen.map(r => r.symbol).sort()).toEqual(['CAKE', 'PEPE']);   // native gas never chosen
+  expect(p.dust.map(r => r.symbol)).toEqual(['PEPE']); expect(p.swaps.map(r => r.symbol)).toEqual(['CAKE']);
+});

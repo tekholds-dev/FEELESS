@@ -18853,3 +18853,38 @@ async def music_next(title: str = Query('', max_length=160), skip: str = Query('
     if not pick:
         pick = _music.pick_next(await _yt_search('top songs this week'), [s for s in skip.split(',') if s], [t for t in titles.split('|') if t])
     return {'next': pick, 'artist': artist}
+
+
+@app.get('/api/reputation/wallet-dust/evm/{address}')
+async def wallet_dust_evm(address: str):
+    """🌐 EVERY eco this EVM wallet holds something on (owner: "every single eco positive account"): LI.FI's wallet balances across all the chains
+    FEELESS signs on, plus our own Cronos read (LI.FI's list missed Cronos). Native coin = that chain's gas; tokens swap to it through LI.FI."""
+    if not _re.match(_EVM_ADDR, address):
+        raise HTTPException(400, 'Not an EVM address.')
+
+    async def lifi():
+        try:
+            async with httpx.AsyncClient(timeout=20) as http:
+                r = await http.get(f'https://li.quest/v1/wallets/{address}/balances', params={'extended': 'true'})
+                return r.json() if r.status_code == 200 else {}
+        except Exception:
+            return {}
+
+    async def cro():
+        try:
+            d = await wallet_dust_cronos(address)
+        except Exception:
+            return []
+        rows = [{**r, 'chain': 'cronos', 'chainId': 25, 'native': False} for r in d.get('rows') or []]
+        if _fuse._f(d.get('nativeCro')) > 0:
+            px = next((_fuse._f(t.get('priceUSD')) for t in (_lifi_tok_cache.get(25) or (0, []))[1] if (t.get('symbol') or '').upper() == 'WCRO'), 0.0)
+            rows.append({'chain': 'cronos', 'chainId': 25, 'address': _dust.NATIVE_EVM, 'symbol': 'CRO', 'name': 'Cronos', 'logo': '', 'decimals': 18,
+                         'raw': str(int(_fuse._f(d['nativeCro']) * 1e18)), 'ui': _fuse._f(d['nativeCro']), 'usd': round(_fuse._f(d['nativeCro']) * px, 4) if px else None,
+                         'price': px or None, 'native': True, 'best': 'gas', 'actions': []})
+        return rows
+    doc, cro_rows = await asyncio.gather(lifi(), cro())
+    rows = _dust.merge_evm(_dust.lifi_rows(doc), cro_rows)
+    rows.sort(key=lambda r: (r['chain'], not r['native'], -(r['usd'] or 0)))
+    return {'chain': 'evm', 'address': address, 'rows': rows, 'chains': _dust.by_chain(rows), 'swapMinUsd': _dust.SWAP_MIN_USD,
+            'summary': {'coins': len(rows), 'chains': len({r['chain'] for r in rows}), 'usd': round(sum(r['usd'] or 0 for r in rows), 2),
+                        'swapUsd': round(sum(r['usd'] or 0 for r in rows if r['best'] == 'swap'), 2), 'dust': sum(1 for r in rows if r['best'] == 'dust')}}

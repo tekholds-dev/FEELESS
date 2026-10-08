@@ -95,3 +95,53 @@ def evm_rows(tokens, results, swap_min=SWAP_MIN_USD):
                     'raw': str(raw), 'ui': ui, 'usd': usd, 'price': px or None, 'best': 'swap' if (usd or 0) >= swap_min else 'dust',
                     'actions': ['swap']})
     return sorted(out, key=lambda r: -(r['usd'] or 0))
+
+
+EVM_NAMES = {1: 'ethereum', 8453: 'base', 56: 'bsc', 42161: 'arbitrum', 43114: 'avalanche', 137: 'polygon', 10: 'optimism', 324: 'zksync',
+             7777777: 'zora', 25: 'cronos', 130: 'unichain', 480: 'worldchain'}
+NATIVE_EVM = '0x0000000000000000000000000000000000000000'
+
+
+def lifi_rows(doc, swap_min=SWAP_MIN_USD):
+    """LI.FI /wallets/{addr}/balances → one row per POSITIVE balance on every chain FEELESS can sign on. The native coin of a chain IS its gas
+    (row best = 'gas', no action); a token worth ≥ swap_min can be swapped to that gas; smaller ones are listed as dust."""
+    out = []
+    for cid, toks in ((doc or {}).get('balances') or {}).items():
+        try:
+            cid = int(cid)
+        except ValueError:
+            continue
+        chain = EVM_NAMES.get(cid)
+        if not chain:
+            continue
+        for t in toks or []:
+            try:
+                raw = int(t.get('amount') or 0)
+            except (TypeError, ValueError):
+                raw = 0
+            if raw <= 0:
+                continue
+            dec = int(t.get('decimals') or 18)
+            ui = raw / 10 ** dec
+            px = _f(t.get('priceUSD'))
+            usd = round(ui * px, 6) if px > 0 else None
+            native = str(t.get('address') or '').lower() == NATIVE_EVM
+            out.append({'chain': chain, 'chainId': cid, 'address': t.get('address'), 'symbol': t.get('symbol'), 'name': t.get('name'), 'logo': t.get('logoURI') or '',
+                        'decimals': dec, 'raw': str(raw), 'ui': ui, 'usd': usd, 'price': px or None, 'native': native,
+                        'best': 'gas' if native else ('swap' if (usd or 0) >= swap_min else 'dust'), 'actions': [] if native else ['swap']})
+    return out
+
+
+def merge_evm(rows, extra):
+    """Add rows (e.g. our own Cronos read) the LI.FI list does not have — one row per chain + token."""
+    have = {(r['chainId'], str(r['address']).lower()) for r in rows}
+    return rows + [r for r in extra if (r['chainId'], str(r['address']).lower()) not in have]
+
+
+def by_chain(rows):
+    """[{chain, chainId, usd, coins}] — every eco this wallet holds something on, biggest first."""
+    acc = {}
+    for r in rows:
+        a = acc.setdefault(r['chain'], {'chain': r['chain'], 'chainId': r['chainId'], 'usd': 0.0, 'coins': 0})
+        a['usd'] = round(a['usd'] + (r['usd'] or 0), 2); a['coins'] += 1
+    return sorted(acc.values(), key=lambda x: -x['usd'])

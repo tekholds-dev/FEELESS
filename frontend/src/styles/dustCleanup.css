@@ -24,6 +24,10 @@
 .dc-pick input { width: 16px; height: 16px; accent-color: #15d16a; cursor: pointer; }
 .dc-coin { display: grid; min-width: 0; } .dc-coin b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .dc-coin small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dc-act { width: 150px; font-size: 12px; }
+.dc-chain { display: flex; align-items: baseline; gap: 8px; padding: 10px 4px 2px; list-style: none; border-bottom: 1px solid var(--m-line); }
+.dc-chain b { font: 700 11px 'JetBrains Mono', monospace; letter-spacing: .14em; text-transform: uppercase; color: #45e486; }
+.dc-chain small { font: 11px 'JetBrains Mono', monospace; }
+.dc-gas { width: 150px; text-align: center; font: 600 12px 'JetBrains Mono', monospace; padding: 6px 0; border-radius: 8px; color: var(--gold); border: 1px dashed currentColor; }
 .dc-st { font-style: normal; font-weight: 700; text-align: center; } .dc-st.done { color: #15d16a; } .dc-st.failed { color: #ff8fa3; }
 .dc-go { display: grid; gap: 8px; padding: 10px 12px; border: 1px dashed var(--m-line-hi); border-radius: 12px; animation: dcIn .2s ease both; }
 .dc-go p { margin: 0; font-size: 13px; }
@@ -36,8 +40,9 @@
 @keyframes dcDot { 50% { transform: scale(.5); opacity: .4; } }
 body.fx-lite .dc-row, body.fx-lite .dc-go, body.fx-lite .dc-log li, body.fx-lite .dc-loading i { animation: none; }
 @media (prefers-reduced-motion: reduce) { .dc-row, .dc-go, .dc-log li, .dc-loading i { animation: none; } .dc-row { transition: none; } }
+body.theme-day .dc-chain b { color: #0b7a3e; }
 body.theme-day .dc-row { background: #eef6f1; } body.theme-day .dc-sum > span { background: #e4f0e9; }
 body.theme-day .dc-log li.good { color: #076a45; } body.theme-day .dc-log li.bad { color: #b42345; } body.theme-day .dc-ack { color: #8a6200; }
-@media (max-width: 640px) { .dc-row { grid-template-columns: 22px 24px minmax(0, 1fr) 22px; } .dc-act { grid-column: 3 / 5; width: 100%; } .dc-sum .dc-tools { margin-left: 0; } }
+@media (max-width: 640px) { .dc-row { grid-template-columns: 22px 24px minmax(0, 1fr) 22px; } .dc-act, .dc-gas { grid-column: 3 / 5; width: 100%; } .dc-sum .dc-tools { margin-left: 0; } }
 .dc-look { display: grid; gap: 4px; } .dc-look .m-input { width: 100%; font-size: 12px; }
 .dc-ro { margin: 0; font-size: 12px; }

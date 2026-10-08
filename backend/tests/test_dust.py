@@ -53,3 +53,15 @@ def test_close_tx_only_builds_for_accounts_the_wallet_owns(monkeypatch):
     assert len(out['txs']) == 1 and out['txs'][0]['burns'] == 1 and out['txs'][0]['rentSol'] > 0.002
     with pytest.raises(Exception):
         asyncio.run(rs.wallet_dust_close_tx(rs.DustCloseIn(address=owner, accounts=['SysvarRent111111111111111111111111111111111'])))   # not theirs
+
+
+def test_every_eco_with_a_positive_balance_is_listed_and_native_is_gas():
+    doc = {'balances': {'1': [{'address': dust.NATIVE_EVM, 'symbol': 'ETH', 'decimals': 18, 'amount': str(2 * 10 ** 16), 'priceUSD': '2500'},
+                              {'address': '0xT', 'symbol': 'PEPE', 'decimals': 18, 'amount': '0', 'priceUSD': '1'}],
+                        '56': [{'address': '0xU', 'symbol': 'CAKE', 'decimals': 18, 'amount': str(10 ** 18), 'priceUSD': '2'}],
+                        '999999': [{'address': '0xZ', 'symbol': 'X', 'decimals': 18, 'amount': '1', 'priceUSD': '1'}]}}
+    rows = dust.lifi_rows(doc)
+    assert {(r['chain'], r['symbol'], r['best']) for r in rows} == {('ethereum', 'ETH', 'gas'), ('bsc', 'CAKE', 'swap')}   # 0 balance + unknown chain dropped
+    cro = [{'chain': 'cronos', 'chainId': 25, 'address': '0xC', 'symbol': 'WCRO', 'usd': 6.0, 'best': 'swap'}]
+    allr = dust.merge_evm(rows, cro)
+    assert [c['chain'] for c in dust.by_chain(allr)] == ['ethereum', 'cronos', 'bsc']

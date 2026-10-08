@@ -2155,3 +2155,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `.trade-left` is NOT sticky (it slid over the swap card). 🧹 Dust: Cronos balances read in batches of 10 across 3 public nodes (`CRONOS_RPCS`; one
   68-call batch came back as ONE error object = "0 coins"); Cronos connect = the browser's own EVM wallet switched to Cronos (never the Solana wallet's
   paired side); any address can be LOOKED at without connecting (cleaning still needs that wallet).
+- 🌐 DUST · EVERY EVM ECO (`GET /wallet-dust/evm/{addr}`, `dust.lifi_rows/merge_evm/by_chain`): LI.FI's wallet balances on every chain FEELESS signs on
+  (ethereum · base · bsc · arbitrum · avalanche · polygon · optimism · zksync · zora · cronos · unichain · worldchain) + our own Cronos read (LI.FI missed
+  it), positive balances only. Trade › 🧹 Dust tab `🌐 EVM · every chain` (replaced the Cronos-only tab): rows grouped under a chain header with its $,
+  the native coin = "⛽ gas" (never pickable), every token swaps to ITS OWN chain's gas via LI.FI (`fromChain = toChain = r.chainId`, wallet switched first).
