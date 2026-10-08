@@ -6755,7 +6755,8 @@ async def _prime_tick_inner(now):
             free_ = [x for x in r_t if x.get('mint') not in on_ and not x.get('trenchOnly')]
             scout_ = [x for x in _prime.movers(r_pre_, {}) if x.get('mint') not in on_]
             row_ = lambda x: {'mint': x.get('mint'), 'pairAddress': x.get('pairAddress'), 'symbol': x.get('symbol'), 'chg1h': _fuse._f(x.get('chg1h')), 'vol1h': _fuse._f(x.get('vol1h')), 'tag': x.get('tag') or '',
-                              'ageH': x.get('ageH'), 'liq': _lq(x)}
+                              'ageH': x.get('ageH'), 'liq': _lq(x), 'pad': x.get('pad'), 'mcap': x.get('mcap'), 'buyShare': x.get('buyShare'), 'top10': x.get('top10'), 'dev': x.get('dev'),
+                              'insiders': x.get('insiders'), 'site': x.get('site'), 'x': x.get('x'), 'tg': x.get('tg')}
             seen_u, up_ = set(), []
             for x in cfg_t.get('catPicks') or []:   # ⏭ one per category, best list record first — what an empty seat takes next
                 if x.get('mint') not in on_ and x['mint'] not in seen_u:

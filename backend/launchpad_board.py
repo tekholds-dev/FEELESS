@@ -11,6 +11,20 @@ import time
 
 BONK_PLATFORM_ID = 'FfYek5vEz23cMkWsdJwG2oa6EphsvXSHrGpdALN4g6W1'
 LAUNCHPAD_LABELS = {'pump': 'Pump.fun', 'bonk': 'LetsBONK', 'raydium': 'LaunchLab', 'other': 'Solana movers'}
+# Jupiter names the venue of every coin it ranks (`launchpad`: met-dbc, bags.fun, stonkfun …). These are the popular Solana launchpads,
+# shown by their own name on a coin's vitals; an unknown venue keeps its raw tag, no tag = 'Solana movers'.
+PAD_NAMES = {'met-dbc': 'Meteora DBC', 'meteora-dbc': 'Meteora DBC', 'bags.fun': 'Bags', 'bags': 'Bags', 'stonkfun': 'Stonk.fun', 'stonk.fun': 'Stonk.fun',
+             'hooked': 'Hooked', 'ember': 'Ember', 'boop.fun': 'Boop', 'boop': 'Boop', 'moonshot': 'Moonshot', 'believe': 'Believe', 'heaven': 'Heaven',
+             'daos.fun': 'DAOS.fun', 'jup-studio': 'Jupiter Studio', 'jupiter-studio': 'Jupiter Studio', 'time.fun': 'time.fun', 'virtuals': 'Virtuals',
+             'pump.fun': 'Pump.fun', 'letsbonk.fun': 'LetsBONK', 'bonk.fun': 'LetsBONK', 'raydium-launchlab': 'LaunchLab', 'sugar': 'Sugar', 'metadao': 'MetaDAO'}
+
+
+def pad_name(pad, platform=None):
+    """The launchpad's own name for a board coin: the three first-class pads by id, any other venue by Jupiter's tag."""
+    if pad in ('pump', 'bonk', 'raydium'):
+        return LAUNCHPAD_LABELS[pad]
+    key = str(platform or '').strip().lower()
+    return PAD_NAMES.get(key) or (str(platform).strip() if key and key not in ('pump trending', 'solana movers') else LAUNCHPAD_LABELS['other'])
 NEW_MAX_AGE_HOURS = 12
 TREND_MIN_MC, TREND_MIN_VOL1H, TREND_MIN_TX1H = 15_000, 5_000, 30   # what a launch coin needs to be listed on the trending board
 BOARD_MAX = 660   # most coins looked up per board build (DexScreener: 30 a call → ≤ 22 calls a build)
@@ -183,7 +197,7 @@ def build_board(candidates, dex_pairs, kind, now_ms=None):
         if not info.get('imageUrl') and cand.get('image'):
             info['imageUrl'] = cand['image']
         out.append({
-            **pair, 'info': info, 'launchpadId': cand['launchpad'], 'launchpadLabel': LAUNCHPAD_LABELS[cand['launchpad']],
+            **pair, 'info': info, 'launchpadId': cand['launchpad'], 'launchpadLabel': pad_name(cand['launchpad'], cand.get('platformName')),
             'platformName': cand.get('platformName'), 'graduated': cand['graduated'], 'curveProgress': cand['curveProgress'],
             'replyCount': cand['replies'], 'athMarketCap': cand['athMarketCap'] or None, 'isLive': cand['live'],
             'marketStage': 'new' if kind == 'new' else pair.get('marketStage'), 'launchpadUrl': cand['url'],

@@ -55,7 +55,7 @@ def candidate(pair, intel=None, creator_flagged=False, snipers_out=False, now_ms
     created = _f(pair.get('pairCreatedAt'))
     pc, vol = pair.get('priceChange') or {}, pair.get('volume') or {}
     return {'mint': (pair.get('baseToken') or {}).get('address'), 'symbol': (pair.get('baseToken') or {}).get('symbol'), 'pairAddress': pair.get('pairAddress'),
-            'chainId': 'solana', 'logo': (pair.get('info') or {}).get('imageUrl'), 'dex': pair.get('dexId'),
+            'chainId': 'solana', 'logo': (pair.get('info') or {}).get('imageUrl'), 'dex': pair.get('dexId'), 'pad': pair.get('launchpadLabel'),
             'stage': 'graduated' if pair.get('graduated') or pair.get('dexId') not in ('pumpfun', None) else 'curve',
             'curve': _f(pair.get('curveProgress')), 'ageH': round((now_ms - created) / 3.6e6, 2) if created and now_ms else None,
             'mcap': _f(pair.get('marketCap') or pair.get('fdv')), 'liq': _f((pair.get('liquidity') or {}).get('usd')), 'price': _f(pair.get('priceUsd')),

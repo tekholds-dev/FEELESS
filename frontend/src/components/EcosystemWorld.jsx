@@ -10,6 +10,8 @@ import NewStuffFeed from './NewStuffFeed';
 const TrenchChart = React.lazy(() => import('./terminal/TrenchChart').then(m => ({ default: m.TrenchChart })));
 import { useMarket } from '../hooks/useMarket';
 import { DegenWeather } from './terminal/DegenWeather';
+import { ChartVitals } from './terminal/ChartVitals';
+import { TokenAvatar } from './terminal/MarketPrimitives';
 
 const ROOM_LAYOUT_KEY = 'feeless-room-layout';
 const ROOM_EXPANDED_KEY = 'feeless-room-expanded';
@@ -126,11 +128,12 @@ export default function EcosystemWorld({ ecosystem, pad, initialPair, onClose })
 
         <div className="eco-right-col custom-scroll">
           {chartPair && <div className={`eco-chart m-live ${chartBig ? 'is-big' : ''}`} data-testid="eco-room-chart" style={chartBig ? { left: winPos.x, top: winPos.y } : undefined}>
-            <div className="eco-chart-head" onPointerDown={drag} title={chartBig ? 'Drag to move · resize from the corner' : undefined}><b>${chartPair.baseToken?.symbol}</b><span>{chartPair.baseToken?.name}</span>
+            <div className="eco-chart-head cv-head" onPointerDown={drag} title={chartBig ? 'Drag to move · resize from the corner' : undefined}><TokenAvatar pair={liveChartPair} size={30} /><b>${chartPair.baseToken?.symbol}</b><span>{chartPair.baseToken?.name}</span>
               {chartPair.baseToken?.address && <button type="button" className="eco-chart-ca" data-testid="chart-copy-ca" aria-label="Copy contract address" data-tip="Copy the contract address (CA)" onPointerDown={e => e.stopPropagation()}
                 onClick={() => { const ca = chartPair.baseToken.address; (navigator.clipboard?.writeText(ca) || Promise.reject()).then(() => toast.success('CA copied')).catch(() => window.prompt('Copy the contract address:', ca)); }}>
                 <i>{chartPair.baseToken.address.slice(0, 4)}…{chartPair.baseToken.address.slice(-4)}</i> ⧉</button>}
-              <a href={`/terminal/coin/${chartPair.chainId}/${chartPair.baseToken?.address || chartPair.pairAddress}`} target="_blank" rel="noreferrer" data-testid="chart-profile" data-tip="This coin's full profile: Pump record, links, creator, holders">Profile ↗</a><button type="button" className="eco-chart-x" aria-label={chartBig ? 'Shrink chart' : 'Expand chart'} title={chartBig ? 'Shrink (Esc)' : 'Expand'} onClick={() => { if (!chartBig) setWinPos(centred()); setChartBig(b => !b); setTimeout(() => window.dispatchEvent(new Event('resize')), 60); }}>{chartBig ? '⤡' : '⤢'}</button><button type="button" className="eco-chart-x" aria-label="Close chart" onClick={() => { setChartPair(null); setChartBig(false); }}><X size={14} /></button></div>
+              <a className="m-btn cv-profile" href={`/terminal/coin/${chartPair.chainId}/${chartPair.baseToken?.address || chartPair.pairAddress}`} target="_blank" rel="noreferrer" data-testid="chart-profile" data-tip="This coin's full profile: Pump record, links, creator, holders">Profile ↗</a><button type="button" className="eco-chart-x" aria-label={chartBig ? 'Shrink chart' : 'Expand chart'} title={chartBig ? 'Shrink (Esc)' : 'Expand'} onClick={() => { if (!chartBig) setWinPos(centred()); setChartBig(b => !b); setTimeout(() => window.dispatchEvent(new Event('resize')), 60); }}>{chartBig ? '⤡' : '⤢'}</button><button type="button" className="eco-chart-x" aria-label="Close chart" onClick={() => { setChartPair(null); setChartBig(false); }}><X size={14} /></button></div>
+            <ChartVitals pair={liveChartPair} />
             <div className="eco-chart-body"><React.Suspense fallback={<div className="chart-message"><span className="loader" />Loading chart…</div>}><TrenchChart key={chartPair.pairAddress} pair={liveChartPair} className="eco-trench"
               aside={<div className="eco-chart-chat" data-testid="eco-chart-chat"><EcosystemChat key={chartPair.pairAddress} compact room={`coin-${chartPair.chainId}-${chartPair.pairAddress}-trenches`} ecosystem={{ id: `coin-${chartPair.pairAddress}`, name: `$${chartPair.baseToken?.symbol || ''}` }} /></div>} /></React.Suspense></div>
           </div>}

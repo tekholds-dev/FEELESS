@@ -135,3 +135,13 @@ def test_jupiter_search_turns_a_pasted_ca_into_pairs_best_pool_first():
             return R()
     out = asyncio.run(jup_search_pairs(H(), '$Human'))
     assert [p['baseToken']['symbol'] for p in out] == ['Human', 'THIN']   # deepest first; no price = never listed
+
+
+def test_every_popular_solana_launchpad_is_named_on_its_coins():
+    import launchpad_board as lb
+    assert lb.pad_name('pump') == 'Pump.fun' and lb.pad_name('bonk') == 'LetsBONK' and lb.pad_name('raydium') == 'LaunchLab'
+    assert lb.pad_name('other', 'met-dbc') == 'Meteora DBC' and lb.pad_name('other', 'bags.fun') == 'Bags' and lb.pad_name('other', 'stonkfun') == 'Stonk.fun'
+    assert lb.pad_name('other', 'newpad.xyz') == 'newpad.xyz'          # an unknown venue keeps its own tag
+    assert lb.pad_name('other', None) == 'Solana movers' and lb.pad_name('other', 'Pump trending') == 'Solana movers'
+    import runners as rn
+    assert rn.candidate({'baseToken': {'address': 'M'}, 'launchpadLabel': 'Bags'}, now_ms=0)['pad'] == 'Bags'
