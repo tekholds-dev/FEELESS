@@ -20,7 +20,7 @@ import { openCoin } from './CoinDrawer';
 import { TrenchOpen } from './TrenchOpen';
 import '../styles/primeLeague.css';
 import { useTabTitle, cardTitle } from '../lib/tabTitle';
-import { CoinVital } from './CoinVital';
+import { CoinVital, VitalView, applyView, loadView } from './CoinVital';
 import { PayMap } from './PayMap';
 
 import { tiny } from '../lib/num';
@@ -662,7 +662,7 @@ export function HqRealCards({ addr, onCount }) {
       const cf = c.cfgEff || (d.lockCfg?.[c.tpl] ? { ...d.cfg, ...d.lockCfg[c.tpl] } : d.cfg);   // the config this card REALLY runs (real card = its own)
       return <div key={c.id} className="hq-real">
         <div className="hq-real-card"><span className="cpop-wrap"><LiveFuseCard r={primeRow(c)} aura={t.aura} look={t.look} label="💵 REAL · FUSE WALLET" serverOnly mini={{ kind: 'prime', tpl: c.tpl, name: c.label }} /><CardPops fills={b.orders || []} legs={c.legs} cfg={cf} tp={c.tp} /></span>
-          <CardVitals c={c} funded={b.fundedUsd || c.startUsd} onTrail={() => setTrail(c.id)} /><ComingUp p={c.pipeline} legs={c.legs} busy={!!busy} emptySeats={Math.max(0, (Number(cf?.coins) || 0) - (c.legs || []).filter(l => !l.placeholder).length)}
+          <CardVitals c={c} funded={b.fundedUsd || c.startUsd} onTrail={() => setTrail(c.id)} /><ComingUp p={c.pipeline} legs={c.legs} busy={!!busy} cfg={cf} onFilter={patch => prime({ realCfg: patch }, '🎛 Coming up filter saved — the engine uses it from the next tick', 'cfg')} emptySeats={Math.max(0, (Number(cf?.coins) || 0) - (c.legs || []).filter(l => !l.placeholder).length)}
             onFill={r => prime({ fillSeat: { tpl: c.tpl, to: r.mint, toPair: r.pairAddress } }, `🪑 $${r.symbol} fills a seat now`, 'pick')} onSwap={(l, r, now) => prime({ pickSwap: { tpl: c.tpl, pairAddress: l.pairAddress, to: r.mint, toPair: r.pairAddress, ...(now ? { now: true } : {}) } }, `🎯 $${r.symbol} comes in for $${l.symbol} ${now ? 'now' : 'at the next round'}`, 'pick')} />
           <Versus v={c.realBook?.versus} /><PayMap card={c.tpl || 'degen'} /><PickLog events={c.audit || c.events} /><PipeLine p={c.pipeline} /></div>
         {trail === c.id && <CardEarnings title={c.label} onClose={() => setTrail(null)} taken={c.walletUsd || 0} compounded={c.compoundedUsd} fees={c.cardFeesUsd}
@@ -797,7 +797,17 @@ export const pickRow = r => ({ mint: r.mint || r.baseAddress, pairAddress: r.pai
   chg: r.chg1h ?? r.change1h ?? r.chg24h ?? r.change24h, chg1h: r.chg1h ?? r.change1h ?? null, chg5m: r.chg5m ?? r.change5m ?? null, chg6h: r.chg6h ?? r.change6h ?? null, chg24h: r.chg24h ?? r.change24h ?? null, score: r.score, impostor: r.impostor, real: r.real, trench: r.trench, holders: r.holders, soft: r.soft, outside: r.outside, curve: r.curve, div: r.divisionLabel || r.from, watch: r.watch, vital: r.vital, crew: r.crew, fails: r.fails, warn: r.warn, pulse: r.pulse, stock: r.stock, ageH: r.ageH ?? null, pad: r.pad || r.launchpadLabel, mcap: r.mcap ?? r.marketCap, vol1h: r.vol1h, buyShare: r.buyShare, top10: r.top10 ?? r.t10, dev: r.dev ?? r.dh, insiders: r.insiders, bundledN: r.bundledN, snipersN: r.snipersN, clean: r.clean, bundledPct: r.bundledPct, scanned: r.scanned, site: r.site, x: r.x, tg: r.tg });
 // ⏭ COMING UP: the coins the engine takes next (best hourly move first). Tap a coin → its live flow; pick the seat → it comes in
 // at the next round in that coin's place (the same pick as the 🎯 picker, with the same warning when a check fails).
-export function ComingUp({ p, legs = [], onSwap, onFill, emptySeats = 0, busy }) {
+// 🎛 Coming up filter = the REAL card's own config (the engine obeys it on every door: Coming up, the 30s seat fallback, scout, hunt).
+export const UP_FILTERS = [['vitalMin', '🫀', [[0, 'any'], [35, 'D+'], [50, 'C+'], [65, 'B+']]], ['organicMin', '🌱', [[0, 'any'], [5, '5%+'], [10, '10%+'], [20, '20%+'], [30, '30%+']]],
+  ['noSerial', '☠', [[false, 'allow serial'], [true, 'skip serial']]]];
+export function UpFilter({ cfg, onSave, busy }) {
+  if (!onSave) return null;
+  return <div className="hrt-upf" data-testid="up-filter" data-tip="What the engine may take next — Coming up, the 30-second seat refill, the scout and your hunt line all obey it. Your own picks are never filtered.">
+    {UP_FILTERS.map(([k, ic, opts]) => <label key={k}><span>{ic}</span><select className="m-input" value={String(cfg?.[k] ?? opts[0][0])} disabled={busy}
+      onChange={e => { const raw = e.target.value; onSave({ [k]: k === 'noSerial' ? raw === 'true' : Number(raw) }); }} aria-label={k} data-testid={`upf-${k}`}>
+      {opts.map(([v, l]) => <option key={String(v)} value={String(v)}>{l}</option>)}</select></label>)}</div>;
+}
+export function ComingUp({ p, legs = [], onSwap, onFill, emptySeats = 0, busy, cfg, onFilter }) {
   const [target, setTarget] = useState({});   // per coin: which seat it goes into ('' = the first empty seat, else the first coin)
   const rows = p?.up || [];
   if (!rows.length) return <p className="hrt-up is-empty m-dim" data-testid="coming-up">⏭ Coming up: no launch coin clears your settings right now — open 🔎 below to see which filter is holding them.</p>;
@@ -809,7 +819,7 @@ export function ComingUp({ p, legs = [], onSwap, onFill, emptySeats = 0, busy })
     if (t === SEAT) return onFill && onFill(r);
     const l = seats.find(x => x.pairAddress === t); if (l) onSwap(l, r, now); };
   const can = (emptySeats > 0 && onFill) || seats.length > 0;
-  return <div className="hrt-up cfx-host" data-testid="coming-up"><CardFx kind="grid" /><span className="m-label">⏭ COMING UP · {ready ? `${ready} READY` : 'NONE READY'}{rows.length > ready ? ` · ${Math.min(4, rows.length) - Math.min(4, ready)} WATCHING` : ''}</span>
+  return <div className="hrt-up cfx-host" data-testid="coming-up"><CardFx kind="grid" /><span className="m-label">⏭ COMING UP · {ready ? `${ready} READY` : 'NONE READY'}{rows.length > ready ? ` · ${Math.min(4, rows.length) - Math.min(4, ready)} WATCHING` : ''}</span><UpFilter cfg={cfg} onSave={onFilter} busy={busy} />
     <ol>{rows.slice(0, 4).map((r, i) => { const t = target[r.mint] || (emptySeats > 0 && onFill ? SEAT : seats[0]?.pairAddress) || ''; return <li key={r.mint} className={r.wait ? 'is-wait' : ''} style={{ '--i': i }}>
       <button type="button" className="hrt-up-coin" onClick={() => openCoin({ mint: r.mint, pairAddress: r.pairAddress, symbol: r.symbol })} data-tip={r.wait ? `Watching, not buying yet: ${r.wait}. The engine takes it once its chart is readable and not falling — you can still swap it in by hand.` : `${['Takes the next seat that opens', 'Second in line', 'Third in line', 'Fourth in line'][i]} — tap for its live flow`} data-testid={`up-${r.symbol}`}>
         <i className="hrt-up-n">{r.wait ? '👀' : ['NEXT', '2ND', '3RD', '4TH'][i]}</i><b>${r.symbol}</b><em className={`m-num ${r.chg1h >= 0 ? 'm-pos' : 'm-neg'}`}>{r.chg1h >= 0 ? '+' : ''}{Math.round(r.chg1h)}%</em><small>{r.vol1h > 0 ? `${big(r.vol1h)}/h` : r.liq > 0 ? `${big(r.liq)} pool` : ''}</small>{r.wait ? <u className="hrt-up-tag">⏳ watching — {r.wait}</u> : r.tag ? <u className="hrt-up-tag">{r.tag}</u> : null}</button>
@@ -837,7 +847,7 @@ export function PipeLine({ p }) {
 
 export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, cool = {}, call, verify = false }) {
   const [nonce, setNonce] = useState(0);   // bumps when the trench settings are saved → the list reloads
-  const [lens, setLens] = useState('fresh'); const [rows, setRows] = useState(null); const [q, setQ] = useState('');
+  const [lens, setLens] = useState('fresh'); const [vview, setVview] = useState(loadView); const [rows, setRows] = useState(null); const [q, setQ] = useState('');
   const [tr, setTr] = useState(null);   // 🗑 trench scan: own pool floor + how many were checked
   const [why, setWhy] = useState('');
   const [bproof, setBproof] = useState(null);   // 🟢 the Buy-bottom list's own 1-hour paper record
@@ -878,7 +888,8 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
     {lens === 'trench' && !q.trim() && tr && <small className="m-dim sp-tnote" data-testid="sp-trench-note" data-tip={`${tr.rules}${tr.level ? ` · crowd checks widened ×${tr.level} (safety checks never move)` : ''}`}>🗑 Pick a brand-new coin: tap <b>Pick</b> on any row below. High risk — check the Safety column, keep it to 1–2 coins. Pool floor {big(tr.floor)} · {tr.checked} scanned.</small>}
     {lens === 'trench' && !q.trim() && call && <TrenchScan call={call} bare onSaved={() => setNonce(n => n + 1)} onPickRow={r => onPick(pickRow({ ...r, score: r.front, soft: true }), true)} pickBusy={busy} />}
     {!rows ? <span className="loader" /> : !rows.length ? <small className="m-dim">{lens === 'trench' && !q.trim() ? 'No fresh coin passes the safety checks right now — the scan re-runs every ~2 min. Try 🌊 Volume.' : (why || 'Nothing live here right now — try another list or search.')}</small> :
-    <ul>{[...rows].map((r, idx) => { const lp = live.get?.(r.pairAddress); const on = have.includes(r.mint);
+    <><VitalView view={vview} onChange={setVview} count={applyView(rows, vview).length} total={rows.length} />
+    <ul>{applyView(rows, vview).map((r, idx) => { const lp = live.get?.(r.pairAddress); const on = have.includes(r.mint);
       const young = verify && r.ageH != null && r.ageH < 1; /* ✅ verified picks: under an hour old cannot go on a real card — shown, sorted last, said up front */ const fl = r.trench ? (tr?.floor || 0) : minLiq; const thin = minLiq > 0 && (r.liq || 0) < fl; const chg = lp?.h1 ?? r.chg1h ?? r.chg;
       const m5 = lp?.m5 ?? r.chg5m; const falling = isFalling(m5, lp?.h1 ?? r.chg1h);   // same rule the engine uses before a real buy
       return <li key={r.mint} className={r.impostor ? 'is-fake' : ''}><b><button type="button" className="sp-open" onClick={() => openCoin({ mint: r.mint, pairAddress: r.pairAddress, symbol: r.symbol })} data-tip="Open its live flow" data-testid={`sp-open-${r.symbol}`}>${r.symbol}</button>{line(sparks[r.mint] || moveLine({ ...r, chg5m: lp?.m5 ?? r.chg5m, chg1h: lp?.h1 ?? r.chg1h }))}{r.real ? ' ✓' : ''}{r.stock ? <i className="sp-pulse" data-tip="Tokenized stock (xStock) trading in a real Solana pool"> 📈</i> : null}{r.pulse ? <i className="sp-pulse" data-tip="Pump Pulse: a burst of buys in the last 5 minutes" data-testid={`sp-pulse-${r.symbol}`}> ⚡</i> : null}{r.div ? <small className="sp-div" data-tip={r.watch ? 'Watch only in this Gauntlet list (nothing qualified there right now). The engine will not seat it; you still can.' : 'The Gauntlet list where this coin ranks best'}>{r.div}{r.watch ? ' · watch' : ''}</small> : null}</b><span className="m-num fl-tick" key={fmt(lp?.price || r.price)}>{fmt(lp?.price || r.price)}</span>
@@ -887,7 +898,7 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
         <small className="sp-fall" data-testid={r.warn ? `sp-warn-${r.symbol}` : falling ? `sp-fall-${r.symbol}` : undefined} data-tip={r.warn ? `${r.warn} You still can — it is your pick.` : falling ? 'Falling right now (−3% or more in 5 minutes, or −8% or more in the hour). The engine would not buy this with real money; you still can — it is your pick.' : undefined}>{r.warn ? '⚠ creator' : falling ? '⚠ falling' : ''}</small><small className="m-num" data-tip={r.curve ? 'Still on Pump’s launch curve: no pool yet, this is the depth of the curve itself. Tradable, very early, highest risk. Only you can pick it — the engine never buys a curve coin by itself.' : undefined}>{r.curve ? 'curve' : 'pool'} {r.liq > 0 ? big(r.liq) : '—'}</small><small className="m-num">{r.outside ? <i className="sp-soft sp-out" data-testid={`sp-out-${r.symbol}`} data-tip={`Outside your trench filter: ${(r.fails || []).join(' · ')}. Shown only so the list is never empty — it passed the safety checks. Not seated by the engine; yours to pick.`}>not in filter</i> : r.soft ? <i className="sp-soft" data-tip={`Near-miss: inside your filter's age and cap band, every safety check passed, it only missed — ${(r.fails || []).join(' · ')}. Not seated by the engine; yours to pick.`}>near-miss</i> : <>{r.trench && r.holders ? `${r.holders} holders · ` : ''}{r.score != null ? `score ${Number(r.score).toFixed(0)}` : ''}</>}</small>
         <span className="sp-acts"><button type="button" className="m-btn primary" disabled={busy || on || thin || r.impostor || cool[r.mint] > 0} onClick={() => onPick(r, true)}
           data-tip={young ? `$${r.symbol} is ${Math.round(r.ageH * 60)} minutes old — you will get a warning to acknowledge, then it goes in` : cool[r.mint] > 0 ? `$${r.symbol} just left this card — you can pick it again in ${cool[r.mint]} round${cool[r.mint] === 1 ? '' : 's'} (no back-to-back)` : thin ? `Pool under your $${Math.round(fl / 1000)}K pick floor — change it in Edit Fuse › Limits (My own pick min pool)` : undefined} data-testid={`sp-pick-${r.symbol}`}>{on ? 'on card' : young ? '⚠ swap now' : cool[r.mint] > 0 ? `in ${cool[r.mint]} rnd` : thin ? 'too thin' : r.impostor ? 'lookalike' : out.seat ? '⚡ Fill now' : '⚡ Swap now'}</button>
-          {!out.seat && !on && !thin && !r.impostor && !(cool[r.mint] > 0) && <button type="button" className="m-btn sp-bell" disabled={busy} onClick={() => onPick(r, false)} data-tip="Swap it in at the round bell instead of now" aria-label={`Swap $${r.symbol} in at the bell`} data-testid={`sp-bell-${r.symbol}`}>⏱</button>}</span><CoinVital r={r} live={idx < 25} /></li>; })}</ul>}
+          {!out.seat && !on && !thin && !r.impostor && !(cool[r.mint] > 0) && <button type="button" className="m-btn sp-bell" disabled={busy} onClick={() => onPick(r, false)} data-tip="Swap it in at the round bell instead of now" aria-label={`Swap $${r.symbol} in at the bell`} data-testid={`sp-bell-${r.symbol}`}>⏱</button>}</span><CoinVital r={r} live={idx < 25} /></li>; })}</ul></>}
   </div>;
 }
 

@@ -7417,6 +7417,10 @@ async def _prime_tick_inner(now):
         if real_t or cfg_t.get('pickStyle') in ('hunt', 'sniper'):   # 🏊 the owner's own runner line (real) · a paper card's own pick style
             r_t = _prime.deep_runners(r_t, cfg_t.get('runnerMinLiqK'), cfg_t.get('runnerMinBuy'), cfg_t.get('runnerMinVolK'), cfg_t.get('runnerMinChg1h'))
             _step('your hunt line (pool · volume · 1h move · buyers)', r_t)
+        if real_t and (cfg_t.get('vitalMin') or cfg_t.get('organicMin') or cfg_t.get('noSerial')):   # 🎛 the owner's vital filter (Coming up)
+            vok_ = lambda x: _ja.filter_why((_jup_facts.get(x.get('mint')) or (0, None))[1], x, cfg_t) is None
+            r_t, r_pre_ = [x for x in r_t if vok_(x)], [x for x in r_pre_ if vok_(x)]
+            _step('your vital filter (grade · organic · crew)', r_t)
         # ⏳ STUCK BUYS are replaced HERE, from the fully filtered lists (min age, dollar names, record gate, chart / meta, the owner's
         # hunt line). This swap used to run before all of them, so a refused buy was replaced by ANY liquid coin: $BTT ("−100% inside
         # one candle this hour") took a seat, was refused too, and the seat looped through coins the card would never choose.
@@ -7471,6 +7475,8 @@ async def _prime_tick_inner(now):
                      if r.get('mint') in bt_m and r.get('scanned') and not _rn.safety_fails(r, _runner_cfg()) and r['mint'] not in fb_ids
                      and _lq(r) >= floor_of(r) and _fuse._f(r.get('price')) > 0 and (r.get('ageH') is not None and _fuse._f(r.get('ageH')) >= min_age_)]
             fb_ = fb_ + [x for x in bots_ if x['mint'] not in {y.get('mint') for y in fb_}]
+            if real_t:   # 🎛 the 30s seat fallback obeys the owner's vital filter too
+                fb_ = [x for x in fb_ if _ja.filter_why((_jup_facts.get(x.get('mint')) or (0, None))[1], x, cfg_t) is None]
             # ⏭ COMING UP BY CATEGORY (owner: "pick 1 of the best from the top for swap in categories"): each list (Pump trending,
             # Volume, Dips & bottoms, Movers, New launches, Trench) walked from ITS top; the first coin that passed the safety scan,
             # clears the pool floor + the card's min age, isn't dollar-named and is a sane entry (not falling / mid-spike / trending
@@ -7503,6 +7509,9 @@ async def _prime_tick_inner(now):
                     return 'at its highs'   # 🏔 never a coin sitting at its highs (owner)
                 if not _prime.seat_fallback_ok(x, mom):
                     return 'falling / spiking'
+                vw_ = _ja.filter_why((_jup_facts.get(x['mint']) or (0, None))[1], x, cfg_t) if real_t else None
+                if vw_:
+                    return 'your vital filter'
                 return True
             open_by = {r['mint']: r for r in (_open_board() if _open_pairs else (_open_cache.get('rows') or [])) if r.get('mint')}   # every feed coin, scanned or not
             cat_lists = {**_lens_rows, 'bottom': [{'mint': r.get('baseAddress')} for r in _bottom_cache.get('rows') or []],
@@ -8001,7 +8010,7 @@ async def fuse_prime_admin(request: Request):
     if body.get('reset') or body.get('redeal'):
         await _prime_tick(time.time())
     if kick_real_keeper:
-        await _fw_tick(time.time())   # manual real-money ⇄: sell old coin now; buy waits until no sell remains
+        _fw_kick_now()   # manual real-money ⇄ / ✂: the keeper starts NOW in the background — the button answers at once (it used to wait for every sell to confirm)
     return {'cfg': pr['cfg'], 'cards': await _prime_view()}
 
 
@@ -8205,6 +8214,19 @@ def _fw_keep(d, tid, book):
 
 _FW_NOT_COIN = ('not armed', 'paused', 'per-swap cap', 'daily cap', 'No Fuse wallet', 'signing not available', 'RPC pool', 'live market unavailable',
                 '(HTTP 429)', '(HTTP 5')   # … and a busy Jupiter is never the coin's fault
+_fw_bg: set = set()
+
+
+def _fw_kick_now():
+    """🏃 Run one keeper pass NOW in the background (sells first, as always). An owner button returns at once; `_fw_tick_lock` keeps passes one
+    at a time and the card's swap-flow strip shows each step. 2026-10-08 owner: "confirm sell all takes a lot" — the request awaited every
+    sell's send + confirm (tens of seconds) before the screen answered."""
+    if os.environ.get('PYTEST_CURRENT_TEST'):
+        return
+    t = asyncio.ensure_future(_fw_tick(time.time()))
+    _fw_bg.add(t); t.add_done_callback(_fw_bg.discard)
+
+
 _FW_KICK: dict = {}   # {'at': when a real buy was refused / failed} → the round loop re-picks that seat RETRY_SEC later, not a tick later
 
 
@@ -9394,7 +9416,7 @@ async def fuse_wallet_recover_sell(request: Request):
                        'usd': 0.0, 'at': time.time(), 'status': 'done',
                        'why': '🧹 owner recovered old keeper balance for force sell → proceeds stay in card cash'})
         _fw_save(d)
-    await _fw_tick(time.time())
+    _fw_kick_now()
     ad = _admin_load(); _audit(ad, me, 'fuse-wallet-recover-sell', f'{tid} {st["symbol"]} {excess} atoms'); _admin_save(ad)
     return {'ok': True, 'card': tid, 'symbol': st['symbol'], 'atoms': excess, 'status': 'sell queued/running'}
 
@@ -9450,7 +9472,7 @@ async def fuse_wallet_recover_sell_all(request: Request):
                        'why': 'owner queued every confirmed dead/off-card holding -> proceeds stay in card cash'})
         _fw_save(d)
     ad = _admin_load(); _audit(ad, me, 'fuse-wallet-recover-sell-all', f'{tid} {len(queued)} confirmed holdings'); _admin_save(ad)
-    await _fw_tick(time.time())
+    _fw_kick_now()
     return {'ok': True, 'tpl': tid, 'queued': len(queued), 'mints': queued, 'status': 'confirmed holdings queued/running'}
 
 
@@ -9638,7 +9660,7 @@ async def fuse_wallet_retry_dead(request: Request):
                            'why': 'owner retried dead sell -> proceeds stay in card cash'})
         _fw_save(d)
     ad = _admin_load(); _audit(ad, me, 'fuse-wallet-retry-dead', f'{tid} {side} {mint[:8]}'); _admin_save(ad)
-    await _fw_tick(time.time())
+    _fw_kick_now()
     return {'ok': True, 'tpl': tid, 'side': side, 'mint': mint}
 
 @app.post('/api/reputation/admin/fuse-wallet/payout-profit')

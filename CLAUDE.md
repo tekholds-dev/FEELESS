@@ -2191,3 +2191,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   turn, MINUS every coin the real card bought / sold / holds in the last 24h (`from` tag on each row).
 - 📡 A LIST'S TOP COINS ARE ALWAYS ON THE RUNNER BOARD (`_runner_live`): the top 60 of every category list (was 8; = what Coming up walks); a coin the launch feed never carried
   gets its pair built from Jupiter's row (`launchpad_board.jup_pair`) — 2026-10-08 Coming up read "43 of Pump trending's top 60 not on the runner board yet".
+- 🏃 OWNER MONEY BUTTONS NEVER WAIT FOR THE CHAIN (`_fw_kick_now`): ✂ sells / sell-all / ⇄ hand swaps / recover-sell / retry-dead start the keeper pass in the
+  BACKGROUND and answer at once (`_fw_tick_lock` keeps passes one at a time; the card's swap-flow strip shows the steps). They used to await every sell's
+  send + confirm before the screen answered (owner: "confirm sell all takes a lot").
+- 🫀 Vital v2 (`jup_audit.verdict`): FIVE bars, 🌱 organic flow FIRST, then 📈 growth (holders +% this hour, net buyers / traders, pool drained ≤ −25% =
+  🩸 bad flag), holders, dev, crew; `organicPct` on the verdict. Pick lists: `VitalView` sort (🌱 Organic first = default · 🫀 Best vital · 📈 Growing · ≡ List)
+  + filter chips (B+ · 10%+ organic · skip serial · hide bots < 5% organic), remembered per browser (`feeless.vitalView`); `applyView` is pure + tested.
+- 🎛 COMING UP FILTER = real card cfg `vitalMin` (0/35/50/65) · `organicMin` (0/5/10/20/30) · `noSerial` (`jup_audit.filter_why`, `UpFilter` above Coming
+  up, saved as `realCfg`): `_prime_tick` filters r_t + the scout list (pipeline step "your vital filter"), category picks (`_cat_ok` → "your vital filter")
+  and the 30s seat fallback. No Jupiter reading = not judged. The owner's own picks are never filtered.

@@ -488,6 +488,9 @@ def clean_cfg(p):
     ra_ = (p or {}).get('runnerMinAgeH')
     out['runnerMinAgeH'] = int(_f(ra_)) if ra_ is not None and int(_f(ra_)) in RUNNER_AGES else int(REAL_RUNNER_AGE_H)   # 🕐 the OWNER's youngest launch coin for real money
     out['rebuyDipPct'] = int(_f((p or {}).get('rebuyDipPct'))) if int(_f((p or {}).get('rebuyDipPct'))) in REBUY_DIPS else 0   # 🔁 a coin that left comes back only after this dip (0 = off)
+    out['vitalMin'] = int(_f((p or {}).get('vitalMin'))) if int(_f((p or {}).get('vitalMin'))) in (0, 35, 50, 65) else 0        # 🎛 Coming up / engine: min vital score
+    out['organicMin'] = int(_f((p or {}).get('organicMin'))) if int(_f((p or {}).get('organicMin'))) in (0, 5, 10, 20, 30) else 0   # … min organic share of 1h volume
+    out['noSerial'] = bool((p or {}).get('noSerial', False))                                                                    # … skip serial launchers
     out['ticketRide'] = bool((p or {}).get('ticketRide', False))   # 🎰 ride or rug: a ticket has NO stop — it rugs (the ticket is lost) or runs to the 🏠 pull
     out['youngTicket'] = bool((p or {}).get('youngTicket', True))   # 🎟 a hand pick under 12h old goes in as a small ticket (owner's switch)
     out['scoutPct'] = int(_f((p or {}).get('scoutPct'))) if int(_f((p or {}).get('scoutPct'))) in SCOUT_PCTS else 0   # 🔭 scout ticket, % of the card (0 = off)
