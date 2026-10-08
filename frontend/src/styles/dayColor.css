@@ -11,9 +11,12 @@ body.theme-day {
   --line: var(--day-edge);
   --muted: #3f6150;
   --paper: #0c1f15;
+  /* the m-* presets were pure white in day (every card, chip and input) */
+  --day-surface: rgba(236, 246, 241, 0.6); --day-surface-2: rgba(228, 240, 235, 0.72);   /* 55 legacy panels: translucent so the wash shows through */
+  --m-bg: #e2efe8; --m-surface: #eef6f1; --m-surface-2: #e4f0e9; --m-line: #bcd6c6;
 }
-html:has(body.theme-day) { background: var(--day-wash, #d8eadf) fixed; background-color: #d8eadf; }
-body.theme-day, body.theme-day .terminal-app, body.theme-day .globe-page { background: var(--day-wash) fixed !important; }
+html:has(body.theme-day) { background: #d8eadf; }   /* no `fixed` wash: a fixed background repaints the whole page on every scroll frame (the day 'glitch') */
+body.theme-day, body.theme-day .terminal-app, body.theme-day .globe-page { background: var(--day-wash) !important; }
 body.theme-day .terminal-header { background: #e4f2ea; }
 body.theme-day .terminal-sidebar { background: #e0eee6; }
 body.theme-day .market-ticker { background: #e6f2ec; }
@@ -34,3 +37,5 @@ body.theme-day .pls-lane.is-real { background: #fbf5dd; }
 body.theme-day .chat-avatar, body.theme-day .chat-message .chat-avatar span, body.theme-day .chat-avatar span { color: #e8fff1 !important; }
 body.theme-day .mini-token-card { background: #eaf4ee; border-color: var(--day-edge); }
 body.theme-day .mini-token-card.is-selectable:hover, body.theme-day .mini-token-card.is-selectable:focus-visible { background: #dcece3; border-color: #4c9e6a; }
+/* the war room (coin world) sat on a near-white sheet that hid the wash */
+body.theme-day .eco-world-inner { background: linear-gradient(160deg, rgba(211, 236, 223, 0.97), rgba(207, 228, 240, 0.97) 45%, rgba(226, 219, 242, 0.97) 80%, rgba(240, 226, 212, 0.97)) !important; }

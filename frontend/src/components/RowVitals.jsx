@@ -32,6 +32,10 @@ export function rowVitals(r, edge, mine) {
   if (t10 != null) out.push({ k: 't10', t: `top-10 ${Math.round(t10)}%`, tone: t10 > 30 ? 'bad' : t10 < 20 ? 'good' : '', tip: 'Supply held by the 10 biggest wallets (lower is safer)' });
   if (dev != null) out.push({ k: 'dev', t: `dev ${dev < 1 ? dev.toFixed(1) : Math.round(dev)}%`, tone: dev > 10 ? 'bad' : dev <= 3 ? 'good' : '', tip: 'Share the creator still holds' });
   if (ins != null) out.push({ k: 'ins', t: `insiders ${Math.round(ins)}%`, tone: ins > 15 ? 'bad' : ins < 5 ? 'good' : '', tip: 'Share held by wallets that were in at the start' });
+  const bnd = n0(r.bundledN) ?? (r.scanned !== false && r.top10 != null ? n0(r.bundled) : null); const snp = n0(r.snipersN);
+  if (bnd != null) out.push({ k: 'bnd', t: `${bnd} bundled`, tone: bnd > 1 ? 'bad' : bnd === 0 ? 'good' : '', tip: `Wallets that bought in the coin's creation slot${r.bundledPct != null ? ` — they still hold ${Number(r.bundledPct).toFixed(1)}%` : ''}` });
+  if (snp != null) out.push({ k: 'snp-n', t: `${snp} snipers`, tone: snp > 10 ? 'bad' : snp <= 3 ? 'good' : '', tip: 'Wallets that bought within ~1 second of launch' });
+  if (r.scanned === false && t10 == null) out.push({ k: 'scan', t: '🔍 holders not read yet', tip: 'Top-10, insiders and bundles are read from the chain; a scan is queued for the top of this list — they fill in within a minute or two' });
   const soc = [r.site && '🌐', r.x && '𝕏', r.tg && '✈'].filter(Boolean);
   if (r.site != null || r.x != null || r.tg != null) out.push({ k: 'soc', t: soc.length ? soc.join(' ') : 'no socials', tone: soc.length ? '' : 'bad', tip: 'Website · X · Telegram set at launch' });
   if (edge?.snipersOut) out.push({ k: 'snp', t: '🎯 snipers out', tone: 'good', tip: 'Every flagged sniper has sold out' });

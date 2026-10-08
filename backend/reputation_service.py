@@ -2874,8 +2874,43 @@ async def _fuse_discover_pairs(chain):
     return pairs
 
 
+PICK_DEAD_VOL1H = 3_000.0   # a launch coin trading under this an hour is dead for the picker — 6 of the 11 buy-bottom rows were (2026-10-08)
+PICK_SCAN_TOP = 15          # the top rows of the list the owner opens get a holder scan queued (one scan per coin in flight)
+
+
+def _holder_facts(mint):
+    """Holder facts for a picker row from the scan CACHE only (never a fetch): top-10 · dev · insiders · bundled / sniper wallets, or scanned=False."""
+    hit = _intel_cache.get(mint)
+    it = hit[1] if hit else None
+    if not it or it.get('top10Pct') is None:
+        return {'scanned': False}
+    cnt = lambda v: len(v) if isinstance(v, list) else int(_fuse._f(v))
+    return {'scanned': True, 'top10': it.get('top10Pct'), 'dev': it.get('devHoldingPct'), 'insiders': it.get('insidersHoldingPct'),
+            'bundledN': cnt(it.get('bundledWallets')), 'snipersN': cnt(it.get('sniperWallets')), 'bundledPct': it.get('bundledHoldingPct')}
+
+
 @app.get('/api/reputation/fuses/discover')
 async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solana')):
+    """The picker lists + 🧬 holder facts on every launch-coin row (top-10 · dev · insiders · bundled / sniper wallets, from the scan cache) and
+    no dead rows (under $3K traded an hour). The top rows of the list just opened get a scan queued, so the facts fill in while it is open."""
+    out = await _fuses_discover_raw(lens, chain)
+    rows = out.get('pools') if isinstance(out, dict) else None
+    if not rows or lens in ('majors', 'stocks', 'popular', 'yield', 'deep', 'new'):
+        return out
+    live = [r for r in rows if r.get('vol1h') is None or _fuse._f(r.get('vol1h')) >= PICK_DEAD_VOL1H]
+    for r in live:
+        m = r.get('baseAddress') or r.get('mint')
+        if m:
+            r.update(_holder_facts(m))
+    if not os.environ.get('PYTEST_CURRENT_TEST'):
+        for r in [x for x in live if not x.get('scanned')][:PICK_SCAN_TOP]:
+            m = r.get('baseAddress') or r.get('mint')
+            if m:
+                asyncio.ensure_future(_runner_intel(m))
+    return {**out, 'pools': live, 'dead': len(rows) - len(live)}
+
+
+async def _fuses_discover_raw(lens, chain):
     """Fuse Lab: browse real pools on the chain you're on, by lens (popular / yield / deep / new)."""
     if lens == 'stocks':   # 📈 tokenized stocks in real Solana pools (a subset of the majors rows)
         return {'lens': 'stocks', 'chain': 'solana', 'pools': [x for x in await _majors_rows() if x.get('stock')]}

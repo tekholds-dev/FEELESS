@@ -25,3 +25,9 @@ test('a pool under $40K reads as thin (never for a trench ticket) and quotes you
   expect(rowVitals({ liq: 25000, trench: true, vol1h: 90000 }, null, { rules }).some(i => i.k === 'mine-thinpool')).toBe(false);
   expect(rowVitals({ liq: 120000, vol1h: 90000 }, null, { rules }).some(i => i.k === 'mine-thinpool')).toBe(false);
 });
+
+test('bundled and sniper wallets show as counts; an unscanned row says so', () => {
+  const t = rowVitals({ top10: 18, insiders: 4, bundledN: 2, snipersN: 1, bundledPct: 1.5 }, null).map(i => i.t);
+  expect(t).toEqual(expect.arrayContaining(['insiders 4%', '2 bundled', '1 snipers']));
+  expect(rowVitals({ scanned: false }, null).map(i => i.t)).toEqual(['🔍 holders not read yet']);
+});
