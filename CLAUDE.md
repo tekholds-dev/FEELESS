@@ -2233,3 +2233,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   1h · pool · age · 5m). The 8 plain tiles + the Pump radar strip are gone (owner: "the stuff on top of the chart isn't vitals to give the FEELESS edge").
 - 💬 ONE CHAT in the war room (`EcosystemWorld`): with a coin's chart open the left chat column IS that coin's room (`coin-<chain>-<pair>-trenches`);
   the chart's own `aside` chat (`eco-chart-chat`) is gone.
+- ⚡ SPEED + CLEANUP (2026-10-08, owner: "clean dead code, run like butter"): GZip on all four services (`GZipMiddleware` ≥ 1KB; a 287KB trench list
+  went raw) · pick lists / trench / Open gates cached 10s server-side (`_disc_cache`, `LIST_CACHE_SEC`) · 46 dead frontend files removed (unused shadcn
+  ui kit, TopCoins, EcosystemPlatforms, DocumentPages, constants/testIds, hooks/use-toast) · dead backend: old Arena bracket (`bracket_*`,
+  `battle_seats` — the league replaced it), `_globe_row`, unused locals/imports (pyflakes clean except env_loader side-effect imports). Build = 0
+  warnings. Re-run the "never imported" scan after deleting anything (one deletion orphaned toast / use-toast). Not done: moving ethers / wagmi out of
+  the main bundle (wallet connect rework), the reputation_service.py split.

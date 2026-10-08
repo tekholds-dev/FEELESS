@@ -206,6 +206,8 @@ async def _poll_hot_pairs():
 
 
 app = FastAPI(title='FEELESS Candles')
+from starlette.middleware.gzip import GZipMiddleware as _GZip
+app.add_middleware(_GZip, minimum_size=1024)   # ⚡ every list over 1KB goes compressed (a 287KB trench list was sent raw)
 
 
 @app.on_event('startup')

@@ -30,6 +30,8 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 app = FastAPI()
+from starlette.middleware.gzip import GZipMiddleware as _GZip
+app.add_middleware(_GZip, minimum_size=1024)   # ⚡ every list over 1KB goes compressed (a 287KB trench list was sent raw)
 intelligence = Intelligence(db)
 market_router = create_market_router(db, intelligence)
 app.include_router(market_router)

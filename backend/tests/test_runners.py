@@ -75,7 +75,6 @@ def test_addon_bolts_two_runners_onto_any_fuse():
 def test_service_board_rounds_proof_and_addon(monkeypatch):
     import asyncio
     import time as _t
-    import pytest
     now_ms = _t.time() * 1000
     feed = [pair(m, chg1h=c, price=1.0) for m, c in (('aaa', 300), ('bbb', 200), ('ccc', 150))] + [pair('rug', chg1h=999)]
     for p in feed:
@@ -120,7 +119,6 @@ def test_config_changes_gates_exits_and_light_threshold():
 
 def test_card_preview_with_picked_runners(monkeypatch):
     import asyncio
-    import time as _t
     import pytest
     live = {'passing': [{**rn.candidate(pair(m, price=1.0), CLEAN, now_ms=NOW), 'score': 80, 'lane': 'runner'} for m in ('r1', 'r2', 'r3', 'r4')], 'dropped': [], 'seen': 4}
     async def fake_live(): return live
@@ -241,18 +239,6 @@ def test_gate_regret_finds_gates_that_stop_winners():
     assert out[0]['gate'] == 'Top 10 under 25%' and out[0]['stopped'] == 2 and out[0]['ran'] == 1 and out[0]['rate'] == 50.0
 
 
-def test_card_names_dials_and_battle_seats():
-    assert rn.dial_of(200, 15) == 'degen' and rn.dial_of(30, 15) == 'safe' and rn.dial_of(100, 25) == 'balanced' and rn.dial_of(30, 15, 'degen') == 'degen'
-    n = rn.card_name('degen', 'tp200_sl40')
-    assert n == rn.card_name('degen', 'tp200_sl40') and n in rn.CARD_NAMES['degen'] and 1 <= len(n.split(' ')[0]) <= 4
-    st = lambda k, s: {'id': k, 'activity': {'score': s}}
-    seats = rn.battle_seats([st('s1', 50)], [st('b1', 10), st('b2', 30), st('b3', 20), st('b4', 5)])
-    assert len(seats) == 2 and 'b4' not in {c['id'] for p in seats for c in p}      # 4 cards → 2 battles, best runners-up fill seats
-    seats = rn.battle_seats([st(f's{i}', i) for i in range(5)], [st('b1', 99)])
-    assert len(seats) == 2 and all(c['id'].startswith('s') for p in seats for c in p)  # a full stage never seats the bench
-    assert rn.battle_seats([], [st('b1', 1)]) == []
-
-
 def test_new_runners_tight_launch_filter():
     ok = {'mint': 'A', 'ageH': 0.5, 'scanned': True, 'site': True, 'x': True, 'top10': 18, 'dev': 2, 'bundled': 0, 'buyShare': 64, 'vol1h': 9000, 'creatorRep': 'clean'}
     rows = [ok, {**ok, 'mint': 'B', 'x': False}, {**ok, 'mint': 'C', 'ageH': 5}, {**ok, 'mint': 'D', 'creatorRep': 'suspect'}, {**ok, 'mint': 'E', 'top10': 40},
@@ -273,22 +259,6 @@ def test_battles_may_field_losing_scenarios_but_best_cards_never_do():
     scen = [{'id': 'a', 'label': 'A', 'window': '24h', 'tp': 100, 'sl': 40, 'rounds': 9, 'avgPct': -3}]
     picks = [{'pairAddress': 'P1', 'symbol': 'X'}]
     assert rn.scenario_cards(scen, picks) == [] and len(rn.scenario_cards(scen, picks, losers_ok=True)) == 1
-
-
-def test_bracket_unique_cards_winners_losers_and_champion():
-    c = lambda k, sc, legs=('P1',), tp=100: {'kind': 'mega', 'id': k, 'activity': {'score': sc}, 'legs': [{'pairAddress': p} for p in legs], 'cfg': {'tp': tp, 'sl': 20}}
-    dup = c('d', 99, legs=('P9',)); dup2 = c('e', 10, legs=('P9',))
-    assert [x['id'] for x in rn.unique_cards([dup, dup2])] == ['d']                         # same config fights once
-    cards = [c('a', 90, ('A',)), c('b', 80, ('B',)), c('x', 70, ('X',)), c('y', 60, ('Y',))]
-    pairs = rn.bracket_pairs(cards, {}, battles=3)
-    assert [(p[0]['id'], p[1]['id']) for p in pairs] == [('a', 'b'), ('x', 'y')]
-    br = rn.bracket_update({}, [{'aKey': 'mega:a', 'bKey': 'mega:b', 'winnerKey': 'mega:a'}, {'aKey': 'mega:x', 'bKey': 'mega:y', 'winnerKey': 'mega:x'}])
-    pairs = rn.bracket_pairs(cards, br, battles=3)
-    assert [(p[0]['id'], p[1]['id']) for p in pairs] == [('a', 'x'), ('b', 'y')]            # winners vs winners, losers vs losers
-    br = rn.bracket_update(br, [{'aKey': 'mega:a', 'bKey': 'mega:x', 'winnerKey': 'mega:a'}, {'aKey': 'mega:b', 'bKey': 'mega:y', 'winnerKey': 'mega:b'}])
-    assert rn.bracket_done(cards, br) is None                                               # a 2-0, x 1-1, b 1-1 still standing
-    br = rn.bracket_update(br, [{'aKey': 'mega:x', 'bKey': 'mega:b', 'winnerKey': 'mega:x'}, {'aKey': 'mega:a', 'bKey': 'mega:x', 'winnerKey': 'mega:a'}])
-    assert rn.bracket_done(cards, br) == 'mega:a'                                           # last one standing = champion
 
 
 def test_pick_filters_and_the_doctor():
@@ -409,3 +379,9 @@ def test_safety_fails_names_only_safety_gates_and_fails_closed():
     labels = [label for key, label, _t in rn.GATES if key not in rn.SOFT_GATES]
     assert rn.safety_fails({}) == labels or set(rn.safety_fails({})) <= set(labels)     # an empty record passes nothing it can't read
     assert all(l in labels for l in rn.safety_fails({'scanned': False}))
+
+
+def test_card_names_and_dials():
+    assert rn.dial_of(200, 15) == 'degen' and rn.dial_of(30, 15) == 'safe' and rn.dial_of(100, 25) == 'balanced' and rn.dial_of(30, 15, 'degen') == 'degen'
+    n = rn.card_name('degen', 'tp200_sl40')
+    assert n == rn.card_name('degen', 'tp200_sl40') and n in rn.CARD_NAMES['degen'] and 1 <= len(n.split(' ')[0]) <= 4

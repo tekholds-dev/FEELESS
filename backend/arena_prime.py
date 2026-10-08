@@ -2188,7 +2188,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             c['lockRounds'] = int(c['lockRounds']) - 1
         if c.get('cycleFix') == 'safe' and int(c.get('rounds') or 0) >= int(c.get('fixUntil') or 0):
             c.pop('cycleFix', None); st = 0   # the safe fix lasts SAFE_FIX_ROUNDS, then the card goes back to its own cycle (never re-armed the same round)
-            ev(kind='streak', why=f'safe fix done — back to its own cycle')
+            ev(kind='streak', why='safe fix done — back to its own cycle')
         if st <= -STREAK and auto_fix:
             c['cycleFix'] = 'safe'; c['fixUntil'] = int(c.get('rounds') or 0) + SAFE_FIX_ROUNDS; st = 0
             ev(kind='streak', why=f'{STREAK} losing rounds in a row — config changed: safe cycle (majors-heavy)')
@@ -2346,7 +2346,6 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
       if not ((seated_pick and c.get('seatQueue')) or (seated_any and want_n and len(c['legs']) < want_n)):
           break
     if cfg['compound'] and free_cash > 0.01 and c['legs']:
-        waiting = [l for l in c['legs'] if l.get('buying') and not l.get('placeholder')]   # 👛 a pending real buy owns its slice first
         # 🔔 AT A ROUND every idle dollar goes back to work: a coin skipped only because it was cut minutes ago counts again
         # (never one cut on this very tick), so card cash can't sit idle past the next bell
         round_now = _f(c.get('lastRotateAt')) == now

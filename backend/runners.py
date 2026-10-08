@@ -695,7 +695,6 @@ def discover(passing, tags, limit=40):
     return sorted(out, key=lambda r: (-len(r['sources']), -_f(r.get('score'))))[:limit]
 
 
-
 STICKY_SEC = 600   # a coin that passed in the last 10 min stays listed while it is only being RE-SCANNED
 SCAN_ONLY = ('Holder scan done',)
 
@@ -743,7 +742,6 @@ def settle_battle(a_start, a_now, b_start, b_now):
     """The card whose % moved more since the bell wins; a dead heat (< 0.05 pts) is a draw."""
     da, db = _f(a_now) - _f(a_start), _f(b_now) - _f(b_start)
     return 'draw' if abs(da - db) < 0.05 else 'a' if da > db else 'b'
-
 
 
 def suggest_cfg(cfg):
@@ -1032,49 +1030,6 @@ def unique_cards(cards):
 # 🏆 Bracket (double elimination, rolling): every card that made it starts 0–0 in the WINNERS bracket; a loss drops it to the
 # LOSERS bracket; a second loss knocks it out. Winners fight winners, losers fight losers (odd ones cross over). When fewer than
 # two cards are left standing, the last one is crowned champion and a fresh bracket starts.
-def bracket_pairs(cards, bracket, battles=3):
-    key = lambda c: f"{c['kind']}:{c['id']}"
-    loss = lambda c: int(((bracket or {}).get(key(c)) or {}).get('l') or 0)
-    heat = lambda c: -_f((c.get('activity') or {}).get('score'))
-    alive = [c for c in unique_cards(cards) if loss(c) < 2]
-    wb = sorted([c for c in alive if loss(c) == 0], key=heat)
-    lb = sorted([c for c in alive if loss(c) == 1], key=heat)
-    pairs = []
-    for grp in (wb, lb):
-        while len(grp) >= 2 and len(pairs) < battles:
-            pairs.append((grp.pop(0), grp.pop(0)))
-    if wb and lb and len(pairs) < battles:   # odd ones out cross brackets
-        pairs.append((wb.pop(0), lb.pop(0)))
-    return pairs
-
-
-def bracket_update(bracket, results):
-    """W/L in the current bracket from settled battles ({aKey, bKey, winnerKey, draw}). Draws change nothing."""
-    b = {k: dict(v) for k, v in (bracket or {}).items()}
-    for r in results or []:
-        if r.get('draw') or not r.get('winnerKey'):
-            continue
-        lose = r['bKey'] if r['winnerKey'] == r['aKey'] else r['aKey']
-        b.setdefault(r['winnerKey'], {'w': 0, 'l': 0})['w'] += 1
-        b.setdefault(lose, {'w': 0, 'l': 0})['l'] += 1
-    return b
-
-
-def bracket_done(cards, bracket):
-    """Champion key when fewer than 2 unique cards are still standing (and someone has fought), else None."""
-    alive = [c for c in unique_cards(cards) if int(((bracket or {}).get(f"{c['kind']}:{c['id']}") or {}).get('l') or 0) < 2]
-    fought = any((v or {}).get('w') or (v or {}).get('l') for v in (bracket or {}).values())
-    if fought and len(alive) < 2:
-        return f"{alive[0]['kind']}:{alive[0]['id']}" if alive else ''
-    return None
-
-
-def battle_seats(stage, bench, battles=2):
-    """⚔ Who fights: stage cards first (hottest), runners-up from the bench fill empty seats — max `battles` fights
-    (4 cards → 2 battles, both visible). Pure."""
-    s = sorted(stage or [], key=lambda c: -_f((c.get('activity') or {}).get('score')))[:battles * 2]
-    s += sorted(bench or [], key=lambda c: -_f((c.get('activity') or {}).get('score')))[:max(0, battles * 2 - len(s))]
-    return pair_battles(s)
 
 
 def log_drops(log, dropped, now, cap=400):
