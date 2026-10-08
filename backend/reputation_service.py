@@ -18672,3 +18672,80 @@ async def circle_transfer(request: Request, p: CircleSendIn):
     out = await _circle('POST', '/transfer', {'walletId': p.walletId, 'tokenId': p.tokenId, 'to': p.to, 'amount': p.amount, 'idempotencyKey': str(uuid.uuid4())})
     ad = _admin_load(); _audit(ad, me, 'circle-send', f'{p.amount} from {p.walletId[:8]} to {p.to[:6]}…'); _admin_save(ad)
     return out
+
+
+# ---- 🧹 WALLET DUST CLEANUP (Trade › 🧹 Dust): read every coin a USER's wallet holds; they choose swap / burn + close; THEY sign ----
+import dust as _dust
+_EVM_ADDR = r'^0x[0-9a-fA-F]{40}$'
+_lifi_tok_cache: dict = {}
+
+
+class DustCloseIn(BaseModel):
+    address: str
+    accounts: List[str] = Field(default_factory=list, max_length=40)
+
+
+async def _sol_token_accounts(http, owner):
+    res = await asyncio.gather(*[_rpc(http, 'getTokenAccountsByOwner', [owner, {'programId': pg}, {'encoding': 'jsonParsed'}], scan=False)
+                                 for pg in _dust.TOKEN_PROGRAMS], return_exceptions=True)
+    out = []
+    for pg, r in zip(_dust.TOKEN_PROGRAMS, res):
+        if isinstance(r, Exception):
+            raise HTTPException(503, 'Solana RPC is busy — try again in a few seconds.')
+        for a in (r or {}).get('value') or []:
+            info = _parsed_info(a.get('account'))
+            amt = info.get('tokenAmount') or {}
+            if not info.get('mint'):
+                continue
+            out.append({'pubkey': a.get('pubkey'), 'program': pg, 'mint': info['mint'], 'owner': info.get('owner'), 'raw': int(amt.get('amount') or 0),
+                        'decimals': int(amt.get('decimals') or 0), 'ui': _fuse._f(amt.get('uiAmount')), 'lamports': (a.get('account') or {}).get('lamports') or 0})
+    return out
+
+
+@app.get('/api/reputation/wallet-dust/solana/{address}')
+async def wallet_dust_solana(address: str):
+    """Every coin account in this Solana wallet: $ value, the rent it locks, and the cleanup it allows (swap · burn + close · close). Read-only."""
+    if not _re.match(_B58, address):
+        raise HTTPException(400, 'Not a Solana address.')
+    async with httpx.AsyncClient(timeout=15) as http:
+        accts = await _sol_token_accounts(http, address)
+    meta = await _jup_tokens([a['mint'] for a in accts]) if accts else {}
+    prices = {m: (v or {}).get('usdPrice') for m, v in (meta or {}).items()}
+    rows = _dust.classify(accts, prices, meta)
+    return {'chain': 'solana', 'address': address, 'rows': rows, 'summary': _dust.summary(rows), 'swapMinUsd': _dust.SWAP_MIN_USD}
+
+
+@app.post('/api/reputation/wallet-dust/solana/close-tx')
+async def wallet_dust_close_tx(p: DustCloseIn):
+    """Unsigned transactions (base64) that burn the leftover of each picked account and close it → rent back to the owner. Every account is
+    re-read from the chain and must belong to `address`. FEELESS never signs — the owner's wallet does."""
+    if not _re.match(_B58, p.address) or not p.accounts or any(not _re.match(_B58, a) for a in p.accounts):
+        raise HTTPException(400, 'Bad address or accounts.')
+    async with httpx.AsyncClient(timeout=15) as http:
+        accts = {a['pubkey']: a for a in await _sol_token_accounts(http, p.address)}
+        bh = ((await _rpc(http, 'getLatestBlockhash', [{'commitment': 'finalized'}], scan=False)) or {}).get('value', {}).get('blockhash')
+    items = [accts[a] for a in dict.fromkeys(p.accounts) if a in accts and accts[a].get('owner') == p.address]
+    if not items or not bh:
+        raise HTTPException(409, 'None of those accounts belong to this wallet any more — refresh the list.')
+    return {'txs': [{'tx': _dust.burn_close_tx(p.address, b, bh), 'accounts': [x['pubkey'] for x in b],
+                     'rentSol': round(sum(x['lamports'] for x in b) / 1e9, 6), 'burns': sum(1 for x in b if x['raw'] > 0)} for b in _dust.batches(items)]}
+
+
+@app.get('/api/reputation/wallet-dust/cronos/{address}')
+async def wallet_dust_cronos(address: str):
+    """Every LI.FI-listed Cronos token this wallet holds (one JSON-RPC batch of balanceOf) with its $ value. Read-only; swaps go through LI.FI."""
+    if not _re.match(_EVM_ADDR, address):
+        raise HTTPException(400, 'Not an EVM address.')
+    async with httpx.AsyncClient(timeout=15) as http:
+        hit = _lifi_tok_cache.get(25)
+        if not hit or time.time() - hit[0] > 600:
+            r = await http.get('https://li.quest/v1/tokens', params={'chains': 25})
+            toks = [t for t in ((r.json().get('tokens') or {}).get('25') or []) if t.get('address') and t['address'] != '0x0000000000000000000000000000000000000000']
+            _lifi_tok_cache[25] = hit = (time.time(), toks)
+        toks = hit[1]
+        rr = await http.post('https://evm.cronos.org', json=_dust.balance_calls(address, toks))
+        res = {x.get('id'): x.get('result') for x in (rr.json() if isinstance(rr.json(), list) else [])}
+    rows = _dust.evm_rows(toks, res)
+    native = int(res.get(0) or '0x0', 16) / 1e18 if res.get(0) else 0.0
+    return {'chain': 'cronos', 'address': address, 'rows': rows, 'nativeCro': native, 'swapMinUsd': _dust.SWAP_MIN_USD,
+            'summary': {'coins': len(rows), 'swapUsd': round(sum(r['usd'] or 0 for r in rows if r['best'] == 'swap'), 2)}}

@@ -2136,3 +2136,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   old `historyComplete: False` read is redone once. 🧼 CLEAN SCORE (`backend/coin_clean.py`, 10 checks, unknown = 0 and named) on every
   picker + trench row (`_clean_rows`), chip `🧼 n/10` first in RowVitals. Picker lists, Open gates and the Gauntlet refresh every 20s
   (in place, no blank flash).
+- 🧹 DUST CLEANUP (Trade › 🧹 Dust, `DustCleanup.jsx` + `styles/dustCleanup.css` `dc-*`; `backend/dust.py` pure + tested): reads EVERY coin account of the
+  CONNECTED wallet (`GET /wallet-dust/solana/{addr}` — both token programs, Jupiter price + logo) → per coin ↩ swap to gas (worth ≥ $0.50: the normal
+  /api/trading quote → simulate → sign → execute path, no new money path) · 🔥 burn + close (dust / unpriced: Burn + CloseAccount, rent back) · ♻ close
+  (empty). `POST /wallet-dust/solana/close-tx` re-reads every account and only builds for accounts the wallet OWNS; the USER's wallet signs everything in
+  ONE approval; a burn needs the "gone for good" box. Cronos: every LI.FI-listed token (balanceOf batch on evm.cronos.org) → ↩ swap to CRO via LI.FI
+  (`lifiServerQuote` + `executeLifi`). Activity log per step, rows pulse while sending, fade out when done. The FUSE wallet's own dust is NOT touched by
+  this (its keeper burn was refused by the permission system — the owner decides that one).

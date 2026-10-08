@@ -2700,7 +2700,7 @@ body.theme-day .chat-pinned p{color:#1a2e22}
 .td-fees{display:grid;gap:6px}
 .td-fee{display:flex;gap:10px;align-items:center;padding:8px 11px;border-radius:11px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.025);font-size:12px;color:var(--muted)}
 .td-fee b{font:700 17px 'JetBrains Mono',monospace;color:#eafff3;min-width:54px}.td-fee.good{border-color:rgba(18,192,122,.35);background:rgba(18,192,122,.07)}.td-fee.good b{color:var(--mint)}
-.td-modes{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;border-radius:13px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)}
+.td-modes{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:4px;border-radius:13px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)}
 .td-modes button{display:flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:10px;padding:9px;background:transparent;color:var(--muted);font-weight:600;cursor:pointer;transition:background .2s,color .2s}
 .td-modes button.active{background:rgba(18,192,122,.14);color:var(--mint)}
 .td-panel{display:grid;gap:10px;padding:12px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.02)}

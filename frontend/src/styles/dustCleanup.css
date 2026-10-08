@@ -1,0 +1,41 @@
+/* 🧹 Dust cleanup (Trade › 🧹 Dust) — built from m-* tokens. Keyframes: dc* only, transform / opacity. */
+.dc { display: grid; gap: 12px; padding: 16px; }
+.dc-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.dc-head > div:first-child { display: grid; gap: 3px; max-width: 520px; } .dc-head b { font-size: 17px; }
+.dc-empty { display: grid; justify-items: start; gap: 10px; padding: 8px 0; }
+.dc-sum { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
+.dc-sum > span { display: grid; gap: 2px; padding: 8px 12px; border: 1px solid var(--m-line); border-radius: 10px; background: var(--m-surface-2); min-width: 104px; }
+.dc-sum small { font: 600 10px 'JetBrains Mono', monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--m-dim); }
+.dc-sum .m-num { font-size: 18px; }
+.dc-sum .dc-tools { display: flex; gap: 6px; align-items: center; border: 0; background: none; padding: 0; margin-left: auto; }
+.dc-err { color: #ff8fa3; margin: 0; }
+.dc-loading { display: flex; gap: 6px; padding: 14px 4px; } .dc-loading i { width: 8px; height: 8px; border-radius: 50%; background: var(--m-accent, #15d16a); animation: dcDot 1s ease-in-out infinite; }
+.dc-loading i:nth-child(2) { animation-delay: .15s; } .dc-loading i:nth-child(3) { animation-delay: .3s; }
+.dc-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 420px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
+.dc-list::-webkit-scrollbar { width: 6px; } .dc-list::-webkit-scrollbar-thumb { background: #15d16a; border-radius: 6px; }
+.dc-row { display: grid; grid-template-columns: 24px 26px minmax(0, 1fr) 150px 22px; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--m-line);
+  border-radius: 10px; background: var(--m-surface); animation: dcIn .28s ease both; animation-delay: calc(var(--i, 0) * 45ms); transition: border-color .15s, transform .15s, opacity .4s; }
+.dc-row:hover { border-color: var(--m-line-hi); transform: translateX(2px); }
+.dc-row:focus-within { outline: 2px solid #15d16a55; outline-offset: 1px; }
+.dc-row.is-on { border-color: #15d16a; box-shadow: inset 3px 0 0 #15d16a; }
+.dc-row.is-quoting, .dc-row.is-sending { animation: dcPulse 1s ease-in-out infinite; }
+.dc-row.is-done { opacity: .55; transform: translateX(6px); border-color: #15d16a; }
+.dc-row.is-failed { border-color: #ff8fa3; }
+.dc-pick input { width: 16px; height: 16px; accent-color: #15d16a; cursor: pointer; }
+.dc-coin { display: grid; min-width: 0; } .dc-coin b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .dc-coin small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dc-act { width: 150px; font-size: 12px; }
+.dc-st { font-style: normal; font-weight: 700; text-align: center; } .dc-st.done { color: #15d16a; } .dc-st.failed { color: #ff8fa3; }
+.dc-go { display: grid; gap: 8px; padding: 10px 12px; border: 1px dashed var(--m-line-hi); border-radius: 12px; animation: dcIn .2s ease both; }
+.dc-go p { margin: 0; font-size: 13px; }
+.dc-ack { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--gold, #f5c451); } .dc-ack input { accent-color: #f5c451; }
+.dc-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 180px; overflow-y: auto; scrollbar-width: thin; font-size: 12px; }
+.dc-log li { display: flex; gap: 8px; animation: dcIn .2s ease both; } .dc-log time { font-family: 'JetBrains Mono', monospace; color: var(--m-dim); }
+.dc-log li.good { color: #45e486; } .dc-log li.bad { color: #ff8fa3; }
+@keyframes dcIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes dcPulse { 50% { opacity: .6; } }
+@keyframes dcDot { 50% { transform: scale(.5); opacity: .4; } }
+body.fx-lite .dc-row, body.fx-lite .dc-go, body.fx-lite .dc-log li, body.fx-lite .dc-loading i { animation: none; }
+@media (prefers-reduced-motion: reduce) { .dc-row, .dc-go, .dc-log li, .dc-loading i { animation: none; } .dc-row { transition: none; } }
+body.theme-day .dc-row { background: #eef6f1; } body.theme-day .dc-sum > span { background: #e4f0e9; }
+body.theme-day .dc-log li.good { color: #076a45; } body.theme-day .dc-log li.bad { color: #b42345; } body.theme-day .dc-ack { color: #8a6200; }
+@media (max-width: 640px) { .dc-row { grid-template-columns: 22px 24px minmax(0, 1fr) 22px; } .dc-act { grid-column: 3 / 5; width: 100%; } .dc-sum .dc-tools { margin-left: 0; } }

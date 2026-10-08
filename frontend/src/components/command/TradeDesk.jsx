@@ -12,6 +12,7 @@ import { FollowingCalls } from './FollowingCalls';
 import { TopPumpCoins } from './TopPumpCoins';
 import { moneyConfirmed, watchBridge } from '../../lib/moneyConfirm';
 
+const DustCleanup = React.lazy(() => import('../DustCleanup'));
 // The trade desk: Swap (the existing Jupiter/LI.FI flows), Bridge (any EVM chain -> any EVM chain)
 // and Get Gas (turn what you hold on one chain into gas on another). Non-custodial throughout:
 // every route is a quote the user reviews, and every transaction is signed in their own wallet.
@@ -112,12 +113,13 @@ function FeeExplainer() {
 
 export function TradeDesk({ swap }) {
   const [mode, setMode] = useState('swap');
-  const modes = [['swap', 'Swap', Repeat], ['bridge', 'Bridge', ArrowLeftRight], ['gas', 'Get gas', Fuel]];
+  const modes = [['swap', 'Swap', Repeat], ['bridge', 'Bridge', ArrowLeftRight], ['gas', 'Get gas', Fuel], ['dust', '🧹 Dust', null]];
   return <section className="trade-desk" data-testid="trade-desk">
-    <nav className="td-modes">{modes.map(([k, l, Icon]) => <button key={k} type="button" className={mode === k ? 'active' : ''} onClick={() => setMode(k)} data-testid={`td-mode-${k}`}><Icon size={15} />{l}</button>)}</nav>
+    <nav className="td-modes">{modes.map(([k, l, Icon]) => <button key={k} type="button" className={mode === k ? 'active' : ''} onClick={() => setMode(k)} data-testid={`td-mode-${k}`}>{Icon ? <Icon size={15} /> : null}{l}</button>)}</nav>
     {mode === 'swap' && swap}
     {mode === 'bridge' && <Bridge />}
     {mode === 'gas' && <GetGas />}
+    {mode === 'dust' && <React.Suspense fallback={<p className="m-dim">Loading…</p>}><DustCleanup /></React.Suspense>}
     <FeeExplainer />
   </section>;
 }
