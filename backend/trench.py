@@ -287,6 +287,9 @@ def list_records(lens, calls, bottom, trench_meta, tmeta):
         ck, label = LIST_BORROW[k]
         b = (calls or {}).get(ck) or {}
         out[k] = {**b, 'src': label} if b.get('n', 0) >= PROOF_MIN else {**own, 'src': 'this list'}
+    for k, own in (lens or {}).items():   # any other tracked list (📣 Pump callouts, 🧲 fed runners): its own record only
+        if k not in out:
+            out[k] = {**(own or {}), 'src': 'this list'}
     out['bottom'] = {**(bottom or {}), 'src': 'this list'}
     out['trench'] = {**(trench_meta or {}), 'src': f'trench meta {tmeta}'}
     return out
@@ -324,7 +327,7 @@ def soft_only(fails):
 # 🚪 OPEN GATES: the trench list with NO filter — every launch coin the feed sees (Pump's biggest + most recently traded, the
 # launch boards, Jupiter's live trending), ranked as FRONT-RUNNERS by what is happening right now. Nothing is hidden; each row says
 # what it has NOT passed (`fails`) or that it was never scanned. View + the owner's hand pick only: never auto-seated.
-OPEN_MAX = 200
+OPEN_MAX = 400
 
 
 def open_row(pair, now_ms):

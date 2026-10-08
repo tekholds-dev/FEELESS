@@ -2217,7 +2217,7 @@ def test_coming_up_is_trench_first_then_pump_and_volume_never_a_coin_at_its_high
     picks, misses = ap.category_picks(lists, ok, records={'volume': {'n': 60, 'medPct': -1}, 'ptrend': {'n': 20, 'medPct': -9}})
     # trench always first (its top coin was at its highs → the next one), then the better 1-hour record, a coin never taken twice
     assert [(p['cat'], p['mint'], p['rank']) for p in picks] == [('trench', 'T', 2), ('volume', 'A', 1), ('ptrend', 'B', 2), ('bottom', 'D', 1)]
-    assert picks[0]['catLabel'] == '🗑 Trench' and [c for c, _ in ap.CATEGORIES] == ['trench', 'ptrend', 'volume', 'bottom']
+    assert picks[0]['catLabel'] == '🗑 Trench' and [c for c, _ in ap.CATEGORIES] == ['trench', 'ptrend', 'volume', 'bottom', 'fed']
     assert misses == {}
     _, m2 = ap.category_picks({'trench': [{'mint': 'HI'}]}, ok)
     assert m2['trench'] == 'top 60: 1 at its highs'
@@ -2401,3 +2401,14 @@ def test_held_for_you_into_one_coin_of_your_choice():
     assert c['legs'][0]['units'] == 10.0                                                  # pure
     with pytest.raises(ValueError):
         ap.release_held(c, 100.0, 'NOPE', {})
+
+
+def test_a_new_list_earns_its_seat_fed_runners_are_taken_only_once_their_own_record_is_positive():
+    lists = {'fed': [{'mint': 'FED1'}], 'volume': [{'mint': 'VOL1'}]}
+    picks, miss = ap.category_picks(lists, lambda r: True, {})
+    assert [p['mint'] for p in picks] == ['VOL1'] and miss['fed'].startswith('proving first — its own record: 0 of 10')
+    for rec in ({'fed': {'n': 9, 'medPct': 30}}, {'fed': {'n': 40, 'medPct': -1}}):   # too few settled · a losing record
+        assert 'FED1' not in [p['mint'] for p in ap.category_picks(lists, lambda r: True, rec)[0]]
+    picks, miss = ap.category_picks(lists, lambda r: True, {'fed': {'n': 12, 'medPct': 4.0}})
+    assert {p['mint']: p['catLabel'] for p in picks}['FED1'] == '🧲 Fed runners' and 'fed' not in miss
+    assert 'fed' not in ap.category_picks({'volume': [{'mint': 'V'}]}, lambda r: True, {})[1]   # an empty list is not reported as proving

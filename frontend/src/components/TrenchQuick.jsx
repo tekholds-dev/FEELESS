@@ -8,6 +8,8 @@ import { openMiniChart } from './MiniChart';
 import { investigate } from './CaseFile';
 import { addToCard } from './CoinDrawer';
 import { price as fmtPx } from '../lib/num';
+import { useCoinRead } from './terminal/ChartVitals';
+import { Socials, FlowWindows, ChartPulse, PumpCall, Feeders } from './QuickPulse';
 import '../styles/trenchSplit.css';
 
 // ⚡ QUICK LOOK (owner, 2026-10-08: "a click to a hover chart, swap in etc with MAD TRENCH VITALS instead of the side panel"): one floating
@@ -27,6 +29,20 @@ const pc = v => (v == null ? '—' : `${Number(v).toFixed(0)}%`);
 const TFS = ['1m', '5m', '15m'];
 
 // the facts tiles: [label, value, bad?, tip]
+// 🧮 three numbers no list shows: who is trading it (average trade), how hard it turns over (hour volume vs its cap) and how much
+// of its cap you could actually sell into (pool vs cap)
+export function edgeTiles(r) {
+  const v = Number(r.vol1h) || 0; const t = Number(r.txns1h) || 0; const mc = Number(r.mcap) || 0; const liq = Number(r.liq) || 0;
+  const avg = v > 0 && t > 0 ? v / t : null; const turn = v > 0 && mc > 0 ? (v / mc) * 100 : null; const depth = liq > 0 && mc > 0 ? (liq / mc) * 100 : null;
+  return [
+    ['AVG TRADE', avg == null ? '—' : `$${avg >= 100 ? Math.round(avg) : avg.toFixed(1)}`, avg != null && avg < 8, 'Hour volume ÷ trades: under ~$8 a trade is usually bots pinging each other'],
+    ['TURNOVER', turn == null ? '—' : `${turn >= 100 ? Math.round(turn) : turn.toFixed(1)}%/h`, turn != null && turn < 2, 'Share of its whole market cap traded in the last hour — the higher, the more it is in play'],
+    ['EXIT DEPTH', depth == null ? '—' : `${depth.toFixed(1)}%`, depth != null && depth < 3, 'Pool ÷ market cap: how much of the cap there is real money to sell into. Thin = hard to get out'],
+    ['CALLERS', r.pc?.callers ? String(r.pc.callers) : '—', false, 'Pump users calling this coin out right now (Pump\'s own callouts feed)'],
+    ['FEEDERS', r.fd?.n ? `${r.fd.n}${r.fd.active ? ` · ${r.fd.active} live` : ''}` : '—', false, 'New Pump coins paired with this coin — each of their buys routes through its pool'],
+    ['HOLDERS 1H', r.win?.['1h']?.holderChg == null ? '—' : `${r.win['1h'].holderChg >= 0 ? '+' : ''}${Number(r.win['1h'].holderChg).toFixed(1)}%`, r.win?.['1h']?.holderChg < 0, 'Change in holder count this hour'],
+  ];
+}
 export function factTiles(r) {
   const pace = Number(r.vol1h) > 0 && Number(r.vol5m) > 0 ? (r.vol5m * 12) / r.vol1h : null;
   const org = r.vital?.organicPct;
@@ -41,15 +57,23 @@ export function factTiles(r) {
     ['ORGANIC', org == null ? '—' : `${Math.round(org)}%`, org != null && org < 5, 'Share of volume from real traders (Jupiter) — low = bots'],
     ['5M PACE', pace == null ? '—' : `${pace.toFixed(1)}×`, pace != null && pace < 0.5, '5-minute volume × 12 vs the hour: above 1× = speeding up'],
     ['TRADES/H', r.txns1h ? Number(r.txns1h).toLocaleString() : '—', r.txns1h != null && r.txns1h < 60, 'Trades in the last hour'],
+    ...edgeTiles(r),
   ];
 }
 
 export function TrenchQuick({ row, list = [], onClose, onPick, busy }) {
-  const [r, setR] = useState(row);
+  const [r0, setR] = useState(row);
   useEffect(() => setR(row), [row]);
+  // 🔴 LIVE while it is open: the list's own row is re-read every 20s (its read + meters move), the coin's FEELESS read every 20s
+  // (vital, holder facts, socials, per-window flow, Pump callouts) and the price / 5m / 1h every 10s from the shared poller
+  const read = useCoinRead(r0?.mint);
+  const r = useMemo(() => { if (!r0) return r0; const fresh = list.find(x => x.mint === r0.mint) || r0; const rr = read?.mint === r0.mint ? read : null;
+    const fill = {}; Object.entries(rr?.row || {}).forEach(([k, v]) => { if (v != null && k !== 'symbol' && k !== 'mint' && fresh[k] == null) fill[k] = v; });
+    const f = rr?.facts || {};
+    return { ...fresh, ...fill, vital: rr?.vital || fresh.vital, tv: fresh.tv || rr?.tv, pc: fresh.pc || rr?.pc || null, fd: fresh.fd || rr?.row?.fd || null, pairedWith: fresh.pairedWith || rr?.row?.pairedWith || null, win: f.win || null, site: fresh.site || fill.site || f.site, x: fresh.x || fill.x || f.x, tg: fresh.tg || fill.tg || f.tg }; }, [r0, list, read]);
   const [tf, setTf] = useState('1m');
   const [copied, setCopied] = useState(false);
-  const live = useLivePrices(r?.pairAddress ? [r.pairAddress] : []).get(r?.pairAddress);
+  const live = useLivePrices(r0?.pairAddress ? [r0.pairAddress] : []).get(r0?.pairAddress);
   const idx = list.findIndex(x => x.mint === r?.mint);
   useEffect(() => {
     const k = e => { if (e.key === 'Escape') onClose();
@@ -68,7 +92,7 @@ export function TrenchQuick({ row, list = [], onClose, onPick, busy }) {
     <section className={`tql tql-${tone}`} role="dialog" aria-modal="true" aria-label={`$${r.symbol} quick look`} onClick={e => e.stopPropagation()}>
       <header className="tql-head">
         <span className="tsp-av is-big" aria-hidden="true">{String(r.symbol || '?').slice(0, 1)}{r.logo && <img src={r.logo} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} />}</span>
-        <div className="tql-title"><b>${r.symbol}</b>
+        <div className="tql-title"><b>${r.symbol} <span className="tql-live" data-tip="Price every 10 seconds · reads, flow and holders every 20 seconds while this is open"><i />LIVE</span></b>
           <small>{age(r.ageH)} old · {big(mc)} cap · pool {r.liq ? big(r.liq) : r.curve || r.curvePct != null ? 'on curve' : '—'} · {big(r.vol1h)}/h</small></div>
         {'safe' in r && <span className={`tql-safe ${safe[1]}`} data-tip={r.safe === false ? `Did not pass: ${(r.fails || []).join(' · ')}` : r.safe ? 'Passed every safety check' : 'Holders not scanned yet — unknown, not safe'}>{safe[0]}</span>}
         <span className="tql-px"><b>{useMc ? big(mc) : fmtPx(price)}</b>
@@ -86,11 +110,16 @@ export function TrenchQuick({ row, list = [], onClose, onPick, busy }) {
           </React.Suspense> : <p className="m-dim tql-wait">No pool for this coin yet.</p>}
         </div>
         <div className="tql-vitals" data-testid="tql-vitals">
+          <Socials r={r} />
           {r.tv && <TrenchVital r={r} />}
+          <PumpCall pc={r.pc} />
+          <Feeders r={r} />
           {r.curvePct != null && <div className="tql-bond" data-tip="How far along its launch curve: at 100% it graduates to a pool"><small>🔔 BOND</small><span><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, r.curvePct / 100))})` }} /></span><b>{Math.round(r.curvePct)}%</b></div>}
           {r.buyShare != null && <div className="tql-press" data-tip="Buys vs sells this hour"><small>BUY</small><span><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, r.buyShare / 100))})` }} /></span><small>SELL</small><b>{Math.round(r.buyShare)}%</b></div>}
           {r.vital && <CoinVital r={r} only="vital" />}
-          <div className="tql-facts">{factTiles(r).map(([l, x, bad, tip]) => <div key={l} className={bad ? 'bad' : ''} data-tip={tip}><small>{l}</small><b>{x}</b></div>)}</div>
+          <ChartPulse pairAddress={r.pairAddress} mint={r.mint} tf={tf} />
+          <FlowWindows win={r.win} tf={tf} />
+          <div className="tql-facts">{factTiles({ ...r, chg5m: live?.m5 ?? r.chg5m, chg1h: live?.h1 ?? r.chg1h, mcap: mc || r.mcap }).map(([l, x, bad, tip]) => <div key={l} className={bad ? 'bad' : ''} data-tip={tip}><small>{l}</small><b>{x}</b></div>)}</div>
           {r.safe === false && (r.fails || []).length > 0 && <p className="tql-fails">⚠ {(r.fails || []).join(' · ')}</p>}
         </div>
       </div>

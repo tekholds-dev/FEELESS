@@ -35,7 +35,37 @@ def facts(tok):
             'holderChg1h': num(s1.get('holderChange')), 'netBuyers1h': num(s1.get('numNetBuyers')), 'liqChg1h': num(s1.get('liquidityChange')),
             'verified': bool(t.get('isVerified')), 'launchpad': t.get('launchpad'),
             'mcap': num(t.get('mcap')), 'logo': t.get('icon') or None, 'vol5m': _vol(t.get('stats5m')),
-            'trades1h': (_f(s1.get('numBuys')) + _f(s1.get('numSells'))) or None}
+            'trades1h': (_f(s1.get('numBuys')) + _f(s1.get('numSells'))) or None,
+            'site': _link(t.get('website')), 'x': _link(t.get('twitter')), 'tg': _link(t.get('telegram')), 'win': windows(t)}
+
+
+def _link(u):
+    """A social link exactly as Jupiter carries it — http(s) only, sane length; anything else is dropped."""
+    u = str(u or '').strip()
+    return u if (u.startswith('https://') or u.startswith('http://')) and len(u) < 300 and ' ' not in u and '"' not in u and '<' not in u else None
+
+
+WINDOWS = ('5m', '1h', '6h', '24h')
+
+
+def windows(tok):
+    """🫧 The coin's PULSE per window (5m · 1h · 6h · 24h) from Jupiter's own window stats: buy pressure by volume, organic share, net buyers,
+    traders, holders / pool / volume change, average trade. A window Jupiter did not report is left out. None = not said."""
+    out = {}
+    for k in WINDOWS:
+        st = (tok or {}).get(f'stats{k}')
+        if not isinstance(st, dict):
+            continue
+        bv, sv = _f(st.get('buyVolume')), _f(st.get('sellVolume'))
+        vol = bv + sv
+        org = _f(st.get('buyOrganicVolume')) + _f(st.get('sellOrganicVolume'))
+        trades = _f(st.get('numBuys')) + _f(st.get('numSells'))
+        num = lambda v: None if v is None else round(_f(v), 2)
+        out[k] = {'vol': round(vol, 2) or None, 'buyPct': round(bv / vol * 100, 1) if vol > 0 else None, 'organicPct': round(org / vol * 100, 1) if vol > 0 else None,
+                  'netBuyers': None if st.get('numNetBuyers') is None else int(_f(st.get('numNetBuyers'))), 'traders': None if st.get('numTraders') is None else int(_f(st.get('numTraders'))),
+                  'holderChg': num(st.get('holderChange')), 'liqChg': num(st.get('liquidityChange')), 'volChg': num(st.get('volumeChange')), 'priceChg': num(st.get('priceChange')),
+                  'trades': int(trades) or None, 'avgTrade': round(vol / trades, 2) if trades > 0 and vol > 0 else None}
+    return out
 
 
 def _vol(st):
@@ -43,7 +73,7 @@ def _vol(st):
     return v or None
 
 
-FILL = (('mcap', 'mcap'), ('logo', 'logo'), ('vol5m', 'vol5m'), ('txns1h', 'trades1h'), ('holders', 'holders'))
+FILL = (('mcap', 'mcap'), ('logo', 'logo'), ('vol5m', 'vol5m'), ('txns1h', 'trades1h'), ('holders', 'holders'), ('site', 'site'), ('x', 'x'), ('tg', 'tg'))
 
 
 def fill_row(row, jf=None, cand=None):
@@ -53,6 +83,9 @@ def fill_row(row, jf=None, cand=None):
     if row.get('mcap') in (None, 0) and row.get('marketCap') not in (None, 0):
         row['mcap'] = row['marketCap']
     for k, jk in FILL:
+        if k in ('site', 'x', 'tg') and row.get(k) is not None and not isinstance(row.get(k), str) and j.get(jk):
+            row[k] = j[jk]   # the board only knows a link EXISTS (True) — Jupiter has the link itself
+            continue
         if row.get(k) in (None, '', 0):
             v = c.get(k) if c.get(k) not in (None, '', 0) else j.get(jk)
             if v not in (None, '', 0):
@@ -517,7 +550,7 @@ def trend_verdict(f, row=None):
 
 
 LENS_READ = {'movers': 'mover', 'ptrend': 'mover', 'volume': 'flow', 'majors': 'trend', 'stocks': 'trend', 'risers': 'trend', 'bottom': 'dip',
-             'pump': 'auto', 'trench': 'trench', 'fresh': 'auto', 'arena': 'auto'}
+             'pump': 'auto', 'trench': 'trench', 'fresh': 'auto', 'arena': 'auto', 'calls': 'auto', 'fed': 'mover'}
 
 
 def read_for_lens(lens, f, row=None):

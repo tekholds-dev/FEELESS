@@ -29,6 +29,16 @@
 @keyframes cpopRing { 0% { opacity: .9; transform: scale(1); } 100% { opacity: 0; transform: scale(9); } }
 @keyframes cpopRays { 0% { opacity: 0; transform: rotate(0) scale(.5); } 12% { opacity: .9; transform: rotate(20deg) scale(1); } 80% { opacity: .5; } 100% { opacity: 0; transform: rotate(160deg) scale(1.1); } }
 @keyframes cpopRise { 0% { transform: translateY(10px); opacity: 0; } 15% { transform: translateY(0); opacity: 1; } 78% { opacity: 1; } 100% { transform: translateY(-26px); opacity: 0; } }
+/* 🩸 −HP style (owner: "small, just text, like a −HP effect", 4 seconds): a plain number drifting up off the card with one line of meta
+   under it (what · which coin · why). No pill, no box; the spark / coin effects stay for $5+ only. */
+.cpop-num, .cpop-num.t3, .cpop-num.t4 { animation: cpopHp 4s cubic-bezier(.2, .8, .2, 1) both; gap: 0; }
+.cpop-num.t1 b, .cpop-num.t2 b { font: 800 13px "JetBrains Mono", monospace; } .cpop-num.t3 b { font-size: 15px; } .cpop-num.t4 b { font-size: 18px; }
+.cpop-num b { text-shadow: 0 1px 0 #000, 0 0 8px rgba(21, 209, 106, .6); }
+.cpop-num small, .cpop-num.t3 small, .cpop-num.t4 small { padding: 0; border: 0; background: none; border-radius: 0; font: 700 8.5px "JetBrains Mono", monospace; letter-spacing: .08em; color: #d9ffe9; opacity: .92; text-shadow: 0 1px 0 #000, 0 0 6px #000; }
+.cpop-num.is-neg b { color: #ff6b86; text-shadow: 0 1px 0 #000, 0 0 8px rgba(255, 107, 134, .7); } .cpop-num.is-neg small { color: #ffc2cd; } .cpop-num.is-neg { animation-name: cpopHit; }
+.cpop-num.t1 .cpop-bit, .cpop-num.t2 .cpop-bit { display: none; }
+@keyframes cpopHp { 0% { transform: translateY(8px) scale(.8); opacity: 0; } 6% { transform: translateY(0) scale(1.18); opacity: 1; } 12% { transform: translateY(-2px) scale(1); } 80% { opacity: 1; } 100% { transform: translateY(-34px) scale(1); opacity: 0; } }
+@keyframes cpopHit { 0% { transform: translate(0, 4px) scale(.8); opacity: 0; } 5% { transform: translate(-3px, 0) scale(1.2); opacity: 1; } 9% { transform: translate(3px, 0) scale(1.1); } 13% { transform: translate(0, 0) scale(1); } 80% { opacity: 1; } 100% { transform: translate(0, 26px) scale(1); opacity: 0; } }
 @keyframes cpopPulse { 50% { transform: scale(1.03); } }
 body.fx-lite .cpop-num { display: none; } body.fx-lite .cpop-charge { animation: none; }
 @media (prefers-reduced-motion: reduce) { .cpop-num { display: none; } .cpop-charge { animation: none; } }

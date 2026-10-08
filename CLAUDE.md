@@ -2266,3 +2266,27 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`callLanes`, `sp-call-*`) on every tab filter the list by its own read (BREAKOUT 7 · WASH TRADED 142 …). `jup_audit.fill_row` gives every list row the
   facts its source never carried (cap, logo, 5-min volume, trades / h, holders, curve %) — only empty fields, the runner board first, then Jupiter.
   Trench Open gates = ⚡ Split (🆕 newest | THE READS lanes Hot · Curve · Dips · Watch · Avoid) or ≡ List (`feeless.openLayout`).
+- 📣 PUMP'S OWN CALLOUTS (`backend/pump_calls.py` pure + tested; found by reading pump.fun's page scripts — the 2026-10-06 note "Pump has no callouts
+  endpoint" is WRONG now): on the Pump coin index (`PUMP_API_URL`) `GET /home-feed?pageSize=150&platform=WEB&chain=solana` (ranked callouts: caller,
+  thesis, cap it was called at, multiple since, views), `/home-feed/new` (newest) and `/pnl-leaderboard/positions?period=daily` (today's top callouts by
+  the caller's profit). `_pump_calls_build` (60s, last good board kept) → public `GET /fuses/pump-callouts`, picker lens `calls` (📣 Pump callouts,
+  loudest first: `pump_calls.heat`), row field `pc` on every list / Open-gates row + coin-read, `PumpCallouts` strip on top of Open gates (🏆 top today ·
+  🆕 newest), `PumpCall` in the quick look. Called coins also join the launch feed (market.py `pcall` jobs → movers). Thesis text is other people's
+  words: trimmed, control chars dropped, rendered as text. Our own leader / mover / fresh calls are now labelled "📡 FEELESS CALLS". Never advice.
+- 🧲 FEEDERS (`backend/feeders.py` pure + tested; Pump, 2026-10-08: a new coin PAIRED with an existing runner routes every buy through the runner's
+  pool): Pump's coin record carries `quote_mint` (all-ones / wrapped SOL = plain SOL). `_feeders_build` (2 min, 8 `/coins` pages read one after another)
+  → per runner: paired coins, new this hour, trading in the last 5 min, cap riding on it, `feed_score`. Row `fd` on the runner, `pairedWith` on the
+  child (⛓ "trades through $X, moves with it"), picker lens `fed` (🧲 Fed runners, ≥ 2 paired), `Feeders` in the quick look, public `GET /fuses/feeders`.
+  ENGINE: `arena_prime.CATEGORIES` + `fed`, behind `PROVE_FIRST` {'fed': 10} — the engine takes a fed runner only once the list's OWN settled 1-hour
+  record (`LENS_TRACK` now + `calls`, `fed`) is positive over ≥ 10 coins; until then Coming up says "proving first". A new list ⇒ PROVE_FIRST, never straight in.
+- ⚛ SWAP-IN = A POP-OUT (`SwapPicker pop`, portal `.spx`, `FuseBanner`: spinning atom, $OUT → ? energy wire, live coin count, 20s refresh bar;
+  `styles/quickPulse.css` `spx-*` / `qp-*` / `pcl-*`; `.spx-banner` is an fxPause surface; Esc / outside closes, the quick look opens above it).
+  11 lists. The inline `<SwapPicker>` (no `pop`) is what tests render.
+- 🫧 QUICK LOOK IS LIVE (`TrenchQuick` + `QuickPulse.jsx`): the list's own row re-read every 20s, `useCoinRead` (coin-read re-reads Jupiter every ~60s for
+  a WATCHED coin), price every 10s. `Socials` (site / 𝕏 / Telegram from Jupiter via `jup_audit.facts` + `fill_row`; "✓ site set" when the board only
+  knows it exists; 🚫 none) · `ChartPulse` (`lib/chartPulse.js` pure + tested: place in range, off high, greens, streak, volume vs before, body — from the
+  candles of the timeframe ON SCREEN, so it changes with the chart) · `FlowWindows` (`jup_audit.windows`: buy pressure by $, organic, net buyers, traders,
+  avg trade, holders / pool / volume change per 5m · 1h · 6h · 24h; follows the chart: 1m→5m, 5m→1h, 15m→6h; `flowShift` = 5m vs 1h pressure) ·
+  `edgeTiles` (avg trade · turnover %/h · exit depth = pool ÷ cap · callers · feeders). The chart column is sticky. Hand-set reads, not learned.
+- 🩸 Card pops = −HP text (`POP_MS` 4000, 13px number + one plain meta line "♻ COMPOUND · $SYM · BACK TO WORK", no pill; `popTag(why)` from the keeper's
+  reason; a confirmed sale ≥ 20c UNDER its cost pops red `−$0.30 🩸 LOSS` falling; sparks only from $5).

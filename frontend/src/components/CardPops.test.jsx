@@ -24,7 +24,11 @@ test('a REAL card pops only confirmed fills: real compound buys ($ in) and sales
     { at: 5, side: 'sell', status: 'filled', symbol: 'L', usd: 1, realizedPnlUsd: -0.3 }, { at: 4, side: 'buy', status: 'filled', symbol: 'D', usd: 0.19, why: 'idle card cash back into its coin' }];   // under 20c = no effect
   expect(popsFromFills(o, new Set())).toEqual([expect.objectContaining({ text: '+$0.27', label: 'PROFIT', symbol: 'CAT' })]);                  // the newest one only
   expect(popsFromFills(o.slice(2), new Set())).toEqual([expect.objectContaining({ text: '+$0.25', label: 'COMPOUND', symbol: 'DON' })]);
-  expect(popsFromFills(o.slice(3), new Set())).toEqual([]);                                                                                   // skipped · a loss · dust
+  expect(popsFromFills(o.slice(3), new Set())).toEqual([expect.objectContaining({ text: '−$0.30', label: 'LOSS', symbol: 'L', neg: true })]);   // the −HP hit: a sale under its cost (skipped + dust still never pop)
+  expect(popsFromFills(o.slice(5), new Set())).toEqual([]);
+  const { popTag, POP_MS } = require('./CardPops');
+  expect([popTag('idle card cash back into its coin'), popTag('skim +20%'), popTag('bank at the lock'), popTag('stop −15%'), popTag('not on the card any more'), popTag('')]).toEqual(['BACK TO WORK', 'SKIM', 'BANKED AT LOCK', 'STOP', 'ROTATED OUT', '']);
+  expect(POP_MS).toBe(4000);   // shown for 4 seconds
 });
 
 test('the card pops ONE small number when a real compound lands after it was mounted, then waits before the next; the charge chip shows', async () => {
@@ -36,7 +40,7 @@ test('the card pops ONE small number when a real compound lands after it was mou
   expect(el.querySelector('[data-testid="card-near"]').textContent).toContain('⚡ $SK +13%'); expect(el.querySelector('[data-testid="card-near"]').textContent).toContain('lock +15%');
   await act(async () => { root.render(<CardPops fills={[f(50, 1.4), f(1, 9)]} legs={legs} cfg={{ rideAt: 15 }} />); });
   expect(el.querySelectorAll('[data-testid="card-pop"]')).toHaveLength(1);
-  expect(el.querySelector('[data-testid="card-pop"]').textContent).toContain('+$1.40'); expect(el.querySelector('[data-testid="card-pop"]').textContent).toContain('COMPOUND');
+  expect(el.querySelector('[data-testid="card-pop"]').textContent).toContain('+$1.40'); expect(el.querySelector('[data-testid="card-pop"]').textContent).toContain('♻ COMPOUND · $SK · BACK TO WORK');
   expect(el.querySelector('[data-testid="card-pop"]').dataset.tier).toBe('2'); expect(el.querySelectorAll('.cpop-bit')).toHaveLength(6);   // $1+ = sparks
   await act(async () => { root.render(<CardPops fills={[f(60, 0.5), f(50, 1.4), f(1, 9)]} legs={legs} cfg={{ rideAt: 15 }} />); });
   expect(el.querySelector('[data-testid="card-pop"]').textContent).toContain('+$1.40');   // a second fill seconds later does not stack another pop

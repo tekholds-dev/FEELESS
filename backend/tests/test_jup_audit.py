@@ -156,3 +156,19 @@ def test_a_list_row_gets_the_facts_its_source_never_carried_and_keeps_its_own():
     assert row['vol5m'] == 7000            # the runner board's reading beats Jupiter's
     assert row['curvePct'] == 61
     assert ja.fill_row({'marketCap': 5}, None, None)['mcap'] == 5 and 'logo' not in ja.fill_row({}, {}, {})
+
+
+def test_socials_and_window_pulse_come_from_jupiter_and_bad_links_are_dropped():
+    tok = {'id': 'M', 'website': 'https://site.xyz', 'twitter': 'javascript:alert(1)', 'telegram': 'https://t.me/x',
+           'stats5m': {'buyVolume': 300, 'sellVolume': 100, 'buyOrganicVolume': 60, 'sellOrganicVolume': 20, 'numBuys': 30, 'numSells': 10, 'numTraders': 25, 'numNetBuyers': 9, 'holderChange': 1.5, 'liquidityChange': -2, 'priceChange': 4.2},
+           'stats1h': {'buyVolume': 0, 'sellVolume': 0}, 'stats6h': 'nonsense'}
+    f = ja.facts(tok)
+    assert (f['site'], f['x'], f['tg']) == ('https://site.xyz', None, 'https://t.me/x')
+    w = f['win']
+    assert set(w) == {'5m', '1h'}   # a window Jupiter did not report is left out
+    assert (w['5m']['buyPct'], w['5m']['organicPct'], w['5m']['netBuyers'], w['5m']['traders'], w['5m']['trades'], w['5m']['avgTrade']) == (75.0, 20.0, 9, 25, 40, 10.0)
+    assert w['1h']['buyPct'] is None and w['1h']['vol'] is None
+    row = ja.fill_row({'site': None}, f)
+    assert row['site'] == 'https://site.xyz' and row['tg'] == 'https://t.me/x' and 'x' not in row
+    got = ja.fill_row({'site': True, 'tg': True}, {**f, 'tg': None})
+    assert (got['site'], got['tg']) == ('https://site.xyz', True)   # a known-to-exist link gets its URL; no URL = stays as it was

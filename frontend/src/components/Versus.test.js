@@ -23,9 +23,9 @@ test('buy-bottom lens is in the picker and says its own record honestly', () => 
   expect(bottomRecord(null)).toMatch(/starts now \(0 of 5 settled\)/);
 });
 
-test('nine picker lists (New to you first), and a row with no recorded prices still gets a line from its own moves', () => {
+test('eleven picker lists (New to you first), and a row with no recorded prices still gets a line from its own moves', () => {
   const { PICK_LENSES, moveLine } = require('./ArenaPrime');
-  expect(PICK_LENSES.length).toBe(9); expect(PICK_LENSES[0][0]).toBe('fresh');
+  expect(PICK_LENSES.length).toBe(11);   // + 📣 Pump callouts · 🧲 Fed runners expect(PICK_LENSES[0][0]).toBe('fresh');
   const pts = moveLine({ chg24h: 100, chg6h: 50, chg1h: -20, chg5m: 0 });
   expect(pts.length).toBe(5); expect(pts[0]).toBeCloseTo(0.5); expect(pts[2]).toBeCloseTo(1.25); expect(pts[4]).toBe(1);
   expect(moveLine({ chg1h: 10 })).toBeNull(); expect(moveLine({ chg1h: 10, chg5m: 1, chg24h: -100 }).length).toBe(3);   // a −100% reading is skipped, never divided by zero

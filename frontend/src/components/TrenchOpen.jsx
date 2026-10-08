@@ -4,6 +4,7 @@ import { openCoin } from './CoinDrawer';
 import '../styles/trenchOpen.css';
 import { TrenchVital } from './CoinVital';
 import { TrenchQuick, warmCoin } from './TrenchQuick';
+import { PumpCallouts } from './QuickPulse';
 
 const big = v => { const n = Number(v) || 0; return n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${n.toFixed(0)}`; };
 const sg = v => (v == null ? '—' : Math.abs(v) >= 1000 ? `${(v / 100 + 1).toFixed(1)}x` : `${v >= 0 ? '+' : ''}${Number(v).toFixed(0)}%`);
@@ -43,7 +44,7 @@ function ReadCard({ r, onOpen, showAge }) {
   return <div role="button" tabIndex={0} className={`tsp-card ${sf[2]} ${r.tv?.call ? `call-${r.tv.call[2]}` : ''}`} onClick={() => onOpen(r)} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onOpen(r))}
     onMouseEnter={() => warmCoin(r)} onFocus={() => warmCoin(r)} data-testid={`rc-${r.symbol}`} data-tip={`Quick look: chart, every vital, pick · ${whyLine(r)}`}>
     <span className="tsp-av" aria-hidden="true">{String(r.symbol || '?').slice(0, 1)}{r.logo && <img src={r.logo} alt="" loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; }} />}</span>
-    <span className="tsp-id"><b>${r.symbol}{r.call && <i>{ICON[r.call]}</i>}</b>
+    <span className="tsp-id"><b>${r.symbol}{r.call && <i>{ICON[r.call]}</i>}{r.pc?.callers ? <i data-tip={`${r.pc.callers} Pump callers right now`}>📣{r.pc.callers}</i> : null}{r.fd?.n ? <i data-tip={`${r.fd.n} new Pump coins are paired with it — their buys route through its pool`}>🧲{r.fd.n}</i> : null}</b>
       <small>{showAge ? <em className="tsp-age">{age(r.ageH)}</em> : `${age(r.ageH)} ·`} {big(r.mcap)} · {big(r.vol1h)}/h</small></span>
     <span className="tsp-mv"><span className={mv(r.chg5m)}>{sg(r.chg5m)}</span><small>5m</small><span className={mv(r.chg1h)}>{sg(r.chg1h)}</span><small>1h</small></span>
     <span className={`tsp-safe ${sf[2]}`} data-tip={sf[3]}>{sf[0]}</span>
@@ -76,6 +77,7 @@ export function TrenchOpen({ max = 10, onPick, busy }) {
   const laneList = (lanes.find(x => x[0] === lane) || lanes[0])[2];
   const cap = all ? 200 : Math.max(12, max);
   return <div className="top" data-testid="trench-open">
+    <PumpCallouts onOpen={c => open(c)} />
     <div className="top-head"><span className="m-label">🚪 OPEN GATES · EVERY LAUNCH COIN</span>
       <small className="m-dim">{d.rows.length} of {d.seen} coins in the feed. Nothing is hidden — read the safety word and the line under each coin before you pick. The engine never buys from this list.</small></div>
     <div className="top-bar"><div className="m-seg top-seg" role="group" aria-label="Layout">{LAYOUTS.map(([k, label]) => <button key={k} type="button" className={layout === k ? 'active' : ''} aria-pressed={layout === k} onClick={() => setLayout(k)} data-testid={`open-l-${k}`}>{label}</button>)}</div>
@@ -110,7 +112,7 @@ export function TrenchOpen({ max = 10, onPick, busy }) {
       {!rows.length && <small className="m-dim top-none">No coin in this filter right now.</small>}
     </div>
     {list.length > max && <button type="button" className="top-more" onClick={() => setAll(a => !a)} aria-expanded={all} data-testid="open-more">{all ? 'Show fewer' : `Show all ${list.length}`}</button>}</>}
-    <div className="top-head"><span className="m-label">📣 CALLOUTS · CHECKED EVERY {Math.round((d.everySec || 210) / 60 * 10) / 10} MIN</span>
+    <div className="top-head"><span className="m-label">📡 FEELESS CALLS · CHECKED EVERY {Math.round((d.everySec || 210) / 60 * 10) / 10} MIN</span>
       <small className="m-dim">A coin is called once when it first leads a list; we then track what it did. Record so far:</small>
       <span className="top-kinds">{(d.kinds || []).map(k => <span key={k.key} className="top-kind" data-testid={`call-kind-${k.key}`} data-tip={`${k.name}: ${k.rule}. Settled 1 hour after the call (no price then = −100%). A record, never a promise.`}>
         {k.icon} {k.name}: {k.proof?.n >= 5 ? <b className={k.proof.medPct > 0 ? 'm-pos' : 'm-neg'}>typical {sg(k.proof.medPct)} after 1h · {k.proof.wonPct}% up</b> : <b className="m-dim">{k.proof?.n || 0} of 5 settled — too early</b>}</span>)}

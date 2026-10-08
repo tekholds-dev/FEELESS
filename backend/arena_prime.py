@@ -972,7 +972,10 @@ def thin_flow(x):
 
 # ⏭ Coming up = THREE doors (owner, 2026-10-07: "1 top trench, pump and volume — never in the highs"): the trench's top coin always
 # first, then Pump trending and Volume by their own 1-hour record. The other lists stay in the picker; they no longer feed this row.
-CATEGORIES = (('trench', '🗑 Trench'), ('ptrend', '🔥 Pump trending'), ('volume', '🌊 Volume'), ('bottom', '🟢 Dips & bottoms'))
+CATEGORIES = (('trench', '🗑 Trench'), ('ptrend', '🔥 Pump trending'), ('volume', '🌊 Volume'), ('bottom', '🟢 Dips & bottoms'), ('fed', '🧲 Fed runners'))
+# 🧲 a NEW list earns its seat: the engine takes from it only once its OWN settled 1-hour record is positive over this many coins
+# (hand picks from it are open from day one). Fed runners = runners new Pump launches are paired with (feeders.py).
+PROVE_FIRST = {'fed': 10}
 
 
 # Lists bought as small TICKETS (a 10x lottery: tiny money in, initial out at the gain, the rest rides) are never paused by a median — the owner
@@ -1003,6 +1006,10 @@ def category_picks(lists, ok, records=None, limit=6):
         rows = (lists or {}).get(k) or []
         pick, why = None, {}
         r_ = rec.get(k) or {}
+        if k in PROVE_FIRST and not (_f(r_.get('n')) >= PROVE_FIRST[k] and _f(r_.get('medPct')) > 0):
+            if rows:
+                misses[k] = f"proving first — its own record: {int(_f(r_.get('n')))} of {PROVE_FIRST[k]} settled" + (f", median {_f(r_.get('medPct')):+.0f}%" if _f(r_.get('n')) else '')
+            continue
         if k not in TICKET_LISTS and _f(r_.get('n')) >= LOSING_LIST_N and _f(r_.get('medPct')) <= LOSING_LIST_MED:
             # a list whose own settled record is a clear loser is not bought by the engine (still listed, hand-pickable)
             misses[k] = f"paused — its own record: median {_f(r_.get('medPct')):+.0f}% an hour later over {int(_f(r_.get('n')))} coins"

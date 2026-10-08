@@ -2923,18 +2923,28 @@ async def coin_read(mint: str):
     hit = _coin_read_cache.get(mint)
     if hit and time.time() - hit[0] < 15:
         return hit[1]
+    if time.time() - _jup_facts.get(mint, (0.0, None))[0] > 45 and not os.environ.get('PYTEST_CURRENT_TEST'):   # a coin being WATCHED: its pulse is re-read every minute, not every 3
+        try:
+            t_ = (await _jup_tokens([mint])).get(mint)
+            if t_:
+                _jup_facts[mint] = (time.time(), _ja.facts(t_))
+        except Exception:
+            pass
     await _jup_lite([mint])
     jf = (_jup_facts.get(mint) or (0, None))[1]
     c = _cand_map().get(mint) or {}
-    row = {'mint': mint, 'symbol': c.get('symbol'), **{k: c.get(k) for k in ('ageH', 'vol1h', 'vol5m', 'chg5m', 'chg1h', 'buyShare', 'txns1h', 'mcap', 'liq', 'site', 'x') if c.get(k) is not None}}
+    row = {'mint': mint, 'symbol': c.get('symbol'), **{k: c.get(k) for k in ('ageH', 'vol1h', 'vol5m', 'chg5m', 'chg1h', 'buyShare', 'txns1h', 'mcap', 'liq', 'site', 'x', 'tg') if c.get(k) is not None}}
     row.update(_holder_facts(mint))
+    _ja.fill_row(row, jf, c)
     if c.get('bundled') is not None and row.get('bundledN') is None:
         row['bundledN'] = c.get('bundled')
     if jf and row.get('holders') is None:
         row['holders'] = jf.get('holders')
     vital = _ja.verdict(jf, row) if jf else None
     tv = _read_for(row) or ({**(t_ := _ja.trench_verdict(jf, row)), 'kind': 'trench', 'meters': [['🔥 HEAT', t_['heat']], ['☠ RUG', t_['rug']]]} if jf or c else None)
-    out = {'mint': mint, 'row': row, 'vital': vital, 'tv': tv, 'facts': jf, 'onBoard': bool(c)}
+    pc_ = _pump_calls['map'].get(mint)
+    _fd_rows([row])
+    out = {'mint': mint, 'row': row, 'vital': vital, 'tv': tv, 'facts': jf, 'onBoard': bool(c), 'pc': _pc.summary(pc_) if pc_ else None}
     _coin_read_cache[mint] = (time.time(), out)
     if len(_coin_read_cache) > 600:
         for k in sorted(_coin_read_cache, key=lambda k: _coin_read_cache[k][0])[:200]:
@@ -3038,6 +3048,8 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
     for r in live:
         m_ = r.get('baseAddress') or r.get('mint')
         _ja.fill_row(r, (_jup_facts.get(m_) or (0, None))[1], cmap_f.get(m_))
+    _pc_rows(live)
+    _fd_rows(live)
     res_ = {**out, 'pools': live, 'dead': len(rows) - len(live)}
     _disc_cache[key_] = (time.time(), res_)
     return res_
@@ -3092,6 +3104,10 @@ async def _fuses_discover_raw(lens, chain):
         except Exception:
             pass
         return {'lens': 'bottom', 'chain': 'solana', 'pools': rows_b, 'proof': _trench.meta_proof(_json_load(BOTTOM_PROOF_PATH, {}), keys=('bottom',)).get('bottom')}
+    if lens == 'calls':   # 📣 the coins Pump's own users are calling out, loudest first
+        return {'lens': 'calls', 'chain': 'solana', 'pools': await _pump_call_rows()}
+    if lens == 'fed':   # 🧲 runners new Pump launches are paired with — every buy of those coins routes through the runner's pool
+        return {'lens': 'fed', 'chain': 'solana', 'pools': await _feeder_rows()}
     feed_lens = lens if lens in ('pump', 'movers', 'volume', 'ptrend') else None   # 🆕 New launches (newest first) · 🚀 Movers · 🌊 Volume (busiest first): one live launch feed
     if feed_lens:
         mv_ = lens == 'movers'
@@ -5887,6 +5903,168 @@ def _open_board():
     return _trench.open_board(_open_pairs, scanned, time.time() * 1000)
 
 
+import pump_calls as _pc
+
+_pump_calls: dict = {'at': 0.0, 'board': {'coins': [], 'top': [], 'latest': [], 'n': 0}, 'map': {}, 'ok': 0.0}
+_pump_calls_flight: dict = {}
+
+
+async def _pump_calls_build(force=False):
+    """📣 Pump's OWN callouts (pump_calls: ranked feed + newest + today's top by profit), re-read at most once a minute; one read in
+    flight; a failed read keeps the last good board. Leaderboard coins get their ticker from Jupiter (the leaderboard carries none)."""
+    now = time.time()
+    if (not force and now - _pump_calls['at'] < _pc.TTL) or os.environ.get('PYTEST_CURRENT_TEST'):
+        return _pump_calls['board']
+    if _pump_calls_flight.get('t'):
+        return _pump_calls['board']
+    _pump_calls_flight['t'] = True
+    _pump_calls['at'] = now
+    try:
+        base = os.getenv('PUMP_API_URL', 'https://frontend-api-v3.pump.fun')
+        async with httpx.AsyncClient(timeout=10) as http:
+            async def one(path, params):
+                try:
+                    r = await http.get(base + path, params=params, headers={'Accept': 'application/json'})
+                    return r.json() if r.status_code == 200 else None
+                except Exception:
+                    return None
+            home, new, top = await asyncio.gather(one(_pc.HOME_PATH, _pc.HOME_PARAMS), one(_pc.NEW_PATH, _pc.NEW_PARAMS), one(_pc.TOP_PATH, _pc.TOP_PARAMS))
+        if home or new or top:
+            b = _pc.board(home, new, top, now * 1000)
+            need = [t['mint'] for t in b['top'] if not t.get('symbol')]
+            if need:
+                try:
+                    toks = await _jup_tokens(need)
+                except Exception:
+                    toks = {}
+                for t in b['top']:
+                    k = toks.get(t['mint']) or {}
+                    t['symbol'] = t.get('symbol') or k.get('symbol')
+                    t['logo'] = t.get('logo') or k.get('icon')
+            if b['coins'] or b['top'] or not _pump_calls['board']['coins']:
+                _pump_calls.update(board=b, map={c['mint']: c for c in b['coins']}, ok=now)
+    finally:
+        _pump_calls_flight['t'] = False
+    return _pump_calls['board']
+
+
+def _pc_rows(rows):
+    """📣 `pc` on every row whose coin Pump's users are calling out (cache read only, never a fetch). In place."""
+    m_ = _pump_calls['map']
+    if m_:
+        for r in rows or []:
+            c = m_.get(r.get('mint') or r.get('baseAddress'))
+            if c:
+                r['pc'] = _pc.summary(c)
+    return rows
+
+
+async def _mint_rows(mints, extra):
+    """Coins known only by their mint → picker rows in the same shape as every other launch list (pair from Jupiter's token data)."""
+    try:
+        toks = await _jup_tokens(list(mints))
+    except Exception:
+        toks = {}
+    rows = []
+    for m in mints:
+        p_ = _launchpad_board.jup_pair(toks.get(m))
+        if not p_ or _fuse._f(p_.get('priceUsd')) <= 0:
+            continue
+        p_ = _fuse.with_curve(p_)
+        age_ = round((time.time() * 1000 - _fuse._f(p_.get('pairCreatedAt'))) / 3.6e6, 1) if p_.get('pairCreatedAt') else None
+        rows.append({'chainId': 'solana', 'pairAddress': p_.get('pairAddress'), **_fuse.leg_meta(p_), **({'curve': True} if p_.get('curve') else {}), 'ageH': age_,
+                     'vol1h': _fuse._f((p_.get('volume') or {}).get('h1')), **extra(m)})
+    return rows
+
+
+async def _pump_call_rows():
+    """📣 The picker's Pump callouts list: one row per called coin, loudest first."""
+    by = {c['mint']: c for c in (await _pump_calls_build()).get('coins') or []}
+    return await _mint_rows(list(by), lambda m: {'divisionLabel': _pc.label(by[m]), 'pc': _pc.summary(by[m]), 'score': by[m].get('heat')})
+
+
+import feeders as _fd
+
+_feeders: dict = {'at': 0.0, 'board': {'runners': {}, 'kids': {}, 'seen': 0}, 'names': {}}
+FEEDERS_TTL = 120
+
+
+async def _feeders_build():
+    """🧲 Which runners new Pump launches are paired with (feeders.board), from Pump's newest + most recently traded coins. Re-read every
+    2 min, pages one after another (Pump refuses bursts); a failed read keeps the last board."""
+    now = time.time()
+    if now - _feeders['at'] < FEEDERS_TTL or os.environ.get('PYTEST_CURRENT_TEST'):
+        return _feeders['board']
+    _feeders['at'] = now
+    base = os.getenv('PUMP_API_URL', 'https://frontend-api-v3.pump.fun')
+    coins = []
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            for sort, offs in _fd.SOURCES:
+                for off in offs:
+                    try:
+                        r = await http.get(base + '/coins', params={'offset': off, 'limit': 50, 'sort': sort, 'order': 'DESC', 'includeNsfw': 'false'})
+                        if r.status_code == 200 and isinstance(r.json(), list):
+                            coins += r.json()
+                    except Exception:
+                        pass
+                    await asyncio.sleep(0.25)
+    except Exception:
+        pass
+    if coins:
+        b = _fd.board(coins, now * 1000)
+        names = dict(_feeders.get('names') or {})
+        need = [m for m in b['runners'] if m not in names]
+        if need:
+            try:
+                for m, t in (await _jup_tokens(need[:100])).items():
+                    names[m] = t.get('symbol')
+            except Exception:
+                pass
+        _feeders.update(board=b, names={m: v for m, v in names.items() if m in b['runners']})
+    return _feeders['board']
+
+
+def _fd_rows(rows):
+    """🧲 `fd` on a runner new launches are paired with · ⛓ `pairedWith` on a coin launched against a runner. Cache read only. In place."""
+    b = _feeders['board']
+    rs, kids = b.get('runners') or {}, b.get('kids') or {}
+    if rs or kids:
+        for r in rows or []:
+            m = r.get('mint') or r.get('baseAddress')
+            if m in rs:
+                r['fd'] = rs[m]
+            if m in kids:
+                r['pairedWith'] = {'mint': kids[m], 'symbol': (_feeders.get('names') or {}).get(kids[m])}
+    return rows
+
+
+async def _feeder_rows():
+    """🧲 The picker's Fed runners list: runners with 2+ new coins paired with them, hardest-fed first."""
+    b = await _feeders_build()
+    rs = b.get('runners') or {}
+    return await _mint_rows(_fd.ranked(b)[:80], lambda m: {'divisionLabel': _fd.label(rs[m]), 'fd': rs[m], 'score': rs[m]['score']})
+
+
+@app.get('/api/reputation/fuses/feeders')
+async def fuse_feeders():
+    """🧲 Runners that new Pump launches are paired with (each buy of a paired coin routes through the runner's pool — Pump, 2026-10-08):
+    paired coins, new this hour, trading now, the cap riding on it. A read of where buys are routed, never a promise."""
+    b = await _feeders_build()
+    rs = b.get('runners') or {}
+    nm = _feeders.get('names') or {}
+    return {'runners': [{'mint': m, 'symbol': nm.get(m), **rs[m]} for m in _fd.ranked(b, 1)[:60]], 'seen': b.get('seen') or 0, 'at': _feeders.get('at') or None}
+
+
+@app.get('/api/reputation/fuses/pump-callouts')
+async def fuse_pump_callouts():
+    """📣 Pump's own callouts, read from the public feeds its site uses: today's TOP callouts by the caller's profit, the newest calls and
+    one row per called coin (callers, eyes on it, the cap it was called at, the multiple since). Other people's calls — a read, never advice."""
+    b = await _pump_calls_build()
+    return {'top': b.get('top') or [], 'latest': (b.get('latest') or [])[:20], 'coins': (b.get('coins') or [])[:60], 'n': b.get('n') or 0,
+            'at': _pump_calls.get('ok') or None, 'source': 'pump.fun callouts'}
+
+
 async def _callout_tick(now):
     """📣 Every ~3.5 min: who the open list calls out (volume leader · mover · fresh launch), each noted once and settled 1h later."""
     if now - _open_cache['at'] < _trench.CALLOUT_SEC or os.environ.get('PYTEST_CURRENT_TEST') or not _open_pairs:
@@ -5927,6 +6105,8 @@ async def fuse_trench_open():
         if not r.get('tv'):
             x_ = {**{k: c_.get(k) for k in ('vol5m', 'chg6h', 'chg24h') if c_.get(k) is not None}, **{k: v for k, v in r.items() if v is not None}}
             r['tv'] = _ja.open_read((_jup_facts.get(r.get('mint')) or (0, None))[1], x_)
+    _pc_rows(rows)
+    _fd_rows(rows)
     doc = _json_load(TRENCH_CALLOUT_PATH, {})
     now_px = {r['mint']: r['price'] for r in rows}
     proof = _trench.meta_proof(doc.get('state') or {}, keys=_trench.CALLOUTS)
@@ -6148,7 +6328,7 @@ async def _bottom_rows(now):
 
 
 LENS_PROOF_PATH = FUSE_HQ_PATH.parent / 'lens_proof.json'   # 📏 every picker list's own 1-hour paper record
-LENS_TRACK = ('ptrend', 'movers', 'pump', 'volume')          # the live-feed lists (bottom + trench keep their own files)
+LENS_TRACK = ('ptrend', 'movers', 'pump', 'volume', 'calls', 'fed')          # the live-feed lists (bottom + trench keep their own files)
 LENS_TOP = 15                                                # the top rows of each list are what a picker actually picks from
 _lens_rows: dict = {}                                        # {list: [rows in the list's own order]} — refreshed with the record (~2 min)
 
@@ -10038,6 +10218,11 @@ async def _fuse_warm():
         await _trench_build(time.time())
     except Exception as e:
         print('trench:', e)
+    try:   # 📣 Pump's own callouts (once a minute) · 🧲 which runners new launches are paired with (every 2 min)
+        await _pump_calls_build()
+        await _feeders_build()
+    except Exception as e:
+        print('pump callouts:', e)
     try:   # 📣 callouts (~3.5 min): the open trench list's leaders, noted once, settled an hour later
         await _callout_tick(time.time())
     except Exception as e:

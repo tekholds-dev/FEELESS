@@ -16,6 +16,7 @@ from fastapi import APIRouter, HTTPException, Query
 from ecosystem import DEFAULT_MINTS
 from pydantic import BaseModel, Field
 
+import pump_calls
 from launchpad_board import JUP_SEARCH, jup_lookup, jup_search_pairs, jup_pair, keep_last_board, BOARD_MAX, BONK_PLATFORM_ID, JUP_LISTS, JUP_RECENT, PUMP_TREND_PARAMS, PUMP_TREND_PATH, PUMP_TREND_TTL, build_board, pump_pages, pump_trend_rows, dex_candidate, jup_candidate, launchlab_candidate, pump_candidate
 
 BOARD_SCOPES = ('launchpads', 'pump', 'bonk', 'raydium')
@@ -413,6 +414,9 @@ def create_market_router(db, intelligence=None):
             jobs += [('jup', cached('Jupiter', f'/tokens/v2/{cat}/{iv}', {'limit': 100}, ttl=120 if iv in ('5m', '1h') else 300)) for cat, iv in JUP_LISTS]
         jobs.append(('jup', cached('Jupiter', JUP_RECENT, {'limit': 100}, ttl=60)))   # 🆕 the newest launches on every launchpad (both boards)
         jobs.append(('ptrend', cached('PumpBoard', PUMP_TREND_PATH, dict(PUMP_TREND_PARAMS), ttl=PUMP_TREND_TTL)))   # 🔥 Pump's Trending tab, every 10 min
+        if kind != 'new':   # 📣 coins Pump's own users are calling out right now (ranked feed + newest calls)
+            jobs.append(('pcall', cached('Pump.fun', pump_calls.HOME_PATH, dict(pump_calls.HOME_PARAMS), ttl=90)))
+            jobs.append(('pcall', cached('Pump.fun', pump_calls.NEW_PATH, dict(pump_calls.NEW_PARAMS), ttl=90)))
         results = await asyncio.gather(*[job for _pad, job in jobs], return_exceptions=True)
         candidates, meta, movers, trend_first = {}, None, [], []
         jup_rows = {}   # 📡 mint → Jupiter token row (already fetched): the fallback pair when DexScreener has none
@@ -426,6 +430,12 @@ def create_market_router(db, intelligence=None):
                         candidates[cand['mint']] = cand; trend_first.append(cand['mint'])
                     elif not candidates[cand['mint']].get('pumpTrend'):
                         candidates[cand['mint']]['pumpTrend'] = cand['pumpTrend']; trend_first.append(cand['mint'])
+                continue
+            if pad == 'pcall':
+                for c_ in pump_calls.board(data, None, None)['coins']:
+                    cand = pump_calls.candidate(c_)
+                    if cand and cand['mint'] not in candidates:
+                        candidates[cand['mint']] = cand; movers.append(cand['mint'])
                 continue
             if pad == 'jup':
                 for tok in data if isinstance(data, list) else []:

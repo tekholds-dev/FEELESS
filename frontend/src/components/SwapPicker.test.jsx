@@ -21,7 +21,7 @@ test('the real-card swap picker has every Lab lens + search, flags thin pools an
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<SwapPicker out={{ symbol: 'WIF' }} have={[]} minLiq={20000} onPick={r => picks.push(r)} onClose={() => {}} />); });
   await tick();
-  expect(PICK_LENSES.map(x => x[0])).toEqual(['fresh', 'ptrend', 'movers', 'bottom', 'pump', 'volume', 'trench', 'majors', 'arena']);   // every list its OWN set of coins
+  expect(PICK_LENSES.map(x => x[0])).toEqual(['fresh', 'ptrend', 'calls', 'fed', 'movers', 'bottom', 'pump', 'volume', 'trench', 'majors', 'arena']);   // every list its OWN set of coins
   // 🚀 it opens on what is MOVING (the live launch feed by hourly move) …
   expect(urls.find(u => u.includes('/fuses/discover'))).toContain('/fuses/discover?lens=fresh');   // 🔄 New to you opens first (every list woven, minus what the card touched in 24h)
   // 📏 every list tab carries its own 1-hour record; the open list explains it (too few settled = "starts now")
@@ -147,4 +147,26 @@ test('every tab filters by its own calls and opens the quick look (chart + vital
   expect(q.querySelector('.tql-safe')).toBeNull();   // a list with no safety scan says nothing about safety (never a made-up "unscanned")
   await act(async () => { q.querySelector('[data-testid="tql-pick"]').click(); });
   expect(picks).toEqual([['RUN', true]]); expect(document.querySelector('[data-testid="trench-quick"]')).toBeNull();
+});
+
+test('quick-look live panels: socials (bad links dropped), flow by the window that fits the chart, Pump callout, feeders, edge tiles', async () => {
+  const { Socials, FlowWindows, PumpCall, Feeders, socialLinks, flowShift, FuseBanner } = require('./QuickPulse');
+  const { edgeTiles } = require('./TrenchQuick');
+  expect(socialLinks({ mint: 'ABCpump', site: 'https://a.xyz', x: 'javascript:alert(1)', tg: null }).map(l => l[1])).toEqual(['Site', 'Pump']);   // only http(s) links; Pump page from the mint
+  const win = { '5m': { buyPct: 72, organicPct: 3, netBuyers: 9, traders: 25, avgTrade: 10, holderChg: 1.5, liqChg: -20, vol: 400, volChg: 10 }, '1h': { buyPct: 55, organicPct: 30, netBuyers: -4, traders: 300, vol: 9000 } };
+  expect(flowShift(win)).toEqual(['⏫', 'buyers stepping in (+17 pts vs the hour)', 'good']); expect(flowShift({})).toBeNull();
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  const row = { symbol: 'RUN', mint: 'ABCpump', fd: { n: 3, fresh: 2, active: 1, capUsd: 9000, score: 44, kids: [{ mint: 'k1', symbol: 'KID', mcap: 3000, ageMin: 4, lastMin: 1 }] }, pairedWith: { symbol: 'BIG' } };
+  await act(async () => { root.render(<div><Socials r={{ mint: 'x' }} /><FlowWindows win={win} tf="1m" /><PumpCall pc={{ calls: 3, callers: 2, verified: 1, heat: 61, views: 755, firstMc: 6736, lastAt: Date.now(), lead: { user: 'sh4', thesis: 'ca is posted', mult: 1.9 } }} />
+    <Feeders r={row} /><FuseBanner out={{ symbol: 'WIF' }} count={42} good={5} tick={1} lensLabel="🧲 Fed runners" /></div>); });
+  expect(el.querySelector('[data-testid="qp-socials"]').textContent).toContain('no socials set');
+  const flow = el.querySelector('[data-testid="qp-flow"]');
+  expect(flow.textContent).toContain('FLOW · LAST 5M · follows the chart'); expect(flow.textContent).toContain('72%'); expect(flow.textContent).toContain('+9');   // 1m chart → the 5-minute window
+  await act(async () => { el.querySelector('[data-testid="qp-win-1h"]').click(); });
+  expect(flow.textContent).toContain('FLOW · LAST 1H'); expect(flow.textContent).toContain('-4');
+  expect(el.querySelector('[data-testid="qp-call"]').textContent).toContain('@sh4'); expect(el.querySelector('[data-testid="qp-call"]').textContent).toContain('first called at $6.7K');
+  expect(el.querySelector('[data-testid="qp-feeders"]').textContent).toContain('3 COINS PAIRED WITH IT'); expect(el.querySelector('[data-testid="qp-paired"]').textContent).toContain('$BIG');
+  expect(el.querySelector('[data-testid="swap-banner"]').textContent).toContain('Swap $WIF for…');
+  const t = Object.fromEntries(edgeTiles({ vol1h: 9000, txns1h: 3000, mcap: 60000, liq: 1200, fd: row.fd }).map(x => [x[0], [x[1], x[2]]]));
+  expect(t['AVG TRADE']).toEqual(['$3.0', true]); expect(t.TURNOVER).toEqual(['15.0%/h', false]); expect(t['EXIT DEPTH']).toEqual(['2.0%', true]); expect(t.FEEDERS[0]).toBe('3 · 1 live');
 });
