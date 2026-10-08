@@ -2213,7 +2213,7 @@ def test_coming_up_is_trench_first_then_pump_and_volume_never_a_coin_at_its_high
     ok = lambda r: 'at its highs' if r['mint'] == 'HI' else True
     picks, misses = ap.category_picks(lists, ok, records={'volume': {'n': 60, 'medPct': -1}, 'ptrend': {'n': 20, 'medPct': -9}})
     # trench always first (its top coin was at its highs → the next one), then the better 1-hour record, a coin never taken twice
-    assert [(p['cat'], p['mint'], p['rank']) for p in picks] == [('trench', 'T', 2), ('volume', 'A', 1), ('ptrend', 'B', 2)]
+    assert [(p['cat'], p['mint'], p['rank']) for p in picks] == [('trench', 'T', 2), ('volume', 'A', 1), ('ptrend', 'B', 2), ('bottom', 'D', 1)]
     assert picks[0]['catLabel'] == '🗑 Trench' and [c for c, _ in ap.CATEGORIES] == ['trench', 'ptrend', 'volume']
     assert misses == {}
     _, m2 = ap.category_picks({'trench': [{'mint': 'HI'}]}, ok)
