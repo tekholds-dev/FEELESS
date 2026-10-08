@@ -7613,7 +7613,7 @@ async def _prime_tick_inner(now):
             for x, w_ in sorted(wrows_, key=lambda t: peaked_(t[1])):
                 if x.get('mint') and x['mint'] not in seen_u and len(up_) < 6:
                     seen_u.add(x['mint']); up_.append({**row_(x), 'wait': w_ + (' — already ran' if peaked_(w_) else '')})
-            cards[tid]['pipeline'] = {'at': now, 'steps': fun_ + [['not on the card and not cooling', len(free_)]], 'up': up_[:6], 'catMiss': cfg_t.get('catMiss') or {},
+            cards[tid]['pipeline'] = {'at': now, 'steps': fun_ + [['not on the card and not cooling', len(free_)]], 'up': [({**u_, 'vital': _ja.verdict(_jup_facts[u_['mint']][1], u_)} if u_.get('mint') in _jup_facts else u_) for u_ in up_[:6]], 'catMiss': cfg_t.get('catMiss') or {},
                                       'next': [f"${x.get('symbol')} {_fuse._f(x.get('chg1h')):+.0f}%" for x in sorted(free_, key=lambda x: -_fuse._f(x.get('chg1h')))[:4]],
                                       'scout': [f"${x.get('symbol')} {_fuse._f(x.get('chg1h')):+.0f}%" for x in scout_[:4]]}
         taken |= {l.get('mint') for l in (cards[tid] or {}).get('legs') or [] if l.get('role') != 'anchor'}
