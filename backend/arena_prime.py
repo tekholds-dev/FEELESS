@@ -920,8 +920,9 @@ def seat_fallback_ok(x, mom=None):
     return not (x.get('cWild') is not None and _f(x.get('cWild')) >= META_WILD_PCT)
 
 
-CATEGORIES = (('ptrend', '🔥 Pump trending'), ('volume', '🌊 Volume'), ('bottom', '🟢 Dips & bottoms'), ('movers', '🚀 Movers'),
-              ('pump', '🆕 New launches'), ('trench', '🗑 Trench'))
+# ⏭ Coming up = THREE doors (owner, 2026-10-07: "1 top trench, pump and volume — never in the highs"): the trench's top coin always
+# first, then Pump trending and Volume by their own 1-hour record. The other lists stay in the picker; they no longer feed this row.
+CATEGORIES = (('trench', '🗑 Trench'), ('ptrend', '🔥 Pump trending'), ('volume', '🌊 Volume'))
 
 
 def category_picks(lists, ok, records=None, limit=6):
@@ -933,7 +934,7 @@ def category_picks(lists, ok, records=None, limit=6):
     def score(k):
         r = rec.get(k) or {}
         return _f(r.get('medPct')) if _f(r.get('n')) >= 5 else -1e9
-    order = sorted(CATEGORIES, key=lambda kv: -score(kv[0]))
+    order = [CATEGORIES[0]] + sorted(CATEGORIES[1:], key=lambda kv: -score(kv[0]))   # trench is always first
     out, taken, misses = [], set(), {}
     for k, label in order:
         rows = (lists or {}).get(k) or []

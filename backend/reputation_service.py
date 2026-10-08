@@ -6673,8 +6673,10 @@ async def _prime_tick_inner(now):
                     return f'under your {min_age_:g}h min age'
                 if _fw.dollar_named(x.get('symbol')):
                     return 'dollar-named'
+                if _prime.at_high(x):
+                    return 'at its highs'   # 🏔 never a coin sitting at its highs (owner)
                 if not _prime.seat_fallback_ok(x, mom):
-                    return 'falling / spiking / at its highs'
+                    return 'falling / spiking'
                 return True
             cat_lists = {**_lens_rows, 'bottom': [{'mint': r.get('baseAddress')} for r in _bottom_cache.get('rows') or []],
                          'trench': [{'mint': r.get('mint')} for r in _trench_cache.get('rows') or []]}

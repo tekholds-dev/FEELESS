@@ -2206,16 +2206,18 @@ def test_a_coins_own_park_keeps_its_own_rounds_whatever_the_card_setting():
     assert 'hold' not in ap.skim_leg(card, 'PT', {'PT': 0.02}, {}, 50.0, 'round', hold=99)['skimPark'][0]   # only the offered choices
 
 
-def test_coming_up_takes_the_best_coin_from_the_top_of_each_category():
+def test_coming_up_is_trench_first_then_pump_and_volume_never_a_coin_at_its_highs():
     import arena_prime as ap
-    lists = {'ptrend': [{'mint': 'A'}, {'mint': 'B'}], 'volume': [{'mint': 'A'}, {'mint': 'C'}], 'bottom': [{'mint': 'BAD'}, {'mint': 'D'}],
-             'movers': [], 'pump': [{'mint': 'BAD'}]}
-    ok = lambda r: True if r['mint'] != 'BAD' else 'too young'
-    picks, misses = ap.category_picks(lists, ok, records={'bottom': {'n': 30, 'medPct': -5}, 'volume': {'n': 60, 'medPct': -1}, 'ptrend': {'n': 2, 'medPct': 50}})
-    # best record first (volume −1 > bottom −5), no record yet after; each list walked from its top, a coin never taken twice
-    assert [(p['cat'], p['mint'], p['rank']) for p in picks] == [('volume', 'A', 1), ('bottom', 'D', 2), ('ptrend', 'B', 2)]
-    assert picks[0]['catLabel'] == '🌊 Volume'
-    assert misses == {'movers': 'list empty right now', 'pump': 'top 60: 1 too young', 'trench': 'list empty right now'}
+    lists = {'ptrend': [{'mint': 'A'}, {'mint': 'B'}], 'volume': [{'mint': 'A'}, {'mint': 'C'}], 'bottom': [{'mint': 'D'}],
+             'trench': [{'mint': 'HI'}, {'mint': 'T'}]}
+    ok = lambda r: 'at its highs' if r['mint'] == 'HI' else True
+    picks, misses = ap.category_picks(lists, ok, records={'volume': {'n': 60, 'medPct': -1}, 'ptrend': {'n': 20, 'medPct': -9}})
+    # trench always first (its top coin was at its highs → the next one), then the better 1-hour record, a coin never taken twice
+    assert [(p['cat'], p['mint'], p['rank']) for p in picks] == [('trench', 'T', 2), ('volume', 'A', 1), ('ptrend', 'B', 2)]
+    assert picks[0]['catLabel'] == '🗑 Trench' and [c for c, _ in ap.CATEGORIES] == ['trench', 'ptrend', 'volume']
+    assert misses == {}
+    _, m2 = ap.category_picks({'trench': [{'mint': 'HI'}]}, ok)
+    assert m2['trench'] == 'top 60: 1 at its highs'
 
 
 def test_swap_in_now_brings_the_pick_in_on_the_next_tick_not_at_the_bell():
