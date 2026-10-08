@@ -6123,6 +6123,9 @@ async def fuse_trench(meta: str = Query('', max_length=20)):
     if isinstance(out, dict) and out.get('rows'):
         await _jup_lite([r.get('mint') or r.get('baseAddress') for r in out['rows']])
         _clean_rows(out['rows'])
+        for r in out['rows']:   # 🗑 every row in the trench tab gets the degen read, whatever its age
+            if 'tv' not in r:
+                r['tv'] = _ja.trench_verdict((_jup_facts.get(r.get('mint') or r.get('baseAddress')) or (0, None))[1], r)
     return out
 
 
