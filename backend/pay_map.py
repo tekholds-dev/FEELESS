@@ -41,7 +41,7 @@ def pieces(ledger, card, since=0.0):
             lot = lots[m][0]; take = min(left, lot[0])
             if _f(r['at']) >= since:
                 out.append({'mint': m, 'sym': r.get('symbol'), 'usd': take * (_f(r['px']) - lot[1]), 'cost': take * lot[1], 'ret': _f(r['px']) / lot[1] - 1,
-                            'hold': (_f(r['at']) - lot[2]) / 60.0, 'you': lot[3], 'kind': exit_kind(r.get('why')), 'at': _f(r['at'])})
+                            'hold': (_f(r['at']) - lot[2]) / 60.0, 'bat': lot[2], 'you': lot[3], 'kind': exit_kind(r.get('why')), 'at': _f(r['at'])})
             lot[0] -= take; left -= take
             if lot[0] <= 1e-9:
                 lots[m].pop(0)

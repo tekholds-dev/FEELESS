@@ -1337,6 +1337,26 @@ def stake_leg(card, pair, prices, liqs, now, to='cash'):
     return c
 
 
+def clamp_hold(c):
+    """🅿 Parked profit can never be more than the card's REAL cash. On a real card the keeper's network fees come out of that same cash
+    (hundreds of swaps), so the engine's earmark drifted above it (2026-10-08: $1.835 earmarked, $1.23 of cash — $0.60 of "parked" that no
+    longer existed, shown on the card). The shortfall comes off the NEWEST park rows first (the oldest keep their rounds). Mutates c;
+    → $ removed from the earmark. A paper card's cash is exact, so this only runs on real cards."""
+    hold, cash = _f(c.get('holdCashUsd')), _f(c.get('cash'))
+    if not c.get('real') or hold <= cash + 1e-6:
+        return 0.0
+    cut = hold - max(0.0, cash)
+    c['holdCashUsd'] = round(max(0.0, cash), 6)
+    left, rows = cut, [dict(p) for p in (c.get('skimPark') or [])]
+    for p in reversed(rows):
+        take = min(_f(p.get('usd')), left)
+        p['usd'] = round(_f(p.get('usd')) - take, 6); left -= take
+        if left <= 1e-9:
+            break
+    c['skimPark'] = [p for p in rows if _f(p.get('usd')) > 0.0005]
+    return round(cut, 6)
+
+
 def release_parked(c, cfg, now):
     """🅿 Parked profit whose rounds are up goes back to work: it leaves the held cash, and the normal idle-cash spread puts it into
     the card's coins at this round. Mutates c; → $ released."""
@@ -2119,6 +2139,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                     nc['events'] = list(nc.get('events') or []) + [{'kind': 'keep', 'at': now, 'why': f'🛡 {kept} winning / frozen coin{"s" if kept > 1 else ""} carried into the {phase} shape — never sold by a re-shape'}]
                 c = nc
     # 4) idle cash goes back to work when compounding. Cash reserved for an empty replacement slot is untouchable.
+    clamp_hold(c)                 # 🅿 never more parked than the card really holds in cash (fees come out of that cash)
     release_parked(c, cfg, now)   # 🅿 parked profit whose rounds are up joins the idle cash — BEFORE free cash is counted (it used to wait one more tick)
     # 🅿 PARKED MEANS PARKED (owner, 2026-10-07: "parked 6 rnds means just that"): nothing releases a park before its rounds are
     # up — not a queued pick, not an empty seat. A seat with no free cash is funded by trimming the coins above an equal share

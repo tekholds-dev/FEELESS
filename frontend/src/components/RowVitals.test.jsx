@@ -8,3 +8,11 @@ test('shows only what the row really has, and the radar when the edge has it', (
   expect(e.find(i => i.k === 't10').tone).toBe('bad');
   expect(e.map(i => i.k)).toEqual(expect.arrayContaining(['radar', 'snp', 'gate', 'buy']));
 });
+
+test('your-entry chips: dip with volume is your setup, a 5m pump is chasing, thin volume is thin — each quotes your record', () => {
+  const rules = { chase: { n: 42, wonPct: 26, pct: -8 }, setup: { n: 18, wonPct: 55, pct: 6 }, thin: { n: 3, wonPct: 0, pct: -9 } };
+  const a = rowVitals({ chg5m: -5, vol1h: 90000 }, null, { rules }); expect(a.find(i => i.k === 'mine-setup').tip).toContain('55% won');
+  const b = rowVitals({ chg5m: 9, vol1h: 90000 }, null, { rules }); expect(b.find(i => i.k === 'mine-chase').tip).toContain('42 picks');
+  const c = rowVitals({ chg5m: 0, vol1h: 5000 }, null, { rules }); expect(c.find(i => i.k === 'mine-thin').tip).not.toContain('picks');   // under 8 picks: no record quoted
+  expect(rowVitals({ chg5m: 1, vol1h: 90000 }, null, { rules }).some(i => i.k.startsWith('mine-'))).toBe(false);
+});

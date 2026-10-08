@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useCoinEdge } from '../lib/coinEdge';
+import { sharedJson } from '../lib/sharedJson';
 import '../styles/rowVitals.css';
 
 // One line of vitals under a coin in a pick list (Coming up, the swap picker): the launchpad it came from, age, cap, 1h volume,
@@ -9,7 +10,15 @@ const big = v => { const n = Number(v); if (!(n > 0)) return null; return n >= 1
 const age = h => (h == null || !Number.isFinite(Number(h)) ? null : h < 1 ? `${Math.max(1, Math.round(h * 60))}m` : h < 48 ? `${h.toFixed(h < 10 ? 1 : 0)}h` : `${Math.round(h / 24)}d`);
 const n0 = v => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 
-export function rowVitals(r, edge) {
+// 🎯 the owner's own record by entry type (GET /fuses/my-edge, backend/owner_edge.py): one shared read
+function useMyEdge() {
+  const [d, setD] = useState(null);
+  useEffect(() => { let alive = true; sharedJson('/api/reputation/fuses/my-edge', { maxAge: 300000 }).then(x => alive && setD(x)).catch(() => {}); return () => { alive = false; }; }, []);
+  return d;
+}
+const recTip = (rules, k) => { const r = rules?.[k]; return r && r.n >= 8 && r.pct != null ? `Your own picks like this: ${r.n} picks, ${r.wonPct}% won, ${r.pct >= 0 ? '+' : ''}${r.pct}% (price only, fees apart)` : ''; };
+
+export function rowVitals(r, edge, mine) {
   const intel = edge?.intel || {}; const run = edge?.runner || {};
   const t10 = n0(r.top10) ?? n0(r.t10) ?? n0(intel.top10Pct); const dev = n0(r.dev) ?? n0(r.dh) ?? n0(intel.devHoldingPct); const ins = n0(r.insiders) ?? n0(intel.insidersHoldingPct);
   const buys = n0(r.buyShare) ?? n0(edge?.pulse?.buyShare);
@@ -27,16 +36,23 @@ export function rowVitals(r, edge) {
   if (r.site != null || r.x != null || r.tg != null) out.push({ k: 'soc', t: soc.length ? soc.join(' ') : 'no socials', tone: soc.length ? '' : 'bad', tip: 'Website · X · Telegram set at launch' });
   if (edge?.snipersOut) out.push({ k: 'snp', t: '🎯 snipers out', tone: 'good', tip: 'Every flagged sniper has sold out' });
   if (run.passing === false && run.gates?.[0]) out.push({ k: 'gate', t: `⚠ ${run.gates[0].split(' ').slice(0, 3).join(' ')}`, tone: 'bad', tip: run.gates.join(' · ') });
+  const rules = mine?.rules;   // your own record on this kind of entry — shown as a chip, never a block
+  if (r.chg5m != null && r.vol1h != null) {
+    if (r.chg5m < -3 && r.vol1h >= 50000) out.push({ k: 'mine-setup', t: '✅ your setup', tone: 'good', tip: `A 5-minute dip with real volume. ${recTip(rules, 'setup')}` });
+    else if (r.chg5m > 3) out.push({ k: 'mine-chase', t: '🔥 chasing', tone: 'bad', tip: `Up ${Number(r.chg5m).toFixed(1)}% in the last 5 minutes. ${recTip(rules, 'chase')}` });
+  }
+  if (r.vol1h != null && r.vol1h < 20000) out.push({ k: 'mine-thin', t: '🪫 thin', tone: 'bad', tip: `Under $20K an hour. ${recTip(rules, 'thin')}` });
   const m5 = edge?.pulse?.m5Change;
   if (Number.isFinite(m5)) out.push({ k: 'radar', t: `📡 ${m5 >= 0 ? '+' : ''}${m5.toFixed(1)}% 5m`, tone: m5 >= 0 ? 'good' : 'bad', tip: 'Pump radar: the last 5 minutes of flow' });
   return out;
 }
 
-function Edged({ r }) { const edge = useCoinEdge(r.mint); return <Line items={rowVitals(r, edge)} />; }
+function Edged({ r, mine }) { const edge = useCoinEdge(r.mint); return <Line items={rowVitals(r, edge, mine)} />; }
 function Line({ items }) { return items.length ? <span className="rv" data-testid="row-vitals">{items.map(i => <i key={i.k} className={`rv-c ${i.tone || ''}`} data-tip={i.tip}>{i.t}</i>)}</span> : null; }
 
 // `live` = also read the shared coin edge (pulse, snipers, gates) — pass it for the rows on screen, not for a 300-row list.
 export function RowVitals({ r, live = false }) {
+  const mine = useMyEdge();
   if (!r) return null;
-  return live && r.mint ? <Edged r={r} /> : <Line items={rowVitals(r, null)} />;
+  return live && r.mint ? <Edged r={r} mine={mine} /> : <Line items={rowVitals(r, null, mine)} />;
 }

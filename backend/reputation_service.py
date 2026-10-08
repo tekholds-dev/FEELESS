@@ -6228,6 +6228,30 @@ async def fuses_proof():
     return await _proof_build()
 
 
+_myedge_cache = {'at': 0.0, 'data': None}
+
+
+def _owner_edge_rec():
+    """🎯 The owner's own record by entry type (owner_edge.py): their logged hand picks joined to what the card's closed pieces did. 5 min cache."""
+    import owner_edge as _oe, pay_map as _pm
+    now = time.time()
+    if _myedge_cache['data'] and now - _myedge_cache['at'] < 300:
+        return _myedge_cache['data']
+    ledger = _store.Ledger(FUSE_WALLET_PATH).rows(limit=100000) or _fw_load().get('ledger') or []
+    log = _json_load(PICK_STYLE_PATH, {}).get('log') or []
+    rec = _oe.records(log, _pm.pieces(ledger, 'degen'))
+    rec['thresholds'] = {'chase5m': _oe.CHASE_5M, 'thinVol': _oe.THIN_VOL, 'setupDip': _oe.SETUP_DIP, 'setupVol': _oe.SETUP_VOL}
+    _myedge_cache.update(at=now, data=rec)
+    return rec
+
+
+@app.get('/api/reputation/fuses/my-edge')
+async def fuses_my_edge():
+    """🎯 Public: how the owner's hand picks did by entry type (mid-pump / thin / dip with volume) — price result of confirmed fills, fees apart.
+    A record, never a promise; the pick warning quotes it and never blocks."""
+    return _owner_edge_rec()
+
+
 _paymap_cache = {'at': 0.0, 'data': None}
 
 
@@ -6781,7 +6805,7 @@ async def _prime_tick_inner(now):
             scout_ = [x for x in _prime.movers(r_pre_, {}) if x.get('mint') not in on_]
             row_ = lambda x: {'mint': x.get('mint'), 'pairAddress': x.get('pairAddress'), 'symbol': x.get('symbol'), 'chg1h': _fuse._f(x.get('chg1h')), 'vol1h': _fuse._f(x.get('vol1h')), 'tag': x.get('tag') or '',
                               'ageH': x.get('ageH'), 'liq': _lq(x), 'pad': x.get('pad'), 'mcap': x.get('mcap'), 'buyShare': x.get('buyShare'), 'top10': x.get('top10'), 'dev': x.get('dev'),
-                              'insiders': x.get('insiders'), 'site': x.get('site'), 'x': x.get('x'), 'tg': x.get('tg')}
+                              'insiders': x.get('insiders'), 'site': x.get('site'), 'x': x.get('x'), 'tg': x.get('tg'), 'chg5m': x.get('chg5m')}
             seen_u, up_ = set(), []
             doors_ = {x.get('cat'): x for x in (cfg_t.get('catPicks') or [])}
             for x in cfg_t.get('catWatch') or []:
@@ -7031,6 +7055,11 @@ async def fuse_prime_admin(request: Request):
         if cand and ((_pr.get('cards') or {}).get(pk['tpl']) or {}).get('real') and _prime.clean_cfg(_pr.get('realCfg') or {})['pickVerify']:
             _pv_ok, _pv_miss, _pv_c = await _pick_verify(cand['mint'], cand['pairAddress'])
             _pv_miss = list(_pv_miss or []) + _prime.chase_why(_pv_c)   # 🔥 a warning, never a block: you can still pick it
+            try:   # 🎯 … quoting the owner's OWN record on this kind of entry (only when it lost, ≥ 8 picks)
+                import owner_edge as _oe
+                _pv_miss += _oe.warnings({'chg5m': (_pv_c or {}).get('chg5m'), 'vol1h': (_pv_c or {}).get('vol1h')}, _owner_edge_rec())
+            except Exception:
+                pass
         async with _admin_lock:
             d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
             card = cards.get(pk['tpl'])

@@ -2263,3 +2263,14 @@ def test_every_coming_up_door_shows_one_coin_ready_or_watching():
     # trench → its first coin that is not on the card (T1, watching: failed safety); pump → nothing to watch (its only coin is READY, not a watch row); volume has a pick
     assert [(w['cat'], w['mint'], w['catRank'], w['watchWhy']) for w in watch] == [('trench', 'T1', 2, 'failed safety')]
     assert watch[0]['tag'] == '🗑 Trench #2'
+
+
+def test_parked_profit_never_exceeds_the_real_cash_and_the_newest_rows_give_way():
+    import arena_prime as ap
+    c = {'real': True, 'cash': 1.2, 'holdCashUsd': 1.8, 'skimPark': [{'usd': 0.5, 'round': 1}, {'usd': 0.8, 'round': 2}, {'usd': 0.5, 'round': 3}]}
+    assert ap.clamp_hold(c) == 0.6
+    assert c['holdCashUsd'] == 1.2 and [round(p['usd'], 2) for p in c['skimPark']] == [0.5, 0.7]      # the newest row (0.5) went first, then 0.1 off the next
+    ok = {'real': True, 'cash': 2.0, 'holdCashUsd': 1.0, 'skimPark': [{'usd': 1.0, 'round': 1}]}
+    assert ap.clamp_hold(ok) == 0.0 and ok['holdCashUsd'] == 1.0                                       # cash covers it: untouched
+    paper = {'real': False, 'cash': 0.1, 'holdCashUsd': 1.0, 'skimPark': [{'usd': 1.0}]}
+    assert ap.clamp_hold(paper) == 0.0 and paper['holdCashUsd'] == 1.0                                  # a paper card's cash is exact
