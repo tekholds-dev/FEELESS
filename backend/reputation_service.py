@@ -6228,6 +6228,108 @@ async def fuses_proof():
     return await _proof_build()
 
 
+# ---- ⚡ Free hourly call (predict.py): the engine's doors put a coin each on a ballot; pick the one that leads the next hour; points only --------
+PREDICT_PATH = FUSE_HQ_PATH.parent / 'predict.json'
+_predict_lock = asyncio.Lock()
+
+
+def _predict_symbols():
+    sym = {r.get('mint'): r.get('symbol') for r in _runner_cands if r.get('mint') and r.get('symbol')}
+    sym.update({r['mint']: r.get('symbol') for r in (_open_board() if _open_pairs else (_open_cache.get('rows') or [])) if r.get('mint') and r.get('symbol')})
+    return sym
+
+
+async def _predict_tick(now):
+    """Every ~minute: settle rounds whose hour is over (biggest move wins, points via season_award, quest events, inbox note) and open this hour's ballot."""
+    import predict as _pr
+    async with _predict_lock:
+        d = _json_load(PREDICT_PATH, {'rounds': {}, 'players': {}}); rounds, players = d.setdefault('rounds', {}), d.setdefault('players', {})
+        due = [r for r in rounds.values() if r.get('status') == 'open' and now >= r['closesAt']]
+        if due:
+            px = await _jup_prices(sorted({c['mint'] for r in due for c in r['cands']}))
+            for r in due:
+                res = _pr.settle(r, px or {})
+                r.update(winner=res['winner'], moves=res['moves'], settledAt=now, status='settled' if res['winner'] else 'void')
+                if res['winner']:
+                    win_sym = next((c['symbol'] for c in r['cands'] if c['mint'] == res['winner']), '')
+                    for w, pts in _pr.award(players, r, res['winner'], now):
+                        season_award(w, pts, 'free-call')
+                        try:
+                            notify(w, 'free-call', f"⚡ You called it: ${win_sym} led the hour (+{pts} pts)", url='/terminal/radar', once=f"fcall:{r['id']}", push=False, meta={'source': 'free-call'})
+                        except Exception:
+                            pass
+        rid = _pr.round_id(now)
+        if str(rid) not in rounds and now - rid < 3000:
+            lists = {k: v for k, v in _lens_rows.items()}
+            mints = [row.get('mint') for k, _l in _pr.DOORS for row in (lists.get(k) or [])[:8]]
+            px = await _jup_prices([m for m in mints if m])
+            cands = _pr.candidates(lists, px or {}, _predict_symbols())
+            if len(cands) >= 2:
+                rounds[str(rid)] = _pr.new_round(now, cands)
+        for k in sorted(rounds)[:-48]:
+            rounds.pop(k, None)
+        _json_save(PREDICT_PATH, d)
+
+
+class PredictPick(BaseModel):
+    address: str
+    session: str
+    round: int
+    mint: str = Field(..., max_length=64)
+
+
+@app.post('/api/reputation/predict/pick')
+async def predict_pick(p: PredictPick):
+    """⚡ Pick the coin you think leads the next hour — free, points only. One pick per round, locked once made; closes 2 minutes before the bell."""
+    import predict as _pr
+    me = _session_or_401(p.address, p.session); now = time.time()
+    if _is_blocked(_block_load()['wallets'].get(me)):
+        raise HTTPException(403, 'This wallet cannot play.')
+    async with _predict_lock:
+        d = _json_load(PREDICT_PATH, {'rounds': {}, 'players': {}}); r = (d.get('rounds') or {}).get(str(p.round))
+        ok, why = _pr.can_pick(r, p.mint, now)
+        if not ok:
+            raise HTTPException(400, why)
+        if me in r['picks']:
+            raise HTTPException(409, 'You already made your call this round.')
+        r['picks'][me] = p.mint
+        pl = d.setdefault('players', {}).setdefault(me, {'picks': 0, 'wins': 0, 'streak': 0, 'best': 0, 'pickAt': [], 'winAt': []})
+        pl['pickAt'] = (pl.get('pickAt') or [])[-199:] + [now]
+        _json_save(PREDICT_PATH, d)
+    return {'ok': True, 'round': p.round, 'mint': p.mint}
+
+
+_predict_view_cache = {'at': 0.0, 'data': None}
+
+
+@app.get('/api/reputation/predict')
+async def predict_state(address: str = ''):
+    """⚡ Public: this hour's ballot with live moves since it opened, the last result, the week's top callers and (with `address`) your pick + record."""
+    import predict as _pr
+    now = time.time(); d = _json_load(PREDICT_PATH, {'rounds': {}, 'players': {}}); rounds = d.get('rounds') or {}
+    cur = rounds.get(str(_pr.round_id(now))) or next((r for r in sorted(rounds.values(), key=lambda r: -r['id']) if r.get('status') == 'open'), None)
+    done = next((r for r in sorted(rounds.values(), key=lambda r: -r['id']) if r.get('status') == 'settled'), None)
+    me = primary_of(address) if address else ''
+    live = {}
+    if cur:
+        hit = _predict_view_cache
+        if hit['data'] and hit['data'][0] == cur['id'] and now - hit['at'] < 10:
+            live = hit['data'][1]
+        else:
+            px = await _jup_prices([c['mint'] for c in cur['cands']]); live = _pr.moves(cur, px or {}); _predict_view_cache.update(at=now, data=(cur['id'], live))
+    profs = _profiles_load()['profiles']
+    nm = lambda a: (profs.get(primary_of(a)) or {}).get('displayName') or (profs.get(primary_of(a)) or {}).get('handle') or f'{a[:4]}…{a[-4:]}'
+    out = {'now': now, 'round': None, 'last': None, 'me': (d.get('players') or {}).get(me) if me else None,
+           'board': [{**r, 'name': nm(r['address'])} for r in _pr.board(d.get('players') or {}, now)], 'rule': f'Pick the coin that leads the next hour. +{_pr.BASE_PTS} season points for a right call, +{_pr.STREAK_PTS} more per win in a row (max +{_pr.STREAK_CAP}). Free — points only. Picks close {_pr.LOCK_SEC // 60} minutes before the bell.'}
+    if cur:
+        out['round'] = {'id': cur['id'], 'closesAt': cur['closesAt'], 'status': cur['status'], 'locked': now >= cur['closesAt'] - _pr.LOCK_SEC, 'mine': (cur['picks'] or {}).get(me) if me else None,
+                        'players': len(cur['picks'] or {}), 'cands': [{**c, 'pct': live.get(c['mint'])} for c in cur['cands']]}
+    if done:
+        out['last'] = {'id': done['id'], 'winner': done.get('winner'), 'symbol': next((c['symbol'] for c in done['cands'] if c['mint'] == done.get('winner')), None),
+                       'moves': done.get('moves'), 'mine': (done['picks'] or {}).get(me) if me else None, 'won': bool(me and (done['picks'] or {}).get(me) == done.get('winner'))}
+    return out
+
+
 _bounty_cache = {'at': 0.0, 'data': None}
 
 
@@ -9146,6 +9248,10 @@ async def _fuse_warm():
         await _callout_tick(time.time())
     except Exception as e:
         print('callouts:', e)
+    try:   # ⚡ free hourly call: settle finished hours, open this hour's ballot
+        await _predict_tick(time.time())
+    except Exception as e:
+        print('predict:', e)
     if _fuse_warm_n['n'] % 144 == 31:   # ~1h: 🧾 what's working / what's not, always running (owner inbox when something flips)
         try:
             await _verdict_tick(time.time())
@@ -10422,7 +10528,9 @@ async def _quest_raw(me, board=None):
             'launches': score_creator(creator)['tokenCount'] if creator else 0, 'points': int(pts.get('total') or 0),
             'signin_days': sorted(days), 'streak': max(_streak(days), int(pts.get('streak') or 0)),
             'fee_usd': await _fee_usd(me), 'fee_mints': [m for m in (await _ecosystem_mints()).values() if m], 'first_seen': st.get('first'),
-            'events': {**(st.get('events') or {}), **(fz := _fuse_quest_stats(mine))['events'], 'rug_found': __import__('bounty').find_events(_block_load()['wallets'], mine)}, 'fuse': fz['counts'],
+            'events': {**(st.get('events') or {}), **(fz := _fuse_quest_stats(mine))['events'], 'rug_found': __import__('bounty').find_events(_block_load()['wallets'], mine),
+                       'predict_pick': [t for w in mine for t in (((_json_load(PREDICT_PATH, {}).get('players') or {}).get(w) or {}).get('pickAt') or [])],
+                       'predict_win': [t for w in mine for t in (((_json_load(PREDICT_PATH, {}).get('players') or {}).get(w) or {}).get('winAt') or [])]}, 'fuse': fz['counts'],
             'alerts_set': sum(len(e.get('watch') or []) for e in _push_load()['subs'].values() if (e.get('prefs') or {}).get('address') in mine)}
 
 
