@@ -1381,3 +1381,13 @@ def test_sol_price_is_never_a_made_up_number():
     assert fw.sol_price_pick(0, last, 1300.0) == 116.1                                  # source silent → last good price (≤ 10 min)
     assert fw.sol_price_pick(0, last, 1000.0 + fw.SOL_LAST_SEC + 1) == 0.0              # too old → 0: money actions wait
     assert fw.sol_price_pick(99999, {}, 1000.0) == 0.0                                  # an absurd reading is never used
+
+
+def test_thin_pool_floors_are_raised_once_to_40k_and_the_trench_floor_is_left_alone():
+    assert fw.THIN_POOL_FLOOR == 40_000.0
+    low = {'minLiqUsd': 15000, 'arenaMinLiqUsd': 22000, 'pickMinLiqUsd': 15000, 'trenchMinLiqUsd': 8000}
+    assert fw.thin_pool_cfg(low) == {'minLiqUsd': 40000.0, 'arenaMinLiqUsd': 40000.0, 'pickMinLiqUsd': 40000.0}
+    assert fw.thin_pool_cfg({**low, 'minLiqUsd': 80000, 'arenaMinLiqUsd': 50000, 'pickMinLiqUsd': 45000}) == {}      # already at or above: nothing to raise
+    raised = {**low, **fw.thin_pool_cfg(low)}
+    assert fw.liq_floor(raised, picked=True) == 40000.0 and fw.liq_floor(raised) == 40000.0
+    assert fw.liq_floor(raised, trench=True) == 8000.0                              # a trench ticket keeps its own small floor

@@ -179,6 +179,30 @@ def clean_tier_cfg(p):
     return out
 
 
+# 🔁 A paper card that goes broke restarts with a NEW config (paper_reset.py): its exits (`tierCfg`) AND its selection (`tierPick`) are replaced, the old
+# set is scrapped for good. `tierPick[tier]` overrides the tier's default selection style — only these keys, each validated.
+PICK_NUM_KEYS = {'runnerMinAgeH': (0, 168), 'runnerMinLiqK': (0, 1000), 'runnerMinVolK': (0, 1000), 'runnerMinChg1h': (0, 500), 'runnerMinBuy': (0, 100), 'edgeFloor': (0, 10)}
+
+
+def clean_tier_pick(p):
+    raw = (p or {}).get('tierPick')
+    out = {t: {} for t in DEFAULT_TIER_CFG}
+    if not isinstance(raw, dict):
+        return out
+    for t in DEFAULT_TIER_CFG:
+        row = raw.get(t) if isinstance(raw.get(t), dict) else {}
+        o = {}
+        if row.get('pickStyle') in PICK_STYLES:
+            o['pickStyle'] = row['pickStyle']
+        for k, (lo, hi) in PICK_NUM_KEYS.items():
+            if k in row:
+                o[k] = max(lo, min(hi, _f(row[k])))
+        if 'edgeGate' in row:
+            o['edgeGate'] = bool(row['edgeGate'])
+        out[t] = o
+    return out
+
+
 def unique_exits(tier_cfg):
     """🃏 Every card on its OWN exits: a key a card doesn't set comes back as its unique default, and a card whose whole exit set
     copies another card's is put back on its own defaults (the per-tier defaults never collide)."""
@@ -496,6 +520,7 @@ def clean_cfg(p):
     out['tp'] = clean_exit('tp', (p or {}).get('tp')) or 0.0   # 🎯 card-level TP / SL (0 = the tier template's)
     out['sl'] = clean_exit('sl', (p or {}).get('sl')) or 0.0
     out['tierCfg'] = clean_tier_cfg(p)
+    out['tierPick'] = clean_tier_pick(p)
     return out
 
 
@@ -551,7 +576,7 @@ def tier_cfg(cfg, tid):
     own whole config and never go through here."""
     hours = _f(((cfg or {}).get('clocks') or {}).get(tid))
     own = ((cfg or {}).get('tierCfg') or {}).get(tid) or {}   # 🃏 this card's own exits
-    out = {**(cfg or {}), **(DEFAULT_TIER_PICK.get(tid) or {}), **{k: v for k, v in own.items() if k in TIER_KEYS}}
+    out = {**(cfg or {}), **(DEFAULT_TIER_PICK.get(tid) or {}), **(((cfg or {}).get('tierPick') or {}).get(tid) or {}), **{k: v for k, v in own.items() if k in TIER_KEYS}}
     return {**out, 'rotateHours': hours} if hours > 0 else out
 
 

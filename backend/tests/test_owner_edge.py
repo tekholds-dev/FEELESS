@@ -28,3 +28,11 @@ def test_warnings_quote_the_owners_record_only_when_that_entry_lost_and_has_a_sa
     assert len(w) == 1 and 'mid-pump' in w[0] and '10 picks' in w[0] and '-8%' in w[0]
     assert oe.warnings({'chg5m': -5, 'vol1h': 90000}, rec) == []               # the setup that paid never warns
     assert oe.warnings({'chg5m': 6}, oe.records([], [])) == []                  # no record → no sentence
+
+
+def test_a_thin_pool_is_a_rule_with_the_owners_own_record():
+    assert oe.matches({'chg5m': 0, 'vol1h': 90000, 'liq': 25000}) == ['thinpool'] and oe.matches({'liq': 80000}) == [] and oe.matches({'liq': None}) == []
+    pairs = [_pick(i, {'chg5m': 0, 'vol1h': 90000, 'liq': 25000}, -0.12) for i in range(1, 11)]
+    rec = oe.records([p for p, _ in pairs], [q for _, q in pairs])
+    w = oe.warnings({'chg5m': 0, 'vol1h': 90000, 'liq': 25000}, rec)
+    assert len(w) == 1 and 'thin pool' in w[0] and '10 picks' in w[0] and '-12%' in w[0]

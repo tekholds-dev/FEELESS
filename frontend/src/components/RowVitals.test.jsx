@@ -16,3 +16,12 @@ test('your-entry chips: dip with volume is your setup, a 5m pump is chasing, thi
   const c = rowVitals({ chg5m: 0, vol1h: 5000 }, null, { rules }); expect(c.find(i => i.k === 'mine-thin').tip).not.toContain('picks');   // under 8 picks: no record quoted
   expect(rowVitals({ chg5m: 1, vol1h: 90000 }, null, { rules }).some(i => i.k.startsWith('mine-'))).toBe(false);
 });
+
+test('a pool under $40K reads as thin (never for a trench ticket) and quotes your record once it has 8 picks', () => {
+  const rules = { thinpool: { n: 12, wonPct: 25, pct: -9 } };
+  const a = rowVitals({ liq: 25000, vol1h: 90000, chg5m: 0 }, null, { rules });
+  expect(a.find(i => i.k === 'mine-thinpool').tip).toContain('12 picks');
+  expect(rowVitals({ liq: 25000, vol1h: 90000 }, null, { rules: {} }).find(i => i.k === 'mine-thinpool').tip).not.toContain('picks');
+  expect(rowVitals({ liq: 25000, trench: true, vol1h: 90000 }, null, { rules }).some(i => i.k === 'mine-thinpool')).toBe(false);
+  expect(rowVitals({ liq: 120000, vol1h: 90000 }, null, { rules }).some(i => i.k === 'mine-thinpool')).toBe(false);
+});

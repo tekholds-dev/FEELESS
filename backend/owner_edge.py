@@ -8,10 +8,12 @@ CHASE_5M = 3.0           # up more than this in the last 5 minutes at the pick
 THIN_VOL = 20_000.0      # 1h volume under this = thin
 SETUP_DIP = -3.0         # 5-minute dip inside the coin …
 SETUP_VOL = 50_000.0     # … with real volume
+THIN_POOL = 40_000.0     # a pool under this: 12 of the owner's 15 crashes in one day (fuse_wallet.THIN_POOL_FLOOR)
 
 RULES = (
     ('chase', '🔥 bought mid-pump (5m over +3%)', lambda f: _f(f.get('chg5m')) > CHASE_5M if f.get('chg5m') is not None else False),
     ('thin', '🪫 thin coin (under $20K an hour)', lambda f: f.get('vol1h') is not None and _f(f.get('vol1h')) < THIN_VOL),
+    ('thinpool', '💧 thin pool (under $40K)', lambda f: f.get('liq') is not None and 0 < _f(f.get('liq')) < THIN_POOL),
     ('setup', '✅ dip with volume (5m under −3%, $50K+ an hour)', lambda f: f.get('chg5m') is not None and _f(f.get('chg5m')) < SETUP_DIP and _f(f.get('vol1h')) >= SETUP_VOL),
 )
 

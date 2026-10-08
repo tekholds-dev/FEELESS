@@ -6941,6 +6941,49 @@ async def _prime_reset_paper(now):
     return len(gone)
 
 
+def _proven_candidates(hours):
+    """The engine's strategies that ENDED UP on the replay for the round length nearest `hours` (pg_sim byClock) as reset candidates (exits + selection numbers)."""
+    import paper_reset as _pr
+    bc = _json_load(PG_SIM_PATH, {}).get('byClock') or {}
+    rows = [(float(k), v) for k, v in bc.items() if v.get('strategies')]
+    if not rows:
+        return []
+    clock, v = min(rows, key=lambda kv: abs(kv[0] - hours * 60))
+    return [c for c in (_pr.from_sim(x.get('cfg') or {}) for x in v['strategies'] if x.get('profitable')) if c]
+
+
+def _paper_broke(d, cards, px, now):
+    """♻ A PAPER tier card worth ≤ 25% of what was put in restarts on the full paper size with a NEW config; the config it died on is SCRAPPED (never dealt again).
+    Needs ≥ 5 rounds, ≥ 1h on the card, one reset per tier per 6h; a locked tier and the real card are never touched. The next tick deals the fresh card."""
+    import paper_reset as _pr
+    pr_ = d.setdefault('prime', {}); locks = pr_.get('locks') or {}; cfg = _prime.clean_cfg(pr_.get('cfg') or {})
+    last = pr_.setdefault('brokeAt', {}); out = dict(cards)
+    for tid, c in cards.items():
+        if c.get('real') or tid in locks:
+            continue
+        v = _prime.value(c, px, {})
+        if not _pr.is_broke(c, v, now, last.get(tid, 0)):
+            continue
+        old = _pr.current(cfg, tid)
+        others = [_prime.tier_cfg(cfg, t).get('pickStyle') for t, x in cards.items() if t != tid and not x.get('real')]
+        new = _pr.fresh_config(old, pr_.get('scrapped') or [], others, _proven_candidates(_fuse._f((cfg.get('clocks') or {}).get(tid)) or 1.0))
+        pr_['scrapped'] = ((pr_.get('scrapped') or []) + [_pr.scrap_row(tid, c, old, v, now)])[-_pr.SCRAP_KEEP:]
+        _pr.apply(pr_, tid, new); cfg = _prime.clean_cfg(pr_.get('cfg') or {})
+        try:
+            _store.Ledger(CARD_RECORDS_PATH, table='runs').append({'at': now, 'card': tid, 'label': c.get('label'), 'startUsd': c.get('startUsd'), 'real': False, 'closed': True, 'why': 'went broke — restarted on a new config'})
+        except Exception as e:
+            print('card records (broke):', e)
+        pr_['archive'] = ((pr_.get('archive') or []) + [{'at': now, 'why': 'broke → new config', 'cards': {tid: {x: c.get(x) for x in ('label', 'startUsd', 'putInUsd', 'walletUsd', 'rounds')}}}])[-40:]
+        ren = pr_.setdefault('renewed', {})
+        ren[tid] = {'at': now, 'text': _pr.describe(new['cfg']), 'source': new['source'], 'n': int((ren.get(tid) or {}).get('n') or 0) + 1}
+        last[tid] = now; out.pop(tid, None)
+        try:
+            _fuse_chat('fuse-lab', f"♻ {c.get('label') or tid} went broke (${v:.2f} of ${_fuse._f(c.get('putInUsd')) or _fuse._f(c.get('startUsd')):.0f}) — it restarts on a NEW config ({new['source']}): {_pr.describe(new['cfg'])}. The old one is scrapped.", f"broke-{tid}-{int(now // 3600)}")
+        except Exception:
+            pass
+    return out
+
+
 async def _prime_tick_inner(now):
     await _prime_unique_fix(now)
     await _prime_reset_paper(now)
@@ -7336,6 +7379,10 @@ async def _prime_tick_inner(now):
         if _hq_ver() != ver_:   # the file was saved while this tick worked: the owner's pick / skim / lock on a card beats the tick
             cards = _prime.merge_tick(snap_, cards, (d.get('prime') or {}).get('cards') or {})
         _record_runs(before_runs, cards)
+        try:
+            cards = _paper_broke(d, cards, px, now)   # ♻ broke paper cards restart on a NEW config, the old one is scrapped
+        except Exception as e:
+            print('paper broke:', e)
         win = _prime.crown_round(cards)
         d.setdefault('prime', {})['cards'] = cards
         if any(c.get('real') for c in cards.values()) and not d['prime'].get('realCfg'):
@@ -7440,7 +7487,7 @@ async def fuse_prime():
     _seed = sum(ord(ch) for ch in ''.join(sorted(_owner_wallets()))[:44]) if _rc else 0   # ⚡ each owner's card gets its own variant of the meta
     _ht, _hp, _hn = _human_style()
     return {'meta': _prime.meta_for(_fuse._f(_rc.get('rotateHours')) or 1.0, _seed) if _rc else None, 'cards': await _prime_view(), 'humanStyle': {'tiers': _ht, 'picks': _hn, 'need': _ps.MIN_PICKS, 'ready': bool(_hp), 'words': _ps.words(_hp),
-                           'moves': _om.summary(next((v for k, v in _json_load(OWNER_MOVES_PATH, {}).items() if isinstance(v, dict)), {}))}, 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'weather': _real_weather(), 'suggest': _json_load(PG_SIM_PATH, {}).get('byClock') or {}, 'realGuard': _prime.real_guard({**_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'instantSwapPct': _fuse._f(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('instantSwapPct'))}, (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or ())[1], 'paperMatch': _fw.paper_match(_fw_load().get('quoteAudit')), 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'lockCfg': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}), 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner'), 'realOwnerSet': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or []}
+                           'moves': _om.summary(next((v for k, v in _json_load(OWNER_MOVES_PATH, {}).items() if isinstance(v, dict)), {}))}, 'renewed': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('renewed') or {}), 'scrapped': [{k: x.get(k) for k in ('tpl', 'at', 'label', 'text', 'valueUsd', 'putInUsd', 'rounds')} for x in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('scrapped') or [])[-12:]], 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'weather': _real_weather(), 'suggest': _json_load(PG_SIM_PATH, {}).get('byClock') or {}, 'realGuard': _prime.real_guard({**_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'instantSwapPct': _fuse._f(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('instantSwapPct'))}, (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or ())[1], 'paperMatch': _fw.paper_match(_fw_load().get('quoteAudit')), 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'lockCfg': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}), 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner'), 'realOwnerSet': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or []}
 
 
 @app.post('/api/reputation/admin/arena/prime')
@@ -7547,7 +7594,7 @@ async def fuse_prime_admin(request: Request):
             _pv_miss = list(_pv_miss or []) + _prime.chase_why(_pv_c)   # 🔥 a warning, never a block: you can still pick it
             try:   # 🎯 … quoting the owner's OWN record on this kind of entry (only when it lost, ≥ 8 picks)
                 import owner_edge as _oe
-                _pv_miss += _oe.warnings({'chg5m': (_pv_c or {}).get('chg5m'), 'vol1h': (_pv_c or {}).get('vol1h')}, _owner_edge_rec())
+                _pv_miss += _oe.warnings({'chg5m': (_pv_c or {}).get('chg5m'), 'vol1h': (_pv_c or {}).get('vol1h'), 'liq': (_pv_c or {}).get('liq')}, _owner_edge_rec())
             except Exception:
                 pass
         async with _admin_lock:
@@ -8623,6 +8670,17 @@ async def _fw_rent_credit(cfg):
                                    'why': '♻ recovered-coin cash released — it trades in the card again (it was always counted in IN CARD)'})
             d['cashFix1'] = time.time()
             _fw_save(d)
+    if not d.get('thinPoolFix1'):
+        # 💧 OWNER'S CALL (2026-10-08, "fix the coins coming in, the card is getting cooked"): once, the real-buy pool floors (general · Arena · pick) go up to $40K — see
+        # fuse_wallet.THIN_POOL_FLOOR for the evidence. The old values are saved in data/fwcfg_before_thinpool.json; Edit Fuse › Limits changes them back any time.
+        async with _fw_lock:
+            d = _fw_load(); cfg0 = d.get('cfg') or {}; raised = _fw.thin_pool_cfg(cfg0)
+            if raised:
+                _json_save(DATA_DIR / 'fwcfg_before_thinpool.json', {k: _fw.clean_cfg(cfg0).get(k) for k in raised})
+                d['cfg'] = {**cfg0, **raised}
+                _fw_record(d, {'id': 'thinpool:fix', 'card': 'wallet', 'side': 'fix', 'sol': 0.0, 'usd': 0.0, 'at': time.time(), 'status': 'done',
+                               'why': f"💧 real-buy pool floors raised to ${_fw.THIN_POOL_FLOOR:,.0f} ({', '.join(raised)}): 12 of the last day's 15 crashes were pools under $40K. Trench tickets keep their own floor."})
+            d['thinPoolFix1'] = time.time(); _fw_save(d)
     if not d.get('strayFix1'):
         # ↗ OWNER'S CALL (2026-10-05, "pull the 1.51 out, make this all true money"): the chain audit shows the degen book holding
         # 0.012552 SOL more than its own swaps explain — duplicate buys a second keeper process paid from UNASSIGNED wallet SOL.

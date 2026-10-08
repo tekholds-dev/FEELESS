@@ -41,6 +41,7 @@ export function rowVitals(r, edge, mine) {
     if (r.chg5m < -3 && r.vol1h >= 50000) out.push({ k: 'mine-setup', t: '✅ your setup', tone: 'good', tip: `A 5-minute dip with real volume. ${recTip(rules, 'setup')}` });
     else if (r.chg5m > 3) out.push({ k: 'mine-chase', t: '🔥 chasing', tone: 'bad', tip: `Up ${Number(r.chg5m).toFixed(1)}% in the last 5 minutes. ${recTip(rules, 'chase')}` });
   }
+  if (r.liq > 0 && r.liq < 40000 && !r.trench) out.push({ k: 'mine-thinpool', t: '💧 thin pool', tone: 'bad', tip: `Pool under $40K — the card's real buys refuse it (12 of the last day's 15 crashes were pools this thin; a trench ticket keeps its own floor). ${recTip(rules, 'thinpool')}` });
   if (r.vol1h != null && r.vol1h < 20000) out.push({ k: 'mine-thin', t: '🪫 thin', tone: 'bad', tip: `Under $20K an hour. ${recTip(rules, 'thin')}` });
   const m5 = edge?.pulse?.m5Change;
   if (Number.isFinite(m5)) out.push({ k: 'radar', t: `📡 ${m5 >= 0 ? '+' : ''}${m5.toFixed(1)}% 5m`, tone: m5 >= 0 ? 'good' : 'bad', tip: 'Pump radar: the last 5 minutes of flow' });

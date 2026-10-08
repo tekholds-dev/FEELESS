@@ -57,6 +57,19 @@ def held_units(book, mint):
     return int(l.get('atoms') or 0) / (10 ** int(l.get('decimals') or 0)) if l.get('atoms') else 0.0
 
 
+# 💧 THIN POOLS ARE WHERE REAL BUYS GET CRAWLED (2026-10-08, the real card's last 24h, 393 closed pieces): 12 of the 15 crashes (−30% or worse) were bought in pools under
+# $40K (CORES: a $19K pool pulled 87% five minutes after the buy; DARK −57% in two minutes) and the crashed buys had a 1h-volume ÷ pool of ~26× against ~1.5× for the rest.
+# Pools under $30K crashed 16% of the time; ≥ $300K never. Refusing pools under $40K turned the owner's picks from −$3.77 into +$0.60. Trench tickets (their own small stake,
+# their own floor `trenchMinLiqUsd`) are NOT touched.
+THIN_POOL_FLOOR = 40_000.0
+
+
+def thin_pool_cfg(cfg):
+    """→ the pool-floor keys of `cfg` that sit under THIN_POOL_FLOOR, raised to it ({} when they are already there). General, Arena and pick floors; never the trench floor."""
+    c = clean_cfg(cfg)
+    return {k: THIN_POOL_FLOOR for k in ('minLiqUsd', 'arenaMinLiqUsd', 'pickMinLiqUsd') if c[k] < THIN_POOL_FLOOR}
+
+
 def liq_floor(cfg, arena=False, trench=False, picked=False):
     """💧 Real-buy pool floor. Arena coins (passed every runner gate + picked by the Arena) have their own floor, so a high general
     floor ($100K) doesn't lock every Arena coin out of the card; the secure-buy checks (price gap + sell-back) still run on them.
