@@ -9625,6 +9625,8 @@ def _intel_restore():
             _launch_facts.setdefault(m, v)
         now, n = time.time(), 0
         for m, at, out in (_json_load(INTEL_DISK, {}) or {}).get('rows') or []:
+            if isinstance(out, dict) and not out.get('topHolders') and not _fuse._f(out.get('top10Pct')):
+                continue   # an old 'top-10 0%' with no holders behind it was a failed read, never a clean scan
             if now - _fuse._f(at) < INTEL_DISK_MAX_AGE and m not in _intel_cache:
                 _intel_cache[m] = (_fuse._f(at), out); n += 1
         return n
