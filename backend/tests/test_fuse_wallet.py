@@ -70,6 +70,14 @@ def test_check_blocks_unarmed_paused_over_caps_and_impact():
     assert 'impact' in fw.check(o, CFG, [], 0, quote_impact_pct=5)[1]
 
 
+def test_an_exit_is_never_refused_for_price_impact_below_the_absurd_line():
+    s = {'usd': 2, 'side': 'sell', 'liq': 1e9}
+    assert fw.check(s, CFG, [], 0, quote_impact_pct=4.9) == (True, '')            # a stopped coin at 4.9% impact still goes out (the buy cap is 3.5)
+    assert fw.check(s, CFG, [], 0, quote_impact_pct=14.9)[0] is True
+    assert 'impact' in fw.check(s, CFG, [], 0, quote_impact_pct=30)[1]            # an empty / rugged route is still refused
+    assert 'impact' in fw.check({**s, 'side': 'buy'}, CFG, [], 0, quote_impact_pct=4.9)[1]   # buys keep the cap
+
+
 def tx(owner, mint, pre, post, sol_pre, sol_post, fee=5000, err=None):
     return {'meta': {'err': err, 'fee': fee, 'preBalances': [sol_pre], 'postBalances': [sol_post],
                      'preTokenBalances': [{'owner': owner, 'mint': mint, 'uiTokenAmount': {'amount': str(pre), 'decimals': 6}}] if pre is not None else [],

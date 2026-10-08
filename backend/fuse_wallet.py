@@ -345,6 +345,9 @@ def spent_24h(ledger, now):
     return round(max(0.0, sum(_f(o.get('usd')) for o in day if o.get('side') == 'buy') - sum(_f(o.get('usd')) for o in day if o.get('side') == 'sell')), 4)
 
 
+SELL_IMPACT_MAX = 15.0   # a sell's own price impact is refused only above this (a rug / empty route), never at the buy cap
+
+
 def check(order, cfg, ledger, now, quote_impact_pct=None):
     """(ok, why). Armed + not paused, order ≤ max per swap, today's total ≤ daily cap, quoted impact ≤ max."""
     cfg = clean_cfg(cfg)
@@ -361,8 +364,12 @@ def check(order, cfg, ledger, now, quote_impact_pct=None):
     floor = liq_floor(cfg, order.get('arena'), order.get('trench'), order.get('picked'))
     if order.get('side') == 'buy' and _f(order.get('liq')) < floor:   # 💧 real money never buys a pool this thin (sells always allowed)
         return False, f"pool too thin: ${_f(order.get('liq')):,.0f} liquidity < ${floor:,.0f} (real buys{' · Arena coin' if order.get('arena') else ''})"
-    if quote_impact_pct is not None and _f(quote_impact_pct) > cfg['maxImpactPct']:
-        return False, f"price impact {_f(quote_impact_pct):.2f}% > {cfg['maxImpactPct']:g}%"
+    # 🚪 AN EXIT IS NEVER REFUSED FOR ITS PRICE IMPACT (2026-10-08: two sells were refused at 4.4% / 4.9% against the 3.5% cap, leaving stopped coins
+    # on the card): selling takes risk OFF, and on a $1–5 coin the whole difference is cents. Buys keep the owner's cap; a sell is refused only
+    # when the route itself is absurd (> SELL_IMPACT_MAX).
+    cap = max(cfg['maxImpactPct'], SELL_IMPACT_MAX) if order.get('side') == 'sell' else cfg['maxImpactPct']
+    if quote_impact_pct is not None and _f(quote_impact_pct) > cap:
+        return False, f"price impact {_f(quote_impact_pct):.2f}% > {cap:g}%"
     return True, ''
 
 
