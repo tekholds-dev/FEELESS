@@ -2159,3 +2159,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (ethereum · base · bsc · arbitrum · avalanche · polygon · optimism · zksync · zora · cronos · unichain · worldchain) + our own Cronos read (LI.FI missed
   it), positive balances only. Trade › 🧹 Dust tab `🌐 EVM · every chain` (replaced the Cronos-only tab): rows grouped under a chain header with its $,
   the native coin = "⛽ gas" (never pickable), every token swaps to ITS OWN chain's gas via LI.FI (`fromChain = toChain = r.chainId`, wallet switched first).
+- 💵 REAL CARD SPLIT = THE BOOK (`ArenaPrime.cardSplit`): ◎ cash = `realBook.reconciliation.cardCashUsd` (confirmed card SOL, the "Withdraw card cash"
+  number) minus parked; coins = `cardEquityUsd` − that cash; the three add up to IN CARD NOW. It was `value − coins − parked`, so every cent of price
+  lag between the leg prices and the card value read as cash ($0.20 shown vs $0.17 on the book). Paper cards keep the old split.

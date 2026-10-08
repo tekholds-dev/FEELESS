@@ -35,7 +35,10 @@ test('a real card splits into coins, free cash and parked profit that add up to 
   const { cardSplit } = require('./ArenaPrime');
   const sp = cardSplit({ valueUsd: 5.32, parkedUsd: 0.06, legs: [{ usd: 1.22 }, { usd: 0.5 }, { usd: 0.49 }, { usd: 0.22 }] });
   expect(sp.coins).toBeCloseTo(2.43); expect(sp.parked).toBe(0.06); expect(sp.cash).toBeCloseTo(2.83);
-  expect(cardSplit({ valueUsd: 1, legs: [{ usd: 1.2 }] }).cash).toBe(0); expect(cardSplit(null)).toEqual({ coins: 0, parked: 0, cash: 0 });
+  expect(cardSplit({ valueUsd: 1, legs: [{ usd: 1.2 }] }).cash).toBe(0); expect(cardSplit(null)).toEqual({ coins: 0, parked: 0, cash: 0, total: 0 });
+  // real card: cash is the BOOK's confirmed card SOL (not value − coins, where price lag landed); parked comes out of it; the three add up
+  const r = cardSplit({ real: true, valueUsd: 4.04, parkedUsd: 0.05, legs: [{ usd: 3.8366 }], realBook: { reconciliation: { cardCashUsd: 0.1748, cardEquityUsd: 4.0402 } } });
+  expect(r.cash).toBeCloseTo(0.1248); expect(r.parked).toBe(0.05); expect(r.coins).toBeCloseTo(3.8654); expect(r.coins + r.cash + r.parked).toBeCloseTo(4.0402);
 });
 
 test('the card shows what its confirmed sales came to, never a recycled running total', () => {

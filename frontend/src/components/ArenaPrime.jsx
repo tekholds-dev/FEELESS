@@ -75,8 +75,13 @@ export const primeGroups = cards => { const all = cards || []; const real = all.
 // net of the card's confirmed sales (real cards: the ledger; paper: the engine's own realized figure is not shown as "pulled")
 export const soldNet = c => Number(c?.realBook?.realized?.netUsd) || 0;
 export const signedUsd = v => `${v >= 0 ? '+' : '−'}$${Math.abs(v).toFixed(2)}`;
-export const cardSplit = c => { const coins = (c?.legs || []).reduce((a, l) => a + (Number(l.usd) || 0), 0); const parked = Number(c?.parkedUsd) || 0;
-  return { coins, parked, cash: Math.max(0, (Number(c?.valueUsd) || 0) - coins - parked) }; };
+// REAL card: cash = the book's CONFIRMED card SOL (same number as "Withdraw card cash"), parked is part of it, coins = the rest of the book's
+// truth (confirmed positions) — never "value − coins", which put every price-lag cent into the cash line. Paper cards keep the old split.
+export const cardSplit = c => { const parked = Number(c?.parkedUsd) || 0; const recon = c?.realBook?.reconciliation;
+  if (c?.real && recon && recon.cardCashUsd != null) { const book = Number(recon.cardCashUsd) || 0; const eq = Number(recon.cardEquityUsd ?? c.valueUsd) || 0;
+    const park = Math.min(parked, book); return { coins: Math.max(0, eq - book), parked: park, cash: Math.max(0, book - park), total: eq }; }
+  const coins = (c?.legs || []).reduce((a, l) => a + (Number(l.usd) || 0), 0);
+  return { coins, parked, cash: Math.max(0, (Number(c?.valueUsd) || 0) - coins - parked), total: Number(c?.valueUsd) || 0 }; };
 export const PICK_STYLES = { hunt: '🚀 runner hunt', sniper: '🎯 sniper', human: '👤 picks like you', majors: '🪙 majors', engine: '🧠 engine order' };
 export const standings = (cards, live) => (cards || []).map(c => { const r = arenaRow(c, live); return { tpl: c.tpl, id: c.id, name: (TIER[c.tier] || TIER.gold).name, label: c.label, style: PICK_STYLES[c.pickStyle] || '', real: !!c.real, pct: Number(r.pnlPct) || 0, usd: Number(r.valueUsd) || 0 }; })
   .sort((x, y) => y.pct - x.pct).map((r, i) => ({ ...r, rank: i + 1 }));
