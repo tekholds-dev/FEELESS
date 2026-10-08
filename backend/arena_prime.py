@@ -957,6 +957,31 @@ def category_picks(lists, ok, records=None, limit=6):
     return out[:limit], misses
 
 
+def door_watch(picks, lists, resolve, why, skip=None, limit=60):
+    """🚪 Every Coming-up door shows ONE coin (owner: "1 trench, 1 pump, 1 volume"). A door with no ready pick shows the best coin of its
+    list as WATCHING: the first row (walking from the top) that has data (`resolve(row)` → the coin's record or None), is not skipped
+    (`skip(mint, rec)`: on the card, dollar-named, no price …) and has a reason it is not ready (`why(row, rec)` → text; True = it is
+    ready, so it is not a watch row). → [{**rec, cat, catRank, tag, watchWhy}] — shown only, never seated by the engine."""
+    have = {p_['cat'] for p_ in picks}
+    taken = {p_['mint'] for p_ in picks}
+    out = []
+    for k, label in CATEGORIES:
+        if k in have:
+            continue
+        for i, r in enumerate(((lists or {}).get(k) or [])[:limit]):
+            m = r.get('mint')
+            rec = resolve(r) if m else None
+            if not m or not rec or m in taken or (skip and skip(m, rec)):
+                continue
+            w = why(r, rec)
+            if w is True:
+                continue
+            taken.add(m)
+            out.append({**rec, 'cat': k, 'catRank': i + 1, 'tag': f"{label} #{i + 1}", 'watchWhy': str(w) or 'not ready'})
+            break
+    return out
+
+
 def meta_only(rows, cfg=None, mom=None):
     """Rows the engine may buy by itself. Two kinds keep their OWN entry rule instead of the chart gate: 🗑 trench rows
     (`trench_entry` — a coin minutes old has no chart to read, so the gate dropped every one and the trench drop never fired)

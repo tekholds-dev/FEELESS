@@ -6678,15 +6678,22 @@ async def _prime_tick_inner(now):
                 if not _prime.seat_fallback_ok(x, mom):
                     return 'falling / spiking'
                 return True
+            open_by = {r['mint']: r for r in (_open_board() if _open_pairs else (_open_cache.get('rows') or [])) if r.get('mint')}   # every feed coin, scanned or not
             cat_lists = {**_lens_rows, 'bottom': [{'mint': r.get('baseAddress')} for r in _bottom_cache.get('rows') or []],
-                         'trench': [{'mint': r.get('mint')} for r in _trench_cache.get('rows') or []]}
+                         'trench': [{'mint': r.get('mint')} for r in _trench_cache.get('rows') or []] or [{'mint': m} for m in list(open_by)[:60]]}   # 🗑 never an empty door: the open list stands in
             try:
                 cat_picks, cat_miss = _prime.category_picks(cat_lists, _cat_ok, _list_records())
             except Exception:
                 cat_picks, cat_miss = [], {}
             cat_rows = [{**_cat_row(p_), 'tag': f"{p_['catLabel']} #{p_['rank']}", 'cat': p_['cat'], 'catRank': p_['rank']} for p_ in cat_picks]
+            # 🚪 EVERY DOOR ALWAYS SHOWS ONE COIN (owner: "1 trench, 1 pump, 1 volume"): a door with nothing that clears every check shows its
+            # best coin as WATCHING, with the first check it misses. Watch rows are only shown — never seated by the engine, owner-pickable.
+            door_watch = _prime.door_watch(
+                cat_picks, cat_lists, lambda r_: _cat_row(r_) or open_by.get(r_.get('mint')),
+                lambda r_, x_: _cat_ok(r_) if _cat_row(r_) else ('failed safety' if x_.get('safe') is False else 'holder scan not done'),
+                lambda m_, x_: m_ in fb_ids or m_ in mine or _fuse._f(x_.get('price')) <= 0 or _fw.dollar_named(x_.get('symbol')))
             fb_ = cat_rows + [x for x in fb_ if x.get('mint') not in {y['mint'] for y in cat_rows}]
-            cfg_t = {**cfg_t, 'seatFallback': list({x.get('mint'): x for x in reversed(fb_)}.values())[::-1][:8], 'catPicks': cat_rows, 'catMiss': cat_miss}
+            cfg_t = {**cfg_t, 'seatFallback': list({x.get('mint'): x for x in reversed(fb_)}.values())[::-1][:8], 'catPicks': cat_rows, 'catWatch': door_watch, 'catMiss': cat_miss}
         # 🧊 anchors cool too: a major this card just sold isn't bought back for 3 rounds while another major is available
         a_t = _prime_cool_candidates(anchors, cool, 2, strict=real_t and len([x for x in anchors if x.get('mint') not in cool]) >= 1) if cool else anchors
         if new_only_:
@@ -6758,9 +6765,13 @@ async def _prime_tick_inner(now):
                               'ageH': x.get('ageH'), 'liq': _lq(x), 'pad': x.get('pad'), 'mcap': x.get('mcap'), 'buyShare': x.get('buyShare'), 'top10': x.get('top10'), 'dev': x.get('dev'),
                               'insiders': x.get('insiders'), 'site': x.get('site'), 'x': x.get('x'), 'tg': x.get('tg')}
             seen_u, up_ = set(), []
-            for x in cfg_t.get('catPicks') or []:   # ⏭ one per category, best list record first — what an empty seat takes next
-                if x.get('mint') not in on_ and x['mint'] not in seen_u:
-                    seen_u.add(x['mint']); up_.append({**row_(x), 'cat': x.get('cat'), 'catRank': x.get('catRank')})
+            doors_ = {x.get('cat'): x for x in (cfg_t.get('catPicks') or [])}
+            for x in cfg_t.get('catWatch') or []:
+                doors_.setdefault(x.get('cat'), x)
+            for k_ in [c[0] for c in _prime.CATEGORIES]:   # ⏭ ONE coin per door in the owner's order (trench · pump · volume): ready, else watching with its reason
+                x = doors_.get(k_)
+                if x and x.get('mint') not in on_ and x['mint'] not in seen_u:
+                    seen_u.add(x['mint']); up_.append({**row_(x), 'cat': x.get('cat'), 'catRank': x.get('catRank'), 'tag': x.get('tag') or '', **({'wait': x['watchWhy']} if x.get('watchWhy') else {})})
             for x in _prime.flow_rank(free_ + [y for y in scout_ if y.get('mint') not in {z.get('mint') for z in free_}]):   # ⏭ COMING UP: by what each coin looks like now (setup · chart), then hourly move
                 if x.get('mint') and x['mint'] not in seen_u:
                     seen_u.add(x['mint']); up_.append(row_(x))

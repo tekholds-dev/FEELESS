@@ -2251,3 +2251,15 @@ def test_idle_cash_never_pours_into_a_locked_coin_so_no_phantom_skim_gets_parked
 
 def _f_or0(v):
     return float(v or 0)
+
+
+def test_every_coming_up_door_shows_one_coin_ready_or_watching():
+    import arena_prime as ap
+    lists = {'trench': [{'mint': 'ON'}, {'mint': 'T1'}, {'mint': 'T2'}], 'ptrend': [{'mint': 'P1'}], 'volume': [{'mint': 'V1'}, {'mint': 'V2'}]}
+    recs = {'T1': {'mint': 'T1', 'price': 1}, 'T2': {'mint': 'T2', 'price': 1}, 'ON': {'mint': 'ON', 'price': 1}, 'P1': {'mint': 'P1', 'price': 1}, 'V2': {'mint': 'V2', 'price': 1}}
+    picks = [{'cat': 'volume', 'mint': 'V1'}]                                   # volume already has a ready pick
+    watch = ap.door_watch(picks, lists, lambda r: recs.get(r['mint']), lambda r, x: 'failed safety' if x['mint'] == 'T1' else True if x['mint'] == 'P1' else 'holder scan not done',
+                          skip=lambda m, x: m == 'ON')                         # ON is on the card
+    # trench → its first coin that is not on the card (T1, watching: failed safety); pump → nothing to watch (its only coin is READY, not a watch row); volume has a pick
+    assert [(w['cat'], w['mint'], w['catRank'], w['watchWhy']) for w in watch] == [('trench', 'T1', 2, 'failed safety')]
+    assert watch[0]['tag'] == '🗑 Trench #2'
