@@ -1,0 +1,36 @@
+/* ☀ DAY THEME WITH COLOUR (owner: "day mode needs more color, not just white — eye burning").
+   Static only (no animation): a soft mint → sky → lavender → peach wash behind everything, tinted panels instead of #fff, and
+   darker ink so coin names and numbers stay readable. Loaded after meta.css so it wins the day rules in terminal.css. */
+body.theme-day {
+  --day-wash: linear-gradient(155deg, #d3ecdf 0%, #cfe6ee 34%, #ddd8f0 68%, #efe0d2 100%);
+  --day-panel: #eef7f1;
+  --day-panel-2: #e3f0e8;
+  --day-edge: #b4cfbf;
+  --ink: #d8eadf;
+  --panel: var(--day-panel);
+  --line: var(--day-edge);
+  --muted: #3f6150;
+  --paper: #0c1f15;
+}
+html:has(body.theme-day) { background: var(--day-wash, #d8eadf) fixed; background-color: #d8eadf; }
+body.theme-day, body.theme-day .terminal-app, body.theme-day .globe-page { background: var(--day-wash) fixed !important; }
+body.theme-day .terminal-header { background: #e4f2ea; }
+body.theme-day .terminal-sidebar { background: #e0eee6; }
+body.theme-day .market-ticker { background: #e6f2ec; }
+body.theme-day .context-bar { background: rgba(222, 238, 229, 0.97); }
+body.theme-day .terminal-search, body.theme-day .icon-btn { background: #f1f8f4; border-color: var(--day-edge); }
+/* the profile hero + its cards were near-white */
+body.theme-day .xp-card { background: linear-gradient(160deg, rgba(240, 249, 244, 0.96), rgba(226, 238, 247, 0.94)); }
+body.theme-day .m-card, body.theme-day .m-kv { background: var(--day-panel); border-color: var(--day-edge); }
+/* readable small text on every tinted surface */
+body.theme-day .terminal-main small, body.theme-day .terminal-main .muted, body.theme-day .terminal-main .m-dim { color: #3a5b4a; }
+/* selected segment = deep green: every label inside it (<b>, <small>, <em>) must be white, not the muted ink (measured 1.5–3:1) */
+body.theme-day .m-seg button.active, body.theme-day .m-seg button.active *, body.theme-day .m-seg button[aria-checked="true"] *,
+body.theme-day .fp-tabs button.active small { color: #ffffff !important; }
+/* the bright night-green tag on a league lane is unreadable on a light lane */
+body.theme-day .pls-lane u { color: #076a45; }
+body.theme-day .pls-lane.is-real { background: #fbf5dd; }
+/* chat: initials were dark ink on a dark circle (1.1:1, ×120 on one page) and coin cards stayed night-dark under dark ink */
+body.theme-day .chat-avatar, body.theme-day .chat-message .chat-avatar span, body.theme-day .chat-avatar span { color: #e8fff1 !important; }
+body.theme-day .mini-token-card { background: #eaf4ee; border-color: var(--day-edge); }
+body.theme-day .mini-token-card.is-selectable:hover, body.theme-day .mini-token-card.is-selectable:focus-visible { background: #dcece3; border-color: #4c9e6a; }

@@ -12,6 +12,7 @@ import './styles/tab-variants.css';
 import './styles/trade.css';
 import './styles/heartbeat.css';
 import './styles/meta.css';
+import './styles/dayColor.css';
 import { LegalConsent } from './components/LegalConsent';
 import { captureInvite } from './lib/chatSession';
 captureInvite();
