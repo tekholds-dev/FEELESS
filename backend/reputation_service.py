@@ -6228,6 +6228,37 @@ async def fuses_proof():
     return await _proof_build()
 
 
+_track_cache: dict = {}
+
+
+@app.get('/api/reputation/track-record/{address}')
+async def wallet_track_record(address: str, limit: int = Query(40, ge=1, le=120)):
+    """📜 Public: a wallet's track record — proof of what it really did — its verified FEELESS trades (closed pieces first-in-first-out + still-open lots priced live)
+    and its chat calls with the result since, newest first. From FEELESS's own records only (track_record.py); price result, fees apart. 60s cache."""
+    import track_record as _rc
+    primary = primary_of(address); now = time.time()
+    hit = _track_cache.get(primary)
+    if hit and now - hit[0] < 60:
+        return hit[1]
+    mine = set(linked_of(primary)) | {primary, address}
+    trades = _json_load(FEELESS_TRADES_PATH, {})
+    rows = [x for w in mine for x in (trades.get(w) or [])]
+    calls = _calls_load().get('calls') or {}
+    syms = {c.get('mint'): c.get('symbol') for c in calls.values() if c.get('mint') and c.get('symbol')}
+    syms.update({r.get('mint'): r.get('symbol') for r in _runner_cands if r.get('mint') and r.get('symbol')})
+    closed, open_ = _rc.trade_receipts(rows, syms)
+    px = await _jup_prices([o['mint'] for o in open_]) if open_ else {}
+    for o in open_:
+        p = _fuse._f((px or {}).get(o['mint']))
+        o['exitPx'] = p or None; o['ret'] = round(p / o['entryPx'] - 1, 4) if p > 0 and o['entryPx'] > 0 else None
+        o['usd'] = round(o['tokens'] * (p - o['entryPx']), 4) if p > 0 else None
+    cs = _rc.call_receipts(calls, primary, aliases=mine)
+    feed = sorted(closed + open_ + cs, key=lambda r: -r['at'])[:limit]
+    out = {'address': primary, 'record': feed, 'summary': _rc.summary(closed, cs), 'at': now}
+    _track_cache[primary] = (now, out)
+    return out
+
+
 _myedge_cache = {'at': 0.0, 'data': None}
 
 
