@@ -42,3 +42,15 @@ test('a brand-new coin shows the trench vital: call, heat vs rug meters, tags', 
   expect(t.querySelectorAll('.tvl-heat .tvl-c.on').length).toBe(7); expect(t.querySelectorAll('.tvl-rug .tvl-c.on').length).toBe(2);
   expect(t.textContent).toContain('5m pace 2.4×'); expect(t.textContent).toContain('🫀 B');
 });
+
+test('curve and dip reads render their own meters and call', async () => {
+  const r = { symbol: 'CRV', tv: { kind: 'curve', call: ['🚀', 'EARLY RUSH', 'good'], meters: [['🎢 BOND', 22], ['⚡ PACE', 81]], tags: [['🎢', 'curve +12%/10m', 'good']] } };
+  const d = { symbol: 'DIP', tv: { kind: 'dip', call: ['🔪', 'FALLING KNIFE', 'bad'], meters: [['🧲 BOUNCE', 20], ['🔪 KNIFE', 75]], tags: [] } };
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<div><CoinVital r={r} /><CoinVital r={d} /></div>); });
+  const c = el.querySelector('[data-testid="tvl-CRV"]');
+  expect(c.className).toContain('tvl-k-curve'); expect(c.textContent).toContain('🎢 BOND'); expect(c.textContent).toContain('EARLY RUSH');
+  expect(c.querySelectorAll('.tvl-heat .tvl-c.on').length).toBe(2); expect(c.querySelector('.tvl-call.is-send')).not.toBeNull();
+  const k = el.querySelector('[data-testid="tvl-DIP"]');
+  expect(k.className).toContain('tvl-k-dip'); expect(k.textContent).toContain('🔪 KNIFE'); expect(k.querySelector('.tvl-call.is-send')).toBeNull();
+});

@@ -2923,18 +2923,37 @@ async def _jup_lite(mints):
     return {m: _jup_facts[m][1] for m in mints if m in _jup_facts}
 
 
+def _cand_map():
+    return {c.get('mint'): c for c in _runner_cands if c.get('mint')}
+
+
+def _read_for(r, cmap=None):
+    """🎢 / 🧲 / 🔥 The read that fits this coin (jup_audit.pick_read), with the runner board's curve %, curve speed and 5-min flow filled in."""
+    m = r.get('mint') or r.get('baseAddress')
+    c = (cmap if cmap is not None else _cand_map()).get(m) or {}
+    x = {k: c.get(k) for k in ('vol5m', 'vol1h', 'chg5m', 'chg1h', 'chg24h', 'txns1h', 'buyShare', 'ageH', 'curveSpeed', 'top10', 'dev', 'insiders') if c.get(k) is not None}
+    x.update({k: v for k, v in r.items() if v is not None})
+    if c.get('stage') == 'curve' and c.get('curve') is not None:
+        x['curvePct'] = c.get('curve')
+    if c.get('bundled') is not None and x.get('bundledN') is None:
+        x['bundledN'] = c.get('bundled')
+    return _ja.pick_read((_jup_facts.get(m) or (0, None))[1], x)
+
+
 def _up_vital(u):
     """A Coming up row + 🫀 its vital and, for a coin under 6h / a trench coin, 🗑 the degen read."""
     jf = (_jup_facts.get(u.get('mint')) or (0, None))[1]
     out = {**u, 'vital': _ja.verdict(jf, u)} if jf else dict(u)
-    if u.get('trench') or u.get('trenchOnly') or (u.get('ageH') is not None and _fuse._f(u.get('ageH')) < 6):
-        out['tv'] = _ja.trench_verdict(jf, u)
+    tv = _read_for(u)
+    if tv:
+        out['tv'] = tv
     return out
 
 
 def _clean_rows(rows):
     """🧼 + 🧬 on every pick row: holder facts from the scan cache and the 10-point clean score (cache reads only, never a fetch).
     + 🫀 `vital` (jup_audit.verdict: grade, 3 deciding facts, 4 bars) and 👥 `crew` from Jupiter's audit when it has been read."""
+    cmap_ = _cand_map()
     for r in rows or []:
         m = r.get('baseAddress') or r.get('mint')
         if not m:
@@ -2953,9 +2972,9 @@ def _clean_rows(rows):
         if jf:
             r['vital'] = _ja.verdict(jf, r)
             r['crew'] = r['vital'].get('crew')
-        age_ = r.get('ageH')
-        if r.get('trench') or r.get('curve') or (age_ is not None and _fuse._f(age_) < 6):   # 🗑 brand-new coins get the degen read too
-            r['tv'] = _ja.trench_verdict(jf, r)
+        tv_ = _read_for(r, cmap_)   # 🎢 curve · 🧲 dip · 🔥 new coin — the read that fits it
+        if tv_:
+            r['tv'] = tv_
             r['holders'] = r.get('holders') or jf.get('holders')
     return rows
 
@@ -5993,7 +6012,8 @@ async def _owner_moves_tick(now):
 
 
 CALL_PROOF_PATH = FUSE_HQ_PATH.parent / 'call_proof.json'   # 🗑 each trench-vital CALL's own 1-hour record (send / watch / cold / bait)
-CALL_KEYS = {'SEND IT': 'send', 'WATCH': 'watch', 'COLD': 'cold', 'RUG BAIT': 'bait'}
+CALL_KEYS = {'SEND IT': 'send', 'WATCH': 'watch', 'COLD': 'cold', 'RUG BAIT': 'bait', 'BOND RUN': 'bond', 'EARLY RUSH': 'rush', 'DUMPING': 'dump',
+             'SLOW CURVE': 'slow', 'BUY THE DIP': 'dip', 'FALLING KNIFE': 'knife', 'DEAD DIP': 'deaddip'}
 CALL_AUTO_MIN = 10   # the engine takes 🔥 SEND IT coins by itself only after ≥ 10 settled calls with a typical result up and half or more up
 _call_cache: dict = {'at': 0.0, 'send': [], 'proof': {}}
 
@@ -6005,13 +6025,16 @@ async def _call_track(now):
     try:
         rows = _open_board() if _open_pairs else []
         await _jup_lite([r.get('mint') for r in rows])
-        by, send = {k: [] for k in CALL_KEYS.values()}, []
+        by, send, cmap_ = {k: [] for k in dict.fromkeys(CALL_KEYS.values())}, [], _cand_map()
         for r in rows:
             m = r.get('mint')
             if not m or _fuse._f(r.get('price')) <= 0:
                 continue
             tv = _ja.trench_verdict((_jup_facts.get(m) or (0, None))[1], r)
             k = CALL_KEYS.get(tv['call'][1])
+            rd = _read_for(r, cmap_)   # 🎢 / 🧲 calls are scored too (each coin once per call)
+            if rd and rd.get('kind') in ('curve', 'dip') and CALL_KEYS.get(rd['call'][1]) not in (None, 'watch', k):
+                by[CALL_KEYS[rd['call'][1]]].append((m, r['price']))
             if k:
                 by[k].append((m, r['price']))
             if k == 'send' and r.get('safe') is True:
@@ -6035,7 +6058,7 @@ def _sendit_ready():
 async def fuse_call_proof():
     """Each trench-vital call's own 1-hour record + whether the engine is taking 🔥 SEND IT coins yet."""
     if not _call_cache.get('proof'):
-        _call_cache['proof'] = _trench.meta_proof(_json_load(CALL_PROOF_PATH, {}), keys=tuple(CALL_KEYS.values()))
+        _call_cache['proof'] = _trench.meta_proof(_json_load(CALL_PROOF_PATH, {}), keys=tuple(dict.fromkeys(CALL_KEYS.values())))
     return {'proof': _call_cache.get('proof') or {}, 'auto': _sendit_ready(), 'autoMin': CALL_AUTO_MIN, 'send': [r.get('symbol') for r in _call_cache.get('send') or []]}
 
 
@@ -6180,9 +6203,10 @@ async def fuse_trench(meta: str = Query('', max_length=20)):
     if isinstance(out, dict) and out.get('rows'):
         await _jup_lite([r.get('mint') or r.get('baseAddress') for r in out['rows']])
         _clean_rows(out['rows'])
-        for r in out['rows']:   # 🗑 every row in the trench tab gets the degen read, whatever its age
+        for r in out['rows']:   # 🗑 every row in the trench tab gets a degen read, whatever its age (curve / dip when it fits, else SEND IT)
             if 'tv' not in r:
-                r['tv'] = _ja.trench_verdict((_jup_facts.get(r.get('mint') or r.get('baseAddress')) or (0, None))[1], r)
+                t_ = _ja.trench_verdict((_jup_facts.get(r.get('mint') or r.get('baseAddress')) or (0, None))[1], r)
+                r['tv'] = {**t_, 'kind': 'trench', 'meters': [['🔥 HEAT', t_['heat']], ['☠ RUG', t_['rug']]]}
     return out
 
 
@@ -7483,6 +7507,9 @@ async def _prime_tick_inner(now):
         if real_t or cfg_t.get('pickStyle') in ('hunt', 'sniper'):   # 🏊 the owner's own runner line (real) · a paper card's own pick style
             r_t = _prime.deep_runners(r_t, cfg_t.get('runnerMinLiqK'), cfg_t.get('runnerMinBuy'), cfg_t.get('runnerMinVolK'), cfg_t.get('runnerMinChg1h'))
             _step('your hunt line (pool · volume · 1h move · buyers)', r_t)
+        if real_t:   # 💀 never a dead coin (owner: "Coming up coins shouldn't be dead"): nothing in 5 min / < $3K or < 20 trades an hour
+            r_t, r_pre_ = [x for x in r_t if not _ja.dead_why(x)], [x for x in r_pre_ if not _ja.dead_why(x)]
+            _step('alive — traded in the last 5 min, $3K+ and 20+ trades an hour', r_t)
         if real_t and (cfg_t.get('vitalMin') or cfg_t.get('organicMin') or cfg_t.get('noSerial')):   # 🎛 the owner's vital filter (Coming up)
             vok_ = lambda x: _ja.filter_why((_jup_facts.get(x.get('mint')) or (0, None))[1], x, cfg_t) is None
             r_t, r_pre_ = [x for x in r_t if vok_(x)], [x for x in r_pre_ if vok_(x)]
@@ -7541,8 +7568,8 @@ async def _prime_tick_inner(now):
                      if r.get('mint') in bt_m and r.get('scanned') and not _rn.safety_fails(r, _runner_cfg()) and r['mint'] not in fb_ids
                      and _lq(r) >= floor_of(r) and _fuse._f(r.get('price')) > 0 and (r.get('ageH') is not None and _fuse._f(r.get('ageH')) >= min_age_)]
             fb_ = fb_ + [x for x in bots_ if x['mint'] not in {y.get('mint') for y in fb_}]
-            if real_t:   # 🎛 the 30s seat fallback obeys the owner's vital filter too
-                fb_ = [x for x in fb_ if _ja.filter_why((_jup_facts.get(x.get('mint')) or (0, None))[1], x, cfg_t) is None]
+            if real_t:   # 🎛 the 30s seat fallback obeys the owner's vital filter too — and never takes a dead coin
+                fb_ = [x for x in fb_ if _ja.filter_why((_jup_facts.get(x.get('mint')) or (0, None))[1], x, cfg_t) is None and not _ja.dead_why(x)]
             # ⏭ COMING UP BY CATEGORY (owner: "pick 1 of the best from the top for swap in categories"): each list (Pump trending,
             # Volume, Dips & bottoms, Movers, New launches, Trench) walked from ITS top; the first coin that passed the safety scan,
             # clears the pool floor + the card's min age, isn't dollar-named and is a sane entry (not falling / mid-spike / trending
@@ -7575,6 +7602,8 @@ async def _prime_tick_inner(now):
                     return 'at its highs'   # 🏔 never a coin sitting at its highs (owner)
                 if not _prime.seat_fallback_ok(x, mom):
                     return 'falling / spiking'
+                if real_t and _ja.dead_why(x):
+                    return 'dead (nobody trading it)'
                 vw_ = _ja.filter_why((_jup_facts.get(x['mint']) or (0, None))[1], x, cfg_t) if real_t else None
                 if vw_:
                     return 'your vital filter'
@@ -7666,7 +7695,8 @@ async def _prime_tick_inner(now):
             scout_ = [x for x in _prime.movers(r_pre_, {}) if x.get('mint') not in on_]
             row_ = lambda x: {'mint': x.get('mint'), 'pairAddress': x.get('pairAddress'), 'symbol': x.get('symbol'), 'chg1h': _fuse._f(x.get('chg1h')), 'vol1h': _fuse._f(x.get('vol1h')), 'tag': x.get('tag') or '',
                               'ageH': x.get('ageH'), 'liq': _lq(x), 'pad': x.get('pad'), 'mcap': x.get('mcap'), 'buyShare': x.get('buyShare'), 'top10': x.get('top10'), 'dev': x.get('dev'),
-                              'insiders': x.get('insiders'), 'site': x.get('site'), 'x': x.get('x'), 'tg': x.get('tg'), 'chg5m': x.get('chg5m')}
+                              'insiders': x.get('insiders'), 'site': x.get('site'), 'x': x.get('x'), 'tg': x.get('tg'), 'chg5m': x.get('chg5m'),
+                              'vol5m': x.get('vol5m'), 'txns1h': x.get('txns1h'), 'trench': x.get('trench'), 'trenchOnly': x.get('trenchOnly')}
             seen_u, up_ = set(), []
             doors_ = {x.get('cat'): x for x in (cfg_t.get('catPicks') or [])}
             for x in cfg_t.get('catWatch') or []:
@@ -7688,7 +7718,8 @@ async def _prime_tick_inner(now):
             for x, w_ in sorted(wrows_, key=lambda t: peaked_(t[1])):
                 if x.get('mint') and x['mint'] not in seen_u and len(up_) < 6:
                     seen_u.add(x['mint']); up_.append({**row_(x), 'wait': w_ + (' — already ran' if peaked_(w_) else '')})
-            cards[tid]['pipeline'] = {'at': now, 'steps': fun_ + [['not on the card and not cooling', len(free_)]], 'up': [_up_vital(u_) for u_ in up_[:6]], 'catMiss': cfg_t.get('catMiss') or {},
+            # 💀 never a dead coin under Coming up (a 0 on the row = not read, the runner board's numbers win)
+            cards[tid]['pipeline'] = {'at': now, 'steps': fun_ + [['not on the card and not cooling', len(free_)]], 'up': [_up_vital(u_) for u_ in [y for y in up_ if not _ja.dead_why({**{k: v for k, v in y.items() if v not in (None, 0, 0.0)}, **(_cand_map().get(y.get('mint')) or {})})][:6]], 'catMiss': cfg_t.get('catMiss') or {},
                                       'next': [f"${x.get('symbol')} {_fuse._f(x.get('chg1h')):+.0f}%" for x in sorted(free_, key=lambda x: -_fuse._f(x.get('chg1h')))[:4]],
                                       'scout': [f"${x.get('symbol')} {_fuse._f(x.get('chg1h')):+.0f}%" for x in scout_[:4]]}
         taken |= {l.get('mint') for l in (cards[tid] or {}).get('legs') or [] if l.get('role') != 'anchor'}

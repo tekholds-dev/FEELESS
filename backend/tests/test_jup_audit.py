@@ -80,3 +80,20 @@ def test_send_it_calls_are_scored_and_the_engine_waits_for_proof(monkeypatch):
     assert rs._sendit_ready()
     import arena_prime as ap
     assert ap.clean_cfg({})['sendItAuto'] is True and ap.clean_cfg({'sendItAuto': False})['sendItAuto'] is False
+
+
+def test_curve_dip_reads_and_the_dead_check():
+    rush = ja.curve_verdict({}, {'curvePct': 22, 'curveSpeed': 12, 'vol1h': 20000, 'vol5m': 6000, 'buyShare': 70, 'chg5m': 9})
+    assert rush['call'][1] == 'EARLY RUSH' and rush['kind'] == 'curve' and rush['meters'][0] == ['🎢 BOND', 22]
+    bond = ja.curve_verdict({}, {'curvePct': 85, 'curveSpeed': 10, 'vol1h': 30000, 'vol5m': 6000, 'buyShare': 62, 'chg5m': 4})
+    assert bond['call'][1] == 'BOND RUN' and any('to bond' in t for _i, t, _c in bond['tags'])
+    assert ja.curve_verdict({}, {'curvePct': 50, 'chg5m': -20, 'buyShare': 35})['call'][1] == 'DUMPING'
+    dip = ja.dip_verdict({'holderChg1h': 5, 'netBuyers1h': 120, 'traders1h': 200}, {'chg1h': -30, 'chg5m': 4, 'buyShare': 64, 'vol1h': 50000, 'vol5m': 5000})
+    assert dip['call'][1] == 'BUY THE DIP' and dip['meters'][0][0] == '🧲 BOUNCE'
+    knife = ja.dip_verdict({'holderChg1h': -8, 'liqChg1h': -30}, {'chg1h': -40, 'chg5m': -9, 'buyShare': 35, 'vol1h': 50000, 'vol5m': 5000})
+    assert knife['call'][1] == 'FALLING KNIFE'
+    assert ja.dip_verdict({}, {'chg1h': -40, 'vol1h': 900})['call'][1] == 'DEAD DIP'
+    assert ja.dead_why({'vol1h': 900}) and ja.dead_why({'vol1h': 50000, 'vol5m': 0}) and ja.dead_why({'vol1h': 50000, 'txns1h': 5})
+    assert ja.dead_why({'vol1h': 50000, 'vol5m': 2000, 'txns1h': 300}) is None
+    assert ja.pick_read({}, {'curvePct': 30})['kind'] == 'curve' and ja.pick_read({}, {'chg1h': -25})['kind'] == 'dip'
+    assert ja.pick_read({}, {'ageH': 1})['kind'] == 'trench' and ja.pick_read({}, {'ageH': 50, 'chg1h': 5}) is None

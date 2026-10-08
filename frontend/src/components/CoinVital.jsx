@@ -54,7 +54,8 @@ const Meter = ({ k, label, val }) => <span className={`tvl-m tvl-${k}`} data-tip
   <span className="tvl-ml">{label}</span><span className="tvl-cells">{Array.from({ length: 10 }, (_, i) => <span key={i} className={`tvl-c ${val != null && val >= (i + 1) * 10 - 5 ? 'on' : ''}`} style={{ '--i': i }} />)}</span>
   <span className="tvl-mv">{val == null ? '—' : val}</span></span>;
 // 📏 each call's own 1-hour record (backend _call_track → /fuses/call-proof), one shared read for every row
-const CALL_KEY = { 'SEND IT': 'send', WATCH: 'watch', COLD: 'cold', 'RUG BAIT': 'bait' };
+const CALL_KEY = { 'SEND IT': 'send', WATCH: 'watch', COLD: 'cold', 'RUG BAIT': 'bait', 'BOND RUN': 'bond', 'EARLY RUSH': 'rush', DUMPING: 'dump', 'SLOW CURVE': 'slow', 'BUY THE DIP': 'dip', 'FALLING KNIFE': 'knife', 'DEAD DIP': 'deaddip' };
+const KIND_TIP = { trench: 'New-coin read: 🔥 heat (is it sending) vs ☠ rug risk.', curve: 'Curve read: 🎢 how far along its launch curve vs ⚡ pace (curve speed, 5-min volume, buyers).', dip: 'Dip read: 🧲 bounce (turning up, buyers back, holders arriving) vs 🔪 knife (still falling, sellers, holders leaving).' };
 function useCallProof() {
   const [d, setD] = useState(null);
   useEffect(() => { let on = true; sharedJson('/api/reputation/fuses/call-proof', { maxAge: 120000 }).then(x => on && setD(x)).catch(() => {}); return () => { on = false; }; }, []);
@@ -66,9 +67,10 @@ export function TrenchVital({ r, mini = false }) {
   const cp = useCallProof();
   const t = r?.tv; if (!t) return null;
   const [ic, word, tone] = t.call || ['👀', 'WATCH', 'warn'];
-  return <div className={`tvl tvl-${tone} ${mini ? 'is-mini' : ''}`} data-testid={`tvl-${r.symbol}`}>
-    <span className={`tvl-call ${word === 'SEND IT' ? 'is-send' : ''}`} data-tip={`Degen call for a small ticket — heat vs rug risk. ${callRecord(cp?.proof?.[CALL_KEY[word]], word === 'SEND IT' && cp?.auto)} A read, never a promise.`}>{ic} {word}</span>
-    <span className="tvl-meters"><Meter k="heat" label="🔥 HEAT" val={t.heat} /><Meter k="rug" label="☠ RUG" val={t.rug} /></span>
+  const meters = t.meters || [['🔥 HEAT', t.heat], ['☠ RUG', t.rug]];
+  return <div className={`tvl tvl-${tone} tvl-k-${t.kind || 'trench'} ${mini ? 'is-mini' : ''}`} data-testid={`tvl-${r.symbol}`}>
+    <span className={`tvl-call ${tone === 'good' ? 'is-send' : ''}`} data-tip={`${KIND_TIP[t.kind || 'trench']} ${callRecord(cp?.proof?.[CALL_KEY[word]], word === 'SEND IT' && cp?.auto)} A read for a small ticket, never a promise.`}>{ic} {word}</span>
+    <span className="tvl-meters">{meters.map(([label, val], i) => <Meter key={label} k={i === 0 ? 'heat' : 'rug'} label={label} val={val} />)}</span>
     {!mini && t.tags?.length > 0 && <span className="tvl-tags">{t.tags.map(([i2, txt, tn]) => <span key={txt} className={`tvl-tag ${tn}`}>{i2} {txt}</span>)}
       {r.vital && <span className={`tvl-tag tvl-grade cvl-${r.vital.tone}`} data-tip={`Vital ${r.vital.score}/100 — ${r.vital.word}`}>🫀 {r.vital.grade}</span>}</span>}
   </div>;

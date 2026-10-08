@@ -99,3 +99,14 @@ body.theme-day .tvl-ml, body.theme-day .tvl-tag { color: #355; }
 /* 🏠 held-for-you chip in the real card's split line (fuseMoney.css is at its budget) */
 .hrt-split > .is-held { border-color: rgba(154, 215, 255, .45); } .hrt-split > .is-held b { color: #9ad7ff; }
 body.theme-day .hrt-split > .is-held b { color: #145a8a; }
+/* 🎢 curve + 🧲 dip reads: same meters, own accent */
+.tvl.tvl-k-curve { border-color: rgba(120, 200, 255, .3); background: linear-gradient(100deg, rgba(80, 160, 255, .12), rgba(0, 0, 0, .2) 55%); }
+.tvl-k-curve .tvl-heat .tvl-c.on { background: linear-gradient(90deg, #6fd3ff, #4f8bff); box-shadow: 0 0 5px rgba(79, 139, 255, .45); }
+.tvl-k-curve .tvl-rug .tvl-c.on, .tvl-k-curve .tvl-rug .tvl-c.on:nth-child(n+4), .tvl-k-curve .tvl-rug .tvl-c.on:nth-child(n+7) { background: linear-gradient(90deg, #ffd25c, #ff7a2f); box-shadow: none; }
+.tvl-k-curve.tvl-good .tvl-call { color: #6fd3ff; box-shadow: 0 0 14px rgba(79, 139, 255, .45); }
+.tvl.tvl-k-dip { border-color: rgba(69, 228, 134, .3); background: linear-gradient(100deg, rgba(21, 209, 106, .12), rgba(0, 0, 0, .2) 55%); }
+.tvl-k-dip .tvl-heat .tvl-c.on, .tvl-k-dip .tvl-heat .tvl-c.on:nth-child(n+7) { background: linear-gradient(90deg, #0e8a47, #45e486); box-shadow: 0 0 5px rgba(69, 228, 134, .4); }
+.tvl-k-dip.tvl-good .tvl-call { color: #45e486; box-shadow: 0 0 14px rgba(69, 228, 134, .4); }
+body.theme-day .tvl.tvl-k-curve { background: linear-gradient(100deg, rgba(80, 160, 255, .14), rgba(236, 246, 240, .7) 55%); border-color: #b8d6f0; }
+body.theme-day .tvl.tvl-k-dip { background: linear-gradient(100deg, rgba(21, 209, 106, .14), rgba(236, 246, 240, .7) 55%); border-color: #b9dcc8; }
+body.theme-day .tvl-k-curve.tvl-good .tvl-call { color: #1f5fa8; } body.theme-day .tvl-k-dip.tvl-good .tvl-call { color: #0b7a3e; }

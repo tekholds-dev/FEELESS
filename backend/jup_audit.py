@@ -237,3 +237,132 @@ def trench_verdict(f, row=None):
         call = ('👀', 'WATCH', 'warn')
     order = {'bad': 0, 'good': 1}
     return {'heat': heat, 'rug': rug, 'call': call, 'tags': sorted(tags, key=lambda x: order.get(x[2], 2))[:4]}
+
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+# 🎢 CURVE READ + 🧲 DIP READ + 💀 DEAD CHECK (owner, 2026-10-08: "love SEND IT — more like that for fast volume on the curve, better vitals for
+# dips, and Coming up coins shouldn't be dead"). Same shape as the trench read: two meters → one call → ≤ 4 tags. Hand-set weights; every call is
+# scored on its own 1-hour record (`_call_track`) before the engine leans on it. A read, never a promise.
+DEAD_VOL1H, DEAD_TX1H = 3000.0, 20   # under $3K traded in the hour, or under 20 trades, or nothing in the last 5 min = dead
+
+
+def dead_why(r):
+    """None = alive, else why it is dead (a coin nobody trades can't be sold either)."""
+    r = r or {}
+    v1, v5, tx = r.get('vol1h'), r.get('vol5m'), r.get('txns1h')
+    if v5 is not None and _f(v5) <= 0 and v1 is not None:
+        return 'dead — nothing traded in 5 min'
+    if v1 is not None and _f(v1) < DEAD_VOL1H:
+        return f"dead — ${_f(v1):,.0f} traded in the hour"
+    if tx is not None and int(_f(tx)) < DEAD_TX1H:
+        return f"dead — {int(_f(tx))} trades in the hour"
+    return None
+
+
+def _call(word, icon, tone):
+    return (icon, word, tone)
+
+
+def curve_verdict(f, row=None):
+    """🎢 A coin still on its launch curve: 🎢 BOND (how far along the curve) × ⚡ PACE (curve speed + 5-min volume pace + buyers).
+    Calls: 🎢 BOND RUN (≥ 70% along, pace ≥ 60) · 🚀 EARLY RUSH (< 40% along, pace ≥ 70, buyers ≥ 60%) · 🧨 DUMPING (5m ≤ −15% or sellers in
+    charge) · ⏳ SLOW CURVE (pace < 35) · 👀 WATCH. Rug risk from the trench read still rides along (☠ RUG BAIT wins)."""
+    f, r = f or {}, row or {}
+    cp = r.get('curvePct')
+    bond = None if cp is None else max(0, min(100, round(_f(cp))))
+    parts, tags = [], []
+    sp = r.get('curveSpeed')   # curve % gained per 10 min (runner board history)
+    if sp is not None:
+        parts.append(max(0.0, min(1.0, _f(sp) / 15)))
+        if _f(sp) >= 8:
+            tags.append(('🎢', f"curve +{_f(sp):.0f}%/10m", 'good'))
+    v1, v5 = _f(r.get('vol1h')), _f(r.get('vol5m'))
+    if v1 > 0 and v5 > 0:
+        pace = v5 * 12 / v1; parts.append(min(1.0, pace / 2.5))
+        if pace >= 1.5:
+            tags.append(('⚡', f"5m pace {pace:.1f}×", 'good'))
+    bs = r.get('buyShare')
+    if bs is not None:
+        parts.append(max(0.0, min(1.0, (_f(bs) - 40) / 30)))
+    pace_v = round(sum(parts) / len(parts) * 100) if parts else None
+    if bond is not None and bond >= 70:
+        tags.insert(0, ('🔔', f"{bond}% to bond", 'good'))
+    rug = trench_verdict(f, r)
+    c5 = r.get('chg5m')
+    if rug['call'][1] == 'RUG BAIT':
+        call = rug['call']
+    elif (c5 is not None and _f(c5) <= -15) or (bs is not None and _f(bs) < 40):
+        call = _call('DUMPING', '🧨', 'bad'); tags.insert(0, ('🧨', f"{_f(c5):+.0f}% in 5m" if c5 is not None else 'sellers in charge', 'bad'))
+    elif bond is not None and bond >= 70 and pace_v is not None and pace_v >= 60:
+        call = _call('BOND RUN', '🎢', 'good')
+    elif bond is not None and bond < 40 and pace_v is not None and pace_v >= 70 and (bs is None or _f(bs) >= 60):
+        call = _call('EARLY RUSH', '🚀', 'good')
+    elif pace_v is not None and pace_v < 35:
+        call = _call('SLOW CURVE', '⏳', 'warn')
+    else:
+        call = _call('WATCH', '👀', 'warn')
+    order = {'bad': 0, 'good': 1}
+    return {'kind': 'curve', 'call': call, 'meters': [['🎢 BOND', bond], ['⚡ PACE', pace_v]], 'rug': rug['rug'],
+            'tags': sorted(tags + [t for t in rug['tags'] if t[2] == 'bad'][:1], key=lambda x: order.get(x[2], 2))[:4]}
+
+
+def is_dip(r):
+    r = r or {}
+    return (r.get('chg1h') is not None and _f(r['chg1h']) <= -10) or _f(r.get('cPull')) >= 20 or \
+        (r.get('chg6h') is not None and _f(r['chg6h']) <= -25) or (r.get('chg24h') is not None and _f(r['chg24h']) <= -35)
+
+
+def dip_verdict(f, row=None):
+    """🧲 A coin well off its high: 🧲 BOUNCE (5 min turning up, buyers back, holders still arriving, net buyers) × 🔪 KNIFE (still falling,
+    sellers in charge, holders leaving, pool draining). Calls: 🧲 BUY THE DIP (bounce ≥ 60, knife ≤ 40) · 🔪 FALLING KNIFE (knife ≥ 60) ·
+    💤 DEAD DIP (dead) · 👀 WATCH."""
+    f, r = f or {}, row or {}
+    up, dn, tags = [], [], []
+    c5, c1, bs = r.get('chg5m'), r.get('chg1h'), r.get('buyShare')
+    deep = max(_f(r.get('cPull')), -_f(c1) if c1 is not None else 0, -_f(r.get('chg6h')) if r.get('chg6h') is not None else 0)
+    if deep > 0:
+        tags.append(('📉', f"{deep:.0f}% off", 'warn'))
+    if c5 is not None:
+        up.append(max(0.0, min(1.0, (_f(c5) + 1) / 6))); dn.append(max(0.0, min(1.0, -_f(c5) / 8)))
+        if _f(c5) >= 2:
+            tags.append(('↗', f"turning +{_f(c5):.0f}% in 5m", 'good'))
+    if bs is not None:
+        up.append(max(0.0, min(1.0, (_f(bs) - 45) / 20))); dn.append(max(0.0, min(1.0, (55 - _f(bs)) / 20)))
+    hc = f.get('holderChg1h')
+    if hc is not None:
+        up.append(max(0.0, min(1.0, 0.4 + _f(hc) / 30))); dn.append(max(0.0, min(1.0, -_f(hc) / 10)))
+        if _f(hc) < -3:
+            tags.append(('🚪', f"holders {_f(hc):.0f}%/h", 'bad'))
+    nb, tr = f.get('netBuyers1h'), f.get('traders1h')
+    if nb is not None and _f(tr) >= 50:
+        up.append(max(0.0, min(1.0, _f(nb) / _f(tr) / 0.5)))
+    if f.get('liqChg1h') is not None and _f(f['liqChg1h']) <= -20:
+        dn.append(1.0); tags.append(('🩸', f"pool {_f(f['liqChg1h']):.0f}%/h", 'bad'))
+    bounce = round(sum(up) / len(up) * 100) if up else None
+    knife = round(sum(dn) / len(dn) * 100) if dn else None
+    dw = dead_why(r)
+    if dw:
+        call = _call('DEAD DIP', '💤', 'bad'); tags.insert(0, ('💤', dw.replace('dead — ', ''), 'bad'))
+    elif authority_bad(f):
+        call = _call('RUG BAIT', '☠', 'bad')
+    elif knife is not None and knife >= 60:
+        call = _call('FALLING KNIFE', '🔪', 'bad')
+    elif bounce is not None and bounce >= 60 and (knife is None or knife <= 40):
+        call = _call('BUY THE DIP', '🧲', 'good')
+    else:
+        call = _call('WATCH', '👀', 'warn')
+    order = {'bad': 0, 'good': 1}
+    return {'kind': 'dip', 'call': call, 'meters': [['🧲 BOUNCE', bounce], ['🔪 KNIFE', knife]], 'tags': sorted(tags, key=lambda x: order.get(x[2], 2))[:4]}
+
+
+def pick_read(f, row=None):
+    """The read that fits this coin: 🎢 on its curve → curve · 🧲 well off its high → dip · new (< 6h) / trench → trench (SEND IT) · else None."""
+    r = row or {}
+    if r.get('curvePct') is not None and _f(r['curvePct']) < 100:
+        return curve_verdict(f, r)
+    if is_dip(r):
+        return dip_verdict(f, r)
+    if r.get('trench') or r.get('trenchOnly') or (r.get('ageH') is not None and _f(r['ageH']) < 6):
+        t = trench_verdict(f, r)
+        return {**t, 'kind': 'trench', 'meters': [['🔥 HEAT', t['heat']], ['☠ RUG', t['rug']]]}
+    return None

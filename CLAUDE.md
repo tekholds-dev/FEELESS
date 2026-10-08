@@ -2218,3 +2218,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   watch / cold / bait) noted once at its price, settled 1h later (no price = −100%); the call badge tip shows its record. The engine puts SAFE 🔥 SEND IT
   coins FIRST in the trench drop only once `send` is proven with ≥ `CALL_AUTO_MIN` 10 settled (cfg `sendItAuto`, on; Edit Fuse › Coins).
 - Owner buttons: ↩ Sell all / ▶ resume also start the keeper at once (`_fw_kick_now`).
+- 🎢🧲💀 MORE READS (owner, 2026-10-08: "love SEND IT — more for fast volume on the curve, better vitals for dips, Coming up coins shouldn't be dead";
+  `jup_audit.curve_verdict / dip_verdict / dead_why / pick_read`, `_read_for(row)` fills curve % + curve speed + 5-min flow from the runner board):
+  🎢 CURVE (on its launch curve) = 🎢 BOND % × ⚡ PACE → BOND RUN · EARLY RUSH · DUMPING · SLOW CURVE · WATCH (RUG BAIT wins) · 🧲 DIP (well off its
+  high) = 🧲 BOUNCE × 🔪 KNIFE → BUY THE DIP · FALLING KNIFE · DEAD DIP · WATCH · else new coins keep 🔥 SEND IT. Row `tv` = {kind, call, meters,
+  tags}; `TrenchVital` renders any of them (`tvl-k-curve` blue, `tvl-k-dip` green). Every call is scored in `call_proof.json` (bond, rush, dump, slow,
+  dip, knife, deaddip). 💀 DEAD (`dead_why`: nothing in 5 min, < $3K or < 20 trades an hour) = never under Coming up, never an engine buy on the real
+  card (pipeline step "alive", `_cat_ok` "dead", 30s seat fallback).
