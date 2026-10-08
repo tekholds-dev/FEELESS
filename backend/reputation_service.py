@@ -2923,6 +2923,15 @@ async def _jup_lite(mints):
     return {m: _jup_facts[m][1] for m in mints if m in _jup_facts}
 
 
+def _up_vital(u):
+    """A Coming up row + 🫀 its vital and, for a coin under 6h / a trench coin, 🗑 the degen read."""
+    jf = (_jup_facts.get(u.get('mint')) or (0, None))[1]
+    out = {**u, 'vital': _ja.verdict(jf, u)} if jf else dict(u)
+    if u.get('trench') or u.get('trenchOnly') or (u.get('ageH') is not None and _fuse._f(u.get('ageH')) < 6):
+        out['tv'] = _ja.trench_verdict(jf, u)
+    return out
+
+
 def _clean_rows(rows):
     """🧼 + 🧬 on every pick row: holder facts from the scan cache and the 10-point clean score (cache reads only, never a fetch).
     + 🫀 `vital` (jup_audit.verdict: grade, 3 deciding facts, 4 bars) and 👥 `crew` from Jupiter's audit when it has been read."""
@@ -7628,7 +7637,7 @@ async def _prime_tick_inner(now):
             for x, w_ in sorted(wrows_, key=lambda t: peaked_(t[1])):
                 if x.get('mint') and x['mint'] not in seen_u and len(up_) < 6:
                     seen_u.add(x['mint']); up_.append({**row_(x), 'wait': w_ + (' — already ran' if peaked_(w_) else '')})
-            cards[tid]['pipeline'] = {'at': now, 'steps': fun_ + [['not on the card and not cooling', len(free_)]], 'up': [({**u_, 'vital': _ja.verdict(_jup_facts[u_['mint']][1], u_)} if u_.get('mint') in _jup_facts else u_) for u_ in up_[:6]], 'catMiss': cfg_t.get('catMiss') or {},
+            cards[tid]['pipeline'] = {'at': now, 'steps': fun_ + [['not on the card and not cooling', len(free_)]], 'up': [_up_vital(u_) for u_ in up_[:6]], 'catMiss': cfg_t.get('catMiss') or {},
                                       'next': [f"${x.get('symbol')} {_fuse._f(x.get('chg1h')):+.0f}%" for x in sorted(free_, key=lambda x: -_fuse._f(x.get('chg1h')))[:4]],
                                       'scout': [f"${x.get('symbol')} {_fuse._f(x.get('chg1h')):+.0f}%" for x in scout_[:4]]}
         taken |= {l.get('mint') for l in (cards[tid] or {}).get('legs') or [] if l.get('role') != 'anchor'}
