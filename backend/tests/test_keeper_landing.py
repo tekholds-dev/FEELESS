@@ -491,3 +491,13 @@ def test_every_real_buy_gate_reads_jupiter_when_dexscreener_answers_empty(monkey
     import pathlib
     src = (pathlib.Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text()
     assert src.count('_fw.live_buy_market(') == 3 and src.count('await _fw_live_pairs(') == 3     # all three gates use the helper
+
+
+def test_a_plain_burst_429_only_rests_a_scanner_node_a_few_seconds(monkeypatch):
+    import time
+    monkeypatch.setattr(chain_rpc, 'KEEPER_LANES', []); monkeypatch.setattr(chain_rpc, 'RPC_POOL', ['A', 'B'])
+    monkeypatch.setattr(chain_rpc, 'RPC_MAX_RETRIES', 2); monkeypatch.setattr(chain_rpc, '_dedicated', '')
+    monkeypatch.setattr(chain_rpc, '_quota_until', {}); monkeypatch.setattr(chain_rpc, '_rpc_cooldown_until', {})
+    http = _Http([_Res(429, {}), _Res(200, {'result': 1})])
+    assert asyncio.run(chain_rpc._rpc(http, 'getTokenLargestAccounts', ['M'])) == 1
+    assert 0 < chain_rpc._rpc_cooldown_until['A'] - time.time() <= chain_rpc.RPC_BURST_COOLDOWN + 1   # 4s, not 30s: bursts must not cool every lane at once

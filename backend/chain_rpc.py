@@ -4,6 +4,7 @@ A dedicated key (Helius / QuickNode / Alchemy / Triton) goes first via SOLANA_RP
 are fallback-only, so a rate-limited public node never blocks resolution. Each endpoint has its own failure budget — a bad node is
 skipped for a cooldown window instead of failing every request that hits it.
 """
+import asyncio
 import os
 import time
 from typing import Optional
@@ -23,6 +24,9 @@ KEEPER_PUBLIC = PUBLIC[0]   # while no keyed lane works, this public node is the
 RPC_POOL = KEEPER_LANES + PUBLIC
 _rpc_cooldown_until: dict[str, float] = {}
 RPC_COOLDOWN_SECONDS = 30
+RPC_BURST_COOLDOWN = 4   # a plain burst 429 (not a spent plan) only rests that node a few seconds — at 30s the scanners' bursts cooled EVERY lane at once and holder scans came back empty
+SCAN_CONCURRENCY = 4     # holder / launch scans in flight at once across all scanners (the free plans' burst limits are low)
+_scan_gate = asyncio.Semaphore(SCAN_CONCURRENCY)
 RPC_MAX_RETRIES = len(RPC_POOL)
 
 
@@ -101,12 +105,16 @@ async def _rpc(http: httpx.AsyncClient, method: str, params: list, scan: bool = 
             last_error = last_error or 'scan_budget'   # over the scanners' share → try the next endpoint, leave the plan to the keeper
             continue
         try:
-            res = await http.post(endpoint, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params})
+            if scan:
+                async with _scan_gate:
+                    res = await http.post(endpoint, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params})
+            else:
+                res = await http.post(endpoint, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params})
             if res.status_code == 429:
                 spent = out_of_quota(429, res.text, res.headers)
                 if spent:
                     _quota_until[endpoint] = time.time() + spent
-                _rpc_cooldown_until[endpoint] = time.time() + RPC_COOLDOWN_SECONDS
+                _rpc_cooldown_until[endpoint] = time.time() + (RPC_COOLDOWN_SECONDS if spent else RPC_BURST_COOLDOWN)
                 last_error = 'rate_limited'
                 continue
             res.raise_for_status()
