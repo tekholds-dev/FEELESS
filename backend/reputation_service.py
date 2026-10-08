@@ -18749,3 +18749,85 @@ async def wallet_dust_cronos(address: str):
     native = int(res.get(0) or '0x0', 16) / 1e18 if res.get(0) else 0.0
     return {'chain': 'cronos', 'address': address, 'rows': rows, 'nativeCro': native, 'swapMinUsd': _dust.SWAP_MIN_USD,
             'summary': {'coins': len(rows), 'swapUsd': round(sum(r['usd'] or 0 for r in rows if r['best'] == 'swap'), 2)}}
+
+
+# ---- 🎵 MINI PLAYER: search (YouTube, + Spotify when keyed), top played (Apple chart), endless Next — read-only public data ----
+import music as _music
+_music_cache: dict = {}
+_UA = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36', 'Accept-Language': 'en-US,en;q=0.9'}
+
+
+async def _yt_search(q):
+    key = ('yt', q.lower())
+    hit = _music_cache.get(key)
+    if hit and time.time() - hit[0] < 600:
+        return hit[1]
+    rows = []
+    async with httpx.AsyncClient(timeout=10, headers=_UA, follow_redirects=True) as http:
+        try:
+            r = await http.get('https://www.youtube.com/results', params={'search_query': q, 'sp': 'EgIQAQ%3D%3D'})
+            rows = _music.yt_results(r.text)
+        except Exception:
+            rows = []
+        if not rows:   # fallback: a public Piped node (same videos, its own JSON)
+            try:
+                j = (await http.get('https://api.piped.private.coffee/search', params={'q': q, 'filter': 'videos'})).json()
+                rows = [{'id': (x.get('url') or '').split('v=')[-1][:11], 'title': x.get('title'), 'channel': x.get('uploaderName'), 'length': '', 'views': '',
+                         'url': f"https://www.youtube.com{x.get('url')}", 'thumb': x.get('thumbnail')} for x in (j.get('items') or []) if x.get('type') == 'stream'][:20]
+            except Exception:
+                rows = []
+    if len(_music_cache) > 400:
+        _music_cache.clear()
+    _music_cache[key] = (time.time(), rows)
+    return rows
+
+
+async def _spotify_search(q):
+    cid, sec = os.getenv('SPOTIFY_CLIENT_ID', ''), os.getenv('SPOTIFY_CLIENT_SECRET', '')
+    if not (cid and sec):
+        return None
+    async with httpx.AsyncClient(timeout=8) as http:
+        tok = _music_cache.get(('sp-token',))
+        if not tok or time.time() - tok[0] > 3000:
+            r = await http.post('https://accounts.spotify.com/api/token', data={'grant_type': 'client_credentials'}, auth=(cid, sec))
+            tok = _music_cache[('sp-token',)] = (time.time(), r.json().get('access_token'))
+        r = await http.get('https://api.spotify.com/v1/search', params={'q': q, 'type': 'track', 'limit': 10}, headers={'Authorization': f'Bearer {tok[1]}'})
+        return _music.spotify_tracks(r.json())
+
+
+@app.get('/api/reputation/music/search')
+async def music_search(q: str = Query(..., min_length=2, max_length=80)):
+    """YouTube videos for the search (+ Spotify tracks when the owner set a Spotify key — they play through YouTube)."""
+    yt = await _yt_search(q.strip())
+    try:
+        sp = await _spotify_search(q.strip())
+    except Exception:
+        sp = None
+    return {'q': q, 'youtube': yt, 'spotify': sp, 'spotifyOn': sp is not None}
+
+
+@app.get('/api/reputation/music/top')
+async def music_top():
+    """🔥 Top played right now: Apple Music's most-played chart (US, public RSS, 1h cache). Tap one → it is found on YouTube and played."""
+    hit = _music_cache.get(('top',))
+    if hit and time.time() - hit[0] < 3600:
+        return hit[1]
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            doc = (await http.get('https://rss.marketingtools.apple.com/api/v2/us/music/most-played/25/songs.json')).json()
+        out = {'source': 'Apple Music · most played (US)', 'rows': _music.apple_top(doc)}
+    except Exception:
+        return (hit[1] if hit else {'source': '', 'rows': []})
+    _music_cache[('top',)] = (time.time(), out)
+    return out
+
+
+@app.get('/api/reputation/music/next')
+async def music_next(title: str = Query('', max_length=160), skip: str = Query('', max_length=2000), titles: str = Query('', max_length=4000)):
+    """▶ Next when the queue runs out: another song by the same artist that is not already queued (like YouTube's autoplay)."""
+    artist = _music.artist_of(title)
+    rows = await _yt_search(f'{artist} songs' if artist else 'top songs this week')
+    pick = _music.pick_next(rows, [s for s in skip.split(',') if s], [t for t in titles.split('|') if t])
+    if not pick:
+        pick = _music.pick_next(await _yt_search('top songs this week'), [s for s in skip.split(',') if s], [t for t in titles.split('|') if t])
+    return {'next': pick, 'artist': artist}

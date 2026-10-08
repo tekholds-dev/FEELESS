@@ -1,0 +1,24 @@
+/* 🔎 Mini player song finder (MusicFind). m-* tokens, transform / opacity only. Keyframes: mf* */
+.mf { display: grid; gap: 6px; margin-top: 8px; }
+.mf-tabs { display: flex; gap: 4px; }
+.mf-tabs button { flex: 1; border: 1px solid var(--m-line, #ffffff1f); background: none; color: var(--m-dim, #9ab); border-radius: 8px; padding: 5px 6px; font: 600 11px inherit; cursor: pointer; transition: color .15s, background .15s; }
+.mf-tabs button:hover { color: var(--m-text, #e6fff0); } .mf-tabs button:focus-visible { outline: 2px solid #15d16a; outline-offset: 1px; }
+.mf-tabs button.on { background: #15d16a; color: #04130b; border-color: #15d16a; }
+.mf-q { width: 100%; border: 1px solid var(--m-line, #ffffff1f); background: var(--m-surface-2, #0b1a12); color: inherit; border-radius: 8px; padding: 6px 9px; font-size: 12px; }
+.mf-q:focus { outline: 2px solid #15d16a66; }
+.mf-busy, .mf-src { margin: 0; font-size: 10px; color: var(--m-dim, #9ab); }
+.mf-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 220px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
+.mf-list::-webkit-scrollbar { width: 6px; } .mf-list::-webkit-scrollbar-thumb { background: #15d16a; border-radius: 6px; }
+.mf-list li { display: grid; grid-template-columns: 40px minmax(0, 1fr) 24px 24px; gap: 6px; align-items: center; animation: mfIn .2s ease both; animation-delay: calc(var(--i, 0) * 45ms); }
+.mf-list img, .mf-list li > i { width: 40px; height: 24px; object-fit: cover; border-radius: 4px; background: #ffffff12; }
+.mf-list span { display: grid; min-width: 0; } .mf-list b { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mf-list small { font-size: 10px; color: var(--m-dim, #9ab); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mf-list li.is-sp small { color: #1ed760; }
+.mf-list button { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--m-line, #ffffff1f); background: none; color: inherit; cursor: pointer; transition: transform .12s, background .12s; }
+.mf-list button:hover { background: #15d16a; color: #04130b; transform: scale(1.08); } .mf-list button:active { transform: scale(.94); }
+.mf-list button:focus-visible { outline: 2px solid #15d16a; }
+@keyframes mfIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+body.fx-lite .mf-list li { animation: none; }
+@media (prefers-reduced-motion: reduce) { .mf-list li { animation: none; } .mf-list button { transition: none; } }
+body.theme-day .mf-tabs button { color: #3f5a4a; } body.theme-day .mf-q { background: #eef6f1; color: #0f2419; } body.theme-day .mf-list li.is-sp small { color: #0f7a3a; }
+@media (max-width: 640px) { .mf-list { max-height: 180px; } }

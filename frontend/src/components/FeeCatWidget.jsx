@@ -5,6 +5,8 @@ import { FeeCatMark } from './FeeCatMark';
 import EcosystemChat from './EcosystemChat';
 import { parse, songTitle } from './command/ProfileMusic';
 import { MiniMine, MiniTop } from './MiniDeck';
+import MusicFind, { ytId } from './MusicFind';
+import { apiUrl } from '../lib/api';
 
 const PLAYLIST_KEY = 'feeless:site-playlist';
 // ▶ Like YouTube: a refresh comes back to the same song at the same second, still playing (or still paused).
@@ -60,10 +62,21 @@ export function FeeCatWidget() {
     return () => { window.removeEventListener('pointerdown', unmute); window.removeEventListener('keydown', unmute); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { try { localStorage.setItem(PLAYLIST_KEY, JSON.stringify(songs)); localStorage.setItem('feeless:music-mode', mode); } catch { /* ignore */ } }, [songs, mode]);
+  // ▶ add a found song: play it now (jumps to it) or queue it (max 20 kept, oldest drop off)
+  const addSong = (sg, now) => setSongs(list => { const n = [...list.filter(x => x.url !== sg.url), sg].slice(-20); if (now) { setI(n.length - 1); setPlaying(true); } return n; });
+  // ▶▶ like YouTube: at the END of the queue Next keeps going — another song by the same artist that is not queued yet
+  // (GET /music/next); if nothing comes back it loops the queue as before.
+  const keepGoing = async () => {
+    const cur = songs[i] || {};
+    const qs = new URLSearchParams({ title: cur.title || '', skip: songs.map(x => ytId(x.url)).filter(Boolean).join(','), titles: songs.map(x => x.title || '').join('|') });
+    try { const d = await fetch(apiUrl(`/api/reputation/music/next?${qs}`)).then(r => r.json()); if (d?.next?.url) { addSong({ url: d.next.url, title: d.next.title }, true); return true; } } catch { /* offline: loop */ }
+    return false;
+  };
   const next = (auto = false) => {
     if (!songs.length) return;
     if (auto && mode === 'one') { setNonce(n => n + 1); return; }
     if (mode === 'shuffle' && songs.length > 1) { setI(x => { let r = x; while (r === x) r = Math.floor(Math.random() * songs.length); return r; }); }
+    else if (mode === 'all' && i === songs.length - 1) { keepGoing().then(ok => { if (!ok) { setI(0); setPlaying(true); } }); return; }
     else setI(x => (x + 1) % songs.length);
     setPlaying(true);
   };
@@ -148,6 +161,7 @@ export function FeeCatWidget() {
           <ol className="feecat-queue">{songs.map((sg, k) => <li key={`${sg.url}-${k}`}><button type="button" className={k === i ? 'on' : ''} onClick={() => { setI(k); setPlaying(true); }}>{k === i && playing ? <i className="eq"><b /><b /><b /></i> : <span>{k + 1}</span>}{sg.title || sg.url}</button><button type="button" className="feecat-x" aria-label={`Remove ${sg.title || 'song'}`} data-testid={`music-remove-${k}`} onClick={() => remove(k)}><X size={12} /></button></li>)}</ol>
         </> : <p className="feecat-empty">No songs yet — paste a YouTube, Spotify or SoundCloud link below.</p>}
         <div className="feecat-add"><input placeholder="Paste a song link…" value={url} onChange={e => setUrl(e.target.value)} /><button type="button" disabled={!parse(url)} onClick={add}><Plus size={13} /></button></div>
+        <MusicFind onAdd={addSong} />
       </div>}
       {tab === 'mine' && <MiniMine />}
       {tab === 'top' && <MiniTop />}

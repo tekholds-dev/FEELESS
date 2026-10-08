@@ -2143,3 +2143,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   ONE approval; a burn needs the "gone for good" box. Cronos: every LI.FI-listed token (balanceOf batch on evm.cronos.org) → ↩ swap to CRO via LI.FI
   (`lifiServerQuote` + `executeLifi`). Activity log per step, rows pulse while sending, fade out when done. The FUSE wallet's own dust is NOT touched by
   this (its keeper burn was refused by the permission system — the owner decides that one).
+- 🎵 MINI PLAYER FINDS SONGS (`MusicFind.jsx` + `styles/musicFind.css` `mf-*` in the FeeCat Music tab; `backend/music.py` pure + tested): 🔎 Search =
+  YouTube's own public results page (`ytInitialData`, no key; Piped `api.piped.private.coffee` fallback) · 🔥 Top played = Apple Music's most-played
+  RSS (US, 1h cache; tap → its first YouTube video plays) · Spotify search ONLY when `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` are set (tracks
+  still play through YouTube). ▶ plays now, ＋ queues (max 20). ▶▶ NEXT KEEPS GOING like YouTube: at the end of the queue (repeat-all) — button or the
+  song ending — `GET /music/next` adds another song by the same artist that is not queued, ≤ 8 min, never a "MIX"; nothing found → loops.
