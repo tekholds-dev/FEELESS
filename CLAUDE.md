@@ -2587,3 +2587,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   ordered by learned play once ≥ 30 judged, failed scans never move up); its own tab is gone. 🚀 Live movers tab (`_live_movers`, lens
   `live`, LENS_TRACK): ≥ $3K traded in 5 min, +3%+, buyers ≥ 50%, 60+ trades/h, scan not failed, by 5-min $ × move. 🏆 Best now never
   empty: no banger clears → the 🧬 edge ranking with live board numbers.
+- 🧱 OFF SWITCHES (owner, 2026-10-09, after the −20% floor sold a card with frozen coins at 15:44): card floor OFF and 🛑 trench-coin stop
+  OFF are on Edit Fuse's MAIN pane (`floorPct` 0 · `trenchSlPct` 100 = OFF: every ticket — trench drop AND young hand pick — rides or rugs,
+  held tickets switch at once, `stop_word`; rug shield still acts; learned stop never overrides OFF). The floor NEVER sells a ❄ frozen coin.
+  `_floor_off_fix_1009` set both OFF on the real card (backup data/realcfg_before_flooroff1009.json).

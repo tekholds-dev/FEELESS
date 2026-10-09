@@ -8616,6 +8616,25 @@ async def _flow_fix_1009(now):
     return True
 
 
+async def _floor_off_fix_1009(now):
+    """🧱 Once (owner, 2026-10-09: "MAKE A OFF OPTION FOR CARD/TRENCHCOIN FLOOR — I lost a dollar getting trenches swapped"): the −20% card
+    floor sold the whole card at 15:44, frozen coins included, and −25% ticket stops kept shaking trench coins out. Card floor OFF and
+    trench-coin stop OFF (tickets ride or rug — the rug shield still sells a pulled pool). Old values: data/realcfg_before_flooroff1009.json."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('floorOffFix1009') or not rc:
+            return False
+        ch = {'floorPct': 0, 'trenchSlPct': 100}
+        _json_save(DATA_DIR / 'realcfg_before_flooroff1009.json', {k: rc.get(k) for k in ch})
+        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
+        pr['floorOffFix1009'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _ticket_ride_fix(now):
     """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
     once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
@@ -8725,6 +8744,7 @@ async def _prime_tick_inner(now):
     await _moon_fix_1009(now)
     await _floor_fix_1009(now)
     await _flow_fix_1009(now)
+    await _floor_off_fix_1009(now)
     await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
@@ -9190,7 +9210,7 @@ async def _prime_tick_inner(now):
         for l_ in (cur or {}).get('legs') or []:   # 🧲 / 📣 what Pump's own feeds say about each coin the card holds (fed lock · second ticket)
             l_['fedN'] = int(((_feeders['board'].get('runners') or {}).get(l_.get('mint')) or {}).get('n') or 0)
             l_['calledN'] = int((_pump_calls['map'].get(l_.get('mint')) or {}).get('callers') or 0)
-        if real_t and cfg_t.get('trenchSlAuto', True):   # 🧠 tickets use the stop that paid best when the brain replayed every stop on the same paths
+        if real_t and cfg_t.get('trenchSlAuto', True) and _fuse._f(cfg_t.get('trenchSlPct')) < 100:   # 🧠 tickets use the stop that paid best when the brain replayed every stop on the same paths
             bs_ = ((_brain_state()['sum'] or {}).get('stops') or {}).get('best')
             if bs_ is not None:
                 cfg_t = {**cfg_t, 'ticketSl': bs_}

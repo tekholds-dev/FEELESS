@@ -2767,3 +2767,19 @@ def test_tickets_take_the_brains_learned_stop_and_held_tickets_move_to_it():
     assert [l for l in c2['legs'] if l['mint'] == 'T'][0].get('rideOrRug')               # learned "no stop" → ride or rug
     c3 = ap.tick(dict(base, legs=[dict(l) for l in base['legs']]), px, [], [], cfg, now + 30, [], {}, {})
     assert 'ticketSlLearned' not in c3 and ap.ticket_sl(c3, 25) == 25                       # nothing learned → the owner's stop as before
+
+
+def test_floor_never_sells_a_frozen_coin_and_ticket_stop_off_rides_every_ticket():
+    import arena_prime as ap
+    now = 1_000_000.0
+    leg = lambda m, units, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'units': units, 'entry': 1.0, 'costUsd': units, 'at': now - 9999, 'liq': 5e6, **k}
+    base = {'tpl': 'degen', 'id': 'x', 'label': 'B', 'at': now - 9999, 'lastRotateAt': now, 'cash': 0.0, 'startUsd': 3.0, 'roundStartUsd': 3.0, 'compoundedUsd': 0.0,
+            'takenUsd': 0.0, 'feesUsd': 0.0, 'events': [], 'rounds': 3, 'floorSeen': 20.0, 'legs': [leg('A', 1.0), leg('F', 1.0, frozen=True), leg('T', 1.0, ticket=True, sl=25.0)]}
+    cfg = ap.clean_cfg({'rotateHours': 0.08, 'floorPct': 20, 'rescuePct': 0, 'compound': False, 'dealLeadSec': 15.0, 'floorRestMins': 0.0, 'trenchSlPct': 100})
+    assert cfg['trenchSlPct'] == 100 and ap.stop_word(100) == 'no stop (off)'
+    c = ap.tick(dict(base, legs=[dict(l) for l in base['legs']]), {'PA': 0.6, 'PF': 0.7, 'PT': 0.7}, [], [], cfg, now + 30, [], {}, {})
+    assert c.get('flooredAt') and [l['mint'] for l in c['legs']] == ['F']               # ❄ your frozen coin stays; the rest went to cash
+    t = ap.tick(dict(base, legs=[dict(l) for l in base['legs']]), {'PA': 1.0, 'PF': 1.0, 'PT': 0.6}, [], [], {**cfg, 'floorPct': 0}, now + 30, [], {}, {})
+    tl = [l for l in t['legs'] if l['mint'] == 'T'][0]
+    assert tl['sl'] == 100.0 and tl['units'] == 1.0                                       # stop OFF: a −40% ticket rides (floor off too)
+    assert ap.ticket_sl(t, ap.YOUNG_PICK_SL) == 100                                        # new hand-pick tickets ride as well

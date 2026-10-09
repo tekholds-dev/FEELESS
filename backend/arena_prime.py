@@ -1984,7 +1984,7 @@ def fit_size(picks, size_usd, min_coin_usd):
 
 
 TRENCH_STAKES = (0, 10, 15, 25)
-TRENCH_SLS = (0, 15, 20, 25, 30)
+TRENCH_SLS = (0, 15, 20, 25, 30, 40, 50, 100)   # 100 = OFF: no stop on a ticket (rug shield only) — the owner's switch
 
 
 def trench_n(cfg):
@@ -2061,7 +2061,12 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     # no rescue. Found live: two picks mid-swap read −40% on a card that had lost nothing → the floor sold every coin.
     blind = bool(blind) and not (true_usd is not None and _f(true_usd) > 0)
     ev = lambda **e: c['events'].append({'at': now, **e})
-    if (cfg or {}).get('ticketSl') is not None:   # 🧠 the trench brain's learned ticket stop (service-set per tick, real card, switch on)
+    c['ticketSlOwner'] = _f((cfg or {}).get('trenchSlPct')) or None
+    if _f((cfg or {}).get('trenchSlPct')) >= 100:   # 🛑 the owner switched ticket stops OFF: every ticket (new and held) rides, rug shield only
+        for l in c.get('legs') or []:
+            if l.get('ticket'):
+                l['sl'] = 100.0
+    if (cfg or {}).get('ticketSl') is not None and _f((cfg or {}).get('trenchSlPct')) < 100:   # 🧠 the trench brain's learned ticket stop (service-set per tick, real card, switch on)
         c['ticketSlLearned'] = _f(cfg['ticketSl'])
         for l in c.get('legs') or []:   # tickets already held move to the learned stop too (a −25% stop shook $Break out in 1.8 min)
             if l.get('ticket') and not l.get('rideOrRug') and not l.get('frozen'):
@@ -2194,7 +2199,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             c['cash'] = round(_f(c.get('cash')) + (out_usd - use_usd), 6)
             c['feesUsd'] = _f(c.get('feesUsd')) + 2 * fee
             ev(kind='rotate', symbol=l['symbol'], usd=round(use_usd, 4), why=f"🗑 trench drop — {gain(l):+.1f}% {'trench coin' if l.get('trench') else 'runner'} swapped for the best trench coin on the list"
-                                                                               + (f" (${use_usd:.2f} ticket = {pct_t:g}% of the card, stop −{ticket_sl(c, _f(cfg.get('trenchSlPct'))):g}%{' 🧠 learned' if c.get('ticketSlLearned') is not None else ''})" if pct_t > 0 else ''), to=[nxt.get('symbol')])
+                                                                               + (f" (${use_usd:.2f} ticket = {pct_t:g}% of the card, {stop_word(ticket_sl(c, _f(cfg.get('trenchSlPct'))))}{' 🧠 learned' if c.get('ticketSlLearned') is not None else ''})" if pct_t > 0 else ''), to=[nxt.get('symbol')])
             c['trenchFillAt'] = now
 
     # ⚡ INSTANT LOSS SWAP: this is deliberately NOT a round rule. Once a non-anchor coin reaches the owner's configured
@@ -2762,7 +2767,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         # the anchor a minute later is two extra swaps of the whole card.
         to_cash = bool(_f(cfg.get('dealLeadSec'))) and not _f(cfg.get('floorRestMins'))
         anc = [] if to_cash else [l for l in c['legs'] if l.get('role') == 'anchor' and safe_anchor(l) and _f(prices.get(l['pairAddress'])) > 0]
-        out = [l for l in c['legs'] if l not in anc]
+        out = [l for l in c['legs'] if l not in anc and not l.get('frozen')]   # ❄ a coin YOU froze is never sold by the floor
         usd = sum(sell_usd(l['units'], _f(prices.get(l['pairAddress'])) or l['entry'], liqs.get(l['pairAddress']) or l.get('liq')) for l in out)
         c['feesUsd'] += fee * len(out)
         if anc:
@@ -2770,7 +2775,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 apx = _f(prices.get(a['pairAddress'])); a['units'] += usd / len(anc) / apx; a['costUsd'] += usd / len(anc)
         else:
             c['cash'] += usd
-        c['legs'] = anc or []
+        c['legs'] = (anc or []) + [l for l in c['legs'] if l.get('frozen') and l not in anc]
         c['flooredAt'] = now
         ev(kind='floor', usd=round(usd, 4), why=f"card {pct:.0f}% ≤ −{cfg['floorPct']:g}% floor — everything into {'the anchor' if anc else 'cash'}", to=[a['symbol'] for a in anc] or ['cash'])
     c['lowPct'] = round(min(_f(c.get('lowPct')), pct), 2)
@@ -3359,7 +3364,7 @@ def apply_queued(c, prices, liqs, now, fee=0.0, only=None, why='🎯 your pick �
         c['legs'][i] = {**_leg({**to, 'price': live}, max(0.0, usd), now, 'anchor' if l.get('role') == 'anchor' and not tick_ else ('runner' if tick_ else l.get('role') or 'pool')), 'picked': True,
                         **(ticket_marks(c.get('ticketRide') or ticket_sl(c, YOUNG_PICK_SL) == 0, ticket_sl(c, YOUNG_PICK_SL)) if tick_ else {})}
         if tick_:
-            why = f"{why} · 🎟 under 12h old: a ${usd:.2f} ticket ({YOUNG_PICK_PCT:g}% of the card), " + ('🎰 ride or rug — no stop' if c.get('ticketRide') or ticket_sl(c, YOUNG_PICK_SL) == 0 else f"stop −{ticket_sl(c, YOUNG_PICK_SL):g}%" + (' 🧠 learned' if c.get('ticketSlLearned') is not None else '')) + ', never topped up'
+            why = f"{why} · 🎟 under 12h old: a ${usd:.2f} ticket ({YOUNG_PICK_PCT:g}% of the card), " + ('🎰 ride or rug — no stop' if c.get('ticketRide') or ticket_sl(c, YOUNG_PICK_SL) == 0 else stop_word(ticket_sl(c, YOUNG_PICK_SL)) + (' 🧠 learned' if c.get('ticketSlLearned') is not None else '')) + ', never topped up'
         c['feesUsd'] = round(_f(c.get('feesUsd')) + 2 * fee, 4)
         c.setdefault('events', []).append({'at': now, 'kind': 'rotate', 'symbol': l.get('symbol'), 'usd': round(usd, 4), 'why': why, 'to': [to.get('symbol')]})
         n += 1
@@ -3369,11 +3374,17 @@ def apply_queued(c, prices, liqs, now, fee=0.0, only=None, why='🎯 your pick �
 YOUNG_PICK_H, YOUNG_PICK_PCT, YOUNG_PICK_SL = 12.0, 15.0, 25.0
 
 
+def stop_word(v):
+    return 'no stop (off)' if _f(v) >= 100 else f"stop −{_f(v):g}%" if _f(v) > 0 else 'card stop'
+
+
 def ticket_sl(c, default):
     """🧠 A ticket's stop: the trench brain's LEARNED stop when the service handed one in this tick (the stop that paid best when every
     stop was replayed on the same recorded trench paths; 0 = no stop, ride or rug), else the owner's / default stop."""
     v = (c or {}).get('ticketSlLearned')
-    return _f(default) if v is None else _f(v)
+    if v is None:
+        v = (c or {}).get('ticketSlOwner') or default   # the owner's own trench-coin stop (100 = OFF) beats the built-in −25%
+    return _f(v)
 
 
 def ticket_marks(ride, sl):
