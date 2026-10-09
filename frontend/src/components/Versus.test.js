@@ -16,16 +16,14 @@ test('a paper card that picks like the owner: which cards and what the tip says'
   expect(humanTip({ ...h, ready: false, picks: 3, words: [] })).toMatch(/3 of 8 noted/);
 });
 
-test('buy-bottom lens is in the picker and says its own record honestly', () => {
-  const { PICK_LENSES, bottomRecord } = require('./ArenaPrime');
-  expect(PICK_LENSES.map(x => x[0])).toContain('bottom'); expect(PICK_LENSES.map(x => x[0])).not.toContain('dip');
-  expect(bottomRecord({ n: 12, medPct: -4.2, wonPct: 33 })).toBe('Its own record: 12 coins held 1 hour, typical -4.2%, 33% up.');
-  expect(bottomRecord(null)).toMatch(/starts now \(0 of 5 settled\)/);
+test('lists that did not earn a place are out of the picker', () => {
+  const { PICK_LENSES } = require('./ArenaPrime');
+  for (const k of ['bottom', 'volume', 'fed', 'prebreak', 'movers', 'pump', 'signals']) expect(PICK_LENSES.map(x => x[0])).not.toContain(k);
 });
 
-test('nine picker lists (Cooling off first), and a row with no recorded prices still gets a line from its own moves', () => {
+test('seven picker lists (Best now first), and a row with no recorded prices still gets a line from its own moves', () => {
   const { PICK_LENSES, moveLine } = require('./ArenaPrime');
-  expect(PICK_LENSES.length).toBe(10); expect(PICK_LENSES[0][0]).toBe('exhale');
+  expect(PICK_LENSES.length).toBe(7); expect(PICK_LENSES[0][0]).toBe('best');
   const pts = moveLine({ chg24h: 100, chg6h: 50, chg1h: -20, chg5m: 0 });
   expect(pts.length).toBe(5); expect(pts[0]).toBeCloseTo(0.5); expect(pts[2]).toBeCloseTo(1.25); expect(pts[4]).toBe(1);
   expect(moveLine({ chg1h: 10 })).toBeNull(); expect(moveLine({ chg1h: 10, chg5m: 1, chg24h: -100 }).length).toBe(3);   // a −100% reading is skipped, never divided by zero
@@ -54,4 +52,11 @@ test("the owner's scored moves read as one line", () => {
   expect(movesLine({ pick: { label: '🎯 pick', n: 12, good: 5, bad: 3, medPct: 3.1 }, skim: { label: '💰 profit take', n: 4, good: 2, bad: 0, medPct: -6 } }))
     .toBe('🎯 pick 12 · 5 good · 3 bad · typical +3.1%  |  💰 profit take 4 · 2 good · typical -6%');
   expect(movesLine(null)).toBe('');
+});
+
+test('trench vitals dex: seven cells graded on the safety lines, unknown never reads clean', () => {
+  const { dexCells } = require('./ArenaPrime');
+  const c = dexCells({ top10: 18, dev: 0.5, insiders: 20, bundledN: 0, snipersN: 9, holders: 420, rug: 40 });
+  expect(c.map(x => x.grade)).toEqual(['ok', 'ok', 'bad', 'ok', 'bad', 'ok', 'mid']);
+  expect(dexCells({}).every(x => x.grade === 'na' && x.text === '—')).toBe(true);
 });

@@ -2951,7 +2951,15 @@ async def coin_read(mint: str):
     tv = _read_for(row) or ({**(t_ := _ja.trench_verdict(jf, row)), 'kind': 'trench', 'meters': [['🔥 HEAT', t_['heat']], ['☠ RUG', t_['rug']]]} if jf or c else None)
     pc_ = _pump_calls['map'].get(mint)
     _fd_rows([row])
-    out = {'mint': mint, 'row': row, 'vital': vital, 'tv': tv, 'facts': jf, 'onBoard': bool(c), 'pc': _pc.summary(pc_) if pc_ else None, 'scanning': scanning, 'pace': _ja.pace(row), 'at': round(time.time(), 1)}
+    tape = None
+    if c.get('pairAddress'):   # 🌊 THE TAPE is part of every coin read (chart header, quick look, drawer) — one pool, 12s cache
+        try:
+            w_ = (await _flow_fetch([c['pairAddress']])).get(c['pairAddress'])
+            t_ = _flow.tape_read(w_)
+            tape = {'read': t_, 'label': _flow.TAPES.get(t_), 'buyUsd': (w_ or {}).get('buyUsd'), 'sellUsd': (w_ or {}).get('sellUsd'), 'n': (w_ or {}).get('n'), 'pxChg': (w_ or {}).get('pxChg')} if t_ else None
+        except Exception:
+            tape = None
+    out = {'mint': mint, 'row': row, 'vital': vital, 'tv': tv, 'tape': tape, 'facts': jf, 'onBoard': bool(c), 'pc': _pc.summary(pc_) if pc_ else None, 'scanning': scanning, 'pace': _ja.pace(row), 'at': round(time.time(), 1)}
     _coin_read_cache[mint] = (time.time() - (9 if scanning else 0), out)   # waiting on a scan: served 6s, not 15
     if len(_coin_read_cache) > 600:
         for k in sorted(_coin_read_cache, key=lambda k: _coin_read_cache[k][0])[:200]:
@@ -3058,6 +3066,7 @@ def _holder_facts(mint):
 SIGNAL_LENSES, SIGNAL_CACHE_SEC = ('double', 'calls', 'fed'), 30   # 📣 the Pump-signal lists change once a minute at the source: one build serves 30s (no Jupiter burst)
 LIST_CACHE_SEC = 10   # ⚡ every viewer of a pick list shares one build for 10s (the screens re-read every 20s)
 _disc_cache: dict = {}
+_best_rows: list = []   # 🏆 the engine's banger list from the last real-card tick (clean entry + tape-checked), best first
 
 
 PICK_TAPE_TOP = 12   # 🌊 the tape is read for the first 12 rows of a list (one batched call, 12s cache)
@@ -3251,6 +3260,9 @@ async def _fuses_discover_raw(lens, chain):
     """Fuse Lab: browse real pools on the chain you're on, by lens (popular / yield / deep / new)."""
     if lens == 'exhale':
         return {'lens': 'exhale', 'chain': 'solana', 'pools': _exhale_rows()}
+    if lens == 'best':   # 🏆 the engine's own pick list (every door, clean entry, tape-checked) — what an open seat takes next
+        return {'lens': 'best', 'chain': 'solana', 'pools': [{**x, 'baseAddress': x.get('mint'), 'priceUsd': x.get('price'), 'liquidityUsd': x.get('liq'),
+                                                               'divisionLabel': x.get('tag')} for x in _best_rows]}
     if lens == 'wave':
         return {'lens': 'wave', 'chain': 'solana', 'pools': _wave_rows()}
     if lens == 'prebreak':
@@ -8454,6 +8466,23 @@ async def _moon_fix_1009(now):
     return True
 
 
+async def _floor_fix_1009(now):
+    """🧱 Once (owner, 2026-10-09: "added $1 — let's keep $3.62"): the run started at $3.61. A floor AT the start would sell on the first
+    1¢ wiggle; −10% (≈ $3.25) is the closest real protection — the whole card that far under its run start → every coin to cash, re-dealt."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('floorFix1009') or not rc:
+            return False
+        _json_save(DATA_DIR / 'realcfg_before_floor1009.json', {'floorPct': rc.get('floorPct')})
+        pr['realCfg'] = _prime.clean_cfg({**rc, 'floorPct': 10})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'floorPct'})
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | {'floorPct'})
+        pr['floorFix1009'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _ticket_ride_fix(now):
     """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
     once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
@@ -8561,6 +8590,7 @@ async def _prime_tick_inner(now):
     await _entry_fix_1009(now)
     await _vital_off_fix_1009(now)
     await _moon_fix_1009(now)
+    await _floor_fix_1009(now)
     await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
@@ -8936,10 +8966,11 @@ async def _prime_tick_inner(now):
             if b_:   # 🌊 the tape decides the order: ⚡ burst / 🧲 absorb first, a 🩸 dump or 🏔 climax (buying the top) waits
                 fl_b = await _flow_fetch([x.get('pairAddress') for x in b_[:8]])
                 tp_ = {x['mint']: _flow.tape_read(fl_b.get(x.get('pairAddress'))) for x in b_}
-                b_ = [{**x, 'tag': f"{_flow.TAPES[tp_[x['mint']]]} · {x['tag']}"} if tp_.get(x['mint']) in ('burst', 'absorb') else x
+                b_ = [{**x, 'tape': tp_.get(x['mint']), **({'tag': f"{_flow.TAPES[tp_[x['mint']]]} · {x['tag']}"} if tp_.get(x['mint']) in ('burst', 'absorb') else {})}
                       for x in b_ if tp_.get(x['mint']) not in ('dump', 'climax')]
                 b_ = sorted(b_, key=lambda x: 0 if x['tag'].startswith(('⚡', '🧲')) else 1)
             cfg_t = {**cfg_t, 'bangers': b_}
+            _best_rows[:] = list(b_ or [])   # 🏆 the 🏆 Best now tab + the card's Best 3 read this list
         if real_t and cfg_t.get('entryGate'):   # 🎯 the 30s seat fallback and Coming up's category picks obey clean entries too
             cfg_t = {**cfg_t, 'seatFallback': [x for x in cfg_t.get('seatFallback') or [] if not _prime.entry_gate(x, mom, core=True)]}   # 🪑 the 30s fill: core rules only
         # 🧊 anchors cool too: a major this card just sold isn't bought back for 3 rounds while another major is available
@@ -9074,7 +9105,9 @@ async def _prime_tick_inner(now):
             # 💀 never a dead coin under Coming up (a 0 on the row = not read, the runner board's numbers win)
             cards[tid]['pipeline'] = {'at': now, 'steps': fun_ + [['not on the card and not cooling', len(free_)]], 'up': [_up_vital(u_) for u_ in [y for y in up_ if not _ja.dead_why({**{k: v for k, v in y.items() if v not in (None, 0, 0.0)}, **(_cand_map().get(y.get('mint')) or {})})][:6]], 'catMiss': cfg_t.get('catMiss') or {},
                                       'next': [f"${x.get('symbol')} {_fuse._f(x.get('chg1h')):+.0f}%" for x in sorted(free_, key=lambda x: -_fuse._f(x.get('chg1h')))[:4]],
-                                      'scout': [f"${x.get('symbol')} {_fuse._f(x.get('chg1h')):+.0f}%" for x in scout_[:4]]}
+                                      'scout': [f"${x.get('symbol')} {_fuse._f(x.get('chg1h')):+.0f}%" for x in scout_[:4]],
+                                      'best': [_up_vital({k: x.get(k) for k in ('mint', 'pairAddress', 'symbol', 'price', 'chg1h', 'chg5m', 'vol1h', 'liq', 'tag', 'tape', 'buyShare')})
+                                               for x in (cfg_t.get('bangers') or [])[:3]]}
         taken |= {l.get('mint') for l in (cards[tid] or {}).get('legs') or [] if l.get('role') != 'anchor'}
     cards = {k: v for k, v in cards.items() if v}
     try:   # 📏 vs holding SOL: remember SOL's price when each run starts (a new run = a new startUsd)

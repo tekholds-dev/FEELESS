@@ -21,13 +21,13 @@ test('the real-card swap picker has every Lab lens + search, flags thin pools an
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<SwapPicker out={{ symbol: 'WIF' }} have={[]} minLiq={20000} onPick={r => picks.push(r)} onClose={() => {}} />); });
   await tick();
-  expect(PICK_LENSES.map(x => x[0])).toEqual(['exhale', 'procall', 'prebreak', 'wave', 'ptrend', 'fed', 'bottom', 'volume', 'trench', 'majors']);   // ten lists ranked by their own records
+  expect(PICK_LENSES.map(x => x[0])).toEqual(['best', 'ptrend', 'procall', 'wave', 'exhale', 'trench', 'majors']);   // seven lists ranked by their own records
   // 🚀 it opens on what is MOVING (the live launch feed by hourly move) …
-  expect(urls.find(u => u.includes('/fuses/discover'))).toContain('/fuses/discover?lens=exhale');   // 🧊 Cooling off opens first (the best record)
-  expect(el.querySelector('[data-testid="sp-exhale-note"]').textContent).toMatch(/exhale/);
+  expect(urls.find(u => u.includes('/fuses/discover'))).toContain('/fuses/discover?lens=best');   // 🏆 Best now opens first (the engine's own pick list)
+  expect(el.querySelector('[data-testid="sp-best-note"]').textContent).toMatch(/open seat/);
   // 📏 every list tab carries its own 1-hour record; the open list explains it (too few settled = "starts now")
   expect(el.querySelector('[data-testid="sp-lens-movers"]')).toBeNull();   // 🚀 Movers (−67%) scrapped from the picker
-  expect(el.querySelector('[data-testid="sp-lp-volume"]').textContent).toBe('-1%');
+  expect(el.querySelector('[data-testid="sp-lp-volume"]')).toBeNull();   // 🌊 Volume left the picker
   expect(el.querySelector('[data-testid="sp-lp-ptrend"]')).toBeNull();
   await act(async () => { el.querySelector('[data-testid="sp-lens-ptrend"]').click(); }); await tick();   // a list with its own record explains it
   expect(el.querySelector('[data-testid="sp-list-record"]').textContent).toMatch(/starts now/);
@@ -43,9 +43,7 @@ test('the real-card swap picker has every Lab lens + search, flags thin pools an
   expect(el.querySelector('[data-testid="sp-pick-THIN"]').disabled).toBe(true);
   await act(async () => { el.querySelector('[data-testid="sp-pick-POP"]').click(); });
   expect(picks[0]).toMatchObject({ mint: 'P', pairAddress: 'pp' });
-  await act(async () => { el.querySelector('[data-testid="sp-lens-bottom"]').click(); }); await tick();   // 🟢 dips + buy-bottom coins are ONE tab
-  expect(urls.some(u => u.includes('lens=bottom'))).toBe(true); expect(el.querySelector('[data-testid="sp-lens-dip"]')).toBeNull();
-  expect(el.querySelector('[data-testid="sp-bottom-note"]').textContent).toMatch(/Dips & bottoms/);
+  for (const k of ['bottom', 'volume', 'fed', 'prebreak']) expect(el.querySelector(`[data-testid="sp-lens-${k}"]`)).toBeNull();   // tabs that didn't earn a place
   // 🗑 trench lens: its own pool floor ($9K passes the $8K trench floor even though the card's floor is $20K), holders shown
   await act(async () => { el.querySelector('[data-testid="sp-lens-trench"]').click(); }); await tick();
   expect(el.querySelector('[data-testid="sp-trench-note"]').textContent).toContain('2 scanned');

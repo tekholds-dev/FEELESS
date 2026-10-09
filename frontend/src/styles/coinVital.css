@@ -122,4 +122,3 @@ body.theme-day .tvl.tvl-k-flow { background: linear-gradient(100deg, rgba(60, 22
 body.theme-day .tvl.tvl-k-trend { background: linear-gradient(100deg, rgba(245, 196, 81, .16), rgba(236, 246, 240, .7) 55%); border-color: #ecd59c; }
 body.theme-day .tvl-k-mover.tvl-good .tvl-call { color: #a8246e; } body.theme-day .tvl-k-flow.tvl-good .tvl-call { color: #0f6f86; } body.theme-day .tvl-k-trend.tvl-good .tvl-call { color: #8a6100; }
 
-.hrt-upchip { margin: 6px 0 4px; cursor: pointer; transition: border-color .15s ease, transform .15s ease; } .hrt-upchip:hover, .hrt-upchip:focus-visible { border-color: #45e486; outline: none; transform: translateY(-1px); } .hrt-upchip:active { transform: none; }

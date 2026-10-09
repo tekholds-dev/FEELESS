@@ -2553,3 +2553,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   benched (`_tape_bad` 60s) and the REAL card's flow exit + rug radar went blind ("provider unavailable"). Picker `tape` is now CACHE ONLY
   (`_flow_now` ≤ 60s, filled by the card / bangers / quick look); `TAPE_NEW` 25 → 10. Never add a per-list-row tape FETCH again.
   "PROVIDER UNAVAILABLE" ON THE TAPE ⇒ check Helius quota (`api.helius.xyz … 429 max usage`) and `_tape_bad` before anything else.
+- 🏆 BEST 3 replaces Coming up on the real card (`ComingUp` now renders `pipeline.best` = the first 3 of the engine's banger list: every door,
+  clean entry, tape-checked — the list an open seat takes from; 🥇🥈🥉 + door tag + tape chip + ⚡ Swap now / ⏱ bell). `UpFilter` + its CSS removed.
+  🏆 Best now tab (`lens=best`, `_best_rows` = the last real-card banger list) opens the picker. Picker = 7 tabs: Best now · Pump trending ·
+  Proven callers · Narrative leaders · Cooling off · Trench · Majors & stocks (Before the break / Fed / Dips / Volume left; lenses + records run).
+- 🗑 TRENCH VITALS DEX (`dexCells` / `TrenchDex`, `tdx-*` in quickPulse.css, trench tab rows): top-10 · dev · insiders · bundled · snipers ·
+  holders · rug meter, each ok / mid / bad on the safety lines, "—" = not read, score "N/M clean". pickRow carries those fields + `rug`.
+- 🌊 The tape is in every coin read (`/coin-read` → `tape` {read, label, buyUsd, sellUsd, n, pxChg}; one pool, 12s cache) → chart header chip `cv-tape`.
+- 🧱 Real card floor −10% (`_floor_fix_1009`; owner "keep $3.62" — run started $3.61; a floor AT the start would sell on any wiggle).

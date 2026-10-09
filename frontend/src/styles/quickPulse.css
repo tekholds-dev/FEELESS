@@ -153,3 +153,14 @@ body.theme-day .qp-ico .qp-s-site { color: #1f6fb0; }
 .sp-entry { margin-left: 4px; font-style: normal; font-size: 11px; cursor: help; }
 .sp-entry.is-no { opacity: .75; }
 body.theme-day .sp-tape.is-burst { color: #0f8a45; } body.theme-day .sp-tape.is-absorb { color: #1d6f9e; } body.theme-day .sp-tape.is-dump { color: #b4233f; }
+
+/* 🗑 trench vitals dex — one strip per trench coin */
+.tdx { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; grid-column: 1 / -1; margin-top: 4px; font: 600 10px "JetBrains Mono", monospace; }
+.tdx-score { padding: 1px 7px; border-radius: 999px; letter-spacing: .04em; }
+.tdx-score.is-ok { background: rgba(21, 209, 106, .16); color: #45e486; } .tdx-score.is-mid { background: rgba(245, 196, 81, .14); color: var(--gold, #f5c451); } .tdx-score.is-bad { background: rgba(255, 143, 163, .14); color: #ff8fa3; }
+.tdx-c { display: inline-flex; align-items: center; gap: 2px; padding: 1px 5px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, .08); font-style: normal; cursor: help; }
+.tdx-c small { font-size: 10px; }
+.tdx-c.is-ok { color: #45e486; border-color: rgba(69, 228, 134, .3); } .tdx-c.is-mid { color: var(--gold, #f5c451); border-color: rgba(245, 196, 81, .3); }
+.tdx-c.is-bad { color: #ff8fa3; border-color: rgba(255, 143, 163, .35); } .tdx-c.is-na { opacity: .45; }
+body.theme-day .tdx-c { border-color: rgba(0, 0, 0, .1); } body.theme-day .tdx-c.is-ok, body.theme-day .tdx-score.is-ok { color: #0f8a45; } body.theme-day .tdx-c.is-bad, body.theme-day .tdx-score.is-bad { color: #b4233f; }
+@media (max-width: 640px) { .tdx-c small { font-size: 9px; } }

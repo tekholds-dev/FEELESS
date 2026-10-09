@@ -5,6 +5,7 @@ import { BsBar } from '../BsBar';
 import { sharedJson } from '../../lib/sharedJson';
 import { CoinVital, TrenchVital } from '../CoinVital';
 import '../../styles/chartVitals.css';
+import '../../styles/quickPulse.css';   // 🌊 the tape chip (sp-tape)
 
 const big = v => { const n = Number(v); if (!(n > 0)) return '—'; return n >= 1e9 ? `$${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(n >= 1e5 ? 0 : 1)}K` : `$${n.toFixed(0)}`; };
 const ageOf = ms => { if (!ms) return '—'; const h = (Date.now() - ms) / 36e5; return h < 1 ? `${Math.max(1, Math.round(h * 60))}m` : h < 48 ? `${h.toFixed(h < 10 ? 1 : 0)}h` : `${Math.round(h / 24)}d`; };
@@ -70,6 +71,8 @@ export function ChartVitals({ pair }) {
       {edge?.verify && ['gold', 'verified'].includes(edge.verify.level) && <span className="m-chip is-grad" data-tip="FEELESS verified">✔ verified</span>}
       {run && run.passing === false && <span className="m-chip is-bad" data-tip={(run.gates || []).join(' · ')}>⚠ fails {run.gates?.[0] ? run.gates[0].split(' ').slice(0, 3).join(' ') : 'a gate'}</span>}
       {off != null && <span className={`m-chip ${off <= -50 ? 'is-bad' : ''}`} data-tip="Market cap against its all-time high on Pump">{move(off)} from ATH</span>}
+      {read?.tape?.read && read.tape.read !== 'calm' && <span className={`m-chip sp-tape is-${read.tape.read}`} data-testid="cv-tape"
+        data-tip={`The last 90 seconds of real swaps: $${Math.round(read.tape.buyUsd || 0)} bought vs $${Math.round(read.tape.sellUsd || 0)} sold over ${read.tape.n} trades, price ${read.tape.pxChg >= 0 ? '+' : ''}${(read.tape.pxChg || 0).toFixed(1)}%. The engine times its entries and sells into a buying climax on this read.`}>{read.tape.label}</span>}
       <span className="cv-soc">
         {socials.map(s => <a key={s.type} className="m-btn cv-link" href={s.url} target="_blank" rel="noopener noreferrer" data-tip={SOC[s.type]?.[1] || 'Website'} aria-label={SOC[s.type]?.[1] || 'Website'}>{SOC[s.type]?.[0] || '🌐'}</a>)}
         {!socials.length && <small className="m-dim" data-tip="No website, X or Telegram was set for this coin">no socials set</small>}
