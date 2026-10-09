@@ -2503,3 +2503,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   · 🪙 Majors & stocks. SCRAPPED from the picker: 🚀 Movers (−67%), 🆕 New launches (−71%), 📣 Pump signals (calls −37%, double −79%) — their
   server lenses + records still run (Coming up categories / list_paused read them). `exhale` + `procall` are in `LENS_TRACK` (own records).
   `_with_tv(r)`: raw `_open_board()` rows carry NO read — every safe-trench check computes it first (pro entries slipped past "no read").
+- 🧹 CLEAN + BANGERS 2026-10-09 (`_clean_fix_1009`, backup data/realcfg_before_clean1009.json):
+  · 🏠 `free_rider` / `seats_used`: a house-money rider (initial out, riding / frozen) rides OUTSIDE the owner's coin count — two 5–9¢ riders
+    held 2 of 4 seats while $1 sat idle. Seat refill + share use `seats_used`, never `len(legs)`.
+  · ⚖ `cap_trim` (cfg `maxCoinPct` 0/25/35/50, real card 35): a coin over the cap (or 1.4× an equal seat when the count makes that larger)
+    is trimmed to it; never riders / frozen / house / buying.
+  · 🚀 `bangerRefill` (real card on): the service builds cfg `bangers` (`_bangers`: 🎯 pro-call entry → 🔥 `top_three` → 🧊 `_exhale_rows`;
+    real-buy floor, not on card / cooling, no dollar names, `entry_ok`, `trench_read_ok`) and `best('runner')` takes them FIRST for every
+    normal runner seat that opens (flow exit, stop, rotation, ride end, seat refill). Each leg carries the door as `tag`.
+  · Edit Fuse: REMOVED rows scout, mover swap, recycle (+ every), stack-skim, "keep $ riding", second ticket, fed lock, SEND IT auto (→ the
+    SEND IT only row), ticket ride-or-rug; rescue + record gate only on paper cards; duplicates gone. META setups + ladder stages no longer
+    set scout / mover swap (they set `bangerRefill`). A hidden setting must be neutral on the real card — never hide one that is on.

@@ -2613,3 +2613,50 @@ def test_tiny_house_money_is_banked_and_frees_its_seat_but_a_rider_keeps_running
     assert [s for s, _ in out] == ['QI'] and c['cash'] > 0.04                  # 5¢ vs a ~52¢ seat → banked
     assert [l['symbol'] for l in c['legs']] == ['BIG', 'BIG2', 'RUN']          # a running rider keeps its trail
     assert ap.house_dust(c, px, {}, 100, 0) == []                              # no seat count → nothing to free
+
+
+def test_house_riders_ride_outside_the_seat_count_so_idle_cash_buys_a_real_coin():
+    c = {'legs': [{'symbol': 'A'}, {'symbol': 'B'}, {'symbol': 'Q', 'house': True, 'ride': True}, {'symbol': 'S', 'house': True, 'frozen': True},
+                  {'symbol': 'H', 'house': True}]}
+    assert ap.seats_used(c) == 3                                                  # A, B and the non-riding house coin H
+    cfg = ap.clean_cfg({**CFG, 'coins': 2, 'rideAt': 0, 'instantSwapPct': 0, 'floorPct': 0, 'rescuePct': 0, 'cycles': {'degen': 'off'}})
+    card = ap.deal('degen', [P('a', 1)], [R('r1', 1), R('r2', 1)], cfg, 0, SOL[:1])
+    card['legs'] = [ap._leg(R('r1', 1), 10.0, 0, 'runner')]
+    for l in card['legs']:
+        l.update(priced=True, entry=1.0, units=10.0, costUsd=10.0, at=0)
+    rider = {**ap._leg(R('rr', 1), 0.1, 0, 'runner'), 'house': True, 'ride': True, 'units': 0.5, 'costUsd': 0.0, 'entry': 0.2, 'high': 1.0, 'rideFrom': 0.2, 'rideAtPct': 20, 'at': 0}
+    card['legs'].append(rider)
+    card['cash'] = 10.0
+    px = {l['pairAddress']: 1.0 for l in card['legs']}
+    out = ap.tick(card, px, [], [R('r9', 1)], cfg, 120, SOL[:1])
+    mints = {l['mint'] for l in out['legs']}
+    assert mints == {'r1', 'rr', 'r9'}                                          # 2 coins asked: the rider stays AND a real 2nd coin is bought
+    assert ap.seats_used(out) == 2
+
+
+def test_no_single_coin_holds_most_of_the_card():
+    c = {'cash': 0.0, 'legs': [{'symbol': 'BIG', 'pairAddress': 'b', 'units': 1.8, 'entry': 1.0},
+                               {'symbol': 'MID', 'pairAddress': 'm', 'units': 1.1, 'entry': 1.0},
+                               {'symbol': 'RUN', 'pairAddress': 'r', 'units': 1.0, 'entry': 0.5, 'ride': True}]}
+    px = {'b': 1.0, 'm': 1.0, 'r': 1.0}
+    out = ap.cap_trim(c, px, {}, 50, {'maxCoinPct': 35, 'coins': 4})
+    assert [s for s, _ in out] == ['BIG']                                        # 46% → 35%; a rider is never trimmed
+    assert abs(c['legs'][0]['units'] - 0.35 * 3.9) < 0.01 and c['cash'] > 0.4 and c['legs'][0]['trimAt'] == 50
+    two = {'cash': 0.0, 'legs': [{'symbol': 'X', 'pairAddress': 'x', 'units': 1.3}, {'symbol': 'Y', 'pairAddress': 'y', 'units': 0.7}]}
+    assert ap.cap_trim(two, {'x': 1.0, 'y': 1.0}, {}, 50, {'maxCoinPct': 35, 'coins': 2}) == []   # 2 coins: the cap is 70%, 65% is fine
+    assert ap.cap_trim(c, px, {}, 50, {'maxCoinPct': 0}) == []
+
+
+def test_an_open_seat_takes_a_banger_first():
+    cfg = ap.clean_cfg({**CFG, 'coins': 3, 'rideAt': 0, 'instantSwapPct': 0, 'floorPct': 0, 'rescuePct': 0, 'cycles': {'degen': 'off'}})
+    card = ap.deal('degen', [P('a', 1)], [R('r1', 1), R('r2', 1)], cfg, 0, SOL[:1])
+    card['legs'] = [l for l in card['legs'] if l['mint'] in ('r1', 'r2')]
+    for l in card['legs']:
+        l.update(priced=True, entry=1.0, units=10.0, costUsd=10.0, at=0)
+    card['cash'] = 10.0
+    px = {l['pairAddress']: 1.0 for l in card['legs']}
+    bang = {**R('bang', 1), 'tag': '🎯 proven caller'}
+    out = ap.tick(card, px, [], [R('r9', 1)], {**cfg, 'bangers': [bang]}, 120, SOL[:1])
+    seated = [e['symbol'] for e in out['events'] if e['kind'] == 'seat']
+    assert seated[0] == 'BANG'                                                  # the banger takes the first open seat, the board's pick after it
+    assert ap.clean_cfg({})['bangerRefill'] is False and ap.clean_cfg({'maxCoinPct': 35})['maxCoinPct'] == 35

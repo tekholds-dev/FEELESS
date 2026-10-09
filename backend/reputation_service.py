@@ -3084,6 +3084,27 @@ def _with_tv(r):
 EXHALE_READS = ('DRYING UP', 'COOLING')   # the only reads with a positive 1h record (2026-10-09: +1.9% / 62% up · +0.6% / 57% up)
 
 
+def _bangers(mine, cool, mom, lq, floor, now):
+    """🚀 BANGERS for the real card's open seats, best first: 🎯 a proven caller's fresh call (≤ 15 min, near the called cap) → 🔥 the
+    TOP 3 (busiest safe coins) → 🧊 cooling off (DRYING UP / COOLING). Every one: real-buy pool floor, not on the card, not cooling,
+    not dollar-named, not falling right now, no busted read / rug meter 50+. Each carries `tag` (shown as the coin's 'why it bought')."""
+    try:
+        open_ = [_with_tv(x) for x in _open_board()]
+        src = [(r, '🎯 proven caller') for r in _pc.pro_entries(_pump_calls.get('calls') or [], _pump_calls.get('callers') or {}, open_, now * 1000)]
+        src += [(r, '🔥 top 3') for r in _prime.top_three((_contenders_cache.get('data') or {}).get('divisions'), mine, cool)]
+        src += [(r, '🧊 cooling off') for r in _exhale_rows()]
+    except Exception:
+        return []
+    out, seen = [], set(mine or ()) | set(cool or ())
+    for r, tag in src:
+        m = r.get('mint')
+        if not m or m in seen or lq(r) < floor or _fuse._f(r.get('price')) <= 0 or _fw.dollar_named(r.get('symbol')) or not _prime.entry_ok(r, mom) or not _prime.trench_read_ok(_with_tv(r)):
+            continue
+        seen.add(m)
+        out.append({**r, 'tag': tag})
+    return out[:8]
+
+
 def _exhale_rows():
     """🧊 COOLING OFF: launch coins that ran and are now exhaling — read DRYING UP or COOLING, passed the safety scan, rug meter < 50."""
     out = []
@@ -8193,6 +8214,30 @@ async def _trench_safe_fix_1009(now):
     return True
 
 
+CLEAN_1009 = {'maxCoinPct': 35, 'bangerRefill': True, 'scoutPct': 0, 'stackSkimUsd': 0.0, 'secondTicketPct': 0, 'moverSwap': False}
+
+
+async def _clean_fix_1009(now):
+    """🧹 Once (owner, 2026-10-09: "do these and make sure configs clean and ez"): ⚖ no coin over 35% of the card · 🚀 open seats take a
+    banger first · and the settings taken OUT of Edit Fuse are switched off so nothing hidden keeps running (the scout was at 10%,
+    stack-skim at $0.50). Old values: data/realcfg_before_clean1009.json."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('cleanFix1009') or not rc:
+            return False
+        _json_save(DATA_DIR / 'realcfg_before_clean1009.json', {k: rc.get(k) for k in CLEAN_1009})
+        pr['realCfg'] = _prime.clean_cfg({**rc, **CLEAN_1009})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(CLEAN_1009))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(CLEAN_1009))
+        for c in (pr.get('cards') or {}).values():
+            if c.get('real'):
+                c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🧹 clean setup: ⚖ no coin over 35% of the card · 🚀 open seats take a banger first (proven caller → top 3 → cooling off) · 🏠 house riders ride outside your 4 seats · scout / stack-skim off'})
+        pr['cleanFix1009'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _ticket_ride_fix(now):
     """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
     once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
@@ -8295,6 +8340,7 @@ async def _prime_tick_inner(now):
     await _procall_fix_1009(now)
     await _topseat_fix_1009(now)
     await _trench_safe_fix_1009(now)
+    await _clean_fix_1009(now)
     await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
@@ -8662,6 +8708,8 @@ async def _prime_tick_inner(now):
             fb_ = cat_rows + [x for x in fb_ if x.get('mint') not in {y['mint'] for y in cat_rows}]
             cfg_t = {**cfg_t, 'seatFallback': list({x.get('mint'): x for x in reversed(fb_)}.values())[::-1][:8], 'catPicks': cat_rows, 'catWatch': door_watch, 'catMiss': cat_miss,
                      'edgeReady': edge_ready, 'edgeWatch': edge_watch}
+        if real_t and cfg_t.get('bangerRefill'):   # 🚀 every seat that opens (flow exit, stop, rotation, ride over) takes a banger first
+            cfg_t = {**cfg_t, 'bangers': _bangers(mine, cool, mom, _lq, _fw.clean_cfg(fw_cfg)['minLiqUsd'], now)}
         # 🧊 anchors cool too: a major this card just sold isn't bought back for 3 rounds while another major is available
         a_t = _prime_cool_candidates(anchors, cool, 2, strict=real_t and len([x for x in anchors if x.get('mint') not in cool]) >= 1) if cool else anchors
         if new_only_:

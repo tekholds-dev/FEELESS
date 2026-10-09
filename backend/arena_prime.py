@@ -495,6 +495,8 @@ def clean_cfg(p):
     out['vitalMin'] = int(_f((p or {}).get('vitalMin'))) if int(_f((p or {}).get('vitalMin'))) in (0, 35, 50, 65) else 0        # 🎛 Coming up / engine: min vital score
     out['organicMin'] = int(_f((p or {}).get('organicMin'))) if int(_f((p or {}).get('organicMin'))) in (0, 5, 10, 20, 30) else 0   # … min organic share of 1h volume
     out['noSerial'] = bool((p or {}).get('noSerial', False))                                                                    # … skip serial launchers
+    out['maxCoinPct'] = int(_f((p or {}).get('maxCoinPct'))) if int(_f((p or {}).get('maxCoinPct'))) in COIN_CAPS else 0
+    out['bangerRefill'] = bool((p or {}).get('bangerRefill', False))   # 🚀 a seat that opens takes a banger first: proven caller → top 3 → cooling off
     out['topSeat'] = bool((p or {}).get('topSeat', False))   # 🔥 the TOP 1/3 coin takes the weakest seat by itself (one per 10 min); buys-vs-sells gets it out
     out['proCallEntry'] = bool((p or {}).get('proCallEntry', False))   # 🎯 trench seats take a PROVEN caller's fresh call first, while still near the called cap
     out['trenchSendOnly'] = bool((p or {}).get('trenchSendOnly', False))   # 🔥 the trench drop takes ONLY 🔥 SEND IT coins (the only trench read with a positive record) — none → it waits
@@ -777,14 +779,14 @@ def scout_step(card, prices, hot, cfg, now, pools=(), anchors=()):
 # third at the lock, skims +20%, stops at −15%, holds 15 min so one candle cannot shake it out.
 # 15 min and longer = 💎 META HOLDER: 10% scout, freeze +50% / 30% trail, no skim, stop −30%, hold 1–3h by clock, older coins.
 # Every card gets its OWN variant (`seed`): the same idea with slightly different numbers, so no two cards trade in lockstep.
-META_SCALP = {'trailStep': True, 'comeback': True, 'scoutPct': 20, 'rideAt': 15.0, 'rideTrail': 8.0, 'lockBankPct': 33.0, 'peakSellPct': 75.0, 'skimAt': 20.0, 'recyclePct': 0.0, 'sl': 15.0, 'tp': 100.0,
-              'instantSwapPct': 0.0, 'rotateMinDrop': 10.0, 'minHoldMins': 15.0, 'cycleEvery': 6, 'newOnly': True, 'moverSwap': True,
+META_SCALP = {'trailStep': True, 'comeback': True, 'scoutPct': 0, 'bangerRefill': True, 'rideAt': 15.0, 'rideTrail': 8.0, 'lockBankPct': 33.0, 'peakSellPct': 75.0, 'skimAt': 20.0, 'recyclePct': 0.0, 'sl': 15.0, 'tp': 100.0,
+              'instantSwapPct': 0.0, 'rotateMinDrop': 10.0, 'minHoldMins': 15.0, 'cycleEvery': 6, 'newOnly': True, 'moverSwap': False,
               'runnerMinAgeH': 1, 'runnerMinLiqK': 25, 'runnerMinVolK': 50, 'runnerMinChg1h': 20, 'runnerMinBuy': 55, 'edgeGate': False, 'edgeFloor': 0}
-META_HOLD = {'trailStep': False, 'comeback': True, 'scoutPct': 10, 'rideAt': 50.0, 'rideTrail': 30.0, 'lockBankPct': 0.0, 'peakSellPct': 50.0, 'skimAt': 0.0, 'recyclePct': 0.0, 'sl': 30.0, 'tp': 300.0,
-             'instantSwapPct': 0.0, 'rotateMinDrop': 20.0, 'minHoldMins': 60.0, 'cycleEvery': 6, 'newOnly': True, 'moverSwap': True,
+META_HOLD = {'trailStep': False, 'comeback': True, 'scoutPct': 0, 'bangerRefill': True, 'rideAt': 50.0, 'rideTrail': 30.0, 'lockBankPct': 0.0, 'peakSellPct': 50.0, 'skimAt': 0.0, 'recyclePct': 0.0, 'sl': 30.0, 'tp': 300.0,
+             'instantSwapPct': 0.0, 'rotateMinDrop': 20.0, 'minHoldMins': 60.0, 'cycleEvery': 6, 'newOnly': True, 'moverSwap': False,
              'runnerMinAgeH': 12, 'runnerMinLiqK': 25, 'runnerMinVolK': 50, 'runnerMinChg1h': 40, 'runnerMinBuy': 0, 'edgeGate': False, 'edgeFloor': 0}
-META_VARIANTS = {'scalp': ({}, {'rideAt': 20.0, 'rideTrail': 10.0}, {'scoutPct': 15, 'skimAt': 30.0}, {'lockBankPct': 25.0, 'rideTrail': 10.0}),
-                 'hold': ({}, {'rideTrail': 20.0, 'scoutPct': 15}, {'rideAt': 100.0}, {'runnerMinChg1h': 20, 'rideTrail': 20.0})}
+META_VARIANTS = {'scalp': ({}, {'rideAt': 20.0, 'rideTrail': 10.0}, {'skimAt': 30.0}, {'lockBankPct': 25.0, 'rideTrail': 10.0}),
+                 'hold': ({}, {'rideTrail': 20.0}, {'rideAt': 100.0}, {'runnerMinChg1h': 20, 'rideTrail': 20.0})}
 
 
 def meta_for(rotate_hours, seed=0):
@@ -809,15 +811,15 @@ def meta_for(rotate_hours, seed=0):
 # offers (clean_cfg keeps every value — test). Up a stage only at its floor, down only under 80% of it (no flapping on one candle).
 LADDER = (
     ('trench', 0.0, '🗑 TRENCH', '5-min rounds on new coins: a 20% scout hunts, small winners lock at +15% and bank a third, a 15% stop.',
-     {'rotateHours': 0.08, 'coins': 3, 'scoutPct': 20, 'newOnly': True, 'trenchAuto': True, 'trenchCoins': 1, 'trenchStakePct': 15,
+     {'rotateHours': 0.08, 'coins': 3, 'scoutPct': 0, 'bangerRefill': True, 'newOnly': True, 'trenchAuto': True, 'trenchCoins': 1, 'trenchStakePct': 15,
       'trenchHouseAt': 100, 'runnerMinAgeH': 1, 'runnerMinVolK': 50, 'runnerMinChg1h': 20, 'runnerMinLiqK': 25, 'runnerMinBuy': 55,
       'rideAt': 15.0, 'rideTrail': 8.0, 'trailStep': True, 'lockBankPct': 33.0, 'skimAt': 20.0, 'sl': 15.0, 'minHoldMins': 15.0}),
     ('runner', 10.0, '🏃 RUNNER', '15-min rounds on the runner hunt line (12h+, $50K/h, +40%): let winners run to +50% with a wide trail.',
-     {'rotateHours': 0.25, 'coins': 4, 'scoutPct': 15, 'newOnly': True, 'trenchAuto': True, 'trenchCoins': 1, 'trenchStakePct': 10,
+     {'rotateHours': 0.25, 'coins': 4, 'scoutPct': 0, 'bangerRefill': True, 'newOnly': True, 'trenchAuto': True, 'trenchCoins': 1, 'trenchStakePct': 10,
       'trenchHouseAt': 100, 'runnerMinAgeH': 12, 'runnerMinVolK': 50, 'runnerMinChg1h': 40, 'runnerMinLiqK': 25, 'runnerMinBuy': 0,
       'rideAt': 50.0, 'rideTrail': 20.0, 'trailStep': True, 'lockBankPct': 25.0, 'skimAt': 0.0, 'sl': 20.0, 'minHoldMins': 30.0}),
     ('sniper', 100.0, '🎯 SNIPER', '30-min rounds, deep pools only ($100K+), buyers 65%+, majors allowed as anchors; trench is off.',
-     {'rotateHours': 0.5, 'coins': 5, 'scoutPct': 10, 'newOnly': False, 'trenchAuto': False, 'trenchCoins': 1, 'trenchStakePct': 10,
+     {'rotateHours': 0.5, 'coins': 5, 'scoutPct': 0, 'bangerRefill': True, 'newOnly': False, 'trenchAuto': False, 'trenchCoins': 1, 'trenchStakePct': 10,
       'trenchHouseAt': 100, 'runnerMinAgeH': 12, 'runnerMinVolK': 100, 'runnerMinChg1h': 20, 'runnerMinLiqK': 100, 'runnerMinBuy': 65,
       'rideAt': 50.0, 'rideTrail': 20.0, 'trailStep': True, 'lockBankPct': 25.0, 'skimAt': 0.0, 'sl': 20.0, 'minHoldMins': 60.0}),
     ('bluechip', 1000.0, '🐋 BLUE-CHIP', '1h rounds: majors + new majors anchor the card, one deep runner seat; stops wide, no scout.',
@@ -1968,6 +1970,10 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     fee = cfg['paperFeeUsd']
 
     def best(role, trench=False):
+        if role == 'runner' and not trench:   # 🚀 BANGERS FIRST (cfg `bangers`, built + checked by the service): proven caller → top 3 → cooling off
+            b_ = next((x for x in cfg.get('bangers') or [] if x.get('mint') not in have() and _f(x.get('price')) > 0 and price_agrees(x, prices)), None)
+            if b_:
+                return b_
         src = rated(runners if role == 'runner' else anchors if role == 'anchor' else pools, role)
         if role == 'runner':   # 🗑 a trench leg is replaced by the best trench coin first; trench-only coins never fill a normal slot
             src = ([x for x in src if x.get('trenchOnly')] + [x for x in src if not x.get('trenchOnly')]) if trench else [x for x in src if not x.get('trenchOnly')]
@@ -2479,6 +2485,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     unfunded_seats(c, now, prices)   # 💸 a coin with nothing behind it never sits "waiting for card cash" for good
     if not c.get('flooredAt') and not c.get('holdAll'):
         house_dust(c, prices, liqs, now, int(_f(cfg.get('coins'))), fee)   # 🏠 3–6¢ of house money never holds a whole seat
+        cap_trim(c, prices, liqs, now, cfg, fee)                            # ⚖ no single coin holds most of the card
     release_parked(c, cfg, now)   # 🅿 parked profit whose rounds are up joins the idle cash — BEFORE free cash is counted (it used to wait one more tick)
     # 🅿 PARKED MEANS PARKED (owner, 2026-10-07: "parked 6 rnds means just that"): nothing releases a park before its rounds are
     # up — not a queued pick, not an empty seat. A seat with no free cash is funded by trimming the coins above an equal share
@@ -2502,9 +2509,9 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
           if q_: c['seatQueue'] = q_
           else: c.pop('seatQueue', None)
       seated_pick = False; seated_any = False
-      if want_n and len(c['legs']) < want_n and not c.get('flooredAt') and not c.get('holdAll') and not c.get('rebuy'):   # 🔄 a rebuy's seat is spoken for
+      if want_n and seats_used(c) < want_n and not c.get('flooredAt') and not c.get('holdAll') and not c.get('rebuy'):   # 🔄 a rebuy's seat is spoken for
           _val = lambda x: (_f(x['units']) or (_f(x.get('wantUnits')) if x.get('buying') else 0.0)) * (_f(prices.get(x['pairAddress'])) or _f(x.get('entry')))
-          share = (sum(_val(x) for x in c['legs']) + free_cash) / want_n
+          share = (sum(_val(x) for x in c['legs'] if not free_rider(x)) + free_cash) / want_n
           role_s, nxt = next(((r, x) for r in ('runner', 'pool') for x in [best(r)] if x), (None, None))
           c.setdefault('seatEmptyAt', now)
           fb_seat = False
@@ -2555,9 +2562,9 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
               ev(kind='seat', symbol=nxt.get('symbol'), usd=round(usd_s, 4), why=(f"🎯 your pick ${nxt.get('symbol')} fills seat {len(c['legs'])} of {want_n} with an equal share" if mine_ else
                                                                                  f"🪑 empty seat filled — ${nxt.get('symbol')} takes seat {len(c['legs'])} of {want_n} with an equal share" + (' · ⏱ next-best coin after 30s (none cleared the full line)' if fb_seat else '')), to=[nxt.get('symbol')])
       # 🪑 every empty seat is filled on this SAME tick (owner: "auto fills seats in 30 secs"; the engine used to seat one a tick)
-      if not want_n or len(c['legs']) >= want_n:
+      if not want_n or seats_used(c) >= want_n:
           c.pop('seatEmptyAt', None)
-      if not ((seated_pick and c.get('seatQueue')) or (seated_any and want_n and len(c['legs']) < want_n)):
+      if not ((seated_pick and c.get('seatQueue')) or (seated_any and want_n and seats_used(c) < want_n)):
           break
     t2_leg, t2_usd = second_ticket(c, cfg, prices, liqs, now, free_cash, V())
     if t2_leg:
@@ -3068,6 +3075,50 @@ def rebuy_in(card, still_held, now):
 
 
 SEAT_QUEUE_MAX = 5
+
+
+def free_rider(l):
+    """🏠 A house-money RIDER (initial already out → it costs $0; riding or frozen) rides its trail OUTSIDE the seat count (owner,
+    2026-10-09: two 5–9¢ riders held 2 of 4 seats while $1 — a quarter of the card — sat idle with nowhere to go)."""
+    return bool(l.get('house') and (l.get('ride') or l.get('frozen')) and not l.get('placeholder'))
+
+
+def seats_used(c):
+    """Seats the owner's coin count is measured against: every coin except house-money riders."""
+    return sum(1 for l in (c or {}).get('legs') or [] if not free_rider(l))
+
+
+COIN_CAPS = (0, 25, 35, 50)   # ⚖ cfg `maxCoinPct`: most of the card one coin may hold (0 = off)
+
+
+def cap_trim(c, prices, liqs, now, cfg, fee=0.0):
+    """⚖ CONCENTRATION CAP (owner, 2026-10-09: one coin was 44% of a $4 card, two coins 72%): a coin worth more than `maxCoinPct` of
+    the card — or 1.4× an equal seat when the owner's count makes that larger (2 coins → 70%) — is trimmed back to it; the money goes
+    to card cash and into the other seats. Never a rider / frozen coin / house money (winners keep running) / a coin being bought, and
+    only by an amount the keeper can send. In place → [(symbol, usd)]."""
+    pct, want = _f((cfg or {}).get('maxCoinPct')), int(_f((cfg or {}).get('coins')))
+    if pct <= 0:
+        return []
+    val = lambda l: _f(l.get('units')) * (_f((prices or {}).get(l.get('pairAddress'))) or _f(l.get('entry')))
+    total = sum(val(l) for l in c.get('legs') or [] if not l.get('placeholder')) + max(0.0, _f(c.get('cash')))
+    if total <= 0:
+        return []
+    cap = total * max(pct / 100, (1.4 / want) if want else 0.0)
+    mo = max(_f((cfg or {}).get('minOrderUsd')), 0.05)
+    out = []
+    for l in c.get('legs') or []:
+        v, px = val(l), _f((prices or {}).get(l.get('pairAddress')))
+        if (l.get('ride') or l.get('frozen') or l.get('house') or l.get('buying') or l.get('placeholder') or l.get('mint') == SOL_MINT
+                or px <= 0 or v - cap < mo):
+            continue
+        part = (v - cap) / v
+        got = sell_usd(_f(l['units']) * part, px, (liqs or {}).get(l['pairAddress']) or l.get('liq'))
+        l['units'] = _f(l['units']) * (1 - part); l['costUsd'] = round(_f(l.get('costUsd')) * (1 - part), 6); l['trimAt'] = now
+        c['cash'] = round(_f(c.get('cash')) + got, 6); c['feesUsd'] = _f(c.get('feesUsd')) + fee
+        c.setdefault('events', []).append({'at': now, 'kind': 'balance', 'symbol': l.get('symbol'), 'usd': round(got, 4),
+                                           'why': f"⚖ ${l.get('symbol')} was {v / total * 100:.0f}% of the card — trimmed to {cap / total * 100:.0f}%, ${got:.2f} back for the other seats"})
+        out.append((l.get('symbol'), got))
+    return out
 
 
 HOUSE_DUST_SHARE = 0.4   # 🏠 house money worth under this part of an equal seat is sold (profit banked) and the seat refilled
