@@ -187,3 +187,11 @@ test('caller scoreboard tab, proven-caller line and the call-rush alert select',
   await act(async () => { sel.value = '100'; sel.dispatchEvent(new Event('change', { bubbles: true })); });
   expect(posts).toEqual([['/admin/arena/prime', { callAlert: { capK: 100 } }]]);
 });
+
+test('holder tiles say "reading…" while our scan runs, "—" when nothing is known, and the number once it lands', () => {
+  const { factTiles, WAIT } = require('./TrenchQuick');
+  const pickT = (r, k) => factTiles(r).find(x => x[0] === k)[1];
+  expect(['INSIDERS', 'BUNDLED', 'SNIPERS'].map(k => pickT({ scanning: true }, k))).toEqual([WAIT, WAIT, WAIT]);
+  expect(['INSIDERS', 'BUNDLED', 'SNIPERS'].map(k => pickT({}, k))).toEqual(['—', '—', '—']);
+  expect(['INSIDERS', 'BUNDLED', 'SNIPERS'].map(k => pickT({ scanning: true, insiders: 4, bundledN: 0, snipersN: 7 }, k))).toEqual(['4%', '0', '7']);
+});

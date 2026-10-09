@@ -4,8 +4,12 @@
 .qp-link { display: inline-flex; align-items: center; gap: 4px; padding: 4px 9px; border-radius: 999px; border: 1px solid rgba(69, 228, 134, .3); background: rgba(21, 209, 106, .06); color: #bff5d6; font: 600 10.5px "JetBrains Mono", monospace; text-decoration: none; transition: transform .15s ease, border-color .15s ease, background .15s ease; }
 .qp-link:hover, .qp-link:focus-visible { border-color: #45e486; background: rgba(21, 209, 106, .16); color: #fff; transform: translateY(-1px); outline: none; } .qp-link:active { transform: translateY(1px); }
 .qp-link.is-known { cursor: default; }
-.tql-body > .tql-chart { position: sticky; top: 0; align-self: start; grid-template-rows: auto minmax(420px, 1fr); } .tql-body > .tql-chart > div:last-child { min-height: 420px; }
-@media (max-width: 760px) { .tql-body > .tql-chart { position: static; grid-template-rows: auto minmax(300px, 1fr); } .tql-body > .tql-chart > div:last-child { min-height: 300px; } }
+/* the chart fills its box (the canvas was a fixed 286px inside a 420px panel, so its footer chips floated in the empty half) */
+.tql-body > .tql-chart { position: sticky; top: 0; align-self: start; --tql-h: clamp(340px, 52vh, 520px); grid-template-rows: auto var(--tql-h); }
+.tql-chart .chart-area { min-height: var(--tql-h) !important; height: var(--tql-h); } .tql-chart .candle-canvas { height: var(--tql-h) !important; flex: none; }
+.tql-chart .chart-foot-chips, .tql-chart .chart-stale-note { display: none; }
+.tql-facts b.is-wait { color: var(--gold, #f5c451); font-weight: 600; animation: qpBeat 1.4s ease-in-out infinite; }
+@media (max-width: 760px) { .tql-body > .tql-chart { position: static; --tql-h: 300px; } }
 .qp-link.is-none { border-color: rgba(255, 143, 163, .4); background: rgba(255, 143, 163, .07); color: #ff8fa3; }
 
 .qp-flow, .qp-chart, .qp-call { display: grid; gap: 6px; padding: 8px 9px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .07); background: rgba(255, 255, 255, .02); animation: qpIn .22s ease both; }
@@ -43,7 +47,7 @@
 .qp-kid { display: inline-flex; gap: 5px; padding: 3px 7px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .1); font: 600 10px "JetBrains Mono", monospace; color: #cfe3d8; animation: qpIn .25s ease both; animation-delay: calc(var(--i) * 45ms); }
 .qp-kid em { font-style: normal; opacity: .65; } .qp-kid.on { border-color: #7cc8ff; color: #eaf6ff; }
 .sp-pc.is-fd { border-color: rgba(124, 200, 255, .55); color: #7cc8ff; } .sp-pc.is-kid { border-color: rgba(185, 166, 255, .55); color: #b9a6ff; }
-body.fx-lite .qp-fd, body.fx-lite .qp-kid { animation: none; } body.theme-day .qp-fd { background: #eef7ff; border-color: #b5d6f2; } body.theme-day .qp-kid { color: #1d3b4f; border-color: #c9dbe8; }
+body.fx-lite .qp-fd, body.fx-lite .qp-kid, body.fx-lite .tql-facts b.is-wait { animation: none; } body.theme-day .qp-fd { background: #eef7ff; border-color: #b5d6f2; } body.theme-day .qp-kid { color: #1d3b4f; border-color: #c9dbe8; }
 @media (prefers-reduced-motion: reduce) { .qp-fd, .qp-kid { animation: none; } }
 /* 📣 Pump callouts strip */
 .pcl { display: grid; gap: 7px; margin: 0 0 12px; padding: 10px 12px; border-radius: 14px; border: 1px solid rgba(245, 196, 81, .32); background: linear-gradient(120deg, rgba(245, 196, 81, .08), rgba(21, 209, 106, .04) 60%, transparent); }

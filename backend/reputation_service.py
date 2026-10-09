@@ -2936,7 +2936,13 @@ async def coin_read(mint: str):
     row = {'mint': mint, 'symbol': c.get('symbol'), **{k: c.get(k) for k in ('ageH', 'vol1h', 'vol5m', 'chg5m', 'chg1h', 'buyShare', 'txns1h', 'mcap', 'liq', 'site', 'x', 'tg') if c.get(k) is not None}}
     row.update(_holder_facts(mint))
     _ja.fill_row(row, jf, c)
-    if c.get('bundled') is not None and row.get('bundledN') is None:
+    scanning = False
+    if row.get('scanned') is not True and not os.environ.get('PYTEST_CURRENT_TEST'):
+        # 🔍 a coin someone is LOOKING at gets our full holder scan now (insiders · bundled · snipers — Jupiter's audit has none of them);
+        # one scan per coin in flight, the next read of this endpoint carries the result
+        scanning = True
+        asyncio.ensure_future(_runner_intel(mint))
+    if c.get('bundled') is not None and row.get('bundledN') is None and row.get('scanned') is True:   # never a 0 from a coin whose launch was not read
         row['bundledN'] = c.get('bundled')
     if jf and row.get('holders') is None:
         row['holders'] = jf.get('holders')
@@ -2944,8 +2950,8 @@ async def coin_read(mint: str):
     tv = _read_for(row) or ({**(t_ := _ja.trench_verdict(jf, row)), 'kind': 'trench', 'meters': [['🔥 HEAT', t_['heat']], ['☠ RUG', t_['rug']]]} if jf or c else None)
     pc_ = _pump_calls['map'].get(mint)
     _fd_rows([row])
-    out = {'mint': mint, 'row': row, 'vital': vital, 'tv': tv, 'facts': jf, 'onBoard': bool(c), 'pc': _pc.summary(pc_) if pc_ else None}
-    _coin_read_cache[mint] = (time.time(), out)
+    out = {'mint': mint, 'row': row, 'vital': vital, 'tv': tv, 'facts': jf, 'onBoard': bool(c), 'pc': _pc.summary(pc_) if pc_ else None, 'scanning': scanning}
+    _coin_read_cache[mint] = (time.time() - (9 if scanning else 0), out)   # waiting on a scan: served 6s, not 15
     if len(_coin_read_cache) > 600:
         for k in sorted(_coin_read_cache, key=lambda k: _coin_read_cache[k][0])[:200]:
             _coin_read_cache.pop(k, None)

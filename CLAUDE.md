@@ -2326,3 +2326,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`lib/lifiExec.js`, EIP-5792 `wallet_getCapabilities` → `wallet_sendCalls` → `wallet_getCallsStatus`): every exact-amount approve + swap on that
   chain in ONE wallet request when the wallet can batch; it returns null on a plain wallet and the swaps go one after another (the wallet prompts per
   transaction — no site can change that; the screen says so once). Every quote still passes `checkQuote`. Picker = EIGHT lists (+ 🆕 New launches).
+- ⚡ Quick look chart fills its panel (`--tql-h` clamp(340px, 52vh, 520px) on `.tql-chart .chart-area` + `.candle-canvas`, like the drawer / mini chart; the
+  canvas was a fixed 286px in a 420px box and `.chart-foot-chips` / `.chart-stale-note` floated in the gap — both hidden there). 🔍 A coin being LOOKED at
+  gets our full holder scan at once (`coin_read` → `_runner_intel`, `scanning: true`, that read cached 6s): insiders / bundled / snipers read "reading…"
+  (`WAIT`) then the number (~40s live), "—" = not readable (never a clean zero; a candidate's `bundled` count is used only when `scanned is True`).

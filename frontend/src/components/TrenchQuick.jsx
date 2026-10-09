@@ -27,7 +27,9 @@ const sg = v => (v == null || !Number.isFinite(Number(v)) ? '—' : Math.abs(v) 
 const age = h => (h == null ? '—' : h < 1 ? `${Math.max(1, Math.round(h * 60))}m` : h < 48 ? `${h.toFixed(h < 10 ? 1 : 0)}h` : `${Math.round(h / 24)}d`);
 const pc = v => (v == null ? '—' : `${Number(v).toFixed(0)}%`);
 const TFS = ['1m', '5m', '15m'];
+const SCAN_KEYS = ['top10', 'dev', 'insiders', 'bundledN', 'snipersN', 'bundledPct', 'scanned'];   // what OUR holder scan reads (Jupiter's audit has only top-10 + dev)
 
+export const WAIT = 'reading…';   // our holder scan for this coin is running right now
 // the facts tiles: [label, value, bad?, tip]
 // 🧮 three numbers no list shows: who is trading it (average trade), how hard it turns over (hour volume vs its cap) and how much
 // of its cap you could actually sell into (pool vs cap)
@@ -49,9 +51,9 @@ export function factTiles(r) {
   return [
     ['TOP 10', pc(r.top10), r.top10 > 30, 'Share of supply the 10 biggest wallets hold'],
     ['DEV', pc(r.dev), r.dev > 10, 'What the creator still holds'],
-    ['INSIDERS', pc(r.insiders), r.insiders > 8, 'Wallets linked to the launch'],
-    ['BUNDLED', r.bundledN == null ? '—' : String(r.bundledN), r.bundledN > 1, 'Wallets that bought in the launch bundle'],
-    ['SNIPERS', r.snipersN == null ? '—' : String(r.snipersN), r.snipersN > 5, 'Wallets that sniped the first blocks'],
+    ['INSIDERS', r.insiders == null && r.scanning ? WAIT : pc(r.insiders), r.insiders > 8, 'Wallets linked to the launch'],
+    ['BUNDLED', r.bundledN == null ? (r.scanning ? WAIT : '—') : String(r.bundledN), r.bundledN > 1, 'Wallets that bought in the launch bundle'],
+    ['SNIPERS', r.snipersN == null ? (r.scanning ? WAIT : '—') : String(r.snipersN), r.snipersN > 5, 'Wallets that sniped the first blocks'],
     ['BUYERS', r.buyShare == null ? '—' : `${Math.round(r.buyShare)}%`, r.buyShare != null && r.buyShare < 45, 'Share of trades this hour that were buys'],
     ['HOLDERS', Number(r.holders) > 0 ? Number(r.holders).toLocaleString() : '—', false, 'Wallets holding it now'],
     ['ORGANIC', org == null ? '—' : `${Math.round(org)}%`, org != null && org < 5, 'Share of volume from real traders (Jupiter) — low = bots'],
@@ -68,9 +70,9 @@ export function TrenchQuick({ row, list = [], onClose, onPick, busy }) {
   // (vital, holder facts, socials, per-window flow, Pump callouts) and the price / 5m / 1h every 10s from the shared poller
   const read = useCoinRead(r0?.mint);
   const r = useMemo(() => { if (!r0) return r0; const fresh = list.find(x => x.mint === r0.mint) || r0; const rr = read?.mint === r0.mint ? read : null;
-    const fill = {}; Object.entries(rr?.row || {}).forEach(([k, v]) => { if (v != null && k !== 'symbol' && k !== 'mint' && fresh[k] == null) fill[k] = v; });
+    const fill = {}; Object.entries(rr?.row || {}).forEach(([k, v]) => { if (v != null && k !== 'symbol' && k !== 'mint' && (fresh[k] == null || (rr.row.scanned === true && SCAN_KEYS.includes(k)))) fill[k] = v; });
     const f = rr?.facts || {};
-    return { ...fresh, ...fill, vital: rr?.vital || fresh.vital, tv: fresh.tv || rr?.tv, pc: fresh.pc || rr?.pc || null, fd: fresh.fd || rr?.row?.fd || null, pairedWith: fresh.pairedWith || rr?.row?.pairedWith || null, win: f.win || null, site: fresh.site || fill.site || f.site, x: fresh.x || fill.x || f.x, tg: fresh.tg || fill.tg || f.tg }; }, [r0, list, read]);
+    return { ...fresh, ...fill, scanning: !!rr?.scanning && rr?.row?.scanned !== true, vital: rr?.vital || fresh.vital, tv: fresh.tv || rr?.tv, pc: fresh.pc || rr?.pc || null, fd: fresh.fd || rr?.row?.fd || null, pairedWith: fresh.pairedWith || rr?.row?.pairedWith || null, win: f.win || null, site: fresh.site || fill.site || f.site, x: fresh.x || fill.x || f.x, tg: fresh.tg || fill.tg || f.tg }; }, [r0, list, read]);
   const [tf, setTf] = useState('1m');
   const [copied, setCopied] = useState(false);
   const live = useLivePrices(r0?.pairAddress ? [r0.pairAddress] : []).get(r0?.pairAddress);
@@ -119,7 +121,7 @@ export function TrenchQuick({ row, list = [], onClose, onPick, busy }) {
           {r.vital && <CoinVital r={r} only="vital" />}
           <ChartPulse pairAddress={r.pairAddress} mint={r.mint} tf={tf} />
           <FlowWindows win={r.win} tf={tf} />
-          <div className="tql-facts">{factTiles({ ...r, chg5m: live?.m5 ?? r.chg5m, chg1h: live?.h1 ?? r.chg1h, mcap: mc || r.mcap }).map(([l, x, bad, tip]) => <div key={l} className={bad ? 'bad' : ''} data-tip={tip}><small>{l}</small><b>{x}</b></div>)}</div>
+          <div className="tql-facts">{factTiles({ ...r, chg5m: live?.m5 ?? r.chg5m, chg1h: live?.h1 ?? r.chg1h, mcap: mc || r.mcap }).map(([l, x, bad, tip]) => <div key={l} className={bad ? 'bad' : ''} data-tip={x === WAIT ? `${tip} — FEELESS is reading this coin's holders on-chain right now; it fills in within about half a minute.` : x === '—' ? `${tip} — not read for this coin (unknown, never a clean zero).` : tip}><small>{l}</small><b className={x === WAIT ? 'is-wait' : ''}>{x}</b></div>)}</div>
           {r.safe === false && (r.fails || []).length > 0 && <p className="tql-fails">⚠ {(r.fails || []).join(' · ')}</p>}
         </div>
       </div>
