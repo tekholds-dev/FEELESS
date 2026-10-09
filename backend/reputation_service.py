@@ -3269,6 +3269,8 @@ async def _fuses_discover_raw(lens, chain):
         return {'lens': 'prebreak', 'chain': 'solana', 'pools': _prebreak_rows()}
     if lens == 'procall':
         return {'lens': 'procall', 'chain': 'solana', 'pools': _procall_rows()}
+    if lens == 'brain':
+        return {'lens': 'brain', 'chain': 'solana', 'pools': _brain_rows()}
     if lens == 'fresh':   # 🔄 NEW TO YOU (owner, 2026-10-08: "no new coins, I'm running in circles — cycle different coins from the Arena and FEELESS
         # sitewide"): every list FEELESS shows (Pump trending · movers · Pump live · volume · dips · the Arena's ranked coins) woven together one
         # coin from each in turn, MINUS every coin the real card bought, sold or holds in the last 24h. Safety facts ride on every row as usual.
@@ -6499,6 +6501,7 @@ async def _trench_build(now):
     await _bottom_track(now)
     await _call_track(now)
     await _procall_track(now)
+    await _brain_track(now)
     try:   # 🔗 Pump's own socials for the open list's busiest coins + the real card's coins (lists read the cache)
         legs_ = [l.get('mint') for c_ in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if c_.get('real') for l in c_.get('legs') or []]
         await _pump_links_warm(legs_ + [r.get('mint') for r in (_open_board() or [])[:60]])
@@ -6633,6 +6636,71 @@ async def _procall_track(now):
         print('procall proof:', e)
 
 
+import trench_brain as _tb
+BRAIN_PATH = FUSE_HQ_PATH.parent / 'trench_brain.json'   # 🧠 every trench coin seen, judged on the PLAY (+50% first = hit, −30% first = cut)
+BRAIN_SEE = 120                                          # the open list's busiest coins noted each pass
+_brain: dict = {'at': 0.0, 'tbl': {}, 'sum': None}
+
+
+async def _brain_track(now):
+    """🧠 TRENCH BRAIN pass (~2 min, with the trench build): watched coins see their Jupiter price (first touch of +50 / −30 settles
+    them), new open-list coins are noted with their features, the learned table + walk-forward proof are rebuilt for the lens / engine.
+    A pass where Jupiter answers nothing is skipped (an outage must not read as every coin vanishing)."""
+    try:
+        st = _json_load(BRAIN_PATH, {})
+        raw = [_with_tv(x) for x in (_open_board() or [])[:BRAIN_SEE]]
+        tv_ = {x.get('mint'): x.get('tv') for x in raw}
+        rows = [{**r, 'tv': tv_.get(r.get('mint')) or r.get('tv')} for r in _clean_rows([dict(x) for x in raw])]
+        watch = list((st.get('open') or {}).keys())
+        jp = await _jup_prices(watch) if watch else {}
+        if watch and not jp:
+            return
+        st = _tb.track(st, rows, lambda m: (jp or {}).get(m), now)
+        _json_save(BRAIN_PATH, st)
+        _brain.update(at=now, tbl=_tb.table(st['done']), sum=_tb.summary(st))
+    except Exception as e:
+        print('trench brain:', e)
+
+
+def _brain_state():
+    if _brain['sum'] is None:
+        st = _json_load(BRAIN_PATH, {})
+        _brain.update(tbl=_tb.table(st.get('done') or []), sum=_tb.summary(st))
+    return _brain
+
+
+def _brain_ready():
+    """The engine may take brain picks only once its walk-forward proof holds (top third positive, ≥ 10 pts over the bottom)."""
+    return bool(((_brain_state()['sum'] or {}).get('proof') or {}).get('proven'))
+
+
+def _brain_rows():
+    """🧠 Trench brain list: safe open-list coins ranked by their LEARNED play (what coins like this did — +50% first or −30% first),
+    busted reads and rug ≥ 50 left out. Each row says the play, the hit rate and the cell that decides it."""
+    b = _brain_state()
+    raw = [_with_tv(x) for x in _open_board() or []]
+    tv_ = {x.get('mint'): x.get('tv') for x in raw}
+    out = []
+    for r in _clean_rows([dict(x) for x in raw]):
+        r = {**r, 'tv': tv_.get(r.get('mint')) or r.get('tv')}
+        sc = _tb.score(r, b['tbl'])
+        if not sc or r.get('safe') is not True or not _prime.trench_read_ok(r) or _fuse._f(r.get('price')) <= 0:
+            continue
+        lead = (sc['why'] or [None])[0]
+        out.append({**r, 'baseAddress': r['mint'], 'priceUsd': r.get('price'), 'liquidityUsd': r.get('liq'),
+                    'brain': sc, 'trenchScore': 300 + sc['est'],
+                    'divisionLabel': f"🧠 learned play {sc['est']:+.0f}% · {sc['hit']}% hit +{_tb.TP_PCT:.0f}% first"
+                                     + (f" · {lead[0]} → {lead[1]:+.0f}% (n {lead[2]})" if lead else ' · still learning')})
+    return sorted(out, key=lambda r: -r['brain']['est'])
+
+
+@app.get('/api/reputation/fuses/trench-brain')
+async def fuse_trench_brain():
+    """🧠 What the trench brain knows: coins judged / watching, how they ended, the walk-forward proof, best + worst learned cells."""
+    b = _brain_state()
+    return {**(b['sum'] or {}), 'ready': _brain_ready()}
+
+
 BOTTOM_PROOF_PATH = FUSE_HQ_PATH.parent / 'bottom_proof.json'   # 🟢 the Buy-bottom list's own 1-hour paper record
 _bottom_cache: dict = {'at': 0.0, 'rows': []}
 
@@ -6670,7 +6738,7 @@ async def _bottom_rows(now):
 
 
 LENS_PROOF_PATH = FUSE_HQ_PATH.parent / 'lens_proof.json'   # 📏 every picker list's own 1-hour paper record
-LENS_TRACK = ('ptrend', 'movers', 'pump', 'volume', 'calls', 'fed', 'double', 'exhale', 'procall', 'wave', 'prebreak')          # the live-feed lists (bottom + trench keep their own files)
+LENS_TRACK = ('ptrend', 'movers', 'pump', 'volume', 'calls', 'fed', 'double', 'exhale', 'procall', 'wave', 'prebreak', 'brain')          # the live-feed lists (bottom + trench keep their own files)
 LENS_TOP = 15                                                # the top rows of each list are what a picker actually picks from
 _lens_rows: dict = {}                                        # {list: [rows in the list's own order]} — refreshed with the record (~2 min)
 
@@ -8692,6 +8760,9 @@ async def _prime_tick_inner(now):
             sendit_ = [{**x, 'trenchScore': 100 + _fuse._f((x.get('tv') or {}).get('heat')), 'sendIt': True} for x in (_call_cache.get('send') or [])] \
                 if (cfg_t.get('sendItAuto', True) and _sendit_ready()) else []
             # 🔥 SEND IT ONLY (owner's switch): the trench list itself reads −79% an hour on its own record, the SEND IT call +0.5% (52% won)
+            # 🧠 TRENCH BRAIN first — only once its walk-forward proof holds and the owner's switch is on (safe coins, learned play > 0)
+            if cfg_t.get('trenchBrain', True) and _brain_ready():
+                sendit_ = [x for x in _brain_rows()[:6] if x['brain']['est'] > 0] + sendit_
             pro_ = _pc.pro_entries(_pump_calls.get('calls') or [], _pump_calls.get('callers') or {}, [_with_tv(x) for x in _open_board()], now * 1000) if cfg_t.get('proCallEntry') else []
             pool_t = _prime.trench_pool(sendit_, _trench_cache.get('rows'), _trench_cache.get('fallback'),
                                         [y for y in _trench_cache.get('checked') or [] if not y.get('ok') and _trench.soft_only(y.get('fails'))], cfg_t, pro=pro_)

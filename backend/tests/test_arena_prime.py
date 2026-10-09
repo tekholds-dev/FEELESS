@@ -2688,7 +2688,7 @@ def test_clean_entry_gate_blocks_highs_chases_thin_and_young_coins():
     assert ap.entry_gate({**ok, 'vol1h': 30_000, 'ageH': 1}, core=True) is None             # the 30s seat fill: core rules only
     assert 'chasing' in ap.entry_gate({**ok, 'chg1h': 85}, core=True)
     assert ap.entry_gate({'liq': 120_000}) is None                                        # missing readings are not judged
-    assert 'bots' in ap.entry_gate({**ok, 'vital': {'organicPct': 2}})                     # $LOOT: 2% organic — a dip on wash flow means nothing
+    assert ap.entry_gate({**ok, 'vital': {'organicPct': 2}}) is None                        # Jupiter scores most Pump coins 2–3% organic: not an entry gate
     assert 'buyers only' in ap.entry_gate({'pairAddress': 'p', 'liq': 120_000}, {'p': {'buyShare': 40}})   # momentum fills gaps
 
 

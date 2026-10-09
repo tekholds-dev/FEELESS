@@ -502,6 +502,7 @@ def clean_cfg(p):
     out['bangerRefill'] = bool((p or {}).get('bangerRefill', False))   # 🚀 a seat that opens takes a banger first: proven caller → top 3 → cooling off
     out['topSeat'] = bool((p or {}).get('topSeat', False))   # 🔥 the TOP 1/3 coin takes the weakest seat by itself (one per 10 min); buys-vs-sells gets it out
     out['proCallEntry'] = bool((p or {}).get('proCallEntry', False))   # 🎯 trench seats take a PROVEN caller's fresh call first, while still near the called cap
+    out['trenchBrain'] = bool((p or {}).get('trenchBrain', True))     # 🧠 trench seats take the brain's learned picks first — only once its walk-forward proof holds
     out['trenchSendOnly'] = bool((p or {}).get('trenchSendOnly', False))   # 🔥 the trench drop takes ONLY 🔥 SEND IT coins (the only trench read with a positive record) — none → it waits
     out['sendItAuto'] = bool((p or {}).get('sendItAuto', True))   # 🔥 the engine may take SEND IT coins as trench tickets — only once that call is PROVEN
     out['ticketRide'] = bool((p or {}).get('ticketRide', False))   # 🎰 ride or rug: a ticket has NO stop — it rugs (the ticket is lost) or runs to the 🏠 pull
@@ -1013,7 +1014,6 @@ ENTRY_MAX_5M = 3.0          # up more than this in the last 5 min = buying the c
 ENTRY_MIN_PULL = 3.0        # at least this % under its 4h high (when the chart is read) — never the top tick
 ENTRY_MIN_LIQ = 50_000.0
 ENTRY_MIN_AGE_H = 6.0
-ENTRY_MIN_ORGANIC = 5.0     # % of the hour's volume that is real (Jupiter's organic read)
 ENTRY_MIN_VOL1H = 50_000.0   # was $200K: it blocked ~half of Pump trending on a thin record (n 4 in the $50–200K bucket)
 
 
@@ -1022,9 +1022,6 @@ def entry_gate(x, mom=None, core=False):
     decide those). Trench tickets have their own rules and never pass through here. `core` = the seat-fill fallback's version: only
     sellers-leading / chasing / at-highs / thin pool (age + volume floors skipped) — a seat must end in a coin, not wait for good."""
     r = {**((mom or {}).get((x or {}).get('pairAddress')) or {}), **{k: v for k, v in (x or {}).items() if v is not None}}
-    org = r.get('organicPct') if r.get('organicPct') is not None else (r.get('vital') or {}).get('organicPct')
-    if org is not None and _f(org) < ENTRY_MIN_ORGANIC:   # 🤖 the volume is bots: a "dip" or a "breakout" on wash flow means nothing ($LOOT: 2%)
-        return f"bots — only {_f(org):.0f}% of the volume is real"
     if r.get('buyShare') is not None and _f(r['buyShare']) < ENTRY_BUY_MIN:
         return f"buyers only {_f(r['buyShare']):.0f}% (needs {ENTRY_BUY_MIN:g}%+)"
     if r.get('chg1h') is not None and _f(r['chg1h']) > ENTRY_MAX_1H:

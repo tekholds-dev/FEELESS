@@ -2561,3 +2561,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   holders · rug meter, each ok / mid / bad on the safety lines, "—" = not read, score "N/M clean". pickRow carries those fields + `rug`.
 - 🌊 The tape is in every coin read (`/coin-read` → `tape` {read, label, buyUsd, sellUsd, n, pxChg}; one pool, 12s cache) → chart header chip `cv-tape`.
 - 🧱 Real card floor −10% (`_floor_fix_1009`; owner "keep $3.62" — run started $3.61; a floor AT the start would sell on any wiggle).
+- 🧠 TRENCH BRAIN (`backend/trench_brain.py` pure + tested; `_brain_track` in `_trench_build`, `data/trench_brain.json`, public
+  `GET /fuses/trench-brain`, lens + picker tab `brain` (in LENS_TRACK), `BrainNote` / `brainLine`): every busy open-list coin (top 120)
+  is watched each pass and judged on the PLAY a ticket makes — which line it touches FIRST: +50% (hit, on to the next) or −30% (cut);
+  neither in 1h = its 1h move; no price = −100%; a pass where Jupiter answers nothing is skipped. It learns single features AND pairs
+  (age · cap · stage · 5m pace · buyers · 5m / 1h move · safe · top-10 · socials · read · tape), scores a coin from its 3 strongest
+  cells shrunk by sample size, and is TRUSTED (`proof`: learn on the oldest 60%, rank the newest 40%) only with ≥ 30 unseen coins,
+  top third positive and ≥ 10 pts over the bottom third. Real cfg `trenchBrain` (on): once proven, its safe picks with a positive
+  learned play go FIRST in the trench drop (still through trench_entry / read_ok / pool floor). Price samples are ~2 min apart, so
+  first-touch is approximate. Organic "bots" check REMOVED from `entry_gate` (Jupiter reads most Pump coins 2–3% organic).

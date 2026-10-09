@@ -21,9 +21,9 @@ test('lists that did not earn a place are out of the picker', () => {
   for (const k of ['bottom', 'volume', 'fed', 'prebreak', 'movers', 'pump', 'signals']) expect(PICK_LENSES.map(x => x[0])).not.toContain(k);
 });
 
-test('seven picker lists (Best now first), and a row with no recorded prices still gets a line from its own moves', () => {
+test('eight picker lists (Best now first), and a row with no recorded prices still gets a line from its own moves', () => {
   const { PICK_LENSES, moveLine } = require('./ArenaPrime');
-  expect(PICK_LENSES.length).toBe(7); expect(PICK_LENSES[0][0]).toBe('best');
+  expect(PICK_LENSES.length).toBe(8); expect(PICK_LENSES[0][0]).toBe('best');
   const pts = moveLine({ chg24h: 100, chg6h: 50, chg1h: -20, chg5m: 0 });
   expect(pts.length).toBe(5); expect(pts[0]).toBeCloseTo(0.5); expect(pts[2]).toBeCloseTo(1.25); expect(pts[4]).toBe(1);
   expect(moveLine({ chg1h: 10 })).toBeNull(); expect(moveLine({ chg1h: 10, chg5m: 1, chg24h: -100 }).length).toBe(3);   // a −100% reading is skipped, never divided by zero
