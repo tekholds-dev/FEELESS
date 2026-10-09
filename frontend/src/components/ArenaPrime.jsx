@@ -18,6 +18,7 @@ import { RoundBell, TrailSummary, CycleBuilder, usd, usdK, pct, txUrl } from './
 import { StrategyPicks, stratPatch } from './StrategyPicks';
 import { openCoin } from './CoinDrawer';
 import { TrenchOpen } from './TrenchOpen';
+import '../styles/sizeLadder.css';
 import '../styles/primeLeague.css';
 import { useTabTitle, cardTitle } from '../lib/tabTitle';
 import { CoinVital, VitalView, applyView, loadView } from './CoinVital';
@@ -405,7 +406,21 @@ export function TrenchScan({ call, bare, onSaved, onPickRow, pickBusy }) {
         <small>{r.ok ? (r.trenchWhy || []).map(p => p.why).join(' · ') : (r.fails || []).join(' · ')}</small></li>)}</ul>}</>}</div>;
 }
 
-function CardEditor({ c, cfg, keeper, locked, call, real, suggest, meta }) {
+// 🪜 SIZE LADDER (backend arena_prime.LADDER): the card's playbook climbs with its money — 🗑 trench 5-min scalping at $2 up to
+// 👑 majors on 1-hour rounds at $10K+. Bigger seats can't fit tiny pools, so the stage is set by size, never by mood. A read of the
+// card's value at the last bell; it moves up at a stage's floor and back down only under 80% of it.
+export function LadderCard({ l, busy, onToggle }) {
+  const i = Math.max(0, (l.stages || []).findIndex(x => x.key === l.key));
+  const usd = v => (v >= 1000 ? `$${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}K` : `$${v}`);
+  return <div className={`lad ${l.on ? 'is-on' : ''}`} data-testid="ladder-card">
+    <div className="lad-head"><span><b>🪜 SIZE LADDER</b><small> · card at {usd(l.value || 0)} → {l.name}</small></span>
+      <button type="button" className={`m-btn ${l.on ? 'is-on' : 'primary m-go'}`} disabled={busy} onClick={() => onToggle(!l.on)} data-testid="ladder-toggle">{l.on ? '✓ Climbing · turn off' : '🪜 Climb the ladder'}</button></div>
+    <ol className="lad-track">{(l.stages || []).map((s, k) => <li key={s.key} className={k < i ? 'done' : k === i ? 'now' : ''} style={{ '--i': k }} data-testid={`lad-${s.key}`}><b>{s.name}</b><small>{usd(s.from)}+</small></li>)}</ol>
+    <p className="m-note">{l.why}{l.next ? ` Next: ${l.next.name} at ${usd(l.next.at)}.` : ''} {l.on ? 'It sets the clock, coin count, selection and exits for this stage; your other settings stay.' : 'Off: your own settings run as they are.'} A plan for the size, never a promise.</p>
+  </div>;
+}
+
+function CardEditor({ c, cfg, keeper, locked, call, real, suggest, meta, ladder }) {
   const [busy, setBusy] = useState(false);
   const save = async (patch, wallet) => {
     setBusy(true);
@@ -443,7 +458,8 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest, meta }) {
   return <details className="hrt-edit" data-testid="card-editor"><summary>⚙ Edit Fuse {real ? '· this card’s own settings' : locked ? '· 🔒 locked — edits change only this Fuse' : '· this card\'s own exits, patience + hold · shape is shared'}</summary>
     {adv && <div className="m-seg ce-tabs" role="tablist" aria-label="Config groups">{CFG_GROUPS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={grp === k} className={grp === k ? 'active' : ''} data-tip={tip} onClick={() => setGrp(k)} data-testid={`ce-tab-${k}`}>{l}</button>)}</div>}
     <div className="ce-group" key={adv ? grp : 'main'} data-testid={`ce-pane-${adv ? grp : 'main'}`}>
-      {!adv && real && meta && <div className={`ce-meta is-${meta.key}`} data-testid="meta-card"><span><b>{meta.name}</b><small> · built for {Math.round((cfg?.rotateHours || 0) * 60)}-minute rounds · your card's own variant</small><p>{meta.why}</p></span>
+      {!adv && real && ladder && <LadderCard l={ladder} busy={busy} onToggle={v => save({ ladder: v })} />}
+      {!adv && real && meta && !ladder?.on && <div className={`ce-meta is-${meta.key}`} data-testid="meta-card"><span><b>{meta.name}</b><small> · built for {Math.round((cfg?.rotateHours || 0) * 60)}-minute rounds · your card's own variant</small><p>{meta.why}</p></span>
         {(() => { const onNow = Object.entries(meta.patch).every(([k, v]) => String(cfg?.[k]) === String(v) || Number(cfg?.[k]) === Number(v));
           return <button type="button" className={`m-btn ${onNow ? 'is-on' : 'primary m-go'}`} disabled={busy || onNow} onClick={() => save(meta.patch)} data-testid="meta-apply">{onNow ? '✓ Running this' : '⚡ Use the meta'}</button>; })()}</div>}
       {!adv && <>{sub('1 · PICK A SETUP')}<StrategyPicks hours={cfg?.rotateHours || 1} current={cfg} busy={busy} selection={real} onApply={s => saveExit(stratPatch(s.cfg, real))} testid={`strats-${c.tpl}`} />
@@ -748,7 +764,7 @@ export function HqRealCards({ addr, onCount }) {
             [`🔒 hold ≥ ${cf?.minHoldMins || 0}m`, 'Every new coin is held at least this long'], [`🔄 ${(cf?.cycles || {})[c.tpl] || c.cycleMode || 'off'}${c.cycleFix ? ` (fix: ${c.cycleFix})` : ''} · ${c.phase || '—'}`, 'Cycle and the shape it is in now'], [`🧩 re-shape every ${cf?.cycleEvery || 6} rounds`, 'How often the card changes shape'],
             [`🛑 stops: ${cf?.slMode || 'replace'}`, 'What happens when a coin hits its stop'], [`🛟 rescue at −${cf?.rescuePct || 50}%`, 'Card this far under its start → safest coins'], [`💧 real buys need $${((k.minLiqUsd || 0) / 1000).toFixed(0)}K pool · 🏟 Arena $${((k.arenaMinLiqUsd ?? k.minLiqUsd ?? 0) / 1000).toFixed(0)}K`, 'Thinner coins stay paper-only; Arena coins (passed every runner gate) have their own floor'],
             [`🪙 min buy $${(k.minOrderUsd || 0).toFixed(2)} · max $${k.maxSwapUsd || 0}`, 'Smallest / largest single real swap'], [`↔ slippage ${((k.slippageBps || 0) / 100).toFixed(1)}%`, 'Retries add a little, never past 3%']].map(([t2, tip]) => <span key={t2} className="m-chip" data-tip={tip}>{t2}</span>)}</div>
-          <CardEditor c={c} cfg={c.cfgEff || (d.locks?.[c.tpl] ? { ...d.cfg, ...(d.lockCfg?.[c.tpl] || {}) } : d.cfg)} keeper={k} locked={!!d.locks?.[c.tpl]} real={!!c.real} meta={d.meta} call={call} suggest={d.suggest} /></details>
+          <CardEditor c={c} cfg={c.cfgEff || (d.locks?.[c.tpl] ? { ...d.cfg, ...(d.lockCfg?.[c.tpl] || {}) } : d.cfg)} keeper={k} locked={!!d.locks?.[c.tpl]} real={!!c.real} meta={d.meta} ladder={c.real ? d.ladder : null} call={call} suggest={d.suggest} /></details>
           <div className="hrt-acts">
             <button type="button" className="m-btn" disabled={!!busy || k.selling} onClick={() => act(c.tpl, k.halt ? 'resume' : 'halt')} data-tip={k.halt ? 'Keeper trades again' : 'Keeper stops trading this card (coins stay)'}>{k.halt ? '▶ Resume' : '⏸ Pause'}</button>
             <span className="hrt-top-up"><NumInput className="m-input" type="number" min="1" step="1" placeholder="$" value={amt} onChange={e => setAmt(e.target.value)} aria-label="Top up amount" />

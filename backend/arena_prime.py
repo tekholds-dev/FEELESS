@@ -503,6 +503,7 @@ def clean_cfg(p):
     out['upMeta'] = bool((p or {}).get('upMeta', True))          # 🧭 the engine's own buys need a readable chart that is not trending down
     out['trailStep'] = bool((p or {}).get('trailStep', False))   # 🪜 a rider's trail widens as its peak gain grows
     out['comeback'] = bool((p or {}).get('comeback', True))      # 🔁 a rider that left is bought back when its dip recovers 15%
+    out['ladder'] = bool((p or {}).get('ladder', False))   # 🪜 the card's playbook climbs with its size (LADDER)
     out['newOnly'] = bool((p or {}).get('newOnly', False))   # 🆕 the engine fills seats with launch coins only — no majors, no old pools (the owner's own picks are untouched)
     out['moverSwap'] = bool((p or {}).get('moverSwap', True))   # 🚀 a mover takes the seat of a coin that is not moving
     out['edgeGate'] = bool((p or {}).get('edgeGate', True))   # 🧠 real money buys only runners the board's own record does not expect to lose (pick_edge.py)
@@ -757,6 +758,73 @@ def meta_for(rotate_hours, seed=0):
                     % (patch['rideAt'], patch['rideTrail'], patch['sl'])) if scalp else
                    ('Buys coins already running, then gets out of their way: freeze +%g%%, %g%% trail, no skim, stop −%g%%, held at least %g min.'
                     % (patch['rideAt'], patch['rideTrail'], patch['sl'], patch['minHoldMins']))}
+
+
+# 🪜 THE SIZE LADDER (owner, 2026-10-08: "$2 on 5 min in the trenches … all the way to $100,000 holding big majors on 1h"). A card's money
+# decides what it can buy WITHOUT moving the price: $2 seats fit any launch pool, a $20K seat would eat a $50K trench pool alive. So the
+# playbook climbs with the card (cfg `ladder`, the owner's switch): each STAGE is a whole patch, built from options the editor already
+# offers (clean_cfg keeps every value — test). Up a stage only at its floor, down only under 80% of it (no flapping on one candle).
+LADDER = (
+    ('trench', 0.0, '🗑 TRENCH', '5-min rounds on new coins: a 20% scout hunts, small winners lock at +15% and bank a third, 30% stop on tickets.',
+     {'rotateHours': 0.08, 'coins': 3, 'scoutPct': 20, 'newOnly': True, 'trenchAuto': True, 'trenchCoins': 1, 'trenchStakePct': 15,
+      'trenchHouseAt': 100, 'runnerMinAgeH': 1, 'runnerMinVolK': 50, 'runnerMinChg1h': 20, 'runnerMinLiqK': 25, 'runnerMinBuy': 55,
+      'rideAt': 15.0, 'rideTrail': 8.0, 'trailStep': True, 'lockBankPct': 33.0, 'skimAt': 20.0, 'sl': 15.0, 'minHoldMins': 15.0}),
+    ('runner', 10.0, '🏃 RUNNER', '15-min rounds on the runner hunt line (12h+, $50K/h, +40%): let winners run to +50% with a wide trail.',
+     {'rotateHours': 0.25, 'coins': 4, 'scoutPct': 15, 'newOnly': True, 'trenchAuto': True, 'trenchCoins': 1, 'trenchStakePct': 10,
+      'trenchHouseAt': 100, 'runnerMinAgeH': 12, 'runnerMinVolK': 50, 'runnerMinChg1h': 40, 'runnerMinLiqK': 25, 'runnerMinBuy': 0,
+      'rideAt': 50.0, 'rideTrail': 20.0, 'trailStep': True, 'lockBankPct': 25.0, 'skimAt': 0.0, 'sl': 20.0, 'minHoldMins': 30.0}),
+    ('sniper', 100.0, '🎯 SNIPER', '30-min rounds, deep pools only ($100K+), buyers 65%+, majors allowed as anchors; trench is off.',
+     {'rotateHours': 0.5, 'coins': 5, 'scoutPct': 10, 'newOnly': False, 'trenchAuto': False, 'trenchCoins': 1, 'trenchStakePct': 10,
+      'trenchHouseAt': 100, 'runnerMinAgeH': 12, 'runnerMinVolK': 100, 'runnerMinChg1h': 20, 'runnerMinLiqK': 100, 'runnerMinBuy': 65,
+      'rideAt': 50.0, 'rideTrail': 20.0, 'trailStep': True, 'lockBankPct': 25.0, 'skimAt': 0.0, 'sl': 20.0, 'minHoldMins': 60.0}),
+    ('bluechip', 1000.0, '🐋 BLUE-CHIP', '1h rounds: majors + new majors anchor the card, one deep runner seat; stops wide, no scout.',
+     {'rotateHours': 1.0, 'coins': 5, 'scoutPct': 0, 'newOnly': False, 'trenchAuto': False, 'trenchCoins': 1, 'trenchStakePct': 10,
+      'trenchHouseAt': 100, 'runnerMinAgeH': 12, 'runnerMinVolK': 100, 'runnerMinChg1h': 20, 'runnerMinLiqK': 100, 'runnerMinBuy': 65,
+      'rideAt': 100.0, 'rideTrail': 20.0, 'trailStep': True, 'lockBankPct': 0.0, 'skimAt': 0.0, 'sl': 20.0, 'minHoldMins': 120.0,
+      'cycles': {'degen': 'safe'}}),
+    ('majors', 10000.0, '👑 MAJORS', '1h rounds holding the big majors (SOL, BTC, ETH, JUP …) ranked by what is moving; only pools that can take the size.',
+     {'rotateHours': 1.0, 'coins': 6, 'scoutPct': 0, 'newOnly': False, 'trenchAuto': False, 'trenchCoins': 1, 'trenchStakePct': 10,
+      'trenchHouseAt': 100, 'runnerMinAgeH': 12, 'runnerMinVolK': 100, 'runnerMinChg1h': 20, 'runnerMinLiqK': 100, 'runnerMinBuy': 65,
+      'rideAt': 100.0, 'rideTrail': 30.0, 'trailStep': True, 'lockBankPct': 0.0, 'skimAt': 0.0, 'sl': 30.0, 'minHoldMins': 180.0,
+      'cycles': {'degen': 'safe'}}),
+)
+LADDER_DOWN = 0.8   # a stage is left downward only under 80% of its floor
+
+
+def ladder_stage(value_usd, prev=None):
+    """The stage a card of this $ value plays (hysteresis vs its previous stage)."""
+    v = _f(value_usd)
+    keys = [x[0] for x in LADDER]
+    up = 0
+    for i, st in enumerate(LADDER):
+        if v >= st[1]:
+            up = i
+    if prev in keys:
+        i = keys.index(prev)
+        if up < i and v >= LADDER[i][1] * LADDER_DOWN:
+            return prev   # a small dip under the floor keeps the stage
+    return keys[up]
+
+
+def ladder_view(key):
+    st = next((x for x in LADDER if x[0] == key), LADDER[0])
+    i = LADDER.index(st)
+    nxt = LADDER[i + 1] if i + 1 < len(LADDER) else None
+    return {'key': st[0], 'name': st[2], 'why': st[3], 'from': st[1], 'next': ({'name': nxt[2], 'at': nxt[1]} if nxt else None),
+            'stages': [{'key': x[0], 'name': x[2], 'from': x[1]} for x in LADDER]}
+
+
+def ladder_patch(cfg, key):
+    """The card's config with its stage's playbook on top (cycles merged, so other tiers keep theirs)."""
+    st = next((x for x in LADDER if x[0] == key), None)
+    if not st:
+        return cfg
+    patch = dict(st[4])
+    cyc = patch.pop('cycles', None)
+    out = {**(cfg or {}), **patch}
+    if cyc:
+        out['cycles'] = {**((cfg or {}).get('cycles') or {}), **cyc}
+    return out
 
 
 TRAIL_STEPS = ((80.0, 25.0), (30.0, 15.0))   # peak gain ≥ +80% → at least a 25% trail · ≥ +30% → at least 15%

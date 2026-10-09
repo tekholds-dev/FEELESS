@@ -2334,3 +2334,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   swap per coin) — no site can remove that. So: dust (< swap minimum) is SKIPPED on EVM unless "include dust" is ticked (`evmTodo`; it was 2 prompts + gas
   to return cents), the log says up front how many prompts are coming, a wallet "no" (`isRejected`: code 4001 / reject · denied · cancel) ENDS the run
   instead of popping the next coin, and ⏹ Stop (`dc-stop`) does the same. Wallets that batch still get one request per chain.
+- 🪜 SIZE LADDER (owner, 2026-10-08: "$2 5-min in the trenches … to $100K holding big majors on 1h"; `arena_prime.LADDER/ladder_stage/ladder_patch/
+  ladder_view`, real cfg `ladder` (owner's switch, off by default), `_ladder_step` in the tier tick → card `ladderStage` + event `ladder`, applied in
+  `_prime_real_cfg`; `/fuses/prime.ladder` → `LadderCard` on top of Edit Fuse's main pane, `styles/sizeLadder.css` `lad-*`): 🗑 TRENCH $0+ (5m, 3 coins,
+  20% scout, lock +15 / 8%, stop 15) · 🏃 RUNNER $10+ (15m, hunt line) · 🎯 SNIPER $100+ (30m, $100K pools, buyers 65%) · 🐋 BLUE-CHIP $1K+ (1h, majors
+  anchor) · 👑 MAJORS $10K+ (1h, 6 coins, safe cycle). Stage = value at the last bell; up at the floor, down under 80% of it. Every value is an editor
+  option (test). While on, the stage's keys beat the owner's own for those keys; everything else stays theirs. Plan for the size — not a proven edge.

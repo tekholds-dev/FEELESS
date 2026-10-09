@@ -5878,6 +5878,26 @@ def _prime_cfg():
     return cfg
 
 
+def _ladder_value(card):
+    """🪜 What the real card is worth for its ladder stage: its value at the last round bell (else its run start)."""
+    return _fuse._f((card or {}).get('roundStartUsd')) or _fuse._f((card or {}).get('startUsd'))
+
+
+def _ladder_step(card, cfg, now):
+    """🪜 Move the real card up / down the size ladder (hysteresis in arena_prime.ladder_stage); one event per change."""
+    if not (card and card.get('real') and cfg.get('ladder')):
+        return card
+    prev = card.get('ladderStage')
+    st = _prime.ladder_stage(_ladder_value(card), prev)
+    if st != prev:
+        card['ladderStage'] = st
+        v = _prime.ladder_view(st)
+        if prev:
+            card.setdefault('events', []).append({'at': now, 'kind': 'ladder', 'text': f"🪜 ${_ladder_value(card):.2f} card → {v['name']}: {v['why']}"})
+            card['events'] = card['events'][-60:]
+    return card
+
+
 def _prime_real_cfg(pr=None):
     """💵 The REAL card's own config (`prime.realCfg`): separate from paper — HQ/engine tunes, meta config and tier locks only ever write the
     paper `cfg`. Not set yet → it starts as a copy of today's paper config. Any clock (5 min too) is allowed."""
@@ -5888,7 +5908,14 @@ def _prime_real_cfg(pr=None):
         out = _prime.clean_cfg(rc)
         if 'instantSwapPct' not in rc:
             out['instantSwapPct'] = out['rotateMinDrop']
+        if out.get('ladder'):   # 🪜 the playbook of the real card's size stage (set by the tier tick) on top of the owner's config
+            rcard = next((c for c in ((pr.get('cards') or {}).values()) if (c or {}).get('real')), None) or {}
+            out = _prime.clean_cfg(_prime.ladder_patch(out, rcard.get('ladderStage') or _prime.ladder_stage(_ladder_value(rcard))))
+            out['ladder'] = True
+            if 'instantSwapPct' not in rc:
+                out['instantSwapPct'] = out['rotateMinDrop']
         return {**_prime.real_guard(out, pr.get('realOwnerSet') or ())[0], 'paperFeeUsd': paper['paperFeeUsd']}   # 💵 hard floors (owner's OFF hold wins)
+
     return _prime.real_guard({**paper, 'instantSwapPct': paper.get('rotateMinDrop', 0)})[0]
 
 
@@ -7661,6 +7688,9 @@ async def _prime_tick_inner(now):
         real_t = bool((cur or {}).get('real'))
         if real_t:
             cfg_t = _prime_real_cfg(d.get('prime') or {})   # 💵 the real card runs ITS OWN config — paper edits / locks / engine tunes never touch it
+            if cur is not None and _prime_real_cfg(d.get('prime') or {}).get('ladder'):
+                cur = _ladder_step(cur, {'ladder': True}, now)
+                cfg_t = _prime_real_cfg({**(d.get('prime') or {}), 'cards': {**((d.get('prime') or {}).get('cards') or {}), tid: cur}})
         if cur is not None:   # 🔁 the card carries its own "no same coin unless it dipped" rule (arena_prime.cooling / note_dropped read it)
             cur = {**cur, 'rebuyDip': int(cfg_t.get('rebuyDipPct') or 0), 'ticketOff': bool(real_t and not cfg_t.get('youngTicket', True)), 'ticketRide': bool(real_t and cfg_t.get('ticketRide'))}
         # 🎯 PAPER = REAL: every tier (paper too) only rotates into coins real money could buy (pool ≥ minLiqUsd), so paper results are an
@@ -8152,7 +8182,9 @@ async def fuse_prime():
     _rc = _prime_real_cfg() if any((c or {}).get('real') for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values()) else {}
     _seed = sum(ord(ch) for ch in ''.join(sorted(_owner_wallets()))[:44]) if _rc else 0   # ⚡ each owner's card gets its own variant of the meta
     _ht, _hp, _hn = _human_style()
-    return {'meta': _prime.meta_for(_fuse._f(_rc.get('rotateHours')) or 1.0, _seed) if _rc else None, 'cards': await _prime_view(), 'humanStyle': {'tiers': _ht, 'picks': _hn, 'need': _ps.MIN_PICKS, 'ready': bool(_hp), 'words': _ps.words(_hp),
+    _rcard = next((c for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if (c or {}).get('real')), None) if _rc else None
+    _lad = {**_prime.ladder_view(_rcard.get('ladderStage') or _prime.ladder_stage(_ladder_value(_rcard))), 'on': bool(_rc.get('ladder')), 'value': round(_ladder_value(_rcard), 2)} if _rcard else None
+    return {'ladder': _lad, 'meta': _prime.meta_for(_fuse._f(_rc.get('rotateHours')) or 1.0, _seed) if _rc else None, 'cards': await _prime_view(), 'humanStyle': {'tiers': _ht, 'picks': _hn, 'need': _ps.MIN_PICKS, 'ready': bool(_hp), 'words': _ps.words(_hp),
                            'moves': _om.summary(next((v for k, v in _json_load(OWNER_MOVES_PATH, {}).items() if isinstance(v, dict)), {}))}, 'renewed': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('renewed') or {}), 'scrapped': [{k: x.get(k) for k in ('tpl', 'at', 'label', 'text', 'valueUsd', 'putInUsd', 'rounds')} for x in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('scrapped') or [])[-12:]], 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'weather': _real_weather(), 'suggest': _json_load(PG_SIM_PATH, {}).get('byClock') or {}, 'realGuard': _prime.real_guard({**_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'instantSwapPct': _fuse._f(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('instantSwapPct'))}, (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or ())[1], 'paperMatch': _fw.paper_match(_fw_load().get('quoteAudit')), 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'lockCfg': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}), 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner'), 'realOwnerSet': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or []}
 
 
