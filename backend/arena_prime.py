@@ -1012,12 +1012,13 @@ ENTRY_MAX_5M = 3.0          # up more than this in the last 5 min = buying the c
 ENTRY_MIN_PULL = 3.0        # at least this % under its 4h high (when the chart is read) — never the top tick
 ENTRY_MIN_LIQ = 50_000.0
 ENTRY_MIN_AGE_H = 6.0
-ENTRY_MIN_VOL1H = 200_000.0
+ENTRY_MIN_VOL1H = 50_000.0   # was $200K: it blocked ~half of Pump trending on a thin record (n 4 in the $50–200K bucket)
 
 
-def entry_gate(x, mom=None):
+def entry_gate(x, mom=None, core=False):
     """→ the first reason this coin is NOT a clean full-seat entry right now, or None. Missing readings are not judged (the other gates
-    decide those). Trench tickets have their own rules and never pass through here."""
+    decide those). Trench tickets have their own rules and never pass through here. `core` = the seat-fill fallback's version: only
+    sellers-leading / chasing / at-highs / thin pool (age + volume floors skipped) — a seat must end in a coin, not wait for good."""
     r = {**((mom or {}).get((x or {}).get('pairAddress')) or {}), **{k: v for k, v in (x or {}).items() if v is not None}}
     if r.get('buyShare') is not None and _f(r['buyShare']) < ENTRY_BUY_MIN:
         return f"buyers only {_f(r['buyShare']):.0f}% (needs {ENTRY_BUY_MIN:g}%+)"
@@ -1029,10 +1030,12 @@ def entry_gate(x, mom=None):
         return f"at its highs ({_f(r['cPull']):.1f}% under its 4h high)"
     if _f(r.get('liq') or r.get('liquidityUsd')) and _f(r.get('liq') or r.get('liquidityUsd')) < ENTRY_MIN_LIQ:
         return f"pool ${_f(r.get('liq') or r.get('liquidityUsd')) / 1000:,.0f}K — thin pools are trench tickets only"
+    if core:
+        return None
     if r.get('ageH') is not None and _f(r['ageH']) < ENTRY_MIN_AGE_H:
         return f"{_f(r['ageH']):.1f}h old — young coins are trench tickets only"
     if r.get('vol1h') is not None and _f(r['vol1h']) < ENTRY_MIN_VOL1H:
-        return f"${_f(r['vol1h']) / 1000:,.0f}K/h — full seats want $200K+/h"
+        return f"${_f(r['vol1h']) / 1000:,.0f}K/h — full seats want $50K+/h"
     return None
 
 

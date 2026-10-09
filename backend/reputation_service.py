@@ -8395,6 +8395,25 @@ async def _entry_fix_1009(now):
     return True
 
 
+async def _vital_off_fix_1009(now):
+    """🫀 Once (2026-10-09): the vital-grade filter (35+ / 5% organic) is a hand-set score with no record, and it took the last coins
+    clearing the clean-entry gate to 0 — two seats sat open with $1.11. It is off as an ENGINE gate (grades still show on every row).
+    Old values: data/realcfg_before_vitaloff.json."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('vitalOffFix1009') or not rc:
+            return False
+        new = {'vitalMin': 0, 'organicMin': 0}
+        _json_save(DATA_DIR / 'realcfg_before_vitaloff.json', {k: rc.get(k) for k in new})
+        pr['realCfg'] = _prime.clean_cfg({**rc, **new})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(new))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(new))
+        pr['vitalOffFix1009'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _ticket_ride_fix(now):
     """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
     once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
@@ -8500,6 +8519,7 @@ async def _prime_tick_inner(now):
     await _clean_fix_1009(now)
     await _flow_tight_fix_1009(now)
     await _entry_fix_1009(now)
+    await _vital_off_fix_1009(now)
     await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
@@ -8709,7 +8729,7 @@ async def _prime_tick_inner(now):
             _step('your hunt line (pool · volume · 1h move · buyers)', r_t)
         if real_t and cfg_t.get('entryGate'):   # 🎯 clean entries (trench tickets keep their own rules)
             r_t = [x for x in r_t if x.get('trenchOnly') or not _prime.entry_gate(x, mom)]
-            _step('clean entry — buyers 50%+, not chasing, not at its highs, $50K+ pool, 6h+, $200K+/h', r_t)
+            _step('clean entry — buyers 50%+, not chasing, not at its highs, $50K+ pool, 6h+, $50K+/h', r_t)
         if real_t:   # 💀 never a dead coin (owner: "Coming up coins shouldn't be dead"): nothing in 5 min / < $3K or < 20 trades an hour
             r_t, r_pre_ = [x for x in r_t if not _ja.dead_why(x)], [x for x in r_pre_ if not _ja.dead_why(x)]
             _step('alive — traded in the last 5 min, $3K+ and 20+ trades an hour', r_t)
@@ -8873,7 +8893,7 @@ async def _prime_tick_inner(now):
         if real_t and cfg_t.get('bangerRefill'):   # 🚀 every seat that opens (flow exit, stop, rotation, ride over) takes a banger first
             cfg_t = {**cfg_t, 'bangers': _bangers(mine, cool, mom, _lq, _fw.clean_cfg(fw_cfg)['minLiqUsd'], now, gate=bool(cfg_t.get('entryGate')))}
         if real_t and cfg_t.get('entryGate'):   # 🎯 the 30s seat fallback and Coming up's category picks obey clean entries too
-            cfg_t = {**cfg_t, 'seatFallback': [x for x in cfg_t.get('seatFallback') or [] if not _prime.entry_gate(x, mom)]}
+            cfg_t = {**cfg_t, 'seatFallback': [x for x in cfg_t.get('seatFallback') or [] if not _prime.entry_gate(x, mom, core=True)]}   # 🪑 the 30s fill: core rules only
         # 🧊 anchors cool too: a major this card just sold isn't bought back for 3 rounds while another major is available
         a_t = _prime_cool_candidates(anchors, cool, 2, strict=real_t and len([x for x in anchors if x.get('mint') not in cool]) >= 1) if cool else anchors
         if new_only_:

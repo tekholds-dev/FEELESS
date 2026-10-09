@@ -2535,3 +2535,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   fills it too): Jupiter often has no socials for a Pump coin ($UNITS: Jupiter none, Pump x.com/Unitsdotcash + units.cash). `_clean_rows`
   socials = Jupiter → Pump → runner board. http(s) only. 🧊 Cooling off also needs a site or X and organic ≥ 10% (owner: "IBM is a wash
   rug" — DRYING UP with no site / X).
+- 🪑 SEATS NEVER WAIT ON STACKED GATES (2026-10-09: UNITS −26% + LOOT −30% stopped, 2 seats open with $1.11 — clean entries → 2 coins, the
+  vital filter → 0, and the 30s fallback ran through the same strict gate): `entry_gate(.., core=True)` (sellers leading / chasing /
+  at highs / thin pool only) for the 30s seat fallback; `ENTRY_MIN_VOL1H` $200K → $50K; the real card's vital-grade filter OFF as an
+  engine gate (`_vital_off_fix_1009` — a hand-set score with no record). Placeholder row reads "seat open · the next clean coin takes it".
+  WHEN SEATS SIT OPEN: read `pipeline.steps` — the step that drops to 0 is the choke, never stack another gate on top.

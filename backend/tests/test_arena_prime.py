@@ -2684,7 +2684,9 @@ def test_clean_entry_gate_blocks_highs_chases_thin_and_young_coins():
     assert 'at its highs' in ap.entry_gate({**ok, 'cPull': 1.2})
     assert 'trench tickets only' in ap.entry_gate({**ok, 'liq': 30_000})
     assert 'trench tickets only' in ap.entry_gate({**ok, 'ageH': 2})
-    assert '$200K+/h' in ap.entry_gate({**ok, 'vol1h': 90_000})
+    assert '$50K+/h' in ap.entry_gate({**ok, 'vol1h': 30_000})
+    assert ap.entry_gate({**ok, 'vol1h': 30_000, 'ageH': 1}, core=True) is None             # the 30s seat fill: core rules only
+    assert 'chasing' in ap.entry_gate({**ok, 'chg1h': 85}, core=True)
     assert ap.entry_gate({'liq': 120_000}) is None                                        # missing readings are not judged
     assert 'buyers only' in ap.entry_gate({'pairAddress': 'p', 'liq': 120_000}, {'p': {'buyShare': 40}})   # momentum fills gaps
 
