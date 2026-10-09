@@ -26,5 +26,11 @@ def test_the_edge_score_reads_your_real_trades():
 def test_a_leg_with_no_buy_stamp_has_an_unknown_hold_time_not_decades():
     st = rl.note({}, {'entry': 1.0, 'symbol': 'A'}, 1.1, 1_800_000_000)
     assert st['pieces'][0]['holdMin'] is None
-    st = rl.note({}, {'entry': 1.0, 'symbol': 'A', 'firstEntry': 1_800_000_000 - 600}, 1.1, 1_800_000_000)
+    st = rl.note({}, {'entry': 1.0, 'symbol': 'A', 'at': 1_800_000_000 - 600}, 1.1, 1_800_000_000)
     assert st['pieces'][0]['holdMin'] == 10.0
+
+
+def test_hold_time_is_counted_from_the_buy_time_never_the_entry_price():
+    import real_learn as rl
+    st = rl.note({}, {'mint': 'm', 'symbol': 'S', 'entry': 1.0, 'firstEntry': 0.0005, 'at': 1000.0, 'bought': {}}, 1.1, 1000.0 + 600)
+    assert st['pieces'][-1]['holdMin'] == 10.0

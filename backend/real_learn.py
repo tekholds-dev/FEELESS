@@ -60,7 +60,7 @@ def note(state, leg, px_exit, now, why=''):
         return st
     b = dict((leg or {}).get('bought') or {})
     b['picked'] = bool((leg or {}).get('picked'))
-    start = _f((leg or {}).get('firstEntry') or (leg or {}).get('at'))
+    start = _f((leg or {}).get('at'))   # the buy TIME (`firstEntry` is the first entry PRICE — it read as 30M minutes held)
     piece = {'at': now, 'mint': (leg or {}).get('mint'), 'symbol': (leg or {}).get('symbol'), 'pct': round((px / entry - 1) * 100, 2),
              'holdMin': round(max(0.0, now - start) / 60, 1) if 0 < start <= now else None,   # no buy stamp = unknown, never "since 1970"
              'why': str(why)[:60], 'k': keys(b)}
