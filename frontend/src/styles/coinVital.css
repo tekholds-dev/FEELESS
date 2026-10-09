@@ -58,6 +58,9 @@ body.theme-day .cvl-track { background: rgba(0, 0, 0, .08); } body.theme-day .cv
   border: 1px solid currentColor; background: rgba(0, 0, 0, .3); }
 .tvl-good .tvl-call { color: #ffb347; box-shadow: 0 0 14px rgba(255, 140, 40, .45); } .tvl-bad .tvl-call { color: #ff8fa3; }
 .tvl-call.is-send { animation: tvlPulse 1.6s ease-in-out infinite; }
+.tvl-rec { margin-left: 6px; padding: 1px 5px; border-radius: 5px; font: 700 9.5px "JetBrains Mono", monospace; letter-spacing: 0; vertical-align: 1px; }
+.tvl-rec.is-up { background: rgba(21, 209, 106, .18); color: #45e486; } .tvl-rec.is-down { background: rgba(255, 143, 163, .16); color: #ff8fa3; }
+body.theme-day .tvl-rec.is-up { color: #0f7a43; } body.theme-day .tvl-rec.is-down { color: #b4234a; }
 .tvl-meters { display: grid; gap: 3px; min-width: 0; }
 .tvl-m { display: grid; grid-template-columns: 62px minmax(0, 1fr) 26px; align-items: center; gap: 6px; }
 .tvl-ml { font: 700 10px "JetBrains Mono", monospace; letter-spacing: .08em; color: var(--m-dim, #8fb3a0); white-space: nowrap; }

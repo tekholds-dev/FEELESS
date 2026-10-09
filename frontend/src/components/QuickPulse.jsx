@@ -19,21 +19,35 @@ const safeUrl = u => (typeof u === 'string' && /^https?:\/\//i.test(u) ? u : nul
 
 export const socialLinks = r => [['🌐', 'Site', safeUrl(r?.site)], ['𝕏', 'X', safeUrl(r?.x)], ['✈', 'Telegram', safeUrl(r?.tg)],
   ['💊', 'Pump', /pump$/.test(String(r?.mint || '')) ? `https://pump.fun/coin/${r.mint}` : null]].filter(x => x[2]);
-// 🔗 the coin's socials as small clickable icons — FIRST on a trench row (owner: "trench should show socials first and clickable").
-// A row inside a clickable card: each link stops the click so it opens the site, not the card. 🚫 = none set.
+// 🔗 REAL ICONS (owner: "a real icon lol"): globe · X · Telegram as small SVGs that take the text colour.
+const ICON_PATH = {
+  site: <><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M3 12h18M12 3c2.6 2.6 3.8 5.6 3.8 9s-1.2 6.4-3.8 9M12 3c-2.6 2.6-3.8 5.6-3.8 9s1.2 6.4 3.8 9" fill="none" stroke="currentColor" strokeWidth="1.6" /></>,
+  x: <path d="M17.8 3h3.1l-6.8 7.8L22 21h-6.2l-4.9-6.4L5.3 21H2.2l7.3-8.3L2 3h6.4l4.4 5.8L17.8 3zm-1.1 16.2h1.7L7.4 4.7H5.6l11.1 14.5z" fill="currentColor" />,
+  tg: <path d="M21.4 4.2 2.9 11.3c-1 .4-1 1.6 0 1.9l4.6 1.5 1.8 5.6c.2.7 1.1.9 1.6.4l2.6-2.4 4.8 3.5c.6.4 1.4.1 1.6-.6l3.3-15.6c.2-.9-.7-1.7-1.6-1.4zM9.9 14.6l-.4 4 -1.5-4.8 9.7-6.2-7.8 7z" fill="currentColor" />,
+};
+export const SocIcon = ({ k }) => <svg className="qp-svg" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">{ICON_PATH[k]}</svg>;
+const SOC_KEYS = [['site', 'Site', 'site'], ['x', 'X', 'x'], ['tg', 'Telegram', 'tg']];
+export const hasSocials = r => !!(r?.site || r?.x || r?.tg);
+// 🔗 the coin's socials as small clickable icons — FIRST on every list row (owner: "trench should show socials first and clickable").
+// A real link opens it; set-at-launch with no link on record = a dim icon that opens the coin's Pump page (which lists them). 🚫 = none set.
+// A row inside a clickable card: each link stops the click so it opens the site, not the card.
 export function SocialIcons({ r }) {
-  const links = socialLinks(r).filter(l => l[1] !== 'Pump');
-  const known = [r?.site && '🌐', r?.x && '𝕏', r?.tg && '✈'].filter(Boolean);
-  return <span className="qp-ico" data-testid="soc-icons">{links.length ? links.map(([ic, name, url]) => <a key={name} href={url} target="_blank" rel="noopener noreferrer nofollow" onClick={e => e.stopPropagation()}
-    data-tip={`Opens its ${name} — a link the coin set itself, not checked by FEELESS`} aria-label={name}>{ic}</a>)
-    : known.length ? <i data-tip="Set at launch — the link itself isn't on record here">{known.join('')}✓</i> : <i className="is-none" data-tip="No website, X or Telegram set — most coins that last set one">🚫</i>}</span>;
+  const pump = /pump$/.test(String(r?.mint || '')) ? `https://pump.fun/coin/${r.mint}` : null;
+  const items = SOC_KEYS.filter(([k]) => r?.[k]).map(([k, name]) => [k, name, safeUrl(r[k])]);
+  if (!items.length) return <span className="qp-ico" data-testid="soc-icons"><i className="is-none" data-tip="No website, X or Telegram set — most coins that last set one">🚫</i></span>;
+  return <span className="qp-ico" data-testid="soc-icons">{items.map(([k, name, url]) => {
+    const href = url || pump;
+    const tip = url ? `Opens its ${name} — a link the coin set itself, not checked by FEELESS` : `${name} set at launch — the link isn't on record here${pump ? '; opens its Pump page' : ''}`;
+    return href ? <a key={k} className={`qp-s-${k}${url ? '' : ' is-dim'}`} href={href} target="_blank" rel="noopener noreferrer nofollow" onClick={e => e.stopPropagation()} data-tip={tip} aria-label={name} data-testid={`soc-${k}`}><SocIcon k={k} /></a>
+      : <i key={k} className={`qp-s-${k} is-dim`} data-tip={tip} aria-label={name}><SocIcon k={k} /></i>;
+  })}</span>;
 }
 
 export function Socials({ r }) {
   const links = socialLinks(r); const own = links.filter(l => l[1] !== 'Pump').length;
   const known = [r?.site && 'site', r?.x && '𝕏', r?.tg && 'Telegram'].filter(Boolean);   // set at launch, but no link on record here
   return <div className="qp-soc" data-testid="qp-socials">
-    {links.map(([ic, name, url]) => <a key={name} href={url} target="_blank" rel="noopener noreferrer nofollow" className="qp-link" data-tip={`Opens the coin's ${name} in a new tab — a link the coin set itself, not checked by FEELESS`} data-testid={`qp-soc-${name}`}>{ic} {name}</a>)}
+    {links.map(([ic, name, url]) => <a key={name} href={url} target="_blank" rel="noopener noreferrer nofollow" className="qp-link" data-tip={`Opens the coin's ${name} in a new tab — a link the coin set itself, not checked by FEELESS`} data-testid={`qp-soc-${name}`}>{name === 'Site' ? <SocIcon k="site" /> : name === 'X' ? <SocIcon k="x" /> : name === 'Telegram' ? <SocIcon k="tg" /> : ic} {name}</a>)}
     {!own && known.length > 0 && <span className="qp-link is-known" data-tip="The coin set these at launch; the link itself is not on record here — open its Pump page or the war room for them.">✓ {known.join(' + ')} set</span>}
     {!own && !known.length && <span className="qp-link is-none" data-tip="No website, X or Telegram on record for this coin. Most coins that last set at least one at launch.">🚫 no socials set</span>}
   </div>;

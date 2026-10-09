@@ -44,13 +44,28 @@
 .tps-pop button:hover, .tps-pop button:focus-visible { border-color: #45e486; outline: none; } .tps-pop button:active { transform: translateY(1px); }
 .tps-pop > div:first-child button.active { background: #15d16a; color: #04130b; border-color: #45e486; } .tps-pop > div:last-child button.active { background: #ff6b86; color: #1a0208; border-color: #ff8fa3; }
 .rmo-btn { min-width: 32px; font-weight: 800; letter-spacing: .1em; }
-.rmo-pop { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; border-radius: 12px; border: 1px solid rgba(69, 228, 134, .4); background: #06100b; box-shadow: 0 14px 36px rgba(0, 0, 0, .6); animation: tpsIn .16s ease both; }
-.rmo-pop .hrt-skim { flex: 1 1 100%; width: 100%; } .rmo-pop .hrt-sell { display: inline-flex; gap: 4px; }
+.rmo-pop { padding: 12px; border-radius: 14px; border: 1px solid rgba(69, 228, 134, .45); background: radial-gradient(120% 80% at 0% 0%, rgba(21, 209, 106, .16), transparent 60%), radial-gradient(90% 70% at 100% 100%, rgba(120, 90, 255, .12), transparent 60%), #06100b;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .65), inset 0 1px 0 rgba(255, 255, 255, .06); animation: tpsIn .16s ease both; }
+.rmo-tray { display: grid; gap: 7px; }
+.rmo-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 0; font: 700 12px "JetBrains Mono", monospace; }
+.rmo-h b { font-size: 13px; color: #45e486; }
+.rmo-g { font: 700 9.5px "JetBrains Mono", monospace; letter-spacing: .12em; opacity: .65; margin-top: 2px; }
+.rmo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.rmo-t { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 7px; align-items: center; text-align: left; padding: 8px 9px; border-radius: 10px; cursor: pointer;
+  border: 1px solid rgba(69, 228, 134, .22); background: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .015)); color: inherit; font: 600 11.5px "JetBrains Mono", monospace;
+  transition: transform .14s ease, border-color .14s ease, background .14s ease; }
+.rmo-t b { grid-row: 1 / span 2; font-size: 17px; line-height: 1; }
+.rmo-t small { font-size: 9.5px; opacity: .6; font-weight: 500; }
+.rmo-t:hover:not(:disabled), .rmo-t:focus-visible { transform: translateY(-1px); border-color: #15d16a; background: rgba(21, 209, 106, .16); outline: none; }
+.rmo-t:active:not(:disabled) { transform: scale(.97); }
+.rmo-t.is-danger:hover:not(:disabled) { border-color: #ff8fa3; background: rgba(255, 143, 163, .12); }
+.rmo-t:disabled { opacity: .35; cursor: not-allowed; }
+.hrt-fz { min-width: 32px; } .hrt-fz.active { background: #7cc7ff; border-color: #7cc7ff; color: #041018; }
 @keyframes tpsIn { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: none; } }
 @keyframes cepIn { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
 @keyframes cepFade { from { opacity: 0; } to { opacity: 1; } }
 body.fx-lite .cep, body.fx-lite .cep-shade { animation: none; }
-@media (prefers-reduced-motion: reduce) { .tps-pop, .rmo-pop { animation: none; } .cep, .cep-shade { animation: none; } .cep-open, .cep-rail button, .cep-x { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .tps-pop, .rmo-pop { animation: none; } .rmo-t { transition: none; } .cep, .cep-shade { animation: none; } .cep-open, .cep-rail button, .cep-x { transition: none; } }
 body.theme-day .cep { background: linear-gradient(160deg, #f4faf6, #ece8fb); border-color: #b9dcc8; } body.theme-day .cep-title b { color: #0b7a4a; text-shadow: none; }
 body.theme-day .cep-rail button { color: #1d4a33; } body.theme-day .cep-rail button.active { background: #0b7a4a; color: #fff; } body.theme-day .cep-pane .ce-group { background: rgba(255, 255, 255, .7); }
 body.theme-day .cep-open { background: linear-gradient(120deg, #e7f6ee, #eee9fb); color: #0e2c1d; } body.theme-day .cep-open > b { color: #0b7a4a; } body.theme-day .cep-chips i { background: #fff; border-color: #cfe6da; }
@@ -60,4 +75,17 @@ body.theme-day .cep-x { color: #1d4a33; border-color: #c6dccf; } body.theme-day 
   .cep-rail button { flex: none; } .cep-rail button small { display: none; } }
 @media (max-width: 640px) { .cep-shade { padding: 0; } .cep { border-radius: 0; height: 100vh; } .cep-pane { padding: 10px; } }
 body.theme-day .tps-btn, body.theme-day .tps-pop { background: #fff; border-color: #c6dccf; } body.theme-day .tps-pop button { color: #1d4a33; background: #f4faf6; }
-body.theme-day .rmo-pop { background: #fff; border-color: #c6dccf; }
+body.theme-day .rmo-pop { background: #eef6f1; border-color: #c6dccf; } body.theme-day .rmo-t { background: rgba(255, 255, 255, .7); border-color: #c6dccf; } body.theme-day .rmo-h b { color: #0f7a43; } body.theme-day .hrt-fz.active { background: #1f6fb0; color: #fff; }
+
+/* 🎯 goal bar on the real card */
+.gbar { display: grid; gap: 5px; padding: 8px 10px; margin: 6px 0; border-radius: 12px; border: 1px solid rgba(69, 228, 134, .28); background: linear-gradient(100deg, rgba(21, 209, 106, .1), rgba(255, 196, 92, .06)); }
+.gbar-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gbar-pick { font: 700 12px "JetBrains Mono", monospace; padding: 3px 8px; border-radius: 8px; border: 1px solid rgba(69, 228, 134, .45); background: #06100b; color: #45e486; cursor: pointer; }
+.gbar-pick:hover, .gbar-pick:focus-visible { border-color: #15d16a; outline: none; }
+.gbar-left { font-size: 12px; margin-left: auto; }
+.gbar-track { height: 8px; border-radius: 99px; background: rgba(255, 255, 255, .07); overflow: hidden; }
+.gbar-track i { display: block; height: 100%; width: 100%; transform-origin: left; background: linear-gradient(90deg, #0d8f4a, #15d16a, #ffc45c); transition: transform .6s ease; }
+.gbar.is-hit { border-color: #ffc45c; } .gbar.is-hit .gbar-left { color: #ffc45c; }
+.gbar-back { font: 600 10.5px "JetBrains Mono", monospace; opacity: .7; }
+body.theme-day .gbar-pick { background: #eef6f1; color: #0f7a43; } body.theme-day .gbar-track { background: rgba(10, 40, 25, .1); }
+@media (prefers-reduced-motion: reduce) { .gbar-track i { transition: none; } }

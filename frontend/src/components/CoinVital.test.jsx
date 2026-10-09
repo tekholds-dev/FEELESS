@@ -29,6 +29,8 @@ test('lists sort organic first and the filters drop what the owner does not want
   const rows = [row('A', 70, 2), row('B', 50, 40, 'serial'), row('C', 80, 15, 'popular', 0.9), { symbol: 'N' }];
   expect(applyView(rows, { sort: 'organic', on: {} }).map(r => r.symbol)).toEqual(['B', 'C', 'A', 'N']);
   expect(applyView(rows, { sort: 'vital', on: {} }).map(r => r.symbol)).toEqual(['C', 'A', 'B', 'N']);
+  const soc = [{ symbol: 'none' }, { symbol: 'set', x: true }, { symbol: 'link', site: 'https://a.io' }, { symbol: 'none2' }];
+  expect(applyView(soc, { sort: 'list', on: { soc: true } }).map(r => r.symbol)).toEqual(['link', 'set', 'none', 'none2']);
   expect(applyView(rows, { sort: 'list', on: { serial: true, bots: true } }).map(r => r.symbol)).toEqual(['C', 'N']);
   expect(applyView(rows, { sort: 'list', on: { b: true } }).map(r => r.symbol)).toEqual(['A', 'C']);   // a filter needing a reading drops unread rows
 });

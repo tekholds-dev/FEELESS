@@ -747,6 +747,7 @@ export function HqRealCards({ addr, onCount }) {
           gainNow={allTime(c, b.fundedUsd || c.startUsd)} events={(c.audit || c.events || []).map(e => ({ ...e, label: KIND[e.kind] || VITAL_KIND[e.kind] || e.kind }))} />}
         <div className="hq-real-track">
           <div className="hrt-top"><b>{c.label}</b><TopThree c={c} busy={!!busy} onSwap={(leg, r) => prime({ pickSwap: { tpl: c.tpl, pairAddress: leg.pairAddress, to: r.mint, toPair: r.pairAddress } }, `🎯 $${r.symbol} comes in for $${leg.symbol} at the next round`, 'pick')} /><span className={`hrt-state ${state[2]}`} data-tip="Keeper: moves the real coins to what the card says, every tick">{state[0]} {state[1]}</span></div>
+          <GoalBar value={c.valueUsd} putIn={b.fundedUsd || c.startUsd} />
           <div className="hrt-hero">
             <RoundBell at={c.nextRoundAt || c.lastRotateAt + (cf?.rotateHours || 1) * 3600} sec={c.bellSec || 10} rest={!!c.resting} label={`ROUND ${(c.rounds || 0) + 1}`} />
             <span className="is-now" data-tip="What the card is worth right now (selling every coin at live prices) · % vs this run's start"><small>IN CARD NOW</small><b key={(c.valueUsd || 0).toFixed(2)} className="m-num fl-tick">{usd(c.valueUsd)}</b><em className={`m-num ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(c.pnlPct)} this run</em></span>
@@ -783,26 +784,37 @@ export function HqRealCards({ addr, onCount }) {
               <span className="hrt-sell" role="group" aria-label={`Sell all ${l.symbol}`}>{[[100, 'Sell all']].map(([p, t]) => <button key={p} type="button" className="m-btn danger" disabled={!!busy || l.buying || !(l.usd > 0)} data-testid={p === 100 ? `sell-${l.symbol}` : `sell-${l.symbol}-${p}`}
                 data-tip={`Sell ${p === 100 ? 'all' : `${p}%`} of your $${l.symbol} (${usd((l.usd || 0) * p / 100)}) to this card's cash. The total changes only after the transaction confirms.`}
                 onClick={() => window.confirm(`Sell ${p === 100 ? 'ALL' : `${p}%`} of $${l.symbol} (about ${usd((l.usd || 0) * p / 100)}) to this card's cash?`) && prime({ manualSell: { tpl: c.tpl, pairAddress: l.pairAddress, pct: p } }, `Selling ${p === 100 ? 'all' : `${p}%`} of $${l.symbol} — card cash updates after confirmation`, `sell-${l.pairAddress}`)}>{t}</button>)}</span>
+              {/* ❄ one tap on the row (owner: "the 3 dots … a lot of clicking to unfreeze") */}
+              <button type="button" className={`m-btn hrt-fz ${l.frozen ? 'active' : ''}`} aria-pressed={!!l.frozen} disabled={!!busy} data-testid={`freeze-${l.symbol}`} data-tip={l.frozen ? `Unfreeze $${l.symbol}: the engine may rotate / stop it again` : `Freeze $${l.symbol}: never rotated or stopped (the card floor still protects you)`}
+                onClick={() => prime({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, frozen: !l.frozen } }, l.frozen ? `$${l.symbol} back under the engine` : `❄ $${l.symbol} frozen`, `fz-${l.pairAddress}`)}>{l.frozen ? '❄ on' : '❄'}</button>
               <RowMore label={`More for $${l.symbol}`} testid={`more-${l.symbol}`}>
               {(() => { const gain = (l.usd || 0) - (l.costUsd || 0); const can = gain >= 0.05 && !l.buying; const parkN = Number(cf?.skimHoldRounds) || 2;   // 💰 profit only — the stake keeps riding
-                return <select className={`m-input hrt-skim ${can ? 'is-on' : ''}`} disabled={!!busy || !can} value="" data-testid={`skim-${l.symbol}`} aria-label={`Take ${l.symbol} profit`}
-                  data-tip={can ? `Take ONLY the profit of $${l.symbol} (about ${usd(gain)}). What you put into it (${usd(l.costUsd)}) keeps riding. Choose where the profit goes.` : `No profit to take on $${l.symbol} right now`}
-                  onChange={e => { const to = e.target.value; if (!to) return;
-                    if (to === 'stake') { if (window.confirm(`Take your initial (${usd(l.costUsd)}) out of $${l.symbol} and leave only the profit (about ${usd(gain)}) riding? The initial is held as card cash for you.`))
-                      prime({ skim: { tpl: c.tpl, pairAddress: l.pairAddress, to: 'cash', stake: true } }, `🏠 Taking your initial out of $${l.symbol} — only profit rides once it confirms`, `skim-${l.pairAddress}`); return; }
-                    if (to.startsWith('park:')) { const n = Number(to.slice(5)) || parkN;   /* 🅿 this coin's own park: exactly n rounds, whatever the card's setting */
-                      if (window.confirm(`Take about ${usd(gain)} profit from $${l.symbol} and park it in card cash for exactly ${n} round${n === 1 ? '' : 's'}? It goes back into the card after that. ${usd(l.costUsd)} stays in $${l.symbol}.`))
-                        prime({ skim: { tpl: c.tpl, pairAddress: l.pairAddress, to: 'round', rounds: n } }, `🅿 $${l.symbol} profit parked for ${n} round${n === 1 ? '' : 's'} once it confirms`, `skim-${l.pairAddress}`); return; }
-                    if (window.confirm(`Take about ${usd(gain)} profit from $${l.symbol} and ${to === 'cash' ? 'hold it as card cash' : 'put it into your other coins'}? ${usd(l.costUsd)} stays in $${l.symbol}.`))
-                      prime({ skim: { tpl: c.tpl, pairAddress: l.pairAddress, to } }, `💰 Taking $${l.symbol} profit — ${to === 'cash' ? 'held as cash' : 'into your other coins'} once it confirms`, `skim-${l.pairAddress}`); }}>
-                  <option value="">💰{can ? ` ${usd(gain)}` : ''}</option><option value="card">♻ into my other coins</option>{[1, 2, 3, 6].map(n => <option key={n} value={`park:${n}`}>🅿 park {n} round{n === 1 ? '' : 's'}, then back in{n === parkN ? ' (card setting)' : ''}</option>)}<option value="cash">🏦 hold as cash</option>{!l.house && <option value="stake">🏠 take my initial, leave the profit</option>}</select>; })()}
-              <span className="hrt-sell" role="group" aria-label={`Sell ${l.symbol}`}>{[[25, '25%'], [50, '50%']].map(([p, t]) => <button key={p} type="button" className="m-btn danger" disabled={!!busy || l.buying || !(l.usd > 0)} data-testid={p === 100 ? `sell-${l.symbol}` : `sell-${l.symbol}-${p}`}
-                data-tip={`Sell ${p === 100 ? 'all' : `${p}%`} of your $${l.symbol} (${usd((l.usd || 0) * p / 100)}) to this card's cash. The total changes only after the transaction confirms.`}
-                onClick={() => window.confirm(`Sell ${p === 100 ? 'ALL' : `${p}%`} of $${l.symbol} (about ${usd((l.usd || 0) * p / 100)}) to this card's cash?`) && prime({ manualSell: { tpl: c.tpl, pairAddress: l.pairAddress, pct: p } }, `Selling ${p === 100 ? 'all' : `${p}%`} of $${l.symbol} — card cash updates after confirmation`, `sell-${l.pairAddress}`)}>{t}</button>)}</span>
-              <button type="button" className="m-btn" disabled={!!busy || l.frozen} data-testid={`swap-${l.symbol}`} data-tip={l.frozen ? 'Frozen — unfreeze to swap it' : `Swap $${l.symbol} for the best coin of its kind not on the card (keeper trades it next tick)`}
-                onClick={() => prime({ replace: { tpl: c.tpl, pairAddress: l.pairAddress } }, `⇄ $${l.symbol} swapped — keeper buys the new coin next tick`, `sw-${l.pairAddress}`)}>⇄</button>
-              <button type="button" className={`m-btn ${l.frozen ? 'active' : ''}`} aria-pressed={!!l.frozen} disabled={!!busy} data-testid={`freeze-${l.symbol}`} data-tip={l.frozen ? `Unfreeze $${l.symbol}: the engine may rotate / stop it again` : `Freeze $${l.symbol}: never rotated or stopped (the card floor still protects you)`}
-                onClick={() => prime({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, frozen: !l.frozen } }, l.frozen ? `$${l.symbol} back under the engine` : `❄ $${l.symbol} frozen`, `fz-${l.pairAddress}`)}>❄</button>
+                const skim = (to, n) => {
+                  if (to === 'stake') { if (window.confirm(`Take your initial (${usd(l.costUsd)}) out of $${l.symbol} and leave only the profit (about ${usd(gain)}) riding? The initial is held as card cash for you.`))
+                    prime({ skim: { tpl: c.tpl, pairAddress: l.pairAddress, to: 'cash', stake: true } }, `🏠 Taking your initial out of $${l.symbol} — only profit rides once it confirms`, `skim-${l.pairAddress}`); return; }
+                  if (to === 'park') {   /* 🅿 this coin's own park: exactly n rounds, whatever the card's setting */
+                    if (window.confirm(`Take about ${usd(gain)} profit from $${l.symbol} and park it in card cash for exactly ${n} round${n === 1 ? '' : 's'}? It goes back into the card after that. ${usd(l.costUsd)} stays in $${l.symbol}.`))
+                      prime({ skim: { tpl: c.tpl, pairAddress: l.pairAddress, to: 'round', rounds: n } }, `🅿 $${l.symbol} profit parked for ${n} round${n === 1 ? '' : 's'} once it confirms`, `skim-${l.pairAddress}`); return; }
+                  if (window.confirm(`Take about ${usd(gain)} profit from $${l.symbol} and ${to === 'cash' ? 'hold it as card cash' : 'put it into your other coins'}? ${usd(l.costUsd)} stays in $${l.symbol}.`))
+                    prime({ skim: { tpl: c.tpl, pairAddress: l.pairAddress, to } }, `💰 Taking $${l.symbol} profit — ${to === 'cash' ? 'held as cash' : 'into your other coins'} once it confirms`, `skim-${l.pairAddress}`); };
+                return <div className="rmo-tray" data-testid={`skim-${l.symbol}`}>
+                  <p className="rmo-h"><b>${l.symbol}</b><span className={gain >= 0 ? 'm-pos' : 'm-neg'}>{gain >= 0 ? '+' : '−'}{usd(Math.abs(gain))} on {usd(l.costUsd)}</span></p>
+                  <small className="rmo-g">💰 TAKE PROFIT{can ? ` · ${usd(gain)}` : ' · none yet'}</small>
+                  <div className="rmo-grid">
+                    <RmoTile busy={busy} id={`skim-${l.symbol}-card`} ic="♻" t="Into my coins" on={can} onClick={() => skim('card')} tip="Profit spread into your other coins" />
+                    <RmoTile busy={busy} id={`skim-${l.symbol}-park`} ic="🅿" t={`Park ${parkN} rnd`} sub="then back in" on={can} onClick={() => skim('park', parkN)} tip="Profit waits in card cash, then goes back to work" />
+                    <RmoTile busy={busy} id={`skim-${l.symbol}-cash`} ic="🏦" t="Hold as cash" on={can} onClick={() => skim('cash')} tip="Profit kept as card cash for you" />
+                    {!l.house && <RmoTile busy={busy} id={`skim-${l.symbol}-stake`} ic="🏠" t="Initial out" sub="profit rides" on={can} onClick={() => skim('stake')} tip="Take what you put in, leave only the profit riding" />}
+                  </div>
+                  <small className="rmo-g">✂ SELL · ⇄ SWAP</small>
+                  <div className="rmo-grid">
+                    {[25, 50].map(p => <RmoTile busy={busy} key={p} id={`sell-${l.symbol}-${p}`} ic="✂" t={`Sell ${p}%`} sub={usd((l.usd || 0) * p / 100)} danger on={!l.buying && l.usd > 0}
+                      tip={`Sell ${p}% of your $${l.symbol} to this card's cash. The total changes only after the transaction confirms.`}
+                      onClick={() => window.confirm(`Sell ${p}% of $${l.symbol} (about ${usd((l.usd || 0) * p / 100)}) to this card's cash?`) && prime({ manualSell: { tpl: c.tpl, pairAddress: l.pairAddress, pct: p } }, `Selling ${p}% of $${l.symbol} — card cash updates after confirmation`, `sell-${l.pairAddress}`)} />)}
+                    <RmoTile busy={busy} id={`swap-${l.symbol}`} ic="⇄" t="Auto-swap" sub="best of its kind" on={!l.frozen} tip={l.frozen ? 'Frozen — unfreeze to swap it' : `Swap $${l.symbol} for the best coin of its kind not on the card (keeper trades it next tick)`}
+                      onClick={() => prime({ replace: { tpl: c.tpl, pairAddress: l.pairAddress } }, `⇄ $${l.symbol} swapped — keeper buys the new coin next tick`, `sw-${l.pairAddress}`)} />
+                  </div>
+                </div>; })()}
               </RowMore></span>
               : <span className="hrt-ctl">{/* SOL is the card's own cash sitting in a seat — it can be swapped into a coin like any other */}
                 <button type="button" className={`m-btn ${pickFor === l.pairAddress || l.swapTo ? 'active' : ''}`} disabled={!!busy} data-testid="pick-SOL" aria-expanded={pickFor === l.pairAddress}
@@ -906,8 +918,36 @@ export function UpFilter({ cfg }) {
 // (take-profit) and a − column (stop). "tier" = follow the card's own. Each tap saves that coin's value at once.
 const TPS = [25, 50, 100, 200, 300]; const SLS = [10, 15, 20, 30];
 // ⋯ a coin row's less-used actions (💰 profit · sell 25 / 50% · ⇄ auto-swap · ❄ freeze) in one popover above the rows
+// 🎯 GOAL BAR (owner, 2026-10-08: "focus on getting back what we put in … if I can get back to 2.4"): the next milestone the owner picks
+// (tap to change, remembered in this browser) + the long road back to everything put in. Live value vs a number — never a forecast.
+const GOAL_KEY = 'feeless.cardGoal';
+export const goalSteps = (value, putIn) => { const v = Number(value) || 0; const base = Math.ceil(v * 1.06 * 10) / 10;
+  return [...new Set([base, Math.ceil(v * 1.25 * 10) / 10, Math.ceil(v * 2), Number(putIn) || 0].filter(x => x > v).map(x => +x.toFixed(2)))].sort((a, b) => a - b); };
+export const goalPct = (value, goal) => { const v = Number(value) || 0; const g = Number(goal) || 0; return g > 0 ? Math.max(0, Math.min(100, v / g * 100)) : 0; };
+export function GoalBar({ value, putIn }) {
+  const [goal, setGoalS] = useState(() => { try { return Number(localStorage.getItem(GOAL_KEY)) || 0; } catch { return 0; } });
+  const steps = goalSteps(value, putIn);
+  const g = goal > 0 ? goal : steps[0];
+  if (!(Number(value) > 0) || !g) return null;
+  const setGoal = v => { setGoalS(v); try { localStorage.setItem(GOAL_KEY, String(v)); } catch { /* private window */ } };
+  const hit = value >= g; const left = g - value; const pin = Number(putIn) || 0;
+  const pBack = pin > 0 ? Math.min(100, value / pin * 100) : null;
+  return <div className={`gbar ${hit ? 'is-hit' : ''}`} data-testid="goal-bar">
+    <div className="gbar-row"><span className="m-label">🎯 GOAL</span>
+      <select className="gbar-pick" value={g} onChange={e => setGoal(Number(e.target.value))} aria-label="Pick the goal" data-testid="goal-pick">
+        {[...new Set([g, ...steps])].sort((a, b) => a - b).map(x => <option key={x} value={x}>{usd(x)}{x === pin ? ' · all put in back' : ''}</option>)}</select>
+      <b className="m-num gbar-left" key={value?.toFixed?.(2)}>{hit ? '✅ HIT — set the next one' : `${usd(left)} to go · +${((g / value - 1) * 100).toFixed(1)}%`}</b></div>
+    <div className="gbar-track" role="progressbar" aria-valuenow={Math.round(goalPct(value, g))} aria-valuemin={0} aria-valuemax={100}><i style={{ transform: `scaleX(${goalPct(value, g) / 100})` }} /></div>
+    {pBack != null && <small className="gbar-back" data-tip="Everything you put into this card vs what it holds now">🏠 {usd(value)} of {usd(pin)} put in · {pBack.toFixed(0)}% back</small>}
+  </div>;
+}
+
+// one tile in the ⋯ tray: icon · what it does · a small line (amount / where it goes)
+function RmoTile({ id, ic, t, sub, on, danger, busy, onClick, tip }) {
+  return <button type="button" className={`rmo-t ${danger ? 'is-danger' : ''}`} disabled={!!busy || !on} data-testid={id} onClick={onClick} data-tip={tip}><b>{ic}</b><span>{t}</span>{sub && <small>{sub}</small>}</button>;
+}
 export function RowMore({ label, testid, children }) {
-  const fp = useFloatPop(250);
+  const fp = useFloatPop(286);
   return <span className="rmo"><button type="button" ref={fp.ref} className="m-btn rmo-btn" aria-expanded={fp.open} aria-label={label} data-tip={label} onClick={() => fp.setOpen(o => !o)} data-testid={testid}>⋯</button>
     {fp.open && createPortal(<div ref={fp.popRef} className="rmo-pop" style={fp.style} role="group" aria-label={label}>{children}</div>, document.body)}</span>;
 }

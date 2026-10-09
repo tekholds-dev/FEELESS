@@ -15,7 +15,7 @@ export const BARS = [['flow', '🌱', 'Organic flow — share of volume from rea
 
 // 🎛 Sort + filter for pick lists (per viewer, remembered in this browser). Organic first by default (owner: "organic flow show first").
 export const VSORTS = [['organic', '🌱 Organic first'], ['vital', '🫀 Best vital'], ['growth', '📈 Growing'], ['list', '≡ List order']];
-export const VFILTERS = [['b', 'B+ only'], ['org', '🌱 10%+ organic'], ['serial', '☠ skip serial'], ['bots', '🤖 hide bots']];
+export const VFILTERS = [['soc', '🔗 socials first'], ['b', 'B+ only'], ['org', '🌱 10%+ organic'], ['serial', '☠ skip serial'], ['bots', '🤖 hide bots']];
 const KEY = 'feeless.vitalView';
 export const loadView = () => { try { return { sort: 'organic', on: {}, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return { sort: 'organic', on: {} }; } };
 export const saveView = v => { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch { /* private window */ } };
@@ -31,6 +31,9 @@ export function applyView(rows, view) {
     return true; });
   const key = { organic: r => org(r) ?? -1, vital: r => r.vital?.score ?? -1, growth: r => r.vital?.bars?.growth ?? -1 }[view?.sort];
   if (key) out = out.map((r, i) => [r, i]).sort((a, b) => key(b[0]) - key(a[0]) || a[1] - b[1]).map(x => x[0]);
+  // 🔗 socials first (owner: "filter for socials first"): coins with a real site / X / Telegram link, then set-at-launch, then none — order kept inside each
+  if (on.soc) { const sc = r => ['site', 'x', 'tg'].reduce((n, k) => n + (typeof r[k] === 'string' ? 2 : r[k] ? 1 : 0), 0);
+    out = out.map((r, i) => [r, i]).sort((a, b) => (sc(b[0]) > 0) - (sc(a[0]) > 0) || (sc(b[0]) >= 2) - (sc(a[0]) >= 2) || a[1] - b[1]).map(x => x[0]); }
   return out;
 }
 export function VitalView({ view, onChange, count, total }) {
@@ -63,13 +66,18 @@ function useCallProof() {
 }
 export const callRecord = (p, auto) => (!p || !p.n ? 'No calls settled yet — every call is noted and checked an hour later.'
   : `This call's record: ${p.medPct >= 0 ? '+' : ''}${p.medPct}% typical an hour later · ${p.wonPct}% up · ${p.n} settled.${auto ? ' The engine is taking these.' : ''}`);
+// ☠ BUSTED (owner, 2026-10-08: "scrap anything that's just not working"): a call whose OWN record is ≥ 30 settled with a typical
+// hour ≤ −20% is shown as what it is — red, with its record on the badge — never as a green "go" (BOND RUN was −83% typical).
+export const BUST_N = 30; export const BUST_MED = -20;
+export const busted = p => !!p && p.n >= BUST_N && p.medPct <= BUST_MED;
 export function TrenchVital({ r, mini = false }) {
   const cp = useCallProof();
   const t = r?.tv; if (!t) return null;
-  const [ic, word, tone] = t.call || ['👀', 'WATCH', 'warn'];
+  const [ic, word, tone0] = t.call || ['👀', 'WATCH', 'warn'];
+  const rec = cp?.proof?.[CALL_KEY[word]]; const bust = busted(rec); const tone = bust ? 'bad' : tone0;
   const meters = t.meters || [['🔥 HEAT', t.heat], ['☠ RUG', t.rug]];
   return <div className={`tvl tvl-${tone} tvl-k-${t.kind || 'trench'} ${mini ? 'is-mini' : ''}`} data-testid={`tvl-${r.symbol}`}>
-    <span className={`tvl-call ${tone === 'good' ? 'is-send' : ''}`} data-tip={`${KIND_TIP[t.kind || 'trench']} ${callRecord(cp?.proof?.[CALL_KEY[word]], word === 'SEND IT' && cp?.auto)} A read for a small ticket, never a promise.`}>{ic} {word}</span>
+    <span className={`tvl-call ${tone === 'good' ? 'is-send' : ''}`} data-tip={`${KIND_TIP[t.kind || 'trench']} ${callRecord(cp?.proof?.[CALL_KEY[word]], word === 'SEND IT' && cp?.auto)} A read for a small ticket, never a promise.${bust ? ' ☠ BUSTED: this call has lost on its own record — treat it as a warning.' : ''}`}>{bust ? '☠' : ic} {word}{rec?.n >= 10 && <small className={`tvl-rec ${rec.medPct >= 0 ? 'is-up' : 'is-down'}`} data-testid={`tvl-rec-${r.symbol}`}>{rec.medPct >= 0 ? '+' : ''}{Math.round(rec.medPct)}%/1h</small>}</span>
     <span className="tvl-meters">{meters.map(([label, val], i) => <Meter key={label} k={i === 0 ? 'heat' : 'rug'} label={label} val={val} />)}</span>
     {!mini && t.tags?.length > 0 && <span className="tvl-tags">{t.tags.map(([i2, txt, tn]) => <span key={txt} className={`tvl-tag ${tn}`}>{i2} {txt}</span>)}
       {r.vital && <span className={`tvl-tag tvl-grade cvl-${r.vital.tone}`} data-tip={`Vital ${r.vital.score}/100 — ${r.vital.word}`}>🫀 {r.vital.grade}</span>}</span>}

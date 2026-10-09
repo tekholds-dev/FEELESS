@@ -61,9 +61,16 @@ function ReadCard({ r, onOpen, showAge }) {
 // choose on the row itself: logo · coin · age + cap · pool · traded this hour · 5 min · 1 hour · buyers · safety in a word, and
 // under it WHY (what the holder scan found / failed). Filter by safety, sort by busiest / newest / what is moving. One button
 // per row: "Pick" where a pick is being made (`onPick`, the swap picker), else "View".
+// 🔗 socials first (owner: "filter for socials first"): a real link beats set-at-launch beats none; order kept inside each
+const socN = r => ['site', 'x', 'tg'].reduce((n, k) => n + (typeof r[k] === 'string' ? 2 : r[k] ? 1 : 0), 0);
+export const socFirst = rows => rows.map((r, i) => [r, i]).sort((a, b) => (socN(b[0]) > 0) - (socN(a[0]) > 0) || (socN(b[0]) >= 2) - (socN(a[0]) >= 2) || a[1] - b[1]).map(x => x[0]);
+const SOC_KEY = 'feeless.openSoc';
 export function TrenchOpen({ max = 10, onPick, busy }) {
   const [d, setD] = useState(null); const [all, setAll] = useState(false); const [f, setF] = useState('all'); const [sort, setSort] = useState('front');
   const [layout, setLayoutS] = useState(loadLayout); const [lane, setLane] = useState('hot'); const [llane, setLlane] = useState('all');   /* the list view's own read filter */ const [look, setLook] = useState(null);
+  const [soc, setSocS] = useState(() => { try { return localStorage.getItem(SOC_KEY) === '1'; } catch { return false; } });
+  const setSoc = v => { setSocS(v); try { localStorage.setItem(SOC_KEY, v ? '1' : '0'); } catch { /* private window */ } };
+  const sf = a => (soc ? socFirst(a) : a);
   const setLayout = v => { setLayoutS(v); try { localStorage.setItem(LKEY, v); } catch { /* private window */ } };
   useEffect(() => { let alive = true; const load = first => (first || !document.hidden) && fetch(apiUrl('/api/reputation/fuses/trench/open')).then(r => r.json()).then(x => alive && setD(x)).catch(() => {});
     load(true); const t = setInterval(() => load(false), 20000); return () => { alive = false; clearInterval(t); }; }, []);
@@ -71,12 +78,13 @@ export function TrenchOpen({ max = 10, onPick, busy }) {
   const keyOf = SORTS.find(x => x[0] === sort)[2];
   const laneFn = (LANES.find(x => x[0] === llane) || [])[2];
   const list = d.rows.filter(FILTERS.find(x => x[0] === f)[2]).filter(r => !laneFn || laneFn(r)).slice().sort((a, b) => keyOf(a) - keyOf(b));
-  const rows = all ? list : list.slice(0, max);
+  const listS = sf(list);
+  const rows = all ? listS : listS.slice(0, max);
   const byMint = new Map(d.rows.map(r => [r.mint, r]));
   const open = (r, from) => { const full = byMint.get(r.mint); if (full) setLook({ row: full, list: from || list }); else openCoin({ mint: r.mint, pairAddress: r.pairAddress, symbol: r.symbol }); };
-  const newest = d.rows.filter(FILTERS.find(x => x[0] === f)[2]).slice().sort((a, b) => (a.ageH ?? 1e9) - (b.ageH ?? 1e9));
+  const newest = sf(d.rows.filter(FILTERS.find(x => x[0] === f)[2]).slice().sort((a, b) => (a.ageH ?? 1e9) - (b.ageH ?? 1e9)));
   const lanes = LANES.map(l => [l[0], l[1], laneRows(d.rows.filter(FILTERS.find(x => x[0] === f)[2]), l[0])]);
-  const laneList = (lanes.find(x => x[0] === lane) || lanes[0])[2];
+  const laneList = sf((lanes.find(x => x[0] === lane) || lanes[0])[2]);
   const cap = all ? 200 : Math.max(12, max);
   return <div className="top" data-testid="trench-open">
     <PumpCallouts onOpen={c => open(c)} />
@@ -84,6 +92,7 @@ export function TrenchOpen({ max = 10, onPick, busy }) {
       <small className="m-dim">{d.rows.length} of {d.seen} coins in the feed. Nothing is hidden — read the safety word and the line under each coin before you pick. The engine never buys from this list.</small></div>
     <div className="top-bar"><div className="m-seg top-seg" role="group" aria-label="Layout">{LAYOUTS.map(([k, label]) => <button key={k} type="button" className={layout === k ? 'active' : ''} aria-pressed={layout === k} onClick={() => setLayout(k)} data-testid={`open-l-${k}`}>{label}</button>)}</div>
       <div className="m-seg top-seg" role="group" aria-label="Safety filter">{FILTERS.map(([k, label, fn]) => <button key={k} type="button" className={f === k ? 'active' : ''} aria-pressed={f === k} onClick={() => setF(k)} data-testid={`open-f-${k}`}>{label}<i>{d.rows.filter(fn).length}</i></button>)}</div>
+      <button type="button" className={`top-soc-btn ${soc ? 'on' : ''}`} aria-pressed={soc} onClick={() => setSoc(!soc)} data-tip="Coins with a website / X / Telegram link first" data-testid="open-soc">🔗 Socials first<i>{d.rows.filter(r => socN(r) > 0).length}</i></button>
       {layout === 'list' && <div className="m-seg top-seg" role="group" aria-label="Sort">{SORTS.map(([k, label]) => <button key={k} type="button" className={sort === k ? 'active' : ''} aria-pressed={sort === k} onClick={() => setSort(k)} data-testid={`open-s-${k}`}>{label}</button>)}</div>}</div>
     {layout === 'split' && <div className="tsp" data-testid="open-split">
       <div className="tsp-col" data-testid="split-new"><div className="tsp-head"><span className="m-label">🆕 NEWEST</span><small className="m-dim">{newest.length} coins · youngest first</small></div>

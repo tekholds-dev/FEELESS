@@ -246,6 +246,9 @@ def test_new_runners_tight_launch_filter():
     got = rn.new_runners(rows)
     assert [r['mint'] for r in got] == ['A', 'F'] and '🧼 clean creator' in got[0]['why']          # clean creators first
     assert rn._socials({'info': {'websites': [{'url': 'x'}], 'socials': [{'type': 'twitter'}]}}) == {'site': True, 'x': True, 'tg': False}
+    got = rn._socials({'info': {'websites': [{'url': 'https://a.io'}], 'socials': [{'type': 'twitter', 'url': 'https://x.com/a'}, {'type': 'telegram', 'url': 'javascript:alert(1)'}]}})
+    assert got == {'site': 'https://a.io', 'x': 'https://x.com/a', 'tg': True}   # real links kept, a bad link is only "set"
+    assert rn._socials({'website': 'https://b.io', 'twitter': 'https://x.com/b'})['site'] == 'https://b.io'
 
 
 def test_playground_versions_and_where_listed():

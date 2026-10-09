@@ -1,5 +1,7 @@
 # FEELESS — working rules
 
+> 🧨 Working on Fuse / the real card? Read `docs/DEGEN_PLAYBOOK.md` first — the owner, the money, what the records say, the mindset.
+
 Degen trading terminal (Solana-first). Every feature ships **one and done**: styled, fast, tested, pushed.
 
 ## How to work (save usage)
@@ -2418,3 +2420,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   "⚡ buy burst", scored under edge proof key `burst`. 📣 CALLOUT SPIKE SELL (real cfg `calloutSell`, on; Edit Fuse › Exits) — 3+ different Pump
   callers in 10 min on a held coin up ≥ 20% → half its PROFIT sold into the buying (`_skim`, once an hour per coin, card `spikeAt`).
   Moon bag NOT built: it needs a leg that sits in the card outside the seat count — ask the owner how it should count first.
+- 🔗 REAL SOCIAL ICONS (owner, 2026-10-08: "globe and x icons — a real icon"): `SocialIcons` / `SocIcon` (QuickPulse.jsx) draw SVG globe ·
+  X · Telegram; a real link opens it, set-at-launch with no link = a dim icon that opens the coin's Pump page, none = 🚫. `runners._socials`
+  now keeps the LINK (http(s) only, `_link`) instead of True, so trench rows carry real links. 🔗 Socials first: `VFILTERS` `soc` (pick lists)
+  + `open-soc` in Open gates (`socFirst`: link → set → none, order kept). ⋯ per coin = a tile tray (`RmoTile`: 💰 into coins · 🅿 park ·
+  🏦 cash · 🏠 initial out · ✂ 25 / 50% · ⇄); ❄ freeze is ONE tap on the row (`hrt-fz`). 🎯 `GoalBar` on the real card (milestone the
+  owner picks, remembered per browser + "% of put-in back"). ☠ BUSTED calls (`busted`: ≥ 30 settled, median ≤ −20%) render red with
+  their record badge (`tvl-rec`, every call with ≥ 10 settled shows `±N%/1h`). `real_learn.note`: no buy stamp = `holdMin` None.

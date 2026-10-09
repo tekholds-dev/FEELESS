@@ -128,3 +128,21 @@ body.theme-day .qp-win { color: #1d4a33; border-color: #c6dccf; } body.theme-day
 @media (max-width: 640px) { .spx-shade { padding: 0; } .spx { border-radius: 0; height: 100vh; } .qp-tiles, .qp-tiles.is-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .spx > .sp { padding: 10px; } }
 
 body.theme-day .tql-live.is-hot { color: #b45309; } body.theme-day .tql-live.is-hot i { background: #b45309; }
+
+/* 🔗 social icons — real SVG globe / X / Telegram, first on every list row */
+.qp-ico { display: inline-flex; align-items: center; gap: 3px; margin-right: 5px; vertical-align: middle; flex: none; }
+.qp-ico > a, .qp-ico > i { display: inline-grid; place-items: center; width: 19px; height: 19px; border-radius: 6px; font-style: normal; text-decoration: none;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); color: #dfe9e3; transition: transform .14s ease, background .14s ease, border-color .14s ease; }
+.qp-ico .qp-s-site { color: #7cc7ff; }
+.qp-ico .qp-s-x { color: #f4f7f5; }
+.qp-ico .qp-s-tg { color: #3fb6f2; }
+.qp-ico > a:hover, .qp-ico > a:focus-visible { transform: translateY(-1px) scale(1.08); background: rgba(21,209,106,.18); border-color: #15d16a; outline: none; }
+.qp-ico > a:active { transform: scale(.94); }
+.qp-ico .is-dim { opacity: .45; }
+.qp-ico .is-none { width: auto; padding: 0 3px; font-size: 11px; opacity: .7; }
+.qp-svg { display: block; }
+.qp-link .qp-svg { display: inline-block; vertical-align: -2px; margin-right: 2px; }
+body.theme-day .qp-ico > a, body.theme-day .qp-ico > i { background: rgba(10,40,25,.06); border-color: rgba(10,40,25,.18); }
+body.theme-day .qp-ico .qp-s-x { color: #10251a; }
+body.theme-day .qp-ico .qp-s-site { color: #1f6fb0; }
+@media (prefers-reduced-motion: reduce) { .qp-ico > a { transition: none; } }

@@ -80,13 +80,24 @@ def is_dip(c):
             and _f(c.get('buyShare')) >= 55 and _f(c.get('buysAccel')) >= 1.0)
 
 
+def _link(v):
+    """An http(s) link as given, else None (never a javascript: / data: link)."""
+    v = v.get('url') if isinstance(v, dict) else v
+    v = str(v or '').strip()
+    return v[:300] if v.lower().startswith(('http://', 'https://')) else None
+
+
 def _socials(pair):
-    """Website / X / Telegram set at launch (DexScreener info.* or the launchpad's own fields)."""
+    """Website / X / Telegram set at launch (DexScreener info.* or the launchpad's own fields). The LINK when one is known (rows render a
+    clickable icon), else True when only its existence is known, else False."""
     info = pair.get('info') or {}
-    kinds = {str(x.get('type') or '').lower() for x in info.get('socials') or [] if isinstance(x, dict)}
-    site = bool(info.get('websites') or pair.get('website'))
-    x = bool('twitter' in kinds or 'x' in kinds or pair.get('twitter'))
-    tg = bool('telegram' in kinds or pair.get('telegram'))
+    soc = [x for x in info.get('socials') or [] if isinstance(x, dict)]
+    kinds = {str(x.get('type') or '').lower() for x in soc}
+    by = {str(x.get('type') or '').lower(): _link(x) for x in soc}
+    webs = info.get('websites') or []
+    site = next((u for u in (_link(w) for w in webs) if u), None) or _link(pair.get('website')) or bool(webs or pair.get('website'))
+    x = by.get('twitter') or by.get('x') or _link(pair.get('twitter')) or bool('twitter' in kinds or 'x' in kinds or pair.get('twitter'))
+    tg = by.get('telegram') or _link(pair.get('telegram')) or bool('telegram' in kinds or pair.get('telegram'))
     return {'site': site, 'x': x, 'tg': tg}
 
 

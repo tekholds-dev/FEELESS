@@ -21,3 +21,10 @@ def test_the_edge_score_reads_your_real_trades():
     t = {'age:<1h': {'n': 9, 'medPct': -40.0}}
     e = cf.edge({'ageH': 0.5}, {}, {}, {}, real_tbl=t)
     assert e['edge'] == -40.0 and any('your real trades' in p[0] for p in e['parts'])
+
+
+def test_a_leg_with_no_buy_stamp_has_an_unknown_hold_time_not_decades():
+    st = rl.note({}, {'entry': 1.0, 'symbol': 'A'}, 1.1, 1_800_000_000)
+    assert st['pieces'][0]['holdMin'] is None
+    st = rl.note({}, {'entry': 1.0, 'symbol': 'A', 'firstEntry': 1_800_000_000 - 600}, 1.1, 1_800_000_000)
+    assert st['pieces'][0]['holdMin'] == 10.0

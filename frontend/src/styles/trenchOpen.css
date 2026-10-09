@@ -19,6 +19,10 @@ body.theme-day .top-sym, body.theme-day .top-feed b { color: #0e2c1d; } body.the
 /* v3 table: one coin a row with everything on it, the reason on a second line; filters + sort above; scrolls when all are shown */
 .top-bar { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
 .top-seg > button { height: 26px; padding: 0 9px; font-size: 10.5px; display: inline-flex; align-items: center; gap: 5px; } .top-seg > button i { font-style: normal; opacity: .7; font-size: 9.5px; }
+.top-soc-btn { height: 26px; padding: 0 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.04); color: inherit; font: 600 10.5px "JetBrains Mono", monospace; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; transition: background .14s, border-color .14s, transform .14s; }
+.top-soc-btn:hover, .top-soc-btn:focus-visible { border-color: #15d16a; outline: none; transform: translateY(-1px); } .top-soc-btn:active { transform: scale(.96); }
+.top-soc-btn.on { background: #15d16a; border-color: #15d16a; color: #04140b; } .top-soc-btn i { font-style: normal; opacity: .7; font-size: 9.5px; }
+body.theme-day .top-soc-btn { border-color: rgba(10,40,25,.2); } body.theme-day .top-soc-btn.on { background: #0f7a43; color: #fff; }
 .top-table { display: grid; gap: 4px; } .top-table.is-all { max-height: 560px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #15d16a66 transparent; padding-right: 4px; }
 .top-table.is-all::-webkit-scrollbar { width: 6px; } .top-table.is-all::-webkit-scrollbar-thumb { background: #15d16a66; border-radius: 6px; }
 .top-tr { display: grid; grid-template-columns: 22px 26px minmax(104px, 1.5fr) 56px 62px 50px 54px 48px minmax(84px, .9fr) 58px; align-items: center; gap: 2px 8px; padding: 7px 9px; border-radius: 10px; border: 1px solid #1a2b23; background: #08110e; font: 11.5px "JetBrains Mono", monospace; color: #cfe3d8; animation: topIn .22s ease both; transition: border-color .15s ease, background .15s ease; }
