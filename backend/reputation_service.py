@@ -3073,8 +3073,10 @@ def _with_tv(r):
     """The row with its trench read (`tv`): raw open-board rows carry none — "no read = not judged" let a busted read through."""
     if (r or {}).get('tv') or not (r or {}).get('mint'):
         return r
-    try:
-        return {**r, 'tv': _ja.trench_verdict((_jup_facts.get(r['mint']) or (0, None))[1], r)}
+    try:   # the SAME read the open list shows (jup_audit.open_read: curve · dip · flow · trench, whichever fits)
+        c_ = _cand_map().get(r['mint']) or {}
+        x_ = {**{k: c_.get(k) for k in ('vol5m', 'chg6h', 'chg24h') if c_.get(k) is not None}, **{k: v for k, v in r.items() if v is not None}}
+        return {**r, 'tv': _ja.open_read((_jup_facts.get(r['mint']) or (0, None))[1], x_)}
     except Exception:
         return r
 
