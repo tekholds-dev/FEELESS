@@ -5989,6 +5989,7 @@ async def _pump_calls_build(force=False):
                     t['symbol'] = t.get('symbol') or k.get('symbol')
                     t['logo'] = t.get('logo') or k.get('icon')
             calls_ = b.pop('calls', [])
+            _pump_calls['calls'] = calls_[-600:]   # 📣 the raw calls: the callout-spike sell reads who is piling in right now
             try:   # 🎯 caller scoreboard: every call noted once, judged an hour later
                 cst = _pc.caller_track(_json_load(PUMP_CALLERS_PATH, {}), calls_, now * 1000)
                 _json_save(PUMP_CALLERS_PATH, cst)
@@ -6272,6 +6273,7 @@ async def _trench_build(now):
     await _bottom_track(now)
     await _call_track(now)
     await _lens_track(now)
+    await _smart_track(now)
     await _edge_track(now)
     await _flow_settle(now)
     await _owner_moves_tick(now)
@@ -6469,6 +6471,14 @@ def _edge_rank():
     combo = _trench.meta_proof(_json_load(EDGE_PROOF_PATH, {}), keys=tuple(k for k in _json_load(EDGE_PROOF_PATH, {}) if k != 'up'))
     calls = _call_cache.get('proof') or {}
     rows = _cf.rank(_swapin_lists(), _list_records(), calls, combo, lambda r: CALL_KEYS.get(((r.get('tv') or {}).get('call') or [None, None])[1]), _real_table())
+    sp_ = _trench.meta_proof(_json_load(EDGE_PROOF_PATH, {}), keys=('smart',)).get('smart') or {}
+    for r in rows:   # 🐳 smart wallets buying it now: a badge; it moves the score only once the radar's own record is in (≥ 5 settled)
+        h_ = _smart_on(r['mint'])
+        if h_:
+            r['smart'] = len(h_)
+            if _fuse._f(sp_.get('n')) >= 5:
+                r['edge'] = {**r['edge'], 'edge': round(r['edge']['edge'] + _fuse._f(sp_.get('medPct')) / 2, 1), 'parts': r['edge']['parts'] + [[f"🐳 smart wallets buying ({len(h_)}) — radar record", sp_.get('medPct')]]}
+    rows.sort(key=lambda x: (-x['edge']['edge'], -x['edge']['known']))
     _edge_cache.update(at=time.time(), rows=rows)
     return rows
 
@@ -6484,6 +6494,8 @@ async def _edge_track(now):
             if p_ > 0:
                 passing.setdefault(r['edge']['bucket'], []).append((r['mint'], p_))
         passing['up'] = [(m, p_) for m, p_ in _up_last if p_ > 0]
+        passing['burst'] = [(m, p_) for m, p_ in _burst_last if p_ > 0]
+        passing['smart'] = [(r['mint'], _fuse._f(r.get('priceUsd') or r.get('price'))) for r in _edge_rank()[:60] if _smart_on(r['mint']) and _fuse._f(r.get('priceUsd') or r.get('price')) > 0]
         keys = tuple(dict.fromkeys(list(st) + list(passing)))
         due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
         jp = await _jup_prices(due) if due else {}
@@ -7561,6 +7573,46 @@ FLOW_PROOF_PATH = FUSE_HQ_PATH.parent / 'flow_proof.json'   # 🌊 every flow / 
 FLOW_EVERY = 15.0
 _flow_now: dict = {}    # pairAddress → (at, window) — the latest tape read of every coin we watch
 _flow_at = {'t': 0.0}
+_flow_trades: dict = {}   # pairAddress → (at, raw trades) of the last tape read
+import degen as _dg
+SMART_PATH = FUSE_HQ_PATH.parent / 'smart_wallets.json'   # 🐳 each wallet's first buys and how they did an hour later
+_smart = {'set': {}, 'at': 0.0}
+_smart_now: dict = {}     # mint → (at, [(wallet, usd)]) smart wallets seen buying it in its last tape
+_burst_last: list = []    # [(mint, price)] coins showing a buy burst at the last flow entry — scored like any list ('burst')
+
+
+async def _smart_track(now):
+    """🐳 Every ~2 min: read the tapes of the real card's coins + Coming up's top 8, note each wallet's first buy, settle buys an hour old,
+    re-derive the smart set, flag coins a smart wallet is buying now. The radar's own record = edge proof key 'smart'."""
+    try:
+        rows = [r for r in _edge_rank()[:8] if r.get('pairAddress')]
+        held = [l for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if (c or {}).get('real') for l in c.get('legs') or [] if l.get('pairAddress') and l.get('mint') and l.get('symbol') != 'SOL']
+        pm = {r['pairAddress']: r['mint'] for r in rows}
+        pm.update({l['pairAddress']: l['mint'] for l in held})
+        await _flow_fetch(list(pm), max_age=60)
+        st = _json_load(SMART_PATH, {})
+        for p_, m_ in pm.items():
+            at_, tr_ = _flow_trades.get(p_, (0, []))
+            if tr_ and now - at_ < 120:
+                st = _dg.note_buys(st, m_, tr_, now)
+        due = list({b['m'] for b in st.get('buys') or [] if now - _fuse._f(b.get('at')) >= _dg.SETTLE_SEC})
+        jp = await _jup_prices(due) if due else {}
+        st = _dg.settle(st, lambda m: (jp or {}).get(m), now)
+        _json_save(SMART_PATH, st)
+        _smart.update(set=_dg.smart_set(st), at=now)
+        for p_, m_ in pm.items():
+            at_, tr_ = _flow_trades.get(p_, (0, []))
+            hits = _dg.smart_hits(tr_, _smart['set']) if now - at_ < 120 else []
+            if hits:
+                _smart_now[m_] = (now, hits)
+    except Exception as e:
+        print('smart wallets:', e)
+
+
+def _smart_on(mint):
+    at, hits = _smart_now.get(mint, (0, []))
+    return hits if time.time() - at < 600 else []
+
 
 
 import real_learn as _rl
@@ -7598,7 +7650,9 @@ async def _flow_fetch(pairs, max_age=12.0):
     async def one(http, p):
         try:
             r = await http.get(f'http://127.0.0.1:5099/api/candles/trades/solana/{p}')
-            return p, _flow.window((r.json() or {}).get('trades') or [], time.time())
+            tr = (r.json() or {}).get('trades') or []
+            _flow_trades[p] = (time.time(), tr)   # 🐳 the raw tape: the smart-wallet radar reads who bought
+            return p, _flow.window(tr, time.time())
         except Exception:
             return p, None
     if need and not os.environ.get('PYTEST_CURRENT_TEST'):
@@ -7940,6 +7994,18 @@ async def _prime_tick_inner(now):
             if cur is not None and _prime_real_cfg(d.get('prime') or {}).get('ladder'):
                 cur = _ladder_step(cur, {'ladder': True}, now)
                 cfg_t = _prime_real_cfg({**(d.get('prime') or {}), 'cards': {**((d.get('prime') or {}).get('cards') or {}), tid: cur}})
+        if real_t and cur is not None and cfg_t.get('calloutSell', True):   # 📣 CALLOUT SPIKE SELL: profit sold into a rush of Pump callers (degen.py)
+            try:
+                rushing_ = {h['mint']: h['callers'] for h in _pc.rush(_pump_calls.get('calls') or [], now * 1000, 1e15, n=3, window_min=10)}
+                hits_ = _dg.spike_sells(cur, px, rushing_, now) if rushing_ else []
+                if hits_:
+                    cur = {**cur, 'legs': [dict(x) for x in cur['legs']], 'events': list(cur.get('events') or []), 'spikeAt': dict(cur.get('spikeAt') or {})}
+                    for pa_, why_ in hits_:
+                        l_ = next((x for x in cur['legs'] if x.get('pairAddress') == pa_), None)
+                        if l_ and _prime._skim(cur, l_, _fuse._f(px.get(pa_)), liqs, now, to=cfg_t.get('skimTo') or 'card', frac=_dg.SPIKE_FRAC, why=why_) > 0:
+                            cur['spikeAt'][l_['mint']] = now
+            except Exception as e:
+                print('callout spike:', e)
         if cur is not None:   # 🔁 the card carries its own "no same coin unless it dipped" rule (arena_prime.cooling / note_dropped read it)
             cur = {**cur, 'rebuyDip': int(cfg_t.get('rebuyDipPct') or 0), 'ticketOff': bool(real_t and not cfg_t.get('youngTicket', True)), 'ticketRide': bool(real_t and cfg_t.get('ticketRide'))}
         # 🎯 PAPER = REAL: every tier (paper too) only rotates into coins real money could buy (pool ≥ minLiqUsd), so paper results are an
@@ -8221,14 +8287,24 @@ async def _prime_tick_inner(now):
                     if len(edge_ready) >= 6:
                         break
                 if edge_ready and cfg_t.get('flowEntry', True):   # 🌊 FLOW ENTRY: never buy into a minute where sellers lead (the tape of the top 4)
-                    fl_ = await _flow_fetch([x.get('pairAddress') for x in edge_ready[:4]])
+                    fl_ = await _flow_fetch([x.get('pairAddress') for x in edge_ready[:8]])
                     ok_, held_ = [], []
                     for x in edge_ready:
                         w_ = fl_.get(x.get('pairAddress'))
                         why_ = _flow.entry_why(w_) if x.get('pairAddress') in fl_ else None
                         x = {**x, 'flow': {k: w_.get(k) for k in ('buyUsd', 'sellUsd', 'n', 'pxChg')} if w_ else None}
                         (held_ if why_ else ok_).append({**x, 'watchWhy': why_} if why_ else x)
-                    edge_ready = ok_
+                    burst_ = []
+                    for x in ok_:   # ⚡ BUY BURST: a coin whose last 90s is a buying burst goes to the front (it is tagged; its own record is 'burst')
+                        bw_ = _dg.burst_why(fl_.get(x.get('pairAddress')))
+                        if bw_:
+                            burst_.append({**x, 'tag': f"⚡ buy burst · {x.get('tag') or ''}".strip(' ·'), 'burst': bw_})
+                    edge_ready = burst_ + [x for x in ok_ if x.get('mint') not in {y['mint'] for y in burst_}]
+                    global _burst_last
+                    _burst_last = [(x['mint'], _fuse._f(x.get('price'))) for x in burst_]
+                    for x in edge_ready:
+                        if _smart_on(x.get('mint')):
+                            x['tag'] = f"🐳 {len(_smart_on(x['mint']))} smart · {x.get('tag') or ''}".strip(' ·')
                     edge_watch = held_ + edge_watch
                 cat_rows = edge_ready + [x for x in cat_rows if x.get('mint') not in {y['mint'] for y in edge_ready}]
             # 🚪 EVERY DOOR ALWAYS SHOWS ONE COIN (owner: "1 trench, 1 pump, 1 volume"): a door with nothing that clears every check shows its

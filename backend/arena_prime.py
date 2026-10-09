@@ -506,7 +506,8 @@ def clean_cfg(p):
     out['ladder'] = bool((p or {}).get('ladder', False))
     out['flowExit'] = (p or {}).get('flowExit') if (p or {}).get('flowExit') in ('off', 'normal', 'tight') else 'normal'   # 🌊 sell when sellers take over (flow.py)
     out['rugRadar'] = bool((p or {}).get('rugRadar', True))   # 🚨 sell at once when the creator / a top holder dumps
-    out['flowEntry'] = bool((p or {}).get('flowEntry', True))   # 🌊 the engine doesn't buy into a minute where sellers lead   # 🪜 the card's playbook climbs with its size (LADDER)
+    out['flowEntry'] = bool((p or {}).get('flowEntry', True))   
+    out['calloutSell'] = bool((p or {}).get('calloutSell', True))   # 📣 sell part of a winner's profit into a rush of Pump callers   # 🌊 the engine doesn't buy into a minute where sellers lead   # 🪜 the card's playbook climbs with its size (LADDER)
     out['newOnly'] = bool((p or {}).get('newOnly', False))   # 🆕 the engine fills seats with launch coins only — no majors, no old pools (the owner's own picks are untouched)
     out['moverSwap'] = bool((p or {}).get('moverSwap', True))   # 🚀 a mover takes the seat of a coin that is not moving
     out['edgeGate'] = bool((p or {}).get('edgeGate', True))   # 🧠 real money buys only runners the board's own record does not expect to lose (pick_edge.py)

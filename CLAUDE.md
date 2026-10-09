@@ -2410,3 +2410,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   selects became one chip (`UpFilter` → `hrt-upchip`) that opens Edit Fuse › Coins (`feeless:edit-fuse` {tab}); the filter rows live there
   (`vitalMin`, `organicMin`, `noSerial` in EDIT). The two "sold" numbers are named for what they are: under the card CONFIRMED SALES (ledger),
   in ALL-TIME "everything else" (all-time − coins now: sales + write-offs + dust).
+- 🧨 DEGEN EDGES (`backend/degen.py` pure + tested): 🐳 SMART-WALLET RADAR — `_smart_track` (with the lens pass, ~2 min) reads the tapes of the real
+  card's coins + Coming up's top 8 (`_flow_fetch` keeps the raw trades in `_flow_trades`), notes each wallet's FIRST buy of a coin, settles it 1h
+  later (no price = −100%), `data/smart_wallets.json`; smart = ≥ 3 settled, median ≥ +20%, ≥ 60% up. A coin a smart wallet buys is tagged
+  "🐳 N smart" (edge rows `smart`, Coming up tag); it moves the edge score ONLY once the radar's own record (edge proof key `smart`) has ≥ 5
+  settled. ⚡ BUY BURST — flow entry reads Coming up's top 8 tapes; buys ≥ 2× sells, ≥ $150 bought, price up → the coin goes first, tagged
+  "⚡ buy burst", scored under edge proof key `burst`. 📣 CALLOUT SPIKE SELL (real cfg `calloutSell`, on; Edit Fuse › Exits) — 3+ different Pump
+  callers in 10 min on a held coin up ≥ 20% → half its PROFIT sold into the buying (`_skim`, once an hour per coin, card `spikeAt`).
+  Moon bag NOT built: it needs a leg that sits in the card outside the seat count — ask the owner how it should count first.
