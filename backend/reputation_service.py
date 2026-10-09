@@ -8709,7 +8709,7 @@ async def _prime_tick_inner(now):
             _step('your hunt line (pool · volume · 1h move · buyers)', r_t)
         if real_t and cfg_t.get('entryGate'):   # 🎯 clean entries (trench tickets keep their own rules)
             r_t = [x for x in r_t if x.get('trenchOnly') or not _prime.entry_gate(x, mom)]
-            _step('clean entry — buyers 60%+, not chasing, not at its highs, $50K+ pool, 6h+, $200K+/h', r_t)
+            _step('clean entry — buyers 50%+, not chasing, not at its highs, $50K+ pool, 6h+, $200K+/h', r_t)
         if real_t:   # 💀 never a dead coin (owner: "Coming up coins shouldn't be dead"): nothing in 5 min / < $3K or < 20 trades an hour
             r_t, r_pre_ = [x for x in r_t if not _ja.dead_why(x)], [x for x in r_pre_ if not _ja.dead_why(x)]
             _step('alive — traded in the last 5 min, $3K+ and 20+ trades an hour', r_t)
