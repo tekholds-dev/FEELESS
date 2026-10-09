@@ -8039,7 +8039,7 @@ async def _prime_tick_inner(now):
                     v_ = _cat_ok({'mint': m_})
                     if v_ is True:
                         edge_ready.append({**_cat_row({'mint': m_}), 'tag': _cf.words(e_['edge']), 'edge': e_['edge'], 'cat': 'edge'})
-                    elif v_ not in ('not on the runner board yet', 'holder scan not done') and len(edge_watch) < 6:
+                    elif v_ not in ('not on the runner board yet', 'holder scan not done', 'failed safety', 'dead (nobody trading it)') and len(edge_watch) < 6:
                         edge_watch.append({**(_cat_row({'mint': m_}) or e_), 'tag': _cf.words(e_['edge']), 'edge': e_['edge'], 'watchWhy': v_})
                     if len(edge_ready) >= 6:
                         break
@@ -8158,6 +8158,7 @@ async def _prime_tick_inner(now):
             for x, w_ in sorted(wrows_, key=lambda t: peaked_(t[1])):
                 if x.get('mint') and x['mint'] not in seen_u and len(up_) < 6:
                     seen_u.add(x['mint']); up_.append({**row_(x), 'wait': w_ + (' — already ran' if peaked_(w_) else '')})
+            up_ = [y for y in up_ if not str(y.get('wait') or '').startswith(('failed safety', 'holder scan', 'not on the runner board'))]   # 🧹 a coin that failed safety is never "coming up"
             # 💀 never a dead coin under Coming up (a 0 on the row = not read, the runner board's numbers win)
             cards[tid]['pipeline'] = {'at': now, 'steps': fun_ + [['not on the card and not cooling', len(free_)]], 'up': [_up_vital(u_) for u_ in [y for y in up_ if not _ja.dead_why({**{k: v for k, v in y.items() if v not in (None, 0, 0.0)}, **(_cand_map().get(y.get('mint')) or {})})][:6]], 'catMiss': cfg_t.get('catMiss') or {},
                                       'next': [f"${x.get('symbol')} {_fuse._f(x.get('chg1h')):+.0f}%" for x in sorted(free_, key=lambda x: -_fuse._f(x.get('chg1h')))[:4]],
