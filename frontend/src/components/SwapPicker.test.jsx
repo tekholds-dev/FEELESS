@@ -21,20 +21,21 @@ test('the real-card swap picker has every Lab lens + search, flags thin pools an
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<SwapPicker out={{ symbol: 'WIF' }} have={[]} minLiq={20000} onPick={r => picks.push(r)} onClose={() => {}} />); });
   await tick();
-  expect(PICK_LENSES.map(x => x[0])).toEqual(['ptrend', 'signals', 'movers', 'bottom', 'volume', 'pump', 'trench', 'majors']);   // eight lists, each its OWN set of coins
+  expect(PICK_LENSES.map(x => x[0])).toEqual(['exhale', 'procall', 'ptrend', 'fed', 'bottom', 'volume', 'trench', 'majors']);   // eight lists ranked by their own records
   // 🚀 it opens on what is MOVING (the live launch feed by hourly move) …
-  expect(urls.find(u => u.includes('/fuses/discover'))).toContain('/fuses/discover?lens=ptrend');   // 🔥 Pump trending opens first (the slow woven "New to you" list is gone)
+  expect(urls.find(u => u.includes('/fuses/discover'))).toContain('/fuses/discover?lens=exhale');   // 🧊 Cooling off opens first (the best record)
+  expect(el.querySelector('[data-testid="sp-exhale-note"]').textContent).toMatch(/exhale/);
   // 📏 every list tab carries its own 1-hour record; the open list explains it (too few settled = "starts now")
-  expect(el.querySelector('[data-testid="sp-lp-movers"]').textContent).toBe('-75%');
+  expect(el.querySelector('[data-testid="sp-lens-movers"]')).toBeNull();   // 🚀 Movers (−67%) scrapped from the picker
   expect(el.querySelector('[data-testid="sp-lp-volume"]').textContent).toBe('-1%');
   expect(el.querySelector('[data-testid="sp-lp-ptrend"]')).toBeNull();
   await act(async () => { el.querySelector('[data-testid="sp-lens-ptrend"]').click(); }); await tick();   // a list with its own record explains it
   expect(el.querySelector('[data-testid="sp-list-record"]').textContent).toMatch(/starts now/);
   expect(el.textContent).toContain('$POP');
-  // 📣 Pump signals = three Pump reads in ONE tab (double signal · callouts · fed runners)
-  await act(async () => { el.querySelector('[data-testid="sp-lens-signals"]').click(); }); await tick();
-  for (const k of ['double', 'calls', 'fed']) expect(urls.some(u => u.includes(`/fuses/discover?lens=${k}`))).toBe(true);
-  expect(el.querySelector('[data-testid="sp-signals-note"]').textContent).toMatch(/never advice/); expect(el.querySelector('[data-testid="sp-lens-arena"]')).toBeNull();
+  // 🎯 Proven callers: its own tab, with the edge it was tested on
+  await act(async () => { el.querySelector('[data-testid="sp-lens-procall"]').click(); }); await tick();
+  expect(urls.some(u => u.includes('/fuses/discover?lens=procall'))).toBe(true);
+  expect(el.querySelector('[data-testid="sp-procall-note"]').textContent).toMatch(/never advice/); expect(el.querySelector('[data-testid="sp-lens-signals"]')).toBeNull(); expect(el.querySelector('[data-testid="sp-lens-arena"]')).toBeNull();
   await act(async () => { el.querySelector('[data-testid="sp-lens-majors"]').click(); }); await tick();
   for (const k of ['majors', 'stocks', 'risers']) expect(urls.some(u => u.includes(`/fuses/discover?lens=${k}`))).toBe(true);   // one tab, three sources
   expect(el.querySelector('[data-testid="sp-pick-THIN"]').disabled).toBe(true);

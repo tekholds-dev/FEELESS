@@ -2497,3 +2497,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🏠 HOUSE DUST (`arena_prime.house_dust`, `HOUSE_DUST_SHARE` 0.4, tick step 4): after the initial-out, a small ticket's 3–6¢ of house
   money held a whole seat (owner: "not gonna profit with 6c in a seat"). A `house` coin under 40% of an equal seat, not riding / frozen,
   is sold to card cash (profit banked) and the seat refills with a full-size coin the same tick.
+- 🎯 SWAP-IN = 8 TABS RANKED BY THEIR OWN RECORDS (`PICK_LENSES`, opens on 🧊): 🧊 Cooling off (`_exhale_rows`, lens `exhale`: open-board coins
+  read DRYING UP / COOLING — the only positive reads, +1.9% / +0.6% — safe, rug < 50) · 🎯 Proven callers (`_procall_rows`, lens `procall`:
+  `pro_entries` over the last hour, + the call-rush alert switch) · 🔥 Pump trending · 🧲 Fed runners · 🟢 Dips & bottoms · 🌊 Volume · 🗑 Trench
+  · 🪙 Majors & stocks. SCRAPPED from the picker: 🚀 Movers (−67%), 🆕 New launches (−71%), 📣 Pump signals (calls −37%, double −79%) — their
+  server lenses + records still run (Coming up categories / list_paused read them). `exhale` + `procall` are in `LENS_TRACK` (own records).
+  `_with_tv(r)`: raw `_open_board()` rows carry NO read — every safe-trench check computes it first (pro entries slipped past "no read").

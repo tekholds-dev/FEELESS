@@ -3069,8 +3069,45 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
     return res_
 
 
+def _with_tv(r):
+    """The row with its trench read (`tv`): raw open-board rows carry none — "no read = not judged" let a busted read through."""
+    if (r or {}).get('tv') or not (r or {}).get('mint'):
+        return r
+    try:
+        return {**r, 'tv': _ja.trench_verdict((_jup_facts.get(r['mint']) or (0, None))[1], r)}
+    except Exception:
+        return r
+
+
+EXHALE_READS = ('DRYING UP', 'COOLING')   # the only reads with a positive 1h record (2026-10-09: +1.9% / 62% up · +0.6% / 57% up)
+
+
+def _exhale_rows():
+    """🧊 COOLING OFF: launch coins that ran and are now exhaling — read DRYING UP or COOLING, passed the safety scan, rug meter < 50."""
+    out = []
+    for r in _open_board():
+        r = _with_tv(r)
+        call = ((r.get('tv') or {}).get('call') or [None, None])[1]
+        if call in EXHALE_READS and r.get('safe') and _prime.trench_read_ok(r) and _fuse._f(r.get('price')) > 0:
+            out.append({**r, 'baseAddress': r['mint'], 'priceUsd': r.get('price'), 'liquidityUsd': r.get('liq'),
+                        'divisionLabel': f"🧊 {call.lower()} after its run — {_fuse._f(r.get('chg1h')):+.0f}% 1h, {_fuse._f(r.get('chg5m')):+.0f}% 5m"})
+    return sorted(out, key=lambda r: (EXHALE_READS.index(r['tv']['call'][1]), -_fuse._f(r.get('vol1h'))))
+
+
+def _procall_rows():
+    """🎯 PROVEN CALLERS: the last hour's calls by callers who were right before, on safe coins still near the called cap."""
+    rows = _pc.pro_entries(_pump_calls.get('calls') or [], _pump_calls.get('callers') or {}, [_with_tv(x) for x in _open_board()], time.time() * 1000, max_min=60)
+    return [{**r, 'baseAddress': r['mint'], 'priceUsd': r.get('price'), 'liquidityUsd': r.get('liq'),
+             'divisionLabel': f"🎯 @{r['proCall']['user']} called it {r['proCall']['mins']:.0f}m ago — their record {r['proCall']['medMult']}× typical, {r['proCall']['wonPct']}% up"}
+            for r in rows if _prime.trench_read_ok(r)]
+
+
 async def _fuses_discover_raw(lens, chain):
     """Fuse Lab: browse real pools on the chain you're on, by lens (popular / yield / deep / new)."""
+    if lens == 'exhale':
+        return {'lens': 'exhale', 'chain': 'solana', 'pools': _exhale_rows()}
+    if lens == 'procall':
+        return {'lens': 'procall', 'chain': 'solana', 'pools': _procall_rows()}
     if lens == 'fresh':   # 🔄 NEW TO YOU (owner, 2026-10-08: "no new coins, I'm running in circles — cycle different coins from the Arena and FEELESS
         # sitewide"): every list FEELESS shows (Pump trending · movers · Pump live · volume · dips · the Arena's ranked coins) woven together one
         # coin from each in turn, MINUS every coin the real card bought, sold or holds in the last 24h. Safety facts ride on every row as usual.
@@ -6467,7 +6504,7 @@ async def _bottom_rows(now):
 
 
 LENS_PROOF_PATH = FUSE_HQ_PATH.parent / 'lens_proof.json'   # 📏 every picker list's own 1-hour paper record
-LENS_TRACK = ('ptrend', 'movers', 'pump', 'volume', 'calls', 'fed', 'double')          # the live-feed lists (bottom + trench keep their own files)
+LENS_TRACK = ('ptrend', 'movers', 'pump', 'volume', 'calls', 'fed', 'double', 'exhale', 'procall')          # the live-feed lists (bottom + trench keep their own files)
 LENS_TOP = 15                                                # the top rows of each list are what a picker actually picks from
 _lens_rows: dict = {}                                        # {list: [rows in the list's own order]} — refreshed with the record (~2 min)
 
@@ -8357,11 +8394,11 @@ async def _prime_tick_inner(now):
             sendit_ = [{**x, 'trenchScore': 100 + _fuse._f((x.get('tv') or {}).get('heat')), 'sendIt': True} for x in (_call_cache.get('send') or [])] \
                 if (cfg_t.get('sendItAuto', True) and _sendit_ready()) else []
             # 🔥 SEND IT ONLY (owner's switch): the trench list itself reads −79% an hour on its own record, the SEND IT call +0.5% (52% won)
-            pro_ = _pc.pro_entries(_pump_calls.get('calls') or [], _pump_calls.get('callers') or {}, _open_board(), now * 1000) if cfg_t.get('proCallEntry') else []
+            pro_ = _pc.pro_entries(_pump_calls.get('calls') or [], _pump_calls.get('callers') or {}, [_with_tv(x) for x in _open_board()], now * 1000) if cfg_t.get('proCallEntry') else []
             pool_t = _prime.trench_pool(sendit_, _trench_cache.get('rows'), _trench_cache.get('fallback'),
                                         [y for y in _trench_cache.get('checked') or [] if not y.get('ok') and _trench.soft_only(y.get('fails'))], cfg_t, pro=pro_)
             for x in pool_t:
-                if x.get('mint') not in tr_seen and _lq(x) >= tr_floor * mg and _prime.trench_entry(x, mom) and _prime.trench_read_ok(x):
+                if x.get('mint') not in tr_seen and _lq(x) >= tr_floor * mg and _prime.trench_entry(x, mom) and _prime.trench_read_ok(_with_tv(x)):
                     tr_seen.add(x.get('mint')); tr_all.append({**x, 'trenchOnly': True})
             r_t = r_t + sorted(tr_all, key=lambda x: -_fuse._f(x.get('trenchScore') or x.get('score')))
         # 🪑 coins real money couldn't buy safely (2× in 10 min) are benched 1h for EVERY tier — paper never trades what real can't

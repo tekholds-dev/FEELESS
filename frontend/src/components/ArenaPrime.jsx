@@ -890,9 +890,12 @@ export function HqRealCards({ addr, onCount }) {
 // 7 lists, each its OWN set of coins and as many as the feed has (owner: "6–7 categories, more coins, a line chart on every row")
 // EIGHT lists (owner, 2026-10-08: "only need like 6–7… well maybe 8", updating well without rate limits): each its own source, each cached on the
 // server, none slow. 📣 Pump signals = three Pump reads in one tab (🔥🔥 double signal first, then callouts, then fed runners).
-export const PICK_LENSES = [['ptrend', '🔥 Pump trending'], ['signals', '📣 Pump signals'], ['movers', '🚀 Movers'], ['bottom', '🟢 Dips & bottoms'], ['volume', '🌊 Volume'], ['pump', '🆕 New launches'], ['trench', '🗑 Trench'], ['majors', '🪙 Majors & stocks']];
-const LENS_URLS = { majors: ['majors', 'stocks', 'risers'], signals: ['double', 'calls', 'fed'] };   // one tab, several sources (first source first; one row per coin)
-const LENS_RECORD = { signals: 'calls' };   // the record shown on a merged tab
+// 🎯 swap-in tabs ranked by their OWN 1-hour records (2026-10-09): 🧊 Cooling off (DRYING UP +1.9% / COOLING +0.6% — the only positive reads)
+// · 🎯 Proven callers (walk-forward 50% up vs 42%) · 🔥 Pump trending (−2.6%) · 🧲 Fed (−0.2%) … Movers (−67%), New launches (−71%) and
+// Pump signals (calls −37%, double −79%) were scrapped from the picker — their server lenses + records still run.
+export const PICK_LENSES = [['exhale', '🧊 Cooling off'], ['procall', '🎯 Proven callers'], ['ptrend', '🔥 Pump trending'], ['fed', '🧲 Fed runners'], ['bottom', '🟢 Dips & bottoms'], ['volume', '🌊 Volume'], ['trench', '🗑 Trench'], ['majors', '🪙 Majors & stocks']];
+const LENS_URLS = { majors: ['majors', 'stocks', 'risers'] };   // one tab, several sources (first source first; one row per coin)
+const LENS_RECORD = {};   // the record shown on a merged tab
 // 📈 every row gets a line: the board's recorded prices when it has them, else the coin's own 24h → 6h → 1h → 5m → now moves
 export const moveLine = r => { const now = 1; const back = c => (c == null || !Number.isFinite(Number(c)) || Number(c) <= -99 ? null : now / (1 + Number(c) / 100));
   const pts = [back(r.chg24h), back(r.chg6h), back(r.chg1h), back(r.chg5m), now].filter(v => v != null); return pts.length >= 3 ? pts : null; };
@@ -1031,7 +1034,7 @@ export function PipeLine({ p }) {
 export const PICK_PAGE = 40;
 export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, cool = {}, call, verify = false, pop = false, versus = null }) {
   const [nonce, setNonce] = useState(0);   // bumps when the trench settings are saved → the list reloads
-  const [lens, setLens] = useState('ptrend'); const [vview, setVview] = useState(loadView); const [rows, setRows] = useState(null); const [q, setQ] = useState('');
+  const [lens, setLens] = useState('exhale'); const [vview, setVview] = useState(loadView); const [rows, setRows] = useState(null); const [q, setQ] = useState('');
   const [tr, setTr] = useState(null);   // 🗑 trench scan: own pool floor + how many were checked
   const [look, setLook] = useState(null);   // ⚡ quick look: chart + every vital + pick, on EVERY list
   const [callF, setCallF] = useState('');   // 🏷 only the rows with this call
@@ -1078,8 +1081,9 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
     {!q.trim() && lp[LENS_RECORD[lens] || lens] && lens !== 'bottom' && <small className="m-dim sp-tnote" data-testid="sp-list-record">{listRecord(lp[LENS_RECORD[lens] || lens])}</small>}
     <input className="m-input sp-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Search any coin — SOL, BTC, ETH, $TICKER, CA" aria-label="Search any coin" data-testid="sp-search" />
     {lens === 'bottom' && !q.trim() && <small className="m-dim sp-tnote" data-testid="sp-bottom-note">🟢 Dips & bottoms in one list: first the coins that ran, gave 30%+ back and now sit at the low of their range without making new lows (deepest and turning first), then today's dip buys — down on the day with buyers back. {bottomRecord(bproof)} A list for you to pick from; the engine does not buy it by itself.</small>}
-    {lens === 'signals' && !q.trim() && call && <CallAlert call={call} />}
-    {lens === 'signals' && !q.trim() && <small className="m-dim sp-tnote" data-testid="sp-signals-note">📣 What Pump's own feeds say, in one list: first 🔥🔥 coins that are BOTH called out by 2+ users and have new launches paired with them, then 📣 the coins being called out (loudest first), then 🧲 runners new launches are paired with (their buys route through the runner's pool). Other people's calls — many are already in profit when they call. A list to look at, never advice; the engine buys from a signal only once its own 1-hour record is positive.</small>}
+    {lens === 'procall' && !q.trim() && call && <CallAlert call={call} />}
+    {lens === 'procall' && !q.trim() && <small className="m-dim sp-tnote" data-testid="sp-procall-note">🎯 Calls from the last hour by Pump callers who were RIGHT before (3+ judged calls, typically 1.2×+, half or more up), on coins that passed the safety scan and are still near the cap they were called at. Tested on the next calls of callers proven first: 50% went up vs 42% for everyone. A small edge, never advice.</small>}
+    {lens === 'exhale' && !q.trim() && <small className="m-dim sp-tnote" data-testid="sp-exhale-note">🧊 Coins that ran and are now breathing out — the read says DRYING UP or COOLING. The only two reads with a positive 1-hour record (+1.9% · 62% up, +0.6% · 57% up). Safety-scanned, rug meter under 50. Buy the exhale, not the pump.</small>}
     {lens === 'trench' && !q.trim() && tr && <small className="m-dim sp-tnote" data-testid="sp-trench-note" data-tip={`${tr.rules}${tr.level ? ` · crowd checks widened ×${tr.level} (safety checks never move)` : ''}`}>🗑 Pick a brand-new coin: tap <b>Pick</b> on any row below. High risk — check the Safety column, keep it to 1–2 coins. Pool floor {big(tr.floor)} · {tr.checked} scanned.</small>}
     {lens === 'trench' && !q.trim() && call && <TrenchScan call={call} bare onSaved={() => setNonce(n => n + 1)} onPickRow={r => onPick(pickRow({ ...r, score: r.front, soft: true }), true)} pickBusy={busy} />}
     {!rows ? <span className="loader" /> : !rows.length ? <small className="m-dim">{lens === 'trench' && !q.trim() ? 'No fresh coin passes the safety checks right now — the scan re-runs every ~2 min. Try 🌊 Volume.' : (why || 'Nothing live here right now — try another list or search.')}</small> :
