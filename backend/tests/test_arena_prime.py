@@ -2514,3 +2514,13 @@ def test_overnight_fix_1009_copies_the_winning_paper_selection_and_keeps_the_own
     for k in ('rotateHours', 'sl', 'minHoldMins', 'rideAt', 'rideTrail', 'houseAt'):
         assert new[k] == rc[k], k                                           # the owner's clock / stop / hold / exits untouched
     assert set(keys) == set(rs.OVERNIGHT_1009)
+
+
+def test_hunt_fix_1009_sets_the_runner_hunt_line_and_keeps_the_owners_clock():
+    import reputation_service as rs
+    rc = ap.clean_cfg({**CFG, 'rotateHours': 0.5, 'minHoldMins': 30, 'swapCapHr': 2, 'coins': 3, 'sl': 15})
+    new, keys = rs.hunt_patch_1009(rc)
+    for k, v in rs.HUNT_1009.items():
+        assert new[k] == v, k                                       # every value is a real editor option (clean_cfg kept it)
+    assert new['rotateHours'] == 0.5 and new['minHoldMins'] == 30 and new['swapCapHr'] == 2
+    assert set(keys) == set(rs.HUNT_1009)

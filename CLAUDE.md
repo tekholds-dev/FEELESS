@@ -2462,3 +2462,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   pool — its own record: 23 rug exits, median −0.4% an hour later (saved nothing) and every exit + refill was a round trip (102 swaps in
   10h with a 2/h rotation cap — the cap only counts round rotations). Creator-sold and top-holder-dumped rules unchanged.
   Flow exit's record is +3.7% after its sells (n 4, too few to act on yet). READ `data/flow_proof.json` BEFORE TRUSTING AN EXIT RULE.
+- 🚀 SEND IT 2026-10-09 (`_hunt_fix_1009`, once, `huntFix1009`, backup data/realcfg_before_hunt1009.json): owner chose the one-shot lane —
+  real card = 2 coins on the Runner hunt line (12h+ · $50K/h · +40% on the hour · $25K pool · record gate off), stop −30, freeze +50,
+  trail 30, 🏠 initial out at +50, ride over → bank, runners only (newOnly), scout / mover swap off. Clock 30m, hold 30, ≤ 2 swaps/h kept.
+  The owner decided with the numbers in hand (replay: ~1 in 5 hunt picks hit 2× within 6h) — don't re-argue it; report results.

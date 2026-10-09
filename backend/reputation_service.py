@@ -7997,6 +7997,38 @@ async def _overnight_fix_1009(now):
     return True
 
 
+HUNT_1009 = {'coins': 2, 'runnerMinAgeH': 12, 'runnerMinVolK': 50, 'runnerMinChg1h': 40, 'runnerMinLiqK': 25, 'runnerMinBuy': 0, 'edgeGate': False,
+             'rideAt': 50.0, 'rideTrail': 30.0, 'peakSellPct': 50.0, 'houseAt': 50, 'sl': 30.0, 'instantSwapPct': 0, 'newOnly': True,
+             'scoutPct': 0, 'moverSwap': False, 'rideEnd': 'bank'}
+
+
+def hunt_patch_1009(rc):
+    """Pure: the owner's "send it" (2026-10-09, "we're supposed to be trenching"): 2 coins on the 🚀 Runner hunt line (12h+, $50K/h, +40%
+    on the hour, $25K pool), the replay's own exits (stop −30, freeze +50, trail 30), 🏠 initial out at +50, ride over → bank. Runners only
+    (newOnly) — an empty seat waits in cash for the next hunt coin. Clock / hold / swap cap stay the owner's. → (new realCfg, keys)."""
+    return _prime.clean_cfg({**rc, **HUNT_1009}), sorted(HUNT_1009)
+
+
+async def _hunt_fix_1009(now):
+    """🚀 Once: apply `hunt_patch_1009` to the real card. Old values: data/realcfg_before_hunt1009.json. Keys → realOwnerSet + ladderKeep."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('huntFix1009') or not rc:
+            return False
+        new, keys = hunt_patch_1009(rc)
+        _json_save(DATA_DIR / 'realcfg_before_hunt1009.json', {k: rc.get(k) for k in keys})
+        pr['realCfg'] = new
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(keys))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(keys))
+        for c in (pr.get('cards') or {}).values():
+            if c.get('real'):
+                c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🚀 send it: 2 coins on the runner hunt line (12h+ · $50K/h · +40% on the hour) · stop −30 · freeze +50, trail 30 · 🏠 initial out at +50 · ride over → bank'})
+        pr['huntFix1009'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _ticket_ride_fix(now):
     """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
     once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
@@ -8093,6 +8125,7 @@ async def _prime_tick_inner(now):
     await _ticket_ride_fix(now)
     await _degen_fix_1009(now)
     await _overnight_fix_1009(now)
+    await _hunt_fix_1009(now)
     await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
