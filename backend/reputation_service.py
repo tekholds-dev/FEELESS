@@ -8071,8 +8071,12 @@ async def _prime_tick_inner(now):
                         why_s = f"its ${want_usd:.2f} is under the smallest order the card can send (${mo_t:.2f})"
                         raise ValueError('unfundable seat')
                     tmp = {**cur, 'legs': [{**x, 'units': _fuse._f(x.get('wantUnits'))} if x is l else x for x in cur['legs']]}
-                    cur = _prime.replace_leg(tmp, pa, px, p_t, r_t, anchors, cfg_t, now)
-                    cur['events'] = cur['events'][:-1] + [{**cur['events'][-1], 'why': f"⏳ ${l.get('symbol')} {why_s} — swapped for a buyable coin"}]
+                    # ⏭ NEXT UP FIRST (owner: "fall back to retry or swap to the next up buyable"): Coming up's ready coins from the last tick, in its order
+                    up_ord = [u.get('mint') for u in ((cur.get('pipeline') or {}).get('up') or []) if not u.get('wait') and u.get('mint') != l.get('mint')]
+                    r_pref = sorted(r_t, key=lambda x: up_ord.index(x.get('mint')) if x.get('mint') in up_ord else len(up_ord))
+                    cur = _prime.replace_leg(tmp, pa, px, p_t, r_pref, anchors, cfg_t, now)
+                    in_s = next((x.get('symbol') for x in cur['legs'] if x.get('mint') not in {y.get('mint') for y in tmp['legs']}), None)
+                    cur['events'] = cur['events'][:-1] + [{**cur['events'][-1], 'why': f"⏳ ${l.get('symbol')} {why_s} — swapped for {'$' + in_s if in_s else 'a buyable coin'}{' (next up)' if in_s and any(x.get('symbol') == in_s and x.get('mint') in up_ord for x in r_pref) else ''}"}]
                 except ValueError:   # nothing buyable of its role: the slot goes back to card cash (refilled next round), never waits forever
                     cur = {**cur, 'legs': [x for x in cur['legs'] if x is not l], 'events': list(cur.get('events') or []) + [
                         {'at': now, 'kind': 'rotate', 'symbol': l.get('symbol'), 'usd': 0.0, 'why': f"⏳ ${l.get('symbol')} {why_s} — slot back to card cash"}]}

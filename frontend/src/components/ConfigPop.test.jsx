@@ -63,3 +63,17 @@ test('learn line names your best and worst buckets', async () => {
   expect(el.textContent).toContain('40 of your real exits'); expect(el.textContent).toContain('age 1-7d +12%'); expect(el.textContent).toContain('age <1h -38%');
   await act(async () => { root.unmount(); });
 });
+
+test('one TP/SL control: + column sets take-profit, − column sets the stop', async () => {
+  const React = require('react'); const { act } = React; const { createRoot } = require('react-dom/client');
+  const { TpSl } = require('./ArenaPrime');
+  const prime = jest.fn();
+  const el = document.createElement('div'); const root = createRoot(el);
+  await act(async () => { root.render(<TpSl l={{ symbol: 'X', pairAddress: 'PX', tp: 0, sl: 20 }} c={{ tpl: 'degen', tp: 100, sl: 15 }} prime={prime} />); });
+  expect(el.querySelector('summary').textContent).toContain('+100'); expect(el.querySelector('summary').textContent).toContain('−20');
+  await act(async () => { el.querySelector('[data-testid="tp-X-50"]').click(); });
+  expect(prime).toHaveBeenLastCalledWith({ leg: { tpl: 'degen', pairAddress: 'PX', tp: 50 } }, expect.any(String), 'tp-PX');
+  await act(async () => { el.querySelector('[data-testid="sl-X-0"]').click(); });
+  expect(prime).toHaveBeenLastCalledWith({ leg: { tpl: 'degen', pairAddress: 'PX', sl: 0 } }, expect.any(String), 'sl-PX');
+  await act(async () => { root.unmount(); });
+});

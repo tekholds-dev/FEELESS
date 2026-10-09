@@ -778,10 +778,7 @@ export function HqRealCards({ addr, onCount }) {
                 data-tip={`Sell ${p === 100 ? 'all' : `${p}%`} of your $${l.symbol} (${usd((l.usd || 0) * p / 100)}) to this card's cash. The total changes only after the transaction confirms.`}
                 onClick={() => window.confirm(`Sell ${p === 100 ? 'ALL' : `${p}%`} of $${l.symbol} (about ${usd((l.usd || 0) * p / 100)}) to this card's cash?`) && prime({ manualSell: { tpl: c.tpl, pairAddress: l.pairAddress, pct: p } }, `Selling ${p === 100 ? 'all' : `${p}%`} of $${l.symbol} — card cash updates after confirmation`, `sell-${l.pairAddress}`)}>{t}</button>)}</span>
               {l.role !== 'anchor' && <span className="hrt-own" data-tip={`$${l.symbol}'s OWN take-profit and stop. "tier" = follow the card's (TP +${c.tp}% · SL −${c.sl}%). The ⚡ instant swap and the card floor still apply.${cf?.rideAt ? ` ❄ Freeze runs FIRST: once $${l.symbol} is up +${cf.rideAt}% it rides (no TP) and sells ${cf.rideTrail}% off its peak — the TP only fires if the coin jumps past it before the freeze catches it.` : ''}`}>
-                <select className="m-input" aria-label={`${l.symbol} take-profit`} disabled={!!busy} value={l.tp || 0} data-testid={`tp-${l.symbol}`} onChange={e => prime({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, tp: Number(e.target.value) } }, Number(e.target.value) ? `🎯 $${l.symbol} takes profit at +${e.target.value}%` : `$${l.symbol} follows the tier's take-profit`, `tp-${l.pairAddress}`)}>
-                  <option value={0}>TP tier</option>{[...new Set([25, 50, 100, 200, 300, ...(l.tp ? [l.tp] : [])])].sort((x, y) => x - y).map(v => <option key={v} value={v}>TP +{v}%</option>)}</select>
-                <select className="m-input" aria-label={`${l.symbol} stop`} disabled={!!busy} value={l.sl || 0} data-testid={`sl-${l.symbol}`} onChange={e => prime({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, sl: Number(e.target.value) } }, Number(e.target.value) ? `🛑 $${l.symbol} stops at −${e.target.value}%` : `$${l.symbol} follows the tier's stop`, `sl-${l.pairAddress}`)}>
-                  <option value={0}>SL tier</option>{[...new Set([10, 15, 20, 30, ...(l.sl ? [l.sl] : [])])].sort((x, y) => x - y).map(v => <option key={v} value={v}>SL −{v}%</option>)}</select>
+                <TpSl l={l} c={c} busy={busy} prime={prime} />
                 <select className="m-input" aria-label={`${l.symbol} flow exit`} disabled={!!busy} value={l.flowExit || ''} data-testid={`flow-${l.symbol}`} data-tip="🌊 Flow exit for THIS coin: sell when sellers take over (sell $ well above buy $ while the price slides). normal = 2× sellers · tight = 1.5× · off = never. 'card' = the card's own setting."
                   onChange={e => prime({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, flowExit: e.target.value } }, e.target.value ? `🌊 $${l.symbol} flow exit: ${e.target.value}` : `$${l.symbol} follows the card's flow exit`, `fx-${l.pairAddress}`)}>
                   <option value="">🌊 card</option><option value="normal">🌊 normal</option><option value="tight">🌊 tight</option><option value="off">🌊 off</option></select></span>}
@@ -891,6 +888,21 @@ export function UpFilter({ cfg, onSave, busy }) {
       {opts.map(([v, l]) => <option key={String(v)} value={String(v)}>{l}</option>)}</select></label>)}</div>;
 }
 // 🌊 a coin's live flow (last 90s of real swaps): green = $ bought, pink = $ sold, the price move across them. From the 15s tape read.
+// 🎯 TP + SL in ONE control (owner: "tp sl in 1 dropdown — 2 picks, 1 for + and 1 for −"): the button shows both, the panel has a + column
+// (take-profit) and a − column (stop). "tier" = follow the card's own. Each tap saves that coin's value at once.
+const TPS = [25, 50, 100, 200, 300]; const SLS = [10, 15, 20, 30];
+export function TpSl({ l, c, busy, prime }) {
+  const tps = [...new Set([...TPS, ...(l.tp ? [l.tp] : [])])].sort((x, y) => x - y);
+  const sls = [...new Set([...SLS, ...(l.sl ? [l.sl] : [])])].sort((x, y) => x - y);
+  const set = (k, v) => prime({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, [k]: v } }, k === 'tp' ? (v ? `🎯 $${l.symbol} takes profit at +${v}%` : `$${l.symbol} follows the card's take-profit`) : (v ? `🛑 $${l.symbol} stops at −${v}%` : `$${l.symbol} follows the card's stop`), `${k}-${l.pairAddress}`);
+  return <details className="tps" data-testid={`tpsl-${l.symbol}`}><summary data-tip={`$${l.symbol}'s own take-profit (+) and stop (−). "tier" = the card's (TP +${c.tp}% · SL −${c.sl}%).`}>
+    <b className="m-pos">{l.tp ? `+${l.tp}` : `+${c.tp || '—'}`}</b><i>·</i><b className="m-neg">{l.sl ? `−${l.sl}` : `−${c.sl || '—'}`}</b>{!(l.tp || l.sl) && <small>tier</small>}</summary>
+    <div className="tps-pop" role="group" aria-label={`${l.symbol} take-profit and stop`}>
+      <div><small>+ TAKE PROFIT</small>{[0, ...tps].map(v => <button key={`t${v}`} type="button" disabled={!!busy} className={(l.tp || 0) === v ? 'active' : ''} onClick={() => set('tp', v)} data-testid={`tp-${l.symbol}-${v}`}>{v ? `+${v}%` : 'tier'}</button>)}</div>
+      <div><small>− STOP</small>{[0, ...sls].map(v => <button key={`s${v}`} type="button" disabled={!!busy} className={(l.sl || 0) === v ? 'active' : ''} onClick={() => set('sl', v)} data-testid={`sl-${l.symbol}-${v}`}>{v ? `−${v}%` : 'tier'}</button>)}</div>
+    </div></details>;
+}
+
 export function FlowBar({ f }) {
   if (!f || !(f.buyUsd + f.sellUsd > 0)) return null;
   const tot = f.buyUsd + f.sellUsd; const b = f.buyUsd / tot;

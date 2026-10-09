@@ -1367,6 +1367,7 @@ def logged_recently(ledger, row, now, secs=QUIET_SEC):
 
 
 THIN_POOL = 'pool too thin'   # the keeper's thin-pool refusal (check + live_buy_market both say it)
+UNROUTABLE = ('not tradable', 'no route', 'could not find any route', 'token_not_tradable', 'route not found')   # Jupiter will never fill it: bench at once
 BENCH_SEC = 900         # 15 min (doubling ≤ 2h), so the engine swaps in a coin that CAN be bought — and the coin can come back the same hour
 BENCH_MAX = 7200
 
@@ -1379,7 +1380,7 @@ def note_miss(book, mint, now, reason=''):
         m = {'n': 0, 'first': now}
     m = {**m, 'n': int(m['n']) + 1, 'why': reason[:80], 'last': now}
     b['misses'][mint] = m
-    if m['n'] >= MISS_LIMIT or THIN_POOL in reason:   # 💧 a thin pool won't deepen in minutes: bench at once so the engine swaps it NOW   # each repeat bench doubles (1h → 2h → … ≤ 24h): a coin that keeps failing stops coming back
+    if m['n'] >= MISS_LIMIT or THIN_POOL in reason or any(u in reason.lower() for u in UNROUTABLE):   # 💧 a thin pool won't deepen in minutes: bench at once so the engine swaps it NOW   # each repeat bench doubles (1h → 2h → … ≤ 24h): a coin that keeps failing stops coming back
         times = int((book.get('benched') or {}).get(mint, {}).get('times') or 0) + 1
         b['benched'][mint] = {'until': now + min(BENCH_MAX, BENCH_SEC * 2 ** (times - 1)), 'why': reason[:80], 'times': times}
         b['misses'].pop(mint, None)

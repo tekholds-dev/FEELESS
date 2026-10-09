@@ -2382,3 +2382,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   pool · 1h volume · tag) + who picked it → its result vs the book entry. `table` = median per feature bucket (≥ 5 pieces); the 🧬 edge score adds
   it as a part ("your real trades (N pieces)", `confluence.edge(real_tbl=)`), so Coming up drifts toward what paid with real money. Public
   `GET /fuses/learn` (n + best / worst buckets, % only) → `LearnLine` under Coming up. It starts empty: lessons land as coins leave the card.
+- ⏭ A BUY THAT CAN'T FILL FALLS BACK TO NEXT UP (owner, 2026-10-08: "swap-in should work or fall back to retry or the next up buyable"): Jupiter
+  "token is not tradable" / "no route" (`fuse_wallet.UNROUTABLE`) benches the coin AT ONCE (it was retried forever — $HOOKI sat "waiting for card
+  cash"); the stuck-buy swap then takes Coming up's READY coins first, in order (`up_ord` from the last tick's `pipeline.up`), event names the coin
+  "(next up)". Slippage misses still retry first (5% max).
+- 🎯 TP + SL = ONE control on each real-card coin row (`TpSl`, `tps-*` in configPop.css): the button shows "+TP · −SL"; its panel has a + column
+  (take-profit) and a − column (stop), "tier" = the card's own. Replaced the two selects.
