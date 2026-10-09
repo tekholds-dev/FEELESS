@@ -93,8 +93,99 @@ def evm_rows(tokens, results, swap_min=SWAP_MIN_USD):
         usd = round(ui * px, 6) if px > 0 else None
         out.append({'address': t['address'], 'symbol': t.get('symbol'), 'name': t.get('name'), 'logo': t.get('logoURI') or '', 'decimals': dec,
                     'raw': str(raw), 'ui': ui, 'usd': usd, 'price': px or None, 'best': 'swap' if (usd or 0) >= swap_min else 'dust',
-                    'actions': ['swap']})
+                    'actions': ['swap'], **({'flag': t['flag']} if t.get('flag') else {})})
     return sorted(out, key=lambda r: -(r['usd'] or 0))
+
+
+# ---- Cronos: EVERY coin (owner: "dust needs to track every coin holding on cronos") ----
+# A token LIST can only find listed coins. So the candidates are: the swap router's list + a DEX list + the coins a wallet index says this
+# wallet holds (discovery only — its amounts are never trusted) + contracts the owner pastes. Every balance is then read on-chain by us.
+import re as _re
+_EVM = _re.compile(r'^0x[0-9a-fA-F]{40}$')
+ADD_MAX = 40
+
+
+def clean_contracts(text):
+    """'0xabc…, 0xdef…' (any separators) → valid contract addresses, lower-case, de-duplicated, at most ADD_MAX."""
+    out = []
+    for part in _re.split(r'[\s,;]+', str(text or '')):
+        if _EVM.match(part) and part.lower() not in out and part.lower() != NATIVE_EVM:
+            out.append(part.lower())
+    return out[:ADD_MAX]
+
+
+def index_tokens(rows):
+    """A wallet index's token rows ({id, symbol, name, decimals, price, logo_url}) → candidate tokens in the list shape. Native coin and junk dropped."""
+    out = []
+    for r in rows if isinstance(rows, list) else []:
+        if not isinstance(r, dict) or not _EVM.match(str(r.get('id') or '')):
+            continue
+        try:
+            dec = int(r.get('decimals'))
+        except (TypeError, ValueError):
+            continue
+        if not 0 <= dec <= 36:
+            continue
+        out.append({'address': r['id'], 'symbol': str(r.get('optimized_symbol') or r.get('symbol') or '')[:24], 'name': str(r.get('name') or '')[:60], 'decimals': dec,
+                    'priceUSD': _f(r.get('price')) or None, 'logoURI': r.get('logo_url') if str(r.get('logo_url') or '').startswith('https://') else '',
+                    'flag': 'suspicious' if r.get('is_suspicious') else '' if r.get('is_verified') else 'unverified'})
+    return out
+
+
+def merge_tokens(*lists):
+    """Token lists → one, one row per contract; the FIRST list that knows a coin names it, a later one may add a missing price / logo."""
+    by = {}
+    for lst in lists:
+        for t in lst or []:
+            a = str((t or {}).get('address') or '').lower()
+            if not _EVM.match(a) or a == NATIVE_EVM:
+                continue
+            if a not in by:
+                by[a] = dict(t)
+            else:
+                for k in ('priceUSD', 'logoURI', 'symbol', 'name', 'flag'):
+                    if not by[a].get(k) and t.get(k):
+                        by[a][k] = t[k]
+    return list(by.values())
+
+
+def abi_string(hexstr):
+    """An eth_call result holding a string (dynamic ABI string, or the old bytes32 form) → text, '' when it is neither."""
+    h = str(hexstr or '')[2:]
+    try:
+        raw = bytes.fromhex(h)
+        if len(raw) >= 96 and int.from_bytes(raw[:32], 'big') == 32:
+            n = int.from_bytes(raw[32:64], 'big')
+            raw = raw[64:64 + min(n, 64)]
+        else:
+            raw = raw[:32].rstrip(b'\x00')
+        return ''.join(ch for ch in raw.decode('utf-8', 'ignore') if ch.isprintable())[:24]
+    except ValueError:
+        return ''
+
+
+def meta_calls(addresses):
+    """JSON-RPC batch: decimals() + symbol() for contracts no list knows (ids 2i, 2i+1)."""
+    out = []
+    for i, a in enumerate(addresses):
+        out.append({'jsonrpc': '2.0', 'id': 2 * i, 'method': 'eth_call', 'params': [{'to': a, 'data': '0x313ce567'}, 'latest']})
+        out.append({'jsonrpc': '2.0', 'id': 2 * i + 1, 'method': 'eth_call', 'params': [{'to': a, 'data': '0x95d89b41'}, 'latest']})
+    return out
+
+
+def meta_tokens(addresses, results):
+    """→ candidate tokens for pasted contracts that answered decimals() (a contract that is not a token is dropped)."""
+    out = []
+    for i, a in enumerate(addresses):
+        d = (results or {}).get(2 * i)
+        try:
+            dec = int(d, 16) if d and d != '0x' else None
+        except ValueError:
+            dec = None
+        if dec is None or not 0 <= dec <= 36:
+            continue
+        out.append({'address': a, 'symbol': abi_string((results or {}).get(2 * i + 1)) or f'{a[:6]}…', 'name': '', 'decimals': dec, 'priceUSD': None, 'logoURI': '', 'flag': 'added by you'})
+    return out
 
 
 EVM_NAMES = {1: 'ethereum', 8453: 'base', 56: 'bsc', 42161: 'arbitrum', 43114: 'avalanche', 137: 'polygon', 10: 'optimism', 324: 'zksync',

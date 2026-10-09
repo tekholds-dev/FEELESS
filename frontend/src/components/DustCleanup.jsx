@@ -38,11 +38,16 @@ export function plan(rows, pick, act) {
     swapUsd: swaps.reduce((a, r) => a + (r.usd || 0), 0), burnUsd: burns.reduce((a, r) => a + (r.usd || 0), 0) };
 }
 
+const EXTRA_KEY = 'feeless.dustTokens';
 export default function DustCleanup() {
   const { wallet, provider, connect, switchTo } = useWallet() || {};
   const [chain, setChain] = useState('solana');
   // 👁 read ANY address (no wallet needed to look); cleaning still needs that wallet connected to sign
   const [lookAt, setLookAt] = useState('');
+  // ＋ Cronos contracts the owner tracks by hand (a coin no list or index knows): kept in this browser, sent with every read
+  const [extra, setExtra] = useState(() => { try { return localStorage.getItem(EXTRA_KEY) || ''; } catch { return ''; } }); const [draft, setDraft] = useState('');
+  const addExtra = () => { const got = (draft.match(/0x[0-9a-fA-F]{40}/g) || []).map(x => x.toLowerCase()); if (!got.length) return;
+    const next = [...new Set([...extra.split(',').filter(Boolean), ...got])].slice(0, 40).join(','); setExtra(next); setDraft(''); try { localStorage.setItem(EXTRA_KEY, next); } catch { /* private window */ } };
   const own = chain === 'solana' ? (wallet?.chain === 'solana' ? wallet.address : null) : (wallet?.chain === 'evm' ? wallet.address : null);
   const lookOk = chain === 'solana' ? /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(lookAt.trim()) : /^0x[0-9a-fA-F]{40}$/.test(lookAt.trim());
   const addr = own || (lookOk ? lookAt.trim() : null);
@@ -53,10 +58,10 @@ export default function DustCleanup() {
   const note = (text, tone = '') => setLog(l => [{ t: Date.now(), text, tone }, ...l].slice(0, 40));
   const load = useCallback(async () => {
     if (!addr) return; setErr(''); setData(null);
-    try { const r = await fetch(apiUrl(`/api/reputation/wallet-dust/${chain}/${addr}`)); const d = await r.json(); if (!r.ok) throw new Error(d.detail || 'Could not read the wallet.');
+    try { const r = await fetch(apiUrl(`/api/reputation/wallet-dust/${chain}/${addr}${chain !== 'solana' && extra ? `?add=${extra}` : ''}`)); const d = await r.json(); if (!r.ok) throw new Error(d.detail || 'Could not read the wallet.');
       setData(d); setPick({}); setAct({}); setState({}); setAck(false); note(`Read ${d.rows.length} coin${d.rows.length === 1 ? '' : 's'} on ${chain}.`); }
     catch (e) { setErr(e.message); }
-  }, [addr, chain]);
+  }, [addr, chain, extra]);
   useEffect(() => { load(); }, [load]);
   const rows = grouped(data?.rows || [], data?.chains);
   const key = keyOf;
@@ -144,6 +149,9 @@ export default function DustCleanup() {
       <div className="m-seg" role="radiogroup" aria-label="Chain">{CHAINS.map(([k, l]) => <button type="button" key={k} role="radio" aria-checked={chain === k} className={chain === k ? 'active' : ''} onClick={() => { setChain(k); setData(null); setErr(''); setLookAt(''); }} data-testid={`dc-chain-${k}`}>{l}</button>)}</div></header>
     {!own && <div className="dc-look"><input className="m-input" value={lookAt} onChange={e => setLookAt(e.target.value)} placeholder={chain === 'solana' ? 'or paste any Solana address to look' : 'or paste any 0x… address to look (every chain)'} aria-label="Address to read" data-testid="dc-look" />
       {lookAt && !lookOk && <small className="dc-err">Not a {chain === 'solana' ? 'Solana' : '0x'} address.</small>}</div>}
+    {chain !== 'solana' && <div className="dc-look dc-track" data-testid="dc-track"><input className="m-input" value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => e.key === 'Enter' && addExtra()} placeholder="Missing a Cronos coin? Paste its contract (0x…) to track it" aria-label="Cronos token contract to track" data-testid="dc-track-input" />
+      <button type="button" className="m-btn" disabled={!/0x[0-9a-fA-F]{40}/.test(draft)} onClick={addExtra} data-testid="dc-track-add">＋ Track</button>
+      {data?.cronos?.checked > 0 && <small className="m-dim" data-testid="dc-cronos-meta">Cronos: {data.cronos.checked} contracts checked on-chain{data.cronos.indexed ? ' — every coin a wallet index reports for this address, plus the swap and DEX lists' : ' — lists only right now (the wallet index did not answer); paste a contract if one is missing'}{extra ? ` · ${extra.split(',').length} tracked by you` : ''}.</small>}</div>}
     {err && !addr && <p className="dc-err" role="alert">{err}</p>}
     {!addr ? <div className="dc-empty"><p className="m-dim">Connect your {chain === 'solana' ? 'Solana' : 'EVM (MetaMask, Crypto.com DeFi, Trust, Rabby…)'} wallet to read and clean its coins.</p>
       <button type="button" className="m-btn primary m-go" onClick={() => Promise.resolve(chain === 'solana' ? connect?.('solana') : connect?.('evm')).catch(e => setErr(e.message))} data-testid="dc-connect">Connect wallet</button></div>

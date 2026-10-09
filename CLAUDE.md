@@ -2312,3 +2312,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
     PAPER ONLY (`card.real` → never): the keeper does not buy a locked coin, so on real money the engine would count cash that was never spent
     (the $AUTON bug). `PAPER_TRY` switches both on for paper cards unless the owner saved a paper value; the real card's stay off until the owner
     turns them on (Edit Fuse › Exits). Second ticket on real money needs a durable keeper buy flag first — do not just drop the `real` guard.
+- 🧹 CRONOS DUST = EVERY COIN (`dust.index_tokens/merge_tokens/clean_contracts/meta_calls/meta_tokens/abi_string`, `_cronos_candidates`): a token LIST only
+  finds listed coins, and no Cronos indexer answers without a key (explorer API 401, public nodes cap log scans at 2,000 blocks of 98M). Candidates
+  = LI.FI list + CronaSwap list + the contracts a wallet index reports for THIS wallet (`CRONOS_WALLET_INDEX`, Rabby's public token_list — DISCOVERY
+  ONLY, its amounts are never used) + contracts the owner pastes (`?add=`, `dc-track`, localStorage `feeless.dustTokens`; unknown ones get their own
+  decimals() / symbol()). Every balance is read on-chain by us. Response `checked` / `indexed` → the screen says which sources answered.
+- 🎯 SWAP-IN = SEVEN LISTS (`PICK_LENSES`: Pump trending · 📣 Pump signals · Movers · Dips & bottoms · Volume · Trench · Majors & stocks; opens on Pump
+  trending). 📣 Pump signals = `LENS_URLS.signals` double + calls + fed in one tab (record shown = `LENS_RECORD`). New to you (9s cold), New launches and
+  All ranked are gone from the picker (their server lenses still exist). `SIGNAL_CACHE_SEC` 30 for the three signal lenses. `spx-vs`: the pop-out
+  shows the owner's own you-vs-engine record (`realBook.versus`) above the lists.

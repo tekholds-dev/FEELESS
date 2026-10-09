@@ -47,3 +47,4 @@ body.theme-day .dc-log li.good { color: #076a45; } body.theme-day .dc-log li.bad
 @media (max-width: 640px) { .dc-row { grid-template-columns: 22px 24px minmax(0, 1fr) 22px; } .dc-act, .dc-gas { grid-column: 3 / 5; width: 100%; } .dc-sum .dc-tools { margin-left: 0; } }
 .dc-look { display: grid; gap: 4px; } .dc-look .m-input { width: 100%; font-size: 12px; }
 .dc-ro { margin: 0; font-size: 12px; }
+.dc-track { grid-template-columns: minmax(0, 1fr) auto; align-items: center; } .dc-track small { grid-column: 1 / -1; }

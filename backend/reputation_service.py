@@ -3005,6 +3005,7 @@ def _holder_facts(mint):
             'bundledN': cnt(it.get('bundledWallets')), 'snipersN': cnt(it.get('sniperWallets')), 'bundledPct': it.get('bundledHoldingPct')}
 
 
+SIGNAL_LENSES, SIGNAL_CACHE_SEC = ('double', 'calls', 'fed'), 30   # 📣 the Pump-signal lists change once a minute at the source: one build serves 30s (no Jupiter burst)
 LIST_CACHE_SEC = 10   # ⚡ every viewer of a pick list shares one build for 10s (the screens re-read every 20s)
 _disc_cache: dict = {}
 
@@ -3015,7 +3016,7 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
     no dead rows (under $3K traded an hour). The top rows of the list just opened get a scan queued, so the facts fill in while it is open."""
     key_ = (lens, chain)
     hit_ = _disc_cache.get(key_)
-    if hit_ and time.time() - hit_[0] < LIST_CACHE_SEC and not os.environ.get('PYTEST_CURRENT_TEST'):
+    if hit_ and time.time() - hit_[0] < (SIGNAL_CACHE_SEC if lens in SIGNAL_LENSES else LIST_CACHE_SEC) and not os.environ.get('PYTEST_CURRENT_TEST'):
         return hit_[1]
     out = await _fuses_discover_raw(lens, chain)
     _disc_cache[key_] = (time.time(), out)   # lists returned as they are (majors, pools…); a dressed launch list replaces this below
@@ -19280,37 +19281,84 @@ async def wallet_dust_close_tx(p: DustCloseIn):
                      'rentSol': round(sum(x['lamports'] for x in b) / 1e9, 6), 'burns': sum(1 for x in b if x['raw'] > 0)} for b in _dust.batches(items)]}
 
 
+_cro_idx_cache: dict = {}    # wallet → (at, tokens the wallet index says it holds)
+_cro_list_cache: dict = {}   # 'dex' → (at, DEX token list)
+CRONOS_DEX_LIST = 'https://raw.githubusercontent.com/cronaswap/default-token-list/main/assets/tokens/cronos.json'
+CRONOS_WALLET_INDEX = 'https://api.rabby.io/v1/user/token_list'   # discovery only: which contracts a wallet holds (balances are re-read on-chain by us)
+
+
+async def _cronos_batch(http, calls):
+    """JSON-RPC calls → {id: result}, 10 a batch across the public nodes (a big batch comes back as ONE error object)."""
+    res = {}
+
+    async def batch(chunk):
+        for rpc_ in CRONOS_RPCS:
+            try:
+                j = (await http.post(rpc_, json=chunk)).json()
+                if isinstance(j, list):
+                    return {x.get('id'): x.get('result') for x in j}
+            except Exception:
+                continue
+        return {}
+    for got in await asyncio.gather(*[batch(calls[k:k + 10]) for k in range(0, len(calls), 10)]):
+        res.update(got)
+    return res
+
+
+async def _cronos_candidates(http, address):
+    """Every contract worth a balance read for this wallet: the swap router's list + a DEX list + what a wallet index says it holds."""
+    now = time.time()
+    hit = _lifi_tok_cache.get(25)
+    if not hit or now - hit[0] > 600:
+        try:
+            r = await http.get('https://li.quest/v1/tokens', params={'chains': 25})
+            toks = [t for t in ((r.json().get('tokens') or {}).get('25') or []) if t.get('address') and t['address'] != _dust.NATIVE_EVM]
+            _lifi_tok_cache[25] = hit = (now, toks)
+        except Exception:
+            hit = hit or (0, [])
+    dex = _cro_list_cache.get('dex')
+    if not dex or now - dex[0] > 3600:
+        try:
+            r = await http.get(CRONOS_DEX_LIST)
+            dex = (now, [t for t in r.json() if isinstance(t, dict) and t.get('chainId') == 25]) if r.status_code == 200 else (dex or (0, []))
+        except Exception:
+            dex = dex or (0, [])
+        _cro_list_cache['dex'] = dex
+    idx = _cro_idx_cache.get(address.lower())
+    if not idx or now - idx[0] > 60:
+        got, ok = [], False
+        try:
+            r = await http.get(CRONOS_WALLET_INDEX, params={'id': address, 'chain_id': 'cro', 'is_all': 'true'}, headers={'User-Agent': 'Mozilla/5.0'})
+            if r.status_code == 200:
+                got, ok = _dust.index_tokens(r.json()), True
+        except Exception:
+            pass
+        idx = (now, got, ok) if ok or not idx else idx   # a failed read keeps the last answer
+        _cro_idx_cache[address.lower()] = idx
+        if len(_cro_idx_cache) > 300:
+            for k in sorted(_cro_idx_cache, key=lambda k: _cro_idx_cache[k][0])[:100]:
+                _cro_idx_cache.pop(k, None)
+    return _dust.merge_tokens(hit[1], dex[1], idx[1]), bool(len(idx) > 2 and idx[2])
+
+
 @app.get('/api/reputation/wallet-dust/cronos/{address}')
-async def wallet_dust_cronos(address: str):
-    """Every LI.FI-listed Cronos token this wallet holds (one JSON-RPC batch of balanceOf) with its $ value. Read-only; swaps go through LI.FI."""
+async def wallet_dust_cronos(address: str, add: str = Query('')):
+    """EVERY Cronos token this wallet holds, each balance read on-chain by us (balanceOf). Which contracts to read: the swap router's list, a DEX
+    list, the contracts a wallet index reports for this wallet (discovery only) and any contract pasted in `add`. Read-only; swaps go through LI.FI."""
     if not _re.match(_EVM_ADDR, address):
         raise HTTPException(400, 'Not an EVM address.')
     async with httpx.AsyncClient(timeout=15) as http:
-        hit = _lifi_tok_cache.get(25)
-        if not hit or time.time() - hit[0] > 600:
-            r = await http.get('https://li.quest/v1/tokens', params={'chains': 25})
-            toks = [t for t in ((r.json().get('tokens') or {}).get('25') or []) if t.get('address') and t['address'] != '0x0000000000000000000000000000000000000000']
-            _lifi_tok_cache[25] = hit = (time.time(), toks)
-        toks = hit[1]
-        calls = _dust.balance_calls(address, toks)
-        res = {}
-
-        async def batch(chunk):   # the public node refuses big batches (68 calls came back as ONE error object → "0 coins")
-            for rpc_ in CRONOS_RPCS:
-                try:
-                    j = (await http.post(rpc_, json=chunk)).json()
-                    if isinstance(j, list):
-                        return {x.get('id'): x.get('result') for x in j}
-                except Exception:
-                    continue
-            return {}
-        for got in await asyncio.gather(*[batch(calls[k:k + 10]) for k in range(0, len(calls), 10)]):
-            res.update(got)
+        toks, indexed = await _cronos_candidates(http, address)
+        known = {str(t.get('address')).lower() for t in toks}
+        extra = [a for a in _dust.clean_contracts(add) if a not in known]
+        if extra:   # a pasted contract no list knows: its own decimals() + symbol()
+            toks = _dust.merge_tokens(toks, _dust.meta_tokens(extra, await _cronos_batch(http, _dust.meta_calls(extra))))
+        res = await _cronos_batch(http, _dust.balance_calls(address, toks))
         if not res:
             raise HTTPException(503, 'Cronos RPC did not answer — try again in a few seconds.')
     rows = _dust.evm_rows(toks, res)
     native = int(res.get(0) or '0x0', 16) / 1e18 if res.get(0) else 0.0
-    return {'chain': 'cronos', 'address': address, 'rows': rows, 'nativeCro': native, 'swapMinUsd': _dust.SWAP_MIN_USD,
+    return {'chain': 'cronos', 'address': address, 'rows': rows, 'nativeCro': native, 'swapMinUsd': _dust.SWAP_MIN_USD, 'checked': len(toks), 'indexed': indexed,
             'summary': {'coins': len(rows), 'swapUsd': round(sum(r['usd'] or 0 for r in rows if r['best'] == 'swap'), 2)}}
 
 
@@ -19397,11 +19445,13 @@ async def music_next(title: str = Query('', max_length=160), skip: str = Query('
 
 
 @app.get('/api/reputation/wallet-dust/evm/{address}')
-async def wallet_dust_evm(address: str):
+async def wallet_dust_evm(address: str, add: str = Query('')):
     """🌐 EVERY eco this EVM wallet holds something on (owner: "every single eco positive account"): LI.FI's wallet balances across all the chains
     FEELESS signs on, plus our own Cronos read (LI.FI's list missed Cronos). Native coin = that chain's gas; tokens swap to it through LI.FI."""
     if not _re.match(_EVM_ADDR, address):
         raise HTTPException(400, 'Not an EVM address.')
+
+    cro_meta: dict = {}
 
     async def lifi():
         try:
@@ -19413,9 +19463,10 @@ async def wallet_dust_evm(address: str):
 
     async def cro():
         try:
-            d = await wallet_dust_cronos(address)
+            d = await wallet_dust_cronos(address, add)
         except Exception:
             return []
+        cro_meta.update(checked=d.get('checked'), indexed=d.get('indexed'))
         rows = [{**r, 'chain': 'cronos', 'chainId': 25, 'native': False} for r in d.get('rows') or []]
         if _fuse._f(d.get('nativeCro')) > 0:
             px = next((_fuse._f(t.get('priceUSD')) for t in (_lifi_tok_cache.get(25) or (0, []))[1] if (t.get('symbol') or '').upper() == 'WCRO'), 0.0)
@@ -19426,6 +19477,6 @@ async def wallet_dust_evm(address: str):
     doc, cro_rows = await asyncio.gather(lifi(), cro())
     rows = _dust.merge_evm(_dust.lifi_rows(doc), cro_rows)
     rows.sort(key=lambda r: (r['chain'], not r['native'], -(r['usd'] or 0)))
-    return {'chain': 'evm', 'address': address, 'rows': rows, 'chains': _dust.by_chain(rows), 'swapMinUsd': _dust.SWAP_MIN_USD,
+    return {'chain': 'evm', 'address': address, 'rows': rows, 'chains': _dust.by_chain(rows), 'swapMinUsd': _dust.SWAP_MIN_USD, 'cronos': cro_meta,
             'summary': {'coins': len(rows), 'chains': len({r['chain'] for r in rows}), 'usd': round(sum(r['usd'] or 0 for r in rows), 2),
                         'swapUsd': round(sum(r['usd'] or 0 for r in rows if r['best'] == 'swap'), 2), 'dust': sum(1 for r in rows if r['best'] == 'dust')}}

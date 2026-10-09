@@ -65,3 +65,22 @@ def test_every_eco_with_a_positive_balance_is_listed_and_native_is_gas():
     cro = [{'chain': 'cronos', 'chainId': 25, 'address': '0xC', 'symbol': 'WCRO', 'usd': 6.0, 'best': 'swap'}]
     allr = dust.merge_evm(rows, cro)
     assert [c['chain'] for c in dust.by_chain(allr)] == ['ethereum', 'cronos', 'bsc']
+
+
+def test_cronos_every_coin_candidates_come_from_lists_the_wallet_index_and_pasted_contracts():
+    import dust as d
+    A, B, C = '0x' + 'a' * 40, '0x' + 'B' * 40, '0x' + 'c' * 40
+    assert d.clean_contracts(f'{A}, {B}\n{A} nonsense 0x123 {d.NATIVE_EVM}') == [A, B.lower()]
+    idx = d.index_tokens([{'id': A, 'symbol': 'HYDRO', 'decimals': 18, 'price': 0.002, 'logo_url': 'https://x/y.png', 'is_verified': True},
+                          {'id': 'cro', 'decimals': 18}, {'id': B, 'decimals': 'x'}, {'id': C, 'symbol': 'SCAM', 'decimals': 9, 'is_suspicious': True, 'logo_url': 'javascript:1'}, 'junk'])
+    assert [(t['symbol'], t['decimals'], t['flag'], t['logoURI']) for t in idx] == [('HYDRO', 18, '', 'https://x/y.png'), ('SCAM', 9, 'suspicious', '')]
+    merged = d.merge_tokens([{'address': A.upper().replace('0X', '0x'), 'symbol': 'HYD', 'decimals': 18}], idx, [{'address': 'bad'}])
+    assert len(merged) == 2 and merged[0]['symbol'] == 'HYD' and merged[0]['priceUSD'] == 0.002   # the first list names it, a later one adds the price
+    sym = '0x' + (32).to_bytes(32, 'big').hex() + (4).to_bytes(32, 'big').hex() + b'TEST'.ljust(32, b'\x00').hex()
+    assert d.abi_string(sym) == 'TEST' and d.abi_string('0x' + b'MKR'.ljust(32, b'\x00').hex()) == 'MKR' and d.abi_string('0xzz') == ''
+    calls = d.meta_calls([A, B])
+    assert [c['id'] for c in calls] == [0, 1, 2, 3] and calls[0]['params'][0]['data'] == '0x313ce567'
+    toks = d.meta_tokens([A, B], {0: hex(6), 1: sym, 2: '0x'})   # B never answered decimals(): not a token
+    assert toks == [{'address': A, 'symbol': 'TEST', 'name': '', 'decimals': 6, 'priceUSD': None, 'logoURI': '', 'flag': 'added by you'}]
+    rows = d.evm_rows(toks, {1: hex(5_000_000)})
+    assert rows[0]['ui'] == 5.0 and rows[0]['usd'] is None and rows[0]['flag'] == 'added by you' and rows[0]['best'] == 'dust'
