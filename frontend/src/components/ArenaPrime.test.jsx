@@ -207,7 +207,7 @@ test('under the real card: seats by state, swaps this hour, what its sales came 
   const onTrail = jest.fn();
   const el = await mount(<CardVitals c={c} funded={5} onTrail={onTrail} />);
   expect([...el.querySelectorAll('.cv-seats li')].map(li => li.className)).toEqual(['is-locked', 'is-winning', 'is-proving', 'is-buying']);
-  expect(el.textContent).toContain('2 / 6'); expect(el.textContent).toContain('SOLD SO FAR'); expect(el.textContent).toContain('−$2.03'); expect(el.textContent).not.toContain('66.81'); expect(el.textContent).toContain('$SPACE +937.0%');
+  expect(el.textContent).toContain('2 / 6'); expect(el.textContent).toContain('CONFIRMED SALES'); expect(el.textContent).toContain('−$2.03'); expect(el.textContent).not.toContain('66.81'); expect(el.textContent).toContain('$SPACE +937.0%');
   await act(async () => { el.querySelector('[data-testid="full-activity"]').click(); });
   expect(onTrail).toHaveBeenCalled();
   expect(el.textContent).toContain('Share');

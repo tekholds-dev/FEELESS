@@ -2405,3 +2405,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   from Jupiter's audit (a real link) else the runner board (may only know it exists) — they were on 0 of 250 Open-gates rows. `SocialIcons`
   (QuickPulse.jsx, `qp-ico`): 🌐 𝕏 ✈ links FIRST on trench read cards, Open-gates list rows and swap-in picker rows (each link stops the row's
   click); "✓" = set at launch but no link on record; 🚫 = none set.
+- 🧹 MY CARDS CLEANUP (owner, 2026-10-08): real-card coin rows show 4 things — 🌊 buys/sells bar (flow-exit menu), 🎯 TP·SL, 🎯 pick, Sell all —
+  the rest (💰 profit, sell 25 / 50%, ⇄ auto-swap, ❄ freeze) sit in ONE `RowMore` "⋯" popover (`rmo-*`, floatPop). Coming up's three filter
+  selects became one chip (`UpFilter` → `hrt-upchip`) that opens Edit Fuse › Coins (`feeless:edit-fuse` {tab}); the filter rows live there
+  (`vitalMin`, `organicMin`, `noSerial` in EDIT). The two "sold" numbers are named for what they are: under the card CONFIRMED SALES (ledger),
+  in ALL-TIME "everything else" (all-time − coins now: sales + write-offs + dust).
