@@ -2615,3 +2615,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   + keeper `fuse_wallet.idle_sweep` via card `coinCapPct`) lifted it to 66% and `cap_trim` sold it back to 35% ten minutes later, again and
   again ($EVERYTHING, $QUBT). Both now stop at `coin_cap_usd` (`maxCoinPct` / 1.4× a seat); the rest stays card cash. ⚡ Rush never buys a
   pool under `RUSH_MIN_LIQ` $20K (mirror in lib/lean.js) — $Emotional ($14K pool) was pulled 4 minutes after a rush buy.
+- 🌊 VOLUME CYCLE (owner, 2026-10-09: "need to be cycling new volume coins"; real cfg `volCycle` + `volEvery` 5/10/15/30, `_volcycle_fix_1009`
+  → ON every 10 min; Edit Fuse main pane "3 · 🌊 CYCLE & ⚡ RUSH"): every `volEvery` min a flat coin (`flat_leg(picks=True)`: ±10% after
+  max(10 min, its hold) — the owner's picks too, never frozen / riding / house / trench) gives its seat to the busiest coin of
+  `arena_prime.vol_cycle_rows` (open-list coins whose scan PASSED, ≥ $50K/h, buyers ≥ 52%, not red on the hour, rush-clean incl. pool ≥ $20K).
+  The new leg is the ENGINE's (picked popped, tag '🌊 volume'). Why: the engine's own funnel went 79 safe → 0 buyable and the mover swap was
+  off, so flat coins held their seats for good.

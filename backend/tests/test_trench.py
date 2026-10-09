@@ -441,3 +441,17 @@ def test_rush_score_mirrors_the_board():
     assert ap.rush_score(row(tv={'heat': 90, 'rug': 10, 'call': ['🧪', 'WASH TRADED']})) is None
     assert ap.rush_score(row(chg5m=20)) is None and ap.rush_score(row(rug=55)) is None and ap.rush_score(row(chg5m=-28)) is None and ap.rush_score(row(liq=14_000)) is None and ap.rush_score(row(liq=30_000)) is not None
     assert ap.rush_score(row(brain={'est': 12})) == ap.rush_score(row()) + 12
+
+
+def test_volume_cycle_takes_busy_clean_coins_into_flat_seats_never_frozen():
+    row = lambda m, **k: {'mint': m, 'safe': True, 'vol1h': 120_000, 'buyShare': 60, 'chg1h': 10, 'chg5m': 2, 'liq': 60_000, 'tv': {'heat': 50, 'rug': 10, 'call': ['🔥', 'SEND IT']}, **k}
+    out = [x['mint'] for x in ap.vol_cycle_rows([row('A', vol1h=80_000), row('B', vol1h=300_000), row('THIN', vol1h=20_000), row('SELL', buyShare=45),
+                                                 row('RED', chg1h=-8), row('WASH', tv={'heat': 90, 'rug': 5, 'call': ['🧪', 'WASH TRADED']}), row('UNK', safe=None)])]
+    assert out == ['B', 'A']                                                    # busiest clean first; thin / sellers / red / wash / unscanned out
+    assert ap.clean_cfg({'volCycle': True, 'volEvery': 5})['volEvery'] == 5 and ap.clean_cfg({})['volCycle'] is False
+    now = 10_000.0
+    leg = lambda m, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'units': 1.0, 'entry': 1.0, 'at': now - 3600, **k}
+    card = {'legs': [leg('F', frozen=True), leg('PK', picked=True), leg('UP')]}
+    px = {'PF': 1.0, 'PPK': 1.02, 'PUP': 1.4}
+    assert ap.flat_leg(card, px, now) is None                                     # without the keys: your pick is never the engine's
+    assert ap.flat_leg(card, px, now, picks=True)['mint'] == 'PK'                  # with them: the flat pick gives its seat · ❄ frozen never

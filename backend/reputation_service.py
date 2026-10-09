@@ -8701,6 +8701,24 @@ async def _rush_fix_1009(now):
     return True
 
 
+async def _volcycle_fix_1009(now):
+    """🌊 Once (owner, 2026-10-09: "need to be cycling new volume coins"): the real card's volume cycle ON, every 10 min. Old value:
+    data/realcfg_before_volcycle1009.json."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('volCycleFix1009') or not rc:
+            return False
+        ch = {'volCycle': True, 'volEvery': 10}
+        _json_save(DATA_DIR / 'realcfg_before_volcycle1009.json', {k: rc.get(k) for k in ch})
+        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
+        pr['volCycleFix1009'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _ticket_ride_fix(now):
     """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
     once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
@@ -8812,6 +8830,7 @@ async def _prime_tick_inner(now):
     await _flow_fix_1009(now)
     await _floor_off_fix_1009(now)
     await _rush_fix_1009(now)
+    await _volcycle_fix_1009(now)
     await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
@@ -9228,6 +9247,32 @@ async def _prime_tick_inner(now):
                     row_ = next((x for x in hot_ if in_ and x.get('mint') == in_.get('mint')), {})
                     nw_['events'] = nw_['events'][:-1] + [{**nw_['events'][-1], 'why': f"🚀 mover in: ${(in_ or {}).get('symbol')} is up {_fuse._f(row_.get('chg1h')):+.0f}% on the hour on ${_fuse._f(row_.get('vol1h')) / 1000:,.0f}K volume — ${fl_.get('symbol')} was not moving"}]
                     nw_['moverAt'] = now
+                    cur = _prime.note_dropped(was_, nw_, now, cfg_t['rotateHours'], px)
+                except ValueError:
+                    pass
+        # 🌊 VOLUME CYCLE (owner: "need to be cycling new volume coins"): every `volEvery` min a coin that is NOT moving (±10% after its hold —
+        # your picks too, the owner gave the keys; ❄ frozen / riding / house coins never) gives its seat to the busiest clean volume coin
+        # on the open list. Every keeper check still decides the buy.
+        if real_t and cur and cfg_t.get('volCycle') and not cur.get('holdAll') and not cur.get('flooredAt') and now - _fuse._f(cur.get('volAt')) >= _fuse._f(cfg_t.get('volEvery') or 10) * 60:
+            fwc_v = _fw.clean_cfg(fw_cfg)
+            hot_v = [x for x in _prime.vol_cycle_rows([_with_tv(y) for y in _open_board() or [] if y.get('safe') is True])
+                     if x.get('mint') not in mine and x.get('mint') not in cool and x.get('mint') not in bench and _lq(x) >= fwc_v['minLiqUsd']
+                     and not _fw.dollar_named(x.get('symbol')) and _fuse._f(x.get('price')) > 0][:6]
+            fl_v = _prime.flat_leg(cur, px, now, max(600.0, _fuse._f(cfg_t.get('minHoldMins')) * 60), picks=True) if hot_v else None
+            if fl_v:
+                try:
+                    was_ = cur
+                    hot_v = [{**x, 'liquidityUsd': x.get('liq'), 'score': 100} for x in hot_v]
+                    nw_ = _prime.replace_leg(cur, fl_v['pairAddress'], px, p_t, hot_v, anchors, cfg_t, now)
+                    in_ = next((l for l in nw_['legs'] if l.get('mint') not in mine), None)
+                    row_ = next((x for x in hot_v if in_ and x.get('mint') == in_.get('mint')), {})
+                    g_ = (_fuse._f(px.get(fl_v['pairAddress'])) / _fuse._f(fl_v.get('entry')) - 1) * 100 if _fuse._f(fl_v.get('entry')) > 0 else 0.0
+                    nw_['events'] = nw_['events'][:-1] + [{**nw_['events'][-1], 'why': f"🌊 volume cycle: ${(in_ or {}).get('symbol')} in — ${_fuse._f(row_.get('vol1h')) / 1000:,.0f}K traded this hour, {_fuse._f(row_.get('buyShare')):.0f}% buys, {_fuse._f(row_.get('chg1h')):+.0f}% 1h — ${fl_v.get('symbol')} was flat ({g_:+.1f}%)"}]
+                    for l in nw_['legs']:
+                        if in_ and l.get('mint') == in_.get('mint'):
+                            l['bought'] = {**(l.get('bought') or {}), 'tag': '🌊 volume'}
+                            l.pop('picked', None)   # the ENGINE's choice (replace_leg marks hand swaps as yours) — you-vs-engine stays true
+                    nw_['volAt'] = now
                     cur = _prime.note_dropped(was_, nw_, now, cfg_t['rotateHours'], px)
                 except ValueError:
                     pass

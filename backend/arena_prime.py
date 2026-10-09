@@ -505,6 +505,8 @@ def clean_cfg(p):
     out['trenchBrain'] = bool((p or {}).get('trenchBrain', True))     # 🧠 trench seats take the brain's learned picks first — only once its walk-forward proof holds
     out['trenchRush'] = bool((p or {}).get('trenchRush', False))   # ⚡ RUSH: the trench drop takes the Rush board's coin, every `trenchEvery` min, and may take a losing un-frozen pick's seat
     out['trenchEvery'] = int(_f((p or {}).get('trenchEvery'))) if int(_f((p or {}).get('trenchEvery'))) in TRENCH_EVERY else 30
+    out['volCycle'] = bool((p or {}).get('volCycle', False))   # 🌊 a flat coin (±10% after its hold) is swapped for the busiest clean volume coin
+    out['volEvery'] = int(_f((p or {}).get('volEvery'))) if int(_f((p or {}).get('volEvery'))) in VOL_EVERY else 10
     out['trenchSendOnly'] = bool((p or {}).get('trenchSendOnly', False))   # 🔥 the trench drop takes ONLY 🔥 SEND IT coins (the only trench read with a positive record) — none → it waits
     out['sendItAuto'] = bool((p or {}).get('sendItAuto', True))   # 🔥 the engine may take SEND IT coins as trench tickets — only once that call is PROVEN
     out['trenchSlAuto'] = bool((p or {}).get('trenchSlAuto', True))   # 🧠 tickets use the trench brain's learned stop once it has named one
@@ -637,6 +639,9 @@ RUNNER_AGES = (0, 1, 6, 12)         # youngest launch coin real money may buy, h
 MOVER_VOL1H = 50_000.0             # a "mover" when the card has no hunt selection of its own: ≥ $50K traded in the hour …
 MOVER_CHG1H = 20.0                 # … and up ≥ 20% on it
 FLAT_BAND = 10.0                   # a coin within ±10% of its entry …
+VOL_CYCLE_MIN_VOL = 50_000.0       # 🌊 volume cycle: a coin trading at least this an hour …
+VOL_CYCLE_MIN_BUY = 52.0           # … with buyers ahead …
+VOL_EVERY = (5, 10, 15, 30)        # … swapped in for a flat coin at most every N minutes (cfg `volEvery`)
 FLAT_HOLD_SEC = 1200.0             # … after at least 20 minutes on the card is "not moving"
 MOVER_EVERY_SEC = 1800.0           # at most one mover upgrade per card per 30 minutes
 
@@ -652,6 +657,15 @@ def movers(rows, cfg):
 TOP3_DIVS = ('volume', 'fresh', 'proven', 'risers', 'paid', 'dip')   # = ArenaPrime.jsx TOP3_DIVS (change both)
 TOP_SEAT_SEC = 600      # 🔥 one top-3 auto seat per card per 10 min
 TOP_SEAT_KEEP = 5.0     # a coin up more than this keeps its seat
+
+
+def vol_cycle_rows(rows):
+    """🌊 VOLUME CYCLE (owner, 2026-10-09: "need to be cycling new volume coins"): launch coins doing real volume right now — ≥ $50K an
+    hour, buyers ≥ 52%, not red on the hour, and clean by the ⚡ rush rule (scan PASSED, no busted / wash / blow-off read, rug < 50, pool
+    ≥ $20K, not a +15% / −5% 5-min candle). Busiest first. Pure."""
+    out = [x for x in rows or [] if _f(x.get('vol1h')) >= VOL_CYCLE_MIN_VOL and _f(x.get('buyShare')) >= VOL_CYCLE_MIN_BUY
+           and (x.get('chg1h') is None or _f(x.get('chg1h')) >= 0) and rush_score(x) is not None]
+    return sorted(out, key=lambda x: -_f(x.get('vol1h')))
 
 
 def top_three(divisions, on_card=(), cool=()):
@@ -683,13 +697,13 @@ def top_victim(card, prices, now, hold_sec):
     return min(out, key=lambda t: t[0])[1] if out else None
 
 
-def flat_leg(card, prices, now, hold_sec=FLAT_HOLD_SEC, band=FLAT_BAND):
+def flat_leg(card, prices, now, hold_sec=FLAT_HOLD_SEC, band=FLAT_BAND, picks=False):
     """🚀 The seat a mover may take: a runner-seat coin that is NOT moving — within ±`band`% of its entry after `hold_sec` on the
     card. Never a riding / frozen / owner-picked / trench coin, one waiting on its buy or with a queued pick. Flattest first; None."""
     out = []
     for l in (card or {}).get('legs') or []:
         px = _f((prices or {}).get(l.get('pairAddress')))
-        if (l.get('role') != 'runner' or l.get('ride') or l.get('frozen') or l.get('picked') or l.get('trench') or l.get('buying')
+        if (l.get('role') != 'runner' or l.get('ride') or l.get('frozen') or (l.get('picked') and not picks) or l.get('trench') or l.get('buying') or l.get('house')
                 or l.get('swapTo') or px <= 0 or _f(l.get('entry')) <= 0 or now - _f(l.get('at')) < hold_sec):
             continue
         g = (px / _f(l['entry']) - 1) * 100
