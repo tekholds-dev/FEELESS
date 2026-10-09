@@ -44,3 +44,4 @@ body.theme-day .top-tr.is-bad .top-why { color: #b3264a; } body.theme-day .top-t
 .top-tv .tvl.is-mini .tvl-call { flex: none; padding: 3px 9px; border-radius: 999px; font-size: 10px; }
 .top-tv .tvl.is-mini .tvl-meters { flex: 0 1 240px; }
 body.theme-day .top-tr:not(.top-th) { background: #fff; border-color: #dfe8e3; }
+.top-lanes { margin: 0 0 8px; flex-wrap: wrap; }

@@ -6685,6 +6685,24 @@ def _pick_row(pair, mint, floor=25_000):
     return {'mint': mint, 'pairAddress': pair.get('pairAddress'), 'symbol': m.get('symbol'), 'price': m['priceUsd'], 'liq': m['liquidityUsd']}
 
 
+def _pick_why(pair, mint, floor=25_000):
+    """Why `_pick_row` refused, in the owner's words — the real reason with its numbers, never a vague "no live pool"."""
+    if not pair or (pair.get('baseToken') or {}).get('address') != mint:
+        return 'Could not read that coin\'s pool just now (the price source did not answer for it) — try again in a few seconds.'
+    m = _fuse.leg_meta(pair)
+    sym = m.get('symbol') or 'That coin'
+    if m['priceUsd'] <= 0:
+        return f"${sym} has no live price yet — it has not traded enough to quote."
+    if str(sym).upper() in _ct.STABLES:
+        return f"${sym} is a dollar coin — it never moves, so it is not a swap-in."
+    if _fw.lookalike(m.get('symbol'), mint, _fuse.ALL_MAJORS):
+        return f"${sym} wears a major's ticker but is not that coin (lookalike) — not picked."
+    fl = max(5_000, floor)
+    kind = 'launch curve' if pair.get('curve') else 'pool'
+    return (f"${sym}'s {kind} holds ${m['liquidityUsd']:,.0f} — under your ${fl:,.0f} pick floor. That floor is your own setting: "
+            f"Edit Fuse › wallet limits › My own pick min pool (trench coins: Trench min pool). It can go down to $5,000.")
+
+
 @app.get('/api/reputation/fuses/forecast')
 async def fuses_forecast():
     """🌦 Public: the runner weather and where it is heading (sim cards + live launch-coin breadth). Caches only — answers in ms."""
@@ -8159,6 +8177,7 @@ async def fuse_prime_admin(request: Request):
         pk = {**body['fillSeat'], 'pairAddress': '__seat__'}
     if pk.get('tpl') in _prime.TEMPLATES and pk.get('pairAddress'):   # 🎯 the owner picks WHICH coin comes in at the next round (or cancels)
         cand = None
+        why_pick = ''
         if pk.get('to'):
             # only a coin the Gauntlet ranks RIGHT NOW (live price, real pool, not a dollar coin) can be picked
             ct_ = await _contenders_build()
@@ -8168,9 +8187,18 @@ async def fuse_prime_admin(request: Request):
             if not row and pk.get('toPair'):   # 🔎 any coin from the Lab lenses / search: verified LIVE on its own pool right now
                 lp = (await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pk['toPair'], 'mint': pk.get('to')}])).get(pk['toPair']) or {}
                 lp = _fuse.with_curve(lp)   # 🆕 the owner may pick a coin still on Pump's curve (the keeper's quote checks still decide)
-                row = _pick_row(lp, pk['to'], _fw.clean_cfg(_fw_load().get('cfg') or {})['pickMinLiqUsd'])
+                fcfg_ = _fw.clean_cfg(_fw_load().get('cfg') or {})
+                raw_ = next((p_ for p_ in _open_pairs if (p_.get('baseToken') or {}).get('address') == pk['to']), None)   # 🚪 a launch coin the open list shows
+                if raw_ is not None and (lp.get('baseToken') or {}).get('address') != pk['to']:
+                    lp = _fuse.with_curve(raw_)   # the live lookup missed (busy source / pool not indexed yet): the feed's own pair for this coin stands in
+                # 🗑 a launch coin is held to the lower of the owner's pick floor and the trench floor — and keeps that floor at the keeper
+                floor_ = min(fcfg_['pickMinLiqUsd'], fcfg_['trenchMinLiqUsd']) if raw_ is not None else fcfg_['pickMinLiqUsd']
+                row = _pick_row(lp, pk['to'], floor_)
+                if row and raw_ is not None and row['liq'] < fcfg_['pickMinLiqUsd']:
+                    row['trenchOnly'] = True
+                why_pick = '' if row else _pick_why(lp, pk['to'], floor_)
             if not row:
-                raise HTTPException(400, 'Pick a coin from the live lists — that one has no live pool right now.')
+                raise HTTPException(400, why_pick or 'That coin is not on any live list right now — search it by ticker or paste its address.')
             _age_c = next((r.get('ageH') for r in _runner_cands if r.get('mint') == row['mint'] and r.get('ageH') is not None), row.get('ageH'))
             cand = {'mint': row['mint'], 'pairAddress': row['pairAddress'], 'symbol': row.get('symbol'), 'price': row.get('price'), 'liquidityUsd': row.get('liq'),
                     **({'ageH': round(_fuse._f(_age_c), 2)} if _age_c is not None else {}),

@@ -110,3 +110,12 @@ body.fx-lite .feed-bar-flare, body.fx-lite .trust-ring.loading .tr-num b { anima
 @media (prefers-reduced-motion: reduce) { .feed-bar-flare, .trust-ring.loading .tr-num b, .crop-load { animation: none; } }
 /* war room Fuse strip while a rebuy is running */
 .chart-fuse.is-busy { border-color: var(--gold, #f5c451); } .chart-fuse-btn:disabled { opacity: .75; cursor: progress; }
+/* ⚡ LAG, site wide (2026-10-08): the last animations that were not transform / opacity — each repaints its element every frame.
+   .hot-move pulsed a drop-shadow FILTER (now scale only, cheap override keyframes) · .alpha-event flashed its BACKGROUND (now an opacity fade) ·
+   .live-gradient-text slid its background-position (now still). The full-screen scan line is off on the Fuse pages (their sky is opaque). */
+@keyframes hotPulseCheap { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+@keyframes signalFlashCheap { from { opacity: .55; } to { opacity: 1; } }
+.hot-move { animation-name: hotPulseCheap; }
+.alpha-event { animation-name: signalFlashCheap !important; }
+.live-gradient-text { animation: none !important; background-position: 40% 0; }
+body:has(.fuse-page) .ambient-scanline { display: none; }

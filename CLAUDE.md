@@ -2290,3 +2290,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `edgeTiles` (avg trade · turnover %/h · exit depth = pool ÷ cap · callers · feeders). The chart column is sticky. Hand-set reads, not learned.
 - 🩸 Card pops = −HP text (`POP_MS` 4000, 13px number + one plain meta line "♻ COMPOUND · $SYM · BACK TO WORK", no pill; `popTag(why)` from the keeper's
   reason; a confirmed sale ≥ 20c UNDER its cost pops red `−$0.30 🩸 LOSS` falling; sparks only from $5).
+- 🎯 A REFUSED PICK SAYS WHY (`_pick_why`): "$SYM's pool holds $7,000 — under your $8,000 pick floor … your own setting" / no price yet / dollar coin /
+  lookalike / source did not answer — never the old "no live pool right now" (owner: "stop it from saying coin has no live pools in trench"). A launch coin
+  on the open list is held to min(pick floor, trench floor) and keeps `trenchOnly` so the keeper uses the same floor; when the live lookup misses, the
+  feed's own pair for that coin (`_open_pairs`) stands in. Trench tab rows use the trench floor in the picker too.
+- Open gates ≡ List view has the read lanes (`list-lanes`: All reads · 🔥 Hot · 🎢 Curve · 🧲 Dips · 👀 Watch · ☠ Avoid, with counts) like the split view.
+- ⚡ LAG 2026-10-08 (Fuse): the nebula `.fuse-page::after` was a page-TALL promoted layer (≈ 1,275 × 4,070px) drifting forever → still; `.fp-zap` lost its
+  drop-shadow filter (children animate under it); mouse glow + scan line are off on Fuse pages; `.cfx > i` no blend mode. Picker lists draw `PICK_PAGE`
+  40 rows at a time (IntersectionObserver + "Show 40 more"; live prices + sparks only for drawn rows) — 300 rows were ~18K nodes re-rendered every
+  10s. Site wide: `hot-pulse` (filter), `signal-flash` (background), `live-grad` (background-position) replaced by transform / opacity (tips.css).
+  The Browser pane reports `visibilityState: hidden` and ~2 fps — never judge fps there; count animations, big animated layers and DOM size instead.

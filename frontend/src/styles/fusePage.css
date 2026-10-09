@@ -849,3 +849,13 @@ body.theme-day .pctl-cards > .m-row { background: #fff; }
 /* ⚡ Lag: the Fuse page paints its own opaque sky, so the sitewide ambient layer behind it (28 rising flakes, two screen-blended
    orbs, orbits, scan line) was animating unseen — a third of everything moving on My cards. It is switched off while Fuse is open. */
 body:has(.fuse-page) .ambient-background > :not(.ambient-grid), body:has(.fuse-page) .ambient-flakes { display: none; }
+
+/* ⚡ LAG (2026-10-08, owner: "no lag site wide, fuse is bad"): what the page was paying for every frame —
+   · the nebula was a page-TALL layer (inset −25% of a 2,700px page ≈ 1,275 × 4,070px, promoted with will-change) drifting forever → now painted once, still;
+   · the title's drop-shadow filter sat on an element whose children animate → the whole filter re-rasterised each frame;
+   · the site's mouse glow (screen blend, follows the pointer) repainted under every card on each mouse move. */
+.fuse-page::after { animation: none; will-change: auto; transform: translate3d(1%, 1%, 0) rotate(4deg); }
+.fuse-page .fp-zap, body.theme-day .terminal-main .fuse-page span.fp-zap { filter: none; }
+.fuse-page .cfx > i { mix-blend-mode: normal; }
+body:has(.fuse-page) .mouse-glow { display: none; }
+.sp-more { justify-self: center; margin-top: 6px; }

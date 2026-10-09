@@ -2412,3 +2412,15 @@ def test_a_new_list_earns_its_seat_fed_runners_are_taken_only_once_their_own_rec
     picks, miss = ap.category_picks(lists, lambda r: True, {'fed': {'n': 12, 'medPct': 4.0}})
     assert {p['mint']: p['catLabel'] for p in picks}['FED1'] == '🧲 Fed runners' and 'fed' not in miss
     assert 'fed' not in ap.category_picks({'volume': [{'mint': 'V'}]}, lambda r: True, {})[1]   # an empty list is not reported as proving
+
+
+def test_a_refused_pick_says_the_real_reason_with_its_numbers_never_no_live_pool():
+    import reputation_service as rs
+    M = 'A' * 43 + 'p'
+    pair = lambda liq, px=0.001, sym='BABY', **kw: {'pairAddress': 'P', 'baseToken': {'address': M, 'symbol': sym}, 'priceUsd': px, 'liquidity': {'usd': liq}, **kw}
+    assert rs._pick_row(pair(7000), M, 8000) is None and rs._pick_row(pair(9000), M, 8000)['liq'] == 9000
+    w = rs._pick_why(pair(7000), M, 8000)
+    assert "$BABY's pool holds $7,000" in w and 'under your $8,000 pick floor' in w and 'no live pool' not in w
+    assert 'launch curve holds $4,000' in rs._pick_why(pair(4000, curve=True), M, 3000) and '$5,000 pick floor' in rs._pick_why(pair(4000, curve=True), M, 3000)
+    assert 'no live price yet' in rs._pick_why(pair(50000, px=0), M) and 'dollar coin' in rs._pick_why(pair(50000, sym='USDC'), M)
+    assert 'try again' in rs._pick_why({}, M) and 'try again' in rs._pick_why(pair(50000), 'OTHER')

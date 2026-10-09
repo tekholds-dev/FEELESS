@@ -62,13 +62,14 @@ function ReadCard({ r, onOpen, showAge }) {
 // per row: "Pick" where a pick is being made (`onPick`, the swap picker), else "View".
 export function TrenchOpen({ max = 10, onPick, busy }) {
   const [d, setD] = useState(null); const [all, setAll] = useState(false); const [f, setF] = useState('all'); const [sort, setSort] = useState('front');
-  const [layout, setLayoutS] = useState(loadLayout); const [lane, setLane] = useState('hot'); const [look, setLook] = useState(null);
+  const [layout, setLayoutS] = useState(loadLayout); const [lane, setLane] = useState('hot'); const [llane, setLlane] = useState('all');   /* the list view's own read filter */ const [look, setLook] = useState(null);
   const setLayout = v => { setLayoutS(v); try { localStorage.setItem(LKEY, v); } catch { /* private window */ } };
   useEffect(() => { let alive = true; const load = first => (first || !document.hidden) && fetch(apiUrl('/api/reputation/fuses/trench/open')).then(r => r.json()).then(x => alive && setD(x)).catch(() => {});
     load(true); const t = setInterval(() => load(false), 20000); return () => { alive = false; clearInterval(t); }; }, []);
   if (!d || !(d.rows || []).length) return null;
   const keyOf = SORTS.find(x => x[0] === sort)[2];
-  const list = d.rows.filter(FILTERS.find(x => x[0] === f)[2]).slice().sort((a, b) => keyOf(a) - keyOf(b));
+  const laneFn = (LANES.find(x => x[0] === llane) || [])[2];
+  const list = d.rows.filter(FILTERS.find(x => x[0] === f)[2]).filter(r => !laneFn || laneFn(r)).slice().sort((a, b) => keyOf(a) - keyOf(b));
   const rows = all ? list : list.slice(0, max);
   const byMint = new Map(d.rows.map(r => [r.mint, r]));
   const open = (r, from) => { const full = byMint.get(r.mint); if (full) setLook({ row: full, list: from || list }); else openCoin({ mint: r.mint, pairAddress: r.pairAddress, symbol: r.symbol }); };
@@ -95,6 +96,8 @@ export function TrenchOpen({ max = 10, onPick, busy }) {
     </div>}
     {layout === 'split' && (newest.length > cap || laneList.length > cap) && <button type="button" className="top-more" onClick={() => setAll(a => !a)} aria-expanded={all} data-testid="split-more">{all ? 'Show fewer' : 'Show every coin'}</button>}
     {layout === 'list' && <>
+    <div className="m-seg top-seg top-lanes" role="group" aria-label="Read" data-testid="list-lanes"><button type="button" className={llane === 'all' ? 'active' : ''} aria-pressed={llane === 'all'} onClick={() => setLlane('all')} data-testid="llane-all">All reads<i>{d.rows.filter(FILTERS.find(x => x[0] === f)[2]).length}</i></button>
+      {lanes.map(([k, label, rs]) => <button key={k} type="button" className={llane === k ? 'active' : ''} aria-pressed={llane === k} onClick={() => setLlane(llane === k ? 'all' : k)} data-testid={`llane-${k}`}>{label}<i>{rs.length}</i></button>)}</div>
     <div className={`top-table ${all ? 'is-all' : ''}`} role="table" aria-label="Open gates">
       <div className="top-tr top-th" role="row"><span>#</span><span /><span>Coin</span><span>Pool</span><span>Traded / h</span><span>5 min</span><span>1 hour</span><span>Buyers</span><span>Safety</span><span /></div>
       {rows.map((r, i) => { const sf = SAFE(r); return <div key={r.mint} className={`top-tr ${sf[2]} ${r.tv?.call ? `call-${r.tv.call[2]}` : ''}`} role="row" data-testid={`open-${r.symbol}`} onMouseEnter={() => warmCoin(r)}>

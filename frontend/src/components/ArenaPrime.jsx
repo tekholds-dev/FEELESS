@@ -859,6 +859,7 @@ export function PipeLine({ p }) {
     <small className="m-dim">The biggest drop between two lines is the setting that is holding coins back.</small></details>;
 }
 
+export const PICK_PAGE = 40;
 export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, cool = {}, call, verify = false, pop = false }) {
   const [nonce, setNonce] = useState(0);   // bumps when the trench settings are saved → the list reloads
   const [lens, setLens] = useState('fresh'); const [vview, setVview] = useState(loadView); const [rows, setRows] = useState(null); const [q, setQ] = useState('');
@@ -866,6 +867,11 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
   const [look, setLook] = useState(null);   // ⚡ quick look: chart + every vital + pick, on EVERY list
   const [callF, setCallF] = useState('');   // 🏷 only the rows with this call
   useEffect(() => setCallF(''), [lens, q]);
+  // ⚡ rows are drawn 40 at a time (a 300-row list was ~18,000 nodes and re-rendered on every 10s price tick): more load as you scroll
+  const [lim, setLim] = useState(PICK_PAGE); useEffect(() => setLim(PICK_PAGE), [lens, q, callF]);
+  const moreRef = React.useRef(null);
+  useEffect(() => { const el = moreRef.current; if (!el || typeof IntersectionObserver === 'undefined') return undefined;
+    const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) setLim(n => n + PICK_PAGE); }, { rootMargin: '300px' }); io.observe(el); return () => io.disconnect(); });
   useEffect(() => { if (!pop) return undefined; const k = e => { if (e.key === 'Escape' && !look) onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [pop, look, onClose]);
   const [why, setWhy] = useState('');
   const [bproof, setBproof] = useState(null);   // 🟢 the Buy-bottom list's own 1-hour paper record
@@ -886,10 +892,10 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
       const raw = x.pools || (x.checked ? x.rows || [] : x.all || (x.divisions || []).flatMap(dv => dv.rows));
       const seen = new Set(); setRows(raw.map(pickRow).filter(r => r.mint && r.pairAddress && !PICK_STABLES.has(String(r.symbol || '').toUpperCase()) && !seen.has(r.mint) && seen.add(r.mint)).slice(0, s.length < 2 ? 300 : 30)); }).catch(() => alive && setRows([])), s.length >= 2 ? 300 : 0);
     return () => { alive = false; clearTimeout(t); }; }, [lens, q, nonce, tick]);
-  const live = useLivePrices((rows || []).map(r => r.pairAddress));
+  const live = useLivePrices((rows || []).slice(0, lim + 20).map(r => r.pairAddress));
   // 📈 a baby chart per row: the last ~2h of recorded prices (one batched call per list); tap the ticker → the coin's live flow
   const [sparks, setSparks] = useState({});
-  const mintKey = (rows || []).slice(0, 180).map(r => r.mint).join(',');
+  const mintKey = (rows || []).slice(0, Math.min(180, Math.ceil((lim + 20) / 60) * 60)).map(r => r.mint).join(',');
   useEffect(() => { if (!mintKey) return undefined; let alive = true; const ms = mintKey.split(','); setSparks({});
     for (let i = 0; i < ms.length; i += 60) fetch(apiUrl(`/api/reputation/fuses/sparks?mints=${ms.slice(i, i + 60).join(',')}`)).then(r => r.json()).then(x => alive && setSparks(o => ({ ...o, ...(x.sparks || {}) }))).catch(() => {});
     return () => { alive = false; }; }, [mintKey]);
@@ -912,8 +918,8 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
     <VitalView view={vview} onChange={setVview} count={shown.length} total={rows.length} />
     {lanes.length > 1 && <div className="sp-calls" role="group" aria-label="Filter by call" data-testid="sp-calls"><button type="button" aria-pressed={!callF} className={`sp-call ${!callF ? 'on' : ''}`} onClick={() => setCallF('')} data-testid="sp-call-all">All {rows.length}</button>
       {lanes.map(([w, tone, ic, n]) => <button key={w} type="button" aria-pressed={callF === w} className={`sp-call is-${tone} ${callF === w ? 'on' : ''}`} onClick={() => setCallF(callF === w ? '' : w)} data-tip={`Only the ${n} coin${n === 1 ? '' : 's'} this list reads as ${w}`} data-testid={`sp-call-${w.replace(/\s+/g, '-')}`}>{ic} {w} <b>{n}</b></button>)}</div>}
-    <ul>{shown.map((r, idx) => { const lp = live.get?.(r.pairAddress); const on = have.includes(r.mint);
-      const young = verify && r.ageH != null && r.ageH < 1; /* ✅ verified picks: under an hour old cannot go on a real card — shown, sorted last, said up front */ const fl = r.trench ? (tr?.floor || 0) : minLiq; const thin = minLiq > 0 && (r.liq || 0) < fl; const chg = lp?.h1 ?? r.chg1h ?? r.chg;
+    <ul>{shown.slice(0, lim).map((r, idx) => { const lp = live.get?.(r.pairAddress); const on = have.includes(r.mint);
+      const young = verify && r.ageH != null && r.ageH < 1; /* ✅ verified picks: under an hour old cannot go on a real card — shown, sorted last, said up front */ const fl = r.trench ? (tr?.floor || 0) : lens === 'trench' && tr?.floor ? Math.min(minLiq, tr.floor) : minLiq;   /* every row of the trench tab is held to the trench floor (the server does the same) */ const thin = minLiq > 0 && (r.liq || 0) < fl; const chg = lp?.h1 ?? r.chg1h ?? r.chg;
       const m5 = lp?.m5 ?? r.chg5m; const falling = isFalling(m5, lp?.h1 ?? r.chg1h);   // same rule the engine uses before a real buy
       return <li key={r.mint} className={r.impostor ? 'is-fake' : ''}><b><button type="button" className="sp-open" onClick={() => setLook(r)} onMouseEnter={() => warmCoin(r)} onFocus={() => warmCoin(r)} data-tip="⚡ Quick look: live chart, every vital, pick" data-testid={`sp-open-${r.symbol}`}>${r.symbol}</button>{line(sparks[r.mint] || moveLine({ ...r, chg5m: lp?.m5 ?? r.chg5m, chg1h: lp?.h1 ?? r.chg1h }))}{r.real ? ' ✓' : ''}{r.stock ? <i className="sp-pulse" data-tip="Tokenized stock (xStock) trading in a real Solana pool"> 📈</i> : null}{r.pulse ? <i className="sp-pulse" data-tip="Pump Pulse: a burst of buys in the last 5 minutes" data-testid={`sp-pulse-${r.symbol}`}> ⚡</i> : null}{r.pc?.callers ? <i className="sp-pc" data-tip={`${r.pc.callers} Pump user${r.pc.callers === 1 ? '' : 's'} calling this out right now${r.pc.lead?.thesis ? ` — @${r.pc.lead.user}: “${r.pc.lead.thesis}”` : ''}. Other people's calls, not advice.`} data-testid={`sp-pc-${r.symbol}`}>📣 {r.pc.callers}</i> : null}{r.fd?.n ? <i className="sp-pc is-fd" data-tip={`${r.fd.n} new Pump coin${r.fd.n === 1 ? ' is' : 's are'} paired with $${r.symbol}${r.fd.active ? ` (${r.fd.active} trading right now)` : ''}: every buy of them routes through this coin's pool.`} data-testid={`sp-fd-${r.symbol}`}>🧲 {r.fd.n}</i> : null}{r.pairedWith ? <i className="sp-pc is-kid" data-tip={`Launched paired with ${r.pairedWith.symbol ? `$${r.pairedWith.symbol}` : 'another coin'}, not SOL: you buy and sell it through that coin, so it moves with it.`}>⛓ {r.pairedWith.symbol ? `$${r.pairedWith.symbol}` : 'paired'}</i> : null}{r.div ? <small className="sp-div" data-tip={r.watch ? 'Watch only in this Gauntlet list (nothing qualified there right now). The engine will not seat it; you still can.' : 'The Gauntlet list where this coin ranks best'}>{r.div}{r.watch ? ' · watch' : ''}</small> : null}</b><span className="m-num fl-tick" key={fmt(lp?.price || r.price)}>{fmt(lp?.price || r.price)}</span>
         <em className={`m-num sp-m5 ${(m5 || 0) >= 0 ? 'm-pos' : 'm-neg'}`} data-tip="Move over the last 5 minutes" data-testid={`sp-m5-${r.symbol}`}><i>5m</i> {m5 == null ? '—' : `${m5 >= 0 ? '+' : ''}${Number(m5).toFixed(1)}%`}</em>
@@ -922,6 +928,7 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
         <span className="sp-acts"><button type="button" className="m-btn primary" disabled={busy || on || thin || r.impostor || cool[r.mint] > 0} onClick={() => onPick(r, true)}
           data-tip={young ? `$${r.symbol} is ${Math.round(r.ageH * 60)} minutes old — you will get a warning to acknowledge, then it goes in` : cool[r.mint] > 0 ? `$${r.symbol} just left this card — you can pick it again in ${cool[r.mint]} round${cool[r.mint] === 1 ? '' : 's'} (no back-to-back)` : thin ? `Pool under your $${Math.round(fl / 1000)}K pick floor — change it in Edit Fuse › Limits (My own pick min pool)` : undefined} data-testid={`sp-pick-${r.symbol}`}>{on ? 'on card' : young ? '⚠ swap now' : cool[r.mint] > 0 ? `in ${cool[r.mint]} rnd` : thin ? 'too thin' : r.impostor ? 'lookalike' : out.seat ? '⚡ Fill now' : '⚡ Swap now'}</button>
           {!out.seat && !on && !thin && !r.impostor && !(cool[r.mint] > 0) && <button type="button" className="m-btn sp-bell" disabled={busy} onClick={() => onPick(r, false)} data-tip="Swap it in at the round bell instead of now" aria-label={`Swap $${r.symbol} in at the bell`} data-testid={`sp-bell-${r.symbol}`}>⏱</button>}</span><CoinVital r={r} live={idx < 25} /></li>; })}</ul>
+    {shown.length > lim && <button type="button" ref={moreRef} className="m-btn sp-more" onClick={() => setLim(n => n + PICK_PAGE)} data-testid="sp-more">Show {Math.min(PICK_PAGE, shown.length - lim)} more · {shown.length - lim} left</button>}
     {look && <TrenchQuick row={look} list={shown} onClose={() => setLook(null)} busy={busy} onPick={have.includes(look.mint) ? null : r => onPick(r, true)} />}</>; })()}
   </div>;
   if (!pop) return body;
