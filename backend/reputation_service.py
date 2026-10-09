@@ -2921,9 +2921,10 @@ async def coin_read(mint: str):
     if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', mint or ''):
         raise HTTPException(400, 'Not a Solana mint.')
     hit = _coin_read_cache.get(mint)
-    if hit and time.time() - hit[0] < 15:
+    pace_ = _ja.pace((hit[1].get('row') if hit else None) or _cand_map().get(mint) or {})   # ⏱ busier coin → fresher read
+    if hit and time.time() - hit[0] < pace_['cacheSec']:
         return hit[1]
-    if time.time() - _jup_facts.get(mint, (0.0, None))[0] > 45 and not os.environ.get('PYTEST_CURRENT_TEST'):   # a coin being WATCHED: its pulse is re-read every minute, not every 3
+    if time.time() - _jup_facts.get(mint, (0.0, None))[0] > pace_['jupSec'] and not os.environ.get('PYTEST_CURRENT_TEST'):   # a WATCHED coin's pulse is re-read at its own pace (hot 12s · busy 25s · quiet 45s)
         try:
             t_ = (await _jup_tokens([mint])).get(mint)
             if t_:
@@ -2950,7 +2951,7 @@ async def coin_read(mint: str):
     tv = _read_for(row) or ({**(t_ := _ja.trench_verdict(jf, row)), 'kind': 'trench', 'meters': [['🔥 HEAT', t_['heat']], ['☠ RUG', t_['rug']]]} if jf or c else None)
     pc_ = _pump_calls['map'].get(mint)
     _fd_rows([row])
-    out = {'mint': mint, 'row': row, 'vital': vital, 'tv': tv, 'facts': jf, 'onBoard': bool(c), 'pc': _pc.summary(pc_) if pc_ else None, 'scanning': scanning}
+    out = {'mint': mint, 'row': row, 'vital': vital, 'tv': tv, 'facts': jf, 'onBoard': bool(c), 'pc': _pc.summary(pc_) if pc_ else None, 'scanning': scanning, 'pace': _ja.pace(row), 'at': round(time.time(), 1)}
     _coin_read_cache[mint] = (time.time() - (9 if scanning else 0), out)   # waiting on a scan: served 6s, not 15
     if len(_coin_read_cache) > 600:
         for k in sorted(_coin_read_cache, key=lambda k: _coin_read_cache[k][0])[:200]:

@@ -63,19 +63,28 @@ export function factTiles(r) {
   ];
 }
 
+// ⏱ "updated 3s ago" beside LIVE (ticks every second; the read's own server time)
+function Ago({ at }) {
+  const [, tick] = useState(0);
+  useEffect(() => { const t = setInterval(() => tick(x => x + 1), 1000); return () => clearInterval(t); }, []);
+  if (!at) return null;
+  const s = Math.max(0, Math.round(Date.now() / 1000 - Number(at)));
+  return <small className="tql-ago"> · {s < 2 ? 'now' : `${s}s ago`}</small>;
+}
+
 export function TrenchQuick({ row, list = [], onClose, onPick, busy }) {
   const [r0, setR] = useState(row);
   useEffect(() => setR(row), [row]);
   // 🔴 LIVE while it is open: the list's own row is re-read every 20s (its read + meters move), the coin's FEELESS read every 20s
   // (vital, holder facts, socials, per-window flow, Pump callouts) and the price / 5m / 1h every 10s from the shared poller
-  const read = useCoinRead(r0?.mint);
+  const live = useLivePrices(r0?.pairAddress ? [r0.pairAddress] : []).get(r0?.pairAddress);
+  const read = useCoinRead(r0?.mint, live?.price);   // ⏱ re-read at the coin's own pace + whenever its price moves (a trade)
   const r = useMemo(() => { if (!r0) return r0; const fresh = list.find(x => x.mint === r0.mint) || r0; const rr = read?.mint === r0.mint ? read : null;
     const fill = {}; Object.entries(rr?.row || {}).forEach(([k, v]) => { if (v != null && k !== 'symbol' && k !== 'mint' && (fresh[k] == null || (rr.row.scanned === true && SCAN_KEYS.includes(k)))) fill[k] = v; });
     const f = rr?.facts || {};
     return { ...fresh, ...fill, scanning: !!rr?.scanning && rr?.row?.scanned !== true, vital: rr?.vital || fresh.vital, tv: fresh.tv || rr?.tv, pc: fresh.pc || rr?.pc || null, fd: fresh.fd || rr?.row?.fd || null, pairedWith: fresh.pairedWith || rr?.row?.pairedWith || null, win: f.win || null, site: fresh.site || fill.site || f.site, x: fresh.x || fill.x || f.x, tg: fresh.tg || fill.tg || f.tg }; }, [r0, list, read]);
   const [tf, setTf] = useState('1m');
   const [copied, setCopied] = useState(false);
-  const live = useLivePrices(r0?.pairAddress ? [r0.pairAddress] : []).get(r0?.pairAddress);
   const idx = list.findIndex(x => x.mint === r?.mint);
   useEffect(() => {
     const k = e => { if (e.key === 'Escape') onClose();
@@ -94,7 +103,7 @@ export function TrenchQuick({ row, list = [], onClose, onPick, busy }) {
     <section className={`tql tql-${tone}`} role="dialog" aria-modal="true" aria-label={`$${r.symbol} quick look`} onClick={e => e.stopPropagation()}>
       <header className="tql-head">
         <span className="tsp-av is-big" aria-hidden="true">{String(r.symbol || '?').slice(0, 1)}{r.logo && <img src={r.logo} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} />}</span>
-        <div className="tql-title"><b>${r.symbol} <span className="tql-live" data-tip="Price every 10 seconds · reads, flow and holders every 20 seconds while this is open"><i />LIVE</span></b>
+        <div className="tql-title"><b>${r.symbol} <span className={`tql-live is-${read?.pace?.key || 'quiet'}`} data-tip={`Price every 10 seconds · vitals re-read at this coin's pace (${{ hot: 'hot: every 5s', busy: 'busy: every 10s', quiet: 'quiet: every 20s' }[read?.pace?.key || 'quiet']}) and the moment its price moves`}><i />LIVE{read?.pace?.key === 'hot' ? ' · HOT' : ''}<Ago at={read?.at} /></span></b>
           <small>{age(r.ageH)} old · {big(mc)} cap · pool {r.liq ? big(r.liq) : r.curve || r.curvePct != null ? 'on curve' : '—'} · {big(r.vol1h)}/h</small></div>
         {'safe' in r && <span className={`tql-safe ${safe[1]}`} data-tip={r.safe === false ? `Did not pass: ${(r.fails || []).join(' · ')}` : r.safe ? 'Passed every safety check' : 'Holders not scanned yet — unknown, not safe'}>{safe[0]}</span>}
         <span className="tql-px"><b>{useMc ? big(mc) : fmtPx(price)}</b>
@@ -121,7 +130,7 @@ export function TrenchQuick({ row, list = [], onClose, onPick, busy }) {
           {r.vital && <CoinVital r={r} only="vital" />}
           <ChartPulse pairAddress={r.pairAddress} mint={r.mint} tf={tf} />
           <FlowWindows win={r.win} tf={tf} />
-          <div className="tql-facts">{factTiles({ ...r, chg5m: live?.m5 ?? r.chg5m, chg1h: live?.h1 ?? r.chg1h, mcap: mc || r.mcap }).map(([l, x, bad, tip]) => <div key={l} className={bad ? 'bad' : ''} data-tip={x === WAIT ? `${tip} — FEELESS is reading this coin's holders on-chain right now; it fills in within about half a minute.` : x === '—' ? `${tip} — not read for this coin (unknown, never a clean zero).` : tip}><small>{l}</small><b className={x === WAIT ? 'is-wait' : ''}>{x}</b></div>)}</div>
+          <div className="tql-facts">{factTiles({ ...r, chg5m: live?.m5 ?? r.chg5m, chg1h: live?.h1 ?? r.chg1h, mcap: mc || r.mcap }).map(([l, x, bad, tip]) => <div key={l} className={bad ? 'bad' : ''} data-tip={x === WAIT ? `${tip} — FEELESS is reading this coin's holders on-chain right now; it fills in within about half a minute.` : x === '—' ? `${tip} — not read for this coin (unknown, never a clean zero).` : tip}><small>{l}</small><b key={String(x)} className={x === WAIT ? 'is-wait' : 'tql-flip'}>{x}</b></div>)}</div>
           {r.safe === false && (r.fails || []).length > 0 && <p className="tql-fails">⚠ {(r.fails || []).join(' · ')}</p>}
         </div>
       </div>

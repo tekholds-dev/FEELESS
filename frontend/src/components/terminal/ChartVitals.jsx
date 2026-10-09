@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { usePumpProfile } from '../PumpProfile';
 import { useCoinEdge } from '../../lib/coinEdge';
 import { sharedJson } from '../../lib/sharedJson';
@@ -23,16 +23,25 @@ export function socialsOf(pair, pump) {
   return out;
 }
 
-// 🫀 one coin's FEELESS edge (GET /api/reputation/coin-read/{mint}): its vital + the read that fits it — shared, re-read every 20s
-export function useCoinRead(mint) {
+// 🫀 one coin's FEELESS edge (GET /api/reputation/coin-read/{mint}): its vital + the read that fits it — shared.
+// ⏱ PER ACTIVITY (owner: "all vitals need to update per activity"): re-read at the coin's OWN pace (server `pace`: hot 5s · busy 10s ·
+// quiet 20s) and at once when `kick` changes (the live price moved = someone traded), never faster than half its pace.
+export const paceMs = d => Math.max(4000, Number(d?.pace?.everyMs) || 20000);
+export function useCoinRead(mint, kick) {
   const [d, setD] = useState(null);
+  const last = useRef(0); const every = useRef(20000); const loadRef = useRef(null);
   useEffect(() => {
-    let alive = true; setD(null);
+    let alive = true; setD(null); last.current = 0; every.current = 20000;
     if (!mint) return undefined;
-    const load = () => sharedJson(`/api/reputation/coin-read/${mint}`, { maxAge: 15000 }).then(x => alive && setD(x)).catch(() => {});
-    load(); const t = setInterval(() => { if (!document.hidden) load(); }, 20000);
-    return () => { alive = false; clearInterval(t); };
+    let t = null;
+    const load = (maxAge = Math.max(2500, every.current - 1500)) => { last.current = Date.now();
+      return sharedJson(`/api/reputation/coin-read/${mint}`, { maxAge }).then(x => { if (!alive) return; every.current = paceMs(x); setD(x); }).catch(() => {}); };
+    const loop = () => { t = setTimeout(() => { (document.hidden ? Promise.resolve() : load()).finally(() => alive && loop()); }, every.current); };
+    loadRef.current = load;
+    load().finally(() => alive && loop());
+    return () => { alive = false; clearTimeout(t); loadRef.current = null; };
   }, [mint]);
+  useEffect(() => { if (kick == null || !loadRef.current || document.hidden) return; if (Date.now() - last.current >= every.current / 2) loadRef.current(1500); }, [kick]);   /* a trade: only a read from the last 1.5s is shared */
   return d;
 }
 
@@ -43,7 +52,7 @@ export function ChartVitals({ pair }) {
   const mint = pair?.baseToken?.address;
   const pump = usePumpProfile(mint);
   const edge = useCoinEdge(mint);
-  const read = useCoinRead(mint);
+  const read = useCoinRead(mint, pair?.priceUsd);   /* ⏱ a new price = a trade: vitals re-read at the coin's pace */
   if (!pair) return null;
   const socials = socialsOf(pair, pump);
   const pulse = edge?.pulse; const run = edge?.runner;

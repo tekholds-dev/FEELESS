@@ -172,3 +172,9 @@ def test_socials_and_window_pulse_come_from_jupiter_and_bad_links_are_dropped():
     assert row['site'] == 'https://site.xyz' and row['tg'] == 'https://t.me/x' and 'x' not in row
     got = ja.fill_row({'site': True, 'tg': True}, {**f, 'tg': None})
     assert (got['site'], got['tg']) == ('https://site.xyz', True)   # a known-to-exist link gets its URL; no URL = stays as it was
+
+
+def test_pace_follows_activity():
+    assert ja.pace({'txns1h': 900})['key'] == 'hot' and ja.pace({'vol5m': 12000})['everyMs'] == 5000
+    assert ja.pace({'txns1h': 200})['key'] == 'busy' and ja.pace({})['key'] == 'quiet'
+    assert ja.pace({'txns1h': 900})['jupSec'] < ja.pace({})['jupSec']

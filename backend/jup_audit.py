@@ -571,3 +571,17 @@ def read_for_lens(lens, f, row=None):
         t = trench_verdict(f, r)
         return {**t, 'kind': 'trench', 'meters': [['🔥 HEAT', t['heat']], ['☠ RUG', t['rug']]]}
     return pick_read(f, r)
+
+
+# ⏱ PACE (owner, 2026-10-08: "all vitals need to update per activity"): how often a WATCHED coin's read is rebuilt, from how busy it is.
+# hot = ≥ 600 trades an hour or ≥ $10K in the last 5 min · busy = ≥ 120 trades an hour or ≥ $2K in 5 min · else quiet.
+PACES = {'hot': (4, 12, 5000), 'busy': (8, 25, 10000), 'quiet': (15, 45, 20000)}   # (server cache s, Jupiter re-read s, client poll ms)
+
+
+def pace(row):
+    """→ {key, cacheSec, jupSec, everyMs}: the faster the coin trades, the fresher its vitals."""
+    r = row or {}
+    tx, v5 = _f(r.get('txns1h')), _f(r.get('vol5m'))
+    k = 'hot' if tx >= 600 or v5 >= 10_000 else 'busy' if tx >= 120 or v5 >= 2_000 else 'quiet'
+    c, j, e = PACES[k]
+    return {'key': k, 'cacheSec': c, 'jupSec': j, 'everyMs': e}

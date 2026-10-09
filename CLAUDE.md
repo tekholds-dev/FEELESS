@@ -2346,3 +2346,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   The old tab row, "All N settings" button and wallet `details` are gone (their CSS removed). 🪑 `seatHealth(c, cfg)` reads the card's own pipeline and
   names the step that leaves an empty seat with nothing; when it is the owner's vital filter it offers ONE tap to C+ · 10% organic (never applied
   for them). 2026-10-08: card set to 4 coins held 3 — 4 coins cleared everything, the owner's B+ / 30% organic filter removed all 4.
+- ⏱ VITALS UPDATE PER ACTIVITY (owner, 2026-10-08): `jup_audit.pace(row)` → hot (≥ 600 trades/h or ≥ $10K in 5 min) · busy (≥ 120/h or ≥ $2K) ·
+  quiet = coin-read cache 4 / 8 / 15s, Jupiter re-read 12 / 25 / 45s, client poll 5 / 10 / 20s (`coin-read.pace`, `at`). `useCoinRead(mint, kick)`
+  polls at that pace and re-reads AT ONCE when `kick` changes (the live price moved = a trade), never faster than half its pace (kick reads share
+  only a 1.5s-old answer). Quick look passes the live price, the war-room header its pair price. LIVE chip shows the pace (🟠 HOT) + "Ns ago";
+  every fact tile number re-animates when its value changes (`tql-flip`, keyed by value).

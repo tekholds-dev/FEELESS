@@ -39,6 +39,9 @@
 .qp-thesis { margin: 0; font-size: 12px; line-height: 1.4; color: #dfeee6; overflow-wrap: anywhere; } .qp-thesis b { font-family: "JetBrains Mono", monospace; color: var(--gold, #f5c451); }
 .qp-callnums { font: 10px "JetBrains Mono", monospace; opacity: .75; }
 .tql-live { display: inline-flex; align-items: center; gap: 5px; font: 700 9px "JetBrains Mono", monospace; letter-spacing: .12em; color: #45e486; }
+.tql-live.is-hot { color: #ff9a3d; } .tql-live.is-hot i { background: #ff9a3d; animation-duration: .6s; } .tql-live.is-busy i { animation-duration: .9s; }
+.tql-ago { font-weight: 500; letter-spacing: .04em; opacity: .65; text-transform: none; }
+.tql-flip { display: inline-block; animation: qpFlip .5s ease-out; } @keyframes qpFlip { from { transform: translateY(-5px) scale(1.08); opacity: .4; } to { transform: none; opacity: 1; } }
 .tql-live i { width: 7px; height: 7px; border-radius: 50%; background: #45e486; animation: qpBeat 1.4s ease-in-out infinite; }
 
 .qp-fd { display: grid; gap: 6px; padding: 8px 9px; border-radius: 12px; border: 1px solid rgba(124, 200, 255, .38); background: linear-gradient(120deg, rgba(124, 200, 255, .08), rgba(255, 255, 255, .015)); animation: qpIn .22s ease both; }
@@ -113,9 +116,9 @@ body.theme-day .spx-vs { color: #7a5a00; background: #fff8e6; }
 
 .fx-off.spx-banner *, .fx-off.spx-banner::before { animation-play-state: paused; }
 body.fx-lite .spx-banner::before, body.fx-lite .spx-atom i, body.fx-lite .spx-flow i { display: none; }
-body.fx-lite .qp-flow, body.fx-lite .qp-chart, body.fx-lite .qp-call, body.fx-lite .qp-word, body.fx-lite .qp-range u, body.fx-lite .qp-heat i.on, body.fx-lite .tql-live i, body.fx-lite .pcl-rank, body.fx-lite .pcl-chip,
+body.fx-lite .qp-flow, body.fx-lite .qp-chart, body.fx-lite .qp-call, body.fx-lite .qp-word, body.fx-lite .qp-range u, body.fx-lite .qp-heat i.on, body.fx-lite .tql-live i, body.fx-lite .tql-flip, body.fx-lite .pcl-rank, body.fx-lite .pcl-chip,
 body.fx-lite .spx, body.fx-lite .spx-shade, body.fx-lite .spx > .sp li, body.fx-lite .spx-atom b, body.fx-lite .spx-node.is-in { animation: none; }
-@media (prefers-reduced-motion: reduce) { .qp-flow, .qp-chart, .qp-call, .qp-word, .qp-range u, .qp-heat i.on, .tql-live i, .pcl-rank, .pcl-chip, .spx, .spx-shade, .spx > .sp li, .spx-atom b, .spx-atom i, .spx-node.is-in, .spx-flow i, .spx-banner::before, .spx-tick i { animation: none; }
+@media (prefers-reduced-motion: reduce) { .tql-flip, .qp-flow, .qp-chart, .qp-call, .qp-word, .qp-range u, .qp-heat i.on, .tql-live i, .pcl-rank, .pcl-chip, .spx, .spx-shade, .spx > .sp li, .spx-atom b, .spx-atom i, .spx-node.is-in, .spx-flow i, .spx-banner::before, .spx-tick i { animation: none; }
   .qp-press i, .qp-range i, .qp-win i, .qp-link, .pcl-top, .pcl-chip { transition: none; } }
 body.theme-day .qp-flow, body.theme-day .qp-chart, body.theme-day .qp-tiles > div { background: #fff; border-color: #dfe8e3; } body.theme-day .qp-call, body.theme-day .pcl { background: #fff8e6; border-color: #e6cf8f; }
 body.theme-day .qp-tiles b, body.theme-day .qp-press b, body.theme-day .qp-range b, body.theme-day .qp-heat b, body.theme-day .pcl-who b, body.theme-day .pcl-chip b { color: #0e2c1d; }
@@ -123,3 +126,5 @@ body.theme-day .qp-thesis, body.theme-day .pcl-say { color: #23402f; } body.them
 body.theme-day .qp-win { color: #1d4a33; border-color: #c6dccf; } body.theme-day .pcl-top { background: #fff; } body.theme-day .pcl-chip { background: #fff; border-color: #dfe8e3; } body.theme-day .qp-range u { background: #0e2c1d; box-shadow: 0 0 0 2px #fff; }
 @media (max-width: 760px) { .spx-banner { grid-template-columns: auto 1fr auto; } .spx-wire { display: none; } .pcl-top { grid-template-columns: auto 1fr auto; } .pcl-say { grid-column: 1 / -1; grid-row: 2; } }
 @media (max-width: 640px) { .spx-shade { padding: 0; } .spx { border-radius: 0; height: 100vh; } .qp-tiles, .qp-tiles.is-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .spx > .sp { padding: 10px; } }
+
+body.theme-day .tql-live.is-hot { color: #b45309; } body.theme-day .tql-live.is-hot i { background: #b45309; }
