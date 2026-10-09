@@ -77,3 +77,9 @@ test('one TP/SL control: + column sets take-profit, − column sets the stop', a
   expect(prime).toHaveBeenLastCalledWith({ leg: { tpl: 'degen', pairAddress: 'PX', sl: 0 } }, expect.any(String), 'sl-PX');
   await act(async () => { root.unmount(); });
 });
+
+test('card coin rows get a live state from the coin and its 5-min move', () => {
+  const { legState } = require('./FuseCard');
+  expect(legState({ buying: true }, 3)).toBe('is-buying'); expect(legState({ riding: true }, 1)).toBe('is-riding');
+  expect(legState({}, 8)).toBe('is-hot'); expect(legState({}, -7)).toBe('is-dump'); expect(legState({}, 1)).toBe(''); expect(legState({ soldUsd: 1 }, 20)).toBe('');
+});

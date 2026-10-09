@@ -2388,3 +2388,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   "(next up)". Slippage misses still retry first (5% max).
 - 🎯 TP + SL = ONE control on each real-card coin row (`TpSl`, `tps-*` in configPop.css): the button shows "+TP · −SL"; its panel has a + column
   (take-profit) and a − column (stop), "tier" = the card's own. Replaced the two selects.
+- 🫀 LIVE COIN ROWS ON EVERY FUSE CARD'S LIVE SIDE (`LiveFuseCard` → `legState`, `LegLogo`; `styles/cardLegs.css` `fcl-*`, `.fcd-legs` is an fxPause
+  surface): logo beside the name · a heat bar under the row = the coin's live 5-min move (±15% = full width) · state glow + icon: ❄ riding,
+  🧊 frozen, ⏳ buying (gold scan), 🔥 hot / 🩸 dumping (|5m| ≥ 5%, pulsing edge) · the % re-animates when it changes. Card images inside the
+  card back are blocks by default — logos need `.fcd-legs .fcd-leg .fcl-logo { display: inline-block }`.

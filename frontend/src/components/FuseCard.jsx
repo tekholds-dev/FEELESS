@@ -3,6 +3,7 @@ import { CardLive } from './CardLive';
 import { openMiniCard } from './MiniCard';
 import { MetaCard } from './cards/MetaCard';
 import '../styles/fuseLab.css';
+import '../styles/cardLegs.css';
 import { tokenImageUrls } from './terminal/MarketPrimitives';
 import { legTarget } from '../lib/fuseGo';
 import { useLivePrices } from '../lib/livePrices';
@@ -85,6 +86,17 @@ export function revalue(r, live) {
 // An OWNED Fuse card (a real position from /fuses/pnl): front = the same card, back = live money per leg — what you put in,
 // what you still hold at today's price, what you've already taken out, and the P&L. Never preview numbers.
 const m$ = v => `${v < 0 ? '−' : ''}$${Math.abs(v || 0).toFixed(2)}`;
+// 🫀 each coin row on the card's live side has its own state (owner: "the inner fuse cards need live styling"): riding = ice edge, frozen,
+// buying = gold scan, hot = its 5-min move is big (pulse), cold = barely trading. A heat bar under the row = its live 5-min move (±15% = full).
+export const legState = (l, m5) => (l.soldUsd != null ? '' : l.buying ? 'is-buying' : l.frozen ? 'is-frozen' : l.riding || l.ride ? 'is-riding'
+  : m5 != null && Math.abs(m5) >= 5 ? (m5 >= 0 ? 'is-hot' : 'is-dump') : '');
+const STATE_ICON = { 'is-riding': '❄', 'is-frozen': '🧊', 'is-hot': '🔥', 'is-dump': '🩸', 'is-buying': '⏳' };
+function LegLogo({ l }) {
+  const [i, setI] = useState(0); const urls = tokenImageUrls(legPair(l)) || [];
+  if (!urls[i]) return null;
+  return <img className="fcl-logo" src={urls[i]} alt="" loading="lazy" onError={() => setI(x => x + 1)} />;
+}
+
 export function LiveFuseCard({ r: r0, aura = '', look = null, label = null, serverOnly = false, mini = null }) {
   const [flipped, setFlipped] = useState(false);
   const live = useLivePrices(r0.legs.filter(l => l.soldUsd == null).map(l => l.pairAddress));   // serverOnly cards read it too: only for the 5-min moves that drive the card's live effects
@@ -101,11 +113,13 @@ export function LiveFuseCard({ r: r0, aura = '', look = null, label = null, serv
   const paid = r.realizedUsd || 0;
   const back = <div className="fcd-back fcd-live">
     <div className="mc-top"><span>{r.closed ? 'WITHDRAWN' : label || 'LIVE · YOUR MONEY'}</span><span>{m$(r.valueUsd)}</span></div>
-    <ul className="fcd-legs">{legs.map(l => <li key={l.pairAddress + (l.sig || '')} className={`fcd-leg ${l.soldUsd != null ? 'is-out' : ''}`}
+    <ul className="fcd-legs">{legs.map(l => { const m5 = live.get(l.pairAddress)?.m5; const st = legState(l, m5);
+      return <li key={l.pairAddress + (l.sig || '')} className={`fcd-leg ${l.soldUsd != null ? 'is-out' : ''} ${st}`}
       data-tip={`${l.symbol}: in ${m$(l.usd)} → now ${m$(l.valueUsd)}${l.priceNow ? ` · price $${fmtPx(l.priceNow)}` : ''}${l.soldUsd != null ? ' · sold' : (l.realizedUsd || 0) > 0 ? ` · took ${m$(l.realizedUsd)}` : ''}${!l.priced && l.soldUsd == null ? ' · no live price' : ''}`}>
-      <b>{l.role === 'runner' ? '🏃 ' : l.role === 'anchor' ? '⚓ ' : ''}{l.symbol}</b>
-      <em className={l.buying ? 'fcd-buying' : l.pnlPct >= 0 ? 'up' : 'down'}>{l.buying ? '⏳ buying…' : l.soldUsd != null ? 'sold' : `${l.pnlPct >= 0 ? '+' : ''}${l.pnlPct.toFixed(1)}% · ${l.pnlUsd >= 0 ? '+' : '−'}${m$(Math.abs(l.pnlUsd || 0)).replace('−', '')}`}</em>
-      <span>{l.buying ? 'keeper retries next tick' : `${m$(l.usd)} in → ${m$(l.valueUsd)} now`}</span></li>)}</ul>
+      <b><LegLogo l={l} />{l.role === 'runner' ? '🏃 ' : l.role === 'anchor' ? '⚓ ' : ''}{l.symbol}{STATE_ICON[st] && <i className="fcl-st">{STATE_ICON[st]}</i>}</b>
+      <em key={l.buying ? 'b' : l.pnlPct.toFixed(1)} className={`fcl-flip ${l.buying ? 'fcd-buying' : l.pnlPct >= 0 ? 'up' : 'down'}`}>{l.buying ? '⏳ buying…' : l.soldUsd != null ? 'sold' : `${l.pnlPct >= 0 ? '+' : ''}${l.pnlPct.toFixed(1)}% · ${l.pnlUsd >= 0 ? '+' : '−'}${m$(Math.abs(l.pnlUsd || 0)).replace('−', '')}`}</em>
+      <span>{l.buying ? 'keeper retries next tick' : `${m$(l.usd)} in → ${m$(l.valueUsd)} now`}</span>
+      {m5 != null && l.soldUsd == null && <i className={`fcl-heat ${m5 >= 0 ? 'is-up' : 'is-dn'}`} aria-hidden style={{ transform: `scaleX(${Math.max(0.03, Math.min(1, Math.abs(m5) / 15))})` }} />}</li>; })}</ul>
     <dl className="fcd-sum"><dt>Put in</dt><dd>{m$(r.costUsd)}</dd><dt>In card</dt><dd>{m$(r.valueUsd - paid)}</dd><dt>Paid out</dt><dd className="up">{m$(paid)}</dd>
       <dt>P&L</dt><dd className={up ? 'up' : 'down'}><b>{m$(r.pnlUsd)} ({up ? '+' : ''}{r.pnlPct.toFixed(1)}%)</b></dd></dl>
     <small className="fcd-note">● Live prices every 3s · {label && label.includes('PAPER') ? 'paper at true fills' : 'exact fills from chain'} · fees apart.</small>
