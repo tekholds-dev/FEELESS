@@ -2524,3 +2524,20 @@ def test_hunt_fix_1009_sets_the_runner_hunt_line_and_keeps_the_owners_clock():
         assert new[k] == v, k                                       # every value is a real editor option (clean_cfg kept it)
     assert new['rotateHours'] == 0.5 and new['minHoldMins'] == 30 and new['swapCapHr'] == 2
     assert set(keys) == set(rs.HUNT_1009)
+
+
+def test_trench_send_only_takes_only_send_it_coins_and_waits_without_them():
+    s, rows, fb, soft = [{'mint': 'S'}], [{'mint': 'R'}], [{'mint': 'F'}], [{'mint': 'X'}]
+    assert [x['mint'] for x in ap.trench_pool(s, rows, fb, soft, {})] == ['S', 'R', 'F', 'X']   # default: SEND IT first, then the list
+    assert [x['mint'] for x in ap.trench_pool(s, rows, fb, soft, {'trenchSendOnly': True})] == ['S']
+    assert ap.trench_pool([], rows, fb, soft, {'trenchSendOnly': True}) == []                    # no SEND IT coin → the drop waits
+    assert ap.clean_cfg({})['trenchSendOnly'] is False and ap.clean_cfg({'trenchSendOnly': 1})['trenchSendOnly'] is True
+
+
+def test_trench_fix_1009_sets_the_scalp_and_ride_trench_setup():
+    import reputation_service as rs
+    rc = ap.clean_cfg({**CFG, 'rotateHours': 0.08, 'sl': 30, 'flowExit': 'normal', 'cycles': {'degen': 'press'}})
+    new, keys = rs.trench_patch_1009(rc)
+    for k, v in rs.TRENCH_1009.items():
+        assert new[k] == v, k
+    assert new['cycles']['degen'] == 'trench' and new['sl'] == 30 and new['flowExit'] == 'normal'   # the owner's stop + flow exit stay

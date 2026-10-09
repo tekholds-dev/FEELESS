@@ -8047,6 +8047,39 @@ async def _hunt_fix_1009b(now):
     return True
 
 
+TRENCH_1009 = {'rotateHours': 0.08, 'rotateConfirm': 2, 'trenchAuto': True, 'trenchSendOnly': True, 'trenchCoins': 2, 'minHoldMins': 15.0,
+               'rideAt': 20.0, 'rideTrail': 15.0, 'trailStep': True, 'lockBankPct': 50.0, 'houseAt': 30, 'trenchHouseAt': 30, 'peakSellPct': 50.0, 'rideEnd': 'bank'}
+
+
+def trench_patch_1009(rc):
+    """Pure: the owner's 5-min / 2-round TRENCH setup (2026-10-09, "tweak my 5min 2 rnd configs so trenching is ez"), built on the card's
+    own record: scalp the stake, ride the house (trims +$21.89 / 74% won vs whole exits −$32.83) → lock at +20 and bank 50%, initial out at
+    +30, stepped trail; let it cook 15 min (exits < 15 min won 27%); trench = 🔥 SEND IT coins only (+0.5% vs the list's −79%), 2 of them.
+    Stops, flow exit and rug radar act at once. → (new realCfg, keys)."""
+    cyc = dict(rc.get('cycles') or {}); cyc['degen'] = 'trench'
+    return _prime.clean_cfg({**rc, **TRENCH_1009, 'cycles': cyc}), sorted(set(TRENCH_1009) | {'cycles'})
+
+
+async def _trench_fix_1009(now):
+    """🗑 Once: apply `trench_patch_1009` to the real card. Old values: data/realcfg_before_trench1009.json. Keys → realOwnerSet + ladderKeep."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('trenchFix1009') or not rc:
+            return False
+        new, keys = trench_patch_1009(rc)
+        _json_save(DATA_DIR / 'realcfg_before_trench1009.json', {k: rc.get(k) for k in keys})
+        pr['realCfg'] = new
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(keys))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(keys))
+        for c in (pr.get('cards') or {}).values():
+            if c.get('real'):
+                c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🗑 trench setup: 5-min rounds · patience 2 · 2 trench coins, 🔥 SEND IT only · lock +20 & bank 50% · initial out at +30 · stepped trail · cook 15 min'})
+        pr['trenchFix1009'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _ticket_ride_fix(now):
     """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
     once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
@@ -8145,6 +8178,7 @@ async def _prime_tick_inner(now):
     await _overnight_fix_1009(now)
     await _hunt_fix_1009(now)
     await _hunt_fix_1009b(now)
+    await _trench_fix_1009(now)
     await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
@@ -8245,8 +8279,10 @@ async def _prime_tick_inner(now):
             # 🔥 SEND IT first — only once the call has PROVEN itself on its own record and the owner's switch is on (safe coins only)
             sendit_ = [{**x, 'trenchScore': 100 + _fuse._f((x.get('tv') or {}).get('heat')), 'sendIt': True} for x in (_call_cache.get('send') or [])] \
                 if (cfg_t.get('sendItAuto', True) and _sendit_ready()) else []
-            for x in (sendit_ + list(_trench_cache.get('rows') or []) + list(_trench_cache.get('fallback') or [])
-                      + [y for y in _trench_cache.get('checked') or [] if not y.get('ok') and _trench.soft_only(y.get('fails'))]):
+            # 🔥 SEND IT ONLY (owner's switch): the trench list itself reads −79% an hour on its own record, the SEND IT call +0.5% (52% won)
+            pool_t = _prime.trench_pool(sendit_, _trench_cache.get('rows'), _trench_cache.get('fallback'),
+                                        [y for y in _trench_cache.get('checked') or [] if not y.get('ok') and _trench.soft_only(y.get('fails'))], cfg_t)
+            for x in pool_t:
                 if x.get('mint') not in tr_seen and _lq(x) >= tr_floor * mg and _prime.trench_entry(x, mom):
                     tr_seen.add(x.get('mint')); tr_all.append({**x, 'trenchOnly': True})
             r_t = r_t + sorted(tr_all, key=lambda x: -_fuse._f(x.get('trenchScore') or x.get('score')))

@@ -2466,3 +2466,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   real card = 2 coins on the Runner hunt line (12h+ · $50K/h · +40% on the hour · $25K pool · record gate off), stop −30, freeze +50,
   trail 30, 🏠 initial out at +50, ride over → bank, runners only (newOnly), scout / mover swap off. Clock 30m, hold 30, ≤ 2 swaps/h kept.
   Vital filter one step looser for it (`_hunt_fix_1009b`: 35+ · 5% organic — 50 / 10 removed all 6 hunt coins). The owner decided with the numbers in hand (replay: ~1 in 5 hunt picks hit 2× within 6h) — don't re-argue it; report results.
+- 🗑 TRENCH SETUP 2026-10-09 (`_trench_fix_1009`, once, backup data/realcfg_before_trench1009.json): owner's 5-min / patience 2 trench card =
+  🔥 `trenchSendOnly` (NEW, `arena_prime.trench_pool`: the engine's trench drop takes ONLY SEND IT coins, none → it waits; the list reads
+  −79% an hour, SEND IT +0.5% / 52% up) · 2 trench coins · trenchAuto on · cycle trench · lock +20 & bank 50% · 🏠 initial out at +30 (all
+  coins + trench) · stepped trail 15 · cook 15 min · ride over → bank. The owner's stop (−30), flow exit and rug radar unchanged.
