@@ -2401,3 +2401,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   outside click / Esc / scroll closes). The TP/SL panel used to sit UNDER the next row. Any new row popover ⇒ this hook.
 - When deleting a component by string, cut from ITS OWN start to ITS OWN end — a cut from a comment to the next export once took `TpSl` and
   `LearnLine` (inserted in between) with it.
+- 🔗 SOCIALS FIRST ON EVERY LIST ROW (owner, 2026-10-08: "trench should show socials first and clickable"): `_clean_rows` fills `site` / `x` / `tg`
+  from Jupiter's audit (a real link) else the runner board (may only know it exists) — they were on 0 of 250 Open-gates rows. `SocialIcons`
+  (QuickPulse.jsx, `qp-ico`): 🌐 𝕏 ✈ links FIRST on trench read cards, Open-gates list rows and swap-in picker rows (each link stops the row's
+  click); "✓" = set at launch but no link on record; 🚫 = none set.

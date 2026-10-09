@@ -4,6 +4,7 @@ import { openCoin } from './CoinDrawer';
 import '../styles/trenchOpen.css';
 import { TrenchVital } from './CoinVital';
 import { TrenchQuick, warmCoin } from './TrenchQuick';
+import { SocialIcons } from './QuickPulse';
 import { PumpCallouts } from './QuickPulse';
 
 const big = v => { const n = Number(v) || 0; return n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${n.toFixed(0)}`; };
@@ -44,7 +45,7 @@ function ReadCard({ r, onOpen, showAge }) {
   return <div role="button" tabIndex={0} className={`tsp-card ${sf[2]} ${r.tv?.call ? `call-${r.tv.call[2]}` : ''}`} onClick={() => onOpen(r)} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onOpen(r))}
     onMouseEnter={() => warmCoin(r)} onFocus={() => warmCoin(r)} data-testid={`rc-${r.symbol}`} data-tip={`Quick look: chart, every vital, pick · ${whyLine(r)}`}>
     <span className="tsp-av" aria-hidden="true">{String(r.symbol || '?').slice(0, 1)}{r.logo && <img src={r.logo} alt="" loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; }} />}</span>
-    <span className="tsp-id"><b>${r.symbol}{r.call && <i>{ICON[r.call]}</i>}{r.pc?.callers ? <i data-tip={`${r.pc.callers} Pump callers right now`}>📣{r.pc.callers}</i> : null}{r.fd?.n ? <i data-tip={`${r.fd.n} new Pump coins are paired with it — their buys route through its pool`}>🧲{r.fd.n}</i> : null}</b>
+    <span className="tsp-id"><b><SocialIcons r={r} />${r.symbol}{r.call && <i>{ICON[r.call]}</i>}{r.pc?.callers ? <i data-tip={`${r.pc.callers} Pump callers right now`}>📣{r.pc.callers}</i> : null}{r.fd?.n ? <i data-tip={`${r.fd.n} new Pump coins are paired with it — their buys route through its pool`}>🧲{r.fd.n}</i> : null}</b>
       <small>{showAge ? <em className="tsp-age">{age(r.ageH)}</em> : `${age(r.ageH)} ·`} {big(r.mcap)} · {big(r.vol1h)}/h</small></span>
     <span className="tsp-mv"><span className={mv(r.chg5m)}>{sg(r.chg5m)}</span><small>5m</small><span className={mv(r.chg1h)}>{sg(r.chg1h)}</span><small>1h</small></span>
     <span className={`tsp-safe ${sf[2]}`} data-tip={sf[3]}>{sf[0]}</span>
@@ -103,7 +104,7 @@ export function TrenchOpen({ max = 10, onPick, busy }) {
       {rows.map((r, i) => { const sf = SAFE(r); return <div key={r.mint} className={`top-tr ${sf[2]} ${r.tv?.call ? `call-${r.tv.call[2]}` : ''}`} role="row" data-testid={`open-${r.symbol}`} onMouseEnter={() => warmCoin(r)}>
         <span className="top-rank">{sort === 'front' && f === 'all' ? r.rank : i + 1}</span>
         <span className="top-av" aria-hidden="true">{String(r.symbol || '?').slice(0, 1)}{r.logo && <img src={r.logo} alt="" loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; }} />}</span>
-        <span className="top-coin"><button type="button" className="top-sym" onClick={() => open(r)} data-tip={`Open $${r.symbol}: chart, holders, flow · ${r.txns1h} trades this hour${r.curve ? ' · still on its launch curve' : ''}`}>${r.symbol}{r.call && <i aria-label={`called out: ${KIND[r.call]}`}>{ICON[r.call]}</i>}</button>
+        <span className="top-coin"><span className="top-soc"><SocialIcons r={r} /></span><button type="button" className="top-sym" onClick={() => open(r)} data-tip={`Open $${r.symbol}: chart, holders, flow · ${r.txns1h} trades this hour${r.curve ? ' · still on its launch curve' : ''}`}>${r.symbol}{r.call && <i aria-label={`called out: ${KIND[r.call]}`}>{ICON[r.call]}</i>}</button>
           <small>{age(r.ageH)} old · {big(r.mcap)} cap{r.curve ? ' · curve' : ''}</small></span>
         <span className="top-n">{r.liq ? big(r.liq) : '—'}</span><span className="top-n">{big(r.vol1h)}</span>
         <span className={mv(r.chg5m)}>{sg(r.chg5m)}</span><span className={mv(r.chg1h)}>{sg(r.chg1h)}</span>

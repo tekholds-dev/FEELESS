@@ -45,3 +45,4 @@ body.theme-day .top-tr.is-bad .top-why { color: #b3264a; } body.theme-day .top-t
 .top-tv .tvl.is-mini .tvl-meters { flex: 0 1 240px; }
 body.theme-day .top-tr:not(.top-th) { background: #fff; border-color: #dfe8e3; }
 .top-lanes { margin: 0 0 8px; flex-wrap: wrap; }
+.top-soc { display: inline-flex; } .top-coin { grid-template-columns: auto minmax(0, 1fr); align-items: center; } .top-coin > small { grid-column: 1 / -1; }

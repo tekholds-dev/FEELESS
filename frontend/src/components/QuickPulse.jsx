@@ -19,6 +19,16 @@ const safeUrl = u => (typeof u === 'string' && /^https?:\/\//i.test(u) ? u : nul
 
 export const socialLinks = r => [['🌐', 'Site', safeUrl(r?.site)], ['𝕏', 'X', safeUrl(r?.x)], ['✈', 'Telegram', safeUrl(r?.tg)],
   ['💊', 'Pump', /pump$/.test(String(r?.mint || '')) ? `https://pump.fun/coin/${r.mint}` : null]].filter(x => x[2]);
+// 🔗 the coin's socials as small clickable icons — FIRST on a trench row (owner: "trench should show socials first and clickable").
+// A row inside a clickable card: each link stops the click so it opens the site, not the card. 🚫 = none set.
+export function SocialIcons({ r }) {
+  const links = socialLinks(r).filter(l => l[1] !== 'Pump');
+  const known = [r?.site && '🌐', r?.x && '𝕏', r?.tg && '✈'].filter(Boolean);
+  return <span className="qp-ico" data-testid="soc-icons">{links.length ? links.map(([ic, name, url]) => <a key={name} href={url} target="_blank" rel="noopener noreferrer nofollow" onClick={e => e.stopPropagation()}
+    data-tip={`Opens its ${name} — a link the coin set itself, not checked by FEELESS`} aria-label={name}>{ic}</a>)
+    : known.length ? <i data-tip="Set at launch — the link itself isn't on record here">{known.join('')}✓</i> : <i className="is-none" data-tip="No website, X or Telegram set — most coins that last set one">🚫</i>}</span>;
+}
+
 export function Socials({ r }) {
   const links = socialLinks(r); const own = links.filter(l => l[1] !== 'Pump').length;
   const known = [r?.site && 'site', r?.x && '𝕏', r?.tg && 'Telegram'].filter(Boolean);   // set at launch, but no link on record here

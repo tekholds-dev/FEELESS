@@ -2988,6 +2988,12 @@ def _clean_rows(rows):
                 rep = None
         r['clean'] = _clean.score(r, it if (it or {}).get('top10Pct') is not None else {}, rep)
         jf = (_jup_facts.get(m) or (0, None))[1]
+        c_s = cmap_.get(m) or {}
+        for k_ in ('site', 'x', 'tg'):   # 🔗 socials on every list row (they were on 0 of 250 trench rows): the row's own, the runner board's, else Jupiter's
+            if not r.get(k_):
+                v_ = (jf or {}).get(k_) or c_s.get(k_)   # Jupiter's is a real link; the board may only know it exists (True)
+                if v_:
+                    r[k_] = v_
         if jf:
             r['vital'] = _ja.verdict(jf, r)
             r['crew'] = r['vital'].get('crew')
