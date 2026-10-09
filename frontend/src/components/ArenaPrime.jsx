@@ -19,6 +19,7 @@ import { StrategyPicks, stratPatch } from './StrategyPicks';
 import { openCoin } from './CoinDrawer';
 import { TrenchOpen } from './TrenchOpen';
 import '../styles/sizeLadder.css';
+import '../styles/configPop.css';
 import '../styles/primeLeague.css';
 import { useTabTitle, cardTitle } from '../lib/tabTitle';
 import { CoinVital, VitalView, applyView, loadView } from './CoinVital';
@@ -420,7 +421,7 @@ export function LadderCard({ l, busy, onToggle }) {
   </div>;
 }
 
-function CardEditor({ c, cfg, keeper, locked, call, real, suggest, meta, ladder }) {
+export function CardEditor({ c, cfg, keeper, locked, call, real, suggest, meta, ladder }) {
   const [busy, setBusy] = useState(false);
   const save = async (patch, wallet) => {
     setBusy(true);
@@ -450,14 +451,35 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest, meta, ladder 
   const rowX = e => (own && TIER_KEYS.includes(e[0]) ? seg(e[0], `${e[1]} · this card`, e[2], e[3], cfg?.[e[0]], false, saveExit) : row(e));
   const rows = keys => keys.map(k => EDIT.find(e => e[0] === k)).filter(Boolean).map(rowX);
   const churn = (cfg?.rotateHours || 1) < 0.25 && (cfg?.rotateConfirm || 1) < 3;   // 5-min rounds + low patience = swaps on noise (fees, missed buys)
-  const [grp, setGrp] = useState('setup');
-  const [adv, setAdv] = useState(false);   // 🎛 MAIN = the six dials that decide a card; everything else is one tap away, never on top
+  // ⚙ POP-OUT (owner: "make a popout for configs so it has more space and understanding"): a rail of sections on the left, one
+  // section at a time on the right. ⭐ Main = the six dials (+ ladder / meta); the rest are the old tabs; 💵 Wallet = the wallet-wide caps.
+  const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState('main');
+  const adv = tab !== 'main' && tab !== 'wallet'; const grp = tab;
+  useEffect(() => { if (!open) return undefined; const k = e => e.key === 'Escape' && setOpen(false); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [open]);
   const sub = t => <h5 className="m-label ce-sub" key={`h-${t}`}>{t}</h5>;
   const on = k => Number(cfg?.[k]) > 0;   // a setting's follow-up rows show only while it is switched on (less to read)
   const trenchOn = String((cfg?.cycles || {})[c.tpl] || '').split(',').includes('trench');
-  return <details className="hrt-edit" data-testid="card-editor"><summary>⚙ Edit Fuse {real ? '· this card’s own settings' : locked ? '· 🔒 locked — edits change only this Fuse' : '· this card\'s own exits, patience + hold · shape is shared'}</summary>
-    {adv && <div className="m-seg ce-tabs" role="tablist" aria-label="Config groups">{CFG_GROUPS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={grp === k} className={grp === k ? 'active' : ''} data-tip={tip} onClick={() => setGrp(k)} data-testid={`ce-tab-${k}`}>{l}</button>)}</div>}
-    <div className="ce-group" key={adv ? grp : 'main'} data-testid={`ce-pane-${adv ? grp : 'main'}`}>
+  const tabs = [['main', '⭐ Main', 'The six dials that decide a card'], ...CFG_GROUPS, ...(real ? [['wallet', '💵 Wallet caps', 'Hard caps on every real buy and sell — not just this card']] : [])];
+  const health = seatHealth(c, cfg);
+  const mins = Math.round((cfg?.rotateHours || 0) * 60);
+  const chips = [['⏱', mins >= 60 ? `${Math.round(mins / 60)}h rounds` : `${mins}m rounds`], ['🪙', cfg?.coins ? `${cfg.coins} coins` : 'auto coins'], ['🛑', cfg?.sl ? `stop −${cfg.sl}%` : 'tier stop'],
+    ['❄', cfg?.rideAt ? `lock +${cfg.rideAt}%` : 'no lock'], ...(real && ladder?.on ? [['🪜', ladder.name]] : [])];
+  if (!open) return <div className="hrt-edit" data-testid="card-editor"><button type="button" className="cep-open" onClick={() => setOpen(true)} data-testid="ce-open">
+    <b>⚙ Edit Fuse</b><small>{real ? 'this card’s own settings' : locked ? '🔒 locked — edits change only this Fuse' : 'this card\'s own exits, patience + hold · shape is shared'}</small><span className="cep-chips">{chips.map(([i, t]) => <i key={t}>{i} {t}</i>)}</span>
+    {health && <em className="cep-warn" data-testid="ce-seat-warn">🪑 {health.short}</em>}</button></div>;
+  return <div className="hrt-edit" data-testid="card-editor">{createPortal(<div className="cep-shade" role="presentation" onClick={() => setOpen(false)}>
+    <section className={`cep ${real ? 'is-real' : ''}`} role="dialog" aria-modal="true" aria-label="Edit Fuse" onClick={e => e.stopPropagation()} data-testid="ce-pop">
+    <header className="cep-head"><span className="cep-title"><b>⚙ EDIT FUSE</b><small>{c.label} · {real ? 'this card’s own settings' : locked ? '🔒 locked — edits change only this Fuse' : 'this card\'s own exits, patience + hold · shape is shared'}</small></span>
+      <span className="cep-chips">{chips.map(([i, t]) => <i key={t}>{i} {t}</i>)}</span>
+      <button type="button" className="cep-x" onClick={() => setOpen(false)} aria-label="Close" data-testid="ce-close">×</button></header>
+    <div className="cep-body">
+    <nav className="cep-rail" role="tablist" aria-label="Config sections">{tabs.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`ce-tab-${k}`}><b>{l}</b><small>{tip}</small></button>)}</nav>
+    <div className="cep-pane">
+    {health && <div className="cep-health" data-testid="ce-seat-health"><span><b>🪑 {health.short}</b><small>{health.why}</small></span>
+      {health.fix && <button type="button" className="m-btn primary m-go" disabled={busy} onClick={() => save(health.fix.patch)} data-testid="ce-seat-fix">{health.fix.label}</button>}</div>}
+    {tab === 'wallet' && <div className="ce-group" data-testid="ce-pane-wallet"><p className="m-note">Not this card — hard caps on EVERY real buy and sell the Fuse wallet makes.</p><TypedLimits keeper={keeper} busy={busy} save={save} /></div>}
+    {tab !== 'wallet' && <div className="ce-group" key={tab} data-testid={`ce-pane-${tab}`}>
       {!adv && real && ladder && <LadderCard l={ladder} busy={busy} onToggle={v => save({ ladder: v })} />}
       {!adv && real && meta && !ladder?.on && <div className={`ce-meta is-${meta.key}`} data-testid="meta-card"><span><b>{meta.name}</b><small> · built for {Math.round((cfg?.rotateHours || 0) * 60)}-minute rounds · your card's own variant</small><p>{meta.why}</p></span>
         {(() => { const onNow = Object.entries(meta.patch).every(([k, v]) => String(cfg?.[k]) === String(v) || Number(cfg?.[k]) === Number(v));
@@ -484,11 +506,26 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest, meta, ladder 
         {sub('A WINNING COIN')}{rows(['rideAt', ...(on('rideAt') ? ['rideTrail', 'trailStep', 'peakSellPct', 'rideEnd', 'lockBankPct', 'comeback', 'fedRidePct', 'secondTicketPct'] : []), 'tp', 'keepWinPct'])}
         {sub('TAKING PROFIT AUTOMATICALLY')}{rows(['skimAt', 'skimTo', ...(cfg?.skimTo === 'round' ? ['skimHoldRounds'] : []), 'stackSkimUsd', 'recyclePct', ...(on('recyclePct') ? ['recycleEvery'] : []), 'tpStakeUsd'])}</>}
       {adv && grp === 'safety' && rows(['floorPct', ...(Number(cfg?.floorPct) > 0 ? ['floorRestMins'] : []), 'rescuePct', ...(real ? ['pickVerify', 'youngTicket', ...(cfg?.youngTicket !== false ? ['ticketRide'] : []), 'tpStakeUsd', 'rebuyDipPct'] : []), 'autoBrain'])}
-    </div>
-    <small className="m-dim">{real ? 'These settings belong to this card only — engine tunes and paper edits never change them.' : 'Clock, exits, patience and hold are this card\'s own (no two cards share them); shape, floor and safety are shared by every paper tier that isn\'t 🔒 locked.'}</small>
-    <button type="button" className="m-btn ce-adv" onClick={() => setAdv(a => !a)} aria-expanded={adv} data-testid="ce-adv">{adv ? '‹ Back to the main dials' : `⚙ All ${EDIT.length} settings`}</button>
-    {real && <details className="ce-wallet" data-testid="ce-wallet"><summary>💵 Fuse wallet limits <small>not this card — hard caps on EVERY real buy and sell</small></summary>
-      <TypedLimits keeper={keeper} busy={busy} save={save} /></details>}</details>;
+    </div>}
+    </div></div>
+    <footer className="cep-foot"><small className="m-dim">{real ? 'These settings belong to this card only — engine tunes and paper edits never change them.' : 'Clock, exits, patience and hold are this card\'s own (no two cards share them); shape, floor and safety are shared by every paper tier that isn\'t 🔒 locked.'} Saved on tap · applies from the next tick · Esc closes.</small></footer>
+    </section></div>, document.body)}</div>;
+}
+
+// 🪑 SEATS HEALTH: a card set to N coins that holds fewer — read its own pipeline (how many coins survive each filter) and name the step
+// that left nothing. The owner's own filter is never changed for them: the button only offers the looser value, one tap.
+export function seatHealth(c, cfg) {
+  const want = Number(cfg?.coins) || 0; const have = (c?.legs || []).filter(l => !l.placeholder).length;
+  if (!want || have >= want) return null;
+  const steps = c?.pipeline?.steps || [];
+  let kill = null;
+  for (let i = 1; i < steps.length; i += 1) if (Number(steps[i][1]) === 0 && Number(steps[i - 1][1]) > 0) { kill = [steps[i][0], steps[i - 1][1]]; break; }
+  const empty = want - have;
+  if (!kill) return { short: `${empty} empty seat${empty > 1 ? 's' : ''} — waiting for a coin that clears your settings`, why: 'The engine re-checks every tick; your own picks fill a seat at once.' };
+  const vital = /vital filter/.test(kill[0]);
+  return { short: `${empty} empty seat${empty > 1 ? 's' : ''} — “${kill[0]}” stops the last ${kill[1]} coin${kill[1] > 1 ? 's' : ''}`,
+    why: vital ? `Your filter asks for grade ${cfg?.vitalMin >= 65 ? 'B+' : cfg?.vitalMin || 'any'} and ${cfg?.organicMin || 0}%+ organic flow — few launch coins reach that.` : 'That step is one of your own settings; loosen it or pick a coin by hand.',
+    fix: vital ? { label: 'Loosen to C+ · 10% organic', patch: { vitalMin: 50, organicMin: 10 } } : null };
 }
 
 const SHAPE = { anchor: ['⚓', 'anchor', '3 majors + a new major'], mixed: ['⚖', 'mixed', '2 majors + a new major + a runner'], degen: ['🔥', 'degen', '1 major + 3 runners'],

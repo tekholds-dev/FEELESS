@@ -1,0 +1,43 @@
+/* ⚙ Edit Fuse POP-OUT (ArenaPrime CardEditor): launcher button on the card, then a portal panel — rail of sections + one roomy pane. m-* tokens. */
+.cep-open { width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 9px 12px; border-radius: 12px; cursor: pointer; text-align: left;
+  border: 1px solid color-mix(in srgb, var(--m-accent, #15d16a) 40%, transparent); background: linear-gradient(120deg, rgba(21, 209, 106, .1), rgba(110, 60, 255, .08) 60%, rgba(0, 0, 0, .2));
+  color: #e7fff3; font: 11px "JetBrains Mono", monospace; transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; }
+.cep-open:hover, .cep-open:focus-visible { transform: translateY(-1px); border-color: #45e486; box-shadow: 0 0 18px rgba(21, 209, 106, .3); outline: none; } .cep-open:active { transform: translateY(0); }
+.cep-open > b { font-size: 12px; letter-spacing: .14em; color: #45e486; } .cep-open > small { color: var(--m-dim, #8fb3a0); flex: 1 1 200px; min-width: 0; }
+.cep-chips { display: flex; flex-wrap: wrap; gap: 4px; } .cep-chips i { font-style: normal; font: 600 10px "JetBrains Mono", monospace; padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .12); background: rgba(0, 0, 0, .25); white-space: nowrap; }
+.cep-warn { flex-basis: 100%; font-style: normal; color: var(--gold, #f5c451); font-size: 10.5px; }
+.cep-shade { position: fixed; inset: 0; z-index: 1150; display: grid; place-items: center; padding: 16px; background: rgba(2, 6, 4, .6); animation: cepFade .16s ease both; }
+.cep { position: relative; width: min(1080px, 100%); height: min(86vh, 860px); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; border-radius: 18px;
+  border: 1px solid rgba(69, 228, 134, .4); background: radial-gradient(120% 80% at 0% 0%, rgba(21, 209, 106, .12), transparent 55%), radial-gradient(90% 70% at 100% 100%, rgba(124, 77, 255, .14), transparent 60%), #050b08;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .7), inset 0 1px 0 rgba(255, 255, 255, .06); animation: cepIn .18s ease both; }
+.cep.is-real { border-color: rgba(245, 196, 81, .45); }
+.cep-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 14px 16px; border-bottom: 1px solid rgba(255, 255, 255, .07); }
+.cep-title { display: grid; flex: 1 1 260px; min-width: 0; } .cep-title b { font: 400 18px var(--fz-font, "JetBrains Mono"), monospace; letter-spacing: .08em; color: #45e486; text-shadow: 0 0 14px rgba(21, 209, 106, .45); }
+.cep-title small { font: 11px "JetBrains Mono", monospace; color: var(--m-dim, #8fb3a0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cep-x { width: 32px; height: 32px; border-radius: 9px; border: 1px solid rgba(255, 255, 255, .14); background: rgba(255, 255, 255, .04); color: #cfe3d8; font-size: 18px; cursor: pointer; transition: border-color .15s ease, transform .15s ease; }
+.cep-x:hover, .cep-x:focus-visible { border-color: #45e486; color: #fff; outline: none; } .cep-x:active { transform: translateY(1px); }
+.cep-body { display: grid; grid-template-columns: 210px minmax(0, 1fr); min-height: 0; }
+.cep-rail { display: grid; align-content: start; gap: 4px; padding: 12px 10px; border-right: 1px solid rgba(255, 255, 255, .06); overflow-y: auto; scrollbar-width: thin; scrollbar-color: #15d16a66 transparent; }
+.cep-rail button { display: grid; gap: 2px; padding: 9px 10px; border-radius: 10px; border: 1px solid transparent; background: none; color: #cfe3d8; text-align: left; cursor: pointer; transition: background .15s ease, border-color .15s ease, transform .15s ease; }
+.cep-rail button b { font: 700 12px "JetBrains Mono", monospace; } .cep-rail button small { font-size: 10px; line-height: 1.3; opacity: .6; }
+.cep-rail button:hover, .cep-rail button:focus-visible { background: rgba(21, 209, 106, .08); border-color: rgba(21, 209, 106, .3); outline: none; } .cep-rail button:active { transform: translateY(1px); }
+.cep-rail button.active { background: #15d16a; color: #04130b; border-color: #45e486; box-shadow: 0 0 16px rgba(21, 209, 106, .35); } .cep-rail button.active small { opacity: .8; }
+.cep-pane { min-height: 0; overflow-y: auto; padding: 12px 18px 16px; scrollbar-width: thin; scrollbar-color: #15d16a66 transparent; }
+.cep-pane::-webkit-scrollbar, .cep-rail::-webkit-scrollbar { width: 6px; } .cep-pane::-webkit-scrollbar-thumb, .cep-rail::-webkit-scrollbar-thumb { background: #15d16a66; border-radius: 6px; }
+.cep-pane .ce-group { margin: 0; padding: 4px 14px; border-radius: 14px; background: rgba(0, 0, 0, .25); }
+.cep-pane .ce-row { padding: 12px 4px; transition: background .15s ease; border-radius: 8px; } .cep-pane .ce-row:hover { background: rgba(255, 255, 255, .025); }
+.cep-pane .ce-row b { font-size: 13px; }
+.cep-health { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; margin: 0 0 10px; padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(245, 196, 81, .5); background: rgba(245, 196, 81, .08); }
+.cep-health > span { display: grid; gap: 2px; flex: 1 1 280px; min-width: 0; } .cep-health b { color: var(--gold, #f5c451); font-size: 12.5px; } .cep-health small { font-size: 11px; color: var(--m-dim, #8fb3a0); }
+.cep-foot { padding: 10px 16px; border-top: 1px solid rgba(255, 255, 255, .06); } .cep-foot small { font-size: 10.5px; }
+@keyframes cepIn { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes cepFade { from { opacity: 0; } to { opacity: 1; } }
+body.fx-lite .cep, body.fx-lite .cep-shade { animation: none; }
+@media (prefers-reduced-motion: reduce) { .cep, .cep-shade { animation: none; } .cep-open, .cep-rail button, .cep-x { transition: none; } }
+body.theme-day .cep { background: linear-gradient(160deg, #f4faf6, #ece8fb); border-color: #b9dcc8; } body.theme-day .cep-title b { color: #0b7a4a; text-shadow: none; }
+body.theme-day .cep-rail button { color: #1d4a33; } body.theme-day .cep-rail button.active { background: #0b7a4a; color: #fff; } body.theme-day .cep-pane .ce-group { background: rgba(255, 255, 255, .7); }
+body.theme-day .cep-open { background: linear-gradient(120deg, #e7f6ee, #eee9fb); color: #0e2c1d; } body.theme-day .cep-open > b { color: #0b7a4a; } body.theme-day .cep-chips i { background: #fff; border-color: #cfe6da; }
+body.theme-day .cep-x { color: #1d4a33; border-color: #c6dccf; } body.theme-day .cep-health b { color: #8a6100; }
+@media (max-width: 760px) { .cep-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); } .cep-rail { display: flex; overflow-x: auto; border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+  .cep-rail button { flex: none; } .cep-rail button small { display: none; } }
+@media (max-width: 640px) { .cep-shade { padding: 0; } .cep { border-radius: 0; height: 100vh; } .cep-pane { padding: 10px; } }

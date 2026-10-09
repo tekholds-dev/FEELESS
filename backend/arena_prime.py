@@ -765,7 +765,7 @@ def meta_for(rotate_hours, seed=0):
 # playbook climbs with the card (cfg `ladder`, the owner's switch): each STAGE is a whole patch, built from options the editor already
 # offers (clean_cfg keeps every value — test). Up a stage only at its floor, down only under 80% of it (no flapping on one candle).
 LADDER = (
-    ('trench', 0.0, '🗑 TRENCH', '5-min rounds on new coins: a 20% scout hunts, small winners lock at +15% and bank a third, 30% stop on tickets.',
+    ('trench', 0.0, '🗑 TRENCH', '5-min rounds on new coins: a 20% scout hunts, small winners lock at +15% and bank a third, a 15% stop.',
      {'rotateHours': 0.08, 'coins': 3, 'scoutPct': 20, 'newOnly': True, 'trenchAuto': True, 'trenchCoins': 1, 'trenchStakePct': 15,
       'trenchHouseAt': 100, 'runnerMinAgeH': 1, 'runnerMinVolK': 50, 'runnerMinChg1h': 20, 'runnerMinLiqK': 25, 'runnerMinBuy': 55,
       'rideAt': 15.0, 'rideTrail': 8.0, 'trailStep': True, 'lockBankPct': 33.0, 'skimAt': 20.0, 'sl': 15.0, 'minHoldMins': 15.0}),

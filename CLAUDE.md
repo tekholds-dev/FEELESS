@@ -2340,3 +2340,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   20% scout, lock +15 / 8%, stop 15) · 🏃 RUNNER $10+ (15m, hunt line) · 🎯 SNIPER $100+ (30m, $100K pools, buyers 65%) · 🐋 BLUE-CHIP $1K+ (1h, majors
   anchor) · 👑 MAJORS $10K+ (1h, 6 coins, safe cycle). Stage = value at the last bell; up at the floor, down under 80% of it. Every value is an editor
   option (test). While on, the stage's keys beat the owner's own for those keys; everything else stays theirs. Plan for the size — not a proven edge.
+- ⚙ EDIT FUSE = A POP-OUT (owner, 2026-10-08: "more space and understanding, meta + degen styling"; `CardEditor` in ArenaPrime, `styles/configPop.css`
+  `cep-*`): on the card only a launcher (`ce-open`: live chips — clock · coins · stop · lock · ladder stage — + a seat warning); the portal panel has a
+  RAIL of sections (⭐ Main · 🎯 Setup · 🪙 Coins · ⏱ Rounds · ⚡ Exits · 🧱 Safety · 💵 Wallet caps, real card) and ONE roomy pane; Esc / outside closes.
+  The old tab row, "All N settings" button and wallet `details` are gone (their CSS removed). 🪑 `seatHealth(c, cfg)` reads the card's own pipeline and
+  names the step that leaves an empty seat with nothing; when it is the owner's vital filter it offers ONE tap to C+ · 10% organic (never applied
+  for them). 2026-10-08: card set to 4 coins held 3 — 4 coins cleared everything, the owner's B+ / 30% organic filter removed all 4.
