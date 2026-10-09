@@ -2548,3 +2548,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   → its own flow_proof record); `_bangers` skips dump / climax and puts burst / absorb first (tagged); picker rows carry `tape` (top
   `PICK_TAPE_TOP` 12, one batched `_flow_fetch`) and `entry` ('clean' or the gate's reason) → chips `sp-tape-*` / `sp-entry-*`.
 - 🤖 `entry_gate`: organic < 5% (`ENTRY_MIN_ORGANIC`, vital `organicPct`) = "bots" — $LOOT read BUY THE DIP on 2% organic volume.
+- 🌊 TAPE BUDGET (2026-10-09): Helius hit "max usage reached" → every tape read goes through `candles_service._rpc_trades` (getSignatures +
+  a getTransaction batch). Picker rows reading the tape for 12 coins × 11 tracked lists every 2 min spent every RPC lane; all lanes were
+  benched (`_tape_bad` 60s) and the REAL card's flow exit + rug radar went blind ("provider unavailable"). Picker `tape` is now CACHE ONLY
+  (`_flow_now` ≤ 60s, filled by the card / bangers / quick look); `TAPE_NEW` 25 → 10. Never add a per-list-row tape FETCH again.
+  "PROVIDER UNAVAILABLE" ON THE TAPE ⇒ check Helius quota (`api.helius.xyz … 429 max usage`) and `_tape_bad` before anything else.

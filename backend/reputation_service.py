@@ -3106,14 +3106,14 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
     _fd_rows(live)
     # 🌊 LIVE TAPE + 🎯 CLEAN ENTRY on the rows a picker actually looks at: the last 90s read (⚡ burst · 🧲 absorb · 🏔 climax · 🩸 dump ·
     # ➖ calm) for the top PICK_TAPE_TOP, and the engine's own clean-entry verdict ("clean" or the reason) on every non-trench row
-    try:
-        fl_r = await _flow_fetch([r.get('pairAddress') for r in live[:PICK_TAPE_TOP] if r.get('pairAddress')])
-        for r in live[:PICK_TAPE_TOP]:
-            t_ = _flow.tape_read(fl_r.get(r.get('pairAddress')))
-            if t_:
-                r['tape'] = t_
-    except Exception:
-        pass
+    # CACHE ONLY: the tape costs a getSignatures + up to 10 transactions per coin; reading 12 coins × 11 tracked lists every 2 min spent
+    # every RPC lane in minutes (2026-10-09) and blinded the real card's own flow exit + rug radar. Picker rows show the tape the card /
+    # the banger doors / the quick look already read (≤ 60s old); the RPC budget stays with the coins that hold money.
+    for r in live[:PICK_TAPE_TOP]:
+        at_, w_ = _flow_now.get(r.get('pairAddress')) or (0, None)
+        t_ = _flow.tape_read(w_) if w_ and time.time() - at_ < 60 else None
+        if t_:
+            r['tape'] = t_
     if lens != 'trench':
         for r in live:
             r['entry'] = _prime.entry_gate({**r, 'liq': r.get('liq') or r.get('liquidityUsd'), 'chg1h': r.get('chg1h') if r.get('chg1h') is not None else r.get('change1h'),

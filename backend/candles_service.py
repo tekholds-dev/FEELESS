@@ -886,7 +886,7 @@ def parse_rpc_swap(tx, base, price_usd, sol_usd, pool=None):
 
 _tape_rows: dict = {}   # signature -> parsed row (None = not a swap): a transaction is read ONCE, later refreshes fetch only new ones
 _tape_bad: dict = {}    # rpc url -> skip until (it refused / is out of quota)
-TAPE_NEW = 25           # new transactions read per refresh
+TAPE_NEW = 10           # new transactions read per refresh (25 × every coin spent the RPC lanes once Helius ran out)
 
 
 def tape_lanes(pool_urls, keeper_lanes):
