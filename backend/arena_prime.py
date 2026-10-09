@@ -1569,7 +1569,7 @@ def rush_score(r):
     tv = r.get('tv') or {}
     rug = _f(r.get('rug') if r.get('rug') is not None else tv.get('rug'))
     c5 = _f(r.get('chg5m'))
-    if r.get('safe') is not True or ((tv.get('call') or [None, None])[1]) in RUSH_BAD or rug >= 50 or c5 > 15:
+    if r.get('safe') is not True or ((tv.get('call') or [None, None])[1]) in RUSH_BAD or rug >= 50 or c5 > 15 or c5 < -5:   # a +15% candle = a top · −5% = falling now
         return None
     return round(20 + _f((r.get('brain') or {}).get('est')) + _f(tv.get('heat')) * 0.3 - rug * 0.4
                  + (c5 if c5 > 0 and _f(r.get('buyShare')) >= 55 else 0) + (5 if r.get('site') and r.get('x') else 0), 1)

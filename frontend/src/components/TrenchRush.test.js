@@ -5,6 +5,7 @@ test('rush board: failed scans and busted / wash reads never show, the cleanest 
   expect(rushScore(row('F', { safe: false }))).toBeNull();
   expect(rushScore(row('W', { tv: { heat: 90, rug: 10, call: ['🧪', 'WASH TRADED'] } }))).toBeNull();
   expect(rushScore(row('R', { rug: 60 }))).toBeNull();
+  expect(rushScore(row('K', { chg5m: -28 }))).toBeNull();   // falling right now = never rushed
   const top = rushTop([row('A'), row('U', { safe: null }), row('B', { brain: { est: 20 } }), row('C', { chg5m: 40 }), row('F', { safe: false })]);
   expect(top.map(r => r.symbol)).toEqual(['B', 'A', 'U']);   // the brain's learned play lifts B · a +40% 5m candle is a top (never rushed) · F never
   expect(top[0].rush).toBeGreaterThan(top[1].rush);

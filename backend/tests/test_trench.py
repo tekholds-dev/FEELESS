@@ -439,5 +439,5 @@ def test_rush_score_mirrors_the_board():
     assert ap.rush_score(row()) == 20 + 18 - 8 + 4 + 5
     assert ap.rush_score(row(safe=None)) is None and ap.rush_score(row(safe=False)) is None   # the engine never buys an unscanned coin
     assert ap.rush_score(row(tv={'heat': 90, 'rug': 10, 'call': ['🧪', 'WASH TRADED']})) is None
-    assert ap.rush_score(row(chg5m=20)) is None and ap.rush_score(row(rug=55)) is None
+    assert ap.rush_score(row(chg5m=20)) is None and ap.rush_score(row(rug=55)) is None and ap.rush_score(row(chg5m=-28)) is None
     assert ap.rush_score(row(brain={'est': 12})) == ap.rush_score(row()) + 12

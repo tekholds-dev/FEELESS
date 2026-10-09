@@ -49,3 +49,13 @@ def test_hand_swap_takes_best_list_first_then_only_clean_coins(monkeypatch):
     rows = [row('W', chg1h=300), row('B'), row('C', vol1h=60_000), row('R'), row('H'), row('P', chg5m=9), row('OK'), row('Z')]
     out = [x['mint'] for x in rs._swap_clean(rows)]
     assert out == ['Z', 'OK', 'C']          # 🏆 Best first · wash / blow-off / rug bait / rug meter 70 / mid-candle chase all out · busiest first
+
+
+def test_open_rows_in_the_trench_tab_keep_their_scan_result(monkeypatch):
+    import reputation_service as rs
+    board = [{'mint': 'S', 'symbol': 'S', 'price': 1.0, 'safe': True, 'front': 50, 'vol5m': 4000, 'txns1h': 300}, {'mint': 'F', 'symbol': 'F', 'price': 1.0, 'safe': False, 'front': 40}]
+    monkeypatch.setattr(rs, '_open_board', lambda: [dict(x) for x in board])
+    monkeypatch.setattr(rs, '_open_pairs', [1])
+    out = asyncio.run(rs._fuse_trench_raw(''))
+    got = {r['mint']: r.get('safe') for r in out['rows'] if r.get('open')}
+    assert got.get('S') is True and got.get('F') is False                  # the ⚡ Rush board needs to know which passed

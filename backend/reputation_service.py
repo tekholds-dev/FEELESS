@@ -7042,6 +7042,9 @@ async def fuse_trench(meta: str = Query('', max_length=20)):
             if 'tv' not in r:
                 t_ = _ja.trench_verdict((_jup_facts.get(r.get('mint') or r.get('baseAddress')) or (0, None))[1], r)
                 r['tv'] = {**t_, 'kind': 'trench', 'meters': [['🔥 HEAT', t_['heat']], ['☠ RUG', t_['rug']]]}
+        for r in out['rows']:   # a trench-gate pass cleared every safety check
+            if r.get('ok') and r.get('safe') is None:
+                r['safe'] = True
         b_ = _brain_state()   # 🧠 the trench brain lives IN the trench tab: every row carries its learned play; once it has judged
         for r in out['rows']:  # enough coins the list is ordered by it (safety first: failed scans never move up)
             sc_ = _tb.score(r, b_['tbl'])
@@ -7090,7 +7093,7 @@ async def _fuse_trench_raw(meta=''):
     # launch coin the feed sees, front-runners first, each with what it has not passed. Pickable by hand; never auto-seated.
     for r in (_open_board() if _open_pairs else []):
         if r.get('mint') not in seen_m:
-            seen_m.add(r.get('mint')); extra_u.append({**{k: r.get(k) for k in keys}, 'chg5m': r.get('chg5m'), 'chg1h': r.get('chg1h'), 'score': r.get('front'), 'soft': True, 'open': True, 'fails': r.get('fails')})
+            seen_m.add(r.get('mint')); extra_u.append({**{k: r.get(k) for k in keys}, 'chg5m': r.get('chg5m'), 'chg1h': r.get('chg1h'), 'score': r.get('front'), 'soft': True, 'open': True, 'fails': r.get('fails'), 'safe': r.get('safe'), 'vol5m': r.get('vol5m'), 'txns1h': r.get('txns1h'), 'logo': r.get('logo')})   # the scan result travels (the ⚡ Rush board read every open coin as unscanned)
     return {'cfg': own, 'metas': board, 'options': _trench.OWN_OPTIONS, 'checked': [{k: r.get(k) for k in keys} for r in _trench_cache.get('checked') or []], 'pass': len(_trench_cache.get('rows') or []),
             'inBand': sum(1 for r in _runner_cands if not _trench.band_miss(r, g)), 'nearMiss': sum(1 for x in extra_u if not x.get('outside')),
             'rows': [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'trench': True} for r in _trench_cache.get('rows') or []] + extra_u,
