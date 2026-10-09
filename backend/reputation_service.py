@@ -6827,7 +6827,8 @@ async def _prime_candidates():
 
 import contenders as _ct
 
-_contenders_cache: dict = {'at': 0.0, 'data': None}
+_contenders_cache: dict = {'at': 0.0, 'data': None, 'boot': True}
+CONTENDERS_SNAPSHOT_PATH = DATA_DIR / 'contenders_snapshot.json'
 _contenders_lock = asyncio.Lock()
 
 
@@ -6837,6 +6838,10 @@ CONTENDERS_STALE_SEC = 600   # ⚡ a copy this old is still SERVED at once while
 async def _contenders_build(fresh=False):
     """⚡ Never make a viewer wait for the rebuild (it took 0.4–4.4s every time the 30s copy ran out): a copy ≤ 10 min old is answered
     at once and ONE background rebuild starts. No copy yet (cold start) or `fresh` (the warm loop) → build and wait."""
+    if _contenders_cache.pop('boot', False) and not _contenders_cache['data']:   # ⚡ first call after a restart: last league from disk (13s cold)
+        snap_ = _launchpad_board.launchpad_board_snapshot(CONTENDERS_SNAPSHOT_PATH, 'league', time.time())
+        if snap_:
+            _contenders_cache.update(at=time.time() - max(30.0, snap_[0]), data=snap_[1])
     d_, age = _contenders_cache['data'], time.time() - _contenders_cache['at']
     if d_ and not fresh and age < CONTENDERS_STALE_SEC:
         if age >= 30 and not _contenders_lock.locked():
@@ -6884,6 +6889,12 @@ async def _contenders_rebuild():
         data = {**_ct.league(src, on_card, _contenders_cache.get('data')), 'at': now, 'weather': _real_weather(),
                 'all': _ct.everyone(src, on_card)}   # 🏁 every ranked coin in one list → the swap picker's Arena lens
         _contenders_cache.update(at=now, data=data)
+        if data and now - _contenders_cache.get('savedAt', 0) >= 60:
+            _contenders_cache['savedAt'] = now
+            try:
+                await asyncio.to_thread(_launchpad_board.save_board_snapshot, CONTENDERS_SNAPSHOT_PATH, 'league', data, {}, now)
+            except Exception:
+                pass
         return data
 
 

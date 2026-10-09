@@ -2442,7 +2442,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   backend push). Now stale-while-revalidate: `_contenders_build` (copy ≤ 10 min answered, ONE background `_contenders_rebuild`; warm
   loop passes `fresh=True`), `_arena_mega` (≤ 10 min, background rebuild under `_FUSE_FORCE`), launch board snapshot on disk
   (`launchpad_board.save_board_snapshot/launchpad_board_snapshot`, `data/board_snapshot.json`, ≤ 15 min, written ≤ 1/min per kind) served
-  stale on a cold start; the Arena stage the same way (`ARENA_SNAPSHOT_PATH`, read once on boot only — an admin clear never restores it). (2) The owner's Chrome runs the DEV server (`craco start`): unminified 2.7 MB JS, StrictMode mounts every poller
+  stale on a cold start; the Arena stage + contenders league the same way (`ARENA_SNAPSHOT_PATH`, `CONTENDERS_SNAPSHOT_PATH`, read once on boot only — an admin clear never restores it). (2) The owner's Chrome runs the DEV server (`craco start`): unminified 2.7 MB JS, StrictMode mounts every poller
   twice. ⚡ FAST MODE = `bash scripts/serve-fast.sh` → production build on :51368 (`scripts/fast-server.js`, same proxy as setupProxy.js —
   change both), rebuilt on new commits (reload to see it): JS 899 KB, DOM ready 67 ms vs 328, load 183 ms vs 862. New port = new origin
   (connect the wallet / sign in to HQ once there). The dev server stays for development.

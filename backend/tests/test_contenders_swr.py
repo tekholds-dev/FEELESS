@@ -46,3 +46,23 @@ def test_arena_stage_is_served_from_disk_on_the_first_call_after_a_restart(monke
         assert rs._arena_mega_cache.get('boot') is None         # … and the old disk copy is never put back
     asyncio.run(run())
     rs._arena_mega_cache.clear(); rs._arena_mega_cache.update(at=0.0, data=None)
+
+
+def test_contenders_league_is_served_from_disk_on_the_first_call_after_a_restart(monkeypatch):
+    import reputation_service as rs
+    import launchpad_board as lb
+    lb.save_board_snapshot(rs.CONTENDERS_SNAPSHOT_PATH, 'league', {'divisions': [], 'all': [{'mint': 'M'}]}, {}, time.time() - 200)
+    calls = []
+
+    async def fake_rebuild():
+        calls.append(1); return {'fresh': True}
+    monkeypatch.setattr(rs, '_contenders_rebuild', fake_rebuild)
+
+    async def run():
+        rs._contenders_cache.clear(); rs._contenders_cache.update(at=0.0, data=None, boot=True)
+        got = await rs._contenders_build()
+        assert got['all'] == [{'mint': 'M'}]                    # the last league, at once
+        await asyncio.sleep(0)
+        assert calls                                             # … while a fresh one builds
+    asyncio.run(run())
+    rs._contenders_cache.clear(); rs._contenders_cache.update(at=0.0, data=None)
