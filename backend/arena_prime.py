@@ -503,6 +503,8 @@ def clean_cfg(p):
     out['topSeat'] = bool((p or {}).get('topSeat', False))   # 🔥 the TOP 1/3 coin takes the weakest seat by itself (one per 10 min); buys-vs-sells gets it out
     out['proCallEntry'] = bool((p or {}).get('proCallEntry', False))   # 🎯 trench seats take a PROVEN caller's fresh call first, while still near the called cap
     out['trenchBrain'] = bool((p or {}).get('trenchBrain', True))     # 🧠 trench seats take the brain's learned picks first — only once its walk-forward proof holds
+    out['trenchRush'] = bool((p or {}).get('trenchRush', False))   # ⚡ RUSH: the trench drop takes the Rush board's coin, every `trenchEvery` min, and may take a losing un-frozen pick's seat
+    out['trenchEvery'] = int(_f((p or {}).get('trenchEvery'))) if int(_f((p or {}).get('trenchEvery'))) in TRENCH_EVERY else 30
     out['trenchSendOnly'] = bool((p or {}).get('trenchSendOnly', False))   # 🔥 the trench drop takes ONLY 🔥 SEND IT coins (the only trench read with a positive record) — none → it waits
     out['sendItAuto'] = bool((p or {}).get('sendItAuto', True))   # 🔥 the engine may take SEND IT coins as trench tickets — only once that call is PROVEN
     out['trenchSlAuto'] = bool((p or {}).get('trenchSlAuto', True))   # 🧠 tickets use the trench brain's learned stop once it has named one
@@ -1451,7 +1453,8 @@ SKIM_HOLDS = (1, 2, 3, 6)
 RECYCLE_PCTS = (0, 50, 70, 100)        # ♻ every `recycleEvery` rounds this % of each coin's PROFIT goes back over the card's coins (0 = off)
 RECYCLE_EVERY = (1, 2, 3, 4, 6, 12)
 TRENCH_VICTIM_USD = 0.10              # … in place of the weakest coin, which must be making no more than 10c
-TRENCH_DROP_SEC = 1800                # 🗑 a card on the trench cycle takes the best trench coin on the list every 30 minutes
+TRENCH_DROP_SEC = 1800                # 🗑 a card on the trench cycle takes the best trench coin on the list every 30 minutes (cfg `trenchEvery`)
+TRENCH_EVERY = (5, 10, 15, 30)        # minutes between trench drops (owner's choice; rush mode uses 10)
 SEAT_MIN_USD = 0.25                   # an empty seat is refilled once the card has at least this much free cash
 SKIM_MIN_USD = 0.05                   # a gain smaller than this isn't worth a swap
 
@@ -1555,6 +1558,21 @@ PICK_LOCKS = (0, 15, 30, 60)        # ⏳ cfg `pickLockMins`: 0 = off
 
 
 TRENCH_BAD_READS = ('BOND RUN', 'EARLY RUSH', 'RUG BAIT', 'DUMPING', 'SLOW CURVE', 'BREAKOUT', 'FALLING KNIFE')   # 1h records −13 … −84%
+RUSH_BAD = set(TRENCH_BAD_READS) | {'WASH TRADED', 'BLOW-OFF TOP', 'DEAD DIP', 'TREND DOWN'}
+
+
+def rush_score(r):
+    """⚡ The Rush board's score (mirrors `rushScore` in ArenaPrime.jsx — change both): None when the coin never rushes — the safety scan
+    did not PASS (the engine never buys an unscanned coin), a busted / wash / blow-off / down-trend read, rug ≥ 50, or > +15% in one
+    5-min candle. Else scan +20 + the brain's learned play + heat × 0.3 − rug × 0.4 + the 5-min move when buyers ≥ 55% + 5 with site & X."""
+    r = r or {}
+    tv = r.get('tv') or {}
+    rug = _f(r.get('rug') if r.get('rug') is not None else tv.get('rug'))
+    c5 = _f(r.get('chg5m'))
+    if r.get('safe') is not True or ((tv.get('call') or [None, None])[1]) in RUSH_BAD or rug >= 50 or c5 > 15:
+        return None
+    return round(20 + _f((r.get('brain') or {}).get('est')) + _f(tv.get('heat')) * 0.3 - rug * 0.4
+                 + (c5 if c5 > 0 and _f(r.get('buyShare')) >= 55 else 0) + (5 if r.get('site') and r.get('x') else 0), 1)
 TRENCH_RUG_MAX = 50   # ☠ rug meter at or above this = never a trench buy
 
 
@@ -2191,7 +2209,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         # 🔁 NO LOOP: one trench fill per round, and never on a coin bought moments ago. A trench coin that died on arrival was replaced
         # by a normal runner, which this fill sold seconds later for the next trench coin — 2 real swaps a minute, every minute.
         first_fill = c.get('trenchFillAt') is None   # a card that just switched to trench takes its coins at once; after that the loop guard applies
-        fill_due = first_fill or now - _f(c.get('trenchFillAt')) >= TRENCH_DROP_SEC   # 🗑 one trench drop every 30 min (owner's cadence; was once a round)
+        fill_due = first_fill or now - _f(c.get('trenchFillAt')) >= (_f(cfg.get('trenchEvery')) * 60 or TRENCH_DROP_SEC)   # 🗑 one trench drop every `trenchEvery` min (owner's cadence)
         cap_t = swap_cap(cfg, value(c, prices, liqs), len(c['legs']))
         if not first_fill and cap_t['cap'] and swaps_last_hour(c, now) >= cap_t['cap']:
             fill_due = False   # 🤖 the hourly cap covers trench fills too
@@ -2209,8 +2227,9 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 px = _f(prices.get(l['pairAddress'])); return (px / _f(l['entry']) - 1) * 100 if px > 0 and _f(l.get('entry')) > 0 else 0.0
             def profit(l):
                 px = _f(prices.get(l['pairAddress'])); return _f(l.get('units')) * (px - _f(l.get('entry'))) if px > 0 else 0.0
-            victims = [l for l in c['legs'] if l.get('role') == 'runner' and not l.get('frozen') and not l.get('ride')
-                       and not l.get('picked') and not l.get('placeholder') and (_f(l.get('units')) > 0 or l.get('buying')) and profit(l) <= TRENCH_VICTIM_USD
+            rush = bool(cfg.get('trenchRush'))   # ⚡ rush: the owner gave the engine the keys — a losing pick of theirs that is NOT frozen may give its seat
+            victims = [l for l in c['legs'] if (l.get('role') == 'runner' or rush) and not l.get('frozen') and not l.get('ride') and not l.get('house')
+                       and (rush or not l.get('picked')) and not l.get('placeholder') and l.get('mint') != SOL_MINT and (_f(l.get('units')) > 0 or l.get('buying')) and profit(l) <= TRENCH_VICTIM_USD
                        and (first_fill or l.get('buying') or now - _f(l.get('at')) >= hold_s)]
             if not nxt or not victims:
                 break

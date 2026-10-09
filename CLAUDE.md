@@ -2601,3 +2601,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🌊 CARD COIN ROWS = BUYS vs SELLS (owner, 2026-10-09: "green and red bar under each coin, if more red show a little green"): `LegFlow` in
   FuseCard replaces the 5-min heat bar on every Fuse card's live side — green = $ bought, red = $ sold (coin-edge `bs` 5m, else 1h; the
   split IS the share), plus a 📐 lean line (`lib/lean.js` `leanOf`, shared with the Rush board's `LeanLine`).
+- ⚡ RUSH MODE (owner, 2026-10-09: "upgrade engine to rush me — I'm trenching and giving the keys, open the door"; real cfg `trenchRush` +
+  `trenchEvery` 5/10/15/30, `_rush_fix_1009` → ON every 10 min, SEND-IT-only off): the trench drop takes `_rush_rows()` first = trench-gate
+  passes + open-list coins whose scan PASSED, scored by `arena_prime.rush_score` (mirror of `lib/lean.js` `rushScore` — change both; the
+  engine version refuses unscanned coins), and may take the seat of ANY coin not making ≥ 10c — the owner's picks included, ❄ frozen /
+  riding / house coins never. Why it never rushed before: all 4 seats were owner picks (never trench victims), 30-min cadence, SEND-IT-only.
+  Edit Fuse main pane = 1 · setup · 2 · THE CARD (clock, coins, hold, stop, floor, flow exit) · 3 · ⚡ TRENCH RUSH (rush, every, coins,
+  ticket, stop, 🏠); the rest live in their section once (Coins › 🗑 TRENCH). The SEND-IT-only row is gone.
+- 🚪 Split list v2 (`TrenchOpen`): 🔥 Hot = coins the rush rule would take, by rush score (it led with BOND RUN / EARLY RUSH / BREAKOUT, −84 /
+  −64 / −45% an hour); busted reads go to ☠ Avoid; 🆕 Newest has 🧹 Clean (default on: hides failed scans + rush-refused reads, "N hidden");
+  every card carries the green / red `BsBar`, a lean line and ⚡ Rush (one-tap pick in the picker). Split CSS lives in trenchSplit.css.

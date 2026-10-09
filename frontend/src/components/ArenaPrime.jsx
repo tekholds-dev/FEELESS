@@ -28,8 +28,8 @@ import { createPortal } from 'react-dom';
 import { BsBar } from './BsBar';
 import { SocialIcons } from './QuickPulse';
 import { useFloatPop } from '../lib/floatPop';
-import { leanOf } from '../lib/lean';
-export { leanOf };
+import { leanOf, rushScore, rushTop } from '../lib/lean';
+export { leanOf, rushScore, rushTop };
 import { FuseBanner, CallAlert } from './QuickPulse';
 import { PayMap } from './PayMap';
 
@@ -278,6 +278,8 @@ const EDIT = [
   ['rideTrail', '⇄ Then swap it off its peak', [[5, '−5%'], [8, '−8%'], [10, '−10%'], [15, '−15%'], [20, '−20%'], [30, '−30%']], 'A frozen coin is swapped for the best coin of its kind once it falls this far from its highest price (the gain moves into the new coin)'],
   ['tp', '🎯 Card take-profit', [[0, 'tier'], [25, '+25%'], [50, '+50%'], [100, '+100%'], [200, '+200%'], [300, '+300%']], "Every coin's take-profit on this card (a coin's own TP still wins). Tier = the tier's built-in TP"],
   ['sl', '🛑 Card stop', [[0, 'tier'], [10, '−10%'], [15, '−15%'], [20, '−20%'], [30, '−30%']], "Every coin's stop on this card (a coin's own stop still wins). Tier = the tier's built-in stop"],
+  ['trenchRush', '⚡ Trench rush', [[true, 'ON'], [false, 'off']], 'ON: the engine buys what the ⚡ Rush board shows — the cleanest trench coin whose holder scan PASSED (never unscanned, never a rug / wash / blow-off read, never a +15% 5-min candle), ranked by the brain\'s learned play, heat vs rug and live buying — every few minutes (below). It may take the seat of any coin that is not making money, YOUR picks included — ❄ frozen coins are never touched. Each one is a small ticket.'],
+  ['trenchEvery', '⏱ Rush every', [[5, '5m'], [10, '10m'], [15, '15m'], [30, '30m']], 'How often the engine may drop a new trench coin onto the card (it still waits for a seat that is not making money).'],
   ['trenchCoins', '🗑 Trench coins per card', [[1, '1'], [2, '2']], 'How many fresh trench breakouts the 🗑 trench cycle may hold at once. They are the riskiest coins on the site — 2 is the hard max.'],
   ['trenchStakePct', '🎟 Trench ticket size', [[10, '10%'], [15, '15%'], [25, '25%'], [0, 'full seat']], 'How much of the card goes into one trench / launch coin. The rest of that seat’s money goes back to card cash for your other coins, so one pulled launch costs a slice, not a seat.'],
   ['trenchHouseAt', '🏠 Take the initial out', [[0, 'off'], [30, 'at +30%'], [50, 'at +50%'], [100, 'at 2×'], [200, 'at 3×']], 'Trench coins, young hand picks and other small tickets: once the coin is up this much, what you put into it is sold out ONCE and only the profit keeps riding. A pulled pool can then only take profit, never your initial. The money goes where “Skim goes to” says (your other coins · parked · held as cash).'],
@@ -312,7 +314,6 @@ const EDIT = [
   ['topSeat', '🔥 Top 3 takes a seat by itself', [[true, 'on'], [false, 'off']], 'On: the coin your card shows as 🔥 TOP 1/3 (the busiest safe coin not on the card) takes the seat of your weakest coin that is not winning (+5% or less, held past your min hold, never a rider, frozen coin, house money or a coin still being bought). One per 10 minutes. It still needs the real-buy pool floor and must not be falling right now — and your 🌊 buys-vs-sells exit sells it when sellers take over.'],
   ['trenchBrain', '🧠 Trench: the brain picks first', [[true, 'on'], [false, 'off']], 'On: once the trench brain has PROVEN itself, a trench seat first takes its best learned coin. The brain watches every trench coin it sees and records which line it touched first — +50% (a hit: take it, on to the next) or −30% (a cut). It learns which looks hit first — single features and pairs (age × top-10, socials × buyers, curve × pace…) — and is trusted only when, on coins it never learned from, its top third played positive and beat its bottom third by 10+ points. Until then it is a list in the swap-in, never a buy.'],
   ['proCallEntry', '🎯 Trench: follow proven callers', [[true, 'on'], [false, 'off']], 'On: a trench seat first takes a coin a PROVEN Pump caller (3+ judged calls, typical 1.2×+, half or more up) called in the last 15 minutes — only while it is still within 15% of the cap they called it at, and only if it passed the safety scan. Walk-forward on 32K calls: proven callers\' next calls went up 50% of the time vs 42% for everyone — a small edge, so it rides as a ticket with your scalp-the-stake exits. Its own 1-hour record shows on the call board.'],
-  ['trenchSendOnly', '🔥 Trench: SEND IT coins only', [[true, 'on'], [false, 'off — any trench coin']], 'On: the engine\'s trench drop takes ONLY coins the 🔥 SEND IT read flags (hot pace, buyers, holders arriving, low rug risk) and waits when there is none. Why: the whole trench list reads −79% an hour on its own record; SEND IT reads +0.5% with 52% up (60 coins). Your own trench picks are never limited.'],
   ['trenchAuto', '🗑 Engine may buy trench coins', [[true, 'on'], [false, 'off — my picks only']], 'Off: the engine never seats a brand-new trench coin by itself. They stay on the Trench list and you can still pick any of them by hand. On: a card on the trench cycle takes the best coin on the whole trench list every 30 minutes (safety checks always, a smart entry — not falling, not mid-spike), as a small ticket with its own stop'],
   ['upMeta', '🧭 Up next must be meta', [[true, 'on'], [false, 'off']], 'The engine buys a coin by itself only when its chart is long enough to read and is not trending down. Coins with no chart yet lost most on this card (99 buys: 25% won). A rider coming back and your own hand picks are never blocked. Off = any coin passing the other checks.'],
   ['runnerMinAgeH', '🕐 Launch coins: min age', [[0, 'any'], [1, '1h'], [6, '6h'], [12, '12h']], 'The youngest launch coin the engine may buy with real money. 12h is what the replay backs: the same hunt on coins under 6 hours old lost about 15% a window, and first-hour coins are where rugs happen. Lower = trench coins flow in (every safety gate still applies: holder scan, top-10, snipers, dev, creator).'],
@@ -504,18 +505,20 @@ export function CardEditor({ c, cfg, keeper, locked, call, real, suggest, meta, 
         {(() => { const onNow = Object.entries(meta.patch).every(([k, v]) => String(cfg?.[k]) === String(v) || Number(cfg?.[k]) === Number(v));
           return <button type="button" className={`m-btn ${onNow ? 'is-on' : 'primary m-go'}`} disabled={busy || onNow} onClick={() => save(meta.patch)} data-testid="meta-apply">{onNow ? '✓ Running this' : '⚡ Use the meta'}</button>; })()}</div>}
       {!adv && <>{sub('1 · PICK A SETUP')}<StrategyPicks hours={cfg?.rotateHours || 1} current={cfg} busy={busy} selection={real} onApply={s => saveExit(stratPatch(s.cfg, real))} testid={`strats-${c.tpl}`} />
-        {sub('2 · THE DIALS THAT DECIDE A CARD')}{rows(['rotateHours', 'coins', ...(real ? ['newOnly', 'entryGate', 'maxCoinPct', 'bangerRefill'] : []), 'minHoldMins', 'runnerMinAgeH', 'sl', ...(real ? ['floorPct', 'trenchSlPct', 'flowExit', 'rugRadar'] : [])])}
-        <p className="m-note">That is everything most cards need. A setup above sets the rest for you.</p></>}
+        {sub('2 · THE CARD')}{rows(['rotateHours', 'coins', 'minHoldMins', 'sl', ...(real ? ['floorPct', 'flowExit'] : [])])}
+        {real && <>{sub('3 · ⚡ TRENCH RUSH')}{rows(['trenchRush', ...(cfg?.trenchRush ? ['trenchEvery', 'trenchCoins', 'trenchStakePct', 'trenchSlPct', 'trenchHouseAt'] : [])])}</>}
+        <p className="m-note">That is everything most cards need. A setup above sets the rest; every other setting sits in its own section on the left.</p></>}
       {adv && grp === 'setup' && <><StrategyPicks hours={cfg?.rotateHours || 1} current={cfg} busy={busy} selection={real} onApply={s => saveExit(stratPatch(s.cfg, real))} testid={`strats-${c.tpl}`} />
         <EnginePick suggest={suggest} cfg={cfg} busy={busy} save={save} />
         <p className="m-note">“Use this” sets the exits{real ? ' and what the card buys' : ''} in one tap. Every setting it touches is in the other tabs, where you can change any of them.</p></>}
       {adv && grp === 'coins' && <>{sub('HOW MANY · WHICH MIX')}{rows(['coins', ...(real ? ['newOnly', 'maxCoinPct'] : [])])}
         <div className="ce-row is-wide"><span><b>🔄 Cycle</b><small>The shapes this card moves through (anchor · mixed · degen · safest …)</small></span><div className="m-seg">{CYCLES.map(([v, t]) => <button key={v} type="button" disabled={busy} className={(cfg?.cycles || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ cycles: { ...(cfg?.cycles || {}), [c.tpl]: v } })}>{t}</button>)}</div></div>
-        {rows(['cycleEvery', ...(trenchOn ? ['trenchCoins', 'trenchStakePct', 'trenchSlPct'] : []), 'trenchHouseAt'])}
+        {rows(['cycleEvery'])}
+        {sub('🗑 TRENCH')}{rows([...(real ? ['trenchRush', 'trenchEvery', 'trenchAuto', 'trenchBrain', 'proCallEntry'] : []), ...(trenchOn || cfg?.trenchRush ? ['trenchCoins', 'trenchStakePct', 'trenchSlPct'] : []), 'trenchHouseAt'])}
         {trenchOn && <details className="cep-fold" data-testid="ce-trench-fold"><summary>🗑 Trench lists + trench meta <small>the live trench coins and which meta passes them — open when you want to look</small></summary><TrenchScan call={call} /></details>}
         {real && <>{sub('WHAT THE ENGINE MAY TAKE NEXT (COMING UP)')}{rows(['vitalMin', 'organicMin', 'noSerial'])}</>}
         {sub(real ? 'LAUNCH COINS THE CARD MAY BUY' : 'LAUNCH COINS')}
-        {rows(['rebuyDipPct', 'runnerMinAgeH', ...(real ? ['upMeta', 'bangerRefill', 'topSeat', 'trenchAuto', 'trenchBrain', 'proCallEntry', 'trenchSendOnly'] : []), 'runnerMinLiqK', 'runnerMinVolK', 'runnerMinChg1h', 'runnerMinBuy'])}
+        {rows(['rebuyDipPct', 'runnerMinAgeH', ...(real ? ['entryGate', 'upMeta', 'bangerRefill', 'topSeat'] : []), 'runnerMinLiqK', 'runnerMinVolK', 'runnerMinChg1h', 'runnerMinBuy'])}
         {sub('CHECKS')}{rows(real ? ['pickVerify'] : ['edgeGate', ...(cfg?.edgeGate !== false ? ['edgeFloor'] : [])])}
         {!real && <div className="ce-row"><span><b>🔒 Lock tier</b><small>Freeze this tier's whole config so engine tunes never change it</small></span><div className="m-seg">{[[true, 'locked'], [false, 'free']].map(([v, t]) => <button key={t} type="button" disabled={busy} className={!!locked === v ? 'active' : ''} onClick={() => { setBusy(true); call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ lock: c.tpl, on: v }) }).then(() => { toast.success(v ? '🔒 Locked' : 'Unlocked'); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy(false)); }}>{t}</button>)}</div></div>}</>}
       {adv && grp === 'rounds' && <>{rows(['rotateHours', 'rotateConfirm', 'rotateMinDrop', 'minHoldMins', ...(real ? ['pickLockMins'] : []), 'swapEdge', 'swapCapHr'])}
@@ -930,12 +933,6 @@ function BrainNote({ b }) {
 // ⚡ RUSH BOARD (owner, 2026-10-09: "trench category UI/layout must be upgraded and ready to rush"): the 3 trench coins most worth a
 // small ticket RIGHT NOW. A failed safety scan never shows; a busted / wash read never shows. Score = scan (+20 safe, unscanned 0) +
 // the brain's learned play + heat − rug + live 5-min buying + socials. A ranking of what is on screen — never a promise.
-const RUSH_BAD = new Set(['RUG BAIT', 'DUMPING', 'BOND RUN', 'EARLY RUSH', 'SLOW CURVE', 'BREAKOUT', 'FALLING KNIFE', 'WASH TRADED', 'BLOW-OFF TOP', 'DEAD DIP', 'TREND DOWN']);
-export const rushScore = r => { if (!r || r.safe === false || RUSH_BAD.has(r.tv?.call?.[1]) || Number(r.rug ?? r.tv?.rug) >= 50 || Number(r.chg5m) > 15) return null;   /* > +15% in one 5-min candle = a buying top, never rushed */
-  const c5 = Number(r.chg5m) || 0; const buys = Number(r.buyShare) || 0;
-  return (r.safe === true ? 20 : 0) + (r.brain ? Number(r.brain.est) || 0 : 0) + (Number(r.tv?.heat) || 0) * 0.3 - (Number(r.rug ?? r.tv?.rug) || 0) * 0.4
-    + (c5 > 0 && buys >= 55 ? c5 : 0) + (r.site && r.x ? 5 : 0); };
-export const rushTop = (rows, n = 3) => (rows || []).map(r => [rushScore(r), r]).filter(([v]) => v != null).sort((a, b) => b[0] - a[0]).slice(0, n).map(([v, r]) => ({ ...r, rush: Math.round(v) }));
 // 📐 LEAN (owner: "a line for where it's going based on momentum, activity, vitals"): −1 … +1 from the 5-min move, the hour, who is
 // buying, the 5-min pace vs the hour and heat − rug. Drawn as a line from now; a READ of what the numbers lean toward, never a forecast.
 export function LeanLine({ r }) {

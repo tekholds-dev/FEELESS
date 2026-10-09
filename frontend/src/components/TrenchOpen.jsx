@@ -6,6 +6,8 @@ import { TrenchVital } from './CoinVital';
 import { TrenchQuick, warmCoin } from './TrenchQuick';
 import { SocialIcons } from './QuickPulse';
 import { PumpCallouts } from './QuickPulse';
+import { BsBar } from './BsBar';
+import { leanOf, rushScore } from '../lib/lean';
 
 const big = v => { const n = Number(v) || 0; return n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${n.toFixed(0)}`; };
 const sg = v => (v == null ? '—' : Math.abs(v) >= 1000 ? `${(v / 100 + 1).toFixed(1)}x` : `${v >= 0 ? '+' : ''}${Number(v).toFixed(0)}%`);
@@ -29,18 +31,26 @@ const mv = v => `top-n ${v == null ? '' : Number(v) >= 0 ? 'm-pos' : 'm-neg'}`;
 export const LAYOUTS = [['split', '⚡ Split'], ['list', '≡ List']];
 const LKEY = 'feeless.openLayout';
 const loadLayout = () => { try { return localStorage.getItem(LKEY) === 'list' ? 'list' : 'split'; } catch { return 'split'; } };
-const HOT = ['BOND RUN', 'NEAR BOND', 'SEND IT', 'EARLY RUSH', 'BREAKOUT', 'VOLUME SURGE', 'BUY THE DIP', 'TREND UP'];
 const word = r => r.tv?.call?.[1]; const tone = r => r.tv?.call?.[2];
 const m0 = r => Number(r.tv?.meters?.[0]?.[1]) || 0;
+// 🔥 Hot = what the ⚡ Rush board would take (clean scan or unscanned, no busted / wash / blow-off read, rug < 50, not a +15% candle),
+// best rush first — it used to lead with BOND RUN / EARLY RUSH / BREAKOUT, calls whose own records read −84 / −64 / −45% an hour.
+// ☠ Avoid = a bad tone OR a busted call; nothing rushes from there.
+const rush = r => rushScore(r);
 export const LANES = [
-  ['hot', '🔥 Hot', r => HOT.includes(word(r)), (a, b) => HOT.indexOf(word(a)) - HOT.indexOf(word(b)) || m0(b) - m0(a)],
+  ['hot', '🔥 Hot', r => rush(r) != null && tone(r) !== 'bad' && tone(r) !== 'warn', (a, b) => rush(b) - rush(a)],
   ['curve', '🎢 Curve', r => r.tv?.kind === 'curve' || r.curvePct != null, (a, b) => (Number(b.curvePct) || 0) - (Number(a.curvePct) || 0)],
-  ['dip', '🧲 Dips', r => r.tv?.kind === 'dip', (a, b) => m0(b) - m0(a)],
-  ['watch', '👀 Watch', r => tone(r) === 'warn', (a, b) => m0(b) - m0(a)],
-  ['avoid', '☠ Avoid', r => tone(r) === 'bad', (a, b) => m0(b) - m0(a)]];
+  ['dip', '🧲 Dips', r => r.tv?.kind === 'dip' && rush(r) != null, (a, b) => m0(b) - m0(a)],
+  ['watch', '👀 Watch', r => tone(r) === 'warn' && rush(r) != null, (a, b) => m0(b) - m0(a)],
+  ['avoid', '☠ Avoid', r => tone(r) === 'bad' || (rush(r) == null && r.safe !== false && !!word(r)), (a, b) => m0(b) - m0(a)]];
 export const laneRows = (rows, key) => { const l = LANES.find(x => x[0] === key) || LANES[0]; return (rows || []).filter(l[2]).slice().sort(l[3]); };
 
-function ReadCard({ r, onOpen, showAge }) {
+function Lean({ r }) {
+  const v = leanOf(r); const dir = v > 0.15 ? 'up' : v < -0.15 ? 'down' : 'flat';
+  return <svg className={`tsp-lean is-${dir}`} viewBox="0 0 40 12" data-tip={`Lean ${v >= 0 ? '+' : ''}${v} — 5-min move, the hour, buyers, pace, heat vs rug. A read, not a forecast.`} data-testid={`tlean-${r.symbol}`}><line x1="2" y1="6" x2="36" y2={6 - v * 5} /><circle cx="36" cy={6 - v * 5} r="1.6" /></svg>;
+}
+
+function ReadCard({ r, onOpen, showAge, onPick, busy }) {
   const sf = SAFE(r);
   return <div role="button" tabIndex={0} className={`tsp-card ${sf[2]} ${r.tv?.call ? `call-${r.tv.call[2]}` : ''}`} onClick={() => onOpen(r)} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onOpen(r))}
     onMouseEnter={() => warmCoin(r)} onFocus={() => warmCoin(r)} data-testid={`rc-${r.symbol}`} data-tip={`Quick look: chart, every vital, pick · ${whyLine(r)}`}>
@@ -54,6 +64,8 @@ function ReadCard({ r, onOpen, showAge }) {
     <span className="tsp-foot">{r.vital && <span className={`tsp-grade cvl-${r.vital.tone}`} data-tip={`Vital ${r.vital.score}/100 — ${r.vital.word}`}>🫀 {r.vital.grade}</span>}
       {(r.tv?.tags || []).slice(0, 2).map(([ic, t, tn]) => <span key={t} className={`tsp-tag ${tn}`}>{ic} {t}</span>)}
       {r.buyShare != null && <span className="tsp-tag">{Math.round(r.buyShare)}% buys</span>}</span>
+    <span className="tsp-flow" onClick={e => e.stopPropagation()} role="presentation">{r.mint && <BsBar mint={r.mint} compact />}<Lean r={r} />
+      {onPick && rush(r) != null && <button type="button" className="m-btn m-go tsp-go" disabled={busy} onClick={e => { e.stopPropagation(); onPick(r); }} data-testid={`rush-pick-${r.symbol}`}>⚡ Rush</button>}</span>
   </div>;
 }
 
@@ -68,6 +80,7 @@ const SOC_KEY = 'feeless.openSoc';
 export function TrenchOpen({ max = 10, onPick, busy }) {
   const [d, setD] = useState(null); const [all, setAll] = useState(false); const [f, setF] = useState('all'); const [sort, setSort] = useState('front');
   const [layout, setLayoutS] = useState(loadLayout); const [lane, setLane] = useState('hot'); const [llane, setLlane] = useState('all');   /* the list view's own read filter */ const [look, setLook] = useState(null);
+  const [clean, setClean] = useState(true);   /* 🧹 the newest column hides failed scans + rug / busted / wash reads unless asked */
   const [soc, setSocS] = useState(() => { try { return localStorage.getItem(SOC_KEY) === '1'; } catch { return false; } });
   const setSoc = v => { setSocS(v); try { localStorage.setItem(SOC_KEY, v ? '1' : '0'); } catch { /* private window */ } };
   const sf = a => (soc ? socFirst(a) : a);
@@ -82,7 +95,9 @@ export function TrenchOpen({ max = 10, onPick, busy }) {
   const rows = all ? listS : listS.slice(0, max);
   const byMint = new Map(d.rows.map(r => [r.mint, r]));
   const open = (r, from) => { const full = byMint.get(r.mint); if (full) setLook({ row: full, list: from || list }); else openCoin({ mint: r.mint, pairAddress: r.pairAddress, symbol: r.symbol }); };
-  const newest = sf(d.rows.filter(FILTERS.find(x => x[0] === f)[2]).slice().sort((a, b) => (a.ageH ?? 1e9) - (b.ageH ?? 1e9)));
+  const newAll = d.rows.filter(FILTERS.find(x => x[0] === f)[2]);
+  const newest = sf(newAll.filter(r => !clean || rush(r) != null).slice().sort((a, b) => (a.ageH ?? 1e9) - (b.ageH ?? 1e9)));
+  const hidden = newAll.length - newest.length;
   const lanes = LANES.map(l => [l[0], l[1], laneRows(d.rows.filter(FILTERS.find(x => x[0] === f)[2]), l[0])]);
   const laneList = sf((lanes.find(x => x[0] === lane) || lanes[0])[2]);
   const cap = all ? 200 : Math.max(12, max);
@@ -95,13 +110,14 @@ export function TrenchOpen({ max = 10, onPick, busy }) {
       <button type="button" className={`top-soc-btn ${soc ? 'on' : ''}`} aria-pressed={soc} onClick={() => setSoc(!soc)} data-tip="Coins with a website / X / Telegram link first" data-testid="open-soc">🔗 Socials first<i>{d.rows.filter(r => socN(r) > 0).length}</i></button>
       {layout === 'list' && <div className="m-seg top-seg" role="group" aria-label="Sort">{SORTS.map(([k, label]) => <button key={k} type="button" className={sort === k ? 'active' : ''} aria-pressed={sort === k} onClick={() => setSort(k)} data-testid={`open-s-${k}`}>{label}</button>)}</div>}</div>
     {layout === 'split' && <div className="tsp" data-testid="open-split">
-      <div className="tsp-col" data-testid="split-new"><div className="tsp-head"><span className="m-label">🆕 NEWEST</span><small className="m-dim">{newest.length} coins · youngest first</small></div>
-        <div className="tsp-list">{newest.slice(0, cap).map(r => <ReadCard key={r.mint} r={r} showAge onOpen={x => open(x, newest)} />)}
+      <div className="tsp-col" data-testid="split-new"><div className="tsp-head"><span className="m-label">🆕 NEWEST</span><small className="m-dim">{newest.length} coins · youngest first</small>
+          <button type="button" className={`top-soc-btn ${clean ? 'on' : ''}`} aria-pressed={clean} onClick={() => setClean(c => !c)} data-tip="Hide failed scans and rug / busted / wash reads" data-testid="split-clean">🧹 Clean{hidden > 0 ? <i>{hidden} hidden</i> : null}</button></div>
+        <div className="tsp-list">{newest.slice(0, cap).map(r => <ReadCard key={r.mint} r={r} showAge onOpen={x => open(x, newest)} onPick={onPick} busy={busy} />)}
           {!newest.length && <small className="m-dim top-none">No coin in this filter right now.</small>}</div></div>
       <div className="tsp-col" data-testid="split-reads"><div className="tsp-head"><span className="m-label">🔥 THE READS</span>
         <div className="m-seg top-seg tsp-lanes" role="group" aria-label="Read lane">{lanes.map(([k, label, rs]) => <button key={k} type="button" className={lane === k ? 'active' : ''} aria-pressed={lane === k} onClick={() => setLane(k)} data-testid={`lane-${k}`}>{label}<i>{rs.length}</i></button>)}</div></div>
         <div className="tsp-list">{laneList.slice(0, cap).map((r, i) => <React.Fragment key={r.mint}>{lane === 'hot' && word(r) !== word(laneList[i - 1] || {}) && <small className="tsp-sub">{r.tv.call[0]} {word(r)} · {laneList.filter(x => word(x) === word(r)).length}</small>}
-          <ReadCard r={r} onOpen={x => open(x, laneList)} /></React.Fragment>)}
+          <ReadCard r={r} onOpen={x => open(x, laneList)} onPick={onPick} busy={busy} /></React.Fragment>)}
           {!laneList.length && <small className="m-dim top-none">Nothing reads {(LANES.find(x => x[0] === lane) || LANES[0])[1]} right now — try another lane.</small>}</div></div>
     </div>}
     {layout === 'split' && (newest.length > cap || laneList.length > cap) && <button type="button" className="top-more" onClick={() => setAll(a => !a)} aria-expanded={all} data-testid="split-more">{all ? 'Show fewer' : 'Show every coin'}</button>}

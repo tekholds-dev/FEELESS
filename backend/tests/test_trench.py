@@ -410,3 +410,34 @@ def test_every_picker_list_shows_its_own_record_or_says_whose_it_borrows():
     assert out['pump']['src'] == 'this list' and out['pump']['n'] == 2                     # nothing to borrow either → its own few
     assert out['ptrend']['src'] == 'this list'                                             # Pump trending never borrows
     assert out['bottom']['medPct'] == -5.8 and out['trench']['src'] == 'trench meta baby'
+
+
+def test_rush_mode_drops_every_10_min_into_a_losing_unfrozen_pick_and_never_a_frozen_one():
+    anchors, pools, runners = _cands()
+    base = {'trenchCoins': 1, 'rotateHours': 0.25, 'minHoldMins': 10, 'cycles': {**{t: 'off' for t in ap.DEFAULT_CYCLES}, 'degen': 'trench'}, 'rescuePct': 0, 'cycleEvery': 0,
+            'rideAt': 0, 'tp': 0, 'lockBankPct': 0, 'tpStakeUsd': 0, 'skimAt': 0}
+    cfg = ap.clean_cfg({**base, 'trenchRush': True, 'trenchEvery': 10})
+    assert cfg['trenchRush'] and cfg['trenchEvery'] == 10 and ap.clean_cfg({'trenchEvery': 7})['trenchEvery'] == 30
+    card = ap.deal('degen', pools, [x for x in runners if not x.get('trenchOnly')], cfg, 0.0, anchors, shape='degen')
+    for l in card['legs']:                                                   # every seat is the OWNER's pick; one frozen
+        l['picked'] = True
+    frozen = card['legs'][0]; frozen['frozen'] = True
+    px = {l['pairAddress']: l['entry'] * 0.8 for l in card['legs']}           # all losing
+    for x in runners:
+        px.setdefault(x['pairAddress'], x['price'])
+    drops = lambda c: sum(1 for e in c['events'] if 'trench drop' in (e.get('why') or ''))
+    t0 = 10_000.0
+    card['at'] = 0.0
+    out = ap.tick({**card, 'trenchFillAt': t0 - 601}, px, pools, runners, cfg, t0, anchors, {}, {})
+    assert drops(out) == 1 and frozen['mint'] in {l['mint'] for l in out['legs']}   # a losing pick gave its seat; ❄ frozen never
+    plain = ap.tick({**card, 'trenchFillAt': t0 - 601}, px, pools, runners, ap.clean_cfg(base), t0, anchors, {}, {})
+    assert drops(plain) == 0                                                  # no rush: your picks are never the engine's to swap, and 30 min
+
+
+def test_rush_score_mirrors_the_board():
+    row = lambda **k: {'safe': True, 'chg5m': 4, 'buyShare': 60, 'site': 's', 'x': 'x', 'tv': {'heat': 60, 'rug': 20, 'call': ['🔥', 'SEND IT']}, **k}
+    assert ap.rush_score(row()) == 20 + 18 - 8 + 4 + 5
+    assert ap.rush_score(row(safe=None)) is None and ap.rush_score(row(safe=False)) is None   # the engine never buys an unscanned coin
+    assert ap.rush_score(row(tv={'heat': 90, 'rug': 10, 'call': ['🧪', 'WASH TRADED']})) is None
+    assert ap.rush_score(row(chg5m=20)) is None and ap.rush_score(row(rug=55)) is None
+    assert ap.rush_score(row(brain={'est': 12})) == ap.rush_score(row()) + 12

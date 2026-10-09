@@ -6727,6 +6727,27 @@ def _brain_state():
     return _brain
 
 
+def _rush_rows():
+    """⚡ The Rush board, server side: trench-gate passes + open-list coins whose holder scan PASSED, each with its read and the brain's
+    learned play, scored by `arena_prime.rush_score` (the same rule the board draws) → best first, `trenchScore` 500 + score so the
+    trench drop keeps this order. Never an unscanned or failed coin."""
+    b = _brain_state()
+    seen, out = set(), []
+    for x in list(_trench_cache.get('rows') or []) + [y for y in _open_board() or [] if y.get('safe') is True]:
+        m = x.get('mint')
+        if not m or m in seen:
+            continue
+        seen.add(m)
+        r = _with_tv({**x, 'safe': True if x.get('safe') is None and x.get('ok') else x.get('safe')})
+        sc = _tb.score(r, b['tbl'])
+        if sc:
+            r = {**r, 'brain': sc}
+        v = _prime.rush_score(r)
+        if v is not None:
+            out.append({**r, 'rush': v, 'trenchScore': 500 + v, 'tag': '⚡ rush'})
+    return sorted(out, key=lambda r: -r['rush'])[:12]
+
+
 def _brain_ready():
     """The engine may take brain picks only once its walk-forward proof holds (top third positive, ≥ 10 pts over the bottom)."""
     return bool(((_brain_state()['sum'] or {}).get('proof') or {}).get('proven'))
@@ -8657,6 +8678,26 @@ async def _floor_off_fix_1009(now):
     return True
 
 
+async def _rush_fix_1009(now):
+    """⚡ Once (owner, 2026-10-09: "upgrade engine to rush me — I'm trenching and giving the keys, open the door"): the real card RUSHES —
+    the trench drop takes the Rush board's coin every 10 min (was 30, SEND IT only — usually nothing), and may take the seat of any of the
+    owner's picks that is not frozen and not making money (❄ frozen coins are never touched). Tickets stay small (15%), stop off, 🏠 at 2×.
+    Old values: data/realcfg_before_rush1009.json."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('rushFix1009') or not rc:
+            return False
+        ch = {'trenchRush': True, 'trenchEvery': 10, 'trenchSendOnly': False, 'trenchAuto': True}
+        _json_save(DATA_DIR / 'realcfg_before_rush1009.json', {k: rc.get(k) for k in ch})
+        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
+        pr['rushFix1009'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _ticket_ride_fix(now):
     """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
     once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
@@ -8767,6 +8808,7 @@ async def _prime_tick_inner(now):
     await _floor_fix_1009(now)
     await _flow_fix_1009(now)
     await _floor_off_fix_1009(now)
+    await _rush_fix_1009(now)
     await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
@@ -8872,6 +8914,8 @@ async def _prime_tick_inner(now):
             if cfg_t.get('trenchBrain', True) and _brain_ready():
                 sendit_ = [x for x in _brain_rows()[:6] if x['brain']['est'] > 0 and x.get('safe') is True] + sendit_
             pro_ = _pc.pro_entries(_pump_calls.get('calls') or [], _pump_calls.get('callers') or {}, [_with_tv(x) for x in _open_board()], now * 1000) if cfg_t.get('proCallEntry') else []
+            if cfg_t.get('trenchRush'):   # ⚡ RUSH: the engine buys what the Rush board shows — trench + open-list coins that PASSED the scan, ranked by rush_score
+                sendit_ = _rush_rows() + sendit_
             pool_t = _prime.trench_pool(sendit_, _trench_cache.get('rows'), _trench_cache.get('fallback'),
                                         [y for y in _trench_cache.get('checked') or [] if not y.get('ok') and _trench.soft_only(y.get('fails'))], cfg_t, pro=pro_)
             for x in pool_t:

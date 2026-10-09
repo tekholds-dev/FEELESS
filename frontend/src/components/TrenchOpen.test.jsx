@@ -40,7 +40,7 @@ test('open gates: every front-runner with its safety mark; callouts feed with ea
   await act(async () => { root.unmount(); });
 });
 
-test('split view: newest column youngest first, reads column by lane (hot calls ordered BOND RUN → NEAR BOND → SEND IT), quick look shows every vital + picks', async () => {
+test('split view: newest column youngest first (🧹 clean hides failed scans + busted reads), hot lane = what would rush (busted BOND RUN → avoid), quick look shows every vital + picks', async () => {
   const tv = (word, tone, kind = 'trench', m = 70) => ({ kind, call: ['•', word, tone], meters: [['A', m], ['B', 20]], tags: [] });
   const rows = [
     { mint: 'A', pairAddress: 'PA', symbol: 'OLD', ageH: 5, mcap: 1e5, tv: tv('SEND IT', 'good'), safe: true, top10: 18, dev: 1, buyShare: 64, vol1h: 60000, vol5m: 9000, txns1h: 800 },
@@ -54,11 +54,14 @@ test('split view: newest column youngest first, reads column by lane (hot calls 
   await act(async () => { root.render(<TrenchOpen max={10} onPick={picked} />); }); await tick(30);
   const q = id => el.querySelector(`[data-testid="${id}"]`);
   const syms = col => [...q(col).querySelectorAll('.tsp-card')].map(x => x.getAttribute('data-testid'));
-  expect(syms('split-new')).toEqual(['rc-BABY', 'rc-RUG', 'rc-RUN', 'rc-MEH', 'rc-OLD']);
-  expect(syms('split-reads')).toEqual(['rc-RUN', 'rc-BABY', 'rc-OLD']);   // 🔥 hot lane: best call first
-  expect(q('split-reads').textContent).toContain('NEAR BOND · 1'); expect(q('lane-avoid').textContent).toContain('1');
+  expect(syms('split-new')).toEqual(['rc-BABY', 'rc-MEH', 'rc-OLD']);              // 🧹 clean: the failed scan and the busted BOND RUN are hidden
+  expect(q('split-clean').textContent).toContain('2 hidden');
+  await act(async () => { q('split-clean').click(); }); expect(syms('split-new')).toEqual(['rc-BABY', 'rc-RUG', 'rc-RUN', 'rc-MEH', 'rc-OLD']);
+  expect(syms('split-reads')).toEqual(['rc-OLD', 'rc-BABY']);   // 🔥 hot lane: what the rush board would take, best rush first
+  expect(q('split-reads').textContent).toContain('NEAR BOND · 1'); expect(q('lane-avoid').textContent).toContain('2');
+  expect(q('split-reads').querySelector('[data-testid="rush-pick-OLD"]')).not.toBeNull();   // ⚡ one tap, right on the card
   expect(q('split-new').querySelector('[data-testid="rc-BABY"]').textContent).toContain('🔔 91%');
-  await act(async () => { q('lane-avoid').click(); }); expect(syms('split-reads')).toEqual(['rc-RUG']);
+  await act(async () => { q('lane-avoid').click(); }); expect(syms('split-reads')).toEqual(['rc-RUN', 'rc-RUG']);   // BOND RUN reads −84%/1h: avoid
   await act(async () => { q('split-new').querySelector('[data-testid="rc-OLD"]').click(); }); await tick(30);
   const ql = () => document.querySelector('[data-testid="trench-quick"]');
   expect(ql().textContent).toContain('$OLD'); expect(ql().querySelector('[data-testid="tql-vitals"]').textContent).toContain('TOP 10'); expect(ql().textContent).toContain('18%');
