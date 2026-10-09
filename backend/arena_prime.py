@@ -642,6 +642,9 @@ FLAT_BAND = 10.0                   # a coin within ±10% of its entry …
 VOL_CYCLE_MIN_VOL = 50_000.0       # 🌊 volume cycle: a coin trading at least this an hour …
 VOL_CYCLE_MIN_BUY = 52.0           # … with buyers ahead …
 VOL_EVERY = (5, 10, 15, 30)        # … swapped in for a flat coin at most every N minutes (cfg `volEvery`)
+VOL_CYCLE_MIN_AGE_H = 6.0          # … a FULL seat never goes into a launch younger than this, or of unknown age ($WOTF: ~30 min old, $1.04 seat,
+                                   #     pool pulled 5 min later, −97%, 2026-10-09). Brand-new coins are trench tickets (15%) only.
+VOL_CYCLE_MIN_LIQ = 50_000.0       # … and a pool at least this deep (a full seat, not a ticket)
 VOL_CYCLE_MAX_1H = 150.0           # … never one already up more than this on the hour ($WOTF came in at +130,852% — a launch pump, the top)
 FLAT_HOLD_SEC = 1200.0             # … after at least 20 minutes on the card is "not moving"
 MOVER_EVERY_SEC = 1800.0           # at most one mover upgrade per card per 30 minutes
@@ -665,6 +668,7 @@ def vol_cycle_rows(rows):
     hour, buyers ≥ 52%, not red on the hour, and clean by the ⚡ rush rule (scan PASSED, no busted / wash / blow-off read, rug < 50, pool
     ≥ $20K, not a +15% / −5% 5-min candle). Busiest first. Pure."""
     out = [x for x in rows or [] if _f(x.get('vol1h')) >= VOL_CYCLE_MIN_VOL and _f(x.get('buyShare')) >= VOL_CYCLE_MIN_BUY
+           and x.get('ageH') is not None and _f(x.get('ageH')) >= VOL_CYCLE_MIN_AGE_H and _f(x.get('liq')) >= VOL_CYCLE_MIN_LIQ
            and (x.get('chg1h') is None or 0 <= _f(x.get('chg1h')) <= VOL_CYCLE_MAX_1H) and rush_score(x) is not None]
     return sorted(out, key=lambda x: -_f(x.get('vol1h')))
 
@@ -1149,6 +1153,8 @@ def seat_fallback_ok(x, mom=None):
     if not entry_ok(x, mom) or chase_why(x) or x.get('cStruct') == 'down' or at_high(x):   # 🏔 never a coin sitting at its highs: the fallback
         return False                                                                          # was filling seats with coins that had already peaked
     if x.get('cWild') is not None and _f(x.get('cWild')) >= META_WILD_PCT:
+        return False
+    if x.get('ageH') is not None and _f(x.get('ageH')) < VOL_CYCLE_MIN_AGE_H and not x.get('trenchOnly'):   # a FULL seat never goes into a launch this young
         return False
     # EVIDENCE FLOOR (owner, 2026-10-08: "why put me in this coin"): the fallback took $Attention+ with NO 1h volume reading and buyers at exactly
     # 50% — a coin nothing says is moving. A filler seat still needs real flow: a known 1h volume ≥ FALLBACK_MIN_VOL and buyers ≥ FALLBACK_MIN_BUY.
