@@ -2392,3 +2392,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   surface): logo beside the name · a heat bar under the row = the coin's live 5-min move (±15% = full width) · state glow + icon: ❄ riding,
   🧊 frozen, ⏳ buying (gold scan), 🔥 hot / 🩸 dumping (|5m| ≥ 5%, pulsing edge) · the % re-animates when it changes. Card images inside the
   card back are blocks by default — logos need `.fcd-legs .fcd-leg .fcl-logo { display: inline-block }`.
+- 🌊 BUYS vs SELLS BAR EVERYWHERE (`BsBar.jsx` + `styles/bsBar.css` `bsb-*`; data = the coin-edge record's `bs` via `_bs_rows`: Jupiter's 5m / 1h
+  window stats re-read ≤ 30s old for coins on screen (2.5s cap) + the live 90s tape for held coins — NO new poller): `[5m] [bought ▮|▮ sold]`,
+  tap the time → 5m ⇄ 1h for the whole site (`feeless.bsTf`), tap the bar → the coin's flow-exit menu where `onFlow` is given (real-card coin rows;
+  the separate 🌊 select is gone). On: real-card coin rows, swap-in picker rows (inside the coin cell), Coming up, quick look header, war-room
+  chart header (`cv-nums`), mini chart. Old `FlowBar` removed.
+- 🎈 `lib/floatPop.js` `useFloatPop(width)`: popovers on rows that animate are drawn on <body> at their button (fixed, flips up near the bottom,
+  outside click / Esc / scroll closes). The TP/SL panel used to sit UNDER the next row. Any new row popover ⇒ this hook.
+- When deleting a component by string, cut from ITS OWN start to ITS OWN end — a cut from a comment to the next export once took `TpSl` and
+  `LearnLine` (inserted in between) with it.

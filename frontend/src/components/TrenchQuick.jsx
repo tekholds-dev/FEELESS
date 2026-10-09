@@ -11,6 +11,7 @@ import { price as fmtPx } from '../lib/num';
 import { useCoinRead } from './terminal/ChartVitals';
 import { Socials, FlowWindows, ChartPulse, PumpCall, Feeders } from './QuickPulse';
 import '../styles/trenchSplit.css';
+import { BsBar } from './BsBar';
 
 // ⚡ QUICK LOOK (owner, 2026-10-08: "a click to a hover chart, swap in etc with MAD TRENCH VITALS instead of the side panel"): one floating
 // panel over the list — live chart on the left, every vital on the right, the actions in one row. ← / → step through the same list, Esc closes.
@@ -105,6 +106,7 @@ export function TrenchQuick({ row, list = [], onClose, onPick, busy }) {
         <span className="tsp-av is-big" aria-hidden="true">{String(r.symbol || '?').slice(0, 1)}{r.logo && <img src={r.logo} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} />}</span>
         <div className="tql-title"><b>${r.symbol} <span className={`tql-live is-${read?.pace?.key || 'quiet'}`} data-tip={`Price every 10 seconds · vitals re-read at this coin's pace (${{ hot: 'hot: every 5s', busy: 'busy: every 10s', quiet: 'quiet: every 20s' }[read?.pace?.key || 'quiet']}) and the moment its price moves`}><i />LIVE{read?.pace?.key === 'hot' ? ' · HOT' : ''}<Ago at={read?.at} /></span></b>
           <small>{age(r.ageH)} old · {big(mc)} cap · pool {r.liq ? big(r.liq) : r.curve || r.curvePct != null ? 'on curve' : '—'} · {big(r.vol1h)}/h</small></div>
+        {r.mint && <BsBar mint={r.mint} />}
         {'safe' in r && <span className={`tql-safe ${safe[1]}`} data-tip={r.safe === false ? `Did not pass: ${(r.fails || []).join(' · ')}` : r.safe ? 'Passed every safety check' : 'Holders not scanned yet — unknown, not safe'}>{safe[0]}</span>}
         <span className="tql-px"><b>{useMc ? big(mc) : fmtPx(price)}</b>
           <em className={(live?.m5 ?? r.chg5m) >= 0 ? 'm-pos' : 'm-neg'}>{sg(live?.m5 ?? r.chg5m)} 5m</em><em className={(live?.h1 ?? r.chg1h) >= 0 ? 'm-pos' : 'm-neg'}>{sg(live?.h1 ?? r.chg1h)} 1h</em></span>

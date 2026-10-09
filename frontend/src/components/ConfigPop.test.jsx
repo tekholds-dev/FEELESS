@@ -45,16 +45,6 @@ test('with the ladder on, rows it sets say 🪜 ladder and a row you tapped says
   await act(async () => { root.unmount(); });
 });
 
-test('flow bar shows buys vs sells and marks a seller-led coin', async () => {
-  const React = require('react'); const { act } = React; const { createRoot } = require('react-dom/client');
-  const { FlowBar } = require('./ArenaPrime');
-  const el = document.createElement('div'); const root = createRoot(el);
-  await act(async () => { root.render(<FlowBar f={{ buyUsd: 20, sellUsd: 180, n: 12, pxChg: -4.2, age: 6 }} />); });
-  expect(el.querySelector('.flb').className).toContain('is-sell'); expect(el.textContent).toContain('$20 ⇄ $180');
-  await act(async () => { root.render(<FlowBar f={null} />); }); expect(el.querySelector('.flb')).toBeNull();
-  await act(async () => { root.unmount(); });
-});
-
 test('learn line names your best and worst buckets', async () => {
   const React = require('react'); const { act } = React; const { createRoot } = require('react-dom/client');
   const { LearnLine } = require('./ArenaPrime');
@@ -70,10 +60,11 @@ test('one TP/SL control: + column sets take-profit, − column sets the stop', a
   const prime = jest.fn();
   const el = document.createElement('div'); const root = createRoot(el);
   await act(async () => { root.render(<TpSl l={{ symbol: 'X', pairAddress: 'PX', tp: 0, sl: 20 }} c={{ tpl: 'degen', tp: 100, sl: 15 }} prime={prime} />); });
-  expect(el.querySelector('summary').textContent).toContain('+100'); expect(el.querySelector('summary').textContent).toContain('−20');
-  await act(async () => { el.querySelector('[data-testid="tp-X-50"]').click(); });
+  expect(el.querySelector('.tps-btn').textContent).toContain('+100'); expect(el.querySelector('.tps-btn').textContent).toContain('−20');
+  await act(async () => { el.querySelector('.tps-btn').click(); });
+  await act(async () => { document.querySelector('[data-testid="tp-X-50"]').click(); });
   expect(prime).toHaveBeenLastCalledWith({ leg: { tpl: 'degen', pairAddress: 'PX', tp: 50 } }, expect.any(String), 'tp-PX');
-  await act(async () => { el.querySelector('[data-testid="sl-X-0"]').click(); });
+  await act(async () => { document.querySelector('[data-testid="sl-X-0"]').click(); });
   expect(prime).toHaveBeenLastCalledWith({ leg: { tpl: 'degen', pairAddress: 'PX', sl: 0 } }, expect.any(String), 'sl-PX');
   await act(async () => { root.unmount(); });
 });

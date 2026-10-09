@@ -35,23 +35,19 @@
 .cep-fold { margin: 10px 0 4px; border: 1px solid rgba(255, 255, 255, .08); border-radius: 12px; padding: 8px 12px; }
 .cep-fold > summary { cursor: pointer; font: 700 11px "JetBrains Mono", monospace; letter-spacing: .06em; color: #45e486; transition: opacity .15s ease; }
 .cep-fold > summary:hover, .cep-fold > summary:focus-visible { opacity: .8; outline: none; } .cep-fold > summary small { font-weight: 400; color: var(--m-dim, #8fb3a0); letter-spacing: 0; margin-left: 6px; }
-.tps { position: relative; } .tps > summary { list-style: none; display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 10px; border-radius: 9px; border: 1px solid rgba(255, 255, 255, .14); background: rgba(0, 0, 0, .25); cursor: pointer; font: 700 11px "JetBrains Mono", monospace; transition: border-color .15s ease, transform .15s ease; }
-.tps > summary::-webkit-details-marker { display: none; } .tps > summary:hover, .tps > summary:focus-visible { border-color: #45e486; outline: none; } .tps > summary:active { transform: translateY(1px); }
-.tps > summary i { font-style: normal; opacity: .5; } .tps > summary small { font-size: 9px; opacity: .6; }
-.tps-pop { position: absolute; z-index: 40; top: calc(100% + 6px); right: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px; border-radius: 12px; border: 1px solid rgba(69, 228, 134, .4); background: #06100b; box-shadow: 0 14px 36px rgba(0, 0, 0, .6); animation: tpsIn .16s ease both; }
+.tps { position: relative; } .tps-btn { display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 10px; border-radius: 9px; border: 1px solid rgba(255, 255, 255, .14); background: rgba(0, 0, 0, .25); cursor: pointer; font: 700 11px "JetBrains Mono", monospace; transition: border-color .15s ease, transform .15s ease; }
+.tps-btn:hover, .tps-btn:focus-visible { border-color: #45e486; outline: none; } .tps-btn:active { transform: translateY(1px); }
+.tps-btn i { font-style: normal; opacity: .5; } .tps-btn small { font-size: 9px; opacity: .6; } .tps-btn { color: #cfe3d8; }
+.tps-pop { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px; border-radius: 12px; border: 1px solid rgba(69, 228, 134, .4); background: #06100b; box-shadow: 0 14px 36px rgba(0, 0, 0, .6); animation: tpsIn .16s ease both; }
 .tps-pop > div { display: grid; gap: 4px; align-content: start; min-width: 84px; } .tps-pop small { font: 700 9px "JetBrains Mono", monospace; letter-spacing: .1em; opacity: .7; }
 .tps-pop button { height: 26px; border-radius: 7px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .03); color: #cfe3d8; font: 600 11px "JetBrains Mono", monospace; cursor: pointer; transition: background .15s ease, border-color .15s ease; }
 .tps-pop button:hover, .tps-pop button:focus-visible { border-color: #45e486; outline: none; } .tps-pop button:active { transform: translateY(1px); }
 .tps-pop > div:first-child button.active { background: #15d16a; color: #04130b; border-color: #45e486; } .tps-pop > div:last-child button.active { background: #ff6b86; color: #1a0208; border-color: #ff8fa3; }
 @keyframes tpsIn { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: none; } }
-.flb { position: relative; display: inline-grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 0; width: 120px; height: 16px; border-radius: 999px; overflow: hidden; background: rgba(255, 255, 255, .05); vertical-align: middle; }
-.flb i { height: 100%; transition: transform .5s ease; } .flb-b { transform-origin: right; background: linear-gradient(90deg, transparent, #15d16a); } .flb-s { transform-origin: left; background: linear-gradient(90deg, #ff6b86, transparent); }
-.flb small { position: absolute; inset: 0; display: grid; place-items: center; font: 700 9px "JetBrains Mono", monospace; color: #fff; text-shadow: 0 1px 2px #000; }
-.flb.is-sell { box-shadow: 0 0 0 1px rgba(255, 107, 134, .7); } .flb.is-buy { box-shadow: 0 0 0 1px rgba(69, 228, 134, .7); }
 @keyframes cepIn { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
 @keyframes cepFade { from { opacity: 0; } to { opacity: 1; } }
 body.fx-lite .cep, body.fx-lite .cep-shade { animation: none; }
-@media (prefers-reduced-motion: reduce) { .tps-pop { animation: none; } .flb i { transition: none; } .cep, .cep-shade { animation: none; } .cep-open, .cep-rail button, .cep-x { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .tps-pop { animation: none; } .cep, .cep-shade { animation: none; } .cep-open, .cep-rail button, .cep-x { transition: none; } }
 body.theme-day .cep { background: linear-gradient(160deg, #f4faf6, #ece8fb); border-color: #b9dcc8; } body.theme-day .cep-title b { color: #0b7a4a; text-shadow: none; }
 body.theme-day .cep-rail button { color: #1d4a33; } body.theme-day .cep-rail button.active { background: #0b7a4a; color: #fff; } body.theme-day .cep-pane .ce-group { background: rgba(255, 255, 255, .7); }
 body.theme-day .cep-open { background: linear-gradient(120deg, #e7f6ee, #eee9fb); color: #0e2c1d; } body.theme-day .cep-open > b { color: #0b7a4a; } body.theme-day .cep-chips i { background: #fff; border-color: #cfe6da; }
@@ -60,5 +56,4 @@ body.theme-day .cep-x { color: #1d4a33; border-color: #c6dccf; } body.theme-day 
 @media (max-width: 760px) { .cep-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); } .cep-rail { display: flex; overflow-x: auto; border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, .06); }
   .cep-rail button { flex: none; } .cep-rail button small { display: none; } }
 @media (max-width: 640px) { .cep-shade { padding: 0; } .cep { border-radius: 0; height: 100vh; } .cep-pane { padding: 10px; } }
-body.theme-day .flb { background: #e6eeea; }
-body.theme-day .tps > summary, body.theme-day .tps-pop { background: #fff; border-color: #c6dccf; } body.theme-day .tps-pop button { color: #1d4a33; background: #f4faf6; }
+body.theme-day .tps-btn, body.theme-day .tps-pop { background: #fff; border-color: #c6dccf; } body.theme-day .tps-pop button { color: #1d4a33; background: #f4faf6; }

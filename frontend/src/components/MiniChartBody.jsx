@@ -1,4 +1,5 @@
 import React from 'react';
+import { BsBar } from './BsBar';
 import { PriceChart } from './terminal/PriceChart';
 import { useMyPosition } from './terminal/TrenchChart';
 import { usePrime, fuseLevels } from './ArenaPrime';
@@ -22,6 +23,7 @@ export default function MiniChartBody({ pair, tf, fuse: carried, metric = 'marke
   const mc = Number(pair.marketCap) || 0; const asMc = metric === 'marketCap' && mc > 0 && px > 0; const k = asMc ? mc / px : 1;
   const p4 = v => (asMc ? mcf(Number(v) * k) : pp(v));
   return <>
+    {pair?.baseToken?.address && <div className="mch-bs"><BsBar mint={pair.baseToken.address} compact /></div>}
     {(fuse || mine > 0) && <div className="mch-strip" data-testid="mch-strip">
       {fuse && <span className="mch-fuse" data-tip={`${fuse.card || 'Fuse card'}: where the card got in, where it stops and where it locks`}>⚛ <b>{p4(fuse.entry)}</b>{px > 0 && <em className={px >= fuse.entry ? 'm-pos' : 'm-neg'}>{sg((px / fuse.entry - 1) * 100)}</em>}
         {fuse.stop ? <u className="is-stop">🛑 {p4(fuse.stop)}</u> : null}{fuse.lock ? <u className="is-lock">❄ {p4(fuse.lock)}</u> : null}{fuse.trail ? <u className="is-lock">🏔 {p4(fuse.trail)}</u> : null}</span>}

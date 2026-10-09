@@ -1,0 +1,21 @@
+/* 🌊 Buys vs sells bar (BsBar.jsx): [5m] [bought ▮▮▮|▮ sold] — tap the time to switch, tap the bar for the flow-exit menu. m-* tokens. */
+.bsb { position: relative; display: inline-flex; align-items: center; gap: 3px; vertical-align: middle; }
+.bsb-tf { height: 18px; min-width: 26px; padding: 0 4px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, .14); background: rgba(0, 0, 0, .3); color: #cfe3d8; font: 700 9px "JetBrains Mono", monospace; cursor: pointer; transition: border-color .15s ease, transform .15s ease; }
+.bsb-tf:hover, .bsb-tf:focus-visible { border-color: #45e486; color: #fff; outline: none; } .bsb-tf:active { transform: translateY(1px); }
+.bsb-bar { position: relative; display: inline-grid; grid-template-columns: 1fr 1fr; width: 118px; height: 18px; padding: 0; border-radius: 999px; overflow: hidden; border: 0; background: rgba(255, 255, 255, .05); cursor: pointer; transition: box-shadow .15s ease; }
+.bsb.is-compact .bsb-bar { width: 86px; height: 15px; }
+.bsb-bar:hover, .bsb-bar:focus-visible { box-shadow: 0 0 0 1px #45e486; outline: none; }
+.bsb-bar i { height: 100%; transition: transform .5s ease; } .bsb-b { transform-origin: right; background: linear-gradient(90deg, transparent, #15d16a); } .bsb-s { transform-origin: left; background: linear-gradient(90deg, #ff6b86, transparent); }
+.bsb-bar small { position: absolute; inset: 0; display: grid; place-items: center; font: 700 9px "JetBrains Mono", monospace; color: #fff; text-shadow: 0 1px 2px #000; white-space: nowrap; }
+.bsb-fx { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font-size: 8px; text-decoration: none; }
+.bsb.is-sell .bsb-bar { box-shadow: 0 0 0 1px rgba(255, 107, 134, .7); } .bsb.is-buy .bsb-bar { box-shadow: 0 0 0 1px rgba(69, 228, 134, .7); } .bsb.is-none .bsb-bar { opacity: .55; }
+.bsb-pop { display: grid; gap: 3px; padding: 6px; border-radius: 10px; border: 1px solid rgba(69, 228, 134, .4); background: #06100b; box-shadow: 0 12px 30px rgba(0, 0, 0, .6); animation: bsbIn .15s ease both; }
+.bsb-pop button { height: 24px; padding: 0 10px; border-radius: 7px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .03); color: #cfe3d8; font: 600 10.5px "JetBrains Mono", monospace; white-space: nowrap; cursor: pointer; text-align: left; transition: border-color .15s ease; }
+.bsb-pop button:hover, .bsb-pop button:focus-visible { border-color: #45e486; outline: none; } .bsb-pop button.active { background: #15d16a; color: #04130b; }
+@keyframes bsbIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+
+.mch-bs { display: flex; justify-content: flex-end; padding: 2px 8px 0; }
+body.fx-lite .bsb-pop { animation: none; }
+@media (prefers-reduced-motion: reduce) { .bsb-pop { animation: none; } .bsb-bar i { transition: none; } }
+body.theme-day .bsb-tf { background: #fff; color: #1d4a33; border-color: #c6dccf; } body.theme-day .bsb-bar { background: #e6eeea; } body.theme-day .bsb-pop { background: #fff; } body.theme-day .bsb-pop button { color: #1d4a33; }
+@media (max-width: 640px) { .bsb-bar { width: 92px; } }

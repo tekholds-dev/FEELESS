@@ -3887,8 +3887,12 @@ async def coin_edge(mints: str = Query('', max_length=3000), intel: bool = False
         runner = {r['mint']: r for r in (live.get('dropped') or []) + (live.get('passing') or [])}
         disc = {r['mint']: r.get('sources') or [] for r in ((_runner_disc_cache.get('data') or {}).get('runners') or [])}
         flow = ((_crowd_cache.get('data') or {}).get('flow')) or {}
+        try:
+            bs_ = await asyncio.wait_for(_bs_rows(todo), timeout=2.5)   # 🌊 buys vs sells 5m / 1h (+ the live 90s tape for held coins); never slows the edge
+        except Exception:
+            bs_ = {}
         for m in todo:
-            rec = _edge.compose(m, pulses.get(m), snip.get(m), ver.get(m), (_intel_cache.get(m) or (0, None))[1], runner.get(m), disc.get(m), flow.get(m))
+            rec = {**_edge.compose(m, pulses.get(m), snip.get(m), ver.get(m), (_intel_cache.get(m) or (0, None))[1], runner.get(m), disc.get(m), flow.get(m)), 'bs': bs_.get(m)}
             _edge_cache[m] = (now, rec); out[m] = rec
         if len(_edge_cache) > 5000:
             _edge_cache.clear()
@@ -6480,6 +6484,43 @@ async def _edge_track(now):
         _json_save(EDGE_PROOF_PATH, _trench.meta_track(st, passing, lambda m: (jp or {}).get(m), now, keys=keys))
     except Exception as e:
         print('edge track:', e)
+
+
+BS_FRESH = 30   # s: a coin someone is looking at gets its window stats re-read from Jupiter at most this often
+
+
+async def _bs_rows(ms):
+    """🌊 BUYS vs SELLS per coin for the 5m and 1h windows (Jupiter's own window stats: $ bought vs $ sold, trades, price move) +, for a coin
+    the real card holds, the live 90s tape. Rides on the coin-edge record (`bs`) — one shared poller for every bar on screen."""
+    now = time.time()
+    stale = [m for m in ms if now - _jup_facts.get(m, (0.0, None))[0] > BS_FRESH]
+    if stale and not os.environ.get('PYTEST_CURRENT_TEST'):
+        try:
+            got = await _jup_tokens(stale)
+            for m, t in (got or {}).items():
+                _jup_facts[m] = (time.time(), _ja.facts(t))
+        except Exception:
+            pass
+    tape = {}
+    for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values():
+        for l in (c or {}).get('legs') or [] if (c or {}).get('real') else []:
+            at, w = _flow_now.get(l.get('pairAddress'), (0, None))
+            if w and now - at < 90 and l.get('mint') in ms:
+                tape[l['mint']] = {k: w.get(k) for k in ('buyUsd', 'sellUsd', 'n', 'pxChg')}
+    out = {}
+    for m in ms:
+        win = ((_jup_facts.get(m) or (0, None))[1] or {}).get('win') or {}
+        row = {}
+        for k in ('5m', '1h'):
+            w = win.get(k) or {}
+            if w.get('vol') and w.get('buyPct') is not None:
+                b = w['vol'] * w['buyPct'] / 100
+                row[k] = {'buyUsd': round(b, 2), 'sellUsd': round(w['vol'] - b, 2), 'n': w.get('trades'), 'pxChg': w.get('priceChg')}
+        if m in tape:
+            row['90s'] = tape[m]
+        if row:
+            out[m] = row
+    return out
 
 
 @app.get('/api/reputation/fuses/learn')

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { usePumpProfile } from '../PumpProfile';
 import { useCoinEdge } from '../../lib/coinEdge';
+import { BsBar } from '../BsBar';
 import { sharedJson } from '../../lib/sharedJson';
 import { CoinVital, TrenchVital } from '../CoinVital';
 import '../../styles/chartVitals.css';
@@ -80,6 +81,6 @@ export function ChartVitals({ pair }) {
       {read ? <>{row.vital && <CoinVital r={row} only="vital" />}{row.tv && <TrenchVital r={row} />}
         {!row.vital && !row.tv && <small className="m-dim">No FEELESS read for this coin yet.</small>}</> : <small className="m-dim cv-reading">reading the FEELESS edge…</small>}
     </div>
-    <div className="cv-nums">{nums.map(([k, v]) => <span key={k}><small>{k}</small> {v}</span>)}</div>
+    <div className="cv-nums">{nums.map(([k, v]) => <span key={k}><small>{k}</small> {v}</span>)}{mint && <BsBar mint={mint} />}</div>
   </div>;
 }
