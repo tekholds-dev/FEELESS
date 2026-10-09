@@ -2541,3 +2541,11 @@ def test_trench_fix_1009_sets_the_scalp_and_ride_trench_setup():
     for k, v in rs.TRENCH_1009.items():
         assert new[k] == v, k
     assert new['cycles']['degen'] == 'trench' and new['sl'] == 30 and new['flowExit'] == 'normal'   # the owner's stop + flow exit stay
+
+
+def test_trench_pool_puts_a_proven_callers_fresh_call_first():
+    s, rows, pro = [{'mint': 'S'}], [{'mint': 'R'}], [{'mint': 'P'}]
+    assert [x['mint'] for x in ap.trench_pool(s, rows, [], [], {'proCallEntry': True}, pro=pro)] == ['P', 'S', 'R']
+    assert [x['mint'] for x in ap.trench_pool(s, rows, [], [], {'proCallEntry': True, 'trenchSendOnly': True}, pro=pro)] == ['P', 'S']
+    assert [x['mint'] for x in ap.trench_pool(s, rows, [], [], {}, pro=pro)] == ['S', 'R']         # switch off → ignored
+    assert ap.clean_cfg({})['proCallEntry'] is False

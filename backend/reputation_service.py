@@ -6300,6 +6300,7 @@ async def _trench_build(now):
         print('entry proof:', e)
     await _bottom_track(now)
     await _call_track(now)
+    await _procall_track(now)
     await _lens_track(now)
     await _smart_track(now)
     await _edge_track(now)
@@ -6409,7 +6410,24 @@ async def fuse_call_proof():
     """Each trench-vital call's own 1-hour record + whether the engine is taking 🔥 SEND IT coins yet."""
     if not _call_cache.get('proof'):
         _call_cache['proof'] = _trench.meta_proof(_json_load(CALL_PROOF_PATH, {}), keys=tuple(dict.fromkeys(CALL_KEYS.values())))
-    return {'proof': _call_cache.get('proof') or {}, 'auto': _sendit_ready(), 'autoMin': CALL_AUTO_MIN, 'send': [r.get('symbol') for r in _call_cache.get('send') or []]}
+    pro_rec = _trench.meta_proof(_json_load(PROCALL_PROOF_PATH, {}), keys=('pro',)).get('pro')
+    return {'proof': {**(_call_cache.get('proof') or {}), **({'pro': pro_rec} if pro_rec else {})}, 'auto': _sendit_ready(), 'autoMin': CALL_AUTO_MIN, 'send': [r.get('symbol') for r in _call_cache.get('send') or []]}
+
+
+PROCALL_PROOF_PATH = FUSE_HQ_PATH.parent / 'procall_proof.json'   # 🎯 every pro-call entry the engine could take, noted once at its price, judged 1h later
+
+
+async def _procall_track(now):
+    """🎯 The pro-call entry's own record: every coin it would hand the trench seat is noted once and settled an hour later
+    (no price = −100%) — the same honest scoring as every other list."""
+    try:
+        rows = _pc.pro_entries(_pump_calls.get('calls') or [], _pump_calls.get('callers') or {}, _open_board(), now * 1000)
+        st = _json_load(PROCALL_PROOF_PATH, {})
+        due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
+        jp = await _jup_prices(due) if due else {}
+        _json_save(PROCALL_PROOF_PATH, _trench.meta_track(st, {'pro': [(r['mint'], r.get('price')) for r in rows]}, lambda m: (jp or {}).get(m), now, keys=('pro',)))
+    except Exception as e:
+        print('procall proof:', e)
 
 
 BOTTOM_PROOF_PATH = FUSE_HQ_PATH.parent / 'bottom_proof.json'   # 🟢 the Buy-bottom list's own 1-hour paper record
@@ -8080,6 +8098,24 @@ async def _trench_fix_1009(now):
     return True
 
 
+async def _procall_fix_1009(now):
+    """🎯 Once (owner, 2026-10-09: "get in early on the best possible new trenches"): the real card's trench seats follow proven callers."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('procallFix1009') or not rc:
+            return False
+        pr['realCfg'] = _prime.clean_cfg({**rc, 'proCallEntry': True})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'proCallEntry'})
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | {'proCallEntry'})
+        for c in (pr.get('cards') or {}).values():
+            if c.get('real'):
+                c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🎯 trench seats now follow PROVEN Pump callers first — a fresh call (≤ 15 min), still within 15% of the cap they called it at, safety-scanned'})
+        pr['procallFix1009'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _ticket_ride_fix(now):
     """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
     once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
@@ -8179,6 +8215,7 @@ async def _prime_tick_inner(now):
     await _hunt_fix_1009(now)
     await _hunt_fix_1009b(now)
     await _trench_fix_1009(now)
+    await _procall_fix_1009(now)
     await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
@@ -8280,8 +8317,9 @@ async def _prime_tick_inner(now):
             sendit_ = [{**x, 'trenchScore': 100 + _fuse._f((x.get('tv') or {}).get('heat')), 'sendIt': True} for x in (_call_cache.get('send') or [])] \
                 if (cfg_t.get('sendItAuto', True) and _sendit_ready()) else []
             # 🔥 SEND IT ONLY (owner's switch): the trench list itself reads −79% an hour on its own record, the SEND IT call +0.5% (52% won)
+            pro_ = _pc.pro_entries(_pump_calls.get('calls') or [], _pump_calls.get('callers') or {}, _open_board(), now * 1000) if cfg_t.get('proCallEntry') else []
             pool_t = _prime.trench_pool(sendit_, _trench_cache.get('rows'), _trench_cache.get('fallback'),
-                                        [y for y in _trench_cache.get('checked') or [] if not y.get('ok') and _trench.soft_only(y.get('fails'))], cfg_t)
+                                        [y for y in _trench_cache.get('checked') or [] if not y.get('ok') and _trench.soft_only(y.get('fails'))], cfg_t, pro=pro_)
             for x in pool_t:
                 if x.get('mint') not in tr_seen and _lq(x) >= tr_floor * mg and _prime.trench_entry(x, mom):
                     tr_seen.add(x.get('mint')); tr_all.append({**x, 'trenchOnly': True})

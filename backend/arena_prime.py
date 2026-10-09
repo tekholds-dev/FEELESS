@@ -495,6 +495,7 @@ def clean_cfg(p):
     out['vitalMin'] = int(_f((p or {}).get('vitalMin'))) if int(_f((p or {}).get('vitalMin'))) in (0, 35, 50, 65) else 0        # 🎛 Coming up / engine: min vital score
     out['organicMin'] = int(_f((p or {}).get('organicMin'))) if int(_f((p or {}).get('organicMin'))) in (0, 5, 10, 20, 30) else 0   # … min organic share of 1h volume
     out['noSerial'] = bool((p or {}).get('noSerial', False))                                                                    # … skip serial launchers
+    out['proCallEntry'] = bool((p or {}).get('proCallEntry', False))   # 🎯 trench seats take a PROVEN caller's fresh call first, while still near the called cap
     out['trenchSendOnly'] = bool((p or {}).get('trenchSendOnly', False))   # 🔥 the trench drop takes ONLY 🔥 SEND IT coins (the only trench read with a positive record) — none → it waits
     out['sendItAuto'] = bool((p or {}).get('sendItAuto', True))   # 🔥 the engine may take SEND IT coins as trench tickets — only once that call is PROVEN
     out['ticketRide'] = bool((p or {}).get('ticketRide', False))   # 🎰 ride or rug: a ticket has NO stop — it rugs (the ticket is lost) or runs to the 🏠 pull
@@ -1456,12 +1457,13 @@ HOUSE_ATS = (0, 30, 50, 100, 200)   # 🏠 cfg `trenchHouseAt` / `houseAt`: 0 = 
 PICK_LOCKS = (0, 15, 30, 60)        # ⏳ cfg `pickLockMins`: 0 = off
 
 
-def trench_pool(sendit, rows, fallback, soft, cfg):
+def trench_pool(sendit, rows, fallback, soft, cfg, pro=()):
     """🗑 The coins the engine's trench drop may take, best first. 🔥 `trenchSendOnly` → ONLY the SEND IT coins (the trench list reads
     −79% an hour on its own record, SEND IT +0.5% with 52% up); none → nothing, the drop waits. Else SEND IT first, then the list."""
+    pro = list(pro or []) if (cfg or {}).get('proCallEntry') else []   # 🎯 a proven caller's fresh call, at their price — first in line
     if (cfg or {}).get('trenchSendOnly'):
-        return list(sendit or [])
-    return list(sendit or []) + list(rows or []) + list(fallback or []) + list(soft or [])
+        return pro + list(sendit or [])
+    return pro + list(sendit or []) + list(rows or []) + list(fallback or []) + list(soft or [])
 
 
 def pick_lock(card, pair, cfg, now):

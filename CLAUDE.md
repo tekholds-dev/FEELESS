@@ -2470,3 +2470,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   🔥 `trenchSendOnly` (NEW, `arena_prime.trench_pool`: the engine's trench drop takes ONLY SEND IT coins, none → it waits; the list reads
   −79% an hour, SEND IT +0.5% / 52% up) · 2 trench coins · trenchAuto on · cycle trench · lock +20 & bank 50% · 🏠 initial out at +30 (all
   coins + trench) · stepped trail 15 · cook 15 min · ride over → bank. The owner's stop (−30), flow exit and rug radar unchanged.
+- 🎯 PRO-CALL ENTRY (`pump_calls.pro_entries`, cfg `proCallEntry`, Edit Fuse › Coins; `trench_pool(.., pro=)` puts them FIRST, also under
+  SEND IT only): a trench seat takes a coin a PROVEN Pump caller (caller_board `proven`) called ≤ 15 min ago (`PRO_ENTRY_MIN`), only while
+  its cap is ≤ 1.15× the called cap (`PRO_ENTRY_LATE`: their price, not the pump after) and the open board marks it `safe`. Walk-forward
+  2026-10-09 on 31,937 judged calls: proven-on-the-first-half callers → next calls 50% up (median 1.01×) vs 42% (1.0×) for everyone — a
+  small edge, ridden as a ticket with the scalp-the-stake exits. Own record: `procall_proof.json` (`_procall_track` in `_trench_build`,
+  shown as `proof.pro` on `/fuses/call-proof`). On for the real card (`_procall_fix_1009`).

@@ -241,3 +241,31 @@ def rush(calls, now_ms, cap_usd=0.0, n=RUSH_N, window_min=RUSH_MIN):
         if len(who) >= n and cap_usd > 0 and 0 < mc <= cap_usd:
             out.append({'mint': m, 'symbol': rs[0].get('symbol'), 'callers': len(who), 'mcap': mc, 'firstMc': min((r['atMc'] for r in rs if r.get('atMc')), default=None)})
     return sorted(out, key=lambda x: -x['callers'])
+
+
+# 🎯 PRO-CALL ENTRY — get in early on the best new coins by following the callers who have been RIGHT (owner, 2026-10-09: "get in early on
+# the best possible new trenches"). Walk-forward on 32K judged calls: callers proven on the first half → their next calls 50% up vs 42%
+# for everyone else (median 1.01× vs 1.0×). A small edge, so it rides as a trench TICKET with the card's scalp-the-stake exits.
+PRO_ENTRY_MIN = 15      # the call is at most this many minutes old …
+PRO_ENTRY_LATE = 1.15   # … and the coin is still within 15% of the cap it was called at (their price, not the pump after)
+
+
+def pro_entries(calls, callers, open_rows, now_ms, max_min=PRO_ENTRY_MIN, late=PRO_ENTRY_LATE):
+    """Fresh calls by PROVEN callers on coins the open trench list marks SAFE, still near the called cap → open rows, best caller first,
+    each with `proCall` (who, their record, minutes since the call, cap then vs now). Pure."""
+    pros = {u: v for u, v in (callers or {}).items() if v.get('proven')}
+    rows = {r.get('mint'): r for r in open_rows or [] if r.get('mint')}
+    out, seen = [], set()
+    for c in sorted((c for c in calls or [] if c.get('user') in pros), key=lambda c: -_f(c.get('at'))):
+        r, m = rows.get(c.get('mint')), c.get('mint')
+        mins = (now_ms - _f(c.get('at'))) / 60000
+        if m in seen or not r or not r.get('safe') or not r.get('pairAddress') or _f(r.get('price')) <= 0 or not 0 <= mins <= max_min:
+            continue
+        at_mc, mc = _f(c.get('atMc')), _f(r.get('mcap'))
+        if at_mc > 0 and mc > at_mc * late:
+            continue   # it already ran past the caller's price
+        seen.add(m)
+        v = pros[c['user']]
+        out.append({**r, 'trenchScore': 200 + _f(v.get('medMult')) * 10, 'proCall': {'user': c['user'], 'medMult': v.get('medMult'), 'wonPct': v.get('wonPct'),
+                                                                                      'n': v.get('n'), 'mins': round(mins, 1), 'atMc': at_mc or None, 'mcap': mc or None}})
+    return sorted(out, key=lambda r: -_f(r['trenchScore']))
