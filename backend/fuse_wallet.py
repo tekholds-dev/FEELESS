@@ -347,6 +347,9 @@ def idle_sweep(card_id, card, book, tgt, sol_free, sol_px, cfg, now):
     # the first live sweep put $0.75 into a $0.60 coin on a four-coin card)
     free = [(m, t) for m, t in seats if not t.get('locked')]
     share = (sum(val(m, t) for m, t in free) + idle) / len(free)
+    if _f(card.get('coinCapPct')) > 0:   # ⚖ never over the card's concentration cap: cap_trim sold it straight back (11 swaps for nothing, 2026-10-09)
+        whole = sum(val(m, t) for m, t in tgt.items() if m != SOL_MINT and t['px'] > 0 and held_units(book, m) > 0) + idle
+        share = min(share, _f(card['coinCapPct']) * whole)
     mint, t = min(ok, key=lambda x: val(*x))
     if val(mint, t) >= share:
         return None                                   # the coins under their share are resting: the cash waits for them

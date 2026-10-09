@@ -8,8 +8,9 @@ export const leanOf = r => { const c5 = Number(r?.chg5m) || 0, c1 = Number(r?.ch
 
 // ⚡ RUSH (mirrors `arena_prime.rush_score` for the engine — change both; the engine also needs the scan to have PASSED): the trench coins
 // most worth a small ticket right now. A failed scan, a busted / wash / blow-off read, rug ≥ 50 or a > +15% 5-min candle never rushes.
+const RUSH_MIN_LIQ = 20000;   /* a pool thinner than this is pullable ($Emotional: $14K, pulled 4 min after the buy) */
 const RUSH_BAD = new Set(['RUG BAIT', 'DUMPING', 'BOND RUN', 'EARLY RUSH', 'SLOW CURVE', 'BREAKOUT', 'FALLING KNIFE', 'WASH TRADED', 'BLOW-OFF TOP', 'DEAD DIP', 'TREND DOWN']);
-export const rushScore = r => { if (!r || r.safe === false || RUSH_BAD.has(r.tv?.call?.[1]) || Number(r.rug ?? r.tv?.rug) >= 50 || Number(r.chg5m) > 15 || Number(r.chg5m) < -5) return null;   /* > +15% in one 5-min candle = a buying top · < −5% = falling now */
+export const rushScore = r => { if (!r || r.safe === false || RUSH_BAD.has(r.tv?.call?.[1]) || Number(r.rug ?? r.tv?.rug) >= 50 || Number(r.chg5m) > 15 || Number(r.chg5m) < -5 || (Number(r.liq) > 0 && Number(r.liq) < RUSH_MIN_LIQ)) return null;   /* > +15% in one 5-min candle = a buying top · < −5% = falling now */
   const c5 = Number(r.chg5m) || 0; const buys = Number(r.buyShare) || 0;
   return (r.safe === true ? 20 : 0) + (r.brain ? Number(r.brain.est) || 0 : 0) + (Number(r.tv?.heat) || 0) * 0.3 - (Number(r.rug ?? r.tv?.rug) || 0) * 0.4
     + (c5 > 0 && buys >= 55 ? c5 : 0) + (r.site && r.x ? 5 : 0); };

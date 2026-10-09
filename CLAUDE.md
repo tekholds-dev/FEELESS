@@ -2611,3 +2611,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🚪 Split list v2 (`TrenchOpen`): 🔥 Hot = coins the rush rule would take, by rush score (it led with BOND RUN / EARLY RUSH / BREAKOUT, −84 /
   −64 / −45% an hour); busted reads go to ☠ Avoid; 🆕 Newest has 🧹 Clean (default on: hides failed scans + rush-refused reads, "N hidden");
   every card carries the green / red `BsBar`, a lean line and ⚡ Rush (one-tap pick in the picker). Split CSS lives in trenchSplit.css.
+- ⚖ IDLE CASH RESPECTS THE COIN CAP (2026-10-09, 11 wasted swaps in an hour): with one unlocked coin, idle cash (engine `spread_cash(hard=)`
+  + keeper `fuse_wallet.idle_sweep` via card `coinCapPct`) lifted it to 66% and `cap_trim` sold it back to 35% ten minutes later, again and
+  again ($EVERYTHING, $QUBT). Both now stop at `coin_cap_usd` (`maxCoinPct` / 1.4× a seat); the rest stays card cash. ⚡ Rush never buys a
+  pool under `RUSH_MIN_LIQ` $20K (mirror in lib/lean.js) — $Emotional ($14K pool) was pulled 4 minutes after a rush buy.

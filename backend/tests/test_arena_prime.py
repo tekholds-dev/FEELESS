@@ -2796,3 +2796,23 @@ def test_your_seat_pick_is_funded_from_parked_profit_at_once():
     assert 'your pick $QI' in c['events'][-1]['why']
     c2 = {**c, 'seatPick': None, 'skimPark': [{'usd': 1.0, 'round': 1, 'at': 0}], 'holdCashUsd': 1.0, 'events': []}
     assert ap.pick_from_park(c2, {}, now, 4) == 0.0                                       # no pick of yours → the park stays parked
+
+
+def test_idle_cash_never_lifts_a_coin_over_the_cap_it_would_be_trimmed_back_to():
+    import fuse_wallet as fw
+    legs = [{'mint': 'A', 'pairAddress': 'a', 'units': 1.0, 'entry': 1.0}]   # the ONE unlocked coin on the card
+    fills = ap.spread_cash(legs, 2.0, {'a': 1.0}, hard=1.4)
+    assert round(fills[0], 2) == 0.4                                          # up to the cap; the rest stays card cash
+    assert ap.coin_cap_frac({'maxCoinPct': 35, 'coins': 4}) == 0.35 and ap.coin_cap_frac({'maxCoinPct': 0}) is None
+    # the keeper's idle sweep: same cap (it bought $EVERYTHING up to 66%, cap_trim sold it back to 35% — 11 swaps in an hour)
+    tgt = {'A': {'px': 1.0, 'pair': 'a', 'symbol': 'A'}, 'L': {'px': 1.0, 'pair': 'l', 'symbol': 'L', 'locked': True}}
+    book = {'held': {'A': 1.0, 'L': 2.0}}
+    held = lambda b, m: (b.get('held') or {}).get(m, 0.0)
+    orig = fw.held_units; fw.held_units = held
+    try:
+        cfg = {'minOrderUsd': 0.1, 'maxSwapUsd': 50}
+        o = fw.idle_sweep('c', {'legs': [], 'coinCapPct': 0.35}, book, tgt, 0.02, 100.0, cfg, 1000.0)   # $2 idle on a $5 card
+        assert o and round(o['usd'], 2) == 0.75                               # 35% of $5 = $1.75 − the $1 it holds
+        assert fw.idle_sweep('c', {'legs': []}, book, tgt, 0.02, 100.0, cfg, 1000.0)['usd'] == 2.0   # no cap set → the old equal share
+    finally:
+        fw.held_units = orig

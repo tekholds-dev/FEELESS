@@ -1559,6 +1559,7 @@ PICK_LOCKS = (0, 15, 30, 60)        # ⏳ cfg `pickLockMins`: 0 = off
 
 TRENCH_BAD_READS = ('BOND RUN', 'EARLY RUSH', 'RUG BAIT', 'DUMPING', 'SLOW CURVE', 'BREAKOUT', 'FALLING KNIFE')   # 1h records −13 … −84%
 RUSH_BAD = set(TRENCH_BAD_READS) | {'WASH TRADED', 'BLOW-OFF TOP', 'DEAD DIP', 'TREND DOWN'}
+RUSH_MIN_LIQ = 20_000.0   # a rush never buys into a pool thinner than this ($Emotional: $14K pool, pulled 4 min after the buy, 2026-10-09)
 
 
 def rush_score(r):
@@ -1569,7 +1570,8 @@ def rush_score(r):
     tv = r.get('tv') or {}
     rug = _f(r.get('rug') if r.get('rug') is not None else tv.get('rug'))
     c5 = _f(r.get('chg5m'))
-    if r.get('safe') is not True or ((tv.get('call') or [None, None])[1]) in RUSH_BAD or rug >= 50 or c5 > 15 or c5 < -5:   # a +15% candle = a top · −5% = falling now
+    liq = _f(r.get('liq') if r.get('liq') is not None else r.get('liquidityUsd'))
+    if r.get('safe') is not True or ((tv.get('call') or [None, None])[1]) in RUSH_BAD or rug >= 50 or c5 > 15 or c5 < -5 or 0 < liq < RUSH_MIN_LIQ:   # a +15% candle = a top · −5% = falling now · thin pool = pullable
         return None
     return round(20 + _f((r.get('brain') or {}).get('est')) + _f(tv.get('heat')) * 0.3 - rug * 0.4
                  + (c5 if c5 > 0 and _f(r.get('buyShare')) >= 55 else 0) + (5 if r.get('site') and r.get('x') else 0), 1)
@@ -2673,6 +2675,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     # the seat with an equal share (runner first, then pool). One seat a tick; never while floored / held.
     want_n = int(_f(cfg.get('coins')))
     c['seats'] = want_n   # the keeper sizes its smallest order to the card's seats (fuse_wallet.min_order)
+    c['coinCapPct'] = coin_cap_frac(cfg)   # … and its idle-cash sweep never lifts one coin over this (it was bought, then trimmed back, every 10 min)
     # 💵 on a real card a seat is only opened when the keeper can actually SEND its buy (cfg `minOrderUsd` = this card's smallest
     # order, 0 on paper) and a coin is only trimmed for it by an amount the keeper would really sell — else the seat waits, said once
     mo = _f(cfg.get('minOrderUsd'))
@@ -2768,7 +2771,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             all_ = [l for l in c['legs'] if not l.get('placeholder')]
             card_share = (sum((_f(l.get('units')) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)) * (_f(prices.get(l['pairAddress'])) or _f(l.get('entry'))) for l in all_) + max(0.0, _f(c.get('cash')))) / max(1, len(all_))
             fills = spread_cash(targets, free_cash, prices, open_ if all(t in open_ for t in targets) else None, cap=card_share,
-                                fresh={l['mint'] for l in targets if _f(l.get('at')) > 0 and 0 <= now - _f(l['at']) < FRESH_SEC})
+                                fresh={l['mint'] for l in targets if _f(l.get('at')) > 0 and 0 <= now - _f(l['at']) < FRESH_SEC},
+                                hard=coin_cap_usd(c, prices, cfg))
             free_cash = sum(fills)   # what is really spent: cash that would push a coin over its equal share stays cash
             for l, each in zip(targets, fills):
                 if each <= 0:
@@ -2852,7 +2856,7 @@ SMALL_SHARE = 0.5   # a coin PUT IN with < half its equal share is topped up …
 OVER_SHARE = 1.25   # … from card cash first, then from coins holding > 125% of their share
 
 
-def spread_cash(legs, cash, prices, seats=None, cap=None, fresh=()):
+def spread_cash(legs, cash, prices, seats=None, cap=None, fresh=(), hard=None):
     """How idle cash is split over a card's coins → [$ per leg]. Each coin is filled toward an EQUAL share of (coins + cash) in
     proportion to how far under it sits; a coin already at or over its share gets nothing. A coin still waiting on its buy counts as
     worth what it was given so far (often $0), so it is filled first — but only up to its share.
@@ -2870,6 +2874,9 @@ def spread_cash(legs, cash, prices, seats=None, cap=None, fresh=()):
     # cash and became the card's biggest seat before it had proved anything ($AGENCY: $0.48 seat → $2.03, then −9%).
     fr = set(fresh or ())
     room = [max(0.0, (min(share, _f(cap)) if cap is not None and seats and l.get('mint') in fr else share) - v) for l, v in zip(legs, vals)]
+    if hard is not None:   # ⚖ the card's own concentration cap (`maxCoinPct`): cash never lifts a coin over it — cap_trim would sell it straight back
+        room = [min(r, max(0.0, _f(hard) - v)) for r, v in zip(room, vals)]
+        seats = seats or legs   # … and what can't go in stays card cash
     total = sum(room)
     if total <= 0:
         return [0.0] * len(legs) if seats else ([_f(cash) / len(legs)] * len(legs) if legs else [])
@@ -3270,19 +3277,30 @@ def seats_used(c):
 COIN_CAPS = (0, 25, 35, 50)   # ⚖ cfg `maxCoinPct`: most of the card one coin may hold (0 = off)
 
 
+def coin_cap_frac(cfg):
+    """The most of a card one coin may hold (`maxCoinPct`, or 1.4× an equal seat when the owner's count makes that larger) — None = no cap."""
+    pct, want = _f((cfg or {}).get('maxCoinPct')), int(_f((cfg or {}).get('coins')))
+    return max(pct / 100, (1.4 / want) if want else 0.0) if pct > 0 else None
+
+
+def coin_cap_usd(c, prices, cfg):
+    f = coin_cap_frac(cfg)
+    if f is None:
+        return None
+    val = lambda l: _f(l.get('units')) * (_f((prices or {}).get(l.get('pairAddress'))) or _f(l.get('entry')))
+    return f * (sum(val(l) for l in c.get('legs') or [] if not l.get('placeholder')) + max(0.0, _f(c.get('cash'))))
+
+
 def cap_trim(c, prices, liqs, now, cfg, fee=0.0):
     """⚖ CONCENTRATION CAP (owner, 2026-10-09: one coin was 44% of a $4 card, two coins 72%): a coin worth more than `maxCoinPct` of
     the card — or 1.4× an equal seat when the owner's count makes that larger (2 coins → 70%) — is trimmed back to it; the money goes
     to card cash and into the other seats. Never a rider / frozen coin / house money (winners keep running) / a coin being bought, and
     only by an amount the keeper can send. In place → [(symbol, usd)]."""
-    pct, want = _f((cfg or {}).get('maxCoinPct')), int(_f((cfg or {}).get('coins')))
-    if pct <= 0:
-        return []
     val = lambda l: _f(l.get('units')) * (_f((prices or {}).get(l.get('pairAddress'))) or _f(l.get('entry')))
-    total = sum(val(l) for l in c.get('legs') or [] if not l.get('placeholder')) + max(0.0, _f(c.get('cash')))
-    if total <= 0:
+    cap = coin_cap_usd(c, prices, cfg)
+    if not cap or cap <= 0:
         return []
-    cap = total * max(pct / 100, (1.4 / want) if want else 0.0)
+    total = cap / coin_cap_frac(cfg)
     mo = max(_f((cfg or {}).get('minOrderUsd')), 0.05)
     out = []
     for l in c.get('legs') or []:
