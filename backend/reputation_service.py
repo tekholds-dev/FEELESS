@@ -3118,8 +3118,10 @@ def _wave_rows():
     except Exception:
         return []
     out = []
-    for r in _mt.wave_leaders(trend, [_with_tv(x) for x in _clean_rows([dict(x) for x in _open_board()])]):   # _clean_rows fills site / X (raw rows have none)
-        if _prime.trench_read_ok(r) and _fuse._f(r.get('price')) > 0:
+    raw = [_with_tv(x) for x in _open_board()]
+    open_tv = {x.get('mint'): x.get('tv') for x in raw}   # the open list's read — the safety check must pass it AND the picker read
+    for r in _mt.wave_leaders(trend, _clean_rows([dict(x) for x in raw])):   # _clean_rows fills site / X (raw rows have none)
+        if _prime.trench_read_ok(r) and _prime.trench_read_ok({'tv': open_tv.get(r.get('mint'))}) and _fuse._f(r.get('price')) > 0:
             w = r['wave']
             out.append({**r, 'baseAddress': r['mint'], 'priceUsd': r.get('price'), 'liquidityUsd': r.get('liq'),
                         'divisionLabel': f"🌊 the original of the \"{w['term']}\" wave — {w['today']} coins named after it today, this one leads"})
