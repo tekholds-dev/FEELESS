@@ -8135,6 +8135,25 @@ async def _topseat_fix_1009(now):
     return True
 
 
+async def _trench_safe_fix_1009(now):
+    """🛡 Once (owner, 2026-10-09: "no extra seat, just make it run profits in trench safely"): trench ticket stop −30 → −20."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('trenchSafeFix1009') or not rc:
+            return False
+        _json_save(DATA_DIR / 'realcfg_before_trenchsafe1009.json', {'trenchSlPct': rc.get('trenchSlPct')})
+        pr['realCfg'] = _prime.clean_cfg({**rc, 'trenchSlPct': 20})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'trenchSlPct'})
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | {'trenchSlPct'})
+        for c in (pr.get('cards') or {}).values():
+            if c.get('real'):
+                c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🛡 safe trench: busted reads (BOND RUN · EARLY RUSH · RUG BAIT · DUMPING · SLOW CURVE · BREAKOUT · FALLING KNIFE) and rug meter 50+ are never bought · trench ticket stop −20%'})
+        pr['trenchSafeFix1009'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _ticket_ride_fix(now):
     """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
     once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
@@ -8236,6 +8255,7 @@ async def _prime_tick_inner(now):
     await _trench_fix_1009(now)
     await _procall_fix_1009(now)
     await _topseat_fix_1009(now)
+    await _trench_safe_fix_1009(now)
     await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
@@ -8341,7 +8361,7 @@ async def _prime_tick_inner(now):
             pool_t = _prime.trench_pool(sendit_, _trench_cache.get('rows'), _trench_cache.get('fallback'),
                                         [y for y in _trench_cache.get('checked') or [] if not y.get('ok') and _trench.soft_only(y.get('fails'))], cfg_t, pro=pro_)
             for x in pool_t:
-                if x.get('mint') not in tr_seen and _lq(x) >= tr_floor * mg and _prime.trench_entry(x, mom):
+                if x.get('mint') not in tr_seen and _lq(x) >= tr_floor * mg and _prime.trench_entry(x, mom) and _prime.trench_read_ok(x):
                     tr_seen.add(x.get('mint')); tr_all.append({**x, 'trenchOnly': True})
             r_t = r_t + sorted(tr_all, key=lambda x: -_fuse._f(x.get('trenchScore') or x.get('score')))
         # 🪑 coins real money couldn't buy safely (2× in 10 min) are benched 1h for EVERY tier — paper never trades what real can't

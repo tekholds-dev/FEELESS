@@ -2593,3 +2593,11 @@ def test_top_three_matches_the_cards_top_chip_and_the_victim_is_the_weakest_non_
     assert ap.top_victim(card, px, 1000, 600)['mint'] == 'x'          # y is winning, r is riding, f is fresh → x (−10%)
     assert ap.top_victim(card, {**px, 'x': 1.1}, 1000, 600) is None   # nothing left that is not winning
     assert ap.clean_cfg({})['topSeat'] is False
+
+
+def test_safe_trench_never_takes_a_busted_read_or_a_high_rug_meter():
+    assert ap.trench_read_ok({'tv': {'call': ['🔥', 'SEND IT', 'good'], 'rug': 20}})
+    assert not ap.trench_read_ok({'tv': {'call': ['🚀', 'EARLY RUSH', 'good'], 'rug': 10}})     # −64% an hour on its record
+    assert not ap.trench_read_ok({'tv': {'call': ['☠', 'RUG BAIT', 'bad'], 'rug': 75}})
+    assert not ap.trench_read_ok({'tv': {'call': ['👀', 'WATCH', 'warn'], 'rug': 55}})          # rug meter too high
+    assert ap.trench_read_ok({}) and ap.trench_read_ok({'tv': {'call': 'COOLING'}})            # no read / a fine read

@@ -1492,6 +1492,22 @@ HOUSE_ATS = (0, 30, 50, 100, 200)   # 🏠 cfg `trenchHouseAt` / `houseAt`: 0 = 
 PICK_LOCKS = (0, 15, 30, 60)        # ⏳ cfg `pickLockMins`: 0 = off
 
 
+TRENCH_BAD_READS = ('BOND RUN', 'EARLY RUSH', 'RUG BAIT', 'DUMPING', 'SLOW CURVE', 'BREAKOUT', 'FALLING KNIFE')   # 1h records −13 … −84%
+TRENCH_RUG_MAX = 50   # ☠ rug meter at or above this = never a trench buy
+
+
+def trench_read_ok(row):
+    """🛡 SAFE TRENCH (owner, 2026-10-09: "make it run profits in trench safely"): the engine never takes a trench coin whose read is
+    one of the busted calls (their own 1-hour records: BOND RUN −84%, EARLY RUSH −64%, RUG BAIT −58%, DUMPING −56%, SLOW CURVE −45%,
+    BREAKOUT −45%, FALLING KNIFE −13%) or whose ☠ rug meter reads ≥ 50. No read = not judged. Owner picks are never limited."""
+    tv = (row or {}).get('tv') or {}
+    call = tv.get('call')
+    word = call[1] if isinstance(call, (list, tuple)) and len(call) > 1 else call
+    if isinstance(word, str) and word.upper() in TRENCH_BAD_READS:
+        return False
+    return not (tv.get('rug') is not None and _f(tv.get('rug')) >= TRENCH_RUG_MAX)
+
+
 def trench_pool(sendit, rows, fallback, soft, cfg, pro=()):
     """🗑 The coins the engine's trench drop may take, best first. 🔥 `trenchSendOnly` → ONLY the SEND IT coins (the trench list reads
     −79% an hour on its own record, SEND IT +0.5% with 52% up); none → nothing, the drop waits. Else SEND IT first, then the list."""

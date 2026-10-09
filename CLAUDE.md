@@ -2485,3 +2485,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`TOP3_DIVS` mirrors ArenaPrime.jsx — change both), `top_victim`, `TOP_SEAT_SEC` 600): the TOP 1/3 coin takes the weakest seat that is
   not winning (≤ +5%, held past min hold; never rider / frozen / house / buying / queued), real-buy pool floor, no dollar names, not
   falling now; the 🌊 flow exit sells it when sellers lead. Its record = `real_learn` (leg `bought.tag` '🔥 top 3').
+- 🛡 SAFE TRENCH (`arena_prime.trench_read_ok`, in the trench drop loop for EVERY door — pro callers, SEND IT, the list): never a coin whose
+  read is a busted call (`TRENCH_BAD_READS`: BOND RUN −84 · EARLY RUSH −64 · RUG BAIT −58 · DUMPING −56 · SLOW CURVE −45 · BREAKOUT −45 ·
+  FALLING KNIFE −13, 1h medians) or whose ☠ rug meter is ≥ 50 (`TRENCH_RUG_MAX`); no read = not judged; owner picks never limited. Real
+  card trench ticket stop −20 (`_trench_safe_fix_1009`). Seats stay at the owner's 4 — a trench coin REPLACES the weakest seat.
