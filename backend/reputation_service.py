@@ -3091,6 +3091,8 @@ def _bangers(mine, cool, mom, lq, floor, now):
     try:
         open_ = [_with_tv(x) for x in _open_board()]
         src = [(r, '🎯 proven caller') for r in _pc.pro_entries(_pump_calls.get('calls') or [], _pump_calls.get('callers') or {}, open_, now * 1000)]
+        if _wave_ready():   # 🌊 narrative leaders join the doors only once their own record is positive (10+ settled)
+            src += [(r, '🌊 narrative leader') for r in _wave_rows()]
         src += [(r, '🔥 top 3') for r in _prime.top_three((_contenders_cache.get('data') or {}).get('divisions'), mine, cool)]
         src += [(r, '🧊 cooling off') for r in _exhale_rows()]
     except Exception:
@@ -3103,6 +3105,30 @@ def _bangers(mine, cool, mom, lq, floor, now):
         seen.add(m)
         out.append({**r, 'tag': tag})
     return out[:8]
+
+
+WAVE_PROVE_MIN = 10   # 🌊 the engine seats a wave leader only once the list's own 1h record is positive over this many settled coins
+
+
+def _wave_rows():
+    """🌊 NARRATIVE LEADERS: the original coin of every ticker wave spiking today (meme_terms.wave_leaders) — site / X set, safe, still
+    trading, rug meter < 50, no busted read."""
+    try:
+        trend = _mt.trending(_json_load(MEME_PATH, {}), time.time())
+    except Exception:
+        return []
+    out = []
+    for r in _mt.wave_leaders(trend, [_with_tv(x) for x in _open_board()]):
+        if _prime.trench_read_ok(r) and _fuse._f(r.get('price')) > 0:
+            w = r['wave']
+            out.append({**r, 'baseAddress': r['mint'], 'priceUsd': r.get('price'), 'liquidityUsd': r.get('liq'),
+                        'divisionLabel': f"🌊 the original of the \"{w['term']}\" wave — {w['today']} coins named after it today, this one leads"})
+    return out
+
+
+def _wave_ready():
+    rec = (_list_records() or {}).get('wave') or {}
+    return int(rec.get('n') or 0) >= WAVE_PROVE_MIN and _fuse._f(rec.get('medPct')) > 0
 
 
 def _exhale_rows():
@@ -3129,6 +3155,8 @@ async def _fuses_discover_raw(lens, chain):
     """Fuse Lab: browse real pools on the chain you're on, by lens (popular / yield / deep / new)."""
     if lens == 'exhale':
         return {'lens': 'exhale', 'chain': 'solana', 'pools': _exhale_rows()}
+    if lens == 'wave':
+        return {'lens': 'wave', 'chain': 'solana', 'pools': _wave_rows()}
     if lens == 'procall':
         return {'lens': 'procall', 'chain': 'solana', 'pools': _procall_rows()}
     if lens == 'fresh':   # 🔄 NEW TO YOU (owner, 2026-10-08: "no new coins, I'm running in circles — cycle different coins from the Arena and FEELESS
@@ -6527,7 +6555,7 @@ async def _bottom_rows(now):
 
 
 LENS_PROOF_PATH = FUSE_HQ_PATH.parent / 'lens_proof.json'   # 📏 every picker list's own 1-hour paper record
-LENS_TRACK = ('ptrend', 'movers', 'pump', 'volume', 'calls', 'fed', 'double', 'exhale', 'procall')          # the live-feed lists (bottom + trench keep their own files)
+LENS_TRACK = ('ptrend', 'movers', 'pump', 'volume', 'calls', 'fed', 'double', 'exhale', 'procall', 'wave')          # the live-feed lists (bottom + trench keep their own files)
 LENS_TOP = 15                                                # the top rows of each list are what a picker actually picks from
 _lens_rows: dict = {}                                        # {list: [rows in the list's own order]} — refreshed with the record (~2 min)
 
@@ -8238,6 +8266,26 @@ async def _clean_fix_1009(now):
     return True
 
 
+async def _flow_tight_fix_1009(now):
+    """🌊 Once (owner, 2026-10-09: "if I make buy-vs-sell tight it scalps and swaps faster? let's do it"): flow exit → tight (sellers 1.5×
+    buyers, $25, 4 trades, price −1.5% in 90s). Its own record (flow_proof) shows whether faster exits pay. Old: realcfg_before_flowtight.json."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('flowTightFix1009') or not rc:
+            return False
+        _json_save(DATA_DIR / 'realcfg_before_flowtight.json', {'flowExit': rc.get('flowExit')})
+        pr['realCfg'] = _prime.clean_cfg({**rc, 'flowExit': 'tight'})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'flowExit'})
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | {'flowExit'})
+        for c in (pr.get('cards') or {}).values():
+            if c.get('real'):
+                c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🌊 buys-vs-sells exit → TIGHT: sellers 1.5× buyers + price −1.5% in 90s sells the coin; the seat takes a banger'})
+        pr['flowTightFix1009'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _ticket_ride_fix(now):
     """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
     once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
@@ -8341,6 +8389,7 @@ async def _prime_tick_inner(now):
     await _topseat_fix_1009(now)
     await _trench_safe_fix_1009(now)
     await _clean_fix_1009(now)
+    await _flow_tight_fix_1009(now)
     await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:

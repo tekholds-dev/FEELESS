@@ -123,3 +123,26 @@ def explain(state, term):
         return {'term': w, 'known': False, 'meaning': 'not seen in the trenches yet', 'kind': None}
     return {'term': w, 'known': False, 'kind': 'wave' if sc['coin'] >= sc['chat'] else 'chat',
             'meaning': f"seen in {sc['coin']} coin names and {sc['chat']} chat messages", 'coins': ((state.get('refs') or {}).get(w) or [])[-4:]}
+
+
+WAVE_MIN = 10          # a wave = at least this many coins named after the word today
+WAVE_ALIVE_VOL1H = 5000.0
+
+
+def wave_leaders(trend, rows, min_today=WAVE_MIN):
+    """🌊 NARRATIVE LEADERS (owner, 2026-10-09: "soon as a coin drops with good narrative and site, no rug"): for every ticker wave
+    spiking today, the ORIGINAL — among the coins named after the word, the biggest, then the oldest — never a copycat ("the first
+    one usually runs, copycats usually don't"). Only with a site or X set, `safe`, and still trading ($5K+ in the hour). Pure; each
+    row gets `wave` {term, copycats}. Best wave first (most copycats)."""
+    out, seen = [], set()
+    for t in sorted((t for t in trend or [] if t.get('kind') == 'wave' and int(t.get('today') or 0) >= min_today), key=lambda t: -int(t.get('today') or 0)):
+        refs = set(t.get('coins') or [])
+        named = [r for r in rows or [] if r.get('mint') and (r['mint'] in refs or t['term'] in set(tokenize(f"{r.get('name') or ''} {r.get('symbol') or ''}")))]
+        if not named:
+            continue
+        lead = max(named, key=lambda r: (float(r.get('mcap') or 0), float(r.get('ageH') or 0)))
+        if lead['mint'] in seen or not (lead.get('site') or lead.get('x')) or lead.get('safe') is not True or float(lead.get('vol1h') or 0) < WAVE_ALIVE_VOL1H:
+            continue
+        seen.add(lead['mint'])
+        out.append({**lead, 'wave': {'term': t['term'], 'copycats': max(0, len(named) - 1), 'today': int(t.get('today') or 0)}})
+    return out

@@ -21,7 +21,7 @@ test('the real-card swap picker has every Lab lens + search, flags thin pools an
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<SwapPicker out={{ symbol: 'WIF' }} have={[]} minLiq={20000} onPick={r => picks.push(r)} onClose={() => {}} />); });
   await tick();
-  expect(PICK_LENSES.map(x => x[0])).toEqual(['exhale', 'procall', 'ptrend', 'fed', 'bottom', 'volume', 'trench', 'majors']);   // eight lists ranked by their own records
+  expect(PICK_LENSES.map(x => x[0])).toEqual(['exhale', 'procall', 'wave', 'ptrend', 'fed', 'bottom', 'volume', 'trench', 'majors']);   // nine lists ranked by their own records
   // 🚀 it opens on what is MOVING (the live launch feed by hourly move) …
   expect(urls.find(u => u.includes('/fuses/discover'))).toContain('/fuses/discover?lens=exhale');   // 🧊 Cooling off opens first (the best record)
   expect(el.querySelector('[data-testid="sp-exhale-note"]').textContent).toMatch(/exhale/);

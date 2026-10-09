@@ -21,3 +21,19 @@ def test_cooling_off_and_proven_callers_lists(monkeypatch):
     pc = rs._procall_rows()
     assert [r['symbol'] for r in pc] == ['PRO']                          # a BOND RUN read (−84% record) is never listed
     assert '@ace called it 20m ago' in pc[0]['divisionLabel']
+
+
+def test_narrative_leaders_list_and_its_gate(monkeypatch):
+    import reputation_service as rs
+    monkeypatch.setattr(rs._mt, 'trending', lambda st, now: [{'term': 'botpfp', 'kind': 'wave', 'today': 40, 'coins': []}])
+    rows = [{'mint': 'O', 'symbol': 'BOTPFP', 'pairAddress': 'po', 'price': 1, 'mcap': 9e5, 'ageH': 4, 'site': 's', 'safe': True, 'vol1h': 5e4,
+             'tv': {'call': ['x', 'WATCH', 'warn'], 'rug': 20}}]
+    monkeypatch.setattr(rs, '_open_board', lambda: rows)
+    out = rs._wave_rows()
+    assert [r['symbol'] for r in out] == ['BOTPFP'] and 'original of the "botpfp" wave' in out[0]['divisionLabel']
+    monkeypatch.setattr(rs, '_list_records', lambda: {'wave': {'n': 4, 'medPct': 9}})
+    assert not rs._wave_ready()                                         # too few settled: the engine does not seat it yet
+    monkeypatch.setattr(rs, '_list_records', lambda: {'wave': {'n': 12, 'medPct': 2.5}})
+    assert rs._wave_ready()
+    rows[0]['tv'] = {'call': ['☠', 'RUG BAIT', 'bad'], 'rug': 80}
+    assert rs._wave_rows() == []                                        # a rug-bait read is never listed

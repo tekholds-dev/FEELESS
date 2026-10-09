@@ -2516,3 +2516,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   · Edit Fuse: REMOVED rows scout, mover swap, recycle (+ every), stack-skim, "keep $ riding", second ticket, fed lock, SEND IT auto (→ the
     SEND IT only row), ticket ride-or-rug; rescue + record gate only on paper cards; duplicates gone. META setups + ladder stages no longer
     set scout / mover swap (they set `bangerRefill`). A hidden setting must be neutral on the real card — never hide one that is on.
+- 🌊 NARRATIVE LEADERS (`meme_terms.wave_leaders`, `_wave_rows`, lens + picker tab `wave`, in LENS_TRACK): for every ticker wave spiking today
+  (≥ 10 coins named after a word) the ORIGINAL — biggest, then oldest — never a copycat; site or X set, `safe`, $5K+/h, rug < 50, no busted
+  read. A banger door (after 🎯 proven callers) ONLY once `_wave_ready()` = its own 1h record has ≥ 10 settled and a positive median.
+- 🌊 Real card flow exit = TIGHT (`_flow_tight_fix_1009`, owner's call: faster scalps / swaps). flow_proof that day: 6 exits, +0.3% after.
