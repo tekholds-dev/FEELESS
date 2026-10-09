@@ -2489,3 +2489,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   read is a busted call (`TRENCH_BAD_READS`: BOND RUN −84 · EARLY RUSH −64 · RUG BAIT −58 · DUMPING −56 · SLOW CURVE −45 · BREAKOUT −45 ·
   FALLING KNIFE −13, 1h medians) or whose ☠ rug meter is ≥ 50 (`TRENCH_RUG_MAX`); no read = not judged; owner picks never limited. Real
   card trench ticket stop −20 (`_trench_safe_fix_1009`). Seats stay at the owner's 4 — a trench coin REPLACES the weakest seat.
+- 👻 PHANTOM LEFTOVERS (`fuse_wallet.drop_phantoms`, keeper balance pass): 2026-10-09 the repair / sell-dead path read the wallet BEFORE
+  taking the keeper lock, so a $UP sale confirmed while it waited still showed as held → 1.48B sold UP booked back as a $0-cost
+  "recovered" leftover → card read $1.25 (real $0.77) and halted on "token balance below card books". Now: the repair route reads
+  balances INSIDE `_fw_tick_lock` + `_fw_lock` and skips mints sold in the last 2 min; a recovered $0-cost leg the confirmed wallet
+  holds NONE of is dropped (ledger `ghost:` fix row) so the halt lifts. Coins the card paid for still halt.
+- 🏠 HOUSE DUST (`arena_prime.house_dust`, `HOUSE_DUST_SHARE` 0.4, tick step 4): after the initial-out, a small ticket's 3–6¢ of house
+  money held a whole seat (owner: "not gonna profit with 6c in a seat"). A `house` coin under 40% of an equal seat, not riding / frozen,
+  is sold to card cash (profit banked) and the seat refills with a full-size coin the same tick.

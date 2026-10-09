@@ -1392,3 +1392,16 @@ def test_thin_pool_floors_are_raised_once_to_40k_and_the_trench_floor_is_left_al
     raised = {**low, **fw.thin_pool_cfg(low)}
     assert fw.liq_floor(raised, picked=True) == 40000.0 and fw.liq_floor(raised) == 40000.0
     assert fw.liq_floor(raised, trench=True) == 8000.0                              # a trench ticket keeps its own small floor
+
+
+def test_a_zero_cost_leftover_the_wallet_holds_none_of_is_dropped_and_paid_coins_are_not():
+    import fuse_wallet as fw
+    books = {'degen': {'legs': {'UP': {'atoms': 1481235567, 'costUsd': 0.0, 'recovered': True, 'symbol': 'UP'},
+                                'PAID': {'atoms': 500, 'costUsd': 0.3, 'symbol': 'PAID'},
+                                'HALF': {'atoms': 1000, 'costUsd': 0.0, 'recovered': True, 'symbol': 'HALF'}}}}
+    missing = fw.reconcile({'UP': 0, 'PAID': 0, 'HALF': 400}, books)
+    out, drops = fw.drop_phantoms(books, missing)
+    assert [d['symbol'] for d in drops] == ['UP']                       # held none + $0 cost + recovered → a phantom
+    assert 'PAID' in out['degen']['legs']                               # a coin the card paid for still halts (real shortage)
+    assert 'HALF' in out['degen']['legs']                               # the wallet holds some → not a phantom
+    assert {m['mint'] for m in fw.reconcile({'UP': 0, 'PAID': 0, 'HALF': 400}, out)} == {'PAID', 'HALF'}

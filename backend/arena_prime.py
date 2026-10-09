@@ -2477,6 +2477,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     # 4) idle cash goes back to work when compounding. Cash reserved for an empty replacement slot is untouchable.
     clamp_hold(c, now)            # 🅿 never more parked than the card really holds in cash (fees come out of that cash)
     unfunded_seats(c, now, prices)   # 💸 a coin with nothing behind it never sits "waiting for card cash" for good
+    if not c.get('flooredAt') and not c.get('holdAll'):
+        house_dust(c, prices, liqs, now, int(_f(cfg.get('coins'))), fee)   # 🏠 3–6¢ of house money never holds a whole seat
     release_parked(c, cfg, now)   # 🅿 parked profit whose rounds are up joins the idle cash — BEFORE free cash is counted (it used to wait one more tick)
     # 🅿 PARKED MEANS PARKED (owner, 2026-10-07: "parked 6 rnds means just that"): nothing releases a park before its rounds are
     # up — not a queued pick, not an empty seat. A seat with no free cash is funded by trimming the coins above an equal share
@@ -3066,6 +3068,35 @@ def rebuy_in(card, still_held, now):
 
 
 SEAT_QUEUE_MAX = 5
+
+
+HOUSE_DUST_SHARE = 0.4   # 🏠 house money worth under this part of an equal seat is sold (profit banked) and the seat refilled
+
+
+def house_dust(c, prices, liqs, now, want_n, fee=0.0):
+    """🏠 "Not gonna profit with 6¢ in a seat" (owner, 2026-10-09): after the initial-out, a small ticket's house money (3–6¢ of a 15%
+    ticket) held a WHOLE seat while full seats waited. A `house` coin worth under `HOUSE_DUST_SHARE` of an equal seat — and not running
+    right now (riding with its trail is left alone) — is sold to card cash: that profit is banked and the seat refills with a full-size
+    coin the same tick. In place → [(symbol, usd)]."""
+    if not want_n:
+        return []
+    val = lambda l: _f(l.get('units')) * (_f((prices or {}).get(l.get('pairAddress'))) or _f(l.get('entry')))
+    share = (sum(val(l) for l in c.get('legs') or [] if not l.get('placeholder')) + max(0.0, _f(c.get('cash')) - _f(c.get('holdCashUsd')))) / want_n
+    out = []
+    for l in list(c.get('legs') or []):
+        px = _f((prices or {}).get(l.get('pairAddress')))
+        if not l.get('house') or l.get('ride') or l.get('frozen') or l.get('buying') or px <= 0 or _f(l.get('units')) <= 0 or len(c['legs']) <= 1:
+            continue
+        if val(l) >= share * HOUSE_DUST_SHARE:
+            continue
+        usd = sell_usd(_f(l['units']), px, (liqs or {}).get(l['pairAddress']) or l.get('liq'))
+        c['legs'].remove(l)
+        c['cash'] = round(_f(c.get('cash')) + usd, 6); c['feesUsd'] = _f(c.get('feesUsd')) + fee
+        c['takenUsd'] = _f(c.get('takenUsd')) + usd
+        c.setdefault('events', []).append({'at': now, 'kind': 'skim', 'symbol': l.get('symbol'), 'usd': round(usd, 4), 'to': ['card'],
+                                           'why': f"🏠 ${l.get('symbol')}'s house money (${usd:.2f}, initial already out) was too small to hold a seat — banked, the seat refills with a full-size coin"})
+        out.append((l.get('symbol'), usd))
+    return out
 
 
 UNFUNDED_SEC = 30   # a coin on the card with nothing behind it for this long is taken off and its seat re-funded

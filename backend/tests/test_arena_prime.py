@@ -2601,3 +2601,15 @@ def test_safe_trench_never_takes_a_busted_read_or_a_high_rug_meter():
     assert not ap.trench_read_ok({'tv': {'call': ['☠', 'RUG BAIT', 'bad'], 'rug': 75}})
     assert not ap.trench_read_ok({'tv': {'call': ['👀', 'WATCH', 'warn'], 'rug': 55}})          # rug meter too high
     assert ap.trench_read_ok({}) and ap.trench_read_ok({'tv': {'call': 'COOLING'}})            # no read / a fine read
+
+
+def test_tiny_house_money_is_banked_and_frees_its_seat_but_a_rider_keeps_running():
+    c = {'cash': 0.0, 'legs': [{'symbol': 'BIG', 'pairAddress': 'b', 'units': 1.0, 'entry': 1.0},
+                               {'symbol': 'BIG2', 'pairAddress': 'b2', 'units': 1.0, 'entry': 1.0},
+                               {'symbol': 'QI', 'pairAddress': 'q', 'units': 0.05, 'entry': 1.0, 'house': True},
+                               {'symbol': 'RUN', 'pairAddress': 'r', 'units': 0.05, 'entry': 1.0, 'house': True, 'ride': True}]}
+    px = {'b': 1.0, 'b2': 1.0, 'q': 1.0, 'r': 1.0}
+    out = ap.house_dust(c, px, {}, 100, 4)
+    assert [s for s, _ in out] == ['QI'] and c['cash'] > 0.04                  # 5¢ vs a ~52¢ seat → banked
+    assert [l['symbol'] for l in c['legs']] == ['BIG', 'BIG2', 'RUN']          # a running rider keeps its trail
+    assert ap.house_dust(c, px, {}, 100, 0) == []                              # no seat count → nothing to free

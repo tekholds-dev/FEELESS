@@ -1026,6 +1026,25 @@ def fit_small_shortage(books, missing, max_pct=FIT_MAX_PCT):
     return out, fits
 
 
+def drop_phantoms(books, missing):
+    """👻 A 'recovered' leftover ($0 cost, booked by the strays / repair path) that the CONFIRMED wallet holds NONE of was never
+    there: its coins had already been sold (2026-10-09: the repair path read the wallet a few seconds before the keeper's $UP sale
+    showed, booked the sold 1.48B UP back as a leftover worth $0.48, the card read $1.25 instead of $0.77 and halted). It leaves the
+    book — $0 cost, so no P&L moves — and the halt can lift. Coins the card paid for are never dropped (those stay a halt).
+    → (books, [{card, mint, symbol}])"""
+    out, drops = {t: b for t, b in (books or {}).items()}, []
+    for m in missing or []:
+        if int(m.get('held') or 0) > 0:
+            continue
+        for t, b in out.items():
+            leg = (b.get('legs') or {}).get(m['mint'])
+            if leg and leg.get('recovered') and _f(leg.get('costUsd')) <= 0:
+                legs = dict(b['legs']); legs.pop(m['mint'])
+                out[t] = {**b, 'legs': legs}
+                drops.append({'card': t, 'mint': m['mint'], 'symbol': leg.get('symbol') or m['mint'][:4]})
+    return out, drops
+
+
 def reconcile_sol(wallet_sol, books):
     """Card SOL is a liability of the shared wallet. A shortage must stop trading instead of letting another card spend it."""
     booked = sum(_f(b.get('sol')) + _f(b.get('bankSol')) for b in (books or {}).values())

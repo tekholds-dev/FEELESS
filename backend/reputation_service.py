@@ -9813,6 +9813,12 @@ async def _fw_tick(now):
                                 _fw_record(d, {'id': f"fit:{ft['card']}:{ft['mint'][:6]}:{time.time():.0f}", 'card': ft['card'], 'side': 'fix', 'mint': ft['mint'], 'symbol': ft['symbol'], 'at': time.time(), 'status': 'done',
                                                'why': f"📏 book matched to the wallet: ${ft['symbol']} {ft['pct']:.2f}% fewer coins than booked (rounding / transfer tax) — the wallet is the truth"})
                             missing = _fw.reconcile(bal.get('tokens'), d['books'])
+                        if missing:   # 👻 a $0-cost leftover the wallet holds none of was already sold — off the book, no halt
+                            d['books'], ghosts = _fw.drop_phantoms(d['books'], missing)
+                            for gh in ghosts:
+                                _fw_record(d, {'id': f"ghost:{gh['card']}:{gh['mint'][:6]}:{time.time():.0f}", 'card': gh['card'], 'side': 'fix', 'mint': gh['mint'], 'symbol': gh['symbol'], 'at': time.time(), 'status': 'done',
+                                               'why': f"👻 ${gh['symbol']} was booked as a leftover but the wallet holds none — already sold; off the book ($0 cost, P&L unchanged)"})
+                            missing = _fw.reconcile(bal.get('tokens'), d['books'])
                         if missing or sol_short:   # confirmed wallet balances beat our books; stop every affected card before another order
                             bad = {x['mint'] for x in missing}
                             for tid, b in d['books'].items():
@@ -10632,14 +10638,17 @@ async def fuse_wallet_recover_sell_all(request: Request):
     card = cards.get(tid)
     if not card or not card.get('real'):
         raise HTTPException(400, 'That tier is not a real card.')
-    bal = await _fw_balances(cfg['address'])
     async with _fw_tick_lock, _fw_lock:   # 🧷 waits for a keeper pass in flight: an owner write and a swap pass never interleave
+        # 👻 the wallet is read INSIDE the lock: read before it, a sale the keeper confirmed while we waited still showed as held
+        # and was booked back as a leftover (2026-10-09, $UP: $0.48 of phantom value + a halt)
+        bal = await _fw_balances(cfg['address'])
         d = _fw_load(); book = d['books'].get(tid)
         if not book:
             raise HTTPException(400, 'That tier is not funded.')
         if book.get('pending'):
             raise HTTPException(409, 'Wait for the current transaction to settle first.')
         book, marked = _fw.mark_off_card_cash(book, card)
+        just_sold = {r.get('mint') for r in d['ledger'][-200:] if r.get('side') == 'sell' and r.get('status') == 'filled' and time.time() - _fuse._f(r.get('at')) < 120}
         booked = {}
         for bb in d['books'].values():
             for mint, leg in (bb.get('legs') or {}).items():
@@ -10647,7 +10656,7 @@ async def fuse_wallet_recover_sell_all(request: Request):
         adopted = []
         for mint, held_raw in (bal.get('tokens') or {}).items():
             excess = int(_fuse._f(held_raw)) - int(booked.get(mint, 0))
-            if excess <= 0:
+            if excess <= 0 or mint in just_sold:   # a coin sold in the last 2 min may still show in a lagging balance read
                 continue
             hist = [r for r in d['ledger'] if r.get('card') == tid and r.get('mint') == mint and r.get('pair')]
             if not hist:
