@@ -26,3 +26,23 @@ def test_contenders_answers_from_its_last_copy_and_rebuilds_in_the_background(mo
         assert await rs._contenders_build(fresh=True) == {'v': 'fresh'}   # the warm loop always rebuilds
     asyncio.run(run())
     rs._contenders_cache.update(at=0.0, data=None)
+
+
+def test_arena_stage_is_served_from_disk_on_the_first_call_after_a_restart(monkeypatch):
+    import reputation_service as rs
+    import launchpad_board as lb
+    now = time.time()
+    lb.save_board_snapshot(rs.ARENA_SNAPSHOT_PATH, 'mega', [{'id': 'card-1'}], {}, now - 120)
+    built = []
+
+    async def run():
+        rs._arena_mega_cache.clear(); rs._arena_mega_cache.update(at=0.0, data=None, boot=True)
+        monkeypatch.setattr(rs, '_fuse_view', lambda *a, **k: built.append(1))
+        got = await rs._arena_mega({'rounds': [], 'paths': {}}, {}, now)
+        assert got == [{'id': 'card-1'}]                       # answered from disk at once (the stage took ≈ 13s cold)
+        assert 'boot' not in rs._arena_mega_cache               # only the FIRST call after a restart reads the disk
+        rs._arena_mega_cache.update(at=0.0, data=None)          # an admin change clears the stage on purpose …
+        assert rs._launchpad_board.launchpad_board_snapshot(rs.ARENA_SNAPSHOT_PATH, 'mega', now) is not None
+        assert rs._arena_mega_cache.get('boot') is None         # … and the old disk copy is never put back
+    asyncio.run(run())
+    rs._arena_mega_cache.clear(); rs._arena_mega_cache.update(at=0.0, data=None)

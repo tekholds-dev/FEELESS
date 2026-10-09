@@ -4810,7 +4810,8 @@ async def fuse_arena_public():
             'engineDial': rd.get('cfgDial') or 'custom'}
 
 
-_arena_mega_cache: dict = {'at': 0.0, 'data': None}
+_arena_mega_cache: dict = {'at': 0.0, 'data': None, 'boot': True}
+ARENA_SNAPSHOT_PATH = DATA_DIR / 'arena_snapshot.json'
 
 
 FUSE_ARENA_NAME = '⚔ Fuse Arena'
@@ -5237,6 +5238,11 @@ async def _feecat_card():
 async def _arena_mega(rd, cfg, now):
     """Cards on the Arena stage: HQ mega cards (published Fuses flagged `arena`) + runner cards that lit after their
     rounds. Each carries its live activity (fuse_hq.activity → hard-coded effect tier). 30s cache, parallel lookups."""
+    if _arena_mega_cache.pop('boot', False) and _arena_mega_cache['data'] is None and not _FUSE_FORCE.get():
+        # ⚡ first call after a restart: the stage written to disk (≤ 15 min old) is served at once and rebuilt in the background (it took ≈ 13s cold)
+        snap_ = _launchpad_board.launchpad_board_snapshot(ARENA_SNAPSHOT_PATH, 'mega', now)
+        if snap_:
+            _arena_mega_cache.update(at=now - max(40.0, snap_[0]), data=snap_[1])
     if _arena_mega_cache['data'] is not None and not _FUSE_FORCE.get():
         age_ = now - _arena_mega_cache['at']
         if age_ < 40:
@@ -5380,6 +5386,12 @@ async def _arena_mega(rd, cfg, now):
     out = await _card_dna_tag(out, rd)
     out.sort(key=lambda x: -x['activity']['score'])
     _arena_mega_cache.update(at=now, data=out)
+    if out and now - _arena_mega_cache.get('savedAt', 0) >= 60:
+        _arena_mega_cache['savedAt'] = now
+        try:
+            await asyncio.to_thread(_launchpad_board.save_board_snapshot, ARENA_SNAPSHOT_PATH, 'mega', out, {}, now)
+        except Exception:
+            pass
     return out
 
 
