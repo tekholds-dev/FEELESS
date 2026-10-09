@@ -34,7 +34,7 @@ def test_bad_rows_never_get_through_and_thesis_is_cleaned():
     by = {c['mint']: c for c in b['coins']}
     assert len(by[M2]['lead']['thesis']) <= pc.THESIS_MAX and '\n' not in by[M2]['lead']['thesis'] and '\x00' not in by[M2]['lead']['thesis']
     assert by[M1]['calls'] == 1 and by[M1]['logo'] is None   # the other-chain call is dropped; a non-https image is dropped
-    assert pc.board(None, None, None, NOW) == {'coins': [], 'top': [], 'latest': [], 'n': 0}
+    assert pc.board(None, None, None, NOW) == {'coins': [], 'top': [], 'latest': [], 'n': 0, 'calls': []}
 
 
 def test_top_callouts_come_from_the_leaderboard_with_the_callers_profit():
@@ -53,3 +53,30 @@ def test_heat_is_bounded_and_a_called_coin_becomes_a_feed_candidate():
     c = pc.candidate({'mint': M1, 'symbol': 'L', 'callers': 3, 'mcap': 12000})
     assert c['launchpad'] == 'pump' and c['pumpCalls'] == 3 and c['mover'] is True and c['url'].endswith(M1)
     assert pc.candidate({'mint': 'bad mint'}) is None
+
+
+def _call(user, cid, mins_ago, mult, mint=M1, mcap=20000, at_mc=10000):
+    return {'id': cid, 'user': user, 'mint': mint, 'symbol': 'L', 'at': NOW - mins_ago * 60000, 'mult': mult, 'atMc': at_mc, 'mcap': mcap}
+
+
+def test_a_caller_is_proven_only_on_calls_judged_an_hour_later():
+    st = pc.caller_track({}, [_call('ace', f'a{i}', 90, m) for i, m in enumerate((2.0, 1.5, 0.8))] + [_call('ace', 'a9', 5, 9.0), _call('rug', 'r1', 90, 0.2), _call('rug', 'r2', 70, 0.4), _call('rug', 'r3', 61, 3.0)], NOW)
+    b = pc.caller_board(st)
+    assert b['ace'] == {'n': 3, 'medMult': 1.5, 'wonPct': 67, 'best': 2.0, 'proven': True}   # the 5-minute-old 9× call is not judged yet
+    assert b['rug']['proven'] is False and b['rug']['medMult'] == 0.4
+    st2 = pc.caller_track(st, [_call('ace', 'a0', 200, 0.1)], NOW + 60000)   # a judged call keeps its result, whatever the coin does later
+    assert pc.caller_board(st2)['ace']['medMult'] == 1.5
+    st3 = pc.caller_track({'new': {'seen': NOW, 'calls': {'n1': {'mint': M1, 'at': NOW - 30 * 60000, 'mult': 1.7}}}}, [], NOW + 40 * 60000)
+    assert st3['new']['calls']['n1']['res'] == 1.7   # left the feed before the hour: its last reading stands
+    assert pc.caller_track({'old': {'seen': NOW - 8 * 86400000, 'calls': {'x': {'at': 1, 'res': 2}}}}, [], NOW) == {}
+    board = pc.mark_pros({'coins': [{'mint': M1, 'users': ['ace', 'rug', 'zed']}, {'mint': M2, 'users': ['rug']}]}, b)
+    assert (board['coins'][0]['pro'], board['coins'][0]['pros'], board['coins'][1]['pro']) == (1, ['ace'], 0)
+    assert [r['user'] for r in pc.leaders(b)] == ['ace', 'rug'] and pc.summary({'mint': M1, 'pro': 1, 'pros': ['ace']})['pro'] == 1
+
+
+def test_a_call_rush_needs_three_different_callers_in_ten_minutes_under_the_owners_cap():
+    calls = [_call('a', '1', 2, 1.1), _call('b', '2', 4, 1.0), _call('c', '3', 9, 1.2), _call('a', '4', 1, 1.0), _call('d', '5', 30, 1.0),
+             _call('x', '6', 1, 1, mint=M2), _call('y', '7', 2, 1, mint=M2)]
+    assert pc.rush(calls, NOW, 50000) == [{'mint': M1, 'symbol': 'L', 'callers': 3, 'mcap': 20000, 'firstMc': 10000}]
+    assert pc.rush(calls, NOW, 15000) == [] and pc.rush(calls, NOW, 0) == []   # over the cap · alert off
+    assert pc.RUSH_CAPS_K[0] == 0

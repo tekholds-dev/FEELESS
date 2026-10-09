@@ -109,6 +109,7 @@ def board(home=None, new=None, top=None, now_ms=0.0):
                       'calls': len(rs), 'callers': len(callers), 'verified': ver, 'views': views, 'likes': sum(r['likes'] for r in rs),
                       'firstMc': first_mc, 'lastAt': last, 'heldUsd': round(sum(r['heldUsd'] for r in rs), 2),
                       'bestMult': max((r['mult'] for r in rs if r['mult']), default=None), 'heat': heat(len(callers), views, ver, mins),
+                      'users': sorted(callers)[:20],
                       'lead': {k: lead.get(k) for k in ('id', 'user', 'x', 'verified', 'avatar', 'calls', 'atMc', 'mult', 'maxMult', 'thesis', 'at', 'views', 'likes', 'heldUsd', 'pnlPct')}})
     coins.sort(key=lambda c: (-c['heat'], -c['callers'], -c['views']))
     tops = []
@@ -118,7 +119,7 @@ def board(home=None, new=None, top=None, now_ms=0.0):
         if r:
             known = by.get(r['mint'], [{}])[0]
             tops.append({**r, 'rank': int(_f(e.get('rank'))) or i + 1, 'symbol': known.get('symbol'), 'logo': known.get('logo')})
-    return {'coins': coins[:COINS_MAX], 'top': tops[:TOP_MAX], 'latest': sorted(calls, key=lambda r: -r['at'])[:LATEST_MAX], 'n': len(calls)}
+    return {'coins': coins[:COINS_MAX], 'top': tops[:TOP_MAX], 'latest': sorted(calls, key=lambda r: -r['at'])[:LATEST_MAX], 'n': len(calls), 'calls': calls}
 
 
 def summary(coin):
@@ -127,7 +128,8 @@ def summary(coin):
     if not c.get('mint'):
         return None
     lead = c.get('lead') or {}
-    return {'calls': c.get('calls'), 'callers': c.get('callers'), 'verified': c.get('verified'), 'views': c.get('views'), 'heat': c.get('heat'),
+    return {'pro': c.get('pro') or 0, 'pros': c.get('pros') or [],
+            'calls': c.get('calls'), 'callers': c.get('callers'), 'verified': c.get('verified'), 'views': c.get('views'), 'heat': c.get('heat'),
             'firstMc': c.get('firstMc'), 'lastAt': c.get('lastAt'), 'bestMult': c.get('bestMult'), 'heldUsd': c.get('heldUsd'),
             'lead': {k: lead.get(k) for k in ('user', 'x', 'verified', 'atMc', 'mult', 'thesis', 'at', 'views')}}
 
@@ -154,3 +156,88 @@ def candidate(coin, now_ms=0.0):
     return {'mint': mint, 'launchpad': pad, 'symbol': c.get('symbol'), 'name': c.get('name'), 'image': c.get('logo'), 'createdAt': 0.0,
             'marketCap': _f(c.get('mcap')), 'athMarketCap': 0.0, 'replies': 0, 'live': False, 'graduated': False, 'curveProgress': None,
             'socials': 0, 'mover': True, 'pumpCalls': int(_f(c.get('callers'))) or 1, 'platformName': 'Pump callouts', 'url': f'https://pump.fun/coin/{mint}'}
+
+
+# 🎯 CALLER SCOREBOARD — not every caller is worth the same. Each callout is noted once (who, which coin, the cap it was called at) and
+# judged by the multiple Pump itself reports about an hour later (`res`; a call that left the feed before that keeps its last reading).
+# A caller is PROVEN with >= PRO_MIN judged calls, a typical (median) result >= PRO_MED× and at least half of them up.
+JUDGE_MIN = 60          # minutes after the call before it is judged
+PRO_MIN, PRO_MED = 3, 1.2
+CALLER_KEEP = 30        # judged calls kept per caller
+CALLER_DAYS = 7         # a caller not seen for a week is dropped
+
+
+def caller_track(state, calls, now_ms):
+    """One pass over the calls just read → the updated record {caller: {'seen': ms, 'calls': {id: {mint, at, atMc, mult, res}}}}. Pure."""
+    st = {u: {'seen': v.get('seen', 0), 'calls': dict(v.get('calls') or {})} for u, v in (state or {}).items() if isinstance(v, dict)}
+    live = set()
+    for r in calls or []:
+        u, cid = r.get('user'), r.get('id')
+        if not u or not cid or not r.get('at') or r.get('mult') is None:
+            continue
+        live.add(cid)
+        rec = st.setdefault(u, {'seen': 0, 'calls': {}})
+        rec['seen'] = now_ms
+        c = rec['calls'].setdefault(cid, {'mint': r.get('mint'), 'at': r['at'], 'atMc': r.get('atMc')})
+        c['mult'] = r['mult']
+        if c.get('res') is None and now_ms - r['at'] >= JUDGE_MIN * 60000:
+            c['res'] = r['mult']
+    for u in list(st):
+        rec = st[u]
+        for cid, c in rec['calls'].items():   # left the feed before it could be judged: its last reading stands
+            if c.get('res') is None and cid not in live and now_ms - _f(c.get('at')) >= JUDGE_MIN * 60000:
+                c['res'] = c.get('mult')
+        done = sorted((kv for kv in rec['calls'].items() if kv[1].get('res') is not None), key=lambda kv: -_f(kv[1].get('at')))[:CALLER_KEEP]
+        rec['calls'] = {**dict(done), **{k: v for k, v in rec['calls'].items() if v.get('res') is None}}
+        if now_ms - _f(rec.get('seen')) > CALLER_DAYS * 86400000 or not rec['calls']:
+            st.pop(u)
+    return st
+
+
+def caller_board(state):
+    """→ {caller: {n, medMult, wonPct, best, proven}} from judged calls only."""
+    out = {}
+    for u, rec in (state or {}).items():
+        rs = sorted(_f(c.get('res')) for c in (rec.get('calls') or {}).values() if c.get('res') is not None)
+        if not rs:
+            continue
+        n = len(rs)
+        med = rs[n // 2] if n % 2 else (rs[n // 2 - 1] + rs[n // 2]) / 2
+        won = sum(1 for x in rs if x > 1) / n * 100
+        out[u] = {'n': n, 'medMult': round(med, 2), 'wonPct': round(won), 'best': round(rs[-1], 2), 'proven': n >= PRO_MIN and med >= PRO_MED and won >= 50}
+    return out
+
+
+def mark_pros(b, callers):
+    """Each called coin gets `pro` (how many PROVEN callers are on it) + their names. In place; returns the board."""
+    pros = {u for u, v in (callers or {}).items() if v.get('proven')}
+    for c in (b or {}).get('coins') or []:
+        on = [u for u in c.get('users') or [] if u in pros]
+        c['pro'], c['pros'] = len(on), on[:3]
+    return b
+
+
+def leaders(callers, n=15):
+    """The scoreboard: proven callers first, then best typical result (>= 2 judged calls)."""
+    rows = [{'user': u, **v} for u, v in (callers or {}).items() if v.get('n', 0) >= 2]
+    return sorted(rows, key=lambda r: (not r['proven'], -r['medMult'], -r['n']))[:n]
+
+
+# 🔔 CALL RUSH — several different callers on one coin inside a few minutes, while it is still small
+RUSH_N, RUSH_MIN = 3, 10
+RUSH_CAPS_K = (0, 50, 100, 250, 1000)   # the owner's alert: off · under $50K · $100K · $250K · $1M
+
+
+def rush(calls, now_ms, cap_usd=0.0, n=RUSH_N, window_min=RUSH_MIN):
+    """→ [{mint, symbol, callers, mcap, firstMc}] for coins with >= n DIFFERENT callers in the last `window_min` minutes and a cap under `cap_usd`."""
+    by = {}
+    for r in calls or []:
+        if r.get('at') and 0 <= now_ms - r['at'] <= window_min * 60000:
+            by.setdefault(r['mint'], []).append(r)
+    out = []
+    for m, rs in by.items():
+        who = {r['user'] for r in rs}
+        mc = max((_f(r.get('mcap')) for r in rs), default=0.0)
+        if len(who) >= n and cap_usd > 0 and 0 < mc <= cap_usd:
+            out.append({'mint': m, 'symbol': rs[0].get('symbol'), 'callers': len(who), 'mcap': mc, 'firstMc': min((r['atMc'] for r in rs if r.get('atMc')), default=None)})
+    return sorted(out, key=lambda x: -x['callers'])

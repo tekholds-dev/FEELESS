@@ -3106,6 +3106,8 @@ async def _fuses_discover_raw(lens, chain):
         return {'lens': 'bottom', 'chain': 'solana', 'pools': rows_b, 'proof': _trench.meta_proof(_json_load(BOTTOM_PROOF_PATH, {}), keys=('bottom',)).get('bottom')}
     if lens == 'calls':   # 📣 the coins Pump's own users are calling out, loudest first
         return {'lens': 'calls', 'chain': 'solana', 'pools': await _pump_call_rows()}
+    if lens == 'double':   # 🔥🔥 called out AND fed — the overlap of the two Pump signals
+        return {'lens': 'double', 'chain': 'solana', 'pools': await _double_rows()}
     if lens == 'fed':   # 🧲 runners new Pump launches are paired with — every buy of those coins routes through the runner's pool
         return {'lens': 'fed', 'chain': 'solana', 'pools': await _feeder_rows()}
     feed_lens = lens if lens in ('pump', 'movers', 'volume', 'ptrend') else None   # 🆕 New launches (newest first) · 🚀 Movers · 🌊 Volume (busiest first): one live launch feed
@@ -5941,8 +5943,20 @@ async def _pump_calls_build(force=False):
                     k = toks.get(t['mint']) or {}
                     t['symbol'] = t.get('symbol') or k.get('symbol')
                     t['logo'] = t.get('logo') or k.get('icon')
+            calls_ = b.pop('calls', [])
+            try:   # 🎯 caller scoreboard: every call noted once, judged an hour later
+                cst = _pc.caller_track(_json_load(PUMP_CALLERS_PATH, {}), calls_, now * 1000)
+                _json_save(PUMP_CALLERS_PATH, cst)
+                _pump_calls['callers'] = _pc.caller_board(cst)
+                _pc.mark_pros(b, _pump_calls['callers'])
+            except Exception as e:
+                print('pump callers:', e)
             if b['coins'] or b['top'] or not _pump_calls['board']['coins']:
                 _pump_calls.update(board=b, map={c['mint']: c for c in b['coins']}, ok=now)
+            try:
+                _call_rush_alert(calls_, now)
+            except Exception as e:
+                print('call rush:', e)
     finally:
         _pump_calls_flight['t'] = False
     return _pump_calls['board']
@@ -5957,6 +5971,35 @@ def _pc_rows(rows):
             if c:
                 r['pc'] = _pc.summary(c)
     return rows
+
+
+PUMP_CALLERS_PATH = FUSE_HQ_PATH.parent / 'pump_callers.json'
+_rush_sent: dict = {}   # mint → when the owner was last told (one alert per coin per 6h)
+
+
+def _call_rush_alert(calls, now):
+    """🔔 The owner's early-caller alert (prime.callAlert.capK, off by default): 3+ different Pump callers on one coin inside 10 minutes
+    while its cap is under the owner's line → ONE inbox + phone notice per coin per 6h. A heads-up only: nothing is bought."""
+    cap_k = int(_fuse._f(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('callAlert') or {}).get('capK')))
+    if cap_k not in _pc.RUSH_CAPS_K or cap_k <= 0:
+        return []
+    hits = [h for h in _pc.rush(calls, now * 1000, cap_k * 1000) if now - _rush_sent.get(h['mint'], 0) > 6 * 3600]
+    for h in hits[:3]:
+        _rush_sent[h['mint']] = now
+        for w in _owner_wallets():
+            notify(w, 'fuse-signal', f"🔔 Call rush: {h['callers']} Pump callers on ${h.get('symbol') or h['mint'][:4]} in 10 minutes — cap ${h['mcap'] / 1000:,.0f}K. Other people's calls, not advice.",
+                   url=f"/terminal/coin/solana/{h['mint']}", once=f"rush-{h['mint']}-{int(now // 21600)}", meta={'claim': f"{h['callers']} different callers inside 10 minutes", 'source': 'Pump callouts feed'})
+    return hits
+
+
+async def _double_rows():
+    """🔥🔥 Double signal: coins that are BOTH called out by 2+ Pump users and have new launches paired with them."""
+    await _pump_calls_build()
+    rs = (await _feeders_build()).get('runners') or {}
+    pm = _pump_calls['map']
+    both = sorted((m for m in pm if m in rs and int(_fuse._f(pm[m].get('callers'))) >= 2), key=lambda m: -(pm[m].get('heat', 0) + rs[m]['score']))
+    return await _mint_rows(both[:60], lambda m: {'divisionLabel': f"🔥🔥 {pm[m]['callers']} callers · {rs[m]['n']} coins paired", 'pc': _pc.summary(pm[m]), 'fd': rs[m],
+                                                 'score': round((pm[m].get('heat', 0) + rs[m]['score']) / 2)})
 
 
 async def _mint_rows(mints, extra):
@@ -6062,7 +6105,8 @@ async def fuse_pump_callouts():
     one row per called coin (callers, eyes on it, the cap it was called at, the multiple since). Other people's calls — a read, never advice."""
     b = await _pump_calls_build()
     return {'top': b.get('top') or [], 'latest': (b.get('latest') or [])[:20], 'coins': (b.get('coins') or [])[:60], 'n': b.get('n') or 0,
-            'at': _pump_calls.get('ok') or None, 'source': 'pump.fun callouts'}
+            'at': _pump_calls.get('ok') or None, 'source': 'pump.fun callouts', 'callers': _pc.leaders(_pump_calls.get('callers') or {}),
+            'alertCapK': int(_fuse._f(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('callAlert') or {}).get('capK'))), 'alertCaps': list(_pc.RUSH_CAPS_K)}
 
 
 async def _callout_tick(now):
@@ -6328,7 +6372,7 @@ async def _bottom_rows(now):
 
 
 LENS_PROOF_PATH = FUSE_HQ_PATH.parent / 'lens_proof.json'   # 📏 every picker list's own 1-hour paper record
-LENS_TRACK = ('ptrend', 'movers', 'pump', 'volume', 'calls', 'fed')          # the live-feed lists (bottom + trench keep their own files)
+LENS_TRACK = ('ptrend', 'movers', 'pump', 'volume', 'calls', 'fed', 'double')          # the live-feed lists (bottom + trench keep their own files)
 LENS_TOP = 15                                                # the top rows of each list are what a picker actually picks from
 _lens_rows: dict = {}                                        # {list: [rows in the list's own order]} — refreshed with the record (~2 min)
 
@@ -7605,6 +7649,8 @@ async def _prime_tick_inner(now):
         cur = cards.get(tid)
         liqs = {k: _fuse._f((v.get('liquidity') or {}).get('usd')) for k, v in pairs_.items()}
         cfg_t = {**_prime.clean_cfg(locks[tid]), 'paperFeeUsd': cfg['paperFeeUsd']} if tid in locks else _prime.tier_cfg(cfg, tid)   # 🔒 a locked tier runs its own frozen config · every other tier its own ⏱ clock
+        _raw_paper = (d.get('prime') or {}).get('cfg') or {}
+        cfg_t = {**cfg_t, **{k: v for k, v in _prime.PAPER_TRY.items() if k not in _raw_paper}}   # 🧪 fed lock + second ticket are tried on paper first
         real_t = bool((cur or {}).get('real'))
         if real_t:
             cfg_t = _prime_real_cfg(d.get('prime') or {})   # 💵 the real card runs ITS OWN config — paper edits / locks / engine tunes never touch it
@@ -7934,6 +7980,9 @@ async def _prime_tick_inner(now):
                     cur = _prime.note_dropped(was_u, new_u, now, cfg_t['rotateHours'], px)
                 except Exception:
                     cur = was_u
+        for l_ in (cur or {}).get('legs') or []:   # 🧲 / 📣 what Pump's own feeds say about each coin the card holds (fed lock · second ticket)
+            l_['fedN'] = int(((_feeders['board'].get('runners') or {}).get(l_.get('mint')) or {}).get('n') or 0)
+            l_['calledN'] = int((_pump_calls['map'].get(l_.get('mint')) or {}).get('callers') or 0)
         cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, a_t, mom, liqs, true_usd=true_usd, blind=bool(real_t and true_usd is None)) if cur else _prime.deal(tid, p_t, r_t, cfg_t, now, [] if new_only_ else anchors)
         if cards[tid] is not None:
             cards[tid]['rebuyDip'] = int(cfg_t.get('rebuyDipPct') or 0)
@@ -8165,6 +8214,12 @@ async def fuse_prime_admin(request: Request):
                 b_['misses'] = {}   # every coin gets fresh retries (benched coins stay benched — they really failed the safety checks)
                 b_['manualCashSol'] = 0.0   # 🔧 held cash goes back to work: Fix = "use this card's money" (✂ again to hold some apart)
                 _fw_save(fd)
+    if isinstance(body.get('callAlert'), dict):   # 🔔 the owner's early-caller alert: off (0) or the cap (in $K) a coin must be under
+        ck_ = int(_fuse._f(body['callAlert'].get('capK')))
+        if ck_ not in _pc.RUSH_CAPS_K:
+            raise HTTPException(400, 'Pick one of the listed caps.')
+        async with _admin_lock:
+            d = _json_load(FUSE_HQ_PATH, {}); d.setdefault('prime', {})['callAlert'] = {'capK': ck_}; _json_save(FUSE_HQ_PATH, d)
     if isinstance(body.get('trenchCfg'), dict):   # 🎛 the owner's trench settings (auto = engine widens by itself · own = these numbers)
         async with _admin_lock:
             # a PATCH: only the keys sent change (the editor used to post its whole, up-to-30s-old copy and put an old mode back)

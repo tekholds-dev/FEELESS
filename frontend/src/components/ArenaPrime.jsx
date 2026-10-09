@@ -23,7 +23,7 @@ import { useTabTitle, cardTitle } from '../lib/tabTitle';
 import { CoinVital, VitalView, applyView, loadView } from './CoinVital';
 import { TrenchQuick, warmCoin } from './TrenchQuick';
 import { createPortal } from 'react-dom';
-import { FuseBanner } from './QuickPulse';
+import { FuseBanner, CallAlert } from './QuickPulse';
 import { PayMap } from './PayMap';
 
 import { tiny } from '../lib/num';
@@ -285,6 +285,8 @@ const EDIT = [
   ['recycleEvery', '♻ Recycle every', [[1, '1'], [2, '2'], [3, '3'], [4, '4'], [6, '6'], [12, '12 rounds']], 'How often the profit recycle runs (only when ♻ Recycle profit is on). On 5-minute rounds, 6 rounds = every 30 minutes.'],
   ['rideEnd', '🏁 When the ride is over', [['swap', '⇄ swap for a new coin'], ['keep', '🧷 keep the coin'], ['cash', '💵 sell to card cash']], 'A locked coin that falls under half your freeze level: the ride is over. Swap it for the next coin, keep holding it (its normal stop / take-profit take over again), or sell it to card cash and let the seat refill by itself.'],
   ['peakSellPct', '🏔 Off its peak', [[0, 'sell nothing — keep riding'], [25, 'sell 25% of profit'], [50, 'sell 50% of profit'], [75, 'sell 75% of profit'], [100, 'swap the coin']], 'A locked coin that falls your trail % from its peak. Sell part of its PROFIT and let it keep riding (the trail starts again from there) — or swap the whole coin for a new one. If it falls under half your freeze level the ride is over either way.'],
+  ['fedRidePct', '🧲 Fed coin locks later', [[0, 'off'], [25, '+25%'], [50, '+50%'], [100, '+100%']], 'A coin new Pump launches are paired with (2 or more) has their buys routed through its pool. On: its ❄ lock line is raised by this much, so it gets room to run before it locks, banks and starts trailing. Example: freeze +20% with +50% → a fed coin locks at +30%. Stops are unchanged.'],
+  ['secondTicketPct', '🎟 Second ticket (paper)', [[0, 'off'], [5, '5% of card'], [10, '10% of card']], 'ONE small add, from idle card cash, to a coin that is already LOCKED and still being called out by 2+ Pump users. Size only ever goes to a winner. Paper cards only for now — it runs on real money once its own record says it pays.'],
   ['lockBankPct', '🏦 Bank at the lock', [[0, 'off'], [25, '25%'], [33, '33%'], [50, '50%']], 'When a coin hits your ❄ freeze level it locks and rides. This sells part of it right then and spreads that money over your other coins — so a winner that comes all the way back still paid. The rest keeps riding until it falls off its peak.'],
   ['edgeGate', '🧠 Only coins the record backs', [[true, 'on'], [false, 'off']], 'On: the engine buys a launch coin with real money only when the board’s own record of coins like it (age, pool, buyers, turnover — judged 3 hours after each pick) does not expect it to lose. The record is re-learned every 15 minutes and switches itself off when it stops telling winners from losers. Your own picks are never limited. Off: every gated runner can be bought.'],
   ['runnerMinLiqK', '🏊 Launch coins: min pool', [[0, 'keeper floor'], [25, '$25K'], [50, '$50K'], [100, '$100K']], 'Real money buys a launch coin (runner) only when its pool is at least this deep. On the replay of the board’s own picks, coins in pools under $50K were where most of the loss came from. Fewer coins qualify, so a seat can wait longer. New majors, trench coins and your own picks keep their own rules.'],
@@ -463,7 +465,7 @@ function CardEditor({ c, cfg, keeper, locked, call, real, suggest, meta }) {
         {churn && <p className="m-note ce-warn" data-testid="churn-warn">⚠ Round rotation is aggressive at {Math.round((cfg?.rotateHours || 0) * 60)}m with patience {cfg?.rotateConfirm || 1}. The ⚡ instant swap (Exits) is separate and fires immediately at its loss.
           <button type="button" className="m-btn" disabled={busy} onClick={() => save({ rotateConfirm: 3 })}>Use 3</button></p>}</>}
       {adv && grp === 'exits' && <>{sub('A LOSING COIN')}{rows(['sl', 'instantSwapPct', 'slMode'])}
-        {sub('A WINNING COIN')}{rows(['rideAt', ...(on('rideAt') ? ['rideTrail', 'trailStep', 'peakSellPct', 'rideEnd', 'lockBankPct', 'comeback'] : []), 'tp', 'keepWinPct'])}
+        {sub('A WINNING COIN')}{rows(['rideAt', ...(on('rideAt') ? ['rideTrail', 'trailStep', 'peakSellPct', 'rideEnd', 'lockBankPct', 'comeback', 'fedRidePct', 'secondTicketPct'] : []), 'tp', 'keepWinPct'])}
         {sub('TAKING PROFIT AUTOMATICALLY')}{rows(['skimAt', 'skimTo', ...(cfg?.skimTo === 'round' ? ['skimHoldRounds'] : []), 'stackSkimUsd', 'recyclePct', ...(on('recyclePct') ? ['recycleEvery'] : []), 'tpStakeUsd'])}</>}
       {adv && grp === 'safety' && rows(['floorPct', ...(Number(cfg?.floorPct) > 0 ? ['floorRestMins'] : []), 'rescuePct', ...(real ? ['pickVerify', 'youngTicket', ...(cfg?.youngTicket !== false ? ['ticketRide'] : []), 'tpStakeUsd', 'rebuyDipPct'] : []), 'autoBrain'])}
     </div>
@@ -538,7 +540,7 @@ export function TopThree({ c, busy, onSwap }) {
   </span>;
 }
 
-const VITAL_KIND = { skim: '💰 Profit taken', 'lock-bank': '🏦 Banked at the lock', 'peak-sell': '🏔 Sold off its peak', seat: '🪑 Seat filled', slot: '🪑 Seat released', keep: '⚖ Kept', ride: '❄ Locked (riding)', rotate: '⇄ Swap',
+const VITAL_KIND = { ticket2: '🎟 Second ticket', skim: '💰 Profit taken', 'lock-bank': '🏦 Banked at the lock', 'peak-sell': '🏔 Sold off its peak', seat: '🪑 Seat filled', slot: '🪑 Seat released', keep: '⚖ Kept', ride: '❄ Locked (riding)', rotate: '⇄ Swap',
   compound: '♻ Cash back to work', balance: '⚖ Equal weight', floor: '🧱 Floor', deal: '🃏 Dealt', hold: '✋ Hold', 'manual-sell': '✂ Sold by you' };
 
 /* Under the real card: what matters right now, alive — the stack seat by seat, swaps used this hour, profit pulled out — plus
@@ -590,7 +592,7 @@ export function WeatherStrip() {
 }
 
 /* 🎯 What happened to your picks: the last few "came in" / "refused" lines with the keeper's own reason — a refused pick is never silent. */
-const MOVE_KINDS = { skim: '💰', 'lock-bank': '🏦', 'peak-sell': '🏔', compound: '♻', balance: '⚖', seat: '🪑', 'seat-wait': '🪑', slot: '🪑', ride: '❄', 'ride-end': '❄', rotate: '⇄', 'instant-swap': '⚡', keep: '⚖', rug: '🚨', sl: '🛑', tp: '🎯', replace: '⇄', floor: '🧱', 'manual-sell': '✂' };
+const MOVE_KINDS = { ticket2: '🎟', skim: '💰', 'lock-bank': '🏦', 'peak-sell': '🏔', compound: '♻', balance: '⚖', seat: '🪑', 'seat-wait': '🪑', slot: '🪑', ride: '❄', 'ride-end': '❄', rotate: '⇄', 'instant-swap': '⚡', keep: '⚖', rug: '🚨', sl: '🛑', tp: '🎯', replace: '⇄', floor: '🧱', 'manual-sell': '✂' };
 /* 🧾 What the CARD decided, newest first, in its own words: recycles, profit takes, cash put back to work, picks, locks, stops. */
 export function CardMoves({ events, ago }) {
   const rows = [...(events || [])].filter(e => MOVE_KINDS[e.kind] && e.why).sort((x, y) => (y.at || 0) - (x.at || 0)).slice(0, 12);
@@ -794,7 +796,7 @@ export function HqRealCards({ addr, onCount }) {
 // 🎯 Each list is a DIFFERENT set of coins (Popular / Top yield / Deepest / New 72h / Dex paid were five sorts of the same ~40 pools:
 // the owner saw the same names under every tab). Movers = the live launch feed by hourly move; everything else is its own source.
 // 7 lists, each its OWN set of coins and as many as the feed has (owner: "6–7 categories, more coins, a line chart on every row")
-export const PICK_LENSES = [['fresh', '🔄 New to you'], ['ptrend', '🔥 Pump trending'], ['calls', '📣 Pump callouts'], ['fed', '🧲 Fed runners'], ['movers', '🚀 Movers'], ['bottom', '🟢 Dips & bottoms'], ['pump', '🆕 New launches'], ['volume', '🌊 Volume'], ['trench', '🗑 Trench'], ['majors', '🪙 Majors & stocks'], ['arena', '🏁 All ranked']];
+export const PICK_LENSES = [['fresh', '🔄 New to you'], ['ptrend', '🔥 Pump trending'], ['double', '🔥🔥 Double signal'], ['calls', '📣 Pump callouts'], ['fed', '🧲 Fed runners'], ['movers', '🚀 Movers'], ['bottom', '🟢 Dips & bottoms'], ['pump', '🆕 New launches'], ['volume', '🌊 Volume'], ['trench', '🗑 Trench'], ['majors', '🪙 Majors & stocks'], ['arena', '🏁 All ranked']];
 const LENS_URLS = { majors: ['majors', 'stocks', 'risers'] };   // one tab, three sources (majors · stock tokens · new majors)
 // 📈 every row gets a line: the board's recorded prices when it has them, else the coin's own 24h → 6h → 1h → 5m → now moves
 export const moveLine = r => { const now = 1; const back = c => (c == null || !Number.isFinite(Number(c)) || Number(c) <= -99 ? null : now / (1 + Number(c) / 100));
@@ -909,6 +911,8 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
     {!q.trim() && lp[lens] && lens !== 'bottom' && <small className="m-dim sp-tnote" data-testid="sp-list-record">{listRecord(lp[lens])}</small>}
     <input className="m-input sp-q" value={q} onChange={e => setQ(e.target.value)} placeholder="Search any coin — SOL, BTC, ETH, $TICKER, CA" aria-label="Search any coin" data-testid="sp-search" />
     {lens === 'bottom' && !q.trim() && <small className="m-dim sp-tnote" data-testid="sp-bottom-note">🟢 Dips & bottoms in one list: first the coins that ran, gave 30%+ back and now sit at the low of their range without making new lows (deepest and turning first), then today's dip buys — down on the day with buyers back. {bottomRecord(bproof)} A list for you to pick from; the engine does not buy it by itself.</small>}
+    {lens === 'double' && !q.trim() && <small className="m-dim sp-tnote" data-testid="sp-double-note">🔥🔥 Coins where BOTH Pump signals point the same way: 2+ users are calling it out AND new launches are paired with it (their buys route through its pool). Rare — often empty. Its own 1-hour record is on the tab; the engine takes from it only once that record is positive.</small>}
+    {lens === 'calls' && !q.trim() && call && <CallAlert call={call} />}
     {lens === 'calls' && !q.trim() && <small className="m-dim sp-tnote" data-testid="sp-calls-note">📣 The coins Pump's own users are calling out right now, loudest first (callers, eyes on the calls, how fresh). Read from Pump's public callouts feed. These are other holders' calls — many are already in profit when they call. A list to look at, never advice; the engine does not buy from it.</small>}
     {lens === 'fed' && !q.trim() && <small className="m-dim sp-tnote" data-testid="sp-fed-note">🧲 Runners that NEW Pump launches are paired with. Pump (Oct 8): a new coin paired with an existing runner routes every buy through the runner's pool — so each buy of those new coins is buy pressure on the runner. Ranked by how many coins are paired, how many are new and how many are trading right now. Its own 1-hour record is on the tab; the engine takes from this list only once that record is positive.</small>}
     {lens === 'trench' && !q.trim() && tr && <small className="m-dim sp-tnote" data-testid="sp-trench-note" data-tip={`${tr.rules}${tr.level ? ` · crowd checks widened ×${tr.level} (safety checks never move)` : ''}`}>🗑 Pick a brand-new coin: tap <b>Pick</b> on any row below. High risk — check the Safety column, keep it to 1–2 coins. Pool floor {big(tr.floor)} · {tr.checked} scanned.</small>}

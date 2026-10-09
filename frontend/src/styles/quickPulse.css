@@ -59,6 +59,9 @@ body.fx-lite .qp-fd, body.fx-lite .qp-kid { animation: none; } body.theme-day .q
 .pcl-chip:hover, .pcl-chip:focus-visible { border-color: var(--gold, #f5c451); transform: translateY(-1px); outline: none; } .pcl-chip:active { transform: translateY(1px); }
 .pcl-chip b { font: 700 12px "JetBrains Mono", monospace; color: #eafff4; } .pcl-chip em { font: 700 12px "JetBrains Mono", monospace; font-style: normal; justify-self: end; } .pcl-chip small { grid-column: 1 / -1; font: 9.5px "JetBrains Mono", monospace; opacity: .65; }
 
+.pcl-chip.is-pro { border-color: rgba(69, 228, 134, .55); }
+.qp-alert { display: inline-flex; align-items: center; gap: 8px; margin: 2px 0 6px; font: 600 11px "JetBrains Mono", monospace; color: var(--gold, #f5c451); }
+.qp-alert select.m-input { width: auto; height: 26px; min-height: 0; padding: 0 22px 0 8px; font-size: 11px; }
 /* ⚛ swap-in pop-out */
 .spx-shade { position: fixed; inset: 0; z-index: 1150; display: grid; place-items: center; padding: 18px; background: rgba(2, 5, 4, .72); animation: qpFade .16s ease both; }
 .spx { position: relative; width: min(1180px, 100%); height: min(880px, calc(100vh - 36px)); display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; border-radius: 18px; border: 1px solid rgba(69, 228, 134, .38);

@@ -96,6 +96,7 @@ export function PumpCall({ pc }) {
     <div className="qp-hd"><span className="m-label">📣 PUMP CALLOUTS · {pc.callers} CALLER{pc.callers === 1 ? '' : 'S'}{pc.verified ? ` · ${pc.verified} ✓` : ''}</span>
       <span className="qp-heat" aria-label={`Callout heat ${pc.heat} of 100`}>{Array.from({ length: 10 }, (_, i) => <i key={i} className={pc.heat >= (i + 1) * 10 - 5 ? 'on' : ''} style={{ '--i': i }} />)}<b>{pc.heat}</b></span></div>
     <p className="qp-thesis"><b>@{l.user}{l.verified ? ' ✓' : ''}</b> {l.thesis ? `“${l.thesis}”` : 'called it out'}</p>
+    {pc.pro > 0 && <p className="qp-shift is-good" data-testid="qp-pro" data-tip="A proven caller: 3+ of their calls judged an hour later, typical result 1.2× or better, at least half up. Their record, never a promise.">🎯 {pc.pro} proven caller{pc.pro === 1 ? '' : 's'} on it: {(pc.pros || []).map(u => `@${u}`).join(' · ')}</p>}
     <small className="qp-callnums">{pc.firstMc ? `first called at ${big(pc.firstMc)}` : ''}{l.mult ? ` · ${l.mult}× since the lead call` : ''} · 👁 {Number(pc.views || 0).toLocaleString()} · {ago(pc.lastAt)}</small>
   </div>;
 }
@@ -121,23 +122,35 @@ export function usePumpCallouts() {
   return d;
 }
 export function PumpCallouts({ onOpen }) {
-  const d = usePumpCallouts(); const [tab, setTab] = useState('top');
+  const d = usePumpCallouts(); const [tab, setTab] = useState('top'); const best = d?.callers || [];
   if (!d || (!(d.top || []).length && !(d.latest || []).length)) return null;
   const list = (tab === 'top' && (d.top || []).length ? d.top : d.latest || []).slice(0, 8); const [first, ...rest] = list;
   const sym = c => `$${c.symbol || `${String(c.mint).slice(0, 4)}…`}`;
   const open = c => onOpen && onOpen({ mint: c.mint, symbol: c.symbol });
   return <div className="pcl" data-testid="pump-callouts">
     <div className="qp-hd"><span className="m-label">📣 PUMP CALLOUTS · LIVE FROM PUMP</span>
-      <span className="m-seg pcl-seg" role="radiogroup" aria-label="Callouts">{[['top', '🏆 Top today'], ['latest', '🆕 Newest']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`pcl-${k}`}>{l}</button>)}</span></div>
-    {first && <button type="button" className="pcl-top" onClick={() => open(first)} data-testid="pcl-first" data-tip="Opens the coin. A callout is another holder's public call on Pump — read from Pump's own feed, not advice.">
+      <span className="m-seg pcl-seg" role="radiogroup" aria-label="Callouts">{[['top', '🏆 Top today'], ['latest', '🆕 Newest'], ['best', '🎯 Best callers']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`pcl-${k}`}>{l}</button>)}</span></div>
+    {tab === 'best' && <div className="pcl-rest pcl-best" data-testid="pcl-callers">{best.length ? best.map((c, i) => <span key={c.user} className={`pcl-chip ${c.proven ? 'is-pro' : ''}`} style={{ '--i': i }} data-tip={`@${c.user}: ${c.n} calls judged an hour later · typical ${c.medMult}× · ${c.wonPct}% up · best ${c.best}×${c.proven ? ' — proven' : ' — not proven yet (needs 3 calls, 1.2× typical, half up)'}`}>
+      <b>{c.proven ? '🎯 ' : ''}@{c.user}</b><em className={c.medMult >= 1 ? 'm-pos' : 'm-neg'}>{c.medMult}×</em><small>{c.n} calls · {c.wonPct}% up</small></span>) : <small className="m-dim">The scoreboard starts now — each call is judged an hour after it is made.</small>}</div>}
+    {tab !== 'best' && first && <button type="button" className="pcl-top" onClick={() => open(first)} data-testid="pcl-first" data-tip="Opens the coin. A callout is another holder's public call on Pump — read from Pump's own feed, not advice.">
       <span className="pcl-rank">{tab === 'top' ? '#1' : 'NEW'}</span>
       <span className="pcl-who"><b>{sym(first)}</b><small>@{first.user}{first.verified ? ' ✓' : ''} · {ago(first.at)}</small></span>
       <span className="pcl-say">{first.thesis ? `“${first.thesis}”` : 'called it out'}</span>
       <span className="pcl-nums"><b className={Number(first.mult) >= 1 ? 'm-pos' : 'm-neg'}>{first.mult ? `${first.mult}×` : '—'}</b><small>called at {big(first.atMc)}{first.pnlPct != null ? ` · caller ${sgn(first.pnlPct)}` : ''} · 👁 {Number(first.views || 0).toLocaleString()}</small></span></button>}
-    {rest.length > 0 && <div className="pcl-rest">{rest.map((c, i) => <button key={c.id} type="button" className="pcl-chip" style={{ '--i': i }} onClick={() => open(c)} data-tip={`@${c.user}${c.thesis ? `: “${c.thesis}”` : ''} — called at ${big(c.atMc)}, ${ago(c.at)}`}>
+    {tab !== 'best' && rest.length > 0 && <div className="pcl-rest">{rest.map((c, i) => <button key={c.id} type="button" className="pcl-chip" style={{ '--i': i }} onClick={() => open(c)} data-tip={`@${c.user}${c.thesis ? `: “${c.thesis}”` : ''} — called at ${big(c.atMc)}, ${ago(c.at)}`}>
       <b>{sym(c)}</b><em className={Number(c.mult) >= 1 ? 'm-pos' : 'm-neg'}>{c.mult ? `${c.mult}×` : '—'}</em><small>@{c.user}</small></button>)}</div>}
     <small className="m-dim">Other people's calls, straight from Pump ({d.n} read). The multiple is price now vs the cap it was called at. A read, never advice.</small>
   </div>;
+}
+
+// 🔔 the owner's early-caller alert: 3+ different Pump callers on one coin inside 10 minutes while it is under this cap → one phone alert
+export function CallAlert({ call }) {
+  const d = usePumpCallouts(); const [v, setV] = useState(null); const [busy, setBusy] = useState(false);
+  const cur = v ?? d?.alertCapK ?? 0; const caps = d?.alertCaps || [0, 50, 100, 250, 1000];
+  const save = async capK => { setBusy(true); try { await call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ callAlert: { capK } }) }); setV(capK); } catch { /* the select snaps back */ } finally { setBusy(false); } };
+  return <label className="qp-alert" data-testid="call-alert" data-tip="A heads-up only: when 3 or more different Pump users call the same coin out inside 10 minutes and its cap is under your line, you get one inbox + phone alert (one per coin per 6 hours). Nothing is bought.">
+    <span>🔔 Alert me on a call rush</span><select className="m-input" value={String(cur)} disabled={busy} onChange={e => save(Number(e.target.value))} aria-label="Call rush alert" data-testid="call-alert-cap">
+      {caps.map(k => <option key={k} value={String(k)}>{k ? `coins under $${k >= 1000 ? `${k / 1000}M` : `${k}K`}` : 'off'}</option>)}</select></label>;
 }
 
 // ⚛ the animated Fuse bar on top of the swap-in pop-out: what leaves → what comes in, how many coins are flowing, the 20s refresh

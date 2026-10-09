@@ -2217,7 +2217,7 @@ def test_coming_up_is_trench_first_then_pump_and_volume_never_a_coin_at_its_high
     picks, misses = ap.category_picks(lists, ok, records={'volume': {'n': 60, 'medPct': -1}, 'ptrend': {'n': 20, 'medPct': -9}})
     # trench always first (its top coin was at its highs → the next one), then the better 1-hour record, a coin never taken twice
     assert [(p['cat'], p['mint'], p['rank']) for p in picks] == [('trench', 'T', 2), ('volume', 'A', 1), ('ptrend', 'B', 2), ('bottom', 'D', 1)]
-    assert picks[0]['catLabel'] == '🗑 Trench' and [c for c, _ in ap.CATEGORIES] == ['trench', 'ptrend', 'volume', 'bottom', 'fed']
+    assert picks[0]['catLabel'] == '🗑 Trench' and [c for c, _ in ap.CATEGORIES] == ['trench', 'ptrend', 'volume', 'bottom', 'fed', 'double']
     assert misses == {}
     _, m2 = ap.category_picks({'trench': [{'mint': 'HI'}]}, ok)
     assert m2['trench'] == 'top 60: 1 at its highs'
@@ -2424,3 +2424,16 @@ def test_a_refused_pick_says_the_real_reason_with_its_numbers_never_no_live_pool
     assert 'launch curve holds $4,000' in rs._pick_why(pair(4000, curve=True), M, 3000) and '$5,000 pick floor' in rs._pick_why(pair(4000, curve=True), M, 3000)
     assert 'no live price yet' in rs._pick_why(pair(50000, px=0), M) and 'dollar coin' in rs._pick_why(pair(50000, sym='USDC'), M)
     assert 'try again' in rs._pick_why({}, M) and 'try again' in rs._pick_why(pair(50000), 'OTHER')
+
+
+def test_a_fed_coin_locks_later_and_the_second_ticket_goes_once_to_a_locked_called_coin_on_paper_only():
+    assert ap.fed_lock(20, {'fedN': 3}, {'fedRidePct': 50}) == 30 and ap.fed_lock(20, {'fedN': 1}, {'fedRidePct': 50}) == 20 and ap.fed_lock(20, {'fedN': 9}, {}) == 20
+    assert ap.clean_cfg({'fedRidePct': 50, 'secondTicketPct': 10})['fedRidePct'] == 50 and ap.clean_cfg({'fedRidePct': 7, 'secondTicketPct': 3})['secondTicketPct'] == 0
+    legs = lambda: [{'pairAddress': 'A', 'symbol': 'RIDE', 'ride': True, 'calledN': 3, 'units': 100.0, 'costUsd': 1.0, 'liq': 500000},
+                    {'pairAddress': 'B', 'symbol': 'LOSER', 'calledN': 9, 'units': 100.0, 'costUsd': 1.0}]
+    card = {'legs': legs()}
+    leg, usd = ap.second_ticket(card, {'secondTicketPct': 10}, {'A': 0.02, 'B': 0.01}, {}, 500.0, 2.0, 10.0)
+    assert leg['symbol'] == 'RIDE' and usd == 1.0 and leg['ticket2At'] == 500.0 and leg['units'] > 100 and leg['costUsd'] == 2.0   # 10% of a $10 card, into the locked coin only
+    assert ap.second_ticket(card, {'secondTicketPct': 10}, {'A': 0.02, 'B': 0.01}, {}, 600.0, 2.0, 10.0) == (None, 0.0)        # once per ride
+    for c2, cfg, cash in (({'legs': legs(), 'real': True}, {'secondTicketPct': 10}, 2.0), ({'legs': legs()}, {'secondTicketPct': 0}, 2.0), ({'legs': legs()}, {'secondTicketPct': 10}, 0.1)):
+        assert ap.second_ticket(c2, cfg, {'A': 0.02}, {}, 1.0, cash, 10.0) == (None, 0.0)   # never real money · off · no idle cash

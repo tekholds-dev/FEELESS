@@ -2300,3 +2300,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   40 rows at a time (IntersectionObserver + "Show 40 more"; live prices + sparks only for drawn rows) — 300 rows were ~18K nodes re-rendered every
   10s. Site wide: `hot-pulse` (filter), `signal-flash` (background), `live-grad` (background-position) replaced by transform / opacity (tips.css).
   The Browser pane reports `visibilityState: hidden` and ~2 fps — never judge fps there; count animations, big animated layers and DOM size instead.
+- 🔥🔥 DOUBLE SIGNAL + 🎯 CALLERS + 🔔 RUSH + 🧲 FED LOCK + 🎟 SECOND TICKET (owner, 2026-10-08: "do all ideas"):
+  · lens `double` (`_double_rows`): coins BOTH called by 2+ Pump users AND with launches paired with them; own 1h record (`LENS_TRACK`), engine category
+    behind `PROVE_FIRST` like `fed`. Often empty — that is correct.
+  · caller scoreboard (`pump_calls.caller_track/caller_board/mark_pros/leaders`, `data/pump_callers.json`): each call noted once, judged by Pump's own
+    multiple ~1h later (`res`), PROVEN = ≥ 3 judged, median ≥ 1.2×, ≥ half up; `pc.pro` / `pc.pros` on rows, "🎯 Best callers" tab on the callouts strip.
+  · call rush (`pump_calls.rush`, `_call_rush_alert`, `prime.callAlert.capK` 0/50/100/250/1000 via admin prime `{callAlert}`; `CallAlert` select in the
+    picker's 📣 tab): 3+ DIFFERENT callers in 10 min under the owner's cap → one `fuse-signal` notice per coin per 6h. Off by default. Never buys.
+  · fed lock (`arena_prime.fed_lock`, cfg `fedRidePct` 0/25/50/100, leg `fedN`): a coin with ≥ 2 paired launches locks later. second ticket
+    (`second_ticket`, cfg `secondTicketPct` 0/5/10, leg `calledN`, event `ticket2`): ONE add from idle cash to a LOCKED coin still called by 2+ —
+    PAPER ONLY (`card.real` → never): the keeper does not buy a locked coin, so on real money the engine would count cash that was never spent
+    (the $AUTON bug). `PAPER_TRY` switches both on for paper cards unless the owner saved a paper value; the real card's stay off until the owner
+    turns them on (Edit Fuse › Exits). Second ticket on real money needs a durable keeper buy flag first — do not just drop the `real` guard.

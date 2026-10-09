@@ -480,6 +480,8 @@ def clean_cfg(p):
     out['skimHoldRounds'] = int(_f((p or {}).get('skimHoldRounds'))) if int(_f((p or {}).get('skimHoldRounds'))) in SKIM_HOLDS else 2
     out['recyclePct'] = float(_f((p or {}).get('recyclePct'))) if _f((p or {}).get('recyclePct')) in RECYCLE_PCTS else 0.0
     out['recycleEvery'] = int(_f((p or {}).get('recycleEvery'))) if int(_f((p or {}).get('recycleEvery'))) in RECYCLE_EVERY else 3
+    out['fedRidePct'] = int(_f((p or {}).get('fedRidePct'))) if int(_f((p or {}).get('fedRidePct'))) in FED_RIDES else 0            # 🧲 a fed coin locks later
+    out['secondTicketPct'] = int(_f((p or {}).get('secondTicketPct'))) if int(_f((p or {}).get('secondTicketPct'))) in SECOND_TICKETS else 0   # 🎟 one add to a locked, still-called coin (paper cards)
     out['lockBankPct'] = float(_f((p or {}).get('lockBankPct'))) if (p or {}).get('lockBankPct') is not None and _f((p or {}).get('lockBankPct')) in LOCK_BANKS else LOCK_BANK
     out['runnerMinLiqK'] = int(_f((p or {}).get('runnerMinLiqK'))) if int(_f((p or {}).get('runnerMinLiqK'))) in RUNNER_LIQS else 0   # 🏊 real money buys a runner only in a pool this deep ($K); 0 = the keeper's own floor
     out['runnerMinBuy'] = int(_f((p or {}).get('runnerMinBuy'))) if int(_f((p or {}).get('runnerMinBuy'))) in RUNNER_BUYS else 0
@@ -972,10 +974,10 @@ def thin_flow(x):
 
 # ⏭ Coming up = THREE doors (owner, 2026-10-07: "1 top trench, pump and volume — never in the highs"): the trench's top coin always
 # first, then Pump trending and Volume by their own 1-hour record. The other lists stay in the picker; they no longer feed this row.
-CATEGORIES = (('trench', '🗑 Trench'), ('ptrend', '🔥 Pump trending'), ('volume', '🌊 Volume'), ('bottom', '🟢 Dips & bottoms'), ('fed', '🧲 Fed runners'))
+CATEGORIES = (('trench', '🗑 Trench'), ('ptrend', '🔥 Pump trending'), ('volume', '🌊 Volume'), ('bottom', '🟢 Dips & bottoms'), ('fed', '🧲 Fed runners'), ('double', '🔥🔥 Double signal'))
 # 🧲 a NEW list earns its seat: the engine takes from it only once its OWN settled 1-hour record is positive over this many coins
 # (hand picks from it are open from day one). Fed runners = runners new Pump launches are paired with (feeders.py).
-PROVE_FIRST = {'fed': 10}
+PROVE_FIRST = {'fed': 10, 'double': 10}
 
 
 # Lists bought as small TICKETS (a 10x lottery: tiny money in, initial out at the gain, the rest rides) are never paused by a median — the owner
@@ -1499,6 +1501,40 @@ def skim_leg(card, pair, prices, liqs, now, to='card', hold=None):
 
 
 LOCK_BANKS, LOCK_BANK = (0, 25, 33, 50), 33.0
+# 🧲 FED RIDE: a coin new Pump launches are paired with (leg `fedN` >= FED_RIDE_MIN, from feeders.py) has buys routed through its pool,
+# so its lock line is RAISED by this % — it is given room before it locks, banks and starts trailing. Off by default.
+FED_RIDES, FED_RIDE_MIN = (0, 25, 50, 100), 2
+# 🎟 SECOND TICKET: ONE small add (this % of the card, from idle cash) to a coin that is already LOCKED and still being called out on
+# Pump (leg `calledN` >= 2) — size only goes to a winner, never a loser. PAPER cards only until its record says it pays: on a real
+# card the keeper never buys a locked coin, so the engine would count money that was never spent.
+SECOND_TICKETS, SECOND_TICKET_MIN, SECOND_CALLED_MIN = (0, 5, 10), 0.25, 2
+
+
+# 🧪 both run on PAPER cards by default (a value the owner saved for the paper cards wins) so their own record can prove them;
+# the REAL card's switches stay where the owner left them (off until they turn them on in Edit Fuse › Exits).
+PAPER_TRY = {'fedRidePct': 50, 'secondTicketPct': 5}
+
+
+def fed_lock(ra, leg, cfg):
+    """The lock line for this coin: the card's own, raised by `fedRidePct` while new launches are paired with it."""
+    pct = _f((cfg or {}).get('fedRidePct'))
+    return ra * (1 + pct / 100) if pct > 0 and int(_f((leg or {}).get('fedN'))) >= FED_RIDE_MIN else ra
+
+
+def second_ticket(card, cfg, prices, liqs, now, free_cash, value):
+    """→ (leg, $) for the ONE second ticket this tick, or (None, 0): a locked coin still called out, not ticketed before, paper card only.
+    The leg is changed in place (units, cost, `ticket2At`); the caller takes the $ out of card cash."""
+    pct = _f((cfg or {}).get('secondTicketPct'))
+    usd = min(_f(free_cash), _f(value) * pct / 100)
+    if pct <= 0 or card.get('real') or usd < SECOND_TICKET_MIN:
+        return None, 0.0
+    for l in sorted(card.get('legs') or [], key=lambda x: -int(_f(x.get('calledN')))):
+        px = _f((prices or {}).get(l.get('pairAddress')))
+        if l.get('ride') and not l.get('ticket2At') and int(_f(l.get('calledN'))) >= SECOND_CALLED_MIN and _f(l.get('units')) > 0 and px > 0:
+            bpx = buy_px(px, usd, (liqs or {}).get(l['pairAddress']) or l.get('liq'))
+            l['units'] = _f(l['units']) + usd / bpx; l['costUsd'] = round(_f(l.get('costUsd')) + usd, 6); l['ticket2At'] = now
+            return l, usd
+    return None, 0.0
 PEAK_SELLS, PEAK_SELL = (0, 25, 50, 75, 100), 50.0   # 0 = sell NOTHING off its peak, keep riding (owner, 2026-10-08)
 RIDE_ENDS = ('swap', 'keep', 'cash')   # ride over (under its floor): ⇄ swap for the next coin · 🧷 keep the coin (normal stops apply) · 💵 sell to card cash
    # 🏔 off its peak: % of the PROFIT sold while the coin keeps riding (100 = swap the whole coin)   # 🏦 % of a winner sold the moment it locks (0 = off)
@@ -1967,6 +2003,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         # making highs; it is sold only when it falls 30% from its NEW high. (A 200× never gets cut at +150%.)
         l['roundMin'] = min(_f(l['roundMin']) if l.get('roundMin') is not None else g, g)
         ra, rt = _f(cfg.get('rideAt')) or RIDE_AT, _f(cfg.get('rideTrail')) or RIDE_TRAIL
+        if not l.get('ride'):
+            ra = fed_lock(ra, l, cfg)   # 🧲 new launches are paired with it → it locks later
         floor_g = min(HOLD_MIN, (_f(l.get('rideAtPct')) or ra) / 2)   # a +25% freeze can't demand +80%; a frozen coin keeps the line it froze at
         if cfg.get('trailStep') and l.get('ride'):   # 🪜 the more it is up, the more room it gets (see trail_for)
             rt = trail_for(rt, (max(_f(l.get('high')), px) / l['entry'] - 1) * 100)
@@ -2352,6 +2390,10 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
           c.pop('seatEmptyAt', None)
       if not ((seated_pick and c.get('seatQueue')) or (seated_any and want_n and len(c['legs']) < want_n)):
           break
+    t2_leg, t2_usd = second_ticket(c, cfg, prices, liqs, now, free_cash, V())
+    if t2_leg:
+        free_cash -= t2_usd; c['cash'] = round(_f(c['cash']) - t2_usd, 6)
+        ev(kind='ticket2', symbol=t2_leg['symbol'], usd=round(t2_usd, 4), why=f"🎟 second ticket: locked and still called out by {int(_f(t2_leg.get('calledN')))} on Pump — one add, never again on this ride", to=[t2_leg['symbol']])
     if cfg['compound'] and free_cash > 0.01 and c['legs']:
         # 🔔 AT A ROUND every idle dollar goes back to work: a coin skipped only because it was cut minutes ago counts again
         # (never one cut on this very tick), so card cash can't sit idle past the next bell

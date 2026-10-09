@@ -21,7 +21,7 @@ test('the real-card swap picker has every Lab lens + search, flags thin pools an
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<SwapPicker out={{ symbol: 'WIF' }} have={[]} minLiq={20000} onPick={r => picks.push(r)} onClose={() => {}} />); });
   await tick();
-  expect(PICK_LENSES.map(x => x[0])).toEqual(['fresh', 'ptrend', 'calls', 'fed', 'movers', 'bottom', 'pump', 'volume', 'trench', 'majors', 'arena']);   // every list its OWN set of coins
+  expect(PICK_LENSES.map(x => x[0])).toEqual(['fresh', 'ptrend', 'double', 'calls', 'fed', 'movers', 'bottom', 'pump', 'volume', 'trench', 'majors', 'arena']);   // every list its OWN set of coins
   // 🚀 it opens on what is MOVING (the live launch feed by hourly move) …
   expect(urls.find(u => u.includes('/fuses/discover'))).toContain('/fuses/discover?lens=fresh');   // 🔄 New to you opens first (every list woven, minus what the card touched in 24h)
   // 📏 every list tab carries its own 1-hour record; the open list explains it (too few settled = "starts now")
@@ -169,4 +169,22 @@ test('quick-look live panels: socials (bad links dropped), flow by the window th
   expect(el.querySelector('[data-testid="swap-banner"]').textContent).toContain('Swap $WIF for…');
   const t = Object.fromEntries(edgeTiles({ vol1h: 9000, txns1h: 3000, mcap: 60000, liq: 1200, fd: row.fd }).map(x => [x[0], [x[1], x[2]]]));
   expect(t['AVG TRADE']).toEqual(['$3.0', true]); expect(t.TURNOVER).toEqual(['15.0%/h', false]); expect(t['EXIT DEPTH']).toEqual(['2.0%', true]); expect(t.FEEDERS[0]).toBe('3 · 1 live');
+});
+
+test('caller scoreboard tab, proven-caller line and the call-rush alert select', async () => {
+  const { PumpCallouts, PumpCall, CallAlert } = require('./QuickPulse');
+  const feed = { top: [{ id: 't', mint: 'M', symbol: 'BUN', user: 'one', mult: 0.9, atMc: 1e6, views: 5 }], latest: [], n: 3, alertCapK: 0, alertCaps: [0, 50, 100],
+    callers: [{ user: 'ace', n: 4, medMult: 1.6, wonPct: 75, best: 3, proven: true }, { user: 'rug', n: 2, medMult: 0.4, wonPct: 0, best: 0.9, proven: false }] };
+  global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(feed) }));
+  const posts = []; const call = jest.fn((path, o) => { posts.push([path, JSON.parse(o.body)]); return Promise.resolve({}); });
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<div><PumpCallouts /><PumpCall pc={{ calls: 2, callers: 2, heat: 40, pro: 1, pros: ['ace'], lead: { user: 'x' } }} /><CallAlert call={call} /></div>); });
+  await act(async () => { await Promise.resolve(); });
+  await act(async () => { el.querySelector('[data-testid="pcl-best"]').click(); });
+  const b = el.querySelector('[data-testid="pcl-callers"]');
+  expect(b.textContent).toContain('🎯 @ace'); expect(b.textContent).toContain('1.6×'); expect(b.textContent).toContain('@rug'); expect(el.querySelector('[data-testid="pcl-first"]')).toBeNull();
+  expect(el.querySelector('[data-testid="qp-pro"]').textContent).toContain('1 proven caller on it: @ace');
+  const sel = el.querySelector('[data-testid="call-alert-cap"]'); expect([...sel.options].map(o => o.textContent)).toEqual(['off', 'coins under $50K', 'coins under $100K']);
+  await act(async () => { sel.value = '100'; sel.dispatchEvent(new Event('change', { bubbles: true })); });
+  expect(posts).toEqual([['/admin/arena/prime', { callAlert: { capK: 100 } }]]);
 });
