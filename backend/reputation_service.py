@@ -7965,6 +7965,38 @@ async def _degen_fix_1009(now):
     return True
 
 
+OVERNIGHT_1009 = {'runnerMinAgeH': 12, 'runnerMinLiqK': 50, 'runnerMinVolK': 50, 'runnerMinChg1h': 0, 'runnerMinBuy': 65,
+                  'scoutPct': 0, 'moverSwap': False, 'newOnly': False, 'coins': 3, 'swapCapHr': 2, 'skimHoldRounds': 2}
+
+
+def overnight_patch_1009(rc):
+    """Pure: the 2026-10-09 overnight selection (owner: "make tweaks to configs so I can wake up positive — I allow") → (new realCfg, keys).
+    Copies WHAT the two paper cards that are up buy (Diamond +14.9%, Gold +10.2%: 12h+ coins, $50K+ pools, real volume, no "+20% on the
+    hour" chase, no scout) — the real card bought any age, no pool floor, only coins already up 20%, and a 20% scout hopped onto movers
+    (movers list −67% typical over 1h). Clock, stop, hold and exits are the owner's and are not touched. Not a promise of profit."""
+    return _prime.clean_cfg({**rc, **OVERNIGHT_1009}), sorted(OVERNIGHT_1009)
+
+
+async def _overnight_fix_1009(now):
+    """🌙 Once: apply `overnight_patch_1009` to the real card. Old values: data/realcfg_before_overnight1009.json. Keys → realOwnerSet + ladderKeep."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('overnightFix1009') or not rc:
+            return False
+        new, keys = overnight_patch_1009(rc)
+        _json_save(DATA_DIR / 'realcfg_before_overnight1009.json', {k: rc.get(k) for k in keys})
+        pr['realCfg'] = new
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(keys))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(keys))
+        for c in (pr.get('cards') or {}).values():
+            if c.get('real'):
+                c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🌙 overnight setup: buys like the paper cards that are up — coins 12h+ old, $50K+ pools, $50K+/h volume, buyers 65%+, no chasing +20% hours, no scout · 3 coins · ≤ 2 swaps an hour. Your clock, stop, hold and exits unchanged.'})
+        pr['overnightFix1009'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _ticket_ride_fix(now):
     """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
     once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
@@ -8060,6 +8092,7 @@ async def _prime_tick_inner(now):
     await _real_ride_fix(now)
     await _ticket_ride_fix(now)
     await _degen_fix_1009(now)
+    await _overnight_fix_1009(now)
     await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
@@ -8645,7 +8678,7 @@ async def _prime_view():
         paid = _fuse._f(b.get('bankSol')) * sol_now
         start = _fw.real_run_start(c, b) or 1
         held = max(0.0, v - paid)
-        card_fees = round(_fuse._f(b.get('cardFeesSol')) * sol_now, 4)   # 🧾 network fees the CARD paid (from round 5) — apart from P&L
+        card_fees = _fw.card_fees_usd(b, sol_now)   # 🧾 network fees the CARD paid (from round 5), at each fill's SOL price — apart from P&L
         return {**sm, 'startUsd': round(start, 4), 'valueUsd': v, 'cardFeesUsd': card_fees, 'walletUsd': round(paid, 4), 'pnlPct': round((v / start - 1) * 100, 2),
                 'legacyRunBaseline': not bool(c.get('realBaselineAt')),
                 'payoutTargetUsd': round(_fuse._f(c.get('walletUsd')), 4),
@@ -9618,7 +9651,7 @@ async def _fw_tick(now):
                         if not sol_short and not missing:
                             for tid, b in list(d['books'].items()):
                                 if not b.get('lostTopFix') and not b.get('pending') and not b.get('defund'):
-                                    lost_ = _fw.lost_topups(b, d['ledger'], tid)
+                                    lost_ = _fw.lost_topups(b, _fw_full_ledger(), tid)
                                     b = d['books'][tid] = {**b, 'lostTopFix': time.time(), **({'owedInSol': lost_['sol'], 'owedInUsd': lost_['usd']} if lost_ else {})}
                                     if lost_:
                                         _fw_record(d, {'id': f'losttop:{tid}', 'card': tid, 'side': 'fix', 'sol': lost_['sol'], 'usd': lost_['usd'], 'at': time.time(), 'status': 'done',
@@ -9841,7 +9874,7 @@ async def _fw_rent_credit(cfg):
             d = _fw_load()
             for tid, b in d['books'].items():
                 if any(r.get('id') == f'rentfix:{tid}' for r in d['ledger']):
-                    f_ = _fw.funded_from_ledger(b, d['ledger'], tid)
+                    f_ = _fw.funded_from_ledger(b, _fw_full_ledger(), tid)
                     if f_ > 0:
                         d['books'][tid] = {**b, 'fundedUsd': f_}
             d['rentFix2'] = time.time()
@@ -10078,6 +10111,21 @@ def _fw_calibration(d):
     return real if real['n'] >= 3 else {**_fw.calibrate(d.get('quoteAudit')), 'feeUsd': real.get('feeUsd'), 'fees': real.get('fees'), 'from': 'quotes'}
 
 
+_fw_full_cache: dict = {'n': -1, 'rows': []}
+
+
+def _fw_full_ledger():
+    """🧾 EVERY ledger row, oldest first — from the append-only SQLite table (never trimmed). The KV doc keeps only the newest
+    2,000 rows, and card totals read from it undercounted once the card passed that: fees showed $1.33 of $2.18, top-ups $15.50 of
+    $22.50, and realized / you-vs-engine lost their oldest fills. Re-read only when the table grew (one COUNT per call)."""
+    lg = _store.Ledger(FUSE_WALLET_PATH)
+    n = lg.count()
+    if n != _fw_full_cache['n']:
+        rows = lg.rows(limit=max(1, n))
+        _fw_full_cache.update(n=n, rows=rows[::-1])
+    return _fw_full_cache['rows'] or (_fw_load().get('ledger') or [])
+
+
 def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
     """What everyone sees on a REAL tier card: since when, $ funded, the last swaps with their tx, real network fees."""
     d = _fw_load(); b = d['books'].get(tid)
@@ -10129,7 +10177,7 @@ def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
         px_now = _fuse._f((prices or {}).get(leg.get('pair'))) or _fuse._f(leg.get('entryPx'))
         off_card.append({'mint': mint, 'symbol': leg.get('symbol') or mint[:6], 'usd': round(units * px_now, 4),
                          'costUsd': round(_fuse._f(leg.get('costUsd')), 4), 'status': 'awaiting confirmed sell'})
-    ledger_paid = sum(max(0.0, _fuse._f(o.get('payoutUsd'))) for o in d.get('ledger') or [] if o.get('card') == tid and o.get('status') == 'filled' and o.get('side') == 'sell')
+    ledger_paid = sum(max(0.0, _fuse._f(o.get('payoutUsd'))) for o in _fw_full_ledger() if o.get('card') == tid and o.get('status') == 'filled' and o.get('side') == 'sell')
     paid_ever = round(max(_fuse._f(card.get('walletUsd')), _fuse._f(b.get('payoutSeenUsd')), ledger_paid, _fuse._f(b.get('manualProfitPaidUsd'))), 4)
     profit_available = _fw.profit_available(b, equity_usd, sol_px) if equity_usd is not None and sol_px else 0.0
     payout_cash = min(profit_available, max(0.0, _fuse._f(b.get('sol')) - _fuse._f(b.get('manualCashSol'))) * _fuse._f(sol_px)) if sol_px else 0.0
@@ -10162,10 +10210,11 @@ def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
     except Exception:
         keeper['flow'] = []
     keeper['holdingSell'] = bool(b.get('sellHoldAt'))
+    full_ = _fw_full_ledger()
     return {'since': b.get('since'), 'fundedUsd': b.get('fundedUsd'), 'feesUsd': round(_fuse._f(b.get('feesUsd')), 4),
             'paidOutEverUsd': paid_ever, 'paidOutSol': round(_fuse._f(b.get('bankSol')), 9),
             'profitAvailableUsd': round(profit_available, 4), 'profitCashAvailableUsd': round(payout_cash, 4), 'recoverable': recoverable, 'offCard': off_card,
-            'wallet': cfg['address'], 'keeper': keeper, 'versus': _fw.versus(d['ledger'], tid, time.time()), 'realized': _fw.realized_split(d['ledger'], tid), 'deadOrders': dead,
+            'wallet': cfg['address'], 'keeper': keeper, 'versus': _fw.versus(full_, tid, time.time()), 'realized': _fw.realized_split(full_, tid), 'deadOrders': dead,
             'reconciliation': {'cardEquityUsd': round(_fuse._f(equity_usd), 4),
                                'cardCashSol': round(_fuse._f(b.get('sol')), 9),
                                'cardCashUsd': round(_fuse._f(b.get('sol')) * _fuse._f(sol_px), 4) if sol_px else None,
@@ -10173,7 +10222,8 @@ def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
                                'gasReserveSol': round(reserve_sol, 9),
                                'outsideCardSol': round(outside_sol, 9) if outside_sol is not None else None,
                                'outsideCardUsd': round(outside_sol * _fuse._f(sol_px), 4) if outside_sol is not None and sol_px else None},
-            'orders': [{k: o.get(k) for k in ('side', 'symbol', 'usd', 'proceedsUsd', 'realizedPnlUsd', 'sol', 'px', 'sig', 'at', 'status', 'feeUsd', 'why', 'costUsd')} for o in rows], **_fw.totals(d['ledger'], tid)}
+            'orders': [{k: o.get(k) for k in ('side', 'symbol', 'usd', 'proceedsUsd', 'realizedPnlUsd', 'sol', 'px', 'sig', 'at', 'status', 'feeUsd', 'why', 'costUsd')} for o in rows],
+            **_fw.totals(full_, tid), 'feesUsd': round(_fuse._f(b.get('feesUsd')), 4)}   # 🧾 the book's fee total (each fill at its own SOL price) — never a partial sum
 
 
 async def _circle_wallets_live():
@@ -10268,7 +10318,7 @@ async def _fw_reports(card=''):
         px = {l.get('pair'): _fuse._f(jup.get(m)) or _fuse._f(l.get('entryPx')) for m, l in (b.get('legs') or {}).items()}   # live Jupiter value
         eq = _fw.book_value(b, px, sol_px) if b else None
         hold = round((sol_px / _fuse._f(c['solStart']) - 1) * 100, 2) if sol_px and _fuse._f(c.get('solStart')) else None
-        out.append({**_fw.run_report(d.get('ledger'), tid, time.time(), b.get('fundedUsd'), eq, hold), 'label': c.get('label') or tid, 'open': bool(b)})
+        out.append({**_fw.run_report(_fw_full_ledger(), tid, time.time(), b.get('fundedUsd'), eq, hold), 'label': c.get('label') or tid, 'open': bool(b)})
     return out
 
 
@@ -10301,7 +10351,8 @@ async def fuse_wallet_view(request: Request):
     px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in market_rows]) if market_rows else {}
     jup = await _jup_prices([l.get('mint') for l in market_rows]) if market_rows else {}
     px.update({l['pairAddress']: jup[l['mint']] for l in market_rows if jup.get(l.get('mint'))})
-    books = {tid: {**b, 'valueUsd': _fw.book_value(b, px, sol_px), 'label': (cards.get(tid) or {}).get('label') or tid, **_fw.totals(d['ledger'], tid)} for tid, b in d['books'].items()}
+    full_hq = _fw_full_ledger()   # 🧾 every row, not the trimmed KV copy
+    books = {tid: {**b, 'valueUsd': _fw.book_value(b, px, sol_px), 'label': (cards.get(tid) or {}).get('label') or tid, **_fw.totals(full_hq, tid)} for tid, b in d['books'].items()}
     recoverable = []
     if bal and bal.get('source') != 'circle':
         booked = {}
@@ -10319,9 +10370,9 @@ async def fuse_wallet_view(request: Request):
             recoverable.append({'card': last['card'], 'mint': mint, 'symbol': last.get('symbol') or mint[:6],
                                 'pair': last.get('pair'), 'atoms': excess, 'decimals': int((bal.get('decimals') or {}).get(mint) or last.get('decimals') or 0),
                                 'lastStatus': last.get('status'), 'lastErr': (last.get('err') or '')[:100], 'lastAt': last.get('at')})
-    rent_returned = round(sum(_fuse._f(r.get('sol')) for r in d.get('ledger') or []
+    rent_returned = round(sum(_fuse._f(r.get('sol')) for r in full_hq
                               if r.get('side') == 'close' and r.get('status') == 'sent'), 9)
-    funded_sol = round(sum(_fuse._f(r.get('sol')) for r in d.get('ledger') or []
+    funded_sol = round(sum(_fuse._f(r.get('sol')) for r in full_hq
                            if r.get('side') == 'topup' and r.get('status') == 'done'), 9)
     dep_doc = _json_load(FUSE_DEPOSITS_PATH, {})
     dep_rows = (dep_doc.get('rows') or []) if dep_doc.get('address') == cfg.get('address') else []
@@ -10335,7 +10386,7 @@ async def fuse_wallet_view(request: Request):
             'missing': _fw.reconcile((bal or {}).get('tokens'), d['books']) if bal and bal.get('source') != 'circle' else [],   # Circle rows have no mints
             'books': books, 'tiers': {k: v['label'] for k, v in _prime.TEMPLATES.items()}, 'recoverable': recoverable, 'calibration': _fw_calibration(d),
             'paperMatch': _fw.paper_match(d.get('quoteAudit')), 'quoteAudit': (d.get('quoteAudit') or [])[-20:][::-1],
-            'totals': _fw.totals(d['ledger']), 'ledger': d['ledger'][-200:][::-1]}
+            'totals': _fw.totals(full_hq), 'ledger': d['ledger'][-200:][::-1]}
 
 
 @app.post('/api/reputation/admin/fuse-wallet/recover-sell')

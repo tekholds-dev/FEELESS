@@ -1062,6 +1062,14 @@ def calibrate(ledger, min_n=3):
             'feeUsd': round(statistics.median(fees), 5) if len(fees) >= min_n else None, 'fees': len(fees)}
 
 
+def card_fees_usd(book, sol_px):
+    """🧾 $ of the network fees the CARD paid, valued at the SOL price of each fill (the book's own fee average), never at today's
+    price: the money line read $2.02 while the fills had cost $2.15 (SOL had moved). No fee history yet → today's price."""
+    fs, fu, cs = _f((book or {}).get('feesSol')), _f((book or {}).get('feesUsd')), _f((book or {}).get('cardFeesSol'))
+    rate = fu / fs if fs > 0 and fu > 0 else _f(sol_px)
+    return round(cs * rate, 4)
+
+
 def totals(ledger, card=None):
     """Audit totals: bought / sold $, network fees $, swaps, failures (optionally one card)."""
     rows = [o for o in ledger or [] if card is None or o.get('card') == card]
@@ -1535,7 +1543,7 @@ def money_trail(rows, book, since, now, sol_px, prices=None):
     route_back = round(sum(_f(r.get('usd')) for r in rows if r.get('side') == 'fix' and str(r.get('id') or '').startswith('routefix')), 4)
     realized_all = round(realized_all + route_back, 4)
     writeoff = round(sum(_f(r.get('costUsd')) for r in rows if r.get('side') == 'writeoff'), 4)
-    card_fees = round(_f(book.get('cardFeesSol')) * sol_px, 4)
+    card_fees = card_fees_usd(book, sol_px)
     funded = round(_f(book.get('fundedUsd')) or (funded_in - taken_out), 4)
     now_total = round(held_now + cash, 4)
     unexplained = round(funded - now_total + (held_now - held_cost) + realized_all - writeoff - card_fees, 4)   # cost-basis view

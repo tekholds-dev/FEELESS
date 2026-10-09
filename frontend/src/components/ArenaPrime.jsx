@@ -871,7 +871,7 @@ export function HqRealCards({ addr, onCount }) {
               {r.sig && <a href={`https://solscan.io/tx/${r.sig}`} target="_blank" rel="noreferrer">tx ↗</a>}</li>)}</ul>}
             <small className="m-dim">This is the wallet's money (your unassigned SOL), not the card's: the card's P&L already leaves rent out. To put unassigned SOL into the card, use Add new money.</small></div>}
           {k.lastFail && <small className="hrt-fail" data-tip={k.lastFail.err}>⚠ last miss: {k.lastFail.side} ${k.lastFail.symbol} · {ago(k.lastFail.at)} — retried automatically {k.lastFail.mint && <button type="button" className="m-btn" disabled={!!busy} onClick={() => retryDead(c.tpl, k.lastFail)}>Retry now</button>}</small>}
-          <small className="m-dim">{b.swaps || 0} swaps · network fees {fee(b.feesUsd || 0)} (wallet reserve pays) · last fill {k.lastFill ? ago(k.lastFill) : '—'}</small>
+          <small className="m-dim">{b.swaps || 0} swaps · network fees {fee(b.feesUsd || 0)} (the wallet reserve pays the first 5 rounds, the card after that · rent is always the reserve's) · last fill {k.lastFill ? ago(k.lastFill) : '—'}</small>
           <CardMoves events={c.audit || c.events} ago={ago} />
           <span className="m-label hrt-sub">SWAPS ON-CHAIN</span>
           <ul className="prime-txs">{(b.orders || []).slice(0, 10).map((o, i) => <li key={o.sig || i}><b>{o.side === 'topup' ? '💵' : o.side === 'reinvest' ? '↩' : o.side === 'buy' ? '🟢' : '🔴'}</b><span>{o.side === 'topup' ? 'new money funded' : o.side === 'reinvest' ? 'paid out reinvested' : `${o.side} ${o.symbol}`} <i className="m-dim">{ago(o.at)}{o.why ? ` · ${o.why}` : ''}</i>

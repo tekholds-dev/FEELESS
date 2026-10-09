@@ -2446,3 +2446,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   twice. ⚡ FAST MODE = `bash scripts/serve-fast.sh` → production build on :51368 (`scripts/fast-server.js`, same proxy as setupProxy.js —
   change both), rebuilt on new commits (reload to see it): JS 899 KB, DOM ready 67 ms vs 328, load 183 ms vs 862. New port = new origin
   (connect the wallet / sign in to HQ once there). The dev server stays for development.
+- 🧾 CARD TOTALS READ THE WHOLE LEDGER (`_fw_full_ledger`, cached by row count): the KV doc keeps only the newest 2,000 ledger rows,
+  and `_fw_public` / HQ Fuse wallet / run report / payouts paid / deposited SOL / lost top-ups / funded-from-ledger summed THAT — once
+  the real card passed 2,000 fills it showed fees $1.33 of $2.18, top-ups $15.50 of $22.50, and realized / you-vs-engine lost their
+  oldest fills. `realBook.feesUsd` = the book's own total (each fill at its SOL price). `fuse_wallet.card_fees_usd`: card-paid fees at
+  the fills' average SOL price, never today's (math.feesUsd read $2.02 vs $2.15). Never sum `d['ledger']` for a money total again.
+  "UNEXPLAINED" IN THE MONEY TRAIL IS MOSTLY SOL'S PRICE: put in 0.1912 SOL at ~$117.6 avg; at $110 that alone is −$1.47.
+- 🌙 OVERNIGHT SETUP 2026-10-09 (`_overnight_fix_1009`, once, `overnightFix1009`, backup data/realcfg_before_overnight1009.json): the real
+  card's SELECTION copies the two paper cards that are up (Diamond +14.9%, Gold +10.2%): runners 12h+ · pool ≥ $50K · ≥ $50K/h · no +20%
+  hour required · buyers ≥ 65% · scout off · mover swap off · newOnly off · 3 coins · ≤ 2 swaps an hour · parked profit back after 2
+  rounds (was 6 = 3h idle on the owner's 30-min clock). Owner's clock / stop / hold / exits untouched. One command overnight:
+  `bash scripts/background.sh start` (keep-alive under caffeinate; plugged in, lid open).

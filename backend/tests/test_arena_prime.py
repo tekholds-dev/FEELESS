@@ -2502,3 +2502,15 @@ def test_degen_fix_1009_config_and_cook_warning():
     assert e.value.status_code == 409 and e.value.detail.startswith('⚠ ⏳ $X')
     rs._cook_warn(card, 'A', True, new)                                         # acknowledged → goes through
     rs._cook_warn({**card, 'real': False}, 'A', False, new)                     # paper cards never ask
+
+
+def test_overnight_fix_1009_copies_the_winning_paper_selection_and_keeps_the_owners_clock_and_exits():
+    import reputation_service as rs
+    rc = ap.clean_cfg({**CFG, 'rotateHours': 0.5, 'sl': 15, 'minHoldMins': 30, 'rideAt': 20, 'rideTrail': 20, 'houseAt': 50,
+                       'runnerMinAgeH': 0, 'runnerMinChg1h': 20, 'scoutPct': 20, 'newOnly': True, 'coins': 4})
+    new, keys = rs.overnight_patch_1009(rc)
+    assert new['runnerMinAgeH'] == 12 and new['runnerMinLiqK'] == 50 and new['runnerMinVolK'] == 50 and new['runnerMinChg1h'] == 0
+    assert new['runnerMinBuy'] == 65 and new['scoutPct'] == 0 and not new['moverSwap'] and not new['newOnly'] and new['coins'] == 3 and new['swapCapHr'] == 2
+    for k in ('rotateHours', 'sl', 'minHoldMins', 'rideAt', 'rideTrail', 'houseAt'):
+        assert new[k] == rc[k], k                                           # the owner's clock / stop / hold / exits untouched
+    assert set(keys) == set(rs.OVERNIGHT_1009)
