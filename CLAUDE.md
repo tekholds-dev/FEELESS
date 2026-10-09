@@ -2520,3 +2520,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (≥ 10 coins named after a word) the ORIGINAL — biggest, then oldest — never a copycat; site or X set, `safe`, $5K+/h, rug < 50, no busted
   read. A banger door (after 🎯 proven callers) ONLY once `_wave_ready()` = its own 1h record has ≥ 10 settled and a positive median.
 - 🌊 Real card flow exit = TIGHT (`_flow_tight_fix_1009`, owner's call: faster scalps / swaps). flow_proof that day: 6 exits, +0.3% after.
+- 🎯 CLEAN ENTRIES (`arena_prime.entry_gate`, cfg `entryGate`, real card ON via `_entry_fix_1009`): a FULL seat needs buyers ≥ 60% · not
+  +60% 1h · not +3% 5m (the "−4¢ a minute later" entry) · ≥ 3% under its 4h high (when the chart is read) · pool ≥ $50K · ≥ 6h old ·
+  ≥ $200K/h. Missing readings not judged; trench tickets keep their own rules. Applied on EVERY door: board runners (`_step` "clean
+  entry"), `_bangers`, top-3 auto-seat, 30s seat fallback; the owner's picks get it as a 409 WARNING. The 🔥 Top 3 door had skipped the
+  chase / at-highs checks entirely — that is how the card bought highs. Hunt line `runnerMinChg1h` 40 → 0 (it required the run).
+  Evidence (real card, 86 exits): buyers > 65% +2.0% 4/4 · < 6h −17…−20% · pool < $50K −15…−22% · +60% 1h −10…−25%.
+- 🌅 BEFORE THE BREAK (`arena_prime.pre_break`, `_prebreak_rows`, lens / tab `prebreak`, LENS_TRACK): safe runner-board coins, clean entry,
+  5-min pace ≥ 1.5× the hour, buyers ≥ 60%, 1h −5…+30, 5m 0…+3, not at highs. Banger door only once `_prebreak_ready()` (10+ settled, +median).
+- 🌊 `flowMinHoldMins` (real card 10): the buys-vs-sells exit leaves a coin alone that long after its buy; rug radar / stops act at once.
+- 🧠 real_learn hold time = from the leg's buy TIME `at` (`firstEntry` is the first entry PRICE — every piece read ~30M minutes).

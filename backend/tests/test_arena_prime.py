@@ -2672,3 +2672,27 @@ def test_an_open_seat_takes_a_banger_first():
 def test_a_banger_leg_keeps_its_door_and_the_seat_count_ignores_riders():
     l = ap._leg({**R('bang', 1), 'tag': '🎯 proven caller'}, 1.0, 0, 'runner')
     assert l['bought']['tag'] == '🎯 proven caller'
+
+
+def test_clean_entry_gate_blocks_highs_chases_thin_and_young_coins():
+    ok = {'buyShare': 66, 'chg1h': 12, 'chg5m': 1, 'liq': 120_000, 'ageH': 30, 'vol1h': 350_000, 'cBars': 8, 'cPull': 7}
+    assert ap.entry_gate(ok) is None
+    assert 'buyers only 52%' in ap.entry_gate({**ok, 'buyShare': 52})
+    assert 'chasing' in ap.entry_gate({**ok, 'chg1h': 85})
+    assert 'buying the candle' in ap.entry_gate({**ok, 'chg5m': 4.5})                    # the "−4¢ a minute later" entry
+    assert 'at its highs' in ap.entry_gate({**ok, 'cPull': 1.2})
+    assert 'trench tickets only' in ap.entry_gate({**ok, 'liq': 30_000})
+    assert 'trench tickets only' in ap.entry_gate({**ok, 'ageH': 2})
+    assert '$200K+/h' in ap.entry_gate({**ok, 'vol1h': 90_000})
+    assert ap.entry_gate({'liq': 120_000}) is None                                        # missing readings are not judged
+    assert 'buyers only' in ap.entry_gate({'pairAddress': 'p', 'liq': 120_000}, {'p': {'buyShare': 40}})   # momentum fills gaps
+
+
+def test_pre_break_is_volume_waking_up_under_the_high():
+    base = {'vol5m': 30_000, 'vol1h': 200_000, 'buyShare': 64, 'chg1h': 8, 'chg5m': 1.2, 'cBars': 8, 'cPull': 6}
+    assert ap.pre_break(base)                                                              # 5-min pace 1.8× the hour, calm, under the high
+    assert not ap.pre_break({**base, 'vol5m': 10_000})                                     # pace 0.6× — asleep
+    assert not ap.pre_break({**base, 'chg5m': 5})                                          # already breaking (spiking)
+    assert not ap.pre_break({**base, 'chg1h': 45})                                         # already ran
+    assert not ap.pre_break({**base, 'cPull': 1})                                          # at its highs
+    assert not ap.pre_break({**base, 'buyShare': 50})

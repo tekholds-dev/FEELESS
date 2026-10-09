@@ -496,6 +496,8 @@ def clean_cfg(p):
     out['organicMin'] = int(_f((p or {}).get('organicMin'))) if int(_f((p or {}).get('organicMin'))) in (0, 5, 10, 20, 30) else 0   # … min organic share of 1h volume
     out['noSerial'] = bool((p or {}).get('noSerial', False))                                                                    # … skip serial launchers
     out['maxCoinPct'] = int(_f((p or {}).get('maxCoinPct'))) if int(_f((p or {}).get('maxCoinPct'))) in COIN_CAPS else 0
+    out['entryGate'] = bool((p or {}).get('entryGate', False))   # 🎯 clean entries on every door: buyers 60%+, no chasing, not at highs, $50K+ pool, 6h+, $200K+/h
+    out['flowMinHoldMins'] = int(_f((p or {}).get('flowMinHoldMins'))) if int(_f((p or {}).get('flowMinHoldMins'))) in (0, 5, 10, 15) else 0   # 🌊 buys-vs-sells waits this long after a buy
     out['bangerRefill'] = bool((p or {}).get('bangerRefill', False))   # 🚀 a seat that opens takes a banger first: proven caller → top 3 → cooling off
     out['topSeat'] = bool((p or {}).get('topSeat', False))   # 🔥 the TOP 1/3 coin takes the weakest seat by itself (one per 10 min); buys-vs-sells gets it out
     out['proCallEntry'] = bool((p or {}).get('proCallEntry', False))   # 🎯 trench seats take a PROVEN caller's fresh call first, while still near the called cap
@@ -997,6 +999,56 @@ def chase_why(x):
     if (x or {}).get('chg1h') is not None and _f(x['chg1h']) > CHASE_1H:
         out.append(f"already +{_f(x['chg1h']):.0f}% on the hour (over +100% lost about half, typically)")
     return out
+
+
+# 🎯 CLEAN ENTRIES (owner, 2026-10-09: "better entries … we shouldn't be getting in at highs, entries before the break, not getting in −4c").
+# The real card's 86 judged exits by what the coin looked like at the buy: buyers > 65% +2.0% (4/4 up — the only positive bucket) ·
+# under 6h old −17…−20% · pool < $50K −15…−22% · already +60% on the hour −10…−25% · $50–200K/h −7% vs $200K+/h −0.7%.
+ENTRY_BUY_MIN = 60.0        # buyers' share of the last hour's trades, %
+ENTRY_MAX_1H = 60.0         # already up more than this on the hour = chasing
+ENTRY_MAX_5M = 3.0          # up more than this in the last 5 min = buying the candle (the "−4¢ a minute later" entry)
+ENTRY_MIN_PULL = 3.0        # at least this % under its 4h high (when the chart is read) — never the top tick
+ENTRY_MIN_LIQ = 50_000.0
+ENTRY_MIN_AGE_H = 6.0
+ENTRY_MIN_VOL1H = 200_000.0
+
+
+def entry_gate(x, mom=None):
+    """→ the first reason this coin is NOT a clean full-seat entry right now, or None. Missing readings are not judged (the other gates
+    decide those). Trench tickets have their own rules and never pass through here."""
+    r = {**((mom or {}).get((x or {}).get('pairAddress')) or {}), **{k: v for k, v in (x or {}).items() if v is not None}}
+    if r.get('buyShare') is not None and _f(r['buyShare']) < ENTRY_BUY_MIN:
+        return f"buyers only {_f(r['buyShare']):.0f}% (needs {ENTRY_BUY_MIN:g}%+)"
+    if r.get('chg1h') is not None and _f(r['chg1h']) > ENTRY_MAX_1H:
+        return f"already +{_f(r['chg1h']):.0f}% on the hour — chasing"
+    if r.get('chg5m') is not None and _f(r['chg5m']) > ENTRY_MAX_5M:
+        return f"+{_f(r['chg5m']):.1f}% in 5 min — buying the candle"
+    if r.get('cBars') and r.get('cPull') is not None and _f(r['cPull']) < ENTRY_MIN_PULL:
+        return f"at its highs ({_f(r['cPull']):.1f}% under its 4h high)"
+    if _f(r.get('liq') or r.get('liquidityUsd')) and _f(r.get('liq') or r.get('liquidityUsd')) < ENTRY_MIN_LIQ:
+        return f"pool ${_f(r.get('liq') or r.get('liquidityUsd')) / 1000:,.0f}K — thin pools are trench tickets only"
+    if r.get('ageH') is not None and _f(r['ageH']) < ENTRY_MIN_AGE_H:
+        return f"{_f(r['ageH']):.1f}h old — young coins are trench tickets only"
+    if r.get('vol1h') is not None and _f(r['vol1h']) < ENTRY_MIN_VOL1H:
+        return f"${_f(r['vol1h']) / 1000:,.0f}K/h — full seats want $200K+/h"
+    return None
+
+
+PREBREAK_PACE = 1.5   # the last 5 min trade at ≥ 1.5× the hour's pace
+
+
+def pre_break(x, mom=None):
+    """🌅 BEFORE THE BREAK: volume is waking up (5-min pace ≥ 1.5× the hour) while buyers lead (≥ 60%), the coin is calm-to-climbing
+    on the hour (−5…+30%), not spiking (5 min 0…+3%) and not at its highs. Getting in at the turn, not after the run. Pure → bool."""
+    r = {**((mom or {}).get((x or {}).get('pairAddress')) or {}), **{k: v for k, v in (x or {}).items() if v is not None}}
+    v5, v1 = _f(r.get('vol5m')), _f(r.get('vol1h'))
+    if v5 <= 0 or v1 <= 0 or v5 * 12 < PREBREAK_PACE * v1:
+        return False
+    if r.get('buyShare') is None or _f(r['buyShare']) < ENTRY_BUY_MIN:
+        return False
+    if r.get('chg1h') is None or not -5.0 <= _f(r['chg1h']) <= 30.0 or r.get('chg5m') is None or not 0.0 <= _f(r['chg5m']) <= ENTRY_MAX_5M:
+        return False
+    return not (r.get('cBars') and r.get('cPull') is not None and _f(r['cPull']) < ENTRY_MIN_PULL)
 
 
 def meta_why(x):

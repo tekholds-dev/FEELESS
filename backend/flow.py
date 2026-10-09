@@ -129,7 +129,8 @@ def flow_exits(card, flows, px_by_mint, cfg, now, sell_usd=None, intel=None):
         if rug_on:
             why = rug_why(win, it.get('creator'), it.get('watch') or (), l.get('liqNow') or l.get('liq'))
             kind = 'rug' if why else None
-        if not why and not l.get('frozen') and not l.get('ride') and not l.get('rideOrRug'):
+        held_ok = now - float(l.get('at') or 0) >= float((cfg or {}).get('flowMinHoldMins') or 0) * 60   # 🌊 tight exits wait out the first wobble
+        if not why and held_ok and not l.get('frozen') and not l.get('ride') and not l.get('rideOrRug'):
             why = exit_why(win, leg_mode(l, mode_card))
             kind = 'flow' if why else None
         if not why:

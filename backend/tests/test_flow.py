@@ -59,3 +59,13 @@ def test_one_big_seller_on_a_deep_pool_is_trading_not_a_rug():
     assert 'one wallet' in fl.rug_why(w)                            # depth unknown: judged as before
     dev = fl.window([T(10, 'buy', 100, 1.0), T(5, 'sell', 50, 0.97, 'DEV')], NOW)
     assert 'creator' in fl.rug_why(dev, creator='DEV', liq=5_000_000)   # the creator selling always counts, however deep
+
+
+def test_tight_flow_exit_waits_out_the_first_minutes_but_the_rug_radar_does_not():
+    w = fl.window([T(20, 'buy', 20, 1.0), T(15, 'sell', 80, 0.98), T(10, 'sell', 80, 0.97), T(5, 'sell', 80, 0.96), T(2, 'sell', 80, 0.95)], NOW)
+    leg = {'symbol': 'A', 'mint': 'm', 'pairAddress': 'p', 'units': 10, 'real': True, 'entry': 1.0, 'at': NOW - 120}
+    card = {'legs': [leg]}
+    _, hits = fl.flow_exits(card, {'p': w}, {'m': 0.95}, {'flowExit': 'tight', 'flowMinHoldMins': 10, 'rugRadar': False}, NOW)
+    assert hits == []                                                                      # bought 2 min ago: the tight exit waits
+    _, hits = fl.flow_exits({'legs': [{**leg, 'at': NOW - 900}]}, {'p': w}, {'m': 0.95}, {'flowExit': 'tight', 'flowMinHoldMins': 10, 'rugRadar': False}, NOW)
+    assert hits and hits[0][1] == 'flow'

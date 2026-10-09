@@ -3084,13 +3084,15 @@ def _with_tv(r):
 EXHALE_READS = ('DRYING UP', 'COOLING')   # the only reads with a positive 1h record (2026-10-09: +1.9% / 62% up · +0.6% / 57% up)
 
 
-def _bangers(mine, cool, mom, lq, floor, now):
+def _bangers(mine, cool, mom, lq, floor, now, gate=False):
     """🚀 BANGERS for the real card's open seats, best first: 🎯 a proven caller's fresh call (≤ 15 min, near the called cap) → 🔥 the
     TOP 3 (busiest safe coins) → 🧊 cooling off (DRYING UP / COOLING). Every one: real-buy pool floor, not on the card, not cooling,
     not dollar-named, not falling right now, no busted read / rug meter 50+. Each carries `tag` (shown as the coin's 'why it bought')."""
     try:
         open_ = [_with_tv(x) for x in _open_board()]
         src = [(r, '🎯 proven caller') for r in _pc.pro_entries(_pump_calls.get('calls') or [], _pump_calls.get('callers') or {}, open_, now * 1000)]
+        if _prebreak_ready():   # 🌅 before the break — joins the doors once its own record is positive (10+ settled)
+            src += [(r, '🌅 pre-break') for r in _prebreak_rows()]
         if _wave_ready():   # 🌊 narrative leaders join the doors only once their own record is positive (10+ settled)
             src += [(r, '🌊 narrative leader') for r in _wave_rows()]
         src += [(r, '🔥 top 3') for r in _prime.top_three((_contenders_cache.get('data') or {}).get('divisions'), mine, cool)]
@@ -3101,6 +3103,8 @@ def _bangers(mine, cool, mom, lq, floor, now):
     for r, tag in src:
         m = r.get('mint')
         if not m or m in seen or lq(r) < floor or _fuse._f(r.get('price')) <= 0 or _fw.dollar_named(r.get('symbol')) or not _prime.entry_ok(r, mom) or not _prime.trench_read_ok(_with_tv(r)):
+            continue
+        if gate and _prime.entry_gate(r, mom):   # 🎯 clean entries: the banger doors (🔥 top 3 = the busiest = often the top) obey it too
             continue
         seen.add(m)
         out.append({**r, 'tag': tag})
@@ -3126,6 +3130,29 @@ def _wave_rows():
             out.append({**r, 'baseAddress': r['mint'], 'priceUsd': r.get('price'), 'liquidityUsd': r.get('liq'),
                         'divisionLabel': f"🌊 the original of the \"{w['term']}\" wave — {w['today']} coins named after it today, this one leads"})
     return out
+
+
+def _prebreak_rows():
+    """🌅 BEFORE THE BREAK: runner-board coins that pass every SAFETY gate, are a clean entry (buyers 60%+, not chasing, not at highs,
+    $50K+ pool, 6h+, $200K+/h) and whose 5-min volume is waking up (≥ 1.5× the hour's pace) while the price is still calm."""
+    rcfg = _runner_cfg()
+    out = []
+    for r in list(_runner_cands):
+        try:
+            if _rn.safety_fails(r, rcfg) or _fuse._f(r.get('price')) <= 0 or not r.get('pairAddress'):
+                continue
+        except Exception:
+            continue
+        if _prime.pre_break(r) and not _prime.entry_gate(r):
+            pace = _fuse._f(r.get('vol5m')) * 12 / max(1.0, _fuse._f(r.get('vol1h')))
+            out.append({**r, 'baseAddress': r.get('mint'), 'priceUsd': r.get('price'), 'liquidityUsd': r.get('liq'),
+                        'divisionLabel': f"🌅 volume waking: 5-min pace {pace:.1f}× the hour, buyers {_fuse._f(r.get('buyShare')):.0f}%, {_fuse._f(r.get('chg1h')):+.0f}% 1h"})
+    return sorted(out, key=lambda r: -_fuse._f(r.get('vol5m')))
+
+
+def _prebreak_ready():
+    rec = (_list_records() or {}).get('prebreak') or {}
+    return int(rec.get('n') or 0) >= WAVE_PROVE_MIN and _fuse._f(rec.get('medPct')) > 0
 
 
 def _wave_ready():
@@ -3159,6 +3186,8 @@ async def _fuses_discover_raw(lens, chain):
         return {'lens': 'exhale', 'chain': 'solana', 'pools': _exhale_rows()}
     if lens == 'wave':
         return {'lens': 'wave', 'chain': 'solana', 'pools': _wave_rows()}
+    if lens == 'prebreak':
+        return {'lens': 'prebreak', 'chain': 'solana', 'pools': _prebreak_rows()}
     if lens == 'procall':
         return {'lens': 'procall', 'chain': 'solana', 'pools': _procall_rows()}
     if lens == 'fresh':   # 🔄 NEW TO YOU (owner, 2026-10-08: "no new coins, I'm running in circles — cycle different coins from the Arena and FEELESS
@@ -6557,7 +6586,7 @@ async def _bottom_rows(now):
 
 
 LENS_PROOF_PATH = FUSE_HQ_PATH.parent / 'lens_proof.json'   # 📏 every picker list's own 1-hour paper record
-LENS_TRACK = ('ptrend', 'movers', 'pump', 'volume', 'calls', 'fed', 'double', 'exhale', 'procall', 'wave')          # the live-feed lists (bottom + trench keep their own files)
+LENS_TRACK = ('ptrend', 'movers', 'pump', 'volume', 'calls', 'fed', 'double', 'exhale', 'procall', 'wave', 'prebreak')          # the live-feed lists (bottom + trench keep their own files)
 LENS_TOP = 15                                                # the top rows of each list are what a picker actually picks from
 _lens_rows: dict = {}                                        # {list: [rows in the list's own order]} — refreshed with the record (~2 min)
 
@@ -8288,6 +8317,30 @@ async def _flow_tight_fix_1009(now):
     return True
 
 
+ENTRY_1009 = {'entryGate': True, 'flowMinHoldMins': 10, 'runnerMinChg1h': 0}
+
+
+async def _entry_fix_1009(now):
+    """🎯 Once (owner, 2026-10-09: "better entries … not getting in at highs, entries before the break, not −4¢"): clean entries on every
+    door, buys-vs-sells waits 10 min after a buy, and the hunt line no longer REQUIRES +40% on the hour (that rule bought the highs).
+    Old values: data/realcfg_before_entry1009.json."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('entryFix1009') or not rc:
+            return False
+        _json_save(DATA_DIR / 'realcfg_before_entry1009.json', {k: rc.get(k) for k in ENTRY_1009})
+        pr['realCfg'] = _prime.clean_cfg({**rc, **ENTRY_1009})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ENTRY_1009))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ENTRY_1009))
+        for c in (pr.get('cards') or {}).values():
+            if c.get('real'):
+                c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🎯 clean entries: buyers 60%+, not chasing (+60% 1h / +3% 5m), 3%+ under its high, $50K+ pool, 6h+, $200K+/h on every door · buys-vs-sells waits 10 min after a buy · hunt line no longer needs +40%'})
+        pr['entryFix1009'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _ticket_ride_fix(now):
     """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
     once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
@@ -8392,6 +8445,7 @@ async def _prime_tick_inner(now):
     await _trench_safe_fix_1009(now)
     await _clean_fix_1009(now)
     await _flow_tight_fix_1009(now)
+    await _entry_fix_1009(now)
     await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
@@ -8599,6 +8653,9 @@ async def _prime_tick_inner(now):
         if real_t or cfg_t.get('pickStyle') in ('hunt', 'sniper'):   # 🏊 the owner's own runner line (real) · a paper card's own pick style
             r_t = _prime.deep_runners(r_t, cfg_t.get('runnerMinLiqK'), cfg_t.get('runnerMinBuy'), cfg_t.get('runnerMinVolK'), cfg_t.get('runnerMinChg1h'))
             _step('your hunt line (pool · volume · 1h move · buyers)', r_t)
+        if real_t and cfg_t.get('entryGate'):   # 🎯 clean entries (trench tickets keep their own rules)
+            r_t = [x for x in r_t if x.get('trenchOnly') or not _prime.entry_gate(x, mom)]
+            _step('clean entry — buyers 60%+, not chasing, not at its highs, $50K+ pool, 6h+, $200K+/h', r_t)
         if real_t:   # 💀 never a dead coin (owner: "Coming up coins shouldn't be dead"): nothing in 5 min / < $3K or < 20 trades an hour
             r_t, r_pre_ = [x for x in r_t if not _ja.dead_why(x)], [x for x in r_pre_ if not _ja.dead_why(x)]
             _step('alive — traded in the last 5 min, $3K+ and 20+ trades an hour', r_t)
@@ -8760,7 +8817,9 @@ async def _prime_tick_inner(now):
             cfg_t = {**cfg_t, 'seatFallback': list({x.get('mint'): x for x in reversed(fb_)}.values())[::-1][:8], 'catPicks': cat_rows, 'catWatch': door_watch, 'catMiss': cat_miss,
                      'edgeReady': edge_ready, 'edgeWatch': edge_watch}
         if real_t and cfg_t.get('bangerRefill'):   # 🚀 every seat that opens (flow exit, stop, rotation, ride over) takes a banger first
-            cfg_t = {**cfg_t, 'bangers': _bangers(mine, cool, mom, _lq, _fw.clean_cfg(fw_cfg)['minLiqUsd'], now)}
+            cfg_t = {**cfg_t, 'bangers': _bangers(mine, cool, mom, _lq, _fw.clean_cfg(fw_cfg)['minLiqUsd'], now, gate=bool(cfg_t.get('entryGate')))}
+        if real_t and cfg_t.get('entryGate'):   # 🎯 the 30s seat fallback and Coming up's category picks obey clean entries too
+            cfg_t = {**cfg_t, 'seatFallback': [x for x in cfg_t.get('seatFallback') or [] if not _prime.entry_gate(x, mom)]}
         # 🧊 anchors cool too: a major this card just sold isn't bought back for 3 rounds while another major is available
         a_t = _prime_cool_candidates(anchors, cool, 2, strict=real_t and len([x for x in anchors if x.get('mint') not in cool]) >= 1) if cool else anchors
         if new_only_:
@@ -8800,7 +8859,7 @@ async def _prime_tick_inner(now):
             tops_ = _prime.top_three((_contenders_cache.get('data') or {}).get('divisions'), mine, cool)
             fwc_ = _fw.clean_cfg(fw_cfg)
             cand_ = next((x for x in tops_ if _lq(x) >= fwc_['minLiqUsd'] and not _fw.dollar_named(x.get('symbol')) and _fuse._f(x.get('price')) > 0
-                          and _prime.entry_ok(x, mom)), None)
+                          and _prime.entry_ok(x, mom) and not (cfg_t.get('entryGate') and _prime.entry_gate(x, mom))), None)
             vic_ = _prime.top_victim(cur, px, now, max(120.0, _fuse._f(cfg_t.get('minHoldMins')) * 60)) if cand_ else None
             if cand_ and vic_:
                 try:
@@ -9151,6 +9210,9 @@ async def fuse_prime_admin(request: Request):
         if cand and ((_pr.get('cards') or {}).get(pk['tpl']) or {}).get('real') and _prime.clean_cfg(_pr.get('realCfg') or {})['pickVerify']:
             _pv_ok, _pv_miss, _pv_c = await _pick_verify(cand['mint'], cand['pairAddress'])
             _pv_miss = list(_pv_miss or []) + _prime.chase_why(_pv_c)   # 🔥 a warning, never a block: you can still pick it
+            _eg = _prime.entry_gate({**(_pv_c or {}), 'pairAddress': cand.get('pairAddress')}) if not cand.get('trenchOnly') else None
+            if _eg and _eg not in ' '.join(_pv_miss):
+                _pv_miss.append(f"not a clean entry: {_eg}")   # 🎯 the same gate the engine uses — a warning on your picks, never a block
             try:   # 🎯 … quoting the owner's OWN record on this kind of entry (only when it lost, ≥ 8 picks)
                 import owner_edge as _oe
                 _pv_miss += _oe.warnings({'chg5m': (_pv_c or {}).get('chg5m'), 'vol1h': (_pv_c or {}).get('vol1h'), 'liq': (_pv_c or {}).get('liq')}, _owner_edge_rec())
