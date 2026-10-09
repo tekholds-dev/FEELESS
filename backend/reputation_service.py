@@ -6263,6 +6263,7 @@ async def _trench_build(now):
     await _call_track(now)
     await _lens_track(now)
     await _edge_track(now)
+    await _flow_settle(now)
     await _owner_moves_tick(now)
     return _trench_cache
 
@@ -7501,6 +7502,86 @@ async def _prime_bell_loop():
 _guard_seen: dict = {}   # {mint: when the fast guard last woke the tick for it} — one wake per coin per 30s
 
 
+import flow as _flow
+FLOW_PROOF_PATH = FUSE_HQ_PATH.parent / 'flow_proof.json'   # 🌊 every flow / rug exit: noted at its sell price, judged 1h later (lower = it saved money)
+FLOW_EVERY = 15.0
+_flow_now: dict = {}    # pairAddress → (at, window) — the latest tape read of every coin we watch
+_flow_at = {'t': 0.0}
+
+
+async def _flow_fetch(pairs, max_age=12.0):
+    """🌊 The last 90s of real swaps for these pools (candles service trade tape, its own 15s cache) → {pair: window}. Parallel, 4s budget."""
+    now = time.time()
+    need = [p for p in dict.fromkeys(pairs) if p and now - _flow_now.get(p, (0, None))[0] > max_age]
+    async def one(http, p):
+        try:
+            r = await http.get(f'http://127.0.0.1:5099/api/candles/trades/solana/{p}')
+            return p, _flow.window((r.json() or {}).get('trades') or [], time.time())
+        except Exception:
+            return p, None
+    if need and not os.environ.get('PYTEST_CURRENT_TEST'):
+        async with httpx.AsyncClient(timeout=4) as http:
+            for p, w in await asyncio.gather(*[one(http, p) for p in need[:12]]):
+                _flow_now[p] = (time.time(), w)
+    return {p: (_flow_now.get(p) or (0, None))[1] for p in pairs}
+
+
+def _flow_intel(mint):
+    """The wallets the rug radar watches for this coin: creator + top-10 wallets + bundle / sniper wallets (scan cache only)."""
+    hit = _intel_cache.get(mint)
+    it = (hit[1] if hit else {}) or {}
+    watch = {h.get('owner') for h in (it.get('topHolders') or [])[:10] if h.get('kind') == 'wallet' and h.get('owner')}
+    watch |= set((it.get('bundledWallets') or [])[:30]) | set((it.get('sniperWallets') or [])[:30])
+    watch.discard(it.get('creator'))
+    return {'creator': it.get('creator'), 'watch': watch}
+
+
+async def _flow_guard(now, px):
+    """🌊 + 🚨 on the real card(s): read each held coin's tape, sell what flow / the rug radar flags (like a fast stop), score each exit."""
+    rcfg = _prime_real_cfg()
+    if rcfg.get('flowExit', 'off') == 'off' and not rcfg.get('rugRadar', True):
+        return False
+    cards = [c for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if c.get('real') and not c.get('flooredAt') and not c.get('holdAll')]
+    legs = [l for c in cards for l in c.get('legs') or [] if _flow.watched(l) and not _prime.safe_anchor(l)]
+    if not legs:
+        return False
+    flows = await _flow_fetch([l.get('pairAddress') for l in legs])
+    intel = {l.get('mint'): _flow_intel(l.get('mint')) for l in legs}
+    hit_any, noted = False, []
+    async with _prime_tick_lock:
+        d_ = _json_load(FUSE_HQ_PATH, {}); cs_ = dict((d_.get('prime') or {}).get('cards') or {})
+        for tid_, c_ in list(cs_.items()):
+            if not (c_ and c_.get('real') and not c_.get('flooredAt') and not c_.get('holdAll')):
+                continue
+            nw_, hits = _flow.flow_exits(c_, flows, px, rcfg, now, _prime.sell_usd, intel)
+            if hits:
+                cs_[tid_] = _prime.note_dropped(c_, nw_, now, rcfg['rotateHours'], {l.get('pairAddress'): px.get(l.get('mint')) for l in c_.get('legs') or []})
+                hit_any = True
+                noted += [(e.get('kind'), e.get('mint'), e.get('px')) for e in nw_['events'][-len(hits):]]
+        if hit_any:
+            d_['prime'] = {**(d_.get('prime') or {}), 'cards': cs_}; _json_save(FUSE_HQ_PATH, d_)
+    if noted:   # 📏 the exit's own record: the coin's move in the hour AFTER we sold (negative = the exit saved money)
+        st = _json_load(FLOW_PROOF_PATH, {})
+        passing = {}
+        for k, m, p_ in noted:
+            if m and _fuse._f(p_) > 0:
+                passing.setdefault(k, []).append((m, _fuse._f(p_)))
+        _json_save(FLOW_PROOF_PATH, _trench.meta_track(st, passing, lambda m: None, now, keys=tuple(dict.fromkeys(list(st) + list(passing)))))
+    return hit_any
+
+
+async def _flow_settle(now):
+    """Settle flow / rug exits an hour after they sold (with the lens pass)."""
+    try:
+        st = _json_load(FLOW_PROOF_PATH, {})
+        due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
+        if due:
+            jp = await _jup_prices(due)
+            _json_save(FLOW_PROOF_PATH, _trench.meta_track(st, {}, lambda m: (jp or {}).get(m), now, keys=tuple(st)))
+    except Exception as e:
+        print('flow settle:', e)
+
+
 async def _real_guard_loop():
     """⚡ FAST GUARD for real-money cards: every ~10s ONE batched Jupiter price read for the coins a real card holds; a coin at
     its stop / instant-swap line (or a rider off its trail) wakes the tier tick at once instead of waiting for the next
@@ -7516,6 +7597,14 @@ async def _real_guard_loop():
                         _jup_px_cache.pop(m, None)   # a FRESH read: the shared 20s cache is too slow for a stop
                     px = await _jup_prices(mints)
                     rcfg = _prime_real_cfg(); now = time.time()
+                    if now - _flow_at['t'] >= FLOW_EVERY:   # 🌊 + 🚨 flow exits and the rug radar, every ~15s
+                        _flow_at['t'] = now
+                        if await _flow_guard(now, px):
+                            try:
+                                await _fw_tick(now)
+                            except Exception as e:
+                                print('flow exit keeper:', str(e)[:120])
+                            await _prime_tick(time.time())
                     hit = [s for c in cards for s in _prime.guard_hits(c, px, rcfg)]
                     due = [l.get('mint') for c in cards for l in c.get('legs') or [] if l.get('symbol') in hit and now - _guard_seen.get(l.get('mint'), 0) >= 30]
                     if due:
@@ -8043,6 +8132,16 @@ async def _prime_tick_inner(now):
                         edge_watch.append({**(_cat_row({'mint': m_}) or e_), 'tag': _cf.words(e_['edge']), 'edge': e_['edge'], 'watchWhy': v_})
                     if len(edge_ready) >= 6:
                         break
+                if edge_ready and cfg_t.get('flowEntry', True):   # 🌊 FLOW ENTRY: never buy into a minute where sellers lead (the tape of the top 4)
+                    fl_ = await _flow_fetch([x.get('pairAddress') for x in edge_ready[:4]])
+                    ok_, held_ = [], []
+                    for x in edge_ready:
+                        w_ = fl_.get(x.get('pairAddress'))
+                        why_ = _flow.entry_why(w_) if x.get('pairAddress') in fl_ else None
+                        x = {**x, 'flow': {k: w_.get(k) for k in ('buyUsd', 'sellUsd', 'n', 'pxChg')} if w_ else None}
+                        (held_ if why_ else ok_).append({**x, 'watchWhy': why_} if why_ else x)
+                    edge_ready = ok_
+                    edge_watch = held_ + edge_watch
                 cat_rows = edge_ready + [x for x in cat_rows if x.get('mint') not in {y['mint'] for y in edge_ready}]
             # 🚪 EVERY DOOR ALWAYS SHOWS ONE COIN (owner: "1 trench, 1 pump, 1 volume"): a door with nothing that clears every check shows its
             # best coin as WATCHING, with the first check it misses. Watch rows are only shown — never seated by the engine, owner-pickable.
@@ -8290,7 +8389,10 @@ async def fuse_prime():
     _lst = (_rcard or {}).get('ladderStage') or _prime.ladder_stage(_ladder_value(_rcard)) if _rcard else None
     _lkeep = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('ladderKeep') or []
     _lad = {**_prime.ladder_view(_lst), 'on': bool(_rc.get('ladder')), 'value': round(_ladder_value(_rcard), 2), 'keys': _prime.ladder_keys(_lst), 'keep': _lkeep} if _rcard else None
-    return {'ladder': _lad, 'meta': _prime.meta_for(_fuse._f(_rc.get('rotateHours')) or 1.0, _seed) if _rc else None, 'cards': await _prime_view(), 'humanStyle': {'tiers': _ht, 'picks': _hn, 'need': _ps.MIN_PICKS, 'ready': bool(_hp), 'words': _ps.words(_hp),
+    _fnow = time.time()
+    _flv = {p: {**{k: w.get(k) for k in ('buyUsd', 'sellUsd', 'n', 'pxChg', 'sellShare')}, 'age': round(_fnow - at)} for p, (at, w) in list(_flow_now.items()) if w and _fnow - at < 90}
+    _fpr = _trench.meta_proof(_json_load(FLOW_PROOF_PATH, {}), keys=('flow', 'rug'))
+    return {'flow': _flv, 'flowProof': _fpr, 'ladder': _lad, 'meta': _prime.meta_for(_fuse._f(_rc.get('rotateHours')) or 1.0, _seed) if _rc else None, 'cards': await _prime_view(), 'humanStyle': {'tiers': _ht, 'picks': _hn, 'need': _ps.MIN_PICKS, 'ready': bool(_hp), 'words': _ps.words(_hp),
                            'moves': _om.summary(next((v for k, v in _json_load(OWNER_MOVES_PATH, {}).items() if isinstance(v, dict)), {}))}, 'renewed': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('renewed') or {}), 'scrapped': [{k: x.get(k) for k in ('tpl', 'at', 'label', 'text', 'valueUsd', 'putInUsd', 'rounds')} for x in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('scrapped') or [])[-12:]], 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'weather': _real_weather(), 'suggest': _json_load(PG_SIM_PATH, {}).get('byClock') or {}, 'realGuard': _prime.real_guard({**_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'instantSwapPct': _fuse._f(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('instantSwapPct'))}, (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or ())[1], 'paperMatch': _fw.paper_match(_fw_load().get('quoteAudit')), 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'lockCfg': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}), 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner'), 'realOwnerSet': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or []}
 
 
@@ -8578,7 +8680,7 @@ async def fuse_prime_admin(request: Request):
             if not cards.get(lg['tpl']):
                 raise HTTPException(404, 'No card for that tier yet.')
             try:
-                cards[lg['tpl']] = _prime.set_leg(cards[lg['tpl']], lg['pairAddress'], lg.get('frozen'), lg.get('slMode'), lg.get('tp'), lg.get('sl'))
+                cards[lg['tpl']] = _prime.set_leg(cards[lg['tpl']], lg['pairAddress'], lg.get('frozen'), lg.get('slMode'), lg.get('tp'), lg.get('sl'), lg.get('flowExit'))
             except ValueError as e:
                 raise HTTPException(400, str(e))
             _json_save(FUSE_HQ_PATH, d)

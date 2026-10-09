@@ -503,7 +503,10 @@ def clean_cfg(p):
     out['upMeta'] = bool((p or {}).get('upMeta', True))          # 🧭 the engine's own buys need a readable chart that is not trending down
     out['trailStep'] = bool((p or {}).get('trailStep', False))   # 🪜 a rider's trail widens as its peak gain grows
     out['comeback'] = bool((p or {}).get('comeback', True))      # 🔁 a rider that left is bought back when its dip recovers 15%
-    out['ladder'] = bool((p or {}).get('ladder', False))   # 🪜 the card's playbook climbs with its size (LADDER)
+    out['ladder'] = bool((p or {}).get('ladder', False))
+    out['flowExit'] = (p or {}).get('flowExit') if (p or {}).get('flowExit') in ('off', 'normal', 'tight') else 'normal'   # 🌊 sell when sellers take over (flow.py)
+    out['rugRadar'] = bool((p or {}).get('rugRadar', True))   # 🚨 sell at once when the creator / a top holder dumps
+    out['flowEntry'] = bool((p or {}).get('flowEntry', True))   # 🌊 the engine doesn't buy into a minute where sellers lead   # 🪜 the card's playbook climbs with its size (LADDER)
     out['newOnly'] = bool((p or {}).get('newOnly', False))   # 🆕 the engine fills seats with launch coins only — no majors, no old pools (the owner's own picks are untouched)
     out['moverSwap'] = bool((p or {}).get('moverSwap', True))   # 🚀 a mover takes the seat of a coin that is not moving
     out['edgeGate'] = bool((p or {}).get('edgeGate', True))   # 🧠 real money buys only runners the board's own record does not expect to lose (pick_edge.py)
@@ -2811,7 +2814,7 @@ def leg_sl(l, t):
     return _f(l.get('sl')) or t['sl']
 
 
-def set_leg(card, pair, frozen=None, sl_mode=None, tp=None, sl=None):
+def set_leg(card, pair, frozen=None, sl_mode=None, tp=None, sl=None, flow=None):
     """HQ per-coin config on a tier card: ❄ frozen (engine never rotates or stops it — the floor still protects the card)
     and its own stop mode (replace / park / hold, or '' = follow the card). Pure; ValueError if the coin isn't on the card."""
     c = {**card, 'legs': [dict(l) for l in card.get('legs') or []]}
@@ -2824,6 +2827,13 @@ def set_leg(card, pair, frozen=None, sl_mode=None, tp=None, sl=None):
         if sl_mode and sl_mode not in SL_MODES:
             raise ValueError('stop mode must be replace, park or hold')
         leg['slMode'] = sl_mode or None
+    if flow is not None:   # 🌊 this coin's own flow exit: off / normal / tight, '' = follow the card
+        if flow and flow not in ('off', 'normal', 'tight'):
+            raise ValueError('flow exit must be off, normal or tight')
+        if flow:
+            leg['flowExit'] = flow
+        else:
+            leg.pop('flowExit', None)
     for key, val, allowed in (('tp', tp, LEG_TPS), ('sl', sl, LEG_SLS)):   # 🎯 this coin's own TP / SL; 0 clears it back to the tier's
         if val is not None:
             if _f(val) and _f(val) not in allowed and not step_ok(key, val):

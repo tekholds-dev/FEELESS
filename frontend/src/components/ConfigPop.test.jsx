@@ -44,3 +44,13 @@ test('with the ladder on, rows it sets say 🪜 ladder and a row you tapped says
   expect(pane).toContain('✋ yours'); expect(pane).toContain('🪜 ladder');
   await act(async () => { root.unmount(); });
 });
+
+test('flow bar shows buys vs sells and marks a seller-led coin', async () => {
+  const React = require('react'); const { act } = React; const { createRoot } = require('react-dom/client');
+  const { FlowBar } = require('./ArenaPrime');
+  const el = document.createElement('div'); const root = createRoot(el);
+  await act(async () => { root.render(<FlowBar f={{ buyUsd: 20, sellUsd: 180, n: 12, pxChg: -4.2, age: 6 }} />); });
+  expect(el.querySelector('.flb').className).toContain('is-sell'); expect(el.textContent).toContain('$20 ⇄ $180');
+  await act(async () => { root.render(<FlowBar f={null} />); }); expect(el.querySelector('.flb')).toBeNull();
+  await act(async () => { root.unmount(); });
+});

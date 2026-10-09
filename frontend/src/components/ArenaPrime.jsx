@@ -257,6 +257,9 @@ export function PrimeShowcase() {
 // ⚙ Edit a REAL tier card's configs in place (owner). Engine settings save to the tier engine; a locked tier is re-locked with them.
 const EDIT = [
   ['rotateHours', '⏱ Round clock', [[0.08, '5m'], [0.25, '15m'], [0.5, '30m'], [1, '1h'], [2, '2h']], 'How long each round lasts'],
+  ['flowExit', '🌊 Flow exit', [['normal', 'normal'], ['tight', 'tight'], ['off', 'off']], 'Sells a coin the moment SELLERS take over: in the last 90 seconds of its real swaps, sold $ is well above bought $ (normal 2× · tight 1.5×) while the price slides. It reads the tape every 15 seconds — a stop only fires after the drop. Riders and ride-or-rug tickets keep their own plan. Each coin can override it on its row (🌊).'],
+  ['rugRadar', '🚨 Rug radar', [[true, 'on'], [false, 'off']], 'Sells a coin at once when the creator sells, a top-10 / bundle / sniper wallet dumps $100+, or one wallet is most of the last 90s of flow. Watches every coin, riders and tickets too.'],
+  ['flowEntry', '🌊 Flow entry', [[true, 'on'], [false, 'off']], 'On: the engine does not buy a coin while sellers lead its last 90 seconds — it waits (Coming up says so). Your own picks are never held.'],
   ['instantSwapPct', '⚡ Instant swap at', [[0, 'off'], [5, '−5%'], [10, '−10%'], [15, '−15%'], [20, '−20%']], 'Immediate live-loss trigger. Once the coin reaches this loss, it exits now — no round, patience or minimum-hold wait.'],
   ['rotateConfirm', '⏳ Round patience', [[1, '1'], [2, '2'], [3, '3'], [4, '4']], 'Only for scheduled round rotation. It does NOT delay the instant-loss trigger. OFF = a coin can be rotated out on the very next round (most churn — your choice).'],
   ['rotateMinDrop', '📉 Round swap only below', [[0, 'any'], [5, '−5%'], [10, '−10%'], [15, '−15%'], [20, '−20%']], 'For scheduled round rotation, require the coin to be this far below its entry.'],
@@ -489,7 +492,7 @@ export function CardEditor({ c, cfg, keeper, locked, call, real, suggest, meta, 
         {(() => { const onNow = Object.entries(meta.patch).every(([k, v]) => String(cfg?.[k]) === String(v) || Number(cfg?.[k]) === Number(v));
           return <button type="button" className={`m-btn ${onNow ? 'is-on' : 'primary m-go'}`} disabled={busy || onNow} onClick={() => save(meta.patch)} data-testid="meta-apply">{onNow ? '✓ Running this' : '⚡ Use the meta'}</button>; })()}</div>}
       {!adv && <>{sub('1 · PICK A SETUP')}<StrategyPicks hours={cfg?.rotateHours || 1} current={cfg} busy={busy} selection={real} onApply={s => saveExit(stratPatch(s.cfg, real))} testid={`strats-${c.tpl}`} />
-        {sub('2 · THE DIALS THAT DECIDE A CARD')}{rows(['rotateHours', 'coins', ...(real ? ['newOnly'] : []), 'minHoldMins', 'scoutPct', 'runnerMinAgeH', 'sl'])}
+        {sub('2 · THE DIALS THAT DECIDE A CARD')}{rows(['rotateHours', 'coins', ...(real ? ['newOnly'] : []), 'minHoldMins', 'scoutPct', 'runnerMinAgeH', 'sl', ...(real ? ['flowExit', 'rugRadar'] : [])])}
         <p className="m-note">That is everything most cards need. A setup above sets the rest for you.</p></>}
       {adv && grp === 'setup' && <><StrategyPicks hours={cfg?.rotateHours || 1} current={cfg} busy={busy} selection={real} onApply={s => saveExit(stratPatch(s.cfg, real))} testid={`strats-${c.tpl}`} />
         <EnginePick suggest={suggest} cfg={cfg} busy={busy} save={save} />
@@ -506,7 +509,7 @@ export function CardEditor({ c, cfg, keeper, locked, call, real, suggest, meta, 
         {c.swapCap && <p className="m-note" data-testid="swap-cap-why">{c.swapCap.why} · used {c.swapCap.used || 0}{c.swapCap.cap ? ` of ${c.swapCap.cap}` : ''} this hour</p>}
         {churn && <p className="m-note ce-warn" data-testid="churn-warn">⚠ Round rotation is aggressive at {Math.round((cfg?.rotateHours || 0) * 60)}m with patience {cfg?.rotateConfirm || 1}. The ⚡ instant swap (Exits) is separate and fires immediately at its loss.
           <button type="button" className="m-btn" disabled={busy} onClick={() => save({ rotateConfirm: 3 })}>Use 3</button></p>}</>}
-      {adv && grp === 'exits' && <>{sub('A LOSING COIN')}{rows(['sl', 'instantSwapPct', 'slMode'])}
+      {adv && grp === 'exits' && <>{sub('A LOSING COIN')}{rows(['sl', 'instantSwapPct', 'slMode', ...(real ? ['flowExit', 'rugRadar', 'flowEntry'] : [])])}
         {sub('A WINNING COIN')}{rows(['rideAt', ...(on('rideAt') ? ['rideTrail', 'trailStep', 'peakSellPct', 'rideEnd', 'lockBankPct', 'comeback', 'fedRidePct', 'secondTicketPct'] : []), 'tp', 'keepWinPct'])}
         {sub('TAKING PROFIT AUTOMATICALLY')}{rows(['skimAt', 'skimTo', ...(cfg?.skimTo === 'round' ? ['skimHoldRounds'] : []), 'stackSkimUsd', 'recyclePct', ...(on('recyclePct') ? ['recycleEvery'] : []), 'tpStakeUsd'])}</>}
       {adv && grp === 'safety' && rows(['floorPct', ...(Number(cfg?.floorPct) > 0 ? ['floorRestMins'] : []), 'rescuePct', ...(real ? ['pickVerify', 'youngTicket', ...(cfg?.youngTicket !== false ? ['ticketRide'] : []), 'tpStakeUsd', 'rebuyDipPct'] : []), 'autoBrain'])}
@@ -778,7 +781,11 @@ export function HqRealCards({ addr, onCount }) {
                 <select className="m-input" aria-label={`${l.symbol} take-profit`} disabled={!!busy} value={l.tp || 0} data-testid={`tp-${l.symbol}`} onChange={e => prime({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, tp: Number(e.target.value) } }, Number(e.target.value) ? `🎯 $${l.symbol} takes profit at +${e.target.value}%` : `$${l.symbol} follows the tier's take-profit`, `tp-${l.pairAddress}`)}>
                   <option value={0}>TP tier</option>{[...new Set([25, 50, 100, 200, 300, ...(l.tp ? [l.tp] : [])])].sort((x, y) => x - y).map(v => <option key={v} value={v}>TP +{v}%</option>)}</select>
                 <select className="m-input" aria-label={`${l.symbol} stop`} disabled={!!busy} value={l.sl || 0} data-testid={`sl-${l.symbol}`} onChange={e => prime({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, sl: Number(e.target.value) } }, Number(e.target.value) ? `🛑 $${l.symbol} stops at −${e.target.value}%` : `$${l.symbol} follows the tier's stop`, `sl-${l.pairAddress}`)}>
-                  <option value={0}>SL tier</option>{[...new Set([10, 15, 20, 30, ...(l.sl ? [l.sl] : [])])].sort((x, y) => x - y).map(v => <option key={v} value={v}>SL −{v}%</option>)}</select></span>}
+                  <option value={0}>SL tier</option>{[...new Set([10, 15, 20, 30, ...(l.sl ? [l.sl] : [])])].sort((x, y) => x - y).map(v => <option key={v} value={v}>SL −{v}%</option>)}</select>
+                <select className="m-input" aria-label={`${l.symbol} flow exit`} disabled={!!busy} value={l.flowExit || ''} data-testid={`flow-${l.symbol}`} data-tip="🌊 Flow exit for THIS coin: sell when sellers take over (sell $ well above buy $ while the price slides). normal = 2× sellers · tight = 1.5× · off = never. 'card' = the card's own setting."
+                  onChange={e => prime({ leg: { tpl: c.tpl, pairAddress: l.pairAddress, flowExit: e.target.value } }, e.target.value ? `🌊 $${l.symbol} flow exit: ${e.target.value}` : `$${l.symbol} follows the card's flow exit`, `fx-${l.pairAddress}`)}>
+                  <option value="">🌊 card</option><option value="normal">🌊 normal</option><option value="tight">🌊 tight</option><option value="off">🌊 off</option></select></span>}
+              <FlowBar f={d?.flow?.[l.pairAddress]} />
               <button type="button" className="m-btn" disabled={!!busy || l.frozen} data-testid={`swap-${l.symbol}`} data-tip={l.frozen ? 'Frozen — unfreeze to swap it' : `Swap $${l.symbol} for the best coin of its kind not on the card (keeper trades it next tick)`}
                 onClick={() => prime({ replace: { tpl: c.tpl, pairAddress: l.pairAddress } }, `⇄ $${l.symbol} swapped — keeper buys the new coin next tick`, `sw-${l.pairAddress}`)}>⇄</button>
               <button type="button" className={`m-btn ${pickFor === l.pairAddress || l.swapTo ? 'active' : ''}`} disabled={!!busy || l.frozen} data-testid={`pick-${l.symbol}`} aria-expanded={pickFor === l.pairAddress}
@@ -883,6 +890,17 @@ export function UpFilter({ cfg, onSave, busy }) {
       onChange={e => { const raw = e.target.value; onSave({ [k]: k === 'noSerial' ? raw === 'true' : Number(raw) }); }} aria-label={k} data-testid={`upf-${k}`}>
       {opts.map(([v, l]) => <option key={String(v)} value={String(v)}>{l}</option>)}</select></label>)}</div>;
 }
+// 🌊 a coin's live flow (last 90s of real swaps): green = $ bought, pink = $ sold, the price move across them. From the 15s tape read.
+export function FlowBar({ f }) {
+  if (!f || !(f.buyUsd + f.sellUsd > 0)) return null;
+  const tot = f.buyUsd + f.sellUsd; const b = f.buyUsd / tot;
+  const lead = f.sellUsd > 1.3 * f.buyUsd ? 'is-sell' : f.buyUsd > 1.3 * f.sellUsd ? 'is-buy' : '';
+  const m = v => (v >= 1000 ? `$${(v / 1000).toFixed(1)}K` : `$${Math.round(v)}`);
+  return <span className={`flb ${lead}`} data-testid="flow-bar" data-tip={`🌊 Last 90s: ${m(f.buyUsd)} bought · ${m(f.sellUsd)} sold · ${f.n} trades · price ${f.pxChg >= 0 ? '+' : ''}${f.pxChg}%. Read ${f.age}s ago. The flow exit sells when sellers take over.`}>
+    <i className="flb-b" style={{ transform: `scaleX(${Math.max(0.04, b)})` }} /><i className="flb-s" style={{ transform: `scaleX(${Math.max(0.04, 1 - b)})` }} />
+    <small>{m(f.buyUsd)} ⇄ {m(f.sellUsd)}</small></span>;
+}
+
 export function ComingUp({ p, legs = [], onSwap, onFill, emptySeats = 0, busy, cfg, onFilter }) {
   const [target, setTarget] = useState({});   // per coin: which seat it goes into ('' = the first empty seat, else the first coin)
   const rows = p?.up || [];

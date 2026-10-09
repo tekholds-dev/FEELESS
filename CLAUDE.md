@@ -2365,3 +2365,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   sets it) or `✋ yours` (`ce-mark`); `/fuses/prime.ladder.keys/keep`. One-time `_ladder_keep_fix` (`ladderKeepFix1`) kept the owner's 4 coins.
   Edit Fuse › Coins: the trench lists sit in a fold (`cep-fold`), not inline. "A BUTTON DOESN'T WORK" ⇒ compare the stored realCfg with `cfgEff`
   first — a layer on top (ladder, real_guard, seat fit) is the usual cause.
+- 🌊 FLOW EXIT + 🚨 RUG RADAR + 🌊 FLOW ENTRY (owner, 2026-10-08: "flow exit — and per coin"; `backend/flow.py` pure + tested): the candles
+  service's trade tape (`/api/candles/trades/solana/{pool}`, its own 15s cache) → `window` (last 90s: buy $, sell $, trades, price move, biggest
+  sell). `_flow_guard` inside the 6-second `_real_guard_loop`, every `FLOW_EVERY` 15s, for the real card's held coins: FLOW EXIT (cfg `flowExit`
+  normal 2× sellers · tight 1.5× · off; needs $ + trades + a sliding price; per-coin override leg `flowExit` via admin prime `{leg: {flowExit}}`,
+  the 🌊 select on each coin row; riders / ride-or-rug tickets / frozen coins keep their own plan) and RUG RADAR (cfg `rugRadar`: creator sells
+  $20+, a top-10 / bundle / sniper wallet dumps $100+, one wallet ≥ half the flow; watches every coin) → the coin leaves the card like a fast stop
+  (placeholder seat, keeper sells next pass), event kind `flow` / `rug`. Every such exit is noted at its sell price and judged 1h later
+  (`data/flow_proof.json`, `/fuses/prime.flowProof`: negative = the exit saved money). FLOW ENTRY (cfg `flowEntry`): Coming up's top 4 edge coins
+  get their tape read; a coin whose last 90s are seller-led waits as watching ("sellers lead …"). `/fuses/prime.flow` → `FlowBar` on each coin row.
