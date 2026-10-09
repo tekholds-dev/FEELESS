@@ -8,7 +8,7 @@ import random
 
 import arena_prime as ap
 
-BROKE_PCT = 25.0            # value ≤ 25% of what was put in
+BROKE_PCT = 40.0            # value ≤ 40% of what was put in = −60% (owner, 2026-10-08: dead cards are never promoted)
 MIN_ROUNDS = 5              # …after a real try (a card just dealt is never "broke")
 MIN_AGE_SEC = 3600
 COOLDOWN_SEC = 6 * 3600     # one reset per tier per 6h

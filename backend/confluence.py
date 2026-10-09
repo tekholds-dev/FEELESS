@@ -8,6 +8,7 @@ A human reads a list top-down and trusts the call on the row. This scores every 
   · COMBO   the learned layer: coins are bucketed by (how many lists × the read's tone × flow pace), every bucket the board ranks
             is noted and settled an hour later (`track`), and a bucket with ≥ 5 settled adds its own median — interactions no
             single list or call shows (e.g. "in 3 lists but sellers in charge")
+  · YOURS   how coins like this one ended on the owner's REAL card (real_learn.py: age · 1h move · buyers · pool · tag · who picked)
   · VITAL   small hand-set tilts (vital grade, organic flow, proven callers, pool drain) — labelled hand-set, never learned
 
 edge = expected 1-hour move in %, from the records that exist (the hand-set tilts add at most ±6 pts). A ranking of evidence,
@@ -45,7 +46,7 @@ def _pace(row):
     return v5 * 12 / v1 if v1 > 0 and v5 > 0 else None
 
 
-def edge(row, ranks, list_rec, call_rec, combo_rec=None, call_key=None):
+def edge(row, ranks, list_rec, call_rec, combo_rec=None, call_key=None, real_tbl=None):
     """`ranks` = {list: rank (1 = top)} for this coin. → {edge, parts [[label, pts]], lists, bucket, known}."""
     r = row or {}
     parts, known = [], 0
@@ -70,6 +71,12 @@ def edge(row, ranks, list_rec, call_rec, combo_rec=None, call_key=None):
     bm = _rec((combo_rec or {}).get(b))
     if bm is not None:
         parts.append([f"combo {b}", round(bm, 1)]); known += 1
+    # YOUR REAL TRADES: how coins like this one ended on the owner's real card (real_learn.py)
+    if real_tbl:
+        import real_learn as _rl
+        rm, hits = _rl.match(r, real_tbl)
+        if rm is not None:
+            parts.append([f"your real trades ({sum(h[2] for h in hits)} pieces)", round(rm, 1)]); known += 1
     base = sum(p[1] for p in parts) / len(parts) if parts else 0.0
     # VITAL tilts (hand-set, capped)
     tilt = 0.0
@@ -108,12 +115,12 @@ def gather(lists):
     return out
 
 
-def rank(lists, list_rec, call_rec, combo_rec=None, call_key_of=None):
+def rank(lists, list_rec, call_rec, combo_rec=None, call_key_of=None, real_tbl=None):
     """Every coin of every swap-in list, best evidence first → [{**row, 'edge': {...}}]."""
     ck = call_key_of or (lambda row: None)
     rows = []
     for m, (row, ranks) in gather(lists).items():
-        e = edge(row, ranks, list_rec, call_rec, combo_rec, ck(row))
+        e = edge(row, ranks, list_rec, call_rec, combo_rec, ck(row), real_tbl)
         rows.append({**row, 'mint': m, 'edge': e})
     rows.sort(key=lambda x: (-x['edge']['edge'], -x['edge']['known'], -len(x['edge']['lists'])))
     return rows

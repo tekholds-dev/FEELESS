@@ -6458,7 +6458,7 @@ def _edge_rank():
         return _edge_cache['rows']
     combo = _trench.meta_proof(_json_load(EDGE_PROOF_PATH, {}), keys=tuple(k for k in _json_load(EDGE_PROOF_PATH, {}) if k != 'up'))
     calls = _call_cache.get('proof') or {}
-    rows = _cf.rank(_swapin_lists(), _list_records(), calls, combo, lambda r: CALL_KEYS.get(((r.get('tv') or {}).get('call') or [None, None])[1]))
+    rows = _cf.rank(_swapin_lists(), _list_records(), calls, combo, lambda r: CALL_KEYS.get(((r.get('tv') or {}).get('call') or [None, None])[1]), _real_table())
     _edge_cache.update(at=time.time(), rows=rows)
     return rows
 
@@ -6480,6 +6480,13 @@ async def _edge_track(now):
         _json_save(EDGE_PROOF_PATH, _trench.meta_track(st, passing, lambda m: (jp or {}).get(m), now, keys=keys))
     except Exception as e:
         print('edge track:', e)
+
+
+@app.get('/api/reputation/fuses/learn')
+async def fuses_learn():
+    """🧠 What the engine learned from the real card's own exits: how many lessons, the buckets that paid most / lost most (coin moves in %)."""
+    st = _json_load(REAL_LEARN_PATH, {})
+    return {'n': len(st.get('pieces') or []), **_rl.lessons(_real_table())}
 
 
 @app.get('/api/reputation/fuses/edge')
@@ -7509,6 +7516,34 @@ _flow_now: dict = {}    # pairAddress → (at, window) — the latest tape read 
 _flow_at = {'t': 0.0}
 
 
+import real_learn as _rl
+REAL_LEARN_PATH = FUSE_HQ_PATH.parent / 'real_learn.json'   # 🧠 every coin that left the real card: its buy snapshot → how it ended
+_rl_cache = {'at': 0.0, 'tbl': {}}
+
+
+def _learn_drops(before, after, price_of, now):
+    """🧠 Coins that LEFT a real card between two versions of it (gone, turned into a reserved seat, or replaced) → one lesson each."""
+    if not (before and before.get('real') and after):
+        return 0
+    stay = {l.get('mint') for l in after.get('legs') or [] if not l.get('placeholder') and _fuse._f(l.get('units')) > 0}
+    gone = [l for l in before.get('legs') or [] if l.get('mint') and not l.get('placeholder') and _fuse._f(l.get('units')) > 0 and l.get('mint') not in stay and l.get('symbol') != 'SOL']
+    if not gone:
+        return 0
+    st = _json_load(REAL_LEARN_PATH, {})
+    why = ((after.get('events') or [{}])[-1] or {}).get('kind') or ''
+    for l in gone:
+        st = _rl.note(st, l, price_of(l), now, why)
+    _json_save(REAL_LEARN_PATH, st)
+    _rl_cache['at'] = 0.0
+    return len(gone)
+
+
+def _real_table():
+    if time.time() - _rl_cache['at'] > 120:
+        _rl_cache.update(at=time.time(), tbl=_rl.table(_json_load(REAL_LEARN_PATH, {})))
+    return _rl_cache['tbl']
+
+
 async def _flow_fetch(pairs, max_age=12.0):
     """🌊 The last 90s of real swaps for these pools (candles service trade tape, its own 15s cache) → {pair: window}. Parallel, 4s budget."""
     now = time.time()
@@ -7555,6 +7590,7 @@ async def _flow_guard(now, px):
                 continue
             nw_, hits = _flow.flow_exits(c_, flows, px, rcfg, now, _prime.sell_usd, intel)
             if hits:
+                _learn_drops(c_, nw_, lambda l: _fuse._f(px.get(l.get('mint'))), now)
                 cs_[tid_] = _prime.note_dropped(c_, nw_, now, rcfg['rotateHours'], {l.get('pairAddress'): px.get(l.get('mint')) for l in c_.get('legs') or []})
                 hit_any = True
                 noted += [(e.get('kind'), e.get('mint'), e.get('px')) for e in nw_['events'][-len(hits):]]
@@ -7618,6 +7654,7 @@ async def _real_guard_loop():
                                 if c_ and c_.get('real') and not c_.get('flooredAt') and not c_.get('holdAll'):
                                     nw_ = _prime.fast_stop(c_, px, rcfg, now)
                                     if nw_ is not c_:
+                                        _learn_drops(c_, nw_, lambda l: _fuse._f(px.get(l.get('mint'))), now)
                                         cs_[tid_] = _prime.note_dropped(c_, nw_, now, rcfg['rotateHours'], {l.get('pairAddress'): px.get(l.get('mint')) for l in c_.get('legs') or []})
                                         stopped = True
                             if stopped:
@@ -7777,7 +7814,7 @@ def _proven_candidates(hours):
 
 
 def _paper_broke(d, cards, px, now):
-    """♻ A PAPER tier card worth ≤ 25% of what was put in restarts on the full paper size with a NEW config; the config it died on is SCRAPPED (never dealt again).
+    """♻ A PAPER tier card worth ≤ 40% of what was put in (−60%, owner 2026-10-08: "paper cards must sl at −60%, we can't promote dead cards") restarts on the full paper size with a NEW config; the config it died on is SCRAPPED (never dealt again).
     Needs ≥ 5 rounds, ≥ 1h on the card, one reset per tier per 6h; a locked tier and the real card are never touched. The next tick deals the fresh card."""
     import paper_reset as _pr
     pr_ = d.setdefault('prime', {}); locks = pr_.get('locks') or {}; cfg = _prime.clean_cfg(pr_.get('cfg') or {})
@@ -8218,6 +8255,11 @@ async def _prime_tick_inner(now):
         if cards[tid] is not None:
             cards[tid]['rebuyDip'] = int(cfg_t.get('rebuyDipPct') or 0)
         cards[tid] = _prime.note_dropped(cur, cards[tid], now, cfg_t['rotateHours'], px)
+        if real_t and cur and cards[tid]:   # 🧠 every coin that left the real card this tick is a lesson
+            try:
+                _learn_drops(cur, cards[tid], lambda l: _fuse._f(px.get(l.get('pairAddress'))), now)
+            except Exception as e:
+                print('real learn:', e)
         if real_t and cur and cards[tid] and cfg_t.get('comeback', True):   # 🔁 a rider that left this tick is watched for its comeback
             cards[tid]['comeback'] = _prime.comeback_note(cur.get('comeback'), cur, cards[tid], px, now)
         if real_t and cards[tid]:

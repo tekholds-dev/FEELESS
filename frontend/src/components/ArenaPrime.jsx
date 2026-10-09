@@ -901,10 +901,24 @@ export function FlowBar({ f }) {
     <small>{m(f.buyUsd)} ⇄ {m(f.sellUsd)}</small></span>;
 }
 
+// 🧠 one line: how many of YOUR real exits the engine has learned from + the bucket that paid most and the one that lost most
+const BUCKET = { age: 'age', '1h': '1h move', buy: 'buyers', pool: 'pool', vol: '1h volume', tag: 'came in as', by: 'picked by' };
+const bucketWords = b => { const [k, v] = String(b || '').split(':'); return `${BUCKET[k] || k} ${v}`; };
+export function LearnLine({ l }) {
+  if (!l) return null;
+  const best = l.best?.[0]; const worst = l.worst?.[0];
+  return <p className="lrn" data-testid="learn-line" data-tip="Every coin that leaves your real card is a lesson: how it looked when it was bought → how it ended. Coins that look like your winners rank higher in Coming up, ones like your losers lower. Coin moves in %, never your $.">
+    🧠 {l.n ? `Learned from ${l.n} of your real exits` : 'Learning from your real exits — first lessons land as coins leave the card'}
+    {best && best.medPct > 0 && <span className="lrn-good"> · pays: {bucketWords(best.bucket)} {best.medPct >= 0 ? '+' : ''}{best.medPct}% ({best.n})</span>}
+    {worst && worst.medPct < 0 && <span className="lrn-bad"> · loses: {bucketWords(worst.bucket)} {worst.medPct}% ({worst.n})</span>}</p>;
+}
+
 export function ComingUp({ p, legs = [], onSwap, onFill, emptySeats = 0, busy, cfg, onFilter }) {
   const [target, setTarget] = useState({});   // per coin: which seat it goes into ('' = the first empty seat, else the first coin)
   const rows = p?.up || [];
   const [rec, setRec] = useState(null);   // 🧬 Coming up's OWN record (its ready coins, each settled 1h later) — GET /fuses/edge
+  const [learn, setLearn] = useState(null);   // 🧠 what the engine learned from this card's own real exits (GET /fuses/learn)
+  useEffect(() => { let on = true; sharedJson('/api/reputation/fuses/learn', { maxAge: 120000 }).then(x => on && setLearn(x)).catch(() => {}); return () => { on = false; }; }, []);
   useEffect(() => { let on = true; const load = () => sharedJson('/api/reputation/fuses/edge', { maxAge: 60000 }).then(x => on && setRec(x?.up || null)).catch(() => {});
     load(); const t = setInterval(load, 120000); return () => { on = false; clearInterval(t); }; }, []);
   if (!rows.length) return <p className="hrt-up is-empty m-dim" data-testid="coming-up">⏭ Coming up: no launch coin clears your settings right now — open 🔎 below to see which filter is holding them.</p>;
@@ -917,6 +931,7 @@ export function ComingUp({ p, legs = [], onSwap, onFill, emptySeats = 0, busy, c
     const l = seats.find(x => x.pairAddress === t); if (l) onSwap(l, r, now); };
   const can = (emptySeats > 0 && onFill) || seats.length > 0;
   return <div className="hrt-up cfx-host" data-testid="coming-up"><CardFx kind="grid" /><span className="m-label" data-tip="🧬 Ranked by evidence across every swap-in list: each list's own 1-hour record, the record of the coin's read, the combos the engine has learned, plus small vital tilts. Coins whose evidence says they typically lose 25%+ in an hour never show here.">⏭ COMING UP · {ready ? `${ready} READY` : 'NONE READY'}{rec?.n >= 5 ? ` · ITS RECORD ${rec.medPct >= 0 ? '+' : ''}${rec.medPct}% / 1H · ${rec.wonPct}% UP` : rec?.n ? ` · RECORD ${rec.n}/5 SETTLED` : ''}{rows.length > ready ? ` · ${Math.min(4, rows.length) - Math.min(4, ready)} WATCHING` : ''}</span><UpFilter cfg={cfg} onSave={onFilter} busy={busy} />
+    <LearnLine l={learn} />
     <ol>{rows.slice(0, 4).map((r, i) => { const t = target[r.mint] || (emptySeats > 0 && onFill ? SEAT : seats[0]?.pairAddress) || ''; return <li key={r.mint} className={r.wait ? 'is-wait' : ''} style={{ '--i': i }}>
       <button type="button" className="hrt-up-coin" onClick={() => openCoin({ mint: r.mint, pairAddress: r.pairAddress, symbol: r.symbol })} data-tip={`${r.wait ? `Watching, not buying yet: ${r.wait}. You can still swap it in by hand.` : `${['Takes the next seat that opens', 'Second in line', 'Third in line', 'Fourth in line'][i]} — tap for its live flow.`}${r.edge ? ` 🧬 Why: ${(r.edge.parts || []).map(([l, v]) => `${l} ${v >= 0 ? '+' : ''}${v}%`).join(' · ')}. A ranking of evidence, never a promise.` : ''}`} data-testid={`up-${r.symbol}`}>
         <i className="hrt-up-n">{r.wait ? '👀' : ['NEXT', '2ND', '3RD', '4TH'][i]}</i><b>${r.symbol}</b><em className={`m-num ${r.chg1h >= 0 ? 'm-pos' : 'm-neg'}`}>{r.chg1h >= 0 ? '+' : ''}{Math.round(r.chg1h)}%</em><small>{r.vol1h > 0 ? `${big(r.vol1h)}/h` : r.liq > 0 ? `${big(r.liq)} pool` : ''}</small>{r.wait ? <u className="hrt-up-tag">⏳ watching — {r.wait}</u> : r.tag ? <u className={`hrt-up-tag ${r.edge ? (r.edge.edge >= 0 ? 'is-edge-up' : 'is-edge-dn') : ''}`}>{r.tag}</u> : null}</button>

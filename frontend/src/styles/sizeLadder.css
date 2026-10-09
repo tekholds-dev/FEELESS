@@ -15,3 +15,5 @@ body.theme-day .lad { background: rgba(236, 246, 240, .7); border-color: #cfe6da
 /* 🧬 Coming up edge line (ArenaPrime ComingUp): green when the evidence expects a gain, pink when it expects a loss */
 .hrt-up-tag.is-edge-up { color: #45e486; } .hrt-up-tag.is-edge-dn { color: #ff8fa3; }
 body.theme-day .hrt-up-tag.is-edge-up { color: #0b7a4a; } body.theme-day .hrt-up-tag.is-edge-dn { color: #b3264a; }
+.lrn { margin: 2px 0 6px; font: 11px "JetBrains Mono", monospace; color: var(--m-dim, #8fb3a0); } .lrn-good { color: #45e486; } .lrn-bad { color: #ff8fa3; }
+body.theme-day .lrn-good { color: #0b7a4a; } body.theme-day .lrn-bad { color: #b3264a; }

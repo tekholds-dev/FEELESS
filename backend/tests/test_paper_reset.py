@@ -10,8 +10,8 @@ def _card(**k):
     return {'tpl': 'safe', 'label': 'Prime Diamond', 'putInUsd': 20.0, 'startUsd': 1.5, 'rounds': 25, 'at': NOW - 5 * 86400, **k}
 
 
-def test_a_paper_card_is_broke_at_a_quarter_of_what_was_put_in_after_a_real_try():
-    assert pr.is_broke(_card(), 4.9, NOW) is True and pr.is_broke(_card(), 5.1, NOW) is False
+def test_a_paper_card_is_broke_at_minus_60_pct_of_what_was_put_in_after_a_real_try():
+    assert pr.is_broke(_card(), 7.9, NOW) is True and pr.is_broke(_card(), 8.1, NOW) is False   # $20 put in: −60% = $8
     assert pr.is_broke(_card(rounds=3), 0.5, NOW) is False                          # not enough rounds played
     assert pr.is_broke(_card(at=NOW - 600), 0.5, NOW) is False                      # just dealt
     assert pr.is_broke(_card(), 0.5, NOW, last_reset=NOW - 3600) is False           # one reset per tier per 6h

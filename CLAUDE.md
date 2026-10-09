@@ -2374,3 +2374,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (placeholder seat, keeper sells next pass), event kind `flow` / `rug`. Every such exit is noted at its sell price and judged 1h later
   (`data/flow_proof.json`, `/fuses/prime.flowProof`: negative = the exit saved money). FLOW ENTRY (cfg `flowEntry`): Coming up's top 4 edge coins
   get their tape read; a coin whose last 90s are seller-led waits as watching ("sellers lead …"). `/fuses/prime.flow` → `FlowBar` on each coin row.
+- 💀 PAPER CARDS DIE AT −60% (owner, 2026-10-08: "paper cards must sl at −60%, we can't promote dead cards"): `paper_reset.BROKE_PCT` 25 → 40 —
+  a paper tier card worth ≤ 40% of everything put in (after ≥ 5 rounds and 1h) goes to the record, its config is scrapped and it restarts on a
+  NEW config (`_paper_broke`, the existing path — never a second mechanism).
+- 🧠 THE ENGINE LEARNS FROM THE REAL CARD (`backend/real_learn.py` pure + tested, `data/real_learn.json`): `_learn_drops(before, after, price)` records
+  every coin that leaves the real card — round tick, fast stop, flow / rug exit — with its buy snapshot (leg `bought`: age · 1h move · buyers ·
+  pool · 1h volume · tag) + who picked it → its result vs the book entry. `table` = median per feature bucket (≥ 5 pieces); the 🧬 edge score adds
+  it as a part ("your real trades (N pieces)", `confluence.edge(real_tbl=)`), so Coming up drifts toward what paid with real money. Public
+  `GET /fuses/learn` (n + best / worst buckets, % only) → `LearnLine` under Coming up. It starts empty: lessons land as coins leave the card.

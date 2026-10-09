@@ -54,3 +54,12 @@ test('flow bar shows buys vs sells and marks a seller-led coin', async () => {
   await act(async () => { root.render(<FlowBar f={null} />); }); expect(el.querySelector('.flb')).toBeNull();
   await act(async () => { root.unmount(); });
 });
+
+test('learn line names your best and worst buckets', async () => {
+  const React = require('react'); const { act } = React; const { createRoot } = require('react-dom/client');
+  const { LearnLine } = require('./ArenaPrime');
+  const el = document.createElement('div'); const root = createRoot(el);
+  await act(async () => { root.render(<LearnLine l={{ n: 40, best: [{ bucket: 'age:1-7d', medPct: 12, n: 9 }], worst: [{ bucket: 'age:<1h', medPct: -38, n: 14 }] }} />); });
+  expect(el.textContent).toContain('40 of your real exits'); expect(el.textContent).toContain('age 1-7d +12%'); expect(el.textContent).toContain('age <1h -38%');
+  await act(async () => { root.unmount(); });
+});
