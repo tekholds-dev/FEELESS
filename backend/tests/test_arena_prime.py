@@ -2732,3 +2732,20 @@ def test_a_normal_coin_still_locks_at_the_cards_line_with_the_moon_ladder_on():
     cfg = ap.clean_cfg({**CFG, 'rideAt': 15, 'rideTrail': 20, 'lockBankPct': 50, 'instantSwapPct': 0, 'floorPct': 0, 'rescuePct': 0, 'moonLadder': True})
     assert not ap.is_moon({'symbol': 'X'}, cfg) and ap.is_moon({'trench': True}, cfg) and ap.is_moon({'ticket': True}, cfg)
     assert not ap.is_moon({'trench': True}, ap.clean_cfg({}))
+
+
+def test_a_floor_switched_on_under_water_measures_from_now_and_a_floored_card_with_nothing_to_deal_restarts_in_cash():
+    import arena_prime as ap
+    now = 1_000_000.0
+    leg = lambda m, units: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'units': units, 'entry': 1.0, 'costUsd': units, 'at': now - 9999, 'liq': 5e6}
+    base = {'tpl': 'degen', 'id': 'x', 'label': 'B', 'at': now - 9999, 'lastRotateAt': now, 'cash': 0.0, 'startUsd': 3.61, 'roundStartUsd': 3.61, 'compoundedUsd': 0.0,
+            'takenUsd': 0.0, 'feesUsd': 0.0, 'events': [], 'rounds': 3, 'floorSeen': 0.0, 'legs': [leg('A', 1.0), leg('B', 1.0), leg('C', 1.18)]}
+    cfg = ap.clean_cfg({'rotateHours': 0.08, 'floorPct': 10, 'rescuePct': 0, 'compound': False, 'dealLeadSec': 15.0, 'floorRestMins': 0.0})
+    px = {'PA': 1.0, 'PB': 1.0, 'PC': 0.85}                                               # $3.00 = −17% of $3.61, the floor is switched on now
+    c = ap.tick(base, px, [], [], cfg, now + 30, [], {}, {})
+    assert not c.get('flooredAt') and len(c['legs']) == 3 and round(c['floorBaseUsd'], 2) == 3.0   # it never sells the moment it is set
+    c = ap.tick(c, {k: v * 0.89 for k, v in px.items()}, [], [], cfg, now + 60, [], {}, {})   # −11% from where it was switched on
+    assert c.get('flooredAt') and c['legs'] == []
+    c = ap.tick(c, {}, [], [], cfg, now + 200, [], {}, {})                                   # nothing qualifies to deal …
+    assert not c.get('flooredAt') and c['legs'] == [] and round(c['startUsd'], 2) == round(c['cash'], 2) > 2.5 and 'floorBaseUsd' not in c
+    assert c['events'][-1]['why'].startswith('new run in cash')                            # … a new run in cash, the seat refill takes over

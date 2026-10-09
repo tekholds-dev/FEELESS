@@ -2570,3 +2570,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   top third positive and ≥ 10 pts over the bottom third. Real cfg `trenchBrain` (on): once proven, its safe picks with a positive
   learned play go FIRST in the trench drop (still through trench_entry / read_ok / pool floor). Price samples are ~2 min apart, so
   first-touch is approximate. Organic "bots" check REMOVED from `entry_gate` (Jupiter reads most Pump coins 2–3% organic).
+- 🧱 FLOOR, FIXED (2026-10-09, the −10% floor sold the whole real card the instant it was set — the card already sat at −12% — and the
+  card then sat in cash for good): (1) a floor switched on / moved while the card is already under it measures from the card's value
+  at that moment (`floorSeen` / `floorBaseUsd`, cleared on a new run); (2) a floored card whose re-deal finds NO coins (new-coins-only,
+  filters) starts its new run IN CASH (`flooredAt` cleared, event "new run in cash") and the empty-seat refill fills seats as coins
+  qualify — `deal()` returning None used to leave it floored forever. `_flow_fix_1009`: real floor −20, vital 35, organic filter off
+  (backup data/realcfg_before_flow1009.json). 🧠 Brain watches the 80 newest launches (≤ 3h) first, then the 120 busiest; its lens
+  keeps unscanned newest coins (marked), never failed scans; the engine takes only scanned-safe brain picks.

@@ -6639,6 +6639,7 @@ async def _procall_track(now):
 import trench_brain as _tb
 BRAIN_PATH = FUSE_HQ_PATH.parent / 'trench_brain.json'   # 🧠 every trench coin seen, judged on the PLAY (+50% first = hit, −30% first = cut)
 BRAIN_SEE = 120                                          # the open list's busiest coins noted each pass
+BRAIN_NEW, BRAIN_NEW_H = 80, 3.0                         # + the 80 newest launches (≤ 3h old) — the brain learns where the trench actually starts
 _brain: dict = {'at': 0.0, 'tbl': {}, 'sum': None}
 
 
@@ -6648,7 +6649,10 @@ async def _brain_track(now):
     A pass where Jupiter answers nothing is skipped (an outage must not read as every coin vanishing)."""
     try:
         st = _json_load(BRAIN_PATH, {})
-        raw = [_with_tv(x) for x in (_open_board() or [])[:BRAIN_SEE]]
+        ob = _open_board() or []
+        young = sorted((x for x in ob if x.get('ageH') is not None and _fuse._f(x['ageH']) <= BRAIN_NEW_H), key=lambda x: _fuse._f(x['ageH']))[:BRAIN_NEW]
+        seen_ = {x.get('mint') for x in young}
+        raw = [_with_tv(x) for x in young + [x for x in ob if x.get('mint') not in seen_][:BRAIN_SEE]]   # 🆕 the NEWEST launches first, then the busiest
         tv_ = {x.get('mint'): x.get('tv') for x in raw}
         rows = [{**r, 'tv': tv_.get(r.get('mint')) or r.get('tv')} for r in _clean_rows([dict(x) for x in raw])]
         watch = list((st.get('open') or {}).keys())
@@ -6684,14 +6688,15 @@ def _brain_rows():
     for r in _clean_rows([dict(x) for x in raw]):
         r = {**r, 'tv': tv_.get(r.get('mint')) or r.get('tv')}
         sc = _tb.score(r, b['tbl'])
-        if not sc or r.get('safe') is not True or not _prime.trench_read_ok(r) or _fuse._f(r.get('price')) <= 0:
+        if not sc or r.get('safe') is False or not _prime.trench_read_ok(r) or _fuse._f(r.get('price')) <= 0:   # unscanned newest coins stay (marked); a failed scan never
             continue
         lead = (sc['why'] or [None])[0]
         out.append({**r, 'baseAddress': r['mint'], 'priceUsd': r.get('price'), 'liquidityUsd': r.get('liq'),
                     'brain': sc, 'trenchScore': 300 + sc['est'],
                     'divisionLabel': f"🧠 learned play {sc['est']:+.0f}% · {sc['hit']}% hit +{_tb.TP_PCT:.0f}% first"
-                                     + (f" · {lead[0]} → {lead[1]:+.0f}% (n {lead[2]})" if lead else ' · still learning')})
-    return sorted(out, key=lambda r: -r['brain']['est'])
+                                     + (f" · {lead[0]} → {lead[1]:+.0f}% (n {lead[2]})" if lead else ' · still learning')
+                                     + ('' if r.get('safe') else ' · ❔ holders not scanned yet')})
+    return sorted(out, key=lambda r: (-r['brain']['est'], -int(r.get('safe') is True), _fuse._f(r.get('ageH') if r.get('ageH') is not None else 99)))
 
 
 @app.get('/api/reputation/fuses/trench-brain')
@@ -8551,6 +8556,26 @@ async def _floor_fix_1009(now):
     return True
 
 
+async def _flow_fix_1009(now):
+    """🌊 Once (owner, 2026-10-09: "fix card floor … we need to flow"): the −10% floor sold the whole card the moment it went on (the card
+    was already at −12%) and the vital filter (grade 50 · 5% organic) then left NO coin to re-deal into — $3.15 sat in cash. Floor −20%
+    (a 4-coin card with −30% coin stops reads −10% on two stops = a full round trip of the card for nothing), grade 35, organic off
+    (Jupiter reads most Pump coins 2–3% organic). Old values: data/realcfg_before_flow1009.json."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('flowFix1009') or not rc:
+            return False
+        ch = {'floorPct': 20, 'vitalMin': 35, 'organicMin': 0}
+        _json_save(DATA_DIR / 'realcfg_before_flow1009.json', {k: rc.get(k) for k in ch})
+        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
+        pr['flowFix1009'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _ticket_ride_fix(now):
     """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
     once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
@@ -8659,6 +8684,7 @@ async def _prime_tick_inner(now):
     await _vital_off_fix_1009(now)
     await _moon_fix_1009(now)
     await _floor_fix_1009(now)
+    await _flow_fix_1009(now)
     await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
@@ -8762,7 +8788,7 @@ async def _prime_tick_inner(now):
             # 🔥 SEND IT ONLY (owner's switch): the trench list itself reads −79% an hour on its own record, the SEND IT call +0.5% (52% won)
             # 🧠 TRENCH BRAIN first — only once its walk-forward proof holds and the owner's switch is on (safe coins, learned play > 0)
             if cfg_t.get('trenchBrain', True) and _brain_ready():
-                sendit_ = [x for x in _brain_rows()[:6] if x['brain']['est'] > 0] + sendit_
+                sendit_ = [x for x in _brain_rows()[:6] if x['brain']['est'] > 0 and x.get('safe') is True] + sendit_
             pro_ = _pc.pro_entries(_pump_calls.get('calls') or [], _pump_calls.get('callers') or {}, [_with_tv(x) for x in _open_board()], now * 1000) if cfg_t.get('proCallEntry') else []
             pool_t = _prime.trench_pool(sendit_, _trench_cache.get('rows'), _trench_cache.get('fallback'),
                                         [y for y in _trench_cache.get('checked') or [] if not y.get('ok') and _trench.soft_only(y.get('fails'))], cfg_t, pro=pro_)

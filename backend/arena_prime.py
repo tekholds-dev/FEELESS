@@ -2226,9 +2226,15 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         # a NEW run starts at today's value (its own −floor); the ended run is kept on the record, never hidden
         keep['runs'] = (list(c.get('runs') or []) + [{'at': now, 'startUsd': c['startUsd'], 'endUsd': round(v0, 4), 'pct': round((v0 / (_f(c['startUsd']) or 1) - 1) * 100, 2)}])[-10:]
         keep.update(startUsd=round(v0, 4), dayStartUsd=round(v0, 4), dayAt=now, lowPct=0.0, roundStartUsd=round(v0, 4))   # a new run = a new round baseline
+        keep.pop('floorBaseUsd', None)
         nc = deal(c['tpl'], pools, runners, cfg, now, anchors, usd=in_play(c, prices, liqs), keep=keep)
         if nc:
             c = nc
+        else:   # 🪑 nothing to deal right now (new-coins-only / filters): the new run starts IN CASH and the empty-seat refill fills
+            # the seats as coins qualify — a floored card used to wait for a full deal that never came (2026-10-09: $3.15 idle)
+            c.update({**keep, 'legs': [], 'cash': _f(c.get('cash')), 'flooredAt': None, 'lastRotateAt': now})
+            c.pop('floorBaseUsd', None)
+            ev(kind='floor', why='new run in cash — seats fill as coins qualify')
 
     # 0b) 🚨 RUG SHIELD (real-world add-on): a coin whose pool liquidity fell to ≤ half of what it had at entry is sold at once to
     #     cash — before the stop, the trail or the floor. Anchors (majors) are exempt; frozen coins too (the owner's call).
@@ -2730,6 +2736,13 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     #    every pool / runner is sold into the anchor (or cash) at once; the card re-deals fresh the next day.
     v = V(); start = _f(c['startUsd']) or 1
     pct = (v / start - 1) * 100
+    if _f(cfg['floorPct']) != _f(c.get('floorSeen')):   # 🧱 a floor switched on / moved is measured from the card's value NOW when it
+        # would already be under it — it never fires the moment it is set (2026-10-09: −10% set on a card at −12% sold every coin)
+        if c.get('floorSeen') is not None and _f(cfg['floorPct']) > 0 and pct <= -cfg['floorPct']:
+            c['floorBaseUsd'] = round(v, 4)
+        c['floorSeen'] = _f(cfg['floorPct'])
+    if _f(c.get('floorBaseUsd')) > 0:
+        pct = (v / _f(c['floorBaseUsd']) - 1) * 100
     if _f(cfg['floorPct']) > 0 and pct <= -cfg['floorPct'] and not c.get('flooredAt') and not blind:   # 0 = the owner switched the card floor OFF
         # 🧱 Floor money goes ONLY into an established major — never into a new major or the owner's pick that happens to sit in the
         # anchor seat (the card's whole $1.65 was moved into $KURA at 4–5% impact, then out again 37s later: −$0.14 for nothing).
