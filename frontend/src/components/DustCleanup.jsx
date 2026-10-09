@@ -30,6 +30,10 @@ export function grouped(rows, chains) {
 }
 
 // What a cleanup will do, in plain words (also the confirm line before signing).
+// 🛑 a wallet "no" (EIP-1193 code 4001, or its usual wording) ends the whole run — the next prompt must never pop up after you declined one
+export const isRejected = e => Number(e?.code) === 4001 || /reject|denied|declin|cancel/i.test(String(e?.message || ''));
+// what an EVM sell-all sends: only coins worth swapping (a coin under the swap minimum costs two wallet prompts + gas to return cents) unless asked
+export const evmTodo = (q, withDust) => (withDust ? q.swaps.concat(q.dust) : q.swaps);
 export function plan(rows, pick, act) {
   const chosen = rows.filter(r => !r.native && pick[keyOf(r)]);
   const by = k => chosen.filter(r => (act[keyOf(r)] || r.best) === k);
@@ -55,6 +59,7 @@ export default function DustCleanup() {
   const [data, setData] = useState(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
   const [pick, setPick] = useState({}); const [act, setAct] = useState({}); const [state, setState] = useState({});
   const [log, setLog] = useState([]); const [ack, setAck] = useState(false);
+  const [evmDust, setEvmDust] = useState(false); const stop = React.useRef(false);   // EVM: dust is skipped unless asked · ⏹ Stop / a wallet "no" ends the run
   const note = (text, tone = '') => setLog(l => [{ t: Date.now(), text, tone }, ...l].slice(0, 40));
   const load = useCallback(async () => {
     if (!addr) return; setErr(''); setData(null);
@@ -115,8 +120,11 @@ export default function DustCleanup() {
   // EVM: every token swaps on ITS OWN chain into that chain's gas. Per chain: quote them all, then ONE wallet request for the lot when the wallet can
   // batch (EIP-5792); a plain wallet signs them one after another by itself — no further click here either way.
   const runEvm = async q => {
-    const todo = q.swaps.concat(q.dust); const chains = [...new Set(todo.map(r => r.chainId))];
+    const todo = evmTodo(q, evmDust); const chains = [...new Set(todo.map(r => r.chainId))];
+    stop.current = false;
+    if (!evmDust && q.dust.length) note(`Skipped ${q.dust.length} coin${q.dust.length === 1 ? '' : 's'} worth under ${usd(data?.swapMinUsd || 0.5)} each — selling them costs more in gas than they return (tick "include dust" to sell them anyway).`);
     for (const cid of chains) {
+      if (stop.current) break;
       const mine = todo.filter(r => r.chainId === cid); const quoted = [];
       const gas = (rows.find(x => x.native && x.chainId === cid) || {}).symbol || 'gas';
       const quoteOne = async r => { mark([key(r)], 'quoting');
@@ -127,13 +135,17 @@ export default function DustCleanup() {
       const ks = quoted.map(x => key(x.r));
       let batched = null;
       try { mark(ks, 'sending'); batched = await executeLifiBatch({ quotes: quoted.map(x => x.quote), wallet, provider, switchTo, onStep: s => note(`${mine[0].chain}: ${s}`) }); }
-      catch (e) { mark(ks, 'failed'); note(`${mine[0].chain}: ${e.message}`, 'bad'); continue; }
+      catch (e) { mark(ks, 'failed'); if (isRejected(e)) { stop.current = true; note('You declined the request in your wallet — stopped.', 'bad'); } else note(`${mine[0].chain}: ${e.message}`, 'bad'); continue; }
       if (batched) { mark(ks, 'done'); note(`↩ ${quoted.length} coin${quoted.length === 1 ? '' : 's'} → ${gas} on ${mine[0].chain} in one approval (${usd(quoted.reduce((a, x) => a + (x.r.usd || 0), 0))})`, 'good'); continue; }
-      note(`${mine[0].chain}: this wallet signs one transaction at a time — approve each as it pops up, nothing more to click here.`);
+      note(`${mine[0].chain}: this wallet signs one transaction at a time, so it will ask about ${quoted.length * 2} times (allow + swap for each of ${quoted.length} coin${quoted.length === 1 ? '' : 's'}). Decline once, or press Stop, and nothing more is asked.`);
       for (const { r, quote } of quoted) {
-        const k = key(r); mark([k], 'sending');
+        const k = key(r);
+        if (stop.current) { mark([k], ''); continue; }
+        mark([k], 'sending');
         try { await executeLifi({ quote, wallet, provider, switchTo, onStep: s => note(`$${r.symbol} (${r.chain}): ${s}`) }); mark([k], 'done'); note(`↩ $${r.symbol} → ${gas} on ${r.chain} (${usd(r.usd)})`, 'good'); }
-        catch (e) { mark([k], 'failed'); note(`$${r.symbol}: ${e.message}`, 'bad'); }
+        catch (e) { mark([k], 'failed');
+          if (isRejected(e)) { stop.current = true; note(`You declined $${r.symbol} in your wallet — stopped. Nothing else will be asked.`, 'bad'); }
+          else note(`$${r.symbol}: ${e.message}`, 'bad'); }
       }
     }
   };
@@ -174,7 +186,11 @@ export default function DustCleanup() {
         <span><small>Worth swapping</small><b className="m-num">{usd(data?.summary?.swapUsd || 0)}</b></span>
         <span className="dc-tools"><button type="button" className="m-btn" onClick={selectDust} disabled={!rows.length || busy} data-testid="dc-select-dust">Select dust</button>
           <button type="button" className="m-btn" onClick={load} disabled={busy} data-testid="dc-refresh">↻ Re-read</button></span></div>
-      {canSign && rows.some(r => !r.native) && <button type="button" className="m-btn primary m-go dc-all" disabled={busy} onClick={cleanAll} data-testid="dc-clean-all">{busy ? 'Working…' : `🧹 Sell all ${allPlan.chosen.length} coins → gas — one click${allPlan.burns.length ? ` · 🔥 burns ${allPlan.burns.length} worthless (${usd(allPlan.burnUsd)})` : ''}`}</button>}
+      {canSign && rows.some(r => !r.native) && <button type="button" className="m-btn primary m-go dc-all" disabled={busy} onClick={cleanAll} data-testid="dc-clean-all">{busy ? 'Working…'
+        : chain === 'solana' ? `🧹 Sell all ${allPlan.chosen.length} coins → gas — one click${allPlan.burns.length ? ` · 🔥 burns ${allPlan.burns.length} worthless (${usd(allPlan.burnUsd)})` : ''}`
+          : `🧹 Sell all ${evmTodo(allPlan, evmDust).length} coins → gas — one click`}</button>}
+      {busy && chain !== 'solana' && <button type="button" className="m-btn dc-stop" onClick={() => { stop.current = true; note('Stopping — no more wallet requests after the one on screen.', 'bad'); }} data-testid="dc-stop">⏹ Stop</button>}
+      {canSign && chain !== 'solana' && allPlan.dust.length > 0 && <label className="dc-dustopt" data-tip="A coin worth under the swap minimum costs two wallet prompts and more gas than it returns. Off = those are left alone."><input type="checkbox" checked={evmDust} disabled={busy} onChange={e => setEvmDust(e.target.checked)} data-testid="dc-evm-dust" /> include {allPlan.dust.length} dust coin{allPlan.dust.length === 1 ? '' : 's'} (+{allPlan.dust.length * 2} wallet prompts)</label>}
       {err && <p className="dc-err" role="alert">{err}</p>}
       {!canSign && <p className="m-note dc-ro">👁 Looking only — connect this wallet to clean it.</p>}
       {!data ? <div className="dc-loading" aria-busy="true"><i /><i /><i /></div> : !rows.length ? <p className="m-dim dc-empty">No coins in this wallet — nothing to clean.</p>

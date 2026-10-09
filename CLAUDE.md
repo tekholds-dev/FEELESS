@@ -2330,3 +2330,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   canvas was a fixed 286px in a 420px box and `.chart-foot-chips` / `.chart-stale-note` floated in the gap — both hidden there). 🔍 A coin being LOOKED at
   gets our full holder scan at once (`coin_read` → `_runner_intel`, `scanning: true`, that read cached 6s): insiders / bundled / snipers read "reading…"
   (`WAIT`) then the number (~40s live), "—" = not readable (never a clean zero; a candidate's `bundled` count is used only when `scanned is True`).
+- 🧹 EVM sell-all without the prompt spam (owner: "cronos wallet keep spam asking for every sell"): a plain wallet signs every transaction itself (allow +
+  swap per coin) — no site can remove that. So: dust (< swap minimum) is SKIPPED on EVM unless "include dust" is ticked (`evmTodo`; it was 2 prompts + gas
+  to return cents), the log says up front how many prompts are coming, a wallet "no" (`isRejected`: code 4001 / reject · denied · cancel) ENDS the run
+  instead of popping the next coin, and ⏹ Stop (`dc-stop`) does the same. Wallets that batch still get one request per chain.

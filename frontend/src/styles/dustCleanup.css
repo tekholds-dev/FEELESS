@@ -48,3 +48,4 @@ body.theme-day .dc-log li.good { color: #076a45; } body.theme-day .dc-log li.bad
 .dc-look { display: grid; gap: 4px; } .dc-look .m-input { width: 100%; font-size: 12px; }
 .dc-ro { margin: 0; font-size: 12px; }
 .dc-track { grid-template-columns: minmax(0, 1fr) auto; align-items: center; } .dc-track small { grid-column: 1 / -1; }
+.dc-dustopt { display: inline-flex; align-items: center; gap: 6px; font: 11px 'JetBrains Mono', monospace; color: var(--m-dim, #9fb5a8); cursor: pointer; } .dc-stop { border-color: #ff8fa3; color: #ff8fa3; }

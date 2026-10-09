@@ -58,3 +58,9 @@ test('one click sells every coin: no second confirm box — the button itself sa
   await act(async () => { btn.click(); });
   expect(window.confirm).not.toHaveBeenCalled();   // the wallet's own approval is the confirmation
 });
+
+test('EVM sell-all skips dust unless asked, and a wallet "no" is recognised so the run stops', () => {
+  const { evmTodo, isRejected } = require('./DustCleanup');
+  expect(evmTodo({ swaps: [1], dust: [2, 3] }, false)).toEqual([1]); expect(evmTodo({ swaps: [1], dust: [2, 3] }, true)).toEqual([1, 2, 3]);
+  expect([isRejected({ code: 4001 }), isRejected(new Error('User rejected the request.')), isRejected(new Error('User denied transaction signature')), isRejected(new Error('insufficient funds')), isRejected(null)]).toEqual([true, true, true, false, false]);
+});
