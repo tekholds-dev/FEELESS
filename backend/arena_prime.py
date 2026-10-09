@@ -1758,7 +1758,7 @@ def _leg(c, usd, now, role):
             'costUsd': round(usd, 6), 'at': now, 'stars': c.get('stars') or stars(c, role), 'firstEntry': px, 'liq': liq, 'midAtEntry': mid,
             **({'newMajor': True} if c.get('newMajor') else {}), **({'arena': True} if c.get('arena') else {}), **({'trench': True} if c.get('trenchOnly') else {}),
             **({'division': c['division']} if c.get('division') else {}),   # 🏁 which Gauntlet division this coin came in from
-            'bought': {'tag': flow_tag(c)[0], **{k: (None if c.get(k) is None else round(_f(c.get(k)), 1)) for k in ('chg1h', 'vol1h', 'ageH', 'buyShare')}, 'liq': round(liq) if liq else None}}   # 🧾 why it was bought: what the coin looked like at that moment
+            'bought': {'tag': c.get('tag') or flow_tag(c)[0], **{k: (None if c.get(k) is None else round(_f(c.get(k)), 1)) for k in ('chg1h', 'vol1h', 'ageH', 'buyShare')}, 'liq': round(liq) if liq else None}}   # 🧾 why it was bought: what the coin looked like at that moment
 
 
 def _picks(t, pools, runners, anchors):
@@ -2559,8 +2559,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                   if sp_.get('trenchOnly'):
                       c['legs'][-1]['trench'] = True
               c['cash'] = round(_f(c['cash']) - usd_s, 6); free_cash -= usd_s
-              ev(kind='seat', symbol=nxt.get('symbol'), usd=round(usd_s, 4), why=(f"🎯 your pick ${nxt.get('symbol')} fills seat {len(c['legs'])} of {want_n} with an equal share" if mine_ else
-                                                                                 f"🪑 empty seat filled — ${nxt.get('symbol')} takes seat {len(c['legs'])} of {want_n} with an equal share" + (' · ⏱ next-best coin after 30s (none cleared the full line)' if fb_seat else '')), to=[nxt.get('symbol')])
+              ev(kind='seat', symbol=nxt.get('symbol'), usd=round(usd_s, 4), why=(f"🎯 your pick ${nxt.get('symbol')} fills seat {seats_used(c)} of {want_n} with an equal share" if mine_ else
+                                                                                 f"🪑 empty seat filled — ${nxt.get('symbol')} takes seat {seats_used(c)} of {want_n} with an equal share" + (' · ⏱ next-best coin after 30s (none cleared the full line)' if fb_seat else '')), to=[nxt.get('symbol')])
       # 🪑 every empty seat is filled on this SAME tick (owner: "auto fills seats in 30 secs"; the engine used to seat one a tick)
       if not want_n or seats_used(c) >= want_n:
           c.pop('seatEmptyAt', None)

@@ -2660,3 +2660,8 @@ def test_an_open_seat_takes_a_banger_first():
     seated = [e['symbol'] for e in out['events'] if e['kind'] == 'seat']
     assert seated[0] == 'BANG'                                                  # the banger takes the first open seat, the board's pick after it
     assert ap.clean_cfg({})['bangerRefill'] is False and ap.clean_cfg({'maxCoinPct': 35})['maxCoinPct'] == 35
+
+
+def test_a_banger_leg_keeps_its_door_and_the_seat_count_ignores_riders():
+    l = ap._leg({**R('bang', 1), 'tag': '🎯 proven caller'}, 1.0, 0, 'runner')
+    assert l['bought']['tag'] == '🎯 proven caller'
