@@ -2321,3 +2321,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   trending). 📣 Pump signals = `LENS_URLS.signals` double + calls + fed in one tab (record shown = `LENS_RECORD`). New to you (9s cold), New launches and
   All ranked are gone from the picker (their server lenses still exist). `SIGNAL_CACHE_SEC` 30 for the three signal lenses. `spx-vs`: the pop-out
   shows the owner's own you-vs-engine record (`realBook.versus`) above the lists.
+- 🧹 DUST ONE CLICK, NO SECOND BOX (owner, 2026-10-08): `dc-clean-all` reads "Sell all N coins → gas — one click · 🔥 burns K worthless ($)" and runs
+  at once — no `window.confirm`; the wallet's own approval is the confirmation. EVM (`runEvm`): per chain, quote all, then `executeLifiBatch`
+  (`lib/lifiExec.js`, EIP-5792 `wallet_getCapabilities` → `wallet_sendCalls` → `wallet_getCallsStatus`): every exact-amount approve + swap on that
+  chain in ONE wallet request when the wallet can batch; it returns null on a plain wallet and the swaps go one after another (the wallet prompts per
+  transaction — no site can change that; the screen says so once). Every quote still passes `checkQuote`. Picker = EIGHT lists (+ 🆕 New launches).

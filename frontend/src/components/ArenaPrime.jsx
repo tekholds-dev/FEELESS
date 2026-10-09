@@ -796,9 +796,9 @@ export function HqRealCards({ addr, onCount }) {
 // 🎯 Each list is a DIFFERENT set of coins (Popular / Top yield / Deepest / New 72h / Dex paid were five sorts of the same ~40 pools:
 // the owner saw the same names under every tab). Movers = the live launch feed by hourly move; everything else is its own source.
 // 7 lists, each its OWN set of coins and as many as the feed has (owner: "6–7 categories, more coins, a line chart on every row")
-// SEVEN lists (owner, 2026-10-08: "only need like 6–7, they need to update well without rate limit"): each its own source, each cached on the
+// EIGHT lists (owner, 2026-10-08: "only need like 6–7… well maybe 8", updating well without rate limits): each its own source, each cached on the
 // server, none slow. 📣 Pump signals = three Pump reads in one tab (🔥🔥 double signal first, then callouts, then fed runners).
-export const PICK_LENSES = [['ptrend', '🔥 Pump trending'], ['signals', '📣 Pump signals'], ['movers', '🚀 Movers'], ['bottom', '🟢 Dips & bottoms'], ['volume', '🌊 Volume'], ['trench', '🗑 Trench'], ['majors', '🪙 Majors & stocks']];
+export const PICK_LENSES = [['ptrend', '🔥 Pump trending'], ['signals', '📣 Pump signals'], ['movers', '🚀 Movers'], ['bottom', '🟢 Dips & bottoms'], ['volume', '🌊 Volume'], ['pump', '🆕 New launches'], ['trench', '🗑 Trench'], ['majors', '🪙 Majors & stocks']];
 const LENS_URLS = { majors: ['majors', 'stocks', 'risers'], signals: ['double', 'calls', 'fed'] };   // one tab, several sources (first source first; one row per coin)
 const LENS_RECORD = { signals: 'calls' };   // the record shown on a merged tab
 // 📈 every row gets a line: the board's recorded prices when it has them, else the coin's own 24h → 6h → 1h → 5m → now moves

@@ -21,7 +21,7 @@ test('the real-card swap picker has every Lab lens + search, flags thin pools an
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<SwapPicker out={{ symbol: 'WIF' }} have={[]} minLiq={20000} onPick={r => picks.push(r)} onClose={() => {}} />); });
   await tick();
-  expect(PICK_LENSES.map(x => x[0])).toEqual(['ptrend', 'signals', 'movers', 'bottom', 'volume', 'trench', 'majors']);   // seven lists, each its OWN set of coins
+  expect(PICK_LENSES.map(x => x[0])).toEqual(['ptrend', 'signals', 'movers', 'bottom', 'volume', 'pump', 'trench', 'majors']);   // eight lists, each its OWN set of coins
   // 🚀 it opens on what is MOVING (the live launch feed by hourly move) …
   expect(urls.find(u => u.includes('/fuses/discover'))).toContain('/fuses/discover?lens=ptrend');   // 🔥 Pump trending opens first (the slow woven "New to you" list is gone)
   // 📏 every list tab carries its own 1-hour record; the open list explains it (too few settled = "starts now")

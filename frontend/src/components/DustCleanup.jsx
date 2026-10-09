@@ -4,7 +4,7 @@ import { apiUrl } from '../lib/api';
 import { useWallet } from '../hooks/useWallet';
 import { relayConnection } from '../lib/launchRail';
 import { SOL_MINT } from '../lib/fuseGo';
-import { NATIVE, lifiServerQuote, executeLifi } from '../lib/lifiExec';
+import { NATIVE, lifiServerQuote, executeLifi, executeLifiBatch } from '../lib/lifiExec';
 import { tiny, usd } from '../lib/num';
 import { TokenAvatar } from './terminal/MarketPrimitives';
 import '../styles/dustCleanup.css';
@@ -112,27 +112,38 @@ export default function DustCleanup() {
     }));
   };
 
-  // EVM: one LI.FI swap per token, each on ITS OWN chain into that chain's gas (the wallet is switched to the chain first)
+  // EVM: every token swaps on ITS OWN chain into that chain's gas. Per chain: quote them all, then ONE wallet request for the lot when the wallet can
+  // batch (EIP-5792); a plain wallet signs them one after another by itself — no further click here either way.
   const runEvm = async q => {
-    for (const r of q.swaps.concat(q.dust)) {
-      const k = key(r); mark([k], 'quoting');
-      const gas = (rows.find(x => x.native && x.chainId === r.chainId) || {}).symbol || 'gas';
-      try { const quote = await lifiServerQuote({ fromChain: r.chainId, toChain: r.chainId, fromToken: r.address, toToken: NATIVE, fromAmount: r.raw, fromAddress: addr, slippage: 0.01 });
-        mark([k], 'sending');
-        await executeLifi({ quote, wallet, provider, switchTo, onStep: s => note(`$${r.symbol} (${r.chain}): ${s}`) });
-        mark([k], 'done'); note(`↩ $${r.symbol} → ${gas} on ${r.chain} (${usd(r.usd)})`, 'good');
-      } catch (e) { mark([k], 'failed'); note(`$${r.symbol}: ${e.message}`, 'bad'); }
+    const todo = q.swaps.concat(q.dust); const chains = [...new Set(todo.map(r => r.chainId))];
+    for (const cid of chains) {
+      const mine = todo.filter(r => r.chainId === cid); const quoted = [];
+      const gas = (rows.find(x => x.native && x.chainId === cid) || {}).symbol || 'gas';
+      const quoteOne = async r => { mark([key(r)], 'quoting');
+        try { quoted.push({ r, quote: await lifiServerQuote({ fromChain: cid, toChain: cid, fromToken: r.address, toToken: NATIVE, fromAmount: r.raw, fromAddress: addr, slippage: 0.01 }) }); mark([key(r)], 'ready'); }
+        catch (e) { mark([key(r)], 'failed'); note(`$${r.symbol}: ${e.message}`, 'bad'); } };
+      for (let i = 0; i < mine.length; i += 4) await Promise.all(mine.slice(i, i + 4).map(quoteOne));
+      if (!quoted.length) continue;
+      const ks = quoted.map(x => key(x.r));
+      let batched = null;
+      try { mark(ks, 'sending'); batched = await executeLifiBatch({ quotes: quoted.map(x => x.quote), wallet, provider, switchTo, onStep: s => note(`${mine[0].chain}: ${s}`) }); }
+      catch (e) { mark(ks, 'failed'); note(`${mine[0].chain}: ${e.message}`, 'bad'); continue; }
+      if (batched) { mark(ks, 'done'); note(`↩ ${quoted.length} coin${quoted.length === 1 ? '' : 's'} → ${gas} on ${mine[0].chain} in one approval (${usd(quoted.reduce((a, x) => a + (x.r.usd || 0), 0))})`, 'good'); continue; }
+      note(`${mine[0].chain}: this wallet signs one transaction at a time — approve each as it pops up, nothing more to click here.`);
+      for (const { r, quote } of quoted) {
+        const k = key(r); mark([k], 'sending');
+        try { await executeLifi({ quote, wallet, provider, switchTo, onStep: s => note(`$${r.symbol} (${r.chain}): ${s}`) }); mark([k], 'done'); note(`↩ $${r.symbol} → ${gas} on ${r.chain} (${usd(r.usd)})`, 'good'); }
+        catch (e) { mark([k], 'failed'); note(`$${r.symbol}: ${e.message}`, 'bad'); }
+      }
     }
   };
 
-  // 🧹 ONE CLICK: every coin that isn't gas, each with its best action, in one go (Solana = ONE wallet approval for all of it; EVM = your wallet
-  // asks once per token, that's how EVM works). Burns are confirmed in the same click — a burned coin is gone for good.
+  // 🧹 ONE CLICK, no second box (owner, 2026-10-08: "not one click then click to confirm each"): every coin that isn't gas, each with its best
+  // action. The button itself says how many will be BURNED; the wallet's own approval is the confirmation. Solana = ONE approval for everything;
+  // EVM = one request per chain when the wallet can batch, else the wallet asks per transaction.
   const allPick = () => Object.fromEntries(rows.filter(r => !r.native && state[key(r)] !== 'done').map(r => [key(r), true]));
-  const cleanAll = async () => {
-    const pk = allPick(); const q = plan(rows, pk, act); if (!q.chosen.length) return;
-    if (q.burns.length && !window.confirm(`Clean all ${q.chosen.length} coins?\n🔥 ${q.burns.length} will be BURNED (${usd(q.burnUsd)}) — gone for good.\n↩ ${q.swaps.length + q.dust.length} swapped to gas · ♻ rent back ◎${q.rentSol.toFixed(4)}`)) return;
-    setPick(pk); setAck(true); await go(q, true);
-  };
+  const allPlan = plan(rows, allPick(), act);
+  const cleanAll = async () => { const pk = allPick(); const q = plan(rows, pk, act); if (!q.chosen.length) return; setPick(pk); setAck(true); await go(q, true); };
   const go = async (q = p, acked = ack) => {
     if (!q?.chosen?.length) return;
     if (!canSign) { toast.error('You are only looking at this address — connect that wallet to clean it.'); return; }
@@ -163,7 +174,7 @@ export default function DustCleanup() {
         <span><small>Worth swapping</small><b className="m-num">{usd(data?.summary?.swapUsd || 0)}</b></span>
         <span className="dc-tools"><button type="button" className="m-btn" onClick={selectDust} disabled={!rows.length || busy} data-testid="dc-select-dust">Select dust</button>
           <button type="button" className="m-btn" onClick={load} disabled={busy} data-testid="dc-refresh">↻ Re-read</button></span></div>
-      {canSign && rows.some(r => !r.native) && <button type="button" className="m-btn primary m-go dc-all" disabled={busy} onClick={cleanAll} data-testid="dc-clean-all">{busy ? 'Working…' : `🧹 Clean all ${rows.filter(r => !r.native && state[key(r)] !== 'done').length} coins — one click`}</button>}
+      {canSign && rows.some(r => !r.native) && <button type="button" className="m-btn primary m-go dc-all" disabled={busy} onClick={cleanAll} data-testid="dc-clean-all">{busy ? 'Working…' : `🧹 Sell all ${allPlan.chosen.length} coins → gas — one click${allPlan.burns.length ? ` · 🔥 burns ${allPlan.burns.length} worthless (${usd(allPlan.burnUsd)})` : ''}`}</button>}
       {err && <p className="dc-err" role="alert">{err}</p>}
       {!canSign && <p className="m-note dc-ro">👁 Looking only — connect this wallet to clean it.</p>}
       {!data ? <div className="dc-loading" aria-busy="true"><i /><i /><i /></div> : !rows.length ? <p className="m-dim dc-empty">No coins in this wallet — nothing to clean.</p>

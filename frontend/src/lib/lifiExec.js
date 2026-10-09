@@ -88,3 +88,45 @@ export async function executeLifi({ quote, wallet, provider, switchTo, onStep = 
   }
   return { hash, receipt, status };
 }
+
+// ⚡ ONE APPROVAL FOR MANY SWAPS (EIP-5792 `wallet_sendCalls`): every approve + swap on ONE chain goes to the wallet as a single request, when the
+// wallet can batch (smart-account wallets: MetaMask smart account, Coinbase, Safe…). A plain wallet cannot — it signs one transaction at a time,
+// and no site can change that — so this returns null and the caller sends them one by one. Every quote passes the same checks as a single swap.
+export const batchCalls = async (prov, quotes, wallet) => {
+  const calls = [];
+  for (const quote of quotes) {
+    checkQuote(quote, wallet);
+    const tx = quote.transactionRequest; const fromToken = quote.action.fromToken.address; const amount = BigInt(quote.action.fromAmount);
+    if (fromToken.toLowerCase() !== NATIVE && quote.estimate.approvalAddress) {
+      const spender = quote.estimate.approvalAddress;
+      if ((await allowance(prov, fromToken, wallet.address, spender)) < amount) calls.push({ to: fromToken, value: '0x0', data: `0x095ea7b3${spender.slice(2).toLowerCase().padStart(64, '0')}${amount.toString(16).padStart(64, '0')}` });
+    }
+    calls.push({ to: tx.to, data: tx.data, value: tx.value || '0x0' });
+  }
+  return calls;
+};
+export const canBatch = async (prov, from, chainHex) => {
+  try { const caps = await prov.request({ method: 'wallet_getCapabilities', params: [from, [chainHex]] }); const c = (caps || {})[chainHex] || (caps || {})[chainHex.toLowerCase()] || {};
+    return ['supported', 'ready'].includes(c.atomic?.status) || c.atomicBatch?.supported === true; } catch { return false; }
+};
+export async function executeLifiBatch({ quotes, wallet, provider, switchTo, onStep = () => {}, tries = 90, waitMs = 2000 }) {
+  if (!quotes?.length) return null;
+  const chainId = Number(quotes[0].transactionRequest.chainId);
+  if (quotes.some(q => Number(q.transactionRequest.chainId) !== chainId)) throw new Error('A batch is one network at a time.');
+  const net = chainKey(chainId); const chainHex = `0x${chainId.toString(16)}`;
+  const switched = await switchTo?.(net); const prov = switched?.provider || provider;
+  if (parseInt(await prov.request({ method: 'eth_chainId' }), 16) !== chainId) throw new Error(`Your wallet is on another network. Switch to ${net} and try again.`);
+  if (!(await canBatch(prov, wallet.address, chainHex))) return null;
+  const calls = await batchCalls(prov, quotes, wallet);
+  onStep(`Approve ONE request for ${quotes.length} swap${quotes.length === 1 ? '' : 's'} on ${net} in your wallet…`);
+  const sent = await prov.request({ method: 'wallet_sendCalls', params: [{ version: '2.0.0', from: wallet.address, chainId: chainHex, atomicRequired: false, calls }] });
+  const id = typeof sent === 'string' ? sent : sent?.id;
+  onStep('Submitted — waiting for the network…');
+  for (let i = 0; i < tries; i++) {
+    const st = await prov.request({ method: 'wallet_getCallsStatus', params: [id] }).catch(() => null);
+    const code = Number(st?.status);
+    if (code >= 200 || st?.status === 'CONFIRMED') { if (code >= 400) throw new Error(code === 600 ? 'Only part of the batch landed — refresh to see what is left.' : 'The batch did not land. Nothing else was sent.'); return { id, status: 'DONE', receipts: st.receipts || [] }; }
+    await new Promise(res => setTimeout(res, waitMs));
+  }
+  throw new Error('Still pending — check your wallet before trying again.');
+}
