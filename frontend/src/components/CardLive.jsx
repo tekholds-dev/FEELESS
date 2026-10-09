@@ -18,12 +18,13 @@ export function CardLive({ legs, pnlPct, value }) {
   const tone = a.locked ? 'ice' : a.dir;
   const cls = `clv ${{ up: 'is-up', down: 'is-down', ice: 'is-ice' }[tone] || 'is-flat'} ${['h0', 'h1', 'h2', 'h3'][a.heat]}${a.buying ? ' is-buying' : ''}`;   // literal class names (cssHygiene reads them)
   return <>
-    <span className={`${cls} clv-back`} aria-hidden="true" style={{ '--beat': `${a.beat}s` }} data-testid="card-live" data-heat={a.word} data-dir={tone}><i className="clv-ring" /><i className="clv-glow" /></span>
+    <span className={`${cls} clv-back`} aria-hidden="true" style={{ '--beat': `${a.beat}s` }} data-testid="card-live" data-heat={a.word} data-dir={tone}><i className="clv-ring" /><i className="clv-glow" />
+      {/* the hottest coin: one line of plain text ABOVE the card (it was a pill over the card's own header — owner: "this ain't it") */}
+      {a.top && <b className={`clv-chip ${a.top.m5 >= 0 ? 'up' : 'down'}`} key={a.top.symbol}>{a.heat >= 3 ? '🔥' : '⚡'} ${a.top.symbol} {a.top.m5 >= 0 ? '+' : ''}{Math.abs(a.top.m5) >= 100 ? Math.round(a.top.m5) : a.top.m5.toFixed(1)}% <small>5m</small></b>}</span>
     <span className={`${cls} clv-front`} aria-hidden="true">
       {Array.from({ length: a.sparks }, (_, i) => <i key={i} className="clv-spark" style={{ '--i': i, left: `${(i * 37 + 9) % 100}%` }} />)}
       {a.buying && <i className="clv-scan" />}
       {tick && <i key={tick.k} className={`clv-tick ${tick.up ? 'up' : 'down'}`} />}
-      {a.top && <b className={`clv-chip ${a.top.m5 >= 0 ? 'up' : 'down'}`} key={a.top.symbol}>{a.heat >= 3 ? '🔥' : '⚡'} ${a.top.symbol} {a.top.m5 >= 0 ? '+' : ''}{Math.abs(a.top.m5) >= 100 ? Math.round(a.top.m5) : a.top.m5.toFixed(1)}% <small>5m</small></b>}
     </span>
   </>;
 }
