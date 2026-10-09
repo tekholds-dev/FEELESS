@@ -5998,7 +5998,7 @@ async def _double_rows():
     rs = (await _feeders_build()).get('runners') or {}
     pm = _pump_calls['map']
     both = sorted((m for m in pm if m in rs and int(_fuse._f(pm[m].get('callers'))) >= 2), key=lambda m: -(pm[m].get('heat', 0) + rs[m]['score']))
-    return await _mint_rows(both[:60], lambda m: {'divisionLabel': f"🔥🔥 {pm[m]['callers']} callers · {rs[m]['n']} coins paired", 'pc': _pc.summary(pm[m]), 'fd': rs[m],
+    return await _mint_rows(both[:60], lambda m: {'divisionLabel': f"🔥🔥 {pm[m]['callers']} callers · {rs[m]['n']} coin{'' if rs[m]['n'] == 1 else 's'} paired", 'pc': _pc.summary(pm[m]), 'fd': rs[m],
                                                  'score': round((pm[m].get('heat', 0) + rs[m]['score']) / 2)})
 
 
