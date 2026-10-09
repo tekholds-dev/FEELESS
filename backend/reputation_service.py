@@ -8000,6 +8000,7 @@ async def _overnight_fix_1009(now):
 HUNT_1009 = {'coins': 2, 'runnerMinAgeH': 12, 'runnerMinVolK': 50, 'runnerMinChg1h': 40, 'runnerMinLiqK': 25, 'runnerMinBuy': 0, 'edgeGate': False,
              'rideAt': 50.0, 'rideTrail': 30.0, 'peakSellPct': 50.0, 'houseAt': 50, 'sl': 30.0, 'instantSwapPct': 0, 'newOnly': True,
              'scoutPct': 0, 'moverSwap': False, 'rideEnd': 'bank'}
+HUNT_1009_B = {'vitalMin': 35, 'organicMin': 5}   # the 50+ / 10% filter removed all 6 coins that cleared the hunt line
 
 
 def hunt_patch_1009(rc):
@@ -8025,6 +8026,23 @@ async def _hunt_fix_1009(now):
             if c.get('real'):
                 c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🚀 send it: 2 coins on the runner hunt line (12h+ · $50K/h · +40% on the hour) · stop −30 · freeze +50, trail 30 · 🏠 initial out at +50 · ride over → bank'})
         pr['huntFix1009'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
+async def _hunt_fix_1009b(now):
+    """🚀 Once (same "send it"): the owner's vital filter (score 50+, 10% organic) removed all 6 coins clearing the hunt line → one step
+    looser (35+, 5%). Old values: data/realcfg_before_hunt1009b.json."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('huntFix1009b') or not rc:
+            return False
+        _json_save(DATA_DIR / 'realcfg_before_hunt1009b.json', {k: rc.get(k) for k in HUNT_1009_B})
+        pr['realCfg'] = _prime.clean_cfg({**rc, **HUNT_1009_B})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(HUNT_1009_B))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(HUNT_1009_B))
+        pr['huntFix1009b'] = now
         _json_save(FUSE_HQ_PATH, d)
     return True
 
@@ -8126,6 +8144,7 @@ async def _prime_tick_inner(now):
     await _degen_fix_1009(now)
     await _overnight_fix_1009(now)
     await _hunt_fix_1009(now)
+    await _hunt_fix_1009b(now)
     await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:

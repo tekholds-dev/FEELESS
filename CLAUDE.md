@@ -2465,4 +2465,4 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🚀 SEND IT 2026-10-09 (`_hunt_fix_1009`, once, `huntFix1009`, backup data/realcfg_before_hunt1009.json): owner chose the one-shot lane —
   real card = 2 coins on the Runner hunt line (12h+ · $50K/h · +40% on the hour · $25K pool · record gate off), stop −30, freeze +50,
   trail 30, 🏠 initial out at +50, ride over → bank, runners only (newOnly), scout / mover swap off. Clock 30m, hold 30, ≤ 2 swaps/h kept.
-  The owner decided with the numbers in hand (replay: ~1 in 5 hunt picks hit 2× within 6h) — don't re-argue it; report results.
+  Vital filter one step looser for it (`_hunt_fix_1009b`: 35+ · 5% organic — 50 / 10 removed all 6 hunt coins). The owner decided with the numbers in hand (replay: ~1 in 5 hunt picks hit 2× within 6h) — don't re-argue it; report results.
