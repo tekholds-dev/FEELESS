@@ -6262,6 +6262,7 @@ async def _trench_build(now):
     await _bottom_track(now)
     await _call_track(now)
     await _lens_track(now)
+    await _edge_track(now)
     await _owner_moves_tick(now)
     return _trench_cache
 
@@ -6428,6 +6429,65 @@ async def _lens_track(now):
         _json_save(LENS_PROOF_PATH, _trench.meta_track(st, passing, lambda m: (jp or {}).get(m), now, keys=LENS_TRACK))
     except Exception as e:
         print('lens proof:', e)
+
+
+import confluence as _cf
+EDGE_PROOF_PATH = FUSE_HQ_PATH.parent / 'edge_proof.json'   # 🧬 learned combos (bucket → settled 1h result) + Coming up's own record ('up')
+EDGE_TRACK_TOP = 40          # the best-ranked coins whose combo bucket is noted each pass
+EDGE_BUY_MIN = -25.0         # the engine never takes a coin whose evidence says it typically loses more than this in an hour
+_edge_cache: dict = {'at': 0.0, 'rows': []}
+_up_last: list = []          # [(mint, price)] Coming up's ready coins at the last tier tick — scored like any list ('up')
+
+
+def _swapin_lists():
+    """🧬 The owner's swap-in lists as the picker last dressed them (≤ 5 min old): {list: [rows in its own order]}."""
+    now, out = time.time(), {}
+    for k in ('ptrend', 'calls', 'double', 'fed', 'movers', 'volume', 'pump'):
+        hit = _disc_cache.get((k, 'solana'))
+        if hit and now - hit[0] < 300 and isinstance(hit[1], dict):
+            out[k] = [{**r, 'mint': r.get('baseAddress') or r.get('mint')} for r in (hit[1].get('pools') or [])[:60]]
+    out['bottom'] = [{**r, 'mint': r.get('baseAddress') or r.get('mint')} for r in (_bottom_cache.get('rows') or [])[:60]]
+    out['trench'] = [dict(r) for r in (_trench_cache.get('rows') or [])[:60]]
+    return out
+
+
+def _edge_rank():
+    """🧬 Every swap-in coin ranked by evidence (confluence.rank), 20s cache."""
+    if time.time() - _edge_cache['at'] < 20 and _edge_cache['rows']:
+        return _edge_cache['rows']
+    combo = _trench.meta_proof(_json_load(EDGE_PROOF_PATH, {}), keys=tuple(k for k in _json_load(EDGE_PROOF_PATH, {}) if k != 'up'))
+    calls = _call_cache.get('proof') or {}
+    rows = _cf.rank(_swapin_lists(), _list_records(), calls, combo, lambda r: CALL_KEYS.get(((r.get('tv') or {}).get('call') or [None, None])[1]))
+    _edge_cache.update(at=time.time(), rows=rows)
+    return rows
+
+
+async def _edge_track(now):
+    """🧬 The learned layer: each top-ranked coin's combo bucket is noted once and settled an hour later; Coming up's ready coins too ('up')."""
+    try:
+        rows = _edge_rank()[:EDGE_TRACK_TOP]
+        st = _json_load(EDGE_PROOF_PATH, {})
+        passing = {}
+        for r in rows:
+            p_ = _fuse._f(r.get('priceUsd') or r.get('price'))
+            if p_ > 0:
+                passing.setdefault(r['edge']['bucket'], []).append((r['mint'], p_))
+        passing['up'] = [(m, p_) for m, p_ in _up_last if p_ > 0]
+        keys = tuple(dict.fromkeys(list(st) + list(passing)))
+        due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
+        jp = await _jup_prices(due) if due else {}
+        _json_save(EDGE_PROOF_PATH, _trench.meta_track(st, passing, lambda m: (jp or {}).get(m), now, keys=keys))
+    except Exception as e:
+        print('edge track:', e)
+
+
+@app.get('/api/reputation/fuses/edge')
+async def fuses_edge():
+    """🧬 The swap-in lists ranked by evidence + Coming up's own record + the learned combos that have settled. A ranking, never a promise."""
+    st = _json_load(EDGE_PROOF_PATH, {})
+    proof = _trench.meta_proof(st, keys=tuple(st))
+    return {'rows': [{k: r.get(k) for k in ('mint', 'symbol', 'pairAddress', 'baseAddress', 'logo', 'priceUsd', 'price', 'tv', 'vital', 'edge')} for r in _edge_rank()[:60]],
+            'up': proof.get('up'), 'combos': {k: v for k, v in proof.items() if k != 'up' and v.get('n')}}
 
 
 @app.get('/api/reputation/fuses/list-proof')
@@ -7951,6 +8011,24 @@ async def _prime_tick_inner(now):
             except Exception:
                 cat_picks, cat_miss = [], {}
             cat_rows = [{**_cat_row(p_), 'tag': f"{p_['catLabel']} #{p_['rank']}", 'cat': p_['cat'], 'catRank': p_['rank']} for p_ in cat_picks]
+            # 🧬 EDGE FIRST (owner: "coming up should be the best of my swap-in, not bs"): every coin of the swap-in lists ranked by evidence
+            # (confluence.py); the ones that clear every check of this card come first — Coming up shows them and an empty seat takes them.
+            edge_ready, edge_watch = [], []
+            if real_t:
+                for e_ in _edge_rank()[:80]:
+                    m_ = e_.get('mint')
+                    if not m_ or m_ in mine:
+                        continue
+                    if e_['edge']['known'] and e_['edge']['edge'] <= EDGE_BUY_MIN:
+                        continue   # the evidence says it typically loses badly: never Coming up, never an engine buy
+                    v_ = _cat_ok({'mint': m_})
+                    if v_ is True:
+                        edge_ready.append({**_cat_row({'mint': m_}), 'tag': _cf.words(e_['edge']), 'edge': e_['edge'], 'cat': 'edge'})
+                    elif v_ not in ('not on the runner board yet', 'holder scan not done') and len(edge_watch) < 6:
+                        edge_watch.append({**(_cat_row({'mint': m_}) or e_), 'tag': _cf.words(e_['edge']), 'edge': e_['edge'], 'watchWhy': v_})
+                    if len(edge_ready) >= 6:
+                        break
+                cat_rows = edge_ready + [x for x in cat_rows if x.get('mint') not in {y['mint'] for y in edge_ready}]
             # 🚪 EVERY DOOR ALWAYS SHOWS ONE COIN (owner: "1 trench, 1 pump, 1 volume"): a door with nothing that clears every check shows its
             # best coin as WATCHING, with the first check it misses. Watch rows are only shown — never seated by the engine, owner-pickable.
             door_watch = _prime.door_watch(
@@ -7958,7 +8036,8 @@ async def _prime_tick_inner(now):
                 lambda r_, x_: _cat_ok(r_) if _cat_row(r_) else ('failed safety' if x_.get('safe') is False else 'holder scan not done'),
                 lambda m_, x_: m_ in fb_ids or m_ in mine or _fuse._f(x_.get('price')) <= 0 or _fw.dollar_named(x_.get('symbol')))
             fb_ = cat_rows + [x for x in fb_ if x.get('mint') not in {y['mint'] for y in cat_rows}]
-            cfg_t = {**cfg_t, 'seatFallback': list({x.get('mint'): x for x in reversed(fb_)}.values())[::-1][:8], 'catPicks': cat_rows, 'catWatch': door_watch, 'catMiss': cat_miss}
+            cfg_t = {**cfg_t, 'seatFallback': list({x.get('mint'): x for x in reversed(fb_)}.values())[::-1][:8], 'catPicks': cat_rows, 'catWatch': door_watch, 'catMiss': cat_miss,
+                     'edgeReady': edge_ready, 'edgeWatch': edge_watch}
         # 🧊 anchors cool too: a major this card just sold isn't bought back for 3 rounds while another major is available
         a_t = _prime_cool_candidates(anchors, cool, 2, strict=real_t and len([x for x in anchors if x.get('mint') not in cool]) >= 1) if cool else anchors
         if new_only_:
@@ -8036,7 +8115,15 @@ async def _prime_tick_inner(now):
                               'insiders': x.get('insiders'), 'site': x.get('site'), 'x': x.get('x'), 'tg': x.get('tg'), 'chg5m': x.get('chg5m'),
                               'vol5m': x.get('vol5m'), 'txns1h': x.get('txns1h'), 'trench': x.get('trench'), 'trenchOnly': x.get('trenchOnly')}
             seen_u, up_ = set(), []
-            doors_ = {x.get('cat'): x for x in (cfg_t.get('catPicks') or [])}
+            for x in cfg_t.get('edgeReady') or []:   # 🧬 the best of the swap-in lists that this card would buy right now
+                if x.get('mint') not in on_ and x['mint'] not in seen_u and len(up_) < 6:
+                    seen_u.add(x['mint']); up_.append({**row_(x), 'cat': 'edge', 'tag': x.get('tag') or '', 'edge': x.get('edge')})
+            global _up_last
+            _up_last = [(x['mint'], _fuse._f((x.get('price') or 0))) for x in (cfg_t.get('edgeReady') or [])[:4]]
+            for x in cfg_t.get('edgeWatch') or []:   # 👀 then the best-evidence coins one check away, with that check
+                if x.get('mint') and x['mint'] not in on_ and x['mint'] not in seen_u and len(up_) < 4:
+                    seen_u.add(x['mint']); up_.append({**row_(x), 'tag': x.get('tag') or '', 'edge': x.get('edge'), 'wait': x.get('watchWhy')})
+            doors_ = {x.get('cat'): x for x in (cfg_t.get('catPicks') or []) if x.get('cat') != 'edge'}
             for x in cfg_t.get('catWatch') or []:
                 doors_.setdefault(x.get('cat'), x)
             for k_ in [c[0] for c in _prime.CATEGORIES]:   # ⏭ ONE coin per door in the owner's order (trench · pump · volume): ready, else watching with its reason

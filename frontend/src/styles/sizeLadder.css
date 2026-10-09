@@ -12,3 +12,6 @@ body.fx-lite .lad-track li { animation: none; }
 @media (prefers-reduced-motion: reduce) { .lad-track li { animation: none; } }
 body.theme-day .lad { background: rgba(236, 246, 240, .7); border-color: #cfe6da; } body.theme-day .lad-track li { border-color: #cfe6da; } body.theme-day .lad-track li.now { background: #0b7a4a; color: #fff; }
 @media (max-width: 640px) { .lad-track { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* 🧬 Coming up edge line (ArenaPrime ComingUp): green when the evidence expects a gain, pink when it expects a loss */
+.hrt-up-tag.is-edge-up { color: #45e486; } .hrt-up-tag.is-edge-dn { color: #ff8fa3; }
+body.theme-day .hrt-up-tag.is-edge-up { color: #0b7a4a; } body.theme-day .hrt-up-tag.is-edge-dn { color: #b3264a; }

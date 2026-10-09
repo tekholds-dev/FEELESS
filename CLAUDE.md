@@ -2351,3 +2351,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   polls at that pace and re-reads AT ONCE when `kick` changes (the live price moved = a trade), never faster than half its pace (kick reads share
   only a 1.5s-old answer). Quick look passes the live price, the war-room header its pair price. LIVE chip shows the pace (🟠 HOT) + "Ns ago";
   every fact tile number re-animates when its value changes (`tql-flip`, keyed by value).
+- 🧬 EDGE SCORE = COMING UP (owner, 2026-10-08: "coming up should be the best of my swap-in, not bs — plus meta humans could never figure out";
+  `backend/confluence.py` pure + tested, `_swapin_lists` (the picker's dressed lists ≤ 5 min old + bottom + trench) → `_edge_rank` (20s) →
+  public `GET /fuses/edge`): every coin across the swap-in lists scored by EVIDENCE = rank-weighted average of each list's own 1h record + its
+  read's own call record + a LEARNED combo bucket (lists 1/2/3+ × read tone × 5-min pace; `_edge_track` notes the top 40 each pass, settled 1h
+  later, `data/edge_proof.json`) + capped hand-set tilts (vital, organic, proven callers, failed safety; ±6 max, labelled). Coming up = the top
+  coins that clear the card's own checks (`_cat_ok`), then up to 4 best-evidence coins one check away; the 30s seat fill takes edge coins first.
+  `EDGE_BUY_MIN` −25: a coin whose evidence says it typically loses 25%+ an hour is never shown or bought. Coming up keeps ITS OWN record (key
+  `up`, label "ITS RECORD"). 2026-10-08 records: BOND RUN −82%, movers −87%, Pump trending −1.5%, fed −0.5% — the score mostly ranks bad vs worse.
