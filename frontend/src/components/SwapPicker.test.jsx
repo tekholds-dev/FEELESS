@@ -16,7 +16,7 @@ test('the real-card swap picker has every Lab lens + search, flags thin pools an
     if (String(u).includes('/fuses/trench')) return { ok: true, json: async () => ({ floor: 8000, checked: [{}, {}], rules: 'strict', rows: [{ mint: 'TR', pairAddress: 'ptr', symbol: 'TRN', price: 0.001, liq: 9000, holders: 512, score: 74, trench: true }, { mint: 'TT', pairAddress: 'ptt', symbol: 'TTHIN', price: 0.001, liq: 4000, trench: true }] }) };
     if (String(u).includes('contenders')) return { ok: true, json: async () => ({ divisions: [{ key: 'dip', rows: [{ mint: 'D', pairAddress: 'pd', symbol: 'DIP', price: 1, liq: 80000, score: 70 }] }],
       all: [{ mint: 'G1', pairAddress: 'pg1', symbol: 'GAUNT', price: 1, liq: 300000, score: 88, divisionLabel: '🌊 Deepest' }, { mint: 'D', pairAddress: 'pd', symbol: 'DIP', price: 1, liq: 80000, score: 70, divisionLabel: '📉 Dip buys', watch: true }] }) };
-    return { ok: true, json: async () => ({ pools: [{ baseAddress: 'P', pairAddress: 'pp', symbol: 'POP', priceUsd: 2, liquidityUsd: 400000, change24h: 5 }, { baseAddress: 'T', pairAddress: 'pt', symbol: 'THIN', priceUsd: 2, liquidityUsd: 5000 }] }) }; });
+    return { ok: true, json: async () => ({ pools: [{ baseAddress: 'P', pairAddress: 'pp', symbol: 'POP', priceUsd: 2, liquidityUsd: 400000, change24h: 5, tape: 'burst', entry: 'clean' }, { baseAddress: 'T', pairAddress: 'pt', symbol: 'THIN', priceUsd: 2, liquidityUsd: 5000 }] }) }; });
   const picks = [];
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<SwapPicker out={{ symbol: 'WIF' }} have={[]} minLiq={20000} onPick={r => picks.push(r)} onClose={() => {}} />); });
@@ -32,6 +32,8 @@ test('the real-card swap picker has every Lab lens + search, flags thin pools an
   await act(async () => { el.querySelector('[data-testid="sp-lens-ptrend"]').click(); }); await tick();   // a list with its own record explains it
   expect(el.querySelector('[data-testid="sp-list-record"]').textContent).toMatch(/starts now/);
   expect(el.textContent).toContain('$POP');
+  expect(el.querySelector('[data-testid="sp-tape-POP"]').textContent).toContain('burst');   // 🌊 the live tape on the row
+  expect(el.querySelector('[data-testid="sp-entry-POP"]').textContent).toBe('✅');           // 🎯 the engine's clean-entry verdict
   // 🎯 Proven callers: its own tab, with the edge it was tested on
   await act(async () => { el.querySelector('[data-testid="sp-lens-procall"]').click(); }); await tick();
   expect(urls.some(u => u.includes('/fuses/discover?lens=procall'))).toBe(true);

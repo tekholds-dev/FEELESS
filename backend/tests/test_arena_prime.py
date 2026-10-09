@@ -2688,6 +2688,7 @@ def test_clean_entry_gate_blocks_highs_chases_thin_and_young_coins():
     assert ap.entry_gate({**ok, 'vol1h': 30_000, 'ageH': 1}, core=True) is None             # the 30s seat fill: core rules only
     assert 'chasing' in ap.entry_gate({**ok, 'chg1h': 85}, core=True)
     assert ap.entry_gate({'liq': 120_000}) is None                                        # missing readings are not judged
+    assert 'bots' in ap.entry_gate({**ok, 'vital': {'organicPct': 2}})                     # $LOOT: 2% organic — a dip on wash flow means nothing
     assert 'buyers only' in ap.entry_gate({'pairAddress': 'p', 'liq': 120_000}, {'p': {'buyShare': 40}})   # momentum fills gaps
 
 
@@ -2699,3 +2700,35 @@ def test_pre_break_is_volume_waking_up_under_the_high():
     assert not ap.pre_break({**base, 'chg1h': 45})                                         # already ran
     assert not ap.pre_break({**base, 'cPull': 1})                                          # at its highs
     assert not ap.pre_break({**base, 'buyShare': 50})
+
+
+def test_moon_ladder_lets_a_trench_coin_run_and_sells_on_the_rungs():
+    cfg = ap.clean_cfg({**CFG, 'coins': 2, 'rideAt': 15, 'rideTrail': 20, 'lockBankPct': 50, 'instantSwapPct': 0, 'floorPct': 0, 'rescuePct': 0,
+                        'moonLadder': True, 'trenchHouseAt': 0, 'houseAt': 0, 'cycles': {'degen': 'off'}})
+    def card_at(px_t, **leg_kw):
+        card = ap.deal('degen', [P('a', 1)], [R('r1', 1)], cfg, 0, SOL[:1])
+        big = ap._leg(R('r1', 1), 10.0, 0, 'runner'); big.update(priced=True, entry=1.0, units=10.0, costUsd=10.0, at=0)
+        t = ap._leg(R('tt', 1), 1.5, 0, 'runner'); t.update(priced=True, entry=1.0, firstEntry=1.0, units=1.5, costUsd=1.5, at=0, trench=True, ticket=True, **leg_kw)
+        card['legs'] = [big, t]
+        return card, {big['pairAddress']: 1.0, t['pairAddress']: px_t}, t['pairAddress']
+    card, px, pa = card_at(1.2)
+    out = ap.tick(card, px, [], [], cfg, 60, SOL[:1])
+    t = next(l for l in out['legs'] if l['pairAddress'] == pa)
+    assert not t.get('ride') and t['units'] == 1.5                               # +20%: a moon coin does NOT lock / bank at +15
+    card, px, pa = card_at(2.1)
+    out = ap.tick(card, px, [], [], cfg, 60, SOL[:1])
+    t = next(l for l in out['legs'] if l['pairAddress'] == pa)
+    assert t.get('ride') and t['units'] == 1.5                                    # 2×: locked, no 50% lock-bank
+    card, px, pa = card_at(3.2, ride=True, high=3.2, rideFrom=1.0, rideAtPct=100)
+    out = ap.tick(card, px, [], [], cfg, 60, SOL[:1])
+    t = next(l for l in out['legs'] if l['pairAddress'] == pa)
+    assert abs(t['units'] - 1.5 * 0.75) < 1e-9 and t['rungs'] == [3]              # 3×: 25% sold once, the bag rides
+    assert any('hit 3×' in (e.get('why') or '') for e in out['events'])
+    big = next(l for l in out['legs'] if l['mint'] == 'r1')
+    assert big['units'] >= 10.0 and not big.get('ride')                             # a normal coin keeps its own rules (it may receive the rung's cash)
+
+
+def test_a_normal_coin_still_locks_at_the_cards_line_with_the_moon_ladder_on():
+    cfg = ap.clean_cfg({**CFG, 'rideAt': 15, 'rideTrail': 20, 'lockBankPct': 50, 'instantSwapPct': 0, 'floorPct': 0, 'rescuePct': 0, 'moonLadder': True})
+    assert not ap.is_moon({'symbol': 'X'}, cfg) and ap.is_moon({'trench': True}, cfg) and ap.is_moon({'ticket': True}, cfg)
+    assert not ap.is_moon({'trench': True}, ap.clean_cfg({}))

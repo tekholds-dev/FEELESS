@@ -69,3 +69,22 @@ def test_tight_flow_exit_waits_out_the_first_minutes_but_the_rug_radar_does_not(
     assert hits == []                                                                      # bought 2 min ago: the tight exit waits
     _, hits = fl.flow_exits({'legs': [{**leg, 'at': NOW - 900}]}, {'p': w}, {'m': 0.95}, {'flowExit': 'tight', 'flowMinHoldMins': 10, 'rugRadar': False}, NOW)
     assert hits and hits[0][1] == 'flow'
+
+
+def test_tape_read_tells_burst_absorb_climax_and_dump_apart():
+    assert fl.tape_read(fl.window([T(30, 'buy', 120, 1.0), T(20, 'buy', 150, 1.01), T(10, 'sell', 40, 1.02), T(5, 'buy', 90, 1.025)], NOW)) == 'burst'
+    assert fl.tape_read(fl.window([T(30, 'sell', 120, 1.0), T(20, 'sell', 150, 1.0), T(10, 'buy', 40, 1.0), T(5, 'sell', 90, 0.998)], NOW)) == 'absorb'
+    assert fl.tape_read(fl.window([T(30, 'buy', 300, 1.0), T(20, 'buy', 250, 1.0), T(10, 'sell', 50, 1.001), T(5, 'buy', 200, 1.001)], NOW)) == 'climax'
+    assert fl.tape_read(fl.window([T(30, 'sell', 300, 1.0), T(20, 'sell', 250, 0.99), T(10, 'buy', 50, 0.98), T(5, 'sell', 200, 0.97)], NOW)) == 'dump'
+    assert fl.tape_read(fl.window([T(5, 'buy', 10, 1.0)], NOW)) is None
+    assert 'climax' in fl.entry_why(fl.window([T(30, 'buy', 300, 1.0), T(20, 'buy', 250, 1.0), T(10, 'sell', 50, 1.001), T(5, 'buy', 200, 1.001)], NOW))
+
+
+def test_a_winner_at_a_buying_climax_sells_half_its_profit_and_keeps_riding():
+    w = fl.window([T(30, 'buy', 300, 1.5), T(20, 'buy', 250, 1.5), T(10, 'sell', 50, 1.5), T(5, 'buy', 200, 1.5)], NOW)
+    leg = {'symbol': 'W', 'mint': 'm', 'pairAddress': 'p', 'units': 10, 'real': True, 'entry': 1.0, 'costUsd': 10.0, 'at': NOW - 3600}
+    out, hits = fl.flow_exits({'legs': [leg], 'cash': 0.0}, {'p': w}, {'m': 1.5}, {'flowExit': 'tight', 'rugRadar': False}, NOW)
+    l = out['legs'][0]
+    assert hits[0][1] == 'climax' and not l.get('placeholder') and abs(l['units'] - 10 * (1 - 2.5 / 15)) < 1e-6 and out['cash'] > 2.4
+    out2, hits2 = fl.flow_exits(out, {'p': w}, {'m': 1.5}, {'flowExit': 'tight', 'rugRadar': False}, NOW + 60)
+    assert hits2 == []                                                     # once per 15 min

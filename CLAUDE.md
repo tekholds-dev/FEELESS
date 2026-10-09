@@ -2540,3 +2540,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   at highs / thin pool only) for the 30s seat fallback; `ENTRY_MIN_VOL1H` $200K → $50K; the real card's vital-grade filter OFF as an
   engine gate (`_vital_off_fix_1009` — a hand-set score with no record). Placeholder row reads "seat open · the next clean coin takes it".
   WHEN SEATS SIT OPEN: read `pipeline.steps` — the step that drops to 0 is the choke, never stack another gate on top.
+- 🌙 MOON LADDER (`arena_prime.is_moon / moon_rungs`, cfg `moonLadder`, real card ON via `_moon_fix_1009` + trench 🏠 line 100): trench / ticket
+  coins don't lock at the card's +15% — they lock at 2× (`MOON_LOCK`), no lock-bank; the initial comes out at 2×; 25% sells at each rung
+  `MOON_RUNGS` 3/5/10/20/50× (leg `rungs`); trail ≥ 40% (`MOON_TRAIL`); a riding moon bag is never house-dust banked. Ticket stop unchanged.
+- 🌊 THE TAPE (`flow.tape_read`: ⚡ burst · 🧲 absorb · 🏔 climax · 🩸 dump · ➖ calm from the 90s window): `entry_why` waits on dump / climax;
+  `flow_exits` sells HALF the profit of a coin ≥ +20% into a 🏔 buying climax (once per 15 min, leg `climaxAt`, event `flowKind: 'climax'`
+  → its own flow_proof record); `_bangers` skips dump / climax and puts burst / absorb first (tagged); picker rows carry `tape` (top
+  `PICK_TAPE_TOP` 12, one batched `_flow_fetch`) and `entry` ('clean' or the gate's reason) → chips `sp-tape-*` / `sp-entry-*`.
+- 🤖 `entry_gate`: organic < 5% (`ENTRY_MIN_ORGANIC`, vital `organicPct`) = "bots" — $LOOT read BUY THE DIP on 2% organic volume.

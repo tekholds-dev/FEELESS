@@ -146,3 +146,10 @@ body.theme-day .qp-ico > a, body.theme-day .qp-ico > i { background: rgba(10,40,
 body.theme-day .qp-ico .qp-s-x { color: #10251a; }
 body.theme-day .qp-ico .qp-s-site { color: #1f6fb0; }
 @media (prefers-reduced-motion: reduce) { .qp-ico > a { transition: none; } }
+
+/* 🌊 live tape + 🎯 clean-entry chips on picker rows */
+.sp-tape { margin-left: 5px; padding: 1px 6px; border-radius: 999px; font: 700 9.5px "JetBrains Mono", monospace; font-style: normal; border: 1px solid currentColor; white-space: nowrap; }
+.sp-tape.is-burst { color: #45e486; } .sp-tape.is-absorb { color: #7fd4ff; } .sp-tape.is-climax { color: var(--gold, #f5c451); } .sp-tape.is-dump { color: #ff8fa3; }
+.sp-entry { margin-left: 4px; font-style: normal; font-size: 11px; cursor: help; }
+.sp-entry.is-no { opacity: .75; }
+body.theme-day .sp-tape.is-burst { color: #0f8a45; } body.theme-day .sp-tape.is-absorb { color: #1d6f9e; } body.theme-day .sp-tape.is-dump { color: #b4233f; }

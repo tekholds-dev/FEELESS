@@ -3060,6 +3060,9 @@ LIST_CACHE_SEC = 10   # ⚡ every viewer of a pick list shares one build for 10s
 _disc_cache: dict = {}
 
 
+PICK_TAPE_TOP = 12   # 🌊 the tape is read for the first 12 rows of a list (one batched call, 12s cache)
+
+
 @app.get('/api/reputation/fuses/discover')
 async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solana')):
     """The picker lists + 🧬 holder facts on every launch-coin row (top-10 · dev · insiders · bundled / sniper wallets, from the scan cache) and
@@ -3101,6 +3104,21 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
         _ja.fill_row(r, (_jup_facts.get(m_) or (0, None))[1], cmap_f.get(m_))
     _pc_rows(live)
     _fd_rows(live)
+    # 🌊 LIVE TAPE + 🎯 CLEAN ENTRY on the rows a picker actually looks at: the last 90s read (⚡ burst · 🧲 absorb · 🏔 climax · 🩸 dump ·
+    # ➖ calm) for the top PICK_TAPE_TOP, and the engine's own clean-entry verdict ("clean" or the reason) on every non-trench row
+    try:
+        fl_r = await _flow_fetch([r.get('pairAddress') for r in live[:PICK_TAPE_TOP] if r.get('pairAddress')])
+        for r in live[:PICK_TAPE_TOP]:
+            t_ = _flow.tape_read(fl_r.get(r.get('pairAddress')))
+            if t_:
+                r['tape'] = t_
+    except Exception:
+        pass
+    if lens != 'trench':
+        for r in live:
+            r['entry'] = _prime.entry_gate({**r, 'liq': r.get('liq') or r.get('liquidityUsd'), 'chg1h': r.get('chg1h') if r.get('chg1h') is not None else r.get('change1h'),
+                                            'chg5m': r.get('chg5m') if r.get('chg5m') is not None else r.get('change5m'),
+                                            'organicPct': (r.get('vital') or {}).get('organicPct')}) or 'clean'
     res_ = {**out, 'pools': live, 'dead': len(rows) - len(live)}
     _disc_cache[key_] = (time.time(), res_)
     return res_
@@ -7938,7 +7956,7 @@ async def _flow_guard(now, px):
                 _learn_drops(c_, nw_, lambda l: _fuse._f(px.get(l.get('mint'))), now)
                 cs_[tid_] = _prime.note_dropped(c_, nw_, now, rcfg['rotateHours'], {l.get('pairAddress'): px.get(l.get('mint')) for l in c_.get('legs') or []})
                 hit_any = True
-                noted += [(e.get('kind'), e.get('mint'), e.get('px')) for e in nw_['events'][-len(hits):]]
+                noted += [(e.get('flowKind') or e.get('kind'), e.get('mint'), e.get('px')) for e in nw_['events'][-len(hits):]]   # 🏔 climax sells keep their own record
         if hit_any:
             d_['prime'] = {**(d_.get('prime') or {}), 'cards': cs_}; _json_save(FUSE_HQ_PATH, d_)
     if noted:   # 📏 the exit's own record: the coin's move in the hour AFTER we sold (negative = the exit saved money)
@@ -8414,6 +8432,28 @@ async def _vital_off_fix_1009(now):
     return True
 
 
+async def _moon_fix_1009(now):
+    """🌙 Once (owner, 2026-10-09: "coins at 18K → 20M … got paid at 39K and skimmed to 40M"): the real card's trench / ticket coins play the
+    MOON LADDER — lock at 2× (the initial comes out there: trench 🏠 line 100), 25% at 3× / 5× / 10× / 20× / 50×, a 40% trail.
+    Old values: data/realcfg_before_moon1009.json."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('moonFix1009') or not rc:
+            return False
+        new = {'moonLadder': True, 'trenchHouseAt': 100}
+        _json_save(DATA_DIR / 'realcfg_before_moon1009.json', {k: rc.get(k) for k in new})
+        pr['realCfg'] = _prime.clean_cfg({**rc, **new})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(new))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(new))
+        for c in (pr.get('cards') or {}).values():
+            if c.get('real'):
+                c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🌙 moon ladder: trench coins lock at 2× (your initial comes out there), 25% sells at 3×/5×/10×/20×/50×, the bag rides a 40% trail · 🌊 the tape now times entries and sells half the profit into a buying climax'})
+        pr['moonFix1009'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _ticket_ride_fix(now):
     """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
     once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
@@ -8520,6 +8560,7 @@ async def _prime_tick_inner(now):
     await _flow_tight_fix_1009(now)
     await _entry_fix_1009(now)
     await _vital_off_fix_1009(now)
+    await _moon_fix_1009(now)
     await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
@@ -8891,7 +8932,14 @@ async def _prime_tick_inner(now):
             cfg_t = {**cfg_t, 'seatFallback': list({x.get('mint'): x for x in reversed(fb_)}.values())[::-1][:8], 'catPicks': cat_rows, 'catWatch': door_watch, 'catMiss': cat_miss,
                      'edgeReady': edge_ready, 'edgeWatch': edge_watch}
         if real_t and cfg_t.get('bangerRefill'):   # 🚀 every seat that opens (flow exit, stop, rotation, ride over) takes a banger first
-            cfg_t = {**cfg_t, 'bangers': _bangers(mine, cool, mom, _lq, _fw.clean_cfg(fw_cfg)['minLiqUsd'], now, gate=bool(cfg_t.get('entryGate')))}
+            b_ = _bangers(mine, cool, mom, _lq, _fw.clean_cfg(fw_cfg)['minLiqUsd'], now, gate=bool(cfg_t.get('entryGate')))
+            if b_:   # 🌊 the tape decides the order: ⚡ burst / 🧲 absorb first, a 🩸 dump or 🏔 climax (buying the top) waits
+                fl_b = await _flow_fetch([x.get('pairAddress') for x in b_[:8]])
+                tp_ = {x['mint']: _flow.tape_read(fl_b.get(x.get('pairAddress'))) for x in b_}
+                b_ = [{**x, 'tag': f"{_flow.TAPES[tp_[x['mint']]]} · {x['tag']}"} if tp_.get(x['mint']) in ('burst', 'absorb') else x
+                      for x in b_ if tp_.get(x['mint']) not in ('dump', 'climax')]
+                b_ = sorted(b_, key=lambda x: 0 if x['tag'].startswith(('⚡', '🧲')) else 1)
+            cfg_t = {**cfg_t, 'bangers': b_}
         if real_t and cfg_t.get('entryGate'):   # 🎯 the 30s seat fallback and Coming up's category picks obey clean entries too
             cfg_t = {**cfg_t, 'seatFallback': [x for x in cfg_t.get('seatFallback') or [] if not _prime.entry_gate(x, mom, core=True)]}   # 🪑 the 30s fill: core rules only
         # 🧊 anchors cool too: a major this card just sold isn't bought back for 3 rounds while another major is available

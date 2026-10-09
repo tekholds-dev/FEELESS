@@ -91,14 +91,48 @@ def rug_why(win, creator=None, watch=(), liq=None):
     return None
 
 
-def entry_why(win):
-    """🌊 FLOW ENTRY: a reason not to buy right now, or None (flow fine, or no tape to judge)."""
+TAPES = {'burst': '⚡ burst', 'absorb': '🧲 absorb', 'climax': '🏔 climax', 'dump': '🩸 dump', 'calm': '➖ calm'}
+
+
+def tape_read(win):
+    """🌊 THE TAPE (owner, 2026-10-09: "buy-vs-sell mechanics need to be complex for simple trenches — get us in and out at the perfect
+    time"): the last 90s of real swaps read as ONE of —
+      ⚡ burst  — buys ≥ 2× sells (≥ $150 bought) and the price climbing but not spiking (+0.5…+4%): the move is starting
+      🧲 absorb — sells ≥ 1.5× buys (≥ $100 sold) but the price HOLDS (≥ −0.5%): buyers are soaking up the selling
+      🏔 climax — buys ≥ 1.5× sells (≥ $300 bought) but the price stalls (≤ +0.3%) or the spike is past +6%: a top is forming
+      🩸 dump   — sells ≥ 2× buys and the price ≤ −2%
+      ➖ calm   — none of the above · None = too few trades (< 4) to read. Pure."""
     if not win or win.get('n', 0) < 4:
         return None
+    b, s, px = _f(win.get('buyUsd')), _f(win.get('sellUsd')), _f(win.get('pxChg'))
+    if s >= 2 * max(b, 0.01) and px <= -2.0:
+        return 'dump'
+    if b >= 1.5 * max(s, 0.01) and b >= 300 and (px <= 0.3 or px > 6.0):
+        return 'climax'
+    if b >= 2 * max(s, 0.01) and b >= 150 and 0.5 <= px <= 4.0:
+        return 'burst'
+    if s >= 1.5 * max(b, 0.01) and s >= 100 and px >= -0.5:
+        return 'absorb'
+    return 'calm'
+
+
+def entry_why(win):
+    """🌊 FLOW ENTRY: a reason not to buy right now, or None (flow fine, or no tape to judge). A 🩸 dump or a 🏔 climax (buying the top)
+    waits; sellers leading on a sliding price waits."""
+    if not win or win.get('n', 0) < 4:
+        return None
+    t = tape_read(win)
+    if t in ('dump', 'climax'):
+        return f"{TAPES[t]} on the last {FLOW_SEC}s tape — waits"
     b, s = _f(win.get('buyUsd')), _f(win.get('sellUsd'))
     if s > 1.3 * max(b, 0.01) and _f(win.get('pxChg')) < 0:
         return f"sellers lead the last {FLOW_SEC}s (${s:,.0f} sold vs ${b:,.0f} bought)"
     return None
+
+
+CLIMAX_GAIN = 20.0     # 🏔 a coin up at least this much sells half its PROFIT into a buying climax (once per 15 min)
+CLIMAX_PART = 0.5
+CLIMAX_EVERY = 900
 
 
 def leg_mode(leg, card_mode):
@@ -130,6 +164,22 @@ def flow_exits(card, flows, px_by_mint, cfg, now, sell_usd=None, intel=None):
             why = rug_why(win, it.get('creator'), it.get('watch') or (), l.get('liqNow') or l.get('liq'))
             kind = 'rug' if why else None
         held_ok = now - float(l.get('at') or 0) >= float((cfg or {}).get('flowMinHoldMins') or 0) * 60   # 🌊 tight exits wait out the first wobble
+        px_c, e_c = _f((px_by_mint or {}).get(l.get('mint'))), _f(l.get('entry'))
+        if (cfg or {}).get('flowExit', 'off') != 'off' and tape_read(win) == 'climax' and px_c > 0 and e_c > 0 and (px_c / e_c - 1) * 100 >= CLIMAX_GAIN \
+                and now - _f(l.get('climaxAt')) >= CLIMAX_EVERY and not l.get('frozen'):
+            # 🏔 SELL INTO STRENGTH: buyers are still piling in but the price stopped going up — half the profit goes now, the rest rides
+            units, cost = _f(l['units']), _f(l.get('costUsd')) or _f(l['units']) * e_c
+            part = max(0.0, (units * px_c - cost) * CLIMAX_PART) / (units * px_c)
+            if part > 0:
+                if c is None:
+                    c = {**card, 'legs': [dict(x) for x in card['legs']], 'events': list(card.get('events') or [])}
+                got = sell_usd(units * part, px_c, l.get('liq')) if sell_usd else units * part * px_c
+                c['legs'][i] = {**c['legs'][i], 'units': units * (1 - part), 'costUsd': round(cost * (1 - part), 6), 'trimAt': now, 'climaxAt': now}
+                c['cash'] = round(_f(c.get('cash')) + got, 6)
+                c['events'].append({'at': now, 'kind': 'skim', 'flowKind': 'climax', 'mint': l.get('mint'), 'px': px_c, 'symbol': l.get('symbol'), 'usd': round(got, 4), 'to': ['card'], 'fast': True,
+                                    'why': f"🏔 buying climax on ${l.get('symbol')} (+{(px_c / e_c - 1) * 100:.0f}%): ${_f(win.get('buyUsd')):,.0f} bought in {FLOW_SEC}s but the price stalled — half its profit sold into the buying"})
+                hits.append((l.get('symbol'), 'climax', 'buying climax'))
+                continue
         if not why and held_ok and not l.get('frozen') and not l.get('ride') and not l.get('rideOrRug'):
             why = exit_why(win, leg_mode(l, mode_card))
             kind = 'flow' if why else None

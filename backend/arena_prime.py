@@ -496,6 +496,7 @@ def clean_cfg(p):
     out['organicMin'] = int(_f((p or {}).get('organicMin'))) if int(_f((p or {}).get('organicMin'))) in (0, 5, 10, 20, 30) else 0   # … min organic share of 1h volume
     out['noSerial'] = bool((p or {}).get('noSerial', False))                                                                    # … skip serial launchers
     out['maxCoinPct'] = int(_f((p or {}).get('maxCoinPct'))) if int(_f((p or {}).get('maxCoinPct'))) in COIN_CAPS else 0
+    out['moonLadder'] = bool((p or {}).get('moonLadder', False))   # 🌙 trench / ticket coins: lock at 2×, 25% at 3×/5×/10×/20×/50×, 40% trail
     out['entryGate'] = bool((p or {}).get('entryGate', False))   # 🎯 clean entries on every door: buyers 60%+, no chasing, not at highs, $50K+ pool, 6h+, $200K+/h
     out['flowMinHoldMins'] = int(_f((p or {}).get('flowMinHoldMins'))) if int(_f((p or {}).get('flowMinHoldMins'))) in (0, 5, 10, 15) else 0   # 🌊 buys-vs-sells waits this long after a buy
     out['bangerRefill'] = bool((p or {}).get('bangerRefill', False))   # 🚀 a seat that opens takes a banger first: proven caller → top 3 → cooling off
@@ -1012,6 +1013,7 @@ ENTRY_MAX_5M = 3.0          # up more than this in the last 5 min = buying the c
 ENTRY_MIN_PULL = 3.0        # at least this % under its 4h high (when the chart is read) — never the top tick
 ENTRY_MIN_LIQ = 50_000.0
 ENTRY_MIN_AGE_H = 6.0
+ENTRY_MIN_ORGANIC = 5.0     # % of the hour's volume that is real (Jupiter's organic read)
 ENTRY_MIN_VOL1H = 50_000.0   # was $200K: it blocked ~half of Pump trending on a thin record (n 4 in the $50–200K bucket)
 
 
@@ -1020,6 +1022,9 @@ def entry_gate(x, mom=None, core=False):
     decide those). Trench tickets have their own rules and never pass through here. `core` = the seat-fill fallback's version: only
     sellers-leading / chasing / at-highs / thin pool (age + volume floors skipped) — a seat must end in a coin, not wait for good."""
     r = {**((mom or {}).get((x or {}).get('pairAddress')) or {}), **{k: v for k, v in (x or {}).items() if v is not None}}
+    org = r.get('organicPct') if r.get('organicPct') is not None else (r.get('vital') or {}).get('organicPct')
+    if org is not None and _f(org) < ENTRY_MIN_ORGANIC:   # 🤖 the volume is bots: a "dip" or a "breakout" on wash flow means nothing ($LOOT: 2%)
+        return f"bots — only {_f(org):.0f}% of the volume is real"
     if r.get('buyShare') is not None and _f(r['buyShare']) < ENTRY_BUY_MIN:
         return f"buyers only {_f(r['buyShare']):.0f}% (needs {ENTRY_BUY_MIN:g}%+)"
     if r.get('chg1h') is not None and _f(r['chg1h']) > ENTRY_MAX_1H:
@@ -1730,6 +1735,40 @@ SECOND_TICKETS, SECOND_TICKET_MIN, SECOND_CALLED_MIN = (0, 5, 10), 0.25, 2
 PAPER_TRY = {'fedRidePct': 50, 'secondTicketPct': 5}
 
 
+MOON_LOCK = 100.0                  # 🌙 a trench / ticket coin locks at 2×, not at the card's +15%
+MOON_TRAIL = 40.0                  # … and rides a wide trail
+MOON_RUNGS = (3, 5, 10, 20, 50)    # × its entry: 25% of what it holds is sold at each rung
+MOON_RUNG_PART = 0.25
+
+
+def is_moon(l, cfg):
+    """🌙 MOON LADDER (owner, 2026-10-09: "coins at 18K, 120K → 20M; got paid at 39K and skimmed to 40M"): trench coins and young-pick
+    tickets play for the moon — no +15% lock-bank, the initial comes out at 2×, 25% sells at 3× / 5× / 10× / 20× / 50×, the bag rides a
+    40% trail. Its own −20% ticket stop still limits a miss to a slice."""
+    return bool((cfg or {}).get('moonLadder') and ((l or {}).get('trench') or (l or {}).get('ticket')))
+
+
+def moon_rungs(c, l, px, liqs, now, fee=0.0):
+    """Sell 25% of the coin at each ladder rung it has passed (once each) → $ taken. In place."""
+    base = _f(l.get('rideFrom') or l.get('firstEntry') or l.get('entry'))
+    if base <= 0 or px <= 0 or _f(l.get('units')) <= 0:
+        return 0.0
+    done, got_all = set(l.get('rungs') or []), 0.0
+    for m in MOON_RUNGS:
+        if px >= base * m and m not in done:
+            sold = _f(l['units']) * MOON_RUNG_PART
+            got = sell_usd(sold, px, (liqs or {}).get(l['pairAddress']) or l.get('liq'))
+            part = sold / _f(l['units'])
+            l['units'] = _f(l['units']) - sold; l['costUsd'] = round(_f(l.get('costUsd')) * (1 - part), 6); l['trimAt'] = now
+            c['cash'] = round(_f(c.get('cash')) + got, 6); c['feesUsd'] = _f(c.get('feesUsd')) + fee
+            c['takenUsd'] = _f(c.get('takenUsd')) + got
+            done.add(m); got_all += got
+            c.setdefault('events', []).append({'at': now, 'kind': 'skim', 'symbol': l.get('symbol'), 'usd': round(got, 4), 'to': ['card'],
+                                               'why': f"🌙 ${l.get('symbol')} hit {m}× — 25% sold (${got:.2f}), the bag keeps riding a {MOON_TRAIL:g}% trail"})
+    l['rungs'] = sorted(done)
+    return got_all
+
+
 def fed_lock(ra, leg, cfg):
     """The lock line for this coin: the card's own, raised by `fedRidePct` while new launches are paired with it."""
     pct = _f((cfg or {}).get('fedRidePct'))
@@ -2068,7 +2107,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
 
     # 🏦 a coin already riding that has not banked yet (the setting came on later, or its bank never reached the chain) banks once now
     for l in c['legs']:
-        if l.get('ride') and not l.get('bankedAt') and not c.get('flooredAt'):
+        if l.get('ride') and not l.get('bankedAt') and not c.get('flooredAt') and not is_moon(l, cfg):
             px_b = _f(prices.get(l['pairAddress']))
             if px_b > 0 and px_b > _f(l.get('entry')):
                 lock_bank(c, l, px_b, liqs, now, cfg, fee, (px_b / _f(l['entry']) - 1) * 100 if _f(l.get('entry')) > 0 else None)
@@ -2227,11 +2266,15 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         ra, rt = _f(cfg.get('rideAt')) or RIDE_AT, _f(cfg.get('rideTrail')) or RIDE_TRAIL
         if not l.get('ride'):
             ra = fed_lock(ra, l, cfg)   # 🧲 new launches are paired with it → it locks later
+        if is_moon(l, cfg):   # 🌙 trench / ticket coins: lock at 2×, wide trail, rungs on the way up
+            ra, rt = max(ra, MOON_LOCK), max(rt, MOON_TRAIL)
         floor_g = min(HOLD_MIN, (_f(l.get('rideAtPct')) or ra) / 2)   # a +25% freeze can't demand +80%; a frozen coin keeps the line it froze at
         if cfg.get('trailStep') and l.get('ride'):   # 🪜 the more it is up, the more room it gets (see trail_for)
             rt = trail_for(rt, (max(_f(l.get('high')), px) / l['entry'] - 1) * 100)
         if l.get('ride'):
             l['high'] = max(_f(l.get('high')), px)
+            if is_moon(l, cfg):
+                moon_rungs(c, l, px, liqs, now, fee)
             if g >= floor_g and px > l['high'] * (1 - rt / 100):
                 continue   # still holding: above its floor and not rt% off its high
             why_end = (f"fell under +{floor_g:g}% ({g:+.0f}%)" if g < floor_g else f"fell {rt:g}% from its peak") + f" after riding to {l['high'] / (l.get('rideFrom') or l['entry']):.1f}×"
@@ -2278,7 +2321,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             ps_ = _f(cfg.get('peakSellPct', PEAK_SELL)); end_ = cfg.get('rideEnd') if cfg.get('rideEnd') in RIDE_ENDS else 'swap'
             then_ = ('keeps riding' if ps_ <= 0 else f'{ps_:g}% of its profit is sold' if ps_ < 100 else 'it is sold') + f" when it falls {rt:g}% from its peak; under +{min(HOLD_MIN, ra / 2):g}% the ride ends → " + {'swap': 'swapped', 'keep': 'kept on the card', 'cash': 'sold to card cash', 'bank': 'its profit banked, the coin stays'}[end_]
             ev(kind='ride', symbol=l['symbol'], usd=round(l['units'] * px, 4), why=f"+{g:.0f}% ≥ +{ra:g}% — ❄ frozen (riding): {then_}", to=[l['symbol']])
-            lock_bank(c, l, px, liqs, now, cfg, fee, g)
+            if not is_moon(l, cfg):   # 🌙 a moon coin pulls its initial at 2× instead (trench 🏠 line) and sells on the rungs
+                lock_bank(c, l, px, liqs, now, cfg, fee, g)
             continue
         elif l.get('house') and not l.get('ride'):
             continue   # 🏠 initial already out: what is left is house money — it rides (stops, trail, rug shield still apply), no TP whittling it to dust
@@ -3202,7 +3246,7 @@ def house_dust(c, prices, liqs, now, want_n, fee=0.0):
     out = []
     for l in list(c.get('legs') or []):
         px = _f((prices or {}).get(l.get('pairAddress')))
-        if not l.get('house') or l.get('frozen') or l.get('buying') or px <= 0 or _f(l.get('units')) <= 0 or len(c['legs']) <= 1:
+        if not l.get('house') or l.get('frozen') or l.get('buying') or px <= 0 or _f(l.get('units')) <= 0 or len(c['legs']) <= 1 or (l.get('ride') and l.get('rungs') is not None):
             continue
         if val(l) >= share * HOUSE_DUST_SHARE:
             continue
