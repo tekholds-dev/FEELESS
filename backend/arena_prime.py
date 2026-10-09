@@ -642,6 +642,7 @@ FLAT_BAND = 10.0                   # a coin within ±10% of its entry …
 VOL_CYCLE_MIN_VOL = 50_000.0       # 🌊 volume cycle: a coin trading at least this an hour …
 VOL_CYCLE_MIN_BUY = 52.0           # … with buyers ahead …
 VOL_EVERY = (5, 10, 15, 30)        # … swapped in for a flat coin at most every N minutes (cfg `volEvery`)
+VOL_CYCLE_MAX_1H = 150.0           # … never one already up more than this on the hour ($WOTF came in at +130,852% — a launch pump, the top)
 FLAT_HOLD_SEC = 1200.0             # … after at least 20 minutes on the card is "not moving"
 MOVER_EVERY_SEC = 1800.0           # at most one mover upgrade per card per 30 minutes
 
@@ -664,7 +665,7 @@ def vol_cycle_rows(rows):
     hour, buyers ≥ 52%, not red on the hour, and clean by the ⚡ rush rule (scan PASSED, no busted / wash / blow-off read, rug < 50, pool
     ≥ $20K, not a +15% / −5% 5-min candle). Busiest first. Pure."""
     out = [x for x in rows or [] if _f(x.get('vol1h')) >= VOL_CYCLE_MIN_VOL and _f(x.get('buyShare')) >= VOL_CYCLE_MIN_BUY
-           and (x.get('chg1h') is None or _f(x.get('chg1h')) >= 0) and rush_score(x) is not None]
+           and (x.get('chg1h') is None or 0 <= _f(x.get('chg1h')) <= VOL_CYCLE_MAX_1H) and rush_score(x) is not None]
     return sorted(out, key=lambda x: -_f(x.get('vol1h')))
 
 
