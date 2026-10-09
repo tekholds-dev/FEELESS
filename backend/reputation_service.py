@@ -3000,7 +3000,7 @@ def _clean_rows(rows):
         tv_ = _read_for(r, cmap_)   # 🎢 curve · 🧲 dip · 🔥 new coin — the read that fits it
         if tv_:
             r['tv'] = tv_
-            r['holders'] = r.get('holders') or jf.get('holders')
+            r['holders'] = r.get('holders') or (jf or {}).get('holders')
     return rows
 
 
@@ -3118,7 +3118,7 @@ def _wave_rows():
     except Exception:
         return []
     out = []
-    for r in _mt.wave_leaders(trend, [_with_tv(x) for x in _open_board()]):
+    for r in _mt.wave_leaders(trend, [_with_tv(x) for x in _clean_rows([dict(x) for x in _open_board()])]):   # _clean_rows fills site / X (raw rows have none)
         if _prime.trench_read_ok(r) and _fuse._f(r.get('price')) > 0:
             w = r['wave']
             out.append({**r, 'baseAddress': r['mint'], 'priceUsd': r.get('price'), 'liquidityUsd': r.get('liq'),
