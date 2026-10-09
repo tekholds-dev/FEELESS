@@ -2457,3 +2457,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   hour required · buyers ≥ 65% · scout off · mover swap off · newOnly off · 3 coins · ≤ 2 swaps an hour · parked profit back after 2
   rounds (was 6 = 3h idle on the owner's 30-min clock). Owner's clock / stop / hold / exits untouched. One command overnight:
   `bash scripts/background.sh start` (keep-alive under caffeinate; plugged in, lid open).
+- 🚨 RUG RADAR "ONE WALLET" NEEDS A POOL-SIZED SELL (`flow.RUG_ONE_POOL_PCT` 3, `rug_why(.., liq)` ← leg `liqNow` / `liq`; unknown depth =
+  judged as before): overnight 2026-10-09 it sold STONK / WETH / RAY / Fartcoin / CATE / DARK ×3 on a whale's $1K–13K sell into a deep
+  pool — its own record: 23 rug exits, median −0.4% an hour later (saved nothing) and every exit + refill was a round trip (102 swaps in
+  10h with a 2/h rotation cap — the cap only counts round rotations). Creator-sold and top-holder-dumped rules unchanged.
+  Flow exit's record is +3.7% after its sells (n 4, too few to act on yet). READ `data/flow_proof.json` BEFORE TRUSTING AN EXIT RULE.

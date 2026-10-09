@@ -49,3 +49,13 @@ def test_flow_exits_take_the_coin_off_like_a_fast_stop_and_respect_riders_and_pe
 def test_entry_flow_blocks_buying_into_sellers():
     w = fl.window([T(50, 'buy', 10, 1.0), T(40, 'sell', 30, 0.99), T(30, 'sell', 30, 0.98), T(20, 'buy', 5, 0.97)], NOW)
     assert fl.entry_why(w) and fl.entry_why(None) is None
+
+
+def test_one_big_seller_on_a_deep_pool_is_trading_not_a_rug():
+    # 2026-10-09: STONK / WETH / RAY / Fartcoin / DARK ×3 sold on a whale's sell into a deep pool — 23 exits, median −0.4% an hour later
+    w = fl.window([T(10, 'buy', 100, 1.0), T(5, 'sell', 13598, 0.99, 'WHALE')], NOW)
+    assert fl.rug_why(w, liq=1_200_000) is None                     # ~1% of a $1.2M pool: ordinary flow
+    assert 'one wallet' in fl.rug_why(w, liq=200_000)               # ~7% of a $200K pool: a real hit
+    assert 'one wallet' in fl.rug_why(w)                            # depth unknown: judged as before
+    dev = fl.window([T(10, 'buy', 100, 1.0), T(5, 'sell', 50, 0.97, 'DEV')], NOW)
+    assert 'creator' in fl.rug_why(dev, creator='DEV', liq=5_000_000)   # the creator selling always counts, however deep

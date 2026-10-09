@@ -20,6 +20,8 @@ RUG_DEV_USD = 20.0       # the creator selling this much inside the window
 RUG_WHALE_USD = 100.0    # a top-10 / bundle / sniper wallet selling this much
 RUG_ONE_SHARE = 0.5      # one sell ≥ half the window's flow …
 RUG_ONE_USD = 300.0      # … and at least this much
+RUG_ONE_POOL_PCT = 3.0   # … and ≥ this % of the pool's liquidity (2026-10-09: the radar sold STONK / WETH / RAY / Fartcoin / DARK ×3 on a
+                         # whale's $1K–13K sell into a deep pool — 23 rug exits, median −0.4% an hour later: it saved nothing, it churned)
 
 
 def _f(v):
@@ -66,7 +68,7 @@ def exit_why(win, mode='normal'):
     return f"🌊 sellers took over: ${s:,.0f} sold vs ${b:,.0f} bought in {FLOW_SEC}s, price {_f(win['pxChg']):+.1f}%"
 
 
-def rug_why(win, creator=None, watch=()):
+def rug_why(win, creator=None, watch=(), liq=None):
     """🚨 a dump from a wallet that matters → the reason, else None. `watch` = top-10 / bundle / sniper wallets of this coin."""
     if not win:
         return None
@@ -83,7 +85,8 @@ def rug_why(win, creator=None, watch=()):
         return f"🚨 a top holder / bundle wallet dumped ${max(big.values()):,.0f} in the last {FLOW_SEC}s"
     tot = _f(win.get('buyUsd')) + _f(win.get('sellUsd'))
     one = _f((win.get('bigSell') or {}).get('usd'))
-    if one >= RUG_ONE_USD and tot > 0 and one / tot >= RUG_ONE_SHARE and _f(win.get('pxChg')) < 0:
+    deep = _f(liq) > 0 and one < _f(liq) * RUG_ONE_POOL_PCT / 100   # a sell the pool absorbs easily is trading, not a rug (unknown depth = judged as before)
+    if one >= RUG_ONE_USD and tot > 0 and one / tot >= RUG_ONE_SHARE and _f(win.get('pxChg')) < 0 and not deep:
         return f"🚨 one wallet sold ${one:,.0f} — {one / tot * 100:.0f}% of all flow in {FLOW_SEC}s"
     return None
 
@@ -124,7 +127,7 @@ def flow_exits(card, flows, px_by_mint, cfg, now, sell_usd=None, intel=None):
         it = (intel or {}).get(l.get('mint')) or {}
         why, kind = None, None
         if rug_on:
-            why = rug_why(win, it.get('creator'), it.get('watch') or ())
+            why = rug_why(win, it.get('creator'), it.get('watch') or (), l.get('liqNow') or l.get('liq'))
             kind = 'rug' if why else None
         if not why and not l.get('frozen') and not l.get('ride') and not l.get('rideOrRug'):
             why = exit_why(win, leg_mode(l, mode_card))
