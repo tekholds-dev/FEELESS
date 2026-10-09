@@ -2504,8 +2504,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   server lenses + records still run (Coming up categories / list_paused read them). `exhale` + `procall` are in `LENS_TRACK` (own records).
   `_with_tv(r)`: raw `_open_board()` rows carry NO read — every safe-trench check computes it first (pro entries slipped past "no read").
 - 🧹 CLEAN + BANGERS 2026-10-09 (`_clean_fix_1009`, backup data/realcfg_before_clean1009.json):
-  · 🏠 `free_rider` / `seats_used`: a house-money rider (initial out, riding / frozen) rides OUTSIDE the owner's coin count — two 5–9¢ riders
-    held 2 of 4 seats while $1 sat idle. Seat refill + share use `seats_used`, never `len(legs)`.
+  · 🌙 4 COINS MEANS 4 (owner: "4 coins only, figure out a better way to moon"; replaced riding outside the count): `seats_used` = every
+    leg; `house_dust` banks a tiny house coin riding or not (only the owner's ❄ freeze is kept); `house_ok`: the 🏠 initial comes out
+    only once what STAYS is ≥ 40% of an equal seat — a 12¢ ticket's pull left a 4¢ rider; now the coin moons with its full size on the
+    lock bank + stepped trail until its profit alone is worth a seat.
   · ⚖ `cap_trim` (cfg `maxCoinPct` 0/25/35/50, real card 35): a coin over the cap (or 1.4× an equal seat when the count makes that larger)
     is trimmed to it; never riders / frozen / house / buying.
   · 🚀 `bangerRefill` (real card on): the service builds cfg `bangers` (`_bangers`: 🎯 pro-call entry → 🔥 `top_three` → 🧊 `_exhale_rows`;

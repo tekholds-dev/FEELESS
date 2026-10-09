@@ -2028,7 +2028,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             if ha <= 0 or l.get('house') or l.get('placeholder') or l.get('buying') or _f(l.get('units')) <= 0 or _f(l.get('entry')) <= 0:
                 continue
             px_h = _f(prices.get(l['pairAddress']))
-            if px_h > 0 and px_h >= _f(l['entry']) * (1 + ha / 100):
+            if px_h > 0 and px_h >= _f(l['entry']) * (1 + ha / 100) and house_ok(c, l, px_h, prices, int(_f(cfg.get('coins')))):
                 _take_stake(c, l, px_h, liqs, now, cfg.get('skimTo') or 'card', fee, auto=ha)
     sk = _f(cfg.get('skimAt'))
     if sk > 0 and not c.get('flooredAt'):
@@ -2511,7 +2511,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
       seated_pick = False; seated_any = False
       if want_n and seats_used(c) < want_n and not c.get('flooredAt') and not c.get('holdAll') and not c.get('rebuy'):   # 🔄 a rebuy's seat is spoken for
           _val = lambda x: (_f(x['units']) or (_f(x.get('wantUnits')) if x.get('buying') else 0.0)) * (_f(prices.get(x['pairAddress'])) or _f(x.get('entry')))
-          share = (sum(_val(x) for x in c['legs'] if not free_rider(x)) + free_cash) / want_n
+          share = (sum(_val(x) for x in c['legs']) + free_cash) / want_n
           role_s, nxt = next(((r, x) for r in ('runner', 'pool') for x in [best(r)] if x), (None, None))
           c.setdefault('seatEmptyAt', now)
           fb_seat = False
@@ -3077,15 +3077,11 @@ def rebuy_in(card, still_held, now):
 SEAT_QUEUE_MAX = 5
 
 
-def free_rider(l):
-    """🏠 A house-money RIDER (initial already out → it costs $0; riding or frozen) rides its trail OUTSIDE the seat count (owner,
-    2026-10-09: two 5–9¢ riders held 2 of 4 seats while $1 — a quarter of the card — sat idle with nowhere to go)."""
-    return bool(l.get('house') and (l.get('ride') or l.get('frozen')) and not l.get('placeholder'))
-
-
 def seats_used(c):
-    """Seats the owner's coin count is measured against: every coin except house-money riders."""
-    return sum(1 for l in (c or {}).get('legs') or [] if not free_rider(l))
+    """Seats the owner's coin count is measured against: EVERY coin on the card (owner, 2026-10-09: "4 coins only"). A tiny house-money
+    rider is banked by `house_dust` instead of riding outside the count, and the initial only comes out once what stays is a real
+    position (`house_ok`), so no seat is ever held by cents."""
+    return len((c or {}).get('legs') or [])
 
 
 COIN_CAPS = (0, 25, 35, 50)   # ⚖ cfg `maxCoinPct`: most of the card one coin may hold (0 = off)
@@ -3121,6 +3117,19 @@ def cap_trim(c, prices, liqs, now, cfg, fee=0.0):
     return out
 
 
+def house_ok(c, l, px, prices, want_n):
+    """🌙 MOON WITH SIZE (owner, 2026-10-09: "figure out a better way to moon"): the initial comes out only when what STAYS (the
+    profit) is a real position — ≥ `HOUSE_DUST_SHARE` of an equal seat. Pulling a 12¢ ticket's stake left a 4¢ rider that could never
+    move the card; now the coin keeps its full size and moons on the lock bank (half at the lock) + the stepped trail until its profit
+    alone is worth a seat — then the stake comes out and the house money rides. No seat count → the old rule (always pull)."""
+    if not want_n:
+        return True
+    val = lambda x: _f(x.get('units')) * (_f((prices or {}).get(x.get('pairAddress'))) or _f(x.get('entry')))
+    share = (sum(val(x) for x in c.get('legs') or [] if not x.get('placeholder')) + max(0.0, _f(c.get('cash')) - _f(c.get('holdCashUsd')))) / want_n
+    rest = _f(l.get('units')) * px - (_f(l.get('costUsd')) or _f(l.get('units')) * _f(l.get('entry')))
+    return rest >= share * HOUSE_DUST_SHARE
+
+
 HOUSE_DUST_SHARE = 0.4   # 🏠 house money worth under this part of an equal seat is sold (profit banked) and the seat refilled
 
 
@@ -3136,7 +3145,7 @@ def house_dust(c, prices, liqs, now, want_n, fee=0.0):
     out = []
     for l in list(c.get('legs') or []):
         px = _f((prices or {}).get(l.get('pairAddress')))
-        if not l.get('house') or l.get('ride') or l.get('frozen') or l.get('buying') or px <= 0 or _f(l.get('units')) <= 0 or len(c['legs']) <= 1:
+        if not l.get('house') or l.get('frozen') or l.get('buying') or px <= 0 or _f(l.get('units')) <= 0 or len(c['legs']) <= 1:
             continue
         if val(l) >= share * HOUSE_DUST_SHARE:
             continue

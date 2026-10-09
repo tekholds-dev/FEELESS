@@ -2610,15 +2610,15 @@ def test_tiny_house_money_is_banked_and_frees_its_seat_but_a_rider_keeps_running
                                {'symbol': 'RUN', 'pairAddress': 'r', 'units': 0.05, 'entry': 1.0, 'house': True, 'ride': True}]}
     px = {'b': 1.0, 'b2': 1.0, 'q': 1.0, 'r': 1.0}
     out = ap.house_dust(c, px, {}, 100, 4)
-    assert [s for s, _ in out] == ['QI'] and c['cash'] > 0.04                  # 5¢ vs a ~52¢ seat → banked
-    assert [l['symbol'] for l in c['legs']] == ['BIG', 'BIG2', 'RUN']          # a running rider keeps its trail
+    assert [s for s, _ in out] == ['QI', 'RUN'] and c['cash'] > 0.09           # 5¢ vs a ~52¢ seat → banked, riding or not ("4 coins only")
+    assert [l['symbol'] for l in c['legs']] == ['BIG', 'BIG2']
     assert ap.house_dust(c, px, {}, 100, 0) == []                              # no seat count → nothing to free
 
 
-def test_house_riders_ride_outside_the_seat_count_so_idle_cash_buys_a_real_coin():
-    c = {'legs': [{'symbol': 'A'}, {'symbol': 'B'}, {'symbol': 'Q', 'house': True, 'ride': True}, {'symbol': 'S', 'house': True, 'frozen': True},
-                  {'symbol': 'H', 'house': True}]}
-    assert ap.seats_used(c) == 3                                                  # A, B and the non-riding house coin H
+def test_four_coins_means_four_and_a_tiny_rider_is_banked_so_cash_buys_a_real_coin():
+    # owner, 2026-10-09: "4 coins only" — a 5–9¢ house rider no longer holds a seat (or rides outside the count)
+    c = {'legs': [{'symbol': 'A'}, {'symbol': 'B'}, {'symbol': 'Q', 'house': True, 'ride': True}]}
+    assert ap.seats_used(c) == 3
     cfg = ap.clean_cfg({**CFG, 'coins': 2, 'rideAt': 0, 'instantSwapPct': 0, 'floorPct': 0, 'rescuePct': 0, 'cycles': {'degen': 'off'}})
     card = ap.deal('degen', [P('a', 1)], [R('r1', 1), R('r2', 1)], cfg, 0, SOL[:1])
     card['legs'] = [ap._leg(R('r1', 1), 10.0, 0, 'runner')]
@@ -2629,9 +2629,16 @@ def test_house_riders_ride_outside_the_seat_count_so_idle_cash_buys_a_real_coin(
     card['cash'] = 10.0
     px = {l['pairAddress']: 1.0 for l in card['legs']}
     out = ap.tick(card, px, [], [R('r9', 1)], cfg, 120, SOL[:1])
-    mints = {l['mint'] for l in out['legs']}
-    assert mints == {'r1', 'rr', 'r9'}                                          # 2 coins asked: the rider stays AND a real 2nd coin is bought
-    assert ap.seats_used(out) == 2
+    assert {l['mint'] for l in out['legs']} == {'r1', 'r9'} and ap.seats_used(out) == 2   # the 50¢ rider on a ~$10 seat is banked, a real coin takes the seat
+
+
+def test_the_initial_only_comes_out_once_what_stays_is_a_real_position():
+    c = {'cash': 0.0, 'legs': [{'pairAddress': 'a', 'units': 1.0, 'entry': 1.0}, {'pairAddress': 'b', 'units': 1.0, 'entry': 1.0},
+                               {'pairAddress': 't', 'units': 0.1, 'entry': 1.0, 'costUsd': 0.1}]}
+    px = {'a': 1.0, 'b': 1.0, 't': 1.4}
+    assert not ap.house_ok(c, c['legs'][2], 1.4, px, 3)          # a 10¢ ticket at +40%: 4¢ would stay → keeps its full size and rides
+    assert ap.house_ok(c, c['legs'][2], 5.0, px, 3)               # at 5×: 40¢ of profit stays → the stake comes out
+    assert ap.house_ok(c, c['legs'][2], 1.4, px, 0)               # no coin count → the old rule
 
 
 def test_no_single_coin_holds_most_of_the_card():
