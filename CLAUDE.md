@@ -2591,3 +2591,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   OFF are on Edit Fuse's MAIN pane (`floorPct` 0 · `trenchSlPct` 100 = OFF: every ticket — trench drop AND young hand pick — rides or rugs,
   held tickets switch at once, `stop_word`; rug shield still acts; learned stop never overrides OFF). The floor NEVER sells a ❄ frozen coin.
   `_floor_off_fix_1009` set both OFF on the real card (backup data/realcfg_before_flooroff1009.json).
+- ⚡ TRENCH TAB = RUSH BOARD on top (`TrenchRush`, `rushScore` / `rushTop`, `trc-*` in quickPulse.css): the 3 cleanest trench coins —
+  never a failed scan, a busted / wash / blow-off read, rug ≥ 50 or a > +15% 5-min candle; scan + brain play + heat − rug + live 5-min
+  buying + socials. Each card: safety word, 🧠 chip, read, heat / rug bars, the shared `BsBar` (green / red: who is winning, the coin-edge
+  record — no new poller) and 📐 `LeanLine` (`leanOf`: 5m, 1h, buyers, pace, heat − rug → −1…+1 drawn as a line; a read, never a forecast),
+  one tap ⚡ RUSH IN (swap now). ⇄ HAND SWAP takes clean coins only (`_swap_clean`): the 🏆 Best list first, then no busted / wash / blow-off /
+  down-trend read, rug < 50, alive, core clean entry, busiest first — it used to take the biggest 1h pump. 🎯 `pick_from_park`: the owner's
+  seat pick draws parked profit at once when EVERY coin is locked (nothing to trim) — $QI waited 2 rounds behind a park.

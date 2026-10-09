@@ -3275,6 +3275,28 @@ def _live_movers():
     return _clean_rows(sorted(out, key=lambda r: -r['live'])[:60]) or []
 
 
+SWAP_BAD_READS = {'WASH TRADED', 'BLOW-OFF TOP', 'TREND DOWN', 'DEAD DIP'}   # + arena_prime.TRENCH_BAD_READS (added at use: module order)
+
+
+def _swap_clean(rows):
+    """🧹 The ⇄ hand swap's candidates (owner, 2026-10-09: "the auto swap button pulls BS coins — rug-worthy / washed"): the engine's own
+    🏆 Best list first (every door, clean entry, tape-checked), then only coins whose read is not a busted / wash / blow-off / down-trend
+    call, whose rug meter is < 50, that are alive and a clean entry (not chasing, not at its highs, sellers not leading), busiest first.
+    Nothing clean → the list is empty and the swap says so (never the biggest pump)."""
+    best_ = [x.get('mint') for x in _best_rows]
+    out = []
+    for x in rows or []:
+        m = x.get('mint')
+        if m in best_:
+            out.append((0, best_.index(m), x)); continue
+        tv = (_with_tv({**x, 'mint': m}) or {}).get('tv') or {}
+        call = ((tv.get('call') or [None, None])[1])
+        if call in SWAP_BAD_READS or call in _prime.TRENCH_BAD_READS or _fuse._f(tv.get('rug')) >= _prime.TRENCH_RUG_MAX or _ja.dead_why(x) or _prime.entry_gate(x, None, core=True):
+            continue
+        out.append((1, -_fuse._f(x.get('vol1h')), x))
+    return [x for *_k, x in sorted(out, key=lambda t: (t[0], t[1]))]
+
+
 async def _fuses_discover_raw(lens, chain):
     """Fuse Lab: browse real pools on the chain you're on, by lens (popular / yield / deep / new)."""
     if lens == 'exhale':
@@ -9615,10 +9637,11 @@ async def fuse_prime_admin(request: Request):
                 if card.get('real'):   # ⏳ the hand swap is a door too: the card's min age and no dollar-named tickers
                     lim_ = _fuse._f(cfg_r.get('runnerMinAgeH'))
                     runners = [x for x in runners if not _fw.dollar_named(x.get('symbol')) and not (lim_ > 0 and x.get('ageH') is not None and _fuse._f(x.get('ageH')) < lim_)]
+                if card.get('real'):   # 🧹 ⇄ takes CLEAN coins only: the engine's 🏆 Best list first, then coins with no rug / wash / blow-off read
+                    runners = _swap_clean(runners)
                 if card.get('real') and cfg_r.get('newOnly'):
-                    # 🆕 NEW COINS ONLY: ⇄ on ANY seat brings a launch coin, what is moving first — it used to replace a coin with
-                    # the best of the SAME KIND, so ⇄ on a major's seat bought $ORCA / $TRUMP again and again
-                    runners = sorted(runners, key=lambda x: -_fuse._f(x.get('chg1h')))
+                    # 🆕 NEW COINS ONLY: ⇄ on ANY seat brings a launch coin — it used to replace a coin with the best of the SAME KIND
+                    # ($ORCA / $TRUMP again and again), then the biggest 1h pump (washed / already-ran coins, owner 2026-10-09)
                     pools, anchors_r = runners, runners
                 cards[rep['tpl']] = _prime.note_dropped(card, _prime.replace_leg(card, rep['pairAddress'], px, pools, runners, anchors_r, cfg_r, time.time()), time.time(), cfg_r['rotateHours'], px)
                 if card.get('real') and cfg_r.get('newOnly'):

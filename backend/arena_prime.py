@@ -1687,6 +1687,41 @@ def clamp_hold(c, now=None):
     return round(cut, 6)
 
 
+def pick_from_park(c, prices, now, want_n):
+    """🎯 THE OWNER'S SEAT PICK IS FUNDED NOW (owner, 2026-10-09: "been a min, QI still not in — we rushing"; replaces "parked means
+    parked" for the owner's OWN picks only): with a hand pick queued for an empty seat and not enough free cash, parked profit is released
+    — oldest park first, a row is split — up to one equal share per queued pick (≤ the empty seats), ONLY when every coin is locked
+    (frozen / riding / house / buying — nothing the seat refill could trim). The engine's own seat refill still
+    never touches the park. Mutates c; → $ released."""
+    picks = ([c['seatPick']] if c.get('seatPick') else []) + list(c.get('seatQueue') or [])
+    empty = max(0, int(want_n or 0) - len(c.get('legs') or []))
+    park = list(c.get('skimPark') or [])
+    if not picks or not empty or not park or c.get('flooredAt') or c.get('holdAll'):
+        return 0.0
+    if any(not (l.get('frozen') or l.get('ride') or l.get('house') or l.get('buying') or l.get('placeholder') or l.get('ticket')) for l in c['legs']):
+        return 0.0   # a coin can still be trimmed to fund the seat (the seat refill does that) — the park stays parked
+    val = sum((_f(l.get('units')) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)) * (_f(prices.get(l.get('pairAddress'))) or _f(l.get('entry'))) for l in c['legs'])
+    reserved = sum(_f(l.get('reserveUsd')) for l in c['legs'] if l.get('placeholder')) + _f(c.get('holdCashUsd'))
+    free = max(0.0, _f(c.get('cash')) - reserved)
+    share = (val + _f(c.get('cash'))) / max(1, int(want_n))
+    need = min(len(picks), empty) * share - free
+    if need <= 0.01:
+        return 0.0
+    got, keep = 0.0, []
+    for p_ in sorted(park, key=lambda x: _f(x.get('at'))):
+        take = min(_f(p_.get('usd')), max(0.0, need - got))
+        got += take
+        if _f(p_.get('usd')) - take > 0.005:
+            keep.append({**p_, 'usd': round(_f(p_['usd']) - take, 6)})
+    got = min(got, _f(c.get('holdCashUsd')))
+    c['holdCashUsd'] = round(max(0.0, _f(c.get('holdCashUsd')) - got), 6)
+    c['skimPark'] = keep
+    if got > 0.005:
+        c.setdefault('events', []).append({'at': now, 'kind': 'compound', 'usd': round(got, 4),
+                                           'why': f"🅿 ${got:.2f} of parked profit released for your pick ${(picks[0] or {}).get('symbol')} — your pick never waits on the park"})
+    return got
+
+
 def release_parked(c, cfg, now):
     """🅿 Parked profit whose rounds are up goes back to work: it leaves the held cash, and the normal idle-cash spread puts it into
     the card's coins at this round. Mutates c; → $ released."""
@@ -2608,6 +2643,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         house_dust(c, prices, liqs, now, int(_f(cfg.get('coins'))), fee)   # 🏠 3–6¢ of house money never holds a whole seat
         cap_trim(c, prices, liqs, now, cfg, fee)                            # ⚖ no single coin holds most of the card
     release_parked(c, cfg, now)   # 🅿 parked profit whose rounds are up joins the idle cash — BEFORE free cash is counted (it used to wait one more tick)
+    pick_from_park(c, prices, now, int(_f(cfg.get('coins'))))   # 🎯 YOUR seat pick never waits on parked profit (owner, 2026-10-09: "QI still not in")
     # 🅿 PARKED MEANS PARKED (owner, 2026-10-07: "parked 6 rnds means just that"): nothing releases a park before its rounds are
     # up — not a queued pick, not an empty seat. A seat with no free cash is funded by trimming the coins above an equal share
     # (below), or waits. (Two earlier rules released the park for a pick: first all of it, then one seat's share.)

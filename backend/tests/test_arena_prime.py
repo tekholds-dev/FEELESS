@@ -2783,3 +2783,16 @@ def test_floor_never_sells_a_frozen_coin_and_ticket_stop_off_rides_every_ticket(
     tl = [l for l in t['legs'] if l['mint'] == 'T'][0]
     assert tl['sl'] == 100.0 and tl['units'] == 1.0                                       # stop OFF: a −40% ticket rides (floor off too)
     assert ap.ticket_sl(t, ap.YOUNG_PICK_SL) == 100                                        # new hand-pick tickets ride as well
+
+
+def test_your_seat_pick_is_funded_from_parked_profit_at_once():
+    import arena_prime as ap
+    now = 1_000_000.0
+    leg = lambda m, units, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'units': units, 'entry': 1.0, 'costUsd': units, 'at': now - 9999, 'liq': 5e6, **k}
+    c = {'legs': [leg('A', 1.0, frozen=True), leg('B', 1.0, frozen=True)], 'cash': 1.85, 'holdCashUsd': 1.85, 'rounds': 1008,
+         'skimPark': [{'usd': 1.85, 'round': 1008, 'at': now - 60, 'symbol': 'A'}], 'seatPick': {'symbol': 'QI', 'mint': 'QI'}, 'events': []}
+    got = ap.pick_from_park(c, {'PA': 1.0, 'PB': 1.0}, now, 4)
+    assert round(got, 2) == 0.96 and round(c['holdCashUsd'], 2) == 0.89 and round(c['skimPark'][0]['usd'], 2) == 0.89   # one equal share of $3.85 / 4
+    assert 'your pick $QI' in c['events'][-1]['why']
+    c2 = {**c, 'seatPick': None, 'skimPark': [{'usd': 1.0, 'round': 1, 'at': 0}], 'holdCashUsd': 1.0, 'events': []}
+    assert ap.pick_from_park(c2, {}, now, 4) == 0.0                                       # no pick of yours → the park stays parked

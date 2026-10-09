@@ -38,3 +38,14 @@ def test_live_movers_are_real_5_minute_moves_and_best_now_is_never_empty(monkeyp
     monkeypatch.setattr(rs, '_cand_map', lambda: {'E': {'liq': 60000, 'chg1h': 4}})
     best = asyncio.run(rs._fuses_discover_raw('best', 'solana'))['pools']
     assert best[0]['symbol'] == 'E' and best[0]['liquidityUsd'] == 60000 and 'evidence +2.2%/1h' in best[0]['divisionLabel']
+
+
+def test_hand_swap_takes_best_list_first_then_only_clean_coins(monkeypatch):
+    import reputation_service as rs
+    reads = {'W': 'WASH TRADED', 'B': 'BLOW-OFF TOP', 'C': 'COOLING', 'R': 'RUG BAIT', 'H': 'WATCH'}
+    monkeypatch.setattr(rs, '_with_tv', lambda x: {**x, 'tv': {'call': ['', reads.get(x['mint'], 'WATCH')], 'rug': 70 if x['mint'] == 'H' else 10}})
+    monkeypatch.setattr(rs, '_best_rows', [{'mint': 'Z'}])
+    row = lambda m, **k: {'mint': m, 'symbol': m, 'vol1h': 100_000, 'vol5m': 5000, 'txns1h': 500, 'buyShare': 60, 'chg1h': 20, 'chg5m': 1, 'liq': 80_000, **k}
+    rows = [row('W', chg1h=300), row('B'), row('C', vol1h=60_000), row('R'), row('H'), row('P', chg5m=9), row('OK'), row('Z')]
+    out = [x['mint'] for x in rs._swap_clean(rows)]
+    assert out == ['Z', 'OK', 'C']          # 🏆 Best first · wash / blow-off / rug bait / rug meter 70 / mid-candle chase all out · busiest first

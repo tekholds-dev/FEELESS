@@ -925,6 +925,42 @@ export const stopsLine = st => { const by = st?.by || {}; const ks = Object.keys
 function BrainNote({ b }) {
   return <small className="m-dim sp-tnote" data-testid="sp-brain-note">{brainLine(b)}{b?.stops && stopsLine(b.stops) ? <><br />{stopsLine(b.stops)}</> : null}</small>;
 }
+// ⚡ RUSH BOARD (owner, 2026-10-09: "trench category UI/layout must be upgraded and ready to rush"): the 3 trench coins most worth a
+// small ticket RIGHT NOW. A failed safety scan never shows; a busted / wash read never shows. Score = scan (+20 safe, unscanned 0) +
+// the brain's learned play + heat − rug + live 5-min buying + socials. A ranking of what is on screen — never a promise.
+const RUSH_BAD = new Set(['RUG BAIT', 'DUMPING', 'BOND RUN', 'EARLY RUSH', 'SLOW CURVE', 'BREAKOUT', 'FALLING KNIFE', 'WASH TRADED', 'BLOW-OFF TOP', 'DEAD DIP', 'TREND DOWN']);
+export const rushScore = r => { if (!r || r.safe === false || RUSH_BAD.has(r.tv?.call?.[1]) || Number(r.rug ?? r.tv?.rug) >= 50 || Number(r.chg5m) > 15) return null;   /* > +15% in one 5-min candle = a buying top, never rushed */
+  const c5 = Number(r.chg5m) || 0; const buys = Number(r.buyShare) || 0;
+  return (r.safe === true ? 20 : 0) + (r.brain ? Number(r.brain.est) || 0 : 0) + (Number(r.tv?.heat) || 0) * 0.3 - (Number(r.rug ?? r.tv?.rug) || 0) * 0.4
+    + (c5 > 0 && buys >= 55 ? c5 : 0) + (r.site && r.x ? 5 : 0); };
+export const rushTop = (rows, n = 3) => (rows || []).map(r => [rushScore(r), r]).filter(([v]) => v != null).sort((a, b) => b[0] - a[0]).slice(0, n).map(([v, r]) => ({ ...r, rush: Math.round(v) }));
+// 📐 LEAN (owner: "a line for where it's going based on momentum, activity, vitals"): −1 … +1 from the 5-min move, the hour, who is
+// buying, the 5-min pace vs the hour and heat − rug. Drawn as a line from now; a READ of what the numbers lean toward, never a forecast.
+const clamp1 = v => Math.max(-1, Math.min(1, v));
+export const leanOf = r => { const c5 = Number(r?.chg5m) || 0, c1 = Number(r?.chg1h) || 0, b = r?.buyShare != null ? Number(r.buyShare) - 50 : 0;
+  const v1 = Number(r?.vol1h) || 0, pace = v1 > 0 ? (Number(r?.vol5m) || 0) * 12 / v1 : 1; const hr = ((Number(r?.tv?.heat) || 0) - (Number(r?.rug ?? r?.tv?.rug) || 0)) / 100;
+  return Math.round(clamp1(clamp1(c5 / 15) * 0.35 + clamp1(c1 / 60) * 0.2 + clamp1(b / 20) * 0.25 + clamp1((pace - 1) * (c5 >= 0 ? 1 : -1)) * 0.1 + clamp1(hr) * 0.1) * 100) / 100; };
+export function LeanLine({ r }) {
+  const v = leanOf(r); const dir = v > 0.15 ? 'up' : v < -0.15 ? 'down' : 'flat'; const y = 14 - v * 11;
+  return <span className={`trc-lean is-${dir}`} data-testid={`lean-${r?.symbol}`} data-tip={`Lean ${v >= 0 ? '+' : ''}${v}: 5-min move, the hour, buyers, 5-min pace vs the hour, heat vs rug. What the numbers lean toward right now — not a forecast.`}>
+    <svg viewBox="0 0 120 28" aria-hidden="true"><line x1="0" y1="14" x2="120" y2="14" className="trc-lean-base" /><line x1="4" y1="14" x2="60" y2={14 - v * 5} className="trc-lean-now" /><line x1="60" y1={14 - v * 5} x2="116" y2={y} className="trc-lean-next" /><circle cx="116" cy={y} r="2.5" /></svg>
+    <small>{dir === 'up' ? '↗ leaning up' : dir === 'down' ? '↘ leaning down' : '→ flat'}</small></span>;
+}
+function TrenchRush({ rows, onPick, busy, cool }) {
+  const top = rushTop(rows);
+  if (!top.length) return <div className="trc trc-empty" data-testid="trench-rush"><b>⚡ RUSH BOARD</b><small>Nothing clean enough to rush right now — no failed scans, no rug / wash / blow-off reads. The list below still has everything.</small></div>;
+  return <div className="trc" data-testid="trench-rush"><b className="trc-h">⚡ RUSH BOARD <small>the 3 cleanest trench coins right now · one tap = a small ticket</small></b>
+    <div className="trc-row">{top.map((r, i) => { const c5 = Number(r.chg5m); const safe = r.safe === true; return <div key={r.mint} className={`trc-card is-${i}`} style={{ '--i': i }} data-testid={`rush-${r.symbol}`}>
+      <span className="trc-top">{r.logo ? <img src={r.logo} alt="" loading="lazy" /> : <em>{(r.symbol || '?')[0]}</em>}<span><button type="button" className="trc-sym" onClick={() => openCoin(r)}>${r.symbol}</button>
+        <small>{r.ageH != null ? (r.ageH < 1 ? `${Math.round(r.ageH * 60)}m` : `${r.ageH.toFixed(1)}h`) : '—'} · {r.mcap ? usdK(r.mcap) : '—'} cap</small></span><i className="trc-rank">{['🥇', '🥈', '🥉'][i]}</i></span>
+      <span className="trc-tags"><i className={safe ? 'is-ok' : 'is-wait'} data-tip={safe ? 'passed the holder safety scan' : 'holders not scanned yet — a bigger risk'}>{safe ? '✅ safe' : '❔ unscanned'}</i>
+        {r.brain && <i className={r.brain.est >= 0 ? 'is-ok' : 'is-bad'} data-tip="what coins like this did on the brain's record (+50% first = a hit)">🧠 {r.brain.est >= 0 ? '+' : ''}{Math.round(r.brain.est)}%</i>}
+        {r.tv?.call?.[1] && <i>{r.tv.call[0]} {r.tv.call[1]}</i>}</span>
+      <span className="trc-bars"><i data-tip="🔥 heat">🔥<u style={{ transform: `scaleX(${Math.min(1, (Number(r.tv?.heat) || 0) / 100)})` }} /></i><i className="is-rug" data-tip="☠ rug meter">☠<u style={{ transform: `scaleX(${Math.min(1, (Number(r.rug ?? r.tv?.rug) || 0) / 100)})` }} /></i></span>
+      <span className="trc-num"><b className={c5 >= 0 ? 'm-pos' : 'm-neg'}>{Number.isFinite(c5) ? `${c5 >= 0 ? '+' : ''}${c5.toFixed(0)}% 5m` : '— 5m'}</b><small>{r.buyShare != null ? `${Math.round(r.buyShare)}% buys` : ''}{r.vol1h ? ` · ${usdK(r.vol1h)}/h` : ''}</small><SocialIcons r={r} /></span>
+      {r.mint && <BsBar mint={r.mint} />}<LeanLine r={r} />
+      <button type="button" className="m-btn m-go trc-go" disabled={busy || cool?.[r.mint] > 0} onClick={() => onPick(r)} data-testid={`rush-go-${r.symbol}`}>⚡ RUSH IN</button></div>; })}</div></div>;
+}
 export const PICK_LENSES = [['best', '🏆 Best now'], ['live', '🚀 Live movers'], ['ptrend', '🔥 Pump trending'], ['procall', '🎯 Proven callers'], ['wave', '🌊 Narrative leaders'], ['exhale', '🧊 Cooling off'], ['trench', '🗑 Trench · 🧠 brain'], ['majors', '🪙 Majors & stocks']];
 const LENS_URLS = { majors: ['majors', 'stocks', 'risers'] };   // one tab, several sources (first source first; one row per coin)
 const LENS_RECORD = {};   // the record shown on a merged tab
@@ -1108,6 +1144,7 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
     {lens === 'trench' && !q.trim() && tr?.brain && <BrainNote b={tr.brain} />}
     {lens === 'exhale' && !q.trim() && <small className="m-dim sp-tnote" data-testid="sp-exhale-note">🧊 Coins that ran and are now breathing out — the read says DRYING UP or COOLING. The only two reads with a positive 1-hour record (+1.9% · 62% up, +0.6% · 57% up). Safety-scanned, rug meter under 50. Buy the exhale, not the pump.</small>}
     {lens === 'trench' && !q.trim() && tr && <small className="m-dim sp-tnote" data-testid="sp-trench-note" data-tip={`${tr.rules}${tr.level ? ` · crowd checks widened ×${tr.level} (safety checks never move)` : ''}`}>🗑 Pick a brand-new coin: tap <b>Pick</b> on any row below. High risk — check the Safety column, keep it to 1–2 coins. Pool floor {big(tr.floor)} · {tr.checked} scanned.</small>}
+    {lens === 'trench' && !q.trim() && rows && <TrenchRush rows={rows} onPick={r => onPick(r, true)} busy={busy} cool={cool} />}
     {lens === 'trench' && !q.trim() && call && <TrenchScan call={call} bare onSaved={() => setNonce(n => n + 1)} onPickRow={r => onPick(pickRow({ ...r, score: r.front, soft: true }), true)} pickBusy={busy} />}
     {!rows ? <span className="loader" /> : !rows.length ? <small className="m-dim">{lens === 'trench' && !q.trim() ? 'No fresh coin passes the safety checks right now — the scan re-runs every ~2 min. Try 🌊 Volume.' : (why || 'Nothing live here right now — try another list or search.')}</small> :
     (() => { const lanes = callLanes(rows); const shown = applyView(rows, vview).filter(r => !callF || r.tv?.call?.[1] === callF); return <>
