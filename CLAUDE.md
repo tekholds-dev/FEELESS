@@ -2598,3 +2598,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   one tap ⚡ RUSH IN (swap now). ⇄ HAND SWAP takes clean coins only (`_swap_clean`): the 🏆 Best list first, then no busted / wash / blow-off /
   down-trend read, rug < 50, alive, core clean entry, busiest first — it used to take the biggest 1h pump. 🎯 `pick_from_park`: the owner's
   seat pick draws parked profit at once when EVERY coin is locked (nothing to trim) — $QI waited 2 rounds behind a park.
+- 🌊 CARD COIN ROWS = BUYS vs SELLS (owner, 2026-10-09: "green and red bar under each coin, if more red show a little green"): `LegFlow` in
+  FuseCard replaces the 5-min heat bar on every Fuse card's live side — green = $ bought, red = $ sold (coin-edge `bs` 5m, else 1h; the
+  split IS the share), plus a 📐 lean line (`lib/lean.js` `leanOf`, shared with the Rush board's `LeanLine`).

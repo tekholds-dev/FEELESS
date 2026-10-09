@@ -3,8 +3,14 @@
 .fcd-legs .fcd-leg::before { content: ''; position: absolute; inset: 0; border-radius: inherit; opacity: 0; pointer-events: none; }
 .fcd-legs .fcd-leg .fcl-logo { display: inline-block; max-width: 14px; width: 14px; height: 14px; flex: none; border-radius: 50%; object-fit: cover; vertical-align: -2px; margin-right: 4px; }
 .fcl-st { font-style: normal; margin-left: 4px; font-size: 10px; }
-.fcl-heat { position: absolute; left: 0; bottom: 0; width: 100%; height: 2px; transform-origin: left; border-radius: 2px; transition: transform .6s ease; }
-.fcl-heat.is-up { background: linear-gradient(90deg, #15d16a, #45e486); } .fcl-heat.is-dn { background: linear-gradient(90deg, #ff6b86, #ff8fa3); }
+.fcl-flow { position: absolute; left: 0; right: 0; bottom: 0; height: 12px; display: block; pointer-events: none; }
+.fcl-flow > i { position: absolute; bottom: 0; height: 3px; width: calc(100% - 44px); border-radius: 2px; transition: transform .6s ease; }
+.fcl-b { left: 0; transform-origin: left; background: linear-gradient(90deg, #15d16a, #45e486); }
+.fcl-s { left: 0; transform-origin: right; background: linear-gradient(90deg, #ff6b86, #ff8fa3); }
+.fcl-none { left: 0; background: rgba(255, 255, 255, .1); }
+.fcl-lean { position: absolute; right: 0; bottom: 0; width: 40px; height: 12px; overflow: visible; }
+.fcl-lean line { stroke-width: 1.6; stroke-dasharray: 3 2; } .fcl-lean.is-up line, .fcl-lean.is-up circle { stroke: #45e486; fill: #45e486; }
+.fcl-lean.is-down line, .fcl-lean.is-down circle { stroke: #ff8fa3; fill: #ff8fa3; } .fcl-lean.is-flat line, .fcl-lean.is-flat circle { stroke: #9ab; fill: #9ab; }
 .fcl-flip { display: inline-block; animation: fclFlip .5s ease-out; }
 .fcd-leg.is-riding::before { opacity: 1; box-shadow: inset 2px 0 0 #9fe3ff; background: linear-gradient(90deg, rgba(159, 227, 255, .12), transparent 60%); }
 .fcd-leg.is-frozen::before { opacity: 1; box-shadow: inset 2px 0 0 #7fb8ff; background: linear-gradient(90deg, rgba(127, 184, 255, .1), transparent 60%); }
@@ -15,5 +21,5 @@
 @keyframes fclScan { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
 @keyframes fclFlip { from { transform: translateY(-4px) scale(1.08); opacity: .4; } to { transform: none; opacity: 1; } }
 body.fx-lite .fcd-leg.is-hot::before, body.fx-lite .fcd-leg.is-dump::before { animation: none; opacity: 1; } body.fx-lite .fcd-leg.is-buying::after, body.fx-lite .fcl-flip { animation: none; }
-@media (prefers-reduced-motion: reduce) { .fcd-leg.is-hot::before, .fcd-leg.is-dump::before { animation: none; opacity: 1; } .fcd-leg.is-buying::after, .fcl-flip { animation: none; } .fcl-heat, .fcd-legs .fcd-leg { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .fcd-leg.is-hot::before, .fcd-leg.is-dump::before { animation: none; opacity: 1; } .fcd-leg.is-buying::after, .fcl-flip { animation: none; } .fcl-flow > i, .fcd-legs .fcd-leg { transition: none; } }
 @media (max-width: 640px) { .fcd-legs .fcd-leg .fcl-logo { display: none; } }

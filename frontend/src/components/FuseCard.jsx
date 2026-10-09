@@ -9,6 +9,8 @@ import { legTarget } from '../lib/fuseGo';
 import { useLivePrices } from '../lib/livePrices';
 
 import { tiny } from '../lib/num';
+import { useCoinEdge } from '../lib/coinEdge';
+import { leanOf } from '../lib/lean';
 // A Fuse champion as a collectible card: drag to tilt, ⟲ to flip. Front = grade crest + the fused pools;
 // back = every number behind its score. Grade sets rarity, strategy sets the design.
 const RARITY = { A: 'legendary', B: 'epic', C: 'rare', D: 'common', F: 'common' };
@@ -88,6 +90,20 @@ export function revalue(r, live) {
 const m$ = v => `${v < 0 ? '−' : ''}$${Math.abs(v || 0).toFixed(2)}`;
 // 🫀 each coin row on the card's live side has its own state (owner: "the inner fuse cards need live styling"): riding = ice edge, frozen,
 // buying = gold scan, hot = its 5-min move is big (pulse), cold = barely trading. A heat bar under the row = its live 5-min move (±15% = full).
+// 🌊 Under every coin on a card: GREEN = $ bought, RED = $ sold (last 5 min, else the hour) — the split is the share, so a coin sellers
+// are winning shows mostly red and a sliver of green — and a 📐 lean line from its move, buyers and pace. Shared coin-edge record: no new poller.
+export function LegFlow({ l, m5, h1 }) {
+  const bs = useCoinEdge(l.mint)?.bs;
+  const w = bs?.['5m'] || bs?.['1h'] || null;
+  const tot = w ? (w.buyUsd || 0) + (w.sellUsd || 0) : 0;
+  const b = tot > 0 ? w.buyUsd / tot : null;
+  const v = leanOf({ chg5m: m5, chg1h: h1, buyShare: b == null ? null : b * 100 });
+  const dir = v > 0.15 ? 'up' : v < -0.15 ? 'down' : 'flat';
+  return <span className="fcl-flow" aria-hidden data-testid={`legflow-${l.symbol}`}>
+    {b == null ? <i className="fcl-none" /> : <><i className="fcl-b" style={{ transform: `scaleX(${Math.max(0.04, b)})` }} /><i className="fcl-s" style={{ transform: `scaleX(${Math.max(0.04, 1 - b)})` }} /></>}
+    <svg className={`fcl-lean is-${dir}`} viewBox="0 0 40 12"><line x1="2" y1="6" x2="36" y2={6 - v * 5} /><circle cx="36" cy={6 - v * 5} r="1.6" /></svg></span>;
+}
+
 export const legState = (l, m5) => (l.soldUsd != null ? '' : l.buying ? 'is-buying' : l.frozen ? 'is-frozen' : l.riding || l.ride ? 'is-riding'
   : m5 != null && Math.abs(m5) >= 5 ? (m5 >= 0 ? 'is-hot' : 'is-dump') : '');
 const STATE_ICON = { 'is-riding': '❄', 'is-frozen': '🧊', 'is-hot': '🔥', 'is-dump': '🩸', 'is-buying': '⏳' };
@@ -119,7 +135,7 @@ export function LiveFuseCard({ r: r0, aura = '', look = null, label = null, serv
       <b><LegLogo l={l} />{l.role === 'runner' ? '🏃 ' : l.role === 'anchor' ? '⚓ ' : ''}{l.symbol}{STATE_ICON[st] && <i className="fcl-st">{STATE_ICON[st]}</i>}</b>
       <em key={l.buying ? 'b' : l.pnlPct.toFixed(1)} className={`fcl-flip ${l.buying ? 'fcd-buying' : l.pnlPct >= 0 ? 'up' : 'down'}`}>{l.buying ? '⏳ buying…' : l.soldUsd != null ? 'sold' : `${l.pnlPct >= 0 ? '+' : ''}${l.pnlPct.toFixed(1)}% · ${l.pnlUsd >= 0 ? '+' : '−'}${m$(Math.abs(l.pnlUsd || 0)).replace('−', '')}`}</em>
       <span>{l.buying ? 'keeper retries next tick' : `${m$(l.usd)} in → ${m$(l.valueUsd)} now`}</span>
-      {m5 != null && l.soldUsd == null && <i className={`fcl-heat ${m5 >= 0 ? 'is-up' : 'is-dn'}`} aria-hidden style={{ transform: `scaleX(${Math.max(0.03, Math.min(1, Math.abs(m5) / 15))})` }} />}</li>; })}</ul>
+      {l.soldUsd == null && <LegFlow l={l} m5={m5} h1={live.get(l.pairAddress)?.h1} />}</li>; })}</ul>
     <dl className="fcd-sum"><dt>Put in</dt><dd>{m$(r.costUsd)}</dd><dt>In card</dt><dd>{m$(r.valueUsd - paid)}</dd><dt>Paid out</dt><dd className="up">{m$(paid)}</dd>
       <dt>P&L</dt><dd className={up ? 'up' : 'down'}><b>{m$(r.pnlUsd)} ({up ? '+' : ''}{r.pnlPct.toFixed(1)}%)</b></dd></dl>
     <small className="fcd-note">● Live prices every 3s · {label && label.includes('PAPER') ? 'paper at true fills' : 'exact fills from chain'} · fees apart.</small>

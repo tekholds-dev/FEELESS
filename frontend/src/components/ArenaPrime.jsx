@@ -28,6 +28,8 @@ import { createPortal } from 'react-dom';
 import { BsBar } from './BsBar';
 import { SocialIcons } from './QuickPulse';
 import { useFloatPop } from '../lib/floatPop';
+import { leanOf } from '../lib/lean';
+export { leanOf };
 import { FuseBanner, CallAlert } from './QuickPulse';
 import { PayMap } from './PayMap';
 
@@ -936,10 +938,6 @@ export const rushScore = r => { if (!r || r.safe === false || RUSH_BAD.has(r.tv?
 export const rushTop = (rows, n = 3) => (rows || []).map(r => [rushScore(r), r]).filter(([v]) => v != null).sort((a, b) => b[0] - a[0]).slice(0, n).map(([v, r]) => ({ ...r, rush: Math.round(v) }));
 // 📐 LEAN (owner: "a line for where it's going based on momentum, activity, vitals"): −1 … +1 from the 5-min move, the hour, who is
 // buying, the 5-min pace vs the hour and heat − rug. Drawn as a line from now; a READ of what the numbers lean toward, never a forecast.
-const clamp1 = v => Math.max(-1, Math.min(1, v));
-export const leanOf = r => { const c5 = Number(r?.chg5m) || 0, c1 = Number(r?.chg1h) || 0, b = r?.buyShare != null ? Number(r.buyShare) - 50 : 0;
-  const v1 = Number(r?.vol1h) || 0, pace = v1 > 0 ? (Number(r?.vol5m) || 0) * 12 / v1 : 1; const hr = ((Number(r?.tv?.heat) || 0) - (Number(r?.rug ?? r?.tv?.rug) || 0)) / 100;
-  return Math.round(clamp1(clamp1(c5 / 15) * 0.35 + clamp1(c1 / 60) * 0.2 + clamp1(b / 20) * 0.25 + clamp1((pace - 1) * (c5 >= 0 ? 1 : -1)) * 0.1 + clamp1(hr) * 0.1) * 100) / 100; };
 export function LeanLine({ r }) {
   const v = leanOf(r); const dir = v > 0.15 ? 'up' : v < -0.15 ? 'down' : 'flat'; const y = 14 - v * 11;
   return <span className={`trc-lean is-${dir}`} data-testid={`lean-${r?.symbol}`} data-tip={`Lean ${v >= 0 ? '+' : ''}${v}: 5-min move, the hour, buyers, 5-min pace vs the hour, heat vs rug. What the numbers lean toward right now — not a forecast.`}>
