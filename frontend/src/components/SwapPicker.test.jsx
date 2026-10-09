@@ -21,7 +21,7 @@ test('the real-card swap picker has every Lab lens + search, flags thin pools an
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<SwapPicker out={{ symbol: 'WIF' }} have={[]} minLiq={20000} onPick={r => picks.push(r)} onClose={() => {}} />); });
   await tick();
-  expect(PICK_LENSES.map(x => x[0])).toEqual(['best', 'ptrend', 'procall', 'wave', 'exhale', 'brain', 'trench', 'majors']);   // eight lists: seven ranked by their own records + the 🧠 trench brain
+  expect(PICK_LENSES.map(x => x[0])).toEqual(['best', 'live', 'ptrend', 'procall', 'wave', 'exhale', 'trench', 'majors']);   // eight lists; the 🧠 brain lives inside Trench
   // 🚀 it opens on what is MOVING (the live launch feed by hourly move) …
   expect(urls.find(u => u.includes('/fuses/discover'))).toContain('/fuses/discover?lens=best');   // 🏆 Best now opens first (the engine's own pick list)
   expect(el.querySelector('[data-testid="sp-best-note"]').textContent).toMatch(/open seat/);

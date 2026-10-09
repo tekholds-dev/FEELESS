@@ -5,24 +5,28 @@ def row(m, px=1.0, **k):
     return {'mint': m, 'symbol': m.upper(), 'price': px, 'ageH': 0.5, 'mcap': 50e3, 'buyShare': 60, 'top10': 20, 'safe': True, **k}
 
 
-def test_first_touch_settles_hit_cut_end_and_gone():
-    st = tb.track({}, [row('a'), row('b'), row('c'), row('d')], lambda m: None, 0)
-    assert set(st['open']) == {'a', 'b', 'c', 'd'}
-    px = {'a': 1.6, 'b': 0.65, 'c': 1.1}                        # a hits +50 first, b cuts −30 first, c drifts, d vanishes
-    st = tb.track(st, [], lambda m: px.get(m), 120)
+def test_first_touch_settles_hit_cut_end_and_gone_after_watching_the_whole_hour():
+    st = tb.track({}, [row('a'), row('b'), row('c'), row('d'), row('e')], lambda m: None, 0)
+    assert set(st['open']) == {'a', 'b', 'c', 'd', 'e'}
+    st = tb.track(st, [], lambda m: {'a': 1.6, 'b': 0.65, 'c': 1.1, 'e': 0.6}.get(m), 120)   # a +60 · b −35 · c drifts · d no price · e −40
+    assert not st['done'] and st['open']['b']['x'] == {'-20': 120, '-30': 120}           # still watched after the cut
+    st = tb.track(st, [], lambda m: {'a': 1.6, 'b': 0.65, 'c': 1.1, 'e': 1.7}.get(m), 1800)   # e shakes out, then runs +70
+    st = tb.track(st, [], lambda m: {'a': 1.6, 'b': 0.65, 'c': 1.1, 'e': 1.7}.get(m), 3700)
     how = {d['mint']: (d['how'], d['play']) for d in st['done']}
-    assert how == {'a': ('hit', 50.0), 'b': ('cut', -30.0)}
-    st = tb.track(st, [], lambda m: px.get(m), 3700)
-    how = {d['mint']: (d['how'], d['play']) for d in st['done']}
-    assert how['c'] == ('end', 10.0) and how['d'] == ('gone', -100.0)
-    st = tb.track(st, [row('a')], lambda m: None, 3800)          # not noted again inside 6h
-    assert 'a' not in st['open']
+    assert how == {'a': ('hit', 50.0), 'b': ('cut', -30.0), 'c': ('end', 10.0), 'd': ('gone', -100.0), 'e': ('cut', -30.0)}
+    st2 = tb.track(st, [row('a')], lambda m: None, 3800)          # not noted again inside 6h
+    assert 'a' not in st2['open']
+    s = tb.stops(st['done'])['by']                                # the same five paths replayed with every ticket stop
+    assert s[30]['shook'] == 1 and s[50]['hit'] > s[30]['hit']   # −30 shook e out before its +50; −50 kept it
+    assert tb.play(st['done'][-1] if st['done'][-1]['mint'] == 'e' else [d for d in st['done'] if d['mint'] == 'e'][0], 50, 0) == 50.0
 
 
-def test_a_coin_that_dipped_then_ran_counts_as_cut_first():
-    st = tb.track({}, [row('a')], lambda m: None, 0)
-    st = tb.track(st, [], lambda m: 0.6, 60)                     # −40% first
-    assert st['done'][0]['how'] == 'cut'
+def test_the_brain_names_the_stop_that_paid_once_it_has_enough_paths():
+    d = lambda i, x, end=0.0: {'mint': str(i), 'at': i, 'x': x, 'end': end, 'gone': False, 'f': []}
+    done = [d(i, {'-20': 1, '-30': 2, '50': 3}) for i in range(20)] + [d(100 + i, {'-20': 1, '-30': 2, '-50': 3}, -60) for i in range(15)]
+    st = tb.stops(done)
+    assert st['by'][30]['avg'] == -30.0 and st['by'][50]['avg'] > 0 and st['best'] in (50, 70, 0)   # shake-outs cost the tight stop everything
+    assert tb.stops(done[:10])['best'] is None                  # too few paths → no stop is named
 
 
 def test_learns_pairs_and_ranks_unseen_coins_walk_forward():

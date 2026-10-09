@@ -17,12 +17,15 @@ TP_PCT = 50.0          # 🎯 the ticket's win line: +50% first = take it, on to
 SL_PCT = 30.0          # 🩸 the ticket's cut line: −30% first = out
 SETTLE_SEC = 3600.0    # a coin that touched neither line is settled at its 1h move
 RECENT_SEC = 6 * 3600  # a coin is not noted again for 6h after it settled
-OPEN_MAX = 400         # coins watched at once (oldest dropped first — still counted as their last move, never −100% unfairly)
+OPEN_MAX = 900         # coins watched at once (oldest dropped first — still counted as their last move, never −100% unfairly)
 KEEP = 4000            # settled coins kept
 MIN_N = 8              # a cell needs this many settled coins before it counts
 SHRINK = 20.0          # cell weight = n / (n + SHRINK)
 PROOF_MIN = 30         # walk-forward test coins needed before the brain can be trusted
 PROOF_SPREAD = 10.0    # top third vs bottom third, points of play
+LEVELS = (-20, -30, -40, -50, -70, 50, 100, 200)   # the FIRST time a coin crosses each line is recorded → every stop / take can be replayed
+STOPS = (20, 30, 40, 50, 70, 0)                    # ticket stops the brain replays (0 = no stop: rug or run to the hour)
+STOP_MIN = 30                                      # settled paths needed before it names a best stop
 
 
 def _f(v):
@@ -85,8 +88,8 @@ def cells(fs):
 
 
 def track(state, rows, price_of, now):
-    """One pass: open coins see their price (first touch of +TP / −SL settles them; an hour settles the rest), then new rows are
-    noted once with their features. `rows` = [row with mint + price]; `price_of(mint)` = live price or None.
+    """One pass: open coins see their price (the first time each LEVELS line is crossed is stamped), an hour after it was first seen a
+    coin settles (its play = which of +TP / −SL came first), then new rows are noted once with their features. `rows` = [row with mint + price]; `price_of(mint)` = live price or None.
     → new state {open: {mint: {px, at, f, sym}}, done: [{mint, sym, at, play, end, peak, how, f}]}."""
     st = state or {}
     opened, done = dict(st.get('open') or {}), list(st.get('done') or [])
@@ -96,30 +99,69 @@ def track(state, rows, price_of, now):
             opened.pop(mint); continue
         if px > 0:
             pct = (px / e - 1) * 100
-            o = {**o, 'hi': max(_f(o.get('hi')), pct), 'lo': min(_f(o.get('lo')), pct), 'last': pct}
+            x = dict(o.get('x') or {})
+            for lv in LEVELS:
+                if str(lv) not in x and ((lv < 0 and pct <= lv) or (lv > 0 and pct >= lv)):
+                    x[str(lv)] = now
+            o = {**o, 'hi': max(_f(o.get('hi')), pct), 'lo': min(_f(o.get('lo')), pct), 'last': pct, 'seen': now, 'x': x}
             opened[mint] = o
-        how = None
-        if _f(o.get('hi')) >= TP_PCT:
-            how, play = 'hit', TP_PCT
-        elif _f(o.get('lo')) <= -SL_PCT:
-            how, play = 'cut', -SL_PCT
-        elif now - _f(o.get('at')) >= SETTLE_SEC:
-            how, play = ('end', _f(o.get('last'))) if px > 0 else ('gone', -100.0)
-        if how:
-            done.append({'mint': mint, 'sym': o.get('sym'), 'at': now, 'play': round(play, 2), 'end': round(_f(o.get('last')), 2),
-                         'peak': round(_f(o.get('hi')), 2), 'how': how, 'f': o.get('f') or []})
+        if now - _f(o.get('at')) >= SETTLE_SEC:   # the whole hour is watched — what happens AFTER a −30% is the lesson a stop needs
+            gone = px <= 0
+            d = {'mint': mint, 'sym': o.get('sym'), 'at': now, 'end': round(_f(o.get('last')), 2), 'peak': round(_f(o.get('hi')), 2),
+                 'low': round(_f(o.get('lo')), 2), 'gone': gone, 'x': o.get('x') or {}, 'f': o.get('f') or []}
+            d['play'] = play(d, TP_PCT, SL_PCT)
+            d['how'] = how(d, TP_PCT, SL_PCT)
+            done.append(d)
             opened.pop(mint)
     recent = {d['mint'] for d in done if now - _f(d.get('at')) < RECENT_SEC}
     for r in rows or []:
         m, px = (r or {}).get('mint'), _f((r or {}).get('price'))
         if m and px > 0 and m not in opened and m not in recent:
-            opened[m] = {'px': px, 'at': now, 'sym': r.get('symbol'), 'f': feats(r), 'hi': 0.0, 'lo': 0.0, 'last': 0.0}
+            opened[m] = {'px': px, 'at': now, 'sym': r.get('symbol'), 'f': feats(r), 'hi': 0.0, 'lo': 0.0, 'last': 0.0, 'x': {}}
     if len(opened) > OPEN_MAX:   # the oldest leave as their last move (no fake −100%)
         for m, o in sorted(opened.items(), key=lambda kv: _f(kv[1].get('at')))[:len(opened) - OPEN_MAX]:
-            done.append({'mint': m, 'sym': o.get('sym'), 'at': now, 'play': round(_f(o.get('last')), 2), 'end': round(_f(o.get('last')), 2),
-                         'peak': round(_f(o.get('hi')), 2), 'how': 'end', 'f': o.get('f') or []})
+            d = {'mint': m, 'sym': o.get('sym'), 'at': now, 'end': round(_f(o.get('last')), 2), 'peak': round(_f(o.get('hi')), 2),
+                 'low': round(_f(o.get('lo')), 2), 'gone': False, 'partial': True, 'x': o.get('x') or {}, 'f': o.get('f') or []}
+            d['play'], d['how'] = play(d, TP_PCT, SL_PCT), how(d, TP_PCT, SL_PCT)
+            done.append(d)
             opened.pop(m)
     return {'open': opened, 'done': done[-KEEP:]}
+
+
+def how(d, tp, sl):
+    """Which line came first: 'hit' (+tp) · 'cut' (−sl) · 'gone' (no price at the hour) · 'end' (neither)."""
+    x = d.get('x') or {}
+    t_tp, t_sl = x.get(str(int(tp))), (x.get(str(-int(sl))) if sl else None)
+    if t_tp is not None and (t_sl is None or t_tp < t_sl):
+        return 'hit'
+    if t_sl is not None:
+        return 'cut'
+    return 'gone' if d.get('gone') else 'end'
+
+
+def play(d, tp, sl):
+    """The ticket's result on this coin's recorded path with a +tp take and a −sl stop (0 = no stop). Both crossed on the same pass =
+    the stop counts first (never flatter a stop that may have filled lower). Vanished with neither = −100%."""
+    h = how(d, tp, sl)
+    return float(tp) if h == 'hit' else -float(sl) if h == 'cut' else -100.0 if h == 'gone' else round(max(-100.0, _f(d.get('end'))), 2)
+
+
+def stops(done, tp=TP_PCT):
+    """🛑 Every ticket stop replayed on the SAME recorded paths (only coins watched the whole hour with their crossings): {sl: {n, avg,
+    med, hit, cut}}. `best` = the stop with the highest AVERAGE (a ticket is a lottery: one +50 pays for several small losses) once
+    ≥ STOP_MIN paths exist. A replay of the last hours, never a promise."""
+    ds = [d for d in done or [] if 'x' in d and not d.get('partial')]
+    out = {}
+    for sl in STOPS:
+        ps = [play(d, tp, sl) for d in ds]
+        n = len(ps)
+        if not n:
+            continue
+        out[sl] = {'n': n, 'avg': round(sum(ps) / n, 1), 'med': round(_med(ps), 1), 'hit': round(sum(1 for d in ds if how(d, tp, sl) == 'hit') / n * 100),
+                   'cut': round(sum(1 for d in ds if how(d, tp, sl) == 'cut') / n * 100),
+                   'shook': sum(1 for d in ds if sl and how(d, tp, sl) == 'cut' and str(int(tp)) in (d.get('x') or {}))}   # stopped out, THEN ran to +tp
+    best = max(out, key=lambda k: out[k]['avg']) if out and max(v['n'] for v in out.values()) >= STOP_MIN else None
+    return {'by': out, 'best': best, 'tp': tp}
 
 
 def table(done):
@@ -181,8 +223,8 @@ def summary(state):
     """What the brain knows: settled / watching counts, how coins ended (hit / cut / end / gone), the global play, proof, lessons."""
     done = (state or {}).get('done') or []
     tbl = table(done)
-    how = {}
+    how_ = {}
     for d in done:
-        how[d.get('how')] = how.get(d.get('how'), 0) + 1
-    return {'n': len(done), 'open': len((state or {}).get('open') or {}), 'how': how, 'all': tbl.get('*'), 'proof': proof(done),
+        how_[d.get('how')] = how_.get(d.get('how'), 0) + 1
+    return {'n': len(done), 'open': len((state or {}).get('open') or {}), 'how': how_, 'all': tbl.get('*'), 'proof': proof(done), 'stops': stops(done),
             'lessons': lessons(tbl), 'tp': TP_PCT, 'sl': SL_PCT}

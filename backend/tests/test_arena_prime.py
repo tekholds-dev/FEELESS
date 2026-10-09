@@ -2749,3 +2749,21 @@ def test_a_floor_switched_on_under_water_measures_from_now_and_a_floored_card_wi
     c = ap.tick(c, {}, [], [], cfg, now + 200, [], {}, {})                                   # nothing qualifies to deal …
     assert not c.get('flooredAt') and c['legs'] == [] and round(c['startUsd'], 2) == round(c['cash'], 2) > 2.5 and 'floorBaseUsd' not in c
     assert c['events'][-1]['why'].startswith('new run in cash')                            # … a new run in cash, the seat refill takes over
+
+
+def test_tickets_take_the_brains_learned_stop_and_held_tickets_move_to_it():
+    import arena_prime as ap
+    now = 1_000_000.0
+    leg = lambda m, units, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'units': units, 'entry': 1.0, 'costUsd': units, 'at': now - 9999, 'liq': 5e6, **k}
+    base = {'tpl': 'degen', 'id': 'x', 'label': 'B', 'at': now - 9999, 'lastRotateAt': now, 'cash': 0.0, 'startUsd': 3.0, 'roundStartUsd': 3.0, 'compoundedUsd': 0.0,
+            'takenUsd': 0.0, 'feesUsd': 0.0, 'events': [], 'rounds': 3, 'legs': [leg('A', 1.0), leg('T', 0.5, ticket=True, sl=25.0)]}
+    cfg = ap.clean_cfg({'rotateHours': 0.08, 'floorPct': 0, 'rescuePct': 0, 'compound': False})
+    px = {'PA': 1.0, 'PT': 0.7}                                                            # the ticket is −30%: a −25% stop would sell it
+    c = ap.tick(dict(base, legs=[dict(l) for l in base['legs']]), px, [], [], {**cfg, 'ticketSl': 50}, now + 30, [], {}, {})
+    t = [l for l in c['legs'] if l['mint'] == 'T'][0]
+    assert t['sl'] == 50 and t['units'] == 0.5                                             # learned −50 → it rides the shake-out
+    assert ap.ticket_sl(c, ap.YOUNG_PICK_SL) == 50
+    c2 = ap.tick(dict(base, legs=[dict(l) for l in base['legs']]), px, [], [], {**cfg, 'ticketSl': 0}, now + 30, [], {}, {})
+    assert [l for l in c2['legs'] if l['mint'] == 'T'][0].get('rideOrRug')               # learned "no stop" → ride or rug
+    c3 = ap.tick(dict(base, legs=[dict(l) for l in base['legs']]), px, [], [], cfg, now + 30, [], {}, {})
+    assert 'ticketSlLearned' not in c3 and ap.ticket_sl(c3, 25) == 25                       # nothing learned → the owner's stop as before

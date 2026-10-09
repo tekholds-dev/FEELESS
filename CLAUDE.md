@@ -2577,3 +2577,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   qualify — `deal()` returning None used to leave it floored forever. `_flow_fix_1009`: real floor −20, vital 35, organic filter off
   (backup data/realcfg_before_flow1009.json). 🧠 Brain watches the 80 newest launches (≤ 3h) first, then the 120 busiest; its lens
   keeps unscanned newest coins (marked), never failed scans; the engine takes only scanned-safe brain picks.
+- 🛑 LEARNED TICKET STOP (owner, 2026-10-09: "trench coins SL due to tight small buys — we losing to that"; $Break −32% in 1.8 min on a
+  −25% ticket stop): the brain now watches every coin the WHOLE hour and stamps the first time it crosses −20/−30/−40/−50/−70 and
+  +50/+100/+200 (`LEVELS`, leg-path `x`), so `stops()` replays every ticket stop (20/30/40/50/70/none) on the SAME paths: avg, median,
+  hit %, cut %, `shook` (stopped out, then ran to +50). `best` = highest average once ≥ 30 full paths (evicted partial paths excluded).
+  Real cfg `trenchSlAuto` (on): `_prime_tick` hands `ticketSl` = best → `arena_prime.ticket_sl` for young-pick tickets + trench-drop
+  tickets, and tickets ALREADY held move to it (0 = ride or rug). Events say "🧠 learned". Rug shield still acts.
+- 🗑 The brain lives IN the Trench tab (`brain` per row + `brain` summary on `/fuses/trench`, `BrainNote` + `stopsLine`, `sp-brain` chip;
+  ordered by learned play once ≥ 30 judged, failed scans never move up); its own tab is gone. 🚀 Live movers tab (`_live_movers`, lens
+  `live`, LENS_TRACK): ≥ $3K traded in 5 min, +3%+, buyers ≥ 50%, 60+ trades/h, scan not failed, by 5-min $ × move. 🏆 Best now never
+  empty: no banger clears → the 🧬 edge ranking with live board numbers.

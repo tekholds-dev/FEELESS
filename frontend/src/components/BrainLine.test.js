@@ -1,4 +1,4 @@
-import { brainLine, PICK_LENSES } from './ArenaPrime';
+import { brainLine, stopsLine, PICK_LENSES } from './ArenaPrime';
 
 test('trench brain line: learning, then judged with its proof', () => {
   expect(brainLine(null)).toMatch(/Learning — 0 trench coins/);
@@ -11,5 +11,14 @@ test('trench brain line: learning, then judged with its proof', () => {
   expect(s).toMatch(/PROVEN/);
   expect(s).toMatch(/soc:site\+x & top10:<15 → \+22% \(n 14\)/);
   expect(brainLine({ ...b, ready: false })).toMatch(/still learning, a list only/);
-  expect(PICK_LENSES.map(x => x[0])).toContain('brain');
+  expect(PICK_LENSES.map(x => x[0])).toEqual(expect.arrayContaining(['live', 'trench']));
+  expect(PICK_LENSES.map(x => x[0])).not.toContain('brain');   // the brain lives inside the trench tab
+});
+
+test('stops line: every ticket stop replayed on the same paths, the learned one named', () => {
+  expect(stopsLine(null)).toBe('');
+  const st = { best: 50, by: { 30: { n: 40, avg: -12.5, shook: 6 }, 50: { n: 40, avg: 3.1, shook: 1 }, 0: { n: 40, avg: -8, shook: 0 } } };
+  const s = stopsLine(st);
+  expect(s).toMatch(/replayed on 40 coins/); expect(s).toMatch(/−30% -12.5% \(6 shaken out, then ran\)/); expect(s).toMatch(/tickets use −50% 🧠/);
+  expect(stopsLine({ ...st, best: null })).toMatch(/needs 30 coins/);
 });

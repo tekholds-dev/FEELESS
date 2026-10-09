@@ -3256,13 +3256,43 @@ def _procall_rows():
             for r in rows if _prime.trench_read_ok(r)]
 
 
+LIVE_MIN_VOL5M, LIVE_MIN_CHG5M, LIVE_MIN_BUY, LIVE_MIN_TX1H = 3000.0, 3.0, 50.0, 60
+
+
+def _live_movers():
+    """🚀 LIVE MOVERS (owner, 2026-10-09: "tabs showing true data and real movers"): what is moving in the LAST 5 MINUTES on real money —
+    ≥ $3K traded in those 5 min, up ≥ 3%, buyers ≥ 50%, 60+ trades an hour, a safety scan that did not fail — straight from the live
+    feed, ranked by 5-min $ × move. Each row says the move and the money behind it. Its own 1h record is kept like every list."""
+    out = []
+    for r in [_with_tv(x) for x in _open_board() or []]:
+        v5, c5, bs = _fuse._f(r.get('vol5m')), _fuse._f(r.get('chg5m')), r.get('buyShare')
+        if r.get('safe') is False or _fuse._f(r.get('price')) <= 0 or v5 < LIVE_MIN_VOL5M or c5 < LIVE_MIN_CHG5M or int(r.get('txns1h') or 0) < LIVE_MIN_TX1H:
+            continue
+        if bs is not None and _fuse._f(bs) < LIVE_MIN_BUY:
+            continue
+        out.append({**r, 'baseAddress': r['mint'], 'priceUsd': r.get('price'), 'liquidityUsd': r.get('liq'), 'live': round(v5 * min(c5, 60.0)),
+                    'divisionLabel': f"🚀 {c5:+.0f}% in 5m on ${v5 / 1000:.1f}K traded · {_fuse._f(bs):.0f}% buys" + ('' if r.get('safe') else ' · ❔ not scanned')})
+    return _clean_rows(sorted(out, key=lambda r: -r['live'])[:60]) or []
+
+
 async def _fuses_discover_raw(lens, chain):
     """Fuse Lab: browse real pools on the chain you're on, by lens (popular / yield / deep / new)."""
     if lens == 'exhale':
         return {'lens': 'exhale', 'chain': 'solana', 'pools': _exhale_rows()}
     if lens == 'best':   # 🏆 the engine's own pick list (every door, clean entry, tape-checked) — what an open seat takes next
-        return {'lens': 'best', 'chain': 'solana', 'pools': [{**x, 'baseAddress': x.get('mint'), 'priceUsd': x.get('price'), 'liquidityUsd': x.get('liq'),
-                                                               'divisionLabel': x.get('tag')} for x in _best_rows]}
+        if _best_rows:
+            return {'lens': 'best', 'chain': 'solana', 'pools': [{**x, 'baseAddress': x.get('mint'), 'priceUsd': x.get('price'), 'liquidityUsd': x.get('liq'),
+                                                                   'divisionLabel': x.get('tag')} for x in _best_rows]}
+        # nothing clears the engine's full line right now → the evidence ranking (🧬 edge: every list's own record + the read's record),
+        # with live numbers from the runner board — never an empty tab
+        cm_ = _cand_map()
+        rows_ = []
+        for x in (_edge_cache.get('rows') or [])[:20]:
+            c_ = cm_.get(x.get('mint')) or {}
+            rows_.append({**x, **{k: c_.get(k) for k in ('liq', 'chg5m', 'chg1h', 'vol1h', 'ageH', 'buyShare', 'mcap') if c_.get(k) is not None},
+                          'liquidityUsd': c_.get('liq'), 'priceUsd': x.get('priceUsd') or c_.get('price'),
+                          'divisionLabel': f"🧬 evidence {_fuse._f((x.get('edge') or {}).get('edge')):+.1f}%/1h — nothing clears the engine's full line right now"})
+        return {'lens': 'best', 'chain': 'solana', 'pools': rows_}
     if lens == 'wave':
         return {'lens': 'wave', 'chain': 'solana', 'pools': _wave_rows()}
     if lens == 'prebreak':
@@ -3271,6 +3301,8 @@ async def _fuses_discover_raw(lens, chain):
         return {'lens': 'procall', 'chain': 'solana', 'pools': _procall_rows()}
     if lens == 'brain':
         return {'lens': 'brain', 'chain': 'solana', 'pools': _brain_rows()}
+    if lens == 'live':
+        return {'lens': 'live', 'chain': 'solana', 'pools': _live_movers()}
     if lens == 'fresh':   # 🔄 NEW TO YOU (owner, 2026-10-08: "no new coins, I'm running in circles — cycle different coins from the Arena and FEELESS
         # sitewide"): every list FEELESS shows (Pump trending · movers · Pump live · volume · dips · the Arena's ranked coins) woven together one
         # coin from each in turn, MINUS every coin the real card bought, sold or holds in the last 24h. Safety facts ride on every row as usual.
@@ -6743,7 +6775,7 @@ async def _bottom_rows(now):
 
 
 LENS_PROOF_PATH = FUSE_HQ_PATH.parent / 'lens_proof.json'   # 📏 every picker list's own 1-hour paper record
-LENS_TRACK = ('ptrend', 'movers', 'pump', 'volume', 'calls', 'fed', 'double', 'exhale', 'procall', 'wave', 'prebreak', 'brain')          # the live-feed lists (bottom + trench keep their own files)
+LENS_TRACK = ('ptrend', 'movers', 'pump', 'volume', 'calls', 'fed', 'double', 'exhale', 'procall', 'wave', 'prebreak', 'brain', 'live')          # the live-feed lists (bottom + trench keep their own files)
 LENS_TOP = 15                                                # the top rows of each list are what a picker actually picks from
 _lens_rows: dict = {}                                        # {list: [rows in the list's own order]} — refreshed with the record (~2 min)
 
@@ -6967,6 +6999,14 @@ async def fuse_trench(meta: str = Query('', max_length=20)):
             if 'tv' not in r:
                 t_ = _ja.trench_verdict((_jup_facts.get(r.get('mint') or r.get('baseAddress')) or (0, None))[1], r)
                 r['tv'] = {**t_, 'kind': 'trench', 'meters': [['🔥 HEAT', t_['heat']], ['☠ RUG', t_['rug']]]}
+        b_ = _brain_state()   # 🧠 the trench brain lives IN the trench tab: every row carries its learned play; once it has judged
+        for r in out['rows']:  # enough coins the list is ordered by it (safety first: failed scans never move up)
+            sc_ = _tb.score(r, b_['tbl'])
+            if sc_:
+                r['brain'] = {k: sc_[k] for k in ('est', 'hit', 'n')} | {'why': [list(w) for w in sc_['why'][:2]]}
+        if int((b_['sum'] or {}).get('n') or 0) >= _tb.PROOF_MIN:
+            out['rows'] = sorted(out['rows'], key=lambda r: (r.get('safe') is False, -_fuse._f((r.get('brain') or {}).get('est', -999))))
+        out['brain'] = {**(b_['sum'] or {}), 'ready': _brain_ready()}
     _disc_cache[('trench', meta)] = (time.time(), out)
     return out
 
@@ -9150,6 +9190,10 @@ async def _prime_tick_inner(now):
         for l_ in (cur or {}).get('legs') or []:   # 🧲 / 📣 what Pump's own feeds say about each coin the card holds (fed lock · second ticket)
             l_['fedN'] = int(((_feeders['board'].get('runners') or {}).get(l_.get('mint')) or {}).get('n') or 0)
             l_['calledN'] = int((_pump_calls['map'].get(l_.get('mint')) or {}).get('callers') or 0)
+        if real_t and cfg_t.get('trenchSlAuto', True):   # 🧠 tickets use the stop that paid best when the brain replayed every stop on the same paths
+            bs_ = ((_brain_state()['sum'] or {}).get('stops') or {}).get('best')
+            if bs_ is not None:
+                cfg_t = {**cfg_t, 'ticketSl': bs_}
         cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, a_t, mom, liqs, true_usd=true_usd, blind=bool(real_t and true_usd is None)) if cur else _prime.deal(tid, p_t, r_t, cfg_t, now, [] if new_only_ else anchors)
         if cards[tid] is not None:
             cards[tid]['rebuyDip'] = int(cfg_t.get('rebuyDipPct') or 0)

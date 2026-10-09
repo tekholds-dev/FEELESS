@@ -505,6 +505,7 @@ def clean_cfg(p):
     out['trenchBrain'] = bool((p or {}).get('trenchBrain', True))     # 🧠 trench seats take the brain's learned picks first — only once its walk-forward proof holds
     out['trenchSendOnly'] = bool((p or {}).get('trenchSendOnly', False))   # 🔥 the trench drop takes ONLY 🔥 SEND IT coins (the only trench read with a positive record) — none → it waits
     out['sendItAuto'] = bool((p or {}).get('sendItAuto', True))   # 🔥 the engine may take SEND IT coins as trench tickets — only once that call is PROVEN
+    out['trenchSlAuto'] = bool((p or {}).get('trenchSlAuto', True))   # 🧠 tickets use the trench brain's learned stop once it has named one
     out['ticketRide'] = bool((p or {}).get('ticketRide', False))   # 🎰 ride or rug: a ticket has NO stop — it rugs (the ticket is lost) or runs to the 🏠 pull
     out['youngTicket'] = bool((p or {}).get('youngTicket', True))   # 🎟 a hand pick under 12h old goes in as a small ticket (owner's switch)
     out['scoutPct'] = int(_f((p or {}).get('scoutPct'))) if int(_f((p or {}).get('scoutPct'))) in SCOUT_PCTS else 0   # 🔭 scout ticket, % of the card (0 = off)
@@ -2060,6 +2061,16 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     # no rescue. Found live: two picks mid-swap read −40% on a card that had lost nothing → the floor sold every coin.
     blind = bool(blind) and not (true_usd is not None and _f(true_usd) > 0)
     ev = lambda **e: c['events'].append({'at': now, **e})
+    if (cfg or {}).get('ticketSl') is not None:   # 🧠 the trench brain's learned ticket stop (service-set per tick, real card, switch on)
+        c['ticketSlLearned'] = _f(cfg['ticketSl'])
+        for l in c.get('legs') or []:   # tickets already held move to the learned stop too (a −25% stop shook $Break out in 1.8 min)
+            if l.get('ticket') and not l.get('rideOrRug') and not l.get('frozen'):
+                if c['ticketSlLearned'] > 0:
+                    l['sl'] = c['ticketSlLearned']
+                else:
+                    l.update(slMode='hold', rideOrRug=True); l.pop('sl', None)
+    else:
+        c.pop('ticketSlLearned', None)
     fee = cfg['paperFeeUsd']
 
     def best(role, trench=False):
@@ -2172,17 +2183,18 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             pct_t = _f(cfg.get('trenchStakePct'))
             use_usd = min(out_usd, value(c, prices, liqs) * pct_t / 100) if pct_t > 0 else out_usd
             nl_ = _leg(nxt, use_usd, now, 'runner')
-            if cfg.get('ticketRide') or c.get('ticketRide'):
+            sl_t = ticket_sl(c, _f(cfg.get('trenchSlPct')))
+            if cfg.get('ticketRide') or c.get('ticketRide') or sl_t == 0 and c.get('ticketSlLearned') is not None:
                 nl_.update(slMode='hold', rideOrRug=True)
-            elif _f(cfg.get('trenchSlPct')) > 0:
-                nl_['sl'] = _f(cfg.get('trenchSlPct'))
+            elif sl_t > 0:
+                nl_['sl'] = sl_t
             if pct_t > 0:
                 nl_['ticket'] = True   # 🎟 never topped up to a full seat (the sweep put $0.30 back into a fresh coin 48s after it was bought)
             c['legs'][c['legs'].index(l)] = nl_
             c['cash'] = round(_f(c.get('cash')) + (out_usd - use_usd), 6)
             c['feesUsd'] = _f(c.get('feesUsd')) + 2 * fee
             ev(kind='rotate', symbol=l['symbol'], usd=round(use_usd, 4), why=f"🗑 trench drop — {gain(l):+.1f}% {'trench coin' if l.get('trench') else 'runner'} swapped for the best trench coin on the list"
-                                                                               + (f" (${use_usd:.2f} ticket = {pct_t:g}% of the card, stop −{_f(cfg.get('trenchSlPct')):g}%)" if pct_t > 0 else ''), to=[nxt.get('symbol')])
+                                                                               + (f" (${use_usd:.2f} ticket = {pct_t:g}% of the card, stop −{ticket_sl(c, _f(cfg.get('trenchSlPct'))):g}%{' 🧠 learned' if c.get('ticketSlLearned') is not None else ''})" if pct_t > 0 else ''), to=[nxt.get('symbol')])
             c['trenchFillAt'] = now
 
     # ⚡ INSTANT LOSS SWAP: this is deliberately NOT a round rule. Once a non-anchor coin reaches the owner's configured
@@ -2657,7 +2669,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
               c['legs'].append(_leg(nxt, usd_s, now, role_s))
               seated_any = True
               if tick_s:
-                  c['legs'][-1].update(ticket_marks(c.get('ticketRide'), YOUNG_PICK_SL))
+                  c['legs'][-1].update(ticket_marks(c.get('ticketRide') or ticket_sl(c, YOUNG_PICK_SL) == 0, ticket_sl(c, YOUNG_PICK_SL)))
               if mine_:
                   c['legs'][-1]['picked'] = True; c.pop('seatPick', None); seated_pick = True
                   if sp_.get('trenchOnly'):
@@ -3345,9 +3357,9 @@ def apply_queued(c, prices, liqs, now, fee=0.0, only=None, why='🎯 your pick �
         if tick_:
             c['cash'] = _f(c.get('cash')) + (usd - usd_t); usd = usd_t
         c['legs'][i] = {**_leg({**to, 'price': live}, max(0.0, usd), now, 'anchor' if l.get('role') == 'anchor' and not tick_ else ('runner' if tick_ else l.get('role') or 'pool')), 'picked': True,
-                        **(ticket_marks(c.get('ticketRide'), YOUNG_PICK_SL) if tick_ else {})}
+                        **(ticket_marks(c.get('ticketRide') or ticket_sl(c, YOUNG_PICK_SL) == 0, ticket_sl(c, YOUNG_PICK_SL)) if tick_ else {})}
         if tick_:
-            why = f"{why} · 🎟 under 12h old: a ${usd:.2f} ticket ({YOUNG_PICK_PCT:g}% of the card), " + ('🎰 ride or rug — no stop' if c.get('ticketRide') else f'stop −{YOUNG_PICK_SL:g}%') + ', never topped up'
+            why = f"{why} · 🎟 under 12h old: a ${usd:.2f} ticket ({YOUNG_PICK_PCT:g}% of the card), " + ('🎰 ride or rug — no stop' if c.get('ticketRide') or ticket_sl(c, YOUNG_PICK_SL) == 0 else f"stop −{ticket_sl(c, YOUNG_PICK_SL):g}%" + (' 🧠 learned' if c.get('ticketSlLearned') is not None else '')) + ', never topped up'
         c['feesUsd'] = round(_f(c.get('feesUsd')) + 2 * fee, 4)
         c.setdefault('events', []).append({'at': now, 'kind': 'rotate', 'symbol': l.get('symbol'), 'usd': round(usd, 4), 'why': why, 'to': [to.get('symbol')]})
         n += 1
@@ -3355,6 +3367,13 @@ def apply_queued(c, prices, liqs, now, fee=0.0, only=None, why='🎯 your pick �
 
 
 YOUNG_PICK_H, YOUNG_PICK_PCT, YOUNG_PICK_SL = 12.0, 15.0, 25.0
+
+
+def ticket_sl(c, default):
+    """🧠 A ticket's stop: the trench brain's LEARNED stop when the service handed one in this tick (the stop that paid best when every
+    stop was replayed on the same recorded trench paths; 0 = no stop, ride or rug), else the owner's / default stop."""
+    v = (c or {}).get('ticketSlLearned')
+    return _f(default) if v is None else _f(v)
 
 
 def ticket_marks(ride, sl):
