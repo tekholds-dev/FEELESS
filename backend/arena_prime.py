@@ -1004,7 +1004,9 @@ def chase_why(x):
 # 🎯 CLEAN ENTRIES (owner, 2026-10-09: "better entries … we shouldn't be getting in at highs, entries before the break, not getting in −4c").
 # The real card's 86 judged exits by what the coin looked like at the buy: buyers > 65% +2.0% (4/4 up — the only positive bucket) ·
 # under 6h old −17…−20% · pool < $50K −15…−22% · already +60% on the hour −10…−25% · $50–200K/h −7% vs $200K+/h −0.7%.
-ENTRY_BUY_MIN = 60.0        # buyers' share of the last hour's trades, %
+ENTRY_BUY_MIN = 50.0        # buyers' share of the last hour's trades, % — sellers must not lead (60% blocked nearly every coin: the
+                            # market sits at 45–58%, and the card's 55–65% bucket did WORSE than 45–55%; only > 65% was positive, n 4)
+PREBREAK_BUY_MIN = 60.0     # 🌅 pre-break wants buyers clearly in charge
 ENTRY_MAX_1H = 60.0         # already up more than this on the hour = chasing
 ENTRY_MAX_5M = 3.0          # up more than this in the last 5 min = buying the candle (the "−4¢ a minute later" entry)
 ENTRY_MIN_PULL = 3.0        # at least this % under its 4h high (when the chart is read) — never the top tick
@@ -1044,7 +1046,7 @@ def pre_break(x, mom=None):
     v5, v1 = _f(r.get('vol5m')), _f(r.get('vol1h'))
     if v5 <= 0 or v1 <= 0 or v5 * 12 < PREBREAK_PACE * v1:
         return False
-    if r.get('buyShare') is None or _f(r['buyShare']) < ENTRY_BUY_MIN:
+    if r.get('buyShare') is None or _f(r['buyShare']) < PREBREAK_BUY_MIN:
         return False
     if r.get('chg1h') is None or not -5.0 <= _f(r['chg1h']) <= 30.0 or r.get('chg5m') is None or not 0.0 <= _f(r['chg5m']) <= ENTRY_MAX_5M:
         return False

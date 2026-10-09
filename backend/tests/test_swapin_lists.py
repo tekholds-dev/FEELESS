@@ -10,9 +10,13 @@ def test_cooling_off_and_proven_callers_lists(monkeypatch):
             {'mint': 'R', 'symbol': 'RUGGY', 'pairAddress': 'pr', 'price': 1, 'safe': True, 'tv': tv('COOLING', 80)},
             {'mint': 'B', 'symbol': 'BOND', 'pairAddress': 'pb', 'price': 1, 'safe': True, 'mcap': 10_000, 'tv': tv('BOND RUN')},
             {'mint': 'P', 'symbol': 'PRO', 'pairAddress': 'pp', 'price': 1, 'safe': True, 'mcap': 10_000, 'tv': tv('WATCH')}]
+    for r in rows:
+        r['site'] = 'https://site.io'
+    rows.append({'mint': 'W', 'symbol': 'IBM', 'pairAddress': 'pw', 'price': 1, 'safe': True, 'vol1h': 99, 'tv': tv('DRYING UP')})   # no site / X
     monkeypatch.setattr(rs, '_open_board', lambda: rows)
     ex = rs._exhale_rows()
-    assert [r['symbol'] for r in ex] == ['DRY', 'COOL']                  # DRYING UP (+1.9%) before COOLING (+0.6%); unsafe / rug 80 out
+    assert [r['symbol'] for r in ex] == ['DRY', 'COOL']                  # DRYING UP (+1.9%) before COOLING (+0.6%); unsafe / rug 80 / no socials out
+    rows.pop()
     assert ex[0]['baseAddress'] == 'D' and 'drying up' in ex[0]['divisionLabel']
     now_ms = time.time() * 1000
     monkeypatch.setitem(rs._pump_calls, 'callers', {'ace': {'proven': True, 'medMult': 2.0, 'wonPct': 80, 'n': 5}})
@@ -37,3 +41,12 @@ def test_narrative_leaders_list_and_its_gate(monkeypatch):
     assert rs._wave_ready()
     rows[0]['tv'] = {'call': ['☠', 'RUG BAIT', 'bad'], 'rug': 80}
     assert rs._wave_rows() == []                                        # a rug-bait read is never listed
+
+
+def test_pump_links_fill_socials_jupiter_does_not_have():
+    import reputation_service as rs
+    rs._pump_links_put('UNITSMINT', {'links': [{'type': 'x', 'url': 'https://x.com/Unitsdotcash'}, {'type': 'website', 'url': 'https://units.cash/'},
+                                               {'type': 'telegram', 'url': 'javascript:alert(1)'}]})
+    assert rs._PUMP_LINKS['UNITSMINT'][1] == {'x': 'https://x.com/Unitsdotcash', 'site': 'https://units.cash/'}   # only http(s) links
+    row = rs._clean_rows([{'mint': 'UNITSMINT', 'symbol': 'UNITS'}])[0]
+    assert row['x'] == 'https://x.com/Unitsdotcash' and row['site'] == 'https://units.cash/'

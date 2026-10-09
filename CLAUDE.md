@@ -2520,7 +2520,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (≥ 10 coins named after a word) the ORIGINAL — biggest, then oldest — never a copycat; site or X set, `safe`, $5K+/h, rug < 50, no busted
   read. A banger door (after 🎯 proven callers) ONLY once `_wave_ready()` = its own 1h record has ≥ 10 settled and a positive median.
 - 🌊 Real card flow exit = TIGHT (`_flow_tight_fix_1009`, owner's call: faster scalps / swaps). flow_proof that day: 6 exits, +0.3% after.
-- 🎯 CLEAN ENTRIES (`arena_prime.entry_gate`, cfg `entryGate`, real card ON via `_entry_fix_1009`): a FULL seat needs buyers ≥ 60% · not
+- 🎯 CLEAN ENTRIES (`arena_prime.entry_gate`, cfg `entryGate`, real card ON via `_entry_fix_1009`): a FULL seat needs buyers ≥ 50% (60% blocked
+  nearly everything — the market sits at 45–58%; pre-break keeps 60) · not
   +60% 1h · not +3% 5m (the "−4¢ a minute later" entry) · ≥ 3% under its 4h high (when the chart is read) · pool ≥ $50K · ≥ 6h old ·
   ≥ $200K/h. Missing readings not judged; trench tickets keep their own rules. Applied on EVERY door: board runners (`_step` "clean
   entry"), `_bangers`, top-3 auto-seat, 30s seat fallback; the owner's picks get it as a 409 WARNING. The 🔥 Top 3 door had skipped the
@@ -2530,3 +2531,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   5-min pace ≥ 1.5× the hour, buyers ≥ 60%, 1h −5…+30, 5m 0…+3, not at highs. Banger door only once `_prebreak_ready()` (10+ settled, +median).
 - 🌊 `flowMinHoldMins` (real card 10): the buys-vs-sells exit leaves a coin alone that long after its buy; rug radar / stops act at once.
 - 🧠 real_learn hold time = from the leg's buy TIME `at` (`firstEntry` is the first entry PRICE — every piece read ~30M minutes).
+- 🔗 PUMP LINKS (`_PUMP_LINKS`, `_pump_links_put` / `_pump_links_warm`, ≤ 12 coins per `_trench_build` pass, 1h cache; the pump-profile route
+  fills it too): Jupiter often has no socials for a Pump coin ($UNITS: Jupiter none, Pump x.com/Unitsdotcash + units.cash). `_clean_rows`
+  socials = Jupiter → Pump → runner board. http(s) only. 🧊 Cooling off also needs a site or X and organic ≥ 10% (owner: "IBM is a wash
+  rug" — DRYING UP with no site / X).

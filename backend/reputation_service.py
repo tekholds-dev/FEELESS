@@ -2969,6 +2969,43 @@ def _up_vital(u):
     return out
 
 
+_PUMP_LINKS: dict = {}   # 🔗 mint → (at, {site, x, tg}) from Pump's own coin record (Jupiter often has none: $UNITS)
+PUMP_LINKS_TTL = 3600
+PUMP_LINKS_PER_PASS = 12
+
+
+def _pump_links_put(mint, prof):
+    out = {}
+    for ln in (prof or {}).get('links') or []:
+        k = {'x': 'x', 'twitter': 'x', 'website': 'site', 'telegram': 'tg'}.get(str(ln.get('type') or '').lower())
+        u = str(ln.get('url') or '')
+        if k and u.startswith(('http://', 'https://')) and k not in out:
+            out[k] = u
+    if len(_PUMP_LINKS) > 4000:
+        _PUMP_LINKS.clear()
+    _PUMP_LINKS[mint] = (time.time(), out)
+
+
+async def _pump_links_warm(mints):
+    """🔗 Read Pump's coin record for up to PUMP_LINKS_PER_PASS coins not cached in the last hour (3 at a time) — the socials the
+    creator set at launch. Lists then show them (cache only, never a fetch per row)."""
+    import launchpad_board as _lb
+    todo = [m for m in dict.fromkeys(mints or []) if m and (m not in _PUMP_LINKS or time.time() - _PUMP_LINKS[m][0] > PUMP_LINKS_TTL)][:PUMP_LINKS_PER_PASS]
+    if not todo:
+        return 0
+    sem = asyncio.Semaphore(3)
+    async with httpx.AsyncClient(timeout=6, headers={'User-Agent': 'Mozilla/5.0'}) as http:
+        async def one(m):
+            async with sem:
+                try:
+                    r = await http.get(f'https://frontend-api-v3.pump.fun/coins-v2/{m}')
+                    _pump_links_put(m, _lb.pump_profile(r.json() if r.status_code == 200 else None, time.time() * 1000))
+                except Exception:
+                    pass
+        await asyncio.gather(*[one(m) for m in todo])
+    return len(todo)
+
+
 def _clean_rows(rows):
     """🧼 + 🧬 on every pick row: holder facts from the scan cache and the 10-point clean score (cache reads only, never a fetch).
     + 🫀 `vital` (jup_audit.verdict: grade, 3 deciding facts, 4 bars) and 👥 `crew` from Jupiter's audit when it has been read."""
@@ -2991,7 +3028,7 @@ def _clean_rows(rows):
         c_s = cmap_.get(m) or {}
         for k_ in ('site', 'x', 'tg'):   # 🔗 socials on every list row (they were on 0 of 250 trench rows): the row's own, the runner board's, else Jupiter's
             if not r.get(k_):
-                v_ = (jf or {}).get(k_) or c_s.get(k_)   # Jupiter's is a real link; the board may only know it exists (True)
+                v_ = (jf or {}).get(k_) or (_PUMP_LINKS.get(m) or (0, {}))[1].get(k_) or c_s.get(k_)   # Jupiter's / Pump's are real links; the board may only know it exists (True)
                 if v_:
                     r[k_] = v_
         if jf:
@@ -3160,12 +3197,24 @@ def _wave_ready():
     return int(rec.get('n') or 0) >= WAVE_PROVE_MIN and _fuse._f(rec.get('medPct')) > 0
 
 
+EXHALE_ORGANIC_MIN = 10.0   # % of the hour's volume that is real (Jupiter's organic read) — under it the "cooling" is wash-traded flow
+
+
 def _exhale_rows():
-    """🧊 COOLING OFF: launch coins that ran and are now exhaling — read DRYING UP or COOLING, passed the safety scan, rug meter < 50."""
+    """🧊 COOLING OFF: launch coins that ran and are now exhaling — read DRYING UP or COOLING, passed the safety scan, rug meter < 50,
+    a site or X set, and real volume (organic ≥ 10% when Jupiter has read it). Owner, 2026-10-09: "IBM is a wash rug" — it read DRYING
+    UP with no site and no X."""
+    raw = [_with_tv(x) for x in _open_board()]
+    open_tv = {x.get('mint'): x.get('tv') for x in raw}
     out = []
-    for r in _open_board():
-        r = _with_tv(r)
+    for r in _clean_rows([dict(x) for x in raw]):
+        r = {**r, 'tv': open_tv.get(r.get('mint')) or r.get('tv')}
         call = ((r.get('tv') or {}).get('call') or [None, None])[1]
+        org = (r.get('vital') or {}).get('organicPct')
+        if org is not None and _fuse._f(org) < EXHALE_ORGANIC_MIN:
+            continue
+        if not (r.get('site') or r.get('x')):
+            continue
         if call in EXHALE_READS and r.get('safe') and _prime.trench_read_ok(r) and _fuse._f(r.get('price')) > 0:
             out.append({**r, 'baseAddress': r['mint'], 'priceUsd': r.get('price'), 'liquidityUsd': r.get('liq'),
                         'divisionLabel': f"🧊 {call.lower()} after its run — {_fuse._f(r.get('chg1h')):+.0f}% 1h, {_fuse._f(r.get('chg5m')):+.0f}% 5m"})
@@ -6420,6 +6469,11 @@ async def _trench_build(now):
     await _bottom_track(now)
     await _call_track(now)
     await _procall_track(now)
+    try:   # 🔗 Pump's own socials for the open list's busiest coins + the real card's coins (lists read the cache)
+        legs_ = [l.get('mint') for c_ in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if c_.get('real') for l in c_.get('legs') or []]
+        await _pump_links_warm(legs_ + [r.get('mint') for r in (_open_board() or [])[:60]])
+    except Exception as e:
+        print('pump links:', e)
     await _lens_track(now)
     await _smart_track(now)
     await _edge_track(now)
@@ -18055,6 +18109,7 @@ async def pump_profile_get(mint: str):
     if len(_PUMP_PROFILE) > 600:
         _PUMP_PROFILE.clear()
     _PUMP_PROFILE[mint] = (time.time(), prof)
+    _pump_links_put(mint, prof)
     return prof or {}
 
 

@@ -2677,7 +2677,8 @@ def test_a_banger_leg_keeps_its_door_and_the_seat_count_ignores_riders():
 def test_clean_entry_gate_blocks_highs_chases_thin_and_young_coins():
     ok = {'buyShare': 66, 'chg1h': 12, 'chg5m': 1, 'liq': 120_000, 'ageH': 30, 'vol1h': 350_000, 'cBars': 8, 'cPull': 7}
     assert ap.entry_gate(ok) is None
-    assert 'buyers only 52%' in ap.entry_gate({**ok, 'buyShare': 52})
+    assert 'buyers only 45%' in ap.entry_gate({**ok, 'buyShare': 45})   # sellers leading
+    assert ap.entry_gate({**ok, 'buyShare': 52}) is None                      # 52% is the market's normal — not blocked
     assert 'chasing' in ap.entry_gate({**ok, 'chg1h': 85})
     assert 'buying the candle' in ap.entry_gate({**ok, 'chg5m': 4.5})                    # the "−4¢ a minute later" entry
     assert 'at its highs' in ap.entry_gate({**ok, 'cPull': 1.2})
