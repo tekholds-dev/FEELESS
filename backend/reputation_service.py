@@ -5911,7 +5911,7 @@ def _prime_real_cfg(pr=None):
             out['instantSwapPct'] = out['rotateMinDrop']
         if out.get('ladder'):   # 🪜 the playbook of the real card's size stage (set by the tier tick) on top of the owner's config
             rcard = next((c for c in ((pr.get('cards') or {}).values()) if (c or {}).get('real')), None) or {}
-            out = _prime.clean_cfg(_prime.ladder_patch(out, rcard.get('ladderStage') or _prime.ladder_stage(_ladder_value(rcard))))
+            out = _prime.clean_cfg(_prime.ladder_patch(out, rcard.get('ladderStage') or _prime.ladder_stage(_ladder_value(rcard)), pr.get('ladderKeep') or ()))
             out['ladder'] = True
             if 'instantSwapPct' not in rc:
                 out['instantSwapPct'] = out['rotateMinDrop']
@@ -7617,6 +7617,20 @@ async def _real_ride_fix(now):
     return True
 
 
+async def _ladder_keep_fix(now):
+    """🪜 Once (2026-10-08): the owner tapped "4 coins" while the ladder was on, before taps beat the ladder — keep that tap."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('ladderKeepFix1') or not rc.get('ladder'):
+            return False
+        if int(_fuse._f(rc.get('coins'))) == 4:
+            pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | {'coins'})
+        pr['ladderKeepFix1'] = True
+        _json_save(FUSE_HQ_PATH, d)
+        return True
+
+
 async def _ticket_ride_fix(now):
     """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
     once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
@@ -7711,6 +7725,7 @@ async def _prime_tick_inner(now):
     await _real_hold_fix(now)
     await _real_ride_fix(now)
     await _ticket_ride_fix(now)
+    await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
         return 0
@@ -8271,7 +8286,9 @@ async def fuse_prime():
     _seed = sum(ord(ch) for ch in ''.join(sorted(_owner_wallets()))[:44]) if _rc else 0   # ⚡ each owner's card gets its own variant of the meta
     _ht, _hp, _hn = _human_style()
     _rcard = next((c for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if (c or {}).get('real')), None) if _rc else None
-    _lad = {**_prime.ladder_view(_rcard.get('ladderStage') or _prime.ladder_stage(_ladder_value(_rcard))), 'on': bool(_rc.get('ladder')), 'value': round(_ladder_value(_rcard), 2)} if _rcard else None
+    _lst = (_rcard or {}).get('ladderStage') or _prime.ladder_stage(_ladder_value(_rcard)) if _rcard else None
+    _lkeep = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('ladderKeep') or []
+    _lad = {**_prime.ladder_view(_lst), 'on': bool(_rc.get('ladder')), 'value': round(_ladder_value(_rcard), 2), 'keys': _prime.ladder_keys(_lst), 'keep': _lkeep} if _rcard else None
     return {'ladder': _lad, 'meta': _prime.meta_for(_fuse._f(_rc.get('rotateHours')) or 1.0, _seed) if _rc else None, 'cards': await _prime_view(), 'humanStyle': {'tiers': _ht, 'picks': _hn, 'need': _ps.MIN_PICKS, 'ready': bool(_hp), 'words': _ps.words(_hp),
                            'moves': _om.summary(next((v for k, v in _json_load(OWNER_MOVES_PATH, {}).items() if isinstance(v, dict)), {}))}, 'renewed': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('renewed') or {}), 'scrapped': [{k: x.get(k) for k in ('tpl', 'at', 'label', 'text', 'valueUsd', 'putInUsd', 'rounds')} for x in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('scrapped') or [])[-12:]], 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'weather': _real_weather(), 'suggest': _json_load(PG_SIM_PATH, {}).get('byClock') or {}, 'realGuard': _prime.real_guard({**_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'instantSwapPct': _fuse._f(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('instantSwapPct'))}, (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or ())[1], 'paperMatch': _fw.paper_match(_fw_load().get('quoteAudit')), 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'lockCfg': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}), 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner'), 'realOwnerSet': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or []}
 
@@ -8299,6 +8316,11 @@ async def fuse_prime_admin(request: Request):
             pr['realCfg'] = _prime.clean_cfg({**base, **body['realCfg']})
             # 🪙 THE OWNER PICKS: every setting saved here is the owner's — the engine's self-fix never changes it afterwards
             pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {k for k in body['realCfg'] if isinstance(k, str)})[:60]
+            # 🪜 switching the ladder ON starts a fresh climb (it sets every stage key); a setting tapped while it is on stays the owner's
+            if body['realCfg'].get('ladder') is True:
+                pr['ladderKeep'] = []
+            elif pr['realCfg'].get('ladder'):
+                pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | {k for k in body['realCfg'] if k != 'ladder'})[:60]
         if body.get('lock') in _prime.TEMPLATES:   # 🔒 lock a tier's FULL config as it is now (engine, tunes and meta config never change it)
             locks = dict(pr.get('locks') or {})
             if isinstance(body.get('patch'), dict) and locks.get(body['lock']):   # ⚙ edit a LOCKED tier: change only its own frozen config

@@ -23,3 +23,9 @@ def test_every_ladder_value_is_a_real_editor_option():
 def test_ladder_view_names_the_next_stage():
     v = ap.ladder_view('trench')
     assert v['next']['at'] == 10 and len(v['stages']) == 5 and ap.ladder_view('majors')['next'] is None
+
+
+def test_a_setting_the_owner_taps_beats_the_ladder():
+    out = ap.clean_cfg(ap.ladder_patch({'ladder': True, 'coins': 4, 'sl': 20.0}, 'trench', keep=['coins']))
+    assert out['coins'] == 4 and out['sl'] == 15.0   # coins kept (tapped), stop still the stage's
+    assert 'coins' in ap.ladder_keys('trench') and 'cycles' in ap.ladder_keys('majors')

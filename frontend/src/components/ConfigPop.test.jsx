@@ -29,3 +29,18 @@ test('Edit Fuse is a pop-out: launcher with live chips, rail of sections, seat b
   await act(async () => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); }); expect(q('ce-pop')).toBeNull();
   await act(async () => { root.unmount(); });
 });
+
+test('with the ladder on, rows it sets say 🪜 ladder and a row you tapped says ✋ yours', async () => {
+  const React = require('react'); const { act } = React; const { createRoot } = require('react-dom/client');
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({}) }));
+  const { CardEditor } = require('./ArenaPrime');
+  const c = { tpl: 'degen', label: 'Blaze', real: true, legs: [] };
+  const ladder = { on: true, key: 'trench', name: '🗑 TRENCH', why: 'w', value: 2, stages: [], keys: ['coins', 'sl', 'rotateHours'], keep: ['coins'] };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<CardEditor c={c} cfg={{ rotateHours: 0.08, coins: 4, sl: 15 }} real ladder={ladder} call={jest.fn(async () => ({}))} keeper={{}} />); });
+  await act(async () => { document.querySelector('[data-testid="ce-open"]').click(); });
+  const pane = document.querySelector('[data-testid="ce-pane-main"]').textContent;
+  expect(pane).toContain('✋ yours'); expect(pane).toContain('🪜 ladder');
+  await act(async () => { root.unmount(); });
+});

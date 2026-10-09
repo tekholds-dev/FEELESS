@@ -438,7 +438,11 @@ export function CardEditor({ c, cfg, keeper, locked, call, real, suggest, meta, 
   // one setting = one line: what it is + what it does on the left, the choices on the right. One group on screen at a time.
   // one short line per setting on the page; the full explanation is the hover tip (the long paragraphs were the clutter)
   const brief = t => { const x = String(t || ''); const cut = x.search(/[.:—] /); const one = cut > 20 ? x.slice(0, cut) : x; return one.length > 120 ? `${one.slice(0, 117)}…` : one; };
-  const seg = (key, label, opts, tip, cur, wallet, to) => <div key={key} className="ce-row"><span data-tip={tip}><b>{label}</b><small>{brief(tip)}</small></span>
+  // 🪜 while the size ladder is on, a row it sets says so; a row you tapped since says ✋ yours (your tap always beats the ladder)
+  const ladMark = key => (real && ladder?.on && (ladder.keys || []).includes(key) ? ((ladder.keep || []).includes(key)
+    ? <i className="ce-mark is-yours" data-tip="You set this by hand — the ladder leaves it alone. Turn the ladder off and on to hand it back.">✋ yours</i>
+    : <i className="ce-mark is-ladder" data-tip={`The size ladder sets this for ${ladder.name}. Tap any value to make it yours.`}>🪜 ladder</i>) : null);
+  const seg = (key, label, opts, tip, cur, wallet, to) => <div key={key} className="ce-row"><span data-tip={tip}><b>{label}{ladMark(key)}</b><small>{brief(tip)}</small></span>
     <div className="m-seg">{((key === 'rideAt' || key === 'rideTrail') && Number(cur) > 0 && !opts.some(([v]) => String(v) === String(cur)) ? [...opts, [cur, `✋ ${key === 'rideAt' ? '+' : '−'}${cur}%`]] : opts).map(([v, t]) => <button key={String(v)} type="button" disabled={busy} className={String(cur) === String(v) ? 'active' : ''} aria-pressed={String(cur) === String(v)} onClick={() => (to ? to({ [key]: v }) : save({ [key]: v }, wallet))}>{t}</button>)}</div></div>;
   // ⏱ a paper tier that isn't locked saves ITS OWN clock (`clocks[tier]`); the real card and locked tiers save their own rotateHours
   const ownClock = !real && !locked;
@@ -493,7 +497,7 @@ export function CardEditor({ c, cfg, keeper, locked, call, real, suggest, meta, 
       {adv && grp === 'coins' && <>{sub('HOW MANY · WHICH MIX')}{rows(['coins', ...(real ? ['newOnly'] : [])])}
         <div className="ce-row is-wide"><span><b>🔄 Cycle</b><small>The shapes this card moves through (anchor · mixed · degen · safest …)</small></span><div className="m-seg">{CYCLES.map(([v, t]) => <button key={v} type="button" disabled={busy} className={(cfg?.cycles || {})[c.tpl] === v ? 'active' : ''} onClick={() => save({ cycles: { ...(cfg?.cycles || {}), [c.tpl]: v } })}>{t}</button>)}</div></div>
         {rows(['cycleEvery', ...(trenchOn ? ['trenchCoins', 'trenchStakePct', 'trenchSlPct'] : []), 'trenchHouseAt'])}
-        {trenchOn && <TrenchScan call={call} />}
+        {trenchOn && <details className="cep-fold" data-testid="ce-trench-fold"><summary>🗑 Trench lists + trench meta <small>the live trench coins and which meta passes them — open when you want to look</small></summary><TrenchScan call={call} /></details>}
         {sub(real ? 'LAUNCH COINS THE CARD MAY BUY' : 'LAUNCH COINS')}
         {rows(['scoutPct', ...(on('scoutPct') ? [] : ['moverSwap']), 'rebuyDipPct', 'runnerMinAgeH', ...(real ? ['upMeta', 'trenchAuto', 'sendItAuto'] : []), 'runnerMinLiqK', 'runnerMinVolK', 'runnerMinChg1h', 'runnerMinBuy'])}
         {sub('CHECKS')}{rows(['edgeGate', ...(cfg?.edgeGate !== false ? ['edgeFloor'] : []), ...(real ? ['pickVerify'] : [])])}

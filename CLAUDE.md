@@ -2359,3 +2359,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   coins that clear the card's own checks (`_cat_ok`), then up to 4 best-evidence coins one check away; the 30s seat fill takes edge coins first.
   `EDGE_BUY_MIN` −25: a coin whose evidence says it typically loses 25%+ an hour is never shown or bought. Coming up keeps ITS OWN record (key
   `up`, label "ITS RECORD"). 2026-10-08 records: BOND RUN −82%, movers −87%, Pump trending −1.5%, fed −0.5% — the score mostly ranks bad vs worse.
+- 🪜✋ A TAP BEATS THE LADDER (owner, 2026-10-08: "trying to click how many coins"): with the ladder on, its stage set coins = 3 over the owner's
+  saved 4, so the button looked dead. Now every realCfg key the owner saves while the ladder is on joins `prime.ladderKeep` and
+  `ladder_patch(.., keep)` skips it; switching the ladder ON again starts a fresh climb (`ladderKeep` = []). Editor rows say `🪜 ladder` (the stage
+  sets it) or `✋ yours` (`ce-mark`); `/fuses/prime.ladder.keys/keep`. One-time `_ladder_keep_fix` (`ladderKeepFix1`) kept the owner's 4 coins.
+  Edit Fuse › Coins: the trench lists sit in a fold (`cep-fold`), not inline. "A BUTTON DOESN'T WORK" ⇒ compare the stored realCfg with `cfgEff`
+  first — a layer on top (ladder, real_guard, seat fit) is the usual cause.

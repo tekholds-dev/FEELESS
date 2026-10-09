@@ -814,12 +814,19 @@ def ladder_view(key):
             'stages': [{'key': x[0], 'name': x[2], 'from': x[1]} for x in LADDER]}
 
 
-def ladder_patch(cfg, key):
-    """The card's config with its stage's playbook on top (cycles merged, so other tiers keep theirs)."""
+def ladder_keys(key):
+    """The settings this stage sets (what the editor marks 🪜)."""
+    st = next((x for x in LADDER if x[0] == key), None)
+    return sorted((st or (0, 0, 0, 0, {}))[4])
+
+
+def ladder_patch(cfg, key, keep=()):
+    """The card's config with its stage's playbook on top (cycles merged, so other tiers keep theirs). `keep` = settings the OWNER
+    changed by hand since switching the ladder on: those stay the owner's (a tap must never be overruled by the ladder)."""
     st = next((x for x in LADDER if x[0] == key), None)
     if not st:
         return cfg
-    patch = dict(st[4])
+    patch = {k: v for k, v in st[4].items() if k not in set(keep or ())}
     cyc = patch.pop('cycles', None)
     out = {**(cfg or {}), **patch}
     if cyc:
