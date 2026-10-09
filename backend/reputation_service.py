@@ -8116,6 +8116,25 @@ async def _procall_fix_1009(now):
     return True
 
 
+async def _topseat_fix_1009(now):
+    """🔥 Once (owner, 2026-10-09: "make it a config and turn it on"): the real card's TOP 1/3 coin takes a seat by itself; flow exit stays on."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('topSeatFix1009') or not rc:
+            return False
+        new = {'topSeat': True, 'flowExit': rc.get('flowExit') if rc.get('flowExit') in ('normal', 'tight') else 'normal'}
+        pr['realCfg'] = _prime.clean_cfg({**rc, **new})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(new))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(new))
+        for c in (pr.get('cards') or {}).values():
+            if c.get('real'):
+                c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🔥 Top 3 auto-seat on: the TOP 1/3 coin takes your weakest non-winning seat (one per 10 min) · 🌊 buys-vs-sells exit sells it when sellers take over'})
+        pr['topSeatFix1009'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _ticket_ride_fix(now):
     """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
     once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
@@ -8216,6 +8235,7 @@ async def _prime_tick_inner(now):
     await _hunt_fix_1009b(now)
     await _trench_fix_1009(now)
     await _procall_fix_1009(now)
+    await _topseat_fix_1009(now)
     await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
@@ -8612,6 +8632,24 @@ async def _prime_tick_inner(now):
                     row_ = next((x for x in hot_ if in_ and x.get('mint') == in_.get('mint')), {})
                     nw_['events'] = nw_['events'][:-1] + [{**nw_['events'][-1], 'why': f"🚀 mover in: ${(in_ or {}).get('symbol')} is up {_fuse._f(row_.get('chg1h')):+.0f}% on the hour on ${_fuse._f(row_.get('vol1h')) / 1000:,.0f}K volume — ${fl_.get('symbol')} was not moving"}]
                     nw_['moverAt'] = now
+                    cur = _prime.note_dropped(was_, nw_, now, cfg_t['rotateHours'], px)
+                except ValueError:
+                    pass
+        # 🔥 TOP-3 AUTO SEAT (owner, 2026-10-09: "those coins automatically get swapped into a seat and buy-vs-sell gets it gone"): the
+        # card's TOP 1/3 coin takes the weakest seat that is not winning, one per 10 min — still the real-buy pool floor, no dollar names,
+        # not falling right now; the flow exit sells it when sellers take over.
+        if real_t and cur and cfg_t.get('topSeat') and not cur.get('holdAll') and not cur.get('flooredAt') and now - _fuse._f(cur.get('topSeatAt')) >= _prime.TOP_SEAT_SEC:
+            tops_ = _prime.top_three((_contenders_cache.get('data') or {}).get('divisions'), mine, cool)
+            fwc_ = _fw.clean_cfg(fw_cfg)
+            cand_ = next((x for x in tops_ if _lq(x) >= fwc_['minLiqUsd'] and not _fw.dollar_named(x.get('symbol')) and _fuse._f(x.get('price')) > 0
+                          and _prime.entry_ok(x, mom)), None)
+            vic_ = _prime.top_victim(cur, px, now, max(120.0, _fuse._f(cfg_t.get('minHoldMins')) * 60)) if cand_ else None
+            if cand_ and vic_:
+                try:
+                    was_ = cur
+                    nw_ = _prime.replace_leg(cur, vic_['pairAddress'], px, p_t, [{**cand_, 'tag': '🔥 top 3'}], anchors, cfg_t, now)
+                    nw_['events'] = nw_['events'][:-1] + [{**nw_['events'][-1], 'why': f"🔥 TOP 3 auto-seat: ${cand_.get('symbol')} (${_fuse._f(cand_.get('vol1h')) / 1000:,.0f}K/h, {_fuse._f(cand_.get('chg1h')):+.0f}% 1h) took ${vic_.get('symbol')}'s seat"}]
+                    nw_['topSeatAt'] = now
                     cur = _prime.note_dropped(was_, nw_, now, cfg_t['rotateHours'], px)
                 except ValueError:
                     pass
@@ -10337,7 +10375,7 @@ def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
         keeper['flow'] = []
     keeper['holdingSell'] = bool(b.get('sellHoldAt'))
     full_ = _fw_full_ledger()
-    return {'since': b.get('since'), 'fundedUsd': b.get('fundedUsd'), 'feesUsd': round(_fuse._f(b.get('feesUsd')), 4),
+    return {'since': b.get('since'), 'fundedUsd': b.get('fundedUsd'),
             'paidOutEverUsd': paid_ever, 'paidOutSol': round(_fuse._f(b.get('bankSol')), 9),
             'profitAvailableUsd': round(profit_available, 4), 'profitCashAvailableUsd': round(payout_cash, 4), 'recoverable': recoverable, 'offCard': off_card,
             'wallet': cfg['address'], 'keeper': keeper, 'versus': _fw.versus(full_, tid, time.time()), 'realized': _fw.realized_split(full_, tid), 'deadOrders': dead,

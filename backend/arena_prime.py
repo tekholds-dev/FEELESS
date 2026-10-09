@@ -495,6 +495,7 @@ def clean_cfg(p):
     out['vitalMin'] = int(_f((p or {}).get('vitalMin'))) if int(_f((p or {}).get('vitalMin'))) in (0, 35, 50, 65) else 0        # 🎛 Coming up / engine: min vital score
     out['organicMin'] = int(_f((p or {}).get('organicMin'))) if int(_f((p or {}).get('organicMin'))) in (0, 5, 10, 20, 30) else 0   # … min organic share of 1h volume
     out['noSerial'] = bool((p or {}).get('noSerial', False))                                                                    # … skip serial launchers
+    out['topSeat'] = bool((p or {}).get('topSeat', False))   # 🔥 the TOP 1/3 coin takes the weakest seat by itself (one per 10 min); buys-vs-sells gets it out
     out['proCallEntry'] = bool((p or {}).get('proCallEntry', False))   # 🎯 trench seats take a PROVEN caller's fresh call first, while still near the called cap
     out['trenchSendOnly'] = bool((p or {}).get('trenchSendOnly', False))   # 🔥 the trench drop takes ONLY 🔥 SEND IT coins (the only trench read with a positive record) — none → it waits
     out['sendItAuto'] = bool((p or {}).get('sendItAuto', True))   # 🔥 the engine may take SEND IT coins as trench tickets — only once that call is PROVEN
@@ -637,6 +638,40 @@ def movers(rows, cfg):
     hunt = _f((cfg or {}).get('runnerMinVolK')) > 0 and _f((cfg or {}).get('runnerMinChg1h')) > 0
     ok = (lambda x: is_hunt(x, cfg)) if hunt else (lambda x: _f(x.get('vol1h')) >= MOVER_VOL1H and x.get('chg1h') is not None and _f(x.get('chg1h')) >= MOVER_CHG1H)
     return sorted((x for x in rows or [] if not x.get('trenchOnly') and ok(x)), key=lambda x: -_f(x.get('chg1h')))
+
+
+TOP3_DIVS = ('volume', 'fresh', 'proven', 'risers', 'paid', 'dip')   # = ArenaPrime.jsx TOP3_DIVS (change both)
+TOP_SEAT_SEC = 600      # 🔥 one top-3 auto seat per card per 10 min
+TOP_SEAT_KEEP = 5.0     # a coin up more than this keeps its seat
+
+
+def top_three(divisions, on_card=(), cool=()):
+    """🔥 The 3 busiest SAFE coins not on the card — the same rule as the real card's TOP 1/3 chip (`topThree` in ArenaPrime.jsx):
+    the Gauntlet's runner divisions, no watch rows, not cooling, by 1h volume then score. Pure."""
+    seen, out = set(on_card or ()), []
+    rows = [{**x, 'div': d.get('key')} for d in divisions or [] if d.get('key') in TOP3_DIVS for x in d.get('rows') or []]
+    for r in sorted((r for r in rows if not r.get('watch') and r.get('mint') and r.get('pairAddress') and r.get('mint') not in set(cool or ())),
+                    key=lambda r: (-_f(r.get('vol1h')), -_f(r.get('score')))):
+        if r['mint'] not in seen:
+            seen.add(r['mint']); out.append(r)
+            if len(out) == 3:
+                break
+    return out
+
+
+def top_victim(card, prices, now, hold_sec):
+    """The seat a top-3 coin takes: the WEAKEST coin that is not winning (≤ +`TOP_SEAT_KEEP`%), held ≥ `hold_sec`, never riding / frozen /
+    house money / being bought / with a queued pick / the SOL anchor. None when every coin is winning or fresh."""
+    out = []
+    for l in (card or {}).get('legs') or []:
+        px = _f((prices or {}).get(l.get('pairAddress')))
+        if (l.get('ride') or l.get('frozen') or l.get('house') or l.get('buying') or l.get('placeholder') or l.get('swapTo') or l.get('mint') == SOL_MINT
+                or px <= 0 or _f(l.get('entry')) <= 0 or _f(l.get('units')) <= 0 or now - _f(l.get('at')) < hold_sec):
+            continue
+        g = (px / _f(l['entry']) - 1) * 100
+        if g <= TOP_SEAT_KEEP:
+            out.append((g, l))
+    return min(out, key=lambda t: t[0])[1] if out else None
 
 
 def flat_leg(card, prices, now, hold_sec=FLAT_HOLD_SEC, band=FLAT_BAND):
@@ -2425,6 +2460,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 c = nc
     # 4) idle cash goes back to work when compounding. Cash reserved for an empty replacement slot is untouchable.
     clamp_hold(c, now)            # 🅿 never more parked than the card really holds in cash (fees come out of that cash)
+    unfunded_seats(c, now, prices)   # 💸 a coin with nothing behind it never sits "waiting for card cash" for good
     release_parked(c, cfg, now)   # 🅿 parked profit whose rounds are up joins the idle cash — BEFORE free cash is counted (it used to wait one more tick)
     # 🅿 PARKED MEANS PARKED (owner, 2026-10-07: "parked 6 rnds means just that"): nothing releases a park before its rounds are
     # up — not a queued pick, not an empty seat. A seat with no free cash is funded by trimming the coins above an equal share
@@ -3014,6 +3050,36 @@ def rebuy_in(card, still_held, now):
 
 
 SEAT_QUEUE_MAX = 5
+
+
+UNFUNDED_SEC = 30   # a coin on the card with nothing behind it for this long is taken off and its seat re-funded
+
+
+def unfunded_seats(c, now, prices=None, grace=UNFUNDED_SEC):
+    """💸 STUCK SEAT, PERMA-FIX (2026-10-09: $TPAD → $Sludge "waiting for card cash" for good): a leg with 0 units, no buy in flight
+    (`buying` / `wantUnits`) and not a reserved placeholder holds NO money — it came from a pick or a hand swap that inherited a seat
+    whose money had already gone back into the card, and nothing would ever fund it. After `grace` seconds it leaves the card; the
+    owner's pick goes to the seat queue (`seatPick` / `seatQueue`, acknowledged), where the seat refill funds it from cash or by
+    trimming coins above an equal share — the same as any empty seat. In place → [symbols moved]."""
+    legs, moved = c.get('legs') or [], []
+    for l in list(legs):
+        if len(c['legs']) <= 1 or l.get('placeholder') or l.get('buying') or _f(l.get('units')) > 0 or _f(l.get('wantUnits')) > 0 or l.get('mint') == SOL_MINT:
+            continue
+        if now - _f(l.get('at')) < grace:
+            continue
+        c['legs'].remove(l)
+        moved.append(l.get('symbol'))
+        px = _f((prices or {}).get(l.get('pairAddress'))) or _f(l.get('entry'))
+        if l.get('picked') and l.get('mint') and l.get('pairAddress') and px > 0:
+            pick = {'mint': l['mint'], 'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'price': px, 'liquidityUsd': l.get('liq'), 'ack': True,
+                    **({'trenchOnly': True} if l.get('trench') else {})}
+            if not c.get('seatPick'):
+                c['seatPick'] = pick
+            elif c['seatPick'].get('mint') != pick['mint']:
+                c['seatQueue'] = ([x for x in c.get('seatQueue') or [] if x.get('mint') != pick['mint']] + [pick])[:SEAT_QUEUE_MAX]
+        c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'symbol': l.get('symbol'),
+                                           'why': f"💸 ${l.get('symbol')} had no money behind it — off the card" + (', queued for the next seat (funded from cash or the coins above an equal share)' if l.get('picked') else ', the seat refills by itself')})
+    return moved
 
 
 def queue_seat(card, cand, more=False):

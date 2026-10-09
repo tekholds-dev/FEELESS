@@ -2549,3 +2549,47 @@ def test_trench_pool_puts_a_proven_callers_fresh_call_first():
     assert [x['mint'] for x in ap.trench_pool(s, rows, [], [], {'proCallEntry': True, 'trenchSendOnly': True}, pro=pro)] == ['P', 'S']
     assert [x['mint'] for x in ap.trench_pool(s, rows, [], [], {}, pro=pro)] == ['S', 'R']         # switch off → ignored
     assert ap.clean_cfg({})['proCallEntry'] is False
+
+
+def test_a_coin_with_no_money_behind_it_leaves_the_card_and_the_pick_is_re_funded_through_the_seat_queue():
+    # 2026-10-09: a pick took a reserved seat after its money had gone back into the card → "$0.00 ticket" → $Sludge waited for good
+    c = {'legs': [{'symbol': 'A', 'mint': 'a', 'pairAddress': 'pa', 'units': 10, 'at': 0},
+                  {'symbol': 'S', 'mint': 's', 'pairAddress': 'ps', 'units': 0, 'entry': 0.002, 'picked': True, 'at': 1000},
+                  {'symbol': 'B', 'mint': 'b', 'pairAddress': 'pb', 'units': 0, 'buying': True, 'wantUnits': 5, 'at': 1000},
+                  {'symbol': 'P', 'mint': 'p', 'pairAddress': 'pp', 'units': 0, 'placeholder': True, 'at': 1000}]}
+    assert ap.unfunded_seats(c, 1010) == []                                      # within 30s: left alone
+    assert ap.unfunded_seats(c, 1040, {'ps': 0.003}) == ['S']                    # unfunded → off the card
+    assert [l['symbol'] for l in c['legs']] == ['A', 'B', 'P']                   # a buy in flight / a reserved seat stay
+    assert c['seatPick']['mint'] == 's' and c['seatPick']['ack'] and c['seatPick']['price'] == 0.003   # your pick waits for a funded seat
+    assert 'no money behind it' in c['events'][-1]['why']
+
+
+def test_an_unfunded_pick_is_seated_with_money_on_the_next_tick():
+    cfg = ap.clean_cfg({**CFG, 'coins': 3, 'rideAt': 0, 'instantSwapPct': 0, 'floorPct': 0, 'rescuePct': 0, 'cycles': {'degen': 'off'}})
+    card = ap.deal('degen', [P('a', 1)], [R('r1', 1), R('r2', 1)], cfg, 0, SOL[:1])
+    card['legs'] = [l for l in card['legs'] if l['mint'] in ('r1', 'r2')]
+    for l in card['legs']:
+        l.update(priced=True, entry=1.0, units=10.0, costUsd=10.0, at=0)
+    dead = dict(R('zz', 1)); card['legs'].append({**ap._leg(dead, 1.0, 0, 'runner'), 'units': 0.0, 'costUsd': 0.0, 'picked': True, 'at': 0})
+    card['cash'] = 0.0
+    px = {l['pairAddress']: 1.0 for l in card['legs']}
+    out = ap.tick(card, px, [], [R('r9', 1)], cfg, 120, SOL[:1])
+    z = [l for l in out['legs'] if l['mint'] == 'zz']
+    assert len(z) == 1 and z[0]['units'] > 0                                    # funded by trimming the coins above an equal share
+
+
+def test_top_three_matches_the_cards_top_chip_and_the_victim_is_the_weakest_non_winner():
+    divs = [{'key': 'volume', 'rows': [{'mint': 'a', 'pairAddress': 'pa', 'vol1h': 500}, {'mint': 'b', 'pairAddress': 'pb', 'vol1h': 900},
+                                       {'mint': 'w', 'pairAddress': 'pw', 'vol1h': 9999, 'watch': True}]},
+            {'key': 'dip', 'rows': [{'mint': 'c', 'pairAddress': 'pc', 'vol1h': 700}, {'mint': 'd', 'pairAddress': 'pd', 'vol1h': 800}]},
+            {'key': 'deep', 'rows': [{'mint': 'z', 'pairAddress': 'pz', 'vol1h': 99999}]}]                 # not a top-3 division
+    assert [r['mint'] for r in ap.top_three(divs)] == ['b', 'd', 'c']
+    assert [r['mint'] for r in ap.top_three(divs, on_card={'b'}, cool={'d'})] == ['c', 'a']
+    card = {'legs': [{'pairAddress': 'x', 'mint': 'x', 'entry': 1, 'units': 1, 'at': 0},
+                     {'pairAddress': 'y', 'mint': 'y', 'entry': 1, 'units': 1, 'at': 0},
+                     {'pairAddress': 'r', 'mint': 'r', 'entry': 1, 'units': 1, 'at': 0, 'ride': True},
+                     {'pairAddress': 'f', 'mint': 'f', 'entry': 1, 'units': 1, 'at': 990}]}
+    px = {'x': 0.9, 'y': 1.2, 'r': 0.5, 'f': 0.5}
+    assert ap.top_victim(card, px, 1000, 600)['mint'] == 'x'          # y is winning, r is riding, f is fresh → x (−10%)
+    assert ap.top_victim(card, {**px, 'x': 1.1}, 1000, 600) is None   # nothing left that is not winning
+    assert ap.clean_cfg({})['topSeat'] is False

@@ -2476,3 +2476,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   2026-10-09 on 31,937 judged calls: proven-on-the-first-half callers → next calls 50% up (median 1.01×) vs 42% (1.0×) for everyone — a
   small edge, ridden as a ticket with the scalp-the-stake exits. Own record: `procall_proof.json` (`_procall_track` in `_trench_build`,
   shown as `proof.pro` on `/fuses/call-proof`). On for the real card (`_procall_fix_1009`).
+- 💸 UNFUNDED SEAT PERMA-FIX (`arena_prime.unfunded_seats`, start of step 4 in `tick`, `UNFUNDED_SEC` 30): a leg with 0 units, no buy in
+  flight (`buying` / `wantUnits`), not a placeholder, for 30s holds NO money — 2026-10-09 a pick took a reserved seat whose money had
+  already been spread ("a $0.00 ticket"), a ⇄ hand swap passed the $0 on (TPAD → Sludge, "waiting for card cash" for good). It leaves
+  the card; the owner's pick goes to `seatPick` / `seatQueue` (ack) and the seat refill funds it (cash, else trims coins above an equal
+  share). Fourth version of the "0-unit leg with a mint" bug — this sweeper covers every door.
+- 🔥 TOP-3 AUTO SEAT (cfg `topSeat`, on for the real card via `_topseat_fix_1009`; `arena_prime.top_three` = the card's TOP 1/3 chip rule
+  (`TOP3_DIVS` mirrors ArenaPrime.jsx — change both), `top_victim`, `TOP_SEAT_SEC` 600): the TOP 1/3 coin takes the weakest seat that is
+  not winning (≤ +5%, held past min hold; never rider / frozen / house / buying / queued), real-buy pool floor, no dollar names, not
+  falling now; the 🌊 flow exit sells it when sellers lead. Its record = `real_learn` (leg `bought.tag` '🔥 top 3').
