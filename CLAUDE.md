@@ -2427,3 +2427,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   🏦 cash · 🏠 initial out · ✂ 25 / 50% · ⇄); ❄ freeze is ONE tap on the row (`hrt-fz`). 🎯 `GoalBar` on the real card (milestone the
   owner picks, remembered per browser + "% of put-in back"). ☠ BUSTED calls (`busted`: ≥ 30 settled, median ≤ −20%) render red with
   their record badge (`tvl-rec`, every call with ≥ 10 settled shows `±N%/1h`). `real_learn.note`: no buy stamp = `holdMin` None.
+- 🏦 DEGEN SETUP 2026-10-09 (`_degen_fix_1009`, once, `degenFix1009`, backup data/realcfg_before_degen1009.json; every key → realOwnerSet + ladderKeep):
+  the "always keep $1 riding" floor (`tpStakeUsd` 1) sat above every coin on a $1.39 card → `tp_room` 0 → no peak sell / lock bank could
+  fire (six rides to 1.1–1.3× gave it all back in 40 min). Now: floor off · stack skim $0.50 · 🏠 `houseAt` 50 (NEW: initial out once on EVERY
+  non-anchor coin; trench / ticket coins keep `trenchHouseAt` when set) · ⏳ `pickLockMins` 30 (NEW, `arena_prime.pick_lock` +
+  `_cook_warn`: a hand pick-swap / ⇄ replace / whole ✂ sell of a coin held < N min → 409 "⚠ ⏳ …" → "Sell it anyway" re-sends with `ack`;
+  the warn dialog now covers pickSwap · fillSeat · replace · manualSell) · ride over → 🏦 `rideEnd: 'bank'` (NEW: sells what it holds above
+  entry, ignores the keep-riding floor, coin stays) · min hold 30 · lock bank 50% · trench off (`trenchAuto` false, `ticketRide` false and
+  the legs' ride-or-rug cleared so their stop sells them, cycle → press). Clock untouched. Evidence: pay-map 1,223 pieces — trims +$21.89,
+  whole exits −$32.83, sold < 15 min −$19.30, held 30–60 min +$4.99. A plan for the record, not a promise.

@@ -7808,6 +7808,19 @@ async def _prime_unique_fix(now):
     return True
 
 
+def _cook_warn(card, pair, ack, rcfg=None):
+    """⏳ LET IT COOK: a real card's hand exit of a coin held under `pickLockMins` comes back as a 409 warning (the owner taps "do it anyway"
+    and the same request goes again with `ack`). Never a block, never on paper cards, never on the engine's own exits."""
+    if ack or not (card or {}).get('real'):
+        return
+    cfg_ = rcfg if rcfg is not None else _prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
+    left = _prime.pick_lock(card, pair, cfg_, time.time())
+    if left:
+        l = next((x for x in card.get('legs') or [] if x.get('pairAddress') == pair), {})
+        raise HTTPException(409, f"⚠ ⏳ ${l.get('symbol')} was bought {max(0, int(cfg_['pickLockMins']) - left)} min ago — your lock is {int(cfg_['pickLockMins'])} min "
+                                 f"({left} min left). Coins sold inside 15 min lost $19.30 over 714 pieces (27% won); held 30–60 min won 59%. Let it cook?")
+
+
 async def _real_hold_fix(now):
     """🍳 OWNER'S CALL (2026-10-08, "do all" after the pay-map): once, the real card lets a coin cook — min hold 30 min (round rotation, mover swaps,
     trench fills and re-shapes wait; stops, rug shield, floor, the owner's hand still act at once) and a trench / ticket coin's initial comes out at +100%.
@@ -7856,6 +7869,47 @@ async def _ladder_keep_fix(now):
         pr['ladderKeepFix1'] = True
         _json_save(FUSE_HQ_PATH, d)
         return True
+
+
+DEGEN_1009 = {'tpStakeUsd': 0.0, 'stackSkimUsd': 0.5, 'houseAt': 50, 'trenchHouseAt': 50, 'pickLockMins': 30, 'rideEnd': 'bank', 'minHoldMins': 30.0,
+              'lockBankPct': 50.0, 'trenchAuto': False, 'ticketRide': False}
+
+
+def degen_patch_1009(rc):
+    """Pure: the 2026-10-09 config (owner: "fix my settings to be degen … cut these trench coins and move on") → (new realCfg, keys changed)."""
+    cyc = dict(rc.get('cycles') or {}); cyc['degen'] = 'press'   # 🗑 off the trench cycle: runners strike, then a mixed round
+    return _prime.clean_cfg({**rc, **DEGEN_1009, 'cycles': cyc}), sorted(set(DEGEN_1009) | {'cycles'})
+
+
+async def _degen_fix_1009(now):
+    """🎰→🏦 OWNER'S CALL (2026-10-09, after the pay-map + chain audit): once, the real card stops handing back its runs and leaves the trench.
+    Found: the "always keep $1 riding" floor was above every coin on a $1.39 card, so no peak sell / lock bank could fire — six coins rode
+    to 1.1–1.3× and gave it all back in 40 min. Changes: keep-riding floor off · full-stack skim to $0.50 · 🏠 initial out at +50% on EVERY
+    coin · ⏳ 30-min ask before a hand exit · ride over → 🏦 bank its profit · min hold 30m · bank 50% at the lock · trench off (auto buys,
+    tickets ride-or-rug, cycle → press). The tickets on the card lose ride-or-rug, so their stop applies again (the owner asked to cut them).
+    Every key joins realOwnerSet + ladderKeep (the ladder's trench stage would put trench back). Old values: data/realcfg_before_degen1009.json."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('degenFix1009') or not rc:
+            return False
+        new, keys = degen_patch_1009(rc)
+        _json_save(DATA_DIR / 'realcfg_before_degen1009.json', {k: rc.get(k) for k in keys})
+        pr['realCfg'] = new
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(keys))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(keys))
+        for c in (pr.get('cards') or {}).values():
+            if c.get('real'):
+                c['ticketRide'] = False
+                for l in c.get('legs') or []:
+                    if l.get('rideOrRug'):
+                        l.pop('rideOrRug', None)
+                        if l.get('slMode') == 'hold':
+                            l.pop('slMode', None)
+                c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🏦 your degen setup: keep-riding floor off · initial out at +50% on every coin · ride over → bank its profit · min hold 30m · bank 50% at the lock · trench off (tickets get their stop back)'})
+        pr['degenFix1009'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
 
 
 async def _ticket_ride_fix(now):
@@ -7952,6 +8006,7 @@ async def _prime_tick_inner(now):
     await _real_hold_fix(now)
     await _real_ride_fix(now)
     await _ticket_ride_fix(now)
+    await _degen_fix_1009(now)
     await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
@@ -8713,6 +8768,8 @@ async def fuse_prime_admin(request: Request):
                 raise HTTPException(400, f"🔒 Hands-off lock: {int(_prime.hands_off_left(card, time.time()) // 60) + 1} min left — picks wait. The engine and your stops keep working.")
             # 🎯 THE OWNER'S PICK IS NEVER COOLED: cool-downs (no back-to-back, left at a loss, removed by the owner) limit the ENGINE
             # only — the owner sells off a peak and buys the same coin back at its new level whenever they choose
+            if cand and pk['pairAddress'] != '__seat__':
+                _cook_warn(card, pk['pairAddress'], pk.get('ack'))   # ⏳ swapping out a coin you bought minutes ago asks first
             try:
                 cards[pk['tpl']] = _prime.queue_seat(card, cand, more=bool(pk.get('more'))) if pk['pairAddress'] == '__seat__' else _prime.queue_swap(card, pk['pairAddress'], cand)
             except ValueError as e:
@@ -8757,6 +8814,7 @@ async def fuse_prime_admin(request: Request):
         async with _admin_lock:
             d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
             card = cards.get(rep['tpl'])
+            _cook_warn(card, rep['pairAddress'], rep.get('ack'))   # ⏳ a hand swap of a fresh coin asks first
             if not card:
                 raise HTTPException(404, 'No card for that tier yet.')
             if _prime.hands_off_left(card, time.time()):
@@ -8808,6 +8866,8 @@ async def fuse_prime_admin(request: Request):
             card = cards.get(ms['tpl'])
             if not card or not card.get('real'):
                 raise HTTPException(400, 'Manual sell-to-cash is only available on a real card.')
+            if not ms.get('all') and _fuse._f(ms.get('pct') or 100) >= 100:
+                _cook_warn(card, ms['pairAddress'], ms.get('ack'))   # ⏳ selling a fresh coin WHOLE asks first (trims never do)
             px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in card.get('legs') or []])
             try:
                 # ✂ the owner's manual sell: one coin or every coin, any % (25 / 50 / 100) — the only way principal ever leaves a card

@@ -2437,3 +2437,68 @@ def test_a_fed_coin_locks_later_and_the_second_ticket_goes_once_to_a_locked_call
     assert ap.second_ticket(card, {'secondTicketPct': 10}, {'A': 0.02, 'B': 0.01}, {}, 600.0, 2.0, 10.0) == (None, 0.0)        # once per ride
     for c2, cfg, cash in (({'legs': legs(), 'real': True}, {'secondTicketPct': 10}, 2.0), ({'legs': legs()}, {'secondTicketPct': 0}, 2.0), ({'legs': legs()}, {'secondTicketPct': 10}, 0.1)):
         assert ap.second_ticket(c2, cfg, {'A': 0.02}, {}, 1.0, cash, 10.0) == (None, 0.0)   # never real money · off · no idle cash
+
+
+def test_house_at_pulls_the_initial_on_every_coin_but_anchors():
+    # 2026-10-09: the initial-out is the owner's best record → card-wide `houseAt`, not just trench / tickets
+    cfg = ap.clean_cfg({**CFG, 'houseAt': 50, 'rideAt': 0, 'instantSwapPct': 0, 'tpStakeUsd': 0, 'skimTo': 'card', 'floorPct': 0, 'rescuePct': 0})
+    assert cfg['houseAt'] == 50 and ap.clean_cfg({'houseAt': 7})['houseAt'] == 0 and ap.clean_cfg({})['houseAt'] == 0
+    card = ap.deal('degen', [P('a', 1)], [R('r1', 1), R('r2', 1)], cfg, 0, SOL[:1])
+    for l in card['legs']:
+        l.update(priced=True, entry=1.0, units=10.0, costUsd=10.0, tp=900)
+    px = {l['pairAddress']: (1.6 if l['mint'] == 'r1' else 1.6 if l.get('role') == 'anchor' else 1.0) for l in card['legs']}
+    out = ap.tick(card, px, [], [], cfg, 60, SOL[:1])
+    r1 = next(l for l in out['legs'] if l['mint'] == 'r1')
+    assert r1.get('house') and r1['units'] < 10                                 # +60% runner: initial out, house money rides
+    anc = [l for l in out['legs'] if l.get('role') == 'anchor']
+    assert all(not l.get('house') for l in anc)                                  # majors in the anchor seat are never pulled
+    off = ap.tick(card, px, [], [], ap.clean_cfg({**cfg, 'houseAt': 0}), 60, SOL[:1])
+    assert not any(l.get('house') for l in off['legs'])
+
+
+def test_ride_end_bank_sells_the_profit_and_keeps_the_coin():
+    # 2026-10-09: six coins rode to 1.1–1.3× and gave it all back ("ride over, kept on the card")
+    base = ap.clean_cfg({**CFG, 'rideAt': 20, 'rideTrail': 10, 'instantSwapPct': 0, 'lockBankPct': 0, 'tpStakeUsd': 1, 'rideEnd': 'bank', 'floorPct': 0, 'rescuePct': 0})
+    assert base['rideEnd'] == 'bank'
+    card = ap.deal('degen', [P('a', 1)], [R('r1', 1), R('r2', 1)], base, 0, SOL[:1])
+    l = next(x for x in card['legs'] if x['mint'] == 'r1')
+    l.update(priced=True, entry=1.0, units=1.0, costUsd=1.0, ride=True, high=1.5, rideFrom=1.0, rideAtPct=20)
+    px = {x['pairAddress']: (1.08 if x['mint'] == 'r1' else 1.0) for x in card['legs']}
+    out = ap.tick(card, px, [], [R('r9', 1)], base, 60, SOL[:1])
+    k = next(x for x in out['legs'] if x['pairAddress'] == l['pairAddress'])
+    assert not k.get('ride') and 0 < k['units'] < 1.0                           # the $1 keep-riding floor does NOT stop a ride-end bank
+    ev = [e for e in out['events'] if e.get('kind') == 'ride-end'][-1]
+    assert 'banked' in ev['why'] and ev['usd'] > 0
+    px_lo = {x['pairAddress']: (0.97 if x['mint'] == 'r1' else 1.0) for x in card['legs']}
+    l.update(ride=True, units=1.0, costUsd=1.0)
+    low = ap.tick(card, px_lo, [], [R('r9', 1)], base, 60, SOL[:1])           # under its entry: nothing to bank, coin stays
+    assert any(x['pairAddress'] == l['pairAddress'] for x in low['legs'])
+    assert 'nothing above its entry' in [e for e in low['events'] if e.get('kind') == 'ride-end'][-1]['why']
+
+
+def test_pick_lock_counts_minutes_left_and_never_applies_when_off():
+    card = {'legs': [{'pairAddress': 'A', 'units': 5, 'at': 1000.0}, {'pairAddress': 'B', 'units': 0, 'buying': True, 'at': 1000.0}]}
+    cfg = ap.clean_cfg({'pickLockMins': 30})
+    assert cfg['pickLockMins'] == 30 and ap.clean_cfg({'pickLockMins': 7})['pickLockMins'] == 0
+    assert ap.pick_lock(card, 'A', cfg, 1000 + 10 * 60) == 20                   # bought 10 min ago → 20 min left
+    assert ap.pick_lock(card, 'A', cfg, 1000 + 31 * 60) == 0                    # past the lock
+    assert ap.pick_lock(card, 'B', cfg, 1060) == 0                              # nothing held yet
+    assert ap.pick_lock(card, 'A', ap.clean_cfg({}), 1060) == 0                 # off by default
+
+
+def test_degen_fix_1009_config_and_cook_warning():
+    import reputation_service as rs
+    import pytest
+    from fastapi import HTTPException
+    rc = ap.clean_cfg({**CFG, 'tpStakeUsd': 1, 'rideEnd': 'keep', 'trenchAuto': True, 'ticketRide': True, 'cycles': {'degen': 'trench'}})
+    new, keys = rs.degen_patch_1009(rc)
+    assert new['tpStakeUsd'] == 0 and new['houseAt'] == 50 and new['pickLockMins'] == 30 and new['rideEnd'] == 'bank'
+    assert new['minHoldMins'] == 30 and new['lockBankPct'] == 50 and not new['trenchAuto'] and not new['ticketRide']
+    assert new['cycles']['degen'] == 'press' and 'cycles' in keys and 'houseAt' in keys
+    assert new['rotateHours'] == rc['rotateHours']                              # the owner's 5-min clock is never touched
+    card = {'real': True, 'legs': [{'pairAddress': 'A', 'symbol': 'X', 'units': 1, 'at': rs.time.time() - 120}]}
+    with pytest.raises(HTTPException) as e:
+        rs._cook_warn(card, 'A', False, new)
+    assert e.value.status_code == 409 and e.value.detail.startswith('⚠ ⏳ $X')
+    rs._cook_warn(card, 'A', True, new)                                         # acknowledged → goes through
+    rs._cook_warn({**card, 'real': False}, 'A', False, new)                     # paper cards never ask

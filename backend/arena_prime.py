@@ -530,6 +530,8 @@ def clean_cfg(p):
     out['trenchStakePct'] = int(_f(ts_)) if ts_ is not None and int(_f(ts_)) in TRENCH_STAKES else 15   # 🎟 a trench coin's ticket, % of the card (0 = a full equal seat)
     tl_ = (p or {}).get('trenchSlPct')
     out['trenchHouseAt'] = int(_f((p or {}).get('trenchHouseAt'))) if int(_f((p or {}).get('trenchHouseAt'))) in HOUSE_ATS else 0   # 🏠 a trench / ticket coin's initial comes out at this gain (0 = off)
+    out['houseAt'] = int(_f((p or {}).get('houseAt'))) if int(_f((p or {}).get('houseAt'))) in HOUSE_ATS else 0   # 🏠 EVERY coin (not anchors): its initial comes out at this gain, profit rides (0 = off)
+    out['pickLockMins'] = int(_f((p or {}).get('pickLockMins'))) if int(_f((p or {}).get('pickLockMins'))) in PICK_LOCKS else 0   # ⏳ a coin held less than this asks before a hand exit (0 = off)
     out['trenchSlPct'] = int(_f(tl_)) if tl_ is not None and int(_f(tl_)) in TRENCH_SLS else 25         # … and its own stop (0 = the card's)
     out['tp'] = clean_exit('tp', (p or {}).get('tp')) or 0.0   # 🎯 card-level TP / SL (0 = the tier template's)
     out['sl'] = clean_exit('sl', (p or {}).get('sl')) or 0.0
@@ -1449,7 +1451,20 @@ def _skim(c, l, px, liqs, now, to='card', fee=0.0, auto=None, frac=1.0, why=None
     return got
 
 
-HOUSE_ATS = (0, 30, 50, 100, 200)   # 🏠 cfg `trenchHouseAt`: 0 = off
+HOUSE_ATS = (0, 30, 50, 100, 200)   # 🏠 cfg `trenchHouseAt` / `houseAt`: 0 = off
+PICK_LOCKS = (0, 15, 30, 60)        # ⏳ cfg `pickLockMins`: 0 = off
+
+
+def pick_lock(card, pair, cfg, now):
+    """⏳ LET IT COOK (owner, 2026-10-09): whole minutes left before a hand exit of this coin is "free" — 0 = go ahead. The ledger: coins
+    sold inside 15 min lost $19.30 over 714 pieces (27% won); held 30–60 min won 59%. A WARNING the owner acknowledges, never a block;
+    it never limits the engine's stops, rug shield or floor."""
+    lim = _f((cfg or {}).get('pickLockMins'))
+    l = next((x for x in (card or {}).get('legs') or [] if x.get('pairAddress') == pair), None)
+    if lim <= 0 or not l or l.get('placeholder') or l.get('buying') or _f(l.get('units')) <= 0 or not _f(l.get('at')):
+        return 0
+    left = lim * 60 - (now - _f(l['at']))
+    return int(-(-left // 60)) if left > 0 else 0
 
 
 def _take_stake(c, l, px, liqs, now, to='cash', fee=0.0, auto=None):
@@ -1615,7 +1630,7 @@ def second_ticket(card, cfg, prices, liqs, now, free_cash, value):
             return l, usd
     return None, 0.0
 PEAK_SELLS, PEAK_SELL = (0, 25, 50, 75, 100), 50.0   # 0 = sell NOTHING off its peak, keep riding (owner, 2026-10-08)
-RIDE_ENDS = ('swap', 'keep', 'cash')   # ride over (under its floor): ⇄ swap for the next coin · 🧷 keep the coin (normal stops apply) · 💵 sell to card cash
+RIDE_ENDS = ('swap', 'keep', 'cash', 'bank')   # ride over (under its floor): ⇄ swap for the next coin · 🧷 keep the coin (normal stops apply) · 💵 sell to card cash · 🏦 sell the profit above entry, the coin stays
    # 🏔 off its peak: % of the PROFIT sold while the coin keeps riding (100 = swap the whole coin)   # 🏦 % of a winner sold the moment it locks (0 = off)
 
 # ⚖ SWAP ONLY WHEN IT PAYS. A rotation sells one coin and buys another: it costs the spread + price impact twice + two network fees.
@@ -1936,10 +1951,13 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     stack_skim(c, prices, liqs, now, cfg, fee)   # 💚 every coin locked → each is skimmed down to its stake, and again as it grows
     # 🏠 TRENCH / TICKET COINS: at +`trenchHouseAt`% the initial comes out once and only profit rides (owner: "take initial and
     # just leave profit, for safety"). The money follows `skimTo` (held · parked · back into the other coins).
-    ha = _f(cfg.get('trenchHouseAt'))
-    if ha > 0 and not c.get('flooredAt'):
+    # 🏠 EVERY COIN (`houseAt`, owner 2026-10-09): the same once-only pull for every non-anchor coin — the initial-out is the owner's best
+    # record (+182% typical) and profit trims made the card's money; a trench / ticket coin keeps its own line when that one is set.
+    ha_t, ha_all = _f(cfg.get('trenchHouseAt')), _f(cfg.get('houseAt'))
+    if (ha_t > 0 or ha_all > 0) and not c.get('flooredAt'):
         for l in c['legs']:
-            if not (l.get('trench') or l.get('ticket')) or l.get('house') or l.get('placeholder') or l.get('buying') or _f(l.get('units')) <= 0 or _f(l.get('entry')) <= 0:
+            ha = (ha_t or ha_all) if (l.get('trench') or l.get('ticket')) else (ha_all if l.get('role') != 'anchor' else 0)
+            if ha <= 0 or l.get('house') or l.get('placeholder') or l.get('buying') or _f(l.get('units')) <= 0 or _f(l.get('entry')) <= 0:
                 continue
             px_h = _f(prices.get(l['pairAddress']))
             if px_h > 0 and px_h >= _f(l['entry']) * (1 + ha / 100):
@@ -2108,6 +2126,13 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 continue
             l['ride'] = False
             end_ = cfg.get('rideEnd') if cfg.get('rideEnd') in RIDE_ENDS else 'swap'
+            if end_ == 'bank':   # 🏦 ride over → what it still holds ABOVE its entry is sold (no keep-riding floor: the run already ended), the coin stays
+                took = _skim(c, l, px, liqs, now, cfg.get('skimTo') or 'card', fee, frac=1.0, why=f"{why_end} — 🏦 its profit banked, the coin stays (your setting)") if px > _f(l.get('entry')) else 0.0
+                if took:
+                    c['events'][-1]['kind'] = 'ride-end'
+                else:
+                    ev(kind='ride-end', symbol=l['symbol'], usd=round(l['units'] * px, 4), why=f"{why_end} — nothing above its entry to bank, kept on the card", to=[l['symbol']])
+                continue
             if end_ == 'keep':   # 🧷 ride over, the coin STAYS — its normal stop / TP / rotation rules take over again
                 ev(kind='ride-end', symbol=l['symbol'], usd=round(l['units'] * px, 4), why=f"{why_end} — ride over, kept on the card (your setting)", to=[l['symbol']])
                 continue
@@ -2126,7 +2151,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         elif _f(cfg.get('rideAt', RIDE_AT)) > 0 and g >= ra and l.get('role') != 'anchor' and _f(l.get('units')) > 0:   # never 'ride' a coin you don't hold
             l.update(ride=True, high=px, rideFrom=l['entry'], rideAt=now, rideAtPct=ra)
             ps_ = _f(cfg.get('peakSellPct', PEAK_SELL)); end_ = cfg.get('rideEnd') if cfg.get('rideEnd') in RIDE_ENDS else 'swap'
-            then_ = ('keeps riding' if ps_ <= 0 else f'{ps_:g}% of its profit is sold' if ps_ < 100 else 'it is sold') + f" when it falls {rt:g}% from its peak; under +{min(HOLD_MIN, ra / 2):g}% the ride ends → " + {'swap': 'swapped', 'keep': 'kept on the card', 'cash': 'sold to card cash'}[end_]
+            then_ = ('keeps riding' if ps_ <= 0 else f'{ps_:g}% of its profit is sold' if ps_ < 100 else 'it is sold') + f" when it falls {rt:g}% from its peak; under +{min(HOLD_MIN, ra / 2):g}% the ride ends → " + {'swap': 'swapped', 'keep': 'kept on the card', 'cash': 'sold to card cash', 'bank': 'its profit banked, the coin stays'}[end_]
             ev(kind='ride', symbol=l['symbol'], usd=round(l['units'] * px, 4), why=f"+{g:.0f}% ≥ +{ra:g}% — ❄ frozen (riding): {then_}", to=[l['symbol']])
             lock_bank(c, l, px, liqs, now, cfg, fee, g)
             continue
