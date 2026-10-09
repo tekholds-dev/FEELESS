@@ -6,6 +6,7 @@ import json
 import os
 from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
+import time
 from time import monotonic
 from typing import Any, Literal
 
@@ -17,7 +18,7 @@ from ecosystem import DEFAULT_MINTS
 from pydantic import BaseModel, Field
 
 import pump_calls
-from launchpad_board import JUP_SEARCH, jup_lookup, jup_search_pairs, jup_pair, keep_last_board, BOARD_MAX, BONK_PLATFORM_ID, JUP_LISTS, JUP_RECENT, PUMP_TREND_PARAMS, PUMP_TREND_PATH, PUMP_TREND_TTL, build_board, pump_pages, pump_trend_rows, dex_candidate, jup_candidate, launchlab_candidate, pump_candidate
+from launchpad_board import launchpad_board_snapshot, save_board_snapshot, BOARD_SNAPSHOT_PATH, JUP_SEARCH, jup_lookup, jup_search_pairs, jup_pair, keep_last_board, BOARD_MAX, BONK_PLATFORM_ID, JUP_LISTS, JUP_RECENT, PUMP_TREND_PARAMS, PUMP_TREND_PATH, PUMP_TREND_TTL, build_board, pump_pages, pump_trend_rows, dex_candidate, jup_candidate, launchlab_candidate, pump_candidate
 
 BOARD_SCOPES = ('launchpads', 'pump', 'bonk', 'raydium')
 
@@ -374,12 +375,30 @@ def create_market_router(db, intelligence=None):
     pair_mem = {}   # 📡 mint → (monotonic, pair): a coin's last good DexScreener snapshot, reused ≤ 5 min when its batch is refused
 
     board_refreshing = set()
+    board_disk = {'saved': {}}   # ⚡ kind → wall time of the last board written to disk
+
+    def _board_from_disk(kind):
+        """⚡ COLD START (every backend restart — auto-pull restarts it on each backend push): the last board written to disk, if ≤ 15 min
+        old, is served at once (marked stale) while the first fresh build runs in the background. It used to make the first viewer wait
+        16–23s for an empty-cache rebuild."""
+        snap = launchpad_board_snapshot(BOARD_SNAPSHOT_PATH, kind, time.time())
+        if not snap:
+            return None
+        age, ranked, meta = snap
+        board_cache[kind] = (monotonic() - max(20.0, age), ranked, {**meta, 'stale': True})
+        return board_cache[kind]
+
+    def _board_to_disk(kind, ranked, meta):
+        if time.time() - board_disk['saved'].get(kind, 0) < 60:
+            return   # at most once a minute per kind
+        board_disk['saved'][kind] = time.time()
+        save_board_snapshot(BOARD_SNAPSHOT_PATH, kind, ranked, meta, time.time())
 
     async def launchpad_board(kind):
         """⚡ The last board answers AT ONCE while a fresh one builds in the background (≤ 5 min old); only a cold start waits.
         A rebuild takes ~8s (660 coins, two sources): every caller after the 20s mark used to wait for it (🔥 Pump trending: 8.7s)."""
-        hit = board_cache.get(kind)
-        if hit and 20 <= monotonic() - hit[0] < 300:
+        hit = board_cache.get(kind) or _board_from_disk(kind)
+        if hit and 20 <= monotonic() - hit[0] < 1200:
             if kind not in board_refreshing:
                 board_refreshing.add(kind)
 
@@ -520,6 +539,11 @@ def create_market_router(db, intelligence=None):
         if keep_last_board(hit, ranked, failed, monotonic()):   # 📡 never swap a good board for an empty one built while DexScreener refused us
             return hit[1], {**hit[2], 'stale': True, 'error': 'DexScreener is rate-limiting — showing the last good board'}
         board_cache[kind] = (monotonic(), ranked, meta)
+        if ranked:
+            try:
+                await asyncio.to_thread(_board_to_disk, kind, ranked, meta)
+            except Exception:
+                pass
         return ranked, meta
 
     @router.get('/pump/callouts/{mint}')

@@ -5237,8 +5237,24 @@ async def _feecat_card():
 async def _arena_mega(rd, cfg, now):
     """Cards on the Arena stage: HQ mega cards (published Fuses flagged `arena`) + runner cards that lit after their
     rounds. Each carries its live activity (fuse_hq.activity → hard-coded effect tier). 30s cache, parallel lookups."""
-    if _arena_mega_cache['data'] is not None and now - _arena_mega_cache['at'] < 40 and not _FUSE_FORCE.get():
-        return _arena_mega_cache['data']
+    if _arena_mega_cache['data'] is not None and not _FUSE_FORCE.get():
+        age_ = now - _arena_mega_cache['at']
+        if age_ < 40:
+            return _arena_mega_cache['data']
+        if age_ < 600:   # ⚡ stale: answer with the last stage at once, ONE background rebuild (a viewer used to wait for every card's live view)
+            if not _arena_mega_cache.get('busy'):
+                _arena_mega_cache['busy'] = True
+
+                async def _bg():
+                    tok = _FUSE_FORCE.set(True)
+                    try:
+                        await _arena_mega(rd, cfg, time.time())
+                    except Exception:
+                        pass
+                    finally:
+                        _FUSE_FORCE.reset(tok); _arena_mega_cache['busy'] = False
+                asyncio.create_task(_bg())
+            return _arena_mega_cache['data']
     store = _json_load(FUSES_PATH, {'fuses': {}})
     staged = sorted(((fid, f) for fid, f in (store.get('fuses') or {}).items() if f.get('arena') and f.get('enabled', True)), key=lambda x: -_fuse._f(x[1].get('createdAt')))[:8]   # newest first
     views = await asyncio.gather(*[_fuse_view(fid, f, store) for fid, f in staged], return_exceptions=True)
@@ -6803,7 +6819,21 @@ _contenders_cache: dict = {'at': 0.0, 'data': None}
 _contenders_lock = asyncio.Lock()
 
 
-async def _contenders_build():
+CONTENDERS_STALE_SEC = 600   # ⚡ a copy this old is still SERVED at once while a fresh one builds in the background
+
+
+async def _contenders_build(fresh=False):
+    """⚡ Never make a viewer wait for the rebuild (it took 0.4–4.4s every time the 30s copy ran out): a copy ≤ 10 min old is answered
+    at once and ONE background rebuild starts. No copy yet (cold start) or `fresh` (the warm loop) → build and wait."""
+    d_, age = _contenders_cache['data'], time.time() - _contenders_cache['at']
+    if d_ and not fresh and age < CONTENDERS_STALE_SEC:
+        if age >= 30 and not _contenders_lock.locked():
+            asyncio.create_task(_contenders_rebuild())
+        return d_
+    return await _contenders_rebuild()
+
+
+async def _contenders_rebuild():
     """🏁 The Arena qualifier league: every pick list is a division, ranked on live facts; rebuilt at most every 30s (one build at a time)."""
     if _contenders_cache['data'] and time.time() - _contenders_cache['at'] < 30:
         return _contenders_cache['data']
@@ -10814,7 +10844,7 @@ async def _fuse_warm():
     except Exception as e:
         print('proof:', e)
     try:   # 🏁 the contenders league is kept warm, so the Arena reads it in ms and the tier engine always knows who is next up
-        await _contenders_build()
+        await _contenders_build(fresh=True)
     except Exception as e:
         print('contenders:', e)
     if _fuse_warm_n['n'] % 36 == 5:   # ~15 min (one runner round): auto-strength picks the proven-best engine dial

@@ -370,3 +370,36 @@ async def jup_search_pairs(http, query, limit=12):
         return []
     out = [p for p in (jup_pair(t) for t in (rows if isinstance(rows, list) else [])[:limit]) if p]
     return sorted(out, key=lambda p: -_f((p.get('liquidity') or {}).get('usd')))
+
+
+# ⚡ COLD-START SNAPSHOT: the last good board per kind, on disk, so a backend restart answers at once instead of a 16–23s rebuild.
+from pathlib import Path as _Path
+import json as _json
+BOARD_SNAPSHOT_PATH = _Path(__file__).resolve().parent / 'data' / 'board_snapshot.json'
+BOARD_SNAPSHOT_MAX_AGE = 900   # older than 15 min = not worth showing; the viewer waits for a fresh build
+
+
+def launchpad_board_snapshot(path, kind, now, max_age=BOARD_SNAPSHOT_MAX_AGE):
+    """→ (age_seconds, ranked, meta) for `kind` from the snapshot file, or None (missing, unreadable, empty or too old)."""
+    try:
+        row = (_json.loads(_Path(path).read_text()) or {}).get(kind) or {}
+    except Exception:
+        return None
+    age = now - float(row.get('at') or 0)
+    if not row.get('ranked') or not 0 <= age <= max_age:
+        return None
+    return age, row['ranked'], row.get('meta') or {}
+
+
+def save_board_snapshot(path, kind, ranked, meta, now):
+    """Write `kind`'s board into the snapshot file (other kinds kept). Atomic: write a temp file, then rename."""
+    p = _Path(path)
+    try:
+        d = _json.loads(p.read_text()) if p.exists() else {}
+    except Exception:
+        d = {}
+    d[kind] = {'at': now, 'ranked': ranked, 'meta': meta}
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix('.tmp')
+    tmp.write_text(_json.dumps(d, separators=(',', ':')))
+    tmp.replace(p)

@@ -2436,3 +2436,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   entry, ignores the keep-riding floor, coin stays) · min hold 30 · lock bank 50% · trench off (`trenchAuto` false, `ticketRide` false and
   the legs' ride-or-rug cleared so their stop sells them, cycle → press). Clock untouched. Evidence: pay-map 1,223 pieces — trims +$21.89,
   whole exits −$32.83, sold < 15 min −$19.30, held 30–60 min +$4.99. A plan for the record, not a promise.
+- ⚡ SLOW LOAD = COLD CACHES, LAG = DEV MODE (measured 2026-10-09): warm, every Fuse endpoint answers in ≤ 120 ms, 0 long tasks, all
+  animations transform / opacity. What was slow: (1) a viewer arriving after a cache ran out waited for the rebuild — `/fuses/contenders`
+  0.4–4.4s every 30s, `/fuses/arena` ≈ 20s cold, the launch feed 16–23s after every restart (auto-pull restarts the backend on each
+  backend push). Now stale-while-revalidate: `_contenders_build` (copy ≤ 10 min answered, ONE background `_contenders_rebuild`; warm
+  loop passes `fresh=True`), `_arena_mega` (≤ 10 min, background rebuild under `_FUSE_FORCE`), launch board snapshot on disk
+  (`launchpad_board.save_board_snapshot/launchpad_board_snapshot`, `data/board_snapshot.json`, ≤ 15 min, written ≤ 1/min per kind) served
+  stale on a cold start. (2) The owner's Chrome runs the DEV server (`craco start`): unminified 2.7 MB JS, StrictMode mounts every poller
+  twice. ⚡ FAST MODE = `bash scripts/serve-fast.sh` → production build on :51368 (`scripts/fast-server.js`, same proxy as setupProxy.js —
+  change both), rebuilt on new commits (reload to see it): JS 899 KB, DOM ready 67 ms vs 328, load 183 ms vs 862. New port = new origin
+  (connect the wallet / sign in to HQ once there). The dev server stays for development.
