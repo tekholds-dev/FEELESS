@@ -12289,6 +12289,26 @@ def _office_chart_view(ch, row=None):
             'entry': ch.get('entry'), 'objs': ch.get('objs'), 'risk': ch.get('risk'), 'stop': stop, 'stopParts': parts, 'hardStop': _ci.CATASTROPHIC_STOP, 'f': {k: f.get(k) for k in keep}}
 
 
+def _office_bars(pair, mint=None, n=40):
+    """The candles the page draws for one coin — the SAME rows the agents read this pass (the cached 1-minute candles; else Tally's
+    tape as close-only bars, flagged). Memory only. → {src, rows: [[t, o, h, l, c]]} | None"""
+    hit = _office['candles'].get(pair)
+    if hit and hit[1]:
+        return {'src': 'candles', 'rows': [[int(r[0]), r[1], r[2], r[3], r[4]] for r in hit[1][-n:]]}
+    ser = ((_json_load(AGENTS_PATH, {}).get('series') or {}).get(mint) or []) if mint else []
+    rows = _ci.from_tape(ser)[-n:]
+    return {'src': 'tape', 'rows': [[int(r[0]), r[1], r[2], r[3], r[4]] for r in rows]} if len(rows) >= 2 else None
+
+
+def _office_positions():
+    """Reaper's reports as the page gets them: + the position's own % path since entry and the candles behind its chart."""
+    out = []
+    for r in _office.get('reports') or []:
+        p_ = (_office.get('pos') or {}).get(r.get('mint')) or {}
+        out.append({**r, 'path': list(p_.get('path') or [])[-40:], 'bars': _office_bars(r.get('pair'), r.get('mint'))})
+    return out
+
+
 def _office_light(tid, cur, now):
     """Between agent passes: the last real agent action (with what the LEDGER says about it), the duty clock and Reaper's positions
     are refreshed on the cached payload. Memory only — no read, no quote, no scan."""
@@ -12301,7 +12321,7 @@ def _office_light(tid, cur, now):
     _office.update(last=last, dutyAt=_fuse._f(cur.get('agentDutyAt')), tid=tid)
     p = _office.get('payload')
     if p:
-        p['positions'] = _office.get('reports') or []
+        p['positions'] = _office_positions()
         p['mission'] = {**p['mission'], 'lastAction': last, 'dutyAt': _office['dutyAt']}
 
 
@@ -12417,15 +12437,24 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
     }
     cands = [{**{k: v for k, v in c_.items() if k != 'shadow'}, 'eval': c_.get('eval') or _of.evaluate(c_)} for c_ in sorted((of.get('candidates') or {}).values(), key=lambda c_: -c_['at'])[:6]]
     pipe = _of.pipeline(case, {**cur_ctx, 'ms': ms})
+    if cur_case:
+        cur_case['bars'] = _office_bars(case.get('pair'), case['mint'])
+    queue = []   # every case file of this pass with the desk it stands at right now (the first desk that has not passed it)
+    for c_ in cases[:6]:
+        pl_ = pipe if c_ is case else _of.pipeline(c_, {'tally': _of.tally_read(c_['row'], ser.get(c_['mint']), now), 'sherlock': _of.sherlock_read(c_['row'], lr), 'weather': wx, 'courier': cour, 'ms': {}})
+        at_ = next((s_ for s_ in pl_ if s_['agent'] not in ('archivist', 'judge') and s_['state'] not in ('PASS', 'DONE')), pl_[5])
+        ch_ = c_['row'].get('chart') or {}
+        queue.append({'mint': c_['mint'], 'symbol': c_.get('symbol'), 'lean': c_.get('lean'), 'cleared': c_.get('cleared'), 'go': c_.get('go'), 'at': at_['agent'], 'state': at_['state'], 'word': str(at_['word'])[:140],
+                      'structure': ch_.get('state'), 'entry': (ch_.get('entry') or [None])[0], 'conf': ch_.get('conf')})
     _office['payload'] = {
         'at': now, 'mission': _of.mission(money, (view.get('lives') or {}).get('n'), view.get('stage'), _office.get('dutyAt'), now, _office.get('last'), view.get('underwater')) | {'dutyAt': _office.get('dutyAt'), 'control': bool(rcfg.get('agentControl'))},
         'office': {'chain': list(_of.CHAIN), 'priority': list(_of.PRIORITY), 'coins': perf.get('coins'), 'cases': len(cases), 'cleared': sum(1 for c_ in cases if c_['cleared'])},
         'agents': _of.agent_cards(cards, {'live': live, 'office': of}), 'currentCase': cur_case, 'pipeline': pipe,
-        'positions': _office.get('reports') or [], 'exiting': [{'mint': p_['mint'], 'sym': p_.get('sym'), 'rule': p_.get('askRule'), 'state': (p_.get('exit') or {}).get('state'), 'since': p_.get('leftAt')} for p_ in _office['exiting']],
+        'queue': queue, 'positions': _office_positions(), 'exiting': [{'mint': p_['mint'], 'sym': p_.get('sym'), 'rule': p_.get('askRule'), 'state': (p_.get('exit') or {}).get('state'), 'since': p_.get('leftAt')} for p_ in _office['exiting']],
         'execution': cour, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': list(reversed((of.get('lineage') or [])[-8:])), 'devil': dv_rec[:10], 'needShadow': _of.SHADOW_N, 'needPropose': _of.PROPOSE_N},
         'judge': {'trial': jd.get('trial'), 'handicap': jd.get('handicap'), 'mvp': jd.get('mvp'), 'rulings': jd.get('n'), 'minN': _of.JUDGE_MIN_N, 'demoteN': _of.JUDGE_DEMOTE_N},
         'take': _of.take_info(rcfg, st.get('scalp')),
-        'performance': {'deskMs': round(desk_ms, 1), 'agents': {a: _of.lat(_office['lat'].get(a)) for a in _of.CHAIN}, 'chart': _of.lat(_office['lat'].get('chart')),
+        'performance': {'deskMs': round(desk_ms, 1), 'agents': {a: {**_of.lat(_office['lat'].get(a)), 'series': list(_office['lat'].get(a) or [])[-30:]} for a in _of.CHAIN}, 'chart': _of.lat(_office['lat'].get('chart')),
                         'candles': {**_office['candleStat'], 'tape': sum(1 for c_ in _office['charts'].values() if c_.get('src') == 'tape'), 'real': sum(1 for c_ in _office['charts'].values() if c_.get('src') == 'candles')}},
     }
     _office['payload']['performance']['passMs'] = round(sum(_fuse._f(ms.get(a)) for a in _of.CHAIN), 2)

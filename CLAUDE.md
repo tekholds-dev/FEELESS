@@ -2920,3 +2920,17 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
     state), "entered too late %", "surrendered N points of peak", real entries per thesis structure; scorecards `chartN` / `chartRight`.
   · UI (same one request): `ChartBox` (state · TREND / CHOP / MOMENTUM / EXTENSION meters · FLOW · LIQUIDITY · TRIGGER · DEVIL · WARDEN ·
     stop · evidence ± · every feature in a fold), `PositionCard` per live coin, `TakeLine`, candle accounting line in the runtime box.
+- 🏢 AGENTS TAB = THE CONTROL ROOM (owner, 2026-10-10, built to their preview image; `command/OfficeRoom.jsx` + `styles/officeRoom.css`
+  `ofr-*`, tests `OfficeRoom.test.jsx`). Order: 💵 REAL MONEY MISSION header (pass clock · `ticker` · stage · dial · 🏢 room toggle
+  `feeless.agentRoom`, on by default · war log) → `OfficeMission bare` tiles → MissionBar → KPI tiles → CardNow → DutyBox → CourtBand →
+  ONE lens, bar docked at the BOTTOM (sticky). 🏢 Office lens = `OfficeHQ`: `RoomScene` (wall: sign · the candidate / position on screen
+  with ITS candles · pipeline status; ten stations in chain order — CSS bot, two monitors (action word + ms), desk, flow arrows, the
+  desk the candidate stands at pulses; the pass's case files `queue`; flow + ticker) | `AgentPanel` (tabs Live decision · Beliefs &
+  ethics · Current inputs · Chart intel · Source code; `CandleChart` = the SAME 1-minute rows the agents read with entry / take / stop /
+  invalidation / support drawn — a tape is drawn as a LINE, never as candles; chart intelligence grid; last rulings; runtime / files) →
+  `Roster` (ten cards: gen · status · runtime line · record · action word) → `details.agd-fold` holding the full `OfficeBoard`.
+  The four-desk picker (`agd-chain`) moved into the 🟢 Live lens; the old three.js `AgentRoom` is no longer mounted (files kept).
+  Payload adds (same one request): `queue` (each case + the desk it stands at), `currentCase.bars`, positions `path` + `bars`
+  (`_office_bars` / `_office_positions`, memory only), `performance.agents[a].series`. The room is DOM + CSS perspective (no WebGL):
+  every label is testable text. "Expected move" from the preview is NOT shown — nothing computes one; TAKE / STOP lines stand there.
+  SVG labels use `T()` (createElement). `.ofr-room` is an fxPause surface.

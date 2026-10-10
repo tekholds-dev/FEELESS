@@ -42,13 +42,13 @@ export function dump(v, depth = 0) {
 }
 const Dump = ({ v }) => dump(v);
 
-export function OfficeMission({ m }) {
+export function OfficeMission({ m, bare }) {
   const [, tick] = useState(0);
   useEffect(() => { const t = setInterval(() => tick(n => n + 1), 1000); return () => clearInterval(t); }, []);
   if (!m) return <div className="ofb-mission is-cold" data-testid="ofb-mission"><b>💵 REAL MONEY MISSION</b><span className="ofb-nil">waiting for the agents' first pass — nothing is shown until the real card's own numbers arrive</span></div>;
   const left = nextDuty(m); const la = m.lastAction; const [rc, rt] = actionResult(la?.result); const be = m.toBreakeven;
   return <div className={`ofb-mission ${m.locked ? 'is-locked' : 'is-clear'}`} data-testid="ofb-mission">
-    <b data-tip="Every number here is the real Fuse card's own: its server value and what you put in. The page computes nothing.">💵 REAL MONEY MISSION</b>
+    {bare ? null : <b data-tip="Every number here is the real Fuse card's own: its server value and what you put in. The page computes nothing.">💵 REAL MONEY MISSION</b>}
     <div className="ofb-mgrid">
       <span data-testid="ofb-putin"><small>PUT IN</small><em>{usd(m.putIn)}</em></span>
       <span data-testid="ofb-value"><small>CARD VALUE NOW</small><em>{usd(m.value)}</em></span>

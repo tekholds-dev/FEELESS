@@ -63,13 +63,13 @@ test('the agent desk: four agents in one chain, the stage, the live table with e
 });
 
 test('the desk is interactive: one lens at a time, KPI tiles jump, the board filters / searches / opens, the feed and the agents drive it', async () => {
-  try { localStorage.removeItem('feeless.agentLens'); localStorage.removeItem('feeless.agentOffice'); } catch (e) { /* none */ }
+  try { localStorage.removeItem('feeless.agentLens'); localStorage.removeItem('feeless.agentRoom'); } catch (e) { /* none */ }
   const call = jest.fn(async (path, opts) => (opts ? { ok: true } : view));
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<AgentDesk call={call} />); });
   const q = id => el.querySelector(`[data-testid="${id}"]`);
-  expect(q('office-board')).not.toBeNull(); expect(q('lens-live-pane')).toBeNull(); expect(q('ofb-mission').textContent).toContain('REAL MONEY MISSION');   // opens on the 🏢 Office: data first
-  expect(q('agent-room')).toBeNull();                                                                                  // the 3D room is off unless asked for
+  expect(q('office-board')).not.toBeNull(); expect(q('lens-live-pane')).toBeNull(); expect(q('agent-desk').textContent).toContain('REAL MONEY MISSION'); expect(q('office-hq')).not.toBeNull(); expect(q('agd-board-fold')).not.toBeNull();   // opens on the 🏢 Office: data first
+  expect(q('agent-tally')).toBeNull();                                                                                 // the four-desk picker lives in the Live view now
   expect(call.mock.calls.filter(c => !c[1]).map(c => c[0])).toEqual(['/admin/agents']);                              // ONE request feeds the desk AND the office
   await act(async () => { q('lens-live').click(); });
   expect(q('lens-live-pane')).not.toBeNull(); expect(q('office-board')).toBeNull(); expect(q('lens-learn-pane')).toBeNull(); expect(q('agd-controls')).toBeNull();   // one lens at a time
@@ -91,12 +91,12 @@ test('the desk is interactive: one lens at a time, KPI tiles jump, the board fil
   await act(async () => { q('dial-crazy').click(); });   // 🔥 the creator's dial is one tap, saved as agentDial
   expect(call).toHaveBeenCalledWith('/admin/agents', expect.objectContaining({ body: JSON.stringify({ cfg: { agentDial: 'crazy' } }) }));
   expect(q('ags-court')).not.toBeNull(); expect(q('ags-stake').textContent).toContain('next stake 25%');
+  expect(q('agd-office').getAttribute('aria-pressed')).toBe('true');       // the room is on by default
   await act(async () => { q('agd-office').click(); });
-  expect(el.querySelector('[data-testid="agent-room"]')).not.toBeNull();                                            // the 3D room is opt-in now
+  expect(q('agd-office').getAttribute('aria-pressed')).toBe('false');
   await act(async () => { q('agd-office').click(); });
-  expect(el.querySelector('[data-testid="agent-room"]')).toBeNull();
   await act(async () => { root.unmount(); });
-  try { localStorage.removeItem('feeless.agentLens'); localStorage.removeItem('feeless.agentOffice'); } catch (e) { /* none */ }
+  try { localStorage.removeItem('feeless.agentLens'); localStorage.removeItem('feeless.agentRoom'); } catch (e) { /* none */ }
 });
 
 test('board + clock helpers: a row\'s state, the fact that decided it, the pips, the lean meter, filter / search / sort, the pass clock', () => {

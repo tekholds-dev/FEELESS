@@ -27,7 +27,7 @@ test('screen helpers: heat, reasons (who carries them), the scope (bar at the mi
 
 test('tap a mini screen → the zoom: tap a mark or step ‹ › through the coins, switch agent, filter by a reason, Esc closes', async () => {
   const call = jest.fn(async () => view); const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
-  await act(async () => { root.render(<AgentDesk call={call} />); });
+  await act(async () => { root.render(<AgentDesk call={call} lens="live" />); });
   const q = id => document.querySelector(`[data-testid="${id}"]`);
   expect(q('screen-tally').textContent).toContain('3'); expect(q('screen-devil').textContent).toContain('1/2'); expect(q('ags-zoom')).toBeNull();
   await act(async () => { q('screen-tally').click(); });
