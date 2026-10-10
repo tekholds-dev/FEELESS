@@ -2816,3 +2816,18 @@ def test_idle_cash_never_lifts_a_coin_over_the_cap_it_would_be_trimmed_back_to()
         assert fw.idle_sweep('c', {'legs': []}, book, tgt, 0.02, 100.0, cfg, 1000.0)['usd'] == 2.0   # no cap set → the old equal share
     finally:
         fw.held_units = orig
+
+
+def test_keep_half_banks_a_fading_winners_profit_once_under_the_lock_line_and_never_touches_locked_or_losing_coins():
+    import arena_prime as ap
+    leg = lambda sym, **k: {'symbol': sym, 'pairAddress': 'P' + sym, 'mint': 'M' + sym, 'role': 'runner', 'units': 100.0, 'entry': 1.0, 'costUsd': 100.0, 'liq': 5_000_000, **k}
+    c = {'legs': [leg('RAN', peak=99.0), leg('RIDER', peak=99.0, ride=True), leg('HOUSE', peak=99.0, house=True), leg('FLAT', peak=12.0), leg('STILLUP', peak=40.0), leg('RED', peak=80.0)], 'cash': 0.0, 'events': []}
+    px = {'PRAN': 1.40, 'PRIDER': 1.40, 'PHOUSE': 1.40, 'PFLAT': 1.05, 'PSTILLUP': 1.35, 'PRED': 0.95}
+    assert ap.half_back(c, px, {}, 1000, {'keepHalf': False}) == 0 and not c['events']             # the owner's switch
+    assert ap.half_back(c, px, {}, 1000, {'keepHalf': True, 'skimTo': 'card'}) == 1
+    ran = c['legs'][0]
+    assert ran['halfAt'] == 1000 and 59 < ran['units'] * 1.0 < 73 and c['cash'] > 35               # ~the $40 profit sold, the ~$100 stake rides on
+    assert c['events'][-1]['kind'] == 'skim' and 'ran +99%, back to +40%' in c['events'][-1]['why']
+    assert [l['units'] for l in c['legs'][1:]] == [100.0] * 5                                      # riding / house / never ran / above half its peak / under +10%: untouched
+    assert ap.half_back(c, px, {}, 1060, {'keepHalf': True}) == 0                                  # once per coin
+    assert ap.clean_cfg({})['keepHalf'] is False and ap.clean_cfg({'keepHalf': 1})['keepHalf'] is True

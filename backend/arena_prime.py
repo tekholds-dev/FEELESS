@@ -525,6 +525,7 @@ def clean_cfg(p):
     out['trenchAuto'] = bool((p or {}).get('trenchAuto', True))   # 🗑 may the ENGINE seat a trench coin by itself? off = trench coins are the owner's hand picks only
     out['upMeta'] = bool((p or {}).get('upMeta', True))          # 🧭 the engine's own buys need a readable chart that is not trending down
     out['trailStep'] = bool((p or {}).get('trailStep', False))   # 🪜 a rider's trail widens as its peak gain grows
+    out['keepHalf'] = bool((p or {}).get('keepHalf', False))     # 🔐 bank a fading winner's profit once at half its peak (half_back)
     out['comeback'] = bool((p or {}).get('comeback', True))      # 🔁 a rider that left is bought back when its dip recovers 15%
     out['ladder'] = bool((p or {}).get('ladder', False))
     out['flowExit'] = (p or {}).get('flowExit') if (p or {}).get('flowExit') in ('off', 'normal', 'tight') else 'normal'   # 🌊 sell when sellers take over (flow.py)
@@ -1591,6 +1592,36 @@ def _skim(c, l, px, liqs, now, to='card', fee=0.0, auto=None, frac=1.0, why=None
     return got
 
 
+HALF_AT, HALF_MIN = 30.0, 10.0   # 🔐 cfg `keepHalf`: a coin that peaked ≥ +30% banks its profit once when it is back to half that peak (still ≥ +10%)
+
+
+def half_back(c, prices, liqs, now, cfg, fee=0.0):
+    """🔐 KEEP HALF (cfg `keepHalf`; owner, 2026-10-10: "they must keep coins and profit going on card while I'm asleep"): the gap UNDER the
+    lock line. A coin that is not locked / riding yet, peaked ≥ +HALF_AT % and has given back half of that peak (still ≥ +HALF_MIN %) gets
+    its PROFIT banked ONCE (`_skim`: the stake keeps riding, the money follows `skimTo`). Why: $Samur•ai ran +99% and was back at 0% twenty
+    minutes later with nothing banked, and a ride-or-rug ticket had no protection at all below its 2× lock. Sells only; never an anchor, a
+    locked / riding / house coin, a coin still buying. → coins banked."""
+    if not cfg.get('keepHalf') or c.get('flooredAt'):
+        return 0
+    n = 0
+    for l in c['legs']:
+        if (l.get('placeholder') or l.get('buying') or l.get('ride') or l.get('frozen') or l.get('house') or l.get('halfAt') or safe_anchor(l)
+                or _f(l.get('units')) <= 0 or _f(l.get('entry')) <= 0):
+            continue
+        px = _f((prices or {}).get(l['pairAddress']))
+        if px <= 0:
+            continue
+        dd = (px / _f(l['entry']) - 1) * 100
+        peak = max(_f(l.get('peak')), dd)
+        l['peak'] = peak
+        if peak >= HALF_AT and HALF_MIN <= dd <= peak / 2:
+            if _skim(c, l, px, liqs, now, cfg.get('skimTo') or 'card', fee, frac=1.0,
+                     why=f"🔐 ${l.get('symbol')} ran +{peak:.0f}%, back to +{dd:.0f}% — its profit banked before it gives the rest back; the stake keeps riding"):
+                l['halfAt'] = now
+                n += 1
+    return n
+
+
 HOUSE_ATS = (0, 30, 50, 100, 200)   # 🏠 cfg `trenchHouseAt` / `houseAt`: 0 = off
 PICK_LOCKS = (0, 15, 30, 60)        # ⏳ cfg `pickLockMins`: 0 = off
 
@@ -2233,6 +2264,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             px_h = _f(prices.get(l['pairAddress']))
             if px_h > 0 and px_h >= _f(l['entry']) * (1 + ha / 100) and house_ok(c, l, px_h, prices, int(_f(cfg.get('coins')))):
                 _take_stake(c, l, px_h, liqs, now, cfg.get('skimTo') or 'card', fee, auto=ha)
+    half_back(c, prices, liqs, now, cfg, fee)   # 🔐 a coin that ran and is giving it back banks its profit once, under the lock line
     sk = _f(cfg.get('skimAt'))
     if sk > 0 and not c.get('flooredAt'):
         for l in c['legs']:

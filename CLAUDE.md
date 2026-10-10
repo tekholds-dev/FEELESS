@@ -2794,4 +2794,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   put-in from `_prime_view` once a pass → `_agents['money']`): BREAKEVEN first (distance + the × it needs), then the paper 10× → `MissionBar`
   (top of the tab) with the ⚡ scalp box (LEARNING n/20 · LIVE TP/SL · avg vs hold · typical peak). 2026-10-10 the card needed ~28× — say the
   distance, never promise it.
+- 🔐 KEEP HALF (`arena_prime.half_back`, cfg `keepHalf`, Edit Fuse › Exits; ON for the real card via `_keephalf_fix_1010`, backup
+  data/realcfg_before_keephalf1010.json; owner, 2026-10-10: "keep coins and profit going on card while I'm asleep"): a coin NOT locked /
+  riding / house yet that peaked ≥ +30% (`HALF_AT`) and is back to half that peak while still ≥ +10% (`HALF_MIN`) banks its PROFIT once
+  (`_skim`, stake rides, money follows `skimTo`, leg `halfAt`). The gap under the lock line: $Samur•ai ran +99% → 0% with nothing banked, and a
+  ride-or-rug ticket (stop off) skipped even the old "ran +50%, back to +5%" trail. Sells only. On a ~$2 card most such takes are under
+  `SKIM_MIN_USD` 5c and simply don't fire — it matters as the card grows.
 

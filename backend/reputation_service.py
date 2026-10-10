@@ -8662,6 +8662,24 @@ async def _flow_fix_1009(now):
     return True
 
 
+async def _keephalf_fix_1010(now):
+    """🔐 Once (owner, 2026-10-10 01:40, after a $1 top-up: "they must keep coins and profit going on card while I'm asleep — very smart money"):
+    KEEP HALF on for the real card (`arena_prime.half_back`). Old value: data/realcfg_before_keephalf1010.json. Off again in Edit Fuse › Exits."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('keepHalfFix1010') or not rc:
+            return False
+        ch = {'keepHalf': True}
+        _json_save(DATA_DIR / 'realcfg_before_keephalf1010.json', {k: rc.get(k) for k in ch})
+        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
+        pr['keepHalfFix1010'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _floor_off_fix_1009(now):
     """🧱 Once (owner, 2026-10-09: "MAKE A OFF OPTION FOR CARD/TRENCHCOIN FLOOR — I lost a dollar getting trenches swapped"): the −20% card
     floor sold the whole card at 15:44, frozen coins included, and −25% ticket stops kept shaking trench coins out. Card floor OFF and
@@ -8898,6 +8916,7 @@ async def _prime_tick_inner(now):
     await _floor_fix_1009(now)
     await _flow_fix_1009(now)
     await _floor_off_fix_1009(now)
+    await _keephalf_fix_1010(now)
     await _rush_fix_1009(now)
     await _volcycle_fix_1009(now)
     await _degen_crazy_fix_1009(now)
