@@ -2,7 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
 import { AgentDesk } from './AgentDesk';
-import { heat, reasonsOf, scopeOf, docketOf, listFor, seatMoves, CardNow, CourtBand, Court, GrowthCards, PowerLadder } from './AgentScreens';
+import { heat, reasonsOf, scopeOf, docketOf, listFor, seatMoves, CardNow, CourtBand, Court, MissionBar, GrowthCards, PowerLadder } from './AgentScreens';
 
 const row = (mint, symbol, d5, lean, trig, dev, go, drivers, rug) => ({ mint, symbol, pair: `P${mint}`, go, nums: { d5, pace: 2, buy: 60 }, why: { lean, drivers }, trigger: [trig, 'why t'], devil: [dev, dev === 'object' ? 'its read is BOND RUN' : ''], vitals: { top10: 40, rug, organic: 3 } });
 const table = [row('A', 'GOOD', 4, 2.4, 'enter', 'agree', true, [['surge', 1, 'volume surging'], ['buyers', 0.5, 'buyers in charge']], 10),
@@ -107,5 +107,16 @@ test('the Judge band: W–L, who is on trial + its handicap, the 👑, the rulin
   await act(async () => { q('rule-RUN').click(); q('ags-judge').click(); });
   expect(pick).toHaveBeenCalledWith('RUN'); expect(court).toHaveBeenCalled();
   expect(q('score-trigger').className).toContain('is-trial'); expect(q('score-sherlock').textContent).toContain('+2'); expect(q('case-GOOD').textContent).toContain('🔍✓');
+  await act(async () => { root.unmount(); });
+});
+
+test('the mission: breakeven first as a distance (never a promise), then the paper 10×; the scalp plan they learned vs holding', async () => {
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const q = id => el.querySelector(`[data-testid="${id}"]`);
+  await act(async () => { root.render(<MissionBar mission={{ key: 'breakeven', value: 0.81, putIn: 22.5, pct: 3.6, needX: 27.8 }} scalp={{ n: 7, needN: 20, best: null, flat: {} }} desk={{ x: 1.17 }} />); });
+  expect(q('goal-breakeven').className).toContain('is-now'); expect(q('goal-breakeven').textContent).toContain('$0.81'); expect(q('goal-breakeven').textContent).toContain('needs 27.8×');
+  expect(q('goal-tenx').textContent).toContain('1.17×'); expect(q('ags-scalp').textContent).toContain('LEARNING'); expect(q('ags-scalp').textContent).toContain('7 / 20 paths');
+  await act(async () => { root.render(<MissionBar mission={{ key: 'tenx', value: 30, putIn: 22.5 }} scalp={{ n: 24, needN: 20, best: { tp: 8, sl: 0, avg: 3.1 }, flat: { avg: -2 }, peak: 9, live: { tp: 8, sl: 0 } }} desk={{ x: 2 }} />); });
+  expect(q('goal-breakeven').className).toContain('is-done'); expect(q('goal-tenx').className).toContain('is-now');
+  expect(q('ags-scalp').textContent).toContain('LIVE'); expect(q('ags-scalp').textContent).toContain('TP +8%'); expect(q('ags-scalp').textContent).toContain('no stop'); expect(q('ags-scalp').textContent).toContain('+3.1%'); expect(q('ags-scalp').textContent).toContain('-2%');
   await act(async () => { root.unmount(); });
 });

@@ -502,7 +502,8 @@ def record(state, table, now, controls=3):
             continue
         waits += kind == 'wait'
         opened[m] = {'px': x['px'], 'at': now, 'sym': x['symbol'], 'kind': kind, 'go': x['go'], 'devil': x['devil'][0],
-                     'drivers': [d[0] for d in x['why']['drivers']], 'lean': x['why']['lean'], 'tallyUp': _f(x['nums'].get('d5')) > 0}
+                     'drivers': [d[0] for d in x['why']['drivers']], 'lean': x['why']['lean'], 'tallyUp': _f(x['nums'].get('d5')) > 0,
+                     **({'scalp': [st['scalp']['tp'], st['scalp']['sl']]} if (st.get('scalp') or {}).get('tp') else {})}
     st['open'], st['done'] = opened, done[-KEEP_DONE:]
     return st
 
@@ -515,6 +516,8 @@ def settle(state, price_of, now):
         o = dict(o)   # never mutate the caller's copy (the 5-min verdict feed compares before / after)
         age = (now - _f(o['at'])) / 60
         px = _f(price_of(m))
+        if px > 0 and _f(o['px']) > 0 and age <= SCALP_MIN_WINDOW and len(o.get('path') or []) < 8:   # ⚡ the first 5 minutes, a reading a pass: what a scalp would have seen
+            o['path'] = list(o.get('path') or []) + [round((px / _f(o['px']) - 1) * 100, 2)]
         for h in STAGES:
             key = f'p{h}'
             if key not in o and age >= h:
@@ -592,6 +595,68 @@ def stage(state):
     return {'h': STAGES[-1], 'conquered': list(STAGES), 'team': learn(state, STAGES[-1])['cards']['team'], 'needN': PROVE_N, 'needWin': PROVE_WIN}
 
 
+# ── ⚡ DEGEN SCALPING — the desk learns WHEN TO GET OUT inside the 5 minutes, from its own entries ─────────────────────────────────────
+# (owner, 2026-10-10: "make sure they learn degen scalping; their goal is to 10× their paper, but first get my Fuse card back to breakeven").
+# Every ENTER keeps its PATH: the coin's move at each pass (~1 a minute) for its first 5 minutes. `scalp_plan` replays every take-profit ×
+# stop pair on those real paths — out at the take line the first reading at / above it (booked AT the line, never above), out at the
+# reading that broke the stop (booked at what was SEEN, so a gap through the stop costs what it cost), else the 5-minute price — and
+# compares each with just holding 5 minutes. A plan is ADOPTED only with ≥ SCALP_N paths, an average above zero AND above holding. An
+# adopted plan is stamped on every LATER call (`scalp`), so the paper desk never grades a plan on the paths it was picked from.
+SCALP_TPS, SCALP_SLS = (5, 8, 12, 20, 30, 50), (0, 5, 8, 12, 20)   # stop 0 = no stop
+SCALP_N, SCALP_MIN_WINDOW = 20, 5.6
+
+
+def scalp_exit(path, p5, tp, sl):
+    for v in path or []:
+        if tp and _f(v) >= tp:
+            return float(tp)
+        if sl and _f(v) <= -sl:
+            return _f(v)
+    return _f(p5)
+
+
+def scalp_plan(state):
+    """→ {n, flat {avg, med, won}, best {tp, sl, avg, med, won} | None, proven, peak (typical best reading), grid (top 5)}. Learned on every
+    ENTER Trigger made that has a path and a 5-minute price (GO or objected — its entries are what a scalp trades)."""
+    ds = [d for d in _judged(state, 5) if d.get('kind') == 'enter' and d.get('path')]
+    n = len(ds)
+    card_ = lambda xs: {'avg': round(sum(xs) / len(xs), 2), 'med': round(_med(xs), 2), 'won': round(sum(1 for x in xs if x > 0) / len(xs) * 100)} if xs else {'avg': None, 'med': None, 'won': None}
+    flat = card_([_f(d['p5']) for d in ds])
+    grid = []
+    for tp in SCALP_TPS:
+        for sl in SCALP_SLS:
+            grid.append({'tp': tp, 'sl': sl, **card_([scalp_exit(d['path'], d['p5'], tp, sl) for d in ds])})
+    grid = sorted((g for g in grid if g['avg'] is not None), key=lambda g: (-g['avg'], -g['won'], g['tp']))
+    best = grid[0] if grid else None
+    proven = bool(best and n >= SCALP_N and best['avg'] > 0 and best['avg'] > _f(flat['avg']))
+    peaks = [max(_f(v) for v in d['path']) for d in ds]
+    return {'n': n, 'needN': SCALP_N, 'flat': flat, 'best': best, 'proven': proven, 'peak': round(_med(peaks), 2) if peaks else None, 'grid': grid[:5],
+            'live': (state or {}).get('scalp') or None}
+
+
+def scalp_adopt(state, now):
+    """Adopt (or change) the plan the desk scalps by once it is proven on its own paths; a plan that stops being proven is dropped."""
+    st = dict(state or {})
+    sp = scalp_plan(st)
+    cur = st.get('scalp') or {}
+    if sp['proven']:
+        if (cur.get('tp'), cur.get('sl')) != (sp['best']['tp'], sp['best']['sl']):
+            st['scalp'] = {'tp': sp['best']['tp'], 'sl': sp['best']['sl'], 'at': now, 'n': sp['n'], 'avg': sp['best']['avg']}
+    elif cur:
+        st.pop('scalp', None)
+    return st
+
+
+def mission(value, put_in, pp, scalp=None):
+    """🎯 What the agents are FOR right now: while the creator's real card is worth less than what was put in → BREAKEVEN FIRST (how far,
+    the × it needs — a distance, never a promise); once it is back → the paper 10×."""
+    v, p = _f(value), _f(put_in)
+    if p > 0 and 0 < v < p:
+        return {'key': 'breakeven', 'value': round(v, 2), 'putIn': round(p, 2), 'pct': round(v / p * 100, 1), 'needX': round(p / v, 1), 'scalping': bool((scalp or {}).get('tp'))}
+    return {'key': 'tenx', 'value': round(v, 2), 'putIn': round(p, 2), 'pct': round(min(1.0, _f((pp or {}).get('x')) / PROVE_X) * 100, 1), 'needX': round(PROVE_X / max(_f((pp or {}).get('x')), 1e-9), 1),
+            'scalping': bool((scalp or {}).get('tp'))}
+
+
 def stake_pct(streak):
     """🔥 PRESS WINNERS, CUT AFTER A LOSS (paper desk only): the next GO's stake follows the streak of the calls before it — 25% even ·
     35% after 2 wins in a row · 45% after 3+ · 15% right after a loss. Never the real card: its seat size is the creator's setting."""
@@ -607,11 +672,12 @@ def paper(state):
     for d in gos:
         pct_ = stake_pct(streak)
         stake = cash * pct_ / 100
-        pnl = stake * max(-100.0, _f(d['p5'])) / 100
+        res = scalp_exit(d.get('path'), d['p5'], *d['scalp']) if d.get('scalp') else _f(d['p5'])   # ⚡ a call made under a scalp plan exits by it
+        pnl = stake * max(-100.0, res) / 100
         cash = round(cash + pnl, 4); run_trades += 1
         best = max(best, cash / DESK_START)
-        trail.append({'at': d['at'], 'sym': d.get('sym'), 'pct': d['p5'], 'usd': round(pnl, 4), 'book': cash, 'stake': pct_})
-        streak = (max(streak, 0) + 1) if _f(d['p5']) > 0 else (min(streak, 0) - 1)
+        trail.append({'at': d['at'], 'sym': d.get('sym'), 'pct': round(res, 2), 'usd': round(pnl, 4), 'book': cash, 'stake': pct_, 'scalp': bool(d.get('scalp'))})
+        streak = (max(streak, 0) + 1) if res > 0 else (min(streak, 0) - 1)
         if cash < DESK_BUST:
             busts += 1; cash = DESK_START; run_trades = 0; streak = 0
             trail.append({'at': d['at'], 'sym': '💥 BUST', 'pct': None, 'usd': 0.0, 'book': cash})
@@ -672,7 +738,7 @@ def results(before, after, now):
     return out
 
 
-def view(state, table, feed=False, real=None, mind=None, cfg=None, decisions=None, now=0.0, card=None):
+def view(state, table, feed=False, real=None, mind=None, cfg=None, decisions=None, now=0.0, card=None, money=None):
     """What the HQ tab shows: the four agents with their scorecards, the live table (every agent's word per coin), the desk, the stage."""
     lr = learn(state, 5)
     st_ = stage(state)
@@ -684,7 +750,7 @@ def view(state, table, feed=False, real=None, mind=None, cfg=None, decisions=Non
             'table': table[:24], 'desk': paper(state), 'open': len((state or {}).get('open') or {}), 'feed': bool(feed and proven), 'feedAsked': bool(feed),
             'road': road(state, real), 'thoughts': list(reversed(((state or {}).get('feed') or [])[-40:])), 'real': real or {}, 'mind': mind or {},
             'ideas': sorted(({'id': i, **v} for i, v in ((state or {}).get('ideas') or {}).items()), key=lambda x: (x['status'] != 'new', -_f(x.get('at')))),
-            'cfg': {'agentFeed': bool((cfg or {}).get('agentFeed')), 'agentLearn': bool((cfg or {}).get('agentLearn')), 'agentLearnPct': int(_f((cfg or {}).get('agentLearnPct') or 100)), 'agentTrust': bool((cfg or {}).get('agentTrust')), 'agentDial': (cfg or {}).get('agentDial') if (cfg or {}).get('agentDial') in DIALS else 'normal',
+            'cfg': {'agentFeed': bool((cfg or {}).get('agentFeed')), 'agentLearn': bool((cfg or {}).get('agentLearn')), 'agentLearnPct': int(_f((cfg or {}).get('agentLearnPct') or 100)), 'agentTrust': bool((cfg or {}).get('agentTrust')), 'agentScalp': bool((cfg or {}).get('agentScalp', True)), 'agentDial': (cfg or {}).get('agentDial') if (cfg or {}).get('agentDial') in DIALS else 'normal',
                     'agentTakePct': int(_f((cfg or {}).get('agentTakePct') or 10)), 'agentMode': (cfg or {}).get('agentMode') or 'auto',
                     'agentSeats': int(_f((cfg or {}).get('agentSeats') or 2)), 'options': {'take': list(AGENT_TAKES), 'mode': list(AGENT_MODES), 'seats': list(AGENT_SEATS)}},
             'decisions': decisions or [], 'tasks': tasks(state, table, now), 'creed': list(CREED), 'life': survival(state),
@@ -693,7 +759,8 @@ def view(state, table, feed=False, real=None, mind=None, cfg=None, decisions=Non
             'burned': len((state or {}).get('burned') or {}), 'scrapN': SCRAP_N, 'surviveN': SURVIVE_N,
             'autopsies': list(reversed(((state or {}).get('autopsies') or [])[-12:])), 'rugSigns': sorted(({'key': k, 'words': word(k), 'n': v} for k, v in ((state or {}).get('rugSigns') or {}).items()), key=lambda x: -x['n'])[:8],
             'growth': growth(state, lr), 'power': power(state, real, cfg, card), 'card': card or {},
-            'judge': judge(state), 'proof': proof(state, real), 'barNow': ((state or {}).get('perf') or {}).get('bar') or lr['bar'],
+            'judge': judge(state), 'proof': proof(state, real), 'scalp': scalp_plan(state),
+            'mission': mission((money or {}).get('value'), (money or {}).get('putIn'), paper(state), (state or {}).get('scalp')), 'barNow': ((state or {}).get('perf') or {}).get('bar') or lr['bar'],
             'hist': ((state or {}).get('hist') or [])[-96:], 'rules': rules({**lr, 'regime': ((state or {}).get('perf') or {}).get('regime')})}
 
 
@@ -927,13 +994,19 @@ def is_agent(leg):
     return str(((leg or {}).get('bought') or {}).get('tag') or '').startswith('🤖')
 
 
-def manage(legs, table, prices, cfg):
+def manage(legs, table, prices, cfg, scalp=None):
     """For every coin the agents put on the card: under `agentTakePct` profit it HOLDS (only the rug shield may cut it); in profit the agents
     read it again — still a clean read (Trigger not SKIP, lean ≥ 0, 5-min ≥ −3%, buyers ≥ 50%) → let it run; else EXIT: 'swap' for a fresh GO
     runner (mode auto / swap, when one exists off the card) or 'pull' to card cash with the seat left open. Not on the desk's list any more →
     pull (they can't see it, they bank it). → [{pair, symbol, action: hold | pull | swap, why, to}]"""
     take = _f((cfg or {}).get('agentTakePct') or 10)
     mode = (cfg or {}).get('agentMode') or 'auto'
+    # ⚡ SCALP (cfg `agentScalp`, and only once a plan is adopted from their own paths): the take line is the plan's — and AT it the coin is
+    # BANKED (swap into the next GO, else pull to card cash), it is not re-read and left to run. No stop is added: an agent seat still only
+    # leaves at a loss through the rug shield / a draining pool (the creator's rule).
+    scalping = bool((cfg or {}).get('agentScalp', True) and (scalp or {}).get('tp'))
+    if scalping:
+        take = _f(scalp['tp'])
     by = {x['mint']: x for x in table or []}
     on = {l.get('mint') for l in legs or []}
     gos = [x for x in table or [] if x.get('go') and x['mint'] not in on]
@@ -950,6 +1023,13 @@ def manage(legs, table, prices, cfg):
             out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'pull', 'why': f"{pnl:+.1f}% — pool fell to {round(lq1 / lq0 * 100)}% of entry depth: out now, before it can't be sold"}); continue
         if pnl < take:
             out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'hold', 'why': f'{pnl:+.1f}% — holding until +{take:g}% (only the rug shield cuts it)'}); continue
+        if scalping:
+            if mode in ('auto', 'swap') and gos:
+                out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'swap', 'why': f"⚡ scalp {pnl:+.1f}% ≥ +{take:g}% → banked into ${gos[0]['symbol']}", 'to': gos[0]})
+                gos = gos[1:]
+            else:
+                out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'pull', 'why': f"⚡ scalp {pnl:+.1f}% ≥ +{take:g}% → banked to card cash"})
+            continue
         x = by.get(l.get('mint'))
         if x:
             n = x['nums']

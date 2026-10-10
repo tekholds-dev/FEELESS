@@ -189,6 +189,26 @@ export function Court({ judge, onPick }) {
       {!(j.rulings || []).length && <div className="ags-empty">no rulings yet — the first lands 5 minutes after a final call</div>}</div></div>;
 }
 
+// 🎯 THE MISSION + ⚡ SCALP — what the agents are FOR right now, as two bars and one plan:
+//   1 💵 BREAKEVEN: your real card vs what you put in (a distance — the × it needs — never a promise) · 2 📜 the paper 10×.
+//   ⚡ the scalp plan they learned from their own 5-minute paths (take line · stop), its average against just holding, or how many
+//   paths they still need before a plan may be adopted.
+export function MissionBar({ mission, scalp, desk }) {
+  const m = mission || {}; const sp = scalp || {}; const live = sp.live; const be = m.key === 'breakeven'; const x = Number(desk?.x) || 1;
+  const fmt = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${v}%`);
+  return <div className="ags-mission" data-testid="ags-mission">
+    <div className={`ags-goal ${be ? 'is-now' : 'is-done'}`} data-tip="Your real card's value against everything you put in. The agents work one seat of it; this is a distance, not a forecast." data-testid="goal-breakeven">
+      <b>1 · 💵 BREAKEVEN{be ? ' · NOW' : ' ✓'}</b><em>{m.putIn ? <>${Number(m.value).toFixed(2)} <small>of ${Number(m.putIn).toFixed(2)}{be ? ` · needs ${m.needX}×` : ''}</small></> : <small>no real card funded</small>}</em>
+      <u><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, be ? (m.pct || 0) / 100 : m.putIn ? 1 : 0))})` }} /></u></div>
+    <div className={`ags-goal ${be ? '' : 'is-now'}`} data-tip="The paper desk must 10× in one run (25% a GO, pressed on a streak)." data-testid="goal-tenx">
+      <b>2 · 📜 10× PAPER{be ? '' : ' · NOW'}</b><em>{x.toFixed(2)}× <small>of 10×</small></em><u><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, Math.log10(Math.max(1, x))))})` }} /></u></div>
+    <div className={`ags-scalp ${live ? 'is-live' : ''}`} data-testid="ags-scalp" data-tip={live ? 'Learned from their own 5-minute paths and played only on calls made after it was adopted. On your card an agent seat banks at this take line; no stop is added.' : 'Every ENTER keeps its 5-minute path. A plan is adopted only when it beats holding on 20+ of their own paths.'}>
+      <b>⚡ SCALP{live ? ' · LIVE' : ' · LEARNING'}</b>
+      {live ? <em>TP +{live.tp}% <small>· {live.sl ? `SL −${live.sl}%` : 'no stop'}</small></em> : <em>{sp.n ?? 0}<small> / {sp.needN ?? 20} paths</small></em>}
+      {sp.best && sp.n ? <span className="ags-vs"><i className={sp.best.avg > 0 ? 'm-pos' : 'm-neg'}>⚡ {fmt(sp.best.avg)}</i><small>vs hold</small><i className={(sp.flat?.avg ?? 0) > 0 ? 'm-pos' : 'm-neg'}>{fmt(sp.flat?.avg)}</i>{sp.peak != null && <small>· peak {fmt(sp.peak)}</small>}</span>
+        : <u><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, (sp.n || 0) / (sp.needN || 20)))})` }} /></u>}</div></div>;
+}
+
 // 🧬 GROWTH — an agent grows only by surviving judged calls; a level is HELD only while it is alive
 const LV = ['🥚', '🐣', '🧒', '🦾', '🧠', '👑'];
 export function GrowthCards({ growth, agents, onZoom }) {

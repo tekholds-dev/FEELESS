@@ -337,3 +337,44 @@ def test_the_paper_desk_presses_winners_cuts_after_a_loss_and_proof_counts_wins_
     assert v['cfg']['agentDial'] == 'crazy' and v['judge']['wins'] == 4 and v['proof']['paper']['n'] == 5 and v['desk']['stake'] == 25.0
     import arena_prime as ap
     assert ap.clean_cfg({'agentDial': 'crazy'})['agentDial'] == 'crazy' and ap.clean_cfg({'agentDial': 'yolo'})['agentDial'] == 'normal'
+
+
+def test_they_learn_to_scalp_from_their_own_paths_without_look_ahead_and_the_real_seat_banks_at_the_learned_line():
+    # the exit: the take line at the first reading at / above it (booked AT the line), the stop at what was SEEN, else the 5-min price
+    assert ag.scalp_exit([3, 9, -4], -6.0, 8, 5) == 8.0 and ag.scalp_exit([2, -11, 30], 25.0, 20, 8) == -11.0 and ag.scalp_exit([1, 2], 4.0, 8, 0) == 4.0
+    # 5-minute paths that spike then fade: holding loses, taking +8% wins
+    spike = lambda i: {'kind': 'enter', 'go': True, 'sym': f'S{i}', 'mint': f'M{i}', 'at': i * 400, 'px': 1.0, 'path': [4, 9, 3, -2, -5], 'p5': -5.0, 'lean': 2}
+    st = {'done': [spike(i) for i in range(20)]}
+    sp = ag.scalp_plan(st)
+    assert sp['n'] == 20 and sp['flat']['avg'] == -5.0 and sp['best']['tp'] == 8 and sp['best']['avg'] == 8.0 and sp['proven'] and sp['peak'] == 9.0
+    assert not ag.scalp_plan({'done': st['done'][:19]})['proven']                              # 19 paths: not yet
+    assert ag.paper(st)['x'] < 1                                                               # those calls were made BEFORE the plan → graded flat
+    st = ag.scalp_adopt(st, 9000)
+    assert st['scalp']['tp'] == 8 and st['scalp']['at'] == 9000
+    row = {'mint': 'NEW', 'symbol': 'NEW', 'px': 1.0, 'go': True, 'trigger': ['enter', ''], 'devil': ['agree', ''], 'why': {'lean': 2, 'drivers': []}, 'nums': {'d5': 1}}
+    st = ag.record(st, [row], 9100)
+    assert st['open']['NEW']['scalp'] == [8, st['scalp']['sl']]                                # only calls made AFTER adoption carry the plan
+    prices = iter([1.04, 1.09, 1.03, 0.98, 0.95, 0.95])
+    for k in range(6):
+        st = ag.settle(st, lambda m, p=next(prices): p if m == 'NEW' else None, 9100 + 60 * (k + 1))
+    new = st['open']['NEW']
+    assert new['path'][:2] == [4.0, 9.0] and new['p5'] == -5.0
+    assert ag.paper(st)['trail'][-1]['pct'] == 8.0 and ag.paper(st)['trail'][-1]['scalp'] is True   # the paper desk banks it at +8
+    assert 'scalp' not in ag.scalp_adopt({'scalp': {'tp': 8, 'sl': 0}}, 1)                     # a plan that is no longer proven is dropped
+    # the real agent seat: banks AT the learned line (swap into the next GO, else cash) — the creator's take line when no plan / switched off
+    leg = {'symbol': 'BOT', 'pairAddress': 'P1', 'mint': 'B', 'units': 1, 'entry': 1.0, 'bought': {'tag': '🤖 agents GO'}}
+    cfg = {'agentTakePct': 50, 'agentMode': 'auto'}
+    assert ag.manage([leg], [], {'P1': 1.10}, cfg)[0]['action'] == 'hold'
+    d = ag.manage([leg], [{**row, 'pair': 'PN'}], {'P1': 1.10}, cfg, {'tp': 8, 'sl': 0})[0]
+    assert d['action'] == 'swap' and d['to']['symbol'] == 'NEW' and 'scalp' in d['why']
+    assert ag.manage([leg], [], {'P1': 1.10}, cfg, {'tp': 8})[0]['action'] == 'pull'
+    assert ag.manage([leg], [], {'P1': 1.05}, cfg, {'tp': 8})[0]['action'] == 'hold'           # under the line: still held, never stopped
+    assert ag.manage([leg], [], {'P1': 1.10}, {**cfg, 'agentScalp': False}, {'tp': 8})[0]['action'] == 'hold'
+    # 🎯 the mission: breakeven first — a distance, never a promise
+    m = ag.mission(0.81, 22.5, {'x': 1.0}, st['scalp'])
+    assert m == {'key': 'breakeven', 'value': 0.81, 'putIn': 22.5, 'pct': 3.6, 'needX': 27.8, 'scalping': True}
+    assert ag.mission(30, 22.5, {'x': 2.0})['key'] == 'tenx' and ag.mission(0, 0, {'x': 2.0})['needX'] == 5.0
+    v = ag.view(st, [], money={'value': 0.81, 'putIn': 22.5})
+    assert v['mission']['key'] == 'breakeven' and v['scalp']['live']['tp'] == 8 and v['cfg']['agentScalp'] is True
+    import arena_prime as ap
+    assert ap.clean_cfg({})['agentScalp'] is True and ap.clean_cfg({'agentScalp': False})['agentScalp'] is False

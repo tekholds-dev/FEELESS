@@ -9363,7 +9363,7 @@ async def _prime_tick_inner(now):
         if real_t and cur:   # 🎮 the card as seats for HQ › Agents (display only)
             _agents['card'] = _ag.card_seats(cur, None, px, cfg_t)
         if real_t and cur and ((cfg_t.get('agentFeed') and (_agents.get('view') or {}).get('feed')) or cfg_t.get('agentLearn')) and not cur.get('holdAll') and not cur.get('flooredAt'):
-            dec_ = _ag.manage(cur.get('legs'), _agents.get('table'), px, cfg_t)
+            dec_ = _ag.manage(cur.get('legs'), _agents.get('table'), px, cfg_t, _agents.get('scalp'))
             _agents['decisions'] = [{k: v for k, v in x.items() if k != 'to'} | ({'toSym': x['to']['symbol']} if x.get('to') else {}) for x in dec_]
             _agents['card'] = _ag.card_seats(cur, _agents['decisions'], px, cfg_t)
             for x in dec_:
@@ -11881,6 +11881,8 @@ async def _agents_tick(now):
             before = st
             st = _ag.settle(st, lambda m: (jp or {}).get(m), now)
             st['feed'] = (list(st.get('feed') or []) + _ag.results(before, st, now))[-_ag.FEED_KEEP:]
+        st = _ag.scalp_adopt(st, now)          # ⚡ adopt / change / drop the scalp plan learned from their own 5-minute paths
+        _agents['scalp'] = st.get('scalp')
         st = _ag.burn(st, now)                 # 🔥 a GO that lost 20%+ burns its coin for 6h
         st = _ag.autopsy(st, now)              # 🔬 every rug on the desk: what we saw, what we missed → Devil's rug signs
         st = _ag.history(st, now)              # 📈 each agent's record over time (every 30 min)
@@ -11893,7 +11895,12 @@ async def _agents_tick(now):
                 st['feed'] = (list(st.get('feed') or []) + [{'at': now, 'who': 'desk', 'sym': '', 'text': f"💡 new idea for the creator: {v['text']}"}])[-_ag.FEED_KEEP:]
         _json_save(AGENTS_PATH, st)
         rcfg_ = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
-        _agents.update(table=table, view=_ag.view(st, table, bool(rcfg_.get('agentFeed')), _agents_real(), _agents.get('mind'), rcfg_, _agents.get('decisions'), now, _agents.get('card')))
+        try:   # 🎯 the mission reads the real card's own money (server value vs put-in) — the same numbers My cards shows
+            rc_ = next((c for c in (await _prime_view()) if c.get('real')), None)
+            _agents['money'] = {'value': rc_.get('valueUsd'), 'putIn': (rc_.get('math') or {}).get('putIn')} if rc_ else {}
+        except Exception:
+            pass
+        _agents.update(table=table, view=_ag.view(st, table, bool(rcfg_.get('agentFeed')), _agents_real(), _agents.get('mind'), rcfg_, _agents.get('decisions'), now, _agents.get('card'), _agents.get('money')))
     except Exception as e:
         print('agents:', e)
 
@@ -11941,7 +11948,7 @@ async def admin_agents(request: Request):
     if not _agents.get('view'):
         st = _json_load(AGENTS_PATH, {})
         rcfg_ = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
-        _agents['view'] = _ag.view(st, _agents.get('table') or [], bool(rcfg_.get('agentFeed')), _agents_real(), _agents.get('mind'), rcfg_, _agents.get('decisions'), time.time(), _agents.get('card'))
+        _agents['view'] = _ag.view(st, _agents.get('table') or [], bool(rcfg_.get('agentFeed')), _agents_real(), _agents.get('mind'), rcfg_, _agents.get('decisions'), time.time(), _agents.get('card'), _agents.get('money'))
     v_ = _agents['view']
     if _agents.get('card') and (v_.get('card') or {}) != _agents['card']:   # the card moves every tier tick; the view is rebuilt once a minute
         v_ = {**v_, 'card': _agents['card']}
@@ -11965,7 +11972,7 @@ async def admin_agents_set(request: Request):
     ch = {}
     if 'feed' in body:
         ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial'):
+    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp'):
         if k in (body.get('cfg') or {}):
             ch[k] = body['cfg'][k]
     if ch:

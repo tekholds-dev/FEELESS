@@ -5,7 +5,7 @@ import { openWarRoom } from '../WarRoomHost';
 import '../../styles/agentDesk.css';
 import { AgentRoom } from './AgentRoom';
 import { pct, tone, CALL, VERDICT, VERD, rowState, rowWhy, pipsOf, leanFill } from '../../lib/agentRead';
-import { MiniScreen, ZoomScreen, CardNow, CourtBand, GrowthCards, PowerLadder } from './AgentScreens';
+import { MiniScreen, ZoomScreen, CardNow, CourtBand, MissionBar, GrowthCards, PowerLadder } from './AgentScreens';
 
 export { rowState, rowWhy, pipsOf, leanFill };
 
@@ -67,6 +67,7 @@ export function AgentControls({ cfg, decisions, proven, isOwner, busy, save }) {
     <div className="agd-ctl-row"><span>Their GO coins on my card</span><div className="m-seg"><button type="button" disabled={busy || !isOwner} className={c.agentFeed ? 'active' : ''} onClick={() => save({ feed: true })} data-testid="agd-feed-on">ON</button><button type="button" disabled={busy || !isOwner} className={!c.agentFeed ? 'active' : ''} onClick={() => save({ feed: false })} data-testid="agd-feed-off">Paper only</button></div></div>
     <div className="agd-ctl-row"><span>🎓 Agents' own seat (1 coin, real money — they suggest for the rest)</span><div className="m-seg"><button type="button" disabled={busy || !isOwner} className={c.agentLearn ? 'active' : ''} onClick={() => save({ cfg: { agentLearn: true } })} data-testid="agc-learn-on">ON</button><button type="button" disabled={busy || !isOwner} className={!c.agentLearn ? 'active' : ''} onClick={() => save({ cfg: { agentLearn: false } })} data-testid="agc-learn-off">off</button></div></div>
     {c.agentLearn && <div className="agd-ctl-row"><span>🤝 Trust them with a 2nd seat once your taken suggestions prove out (10+ closed, typical &gt; 0)</span><div className="m-seg"><button type="button" disabled={busy || !isOwner} className={c.agentTrust ? 'active' : ''} onClick={() => save({ cfg: { agentTrust: true } })} data-testid="agc-trust-on">ON</button><button type="button" disabled={busy || !isOwner} className={!c.agentTrust ? 'active' : ''} onClick={() => save({ cfg: { agentTrust: false } })} data-testid="agc-trust-off">off</button></div></div>}
+    <div className="agd-ctl-row"><span data-tip="Once they have a scalp plan from their own paths, their seat banks at its take line (swap into the next GO, else cash) instead of your hold-until line. No stop is added.">⚡ Scalp their seat at the learned take line</span><div className="m-seg"><button type="button" disabled={busy || !isOwner} className={c.agentScalp !== false ? 'active' : ''} onClick={() => save({ cfg: { agentScalp: true } })} data-testid="agc-scalp-on">ON</button><button type="button" disabled={busy || !isOwner} className={c.agentScalp === false ? 'active' : ''} onClick={() => save({ cfg: { agentScalp: false } })} data-testid="agc-scalp-off">off</button></div></div>
     {c.agentLearn && <div className="agd-ctl-row"><span>Their seat size</span>{seg('agentLearnPct', [100, 15, 10, 5], v => v >= 100 ? 'whole seat' : `${v}% ticket`)}</div>}
     <div className="agd-ctl-row"><span>Hold until profit</span>{seg('agentTakePct', o.take, v => `+${v}%`)}</div>
     <div className="agd-ctl-row"><span>Then</span>{seg('agentMode', o.mode, v => MODE[v] || v)}</div>
@@ -247,6 +248,7 @@ export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
       <div className="agd-headacts"><button type="button" className="m-btn" onClick={() => { const on = !office; setOffice(on); mem.set('feeless.agentOffice', on ? 'on' : 'off'); }} aria-pressed={office} data-testid="agd-office">🏢 Office {office ? 'on' : 'off'}</button>
         <button type="button" className="m-btn" onClick={load} data-tip="Re-read the desk now (it is served from memory — no rate limit)" data-testid="agd-refresh">↻</button>
         <button type="button" className="m-btn agd-log" onClick={warLog} data-testid="agd-log">⬇ War log</button></div></header>
+    <MissionBar mission={d.mission} scalp={d.scalp} desk={d.desk} />
     <div className="agd-kpis" data-testid="agd-kpis">
       <Kpi id="go" label="🟢 GO NOW" val={goN} cls={goN ? 'm-pos' : ''} sub={`${enterN} ENTER · ${p.coins ?? t.length} coins read`} on={show('live') && lens !== 'all'} onClick={() => setLens('live')} tip="Coins all four agree on this pass. Opens the live board." />
       <Kpi id="desk" label="📜 PAPER DESK" val={`$${d.desk.now.toFixed(2)}`} cls={tone(d.desk.now - d.desk.start)} sub={`${d.desk.x}× · ${d.desk.heat === 'heater' ? '🔥' : d.desk.heat === 'cold' ? '🧊' : ''} stake ${d.desk.stake ?? 25}%`} on={lens === 'ctl'} onClick={() => setLens('ctl')} tip="The team's $20 paper desk: 25% a GO, out at 5 minutes." />

@@ -2784,4 +2784,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   · 🎮 `CardNow` seats are CONTROLS (`seatMoves`): ▫ open → 🤖 fill with a GO coin (`fillSeat via: 'agents'`) · a held seat → ⇄ swap a GO
     coin in (`pickSwap … now`) · their own seat → 💰 Pull (`manualSell` 100). Owner taps through the card's normal paths; a ⚠ 409 comes back
     as "do it anyway" (`ack`). Riding / frozen seats offer no swap. Never add a seat action that skips `/admin/arena/prime`.
+- ⚡ Agent desk v10 = DEGEN SCALP + THE MISSION (owner, 2026-10-10: "make sure they learn degen scalping; goal 10× paper, but FIRST get my Fuse
+  card back to breakeven fast"): `agents.settle` keeps every call's PATH (its move at each pass for the first 5 min); `scalp_exit / scalp_plan`
+  replay every TP × SL (`SCALP_TPS` × `SCALP_SLS`, a take booked AT the line, a stop at what was SEEN) on their own ENTER paths vs holding 5 min;
+  `scalp_adopt` adopts a plan only with ≥ `SCALP_N` 20 paths, average > 0 AND > holding (dropped when no longer proven); `record` stamps the
+  adopted plan on LATER calls only (`scalp`) and `paper` grades those by it — never a plan on the paths it was picked from. Real card: cfg
+  `agentScalp` (on; Control lens) → `manage(.., scalp)` banks an agent seat AT the plan's take line (swap into the next GO, else cash) instead
+  of the owner's hold-until line; NO stop is added (agent seats still leave at a loss only via rug shield / drain). 🎯 `agents.mission` (value +
+  put-in from `_prime_view` once a pass → `_agents['money']`): BREAKEVEN first (distance + the × it needs), then the paper 10× → `MissionBar`
+  (top of the tab) with the ⚡ scalp box (LEARNING n/20 · LIVE TP/SL · avg vs hold · typical peak). 2026-10-10 the card needed ~28× — say the
+  distance, never promise it.
 
