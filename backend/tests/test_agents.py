@@ -461,7 +461,7 @@ def test_the_ten_minute_duty_investigates_every_coin_clears_only_safe_ones_and_n
     legs = [leg('WIN', 1), leg('WEAK', 1), leg('OKAY', 1), leg('NEWISH', now - 600)]   # a leg with no buy time is never rotated
     px = {'PWIN': 1.05, 'PWEAK': 0.92, 'POKAY': 0.97, 'PNEWISH': 0.80}
     d = {x['symbol']: x for x in ag.manage(legs, table + held, px, cfg, control=True, now=now, moves_left=1, picks=picks, rotate=True)}
-    assert d['WEAK']['action'] == 'swap' and d['WEAK']['to']['mint'] == 'BEST' and 'stronger read' in d['WEAK']['why']   # the weakest non-winner, held 30+ min, clearly weaker read
+    assert d['WEAK']['action'] == 'swap' and d['WEAK']['to']['mint'] == 'BEST' and 'cleared every desk' in d['WEAK']['why']   # the weakest non-winner, held 30+ min, clearly weaker read
     assert d['WIN']['action'] == 'hold' and d['OKAY']['action'] == 'hold' and d['NEWISH']['action'] == 'hold'             # a winner · a read not clearly weaker · a coin 10 min old: all keep their seats
     assert all(x['action'] == 'hold' for x in ag.manage(legs, table + held, px, cfg, control=True, now=now, moves_left=0, picks=picks, rotate=True))   # not due → nobody moves
     banked = ag.manage([leg('WIN', 1)], table + held, {'PWIN': 1.12}, cfg, control=True, now=now, moves_left=0, picks=picks)[0]

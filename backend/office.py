@@ -20,6 +20,7 @@ from types import MappingProxyType
 import agents as _ag
 import chart_intel as _ci
 import market_data as _md
+import office_edge as _oe
 
 _f, _med = _ag._f, _ag._med
 
@@ -88,7 +89,7 @@ CONSTITUTION = _frozen({
                        'a reconstructed tape, a sparse stream, missing volume or missing liquidity is LABELLED as that and is never ENTER-grade'),
               'data': ('quality', 'compact', 'word'), 'code': {'file': 'backend/agents.py', 'fn': ('tally', 'regime')}, 'office': ('tally_read',)},
     'sherlock': {'icon': '🔍', 'name': 'Sherlock', 'role': 'Investigation: why the coin is moving, each reason weighed by its own record.', 'ideology': 'Reasons before action.',
-                 'ethics': ('Never infer chart structure from data Tally marks UNTRUSTED or MALFORMED.', 'Never describe chart structure without measured evidence.', 'Every claim carries measurable evidence.', 'Contradicting evidence is shown, never dropped.', 'An unknown is an open question, not a pass.'),
+                 'ethics': ('Know the launch mechanism before making a launch-specific claim: an unknown launch stays UNKNOWN.', 'Never infer chart structure from data Tally marks UNTRUSTED or MALFORMED.', 'Never describe chart structure without measured evidence.', 'Every claim carries measurable evidence.', 'Contradicting evidence is shown, never dropped.', 'An unknown is an open question, not a pass.'),
                  'forbidden': ('calling an entry', 'overriding a failed scan', 'touching the card'),
                  'hard': (f'a reason\'s learned weight counts from {_ag.DRIVER_MIN_N} judged calls', f'a starting belief counts like {_ag.BELIEF_K} judged calls, never more'),
                  'chart': ('snapshot', 'classify'), 'code': {'file': 'backend/agents.py', 'fn': ('drivers', 'weights', 'sherlock', 'learned_share')}, 'office': ('sherlock_read', 'scan_status')},
@@ -110,7 +111,7 @@ CONSTITUTION = _frozen({
                        'holders never scanned', 'burned us in the last 6h', 'rug signs learned from autopsies', 'a creator-approved avoid tactic'),
               'chart': ('objections',), 'code': {'file': 'backend/agents.py', 'fn': ('devil_args', 'devil', 'busted_now', 'rug_lift')}, 'office': ('devil_record',)},
     'warden': {'icon': '🛡', 'name': 'Warden', 'role': 'Risk and size of an existing real-card move. It never judges the coin.', 'ideology': 'Survival first.',
-               'ethics': ('Unknown or degraded market data can only reduce risk, never increase it.', 'Never increase size because of excitement or recent profit.', 'Capital preservation outranks excitement, FOMO, win rate and agent ego.', 'Every size change names the rule that made it.'),
+               'ethics': ('The creator\'s limits are boundaries, never targets: size, stop and hold are never set past them.', 'Unknown or degraded market data can only reduce risk, never increase it.', 'Never increase size because of excitement or recent profit.', 'Capital preservation outranks excitement, FOMO, win rate and agent ego.', 'Every size change names the rule that made it.'),
                'forbidden': ('increasing a move above what was requested', 'opening a move nobody requested', 'judging whether the coin is good'),
                'hard': ('allowed size ≤ requested size, always', f'multipliers are {", ".join(f"{m:g}×" for m in WARDEN_STEPS)} — nothing above 1×',
                         'execution BAD = veto', f'a seat it cuts under ${WARDEN_MIN_USD:.2f} is a veto, not a smaller buy'),
@@ -122,7 +123,7 @@ CONSTITUTION = _frozen({
                          'a keeper halt or an order stuck > 180s = BAD'),
                 'code': {'file': 'backend/office.py', 'fn': ('confirmed', 'fill_state', 'courier')}},
     'reaper': {'icon': '☠', 'name': 'Reaper', 'role': 'Protects an open position after entry, with deterministic exit rules.', 'ideology': 'Profit is not protected until the position is.',
-               'ethics': ('Never invent a chart-based exit thesis from corrupt data: when chart data degrades on a held coin, fall back to the hard risk / execution / liquidity rules and report DATA DEGRADED.', 'Never keep holding merely because a position is green.', 'Never keep holding merely to avoid realizing a loss.', 'Never hold because of hope.', 'Never claim an exit without a confirmed exit.', 'Never invent a price or a pool depth.'),
+               'ethics': ('A restart or a refill gap is never evidence to exit: off-radar and time rules wait until the office is LIVE.', 'Never invent a chart-based exit thesis from corrupt data: when chart data degrades on a held coin, fall back to the hard risk / execution / liquidity rules and report DATA DEGRADED.', 'Never keep holding merely because a position is green.', 'Never keep holding merely to avoid realizing a loss.', 'Never hold because of hope.', 'Never claim an exit without a confirmed exit.', 'Never invent a price or a pool depth.'),
                'forbidden': ('buying', 'selling by itself: its exits go through the card\'s existing action path', 'giving a winner\'s seat to a new candidate',
                              'touching a coin the creator froze'),
                'hard': (f'catastrophic stop −{_ci.CATASTROPHIC_STOP:g}%: a constant no learning or promotion can move or switch off', f'a normal stop stays inside {_ci.STOP_FLOOR:g}% … {_ci.CATASTROPHIC_STOP - 5:g}%',
@@ -130,12 +131,12 @@ CONSTITUTION = _frozen({
                         'the take line stays the card\'s own (agentTakePct / the learned scalp line)', 'no price = no ruling this tick'),
                'chart': ('thesis', 'review', 'stop_for'), 'code': {'file': 'backend/office.py', 'fn': ('reap', 'reaper_replay', 'merge_reaper', 'confirm_exits')}},
     'archivist': {'icon': '🗄', 'name': 'Archivist', 'role': 'The permanent decision lineage and the learning derived from it.', 'ideology': 'Every real decision becomes evidence.',
-                  'ethics': ('Preserve the exact data-quality state that existed at decision time.', 'Never rewrite what the entry thesis originally was.', 'Never rewrite history.', 'Never turn a loss into a win.', 'Never discard inconvenient data: what rotates out is folded into the totals.'),
+                  'ethics': ('Store the launch context a decision was made in.', 'File a missed winner with what was knowable then — never with hindsight.', 'Preserve the exact data-quality state that existed at decision time.', 'Never rewrite what the entry thesis originally was.', 'Never rewrite history.', 'Never turn a loss into a win.', 'Never discard inconvenient data: what rotates out is folded into the totals.'),
                   'forbidden': ('editing a filed decision', 'deleting a losing record', 'stating a pattern without its sample count'),
                   'hard': ('every decision record is hash-chained to the one before it', 'cases are bounded: the oldest fold into aggregates', 'a pattern is shown only from 5 records'),
                   'code': {'file': 'backend/office.py', 'fn': ('file_case', 'settle_cases', 'file_position', 'verify', 'patterns')}},
     'judge': {'icon': '👨‍⚖️', 'name': 'Judge', 'role': 'Scores every agent on its own record, itself included.', 'ideology': 'Judge the record, not the last result.',
-              'ethics': ('Score an agent negatively when it acted as though bad data was trustworthy.', 'Evaluate chart decisions using the information available at that time, not hindsight.', 'No agent is demoted on one or two outcomes.', 'A rule changes only after a shadow test beats the live rule.', 'The Judge is scored too.'),
+              'ethics': ('Never weaken a safety rule because a blocked coin later pumped.', 'Score outcomes separately by launch context.', 'Score an agent negatively when it acted as though bad data was trustworthy.', 'Evaluate chart decisions using the information available at that time, not hindsight.', 'No agent is demoted on one or two outcomes.', 'A rule changes only after a shadow test beats the live rule.', 'The Judge is scored too.'),
               'forbidden': ('changing the immutable constitution', 'promoting an untested change', 'loosening a safety gate as a reward'),
               'hard': (f'probation needs ≥ {JUDGE_MIN_N} samples, demotion ≥ {JUDGE_DEMOTE_N}', f'a candidate needs {PROPOSE_N} archived positions, then {SHADOW_N} in shadow',
                        'a trial only ever tightens'),
@@ -354,6 +355,12 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
         hit('W9 drawdown', 0.5, f"the card is {(1 - val / peak) * 100:.0f}% under its 24h peak (line {T('ddPct'):g}%)")
     if val > 0 and req > val * T('maxSeatPct') / 100:
         hit('W10 concentration', val * T('maxSeatPct') / 100 / req, f"${req:.2f} is over {T('maxSeatPct'):g}% of the ${val:.2f} card")
+    pol = c.get('policy') or {}
+    if pol.get('sizePct') and val > 0 and req > val * _f(pol['sizePct']) / 100:   # 🎛 the creator's size cap: a boundary the office cannot size past
+        hit('W14 creator size cap', val * _f(pol['sizePct']) / 100 / req, f"${req:.2f} is over your {_f(pol['sizePct']):g}% cap of the ${val:.2f} card")
+    ln = c.get('launch') or {}
+    if ln.get('measured') and _oe.LAUNCH_RISK.get(ln.get('type')):   # 🚀 launch mechanism risk: an unknown / pre-graduation launch is at most half size
+        hit('W15 launch context', _oe.LAUNCH_RISK[ln['type']], f"launch: {ln.get('pad')} · {ln.get('type')}")
     dq = (c.get('chart') or {}).get('q')
     if dq and _f(dq.get('risk')) < 1:   # 🧪 unknown / degraded market data can only shrink the seat (market_data.RISK) — there is no state that grows it
         hit('W13 market data', _f(dq.get('risk')), f"data {str(dq.get('state')).replace('_', ' ').lower()} ({dq.get('conf')}%): {dq.get('why')}")
@@ -382,6 +389,9 @@ PATH_KEEP = 240
 
 def take_line(cfg, scalp=None):
     """The card's OWN take line for an agent coin: the learned scalp line when one is adopted and `agentScalp` is on, else `agentTakePct`."""
+    tp = _oe.policy(cfg).get('tp')
+    if tp:   # 🎛 CREATOR OVERRIDE: your take-profit is the line — the learned scalp line stands aside
+        return _f(tp)
     if (cfg or {}).get('agentScalp', True) and (scalp or {}).get('tp'):
         return _f(scalp['tp'])
     return _f((cfg or {}).get('agentTakePct') or 10)
@@ -392,14 +402,15 @@ def take_info(cfg, scalp=None):
     the LEARNED scalp line (`agents.scalp_adopt`: ≥ SCALP_N of their own 5-minute paths, average > 0 AND > holding). The take line is not
     an office tunable, so it is never 'promoted' — a learned line is dropped by itself the pass it stops being proven."""
     base = _f((cfg or {}).get('agentTakePct') or 10)
-    learned = bool((cfg or {}).get('agentScalp', True) and (scalp or {}).get('tp'))
-    return {'base': base, 'active': take_line(cfg, scalp), 'source': 'learned' if learned else 'base', 'ruleId': 'R6 take line',
-            'rule': 'agents.scalp_adopt — their own 5-min paths' if learned else 'cfg agentTakePct — your setting', 'scalpOn': bool((cfg or {}).get('agentScalp', True)),
+    over = bool(_oe.policy(cfg).get('tp'))
+    learned = bool(not over and (cfg or {}).get('agentScalp', True) and (scalp or {}).get('tp'))
+    return {'base': base, 'active': take_line(cfg, scalp), 'source': 'creator' if over else 'learned' if learned else 'base', 'ruleId': 'R6 take line', 'who': 'CREATOR OVERRIDE' if over else 'AGENTS CHOOSE',
+            'rule': 'cfg agentTp — your override' if over else 'agents.scalp_adopt — their own 5-min paths' if learned else 'cfg agentTakePct — your setting', 'scalpOn': bool((cfg or {}).get('agentScalp', True)),
             'evidenceN': (scalp or {}).get('n') if learned else None, 'shadowAvg': (scalp or {}).get('avg') if learned else None, 'adoptedAt': (scalp or {}).get('at') if learned else None,
             'needN': _ag.SCALP_N, 'promoted': None}
 
 
-OBEY = {'R1': 'hard safety exit', 'R2': 'hard safety exit', 'R3': 'hard safety exit', 'R5x': 'hard safety exit', 'R4': 'invalidation exit', 'R5t': 'invalidation exit', 'R5': 'structure-aware stop',
+OBEY = {'R5c': 'creator stop-loss', 'R9c': 'creator max hold', 'R1': 'hard safety exit', 'R2': 'hard safety exit', 'R3': 'hard safety exit', 'R5x': 'hard safety exit', 'R4': 'invalidation exit', 'R5t': 'invalidation exit', 'R5': 'structure-aware stop',
         'R6': 'take line', 'R7': 'trailing protection', 'R7s': 'trailing protection', 'R8': 'thesis review', 'R9': 'thesis review', 'R10': 'thesis hold', 'R0': 'waiting'}
 
 
@@ -418,7 +429,7 @@ def reaper_replay(path, p, take):
     return _f(path[-1]) if path else 0.0
 
 
-def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_=None, tape=None, office=None, sized=None, charts=None, theses=None):
+def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_=None, tape=None, office=None, sized=None, charts=None, theses=None, pol=None, live=True):
     """☠ One look at every position the agents hold on the real card (in control: every coin that is not frozen). It keeps each one's
     record (entry, peak, path, depth and top-10 at entry) and rules, in this order — the first that fires decides:
       R1 pool collapsed · R2 invalidated (failed scan / rug meter) · R3 holders concentrating · R4 whale dump on the tape · R5 stop* ·
@@ -431,6 +442,11 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
     by = {x['mint']: x for x in table or []}
     take = take_line(cfg, scalp)
     tsrc = take_info(cfg, scalp)['source']
+    # 🎛 the creator's limits (office_edge.policy) + 🔌 `live`: until the office has refilled after a restart (and for RADAR_GRACE_SEC
+    # after a coin drops off the table at any time) a missing row is OUR gap — "off their radar" and the time rules do not exist.
+    # The price rules (catastrophic stop, stop, take, trail), the pool rule and the scan / rug rules never wait for it.
+    pol = pol or _oe.policy(cfg)
+    manual = bool(pol.get('manual'))
     out, on = [], set()
     for l in legs or []:
         m = l.get('mint')
@@ -447,7 +463,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         v = (x or {}).get('vitals') or {}
         pct = (px / entry - 1) * 100
         p = pos.get(m) or {'entry': entry, 'since': _f(l.get('at')) or now, 'peak': pct, 'low': pct, 'path': [], 'liq0': _f(l.get('liq')) or None, 'top0': v.get('top10'),
-                           'sym': l.get('symbol'), 'tag': (l.get('bought') or {}).get('tag'), 'wx': (weather_ or {}).get('regime'), 'warden': (sized or {}).get(m)}
+                           'sym': l.get('symbol'), 'tag': (l.get('bought') or {}).get('tag'), 'wx': (weather_ or {}).get('regime'), 'warden': (sized or {}).get(m), 'launch': (x or {}).get('launch')}
         if abs(_f(p.get('entry')) - entry) > entry * 1e-6:   # a rebuy / top-up moved the book entry: the peak is measured from the new one
             p.update(entry=entry, peak=pct, low=pct, path=[])
         p['peak'], p['low'] = max(_f(p.get('peak')), pct), min(_f(p.get('low')), pct)
@@ -461,8 +477,12 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         lean = None if not x else _f(x['why']['lean'])
         n = (x or {}).get('nums') or {}
         broke = None
+        if x:
+            p.pop('offSince', None)
+        else:
+            p.setdefault('offSince', now)
         if not x:
-            broke = 'off their radar'
+            broke = 'off their radar' if _oe.radar_gone(p.get('offSince'), now, live) else None
         elif x['trigger'][0] == 'skip':
             broke = x['trigger'][1] or 'Trigger says SKIP'
         elif lean < 0:
@@ -477,12 +497,21 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             p['thesis'] = dict((theses or {})[m])    # 🧾 the entry thesis: saved ONCE with the position (its own copy), never rewritten
         th = p.get('thesis')
         stop = min(_f(th['stopPct']), T('stopPct')) if th and th.get('stopPct') else T('stopPct')   # this entry's own stop, never wider than the tunable ceiling
+        if pol.get('sl'):   # 🎛 CREATOR OVERRIDE: your maximum tolerated loss can only make the stop TIGHTER (the catastrophic stop stays above it, untouched)
+            stop = min(stop, _f(pol['sl']))
+        tr_ = pol.get('trail') or {}
+        arm = _f(tr_.get('arm')) if tr_.get('mode') == 'custom' else T('protectAt')
+        trail_line = (p['peak'] - _f(tr_.get('pct'))) if tr_.get('mode') == 'custom' else p['peak'] * (1 - T('giveBackPct') / 100)
+        trail_on = tr_.get('mode') != 'off'
+        max_hold = _f(pol.get('maxHold')) or None
         rv = _ci.review(th, ch, pct, held, p.get('granted')) if th else None
         if rv and rv['window'] > int(p.get('lastWin') or 0):   # a 5-minute checkpoint: a thesis that still stands EARNS the next window (bounded)
             p['lastWin'] = rv['window']
             if rv['verdict'] == 'valid':
                 p['granted'] = min(int(th.get('maxHoldWindows') or _ci.MAX_WINDOWS), max(int(rv['granted']), rv['window'] + 1))
         granted = int(p.get('granted') or (th or {}).get('expectedHoldWindows') or _ci.MIN_WINDOWS)
+        if max_hold:
+            granted = max(1, min(granted, int(max_hold // _ci.WINDOW_MIN) or 1))
         mine = _ag.is_agent(l)   # R5 / R8 / R9 act only on coins the agents put there (their read is the reason it is held); every coin gets R1–R4 + R7
         st, rule, ev, act = 'HOLD', 'R10 hold', f"{pct:+.1f}% · peak {p['peak']:+.1f}% · take line +{take:g}%", None
         if lq0 > 0 and 0 < lq1 < lq0 * _ag.DRAIN_PULL:
@@ -495,14 +524,20 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev, act = ('TAKE' if pct > 0 else 'EXIT INVALIDATED'), 'R4 whale dump', f"the tape reads a dump at {pct:+.1f}%" + (f", buyers {_f(n['buy']):.0f}%" if n.get('buy') is not None else ''), 'pull'
         elif pct <= -_ci.CATASTROPHIC_STOP:   # 🧱 the hard ceiling, every coin Reaper watches — a constant: no tunable, promotion or thesis reaches it
             st, rule, ev, act = 'EXIT INVALIDATED', 'R5x catastrophic stop', f'{pct:+.1f}% ≤ −{_ci.CATASTROPHIC_STOP:g}% (hard-coded)', 'pull'
+        elif pol.get('sl') and pct <= -_f(pol['sl']):   # 🎛 the creator's hard stop: every coin Reaper watches, in every mode
+            st, rule, ev, act = 'EXIT INVALIDATED', 'R5c creator stop', f"{pct:+.1f}% ≤ −{_f(pol['sl']):g}% (your stop-loss override)", 'pull'
+        elif manual:   # 🎛 CREATOR MANUAL: only the hard safety exits above act — every discretionary call below is yours
+            st, rule, ev = 'HOLD', 'R10 creator manual', f"{pct:+.1f}% · you hold the decisions — only the hard safety exits act"
         elif mine and pct <= -stop:   # their own coins carry no card stop (ride-or-rug seats) — this is it; other coins keep the card's own stop
             st, rule, ev, act = 'EXIT INVALIDATED', 'R5 stop', f"{pct:+.1f}% ≤ −{stop:g}%" + (f" ({'; '.join((th.get('stopParts') or [])[:2])})" if th else ' (no thesis on file: the ceiling)'), 'pull'
         elif pct >= take:
             st, rule, ev = 'TAKE', 'R6 take line', f"{pct:+.1f}% ≥ +{take:g}% ({tsrc} take) — the card's own take rule banks it"
         elif mine and rv and rv['verdict'] == 'invalid' and held >= 2:   # the reason it was bought is gone: out, green or red — P&L does not decide this
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R5t thesis invalidated', f"{pct:+.1f}% — entered on {th.get('structure')}; now {rv['why'][0]}", 'pull'
-        elif p['peak'] >= T('protectAt') and pct <= p['peak'] * (1 - T('giveBackPct') / 100) and pct >= MIN_KEEP:
-            st, rule, ev, act = 'TAKE', 'R7 trailing protection', f"peaked {p['peak']:+.1f}%, now {pct:+.1f}% — gave back over {T('giveBackPct'):g}% of it", 'pull'
+        elif max_hold and (mine or control) and held >= max_hold:   # 🎛 the creator's max hold: Reaper cannot hold past it
+            st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R9c creator max hold', f"{held:.0f} min held ≥ your {max_hold:g}-minute max hold, {pct:+.1f}%", 'pull'
+        elif trail_on and p['peak'] >= arm and pct <= trail_line and pct >= MIN_KEEP:
+            st, rule, ev, act = 'TAKE', 'R7 trailing protection', f"peaked {p['peak']:+.1f}%, now {pct:+.1f}% — " + (f"{_f(tr_.get('pct')):g} points off the peak (your trail)" if tr_.get('mode') == 'custom' else f"gave back over {T('giveBackPct'):g}% of it"), 'pull'
         elif mine and rv and rv['verdict'] == 'weak' and 'lower high' in rv['why'][0] and pct >= MIN_KEEP:   # green is not a reason to keep holding
             st, rule, ev, act = 'TAKE', 'R7s structure turned', f"{pct:+.1f}% and {rv['why'][0]} — banked before it is given back", 'pull'
         elif mine and rv and rv['window'] >= granted and rv['verdict'] == 'weak' and pct < take:   # its windows are used up and the chart earned no more
@@ -515,8 +550,10 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev = 'PROTECT', 'R4 whale dump', f'the tape reads a dump at {pct:+.1f}% — buyers still hold it'
         elif held >= MOMENTUM_MIN and broke:
             st, rule, ev = 'PROTECT', 'R8 momentum failed', f'{pct:+.1f}% and {broke} — it gives its seat to the next cleared read'
-        elif p['peak'] >= T('protectAt'):
-            st, rule, ev = 'PROTECT', 'R7 trailing protection', f"armed at peak {p['peak']:+.1f}%: banks under {max(MIN_KEEP, p['peak'] * (1 - T('giveBackPct') / 100)):+.1f}%"
+        elif trail_on and p['peak'] >= arm:
+            st, rule, ev = 'PROTECT', 'R7 trailing protection', f"armed at peak {p['peak']:+.1f}%: banks under {max(MIN_KEEP, trail_line):+.1f}%"
+        if not x and not broke and not act:
+            ev += ' · not on the agents\' table (' + ('the office is refilling after a restart' if not live else f"{round(now - _f(p.get('offSince')))}s — under the {_oe.RADAR_GRACE_SEC}s grace") + '): nothing is ruled on that gap'
         degraded = bool((rv or {}).get('degraded')) or bool(ch and ch.get('q') and not ch['q'].get('structOk'))
         if degraded and not act:   # 🧪 the chart data degraded on a held coin: nothing chart-based is ruled — R1–R5x, the stop and the trail still stand
             ev += f" · DATA DEGRADED ({ch['q']['state'] if ch and ch.get('q') else 'no data'}) — held on the hard risk / liquidity / execution rules only"
@@ -537,7 +574,8 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
                     'structure': (ch or {}).get('state'), 'chartSrc': (ch or {}).get('src'), 'verdict': (rv or {}).get('verdict'), 'why': (rv or {}).get('why') or [], 'window': (rv or {}).get('window'), 'granted': granted if th else None,
                     'nextReview': (rv or {}).get('next') if rv else round((int(held // _ci.WINDOW_MIN) + 1) * _ci.WINDOW_MIN * 60 - held * 60),
                     'chart': None if not ch else {k: ch.get(k) for k in ('trend', 'chop', 'mom', 'ext')} | {k: (ch.get('f') or {}).get(k) for k in ('hh', 'hl', 'lh', 'll', 'lastHigh', 'lastLow', 'accel', 'decay', 'upWick', 'liqD')},
-                    'tape': tp, 'usd': round(_f(l.get('units')) * px, 4), 'warden': p.get('warden'), 'dataDegraded': degraded, 'data': _md.compact((ch or {}).get('q'))})
+                    'tape': tp, 'usd': round(_f(l.get('units')) * px, 4), 'warden': p.get('warden'), 'dataDegraded': degraded, 'data': _md.compact((ch or {}).get('q')),
+                    'launch': p.get('launch'), 'onTable': bool(x), 'offRadarSec': None if x else round(now - _f(p.get('offSince'))), 'limits': {'tp': pol.get('tp'), 'sl': pol.get('sl'), 'maxHold': max_hold, 'trail': tr_.get('mode'), 'manual': manual}})
     gone = []
     for m in [m for m in pos if m not in on]:
         p = pos.pop(m)
@@ -627,8 +665,9 @@ def settle_cases(arch, price_of, now):
             if px > 0:
                 pc = round((px / _f(c['d']['px']) - 1) * 100, 2)
                 o['max'], o['min'] = max(_f(o.get('max')), pc), min(_f(o.get('min')), pc)
-                if 'p5' not in o and age >= 5:
-                    o['p5'] = pc
+                for h_ in (5, 10, 15, 30):   # each horizon is stamped ONCE, from the same batched price read (no extra call)
+                    if f'p{h_}' not in o and age >= h_:
+                        o[f'p{h_}'] = pc
             if age >= 60:
                 o['p60'] = round((px / _f(c['d']['px']) - 1) * 100, 2) if px > 0 else -100.0
                 o.setdefault('p5', o['p60'] if px <= 0 else None)
@@ -646,7 +685,7 @@ def file_position(arch, p, now):
     rec = {'mint': p.get('mint'), 'sym': p.get('sym'), 'since': p.get('since'), 'closedAt': p.get('closedAt') or now, 'entry': p.get('entry'), 'peak': round(_f(p.get('peak')), 2),
            'low': round(_f(p.get('low')), 2), 'lastPct': p.get('pct'), 'path': list(p.get('path') or [])[-PATH_KEEP:], 'rule': p.get('askRule') or 'left the card by another rule',
            'byReaper': bool(p.get('askRule')), 'confirmed': bool(p.get('confirmed')), 'realPct': p.get('realPct'), 'exit': {k: v for k, v in (p.get('exit') or {}).items() if k in ('state', 'sig', 'at', 'usd', 'delta', 'realUsd', 'err')},
-           'wx': p.get('wx'), 'warden': p.get('warden'), 'tag': p.get('tag'), 'take': p.get('take'), 'exitStructure': p.get('chartNow'), 'windows': p.get('lastWin'),
+           'wx': p.get('wx'), 'warden': p.get('warden'), 'launch': p.get('launch'), 'tag': p.get('tag'), 'take': p.get('take'), 'exitStructure': p.get('chartNow'), 'windows': p.get('lastWin'),
            'thesis': None if not p.get('thesis') else {k: p['thesis'].get(k) for k in ('structure', 'call', 'triggerRule', 'support', 'invalidation', 'stopPct', 'expectedHoldWindows', 'at')}}
     prev = ps[-1]['h'] if ps else a.get('posAnchor', '')
     rec['h'] = _hash(prev, {k: v for k, v in rec.items() if k != 'h'})
@@ -1131,7 +1170,8 @@ def lineage_of(case, ctx, action=None):
     n, v = row.get('nums') or {}, row.get('vitals') or {}
     w, wd = ctx.get('weather') or {}, ctx.get('warden')
     return {'mint': case['mint'], 'sym': case.get('symbol'), 'px': case.get('px'), 'cleared': bool(case.get('cleared')), 'action': action, 'ageH': v.get('ageH'),
-            'tally': {'pts': n.get('pts'), 'd5': n.get('d5'), 'buy': n.get('buy'), 'liq': n.get('liq'), 'pace': n.get('pace')},
+            'tally': {'pts': n.get('pts'), 'd5': n.get('d5'), 'c1': n.get('c1'), 'buy': n.get('buy'), 'liq': n.get('liq'), 'pace': n.get('pace')},
+            'launch': row.get('launch'), 'scanFailed': v.get('safe') is False, 'noFill': ctx.get('noFill'),   # 🚀 the launch context + why a cleared coin was not filled, AT decision time
             'sherlock': {'lean': (row.get('why') or {}).get('lean'), 'drivers': [d[0] for d in (row.get('why') or {}).get('drivers') or []][:6]},
             'weather': {'regime': w.get('regime'), 'barAdj': weather_adj(w), 'size': weather_size(w)}, 'trigger': [row['trigger'][0], str(row['trigger'][1])[:80], ctx.get('bar')],
             'devil': [(row.get('case') or row.get('devil') or ['—'])[0], [o[0] for o in row.get('objs') or []][:5]],

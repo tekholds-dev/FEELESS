@@ -141,7 +141,9 @@ def test_reaper_rules_in_order_with_evidence_and_never_rules_on_a_missing_price(
     assert (m['state'], m['rule'], m['action']) == ('TAKE', 'R8 momentum failed', 'pull')
     assert one(leg('A', at=3500), 1.03, [trow('A', lean=-1.0)])['state'] == 'HOLD'                               # … but never inside its first 15 minutes
     assert one(leg('A'), 0.97, [trow('A', lean=-1.0)])['state'] == 'PROTECT'                                     # at a loss it is flagged, not dumped
-    assert one(leg('A', at=1), 0.97, [], now=3 * 3600)['rule'] == 'R9 time'                                      # 3h, off the radar, going nowhere
+    gap = run(leg('A', at=1), 0.97, [], now=3 * 3600 - 300)                                                       # the first tick it is missing from the table: OUR gap, nothing is ruled on it
+    assert gap[1][0]['rule'] == 'R10 hold' and gap[1][0]['onTable'] is False and 'nothing is ruled on that gap' in gap[1][0]['evidence']
+    assert one(leg('A', at=1), 0.97, [], pos=gap[0], now=3 * 3600)['rule'] == 'R9 time'                                      # 3h, off the radar, going nowhere
     assert run(leg('A', frozen=True), 0.5)[1] == []                                                              # the creator's ❄ is never touched
     assert run({**leg('B'), 'bought': {'tag': '🎯 your pick'}}, 0.5)[1] == []                                    # not theirs, not in control → not Reaper's
     yours = {**leg('B'), 'bought': {'tag': '🎯 your pick'}}

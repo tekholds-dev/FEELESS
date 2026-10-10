@@ -194,6 +194,8 @@ def word(k):
         return f"🎯 {STRAT_NAME.get(k[6:], k[6:])}"
     if str(k).startswith('src:'):
         return f"🕸 found on {SOURCES.get(k[4:], k[4:])}"
+    if str(k).startswith('pad:'):
+        return f"🚀 launch context {k[4:]}"
     if str(k).startswith('chart:'):
         return f"📈 chart reads {k[6:]}"
     if str(k).startswith('idea:'):
@@ -278,6 +280,8 @@ def drivers(n, row):
         out.append('falling')
     if n.get('holdD') is not None and _f(n['holdD']) >= 20:
         out.append('holders_up')
+    if (row.get('launch') or {}).get('key'):
+        out.append(f"pad:{row['launch']['key']}")                    # 🚀 the launch context (office_edge.launch_context) — no belief: only its own record weighs
     if (row.get('chart') or {}).get('state') and row['chart']['state'] not in ('UNKNOWN', _ci.DATA_INVALID):   # 🧪 no structure is inferred from rows Tally rejected
         out.append(f"chart:{row['chart']['state']}")                # 📈 the market structure (chart_intel) — no belief, only its own record weighs
     out += list(((row.get('mind') or {}).get('drivers')) or [])   # 🧠 the human read: narrative, crowd vs swarm, botted, dip tuggers
@@ -432,6 +436,9 @@ def devil_args(call, n, why, row, learned, duty=False):
         args.append(('swarm', f"the callers are a bot swarm ({round(_f(mind['crowd'].get('swarmShare')) * 100)}% the same line)"))
     if _f((mind.get('bots') or (0, []))[0]) >= 40 and backed('botted'):
         args.append(('botted', 'botted launch: ' + '; '.join((mind['bots'][1] or [])[:2])))
+    pr_ = ((learned or {}).get('pads') or {}).get((row.get('launch') or {}).get('key')) or {}
+    if int(pr_.get('enterN') or 0) >= PAD_MIN_N and pr_.get('enterMed5') is not None and _f(pr_['enterMed5']) <= PAD_BAD_MED:   # 🚀 a launch-specific failure pattern, on OUR record only
+        args.append(('pad_losing', f"launch context {row['launch']['key']} loses on our own entries: {pr_['enterN']} ENTER calls, typical {_f(pr_['enterMed5']):+.1f}% at 5 min"))
     orec = (learned or {}).get('objrec') or {}
     for rule, text in (row.get('chart') or {}).get('objs') or []:   # 📈 the chart thesis attacked on its measurements (chart_intel.objections)
         v = orec.get(rule) or {}
@@ -463,7 +470,7 @@ DEVIL_RULES = {'busted_read': (True, "the coin's read is a busted call on its ow
                'young': (True, 'under 15 minutes old'), 'unscanned': (True, 'holders never scanned'), 'burned': (True, 'burned us in the last 6h'),
                'swarm': (False, 'the callers are a bot swarm'), 'botted': (False, 'botted launch'), 'against': (False, 'a reason against it is on the table'),
                'driver_losing': (False, 'one of its reasons has been followed by losses lately'), 'rug_signs': (True, 'rug signs learned from our autopsies'),
-               'avoid': (True, 'a creator-approved avoid tactic'), 'trigger_losing': (False, "Trigger's own recent entries are losing"), 'trial': (True, 'Devil is on trial: only strong reads pass'),
+               'avoid': (True, 'a creator-approved avoid tactic'), 'pad_losing': (False, 'this launch context loses on our own entries'), 'trigger_losing': (False, "Trigger's own recent entries are losing"), 'trial': (True, 'Devil is on trial: only strong reads pass'),
                **{k: v for k, v in _ci.CHART_RULES.items()},
                'unrecorded': (False, 'reason not stored (calls judged before objections kept their reason)'), 'other': (False, 'other')}
 _RULE_TEXT = (('its read is', 'busted_read'), ('rug meter', 'rug_meter'), ('already +', 'ran'), ('under 15 minutes', 'young'), ('holders never', 'unscanned'), ('burned us', 'burned'),
@@ -505,6 +512,10 @@ def busted_now(proof, call_keys):
     return out
 
 
+PAD_MIN_N, PAD_BAD_MED = 15, -3.0   # 🚀 Devil objects to a launch context only on ≥ 15 of our own ENTER calls with a typical 5-min result ≤ −3%
+PAD_UNKNOWN_BAR = 0.25              # ⏱ an UNKNOWN launch needs this much more lean than the bar (stricter confidence, never a pass)
+
+
 def desk(state, rows, now, dial=None, busted=None, weather_fn=None, candles=None, flows=None, charts_out=None, cmeta=None):
     """One pass of all four, in order. → (new state, table rows for the screen). Each coin's line carries every agent's word."""
     import time as _t
@@ -525,6 +536,8 @@ def desk(state, rows, now, dial=None, busted=None, weather_fn=None, candles=None
     learned['busted'] = busted
     learned['trial'] = judge(st)['trial']   # 👨‍⚖️ the bot the Judge has on trial plays under a handicap this pass (it only ever tightens)
     bar_ = bar_now(learned)
+    import office_edge as _oe   # (lazy: office_edge reads this module)
+    learned['pads'] = _oe.pad_record(_judged(st, 5))
     table = []
     charting = candles is not None   # 📈 chart intelligence is on when the service hands the pass its candle map (possibly empty: the tape stands in)
     perf['chart'] = 0.0
@@ -533,6 +546,7 @@ def desk(state, rows, now, dial=None, busted=None, weather_fn=None, candles=None
         if m not in nums:
             continue
         n = nums[m]
+        r = {**r, 'launch': _oe.launch_context(r)}   # 🚀 what is measurable about how it launched — computed once, read by every desk
         chart = None
         if charting:   # ONE snapshot per coin per pass, shared by every desk: real 1-min candles when fetched for this coin, else Tally's own tape
             t0 = _t.perf_counter()
@@ -557,7 +571,12 @@ def desk(state, rows, now, dial=None, busted=None, weather_fn=None, candles=None
                 call, reason = 'wait', f'{ec[0]} — {ec[2]}'
             elif call == 'enter':
                 reason += f' · 📈 {ec[1]}: {ec[2]}'
+        if call == 'enter' and r['launch']['type'] == 'unknown' and r['launch']['measured'] and why['lean'] < bar_ + PAD_UNKNOWN_BAR:   # ⏱ an unknown launch mechanism: stricter confidence (this can only turn an ENTER into a WAIT)
+            call, reason = 'wait', f"unknown launch context — needs lean {bar_ + PAD_UNKNOWN_BAR:.2f}, has {why['lean']:+.1f}"
         perf['trigger'] += _t.perf_counter() - t0
+        s_ = ser.get(m) or []
+        if s_ and next((p_.get('c') for p_ in reversed(s_) if p_.get('c')), None) != call[0]:   # 🔎 Tally's tape keeps Trigger's call each time it CHANGES (the missed-winner study reads the first one)
+            s_[-1].update(c=call[0], r=str(reason)[:60], l=why['lean'])
         t0 = _t.perf_counter(); dargs = devil_args(call, n, why, {**r, 'mint': m}, learned) if call == 'enter' else []
         verdict, arg = ('—', '') if call != 'enter' else (('object', dargs[0][1]) if dargs else ('agree', 'no evidence against it')); perf['devil'] += _t.perf_counter() - t0
         if learned['trial'] == 'devil' and verdict == 'agree' and why['lean'] < bar_ + TRIAL_BAR:   # 👨‍⚖️ Devil on trial: only strong reads pass
@@ -567,13 +586,13 @@ def desk(state, rows, now, dial=None, busted=None, weather_fn=None, candles=None
         if case and learned['trial'] == 'devil' and case[0] == 'agree' and why['lean'] < bar_ + TRIAL_BAR:
             case, objs = ['object', 'on trial — only a strong read passes'], [('trial', 'on trial — only a strong read passes')]
         rd = r.get('mind') or _tm.read(r)
-        table.append({'case': case, 'objs': [list(o) for o in (objs or [])[:6]], 'chart': _ci.compact(chart), 'drule': dargs[0][0] if dargs else None, 'mint': m, 'symbol': r.get('symbol'), 'pair': r.get('pairAddress'), 'px': _f(r.get('price')), 'nums': n, 'why': why,
+        table.append({'case': case, 'objs': [list(o) for o in (objs or [])[:6]], 'chart': _ci.compact(chart), 'launch': {k: r['launch'].get(k) for k in ('pad', 'type', 'key', 'graduated', 'curvePct', 'ageH', 'poolAgeH')}, 'drule': dargs[0][0] if dargs else None, 'mint': m, 'symbol': r.get('symbol'), 'pair': r.get('pairAddress'), 'px': _f(r.get('price')), 'nums': n, 'why': why,
                       'trigger': [call, reason], 'devil': [verdict, arg], 'go': call == 'enter' and verdict == 'agree',
                       'mind': {'narr': rd['narr'][1], 'hot': rd['narr'][2], 'callers': rd['crowd']['callers'], 'swarm': rd['crowd']['swarm'],
                                'slang': rd['crowd']['slang'], 'bots': rd['bots'][0], 'tug': rd['tug'][0]},
                       'analysis': _tm.analysis(r.get('symbol'), rd, n, call, verdict, arg), 'opinion': opinion(why, call, verdict, arg),
                       'strats': [STRAT_NAME[k] for k in strats(r, n)],
-                      'vitals': {k: r.get(k) for k in ('mcap', 'ageH', 'liq', 'vol1h', 'buyShare', 'top10', 'bundledN', 'snipersN', 'dev', 'holders', 'safe')}
+                      'vitals': {k: r.get(k) for k in ('mcap', 'ageH', 'liq', 'vol1h', 'buyShare', 'top10', 'bundledN', 'snipersN', 'dev', 'holders', 'safe', 'curve', 'curvePct', 'txns1h')}
                                 | {'organic': (r.get('vital') or {}).get('organicPct'), 'rug': (r.get('tv') or {}).get('rug'), 'read': ((r.get('tv') or {}).get('call') or [None, None])[1]}})
     table.sort(key=lambda x: (not x['go'], x['trigger'][0] != 'enter', -x['why']['lean']))
     st['feed'] = (list(st.get('feed') or []) + thoughts(table, now))[-FEED_KEEP:]
@@ -598,6 +617,7 @@ def record(state, table, now, controls=3):
         waits += kind == 'wait'
         opened[m] = {'px': x['px'], 'at': now, 'sym': x['symbol'], 'kind': kind, 'go': x['go'], 'devil': x['devil'][0], **({'devilWhy': str(x['devil'][1])[:90], 'devilRule': x.get('drule') or devil_rule_of(x['devil'][1])} if x['devil'][0] == 'object' else {}),
                      **({'cs': x['chart']['state'], 'ce': x['chart']['entry'][0]} if x.get('chart') else {}),
+                     **({'pad': x['launch']['key']} if (x.get('launch') or {}).get('key') else {}),   # 🚀 the launch context AT the call
                      **({'dq': x['chart']['q']['state'], 'dqc': x['chart']['q']['conf']} if (x.get('chart') or {}).get('q') else {}),   # 🧪 the data-quality state AT the call, kept with it
                      'drivers': [d[0] for d in x['why']['drivers']], 'lean': x['why']['lean'], 'tallyUp': _f(x['nums'].get('d5')) > 0,
                      **({'scalp': [st['scalp']['tp'], st['scalp']['sl']]} if (st.get('scalp') or {}).get('tp') else {})}
@@ -1244,7 +1264,7 @@ def eligible(table, on=(), min_age_h=1.0, burned=()):
     return sorted(out, key=lambda x: -_f((x.get('why') or {}).get('lean')))
 
 
-def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_left=None, picks=None, rotate=False):
+def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_left=None, picks=None, rotate=False, pol=None, radar=None, cases=None, reviews=None):
     """For every coin the agents put on the card: under `agentTakePct` profit it HOLDS (only the rug shield may cut it); in profit the agents
     read it again — still a clean read (Trigger not SKIP, lean ≥ 0, 5-min ≥ −3%, buyers ≥ 50%) → let it run; else EXIT: 'swap' for a fresh GO
     runner (mode auto / swap, when one exists off the card) or 'pull' to card cash with the seat left open. Not on the desk's list any more →
@@ -1257,6 +1277,15 @@ def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_l
     scalping = bool((cfg or {}).get('agentScalp', True) and (scalp or {}).get('tp'))
     if scalping:
         take = _f(scalp['tp'])
+    # 🎛 THE CREATOR'S LIMITS (office_edge.policy): a take-profit override beats the learned line; switching follows the creator's mode.
+    # `radar` = the mints that are REALLY off the table (missing ≥ the grace, office LIVE); None = no grace known (tests of the old rule).
+    # A restart / refill gap is never in it — so it can never be a reason to switch or bank.
+    import office_edge as _oe
+    pol = pol or _oe.policy(cfg)
+    if pol.get('tp'):
+        take, scalping = _f(pol['tp']), False
+    off = lambda mint: (radar is None) or (mint in radar)
+    sw_on = bool(pol['switch']['on'])
     by = {x['mint']: x for x in table or []}
     on = {l.get('mint') for l in legs or []}
     # 🎮 IN CONTROL (cfg `agentControl`): they manage EVERY coin on the card, a switch needs an `eligible` coin (age, pool, scan), a coin
@@ -1275,13 +1304,15 @@ def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_l
         lq0, lq1 = _f(l.get('liq')), _f(l.get('liqNow'))
         if lq0 > 0 and 0 < lq1 < lq0 * DRAIN_PULL:   # 🩸 the pool is draining: out NOW, profit or not (a drained pool cannot be sold later)
             out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'pull', 'why': f"{pnl:+.1f}% — pool fell to {round(lq1 / lq0 * 100)}% of entry depth: out now, before it can't be sold"}); continue
+        if pol.get('manual'):   # 🎛 CREATOR MANUAL: the agents hold everything — only the hard safety exits (the pool rule above, Reaper's R1 / R2 / R5x / your stop) act
+            out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'hold', 'why': f'{pnl:+.1f}% — creator manual: the agents make no discretionary move'}); continue
         if pnl < take:
             x_ = by.get(l.get('mint'))
             held_min = (now - _f(l.get('at'))) / 60 if now and l.get('at') else 0.0
             broke = None
-            if control and gos and held_min >= CONTROL_HOLD_MIN:
+            if control and gos and sw_on and held_min >= CONTROL_HOLD_MIN:
                 if not x_:
-                    broke = 'off their radar'
+                    broke = 'off their radar' if off(l.get('mint')) else None
                 elif x_['trigger'][0] == 'skip':
                     broke = x_['trigger'][1] or 'Trigger says SKIP'
                 elif x_['why']['lean'] < 0:
@@ -1308,6 +1339,8 @@ def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_l
                 or (_f(n.get('d5')) <= -3 and f"{_f(n['d5']):+.1f}% in 5 min") or (n.get('buy') is not None and _f(n['buy']) < 50 and f"buyers down to {_f(n['buy']):.0f}%")
             if not bad:
                 out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'hold', 'why': f"{pnl:+.1f}% and still clean (lean {x['why']['lean']:+.1f}, {_f(n.get('d5')):+.1f}% 5m) — let it run"}); continue
+        elif not off(l.get('mint')):   # missing from the table inside the grace / while the office warms up: that is OUR gap, not the coin's
+            out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'hold', 'why': f'{pnl:+.1f}% — not on the table this pass (refilling): nothing is ruled on a gap'}); continue
         else:
             bad = 'off the desk\'s radar — bank it'
         if mode in ('auto', 'swap') and gos:
@@ -1317,23 +1350,27 @@ def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_l
             out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'pull', 'why': f"{pnl:+.1f}%, {bad} → profit to cash, seat left open"})
     # 🕙 the 10-minute duty with a full card: no coin's read broke, yet a much stronger cleared read is waiting → the weakest coin that is
     # NOT winning (≤ 0%, held ≥ DUTY_ROTATE_MIN, its own lean at least DUTY_EDGE under the new coin's) gives up its seat. Never a winner.
-    if control and rotate and gos and not any(x['action'] == 'swap' for x in out):
+    if control and rotate and gos and sw_on and not any(x['action'] == 'swap' for x in out):
         new = gos[0]
+        ncase = next((c for c in cases or [] if c.get('mint') == new.get('mint')), None) or {'symbol': new.get('symbol'), 'mint': new.get('mint'), 'lean': _f((new.get('why') or {}).get('lean')), 'cleared': True, 'checks': [], 'row': new}
         cands = []
         for l in legs or []:
-            if l.get('placeholder') or l.get('buying') or l.get('frozen') or l.get('ride') or _f(l.get('units')) <= 0 or _f(l.get('entry')) <= 0:
+            if l.get('placeholder') or l.get('buying') or _f(l.get('units')) <= 0 or _f(l.get('entry')) <= 0:
                 continue
             px = _f((prices or {}).get(l.get('pairAddress')))
-            if px <= 0 or not now or not l.get('at') or (now - _f(l['at'])) / 60 < DUTY_ROTATE_MIN:
+            if px <= 0 or not now or not l.get('at'):
                 continue
             pnl = (px / _f(l['entry']) - 1) * 100
-            own = _f(((by.get(l.get('mint')) or {}).get('why') or {}).get('lean'))
-            if pnl <= 0 and _f((new.get('why') or {}).get('lean')) - own >= DUTY_EDGE:
-                cands.append((pnl, l, own))
+            x_ = by.get(l.get('mint'))
+            if not x_ and not off(l.get('mint')):
+                continue   # not on the table inside the grace: its read is unknown, so it is not compared
+            t_ = _oe.switch_test({'symbol': l.get('symbol'), 'pnl': pnl, 'heldMin': (now - _f(l['at'])) / 60, 'lean': _f(((x_ or {}).get('why') or {}).get('lean')), 'verdict': (reviews or {}).get(l.get('mint')),
+                                  'structure': ((x_ or {}).get('chart') or {}).get('state'), 'frozen': l.get('frozen'), 'riding': l.get('ride')}, ncase, pol)
+            if t_['switch']:
+                cands.append((pnl, l, t_))
         if cands:
-            pnl, l, own = min(cands, key=lambda c: c[0])
-            out = [x for x in out if x['pair'] != l['pairAddress']] + [{'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'swap', 'to': new,
-                   'why': f"{pnl:+.1f}% after {int((now - _f(l['at'])) / 60)} min, lean {own:+.1f} → their stronger read ${new['symbol']} (lean {_f(new['why']['lean']):+.1f}) takes the seat"}]
+            pnl, l, t_ = min(cands, key=lambda c: c[0])
+            out = [x for x in out if x['pair'] != l['pairAddress']] + [{'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'swap', 'to': new, 'why': t_['why'], 'test': {k: t_[k] for k in ('edge', 'need', 'mode')}}]
     return out
 
 

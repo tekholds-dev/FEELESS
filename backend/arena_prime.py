@@ -429,6 +429,7 @@ def rated(cands, role):
 
 
 import card_dna as _dna
+import office_edge as _oe
 
 
 def _f(v):
@@ -512,6 +513,7 @@ def clean_cfg(p):
     out['agentScalp'] = bool((p or {}).get('agentScalp', True))   # ⚡ an agent seat banks at the desk's learned scalp take line (only once a plan is adopted)
     out['agentControl'] = bool((p or {}).get('agentControl', False))   # 🎮 the agents control EVERY seat of the real card (the engine's own doors are off)
     out['agentTrust'] = bool((p or {}).get('agentTrust', False))   # 🤝 a 2nd agent seat once the suggestions the owner took are proven (≥ 10 closed, typical > 0)
+    out.update(_oe.clean_policy(p))   # 🎛 the creator's limits on the agents (take · stop · trail · max hold · size · seat target · switching · entry · authority)
     out['agentTakePct'] = int(_f((p or {}).get('agentTakePct'))) if int(_f((p or {}).get('agentTakePct'))) in (5, 10, 20, 30, 50) else 10   # 🤖 agent seats hold until this profit
     out['agentMode'] = (p or {}).get('agentMode') if (p or {}).get('agentMode') in ('auto', 'pull', 'swap') else 'auto'   # … then pull to cash / swap / let the agents choose
     out['agentSeats'] = int(_f((p or {}).get('agentSeats'))) if int(_f((p or {}).get('agentSeats'))) in (1, 2, 3, 4) else 2   # most agent coins on the card at once   # 🤖 the agent desk's GO calls feed the rush (only once its 5-min stage is conquered)
