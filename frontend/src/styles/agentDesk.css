@@ -131,6 +131,9 @@ body.theme-day .agd-creed ol { color: #13281d; }
 body.fx-lite .agd-dot, body.fx-lite .agd-tag, body.fx-lite .agd-aim, body.fx-lite .agd-strike, body.fx-lite .agd-bub, body.fx-lite .agd-embryo { animation: none; }
 @media (prefers-reduced-motion: reduce) { .agd-dot, .agd-tag, .agd-aim, .agd-strike, .agd-bub, .agd-embryo, .agd-water { animation: none; transition: none; } }
 body.theme-day .agd-floor { background: rgba(255, 255, 255, .7); border-color: #cfe3d8; } body.theme-day .agd-lane-h { color: #13281d; } body.theme-day .agd-glass { background: rgba(127, 212, 255, .12); }
+/* 🔬 autopsy */
+.agd-autopsy ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: 11px; } .agd-autopsy li small { color: #f5c451; }
+.agd-tags i.is-bad { color: #ff8fa3; border-color: rgba(255, 143, 163, .5); }
 @keyframes agdIn { from { opacity: .4; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 body.fx-lite .agd-agent { animation: none; }
 @media (prefers-reduced-motion: reduce) { .agd-agent { animation: none; transition: none; } }

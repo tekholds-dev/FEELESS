@@ -417,6 +417,9 @@ def devil(call, n, why, row, learned):
         if int(v.get('n') or 0) >= DRIVER_MIN_N and _f(v.get('med')) < 0 and _f(_w) > 0:
             args.append(f"'{words}' has been followed by {_f(v['med']):+.1f}% lately")
     have_ = {d[0] for d in why['drivers']}
+    rs_ = [x for x in have_ if ((learned or {}).get('rugSigns') or {}).get(x, 0) >= RUG_SIGN_N and not x.startswith('src:open')]
+    if len(rs_) >= 2:   # 🔬 learned from autopsies: these reasons keep showing up on coins that rugged
+        args.append('rug signs from our autopsies: ' + ', '.join(word(x) for x in rs_[:3]))
     for iid, pair in ((learned or {}).get('avoid') or {}).items():   # 🚫 a creator-approved AVOID tactic
         if all(x in have_ for x in pair):
             args.append(f"approved avoid-tactic {iid}: {word(pair[0])} + {word(pair[1])}")
@@ -553,7 +556,7 @@ def learn(state, h=5):
     budget = {x[4:]: v for x, v in drivers_.items() if x.startswith('src:') and v['n'] >= BUDGET_N and v['med'] < 0}
     ideas_ = (state or {}).get('ideas') or {}
     return {'drivers': drivers_, 'cards': cards, 'bar': round(bar, 2), 'h': h, 'calibration': calib, 'cut': budget,
-            'lessons': lessons,
+            'lessons': lessons, 'rugSigns': (state or {}).get('rugSigns') or {},
             'approved': {i: v['pair'] for i, v in ideas_.items() if v.get('status') == 'approved' and v.get('kind') == 'take'},
             'avoid': {i: v['pair'] for i, v in ideas_.items() if v.get('status') == 'approved' and v.get('kind') == 'avoid'}}
 
@@ -648,12 +651,15 @@ def view(state, table, feed=False, real=None, mind=None, cfg=None, decisions=Non
             'table': table[:24], 'desk': paper(state), 'open': len((state or {}).get('open') or {}), 'feed': bool(feed and proven), 'feedAsked': bool(feed),
             'road': road(state, real), 'thoughts': list(reversed(((state or {}).get('feed') or [])[-40:])), 'real': real or {}, 'mind': mind or {},
             'ideas': sorted(({'id': i, **v} for i, v in ((state or {}).get('ideas') or {}).items()), key=lambda x: (x['status'] != 'new', -_f(x.get('at')))),
-            'cfg': {'agentFeed': bool((cfg or {}).get('agentFeed')), 'agentTakePct': int(_f((cfg or {}).get('agentTakePct') or 10)), 'agentMode': (cfg or {}).get('agentMode') or 'auto',
+            'cfg': {'agentFeed': bool((cfg or {}).get('agentFeed')), 'agentLearn': bool((cfg or {}).get('agentLearn')), 'agentLearnPct': int(_f((cfg or {}).get('agentLearnPct') or 10)),
+                    'agentTakePct': int(_f((cfg or {}).get('agentTakePct') or 10)), 'agentMode': (cfg or {}).get('agentMode') or 'auto',
                     'agentSeats': int(_f((cfg or {}).get('agentSeats') or 2)), 'options': {'take': list(AGENT_TAKES), 'mode': list(AGENT_MODES), 'seats': list(AGENT_SEATS)}},
             'decisions': decisions or [], 'tasks': tasks(state, table, now), 'creed': list(CREED), 'life': survival(state),
             'lineage': list(reversed(((state or {}).get('lineage') or [])[-10:])), 'approveN': IDEA_APPROVE_N,
             'perf': (state or {}).get('perf') or {}, 'lessons': (state or {}).get('lessons') or {}, 'calibration': lr['calibration'], 'cut': lr['cut'],
-            'burned': len((state or {}).get('burned') or {}), 'scrapN': SCRAP_N, 'surviveN': SURVIVE_N}
+            'burned': len((state or {}).get('burned') or {}), 'scrapN': SCRAP_N, 'surviveN': SURVIVE_N,
+            'autopsies': list(reversed(((state or {}).get('autopsies') or [])[-12:])), 'rugSigns': sorted(({'key': k, 'words': word(k), 'n': v} for k, v in ((state or {}).get('rugSigns') or {}).items()), key=lambda x: -x['n'])[:8],
+            'hist': ((state or {}).get('hist') or [])[-96:], 'rules': rules({**lr, 'regime': ((state or {}).get('perf') or {}).get('regime')})}
 
 
 # ── 💡 IDEAS — the desk proposes tactics from its own record; the creator approves or rejects ──────────────────────────────────────
@@ -714,6 +720,7 @@ def review(state, iid, action):
 
 # ── 💵 AGENT SEATS on the real card — they stay until profit, then the agents decide ────────────────────────────────────────────────
 AGENT_TAKES = (5, 10, 20, 30, 50)
+DRAIN_PULL = 0.5   # an agent coin whose pool fell under half its entry depth is pulled at once
 AGENT_MODES = ('auto', 'pull', 'swap')
 AGENT_SEATS = (1, 2, 3, 4)
 
@@ -740,6 +747,9 @@ def manage(legs, table, prices, cfg):
         if px <= 0:
             continue
         pnl = (px / _f(l['entry']) - 1) * 100
+        lq0, lq1 = _f(l.get('liq')), _f(l.get('liqNow'))
+        if lq0 > 0 and 0 < lq1 < lq0 * DRAIN_PULL:   # 🩸 the pool is draining: out NOW, profit or not (a drained pool cannot be sold later)
+            out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'pull', 'why': f"{pnl:+.1f}% — pool fell to {round(lq1 / lq0 * 100)}% of entry depth: out now, before it can't be sold"}); continue
         if pnl < take:
             out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'hold', 'why': f'{pnl:+.1f}% — holding until +{take:g}% (only the rug shield cuts it)'}); continue
         x = by.get(l.get('mint'))
@@ -776,3 +786,70 @@ def tasks(state, table, now):
             'trigger': f"{calls.get('enter', 0)} ENTER · {calls.get('wait', 0)} WAIT · {calls.get('skip', 0)} SKIP · bar {lr['bar']}",
             'devil': f"objected to {obj} of {len(enters)} entries" + (f" · {len((state or {}).get('open') or {})} calls waiting on the clock" if state else ''),
             'at': now}
+
+
+# ── 🔬 RUG AUTOPSY — every coin that rugged on the desk teaches Devil ─────────────────────────────────────────────────────────────────
+RUG_P5, RUG_SIGN_N = -50.0, 3
+
+
+def autopsy(state, now):
+    """Every judged call that rugged (≤ −50% at 5 min, or no price at 60 min = vanished) gets an autopsy: the reasons the desk saw at the time
+    (its drivers) and what it MISSED (the reasons it weighed positive). Each driver seen in a rug is counted in `rugSigns`; Devil objects to a
+    coin carrying 2+ signs that each showed up in ≥ 3 rugs. → new state (autopsies kept 60, newest last)."""
+    st = dict(state or {})
+    done_ids = {a['id'] for a in st.get('autopsies') or []}
+    signs = dict(st.get('rugSigns') or {})
+    aut = list(st.get('autopsies') or [])
+    for d in list((st.get('open') or {}).values()) + list(st.get('done') or []):
+        p5, p60 = d.get('p5'), d.get('p60')
+        rug = (p5 is not None and _f(p5) <= RUG_P5) or (p60 is not None and _f(p60) <= -100)
+        did = f"{d.get('mint')}:{int(_f(d.get('at')))}"
+        if not rug or did in done_ids:
+            continue
+        drv = list(d.get('drivers') or [])
+        for x in drv:
+            signs[x] = signs.get(x, 0) + 1
+        aut.append({'id': did, 'sym': d.get('sym'), 'at': now, 'calledAt': d.get('at'), 'kind': d.get('kind'), 'go': bool(d.get('go')),
+                    'p5': p5, 'p60': p60, 'seen': drv, 'missed': [x for x in drv if PRIOR.get(x, 0.0) >= 0 and not x.startswith('src:')][:4],
+                    'text': f"${d.get('sym')} rugged ({_f(p5):+.0f}% in 5 min{'' if p60 is None else f', {_f(p60):+.0f}% in 60'})"
+                            + (" after a GO" if d.get('go') else '') + (f" — we read it as: {', '.join(word(x) for x in drv[:3])}" if drv else '')})
+    st['autopsies'], st['rugSigns'] = aut[-60:], signs
+    return st
+
+
+def rug_signs(row_drivers, state):
+    """The rug signs a coin carries right now: its drivers that have each shown up in ≥ RUG_SIGN_N rugs."""
+    sg = (state or {}).get('rugSigns') or {}
+    return [x for x in row_drivers or [] if sg.get(x, 0) >= RUG_SIGN_N and not x.startswith('src:open')]
+
+
+# ── 📈 DESK HISTORY — each agent's record over time, per generation ─────────────────────────────────────────────────────────────────
+HIST_EVERY, HIST_KEEP = 1800.0, 336   # a snapshot every 30 min, a week kept
+
+
+def history(state, now):
+    """Snapshot each agent's current-life record every 30 min → `hist` [{at, tally:{gen,right,med,n}, …}]. → new state."""
+    st = dict(state or {})
+    h = list(st.get('hist') or [])
+    if h and now - _f(h[-1].get('at')) < HIST_EVERY:
+        return st
+    sv = survival(st)
+    h.append({'at': now, **{a: {'gen': v['gen'], 'right': v['right'], 'med': v['med'], 'n': v['n']} for a, v in sv.items()}})
+    st['hist'] = h[-HIST_KEEP:]
+    return st
+
+
+def rules(learned):
+    """📏 Each agent's ACTUAL rules right now — read from the constants and the live record, so the screen can never drift from the code."""
+    lr = learned or {}
+    rg = lr.get('regime') or {}
+    return {
+        'tally': [f"reads the {SERIES_N} latest prices of each coin it tracks (one a pass)", "5-min move = price now vs ~5 min ago on its own tape",
+                  "pace = 5-min volume × 12 ÷ the hour's volume", "pool change vs the first reading", "scored on: does the 5-min move keep going?"],
+        'sherlock': [f"each reason weighs (n × record + {BELIEF_K} × belief) ÷ (n + {BELIEF_K})", "strategies, sources and approved ideas start with NO belief",
+                     f"{len(lr.get('drivers') or {})} reasons judged so far", "a reborn Sherlock starts from the reasons that killed the last one"],
+        'trigger': [f"ENTER when the lean ≥ bar {_f(lr.get('bar') or 1.5)}{' ' + ('+' if _f(rg.get('adj')) >= 0 else '') + str(rg.get('adj')) + ' (' + str(rg.get('word')) + ' trench)' if rg.get('adj') else ''} and buyers ≥ 55%",
+                    "SKIP a failed scan · a pool under $20K · a +15% 5-min candle · a −8% fall", "WAIT with under 3 readings", "losing → bar 2.5 · winning 60%+ → bar 1.0"],
+        'devil': ["objects to: busted reads · rug meter ≥ 50 · +150% on the hour · under 15 min old · never scanned", "bot swarms · botted launches · burned coins (6h)",
+                  f"reasons losing lately · approved avoid-tactics · rug signs seen in ≥ {RUG_SIGN_N} rugs", "Trigger's own losing streak"],
+    }

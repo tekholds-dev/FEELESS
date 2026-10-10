@@ -8754,6 +8754,23 @@ async def _agent_test_fix_1009(now):
     return True
 
 
+async def _agent_learn_fix_1009(now):
+    """🎓 Once (owner, 2026-10-09: "they do it on the creator wallet / Fuse wallet's real-money card to learn before I fund them"): the agents
+    get ONE learning seat now — a 10% ticket, held until profit, pulled at once if its pool drains. Old value: data/realcfg_before_agentlearn.json."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('agentLearnFix1009') or not rc:
+            return False
+        _json_save(DATA_DIR / 'realcfg_before_agentlearn.json', {k: rc.get(k) for k in ('agentLearn', 'agentLearnPct')})
+        pr['realCfg'] = _prime.clean_cfg({**rc, 'agentLearn': True, 'agentLearnPct': 10})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'agentLearn', 'agentLearnPct'})
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | {'agentLearn', 'agentLearnPct'})
+        pr['agentLearnFix1009'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _ticket_ride_fix(now):
     """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
     once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
@@ -8868,6 +8885,7 @@ async def _prime_tick_inner(now):
     await _volcycle_fix_1009(now)
     await _degen_crazy_fix_1009(now)
     await _agent_test_fix_1009(now)
+    await _agent_learn_fix_1009(now)
     await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
@@ -8973,8 +8991,8 @@ async def _prime_tick_inner(now):
             if cfg_t.get('trenchBrain', True) and _brain_ready():
                 sendit_ = [x for x in _brain_rows()[:6] if x['brain']['est'] > 0 and x.get('safe') is True] + sendit_
             pro_ = _pc.pro_entries(_pump_calls.get('calls') or [], _pump_calls.get('callers') or {}, [_with_tv(x) for x in _open_board()], now * 1000) if cfg_t.get('proCallEntry') else []
-            if cfg_t.get('agentFeed'):   # 🤖 the agents' GO calls first — only while they have conquered the 5-minute stage
-                sendit_ = _agents_go_rows((cur or {}).get('legs'), cfg_t.get('agentSeats')) + sendit_
+            if cfg_t.get('agentFeed') or cfg_t.get('agentLearn'):   # 🤖 the agents' GO calls first — proven, or ONE small 🎓 learning seat
+                sendit_ = _agents_go_rows((cur or {}).get('legs'), cfg_t.get('agentSeats'), cfg_t.get('agentLearn'), cfg_t.get('agentLearnPct')) + sendit_
             if cfg_t.get('trenchRush'):   # ⚡ RUSH: the engine buys what the Rush board shows — trench + open-list coins that PASSED the scan, ranked by rush_score
                 sendit_ = _rush_rows() + sendit_
             pool_t = _prime.trench_pool(sendit_, _trench_cache.get('rows'), _trench_cache.get('fallback'),
@@ -9324,7 +9342,7 @@ async def _prime_tick_inner(now):
                     pass
         # 🤖 AGENT SEATS: coins the agents put on the card hold until `agentTakePct` profit; in profit the desk reads them again and lets them
         # run, pulls them (profit to cash, seat left open) or swaps them for a fresh GO runner (agents.manage). Only while they are proven.
-        if real_t and cur and cfg_t.get('agentFeed') and (_agents.get('view') or {}).get('feed') and not cur.get('holdAll') and not cur.get('flooredAt'):
+        if real_t and cur and ((cfg_t.get('agentFeed') and (_agents.get('view') or {}).get('feed')) or cfg_t.get('agentLearn')) and not cur.get('holdAll') and not cur.get('flooredAt'):
             dec_ = _ag.manage(cur.get('legs'), _agents.get('table'), px, cfg_t)
             _agents['decisions'] = [{k: v for k, v in x.items() if k != 'to'} | ({'toSym': x['to']['symbol']} if x.get('to') else {}) for x in dec_]
             for x in dec_:
@@ -11842,6 +11860,8 @@ async def _agents_tick(now):
             st = _ag.settle(st, lambda m: (jp or {}).get(m), now)
             st['feed'] = (list(st.get('feed') or []) + _ag.results(before, st, now))[-_ag.FEED_KEEP:]
         st = _ag.burn(st, now)                 # 🔥 a GO that lost 20%+ burns its coin for 6h
+        st = _ag.autopsy(st, now)              # 🔬 every rug on the desk: what we saw, what we missed → Devil's rug signs
+        st = _ag.history(st, now)              # 📈 each agent's record over time (every 30 min)
         st, scrapped_ = _ag.evolve(st, now)   # ⚔ survive or be scrapped: a long-wrong agent is reborn as the next generation
         n_ideas = len(st.get('ideas') or {})
         st = _ag.ideas(st)   # 💡 tactics found in their own record go up to the creator
@@ -11864,14 +11884,24 @@ def _agents_real():
     return {'n': n, 'med': None if not n else round(ps[n // 2] if n % 2 else (ps[n // 2 - 1] + ps[n // 2]) / 2, 2), 'won': None if not n else round(sum(1 for x in ps if x > 0) / n * 100)}
 
 
-def _agents_go_rows(legs=(), seats=2):
-    """The team's GO coins for the real card's rush — ONLY while the 5-minute stage is conquered and the owner switched `agentFeed` on, and
-    never more agent coins on the card than `agentSeats`."""
+def _agents_go_rows(legs=(), seats=2, learn=False, learn_pct=10):
+    """The team's GO coins for the real card's rush. PROVEN (5-min stage conquered + `agentFeed`): up to `agentSeats` coins, normal tickets.
+    🎓 LEARNING (`agentLearn`, before they are proven): ONE coin at a time, a `learn_pct` % ticket — real fills to learn from, small money."""
     v = _agents.get('view') or {}
-    if not v.get('feed') or sum(1 for l in legs or [] if _prime.agent_leg(l)) >= int(seats or 2):
+    held = sum(1 for l in legs or [] if _prime.agent_leg(l))
+    if v.get('feed'):
+        if held >= int(seats or 2):
+            return []
+        learning = False
+    elif learn:
+        if held >= 1:
+            return []
+        learning = True
+    else:
         return []
     return [{'mint': x['mint'], 'symbol': x['symbol'], 'pairAddress': x['pair'], 'price': x['px'], 'liq': (x['nums'] or {}).get('liq'), 'safe': True,
-             'trenchOnly': True, 'trenchScore': 900 + x['why']['lean'], 'tag': '🤖 agents GO'} for x in _agents.get('table') or [] if x.get('go')][:4]
+             'trenchOnly': True, 'trenchScore': 900 + x['why']['lean'], 'tag': '🤖 agents GO' + (' · 🎓 learning seat' if learning else ''),
+             **({'stakePct': int(learn_pct or 10)} if learning else {})} for x in _agents.get('table') or [] if x.get('go')][:1 if learning else 4]
 
 
 @app.get('/api/reputation/admin/agents')
@@ -11903,7 +11933,7 @@ async def admin_agents_set(request: Request):
     ch = {}
     if 'feed' in body:
         ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentSeats'):
+    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct'):
         if k in (body.get('cfg') or {}):
             ch[k] = body['cfg'][k]
     if ch:

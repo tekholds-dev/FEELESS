@@ -206,3 +206,35 @@ def test_war_log_and_calibration():
     log, md = ag.war_log({'done': done}, 10_100, 24)
     assert log['go']['n'] == 8 and log['calibration']['2–3']['med'] == 5.0 and log['calibration']['0–1']['med'] == -2.0
     assert md.startswith('# 🤖 Agent desk — war log') and '✅ $C1 +5.0%' in md and 'A record, never a promise' in md
+
+
+def test_an_agent_coin_whose_pool_drains_is_pulled_at_once_even_at_a_loss():
+    legs = [{'mint': 'D', 'pairAddress': 'PD', 'symbol': 'D', 'units': 1.0, 'entry': 1.0, 'liq': 60_000, 'liqNow': 20_000, 'bought': {'tag': '🤖 agents GO'}}]
+    out = ag.manage(legs, [], {'PD': 0.7}, {'agentTakePct': 10})
+    assert out[0]['action'] == 'pull' and 'pool fell to 33%' in out[0]['why']
+
+
+def test_rug_autopsy_teaches_devil_its_rug_signs_and_history_snapshots():
+    rugs = [{'mint': f'r{i}', 'sym': f'R{i}', 'at': 100 + i, 'kind': 'enter', 'go': True, 'drivers': ['fresh', 'callers', 'src:open'], 'lean': 2, 'p5': -80.0} for i in range(3)]
+    st = ag.autopsy({'done': rugs}, 1000.0)
+    assert len(st['autopsies']) == 3 and st['rugSigns']['fresh'] == 3 and 'rugged (-80% in 5 min) after a GO' in st['autopsies'][0]['text']
+    assert ag.autopsy(st, 1100.0)['rugSigns']['fresh'] == 3                                   # each rug is counted once
+    v, why = ag.devil('enter', {'pts': 5, 'liq': 50000}, {'drivers': [('fresh', 1, 'x'), ('callers', 1, 'y')], 'lean': 3}, {'mint': 'Z', 'safe': True}, ag.learn(st, 5))
+    assert v == 'object' and 'rug signs from our autopsies' in why
+    h = ag.history({}, 5000.0)
+    assert len(h['hist']) == 1 and set(h['hist'][0]) >= {'at', 'tally', 'trigger'}
+    assert len(ag.history(h, 5100.0)['hist']) == 1 and len(ag.history(h, 5000.0 + ag.HIST_EVERY)['hist']) == 2
+    r = ag.rules(ag.learn({}, 5))
+    assert set(r) == {'tally', 'sherlock', 'trigger', 'devil'} and any('bar 1.5' in x for x in r['trigger'])
+
+
+def test_the_learning_seat_is_one_small_ticket_before_they_are_proven(monkeypatch):
+    import reputation_service as rs
+    table = [{'mint': m, 'symbol': m, 'pair': 'P' + m, 'px': 1.0, 'nums': {'liq': 50_000}, 'why': {'lean': 3}, 'go': True} for m in ('A', 'B')]
+    monkeypatch.setitem(rs._agents, 'table', table)
+    monkeypatch.setitem(rs._agents, 'view', {'feed': False})
+    assert rs._agents_go_rows([], 2, learn=False) == []                                         # not proven, not learning → nothing
+    r = rs._agents_go_rows([], 2, learn=True, learn_pct=10)
+    assert len(r) == 1 and r[0]['stakePct'] == 10 and '🎓 learning seat' in r[0]['tag']
+    assert rs._agents_go_rows([{'bought': {'tag': '🤖 agents GO · 🎓 learning seat'}}], 2, learn=True) == []   # one learning seat at a time
+    assert rs._agents_go_rows([], 2, learn=False) == []

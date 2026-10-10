@@ -2713,3 +2713,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   sells for < $0.05 or the route is ≥ 90% impact (ledger `writeoff` "drained pool"; coins stay in the wallet). The recovery panel values off-card
   coins with `leg_px` (it showed "$0.39 → $31.54 · 8042%") and neither the recovery list nor repair-sell-all re-books a written-off coin.
   "BUYS NEVER LAND" ⇒ read the ledger for a sell refused over and over first.
+- 🤖 Agent desk v6: 🎓 LEARNING SEAT (real cfg `agentLearn` + `agentLearnPct` 5/10/15, `_agent_learn_fix_1009` → ON at 10%; owner: "they do it on
+  the Fuse wallet's real card to learn before I fund them"): before the paper 10×, `_agents_go_rows(learn=True)` hands the rush ONE GO coin at a
+  time with `stakePct` (the trench drop uses it as the ticket); `agents.manage` runs for it too. 🩸 `manage` pulls an agent coin at ONCE (profit
+  or not) when its pool falls under half its entry depth (`DRAIN_PULL`). 🔬 `autopsy` (each judged call ≤ −50% at 5 min or vanished at 60):
+  what was read / missed → `rugSigns` counts; Devil objects to 2+ reasons each seen in ≥ 3 rugs. 📈 `history` (every 30 min, a week) → each
+  agent's line per life. 📏 `rules(learned)` = each agent's ACTUAL rules from the constants + the live record (never hand-copied text).
+  🛰 `command/AgentRoom.jsx` + `styles/agentRoom.css` `agr-*` (top of HQ › Agents): four stations (live task, gen, life; the ring turns at the
+  agent's real ms — `spinSec`), the pass's real coins travel the chain as packets coloured by how they ended (`packetsOf`), click a station →
+  `AgentDetail` (task · rules · last rulings · record · history spark · inherited lesson), ⤢ Pop out = full-screen portal (Esc / ✕).
+  `.agr` is an fxPause surface; fx-lite / reduced motion lay the packets out still.

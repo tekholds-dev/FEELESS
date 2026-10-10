@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { openCoin } from '../CoinDrawer';
 import '../../styles/agentDesk.css';
+import { AgentRoom } from './AgentRoom';
 
 // 🤖 HQ › AGENTS (owner, 2026-10-09: "code your own agents to learn trading and trenching — one tracks the numbers, one knows why they
 // moved, one knows exactly when to enter, one argues it's right or not; none can work without the others; start by conquering the 5 min").
@@ -58,6 +59,8 @@ export function AgentControls({ cfg, decisions, proven, isOwner, busy, save }) {
   const seg = (k, vals, lab) => <div className="m-seg" role="group">{vals.map(v => <button key={String(v)} type="button" disabled={busy || !isOwner} className={String(c[k]) === String(v) ? 'active' : ''} onClick={() => save({ cfg: { [k]: v } })} data-testid={`agc-${k}-${v}`}>{lab(v)}</button>)}</div>;
   return <div className="agd-box agd-ctl" data-testid="agd-controls"><b>⚙ AGENT CONTROL · YOUR FUSE CARD</b>
     <div className="agd-ctl-row"><span>Their GO coins on my card</span><div className="m-seg"><button type="button" disabled={busy || !isOwner} className={c.agentFeed ? 'active' : ''} onClick={() => save({ feed: true })} data-testid="agd-feed-on">ON</button><button type="button" disabled={busy || !isOwner} className={!c.agentFeed ? 'active' : ''} onClick={() => save({ feed: false })} data-testid="agd-feed-off">Paper only</button></div></div>
+    <div className="agd-ctl-row"><span>🎓 Learning seat (1 coin, real money, before they're proven)</span><div className="m-seg"><button type="button" disabled={busy || !isOwner} className={c.agentLearn ? 'active' : ''} onClick={() => save({ cfg: { agentLearn: true } })} data-testid="agc-learn-on">ON</button><button type="button" disabled={busy || !isOwner} className={!c.agentLearn ? 'active' : ''} onClick={() => save({ cfg: { agentLearn: false } })} data-testid="agc-learn-off">off</button></div></div>
+    {c.agentLearn && <div className="agd-ctl-row"><span>Learning ticket</span>{seg('agentLearnPct', [5, 10, 15], v => `${v}% of the card`)}</div>}
     <div className="agd-ctl-row"><span>Hold until profit</span>{seg('agentTakePct', o.take, v => `+${v}%`)}</div>
     <div className="agd-ctl-row"><span>Then</span>{seg('agentMode', o.mode, v => MODE[v] || v)}</div>
     <div className="agd-ctl-row"><span>Seats they may hold</span>{seg('agentSeats', o.seats, v => `${v}`)}</div>
@@ -117,6 +120,12 @@ export function Edge({ d }) {
     {Object.keys(cal).length ? <ul>{Object.entries(cal).map(([b, v]) => <li key={b}><span>lean {b}</span><em className={tone(v.med)}>{pct(v.med)}</em><small>{v.won}% up · n {v.n}</small></li>)}</ul> : <small className="m-dim">no ENTER judged yet</small>}
     <small className="m-dim">🌡 trench {rg ? `${rg.word}${rg.green != null ? ` (${rg.green}% green over 5 min)` : ''} → Trigger's bar ${rg.adj > 0 ? '+' : ''}${rg.adj}` : '—'} · 🔥 {d?.burned || 0} coin{d?.burned === 1 ? '' : 's'} burned (6h) · 🕸 {Object.keys(d?.cut || {}).length ? `budget cut: ${Object.keys(d.cut).join(', ')}` : 'no source cut yet'}</small></div>;
 }
+// 🔬 every rug the desk was on: what it read, what it missed — and the reasons that keep showing up in rugs (Devil objects to 2+ of them)
+export function AutopsyBox({ list, signs }) {
+  return <div className="agd-box agd-autopsy" data-testid="agd-autopsy"><b>🔬 RUG AUTOPSY · what we missed</b>
+    {(list || []).length ? <ul>{list.map(a => <li key={a.id}>{a.text}{(a.missed || []).length ? <small> · missed: {a.missed.join(', ')}</small> : null}</li>)}</ul> : <small className="m-dim">no rug on the desk yet</small>}
+    {(signs || []).length > 0 && <span className="agd-tags">{signs.map(x => <i key={x.key} className={x.n >= 3 ? 'is-bad' : ''}>☠ {x.words} ×{x.n}</i>)}</span>}</div>;
+}
 export const agentLine = a => (a.n ? `${a.n} judged · ${pct(a.med)} typical at 5 min${a.right != null ? ` · ${a.right}% right` : ''}` : 'no judged calls yet — every call is checked 5 minutes later');
 
 export function AgentDesk({ call, isOwner = true }) {
@@ -132,6 +141,7 @@ export function AgentDesk({ call, isOwner = true }) {
     <header className="agd-head"><div><b>🤖 THE AGENT DESK</b><button type="button" className="m-btn agd-log" onClick={warLog} data-testid="agd-log">⬇ War log</button><small>Four agents, one chain — none of them can call a trade without the other three. Every call is checked 5 minutes later; they move to 15 min only after they conquer 5.</small></div>
       <div className="agd-stage" data-testid="agd-stage">{[5, 15, 60].map(h => <span key={h} className={(st.conquered || []).includes(h) ? 'is-done' : st.h === h ? 'is-now' : ''}>{(st.conquered || []).includes(h) ? '✓' : st.h === h ? '⚔' : '🔒'} {h}m</span>)}
         <small>{st.team?.n ? `team ${st.team.n}/${st.needN} judged · ${pct(st.team.med)} · ${st.team.won}% won (needs ${st.needWin}%)` : `needs ${st.needN} judged GO calls, a positive median and ${st.needWin}% won`}</small></div></header>
+    <AgentRoom d={d} />
     <RoadMeter road={d.road} />
     <WorkFloor d={d} />
     <div className="agd-chain">{(d.agents || []).map((a, i) => <React.Fragment key={a.key}><div className={`agd-agent is-${a.key}`} style={{ '--i': i }} data-testid={`agent-${a.key}`}>
@@ -147,7 +157,7 @@ export function AgentDesk({ call, isOwner = true }) {
       <AgentControls cfg={d.cfg} decisions={d.decisions} proven={d.proven5} isOwner={isOwner} busy={busy} save={save} />
     </div>
     <Tanks life={d.life} lessons={d.lessons} surviveN={d.surviveN || 30} scrapN={d.scrapN || 60} />
-    <div className="agd-row2"><Edge d={d} /></div>
+    <div className="agd-row2"><Edge d={d} /><AutopsyBox list={d.autopsies} signs={d.rugSigns} /></div>
     <CreedBox creed={d.creed} lineage={d.lineage} />
     <IdeaBox ideas={d.ideas} isOwner={isOwner} busy={busy} save={save} need={d.approveN || 15} />
     <MindBox m={d.mind} />
