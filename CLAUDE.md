@@ -2800,4 +2800,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`_skim`, stake rides, money follows `skimTo`, leg `halfAt`). The gap under the lock line: $Samur•ai ran +99% → 0% with nothing banked, and a
   ride-or-rug ticket (stop off) skipped even the old "ran +50%, back to +5%" trail. Sells only. On a ~$2 card most such takes are under
   `SKIM_MIN_USD` 5c and simply don't fire — it matters as the card grows.
+- 🚨 TRENCH MIN AGE (`arena_prime.trench_age_ok`, cfg `trenchMinAgeH` 0 / 0.5 / 1 / 3, default 1; Edit Fuse › Coins + main pane): on a REAL card the
+  engine's trench drop — every door (⚡ rush, 🤖 agents' GO rows (now carry `ageH`), 🎯 pro callers, 🔥 SEND IT, 🧠 brain, the list) — never buys a
+  coin younger than that; unknown age = out; owner picks never limited. 2026-10-10 overnight: card $1.77 → $0.40; the ⚡ rush (25% tickets, no
+  stop) bought $GTA6 Coin, $Haaland, $Jef minutes old, each pulled ~4 min later ($0.91). The card's own record (`real_learn`): age < 1h = 35
+  pieces, median −28%, ALL 7 rugs; 1–6h = 35 pieces, 0 rugs. The owner said "they got me rugged" — the ledger said `by:engine`, tag ⚡, not the
+  agents: READ `real_learn` pieces' `k` tags (`tag:` + `by:` + `age:`) before naming who bought a rug.
 

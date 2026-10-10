@@ -2831,3 +2831,12 @@ def test_keep_half_banks_a_fading_winners_profit_once_under_the_lock_line_and_ne
     assert [l['units'] for l in c['legs'][1:]] == [100.0] * 5                                      # riding / house / never ran / above half its peak / under +10%: untouched
     assert ap.half_back(c, px, {}, 1060, {'keepHalf': True}) == 0                                  # once per coin
     assert ap.clean_cfg({})['keepHalf'] is False and ap.clean_cfg({'keepHalf': 1})['keepHalf'] is True
+
+
+def test_the_trench_drop_never_buys_a_coin_under_an_hour_old_with_real_money_and_an_unknown_age_is_out():
+    import arena_prime as ap
+    assert not ap.trench_age_ok({'ageH': 0.1}) and not ap.trench_age_ok({}) and not ap.trench_age_ok({'ageH': None})      # minutes old / unknown = out
+    assert ap.trench_age_ok({'ageH': 1.0}) and ap.trench_age_ok({'ageH': 2.5})
+    assert ap.trench_age_ok({'ageH': 0.1}, {'trenchMinAgeH': 0}) and ap.trench_age_ok({}, {'trenchMinAgeH': 0})          # the owner's own switch: any age
+    assert not ap.trench_age_ok({'ageH': 2.0}, {'trenchMinAgeH': 3}) and ap.trench_age_ok({'ageH': 0.6}, {'trenchMinAgeH': 0.5})
+    assert ap.clean_cfg({})['trenchMinAgeH'] == 1.0 and ap.clean_cfg({'trenchMinAgeH': 0})['trenchMinAgeH'] == 0 and ap.clean_cfg({'trenchMinAgeH': 7})['trenchMinAgeH'] == 1.0

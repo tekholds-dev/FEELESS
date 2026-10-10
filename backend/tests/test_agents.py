@@ -263,6 +263,8 @@ def test_trust_gives_a_second_seat_only_once_taken_suggestions_prove_out(monkeyp
     monkeypatch.setattr(rs, '_agents_real', lambda: {'suggested': {'n': 12, 'med': 3.0}})
     assert len(rs._agents_go_rows(one, 2, learn=True, trust=True)) == 1                   # proven → a 2nd seat
     assert rs._agents_go_rows(one, 2, learn=True, trust=False) == []                      # owner switch off → one seat
+    monkeypatch.setitem(rs._agents, 'table', [{**table[0], 'vitals': {'ageH': 0.2}}])
+    assert rs._agents_go_rows([], 2, learn=True)[0]['ageH'] == 0.2                        # a GO row carries its age → the real card's trench min age applies to the agents too
     assert rs._prime.clean_cfg({})['agentTrust'] is False
 
 

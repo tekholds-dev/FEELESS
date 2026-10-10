@@ -551,6 +551,7 @@ def clean_cfg(p):
     out['roundsPerRun'] = int(_f((p or {}).get('roundsPerRun'))) if int(_f((p or {}).get('roundsPerRun'))) in RUN_ROUNDS else 0
     out['trenchCoins'] = trench_n(p)
     ts_ = (p or {}).get('trenchStakePct')
+    out['trenchMinAgeH'] = _f((p or {}).get('trenchMinAgeH')) if (p or {}).get('trenchMinAgeH') is not None and _f((p or {}).get('trenchMinAgeH')) in TRENCH_MIN_AGES else 1.0   # 🚨 the engine's trench drop: youngest coin real money may buy
     out['trenchStakePct'] = int(_f(ts_)) if ts_ is not None and int(_f(ts_)) in TRENCH_STAKES else 15   # 🎟 a trench coin's ticket, % of the card (0 = a full equal seat)
     tl_ = (p or {}).get('trenchSlPct')
     out['trenchHouseAt'] = int(_f((p or {}).get('trenchHouseAt'))) if int(_f((p or {}).get('trenchHouseAt'))) in HOUSE_ATS else 0   # 🏠 a trench / ticket coin's initial comes out at this gain (0 = off)
@@ -1646,6 +1647,19 @@ def rush_score(r):
     return round(20 + _f((r.get('brain') or {}).get('est')) + _f(tv.get('heat')) * 0.3 - rug * 0.4
                  + (c5 if c5 > 0 and _f(r.get('buyShare')) >= 55 else 0) + (5 if r.get('site') and r.get('x') else 0), 1)
 TRENCH_RUG_MAX = 50   # ☠ rug meter at or above this = never a trench buy
+TRENCH_MIN_AGES = (0, 0.5, 1, 3)   # 🚨 cfg `trenchMinAgeH` (hours), default 1
+
+
+def trench_age_ok(row, cfg=None):
+    """🚨 The engine's trench drop — EVERY door: ⚡ rush, 🤖 agents, 🎯 proven callers, 🔥 SEND IT, 🧠 brain, the list — never buys a coin
+    younger than cfg `trenchMinAgeH` (default 1h) with REAL money; an unknown age = out. The card's own record on 2026-10-10: coins under 1h
+    old = 35 pieces, median −28%, ALL 7 of its rugs; 1–6h = 35 pieces, 0 rugs. That night the rush bought three coins minutes old — each
+    pulled ~4 min later ($GTA6 Coin, $Haaland, $Jef: $0.91 of a $1.77 card). The owner's own picks are never limited (they warn)."""
+    need = _f((cfg or {}).get('trenchMinAgeH', 1))
+    if need <= 0:
+        return True
+    a = (row or {}).get('ageH')
+    return a is not None and _f(a) >= need
 
 
 def trench_read_ok(row):

@@ -9035,7 +9035,7 @@ async def _prime_tick_inner(now):
             pool_t = _prime.trench_pool(sendit_, _trench_cache.get('rows'), _trench_cache.get('fallback'),
                                         [y for y in _trench_cache.get('checked') or [] if not y.get('ok') and _trench.soft_only(y.get('fails'))], cfg_t, pro=pro_)
             for x in pool_t:
-                if x.get('mint') not in tr_seen and _lq(x) >= tr_floor * mg and _prime.trench_entry(x, mom) and _prime.trench_read_ok(_with_tv(x)):
+                if x.get('mint') not in tr_seen and _lq(x) >= tr_floor * mg and _prime.trench_entry(x, mom) and _prime.trench_read_ok(_with_tv(x)) and (not real_t or _prime.trench_age_ok(x, cfg_t)):   # 🚨 real money: never a coin under the card's trench min age
                     tr_seen.add(x.get('mint')); tr_all.append({**x, 'trenchOnly': True})
             r_t = r_t + sorted(tr_all, key=lambda x: -_fuse._f(x.get('trenchScore') or x.get('score')))
         # 🪑 coins real money couldn't buy safely (2× in 10 min) are benched 1h for EVERY tier — paper never trades what real can't
@@ -11954,7 +11954,7 @@ def _agents_go_rows(legs=(), seats=2, learn=False, learn_pct=100, trust=False):
         learning = True
     else:
         return []
-    return [{'mint': x['mint'], 'symbol': x['symbol'], 'pairAddress': x['pair'], 'price': x['px'], 'liq': (x['nums'] or {}).get('liq'), 'safe': True,
+    return [{'mint': x['mint'], 'symbol': x['symbol'], 'pairAddress': x['pair'], 'price': x['px'], 'liq': (x['nums'] or {}).get('liq'), 'safe': True, 'ageH': (x.get('vitals') or {}).get('ageH'),
              'trenchOnly': True, 'trenchScore': 900 + x['why']['lean'], 'tag': '🤖 agents GO' + (' · 🎓 learning seat' if learning else ''),
              **({'stakePct': int(learn_pct or 100)} if learning else {})} for x in _agents.get('table') or [] if x.get('go')][:1 if learning else 4]
 
