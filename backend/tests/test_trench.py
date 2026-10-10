@@ -461,3 +461,22 @@ def test_the_30s_seat_fill_never_puts_a_full_seat_into_a_launch_under_6h():
     ok = {'pairAddress': 'P', 'chg5m': 0.5, 'chg1h': 10.0, 'buyShare': 60, 'vol1h': 80_000, 'ageH': 30}
     assert ap.seat_fallback_ok(ok) and not ap.seat_fallback_ok({**ok, 'ageH': 0.5})
     assert ap.seat_fallback_ok({**ok, 'ageH': 0.5, 'trenchOnly': True})        # a trench ticket keeps its own (small-size) rules
+
+
+def test_a_coin_in_profit_keeps_its_seat_from_the_trench_drop_and_the_volume_cycle():
+    now = 10_000.0
+    leg = lambda m, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'units': 0.3, 'entry': 1.0, 'at': now - 3600, **k}
+    card = {'legs': [leg('WIN'), leg('FLAT')]}
+    assert ap.flat_leg(card, {'PWIN': 1.08, 'PFLAT': 1.01}, now, picks=True)['mint'] == 'FLAT'
+    assert ap.flat_leg({'legs': [leg('WIN')]}, {'PWIN': 1.08}, now, picks=True) is None    # +8% is winning, not flat
+    anchors, pools, runners = _cands()
+    cfg = ap.clean_cfg({'trenchCoins': 1, 'rotateHours': 0.25, 'minHoldMins': 10, 'cycles': {**{t: 'off' for t in ap.DEFAULT_CYCLES}, 'degen': 'trench'}, 'rescuePct': 0, 'cycleEvery': 0,
+                        'rideAt': 0, 'tp': 0, 'lockBankPct': 0, 'tpStakeUsd': 0, 'skimAt': 0, 'trenchRush': True, 'trenchEvery': 5, 'houseAt': 0})
+    c = ap.deal('degen', pools, [x for x in runners if not x.get('trenchOnly')], cfg, 0.0, anchors, shape='degen')
+    for l in c['legs']:
+        l['units'] = 0.3 / l['entry']                                            # a tiny card: +17% = ~5c
+    px = {l['pairAddress']: l['entry'] * 1.17 for l in c['legs']}
+    for x in runners:
+        px.setdefault(x['pairAddress'], x['price'])
+    out = ap.tick({**c, 'trenchFillAt': -1e6}, px, pools, runners, cfg, 10_000.0, anchors, {}, {})
+    assert not any('trench drop' in (e.get('why') or '') for e in out['events'])  # $OMNI (+16.9%) is never sold for a trench coin again

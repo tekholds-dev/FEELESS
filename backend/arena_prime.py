@@ -639,6 +639,7 @@ RUNNER_AGES = (0, 1, 6, 12)         # youngest launch coin real money may buy, h
 MOVER_VOL1H = 50_000.0             # a "mover" when the card has no hunt selection of its own: ≥ $50K traded in the hour …
 MOVER_CHG1H = 20.0                 # … and up ≥ 20% on it
 FLAT_BAND = 10.0                   # a coin within ±10% of its entry …
+FLAT_UP_MAX = 3.0                  # … but a coin up more than +3% is winning: it keeps its seat (`flat_leg`)
 VOL_CYCLE_MIN_VOL = 50_000.0       # 🌊 volume cycle: a coin trading at least this an hour …
 VOL_CYCLE_MIN_BUY = 52.0           # … with buyers ahead …
 VOL_EVERY = (5, 10, 15, 30)        # … swapped in for a flat coin at most every N minutes (cfg `volEvery`)
@@ -712,7 +713,7 @@ def flat_leg(card, prices, now, hold_sec=FLAT_HOLD_SEC, band=FLAT_BAND, picks=Fa
                 or l.get('swapTo') or px <= 0 or _f(l.get('entry')) <= 0 or now - _f(l.get('at')) < hold_sec):
             continue
         g = (px / _f(l['entry']) - 1) * 100
-        if abs(g) <= band:
+        if -band <= g <= min(band, FLAT_UP_MAX):
             out.append((abs(g), l))
     return min(out, key=lambda t: t[0])[1] if out else None
 
@@ -1473,7 +1474,8 @@ SKIM_TOS = ('card', 'cash', 'round')   # 'round' = parked in card cash for `skim
 SKIM_HOLDS = (1, 2, 3, 6)
 RECYCLE_PCTS = (0, 50, 70, 100)        # ♻ every `recycleEvery` rounds this % of each coin's PROFIT goes back over the card's coins (0 = off)
 RECYCLE_EVERY = (1, 2, 3, 4, 6, 12)
-TRENCH_VICTIM_USD = 0.10              # … in place of the weakest coin, which must be making no more than 10c
+TRENCH_VICTIM_USD = 0.10              # … in place of the weakest coin, which must be making no more than 10c …
+TRENCH_VICTIM_PCT = 3.0               # … AND be up no more than +3% (a winner keeps its seat whatever the card's size)
 TRENCH_DROP_SEC = 1800                # 🗑 a card on the trench cycle takes the best trench coin on the list every 30 minutes (cfg `trenchEvery`)
 TRENCH_EVERY = (5, 10, 15, 30)        # minutes between trench drops (owner's choice; rush mode uses 10)
 SEAT_MIN_USD = 0.25                   # an empty seat is refilled once the card has at least this much free cash
@@ -2253,7 +2255,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 px = _f(prices.get(l['pairAddress'])); return _f(l.get('units')) * (px - _f(l.get('entry'))) if px > 0 else 0.0
             rush = bool(cfg.get('trenchRush'))   # ⚡ rush: the owner gave the engine the keys — a losing pick of theirs that is NOT frozen may give its seat
             victims = [l for l in c['legs'] if (l.get('role') == 'runner' or rush) and not l.get('frozen') and not l.get('ride') and not l.get('house')
-                       and (rush or not l.get('picked')) and not l.get('placeholder') and l.get('mint') != SOL_MINT and (_f(l.get('units')) > 0 or l.get('buying')) and profit(l) <= TRENCH_VICTIM_USD
+                       and (rush or not l.get('picked')) and not l.get('placeholder') and l.get('mint') != SOL_MINT
+                       and gain(l) <= TRENCH_VICTIM_PCT   # a coin in profit keeps its seat — on a $1.50 card a +17% coin makes only 6c ($OMNI was sold for a trench coin) and (_f(l.get('units')) > 0 or l.get('buying')) and profit(l) <= TRENCH_VICTIM_USD
                        and (first_fill or l.get('buying') or now - _f(l.get('at')) >= hold_s)]
             if not nxt or not victims:
                 break

@@ -2623,3 +2623,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   off, so flat coins held their seats for good.
 - 🧨 `_degen_crazy_fix_1009` (owner: "go degen crazy, get us back to $4"): rush + volume cycle every 5 min, trench tickets 25%, 2 trench coins
   (backup data/realcfg_before_crazy1009.json). ⚡ Rush also skips coins up > `RUSH_MAX_1H` 150% on the hour (mirror in lib/lean.js).
+- 🏆 A COIN IN PROFIT KEEPS ITS SEAT (2026-10-09, "still not pushing"): the trench drop's victim rule was "making ≤ 10c" — on a $1.50 card a
+  +17% coin makes 6c, so $OMNI (+16.9%) and $swordcat (+2.5%) were sold for trench tickets. Victims now also need gain ≤ `TRENCH_VICTIM_PCT`
+  +3%; the volume cycle's "flat" is −10 … +3% (`FLAT_UP_MAX`). On a small card, judge a coin by %, never by cents.
