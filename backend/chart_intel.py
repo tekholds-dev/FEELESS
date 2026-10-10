@@ -374,8 +374,10 @@ def review(th, chart, pct, held_min, granted=None):
         return {**out, 'verdict': 'unknown', 'why': ['no chart this pass — the thesis cannot be checked']}
     inv, px = _f((th or {}).get('invalidation')), _f(f.get('px'))
     why = []
-    if state in ('LIQUIDITY FAILURE', 'FAILED BREAKOUT'):
+    if state == 'LIQUIDITY FAILURE':
         return {**out, 'verdict': 'invalid', 'why': [f'{state} — the thesis ({(th or {}).get("structure")}) is gone']}
+    # a FAILED BREAKOUT label alone is one candle back under the old high — it invalidates only once price is under the thesis's own
+    # invalidation level (2026-10-10, first hour live: $FPES and $USWR were bought and sold flat inside 4 minutes on the label alone)
     if inv and px and px < inv and state in BAD:
         return {**out, 'verdict': 'invalid', 'why': [f'price under the invalidation level ({px:.6g} < {inv:.6g}) in a {state}']}
     if state == 'DOWNTREND' and _f(f.get('ll')) >= 1 and f.get('lastHigh') == 'lower':

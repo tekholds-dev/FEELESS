@@ -201,6 +201,11 @@ def test_reaper_holds_past_one_window_while_the_saved_thesis_stands_and_leaves_w
     # … and a GREEN position with a broken thesis is banked BEFORE the take line (profit is not a reason to hold)
     g = of.reap([LEG], [ROW], {'PA': 1.06}, {'agentTakePct': 10, 'agentScalp': False}, None, 180, charts={'A': dn}, theses={'A': low_th})[1][0]
     assert (g['rule'], g['state'], g['action'], g['decision']) == ('R5t thesis invalidated', 'TAKE', 'pull', 'TAKE PROFIT') and g['pct'] < g['take']
+    fb = ci.read(bars([1.0 + 0.004 * (i % 2) for i in range(18)] + [1.004, 1.02, 0.992]))
+    assert fb['state'] == 'FAILED BREAKOUT'
+    assert ci.review({**th, 'invalidation': 0.9}, fb, -0.2, 3)['verdict'] == 'weak'                               # one candle back under the old high is NOT an exit …
+    assert ci.review({**th, 'invalidation': 0.999}, fb, -0.8, 3)['verdict'] == 'invalid'                          # … price under the thesis's own invalidation level is
+    assert of.reap([LEG], [ROW], {'PA': 0.998}, {}, None, 180, charts={'A': fb}, theses={'A': {**th, 'invalidation': 0.9}})[1][0]['action'] is None
     lf = of.reap([LEG], [ROW], {'PA': 1.06}, {}, None, 180, charts={'A': ci.read(UP, liq=40_000, liq_d=-30)}, theses={'A': th})[1][0]
     assert lf['rule'] == 'R5t thesis invalidated' and 'LIQUIDITY FAILURE' in lf['evidence']
     # a small loss with the structure intact is NOT sold; no chart this pass is never treated as a broken chart
