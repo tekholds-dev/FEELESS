@@ -7,6 +7,8 @@ def test_slang_words_and_narratives():
     assert 'paperhands' in tm.words('paper hands everywhere')                                         # "paper hands" → the slang key
     assert tm.narrative({'name': 'Grok Agent', 'symbol': 'GAGENT'})[0] == 'ai'
     assert tm.narrative({'symbol': 'Pumpoween'})[0] == 'holiday' and tm.narrative({'symbol': 'XYZQ'}) == (None, None)
+    assert tm.narrative({'symbol': 'GTA6', 'name': 'GTA 6'})[0] == 'game'
+    assert not {'good', 'like', 'because', 'coins'} & set(tm.words('good coins because like'))   # plain English is never "slang"
     hot = tm.hot_narratives([{'symbol': 'DOGX', 'name': 'doge two', 'vol1h': 5e4}, {'symbol': 'AIX', 'name': 'ai agent', 'vol1h': 2e5}])
     assert list(hot)[0] == 'ai'
 

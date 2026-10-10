@@ -41,9 +41,15 @@ NARRATIVES = {
     'frog': ('🐸 frog', r'\b(pepe|frog|frogodile|kek|toad)\b'), 'politics': ('🏛 politics', r'\b(trump|maga|biden|elon|musk|president|vote|usa)\b'),
     'celeb': ('⭐ celeb', r'\b(snoop|drake|kanye|ye|taylor|mrbeast|tate|ishowspeed|speed)\b'), 'stock': ('📈 stock / tech', r'\b(qbit|qubit|quantum|nvda|tesla|spacex|stonk|apple|ibm|tech)\b'),
     'holiday': ('🎃 season', r'\b(halloween|pumpoween|xmas|christmas|santa|spooky|ghost)\b'), 'food': ('🍔 food', r'\b(burger|pizza|taco|sushi|cheese|bread|rice)\b'),
-    'game': ('🎮 game', r'\b(game|gamer|pixel|arcade|pokemon|mario|minecraft|roblox)\b'), 'money': ('💸 money / casino', r'\b(jackpot|casino|lotto|cash|money|bank|rich|bet)\b'),
+    'game': ('🎮 game', r'\b(game|gamer|gaming|gta|gta6|pixel|arcade|pokemon|mario|minecraft|roblox|fortnite|nintendo|xbox|playstation)\b'), 'money': ('💸 money / casino', r'\b(jackpot|casino|lotto|cash|money|bank|rich|bet)\b'),
 }
-STOP = set('the a an and or of to in on for is are be it its this that with at by from as was were will just you your we our us i me my they them he she his her not no yes so if but now all any one more most very too can get got go'.split())
+STOP = set(('the a an and or of to in on for is are be it its this that with at by from as was were will just you your we our us i me my they them he she his her '
+             'not no yes so if but now all any one more most very too can get got go good like let other because about after again also back been before being '
+             'both did does doing down each even every few first from had has have here how into its just know last least less made make many may might much '
+             'must never new next off old only out over own same see should since some still such than then there these thing things think those though through '
+             'today under until up use want way well what when where which while who why would yeah yet lol lmao gonna wanna just really people time day coins coin '
+             'token tokens buy sell price chart guys bro fam im dont cant wont thats its ive youre theyre gm gn going come look need take give right big').split())
+FILLER = {'narrative', 'meta', 'dev', 'mc', 'dip', 'bags', 'top', 'early'}   # dictionary words too generic to quote as "what they're saying"
 
 
 def _f(v):
@@ -92,7 +98,7 @@ def crowd(calls):
     ws = [w for t in theses for w in words(t)]
     from collections import Counter
     cnt = Counter(ws)
-    slang = [w for w, _ in cnt.most_common(30) if w in SLANG][:4]
+    slang = [w for w, _ in cnt.most_common(30) if w in SLANG and w not in FILLER][:4]
     hype = sum(cnt[w] for w in ('send', 'sendit', 'moon', 'gem', 'early', 'lfg', 'cooking', 'printing', 'runner', 'giga', 'tek'))
     fear = sum(cnt[w] for w in ('rug', 'rugged', 'jeet', 'jeets', 'devsold', 'cooked', 'dump', 'exitliq', 'honeypot', 'bundle', 'bundled'))
     users = {c.get('user') for c in calls if c.get('user')}
@@ -153,7 +159,7 @@ def learn_lingo(state, theses, now, min_days=2, min_count=6):
         for w, n in dd.items():
             tot[w] = tot.get(w, 0) + n; days_[w] = days_.get(w, 0) + 1
     for w, n in tot.items():
-        if n >= min_count and days_[w] >= min_days and w not in st['learned']:
+        if n >= min_count and days_[w] >= min_days and w not in st['learned'] and w not in STOP and w not in SLANG:   # old counts may hold stop words
             st['learned'][w] = {'first': now, 'n': n}
     for w in st['learned']:
         st['learned'][w]['n'] = tot.get(w, st['learned'][w].get('n', 0))
