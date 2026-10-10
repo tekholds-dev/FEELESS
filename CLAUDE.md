@@ -2806,4 +2806,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   stop) bought $GTA6 Coin, $Haaland, $Jef minutes old, each pulled ~4 min later ($0.91). The card's own record (`real_learn`): age < 1h = 35
   pieces, median −28%, ALL 7 rugs; 1–6h = 35 pieces, 0 rugs. The owner said "they got me rugged" — the ledger said `by:engine`, tag ⚡, not the
   agents: READ `real_learn` pieces' `k` tags (`tag:` + `by:` + `age:`) before naming who bought a rug.
+- 🧪 EDGE AUDIT — THE BIG PICTURE (`scripts/edge-audit.py [cost%]`, read-only; owner, 2026-10-10 after the card went $28.50 → $0.47: "you just do
+  small tasks and don't think of the bigger picture"): on 3,098 launch coins watched for an hour and 1,419 agent calls, after a 3% round trip
+  (measured: ~1.5% a swap), walk-forward (learn oldest 60%, test newest 40%, vanished = −100%, capped means): hold 1h = −63% typical, 15% up;
+  +50 / −30 exits = −28%; coins 12h+ old or $1M+ cap = about −3% (= just the cost); a random coin over 5 min with NO cost = +0.1%, 53% up.
+  433 feature / pair rules tested → 0 positive even where they were learned → 0 on unseen coins. The agents' ENTER calls (−4%) did worse than
+  their WAITs (−3%). THERE IS NO EDGE IN THE DATA YET: the losses are the cost × the number of swaps + rugs on young coins — no screen, gate
+  or agent fixes that. RUN THIS BEFORE building or recommending anything that buys launch coins with real money, and say its result first.
+  Real money should follow only a rule that prints ✅ here (positive on coins it was not picked from). ✋ Hold all on My cards = the engine
+  stops swapping the real card.
 
