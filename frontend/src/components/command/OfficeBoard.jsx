@@ -73,6 +73,33 @@ export function OfficePipeline({ pipe, cur, agents, onPick, sel }) {
         <span className="ofb-sname">{icon[s.agent]?.[0]} {icon[s.agent]?.[1] || s.agent}</span>
         <strong>{s.state}</strong><small className="ofb-sms">{ms(s.ms)}</small><span className="ofb-sword">{s.word}</span></button></li>)}</ol>
     {cur ? <div className="ofb-checks" data-testid="ofb-checks">{(cur.checks || []).map(c => <Tag key={c[0]} cls={c[1] ? 'is-pass' : 'is-veto'} tip={c[2]}>{c[1] ? '✓' : '✕'} {c[0]} · {c[2]}</Tag>)}</div> : null}
+    {cur ? <ChartBox c={cur.chart} cur={cur} /> : null}
+  </div>;
+}
+
+// 📈 the chart-intelligence box: the structure state + its measured evidence, four scores, what Trigger / Devil / Warden made of it.
+// Every word is a field of the shared snapshot (`backend/chart_intel.py`); nothing is derived here.
+export const STRUCT_CLS = { 'STRONG UPTREND': 'is-pass', UPTREND: 'is-pass', 'PULLBACK IN UPTREND': 'is-pass', 'CONFIRMED BREAKOUT': 'is-pass', 'BREAKOUT ATTEMPT': 'is-work', ACCUMULATION: 'is-work', COMPRESSION: 'is-wait', RANGE: 'is-wait',
+  UNKNOWN: 'is-wait', CHOP: 'is-veto', DISTRIBUTION: 'is-veto', DOWNTREND: 'is-veto', 'LIQUIDITY FAILURE': 'is-veto', 'FAILED BREAKOUT': 'is-veto', PARABOLIC: 'is-obj' };
+export const entryCls = call => (call === 'ENTER NOW' ? 'is-pass' : call === 'SKIP' ? 'is-veto' : 'is-obj');
+const Meter = ({ label, v, bad }) => <span className={`ofb-meter ${bad ? 'is-bad' : ''}`} data-testid={`meter-${label}`}><small>{label}</small><em>{v == null ? '—' : `${Math.round(v)}`}<u>/100</u></em><b aria-hidden><i style={{ transform: `scaleX(${v == null ? 0 : Math.max(0.02, Math.min(1, v / 100))})` }} /></b></span>;
+const money = v => (v == null ? '—' : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Number(v).toFixed(0)}`);
+
+export function ChartBox({ c, cur }) {
+  if (!c) return <div className="ofb-chart is-none" data-testid="ofb-chart"><b>📈 CHART</b><span className="ofb-nil">no chart snapshot for this coin this pass — nothing is claimed about its structure</span></div>;
+  const f = c.f || {}; const wd = cur?.warden; const dv = cur?.devil;
+  return <div className="ofb-chart" data-testid="ofb-chart">
+    <div className="ofb-chead"><b>📈 CHART · what the agents read</b><Tag cls={STRUCT_CLS[c.state] || 'is-wait'} tip={`${c.n} one-minute candles · ${c.src === 'candles' ? 'real OHLC candles' : "Tally's own tape (closes only — wicks not measured)"}`}>{c.state}</Tag>
+      <small>{c.src === 'candles' ? `${c.n} candles` : `${c.n} tape readings`} · confidence {c.conf == null ? '—' : `${Math.round(c.conf * 100)}%`}</small></div>
+    <div className="ofb-meters"><Meter label="TREND" v={c.trend} /><Meter label="CHOP" v={c.chop} bad /><Meter label="MOMENTUM" v={c.mom} /><Meter label="EXTENSION" v={c.ext} bad />
+      <span className="ofb-meter"><small>FLOW</small><em>{f.buy == null ? '—' : `${Math.round(f.buy)}%`}<u> buy</u></em></span><span className="ofb-meter"><small>LIQUIDITY</small><em>{money(f.liq)}</em>{f.liqD != null ? <u>{sgn(f.liqD, 0)} on our tape</u> : null}</span></div>
+    <div className="ofb-calls">
+      <span data-testid="chart-trigger"><small>TRIGGER</small><Tag cls={entryCls(c.entry?.[0])} tip={c.entry?.[2]}>{c.entry?.[0]}</Tag><i>{c.entry?.[1]} — {c.entry?.[2]}</i></span>
+      <span data-testid="chart-devil"><small>DEVIL</small><Tag cls={dv?.verdict === 'agree' ? 'is-pass' : 'is-obj'}>{dv?.verdict === 'agree' ? 'NO OBJECTION' : 'OBJECT'}</Tag><i>{(c.objs || []).length ? c.objs.map(o => o[1]).join(' · ') : 'no chart objection the measurements support'}</i></span>
+      <span data-testid="chart-warden"><small>WARDEN</small><Tag cls={!c.risk || c.risk[0] >= 1 ? 'is-pass' : c.risk[0] <= 0 ? 'is-veto' : 'is-obj'}>{wd ? `${wd.eff}×` : `${c.risk?.[0] ?? '—'}× chart`}</Tag><i>{c.risk?.[1]}{wd ? ` · sized ${usd(wd.requested)} → ${usd(wd.allowed)} (${wd.decided})` : ''}</i></span>
+      <span data-testid="chart-stop"><small>STOP IF ENTERED</small><Tag>−{c.stop}%</Tag><i>{(c.stopParts || []).join(' · ')} · catastrophic −{c.hardStop}% (hard-coded)</i></span></div>
+    <div className="ofb-evid"><ul className="ofb-rules is-for">{(c.ev || []).map(x => <li key={x}>{x}</li>)}</ul><ul className="ofb-rules is-against">{(c.con || []).map(x => <li key={x}>{x}</li>)}</ul></div>
+    <details className="ofb-feat"><summary>every measured feature ({Object.values(f).filter(x => x != null).length})</summary>{dump(f)}</details>
   </div>;
 }
 
@@ -128,14 +155,46 @@ export function AgentDetail({ a, learning }) {
   </div>;
 }
 
-export function OfficePositions({ positions, exiting }) {
+export const DECISION_CLS = { HOLD: 'is-hold', 'HOLD 5 MORE': 'is-hold', PROTECT: 'is-prot', 'TAKE PROFIT': 'is-take', EXIT: 'is-exit' };
+
+// ☠ one card per live position: what it was entered on, what the chart says now, and what Reaper rules — with the rule it is obeying
+export function PositionCard({ p }) {
+  const [, tick] = useState(0);
+  useEffect(() => { const t = setInterval(() => tick(n => n + 1), 1000); return () => clearInterval(t); }, []);
+  const th = p.thesis; const seen = useRef({ at: Date.now(), next: p.nextReview }); if (seen.current.next !== p.nextReview) seen.current = { at: Date.now(), next: p.nextReview };
+  const left = p.nextReview == null ? null : Math.max(0, p.nextReview - (Date.now() - seen.current.at) / 1000);
+  return <article className={`ofb-pos ${REAP_CLS[p.state] || 'is-hold'}`} data-testid={`pos-${p.symbol}`}>
+    <header><b>${p.symbol}</b>{p.owner === 'agents' ? <Tag tip="A coin the agents put on the card">🤖 theirs</Tag> : <Tag tip="Not an agent seat: it keeps the card's own stop; Reaper still watches it for invalidation">card coin</Tag>}{p.exec === 'unconfirmed' ? <Tag cls="is-work">⏳ fill not confirmed</Tag> : null}
+      <Tag cls={DECISION_CLS[p.decision] || REAP_CLS[p.state]}>REAPER: {p.decision || p.state}</Tag></header>
+    <div className="ofb-pgrid">
+      <span><small>ENTERED ON</small><em>{th ? th.structure : <i className="ofb-nil">no thesis on file</i>}</em>{th ? <u>{th.triggerRule}</u> : <u>bought before theses were saved</u>}</span>
+      <span><small>STRUCTURE NOW</small><em>{p.structure ? <Tag cls={STRUCT_CLS[p.structure] || 'is-wait'}>{p.structure}</Tag> : <i className="ofb-nil">no chart</i>}</em>{p.verdict ? <u>thesis {p.verdict}</u> : null}</span>
+      <span><small>HELD</small><em>{p.heldMin == null ? '—' : clock(p.heldMin * 60)}</em>{p.window != null ? <u>window {p.window + 1} of {p.granted}</u> : null}</span>
+      <span><small>NOW</small><em className={p.pct > 0 ? 'ofb-up' : p.pct < 0 ? 'ofb-dn' : ''}>{sgn(p.pct)}</em><u>{usd(p.usd)}{p.warden != null && p.warden < 1 ? ` · 🛡 ×${p.warden}` : ''}</u></span>
+      <span><small>PEAK</small><em>{sgn(p.peak)}</em></span>
+      <span><small>FROM PEAK</small><em className={p.dd > 0 ? 'ofb-dn' : ''}>{p.dd == null ? '—' : `−${p.dd.toFixed(1)} pts`}</em></span>
+      <span><small>NEXT REVIEW</small><em>{left == null ? '—' : clock(left)}</em></span>
+      <span data-tip={`take +${p.take}% (${p.takeSource}) · stop ${p.stop}% · catastrophic ${p.hardStop}% (hard-coded)`}><small>LINES</small><em>+{p.take}% / {p.stop}%</em><u>{p.takeSource} take · hard {p.hardStop}%</u></span>
+    </div>
+    <p className="ofb-pwhy"><small>OBEYING</small><Tag>{p.obeying || '—'}</Tag><b>{p.rule}</b><span>{p.evidence}</span></p>
+    {p.why?.length ? <ul className="ofb-rules is-for">{p.why.map(x => <li key={x}>{x}</li>)}</ul> : null}
+    {th ? <details className="ofb-feat"><summary>entry thesis (saved at the fill, never rewritten)</summary>{dump({ ...th, at: ago(th.at) })}</details> : null}
+  </article>;
+}
+
+export function TakeLine({ t }) {
+  if (!t) return null;
+  return <div className="ofb-take" data-testid="ofb-take" data-tip="Which take line the agents' real seats obey right now. The take line is not an office tunable: it is your setting, or the scalp line they learned from their own paths (dropped by itself when it stops being proven).">
+    <span><small>BASE TAKE</small><em>+{t.base}%</em></span><span><small>ACTIVE TAKE</small><em className={t.active !== t.base ? 'ofb-warn' : ''}>+{t.active}%</em></span>
+    <span><small>SOURCE</small><em>{t.source}</em></span><span><small>EVIDENCE N</small><em>{t.evidenceN ?? '—'}</em><u>needs {t.needN}</u></span>
+    <span><small>RESULT ON OWN PATHS</small><em>{t.shadowAvg == null ? '—' : sgn(t.shadowAvg, 2)}</em></span><span><small>ADOPTED</small><em>{t.adoptedAt ? ago(t.adoptedAt) : '—'}</em></span>
+    <span><small>RULE ID</small><em>{t.ruleId}</em><u>{t.rule}</u></span></div>;
+}
+
+export function OfficePositions({ positions, exiting, take }) {
   return <div className="ofb-box" data-testid="ofb-positions"><b>☠ REAPER · open positions on the real card</b>
-    {positions?.length ? <table className="ofb-table"><thead><tr><th>coin</th><th>state</th><th>now</th><th>peak</th><th>off peak</th><th>held</th><th>pool</th><th>top-10</th><th>size</th><th>rule · evidence</th></tr></thead>
-      <tbody>{positions.map(p => <tr key={p.mint} data-testid={`pos-${p.symbol}`}><td>${p.symbol}<small>{p.owner === 'agents' ? ' 🤖' : ''}{p.exec === 'unconfirmed' ? ' ⏳' : ''}</small></td>
-        <td><Tag cls={REAP_CLS[p.state]}>{p.state}</Tag></td><td className={p.pct > 0 ? 'ofb-up' : p.pct < 0 ? 'ofb-dn' : ''}>{sgn(p.pct)}</td><td>{sgn(p.peak)}</td><td>{p.dd == null ? '—' : `${p.dd.toFixed(1)} pts`}</td>
-        <td>{p.heldMin == null ? '—' : `${Math.round(p.heldMin)}m`}</td><td>{p.liqPct == null ? '—' : `${p.liqPct}%`}</td><td>{p.top10 == null ? '—' : `${Math.round(p.top10)}%${p.top10D ? ` (${sgn(p.top10D, 0, '')})` : ''}`}</td>
-        <td>{usd(p.usd)}{p.warden != null && p.warden < 1 ? <small> · 🛡 ×{p.warden}</small> : null}</td><td className="ofb-ev"><b>{p.rule}</b> {p.evidence}</td></tr>)}</tbody></table>
-      : <span className="ofb-nil">no open position Reaper is responsible for</span>}
+    <TakeLine t={take} />
+    {positions?.length ? <div className="ofb-poslist">{positions.map(p => <PositionCard key={p.mint} p={p} />)}</div> : <span className="ofb-nil">no open position Reaper is responsible for</span>}
     {exiting?.length ? <p className="ofb-exiting">{exiting.map(e => <Tag key={e.mint} cls="is-work" tip="Left the card; it is closed only when the ledger shows the confirmed sale.">${e.sym} exit {e.state} · {e.rule || 'card rule'}</Tag>)}</p> : null}
   </div>;
 }
@@ -161,6 +220,7 @@ export function OfficePerf({ perf, agents }) {
   return <div className="ofb-box" data-testid="ofb-perf"><b>⚡ RUNTIME · per desk, last 120 passes</b>
     <table className="ofb-table"><thead><tr><th>desk</th><th>last</th><th>p50</th><th>p95</th><th>max</th><th /></tr></thead><tbody>{rows.map(([a, l]) => <tr key={a.key}><td>{a.icon} {a.name}</td><td>{ms(l.last)}</td><td>{ms(l.p50)}</td><td>{ms(l.p95)}</td><td>{ms(l.max)}</td>
       <td className="ofb-barcell"><u aria-hidden><i style={{ transform: `scaleX(${Math.max(0.01, (l.p95 || 0) / worst)})` }} /></u></td></tr>)}</tbody></table>
+    <p className="ofb-lat" data-testid="ofb-candles">📈 shared chart snapshot: {ms(perf?.chart?.last)} for {(perf?.candles?.real ?? 0) + (perf?.candles?.tape ?? 0)} coins (p95 {ms(perf?.chart?.p95)}) · {perf?.candles?.real ?? 0} from real candles, {perf?.candles?.tape ?? 0} from the tape · candle requests this pass {perf?.candles?.req ?? 0} ({perf?.candles?.cached ?? 0} served from cache) · duplicated {perf?.candles?.dup ?? 0}</p>
     <p className="ofb-lat">whole chain this pass {ms(perf?.passMs)} · the four desks' pass incl. the board read {ms(perf?.deskMs)} · the page reads memory: it starts no desk, scan or quote</p></div>;
 }
 
@@ -183,7 +243,7 @@ export function OfficeBoard({ o }) {
     {a ? null : <p className="ofb-hint">Tap a desk (or a stage of the line) to open its ideology, ethics, immutable and tunable rules, this pass's inputs and output, its record and the code that runs it.</p>}
     <div className="ofb-agents" data-testid="ofb-agents">{(o.agents || []).map(x => <React.Fragment key={x.key}><AgentCard a={x} on={sel === x.key} onPick={pick} />
       {sel === x.key ? <AgentDetail a={x} learning={o.learning} /> : null}</React.Fragment>)}</div>
-    <OfficePositions positions={o.positions} exiting={o.exiting} />
+    <OfficePositions positions={o.positions} exiting={o.exiting} take={o.take} />
     <OfficeExecution x={o.execution} />
     <div className="ofb-two"><OfficeLearning l={o.learning} /><OfficePerf perf={o.performance} agents={o.agents} /></div>
   </div>;

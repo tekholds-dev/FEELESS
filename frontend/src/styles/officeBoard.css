@@ -37,6 +37,28 @@
 .ofb-stage.is-work > button { border-top-color: #6cc7ff; } .ofb-stage.is-work strong { color: #6cc7ff; animation: ofbPulse 1.2s ease-in-out infinite; } .ofb-stage.is-wait strong { color: var(--m-mute); }
 .ofb-checks, .ofb-exiting { display: flex; flex-wrap: wrap; gap: 5px; margin: 0; }
 
+/* chart intelligence */
+.ofb-chart { display: grid; gap: 8px; padding: 10px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line-hi); background: var(--m-surface-2); min-width: 0; } .ofb-chart.is-none { grid-auto-flow: column; justify-content: start; align-items: center; }
+.ofb-chart > b, .ofb-chead b { font: 700 11px/1.3 var(--m-mono); letter-spacing: .08em; color: var(--m-dim); } .ofb-chead { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; } .ofb-chead .ofb-tag { font-size: 12px; padding: 3px 10px; }
+.ofb-meters { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 6px; }
+.ofb-meter { display: grid; gap: 3px; padding: 6px 8px; border-radius: 6px; background: var(--m-surface); border: 1px solid var(--m-line); min-width: 0; } .ofb-meter em { font: 700 16px/1 var(--m-mono); font-style: normal; white-space: nowrap; } .ofb-meter u { text-decoration: none; font: 10px var(--m-mono); color: var(--m-mute); }
+.ofb-meter > b { display: block; height: 4px; border-radius: 2px; background: var(--m-line); overflow: hidden; } .ofb-meter > b i { display: block; height: 100%; background: #45e486; transform-origin: left; transition: transform .4s var(--m-ease); } .ofb-meter.is-bad > b i { background: var(--m-warn); }
+.ofb-calls { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 6px; } .ofb-calls > span { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; padding: 6px 8px; border-radius: 6px; background: var(--m-surface); border: 1px solid var(--m-line); min-width: 0; }
+.ofb-calls small { flex-basis: 100%; } .ofb-calls i { font-style: normal; font-size: 10.5px; line-height: 1.35; color: var(--m-dim); flex: 1 1 100%; overflow-wrap: anywhere; }
+.ofb-evid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 4px 14px; } .ofb-rules.is-for li::before { content: '+'; color: #45e486; } .ofb-rules.is-against li::before { content: '−'; color: var(--m-danger); }
+.ofb-feat > summary { cursor: pointer; font: 600 10px var(--m-mono); letter-spacing: .06em; color: var(--m-mute); padding: 2px 0; } .ofb-feat > summary:hover, .ofb-feat > summary:focus-visible { color: var(--m-accent); outline: none; } .ofb-feat[open] > summary { margin-bottom: 6px; }
+.ofb-feat > .ofb-kv { grid-template-columns: repeat(auto-fill, minmax(72px, max-content) minmax(60px, 1fr)); }
+
+/* positions: one card each */
+.ofb-poslist { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 8px; }
+.ofb-pos { display: grid; gap: 7px; align-content: start; padding: 10px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); border-left: 3px solid #45e486; background: var(--m-surface-2); min-width: 0; }
+.ofb-pos.is-prot { border-left-color: var(--m-warn); } .ofb-pos.is-take { border-left-color: #6cc7ff; } .ofb-pos.is-exit { border-left-color: var(--m-danger); }
+.ofb-pos > header { display: flex; flex-wrap: wrap; gap: 5px 8px; align-items: center; } .ofb-pos > header b { font: 700 14px var(--m-mono); } .ofb-pos > header .ofb-tag:last-child { margin-left: auto; font-size: 11px; }
+.ofb-pgrid, .ofb-take { display: grid; grid-template-columns: repeat(auto-fit, minmax(98px, 1fr)); gap: 5px; } .ofb-pgrid > span, .ofb-take > span { display: grid; gap: 2px; align-content: start; padding: 5px 7px; border-radius: 6px; background: var(--m-surface); min-width: 0; }
+.ofb-pgrid em, .ofb-take em { font: 700 12.5px/1.2 var(--m-mono); font-style: normal; overflow-wrap: anywhere; } .ofb-pgrid u, .ofb-take u { text-decoration: none; font: 9.5px/1.3 var(--m-mono); color: var(--m-mute); overflow-wrap: anywhere; }
+.ofb-pwhy { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; margin: 0; font-size: 11px; line-height: 1.4; } .ofb-pwhy b { font: 700 11px var(--m-mono); } .ofb-pwhy span { color: var(--m-dim); flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+.ofb-take { padding: 8px; border-radius: var(--m-r-sm); border: 1px dashed var(--m-line-hi); }
+
 /* ten desks */
 .ofb-agents { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 8px; }
 .ofb-agent { display: grid; gap: 5px; align-content: start; text-align: left; padding: 10px; border-radius: var(--m-r); border: 1px solid var(--m-line); border-left: 3px solid #45e486; background: var(--m-surface); color: inherit; cursor: pointer; min-width: 0; font: inherit; transition: transform .15s var(--m-ease), border-color .15s; }
@@ -75,13 +97,13 @@
 @keyframes ofbIn { from { transform: translateY(6px); } to { transform: none; } }
 @keyframes ofbPulse { 50% { opacity: .45; } }
 body.fx-lite .ofb-stage, body.fx-lite .ofb-detail, body.fx-lite .ofb-stage strong { animation: none !important; }
-@media (prefers-reduced-motion: reduce) { .ofb-stage, .ofb-detail, .ofb-stage strong { animation: none !important; } .ofb-stage > button, .ofb-agent { transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { .ofb-stage, .ofb-detail, .ofb-stage strong { animation: none !important; } .ofb-stage > button, .ofb-agent, .ofb-meter > b i { transition: none !important; } }
 body.theme-day .ofb { --ofb-up: #0f8a45; } body.theme-day .ofb-up, body.theme-day .ofb-yes { color: #0f8a45; } body.theme-day .ofb-warn, body.theme-day .ofb-mission > b { color: #946a00; } body.theme-day .ofb-mission.is-clear > b { color: #0f8a45; }
 body.theme-day .ofb-tag.is-pass, body.theme-day .ofb-tag.is-done, body.theme-day .ofb-tag.is-alive, body.theme-day .ofb-tag.is-hold, body.theme-day .ofb-stage.is-pass strong, body.theme-day .ofb-stage.is-done strong { color: #0f8a45; border-color: #0f8a45; }
 body.theme-day .ofb-tag.is-obj, body.theme-day .ofb-tag.is-prob, body.theme-day .ofb-tag.is-stale, body.theme-day .ofb-tag.is-prot, body.theme-day .ofb-stage.is-obj strong, body.theme-day .ofb-stage.is-stale strong { color: #946a00; border-color: #946a00; }
 body.theme-day .ofb-tag.is-veto, body.theme-day .ofb-tag.is-err, body.theme-day .ofb-tag.is-dem, body.theme-day .ofb-tag.is-ret, body.theme-day .ofb-tag.is-exit, body.theme-day .ofb-stage.is-veto strong, body.theme-day .ofb-stage.is-err strong { color: #c0304e; border-color: #c0304e; }
 body.theme-day .ofb-tag.is-work, body.theme-day .ofb-tag.is-take, body.theme-day .ofb-stage.is-work strong, body.theme-day .ofb-fn { color: #135d86; border-color: #135d86; }
-body.theme-day .ofb-mission, body.theme-day .ofb-pipe, body.theme-day .ofb-box, body.theme-day .ofb-detail, body.theme-day .ofb-agent { background: rgba(255, 255, 255, .8); } body.theme-day .ofb-code code { background: #fff; }
+body.theme-day .ofb-mission, body.theme-day .ofb-pipe, body.theme-day .ofb-box, body.theme-day .ofb-detail, body.theme-day .ofb-agent, body.theme-day .ofb-chart, body.theme-day .ofb-pos { background: rgba(255, 255, 255, .8); } body.theme-day .ofb-meter > b i, body.theme-day .ofb-rules.is-for li::before { background-color: transparent; color: #0f8a45; } body.theme-day .ofb-meter > b i { background: #0f8a45; } body.theme-day .ofb-meter.is-bad > b i { background: #946a00; } body.theme-day .ofb-rules.is-against li::before { color: #c0304e; } body.theme-day .ofb-code code { background: #fff; }
 @media (max-width: 1100px) { .ofb-stages { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .ofb-stages { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ofb-agents { grid-template-columns: 1fr; } .ofb-dgrid, .ofb-two { grid-template-columns: 1fr; } .ofb-mgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ofb-mgrid em { font-size: 15px; }
-  .ofb-recent li { grid-template-columns: 1fr; gap: 0; } .ofb-kv { grid-template-columns: 1fr; } }
+  .ofb-recent li { grid-template-columns: 1fr; gap: 0; } .ofb-kv, .ofb-feat > .ofb-kv { grid-template-columns: 1fr; } .ofb-poslist { grid-template-columns: 1fr; } .ofb-meters, .ofb-pgrid, .ofb-take { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

@@ -16,6 +16,7 @@ positive median and ≥ PROVE_WIN % won — then the 15-minute stage opens. A re
 """
 
 import trench_mind as _tm
+import chart_intel as _ci
 
 # 🕸 THE CRAWL: every place the desk pulls coins from each pass — each one is a driver `src:<key>` judged on its own record, so the agents
 # learn which corner of the trench pays (owner: "access multiple ends to get info — only for trenching")
@@ -193,6 +194,8 @@ def word(k):
         return f"🎯 {STRAT_NAME.get(k[6:], k[6:])}"
     if str(k).startswith('src:'):
         return f"🕸 found on {SOURCES.get(k[4:], k[4:])}"
+    if str(k).startswith('chart:'):
+        return f"📈 chart reads {k[6:]}"
     if str(k).startswith('idea:'):
         return f"💡 approved tactic {k[5:]}"
     if str(k).startswith('narr:'):
@@ -275,6 +278,8 @@ def drivers(n, row):
         out.append('falling')
     if n.get('holdD') is not None and _f(n['holdD']) >= 20:
         out.append('holders_up')
+    if (row.get('chart') or {}).get('state') and row['chart']['state'] != 'UNKNOWN':
+        out.append(f"chart:{row['chart']['state']}")                # 📈 the market structure (chart_intel) — no belief, only its own record weighs
     out += list(((row.get('mind') or {}).get('drivers')) or [])   # 🧠 the human read: narrative, crowd vs swarm, botted, dip tuggers
     out += [f'strat:{k}' for k in strats(row, n)]                   # 🎯 the named meme strategies it fits
     out += [f'src:{k}' for k in (row.get('src') or [])]              # 🕸 where the crawl found it (each corner of the trench is judged)
@@ -427,6 +432,11 @@ def devil_args(call, n, why, row, learned, duty=False):
         args.append(('swarm', f"the callers are a bot swarm ({round(_f(mind['crowd'].get('swarmShare')) * 100)}% the same line)"))
     if _f((mind.get('bots') or (0, []))[0]) >= 40 and backed('botted'):
         args.append(('botted', 'botted launch: ' + '; '.join((mind['bots'][1] or [])[:2])))
+    orec = (learned or {}).get('objrec') or {}
+    for rule, text in (row.get('chart') or {}).get('objs') or []:   # 📈 the chart thesis attacked on its measurements (chart_intel.objections)
+        v = orec.get(rule) or {}
+        if _ci.CHART_RULES.get(rule, (True,))[0] or int(v.get('n') or 0) < DRIVER_MIN_N or _f(v.get('med')) <= 0:   # a soft chart rule stands until its own record shows it blocks winners
+            args.append((rule, text))
     bad = [d for d in why['drivers'] if d[1] < 0]
     if bad:
         args.append(('against', 'against it: ' + ', '.join(d[2] for d in bad[:2])))
@@ -454,6 +464,7 @@ DEVIL_RULES = {'busted_read': (True, "the coin's read is a busted call on its ow
                'swarm': (False, 'the callers are a bot swarm'), 'botted': (False, 'botted launch'), 'against': (False, 'a reason against it is on the table'),
                'driver_losing': (False, 'one of its reasons has been followed by losses lately'), 'rug_signs': (True, 'rug signs learned from our autopsies'),
                'avoid': (True, 'a creator-approved avoid tactic'), 'trigger_losing': (False, "Trigger's own recent entries are losing"), 'trial': (True, 'Devil is on trial: only strong reads pass'),
+               **{k: v for k, v in _ci.CHART_RULES.items()},
                'unrecorded': (False, 'reason not stored (calls judged before objections kept their reason)'), 'other': (False, 'other')}
 _RULE_TEXT = (('its read is', 'busted_read'), ('rug meter', 'rug_meter'), ('already +', 'ran'), ('under 15 minutes', 'young'), ('holders never', 'unscanned'), ('burned us', 'burned'),
               ('the callers are', 'swarm'), ('botted launch', 'botted'), ('against it', 'against'), ('rug signs', 'rug_signs'), ('approved avoid', 'avoid'), ("Trigger's last", 'trigger_losing'),
@@ -494,7 +505,7 @@ def busted_now(proof, call_keys):
     return out
 
 
-def desk(state, rows, now, dial=None, busted=None, weather_fn=None):
+def desk(state, rows, now, dial=None, busted=None, weather_fn=None, candles=None, flows=None, charts_out=None):
     """One pass of all four, in order. → (new state, table rows for the screen). Each coin's line carries every agent's word."""
     import time as _t
     st = dict(state or {})
@@ -515,16 +526,37 @@ def desk(state, rows, now, dial=None, busted=None, weather_fn=None):
     learned['trial'] = judge(st)['trial']   # 👨‍⚖️ the bot the Judge has on trial plays under a handicap this pass (it only ever tightens)
     bar_ = bar_now(learned)
     table = []
+    charting = candles is not None   # 📈 chart intelligence is on when the service hands the pass its candle map (possibly empty: the tape stands in)
+    perf['chart'] = 0.0
     for r in rows or []:
         m = r.get('mint')
         if m not in nums:
             continue
         n = nums[m]
+        chart = None
+        if charting:   # ONE snapshot per coin per pass, shared by every desk: real 1-min candles when fetched for this coin, else Tally's own tape
+            t0 = _t.perf_counter()
+            real = candles.get(m)
+            chart = _ci.read(real if real else _ci.from_tape(ser.get(m)), now, bool(real), 'candles' if real else 'tape', buy=n.get('buy'), liq=n.get('liq'), liq_d=n.get('liqD'), flow=(flows or {}).get(r.get('pairAddress')))
+            perf['chart'] += _t.perf_counter() - t0
+            if charts_out is not None:
+                charts_out[m] = chart
+            r = {**r, 'chart': chart}
         t0 = _t.perf_counter(); why = sherlock(n, r, learned); perf['sherlock'] += _t.perf_counter() - t0
         if learned['trial'] == 'sherlock' and why['lean'] > 0:   # 👨‍⚖️ Sherlock on trial: its confidence is cut by a quarter
             why = {**why, 'lean': round(why['lean'] * TRIAL_LEAN, 2)}
-        t0 = _t.perf_counter(); call, reason = trigger(n, why, r, learned); perf['trigger'] += _t.perf_counter() - t0
-        t0 = _t.perf_counter(); verdict, arg = devil(call, n, why, {**r, 'mint': m}, learned); perf['devil'] += _t.perf_counter() - t0
+        t0 = _t.perf_counter(); call, reason = trigger(n, why, r, learned)
+        if chart and call != 'skip':   # ⏱ a good coin at a bad moment waits; a broken structure is skipped. The chart can only make Trigger pickier.
+            ec = chart['entry']
+            if ec[0] == 'SKIP':
+                call, reason = 'skip', f'{ec[1]}: {ec[2]}'
+            elif call == 'enter' and ec[0] != 'ENTER NOW':
+                call, reason = 'wait', f'{ec[0]} — {ec[2]}'
+            elif call == 'enter':
+                reason += f' · 📈 {ec[1]}: {ec[2]}'
+        perf['trigger'] += _t.perf_counter() - t0
+        t0 = _t.perf_counter(); dargs = devil_args(call, n, why, {**r, 'mint': m}, learned) if call == 'enter' else []
+        verdict, arg = ('—', '') if call != 'enter' else (('object', dargs[0][1]) if dargs else ('agree', 'no evidence against it')); perf['devil'] += _t.perf_counter() - t0
         if learned['trial'] == 'devil' and verdict == 'agree' and why['lean'] < bar_ + TRIAL_BAR:   # 👨‍⚖️ Devil on trial: only strong reads pass
             verdict, arg = 'object', f"on trial — only a strong read passes (lean {why['lean']:+.1f} < {bar_ + TRIAL_BAR:.1f})"
         objs = devil_args('enter', n, why, {**r, 'mint': m}, learned, duty=True) if call in ('enter', 'wait') and why['lean'] > 0 else None
@@ -532,7 +564,7 @@ def desk(state, rows, now, dial=None, busted=None, weather_fn=None):
         if case and learned['trial'] == 'devil' and case[0] == 'agree' and why['lean'] < bar_ + TRIAL_BAR:
             case, objs = ['object', 'on trial — only a strong read passes'], [('trial', 'on trial — only a strong read passes')]
         rd = r.get('mind') or _tm.read(r)
-        table.append({'case': case, 'objs': [list(o) for o in (objs or [])[:6]], 'mint': m, 'symbol': r.get('symbol'), 'pair': r.get('pairAddress'), 'px': _f(r.get('price')), 'nums': n, 'why': why,
+        table.append({'case': case, 'objs': [list(o) for o in (objs or [])[:6]], 'chart': _ci.compact(chart), 'drule': dargs[0][0] if dargs else None, 'mint': m, 'symbol': r.get('symbol'), 'pair': r.get('pairAddress'), 'px': _f(r.get('price')), 'nums': n, 'why': why,
                       'trigger': [call, reason], 'devil': [verdict, arg], 'go': call == 'enter' and verdict == 'agree',
                       'mind': {'narr': rd['narr'][1], 'hot': rd['narr'][2], 'callers': rd['crowd']['callers'], 'swarm': rd['crowd']['swarm'],
                                'slang': rd['crowd']['slang'], 'bots': rd['bots'][0], 'tug': rd['tug'][0]},
@@ -561,7 +593,8 @@ def record(state, table, now, controls=3):
         if not kind:
             continue
         waits += kind == 'wait'
-        opened[m] = {'px': x['px'], 'at': now, 'sym': x['symbol'], 'kind': kind, 'go': x['go'], 'devil': x['devil'][0], **({'devilWhy': str(x['devil'][1])[:90], 'devilRule': devil_rule_of(x['devil'][1])} if x['devil'][0] == 'object' else {}),
+        opened[m] = {'px': x['px'], 'at': now, 'sym': x['symbol'], 'kind': kind, 'go': x['go'], 'devil': x['devil'][0], **({'devilWhy': str(x['devil'][1])[:90], 'devilRule': x.get('drule') or devil_rule_of(x['devil'][1])} if x['devil'][0] == 'object' else {}),
+                     **({'cs': x['chart']['state'], 'ce': x['chart']['entry'][0]} if x.get('chart') else {}),
                      'drivers': [d[0] for d in x['why']['drivers']], 'lean': x['why']['lean'], 'tallyUp': _f(x['nums'].get('d5')) > 0,
                      **({'scalp': [st['scalp']['tp'], st['scalp']['sl']]} if (st.get('scalp') or {}).get('tp') else {})}
     st['open'], st['done'] = opened, done[-KEEP_DONE:]
@@ -637,9 +670,13 @@ def learn(state, h=5):
         cal.setdefault(b_, []).append(_f(d[k]))
     calib = {b_: {'n': len(v), 'med': round(_med(v), 2), 'won': round(sum(1 for x in v if x > 0) / len(v) * 100)} for b_, v in sorted(cal.items())}
     budget = {x[4:]: v for x, v in drivers_.items() if x.startswith('src:') and v['n'] >= BUDGET_N and v['med'] < 0}
+    og = {}
+    for d in dv_:   # ⚖ each objection RULE's own record (what the coins it blocked did): a soft chart rule that keeps blocking winners stops standing
+        if d.get('devil') == 'object' and d.get('devilRule'):
+            og.setdefault(d['devilRule'], []).append(_f(d[k]))
     ideas_ = (state or {}).get('ideas') or {}
     return {'drivers': drivers_, 'cards': cards, 'bar': round(bar, 2), 'h': h, 'calibration': calib, 'cut': budget,
-            'lessons': lessons, 'rugSigns': rug_lift(js),
+            'lessons': lessons, 'rugSigns': rug_lift(js), 'objrec': {r_: {'n': len(v), 'med': round(_med(v), 2)} for r_, v in og.items()},
             'approved': {i: v['pair'] for i, v in ideas_.items() if v.get('status') == 'approved' and v.get('kind') == 'take'},
             'avoid': {i: v['pair'] for i, v in ideas_.items() if v.get('status') == 'approved' and v.get('kind') == 'avoid'}}
 
@@ -1151,6 +1188,9 @@ def investigate(table, on=(), min_age_h=1.0, burned=(), top=6):
                   ['pool', liq >= CONTROL_MIN_LIQ, f'pool ${liq / 1000:.0f}K'],
                   ['burn', x.get('mint') not in (burned or ()), 'not burned' if x.get('mint') not in (burned or ()) else 'burned us in the last 6h'],
                   ['devil', case[0] == 'agree', case[1] or ('Devil agrees' if case[0] == 'agree' else 'Devil objects')]]
+        if x.get('chart'):   # 📈 the moment itself: the duty waives Trigger's BAR, never the chart — a coin is only bought where the structure gives an entry
+            ec = x['chart']['entry']
+            checks.append(['chart', ec[0] == 'ENTER NOW', f"{x['chart']['state']} → {ec[0]}: {ec[2]}"])
         out.append({'mint': x['mint'], 'symbol': x.get('symbol'), 'pair': x.get('pair'), 'px': x.get('px'), 'lean': round(lean, 2), 'go': bool(x.get('go')),
                     'cleared': all(c[1] for c in checks), 'checks': checks, 'row': x})
     out.sort(key=lambda c: (not c['cleared'], -c['lean']))

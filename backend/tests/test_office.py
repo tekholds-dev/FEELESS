@@ -145,7 +145,8 @@ def test_reaper_rules_in_order_with_evidence_and_never_rules_on_a_missing_price(
     assert run(leg('A', frozen=True), 0.5)[1] == []                                                              # the creator's ❄ is never touched
     assert run({**leg('B'), 'bought': {'tag': '🎯 your pick'}}, 0.5)[1] == []                                    # not theirs, not in control → not Reaper's
     yours = {**leg('B'), 'bought': {'tag': '🎯 your pick'}}
-    assert run(yours, 0.5, control=True)[1][0]['state'] == 'HOLD'                                                # in control: a coin that is not theirs keeps the CARD's own stop …
+    assert run(yours, 0.62, control=True)[1][0]['state'] == 'HOLD'                                               # in control: a coin that is not theirs keeps the CARD's own stop …
+    assert run(yours, 0.5, control=True)[1][0]['rule'] == 'R5x catastrophic stop'                                # … under the hard-coded catastrophic line no coin is held
     assert run({**yours, 'liqNow': 10_000}, 0.5, control=True)[1][0]['rule'] == 'R1 liquidity collapse'          # … but a collapsing pool takes any coin out
 
 

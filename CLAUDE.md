@@ -2889,3 +2889,34 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
     (state + ms + word); ten cards; a card / stage opens its detail under it (11 sections incl. code location). The 3D room is opt-in.
     A component that renders ITSELF in JSX overflows the dev server's babel plugin ("Maximum call stack") — recurse with a plain function.
   · The breakeven lock is untouched: `agents.underwater` = real value < real put-in; `office.mission` is handed it, never recomputes it.
+- 📈 CHART INTELLIGENCE in the office (owner, 2026-10-10: "they MUST understand the actual price chart / market structure … no separate
+  chart AI"; `backend/chart_intel.py` pure + tested `tests/test_chart_intel.py`). ONE snapshot per coin per pass, shared by every desk
+  (`agents.desk(candles=, flows=, charts_out=)` → `_office['charts']`): real 1-minute OHLC from the candles service for the coins ON the
+  real card + last pass's 6 strongest cases (`_office_candles`: one request per POOL per pass, 50s cache, `dup` 0 by construction),
+  Tally's own tape (closes only — wick features are None, never 0) for every other coin. No desk fetches for itself; the page never does.
+  · `snapshot` (returns, swings HH/HL/LH/LL on CLOSES, slope + fit, path efficiency, range position, pullback / recovery, base + breakout
+    tries / holds / failures, support = the LAST higher low, squeeze, trend / chop / momentum / extension 0–100 — extension is distance
+    above the coin's own trend line, never above an SMA: a steady trend always sits above its SMA) → `classify` (15 states, first rule
+    that holds; a breakout state needs a BASE before it or every uptrend reads as "breakout") → `entry_call` (ENTER NOW · WAIT FOR
+    PULLBACK / BREAKOUT / CONFIRMATION · SKIP, rules E0–E12) → `objections` (`CHART_RULES`; hard: parabolic, fake breakout, liquidity
+    divergence, chop; soft ones stand until their own objection record `learn().objrec` shows they block winners) → `risk` (≤ 1).
+    Buy share, green-candle counts or one big candle never decide a state (tests).
+  · Trigger: the chart can ONLY make it pickier (enter → wait / skip; never wait → enter). The duty's case file has a 6th check `chart`
+    (ENTER NOW required): the duty waives Trigger's BAR, never the moment. Sherlock gets driver `chart:<STATE>` (no belief, record only).
+    Warden rule `W12 chart risk`. Chart reading is ON only when the service passes `candles` (tests without it are unchanged).
+  · 🛑 STOPS: `stop_for` = gap to support + 2 average candles, −20% each for thin pool / < 6h / degraded execution / unproven structure,
+    inside [`STOP_FLOOR` 8, the tunable ceiling `reaper.stopPct` ≤ 40]. `CATASTROPHIC_STOP` 45 is a CONSTANT (rule R5x, every coin Reaper
+    watches): not in `TUNABLE`, so nothing can propose, learn or promote it away.
+  · 🧾 ENTRY THESIS (`thesis`, written in `_office_warden` the moment a fill is allowed → `_office['theses']` → saved ONCE on the position,
+    hash-chained in the archive): structure · Trigger's rule · support · invalidation price · stop · expected / max hold windows · reasons ·
+    risks. ☠ `review` each tick: valid (structure in `GOOD`, above invalidation) → at every 5-min checkpoint it EARNS one more window
+    (`granted`, ≥ `MIN_WINDOWS` 3 = 15 min, ≤ `MAX_WINDOWS` 12) → "HOLD 5 MORE"; invalid (support broke into a bad structure / liquidity
+    failure / failed breakout / downtrend with lower lows) → `R5t` out after 2 min, green (TAKE) or red (EXIT); weak + a lower high while
+    green → `R7s` banked; weak with its windows used → `R9 windows used`. No chart this pass = `unknown` = never treated as broken. The
+    5-minute STAGE is the learning window, not a sell timer. Positions bought before this have no thesis and keep the older rules.
+  · 🎯 `take_info` → payload `take` (base · active · source base | learned · evidence n · result · adopted · rule id); every Reaper report
+    carries `decision` + `obeying` (base / learned take · trailing protection · invalidation exit · structure-aware stop · hard safety exit).
+  · Learning: calls store the structure read AT the call (`cs`, `ce`) → `structure_record` (median 5 / 15 / 60 min + best window per
+    state), "entered too late %", "surrendered N points of peak", real entries per thesis structure; scorecards `chartN` / `chartRight`.
+  · UI (same one request): `ChartBox` (state · TREND / CHOP / MOMENTUM / EXTENSION meters · FLOW · LIQUIDITY · TRIGGER · DEVIL · WARDEN ·
+    stop · evidence ± · every feature in a fold), `PositionCard` per live coin, `TakeLine`, candle accounting line in the runtime box.

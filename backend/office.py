@@ -18,6 +18,7 @@ import json
 from types import MappingProxyType
 
 import agents as _ag
+import chart_intel as _ci
 
 _f, _med = _ag._f, _ag._med
 
@@ -70,7 +71,7 @@ TUNABLE = _frozen({
                 'maxDeltaPct': (3.0, 2.0, 5.0, 'typical fill worse than the mid price by this much = DEGRADED')},
     'reaper': {'protectAt': (6.0, 4.0, 15.0, 'peak gain % at which the trailing protection arms'),
                'giveBackPct': (50.0, 30.0, 70.0, 'share of the peak gain it may give back before the rest is banked'),
-               'stopPct': (30.0, 15.0, 40.0, 'loss % at which the position is invalidated'),
+               'stopPct': (30.0, 15.0, 40.0, 'the CEILING of a normal stop — each entry gets its own structure-aware stop under it (chart_intel.stop_for); the catastrophic stop is above it and is not tunable'),
                'timeMaxMin': (120.0, 60.0, 240.0, 'minutes after which a position with no read left is closed')},
 })
 
@@ -84,10 +85,10 @@ CONSTITUTION = _frozen({
                        'a reading older than 150s is STALE and is said so'),
               'code': {'file': 'backend/agents.py', 'fn': ('tally', 'regime')}, 'office': ('tally_read',)},
     'sherlock': {'icon': '🔍', 'name': 'Sherlock', 'role': 'Investigation: why the coin is moving, each reason weighed by its own record.', 'ideology': 'Reasons before action.',
-                 'ethics': ('Every claim carries measurable evidence.', 'Contradicting evidence is shown, never dropped.', 'An unknown is an open question, not a pass.'),
+                 'ethics': ('Never describe chart structure without measured evidence.', 'Every claim carries measurable evidence.', 'Contradicting evidence is shown, never dropped.', 'An unknown is an open question, not a pass.'),
                  'forbidden': ('calling an entry', 'overriding a failed scan', 'touching the card'),
                  'hard': (f'a reason\'s learned weight counts from {_ag.DRIVER_MIN_N} judged calls', f'a starting belief counts like {_ag.BELIEF_K} judged calls, never more'),
-                 'code': {'file': 'backend/agents.py', 'fn': ('drivers', 'weights', 'sherlock', 'learned_share')}, 'office': ('sherlock_read', 'scan_status')},
+                 'chart': ('snapshot', 'classify'), 'code': {'file': 'backend/agents.py', 'fn': ('drivers', 'weights', 'sherlock', 'learned_share')}, 'office': ('sherlock_read', 'scan_status')},
     'weather': {'icon': '🌦', 'name': 'Weather', 'role': 'The trench\'s regime this pass, from the board and our own judged calls.', 'ideology': 'The environment changes strategy.',
                 'ethics': ('Never apply the same thresholds blindly in every regime.', 'Never classify without the inputs: unknown inputs lower confidence.'),
                 'forbidden': ('buying or selling', 'removing or loosening a safety gate', 'moving Trigger\'s bar outside its range', 'growing a position'),
@@ -95,22 +96,22 @@ CONSTITUTION = _frozen({
                          'never judged under 10 coins (THIN, low confidence)'),
                 'code': {'file': 'backend/office.py', 'fn': ('weather', 'weather_adj')}},
     'trigger': {'icon': '⏱', 'name': 'Trigger', 'role': 'Entry timing: ENTER, WAIT or SKIP for the next 5 minutes.', 'ideology': 'Precision over frequency.',
-                'ethics': ('Never call an entry clean unless every required check has its evidence.', 'A missed runner is counted, never hidden.'),
+                'ethics': ('Never chase merely because price is rising.', 'Never call an entry clean unless every required check has its evidence.', 'A missed runner is counted, never hidden.'),
                 'forbidden': ('entering past a hard SKIP', 'entering against a Devil objection', 'sizing a position'),
-                'hard': _HARD_TRIGGER,
-                'code': {'file': 'backend/agents.py', 'fn': ('bar_now', 'trigger')}, 'office': ('trigger_checks',)},
+                'hard': _HARD_TRIGGER + ('the chart can only make an entry pickier (ENTER NOW is required; it never upgrades a WAIT)', f'a +{_ci.PARABOLIC_5M:g}% 5-minute move is PARABOLIC: never entered'),
+                'chart': ('entry_call',), 'code': {'file': 'backend/agents.py', 'fn': ('bar_now', 'trigger')}, 'office': ('trigger_checks',)},
     'devil': {'icon': '⚖', 'name': 'Devil', 'role': 'Adversarial challenge: prove the trade wrong before it is allowed.', 'ideology': 'Prove the trade wrong first.',
-              'ethics': ('Object only with evidence.', 'A soft objection must be backed by its own record.', 'No random opposition, no canned lines.'),
+              'ethics': ('Never object merely because a chart looks visually scary.', 'Object only with evidence.', 'A soft objection must be backed by its own record.', 'No random opposition, no canned lines.'),
               'forbidden': ('approving a coin nobody scanned', 'waiving a hard objection', 'objecting without a named rule'),
               'hard': ('busted read (its own 1h record ≥ 30 settled, typical ≤ −20%)', 'rug meter ≥ 50', 'already ran > +150% on the hour', 'under 15 minutes old',
                        'holders never scanned', 'burned us in the last 6h', 'rug signs learned from autopsies', 'a creator-approved avoid tactic'),
-              'code': {'file': 'backend/agents.py', 'fn': ('devil_args', 'devil', 'busted_now', 'rug_lift')}, 'office': ('devil_record',)},
+              'chart': ('objections',), 'code': {'file': 'backend/agents.py', 'fn': ('devil_args', 'devil', 'busted_now', 'rug_lift')}, 'office': ('devil_record',)},
     'warden': {'icon': '🛡', 'name': 'Warden', 'role': 'Risk and size of an existing real-card move. It never judges the coin.', 'ideology': 'Survival first.',
-               'ethics': ('Capital preservation outranks excitement, FOMO, win rate and agent ego.', 'Every size change names the rule that made it.'),
+               'ethics': ('Never increase size because of excitement or recent profit.', 'Capital preservation outranks excitement, FOMO, win rate and agent ego.', 'Every size change names the rule that made it.'),
                'forbidden': ('increasing a move above what was requested', 'opening a move nobody requested', 'judging whether the coin is good'),
                'hard': ('allowed size ≤ requested size, always', f'multipliers are {", ".join(f"{m:g}×" for m in WARDEN_STEPS)} — nothing above 1×',
                         'execution BAD = veto', f'a seat it cuts under ${WARDEN_MIN_USD:.2f} is a veto, not a smaller buy'),
-               'code': {'file': 'backend/office.py', 'fn': ('warden',)}},
+               'chart': ('risk', 'stop_for'), 'code': {'file': 'backend/office.py', 'fn': ('warden',)}},
     'courier': {'icon': '📮', 'name': 'Courier', 'role': 'Execution truth, read from the keeper\'s own ledger.', 'ideology': 'A decision is not a trade until the chain says it is.',
                 'ethics': ('Never report a fill that is not confirmed.', 'A failed or expired send is reported as that, with its error.'),
                 'forbidden': ('sending, signing or quoting anything', 'calling a pending order filled', 'retrying an order'),
@@ -118,19 +119,20 @@ CONSTITUTION = _frozen({
                          'a keeper halt or an order stuck > 180s = BAD'),
                 'code': {'file': 'backend/office.py', 'fn': ('confirmed', 'fill_state', 'courier')}},
     'reaper': {'icon': '☠', 'name': 'Reaper', 'role': 'Protects an open position after entry, with deterministic exit rules.', 'ideology': 'Profit is not protected until the position is.',
-               'ethics': ('Never hold because of hope.', 'Never claim an exit without a confirmed exit.', 'Never invent a price or a pool depth.'),
+               'ethics': ('Never keep holding merely because a position is green.', 'Never keep holding merely to avoid realizing a loss.', 'Never hold because of hope.', 'Never claim an exit without a confirmed exit.', 'Never invent a price or a pool depth.'),
                'forbidden': ('buying', 'selling by itself: its exits go through the card\'s existing action path', 'giving a winner\'s seat to a new candidate',
                              'touching a coin the creator froze'),
-               'hard': ('pool under half its entry depth = out now', f'rug meter ≥ {RUG_EXIT:g} or a failed holder scan = out', f'top-10 up {TOP10_JUMP:g} pts since entry (and ≥ 30%) = out',
+               'hard': (f'catastrophic stop −{_ci.CATASTROPHIC_STOP:g}%: a constant no learning or promotion can move or switch off', f'a normal stop stays inside {_ci.STOP_FLOOR:g}% … {_ci.CATASTROPHIC_STOP - 5:g}%',
+                        f'a thesis gets at least {_ci.MIN_WINDOWS} five-minute windows and at most {_ci.MAX_WINDOWS}; an invalidated thesis leaves at once', 'pool under half its entry depth = out now', f'rug meter ≥ {RUG_EXIT:g} or a failed holder scan = out', f'top-10 up {TOP10_JUMP:g} pts since entry (and ≥ 30%) = out',
                         'the take line stays the card\'s own (agentTakePct / the learned scalp line)', 'no price = no ruling this tick'),
-               'code': {'file': 'backend/office.py', 'fn': ('reap', 'reaper_replay', 'merge_reaper', 'confirm_exits')}},
+               'chart': ('thesis', 'review', 'stop_for'), 'code': {'file': 'backend/office.py', 'fn': ('reap', 'reaper_replay', 'merge_reaper', 'confirm_exits')}},
     'archivist': {'icon': '🗄', 'name': 'Archivist', 'role': 'The permanent decision lineage and the learning derived from it.', 'ideology': 'Every real decision becomes evidence.',
-                  'ethics': ('Never rewrite history.', 'Never turn a loss into a win.', 'Never discard inconvenient data: what rotates out is folded into the totals.'),
+                  'ethics': ('Never rewrite what the entry thesis originally was.', 'Never rewrite history.', 'Never turn a loss into a win.', 'Never discard inconvenient data: what rotates out is folded into the totals.'),
                   'forbidden': ('editing a filed decision', 'deleting a losing record', 'stating a pattern without its sample count'),
                   'hard': ('every decision record is hash-chained to the one before it', 'cases are bounded: the oldest fold into aggregates', 'a pattern is shown only from 5 records'),
                   'code': {'file': 'backend/office.py', 'fn': ('file_case', 'settle_cases', 'file_position', 'verify', 'patterns')}},
     'judge': {'icon': '👨‍⚖️', 'name': 'Judge', 'role': 'Scores every agent on its own record, itself included.', 'ideology': 'Judge the record, not the last result.',
-              'ethics': ('No agent is demoted on one or two outcomes.', 'A rule changes only after a shadow test beats the live rule.', 'The Judge is scored too.'),
+              'ethics': ('Evaluate chart decisions using the information available at that time, not hindsight.', 'No agent is demoted on one or two outcomes.', 'A rule changes only after a shadow test beats the live rule.', 'The Judge is scored too.'),
               'forbidden': ('changing the immutable constitution', 'promoting an untested change', 'loosening a safety gate as a reward'),
               'hard': (f'probation needs ≥ {JUDGE_MIN_N} samples, demotion ≥ {JUDGE_DEMOTE_N}', f'a candidate needs {PROPOSE_N} archived positions, then {SHADOW_N} in shadow',
                        'a trial only ever tightens'),
@@ -349,6 +351,10 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
         hit('W9 drawdown', 0.5, f"the card is {(1 - val / peak) * 100:.0f}% under its 24h peak (line {T('ddPct'):g}%)")
     if val > 0 and req > val * T('maxSeatPct') / 100:
         hit('W10 concentration', val * T('maxSeatPct') / 100 / req, f"${req:.2f} is over {T('maxSeatPct'):g}% of the ${val:.2f} card")
+    if c.get('chart'):   # 📈 chart risk (chart_intel.risk): the structure can shrink or veto the seat, never grow it
+        cm, cwhy = (c['chart'].get('risk') or [1.0, ''])[:2]
+        if _f(cm) < 1:
+            hit('W12 chart risk', _f(cm), f"{c['chart'].get('state')}: {cwhy}")
     raw = min([r['mult'] for r in rules] or [1.0])
     mult = max(s for s in WARDEN_STEPS if s <= raw + 1e-9)
     allowed = round(req * mult, 6)
@@ -375,6 +381,22 @@ def take_line(cfg, scalp=None):
     return _f((cfg or {}).get('agentTakePct') or 10)
 
 
+def take_info(cfg, scalp=None):
+    """🎯 Which take line the real agent seats obey RIGHT NOW and where it comes from: the base (`agentTakePct`, the creator's setting) or
+    the LEARNED scalp line (`agents.scalp_adopt`: ≥ SCALP_N of their own 5-minute paths, average > 0 AND > holding). The take line is not
+    an office tunable, so it is never 'promoted' — a learned line is dropped by itself the pass it stops being proven."""
+    base = _f((cfg or {}).get('agentTakePct') or 10)
+    learned = bool((cfg or {}).get('agentScalp', True) and (scalp or {}).get('tp'))
+    return {'base': base, 'active': take_line(cfg, scalp), 'source': 'learned' if learned else 'base', 'ruleId': 'R6 take line',
+            'rule': 'agents.scalp_adopt — their own 5-min paths' if learned else 'cfg agentTakePct — your setting', 'scalpOn': bool((cfg or {}).get('agentScalp', True)),
+            'evidenceN': (scalp or {}).get('n') if learned else None, 'shadowAvg': (scalp or {}).get('avg') if learned else None, 'adoptedAt': (scalp or {}).get('at') if learned else None,
+            'needN': _ag.SCALP_N, 'promoted': None}
+
+
+OBEY = {'R1': 'hard safety exit', 'R2': 'hard safety exit', 'R3': 'hard safety exit', 'R5x': 'hard safety exit', 'R4': 'invalidation exit', 'R5t': 'invalidation exit', 'R5': 'structure-aware stop',
+        'R6': 'take line', 'R7': 'trailing protection', 'R7s': 'trailing protection', 'R8': 'thesis review', 'R9': 'thesis review', 'R10': 'thesis hold', 'R0': 'waiting'}
+
+
 def reaper_replay(path, p, take):
     """What Reaper's price rules would have banked on a recorded path of % readings (take line · trailing give-back · stop), in order —
     used by the Judge to shadow-test a candidate setting on REAL closed positions. → the % it would have left at."""
@@ -390,7 +412,7 @@ def reaper_replay(path, p, take):
     return _f(path[-1]) if path else 0.0
 
 
-def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_=None, tape=None, office=None, sized=None):
+def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_=None, tape=None, office=None, sized=None, charts=None, theses=None):
     """☠ One look at every position the agents hold on the real card (in control: every coin that is not frozen). It keeps each one's
     record (entry, peak, path, depth and top-10 at entry) and rules, in this order — the first that fires decides:
       R1 pool collapsed · R2 invalidated (failed scan / rug meter) · R3 holders concentrating · R4 whale dump on the tape · R5 stop* ·
@@ -402,6 +424,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
     pos = {m: dict(v) for m, v in (pos or {}).items()}
     by = {x['mint']: x for x in table or []}
     take = take_line(cfg, scalp)
+    tsrc = take_info(cfg, scalp)['source']
     out, on = [], set()
     for l in legs or []:
         m = l.get('mint')
@@ -443,6 +466,17 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         elif n.get('buy') is not None and _f(n['buy']) < 50:
             broke = f"buyers down to {_f(n['buy']):.0f}%"
         tp = (tape or {}).get(l.get('pairAddress'))
+        ch = (charts or {}).get(m)
+        if not p.get('thesis') and (theses or {}).get(m):
+            p['thesis'] = dict((theses or {})[m])    # 🧾 the entry thesis: saved ONCE with the position (its own copy), never rewritten
+        th = p.get('thesis')
+        stop = min(_f(th['stopPct']), T('stopPct')) if th and th.get('stopPct') else T('stopPct')   # this entry's own stop, never wider than the tunable ceiling
+        rv = _ci.review(th, ch, pct, held, p.get('granted')) if th else None
+        if rv and rv['window'] > int(p.get('lastWin') or 0):   # a 5-minute checkpoint: a thesis that still stands EARNS the next window (bounded)
+            p['lastWin'] = rv['window']
+            if rv['verdict'] == 'valid':
+                p['granted'] = min(int(th.get('maxHoldWindows') or _ci.MAX_WINDOWS), max(int(rv['granted']), rv['window'] + 1))
+        granted = int(p.get('granted') or (th or {}).get('expectedHoldWindows') or _ci.MIN_WINDOWS)
         mine = _ag.is_agent(l)   # R5 / R8 / R9 act only on coins the agents put there (their read is the reason it is held); every coin gets R1–R4 + R7
         st, rule, ev, act = 'HOLD', 'R10 hold', f"{pct:+.1f}% · peak {p['peak']:+.1f}% · take line +{take:g}%", None
         if lq0 > 0 and 0 < lq1 < lq0 * _ag.DRAIN_PULL:
@@ -453,15 +487,23 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev, act = 'EXIT INVALIDATED', 'R3 holders concentrating', f'top-10 {_f(top0):.0f}% → {_f(top1):.0f}% since entry', 'pull'
         elif tp == 'dump' and (pct > 0 or (n.get('buy') is not None and _f(n['buy']) < 45)):
             st, rule, ev, act = ('TAKE' if pct > 0 else 'EXIT INVALIDATED'), 'R4 whale dump', f"the tape reads a dump at {pct:+.1f}%" + (f", buyers {_f(n['buy']):.0f}%" if n.get('buy') is not None else ''), 'pull'
-        elif mine and pct <= -T('stopPct'):   # their own coins carry no card stop (ride-or-rug seats) — this is it; other coins keep the card's own stop
-            st, rule, ev, act = 'EXIT INVALIDATED', 'R5 stop', f"{pct:+.1f}% ≤ −{T('stopPct'):g}%", 'pull'
+        elif pct <= -_ci.CATASTROPHIC_STOP:   # 🧱 the hard ceiling, every coin Reaper watches — a constant: no tunable, promotion or thesis reaches it
+            st, rule, ev, act = 'EXIT INVALIDATED', 'R5x catastrophic stop', f'{pct:+.1f}% ≤ −{_ci.CATASTROPHIC_STOP:g}% (hard-coded)', 'pull'
+        elif mine and pct <= -stop:   # their own coins carry no card stop (ride-or-rug seats) — this is it; other coins keep the card's own stop
+            st, rule, ev, act = 'EXIT INVALIDATED', 'R5 stop', f"{pct:+.1f}% ≤ −{stop:g}%" + (f" ({'; '.join((th.get('stopParts') or [])[:2])})" if th else ' (no thesis on file: the ceiling)'), 'pull'
         elif pct >= take:
-            st, rule, ev = 'TAKE', 'R6 take line', f'{pct:+.1f}% ≥ +{take:g}% — the card\'s own take rule banks it'
+            st, rule, ev = 'TAKE', 'R6 take line', f"{pct:+.1f}% ≥ +{take:g}% ({tsrc} take) — the card's own take rule banks it"
+        elif mine and rv and rv['verdict'] == 'invalid' and held >= 2:   # the reason it was bought is gone: out, green or red — P&L does not decide this
+            st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R5t thesis invalidated', f"{pct:+.1f}% — entered on {th.get('structure')}; now {rv['why'][0]}", 'pull'
         elif p['peak'] >= T('protectAt') and pct <= p['peak'] * (1 - T('giveBackPct') / 100) and pct >= MIN_KEEP:
             st, rule, ev, act = 'TAKE', 'R7 trailing protection', f"peaked {p['peak']:+.1f}%, now {pct:+.1f}% — gave back over {T('giveBackPct'):g}% of it", 'pull'
+        elif mine and rv and rv['verdict'] == 'weak' and 'lower high' in rv['why'][0] and pct >= MIN_KEEP:   # green is not a reason to keep holding
+            st, rule, ev, act = 'TAKE', 'R7s structure turned', f"{pct:+.1f}% and {rv['why'][0]} — banked before it is given back", 'pull'
+        elif mine and rv and rv['window'] >= granted and rv['verdict'] == 'weak' and pct < take:   # its windows are used up and the chart earned no more
+            st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R9 windows used', f"{rv['window']} of {granted} five-minute windows used, {pct:+.1f}%, {rv['why'][0]}", 'pull'
         elif mine and held >= MOMENTUM_MIN and broke and pct >= MIN_KEEP:
             st, rule, ev, act = 'TAKE', 'R8 momentum failed', f'{pct:+.1f}% and {broke} after {held:.0f} min — banked while it is still a gain', 'pull'
-        elif mine and held >= T('timeMaxMin') and broke and pct < take / 2:
+        elif mine and not th and held >= T('timeMaxMin') and broke and pct < take / 2:
             st, rule, ev, act = 'EXIT INVALIDATED', 'R9 time', f"{held:.0f} min held, {pct:+.1f}%, {broke} — no read left to wait on", 'pull'
         elif tp == 'dump':
             st, rule, ev = 'PROTECT', 'R4 whale dump', f'the tape reads a dump at {pct:+.1f}% — buyers still hold it'
@@ -469,15 +511,24 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev = 'PROTECT', 'R8 momentum failed', f'{pct:+.1f}% and {broke} — it gives its seat to the next cleared read'
         elif p['peak'] >= T('protectAt'):
             st, rule, ev = 'PROTECT', 'R7 trailing protection', f"armed at peak {p['peak']:+.1f}%: banks under {max(MIN_KEEP, p['peak'] * (1 - T('giveBackPct') / 100)):+.1f}%"
+        if st == 'HOLD' and rv and rv['verdict'] == 'valid':
+            ev = f"{pct:+.1f}% · {'; '.join(rv['why'][:4])} · window {rv['window'] + 1} of {granted}"
         if act:
             p.setdefault('askAt', now); p['askRule'] = rule
         p['state'], p['rule'] = st, rule
+        p['chartNow'] = (ch or {}).get('state')
+        decision = ('TAKE PROFIT' if st == 'TAKE' else 'EXIT') if act or rule.startswith('R6') else 'PROTECT' if st == 'PROTECT' else 'HOLD 5 MORE' if rv and rv['verdict'] == 'valid' and rv['window'] >= 1 else 'HOLD'
         pos[m] = p
         out.append({**base, 'state': st, 'rule': rule, 'evidence': ev, 'action': act, 'exec': 'confirmed', 'entry': entry, 'px': px, 'pct': round(pct, 2), 'peak': round(p['peak'], 2),
                     'dd': round(p['peak'] - pct, 2), 'heldMin': round(held, 1), 'liq': lq1 or None, 'liqPct': round(lq1 / lq0 * 100) if lq0 > 0 and lq1 > 0 else None,
                     'top10': top1, 'top10D': round(_f(top1) - _f(top0), 1) if top1 is not None and top0 is not None else None, 'lean': lean,
                     'trigger': (x or {}).get('trigger', [None])[0], 'devil': ((x or {}).get('case') or (x or {}).get('devil') or [None])[0], 'weather': (weather_ or {}).get('regime'),
-                    'take': take, 'stop': -T('stopPct'), 'tape': tp, 'usd': round(_f(l.get('units')) * px, 4), 'warden': p.get('warden')})
+                    'take': take, 'takeSource': tsrc, 'stop': -stop, 'hardStop': -_ci.CATASTROPHIC_STOP, 'decision': decision, 'obeying': (f'{tsrc} take' if rule.startswith('R6') else OBEY.get(rule.split(' ')[0], 'thesis hold')),
+                    'thesis': None if not th else {k: th.get(k) for k in ('structure', 'call', 'triggerRule', 'why', 'support', 'invalidation', 'stopPct', 'expectedHoldWindows', 'maxHoldWindows', 'reasons', 'risks', 'at')},
+                    'structure': (ch or {}).get('state'), 'chartSrc': (ch or {}).get('src'), 'verdict': (rv or {}).get('verdict'), 'why': (rv or {}).get('why') or [], 'window': (rv or {}).get('window'), 'granted': granted if th else None,
+                    'nextReview': (rv or {}).get('next') if rv else round((int(held // _ci.WINDOW_MIN) + 1) * _ci.WINDOW_MIN * 60 - held * 60),
+                    'chart': None if not ch else {k: ch.get(k) for k in ('trend', 'chop', 'mom', 'ext')} | {k: (ch.get('f') or {}).get(k) for k in ('hh', 'hl', 'lh', 'll', 'lastHigh', 'lastLow', 'accel', 'decay', 'upWick', 'liqD')},
+                    'tape': tp, 'usd': round(_f(l.get('units')) * px, 4), 'warden': p.get('warden')})
     gone = []
     for m in [m for m in pos if m not in on]:
         p = pos.pop(m)
@@ -586,7 +637,8 @@ def file_position(arch, p, now):
     rec = {'mint': p.get('mint'), 'sym': p.get('sym'), 'since': p.get('since'), 'closedAt': p.get('closedAt') or now, 'entry': p.get('entry'), 'peak': round(_f(p.get('peak')), 2),
            'low': round(_f(p.get('low')), 2), 'lastPct': p.get('pct'), 'path': list(p.get('path') or [])[-PATH_KEEP:], 'rule': p.get('askRule') or 'left the card by another rule',
            'byReaper': bool(p.get('askRule')), 'confirmed': bool(p.get('confirmed')), 'realPct': p.get('realPct'), 'exit': {k: v for k, v in (p.get('exit') or {}).items() if k in ('state', 'sig', 'at', 'usd', 'delta', 'realUsd', 'err')},
-           'wx': p.get('wx'), 'warden': p.get('warden'), 'tag': p.get('tag'), 'take': p.get('take')}
+           'wx': p.get('wx'), 'warden': p.get('warden'), 'tag': p.get('tag'), 'take': p.get('take'), 'exitStructure': p.get('chartNow'), 'windows': p.get('lastWin'),
+           'thesis': None if not p.get('thesis') else {k: p['thesis'].get(k) for k in ('structure', 'call', 'triggerRule', 'support', 'invalidation', 'stopPct', 'expectedHoldWindows', 'at')}}
     prev = ps[-1]['h'] if ps else a.get('posAnchor', '')
     rec['h'] = _hash(prev, {k: v for k, v in rec.items() if k != 'h'})
     ps.append(rec)
@@ -641,7 +693,24 @@ def patterns(arch, state=None):
     for r in devil_record(state):
         if r['n'] >= PATTERN_N and r['saved'] is not None:
             out.append({'agent': 'devil', 'text': f"objection '{r['rule']}' was followed by a flat or losing 5 min {r['saved']}% of the time ({r['med']:+.1f}% typical)", 'n': r['n'], 'value': r['saved']})
+    for r in structure_record(state):
+        if r['n'] >= PATTERN_N:
+            out.append({'agent': 'sherlock', 'n': r['n'], 'value': r['med5'], 'text': f"{r['state']} calls: median 5m {r['med5']:+.1f}%" + (f", 15m {r['med15']:+.1f}%" if r['med15'] is not None else '')
+                        + (f", 60m {r['med60']:+.1f}%" if r['med60'] is not None else '') + (f" — best window {r['best']}m" if r['best'] else '')})
+    late = [d for d in _ag._judged(state, 5) if d.get('ce') == 'ENTER NOW' and d.get('kind') == 'enter']
+    if len(late) >= PATTERN_N:
+        n_late = sum(1 for d in late if _f(d['p5']) < 0 and max([_f(x) for x in d.get('path') or [0]]) < 1.0)
+        out.append({'agent': 'trigger', 'n': len(late), 'value': round(n_late / len(late) * 100), 'text': f"Trigger entered too late {round(n_late / len(late) * 100)}% of the time (ENTER NOW that never went +1% and closed red at 5 min)"})
     pos = [p for p in (arch or {}).get('positions') or [] if p.get('confirmed') and p.get('realPct') is not None]
+    gave = [_f(p['peak']) - _f(p['realPct']) for p in pos if p.get('byReaper') and _f(p.get('peak')) > 1]
+    if len(gave) >= PATTERN_N:
+        out.append({'agent': 'reaper', 'n': len(gave), 'value': round(sum(gave) / len(gave), 1), 'text': f"Reaper surrendered {sum(gave) / len(gave):.1f} points of peak gain on average before its exits filled"})
+    g = {}
+    for p in pos:
+        if (p.get('thesis') or {}).get('structure'):
+            g.setdefault(p['thesis']['structure'], []).append(p['realPct'])
+    for k, v in sorted(g.items()):
+        s = _stat(v); s['n'] >= PATTERN_N and add('archivist', f"real entries on {k}: {s['avg']:+.1f}% real on average ({s['up']}% won)", s, s['avg'])
     g = {}
     for p in pos:
         g.setdefault(p.get('rule') or '—', []).append(p)
@@ -662,6 +731,23 @@ def patterns(arch, state=None):
     for k, v in g.items():
         s = _stat(v); s['n'] >= PATTERN_N and add('courier', f"confirmed exits filled {s['med']:+.2f}% from the mid price (typical)", s)
     return out
+
+
+def structure_record(state):
+    """📈 What each market-structure call was REALLY followed by (the desk's own judged calls carry the structure read at decision time,
+    `cs`): n, median at 5 / 15 / 60 min, the window with the best median. → [{state, n, med5, med15, med60, best, up}]"""
+    g = {}
+    for d in _ag._judged(state, 5):
+        if d.get('cs') and d['cs'] != 'UNKNOWN':   # an unread chart is not a structure call
+            g.setdefault(d['cs'], []).append(d)
+    out = []
+    for k, ds in g.items():
+        med = lambda h: (lambda xs: round(_med(xs), 2) if len(xs) >= PATTERN_N else None)([_f(d[f'p{h}']) for d in ds if d.get(f'p{h}') is not None])
+        m5, m15, m60 = med(5), med(15), med(60)
+        best = max(((h, v) for h, v in ((5, m5), (15, m15), (60, m60)) if v is not None), key=lambda t: t[1], default=(None, None))[0]
+        out.append({'state': k, 'n': len(ds), 'med5': m5 if m5 is not None else round(_med([_f(d['p5']) for d in ds]), 2), 'med15': m15, 'med60': m60, 'best': best,
+                    'up': round(sum(1 for d in ds if _f(d['p5']) > 0) / len(ds) * 100)})
+    return sorted(out, key=lambda r: -r['n'])
 
 
 # ── exposure helpers: what each of the four original desks used for ONE coin (no new logic — the same numbers, laid out) ───────────
@@ -715,7 +801,9 @@ def trigger_checks(row, perf=None):
             ['pool', not (0 < liq < 20_000), f'pool ${liq / 1000:.0f}K', True], ['top', d5 <= 15, f'{d5:+.1f}% in 5 min (≤ +15)', True], ['fall', d5 >= -8, f'{d5:+.1f}% in 5 min (≥ −8)', True],
             ['readings', int(n.get('pts') or 0) >= need, f"{int(n.get('pts') or 0)} of {need} readings", False],
             ['lean', _f(why.get('lean')) >= bar, f"lean {_f(why.get('lean')):+.1f} vs bar {bar:.2f}", False],
-            ['buyers', n.get('buy') is None or _f(n['buy']) >= 55, 'buyers unknown' if n.get('buy') is None else f"buyers {_f(n['buy']):.0f}% (≥ 55)", False]]
+            ['buyers', n.get('buy') is None or _f(n['buy']) >= 55, 'buyers unknown' if n.get('buy') is None else f"buyers {_f(n['buy']):.0f}% (≥ 55)", False]] + (
+        [] if not (row or {}).get('chart') else [['structure', row['chart']['entry'][0] != 'SKIP', f"{row['chart']['state']} ({row['chart']['src']}, {row['chart']['n']} candles)", True],
+                                                 ['moment', row['chart']['entry'][0] == 'ENTER NOW', f"{row['chart']['entry'][0]} — {row['chart']['entry'][1]}", False]])
 
 
 def devil_record(state, hours=72, now=0.0):
@@ -801,6 +889,18 @@ def scorecards(state, arch, office, real=None, courier_=None):
         else:
             k.update(badApprovals=sum(1 for x in ent if x.get('devil') == 'agree' and _f(x['p5']) <= -3), usefulVetoes=sum(1 for x in ent if x.get('devil') == 'object' and _f(x['p5']) <= 0),
                      fp=sum(1 for x in ent if x.get('devil') == 'object' and _f(x['p5']) >= 3))
+        cd = [x for x in d if x.get('cs') and x['cs'] != 'UNKNOWN']   # 📈 chart-reading, judged only on what was known at the call (the structure stored WITH the call) vs what followed
+        if a == 'sherlock' and cd:
+            ok_ = sum(1 for x in cd if (_f(x['p5']) > 0) == (x['cs'] in _ci.BULL))
+            k.update(chartN=len(cd), chartRight=round(ok_ / len(cd) * 100))
+        if a == 'trigger':
+            en = [x for x in cd if x.get('ce') == 'ENTER NOW' and x.get('kind') == 'enter']
+            wt = [x for x in cd if x.get('ce') and x['ce'].startswith('WAIT') and x.get('kind') == 'wait']
+            k.update(chartN=len(en), chartRight=round(sum(1 for x in en if _f(x['p5']) > 0) / len(en) * 100) if en else None,
+                     waitedRight=round(sum(1 for x in wt if _f(x['p5']) <= 0) / len(wt) * 100) if wt else None, waitedN=len(wt))
+        if a == 'devil':
+            co = [x for x in ent if str(x.get('devilRule') or '').startswith('chart_')]
+            k.update(chartN=len(co), chartRight=round(sum(1 for x in co if _f(x['p5']) <= 0) / len(co) * 100) if co else None)
         acc = c['won'] if a == 'trigger' else c['right']
         why = {'alive': f"{acc if acc is not None else '—'}% right over {s['n']} calls this life", 'probation': f"under {_ag.SURVIVE_RIGHT}% right over {s['n']} calls — scrapped at {_ag.SCRAP_N}",
                'scrap': f"still under {_ag.SURVIVE_RIGHT}% right at {s['n']} calls — reborn next pass"}[s['status']]
@@ -827,6 +927,7 @@ def scorecards(state, arch, office, real=None, courier_=None):
     kept = [_f(p['realPct']) / _f(p['peak']) * 100 for p in mine if _f(p.get('peak')) > 1]
     put('reaper', len(mine), round(sum(1 for p in mine if _f(p['realPct']) > 0) / len(mine) * 100) if mine else None, profit=round(sum(_f(p['realPct']) for p in mine if _f(p['realPct']) > 0), 1),
         loss=round(sum(_f(p['realPct']) for p in mine if _f(p['realPct']) <= 0), 1), drawdown=round(min([_f(p['low']) for p in mine] or [0.0]), 1), kept=round(sum(kept) / len(kept)) if kept else None,
+        chartN=sum(1 for p in mine if p.get('thesis')), chartRight=(lambda th_: round(sum(1 for p in th_ if (_f(p['realPct']) > 0) == (p.get('exitStructure') in _ci.GOOD or 'take' in str(p.get('rule')).lower())) / len(th_) * 100) if th_ else None)([p for p in mine if p.get('thesis')]),
         unconfirmed=sum(1 for p in ar.get('positions') or [] if p.get('byReaper') and not p.get('confirmed')), unit='real % on exits it asked for')
     breaks = verify(ar)
     filed = len(ar.get('cases') or [])
@@ -972,10 +1073,12 @@ def pipeline(case, ctx):
         if state in ('VETO', 'OBJECT', 'ERROR') and a in ('trigger', 'devil', 'warden', 'courier'):
             stop = True
     add('tally', 'STALE' if t.get('stale') else 'PASS' if int(_f(t.get('readings'))) >= 3 else 'WORKING', f"{t.get('readings')} readings · {t.get('ageSec')}s old" + (f" · missing {', '.join(t['missing'][:3])}" if t.get('missing') else ''))
-    add('sherlock', 'PASS' if _f(s.get('lean')) > 0 else 'OBJECT', f"lean {_f(s.get('lean')):+.1f} · {len(s.get('for') or [])} for / {len(s.get('against') or [])} against" + (f" · scan {ctx.get('scan')}" if ctx.get('scan') else ''))
+    add('sherlock', 'PASS' if _f(s.get('lean')) > 0 else 'OBJECT', (f"{row['chart']['state']} · " if row.get('chart') else '') + f"lean {_f(s.get('lean')):+.1f} · {len(s.get('for') or [])} for / {len(s.get('against') or [])} against" + (f" · scan {ctx.get('scan')}" if ctx.get('scan') else ''))
     add('weather', 'OBJECT' if w.get('regime') == 'HOSTILE' else 'PASS', f"{w.get('regime') or '—'} · bar {weather_adj(w):+.2f} · size ×{weather_size(w):g}")
     hard = [k for k in case['checks'] if k[0] in ('scan', 'age', 'pool', 'burn') and not k[1]]
-    add('trigger', 'VETO' if tr[0] == 'skip' or hard else 'PASS' if tr[0] == 'enter' else 'WORKING', f"{tr[0].upper()} — {tr[1]}" + (f" · duty blocked: {hard[0][2]}" if hard and tr[0] != 'skip' else ' · duty waives the bar only' if tr[0] == 'wait' else ''))
+    moment = chk.get('chart')
+    add('trigger', 'VETO' if tr[0] == 'skip' or hard else 'PASS' if tr[0] == 'enter' or (moment and moment[1]) else 'WORKING',
+        f"{tr[0].upper()} — {tr[1]}" + (f" · duty blocked: {hard[0][2]}" if hard and tr[0] != 'skip' else f' · {moment[2]}' if moment and tr[0] == 'wait' else ' · duty waives the bar only' if tr[0] == 'wait' else ''))
     add('devil', 'PASS' if chk['devil'][1] else 'OBJECT', chk['devil'][2])
     add('warden', 'WAITING' if not wd else 'VETO' if wd['veto'] else 'DONE', 'sizes the move when a seat is open' if not wd else f"${wd['requested']:.2f} → ${wd['allowed']:.2f} (×{wd['eff']:g}) · {wd['decided']}")
     add('courier', 'VETO' if c.get('health') == 'BAD' else 'WORKING' if c.get('pending') else 'OBJECT' if c.get('health') == 'DEGRADED' else 'PASS', f"{c.get('health') or '—'} · {(c.get('why') or [''])[0]}")
@@ -996,6 +1099,8 @@ def lineage_of(case, ctx, action=None):
             'weather': {'regime': w.get('regime'), 'barAdj': weather_adj(w), 'size': weather_size(w)}, 'trigger': [row['trigger'][0], str(row['trigger'][1])[:80], ctx.get('bar')],
             'devil': [(row.get('case') or row.get('devil') or ['—'])[0], [o[0] for o in row.get('objs') or []][:5]],
             'blocked': [k[0] for k in case.get('checks') or [] if not k[1]],
+            'chart': None if not row.get('chart') else {'state': row['chart']['state'], 'entry': row['chart']['entry'][:2], 'trend': row['chart'].get('trend'), 'chop': row['chart'].get('chop'),
+                                                        'mom': row['chart'].get('mom'), 'ext': row['chart'].get('ext'), 'src': row['chart'].get('src')},
             'warden': None if not wd else {'req': wd['requested'], 'allowed': wd['allowed'], 'mult': wd['eff'], 'rule': wd['decided']}, 'courier': (ctx.get('courier') or {}).get('health')}
 
 
@@ -1018,7 +1123,8 @@ def agent_cards(cards, ctx):
         c, k = CONSTITUTION[a], cards.get(a) or {}
         live = (ctx.get('live') or {}).get(a) or {}
         out.append({'key': a, 'icon': c['icon'], 'name': c['name'], 'role': c['role'], 'ideology': c['ideology'], 'ethics': list(c['ethics']), 'forbidden': list(c['forbidden']),
-                    'hard': list(c['hard']), 'code': [{'file': c['code']['file'], 'fn': list(c['code']['fn'])}] + ([{'file': 'backend/office.py', 'fn': list(c['office'])}] if c.get('office') else []),
+                    'hard': list(c['hard']), 'code': [{'file': c['code']['file'], 'fn': list(c['code']['fn'])}] + ([{'file': 'backend/office.py', 'fn': list(c['office'])}] if c.get('office') else [])
+                    + ([{'file': 'backend/chart_intel.py', 'fn': list(c['chart'])}] if c.get('chart') else []),
                     'tunable': [{'key': t, 'value': tune(ctx.get('office'), a, t), 'default': d[0], 'lo': d[1], 'hi': d[2], 'what': d[3]} for t, d in (TUNABLE.get(a) or {}).items()],
                     'task': live.get('task'), 'decision': live.get('decision'), 'decisionAt': live.get('at'), 'rule': live.get('rule'), 'inputs': live.get('inputs'), 'output': live.get('output'),
                     'recent': live.get('recent') or [], 'card': k})
