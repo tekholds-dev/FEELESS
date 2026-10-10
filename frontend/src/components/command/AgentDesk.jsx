@@ -35,7 +35,7 @@ export function ThoughtFeed({ lines }) {
 }
 export const agentLine = a => (a.n ? `${a.n} judged · ${pct(a.med)} typical at 5 min${a.right != null ? ` · ${a.right}% right` : ''}` : 'no judged calls yet — every call is checked 5 minutes later');
 
-export function AgentDesk({ call }) {
+export function AgentDesk({ call, isOwner = true }) {
   const [d, setD] = useState(null); const [busy, setBusy] = useState(false);
   const load = useCallback(() => call('/admin/agents').then(setD).catch(e => toast.error(e.message)), [call]);
   useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, 20000); return () => clearInterval(t); }, [load]);
@@ -55,7 +55,7 @@ export function AgentDesk({ call }) {
         <small className="m-dim">Control group (coins Trigger said WAIT): {d.control?.n ? `${pct(d.control.med)} typical` : 'not judged yet'} — the team must beat this to mean anything. Slippage on a 5-min scalp is not modelled.</small></div>
       <div className="agd-box" data-testid="agd-drivers"><b>🔍 WHAT SHERLOCK LEARNED</b>{(d.drivers || []).length ? <ul>{d.drivers.slice(0, 7).map(x => <li key={x.key}><span>{x.words}</span><em className={tone(x.med)}>{pct(x.med)}</em><small>n {x.n}</small></li>)}</ul> : <small className="m-dim">Nothing judged yet — drivers start from their priors.</small>}</div>
       <div className="agd-box" data-testid="agd-feed"><b>💵 YOUR REAL CARD</b><p className="m-dim">{d.proven5 ? 'The 5-minute stage is conquered. Their GO calls can go first in your card\'s rush (small tickets, every keeper check still runs).' : 'Paper only until they conquer the 5-minute stage. You can switch this on now — it starts the day they prove it.'}</p>
-        <div className="m-seg"><button type="button" disabled={busy} className={d.feedAsked ? 'active' : ''} onClick={() => feed(true)} data-testid="agd-feed-on">Feed my card</button><button type="button" disabled={busy} className={!d.feedAsked ? 'active' : ''} onClick={() => feed(false)} data-testid="agd-feed-off">Paper only</button></div>
+        <div className="m-seg"><button type="button" disabled={busy || !isOwner} className={d.feedAsked ? 'active' : ''} onClick={() => feed(true)} data-testid="agd-feed-on">Feed my card</button><button type="button" disabled={busy || !isOwner} className={!d.feedAsked ? 'active' : ''} onClick={() => feed(false)} data-testid="agd-feed-off">Paper only</button></div>
         <small className="m-dim">Trigger's bar right now: lean ≥ {d.bar} · {d.open} calls waiting to be judged</small></div>
     </div>
     <ThoughtFeed lines={d.thoughts} />

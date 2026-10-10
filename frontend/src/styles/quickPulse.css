@@ -148,6 +148,9 @@ body.theme-day .qp-ico .qp-s-site { color: #1f6fb0; }
 @media (prefers-reduced-motion: reduce) { .qp-ico > a { transition: none; } }
 
 /* 🌊 live tape + 🎯 clean-entry chips on picker rows */
+.sp-agent { display: inline-block; margin: 3px 0 0 6px; padding: 1px 7px; border-radius: 999px; font: 800 9.5px "JetBrains Mono", monospace; font-style: normal; border: 1px solid currentColor; white-space: nowrap; }
+.sp-agent.is-go { color: #45e486; background: rgba(21, 209, 106, .12); } .sp-agent.is-obj { color: #ff8fa3; } .sp-agent.is-wait { color: var(--gold, #f5c451); }
+body.theme-day .sp-agent.is-go { color: #0f8a45; } body.theme-day .sp-agent.is-obj { color: #b4233f; }
 .sp-brain { display: inline-block; margin: 3px 0 0 6px; padding: 1px 7px; border-radius: 999px; font: 700 9.5px "JetBrains Mono", monospace; font-style: normal; border: 1px solid currentColor; white-space: nowrap; }
 .sp-tape { margin-left: 5px; padding: 1px 6px; border-radius: 999px; font: 700 9.5px "JetBrains Mono", monospace; font-style: normal; border: 1px solid currentColor; white-space: nowrap; }
 .sp-tape.is-burst { color: #45e486; } .sp-tape.is-absorb { color: #7fd4ff; } .sp-tape.is-climax { color: var(--gold, #f5c451); } .sp-tape.is-dump { color: #ff8fa3; }

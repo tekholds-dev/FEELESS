@@ -2644,3 +2644,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   agent's words on every ENTER, else the 2 strongest leans) + `results` (5-min verdicts, "Devil was right / wrong") → `state.feed` (80) →
   `ThoughtFeed`. `_agent_test_fix_1009` switched `agentFeed` ON (owner's order) — it does nothing until the 10×. `settle` copies each call
   (it mutated the caller's dict, so before/after compared equal). Dollar-named tickers never reach the desk.
+- 🤖 Swap-in 🤖 Agents list (`AGENT_LENS`, `agentPool`, `AgentChip` `sp-agent`; only where the picker has an admin `call` — the real card's
+  pickers): the desk's live table as pickable rows, GO first, each with the four agents' words in the chip tip. `GET /admin/agents` is any
+  admin (role-scoped admins are refused by `_role_gate`); POST (the real-card feed) stays creator-only. 🪑 Empty seats fill from the volume
+  list too (`seatFallback` gets `vol_cycle_rows` first when `volCycle` is on): the cycle only ever REPLACED a flat coin, and the engine's own
+  funnel often ends at 0 — a card sat on 2 of 4 coins with $0.33 idle.

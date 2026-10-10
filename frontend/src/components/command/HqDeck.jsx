@@ -141,7 +141,7 @@ export function HqDeck({ address, signMessage, onClose }) {
       <button type="button" className="cc-close" onClick={onClose} aria-label="Close HQ"><X size={16} /></button></header>
     {TAB_INFO[tab] && <div className="cc-tab-hero" key={tab} data-testid="cc-tab-hero"><div><small>{TAB_GROUPS.find(g => g[1].includes(tab))?.[0]?.toUpperCase()}</small><h3>{TAB_INFO[tab][0]}</h3><p>{TAB_INFO[tab][1]}</p></div>{TAB_INFO[tab][2].length > 0 && <div className="cc-tab-does">{TAB_INFO[tab][2].map(x => <span key={x}>{x}</span>)}</div>}</div>}
 
-    {tab === 'agents' && (isOwner ? <AgentDesk call={call} /> : <p className="cc-empty">Only the creator wallet sees the agent desk.</p>)}
+    {tab === 'agents' && <AgentDesk call={call} isOwner={isOwner} />}
     {tab === 'launch' && <LaunchRailAdmin call={call} isOwner={isOwner} />}
     {tab === 'verify' && <CoinVerifyPanel call={call} />}
     {tab === 'latency' && <><LagCatcher call={call} /><LatencyPanel call={call} /></>}

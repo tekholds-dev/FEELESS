@@ -9257,6 +9257,13 @@ async def _prime_tick_inner(now):
             _best_rows[:] = list(b_ or [])   # 🏆 the 🏆 Best now tab + the card's Best 3 read this list
         if real_t and cfg_t.get('entryGate'):   # 🎯 the 30s seat fallback and Coming up's category picks obey clean entries too
             cfg_t = {**cfg_t, 'seatFallback': [x for x in cfg_t.get('seatFallback') or [] if not _prime.entry_gate(x, mom, core=True)]}   # 🪑 the 30s fill: core rules only
+        if real_t and cfg_t.get('volCycle'):   # 🪑 EMPTY SEATS FILL FROM THE VOLUME LIST TOO (owner: "seats are supposed to auto fill"): the engine's own funnel
+            # often ends at 0 coins, and the volume cycle only ever REPLACED a flat coin — an empty seat sat in cash. Same rows the cycle buys
+            # (6h+, $50K+ pool, $50K+/h, buyers ahead, rush-clean), busiest first, ahead of the 30s fallback list.
+            vr_ = [{**x, 'liquidityUsd': x.get('liq'), 'tag': '🌊 volume'} for x in _prime.vol_cycle_rows([_with_tv(y) for y in _open_board() or [] if y.get('safe') is True])
+                   if x.get('mint') not in mine and x.get('mint') not in cool and x.get('mint') not in bench and _lq(x) >= _fw.clean_cfg(fw_cfg)['minLiqUsd']
+                   and not _fw.dollar_named(x.get('symbol')) and _fuse._f(x.get('price')) > 0][:4]
+            cfg_t = {**cfg_t, 'seatFallback': vr_ + [x for x in cfg_t.get('seatFallback') or [] if x.get('mint') not in {y['mint'] for y in vr_}]}
         # 🧊 anchors cool too: a major this card just sold isn't bought back for 3 rounds while another major is available
         a_t = _prime_cool_candidates(anchors, cool, 2, strict=real_t and len([x for x in anchors if x.get('mint') not in cool]) >= 1) if cool else anchors
         if new_only_:
@@ -11789,8 +11796,9 @@ def _agents_go_rows():
 
 @app.get('/api/reputation/admin/agents')
 async def admin_agents(request: Request):
-    """🤖 HQ › Agents: the four agents, their scorecards, the live table (every agent's word per coin), the $20 paper desk and the stage."""
-    _require_owner(request)
+    """🤖 HQ › Agents + the swap-in 🤖 Agents list (creator / admin wallets): the four agents, their scorecards, the live table (every agent's
+    word per coin), the paper desk and the road to real money. Read-only; only the creator may switch the real-card feed (POST)."""
+    _require_admin(request)
     if not _agents.get('view'):
         st = _json_load(AGENTS_PATH, {})
         feed = bool(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentFeed'))
