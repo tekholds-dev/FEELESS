@@ -525,6 +525,7 @@ def clean_cfg(p):
     out['trenchAuto'] = bool((p or {}).get('trenchAuto', True))   # 🗑 may the ENGINE seat a trench coin by itself? off = trench coins are the owner's hand picks only
     out['upMeta'] = bool((p or {}).get('upMeta', True))          # 🧭 the engine's own buys need a readable chart that is not trending down
     out['trailStep'] = bool((p or {}).get('trailStep', False))   # 🪜 a rider's trail widens as its peak gain grows
+    out['proofGate'] = bool((p or {}).get('proofGate', False))   # 🧪 real card: the engine buys nothing while the edge audit finds no rule that passes on unseen coins
     out['keepHalf'] = bool((p or {}).get('keepHalf', False))     # 🔐 bank a fading winner's profit once at half its peak (half_back)
     out['comeback'] = bool((p or {}).get('comeback', True))      # 🔁 a rider that left is bought back when its dip recovers 15%
     out['ladder'] = bool((p or {}).get('ladder', False))

@@ -2815,4 +2815,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   or agent fixes that. RUN THIS BEFORE building or recommending anything that buys launch coins with real money, and say its result first.
   Real money should follow only a rule that prints ✅ here (positive on coins it was not picked from). ✋ Hold all on My cards = the engine
   stops swapping the real card.
+- 🧪 PROOF GATE (`backend/edge_audit.py` pure + tested: `audit / gate / words`; `_proof_gate_tick` hourly in `_fuse_warm` → `data/edge_audit.json`;
+  real cfg `proofGate`, Edit Fuse main pane + Safety; ON via `_proof_gate_fix_1010` — owner, 2026-10-10: "fix"): while NO rule passes the audit on
+  unseen coins the real card is held (`holdAll` + `holdBy: 'proof'`, chip `prime-proof`): the engine makes NO buy of any kind (rotation, rush,
+  cycles, seat refill, agent seats); stops, rug shield, flow exits and profit takes keep running; the owner's own picks still work. The hour a
+  rule passes (capped mean AND median > 0 in BOTH the learned 60% and the unseen 40%, ≥ 40 / 25 coins) it releases by itself. Under
+  `MIN_COINS` 500 = not judged. A hold the owner set by hand is never lifted; ▶ Release on a proof hold turns the gate OFF (their call).
+  Paper cards and the agents keep trading — they are what feeds the record. NEW REAL-MONEY BUY PATHS MUST RESPECT `holdAll`.
 

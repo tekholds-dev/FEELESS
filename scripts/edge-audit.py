@@ -57,3 +57,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+    sys.path.insert(0, str(DATA.parent))
+    import edge_audit as ea
+    a = ea.audit(json.load(open(DATA / 'trench_brain.json')).get('done') or [], json.load(open(DATA / 'agents.json')).get('done') or [], COST)
+    print('\nGATE:', ea.gate(a).upper(), '·', ea.words(a))

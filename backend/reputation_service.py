@@ -8662,6 +8662,65 @@ async def _flow_fix_1009(now):
     return True
 
 
+EDGE_AUDIT_PATH = FUSE_HQ_PATH.parent / 'edge_audit.json'
+
+
+async def _proof_gate_tick(now):
+    """🧪 Hourly: run the edge audit on our own records (edge_audit.audit) and, for a real card whose owner switched the PROOF GATE on
+    (cfg `proofGate`), hold it while no rule passes on unseen coins — ✋ hold all with `holdBy: 'proof'`: no engine BUY of any kind;
+    stops, the rug shield and profit takes keep running; the owner's own picks still work — and release it the hour a rule passes.
+    A hold the owner set by hand is never touched. Owner inbox once per change."""
+    import edge_audit as _ea
+    a = await asyncio.to_thread(lambda: _ea.audit((_json_load(BRAIN_PATH, {}).get('done') or []), (_json_load(AGENTS_PATH, {}).get('done') or []), _ea.COST, now))
+    _json_save(EDGE_AUDIT_PATH, {**a, 'gate': _ea.gate(a), 'words': _ea.words(a)})
+    g = _ea.gate(a)
+    if g == 'wait':
+        return a
+    told = None
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.get('prime') or {}
+        if not (pr.get('realCfg') or {}).get('proofGate'):
+            return a
+        ch = False
+        for c in (pr.get('cards') or {}).values():
+            if not c.get('real'):
+                continue
+            if g == 'hold' and not c.get('holdAll'):
+                c['holdAll'] = True; c['holdBy'] = 'proof'; ch = True; told = _ea.words(a)
+                c['events'] = (list(c.get('events') or []) + [{'kind': 'hold', 'at': now, 'why': told}])[-60:]
+            elif g == 'trade' and c.get('holdAll') and c.get('holdBy') == 'proof':
+                c['holdAll'] = False; c.pop('holdBy', None); ch = True; told = _ea.words(a) + ' — the engine trades again'
+                c['events'] = (list(c.get('events') or []) + [{'kind': 'hold', 'at': now, 'why': told}])[-60:]
+        if ch:
+            _json_save(FUSE_HQ_PATH, d)
+    if told:
+        for w in _owner_wallets():
+            notify(w, 'admin', told, url='/terminal/fuse?tab=cards', once=f"proof-gate-{g}-{int(now // 86400)}", push=False)
+    return a
+
+
+async def _proof_gate_fix_1010(now):
+    """🧪 Once (owner, 2026-10-10, after the edge audit found 0 of 433 rules positive: "fix"): PROOF GATE on for the real card. Old value:
+    data/realcfg_before_proofgate1010.json. Off again: Edit Fuse › Safety, or ▶ Release on the card."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('proofGateFix1010') or not rc:
+            return False
+        ch = {'proofGate': True}
+        _json_save(DATA_DIR / 'realcfg_before_proofgate1010.json', {k: rc.get(k) for k in ch})
+        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
+        pr['proofGateFix1010'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    try:
+        await _proof_gate_tick(now)   # judge at once — never wait an hour to stop a bleed
+    except Exception as e:
+        print('proof gate:', e)
+    return True
+
+
 async def _keephalf_fix_1010(now):
     """🔐 Once (owner, 2026-10-10 01:40, after a $1 top-up: "they must keep coins and profit going on card while I'm asleep — very smart money"):
     KEEP HALF on for the real card (`arena_prime.half_back`). Old value: data/realcfg_before_keephalf1010.json. Off again in Edit Fuse › Exits."""
@@ -8917,6 +8976,7 @@ async def _prime_tick_inner(now):
     await _flow_fix_1009(now)
     await _floor_off_fix_1009(now)
     await _keephalf_fix_1010(now)
+    await _proof_gate_fix_1010(now)
     await _rush_fix_1009(now)
     await _volcycle_fix_1009(now)
     await _degen_crazy_fix_1009(now)
@@ -9622,7 +9682,7 @@ async def _prime_view():
                 'pendingPayoutUsd': round(max(0.0, _fuse._f(c.get('walletUsd')) - _fuse._f(b.get('bankUsd'))), 4),
                 'math': {**sm.get('math', {}), 'putIn': round(_fuse._f(b.get('fundedUsd')) or start, 4), 'runStartUsd': round(start, 4), 'heldUsd': round(held, 4), 'paidOutUsd': round(paid, 4),
                          'nowUsd': v, 'feesUsd': card_fees, 'pnlUsd': round(v + card_fees - (_fuse._f(b.get('fundedUsd')) or start), 4)}}   # P&L = price result; fees apart
-    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'seatPick': c.get('seatPick'), 'rebuying': (c.get('rebuy') or {}).get('mint'), 'seatQueue': c.get('seatQueue') or [], 'pipeline': c.get('pipeline'), 'parkedUsd': round(sum(_fuse._f(x.get('usd')) for x in c.get('skimPark') or []), 4), 'parkedN': len(c.get('skimPark') or []), 'heldUsd': round(max(0.0, _fuse._f(c.get('holdCashUsd')) - sum(_fuse._f(x.get('usd')) for x in c.get('skimPark') or [])), 4), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'pickStyle': None if c.get('real') else _eff(c).get('pickStyle'), 'holdAll': bool(c.get('holdAll')), 'pickCool': {}, 'handsOffUntil': c.get('handsOffUntil') if _prime.hands_off_left(c, time.time()) else None, 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl'], sm.get('valueUsd'), sol_now, px) if c.get('real') else None,
+    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'seatPick': c.get('seatPick'), 'holdBy': c.get('holdBy'), 'proofWords': (_json_load(EDGE_AUDIT_PATH, {}).get('words') if c.get('real') else None), 'rebuying': (c.get('rebuy') or {}).get('mint'), 'seatQueue': c.get('seatQueue') or [], 'pipeline': c.get('pipeline'), 'parkedUsd': round(sum(_fuse._f(x.get('usd')) for x in c.get('skimPark') or []), 4), 'parkedN': len(c.get('skimPark') or []), 'heldUsd': round(max(0.0, _fuse._f(c.get('holdCashUsd')) - sum(_fuse._f(x.get('usd')) for x in c.get('skimPark') or [])), 4), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'pickStyle': None if c.get('real') else _eff(c).get('pickStyle'), 'holdAll': bool(c.get('holdAll')), 'pickCool': {}, 'handsOffUntil': c.get('handsOffUntil') if _prime.hands_off_left(c, time.time()) else None, 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl'], sm.get('valueUsd'), sol_now, px) if c.get('real') else None,
              'audit': [{k: e.get(k) for k in ('at', 'kind', 'symbol', 'usd', 'why', 'to', 'mode')} for e in (c.get('events') or [])[-40:][::-1]]} for c in cards.values()]
 
 
@@ -9689,6 +9749,10 @@ async def fuse_prime_admin(request: Request):
         hd = body.get('hold') or {}
         if hd.get('tpl') in _prime.TEMPLATES and (pr.get('cards') or {}).get(hd['tpl']):   # ✋ hold all: no swaps / re-shapes (stops + rug shield still run)
             c_ = pr['cards'][hd['tpl']]; c_['holdAll'] = bool(hd.get('on'))
+            if not hd.get('on') and c_.pop('holdBy', None) == 'proof' and c_.get('real'):   # ▶ the owner releases a proof-gate hold = their call: the gate goes off
+                pr['realCfg'] = _prime.clean_cfg({**(pr.get('realCfg') or {}), 'proofGate': False})
+            elif hd.get('on'):
+                c_.pop('holdBy', None)   # a hold set by hand is the owner's — the gate never lifts it
             c_['events'] = (list(c_.get('events') or []) + [{'kind': 'hold', 'at': time.time(), 'why': '✋ hold all — no swaps or re-shapes until released' if hd.get('on') else '▶ released — the engine swaps and re-shapes again'}])[-60:]
         ho = body.get('handsOff') or {}
         if ho.get('tpl') in _prime.TEMPLATES and (pr.get('cards') or {}).get(ho['tpl']):   # 🔒 hands-off lock (owner's own picks / hand swaps wait)
@@ -12042,6 +12106,11 @@ async def _fuse_warm():
         await _crew_season_tick(time.time())
     except Exception as e:
         print('crews:', e)
+    if _fuse_warm_n['n'] % 144 == 53:   # ~1h: 🧪 the edge audit + the proof gate on the real card
+        try:
+            await _proof_gate_tick(time.time())
+        except Exception as e:
+            print('proof gate:', e)
     if _fuse_warm_n['n'] % 144 == 31:   # ~1h: 🧾 what's working / what's not, always running (owner inbox when something flips)
         try:
             await _verdict_tick(time.time())
