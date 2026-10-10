@@ -15,6 +15,8 @@ calls run a $20 paper desk ($5 a ticket, out at 5 minutes). The 5-minute stage i
 positive median and ≥ PROVE_WIN % won — then the 15-minute stage opens. A record, never a promise: nothing here can promise not to lose.
 """
 
+import trench_mind as _tm
+
 AGENTS = (('tally', '📊', 'Tally', 'tracks the numbers'), ('sherlock', '🔍', 'Sherlock', 'knows why they moved'),
           ('trigger', '⏱', 'Trigger', 'knows when to enter'), ('devil', '⚖', 'Devil', 'argues it is right — or not'))
 STAGES = (5, 15, 60)            # minutes: conquer 5 first, then 15, then the hour
@@ -31,7 +33,16 @@ PRIOR = {'buyers': 1.0, 'sellers': -1.5, 'surge': 1.0, 'quiet': -0.5, 'whale_in'
 WORDS = {'buyers': 'buyers in charge', 'sellers': 'sellers in charge', 'surge': 'volume surging vs the hour', 'quiet': 'volume drying up',
          'whale_in': 'big buys on the tape', 'whale_out': 'big sells on the tape', 'callers': 'Pump callers piling in', 'drain': 'pool draining',
          'fresh': 'launched under an hour ago', 'wash': 'wash-traded volume', 'pullback': 'pulled back after a run', 'chasing': 'already spiking (5 min)',
-         'falling': 'falling right now', 'holders_up': 'holders arriving'}
+         'falling': 'falling right now', 'holders_up': 'holders arriving', 'narr_hot': 'riding a hot narrative', 'crowd_real': 'real callers on it',
+         'swarm': 'botted callout swarm', 'botted': 'botted launch', 'tug': 'dip tuggers catching a dump'}
+
+
+def word(k):
+    """Words for a driver key — a learned narrative driver reads as its label ('narr:ai' → 'the 🤖 AI narrative')."""
+    if str(k).startswith('narr:'):
+        lab = (_tm.NARRATIVES.get(k[5:]) or (k[5:],))[0]
+        return f'the {lab} narrative'
+    return WORDS.get(k, k)
 BUSTED = {'BOND RUN', 'EARLY RUSH', 'RUG BAIT', 'DUMPING', 'SLOW CURVE', 'BREAKOUT', 'FALLING KNIFE', 'WASH TRADED', 'BLOW-OFF TOP', 'DEAD DIP', 'TREND DOWN'}
 
 
@@ -108,7 +119,8 @@ def drivers(n, row):
         out.append('falling')
     if n.get('holdD') is not None and _f(n['holdD']) >= 20:
         out.append('holders_up')
-    return [d for d in out if d]
+    out += list(((row.get('mind') or {}).get('drivers')) or [])   # 🧠 the human read: narrative, crowd vs swarm, botted, dip tuggers
+    return [d for d in dict.fromkeys(out) if d]
 
 
 def weights(learned):
@@ -123,7 +135,7 @@ def weights(learned):
 def sherlock(n, row, learned):
     """→ {drivers: [(key, weight, words)], lean} — why it moved, strongest first."""
     w = weights(learned)
-    ds = sorted(((k, round(w.get(k, 0.0), 2), WORDS.get(k, k)) for k in drivers(n, row)), key=lambda x: -abs(x[1]))
+    ds = sorted(((k, round(w.get(k, 0.0), 2), word(k)) for k in drivers(n, row)), key=lambda x: -abs(x[1]))
     return {'drivers': ds, 'lean': round(sum(x[1] for x in ds), 2)}
 
 
@@ -167,6 +179,11 @@ def devil(call, n, why, row, learned):
         args.append('under 15 minutes old')
     if row.get('safe') is not True:
         args.append('holders never scanned')
+    mind = row.get('mind') or {}
+    if (mind.get('crowd') or {}).get('swarm'):
+        args.append(f"the callers are a bot swarm ({round(_f(mind['crowd'].get('swarmShare')) * 100)}% the same line)")
+    if _f((mind.get('bots') or (0, []))[0]) >= 40:
+        args.append('botted launch: ' + '; '.join((mind['bots'][1] or [])[:2]))
     bad = [d for d in why['drivers'] if d[1] < 0]
     if bad:
         args.append('against it: ' + ', '.join(d[2] for d in bad[:2]))
@@ -197,8 +214,12 @@ def desk(state, rows, now):
         why = sherlock(n, r, learned)
         call, reason = trigger(n, why, r, learned)
         verdict, arg = devil(call, n, why, r, learned)
+        rd = r.get('mind') or _tm.read(r)
         table.append({'mint': m, 'symbol': r.get('symbol'), 'pair': r.get('pairAddress'), 'px': _f(r.get('price')), 'nums': n, 'why': why,
-                      'trigger': [call, reason], 'devil': [verdict, arg], 'go': call == 'enter' and verdict == 'agree'})
+                      'trigger': [call, reason], 'devil': [verdict, arg], 'go': call == 'enter' and verdict == 'agree',
+                      'mind': {'narr': rd['narr'][1], 'hot': rd['narr'][2], 'callers': rd['crowd']['callers'], 'swarm': rd['crowd']['swarm'],
+                               'slang': rd['crowd']['slang'], 'bots': rd['bots'][0], 'tug': rd['tug'][0]},
+                      'analysis': _tm.analysis(r.get('symbol'), rd, n, call, verdict, arg)})
     table.sort(key=lambda x: (not x['go'], x['trigger'][0] != 'enter', -x['why']['lean']))
     st['feed'] = (list(st.get('feed') or []) + thoughts(table, now))[-FEED_KEEP:]
     return st, table
@@ -328,18 +349,23 @@ def road(state, real=None):
 
 
 def thoughts(table, now, top=4):
-    """🗯 What the four said this pass, in their own words, for the coins worth a line (every ENTER, else the strongest leans)."""
+    """🗯 What the four said this pass, in their own words and their own humor, for the coins worth a line (every ENTER, else the strongest
+    leans) — plus the desk's written analysis of each."""
     pick = [x for x in table if x['trigger'][0] == 'enter'][:top] or sorted(table, key=lambda x: -abs(x['why']['lean']))[:2]
     out = []
     for x in pick:
         n, sym = x['nums'], x['symbol']
+        j = (x.get('analysis') or {}).get('jokes') or {}
+        joke = lambda k: f" — “{j[k]}”" if j.get(k) else ''
         out.append({'at': now, 'who': 'tally', 'sym': sym, 'text': f"${sym} {n['d5']:+.1f}% in 5 min" + (f" · pace {n['pace']}×" if n.get('pace') is not None else '')
-                    + (f" · {round(_f(n['buy']))}% buys" if n.get('buy') is not None else '') + (f" · pool {n['liqD']:+.0f}%" if n.get('liqD') else '')})
+                    + (f" · {round(_f(n['buy']))}% buys" if n.get('buy') is not None else '') + (f" · pool {n['liqD']:+.0f}%" if n.get('liqD') else '') + joke('tally')})
         ds = x['why']['drivers']
-        out.append({'at': now, 'who': 'sherlock', 'sym': sym, 'text': ('; '.join(f"{d[2]} ({d[1]:+.1f})" for d in ds[:3]) if ds else 'nothing is moving it') + f" → lean {x['why']['lean']:+.1f}"})
-        out.append({'at': now, 'who': 'trigger', 'sym': sym, 'text': f"{x['trigger'][0].upper()} — {x['trigger'][1]}"})
+        out.append({'at': now, 'who': 'sherlock', 'sym': sym, 'text': ('; '.join(f"{d[2]} ({d[1]:+.1f})" for d in ds[:3]) if ds else 'nothing is moving it') + f" → lean {x['why']['lean']:+.1f}" + joke('sherlock')})
+        out.append({'at': now, 'who': 'trigger', 'sym': sym, 'text': f"{x['trigger'][0].upper()} — {x['trigger'][1]}" + joke('trigger')})
         if x['devil'][0] != '—':
-            out.append({'at': now, 'who': 'devil', 'sym': sym, 'text': f"{'agrees' if x['devil'][0] == 'agree' else 'OBJECTS'} — {x['devil'][1]}" + (' → 🟢 GO' if x['go'] else ' → ✋ no trade')})
+            out.append({'at': now, 'who': 'devil', 'sym': sym, 'text': f"{'agrees' if x['devil'][0] == 'agree' else 'OBJECTS'} — {x['devil'][1]}" + (' → 🟢 GO' if x['go'] else ' → ✋ no trade') + joke('devil')})
+        if (x.get('analysis') or {}).get('text'):
+            out.append({'at': now, 'who': 'desk', 'sym': sym, 'text': '✍ ' + x['analysis']['text']})
     return out
 
 
@@ -355,7 +381,7 @@ def results(before, after, now):
     return out
 
 
-def view(state, table, feed=False, real=None):
+def view(state, table, feed=False, real=None, mind=None):
     """What the HQ tab shows: the four agents with their scorecards, the live table (every agent's word per coin), the desk, the stage."""
     lr = learn(state, 5)
     st_ = stage(state)
@@ -363,6 +389,6 @@ def view(state, table, feed=False, real=None):
     cards = [{'key': k, 'icon': names[k][1], 'name': names[k][2], 'job': names[k][3], **lr['cards'][k]} for k in ('tally', 'sherlock', 'trigger', 'devil')]
     proven = 5 in st_['conquered']
     return {'agents': cards, 'team': lr['cards']['team'], 'control': lr['cards']['control'], 'bar': lr['bar'], 'stage': st_, 'proven5': proven,
-            'drivers': sorted(({'key': k, 'words': WORDS.get(k, k), **v} for k, v in lr['drivers'].items()), key=lambda x: -_f(x['med'])),
+            'drivers': sorted(({'key': k, 'words': word(k), **v} for k, v in lr['drivers'].items()), key=lambda x: -_f(x['med'])),
             'table': table[:24], 'desk': paper(state), 'open': len((state or {}).get('open') or {}), 'feed': bool(feed and proven), 'feedAsked': bool(feed),
-            'road': road(state, real), 'thoughts': list(reversed(((state or {}).get('feed') or [])[-40:])), 'real': real or {}}
+            'road': road(state, real), 'thoughts': list(reversed(((state or {}).get('feed') or [])[-40:])), 'real': real or {}, 'mind': mind or {}}

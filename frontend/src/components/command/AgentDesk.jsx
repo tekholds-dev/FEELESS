@@ -33,6 +33,15 @@ export function ThoughtFeed({ lines }) {
       return <li key={`${l.at}-${l.who}-${l.sym}-${i}`} className={`is-${l.who}`} style={{ '--i': Math.min(i, 8) }}><span className="agd-who">{w[0]} {w[1]}</span><span className="agd-txt">{l.text}</span><small>{ago(l.at)}</small></li>; })}</ul>
       : <small className="m-dim">Their first words land within a minute.</small>}</div>;
 }
+// 🧠 what the desk knows about HUMAN trenching right now: the narratives the board rides, slang it learned from Pump callers' own words,
+// bot swarms it caught (copy-paste callouts), and how many human calls it read.
+export function MindBox({ m }) {
+  if (!m) return null;
+  return <div className="agd-box agd-mind" data-testid="agd-mind"><b>🧠 TRENCH MIND · what they learned from humans</b>
+    <p className="m-dim">Read {m.callsRead || 0} Pump callouts · dictionary {m.dictionary || 0} words · {m.swarms || 0} bot swarm{m.swarms === 1 ? '' : 's'} caught on the live list</p>
+    <span className="agd-tags">{(m.hot || []).map(h => <i key={h.key} data-tip={`${h.n} coins · $${Math.round((h.vol1h || 0) / 1000)}K traded this hour`}>{h.label} · {h.n}</i>)}{!(m.hot || []).length && <small className="m-dim">no narrative leads the board right now</small>}</span>
+    <span className="agd-tags is-lingo">{(m.learned || []).length ? m.learned.map(w => <i key={w.word} data-tip={`learned from callers' own words · seen ${w.n}×`}>📖 {w.word}</i>) : <small className="m-dim">no new slang yet — a word must show up on 2+ days, 6+ times, from humans (bot copies count once)</small>}</span></div>;
+}
 export const agentLine = a => (a.n ? `${a.n} judged · ${pct(a.med)} typical at 5 min${a.right != null ? ` · ${a.right}% right` : ''}` : 'no judged calls yet — every call is checked 5 minutes later');
 
 export function AgentDesk({ call, isOwner = true }) {
@@ -58,6 +67,7 @@ export function AgentDesk({ call, isOwner = true }) {
         <div className="m-seg"><button type="button" disabled={busy || !isOwner} className={d.feedAsked ? 'active' : ''} onClick={() => feed(true)} data-testid="agd-feed-on">Feed my card</button><button type="button" disabled={busy || !isOwner} className={!d.feedAsked ? 'active' : ''} onClick={() => feed(false)} data-testid="agd-feed-off">Paper only</button></div>
         <small className="m-dim">Trigger's bar right now: lean ≥ {d.bar} · {d.open} calls waiting to be judged</small></div>
     </div>
+    <MindBox m={d.mind} />
     <ThoughtFeed lines={d.thoughts} />
     <div className="agd-table" data-testid="agd-table"><div className="agd-th"><span>coin</span><span>📊 Tally</span><span>🔍 Sherlock</span><span>⏱ Trigger</span><span>⚖ Devil</span><span /></div>
       {(d.table || []).map(x => { const c = CALL[x.trigger[0]] || ['', '']; const v = VERDICT[x.devil[0]] || ['', ''];
@@ -67,7 +77,8 @@ export function AgentDesk({ call, isOwner = true }) {
           <span className="agd-why">{x.why.drivers.length ? x.why.drivers.slice(0, 2).map(dd => <i key={dd[0]} className={dd[1] >= 0 ? 'is-up' : 'is-dn'}>{dd[2]}</i>) : <i>nothing moving it</i>}</span>
           <span className={`agd-call ${c[1]}`} data-tip={x.trigger[1]}>{c[0]}</span>
           <span className={`agd-call ${v[1]}`} data-tip={x.devil[1] || ''}>{v[0]}{x.devil[1] && x.devil[0] === 'object' ? <small>{x.devil[1]}</small> : null}</span>
-          <span className="agd-go">{x.go ? '🟢 GO' : ''}</span></div>; })}
+          <span className="agd-go">{x.go ? '🟢 GO' : ''}</span>
+          {x.analysis?.text && <p className="agd-brief">{x.mind?.narr && <i>{x.mind.narr}{x.mind.hot ? ' 🔥' : ''}</i>}{x.mind?.swarm && <i className="is-bad">🤖 swarm</i>}{x.mind?.bots >= 40 && <i className="is-bad">🤖 botted</i>}{x.mind?.tug && <i>🪝 tuggers</i>}{x.analysis.text}</p>}</div>; })}
       {!(d.table || []).length && <small className="m-dim">The first pass runs within a minute of the backend starting.</small>}</div>
   </section>;
 }

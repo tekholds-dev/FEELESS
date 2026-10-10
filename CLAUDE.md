@@ -2654,3 +2654,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   a 🟢 GO coin not on the card pops ONCE (localStorage `feeless.agentSeen`, 1h) with Sherlock's reasons, Tally's numbers, Devil's verdict and
   🪑 Fill seat (empty seat) · ⇄ Swap now (default = weakest swappable coin, select to change; never frozen / riding / buying) · 👀 See. Same
   `fillSeat` / `pickSwap` path as Best 3 — every check and warning still applies.
+- 🧠 TRENCH MIND (`backend/trench_mind.py` pure + tested; owner: "agents must understand HUMAN trenching — lingo, narratives, dip tuggers,
+  botted launches, learn on their own from Pump, real analysis, humor"): seed `SLANG` dictionary + `learn_lingo` (new words from Pump
+  callers' own thesis text: ≥ 6× on ≥ 2 days, copy-paste swarm lines counted once a day, `data/trench_lingo.json`) · `NARRATIVES` (name /
+  ticker → AI, dog, cat, frog, politics, celeb, stock, season, food, game, money) + `hot_narratives` · `crowd` (callers, real vs `swarm` =
+  ≥ 50% the same line or template, slang used, hype vs fear words) · `bots` (organic < 5%, ≥ 3 bundles, ≥ 8 snipers, wash read, micro-buys) ·
+  `dip_tug` (dumped, buyers still ≥ 50%). `read` → drivers `narr:<k>` / `narr_hot` / `crowd_real` / `swarm` / `botted` / `tug` on Sherlock
+  (judged on the 5-min record like every driver — it LEARNS which narratives / crowds pay); Devil objects to a swarm or a botted launch
+  (≥ 40). `analysis` = a written brief (a clause only when its evidence exists) + one line of each agent's humor (`QUIPS`, picked by
+  situation, stable per coin). HQ › Agents: `MindBox` (hot narratives, learned slang, swarms caught, calls read) + the brief under each
+  table row; the thought feed carries the jokes + a ✍ desk line. No AI model key is set — the writing is the engine's own, from evidence.

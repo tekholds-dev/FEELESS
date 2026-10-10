@@ -11744,6 +11744,8 @@ def _intel_restore():
 
 
 import agents as _ag
+import trench_mind as _tm
+LINGO_PATH = FUSE_HQ_PATH.parent / 'trench_lingo.json'   # 📖 slang the desk learned from Pump callers' own words (per-day counts + learned words)
 AGENTS_PATH = FUSE_HQ_PATH.parent / 'agents.json'   # 🤖 the agent desk: Tally's tapes, every call, every judged result
 AGENTS_EVERY = 55.0                                 # one pass a minute, whenever the backend is up (internet = it runs)
 AGENTS_SEE = 80                                     # the open list's busiest coins each pass
@@ -11761,8 +11763,20 @@ async def _agents_tick(now):
         raw = [_with_tv(x) for x in (_open_board() or [])[:AGENTS_SEE]]
         tv_ = {x.get('mint'): x.get('tv') for x in raw}
         rows = [{**r, 'tv': tv_.get(r.get('mint')) or r.get('tv')} for r in _clean_rows([dict(x) for x in raw])]
+        # 🧠 the human read: who is calling each coin on Pump and what they write, the narratives hot on the board, the lingo they use
+        calls_ = _pump_calls.get('calls') or []
+        by_m = {}
+        for c_ in calls_:
+            by_m.setdefault(c_.get('mint'), []).append(c_)
+        hot_ = _tm.hot_narratives(rows)
+        rows = [{**r, 'mind': _tm.read(r, by_m.get(r.get('mint')), hot_)} for r in rows if not _fw.dollar_named(r.get('symbol'))]
+        lingo = _tm.learn_lingo(_json_load(LINGO_PATH, {}), [c_.get('thesis') for c_ in calls_ if c_.get('thesis')], now)
+        _json_save(LINGO_PATH, lingo)
+        _agents['mind'] = {'hot': [{'key': k, **v} for k, v in list(hot_.items())[:6]], 'dictionary': len(_tm.SLANG),
+                           'learned': sorted(({'word': w, **v} for w, v in (lingo.get('learned') or {}).items()), key=lambda x: -_fuse._f(x.get('first')))[:16],
+                           'callsRead': len(calls_), 'swarms': sum(1 for r in rows if ((r.get('mind') or {}).get('crowd') or {}).get('swarm'))}
         st = _json_load(AGENTS_PATH, {})
-        st, table = _ag.desk(st, [r for r in rows if not _fw.dollar_named(r.get('symbol'))], now)
+        st, table = _ag.desk(st, rows, now)
         st = _ag.record(st, table, now)
         want = list((st.get('open') or {}).keys())
         jp = await _jup_prices(want) if want else {}
@@ -11772,7 +11786,7 @@ async def _agents_tick(now):
             st['feed'] = (list(st.get('feed') or []) + _ag.results(before, st, now))[-_ag.FEED_KEEP:]
         _json_save(AGENTS_PATH, st)
         feed = bool(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentFeed'))
-        _agents.update(table=table, view=_ag.view(st, table, feed, _agents_real()))
+        _agents.update(table=table, view=_ag.view(st, table, feed, _agents_real(), _agents.get('mind')))
     except Exception as e:
         print('agents:', e)
 
@@ -11802,7 +11816,7 @@ async def admin_agents(request: Request):
     if not _agents.get('view'):
         st = _json_load(AGENTS_PATH, {})
         feed = bool(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentFeed'))
-        _agents['view'] = _ag.view(st, _agents.get('table') or [], feed, _agents_real())
+        _agents['view'] = _ag.view(st, _agents.get('table') or [], feed, _agents_real(), _agents.get('mind'))
     return _agents['view']
 
 

@@ -57,6 +57,14 @@
 body.fx-lite .agd-feed li { animation: none; }
 @media (prefers-reduced-motion: reduce) { .agd-feed li, .agd-road-bar i { animation: none; transition: none; } }
 body.theme-day .agd-road, body.theme-day .agd-feed { background: rgba(255, 255, 255, .7); border-color: #cfe3d8; } body.theme-day .agd-txt { color: #13281d; }
+/* 🧠 trench mind + the written brief per coin */
+.agd-mind p { font-size: 11px; } .agd-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.agd-tags i { font-style: normal; font-size: 10.5px; padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(196, 155, 255, .45); color: #d6c2ff; }
+.agd-tags.is-lingo i { border-color: rgba(127, 212, 255, .45); color: #a6e3ff; }
+.agd-brief { grid-column: 1 / -1; margin: 2px 0 0; font-size: 11px; line-height: 1.45; color: #b9d5c6; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.agd-brief i { font-style: normal; margin-right: 6px; padding: 0 6px; border-radius: 999px; border: 1px solid #2a4236; font-size: 10px; } .agd-brief i.is-bad { color: #ff8fa3; border-color: rgba(255, 143, 163, .45); }
+.agd-tr:hover .agd-brief { -webkit-line-clamp: unset; }
+body.theme-day .agd-tags i { color: #5b2fb0; border-color: #c8b4f0; } body.theme-day .agd-tags.is-lingo i { color: #135d86; border-color: #a9d3ea; } body.theme-day .agd-brief { color: #2c4a3b; }
 @keyframes agdIn { from { opacity: .4; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 body.fx-lite .agd-agent { animation: none; }
 @media (prefers-reduced-motion: reduce) { .agd-agent { animation: none; transition: none; } }
