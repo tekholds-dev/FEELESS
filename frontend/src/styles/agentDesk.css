@@ -223,9 +223,14 @@ body.theme-day .agd .is-trigger { --ag: #a87b12; } body.theme-day .agd .is-tally
   .agd-says { grid-template-columns: 1fr; } .agd-ideas li { grid-template-columns: 1fr; } .agd-bars li { grid-template-columns: minmax(0, 1fr) 60px 52px; } .agd-bars li small { display: none; }
   .agd-q { max-width: none; } .agd-ahead { grid-template-columns: 40px minmax(0, 1fr); } .agd-ahead em { grid-column: 2; font-size: 13px; }
 }
-/* v11: the mission header ticker · the lens bar docks at the bottom of the tab · the full-board fold */
+/* v11: the mission header ticker · the lens bar docks at the bottom of the tab */
 .agd-ticker { display: block; margin-top: 3px; font: 11px var(--m-mono); color: var(--m-dim); text-transform: none; letter-spacing: 0; overflow-wrap: anywhere; }
 .agd-lens { position: sticky; bottom: 8px; z-index: 6; justify-self: center; background: #07140e; box-shadow: 0 8px 26px rgba(0, 0, 0, .55); } body.theme-day .agd-lens { background: #fff; }
-.agd-fold > summary { cursor: pointer; padding: 8px 10px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); font: 600 11px var(--m-mono); color: var(--m-dim); transition: border-color .15s, color .15s; }
-.agd-fold > summary:hover, .agd-fold > summary:focus-visible { border-color: var(--m-accent); color: var(--m-text); outline: none; } .agd-fold[open] > summary { margin-bottom: 10px; }
+/* v12 (owner: "the office IS the Agents tab"): mission + ONE compact status strip, the old rows open in a drawer, the office fills the view */
+.agd { gap: 8px; padding: 10px 12px; }
+.agd-kpis { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 5px; }
+.agd-kpis .agd-kpi { padding: 5px 8px; gap: 1px; min-width: 0; } .agd-kpis .agd-kpi small { font-size: 8.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .agd-kpis .agd-kpi b { font-size: 14px; line-height: 1.15; white-space: nowrap; }
+.agd-kpis .agd-kpi span { font-size: 9px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.agd-drawer { display: grid; gap: 8px; padding: 8px; border-radius: var(--m-r); border: 1px dashed var(--m-line-hi); animation: agdIn .2s var(--m-ease) both; min-width: 0; }
+@media (max-width: 1180px) { .agd-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); } } @media (max-width: 640px) { .agd-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 

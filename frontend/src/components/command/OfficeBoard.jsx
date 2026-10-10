@@ -47,7 +47,7 @@ export function OfficeMission({ m, bare }) {
   useEffect(() => { const t = setInterval(() => tick(n => n + 1), 1000); return () => clearInterval(t); }, []);
   if (!m) return <div className="ofb-mission is-cold" data-testid="ofb-mission"><b>💵 REAL MONEY MISSION</b><span className="ofb-nil">waiting for the agents' first pass — nothing is shown until the real card's own numbers arrive</span></div>;
   const left = nextDuty(m); const la = m.lastAction; const [rc, rt] = actionResult(la?.result); const be = m.toBreakeven;
-  return <div className={`ofb-mission ${m.locked ? 'is-locked' : 'is-clear'}`} data-testid="ofb-mission">
+  return <div className={`ofb-mission ${m.locked ? 'is-locked' : 'is-clear'} ${bare ? 'is-bare' : ''}`} data-testid="ofb-mission">
     {bare ? null : <b data-tip="Every number here is the real Fuse card's own: its server value and what you put in. The page computes nothing.">💵 REAL MONEY MISSION</b>}
     <div className="ofb-mgrid">
       <span data-testid="ofb-putin"><small>PUT IN</small><em>{usd(m.putIn)}</em></span>
@@ -57,9 +57,10 @@ export function OfficeMission({ m, bare }) {
       <span data-testid="ofb-lock" data-tip={m.lockRule}><small>BREAKEVEN LOCK</small><em className={m.locked ? 'ofb-warn' : 'ofb-up'}>{m.locked ? '🔒 LOCKED' : m.lock === 'CLEARED' ? '🔓 CLEARED' : '— UNKNOWN'}</em></span>
       <span data-testid="ofb-lives"><small>TEAM LIVES</small><em className={m.lives != null && m.lives <= 3 ? 'ofb-dn' : ''}>{m.lives ?? '—'} / {m.livesOf}</em></span>
       <span data-testid="ofb-duty"><small>NEXT DUTY</small><em>{left == null ? 'control off' : left <= 0 ? 'due now' : clock(left)}</em></span>
+      {bare ? <span className="ofb-lasttile" data-testid="ofb-last" data-tip={la ? `${la.why} — ${rt}` : 'no real agent action since the service started'}><small>LAST REAL ACTION</small><em>{la ? `${la.move?.toUpperCase()} $${la.sym}` : '—'}</em>{la ? <u className={rc}>{rt.split(' — ')[0].split(' · ')[0]} · {ago(la.at)}</u> : null}</span> : null}
     </div>
-    <p className="ofb-last" data-testid="ofb-last"><small>LAST REAL ACTION</small>{la ? <><span>{la.move?.toUpperCase()} ${la.sym}{la.usd != null ? ` · ${usd(la.usd)}` : ''} · {ago(la.at)}</span><Tag cls={rc}>{rt}</Tag><span className="ofb-why">{la.why}</span></> : <span className="ofb-nil">none since the service started</span>}</p>
-    <p className="ofb-prio">{(m.priority || []).map((p, i) => <React.Fragment key={p}>{i ? <i aria-hidden>→</i> : null}<span>{p}</span></React.Fragment>)}</p>
+    {bare ? null : <>    <p className="ofb-last" data-testid="ofb-last"><small>LAST REAL ACTION</small>{la ? <><span>{la.move?.toUpperCase()} ${la.sym}{la.usd != null ? ` · ${usd(la.usd)}` : ''} · {ago(la.at)}</span><Tag cls={rc}>{rt}</Tag><span className="ofb-why">{la.why}</span></> : <span className="ofb-nil">none since the service started</span>}</p>
+    <p className="ofb-prio">{(m.priority || []).map((p, i) => <React.Fragment key={p}>{i ? <i aria-hidden>→</i> : null}<span>{p}</span></React.Fragment>)}</p></>}
   </div>;
 }
 

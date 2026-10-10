@@ -48,7 +48,9 @@ test('tap a mini screen → the zoom: tap a mark or step ‹ › through the coi
   expect(q('dot-GOOD')).not.toBeNull();
   await act(async () => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
   expect(q('ags-zoom')).toBeNull();
-  expect(q('ags-card').textContent).toContain('$BOT'); expect(q('ags-pow').textContent).toContain('1 / 1 seats');   // the real card strip is always on screen
+  expect(q('ags-card')).toBeNull(); expect(q('kpi-seats').textContent).toContain('IN CONTROL');                      // the seats are one tap away on the status strip
+  await act(async () => { q('kpi-seats').click(); });
+  expect(q('ags-card').textContent).toContain('$BOT'); expect(q('ags-pow').textContent).toContain('1 / 1 seats');
   await act(async () => { root.unmount(); });
 });
 

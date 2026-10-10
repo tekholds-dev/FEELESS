@@ -68,11 +68,20 @@ test('the desk is interactive: one lens at a time, KPI tiles jump, the board fil
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<AgentDesk call={call} />); });
   const q = id => el.querySelector(`[data-testid="${id}"]`);
-  expect(q('office-board')).not.toBeNull(); expect(q('lens-live-pane')).toBeNull(); expect(q('agent-desk').textContent).toContain('REAL MONEY MISSION'); expect(q('office-hq')).not.toBeNull(); expect(q('agd-board-fold')).not.toBeNull();   // opens on the 🏢 Office: data first
-  expect(q('agent-tally')).toBeNull();                                                                                 // the four-desk picker lives in the Live view now
+  expect(q('agent-desk').textContent).toContain('REAL MONEY MISSION'); expect(q('office-hq')).not.toBeNull(); expect(q('office-board')).toBeNull();   // the office IS the tab: mission → status strip → office
+  const order = [...q('agent-desk').children].map(n => n.getAttribute('data-testid') || n.className);
+  expect(order.indexOf('office-hq')).toBeGreaterThan(order.indexOf('agd-kpis')); expect(order.indexOf('office-hq')).toBeLessThan(order.findIndex(x => String(x).includes('agd-lens')));   // above every lens, nothing folded
+  expect(q('ags-court')).toBeNull(); expect(q('ags-mission')).toBeNull(); expect(q('ags-duty')).toBeNull(); expect(q('agd-drawer')).toBeNull();   // the old rows are compressed into the strip …
+  for (const k of ['mission', 'seats', 'duty', 'judge', 'go', 'desk', 'road', 'market', 'ideas', 'lives']) expect(q(`kpi-${k}`)).not.toBeNull();
+  await act(async () => { q('kpi-judge').click(); });
+  expect(q('agd-drawer')).not.toBeNull(); expect(q('ags-court')).not.toBeNull(); expect(q('ags-stake').textContent).toContain('next stake 25%'); expect(q('ags-mission')).toBeNull();   // … and open ONE at a time in the drawer
+  await act(async () => { q('kpi-mission').click(); });
+  expect(q('ags-mission')).not.toBeNull(); expect(q('ags-court')).toBeNull();
+  await act(async () => { q('kpi-mission').click(); });
+  expect(q('agd-drawer')).toBeNull();
   expect(call.mock.calls.filter(c => !c[1]).map(c => c[0])).toEqual(['/admin/agents']);                              // ONE request feeds the desk AND the office
   await act(async () => { q('lens-live').click(); });
-  expect(q('lens-live-pane')).not.toBeNull(); expect(q('office-board')).toBeNull(); expect(q('lens-learn-pane')).toBeNull(); expect(q('agd-controls')).toBeNull();   // one lens at a time
+  expect(q('lens-live-pane')).not.toBeNull(); expect(q('lens-learn-pane')).toBeNull(); expect(q('agd-controls')).toBeNull();   // one lens at a time
   expect(q('kpi-go').textContent).toContain('1'); expect(q('kpi-go').textContent).toContain('2 ENTER'); expect(q('kpi-desk').textContent).toContain('$20.60');
   expect(q('agd-clock')).not.toBeNull();
   await act(async () => { q('board-go').click(); });
@@ -90,7 +99,8 @@ test('the desk is interactive: one lens at a time, KPI tiles jump, the board fil
   expect(q('agd-controls')).not.toBeNull(); expect(q('agd-road')).not.toBeNull();
   await act(async () => { q('dial-crazy').click(); });   // 🔥 the creator's dial is one tap, saved as agentDial
   expect(call).toHaveBeenCalledWith('/admin/agents', expect.objectContaining({ body: JSON.stringify({ cfg: { agentDial: 'crazy' } }) }));
-  expect(q('ags-court')).not.toBeNull(); expect(q('ags-stake').textContent).toContain('next stake 25%');
+  await act(async () => { q('lens-board').click(); });
+  expect(q('office-board')).not.toBeNull();                                                                            // the full board is its own lens, not a fold
   expect(q('agd-office').getAttribute('aria-pressed')).toBe('true');       // the room is on by default
   await act(async () => { q('agd-office').click(); });
   expect(q('agd-office').getAttribute('aria-pressed')).toBe('false');

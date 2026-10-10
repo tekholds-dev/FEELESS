@@ -2934,3 +2934,21 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`_office_bars` / `_office_positions`, memory only), `performance.agents[a].series`. The room is DOM + CSS perspective (no WebGL):
   every label is testable text. "Expected move" from the preview is NOT shown — nothing computes one; TAKE / STOP lines stand there.
   SVG labels use `T()` (createElement). `.ofr-room` is an fxPause surface.
+- 🏢 AGENTS TAB v12 = THE OFFICE IS THE TAB (owner rejected v11: "not hidden lower down … not a CSS diorama"; this REPLACES the v11 note's
+  room + ordering). `AgentDesk` order, nothing folded: header (💵 REAL MONEY MISSION · pass clock · ticker · stage · dial · room toggle ·
+  log) → `OfficeMission bare` = ONE row of 8 tiles (incl. LAST REAL ACTION) → `agd-kpis` = ONE strip of 10 chips (🎯 breakeven · 🎮 in
+  control · 🕙 duty · 👨‍⚖️ judge · GO · paper · road · trench · ideas · lives; the first four open the old MissionBar / CardNow / DutyBox /
+  CourtBand in ONE `agd-drawer`, one at a time) → `OfficeHQ` ALWAYS (not a lens) → lens bar (🟢 Live · 📋 Board · 🧠 · 🧬 · ⚙; default Live).
+  `OfficeHQ`: stage ~64% | `AgentPanel` ~36% | `Roster` — `--ofr-h` is MEASURED (`useLayoutEffect`: window height − the stage's top −
+  the roster) so room + panel + roster share one view under any shell. THE ROOM IS REAL three.js (`OfficeRoom3D.jsx`, lazy chunk, the
+  first office's renderer rebuilt dark for ten desks): it draws ONLY `roomModel(o, sel, coin)` (pure, tested) — stations (bot · monitor
+  canvas = action word + `deskLine` · floor ring in the state colour · selection ring), the chain as lit floor segments up to the desk
+  the candidate stands at with a travelling pulse, the WALL MONITOR canvas (coin · stage · structure · decision · Warden · Devil · review
+  clock ticking · `candleGeom` of the SAME rows the agents read, far levels named at the edge via `off`, tape = a line, no candles =
+  said so), sign + pipeline status. HTML station labels are projected per frame (buttons, `desk-<k>`). Camera: Main · Top · Focus desk +
+  auto-rotate sweep (real, persisted; shown only with a GPU); FOV follows the stage width (`fovFor`). No WebGL (tests, old GPUs) → the DOM
+  `RoomScene` stands in (same testids). Panel Live tab = decision (rule in the label) · 4 tiles · coin chips + review clock · chart ·
+  intelligence grid · `rulingsOf` (each desk's decision of this pass, then the feed) · runtime + files. Checking the REAL page without an
+  HQ sign-in: the service writes `data/agents_view.json` = exactly what `GET /admin/agents` answers each pass; render `AgentDesk` with a
+  read-only `call` on a copy of it (scratch only, never shipped). Measured 2026-10-10 at 1440 × 900 on the live payload: stage 870 × 506,
+  roster bottom 885, 0 non-transform animations.

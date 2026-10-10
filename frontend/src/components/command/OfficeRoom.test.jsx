@@ -65,7 +65,7 @@ test('the live panel: decision, lines, the chart with its coin picker, chart int
   const el = await mount(<AgentPanel o={office} a={a} coin={null} onCoin={s => { coin = s; }} />);
   expect(PANEL_TABS.map(t => t[1])).toEqual(['Live decision', 'Beliefs & ethics', 'Current inputs', 'Chart intel', 'Source code']);
   const live = q(el, 'pane-live').textContent;
-  for (const w of ['CURRENT DECISION', 'RECORD', 'TAKE / STOP', 'RISK', 'POSITION SIZE', 'CHART INTELLIGENCE', 'LAST RULINGS', 'RUNTIME / FILES']) expect(live).toContain(w);
+  for (const w of ['CURRENT DECISION', 'RECORD', 'TAKE / STOP', 'RISK', 'POSITION SIZE', 'CHART INTELLIGENCE', 'LIVE RULINGS', 'RUNTIME last']) expect(live).toContain(w);
   expect(live).toContain(`+${p.take}% / ${p.stop}%`); expect(live).toContain(`${p.takeSource} take`);                    // Reaper opens on ITS position
   expect(q(el, 'ofr-intel').textContent).toContain(p.structure); expect(q(el, 'ofr-intel').textContent).toContain('Reaper next review'); expect(q(el, 'ofr-intel').textContent).toContain(p.thesis.triggerRule);
   expect(q(el, 'ofr-review').textContent).toContain('next review'); expect(q(el, 'ofr-chart')).not.toBeNull();
@@ -102,4 +102,39 @@ test('the roster: ten live cards with gen, status, runtime line, record and the 
   expect(q(flat, 'ofr-room')).toBeNull(); expect(q(flat, 'ofr-panel')).not.toBeNull(); expect(q(flat, 'ofr-roster')).not.toBeNull();
   const cold = await mount(<OfficeHQ o={{ cold: true }} />);
   expect(q(cold, 'office-hq').textContent).toContain('waiting for the agents');
+});
+
+test('the 3D room is handed real state only: ten stations, the candidate on the wall with its candles, each desk\'s own line', () => {
+  const { roomModel, deskLine, rulingsOf, hhmm, CAMS } = require('./OfficeRoom');
+  const m = roomModel(office, 'reaper', null);
+  expect(m.stations.map(s => s.key)).toEqual(CHAIN); expect(m.stations.filter(s => s.focus).map(s => s.key)).toEqual([focusOf(office)]); expect(m.stations.find(s => s.key === 'reaper').selected).toBe(true);
+  expect(m.stations.every(s => s.tag === agentTag(s.key, office)[0] && s.line === deskLine(s.key, office) && TAG_CLS[s.tag] === s.cls)).toBe(true);   // every station = the payload's own word
+  expect(m.wall.symbol).toBe(office.currentCase.symbol); expect(m.wall.structure).toBe(office.currentCase.chart.state); expect(m.wall.decision).toBe(office.currentCase.chart.entry[0]);
+  expect(m.wall.bars).toBe(office.currentCase.bars); expect(m.wall.stage).toBe(office.agents.find(a => a.key === focusOf(office)).name);                  // the SAME candle rows, not a copy or a sketch
+  expect(m.wall.devil).toMatch(/NO OBJECTION|OBJECT/); expect(m.status[0]).toEqual([office.office.cleared, 'cleared', '#45e486']);
+  const p = office.positions[0]; const w = roomModel(office, 'reaper', p.symbol).wall;
+  expect(w.kind).toBe('position'); expect(w.decision).toBe(p.decision); expect(w.stage).toBe('Reaper'); expect(w.levels.map(l => l.label)).toEqual(expect.arrayContaining(['entry', 'invalid', 'support'])); expect(w.reviewAt).not.toBeNull();
+  expect(roomModel({ agents: office.agents, pipeline: [] }, null, null).wall).toBeNull();                                                              // no candidate, no position → an empty wall, never a made-up coin
+  expect(deskLine('tally', office)).toContain(`${office.office.coins} coins read`); expect(deskLine('courier', office)).toContain(office.execution.health);
+  expect(deskLine('weather', office)).toContain(office.agents.find(a => a.key === 'weather').output.regime); expect(deskLine('reaper', office)).toContain(`$${p.symbol}`);
+  expect(deskLine('trigger', {})).toBe('no candidate'); expect(deskLine('reaper', {})).toBe('no open position');
+  const r = rulingsOf(office, 8);
+  expect(r.length).toBeGreaterThan(0); expect(r.every(x => CHAIN.includes(x.key) && x.text && x.at)).toBe(true);
+  expect(r.every(x => { const a = office.agents.find(y => y.key === x.key); return a.decision === x.text || (a.recent || []).some(z => z.text === x.text); })).toBe(true);   // every line is a recorded decision of that desk
+  expect(rulingsOf({}, 8)).toEqual([]); expect(hhmm(0)).toMatch(/^\d\d:\d\d$/); expect(CAMS.map(c => c[0])).toEqual(['main', 'top', 'focus']);
+  const far = candleGeom(p.bars.rows, [{ px: p.entry * 3, label: 'take +200%', cls: 'is-take' }, { px: p.entry * 0.2, label: 'stop', cls: 'is-stop' }]);
+  expect(far.lines).toEqual([]); expect(far.off.map(l => [l.label, l.up])).toEqual([['take +200%', true], ['stop', false]]);                             // a far level is named at the edge, the candles keep their scale
+  expect(far.hi).toBe(Math.max(...p.bars.rows.map(x => x[2])));
+});
+
+test('the office: room above the roster, a station pick drives the panel, and the camera controls only exist with a real 3D room', async () => {
+  const el = await mount(<OfficeHQ o={office} roomOn gl={false} />);
+  const kids = [...q(el, 'office-hq').children].map(n => n.className);
+  expect(kids.findIndex(c => c.includes('ofr-main'))).toBeLessThan(kids.findIndex(c => c.includes('ofr-roster')));
+  expect(q(el, 'ofr-stage')).not.toBeNull(); expect(q(el, 'cam-main')).toBeNull(); expect(q(el, 'cam-rotate')).toBeNull();                              // no GPU → no camera buttons that would do nothing
+  await act(async () => { q(el, 'desk-courier').click(); });
+  expect(q(el, 'ofr-panel').textContent).toContain('COURIER'); expect(q(el, 'roster-courier').getAttribute('aria-pressed')).toBe('true');
+  await act(async () => { q(el, 'roster-judge').click(); });
+  expect(q(el, 'ofr-panel').textContent).toContain('JUDGE'); expect(q(el, 'desk-judge').getAttribute('aria-pressed')).toBe('true');
+  expect(q(el, 'ofr-rulings').querySelectorAll('li').length).toBeGreaterThan(0);
 });

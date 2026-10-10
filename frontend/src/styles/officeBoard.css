@@ -107,3 +107,9 @@ body.theme-day .ofb-mission, body.theme-day .ofb-pipe, body.theme-day .ofb-box, 
 @media (max-width: 1100px) { .ofb-stages { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .ofb-stages { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ofb-agents { grid-template-columns: 1fr; } .ofb-dgrid, .ofb-two { grid-template-columns: 1fr; } .ofb-mgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ofb-mgrid em { font-size: 15px; }
   .ofb-recent li { grid-template-columns: 1fr; gap: 0; } .ofb-kv, .ofb-feat > .ofb-kv { grid-template-columns: 1fr; } .ofb-poslist { grid-template-columns: 1fr; } .ofb-meters, .ofb-pgrid, .ofb-take { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* the mission as ONE compact row (the Agents tab header) */
+.ofb-mission.is-bare { padding: 6px 8px; gap: 0; } .ofb-mission.is-bare .ofb-mgrid { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 5px; } .ofb-mission.is-bare .ofb-mgrid > span { padding: 4px 8px; gap: 1px; }
+.ofb-mission.is-bare .ofb-mgrid em { font-size: 14px; overflow: hidden; text-overflow: ellipsis; } .ofb-mission.is-bare .ofb-mgrid u { font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ofb-lasttile u.is-pass { color: #45e486; } .ofb-lasttile u.is-veto { color: var(--m-danger); } .ofb-lasttile u.is-obj { color: var(--m-warn); } .ofb-lasttile u.is-wait { color: var(--m-mute); }
+@media (max-width: 1180px) { .ofb-mission.is-bare .ofb-mgrid { grid-template-columns: repeat(4, minmax(0, 1fr)); } } @media (max-width: 640px) { .ofb-mission.is-bare .ofb-mgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+

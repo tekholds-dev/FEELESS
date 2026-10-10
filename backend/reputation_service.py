@@ -12117,6 +12117,10 @@ async def _agents_tick(now):
             _office_pass(st, table, now, rcfg_, jp, arch_, cour_, tid_r, (time.perf_counter() - t_tick) * 1000)
         except Exception as e:
             print('office:', e)
+        try:   # a read-only copy of exactly what GET /admin/agents answers (for checking the real page without an HQ sign-in)
+            _json_save(DATA_DIR / 'agents_view.json', {**_agents['view'], **({'card': _agents['card']} if _agents.get('card') else {}), 'office': _office.get('payload')})
+        except Exception:
+            pass
         try:   # 🕵 ACTIVE INVESTIGATION: their 2 strongest reads that nobody has holder-scanned yet get a scan requested (deduped, rate-paced)
             if rcfg_.get('agentControl'):
                 for c_ in [c_ for c_ in _ag.investigate(table, set(), rcfg_.get('trenchMinAgeH', 1), st.get('burned') or {}, top=0) if not c_['checks'][0][1] and (c_['row'].get('vitals') or {}).get('safe') is None][:2]:

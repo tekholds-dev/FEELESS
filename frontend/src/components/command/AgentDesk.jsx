@@ -219,7 +219,7 @@ export function LiveLens({ d, sel, who, setWho, jump }) {
 }
 
 export const DIAL = [['chill', '🧊'], ['normal', '⚡'], ['crazy', '🔥 CRAZY']];
-export const LENSES = [['office', '🏢 Office'], ['live', '🟢 Live'], ['learn', '🧠 Learning'], ['life', '🧬 Growth'], ['ctl', '⚙ Control']];
+export const LENSES = [['live', '🟢 Live'], ['board', '📋 Board'], ['learn', '🧠 Learning'], ['life', '🧬 Growth'], ['ctl', '⚙ Control']];
 const mem = { get: (k, dflt) => { try { return localStorage.getItem(k) || dflt; } catch (e) { return dflt; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* private window */ } } };
 const Kpi = ({ id, label, val, sub, cls, on, onClick, tip }) => <button type="button" className={`agd-kpi ${on ? 'active' : ''}`} onClick={onClick} data-tip={tip} data-testid={`kpi-${id}`}><small>{label}</small><b className={cls || ''} key={String(val)}>{val}</b><i>{sub}</i></button>;
 // the ring on each agent = its share of right calls this life (Trigger: % of its ENTERs that won); empty until it has a judged call
@@ -227,7 +227,7 @@ const Ring = ({ v, icon }) => <span className="agd-ring" aria-hidden><svg viewBo
 
 export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
   const [d, setD] = useState(null); const [busy, setBusy] = useState(false); const [sel, setSel] = useState('tally'); const [who, setWho] = useState('all'); const [zoom, setZoom] = useState(null); const [jump, setJump] = useState(null);
-  const [lens, setLensS] = useState(() => lens0 || mem.get('feeless.agentLens', 'office')); const [office, setOffice] = useState(() => mem.get('feeless.agentRoom', 'on') !== 'off');
+  const [lens, setLensS] = useState(() => lens0 || (l => (LENSES.some(x => x[0] === l) ? l : 'live'))(mem.get('feeless.agentLens', 'live'))); const [drawer, setDrawer] = useState(null); const [office, setOffice] = useState(() => mem.get('feeless.agentRoom', 'on') !== 'off');
   const setLens = k => { setLensS(k); mem.set('feeless.agentLens', k); };
   const load = useCallback(() => call('/admin/agents').then(setD).catch(e => toast.error(e.message)), [call]);
   useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, 20000); return () => clearInterval(t); }, [load]);
@@ -236,6 +236,8 @@ export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
   const newIdeas = (d.ideas || []).filter(i => i.status === 'new').length; const atRisk = Object.values(d.life || {}).filter(l => l && l.status && l.status !== 'alive').length;
   const pickAgent = k => { setSel(k); setWho(w => (w === k ? 'all' : k)); };
   const show = k => lens === 'all' || lens === k;
+  const open = k => lens === 'all' || drawer === k; const tog = k => setDrawer(x => (x === k ? null : k));   // the old rows live in ONE drawer under the status strip
+  const om = d.office?.mission || {}; const seats = d.card?.seats || []; const dutyN = d.duty?.cleared ?? 0; const jd = d.judge || {};
   const warLog = async () => { try { const r = await call('/admin/agents/log?hours=24'); const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([r.md], { type: 'text/markdown' })); a.download = `agent-war-log-${new Date().toISOString().slice(0, 10)}.md`; a.click(); URL.revokeObjectURL(a.href); } catch (e) { toast.error(e.message); } };
   const save = async body => { setBusy(true); try { await call('/admin/agents', { method: 'POST', body: JSON.stringify(body) }); toast.success(body.idea ? `💡 idea ${body.idea.action === 'approve' ? 'approved' : 'rejected'}` : '🤖 agent control saved'); load(); } catch (e) { toast.error(e.message); } finally { setBusy(false); } };
@@ -251,8 +253,11 @@ export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
         <button type="button" className="m-btn" onClick={load} data-tip="Re-read the desk now (it is served from memory — no rate limit)" data-testid="agd-refresh">↻</button>
         <button type="button" className="m-btn agd-log" onClick={warLog} data-testid="agd-log">⬇ War log</button></div></header>
     <OfficeMission m={d.office?.mission} bare />
-    <MissionBar mission={d.mission} scalp={d.scalp} desk={d.desk} />
     <div className="agd-kpis" data-testid="agd-kpis">
+      <Kpi id="mission" label="🎯 BREAKEVEN" val={om.value != null ? `$${Number(om.value).toFixed(2)}` : '—'} cls={om.locked ? 'agd-warn' : 'm-pos'} sub={om.putIn != null ? `of $${Number(om.putIn).toFixed(2)}${om.needX ? ` · needs ${om.needX}×` : ''} · scalp ${d.scalp?.live ? 'live' : 'learning'}` : 'no real card numbers yet'} on={open('mission') && lens !== 'all'} onClick={() => tog('mission')} tip="Breakeven first, then the paper 10×, and the scalp plan they learn. Opens the three goal bars." />
+      <Kpi id="seats" label="🎮 IN CONTROL" val={`${seats.filter(x => x.mint).length} / ${seats.length || '—'}`} sub={d.cfg?.agentControl ? 'seats on your card' : 'control is off'} on={open('seats') && lens !== 'all'} onClick={() => tog('seats')} tip="The real card as seats. Opens the seats with their controls (fill, swap, pull)." />
+      <Kpi id="duty" label="🕙 10-MIN DUTY" val={`${dutyN} cleared`} cls={dutyN ? 'm-pos' : ''} sub={`${(d.duty?.cases || []).length} case files · ≤ ${d.duty?.movesHr ?? 6} buys / h`} on={open('duty') && lens !== 'all'} onClick={() => tog('duty')} tip="Their case files this pass and when the next duty move is due. Opens the case files." />
+      <Kpi id="judge" label="👨‍⚖️ JUDGE" val={`${jd.wins ?? 0}W · ${jd.losses ?? 0}L`} cls={jd.trial ? 'agd-warn' : ''} sub={jd.trial ? `${jd.trial} on trial` : `${jd.missed ?? 0} missed · no bot on trial`} on={open('judge') && lens !== 'all'} onClick={() => tog('judge')} tip="The court's rulings on their 5-minute calls and the proof record. Opens the court band." />
       <Kpi id="go" label="🟢 GO NOW" val={goN} cls={goN ? 'm-pos' : ''} sub={`${enterN} ENTER · ${p.coins ?? t.length} coins read`} on={show('live') && lens !== 'all'} onClick={() => setLens('live')} tip="Coins all four agree on this pass. Opens the live board." />
       <Kpi id="desk" label="📜 PAPER DESK" val={`$${d.desk.now.toFixed(2)}`} cls={tone(d.desk.now - d.desk.start)} sub={`${d.desk.x}× · ${d.desk.heat === 'heater' ? '🔥' : d.desk.heat === 'cold' ? '🧊' : ''} stake ${d.desk.stake ?? 25}%`} on={lens === 'ctl'} onClick={() => setLens('ctl')} tip="The team's $20 paper desk: 25% a GO, out at 5 minutes." />
       <Kpi id="road" label="🛣 ROAD TO REAL" val={`${d.road?.pct ?? 0}%`} sub={d.proven5 ? 'live on your card' : 'paper until the 10×'} on={lens === 'ctl'} onClick={() => setLens('ctl')} tip="How close the desk is to real money on your card." />
@@ -260,12 +265,14 @@ export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
       <Kpi id="ideas" label="💡 IDEAS" val={newIdeas} cls={newIdeas ? 'agd-warn' : ''} sub={newIdeas ? 'waiting for your review' : 'nothing to review'} on={lens === 'learn'} onClick={() => setLens('learn')} tip="Tactics the desk found in its own record." />
       <Kpi id="lives" label="⚔ LIVES" val={atRisk ? `${atRisk} ⚠` : '4 🟢'} cls={atRisk ? 'agd-warn' : ''} sub={atRisk ? 'on probation / scrapped' : `${(d.lineage || []).length} scrapped so far`} on={lens === 'life'} onClick={() => setLens('life')} tip="An agent that keeps losing is scrapped and reborn." />
     </div>
-    <CardNow card={d.card} power={d.power} cfg={d.cfg} gos={t.filter(x => x.go)} call={call} isOwner={isOwner} onDone={load} onMore={() => setLens('life')} />
-    <DutyBox duty={d.duty} lives={d.lives} underwater={d.underwater} onPick={sym => { setLens('live'); setJump({ sym, n: Date.now() }); }} />
-    <CourtBand judge={d.judge} proof={d.proof} desk={d.desk} onPick={sym => { setLens('live'); setJump({ sym, n: Date.now() }); }} onCourt={() => setZoom('judge')} />
+    {(open('mission') || open('seats') || open('duty') || open('judge')) ? <div className="agd-drawer" data-testid="agd-drawer">
+      {open('mission') ? <MissionBar mission={d.mission} scalp={d.scalp} desk={d.desk} /> : null}
+      {open('seats') ? <CardNow card={d.card} power={d.power} cfg={d.cfg} gos={t.filter(x => x.go)} call={call} isOwner={isOwner} onDone={load} onMore={() => setLens('life')} /> : null}
+      {open('duty') ? <DutyBox duty={d.duty} lives={d.lives} underwater={d.underwater} onPick={sym => { setLens('live'); setJump({ sym, n: Date.now() }); }} /> : null}
+      {open('judge') ? <CourtBand judge={d.judge} proof={d.proof} desk={d.desk} onPick={sym => { setLens('live'); setJump({ sym, n: Date.now() }); }} onCourt={() => setZoom('judge')} /> : null}</div> : null}
     {zoom && <ZoomScreen d={d} agent={zoom} setAgent={k => { setZoom(k); setSel(k); }} close={() => setZoom(null)} />}
-    {show('office') && <><OfficeHQ o={d.office} roomOn={office} passAt={p.at} />
-      <details className="agd-fold" data-testid="agd-board-fold"><summary>📋 Full office board · the line, all ten desk cards, positions, execution, learning, runtime</summary><OfficeBoard o={d.office} /></details></>}
+    <OfficeHQ o={d.office} roomOn={office} passAt={p.at} />
+    {show('board') && <OfficeBoard o={d.office} />}
     {show('live') && <>
     <div className="agd-chain" role="group" aria-label="Pick an agent"><i className="agd-wire" aria-hidden><u /></i>{(d.agents || []).map((a, i) => { const l = d.life?.[a.key];
       const g = d.growth?.[a.key];
