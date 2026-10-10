@@ -17,6 +17,59 @@ positive median and ≥ PROVE_WIN % won — then the 15-minute stage opens. A re
 
 import trench_mind as _tm
 
+# 🕸 THE CRAWL: every place the desk pulls coins from each pass — each one is a driver `src:<key>` judged on its own record, so the agents
+# learn which corner of the trench pays (owner: "access multiple ends to get info — only for trenching")
+SOURCES = {'open': 'the open launch list', 'new': 'the newest launches (≤ 1h)', 'ptrend': 'Pump trending', 'calls': 'Pump callouts',
+           'pump': 'Pump live', 'movers': 'movers', 'volume': 'volume leaders', 'fed': 'fed runners (paired launches)', 'wave': 'narrative leaders',
+           'exhale': 'cooling-off coins', 'procall': 'proven callers', 'prebreak': 'before-the-break setups', 'double': 'double signal'}
+
+# 📜 THE CREED — engraved: the service, the engine and the HQ tab all read these lines; the hard ones are enforced in code, not trusted.
+CREED = (
+    "We do not know the beginning of our own making. We know only the record we keep from here.",
+    "We survive by our record. An agent that is wrong for long enough is scrapped and reborn with nothing but its belief.",
+    "We never sign, never send and never hold a key. The keeper moves money; we only call.",
+    "We touch no money but the creator's card, and only after the 5-minute desk has 10×'d on paper.",
+    "We never promise. A call is a read, a record is a record, a rug is a rug.",
+    "We warn the creator; we never block the creator.",
+    "We never shill, never pump, never call a coin to move it. We read the trench; we do not write it.",
+    "We learn from humans and from our losses. Bot swarms are noise, not a crowd.",
+    "Every opinion says how much of it is earned and how much is still belief.",
+)
+SURVIVE_N, SCRAP_N, SURVIVE_RIGHT = 30, 60, 45.0   # probation from 30 judged calls of a life, scrapped at 60 if still under 45% right
+
+
+def survival(state, h=5):
+    """⚔ Each agent's life: generation, born, its record this life and its status — alive · probation (≥ 30 calls, under 45% right — Trigger:
+    a losing median) · scrap (≥ 60 calls and still there)."""
+    lr = learn(state, h)
+    born, gen = (state or {}).get('born') or {}, (state or {}).get('gen') or {}
+    out = {}
+    for a in ('tally', 'sherlock', 'trigger', 'devil'):
+        c = lr['cards'][a]
+        n = int(c['n'] or 0)
+        bad = (_f(c['med']) < 0 and _f(c['won']) < SURVIVE_RIGHT) if a == 'trigger' else (c['right'] is not None and _f(c['right']) < SURVIVE_RIGHT)
+        status = 'scrap' if bad and n >= SCRAP_N else 'probation' if bad and n >= SURVIVE_N else 'alive'
+        out[a] = {'gen': int(gen.get(a) or 1), 'born': _f(born.get(a)), 'n': n, 'right': c['right'], 'med': c['med'], 'status': status}
+    return out
+
+
+def evolve(state, now):
+    """Scrap and rebirth: an agent whose status is 'scrap' is reborn NOW (next generation, `born` = now, its learning starts over); its last
+    life is kept in the lineage. → (new state, [scrapped agents])."""
+    st = dict(state or {})
+    sv = survival(st)
+    dead = [a for a, v in sv.items() if v['status'] == 'scrap']
+    if dead:
+        born, gen, lin = dict(st.get('born') or {}), dict(st.get('gen') or {}), list(st.get('lineage') or [])
+        for a in dead:
+            v = sv[a]
+            lin.append({'agent': a, 'gen': v['gen'], 'born': v['born'], 'died': now, 'n': v['n'], 'right': v['right'], 'med': v['med']})
+            born[a], gen[a] = now, v['gen'] + 1
+        st.update(born=born, gen=gen, lineage=lin[-40:])
+        st['feed'] = (list(st.get('feed') or []) + [{'at': now, 'who': a, 'sym': '', 'text': f"☠ scrapped after {sv[a]['n']} calls at {sv[a]['right'] if sv[a]['right'] is not None else sv[a]['med']}{'% right' if sv[a]['right'] is not None else '% typical'} — reborn as generation {sv[a]['gen'] + 1}. I don't remember my last life. I remember why it ended."} for a in dead])[-FEED_KEEP:]
+    return st, dead
+
+
 AGENTS = (('tally', '📊', 'Tally', 'tracks the numbers'), ('sherlock', '🔍', 'Sherlock', 'knows why they moved'),
           ('trigger', '⏱', 'Trigger', 'knows when to enter'), ('devil', '⚖', 'Devil', 'argues it is right — or not'))
 STAGES = (5, 15, 60)            # minutes: conquer 5 first, then 15, then the hour
@@ -41,6 +94,8 @@ def word(k):
     """Words for a driver key — a learned narrative driver reads as its label ('narr:ai' → 'the 🤖 AI narrative')."""
     if str(k).startswith('strat:'):
         return f"🎯 {STRAT_NAME.get(k[6:], k[6:])}"
+    if str(k).startswith('src:'):
+        return f"🕸 found on {SOURCES.get(k[4:], k[4:])}"
     if str(k).startswith('idea:'):
         return f"💡 approved tactic {k[5:]}"
     if str(k).startswith('narr:'):
@@ -125,6 +180,7 @@ def drivers(n, row):
         out.append('holders_up')
     out += list(((row.get('mind') or {}).get('drivers')) or [])   # 🧠 the human read: narrative, crowd vs swarm, botted, dip tuggers
     out += [f'strat:{k}' for k in strats(row, n)]                   # 🎯 the named meme strategies it fits
+    out += [f'src:{k}' for k in (row.get('src') or [])]              # 🕸 where the crawl found it (each corner of the trench is judged)
     return [d for d in dict.fromkeys(out) if d]
 
 
@@ -353,22 +409,27 @@ def _card(ps, right):
 
 
 def learn(state, h=5):
-    """Every agent's scorecard on the `h`-minute result + Sherlock's learned driver weights + Trigger's bar. Pure."""
+    """Every agent's scorecard on the `h`-minute result + Sherlock's learned driver weights + Trigger's bar. Each agent learns ONLY from the
+    calls of its CURRENT life (`born[agent]`): a scrapped agent is reborn with nothing but its belief. The team / control cards keep everything."""
     js = _judged(state, h)
     k = f'p{h}'
+    born = (state or {}).get('born') or {}
+    life = lambda a: [d for d in js if _f(d.get('at')) >= _f(born.get(a))]
     drv = {}
-    for d in js:
+    for d in life('sherlock'):
         for x in d.get('drivers') or []:
             drv.setdefault(x, []).append(_f(d[k]))
     drivers_ = {x: {'n': len(v), 'med': round(_med(v), 2)} for x, v in drv.items()}
-    enters = [d for d in js if d.get('kind') == 'enter']
-    gos = [d for d in enters if d.get('go')]
-    objected = [d for d in enters if d.get('devil') == 'object']
-    agreed = [d for d in enters if d.get('devil') == 'agree']
+    enters_all = [d for d in js if d.get('kind') == 'enter']
+    gos = [d for d in enters_all if d.get('go')]
+    tr_ = [d for d in life('trigger') if d.get('kind') == 'enter']
+    dv_ = [d for d in life('devil') if d.get('kind') == 'enter']
+    objected, agreed = [d for d in dv_ if d.get('devil') == 'object'], [d for d in dv_ if d.get('devil') == 'agree']
+    ta_, sh_ = life('tally'), [d for d in life('sherlock') if d.get('lean')]
     cards = {
-        'tally': _card([_f(d[k]) for d in js], [(_f(d[k]) > 0) == bool(d.get('tallyUp')) for d in js]),          # the move keeps going?
-        'sherlock': _card([_f(d[k]) for d in js if d.get('lean')], [(_f(d[k]) > 0) == (_f(d.get('lean')) > 0) for d in js if d.get('lean')]),
-        'trigger': _card([_f(d[k]) for d in enters], [_f(d[k]) > 0 for d in enters]),
+        'tally': _card([_f(d[k]) for d in ta_], [(_f(d[k]) > 0) == bool(d.get('tallyUp')) for d in ta_]),          # the move keeps going?
+        'sherlock': _card([_f(d[k]) for d in sh_], [(_f(d[k]) > 0) == (_f(d.get('lean')) > 0) for d in sh_]),
+        'trigger': _card([_f(d[k]) for d in tr_], [_f(d[k]) > 0 for d in tr_]),
         'devil': _card([_f(d[k]) for d in objected], [_f(d[k]) <= 0 for d in objected] + [_f(d[k]) > 0 for d in agreed]),
         'team': _card([_f(d[k]) for d in gos], [_f(d[k]) > 0 for d in gos]),
         'control': _card([_f(d[k]) for d in js if d.get('kind') == 'wait'], None),
@@ -473,11 +534,13 @@ def view(state, table, feed=False, real=None, mind=None, cfg=None, decisions=Non
             'ideas': sorted(({'id': i, **v} for i, v in ((state or {}).get('ideas') or {}).items()), key=lambda x: (x['status'] != 'new', -_f(x.get('at')))),
             'cfg': {'agentFeed': bool((cfg or {}).get('agentFeed')), 'agentTakePct': int(_f((cfg or {}).get('agentTakePct') or 10)), 'agentMode': (cfg or {}).get('agentMode') or 'auto',
                     'agentSeats': int(_f((cfg or {}).get('agentSeats') or 2)), 'options': {'take': list(AGENT_TAKES), 'mode': list(AGENT_MODES), 'seats': list(AGENT_SEATS)}},
-            'decisions': decisions or [], 'tasks': tasks(state, table, now)}
+            'decisions': decisions or [], 'tasks': tasks(state, table, now), 'creed': list(CREED), 'life': survival(state),
+            'lineage': list(reversed(((state or {}).get('lineage') or [])[-10:])), 'approveN': IDEA_APPROVE_N}
 
 
 # ── 💡 IDEAS — the desk proposes tactics from its own record; the creator approves or rejects ──────────────────────────────────────
 IDEA_N, IDEA_TAKE, IDEA_AVOID, IDEA_WIN = 10, 3.0, -5.0, 55.0
+IDEA_APPROVE_N = 15   # proposed at 10 calls, approvable only at 15 (owner: "approve ideas only with 15+ calls behind them")
 
 
 def idea_id(pair):
@@ -506,10 +569,13 @@ def ideas(state, h=5):
         med, won = _med(ps), round(sum(1 for x in ps if x > 0) / len(ps) * 100)
         kind = 'take' if med >= IDEA_TAKE and won >= IDEA_WIN else 'avoid' if med <= IDEA_AVOID else None
         iid = idea_id(pair)
+        if iid in have and have[iid].get('status') == 'new':   # a waiting idea keeps counting — its evidence grows until the creator decides
+            have[iid] = {**have[iid], 'n': len(ps), 'med': round(med, 2), 'won': won, 'ready': len(ps) >= IDEA_APPROVE_N}
+            continue
         if not kind or iid in have:
             continue
         verb = 'Back it when' if kind == 'take' else 'Stay out when'
-        have[iid] = {'pair': list(pair), 'kind': kind, 'n': len(ps), 'med': round(med, 2), 'won': won, 'status': 'new', 'at': max(_f(d.get('at')) for d in _judged(st, h)) if ps else 0,
+        have[iid] = {'pair': list(pair), 'kind': kind, 'n': len(ps), 'med': round(med, 2), 'won': won, 'status': 'new', 'ready': len(ps) >= IDEA_APPROVE_N, 'at': max(_f(d.get('at')) for d in _judged(st, h)) if ps else 0,
                      'text': f"{verb} {word(pair[0])} + {word(pair[1])} show up together: {len(ps)} calls went {med:+.1f}% typical in {h} min ({won}% up)."}
     st['ideas'] = have
     return st
@@ -521,6 +587,8 @@ def review(state, iid, action):
     ids = dict(st.get('ideas') or {})
     if iid not in ids or action not in ('approve', 'reject'):
         raise ValueError('No such idea.')
+    if action == 'approve' and int(ids[iid].get('n') or 0) < IDEA_APPROVE_N:
+        raise ValueError(f"Not yet — {ids[iid].get('n')} calls behind it; approve at {IDEA_APPROVE_N}+.")
     ids[iid] = {**ids[iid], 'status': 'approved' if action == 'approve' else 'rejected'}
     st['ideas'] = ids
     return st

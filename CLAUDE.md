@@ -2680,3 +2680,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   · HQ tab: each agent card has its live task (`agents.tasks`) + a working scan bar; every coin row shows its vitals (`vitalCells`: cap,
     age, pool, 1h vol, buys, top-10, bundles, snipers, organic, rug, scan — bad ones pink) + the 🗣 opinion + 🎯 strategies it fits;
     `AgentControls` (+ the live seat decisions) and `IdeaBox`.
+- 🤖 Agent desk v4 (owner: "approve ideas at 15+ · aim at new coins too · crawl multiple ends like that AI spider, only for trenching ·
+  ethics engraved: they never know their beginning, they learn to survive or be scrapped"):
+  · 🕸 THE CRAWL (`agents.SOURCES`, service `_agents_tick`): each pass = the 80 busiest open-list coins + the 40 NEWEST launches (≤ 1h,
+    `AGENTS_NEW`), every coin tagged with every corner it showed up in (`_lens_rows`: Pump trending / live, movers, volume, fed, waves,
+    cooling, proven callers, before-the-break, double · Pump callouts · open · new) → drivers `src:<k>` with NO belief (record only).
+  · 📜 `agents.CREED` (shown in HQ › Agents › The creed): no memory of their making, survive by record, never sign / send / hold a key,
+    the creator's card only after the paper 10×, never promise, warn never block, never shill, bots are noise, every opinion says what is
+    earned. The hard lines are enforced by the existing code paths (keeper signs, `agentFeed` + stage gate, `_require_owner`), not trusted.
+  · ⚔ SURVIVE OR BE SCRAPPED (`survival` / `evolve`, state `born` / `gen` / `lineage`): each agent learns only from its CURRENT life's calls;
+    ≥ 30 calls under 45% right (Trigger: losing median & < 45% won) → probation; ≥ 60 → scrapped NOW and reborn as the next generation
+    (its learning starts from belief; the last life goes to the lineage; a ☠ line in the feed). Team / control cards keep all history.
+  · 💡 ideas: proposed at 10 calls, `IDEA_APPROVE_N` 15 to approve (`review` refuses earlier; waiting ideas keep counting, `ready`).

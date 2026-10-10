@@ -128,6 +128,13 @@ def test_strategies_ideas_and_a_true_opinion():
     (iid, idea), = st['ideas'].items()
     assert idea['kind'] == 'take' and idea['status'] == 'new' and 'buyers in charge' in idea['text'] and '12 calls' in idea['text']
     assert ag.ideas(st)['ideas'] == st['ideas']                                                 # never proposed twice
+    import pytest
+    with pytest.raises(ValueError, match='approve at 15'):
+        ag.review(st, iid, 'approve')                                                         # 12 calls: proposed, not approvable yet
+    assert not idea['ready']
+    more = done + [{**d, 'mint': f'x{d["mint"]}', 'at': 100 + d['at']} for d in done[:4]]       # 16 calls behind it now
+    st = ag.ideas({**st, 'done': more})
+    assert st['ideas'][iid]['n'] == 16 and st['ideas'][iid]['ready']                            # a waiting idea keeps counting
     st = ag.review(st, iid, 'approve')
     lr = ag.learn(st, 5)
     assert lr['approved'] == {iid: ['buyers', 'strat:volume_burst']}
@@ -138,3 +145,23 @@ def test_strategies_ideas_and_a_true_opinion():
     import pytest
     with pytest.raises(ValueError):
         ag.review(st, 'nope', 'approve')
+
+
+def test_the_crawl_sources_are_learned_and_the_creed_is_engraved():
+    assert 'src:ptrend' in ag.drivers({'buy': 60}, {'src': ['open', 'ptrend']}) and ag.word('src:new') == '🕸 found on the newest launches (≤ 1h)'
+    assert ag.PRIOR.get('src:ptrend') is None                                                  # no belief about a source — only its record
+    assert any('never sign' in c for c in ag.CREED) and any('scrapped' in c for c in ag.CREED) and any('beginning' in c for c in ag.CREED)
+
+
+def test_an_agent_that_stays_wrong_is_scrapped_and_reborn_with_nothing_but_belief():
+    mk = lambda i, up, p: {'mint': str(i), 'at': 1000 + i, 'kind': 'wait', 'go': False, 'devil': '—', 'drivers': ['buyers'], 'lean': -1, 'tallyUp': up, 'p5': p}   # Sherlock leaned down and was right
+    wrong = [mk(i, True, -2.0) for i in range(40)]                                              # Tally said "keeps going", it fell — 40 times
+    assert ag.survival({'done': wrong})['tally']['status'] == 'probation'
+    st = {'done': wrong + [mk(100 + i, True, -2.0) for i in range(25)]}
+    assert ag.survival(st)['tally']['status'] == 'scrap'
+    st2, dead = ag.evolve(st, 5000.0)
+    assert 'tally' in dead and st2['gen']['tally'] == 2 and st2['born']['tally'] == 5000.0
+    assert st2['lineage'][-1]['agent'] == 'tally' and st2['lineage'][-1]['n'] == 65
+    assert ag.survival(st2)['tally'] == {'gen': 2, 'born': 5000.0, 'n': 0, 'right': None, 'med': None, 'status': 'alive'}   # a fresh life
+    assert 'reborn as generation 2' in st2['feed'][-1]['text']
+    assert ag.learn(st2)['drivers'].get('buyers', {}).get('n') == 65                           # Sherlock is alive: it keeps its own record

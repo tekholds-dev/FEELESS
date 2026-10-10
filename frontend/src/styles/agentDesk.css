@@ -94,6 +94,13 @@ body.theme-day .agd-tags i { color: #5b2fb0; border-color: #c8b4f0; } body.theme
 body.fx-lite .agd-live, body.fx-lite .agd-scan u { animation: none; }
 @media (prefers-reduced-motion: reduce) { .agd-live, .agd-scan u { animation: none; } }
 body.theme-day .agd-task, body.theme-day .agd-op { color: #13281d; } body.theme-day .agd-vit i { background: #fff; color: #13281d; border-color: #cfe3d8; } body.theme-day .agd-scan { background: #dcefe4; }
+/* 📜 creed · ⚔ life */
+.agd-creed summary { cursor: pointer; list-style: none; } .agd-creed summary::-webkit-details-marker { display: none; }
+.agd-creed summary b { font: 800 10.5px "JetBrains Mono", monospace; letter-spacing: .12em; color: #f5c451; } .agd-creed summary small { color: #8fb3a1; font-size: 11px; }
+.agd-creed ol { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 11.5px; color: #d8efe2; }
+.agd-lineage { list-style: none; margin: 6px 0 0; padding: 0; font: 600 10.5px "JetBrains Mono", monospace; color: #ff8fa3; display: grid; gap: 2px; }
+.agd-life { font: 700 9.5px "JetBrains Mono", monospace; color: #45e486; } .agd-life.is-probation { color: #f5c451; } .agd-life.is-scrap { color: #ff8fa3; }
+body.theme-day .agd-creed ol { color: #13281d; }
 @keyframes agdIn { from { opacity: .4; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 body.fx-lite .agd-agent { animation: none; }
 @media (prefers-reduced-motion: reduce) { .agd-agent { animation: none; transition: none; } }

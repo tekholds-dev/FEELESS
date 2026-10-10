@@ -11770,7 +11770,8 @@ import trench_mind as _tm
 LINGO_PATH = FUSE_HQ_PATH.parent / 'trench_lingo.json'   # 📖 slang the desk learned from Pump callers' own words (per-day counts + learned words)
 AGENTS_PATH = FUSE_HQ_PATH.parent / 'agents.json'   # 🤖 the agent desk: Tally's tapes, every call, every judged result
 AGENTS_EVERY = 55.0                                 # one pass a minute, whenever the backend is up (internet = it runs)
-AGENTS_SEE = 80                                     # the open list's busiest coins each pass
+AGENTS_SEE = 80                                     # the open list's busiest coins each pass …
+AGENTS_NEW = 40                                     # … + the 40 newest launches (≤ 1h) — they must aim at NEW coins too
 _agents: dict = {'at': 0.0, 'table': [], 'view': None}
 
 
@@ -11782,7 +11783,22 @@ async def _agents_tick(now):
         return
     _agents['at'] = now
     try:
-        raw = [_with_tv(x) for x in (_open_board() or [])[:AGENTS_SEE]]
+        # 🕸 THE CRAWL: the busiest open-list coins + the NEWEST launches (≤ 1h) — and every coin is tagged with every corner of the trench it
+        # showed up in (Pump trending / callouts / live, movers, volume, fed, waves, cooling, proven callers …): each source is a learned driver
+        ob_ = _open_board() or []
+        newest_ = sorted((x for x in ob_ if x.get('ageH') is not None and _fuse._f(x['ageH']) <= 1), key=lambda x: _fuse._f(x['ageH']))[:AGENTS_NEW]
+        seen_ = {x.get('mint') for x in newest_}
+        raw = [_with_tv(x) for x in [x for x in ob_ if x.get('mint') not in seen_][:AGENTS_SEE] + newest_]
+        src_ = {}
+        for k_, lst_ in (_lens_rows or {}).items():
+            for r_ in lst_ or []:
+                if r_.get('mint') and k_ in _ag.SOURCES:
+                    src_.setdefault(r_['mint'], []).append(k_)
+        for c_ in _pump_calls.get('calls') or []:
+            if c_.get('mint') and 'calls' not in src_.get(c_['mint'], []):
+                src_.setdefault(c_['mint'], []).append('calls')
+        for x in raw:
+            x['src'] = ['open'] + (['new'] if x.get('mint') in seen_ else []) + src_.get(x.get('mint'), [])
         tv_ = {x.get('mint'): x.get('tv') for x in raw}
         rows = [{**r, 'tv': tv_.get(r.get('mint')) or r.get('tv')} for r in _clean_rows([dict(x) for x in raw])]
         # 🧠 the human read: who is calling each coin on Pump and what they write, the narratives hot on the board, the lingo they use
@@ -11806,6 +11822,7 @@ async def _agents_tick(now):
             before = st
             st = _ag.settle(st, lambda m: (jp or {}).get(m), now)
             st['feed'] = (list(st.get('feed') or []) + _ag.results(before, st, now))[-_ag.FEED_KEEP:]
+        st, scrapped_ = _ag.evolve(st, now)   # ⚔ survive or be scrapped: a long-wrong agent is reborn as the next generation
         n_ideas = len(st.get('ideas') or {})
         st = _ag.ideas(st)   # 💡 tactics found in their own record go up to the creator
         for iid, v in (st.get('ideas') or {}).items():

@@ -65,14 +65,21 @@ export function AgentControls({ cfg, decisions, proven, isOwner, busy, save }) {
     {(decisions || []).length > 0 && <ul className="agd-dec" data-testid="agd-decisions">{decisions.map(x => <li key={x.pair} className={`is-${x.action}`}><b>{x.action === 'hold' ? '⏳' : x.action === 'pull' ? '💰' : '⇄'} ${x.symbol}</b><span>{x.why}</span></li>)}</ul>}</div>;
 }
 // 💡 tactics the desk found in its own record, sent up for the creator's review
-export function IdeaBox({ ideas, isOwner, busy, save }) {
+export function IdeaBox({ ideas, isOwner, busy, save, need = 15 }) {
   const fresh = (ideas || []).filter(i => i.status === 'new'); const past = (ideas || []).filter(i => i.status !== 'new').slice(0, 6);
   return <div className="agd-box agd-ideas" data-testid="agd-ideas"><b>💡 IDEAS FOR YOUR REVIEW · {fresh.length} new</b>
     {fresh.length ? <ul>{fresh.map(i => <li key={i.id} className={`is-${i.kind}`}><span>{i.kind === 'take' ? '🎯 TAKE' : '🚫 AVOID'} · {i.text}</span>
-      <span className="agd-idea-do"><button type="button" className="m-btn m-go" disabled={busy || !isOwner} onClick={() => save({ idea: { id: i.id, action: 'approve' } })} data-testid={`idea-ok-${i.id}`}>Approve</button>
+      <span className="agd-idea-do"><button type="button" className="m-btn m-go" disabled={busy || !isOwner || (i.n || 0) < need} onClick={() => save({ idea: { id: i.id, action: 'approve' } })} data-testid={`idea-ok-${i.id}`}>{(i.n || 0) < need ? `👀 ${i.n}/${need} calls` : 'Approve'}</button>
         <button type="button" className="m-btn" disabled={busy || !isOwner} onClick={() => save({ idea: { id: i.id, action: 'reject' } })} data-testid={`idea-no-${i.id}`}>Reject</button></span></li>)}</ul>
       : <small className="m-dim">No new tactic yet — two reasons must show up together on 10+ judged calls with a clear result (≥ +3% typical and 55% up, or ≤ −5%).</small>}
     {past.length > 0 && <small className="m-dim">Reviewed: {past.map(i => `${i.status === 'approved' ? '✅' : '✕'} ${i.kind} (${i.n} calls ${i.med >= 0 ? '+' : ''}${i.med}%)`).join(' · ')}</small>}</div>;
+}
+// 📜 THE CREED + ⚔ the lineage: who was scrapped, after how many calls, and what they had become
+export function CreedBox({ creed, lineage }) {
+  const NAMES = { tally: '📊 Tally', sherlock: '🔍 Sherlock', trigger: '⏱ Trigger', devil: '⚖ Devil' };
+  return <details className="agd-box agd-creed" data-testid="agd-creed"><summary><b>📜 THE CREED · engraved in their code</b><small>{(lineage || []).length ? ` · ${lineage.length} scrapped li${lineage.length === 1 ? 'fe' : 'ves'}` : ' · no agent scrapped yet'}</small></summary>
+    <ol>{(creed || []).map((c, i) => <li key={i}>{c}</li>)}</ol>
+    {(lineage || []).length > 0 && <ul className="agd-lineage">{lineage.map((l, i) => <li key={i}>☠ {NAMES[l.agent] || l.agent} gen {l.gen} · {l.n} calls · {l.right != null ? `${l.right}% right` : `${l.med}% typical`}</li>)}</ul>}</details>;
 }
 export const agentLine = a => (a.n ? `${a.n} judged · ${pct(a.med)} typical at 5 min${a.right != null ? ` · ${a.right}% right` : ''}` : 'no judged calls yet — every call is checked 5 minutes later');
 
@@ -90,6 +97,7 @@ export function AgentDesk({ call, isOwner = true }) {
     <RoadMeter road={d.road} />
     <div className="agd-chain">{(d.agents || []).map((a, i) => <React.Fragment key={a.key}><div className={`agd-agent is-${a.key}`} style={{ '--i': i }} data-testid={`agent-${a.key}`}>
       <span className="agd-ico" aria-hidden>{a.icon}</span><b>{a.name}</b><small>{a.job}</small>
+      {d.life?.[a.key] && <span className={`agd-life is-${d.life[a.key].status}`} data-testid={`life-${a.key}`}>gen {d.life[a.key].gen} · {d.life[a.key].status === 'alive' ? '🟢 alive' : d.life[a.key].status === 'probation' ? '⚠ probation' : '☠ being scrapped'}</span>}
       <em className={tone(a.med)}>{a.n ? pct(a.med) : '—'}</em><i>{agentLine(a)}</i>
       <span className="agd-task" data-testid={`task-${a.key}`}><span className="agd-live" aria-hidden />{d.tasks?.[a.key] || 'waiting for the first pass'}</span><span className="agd-scan" aria-hidden><u /></span></div>{i < 3 && <span className="agd-arrow" aria-hidden>→</span>}</React.Fragment>)}</div>
     <small className="m-dim agd-pass">last pass {d.tasks?.at ? `${ago(d.tasks.at)} ago` : '—'} · one a minute, any hour the backend is online</small>
@@ -99,7 +107,8 @@ export function AgentDesk({ call, isOwner = true }) {
       <div className="agd-box" data-testid="agd-drivers"><b>🔍 WHAT SHERLOCK LEARNED</b>{(d.drivers || []).length ? <ul>{d.drivers.slice(0, 7).map(x => <li key={x.key}><span>{x.words}</span><em className={tone(x.med)}>{pct(x.med)}</em><small>n {x.n}</small></li>)}</ul> : <small className="m-dim">Nothing judged yet — every reason starts as a belief and becomes its own record as calls are judged.</small>}</div>
       <AgentControls cfg={d.cfg} decisions={d.decisions} proven={d.proven5} isOwner={isOwner} busy={busy} save={save} />
     </div>
-    <IdeaBox ideas={d.ideas} isOwner={isOwner} busy={busy} save={save} />
+    <CreedBox creed={d.creed} lineage={d.lineage} />
+    <IdeaBox ideas={d.ideas} isOwner={isOwner} busy={busy} save={save} need={d.approveN || 15} />
     <MindBox m={d.mind} />
     <ThoughtFeed lines={d.thoughts} />
     <div className="agd-table" data-testid="agd-table"><div className="agd-th"><span>coin</span><span>📊 Tally</span><span>🔍 Sherlock</span><span>⏱ Trigger</span><span>⚖ Devil</span><span /></div>
