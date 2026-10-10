@@ -12049,7 +12049,11 @@ async def _agents_tick(now):
                            'learned': sorted(({'word': w, **v} for w, v in (lingo.get('learned') or {}).items()), key=lambda x: -_fuse._f(x.get('first')))[:16],
                            'callsRead': len(calls_), 'swarms': sum(1 for r in rows if ((r.get('mind') or {}).get('crowd') or {}).get('swarm'))}
         st = _json_load(AGENTS_PATH, {})
-        st, table = _ag.desk(st, rows, now, ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentDial'))   # 🎚 the creator's dial
+        try:   # ⚖ Devil's busted reads = the reads' own live 1-hour records, never a fixed list
+            bust_ = _ag.busted_now(_trench.meta_proof(_json_load(CALL_PROOF_PATH, {}), keys=tuple(dict.fromkeys(CALL_KEYS.values()))), CALL_KEYS)
+        except Exception:
+            bust_ = None
+        st, table = _ag.desk(st, rows, now, ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentDial'), bust_)   # 🎚 the creator's dial
         st = _ag.record(st, table, now)
         want = list((st.get('open') or {}).keys())
         jp = await _jup_prices(want) if want else {}

@@ -2845,4 +2845,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   only fill / switch / bank coins — they never touch cycles or any card setting. ❤ `agents.reckon`: 9 team lives on REAL exits (win +1, loss
   −1; 0 = all four scrapped + reborn with their lessons). 🔒 `agents.underwater` / `stage`: the 5-min stage cannot be conquered while the real
   card is worth less than put in (`state.money`). Page: `DutyBox` (clock · lives · lock · case files). A winner's seat is never given away.
+- ⚖ DEVIL'S BUSTED READS ARE LIVE (`agents.busted_now(call proof, CALL_KEYS)` → `desk(.., busted=)`; ≥ 30 settled, typical ≤ −20%): the fixed
+  `BUSTED` list (fallback only) had WASH TRADED / TREND DOWN / DEAD DIP on it while their own records were flat (−0.2% / 47% up, +0.3% / 72% up)
+  — with agents in control the duty cleared 0 of 25 coins, 19 on that one false claim. FOUND WITH `data/agents_duty.json` (the duty's case
+  files written each pass: `cleared`, each coin's `blocked` reasons): when the agents make no move, read that file first.
 

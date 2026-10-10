@@ -404,7 +404,8 @@ def devil(call, n, why, row, learned):
     n, row = n or {}, row or {}
     args = []
     rd = ((row.get('tv') or {}).get('call') or [None, None])[1]
-    if rd in BUSTED:
+    busted = (learned or {}).get('busted')
+    if rd in (busted if busted is not None else BUSTED):   # the reads' LIVE records when the service has them (busted_now), else the old fixed list
         args.append(f'its read is {rd} — a busted call on its own record')
     if _f((row.get('tv') or {}).get('rug')) >= 50:
         args.append(f"rug meter {_f(row['tv']['rug']):.0f}")
@@ -443,7 +444,25 @@ def devil(call, n, why, row, learned):
 
 
 # ── the chain ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-def desk(state, rows, now, dial=None):
+BUST_N, BUST_MED = 30, -20.0
+
+
+def busted_now(proof, call_keys):
+    """⚖ Which reads are REALLY busted, from their own settled 1-hour records (`/fuses/call-proof`): ≥ BUST_N settled and a typical result
+    ≤ BUST_MED %. Devil's list used to be fixed text — on 2026-10-10 it rejected 19 of 25 coins as "WASH TRADED — a busted call on its own
+    record" while that read's record was −0.2% / 47% up (flat), and TREND DOWN's was +0.3% / 72% up. → set of read labels, or None when
+    there is no record to judge from (the fixed list stands in)."""
+    if not proof:
+        return None
+    out = set()
+    for label, key in (call_keys or {}).items():
+        r = proof.get(key) or {}
+        if int(_f(r.get('n'))) >= BUST_N and r.get('medPct') is not None and _f(r['medPct']) <= BUST_MED:
+            out.add(label)
+    return out
+
+
+def desk(state, rows, now, dial=None, busted=None):
     """One pass of all four, in order. → (new state, table rows for the screen). Each coin's line carries every agent's word."""
     import time as _t
     st = dict(state or {})
@@ -456,6 +475,7 @@ def desk(state, rows, now, dial=None):
     learned['regime'] = regime(nums)
     learned['burned'] = {m: at for m, at in (st.get('burned') or {}).items() if now - _f(at) < BURN_SEC}
     learned['dial'] = dial if dial in DIALS else 'normal'
+    learned['busted'] = busted
     learned['trial'] = judge(st)['trial']   # 👨‍⚖️ the bot the Judge has on trial plays under a handicap this pass (it only ever tightens)
     bar_ = bar_now(learned)
     table = []

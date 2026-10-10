@@ -481,3 +481,16 @@ def test_they_stay_in_five_minutes_until_the_real_card_is_back_to_breakeven_and_
     assert st['lives'] == 9 and all(st['gen'][a] == 2 for a in ('tally', 'sherlock', 'trigger', 'devil')) and len(st['lineage']) == 4
     assert 'scrapped and reborn' in st['feed'][-1]['text'] and st['born']['devil'] == 400
     assert ag.reckon(st, {'n': 18, 'w': 3}, 500)['lives'] == 9 and ag.view(st, [])['lives'] == {'n': 9, 'of': 9}
+
+
+def test_devils_busted_reads_come_from_the_reads_own_live_records_not_a_fixed_list():
+    keys = {'WASH TRADED': 'wash', 'BOND RUN': 'bond', 'TREND DOWN': 'tdown', 'NEW': 'new'}
+    proof = {'wash': {'n': 60, 'medPct': -0.2}, 'bond': {'n': 60, 'medPct': -62.1}, 'tdown': {'n': 60, 'medPct': 0.3}, 'new': {'n': 8, 'medPct': -90}}
+    assert ag.busted_now(proof, keys) == {'BOND RUN'} and ag.busted_now({}, keys) is None           # flat reads are not busted · 8 settled is too few to call
+    why = {'lean': 3, 'drivers': []}
+    row = lambda rd: {'safe': True, 'tv': {'call': ['x', rd], 'rug': 5}, 'mint': 'M'}
+    n = {'c1': 5, 'age': 3}
+    assert ag.devil('enter', n, why, row('WASH TRADED'), {'busted': {'BOND RUN'}})[0] == 'agree'      # its record is flat → no objection
+    assert ag.devil('enter', n, why, row('BOND RUN'), {'busted': {'BOND RUN'}})[0] == 'object'
+    assert ag.devil('enter', n, why, row('WASH TRADED'), {})[0] == 'object'                           # no live record → the old list stands in
+    assert ag.devil('enter', n, why, {**row('WASH TRADED'), 'tv': {'call': ['x', 'WASH TRADED'], 'rug': 62}}, {'busted': set()})[0] == 'object'   # every other check still stands
