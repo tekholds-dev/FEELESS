@@ -2698,3 +2698,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   "no route" = 0), and `book_value` / `leg_px` value a held coin at min(market price, a ≤ 30-min-old sell quote). The wallet was never
   short — it was a valuation bug; the payout rule (above put-in) could have paid out phantom profit. "CARD UP A LOT FOR NO REASON" ⇒
   compare the coin rows' sum with IN CARD NOW and read the keeper's refused sells.
+- 🤖 Agent desk v5: ⚠ the live `desk()` passed EMPTY learning (`st.get('learned')` was never set) — learned weights, Trigger's bar and approved
+  ideas only ever worked in tests. Now `learn(st, 5)` every pass. Added: `regime` (share of coins green over 5 min → Trigger's bar cold +0.5 /
+  hot −0.25) · `burn` (a GO that lost ≥ 20% at 5 min → Devil refuses that coin 6h) · per-agent real ms per pass (`perf`) · calibration (lean
+  bucket → 5-min result) · source budget (`cut`: a `src:` driver with ≥ 50 calls and a losing median → the crawl keeps half of those coins) ·
+  `second_opinion` (one call > 50% of a life's losses = a rug → spared ONCE per generation) · `lesson` (a death's worst drivers → the reborn
+  Sherlock's starting beliefs; Trigger +0.5 bar per death ≤ 1.5) · `war_log` → owner `GET /admin/agents/log` (Markdown, ⬇ War log).
+  HQ: `WorkFloor` (Tally's dots = coins read, Sherlock's tags = reasons weighed, Trigger's ⌖ = real ENTERs, Devil's ✓/✕ = real verdicts,
+  re-keyed per pass, ms per lane) · `Tanks` (next generation in water; level = real danger from status + calls vs the scrap line; the lesson
+  it inherits on the glass) · `Edge` (calibration · regime · burned · cut sources).

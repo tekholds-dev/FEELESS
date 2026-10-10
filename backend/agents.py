@@ -35,7 +35,19 @@ CREED = (
     "We learn from humans and from our losses. Bot swarms are noise, not a crowd.",
     "Every opinion says how much of it is earned and how much is still belief.",
 )
-SURVIVE_N, SCRAP_N, SURVIVE_RIGHT = 30, 60, 45.0   # probation from 30 judged calls of a life, scrapped at 60 if still under 45% right
+SURVIVE_N, SCRAP_N, SURVIVE_RIGHT = 30, 60, 45.0
+BURN_SEC, BURN_PCT = 6 * 3600, -20.0   # 🔥 a GO that lost 20%+ in 5 min burns that coin for 6h
+BUDGET_N = 50                          # 🕸 a crawl source with 50+ judged calls and a losing record gets its share cut
+
+
+def regime(nums):
+    """🌡 The trench's temperature this pass from Tally's own numbers: share of coins green over 5 min → Trigger's bar moves (cold +0.5,
+    hot −0.25). Never judged under 10 coins."""
+    ds = [_f(n.get('d5')) for n in (nums or {}).values() if n.get('d5') is not None]
+    if len(ds) < 10:
+        return {'green': None, 'word': 'unknown', 'adj': 0.0}
+    g = round(sum(1 for x in ds if x > 0) / len(ds) * 100)
+    return {'green': g, 'word': 'cold' if g < 35 else 'hot' if g > 65 else 'normal', 'adj': 0.5 if g < 35 else -0.25 if g > 65 else 0.0}   # probation from 30 judged calls of a life, scrapped at 60 if still under 45% right
 
 
 def survival(state, h=5):
@@ -53,21 +65,105 @@ def survival(state, h=5):
     return out
 
 
+def second_opinion(state, agent, h=5):
+    """⚖ Before an agent is scrapped, Devil reviews the life: if ONE call made up more than half of all its losses (one rug, not bad rules),
+    the agent is spared ONCE this generation. → (spare, why)."""
+    k = f'p{h}'
+    born = _f(((state or {}).get('born') or {}).get(agent))
+    js = [d for d in _judged(state, h) if _f(d.get('at')) >= born]
+    if agent == 'trigger':
+        js = [d for d in js if d.get('kind') == 'enter']
+    losses = sorted((-_f(d[k]) for d in js if _f(d[k]) < 0), reverse=True)
+    if not losses:
+        return False, 'no losses to review'
+    share = losses[0] / sum(losses)
+    if share > 0.5:
+        return True, f'one call was {round(share * 100)}% of its losses ({-losses[0]:.0f}%) — a rug, not bad rules'
+    return False, f'the losses are spread over {len(losses)} calls — the rules are wrong'
+
+
+def lesson(state, agent, h=5):
+    """🧬 What killed an agent, for the next generation: Sherlock → the reasons whose real 5-min record was negative (they inherit it as their
+    starting belief); Trigger → start 0.5 pickier per death (≤ +1.5); Tally / Devil → the worst-reading drivers of its life, as a note."""
+    lr = learn(state, h)
+    bad = sorted(((x, v['med'], v['n']) for x, v in lr['drivers'].items() if v['n'] >= 5 and v['med'] < 0), key=lambda t: t[1])[:6]
+    prev = ((state or {}).get('lessons') or {}).get(agent) or {}
+    out = {'drivers': [list(b) for b in bad], 'words': [f"{word(b[0])} ({b[1]:+.1f}%, n {b[2]})" for b in bad[:3]]}
+    if agent == 'trigger':
+        out['barBump'] = min(1.5, _f(prev.get('barBump')) + 0.5)
+    return out
+
+
 def evolve(state, now):
-    """Scrap and rebirth: an agent whose status is 'scrap' is reborn NOW (next generation, `born` = now, its learning starts over); its last
-    life is kept in the lineage. → (new state, [scrapped agents])."""
+    """Scrap and rebirth: an agent whose status is 'scrap' gets a second opinion (spared ONCE per generation when one rug made most of its
+    losses); otherwise it is reborn NOW (next generation, `born` = now) carrying the LESSON of what killed it; its last life goes to the
+    lineage with the reason. → (new state, [scrapped agents])."""
     st = dict(state or {})
     sv = survival(st)
-    dead = [a for a, v in sv.items() if v['status'] == 'scrap']
+    dead, lines = [], []
+    grace = dict(st.get('grace') or {})
+    for a, v in sv.items():
+        if v['status'] != 'scrap':
+            continue
+        spare, why_ = second_opinion(st, a)
+        if spare and grace.get(a) != v['gen']:
+            grace[a] = v['gen']
+            lines.append({'at': now, 'who': 'devil', 'sym': '', 'text': f"⚖ second opinion on {a}: spared once — {why_}."})
+            continue
+        dead.append((a, v, why_))
+    st['grace'] = grace
     if dead:
-        born, gen, lin = dict(st.get('born') or {}), dict(st.get('gen') or {}), list(st.get('lineage') or [])
-        for a in dead:
-            v = sv[a]
-            lin.append({'agent': a, 'gen': v['gen'], 'born': v['born'], 'died': now, 'n': v['n'], 'right': v['right'], 'med': v['med']})
+        born, gen, lin, les = dict(st.get('born') or {}), dict(st.get('gen') or {}), list(st.get('lineage') or []), dict(st.get('lessons') or {})
+        for a, v, why_ in dead:
+            les[a] = lesson(st, a)
+            lin.append({'agent': a, 'gen': v['gen'], 'born': v['born'], 'died': now, 'n': v['n'], 'right': v['right'], 'med': v['med'], 'why': why_, 'lesson': les[a].get('words')})
             born[a], gen[a] = now, v['gen'] + 1
-        st.update(born=born, gen=gen, lineage=lin[-40:])
-        st['feed'] = (list(st.get('feed') or []) + [{'at': now, 'who': a, 'sym': '', 'text': f"☠ scrapped after {sv[a]['n']} calls at {sv[a]['right'] if sv[a]['right'] is not None else sv[a]['med']}{'% right' if sv[a]['right'] is not None else '% typical'} — reborn as generation {sv[a]['gen'] + 1}. I don't remember my last life. I remember why it ended."} for a in dead])[-FEED_KEEP:]
-    return st, dead
+            lines.append({'at': now, 'who': a, 'sym': '', 'text': f"☠ scrapped after {v['n']} calls ({why_}) — reborn as generation {v['gen'] + 1}. I don't remember my last life. I carry what killed it: {', '.join(les[a].get('words') or ['nothing clear'])}."})
+        st.update(born=born, gen=gen, lineage=lin[-40:], lessons=les)
+    if lines:
+        st['feed'] = (list(st.get('feed') or []) + lines)[-FEED_KEEP:]
+    return st, [a for a, _, _ in dead]
+
+
+def burn(state, now):
+    """🔥 Every GO that lost ≥ 20% at 5 min burns its coin for 6h (Devil refuses it). → new state."""
+    st = dict(state or {})
+    b = {m: at for m, at in (st.get('burned') or {}).items() if now - _f(at) < BURN_SEC}
+    for d in _judged(st, 5):
+        if d.get('go') and _f(d['p5']) <= BURN_PCT and now - _f(d.get('at')) < BURN_SEC:
+            b.setdefault(d.get('mint'), d.get('at'))
+    st['burned'] = b
+    return st
+
+
+def war_log(state, now, hours=24):
+    """🧾 The desk's war log for the last `hours`: calls, GO results, the control group, deaths + why + lessons, ideas and their review,
+    the best and worst GO, the calibration. → (dict, markdown text)."""
+    since = now - hours * 3600
+    js = [d for d in _judged(state, 5) if _f(d.get('at')) >= since]
+    gos = [d for d in js if d.get('go')]
+    ctl = [d for d in js if d.get('kind') == 'wait']
+    lr = learn(state, 5)
+    deaths = [x for x in (state or {}).get('lineage') or [] if _f(x.get('died')) >= since]
+    ideas_ = (state or {}).get('ideas') or {}
+    best = sorted(gos, key=lambda d: -_f(d['p5']))[:3]
+    worst = sorted(gos, key=lambda d: _f(d['p5']))[:3]
+    c = lambda ps: {'n': len(ps), 'med': round(_med(ps), 2) if ps else None, 'won': round(sum(1 for p in ps if p > 0) / len(ps) * 100) if ps else None}
+    out = {'hours': hours, 'calls': len(js), 'go': c([_f(d['p5']) for d in gos]), 'control': c([_f(d['p5']) for d in ctl]), 'deaths': deaths,
+           'ideas': [{'id': i, 'status': v.get('status'), 'kind': v.get('kind'), 'text': v.get('text')} for i, v in ideas_.items()],
+           'best': [(d.get('sym'), d['p5']) for d in best], 'worst': [(d.get('sym'), d['p5']) for d in worst], 'calibration': lr['calibration'],
+           'paper': paper(state), 'life': survival(state)}
+    md = [f"# 🤖 Agent desk — war log (last {hours}h)", '', f"- Calls judged at 5 min: **{len(js)}**",
+          f"- GO calls: **{out['go']['n']}** · typical {out['go']['med']}% · {out['go']['won']}% up" if gos else '- GO calls: none judged',
+          f"- Control (WAIT coins): typical {out['control']['med']}% · {out['control']['won']}% up" if ctl else '- Control: none judged',
+          f"- Paper desk: ${out['paper']['now']:.2f} ({out['paper']['x']}× · best run {out['paper']['best']}× · {out['paper']['busts']} busts)", '',
+          '## Agents', *[f"- {a}: gen {v['gen']} · {v['status']} · {v['n']} calls this life" + (f" · {v['right']}% right" if v['right'] is not None else '') for a, v in out['life'].items()],
+          '', '## Deaths', *([f"- ☠ {x['agent']} gen {x['gen']} after {x['n']} calls — {x.get('why')} · lesson: {', '.join(x.get('lesson') or []) or '—'}" for x in deaths] or ['- none']),
+          '', '## Best / worst GO', *[f"- ✅ ${s_} {p:+.1f}%" for s_, p in out['best']], *[f"- ❌ ${s_} {p:+.1f}%" for s_, p in out['worst']],
+          '', '## Ideas', *([f"- [{x['status']}] {x['kind']}: {x['text']}" for x in out['ideas']] or ['- none yet']),
+          '', '## Calibration (lean → 5-min result)', *[f"- lean {b_}: {v['n']} calls · {v['med']}% · {v['won']}% up" for b_, v in out['calibration'].items()],
+          '', '_A record, never a promise._']
+    return out, '\n'.join(md)
 
 
 AGENTS = (('tally', '📊', 'Tally', 'tracks the numbers'), ('sherlock', '🔍', 'Sherlock', 'knows why they moved'),
@@ -192,10 +288,12 @@ def weights(learned):
     No fixed feeling — after 8 calls the record already weighs as much as the belief, after 40 it is ~83% the record. Strategies and approved
     ideas start at 0 (no belief at all): only their record moves them."""
     w = dict(PRIOR)
+    inherited = {x[0]: _f(x[1]) for x in (((learned or {}).get('lessons') or {}).get('sherlock') or {}).get('drivers') or []}
+    w.update(inherited)   # 🧬 a reborn Sherlock starts from what killed the last one, not from the original belief
     for k, v in ((learned or {}).get('drivers') or {}).items():
         n = int(v.get('n') or 0)
         if n and v.get('med') is not None:
-            w[k] = round((n * _f(v['med']) + BELIEF_K * PRIOR.get(k, 0.0)) / (n + BELIEF_K), 3)
+            w[k] = round((n * _f(v['med']) + BELIEF_K * inherited.get(k, PRIOR.get(k, 0.0))) / (n + BELIEF_K), 3)
     return w
 
 
@@ -267,7 +365,7 @@ def opinion(why, call, verdict, arg):
 def trigger(n, why, row, learned):
     """ENTER / WAIT / SKIP for the next 5 minutes, with the reason. Its bar (`bar`, default 1.5) moves with its own record."""
     n, row = n or {}, row or {}
-    bar = _f((learned or {}).get('bar') or 1.5)
+    bar = _f((learned or {}).get('bar') or 1.5) + _f(((learned or {}).get('regime') or {}).get('adj'))   # 🌡 colder trench → pickier
     if row.get('safe') is False:
         return 'skip', 'failed the holder safety scan'
     if 0 < _f(n.get('liq')) < 20_000:
@@ -303,6 +401,8 @@ def devil(call, n, why, row, learned):
         args.append('under 15 minutes old')
     if row.get('safe') is not True:
         args.append('holders never scanned')
+    if row.get('mint') in ((learned or {}).get('burned') or {}):
+        args.append('burned us within the last 6h — a GO on it lost 20%+ in 5 min')
     mind = row.get('mind') or {}
     if (mind.get('crowd') or {}).get('swarm'):
         args.append(f"the callers are a bot swarm ({round(_f(mind['crowd'].get('swarmShare')) * 100)}% the same line)")
@@ -329,19 +429,25 @@ def devil(call, n, why, row, learned):
 # ── the chain ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 def desk(state, rows, now):
     """One pass of all four, in order. → (new state, table rows for the screen). Each coin's line carries every agent's word."""
+    import time as _t
     st = dict(state or {})
-    learned = st.get('learned') or {}
+    learned = learn(st, 5)   # 🧠 the live desk works from its OWN record every pass (it used to pass {} — learning only ever ran in tests)
+    perf = {'tally': 0.0, 'sherlock': 0.0, 'trigger': 0.0, 'devil': 0.0}
+    t0 = _t.perf_counter()
     ser, nums = tally(st, rows, now)
+    perf['tally'] += _t.perf_counter() - t0
     st['series'] = ser
+    learned['regime'] = regime(nums)
+    learned['burned'] = {m: at for m, at in (st.get('burned') or {}).items() if now - _f(at) < BURN_SEC}
     table = []
     for r in rows or []:
         m = r.get('mint')
         if m not in nums:
             continue
         n = nums[m]
-        why = sherlock(n, r, learned)
-        call, reason = trigger(n, why, r, learned)
-        verdict, arg = devil(call, n, why, r, learned)
+        t0 = _t.perf_counter(); why = sherlock(n, r, learned); perf['sherlock'] += _t.perf_counter() - t0
+        t0 = _t.perf_counter(); call, reason = trigger(n, why, r, learned); perf['trigger'] += _t.perf_counter() - t0
+        t0 = _t.perf_counter(); verdict, arg = devil(call, n, why, {**r, 'mint': m}, learned); perf['devil'] += _t.perf_counter() - t0
         rd = r.get('mind') or _tm.read(r)
         table.append({'mint': m, 'symbol': r.get('symbol'), 'pair': r.get('pairAddress'), 'px': _f(r.get('price')), 'nums': n, 'why': why,
                       'trigger': [call, reason], 'devil': [verdict, arg], 'go': call == 'enter' and verdict == 'agree',
@@ -353,6 +459,7 @@ def desk(state, rows, now):
                                 | {'organic': (r.get('vital') or {}).get('organicPct'), 'rug': (r.get('tv') or {}).get('rug'), 'read': ((r.get('tv') or {}).get('call') or [None, None])[1]}})
     table.sort(key=lambda x: (not x['go'], x['trigger'][0] != 'enter', -x['why']['lean']))
     st['feed'] = (list(st.get('feed') or []) + thoughts(table, now))[-FEED_KEEP:]
+    st['perf'] = {k: round(v * 1000, 2) for k, v in perf.items()} | {'coins': len(table), 'regime': learned['regime'], 'at': now}   # ⚡ real ms per agent this pass
     return st, table
 
 
@@ -436,8 +543,17 @@ def learn(state, h=5):
     }
     t = cards['trigger']
     bar = 1.5 if not t['n'] or t['n'] < 15 else (2.5 if _f(t['med']) < 0 else 1.0 if _f(t['won']) >= 60 else 1.5)   # losing → pickier
+    lessons = (state or {}).get('lessons') or {}
+    bar += _f((lessons.get('trigger') or {}).get('barBump'))   # a reborn Trigger starts pickier than the one that died
+    cal = {}
+    for d in enters_all:   # 🎯 calibration: does a stronger lean really win more?
+        b_ = '0–1' if _f(d.get('lean')) < 1 else '1–2' if _f(d.get('lean')) < 2 else '2–3' if _f(d.get('lean')) < 3 else '3+'
+        cal.setdefault(b_, []).append(_f(d[k]))
+    calib = {b_: {'n': len(v), 'med': round(_med(v), 2), 'won': round(sum(1 for x in v if x > 0) / len(v) * 100)} for b_, v in sorted(cal.items())}
+    budget = {x[4:]: v for x, v in drivers_.items() if x.startswith('src:') and v['n'] >= BUDGET_N and v['med'] < 0}
     ideas_ = (state or {}).get('ideas') or {}
-    return {'drivers': drivers_, 'cards': cards, 'bar': bar, 'h': h,
+    return {'drivers': drivers_, 'cards': cards, 'bar': round(bar, 2), 'h': h, 'calibration': calib, 'cut': budget,
+            'lessons': lessons,
             'approved': {i: v['pair'] for i, v in ideas_.items() if v.get('status') == 'approved' and v.get('kind') == 'take'},
             'avoid': {i: v['pair'] for i, v in ideas_.items() if v.get('status') == 'approved' and v.get('kind') == 'avoid'}}
 
@@ -535,7 +651,9 @@ def view(state, table, feed=False, real=None, mind=None, cfg=None, decisions=Non
             'cfg': {'agentFeed': bool((cfg or {}).get('agentFeed')), 'agentTakePct': int(_f((cfg or {}).get('agentTakePct') or 10)), 'agentMode': (cfg or {}).get('agentMode') or 'auto',
                     'agentSeats': int(_f((cfg or {}).get('agentSeats') or 2)), 'options': {'take': list(AGENT_TAKES), 'mode': list(AGENT_MODES), 'seats': list(AGENT_SEATS)}},
             'decisions': decisions or [], 'tasks': tasks(state, table, now), 'creed': list(CREED), 'life': survival(state),
-            'lineage': list(reversed(((state or {}).get('lineage') or [])[-10:])), 'approveN': IDEA_APPROVE_N}
+            'lineage': list(reversed(((state or {}).get('lineage') or [])[-10:])), 'approveN': IDEA_APPROVE_N,
+            'perf': (state or {}).get('perf') or {}, 'lessons': (state or {}).get('lessons') or {}, 'calibration': lr['calibration'], 'cut': lr['cut'],
+            'burned': len((state or {}).get('burned') or {}), 'scrapN': SCRAP_N, 'surviveN': SURVIVE_N}
 
 
 # ── 💡 IDEAS — the desk proposes tactics from its own record; the creator approves or rejects ──────────────────────────────────────

@@ -81,6 +81,42 @@ export function CreedBox({ creed, lineage }) {
     <ol>{(creed || []).map((c, i) => <li key={i}>{c}</li>)}</ol>
     {(lineage || []).length > 0 && <ul className="agd-lineage">{lineage.map((l, i) => <li key={i}>☠ {NAMES[l.agent] || l.agent} gen {l.gen} · {l.n} calls · {l.right != null ? `${l.right}% right` : `${l.med}% typical`}</li>)}</ul>}</details>;
 }
+// 🏭 THE WORK FLOOR — every mark is a real thing from the last pass (nothing decorative): Tally's dots = the coins it read (green up / pink
+// down over 5 min), Sherlock's tags = the reasons it weighed most this pass, Trigger's crosshairs = its real ENTER calls, Devil's marks = its
+// real verdicts on them. Re-keyed per pass, so each new pass plays in. Real ms per agent beside each lane.
+export const floorOf = d => { const t = d?.table || []; const freq = {};
+  t.forEach(x => (x.why?.drivers || []).slice(0, 3).forEach(dd => { freq[dd[2]] = (freq[dd[2]] || 0) + 1; }));
+  return { dots: t.slice(0, 32).map(x => ({ k: x.mint, up: Number(x.nums?.d5) >= 0, sym: x.symbol })),
+    tags: Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 6), enters: t.filter(x => x.trigger?.[0] === 'enter').slice(0, 6),
+    verdicts: t.filter(x => x.trigger?.[0] === 'enter').slice(0, 6).map(x => ({ sym: x.symbol, ok: x.devil?.[0] === 'agree', go: x.go })) }; };
+export function WorkFloor({ d }) {
+  const f = floorOf(d); const p = d?.perf || {}; const ms = k => (p[k] != null ? `${p[k]} ms` : '—');
+  return <div className="agd-floor" data-testid="agd-floor" key={p.at || 0}>
+    <div className="agd-lane is-tally"><span className="agd-lane-h">📊 Tally <small>{f.dots.length} coins · {ms('tally')}</small></span><span className="agd-lane-b">{f.dots.map((x, i) => <i key={x.k} className={`agd-dot ${x.up ? 'is-up' : 'is-dn'}`} style={{ '--i': i }} data-tip={`$${x.sym}`} />)}</span></div>
+    <div className="agd-lane is-sherlock"><span className="agd-lane-h">🔍 Sherlock <small>{ms('sherlock')}</small></span><span className="agd-lane-b">{f.tags.map(([w, n], i) => <i key={w} className="agd-tag" style={{ '--i': i }}>{w} ×{n}</i>)}{!f.tags.length && <small className="m-dim">no reasons this pass</small>}</span></div>
+    <div className="agd-lane is-trigger"><span className="agd-lane-h">⏱ Trigger <small>{f.enters.length} ENTER · {ms('trigger')}</small></span><span className="agd-lane-b">{f.enters.map((x, i) => <i key={x.mint} className="agd-aim" style={{ '--i': i }}>⌖ ${x.symbol}</i>)}{!f.enters.length && <small className="m-dim">nothing clean enough this pass</small>}</span></div>
+    <div className="agd-lane is-devil"><span className="agd-lane-h">⚖ Devil <small>{ms('devil')}</small></span><span className="agd-lane-b">{f.verdicts.map((x, i) => <i key={x.sym} className={`agd-strike ${x.ok ? 'is-ok' : 'is-no'}`} style={{ '--i': i }}>{x.ok ? (x.go ? '🟢' : '✓') : '✕'} ${x.sym}</i>)}{!f.verdicts.length && <small className="m-dim">nothing to argue</small>}</span></div>
+  </div>;
+}
+// 🧪 THE TANKS — each agent's next generation waits in water. The water rises with REAL danger (its status + how close its life is to the
+// scrap line); the glass carries the lesson it will inherit. A death empties the tank: the new one is born and the next embryo waits.
+export const danger = (l, surviveN = 30, scrapN = 60) => (!l ? 0 : l.status === 'scrap' ? 1 : l.status === 'probation' ? Math.min(1, 0.55 + 0.45 * ((l.n || 0) - surviveN) / Math.max(1, scrapN - surviveN)) : Math.min(0.35, 0.35 * (l.n || 0) / scrapN));
+export function Tanks({ life, lessons, surviveN, scrapN }) {
+  const A = [['tally', '📊'], ['sherlock', '🔍'], ['trigger', '⏱'], ['devil', '⚖']];
+  return <div className="agd-tanks" data-testid="agd-tanks">{A.map(([k, ic]) => { const l = life?.[k]; const dz = danger(l, surviveN, scrapN); const young = l?.born && Date.now() / 1000 - l.born < 600;
+    return <div key={k} className={`agd-tank is-${l?.status || 'alive'}`} data-testid={`tank-${k}`}>
+      <div className="agd-glass"><i className="agd-water" style={{ transform: `scaleY(${Math.max(0.08, dz)})` }} />{[0, 1, 2, 3, 4].map(i => <u key={i} className="agd-bub" style={{ '--i': i }} />)}<b className="agd-embryo">{ic}</b></div>
+      <small><b>gen {(l?.gen || 1) + 1}</b> waiting{young ? ' · 🐣 gen ' + (l?.gen || 1) + ' just born' : ''}</small>
+      <small className="m-dim">{l?.status === 'probation' ? `⚠ gen ${l.gen} on probation · ${l.n}/${scrapN}` : l?.status === 'scrap' ? '☠ being scrapped' : `gen ${l?.gen || 1} alive · ${l?.n || 0} calls`}</small>
+      <small className="agd-lesson">{(lessons?.[k]?.words || []).length ? `inherits: ${lessons[k].words.join(' · ')}` : 'inherits: whatever kills the one before it'}</small></div>; })}</div>;
+}
+// 🎯 calibration + 🌡 regime + 🕸 budget cuts + 🔥 burned — the extra mechanics that keep the desk honest
+export function Edge({ d }) {
+  const cal = d?.calibration || {}; const rg = d?.perf?.regime;
+  return <div className="agd-box agd-edge" data-testid="agd-edge"><b>🎯 CALIBRATION · does a stronger read win more?</b>
+    {Object.keys(cal).length ? <ul>{Object.entries(cal).map(([b, v]) => <li key={b}><span>lean {b}</span><em className={tone(v.med)}>{pct(v.med)}</em><small>{v.won}% up · n {v.n}</small></li>)}</ul> : <small className="m-dim">no ENTER judged yet</small>}
+    <small className="m-dim">🌡 trench {rg ? `${rg.word}${rg.green != null ? ` (${rg.green}% green over 5 min)` : ''} → Trigger's bar ${rg.adj > 0 ? '+' : ''}${rg.adj}` : '—'} · 🔥 {d?.burned || 0} coin{d?.burned === 1 ? '' : 's'} burned (6h) · 🕸 {Object.keys(d?.cut || {}).length ? `budget cut: ${Object.keys(d.cut).join(', ')}` : 'no source cut yet'}</small></div>;
+}
 export const agentLine = a => (a.n ? `${a.n} judged · ${pct(a.med)} typical at 5 min${a.right != null ? ` · ${a.right}% right` : ''}` : 'no judged calls yet — every call is checked 5 minutes later');
 
 export function AgentDesk({ call, isOwner = true }) {
@@ -89,17 +125,20 @@ export function AgentDesk({ call, isOwner = true }) {
   useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, 20000); return () => clearInterval(t); }, [load]);
   if (!d) return <p className="cc-empty">Waking the agents…</p>;
   const st = d.stage || {};
+  const warLog = async () => { try { const r = await call('/admin/agents/log?hours=24'); const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([r.md], { type: 'text/markdown' })); a.download = `agent-war-log-${new Date().toISOString().slice(0, 10)}.md`; a.click(); URL.revokeObjectURL(a.href); } catch (e) { toast.error(e.message); } };
   const save = async body => { setBusy(true); try { await call('/admin/agents', { method: 'POST', body: JSON.stringify(body) }); toast.success(body.idea ? `💡 idea ${body.idea.action === 'approve' ? 'approved' : 'rejected'}` : '🤖 agent control saved'); load(); } catch (e) { toast.error(e.message); } finally { setBusy(false); } };
   return <section className="agd m-live" data-testid="agent-desk">
-    <header className="agd-head"><div><b>🤖 THE AGENT DESK</b><small>Four agents, one chain — none of them can call a trade without the other three. Every call is checked 5 minutes later; they move to 15 min only after they conquer 5.</small></div>
+    <header className="agd-head"><div><b>🤖 THE AGENT DESK</b><button type="button" className="m-btn agd-log" onClick={warLog} data-testid="agd-log">⬇ War log</button><small>Four agents, one chain — none of them can call a trade without the other three. Every call is checked 5 minutes later; they move to 15 min only after they conquer 5.</small></div>
       <div className="agd-stage" data-testid="agd-stage">{[5, 15, 60].map(h => <span key={h} className={(st.conquered || []).includes(h) ? 'is-done' : st.h === h ? 'is-now' : ''}>{(st.conquered || []).includes(h) ? '✓' : st.h === h ? '⚔' : '🔒'} {h}m</span>)}
         <small>{st.team?.n ? `team ${st.team.n}/${st.needN} judged · ${pct(st.team.med)} · ${st.team.won}% won (needs ${st.needWin}%)` : `needs ${st.needN} judged GO calls, a positive median and ${st.needWin}% won`}</small></div></header>
     <RoadMeter road={d.road} />
+    <WorkFloor d={d} />
     <div className="agd-chain">{(d.agents || []).map((a, i) => <React.Fragment key={a.key}><div className={`agd-agent is-${a.key}`} style={{ '--i': i }} data-testid={`agent-${a.key}`}>
       <span className="agd-ico" aria-hidden>{a.icon}</span><b>{a.name}</b><small>{a.job}</small>
       {d.life?.[a.key] && <span className={`agd-life is-${d.life[a.key].status}`} data-testid={`life-${a.key}`}>gen {d.life[a.key].gen} · {d.life[a.key].status === 'alive' ? '🟢 alive' : d.life[a.key].status === 'probation' ? '⚠ probation' : '☠ being scrapped'}</span>}
       <em className={tone(a.med)}>{a.n ? pct(a.med) : '—'}</em><i>{agentLine(a)}</i>
-      <span className="agd-task" data-testid={`task-${a.key}`}><span className="agd-live" aria-hidden />{d.tasks?.[a.key] || 'waiting for the first pass'}</span><span className="agd-scan" aria-hidden><u /></span></div>{i < 3 && <span className="agd-arrow" aria-hidden>→</span>}</React.Fragment>)}</div>
+      <span className="agd-task" data-testid={`task-${a.key}`}><span className="agd-live" aria-hidden />{d.tasks?.[a.key] || 'waiting for the first pass'}</span><span className="agd-scan" aria-hidden><u /></span>{d.perf?.[a.key] != null && <small className="agd-ms" data-testid={`ms-${a.key}`}>⚡ {d.perf[a.key]} ms this pass</small>}</div>{i < 3 && <span className="agd-arrow" aria-hidden>→</span>}</React.Fragment>)}</div>
     <small className="m-dim agd-pass">last pass {d.tasks?.at ? `${ago(d.tasks.at)} ago` : '—'} · one a minute, any hour the backend is online</small>
     <div className="agd-row2">
       <div className="agd-box" data-testid="agd-desk"><b>📜 TRENCH DESK · 25% a GO, out at 5 min · goal 10×</b><p className={`agd-big ${tone(d.desk.now - d.desk.start)}`}>${d.desk.now.toFixed(2)} <small>{d.desk.x}× of ${d.desk.start} · best run {d.desk.best}× · {d.desk.busts} bust{d.desk.busts === 1 ? '' : 's'} · {d.desk.trades} trades</small></p>
@@ -107,6 +146,8 @@ export function AgentDesk({ call, isOwner = true }) {
       <div className="agd-box" data-testid="agd-drivers"><b>🔍 WHAT SHERLOCK LEARNED</b>{(d.drivers || []).length ? <ul>{d.drivers.slice(0, 7).map(x => <li key={x.key}><span>{x.words}</span><em className={tone(x.med)}>{pct(x.med)}</em><small>n {x.n}</small></li>)}</ul> : <small className="m-dim">Nothing judged yet — every reason starts as a belief and becomes its own record as calls are judged.</small>}</div>
       <AgentControls cfg={d.cfg} decisions={d.decisions} proven={d.proven5} isOwner={isOwner} busy={busy} save={save} />
     </div>
+    <Tanks life={d.life} lessons={d.lessons} surviveN={d.surviveN || 30} scrapN={d.scrapN || 60} />
+    <div className="agd-row2"><Edge d={d} /></div>
     <CreedBox creed={d.creed} lineage={d.lineage} />
     <IdeaBox ideas={d.ideas} isOwner={isOwner} busy={busy} save={save} need={d.approveN || 15} />
     <MindBox m={d.mind} />

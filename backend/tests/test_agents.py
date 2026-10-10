@@ -165,3 +165,44 @@ def test_an_agent_that_stays_wrong_is_scrapped_and_reborn_with_nothing_but_belie
     assert ag.survival(st2)['tally'] == {'gen': 2, 'born': 5000.0, 'n': 0, 'right': None, 'med': None, 'status': 'alive'}   # a fresh life
     assert 'reborn as generation 2' in st2['feed'][-1]['text']
     assert ag.learn(st2)['drivers'].get('buyers', {}).get('n') == 65                           # Sherlock is alive: it keeps its own record
+
+
+def test_the_live_desk_uses_its_own_record_regime_and_burned_memory():
+    # Sherlock's record says 'buyers in charge' LOST over 20 calls → the live desk must weigh it negative (it used to ignore the record)
+    done = [{'mint': f'd{i}', 'at': i, 'kind': 'wait', 'drivers': ['buyers', 'surge'], 'lean': 1, 'p5': -8.0} for i in range(20)]
+    st = {'done': done}
+    for t in (100, 160, 220):
+        st, table = ag.desk(st, [row('GOOD')], t)
+    g = {d[0]: d[1] for d in table[0]['why']['drivers']}
+    assert g['buyers'] < 0 and g['surge'] < 0 and table[0]['trigger'][0] != 'enter'      # learned → no ENTER
+    assert set(st['perf']) >= {'tally', 'sherlock', 'trigger', 'devil', 'coins', 'regime'} and st['perf']['coins'] == 1
+    assert ag.regime({str(i): {'d5': -1} for i in range(12)})['adj'] == 0.5 and ag.regime({'a': {'d5': 1}})['word'] == 'unknown'
+    burnt = ag.burn({'done': [{'mint': 'R', 'at': 1000.0, 'go': True, 'p5': -35.0}]}, 1500.0)
+    assert 'R' in burnt['burned']
+    lr = {**ag.learn({}, 5), 'burned': burnt['burned']}
+    v, why = ag.devil('enter', {'pts': 5, 'liq': 50000}, {'drivers': [], 'lean': 3}, {'mint': 'R', 'safe': True}, lr)
+    assert v == 'object' and 'burned us' in why
+
+
+def test_a_rug_gets_one_second_opinion_and_a_death_passes_its_lesson_on():
+    mk = lambda i, p: {'mint': str(i), 'at': 1000 + i, 'kind': 'wait', 'drivers': ['callers'], 'lean': -1, 'tallyUp': True, 'p5': p}
+    one_rug = [mk(i, -0.1) for i in range(64)] + [mk(99, -95.0)]                          # 65 wrong calls, but one rug is most of the loss
+    st, dead = ag.evolve({'done': one_rug}, 5000.0)
+    assert dead == [] and st['grace']['tally'] == 1 and 'spared once' in st['feed'][-1]['text']
+    st2, dead2 = ag.evolve(st, 5100.0)                                                      # same generation: no second grace
+    assert dead2 == ['tally'] and st2['gen']['tally'] == 2 and 'I carry what killed it' in st2['feed'][-1]['text']
+    spread = [mk(i, -3.0) for i in range(65)]
+    st3, dead3 = ag.evolve({'done': spread}, 5000.0)
+    assert dead3 == ['tally'] and 'spread over' in st3['lineage'][-1]['why']
+    les = ag.lesson({'done': [{**mk(i, -6.0), 'kind': 'enter', 'drivers': ['callers']} for i in range(10)]}, 'sherlock')
+    assert les['drivers'][0][0] == 'callers' and les['drivers'][0][1] == -6.0
+    w = ag.weights({'drivers': {}, 'lessons': {'sherlock': les}})
+    assert w['callers'] == -6.0                                                             # the reborn Sherlock starts from what killed the last
+    assert ag.lesson({}, 'trigger')['barBump'] == 0.5
+
+
+def test_war_log_and_calibration():
+    done = [{'mint': str(i), 'sym': f'C{i}', 'at': 10_000 + i, 'kind': 'enter', 'go': True, 'devil': 'agree', 'drivers': [], 'lean': 2.5 if i % 2 else 0.5, 'p5': 5.0 if i % 2 else -2.0} for i in range(8)]
+    log, md = ag.war_log({'done': done}, 10_100, 24)
+    assert log['go']['n'] == 8 and log['calibration']['2–3']['med'] == 5.0 and log['calibration']['0–1']['med'] == -2.0
+    assert md.startswith('# 🤖 Agent desk — war log') and '✅ $C1 +5.0%' in md and 'A record, never a promise' in md

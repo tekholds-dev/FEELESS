@@ -11803,6 +11803,11 @@ async def _agents_tick(now):
                 src_.setdefault(c_['mint'], []).append('calls')
         for x in raw:
             x['src'] = ['open'] + (['new'] if x.get('mint') in seen_ else []) + src_.get(x.get('mint'), [])
+        cut_ = set((_ag.learn(_json_load(AGENTS_PATH, {}), 5).get('cut') or {}).keys())   # 🕸 source budget: losing corners get half the room
+        if cut_:
+            keep_ = [x for x in raw if not (set(x['src']) - {'open'}) or not (set(x['src']) - {'open'}) <= cut_]
+            trim_ = [x for x in raw if x not in keep_]
+            raw = keep_ + trim_[:len(trim_) // 2]
         tv_ = {x.get('mint'): x.get('tv') for x in raw}
         rows = [{**r, 'tv': tv_.get(r.get('mint')) or r.get('tv')} for r in _clean_rows([dict(x) for x in raw])]
         # 🧠 the human read: who is calling each coin on Pump and what they write, the narratives hot on the board, the lingo they use
@@ -11826,6 +11831,7 @@ async def _agents_tick(now):
             before = st
             st = _ag.settle(st, lambda m: (jp or {}).get(m), now)
             st['feed'] = (list(st.get('feed') or []) + _ag.results(before, st, now))[-_ag.FEED_KEEP:]
+        st = _ag.burn(st, now)                 # 🔥 a GO that lost 20%+ burns its coin for 6h
         st, scrapped_ = _ag.evolve(st, now)   # ⚔ survive or be scrapped: a long-wrong agent is reborn as the next generation
         n_ideas = len(st.get('ideas') or {})
         st = _ag.ideas(st)   # 💡 tactics found in their own record go up to the creator
@@ -11868,6 +11874,14 @@ async def admin_agents(request: Request):
         rcfg_ = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
         _agents['view'] = _ag.view(st, _agents.get('table') or [], bool(rcfg_.get('agentFeed')), _agents_real(), _agents.get('mind'), rcfg_, _agents.get('decisions'), time.time())
     return _agents['view']
+
+
+@app.get('/api/reputation/admin/agents/log')
+async def admin_agents_log(request: Request, hours: int = Query(24, ge=1, le=168)):
+    """🧾 The agent desk's war log (calls, GO vs control, deaths + lessons, ideas, best / worst, calibration) as data + Markdown to export."""
+    _require_admin(request)
+    log, md = _ag.war_log(_json_load(AGENTS_PATH, {}), time.time(), hours)
+    return {'log': log, 'md': md}
 
 
 @app.post('/api/reputation/admin/agents')
