@@ -2723,3 +2723,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   agent's real ms — `spinSec`), the pass's real coins travel the chain as packets coloured by how they ended (`packetsOf`), click a station →
   `AgentDetail` (task · rules · last rulings · record · history spark · inherited lesson), ⤢ Pop out = full-screen portal (Esc / ✕).
   `.agr` is an fxPause surface; fx-lite / reduced motion lay the packets out still.
+- 🤖 THE AGENTS' OWN SEAT IS A WHOLE SEAT (owner, 2026-10-09: "they run 1 whole seat and suggest for the other 3"): `agentLearnPct` options
+  100 (default = whole seat: the trench drop gives the agent coin the victim's full money, no `ticket` flag, still held until profit / pulled on a
+  drain) · 15 / 10 / 5 % tickets. `_agent_seat_fix_1009` set the real card to 100 (old value data/realcfg_before_agentseat.json). 🤝 A coin the
+  owner takes from the agents' My-cards alert carries `via: 'agents'` → tag '🤝 agents suggested · your pick' → `_agents_real().suggested` (its own
+  record, shown under the Road meter); it is the OWNER's seat (not `agent_leg`, normal stops).
+- 🏢 AGENT OFFICE (`AgentRoom.jsx` rewritten, `agentRoom.css`): one SVG cartoon office — four robots (Tally specs · Sherlock deerstalker +
+  magnifier · Trigger headset · Devil horns + gavel) typing at the speed of their real ms, speech bubble = live task, monitor = real output
+  (`screensOf`: Tally's bars = 5-min moves read · Sherlock's top reasons · Trigger's ENTER scope · Devil's docket), the tube carries the pass's
+  coins as stamped slips to a → CARD tray / shredder, wall board = coins read · GO · market green %, status on the robot (⚠ sweat, ☠ X eyes).
+  SVG TEXT IS `T` (createElement, never `<text>{expr}</text>`): the dev server's visual-edits babel plugin wraps a JSX `{expr}` in a <span>, which
+  SVG can't draw — every dynamic label would vanish on the dev server. Never CSS-animate a <g> that has a transform attribute.

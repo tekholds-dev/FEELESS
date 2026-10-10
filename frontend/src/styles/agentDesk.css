@@ -42,6 +42,7 @@
 .agd-road-bar i { display: block; height: 100%; background: linear-gradient(90deg, #15d16a, #f5c451); transform-origin: left; transition: transform .6s ease; }
 .agd-road ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .agd-road li { display: flex; gap: 6px; align-items: center; font-size: 11px; color: #6d8d7d; } .agd-road li span { flex: none; }
+.agd-sugg { font-size: 11px; color: #8fb3a1; }
 .agd-road li.is-now { color: #f5c451; font-weight: 700; } .agd-road li.is-done { color: #45e486; }
 /* 🗯 live thoughts */
 .agd-feed { padding: 10px; border-radius: 12px; background: rgba(0, 0, 0, .3); border: 1px solid #1d3328; display: grid; gap: 6px; }

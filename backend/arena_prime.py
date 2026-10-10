@@ -506,8 +506,8 @@ def clean_cfg(p):
     out['trenchRush'] = bool((p or {}).get('trenchRush', False))   # ⚡ RUSH: the trench drop takes the Rush board's coin, every `trenchEvery` min, and may take a losing un-frozen pick's seat
     out['trenchEvery'] = int(_f((p or {}).get('trenchEvery'))) if int(_f((p or {}).get('trenchEvery'))) in TRENCH_EVERY else 30
     out['agentFeed'] = bool((p or {}).get('agentFeed', False))
-    out['agentLearn'] = bool((p or {}).get('agentLearn', False))   # 🎓 ONE small real seat for the agents to learn on BEFORE they are proven
-    out['agentLearnPct'] = int(_f((p or {}).get('agentLearnPct'))) if int(_f((p or {}).get('agentLearnPct'))) in (5, 10, 15) else 10
+    out['agentLearn'] = bool((p or {}).get('agentLearn', False))   # 🎓 ONE real seat for the agents to learn on BEFORE they are proven
+    out['agentLearnPct'] = int(_f((p or {}).get('agentLearnPct'))) if int(_f((p or {}).get('agentLearnPct'))) in (5, 10, 15, 100) else 100   # 100 = a WHOLE seat (owner: "they run 1 whole seat")
     out['agentTakePct'] = int(_f((p or {}).get('agentTakePct'))) if int(_f((p or {}).get('agentTakePct'))) in (5, 10, 20, 30, 50) else 10   # 🤖 agent seats hold until this profit
     out['agentMode'] = (p or {}).get('agentMode') if (p or {}).get('agentMode') in ('auto', 'pull', 'swap') else 'auto'   # … then pull to cash / swap / let the agents choose
     out['agentSeats'] = int(_f((p or {}).get('agentSeats'))) if int(_f((p or {}).get('agentSeats'))) in (1, 2, 3, 4) else 2   # most agent coins on the card at once   # 🤖 the agent desk's GO calls feed the rush (only once its 5-min stage is conquered)
@@ -2278,11 +2278,11 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             out_usd = sell_usd(units, px, liqs.get(l['pairAddress']) or l.get('liq'))
             # 🎟 a trench coin is a SMALL ticket: at most `trenchStakePct` of the card goes in (the rest of the old coin's money
             # returns to card cash for the other coins), and it carries its own tighter stop — one pulled launch costs a slice, not a seat
-            pct_t = _f(nxt.get('stakePct') or cfg.get('trenchStakePct'))   # 🎓 an agent learning seat brings its own (smaller) ticket
+            pct_t = 0.0 if _f(nxt.get('stakePct')) >= 100 else _f(nxt.get('stakePct') or cfg.get('trenchStakePct'))   # 🎓 an agent seat brings its own size: 100 = the WHOLE seat it replaces
             use_usd = min(out_usd, value(c, prices, liqs) * pct_t / 100) if pct_t > 0 else out_usd
             nl_ = _leg(nxt, use_usd, now, 'runner')
             if str(nxt.get('tag') or '').startswith('🤖'):   # 🤖 an agent pick holds until profit — no stop, the rug shield still acts
-                nl_.update(slMode='hold', rideOrRug=True, ticket=True)
+                nl_.update(slMode='hold', rideOrRug=True, **({'ticket': True} if pct_t > 0 else {}))   # a whole agent seat is a normal seat (topped up like one)
             sl_t = ticket_sl(c, _f(cfg.get('trenchSlPct')))
             if nl_.get('rideOrRug'):
                 pass

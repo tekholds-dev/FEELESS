@@ -238,3 +238,15 @@ def test_the_learning_seat_is_one_small_ticket_before_they_are_proven(monkeypatc
     assert len(r) == 1 and r[0]['stakePct'] == 10 and '🎓 learning seat' in r[0]['tag']
     assert rs._agents_go_rows([{'bought': {'tag': '🤖 agents GO · 🎓 learning seat'}}], 2, learn=True) == []   # one learning seat at a time
     assert rs._agents_go_rows([], 2, learn=False) == []
+
+
+def test_the_agents_seat_defaults_to_a_whole_seat_and_suggestions_taken_are_scored_apart(monkeypatch):
+    import reputation_service as rs
+    table = [{'mint': 'A', 'symbol': 'A', 'pair': 'PA', 'px': 1.0, 'nums': {'liq': 50_000}, 'why': {'lean': 3}, 'go': True}]
+    monkeypatch.setitem(rs._agents, 'table', table)
+    monkeypatch.setitem(rs._agents, 'view', {'feed': False})
+    assert rs._agents_go_rows([], 2, learn=True)[0]['stakePct'] == 100
+    rs._json_save(rs.REAL_LEARN_PATH, {'pieces': [{'k': ['tag:🤝'], 'pct': 12.0}, {'k': ['tag:🤝'], 'pct': -4.0}, {'k': ['tag:🤝'], 'pct': 8.0}, {'k': ['tag:🤖'], 'pct': 3.0}]})
+    r = rs._agents_real()
+    assert r['n'] == 1 and r['suggested'] == {'n': 3, 'med': 8.0, 'won': 67}
+    assert ag.road({}, r)['real']['suggested']['n'] == 3

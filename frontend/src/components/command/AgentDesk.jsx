@@ -25,7 +25,8 @@ export function RoadMeter({ road }) {
     ['⏱', '15-minute stage', false, false], ['🕐', '1-hour stage', false, false]];
   return <div className="agd-road" data-testid="agd-road"><div className="agd-road-top"><b>🛣 ROAD TO REAL MONEY</b><em>{road.pct}%</em></div>
     <div className="agd-road-bar"><i style={{ transform: `scaleX(${Math.max(0.02, road.pct / 100)})` }} /></div>
-    <ol>{steps.map(([ic, t, done, now]) => <li key={t} className={done ? 'is-done' : now ? 'is-now' : ''}><span>{done ? '✓' : ic}</span>{t}</li>)}</ol></div>;
+    <ol>{steps.map(([ic, t, done, now]) => <li key={t} className={done ? 'is-done' : now ? 'is-now' : ''}><span>{done ? '✓' : ic}</span>{t}</li>)}</ol>
+    <small className="agd-sugg" data-testid="agd-sugg">🤝 Their suggestions you took: {r.suggested?.n ? `${r.suggested.n} closed · ${r.suggested.med >= 0 ? '+' : ''}${r.suggested.med}% typical · ${r.suggested.won}% won` : 'none closed yet — picks from their alert are scored apart'}</small></div>;
 }
 // 🗯 LIVE: what the four said, newest first — the coin, who said it, how long ago. A desk line = a call that just got its 5-minute verdict.
 export function ThoughtFeed({ lines }) {
@@ -59,8 +60,8 @@ export function AgentControls({ cfg, decisions, proven, isOwner, busy, save }) {
   const seg = (k, vals, lab) => <div className="m-seg" role="group">{vals.map(v => <button key={String(v)} type="button" disabled={busy || !isOwner} className={String(c[k]) === String(v) ? 'active' : ''} onClick={() => save({ cfg: { [k]: v } })} data-testid={`agc-${k}-${v}`}>{lab(v)}</button>)}</div>;
   return <div className="agd-box agd-ctl" data-testid="agd-controls"><b>⚙ AGENT CONTROL · YOUR FUSE CARD</b>
     <div className="agd-ctl-row"><span>Their GO coins on my card</span><div className="m-seg"><button type="button" disabled={busy || !isOwner} className={c.agentFeed ? 'active' : ''} onClick={() => save({ feed: true })} data-testid="agd-feed-on">ON</button><button type="button" disabled={busy || !isOwner} className={!c.agentFeed ? 'active' : ''} onClick={() => save({ feed: false })} data-testid="agd-feed-off">Paper only</button></div></div>
-    <div className="agd-ctl-row"><span>🎓 Learning seat (1 coin, real money, before they're proven)</span><div className="m-seg"><button type="button" disabled={busy || !isOwner} className={c.agentLearn ? 'active' : ''} onClick={() => save({ cfg: { agentLearn: true } })} data-testid="agc-learn-on">ON</button><button type="button" disabled={busy || !isOwner} className={!c.agentLearn ? 'active' : ''} onClick={() => save({ cfg: { agentLearn: false } })} data-testid="agc-learn-off">off</button></div></div>
-    {c.agentLearn && <div className="agd-ctl-row"><span>Learning ticket</span>{seg('agentLearnPct', [5, 10, 15], v => `${v}% of the card`)}</div>}
+    <div className="agd-ctl-row"><span>🎓 Agents' own seat (1 coin, real money — they suggest for the rest)</span><div className="m-seg"><button type="button" disabled={busy || !isOwner} className={c.agentLearn ? 'active' : ''} onClick={() => save({ cfg: { agentLearn: true } })} data-testid="agc-learn-on">ON</button><button type="button" disabled={busy || !isOwner} className={!c.agentLearn ? 'active' : ''} onClick={() => save({ cfg: { agentLearn: false } })} data-testid="agc-learn-off">off</button></div></div>
+    {c.agentLearn && <div className="agd-ctl-row"><span>Their seat size</span>{seg('agentLearnPct', [100, 15, 10, 5], v => v >= 100 ? 'whole seat' : `${v}% ticket`)}</div>}
     <div className="agd-ctl-row"><span>Hold until profit</span>{seg('agentTakePct', o.take, v => `+${v}%`)}</div>
     <div className="agd-ctl-row"><span>Then</span>{seg('agentMode', o.mode, v => MODE[v] || v)}</div>
     <div className="agd-ctl-row"><span>Seats they may hold</span>{seg('agentSeats', o.seats, v => `${v}`)}</div>

@@ -8771,6 +8771,23 @@ async def _agent_learn_fix_1009(now):
     return True
 
 
+async def _agent_seat_fix_1009(now):
+    """🤖 Once (owner, 2026-10-09: "agents don't just get one small seat, they run 1 whole seat and suggest for the other 3"): the learning
+    seat becomes a WHOLE seat (`agentLearnPct` 100). Old value: data/realcfg_before_agentseat.json."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('agentSeatFix1009') or not rc:
+            return False
+        _json_save(DATA_DIR / 'realcfg_before_agentseat.json', {k: rc.get(k) for k in ('agentLearn', 'agentLearnPct')})
+        pr['realCfg'] = _prime.clean_cfg({**rc, 'agentLearn': True, 'agentLearnPct': 100})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'agentLearn', 'agentLearnPct'})
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | {'agentLearn', 'agentLearnPct'})
+        pr['agentSeatFix1009'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _ticket_ride_fix(now):
     """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
     once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
@@ -8886,6 +8903,7 @@ async def _prime_tick_inner(now):
     await _degen_crazy_fix_1009(now)
     await _agent_test_fix_1009(now)
     await _agent_learn_fix_1009(now)
+    await _agent_seat_fix_1009(now)
     await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
@@ -9718,6 +9736,7 @@ async def fuse_prime_admin(request: Request):
                     **({'ageH': round(_fuse._f(_age_c), 2)} if _age_c is not None else {}),
                     **({'trenchOnly': True} if row.get('trenchOnly') else {}),
                     **({'now': True} if pk.get('now') and pk['pairAddress'] != '__seat__' else {}),
+                    **({'tag': '🤝 agents suggested · your pick'} if pk.get('via') == 'agents' else {}),   # 🤝 a coin taken from the agents' alert: its own record
                     'division': next((dv['key'] for dv in (_contenders_cache.get('data') or {}).get('divisions') or [] if any(r.get('mint') == row['mint'] for r in dv.get('rows') or [])), None)}
         # ✅ VERIFIED PICKS (real cards, on by default): a hand-picked coin is queued only once it passes every safety check.
         # 2026-10-06: a hand pick rugged 3.5 minutes after the bell (−98%) — picks used to skip every engine check.
@@ -11881,12 +11900,16 @@ def _agents_real():
     judged on the card's own exit vs entry (real_learn). → {n, med, won}"""
     ps = [_fuse._f(p.get('pct')) for p in (_json_load(REAL_LEARN_PATH, {}).get('pieces') or []) if 'tag:🤖' in (p.get('k') or [])]
     n = len(ps); ps.sort()
-    return {'n': n, 'med': None if not n else round(ps[n // 2] if n % 2 else (ps[n // 2 - 1] + ps[n // 2]) / 2, 2), 'won': None if not n else round(sum(1 for x in ps if x > 0) / n * 100)}
+    out = {'n': n, 'med': None if not n else round(ps[n // 2] if n % 2 else (ps[n // 2 - 1] + ps[n // 2]) / 2, 2), 'won': None if not n else round(sum(1 for x in ps if x > 0) / n * 100)}
+    sg = sorted(_fuse._f(p.get('pct')) for p in (_json_load(REAL_LEARN_PATH, {}).get('pieces') or []) if 'tag:🤝' in (p.get('k') or []))
+    out['suggested'] = {'n': len(sg), 'med': None if not sg else round(sg[len(sg) // 2], 2), 'won': None if not sg else round(sum(1 for x in sg if x > 0) / len(sg) * 100)}   # 🤝 coins the owner took from their alert
+    return out
 
 
-def _agents_go_rows(legs=(), seats=2, learn=False, learn_pct=10):
+def _agents_go_rows(legs=(), seats=2, learn=False, learn_pct=100):
     """The team's GO coins for the real card's rush. PROVEN (5-min stage conquered + `agentFeed`): up to `agentSeats` coins, normal tickets.
-    🎓 LEARNING (`agentLearn`, before they are proven): ONE coin at a time, a `learn_pct` % ticket — real fills to learn from, small money."""
+    🎓 LEARNING (`agentLearn`, before they are proven): ONE coin at a time — a WHOLE seat at `learn_pct` 100 (default), else a % ticket.
+    The other seats stay the owner's: the agents only SUGGEST for them (My cards alert → 🤝 tagged, scored apart)."""
     v = _agents.get('view') or {}
     held = sum(1 for l in legs or [] if _prime.agent_leg(l))
     if v.get('feed'):
@@ -11901,7 +11924,7 @@ def _agents_go_rows(legs=(), seats=2, learn=False, learn_pct=10):
         return []
     return [{'mint': x['mint'], 'symbol': x['symbol'], 'pairAddress': x['pair'], 'price': x['px'], 'liq': (x['nums'] or {}).get('liq'), 'safe': True,
              'trenchOnly': True, 'trenchScore': 900 + x['why']['lean'], 'tag': '🤖 agents GO' + (' · 🎓 learning seat' if learning else ''),
-             **({'stakePct': int(learn_pct or 10)} if learning else {})} for x in _agents.get('table') or [] if x.get('go')][:1 if learning else 4]
+             **({'stakePct': int(learn_pct or 100)} if learning else {})} for x in _agents.get('table') or [] if x.get('go')][:1 if learning else 4]
 
 
 @app.get('/api/reputation/admin/agents')

@@ -489,3 +489,25 @@ def test_an_agent_coin_is_never_taken_by_the_volume_cycle_the_trench_drop_or_rot
     assert ap.agent_leg(agent) and not ap.agent_leg(leg('X'))
     assert ap.flat_leg({'legs': [agent]}, {'PAG': 1.0}, now, picks=True) is None          # flat, but it is the agents' seat
     assert ap.flat_leg({'legs': [agent, leg('X')]}, {'PAG': 1.0, 'PX': 1.0}, now, picks=True)['mint'] == 'X'
+
+
+def test_the_agents_own_seat_is_a_whole_seat_not_a_ticket():
+    anchors, pools, runners = _cands()
+    base = {'trenchCoins': 1, 'rotateHours': 0.25, 'minHoldMins': 10, 'cycles': {**{t: 'off' for t in ap.DEFAULT_CYCLES}, 'degen': 'trench'}, 'rescuePct': 0, 'cycleEvery': 0,
+            'rideAt': 0, 'tp': 0, 'lockBankPct': 0, 'tpStakeUsd': 0, 'skimAt': 0, 'trenchRush': True, 'trenchEvery': 10, 'trenchStakePct': 25}
+    cfg = ap.clean_cfg(base)
+    assert ap.clean_cfg({})['agentLearnPct'] == 100 and ap.clean_cfg({'agentLearnPct': 15})['agentLearnPct'] == 15   # 100 = a whole seat (default)
+    card = ap.deal('degen', pools, [x for x in runners if not x.get('trenchOnly')], cfg, 0.0, anchors, shape='degen')
+    px = {l['pairAddress']: l['entry'] * 0.8 for l in card['legs']}
+    for x in runners:
+        px.setdefault(x['pairAddress'], x['price'])
+    t0 = 10_000.0
+    card['at'] = 0.0
+
+    def run(pct):
+        rs = [{**x, 'tag': '🤖 agents GO · 🎓 learning seat', 'stakePct': pct} if x.get('trenchOnly') else x for x in runners]
+        out = ap.tick({**card, 'legs': [dict(l) for l in card['legs']], 'trenchFillAt': t0 - 601}, px, pools, rs, cfg, t0, anchors, {}, {})
+        return next(l for l in out['legs'] if ap.agent_leg(l))
+    whole, small = run(100), run(10)
+    assert not whole.get('ticket') and whole.get('rideOrRug')                       # a normal seat the agents run (held until profit)
+    assert small.get('ticket') and whole['costUsd'] > small['costUsd'] * 2           # the old 10% ticket is a slice of it

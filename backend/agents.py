@@ -603,7 +603,7 @@ def road(state, real=None):
     real_done = int(r.get('n') or 0) >= 10 and _f(r.get('med')) > 0
     pct = round((min(x_prog, n_prog) * 0.5 + (0.5 * min(1.0, int(r.get('n') or 0) / 10) * (1 if _f(r.get('med')) > 0 else 0.5) if paper_done else 0.0)) * 100)
     return {'pct': 100 if paper_done and real_done else pct, 'paper': {'done': paper_done, 'x': pp['x'], 'need': PROVE_X, 'n': int(team['n'] or 0), 'needN': PROVE_N},
-            'real': {'open': paper_done, 'done': real_done, 'n': int(r.get('n') or 0), 'med': r.get('med'), 'won': r.get('won'), 'needN': 10}}
+            'real': {'open': paper_done, 'done': real_done, 'n': int(r.get('n') or 0), 'med': r.get('med'), 'won': r.get('won'), 'needN': 10, 'suggested': r.get('suggested') or {}}}
 
 
 def thoughts(table, now, top=4):
@@ -651,7 +651,7 @@ def view(state, table, feed=False, real=None, mind=None, cfg=None, decisions=Non
             'table': table[:24], 'desk': paper(state), 'open': len((state or {}).get('open') or {}), 'feed': bool(feed and proven), 'feedAsked': bool(feed),
             'road': road(state, real), 'thoughts': list(reversed(((state or {}).get('feed') or [])[-40:])), 'real': real or {}, 'mind': mind or {},
             'ideas': sorted(({'id': i, **v} for i, v in ((state or {}).get('ideas') or {}).items()), key=lambda x: (x['status'] != 'new', -_f(x.get('at')))),
-            'cfg': {'agentFeed': bool((cfg or {}).get('agentFeed')), 'agentLearn': bool((cfg or {}).get('agentLearn')), 'agentLearnPct': int(_f((cfg or {}).get('agentLearnPct') or 10)),
+            'cfg': {'agentFeed': bool((cfg or {}).get('agentFeed')), 'agentLearn': bool((cfg or {}).get('agentLearn')), 'agentLearnPct': int(_f((cfg or {}).get('agentLearnPct') or 100)),
                     'agentTakePct': int(_f((cfg or {}).get('agentTakePct') or 10)), 'agentMode': (cfg or {}).get('agentMode') or 'auto',
                     'agentSeats': int(_f((cfg or {}).get('agentSeats') or 2)), 'options': {'take': list(AGENT_TAKES), 'mode': list(AGENT_MODES), 'seats': list(AGENT_SEATS)}},
             'decisions': decisions or [], 'tasks': tasks(state, table, now), 'creed': list(CREED), 'life': survival(state),
