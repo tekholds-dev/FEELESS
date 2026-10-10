@@ -2769,7 +2769,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   card seats I allowed"):
   · `agents.ruling / judge` (pure, tested): 5 min after every FINAL call the Judge names ONE bot who called it and / or ONE who takes the L
     (GO win → Sherlock if lean ≥ 2, else Tally if the numbers were up, else Trigger · GO loss → Devil if ≤ −20%, else the same order ·
-    objected → Devil vs Trigger · a WAIT that ran ≥ +10% → Trigger); ±3% = no ruling. Over the last `JUDGE_LAST` 30 rulings the worst net
+    objected → Devil vs Trigger); ±3% = no ruling. A WAIT that ran ≥ +10% is a 😴 MISS on Trigger: shown + counted (`missed`), NEVER toward a
+    trial (live 2026-10-10: 20+ misses put Trigger on trial and made it PICKIER — the opposite of the fix; the owner's 🔥 dial is that lever). Over the last `JUDGE_LAST` 30 rulings the worst net
     (≤ −2) is ON TRIAL with a handicap applied in `desk()` — Trigger bar +0.5 · Sherlock lean ×0.75 · Devil passes only lean ≥ bar + 0.5 ·
     Tally needs 5 readings — and the best net (≥ +2) wears the 👑. A TRIAL MAY ONLY EVER TIGHTEN (FeeCat's discipline rule); never add a
     reward that loosens a gate. Feed lines `who: 'judge'`.

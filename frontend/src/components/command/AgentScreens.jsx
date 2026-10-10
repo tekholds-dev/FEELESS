@@ -166,10 +166,11 @@ export function CourtBand({ judge, proof, desk, onPick, onCourt }) {
   return <div className="ags-court" data-testid="ags-court">
     <div className="ags-judge"><button type="button" className="ags-jhead" onClick={onCourt} data-tip="Open the court: every ruling and each bot's score" data-testid="ags-judge"><span className="ags-gavel" key={j.n || 0}>👨‍⚖️</span><b>JUDGE</b><em><i className="m-pos">{j.wins ?? 0}W</i> <i className="m-neg">{j.losses ?? 0}L</i></em></button>
       <span className="ags-sent">{j.trial ? <i className="is-trial" data-tip={`Worst net over the last rulings — plays under a handicap until it recovers: ${j.handicap}`} data-testid="ags-trial">🔨 {BOT[j.trial]} ON TRIAL · {j.handicap}</i> : <i className="is-clear">no bot on trial</i>}
+ {j.missed > 0 && <i className="is-miss" data-tip="Coins Trigger said WAIT on that ran 10%+ in 5 min. Never counted toward a trial — your 🔥 dial lowers its bar." data-testid="ags-missed">😴 {j.missed} missed</i>}
         {j.mvp && <i className="is-mvp" data-tip="Best net over the last rulings" data-testid="ags-mvp">👑 {BOT[j.mvp]}</i>}</span>
       <span className="ags-tape">{(j.rulings || []).slice(0, 10).map((r, i) => <button type="button" key={`${r.mint}-${r.at}`} className={`ags-rule is-${r.verdict}`} style={{ '--i': Math.min(i, 8) }} onClick={() => onPick && onPick(r.sym)}
-        data-tip={`${r.kind === 'go' ? 'GO' : r.kind === 'objected' ? 'objected' : 'waited'} · ${r.credit ? `${BOT[r.credit]} called it` : ''}${r.credit && r.blame ? ' · ' : ''}${r.blame ? `${BOT[r.blame]} takes the L` : ''}`} data-testid={`rule-${r.sym}`}>
-        {r.verdict === 'win' ? '🏆' : '🔨'} ${r.sym} <em>{pct(r.pct)}</em><u>{BOT[r.verdict === 'win' ? r.credit : r.blame] || ''}</u></button>)}
+        data-tip={`${r.kind === 'go' ? 'GO' : r.kind === 'objected' ? 'objected' : 'waited — it ran'} · ${r.credit ? `${BOT[r.credit]} called it` : ''}${r.credit && r.blame ? ' · ' : ''}${r.blame ? `${BOT[r.blame]} takes the L` : ''}`} data-testid={`rule-${r.sym}`}>
+        {r.verdict === 'win' ? '🏆' : r.verdict === 'miss' ? '😴' : '🔨'} ${r.sym} <em>{pct(r.pct)}</em><u>{BOT[r.verdict === 'win' ? r.credit : r.blame] || ''}</u></button>)}
         {!(j.rulings || []).length && <small>first ruling lands 5 min after their first final call</small>}</span></div>
     <div className="ags-proof" data-testid="ags-proof">
       <span className="ags-prow" data-tip="Every GO the team made on paper, judged 5 minutes later — newest first"><b>📜 PAPER</b><em><i className="m-pos">{pr.paper?.w ?? 0}</i>–<i className="m-neg">{pr.paper?.l ?? 0}</i></em><Pips last={pr.paper?.last} syms={pr.paper?.syms} /></span>
@@ -183,7 +184,7 @@ export function Court({ judge, onPick }) {
     <div className="ags-scores">{Object.entries(j.score || {}).map(([k, v]) => <div key={k} className={`ags-score ${j.trial === k ? 'is-trial' : j.mvp === k ? 'is-mvp' : ''}`} data-testid={`score-${k}`}>
       <b>{BOT[k]}{j.mvp === k ? ' 👑' : j.trial === k ? ' 🔨' : ''}</b><u className="is-up"><i style={{ transform: `scaleX(${v.credit / top})` }} /></u><u className="is-dn"><i style={{ transform: `scaleX(${v.blame / top})` }} /></u><em className={tone(v.net)}>{v.net > 0 ? '+' : ''}{v.net}</em></div>)}</div>
     <div className="ags-cases">{(j.rulings || []).map(r => <button type="button" key={`${r.mint}-${r.at}`} className={`ags-case is-${r.verdict}`} onClick={() => onPick && onPick(r.mint)} data-testid={`case-${r.sym}`}>
-      <b>{r.verdict === 'win' ? '🏆' : '🔨'} ${r.sym}</b><em className={tone(r.pct)}>{pct(r.pct)}</em><small>{r.kind === 'go' ? 'GO' : r.kind === 'objected' ? 'OBJ' : 'WAIT'}</small>
+      <b>{r.verdict === 'win' ? '🏆' : r.verdict === 'miss' ? '😴' : '🔨'} ${r.sym}</b><em className={tone(r.pct)}>{pct(r.pct)}</em><small>{r.kind === 'go' ? 'GO' : r.kind === 'objected' ? 'OBJ' : 'WAIT'}</small>
       <span>{r.credit && <i className="is-up">{BOT[r.credit]}✓</i>}{r.blame && <i className="is-dn">{BOT[r.blame]}✕</i>}</span></button>)}
       {!(j.rulings || []).length && <div className="ags-empty">no rulings yet — the first lands 5 minutes after a final call</div>}</div></div>;
 }

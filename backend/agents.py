@@ -703,7 +703,8 @@ def view(state, table, feed=False, real=None, mind=None, cfg=None, decisions=Non
 #   GO that won   → Sherlock if its read was strong (lean ≥ 2) · else Tally if the numbers were already moving up · else Trigger (timing)
 #   GO that lost  → Devil if it dumped ≤ −20% (the gate that exists to stop that) · else Sherlock (strong read, wrong) · Tally · Trigger
 #   OBJECTED      → it lost: Devil called it, Trigger takes the L · it won: Trigger called it, Devil takes the L (blocked a winner)
-#   WAIT (control)→ ran ≥ +10%: Trigger takes the L (missed a runner)
+#   WAIT (control)→ ran ≥ +10%: a 😴 MISS on Trigger — shown and counted apart, NEVER toward a trial (a trial tightens; a missed runner
+#                   is the opposite problem — the creator's 🔥 dial is the lever for that)
 # Over its last JUDGE_LAST rulings: the bot with the worst net (≤ −JUDGE_NET) goes ON TRIAL and plays under a handicap until its net
 # recovers — and a handicap may only ever make the team trade LESS: Trigger bar +0.5 · Sherlock's lean ×0.75 · Devil passes only strong
 # reads · Tally needs 5 readings. The best net (≥ +JUDGE_NET) wears the 👑. Nothing here touches the real card by itself.
@@ -719,7 +720,7 @@ def ruling(d):
     p = _f((d or {}).get('p5'))
     strong, up = _f(d.get('lean')) >= 2, bool(d.get('tallyUp'))
     if d.get('kind') == 'wait':
-        return {'verdict': 'loss', 'blame': 'trigger', 'credit': None, 'kind': 'wait'} if p >= JUDGE_MISS else {'verdict': 'push', 'blame': None, 'credit': None, 'kind': 'wait'}
+        return {'verdict': 'miss', 'blame': 'trigger', 'credit': None, 'kind': 'wait'} if p >= JUDGE_MISS else {'verdict': 'push', 'blame': None, 'credit': None, 'kind': 'wait'}
     if d.get('go'):
         if p >= JUDGE_WIN:
             return {'verdict': 'win', 'credit': 'sherlock' if strong else 'tally' if up else 'trigger', 'blame': None, 'kind': 'go'}
@@ -740,6 +741,8 @@ def judge(state):
     ruled = [(d, r) for d, r in ruled if r['verdict'] != 'push'][-JUDGE_LAST:]
     score = {a: {'credit': 0, 'blame': 0, 'net': 0} for a in NAME}
     for _d, r in ruled:
+        if r['verdict'] == 'miss':
+            continue
         if r.get('credit'):
             score[r['credit']]['credit'] += 1
         if r.get('blame'):
@@ -752,7 +755,8 @@ def judge(state):
     mvp = best if score[best]['net'] >= JUDGE_NET and best != trial else None
     return {'rulings': [{'sym': d.get('sym'), 'mint': d.get('mint'), 'pct': d.get('p5'), 'at': d.get('at'), **r} for d, r in reversed(ruled[-14:])],
             'score': score, 'trial': trial, 'handicap': HANDICAP.get(trial), 'mvp': mvp, 'n': len(ruled), 'needNet': JUDGE_NET,
-            'wins': sum(1 for _d, r in ruled if r['verdict'] == 'win'), 'losses': sum(1 for _d, r in ruled if r['verdict'] == 'loss')}
+            'wins': sum(1 for _d, r in ruled if r['verdict'] == 'win'), 'losses': sum(1 for _d, r in ruled if r['verdict'] == 'loss'),
+            'missed': sum(1 for _d, r in ruled if r['verdict'] == 'miss')}
 
 
 def proof(state, real=None):

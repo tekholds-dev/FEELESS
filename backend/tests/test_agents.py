@@ -305,6 +305,9 @@ def test_the_judge_rules_five_minutes_later_names_one_bot_and_a_trial_only_ever_
     obj = lambda p: ag.ruling(call(p5=p, go=False, devil='object'))
     assert (obj(-9)['credit'], obj(-9)['blame']) == ('devil', 'trigger') and (obj(9)['credit'], obj(9)['blame']) == ('trigger', 'devil')
     assert ag.ruling({'kind': 'wait', 'p5': 14})['blame'] == 'trigger' and ag.ruling({'kind': 'wait', 'p5': 4})['verdict'] == 'push'
+    assert ag.ruling({'kind': 'wait', 'p5': 14})['verdict'] == 'miss'
+    missy = ag.judge({'done': [{'kind': 'wait', 'p5': 40, 'mint': f'W{i}', 'at': i, 'sym': 'W'} for i in range(6)]})
+    assert missy['missed'] == 6 and missy['trial'] is None and missy['score']['trigger']['net'] == 0      # missed runners never put a bot on trial
     # three thin-lean GO losses → Trigger is ON TRIAL with a handicap; nobody is crowned on a losing book
     st = {'done': [{**call(p5=-6), 'mint': f'M{i}', 'at': i} for i in range(3)]}
     j = ag.judge(st)
