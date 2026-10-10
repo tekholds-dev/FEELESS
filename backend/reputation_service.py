@@ -9510,7 +9510,7 @@ async def _prime_tick_inner(now):
             picks_ = [c_['row'] for c_ in _ag.investigate(_agents.get('table'), {l.get('mint') for l in cur.get('legs') or []}, cfg_t.get('trenchMinAgeH', 1), (_json_load(AGENTS_PATH, {}).get('burned') or {}), top=0)
                       if c_['cleared'] and not _fw.dollar_named(c_.get('symbol')) and c_['mint'] not in cool] if ctl_ else None
             full_ = bool(ctl_ and len([l for l in cur.get('legs') or [] if not (l.get('placeholder') and not l.get('manualCash'))]) >= int(_fuse._f(cfg_t.get('coins'))))
-            dec_ = _ag.manage(cur.get('legs'), _agents.get('table'), px, cfg_t, _agents.get('scalp'), control=ctl_, now=now, moves_left=(1 if due_ else 0) if ctl_ else moves_,
+            dec_ = _ag.manage(cur.get('legs'), _agents.get('table'), px, cfg_t, _agents.get('scalp'), control=ctl_, now=now, moves_left=(1 if due_ and full_ else 0) if ctl_ else moves_,   # an EMPTY seat is the duty's first job: no switch while one is open
                               picks=picks_, rotate=bool(due_ and full_))
             _agents['decisions'] = [{k: v for k, v in x.items() if k != 'to'} | ({'toSym': x['to']['symbol']} if x.get('to') else {}) for x in dec_]
             _agents['card'] = _ag.card_seats(cur, _agents['decisions'], px, cfg_t)
@@ -9525,12 +9525,13 @@ async def _prime_tick_inner(now):
                         cur['events'].append({'at': now, 'kind': 'agent', 'symbol': x['symbol'], 'why': f"🤖 agents pulled ${x['symbol']}: {x['why']}"})
                     elif x['action'] == 'swap':
                         t_ = x['to']
-                        row_ = {'mint': t_['mint'], 'symbol': t_['symbol'], 'pairAddress': t_['pair'], 'price': t_['px'], 'liquidityUsd': (t_.get('nums') or {}).get('liq'), 'score': 100}
+                        row_ = {'mint': t_['mint'], 'symbol': t_['symbol'], 'pairAddress': t_['pair'], 'price': t_['px'], 'liquidityUsd': (t_.get('nums') or {}).get('liq'), 'score': 100,
+                                'ageH': (t_.get('vitals') or {}).get('ageH'), 'vol1h': (t_.get('vitals') or {}).get('vol1h'), 'buyShare': (t_.get('nums') or {}).get('buy')}
                         was_ = cur
                         cur = _prime.replace_leg(cur, x['pair'], px, p_t, [row_], anchors, cfg_t, now)
                         for l in cur['legs']:
                             if l.get('mint') == t_['mint']:
-                                l.update(bought={**(l.get('bought') or {}), 'tag': '🤖 agents GO'}, slMode='hold', rideOrRug=True, ticket=True); l.pop('picked', None)
+                                l.update(bought={**(l.get('bought') or {}), 'tag': '🤖 agents GO' if t_.get('go') else '🤖 agents · 10-min duty'}, slMode='hold', rideOrRug=True, ticket=True); l.pop('picked', None)
                         cur['events'] = cur['events'][:-1] + [{**cur['events'][-1], 'kind': 'agent', 'move': 'swap', 'why': f"🤖 agents swapped ${x['symbol']} for ${t_['symbol']}: {x['why']}"}]
                         if ctl_:
                             cur['agentDutyAt'] = now
