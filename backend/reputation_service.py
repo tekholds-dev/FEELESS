@@ -12077,10 +12077,10 @@ async def _agents_tick(now):
         cmap_ = await _office_candles({**top_, **held_}, now)
         flows_ = {p_: w_ for p_, (at_, w_) in list(_flow_now.items()) if w_ and now - _fuse._f(at_) <= 90}
         charts_ = {}
-        st, table = _ag.desk(st, rows, now, ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentDial'), bust_, weather_fn=wfn_, candles=cmap_, flows=flows_, charts_out=charts_)   # 🎚 the creator's dial
+        st, table = _ag.desk(st, rows, now, ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentDial'), bust_, weather_fn=wfn_, candles=cmap_, flows=flows_, charts_out=charts_, cmeta=_office.get('cmeta'))   # 🎚 the creator's dial
         for m_, pa_ in held_.items():   # a held coin that is off the board still gets its chart (Reaper needs it), from the same candle read
             if m_ not in charts_ and cmap_.get(m_):
-                charts_[m_] = _ci.read(cmap_[m_], now, True, 'candles', flow=flows_.get(pa_))
+                charts_[m_] = _ci.read(cmap_[m_], now, True, 'candles', None if not (_office.get('cmeta') or {}).get(m_) else {**{k_: v_ for k_, v_ in _office['cmeta'][m_].items() if k_ in ('provider', 'source', 'tickCount', 'partial')}, 'noCtx': True}, flow=flows_.get(pa_))   # off the board: no pool / volume reading is handed in, so neither is judged (the row checks still run)
         _office['charts'] = charts_
         _agents['weather'] = st.get('weather')
         st = _ag.record(st, table, now)
@@ -12141,8 +12141,9 @@ import office as _of
 OFFICE_PATH = FUSE_HQ_PATH.parent / 'agent_office.json'     # 🏢 tunables promoted by shadow tests · candidates · open positions · latency rings · counters
 ARCHIVE_PATH = FUSE_HQ_PATH.parent / 'agent_archive.json'   # 🗄 hash-chained decision lineage (≤ 600 cases) + closed real positions (≤ 300); older fold into totals
 _office: dict = {'state': None, 'pos': {}, 'exiting': [], 'gone': [], 'lat': {}, 'sized': {}, 'reports': [], 'warden': None, 'courier': None, 'payload': None, 'last': None, 'vetoAt': {},
-                 'charts': {}, 'theses': {}, 'candles': {}, 'candleStat': {'req': 0, 'cached': 0, 'merged': 0, 'dup': 0, 'ms': 0.0, 'coins': 0}}
+                 'charts': {}, 'theses': {}, 'candles': {}, 'cmeta': {}, 'candleStat': {'req': 0, 'cached': 0, 'merged': 0, 'dup': 0, 'ms': 0.0, 'coins': 0}}
 import chart_intel as _ci
+import market_data as _md
 OFFICE_CANDLE_TTL = 50.0    # one read of a coin's 1-minute candles serves every desk for the whole pass (and the tier ticks until the next one)
 OFFICE_CANDLE_CASES = 6     # real candles for the held coins + the strongest cases; every other coin is read from Tally's own tape (no request at all)
 
@@ -12153,6 +12154,7 @@ async def _office_candles(want, now):
     → {mint: rows}. Tests never fetch."""
     t0 = time.perf_counter()
     pools = {}
+    _office['cmeta'] = {}
     for m, pa in (want or {}).items():
         if m and pa:
             pools.setdefault(pa, m)   # a pool asked for twice (two mints / two desks) is still ONE request
@@ -12163,14 +12165,16 @@ async def _office_candles(want, now):
         async def one(http, pa):
             try:
                 r = await http.get(f'http://127.0.0.1:5099/api/candles/solana/{pa}', params={'interval': '1m'})
-                return pa, [c for c in ((r.json() or {}).get('candles') or []) if c and len(c) >= 5][-_ci.LOOK - 5:]
+                d_ = r.json() or {}
+                # 🧪 the rows are kept EXACTLY as served (nothing dropped: Tally validates them as fetched) + where they came from
+                return pa, list(d_.get('candles') or [])[-_ci.LOOK - 5:], {'provider': d_.get('provider'), 'source': d_.get('source'), 'tickCount': d_.get('tickCount'), 'partial': bool(d_.get('partial')), 'fetchedAt': now}
             except Exception:
-                return pa, None
+                return pa, None, None
         async with httpx.AsyncClient(timeout=4) as http:
-            for pa, rows in await asyncio.gather(*(one(http, pa) for pa in todo)):
+            for pa, rows, meta_ in await asyncio.gather(*(one(http, pa) for pa in todo)):
                 stat['req'] += 1
                 if rows:
-                    _office['candles'][pa] = (now, rows)
+                    _office['candles'][pa] = (now, rows, meta_)
         for pa in [pa for pa, v in _office['candles'].items() if now - v[0] > 600]:
             _office['candles'].pop(pa, None)
     stat['ms'] = round((time.perf_counter() - t0) * 1000, 1)
@@ -12178,8 +12182,10 @@ async def _office_candles(want, now):
     out = {}
     for m, pa in (want or {}).items():
         hit = _office['candles'].get(pa)
-        if hit and hit[1] and now - _fuse._f(hit[1][-1][0]) <= 300:   # a candle set whose last bar is over 5 min old is stale: the tape stands in
+        last_t = _fuse._f(hit[1][-1][0]) if hit and hit[1] and isinstance(hit[1][-1], (list, tuple)) and hit[1][-1] else 0.0
+        if hit and hit[1] and now - last_t <= 300:   # a candle set whose last bar is over 5 min old is stale: the tape stands in
             out[m] = hit[1]
+            _office['cmeta'][m] = (hit[2] if len(hit) > 2 else None) or {}
     return out
 OFFICE_LAT_N = 120
 
@@ -12290,18 +12296,28 @@ def _office_chart_view(ch, row=None):
             'pullback', 'recovery', 'breakTries', 'breakHeld', 'breakFailed', 'supTests', 'resTests', 'squeeze', 'accel', 'decay', 'extPct', 'volTrend', 'buy', 'imbalance', 'trades', 'liq', 'liqD', 'impact', 'support', 'resistance')
     stop, parts = _ci.stop_for(f, ch.get('state'), {'liq': f.get('liq'), 'ageH': ((row or {}).get('vitals') or {}).get('ageH'), 'courier': (_office.get('courier') or {}).get('health')}, _of.tune(_office_state(), 'reaper', 'stopPct'))
     return {'state': ch.get('state'), 'src': ch.get('src'), 'n': ch.get('n'), 'conf': ch.get('conf'), 'ev': ch.get('ev'), 'con': ch.get('con'), 'trend': ch.get('trend'), 'chop': ch.get('chop'), 'mom': ch.get('mom'), 'ext': ch.get('ext'),
-            'entry': ch.get('entry'), 'objs': ch.get('objs'), 'risk': ch.get('risk'), 'stop': stop, 'stopParts': parts, 'hardStop': _ci.CATASTROPHIC_STOP, 'f': {k: f.get(k) for k in keep}}
+            'entry': ch.get('entry'), 'objs': ch.get('objs'), 'risk': ch.get('risk'), 'stop': stop, 'stopParts': parts, 'hardStop': _ci.CATASTROPHIC_STOP, 'f': {k: f.get(k) for k in keep},
+            'q': _md.compact(ch.get('q')), 'qChecks': (ch.get('q') or {}).get('checks')}
 
 
 def _office_bars(pair, mint=None, n=40):
-    """The candles the page draws for one coin — the SAME rows the agents read this pass (the cached 1-minute candles; else Tally's
-    tape as close-only bars, flagged). Memory only. → {src, rows: [[t, o, h, l, c]]} | None"""
+    """The rows the page draws for one coin — the SAME rows the agents read this pass, with Tally's data-quality verdict on them.
+    `src` candles = the candles service's 1-minute bars (v = that bar's own volume figure, None where the bar carries none — never a
+    made-up bar); `src` tape = Tally's readings as close-only points: RECONSTRUCTED, drawn as a line, no volume at all. Memory only.
+    → {src, rows: [[t, o, h, l, c, v|None]], q, volume} | None"""
+    q = _md.compact(((_office.get('charts') or {}).get(mint) or {}).get('q')) if mint else None
     hit = _office['candles'].get(pair)
     if hit and hit[1]:
-        return {'src': 'candles', 'rows': [[int(r[0]), r[1], r[2], r[3], r[4]] for r in hit[1][-n:]]}
+        rows = []
+        for r in hit[1][-n:]:
+            try:
+                rows.append([int(_fuse._f(r[0])), r[1], r[2], r[3], r[4], (r[5] if len(r) > 5 and r[5] is not None and _fuse._f(r[5]) > 0 else None)])
+            except Exception:
+                continue   # a row that cannot even be indexed is not drawn (Tally's verdict already says MALFORMED)
+        return {'src': 'candles', 'rows': rows, 'q': q, 'volume': (q or {}).get('volume') or ('PARTIAL' if any(r[5] for r in rows) else 'UNAVAILABLE')}
     ser = ((_json_load(AGENTS_PATH, {}).get('series') or {}).get(mint) or []) if mint else []
     rows = _ci.from_tape(ser)[-n:]
-    return {'src': 'tape', 'rows': [[int(r[0]), r[1], r[2], r[3], r[4]] for r in rows]} if len(rows) >= 2 else None
+    return {'src': 'tape', 'rows': [[int(r[0]), r[1], r[2], r[3], r[4], None] for r in rows], 'q': q, 'volume': 'UNAVAILABLE'} if len(rows) >= 2 else None
 
 
 def _office_positions():
@@ -12449,14 +12465,30 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         at_ = next((s_ for s_ in pl_ if s_['agent'] not in ('archivist', 'judge') and s_['state'] not in ('PASS', 'DONE')), pl_[5])
         ch_ = c_['row'].get('chart') or {}
         queue.append({'mint': c_['mint'], 'symbol': c_.get('symbol'), 'lean': c_.get('lean'), 'cleared': c_.get('cleared'), 'go': c_.get('go'), 'at': at_['agent'], 'state': at_['state'], 'word': str(at_['word'])[:140],
-                      'structure': ch_.get('state'), 'entry': (ch_.get('entry') or [None])[0], 'conf': ch_.get('conf')})
+                      'structure': ch_.get('state'), 'entry': (ch_.get('entry') or [None])[0], 'conf': ch_.get('conf'), 'data': ch_.get('q'),
+                      # every candidate can be put on the chart: the SAME rows + chart read the desks used for it this pass (memory only)
+                      'pair': c_.get('pair'), 'bars': _office_bars(c_.get('pair'), c_['mint']), 'chart': _office_chart_view(_office['charts'].get(c_['mint']), c_['row']),
+                      'devil': {'verdict': (c_['row'].get('case') or c_['row'].get('devil') or ['—'])[0], 'objections': [{'rule': o_[0], 'evidence': o_[1]} for o_ in c_['row'].get('objs') or []]},
+                      'trace': _of.trace(c_, cur_ctx if c_ is case else {'tally': _of.tally_read(c_['row'], ser.get(c_['mint']), now), 'sherlock': _of.sherlock_read(c_['row'], lr), 'weather': wx, 'courier': cour})})
+    if cur_case:
+        cur_case['trace'] = queue[0]['trace'] if queue and queue[0]['mint'] == cur_case['mint'] else _of.trace(case, cur_ctx)
+    dq_ = {}
+    for c_ in _office['charts'].values():
+        k_ = ((c_.get('q') or {}).get('state')) or 'NOT READ'
+        dq_[k_] = dq_.get(k_, 0) + 1
     _office['payload'] = {
         'at': now, 'mission': _of.mission(money, (view.get('lives') or {}).get('n'), view.get('stage'), _office.get('dutyAt'), now, _office.get('last'), view.get('underwater')) | {'dutyAt': _office.get('dutyAt'), 'control': bool(rcfg.get('agentControl'))},
         'office': {'chain': list(_of.CHAIN), 'priority': list(_of.PRIORITY), 'coins': perf.get('coins'), 'cases': len(cases), 'cleared': sum(1 for c_ in cases if c_['cleared'])},
         'agents': _of.agent_cards(cards, {'live': live, 'office': of}), 'currentCase': cur_case, 'pipeline': pipe,
         'queue': queue, 'positions': _office_positions(), 'exiting': [{'mint': p_['mint'], 'sym': p_.get('sym'), 'rule': p_.get('askRule'), 'state': (p_.get('exit') or {}).get('state'), 'since': p_.get('leftAt')} for p_ in _office['exiting']],
         'execution': cour, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': list(reversed((of.get('lineage') or [])[-8:])), 'devil': dv_rec[:10], 'needShadow': _of.SHADOW_N, 'needPropose': _of.PROPOSE_N},
-        'judge': {'trial': jd.get('trial'), 'handicap': jd.get('handicap'), 'mvp': jd.get('mvp'), 'rulings': jd.get('n'), 'minN': _of.JUDGE_MIN_N, 'demoteN': _of.JUDGE_DEMOTE_N},
+        'judge': {'trial': jd.get('trial'), 'handicap': jd.get('handicap'), 'mvp': jd.get('mvp'), 'rulings': jd.get('n'), 'minN': _of.JUDGE_MIN_N, 'demoteN': _of.JUDGE_DEMOTE_N,
+                  'contribution': _of.contribution(st, arch, of, cour, _agents_real(), money)},
+        'data': {'states': dq_, 'trusted': dq_.get('TRUSTED', 0), 'enterGrade': dq_.get('TRUSTED', 0) + dq_.get('USABLE_WITH_CAUTION', 0), 'coins': len(_office['charts']),
+                 'meaning': 'TRUSTED = real 1-minute OHLC from the candles service, every integrity check passed, newest bar ≤ 240s old, per-candle volume on ≥ 80% of moving bars, a live pool reading, confidence ≥ 80',
+                 'sources': {'candles': 'candles service on this machine: the price-history provider named on each chart (today: Jupiter) sharpened with FEELESS-recorded prices', 'tape': "Tally's own tape: one launch-board price a pass (closes only) — RECONSTRUCTED",
+                             'volume': 'per-candle: the provider bars that carry a figure · totals: the launch board\'s 5-min / 1-hour volume', 'trades': 'the 90-second trade tape (parsed swaps), only for coins whose tape the service already holds',
+                             'liquidity': 'the launch board\'s pool depth, read each pass onto Tally\'s tape'}},
         'take': _of.take_info(rcfg, st.get('scalp')),
         'performance': {'deskMs': round(desk_ms, 1), 'agents': {a: {**_of.lat(_office['lat'].get(a)), 'series': list(_office['lat'].get(a) or [])[-30:]} for a in _of.CHAIN}, 'chart': _of.lat(_office['lat'].get('chart')),
                         'candles': {**_office['candleStat'], 'tape': sum(1 for c_ in _office['charts'].values() if c_.get('src') == 'tape'), 'real': sum(1 for c_ in _office['charts'].values() if c_.get('src') == 'candles')}},

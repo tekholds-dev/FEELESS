@@ -27,8 +27,9 @@ def stair(n=24, step=0.012, dip=0.004, start=1.0):
 
 
 def saw(n=24, amp=0.05):
-    """Violent alternating candles going nowhere."""
-    return [1.0 * (1 + amp if i % 2 else 1 - amp) for i in range(n)]
+    """Violent alternating candles going nowhere — a REAL chop: every swing lands somewhere new (two exact prices ping-ponging is a
+    broken feed, not a market: `market_data` rejects that)."""
+    return [1.0 * (1 + (amp if i % 2 else -amp) * (0.7 + 0.3 * ((i * 7) % 5) / 4)) for i in range(n)]
 
 
 UP, CHOP = bars(stair()), bars(saw())
@@ -321,6 +322,6 @@ def test_the_service_saves_the_thesis_at_the_fill_and_the_stage_lock_is_untouche
     out = rs._office_reap(card, {'PN': 1.03}, {'agentTakePct': 10}, True, 1000 + 6 * 60, [{'pair': 'PN', 'symbol': 'N', 'action': 'hold', 'why': 'h'}])
     r = rs._office['reports'][0]
     assert out[0]['action'] == 'hold' and r['thesis']['structure'] == up['state'] and r['decision'] == 'HOLD 5 MORE' and r['structure'] == up['state'] and rs._office['pos']['N']['thesis'] == th
-    for money, locked in (({'value': 1.2, 'putIn': 29.5}, True), ({'value': 29.5, 'putIn': 29.5}, False)):
+    for money, locked in (({'value': 1.2, 'putIn': 29.5}, True), ({'value': 59.0, 'putIn': 29.5}, False)):
         s = {'money': money, 'done': [{'at': i * 400, 'kind': 'enter', 'go': True, 'devil': 'agree', 'p5': 60.0, 'p15': 60.0, 'p60': 60.0, 'mint': f'm{i}', 'lean': 3, 'cs': 'STRONG UPTREND', 'ce': 'ENTER NOW'} for i in range(40)]}
-        assert ag.underwater(s) is locked and (5 not in ag.stage(s)['conquered']) is locked                       # chart calls change nothing about the lock: real value vs real put-in
+        assert (5 not in ag.stage(s)['conquered']) is locked                       # chart calls change nothing about the lock: real value vs real put-in

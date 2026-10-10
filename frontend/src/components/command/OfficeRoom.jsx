@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ChartBox, dump, sgn, usd, ago, clock, ms, STRUCT_CLS } from './OfficeBoard';
+import { ChartBox, DataLine, dqWord, dump, sgn, usd, ago, clock, ms, STRUCT_CLS } from './OfficeBoard';
 import { tiny } from '../../lib/num';
 import '../../styles/officeRoom.css';
 
@@ -43,7 +43,9 @@ export function candleGeom(rows, levels = [], w = 420, h = 170, pad = 4) {
   let hi = Math.max(...rs.map(r => r[2])); let lo = Math.min(...rs.map(r => r[3])); const room = Math.max(hi - lo, hi * 0.004) * 1.5;   // a level joins the scale only when it is near the candles
   const cHi = hi; const cLo = lo; lv.forEach(l => { if (l.px <= cHi + room && l.px >= cLo - room) { hi = Math.max(hi, l.px); lo = Math.min(lo, l.px); } });
   const span = (hi - lo) || hi * 0.01 || 1; const y = px => pad + (1 - (px - lo) / span) * (h - 2 * pad); const step = (w - 54) / rs.length; const bw = Math.max(1.2, step * 0.62);
-  return { w, h, hi, lo, last: rs[rs.length - 1][4], y,
+  const vmax = Math.max(0, ...rs.map(r => (r[5] > 0 ? r[5] : 0)));   // a volume bar exists ONLY where that row carries its own measured figure — never a filler
+  return { w, h, hi, lo, last: rs[rs.length - 1][4], y, volN: rs.filter(r => r[5] > 0).length,
+    vols: vmax > 0 ? rs.map((r, i) => (r[5] > 0 ? { x: i * step + step / 2, hgt: Math.max(1, (r[5] / vmax) * h * 0.16), up: r[4] >= r[1], bw } : null)).filter(Boolean) : [],
     bars: rs.map((r, i) => ({ x: i * step + step / 2, o: y(r[1]), h: y(r[2]), l: y(r[3]), c: y(r[4]), up: r[4] >= r[1], bw })),
     lines: lv.filter(l => l.px <= hi && l.px >= lo).map(l => ({ ...l, y: y(l.px) })),
     off: lv.filter(l => l.px > hi || l.px < lo).map(l => ({ ...l, up: l.px > hi })) };   // too far to draw to scale: named at the edge it lies beyond, never squashed in
@@ -52,16 +54,21 @@ export function candleGeom(rows, levels = [], w = 420, h = 170, pad = 4) {
 const T = (props, text) => React.createElement('text', props, text);
 
 export function CandleChart({ bars, levels, note, big }) {
-  const g = useMemo(() => candleGeom(bars?.rows, levels, big ? 520 : 420, big ? 112 : 150), [bars, levels, big]);
+  const g = useMemo(() => candleGeom(bars?.rows, levels, big ? 520 : 420, big ? 100 : 150), [bars, levels, big]);
   if (!g) return <div className="ofr-nochart" data-testid="ofr-nochart">no candles for this coin this pass — the agents are not shown a chart they did not read</div>;
+  const q = bars.q; const tape = bars.src === 'tape';
+  const volWord = tape ? 'VOLUME UNAVAILABLE (a tape has no volume)' : g.volN ? `VOLUME ${g.volN === g.bars.length ? 'REAL' : 'PARTIAL'} · measured on ${g.volN} of ${g.bars.length} bars${g.volN < g.bars.length ? ' — none drawn for the rest' : ''}` : 'VOLUME UNAVAILABLE for these bars';
   return <figure className="ofr-chart" data-testid="ofr-chart" data-tip={bars.src === 'candles' ? 'The same one-minute candles the agents read this pass, with their levels.' : "Tally's own tape (closes only): drawn as a line, never as candles."}>
     <svg viewBox={`0 0 ${g.w} ${g.h}`} preserveAspectRatio="none" role="img" aria-label="The candles the agents read this pass, with their levels">
       {g.lines.map(l => <g key={l.label} className={`ofr-lv ${l.cls || ''}`}><line x1="0" x2={g.w - 54} y1={l.y} y2={l.y} />{T({ x: g.w - 52, y: l.y + 3 }, l.label)}</g>)}
+      {tape ? null : g.vols.map((v, i) => <rect key={`v${i}`} className={`ofr-vol ${v.up ? 'is-up' : 'is-dn'}`} x={v.x - v.bw / 2} y={g.h - v.hgt} width={v.bw} height={v.hgt} />)}
       {bars.src === 'tape' ? <polyline className="ofr-line" points={g.bars.map(b => `${b.x},${b.c}`).join(' ')} /> : g.bars.map((b, i) => <g key={i} className={b.up ? 'ofr-up' : 'ofr-dn'}><line x1={b.x} x2={b.x} y1={b.h} y2={b.l} /><rect x={b.x - b.bw / 2} y={Math.min(b.o, b.c)} width={b.bw} height={Math.max(0.8, Math.abs(b.c - b.o))} /></g>)}
       {g.off.map((l, i) => <g key={l.label} className={`ofr-lv ${l.cls || ''}`}>{T({ x: 4 + g.off.filter((x, j) => j < i && x.up === l.up).length * 92, y: l.up ? 9 : g.h - 3 }, `${l.up ? '↑' : '↓'} ${l.label}`)}</g>)}
       <g className="ofr-lv is-last"><line x1="0" x2={g.w - 54} y1={g.y(g.last)} y2={g.y(g.last)} />{T({ x: g.w - 52, y: g.y(g.last) + 3 }, tiny(g.last))}</g>
     </svg>
-    <figcaption>{bars.src === 'candles' ? `${bars.rows.length} one-minute candles — the same rows the agents read` : `${bars.rows.length} tape readings (closes only)`}{note ? ` · ${note}` : ''}</figcaption>
+    <figcaption>{bars.src === 'candles' ? `${bars.rows.length} one-minute candles — the same rows the agents read` : `RECONSTRUCTED FROM TAPE · ${bars.rows.length} tape readings (closes only, drawn as a line)`}{note ? ` · ${note}` : ''}</figcaption>
+    <DataLine q={q} compact noVol />
+    <p className="ofr-volw" data-testid="ofr-volw">{volWord}{q?.volumeWord && q.volume === 'PARTIAL' && / from the launch board/.test(q.volumeWord) ? ` · totals${q.volumeWord.split(' · ').pop().replace(/^.*?(5-min)/, ' $1')}` : ''}</p>
   </figure>;
 }
 
@@ -72,7 +79,8 @@ export function coinView(o, sym) {
     return { kind: 'position', symbol: p.symbol, bars: p.bars, pos: p, structure: p.structure, note: `REAPER: ${p.decision}`,
       levels: [e && { px: e, label: 'entry', cls: 'is-entry' }, e && p.take && { px: e * (1 + p.take / 100), label: `take +${p.take}%`, cls: 'is-take' }, e && p.stop && { px: e * (1 + p.stop / 100), label: `stop ${p.stop}%`, cls: 'is-stop' },
         th?.invalidation && { px: th.invalidation, label: 'invalid', cls: 'is-stop' }, th?.support && { px: th.support, label: 'support', cls: 'is-sup' }].filter(Boolean) }; }
-  const c = o?.currentCase; if (!c || (sym && c.symbol !== sym)) return null; const f = c.chart?.f || {};
+  const cc = o?.currentCase; const c = cc && (!sym || cc.symbol === sym) ? cc : (o?.queue || []).find(x => x.symbol === sym && x.chart);   // any candidate of the pass: its own rows + chart read
+  if (!c) return null; const f = c.chart?.f || {};
   return { kind: 'case', symbol: c.symbol, bars: c.bars, cur: c, structure: c.chart?.state, note: c.chart ? `TRIGGER: ${c.chart.entry?.[0]}` : null,
     levels: [f.resistance && { px: f.resistance, label: 'resist', cls: 'is-take' }, f.support && { px: f.support, label: 'support', cls: 'is-sup' },
       f.px && c.chart?.stop && { px: f.px * (1 - c.chart.stop / 100), label: `stop −${c.chart.stop}%`, cls: 'is-stop' }].filter(Boolean) };
@@ -102,7 +110,8 @@ export function roomModel(o, sel, coin) {
     warden: p ? (p.warden != null ? `${p.warden}×` : 'not sized') : c?.warden ? `${c.warden.eff}×${c.warden.veto ? ' VETO' : ''}` : c?.chart ? `${c.chart.risk?.[0]}× chart risk` : '—',
     devil: p ? (p.devil === 'object' ? 'OBJECT' : p.devil === 'agree' ? 'NO OBJECTION' : '—') : c?.devil?.verdict === 'agree' ? 'NO OBJECTION' : c?.devil ? 'OBJECT' : '—',
     reviewAt: p?.nextReview != null ? Math.max(0, p.nextReview - (Date.now() / 1000 - (o?.at || Date.now() / 1000))) : null,
-    caption: view.bars ? (view.bars.src === 'candles' ? `${view.bars.rows.length} one-minute candles the agents read` : `${view.bars.rows.length} tape readings (closes only)`) : 'no candles this pass' };
+    data: view.bars?.q || c?.chart?.q || p?.data || null,
+    caption: view.bars ? `${view.bars.q ? `DATA ${dqWord(view.bars.q)} ${view.bars.q.conf}% · ` : ''}${view.bars.src === 'candles' ? `${view.bars.rows.length} one-minute candles` : `RECONSTRUCTED FROM TAPE · ${view.bars.rows.length} readings`} · VOLUME ${view.bars.volume || 'UNAVAILABLE'}` : 'no candles this pass' };
   return { wall, focus,
     stations: (o?.agents || []).map(a => { const [tag] = agentTag(a.key, o); return { key: a.key, name: a.name, tag, cls: TAG_CLS[tag] || 'is-wait', line: deskLine(a.key, o), focus: focus === a.key, selected: sel === a.key }; }),
     status: [[o?.office?.cleared ?? 0, 'cleared', '#45e486'], [(o?.office?.cases ?? 0) - (o?.office?.cleared ?? 0), 'blocked', '#f5c451'], [(o?.positions || []).length, 'open positions', '#6cc7ff'], [o?.office?.coins ?? 0, 'coins read', '#7d998b'], [o?.execution?.health || '—', 'execution', o?.execution?.health === 'HEALTHY' ? '#45e486' : '#ff6b86']] };
@@ -113,6 +122,15 @@ export function rulingsOf(o, n = 8) {
   const seen = new Set(now.map(r => `${r.key}|${r.text}`));
   const past = (o?.agents || []).flatMap(a => (a.recent || []).filter(r => r.at && !seen.has(`${a.key}|${r.text}`)).map(r => ({ at: r.at, key: a.key, name: a.name, text: r.text }))).sort((x, y) => y.at - x.at);
   return [...now, ...past].slice(0, n);
+}
+// 🧵 the team decision trace of ONE candidate: each desk's answer to its own question, then FINAL + WHY (a field of the payload)
+export const traceOf = (o, sym) => (o?.queue || []).find(x => x.symbol === sym)?.trace || (o?.currentCase?.symbol === sym ? o.currentCase.trace : null) || null;
+export function TeamTrace({ t, pos }) {
+  if (!t && !pos) return null;
+  const lines = t ? t.lines : [['reaper', pos.decision, pos.rule]];
+  return <div className="ofr-trace" data-testid="ofr-trace"><small>TEAM TRACE · ${t ? t.symbol : pos.symbol} · one mission, each desk its own question</small>
+    {t ? <p data-tip={t.why} className={`ofr-final ${{ GO: 'is-go', CLEARED: 'is-cleared', SKIP: 'is-skip', BLOCKED: 'is-blocked' }[String(t.final).split(' ')[0]] || ''}`} data-testid="ofr-final"><b>FINAL</b><em>{t.final}</em><span><u>WHY</u> {t.why}</span></p> : null}
+    <ul>{lines.map(l => <li key={l[0]} style={{ '--ag': AG[l[0]] }} data-tip={l[2] || undefined}><b>{l[0].toUpperCase()}</b><span>{l[1]}</span></li>)}</ul></div>;
 }
 export const hhmm = at => { const d = new Date(at * 1000); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 
@@ -167,7 +185,7 @@ export function AgentPanel({ o, a, coin, onCoin }) {
   const view = (a.key === 'reaper' && !coin && hot ? coinView(o, hot.symbol) : coinView(o, coin)) || coinView(o, o.currentCase?.symbol) || (hot ? coinView(o, hot.symbol) : null);
   const p = view?.pos; const ch = view?.cur?.chart; const wd = view?.cur?.warden; const tk = o.take || {};
   const review = p?.nextReview != null ? Math.max(0, p.nextReview - (Date.now() / 1000 - (o.at || 0))) : null;
-  const coins = [...new Set([o.currentCase?.symbol, ...(o.positions || []).map(x => x.symbol)].filter(Boolean))];
+  const coins = [...new Set([o.currentCase?.symbol, ...(o.positions || []).map(x => x.symbol), ...(o.queue || []).filter(x => x.chart).map(x => x.symbol)].filter(Boolean))].slice(0, 6);
   return <aside className="ofr-panel" style={{ '--ag': AG[a.key] }} data-testid="ofr-panel">
     <header className="ofr-phead"><span className="ofr-pname" data-tip={a.role}><b>{a.icon} {a.name.toUpperCase()}</b><small>gen {c.gen ?? 1} · {a.role}</small></span>
       <Tag cls={c.status === 'alive' ? 'is-pass' : 'is-obj'} tip={c.why}>● {c.status === 'alive' ? 'LIVE' : (c.status || '—').toUpperCase()}</Tag></header>
@@ -190,15 +208,19 @@ export function AgentPanel({ o, a, coin, onCoin }) {
           <span><u>Warden size</u><b>{wd ? `${wd.eff}×` : p?.warden != null ? `${p.warden}×` : ch ? `${ch.risk?.[0]}× chart` : '—'}</b></span>
           <span><u>Reaper next review</u><b>{review != null ? clock(review) : '—'}</b></span><span><u>Active take source</u><b>{p?.takeSource || tk.source || '—'} +{p?.take ?? tk.active ?? '—'}%</b></span>
           <span className="is-wide"><u>{p ? 'Thesis' : 'Entry call'}</u><b>{p ? (p.thesis ? `${p.thesis.structure} · ${p.thesis.triggerRule} → now ${p.verdict || 'unchecked'}` : 'no thesis on file') : ch ? `${ch.entry?.[0]} — ${ch.entry?.[2]}` : '—'}</b></span></div>; })()}</div>
-      <div className="ofr-rul" data-testid="ofr-rulings"><small>LIVE RULINGS · every desk, newest first</small>{rulingsOf(o, 4).length ? <ul>{rulingsOf(o, 4).map((r, i) => <li key={i} className={r.key === a.key ? 'is-me' : ''} style={{ '--ag': AG[r.key] }} data-tip={r.text}><u>{hhmm(r.at)}</u><b>{r.name}</b> {r.text}</li>)}</ul> : <span className="ofr-nil">none on record yet</span>}</div>
+      <TeamTrace t={view?.kind === 'case' ? traceOf(o, view.symbol) : null} pos={p} />
+      <div className="ofr-rul" data-testid="ofr-rulings"><small>LIVE RULINGS · every desk, newest first</small>{rulingsOf(o, 3).length ? <ul>{rulingsOf(o, 3).map((r, i) => <li key={i} className={r.key === a.key ? 'is-me' : ''} style={{ '--ag': AG[r.key] }} data-tip={r.text}><u>{hhmm(r.at)}</u><b>{r.name}</b> {r.text}</li>)}</ul> : <span className="ofr-nil">none on record yet</span>}</div>
       <p className="ofr-files" data-testid="ofr-files"><small>RUNTIME last {ms(c.latency?.last)} · p95 {ms(c.latency?.p95)}</small>{(a.code || []).map(k => <span key={k.file}><code>{k.file}</code><code className="ofr-fn">{k.fn[0]}()</code></span>)}</p>
     </div>}
-    {tab === 'beliefs' && <div className="ofr-pane" data-testid="pane-beliefs"><p className="ofr-ideo">{a.ideology}</p>
+    {tab === 'beliefs' && <div className="ofr-pane" data-testid="pane-beliefs"><p className="ofr-job" data-testid="ofr-job"><b>{a.job}</b> {a.question}</p><p className="ofr-ideo">{a.ideology}</p>
       <small>ETHICS</small><ul className="ofr-list">{a.ethics.map(x => <li key={x}>{x}</li>)}</ul><small>IMMUTABLE RULES</small><ul className="ofr-list">{a.hard.map(x => <li key={x}>{x}</li>)}</ul>
       <small>FORBIDDEN</small><ul className="ofr-list is-no">{a.forbidden.map(x => <li key={x}>{x}</li>)}</ul>
       <small>TUNABLE (shadow-tested only)</small>{a.tunable?.length ? <ul className="ofr-list">{a.tunable.map(t => <li key={t.key} data-tip={t.what}>{t.key} = <b>{t.value}</b> · default {t.default} · bounds {t.lo} … {t.hi}</li>)}</ul> : <span className="ofr-nil">none</span>}
       <small>WHY THIS STATE</small><p className="ofr-why">{c.why}</p></div>}
-    {tab === 'inputs' && <div className="ofr-pane" data-testid="pane-inputs"><small>TASK</small><p className="ofr-why">{a.task || 'idle'}</p><small>CURRENT INPUTS</small>{dump(a.inputs)}<small>CURRENT OUTPUT</small>{dump(a.output)}</div>}
+    {tab === 'inputs' && <div className="ofr-pane" data-testid="pane-inputs"><small>TASK</small><p className="ofr-why">{a.task || 'idle'}</p><small>CURRENT INPUTS</small>{dump(a.inputs)}<small>CURRENT OUTPUT</small>{dump(a.output)}
+      <small>MISSION CONTRIBUTION · measured only</small>{(() => { const k = o.judge?.contribution; const rows = k?.agents?.[a.key] || [];
+        return <ul className="ofr-list" data-testid="ofr-contrib">{rows.length ? rows.map(r => <li key={r[0]} data-tip={r[2]}>{r[0]}: <b>{r[1] == null ? 'not enough records yet' : String(r[1])}</b> <i>{r[2]}</i></li>) : <li>nothing this desk does is counted toward the mission in a number yet</li>}
+          {a.key === 'judge' && k ? <>{Object.entries(k.team || {}).map(([n, v]) => <li key={n}>team · {n}: <b>{v == null ? '—' : String(v)}</b></li>)}{(k.notMeasured || []).map(r => <li key={r[0]} className="is-nm">NOT MEASURED — {r[0]}: {r[1]}</li>)}</> : null}</ul>; })()}</div>}
     {tab === 'chart' && <div className="ofr-pane" data-testid="pane-chart">{view?.kind === 'case' ? <ChartBox c={ch} cur={view.cur} />
       : p ? <><small>ENTRY THESIS · ${p.symbol}</small>{p.thesis ? dump({ ...p.thesis, at: ago(p.thesis.at) }) : <span className="ofr-nil">no thesis on file (bought before theses were saved)</span>}<small>CHART NOW</small>{dump({ structure: p.structure, verdict: p.verdict, why: p.why, ...(p.chart || {}) })}</>
         : <span className="ofr-nil">no chart snapshot this pass</span>}</div>}

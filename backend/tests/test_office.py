@@ -343,12 +343,22 @@ def test_reaper_replay_is_the_same_price_rules_reaper_runs_live():
 def test_the_breakeven_lock_reads_only_the_real_cards_value_against_its_put_in():
     st = {'done': [{'at': i * 400, 'kind': 'enter', 'go': True, 'devil': 'agree', 'p5': 60.0, 'p15': 60.0, 'p60': 60.0, 'mint': f'm{i}', 'lean': 3} for i in range(40)]}
     assert ag.paper(st)['x'] >= ag.PROVE_X                                                                       # the paper desk is far past 10× …
-    for money, locked in (({'value': 1.24, 'putIn': 29.5}, True), ({'value': 29.49, 'putIn': 29.5}, True), ({'value': 29.5, 'putIn': 29.5}, False), ({'value': 40, 'putIn': 29.5}, False)):
+    # 🎓 breakeven is milestone 1, NOT graduation: the 5-minute stage stays locked until REAL equity ≥ 2× the real put-in
+    for money, under, phase, locked in (({'value': 1.24, 'putIn': 29.5}, True, 'RECOVERY', True), ({'value': 29.49, 'putIn': 29.5}, True, 'RECOVERY', True),
+                                        ({'value': 29.5, 'putIn': 29.5}, False, 'GROWTH', True), ({'value': 40, 'putIn': 29.5}, False, 'GROWTH', True),
+                                        ({'value': 58.99, 'putIn': 29.5}, False, 'GROWTH', True), ({'value': 59.0, 'putIn': 29.5}, False, 'GRADUATED', False),
+                                        ({'value': 80, 'putIn': 29.5}, False, 'GRADUATED', False)):
         s = {**st, 'money': money}
-        assert ag.underwater(s) is locked and (ag.stage(s)['h'] == 5 and 5 not in ag.stage(s)['conquered']) is locked   # … and only real value ≥ real put-in moves the stage
+        assert ag.underwater(s) is under and ag.real_phase(money)['phase'] == phase
+        assert (ag.stage(s)['h'] == 5 and 5 not in ag.stage(s)['conquered']) is locked                           # … and only real value ≥ 2× real put-in moves the stage
         m = of.mission(money, 9, ag.stage(s), 100, 400, None, ag.underwater(s))
-        assert m['locked'] is locked and m['lock'] == ('LOCKED' if locked else 'CLEARED') and m['toBreakeven'] == round(money['value'] - money['putIn'], 2)
+        assert m['locked'] is locked and m['lock'] == ('LOCKED' if locked else 'ELIGIBLE') and m['nextStage'] == m['lock'] and m['toBreakeven'] == round(money['value'] - money['putIn'], 2)
+        assert m['phase'] == phase and m['breakevenTarget'] == 29.5 and m['doubleTarget'] == 59.0 and m['toDouble'] == round(money['value'] - 59.0, 2) and m['unlock'] == 'real equity ≥ $59.00'
         assert m['putIn'] == money['putIn'] and m['value'] == money['value'] and (m['stage'] == 5) is locked    # the card's own numbers, passed through
+    # paper performance can never unlock a real-money stage: a 10× paper desk with NO real card money read, or with any paper number, stays locked
+    assert ag.stage(st)['h'] == 5 and ag.stage(st)['need2x'] and ag.real_phase(None)['phase'] == 'UNKNOWN' and not ag.real_phase({'putIn': 29.5})['eligible']
+    assert ag.stage({**st, 'money': {'value': 10.0, 'putIn': 29.5, 'paper': 9999, 'paidOut': 500, 'takenUsd': 900}})['h'] == 5       # gross proceeds / paid-out / paper totals are not read
+    assert of.mission({}, 9, {'h': 5}, 0, 0)['locked'] and of.mission({}, 9, {'h': 5}, 0, 0)['lock'] == 'UNKNOWN'
     m = of.mission({'value': 1.24, 'putIn': 29.5}, 9, {'h': 5}, 100, 400, None, True)
     assert m['needX'] == 23.8 and m['nextDutyIn'] == 300 and m['priority'][0] == 'SURVIVE' and 'real put-in' in m['lockRule']
     assert of.mission({}, 9, {'h': 5}, 0, 400, None, False)['lock'] == 'UNKNOWN'                                 # no card numbers = it says so, it does not guess

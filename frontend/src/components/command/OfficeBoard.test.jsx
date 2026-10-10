@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { OfficeBoard, OfficeMission, ChartBox, PositionCard, TakeLine, actionResult, nextDuty, clock, ago, sgn, ms, entryCls, STAGE_CLS, STRUCT_CLS, DECISION_CLS } from './OfficeBoard';
+import { OfficeBoard, OfficeMission, ChartBox, DataLine, dqWord, DQ_CLS, PositionCard, TakeLine, actionResult, nextDuty, clock, ago, sgn, ms, entryCls, STAGE_CLS, STRUCT_CLS, DECISION_CLS } from './OfficeBoard';
 import office from './__fixtures__/office.json';
 
 const mount = async node => { const el = document.createElement('div'); document.body.appendChild(el); await act(async () => { createRoot(el).render(node); }); return el; };
@@ -13,15 +13,29 @@ test('the mission shows the real card\'s own numbers, the lock, lives, the duty 
   expect(q(el, 'ofb-value').textContent).toContain('$1.24');
   expect(q(el, 'ofb-be').textContent).toContain('−$28.26');
   expect(q(el, 'ofb-be').textContent).toContain('needs 23.8×');
+  expect(q(el, 'ofb-be').textContent).toContain('BREAKEVEN $29.50');
+  expect(q(el, 'ofb-phase').textContent).toContain('RECOVERY');                            // phase 1 of the real-money mission
+  expect(q(el, 'ofb-double').textContent).toContain('DOUBLE TARGET $59.00');               // 2× the put-in = the graduation target
+  expect(q(el, 'ofb-double').textContent).toContain('−$57.76');
   expect(q(el, 'ofb-stage').textContent).toContain('5 MIN');
+  expect(q(el, 'ofb-lock').textContent).toContain('NEXT STAGE');
   expect(q(el, 'ofb-lock').textContent).toContain('LOCKED');
-  expect(q(el, 'ofb-lock').getAttribute('data-tip')).toContain('real card value < real put-in');
+  expect(q(el, 'ofb-unlock').textContent).toContain('real equity ≥ $59.00');               // the unlock condition is on screen, not in a tip
+  expect(q(el, 'ofb-lock').getAttribute('data-tip')).toContain('breakeven is milestone 1, not graduation');
   expect(q(el, 'ofb-lives').textContent).toContain('9 / 9');
+  expect(q(el, 'ofb-duty').textContent).toContain('next duty');
   expect(q(el, 'ofb-last').textContent).toContain('FILL $c3');
   expect(q(el, 'ofb-last').textContent).toContain('CONFIRMED on-chain');
-  const cleared = await mount(<OfficeMission m={{ ...office.mission, locked: false, lock: 'CLEARED', toBreakeven: 0.4, value: 29.9 }} />);
-  expect(q(cleared, 'ofb-lock').textContent).toContain('CLEARED');
-  expect(q(cleared, 'ofb-be').textContent).toContain('+$0.40');
+  // breakeven reached = GROWTH mode: the milestone is ticked and the next stage is STILL locked
+  const grow = await mount(<OfficeMission m={{ ...office.mission, phase: 'GROWTH', toBreakeven: 1.5, toDouble: -28, value: 31, needX2: 1.9 }} />);
+  expect(q(grow, 'ofb-phase').textContent).toContain('GROWTH');
+  expect(q(grow, 'ofb-be').textContent).toContain('✓ reached');
+  expect(q(grow, 'ofb-be').textContent).toContain('not graduation');
+  expect(q(grow, 'ofb-double').textContent).toContain('−$28.00');
+  expect(q(grow, 'ofb-lock').textContent).toContain('LOCKED');
+  const done = await mount(<OfficeMission m={{ ...office.mission, phase: 'GRADUATED', locked: false, lock: 'ELIGIBLE', toBreakeven: 30.5, toDouble: 1, value: 60 }} />);
+  expect(q(done, 'ofb-lock').textContent).toContain('ELIGIBLE');
+  expect(q(done, 'ofb-double').textContent).toContain('✓ reached');
   const cold = await mount(<OfficeMission m={null} />);
   expect(q(cold, 'ofb-mission').textContent).toContain('waiting for the agents');           // no payload = it says so, it shows no number
 });
@@ -99,7 +113,17 @@ test('the chart box shows the structure, the four scores, and what Trigger, Devi
   expect(q(el, 'chart-stop').textContent).toContain('catastrophic −45% (hard-coded)');
   expect(box.textContent).toContain(c.ev[0]);                                              // the evidence lines are the backend's own
   expect(box.querySelector('details').textContent).toContain('distHigh');
+  // 🧪 the data-quality line is ON the chart box (not a tooltip): state + confidence, source, candles, trades, volume, liquidity, age
+  const dq = q(el, 'ofb-dq');
+  expect(dq.textContent).toContain('DATA QUALITY');
+  expect(dq.textContent).toContain(`${dqWord(c.q)} ${c.q.conf}%`);
+  expect(q(el, 'dq-source').textContent).toContain(c.q.candleSource);
+  expect(q(el, 'dq-candles').textContent).toContain(c.q.label);
+  expect(q(el, 'dq-volume').textContent).toMatch(/REAL|PARTIAL|UNAVAILABLE/);
+  expect(q(el, 'dq-liq').textContent).toMatch(/REAL|STALE|UNKNOWN/);
+  expect(q(el, 'dq-age').textContent).toContain('s ago');
   const tape = await mount(<ChartBox c={{ ...c, src: 'tape' }} cur={cur} />);
+  expect(tape.textContent).toContain('RECONSTRUCTED FROM TAPE');
   expect(tape.textContent).toContain('tape readings');
   const none = await mount(<ChartBox c={null} cur={cur} />);
   expect(q(none, 'ofb-chart').textContent).toContain('nothing is claimed about its structure');  // no snapshot = no structure words
@@ -139,4 +163,25 @@ test('the board carries the chart box, the take line and the candle accounting i
   await act(async () => { q(el, 'office-reaper').click(); });
   expect(q(el, 'detail-reaper').textContent).toContain('backend/chart_intel.py'); expect(q(el, 'detail-reaper').textContent).toContain('review()');
   expect(q(el, 'detail-reaper').textContent).toContain('Never keep holding merely because a position is green.'); expect(q(el, 'detail-reaper').textContent).toContain('catastrophic stop −45%');
+});
+
+test('the data line names reconstructed, missing-volume and invalid data as exactly that — and never calls a trade count volume', async () => {
+  const base = office.currentCase.chart.q;
+  const tape = await mount(<DataLine q={{ ...base, state: 'NO_REAL_CANDLES', conf: 45, synthetic: true, realOhlc: false, enterOk: false, label: 'RECONSTRUCTED FROM TAPE · 22 readings', candleSource: 'RECONSTRUCTED FROM TAPE — closes only, highs / lows not measured', volume: 'UNAVAILABLE', why: 'reconstructed — not real OHLC candles' }} />);
+  expect(tape.textContent).toContain('NO REAL CANDLES 45%');
+  expect(tape.textContent).toContain('RECONSTRUCTED');
+  expect(q(tape, 'dq-candles').textContent).toContain('RECONSTRUCTED FROM TAPE · 22 readings');
+  expect(q(tape, 'dq-volume').textContent).toBe('VOLUME UNAVAILABLE');
+  expect(q(tape, 'dq-why').textContent).toContain('not ENTER-grade');
+  const bad = await mount(<DataLine q={{ ...base, state: 'MALFORMED', conf: 5, readOk: false, enterOk: false, why: '1 of 30 rows break high ≥ open/close ≥ low' }} degraded />);
+  expect(bad.textContent).toContain('MALFORMED 5%');
+  expect(bad.textContent).toContain('DATA DEGRADED');
+  expect(q(bad, 'dq-why').textContent).toContain('DATA INVALID — not a verdict on the coin');
+  const trades = await mount(<DataLine q={{ ...base, nTrades: 9, volume: 'UNAVAILABLE', volumeWord: 'VOLUME UNAVAILABLE' }} />);
+  expect(q(trades, 'dq-trades').textContent).toContain('9 in the last 90s');                // a trade count is shown as TRADES …
+  expect(q(trades, 'dq-volume').textContent).toBe('VOLUME UNAVAILABLE');                    // … and never as volume
+  const none = await mount(<DataLine q={null} />);
+  expect(none.textContent).toContain('NOT READ');
+  expect(Object.keys(DQ_CLS)).toHaveLength(10);                                             // every one of the ten states has its look
+  expect(STRUCT_CLS['DATA INVALID']).toBe('is-veto');
 });

@@ -58,7 +58,8 @@ def test_sherlock_learns_what_a_driver_really_did_and_devil_uses_it():
 
 
 def test_5_minutes_is_passed_only_by_10x_ing_the_trench_desk_and_a_bust_starts_over():
-    mk = lambda ps: {'done': [{'mint': str(i), 'at': i, 'kind': 'enter', 'go': True, 'devil': 'agree', 'drivers': [], 'lean': 2, 'p5': p} for i, p in enumerate(ps)]}
+    won = {'value': 60.0, 'putIn': 29.5}   # the REAL card at 2× its put-in: the real-money half of the rule is met in this test
+    mk = lambda ps: {'money': won, 'done': [{'mint': str(i), 'at': i, 'kind': 'enter', 'go': True, 'devil': 'agree', 'drivers': [], 'lean': 2, 'p5': p} for i, p in enumerate(ps)]}
     steady = mk([4.0 if i % 3 else -2.0 for i in range(30)])                    # a fine record, but nowhere near 10×
     assert ag.stage(steady)['h'] == 5 and ag.paper(steady)['x'] < 1.5
     run = mk([50.0] * 30)                                                        # 25% of the desk in, +50% each → compounds past 10×
@@ -375,8 +376,10 @@ def test_they_learn_to_scalp_from_their_own_paths_without_look_ahead_and_the_rea
     assert ag.manage([leg], [], {'P1': 1.10}, {**cfg, 'agentScalp': False}, {'tp': 8})[0]['action'] == 'hold'
     # 🎯 the mission: breakeven first — a distance, never a promise
     m = ag.mission(0.81, 22.5, {'x': 1.0}, st['scalp'])
-    assert m == {'key': 'breakeven', 'value': 0.81, 'putIn': 22.5, 'pct': 3.6, 'needX': 27.8, 'scalping': True}
-    assert ag.mission(30, 22.5, {'x': 2.0})['key'] == 'tenx' and ag.mission(0, 0, {'x': 2.0})['needX'] == 5.0
+    assert m == {'key': 'breakeven', 'value': 0.81, 'putIn': 22.5, 'pct': 3.6, 'needX': 27.8, 'scalping': True, 'double': 45.0}
+    g = ag.mission(30.0, 22.5, {'x': 1.0})
+    assert g['key'] == 'double' and g['double'] == 45.0 and g['pct'] == 33.3 and ag.mission(45.0, 22.5, {'x': 1.0})['key'] == 'tenx'   # breakeven reached → the goal is 2× the put-in, then the paper 10×
+    assert ag.mission(46, 22.5, {'x': 2.0})['key'] == 'tenx' and ag.mission(0, 0, {'x': 2.0})['needX'] == 5.0
     v = ag.view(st, [], money={'value': 0.81, 'putIn': 22.5})
     assert v['mission']['key'] == 'breakeven' and v['scalp']['live']['tp'] == 8 and v['cfg']['agentScalp'] is True
     import arena_prime as ap
@@ -468,10 +471,13 @@ def test_the_ten_minute_duty_investigates_every_coin_clears_only_safe_ones_and_n
 def test_they_stay_in_five_minutes_until_the_real_card_is_back_to_breakeven_and_their_lives_ride_on_real_exits():
     mk = lambda ps, **k: {'done': [{'mint': str(i), 'at': i, 'kind': 'enter', 'go': True, 'devil': 'agree', 'drivers': [], 'lean': 2, 'p5': p} for i, p in enumerate(ps)], **k}
     run = mk([50.0] * 30)
-    assert ag.stage(run)['h'] == 15                                                           # paper 10× and no real card underwater → on to 15 min
+    assert ag.stage(run)['h'] == 5 and ag.stage(run)['need2x'] is True                        # paper 10× with NO real money read: paper alone never unlocks a real-money stage
     locked = ag.stage(mk([50.0] * 30, money={'value': 1.35, 'putIn': 29.5}))
     assert locked['h'] == 5 and locked['conquered'] == [] and locked['needBE'] is True        # 10× on paper is NOT enough while the real card is underwater
-    assert ag.stage(mk([50.0] * 30, money={'value': 30, 'putIn': 29.5}))['h'] == 15 and ag.underwater({'money': {'value': 0, 'putIn': 0}}) is False
+    grow = ag.stage(mk([50.0] * 30, money={'value': 30, 'putIn': 29.5}))
+    assert grow['h'] == 5 and grow['needBE'] is False and grow['need2x'] is True and grow['phase'] == 'GROWTH'   # breakeven is a milestone: still locked on the way to 2×
+    assert ag.stage(mk([50.0] * 30, money={'value': 29.5, 'putIn': 29.5}))['phase'] == 'GROWTH' and ag.stage(mk([50.0] * 30, money={'value': 58.99, 'putIn': 29.5}))['h'] == 5
+    assert ag.stage(mk([50.0] * 30, money={'value': 59.0, 'putIn': 29.5}))['h'] == 15 and ag.underwater({'money': {'value': 0, 'putIn': 0}}) is False   # real equity ≥ 2× put-in → eligible for the next stage
     st = ag.reckon({}, {'n': 5, 'w': 1}, 100)
     assert st['lives'] == 9 and st['realSeen'] == {'n': 5, 'w': 1}                            # history before the rule costs nothing
     st = ag.reckon(st, {'n': 8, 'w': 2}, 200)                                                 # 3 more exits: 1 won, 2 lost

@@ -2952,3 +2952,31 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   HQ sign-in: the service writes `data/agents_view.json` = exactly what `GET /admin/agents` answers each pass; render `AgentDesk` with a
   read-only `call` on a copy of it (scratch only, never shipped). Measured 2026-10-10 at 1440 × 900 on the live payload: stage 870 × 506,
   roster bottom 885, 0 non-transform animations.
+- 🧪 MARKET-DATA TRUTH + THE 2× MISSION (owner, 2026-10-10: "a rendered chart is NOT automatically valid evidence … breakeven is a milestone, not
+  graduation"; `backend/market_data.py` pure + tested `tests/test_market_data.py`). `quality(rows, now, ohlc, src, meta, liq, flow)` runs on the
+  rows AS FETCHED (nothing dropped first) → state (TRUSTED · USABLE_WITH_CAUTION · SPARSE · STALE · INCONSISTENT · MALFORMED · NO_REAL_CANDLES ·
+  NO_VOLUME · NO_LIQUIDITY · UNTRUSTED) + conf 0–100 + every check + provenance (`prov`). `chart_intel.read(.., meta)` calls it FIRST:
+  · READ_FAIL (MALFORMED / INCONSISTENT / STALE / UNTRUSTED) → chart state `DATA INVALID` (not in GOOD or BAD): no structure, no `chart:` driver
+    for Sherlock, entry `WAIT FOR DATA`, hard Devil objection `data_integrity`, risk 0. It is never called a downtrend / failed breakout.
+  · readable but not ENTER-grade (tape = NO_REAL_CANDLES, SPARSE, NO_VOLUME, NO_LIQUIDITY) → structure read + labelled, ENTER NOW → `WAIT FOR
+    DATA` (E0d), case-file check `data` fails, risk ≤ 0.5 (Warden `W13 market data`). ENTER-grade = TRUSTED / USABLE_WITH_CAUTION only.
+  · ☠ `review`: `q.structOk` false → verdict `unknown` + `degraded` → Reaper rules nothing chart-based (no R5t / R7s / R9), report carries
+    `dataDegraded` + "DATA DEGRADED"; R1 pool, R2, R5 stop, R5x, R7 trail are untouched. Thesis + lineage + calls (`dq`, `dqc`) keep the data
+    state of the decision; scorecards count acting on bad data as violations (`badData`); `office.contribution` = measured-only mission
+    contribution + a `notMeasured` list (no $ per agent is invented).
+  WHAT THE FEED REALLY IS (read from :5099, say it this way): "candles" = the provider's 1-min PRICE history (today Jupiter; bars carry a volume
+  figure) sharpened with FEELESS-recorded prices (those bars have NO volume: 0.0 = not measured). So per-candle volume is usually PARTIAL →
+  most live coins read USABLE_WITH_CAUTION ~88%, TRUSTED needs volume on ≥ 80% of moving bars. 5-min / 1-hour totals = the launch board.
+  Trade COUNTS exist only on the 90s tape of coins the service already watches — never shown as volume. "tape" = Tally's one board price a
+  pass = RECONSTRUCTED, closes only. Detectors that matter: `alternating` (≥ 6 candles ≥ 2% landing back on the price of two bars before =
+  two prices ping-ponging — the owner's "giant alternating candles"), `repeat` / `repeat_range` (≥ 1% ranges only: tiny two-source wiggles
+  are normal), `jump`, order / duplicates / future / gaps, flat share. A test saw that alternates two EXACT prices is a broken feed now.
+  CONSEQUENCE: a GO / duty clear needs real candles, which are fetched only for held coins + last pass's 6 strongest cases → a new coin
+  is at best cleared one pass later; a coin the candles service has no history for is never agent-bought. That is intended (tightening only).
+  🎓 STAGE: `agents.real_phase(money)` (RECOVERY < put-in ≤ GROWTH < 2× ≤ GRADUATED; unknown money = locked) — `stage()` needs the existing
+  paper rules AND real equity ≥ `GRADUATE_X` 2 × put-in. `office.mission` adds phase / breakevenTarget / doubleTarget / toDouble / nextStage /
+  unlock; `agents.mission` key breakeven → double → tenx. Money = `_agents['money']` = the real card's `valueUsd` + `math.putIn` only.
+  PAGE (same one request): `DataLine` (OfficeBoard.jsx, `ofb-dq`) under EVERY chart — quality + conf, source, candles label, trades, volume,
+  liquidity, updated — visible, never a tooltip; `CandleChart` draws a volume bar ONLY for a bar with its own figure (`ofr-vol`, `ofr-volw`
+  says N of M); `TeamTrace` (`ofr-trace`: each desk's answer to its own question → FINAL + WHY) from `queue[].trace`; every queue case
+  now carries its own `bars` + `chart` so any candidate can be charted; mission row = 9 tiles; `office.JOBS` = ten jobs. Payload ≈ 110 KB.

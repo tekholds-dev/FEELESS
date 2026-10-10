@@ -50,13 +50,14 @@ export function OfficeMission({ m, bare }) {
   return <div className={`ofb-mission ${m.locked ? 'is-locked' : 'is-clear'} ${bare ? 'is-bare' : ''}`} data-testid="ofb-mission">
     {bare ? null : <b data-tip="Every number here is the real Fuse card's own: its server value and what you put in. The page computes nothing.">💵 REAL MONEY MISSION</b>}
     <div className="ofb-mgrid">
-      <span data-testid="ofb-putin"><small>PUT IN</small><em>{usd(m.putIn)}</em></span>
-      <span data-testid="ofb-value"><small>CARD VALUE NOW</small><em>{usd(m.value)}</em></span>
-      <span data-testid="ofb-be"><small>TO BREAKEVEN</small><em className={be == null ? '' : be >= 0 ? 'ofb-up' : 'ofb-dn'}>{be == null ? '—' : `${be >= 0 ? '+' : '−'}$${Math.abs(be).toFixed(2)}`}</em>{m.needX && m.locked ? <u>needs {m.needX}×</u> : null}</span>
-      <span data-testid="ofb-stage"><small>STAGE</small><em>{m.stage} MIN</em></span>
-      <span data-testid="ofb-lock" data-tip={m.lockRule}><small>BREAKEVEN LOCK</small><em className={m.locked ? 'ofb-warn' : 'ofb-up'}>{m.locked ? '🔒 LOCKED' : m.lock === 'CLEARED' ? '🔓 CLEARED' : '— UNKNOWN'}</em></span>
-      <span data-testid="ofb-lives"><small>TEAM LIVES</small><em className={m.lives != null && m.lives <= 3 ? 'ofb-dn' : ''}>{m.lives ?? '—'} / {m.livesOf}</em></span>
-      <span data-testid="ofb-duty"><small>NEXT DUTY</small><em>{left == null ? 'control off' : left <= 0 ? 'due now' : clock(left)}</em></span>
+      <span data-testid="ofb-putin" data-tip={m.source}><small>PUT IN</small><em>{usd(m.putIn)}</em></span>
+      <span data-testid="ofb-value" data-tip={m.source}><small>CURRENT EQUITY</small><em>{usd(m.value)}</em></span>
+      <span data-testid="ofb-phase" data-tip="Phase 1 RECOVERY: back to breakeven. Phase 2 GROWTH: breakeven → 2× the put-in. Read from the real card's own value and put-in only."><small>PHASE</small><em className={m.phase === 'RECOVERY' ? 'ofb-warn' : m.phase === 'UNKNOWN' || !m.phase ? '' : 'ofb-up'}>{m.phase || '—'}</em><u>{m.phase === 'RECOVERY' ? '1 of 2 · to breakeven' : m.phase === 'GROWTH' ? '2 of 2 · to 2× put-in' : m.phase === 'GRADUATED' ? '2× reached' : 'card money not read'}</u></span>
+      <span data-testid="ofb-be"><small>BREAKEVEN {usd(m.breakevenTarget ?? m.putIn)}</small><em className={be == null ? '' : be >= 0 ? 'ofb-up' : 'ofb-dn'}>{be == null ? '—' : be >= 0 ? '✓ reached' : `−$${Math.abs(be).toFixed(2)}`}</em><u>{be == null ? '' : be >= 0 ? 'milestone 1 — not graduation' : `to breakeven${m.needX ? ` · needs ${m.needX}×` : ''}`}</u></span>
+      <span data-testid="ofb-double"><small>DOUBLE TARGET {usd(m.doubleTarget)}</small><em className={m.toDouble == null ? '' : m.toDouble >= 0 ? 'ofb-up' : 'ofb-dn'}>{m.toDouble == null ? '—' : m.toDouble >= 0 ? '✓ reached' : `−$${Math.abs(m.toDouble).toFixed(2)}`}</em><u>{m.toDouble == null ? '' : m.toDouble >= 0 ? 'graduation target met' : `to 2×${m.needX2 ? ` · needs ${m.needX2}×` : ''}`}</u></span>
+      <span data-testid="ofb-stage"><small>CURRENT STAGE</small><em>{m.stage} MIN</em><u>{m.phase === 'GROWTH' ? 'growth mode' : m.phase === 'RECOVERY' ? 'recovery mode' : ''}</u></span>
+      <span data-testid="ofb-lock" data-tip={m.lockRule}><small>NEXT STAGE</small><em className={m.locked ? 'ofb-warn' : 'ofb-up'}>{m.lock === 'UNKNOWN' ? '— UNKNOWN' : m.locked ? '🔒 LOCKED' : '🔓 ELIGIBLE'}</em><u data-testid="ofb-unlock">unlock: {m.unlock || 'real equity ≥ 2× put-in'}</u></span>
+      <span data-testid="ofb-lives"><small>TEAM LIVES</small><em className={m.lives != null && m.lives <= 3 ? 'ofb-dn' : ''}>{m.lives ?? '—'} / {m.livesOf}</em><u data-testid="ofb-duty">next duty {left == null ? 'off (control off)' : left <= 0 ? 'due now' : clock(left)}</u></span>
       {bare ? <span className="ofb-lasttile" data-testid="ofb-last" data-tip={la ? `${la.why} — ${rt}` : 'no real agent action since the service started'}><small>LAST REAL ACTION</small><em>{la ? `${la.move?.toUpperCase()} $${la.sym}` : '—'}</em>{la ? <u className={rc}>{rt.split(' — ')[0].split(' · ')[0]} · {ago(la.at)}</u> : null}</span> : null}
     </div>
     {bare ? null : <>    <p className="ofb-last" data-testid="ofb-last"><small>LAST REAL ACTION</small>{la ? <><span>{la.move?.toUpperCase()} ${la.sym}{la.usd != null ? ` · ${usd(la.usd)}` : ''} · {ago(la.at)}</span><Tag cls={rc}>{rt}</Tag><span className="ofb-why">{la.why}</span></> : <span className="ofb-nil">none since the service started</span>}</p>
@@ -81,17 +82,38 @@ export function OfficePipeline({ pipe, cur, agents, onPick, sel }) {
 // 📈 the chart-intelligence box: the structure state + its measured evidence, four scores, what Trigger / Devil / Warden made of it.
 // Every word is a field of the shared snapshot (`backend/chart_intel.py`); nothing is derived here.
 export const STRUCT_CLS = { 'STRONG UPTREND': 'is-pass', UPTREND: 'is-pass', 'PULLBACK IN UPTREND': 'is-pass', 'CONFIRMED BREAKOUT': 'is-pass', 'BREAKOUT ATTEMPT': 'is-work', ACCUMULATION: 'is-work', COMPRESSION: 'is-wait', RANGE: 'is-wait',
-  UNKNOWN: 'is-wait', CHOP: 'is-veto', DISTRIBUTION: 'is-veto', DOWNTREND: 'is-veto', 'LIQUIDITY FAILURE': 'is-veto', 'FAILED BREAKOUT': 'is-veto', PARABOLIC: 'is-obj' };
+  UNKNOWN: 'is-wait', 'DATA INVALID': 'is-veto', CHOP: 'is-veto', DISTRIBUTION: 'is-veto', DOWNTREND: 'is-veto', 'LIQUIDITY FAILURE': 'is-veto', 'FAILED BREAKOUT': 'is-veto', PARABOLIC: 'is-obj' };
 export const entryCls = call => (call === 'ENTER NOW' ? 'is-pass' : call === 'SKIP' ? 'is-veto' : 'is-obj');
 const Meter = ({ label, v, bad }) => <span className={`ofb-meter ${bad ? 'is-bad' : ''}`} data-testid={`meter-${label}`}><small>{label}</small><em>{v == null ? '—' : `${Math.round(v)}`}<u>/100</u></em><b aria-hidden><i style={{ transform: `scaleX(${v == null ? 0 : Math.max(0.02, Math.min(1, v / 100))})` }} /></b></span>;
 const money = v => (v == null ? '—' : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Number(v).toFixed(0)}`);
+
+// 🧪 Tally's verdict on the rows behind a chart, ALWAYS VISIBLE beside it (never a tooltip): quality state + confidence, where the
+// candles / trades / volume / liquidity came from, and whether any of it is reconstructed. Every word is a field of the payload.
+export const DQ_CLS = { TRUSTED: 'is-pass', USABLE_WITH_CAUTION: 'is-work', SPARSE: 'is-obj', STALE: 'is-obj', NO_REAL_CANDLES: 'is-obj', NO_VOLUME: 'is-obj', NO_LIQUIDITY: 'is-obj', INCONSISTENT: 'is-veto', MALFORMED: 'is-veto', UNTRUSTED: 'is-veto' };
+export const dqWord = q => (!q ? 'NOT READ' : String(q.state).replace(/_/g, ' '));
+export function DataLine({ q, degraded, compact, noVol }) {
+  if (!q) return <p className="ofb-dq is-none" data-testid="ofb-dq"><b>DATA QUALITY</b><Tag cls="is-wait">NOT READ</Tag><span>no data-quality verdict for this coin this pass — nothing is claimed about its chart</span></p>;
+  const trades = q.nTrades == null ? 'not read for this coin' : `${q.nTrades} in the last 90s`;
+  return <p className={`ofb-dq ${compact ? 'is-compact' : ''}`} data-testid="ofb-dq">
+    <b>DATA QUALITY</b><Tag cls={DQ_CLS[q.state] || 'is-wait'} tip={q.why}>{dqWord(q)} {q.conf}%</Tag>{degraded ? <Tag cls="is-veto">DATA DEGRADED</Tag> : null}{q.synthetic ? <Tag cls="is-obj">RECONSTRUCTED</Tag> : null}
+    <span data-testid="dq-source" data-tip={q.candleSource || q.dataSource}><u>SOURCE</u> {compact ? (q.synthetic && !q.realOhlc && q.nCandles != null && String(q.label).startsWith('RECON') ? "Tally's tape (closes only)" : `${q.provider || 'candles service'} 1-min price history + recorded prices`) : (q.candleSource || q.dataSource)}</span>
+    <span data-testid="dq-candles"><u>CANDLES</u> {q.label}</span>
+    <span data-testid="dq-trades"><u>TRADES</u> {trades}</span>
+    {noVol ? null : <span data-testid="dq-volume" data-tip={q.volumeWord}><u>VOLUME</u> {q.volume === 'REAL' ? 'REAL' : q.volume === 'PARTIAL' ? 'PARTIAL' : 'UNAVAILABLE'}{!compact && q.volumeWord && q.volume !== 'UNAVAILABLE' ? ` — ${q.volumeWord}` : ''}</span>}
+    <span data-testid="dq-liq" data-tip={q.liquidityWord}><u>LIQUIDITY</u> {q.liquidity || 'UNKNOWN'}{!compact && q.liquidityWord && q.liquidity === 'REAL' ? ` — ${q.liquidityWord}` : ''}</span>
+    <span data-testid="dq-age"><u>UPDATED</u> {q.ageSec == null ? '—' : `${Math.max(0, Math.round(q.ageSec))}s ago`}</span>
+    {q.enterOk ? null : <span className="ofb-dqwhy" data-testid="dq-why">{q.readOk ? 'not ENTER-grade' : 'DATA INVALID — not a verdict on the coin'}: {q.why}</span>}
+    {q.flowCalc && !compact ? <span className="ofb-dqcalc">{q.flowCalc}</span> : null}
+  </p>;
+}
 
 export function ChartBox({ c, cur }) {
   if (!c) return <div className="ofb-chart is-none" data-testid="ofb-chart"><b>📈 CHART</b><span className="ofb-nil">no chart snapshot for this coin this pass — nothing is claimed about its structure</span></div>;
   const f = c.f || {}; const wd = cur?.warden; const dv = cur?.devil;
   return <div className="ofb-chart" data-testid="ofb-chart">
     <div className="ofb-chead"><b>📈 CHART · what the agents read</b><Tag cls={STRUCT_CLS[c.state] || 'is-wait'} tip={`${c.n} one-minute candles · ${c.src === 'candles' ? 'real OHLC candles' : "Tally's own tape (closes only — wicks not measured)"}`}>{c.state}</Tag>
-      <small>{c.src === 'candles' ? `${c.n} candles` : `${c.n} tape readings`} · confidence {c.conf == null ? '—' : `${Math.round(c.conf * 100)}%`}</small></div>
+      <small>{c.src === 'candles' ? `${c.n} candles` : `RECONSTRUCTED FROM TAPE · ${c.n} tape readings`} · structure confidence {c.conf == null ? '—' : `${Math.round(c.conf * 100)}%`}</small></div>
+    <DataLine q={c.q} />
     <div className="ofb-meters"><Meter label="TREND" v={c.trend} /><Meter label="CHOP" v={c.chop} bad /><Meter label="MOMENTUM" v={c.mom} /><Meter label="EXTENSION" v={c.ext} bad />
       <span className="ofb-meter"><small>FLOW</small><em>{f.buy == null ? '—' : `${Math.round(f.buy)}%`}<u> buy</u></em></span><span className="ofb-meter"><small>LIQUIDITY</small><em>{money(f.liq)}</em>{f.liqD != null ? <u>{sgn(f.liqD, 0)} on our tape</u> : null}</span></div>
     <div className="ofb-calls">
@@ -167,6 +189,7 @@ export function PositionCard({ p }) {
   return <article className={`ofb-pos ${REAP_CLS[p.state] || 'is-hold'}`} data-testid={`pos-${p.symbol}`}>
     <header><b>${p.symbol}</b>{p.owner === 'agents' ? <Tag tip="A coin the agents put on the card">🤖 theirs</Tag> : <Tag tip="Not an agent seat: it keeps the card's own stop; Reaper still watches it for invalidation">card coin</Tag>}{p.exec === 'unconfirmed' ? <Tag cls="is-work">⏳ fill not confirmed</Tag> : null}
       <Tag cls={DECISION_CLS[p.decision] || REAP_CLS[p.state]}>REAPER: {p.decision || p.state}</Tag></header>
+    {p.data || p.dataDegraded ? <DataLine q={p.data} degraded={p.dataDegraded} compact /> : null}
     <div className="ofb-pgrid">
       <span><small>ENTERED ON</small><em>{th ? th.structure : <i className="ofb-nil">no thesis on file</i>}</em>{th ? <u>{th.triggerRule}</u> : <u>bought before theses were saved</u>}</span>
       <span><small>STRUCTURE NOW</small><em>{p.structure ? <Tag cls={STRUCT_CLS[p.structure] || 'is-wait'}>{p.structure}</Tag> : <i className="ofb-nil">no chart</i>}</em>{p.verdict ? <u>thesis {p.verdict}</u> : null}</span>

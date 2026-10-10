@@ -114,7 +114,7 @@
 .ags-trayh { font: 800 11px var(--m-mono); color: var(--m-text); margin-right: 4px; } .ags-warn { flex: 1 1 240px; color: var(--m-warn) !important; }
 
 /* 🎯 mission + ⚡ scalp */
-.ags-mission { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ags-mission { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .ags-goal, .ags-scalp { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 10px; align-items: baseline; padding: 9px 11px; border-radius: 12px; border: 1px solid var(--m-line); background: rgba(0, 0, 0, .3); min-width: 0; opacity: .72; }
 .ags-goal.is-now, .ags-scalp { opacity: 1; } .ags-goal.is-now { border-color: #f5c451; background: color-mix(in srgb, #f5c451 7%, rgba(0, 0, 0, .3)); } .ags-goal.is-done { border-color: rgba(69, 228, 134, .5); opacity: 1; }
 .ags-goal b, .ags-scalp b { font: 800 10px var(--m-mono); letter-spacing: .12em; color: var(--m-dim); white-space: nowrap; } .ags-goal.is-now b { color: #f5c451; } .ags-scalp b { color: #7fd4ff; }

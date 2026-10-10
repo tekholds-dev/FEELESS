@@ -278,7 +278,7 @@ def drivers(n, row):
         out.append('falling')
     if n.get('holdD') is not None and _f(n['holdD']) >= 20:
         out.append('holders_up')
-    if (row.get('chart') or {}).get('state') and row['chart']['state'] != 'UNKNOWN':
+    if (row.get('chart') or {}).get('state') and row['chart']['state'] not in ('UNKNOWN', _ci.DATA_INVALID):   # 🧪 no structure is inferred from rows Tally rejected
         out.append(f"chart:{row['chart']['state']}")                # 📈 the market structure (chart_intel) — no belief, only its own record weighs
     out += list(((row.get('mind') or {}).get('drivers')) or [])   # 🧠 the human read: narrative, crowd vs swarm, botted, dip tuggers
     out += [f'strat:{k}' for k in strats(row, n)]                   # 🎯 the named meme strategies it fits
@@ -505,7 +505,7 @@ def busted_now(proof, call_keys):
     return out
 
 
-def desk(state, rows, now, dial=None, busted=None, weather_fn=None, candles=None, flows=None, charts_out=None):
+def desk(state, rows, now, dial=None, busted=None, weather_fn=None, candles=None, flows=None, charts_out=None, cmeta=None):
     """One pass of all four, in order. → (new state, table rows for the screen). Each coin's line carries every agent's word."""
     import time as _t
     st = dict(state or {})
@@ -537,7 +537,10 @@ def desk(state, rows, now, dial=None, busted=None, weather_fn=None, candles=None
         if charting:   # ONE snapshot per coin per pass, shared by every desk: real 1-min candles when fetched for this coin, else Tally's own tape
             t0 = _t.perf_counter()
             real = candles.get(m)
-            chart = _ci.read(real if real else _ci.from_tape(ser.get(m)), now, bool(real), 'candles' if real else 'tape', buy=n.get('buy'), liq=n.get('liq'), liq_d=n.get('liqD'), flow=(flows or {}).get(r.get('pairAddress')))
+            # 🧪 MARKET-DATA TRUTH: Tally validates the rows as fetched (market_data.quality) before any desk reads structure from them. `meta` =
+            # what is known about where they came from: the candle provider, the board's own volume totals, how fresh the pool reading is.
+            meta = {**((cmeta or {}).get(m) or {} if real else {}), 'vol5m': r.get('vol5m'), 'vol1h': r.get('vol1h'), 'txns1h': r.get('txns1h'), 'buy': n.get('buy'), 'liqAge': 0.0}
+            chart = _ci.read(real if real else _ci.from_tape(ser.get(m)), now, bool(real), 'candles' if real else 'tape', meta, buy=n.get('buy'), liq=n.get('liq') or None, liq_d=n.get('liqD'), flow=(flows or {}).get(r.get('pairAddress')))
             perf['chart'] += _t.perf_counter() - t0
             if charts_out is not None:
                 charts_out[m] = chart
@@ -595,6 +598,7 @@ def record(state, table, now, controls=3):
         waits += kind == 'wait'
         opened[m] = {'px': x['px'], 'at': now, 'sym': x['symbol'], 'kind': kind, 'go': x['go'], 'devil': x['devil'][0], **({'devilWhy': str(x['devil'][1])[:90], 'devilRule': x.get('drule') or devil_rule_of(x['devil'][1])} if x['devil'][0] == 'object' else {}),
                      **({'cs': x['chart']['state'], 'ce': x['chart']['entry'][0]} if x.get('chart') else {}),
+                     **({'dq': x['chart']['q']['state'], 'dqc': x['chart']['q']['conf']} if (x.get('chart') or {}).get('q') else {}),   # 🧪 the data-quality state AT the call, kept with it
                      'drivers': [d[0] for d in x['why']['drivers']], 'lean': x['why']['lean'], 'tallyUp': _f(x['nums'].get('d5')) > 0,
                      **({'scalp': [st['scalp']['tp'], st['scalp']['sl']]} if (st.get('scalp') or {}).get('tp') else {})}
     st['open'], st['done'] = opened, done[-KEEP_DONE:]
@@ -688,6 +692,26 @@ def underwater(state):
     return _f(m.get('putIn')) > 0 and _f(m.get('value')) < _f(m.get('putIn'))
 
 
+GRADUATE_X = 2.0   # 🎓 owner, 2026-10-10: "breakeven is a milestone, not graduation" — the 5-minute real-money mission is conquered at 2× the put-in
+
+
+def real_phase(money):
+    """💵 THE REAL-MONEY MISSION, from the real card's own accounting only (`money` = {value, putIn}: its server value and everything
+    put in — the numbers My cards shows; never paper, never gross proceeds, never paid-out totals).
+      value < put-in            → RECOVERY  (phase 1: back to breakeven)
+      put-in ≤ value < 2× put-in → GROWTH    (phase 2: breakeven is a milestone — the stage is STILL locked)
+      value ≥ 2× put-in         → GRADUATED (the 5-minute real-money mission is conquered: the next stage becomes ELIGIBLE)
+    Unknown money = UNKNOWN = locked: nothing but real equity can unlock a real-money stage."""
+    m = money or {}
+    p, known = _f(m.get('putIn')), m.get('value') is not None and _f(m.get('putIn')) > 0
+    v = _f(m.get('value'))
+    ph = 'UNKNOWN' if not known else 'RECOVERY' if v < p else 'GROWTH' if v < p * GRADUATE_X else 'GRADUATED'
+    return {'known': known, 'putIn': round(p, 2) if known else None, 'value': round(v, 2) if known else None, 'phase': ph,
+            'breakeven': round(p, 2) if known else None, 'double': round(p * GRADUATE_X, 2) if known else None,
+            'toBreakeven': round(max(0.0, p - v), 2) if known else None, 'toDouble': round(max(0.0, p * GRADUATE_X - v), 2) if known else None,
+            'eligible': ph == 'GRADUATED', 'x': GRADUATE_X}
+
+
 LIVES = 9   # ❤ the team's lives on REAL money: a winning real exit +1 (max 9), a losing one −1; at 0 all four are scrapped and reborn
 
 
@@ -727,8 +751,11 @@ def stage(state):
     """The timeframe the desk is on: 5 until it is conquered (team GO ≥ PROVE_N judged, median > 0, ≥ PROVE_WIN % won), then 15, then 60."""
     for h in STAGES:
         c = learn(state, h)['cards']['team']
-        if h == 5 and not (paper(state)['x'] >= PROVE_X and int(c['n'] or 0) >= PROVE_N and not underwater(state)):   # 5 min: the trench desk must 10× in one run AND the real card must be back to breakeven
-            return {'h': h, 'conquered': [], 'team': c, 'needN': PROVE_N, 'needWin': PROVE_WIN, 'needX': PROVE_X, 'needBE': underwater(state)}
+        ph = real_phase((state or {}).get('money'))
+        # 5 min: the existing rules (the trench desk 10× in one run, enough judged calls) AND the REAL card at 2× its put-in. Breakeven is
+        # milestone 1, not graduation; paper alone, or a card whose money is unknown, never unlocks a real-money stage.
+        if h == 5 and not (paper(state)['x'] >= PROVE_X and int(c['n'] or 0) >= PROVE_N and ph['eligible']):
+            return {'h': h, 'conquered': [], 'team': c, 'needN': PROVE_N, 'needWin': PROVE_WIN, 'needX': PROVE_X, 'needBE': underwater(state), 'need2x': not ph['eligible'], 'phase': ph['phase'], 'real': ph}
         if h != 5 and not (int(c['n'] or 0) >= PROVE_N and _f(c['med']) > 0 and _f(c['won']) >= PROVE_WIN):
             return {'h': h, 'conquered': [x for x in STAGES if x < h], 'team': c, 'needN': PROVE_N, 'needWin': PROVE_WIN}
     return {'h': STAGES[-1], 'conquered': list(STAGES), 'team': learn(state, STAGES[-1])['cards']['team'], 'needN': PROVE_N, 'needWin': PROVE_WIN}
@@ -791,7 +818,10 @@ def mission(value, put_in, pp, scalp=None):
     the × it needs — a distance, never a promise); once it is back → the paper 10×."""
     v, p = _f(value), _f(put_in)
     if p > 0 and 0 < v < p:
-        return {'key': 'breakeven', 'value': round(v, 2), 'putIn': round(p, 2), 'pct': round(v / p * 100, 1), 'needX': round(p / v, 1), 'scalping': bool((scalp or {}).get('tp'))}
+        return {'key': 'breakeven', 'value': round(v, 2), 'putIn': round(p, 2), 'pct': round(v / p * 100, 1), 'needX': round(p / v, 1), 'scalping': bool((scalp or {}).get('tp')), 'double': round(p * GRADUATE_X, 2)}
+    if p > 0 and v < p * GRADUATE_X:   # 🎓 phase 2: breakeven reached — grow the REAL card to 2× the put-in before anything unlocks
+        return {'key': 'double', 'value': round(v, 2), 'putIn': round(p, 2), 'pct': round((v - p) / (p * (GRADUATE_X - 1)) * 100, 1), 'needX': round(p * GRADUATE_X / v, 2) if v > 0 else None,
+                'scalping': bool((scalp or {}).get('tp')), 'double': round(p * GRADUATE_X, 2)}
     return {'key': 'tenx', 'value': round(v, 2), 'putIn': round(p, 2), 'pct': round(min(1.0, _f((pp or {}).get('x')) / PROVE_X) * 100, 1), 'needX': round(PROVE_X / max(_f((pp or {}).get('x')), 1e-9), 1),
             'scalping': bool((scalp or {}).get('tp'))}
 
@@ -1191,6 +1221,9 @@ def investigate(table, on=(), min_age_h=1.0, burned=(), top=6):
         if x.get('chart'):   # 📈 the moment itself: the duty waives Trigger's BAR, never the chart — a coin is only bought where the structure gives an entry
             ec = x['chart']['entry']
             checks.append(['chart', ec[0] == 'ENTER NOW', f"{x['chart']['state']} → {ec[0]}: {ec[2]}"])
+            q = x['chart'].get('q')
+            if q:   # 🧪 Tally's market-data gate: a chart entry stands only on ENTER-grade data (real candles that pass every integrity check)
+                checks.append(['data', bool(q.get('enterOk')), f"data {str(q.get('state')).replace('_', ' ').lower()} {q.get('conf')}% — {q.get('why')}"])
         out.append({'mint': x['mint'], 'symbol': x.get('symbol'), 'pair': x.get('pair'), 'px': x.get('px'), 'lean': round(lean, 2), 'go': bool(x.get('go')),
                     'cleared': all(c[1] for c in checks), 'checks': checks, 'row': x})
     out.sort(key=lambda c: (not c['cleared'], -c['lean']))

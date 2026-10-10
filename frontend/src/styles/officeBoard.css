@@ -96,6 +96,11 @@
 
 @keyframes ofbIn { from { transform: translateY(6px); } to { transform: none; } }
 @keyframes ofbPulse { 50% { opacity: .45; } }
+/* 🧪 data quality beside every chart — always visible, never a tooltip */
+.ofb-dq { margin: 0; display: flex; flex-wrap: wrap; gap: 3px 10px; align-items: center; padding: 6px 8px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); background: var(--m-surface-2); font: 10.5px/1.35 var(--m-mono); color: var(--m-dim); min-width: 0; }
+.ofb-dq > b { font-weight: 700; letter-spacing: .08em; color: var(--m-mute); } .ofb-dq u { text-decoration: none; color: var(--m-mute); letter-spacing: .06em; margin-right: 3px; } .ofb-dq > span { min-width: 0; overflow-wrap: anywhere; }
+.ofb-dqwhy { flex-basis: 100%; color: var(--gold); } .ofb-dqcalc { flex-basis: 100%; color: var(--m-mute); } .ofb-dq.is-compact { padding: 3px 6px; gap: 1px 8px; font-size: 9.5px; } .ofb-dq.is-compact .ofb-tag { font-size: 9px; padding: 1px 5px; }
+.ofb-mission.is-bare .ofb-mgrid small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 body.fx-lite .ofb-stage, body.fx-lite .ofb-detail, body.fx-lite .ofb-stage strong { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .ofb-stage, .ofb-detail, .ofb-stage strong { animation: none !important; } .ofb-stage > button, .ofb-agent, .ofb-meter > b i { transition: none !important; } }
 body.theme-day .ofb { --ofb-up: #0f8a45; } body.theme-day .ofb-up, body.theme-day .ofb-yes { color: #0f8a45; } body.theme-day .ofb-warn, body.theme-day .ofb-mission > b { color: #946a00; } body.theme-day .ofb-mission.is-clear > b { color: #0f8a45; }
@@ -108,8 +113,8 @@ body.theme-day .ofb-mission, body.theme-day .ofb-pipe, body.theme-day .ofb-box, 
 @media (max-width: 640px) { .ofb-stages { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ofb-agents { grid-template-columns: 1fr; } .ofb-dgrid, .ofb-two { grid-template-columns: 1fr; } .ofb-mgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ofb-mgrid em { font-size: 15px; }
   .ofb-recent li { grid-template-columns: 1fr; gap: 0; } .ofb-kv, .ofb-feat > .ofb-kv { grid-template-columns: 1fr; } .ofb-poslist { grid-template-columns: 1fr; } .ofb-meters, .ofb-pgrid, .ofb-take { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* the mission as ONE compact row (the Agents tab header) */
-.ofb-mission.is-bare { padding: 6px 8px; gap: 0; } .ofb-mission.is-bare .ofb-mgrid { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 5px; } .ofb-mission.is-bare .ofb-mgrid > span { padding: 4px 8px; gap: 1px; }
+.ofb-mission.is-bare { padding: 6px 8px; gap: 0; } .ofb-mission.is-bare .ofb-mgrid { grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 5px; } .ofb-mission.is-bare .ofb-mgrid > span { padding: 4px 8px; gap: 1px; }
 .ofb-mission.is-bare .ofb-mgrid em { font-size: 14px; overflow: hidden; text-overflow: ellipsis; } .ofb-mission.is-bare .ofb-mgrid u { font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ofb-lasttile u.is-pass { color: #45e486; } .ofb-lasttile u.is-veto { color: var(--m-danger); } .ofb-lasttile u.is-obj { color: var(--m-warn); } .ofb-lasttile u.is-wait { color: var(--m-mute); }
-@media (max-width: 1180px) { .ofb-mission.is-bare .ofb-mgrid { grid-template-columns: repeat(4, minmax(0, 1fr)); } } @media (max-width: 640px) { .ofb-mission.is-bare .ofb-mgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 1180px) { .ofb-mission.is-bare .ofb-mgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } } @media (max-width: 640px) { .ofb-mission.is-bare .ofb-mgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 

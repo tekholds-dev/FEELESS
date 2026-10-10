@@ -16,6 +16,8 @@ efficiency of the path, where price sits in its range, breakouts that held or fa
 """
 import math
 
+import market_data as _md
+
 LOOK = 30          # 1-minute candles a snapshot reads
 MIN_BARS = 6       # fewer = UNKNOWN (never guessed)
 WINDOW_MIN = 5     # the trench stage: one evaluation window
@@ -25,11 +27,12 @@ STOP_FLOOR = 8.0   # the tightest a normal stop may be
 CATASTROPHIC_STOP = 45.0   # 🧱 the hard ceiling: a position down this much is closed whatever any learned / promoted setting says. Not a tunable.
 
 STATES = ('STRONG UPTREND', 'UPTREND', 'PULLBACK IN UPTREND', 'BREAKOUT ATTEMPT', 'CONFIRMED BREAKOUT', 'ACCUMULATION', 'COMPRESSION', 'RANGE', 'CHOP',
-          'DISTRIBUTION', 'DOWNTREND', 'LIQUIDITY FAILURE', 'PARABOLIC', 'FAILED BREAKOUT', 'UNKNOWN')
+          'DISTRIBUTION', 'DOWNTREND', 'LIQUIDITY FAILURE', 'PARABOLIC', 'FAILED BREAKOUT', 'UNKNOWN', 'DATA INVALID')
+DATA_INVALID = 'DATA INVALID'   # 🧪 the rows failed Tally's integrity gate: NOT a structure, NOT a bad coin — nothing is inferred, nothing is sold on it
 GOOD = ('STRONG UPTREND', 'UPTREND', 'PULLBACK IN UPTREND', 'CONFIRMED BREAKOUT')          # the thesis of a long still stands
 BAD = ('DOWNTREND', 'LIQUIDITY FAILURE', 'FAILED BREAKOUT', 'DISTRIBUTION', 'CHOP')        # it does not
 BULL = GOOD + ('BREAKOUT ATTEMPT', 'ACCUMULATION')
-ENTRY_CALLS = ('ENTER NOW', 'WAIT FOR PULLBACK', 'WAIT FOR BREAKOUT', 'WAIT FOR CONFIRMATION', 'SKIP')
+ENTRY_CALLS = ('ENTER NOW', 'WAIT FOR PULLBACK', 'WAIT FOR BREAKOUT', 'WAIT FOR CONFIRMATION', 'WAIT FOR DATA', 'SKIP')
 
 # thresholds (each is one measured line)
 PARABOLIC_5M, PARABOLIC_EXT = 25.0, 85.0
@@ -258,7 +261,7 @@ def entry_call(f, state):
 
 
 # ⚖ Devil's chart rules: (hard?, what). A soft one stands only while its own objection record does not show it blocking winners.
-CHART_RULES = {'chart_parabolic': (True, 'parabolic extension'), 'chart_fake_breakout': (True, 'the breakout failed'), 'chart_liq_div': (True, 'liquidity falling while price rises'),
+CHART_RULES = {'data_integrity': (True, 'the market data failed its integrity check'), 'chart_parabolic': (True, 'parabolic extension'), 'chart_fake_breakout': (True, 'the breakout failed'), 'chart_liq_div': (True, 'liquidity falling while price rises'),
                'chart_chop': (True, 'chop disguised as a trend'), 'chart_top': (False, 'buying the top'), 'chart_lower_high': (False, 'a lower high is forming'),
                'chart_divergence': (False, 'flow is not confirming price'), 'chart_wick': (False, 'heavy wick rejection'), 'chart_thin': (False, 'the rise rests on very few trades'),
                'chart_young': (False, 'the trend is too young'), 'chart_late': (False, 'late: most of the move already happened')}
@@ -297,6 +300,8 @@ def objections(f, state):
 
 def risk(f, state):
     """🛡 Chart risk as a size multiplier ≤ 1 → (mult, why). It never returns more than 1."""
+    if state == DATA_INVALID:
+        return 0.0, 'market data failed its integrity check — no size'
     if not f or state == 'UNKNOWN':
         return 0.5, 'structure unknown — half size'
     if state in ('CHOP', 'DOWNTREND', 'LIQUIDITY FAILURE', 'FAILED BREAKOUT', 'DISTRIBUTION'):
@@ -358,7 +363,8 @@ def thesis(chart, now, ctx=None, ceiling=30.0, take=None):
     return {'structure': state, 'at': now, 'px': f.get('px'), 'call': ent[0], 'triggerRule': ent[1], 'why': ent[2], 'support': sup or None,
             'invalidation': round(sup * (1 - max(_f(f.get('atr')), 0.3) / 100), 12) if sup else None, 'stopPct': stop, 'stopParts': parts,
             'expectedHoldWindows': exp, 'maxHoldWindows': MAX_WINDOWS, 'trend': f.get('trend'), 'chop': f.get('chop'), 'mom': f.get('mom'),
-            'reasons': list((chart or {}).get('ev') or [])[:6], 'risks': list((chart or {}).get('con') or [])[:6], 'src': (chart or {}).get('src'), 'take': take}
+            'reasons': list((chart or {}).get('ev') or [])[:6], 'risks': list((chart or {}).get('con') or [])[:6], 'src': (chart or {}).get('src'), 'take': take,
+            'data': (lambda q: None if not q else {'state': q['state'], 'conf': q['conf'], 'why': q['why'], 'label': (q.get('prov') or {}).get('label')})((chart or {}).get('q'))}
 
 
 def review(th, chart, pct, held_min, granted=None):
@@ -370,6 +376,9 @@ def review(th, chart, pct, held_min, granted=None):
     win = int(held_min // WINDOW_MIN)
     g = int(granted if granted is not None else (th or {}).get('expectedHoldWindows') or MIN_WINDOWS)
     out = {'window': win, 'granted': g, 'next': round((win + 1) * WINDOW_MIN * 60 - held_min * 60), 'state': state}
+    q = (chart or {}).get('q')
+    if state == DATA_INVALID or (q and not q.get('structOk')):   # 🧪 corrupt / thin data is not a broken thesis: nothing is ruled on it — the hard stops, the pool and the rug rules still stand
+        return {**out, 'verdict': 'unknown', 'degraded': True, 'why': [f"DATA DEGRADED ({(q or {}).get('state') or 'INVALID'}: {(q or {}).get('why') or 'integrity check failed'}) — the thesis is not judged on it"]}
     if not f or state == 'UNKNOWN':
         return {**out, 'verdict': 'unknown', 'why': ['no chart this pass — the thesis cannot be checked']}
     inv, px = _f((th or {}).get('invalidation')), _f(f.get('px'))
@@ -392,16 +401,33 @@ def review(th, chart, pct, held_min, granted=None):
     return {**out, 'verdict': 'weak', 'why': [f'{state}: no structure a long stands on' + (' (lower high)' if f.get('lastHigh') == 'lower' else '')]}
 
 
-def read(rows, now=0.0, ohlc=True, src='candles', **k):
-    """snapshot + classify + entry call + objections + risk in ONE object — what the desks share. `f` = the full features."""
+def read(rows, now=0.0, ohlc=True, src='candles', meta=None, **k):
+    """🧪 Tally's data-quality gate FIRST (`market_data.quality` on the rows as fetched), then snapshot + classify + entry call +
+    objections + risk in ONE object — what the desks share. `f` = the full features, `q` = the quality verdict + provenance.
+      · integrity failed (MALFORMED / INCONSISTENT / STALE / UNTRUSTED) → state DATA INVALID: no structure is inferred at all
+      · readable but not ENTER-grade (reconstructed tape, sparse, no volume, no liquidity) → the structure is read and labelled, but an
+        ENTER NOW becomes WAIT FOR DATA and the size multiplier can only fall."""
+    q = _md.quality(rows, now, ohlc, src, meta, liq=k.get('liq'), flow=k.get('flow'))
+    if not q['readOk']:
+        px = next((_f(r[4]) for r in reversed(rows or []) if r and len(r) > 4 and _f(r[4]) > 0 and math.isfinite(_f(r[4]))), None)
+        why = f"{q['state']}: {q['why']}"
+        return {'state': DATA_INVALID, 'src': src, 'n': len(rows or []), 'conf': 0.0, 'ev': [], 'con': [why], 'entry': ['WAIT FOR DATA', 'E0d data invalid', f'market data {why} — no structure is read from it'],
+                'objs': [['data_integrity', f'market data failed its integrity check — {why}']], 'risk': [0.0, f'market data {q["state"]} — no size'],
+                'trend': None, 'chop': None, 'mom': None, 'ext': None, 'dir': None, 'f': {'n': len(rows or []), 'ohlc': bool(ohlc), 'at': now, 'px': px, 'buy': k.get('buy'), 'liq': k.get('liq'), 'liqD': k.get('liq_d')}, 'q': q}
     f = snapshot(rows, now, ohlc, **k)
     state, ev, con, conf = classify(f)
     call = entry_call(f, state)
     m, why = risk(f, state)
+    if not q['enterOk']:
+        con = con + [f"data {q['state'].replace('_', ' ')}: {q['why']}"]
+        if call[0] == 'ENTER NOW':   # a chart that is not ENTER-grade data can be READ, never entered on
+            call = ('WAIT FOR DATA', 'E0d data quality', f"{state} reads as an entry, but the data is {q['state'].replace('_', ' ')} ({q['why']})")
+    if q['risk'] < m:
+        m, why = q['risk'], f"data {q['state'].replace('_', ' ')} ({q['conf']}%): {q['why']}"
     return {'state': state, 'src': src, 'n': f.get('n'), 'conf': conf, 'ev': ev, 'con': con, 'entry': list(call), 'objs': [list(o) for o in objections(f, state)],
-            'risk': [m, why], 'trend': f.get('trend'), 'chop': f.get('chop'), 'mom': f.get('mom'), 'ext': f.get('ext'), 'dir': f.get('dir'), 'f': f}
+            'risk': [m, why], 'trend': f.get('trend'), 'chop': f.get('chop'), 'mom': f.get('mom'), 'ext': f.get('ext'), 'dir': f.get('dir'), 'f': f, 'q': q}
 
 
 def compact(chart):
     """The few fields a table row carries (the full features stay in the office's shared snapshot)."""
-    return None if not chart else {k: chart.get(k) for k in ('state', 'src', 'n', 'conf', 'entry', 'trend', 'chop', 'mom', 'ext', 'risk')}
+    return None if not chart else {k: chart.get(k) for k in ('state', 'src', 'n', 'conf', 'entry', 'trend', 'chop', 'mom', 'ext', 'risk')} | {'q': _md.compact(chart.get('q'))}

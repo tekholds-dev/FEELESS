@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { OfficeHQ, RoomScene, AgentPanel, Roster, CandleChart, agentTag, focusOf, ticker, hotPosition, candleGeom, coinView, PANEL_TABS, AG, TAG_CLS } from './OfficeRoom';
+import { OfficeHQ, RoomScene, AgentPanel, Roster, CandleChart, TeamTrace, traceOf, roomModel, agentTag, focusOf, ticker, hotPosition, candleGeom, coinView, PANEL_TABS, AG, TAG_CLS } from './OfficeRoom';
 import office from './__fixtures__/office.json';
 
 const mount = async node => { const el = document.createElement('div'); document.body.appendChild(el); await act(async () => { createRoot(el).render(node); }); return el; };
@@ -40,7 +40,7 @@ test('a coin with no candles is shown no chart, never a drawn guess', async () =
   const el = await mount(<CandleChart bars={null} levels={[]} />);
   expect(q(el, 'ofr-nochart').textContent).toContain('not shown a chart they did not read');
   const ok = await mount(<CandleChart bars={office.positions[0].bars} levels={coinView(office, office.positions[0].symbol).levels} note="REAPER: HOLD" />);
-  expect(q(ok, 'ofr-chart').querySelectorAll('rect').length).toBe(office.positions[0].bars.rows.length);
+  expect(q(ok, 'ofr-chart').querySelectorAll('.ofr-up rect, .ofr-dn rect').length).toBe(office.positions[0].bars.rows.length);
   const tape = await mount(<CandleChart bars={{ src: 'tape', rows: office.positions[0].bars.rows }} levels={[]} />);
   expect(q(tape, 'ofr-chart').querySelectorAll('rect').length).toBe(0); expect(q(tape, 'ofr-chart').querySelector('polyline')).not.toBeNull(); expect(q(tape, 'ofr-chart').textContent).toContain('closes only');   // a tape has no wicks: drawn as a line, never as fake candles
   expect(q(ok, 'ofr-chart').textContent).toContain('the same rows the agents read'); expect(q(ok, 'ofr-chart').textContent).toContain('entry');
@@ -137,4 +137,48 @@ test('the office: room above the roster, a station pick drives the panel, and th
   await act(async () => { q(el, 'roster-judge').click(); });
   expect(q(el, 'ofr-panel').textContent).toContain('JUDGE'); expect(q(el, 'desk-judge').getAttribute('aria-pressed')).toBe('true');
   expect(q(el, 'ofr-rulings').querySelectorAll('li').length).toBeGreaterThan(0);
+});
+
+test('volume bars exist only where a bar carries its own measured figure, and a tape is drawn as a labelled reconstruction', async () => {
+  const rows = office.currentCase.bars.rows;
+  const full = candleGeom(rows, []);
+  expect(full.vols).toHaveLength(rows.filter(r => r[5] > 0).length);                        // one volume bar per MEASURED figure
+  const some = rows.map((r, i) => [...r.slice(0, 5), i < 4 ? r[5] : null]);
+  expect(candleGeom(some, []).vols).toHaveLength(4);                                        // 4 figures → 4 bars: nothing is filled in for the rest
+  expect(candleGeom(rows.map(r => [...r.slice(0, 5), null]), []).vols).toEqual([]);         // no figure at all → no volume bars at all
+  const el = await mount(<CandleChart bars={{ ...office.currentCase.bars, rows: some }} levels={[]} />);
+  expect(el.querySelectorAll('.ofr-vol')).toHaveLength(4);
+  expect(q(el, 'ofr-volw').textContent).toContain('measured on 4 of');
+  expect(q(el, 'ofb-dq').textContent).toContain('DATA QUALITY');                            // Tally's verdict sits ON the chart
+  expect(q(el, 'dq-candles').textContent).toContain(office.currentCase.bars.q.label);
+  const none = await mount(<CandleChart bars={{ ...office.currentCase.bars, rows: rows.map(r => [...r.slice(0, 5), null]) }} levels={[]} />);
+  expect(none.querySelectorAll('.ofr-vol')).toHaveLength(0);
+  expect(q(none, 'ofr-volw').textContent).toContain('VOLUME UNAVAILABLE');
+  const tape = await mount(<CandleChart bars={{ src: 'tape', rows: rows.map(r => [...r.slice(0, 5), null]), q: { ...office.currentCase.bars.q, state: 'NO_REAL_CANDLES', conf: 45, synthetic: true, enterOk: false, label: 'RECONSTRUCTED FROM TAPE · 30 readings', volume: 'UNAVAILABLE' } }} levels={[]} />);
+  expect(tape.querySelector('.ofr-line')).not.toBeNull();                                   // a line, never candles
+  expect(tape.querySelectorAll('.ofr-up, .ofr-dn, .ofr-vol')).toHaveLength(0);
+  expect(tape.textContent).toContain('RECONSTRUCTED FROM TAPE');
+  expect(q(tape, 'ofr-volw').textContent).toContain('VOLUME UNAVAILABLE');
+  expect(roomModel(office, 'tally', null).wall.caption).toContain(`DATA ${office.currentCase.bars.q.state.replace(/_/g, ' ')} ${office.currentCase.bars.q.conf}%`);   // the 3D wall monitor says it too
+});
+
+test('the team trace: each desk answers its own question for the candidate, then FINAL and WHY — all from the payload', async () => {
+  const t = traceOf(office, office.currentCase.symbol);
+  expect(t.lines.map(l => l[0])).toEqual(['tally', 'sherlock', 'weather', 'trigger', 'devil', 'warden', 'courier', 'reaper']);
+  expect(t.lines[0][1]).toMatch(/^DATA [A-Z ]+ \d+%$/);                                     // Tally's data confidence leads the trace
+  const el = await mount(<TeamTrace t={t} />);
+  t.lines.forEach(l => expect(q(el, 'ofr-trace').textContent).toContain(l[1]));
+  expect(q(el, 'ofr-final').textContent).toContain(t.final);
+  expect(q(el, 'ofr-final').textContent).toContain(t.why);
+  office.queue.forEach(x => { expect(x.trace.final).toBeTruthy(); expect(x.data.state).toBeTruthy(); });   // every candidate of the pass has one, with its data state
+  const waiting = office.queue.find(x => x.data.state !== 'TRUSTED');
+  expect(waiting.trace.final).not.toBe('GO');                                               // not ENTER-grade data never ends in GO
+  const panel = await mount(<AgentPanel o={office} a={office.agents[0]} coin={office.currentCase.symbol} onCoin={() => {}} />);
+  expect(q(panel, 'ofr-trace')).not.toBeNull();
+  await act(async () => { q(panel, 'ptab-beliefs').click(); });
+  expect(q(panel, 'ofr-job').textContent).toContain('MARKET TRUTH');                        // each desk's own job
+  expect(q(panel, 'pane-beliefs').textContent).toContain('Never certify market data merely because it rendered successfully.');
+  await act(async () => { q(panel, 'ptab-inputs').click(); });
+  expect(q(panel, 'ofr-contrib').textContent).toContain('data errors caught');
+  expect(new Set(office.agents.map(a => a.job)).size).toBe(10);
 });
