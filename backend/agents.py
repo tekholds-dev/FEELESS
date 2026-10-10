@@ -22,7 +22,9 @@ SERIES_N = 15                   # points kept per coin (one a pass, ~1 min apart
 SERIES_COINS = 160
 KEEP_DONE = 3000
 PROVE_N, PROVE_WIN = 30, 55.0
-DESK_START, DESK_TICKET = 20.0, 5.0
+PROVE_X = 10.0                  # 🎯 owner, 2026-10-09: "they should trench and 10x what they start with to pass 5 min"
+DESK_START, DESK_PCT, DESK_BUST = 20.0, 25.0, 1.0   # paper desk: each GO = 25% of the desk (compounds); under $1 = busted → starts over
+FEED_KEEP = 80                  # live thoughts kept
 DRIVER_MIN_N = 8                # a driver's learned weight counts from this many judged calls
 PRIOR = {'buyers': 1.0, 'sellers': -1.5, 'surge': 1.0, 'quiet': -0.5, 'whale_in': 1.5, 'whale_out': -2.0, 'callers': 0.5,
          'drain': -3.0, 'fresh': -0.5, 'wash': -2.0, 'pullback': 1.0, 'chasing': -1.5, 'falling': -1.5, 'holders_up': 0.5}
@@ -198,6 +200,7 @@ def desk(state, rows, now):
         table.append({'mint': m, 'symbol': r.get('symbol'), 'pair': r.get('pairAddress'), 'px': _f(r.get('price')), 'nums': n, 'why': why,
                       'trigger': [call, reason], 'devil': [verdict, arg], 'go': call == 'enter' and verdict == 'agree'})
     table.sort(key=lambda x: (not x['go'], x['trigger'][0] != 'enter', -x['why']['lean']))
+    st['feed'] = (list(st.get('feed') or []) + thoughts(table, now))[-FEED_KEEP:]
     return st, table
 
 
@@ -227,6 +230,7 @@ def settle(state, price_of, now):
     st = dict(state or {})
     opened, done = dict(st.get('open') or {}), list(st.get('done') or [])
     for m, o in list(opened.items()):
+        o = dict(o)   # never mutate the caller's copy (the 5-min verdict feed compares before / after)
         age = (now - _f(o['at'])) / 60
         px = _f(price_of(m))
         for h in STAGES:
@@ -282,24 +286,76 @@ def stage(state):
     """The timeframe the desk is on: 5 until it is conquered (team GO ≥ PROVE_N judged, median > 0, ≥ PROVE_WIN % won), then 15, then 60."""
     for h in STAGES:
         c = learn(state, h)['cards']['team']
-        if not (int(c['n'] or 0) >= PROVE_N and _f(c['med']) > 0 and _f(c['won']) >= PROVE_WIN):
+        if h == 5 and not (paper(state)['x'] >= PROVE_X and int(c['n'] or 0) >= PROVE_N):   # 5 min: the trench desk must 10× in one run
+            return {'h': h, 'conquered': [], 'team': c, 'needN': PROVE_N, 'needWin': PROVE_WIN, 'needX': PROVE_X}
+        if h != 5 and not (int(c['n'] or 0) >= PROVE_N and _f(c['med']) > 0 and _f(c['won']) >= PROVE_WIN):
             return {'h': h, 'conquered': [x for x in STAGES if x < h], 'team': c, 'needN': PROVE_N, 'needWin': PROVE_WIN}
     return {'h': STAGES[-1], 'conquered': list(STAGES), 'team': learn(state, STAGES[-1])['cards']['team'], 'needN': PROVE_N, 'needWin': PROVE_WIN}
 
 
 def paper(state):
-    """The team's $20 paper desk: every GO call is a $5 ticket bought at its price and sold at its 5-minute price (fees not modelled —
-    a 5-min scalp on a launch coin costs real slippage; read it as an upper bound)."""
+    """The team's paper desk, TRENCH style: every GO call puts 25% of the desk in at its price and sells at its 5-minute price, so wins
+    compound (a 10× needs a real run of good calls). Under $1 the desk is BUSTED: it starts over at $20 and the bust is counted. Fees and
+    slippage are not modelled — read it as an upper bound. → {start, now, x (this run), best (best run ×), busts, trades, trail}"""
     gos = sorted((d for d in _judged(state, 5) if d.get('go')), key=lambda d: _f(d.get('at')))
-    cash, trail = DESK_START, []
+    cash, best, busts, trail, run_trades = DESK_START, 1.0, 0, [], 0
     for d in gos:
-        pnl = DESK_TICKET * _f(d['p5']) / 100
-        cash = round(cash + pnl, 4)
+        stake = cash * DESK_PCT / 100
+        pnl = stake * max(-100.0, _f(d['p5'])) / 100
+        cash = round(cash + pnl, 4); run_trades += 1
+        best = max(best, cash / DESK_START)
         trail.append({'at': d['at'], 'sym': d.get('sym'), 'pct': d['p5'], 'usd': round(pnl, 4), 'book': cash})
-    return {'start': DESK_START, 'now': cash, 'trades': len(gos), 'trail': trail[-20:]}
+        if cash < DESK_BUST:
+            busts += 1; cash = DESK_START; run_trades = 0
+            trail.append({'at': d['at'], 'sym': '💥 BUST', 'pct': None, 'usd': 0.0, 'book': cash})
+    return {'start': DESK_START, 'now': cash, 'x': round(cash / DESK_START, 3), 'best': round(best, 2), 'busts': busts, 'trades': len(gos),
+            'runTrades': run_trades, 'trail': trail[-20:]}
 
 
-def view(state, table, feed=False):
+def road(state, real=None):
+    """🛣 How close the desk is to REAL money (owner: "how close it is to real money"): step 1 = the 5-minute paper desk reaches 10× in one
+    run with ≥ PROVE_N judged GO calls; step 2 = the REAL-money test on the owner's Fuse card (their GO coins in the card's rush, judged
+    on the card's own ledger: ≥ 10 closed pieces, typical result > 0); then 15 min, then 60. `real` = the agents' pieces on the real card."""
+    pp, team = paper(state), learn(state, 5)['cards']['team']
+    x_prog = min(1.0, max(0.0, __import__('math').log(max(pp['x'], 1e-9)) / __import__('math').log(PROVE_X))) if pp['x'] > 1 else 0.0
+    n_prog = min(1.0, int(team['n'] or 0) / PROVE_N)
+    paper_done = pp['x'] >= PROVE_X and int(team['n'] or 0) >= PROVE_N
+    r = real or {}
+    real_done = int(r.get('n') or 0) >= 10 and _f(r.get('med')) > 0
+    pct = round((min(x_prog, n_prog) * 0.5 + (0.5 * min(1.0, int(r.get('n') or 0) / 10) * (1 if _f(r.get('med')) > 0 else 0.5) if paper_done else 0.0)) * 100)
+    return {'pct': 100 if paper_done and real_done else pct, 'paper': {'done': paper_done, 'x': pp['x'], 'need': PROVE_X, 'n': int(team['n'] or 0), 'needN': PROVE_N},
+            'real': {'open': paper_done, 'done': real_done, 'n': int(r.get('n') or 0), 'med': r.get('med'), 'won': r.get('won'), 'needN': 10}}
+
+
+def thoughts(table, now, top=4):
+    """🗯 What the four said this pass, in their own words, for the coins worth a line (every ENTER, else the strongest leans)."""
+    pick = [x for x in table if x['trigger'][0] == 'enter'][:top] or sorted(table, key=lambda x: -abs(x['why']['lean']))[:2]
+    out = []
+    for x in pick:
+        n, sym = x['nums'], x['symbol']
+        out.append({'at': now, 'who': 'tally', 'sym': sym, 'text': f"${sym} {n['d5']:+.1f}% in 5 min" + (f" · pace {n['pace']}×" if n.get('pace') is not None else '')
+                    + (f" · {round(_f(n['buy']))}% buys" if n.get('buy') is not None else '') + (f" · pool {n['liqD']:+.0f}%" if n.get('liqD') else '')})
+        ds = x['why']['drivers']
+        out.append({'at': now, 'who': 'sherlock', 'sym': sym, 'text': ('; '.join(f"{d[2]} ({d[1]:+.1f})" for d in ds[:3]) if ds else 'nothing is moving it') + f" → lean {x['why']['lean']:+.1f}"})
+        out.append({'at': now, 'who': 'trigger', 'sym': sym, 'text': f"{x['trigger'][0].upper()} — {x['trigger'][1]}"})
+        if x['devil'][0] != '—':
+            out.append({'at': now, 'who': 'devil', 'sym': sym, 'text': f"{'agrees' if x['devil'][0] == 'agree' else 'OBJECTS'} — {x['devil'][1]}" + (' → 🟢 GO' if x['go'] else ' → ✋ no trade')})
+    return out
+
+
+def results(before, after, now):
+    """🧾 Calls that just got their 5-minute verdict (in `after`, not judged in `before`) → feed lines."""
+    was = {m for m, o in ((before or {}).get('open') or {}).items() if o.get('p5') is not None}
+    out = []
+    for m, o in ((after or {}).get('open') or {}).items():
+        if o.get('p5') is not None and m not in was and o.get('kind') == 'enter':
+            ok = _f(o['p5']) > 0
+            out.append({'at': now, 'who': 'desk', 'sym': o.get('sym'), 'text': f"{'✅' if ok else '❌'} ${o.get('sym')} {'GO' if o.get('go') else 'objected'} → {_f(o['p5']):+.1f}% after 5 min"
+                        + ('' if o.get('go') else (' (Devil was right)' if not ok else ' (Devil was wrong)'))})
+    return out
+
+
+def view(state, table, feed=False, real=None):
     """What the HQ tab shows: the four agents with their scorecards, the live table (every agent's word per coin), the desk, the stage."""
     lr = learn(state, 5)
     st_ = stage(state)
@@ -308,4 +364,5 @@ def view(state, table, feed=False):
     proven = 5 in st_['conquered']
     return {'agents': cards, 'team': lr['cards']['team'], 'control': lr['cards']['control'], 'bar': lr['bar'], 'stage': st_, 'proven5': proven,
             'drivers': sorted(({'key': k, 'words': WORDS.get(k, k), **v} for k, v in lr['drivers'].items()), key=lambda x: -_f(x['med'])),
-            'table': table[:24], 'desk': paper(state), 'open': len((state or {}).get('open') or {}), 'feed': bool(feed and proven), 'feedAsked': bool(feed)}
+            'table': table[:24], 'desk': paper(state), 'open': len((state or {}).get('open') or {}), 'feed': bool(feed and proven), 'feedAsked': bool(feed),
+            'road': road(state, real), 'thoughts': list(reversed(((state or {}).get('feed') or [])[-40:])), 'real': real or {}}

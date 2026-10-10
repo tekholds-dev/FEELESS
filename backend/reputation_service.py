@@ -8739,6 +8739,21 @@ async def _degen_crazy_fix_1009(now):
     return True
 
 
+async def _agent_test_fix_1009(now):
+    """🤖 Once (owner, 2026-10-09: "once 5 min is complete they must go through a real-money Fuse card test — my Fuse card"): the agents'
+    feed into the real card is switched ON; it does nothing until the 5-minute paper desk has 10×'d in one run (`agents.stage`)."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('agentTestFix1009') or not rc:
+            return False
+        pr['realCfg'] = _prime.clean_cfg({**rc, 'agentFeed': True})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'agentFeed'})
+        pr['agentTestFix1009'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _ticket_ride_fix(now):
     """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
     once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
@@ -8852,6 +8867,7 @@ async def _prime_tick_inner(now):
     await _rush_fix_1009(now)
     await _volcycle_fix_1009(now)
     await _degen_crazy_fix_1009(now)
+    await _agent_test_fix_1009(now)
     await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:
@@ -11739,17 +11755,27 @@ async def _agents_tick(now):
         tv_ = {x.get('mint'): x.get('tv') for x in raw}
         rows = [{**r, 'tv': tv_.get(r.get('mint')) or r.get('tv')} for r in _clean_rows([dict(x) for x in raw])]
         st = _json_load(AGENTS_PATH, {})
-        st, table = _ag.desk(st, rows, now)
+        st, table = _ag.desk(st, [r for r in rows if not _fw.dollar_named(r.get('symbol'))], now)
         st = _ag.record(st, table, now)
         want = list((st.get('open') or {}).keys())
         jp = await _jup_prices(want) if want else {}
         if not want or jp:
+            before = st
             st = _ag.settle(st, lambda m: (jp or {}).get(m), now)
+            st['feed'] = (list(st.get('feed') or []) + _ag.results(before, st, now))[-_ag.FEED_KEEP:]
         _json_save(AGENTS_PATH, st)
         feed = bool(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentFeed'))
-        _agents.update(table=table, view=_ag.view(st, table, feed))
+        _agents.update(table=table, view=_ag.view(st, table, feed, _agents_real()))
     except Exception as e:
         print('agents:', e)
+
+
+def _agents_real():
+    """💵 The REAL-money Fuse card test: every coin the agents put on the owner's real card (leg tag '🤖 agents GO') that has left it,
+    judged on the card's own exit vs entry (real_learn). → {n, med, won}"""
+    ps = [_fuse._f(p.get('pct')) for p in (_json_load(REAL_LEARN_PATH, {}).get('pieces') or []) if 'tag:🤖' in (p.get('k') or [])]
+    n = len(ps); ps.sort()
+    return {'n': n, 'med': None if not n else round(ps[n // 2] if n % 2 else (ps[n // 2 - 1] + ps[n // 2]) / 2, 2), 'won': None if not n else round(sum(1 for x in ps if x > 0) / n * 100)}
 
 
 def _agents_go_rows():
@@ -11768,7 +11794,7 @@ async def admin_agents(request: Request):
     if not _agents.get('view'):
         st = _json_load(AGENTS_PATH, {})
         feed = bool(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentFeed'))
-        _agents['view'] = _ag.view(st, _agents.get('table') or [], feed)
+        _agents['view'] = _ag.view(st, _agents.get('table') or [], feed, _agents_real())
     return _agents['view']
 
 

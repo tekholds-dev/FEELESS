@@ -2637,3 +2637,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   are judged at 5 / 15 / 60 min (no price at 60 = −100%); each agent has its own card; the team's $20 paper desk ($5 a GO, out at 5 min).
   Stage: 5 min is conquered at ≥ 30 judged GO, median > 0, ≥ 55% won → 15 → 60. Real cfg `agentFeed` (owner switch on the tab): GO coins
   go FIRST in the rush (`_agents_go_rows`, trench tickets) ONLY while 5 min is conquered. Creator-only (`_require_owner`). Never a promise.
+- 🤖 Agent desk v2 (owner: "live info on their thoughts + how close to real money; 10× to pass 5 min; then a real-money test on MY Fuse card"):
+  the paper desk is TRENCH style — each GO = 25% of the desk (`DESK_PCT`, compounds), under $1 = 💥 bust → a new $20 run (busts counted);
+  the 5-min stage passes ONLY at 10× in one run (`PROVE_X`) with ≥ 30 judged GO calls. 🛣 `agents.road` → `RoadMeter`: paper 10× → 💵 the
+  real test on the owner's card (`_agents_real` = real_learn pieces tagged `tag:🤖`, ≥ 10 closed, typical > 0) → 15 → 60. 🗯 `thoughts` (each
+  agent's words on every ENTER, else the 2 strongest leans) + `results` (5-min verdicts, "Devil was right / wrong") → `state.feed` (80) →
+  `ThoughtFeed`. `_agent_test_fix_1009` switched `agentFeed` ON (owner's order) — it does nothing until the 10×. `settle` copies each call
+  (it mutated the caller's dict, so before/after compared equal). Dollar-named tickers never reach the desk.

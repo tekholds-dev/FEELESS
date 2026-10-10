@@ -56,16 +56,37 @@ def test_sherlock_learns_what_a_driver_really_did_and_devil_uses_it():
     assert lr['bar'] == 1.5                                                        # under 15 Trigger calls → the default bar
 
 
-def test_the_5_minute_stage_is_conquered_only_on_the_record_and_the_desk_books_it():
-    win = [{'mint': str(i), 'at': i, 'kind': 'enter', 'go': True, 'devil': 'agree', 'drivers': [], 'lean': 2, 'p5': 4.0 if i % 3 else -2.0} for i in range(30)]
-    s = ag.stage({'done': win})
-    assert s['h'] == 15 and s['conquered'] == [5]                                  # 5 min conquered → the desk moves on to 15
-    assert ag.stage({'done': win[:20]})['h'] == 5                                  # 20 calls are not enough
-    d = ag.paper({'done': win})
-    assert d['trades'] == 30 and d['now'] > d['start']
-    v = ag.view({'done': win}, [], feed=True)
-    assert [a['name'] for a in v['agents']] == ['Tally', 'Sherlock', 'Trigger', 'Devil'] and v['proven5'] and v['feed']
-    assert not ag.view({'done': win[:20]}, [], feed=True)['feed']                 # asked for, but not proven → never feeds the card
+def test_5_minutes_is_passed_only_by_10x_ing_the_trench_desk_and_a_bust_starts_over():
+    mk = lambda ps: {'done': [{'mint': str(i), 'at': i, 'kind': 'enter', 'go': True, 'devil': 'agree', 'drivers': [], 'lean': 2, 'p5': p} for i, p in enumerate(ps)]}
+    steady = mk([4.0 if i % 3 else -2.0 for i in range(30)])                    # a fine record, but nowhere near 10×
+    assert ag.stage(steady)['h'] == 5 and ag.paper(steady)['x'] < 1.5
+    run = mk([50.0] * 30)                                                        # 25% of the desk in, +50% each → compounds past 10×
+    p = ag.paper(run)
+    assert p['x'] >= 10 and p['busts'] == 0 and p['trades'] == 30
+    assert ag.stage(run)['h'] == 15 and ag.stage(run)['conquered'] == [5]
+    assert ag.stage(mk([50.0] * 20))['h'] == 5                                   # 10× on 20 calls: still needs 30 judged
+    bust = ag.paper(mk([-100.0] * 11 + [10.0]))
+    assert bust['busts'] == 1 and bust['runTrades'] == 1                          # under $1 → busted, a new $20 run
+    r = ag.road(steady)
+    assert r['paper'] == {'done': False, 'x': ag.paper(steady)['x'], 'need': 10.0, 'n': 30, 'needN': 30} and not r['real']['open'] and 0 <= r['pct'] < 50
+    rr = ag.road(run, {'n': 12, 'med': 3.0, 'won': 60})
+    assert rr['paper']['done'] and rr['real']['open'] and rr['real']['done'] and rr['pct'] == 100   # paper 10× + the real Fuse card test
+    v = ag.view(run, [], feed=True, real={'n': 2, 'med': 1.0})
+    assert [a['name'] for a in v['agents']] == ['Tally', 'Sherlock', 'Trigger', 'Devil'] and v['proven5'] and v['feed'] and v['road']['real']['n'] == 2
+    assert not ag.view(steady, [], feed=True)['feed']                            # switched on, not proven → never feeds the card
+
+
+def test_thoughts_and_results_read_as_the_agents_talking():
+    st = {}
+    for t in (0, 60, 120):
+        st, table = ag.desk(st, [row('GOOD'), row('RUN', tv={'call': ['🎢', 'BOND RUN', 'good'], 'rug': 10})], t)
+    who = [x['who'] for x in st['feed'][-8:]]
+    assert {'tally', 'sherlock', 'trigger', 'devil'} <= set(who)
+    assert any('GO' in x['text'] for x in st['feed'] if x['who'] == 'devil') and any('OBJECTS' in x['text'] for x in st['feed'])
+    before = ag.record(st, table, 120)
+    after = ag.settle(before, lambda m: {'GOOD': 1.2, 'RUN': 0.7}.get(m), 120 + 301)
+    lines = {x['sym']: x['text'] for x in ag.results(before, after, 421)}
+    assert lines['GOOD'].startswith('✅ $GOOD GO → +20.0%') and 'Devil was right' in lines['RUN']
 
 
 def test_go_calls_reach_the_real_card_only_when_proven_and_switched_on(monkeypatch):

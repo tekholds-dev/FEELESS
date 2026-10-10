@@ -34,6 +34,29 @@
 .agd-call { font: 800 10.5px "JetBrains Mono", monospace; display: grid; gap: 2px; } .agd-call small { font: 500 10px system-ui, sans-serif; color: #c99; }
 .agd-call.is-go { color: #45e486; } .agd-call.is-wait { color: #f5c451; } .agd-call.is-no { color: #ff8fa3; }
 .agd-go { font: 800 11px "JetBrains Mono", monospace; color: #45e486; }
+/* 🛣 road to real money */
+.agd-road { padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(245, 196, 81, .35); background: rgba(0, 0, 0, .3); display: grid; gap: 7px; }
+.agd-road-top { display: flex; justify-content: space-between; } .agd-road-top b { font: 800 11px "JetBrains Mono", monospace; letter-spacing: .14em; color: #f5c451; }
+.agd-road-top em { font: 800 16px "JetBrains Mono", monospace; font-style: normal; color: #f5c451; }
+.agd-road-bar { height: 7px; border-radius: 4px; background: #1d3328; overflow: hidden; }
+.agd-road-bar i { display: block; height: 100%; background: linear-gradient(90deg, #15d16a, #f5c451); transform-origin: left; transition: transform .6s ease; }
+.agd-road ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.agd-road li { display: flex; gap: 6px; align-items: center; font-size: 11px; color: #6d8d7d; } .agd-road li span { flex: none; }
+.agd-road li.is-now { color: #f5c451; font-weight: 700; } .agd-road li.is-done { color: #45e486; }
+/* 🗯 live thoughts */
+.agd-feed { padding: 10px; border-radius: 12px; background: rgba(0, 0, 0, .3); border: 1px solid #1d3328; display: grid; gap: 6px; }
+.agd-feed > b { font: 800 10.5px "JetBrains Mono", monospace; letter-spacing: .12em; color: #45e486; }
+.agd-feed ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; max-height: 320px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
+.agd-feed ul::-webkit-scrollbar { width: 6px; } .agd-feed ul::-webkit-scrollbar-thumb { background: #15d16a; border-radius: 3px; }
+.agd-feed li { display: grid; grid-template-columns: 92px minmax(0, 1fr) 34px; gap: 8px; align-items: baseline; font-size: 11.5px; padding: 3px 6px; border-radius: 6px;
+  border-left: 2px solid #2a4236; animation: agdIn .2s ease-out both; animation-delay: calc(var(--i) * 45ms); }
+.agd-feed li.is-tally { border-left-color: #7fd4ff; } .agd-feed li.is-sherlock { border-left-color: #c49bff; } .agd-feed li.is-trigger { border-left-color: #f5c451; }
+.agd-feed li.is-devil { border-left-color: #ff8fa3; } .agd-feed li.is-desk { border-left-color: #45e486; background: rgba(21, 209, 106, .06); }
+.agd-who { font: 700 10.5px "JetBrains Mono", monospace; color: #b9d5c6; white-space: nowrap; } .agd-txt { color: #d8efe2; overflow-wrap: anywhere; }
+.agd-feed li small { color: #6d8d7d; font: 500 10px "JetBrains Mono", monospace; text-align: right; }
+body.fx-lite .agd-feed li { animation: none; }
+@media (prefers-reduced-motion: reduce) { .agd-feed li, .agd-road-bar i { animation: none; transition: none; } }
+body.theme-day .agd-road, body.theme-day .agd-feed { background: rgba(255, 255, 255, .7); border-color: #cfe3d8; } body.theme-day .agd-txt { color: #13281d; }
 @keyframes agdIn { from { opacity: .4; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 body.fx-lite .agd-agent { animation: none; }
 @media (prefers-reduced-motion: reduce) { .agd-agent { animation: none; transition: none; } }
@@ -42,6 +65,7 @@ body.theme-day .agd-agent, body.theme-day .agd-box, body.theme-day .agd-tr { bac
 body.theme-day .agd-agent b, body.theme-day .agd-sym { color: #0d2a1b; } body.theme-day .agd-head b, body.theme-day .agd-box > b { color: #0f8a45; }
 body.theme-day .agd-nums { color: #2c4a3b; }
 @media (max-width: 640px) {
+  .agd-road ol { grid-template-columns: 1fr 1fr; } .agd-feed li { grid-template-columns: 1fr auto; } .agd-feed li .agd-txt { grid-column: 1 / -1; }
   .agd-chain { grid-template-columns: 1fr 1fr; } .agd-arrow { display: none; } .agd-row2 { grid-template-columns: 1fr; }
   .agd-th { display: none; } .agd-tr { grid-template-columns: 1fr auto; } .agd-nums, .agd-why { grid-column: 1 / -1; }
 }
