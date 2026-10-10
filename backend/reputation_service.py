@@ -10179,6 +10179,8 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
                     raise
                 await asyncio.sleep(1.5)
         row['impactPct'] = round(_fuse._f(q.get('priceImpactPct')) * 100, 3); row['quoteOut'] = q.get('outAmount')
+        if order['side'] == 'sell':   # 💧 what selling really pays → the card's value (a drained pool must not read as money); the pass saves `book`
+            _fw.note_sell_quote(book, order, q.get('outAmount'), sol_px, now)
         if order['side'] == 'buy':   # 🛡 secure buy: near market price + it really sells back (both read-only quotes)
             ok_s, why_s, row['sellBackPct'] = await _fw_secure_buy(order, cfg, q)
             if not ok_s:
@@ -10193,6 +10195,8 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
                 raise HTTPException(400, why_s)
     except HTTPException as e:
         row.update(status='skipped', err=str(e.detail)[:140])
+        if order['side'] == 'sell' and 'no route' in str(e.detail).lower() and not row.get('quoteOut'):   # no route at all = worth nothing now
+            _fw.note_sell_quote(book, order, 0, sol_px, now)
         async with _fw_lock:   # the same refusal is booked once per 15 min (the keeper keeps retrying quietly)
             d = _fw_load()
             if row.get('side') == 'buy' or not _fw.logged_recently(d.get('ledger'), row, now):   # buy misses all count (2 → benched)

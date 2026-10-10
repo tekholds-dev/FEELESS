@@ -910,8 +910,34 @@ def settle_owed_in(book, free, now):
     return b, round(x, 9), part
 
 
-def book_value(book, prices, sol_px):
-    return round((_f(book.get('sol')) + _f(book.get('bankSol')) + _f(book.get('rentHeldSol')) - _f(book.get('owedOutSol'))) * sol_px + sum(held_units(book, m) * (_f(prices.get(l.get('pair'))) or _f(l.get('entryPx')))
+SELL_QUOTE_SEC = 1800.0   # a sell quote this fresh is what a coin is really worth (a drained pool: Jupiter's price says $32, the route pays $0.02)
+
+
+def note_sell_quote(book, order, out_lamports, sol_px, now):
+    """💧 Remember what SELLING really pays for a coin: the keeper's own quote (refused or not) → book `sellQuote[mint]` = $ per unit.
+    No route at all → 0. 2026-10-09: $QI's pool was drained (99% price impact); Jupiter's price × the leftover units read the card as $32.37
+    while the whole wallet held under $3."""
+    units = int(_f(order.get('atoms'))) / (10 ** int(_f(order.get('decimals')))) if order.get('atoms') else 0.0
+    if units <= 0 or order.get('side') != 'sell':
+        return book
+    per = (int(_f(out_lamports)) / 1e9 * _f(sol_px)) / units if out_lamports is not None else 0.0
+    book.setdefault('sellQuote', {})[order['mint']] = {'per': per, 'at': now}
+    return book
+
+
+def leg_px(book, mint, l, prices, now=None):
+    """A held coin's $ per unit = the market price, but never more than a fresh sell quote says selling pays."""
+    px = _f(prices.get(l.get('pair'))) or _f(l.get('entryPx'))
+    q = (book.get('sellQuote') or {}).get(mint)
+    if q and (now is None or now - _f(q.get('at')) <= SELL_QUOTE_SEC):
+        px = min(px, _f(q.get('per')))
+    return px
+
+
+def book_value(book, prices, sol_px, now=None):
+    import time as _t
+    now = _t.time() if now is None else now
+    return round((_f(book.get('sol')) + _f(book.get('bankSol')) + _f(book.get('rentHeldSol')) - _f(book.get('owedOutSol'))) * sol_px + sum(held_units(book, m) * leg_px(book, m, l, prices, now)
                                                                                   for m, l in (book.get('legs') or {}).items()), 6)
 
 

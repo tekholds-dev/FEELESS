@@ -2692,3 +2692,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
     ≥ 30 calls under 45% right (Trigger: losing median & < 45% won) → probation; ≥ 60 → scrapped NOW and reborn as the next generation
     (its learning starts from belief; the last life goes to the lineage; a ☠ line in the feed). Team / control cards keep all history.
   · 💡 ideas: proposed at 10 calls, `IDEA_APPROVE_N` 15 to approve (`review` refuses earlier; waiting ideas keep counting, `ready`).
+- 💧 A COIN IS WORTH WHAT SELLING PAYS (2026-10-09: the real card read IN CARD NOW $32.37 / +$7.39 all-time while the wallet held < $3 —
+  $QI's pool was drained, every sell quote 92–99% impact, the one fill paid $0.016, but Jupiter's price × the leftover units counted ~$32):
+  every keeper sell quote (refused or filled) is kept on the book as `sellQuote[mint]` = $ per unit (`fuse_wallet.note_sell_quote`; a
+  "no route" = 0), and `book_value` / `leg_px` value a held coin at min(market price, a ≤ 30-min-old sell quote). The wallet was never
+  short — it was a valuation bug; the payout rule (above put-in) could have paid out phantom profit. "CARD UP A LOT FOR NO REASON" ⇒
+  compare the coin rows' sum with IN CARD NOW and read the keeper's refused sells.

@@ -1405,3 +1405,18 @@ def test_a_zero_cost_leftover_the_wallet_holds_none_of_is_dropped_and_paid_coins
     assert 'PAID' in out['degen']['legs']                               # a coin the card paid for still halts (real shortage)
     assert 'HALF' in out['degen']['legs']                               # the wallet holds some → not a phantom
     assert {m['mint'] for m in fw.reconcile({'UP': 0, 'PAID': 0, 'HALF': 400}, out)} == {'PAID', 'HALF'}
+
+
+def test_a_drained_pool_is_worth_what_selling_pays_not_the_quoted_price():
+    import fuse_wallet as fw
+    book = {'sol': 0.002, 'legs': {'QI': {'pair': 'PQ', 'atoms': 46_000_000_000_000, 'decimals': 6, 'entryPx': 7e-7}}}   # 46M QI left over
+    px = {'PQ': 7e-7}                                                                    # the quoted price still says ~$32
+    assert round(fw.book_value(book, px, 110.0, now=1000.0), 2) == round(0.002 * 110 + 46e6 * 7e-7, 2)
+    order = {'side': 'sell', 'mint': 'QI', 'atoms': 7_000_000_000_000, 'decimals': 6}   # a $5 sell of 7M QI …
+    fw.note_sell_quote(book, order, 150_000, 110.0, 1000.0)                              # … the route pays 0.00015 SOL ($0.0165)
+    v = fw.book_value(book, px, 110.0, now=1100.0)
+    assert v < 0.5                                                                       # the card reads what selling pays (cents), not $32
+    assert round(fw.book_value(book, px, 110.0, now=1000.0 + fw.SELL_QUOTE_SEC + 1), 2) == round(0.002 * 110 + 46e6 * 7e-7, 2)   # a stale quote expires
+    fw.note_sell_quote(book, order, 0, 110.0, 2000.0)                                   # no route at all → 0
+    assert round(fw.book_value(book, px, 110.0, now=2001.0), 4) == round(0.002 * 110, 4)
+    assert fw.note_sell_quote({'legs': {}}, {'side': 'buy', 'mint': 'X', 'atoms': 1, 'decimals': 0}, 1, 1, 0) == {'legs': {}}
