@@ -608,7 +608,7 @@ def learn(state, h=5):
     budget = {x[4:]: v for x, v in drivers_.items() if x.startswith('src:') and v['n'] >= BUDGET_N and v['med'] < 0}
     ideas_ = (state or {}).get('ideas') or {}
     return {'drivers': drivers_, 'cards': cards, 'bar': round(bar, 2), 'h': h, 'calibration': calib, 'cut': budget,
-            'lessons': lessons, 'rugSigns': (state or {}).get('rugSigns') or {},
+            'lessons': lessons, 'rugSigns': rug_lift(js),
             'approved': {i: v['pair'] for i, v in ideas_.items() if v.get('status') == 'approved' and v.get('kind') == 'take'},
             'avoid': {i: v['pair'] for i, v in ideas_.items() if v.get('status') == 'approved' and v.get('kind') == 'avoid'}}
 
@@ -1256,28 +1256,51 @@ def tasks(state, table, now):
 RUG_P5, RUG_SIGN_N = -50.0, 3
 
 
+RUG_LIFT, RUG_MIN_CALLS = 2.0, 8
+
+
+def rug_lift(judged):
+    """☠ The REAL rug signs, rebuilt from the record every time (never a running counter): a reason is a rug sign only when it showed up in
+    ≥ RUG_SIGN_N rugs AND coins carrying it rugged at ≥ RUG_LIFT × the base rate (≥ RUG_MIN_CALLS judged calls with it). A reason nearly
+    every coin carries ("buyers in charge", "found on the open list") is on most rugs simply because it is on most coins — that is not a
+    sign. (2026-10-10: the old counter re-counted old rugs every pass — "buyers" read 4,879 — so EVERY common reason was a "rug sign" and
+    Devil objected to any coin with two of them.) → {driver: rugs it was on}"""
+    is_rug = lambda d: (d.get('p5') is not None and _f(d['p5']) <= RUG_P5) or (d.get('p60') is not None and _f(d['p60']) <= -100)
+    js = [d for d in judged or [] if d.get('drivers') is not None]
+    if not js:
+        return {}
+    base = sum(1 for d in js if is_rug(d)) / len(js)
+    n, r = {}, {}
+    for d in js:
+        rg = is_rug(d)
+        for x in set(d.get('drivers') or []):
+            n[x] = n.get(x, 0) + 1
+            if rg:
+                r[x] = r.get(x, 0) + 1
+    return {x: c for x, c in r.items() if c >= RUG_SIGN_N and n[x] >= RUG_MIN_CALLS and base > 0 and c / n[x] >= RUG_LIFT * base}
+
+
 def autopsy(state, now):
     """Every judged call that rugged (≤ −50% at 5 min, or no price at 60 min = vanished) gets an autopsy: the reasons the desk saw at the time
     (its drivers) and what it MISSED (the reasons it weighed positive). Each driver seen in a rug is counted in `rugSigns`; Devil objects to a
     coin carrying 2+ signs that each showed up in ≥ 3 rugs. → new state (autopsies kept 60, newest last)."""
     st = dict(state or {})
     done_ids = {a['id'] for a in st.get('autopsies') or []}
-    signs = dict(st.get('rugSigns') or {})
     aut = list(st.get('autopsies') or [])
+    oldest = min((_f(a.get('calledAt')) for a in aut), default=0.0) if len(aut) >= 60 else 0.0   # only 60 are kept: a rug older than the oldest kept one was already done
     for d in list((st.get('open') or {}).values()) + list(st.get('done') or []):
         p5, p60 = d.get('p5'), d.get('p60')
         rug = (p5 is not None and _f(p5) <= RUG_P5) or (p60 is not None and _f(p60) <= -100)
         did = f"{d.get('mint')}:{int(_f(d.get('at')))}"
-        if not rug or did in done_ids:
+        if not rug or did in done_ids or _f(d.get('at')) < oldest:
             continue
         drv = list(d.get('drivers') or [])
-        for x in drv:
-            signs[x] = signs.get(x, 0) + 1
         aut.append({'id': did, 'sym': d.get('sym'), 'at': now, 'calledAt': d.get('at'), 'kind': d.get('kind'), 'go': bool(d.get('go')),
                     'p5': p5, 'p60': p60, 'seen': drv, 'missed': [x for x in drv if PRIOR.get(x, 0.0) >= 0 and not x.startswith('src:')][:4],
                     'text': f"${d.get('sym')} rugged ({_f(p5):+.0f}% in 5 min{'' if p60 is None else f', {_f(p60):+.0f}% in 60'})"
                             + (" after a GO" if d.get('go') else '') + (f" — we read it as: {', '.join(word(x) for x in drv[:3])}" if drv else '')})
-    st['autopsies'], st['rugSigns'] = aut[-60:], signs
+    aut.sort(key=lambda a: _f(a.get('calledAt')))
+    st['autopsies'], st['rugSigns'] = aut[-60:], rug_lift(_judged(st, 5))
     return st
 
 

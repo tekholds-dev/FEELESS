@@ -2853,4 +2853,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   has `DRIVER_MIN_N` 8 judged calls; after that only while its 5-min record is really negative. Hard objections (live busted read, rug ≥ 50,
   ran > 150% 1h, < 15 min old, never scanned, burned, approved avoid, autopsy rug signs) never soften. 🕵 In control the service requests a
   holder scan for the agents' 2 strongest unscanned cases each pass (`_runner_intel`, deduped) — "holders not scanned" was the other blocker.
+- ☠ RUG SIGNS = `agents.rug_lift(judged)`, rebuilt from the record each time (≥ 3 rugs AND rug rate ≥ 2× the base rate, ≥ 8 calls) — never the
+  old running counter, which re-counted every rug older than the 60 kept autopsies on EVERY pass ("buyers" read 4,879) and made every common
+  reason a "rug sign". Three stacked false objections (fixed busted list → botted on belief → inflated rug signs) are why agents in control
+  cleared 0 of 25 coins; each was found by reading `data/agents_duty.json` after the previous fix. A COUNTER FED FROM A TRIMMED LIST RE-COUNTS.
 

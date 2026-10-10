@@ -216,8 +216,9 @@ def test_an_agent_coin_whose_pool_drains_is_pulled_at_once_even_at_a_loss():
 
 def test_rug_autopsy_teaches_devil_its_rug_signs_and_history_snapshots():
     rugs = [{'mint': f'r{i}', 'sym': f'R{i}', 'at': 100 + i, 'kind': 'enter', 'go': True, 'drivers': ['fresh', 'callers', 'src:open'], 'lean': 2, 'p5': -80.0} for i in range(3)]
-    st = ag.autopsy({'done': rugs}, 1000.0)
-    assert len(st['autopsies']) == 3 and st['rugSigns']['fresh'] == 3 and 'rugged (-80% in 5 min) after a GO' in st['autopsies'][0]['text']
+    fine = [{'mint': f'f{i}', 'sym': f'F{i}', 'at': 200 + i, 'kind': 'enter', 'go': True, 'drivers': (['fresh', 'callers'] if i < 5 else ['buyers']) + ['src:open'], 'lean': 2, 'p5': 3.0} for i in range(40)]
+    st = ag.autopsy({'done': rugs + fine}, 1000.0)   # 3 of the 8 fresh + callers coins rugged (38%) vs 7% of all coins → a real sign
+    assert len(st['autopsies']) == 3 and st['rugSigns']['fresh'] == 3 and 'src:open' not in st['rugSigns'] and 'rugged (-80% in 5 min) after a GO' in st['autopsies'][0]['text']
     assert ag.autopsy(st, 1100.0)['rugSigns']['fresh'] == 3                                   # each rug is counted once
     v, why = ag.devil('enter', {'pts': 5, 'liq': 50000}, {'drivers': [('fresh', 1, 'x'), ('callers', 1, 'y')], 'lean': 3}, {'mint': 'Z', 'safe': True}, ag.learn(st, 5))
     assert v == 'object' and 'rug signs from our autopsies' in why
@@ -507,3 +508,19 @@ def test_a_soft_objection_must_be_backed_by_its_own_record():
     v, arg = ag.devil('enter', n, why, row, bad)
     assert v == 'object' and arg.startswith('botted launch')                                                              # a record that really loses keeps the objection
     assert ag.devil('enter', n, why, {**row, 'tv': {'call': ['x', 'WATCH'], 'rug': 70}}, flat)[0] == 'object'             # hard checks never soften
+
+
+def test_a_rug_sign_must_beat_the_base_rate_and_old_rugs_are_never_counted_twice():
+    call = lambda i, drv, p5: {'mint': f'M{i}', 'at': i, 'kind': 'enter', 'drivers': drv, 'p5': p5, 'sym': f'S{i}'}
+    js = [call(i, ['buyers', 'src:open'], -80 if i % 10 == 0 else 2) for i in range(100)] + [call(100 + i, ['buyers', 'drain'], -90) for i in range(5)] + [call(200 + i, ['buyers', 'drain'], 3) for i in range(3)]
+    sg = ag.rug_lift(js)
+    assert sg == {'drain': 5}                                  # on 5 of its 8 coins' rugs (62%) vs a 14% base → a sign; "buyers" is on every rug only because it is on every coin
+    assert ag.rug_lift([]) == {} and ag.rug_lift(js[:2]) == {}
+    st = {'done': js}
+    a1 = ag.autopsy(st, 1000); a2 = ag.autopsy(a1, 2000); a3 = ag.autopsy(a2, 3000)
+    assert a1['rugSigns'] == a2['rugSigns'] == a3['rugSigns'] == {'drain': 5}       # the same record → the same counts, pass after pass
+    assert len(a3['autopsies']) == 15 and len({x['id'] for x in a3['autopsies']}) == 15
+    many = {'done': [call(i, ['x'], -80) for i in range(90)]}
+    b1 = ag.autopsy(many, 1); b2 = ag.autopsy(b1, 2)
+    assert [x['id'] for x in b1['autopsies']] == [x['id'] for x in b2['autopsies']] and len(b2['autopsies']) == 60     # the kept 60 do not churn
+    assert ag.learn(st)['rugSigns'] == {'drain': 5}
