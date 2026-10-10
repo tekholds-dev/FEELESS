@@ -116,7 +116,7 @@ export function ZoomScreen({ d, agent, setAgent, close }) {
       <div className="ags-zbody"><div className="ags-big" key={agent}>
         {agent === 'tally' ? <Heat t={t} big cur={at} pick={setCur} /> : agent === 'sherlock' ? <><Reasons t={t} big reason={reason} setReason={setReason} />
           <div className="ags-chips">{list.map(m => { const r = t.find(q => q.mint === m); return r ? <button type="button" key={m} className={`ags-chip is-${rowState(r)} ${at === m ? 'is-cur' : ''}`} onClick={() => setCur(m)} data-testid={`chip-${r.symbol}`}>${r.symbol}</button> : null; })}</div></>
-          : agent === 'trigger' ? <Scope t={t} bar={d?.barNow || d?.bar} big cur={at} pick={setCur} /> : agent === 'judge' ? <Court judge={d?.judge} onPick={setCur} /> : <Docket t={t} big cur={at} pick={setCur} />}</div>
+          : agent === 'trigger' ? <Scope t={t} bar={d?.barNow || d?.bar} big cur={at} pick={setCur} /> : agent === 'judge' ? <Court judge={d?.judge} onPick={setCur} objections={d?.objections} /> : <Docket t={t} big cur={at} pick={setCur} />}</div>
         <Dossier x={x} bar={d?.bar} idx={idx} n={list.length} step={step} /></div>
     </div></div>, document.body);
 }
@@ -178,11 +178,12 @@ export function CourtBand({ judge, proof, desk, onPick, onCourt }) {
       <span className={`ags-heat2 is-${heat}`} data-tip="Paper desk only: the next GO's stake follows the streak — 25% even · 35% after 2 wins · 45% after 3+ · 15% right after a loss" data-testid="ags-stake">{heat === 'heater' ? '🔥' : heat === 'cold' ? '🧊' : '▪'} next stake {desk?.stake ?? 25}%</span></div></div>;
 }
 // the court, zoomed: every ruling as a card + each bot's credit / blame
-export function Court({ judge, onPick }) {
+export function Court({ judge, onPick, objections }) {
   const j = judge || {}; const top = Math.max(1, ...Object.values(j.score || {}).map(v => Math.max(v.credit, v.blame)));
   return <div className="ags-courtz" data-testid="ags-courtz">
     <div className="ags-scores">{Object.entries(j.score || {}).map(([k, v]) => <div key={k} className={`ags-score ${j.trial === k ? 'is-trial' : j.mvp === k ? 'is-mvp' : ''}`} data-testid={`score-${k}`}>
       <b>{BOT[k]}{j.mvp === k ? ' 👑' : j.trial === k ? ' 🔨' : ''}</b><u className="is-up"><i style={{ transform: `scaleX(${v.credit / top})` }} /></u><u className="is-dn"><i style={{ transform: `scaleX(${v.blame / top})` }} /></u><em className={tone(v.net)}>{v.net > 0 ? '+' : ''}{v.net}</em></div>)}</div>
+    {(objections || []).length > 0 && <div className="ags-objs" data-testid="ags-objs"><b>⚖ WHY DEVIL SAYS NO · 24h</b>{objections.map(o => <span key={o.why} data-tip={o.med == null ? 'not judged yet' : `those coins went ${pct(o.med)} typical in 5 min — the objection was right ${o.saved}% of the time`}><i>×{o.n}</i>{o.why}{o.med != null && <em className={o.med <= 0 ? 'm-pos' : 'm-neg'}>{o.saved}% saved</em>}</span>)}</div>}
     <div className="ags-cases">{(j.rulings || []).map(r => <button type="button" key={`${r.mint}-${r.at}`} className={`ags-case is-${r.verdict}`} onClick={() => onPick && onPick(r.mint)} data-testid={`case-${r.sym}`}>
       <b>{r.verdict === 'win' ? '🏆' : r.verdict === 'miss' ? '😴' : '🔨'} ${r.sym}</b><em className={tone(r.pct)}>{pct(r.pct)}</em><small>{r.kind === 'go' ? 'GO' : r.kind === 'objected' ? 'OBJ' : 'WAIT'}</small>
       <span>{r.credit && <i className="is-up">{BOT[r.credit]}✓</i>}{r.blame && <i className="is-dn">{BOT[r.blame]}✕</i>}</span></button>)}

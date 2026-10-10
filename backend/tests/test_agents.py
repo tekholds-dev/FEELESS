@@ -426,3 +426,13 @@ def test_agent_control_holds_the_card_for_the_agents_the_proof_gate_stands_aside
     base(holdAll=True)                                                                      # the owner's OWN hold: agent control never takes it over
     asyncio.run(rs._agent_control_set(True, 500))
     assert 'holdBy' not in get()['cards']['degen'] and get()['cards']['degen']['holdAll'] is True
+
+
+def test_every_objection_keeps_its_reason_so_we_can_see_what_devil_blocks_and_whether_it_saved_the_desk():
+    row = {'mint': 'A', 'symbol': 'A', 'px': 1.0, 'go': False, 'trigger': ['enter', ''], 'devil': ['object', 'rug meter 62'], 'why': {'lean': 2, 'drivers': []}, 'nums': {'d5': 1}}
+    st = ag.record({}, [row, {**row, 'mint': 'B', 'devil': ['object', 'rug meter 71']}, {**row, 'mint': 'C', 'go': True, 'devil': ['agree', 'no evidence against it']}], 100)
+    assert st['open']['A']['devilWhy'] == 'rug meter 62' and 'devilWhy' not in st['open']['C']
+    st['open']['A']['p5'] = -9.0; st['open']['B']['p5'] = 4.0
+    o = ag.objections(st, 24, 200)
+    assert o == [{'why': 'rug meter #', 'n': 2, 'med': -2.5, 'saved': 50}] and ag.view(st, [], now=200)['objections'][0]['n'] == 2
+    assert ag.objections(st, 1, 100 + 7200) == []

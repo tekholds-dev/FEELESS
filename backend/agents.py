@@ -501,7 +501,7 @@ def record(state, table, now, controls=3):
         if not kind:
             continue
         waits += kind == 'wait'
-        opened[m] = {'px': x['px'], 'at': now, 'sym': x['symbol'], 'kind': kind, 'go': x['go'], 'devil': x['devil'][0],
+        opened[m] = {'px': x['px'], 'at': now, 'sym': x['symbol'], 'kind': kind, 'go': x['go'], 'devil': x['devil'][0], **({'devilWhy': str(x['devil'][1])[:90]} if x['devil'][0] == 'object' else {}),
                      'drivers': [d[0] for d in x['why']['drivers']], 'lean': x['why']['lean'], 'tallyUp': _f(x['nums'].get('d5')) > 0,
                      **({'scalp': [st['scalp']['tp'], st['scalp']['sl']]} if (st.get('scalp') or {}).get('tp') else {})}
     st['open'], st['done'] = opened, done[-KEEP_DONE:]
@@ -759,7 +759,7 @@ def view(state, table, feed=False, real=None, mind=None, cfg=None, decisions=Non
             'burned': len((state or {}).get('burned') or {}), 'scrapN': SCRAP_N, 'surviveN': SURVIVE_N,
             'autopsies': list(reversed(((state or {}).get('autopsies') or [])[-12:])), 'rugSigns': sorted(({'key': k, 'words': word(k), 'n': v} for k, v in ((state or {}).get('rugSigns') or {}).items()), key=lambda x: -x['n'])[:8],
             'growth': growth(state, lr), 'power': power(state, real, cfg, card), 'card': card or {},
-            'judge': judge(state), 'proof': proof(state, real), 'scalp': scalp_plan(state),
+            'judge': judge(state), 'proof': proof(state, real), 'objections': objections(state, 24, now)[:6], 'scalp': scalp_plan(state),
             'mission': mission((money or {}).get('value'), (money or {}).get('putIn'), paper(state), (state or {}).get('scalp')), 'barNow': ((state or {}).get('perf') or {}).get('bar') or lr['bar'],
             'hist': ((state or {}).get('hist') or [])[-96:], 'rules': rules({**lr, 'regime': ((state or {}).get('perf') or {}).get('regime')})}
 
@@ -824,6 +824,21 @@ def judge(state):
             'score': score, 'trial': trial, 'handicap': HANDICAP.get(trial), 'mvp': mvp, 'n': len(ruled), 'needNet': JUDGE_NET,
             'wins': sum(1 for _d, r in ruled if r['verdict'] == 'win'), 'losses': sum(1 for _d, r in ruled if r['verdict'] == 'loss'),
             'missed': sum(1 for _d, r in ruled if r['verdict'] == 'miss')}
+
+
+def objections(state, hours=24, now=0.0):
+    """⚖ WHY Devil says no: every objection of the last `hours` grouped by its reason (numbers folded), with what those coins did 5 minutes
+    later — so a reason that keeps blocking winners can be seen (and one that keeps saving the desk too). → [{why, n, med, saved %}]"""
+    import re as _re
+    g = {}
+    for d in list(((state or {}).get('open') or {}).values()) + list((state or {}).get('done') or []):
+        if d.get('devil') == 'object' and d.get('devilWhy') and (not now or now - _f(d.get('at')) <= hours * 3600):
+            g.setdefault(_re.sub(r'[-+]?\d+(\.\d+)?', '#', d['devilWhy'])[:60], []).append(d.get('p5'))
+    out = []
+    for k, v in g.items():
+        ps = [_f(p) for p in v if p is not None]
+        out.append({'why': k, 'n': len(v), 'med': round(_med(ps), 1) if ps else None, 'saved': round(sum(1 for p in ps if p <= 0) / len(ps) * 100) if ps else None})
+    return sorted(out, key=lambda x: -x['n'])
 
 
 def proof(state, real=None):
