@@ -2626,3 +2626,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🏆 A COIN IN PROFIT KEEPS ITS SEAT (2026-10-09, "still not pushing"): the trench drop's victim rule was "making ≤ 10c" — on a $1.50 card a
   +17% coin makes 6c, so $OMNI (+16.9%) and $swordcat (+2.5%) were sold for trench tickets. Victims now also need gain ≤ `TRENCH_VICTIM_PCT`
   +3%; the volume cycle's "flat" is −10 … +3% (`FLAT_UP_MAX`). On a small card, judge a coin by %, never by cents.
+- 🤖 THE AGENT DESK (owner, 2026-10-09: "code your own agents to learn trading + trenching — one tracks numbers, one knows why they moved,
+  one knows when to enter, one argues it; none can work without the others; conquer the 5 min first; their own HQ tab";
+  `backend/agents.py` pure + tested; `_agents_tick` a pass a minute in `_fuse_warm`, `data/agents.json`; owner `GET|POST /admin/agents`;
+  HQ › Core › 🤖 Agents = `command/AgentDesk.jsx` + `styles/agentDesk.css` `agd-*`): ONE chain over the open list's 80 busiest coins —
+  📊 Tally (its own per-coin tape: 5-min move, volume pace, buyers, pool change, holders) → 🔍 Sherlock (drivers, each weighted by what it
+  was REALLY followed by over 5 min once judged 8×, else a prior) → ⏱ Trigger (ENTER / WAIT / SKIP; never a +15% candle, a −8% fall, a
+  < $20K pool or a failed scan; its bar 1.0–2.5 moves with its own record) → ⚖ Devil (objects with evidence: busted read, rug, already ran,
+  < 15 min old, unscanned, negative drivers, drivers losing lately, Trigger losing). GO = enter AND agree. Every ENTER + 3 WAIT controls
+  are judged at 5 / 15 / 60 min (no price at 60 = −100%); each agent has its own card; the team's $20 paper desk ($5 a GO, out at 5 min).
+  Stage: 5 min is conquered at ≥ 30 judged GO, median > 0, ≥ 55% won → 15 → 60. Real cfg `agentFeed` (owner switch on the tab): GO coins
+  go FIRST in the rush (`_agents_go_rows`, trench tickets) ONLY while 5 min is conquered. Creator-only (`_require_owner`). Never a promise.

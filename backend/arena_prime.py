@@ -505,6 +505,7 @@ def clean_cfg(p):
     out['trenchBrain'] = bool((p or {}).get('trenchBrain', True))     # 🧠 trench seats take the brain's learned picks first — only once its walk-forward proof holds
     out['trenchRush'] = bool((p or {}).get('trenchRush', False))   # ⚡ RUSH: the trench drop takes the Rush board's coin, every `trenchEvery` min, and may take a losing un-frozen pick's seat
     out['trenchEvery'] = int(_f((p or {}).get('trenchEvery'))) if int(_f((p or {}).get('trenchEvery'))) in TRENCH_EVERY else 30
+    out['agentFeed'] = bool((p or {}).get('agentFeed', False))   # 🤖 the agent desk's GO calls feed the rush (only once its 5-min stage is conquered)
     out['volCycle'] = bool((p or {}).get('volCycle', False))   # 🌊 a flat coin (±10% after its hold) is swapped for the busiest clean volume coin
     out['volEvery'] = int(_f((p or {}).get('volEvery'))) if int(_f((p or {}).get('volEvery'))) in VOL_EVERY else 10
     out['trenchSendOnly'] = bool((p or {}).get('trenchSendOnly', False))   # 🔥 the trench drop takes ONLY 🔥 SEND IT coins (the only trench read with a positive record) — none → it waits

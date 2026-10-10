@@ -8957,6 +8957,8 @@ async def _prime_tick_inner(now):
             if cfg_t.get('trenchBrain', True) and _brain_ready():
                 sendit_ = [x for x in _brain_rows()[:6] if x['brain']['est'] > 0 and x.get('safe') is True] + sendit_
             pro_ = _pc.pro_entries(_pump_calls.get('calls') or [], _pump_calls.get('callers') or {}, [_with_tv(x) for x in _open_board()], now * 1000) if cfg_t.get('proCallEntry') else []
+            if cfg_t.get('agentFeed'):   # 🤖 the agents' GO calls first — only while they have conquered the 5-minute stage
+                sendit_ = _agents_go_rows() + sendit_
             if cfg_t.get('trenchRush'):   # ⚡ RUSH: the engine buys what the Rush board shows — trench + open-list coins that PASSED the scan, ranked by rush_score
                 sendit_ = _rush_rows() + sendit_
             pool_t = _prime.trench_pool(sendit_, _trench_cache.get('rows'), _trench_cache.get('fallback'),
@@ -11718,6 +11720,72 @@ def _intel_restore():
         return 0
 
 
+import agents as _ag
+AGENTS_PATH = FUSE_HQ_PATH.parent / 'agents.json'   # 🤖 the agent desk: Tally's tapes, every call, every judged result
+AGENTS_EVERY = 55.0                                 # one pass a minute, whenever the backend is up (internet = it runs)
+AGENTS_SEE = 80                                     # the open list's busiest coins each pass
+_agents: dict = {'at': 0.0, 'table': [], 'view': None}
+
+
+async def _agents_tick(now):
+    """🤖 One pass of the four agents (Tally → Sherlock → Trigger → Devil) over the busiest open-list coins, then every open call is judged
+    at 5 / 15 / 60 min at Jupiter's price. Runs in the warm loop — any hour, whenever there is internet. A pass where Jupiter answers
+    nothing is not judged (an outage must not read as every coin vanishing)."""
+    if now - _agents['at'] < AGENTS_EVERY or os.environ.get('PYTEST_CURRENT_TEST'):
+        return
+    _agents['at'] = now
+    try:
+        raw = [_with_tv(x) for x in (_open_board() or [])[:AGENTS_SEE]]
+        tv_ = {x.get('mint'): x.get('tv') for x in raw}
+        rows = [{**r, 'tv': tv_.get(r.get('mint')) or r.get('tv')} for r in _clean_rows([dict(x) for x in raw])]
+        st = _json_load(AGENTS_PATH, {})
+        st, table = _ag.desk(st, rows, now)
+        st = _ag.record(st, table, now)
+        want = list((st.get('open') or {}).keys())
+        jp = await _jup_prices(want) if want else {}
+        if not want or jp:
+            st = _ag.settle(st, lambda m: (jp or {}).get(m), now)
+        _json_save(AGENTS_PATH, st)
+        feed = bool(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentFeed'))
+        _agents.update(table=table, view=_ag.view(st, table, feed))
+    except Exception as e:
+        print('agents:', e)
+
+
+def _agents_go_rows():
+    """The team's GO coins for the real card's rush — ONLY while the 5-minute stage is conquered and the owner switched `agentFeed` on."""
+    v = _agents.get('view') or {}
+    if not v.get('feed'):
+        return []
+    return [{'mint': x['mint'], 'symbol': x['symbol'], 'pairAddress': x['pair'], 'price': x['px'], 'liq': (x['nums'] or {}).get('liq'), 'safe': True,
+             'trenchOnly': True, 'trenchScore': 900 + x['why']['lean'], 'tag': '🤖 agents GO'} for x in _agents.get('table') or [] if x.get('go')][:4]
+
+
+@app.get('/api/reputation/admin/agents')
+async def admin_agents(request: Request):
+    """🤖 HQ › Agents: the four agents, their scorecards, the live table (every agent's word per coin), the $20 paper desk and the stage."""
+    _require_owner(request)
+    if not _agents.get('view'):
+        st = _json_load(AGENTS_PATH, {})
+        feed = bool(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentFeed'))
+        _agents['view'] = _ag.view(st, _agents.get('table') or [], feed)
+    return _agents['view']
+
+
+@app.post('/api/reputation/admin/agents')
+async def admin_agents_set(request: Request):
+    """🤖 Owner: let the desk's GO calls feed the real card's rush (`agentFeed`) — honoured only once the 5-minute stage is conquered."""
+    _require_owner(request)
+    body = await request.json()
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        pr['realCfg'] = _prime.clean_cfg({**(pr.get('realCfg') or {}), 'agentFeed': bool(body.get('feed'))})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'agentFeed'})
+        _json_save(FUSE_HQ_PATH, d)
+    _agents['view'] = None
+    return {'ok': True, 'feed': bool(body.get('feed'))}
+
+
 async def _fuse_warm():
     if not _fuse_warm_n.get('restored'):
         _fuse_warm_n['restored'] = True; print('intel restored:', _intel_restore())
@@ -11727,6 +11795,7 @@ async def _fuse_warm():
         await _crowd_build()
     if _fuse_warm_n['n'] % 3 == 1:   # 💾 finished holder scans survive a restart (a restart used to blank every list for minutes)
         _intel_save()
+    await _agents_tick(time.time())   # 🤖 the agent desk, a pass a minute
     try:   # 🗑 trench scan (~2 min, cached; heavy on-chain counts only for the 5 busiest finalists)
         await _trench_build(time.time())
     except Exception as e:
