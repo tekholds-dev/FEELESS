@@ -8974,7 +8974,7 @@ async def _prime_tick_inner(now):
                 sendit_ = [x for x in _brain_rows()[:6] if x['brain']['est'] > 0 and x.get('safe') is True] + sendit_
             pro_ = _pc.pro_entries(_pump_calls.get('calls') or [], _pump_calls.get('callers') or {}, [_with_tv(x) for x in _open_board()], now * 1000) if cfg_t.get('proCallEntry') else []
             if cfg_t.get('agentFeed'):   # 🤖 the agents' GO calls first — only while they have conquered the 5-minute stage
-                sendit_ = _agents_go_rows() + sendit_
+                sendit_ = _agents_go_rows((cur or {}).get('legs'), cfg_t.get('agentSeats')) + sendit_
             if cfg_t.get('trenchRush'):   # ⚡ RUSH: the engine buys what the Rush board shows — trench + open-list coins that PASSED the scan, ranked by rush_score
                 sendit_ = _rush_rows() + sendit_
             pool_t = _prime.trench_pool(sendit_, _trench_cache.get('rows'), _trench_cache.get('fallback'),
@@ -9322,6 +9322,28 @@ async def _prime_tick_inner(now):
                     cur = _prime.note_dropped(was_, nw_, now, cfg_t['rotateHours'], px)
                 except ValueError:
                     pass
+        # 🤖 AGENT SEATS: coins the agents put on the card hold until `agentTakePct` profit; in profit the desk reads them again and lets them
+        # run, pulls them (profit to cash, seat left open) or swaps them for a fresh GO runner (agents.manage). Only while they are proven.
+        if real_t and cur and cfg_t.get('agentFeed') and (_agents.get('view') or {}).get('feed') and not cur.get('holdAll') and not cur.get('flooredAt'):
+            dec_ = _ag.manage(cur.get('legs'), _agents.get('table'), px, cfg_t)
+            _agents['decisions'] = [{k: v for k, v in x.items() if k != 'to'} | ({'toSym': x['to']['symbol']} if x.get('to') else {}) for x in dec_]
+            for x in dec_:
+                try:
+                    if x['action'] == 'pull':
+                        cur = _prime.sell_leg_to_cash(cur, x['pair'], px, now, 100.0)
+                        cur['events'].append({'at': now, 'kind': 'agent', 'symbol': x['symbol'], 'why': f"🤖 agents pulled ${x['symbol']}: {x['why']}"})
+                    elif x['action'] == 'swap':
+                        t_ = x['to']
+                        row_ = {'mint': t_['mint'], 'symbol': t_['symbol'], 'pairAddress': t_['pair'], 'price': t_['px'], 'liquidityUsd': (t_.get('nums') or {}).get('liq'), 'score': 100}
+                        was_ = cur
+                        cur = _prime.replace_leg(cur, x['pair'], px, p_t, [row_], anchors, cfg_t, now)
+                        for l in cur['legs']:
+                            if l.get('mint') == t_['mint']:
+                                l.update(bought={**(l.get('bought') or {}), 'tag': '🤖 agents GO'}, slMode='hold', rideOrRug=True, ticket=True); l.pop('picked', None)
+                        cur['events'] = cur['events'][:-1] + [{**cur['events'][-1], 'kind': 'agent', 'why': f"🤖 agents swapped ${x['symbol']} for ${t_['symbol']}: {x['why']}"}]
+                        cur = _prime.note_dropped(was_, cur, now, cfg_t['rotateHours'], px)
+                except ValueError:
+                    continue
         # 🔥 TOP-3 AUTO SEAT (owner, 2026-10-09: "those coins automatically get swapped into a seat and buy-vs-sell gets it gone"): the
         # card's TOP 1/3 coin takes the weakest seat that is not winning, one per 10 min — still the real-buy pool floor, no dollar names,
         # not falling right now; the flow exit sells it when sellers take over.
@@ -11784,9 +11806,15 @@ async def _agents_tick(now):
             before = st
             st = _ag.settle(st, lambda m: (jp or {}).get(m), now)
             st['feed'] = (list(st.get('feed') or []) + _ag.results(before, st, now))[-_ag.FEED_KEEP:]
+        n_ideas = len(st.get('ideas') or {})
+        st = _ag.ideas(st)   # 💡 tactics found in their own record go up to the creator
+        for iid, v in (st.get('ideas') or {}).items():
+            if v.get('status') == 'new' and v.get('at', 0) and len(st['ideas']) > n_ideas and iid not in (_agents.get('told') or set()):
+                _agents.setdefault('told', set()).add(iid)
+                st['feed'] = (list(st.get('feed') or []) + [{'at': now, 'who': 'desk', 'sym': '', 'text': f"💡 new idea for the creator: {v['text']}"}])[-_ag.FEED_KEEP:]
         _json_save(AGENTS_PATH, st)
-        feed = bool(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentFeed'))
-        _agents.update(table=table, view=_ag.view(st, table, feed, _agents_real(), _agents.get('mind')))
+        rcfg_ = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
+        _agents.update(table=table, view=_ag.view(st, table, bool(rcfg_.get('agentFeed')), _agents_real(), _agents.get('mind'), rcfg_, _agents.get('decisions'), now))
     except Exception as e:
         print('agents:', e)
 
@@ -11799,10 +11827,11 @@ def _agents_real():
     return {'n': n, 'med': None if not n else round(ps[n // 2] if n % 2 else (ps[n // 2 - 1] + ps[n // 2]) / 2, 2), 'won': None if not n else round(sum(1 for x in ps if x > 0) / n * 100)}
 
 
-def _agents_go_rows():
-    """The team's GO coins for the real card's rush — ONLY while the 5-minute stage is conquered and the owner switched `agentFeed` on."""
+def _agents_go_rows(legs=(), seats=2):
+    """The team's GO coins for the real card's rush — ONLY while the 5-minute stage is conquered and the owner switched `agentFeed` on, and
+    never more agent coins on the card than `agentSeats`."""
     v = _agents.get('view') or {}
-    if not v.get('feed'):
+    if not v.get('feed') or sum(1 for l in legs or [] if _prime.agent_leg(l)) >= int(seats or 2):
         return []
     return [{'mint': x['mint'], 'symbol': x['symbol'], 'pairAddress': x['pair'], 'price': x['px'], 'liq': (x['nums'] or {}).get('liq'), 'safe': True,
              'trenchOnly': True, 'trenchScore': 900 + x['why']['lean'], 'tag': '🤖 agents GO'} for x in _agents.get('table') or [] if x.get('go')][:4]
@@ -11815,23 +11844,38 @@ async def admin_agents(request: Request):
     _require_admin(request)
     if not _agents.get('view'):
         st = _json_load(AGENTS_PATH, {})
-        feed = bool(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentFeed'))
-        _agents['view'] = _ag.view(st, _agents.get('table') or [], feed, _agents_real(), _agents.get('mind'))
+        rcfg_ = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
+        _agents['view'] = _ag.view(st, _agents.get('table') or [], bool(rcfg_.get('agentFeed')), _agents_real(), _agents.get('mind'), rcfg_, _agents.get('decisions'), time.time())
     return _agents['view']
 
 
 @app.post('/api/reputation/admin/agents')
 async def admin_agents_set(request: Request):
-    """🤖 Owner: let the desk's GO calls feed the real card's rush (`agentFeed`) — honoured only once the 5-minute stage is conquered."""
+    """🤖 Creator: the agents' controls for the real Fuse card — `feed` (their GO coins in the rush; honoured only once the 5-min stage is
+    conquered), `cfg` {agentTakePct, agentMode, agentSeats} — and `idea` {id, action: approve | reject} on a tactic they proposed."""
     _require_owner(request)
     body = await request.json()
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        pr['realCfg'] = _prime.clean_cfg({**(pr.get('realCfg') or {}), 'agentFeed': bool(body.get('feed'))})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'agentFeed'})
-        _json_save(FUSE_HQ_PATH, d)
+    ch = {}
+    if 'feed' in body:
+        ch['agentFeed'] = bool(body.get('feed'))
+    for k in ('agentTakePct', 'agentMode', 'agentSeats'):
+        if k in (body.get('cfg') or {}):
+            ch[k] = body['cfg'][k]
+    if ch:
+        async with _admin_lock:
+            d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+            pr['realCfg'] = _prime.clean_cfg({**(pr.get('realCfg') or {}), **ch})
+            pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
+            pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
+            _json_save(FUSE_HQ_PATH, d)
+    idea = body.get('idea') or {}
+    if idea.get('id'):
+        try:
+            _json_save(AGENTS_PATH, _ag.review(_json_load(AGENTS_PATH, {}), str(idea['id']), idea.get('action')))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
     _agents['view'] = None
-    return {'ok': True, 'feed': bool(body.get('feed'))}
+    return {'ok': True, **ch}
 
 
 async def _fuse_warm():

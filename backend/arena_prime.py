@@ -505,7 +505,10 @@ def clean_cfg(p):
     out['trenchBrain'] = bool((p or {}).get('trenchBrain', True))     # 🧠 trench seats take the brain's learned picks first — only once its walk-forward proof holds
     out['trenchRush'] = bool((p or {}).get('trenchRush', False))   # ⚡ RUSH: the trench drop takes the Rush board's coin, every `trenchEvery` min, and may take a losing un-frozen pick's seat
     out['trenchEvery'] = int(_f((p or {}).get('trenchEvery'))) if int(_f((p or {}).get('trenchEvery'))) in TRENCH_EVERY else 30
-    out['agentFeed'] = bool((p or {}).get('agentFeed', False))   # 🤖 the agent desk's GO calls feed the rush (only once its 5-min stage is conquered)
+    out['agentFeed'] = bool((p or {}).get('agentFeed', False))
+    out['agentTakePct'] = int(_f((p or {}).get('agentTakePct'))) if int(_f((p or {}).get('agentTakePct'))) in (5, 10, 20, 30, 50) else 10   # 🤖 agent seats hold until this profit
+    out['agentMode'] = (p or {}).get('agentMode') if (p or {}).get('agentMode') in ('auto', 'pull', 'swap') else 'auto'   # … then pull to cash / swap / let the agents choose
+    out['agentSeats'] = int(_f((p or {}).get('agentSeats'))) if int(_f((p or {}).get('agentSeats'))) in (1, 2, 3, 4) else 2   # most agent coins on the card at once   # 🤖 the agent desk's GO calls feed the rush (only once its 5-min stage is conquered)
     out['volCycle'] = bool((p or {}).get('volCycle', False))   # 🌊 a flat coin (±10% after its hold) is swapped for the busiest clean volume coin
     out['volEvery'] = int(_f((p or {}).get('volEvery'))) if int(_f((p or {}).get('volEvery'))) in VOL_EVERY else 10
     out['trenchSendOnly'] = bool((p or {}).get('trenchSendOnly', False))   # 🔥 the trench drop takes ONLY 🔥 SEND IT coins (the only trench read with a positive record) — none → it waits
@@ -704,13 +707,19 @@ def top_victim(card, prices, now, hold_sec):
     return min(out, key=lambda t: t[0])[1] if out else None
 
 
+def agent_leg(l):
+    """🤖 A coin the agent desk put on the card (bought tag '🤖 …'): the AGENTS manage it — no rotation, mover / volume swap or trench drop
+    takes its seat; it holds until profit, then the desk decides (agents.manage). The rug shield still sells a pulled pool."""
+    return str(((l or {}).get('bought') or {}).get('tag') or '').startswith('🤖')
+
+
 def flat_leg(card, prices, now, hold_sec=FLAT_HOLD_SEC, band=FLAT_BAND, picks=False):
     """🚀 The seat a mover may take: a runner-seat coin that is NOT moving — within ±`band`% of its entry after `hold_sec` on the
     card. Never a riding / frozen / owner-picked / trench coin, one waiting on its buy or with a queued pick. Flattest first; None."""
     out = []
     for l in (card or {}).get('legs') or []:
         px = _f((prices or {}).get(l.get('pairAddress')))
-        if (l.get('role') != 'runner' or l.get('ride') or l.get('frozen') or (l.get('picked') and not picks) or l.get('trench') or l.get('buying') or l.get('house')
+        if (l.get('role') != 'runner' or l.get('ride') or l.get('frozen') or (l.get('picked') and not picks) or l.get('trench') or l.get('buying') or l.get('house') or agent_leg(l)
                 or l.get('swapTo') or px <= 0 or _f(l.get('entry')) <= 0 or now - _f(l.get('at')) < hold_sec):
             continue
         g = (px / _f(l['entry']) - 1) * 100
@@ -2252,12 +2261,12 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             nxt = next((x for x in rated(runners, 'runner') if x.get('trenchOnly') and x['mint'] not in have() and _f(x.get('price')) > 0 and price_agrees(x, prices)), None)
             def gain(l):
                 px = _f(prices.get(l['pairAddress'])); return (px / _f(l['entry']) - 1) * 100 if px > 0 and _f(l.get('entry')) > 0 else 0.0
-            def profit(l):
+            def leg_profit(l):
                 px = _f(prices.get(l['pairAddress'])); return _f(l.get('units')) * (px - _f(l.get('entry'))) if px > 0 else 0.0
             rush = bool(cfg.get('trenchRush'))   # ⚡ rush: the owner gave the engine the keys — a losing pick of theirs that is NOT frozen may give its seat
-            victims = [l for l in c['legs'] if (l.get('role') == 'runner' or rush) and not l.get('frozen') and not l.get('ride') and not l.get('house')
+            victims = [l for l in c['legs'] if (l.get('role') == 'runner' or rush) and not l.get('frozen') and not l.get('ride') and not l.get('house') and not agent_leg(l)
                        and (rush or not l.get('picked')) and not l.get('placeholder') and l.get('mint') != SOL_MINT
-                       and gain(l) <= TRENCH_VICTIM_PCT   # a coin in profit keeps its seat — on a $1.50 card a +17% coin makes only 6c ($OMNI was sold for a trench coin) and (_f(l.get('units')) > 0 or l.get('buying')) and profit(l) <= TRENCH_VICTIM_USD
+                       and gain(l) <= TRENCH_VICTIM_PCT   # a coin in profit keeps its seat — on a $1.50 card a +17% coin makes only 6c ($OMNI was sold for a trench coin) and (_f(l.get('units')) > 0 or l.get('buying')) and leg_profit(l) <= TRENCH_VICTIM_USD
                        and (first_fill or l.get('buying') or now - _f(l.get('at')) >= hold_s)]
             if not nxt or not victims:
                 break
@@ -2270,8 +2279,12 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             pct_t = _f(cfg.get('trenchStakePct'))
             use_usd = min(out_usd, value(c, prices, liqs) * pct_t / 100) if pct_t > 0 else out_usd
             nl_ = _leg(nxt, use_usd, now, 'runner')
+            if str(nxt.get('tag') or '').startswith('🤖'):   # 🤖 an agent pick holds until profit — no stop, the rug shield still acts
+                nl_.update(slMode='hold', rideOrRug=True, ticket=True)
             sl_t = ticket_sl(c, _f(cfg.get('trenchSlPct')))
-            if cfg.get('ticketRide') or c.get('ticketRide') or sl_t == 0 and c.get('ticketSlLearned') is not None:
+            if nl_.get('rideOrRug'):
+                pass
+            elif cfg.get('ticketRide') or c.get('ticketRide') or sl_t == 0 and c.get('ticketSlLearned') is not None:
                 nl_.update(slMode='hold', rideOrRug=True)
             elif sl_t > 0:
                 nl_['sl'] = sl_t
@@ -2556,7 +2569,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             l['loseRounds'] = int(l.get('loseRounds') or 0) + 1 if down else 0
         patient = lambda l: int(l.get('loseRounds') or 0) >= int(cfg.get('rotateConfirm', ROTATE_CONFIRM)) and now - _f(l.get('at')) >= _f(cfg.get('minHoldMins', MIN_HOLD_MINS)) * 60
         locked_round = int(c.get('lockRounds') or 0) > 0 or bool(c.get('holdAll'))   # ✋ hold all: no rotation (stops + rug shield still run)
-        ranked = [] if locked_round else sorted((l for l in c['legs'] if l.get('role') != 'anchor' and not l.get('frozen') and not l.get('ride') and int(l.get('freezeRounds') or 0) <= 0 and l['entry'] > 0
+        ranked = [] if locked_round else sorted((l for l in c['legs'] if l.get('role') != 'anchor' and not l.get('frozen') and not l.get('ride') and not agent_leg(l) and int(l.get('freezeRounds') or 0) <= 0 and l['entry'] > 0
                                                  and at_or_below_loss(_f(prices.get(l['pairAddress'])) or l['entry'], l['entry'], cfg.get('rotateMinDrop', ROTATE_MIN_DROP)) and patient(l) and (t['sl'] or l.get('role') == 'pool')), key=lambda l: (_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] if l['entry'] else 1)
         swapped = 0
         cap = swap_cap(cfg, V(), len(c['legs']))

@@ -10,8 +10,12 @@ const view = {
   desk: { start: 20, now: 20.6, x: 1.03, best: 1.4, busts: 1, trades: 12 },
   road: { pct: 12, paper: { done: false, x: 1.03, need: 10, n: 12, needN: 30 }, real: { open: false, done: false, n: 0, med: null, needN: 10 } },
   thoughts: [{ at: Date.now() / 1000 - 30, who: 'devil', sym: 'RUN', text: 'OBJECTS — its read is BOND RUN → ✋ no trade' }, { at: Date.now() / 1000 - 90, who: 'desk', sym: 'GOOD', text: '✅ $GOOD GO → +6.0% after 5 min' }], control: { n: 9, med: -1.2 }, drivers: [{ key: 'buyers', words: 'buyers in charge', n: 10, med: 1.4 }],
+  tasks: { tally: 'read 80 coins · 12 moving ≥ 3% in 5 min', sherlock: 'weighed 14 reasons · 31% of today\'s reads are our own record', trigger: '2 ENTER · 40 WAIT · 38 SKIP · bar 1.5', devil: 'objected to 1 of 2 entries', at: Date.now() / 1000 - 20 },
+  cfg: { agentFeed: true, agentTakePct: 10, agentMode: 'auto', agentSeats: 2, options: { take: [5, 10, 20, 30, 50], mode: ['auto', 'pull', 'swap'], seats: [1, 2, 3, 4] } },
+  decisions: [{ pair: 'PQ', symbol: 'QI', action: 'hold', why: '−4.0% — holding until +10% (only the rug shield cuts it)' }],
+  ideas: [{ id: 'abc123', kind: 'take', status: 'new', n: 12, med: 5.5, won: 66, text: 'Back it when buyers in charge + 🎯 volume burst with buyers show up together: 12 calls went +5.5% typical in 5 min (66% up).' }],
   mind: { callsRead: 600, dictionary: 80, swarms: 2, hot: [{ key: 'ai', label: '🤖 AI', n: 9, vol1h: 400000 }], learned: [{ word: 'zoinked', n: 9 }] },
-  table: [{ mint: 'M1', symbol: 'GOOD', mind: { narr: '🤖 AI', hot: true, swarm: false, bots: 0 }, analysis: { text: '$GOOD rides the 🤖 AI narrative — one of the hottest on the board right now.' }, pair: 'P1', px: 1, nums: { d5: 3, pace: 2.1, buy: 64 }, why: { drivers: [['surge', 1, 'volume surging vs the hour']], lean: 2 }, trigger: ['enter', 'lean +2'], devil: ['agree', 'no evidence against it'], go: true },
+  table: [{ mint: 'M1', symbol: 'GOOD', vitals: { mcap: 120000, ageH: 0.5, liq: 40000, vol1h: 90000, buyShare: 64, top10: 18, bundledN: 0, organic: 3, rug: 12, safe: true }, opinion: "We'd take it: buyers in charge. 31% of this read is our own record, 69% starting belief.", strats: ['volume burst with buyers'], mind: { narr: '🤖 AI', hot: true, swarm: false, bots: 0 }, analysis: { text: '$GOOD rides the 🤖 AI narrative — one of the hottest on the board right now.' }, pair: 'P1', px: 1, nums: { d5: 3, pace: 2.1, buy: 64 }, why: { drivers: [['surge', 1, 'volume surging vs the hour']], lean: 2 }, trigger: ['enter', 'lean +2'], devil: ['agree', 'no evidence against it'], go: true },
     { mint: 'M2', symbol: 'RUN', pair: 'P2', px: 1, nums: { d5: 4 }, why: { drivers: [], lean: 2 }, trigger: ['enter', 'x'], devil: ['object', 'its read is BOND RUN'], go: false }],
 };
 
@@ -29,6 +33,14 @@ test('the agent desk: four agents in one chain, the stage, the live table with e
   expect(q('agd-mind').textContent).toContain('600 Pump callouts'); expect(q('agd-mind').textContent).toContain('📖 zoinked'); expect(q('agd-mind').textContent).toContain('🤖 AI · 9');
   expect(q('agd-row-GOOD').textContent).toContain('rides the 🤖 AI narrative');
   expect(q('agd-thoughts').textContent).toContain('⚖ Devil'); expect(q('agd-thoughts').textContent).toContain('+6.0% after 5 min');
+  expect(q('task-tally').textContent).toContain('read 80 coins'); expect(q('task-devil').textContent).toContain('objected to 1 of 2');
+  expect(q('vit-GOOD').textContent).toContain('$120K'); expect(q('vit-GOOD').querySelector('.is-bad').textContent).toContain('3%');   // 3% organic = bad
+  expect(q('op-GOOD').textContent).toContain('31% of this read is our own record'); expect(q('op-GOOD').textContent).toContain('🎯 volume burst');
+  expect(q('agd-decisions').textContent).toContain('holding until +10%');
+  await act(async () => { q('idea-ok-abc123').click(); });
+  expect(call).toHaveBeenCalledWith('/admin/agents', expect.objectContaining({ method: 'POST', body: JSON.stringify({ idea: { id: 'abc123', action: 'approve' } }) }));
+  await act(async () => { q('agc-agentMode-swap').click(); });
+  expect(call).toHaveBeenCalledWith('/admin/agents', expect.objectContaining({ body: JSON.stringify({ cfg: { agentMode: 'swap' } }) }));
   await act(async () => { q('agd-feed-on').click(); });
   expect(call).toHaveBeenCalledWith('/admin/agents', expect.objectContaining({ method: 'POST', body: JSON.stringify({ feed: true }) }));
   expect(agentLine({ n: 4, med: -2, right: 50 })).toBe('4 judged · -2.0% typical at 5 min · 50% right');

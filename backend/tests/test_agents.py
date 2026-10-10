@@ -50,9 +50,10 @@ def test_sherlock_learns_what_a_driver_really_did_and_devil_uses_it():
     st = {'done': done}
     lr = ag.learn(st, 5)
     assert lr['drivers']['callers'] == {'n': 10, 'med': -6.0}
-    assert ag.weights(lr)['callers'] == -6.0                                       # a prior of +0.5 replaced by what really happened
+    assert ag.weights(lr)['callers'] == round((10 * -6.0 + 8 * 0.5) / 18, 3)        # the belief (+0.5) is outweighed by 10 judged calls (−6%)
+    assert ag.learned_share(['callers'], lr) == round(10 / 18, 2) and ag.learned_share(['buyers'], lr) == 0.0
     w = ag.sherlock({'buy': 70, 'pace': 1.2, 'd5': 1, 'pts': 4, 'liq': 50_000}, {'pc': {'callers': 4}}, lr)
-    assert ('callers', -6.0, 'Pump callers piling in') in w['drivers']
+    assert ('callers', round((10 * -6.0 + 8 * 0.5) / 18, 2), 'Pump callers piling in') in w['drivers']
     assert lr['bar'] == 1.5                                                        # under 15 Trigger calls → the default bar
 
 
@@ -100,3 +101,40 @@ def test_go_calls_reach_the_real_card_only_when_proven_and_switched_on(monkeypat
     assert r[0]['mint'] == 'M' and r[0]['trenchOnly'] and r[0]['tag'] == '🤖 agents GO'
     import arena_prime as ap
     assert ap.clean_cfg({'agentFeed': True})['agentFeed'] is True and ap.clean_cfg({})['agentFeed'] is False
+
+
+def test_agent_seats_hold_until_profit_then_the_desk_decides():
+    agent = lambda m, entry, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'units': 1.0, 'entry': entry, 'bought': {'tag': '🤖 agents GO'}, **k}
+    legs = [agent('LOSS', 1.0), agent('RUN', 1.0), agent('FADE', 1.0), agent('GONE', 1.0), {'mint': 'MINE', 'pairAddress': 'PMINE', 'units': 1, 'entry': 1}]
+    px = {'PLOSS': 0.6, 'PRUN': 1.3, 'PFADE': 1.25, 'PGONE': 1.2, 'PMINE': 2.0}
+    row = lambda m, lean, d5, call='wait', go=False: {'mint': m, 'symbol': m, 'pair': 'P' + m, 'px': 1, 'nums': {'d5': d5, 'buy': 60}, 'why': {'lean': lean}, 'trigger': [call, 'x'], 'go': go}
+    table = [row('RUN', 2.0, 3.0), row('FADE', -1.0, -4.0), row('NEW', 3.0, 1.0, 'enter', True)]
+    out = {x['symbol']: x for x in ag.manage(legs, table, px, {'agentTakePct': 10, 'agentMode': 'auto'})}
+    assert out['LOSS']['action'] == 'hold' and 'until +10%' in out['LOSS']['why']                 # −40%: it stays — agent picks hold until profit
+    assert out['RUN']['action'] == 'hold' and 'let it run' in out['RUN']['why']
+    assert out['FADE']['action'] == 'swap' and out['FADE']['to']['symbol'] == 'NEW'              # in profit, read turned → swapped for a fresh GO
+    assert out['GONE']['action'] == 'pull'                                                       # off the radar → banked, seat left open
+    assert 'MINE' not in out                                                                     # never touches coins the agents did not pick
+    pull = {x['symbol']: x['action'] for x in ag.manage(legs, table, px, {'agentTakePct': 10, 'agentMode': 'pull'})}
+    assert pull['FADE'] == 'pull'
+
+
+def test_strategies_ideas_and_a_true_opinion():
+    r = {'curve': False, 'ageH': 2, 'mind': {}}
+    assert 'migration_dip' in ag.strats(r, {'d5': -4, 'buy': 60}) and 'volume_burst' in ag.strats(r, {'d5': 1, 'pace': 3.5, 'buy': 65})
+    assert ag.word('strat:migration_dip') == '🎯 first dip after bonding' and ag.PRIOR.get('strat:migration_dip') is None   # no starting belief
+    done = [{'mint': str(i), 'at': i, 'kind': 'enter', 'go': True, 'devil': 'agree', 'drivers': ['buyers', 'strat:volume_burst'], 'lean': 2, 'p5': 6.0 if i % 4 else -1.0} for i in range(12)]
+    st = ag.ideas({'done': done})
+    (iid, idea), = st['ideas'].items()
+    assert idea['kind'] == 'take' and idea['status'] == 'new' and 'buyers in charge' in idea['text'] and '12 calls' in idea['text']
+    assert ag.ideas(st)['ideas'] == st['ideas']                                                 # never proposed twice
+    st = ag.review(st, iid, 'approve')
+    lr = ag.learn(st, 5)
+    assert lr['approved'] == {iid: ['buyers', 'strat:volume_burst']}
+    why = ag.sherlock({'buy': 70, 'pace': 3.5, 'd5': 1, 'pts': 5}, {'curve': None, 'mind': {}}, lr)
+    assert f'idea:{iid}' in [d[0] for d in why['drivers']] and 0 < why['learned'] <= 1
+    op = ag.opinion(why, 'enter', 'agree', '')
+    assert op.startswith("We'd take it") and '% of this read is our own record' in op
+    import pytest
+    with pytest.raises(ValueError):
+        ag.review(st, 'nope', 'approve')

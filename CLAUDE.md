@@ -2664,3 +2664,19 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (≥ 40). `analysis` = a written brief (a clause only when its evidence exists) + one line of each agent's humor (`QUIPS`, picked by
   situation, stable per coin). HQ › Agents: `MindBox` (hot narratives, learned slang, swarms caught, calls read) + the brief under each
   table row; the thought feed carries the jokes + a ✍ desk line. No AI model key is set — the writing is the engine's own, from evidence.
+- 🤖 Agent desk v3 (owner: "true opinion from learned behavior, no default feeling · agent picks stay on card until profit, then the agents
+  pull or swap · agent controls in HQ · meme strats · ideas up for review · live working box · REAL war, no fake entertainment"):
+  · `agents.weights` = (n × record + 8 × starting belief) / (n + 8) — no fixed feeling; `learned_share` → every `opinion` says how much of
+    it is the record ("31% of this read is our own record"). `STRATS` (first dip after bonding · curve push · narrative rotation · CTO
+    revival · volume burst · real callers stacking · clean dip catch) = drivers `strat:<k>` with NO belief — only their record weighs.
+  · 💡 `ideas` (two drivers together on ≥ 10 judged ENTER calls: ≥ +3% typical & 55% up → take; ≤ −5% → avoid; never proposed twice) →
+    the feed + IdeaBox; creator `review` approve / reject (POST /admin/agents {idea}); approved take = driver `idea:<id>`, approved avoid =
+    Devil objects.
+  · 💵 AGENT SEATS (`arena_prime.agent_leg` = bought tag '🤖…'): no stop (slMode hold + rideOrRug), never a rotation / volume-cycle /
+    trench-drop victim; `agents.manage` each tick while the desk feeds the card: under `agentTakePct` → hold; in profit → still clean (not
+    SKIP, lean ≥ 0, 5m ≥ −3%, buyers ≥ 50%) = run, else `agentMode` auto/swap → a fresh GO runner (replace_leg, tagged), else pull
+    (`sell_leg_to_cash`: profit held as cash, seat left open); off the desk's list → pull. Never more than `agentSeats` agent coins.
+    realCfg `agentTakePct` 5/10/20/30/50 · `agentMode` auto/pull/swap · `agentSeats` 1–4 (POST /admin/agents {cfg}, creator only).
+  · HQ tab: each agent card has its live task (`agents.tasks`) + a working scan bar; every coin row shows its vitals (`vitalCells`: cap,
+    age, pool, 1h vol, buys, top-10, bundles, snipers, organic, rug, scan — bad ones pink) + the 🗣 opinion + 🎯 strategies it fits;
+    `AgentControls` (+ the live seat decisions) and `IdeaBox`.

@@ -39,6 +39,10 @@ WORDS = {'buyers': 'buyers in charge', 'sellers': 'sellers in charge', 'surge': 
 
 def word(k):
     """Words for a driver key — a learned narrative driver reads as its label ('narr:ai' → 'the 🤖 AI narrative')."""
+    if str(k).startswith('strat:'):
+        return f"🎯 {STRAT_NAME.get(k[6:], k[6:])}"
+    if str(k).startswith('idea:'):
+        return f"💡 approved tactic {k[5:]}"
     if str(k).startswith('narr:'):
         lab = (_tm.NARRATIVES.get(k[5:]) or (k[5:],))[0]
         return f'the {lab} narrative'
@@ -120,23 +124,87 @@ def drivers(n, row):
     if n.get('holdD') is not None and _f(n['holdD']) >= 20:
         out.append('holders_up')
     out += list(((row.get('mind') or {}).get('drivers')) or [])   # 🧠 the human read: narrative, crowd vs swarm, botted, dip tuggers
+    out += [f'strat:{k}' for k in strats(row, n)]                   # 🎯 the named meme strategies it fits
     return [d for d in dict.fromkeys(out) if d]
 
 
+BELIEF_K = 8   # a starting belief counts like 8 judged calls; every judged call moves the weight toward what really happened
+
+
 def weights(learned):
-    """Each driver's weight: what it was REALLY followed by over 5 minutes (median %) once judged DRIVER_MIN_N times, else its prior."""
+    """Each driver's weight = its starting belief blended with what it was REALLY followed by over 5 minutes: (n × median + K × prior) / (n + K).
+    No fixed feeling — after 8 calls the record already weighs as much as the belief, after 40 it is ~83% the record. Strategies and approved
+    ideas start at 0 (no belief at all): only their record moves them."""
     w = dict(PRIOR)
     for k, v in ((learned or {}).get('drivers') or {}).items():
-        if int(v.get('n') or 0) >= DRIVER_MIN_N and v.get('med') is not None:
-            w[k] = _f(v['med'])
+        n = int(v.get('n') or 0)
+        if n and v.get('med') is not None:
+            w[k] = round((n * _f(v['med']) + BELIEF_K * PRIOR.get(k, 0.0)) / (n + BELIEF_K), 3)
     return w
 
 
+def learned_share(keys, learned):
+    """How much of an opinion comes from the agents' own record (0–1): the mean of n / (n + K) over its drivers."""
+    d = (learned or {}).get('drivers') or {}
+    ks = list(keys or [])
+    return round(sum(int((d.get(k) or {}).get('n') or 0) / (int((d.get(k) or {}).get('n') or 0) + BELIEF_K) for k in ks) / len(ks), 2) if ks else 0.0
+
+
+# 🎯 MEME TRADING STRATEGIES the desk knows by name — each fires as a driver `strat:<key>` with NO starting belief (0): its weight is only
+# ever what its own calls did. (key, name, test(row, nums, mind))
+STRATS = (
+    ('migration_dip', 'first dip after bonding', lambda r, n, m: r.get('curve') is False and r.get('ageH') is not None and _f(r['ageH']) < 6
+     and -8 <= _f(n.get('d5')) <= -1 and _f(n.get('buy') or 0) >= 55),
+    ('curve_push', 'curve push to bond', lambda r, n, m: _f(r.get('curvePct')) >= 80 and _f(n.get('pace') or 0) >= 1.5),
+    ('narrative_rotation', 'fresh coin in the hot narrative', lambda r, n, m: (m.get('narr') or (None, None, False))[2] and r.get('ageH') is not None and _f(r['ageH']) < 3),
+    ('cto_revival', 'old coin waking up (CTO / revival)', lambda r, n, m: r.get('ageH') is not None and _f(r['ageH']) >= 24 and _f(n.get('c1') or 0) >= 20 and _f(n.get('pace') or 0) >= 1.5),
+    ('volume_burst', 'volume burst with buyers', lambda r, n, m: _f(n.get('pace') or 0) >= 3 and _f(n.get('buy') or 0) >= 60),
+    ('caller_stack', 'real callers stacking', lambda r, n, m: (m.get('crowd') or {}).get('callers', 0) >= 3 and not (m.get('crowd') or {}).get('swarm')
+     and (m.get('crowd') or {}).get('hype', 0) > (m.get('crowd') or {}).get('fear', 0)),
+    ('clean_dip_catch', 'clean dip catch', lambda r, n, m: (m.get('tug') or (False,))[0] and _f((m.get('bots') or (0,))[0]) < 40),
+)
+STRAT_NAME = {k: name for k, name, _ in STRATS}
+
+
+def strats(row, n):
+    """→ the strategy keys this coin fits right now."""
+    m = (row or {}).get('mind') or {}
+    out = []
+    for k, _name, test in STRATS:
+        try:
+            if test(row or {}, n or {}, m):
+                out.append(k)
+        except Exception:
+            continue
+    return out
+
+
 def sherlock(n, row, learned):
-    """→ {drivers: [(key, weight, words)], lean} — why it moved, strongest first."""
+    """→ {drivers: [(key, weight, words)], lean, learned (share of the read that is the record, not belief)}. A creator-APPROVED idea whose two
+    drivers are both present adds its own driver (`idea:<id>`, weighted only by its own record)."""
     w = weights(learned)
-    ds = sorted(((k, round(w.get(k, 0.0), 2), word(k)) for k in drivers(n, row)), key=lambda x: -abs(x[1]))
-    return {'drivers': ds, 'lean': round(sum(x[1] for x in ds), 2)}
+    keys = drivers(n, row)
+    for iid, pair in ((learned or {}).get('approved') or {}).items():
+        if all(x in keys for x in pair):
+            keys.append(f'idea:{iid}')
+    ds = sorted(((k, round(w.get(k, 0.0), 2), word(k)) for k in keys), key=lambda x: -abs(x[1]))
+    return {'drivers': ds, 'lean': round(sum(x[1] for x in ds), 2), 'learned': learned_share(keys, learned)}
+
+
+def opinion(why, call, verdict, arg):
+    """🗣 The desk's TRUE opinion in one sentence — what it thinks and how much of that is its own record (never a fixed feeling)."""
+    share = int(round(_f(why.get('learned')) * 100))
+    best = [d for d in why['drivers'] if d[1] > 0][:1]
+    worst = [d for d in why['drivers'] if d[1] < 0][:1]
+    if call == 'enter' and verdict == 'agree':
+        head = f"We'd take it: {best[0][2] if best else 'the read is positive'}"
+    elif call == 'enter':
+        head = f"Tempting, but no — {arg}"
+    elif call == 'skip':
+        head = f"No: {worst[0][2] if worst else 'it fails a hard rule'}"
+    else:
+        head = f"Not yet: {(worst or best or [(0, 0, 'nothing decisive')])[0][2]}"
+    return f"{head}. {share}% of this read is our own record, {100 - share}% starting belief."
 
 
 # ── ⏱ TRIGGER ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -192,6 +260,10 @@ def devil(call, n, why, row, learned):
         v = learned_d.get(k) or {}
         if int(v.get('n') or 0) >= DRIVER_MIN_N and _f(v.get('med')) < 0 and _f(_w) > 0:
             args.append(f"'{words}' has been followed by {_f(v['med']):+.1f}% lately")
+    have_ = {d[0] for d in why['drivers']}
+    for iid, pair in ((learned or {}).get('avoid') or {}).items():   # 🚫 a creator-approved AVOID tactic
+        if all(x in have_ for x in pair):
+            args.append(f"approved avoid-tactic {iid}: {word(pair[0])} + {word(pair[1])}")
     tr = ((learned or {}).get('cards') or {}).get('trigger') or {}
     if int(tr.get('n') or 0) >= 15 and _f(tr.get('med')) < 0:
         args.append(f"Trigger's last {tr['n']} calls: {_f(tr['med']):+.1f}% typical")
@@ -219,7 +291,10 @@ def desk(state, rows, now):
                       'trigger': [call, reason], 'devil': [verdict, arg], 'go': call == 'enter' and verdict == 'agree',
                       'mind': {'narr': rd['narr'][1], 'hot': rd['narr'][2], 'callers': rd['crowd']['callers'], 'swarm': rd['crowd']['swarm'],
                                'slang': rd['crowd']['slang'], 'bots': rd['bots'][0], 'tug': rd['tug'][0]},
-                      'analysis': _tm.analysis(r.get('symbol'), rd, n, call, verdict, arg)})
+                      'analysis': _tm.analysis(r.get('symbol'), rd, n, call, verdict, arg), 'opinion': opinion(why, call, verdict, arg),
+                      'strats': [STRAT_NAME[k] for k in strats(r, n)],
+                      'vitals': {k: r.get(k) for k in ('mcap', 'ageH', 'liq', 'vol1h', 'buyShare', 'top10', 'bundledN', 'snipersN', 'dev', 'holders', 'safe')}
+                                | {'organic': (r.get('vital') or {}).get('organicPct'), 'rug': (r.get('tv') or {}).get('rug'), 'read': ((r.get('tv') or {}).get('call') or [None, None])[1]}})
     table.sort(key=lambda x: (not x['go'], x['trigger'][0] != 'enter', -x['why']['lean']))
     st['feed'] = (list(st.get('feed') or []) + thoughts(table, now))[-FEED_KEEP:]
     return st, table
@@ -300,7 +375,10 @@ def learn(state, h=5):
     }
     t = cards['trigger']
     bar = 1.5 if not t['n'] or t['n'] < 15 else (2.5 if _f(t['med']) < 0 else 1.0 if _f(t['won']) >= 60 else 1.5)   # losing → pickier
-    return {'drivers': drivers_, 'cards': cards, 'bar': bar, 'h': h}
+    ideas_ = (state or {}).get('ideas') or {}
+    return {'drivers': drivers_, 'cards': cards, 'bar': bar, 'h': h,
+            'approved': {i: v['pair'] for i, v in ideas_.items() if v.get('status') == 'approved' and v.get('kind') == 'take'},
+            'avoid': {i: v['pair'] for i, v in ideas_.items() if v.get('status') == 'approved' and v.get('kind') == 'avoid'}}
 
 
 def stage(state):
@@ -381,7 +459,7 @@ def results(before, after, now):
     return out
 
 
-def view(state, table, feed=False, real=None, mind=None):
+def view(state, table, feed=False, real=None, mind=None, cfg=None, decisions=None, now=0.0):
     """What the HQ tab shows: the four agents with their scorecards, the live table (every agent's word per coin), the desk, the stage."""
     lr = learn(state, 5)
     st_ = stage(state)
@@ -391,4 +469,124 @@ def view(state, table, feed=False, real=None, mind=None):
     return {'agents': cards, 'team': lr['cards']['team'], 'control': lr['cards']['control'], 'bar': lr['bar'], 'stage': st_, 'proven5': proven,
             'drivers': sorted(({'key': k, 'words': word(k), **v} for k, v in lr['drivers'].items()), key=lambda x: -_f(x['med'])),
             'table': table[:24], 'desk': paper(state), 'open': len((state or {}).get('open') or {}), 'feed': bool(feed and proven), 'feedAsked': bool(feed),
-            'road': road(state, real), 'thoughts': list(reversed(((state or {}).get('feed') or [])[-40:])), 'real': real or {}, 'mind': mind or {}}
+            'road': road(state, real), 'thoughts': list(reversed(((state or {}).get('feed') or [])[-40:])), 'real': real or {}, 'mind': mind or {},
+            'ideas': sorted(({'id': i, **v} for i, v in ((state or {}).get('ideas') or {}).items()), key=lambda x: (x['status'] != 'new', -_f(x.get('at')))),
+            'cfg': {'agentFeed': bool((cfg or {}).get('agentFeed')), 'agentTakePct': int(_f((cfg or {}).get('agentTakePct') or 10)), 'agentMode': (cfg or {}).get('agentMode') or 'auto',
+                    'agentSeats': int(_f((cfg or {}).get('agentSeats') or 2)), 'options': {'take': list(AGENT_TAKES), 'mode': list(AGENT_MODES), 'seats': list(AGENT_SEATS)}},
+            'decisions': decisions or [], 'tasks': tasks(state, table, now)}
+
+
+# ── 💡 IDEAS — the desk proposes tactics from its own record; the creator approves or rejects ──────────────────────────────────────
+IDEA_N, IDEA_TAKE, IDEA_AVOID, IDEA_WIN = 10, 3.0, -5.0, 55.0
+
+
+def idea_id(pair):
+    import hashlib
+    return hashlib.sha1('|'.join(sorted(pair)).encode()).hexdigest()[:6]
+
+
+def ideas(state, h=5):
+    """Two drivers that keep showing up TOGETHER on judged ENTER calls: typical ≥ +3% at 5 min with ≥ 55% up → a 'take' tactic; typical ≤ −5%
+    → an 'avoid' tactic (Devil objects to it once approved). ≥ 10 calls each. A pair already proposed (any status) is never proposed twice.
+    → new state with `ideas` {id: {pair, kind, n, med, won, text, status: 'new', at}}."""
+    st = dict(state or {})
+    have = dict(st.get('ideas') or {})
+    k = f'p{h}'
+    pairs = {}
+    for d in _judged(st, h):
+        if d.get('kind') != 'enter':
+            continue
+        ds = sorted(set(d.get('drivers') or []))
+        for i, a in enumerate(ds):
+            for b in ds[i + 1:]:
+                pairs.setdefault((a, b), []).append(_f(d[k]))
+    for pair, ps in pairs.items():
+        if len(ps) < IDEA_N:
+            continue
+        med, won = _med(ps), round(sum(1 for x in ps if x > 0) / len(ps) * 100)
+        kind = 'take' if med >= IDEA_TAKE and won >= IDEA_WIN else 'avoid' if med <= IDEA_AVOID else None
+        iid = idea_id(pair)
+        if not kind or iid in have:
+            continue
+        verb = 'Back it when' if kind == 'take' else 'Stay out when'
+        have[iid] = {'pair': list(pair), 'kind': kind, 'n': len(ps), 'med': round(med, 2), 'won': won, 'status': 'new', 'at': max(_f(d.get('at')) for d in _judged(st, h)) if ps else 0,
+                     'text': f"{verb} {word(pair[0])} + {word(pair[1])} show up together: {len(ps)} calls went {med:+.1f}% typical in {h} min ({won}% up)."}
+    st['ideas'] = have
+    return st
+
+
+def review(state, iid, action):
+    """The creator's call on an idea: 'approve' (Sherlock / Devil use it from the next pass) or 'reject' (kept, never proposed again)."""
+    st = dict(state or {})
+    ids = dict(st.get('ideas') or {})
+    if iid not in ids or action not in ('approve', 'reject'):
+        raise ValueError('No such idea.')
+    ids[iid] = {**ids[iid], 'status': 'approved' if action == 'approve' else 'rejected'}
+    st['ideas'] = ids
+    return st
+
+
+# ── 💵 AGENT SEATS on the real card — they stay until profit, then the agents decide ────────────────────────────────────────────────
+AGENT_TAKES = (5, 10, 20, 30, 50)
+AGENT_MODES = ('auto', 'pull', 'swap')
+AGENT_SEATS = (1, 2, 3, 4)
+
+
+def is_agent(leg):
+    return str(((leg or {}).get('bought') or {}).get('tag') or '').startswith('🤖')
+
+
+def manage(legs, table, prices, cfg):
+    """For every coin the agents put on the card: under `agentTakePct` profit it HOLDS (only the rug shield may cut it); in profit the agents
+    read it again — still a clean read (Trigger not SKIP, lean ≥ 0, 5-min ≥ −3%, buyers ≥ 50%) → let it run; else EXIT: 'swap' for a fresh GO
+    runner (mode auto / swap, when one exists off the card) or 'pull' to card cash with the seat left open. Not on the desk's list any more →
+    pull (they can't see it, they bank it). → [{pair, symbol, action: hold | pull | swap, why, to}]"""
+    take = _f((cfg or {}).get('agentTakePct') or 10)
+    mode = (cfg or {}).get('agentMode') or 'auto'
+    by = {x['mint']: x for x in table or []}
+    on = {l.get('mint') for l in legs or []}
+    gos = [x for x in table or [] if x.get('go') and x['mint'] not in on]
+    out = []
+    for l in legs or []:
+        if not is_agent(l) or l.get('placeholder') or l.get('buying') or _f(l.get('units')) <= 0 or _f(l.get('entry')) <= 0:
+            continue
+        px = _f((prices or {}).get(l.get('pairAddress')))
+        if px <= 0:
+            continue
+        pnl = (px / _f(l['entry']) - 1) * 100
+        if pnl < take:
+            out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'hold', 'why': f'{pnl:+.1f}% — holding until +{take:g}% (only the rug shield cuts it)'}); continue
+        x = by.get(l.get('mint'))
+        if x:
+            n = x['nums']
+            bad = (x['trigger'][0] == 'skip' and x['trigger'][1]) or (x['why']['lean'] < 0 and f"lean turned {x['why']['lean']:+.1f}") \
+                or (_f(n.get('d5')) <= -3 and f"{_f(n['d5']):+.1f}% in 5 min") or (n.get('buy') is not None and _f(n['buy']) < 50 and f"buyers down to {_f(n['buy']):.0f}%")
+            if not bad:
+                out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'hold', 'why': f"{pnl:+.1f}% and still clean (lean {x['why']['lean']:+.1f}, {_f(n.get('d5')):+.1f}% 5m) — let it run"}); continue
+        else:
+            bad = 'off the desk\'s radar — bank it'
+        if mode in ('auto', 'swap') and gos:
+            out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'swap', 'why': f"{pnl:+.1f}%, {bad} → swap for ${gos[0]['symbol']}", 'to': gos[0]})
+            gos = gos[1:]
+        elif mode in ('auto', 'pull') or not gos:
+            out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'pull', 'why': f"{pnl:+.1f}%, {bad} → profit to cash, seat left open"})
+    return out
+
+
+def tasks(state, table, now):
+    """⚙ What each agent is doing right now, from the last pass (the live box)."""
+    t = table or []
+    calls = {}
+    for x in t:
+        calls[x['trigger'][0]] = calls.get(x['trigger'][0], 0) + 1
+    moving = sum(1 for x in t if abs(_f(x['nums'].get('d5'))) >= 3)
+    enters = [x for x in t if x['trigger'][0] == 'enter']
+    obj = sum(1 for x in enters if x['devil'][0] == 'object')
+    lr = learn(state, 5)
+    nd = len(lr['drivers'])
+    share = [x['why'].get('learned', 0) for x in t]
+    return {'tally': f"read {len(t)} coins · {moving} moving ≥ 3% in 5 min",
+            'sherlock': f"weighed {nd} reasons · {round(sum(share) / len(share) * 100) if share else 0}% of today's reads are our own record",
+            'trigger': f"{calls.get('enter', 0)} ENTER · {calls.get('wait', 0)} WAIT · {calls.get('skip', 0)} SKIP · bar {lr['bar']}",
+            'devil': f"objected to {obj} of {len(enters)} entries" + (f" · {len((state or {}).get('open') or {})} calls waiting on the clock" if state else ''),
+            'at': now}

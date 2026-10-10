@@ -42,6 +42,38 @@ export function MindBox({ m }) {
     <span className="agd-tags">{(m.hot || []).map(h => <i key={h.key} data-tip={`${h.n} coins · $${Math.round((h.vol1h || 0) / 1000)}K traded this hour`}>{h.label} · {h.n}</i>)}{!(m.hot || []).length && <small className="m-dim">no narrative leads the board right now</small>}</span>
     <span className="agd-tags is-lingo">{(m.learned || []).length ? m.learned.map(w => <i key={w.word} data-tip={`learned from callers' own words · seen ${w.n}×`}>📖 {w.word}</i>) : <small className="m-dim">no new slang yet — a word must show up on 2+ days, 6+ times, from humans (bot copies count once)</small>}</span></div>;
 }
+const big = v => (v == null ? '—' : v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${Math.round(v / 1e3)}K` : `$${Math.round(v)}`);
+const age = h => (h == null ? '—' : h < 1 ? `${Math.max(1, Math.round(h * 60))}m` : h < 48 ? `${Math.round(h)}h` : `${Math.round(h / 24)}d`);
+// 🩺 the coin's vitals beside the verdict — every number the agents saw, bad ones pink
+export const vitalCells = v => [['cap', big(v?.mcap)], ['age', age(v?.ageH)], ['pool', big(v?.liq)], ['1h vol', big(v?.vol1h)],
+  ['buys', v?.buyShare != null ? `${Math.round(v.buyShare)}%` : '—', v?.buyShare != null && v.buyShare < 50], ['top-10', v?.top10 != null ? `${Math.round(v.top10)}%` : '—', v?.top10 != null && v.top10 >= 35],
+  ['bundles', v?.bundledN ?? '—', v?.bundledN != null && v.bundledN >= 3], ['snipers', v?.snipersN ?? '—', v?.snipersN != null && v.snipersN >= 8],
+  ['organic', v?.organic != null ? `${Math.round(v.organic)}%` : '—', v?.organic != null && v.organic < 5], ['rug', v?.rug != null ? Math.round(v.rug) : '—', v?.rug != null && v.rug >= 50],
+  ['scan', v?.safe === true ? '✅' : v?.safe === false ? '⚠ failed' : '❔', v?.safe === false]];
+// ⚙ the agents' controls for the REAL Fuse card (creator only): feed on/off, the profit an agent coin must reach before they may move it,
+// what they do then (auto = they choose · pull = profit to cash, seat open · swap = a fresh GO runner), and how many seats they may hold.
+export function AgentControls({ cfg, decisions, proven, isOwner, busy, save }) {
+  const c = cfg || {}; const o = c.options || { take: [5, 10, 20, 30, 50], mode: ['auto', 'pull', 'swap'], seats: [1, 2, 3, 4] };
+  const MODE = { auto: '🤖 they choose', pull: '💰 pull to cash', swap: '⇄ swap runner' };
+  const seg = (k, vals, lab) => <div className="m-seg" role="group">{vals.map(v => <button key={String(v)} type="button" disabled={busy || !isOwner} className={String(c[k]) === String(v) ? 'active' : ''} onClick={() => save({ cfg: { [k]: v } })} data-testid={`agc-${k}-${v}`}>{lab(v)}</button>)}</div>;
+  return <div className="agd-box agd-ctl" data-testid="agd-controls"><b>⚙ AGENT CONTROL · YOUR FUSE CARD</b>
+    <div className="agd-ctl-row"><span>Their GO coins on my card</span><div className="m-seg"><button type="button" disabled={busy || !isOwner} className={c.agentFeed ? 'active' : ''} onClick={() => save({ feed: true })} data-testid="agd-feed-on">ON</button><button type="button" disabled={busy || !isOwner} className={!c.agentFeed ? 'active' : ''} onClick={() => save({ feed: false })} data-testid="agd-feed-off">Paper only</button></div></div>
+    <div className="agd-ctl-row"><span>Hold until profit</span>{seg('agentTakePct', o.take, v => `+${v}%`)}</div>
+    <div className="agd-ctl-row"><span>Then</span>{seg('agentMode', o.mode, v => MODE[v] || v)}</div>
+    <div className="agd-ctl-row"><span>Seats they may hold</span>{seg('agentSeats', o.seats, v => `${v}`)}</div>
+    <small className="m-dim">{proven ? 'LIVE on your card.' : 'Starts the moment the 5-min desk 10×s — until then they trade paper only.'} An agent coin is never stopped, rotated or cycled out before it's in profit (only the rug shield cuts it). In profit they read it again every pass.</small>
+    {(decisions || []).length > 0 && <ul className="agd-dec" data-testid="agd-decisions">{decisions.map(x => <li key={x.pair} className={`is-${x.action}`}><b>{x.action === 'hold' ? '⏳' : x.action === 'pull' ? '💰' : '⇄'} ${x.symbol}</b><span>{x.why}</span></li>)}</ul>}</div>;
+}
+// 💡 tactics the desk found in its own record, sent up for the creator's review
+export function IdeaBox({ ideas, isOwner, busy, save }) {
+  const fresh = (ideas || []).filter(i => i.status === 'new'); const past = (ideas || []).filter(i => i.status !== 'new').slice(0, 6);
+  return <div className="agd-box agd-ideas" data-testid="agd-ideas"><b>💡 IDEAS FOR YOUR REVIEW · {fresh.length} new</b>
+    {fresh.length ? <ul>{fresh.map(i => <li key={i.id} className={`is-${i.kind}`}><span>{i.kind === 'take' ? '🎯 TAKE' : '🚫 AVOID'} · {i.text}</span>
+      <span className="agd-idea-do"><button type="button" className="m-btn m-go" disabled={busy || !isOwner} onClick={() => save({ idea: { id: i.id, action: 'approve' } })} data-testid={`idea-ok-${i.id}`}>Approve</button>
+        <button type="button" className="m-btn" disabled={busy || !isOwner} onClick={() => save({ idea: { id: i.id, action: 'reject' } })} data-testid={`idea-no-${i.id}`}>Reject</button></span></li>)}</ul>
+      : <small className="m-dim">No new tactic yet — two reasons must show up together on 10+ judged calls with a clear result (≥ +3% typical and 55% up, or ≤ −5%).</small>}
+    {past.length > 0 && <small className="m-dim">Reviewed: {past.map(i => `${i.status === 'approved' ? '✅' : '✕'} ${i.kind} (${i.n} calls ${i.med >= 0 ? '+' : ''}${i.med}%)`).join(' · ')}</small>}</div>;
+}
 export const agentLine = a => (a.n ? `${a.n} judged · ${pct(a.med)} typical at 5 min${a.right != null ? ` · ${a.right}% right` : ''}` : 'no judged calls yet — every call is checked 5 minutes later');
 
 export function AgentDesk({ call, isOwner = true }) {
@@ -50,7 +82,7 @@ export function AgentDesk({ call, isOwner = true }) {
   useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, 20000); return () => clearInterval(t); }, [load]);
   if (!d) return <p className="cc-empty">Waking the agents…</p>;
   const st = d.stage || {};
-  const feed = async v => { setBusy(true); try { await call('/admin/agents', { method: 'POST', body: JSON.stringify({ feed: v }) }); toast.success(v ? '🤖 Agents may feed your card once proven' : '🤖 Agents stay on paper'); load(); } catch (e) { toast.error(e.message); } finally { setBusy(false); } };
+  const save = async body => { setBusy(true); try { await call('/admin/agents', { method: 'POST', body: JSON.stringify(body) }); toast.success(body.idea ? `💡 idea ${body.idea.action === 'approve' ? 'approved' : 'rejected'}` : '🤖 agent control saved'); load(); } catch (e) { toast.error(e.message); } finally { setBusy(false); } };
   return <section className="agd m-live" data-testid="agent-desk">
     <header className="agd-head"><div><b>🤖 THE AGENT DESK</b><small>Four agents, one chain — none of them can call a trade without the other three. Every call is checked 5 minutes later; they move to 15 min only after they conquer 5.</small></div>
       <div className="agd-stage" data-testid="agd-stage">{[5, 15, 60].map(h => <span key={h} className={(st.conquered || []).includes(h) ? 'is-done' : st.h === h ? 'is-now' : ''}>{(st.conquered || []).includes(h) ? '✓' : st.h === h ? '⚔' : '🔒'} {h}m</span>)}
@@ -58,15 +90,16 @@ export function AgentDesk({ call, isOwner = true }) {
     <RoadMeter road={d.road} />
     <div className="agd-chain">{(d.agents || []).map((a, i) => <React.Fragment key={a.key}><div className={`agd-agent is-${a.key}`} style={{ '--i': i }} data-testid={`agent-${a.key}`}>
       <span className="agd-ico" aria-hidden>{a.icon}</span><b>{a.name}</b><small>{a.job}</small>
-      <em className={tone(a.med)}>{a.n ? pct(a.med) : '—'}</em><i>{agentLine(a)}</i></div>{i < 3 && <span className="agd-arrow" aria-hidden>→</span>}</React.Fragment>)}</div>
+      <em className={tone(a.med)}>{a.n ? pct(a.med) : '—'}</em><i>{agentLine(a)}</i>
+      <span className="agd-task" data-testid={`task-${a.key}`}><span className="agd-live" aria-hidden />{d.tasks?.[a.key] || 'waiting for the first pass'}</span><span className="agd-scan" aria-hidden><u /></span></div>{i < 3 && <span className="agd-arrow" aria-hidden>→</span>}</React.Fragment>)}</div>
+    <small className="m-dim agd-pass">last pass {d.tasks?.at ? `${ago(d.tasks.at)} ago` : '—'} · one a minute, any hour the backend is online</small>
     <div className="agd-row2">
       <div className="agd-box" data-testid="agd-desk"><b>📜 TRENCH DESK · 25% a GO, out at 5 min · goal 10×</b><p className={`agd-big ${tone(d.desk.now - d.desk.start)}`}>${d.desk.now.toFixed(2)} <small>{d.desk.x}× of ${d.desk.start} · best run {d.desk.best}× · {d.desk.busts} bust{d.desk.busts === 1 ? '' : 's'} · {d.desk.trades} trades</small></p>
         <small className="m-dim">Control group (coins Trigger said WAIT): {d.control?.n ? `${pct(d.control.med)} typical` : 'not judged yet'} — the team must beat this to mean anything. Slippage on a 5-min scalp is not modelled.</small></div>
-      <div className="agd-box" data-testid="agd-drivers"><b>🔍 WHAT SHERLOCK LEARNED</b>{(d.drivers || []).length ? <ul>{d.drivers.slice(0, 7).map(x => <li key={x.key}><span>{x.words}</span><em className={tone(x.med)}>{pct(x.med)}</em><small>n {x.n}</small></li>)}</ul> : <small className="m-dim">Nothing judged yet — drivers start from their priors.</small>}</div>
-      <div className="agd-box" data-testid="agd-feed"><b>💵 YOUR REAL CARD</b><p className="m-dim">{d.proven5 ? 'The 5-minute stage is conquered. Their GO calls can go first in your card\'s rush (small tickets, every keeper check still runs).' : 'Paper only until they conquer the 5-minute stage. You can switch this on now — it starts the day they prove it.'}</p>
-        <div className="m-seg"><button type="button" disabled={busy || !isOwner} className={d.feedAsked ? 'active' : ''} onClick={() => feed(true)} data-testid="agd-feed-on">Feed my card</button><button type="button" disabled={busy || !isOwner} className={!d.feedAsked ? 'active' : ''} onClick={() => feed(false)} data-testid="agd-feed-off">Paper only</button></div>
-        <small className="m-dim">Trigger's bar right now: lean ≥ {d.bar} · {d.open} calls waiting to be judged</small></div>
+      <div className="agd-box" data-testid="agd-drivers"><b>🔍 WHAT SHERLOCK LEARNED</b>{(d.drivers || []).length ? <ul>{d.drivers.slice(0, 7).map(x => <li key={x.key}><span>{x.words}</span><em className={tone(x.med)}>{pct(x.med)}</em><small>n {x.n}</small></li>)}</ul> : <small className="m-dim">Nothing judged yet — every reason starts as a belief and becomes its own record as calls are judged.</small>}</div>
+      <AgentControls cfg={d.cfg} decisions={d.decisions} proven={d.proven5} isOwner={isOwner} busy={busy} save={save} />
     </div>
+    <IdeaBox ideas={d.ideas} isOwner={isOwner} busy={busy} save={save} />
     <MindBox m={d.mind} />
     <ThoughtFeed lines={d.thoughts} />
     <div className="agd-table" data-testid="agd-table"><div className="agd-th"><span>coin</span><span>📊 Tally</span><span>🔍 Sherlock</span><span>⏱ Trigger</span><span>⚖ Devil</span><span /></div>
@@ -78,6 +111,8 @@ export function AgentDesk({ call, isOwner = true }) {
           <span className={`agd-call ${c[1]}`} data-tip={x.trigger[1]}>{c[0]}</span>
           <span className={`agd-call ${v[1]}`} data-tip={x.devil[1] || ''}>{v[0]}{x.devil[1] && x.devil[0] === 'object' ? <small>{x.devil[1]}</small> : null}</span>
           <span className="agd-go">{x.go ? '🟢 GO' : ''}</span>
+          {x.vitals && <span className="agd-vit" data-testid={`vit-${x.symbol}`}>{vitalCells(x.vitals).map(([k, v, bad]) => <i key={k} className={bad ? 'is-bad' : ''}><small>{k}</small>{v}</i>)}</span>}
+          {x.opinion && <p className="agd-op" data-testid={`op-${x.symbol}`}>🗣 {x.opinion}{(x.strats || []).map(t => <i key={t}>🎯 {t}</i>)}</p>}
           {x.analysis?.text && <p className="agd-brief">{x.mind?.narr && <i>{x.mind.narr}{x.mind.hot ? ' 🔥' : ''}</i>}{x.mind?.swarm && <i className="is-bad">🤖 swarm</i>}{x.mind?.bots >= 40 && <i className="is-bad">🤖 botted</i>}{x.mind?.tug && <i>🪝 tuggers</i>}{x.analysis.text}</p>}</div>; })}
       {!(d.table || []).length && <small className="m-dim">The first pass runs within a minute of the backend starting.</small>}</div>
   </section>;

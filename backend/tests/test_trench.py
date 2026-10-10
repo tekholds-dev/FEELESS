@@ -480,3 +480,12 @@ def test_a_coin_in_profit_keeps_its_seat_from_the_trench_drop_and_the_volume_cyc
         px.setdefault(x['pairAddress'], x['price'])
     out = ap.tick({**c, 'trenchFillAt': -1e6}, px, pools, runners, cfg, 10_000.0, anchors, {}, {})
     assert not any('trench drop' in (e.get('why') or '') for e in out['events'])  # $OMNI (+16.9%) is never sold for a trench coin again
+
+
+def test_an_agent_coin_is_never_taken_by_the_volume_cycle_the_trench_drop_or_rotation():
+    now = 10_000.0
+    leg = lambda m, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'units': 0.3, 'entry': 1.0, 'at': now - 3600, **k}
+    agent = leg('AG', bought={'tag': '🤖 agents GO'})
+    assert ap.agent_leg(agent) and not ap.agent_leg(leg('X'))
+    assert ap.flat_leg({'legs': [agent]}, {'PAG': 1.0}, now, picks=True) is None          # flat, but it is the agents' seat
+    assert ap.flat_leg({'legs': [agent, leg('X')]}, {'PAG': 1.0, 'PX': 1.0}, now, picks=True)['mint'] == 'X'
