@@ -2860,3 +2860,32 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - ⚖ `devil(.., duty=True)`: a duty CASE (`row.case`) is judged on the coin alone — "Trigger's last N calls are losing" objects only to
   Trigger's own ENTERs (the duty waives Trigger's bar, so its streak is not the case's evidence). Every coin-level objection still applies.
 
+- 🏢 THE OFFICE (owner, 2026-10-10: "turn the Agents tab into the control room … every agent REAL CODE + REAL runtime state … no bot art";
+  `backend/office.py` pure + tested `tests/test_office.py`; ONLY the creator's real card → HQ › Agents, not the trench tab). Chain:
+  Tally → Sherlock → 🌦 Weather → Trigger → Devil → 🛡 Warden → 📮 Courier → ☠ Reaper → 🗄 Archivist → 👨‍⚖️ Judge.
+  · `CONSTITUTION` (frozen `MappingProxyType`: role · ideology · ethics · forbidden · hard rules · code file + function names — a test checks
+    every named function exists) vs `TUNABLE` (default, lo, hi). A tunable moves ONLY by `propose` (≥ `PROPOSE_N` 10 archived positions) →
+    shadow on positions closed AFTER it (`SHADOW_N` 20) → `promote` (must beat live by `SHADOW_MARGIN`); `judge_candidates` runs it for
+    Reaper's settings each pass. Nothing else writes `office.tune`.
+  · 🌦 `weather` (HOT · NORMAL · CHOP · THIN · HOSTILE from Tally's numbers + our judged calls + courier health) → `desk(weather_fn=)`:
+    ONLY `weather_adj` (clamped −0.25 … +1.0) reaches Trigger's bar; hard SKIPs, `BAR_FLOOR`, Devil's objections are not parameters.
+  · 🛡 `warden(requested, ctx)` → allowed ≤ requested ALWAYS (W1 execution … W11 smallest order; steps 1 / .75 / .5 / .25 / 0). Wired in
+    `_office_warden`: `agent_seat(max_usd=)` (a cap can only shrink a seat) and veto-only on a switch. A Warden failure = the card's own size.
+  · 📮 `courier` reads the keeper's ledger (sends nothing): `confirmed` = status filled AND sig. BAD = halt / order > 180s / ≥ 50% of ≥ 3
+    sends failed in 15 min / duplicate or unsigned fill. Ledger fills now carry `landSec`. BAD → Warden vetoes, Weather HOSTILE.
+  · ☠ `reap` each tier tick (`_office_reap`): R1 pool < half entry · R2 failed scan / rug ≥ 65 · R3 top-10 +10 pts · R4 tape dump · R5 stop
+    −30* · R6 the card's take line (NO second sell — `agents.manage` banks it) · R7 trail (peak ≥ +6, gave back half, still ≥ +1.5) · R8
+    momentum failed ≥ 15 min* · R9 time* (* agent-owned coins only). `merge_reaper` only turns a desk 'hold' into the EXISTING 'pull' — no
+    new action kind, no new sell path. A position that left the card is 'exit requested' until `confirm_exits` finds the filled sell row
+    (30 min → filed UNCONFIRMED, no result claimed). THIS ADDS A STOP TO AGENT SEATS (they were ride-or-rug): the owner asked for it.
+  · 🗄 `file_case` / `file_position` (`data/agent_archive.json`: ≤ 600 cases, ≤ 300 positions, hash-chained, older fold into `agg` /
+    `posAgg`; `verify` counts rewrites) · `patterns` states a line only from 5 records. · 👨‍⚖️ `scorecards` (all ten) + `standing`
+    (nothing but 'alive' under `JUDGE_MIN_N` 30; demoted ≥ 60) · `demote` resets an office agent's tunables to defaults.
+  · ONE payload (`_office_pass`, once per agent pass; `_office_light` each tier tick, memory only) → `GET /admin/agents/office` AND as
+    `office` on `GET /admin/agents` (the page makes ONE request). GET runs nothing (test: 200 polls → 0 scans / quotes / saves / wallet
+    calls). `data/agent_office_view.json` = the last payload, for checking without an HQ sign-in. State: `data/agent_office.json`.
+  · UI `command/OfficeBoard.jsx` + `styles/officeBoard.css` `ofb-*`: 🏢 Office is the FIRST lens and the default; `OfficeMission` on top
+    (put in · value · to breakeven · stage · 🔒 lock · lives · next duty · last real action with the LEDGER's word); the line of ten
+    (state + ms + word); ten cards; a card / stage opens its detail under it (11 sections incl. code location). The 3D room is opt-in.
+    A component that renders ITSELF in JSX overflows the dev server's babel plugin ("Maximum call stack") — recurse with a plain function.
+  · The breakeven lock is untouched: `agents.underwater` = real value < real put-in; `office.mission` is handed it, never recomputes it.

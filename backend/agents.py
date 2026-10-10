@@ -396,27 +396,27 @@ def trigger(n, why, row, learned):
 
 
 # ── ⚖ DEVIL ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-def devil(call, n, why, row, learned, duty=False):
-    """Argue against an ENTER. → (verdict 'agree' | 'object' | '—', the strongest argument). Its learned distrust: any driver of this call
-    whose own 5-min record is negative, and Trigger's own record when it is losing."""
+def devil_args(call, n, why, row, learned, duty=False):
+    """EVERY objection Devil has to an ENTER, each under its named rule (DEVIL_RULES) → [(rule id, the evidence in words)], strongest first.
+    Its learned distrust: any driver of this call whose own 5-min record is negative, and Trigger's own record when it is losing."""
     if call != 'enter':
-        return '—', ''
+        return []
     n, row = n or {}, row or {}
     args = []
     rd = ((row.get('tv') or {}).get('call') or [None, None])[1]
     busted = (learned or {}).get('busted')
     if rd in (busted if busted is not None else BUSTED):   # the reads' LIVE records when the service has them (busted_now), else the old fixed list
-        args.append(f'its read is {rd} — a busted call on its own record')
+        args.append(('busted_read', f'its read is {rd} — a busted call on its own record'))
     if _f((row.get('tv') or {}).get('rug')) >= 50:
-        args.append(f"rug meter {_f(row['tv']['rug']):.0f}")
+        args.append(('rug_meter', f"rug meter {_f(row['tv']['rug']):.0f}"))
     if n.get('c1') is not None and _f(n['c1']) > 150:
-        args.append(f"already +{_f(n['c1']):.0f}% on the hour — it ran")
+        args.append(('ran', f"already +{_f(n['c1']):.0f}% on the hour — it ran"))
     if n.get('age') is not None and _f(n['age']) < 0.25:
-        args.append('under 15 minutes old')
+        args.append(('young', 'under 15 minutes old'))
     if row.get('safe') is not True:
-        args.append('holders never scanned')
+        args.append(('unscanned', 'holders never scanned'))
     if row.get('mint') in ((learned or {}).get('burned') or {}):
-        args.append('burned us within the last 6h — a GO on it lost 20%+ in 5 min')
+        args.append(('burned', 'burned us within the last 6h — a GO on it lost 20%+ in 5 min'))
     mind = row.get('mind') or {}
     # a SOFT signal objects only while its own record backs it: under DRIVER_MIN_N judged calls it stands on belief; after that it must
     # really be followed by losses (typical 5-min result < SOFT_MED), else it is noted and waved through. (2026-10-10: "botted launch"
@@ -424,28 +424,54 @@ def devil(call, n, why, row, learned, duty=False):
     ld_ = (learned or {}).get('drivers') or {}
     backed = lambda k: int((ld_.get(k) or {}).get('n') or 0) < DRIVER_MIN_N or _f((ld_.get(k) or {}).get('med')) < SOFT_MED
     if (mind.get('crowd') or {}).get('swarm') and backed('swarm'):
-        args.append(f"the callers are a bot swarm ({round(_f(mind['crowd'].get('swarmShare')) * 100)}% the same line)")
+        args.append(('swarm', f"the callers are a bot swarm ({round(_f(mind['crowd'].get('swarmShare')) * 100)}% the same line)"))
     if _f((mind.get('bots') or (0, []))[0]) >= 40 and backed('botted'):
-        args.append('botted launch: ' + '; '.join((mind['bots'][1] or [])[:2]))
+        args.append(('botted', 'botted launch: ' + '; '.join((mind['bots'][1] or [])[:2])))
     bad = [d for d in why['drivers'] if d[1] < 0]
     if bad:
-        args.append('against it: ' + ', '.join(d[2] for d in bad[:2]))
+        args.append(('against', 'against it: ' + ', '.join(d[2] for d in bad[:2])))
     learned_d = (learned or {}).get('drivers') or {}
     for k, _w, words in why['drivers']:
         v = learned_d.get(k) or {}
         if int(v.get('n') or 0) >= DRIVER_MIN_N and _f(v.get('med')) < 0 and _f(_w) > 0:
-            args.append(f"'{words}' has been followed by {_f(v['med']):+.1f}% lately")
+            args.append(('driver_losing', f"'{words}' has been followed by {_f(v['med']):+.1f}% lately"))
     have_ = {d[0] for d in why['drivers']}
     rs_ = [x for x in have_ if ((learned or {}).get('rugSigns') or {}).get(x, 0) >= RUG_SIGN_N and not x.startswith('src:open')]
     if len(rs_) >= 2:   # 🔬 learned from autopsies: these reasons keep showing up on coins that rugged
-        args.append('rug signs from our autopsies: ' + ', '.join(word(x) for x in rs_[:3]))
+        args.append(('rug_signs', 'rug signs from our autopsies: ' + ', '.join(word(x) for x in rs_[:3])))
     for iid, pair in ((learned or {}).get('avoid') or {}).items():   # 🚫 a creator-approved AVOID tactic
         if all(x in have_ for x in pair):
-            args.append(f"approved avoid-tactic {iid}: {word(pair[0])} + {word(pair[1])}")
+            args.append(('avoid', f"approved avoid-tactic {iid}: {word(pair[0])} + {word(pair[1])}"))
     tr = ((learned or {}).get('cards') or {}).get('trigger') or {}
     if not duty and int(tr.get('n') or 0) >= 15 and _f(tr.get('med')) < 0:   # about TRIGGER'S entries — a duty case is not one (its bar is waived), so it is judged on the coin alone
-        args.append(f"Trigger's last {tr['n']} calls: {_f(tr['med']):+.1f}% typical")
-    return ('object', args[0]) if args else ('agree', 'no evidence against it')
+        args.append(('trigger_losing', f"Trigger's last {tr['n']} calls: {_f(tr['med']):+.1f}% typical"))
+    return args
+
+
+# ⚖ Devil's rules by name: (hard?, what it is). HARD = it can never be waived or out-voted; SOFT = it stands only while its own record backs it.
+DEVIL_RULES = {'busted_read': (True, "the coin's read is a busted call on its own 1h record"), 'rug_meter': (True, 'rug meter ≥ 50'), 'ran': (True, 'already ran > +150% on the hour'),
+               'young': (True, 'under 15 minutes old'), 'unscanned': (True, 'holders never scanned'), 'burned': (True, 'burned us in the last 6h'),
+               'swarm': (False, 'the callers are a bot swarm'), 'botted': (False, 'botted launch'), 'against': (False, 'a reason against it is on the table'),
+               'driver_losing': (False, 'one of its reasons has been followed by losses lately'), 'rug_signs': (True, 'rug signs learned from our autopsies'),
+               'avoid': (True, 'a creator-approved avoid tactic'), 'trigger_losing': (False, "Trigger's own recent entries are losing"), 'trial': (True, 'Devil is on trial: only strong reads pass'),
+               'unrecorded': (False, 'reason not stored (calls judged before objections kept their reason)'), 'other': (False, 'other')}
+_RULE_TEXT = (('its read is', 'busted_read'), ('rug meter', 'rug_meter'), ('already +', 'ran'), ('under 15 minutes', 'young'), ('holders never', 'unscanned'), ('burned us', 'burned'),
+              ('the callers are', 'swarm'), ('botted launch', 'botted'), ('against it', 'against'), ('rug signs', 'rug_signs'), ('approved avoid', 'avoid'), ("Trigger's last", 'trigger_losing'),
+              ('on trial', 'trial'), ("'", 'driver_losing'))
+
+
+def devil_rule_of(text):
+    """The rule id behind an objection kept only as text (calls judged before the id was stored)."""
+    t = str(text or '')
+    return next((k for pre, k in _RULE_TEXT if t.startswith(pre)), 'other')
+
+
+def devil(call, n, why, row, learned, duty=False):
+    """Argue against an ENTER. → (verdict 'agree' | 'object' | '—', the strongest argument)."""
+    if call != 'enter':
+        return '—', ''
+    args = devil_args(call, n, why, row, learned, duty)
+    return ('object', args[0][1]) if args else ('agree', 'no evidence against it')
 
 
 # ── the chain ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -468,7 +494,7 @@ def busted_now(proof, call_keys):
     return out
 
 
-def desk(state, rows, now, dial=None, busted=None):
+def desk(state, rows, now, dial=None, busted=None, weather_fn=None):
     """One pass of all four, in order. → (new state, table rows for the screen). Each coin's line carries every agent's word."""
     import time as _t
     st = dict(state or {})
@@ -479,6 +505,10 @@ def desk(state, rows, now, dial=None, busted=None):
     perf['tally'] += _t.perf_counter() - t0
     st['series'] = ser
     learned['regime'] = regime(nums)
+    if weather_fn:   # 🌦 Weather (office.weather) reads the board once a pass; ONLY its clamped bar adjustment reaches Trigger — never a gate
+        t0 = _t.perf_counter(); wx = weather_fn(nums, rows, st, now); perf['weather'] = _t.perf_counter() - t0
+        st['weather'] = wx
+        learned['regime'] = {**learned['regime'], 'adj': _f(wx.get('adj')), 'weather': wx.get('regime')}
     learned['burned'] = {m: at for m, at in (st.get('burned') or {}).items() if now - _f(at) < BURN_SEC}
     learned['dial'] = dial if dial in DIALS else 'normal'
     learned['busted'] = busted
@@ -497,11 +527,12 @@ def desk(state, rows, now, dial=None, busted=None):
         t0 = _t.perf_counter(); verdict, arg = devil(call, n, why, {**r, 'mint': m}, learned); perf['devil'] += _t.perf_counter() - t0
         if learned['trial'] == 'devil' and verdict == 'agree' and why['lean'] < bar_ + TRIAL_BAR:   # 👨‍⚖️ Devil on trial: only strong reads pass
             verdict, arg = 'object', f"on trial — only a strong read passes (lean {why['lean']:+.1f} < {bar_ + TRIAL_BAR:.1f})"
-        case = list(devil('enter', n, why, {**r, 'mint': m}, learned, duty=True)) if call in ('enter', 'wait') and why['lean'] > 0 else None
+        objs = devil_args('enter', n, why, {**r, 'mint': m}, learned, duty=True) if call in ('enter', 'wait') and why['lean'] > 0 else None
+        case = None if objs is None else (['object', objs[0][1]] if objs else ['agree', 'no evidence against it'])
         if case and learned['trial'] == 'devil' and case[0] == 'agree' and why['lean'] < bar_ + TRIAL_BAR:
-            case = ['object', 'on trial — only a strong read passes']
+            case, objs = ['object', 'on trial — only a strong read passes'], [('trial', 'on trial — only a strong read passes')]
         rd = r.get('mind') or _tm.read(r)
-        table.append({'case': case, 'mint': m, 'symbol': r.get('symbol'), 'pair': r.get('pairAddress'), 'px': _f(r.get('price')), 'nums': n, 'why': why,
+        table.append({'case': case, 'objs': [list(o) for o in (objs or [])[:6]], 'mint': m, 'symbol': r.get('symbol'), 'pair': r.get('pairAddress'), 'px': _f(r.get('price')), 'nums': n, 'why': why,
                       'trigger': [call, reason], 'devil': [verdict, arg], 'go': call == 'enter' and verdict == 'agree',
                       'mind': {'narr': rd['narr'][1], 'hot': rd['narr'][2], 'callers': rd['crowd']['callers'], 'swarm': rd['crowd']['swarm'],
                                'slang': rd['crowd']['slang'], 'bots': rd['bots'][0], 'tug': rd['tug'][0]},
@@ -530,7 +561,7 @@ def record(state, table, now, controls=3):
         if not kind:
             continue
         waits += kind == 'wait'
-        opened[m] = {'px': x['px'], 'at': now, 'sym': x['symbol'], 'kind': kind, 'go': x['go'], 'devil': x['devil'][0], **({'devilWhy': str(x['devil'][1])[:90]} if x['devil'][0] == 'object' else {}),
+        opened[m] = {'px': x['px'], 'at': now, 'sym': x['symbol'], 'kind': kind, 'go': x['go'], 'devil': x['devil'][0], **({'devilWhy': str(x['devil'][1])[:90], 'devilRule': devil_rule_of(x['devil'][1])} if x['devil'][0] == 'object' else {}),
                      'drivers': [d[0] for d in x['why']['drivers']], 'lean': x['why']['lean'], 'tallyUp': _f(x['nums'].get('d5')) > 0,
                      **({'scalp': [st['scalp']['tp'], st['scalp']['sl']]} if (st.get('scalp') or {}).get('tp') else {})}
     st['open'], st['done'] = opened, done[-KEEP_DONE:]

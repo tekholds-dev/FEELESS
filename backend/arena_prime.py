@@ -3361,7 +3361,17 @@ def rebuy_in(card, still_held, now):
 SEAT_QUEUE_MAX = 5
 
 
-def agent_seat(card, row, prices, cfg, now, min_usd=0.05):
+def agent_seat_usd(card, prices, cfg):
+    """What `agent_seat` would spend on the next empty seat: an equal share of the card, capped by the FREE card cash. (The Warden is
+    shown this number and may only lower it.)"""
+    legs = [l for l in (card or {}).get('legs') or [] if not (l.get('placeholder') and not l.get('manualCash'))]
+    want = int(_f((cfg or {}).get('coins')))
+    free = max(0.0, _f((card or {}).get('cash')) - _f((card or {}).get('holdCashUsd')))
+    total = sum(_f(l.get('units')) * (_f((prices or {}).get(l['pairAddress'])) or _f(l.get('entry'))) for l in legs) + free
+    return min(free, total / want) if want else 0.0
+
+
+def agent_seat(card, row, prices, cfg, now, min_usd=0.05, max_usd=None):
     """🎮 The agents fill ONE empty seat with their GO coin (cfg `agentControl`): an equal share of the card, paid ONLY from free card cash
     — never a trim of another coin, never the owner's held / parked cash. A reserved seat (a stop that found no replacement) counts as
     empty: its reserve is the seat's money. The coin is theirs: tagged 🤖, held until they bank or switch it (no stop — the rug shield and
@@ -3378,13 +3388,15 @@ def agent_seat(card, row, prices, cfg, now, min_usd=0.05):
     free = max(0.0, _f(c.get('cash')) - _f(c.get('holdCashUsd')))
     total = sum(_f(l.get('units')) * (_f((prices or {}).get(l['pairAddress'])) or _f(l.get('entry'))) for l in c['legs']) + max(0.0, _f(c.get('cash')) - _f(c.get('holdCashUsd')))
     usd = min(free, total / want)
+    if max_usd is not None:   # 🛡 the Warden's cap: it can only make the seat SMALLER than the card's own rule
+        usd = min(usd, max(0.0, _f(max_usd)))
     if usd < max(min_usd, _f((cfg or {}).get('minOrderUsd'))):
         raise ValueError(f'only ${free:.2f} free — a seat needs more')
     leg = _leg(row, usd, now, 'runner')
     leg.update(slMode='hold', rideOrRug=True, ticket=True)
     c['legs'].append(leg)
     c['cash'] = round(_f(c['cash']) - usd, 6)
-    c.setdefault('events', []).append({'at': now, 'kind': 'agent', 'move': 'fill', 'symbol': row.get('symbol'), 'usd': round(usd, 4),
+    c.setdefault('events', []).append({'at': now, 'kind': 'agent', 'move': 'fill', 'symbol': row.get('symbol'), 'mint': row.get('mint'), 'usd': round(usd, 4),
                                        'why': f"🤖 agents filled seat {len(c['legs'])} of {want} with ${row.get('symbol')} (${usd:.2f}) — {row.get('why') or 'all four agree'}"})
     return c
 
