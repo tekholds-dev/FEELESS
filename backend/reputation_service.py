@@ -12079,6 +12079,12 @@ async def _agents_tick(now):
         except Exception:
             pass
         _agents.update(table=table, view=_ag.view(st, table, bool(rcfg_.get('agentFeed')), _agents_real(), _agents.get('mind'), rcfg_, _agents.get('decisions'), now, _agents.get('card'), _agents.get('money')))
+        try:   # 🕵 the duty's case files on disk each pass (read-only snapshot: what cleared, what blocked each coin)
+            dv_ = _agents['view'].get('duty') or {}
+            _json_save(DATA_DIR / 'agents_duty.json', {'at': now, 'on': dv_.get('on'), 'cleared': dv_.get('cleared'), 'dutyAt': dv_.get('at'),
+                                                       'cases': [{'symbol': c_['symbol'], 'lean': c_['lean'], 'cleared': c_['cleared'], 'blocked': [k_[2] for k_ in c_['checks'] if not k_[1]]} for c_ in _ag.investigate(table, set(), rcfg_.get('trenchMinAgeH', 1), st.get('burned') or {}, top=25)]})
+        except Exception:
+            pass
     except Exception as e:
         print('agents:', e)
 
