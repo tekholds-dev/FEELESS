@@ -17,8 +17,8 @@ import { AG, ACT_FX, candleGeom } from './OfficeRoom';
 //     pipeline status · switch test / missed winners / review.
 //   · hover = a tooltip of the real word behind the thing; click a bot / monitor / case / seat / the wall monitor; camera eases between
 //     Main · The card · Top · Focus desk. Hidden tab / fx-lite / reduced motion = a still frame every 1–2s (never a blank room).
-const XS = [-7.8, -3.9, 0, 3.9, 7.8];
-const Z1 = -1.5; const Z2 = 4.5; const WALL = -5.2; const PZ = 1.7;
+const XS = [-7.25, -3.8, -0.35, 3.1, 6.55];   // each station (desk + its bot to the right) is centred on the room
+const Z1 = -1.4; const Z2 = 4.2; const WALL = -4.9; const PZ = 1.55;
 export const DESK_AT = i => (i < 5 ? [XS[i], Z1] : [XS[9 - i], Z2]);   // the chain snakes: row 1 left → right, row 2 right → left
 const LANE = i => { const [x, z] = DESK_AT(i); return new THREE.Vector3(x, 0.03, i < 5 ? z + 1.25 : z - 1.15); };
 const mono = (px, w = 700) => `${w} ${px}px "JetBrains Mono", ui-monospace, monospace`;
@@ -30,7 +30,7 @@ const KIND_WORD = { agent: '🤖 AGENTS', suggested: '🤝 SUGGESTED', yours: '�
 const DEC_CSS = { HOLD: '#45e486', 'HOLD 5 MORE': '#45e486', PROTECT: '#f5c451', 'TAKE PROFIT': '#6cc7ff', EXIT: '#ff6b86', PULL: '#6cc7ff', SWAP: '#a07bff', FILLING: '#45e486', FULL: '#45e486', 'NO VALID ENTRY': '#7d998b', 'OFFICE WARMING UP': '#f5c451', 'CREATOR MANUAL': '#f5c451' };
 const PULSE = { VETO: 1, EXIT: 0.9, OBJECT: 0.5, TAKE: 0.45, 'JUDGE REVIEW': 0.35, REVIEW: 0.35, SUBMITTED: 0.4, PROTECT: 0.3, ERROR: 1, STALE: 0.4 };
 export const SEAT_GAP = 1.22;
-export const seatX = (i, n) => (i - (n - 1) / 2) * SEAT_GAP;
+export const seatX = (i, n) => (i - (n - 1) / 2) * (n <= 4 ? 1.6 : SEAT_GAP);   // up to four seats get room for their full plates; five or six close up
 // a seat's pedestal height follows its % since entry (capped at ±30% so one runner never hides the rest), never a guess
 export const seatH = pct => (pct == null ? 0.05 : 0.14 + Math.min(1, Math.abs(Number(pct)) / 30) * 0.95);
 const hex = c => new THREE.Color(c || '#4d6a5c');
@@ -172,17 +172,17 @@ export default function OfficeRoom3D({ model, onSel, onCoin, cam: camMode = 'mai
     const W = () => host.clientWidth || 900, H = () => host.clientHeight || 480;
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(1.5, window.devicePixelRatio || 1)); renderer.setSize(W(), H());
-    renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+    renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.18;
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     host.prepend(renderer.domElement); renderer.domElement.className = 'or3-canvas';
     const scene = new THREE.Scene(); scene.background = new THREE.Color(0x030b08); scene.fog = new THREE.Fog(0x030b08, 26, 46);
     const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.24;
     const fovFor = a => Math.max(32, Math.min(56, (2 * Math.atan(Math.tan((64 * Math.PI) / 360) / a) * 180) / Math.PI));   // the wall + all ten desks stay in frame at any width
-    const cam = new THREE.PerspectiveCamera(fovFor(W() / H()), W() / H(), 0.1, 90); const pos = new THREE.Vector3(0, 13.6, 17.4); const look = new THREE.Vector3(0, 1.7, -0.4); cam.position.copy(pos); cam.lookAt(look);
-    scene.add(new THREE.HemisphereLight(0xbfffe0, 0x06120d, 0.5));
-    const key = new THREE.DirectionalLight(0xffffff, 1.35); key.position.set(-6, 14, 9); key.castShadow = true; key.shadow.mapSize.set(2048, 2048);
+    const cam = new THREE.PerspectiveCamera(fovFor(W() / H()), W() / H(), 0.1, 90); const pos = new THREE.Vector3(0, 11.6, 15.3); const look = new THREE.Vector3(0, 1.35, 0.15); cam.position.copy(pos); cam.lookAt(look);
+    scene.add(new THREE.HemisphereLight(0xd8fff0, 0x0b1d16, 0.85));
+    const key = new THREE.DirectionalLight(0xffffff, 1.7); key.position.set(-6, 14, 9); key.castShadow = true; key.shadow.mapSize.set(2048, 2048);
     Object.assign(key.shadow.camera, { left: -13, right: 13, top: 10, bottom: -10, near: 1, far: 40 }); key.shadow.normalBias = 0.03; scene.add(key);
-    [[-7, 0x9fffd0], [7, 0xb8c8ff]].forEach(([x, c]) => { const pl = new THREE.PointLight(c, 22, 18, 1.8); pl.position.set(x, 6.4, 1.2); scene.add(pl); });   // two ceiling fixtures
+    [[-6, 0x9fffd0], [0, 0xe8fff4], [6, 0xb8c8ff]].forEach(([x, c]) => { const pl = new THREE.PointLight(c, 30, 16, 1.6); pl.position.set(x, 6.2, 1.4); scene.add(pl); });   // three ceiling fixtures
     const M = (c, r = 0.5, m = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m });
     const E = (c, i = 1.4) => new THREE.MeshStandardMaterial({ color: 0, emissive: c, emissiveIntensity: i });
     const box3 = (w, h, dd, mat, x, y, z, cast = true) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, dd), mat); o.position.set(x, y, z); o.castShadow = cast; o.receiveShadow = true; scene.add(o); return o; };
@@ -190,29 +190,29 @@ export default function OfficeRoom3D({ model, onSel, onCoin, cam: camMode = 'mai
     // the room: a glossy floor with a faint grid, the back wall with light rails, two side walls
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(36, 26), new THREE.MeshStandardMaterial({ color: 0x06120d, roughness: 0.2, metalness: 0.4 })); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
     const grid = new THREE.GridHelper(36, 36, 0x15d16a, 0x0c2e1f); grid.position.y = 0.004; grid.material.transparent = true; grid.material.opacity = 0.32; scene.add(grid);
-    box3(25.4, 7.4, 0.2, M(0x091812, 0.82), 0, 3.7, WALL - 0.1); box3(25.4, 0.07, 0.05, E(0x45e486, 1.7), 0, 0.22, WALL + 0.02, false); box3(25.4, 0.07, 0.05, E(0x4fd8ff, 1.2), 0, 7.2, WALL + 0.02, false);
-    [-12.7, 12.7].forEach(x => { box3(0.2, 7.4, 14, M(0x07150f, 0.86), x, 3.7, 1.8); box3(0.06, 0.06, 14, E(0x15d16a, 0.9), x + (x < 0 ? 0.12 : -0.12), 0.22, 1.8, false); });
+    box3(22.4, 7.4, 0.2, M(0x0d2219, 0.8), 0, 3.7, WALL - 0.1); box3(22.4, 0.07, 0.05, E(0x45e486, 1.9), 0, 0.22, WALL + 0.02, false); box3(22.4, 0.07, 0.05, E(0x4fd8ff, 1.4), 0, 7.2, WALL + 0.02, false);
+    [-11.2, 11.2].forEach(x => { box3(0.2, 7.4, 14, M(0x07150f, 0.86), x, 3.7, 1.8); box3(0.06, 0.06, 14, E(0x15d16a, 0.9), x + (x < 0 ? 0.12 : -0.12), 0.22, 1.8, false); });
     // the wall: sign · your limits + readiness (left) · the candidate monitor (centre) · pipeline status · switch test + missed winners (right)
-    const sign = tex(720, 230, drawSign); plane(4.6, 1.47, sign, -8.9, 5.3, WALL + 0.03);
-    const limT = tex(640, 300, drawLimits); plane(4.6, 2.16, limT, -8.9, 3.0, WALL + 0.03);
-    const wallT = tex(1400, 640, drawWall); box3(10.4, 4.85, 0.12, M(0x0b1118, 0.3, 0.4), -0.4, 4.25, WALL + 0.0);
-    const wallP = plane(10.2, 4.66, wallT, -0.4, 4.25, WALL + 0.07, { kind: 'wall' });
-    const statT = tex(512, 336, drawStatus); plane(4.4, 2.89, statT, 8.4, 5.0, WALL + 0.03);
-    const edgeT = tex(512, 300, drawEdge); plane(4.4, 2.58, edgeT, 8.4, 2.2, WALL + 0.03);
+    const sign = tex(720, 230, drawSign); plane(4.3, 1.37, sign, -8.0, 5.4, WALL + 0.03);
+    const limT = tex(640, 300, drawLimits); plane(4.3, 2.02, limT, -8.0, 3.25, WALL + 0.03);
+    const wallT = tex(1400, 640, drawWall); box3(9.8, 4.6, 0.12, M(0x0b1118, 0.3, 0.4), -0.3, 4.4, WALL + 0.0);
+    const wallP = plane(9.6, 4.39, wallT, -0.3, 4.4, WALL + 0.07, { kind: 'wall' });
+    const statT = tex(512, 336, drawStatus); plane(4.0, 2.62, statT, 7.6, 5.2, WALL + 0.03);
+    const edgeT = tex(512, 300, drawEdge); plane(4.0, 2.34, edgeT, 7.6, 2.55, WALL + 0.03);
 
-    const rugT = radial(); const deskM = M(0x13231c, 0.32, 0.3); const legM = M(0x2a3d34, 0.3, 0.7);
+    const rugT = radial(); const deskM = M(0x1d3a2d, 0.3, 0.35); const legM = M(0x2a3d34, 0.3, 0.7);
     const st = (mRef.current?.stations || []).map((s0, i) => { const [x, z] = DESK_AT(i); const k = s0.key; const ag = AG[k];
       const rugM = new THREE.MeshBasicMaterial({ map: rugT, color: hex(ag), transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false });
       const rug = new THREE.Mesh(new THREE.PlaneGeometry(4.1, 2.6), rugM); rug.rotation.x = -Math.PI / 2; rug.position.set(x, 0.008, z + 0.2); scene.add(rug);
       box3(2.7, 0.07, 1.05, deskM, x, 0.78, z); box3(2.7, 0.025, 0.04, E(ag, 1.4), x, 0.76, z + 0.53, false);
       [[-1.25, -0.42], [1.25, -0.42], [-1.25, 0.42], [1.25, 0.42]].forEach(([a, b]) => box3(0.05, 0.76, 0.05, legM, x + a, 0.38, z + b));
-      const scr = tex(360, 230, drawDesk); box3(1.36, 0.88, 0.05, M(0x0b1118, 0.35), x - 0.3, 1.31, z - 0.3);
-      const mon = plane(1.28, 0.82, scr, x - 0.3, 1.31, z - 0.272, { k, kind: 'monitor' }); box3(0.07, 0.36, 0.07, legM, x - 0.3, 0.98, z - 0.3);
+      const scr = tex(360, 230, drawDesk); box3(1.58, 1.02, 0.05, M(0x0b1118, 0.35), x - 0.3, 1.38, z - 0.3);
+      const mon = plane(1.5, 0.96, scr, x - 0.3, 1.38, z - 0.272, { k, kind: 'monitor' }); box3(0.07, 0.36, 0.07, legM, x - 0.3, 0.98, z - 0.3);
       const sideT = tex(220, 170, drawSide); const side = new THREE.Mesh(new THREE.PlaneGeometry(0.66, 0.51), new THREE.MeshBasicMaterial({ map: sideT, toneMapped: false })); side.position.set(x + 0.72, 1.16, z - 0.2); side.rotation.y = -0.42;
       side.userData = { k, kind: 'monitor' }; scene.add(side);
-      const scan = new THREE.Mesh(new THREE.PlaneGeometry(1.26, 0.05), new THREE.MeshBasicMaterial({ color: hex(ag), transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false })); scan.position.set(x - 0.3, 1.31, z - 0.26); scene.add(scan);
+      const scan = new THREE.Mesh(new THREE.PlaneGeometry(1.48, 0.05), new THREE.MeshBasicMaterial({ color: hex(ag), transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false })); scan.position.set(x - 0.3, 1.38, z - 0.26); scene.add(scan);
       const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 12), E(ag, 2.6)); lamp.position.set(x + 1.2, 1.12, z - 0.35); scene.add(lamp); box3(0.03, 0.3, 0.03, legM, x + 1.2, 0.95, z - 0.35, false);
-      const bx = x + 1.05; const bz = z + 0.75; const b = makeBot(k); b.g.position.set(bx, 0, bz); b.g.rotation.y = Math.atan2((x - 0.3) - bx, (z - 0.3) - bz); scene.add(b.g);
+      const bx = x + 1.05; const bz = z + 0.75; const b = makeBot(k); b.g.scale.setScalar(1.3); b.g.position.set(bx, 0, bz); b.g.rotation.y = Math.atan2((x - 0.3) - bx, (z - 0.3) - bz); scene.add(b.g);
       const ringM = E(0x4d6a5c, 1.6); const ring = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.035, 8, 48), ringM); ring.rotation.x = -Math.PI / 2; ring.position.set(bx, 0.02, bz); scene.add(ring);
       const selR = new THREE.Mesh(new THREE.TorusGeometry(0.78, 0.024, 8, 56, Math.PI * 1.6), E(0xffffff, 2.4)); selR.rotation.x = -Math.PI / 2; selR.position.set(bx, 0.03, bz); selR.visible = false; scene.add(selR);
       const ripM = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false }); const rip = new THREE.Mesh(new THREE.RingGeometry(0.6, 0.66, 48), ripM); rip.rotation.x = -Math.PI / 2; rip.position.set(bx, 0.035, bz); scene.add(rip);
@@ -300,7 +300,7 @@ export default function OfficeRoom3D({ model, onSel, onCoin, cam: camMode = 'mai
       else if (mode === 'card') { wantP.set(0, 6.4, PZ + 8.6); wantL.set(0, 1.0, PZ - 0.4); }
       else if (mode === 'focus' && selS) { wantP.set(selS.x * 0.8 + 0.6, 3.6, selS.z + 4.8); wantL.set(selS.x, 1.1, selS.z - 0.2); }
       else { if (rotRef.current && moving) ang += dt * 0.15; const a = rotRef.current ? Math.sin(ang) * 0.5 : 0;   // auto-rotate = a slow sweep across the room (a full orbit would go behind the wall)
-        wantP.set(Math.sin(a) * 17.4, 13.6, Math.cos(a) * 17.4); wantL.set(0, 1.7, -0.4); }
+        wantP.set(Math.sin(a) * 15.3, 11.6, Math.cos(a) * 15.3); wantL.set(0, 1.35, 0.15); }
       pos.lerp(wantP, moving ? 0.06 : 1); look.lerp(wantL, moving ? 0.08 : 1); cam.position.copy(pos); cam.lookAt(look);
       if (wall?.reviewAt != null && t - wallAt > 1) { wallAt = t; wallT.userData.redraw(wall, Date.now() / 1000 - baseAt); }   // the review clock on the wall ticks
       if (focusI > 0 && moving) { const u = (t * 0.12) % 1; const L = Math.min(focusI, 9); const seg = Math.floor(u * L); pulse.visible = true; pulse.position.copy(segs[seg].path.getPoint(u * L - seg)); pulse.position.y = 0.14; } else pulse.visible = false;
@@ -310,11 +310,11 @@ export default function OfficeRoom3D({ model, onSel, onCoin, cam: camMode = 'mai
           s.ringM.emissiveIntensity = (act === 'WAIT' ? 0.7 : 1.7) + (amp ? Math.sin(t * 5 + s.i) * amp * 1.1 : 0) + (s.focus ? 0.8 : 0); s.ring.scale.setScalar(1 + (amp ? Math.sin(t * 5 + s.i) * amp * 0.05 : 0));
           s.rugM.opacity = (act === 'WAIT' ? 0.16 : 0.32) + (s.sel ? 0.22 : 0) + (s.focus ? 0.14 : 0) + (amp ? Math.sin(t * 2.5 + s.i) * amp * 0.06 : 0);
           s.selR.rotation.z = t * (act === 'SUBMITTED' ? 2.2 : 0.6);
-          const scan = act === 'SCAN' || act === 'LOGGING'; s.scan.material.opacity = scan ? 0.75 : 0; if (scan) s.scan.position.y = 1.31 - 0.36 + ((t * 0.7 + s.i * 0.13) % 1) * 0.72;
+          const scan = act === 'SCAN' || act === 'LOGGING'; s.scan.material.opacity = scan ? 0.75 : 0; if (scan) s.scan.position.y = 1.38 - 0.44 + ((t * 0.7 + s.i * 0.13) % 1) * 0.88;
           const r = t - s.ripAt; if (r >= 0 && r < 1.2) { s.rip.scale.setScalar(1 + r * 1.6); s.ripM.opacity = (1 - r / 1.2) * 0.8; } else s.ripM.opacity = 0; }
         else { s.ringM.emissiveIntensity = act === 'WAIT' ? 0.7 : 1.7; s.rugM.opacity = (act === 'WAIT' ? 0.16 : 0.32) + (s.sel ? 0.22 : 0); s.scan.material.opacity = 0; s.ripM.opacity = 0; }
         b.white.emissive.setHex(hover === s.k ? 0x16351f : 0);
-        if (s.lab) { v.set(s.bx, 1.62, s.bz); v.project(cam); const out = v.z > 1; s.lab.style.transform = `translate(${(v.x * 0.5 + 0.5) * renderer.domElement.clientWidth}px, ${(-v.y * 0.5 + 0.5) * renderer.domElement.clientHeight}px) translate(-50%, -100%)`; s.lab.style.visibility = out ? 'hidden' : 'visible'; } });
+        if (s.lab) { v.set(s.bx, 1.95, s.bz); v.project(cam); const out = v.z > 1; s.lab.style.transform = `translate(${(v.x * 0.5 + 0.5) * renderer.domElement.clientWidth}px, ${(-v.y * 0.5 + 0.5) * renderer.domElement.clientHeight}px) translate(-50%, -100%)`; s.lab.style.visibility = out ? 'hidden' : 'visible'; } });
       slots.forEach((sl, i) => { if (!sl.grp.visible) return; sl.h += (sl.want - sl.h) * (moving ? 0.08 : 1); sl.col.scale.y = sl.h; sl.col.position.y = 0.08 + sl.h / 2; sl.plate.position.set(0, 0.08 + Math.max(sl.h, sl.ghost.visible ? 0.55 : 0) + 0.5, 0); if (sl.ghost.visible && moving) sl.ghostM.opacity = 0.12 + Math.sin(t * 3 + i) * 0.08; sl.plate.quaternion.copy(cam.quaternion);
         const d = sl.data; const filling = d && !d.symbol && d.decision === 'FILLING'; sl.ringM.emissiveIntensity = filling && moving ? 1.4 + Math.sin(t * 4 + i) * 1.1 : d?.selected ? 3 : 1.4; sl.ring.scale.setScalar(d?.selected ? 1.18 : 1); });
       caseObjs.forEach(c => { c.mesh.quaternion.copy(cam.quaternion); if (moving) c.mesh.position.y = c.base + Math.sin(t * 1.6 + c.i) * 0.03; c.mesh.scale.setScalar(c.c.selected ? 1.15 : c.c.current ? 1.08 : 1); });
