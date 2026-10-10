@@ -55,3 +55,12 @@ def test_the_desk_reads_humans_in_its_drivers_its_argument_and_a_real_analysis_w
     assert set(a['jokes']) == {'tally', 'sherlock', 'trigger', 'devil'} and all(a['jokes'].values())
     assert any(l['who'] == 'desk' and l['text'].startswith('✍') for l in st['feed'])
     assert tm.quip('devil', 'object', 'X') == tm.quip('devil', 'object', 'X')         # stable per coin — no flicker
+
+
+def test_devil_jokes_follow_the_real_reason():
+    assert tm.devil_sit('object', 'against it: volume drying up') == 'object_quiet'
+    assert tm.devil_sit('object', 'botted launch: 5 bundled launch wallets') == 'object_bots'
+    assert tm.devil_sit('object', 'already +300% on the hour — it ran') == 'object_ran'
+    assert tm.devil_sit('object', 'its read is BOND RUN — a busted call on its own record') == 'object_read'
+    assert tm.devil_sit('agree', '') == 'agree'
+    assert 'bundles' not in tm.quip('devil', tm.devil_sit('object', 'against it: volume drying up'), 'SHINU')

@@ -189,7 +189,11 @@ QUIPS = {
     'trigger': {'enter': ['Clean entry. Not chasing, not catching — just walking in.', 'Door is open. Small ticket, no hero.'],
                 'wait': ['Patience. The top is where jeets go to retire.', 'Not yet. Even the moon has a schedule.'],
                 'skip': ['Hard pass. My exit liquidity era is over.', 'Nope. That chart has a lawyer.']},
-    'devil': {'object': ['Respectfully: this is how bags are born.', 'Love the energy. Hate the bundles.', 'I have seen this movie. The dev leaves in act two.'],
+    'devil': {'object': ['Respectfully: this is how bags are born.', 'I have seen this movie. The dev leaves in act two.'],
+              'object_bots': ['Love the energy. Hate the bundles.', 'Those buyers share one Wi-Fi password.'],
+              'object_quiet': ['No volume, no party. This is a museum.', 'The tape is asleep and I am not paying to wake it.'],
+              'object_ran': ['It already ran. We are not exit liquidity.', 'Buying here is how you meet the top personally.'],
+              'object_read': ['That read has a rap sheet.', 'This setup has lost before and it remembers.'],
               'agree': ['Fine. I looked for the rug and found carpet.', 'No smoking gun. Annoying, but fine.'], 'default': ['Somebody has to be the adult in the trenches.']},
 }
 
@@ -223,6 +227,17 @@ def read(row, calls=None, hot=None):
     return {'narr': (nk, nl, is_hot), 'crowd': cr, 'bots': (bs, bw), 'tug': (tg, tw), 'drivers': ds}
 
 
+def devil_sit(verdict, arg):
+    """Devil's joke follows its REAL reason (a 'bundles' joke on a quiet tape is fake entertainment)."""
+    if verdict != 'object':
+        return verdict if verdict == 'agree' else 'default'
+    a = str(arg or '').lower()
+    return ('object_bots' if any(w in a for w in ('bot', 'bundle', 'swarm', 'wash', 'organic')) else
+            'object_quiet' if any(w in a for w in ('drying', 'quiet')) else
+            'object_ran' if any(w in a for w in ('ran', 'top', 'spiking', 'chasing')) else
+            'object_read' if any(w in a for w in ('read is', 'record', 'lately')) else 'object')
+
+
 def analysis(sym, rd, nums, call, verdict, arg):
     """✍ A real paragraph from what the desk KNOWS about this coin — narrative, crowd, bots, the tape, the call, the argument — plus one line of
     each agent's humor. Not a template of numbers: every clause appears only when its evidence does."""
@@ -253,6 +268,6 @@ def analysis(sym, rd, nums, call, verdict, arg):
     sit_s = 'swarm' if cr['swarm'] else 'bots' if bs >= 40 else 'tug' if tg else 'narrative' if nl else 'default'
     jokes = {'sherlock': quip('sherlock', sit_s, seed, narr=(nl or '').split(' ', 1)[-1]),
              'trigger': quip('trigger', call if call in ('enter', 'wait', 'skip') else 'wait', seed),
-             'devil': quip('devil', verdict if verdict in ('agree', 'object') else 'default', seed),
+             'devil': quip('devil', devil_sit(verdict, arg), seed),
              'tally': quip('tally', 'surge' if _f(n.get('pace')) >= 2 else 'quiet' if n.get('pace') is not None and _f(n['pace']) < 0.5 else 'falling' if _f(n.get('d5')) < -6 else 'default', seed)}
     return {'text': ' '.join(parts), 'jokes': jokes}
