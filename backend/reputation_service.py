@@ -8719,6 +8719,26 @@ async def _volcycle_fix_1009(now):
     return True
 
 
+async def _degen_crazy_fix_1009(now):
+    """🧨 Once (owner, 2026-10-09: "go degen crazy and get us back to $4 — we are in this, not just me"): faster cycling with the guards that
+    were added the same afternoon kept — rush + volume cycle every 5 min, trench tickets 25% of the card (ride or rug, 🏠 at 2×), 2 trench
+    coins. Full seats still need 6h+ / $50K pools; rush still skips thin pools, busted reads and coins that already ran.
+    Old values: data/realcfg_before_crazy1009.json."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('crazyFix1009') or not rc:
+            return False
+        ch = {'trenchEvery': 5, 'volEvery': 5, 'trenchStakePct': 25, 'trenchCoins': 2, 'trenchRush': True, 'volCycle': True}
+        _json_save(DATA_DIR / 'realcfg_before_crazy1009.json', {k: rc.get(k) for k in ch})
+        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
+        pr['crazyFix1009'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _ticket_ride_fix(now):
     """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
     once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
@@ -8831,6 +8851,7 @@ async def _prime_tick_inner(now):
     await _floor_off_fix_1009(now)
     await _rush_fix_1009(now)
     await _volcycle_fix_1009(now)
+    await _degen_crazy_fix_1009(now)
     await _ladder_keep_fix(now)
     cfg = _prime_cfg()
     if not cfg['on']:

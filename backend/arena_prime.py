@@ -1580,6 +1580,7 @@ PICK_LOCKS = (0, 15, 30, 60)        # ⏳ cfg `pickLockMins`: 0 = off
 
 TRENCH_BAD_READS = ('BOND RUN', 'EARLY RUSH', 'RUG BAIT', 'DUMPING', 'SLOW CURVE', 'BREAKOUT', 'FALLING KNIFE')   # 1h records −13 … −84%
 RUSH_BAD = set(TRENCH_BAD_READS) | {'WASH TRADED', 'BLOW-OFF TOP', 'DEAD DIP', 'TREND DOWN'}
+RUSH_MAX_1H = 150.0       # … nor a coin already up more than this on the hour (the rush list still ranked $WOTF at +128,116% after it rugged)
 RUSH_MIN_LIQ = 20_000.0   # a rush never buys into a pool thinner than this ($Emotional: $14K pool, pulled 4 min after the buy, 2026-10-09)
 
 
@@ -1592,7 +1593,7 @@ def rush_score(r):
     rug = _f(r.get('rug') if r.get('rug') is not None else tv.get('rug'))
     c5 = _f(r.get('chg5m'))
     liq = _f(r.get('liq') if r.get('liq') is not None else r.get('liquidityUsd'))
-    if r.get('safe') is not True or ((tv.get('call') or [None, None])[1]) in RUSH_BAD or rug >= 50 or c5 > 15 or c5 < -5 or 0 < liq < RUSH_MIN_LIQ:   # a +15% candle = a top · −5% = falling now · thin pool = pullable
+    if r.get('safe') is not True or ((tv.get('call') or [None, None])[1]) in RUSH_BAD or rug >= 50 or c5 > 15 or c5 < -5 or 0 < liq < RUSH_MIN_LIQ or _f(r.get('chg1h')) > RUSH_MAX_1H:   # a +15% candle = a top · −5% = falling now · thin pool = pullable
         return None
     return round(20 + _f((r.get('brain') or {}).get('est')) + _f(tv.get('heat')) * 0.3 - rug * 0.4
                  + (c5 if c5 > 0 and _f(r.get('buyShare')) >= 55 else 0) + (5 if r.get('site') and r.get('x') else 0), 1)

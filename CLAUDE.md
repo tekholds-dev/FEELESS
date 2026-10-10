@@ -2621,3 +2621,5 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `arena_prime.vol_cycle_rows` (open-list coins whose scan PASSED, ≥ $50K/h, buyers ≥ 52%, ≥ 6h old with a known age (`VOL_CYCLE_MIN_AGE_H`) and a ≥ $50K pool (`VOL_CYCLE_MIN_LIQ`) — it took a FULL $1.04 seat in $WOTF at ~30 min old, pulled 5 min later (−97%); brand-new coins are 15% trench tickets ONLY — 0 … +150% on the hour (`VOL_CYCLE_MAX_1H`: its first pick was $WOTF at +130,852% — a launch pump), rush-clean incl. pool ≥ $20K).
   The new leg is the ENGINE's (picked popped, tag '🌊 volume'). Why: the engine's own funnel went 79 safe → 0 buyable and the mover swap was
   off, so flat coins held their seats for good.
+- 🧨 `_degen_crazy_fix_1009` (owner: "go degen crazy, get us back to $4"): rush + volume cycle every 5 min, trench tickets 25%, 2 trench coins
+  (backup data/realcfg_before_crazy1009.json). ⚡ Rush also skips coins up > `RUSH_MAX_1H` 150% on the hour (mirror in lib/lean.js).
