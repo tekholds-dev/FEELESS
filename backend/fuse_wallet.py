@@ -701,6 +701,27 @@ def write_off_dust(book, prices, min_usd=DUST_USD):
     return b, gone
 
 
+DRAINED_IMPACT = 90.0
+
+
+def write_off_drained(book, on_card, now, min_usd=DUST_USD):
+    """🩸 A coin the card no longer holds on purpose (off the card / recovered) whose FRESH sell quote says the whole holding sells for under
+    `min_usd` — a drained pool — is written off the book (the coins stay in the wallet). 2026-10-09: $QI's pool was drained, every $5 sell
+    was refused at 99% impact, and the sell-before-buy barrier then blocked EVERY buy for half an hour ("buy never landed", empty seats).
+    Coins still on the engine card are never written off here (the rug shield / stops take them off first). → (book, [written off])."""
+    b = {**book, 'legs': {k: dict(v) for k, v in (book.get('legs') or {}).items()}}
+    gone = []
+    for m, l in list(b['legs'].items()):
+        q = (b.get('sellQuote') or {}).get(m)
+        if m in set(on_card or ()) or not q or now - _f(q.get('at')) > SELL_QUOTE_SEC:
+            continue
+        usd = held_units(b, m) * _f(q.get('per'))
+        if usd < min_usd or _f(q.get('impact')) >= DRAINED_IMPACT:   # worth dust, or the route itself is ≥ 90% impact — it cannot be sold
+            gone.append({'mint': m, 'symbol': l.get('symbol') or m[:6], 'usd': round(usd, 6), 'costUsd': round(_f(l.get('costUsd')), 4), 'pair': l.get('pair')})
+            b['legs'].pop(m)
+    return b, gone
+
+
 def withdraw_cash(book, sol_px, usd=None):
     """💵 The OWNER takes money out of the card: card cash (SOL the card already holds — a manual sell lands here) leaves the card and
     the principal drops by the same amount. Put in $5, take $2 out → the card's principal is $3, and profit is whatever it is worth
@@ -913,7 +934,7 @@ def settle_owed_in(book, free, now):
 SELL_QUOTE_SEC = 1800.0   # a sell quote this fresh is what a coin is really worth (a drained pool: Jupiter's price says $32, the route pays $0.02)
 
 
-def note_sell_quote(book, order, out_lamports, sol_px, now):
+def note_sell_quote(book, order, out_lamports, sol_px, now, impact=None):
     """💧 Remember what SELLING really pays for a coin: the keeper's own quote (refused or not) → book `sellQuote[mint]` = $ per unit.
     No route at all → 0. 2026-10-09: $QI's pool was drained (99% price impact); Jupiter's price × the leftover units read the card as $32.37
     while the whole wallet held under $3."""
@@ -921,7 +942,7 @@ def note_sell_quote(book, order, out_lamports, sol_px, now):
     if units <= 0 or order.get('side') != 'sell':
         return book
     per = (int(_f(out_lamports)) / 1e9 * _f(sol_px)) / units if out_lamports is not None else 0.0
-    book.setdefault('sellQuote', {})[order['mint']] = {'per': per, 'at': now}
+    book.setdefault('sellQuote', {})[order['mint']] = {'per': per, 'at': now, 'impact': 100.0 if out_lamports in (None, 0) else (round(_f(impact), 2) if impact is not None else None)}
     return book
 
 

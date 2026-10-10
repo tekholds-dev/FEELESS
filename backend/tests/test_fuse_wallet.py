@@ -1420,3 +1420,15 @@ def test_a_drained_pool_is_worth_what_selling_pays_not_the_quoted_price():
     fw.note_sell_quote(book, order, 0, 110.0, 2000.0)                                   # no route at all → 0
     assert round(fw.book_value(book, px, 110.0, now=2001.0), 4) == round(0.002 * 110, 4)
     assert fw.note_sell_quote({'legs': {}}, {'side': 'buy', 'mint': 'X', 'atoms': 1, 'decimals': 0}, 1, 1, 0) == {'legs': {}}
+
+
+def test_a_drained_off_card_coin_is_written_off_so_buys_flow_again():
+    import fuse_wallet as fw
+    book = {'sol': 0.002, 'legs': {'QI': {'pair': 'PQ', 'atoms': 46_000_000_000_000, 'decimals': 6, 'costUsd': 0.39, 'symbol': 'QI'},
+                                   'DR': {'pair': 'PD', 'atoms': 294_000_000, 'decimals': 6, 'costUsd': 0.33, 'symbol': 'DR'}}}
+    fw.note_sell_quote(book, {'side': 'sell', 'mint': 'QI', 'atoms': 7_000_000_000_000, 'decimals': 6}, 300_000, 110.0, 1000.0, 99.38)
+    fw.note_sell_quote(book, {'side': 'sell', 'mint': 'DR', 'atoms': 100_000_000, 'decimals': 6}, 1_000_000, 110.0, 1000.0, 99.0)
+    b, gone = fw.write_off_drained(book, ['DR'], 1100.0)
+    assert [g['symbol'] for g in gone] == ['QI'] and 'QI' not in b['legs'] and 'DR' in b['legs']   # still on the engine card → never written off here
+    b2, gone2 = fw.write_off_drained(book, [], 1000.0 + fw.SELL_QUOTE_SEC + 10)
+    assert gone2 == []                                                                          # a stale quote decides nothing

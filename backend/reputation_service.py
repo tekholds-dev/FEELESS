@@ -10180,7 +10180,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
                 await asyncio.sleep(1.5)
         row['impactPct'] = round(_fuse._f(q.get('priceImpactPct')) * 100, 3); row['quoteOut'] = q.get('outAmount')
         if order['side'] == 'sell':   # 💧 what selling really pays → the card's value (a drained pool must not read as money); the pass saves `book`
-            _fw.note_sell_quote(book, order, q.get('outAmount'), sol_px, now)
+            _fw.note_sell_quote(book, order, q.get('outAmount'), sol_px, now, row['impactPct'])
         if order['side'] == 'buy':   # 🛡 secure buy: near market price + it really sells back (both read-only quotes)
             ok_s, why_s, row['sellBackPct'] = await _fw_secure_buy(order, cfg, q)
             if not ok_s:
@@ -10682,6 +10682,7 @@ async def _fw_tick_inner(now):
                 done_ = await _fw_execute_swap(tid, {**s_o, 'cardPays': int(card.get('rounds') or 0) >= 5}, b_o, book, cfg, sol_px, liqs.get(b_o.get('pair')) or leg_liq)
                 if done_ is not None:
                     book = done_
+        drained_ = []
         for side in (('sell',) if book.get('halt') or book.get('pending') else ('sell', 'buy')):   # ⏸ halted = sells only (owner's queued sells still land)
             for o in [{**x, 'cardPays': int(card.get('rounds') or 0) >= 5} for x in _fw.orders(tid, want, book, px, sol_px, cfg, now, count_sells=side == 'sell') if x['side'] == side]:
                 if hold and swap_out(o):
@@ -10703,6 +10704,8 @@ async def _fw_tick_inner(now):
                 # (route refused, tx expired, partial max-swap chunk, etc.), do not buy anything yet.
                 # The next keeper tick retries the remaining sell first. This prevents a failed sell
                 # from leaving the old coin held while spare SOL buys its replacement too.
+                book, dr_ = _fw.write_off_drained(book, [l.get('mint') for l in card.get('legs') or [] if not l.get('placeholder')], time.time())
+                drained_.extend(dr_)   # 🩸 a drained pool's leftovers leave the book — they must never hold the buys hostage
                 remaining_sells = [x for x in _fw.orders(tid, want, book, px, sol_px, cfg, time.time(), count_sells=True) if x['side'] == 'sell']
                 if remaining_sells:
                     break
@@ -10711,6 +10714,9 @@ async def _fw_tick_inner(now):
             book, written_off = _fw.write_off_dust(book, px)
         async with _fw_lock:
             d2 = _fw_load()
+            for w in drained_:
+                _fw_record(d2, {'card': tid, 'side': 'writeoff', 'mint': w['mint'], 'pair': w.get('pair'), 'symbol': w['symbol'], 'usd': w['usd'], 'costUsd': w['costUsd'], 'at': now, 'status': 'done',
+                                'why': f"drained pool written off: selling it all pays ${w['usd']:.4f} (cost ${w['costUsd']:.2f}) — the coins stay in the wallet, the keeper stops trying"})
             for w in written_off:
                 _fw_record(d2, {'card': tid, 'side': 'writeoff', 'mint': w['mint'], 'pair': w.get('pair'), 'symbol': w['symbol'], 'usd': w['usd'], 'costUsd': w['costUsd'], 'at': now, 'status': 'done',
                                 'why': f"dead coin written off: worth ${w['usd']:.4f} (cost ${w['costUsd']:.2f}) — too small for any route; the coins stay in the wallet"})
@@ -11067,7 +11073,7 @@ def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
         if mint in visible or not int(_fuse._f(leg.get('atoms'))):
             continue
         units = int(_fuse._f(leg.get('atoms'))) / 10 ** int(leg.get('decimals') or 0)
-        px_now = _fuse._f((prices or {}).get(leg.get('pair'))) or _fuse._f(leg.get('entryPx'))
+        px_now = _fw.leg_px(b, mint, leg, prices or {}, time.time())   # 💧 what selling pays, never a drained pool's quoted price
         off_card.append({'mint': mint, 'symbol': leg.get('symbol') or mint[:6], 'usd': round(units * px_now, 4),
                          'costUsd': round(_fuse._f(leg.get('costUsd')), 4), 'status': 'awaiting confirmed sell'})
     ledger_paid = sum(max(0.0, _fuse._f(o.get('payoutUsd'))) for o in _fw_full_ledger() if o.get('card') == tid and o.get('status') == 'filled' and o.get('side') == 'sell')
@@ -11095,6 +11101,8 @@ def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
             if not hist:
                 continue
             last = hist[-1]
+            if last.get('side') == 'writeoff':   # 🩸 written off (dead dust / drained pool): offering "sell it" again would re-book it and jam the buys
+                continue
             recoverable.append({'mint': mint, 'symbol': last.get('symbol') or mint[:6], 'atoms': excess,
                                 'lastStatus': last.get('status'), 'lastErr': (last.get('err') or '')[:90], 'lastAt': last.get('at')})
     try:   # 👁 the swap as steps (done → sending → next), one transaction at a time
@@ -11365,6 +11373,8 @@ async def fuse_wallet_recover_sell_all(request: Request):
             if not hist:
                 continue
             last = hist[-1]
+            if last.get('side') == 'writeoff':   # 🩸 a written-off drained / dead coin is never re-booked (it jammed every buy behind a refused sell)
+                continue
             st = {'card': tid, 'mint': mint, 'atoms': excess,
                   'decimals': int((bal.get('decimals') or {}).get(mint) or last.get('decimals') or 0),
                   'pair': last.get('pair'), 'symbol': last.get('symbol') or mint[:6]}

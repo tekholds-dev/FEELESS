@@ -2707,3 +2707,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   HQ: `WorkFloor` (Tally's dots = coins read, Sherlock's tags = reasons weighed, Trigger's ⌖ = real ENTERs, Devil's ✓/✕ = real verdicts,
   re-keyed per pass, ms per lane) · `Tanks` (next generation in water; level = real danger from status + calls vs the scrap line; the lesson
   it inherits on the glass) · `Edge` (calibration · regime · burned · cut sources).
+- 🩸 A DRAINED POOL NEVER JAMS THE KEEPER (2026-10-09: every $5 $QI sell refused at 99% impact; the SELL-BEFORE-BUY barrier then blocked EVERY
+  buy for 30+ min → "buy never landed in 2 min", empty seats, "New coins: 75 safe → 0 buyable"): `note_sell_quote` keeps the quote's impact;
+  `fuse_wallet.write_off_drained` (each sell pass, before the barrier) writes off an OFF-CARD coin whose fresh quote says the whole holding
+  sells for < $0.05 or the route is ≥ 90% impact (ledger `writeoff` "drained pool"; coins stay in the wallet). The recovery panel values off-card
+  coins with `leg_px` (it showed "$0.39 → $31.54 · 8042%") and neither the recovery list nor repair-sell-all re-books a written-off coin.
+  "BUYS NEVER LAND" ⇒ read the ledger for a sell refused over and over first.
