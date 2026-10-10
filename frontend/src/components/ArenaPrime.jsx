@@ -750,6 +750,8 @@ export function HqRealCards({ addr, onCount }) {
         <div className="hq-real-card"><span className="cpop-wrap"><LiveFuseCard r={primeRow(c)} aura={t.aura} look={t.look} label="💵 REAL · FUSE WALLET" serverOnly mini={{ kind: 'prime', tpl: c.tpl, name: c.label }} /><CardPops fills={b.orders || []} legs={c.legs} cfg={cf} tp={c.tp} /></span>
           <CardVitals c={c} funded={b.fundedUsd || c.startUsd} onTrail={() => setTrail(c.id)} /><ComingUp p={c.pipeline} legs={c.legs} busy={!!busy} emptySeats={Math.max(0, (Number(cf?.coins) || 0) - (c.legs || []).filter(l => !l.placeholder).length)}
             onFill={r => prime({ fillSeat: { tpl: c.tpl, to: r.mint, toPair: r.pairAddress } }, `🪑 $${r.symbol} fills a seat now`, 'pick')} onSwap={(l, r, now) => prime({ pickSwap: { tpl: c.tpl, pairAddress: l.pairAddress, to: r.mint, toPair: r.pairAddress, ...(now ? { now: true } : {}) } }, `🎯 $${r.symbol} comes in for $${l.symbol} ${now ? 'now' : 'at the next round'}`, 'pick')} />
+          <AgentAlert call={call} legs={c.legs} busy={!!busy} emptySeats={Math.max(0, (Number(cf?.coins) || 0) - (c.legs || []).filter(l => !l.placeholder).length)}
+            onFill={r => prime({ fillSeat: { tpl: c.tpl, to: r.mint, toPair: r.pairAddress } }, `🤖 $${r.symbol} fills a seat now`, 'pick')} onSwap={(l, r, now) => prime({ pickSwap: { tpl: c.tpl, pairAddress: l.pairAddress, to: r.mint, toPair: r.pairAddress, ...(now ? { now: true } : {}) } }, `🤖 $${r.symbol} comes in for $${l.symbol} now`, 'pick')} />
           <Versus v={c.realBook?.versus} /><PayMap card={c.tpl || 'degen'} /><PickLog events={c.audit || c.events} /><PipeLine p={c.pipeline} /></div>
         {trail === c.id && <CardEarnings title={c.label} onClose={() => setTrail(null)} taken={c.walletUsd || 0} compounded={c.compoundedUsd} fees={c.cardFeesUsd}
           gainNow={allTime(c, b.fundedUsd || c.startUsd)} events={(c.audit || c.events || []).map(e => ({ ...e, label: KIND[e.kind] || VITAL_KIND[e.kind] || e.kind }))} />}
@@ -1056,6 +1058,41 @@ export function LearnLine({ l }) {
 // list — every door (🎯 proven callers · 🌊 narrative · 🔥 top 3 · 🧊 cooling off), clean entry only, the 90s tape read (a 🩸 dump or 🏔 climax
 // never shows) — the same list an open seat takes from. Tap a coin → its live read; pick the seat → ⚡ in now or ⏱ at the bell.
 const MEDALS = ['🥇', '🥈', '🥉'];
+// 🤖 AGENT ALERT (owner, 2026-10-09: "on-screen noti in my cards when an agent found a good coin, and one click to fill, see or sub"): the
+// agent desk is polled every 20s (owner-gated GET /admin/agents); a 🟢 GO coin not on the card pops up ONCE (seen list per browser, 1h)
+// with the agents' reasons and ONE tap: 🪑 Fill seat (an empty seat) · ⇄ Swap for the weakest coin you may swap (your pick of seat in the
+// select) · 👀 See (coin drawer). The same pick path as Best 3 — every check / warning still applies. Never more than 2 alerts at once.
+const SEEN_KEY = 'feeless.agentSeen';
+const seenGet = () => { try { const o = JSON.parse(localStorage.getItem(SEEN_KEY) || '{}'); const now = Date.now(); return Object.fromEntries(Object.entries(o).filter(([, t]) => now - t < 3600e3)); } catch { return {}; } };
+const seenAdd = m => { try { localStorage.setItem(SEEN_KEY, JSON.stringify({ ...seenGet(), [m]: Date.now() })); } catch { /* private window */ } };
+export const agentAlerts = (table, legs, seen, n = 2) => { const on = new Set((legs || []).map(l => l.mint));
+  return (table || []).filter(x => x.go && !on.has(x.mint) && !seen[x.mint]).slice(0, n); };
+export const weakestSeat = legs => (legs || []).filter(l => l.symbol !== 'SOL' && !l.ride && !l.frozen && !l.placeholder && !l.buying)
+  .sort((a, b) => (Number(a.pnlPct) || 0) - (Number(b.pnlPct) || 0))[0] || null;
+export function AgentAlert({ call, legs = [], emptySeats = 0, onFill, onSwap, busy }) {
+  const [table, setTable] = useState([]); const [seen, setSeen] = useState(seenGet); const [seat, setSeat] = useState({});
+  useEffect(() => { if (!call) return undefined; let on = true; const load = () => !document.hidden && call('/admin/agents').then(v => on && setTable(v?.table || [])).catch(() => {});
+    load(); const t = setInterval(load, 20000); return () => { on = false; clearInterval(t); }; }, [call]);
+  const shown = agentAlerts(table, legs, seen);
+  if (!shown.length) return null;
+  const done = m => { seenAdd(m); setSeen(seenGet()); };
+  const swappable = (legs || []).filter(l => l.symbol !== 'SOL' && !l.ride && !l.frozen && !l.placeholder && !l.buying);
+  const weak = weakestSeat(legs);
+  return createPortal(<div className="aga-stack" data-testid="agent-alerts">{shown.map((x, i) => { const r = { mint: x.mint, pairAddress: x.pair, symbol: x.symbol, price: x.px, liq: x.nums?.liq };
+    const to = seat[x.mint] || weak?.pairAddress || ''; const out = swappable.find(l => l.pairAddress === to);
+    return <div key={x.mint} className="aga" style={{ '--i': i }} role="status" data-testid={`aga-${x.symbol}`}>
+      <button type="button" className="aga-x" onClick={() => done(x.mint)} aria-label="Dismiss">✕</button>
+      <b>🤖 Agents found <button type="button" className="aga-sym" onClick={() => openCoin({ mint: x.mint, pairAddress: x.pair, symbol: x.symbol })}>${x.symbol}</button> <i>🟢 GO</i></b>
+      <small>🔍 {(x.why?.drivers || []).slice(0, 2).map(d => d[2]).join(' · ') || 'moving'} · lean {x.why?.lean >= 0 ? '+' : ''}{x.why?.lean}</small>
+      <small>📊 {x.nums?.d5 >= 0 ? '+' : ''}{x.nums?.d5}% 5m{x.nums?.buy != null ? ` · ${Math.round(x.nums.buy)}% buys` : ''} · ⚖ Devil: {x.devil?.[1] || 'agrees'}</small>
+      <span className="aga-do">
+        {emptySeats > 0 && onFill && <button type="button" className="m-btn m-go" disabled={busy} onClick={() => { onFill(r); done(x.mint); }} data-testid={`aga-fill-${x.symbol}`}>🪑 Fill seat</button>}
+        {swappable.length > 0 && onSwap && <><select className="m-input aga-sel" value={to} onChange={e => setSeat(o => ({ ...o, [x.mint]: e.target.value }))} aria-label="Coin to swap out">{swappable.map(l => <option key={l.pairAddress} value={l.pairAddress}>for ${l.symbol}{l.pnlPct != null ? ` (${l.pnlPct >= 0 ? '+' : ''}${Number(l.pnlPct).toFixed(0)}%)` : ''}</option>)}</select>
+          <button type="button" className="m-btn" disabled={busy || !out} onClick={() => { onSwap(out, r, true); done(x.mint); }} data-testid={`aga-swap-${x.symbol}`}>⇄ Swap now</button></>}
+        <button type="button" className="m-btn" onClick={() => openCoin({ mint: x.mint, pairAddress: x.pair, symbol: x.symbol })} data-testid={`aga-see-${x.symbol}`}>👀 See</button></span>
+    </div>; })}</div>, document.body);
+}
+
 export function ComingUp({ p, legs = [], onSwap, onFill, emptySeats = 0, busy }) {
   const [target, setTarget] = useState({});   // per coin: which seat it goes into ('' = the first empty seat, else the first coin)
   const [learn, setLearn] = useState(null);   // 🧠 what the engine learned from this card's own real exits (GET /fuses/learn)

@@ -212,3 +212,20 @@ body.theme-day .trc { background: linear-gradient(135deg, #e6f7ee, #efe8fb); bor
 body.theme-day .trc-card { background: rgba(255, 255, 255, .7); border-color: #cfe3d8; }
 body.theme-day .trc-sym { color: #0d2a1b; } body.theme-day .trc-h { color: #0f8a45; }
 @media (max-width: 640px) { .trc-row { grid-template-columns: 1fr; } }
+
+/* 🤖 agent alert — on-screen, top right, one tap */
+.aga-stack { position: fixed; top: 76px; right: 16px; z-index: 900; display: grid; gap: 8px; width: min(340px, calc(100vw - 32px)); }
+.aga { position: relative; display: grid; gap: 4px; padding: 11px 12px; border-radius: 14px; border: 1px solid rgba(21, 209, 106, .6); color: #e8fff1;
+  background: linear-gradient(150deg, rgba(6, 26, 16, .97), rgba(16, 10, 30, .97)); box-shadow: 0 10px 30px rgba(0, 0, 0, .45), 0 0 0 1px rgba(21, 209, 106, .15) inset;
+  animation: agaIn .2s ease-out both; animation-delay: calc(var(--i) * 60ms); }
+.aga > b { font: 800 12.5px "JetBrains Mono", monospace; } .aga > b i { font-style: normal; color: #45e486; margin-left: 4px; }
+.aga small { font-size: 11px; color: #a9c9b8; }
+.aga-sym { all: unset; cursor: pointer; color: #45e486; text-decoration: underline dotted; } .aga-sym:hover, .aga-sym:focus-visible { color: #7dffb0; }
+.aga-x { all: unset; position: absolute; top: 6px; right: 9px; cursor: pointer; color: #789; font-size: 12px; } .aga-x:hover, .aga-x:focus-visible { color: #fff; }
+.aga-do { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; align-items: center; } .aga-do .m-btn { padding: 4px 10px; font-size: 11px; }
+.aga-sel { min-width: 0; flex: 1 1 110px; font-size: 11px; padding: 3px 6px; }
+@keyframes agaIn { from { opacity: .3; transform: translateY(-8px) scale(.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .aga { animation: none; } }
+body.fx-lite .aga { animation: none; }
+body.theme-day .aga { background: linear-gradient(150deg, #f2fbf6, #f4effc); color: #0d2a1b; border-color: #8fd4ac; } body.theme-day .aga small { color: #3d5c4b; }
+@media (max-width: 640px) { .aga-stack { top: auto; bottom: 86px; right: 8px; } }

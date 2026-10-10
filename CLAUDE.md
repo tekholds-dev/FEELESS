@@ -2649,3 +2649,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   admin (role-scoped admins are refused by `_role_gate`); POST (the real-card feed) stays creator-only. 🪑 Empty seats fill from the volume
   list too (`seatFallback` gets `vol_cycle_rows` first when `volCycle` is on): the cycle only ever REPLACED a flat coin, and the engine's own
   funnel often ends at 0 — a card sat on 2 of 4 coins with $0.33 idle.
+- 🤖 AGENT ALERT on My cards (owner: "on-screen noti when an agent found a good coin, one click to fill / see / sub"; `AgentAlert` +
+  `agentAlerts` / `weakestSeat` in ArenaPrime, `aga-*` in quickPulse.css, portal top-right, ≤ 2 at once): polls `/admin/agents` every 20s;
+  a 🟢 GO coin not on the card pops ONCE (localStorage `feeless.agentSeen`, 1h) with Sherlock's reasons, Tally's numbers, Devil's verdict and
+  🪑 Fill seat (empty seat) · ⇄ Swap now (default = weakest swappable coin, select to change; never frozen / riding / buying) · 👀 See. Same
+  `fillSeat` / `pickSwap` path as Best 3 — every check and warning still applies.
