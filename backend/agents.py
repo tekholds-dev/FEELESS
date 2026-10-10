@@ -396,7 +396,7 @@ def trigger(n, why, row, learned):
 
 
 # ── ⚖ DEVIL ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-def devil(call, n, why, row, learned):
+def devil(call, n, why, row, learned, duty=False):
     """Argue against an ENTER. → (verdict 'agree' | 'object' | '—', the strongest argument). Its learned distrust: any driver of this call
     whose own 5-min record is negative, and Trigger's own record when it is losing."""
     if call != 'enter':
@@ -443,7 +443,7 @@ def devil(call, n, why, row, learned):
         if all(x in have_ for x in pair):
             args.append(f"approved avoid-tactic {iid}: {word(pair[0])} + {word(pair[1])}")
     tr = ((learned or {}).get('cards') or {}).get('trigger') or {}
-    if int(tr.get('n') or 0) >= 15 and _f(tr.get('med')) < 0:
+    if not duty and int(tr.get('n') or 0) >= 15 and _f(tr.get('med')) < 0:   # about TRIGGER'S entries — a duty case is not one (its bar is waived), so it is judged on the coin alone
         args.append(f"Trigger's last {tr['n']} calls: {_f(tr['med']):+.1f}% typical")
     return ('object', args[0]) if args else ('agree', 'no evidence against it')
 
@@ -497,7 +497,7 @@ def desk(state, rows, now, dial=None, busted=None):
         t0 = _t.perf_counter(); verdict, arg = devil(call, n, why, {**r, 'mint': m}, learned); perf['devil'] += _t.perf_counter() - t0
         if learned['trial'] == 'devil' and verdict == 'agree' and why['lean'] < bar_ + TRIAL_BAR:   # 👨‍⚖️ Devil on trial: only strong reads pass
             verdict, arg = 'object', f"on trial — only a strong read passes (lean {why['lean']:+.1f} < {bar_ + TRIAL_BAR:.1f})"
-        case = [verdict, arg] if call == 'enter' else list(devil('enter', n, why, {**r, 'mint': m}, learned)) if call == 'wait' and why['lean'] > 0 else None
+        case = list(devil('enter', n, why, {**r, 'mint': m}, learned, duty=True)) if call in ('enter', 'wait') and why['lean'] > 0 else None
         if case and learned['trial'] == 'devil' and case[0] == 'agree' and why['lean'] < bar_ + TRIAL_BAR:
             case = ['object', 'on trial — only a strong read passes']
         rd = r.get('mind') or _tm.read(r)

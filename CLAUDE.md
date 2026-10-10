@@ -2857,4 +2857,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   old running counter, which re-counted every rug older than the 60 kept autopsies on EVERY pass ("buyers" read 4,879) and made every common
   reason a "rug sign". Three stacked false objections (fixed busted list → botted on belief → inflated rug signs) are why agents in control
   cleared 0 of 25 coins; each was found by reading `data/agents_duty.json` after the previous fix. A COUNTER FED FROM A TRIMMED LIST RE-COUNTS.
+- ⚖ `devil(.., duty=True)`: a duty CASE (`row.case`) is judged on the coin alone — "Trigger's last N calls are losing" objects only to
+  Trigger's own ENTERs (the duty waives Trigger's bar, so its streak is not the case's evidence). Every coin-level objection still applies.
 

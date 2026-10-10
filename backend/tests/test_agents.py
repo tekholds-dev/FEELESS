@@ -524,3 +524,11 @@ def test_a_rug_sign_must_beat_the_base_rate_and_old_rugs_are_never_counted_twice
     b1 = ag.autopsy(many, 1); b2 = ag.autopsy(b1, 2)
     assert [x['id'] for x in b1['autopsies']] == [x['id'] for x in b2['autopsies']] and len(b2['autopsies']) == 60     # the kept 60 do not churn
     assert ag.learn(st)['rugSigns'] == {'drain': 5}
+
+
+def test_a_duty_case_is_judged_on_the_coin_not_on_triggers_losing_streak():
+    why = {'lean': 3, 'drivers': []}; row = {'safe': True, 'tv': {'call': ['x', 'WATCH'], 'rug': 5}, 'mint': 'M'}; n = {'c1': 5, 'age': 3}
+    losing = {'busted': set(), 'cards': {'trigger': {'n': 40, 'med': -2.0}}}
+    assert ag.devil('enter', n, why, row, losing)[0] == 'object'                       # Trigger's own entry: its losing record still stops it
+    assert ag.devil('enter', n, why, row, losing, duty=True)[0] == 'agree'             # a duty case: the coin itself is clean
+    assert ag.devil('enter', n, why, {**row, 'tv': {'call': ['x', 'WATCH'], 'rug': 80}}, losing, duty=True)[0] == 'object'   # … and a dirty coin never is
