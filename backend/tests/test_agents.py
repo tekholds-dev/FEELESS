@@ -264,3 +264,32 @@ def test_trust_gives_a_second_seat_only_once_taken_suggestions_prove_out(monkeyp
     assert len(rs._agents_go_rows(one, 2, learn=True, trust=True)) == 1                   # proven → a 2nd seat
     assert rs._agents_go_rows(one, 2, learn=True, trust=False) == []                      # owner switch off → one seat
     assert rs._prime.clean_cfg({})['agentTrust'] is False
+
+
+def test_growth_levels_only_while_alive_power_mirrors_the_seat_rule_and_the_card_reads_as_seats():
+    # XP = calls judged this life; a level is HELD only while alive (probation stunts it back to a hatchling)
+    st = {'gen': {'sherlock': 2}, 'lessons': {'sherlock': {'words': ['Pump callers piling in (-6%)']}}, 'lineage': [{'agent': 'sherlock', 'gen': 1}],
+          'ideas': {'i1': {'status': 'approved', 'kind': 'avoid', 'pair': ['swarm', 'surge']}, 'i2': {'status': 'new', 'kind': 'take', 'pair': ['buyers', 'surge']}}}
+    g = ag.growth(st)
+    assert g['tally']['name'] == 'Egg' and g['tally']['xp'] == 0 and g['tally']['next'] == 10 and g['tally']['pct'] == 0
+    assert g['sherlock']['gen'] == 2 and g['sherlock']['genes'] == ['Pump callers piling in (-6%)'] and g['sherlock']['scars'] == 1
+    assert len(g['devil']['skills']) == 1 and g['sherlock']['skills'] == []          # only APPROVED ideas are skills; avoid → Devil
+    assert [lv[0] for lv in ag.LEVELS][2:4] == [ag.SURVIVE_N, ag.SCRAP_N]             # levels sit on the lines a life is already judged on
+    # 🪜 power = the same rule the real card buys by
+    assert ag.seat_limit({}, False, {}) == 0 and ag.seat_limit({'agentLearn': True}, False, {}) == 1
+    good = {'suggested': {'n': 12, 'med': 3.0}}
+    assert ag.seat_limit({'agentLearn': True, 'agentTrust': True}, False, {'suggested': {'n': 4, 'med': 9}}) == 1
+    assert ag.seat_limit({'agentLearn': True, 'agentTrust': True}, False, good) == 2 and ag.seat_limit({'agentLearn': True}, False, good) == 1
+    assert ag.seat_limit({'agentFeed': True, 'agentSeats': 3, 'agentLearn': True}, True, {}) == 3 and ag.seat_limit({'agentFeed': True, 'agentSeats': 3}, False, {}) == 0
+    card = {'tpl': 'degen', 'legs': [
+        {'symbol': 'BOT', 'pairAddress': 'P1', 'mint': 'M1', 'entry': 1.0, 'bought': {'tag': '🤖 agents GO · 🎓 learning seat'}},
+        {'symbol': 'SUG', 'pairAddress': 'P2', 'mint': 'M2', 'entry': 2.0, 'picked': True, 'bought': {'tag': '🤝 agents suggested · your pick'}},
+        {'symbol': 'MINE', 'pairAddress': 'P3', 'mint': 'M3', 'entry': 1.0, 'picked': True}, {'symbol': 'ENG', 'pairAddress': 'P4', 'mint': 'M4', 'entry': 1.0, 'bought': {'tag': '🌊 volume'}}]}
+    cs = ag.card_seats(card, [{'pair': 'P1', 'action': 'hold', 'why': '+4.0% — holding until +10%'}], {'P1': 1.04, 'P2': 1.0, 'P4': 0}, {'agentTakePct': 10, 'coins': 5})
+    assert [x['kind'] for x in cs['seats']] == ['agent', 'suggested', 'yours', 'engine', 'open']       # the owner's 5th seat is open
+    assert cs['seats'][0]['pct'] == 4.0 and cs['seats'][0]['take'] == 10 and cs['seats'][0]['action'] == 'hold' and cs['seats'][1]['pct'] == -50.0
+    assert cs['seats'][2]['pct'] is None and cs['seats'][3]['pct'] is None and 'action' not in cs['seats'][2]   # no price = no number, never a fake 0%
+    pw = ag.power({}, good, {'agentLearn': True, 'agentTrust': True, 'agentSeats': 3}, cs)
+    assert pw['seats'] == 2 and pw['held'] == 1 and [x['done'] for x in pw['steps']] == [True, True, False] and pw['steps'][1]['pct'] == 100
+    v = ag.view({}, [], card=cs)
+    assert v['card']['seats'][0]['symbol'] == 'BOT' and set(v['growth']) == {'tally', 'sherlock', 'trigger', 'devil'} and v['power']['seats'] == 0

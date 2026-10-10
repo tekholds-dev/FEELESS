@@ -639,7 +639,7 @@ def results(before, after, now):
     return out
 
 
-def view(state, table, feed=False, real=None, mind=None, cfg=None, decisions=None, now=0.0):
+def view(state, table, feed=False, real=None, mind=None, cfg=None, decisions=None, now=0.0, card=None):
     """What the HQ tab shows: the four agents with their scorecards, the live table (every agent's word per coin), the desk, the stage."""
     lr = learn(state, 5)
     st_ = stage(state)
@@ -659,7 +659,98 @@ def view(state, table, feed=False, real=None, mind=None, cfg=None, decisions=Non
             'perf': (state or {}).get('perf') or {}, 'lessons': (state or {}).get('lessons') or {}, 'calibration': lr['calibration'], 'cut': lr['cut'],
             'burned': len((state or {}).get('burned') or {}), 'scrapN': SCRAP_N, 'surviveN': SURVIVE_N,
             'autopsies': list(reversed(((state or {}).get('autopsies') or [])[-12:])), 'rugSigns': sorted(({'key': k, 'words': word(k), 'n': v} for k, v in ((state or {}).get('rugSigns') or {}).items()), key=lambda x: -x['n'])[:8],
+            'growth': growth(state, lr), 'power': power(state, real, cfg, card), 'card': card or {},
             'hist': ((state or {}).get('hist') or [])[-96:], 'rules': rules({**lr, 'regime': ((state or {}).get('perf') or {}).get('regime')})}
+
+
+# ── 🧬 GROWTH — how an agent grows, and what the TEAM is allowed to hold on the creator's real card ─────────────────────────────────
+# An agent grows only by SURVIVING judged calls: XP = calls judged this life. It levels up at the lines its life is already measured
+# on (the probation line SURVIVE_N, the scrap line SCRAP_N) — and a level is only HELD while it is alive: on probation it is stunted
+# back to a hatchling until its record recovers. `earned` = how much of its judgement is its OWN record instead of the belief it was
+# born with. `genes` = lessons inherited from the life before it · `scars` = lives it lost · `skills` = tactics the creator approved.
+TRUST_N = 10   # 🤝 suggestions the creator took and closed before a 2nd seat can be trusted (their typical result must be > 0)
+LEVELS = ((0, '🥚', 'Egg'), (10, '🐣', 'Hatchling'), (SURVIVE_N, '🧒', 'Rookie'), (SCRAP_N, '🦾', 'Veteran'), (150, '🧠', 'Elder'), (400, '👑', 'Legend'))
+
+
+def growth(state, learned=None):
+    lr = learned or learn(state, 5)
+    sv = survival(state)
+    dr = lr.get('drivers') or {}
+    lessons = (state or {}).get('lessons') or {}
+    lineage = (state or {}).get('lineage') or []
+    ideas_ = [v for v in ((state or {}).get('ideas') or {}).values() if v.get('status') == 'approved']
+    out = {}
+    for a, v in sv.items():
+        n = int(v['n'] or 0)
+        top = max(i for i, lv in enumerate(LEVELS) if n >= lv[0])
+        stunted = v['status'] != 'alive' and top > 1
+        i = 1 if stunted else top
+        nxt = LEVELS[i + 1] if i + 1 < len(LEVELS) else None
+        lo = LEVELS[i][0]
+        earned = (sum(int(x.get('n') or 0) / (int(x.get('n') or 0) + BELIEF_K) for x in dr.values()) / len(dr) if dr else 0.0) if a == 'sherlock' else n / (n + SURVIVE_N)
+        kind = 'take' if a == 'sherlock' else 'avoid' if a == 'devil' else None
+        out[a] = {'level': i, 'icon': LEVELS[i][1], 'name': LEVELS[i][2], 'xp': n, 'next': nxt[0] if nxt else None, 'nextName': f'{nxt[1]} {nxt[2]}' if nxt else None,
+                  'pct': 100 if not nxt else (0 if stunted else round(min(1.0, max(0.0, (n - lo) / max(1, nxt[0] - lo))) * 100)), 'stunted': stunted,
+                  'earned': round(earned * 100), 'gen': v['gen'], 'status': v['status'], 'right': v['right'], 'med': v['med'],
+                  'genes': list((lessons.get(a) or {}).get('words') or [])[:4], 'scars': sum(1 for x in lineage if x.get('agent') == a),
+                  'skills': [' + '.join(word(k) for k in (x.get('pair') or [])) for x in ideas_ if x.get('kind') == kind][:4]}
+    return out
+
+
+def trusted(real):
+    """🤝 Have the suggestions the creator took proven out? (≥ TRUST_N closed, typical result > 0)"""
+    sg = (real or {}).get('suggested') or {}
+    return int(sg.get('n') or 0) >= TRUST_N and _f(sg.get('med')) > 0
+
+
+def seat_limit(cfg, proven, real):
+    """How many coins the agents may hold on the real card RIGHT NOW — the one rule `_agents_go_rows` buys by:
+    proven desk + feed on → `agentSeats` · else the 🎓 learning seat → 1 (2 once 🤝 trust is switched on AND earned) · else 0."""
+    c = cfg or {}
+    if c.get('agentFeed') and proven:
+        return int(_f(c.get('agentSeats') or 2))
+    if c.get('agentLearn'):
+        return 2 if c.get('agentTrust') and trusted(real) else 1
+    return 0
+
+
+def power(state, real=None, cfg=None, card=None):
+    """🪜 The team's power on the creator's card as three rungs — each with its real progress, nothing promised:
+    🎓 learning seat (the creator's switch) → 🤝 trusted 2nd seat (their taken suggestions prove out) → 🏆 proven (paper 10× → `agentSeats`)."""
+    c = cfg or {}
+    rd = road(state, real)
+    proven = rd['paper']['done']
+    sg = (real or {}).get('suggested') or {}
+    pp = rd['paper']
+    held = sum(1 for x in ((card or {}).get('seats') or []) if x.get('kind') == 'agent')
+    lim = seat_limit(c, proven, real)
+    steps = [{'key': 'learn', 'icon': '🎓', 'seats': 1, 'on': bool(c.get('agentLearn')), 'done': bool(c.get('agentLearn')), 'pct': 100 if c.get('agentLearn') else 0, 'need': 'your switch'},
+             {'key': 'trust', 'icon': '🤝', 'seats': 2, 'on': bool(c.get('agentTrust')), 'done': bool(c.get('agentLearn') and c.get('agentTrust') and trusted(real)),
+              'pct': round(min(1.0, int(sg.get('n') or 0) / TRUST_N) * 100), 'need': f"{int(sg.get('n') or 0)}/{TRUST_N} closed" + (f" · {_f(sg.get('med')):+.1f}%" if sg.get('med') is not None else '')},
+             {'key': 'proven', 'icon': '🏆', 'seats': int(_f(c.get('agentSeats') or 2)), 'on': bool(c.get('agentFeed')), 'done': bool(c.get('agentFeed') and proven),
+              'pct': 100 if proven else round(min(1.0, max(0.0, __import__('math').log(max(pp['x'], 1.0)) / __import__('math').log(PROVE_X))) * 100), 'need': f"{pp['x']:.2f}× of {PROVE_X:g}× · {pp['n']}/{pp['needN']} calls"}]
+    return {'seats': lim, 'held': held, 'steps': steps}
+
+
+def card_seats(card, decisions=None, prices=None, cfg=None):
+    """🎮 The creator's real card as SEATS, right now: who holds each one (🤖 the agents · 🤝 a coin they suggested and the creator took ·
+    👤 the creator's own pick · ⚙ the engine · ▫ open), its live result since entry, and — for an agent seat — what they are doing with
+    it (hold / pull / swap) and how far it is to their take line. Display only: nothing here buys or sells."""
+    c = cfg or {}
+    by = {x.get('pair'): x for x in decisions or []}
+    take = _f(c.get('agentTakePct') or 10)
+    seats = []
+    for l in (card or {}).get('legs') or []:
+        tag = str((l.get('bought') or {}).get('tag') or '')
+        kind = 'open' if l.get('placeholder') else 'agent' if tag.startswith('🤖') else 'suggested' if tag.startswith('🤝') else 'yours' if l.get('picked') else 'engine'
+        px, en = _f((prices or {}).get(l.get('pairAddress'))), _f(l.get('entry'))
+        d = by.get(l.get('pairAddress')) or {}
+        seats.append({'symbol': l.get('symbol'), 'pair': l.get('pairAddress'), 'mint': l.get('mint'), 'kind': kind, 'tag': tag, 'buying': bool(l.get('buying')),
+                      'pct': round((px / en - 1) * 100, 1) if px > 0 and en > 0 and kind != 'open' else None,
+                      'state': 'ride' if l.get('riding') else 'frozen' if l.get('frozen') else '', **({'take': take, 'action': d.get('action') or 'hold', 'why': d.get('why') or '', 'toSym': d.get('toSym')} if kind == 'agent' else {})})
+    for _ in range(max(0, min(6, int(_f(c.get('coins')))) - len(seats))):
+        seats.append({'kind': 'open', 'symbol': None, 'pct': None})
+    return {'tpl': (card or {}).get('tpl'), 'seats': seats}
 
 
 # ── 💡 IDEAS — the desk proposes tactics from its own record; the creator approves or rejects ──────────────────────────────────────

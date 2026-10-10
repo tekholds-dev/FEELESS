@@ -29,7 +29,7 @@ test('the agent desk: four agents in one chain, the stage, the live table with e
   await act(async () => { createRoot(el).render(<AgentDesk call={call} lens="all" />); });   // lens="all" stacks every lens
   const q = id => el.querySelector(`[data-testid="${id}"]`);
   expect(['tally', 'sherlock', 'trigger', 'devil'].every(k => q(`agent-${k}`))).toBe(true);
-  expect(q('agent-tally').textContent).toContain('no judged calls yet');
+  expect(q('agent-tally').getAttribute('data-tip')).toContain('no judged calls yet');
   expect(q('agd-stage').textContent).toContain('⚔ 5m'); expect(q('agd-stage').textContent).toContain('🔒 15m');
   expect(q('agd-row-GOOD').textContent).toContain('🟢 GO'); expect(q('agd-row-RUN').textContent).toContain('BOND RUN');
   expect(q('agd-desk').textContent).toContain('$20.60'); expect(q('agd-desk').textContent).toContain('1 bust');

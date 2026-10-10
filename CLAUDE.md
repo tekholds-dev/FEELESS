@@ -2749,3 +2749,19 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`boardRows`); a row opens every agent's word + vitals + brief + 🪙 coin / 📈 chart / copy CA. A feed line or work-floor mark opens its coin.
   New agent data ⇒ a lens (or a row's body), never a new stacked block. 🤝 `agentTrust` (real cfg, off): a 2nd agent seat once the suggestions
   the owner took are proven (≥ 10 closed, typical > 0). Office = white 3rd-person room (scanner → bots carry sheets → GOOD drawer / shredder).
+- 🖥 Agent desk v8 = SCREENS, SEATS, GROWTH (owner, 2026-10-10: "degen complex but simple — click to zoom to see their screens, click through
+  lists, less reading, realtime; your own twist on how they grow; them controlling my card rn"; `command/AgentScreens.jsx` + `styles/agentScreens.css`
+  `ags-*`, shared row reads in `lib/agentRead.js`): each agent card = header (pick) + a MINI SCREEN that is its work this pass, drawn — 📊 Tally
+  heat wall · 🔍 Sherlock reason bars · ⏱ Trigger scope (x 5-min move, y lean, dashed line = its bar) · ⚖ Devil docket of stamped tickets
+  (`heat` / `reasonsOf` / `scopeOf` / `docketOf`). Tap → `ZoomScreen` (portal; tabs switch agent; every mark is a coin; ‹ › / ← → walk
+  `listFor`; Sherlock: tap a reason → only its coins; Esc closes) with a `Dossier` of METERS (lean vs bar, pace, buyers split, top-10, rug,
+  organic) + the four pips + the one deciding fact. 🎮 `CardNow` (always under the KPI tiles) = the real card as seats from `agents.card_seats`
+  (set each tier tick in `_prime_tick` → `_agents['card']`; kinds 🤖 agent · 🤝 suggested · 👤 yours · ⚙ engine · ▫ open; an agent seat shows
+  its bar to `agentTakePct` + ⏳ / 💰 / ⇄; no price = "—"). 🧬 `agents.growth` (lens 🧬 Growth, `GrowthCards`): XP = calls judged this life;
+  `LEVELS` 🥚 0 · 🐣 10 · 🧒 SURVIVE_N · 🦾 SCRAP_N · 🧠 150 · 👑 400; a level is HELD only while alive (probation = stunted to 🐣);
+  `earned` = share of its judgement that is its own record (Sherlock: mean n / (n + BELIEF_K) over its drivers); genes = inherited lessons,
+  scars = lives lost, skills = ideas the creator approved (take → Sherlock, avoid → Devil). 🪜 `agents.power` / `seat_limit` / `trusted`
+  (`TRUST_N` 10) = THE rule `_agents_go_rows` buys by, drawn as three rungs (🎓 learning 1 seat · 🤝 trusted 2 · 🏆 proven `agentSeats`).
+  Growth is DISPLAY of rules that already existed — levels never grant a seat or a buy by themselves. New agent visual ⇒ a screen or a
+  dossier meter, never a paragraph.
+

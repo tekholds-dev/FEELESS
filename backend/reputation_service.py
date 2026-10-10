@@ -9360,9 +9360,12 @@ async def _prime_tick_inner(now):
                     pass
         # 🤖 AGENT SEATS: coins the agents put on the card hold until `agentTakePct` profit; in profit the desk reads them again and lets them
         # run, pulls them (profit to cash, seat left open) or swaps them for a fresh GO runner (agents.manage). Only while they are proven.
+        if real_t and cur:   # 🎮 the card as seats for HQ › Agents (display only)
+            _agents['card'] = _ag.card_seats(cur, None, px, cfg_t)
         if real_t and cur and ((cfg_t.get('agentFeed') and (_agents.get('view') or {}).get('feed')) or cfg_t.get('agentLearn')) and not cur.get('holdAll') and not cur.get('flooredAt'):
             dec_ = _ag.manage(cur.get('legs'), _agents.get('table'), px, cfg_t)
             _agents['decisions'] = [{k: v for k, v in x.items() if k != 'to'} | ({'toSym': x['to']['symbol']} if x.get('to') else {}) for x in dec_]
+            _agents['card'] = _ag.card_seats(cur, _agents['decisions'], px, cfg_t)
             for x in dec_:
                 try:
                     if x['action'] == 'pull':
@@ -11890,7 +11893,7 @@ async def _agents_tick(now):
                 st['feed'] = (list(st.get('feed') or []) + [{'at': now, 'who': 'desk', 'sym': '', 'text': f"💡 new idea for the creator: {v['text']}"}])[-_ag.FEED_KEEP:]
         _json_save(AGENTS_PATH, st)
         rcfg_ = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
-        _agents.update(table=table, view=_ag.view(st, table, bool(rcfg_.get('agentFeed')), _agents_real(), _agents.get('mind'), rcfg_, _agents.get('decisions'), now))
+        _agents.update(table=table, view=_ag.view(st, table, bool(rcfg_.get('agentFeed')), _agents_real(), _agents.get('mind'), rcfg_, _agents.get('decisions'), now, _agents.get('card')))
     except Exception as e:
         print('agents:', e)
 
@@ -11917,8 +11920,7 @@ def _agents_go_rows(legs=(), seats=2, learn=False, learn_pct=100, trust=False):
             return []
         learning = False
     elif learn:
-        sg = (_agents_real() or {}).get('suggested') or {} if trust else {}
-        if held >= (2 if trust and int(sg.get('n') or 0) >= 10 and _fuse._f(sg.get('med')) > 0 else 1):   # 🤝 earned trust: a 2nd seat
+        if held >= (2 if trust and _ag.trusted(_agents_real()) else 1):   # 🤝 earned trust: a 2nd seat
             return []
         learning = True
     else:
@@ -11936,8 +11938,11 @@ async def admin_agents(request: Request):
     if not _agents.get('view'):
         st = _json_load(AGENTS_PATH, {})
         rcfg_ = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
-        _agents['view'] = _ag.view(st, _agents.get('table') or [], bool(rcfg_.get('agentFeed')), _agents_real(), _agents.get('mind'), rcfg_, _agents.get('decisions'), time.time())
-    return _agents['view']
+        _agents['view'] = _ag.view(st, _agents.get('table') or [], bool(rcfg_.get('agentFeed')), _agents_real(), _agents.get('mind'), rcfg_, _agents.get('decisions'), time.time(), _agents.get('card'))
+    v_ = _agents['view']
+    if _agents.get('card') and (v_.get('card') or {}) != _agents['card']:   # the card moves every tier tick; the view is rebuilt once a minute
+        v_ = {**v_, 'card': _agents['card']}
+    return v_
 
 
 @app.get('/api/reputation/admin/agents/log')
