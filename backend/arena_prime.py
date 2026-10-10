@@ -2840,7 +2840,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     if t2_leg:
         free_cash -= t2_usd; c['cash'] = round(_f(c['cash']) - t2_usd, 6)
         ev(kind='ticket2', symbol=t2_leg['symbol'], usd=round(t2_usd, 4), why=f"🎟 second ticket: locked and still called out by {int(_f(t2_leg.get('calledN')))} on Pump — one add, never again on this ride", to=[t2_leg['symbol']])
-    if cfg['compound'] and free_cash > 0.01 and c['legs']:
+    if cfg['compound'] and free_cash > 0.01 and c['legs'] and c.get('holdBy') != 'proof':   # 🧪 a proof-gate hold buys NOTHING — idle cash stays cash
         # 🔔 AT A ROUND every idle dollar goes back to work: a coin skipped only because it was cut minutes ago counts again
         # (never one cut on this very tick), so card cash can't sit idle past the next bell
         round_now = _f(c.get('lastRotateAt')) == now

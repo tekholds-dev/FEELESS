@@ -296,6 +296,8 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
                      'lamports': int(usd / sol_px * 1e9), 'usd': round(usd, 4), 'midPx': t['px'], 'at': now, 'why': 'card buys its coin',
                      **({'rentDeposit': rent} if rent else {}),
                      **({'arena': True} if t.get('arena') else {}), **({'trench': True} if t.get('trench') else {}), **({'picked': True} if t.get('picked') else {})})
+    if card.get('holdBy') == 'proof':   # 🧪 proof-gate hold: sells (stops, rug shield, profit takes) go out — no buy does
+        buys = []
     sweep = idle_sweep(card_id, card, book, tgt, sol_free, sol_px, cfg, now) if not sells and not buys else None
     return sells + buys + ([sweep] if sweep else [])
 
@@ -321,7 +323,7 @@ def idle_sweep(card_id, card, book, tgt, sol_free, sol_px, cfg, now):
     NO other order and the card holds spare SOL (beyond a SOL seat, the owner's ✂ cash, a reserved seat's money), ONE buy puts it
     into the held coin furthest under an equal share (one min-size order at least) — never a locked rider or a coin cut in the
     last 10 min; the rest follows on the next ticks. → order or None"""
-    if sol_px <= 0 or card.get('flooredAt') or card.get('sellingOut'):
+    if sol_px <= 0 or card.get('flooredAt') or card.get('sellingOut') or card.get('holdBy') == 'proof':   # 🧪 proof-gate hold: no buy of any kind
         return None
     reserved = sum(_f(l.get('reserveUsd')) for l in card.get('legs') or [] if l.get('placeholder')) + _f(card.get('holdCashUsd'))
     idle = sol_free * sol_px - reserved

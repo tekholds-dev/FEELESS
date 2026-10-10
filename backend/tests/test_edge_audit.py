@@ -55,3 +55,11 @@ def test_the_proof_gate_holds_the_real_card_while_nothing_passes_releases_when_a
     asyncio.run(rs._proof_gate_tick(9000))
     assert card()['degen']['holdAll'] is True and 'holdBy' not in card()['degen']                                # a passing rule never lifts it
     assert rs._prime.clean_cfg({})['proofGate'] is False
+
+
+def test_a_proof_hold_buys_nothing_not_even_idle_cash_into_held_coins():
+    import fuse_wallet as fw
+    card = {'legs': [{'mint': 'A', 'pairAddress': 'PA', 'symbol': 'A', 'units': 10, 'entry': 1.0}], 'holdAll': True, 'holdBy': 'proof'}
+    assert fw.idle_sweep('degen', card, {'sol': 1.0}, {}, 1.0, 100.0, {}, 1000) is None
+    import inspect, arena_prime as ap
+    assert "c.get('holdBy') != 'proof'" in inspect.getsource(ap.tick)          # the engine's own idle-cash compound is gated too
