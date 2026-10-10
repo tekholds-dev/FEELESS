@@ -121,7 +121,7 @@ test('the 3D room is handed real state only: ten stations, the candidate on the 
   const r = rulingsOf(office, 8);
   expect(r.length).toBeGreaterThan(0); expect(r.every(x => CHAIN.includes(x.key) && x.text && x.at)).toBe(true);
   expect(r.every(x => { const a = office.agents.find(y => y.key === x.key); return a.decision === x.text || (a.recent || []).some(z => z.text === x.text); })).toBe(true);   // every line is a recorded decision of that desk
-  expect(rulingsOf({}, 8)).toEqual([]); expect(hhmm(0)).toMatch(/^\d\d:\d\d$/); expect(CAMS.map(c => c[0])).toEqual(['main', 'top', 'focus']);
+  expect(rulingsOf({}, 8)).toEqual([]); expect(hhmm(0)).toMatch(/^\d\d:\d\d$/); expect(CAMS.map(c => c[0])).toEqual(['main', 'card', 'top', 'focus']);
   const far = candleGeom(p.bars.rows, [{ px: p.entry * 3, label: 'take +200%', cls: 'is-take' }, { px: p.entry * 0.2, label: 'stop', cls: 'is-stop' }]);
   expect(far.lines).toEqual([]); expect(far.off.map(l => [l.label, l.up])).toEqual([['take +200%', true], ['stop', false]]);                             // a far level is named at the edge, the candles keep their scale
   expect(far.hi).toBe(Math.max(...p.bars.rows.map(x => x[2])));
@@ -181,4 +181,37 @@ test('the team trace: each desk answers its own question for the candidate, then
   await act(async () => { q(panel, 'ptab-inputs').click(); });
   expect(q(panel, 'ofr-contrib').textContent).toContain('data errors caught');
   expect(new Set(office.agents.map(a => a.job)).size).toBe(10);
+});
+
+test('the room reacts to each desk\'s REAL activity word and draws the card, the cases, the switch test and who decides', () => {
+  const { activityOf, roomModel, seatsOf, policyRows, ACT_FX } = require('./OfficeRoom');
+  expect(activityOf('tally', office)).toEqual(['SCAN', `${office.office.coins} coins read this pass`]);
+  expect(activityOf('archivist', office)[0]).toBe('LOGGING'); expect(activityOf('courier', office)[0]).toBe('CONFIRMED');   // the last real action is confirmed on the ledger
+  expect(activityOf('courier', { ...office, execution: { ...office.execution, pending: { side: 'buy', sym: 'X' } } })).toEqual(['SUBMITTED', 'buy $X in flight']);
+  expect(activityOf('courier', { ...office, execution: { health: 'BAD', why: 'stuck' }, mission: {} })[0]).toBe('VETO');
+  expect(activityOf('reaper', office)[0]).toBe('HOLD'); expect(activityOf('reaper', { ...office, positions: [{ ...office.positions[0], decision: 'EXIT' }] })[0]).toBe('EXIT');
+  expect(activityOf('judge', { ...office, judge: { rulings: 4 } })[0]).toBe('JUDGE REVIEW'); expect(activityOf('judge', { pipeline: [] })[0]).toBe('WAIT');
+  expect(activityOf('warden', { ...office, currentCase: { ...office.currentCase, warden: { veto: false, requested: 0.4, allowed: 0.2, decided: 'W2' } } })[0]).toBe('SIZED');
+  const m = roomModel(office, 'reaper', null, null);
+  expect(m.stations.every(s => s.act && ACT_FX[s.act] && s.actWhy && s.color)).toBe(true);
+  expect(m.cases.length).toBe(Math.min(6, office.queue.length)); expect(m.cases[0].current).toBe(true); expect(m.cases.every(c => c.at && c.symbol)).toBe(true);
+  expect(m.ready.live).toBe(true); expect(m.swap.from).toBe(office.switchEval.current.symbol); expect(m.limits.rows.length).toBe(office.policy.controls.length);
+  expect(m.missed.n).toBe(office.review.missedSummary.n); expect(m.wall.facts.length).toBeGreaterThan(0);
+  const seats = seatsOf(office, { seats: [{ kind: 'agent', symbol: office.positions[0].symbol, pct: 2.5 }, { kind: 'open' }] }, office.positions[0].symbol);
+  expect(seats[0]).toMatchObject({ kind: 'agent', pct: 2.5, decision: office.positions[0].decision, selected: true });
+  expect(seats.length).toBe(office.seat.want); expect(seats.slice(1).every(x => x.kind === 'open' && x.decision === office.seat.state)).toBe(true);   // open seats carry the seat state
+  const rows = policyRows(office, office.positions[0]);
+  expect(rows.map(r => r[0])).toEqual(['Take profit', 'Stop-loss', 'Max hold', 'Trailing', 'Seat size', 'Switching']);
+  expect(rows[1][1]).toBe('−15%'); expect(rows[0][3]).toContain(`+${office.positions[0].take}%`);                          // your stop vs the take in force
+});
+
+test('the panel shows your limit vs the agents vs the rule in force, the launch context, and the room\'s flow overlay', async () => {
+  const p = office.positions[0];
+  const el = await mount(<AgentPanel o={office} a={office.agents.find(x => x.key === 'reaper')} coin={p.symbol} onCoin={() => {}} />);
+  expect(q(el, 'ofr-policy').textContent).toContain('YOU'); expect(q(el, 'ofr-policy').textContent).toContain('IN FORCE'); expect(q(el, 'ofr-policy').textContent).toContain('−15%');
+  expect(q(el, 'ofr-launch').textContent).toContain(p.launch.pad); expect(q(el, 'ofr-launch').textContent).toContain('UNKNOWN');
+  expect(q(el, 'ptab-live').getBoundingClientRect).toBeDefined();
+  const hq = await mount(<OfficeHQ o={office} roomOn gl={false} card={{ seats: [{ kind: 'open' }] }} onEdge={() => {}} />);
+  expect(q(hq, 'oed-band')).not.toBeNull(); expect(q(hq, 'ofr-cardrow').textContent).toContain('THE REAL CARD');
+  expect(q(hq, 'ofr-cardrow').querySelectorAll('.ofr-seat').length).toBe(office.seat.want);
 });

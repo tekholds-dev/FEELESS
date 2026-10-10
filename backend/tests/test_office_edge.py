@@ -326,6 +326,9 @@ def test_the_missed_winner_study_files_each_winner_once_with_paper_counterfactua
     many = [{'mint': f'M{i}', 'sym': f'M{i}', 'at': now - 60 - i, 'peak': 60.0, 'end': 10.0, 'x': {}} for i in range(oe.MISSED_KEEP + 40)]
     big, _ = oe.missed_winners({}, many, {}, now)
     assert len(big['missed']) == oe.MISSED_KEEP                                                                   # bounded
+    never = [{'mint': 'NX', 'sym': 'NX', 'at': now - 60, 'peak': 70.0, 'end': 9.0, 'x': {'50': now - 1200, '100': None}}]
+    _, nx = oe.missed_winners({'cases': [_arch_case('NX', now - 2400, cleared=True, noFill='FULL')]}, never, {}, now)
+    assert nx[0]['hitAt'] == now - 1200 and nx[0]['leadMin'] == 20.0                                              # a level never crossed (None) is not a time
 
 
 # ── 📝 THE CREATOR'S REVIEW QUEUE ─────────────────────────────────────────────────────────────────────────────────────────────────

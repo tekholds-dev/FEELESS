@@ -7,6 +7,7 @@ import { pct, tone, CALL, VERDICT, VERD, rowState, rowWhy, pipsOf, leanFill } fr
 import { MiniScreen, ZoomScreen, CardNow, CourtBand, MissionBar, DutyBox, GrowthCards, PowerLadder } from './AgentScreens';
 import { OfficeBoard, OfficeMission } from './OfficeBoard';
 import { OfficeHQ, ticker } from './OfficeRoom';
+import { ReadyStrip, SeatState, SwitchEval, CreatorLimits, ReviewQueue, MissedWinners, LaunchRecord } from './OfficeEdge';
 
 export { rowState, rowWhy, pipsOf, leanFill };
 
@@ -219,7 +220,7 @@ export function LiveLens({ d, sel, who, setWho, jump }) {
 }
 
 export const DIAL = [['chill', '🧊'], ['normal', '⚡'], ['crazy', '🔥 CRAZY']];
-export const LENSES = [['live', '🟢 Live'], ['board', '📋 Board'], ['learn', '🧠 Learning'], ['life', '🧬 Growth'], ['ctl', '⚙ Control']];
+export const LENSES = [['live', '🟢 Live'], ['limits', '🎛 Limits'], ['review', '📝 Review'], ['missed', '🔎 Missed'], ['board', '📋 Board'], ['learn', '🧠 Learning'], ['life', '🧬 Growth'], ['ctl', '⚙ Control']];
 const mem = { get: (k, dflt) => { try { return localStorage.getItem(k) || dflt; } catch (e) { return dflt; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* private window */ } } };
 const Kpi = ({ id, label, val, sub, cls, on, onClick, tip }) => <button type="button" className={`agd-kpi ${on ? 'active' : ''}`} onClick={onClick} data-tip={tip} data-testid={`kpi-${id}`}><small>{label}</small><b className={cls || ''} key={String(val)}>{val}</b><i>{sub}</i></button>;
 // the ring on each agent = its share of right calls this life (Trigger: % of its ENTERs that won); empty until it has a judged call
@@ -233,14 +234,14 @@ export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
   useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, 20000); return () => clearInterval(t); }, [load]);
   if (!d) return <p className="cc-empty">Waking the agents…</p>;
   const st = d.stage || {}; const t = d.table || []; const p = d.perf || {}; const rg = p.regime; const goN = t.filter(x => x.go).length; const enterN = t.filter(x => x.trigger?.[0] === 'enter').length;
-  const newIdeas = (d.ideas || []).filter(i => i.status === 'new').length; const atRisk = Object.values(d.life || {}).filter(l => l && l.status && l.status !== 'alive').length;
+  const newIdeas = (d.ideas || []).filter(i => i.status === 'new').length; const reviewOpen = Object.values(d.office?.review?.open || {}).reduce((a, b) => a + b, 0); const atRisk = Object.values(d.life || {}).filter(l => l && l.status && l.status !== 'alive').length;
   const pickAgent = k => { setSel(k); setWho(w => (w === k ? 'all' : k)); };
   const show = k => lens === 'all' || lens === k;
   const open = k => lens === 'all' || drawer === k; const tog = k => setDrawer(x => (x === k ? null : k));   // the old rows live in ONE drawer under the status strip
   const om = d.office?.mission || {}; const seats = d.card?.seats || []; const dutyN = d.duty?.cleared ?? 0; const jd = d.judge || {};
   const warLog = async () => { try { const r = await call('/admin/agents/log?hours=24'); const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([r.md], { type: 'text/markdown' })); a.download = `agent-war-log-${new Date().toISOString().slice(0, 10)}.md`; a.click(); URL.revokeObjectURL(a.href); } catch (e) { toast.error(e.message); } };
-  const save = async body => { setBusy(true); try { await call('/admin/agents', { method: 'POST', body: JSON.stringify(body) }); toast.success(body.idea ? `💡 idea ${body.idea.action === 'approve' ? 'approved' : 'rejected'}` : '🤖 agent control saved'); load(); } catch (e) { toast.error(e.message); } finally { setBusy(false); } };
+  const save = async body => { setBusy(true); try { await call('/admin/agents', { method: 'POST', body: JSON.stringify(body) }); toast.success(body.idea ? `💡 idea ${body.idea.action === 'approve' ? 'approved' : 'rejected'}` : body.review ? (body.review.mark === 'clear' ? '📝 mark cleared' : `📝 marked ${body.review.mark}`) : Object.keys(body.cfg || {}).some(k => /^agent(Tp|Sl|Trail|MaxHold|SizePct|SeatTarget|Switch|Entry|Authority)/.test(k)) ? '🎛 limit saved' : '🤖 agent control saved'); load(); } catch (e) { toast.error(e.message); } finally { setBusy(false); } };
   const dial = d.cfg?.agentDial || 'normal';
   return <section className={`agd m-live is-dial-${dial}`} data-testid="agent-desk">
     <header className="agd-head"><div className="agd-title"><b data-tip="The real-money mission of the ten-desk office: every number below is the real Fuse card's own. Every call is checked 5 minutes later.">💵 REAL MONEY MISSION</b><PassClock at={p.at} onDue={load} />{d.office && !d.office.cold ? <small className="agd-ticker" data-testid="agd-ticker">{ticker(d.office)}</small> : null}
@@ -265,13 +266,18 @@ export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
       <Kpi id="ideas" label="💡 IDEAS" val={newIdeas} cls={newIdeas ? 'agd-warn' : ''} sub={newIdeas ? 'waiting for your review' : 'nothing to review'} on={lens === 'learn'} onClick={() => setLens('learn')} tip="Tactics the desk found in its own record." />
       <Kpi id="lives" label="⚔ LIVES" val={atRisk ? `${atRisk} ⚠` : '4 🟢'} cls={atRisk ? 'agd-warn' : ''} sub={atRisk ? 'on probation / scrapped' : `${(d.lineage || []).length} scrapped so far`} on={lens === 'life'} onClick={() => setLens('life')} tip="An agent that keeps losing is scrapped and reborn." />
     </div>
-    {(open('mission') || open('seats') || open('duty') || open('judge')) ? <div className="agd-drawer" data-testid="agd-drawer">
+    {(open('mission') || open('seats') || open('duty') || open('judge') || open('edge')) ? <div className="agd-drawer" data-testid="agd-drawer">
+      {open('edge') ? <div className="oed-drawer" data-testid="agd-edge-pane"><ReadyStrip r={d.office?.ready} /><SeatState s={d.office?.seat} speed={d.office?.performance?.speed} /><SwitchEval e={d.office?.switchEval} /></div> : null}
       {open('mission') ? <MissionBar mission={d.mission} scalp={d.scalp} desk={d.desk} /> : null}
       {open('seats') ? <CardNow card={d.card} power={d.power} cfg={d.cfg} gos={t.filter(x => x.go)} call={call} isOwner={isOwner} onDone={load} onMore={() => setLens('life')} /> : null}
       {open('duty') ? <DutyBox duty={d.duty} lives={d.lives} underwater={d.underwater} onPick={sym => { setLens('live'); setJump({ sym, n: Date.now() }); }} /> : null}
       {open('judge') ? <CourtBand judge={d.judge} proof={d.proof} desk={d.desk} onPick={sym => { setLens('live'); setJump({ sym, n: Date.now() }); }} onCourt={() => setZoom('judge')} /> : null}</div> : null}
     {zoom && <ZoomScreen d={d} agent={zoom} setAgent={k => { setZoom(k); setSel(k); }} close={() => setZoom(null)} />}
-    <OfficeHQ o={d.office} roomOn={office} passAt={p.at} />
+    <OfficeHQ o={d.office} roomOn={office} passAt={p.at} card={d.card} onEdge={k => (['limits', 'review', 'missed'].includes(k) ? setLens(k) : setDrawer(x => (x === 'edge' ? null : 'edge')))} />
+    {show('limits') && <div className="agd-grid is-ctl" data-testid="lens-limits-pane"><div className="agd-wide"><CreatorLimits policy={d.office?.policy} mission={d.office?.mission} cfg={d.cfg} o={d.office} isOwner={isOwner} busy={busy} save={save} /></div>
+      <ReadyStrip r={d.office?.ready} /><SeatState s={d.office?.seat} speed={d.office?.performance?.speed} /><div className="agd-wide"><SwitchEval e={d.office?.switchEval} /></div></div>}
+    {show('review') && <div data-testid="lens-review-pane"><ReviewQueue review={d.office?.review} isOwner={isOwner} save={save} onCoin={it => it.mint && openCoin({ mint: it.mint, symbol: it.sym })} /></div>}
+    {show('missed') && <div className="agd-grid" data-testid="lens-missed-pane"><div className="agd-wide"><MissedWinners review={d.office?.review} onCoin={it => it.mint && openCoin({ mint: it.mint, symbol: it.sym })} /></div><div className="agd-wide"><LaunchRecord launch={d.office?.launch} /></div></div>}
     {show('board') && <OfficeBoard o={d.office} />}
     {show('live') && <>
     <div className="agd-chain" role="group" aria-label="Pick an agent"><i className="agd-wire" aria-hidden><u /></i>{(d.agents || []).map((a, i) => { const l = d.life?.[a.key];
@@ -302,6 +308,6 @@ export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
         <span className="agd-road-bar" aria-hidden><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, Math.log10(Math.max(1, d.desk.x || 1))))})` }} /></span>
         <small className="m-dim">Control group (coins Trigger said WAIT): {d.control?.n ? `${pct(d.control.med)} typical` : 'not judged yet'} — the team must beat this to mean anything. Slippage on a 5-min scalp is not modelled.</small></div>
       <AgentControls cfg={d.cfg} decisions={d.decisions} proven={d.proven5} isOwner={isOwner} busy={busy} save={save} /></div>}
-    {lens !== 'all' && <div className="m-seg agd-lens" role="tablist" aria-label="Agent desk lens">{LENSES.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)} data-testid={`lens-${k}`}>{l}{k === 'live' && goN ? <small>{goN} GO</small> : k === 'learn' && newIdeas ? <small>{newIdeas} 💡</small> : k === 'life' && atRisk ? <small>{atRisk} ⚠</small> : null}</button>)}</div>}
+    {lens !== 'all' && <div className="m-seg agd-lens" role="tablist" aria-label="Agent desk lens">{LENSES.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)} data-testid={`lens-${k}`}>{l}{k === 'live' && goN ? <small>{goN} GO</small> : k === 'learn' && newIdeas ? <small>{newIdeas} 💡</small> : k === 'life' && atRisk ? <small>{atRisk} ⚠</small> : k === 'review' && reviewOpen ? <small>{reviewOpen} 📝</small> : k === 'limits' && d.office?.policy?.manual ? <small>✋ manual</small> : null}</button>)}</div>}
   </section>;
 }

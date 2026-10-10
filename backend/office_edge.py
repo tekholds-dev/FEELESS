@@ -424,7 +424,7 @@ def missed_winners(arch, brain_done, series, now, held=(), since=0.0):
         m = d['mint']
         start = at - 3600
         x = d.get('x') or {}
-        hit = min((_f(t) for lv, t in x.items() if _f(lv) >= WINNER_PCT), default=None)
+        hit = min((_f(t) for lv, t in x.items() if _f(lv) >= WINNER_PCT and t is not None and _f(t) > 0), default=None)   # a level never crossed is not a time
         cs = [c for c in by.get(m, []) if start - 1800 <= _f(c['at']) <= at]
         first = cs[0] if cs else None
         stamp = next((p for p in (series or {}).get(m) or [] if p.get('c')), None)

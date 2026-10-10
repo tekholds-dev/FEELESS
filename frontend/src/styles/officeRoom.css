@@ -12,18 +12,28 @@
 
 /* the stage: the three.js room fills it (fixed height so room + panel + roster sit in one view); HTML station labels ride on top */
 .ofr { --ofr-h: clamp(420px, calc(100vh - 500px), 660px); gap: 6px; }
-.ofr-bar { min-height: 24px; } .ofr-cams { margin-left: auto; display: inline-flex; gap: 6px; align-items: center; } .ofr-cams .m-seg > button, .ofr-cams .m-btn { padding: 3px 8px; font-size: 10px; } .ofr-cams .m-btn.is-on { background: var(--m-accent); color: var(--m-accent-ink); }
+.ofr-bar { min-height: 24px; flex-wrap: nowrap; } .ofr-bar > b, .ofr-bar > .ofr-live, .ofr-bar > .ofr-pass { flex: none; white-space: nowrap; } .ofr-bar > .oed-band { flex: 1 1 auto; min-width: 0; }
+.ofr-bar .oed-chip { padding: 3px 8px; gap: 0; border-radius: 8px; } .ofr-bar .oed-chip b { font-size: 12px; } .ofr-bar .oed-chip u { font-size: 9px; } .ofr-cams { margin-left: auto; flex: none; display: inline-flex; gap: 6px; align-items: center; } .ofr-cams .m-seg { flex-wrap: nowrap; } .ofr-cams .m-seg > button, .ofr-cams .m-btn { padding: 3px 8px; font-size: 10px; } .ofr-cams .m-btn.is-on { background: var(--m-accent); color: var(--m-accent-ink); }
 .ofr-stage { position: relative; height: var(--ofr-h); border-radius: 14px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--m-accent) 40%, transparent); background: #04100c; min-width: 0; }
 .ofr-stage > .ofr-room { height: 100%; border: 0; border-radius: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; }
 .or3 { position: absolute; inset: 0; } .or3-canvas { display: block; width: 100%; height: 100%; } .ofr-loading { display: grid; place-items: center; height: 100%; color: var(--m-mute); font: 11px var(--m-mono); }
 .or3-labels { position: absolute; inset: 0; pointer-events: none; }
 .or3-lab { position: absolute; left: 0; top: 0; pointer-events: auto; display: grid; justify-items: center; gap: 0; padding: 2px 8px 3px; border-radius: 7px; border: 1px solid color-mix(in srgb, var(--ag) 60%, transparent); background: rgba(2, 10, 8, .82); color: #e6fff0; cursor: pointer; font: inherit; white-space: nowrap; will-change: transform; }
 .or3-lab:hover { border-color: var(--ag); background: rgba(6, 26, 18, .95); } .or3-lab:active { opacity: .8; } .or3-lab:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
-.or3-lab b { font: 700 10.5px var(--m-mono); } .or3-lab em { font: 700 9px var(--m-mono); font-style: normal; letter-spacing: .08em; color: #7d998b; }
-.or3-lab.is-pass em { color: #45e486; } .or3-lab.is-obj em { color: #f5c451; } .or3-lab.is-veto em { color: #ff6b86; } .or3-lab.is-work em { color: #6cc7ff; }
+.or3-lab b { font: 700 11px var(--m-mono); } .or3-lab em { margin-top: 1px; padding: 0 6px; border-radius: 4px; font: 800 9px/1.5 var(--m-mono); font-style: normal; letter-spacing: .08em; color: var(--act, #7d998b); border: 1px solid color-mix(in srgb, var(--act, #7d998b) 55%, transparent); background: color-mix(in srgb, var(--act, #7d998b) 14%, transparent); }
 .or3-lab.is-on { border-color: #fff; box-shadow: 0 0 14px color-mix(in srgb, var(--ag) 70%, transparent); } .or3-lab.is-focus { border-width: 2px; }
-.ofr-over { position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; flex-wrap: nowrap; gap: 5px; align-items: center; overflow-x: auto; scrollbar-width: none; padding: 5px 7px; border-radius: 9px; background: rgba(2, 10, 8, .78); border: 1px solid var(--m-line); }
-.ofr-over::-webkit-scrollbar { display: none; } .ofr-over small { flex: none; } .ofr-over .ofr-case { flex: none; padding: 3px 8px; } .ofr-case.is-posn b { color: #c77dff; }
+/* the stage's bottom overlay: the chain in order (the desk the candidate stands at lit) + where the current candidate is */
+.ofr-foot { position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; gap: 8px; align-items: center; justify-content: space-between; pointer-events: none; }
+.ofr-flowline { pointer-events: auto; display: flex; flex-wrap: nowrap; align-items: center; gap: 3px; min-width: 0; overflow-x: auto; scrollbar-width: none; padding: 4px 8px; border-radius: 9px; background: rgba(2, 10, 8, .82); border: 1px solid var(--m-line); }
+.ofr-flowline::-webkit-scrollbar { display: none; } .ofr-flowline small { flex: none; margin-right: 4px; color: #45e486; font: 700 9px var(--m-mono); letter-spacing: .12em; } .ofr-flowline > i { flex: none; font-style: normal; color: #2e6b4b; font-size: 10px; }
+.ofr-flowline button { all: unset; flex: none; cursor: pointer; padding: 1px 6px; border-radius: 6px; font: 600 10px var(--m-mono); color: var(--m-dim); border: 1px solid transparent; transition: transform .15s var(--m-ease), color .15s; }
+.ofr-flowline button:hover { color: var(--m-text); transform: translateY(-1px); } .ofr-flowline button:active { transform: none; } .ofr-flowline button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; }
+.ofr-flowline button.is-focus { color: #04120b; background: #45e486; font-weight: 800; } .ofr-flowline button.is-on { border-color: var(--ag); color: var(--m-text); }
+.ofr-now { all: unset; pointer-events: auto; cursor: pointer; flex: none; max-width: 46%; display: inline-flex; align-items: center; gap: 7px; padding: 5px 10px; border-radius: 9px; background: rgba(2, 10, 8, .86); border: 1px solid color-mix(in srgb, #a07bff 60%, transparent);
+  font: 700 10.5px var(--m-mono); color: #e6fff0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: transform .15s var(--m-ease); }
+.ofr-now:hover { transform: translateY(-1px); } .ofr-now:active { transform: none; } .ofr-now:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+.ofr-now > i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #a07bff; animation: ofrPulse 1.6s ease-in-out infinite; }
+.or3-tip { position: absolute; left: 0; top: 0; max-width: 260px; padding: 6px 9px; border-radius: 8px; background: rgba(2, 10, 8, .94); border: 1px solid var(--m-line-hi); font: 600 10.5px/1.4 var(--m-mono); color: #e6fff0; pointer-events: none; opacity: 0; transition: opacity .12s; z-index: 3; }
 .ofr-main > .ofr-panel { height: var(--ofr-h); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--ag) transparent; padding: 9px 10px; gap: 6px; } .ofr-panel::-webkit-scrollbar { width: 6px; } .ofr-panel::-webkit-scrollbar-thumb { background: var(--ag); border-radius: 3px; }
 .ofr.is-flat .ofr-main > .ofr-panel { height: auto; }
 
@@ -80,12 +90,19 @@
 .ofr-case { display: grid; gap: 1px; text-align: left; padding: 5px 9px; border-radius: 8px; border: 1px solid var(--m-line-hi); border-left: 3px solid var(--ag); background: rgba(0, 0, 0, .45); color: inherit; cursor: pointer; font: inherit; transition: transform .15s var(--m-ease), border-color .15s; }
 .ofr-case:hover { transform: translateY(-2px); } .ofr-case:active { transform: none; } .ofr-case.is-on { border-color: var(--m-accent); background: color-mix(in srgb, var(--m-accent) 12%, rgba(0, 0, 0, .45)); }
 .ofr-case b { font: 700 11.5px var(--m-mono); } .ofr-case em { font: 600 9px var(--m-mono); font-style: normal; color: var(--m-dim); } .ofr-case u { text-decoration: none; font: 9px var(--m-mono); color: var(--m-mute); } .ofr-case.is-pass b { color: #45e486; } .ofr-case.is-obj b { color: var(--m-text); }
+/* the real card's seats (fallback room): one slot per seat — who holds it, its % since entry, the desk's decision */
+.ofr-cardrow { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 6px; } .ofr-cardrow > small { grid-column: 1 / -1; }
+.ofr-seat { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 1px; padding: 6px 8px; border-radius: 9px; border: 1px solid var(--m-line); border-bottom: 3px solid var(--m-line-hi); background: rgba(0, 0, 0, .35); min-width: 0; transition: transform .15s var(--m-ease), border-color .15s; }
+.ofr-seat:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--m-line-hi); } .ofr-seat:active:not(:disabled) { transform: translateY(0); } .ofr-seat:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+.ofr-seat b { font: 800 12px var(--m-mono); } .ofr-seat em { font: 700 11px var(--m-mono); font-style: normal; } .ofr-seat u { text-decoration: none; font: 9px var(--m-mono); color: var(--m-mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ofr-seat.is-agent { border-bottom-color: #a07bff; } .ofr-seat.is-yours, .ofr-seat.is-suggested { border-bottom-color: #f5c451; } .ofr-seat.is-engine { border-bottom-color: #6cc7ff; }
+.ofr-seat.is-open { cursor: default; border-style: dashed; opacity: .75; } .ofr-seat.is-on { border-color: var(--m-accent); }
 .ofr-flow { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: space-between; margin: 0; font: 9.5px var(--m-mono); color: var(--m-mute); } .ofr-flow b { color: var(--m-text); font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
 
 /* the live agent panel */
 .ofr-panel { display: grid; gap: 8px; align-content: start; padding: 12px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--ag) 50%, transparent); background: var(--m-surface); min-width: 0; }
 .ofr-phead { display: flex; gap: 8px; align-items: center; justify-content: space-between; } .ofr-pname { display: grid; gap: 2px; min-width: 0; } .ofr-pname b { font: 700 16px var(--m-mono); color: var(--ag); } .ofr-pname small { text-transform: none; letter-spacing: 0; font-size: 10.5px; color: var(--m-dim); }
-.ofr-tabs { overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap; } .ofr-tabs::-webkit-scrollbar { display: none; } .ofr-tabs > button { flex: none; padding: 5px 9px; font-size: 11px; white-space: nowrap; }
+.ofr-tabs { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; flex-wrap: nowrap; min-height: max-content; flex: none; } .ofr-tabs::-webkit-scrollbar { display: none; } .ofr-tabs > button { flex: none; padding: 5px 9px; font-size: 11px; white-space: nowrap; }
 .ofr-pane { display: grid; gap: 6px; min-width: 0; animation: ofrIn .2s var(--m-ease) both; }
 .ofr-decision { display: grid; gap: 3px; padding: 8px 10px; border-radius: 8px; background: var(--m-surface-2); border-left: 3px solid var(--ag); } .ofr-decision b { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font: 700 13px/1.3 var(--m-mono); overflow-wrap: anywhere; } 
 .ofr-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; } .ofr-tiles > span, .ofr-igrid > span { display: grid; gap: 2px; align-content: start; padding: 5px 7px; border-radius: 6px; background: var(--m-surface-2); min-width: 0; }
@@ -137,8 +154,7 @@ body.theme-day .ofr-panel .ofr-chart svg { background: #0b1a14; } body.theme-day
 .ofr-files { display: flex; flex-wrap: wrap; gap: 3px 8px; align-items: center; margin: 0; }
 .ofr-panel, .ofr-pane, .ofr-intel { grid-template-columns: minmax(0, 1fr); }
 .ofr-panel .ofr-chart figcaption { display: none; }
-.ofr-igrid > span { display: flex; gap: 5px; align-items: baseline; justify-content: space-between; padding: 2px 6px; } .ofr-igrid u { white-space: nowrap; } .ofr-igrid b { text-align: right; min-width: 0; }
-.ofr-igrid .is-wide b { text-align: left; flex: 1; }
+.ofr-igrid > span { display: grid; gap: 1px; align-content: start; padding: 4px 7px; } .ofr-igrid u { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ofr-igrid b { min-width: 0; }
 .ofr-main > .ofr-panel { overflow-x: hidden; }
 .ofr-volw { margin: 0; font: 9px var(--m-mono); letter-spacing: .04em; color: var(--m-mute); }
 .ofr-trace { display: grid; gap: 2px; min-width: 0; } .ofr-trace ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px 10px; }
@@ -151,3 +167,14 @@ body.theme-day .ofr-panel .ofr-chart svg { background: #0b1a14; } body.theme-day
 body.theme-day .ofr-final.is-go em, body.theme-day .ofr-final.is-cleared em { color: #0f8a45; } body.theme-day .ofr-final.is-skip em, body.theme-day .ofr-final.is-blocked em { color: #c2274a; }
 @media (max-width: 640px) { .ofr-trace ul { grid-template-columns: 1fr; } }
 .ofr-panel .ofr-final span { flex: 1 1 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; } .ofr-panel .ofr-volw { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* the live panel, terminal-style: the decision with its countdown · the intelligence grid label-over-value · YOUR limit vs THEIR choice vs IN FORCE · launch */
+.ofr-decision { position: relative; } .ofr-count { position: absolute; right: 9px; top: 6px; font: 700 10.5px var(--m-mono); font-style: normal; color: #c77dff; }
+.ofr-panel .ofr-igrid { grid-template-columns: repeat(5, minmax(0, 1fr)); } .ofr-panel, .ofr-panel .ofr-pane { grid-auto-rows: max-content; } .ofr-panel .ofr-igrid b { white-space: normal; overflow-wrap: anywhere; line-height: 1.25; } .ofr-panel .ofr-igrid u { text-transform: uppercase; letter-spacing: .06em; font-size: 8.5px; }
+.ofr-policy { display: grid; gap: 4px; min-width: 0; } .ofr-policy table { width: 100%; border-collapse: collapse; font: 10.5px var(--m-mono); table-layout: fixed; }
+.ofr-policy th { text-align: left; font: 700 8.5px var(--m-mono); letter-spacing: .1em; color: var(--m-mute); padding: 2px 5px; } .ofr-policy th.is-you { color: #f5c451; } .ofr-policy th.is-agents { color: #6cc7ff; }
+.ofr-policy td { padding: 3px 5px; border-top: 1px solid var(--m-line); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ofr-policy td:first-child { color: var(--m-dim); }
+.ofr-policy td.is-you { color: #f5c451; font-weight: 700; } .ofr-policy td.is-agents { color: #6cc7ff; } .ofr-policy tr.is-you td.is-agents { color: var(--m-mute); text-decoration: line-through; }
+.ofr-policy tr.is-you { background: color-mix(in srgb, #f5c451 6%, transparent); } .ofr-policy td b { color: var(--m-text); }
+.ofr-launch { display: flex; flex-wrap: wrap; gap: 3px 8px; align-items: baseline; margin: 0; font: 10.5px var(--m-mono); } .ofr-launch b { color: #c2a8ff; } .ofr-launch span { color: var(--m-dim); } .ofr-launch u { flex-basis: 100%; text-decoration: none; font-size: 9px; color: var(--m-mute); }
+body.theme-day .ofr-policy td.is-you, body.theme-day .ofr-policy th.is-you { color: #946a00; } body.theme-day .ofr-policy td.is-agents, body.theme-day .ofr-policy th.is-agents { color: #135d86; } body.theme-day .ofr-count { color: #6b3fbf; }
