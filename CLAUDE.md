@@ -2822,4 +2822,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   rule passes (capped mean AND median > 0 in BOTH the learned 60% and the unseen 40%, ≥ 40 / 25 coins) it releases by itself. Under
   `MIN_COINS` 500 = not judged. A hold the owner set by hand is never lifted; ▶ Release on a proof hold turns the gate OFF (their call).
   Paper cards and the agents keep trading — they are what feeds the record. NEW REAL-MONEY BUY PATHS MUST RESPECT `holdAll`.
+- 🎮 AGENT CONTROL of the real card (cfg `agentControl`, HQ › Agents › ⚙ Control, ON via `_agent_control_fix_1010`; owner, 2026-10-10: "the agents
+  should have control over my seats and switching coins … allow them real moves on my real money card — GO", said AFTER seeing the edge audit
+  read 0 rules positive — their call, said once, not re-argued): the card is held BY THE AGENTS (`holdAll` + `holdBy: 'agents'`, set by
+  `_agent_control_set`): every engine door that checks holdAll is off and `tick.best()` returns None for a card held by `proof` / `agents`
+  (a stop under a hold used to BUY a replacement). Only the agents buy, in the `_prime_tick` agent block: `agents.manage(control=True)` over
+  EVERY coin (never a ❄ frozen one) — bank at the take line (`agent_pull`: free card cash, seat opens) · switch a coin whose read broke
+  (off radar / SKIP / lean < 0 / −3% 5m / buyers < 50) for an eligible GO after `CONTROL_HOLD_MIN` 15 min · else hold (never to cash at a loss;
+  drain pull stays) — then `arena_prime.agent_seat` fills each empty / reserved seat with an equal share from FREE cash only.
+  `agents.eligible` = GO + scan passed + age ≥ `trenchMinAgeH` (unknown = out) + pool ≥ $20K, not on card / burned / cooling / dollar-named.
+  ≤ `CONTROL_MOVES_HR` 4 real buys an hour (events `kind: 'agent'`, `move: fill | swap`). An empty seat's cash waits for THEIR coin (engine
+  compound + keeper `idle_sweep` gated, card `agentWant`). The proof gate stands aside while it is on; ▶ Release on the card (or the switch)
+  turns it off and the gate judges the card again. The owner's own ✋ hold is never taken over. Agents GO rarely — seats in cash is normal.
 

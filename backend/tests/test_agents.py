@@ -380,3 +380,49 @@ def test_they_learn_to_scalp_from_their_own_paths_without_look_ahead_and_the_rea
     assert v['mission']['key'] == 'breakeven' and v['scalp']['live']['tp'] == 8 and v['cfg']['agentScalp'] is True
     import arena_prime as ap
     assert ap.clean_cfg({})['agentScalp'] is True and ap.clean_cfg({'agentScalp': False})['agentScalp'] is False
+
+
+def test_in_control_they_buy_only_eligible_go_coins_switch_a_broken_read_after_15_min_and_stay_inside_the_hourly_budget():
+    row = lambda m, go=True, lean=2.0, age=3.0, liq=60_000, safe=True, trig='enter', d5=1.0, buy=60: {
+        'mint': m, 'symbol': m, 'pair': 'P' + m, 'px': 1.0, 'go': go, 'trigger': [trig, 'why'], 'devil': ['agree' if go else 'object', ''],
+        'why': {'lean': lean, 'drivers': []}, 'nums': {'d5': d5, 'buy': buy, 'liq': liq}, 'vitals': {'ageH': age, 'safe': safe, 'liq': liq}}
+    table = [row('GOOD', lean=3), row('YOUNG', age=0.2), row('NOAGE', age=None), row('THIN', liq=9_000), row('UNSCAN', safe=None), row('NOGO', go=False), row('HELD'), row('OK2', lean=2.5)]
+    assert [x['mint'] for x in ag.eligible(table, {'HELD'}, 1.0)] == ['GOOD', 'OK2']                 # minutes-old / unknown age / thin pool / unscanned / objected / on the card: all out
+    assert [x['mint'] for x in ag.eligible(table, set(), 1.0, burned={'GOOD'})] == ['OK2', 'HELD']
+    leg = lambda m, at=0, **k: {'symbol': m, 'pairAddress': 'P' + m, 'mint': m, 'units': 1, 'entry': 1.0, 'at': at, **k}
+    cfg = {'agentTakePct': 20, 'agentMode': 'auto', 'trenchMinAgeH': 1}
+    now = 3600
+    broke = row('MINE', go=False, lean=-1.0, trig='wait')
+    legs = [leg('MINE', at=now - 20 * 60), leg('FRESH', at=now - 5 * 60), leg('ICE', at=0, frozen=True)]
+    d = {x['symbol']: x for x in ag.manage(legs, table + [broke], {'PMINE': 0.9, 'PFRESH': 0.9, 'PICE': 0.5}, cfg, control=True, now=now, moves_left=4)}
+    assert d['MINE']['action'] == 'swap' and d['MINE']['to']['mint'] == 'GOOD' and 'lean turned' in d['MINE']['why']    # your coin, broken read, 20 min held → switched
+    assert d['FRESH']['action'] == 'hold' and 'ICE' not in d                                                            # 5 min held: never · your ❄ frozen coin: never theirs
+    assert ag.manage(legs[:1], table + [broke], {'PMINE': 0.9}, cfg, control=True, now=now, moves_left=0)[0]['action'] == 'hold'   # hourly budget spent → no switch
+    assert ag.manage(legs[:1], table + [broke], {'PMINE': 0.9}, cfg)  == []                                             # not in control: your coin is not theirs to manage
+    assert ag.manage(legs[:1], [broke, row('YOUNG', age=0.2)], {'PMINE': 0.9}, cfg, control=True, now=now, moves_left=4)[0]['action'] == 'hold'   # nothing eligible → never to cash at a loss
+    won = ag.manage([leg('MINE', at=now - 60)], table, {'PMINE': 1.3}, cfg, {'tp': 8, 'sl': 0}, control=True, now=now, moves_left=4)[0]
+    assert won['action'] == 'swap' and 'scalp' in won['why']                                                            # at the take line they bank it into the next GO
+    assert ag.seat_limit({'agentControl': True, 'coins': 4}, False, {}) == 4 and ag.view({}, [], cfg={'agentControl': True})['cfg']['agentControl'] is True
+    assert ag.CONTROL_HOLD_MIN == 15 and ag.CONTROL_MOVES_HR == 4
+
+
+def test_agent_control_holds_the_card_for_the_agents_the_proof_gate_stands_aside_and_a_manual_release_hands_it_back(monkeypatch):
+    import asyncio, reputation_service as rs
+    monkeypatch.setattr(rs, 'notify', lambda *a, **k: None); monkeypatch.setattr(rs, '_owner_wallets', lambda: [])
+    base = lambda **c: rs._json_save(rs.FUSE_HQ_PATH, {'prime': {'realCfg': rs._prime.clean_cfg({'proofGate': True}), 'cards': {'degen': {'real': True, 'events': [], **c}, 'safe': {'events': []}}}})
+    get = lambda: rs._json_load(rs.FUSE_HQ_PATH, {})['prime']
+    base(holdAll=True, holdBy='proof')
+    asyncio.run(rs._agent_control_set(True, 100))
+    p = get()
+    assert p['realCfg']['agentControl'] is True and p['cards']['degen']['holdBy'] == 'agents' and p['cards']['degen']['holdAll'] is True and not p['cards']['safe'].get('holdAll')
+    rs._json_save(rs.BRAIN_PATH, {'done': [{'at': i, 'f': ['age:<15m'], 'end': -60.0} for i in range(600)]}); rs._json_save(rs.AGENTS_PATH, {'done': []})
+    asyncio.run(rs._proof_gate_tick(200))
+    assert get()['cards']['degen']['holdBy'] == 'agents'                                    # the gate does not take the card back from them
+    asyncio.run(rs._agent_control_set(False, 300))
+    p = get()
+    assert p['realCfg']['agentControl'] is False and not p['cards']['degen'].get('holdAll') and 'holdBy' not in p['cards']['degen']
+    asyncio.run(rs._proof_gate_tick(400))
+    assert get()['cards']['degen']['holdBy'] == 'proof'                                     # control off → the proof gate judges the card again
+    base(holdAll=True)                                                                      # the owner's OWN hold: agent control never takes it over
+    asyncio.run(rs._agent_control_set(True, 500))
+    assert 'holdBy' not in get()['cards']['degen'] and get()['cards']['degen']['holdAll'] is True

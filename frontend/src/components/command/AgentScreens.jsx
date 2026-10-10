@@ -141,7 +141,7 @@ export function CardNow({ card, power, cfg, gos, call, isOwner = true, onDone, o
     try { await call('/admin/arena/prime', { method: 'POST', body: JSON.stringify(body) }); toast.success(`${m.label} — sent to your card`); setAt(null); if (onDone) onDone(); }
     catch (e) { if (!body[m.k].ack && String(e.message || '').startsWith('⚠')) setWarn({ text: e.message, m, body: { [m.k]: { ...body[m.k], ack: true } } }); else toast.error(e.message); }
     finally { setBusy(false); } };
-  return <div className={`ags-card ${cur ? 'is-open' : ''}`} data-testid="ags-card"><span className="ags-cardh"><b>🎮 ON YOUR CARD NOW</b>
+  return <div className={`ags-card ${cur ? 'is-open' : ''}`} data-testid="ags-card"><span className="ags-cardh"><b>🎮 {cfg?.agentControl ? 'AGENTS IN CONTROL' : 'ON YOUR CARD NOW'}</b>
     <button type="button" className="ags-pow" onClick={onMore} data-tip="Seats the agents may hold right now — earned (🧬 Growth)" data-testid="ags-pow">🤖 {pw.held ?? 0} / {pw.seats ?? 0} seats</button></span>
     <div className="ags-seats">{seats.map((s, i) => { const k = KIND[s.kind] || KIND.engine; const prog = s.kind === 'agent' && s.pct != null && s.take ? clamp(s.pct / s.take, 0, 1) : null;
       return <button type="button" key={s.pair || `o${i}`} className={`ags-seat is-${s.kind} ${at === i ? 'is-cur' : ''}`} aria-expanded={at === i} onClick={() => { setAt(at === i ? null : i); setWarn(null); }}

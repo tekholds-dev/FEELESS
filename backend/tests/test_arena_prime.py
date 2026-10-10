@@ -2840,3 +2840,40 @@ def test_the_trench_drop_never_buys_a_coin_under_an_hour_old_with_real_money_and
     assert ap.trench_age_ok({'ageH': 0.1}, {'trenchMinAgeH': 0}) and ap.trench_age_ok({}, {'trenchMinAgeH': 0})          # the owner's own switch: any age
     assert not ap.trench_age_ok({'ageH': 2.0}, {'trenchMinAgeH': 3}) and ap.trench_age_ok({'ageH': 0.6}, {'trenchMinAgeH': 0.5})
     assert ap.clean_cfg({})['trenchMinAgeH'] == 1.0 and ap.clean_cfg({'trenchMinAgeH': 0})['trenchMinAgeH'] == 0 and ap.clean_cfg({'trenchMinAgeH': 7})['trenchMinAgeH'] == 1.0
+
+
+def test_a_card_held_by_the_proof_gate_or_the_agents_stops_out_without_the_engine_buying_a_replacement():
+    card = ap.deal('degen', [P('a', 1)], [R('r1', 1), R('r2', 1)], CFG, 0, SOL[:1])
+    px = {'Psol': 1, 'Pa': 1, 'Pr1': 0.75, 'Pr2': 1}                                       # r1 −25% ≤ the stop
+    free = ap.tick(card, px, [], [R('r9', 1)], {**CFG, 'slMode': 'replace'}, 60, SOL)
+    assert 'r9' in [l['mint'] for l in free['legs']]                                       # normally: the stop buys a replacement
+    for by in ('proof', 'agents'):
+        held = ap.tick({**card, 'holdAll': True, 'holdBy': by}, px, [P('b', 1)], [R('r9', 1)], {**CFG, 'slMode': 'replace'}, 60, SOL)
+        mints = [l['mint'] for l in held['legs'] if not l.get('placeholder')]
+        assert 'r1' not in mints and 'r9' not in mints and 'b' not in mints                # stopped out, nothing bought
+        assert abs(ap.value(held, px) - ap.value(card, px)) < 1e-6                         # its money is still the card's (cash)
+
+
+def test_agents_fill_an_empty_seat_from_free_cash_only_and_bank_a_coin_to_free_cash():
+    leg = lambda m, usd: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m.upper(), 'role': 'runner', 'units': usd, 'entry': 1.0, 'costUsd': usd, 'liq': 5e6}
+    card = {'tpl': 'degen', 'real': True, 'legs': [leg('a', 1.0), leg('b', 1.0), {'mint': 'x', 'pairAddress': 'Px', 'symbol': 'X', 'placeholder': True, 'reserveUsd': 0.5, 'units': 0}],
+            'cash': 1.5, 'holdCashUsd': 0.5, 'events': []}
+    row = {'mint': 'go', 'symbol': 'GO', 'pairAddress': 'Pgo', 'price': 2.0, 'liquidityUsd': 5e6, 'tag': '🤖 agents GO · in control', 'ageH': 3.0}
+    px = {'Pa': 1.0, 'Pb': 1.0}
+    out = ap.agent_seat(card, row, px, {'coins': 4}, 100)
+    new = out['legs'][-1]
+    assert [l['mint'] for l in out['legs']] == ['a', 'b', 'go'] and ap.agent_leg(new) and new['slMode'] == 'hold' and new['bought']['ageH'] == 3.0   # the reserved seat counted as empty
+    assert abs(new['costUsd'] - 0.75) < 1e-6 and abs(out['cash'] - 0.75) < 1e-6 and out['holdCashUsd'] == 0.5   # an equal share of (2 + 1 free) / 4; the owner's held cash untouched
+    assert out['events'][-1]['kind'] == 'agent' and out['events'][-1]['move'] == 'fill' and card['cash'] == 1.5 and len(card['legs']) == 3   # the input card is not mutated
+    for bad, cfg in ((card, {'coins': 2}), ({**card, 'cash': 0.5}, {'coins': 4}), (card, {'coins': 0})):          # full card · only held cash · no count
+        with pytest.raises(ValueError):
+            ap.agent_seat(bad, row, px, cfg, 100)
+    with pytest.raises(ValueError):
+        ap.agent_seat(out, row, px, {'coins': 4}, 100)                                                           # never the same coin twice
+    with pytest.raises(ValueError):
+        ap.agent_seat(card, {**row, 'price': 0}, px, {'coins': 4}, 100)
+    banked = ap.agent_pull(out, 'Pgo', {'Pgo': 2.2}, {}, 200, '⚡ scalp +10%')
+    assert 'go' not in [l['mint'] for l in banked['legs']] and banked['cash'] > out['cash'] + 0.8 and banked['holdCashUsd'] == 0.5 and banked['events'][-1]['move'] == 'pull'
+    with pytest.raises(ValueError):
+        ap.agent_pull(banked, 'Pgo', {}, {}, 300)
+    assert ap.clean_cfg({})['agentControl'] is False and ap.clean_cfg({'agentControl': 1})['agentControl'] is True

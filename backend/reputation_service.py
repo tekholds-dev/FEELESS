@@ -8679,7 +8679,7 @@ async def _proof_gate_tick(now):
     told = None
     async with _admin_lock:
         d = _json_load(FUSE_HQ_PATH, {}); pr = d.get('prime') or {}
-        if not (pr.get('realCfg') or {}).get('proofGate'):
+        if not (pr.get('realCfg') or {}).get('proofGate') or (pr.get('realCfg') or {}).get('agentControl'):   # 🎮 the owner handed the card to the agents: their call
             return a
         ch = False
         for c in (pr.get('cards') or {}).values():
@@ -8718,6 +8718,39 @@ async def _proof_gate_fix_1010(now):
         await _proof_gate_tick(now)   # judge at once — never wait an hour to stop a bleed
     except Exception as e:
         print('proof gate:', e)
+    return True
+
+
+async def _agent_control_set(on, now):
+    """🎮 Switch agent control of the real card on / off: ON = the card is held by the agents (their moves only); OFF = that hold is
+    released (the proof gate, when on, judges the card again at its next tick)."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        pr['realCfg'] = _prime.clean_cfg({**(pr.get('realCfg') or {}), 'agentControl': bool(on)})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'agentControl'})
+        for c in (pr.get('cards') or {}).values():
+            if not c.get('real'):
+                continue
+            if on and (not c.get('holdAll') or c.get('holdBy') == 'proof'):
+                c['holdAll'] = True; c['holdBy'] = 'agents'
+                c['events'] = (list(c.get('events') or []) + [{'kind': 'hold', 'at': now, 'why': "🎮 the agents control every seat — the engine's own swaps are off"}])[-60:]
+            elif not on and c.get('holdBy') == 'agents':
+                c['holdAll'] = False; c.pop('holdBy', None); c.pop('agentWant', None)
+                c['events'] = (list(c.get('events') or []) + [{'kind': 'hold', 'at': now, 'why': '🎮 agent control off — the card is back on its own settings'}])[-60:]
+        _json_save(FUSE_HQ_PATH, d)
+
+
+async def _agent_control_fix_1010(now):
+    """🎮 Once (owner, 2026-10-10 ~12:30 after a $1 top-up: "the agents should have control over my seats and switching coins … allow them
+    real moves on my real money card — GO"): agent control ON. Said once before the switch: the edge audit reads 0 of 453 rules positive
+    and their ENTER calls −4% typical; the owner's call. Old value: data/realcfg_before_agentcontrol1010.json."""
+    d = _json_load(FUSE_HQ_PATH, {}); pr = d.get('prime') or {}
+    if pr.get('agentControlFix1010') or not pr.get('realCfg'):
+        return False
+    _json_save(DATA_DIR / 'realcfg_before_agentcontrol1010.json', {'agentControl': (pr.get('realCfg') or {}).get('agentControl')})
+    await _agent_control_set(True, now)
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); d.setdefault('prime', {})['agentControlFix1010'] = now; _json_save(FUSE_HQ_PATH, d)
     return True
 
 
@@ -8977,6 +9010,7 @@ async def _prime_tick_inner(now):
     await _floor_off_fix_1009(now)
     await _keephalf_fix_1010(now)
     await _proof_gate_fix_1010(now)
+    await _agent_control_fix_1010(now)
     await _rush_fix_1009(now)
     await _volcycle_fix_1009(now)
     await _degen_crazy_fix_1009(now)
@@ -9441,13 +9475,28 @@ async def _prime_tick_inner(now):
         # run, pulls them (profit to cash, seat left open) or swaps them for a fresh GO runner (agents.manage). Only while they are proven.
         if real_t and cur:   # 🎮 the card as seats for HQ › Agents (display only)
             _agents['card'] = _ag.card_seats(cur, None, px, cfg_t)
-        if real_t and cur and ((cfg_t.get('agentFeed') and (_agents.get('view') or {}).get('feed')) or cfg_t.get('agentLearn')) and not cur.get('holdAll') and not cur.get('flooredAt'):
-            dec_ = _ag.manage(cur.get('legs'), _agents.get('table'), px, cfg_t, _agents.get('scalp'))
+        # 🎮 AGENT CONTROL (cfg `agentControl`; owner, 2026-10-10: "the agents should have control over my seats and switching coins … real
+        # moves on my real money card — GO"): the card is held BY THE AGENTS (`holdBy: 'agents'` — every engine door that checks holdAll is
+        # off: rotation, re-shape, rush, cycles, the engine's seat refill) and only they buy: they fill empty seats with `eligible` GO coins,
+        # switch a coin whose read broke (after 15 min), bank at their take line. ≤ CONTROL_MOVES_HR real buys an hour.
+        ctl_ = bool(real_t and cur and cfg_t.get('agentControl') and not cur.get('flooredAt'))
+        if ctl_ and not (cur.get('holdAll') and cur.get('holdBy') == 'agents') and (not cur.get('holdAll') or cur.get('holdBy') == 'proof'):
+            cur = {**cur, 'holdAll': True, 'holdBy': 'agents', 'events': (list(cur.get('events') or []) + [{'at': now, 'kind': 'hold', 'why': '🎮 the agents control every seat — the engine\'s own swaps are off'}])[-60:]}
+        ctl_ = bool(ctl_ and cur.get('holdBy') == 'agents')   # a hold the owner set by hand stays a hold: nobody trades
+        if ctl_:
+            cur['agentWant'] = int(_fuse._f(cfg_t.get('coins')))
+        moves_ = max(0, _ag.CONTROL_MOVES_HR - sum(1 for e in cur.get('events') or [] if e.get('kind') == 'agent' and e.get('move') in ('fill', 'swap') and now - _fuse._f(e.get('at')) < 3600)) if ctl_ else None
+        if real_t and cur and (ctl_ or (((cfg_t.get('agentFeed') and (_agents.get('view') or {}).get('feed')) or cfg_t.get('agentLearn')) and not cur.get('holdAll'))) and not cur.get('flooredAt'):
+            dec_ = _ag.manage(cur.get('legs'), _agents.get('table'), px, cfg_t, _agents.get('scalp'), control=ctl_, now=now, moves_left=moves_)
             _agents['decisions'] = [{k: v for k, v in x.items() if k != 'to'} | ({'toSym': x['to']['symbol']} if x.get('to') else {}) for x in dec_]
             _agents['card'] = _ag.card_seats(cur, _agents['decisions'], px, cfg_t)
             for x in dec_:
                 try:
-                    if x['action'] == 'pull':
+                    if x['action'] == 'pull' and ctl_:
+                        was_ = cur
+                        cur = _prime.agent_pull(cur, x['pair'], px, liqs, now, x['why'])   # in control: banked to FREE card cash, the seat opens for their next coin
+                        cur = _prime.note_dropped(was_, cur, now, cfg_t['rotateHours'], px)
+                    elif x['action'] == 'pull':
                         cur = _prime.sell_leg_to_cash(cur, x['pair'], px, now, 100.0)
                         cur['events'].append({'at': now, 'kind': 'agent', 'symbol': x['symbol'], 'why': f"🤖 agents pulled ${x['symbol']}: {x['why']}"})
                     elif x['action'] == 'swap':
@@ -9458,10 +9507,25 @@ async def _prime_tick_inner(now):
                         for l in cur['legs']:
                             if l.get('mint') == t_['mint']:
                                 l.update(bought={**(l.get('bought') or {}), 'tag': '🤖 agents GO'}, slMode='hold', rideOrRug=True, ticket=True); l.pop('picked', None)
-                        cur['events'] = cur['events'][:-1] + [{**cur['events'][-1], 'kind': 'agent', 'why': f"🤖 agents swapped ${x['symbol']} for ${t_['symbol']}: {x['why']}"}]
+                        cur['events'] = cur['events'][:-1] + [{**cur['events'][-1], 'kind': 'agent', 'move': 'swap', 'why': f"🤖 agents swapped ${x['symbol']} for ${t_['symbol']}: {x['why']}"}]
                         cur = _prime.note_dropped(was_, cur, now, cfg_t['rotateHours'], px)
                 except ValueError:
                     continue
+        if ctl_:   # 🎮 their coin for every empty seat — only `eligible` GO coins, never one cooling / dollar-named, inside the hourly budget
+            used_ = sum(1 for e in cur.get('events') or [] if e.get('kind') == 'agent' and e.get('move') in ('fill', 'swap') and now - _fuse._f(e.get('at')) < 3600)
+            for t_ in _ag.eligible(_agents.get('table'), {l.get('mint') for l in cur.get('legs') or []}, cfg_t.get('trenchMinAgeH', 1), ((_json_load(AGENTS_PATH, {}).get('burned') or {}))):
+                if used_ >= _ag.CONTROL_MOVES_HR:
+                    break
+                if _fw.dollar_named(t_.get('symbol')) or t_['mint'] in cool:
+                    continue
+                try:
+                    cur = _prime.agent_seat(cur, {'mint': t_['mint'], 'symbol': t_['symbol'], 'pairAddress': t_['pair'], 'price': t_['px'], 'liquidityUsd': (t_.get('nums') or {}).get('liq'),
+                                                  'ageH': (t_.get('vitals') or {}).get('ageH'), 'vol1h': (t_.get('vitals') or {}).get('vol1h'), 'buyShare': (t_.get('nums') or {}).get('buy'),
+                                                  'tag': '🤖 agents GO · in control', 'why': (t_.get('trigger') or ['', ''])[1]}, px, cfg_t, now)
+                    used_ += 1
+                except ValueError:
+                    break
+            _agents['card'] = _ag.card_seats(cur, _agents.get('decisions'), px, cfg_t)
         # 🔥 TOP-3 AUTO SEAT (owner, 2026-10-09: "those coins automatically get swapped into a seat and buy-vs-sell gets it gone"): the
         # card's TOP 1/3 coin takes the weakest seat that is not winning, one per 10 min — still the real-buy pool floor, no dollar names,
         # not falling right now; the flow exit sells it when sellers take over.
@@ -9749,8 +9813,9 @@ async def fuse_prime_admin(request: Request):
         hd = body.get('hold') or {}
         if hd.get('tpl') in _prime.TEMPLATES and (pr.get('cards') or {}).get(hd['tpl']):   # ✋ hold all: no swaps / re-shapes (stops + rug shield still run)
             c_ = pr['cards'][hd['tpl']]; c_['holdAll'] = bool(hd.get('on'))
-            if not hd.get('on') and c_.pop('holdBy', None) == 'proof' and c_.get('real'):   # ▶ the owner releases a proof-gate hold = their call: the gate goes off
-                pr['realCfg'] = _prime.clean_cfg({**(pr.get('realCfg') or {}), 'proofGate': False})
+            by_ = c_.pop('holdBy', None) if not hd.get('on') else None
+            if by_ in ('proof', 'agents') and c_.get('real'):   # ▶ the owner releases a proof-gate / agent-control hold = their call: that switch goes off
+                pr['realCfg'] = _prime.clean_cfg({**(pr.get('realCfg') or {}), 'proofGate' if by_ == 'proof' else 'agentControl': False})
             elif hd.get('on'):
                 c_.pop('holdBy', None)   # a hold set by hand is the owner's — the gate never lifts it
             c_['events'] = (list(c_.get('events') or []) + [{'kind': 'hold', 'at': time.time(), 'why': '✋ hold all — no swaps or re-shapes until released' if hd.get('on') else '▶ released — the engine swaps and re-shapes again'}])[-60:]
@@ -12055,7 +12120,7 @@ async def admin_agents_set(request: Request):
     ch = {}
     if 'feed' in body:
         ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp'):
+    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl'):
         if k in (body.get('cfg') or {}):
             ch[k] = body['cfg'][k]
     if ch:
@@ -12065,6 +12130,8 @@ async def admin_agents_set(request: Request):
             pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
             pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
             _json_save(FUSE_HQ_PATH, d)
+        if 'agentControl' in ch:   # 🎮 the hold on the card follows the switch at once
+            await _agent_control_set(bool(ch['agentControl']), time.time())
     idea = body.get('idea') or {}
     if idea.get('id'):
         try:

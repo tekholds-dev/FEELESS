@@ -510,6 +510,7 @@ def clean_cfg(p):
     out['agentLearnPct'] = int(_f((p or {}).get('agentLearnPct'))) if int(_f((p or {}).get('agentLearnPct'))) in (5, 10, 15, 100) else 100   # 100 = a WHOLE seat (owner: "they run 1 whole seat")
     out['agentDial'] = (p or {}).get('agentDial') if (p or {}).get('agentDial') in ('chill', 'normal', 'crazy') else 'normal'   # 🎚 the creator's dial on Trigger's bar (agents.DIALS)
     out['agentScalp'] = bool((p or {}).get('agentScalp', True))   # ⚡ an agent seat banks at the desk's learned scalp take line (only once a plan is adopted)
+    out['agentControl'] = bool((p or {}).get('agentControl', False))   # 🎮 the agents control EVERY seat of the real card (the engine's own doors are off)
     out['agentTrust'] = bool((p or {}).get('agentTrust', False))   # 🤝 a 2nd agent seat once the suggestions the owner took are proven (≥ 10 closed, typical > 0)
     out['agentTakePct'] = int(_f((p or {}).get('agentTakePct'))) if int(_f((p or {}).get('agentTakePct'))) in (5, 10, 20, 30, 50) else 10   # 🤖 agent seats hold until this profit
     out['agentMode'] = (p or {}).get('agentMode') if (p or {}).get('agentMode') in ('auto', 'pull', 'swap') else 'auto'   # … then pull to cash / swap / let the agents choose
@@ -2219,6 +2220,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     fee = cfg['paperFeeUsd']
 
     def best(role, trench=False):
+        if c.get('holdBy') in ('proof', 'agents'):   # 🧪 / 🎮 a card held by the proof gate or by the agents: the ENGINE buys no replacement — a stop's money waits as card cash
+            return None
         if role == 'runner' and not trench:   # 🚀 BANGERS FIRST (cfg `bangers`, built + checked by the service): proven caller → top 3 → cooling off
             b_ = next((x for x in cfg.get('bangers') or [] if x.get('mint') not in have() and _f(x.get('price')) > 0 and price_agrees(x, prices)), None)
             if b_:
@@ -2840,7 +2843,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     if t2_leg:
         free_cash -= t2_usd; c['cash'] = round(_f(c['cash']) - t2_usd, 6)
         ev(kind='ticket2', symbol=t2_leg['symbol'], usd=round(t2_usd, 4), why=f"🎟 second ticket: locked and still called out by {int(_f(t2_leg.get('calledN')))} on Pump — one add, never again on this ride", to=[t2_leg['symbol']])
-    if cfg['compound'] and free_cash > 0.01 and c['legs'] and c.get('holdBy') != 'proof':   # 🧪 a proof-gate hold buys NOTHING — idle cash stays cash
+    if cfg['compound'] and free_cash > 0.01 and c['legs'] and c.get('holdBy') != 'proof' and not (c.get('holdBy') == 'agents' and want_n and seats_used(c) < want_n):   # 🎮 an empty seat's cash waits for the agents' coin   # 🧪 a proof-gate hold buys NOTHING — idle cash stays cash
         # 🔔 AT A ROUND every idle dollar goes back to work: a coin skipped only because it was cut minutes ago counts again
         # (never one cut on this very tick), so card cash can't sit idle past the next bell
         round_now = _f(c.get('lastRotateAt')) == now
@@ -3356,6 +3359,49 @@ def rebuy_in(card, still_held, now):
 
 
 SEAT_QUEUE_MAX = 5
+
+
+def agent_seat(card, row, prices, cfg, now, min_usd=0.05):
+    """🎮 The agents fill ONE empty seat with their GO coin (cfg `agentControl`): an equal share of the card, paid ONLY from free card cash
+    — never a trim of another coin, never the owner's held / parked cash. A reserved seat (a stop that found no replacement) counts as
+    empty: its reserve is the seat's money. The coin is theirs: tagged 🤖, held until they bank or switch it (no stop — the rug shield and
+    a draining pool still take it out). → new card. ValueError = no empty seat / not enough free cash / no price."""
+    c = {**card, 'legs': [dict(l) for l in card.get('legs') or []], 'events': list(card.get('events') or [])}
+    want = int(_f((cfg or {}).get('coins')))
+    c['legs'] = [l for l in c['legs'] if not (l.get('placeholder') and not l.get('manualCash'))]
+    if any(l.get('mint') == row.get('mint') for l in c['legs']):
+        raise ValueError('already on the card')
+    if not want or len(c['legs']) >= want:
+        raise ValueError('no empty seat')
+    if _f(row.get('price')) <= 0:
+        raise ValueError('no price')
+    free = max(0.0, _f(c.get('cash')) - _f(c.get('holdCashUsd')))
+    total = sum(_f(l.get('units')) * (_f((prices or {}).get(l['pairAddress'])) or _f(l.get('entry'))) for l in c['legs']) + max(0.0, _f(c.get('cash')) - _f(c.get('holdCashUsd')))
+    usd = min(free, total / want)
+    if usd < max(min_usd, _f((cfg or {}).get('minOrderUsd'))):
+        raise ValueError(f'only ${free:.2f} free — a seat needs more')
+    leg = _leg(row, usd, now, 'runner')
+    leg.update(slMode='hold', rideOrRug=True, ticket=True)
+    c['legs'].append(leg)
+    c['cash'] = round(_f(c['cash']) - usd, 6)
+    c.setdefault('events', []).append({'at': now, 'kind': 'agent', 'move': 'fill', 'symbol': row.get('symbol'), 'usd': round(usd, 4),
+                                       'why': f"🤖 agents filled seat {len(c['legs'])} of {want} with ${row.get('symbol')} (${usd:.2f}) — {row.get('why') or 'all four agree'}"})
+    return c
+
+
+def agent_pull(card, pair, prices, liqs, now, why=''):
+    """🎮 In control, the agents BANK a coin: it leaves the card whole and what selling pays becomes FREE card cash — the seat is open for
+    their next coin (unlike the owner's ✂, which holds the cash for the owner and keeps the slot). → new card. ValueError = not on the card."""
+    c = {**card, 'legs': [dict(l) for l in card.get('legs') or []], 'events': list(card.get('events') or [])}
+    l = next((x for x in c['legs'] if x.get('pairAddress') == pair and not x.get('placeholder')), None)
+    if not l or _f(l.get('units')) <= 0:
+        raise ValueError('not on the card')
+    px = _f((prices or {}).get(pair)) or _f(l.get('entry'))
+    got = sell_usd(_f(l['units']), px, (liqs or {}).get(pair) or l.get('liq'))
+    c['legs'] = [x for x in c['legs'] if x is not l]
+    c['cash'] = round(_f(c.get('cash')) + got, 6)
+    c['events'].append({'at': now, 'kind': 'agent', 'move': 'pull', 'symbol': l.get('symbol'), 'usd': round(got, 4), 'why': f"🤖 agents banked ${l.get('symbol')} (${got:.2f} to card cash): {why}"})
+    return c
 
 
 def seats_used(c):

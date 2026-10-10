@@ -55,6 +55,8 @@ test('the agent desk: four agents in one chain, the stage, the live table with e
   expect(call).toHaveBeenCalledWith('/admin/agents', expect.objectContaining({ method: 'POST', body: JSON.stringify({ idea: { id: 'abc123', action: 'approve' } }) }));
   await act(async () => { q('agc-agentMode-swap').click(); });
   expect(call).toHaveBeenCalledWith('/admin/agents', expect.objectContaining({ body: JSON.stringify({ cfg: { agentMode: 'swap' } }) }));
+  await act(async () => { q('agc-control-on').click(); });   // 🎮 hand them every seat = one owner tap
+  expect(call).toHaveBeenCalledWith('/admin/agents', expect.objectContaining({ body: JSON.stringify({ cfg: { agentControl: true } }) }));
   await act(async () => { q('agd-feed-on').click(); });
   expect(call).toHaveBeenCalledWith('/admin/agents', expect.objectContaining({ method: 'POST', body: JSON.stringify({ feed: true }) }));
   expect(agentLine({ n: 4, med: -2, right: 50 })).toBe('4 judged · -2.0% typical at 5 min · 50% right');

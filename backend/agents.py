@@ -750,7 +750,7 @@ def view(state, table, feed=False, real=None, mind=None, cfg=None, decisions=Non
             'table': table[:24], 'desk': paper(state), 'open': len((state or {}).get('open') or {}), 'feed': bool(feed and proven), 'feedAsked': bool(feed),
             'road': road(state, real), 'thoughts': list(reversed(((state or {}).get('feed') or [])[-40:])), 'real': real or {}, 'mind': mind or {},
             'ideas': sorted(({'id': i, **v} for i, v in ((state or {}).get('ideas') or {}).items()), key=lambda x: (x['status'] != 'new', -_f(x.get('at')))),
-            'cfg': {'agentFeed': bool((cfg or {}).get('agentFeed')), 'agentLearn': bool((cfg or {}).get('agentLearn')), 'agentLearnPct': int(_f((cfg or {}).get('agentLearnPct') or 100)), 'agentTrust': bool((cfg or {}).get('agentTrust')), 'agentScalp': bool((cfg or {}).get('agentScalp', True)), 'agentDial': (cfg or {}).get('agentDial') if (cfg or {}).get('agentDial') in DIALS else 'normal',
+            'cfg': {'agentFeed': bool((cfg or {}).get('agentFeed')), 'agentLearn': bool((cfg or {}).get('agentLearn')), 'agentLearnPct': int(_f((cfg or {}).get('agentLearnPct') or 100)), 'agentTrust': bool((cfg or {}).get('agentTrust')), 'agentControl': bool((cfg or {}).get('agentControl')), 'agentScalp': bool((cfg or {}).get('agentScalp', True)), 'agentDial': (cfg or {}).get('agentDial') if (cfg or {}).get('agentDial') in DIALS else 'normal',
                     'agentTakePct': int(_f((cfg or {}).get('agentTakePct') or 10)), 'agentMode': (cfg or {}).get('agentMode') or 'auto',
                     'agentSeats': int(_f((cfg or {}).get('agentSeats') or 2)), 'options': {'take': list(AGENT_TAKES), 'mode': list(AGENT_MODES), 'seats': list(AGENT_SEATS)}},
             'decisions': decisions or [], 'tasks': tasks(state, table, now), 'creed': list(CREED), 'life': survival(state),
@@ -881,6 +881,8 @@ def seat_limit(cfg, proven, real):
     """How many coins the agents may hold on the real card RIGHT NOW — the one rule `_agents_go_rows` buys by:
     proven desk + feed on → `agentSeats` · else the 🎓 learning seat → 1 (2 once 🤝 trust is switched on AND earned) · else 0."""
     c = cfg or {}
+    if c.get('agentControl'):   # 🎮 the creator handed them every seat
+        return int(_f(c.get('coins') or 0)) or 4
     if c.get('agentFeed') and proven:
         return int(_f(c.get('agentSeats') or 2))
     if c.get('agentLearn'):
@@ -994,7 +996,26 @@ def is_agent(leg):
     return str(((leg or {}).get('bought') or {}).get('tag') or '').startswith('🤖')
 
 
-def manage(legs, table, prices, cfg, scalp=None):
+CONTROL_HOLD_MIN = 15      # 🎮 in control: a coin is never switched in its first 15 minutes (the card's own record: exits inside 15 min lose)
+CONTROL_MOVES_HR = 4       # 🎮 in control: at most this many real buys (fills + switches) an hour — churn × cost is what drained the card
+CONTROL_MIN_LIQ = 20_000.0
+
+
+def eligible(table, on=(), min_age_h=1.0, burned=()):
+    """🎮 The coins the agents may put REAL money in while they control the card: a 🟢 GO (Trigger entered AND Devil agreed — so the holder
+    scan passed, no +15% candle, not falling, no busted read, rug < 50, not burned) that is also ≥ `min_age_h` old (unknown age = out),
+    in a pool ≥ $20K with a live price, and not already on the card. Best lean first."""
+    out = []
+    for x in table or []:
+        v = x.get('vitals') or {}
+        if (not x.get('go') or x.get('mint') in on or x.get('mint') in (burned or ()) or _f(x.get('px')) <= 0 or v.get('safe') is not True
+                or v.get('ageH') is None or _f(v['ageH']) < _f(min_age_h) or _f((x.get('nums') or {}).get('liq') or v.get('liq')) < CONTROL_MIN_LIQ):
+            continue
+        out.append(x)
+    return sorted(out, key=lambda x: -_f((x.get('why') or {}).get('lean')))
+
+
+def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_left=None):
     """For every coin the agents put on the card: under `agentTakePct` profit it HOLDS (only the rug shield may cut it); in profit the agents
     read it again — still a clean read (Trigger not SKIP, lean ≥ 0, 5-min ≥ −3%, buyers ≥ 50%) → let it run; else EXIT: 'swap' for a fresh GO
     runner (mode auto / swap, when one exists off the card) or 'pull' to card cash with the seat left open. Not on the desk's list any more →
@@ -1009,10 +1030,14 @@ def manage(legs, table, prices, cfg, scalp=None):
         take = _f(scalp['tp'])
     by = {x['mint']: x for x in table or []}
     on = {l.get('mint') for l in legs or []}
-    gos = [x for x in table or [] if x.get('go') and x['mint'] not in on]
+    # 🎮 IN CONTROL (cfg `agentControl`): they manage EVERY coin on the card, a switch needs an `eligible` coin (age, pool, scan), a coin
+    # whose read broke may be switched for one after CONTROL_HOLD_MIN even at a loss — and never more than `moves_left` switches.
+    gos = eligible(table, on, (cfg or {}).get('trenchMinAgeH', 1)) if control else [x for x in table or [] if x.get('go') and x['mint'] not in on]
+    if control and moves_left is not None:
+        gos = gos[:max(0, int(moves_left))]
     out = []
     for l in legs or []:
-        if not is_agent(l) or l.get('placeholder') or l.get('buying') or _f(l.get('units')) <= 0 or _f(l.get('entry')) <= 0:
+        if (not control and not is_agent(l)) or l.get('placeholder') or l.get('buying') or l.get('frozen') or _f(l.get('units')) <= 0 or _f(l.get('entry')) <= 0:
             continue
         px = _f((prices or {}).get(l.get('pairAddress')))
         if px <= 0:
@@ -1022,7 +1047,24 @@ def manage(legs, table, prices, cfg, scalp=None):
         if lq0 > 0 and 0 < lq1 < lq0 * DRAIN_PULL:   # 🩸 the pool is draining: out NOW, profit or not (a drained pool cannot be sold later)
             out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'pull', 'why': f"{pnl:+.1f}% — pool fell to {round(lq1 / lq0 * 100)}% of entry depth: out now, before it can't be sold"}); continue
         if pnl < take:
-            out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'hold', 'why': f'{pnl:+.1f}% — holding until +{take:g}% (only the rug shield cuts it)'}); continue
+            x_ = by.get(l.get('mint'))
+            held_min = (now - _f(l.get('at'))) / 60 if now and l.get('at') else 0.0
+            broke = None
+            if control and gos and held_min >= CONTROL_HOLD_MIN:
+                if not x_:
+                    broke = 'off their radar'
+                elif x_['trigger'][0] == 'skip':
+                    broke = x_['trigger'][1] or 'Trigger says SKIP'
+                elif x_['why']['lean'] < 0:
+                    broke = f"lean turned {x_['why']['lean']:+.1f}"
+                elif _f(x_['nums'].get('d5')) <= -3:
+                    broke = f"{_f(x_['nums']['d5']):+.1f}% in 5 min"
+                elif x_['nums'].get('buy') is not None and _f(x_['nums']['buy']) < 50:
+                    broke = f"buyers down to {_f(x_['nums']['buy']):.0f}%"
+            if broke:
+                out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'swap', 'why': f"{pnl:+.1f}%, {broke} → switched for their GO ${gos[0]['symbol']}", 'to': gos[0]})
+                gos = gos[1:]; continue
+            out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'hold', 'why': f'{pnl:+.1f}% — holding until +{take:g}%' + (' (their read still holds)' if control else ' (only the rug shield cuts it)')}); continue
         if scalping:
             if mode in ('auto', 'swap') and gos:
                 out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'swap', 'why': f"⚡ scalp {pnl:+.1f}% ≥ +{take:g}% → banked into ${gos[0]['symbol']}", 'to': gos[0]})

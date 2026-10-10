@@ -323,7 +323,7 @@ def idle_sweep(card_id, card, book, tgt, sol_free, sol_px, cfg, now):
     NO other order and the card holds spare SOL (beyond a SOL seat, the owner's ✂ cash, a reserved seat's money), ONE buy puts it
     into the held coin furthest under an equal share (one min-size order at least) — never a locked rider or a coin cut in the
     last 10 min; the rest follows on the next ticks. → order or None"""
-    if sol_px <= 0 or card.get('flooredAt') or card.get('sellingOut') or card.get('holdBy') == 'proof':   # 🧪 proof-gate hold: no buy of any kind
+    if sol_px <= 0 or card.get('flooredAt') or card.get('sellingOut') or card.get('holdBy') == 'proof' or (card.get('holdBy') == 'agents' and len(card.get('legs') or []) < int(card.get('agentWant') or 0)):   # 🧪 proof hold: no buy · 🎮 agents: an empty seat's cash waits for THEIR coin
         return None
     reserved = sum(_f(l.get('reserveUsd')) for l in card.get('legs') or [] if l.get('placeholder')) + _f(card.get('holdCashUsd'))
     idle = sol_free * sol_px - reserved
