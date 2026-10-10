@@ -418,9 +418,14 @@ def devil(call, n, why, row, learned):
     if row.get('mint') in ((learned or {}).get('burned') or {}):
         args.append('burned us within the last 6h — a GO on it lost 20%+ in 5 min')
     mind = row.get('mind') or {}
-    if (mind.get('crowd') or {}).get('swarm'):
+    # a SOFT signal objects only while its own record backs it: under DRIVER_MIN_N judged calls it stands on belief; after that it must
+    # really be followed by losses (typical 5-min result < SOFT_MED), else it is noted and waved through. (2026-10-10: "botted launch"
+    # blocked 9 of 25 duty cases while 554 judged calls with it read no worse than a random coin.)
+    ld_ = (learned or {}).get('drivers') or {}
+    backed = lambda k: int((ld_.get(k) or {}).get('n') or 0) < DRIVER_MIN_N or _f((ld_.get(k) or {}).get('med')) < SOFT_MED
+    if (mind.get('crowd') or {}).get('swarm') and backed('swarm'):
         args.append(f"the callers are a bot swarm ({round(_f(mind['crowd'].get('swarmShare')) * 100)}% the same line)")
-    if _f((mind.get('bots') or (0, []))[0]) >= 40:
+    if _f((mind.get('bots') or (0, []))[0]) >= 40 and backed('botted'):
         args.append('botted launch: ' + '; '.join((mind['bots'][1] or [])[:2]))
     bad = [d for d in why['drivers'] if d[1] < 0]
     if bad:
@@ -445,6 +450,7 @@ def devil(call, n, why, row, learned):
 
 # ── the chain ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 BUST_N, BUST_MED = 30, -20.0
+SOFT_MED = -1.0   # a soft objection (botted / swarm) needs its own driver record to read worse than this over 5 minutes
 
 
 def busted_now(proof, call_keys):

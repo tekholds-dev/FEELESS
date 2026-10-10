@@ -494,3 +494,16 @@ def test_devils_busted_reads_come_from_the_reads_own_live_records_not_a_fixed_li
     assert ag.devil('enter', n, why, row('BOND RUN'), {'busted': {'BOND RUN'}})[0] == 'object'
     assert ag.devil('enter', n, why, row('WASH TRADED'), {})[0] == 'object'                           # no live record → the old list stands in
     assert ag.devil('enter', n, why, {**row('WASH TRADED'), 'tv': {'call': ['x', 'WASH TRADED'], 'rug': 62}}, {'busted': set()})[0] == 'object'   # every other check still stands
+
+
+def test_a_soft_objection_must_be_backed_by_its_own_record():
+    why = {'lean': 3, 'drivers': []}
+    row = {'safe': True, 'tv': {'call': ['x', 'WATCH'], 'rug': 5}, 'mint': 'M', 'mind': {'bots': (60, ['only 0% of the volume is organic', 'wash-traded volume']), 'crowd': {'swarm': True, 'swarmShare': 0.8}}}
+    n = {'c1': 5, 'age': 3}
+    assert ag.devil('enter', n, why, row, {'busted': set()})[0] == 'object'                                              # no record yet: the belief stands
+    flat = {'busted': set(), 'drivers': {'botted': {'n': 300, 'med': 0.0}, 'swarm': {'n': 40, 'med': 0.4}}}
+    assert ag.devil('enter', n, why, row, flat) == ('agree', 'no evidence against it')                                    # 300 judged calls say it is no worse than any coin → waved through
+    bad = {'busted': set(), 'drivers': {'botted': {'n': 300, 'med': -4.0}, 'swarm': {'n': 40, 'med': 0.4}}}
+    v, arg = ag.devil('enter', n, why, row, bad)
+    assert v == 'object' and arg.startswith('botted launch')                                                              # a record that really loses keeps the objection
+    assert ag.devil('enter', n, why, {**row, 'tv': {'call': ['x', 'WATCH'], 'rug': 70}}, flat)[0] == 'object'             # hard checks never soften

@@ -12083,6 +12083,12 @@ async def _agents_tick(now):
         except Exception:
             pass
         _agents.update(table=table, view=_ag.view(st, table, bool(rcfg_.get('agentFeed')), _agents_real(), _agents.get('mind'), rcfg_, _agents.get('decisions'), now, _agents.get('card'), _agents.get('money')))
+        try:   # 🕵 ACTIVE INVESTIGATION: their 2 strongest reads that nobody has holder-scanned yet get a scan requested (deduped, rate-paced)
+            if rcfg_.get('agentControl'):
+                for c_ in [c_ for c_ in _ag.investigate(table, set(), rcfg_.get('trenchMinAgeH', 1), st.get('burned') or {}, top=0) if not c_['checks'][0][1] and (c_['row'].get('vitals') or {}).get('safe') is None][:2]:
+                    asyncio.ensure_future(_runner_intel(c_['mint']))
+        except Exception:
+            pass
         try:   # 🕵 the duty's case files on disk each pass (read-only snapshot: what cleared, what blocked each coin)
             dv_ = _agents['view'].get('duty') or {}
             _json_save(DATA_DIR / 'agents_duty.json', {'at': now, 'on': dv_.get('on'), 'cleared': dv_.get('cleared'), 'dutyAt': dv_.get('at'),

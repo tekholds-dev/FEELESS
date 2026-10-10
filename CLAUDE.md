@@ -2849,4 +2849,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `BUSTED` list (fallback only) had WASH TRADED / TREND DOWN / DEAD DIP on it while their own records were flat (−0.2% / 47% up, +0.3% / 72% up)
   — with agents in control the duty cleared 0 of 25 coins, 19 on that one false claim. FOUND WITH `data/agents_duty.json` (the duty's case
   files written each pass: `cleared`, each coin's `blocked` reasons): when the agents make no move, read that file first.
+- ⚖ SOFT OBJECTIONS ARE RECORD-BACKED (`agents.devil`, `SOFT_MED` −1.0): "botted launch" and "bot swarm" object on belief until their driver
+  has `DRIVER_MIN_N` 8 judged calls; after that only while its 5-min record is really negative. Hard objections (live busted read, rug ≥ 50,
+  ran > 150% 1h, < 15 min old, never scanned, burned, approved avoid, autopsy rug signs) never soften. 🕵 In control the service requests a
+  holder scan for the agents' 2 strongest unscanned cases each pass (`_runner_intel`, deduped) — "holders not scanned" was the other blocker.
 
