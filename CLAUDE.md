@@ -2739,3 +2739,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   canvas-texture monitors / wall board / desk plates redrawn on each pass, glass tube with stamped coin slips, HTML speech bubbles projected
   per frame), click = raycast → select. Loop stops off-screen / while the inline copy sits under the pop-out; hidden tab, fx-lite and reduced
   motion get a STILL frame every 1–2s (never blank). `has3D()` false (jsdom, no GPU) → the SVG office. Canvas size = its box (pop-out taller).
+- 🤖 Agent desk v7 = META LAYOUT (owner, 2026-10-10: "cleaner, more interactive, meta all throughout"; `AgentDesk.jsx`, `agentDesk.css` rewritten on
+  m-* tokens, `--ag` = the agent's colour, `--agd-up` green that flips in day): hero (`PassClock`: age + bar to the next pass, re-reads when it is
+  due; GET is served from memory, no rate limit) → 7 KPI tiles (`kpi-*`, each jumps to its lens) → office (🏢 on / off, remembered) → the four
+  agents as ONE picker (`agent-<k>` buttons with a right-% ring; drives the office via `AgentRoom sel / onSel / picker`, the feed filter and the
+  highlighted pip) → ONE lens (`LENSES`, `feeless.agentLens`): 🟢 Live (work floor · coin board · thought feed) · 🧠 Learning · ⚔ Survival ·
+  ⚙ Control. `lens="all"` stacks them (tests only). COIN BOARD = one line per coin: 5m · four pips (`pipsOf`) · lean vs Trigger's bar
+  (`leanFill`) · verdict (`rowState`) · the ONE fact that decided it (`rowWhy`); filter seg with counts (`boardCounts`), search, sort
+  (`boardRows`); a row opens every agent's word + vitals + brief + 🪙 coin / 📈 chart / copy CA. A feed line or work-floor mark opens its coin.
+  New agent data ⇒ a lens (or a row's body), never a new stacked block. 🤝 `agentTrust` (real cfg, off): a 2nd agent seat once the suggestions
+  the owner took are proven (≥ 10 closed, typical > 0). Office = white 3rd-person room (scanner → bots carry sheets → GOOD drawer / shredder).

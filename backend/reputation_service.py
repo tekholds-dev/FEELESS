@@ -9010,7 +9010,7 @@ async def _prime_tick_inner(now):
                 sendit_ = [x for x in _brain_rows()[:6] if x['brain']['est'] > 0 and x.get('safe') is True] + sendit_
             pro_ = _pc.pro_entries(_pump_calls.get('calls') or [], _pump_calls.get('callers') or {}, [_with_tv(x) for x in _open_board()], now * 1000) if cfg_t.get('proCallEntry') else []
             if cfg_t.get('agentFeed') or cfg_t.get('agentLearn'):   # 🤖 the agents' GO calls first — proven, or ONE small 🎓 learning seat
-                sendit_ = _agents_go_rows((cur or {}).get('legs'), cfg_t.get('agentSeats'), cfg_t.get('agentLearn'), cfg_t.get('agentLearnPct')) + sendit_
+                sendit_ = _agents_go_rows((cur or {}).get('legs'), cfg_t.get('agentSeats'), cfg_t.get('agentLearn'), cfg_t.get('agentLearnPct'), cfg_t.get('agentTrust')) + sendit_
             if cfg_t.get('trenchRush'):   # ⚡ RUSH: the engine buys what the Rush board shows — trench + open-list coins that PASSED the scan, ranked by rush_score
                 sendit_ = _rush_rows() + sendit_
             pool_t = _prime.trench_pool(sendit_, _trench_cache.get('rows'), _trench_cache.get('fallback'),
@@ -11906,7 +11906,7 @@ def _agents_real():
     return out
 
 
-def _agents_go_rows(legs=(), seats=2, learn=False, learn_pct=100):
+def _agents_go_rows(legs=(), seats=2, learn=False, learn_pct=100, trust=False):
     """The team's GO coins for the real card's rush. PROVEN (5-min stage conquered + `agentFeed`): up to `agentSeats` coins, normal tickets.
     🎓 LEARNING (`agentLearn`, before they are proven): ONE coin at a time — a WHOLE seat at `learn_pct` 100 (default), else a % ticket.
     The other seats stay the owner's: the agents only SUGGEST for them (My cards alert → 🤝 tagged, scored apart)."""
@@ -11917,7 +11917,8 @@ def _agents_go_rows(legs=(), seats=2, learn=False, learn_pct=100):
             return []
         learning = False
     elif learn:
-        if held >= 1:
+        sg = (_agents_real() or {}).get('suggested') or {} if trust else {}
+        if held >= (2 if trust and int(sg.get('n') or 0) >= 10 and _fuse._f(sg.get('med')) > 0 else 1):   # 🤝 earned trust: a 2nd seat
             return []
         learning = True
     else:
@@ -11956,7 +11957,7 @@ async def admin_agents_set(request: Request):
     ch = {}
     if 'feed' in body:
         ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct'):
+    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust'):
         if k in (body.get('cfg') or {}):
             ch[k] = body['cfg'][k]
     if ch:

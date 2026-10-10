@@ -95,10 +95,10 @@ body.fx-lite .agr *, body.fx-lite .agr-shade { animation: none !important; }
 body.fx-lite .agr-slip { opacity: 0; } body.fx-lite .agr-slip.is-go { opacity: 1; transform: translateX(calc(var(--i) * 96px)); }
 @media (prefers-reduced-motion: reduce) { .agr *, .agr-shade { animation: none !important; } .agr-slip { opacity: 0; } .agr-slip.is-go { opacity: 1; transform: translateX(calc(var(--i) * 96px)); } }
 body.theme-day .agr { background: linear-gradient(160deg, #eef8f2, #f1edfb); border-color: #a9dcbf; }
-body.theme-day .agr-detail { color: #13281d; }
+body.theme-day .agr-detail { color: #13281d; } body.theme-day .agr-head b, body.theme-day .agr-detail h6 { color: #0f8a45; } body.theme-day .agr-now { color: #946a00; }
 @media (max-width: 640px) { .agr, .agr.is-big { grid-template-columns: 1fr; } .agr-detail { max-height: 300px; } }
 /* 🧊 the 3D office (AgentOffice3D.jsx): a WebGL canvas + HTML speech bubbles placed per frame (transform only) */
-.agr3 { position: relative; width: 100%; aspect-ratio: 1000 / 460; overflow: hidden; background: #070d14; }
+.agr3 { position: relative; width: 100%; aspect-ratio: 2 / 1; overflow: hidden; background: #e9eef2; }
 .agr3.is-boot { display: grid; place-items: center; color: #6d8d7d; font: 600 11px "JetBrains Mono", monospace; letter-spacing: .12em; }
 .agr3-canvas { display: block; width: 100%; height: 100%; }
 .agr3-bubs { position: absolute; inset: 0; pointer-events: none; }

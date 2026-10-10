@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { AgentDesk, agentLine } from './AgentDesk';
+import { AgentDesk, agentLine, rowState, rowWhy, pipsOf, leanFill, boardRows, boardCounts, passLeft } from './AgentDesk';
 
 const view = {
   agents: [['tally', '📊', 'Tally', 'tracks the numbers'], ['sherlock', '🔍', 'Sherlock', 'knows why they moved'], ['trigger', '⏱', 'Trigger', 'knows when to enter'], ['devil', '⚖', 'Devil', 'argues it is right — or not']]
@@ -26,7 +26,7 @@ const view = {
 test('the agent desk: four agents in one chain, the stage, the live table with every agent\'s word, and the owner feed switch', async () => {
   const call = jest.fn(async (path, opts) => (opts ? { ok: true } : view));
   const el = document.createElement('div'); document.body.appendChild(el);
-  await act(async () => { createRoot(el).render(<AgentDesk call={call} />); });
+  await act(async () => { createRoot(el).render(<AgentDesk call={call} lens="all" />); });   // lens="all" stacks every lens
   const q = id => el.querySelector(`[data-testid="${id}"]`);
   expect(['tally', 'sherlock', 'trigger', 'devil'].every(k => q(`agent-${k}`))).toBe(true);
   expect(q('agent-tally').textContent).toContain('no judged calls yet');
@@ -35,6 +35,8 @@ test('the agent desk: four agents in one chain, the stage, the live table with e
   expect(q('agd-desk').textContent).toContain('$20.60'); expect(q('agd-desk').textContent).toContain('1 bust');
   expect(q('agd-road').textContent).toContain('12%'); expect(q('agd-road').textContent).toContain('1.03× of 10×'); expect(q('agd-road').textContent).toContain('opens after the 10×');
   expect(q('agd-mind').textContent).toContain('600 Pump callouts'); expect(q('agd-mind').textContent).toContain('📖 zoinked'); expect(q('agd-mind').textContent).toContain('🤖 AI · 9');
+  expect(q('vit-GOOD')).toBeNull();   // a row is ONE line until it is opened
+  await act(async () => { q('agd-open-GOOD').click(); });
   expect(q('agd-row-GOOD').textContent).toContain('rides the 🤖 AI narrative');
   expect(q('agd-thoughts').textContent).toContain('⚖ Devil'); expect(q('agd-thoughts').textContent).toContain('+6.0% after 5 min');
   expect(q('task-tally').textContent).toContain('read 80 coins'); expect(q('task-devil').textContent).toContain('objected to 1 of 2');
@@ -56,4 +58,45 @@ test('the agent desk: four agents in one chain, the stage, the live table with e
   await act(async () => { q('agd-feed-on').click(); });
   expect(call).toHaveBeenCalledWith('/admin/agents', expect.objectContaining({ method: 'POST', body: JSON.stringify({ feed: true }) }));
   expect(agentLine({ n: 4, med: -2, right: 50 })).toBe('4 judged · -2.0% typical at 5 min · 50% right');
+});
+
+test('the desk is interactive: one lens at a time, KPI tiles jump, the board filters / searches / opens, the feed and the agents drive it', async () => {
+  try { localStorage.removeItem('feeless.agentLens'); } catch (e) { /* none */ }
+  const call = jest.fn(async (path, opts) => (opts ? { ok: true } : view));
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<AgentDesk call={call} />); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  expect(q('lens-live-pane')).not.toBeNull(); expect(q('lens-learn-pane')).toBeNull(); expect(q('agd-controls')).toBeNull();   // opens on Live only
+  expect(q('kpi-go').textContent).toContain('1'); expect(q('kpi-go').textContent).toContain('2 ENTER'); expect(q('kpi-desk').textContent).toContain('$20.60');
+  expect(q('kpi-speed').textContent).toContain('5.9 ms'); expect(q('agd-clock')).not.toBeNull();
+  await act(async () => { q('board-go').click(); });
+  expect(q('agd-row-GOOD')).not.toBeNull(); expect(q('agd-row-RUN')).toBeNull();
+  await act(async () => { q('board-obj').click(); });
+  expect(q('agd-row-RUN')).not.toBeNull(); expect(q('agd-row-GOOD')).toBeNull();
+  await act(async () => { el.querySelector('.agd-fl').click(); });   // a feed line about $RUN → the board resets and opens that coin
+  expect(q('agd-open-RUN').getAttribute('aria-expanded')).toBe('true'); expect(q('agd-row-GOOD')).not.toBeNull();
+  expect(q('agd-row-RUN').textContent).toContain('Devil · argues');
+  await act(async () => { q('agent-devil').click(); });   // pick an agent → its card is pressed and the feed shows only its words
+  expect(q('agent-devil').getAttribute('aria-pressed')).toBe('true'); expect(q('agd-thoughts').textContent).toContain('OBJECTS'); expect(q('agd-thoughts').textContent).not.toContain('+6.0% after 5 min');
+  await act(async () => { q('kpi-ideas').click(); });
+  expect(q('lens-learn-pane')).not.toBeNull(); expect(q('lens-live-pane')).toBeNull(); expect(q('agd-ideas')).not.toBeNull();
+  await act(async () => { q('lens-ctl').click(); });
+  expect(q('agd-controls')).not.toBeNull(); expect(q('agd-road')).not.toBeNull();
+  await act(async () => { q('agd-office').click(); });
+  expect(el.querySelector('[data-testid="agent-room"]')).toBeNull();
+  await act(async () => { q('agd-office').click(); root.unmount(); });
+  try { localStorage.removeItem('feeless.agentLens'); localStorage.removeItem('feeless.agentOffice'); } catch (e) { /* none */ }
+});
+
+test('board + clock helpers: a row\'s state, the fact that decided it, the pips, the lean meter, filter / search / sort, the pass clock', () => {
+  const [good, run] = view.table; const wait = { mint: 'M3', symbol: 'MEH', nums: { d5: -2 }, why: { drivers: [], lean: -1 }, trigger: ['wait', 'lean under the bar'], devil: ['—', ''], vitals: { vol1h: 5 } };
+  expect([good, run, wait].map(rowState)).toEqual(['go', 'obj', 'wait']);
+  expect(rowWhy(good)).toBe('volume surging vs the hour'); expect(rowWhy(run)).toBe('its read is BOND RUN'); expect(rowWhy(wait)).toBe('lean under the bar');
+  expect(pipsOf(run).map(p => p[2])).toEqual(['up', 'up', 'go', 'no']); expect(pipsOf(wait).map(p => p[2])).toEqual(['dn', 'dn', 'wait', 'idle']);
+  expect(leanFill(1.5, 1.5)).toBe(0.5); expect(leanFill(9, 1.5)).toBe(1); expect(leanFill(null, null)).toBe(0);
+  const t = [good, run, wait];
+  expect(boardCounts(t)).toEqual({ all: 3, go: 1, enter: 2, obj: 1, wait: 1, skip: 0 });
+  expect(boardRows(t, { f: 'enter' }).map(x => x.symbol)).toEqual(['GOOD', 'RUN']); expect(boardRows(t, { q: '$me' }).map(x => x.symbol)).toEqual(['MEH']);
+  expect(boardRows(t, { sort: 'd5' }).map(x => x.symbol)).toEqual(['RUN', 'GOOD', 'MEH']); expect(boardRows(t, { sort: 'vol' })[0].symbol).toBe('GOOD');
+  expect(passLeft(100, 130)).toEqual({ age: 30, left: 30, frac: 0.5 }); expect(passLeft(100, 400).left).toBe(0); expect(passLeft(0, 5)).toBeNull();
 });

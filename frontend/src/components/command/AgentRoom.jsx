@@ -152,13 +152,13 @@ function Office({ d, sel, setSel }) {
   </svg>;
 }
 
-export function AgentRoom({ d }) {
-  const [sel, setSel] = useState('tally'); const [pop, setPop] = useState(false);
+export function AgentRoom({ d, sel: selP, onSel, picker = true }) {   // `sel` / `onSel`: the desk's agent picker drives the office (and back)
+  const [selI, setSelI] = useState('tally'); const [pop, setPop] = useState(false); const sel = selP || selI; const setSel = k => { setSelI(k); if (onSel) onSel(k); };
   useEffect(() => { if (!pop) return undefined; const k = e => e.key === 'Escape' && setPop(false); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [pop]);
   const at = d?.perf?.at || 0; const [gl] = useState(has3D);
   const room = big => <div className={`agr ${big ? 'is-big' : ''}`} data-testid={big ? 'agr-pop' : 'agr'}>
     <div className="agr-stage">{gl ? <Suspense fallback={<div className="agr3 is-boot">booting the office…</div>}><Office3D d={d} sel={sel} setSel={setSel} paused={!big && pop} /></Suspense> : <Office d={d} sel={sel} setSel={setSel} />}
-      {gl && <div className="m-seg agr-who" role="group" aria-label="Pick a robot">{AGENTS.map(([k, ic, name]) => <button key={k} type="button" className={sel === k ? 'active' : ''} onClick={() => setSel(k)} data-testid={`agr-pick-${k}`}>{ic} {name}</button>)}</div>}</div>
+      {gl && (big || picker) && <div className="m-seg agr-who" role="group" aria-label="Pick a robot">{AGENTS.map(([k, ic, name]) => <button key={k} type="button" className={sel === k ? 'active' : ''} onClick={() => setSel(k)} data-testid={`agr-pick-${k}`}>{ic} {name}</button>)}</div>}</div>
     <AgentDetail d={d} agent={sel} />
   </div>;
   return <section className="agr-wrap" data-testid="agent-room"><div className="agr-head"><b>🏢 THE AGENT OFFICE · live</b><small>last pass {at ? `${ago(at)} ago` : '—'} · tap a robot</small>

@@ -1,7 +1,7 @@
 // HQ jump list: every place a search should find, in the owner's words. `tab` = HQ tab, `panel` = a Fuse deck panel,
 // `view` = a Money view. Tabs themselves are added by the caller (their labels live in HqDeck).
 export const HQ_JUMPS = [
-  { label: '🤖 Agents', words: 'agents agent desk tally sherlock trigger devil learn trade trench 5 min ai bots', tab: 'agents' },
+  { label: '🤖 Agents', words: 'agents agent desk tally sherlock trigger devil learn trade trench 5 min ai bots live board lens learning survival control office ideas', tab: 'agents' },
   { label: '🪪 Wallet profiles', words: 'circle wallet profile name picture pfp bio edit search wallets', tab: 'fuse', panel: 'profiles' },
   { label: '👛 Fuse wallet', words: 'fuse wallet real money arm kill limits top up dry run audit deposit keeper', tab: 'fuse', panel: 'wallet' },
   { label: '🔑 RPC keys', words: 'rpc key lane quota helius quicknode alchemy endpoint', tab: 'fuse', panel: 'wallet' },

@@ -250,3 +250,17 @@ def test_the_agents_seat_defaults_to_a_whole_seat_and_suggestions_taken_are_scor
     r = rs._agents_real()
     assert r['n'] == 1 and r['suggested'] == {'n': 3, 'med': 8.0, 'won': 67}
     assert ag.road({}, r)['real']['suggested']['n'] == 3
+
+
+def test_trust_gives_a_second_seat_only_once_taken_suggestions_prove_out(monkeypatch):
+    import reputation_service as rs
+    table = [{'mint': m, 'symbol': m, 'pair': 'P' + m, 'px': 1.0, 'nums': {'liq': 50_000}, 'why': {'lean': 3}, 'go': True} for m in ('A', 'B')]
+    monkeypatch.setitem(rs._agents, 'table', table)
+    monkeypatch.setitem(rs._agents, 'view', {'feed': False})
+    one = [{'bought': {'tag': '🤖 agents GO'}}]
+    monkeypatch.setattr(rs, '_agents_real', lambda: {'suggested': {'n': 4, 'med': 9.0}})
+    assert rs._agents_go_rows(one, 2, learn=True, trust=True) == []                       # not proven yet → still one seat
+    monkeypatch.setattr(rs, '_agents_real', lambda: {'suggested': {'n': 12, 'med': 3.0}})
+    assert len(rs._agents_go_rows(one, 2, learn=True, trust=True)) == 1                   # proven → a 2nd seat
+    assert rs._agents_go_rows(one, 2, learn=True, trust=False) == []                      # owner switch off → one seat
+    assert rs._prime.clean_cfg({})['agentTrust'] is False
