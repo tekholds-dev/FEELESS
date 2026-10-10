@@ -404,7 +404,9 @@ def take_info(cfg, scalp=None):
     base = _f((cfg or {}).get('agentTakePct') or 10)
     over = bool(_oe.policy(cfg).get('tp'))
     learned = bool(not over and (cfg or {}).get('agentScalp', True) and (scalp or {}).get('tp'))
-    return {'base': base, 'active': take_line(cfg, scalp), 'source': 'creator' if over else 'learned' if learned else 'base', 'ruleId': 'R6 take line', 'who': 'CREATOR OVERRIDE' if over else 'AGENTS CHOOSE',
+    # `at`: what happens AT the line — 'bank' (a line someone chose: yours or their learned one) or 'read' (the base line under AGENTS CHOOSE:
+    # the agents read the coin there and let a clean one run under the trail)
+    return {'base': base, 'active': take_line(cfg, scalp), 'source': 'creator' if over else 'learned' if learned else 'base', 'at': 'bank' if over or learned else 'read', 'ruleId': 'R6 take line', 'who': 'CREATOR OVERRIDE' if over else 'AGENTS CHOOSE',
             'rule': 'cfg agentTp — your override' if over else 'agents.scalp_adopt — their own 5-min paths' if learned else 'cfg agentTakePct — your setting', 'scalpOn': bool((cfg or {}).get('agentScalp', True)),
             'evidenceN': (scalp or {}).get('n') if learned else None, 'shadowAvg': (scalp or {}).get('avg') if learned else None, 'adoptedAt': (scalp or {}).get('at') if learned else None,
             'needN': _ag.SCALP_N, 'promoted': None}
@@ -442,6 +444,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
     by = {x['mint']: x for x in table or []}
     take = take_line(cfg, scalp)
     tsrc = take_info(cfg, scalp)['source']
+    runs = tsrc == 'base'   # AGENTS CHOOSE before a line is learned: at the take line they read the coin — Reaper keeps the trail on it above the line
     # 🎛 the creator's limits (office_edge.policy) + 🔌 `live`: until the office has refilled after a restart (and for RADAR_GRACE_SEC
     # after a coin drops off the table at any time) a missing row is OUR gap — "off their radar" and the time rules do not exist.
     # The price rules (catastrophic stop, stop, take, trail), the pool rule and the scan / rug rules never wait for it.
@@ -477,7 +480,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         lean = None if not x else _f(x['why']['lean'])
         n = (x or {}).get('nums') or {}
         broke = None
-        if x:
+        if x or not live:   # 🔌 the off-radar clock starts only while the office is LIVE: a stamp from before a restart (or from the refill) never counts
             p.pop('offSince', None)
         else:
             p.setdefault('offSince', now)
@@ -526,26 +529,32 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev, act = 'EXIT INVALIDATED', 'R5x catastrophic stop', f'{pct:+.1f}% ≤ −{_ci.CATASTROPHIC_STOP:g}% (hard-coded)', 'pull'
         elif pol.get('sl') and pct <= -_f(pol['sl']):   # 🎛 the creator's hard stop: every coin Reaper watches, in every mode
             st, rule, ev, act = 'EXIT INVALIDATED', 'R5c creator stop', f"{pct:+.1f}% ≤ −{_f(pol['sl']):g}% (your stop-loss override)", 'pull'
-        elif manual:   # 🎛 CREATOR MANUAL: only the hard safety exits above act — every discretionary call below is yours
-            st, rule, ev = 'HOLD', 'R10 creator manual', f"{pct:+.1f}% · you hold the decisions — only the hard safety exits act"
+        elif max_hold and (mine or control) and held >= max_hold and live:   # 🎛 the creator's max hold: Reaper cannot hold past it (a time rule: waits for LIVE after a restart)
+            st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R9c creator max hold', f"{held:.0f} min held ≥ your {max_hold:g}-minute max hold, {pct:+.1f}%", 'pull'
+        elif manual and pol.get('tp') and pct >= _f(pol['tp']):   # 🎛 CREATOR MANUAL: the overrides YOU set still act — your take line
+            st, rule, ev, act = 'TAKE', 'R6 take line', f"{pct:+.1f}% ≥ +{_f(pol['tp']):g}% (your take-profit, creator manual)", 'pull'
+        elif manual and tr_.get('mode') == 'custom' and p['peak'] >= arm and pct <= trail_line and pct >= MIN_KEEP:   # … and your custom trail
+            st, rule, ev, act = 'TAKE', 'R7 trailing protection', f"peaked {p['peak']:+.1f}%, now {pct:+.1f}% — {_f(tr_.get('pct')):g} points off the peak (your trail, creator manual)", 'pull'
+        elif manual:   # 🎛 CREATOR MANUAL: only the hard safety exits above + your own overrides act — every discretionary call below is yours
+            st, rule, ev = 'HOLD', 'R10 creator manual', f"{pct:+.1f}% · you hold the decisions — only the hard safety exits and your own limits act"
         elif mine and pct <= -stop:   # their own coins carry no card stop (ride-or-rug seats) — this is it; other coins keep the card's own stop
             st, rule, ev, act = 'EXIT INVALIDATED', 'R5 stop', f"{pct:+.1f}% ≤ −{stop:g}%" + (f" ({'; '.join((th.get('stopParts') or [])[:2])})" if th else ' (no thesis on file: the ceiling)'), 'pull'
-        elif pct >= take:
+        elif pct >= take and not runs:
             st, rule, ev = 'TAKE', 'R6 take line', f"{pct:+.1f}% ≥ +{take:g}% ({tsrc} take) — the card's own take rule banks it"
         elif mine and rv and rv['verdict'] == 'invalid' and held >= 2:   # the reason it was bought is gone: out, green or red — P&L does not decide this
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R5t thesis invalidated', f"{pct:+.1f}% — entered on {th.get('structure')}; now {rv['why'][0]}", 'pull'
-        elif max_hold and (mine or control) and held >= max_hold:   # 🎛 the creator's max hold: Reaper cannot hold past it
-            st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R9c creator max hold', f"{held:.0f} min held ≥ your {max_hold:g}-minute max hold, {pct:+.1f}%", 'pull'
         elif trail_on and p['peak'] >= arm and pct <= trail_line and pct >= MIN_KEEP:
             st, rule, ev, act = 'TAKE', 'R7 trailing protection', f"peaked {p['peak']:+.1f}%, now {pct:+.1f}% — " + (f"{_f(tr_.get('pct')):g} points off the peak (your trail)" if tr_.get('mode') == 'custom' else f"gave back over {T('giveBackPct'):g}% of it"), 'pull'
         elif mine and rv and rv['verdict'] == 'weak' and 'lower high' in rv['why'][0] and pct >= MIN_KEEP:   # green is not a reason to keep holding
             st, rule, ev, act = 'TAKE', 'R7s structure turned', f"{pct:+.1f}% and {rv['why'][0]} — banked before it is given back", 'pull'
-        elif mine and rv and rv['window'] >= granted and rv['verdict'] == 'weak' and pct < take:   # its windows are used up and the chart earned no more
+        elif mine and live and rv and rv['window'] >= granted and rv['verdict'] == 'weak' and pct < take:   # its windows are used up and the chart earned no more (time: LIVE only)
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R9 windows used', f"{rv['window']} of {granted} five-minute windows used, {pct:+.1f}%, {rv['why'][0]}", 'pull'
-        elif mine and held >= MOMENTUM_MIN and broke and pct >= MIN_KEEP:
+        elif mine and live and held >= MOMENTUM_MIN and broke and pct >= MIN_KEEP:
             st, rule, ev, act = 'TAKE', 'R8 momentum failed', f'{pct:+.1f}% and {broke} after {held:.0f} min — banked while it is still a gain', 'pull'
-        elif mine and not th and held >= T('timeMaxMin') and broke and pct < take / 2:
+        elif mine and live and not th and held >= T('timeMaxMin') and broke and pct < take / 2:
             st, rule, ev, act = 'EXIT INVALIDATED', 'R9 time', f"{held:.0f} min held, {pct:+.1f}%, {broke} — no read left to wait on", 'pull'
+        elif runs and pct >= take:   # AGENTS CHOOSE: past the base line the coin runs only while their read stays clean — the trail above banks it
+            st, rule, ev = 'PROTECT', 'R6 take line', f"{pct:+.1f}% ≥ +{take:g}% (base take, AGENTS CHOOSE): they read it every pass — it runs while clean, the trail banks it under {max(MIN_KEEP, trail_line):+.1f}%" if trail_on and p['peak'] >= arm else f"{pct:+.1f}% ≥ +{take:g}% (base take, AGENTS CHOOSE): they read it every pass — it runs while clean"
         elif tp == 'dump':
             st, rule, ev = 'PROTECT', 'R4 whale dump', f'the tape reads a dump at {pct:+.1f}% — buyers still hold it'
         elif held >= MOMENTUM_MIN and broke:
@@ -554,6 +563,8 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev = 'PROTECT', 'R7 trailing protection', f"armed at peak {p['peak']:+.1f}%: banks under {max(MIN_KEEP, trail_line):+.1f}%"
         if not x and not broke and not act:
             ev += ' · not on the agents\' table (' + ('the office is refilling after a restart' if not live else f"{round(now - _f(p.get('offSince')))}s — under the {_oe.RADAR_GRACE_SEC}s grace") + '): nothing is ruled on that gap'
+        if not live and not act:
+            ev += ' · OFFICE WARMING UP — time and read exits wait for LIVE; price, pool and safety exits stand'
         degraded = bool((rv or {}).get('degraded')) or bool(ch and ch.get('q') and not ch['q'].get('structOk'))
         if degraded and not act:   # 🧪 the chart data degraded on a held coin: nothing chart-based is ruled — R1–R5x, the stop and the trail still stand
             ev += f" · DATA DEGRADED ({ch['q']['state'] if ch and ch.get('q') else 'no data'}) — held on the hard risk / liquidity / execution rules only"
@@ -563,7 +574,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             p.setdefault('askAt', now); p['askRule'] = rule
         p['state'], p['rule'] = st, rule
         p['chartNow'] = (ch or {}).get('state')
-        decision = ('TAKE PROFIT' if st == 'TAKE' else 'EXIT') if act or rule.startswith('R6') else 'PROTECT' if st == 'PROTECT' else 'HOLD 5 MORE' if rv and rv['verdict'] == 'valid' and rv['window'] >= 1 else 'HOLD'
+        decision = ('TAKE PROFIT' if st == 'TAKE' else 'EXIT') if act or (rule.startswith('R6') and st == 'TAKE') else 'PROTECT' if st == 'PROTECT' else 'HOLD 5 MORE' if rv and rv['verdict'] == 'valid' and rv['window'] >= 1 else 'HOLD'
         pos[m] = p
         out.append({**base, 'state': st, 'rule': rule, 'evidence': ev, 'action': act, 'exec': 'confirmed', 'entry': entry, 'px': px, 'pct': round(pct, 2), 'peak': round(p['peak'], 2),
                     'dd': round(p['peak'] - pct, 2), 'heldMin': round(held, 1), 'liq': lq1 or None, 'liqPct': round(lq1 / lq0 * 100) if lq0 > 0 and lq1 > 0 else None,
@@ -575,7 +586,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
                     'nextReview': (rv or {}).get('next') if rv else round((int(held // _ci.WINDOW_MIN) + 1) * _ci.WINDOW_MIN * 60 - held * 60),
                     'chart': None if not ch else {k: ch.get(k) for k in ('trend', 'chop', 'mom', 'ext')} | {k: (ch.get('f') or {}).get(k) for k in ('hh', 'hl', 'lh', 'll', 'lastHigh', 'lastLow', 'accel', 'decay', 'upWick', 'liqD')},
                     'tape': tp, 'usd': round(_f(l.get('units')) * px, 4), 'warden': p.get('warden'), 'dataDegraded': degraded, 'data': _md.compact((ch or {}).get('q')),
-                    'launch': p.get('launch'), 'onTable': bool(x), 'offRadarSec': None if x else round(now - _f(p.get('offSince'))), 'limits': {'tp': pol.get('tp'), 'sl': pol.get('sl'), 'maxHold': max_hold, 'trail': tr_.get('mode'), 'manual': manual}})
+                    'launch': p.get('launch'), 'onTable': bool(x), 'offRadarSec': None if x or not p.get('offSince') else round(now - _f(p.get('offSince'))), 'live': bool(live), 'limits': {'tp': pol.get('tp'), 'sl': pol.get('sl'), 'maxHold': max_hold, 'trail': tr_.get('mode'), 'manual': manual}})
     gone = []
     for m in [m for m in pos if m not in on]:
         p = pos.pop(m)

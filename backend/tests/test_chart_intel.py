@@ -218,10 +218,11 @@ def test_reaper_holds_past_one_window_while_the_saved_thesis_stands_and_leaves_w
 
 
 def test_the_active_take_line_says_where_it_comes_from_and_reaper_names_the_rule_it_obeys():
-    assert of.take_info({'agentTakePct': 10}, None) == {'base': 10.0, 'active': 10.0, 'source': 'base', 'ruleId': 'R6 take line', 'who': 'AGENTS CHOOSE', 'rule': 'cfg agentTakePct — your setting', 'scalpOn': True,
+    assert of.take_info({'agentTakePct': 10}, None) == {'base': 10.0, 'active': 10.0, 'source': 'base', 'at': 'read', 'ruleId': 'R6 take line', 'who': 'AGENTS CHOOSE', 'rule': 'cfg agentTakePct — your setting', 'scalpOn': True,
                                                          'evidenceN': None, 'shadowAvg': None, 'adoptedAt': None, 'needN': ag.SCALP_N, 'promoted': None}
     t = of.take_info({'agentTakePct': 10}, {'tp': 20, 'sl': 8, 'n': 34, 'avg': 1.9, 'at': 777})
-    assert (t['base'], t['active'], t['source'], t['evidenceN'], t['shadowAvg'], t['adoptedAt']) == (10.0, 20.0, 'learned', 34, 1.9, 777) and 'scalp_adopt' in t['rule']
+    assert (t['base'], t['active'], t['source'], t['at'], t['evidenceN'], t['shadowAvg'], t['adoptedAt']) == (10.0, 20.0, 'learned', 'bank', 34, 1.9, 777) and 'scalp_adopt' in t['rule']
+    assert of.take_info({'agentTakePct': 10, 'agentTp': 15}, {'tp': 20, 'n': 34}) | {} == {**of.take_info({'agentTakePct': 10, 'agentTp': 15}, None)} and of.take_info({'agentTp': 15}, None)['at'] == 'bank'   # YOUR line beats a learned one
     assert of.take_info({'agentTakePct': 10, 'agentScalp': False}, {'tp': 20, 'n': 34})['source'] == 'base'       # the learned line switched off = the base line again
     assert of.take_info({}, None)['active'] == 10.0
     one = lambda px, scalp=None, **k: of.reap([LEG], [ROW], {'PA': px}, {'agentTakePct': 10}, None, 600, scalp=scalp, **k)[1][0]

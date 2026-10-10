@@ -130,7 +130,9 @@ def test_reaper_rules_in_order_with_evidence_and_never_rules_on_a_missing_price(
     assert one(leg('A'), 1.04, tape={'PA': 'dump'})['state'] == 'TAKE' and one(leg('A'), 0.97, tape={'PA': 'dump'})['state'] == 'PROTECT'
     assert one(leg('A'), 0.69)['rule'] == 'R5 stop' and one(leg('A'), 0.72)['state'] == 'HOLD'                   # default stop −30
     t = one(leg('A'), 1.12)
-    assert (t['state'], t['rule'], t['action']) == ('TAKE', 'R6 take line', None)                                # the card's own +10% take banks it — Reaper adds no second sell
+    assert (t['state'], t['rule'], t['action']) == ('PROTECT', 'R6 take line', None) and 'AGENTS CHOOSE' in t['evidence']   # the base line: the agents read it — Reaper keeps the trail on it
+    t = of.reap([leg('A')], [trow('A')], {'PA': 1.12}, {**cfg, 'agentTp': 10}, None, 3600)[1][0]
+    assert (t['state'], t['rule'], t['action'], t['decision']) == ('TAKE', 'R6 take line', None, 'TAKE PROFIT')            # YOUR take line banks it (the desk sells) — Reaper adds no second sell
     assert of.take_line({'agentTakePct': 10}, {'tp': 8}) == 8 and of.take_line({'agentTakePct': 10, 'agentScalp': False}, {'tp': 8}) == 10
     pos, rep, _ = run(leg('A'), 1.08)
     assert rep[0]['state'] == 'PROTECT' and rep[0]['rule'] == 'R7 trailing protection' and rep[0]['action'] is None   # armed at the peak

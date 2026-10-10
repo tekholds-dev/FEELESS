@@ -54,7 +54,19 @@ def clean_policy(p):
 
 
 def policy(cfg):
-    """The limits as the desks read them. None = AGENTS CHOOSE for that control. `who` says, per control, who decides right now."""
+    """The limits as the desks read them. None = AGENTS CHOOSE for that control. `who` says, per control, who decides right now.
+    What each override MEANS (the desks obey exactly this — `controls` puts it on screen):
+      take-profit   the line is yours: at it the coin is banked (the agents may still leave EARLIER on a broken thesis or the trail).
+                    Under AGENTS CHOOSE the agents bank at their learned scalp line once one is adopted; before that, at your base
+                    `agentTakePct` they READ the coin: still clean AND its thesis not weak / invalid → it runs under the trail,
+                    anything else → banked.
+      stop-loss     your maximum tolerated loss: the agents' own structure stop may be tighter, never wider
+      max hold      the longest a coin is held: the agents' thesis windows may end it sooner, never later
+      size          the most of the card one seat may be: the Warden may size smaller, never larger
+      trailing      off = no give-back protection · custom = arm at +A%, bank P points under the peak
+      switching     off · conservative (lean +1.5, 45 min) · normal (+1.0, 30 min) · aggressive (+0.5, 15 min) — never under the floors
+      entry         a full 🟢 GO only, or (agents) the duty's cleared case on the empty-seat target too
+    MANUAL authority: the agents make no discretionary move at all — only the hard safety exits and the overrides YOU set act."""
     c = clean_policy(cfg)
     trail = c['agentTrail'] if c['agentTrail'] != 'custom' or (c['agentTrailArm'] and c['agentTrailPct']) else 'auto'
     sw = SWITCH[c['agentSwitch']]
@@ -71,6 +83,45 @@ def policy(cfg):
                     'seatCount': 'CREATOR OVERRIDE', 'entryStyle': who(c['agentEntry'] != 'agents'), 'exitStyle': who(mode != 'auto'), 'switching': who(c['agentSwitch'] != 'agents'),
                     'emptySeat': who(c['agentSeatTarget'])},
             'hard': {'catastrophicStop': _ci.CATASTROPHIC_STOP, 'movesPerHour': _ag.CONTROL_MOVES_HR, 'minPool': _ag.CONTROL_MIN_LIQ}}
+
+
+# the creator's controls as the page draws them: one row per control, its options (0 / 'agents' = AGENTS CHOOSE), who decides now,
+# and — under AGENTS CHOOSE — what the agents are actually using right now (`now`, filled by the service from live state; None = not known)
+OPTIONS = {'agentAuthority': list(AUTHORITY), 'agentTp': [0, *TP_OPTS], 'agentSl': [0, *SL_OPTS], 'agentTrail': list(TRAIL), 'agentTrailArm': [0, 5, 10, 15, 20, 30],
+           'agentTrailPct': [0, 3, 5, 8, 10, 15], 'agentMaxHold': [0, *HOLD_OPTS], 'agentSizePct': [0, *SIZE_OPTS], 'agentSeatTarget': list(SEAT_TARGETS),
+           'agentSwitch': ['agents', 'off', 'conservative', 'normal', 'aggressive'], 'agentEntry': list(ENTRY)}
+CONTROLS = (('agentTp', 'takeProfit', 'Take profit', '%', 'AT your line the coin is banked. They may still leave earlier on a broken thesis or the trail.'),
+            ('agentSl', 'stopLoss', 'Stop-loss', '%', 'Your most tolerated loss. Their own structure stop may be tighter, never wider.'),
+            ('agentTrail', 'trailing', 'Trailing protection', None, 'off = no give-back protection · custom = arm at +A%, bank P points under the peak.'),
+            ('agentMaxHold', 'maxHold', 'Max hold', 'min', 'The longest a coin is held. Their thesis windows may end it sooner, never later.'),
+            ('agentSizePct', 'positionSize', 'Seat size cap', '% of card', 'The most of the card one seat may be. The Warden may size smaller, never larger.'),
+            ('agentSwitch', 'switching', 'Switching', None, 'How much stronger a challenger must read, and how long a coin is held, before its seat is given up. A winner is never surrendered.'),
+            ('agentEntry', 'entryStyle', 'Entry', None, 'agents = a full GO, or the duty\'s cleared case on an empty seat · go = a full GO only.'),
+            ('agentSeatTarget', 'emptySeat', 'Empty-seat target', 's', 'How soon a cleared case may fill an empty seat (a full GO never waits).'))
+
+
+def controls(cfg, now=None):
+    """→ [{key, who, label, unit, value, options, agentsNow, means}] for the creator controls panel. `now` = {control key: what the agents
+    use right now under AGENTS CHOOSE, as words} — handed in by the service from its live state, never invented here."""
+    c, pol = clean_policy(cfg), policy(cfg)
+    return [{'key': k, 'who': pol['who'][w], 'label': lab, 'unit': unit, 'value': c[k], 'options': OPTIONS[k], 'agentsNow': (now or {}).get(k), 'means': means}
+            for k, w, lab, unit, means in CONTROLS]
+
+
+def agents_now(take, tunables, thesis=None):
+    """What the agents use right now for each control under AGENTS CHOOSE, in words, from the live office (`take` = office.take_info,
+    `tunables` = Reaper's / Warden's live values). Every value names where it comes from."""
+    t = tunables or {}
+    th = thesis or {}
+    return {'agentTp': (f"learned scalp line +{_f(take.get('active')):g}% ({take.get('evidenceN')} paths)" if (take or {}).get('source') == 'learned'
+                        else f"at +{_f((take or {}).get('base')):g}% they read it: clean + thesis not weak → runs under the trail, else banked"),
+            'agentSl': f"each entry's structure stop (≥ {_ci.STOP_FLOOR:g}%), never past {_f(t.get('stopPct')):g}%" + (f" · now {th['stopPct']:g}% on ${th['sym']}" if th.get('stopPct') and th.get('sym') else ''),
+            'agentTrail': f"arms at +{_f(t.get('protectAt')):g}%, banks after giving back {_f(t.get('giveBackPct')):g}% of the peak",
+            'agentMaxHold': f"thesis windows: {_ci.MIN_WINDOWS * _ci.WINDOW_MIN}–{_ci.MAX_WINDOWS * _ci.WINDOW_MIN} min, earned 5 min at a time",
+            'agentSizePct': f"the Warden: ≤ {_f(t.get('maxSeatPct')):g}% of the card, smaller on risk",
+            'agentSwitch': f"read margin ≥ {SWITCH['agents'][0]:+.1f} after {SWITCH['agents'][1]:g} min, or a broken read after {_ag.CONTROL_HOLD_MIN} min",
+            'agentEntry': 'a full GO at once, or the duty\'s cleared case',
+            'agentSeatTarget': f'{SEAT_TARGET_AUTO}s'}
 
 
 # ── 🔌 RESTART / REFILL: a gap in OUR data is never evidence about a coin ───────────────────────────────────────────────────────────
@@ -132,6 +183,8 @@ def seat_state(ctx):
         return {**base, 'state': 'FULL', 'reason': f'{held} of {want} seats held'}
     if c.get('manual'):
         return {**base, 'state': 'CREATOR MANUAL', 'reason': 'you hold the decisions — the agents fill nothing'}
+    if c.get('live') is False:   # 🔌 after a restart nothing discretionary happens until the office has refilled and read every position back
+        return {**base, 'state': 'OFFICE WARMING UP', 'reason': f"waits for LIVE — {c.get('readyWhy') or 'the office is refilling after a restart'}"}
     if c.get('courier') == 'BAD':
         return {**base, 'state': 'NO VALID ENTRY', 'reason': 'EXECUTION BLOCK — Courier reads execution BAD'}
     if int(_f(c.get('movesLeft'))) <= 0:
@@ -169,7 +222,17 @@ def switch_test(cur, new, pol):
     pnl, held, own = _f(c.get('pnl')), _f(c.get('heldMin')), _f(c.get('lean'))
     nl = _f(n.get('lean') if n.get('lean') is not None else ((n.get('why') or {}).get('lean')))
     edge = round(nl - own, 2)
-    out = {'switch': False, 'edge': edge, 'need': sw.get('edge'), 'mode': sw.get('mode'),
+    bad = next((k for k in n.get('checks') or [] if not k[1]), None) if n else None
+    weak_ = c.get('verdict') in ('weak', 'invalid') or own <= 0 or held >= 2 * _f(sw.get('holdMin'))
+    # every line of the test, evaluated (the page draws all of them — the first failing one is the answer)
+    lines = [['switching on', bool(sw.get('on')), f"mode {sw.get('mode')}"],
+             ['challenger cleared every desk', bool(n and n.get('cleared')), 'no challenger this pass' if not n else 'cleared' if n.get('cleared') else (CHECK_WORD.get(bad[0], bad[0]) if bad else 'not every desk passed it')],
+             ['position not frozen / riding', not (c.get('frozen') or c.get('riding')), 'frozen' if c.get('frozen') else 'riding' if c.get('riding') else 'free'],
+             ['position not a winner', not pnl > 0, f'{pnl:+.1f}%'],
+             ['held long enough', held >= _f(sw.get('holdMin')), f"{held:.0f} of {_f(sw.get('holdMin')):.0f} min"],
+             ['read margin', edge >= _f(sw.get('edge')), f"{edge:+.1f} vs {_f(sw.get('edge')):+.1f} needed"],
+             ['position is weak', weak_, f"thesis {c.get('verdict') or 'unread'} · lean {own:+.1f}"]]
+    out = {'switch': False, 'edge': edge, 'need': sw.get('edge'), 'mode': sw.get('mode'), 'lines': lines,
            'current': {'symbol': c.get('symbol'), 'pnl': round(pnl, 2), 'heldMin': round(held, 1), 'lean': round(own, 2), 'thesis': c.get('verdict'), 'structure': c.get('structure')},
            'challenger': None if not n else {'symbol': n.get('symbol'), 'lean': round(nl, 2), 'cleared': bool(n.get('cleared')), 'structure': ((n.get('row') or n).get('chart') or {}).get('state'),
                                              'data': (((n.get('row') or n).get('chart') or {}).get('q') or {}).get('state')}}
@@ -179,18 +242,16 @@ def switch_test(cur, new, pol):
     if not n:
         return no('no challenger this pass')
     if not n.get('cleared'):
-        bad = next((k for k in n.get('checks') or [] if not k[1]), None)
         return no(f"challenger not cleared: {CHECK_WORD.get(bad[0], bad[0]) if bad else 'not every desk passed it'}")
     if c.get('frozen') or c.get('riding'):
         return no('the position is frozen / riding — never switched')
-    if pnl > 0 and c.get('verdict') != 'invalid':
+    if pnl > 0:   # a green coin is never handed to a challenger: if its thesis broke, Reaper banks it (R5t) and the seat opens on its own
         return no(f'{pnl:+.1f}% — a winner is not surrendered for a new coin')
     if held < _f(sw.get('holdMin')):
         return no(f"held {held:.0f} min — needs {_f(sw.get('holdMin')):.0f}")
     if edge < _f(sw.get('edge')):
         return no(f"read margin {edge:+.1f} — needs {_f(sw.get('edge')):+.1f} (lean {nl:+.1f} vs {own:+.1f})")
-    weak = c.get('verdict') in ('weak', 'invalid') or own <= 0 or held >= 2 * _f(sw.get('holdMin'))
-    if not weak:
+    if not weak_:
         return no('the position\'s own thesis still stands — opportunity cost alone is not enough yet')
     return {**out, 'switch': True, 'why': f"{pnl:+.1f}% after {held:.0f} min, thesis {c.get('verdict') or 'unread'}, lean {own:+.1f} → ${n.get('symbol')} cleared every desk with lean {nl:+.1f} (margin {edge:+.1f} ≥ {_f(sw.get('edge')):+.1f})"}
 
@@ -227,6 +288,16 @@ def launch_context(row):
             'graduated': None if curve is None or not pad_k else (curve is False), 'curvePct': r.get('curvePct') if curve else None, 'ageH': age, 'poolAgeH': age if curve is False else None,
             'liq': g('liq') or None, 'mcap': g('mcap') or None, 'top10': g('top10'), 'dev': g('dev'), 'holders': g('holders'), 'txns1h': g('txns1h'), 'buyShare': g('buyShare'),
             'notMeasured': ['initial liquidity', 'initial market cap', 'migration time', 'supply'], 'source': 'mint suffix + the launch board row (curve flag, pool age)'}
+
+
+def launch_gate(launch, lean, bar):
+    """⏱ Trigger's stricter confidence for a MEASURED but UNKNOWN launch mechanism: an ENTER needs lean ≥ bar + PAD_UNKNOWN_BAR.
+    → None (no change) or the WAIT reason. It can only turn an ENTER into a WAIT — never the other way, never on an unmeasured row."""
+    ln = launch or {}
+    need = _f(bar) + _ag.PAD_UNKNOWN_BAR
+    if ln.get('type') == 'unknown' and ln.get('measured') and _f(lean) < need:
+        return f"unknown launch context — needs lean {need:.2f}, has {_f(lean):+.1f}"
+    return None
 
 
 def pad_record(judged, min_n=5):
@@ -398,10 +469,37 @@ REVIEW_LABEL = {'missed': 'MISSED WINNERS', 'launchpad': 'LAUNCHPAD LESSONS', 'e
                 'data': 'DATA QUALITY', 'rules': 'RULE PROPOSALS'}
 
 
-def review(state, arch, office, now, n=8):
+MARKS = ('agree', 'disagree', 'seen')     # the creator's mark on a review item — kept for the page only: no desk ever reads it
+MARKS_KEEP = 300
+
+
+def item_key(cat, it):
+    """A stable id for one review item (the same coin / context / time → the same key pass after pass)."""
+    return f"{cat}:{it.get('mint') or it.get('launch') or it.get('rule') or it.get('sym') or '-'}:{int(_f(it.get('at')))}"
+
+
+def mark_review(marks, key, mark, note, now):
+    """The creator marks a review item (agree · disagree · seen, with an optional note ≤ 280 chars). → new marks dict, bounded.
+    Unknown mark → ValueError. 'clear' removes the mark. This is display state: the office never reads it back."""
+    m = dict(marks or {})
+    k = str(key or '')[:160]
+    if not k:
+        raise ValueError('No review item.')
+    if mark == 'clear':
+        m.pop(k, None)
+        return m
+    if mark not in MARKS:
+        raise ValueError('Mark must be agree, disagree or seen.')
+    m[k] = {'mark': mark, 'note': str(note or '')[:280], 'at': round(_f(now))}
+    if len(m) > MARKS_KEEP:
+        m = dict(sorted(m.items(), key=lambda kv: _f(kv[1].get('at')))[-MARKS_KEEP:])
+    return m
+
+
+def review(state, arch, office, now, n=8, marks=None):
     """📝 Everything waiting for the creator's eyes, by category. It is BUILT from the records and only ever READ by the page — no desk
-    reads it back, nothing waits on it being opened. Each item: coin · launch · time · move · what happened · what the office knew ·
-    which agent / rule mattered · counterfactual where one exists · the lesson · the evidence count."""
+    reads it back, nothing waits on it being opened or marked. Each item: coin · launch · time · move · what happened · what the office
+    knew · which agent / rule mattered · counterfactual where one exists · the lesson · the evidence count · the creator's mark."""
     js = [d for d in _ag._judged(state or {}, 5) if now - _f(d.get('at')) <= LOOKBACK_SEC]
     ms = missed_summary(arch, now, n)
     item = lambda d, what, agent, rule, lesson, move=None: {'sym': d.get('sym'), 'mint': d.get('mint'), 'launch': d.get('pad'), 'at': d.get('at'), 'move': _f(d.get('p5')) if move is None else move, 'what': what,
@@ -433,8 +531,14 @@ def review(state, arch, office, now, n=8):
              'agent': m.get('who'), 'rule': m.get('rule'), 'reason': m.get('reason'), 'correct': m.get('correct'), 'knew': m.get('desks') or m.get('tape'), 'counter': m.get('counter'),
              'lesson': 'correct skip — the block stays' if m.get('correct') is True else 'a block to re-examine on its own record' if m.get('correct') is False else 'an opportunity cost, not proof a rule is wrong'} for m in ms['items']]
     cats = {'missed': miss, 'launchpad': launch, 'entry': entry, 'exit': exits, 'vetoes': vet, 'risk': risk, 'data': dq, 'rules': rules}
-    return {'at': now, 'order': list(REVIEW), 'labels': REVIEW_LABEL, 'counts': {k: len(v) for k, v in cats.items()}, 'items': cats, 'missedSummary': {k: v for k, v in ms.items() if k != 'items'},
-            'blocking': False, 'note': 'Review is asynchronous: the office never reads this queue back and never waits on it.'}
+    mk = marks or {}
+    for cat, its in cats.items():
+        for it in its:
+            it['key'] = item_key(cat, it)
+            it['mark'] = mk.get(it['key'])
+    return {'at': now, 'order': list(REVIEW), 'labels': REVIEW_LABEL, 'counts': {k: len(v) for k, v in cats.items()}, 'open': {k: sum(1 for it in v if not it.get('mark')) for k, v in cats.items()},
+            'items': cats, 'missedSummary': {k: v for k, v in ms.items() if k != 'items'}, 'marks': list(MARKS),
+            'blocking': False, 'note': 'Review is asynchronous: the office never reads this queue (or your marks) back and never waits on it — the agents keep working while items wait.'}
 
 
 # ── ⏱ SPEED: where the process loses time ────────────────────────────────────────────────────────────────────────────────────────

@@ -571,8 +571,9 @@ def desk(state, rows, now, dial=None, busted=None, weather_fn=None, candles=None
                 call, reason = 'wait', f'{ec[0]} — {ec[2]}'
             elif call == 'enter':
                 reason += f' · 📈 {ec[1]}: {ec[2]}'
-        if call == 'enter' and r['launch']['type'] == 'unknown' and r['launch']['measured'] and why['lean'] < bar_ + PAD_UNKNOWN_BAR:   # ⏱ an unknown launch mechanism: stricter confidence (this can only turn an ENTER into a WAIT)
-            call, reason = 'wait', f"unknown launch context — needs lean {bar_ + PAD_UNKNOWN_BAR:.2f}, has {why['lean']:+.1f}"
+        lg_ = _oe.launch_gate(r['launch'], why['lean'], bar_) if call == 'enter' else None   # ⏱ an unknown launch mechanism: stricter confidence (it can only turn an ENTER into a WAIT)
+        if lg_:
+            call, reason = 'wait', lg_
         perf['trigger'] += _t.perf_counter() - t0
         s_ = ser.get(m) or []
         if s_ and next((p_.get('c') for p_ in reversed(s_) if p_.get('c')), None) != call[0]:   # 🔎 Tally's tape keeps Trigger's call each time it CHANGES (the missed-winner study reads the first one)
@@ -1121,13 +1122,14 @@ def power(state, real=None, cfg=None, card=None):
     return {'seats': lim, 'held': held, 'steps': steps}
 
 
-def card_seats(card, decisions=None, prices=None, cfg=None):
+def card_seats(card, decisions=None, prices=None, cfg=None, take=None):
     """🎮 The creator's real card as SEATS, right now: who holds each one (🤖 the agents · 🤝 a coin they suggested and the creator took ·
     👤 the creator's own pick · ⚙ the engine · ▫ open), its live result since entry, and — for an agent seat — what they are doing with
-    it (hold / pull / swap) and how far it is to their take line. Display only: nothing here buys or sells."""
+    it (hold / pull / swap) and how far it is to their take line (`take` = the ACTIVE line, office.take_line; else the base setting).
+    Display only: nothing here buys or sells."""
     c = cfg or {}
     by = {x.get('pair'): x for x in decisions or []}
-    take = _f(c.get('agentTakePct') or 10)
+    take = _f(take) if take else _f(c.get('agentTakePct') or 10)
     seats = []
     for l in (card or {}).get('legs') or []:
         tag = str((l.get('bought') or {}).get('tag') or '')
@@ -1264,11 +1266,15 @@ def eligible(table, on=(), min_age_h=1.0, burned=()):
     return sorted(out, key=lambda x: -_f((x.get('why') or {}).get('lean')))
 
 
-def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_left=None, picks=None, rotate=False, pol=None, radar=None, cases=None, reviews=None):
-    """For every coin the agents put on the card: under `agentTakePct` profit it HOLDS (only the rug shield may cut it); in profit the agents
-    read it again — still a clean read (Trigger not SKIP, lean ≥ 0, 5-min ≥ −3%, buyers ≥ 50%) → let it run; else EXIT: 'swap' for a fresh GO
-    runner (mode auto / swap, when one exists off the card) or 'pull' to card cash with the seat left open. Not on the desk's list any more →
-    pull (they can't see it, they bank it). → [{pair, symbol, action: hold | pull | swap, why, to}]"""
+def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_left=None, picks=None, rotate=False, pol=None, radar=None, cases=None, reviews=None, live=True):
+    """For every coin the agents put on the card: under the take line it HOLDS (in control a coin whose read broke may be switched); AT the
+    take line who decides is the creator's policy (office_edge.policy):
+      CREATOR OVERRIDE take-profit, or a LEARNED scalp line (AGENTS CHOOSE, once adopted) → banked at the line: 'swap' into a fresh GO
+      runner (mode auto / swap, when one exists) or 'pull' to card cash with the seat left open.
+      AGENTS CHOOSE before a line is learned → the agents READ it: still clean (Trigger not SKIP, lean ≥ 0, 5-min ≥ −3%, buyers ≥ 50%) and its
+      thesis not weak / invalid (Reaper's review, `reviews` {mint: verdict}) → let it run (Reaper's trail protects it); else bank it.
+    `live` False (the office refilling after a restart): no read-based or switch move at all — a gap in OUR data is never a reason; a
+    coin at the take line is banked on price alone and the draining-pool pull still acts. → [{pair, symbol, action: hold | pull | swap, why, to}]"""
     take = _f((cfg or {}).get('agentTakePct') or 10)
     mode = (cfg or {}).get('agentMode') or 'auto'
     # ⚡ SCALP (cfg `agentScalp`, and only once a plan is adopted from their own paths): the take line is the plan's — and AT it the coin is
@@ -1282,10 +1288,14 @@ def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_l
     # A restart / refill gap is never in it — so it can never be a reason to switch or bank.
     import office_edge as _oe
     pol = pol or _oe.policy(cfg)
-    if pol.get('tp'):
+    creator_tp = bool(pol.get('tp'))
+    if creator_tp:
         take, scalping = _f(pol['tp']), False
+    bank_at = scalping or creator_tp   # a line someone CHOSE (the creator, or the agents' own learned plan) is banked at; the base line is read
     off = lambda mint: (radar is None) or (mint in radar)
-    sw_on = bool(pol['switch']['on'])
+    sw = pol['switch']
+    sw_on = bool(sw['on'])
+    broke_min = CONTROL_HOLD_MIN if sw.get('mode') == 'agents' else max(CONTROL_HOLD_MIN, _f(sw.get('holdMin')))   # your switching mode's hold time binds a broken-read switch too
     by = {x['mint']: x for x in table or []}
     on = {l.get('mint') for l in legs or []}
     # 🎮 IN CONTROL (cfg `agentControl`): they manage EVERY coin on the card, a switch needs an `eligible` coin (age, pool, scan), a coin
@@ -1310,7 +1320,7 @@ def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_l
             x_ = by.get(l.get('mint'))
             held_min = (now - _f(l.get('at'))) / 60 if now and l.get('at') else 0.0
             broke = None
-            if control and gos and sw_on and held_min >= CONTROL_HOLD_MIN:
+            if control and gos and sw_on and live and held_min >= broke_min:
                 if not x_:
                     broke = 'off their radar' if off(l.get('mint')) else None
                 elif x_['trigger'][0] == 'skip':
@@ -1324,21 +1334,24 @@ def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_l
             if broke:
                 out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'swap', 'why': f"{pnl:+.1f}%, {broke} → switched for their GO ${gos[0]['symbol']}", 'to': gos[0]})
                 gos = gos[1:]; continue
-            out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'hold', 'why': f'{pnl:+.1f}% — holding until +{take:g}%' + (' (their read still holds)' if control else ' (only the rug shield cuts it)')}); continue
-        if scalping or control:   # ⚡ scalp plan — or 🎮 in control: profit and move on (banked AT the line, never re-read and left to run)
-            if mode in ('auto', 'swap') and gos:
-                out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'swap', 'why': f"⚡ scalp {pnl:+.1f}% ≥ +{take:g}% → banked into ${gos[0]['symbol']}", 'to': gos[0]})
+            out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'hold', 'why': f'{pnl:+.1f}% — holding until +{take:g}%' + ('' if live else ' (office warming up: no read-based move)') + (' (their read still holds)' if control else ' (only the rug shield cuts it)')}); continue
+        if bank_at or not live:   # 🎛 your take line · ⚡ their learned scalp line — banked AT the line, never re-read and left to run (and while warming up: price alone)
+            word = '🎛 your take' if creator_tp else '⚡ scalp' if scalping else '⏳ warming up, take'
+            if mode in ('auto', 'swap') and gos and live:
+                out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'swap', 'why': f"{word} {pnl:+.1f}% ≥ +{take:g}% → banked into ${gos[0]['symbol']}", 'to': gos[0]})
                 gos = gos[1:]
             else:
-                out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'pull', 'why': f"⚡ scalp {pnl:+.1f}% ≥ +{take:g}% → banked to card cash"})
+                out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'pull', 'why': f"{word} {pnl:+.1f}% ≥ +{take:g}% → banked to card cash"})
             continue
         x = by.get(l.get('mint'))
         if x:
             n = x['nums']
+            verdict_ = (reviews or {}).get(l.get('mint'))
             bad = (x['trigger'][0] == 'skip' and x['trigger'][1]) or (x['why']['lean'] < 0 and f"lean turned {x['why']['lean']:+.1f}") \
-                or (_f(n.get('d5')) <= -3 and f"{_f(n['d5']):+.1f}% in 5 min") or (n.get('buy') is not None and _f(n['buy']) < 50 and f"buyers down to {_f(n['buy']):.0f}%")
+                or (_f(n.get('d5')) <= -3 and f"{_f(n['d5']):+.1f}% in 5 min") or (n.get('buy') is not None and _f(n['buy']) < 50 and f"buyers down to {_f(n['buy']):.0f}%") \
+                or (verdict_ in ('weak', 'invalid') and f"its thesis reads {verdict_}")
             if not bad:
-                out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'hold', 'why': f"{pnl:+.1f}% and still clean (lean {x['why']['lean']:+.1f}, {_f(n.get('d5')):+.1f}% 5m) — let it run"}); continue
+                out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'hold', 'why': f"{pnl:+.1f}% ≥ +{take:g}% and still clean (lean {x['why']['lean']:+.1f}, {_f(n.get('d5')):+.1f}% 5m{', thesis ' + verdict_ if verdict_ else ''}) — the agents let it run, the trail protects it"}); continue
         elif not off(l.get('mint')):   # missing from the table inside the grace / while the office warms up: that is OUR gap, not the coin's
             out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'hold', 'why': f'{pnl:+.1f}% — not on the table this pass (refilling): nothing is ruled on a gap'}); continue
         else:
@@ -1350,7 +1363,7 @@ def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_l
             out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'pull', 'why': f"{pnl:+.1f}%, {bad} → profit to cash, seat left open"})
     # 🕙 the 10-minute duty with a full card: no coin's read broke, yet a much stronger cleared read is waiting → the weakest coin that is
     # NOT winning (≤ 0%, held ≥ DUTY_ROTATE_MIN, its own lean at least DUTY_EDGE under the new coin's) gives up its seat. Never a winner.
-    if control and rotate and gos and sw_on and not any(x['action'] == 'swap' for x in out):
+    if control and rotate and gos and sw_on and live and not pol.get('manual') and not any(x['action'] == 'swap' for x in out):   # 🎛 manual: the duty rotates nothing
         new = gos[0]
         ncase = next((c for c in cases or [] if c.get('mint') == new.get('mint')), None) or {'symbol': new.get('symbol'), 'mint': new.get('mint'), 'lean': _f((new.get('why') or {}).get('lean')), 'cleared': True, 'checks': [], 'row': new}
         cands = []

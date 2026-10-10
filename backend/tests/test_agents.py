@@ -464,8 +464,14 @@ def test_the_ten_minute_duty_investigates_every_coin_clears_only_safe_ones_and_n
     assert d['WEAK']['action'] == 'swap' and d['WEAK']['to']['mint'] == 'BEST' and 'cleared every desk' in d['WEAK']['why']   # the weakest non-winner, held 30+ min, clearly weaker read
     assert d['WIN']['action'] == 'hold' and d['OKAY']['action'] == 'hold' and d['NEWISH']['action'] == 'hold'             # a winner · a read not clearly weaker · a coin 10 min old: all keep their seats
     assert all(x['action'] == 'hold' for x in ag.manage(legs, table + held, px, cfg, control=True, now=now, moves_left=0, picks=picks, rotate=True))   # not due → nobody moves
-    banked = ag.manage([leg('WIN', 1)], table + held, {'PWIN': 1.12}, cfg, control=True, now=now, moves_left=0, picks=picks)[0]
-    assert banked['action'] == 'pull' and 'scalp' in banked['why']                                                         # at +10%: profit and move on, even between duty slots
+    runs = ag.manage([leg('WIN', 1)], table + held, {'PWIN': 1.12}, cfg, control=True, now=now, moves_left=0, picks=picks)[0]
+    assert runs['action'] == 'hold' and 'let it run' in runs['why']                                                       # AGENTS CHOOSE at the base +10%: a clean read runs (the trail protects it)
+    banked = ag.manage([leg('WIN', 1)], table + held, {'PWIN': 1.12}, {**cfg, 'agentTp': 10}, control=True, now=now, moves_left=0, picks=picks)[0]
+    assert banked['action'] == 'pull' and 'your take' in banked['why']                                                    # YOUR take-profit: banked AT the line, never re-read
+    learned = ag.manage([leg('WIN', 1)], table + held, {'PWIN': 1.12}, cfg, {'tp': 8, 'sl': 5}, control=True, now=now, moves_left=0, picks=picks)[0]
+    assert learned['action'] == 'pull' and 'scalp' in learned['why']                                                      # their LEARNED line: banked at it (their own choice)
+    broken = ag.manage([leg('WIN', 1)], table + [row('WIN', lean=-0.5)], {'PWIN': 1.12}, cfg, control=True, now=now, moves_left=0, picks=picks)[0]
+    assert broken['action'] == 'pull' and 'lean turned' in broken['why']                                                  # past the base line on a broken read: banked
 
 
 def test_they_stay_in_five_minutes_until_the_real_card_is_back_to_breakeven_and_their_lives_ride_on_real_exits():
