@@ -403,7 +403,7 @@ def test_in_control_they_buy_only_eligible_go_coins_switch_a_broken_read_after_1
     won = ag.manage([leg('MINE', at=now - 60)], table, {'PMINE': 1.3}, cfg, {'tp': 8, 'sl': 0}, control=True, now=now, moves_left=4)[0]
     assert won['action'] == 'swap' and 'scalp' in won['why']                                                            # at the take line they bank it into the next GO
     assert ag.seat_limit({'agentControl': True, 'coins': 4}, False, {}) == 4 and ag.view({}, [], cfg={'agentControl': True})['cfg']['agentControl'] is True
-    assert ag.CONTROL_HOLD_MIN == 15 and ag.CONTROL_MOVES_HR == 4
+    assert ag.CONTROL_HOLD_MIN == 15 and ag.CONTROL_MOVES_HR == 6
 
 
 def test_agent_control_holds_the_card_for_the_agents_the_proof_gate_stands_aside_and_a_manual_release_hands_it_back(monkeypatch):
@@ -436,3 +436,48 @@ def test_every_objection_keeps_its_reason_so_we_can_see_what_devil_blocks_and_wh
     o = ag.objections(st, 24, 200)
     assert o == [{'why': 'rug meter #', 'n': 2, 'med': -2.5, 'saved': 50}] and ag.view(st, [], now=200)['objections'][0]['n'] == 2
     assert ag.objections(st, 1, 100 + 7200) == []
+
+
+def test_the_ten_minute_duty_investigates_every_coin_clears_only_safe_ones_and_never_gives_a_winners_seat_away():
+    row = lambda m, lean=2.0, age=3.0, liq=60_000, safe=True, trig='wait', case=('agree', 'no evidence against it'), go=False: {
+        'mint': m, 'symbol': m, 'pair': 'P' + m, 'px': 1.0, 'go': go, 'trigger': [trig, 'why'], 'devil': ['—', ''], 'case': list(case) if case else None,
+        'why': {'lean': lean, 'drivers': []}, 'nums': {'d5': 1.0, 'buy': 60, 'liq': liq}, 'vitals': {'ageH': age, 'safe': safe, 'liq': liq}}
+    table = [row('BEST', lean=1.2), row('STRONGER', lean=1.9, case=('object', 'rug meter 62')), row('BABY', lean=3, age=0.3), row('THIN', lean=3, liq=5_000),
+             row('BLIND', lean=3, safe=None), row('SKIP', lean=4, trig='skip'), row('NEG', lean=-1), row('HELD', lean=5), row('BURN', lean=2.5)]
+    inv = ag.investigate(table, {'HELD'}, 1.0, burned={'BURN'})
+    assert [c['mint'] for c in inv if c['cleared']] == ['BEST'] and inv[0]['mint'] == 'BEST'                      # under Trigger's bar, but every safety check passes → cleared
+    why = {c['mint']: [k for k, ok, _ in c['checks'] if not ok] for c in inv}
+    assert why['STRONGER'] == ['devil'] and why['BABY'] == ['age'] and why['THIN'] == ['pool'] and why['BLIND'] == ['scan'] and why['BURN'] == ['burn']
+    assert not any(c['mint'] in ('SKIP', 'NEG', 'HELD') for c in ag.investigate(table, {'HELD'}, 1.0, top=0))   # a hard skip / negative read / a coin on the card is never a case
+    assert 'row' not in ag.duty_view({}, table, {'agentControl': True}, {'seats': [{'mint': 'HELD'}], 'dutyAt': 5})['cases'][0]
+    leg = lambda m, at, **k: {'symbol': m, 'pairAddress': 'P' + m, 'mint': m, 'units': 1, 'entry': 1.0, 'at': at, **k}
+    now = 7200; cfg = {'agentTakePct': 10, 'agentMode': 'auto'}
+    picks = [inv[0]['row']]
+    held = [row('WIN', lean=0.1), row('WEAK', lean=0.1), row('OKAY', lean=1.0), row('NEWISH', lean=0.0)]
+    legs = [leg('WIN', 1), leg('WEAK', 1), leg('OKAY', 1), leg('NEWISH', now - 600)]   # a leg with no buy time is never rotated
+    px = {'PWIN': 1.05, 'PWEAK': 0.92, 'POKAY': 0.97, 'PNEWISH': 0.80}
+    d = {x['symbol']: x for x in ag.manage(legs, table + held, px, cfg, control=True, now=now, moves_left=1, picks=picks, rotate=True)}
+    assert d['WEAK']['action'] == 'swap' and d['WEAK']['to']['mint'] == 'BEST' and 'stronger read' in d['WEAK']['why']   # the weakest non-winner, held 30+ min, clearly weaker read
+    assert d['WIN']['action'] == 'hold' and d['OKAY']['action'] == 'hold' and d['NEWISH']['action'] == 'hold'             # a winner · a read not clearly weaker · a coin 10 min old: all keep their seats
+    assert all(x['action'] == 'hold' for x in ag.manage(legs, table + held, px, cfg, control=True, now=now, moves_left=0, picks=picks, rotate=True))   # not due → nobody moves
+    banked = ag.manage([leg('WIN', 1)], table + held, {'PWIN': 1.12}, cfg, control=True, now=now, moves_left=0, picks=picks)[0]
+    assert banked['action'] == 'pull' and 'scalp' in banked['why']                                                         # at +10%: profit and move on, even between duty slots
+
+
+def test_they_stay_in_five_minutes_until_the_real_card_is_back_to_breakeven_and_their_lives_ride_on_real_exits():
+    mk = lambda ps, **k: {'done': [{'mint': str(i), 'at': i, 'kind': 'enter', 'go': True, 'devil': 'agree', 'drivers': [], 'lean': 2, 'p5': p} for i, p in enumerate(ps)], **k}
+    run = mk([50.0] * 30)
+    assert ag.stage(run)['h'] == 15                                                           # paper 10× and no real card underwater → on to 15 min
+    locked = ag.stage(mk([50.0] * 30, money={'value': 1.35, 'putIn': 29.5}))
+    assert locked['h'] == 5 and locked['conquered'] == [] and locked['needBE'] is True        # 10× on paper is NOT enough while the real card is underwater
+    assert ag.stage(mk([50.0] * 30, money={'value': 30, 'putIn': 29.5}))['h'] == 15 and ag.underwater({'money': {'value': 0, 'putIn': 0}}) is False
+    st = ag.reckon({}, {'n': 5, 'w': 1}, 100)
+    assert st['lives'] == 9 and st['realSeen'] == {'n': 5, 'w': 1}                            # history before the rule costs nothing
+    st = ag.reckon(st, {'n': 8, 'w': 2}, 200)                                                 # 3 more exits: 1 won, 2 lost
+    assert st['lives'] == 8 and '8 of 9 lives' in st['feed'][-1]['text']
+    st = ag.reckon(st, {'n': 9, 'w': 3}, 300)
+    assert st['lives'] == 9                                                                   # a win gives one back (never above 9)
+    st = ag.reckon(st, {'n': 18, 'w': 3}, 400)                                                # nine straight real losses
+    assert st['lives'] == 9 and all(st['gen'][a] == 2 for a in ('tally', 'sherlock', 'trigger', 'devil')) and len(st['lineage']) == 4
+    assert 'scrapped and reborn' in st['feed'][-1]['text'] and st['born']['devil'] == 400
+    assert ag.reckon(st, {'n': 18, 'w': 3}, 500)['lives'] == 9 and ag.view(st, [])['lives'] == {'n': 9, 'of': 9}

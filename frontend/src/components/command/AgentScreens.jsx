@@ -210,6 +210,29 @@ export function MissionBar({ mission, scalp, desk }) {
         : <u><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, (sp.n || 0) / (sp.needN || 20)))})` }} /></u>}</div></div>;
 }
 
+// 🕙 THE 10-MINUTE DUTY — in control they must put their best CLEARED coin on the card every 10 minutes. This is the investigation,
+// drawn: a countdown to the next move, ❤ the team's lives on real money, 🔒 the 5-minute lock while the card is underwater, and the
+// case files — each coin with its five checks (scan · age · pool · burn · Devil) as pips; the first cleared one is NEXT UP.
+const CHK = { scan: '🧬', age: '⏳', pool: '💧', burn: '🔥', devil: '⚖' };
+export const dutyLeft = (duty, now) => (!duty?.at ? 0 : Math.max(0, Math.round(duty.at + (duty.every || 600) - now)));
+export function DutyBox({ duty, lives, underwater, onPick }) {
+  const [now, setNow] = useState(() => Date.now() / 1000);
+  useEffect(() => { const t = setInterval(() => { if (!document.hidden) setNow(Date.now() / 1000); }, 1000); return () => clearInterval(t); }, []);
+  if (!duty) return null;
+  const left = dutyLeft(duty, now); const cases = duty.cases || []; const L = lives || { n: 9, of: 9 };
+  return <div className={`ags-duty ${duty.on ? 'is-on' : ''}`} data-testid="ags-duty">
+    <div className="ags-dutyh"><b>🕙 10-MIN DUTY</b>
+      <em className={left ? '' : 'is-due'} data-testid="duty-clock" data-tip="In control, their best cleared coin goes on the card every 10 minutes: an empty seat first, else the seat of a coin whose read broke, else the weakest coin that is not winning.">{!duty.on ? 'agents not in control' : left ? `next move ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : cases.some(c => c.cleared) ? 'moving now' : 'investigating — nothing cleared yet'}</em>
+      <span className="ags-lives" data-tip={`Their lives on REAL money: a winning real exit +1, a losing one −1. At 0 all four are scrapped and reborn.`} data-testid="ags-lives">{'❤'.repeat(Math.max(0, L.n))}<i>{'♡'.repeat(Math.max(0, L.of - L.n))}</i></span>
+      {underwater && <span className="ags-lock" data-tip="They cannot leave the 5-minute stage until your real card is back to what you put in." data-testid="ags-lock">🔒 5m until breakeven</span>}</div>
+    <div className="ags-casefiles">{cases.map((c, i) => { const bad = c.checks.find(k => !k[1]);
+      return <button type="button" key={c.mint} className={`ags-case2 ${c.cleared ? 'is-clear' : 'is-blocked'}`} style={{ '--i': i }} onClick={() => onPick && onPick(c.symbol)} data-testid={`case-file-${c.symbol}`}>
+        <b>${c.symbol}</b><em>lean {c.lean > 0 ? '+' : ''}{c.lean}</em>
+        <span className="ags-chk">{c.checks.map(([k, ok, words]) => <i key={k} className={ok ? 'is-ok' : 'is-no'} data-tip={words}>{CHK[k] || '•'}</i>)}</span>
+        <small>{c.cleared ? (cases.findIndex(x => x.cleared) === i ? '▶ NEXT UP' : 'cleared') : bad ? bad[2] : ''}</small></button>; })}
+      {!cases.length && <div className="ags-empty">no coin has a positive read right now — they keep looking</div>}</div></div>;
+}
+
 // 🧬 GROWTH — an agent grows only by surviving judged calls; a level is HELD only while it is alive
 const LV = ['🥚', '🐣', '🧒', '🦾', '🧠', '👑'];
 export function GrowthCards({ growth, agents, onZoom }) {

@@ -2,7 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
 import { AgentDesk } from './AgentDesk';
-import { heat, reasonsOf, scopeOf, docketOf, listFor, seatMoves, CardNow, CourtBand, Court, MissionBar, GrowthCards, PowerLadder } from './AgentScreens';
+import { heat, reasonsOf, scopeOf, docketOf, listFor, seatMoves, CardNow, CourtBand, Court, MissionBar, DutyBox, dutyLeft, GrowthCards, PowerLadder } from './AgentScreens';
 
 const row = (mint, symbol, d5, lean, trig, dev, go, drivers, rug) => ({ mint, symbol, pair: `P${mint}`, go, nums: { d5, pace: 2, buy: 60 }, why: { lean, drivers }, trigger: [trig, 'why t'], devil: [dev, dev === 'object' ? 'its read is BOND RUN' : ''], vitals: { top10: 40, rug, organic: 3 } });
 const table = [row('A', 'GOOD', 4, 2.4, 'enter', 'agree', true, [['surge', 1, 'volume surging'], ['buyers', 0.5, 'buyers in charge']], 10),
@@ -118,5 +118,25 @@ test('the mission: breakeven first as a distance (never a promise), then the pap
   await act(async () => { root.render(<MissionBar mission={{ key: 'tenx', value: 30, putIn: 22.5 }} scalp={{ n: 24, needN: 20, best: { tp: 8, sl: 0, avg: 3.1 }, flat: { avg: -2 }, peak: 9, live: { tp: 8, sl: 0 } }} desk={{ x: 2 }} />); });
   expect(q('goal-breakeven').className).toContain('is-done'); expect(q('goal-tenx').className).toContain('is-now');
   expect(q('ags-scalp').textContent).toContain('LIVE'); expect(q('ags-scalp').textContent).toContain('TP +8%'); expect(q('ags-scalp').textContent).toContain('no stop'); expect(q('ags-scalp').textContent).toContain('+3.1%'); expect(q('ags-scalp').textContent).toContain('-2%');
+  await act(async () => { root.unmount(); });
+});
+
+test('the 10-minute duty: a clock to the next move, their lives on real money, the breakeven lock and a case file per coin', async () => {
+  expect(dutyLeft({ at: 1000, every: 600 }, 1250)).toBe(350); expect(dutyLeft({ at: 1000, every: 600 }, 9999)).toBe(0); expect(dutyLeft({ at: 0 }, 5)).toBe(0);
+  const now = Date.now() / 1000; const pick = jest.fn();
+  const duty = { on: true, every: 600, at: now - 100, cases: [
+    { mint: 'A', symbol: 'BEST', lean: 1.2, cleared: true, checks: [['scan', true, 'holder scan passed'], ['age', true, '3.0h old'], ['pool', true, 'pool $60K'], ['burn', true, 'not burned'], ['devil', true, 'no evidence against it']] },
+    { mint: 'B', symbol: 'BABY', lean: 3, cleared: false, checks: [['scan', true, 'holder scan passed'], ['age', false, '0.3h old'], ['pool', true, 'pool $60K'], ['burn', true, 'not burned'], ['devil', true, 'ok']] }] };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const q = id => el.querySelector(`[data-testid="${id}"]`);
+  await act(async () => { root.render(<DutyBox duty={duty} lives={{ n: 7, of: 9 }} underwater onPick={pick} />); });
+  expect(q('duty-clock').textContent).toMatch(/next move 8:[12]\d/); expect(q('ags-lives').textContent).toBe('❤❤❤❤❤❤❤♡♡'); expect(q('ags-lock').textContent).toContain('until breakeven');
+  expect(q('case-file-BEST').className).toContain('is-clear'); expect(q('case-file-BEST').textContent).toContain('NEXT UP'); expect(q('case-file-BEST').querySelectorAll('.is-ok').length).toBe(5);
+  expect(q('case-file-BABY').className).toContain('is-blocked'); expect(q('case-file-BABY').textContent).toContain('0.3h old'); expect(q('case-file-BABY').querySelectorAll('.is-no').length).toBe(1);
+  await act(async () => { q('case-file-BABY').click(); });
+  expect(pick).toHaveBeenCalledWith('BABY');
+  await act(async () => { root.render(<DutyBox duty={{ ...duty, at: now - 700, cases: duty.cases.slice(1) }} lives={{ n: 9, of: 9 }} />); });
+  expect(q('duty-clock').textContent).toContain('nothing cleared yet'); expect(q('ags-lock')).toBeNull();
+  await act(async () => { root.render(<DutyBox duty={{ on: false, cases: [] }} />); });
+  expect(q('duty-clock').textContent).toContain('not in control');
   await act(async () => { root.unmount(); });
 });

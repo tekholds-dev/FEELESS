@@ -8754,6 +8754,22 @@ async def _agent_control_fix_1010(now):
     return True
 
 
+async def _agent_duty_fix_1010(now):
+    """🕙 Once (owner, 2026-10-10: "profit and move on … putting something on the card every 10 min"): their take line on the real seat goes
+    from +50% to +10% (bank it, move on). Old value: data/realcfg_before_agentduty1010.json."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('agentDutyFix1010') or not rc:
+            return False
+        ch = {'agentTakePct': 10}
+        _json_save(DATA_DIR / 'realcfg_before_agentduty1010.json', {k: rc.get(k) for k in ch})
+        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
+        pr['agentDutyFix1010'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _keephalf_fix_1010(now):
     """🔐 Once (owner, 2026-10-10 01:40, after a $1 top-up: "they must keep coins and profit going on card while I'm asleep — very smart money"):
     KEEP HALF on for the real card (`arena_prime.half_back`). Old value: data/realcfg_before_keephalf1010.json. Off again in Edit Fuse › Exits."""
@@ -9011,6 +9027,7 @@ async def _prime_tick_inner(now):
     await _keephalf_fix_1010(now)
     await _proof_gate_fix_1010(now)
     await _agent_control_fix_1010(now)
+    await _agent_duty_fix_1010(now)
     await _rush_fix_1009(now)
     await _volcycle_fix_1009(now)
     await _degen_crazy_fix_1009(now)
@@ -9487,7 +9504,14 @@ async def _prime_tick_inner(now):
             cur['agentWant'] = int(_fuse._f(cfg_t.get('coins')))
         moves_ = max(0, _ag.CONTROL_MOVES_HR - sum(1 for e in cur.get('events') or [] if e.get('kind') == 'agent' and e.get('move') in ('fill', 'swap') and now - _fuse._f(e.get('at')) < 3600)) if ctl_ else None
         if real_t and cur and (ctl_ or (((cfg_t.get('agentFeed') and (_agents.get('view') or {}).get('feed')) or cfg_t.get('agentLearn')) and not cur.get('holdAll'))) and not cur.get('flooredAt'):
-            dec_ = _ag.manage(cur.get('legs'), _agents.get('table'), px, cfg_t, _agents.get('scalp'), control=ctl_, now=now, moves_left=moves_)
+            # 🕙 THE 10-MINUTE DUTY (in control): they investigate the board and their best CLEARED coin goes on the card — an empty seat first,
+            # else the seat of a coin whose read broke, else the weakest coin that is not winning. One duty move per DUTY_SEC, inside the budget.
+            due_ = bool(ctl_ and moves_ and now - _fuse._f(cur.get('agentDutyAt')) >= _ag.DUTY_SEC)
+            picks_ = [c_['row'] for c_ in _ag.investigate(_agents.get('table'), {l.get('mint') for l in cur.get('legs') or []}, cfg_t.get('trenchMinAgeH', 1), (_json_load(AGENTS_PATH, {}).get('burned') or {}), top=0)
+                      if c_['cleared'] and not _fw.dollar_named(c_.get('symbol')) and c_['mint'] not in cool] if ctl_ else None
+            full_ = bool(ctl_ and len([l for l in cur.get('legs') or [] if not (l.get('placeholder') and not l.get('manualCash'))]) >= int(_fuse._f(cfg_t.get('coins'))))
+            dec_ = _ag.manage(cur.get('legs'), _agents.get('table'), px, cfg_t, _agents.get('scalp'), control=ctl_, now=now, moves_left=(1 if due_ else 0) if ctl_ else moves_,
+                              picks=picks_, rotate=bool(due_ and full_))
             _agents['decisions'] = [{k: v for k, v in x.items() if k != 'to'} | ({'toSym': x['to']['symbol']} if x.get('to') else {}) for x in dec_]
             _agents['card'] = _ag.card_seats(cur, _agents['decisions'], px, cfg_t)
             for x in dec_:
@@ -9508,21 +9532,25 @@ async def _prime_tick_inner(now):
                             if l.get('mint') == t_['mint']:
                                 l.update(bought={**(l.get('bought') or {}), 'tag': '🤖 agents GO'}, slMode='hold', rideOrRug=True, ticket=True); l.pop('picked', None)
                         cur['events'] = cur['events'][:-1] + [{**cur['events'][-1], 'kind': 'agent', 'move': 'swap', 'why': f"🤖 agents swapped ${x['symbol']} for ${t_['symbol']}: {x['why']}"}]
+                        if ctl_:
+                            cur['agentDutyAt'] = now
                         cur = _prime.note_dropped(was_, cur, now, cfg_t['rotateHours'], px)
                 except ValueError:
                     continue
         if ctl_:   # 🎮 their coin for every empty seat — only `eligible` GO coins, never one cooling / dollar-named, inside the hourly budget
             used_ = sum(1 for e in cur.get('events') or [] if e.get('kind') == 'agent' and e.get('move') in ('fill', 'swap') and now - _fuse._f(e.get('at')) < 3600)
-            for t_ in _ag.eligible(_agents.get('table'), {l.get('mint') for l in cur.get('legs') or []}, cfg_t.get('trenchMinAgeH', 1), ((_json_load(AGENTS_PATH, {}).get('burned') or {}))):
+            on_ = {l.get('mint') for l in cur.get('legs') or []}
+            # an empty seat: a full 🟢 GO fills it at once; otherwise the duty's best cleared case fills ONE seat when the 10 minutes are up
+            gos_ = [t_ for t_ in _ag.eligible(_agents.get('table'), on_, cfg_t.get('trenchMinAgeH', 1), ((_json_load(AGENTS_PATH, {}).get('burned') or {}))) if not _fw.dollar_named(t_.get('symbol')) and t_['mint'] not in cool]
+            duty_ = [t_ for t_ in (picks_ or []) if t_['mint'] not in on_ and t_['mint'] not in {g_['mint'] for g_ in gos_}][:1] if now - _fuse._f(cur.get('agentDutyAt')) >= _ag.DUTY_SEC else []
+            for t_ in gos_ + duty_:
                 if used_ >= _ag.CONTROL_MOVES_HR:
                     break
-                if _fw.dollar_named(t_.get('symbol')) or t_['mint'] in cool:
-                    continue
                 try:
                     cur = _prime.agent_seat(cur, {'mint': t_['mint'], 'symbol': t_['symbol'], 'pairAddress': t_['pair'], 'price': t_['px'], 'liquidityUsd': (t_.get('nums') or {}).get('liq'),
                                                   'ageH': (t_.get('vitals') or {}).get('ageH'), 'vol1h': (t_.get('vitals') or {}).get('vol1h'), 'buyShare': (t_.get('nums') or {}).get('buy'),
-                                                  'tag': '🤖 agents GO · in control', 'why': (t_.get('trigger') or ['', ''])[1]}, px, cfg_t, now)
-                    used_ += 1
+                                                  'tag': '🤖 agents GO · in control' if t_.get('go') else '🤖 agents · 10-min duty', 'why': (t_.get('trigger') or ['', ''])[1] if t_.get('go') else f"their strongest cleared read (lean {t_['why']['lean']:+.1f})"}, px, cfg_t, now)
+                    used_ += 1; cur['agentDutyAt'] = now
                 except ValueError:
                     break
             _agents['card'] = _ag.card_seats(cur, _agents.get('decisions'), px, cfg_t)
@@ -12029,6 +12057,8 @@ async def _agents_tick(now):
             before = st
             st = _ag.settle(st, lambda m: (jp or {}).get(m), now)
             st['feed'] = (list(st.get('feed') or []) + _ag.results(before, st, now))[-_ag.FEED_KEEP:]
+        st['money'] = _agents.get('money') or st.get('money') or {}   # 💵 the real card's value vs put-in: the 5-minute stage stays locked while it is underwater
+        st = _ag.reckon(st, _agents_real(), now)   # ❤ their lives ride on the real seat's closed coins
         st = _ag.scalp_adopt(st, now)          # ⚡ adopt / change / drop the scalp plan learned from their own 5-minute paths
         _agents['scalp'] = st.get('scalp')
         st = _ag.burn(st, now)                 # 🔥 a GO that lost 20%+ burns its coin for 6h
@@ -12063,7 +12093,7 @@ def _agents_real():
     out = {'n': n, 'med': None if not n else round(ps[n // 2] if n % 2 else (ps[n // 2 - 1] + ps[n // 2]) / 2, 2), 'won': None if not n else round(sum(1 for x in ps if x > 0) / n * 100)}
     sg = sorted(_fuse._f(p.get('pct')) for p in (_json_load(REAL_LEARN_PATH, {}).get('pieces') or []) if 'tag:🤝' in (p.get('k') or []))
     out['suggested'] = {'n': len(sg), 'med': None if not sg else round(sg[len(sg) // 2], 2), 'won': None if not sg else round(sum(1 for x in sg if x > 0) / len(sg) * 100)}   # 🤝 coins the owner took from their alert
-    out['last'] = last_[-16:]; out['suggested']['last'] = last_sg[-16:]
+    out['last'] = last_[-16:]; out['suggested']['last'] = last_sg[-16:]; out['w'] = sum(1 for x in last_ if x > 0)
     return out
 
 

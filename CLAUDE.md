@@ -2834,4 +2834,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   ≤ `CONTROL_MOVES_HR` 4 real buys an hour (events `kind: 'agent'`, `move: fill | swap`). An empty seat's cash waits for THEIR coin (engine
   compound + keeper `idle_sweep` gated, card `agentWant`). The proof gate stands aside while it is on; ▶ Release on the card (or the switch)
   turns it off and the gate judges the card again. The owner's own ✋ hold is never taken over. Agents GO rarely — seats in cash is normal.
+- 🕙 THE 10-MINUTE DUTY + ❤ LIVES + 🔒 BREAKEVEN LOCK (owner, 2026-10-10: "actively investigating each coin and putting something on the card
+  every 10 min … profit and move on … their life depends on winning … they can't get out of 5 min until they win real money back to breakeven …
+  they can't switch cycles"): in agent control, `desk()` asks Devil about EVERY non-skipped positive read (`case`), `agents.investigate` builds
+  the case files (5 checks: scan · age ≥ `trenchMinAgeH` · pool ≥ $20K · not burned · Devil; `cleared` = all pass — for the duty ONLY Trigger's
+  bar is waived, never a safety check) and every `DUTY_SEC` 600s one duty move goes on the card: an empty seat first (`agent_seat`), else
+  the seat of a coin whose read broke (≥ 15 min held), else the weakest coin NOT winning (≤ 0%, ≥ `DUTY_ROTATE_MIN` 30 min, its lean ≥
+  `DUTY_EDGE` 1.0 under the new one). A full 🟢 GO fills an empty seat at once. ≤ `CONTROL_MOVES_HR` 6 real buys an hour; card `agentDutyAt`.
+  In control a coin at the take line is BANKED (never re-read and left to run); real `agentTakePct` 10 (`_agent_duty_fix_1010`). The agents
+  only fill / switch / bank coins — they never touch cycles or any card setting. ❤ `agents.reckon`: 9 team lives on REAL exits (win +1, loss
+  −1; 0 = all four scrapped + reborn with their lessons). 🔒 `agents.underwater` / `stage`: the 5-min stage cannot be conquered while the real
+  card is worth less than put in (`state.money`). Page: `DutyBox` (clock · lives · lock · case files). A winner's seat is never given away.
 

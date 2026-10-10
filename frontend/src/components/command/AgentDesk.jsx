@@ -5,7 +5,7 @@ import { openWarRoom } from '../WarRoomHost';
 import '../../styles/agentDesk.css';
 import { AgentRoom } from './AgentRoom';
 import { pct, tone, CALL, VERDICT, VERD, rowState, rowWhy, pipsOf, leanFill } from '../../lib/agentRead';
-import { MiniScreen, ZoomScreen, CardNow, CourtBand, MissionBar, GrowthCards, PowerLadder } from './AgentScreens';
+import { MiniScreen, ZoomScreen, CardNow, CourtBand, MissionBar, DutyBox, GrowthCards, PowerLadder } from './AgentScreens';
 
 export { rowState, rowWhy, pipsOf, leanFill };
 
@@ -259,6 +259,7 @@ export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
       <Kpi id="lives" label="⚔ LIVES" val={atRisk ? `${atRisk} ⚠` : '4 🟢'} cls={atRisk ? 'agd-warn' : ''} sub={atRisk ? 'on probation / scrapped' : `${(d.lineage || []).length} scrapped so far`} on={lens === 'life'} onClick={() => setLens('life')} tip="An agent that keeps losing is scrapped and reborn." />
     </div>
     <CardNow card={d.card} power={d.power} cfg={d.cfg} gos={t.filter(x => x.go)} call={call} isOwner={isOwner} onDone={load} onMore={() => setLens('life')} />
+    <DutyBox duty={d.duty} lives={d.lives} underwater={d.underwater} onPick={sym => { setLens('live'); setJump({ sym, n: Date.now() }); }} />
     <CourtBand judge={d.judge} proof={d.proof} desk={d.desk} onPick={sym => { setLens('live'); setJump({ sym, n: Date.now() }); }} onCourt={() => setZoom('judge')} />
     {office && <AgentRoom d={d} sel={sel} onSel={setSel} picker={false} />}
     <div className="agd-chain" role="group" aria-label="Pick an agent"><i className="agd-wire" aria-hidden><u /></i>{(d.agents || []).map((a, i) => { const l = d.life?.[a.key];

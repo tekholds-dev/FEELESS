@@ -471,8 +471,11 @@ def desk(state, rows, now, dial=None):
         t0 = _t.perf_counter(); verdict, arg = devil(call, n, why, {**r, 'mint': m}, learned); perf['devil'] += _t.perf_counter() - t0
         if learned['trial'] == 'devil' and verdict == 'agree' and why['lean'] < bar_ + TRIAL_BAR:   # 👨‍⚖️ Devil on trial: only strong reads pass
             verdict, arg = 'object', f"on trial — only a strong read passes (lean {why['lean']:+.1f} < {bar_ + TRIAL_BAR:.1f})"
+        case = [verdict, arg] if call == 'enter' else list(devil('enter', n, why, {**r, 'mint': m}, learned)) if call == 'wait' and why['lean'] > 0 else None
+        if case and learned['trial'] == 'devil' and case[0] == 'agree' and why['lean'] < bar_ + TRIAL_BAR:
+            case = ['object', 'on trial — only a strong read passes']
         rd = r.get('mind') or _tm.read(r)
-        table.append({'mint': m, 'symbol': r.get('symbol'), 'pair': r.get('pairAddress'), 'px': _f(r.get('price')), 'nums': n, 'why': why,
+        table.append({'case': case, 'mint': m, 'symbol': r.get('symbol'), 'pair': r.get('pairAddress'), 'px': _f(r.get('price')), 'nums': n, 'why': why,
                       'trigger': [call, reason], 'devil': [verdict, arg], 'go': call == 'enter' and verdict == 'agree',
                       'mind': {'narr': rd['narr'][1], 'hot': rd['narr'][2], 'callers': rd['crowd']['callers'], 'swarm': rd['crowd']['swarm'],
                                'slang': rd['crowd']['slang'], 'bots': rd['bots'][0], 'tug': rd['tug'][0]},
@@ -584,12 +587,54 @@ def learn(state, h=5):
             'avoid': {i: v['pair'] for i, v in ideas_.items() if v.get('status') == 'approved' and v.get('kind') == 'avoid'}}
 
 
+def underwater(state):
+    """💵 Is the creator's real card worth less than what was put in? (`money` = {value, putIn}, stamped by the service each pass.) While it
+    is, the team CANNOT leave the 5-minute stage (owner, 2026-10-10: "they can't get out of 5 min until they win real money back to breakeven")."""
+    m = (state or {}).get('money') or {}
+    return _f(m.get('putIn')) > 0 and _f(m.get('value')) < _f(m.get('putIn'))
+
+
+LIVES = 9   # ❤ the team's lives on REAL money: a winning real exit +1 (max 9), a losing one −1; at 0 all four are scrapped and reborn
+
+
+def reckon(state, real, now):
+    """❤ THEIR LIFE DEPENDS ON WINNING (real money, not scanning): every coin of theirs that leaves the creator's real card is a life won
+    or lost — `real` = {n, w} closed agent pieces / winners on the card's own ledger. At 0 lives the whole team is scrapped: each is reborn
+    as its next generation carrying its lesson, the lives reset. → new state."""
+    st = dict(state or {})
+    n, w = int(_f((real or {}).get('n'))), int(_f((real or {}).get('w')))
+    seen = st.get('realSeen')
+    if seen is None:   # first sight: history before this rule costs nothing
+        st['realSeen'] = {'n': n, 'w': w}; st['lives'] = int(st.get('lives') or LIVES)
+        return st
+    dn, dw = max(0, n - int(seen.get('n') or 0)), max(0, w - int(seen.get('w') or 0))
+    st['realSeen'] = {'n': n, 'w': w}
+    if not dn:
+        st['lives'] = int(st.get('lives') or LIVES)
+        return st
+    lives = max(0, min(LIVES, int(st.get('lives') or LIVES) + dw - (dn - dw)))
+    lines = [{'at': now, 'who': 'judge', 'sym': '', 'text': f"❤ real money: {dw} won · {dn - dw} lost → {lives} of {LIVES} lives"}]
+    if lives == 0:
+        sv = survival(st)
+        born, gen, lin, les = dict(st.get('born') or {}), dict(st.get('gen') or {}), list(st.get('lineage') or []), dict(st.get('lessons') or {})
+        for a, v in sv.items():
+            les[a] = lesson(st, a)
+            lin.append({'agent': a, 'gen': v['gen'], 'born': v['born'], 'died': now, 'n': v['n'], 'right': v['right'], 'med': v['med'], 'why': 'the team lost all 9 lives on real money', 'lesson': les[a].get('words')})
+            born[a], gen[a] = now, v['gen'] + 1
+        st.update(born=born, gen=gen, lineage=lin[-40:], lessons=les)
+        lines.append({'at': now, 'who': 'judge', 'sym': '', 'text': '☠ all 9 lives lost on real money — the whole team is scrapped and reborn. They carry what killed them.'})
+        lives = LIVES
+    st['lives'] = lives
+    st['feed'] = (list(st.get('feed') or []) + lines)[-FEED_KEEP:]
+    return st
+
+
 def stage(state):
     """The timeframe the desk is on: 5 until it is conquered (team GO ≥ PROVE_N judged, median > 0, ≥ PROVE_WIN % won), then 15, then 60."""
     for h in STAGES:
         c = learn(state, h)['cards']['team']
-        if h == 5 and not (paper(state)['x'] >= PROVE_X and int(c['n'] or 0) >= PROVE_N):   # 5 min: the trench desk must 10× in one run
-            return {'h': h, 'conquered': [], 'team': c, 'needN': PROVE_N, 'needWin': PROVE_WIN, 'needX': PROVE_X}
+        if h == 5 and not (paper(state)['x'] >= PROVE_X and int(c['n'] or 0) >= PROVE_N and not underwater(state)):   # 5 min: the trench desk must 10× in one run AND the real card must be back to breakeven
+            return {'h': h, 'conquered': [], 'team': c, 'needN': PROVE_N, 'needWin': PROVE_WIN, 'needX': PROVE_X, 'needBE': underwater(state)}
         if h != 5 and not (int(c['n'] or 0) >= PROVE_N and _f(c['med']) > 0 and _f(c['won']) >= PROVE_WIN):
             return {'h': h, 'conquered': [x for x in STAGES if x < h], 'team': c, 'needN': PROVE_N, 'needWin': PROVE_WIN}
     return {'h': STAGES[-1], 'conquered': list(STAGES), 'team': learn(state, STAGES[-1])['cards']['team'], 'needN': PROVE_N, 'needWin': PROVE_WIN}
@@ -759,6 +804,7 @@ def view(state, table, feed=False, real=None, mind=None, cfg=None, decisions=Non
             'burned': len((state or {}).get('burned') or {}), 'scrapN': SCRAP_N, 'surviveN': SURVIVE_N,
             'autopsies': list(reversed(((state or {}).get('autopsies') or [])[-12:])), 'rugSigns': sorted(({'key': k, 'words': word(k), 'n': v} for k, v in ((state or {}).get('rugSigns') or {}).items()), key=lambda x: -x['n'])[:8],
             'growth': growth(state, lr), 'power': power(state, real, cfg, card), 'card': card or {},
+            'duty': duty_view(state, table, cfg, card), 'lives': {'n': int((state or {}).get('lives') or LIVES), 'of': LIVES}, 'underwater': underwater(state),
             'judge': judge(state), 'proof': proof(state, real), 'objections': objections(state, 24, now)[:6], 'scalp': scalp_plan(state),
             'mission': mission((money or {}).get('value'), (money or {}).get('putIn'), paper(state), (state or {}).get('scalp')), 'barNow': ((state or {}).get('perf') or {}).get('bar') or lr['bar'],
             'hist': ((state or {}).get('hist') or [])[-96:], 'rules': rules({**lr, 'regime': ((state or {}).get('perf') or {}).get('regime')})}
@@ -839,6 +885,14 @@ def objections(state, hours=24, now=0.0):
         ps = [_f(p) for p in v if p is not None]
         out.append({'why': k, 'n': len(v), 'med': round(_med(ps), 1) if ps else None, 'saved': round(sum(1 for p in ps if p <= 0) / len(ps) * 100) if ps else None})
     return sorted(out, key=lambda x: -x['n'])
+
+
+def duty_view(state, table, cfg=None, card=None):
+    """🕙 What the page shows of the 10-minute duty: when the next move is due and the case files (the row itself stripped)."""
+    on = {x.get('mint') for x in ((card or {}).get('seats') or []) if x.get('mint')}
+    cases = investigate(table, on, (cfg or {}).get('trenchMinAgeH', 1), ((state or {}).get('burned') or {}), top=6)
+    return {'every': DUTY_SEC, 'at': _f((card or {}).get('dutyAt')), 'on': bool((cfg or {}).get('agentControl')), 'movesHr': CONTROL_MOVES_HR,
+            'cases': [{k: v for k, v in c.items() if k != 'row'} for c in cases], 'cleared': sum(1 for c in cases if c['cleared'])}
 
 
 def proof(state, real=None):
@@ -941,7 +995,7 @@ def card_seats(card, decisions=None, prices=None, cfg=None):
                       'state': 'ride' if l.get('riding') else 'frozen' if l.get('frozen') else '', **({'take': take, 'action': d.get('action') or 'hold', 'why': d.get('why') or '', 'toSym': d.get('toSym')} if kind == 'agent' else {})})
     for _ in range(max(0, min(6, int(_f(c.get('coins')))) - len(seats))):
         seats.append({'kind': 'open', 'symbol': None, 'pct': None})
-    return {'tpl': (card or {}).get('tpl'), 'seats': seats}
+    return {'tpl': (card or {}).get('tpl'), 'seats': seats, 'dutyAt': _f((card or {}).get('agentDutyAt'))}
 
 
 # ── 💡 IDEAS — the desk proposes tactics from its own record; the creator approves or rejects ──────────────────────────────────────
@@ -1012,8 +1066,38 @@ def is_agent(leg):
 
 
 CONTROL_HOLD_MIN = 15      # 🎮 in control: a coin is never switched in its first 15 minutes (the card's own record: exits inside 15 min lose)
-CONTROL_MOVES_HR = 4       # 🎮 in control: at most this many real buys (fills + switches) an hour — churn × cost is what drained the card
+CONTROL_MOVES_HR = 6       # 🎮 in control: at most this many real buys (fills + switches) an hour — churn × cost is what drained the card
 CONTROL_MIN_LIQ = 20_000.0
+
+
+DUTY_SEC = 600             # 🕙 in control they put their best CLEARED coin on the card every 10 minutes (owner, 2026-10-10)
+DUTY_ROTATE_MIN = 30       # … a coin that is not winning may give its seat to a stronger read only after 30 min
+DUTY_EDGE = 1.0            # … and only when the new coin's lean beats its own by this much
+
+
+def investigate(table, on=(), min_age_h=1.0, burned=(), top=6):
+    """🕵 THE CASE FILE for the 10-minute duty: every coin Trigger did not SKIP with a positive lean, strongest read first. Each gets
+    five checks — holder scan passed · old enough (unknown age = fail) · pool ≥ $20K · Trigger has no hard skip · Devil has no objection
+    (asked as if it were an ENTER: for the duty slot ONLY Trigger's bar is waived, never a safety check). `cleared` = all five pass.
+    → [{mint, symbol, pair, px, lean, cleared, checks: [[key, ok, words]], row}] (cleared first, then by lean)."""
+    out = []
+    for x in table or []:
+        lean = _f((x.get('why') or {}).get('lean'))
+        if x.get('mint') in on or lean <= 0 or (x.get('trigger') or ['skip'])[0] == 'skip' or _f(x.get('px')) <= 0:
+            continue
+        v = x.get('vitals') or {}
+        liq = _f((x.get('nums') or {}).get('liq') or v.get('liq'))
+        case = x.get('case') or ['object', 'not argued this pass']
+        age_ok = v.get('ageH') is not None and _f(v['ageH']) >= _f(min_age_h)
+        checks = [['scan', v.get('safe') is True, 'holder scan passed' if v.get('safe') is True else 'holders not scanned' if v.get('safe') is None else 'failed the holder scan'],
+                  ['age', age_ok, f"{_f(v['ageH']):.1f}h old" if v.get('ageH') is not None else 'age unknown'],
+                  ['pool', liq >= CONTROL_MIN_LIQ, f'pool ${liq / 1000:.0f}K'],
+                  ['burn', x.get('mint') not in (burned or ()), 'not burned' if x.get('mint') not in (burned or ()) else 'burned us in the last 6h'],
+                  ['devil', case[0] == 'agree', case[1] or ('Devil agrees' if case[0] == 'agree' else 'Devil objects')]]
+        out.append({'mint': x['mint'], 'symbol': x.get('symbol'), 'pair': x.get('pair'), 'px': x.get('px'), 'lean': round(lean, 2), 'go': bool(x.get('go')),
+                    'cleared': all(c[1] for c in checks), 'checks': checks, 'row': x})
+    out.sort(key=lambda c: (not c['cleared'], -c['lean']))
+    return out[:top] if top else out
 
 
 def eligible(table, on=(), min_age_h=1.0, burned=()):
@@ -1030,7 +1114,7 @@ def eligible(table, on=(), min_age_h=1.0, burned=()):
     return sorted(out, key=lambda x: -_f((x.get('why') or {}).get('lean')))
 
 
-def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_left=None):
+def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_left=None, picks=None, rotate=False):
     """For every coin the agents put on the card: under `agentTakePct` profit it HOLDS (only the rug shield may cut it); in profit the agents
     read it again — still a clean read (Trigger not SKIP, lean ≥ 0, 5-min ≥ −3%, buyers ≥ 50%) → let it run; else EXIT: 'swap' for a fresh GO
     runner (mode auto / swap, when one exists off the card) or 'pull' to card cash with the seat left open. Not on the desk's list any more →
@@ -1047,7 +1131,7 @@ def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_l
     on = {l.get('mint') for l in legs or []}
     # 🎮 IN CONTROL (cfg `agentControl`): they manage EVERY coin on the card, a switch needs an `eligible` coin (age, pool, scan), a coin
     # whose read broke may be switched for one after CONTROL_HOLD_MIN even at a loss — and never more than `moves_left` switches.
-    gos = eligible(table, on, (cfg or {}).get('trenchMinAgeH', 1)) if control else [x for x in table or [] if x.get('go') and x['mint'] not in on]
+    gos = (list(picks) if picks is not None else eligible(table, on, (cfg or {}).get('trenchMinAgeH', 1))) if control else [x for x in table or [] if x.get('go') and x['mint'] not in on]
     if control and moves_left is not None:
         gos = gos[:max(0, int(moves_left))]
     out = []
@@ -1080,7 +1164,7 @@ def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_l
                 out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'swap', 'why': f"{pnl:+.1f}%, {broke} → switched for their GO ${gos[0]['symbol']}", 'to': gos[0]})
                 gos = gos[1:]; continue
             out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'hold', 'why': f'{pnl:+.1f}% — holding until +{take:g}%' + (' (their read still holds)' if control else ' (only the rug shield cuts it)')}); continue
-        if scalping:
+        if scalping or control:   # ⚡ scalp plan — or 🎮 in control: profit and move on (banked AT the line, never re-read and left to run)
             if mode in ('auto', 'swap') and gos:
                 out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'swap', 'why': f"⚡ scalp {pnl:+.1f}% ≥ +{take:g}% → banked into ${gos[0]['symbol']}", 'to': gos[0]})
                 gos = gos[1:]
@@ -1101,6 +1185,25 @@ def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_l
             gos = gos[1:]
         elif mode in ('auto', 'pull') or not gos:
             out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'pull', 'why': f"{pnl:+.1f}%, {bad} → profit to cash, seat left open"})
+    # 🕙 the 10-minute duty with a full card: no coin's read broke, yet a much stronger cleared read is waiting → the weakest coin that is
+    # NOT winning (≤ 0%, held ≥ DUTY_ROTATE_MIN, its own lean at least DUTY_EDGE under the new coin's) gives up its seat. Never a winner.
+    if control and rotate and gos and not any(x['action'] == 'swap' for x in out):
+        new = gos[0]
+        cands = []
+        for l in legs or []:
+            if l.get('placeholder') or l.get('buying') or l.get('frozen') or l.get('ride') or _f(l.get('units')) <= 0 or _f(l.get('entry')) <= 0:
+                continue
+            px = _f((prices or {}).get(l.get('pairAddress')))
+            if px <= 0 or not now or not l.get('at') or (now - _f(l['at'])) / 60 < DUTY_ROTATE_MIN:
+                continue
+            pnl = (px / _f(l['entry']) - 1) * 100
+            own = _f(((by.get(l.get('mint')) or {}).get('why') or {}).get('lean'))
+            if pnl <= 0 and _f((new.get('why') or {}).get('lean')) - own >= DUTY_EDGE:
+                cands.append((pnl, l, own))
+        if cands:
+            pnl, l, own = min(cands, key=lambda c: c[0])
+            out = [x for x in out if x['pair'] != l['pairAddress']] + [{'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'swap', 'to': new,
+                   'why': f"{pnl:+.1f}% after {int((now - _f(l['at'])) / 60)} min, lean {own:+.1f} → their stronger read ${new['symbol']} (lean {_f(new['why']['lean']):+.1f}) takes the seat"}]
     return out
 
 
