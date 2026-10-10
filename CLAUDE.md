@@ -2734,3 +2734,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   coins as stamped slips to a → CARD tray / shredder, wall board = coins read · GO · market green %, status on the robot (⚠ sweat, ☠ X eyes).
   SVG TEXT IS `T` (createElement, never `<text>{expr}</text>`): the dev server's visual-edits babel plugin wraps a JSX `{expr}` in a <span>, which
   SVG can't draw — every dynamic label would vanish on the dev server. Never CSS-animate a <g> that has a transform attribute.
+- 🧊 THE OFFICE IS 3D (owner: "3D, no 2D kiddy look, a little realism"): `command/AgentOffice3D.jsx` (lazy chunk, three.js from node_modules —
+  never in the app bundle) = WebGL room (RoomEnvironment PBR, ACES, one shadow key light, glossy clearcoat robots built from primitives,
+  canvas-texture monitors / wall board / desk plates redrawn on each pass, glass tube with stamped coin slips, HTML speech bubbles projected
+  per frame), click = raycast → select. Loop stops off-screen / while the inline copy sits under the pop-out; hidden tab, fx-lite and reduced
+  motion get a STILL frame every 1–2s (never blank). `has3D()` false (jsdom, no GPU) → the SVG office. Canvas size = its box (pop-out taller).

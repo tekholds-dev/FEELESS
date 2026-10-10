@@ -97,3 +97,15 @@ body.fx-lite .agr-slip { opacity: 0; } body.fx-lite .agr-slip.is-go { opacity: 1
 body.theme-day .agr { background: linear-gradient(160deg, #eef8f2, #f1edfb); border-color: #a9dcbf; }
 body.theme-day .agr-detail { color: #13281d; }
 @media (max-width: 640px) { .agr, .agr.is-big { grid-template-columns: 1fr; } .agr-detail { max-height: 300px; } }
+/* 🧊 the 3D office (AgentOffice3D.jsx): a WebGL canvas + HTML speech bubbles placed per frame (transform only) */
+.agr3 { position: relative; width: 100%; aspect-ratio: 1000 / 460; overflow: hidden; background: #070d14; }
+.agr3.is-boot { display: grid; place-items: center; color: #6d8d7d; font: 600 11px "JetBrains Mono", monospace; letter-spacing: .12em; }
+.agr3-canvas { display: block; width: 100%; height: 100%; }
+.agr3-bubs { position: absolute; inset: 0; pointer-events: none; }
+.agr3-bub { position: absolute; left: 0; top: 0; max-width: 24%; padding: 5px 10px; border-radius: 12px; background: rgba(243, 255, 248, .94); color: #0b2017;
+  font: 700 11px "JetBrains Mono", monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 6px 18px rgba(0, 0, 0, .45); will-change: transform; }
+.agr3-bub::after { content: ''; position: absolute; left: 50%; bottom: -6px; width: 10px; height: 10px; margin-left: -5px; background: inherit; transform: rotate(45deg); }
+.agr3-bub.is-tally { border-bottom: 2px solid #1fd178; } .agr3-bub.is-sherlock { border-bottom: 2px solid #9a74ff; } .agr3-bub.is-trigger { border-bottom: 2px solid #f5b631; } .agr3-bub.is-devil { border-bottom: 2px solid #ff5577; }
+.agr-who { margin: 8px; } .agr-stage { display: grid; }
+.agr.is-big .agr3 { aspect-ratio: auto; height: min(72vh, 46vw); }
+@media (max-width: 640px) { .agr3-bub { font-size: 9px; padding: 3px 6px; } }

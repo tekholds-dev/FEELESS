@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import '../../styles/agentRoom.css';
 
@@ -13,6 +13,9 @@ import '../../styles/agentRoom.css';
 //   · the wall board = the pass: coins read, GO, market temperature, when
 // Click a robot → its task, ACTUAL rules (served from the code), last rulings, record, history, inherited lesson. Pop out = full screen.
 // Transform + opacity only; `.agr` is an fxPause surface; fx-lite / reduced motion freeze the motion (the data stays).
+const Office3D = lazy(() => import('./AgentOffice3D'));   // 🧊 the real 3D office (own chunk: three.js never ships in the app bundle)
+// WebGL here? (jsdom / no GPU → the SVG office below stands in)
+export const has3D = () => { try { const c = document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl'))); } catch (e) { return false; } };
 export const AGENTS = [['tally', '📊', 'Tally', 'numbers'], ['sherlock', '🔍', 'Sherlock', 'why'], ['trigger', '⏱', 'Trigger', 'when'], ['devil', '⚖', 'Devil', 'argues']];
 export const packetsOf = table => (table || []).slice(0, 8).map(x => ({ k: x.mint, sym: x.symbol,
   end: x.go ? 'go' : x.trigger?.[0] === 'enter' ? 'obj' : x.trigger?.[0] === 'skip' ? 'skip' : 'wait' }));
@@ -152,9 +155,10 @@ function Office({ d, sel, setSel }) {
 export function AgentRoom({ d }) {
   const [sel, setSel] = useState('tally'); const [pop, setPop] = useState(false);
   useEffect(() => { if (!pop) return undefined; const k = e => e.key === 'Escape' && setPop(false); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [pop]);
-  const at = d?.perf?.at || 0;
+  const at = d?.perf?.at || 0; const [gl] = useState(has3D);
   const room = big => <div className={`agr ${big ? 'is-big' : ''}`} data-testid={big ? 'agr-pop' : 'agr'}>
-    <div className="agr-stage"><Office d={d} sel={sel} setSel={setSel} /></div>
+    <div className="agr-stage">{gl ? <Suspense fallback={<div className="agr3 is-boot">booting the office…</div>}><Office3D d={d} sel={sel} setSel={setSel} paused={!big && pop} /></Suspense> : <Office d={d} sel={sel} setSel={setSel} />}
+      {gl && <div className="m-seg agr-who" role="group" aria-label="Pick a robot">{AGENTS.map(([k, ic, name]) => <button key={k} type="button" className={sel === k ? 'active' : ''} onClick={() => setSel(k)} data-testid={`agr-pick-${k}`}>{ic} {name}</button>)}</div>}</div>
     <AgentDetail d={d} agent={sel} />
   </div>;
   return <section className="agr-wrap" data-testid="agent-room"><div className="agr-head"><b>🏢 THE AGENT OFFICE · live</b><small>last pass {at ? `${ago(at)} ago` : '—'} · tap a robot</small>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { AgentRoom, packetsOf, spinSec, screensOf } from './AgentRoom';
+import { AgentRoom, packetsOf, spinSec, screensOf, has3D } from './AgentRoom';
 
 const d = { perf: { tally: 1.2, sherlock: 3.4, trigger: 0.3, devil: 0.8, at: Date.now() / 1000 - 30 },
   tasks: { tally: 'read 80 coins · 12 moving', sherlock: 'weighed 14 reasons · 30% ours', trigger: '2 ENTER · 40 WAIT', devil: 'objected to 1 of 2 entries' },
@@ -17,6 +17,7 @@ test('the office: four robots with live tasks, real coins as packets, click an a
   const sc = screensOf(d);
   expect(sc.bars.map(b => b.v)).toEqual([4, -6, 0]); expect(sc.enters).toBe(2); expect(sc.go).toBe(1);
   expect(sc.verdicts.map(v => [v.sym, v.ok, v.go])).toEqual([['GOOD', true, true], ['RUN', false, false]]); expect(sc.tags[0][0]).toBe('buyers lead');
+  expect(has3D()).toBe(false);   // jsdom has no WebGL → the SVG office stands in (the browser gets the 3D one)
   expect(spinSec(0)).toBe(8); expect(spinSec(100000)).toBeGreaterThanOrEqual(1.2);
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<AgentRoom d={d} />); });
