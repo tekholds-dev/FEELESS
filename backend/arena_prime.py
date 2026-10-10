@@ -508,6 +508,7 @@ def clean_cfg(p):
     out['agentFeed'] = bool((p or {}).get('agentFeed', False))
     out['agentLearn'] = bool((p or {}).get('agentLearn', False))   # 🎓 ONE real seat for the agents to learn on BEFORE they are proven
     out['agentLearnPct'] = int(_f((p or {}).get('agentLearnPct'))) if int(_f((p or {}).get('agentLearnPct'))) in (5, 10, 15, 100) else 100   # 100 = a WHOLE seat (owner: "they run 1 whole seat")
+    out['agentDial'] = (p or {}).get('agentDial') if (p or {}).get('agentDial') in ('chill', 'normal', 'crazy') else 'normal'   # 🎚 the creator's dial on Trigger's bar (agents.DIALS)
     out['agentTrust'] = bool((p or {}).get('agentTrust', False))   # 🤝 a 2nd agent seat once the suggestions the owner took are proven (≥ 10 closed, typical > 0)
     out['agentTakePct'] = int(_f((p or {}).get('agentTakePct'))) if int(_f((p or {}).get('agentTakePct'))) in (5, 10, 20, 30, 50) else 10   # 🤖 agent seats hold until this profit
     out['agentMode'] = (p or {}).get('agentMode') if (p or {}).get('agentMode') in ('auto', 'pull', 'swap') else 'auto'   # … then pull to cash / swap / let the agents choose

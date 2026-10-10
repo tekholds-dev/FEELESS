@@ -11873,7 +11873,7 @@ async def _agents_tick(now):
                            'learned': sorted(({'word': w, **v} for w, v in (lingo.get('learned') or {}).items()), key=lambda x: -_fuse._f(x.get('first')))[:16],
                            'callsRead': len(calls_), 'swarms': sum(1 for r in rows if ((r.get('mind') or {}).get('crowd') or {}).get('swarm'))}
         st = _json_load(AGENTS_PATH, {})
-        st, table = _ag.desk(st, rows, now)
+        st, table = _ag.desk(st, rows, now, ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentDial'))   # 🎚 the creator's dial
         st = _ag.record(st, table, now)
         want = list((st.get('open') or {}).keys())
         jp = await _jup_prices(want) if want else {}
@@ -11902,10 +11902,13 @@ def _agents_real():
     """💵 The REAL-money Fuse card test: every coin the agents put on the owner's real card (leg tag '🤖 agents GO') that has left it,
     judged on the card's own exit vs entry (real_learn). → {n, med, won}"""
     ps = [_fuse._f(p.get('pct')) for p in (_json_load(REAL_LEARN_PATH, {}).get('pieces') or []) if 'tag:🤖' in (p.get('k') or [])]
+    last_ = list(ps)   # in the order they left the card (for the win / loss pips)
+    last_sg = [_fuse._f(p.get('pct')) for p in (_json_load(REAL_LEARN_PATH, {}).get('pieces') or []) if 'tag:🤝' in (p.get('k') or [])]
     n = len(ps); ps.sort()
     out = {'n': n, 'med': None if not n else round(ps[n // 2] if n % 2 else (ps[n // 2 - 1] + ps[n // 2]) / 2, 2), 'won': None if not n else round(sum(1 for x in ps if x > 0) / n * 100)}
     sg = sorted(_fuse._f(p.get('pct')) for p in (_json_load(REAL_LEARN_PATH, {}).get('pieces') or []) if 'tag:🤝' in (p.get('k') or []))
     out['suggested'] = {'n': len(sg), 'med': None if not sg else round(sg[len(sg) // 2], 2), 'won': None if not sg else round(sum(1 for x in sg if x > 0) / len(sg) * 100)}   # 🤝 coins the owner took from their alert
+    out['last'] = last_[-16:]; out['suggested']['last'] = last_sg[-16:]
     return out
 
 
@@ -11962,7 +11965,7 @@ async def admin_agents_set(request: Request):
     ch = {}
     if 'feed' in body:
         ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust'):
+    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial'):
         if k in (body.get('cfg') or {}):
             ch[k] = body['cfg'][k]
     if ch:

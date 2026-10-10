@@ -66,7 +66,7 @@ def test_5_minutes_is_passed_only_by_10x_ing_the_trench_desk_and_a_bust_starts_o
     assert p['x'] >= 10 and p['busts'] == 0 and p['trades'] == 30
     assert ag.stage(run)['h'] == 15 and ag.stage(run)['conquered'] == [5]
     assert ag.stage(mk([50.0] * 20))['h'] == 5                                   # 10× on 20 calls: still needs 30 judged
-    bust = ag.paper(mk([-100.0] * 11 + [10.0]))
+    bust = ag.paper(mk([-100.0] * 18 + [10.0]))                                  # 25% in, then 15% a call after a loss (stake_pct)
     assert bust['busts'] == 1 and bust['runTrades'] == 1                          # under $1 → busted, a new $20 run
     r = ag.road(steady)
     assert r['paper'] == {'done': False, 'x': ag.paper(steady)['x'], 'need': 10.0, 'n': 30, 'needN': 30} and not r['real']['open'] and 0 <= r['pct'] < 50
@@ -86,7 +86,7 @@ def test_thoughts_and_results_read_as_the_agents_talking():
     assert any('GO' in x['text'] for x in st['feed'] if x['who'] == 'devil') and any('OBJECTS' in x['text'] for x in st['feed'])
     before = ag.record(st, table, 120)
     after = ag.settle(before, lambda m: {'GOOD': 1.2, 'RUN': 0.7}.get(m), 120 + 301)
-    lines = {x['sym']: x['text'] for x in ag.results(before, after, 421)}
+    lines = {x['sym']: x['text'] for x in ag.results(before, after, 421) if x['who'] == 'desk'}
     assert lines['GOOD'].startswith('✅ $GOOD GO → +20.0%') and 'Devil was right' in lines['RUN']
 
 
@@ -248,7 +248,7 @@ def test_the_agents_seat_defaults_to_a_whole_seat_and_suggestions_taken_are_scor
     assert rs._agents_go_rows([], 2, learn=True)[0]['stakePct'] == 100
     rs._json_save(rs.REAL_LEARN_PATH, {'pieces': [{'k': ['tag:🤝'], 'pct': 12.0}, {'k': ['tag:🤝'], 'pct': -4.0}, {'k': ['tag:🤝'], 'pct': 8.0}, {'k': ['tag:🤖'], 'pct': 3.0}]})
     r = rs._agents_real()
-    assert r['n'] == 1 and r['suggested'] == {'n': 3, 'med': 8.0, 'won': 67}
+    assert r['n'] == 1 and r['suggested'] == {'n': 3, 'med': 8.0, 'won': 67, 'last': [12.0, -4.0, 8.0]}
     assert ag.road({}, r)['real']['suggested']['n'] == 3
 
 
@@ -293,3 +293,44 @@ def test_growth_levels_only_while_alive_power_mirrors_the_seat_rule_and_the_card
     assert pw['seats'] == 2 and pw['held'] == 1 and [x['done'] for x in pw['steps']] == [True, True, False] and pw['steps'][1]['pct'] == 100
     v = ag.view({}, [], card=cs)
     assert v['card']['seats'][0]['symbol'] == 'BOT' and set(v['growth']) == {'tally', 'sherlock', 'trigger', 'devil'} and v['power']['seats'] == 0
+
+
+def test_the_judge_rules_five_minutes_later_names_one_bot_and_a_trial_only_ever_tightens():
+    call = lambda **k: {'kind': 'enter', 'go': True, 'devil': 'agree', 'lean': 1.6, 'tallyUp': False, 'sym': 'X', **k}
+    assert ag.ruling(call(p5=8, lean=2.5)) == {'verdict': 'win', 'credit': 'sherlock', 'blame': None, 'kind': 'go'}        # a strong read that won
+    assert ag.ruling(call(p5=8, tallyUp=True))['credit'] == 'tally' and ag.ruling(call(p5=8))['credit'] == 'trigger'
+    assert ag.ruling(call(p5=-30, lean=2.5))['blame'] == 'devil'                                                            # a dump: the gate failed
+    assert ag.ruling(call(p5=-6, lean=2.5))['blame'] == 'sherlock' and ag.ruling(call(p5=-6))['blame'] == 'trigger'
+    assert ag.ruling(call(p5=1))['verdict'] == 'push'                                                                       # ±3% is no ruling
+    obj = lambda p: ag.ruling(call(p5=p, go=False, devil='object'))
+    assert (obj(-9)['credit'], obj(-9)['blame']) == ('devil', 'trigger') and (obj(9)['credit'], obj(9)['blame']) == ('trigger', 'devil')
+    assert ag.ruling({'kind': 'wait', 'p5': 14})['blame'] == 'trigger' and ag.ruling({'kind': 'wait', 'p5': 4})['verdict'] == 'push'
+    # three thin-lean GO losses → Trigger is ON TRIAL with a handicap; nobody is crowned on a losing book
+    st = {'done': [{**call(p5=-6), 'mint': f'M{i}', 'at': i} for i in range(3)]}
+    j = ag.judge(st)
+    assert j['trial'] == 'trigger' and j['handicap'] == 'bar +0.5' and j['mvp'] is None and j['losses'] == 3 and j['score']['trigger']['net'] == -3
+    assert ag.bar_now({'bar': 1.5, 'trial': 'trigger'}) == 2.0 and ag.bar_now({'bar': 1.5}) == 1.5                         # the trial only tightens
+    assert ag.bar_now({'bar': 1.5, 'dial': 'crazy'}) == 1.0 and ag.bar_now({'bar': 1.5, 'dial': 'chill'}) == 2.0 and ag.bar_now({'bar': 1.0, 'dial': 'crazy'}) == ag.BAR_FLOOR
+    assert ag.trigger({'pts': 4, 'buy': 60}, {'lean': 3, 'drivers': []}, {'safe': True}, {'trial': 'tally'})[0] == 'wait'  # Tally on trial: 5 readings
+    assert ag.trigger({'pts': 4, 'buy': 60}, {'lean': 3, 'drivers': []}, {'safe': True}, {})[0] == 'enter'
+    assert ag.trigger({'pts': 9, 'buy': 60, 'd5': 22}, {'lean': 9, 'drivers': []}, {'safe': True}, {'dial': 'crazy'})[0] == 'skip'   # crazy never lifts a hard SKIP
+    good = {'done': [{**call(p5=9, lean=2.6), 'mint': f'G{i}', 'at': i} for i in range(3)]}
+    assert ag.judge(good)['mvp'] == 'sherlock' and ag.judge(good)['trial'] is None and ag.judge({})['n'] == 0
+    out = ag.results({'open': {'A': {'kind': 'enter', 'go': True, 'sym': 'A', 'lean': 1}}}, {'open': {'A': {'kind': 'enter', 'go': True, 'sym': 'A', 'lean': 1, 'p5': -7.0}}}, 5)
+    assert [x['who'] for x in out] == ['desk', 'judge'] and 'Trigger takes the L' in out[1]['text']
+
+
+def test_the_paper_desk_presses_winners_cuts_after_a_loss_and_proof_counts_wins_and_losses():
+    assert [ag.stake_pct(k) for k in (-2, -1, 0, 1, 2, 3, 7)] == [15.0, 15.0, 25.0, 25.0, 35.0, 45.0, 45.0]
+    go = lambda i, p: {'kind': 'enter', 'go': True, 'sym': f'S{i}', 'mint': f'M{i}', 'at': i, 'p5': p}
+    st = {'done': [go(0, 10), go(1, 10), go(2, 10), go(3, -10), go(4, 10)]}
+    pp = ag.paper(st)
+    assert [t['stake'] for t in pp['trail']] == [25.0, 25.0, 35.0, 45.0, 15.0]          # even · even · 2 wins · 3 wins · right after the loss
+    assert round(pp['now'], 2) == round(20 * 1.025 * 1.025 * 1.035 * 0.955 * 1.015, 2) and pp['streak'] == 1 and pp['heat'] == 'even'
+    pr = ag.proof(st, {'last': [4.0, -2.0], 'suggested': {'last': [9.0]}})
+    assert (pr['paper']['w'], pr['paper']['l'], pr['paper']['best'], pr['paper']['last'][0], pr['paper']['syms'][0]) == (4, 1, 10.0, 10.0, 'S4')
+    assert (pr['card']['w'], pr['card']['l'], pr['card']['last']) == (1, 1, [-2.0, 4.0]) and pr['suggested']['n'] == 1 and ag.proof({})['card']['n'] == 0
+    v = ag.view(st, [], cfg={'agentDial': 'crazy'})
+    assert v['cfg']['agentDial'] == 'crazy' and v['judge']['wins'] == 4 and v['proof']['paper']['n'] == 5 and v['desk']['stake'] == 25.0
+    import arena_prime as ap
+    assert ap.clean_cfg({'agentDial': 'crazy'})['agentDial'] == 'crazy' and ap.clean_cfg({'agentDial': 'yolo'})['agentDial'] == 'normal'

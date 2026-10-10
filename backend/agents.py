@@ -175,6 +175,7 @@ KEEP_DONE = 3000
 PROVE_N, PROVE_WIN = 30, 55.0
 PROVE_X = 10.0                  # 🎯 owner, 2026-10-09: "they should trench and 10x what they start with to pass 5 min"
 DESK_START, DESK_PCT, DESK_BUST = 20.0, 25.0, 1.0   # paper desk: each GO = 25% of the desk (compounds); under $1 = busted → starts over
+HEAT_STAKES = {0: 15.0, 2: 35.0, 3: 45.0}   # 🧊 after a loss · 🔥 2 wins in a row · 🔥🔥 3+
 FEED_KEEP = 80                  # live thoughts kept
 DRIVER_MIN_N = 8                # a driver's learned weight counts from this many judged calls
 PRIOR = {'buyers': 1.0, 'sellers': -1.5, 'surge': 1.0, 'quiet': -0.5, 'whale_in': 1.5, 'whale_out': -2.0, 'callers': 0.5,
@@ -362,10 +363,21 @@ def opinion(why, call, verdict, arg):
 
 
 # ── ⏱ TRIGGER ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+DIALS = {'chill': 0.5, 'normal': 0.0, 'crazy': -0.5}   # 🎚 the creator's dial on Trigger's bar (🧊 chill = pickier · 🔥 crazy = more entries)
+BAR_FLOOR = 0.75          # however crazy the dial, an ENTER still needs a real lean — and every hard SKIP + Devil's objections stay
+
+
+def bar_now(learned):
+    """Trigger's bar THIS pass: its own record → 🌡 the trench's temperature → 🎚 the creator's dial → 👨‍⚖️ +0.5 while the Judge has it on trial."""
+    l = learned or {}
+    return round(max(BAR_FLOOR, _f(l.get('bar') or 1.5) + _f((l.get('regime') or {}).get('adj')) + DIALS.get(l.get('dial') or 'normal', 0.0)
+                     + (TRIAL_BAR if l.get('trial') == 'trigger' else 0.0)), 2)
+
+
 def trigger(n, why, row, learned):
     """ENTER / WAIT / SKIP for the next 5 minutes, with the reason. Its bar (`bar`, default 1.5) moves with its own record."""
     n, row = n or {}, row or {}
-    bar = _f((learned or {}).get('bar') or 1.5) + _f(((learned or {}).get('regime') or {}).get('adj'))   # 🌡 colder trench → pickier
+    bar = bar_now(learned)
     if row.get('safe') is False:
         return 'skip', 'failed the holder safety scan'
     if 0 < _f(n.get('liq')) < 20_000:
@@ -375,8 +387,9 @@ def trigger(n, why, row, learned):
         return 'skip', f'+{d5:.0f}% in 5 min — that is the top'
     if d5 < -8:
         return 'skip', f'{d5:.0f}% in 5 min — falling'
-    if int(n.get('pts') or 0) < 3:
-        return 'wait', 'Tally has under 3 readings of this coin yet'
+    need = 5 if (learned or {}).get('trial') == 'tally' else 3   # 👨‍⚖️ Tally on trial: more readings before anyone may enter
+    if int(n.get('pts') or 0) < need:
+        return 'wait', f'Tally has under {need} readings of this coin yet'
     if why['lean'] >= bar and (n.get('buy') is None or _f(n['buy']) >= 55):
         return 'enter', f"lean {why['lean']:+.1f} ≥ bar {bar:.1f}: " + ', '.join(d[2] for d in why['drivers'][:2])
     return 'wait', f"lean {why['lean']:+.1f} under the bar {bar:.1f}"
@@ -430,7 +443,7 @@ def devil(call, n, why, row, learned):
 
 
 # ── the chain ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-def desk(state, rows, now):
+def desk(state, rows, now, dial=None):
     """One pass of all four, in order. → (new state, table rows for the screen). Each coin's line carries every agent's word."""
     import time as _t
     st = dict(state or {})
@@ -442,6 +455,9 @@ def desk(state, rows, now):
     st['series'] = ser
     learned['regime'] = regime(nums)
     learned['burned'] = {m: at for m, at in (st.get('burned') or {}).items() if now - _f(at) < BURN_SEC}
+    learned['dial'] = dial if dial in DIALS else 'normal'
+    learned['trial'] = judge(st)['trial']   # 👨‍⚖️ the bot the Judge has on trial plays under a handicap this pass (it only ever tightens)
+    bar_ = bar_now(learned)
     table = []
     for r in rows or []:
         m = r.get('mint')
@@ -449,8 +465,12 @@ def desk(state, rows, now):
             continue
         n = nums[m]
         t0 = _t.perf_counter(); why = sherlock(n, r, learned); perf['sherlock'] += _t.perf_counter() - t0
+        if learned['trial'] == 'sherlock' and why['lean'] > 0:   # 👨‍⚖️ Sherlock on trial: its confidence is cut by a quarter
+            why = {**why, 'lean': round(why['lean'] * TRIAL_LEAN, 2)}
         t0 = _t.perf_counter(); call, reason = trigger(n, why, r, learned); perf['trigger'] += _t.perf_counter() - t0
         t0 = _t.perf_counter(); verdict, arg = devil(call, n, why, {**r, 'mint': m}, learned); perf['devil'] += _t.perf_counter() - t0
+        if learned['trial'] == 'devil' and verdict == 'agree' and why['lean'] < bar_ + TRIAL_BAR:   # 👨‍⚖️ Devil on trial: only strong reads pass
+            verdict, arg = 'object', f"on trial — only a strong read passes (lean {why['lean']:+.1f} < {bar_ + TRIAL_BAR:.1f})"
         rd = r.get('mind') or _tm.read(r)
         table.append({'mint': m, 'symbol': r.get('symbol'), 'pair': r.get('pairAddress'), 'px': _f(r.get('price')), 'nums': n, 'why': why,
                       'trigger': [call, reason], 'devil': [verdict, arg], 'go': call == 'enter' and verdict == 'agree',
@@ -462,7 +482,7 @@ def desk(state, rows, now):
                                 | {'organic': (r.get('vital') or {}).get('organicPct'), 'rug': (r.get('tv') or {}).get('rug'), 'read': ((r.get('tv') or {}).get('call') or [None, None])[1]}})
     table.sort(key=lambda x: (not x['go'], x['trigger'][0] != 'enter', -x['why']['lean']))
     st['feed'] = (list(st.get('feed') or []) + thoughts(table, now))[-FEED_KEEP:]
-    st['perf'] = {k: round(v * 1000, 2) for k, v in perf.items()} | {'coins': len(table), 'regime': learned['regime'], 'at': now}   # ⚡ real ms per agent this pass
+    st['perf'] = {k: round(v * 1000, 2) for k, v in perf.items()} | {'coins': len(table), 'regime': learned['regime'], 'at': now, 'bar': bar_, 'dial': learned['dial'], 'trial': learned['trial']}   # ⚡ real ms per agent this pass
     return st, table
 
 
@@ -572,23 +592,32 @@ def stage(state):
     return {'h': STAGES[-1], 'conquered': list(STAGES), 'team': learn(state, STAGES[-1])['cards']['team'], 'needN': PROVE_N, 'needWin': PROVE_WIN}
 
 
+def stake_pct(streak):
+    """🔥 PRESS WINNERS, CUT AFTER A LOSS (paper desk only): the next GO's stake follows the streak of the calls before it — 25% even ·
+    35% after 2 wins in a row · 45% after 3+ · 15% right after a loss. Never the real card: its seat size is the creator's setting."""
+    return HEAT_STAKES[3] if streak >= 3 else HEAT_STAKES[2] if streak == 2 else HEAT_STAKES[0] if streak < 0 else DESK_PCT
+
+
 def paper(state):
     """The team's paper desk, TRENCH style: every GO call puts 25% of the desk in at its price and sells at its 5-minute price, so wins
     compound (a 10× needs a real run of good calls). Under $1 the desk is BUSTED: it starts over at $20 and the bust is counted. Fees and
     slippage are not modelled — read it as an upper bound. → {start, now, x (this run), best (best run ×), busts, trades, trail}"""
     gos = sorted((d for d in _judged(state, 5) if d.get('go')), key=lambda d: _f(d.get('at')))
-    cash, best, busts, trail, run_trades = DESK_START, 1.0, 0, [], 0
+    cash, best, busts, trail, run_trades, streak = DESK_START, 1.0, 0, [], 0, 0
     for d in gos:
-        stake = cash * DESK_PCT / 100
+        pct_ = stake_pct(streak)
+        stake = cash * pct_ / 100
         pnl = stake * max(-100.0, _f(d['p5'])) / 100
         cash = round(cash + pnl, 4); run_trades += 1
         best = max(best, cash / DESK_START)
-        trail.append({'at': d['at'], 'sym': d.get('sym'), 'pct': d['p5'], 'usd': round(pnl, 4), 'book': cash})
+        trail.append({'at': d['at'], 'sym': d.get('sym'), 'pct': d['p5'], 'usd': round(pnl, 4), 'book': cash, 'stake': pct_})
+        streak = (max(streak, 0) + 1) if _f(d['p5']) > 0 else (min(streak, 0) - 1)
         if cash < DESK_BUST:
-            busts += 1; cash = DESK_START; run_trades = 0
+            busts += 1; cash = DESK_START; run_trades = 0; streak = 0
             trail.append({'at': d['at'], 'sym': '💥 BUST', 'pct': None, 'usd': 0.0, 'book': cash})
     return {'start': DESK_START, 'now': cash, 'x': round(cash / DESK_START, 3), 'best': round(best, 2), 'busts': busts, 'trades': len(gos),
-            'runTrades': run_trades, 'trail': trail[-20:]}
+            'runTrades': run_trades, 'trail': trail[-20:], 'streak': streak, 'stake': stake_pct(streak),
+            'heat': 'heater' if streak >= 2 else 'cold' if streak < 0 else 'even'}
 
 
 def road(state, real=None):
@@ -636,6 +665,10 @@ def results(before, after, now):
             ok = _f(o['p5']) > 0
             out.append({'at': now, 'who': 'desk', 'sym': o.get('sym'), 'text': f"{'✅' if ok else '❌'} ${o.get('sym')} {'GO' if o.get('go') else 'objected'} → {_f(o['p5']):+.1f}% after 5 min"
                         + ('' if o.get('go') else (' (Devil was right)' if not ok else ' (Devil was wrong)'))})
+            r_ = ruling(o)
+            if r_['verdict'] != 'push':
+                out.append({'at': now, 'who': 'judge', 'sym': o.get('sym'), 'text': f"{'🏆' if r_['verdict'] == 'win' else '🔨'} ${o.get('sym')} {_f(o['p5']):+.1f}% — "
+                            + (f"{NAME[r_['credit']]} called it" if r_.get('credit') else '') + (' · ' if r_.get('credit') and r_.get('blame') else '') + (f"{NAME[r_['blame']]} takes the L" if r_.get('blame') else '')})
     return out
 
 
@@ -651,7 +684,7 @@ def view(state, table, feed=False, real=None, mind=None, cfg=None, decisions=Non
             'table': table[:24], 'desk': paper(state), 'open': len((state or {}).get('open') or {}), 'feed': bool(feed and proven), 'feedAsked': bool(feed),
             'road': road(state, real), 'thoughts': list(reversed(((state or {}).get('feed') or [])[-40:])), 'real': real or {}, 'mind': mind or {},
             'ideas': sorted(({'id': i, **v} for i, v in ((state or {}).get('ideas') or {}).items()), key=lambda x: (x['status'] != 'new', -_f(x.get('at')))),
-            'cfg': {'agentFeed': bool((cfg or {}).get('agentFeed')), 'agentLearn': bool((cfg or {}).get('agentLearn')), 'agentLearnPct': int(_f((cfg or {}).get('agentLearnPct') or 100)), 'agentTrust': bool((cfg or {}).get('agentTrust')),
+            'cfg': {'agentFeed': bool((cfg or {}).get('agentFeed')), 'agentLearn': bool((cfg or {}).get('agentLearn')), 'agentLearnPct': int(_f((cfg or {}).get('agentLearnPct') or 100)), 'agentTrust': bool((cfg or {}).get('agentTrust')), 'agentDial': (cfg or {}).get('agentDial') if (cfg or {}).get('agentDial') in DIALS else 'normal',
                     'agentTakePct': int(_f((cfg or {}).get('agentTakePct') or 10)), 'agentMode': (cfg or {}).get('agentMode') or 'auto',
                     'agentSeats': int(_f((cfg or {}).get('agentSeats') or 2)), 'options': {'take': list(AGENT_TAKES), 'mode': list(AGENT_MODES), 'seats': list(AGENT_SEATS)}},
             'decisions': decisions or [], 'tasks': tasks(state, table, now), 'creed': list(CREED), 'life': survival(state),
@@ -660,7 +693,77 @@ def view(state, table, feed=False, real=None, mind=None, cfg=None, decisions=Non
             'burned': len((state or {}).get('burned') or {}), 'scrapN': SCRAP_N, 'surviveN': SURVIVE_N,
             'autopsies': list(reversed(((state or {}).get('autopsies') or [])[-12:])), 'rugSigns': sorted(({'key': k, 'words': word(k), 'n': v} for k, v in ((state or {}).get('rugSigns') or {}).items()), key=lambda x: -x['n'])[:8],
             'growth': growth(state, lr), 'power': power(state, real, cfg, card), 'card': card or {},
+            'judge': judge(state), 'proof': proof(state, real), 'barNow': ((state or {}).get('perf') or {}).get('bar') or lr['bar'],
             'hist': ((state or {}).get('hist') or [])[-96:], 'rules': rules({**lr, 'regime': ((state or {}).get('perf') or {}).get('regime')})}
+
+
+# ── 👨‍⚖️ THE JUDGE — the fifth seat. It never calls a trade: 5 minutes after every FINAL decision it rules on it ───────────────────
+# (owner, 2026-10-10: "a final judge who reviews the good and bad 5 mins after their final decision, to judge one of the bots").
+# Every ruled call names ONE bot who called it (credit) and / or ONE who takes the L (blame) — the bot whose word decided that call:
+#   GO that won   → Sherlock if its read was strong (lean ≥ 2) · else Tally if the numbers were already moving up · else Trigger (timing)
+#   GO that lost  → Devil if it dumped ≤ −20% (the gate that exists to stop that) · else Sherlock (strong read, wrong) · Tally · Trigger
+#   OBJECTED      → it lost: Devil called it, Trigger takes the L · it won: Trigger called it, Devil takes the L (blocked a winner)
+#   WAIT (control)→ ran ≥ +10%: Trigger takes the L (missed a runner)
+# Over its last JUDGE_LAST rulings: the bot with the worst net (≤ −JUDGE_NET) goes ON TRIAL and plays under a handicap until its net
+# recovers — and a handicap may only ever make the team trade LESS: Trigger bar +0.5 · Sherlock's lean ×0.75 · Devil passes only strong
+# reads · Tally needs 5 readings. The best net (≥ +JUDGE_NET) wears the 👑. Nothing here touches the real card by itself.
+JUDGE_WIN, JUDGE_LOSS, JUDGE_DUMP, JUDGE_MISS = 3.0, -3.0, -20.0, 10.0
+JUDGE_LAST, JUDGE_NET = 30, 2
+TRIAL_BAR, TRIAL_LEAN = 0.5, 0.75
+NAME = {'tally': 'Tally', 'sherlock': 'Sherlock', 'trigger': 'Trigger', 'devil': 'Devil'}
+HANDICAP = {'trigger': 'bar +0.5', 'sherlock': 'lean ×0.75', 'devil': 'only strong reads pass', 'tally': '5 readings before an entry'}
+
+
+def ruling(d):
+    """One call with its 5-minute result → {verdict: win | loss | push, credit, blame, kind: go | objected | wait}."""
+    p = _f((d or {}).get('p5'))
+    strong, up = _f(d.get('lean')) >= 2, bool(d.get('tallyUp'))
+    if d.get('kind') == 'wait':
+        return {'verdict': 'loss', 'blame': 'trigger', 'credit': None, 'kind': 'wait'} if p >= JUDGE_MISS else {'verdict': 'push', 'blame': None, 'credit': None, 'kind': 'wait'}
+    if d.get('go'):
+        if p >= JUDGE_WIN:
+            return {'verdict': 'win', 'credit': 'sherlock' if strong else 'tally' if up else 'trigger', 'blame': None, 'kind': 'go'}
+        if p <= JUDGE_LOSS:
+            return {'verdict': 'loss', 'blame': 'devil' if p <= JUDGE_DUMP else 'sherlock' if strong else 'tally' if up else 'trigger', 'credit': None, 'kind': 'go'}
+        return {'verdict': 'push', 'blame': None, 'credit': None, 'kind': 'go'}
+    if p <= JUDGE_LOSS:
+        return {'verdict': 'win', 'credit': 'devil', 'blame': 'trigger', 'kind': 'objected'}     # the objection saved the desk
+    if p >= JUDGE_WIN:
+        return {'verdict': 'loss', 'credit': 'trigger', 'blame': 'devil', 'kind': 'objected'}    # it blocked a winner
+    return {'verdict': 'push', 'blame': None, 'credit': None, 'kind': 'objected'}
+
+
+def judge(state):
+    """👨‍⚖️ The court's book: the last rulings, each bot's credit / blame / net, who is ON TRIAL (and its handicap), who wears the 👑."""
+    js = sorted(_judged(state, 5), key=lambda d: _f(d.get('at')))
+    ruled = [(d, ruling(d)) for d in js]
+    ruled = [(d, r) for d, r in ruled if r['verdict'] != 'push'][-JUDGE_LAST:]
+    score = {a: {'credit': 0, 'blame': 0, 'net': 0} for a in NAME}
+    for _d, r in ruled:
+        if r.get('credit'):
+            score[r['credit']]['credit'] += 1
+        if r.get('blame'):
+            score[r['blame']]['blame'] += 1
+    for v in score.values():
+        v['net'] = v['credit'] - v['blame']
+    worst = min(score, key=lambda a: (score[a]['net'], -score[a]['blame']))
+    best = max(score, key=lambda a: (score[a]['net'], score[a]['credit']))
+    trial = worst if score[worst]['net'] <= -JUDGE_NET else None
+    mvp = best if score[best]['net'] >= JUDGE_NET and best != trial else None
+    return {'rulings': [{'sym': d.get('sym'), 'mint': d.get('mint'), 'pct': d.get('p5'), 'at': d.get('at'), **r} for d, r in reversed(ruled[-14:])],
+            'score': score, 'trial': trial, 'handicap': HANDICAP.get(trial), 'mvp': mvp, 'n': len(ruled), 'needNet': JUDGE_NET,
+            'wins': sum(1 for _d, r in ruled if r['verdict'] == 'win'), 'losses': sum(1 for _d, r in ruled if r['verdict'] == 'loss')}
+
+
+def proof(state, real=None):
+    """🏆 PROVE IT — wins and losses, not words: every GO the team made on paper (5-min result) and every coin that left a real seat the
+    creator allowed (the card's own ledger). `last` = newest first, for the win / loss pips."""
+    gos = sorted((d for d in _judged(state, 5) if d.get('go')), key=lambda d: _f(d.get('at')))
+    ps = [_f(d['p5']) for d in gos]
+    side = lambda pcts: {'n': len(pcts), 'w': sum(1 for x in pcts if x > 0), 'l': sum(1 for x in pcts if x <= 0),
+                         'best': round(max(pcts), 1) if pcts else None, 'worst': round(min(pcts), 1) if pcts else None, 'last': [round(x, 1) for x in pcts[-16:]][::-1]}
+    r = real or {}
+    return {'paper': {**side(ps), 'syms': [d.get('sym') for d in gos[-16:]][::-1]}, 'card': side(list(r.get('last') or [])), 'suggested': side(list((r.get('suggested') or {}).get('last') or []))}
 
 
 # ── 🧬 GROWTH — how an agent grows, and what the TEAM is allowed to hold on the creator's real card ─────────────────────────────────

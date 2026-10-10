@@ -2764,4 +2764,23 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`TRUST_N` 10) = THE rule `_agents_go_rows` buys by, drawn as three rungs (🎓 learning 1 seat · 🤝 trusted 2 · 🏆 proven `agentSeats`).
   Growth is DISPLAY of rules that already existed — levels never grant a seat or a buy by themselves. New agent visual ⇒ a screen or a
   dossier meter, never a paragraph.
+- 👨‍⚖️ Agent desk v9 = THE JUDGE + SEAT CONTROLS + PROOF (owner, 2026-10-10: "a final judge who reviews the good and bad 5 mins after their
+  final decision to judge one of the bots … they control seats, truly interactive, able to be degen crazy, prove winners in paper and the
+  card seats I allowed"):
+  · `agents.ruling / judge` (pure, tested): 5 min after every FINAL call the Judge names ONE bot who called it and / or ONE who takes the L
+    (GO win → Sherlock if lean ≥ 2, else Tally if the numbers were up, else Trigger · GO loss → Devil if ≤ −20%, else the same order ·
+    objected → Devil vs Trigger · a WAIT that ran ≥ +10% → Trigger); ±3% = no ruling. Over the last `JUDGE_LAST` 30 rulings the worst net
+    (≤ −2) is ON TRIAL with a handicap applied in `desk()` — Trigger bar +0.5 · Sherlock lean ×0.75 · Devil passes only lean ≥ bar + 0.5 ·
+    Tally needs 5 readings — and the best net (≥ +2) wears the 👑. A TRIAL MAY ONLY EVER TIGHTEN (FeeCat's discipline rule); never add a
+    reward that loosens a gate. Feed lines `who: 'judge'`.
+  · 🎚 `agentDial` (real cfg, `agents.DIALS` chill +0.5 · normal · crazy −0.5 on Trigger's bar via `bar_now`, floor `BAR_FLOOR` 0.75; hero seg
+    `dial-*`, `.agd.is-dial-crazy`): the owner's switch. Hard SKIPs (+15% candle, −8% fall, pool < $20K, failed scan) and Devil's objections
+    never move with it. `perf.bar` = the bar actually used this pass (`barNow`).
+  · 🔥 `agents.stake_pct` (PAPER desk only): next GO's stake = 25% even · 35% after 2 wins · 45% after 3+ · 15% right after a loss
+    (`desk.heat / stake / streak`). Never the real card.
+  · 🏆 `agents.proof`: W–L + newest-first pips for PAPER (every GO at 5 min) and CARD (`_agents_real().last` = agent coins that left a real
+    seat) → `CourtBand` (Judge W–L, 🔨 trial + handicap, 👑, ruling tape — a chip opens its coin) + the 👨‍⚖️ COURT tab in the zoom (`Court`).
+  · 🎮 `CardNow` seats are CONTROLS (`seatMoves`): ▫ open → 🤖 fill with a GO coin (`fillSeat via: 'agents'`) · a held seat → ⇄ swap a GO
+    coin in (`pickSwap … now`) · their own seat → 💰 Pull (`manualSell` 100). Owner taps through the card's normal paths; a ⚠ 409 comes back
+    as "do it anyway" (`ack`). Riding / frozen seats offer no swap. Never add a seat action that skips `/admin/arena/prime`.
 

@@ -68,7 +68,7 @@ test('the desk is interactive: one lens at a time, KPI tiles jump, the board fil
   const q = id => el.querySelector(`[data-testid="${id}"]`);
   expect(q('lens-live-pane')).not.toBeNull(); expect(q('lens-learn-pane')).toBeNull(); expect(q('agd-controls')).toBeNull();   // opens on Live only
   expect(q('kpi-go').textContent).toContain('1'); expect(q('kpi-go').textContent).toContain('2 ENTER'); expect(q('kpi-desk').textContent).toContain('$20.60');
-  expect(q('kpi-speed').textContent).toContain('5.9 ms'); expect(q('agd-clock')).not.toBeNull();
+  expect(q('agd-clock')).not.toBeNull();
   await act(async () => { q('board-go').click(); });
   expect(q('agd-row-GOOD')).not.toBeNull(); expect(q('agd-row-RUN')).toBeNull();
   await act(async () => { q('board-obj').click(); });
@@ -82,6 +82,9 @@ test('the desk is interactive: one lens at a time, KPI tiles jump, the board fil
   expect(q('lens-learn-pane')).not.toBeNull(); expect(q('lens-live-pane')).toBeNull(); expect(q('agd-ideas')).not.toBeNull();
   await act(async () => { q('lens-ctl').click(); });
   expect(q('agd-controls')).not.toBeNull(); expect(q('agd-road')).not.toBeNull();
+  await act(async () => { q('dial-crazy').click(); });   // 🔥 the creator's dial is one tap, saved as agentDial
+  expect(call).toHaveBeenCalledWith('/admin/agents', expect.objectContaining({ body: JSON.stringify({ cfg: { agentDial: 'crazy' } }) }));
+  expect(q('ags-court')).not.toBeNull(); expect(q('ags-stake').textContent).toContain('next stake 25%');
   await act(async () => { q('agd-office').click(); });
   expect(el.querySelector('[data-testid="agent-room"]')).toBeNull();
   await act(async () => { q('agd-office').click(); root.unmount(); });

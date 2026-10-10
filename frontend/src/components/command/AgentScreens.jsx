@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { openCoin } from '../CoinDrawer';
+import { toast } from 'sonner';
 import { openWarRoom } from '../WarRoomHost';
 import { pct, tone, VERD, rowState, rowWhy, pipsOf, leanFill } from '../../lib/agentRead';
 import '../../styles/agentScreens.css';
@@ -33,7 +34,7 @@ export const listFor = (agent, table, reason) => { const t = table || [];
   if (agent === 'trigger') return [...t].sort((a, b) => num(b.why?.lean) - num(a.why?.lean)).map(x => x.mint);
   if (agent === 'sherlock' && reason) return t.filter(x => (x.why?.drivers || []).some(dd => dd[0] === reason)).map(x => x.mint);
   return t.map(x => x.mint); };
-const NAMES = { tally: ['📊', 'Tally', 'HEAT WALL'], sherlock: ['🔍', 'Sherlock', 'REASONS'], trigger: ['⏱', 'Trigger', 'SCOPE'], devil: ['⚖', 'Devil', 'DOCKET'] };
+const NAMES = { tally: ['📊', 'Tally', 'HEAT WALL'], sherlock: ['🔍', 'Sherlock', 'REASONS'], trigger: ['⏱', 'Trigger', 'SCOPE'], devil: ['⚖', 'Devil', 'DOCKET'], judge: ['👨‍⚖️', 'Judge', 'COURT'] };
 
 // ── the four screens (mini = on the card, no labels · big = in the zoom, every mark tappable) ──
 function Heat({ t, big, cur, pick }) {
@@ -65,6 +66,7 @@ function Docket({ t, big, cur, pick }) {
     : <i key={x.mint} className={`ags-stamp ${x.ok ? 'is-ok' : 'is-no'}`}>{x.ok ? '✓' : '✕'}</i>)}</div>;
 }
 const stat = (k, d) => { const t = d?.table || []; const e = t.filter(x => x.trigger?.[0] === 'enter');
+  if (k === 'judge') return [`${d?.judge?.wins ?? 0}–${d?.judge?.losses ?? 0}`, 'ruled'];
   return k === 'tally' ? [d?.perf?.coins ?? t.length, 'read'] : k === 'sherlock' ? [reasonsOf(t).length, 'reasons'] : k === 'trigger' ? [e.length, 'ENTER'] : [`${e.filter(x => x.devil?.[0] === 'object').length}/${e.length}`, 'objected']; };
 export function MiniScreen({ k, d }) {
   const t = d?.table || []; const [n, l] = stat(k, d);
@@ -114,25 +116,76 @@ export function ZoomScreen({ d, agent, setAgent, close }) {
       <div className="ags-zbody"><div className="ags-big" key={agent}>
         {agent === 'tally' ? <Heat t={t} big cur={at} pick={setCur} /> : agent === 'sherlock' ? <><Reasons t={t} big reason={reason} setReason={setReason} />
           <div className="ags-chips">{list.map(m => { const r = t.find(q => q.mint === m); return r ? <button type="button" key={m} className={`ags-chip is-${rowState(r)} ${at === m ? 'is-cur' : ''}`} onClick={() => setCur(m)} data-testid={`chip-${r.symbol}`}>${r.symbol}</button> : null; })}</div></>
-          : agent === 'trigger' ? <Scope t={t} bar={d?.bar} big cur={at} pick={setCur} /> : <Docket t={t} big cur={at} pick={setCur} />}</div>
+          : agent === 'trigger' ? <Scope t={t} bar={d?.barNow || d?.bar} big cur={at} pick={setCur} /> : agent === 'judge' ? <Court judge={d?.judge} onPick={setCur} /> : <Docket t={t} big cur={at} pick={setCur} />}</div>
         <Dossier x={x} bar={d?.bar} idx={idx} n={list.length} step={step} /></div>
     </div></div>, document.body);
 }
 
-// 🎮 ON YOUR CARD NOW — the real card as seats; an agent seat shows how far it is to their take line and what they are doing with it
+// 🎮 ON YOUR CARD NOW — the real card as seats, and every seat is a CONTROL: tap it → what the agents can do with it right now.
+//   ▫ open → 🤖 fill it with one of their GO coins · any held seat → ⇄ swap one of their GO coins in · 🤖 their own seat → 💰 pull to cash.
+// Every action is the creator's own tap through the card's normal paths (POST /admin/arena/prime fillSeat / pickSwap / manualSell): the
+// same checks, and a ⚠ warning comes back as "do it anyway" — never a silent buy. An agent seat shows its bar to their take line.
 const KIND = { agent: ['🤖', 'agents'], suggested: ['🤝', 'their pick, your tap'], yours: ['👤', 'yours'], engine: ['⚙', 'engine'], open: ['▫', 'open'] };
 const ACT = { hold: '⏳', pull: '💰', swap: '⇄' };
-export function CardNow({ card, power, cfg, onMore }) {
+export const seatMoves = (seat, tpl, gos) => { if (!seat || !tpl) return [];
+  const g = (gos || []).slice(0, 3);
+  if (seat.kind === 'open') return g.map(x => ({ key: `fill-${x.symbol}`, label: `🤖 $${x.symbol}`, tip: `Fill this seat with their GO coin $${x.symbol} now`, go: true, body: { fillSeat: { tpl, to: x.mint, toPair: x.pair, via: 'agents' } }, k: 'fillSeat' }));
+  const swaps = seat.state ? [] : g.map(x => ({ key: `swap-${x.symbol}`, label: `⇄ $${x.symbol}`, tip: `Swap $${seat.symbol} out for their GO coin $${x.symbol} now`, body: { pickSwap: { tpl, pairAddress: seat.pair, to: x.mint, toPair: x.pair, via: 'agents', now: true } }, k: 'pickSwap' }));
+  return seat.kind === 'agent' ? [{ key: 'pull', label: '💰 Pull', tip: `Sell $${seat.symbol} to card cash now — the seat opens`, go: true, body: { manualSell: { tpl, pairAddress: seat.pair, pct: 100 } }, k: 'manualSell' }, ...swaps] : swaps; };
+export function CardNow({ card, power, cfg, gos, call, isOwner = true, onDone, onMore }) {
   const seats = card?.seats || []; const pw = power || {}; const on = cfg?.agentLearn || cfg?.agentFeed;
+  const [at, setAt] = useState(null); const [busy, setBusy] = useState(false); const [warn, setWarn] = useState(null);
   if (!seats.length) return <div className="ags-card is-off" data-testid="ags-card"><b>🎮 ON YOUR CARD</b><small>{on ? 'waiting for the card’s next tick' : 'no real card is funded — the agents trade paper only'}</small></div>;
-  return <div className="ags-card" data-testid="ags-card"><span className="ags-cardh"><b>🎮 ON YOUR CARD NOW</b>
-    <button type="button" className="ags-pow" onClick={onMore} data-tip="Seats the agents may hold right now — earned, see ⚙ Control / 🧬 Growth" data-testid="ags-pow">🤖 {pw.held ?? 0} / {pw.seats ?? 0} seats</button></span>
+  const cur = at != null ? seats[at] : null; const free = (gos || []).filter(x => !seats.some(s => s.mint === x.mint)); const moves = seatMoves(cur, card.tpl, free);
+  const send = async (m, body) => { if (!call) return; setBusy(true); setWarn(null);
+    try { await call('/admin/arena/prime', { method: 'POST', body: JSON.stringify(body) }); toast.success(`${m.label} — sent to your card`); setAt(null); if (onDone) onDone(); }
+    catch (e) { if (!body[m.k].ack && String(e.message || '').startsWith('⚠')) setWarn({ text: e.message, m, body: { [m.k]: { ...body[m.k], ack: true } } }); else toast.error(e.message); }
+    finally { setBusy(false); } };
+  return <div className={`ags-card ${cur ? 'is-open' : ''}`} data-testid="ags-card"><span className="ags-cardh"><b>🎮 ON YOUR CARD NOW</b>
+    <button type="button" className="ags-pow" onClick={onMore} data-tip="Seats the agents may hold right now — earned (🧬 Growth)" data-testid="ags-pow">🤖 {pw.held ?? 0} / {pw.seats ?? 0} seats</button></span>
     <div className="ags-seats">{seats.map((s, i) => { const k = KIND[s.kind] || KIND.engine; const prog = s.kind === 'agent' && s.pct != null && s.take ? clamp(s.pct / s.take, 0, 1) : null;
-      return s.kind === 'open' ? <span key={`o${i}`} className="ags-seat is-open" data-tip={pw.seats > (pw.held || 0) ? 'Open — the agents may take it with their next GO' : 'Open seat'}><i>▫</i><b>open</b></span>
-        : <button type="button" key={s.pair || i} className={`ags-seat is-${s.kind}`} onClick={() => openCoin({ mint: s.mint, pairAddress: s.pair, symbol: s.symbol })} data-tip={s.kind === 'agent' ? (s.why || 'the agents hold this seat') : `${k[1]}${s.tag ? ` · ${s.tag}` : ''}`} data-testid={`seat-${s.symbol}`}>
-          <i>{k[0]}</i><b>${s.symbol}</b><em className={tone(s.pct)} key={String(s.pct)}>{s.buying ? '⏳' : pct(s.pct)}</em>
-          {prog != null && <u data-tip={`${pct(s.pct)} of the +${s.take}% they hold for`}><s style={{ transform: `scaleX(${Math.max(0.03, prog)})` }} /></u>}
-          {s.kind === 'agent' && <span className={`ags-act is-${s.action}`}>{ACT[s.action] || '⏳'}{s.toSym ? ` $${s.toSym}` : ''}</span>}</button>; })}</div></div>;
+      return <button type="button" key={s.pair || `o${i}`} className={`ags-seat is-${s.kind} ${at === i ? 'is-cur' : ''}`} aria-expanded={at === i} onClick={() => { setAt(at === i ? null : i); setWarn(null); }}
+        data-tip={s.kind === 'open' ? 'Open seat — tap to fill it' : s.kind === 'agent' ? (s.why || 'the agents hold this seat') : `${k[1]}${s.tag ? ` · ${s.tag}` : ''}`} data-testid={s.kind === 'open' ? `seat-open-${i}` : `seat-${s.symbol}`}>
+        <i>{k[0]}</i><b>{s.kind === 'open' ? 'open' : `$${s.symbol}`}</b>{s.kind !== 'open' && <em className={tone(s.pct)} key={String(s.pct)}>{s.buying ? '⏳' : pct(s.pct)}</em>}
+        {prog != null && <u><s style={{ transform: `scaleX(${Math.max(0.03, prog)})` }} /></u>}
+        {s.kind === 'agent' && <span className={`ags-act is-${s.action}`}>{ACT[s.action] || '⏳'}{s.toSym ? ` $${s.toSym}` : ''}</span>}</button>; })}</div>
+    {cur && <div className="ags-tray m-pop" data-testid="ags-tray"><span className="ags-trayh">{(KIND[cur.kind] || KIND.engine)[0]} {cur.kind === 'open' ? 'OPEN SEAT' : `$${cur.symbol}`}{cur.state ? ` · ${cur.state === 'ride' ? '❄ riding' : '🧊 frozen'}` : ''}</span>
+      {warn ? <><small className="ags-warn">{warn.text}</small><button type="button" className="m-btn" disabled={busy} onClick={() => send(warn.m, warn.body)} data-testid="seat-ack">I understand — do it anyway</button><button type="button" className="m-btn" onClick={() => setWarn(null)}>Cancel</button></>
+        : <>{moves.map(m => <button type="button" key={m.key} className={`m-btn ${m.go ? 'm-go' : ''}`} disabled={busy || !isOwner || !call} data-tip={m.tip} onClick={() => send(m, m.body)} data-testid={`move-${m.key}`}>{m.label}</button>)}
+          {!moves.length && <small>{cur.state ? 'locked — a riding / frozen coin is never swapped from here' : 'no GO coin from the agents right now'}</small>}
+          {cur.kind !== 'open' && <button type="button" className="m-btn" onClick={() => openCoin({ mint: cur.mint, pairAddress: cur.pair, symbol: cur.symbol })} data-testid="move-coin">🪙</button>}</>}</div>}</div>;
+}
+
+// 👨‍⚖️ THE JUDGE + 🏆 PROOF — one band. Left: the court (W–L, who is ON TRIAL and its handicap, who wears the 👑, the ruling tape — each
+// chip = one call ruled 5 min after its final decision, with the bot that called it / takes the L). Right: wins and losses as pips —
+// PAPER (every GO) and CARD (every coin that left a real seat) — and the stake the next paper GO gets (🔥 heater / 🧊 cold).
+const BOT = { tally: '📊', sherlock: '🔍', trigger: '⏱', devil: '⚖' };
+const Pips = ({ last, syms }) => <span className="ags-pips">{(last || []).slice(0, 16).map((v, i) => <i key={i} className={v > 0 ? 'is-up' : 'is-dn'} data-tip={`${syms?.[i] ? `$${syms[i]} ` : ''}${pct(v)}`} />)}{!(last || []).length && <small>none yet</small>}</span>;
+export function CourtBand({ judge, proof, desk, onPick, onCourt }) {
+  const j = judge || {}; const pr = proof || {}; const heat = desk?.heat || 'even';
+  return <div className="ags-court" data-testid="ags-court">
+    <div className="ags-judge"><button type="button" className="ags-jhead" onClick={onCourt} data-tip="Open the court: every ruling and each bot's score" data-testid="ags-judge"><span className="ags-gavel" key={j.n || 0}>👨‍⚖️</span><b>JUDGE</b><em><i className="m-pos">{j.wins ?? 0}W</i> <i className="m-neg">{j.losses ?? 0}L</i></em></button>
+      <span className="ags-sent">{j.trial ? <i className="is-trial" data-tip={`Worst net over the last rulings — plays under a handicap until it recovers: ${j.handicap}`} data-testid="ags-trial">🔨 {BOT[j.trial]} ON TRIAL · {j.handicap}</i> : <i className="is-clear">no bot on trial</i>}
+        {j.mvp && <i className="is-mvp" data-tip="Best net over the last rulings" data-testid="ags-mvp">👑 {BOT[j.mvp]}</i>}</span>
+      <span className="ags-tape">{(j.rulings || []).slice(0, 10).map((r, i) => <button type="button" key={`${r.mint}-${r.at}`} className={`ags-rule is-${r.verdict}`} style={{ '--i': Math.min(i, 8) }} onClick={() => onPick && onPick(r.sym)}
+        data-tip={`${r.kind === 'go' ? 'GO' : r.kind === 'objected' ? 'objected' : 'waited'} · ${r.credit ? `${BOT[r.credit]} called it` : ''}${r.credit && r.blame ? ' · ' : ''}${r.blame ? `${BOT[r.blame]} takes the L` : ''}`} data-testid={`rule-${r.sym}`}>
+        {r.verdict === 'win' ? '🏆' : '🔨'} ${r.sym} <em>{pct(r.pct)}</em><u>{BOT[r.verdict === 'win' ? r.credit : r.blame] || ''}</u></button>)}
+        {!(j.rulings || []).length && <small>first ruling lands 5 min after their first final call</small>}</span></div>
+    <div className="ags-proof" data-testid="ags-proof">
+      <span className="ags-prow" data-tip="Every GO the team made on paper, judged 5 minutes later — newest first"><b>📜 PAPER</b><em><i className="m-pos">{pr.paper?.w ?? 0}</i>–<i className="m-neg">{pr.paper?.l ?? 0}</i></em><Pips last={pr.paper?.last} syms={pr.paper?.syms} /></span>
+      <span className="ags-prow" data-tip="Every coin that left a real seat you allowed, on the card's own ledger — newest first"><b>💵 CARD</b><em><i className="m-pos">{pr.card?.w ?? 0}</i>–<i className="m-neg">{pr.card?.l ?? 0}</i></em><Pips last={pr.card?.last} /></span>
+      <span className={`ags-heat2 is-${heat}`} data-tip="Paper desk only: the next GO's stake follows the streak — 25% even · 35% after 2 wins · 45% after 3+ · 15% right after a loss" data-testid="ags-stake">{heat === 'heater' ? '🔥' : heat === 'cold' ? '🧊' : '▪'} next stake {desk?.stake ?? 25}%</span></div></div>;
+}
+// the court, zoomed: every ruling as a card + each bot's credit / blame
+export function Court({ judge, onPick }) {
+  const j = judge || {}; const top = Math.max(1, ...Object.values(j.score || {}).map(v => Math.max(v.credit, v.blame)));
+  return <div className="ags-courtz" data-testid="ags-courtz">
+    <div className="ags-scores">{Object.entries(j.score || {}).map(([k, v]) => <div key={k} className={`ags-score ${j.trial === k ? 'is-trial' : j.mvp === k ? 'is-mvp' : ''}`} data-testid={`score-${k}`}>
+      <b>{BOT[k]}{j.mvp === k ? ' 👑' : j.trial === k ? ' 🔨' : ''}</b><u className="is-up"><i style={{ transform: `scaleX(${v.credit / top})` }} /></u><u className="is-dn"><i style={{ transform: `scaleX(${v.blame / top})` }} /></u><em className={tone(v.net)}>{v.net > 0 ? '+' : ''}{v.net}</em></div>)}</div>
+    <div className="ags-cases">{(j.rulings || []).map(r => <button type="button" key={`${r.mint}-${r.at}`} className={`ags-case is-${r.verdict}`} onClick={() => onPick && onPick(r.mint)} data-testid={`case-${r.sym}`}>
+      <b>{r.verdict === 'win' ? '🏆' : '🔨'} ${r.sym}</b><em className={tone(r.pct)}>{pct(r.pct)}</em><small>{r.kind === 'go' ? 'GO' : r.kind === 'objected' ? 'OBJ' : 'WAIT'}</small>
+      <span>{r.credit && <i className="is-up">{BOT[r.credit]}✓</i>}{r.blame && <i className="is-dn">{BOT[r.blame]}✕</i>}</span></button>)}
+      {!(j.rulings || []).length && <div className="ags-empty">no rulings yet — the first lands 5 minutes after a final call</div>}</div></div>;
 }
 
 // 🧬 GROWTH — an agent grows only by surviving judged calls; a level is HELD only while it is alive
