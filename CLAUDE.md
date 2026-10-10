@@ -2980,3 +2980,32 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   liquidity, updated — visible, never a tooltip; `CandleChart` draws a volume bar ONLY for a bar with its own figure (`ofr-vol`, `ofr-volw`
   says N of M); `TeamTrace` (`ofr-trace`: each desk's answer to its own question → FINAL + WHY) from `queue[].trace`; every queue case
   now carries its own `bars` + `chart` so any candidate can be charted; mission row = 9 tiles; `office.JOBS` = ten jobs. Payload ≈ 110 KB.
+- ⚡ OFFICE EDGE PASS (`backend/office_edge.py` pure + tested `tests/test_office_edge.py`; wired into `agents.manage` / `office.reap` / `office.warden` /
+  the tier tick / `_office_pass`, all in the ONE `GET /admin/agents` payload: `policy` (+ `controls`) · `ready` · `seat` · `switchEval` · `review` ·
+  `launch` · `performance.speed`). Owner, 2026-10-10: "AGENTS CHOOSE must truly allow agent TP/SL/hold/switch decisions inside creator hard limits".
+  · 🎛 Per control AGENTS CHOOSE (0 / 'agents') or CREATOR OVERRIDE (realCfg `agentTp` `agentSl` `agentTrail`(+Arm/Pct) `agentMaxHold` `agentSizePct`
+    `agentSeatTarget` `agentSwitch` `agentEntry`, `agentAuthority` agents | manual; `POLICY_KEYS`, validated by `clean_cfg`, saved via POST
+    /admin/agents `cfg` → realOwnerSet + ladderKeep). TAKE: your line or their LEARNED scalp line is BANKED at the line; the base `agentTakePct`
+    under AGENTS CHOOSE is a READ line — at it the agents keep a coin only while its read is clean AND its thesis is not weak / invalid (Reaper
+    keeps the trail on it: R6 = PROTECT, R7 banks). This REPLACES "in control a coin at the take line is BANKED" for the base line only.
+    Stop / max hold / size are CEILINGS (agents may be tighter); switching mode's hold time binds a broken-read switch too. MANUAL = no fill,
+    switch or read-bank; only hard safety exits + YOUR overrides act (manual rotates nothing). The catastrophic −45% is not a policy key.
+  · 🔌 RESTART: `ready` = WARMING UP → POSITIONS RECONCILED → MARKET REFILLED → LIVE (2 agent passes on ≥ 10 coins + every held coin priced).
+    Until LIVE: no fill, no switch, no read / time / max-hold exit, no seat wake; price, pool, scan / rug exits and a take on price alone still
+    act. Reaper's off-radar clock never survives a restart (an `offSince` stamp is dropped while not LIVE; the grace restarts at LIVE).
+  · ⇄ `switch_test` = every line evaluated (`lines`); a GREEN coin is never switched (Reaper banks a broken green one). Review marks
+    (`mark_review`, POST /admin/agents `review` {key, mark agree | disagree | seen | clear, note}) are display state the office never reads.
+  · Missed winners: a level the brain never crossed (`x[level] = None`) is not a time (it read as 0 and said "seen only after the move").
+- 🏢 AGENTS TAB v13 (built to the owner's preview image, 2026-10-10): the room is `OfficeRoom3D` = TWO desk rows that SNAKE (Tally → Devil, Warden →
+  Judge back) around THE REAL CARD hex platform (seat pedestals: height = % since entry, open seat = its seat state); case files float at the
+  desk each stands at (current one under a beam); each desk reacts to its activity word (`activityOf`: SCAN · PASS · WAIT · REVIEW · OBJECT · VETO ·
+  SIZED · SUBMITTED · CONFIRMED · PROTECT · TAKE · EXIT · HOLD · LOGGING · JUDGE REVIEW — each read from the payload; a ripple only when the word
+  changes); hover = `.or3-tip` with the real word; click bot / monitor / case / seat / wall; cameras Main · Card · Top · Focus. Edge chips
+  (`EdgeBand`) live IN the office bar; panel = decision + countdown · tiles · chart + data quality · 5-col intelligence · `PolicyBlock`
+  (YOU · AGENTS · IN FORCE) · launch · trace · rulings · files. Lenses + 🎛 Limits (`CreatorLimits`: EXITS / SIZE & SEATS / MOVES, blue AGENTS
+  CHOOSE vs gold YOUR OVERRIDE, rules in force per position) · 📝 Review (`ReviewQueue`, non-blocking) · 🔎 Missed (`MissedWinners` +
+  `LaunchRecord`). `.ofr-panel` rows are `max-content` — the view tabs had collapsed to 6px. No "expected move" (nothing computes one).
+  SEE IT WITHOUT HQ: bundle a scratch harness with webpack's node API (frontend node_modules: babel-preset-react-app, style-loader, a
+  `process` shim) rendering `<AgentDesk call={readOnly} />` on `backend/data/agents_view.json` + the edge fixture, serve it via a temporary
+  launch.json entry (restore the file at once), and screenshot full-res with the cached Playwright `chrome-headless-shell --headless
+  --use-angle=swiftshader --window-size=1440,900 --virtual-time-budget=9000 --screenshot=…` (the Browser pane scales 1440×900 to 800×500).
