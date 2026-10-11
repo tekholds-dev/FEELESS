@@ -679,7 +679,7 @@ def record(state, table, now, controls=3):
                      **({'cs': x['chart']['state'], 'ce': x['chart']['entry'][0]} if x.get('chart') else {}),
                      **({'pad': x['launch']['key']} if (x.get('launch') or {}).get('key') else {}),   # 🚀 the launch context AT the call
                      **({'dq': x['chart']['q']['state'], 'dqc': x['chart']['q']['conf']} if (x.get('chart') or {}).get('q') else {}),   # 🧪 the data-quality state AT the call, kept with it
-                     'drivers': [d[0] for d in x['why']['drivers']], 'lean': x['why']['lean'], 'tallyUp': _f(x['nums'].get('d5')) > 0,
+                     'drivers': [d[0] for d in x['why']['drivers']], 'lean': x['why']['lean'], 'tallyUp': _f(x['nums'].get('d5')) > 0, 'tw': str((x.get('trigger') or ['', ''])[1])[:80],
                      **({'scalp': [st['scalp']['tp'], st['scalp']['sl']]} if (st.get('scalp') or {}).get('tp') else {})}
     st['open'], st['done'] = opened, done[-KEEP_DONE:]
     return st
@@ -1051,19 +1051,49 @@ def ruling(d):
     return {'verdict': 'push', 'blame': None, 'credit': None, 'kind': 'objected'}
 
 
+REAL_WIN, REAL_LOSS, REAL_DUMP = 3.0, -3.0, -15.0   # a real exit of the agents' own seat (the card's ledger result, %)
+REAL_WEIGHT = 2                                      # 💵 a real-money ruling counts double: that is the money the Judge answers to
+
+
+def real_ruling(p):
+    """💵 One coin that left an AGENT seat on the real card (real_learn piece: pct · holdMin · why) → a ruling. A dump the desk let through
+    (≤ −15%) is Devil's (it should have seen the danger) · a smaller loss is Trigger's (the timing) · a win is Tally's when it came fast
+    (≤ 10 min: the numbers were right) else Sherlock's (the reasons held). Owner, 2026-10-11: "judge needs to be on somebody's ass"."""
+    x = _f((p or {}).get('pct'))
+    if x >= REAL_WIN:
+        return {'verdict': 'win', 'credit': 'tally' if _f(p.get('holdMin')) <= 10 else 'sherlock', 'blame': None, 'kind': 'real'}
+    if x <= REAL_LOSS:
+        return {'verdict': 'loss', 'blame': 'devil' if x <= REAL_DUMP else 'trigger', 'credit': None, 'kind': 'real'}
+    return {'verdict': 'push', 'blame': None, 'credit': None, 'kind': 'real'}
+
+
+def miss_study(state, n=6):
+    """😴 THE MISSES, STUDIED: every WAIT that ran ≥ JUDGE_MISS in 5 min, grouped by Trigger's own reason (numbers folded) → which rule
+    keeps the desk out of winners: [{why, n, med}] biggest first. Display + learning only — a miss never loosens a gate by itself."""
+    import re as _re
+    g = {}
+    for d in _judged(state, 5):
+        if d.get('kind') == 'wait' and _f(d.get('p5')) >= JUDGE_MISS:
+            k = _re.sub(r'[-+]?\d+(\.\d+)?', '#', str(d.get('tw') or 'reason not recorded (older call)'))[:70]
+            g.setdefault(k, []).append(_f(d.get('p5')))
+    return sorted(({'why': k, 'n': len(v), 'med': round(_med(v), 1)} for k, v in g.items()), key=lambda x: -x['n'])[:n]
+
+
 def judge(state):
     """👨‍⚖️ The court's book: the last rulings, each bot's credit / blame / net, who is ON TRIAL (and its handicap), who wears the 👑."""
     js = sorted(_judged(state, 5), key=lambda d: _f(d.get('at')))
     ruled = [(d, ruling(d)) for d in js]
-    ruled = [(d, r) for d, r in ruled if r['verdict'] != 'push'][-JUDGE_LAST:]
+    real = [({'sym': p.get('symbol'), 'mint': p.get('mint'), 'p5': p.get('pct'), 'at': p.get('at'), 'rule': p.get('why')}, real_ruling(p)) for p in (state or {}).get('realPieces') or []]
+    ruled = sorted([(d, r) for d, r in ruled + real if r['verdict'] != 'push'], key=lambda x: _f(x[0].get('at')))[-JUDGE_LAST:]
     score = {a: {'credit': 0, 'blame': 0, 'net': 0} for a in NAME}
     for _d, r in ruled:
         if r['verdict'] == 'miss':
             continue
+        w_ = REAL_WEIGHT if r.get('kind') == 'real' else 1
         if r.get('credit'):
-            score[r['credit']]['credit'] += 1
+            score[r['credit']]['credit'] += w_
         if r.get('blame'):
-            score[r['blame']]['blame'] += 1
+            score[r['blame']]['blame'] += w_
     for v in score.values():
         v['net'] = v['credit'] - v['blame']
     worst = min(score, key=lambda a: (score[a]['net'], -score[a]['blame']))
@@ -1073,7 +1103,8 @@ def judge(state):
     return {'rulings': [{'sym': d.get('sym'), 'mint': d.get('mint'), 'pct': d.get('p5'), 'at': d.get('at'), **r} for d, r in reversed(ruled[-14:])],
             'score': score, 'trial': trial, 'handicap': HANDICAP.get(trial), 'mvp': mvp, 'n': len(ruled), 'needNet': JUDGE_NET,
             'wins': sum(1 for _d, r in ruled if r['verdict'] == 'win'), 'losses': sum(1 for _d, r in ruled if r['verdict'] == 'loss'),
-            'missed': sum(1 for _d, r in ruled if r['verdict'] == 'miss')}
+            'missed': sum(1 for _d, r in ruled if r['verdict'] == 'miss'), 'missWhy': miss_study(state),
+            'real': {'wins': sum(1 for _d, r in ruled if r.get('kind') == 'real' and r['verdict'] == 'win'), 'losses': sum(1 for _d, r in ruled if r.get('kind') == 'real' and r['verdict'] == 'loss')}}
 
 
 def objections(state, hours=24, now=0.0):

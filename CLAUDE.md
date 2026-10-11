@@ -3147,3 +3147,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🪑 SEAT FLOOR LAST RESORT (`office_edge.floor_ready(last=True)`, `FLOOR_LAST_SEC` 60): a seat still empty after 60s with nothing from the
   seat floor may take a weak read (a "wait", negative lean, a read type with a poor record = warning) — never a +15% spike / −8% fall / thin
   pool / failed scan / bot ladder / rug ≥ 50 / risk-0 chart / downtrend (collapsing); healthiest structure first. Tag "🪑 last resort".
+- 👨‍⚖️ THE JUDGE RULES ON REAL MONEY (owner, 2026-10-11: "judge needs to be on somebody's ass — losses and misses studied"): `agents.real_ruling`
+  on every agent seat that left the real card (real_learn pieces tagged 🤖, handed in as `state.realPieces` each pass): ≥ +3% win → Tally
+  (≤ 10 min) else Sherlock · ≤ −15% → Devil (let a dump through) · other ≤ −3% → Trigger (timing); `REAL_WEIGHT` 2 in the net that picks
+  who is ON TRIAL. `miss_study`: waits that ran ≥ +10% grouped by Trigger's own reason (calls now store `tw`) → `judge.missWhy` on the strip.

@@ -12378,6 +12378,10 @@ async def _agents_tick(now):
                            'learned': sorted(({'word': w, **v} for w, v in (lingo.get('learned') or {}).items()), key=lambda x: -_fuse._f(x.get('first')))[:16],
                            'callsRead': len(calls_), 'swarms': sum(1 for r in rows if ((r.get('mind') or {}).get('crowd') or {}).get('swarm'))}
         st = _json_load(AGENTS_PATH, {})
+        try:   # 👨‍⚖️ the Judge rules on REAL money too: the agents' own seats that left the card (the card's ledger result)
+            st['realPieces'] = [{k_: p_.get(k_) for k_ in ('symbol', 'mint', 'pct', 'holdMin', 'why', 'at')} for p_ in (_json_load(REAL_LEARN_PATH, {}).get('pieces') or []) if 'tag:🤖' in (p_.get('k') or [])][-30:]
+        except Exception:
+            pass
         try:   # ⚖ Devil's busted reads = the reads' own live 1-hour records, never a fixed list
             bust_ = _ag.busted_now(_trench.meta_proof(_json_load(CALL_PROOF_PATH, {}), keys=tuple(dict.fromkeys(CALL_KEYS.values()))), CALL_KEYS)
         except Exception:

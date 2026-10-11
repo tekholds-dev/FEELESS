@@ -119,3 +119,18 @@ def test_last_resort_takes_weak_structures_but_never_a_danger():
     got = [r['mint'] for r in oe.floor_ready([weak, busted, up, *no], last=True)]
     assert got == ['BUSTED', 'UP']     # a weak read is allowed; a downtrend (a collapsing chart) and every danger stay out
     assert oe.floor_ready([up], last=True)[0]['lastResort'] is True
+
+
+def test_judge_rules_on_real_seats_double_and_studies_misses():
+    st = {'realPieces': [{'symbol': 'A', 'mint': 'A', 'pct': 12, 'holdMin': 4, 'at': 1}, {'symbol': 'B', 'mint': 'B', 'pct': -22, 'holdMin': 9, 'at': 2},
+                         {'symbol': 'C', 'mint': 'C', 'pct': -5, 'holdMin': 20, 'at': 3}, {'symbol': 'D', 'mint': 'D', 'pct': 1, 'at': 4}]}
+    j = ag.judge(st)
+    assert j['real'] == {'wins': 1, 'losses': 2}
+    assert j['score']['tally']['credit'] == 2 and j['score']['devil']['blame'] == 2 and j['score']['trigger']['blame'] == 2   # real counts double
+    assert j['trial'] in ('devil', 'trigger') and j['mvp'] == 'tally'
+    assert ag.real_ruling({'pct': 30, 'holdMin': 45})['credit'] == 'sherlock'
+    st2 = {'done': [{'kind': 'wait', 'p5': 25, 'at': 1, 'tw': 'lean +0.4 under the bar 1.0', 'mint': 'X'},
+                    {'kind': 'wait', 'p5': 12, 'at': 2, 'tw': 'lean +0.7 under the bar 1.0', 'mint': 'Y'},
+                    {'kind': 'wait', 'p5': 30, 'at': 3, 'tw': '+22% in 5 min — that is the top', 'mint': 'Z'}]}
+    m = ag.miss_study(st2)
+    assert m[0]['why'] == 'lean # under the bar #' and m[0]['n'] == 2
