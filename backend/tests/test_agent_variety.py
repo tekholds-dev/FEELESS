@@ -46,10 +46,12 @@ def test_confirmed_agent_exit_becomes_a_lesson_once():
     assert rl.note_closed({}, {**pos, 'confirmed': False}, 2000.0) == {}
 
 
-def test_agents_trade_under_3m_market_cap_only():
-    assert ag.AGENT_MAX_MCAP == 3_000_000
-    assert ag.under_cap({'mcap': 2_900_000}) and not ag.under_cap({'mcap': 3_000_000}) and not ag.under_cap({'mcap': 12e6})
-    assert ag.under_cap({'mcap': None}) and ag.under_cap({})   # a launch seconds old may not carry a cap yet
+def test_agents_hunt_only_new_launches_under_1m():
+    assert ag.AGENT_MAX_MCAP == 1_000_000 and ag.AGENT_MAX_AGE_H == 24
+    assert ag.under_cap({'mcap': 990_000}) and not ag.under_cap({'mcap': 1_000_000}) and ag.under_cap({})
+    assert ag.in_lane({'mcap': 400_000, 'ageH': 2}) and ag.in_lane({'ageH': 0.01})          # a seconds-old launch with no cap yet
+    assert not ag.in_lane({'mcap': 400_000, 'ageH': 770})                                    # $QUBT: old and flat — never again
+    assert not ag.in_lane({'mcap': 2_000_000, 'ageH': 1}) and not ag.in_lane({'mcap': 400_000})   # over the cap · age unknown
 
 
 def test_the_board_shows_the_newest_launches_not_only_the_strongest_reads():

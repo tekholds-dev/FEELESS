@@ -12325,7 +12325,7 @@ async def _agents_tick(now):
             raw = keep_ + trim_[:len(trim_) // 2]
         tv_ = {x.get('mint'): x.get('tv') for x in raw}
         rows = [_ag.established({**r, 'tv': tv_.get(r.get('mint')) or r.get('tv')}) for r in _clean_rows([dict(x) for x in raw])]   # 🏛 an established coin's top-10 = exchange / pool wallets, not a failed scan
-        rows = [r for r in rows if r.get('mint') in held_m or _ag.under_cap(r)]   # 🎯 under $3M market cap only (coins on the card stay: their exits still run)
+        rows = [r for r in rows if r.get('mint') in held_m or _ag.in_lane(r)]   # 🗑 under $1M AND ≤ 24h old only (coins on the card stay: their exits still run)
         # 🧠 the human read: who is calling each coin on Pump and what they write, the narratives hot on the board, the lingo they use
         calls_ = _pump_calls.get('calls') or []
         by_m = {}

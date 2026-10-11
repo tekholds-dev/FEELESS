@@ -1297,13 +1297,22 @@ def stage_of(age_h):
     return None if age_h is None else next(k for k, top in AGE_STAGES if _f(age_h) < top)
 
 
-AGENT_MAX_MCAP = 3_000_000.0   # 🎯 owner, 2026-10-11: "less than 3mil mc" — the agents trade launches under $3M market cap only
+AGENT_MAX_MCAP = 1_000_000.0   # 🎯 owner, 2026-10-11: "only less than 1mil mc now!!! ONLY" (was $3M an hour earlier)
+AGENT_MAX_AGE_H = 24.0         # 🗑 and NEW launches: "still going for the safest coins" — the old flat coins best-available kept filling seats with
 
 
 def under_cap(row, cap=AGENT_MAX_MCAP):
     """Is this coin under the agents' market-cap line? An unknown cap is kept (a launch seconds old may not carry one yet)."""
     mc = (row or {}).get('mcap')
     return mc is None or _f(mc) <= 0 or _f(mc) < _f(cap)
+
+
+def in_lane(row, cap=AGENT_MAX_MCAP, max_age_h=AGENT_MAX_AGE_H):
+    """🗑 THE AGENTS' HUNTING GROUND: under the market-cap line AND launched within `max_age_h` (a known age — an unknown one could be a
+    year-old coin). Nothing else is read, so no door — GO, cleared case, best available, switch — can fall back to an old flat coin.
+    Every safety check (holder scan, rug meter, pool, chase / falling) still decides inside the lane."""
+    a = (row or {}).get('ageH')
+    return under_cap(row, cap) and a is not None and 0 <= _f(a) <= _f(max_age_h)
 
 
 def view_rows(table, top=24, young=24, young_h=6.0):
