@@ -326,6 +326,19 @@ export function Roster({ o, sel, onSel }) {
         <span className="ofr-rtag" data-tip={word}>{tag}</span></button>; })}</div></div>;
 }
 
+// 🖱 what a click on any object in the room does — one pure function (tested without WebGL): a seat → its live position / the empty seat's
+// reason · a wall board → the view with its numbers · a case file → its coin at the desk it stands at · the wall monitor → the coin on it ·
+// a bot / desk / monitor → that agent. No object in the room is a decorative click.
+export function routePick(u, model, seatData, cb) {
+  const c = cb || {};
+  if (u.kind === 'seat') { const d = seatData ? seatData(u.seat) : null; if (c.seat) c.seat(d?.sb || (d?.symbol ? { symbol: d.symbol } : { empty: true })); else if (d?.symbol) { if (c.coin) c.coin(d.symbol); if (c.sel) c.sel('reaper'); } return 'seat'; }
+  if (u.kind === 'board') { if (c.board) c.board(u.board); return 'board'; }
+  if (u.kind === 'case') { if (c.coin) c.coin(u.sym); if (c.sel) c.sel(u.at); return 'case'; }
+  if (u.kind === 'wall') { const w = model?.wall; if (w?.symbol && c.coin) c.coin(w.symbol); if (c.sel) c.sel(w?.kind === 'position' ? 'reaper' : model?.focus || 'tally'); return 'wall'; }
+  if (u.k) { if (c.sel) c.sel(u.k); return u.kind === 'monitor' ? 'monitor' : 'bot'; }
+  return null;
+}
+
 export const CAMS = [['main', 'Main'], ['card', 'Card'], ['top', 'Top'], ['focus', 'Focus']];
 const pref = { get: (k, d) => { try { return localStorage.getItem(k) || d; } catch (e) { return d; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* private window */ } } };
 

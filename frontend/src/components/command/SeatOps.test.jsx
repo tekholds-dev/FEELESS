@@ -91,3 +91,21 @@ test('clicking an open seat opens the Seats view with its reason; a held seat op
   const panel = await mount(<AgentPanel o={O} a={O.agents.find(x => x.key === 'tally')} coin={null} onCoin={() => {}} tabReq={{ tab: 'seats', at: 1 }} />);
   expect(q(panel, 'pane-seats')).not.toBeNull();
 });
+
+test('every object in the 3D room routes its click to real data — bot, monitor, case file, seat, wall monitor, wall board', () => {
+  const { routePick } = require('./OfficeRoom');
+  const got = [];
+  const cb = { sel: k => got.push(['sel', k]), coin: c => got.push(['coin', c]), seat: x => got.push(['seat', x.symbol || (x.empty ? 'EMPTY' : '?')]), board: b => got.push(['board', b]) };
+  const model = { wall: { symbol: 'CAND', kind: 'case' }, focus: 'trigger' };
+  const seats = [{ symbol: 'ACME', sb: { symbol: 'ACME', seat: 1 } }, { symbol: null, sb: { empty: true, seat: 2 } }];
+  expect(routePick({ k: 'devil', kind: 'bot' }, model, null, cb)).toBe('bot');
+  expect(routePick({ k: 'reaper', kind: 'monitor' }, model, null, cb)).toBe('monitor');
+  expect(routePick({ kind: 'case', sym: 'C3', at: 'warden' }, model, null, cb)).toBe('case');
+  expect(routePick({ kind: 'seat', seat: 0 }, model, i => seats[i], cb)).toBe('seat');
+  expect(routePick({ kind: 'seat', seat: 1 }, model, i => seats[i], cb)).toBe('seat');
+  expect(routePick({ kind: 'wall' }, model, null, cb)).toBe('wall');
+  expect(routePick({ kind: 'board', board: 'limits' }, model, null, cb)).toBe('board');
+  expect(routePick({ kind: 'board', board: 'pipeline' }, model, null, cb)).toBe('board');
+  expect(routePick({}, model, null, cb)).toBeNull();
+  expect(got).toEqual([['sel', 'devil'], ['sel', 'reaper'], ['coin', 'C3'], ['sel', 'warden'], ['seat', 'ACME'], ['seat', 'EMPTY'], ['coin', 'CAND'], ['sel', 'trigger'], ['board', 'limits'], ['board', 'pipeline']]);
+});

@@ -136,3 +136,10 @@ def test_two_callers_share_one_board_build(monkeypatch):
         return await asyncio.gather(rs._runner_live(), rs._runner_live())
     a, b = asyncio.run(both())
     assert len(built) == 1 and {'rows': ['old']} in (a, b)                                   # the second caller read the last board while one build ran
+
+
+def test_a_deep_review_always_says_why_the_coin_was_due():
+    import reputation_service as rs
+    assert rs._deep_bucket('never deep-reviewed') == 'first look' and rs._deep_bucket('was not rejected') == 'not rejected'
+    assert rs._deep_bucket('changed: price +6.0%') == 'news' and rs._deep_bucket('cooldown over') == 'cooldown over'
+    assert rs.OFFICE_CANDLE_CASES + rs.OFFICE_CANDLE_NEW <= 30                                # deep review stays selective

@@ -6,7 +6,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
-import { AG, ACT_FX, candleGeom } from './OfficeRoom';
+import { AG, ACT_FX, candleGeom, routePick } from './OfficeRoom';
 
 // 🏢 THE CONTROL ROOM in real 3D (three.js, own lazy chunk). It draws ONLY the room model (`roomModel(o)` in OfficeRoom.jsx) — no model,
 // nothing drawn; nothing in here invents a value.
@@ -377,12 +377,8 @@ export default function OfficeRoom3D({ model, onSel, onCoin, onSeat, onBoard, ca
     const onMove = e => { const o = pick(e); hover = o?.userData?.k || null; renderer.domElement.style.cursor = o ? 'pointer' : 'default'; const el = tip.current; if (!el) return;
       if (o?.userData?.tip) { const rc = host.getBoundingClientRect(); el.textContent = o.userData.tip; el.style.transform = `translate(${Math.min(e.clientX - rc.left + 14, rc.width - 260)}px, ${e.clientY - rc.top + 14}px)`; el.style.opacity = '1'; } else el.style.opacity = '0'; };
     const onLeave = () => { hover = null; if (tip.current) tip.current.style.opacity = '0'; };
-    const onClick = e => { const o = pick(e); if (!o) return; const u = o.userData || {};
-      if (u.kind === 'seat') { const d = slots[u.seat]?.data; if (onSeatRef.current) onSeatRef.current(d?.sb || (d?.symbol ? { symbol: d.symbol } : { empty: true })); else if (d?.symbol) { onCoinRef.current && onCoinRef.current(d.symbol); onSelRef.current('reaper'); } }
-      else if (u.kind === 'board') { if (onBoardRef.current) onBoardRef.current(u.board); }
-      else if (u.kind === 'case') { onCoinRef.current && onCoinRef.current(u.sym); onSelRef.current(u.at); }
-      else if (u.kind === 'wall') { const w = mRef.current?.wall; if (w?.symbol) onCoinRef.current && onCoinRef.current(w.symbol); onSelRef.current(w?.kind === 'position' ? 'reaper' : mRef.current?.focus || 'tally'); }
-      else if (u.k) onSelRef.current(u.k); };
+    const onClick = e => { const o = pick(e); if (!o) return;
+      routePick(o.userData || {}, mRef.current, i => slots[i]?.data, { sel: onSelRef.current, coin: onCoinRef.current, seat: onSeatRef.current, board: onBoardRef.current }); };
     renderer.domElement.addEventListener('pointermove', onMove); renderer.domElement.addEventListener('pointerleave', onLeave); renderer.domElement.addEventListener('click', onClick);
     const labs = host.querySelector('.or3-labels'); st.forEach(s => { s.lab = labs?.children[s.i]; });
 

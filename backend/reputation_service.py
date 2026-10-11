@@ -12315,10 +12315,25 @@ async def _agents_tick(now):
         # requests, cached), Tally's own tape for everything else. Every desk reads that one object.
         held_ = {l.get('mint'): l.get('pairAddress') for l in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(tid_r or '', {}).get('legs') or [] if l.get('mint') and not l.get('placeholder')}
         seen_mem = _office.get('seen') or {}
-        top_ = {c_['mint']: c_['pair'] for c_ in [c_ for c_ in _ag.investigate(_agents.get('table'), set(held_), 0, {}, top=40) if _oe.review_due(seen_mem.get(c_['mint']), now)[0]][:OFFICE_CANDLE_CASES]}   # ♻ a rejected coin with nothing new is not re-reviewed: the slot goes to a coin with news
+        # 🔬 DEEP REVIEW (real 1-min candles) = the top of the ranked bench first, then the strongest reads — but a rejected coin with nothing new
+        # is not re-reviewed (its slot goes to a coin with news); each pick records WHY it was due (never reviewed · material change · cooldown over)
+        cand_c = _ag.investigate(_agents.get('table'), set(held_), 0, {}, top=60)
+        rank_ = {b_.get('mint'): i_ for i_, b_ in enumerate(_agents.get('bench') or [])}
+        cand_c.sort(key=lambda c_: (rank_.get(c_['mint'], 999), not c_.get('cleared'), -_fuse._f(c_.get('lean'))))
+        why_ = {}
+        top_ = {}
+        for c_ in cand_c:
+            due_, w_ = _oe.review_due(seen_mem.get(c_['mint']), now)
+            if due_ and len(top_) < OFFICE_CANDLE_CASES:
+                top_[c_['mint']] = c_['pair']; b_ = _deep_bucket(w_); why_[b_] = why_.get(b_, 0) + 1
         for x_ in sorted((x_ for x_ in rows if x_.get('ageH') is not None and _fuse._f(x_['ageH']) * 60 <= _md.EARLY_AGE_MIN and _fuse._f(x_.get('vol5m')) >= 1000 and x_.get('pairAddress')),
-                         key=lambda x_: -_fuse._f(x_.get('vol5m')))[:OFFICE_CANDLE_NEW]:   # 🐣 deep review for the busiest NEWBORNS too: their few real candles are their evidence
-            top_.setdefault(x_['mint'], x_['pairAddress'])
+                         key=lambda x_: -_fuse._f(x_.get('vol5m'))):   # 🐣 deep review for the busiest NEWBORNS too: their few real candles are their evidence (cooldown applies)
+            if len([m_ for m_ in top_ if m_ not in {c_['mint'] for c_ in cand_c}]) >= OFFICE_CANDLE_NEW:
+                break
+            due_, w_ = _oe.review_due(seen_mem.get(x_['mint']), now)
+            if due_ and x_['mint'] not in top_:
+                top_[x_['mint']] = x_['pairAddress']; b_ = _deep_bucket(w_); why_[b_] = why_.get(b_, 0) + 1
+        _office['deepWhy'] = why_
         _office['deepNow'] = [m_ for m_ in top_ if m_ not in held_]   # this pass's DEEP reviews (real candles) — held coins are re-read every pass anyway
         cmap_ = await _office_candles({**top_, **held_}, now)
         flows_ = {p_: w_ for p_, (at_, w_) in list(_flow_now.items()) if w_ and now - _fuse._f(at_) <= 90}
@@ -12383,10 +12398,6 @@ async def _agents_tick(now):
             _intake_after(table, _ag.investigate(table, set(), _ag.min_age_of(rcfg_), st.get('burned') or {}, top=0), now)
         except Exception as e:
             print('intake after:', e)
-        try:   # 🔁 ONE LINE PER ~60s CYCLE: what the office looked at, what it found, what each seat did, how fresh every input was
-            _office_cycle_log(table, now)
-        except Exception as e:
-            print('cycle log:', e)
         try:   # 🔁 EVERY SEAT, EVERY CYCLE: with Agent Control on, a pass that is not followed by a tier tick within 30s wakes one — each held seat
             # gets a fresh HOLD / PROTECT / TAKE / EXIT / SWAP stamped on THIS pass's read (the same tick that would have run anyway, earlier)
             if (rcfg_.get('agentControl') and _is_keeper() and not os.environ.get('PYTEST_CURRENT_TEST') and now - _fuse._f(_office.get('tickAt')) > 30
@@ -12424,6 +12435,10 @@ async def _agents_tick(now):
             asyncio.ensure_future(_research_tick(_ag.investigate(table, set(), 0, st.get('burned') or {}, top=12), rows_by_, now))
         except Exception as e:
             print('research start:', e)
+        try:   # 🔁 ONE LINE PER ~60s CYCLE: what the office looked at, what it found, what each seat did, how fresh every input was
+            _office_cycle_log(table, now)
+        except Exception as e:
+            print('cycle log:', e)
         try:   # 🕵 the duty's case files on disk each pass (read-only snapshot: what cleared, what blocked each coin)
             dv_ = _agents['view'].get('duty') or {}
             _json_save(DATA_DIR / 'agents_duty.json', {'at': now, 'on': dv_.get('on'), 'cleared': dv_.get('cleared'), 'dutyAt': dv_.get('at'),
@@ -12444,8 +12459,13 @@ import market_data as _md
 import office_edge as _oe
 import seat_ops as _so
 OFFICE_CANDLE_TTL = 50.0    # one read of a coin's 1-minute candles serves every desk for the whole pass (and the tier ticks until the next one)
-OFFICE_CANDLE_CASES = 10    # real candles for the held coins + the strongest cases; every other coin is read from Tally's own tape (no request at all)
-OFFICE_CANDLE_NEW = 4       # … + the busiest launches under ~20 min old (local candles service, one request per pool, 50s cache)
+def _deep_bucket(why):
+    """Why a coin got a deep review, as one bucket: first look · not rejected last time · news (a material change) · cooldown over."""
+    return 'first look' if why == 'never deep-reviewed' else 'not rejected' if why == 'was not rejected' else 'news' if str(why).startswith('changed') else 'cooldown over'
+
+
+OFFICE_CANDLE_CASES = 18    # real candles for the held coins + the top of the bench / strongest cases; every other coin is read from Tally's own tape (no request at all)
+OFFICE_CANDLE_NEW = 6       # … + the busiest launches under ~20 min old (local candles service, one request per pool, 50s cache)
 
 
 async def _office_candles(want, now):
@@ -12705,17 +12725,19 @@ def _office_cycle_log(table, now):
     top5 = [c_.get('symbol') for c_ in cases[:5]]
     newin = [x_.get('symbol') for x_ in table if 'new' in (x_.get('intake') or []) and x_.get('ageH') is not None and _fuse._f(x_['ageH']) <= 1 and x_.get('mint') not in set(prev.get('mints') or [])]
     reviewed = set(_office.get('deepNow') or [])
-    repeats = [m_ for m_ in reviewed if (seen.get(m_) or {}).get('reject') and not _oe.review_due(seen.get(m_), now - 1)[0]]
+    dw = _office.get('deepWhy') or {}
+    repeats = [k_ for k_ in dw if k_ in ('news', 'cooldown over')]   # deep re-reviews of a REJECTED coin: only on news or after the cooldown (never every pass)
+    _office['passN'] = int(_office.get('passN') or 0) + 1
     cooled = sum(1 for e_ in seen.values() if e_.get('reject') and not _oe.review_due(e_, now)[0])
     sb, bench_, summ = _agents.get('seatBoard') or [], _agents.get('bench') or [], _agents.get('seatSummary') or {}
     soc = _social.get('last') or {}
-    line = {'n': cy.get('n'), 'at': now, 'board': it.get('board'), 'cheap': it.get('screened'), 'unique': len({x_.get('mint') for x_ in table}), 'newLaunches': it.get('newLaunches'),
+    line = {'n': _office['passN'], 'at': now, 'deepWhy': dw, 'board': it.get('board'), 'cheap': it.get('screened'), 'unique': len({x_.get('mint') for x_ in table}), 'newLaunches': it.get('newLaunches'),
             'newEntering': newin[:6], 'deep': len(reviewed), 'deepCoins': [((next((x_ for x_ in table if x_.get('mint') == m_), {}) or {}).get('symbol')) for m_ in list(reviewed)[:6]], 'scans': len((_office.get('scans') or {}).get('asked') or []) if _fuse._f((_office.get('scans') or {}).get('at')) >= now - 5 else 0,
             'social': None if not soc or _fuse._f(soc.get('at')) < _fuse._f(prev.get('at')) else len(soc.get('coins') or []), 'socialCoins': [c_.get('symbol') for c_ in soc.get('coins') or []][:4] if soc and _fuse._f(soc.get('at')) >= _fuse._f(prev.get('at')) else [],
             'cases': cy.get('cases'), 'cleared': cy.get('cleared'), 'occupancy': summ.get('occupancy'), 'target': summ.get('target'), 'bench': summ.get('bench'), 'benchReady': summ.get('benchReady'),
             'best': None if not bench_ else {'symbol': bench_[0].get('symbol'), 'score': bench_[0].get('score'), 'ready': bench_[0].get('ready'), 'block': bench_[0].get('block')},
             'seats': [{'symbol': x_.get('symbol'), 'result': x_.get('result'), 'vel': x_.get('vel'), 'pct': x_.get('pct')} if not x_.get('empty') else {'empty': True, 'code': x_.get('code'), 'next': (x_.get('next') or {}).get('symbol')} for x_ in sb],
-            'top5': top5, 'top5Changed': None if not prev.get('top5') else len(set(top5) - set(prev.get('top5') or [])), 'repeats': len(repeats), 'cooled': cooled,
+            'top5': top5, 'top5Changed': None if not prev.get('top5') else len(set(top5) - set(prev.get('top5') or [])), 'repeats': sum(dw[k_] for k_ in repeats), 'cooled': cooled,
             'fresh': _office_fresh(now), 'buysLeft': summ.get('buysLeft'), 'mints': [x_.get('mint') for x_ in table],
             'intake': {k_: v_ for k_, v_ in (_intake.get('cycle') or {}).items()}, 'pulseNew': ((_intake.get('last') or {}).get('newBy') or {}).get('pulse'),
             'outletRows': (_office.get('intake') or {}).get('outletRows'), 'util': (_agents.get('util') or {}).get('all')}
