@@ -92,3 +92,13 @@ def test_a_lane_launch_seat_is_a_trench_leg_for_the_keeper():
     old = ap.agent_seat(card, {**row, 'trench': False}, {}, {'coins': 4}, 1000.0)
     assert 'trench' not in old['legs'][0]
     assert ag.CONTROL_MIN_LIQ == 10_000   # above the keeper's own trench floor ($8K): a seat the agents take is not refused for its pool
+
+
+def test_seat_floor_live_check_allows_a_choppy_chart_but_never_a_fall():
+    row, mkt = {'px': 1.0}, {'px': 1.01}
+    chop = {'state': 'CHOP', 'src': 'candles', 'entry': ['SKIP', 'E1 bad structure', 'CHOP'], 'f': {'stepN': 30, 'volCv': 0.4}, 'risk': [0.5]}
+    assert oe.live_check(row, mkt, chop, 1.0, near=True)['ok'] is False                 # best available: a SKIP chart still blocks
+    assert oe.live_check(row, mkt, chop, 1.0, near=True, floor=True)['ok'] is True       # the seat floor may take a choppy chart
+    assert oe.live_check(row, {'px': 0.85}, chop, 1.0, near=True, floor=True)['ok'] is False   # … never one falling since the read
+    ladder = {**chop, 'state': 'BOT LADDER', 'entry': ['SKIP', 'E0b bot ladder', '']}
+    assert oe.live_check(row, mkt, ladder, 1.0, near=True, floor=True)['ok'] is False

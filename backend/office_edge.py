@@ -911,7 +911,7 @@ def cycle_view(intake_, table, cases, charts, first, now, last_at, every, n_cycl
 LIVE_CHASE, LIVE_FALL = 15.0, -8.0   # since the case was read: up more than this = chasing, down more than this = falling (Trigger's own hard lines)
 
 
-def live_check(row, mkt, chart, now, near=False):
+def live_check(row, mkt, chart, now, near=False, floor=False):
     """May this cleared case still be bought RIGHT NOW? `row` = the case as read in its agent pass ({px, at}), `mkt` = the shared market
     state ({px, pxAt, liq, tapeAt, flow}), `chart` = the newest shared chart (rebuilt when a new real candle landed — no rediscovery).
     → {ok, why, px, move, pxAge, chartState, entry}. A move past Trigger's own lines since the read, a fresh chart that no longer says
@@ -926,7 +926,7 @@ def live_check(row, mkt, chart, now, near=False):
         return {**out, 'ok': False, 'why': f'{move:+.1f}% since the read — not chased'}
     if move is not None and move < LIVE_FALL:
         return {**out, 'ok': False, 'why': f'{move:+.1f}% since the read — falling'}
-    if ent and ent[0] != 'ENTER NOW' and (ent[0] == 'SKIP' or (ch.get('src') == 'candles' and not near)):
+    if ent and ent[0] != 'ENTER NOW' and ((ent[0] == 'SKIP' and not (floor and ch.get('state') == 'CHOP')) or (ch.get('src') == 'candles' and not near)):   # 🪑 the seat floor may take a choppy chart (no direction ≠ danger)
         return {**out, 'ok': False, 'why': f"the newest chart says {ent[0]}: {ent[2] if len(ent) > 2 else ''}".strip()}
     fl_ = ch.get('f') or {}
     if near and (ch.get('src') != 'candles' or int(_f(fl_.get('stepN'))) < _ci.LADDER_MIN or fl_.get('volCv') is None):

@@ -9726,7 +9726,7 @@ async def _prime_tick_inner(now):
             near0_ = [] if pol_['manual'] or not empty_n else [r_ for r_ in _oe.near_ready([c_ for c_ in cases_ if c_['mint'] not in cool and c_['mint'] not in lost_ and c_['mint'] not in on_n and c_['mint'] not in gw_m and not _fw.dollar_named(c_.get('symbol'))], scores_)][:empty_n + 2]
             if empty_n and not pol_['manual'] and len(near0_) < empty_n:   # 🪑 no seat stays empty: the seat floor tops the list up (hard safety only)
                 skip_f = set(cool) | set(lost_) | set(on_n) | set(gw_m) | {t_['mint'] for t_ in near0_} | set((_json_load(AGENTS_PATH, {}).get('burned') or {}).keys())
-                near0_ = near0_ + [t_ for t_ in _oe.floor_ready(_agents.get('table'), skip_f) if not _fw.dollar_named(t_.get('symbol'))][:empty_n - len(near0_) + 2]
+                near0_ = near0_ + [t_ for t_ in _oe.floor_ready(_agents.get('table'), skip_f) if not _fw.dollar_named(t_.get('symbol'))][:empty_n - len(near0_) + 8]   # deep enough that coins failing the live check hand the seat to the next ones
             near_m = {t_['mint'] for t_ in near0_}
             near_ = []
             try:
@@ -9735,7 +9735,7 @@ async def _prime_tick_inner(now):
                 if cand_ or held_p:
                     await _jup_prices([t_['mint'] for t_ in cand_] + list(held_p))
                     await _office_candle_refresh({**held_p, **{t_['mint']: t_['pair'] for t_ in cand_}}, now)
-                live_ = {t_['mint']: _oe.live_check(t_, _mkt_view(t_['mint'], t_['pair'], now), _office['charts'].get(t_['mint']), now, near=t_['mint'] in near_m) for t_ in cand_}
+                live_ = {t_['mint']: _oe.live_check(t_, _mkt_view(t_['mint'], t_['pair'], now), _office['charts'].get(t_['mint']), now, near=t_['mint'] in near_m, floor=bool(t_.get('floor'))) for t_ in cand_}
                 moved_ = [{'symbol': t_['symbol'], **live_[t_['mint']]} for t_ in cand_ if not live_[t_['mint']]['ok'] and t_['mint'] not in near_m]
                 gos_ = [{**t_, 'px': live_[t_['mint']]['px']} if t_['mint'] in live_ else t_ for t_ in gos_ if t_['mint'] not in live_ or live_[t_['mint']]['ok']]
                 wait_ = [{**t_, 'px': live_[t_['mint']]['px']} if t_['mint'] in live_ else t_ for t_ in wait_ if t_['mint'] not in live_ or live_[t_['mint']]['ok']]
