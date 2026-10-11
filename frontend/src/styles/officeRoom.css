@@ -178,3 +178,12 @@ body.theme-day .ofr-final.is-go em, body.theme-day .ofr-final.is-cleared em { co
 .ofr-policy tr.is-you { background: color-mix(in srgb, #f5c451 6%, transparent); } .ofr-policy td b { color: var(--m-text); }
 .ofr-launch { display: flex; flex-wrap: wrap; gap: 3px 8px; align-items: baseline; margin: 0; font: 10.5px var(--m-mono); } .ofr-launch b { color: #c2a8ff; } .ofr-launch span { color: var(--m-dim); } .ofr-launch u { flex-basis: 100%; text-decoration: none; font-size: 9px; color: var(--m-mute); }
 body.theme-day .ofr-policy td.is-you, body.theme-day .ofr-policy th.is-you { color: #946a00; } body.theme-day .ofr-policy td.is-agents, body.theme-day .ofr-policy th.is-agents { color: #135d86; } body.theme-day .ofr-count { color: #6b3fbf; }
+/* 🔍 close-up of one screen in the 3D room */
+.or3-zoom { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 5px 6px 5px 12px; border-radius: 999px;
+  background: rgba(2, 10, 8, .9); border: 1px solid var(--m-line-hi); font: 700 11px var(--m-mono); color: #e6fff0; z-index: 4; animation: ofrZoom .18s ease-out; max-width: calc(100% - 24px); }
+.or3-zoom span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.or3.is-zoom .or3-labels { display: none; }
+.or3-zoom .m-btn { padding: 4px 10px; font-size: 10.5px; }
+@keyframes ofrZoom { from { transform: translate(-50%, -6px); } to { transform: translate(-50%, 0); } }
+@media (prefers-reduced-motion: reduce) { .or3-zoom { animation: none; } }
+body.theme-day .or3-zoom { background: rgba(236, 246, 240, .95); color: #0b2a1a; }

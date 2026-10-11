@@ -69,7 +69,7 @@ def _ctx(**kw):
 
 
 def test_an_empty_seat_takes_the_best_available_only_after_it_waited_and_only_when_nothing_cleared():
-    assert oe.fill_plan(_ctx(emptyFor=30)) == []                                                  # too soon: the entry moment may still come
+    assert oe.fill_plan(_ctx(emptyFor=10)) == []                                                  # too soon: the entry moment may still come
     assert [r['mint'] for r in oe.fill_plan(_ctx(emptyFor=oe.NEAR_PATIENCE_SEC))] == ['N1', 'N2', 'N3', 'N4']   # 2 seats + 2 fallbacks
     assert [r['mint'] for r in oe.fill_plan(_ctx(emptyFor=999, gos=[{'mint': 'GO'}]))] == ['GO']  # a real GO always first, near-ready never mixed in
     assert oe.fill_plan(_ctx(emptyFor=999, pol={'entry': 'go'})) == []                            # the creator's "GO only" stands
@@ -134,7 +134,7 @@ def test_the_hourly_budget_counts_real_buys_not_seats_that_never_bought():
     import inspect
     import reputation_service as rs
     src = inspect.getsource(rs._prime_tick_inner)
-    assert src.count('_oe.real_buys(') == 2 and "e.get('move') in ('fill', 'swap') and now -" not in src
+    assert src.count('_oe.real_buys(') >= 2 and "e.get('move') in ('fill', 'swap') and now -" not in src
 
 
 def test_best_available_has_its_own_live_check_the_entry_moment_may_wait_a_broken_chart_may_not():
@@ -162,7 +162,7 @@ def test_time_exits_wait_while_the_buy_budget_is_used_safety_exits_never_do():
     assert 'buy budget' in r_[0]['deferred'] and 'deferred' not in r_[1]
     import inspect
     import reputation_service as rs
-    assert 'moves_ - open_n' in inspect.getsource(rs._prime_tick_inner)                            # the open seats take the free buys first
+    assert 'fills_left_ - open_n' in inspect.getsource(rs._prime_tick_inner)                            # the open seats take the free buys first
 
 
 def test_a_deferred_time_exit_reads_hold_on_the_seat_board():

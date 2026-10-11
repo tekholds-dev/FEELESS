@@ -208,7 +208,7 @@ def seat_state(ctx):
     if c.get('courier') == 'BAD':
         return out('NO VALID ENTRY', 'COURIER BLOCK', 'COURIER BLOCK — Courier reads execution BAD (an EXECUTION BLOCK until the keeper lands again)')
     if int(_f(c.get('movesLeft'))) <= 0:
-        return out('NO VALID ENTRY', 'BUY BUDGET', f'BUY BUDGET — hourly budget used ({_ag.CONTROL_MOVES_HR} real buys an hour); churn is not the goal')
+        return out('NO VALID ENTRY', 'BUY BUDGET', f"BUY BUDGET — the hourly budget of {int(_f(c.get('movesHr')) or _ag.FILL_MOVES_HR)} empty-seat fills is used (a runaway guard)")
     if _f(c.get('freeUsd')) < max(0.05, _f(c.get('minUsd'))):
         return out('NO VALID ENTRY', 'NO CASH', f"NO CASH — ${_f(c.get('freeUsd')):.2f} free card cash")
     n = len(c.get('cases') or [])
@@ -254,14 +254,15 @@ def fill_plan(ctx):
     Courier reads execution BAD or once the hourly buy budget is used. Every try still goes through the Warden and the existing keeper path."""
     c = ctx or {}
     pol = c.get('pol') or {}
+    cap = int(_f(c.get('cap')) or _ag.CONTROL_MOVES_HR)   # the service hands the FILL guard (agents.FILL_MOVES_HR); switches keep CONTROL_MOVES_HR
     if (not c.get('control') or pol.get('manual') or not c.get('live') or c.get('halt') or c.get('courier') == 'BAD'
-            or int(_f(c.get('used'))) >= _ag.CONTROL_MOVES_HR or int(_f(c.get('empty'))) <= 0):
+            or int(_f(c.get('used'))) >= cap or int(_f(c.get('empty'))) <= 0):
         return []
     # 🪑🪑🪑🪑 every open seat may take its OWN cleared case in the same cycle (best score first, one coin per seat — never the whole system
     # serialised behind one coin); the hourly buy budget, the Warden and `agent_seat` (one seat per coin) still decide each try
     # + up to 3 fallbacks: a candidate the Warden vetoes (or that fails its last check) hands the seat to the NEXT ranked one in the same tick
     duty = list(c.get('wait') or [])[:max(1, int(_f(c.get('empty')))) + 3] if may_fill({'go': False}, pol, c.get('emptySince'), _f(c.get('now')), _f(c.get('lastFill'))) else []
-    left = max(0, _ag.CONTROL_MOVES_HR - int(_f(c.get('used'))))
+    left = max(0, cap - int(_f(c.get('used'))))
     plan = list(c.get('gos') or []) + duty
     if not plan and not c.get('wait') and c.get('near') and _f(c.get('emptyFor')) >= NEAR_PATIENCE_SEC and pol.get('entry') != 'go':   # 🪑 nothing cleared and the seat waited: the best near-ready coin
         plan = list(c['near'])[:max(1, int(_f(c.get('empty')))) + 2]
@@ -272,7 +273,7 @@ def fill_plan(ctx):
 BUY_LAND_SEC = 180     # a seat filled this recently may still be landing its buy: it counts until the ledger says otherwise
 
 
-def real_buys(events, ledger, card, now, window=3600.0):
+def real_buys(events, ledger, card, now, window=3600.0, moves=('fill', 'swap')):
     """How many of the agents' fills / switches in the last hour were REAL buys (`CONTROL_MOVES_HR` is "6 real buys an hour"): a move counts
     when the keeper's ledger has a FILLED buy of that coin for this card at / after it, or while its buy may still be landing
     (≤ BUY_LAND_SEC); a move whose coin never got a buy (the seat went back to cash) is not a buy. A move without a coin id counts (safe side).
@@ -287,7 +288,7 @@ def real_buys(events, ledger, card, now, window=3600.0):
             filled.setdefault(r['mint'], []).append(_f(r.get('at')))
     n = 0
     for e in events or []:
-        if e.get('kind') != 'agent' or e.get('move') not in ('fill', 'swap') or _f(e.get('at')) < t0:
+        if e.get('kind') != 'agent' or e.get('move') not in moves or _f(e.get('at')) < t0:
             continue
         m, at = e.get('mint'), _f(e.get('at'))
         if not m or any(x >= at - 5 for x in filled.get(m, ())) or _f(now) - at <= BUY_LAND_SEC:
@@ -296,7 +297,7 @@ def real_buys(events, ledger, card, now, window=3600.0):
 
 
 # ── 🪑 BEST AVAILABLE: an empty seat does not wait forever on the entry moment ───────────────────────────────────────────────────────
-NEAR_PATIENCE_SEC = 90       # a seat empty this long with NOTHING cleared takes the best near-ready coin …
+NEAR_PATIENCE_SEC = 30       # a seat empty this long with NOTHING cleared takes the best near-ready coin (owner: "30 secs to choose") …
 NEAR_MIN_SCORE = 40.0        # … scoring at least this (seat_ops.score) …
 NEAR_SOFT = ('chart', 'data')   # … whose ONLY open checks are the entry moment / ENTER-grade data — every safety check passed
 
@@ -878,6 +879,8 @@ def live_check(row, mkt, chart, now, near=False):
         return {**out, 'ok': False, 'why': f'{move:+.1f}% since the read — falling'}
     if ent and ent[0] != 'ENTER NOW' and (ent[0] == 'SKIP' or (ch.get('src') == 'candles' and not near)):
         return {**out, 'ok': False, 'why': f"the newest chart says {ent[0]}: {ent[2] if len(ent) > 2 else ''}".strip()}
+    if near and ch.get('src') != 'candles':   # 🤖 best available needs a REAL-candle read: only real candles show a bot ladder (a tape cannot)
+        return {**out, 'ok': False, 'why': 'no real 1-minute candles read yet — best available waits for them'}
     if near and (ch.get('state') == _ci.DATA_INVALID or (ch.get('q') or {}).get('readOk') is False or _f((ch.get('risk') or [1.0])[0]) <= 0):
         return {**out, 'ok': False, 'why': f"the newest chart turned against it ({ch.get('state')})"}   # 🪑 best available: the entry moment may wait, a broken chart may not
     liq0, liq = _f(((r.get('nums') or {}).get('liq'))), _f(m.get('liq'))

@@ -27,12 +27,19 @@ STOP_FLOOR = 8.0   # the tightest a normal stop may be
 CATASTROPHIC_STOP = 45.0   # 🧱 the hard ceiling: a position down this much is closed whatever any learned / promoted setting says. Not a tunable.
 
 STATES = ('STRONG UPTREND', 'UPTREND', 'PULLBACK IN UPTREND', 'BREAKOUT ATTEMPT', 'CONFIRMED BREAKOUT', 'ACCUMULATION', 'COMPRESSION', 'RANGE', 'CHOP',
-          'DISTRIBUTION', 'DOWNTREND', 'LIQUIDITY FAILURE', 'PARABOLIC', 'FAILED BREAKOUT', 'EARLY', 'UNKNOWN', 'DATA INVALID')
+          'DISTRIBUTION', 'DOWNTREND', 'LIQUIDITY FAILURE', 'PARABOLIC', 'FAILED BREAKOUT', 'BOT LADDER', 'EARLY', 'UNKNOWN', 'DATA INVALID')
 EARLY_MIN = 3      # 🐣 a newborn with EARLY_MIN … MIN_BARS−1 real candles reads as EARLY: the structure it has so far, never "no chart"
 EARLY_CHASE, EARLY_RUN, EARLY_FADE = 15.0, 40.0, -8.0   # last candle %, move since the first open %, the fade that is a SKIP
 DATA_INVALID = 'DATA INVALID'   # 🧪 the rows failed Tally's integrity gate: NOT a structure, NOT a bad coin — nothing is inferred, nothing is sold on it
 GOOD = ('STRONG UPTREND', 'UPTREND', 'PULLBACK IN UPTREND', 'CONFIRMED BREAKOUT')          # the thesis of a long still stands
-BAD = ('DOWNTREND', 'LIQUIDITY FAILURE', 'FAILED BREAKOUT', 'DISTRIBUTION', 'CHOP')        # it does not
+BAD = ('DOWNTREND', 'LIQUIDITY FAILURE', 'FAILED BREAKOUT', 'DISTRIBUTION', 'CHOP', 'BOT LADDER')        # it does not
+# 🤖 BOT LADDER = one bot trading a coin with itself (owner, 2026-10-11: "obviously a wash / rug chart"): nearly every candle moves the SAME
+# step (a fixed-size order against a thin pool) and every minute trades about the same $. Measured live: $ROAR / $DOTF / $CATE / $AORP
+# 97–100% of candles within ±25% of one step, minute-volume spread 0.18–0.27 of its mean (~$120 a minute each); every real chart in the
+# same sample ≤ 55% and ≥ 0.32. Real candles only (a tape has no ranges).
+LADDER_STEPS, LADDER_VOL_CV, LADDER_MIN, LADDER_FLIPS = 0.8, 0.5, 15, 0.3   # … and it trades BOTH ways (the live ladders flip direction 41–52% of candles)
+LADDER_STEP_LO, LADDER_STEP_HI = 0.05, 5.0
+LADDER_VOL_FLAT = 0.02   # a volume figure that never changes (spread < 2%) is a filled value, not trades — not judged
 BULL = GOOD + ('BREAKOUT ATTEMPT', 'ACCUMULATION')
 ENTRY_CALLS = ('ENTER NOW', 'WAIT FOR PULLBACK', 'WAIT FOR BREAKOUT', 'WAIT FOR CONFIRMATION', 'WAIT FOR DATA', 'SKIP')
 
@@ -154,6 +161,16 @@ def snapshot(rows, now=0.0, ohlc=True, buy=None, liq=None, liq_d=None, flow=None
     r5 = _ret(c, 5)
     z = (r5 if r5 is not None else (c[-1] / c[0] - 1) * 100) / (vol * math.sqrt(5) + 0.05)
     vv = [_f(x) for x in v if x is not None]
+    mv_ = sorted((h[i] - l[i]) / l[i] * 100 for i in range(n) if l[i] > 0 and h[i] > l[i])   # 🤖 the step each candle moved
+    step_ = mv_[len(mv_) // 2] if mv_ else None
+    vp_ = [x for x in vv if x > 0]
+    vmean_ = sum(vp_) / len(vp_) if vp_ else 0.0
+    dir_ = [1 if c[i] > o[i] else -1 for i in range(n) if c[i] != o[i]]
+    f.update(
+        flips=round(sum(1 for a, b in zip(dir_, dir_[1:]) if a != b) / (len(dir_) - 1), 3) if len(dir_) >= 3 else None,
+        steps=round(sum(1 for x in mv_ if 0.75 * step_ <= x <= 1.25 * step_) / len(mv_), 3) if ohlc and len(mv_) >= LADDER_MIN and step_ else None,
+        stepPct=round(step_, 3) if step_ else None, stepN=len(mv_),
+        volCv=round(math.sqrt(sum((x - vmean_) ** 2 for x in vp_) / len(vp_)) / vmean_, 3) if len(vp_) >= 10 and vmean_ > 0 else None)
     f.update(
         px=px, open=o[0], high=hi, low=lo, close=px,
         r1=_ret(c, 1), r5=r5, r10=_ret(c, 10), r15=_ret(c, 15), r30=_ret(c, 30) if n > 30 else _ret(c, n - 1) if n >= 25 else None, r60=None,
@@ -179,6 +196,18 @@ def snapshot(rows, now=0.0, ohlc=True, buy=None, liq=None, liq_d=None, flow=None
         impact=None if not (seat_usd and liq and _f(liq) > 0) else round(_f(seat_usd) / (_f(liq) / 2) * 100, 3))
     f['decay'] = bool(f['accel'] is not None and f['accel'] < 0 and (r5 or 0) > 0)
     return f
+
+
+def ladder(f):
+    """🤖 One bot trading the coin with itself: ≥ LADDER_STEPS of the moving candles within ±25% of one step, minute volume nearly flat."""
+    f = f or {}
+    return bool(f.get('ohlc') and f.get('steps') is not None and _f(f['steps']) >= LADDER_STEPS and f.get('volCv') is not None
+                and LADDER_VOL_FLAT < _f(f['volCv']) <= LADDER_VOL_CV and LADDER_STEP_LO <= _f(f.get('stepPct')) <= LADDER_STEP_HI and _f(f.get('flips')) >= LADDER_FLIPS)
+
+
+def ladder_words(f):
+    return (f"{round(_f(f.get('steps')) * 100)}% of {f.get('stepN')} candles move the same {_f(f.get('stepPct')):.2f}% step and every minute trades about "
+            f"the same $ (spread {_f(f.get('volCv')):.2f}) — one bot trading it with itself, not buyers")
 
 
 def classify(f):
@@ -207,6 +236,8 @@ def classify(f):
     conf = lambda s: round(_clamp(min(1.0, n / 20) * (0.5 + 0.5 * s) * (1.0 if f.get('ohlc') else 0.8), 0.05, 0.99), 2)
     if (f.get('liqD') is not None and _f(f['liqD']) <= LIQ_FAIL_DROP) or (f.get('liq') and 0 < _f(f['liq']) < LIQ_FAIL_MIN):
         return 'LIQUIDITY FAILURE', ev, [f"pool {_f(f.get('liqD')):+.0f}% on our tape, ${_f(f.get('liq')) / 1000:.1f}K left"] + con, conf(0.9)
+    if ladder(f):
+        return 'BOT LADDER', ev, [ladder_words(f)] + con, conf(0.9)
     if r5 >= PARABOLIC_5M or (_f(f['ext']) >= PARABOLIC_EXT and r5 >= 12) or (f['up'] >= 5 and r5 >= 15):
         return 'PARABOLIC', ev + [f"{r5:+.0f}% in 5 min, extension {f['ext']:.0f}/100, {f['up']} green in a row"], con, conf(0.9)
     if f['base'] and f['breakFailed'] and f['seq'][-1:] == 'R':
@@ -247,6 +278,8 @@ def entry_call(f, state):
         if e['move'] >= 0 and e['green'] * 2 >= e['n']:
             return 'ENTER NOW', 'E13 early stage', f"{e['n']} real candles, {e['move']:+.1f}% since launch, {e['green']} green — early evidence, half size"
         return 'WAIT FOR CONFIRMATION', 'E13e no direction (early)', f"{e['move']:+.1f}% since launch, {e['green']} of {e['n']} green"
+    if state == 'BOT LADDER':
+        return 'SKIP', 'E0b bot ladder', ladder_words(f)
     if state == 'UNKNOWN':
         return 'WAIT FOR CONFIRMATION', 'E0 no chart', f"only {int(_f((f or {}).get('n')))} candles — structure cannot be read yet"
     if state in ('LIQUIDITY FAILURE', 'DOWNTREND', 'CHOP', 'DISTRIBUTION', 'FAILED BREAKOUT'):
@@ -283,7 +316,7 @@ def entry_call(f, state):
 
 
 # ⚖ Devil's chart rules: (hard?, what). A soft one stands only while its own objection record does not show it blocking winners.
-CHART_RULES = {'data_integrity': (True, 'the market data failed its integrity check'), 'chart_parabolic': (True, 'parabolic extension'), 'chart_fake_breakout': (True, 'the breakout failed'), 'chart_liq_div': (True, 'liquidity falling while price rises'),
+CHART_RULES = {'data_integrity': (True, 'the market data failed its integrity check'), 'chart_bot_ladder': (True, 'one bot trading it with itself'), 'chart_parabolic': (True, 'parabolic extension'), 'chart_fake_breakout': (True, 'the breakout failed'), 'chart_liq_div': (True, 'liquidity falling while price rises'),
                'chart_chop': (True, 'chop disguised as a trend'), 'chart_top': (False, 'buying the top'), 'chart_lower_high': (False, 'a lower high is forming'),
                'chart_divergence': (False, 'flow is not confirming price'), 'chart_wick': (False, 'heavy wick rejection'), 'chart_thin': (False, 'the rise rests on very few trades'),
                'chart_young': (False, 'the trend is too young'), 'chart_late': (False, 'late: most of the move already happened')}
@@ -295,6 +328,8 @@ def objections(f, state):
     if not f or f.get('trend') is None:
         return out
     r5 = _f(f.get('r5'))
+    if state == 'BOT LADDER':
+        out.append(('chart_bot_ladder', f"bot ladder: {ladder_words(f)}"))
     if state == 'PARABOLIC':
         out.append(('chart_parabolic', f"parabolic: {r5:+.0f}% in 5 min, extension {f['ext']:.0f}/100"))
     if state == 'FAILED BREAKOUT':
@@ -324,6 +359,8 @@ def risk(f, state):
     """🛡 Chart risk as a size multiplier ≤ 1 → (mult, why). It never returns more than 1."""
     if state == DATA_INVALID:
         return 0.0, 'market data failed its integrity check — no size'
+    if state == 'BOT LADDER':
+        return 0.0, 'BOT LADDER: one bot trading it with itself — no size'
     if not f or state == 'UNKNOWN':
         return 0.5, 'structure unknown — half size'
     if state == 'EARLY':
@@ -407,8 +444,8 @@ def review(th, chart, pct, held_min, granted=None):
         return {**out, 'verdict': 'unknown', 'why': ['no chart this pass — the thesis cannot be checked']}
     inv, px = _f((th or {}).get('invalidation')), _f(f.get('px'))
     why = []
-    if state == 'LIQUIDITY FAILURE':
-        return {**out, 'verdict': 'invalid', 'why': [f'{state} — the thesis ({(th or {}).get("structure")}) is gone']}
+    if state in ('LIQUIDITY FAILURE', 'BOT LADDER'):
+        return {**out, 'verdict': 'invalid', 'why': [f'{state} — the thesis ({(th or {}).get("structure")}) is gone' + (f": {ladder_words(f)}" if state == 'BOT LADDER' else '')]}
     # a FAILED BREAKOUT label alone is one candle back under the old high — it invalidates only once price is under the thesis's own
     # invalidation level (2026-10-10, first hour live: $FPES and $USWR were bought and sold flat inside 4 minutes on the label alone)
     if inv and px and px < inv and state in BAD:

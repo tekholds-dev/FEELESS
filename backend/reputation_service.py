@@ -8221,6 +8221,9 @@ async def _flow_settle(now):
         print('flow settle:', e)
 
 
+SEAT_HEARTBEAT_SEC = 25   # an empty agent seat gets a tier tick at least this often (the 30-second seat decision needs a tick to run in)
+
+
 async def _real_guard_loop():
     """⚡ FAST GUARD for real-money cards: every ~10s ONE batched Jupiter price read for the coins a real card holds; a coin at
     its stop / instant-swap line (or a rider off its trail) wakes the tier tick at once instead of waiting for the next
@@ -8235,6 +8238,15 @@ async def _real_guard_loop():
                 cards = [c for c in cards_all if not c.get('holdAll')]
                 agents_c = [c for c in cards_all if c.get('holdAll')]
                 mints = [l.get('mint') for c in cards_all for l in c.get('legs') or [] if l.get('mint') and not _prime.safe_anchor(l)]
+                try:   # 🪑 EMPTY-SEAT HEARTBEAT (owner: "no seat should be empty, 30 secs to choose"): while an agent seat is empty the tier tick runs at
+                    # least every SEAT_HEARTBEAT_SEC, so the 30-second decision (cleared → best available) happens on time; the tick decides, nothing else
+                    now_h, seat_h = time.time(), _agents.get('seat') or {}
+                    if (agents_c and seat_h.get('empty') and seat_h.get('movesLeft') and not _prime_tick_lock.locked()
+                            and now_h - _fuse._f(_office.get('tickAt')) >= SEAT_HEARTBEAT_SEC and now_h - _fuse._f(_office.get('heartAt')) >= SEAT_HEARTBEAT_SEC):
+                        _office['heartAt'] = now_h; _office['heartbeats'] = int(_office.get('heartbeats') or 0) + 1
+                        asyncio.ensure_future(_prime_tick(now_h))
+                except Exception as e:
+                    print('seat heartbeat:', e)
                 if mints:
                     for m in [l.get('mint') for c in cards for l in c.get('legs') or [] if l.get('mint') and not _prime.safe_anchor(l)]:
                         _jup_px_cache.pop(m, None)   # a FRESH read for the ENGINE's stops (the shared 20s cache is too slow for a stop) — the agents' seats ride the shared cache (Reaper's ticks act on them; no extra Jupiter calls)
@@ -9592,7 +9604,8 @@ async def _prime_tick_inner(now):
         rd_ = _oe.ready(_office['boot'], now)
         if ctl_:
             cur['agentWant'] = pol_['seats']
-        moves_ = max(0, _ag.CONTROL_MOVES_HR - _oe.real_buys(cur.get('events'), _fw_full_ledger(), tid, now)) if ctl_ else None   # 🧮 real buys only
+        moves_ = max(0, _ag.CONTROL_MOVES_HR - _oe.real_buys(cur.get('events'), _fw_full_ledger(), tid, now, moves=('swap',))) if ctl_ else None   # 🧮 SWITCHES (real buys only)
+        fills_left_ = max(0, _ag.FILL_MOVES_HR - _oe.real_buys(cur.get('events'), _fw_full_ledger(), tid, now, moves=('fill',))) if ctl_ else None   # 🪑 empty-seat fills
         if real_t and cur and (ctl_ or (((cfg_t.get('agentFeed') and (_agents.get('view') or {}).get('feed')) or cfg_t.get('agentLearn')) and not cur.get('holdAll'))) and not cur.get('flooredAt'):
             # 🕙 THE 10-MINUTE DUTY (in control): they investigate the board and their best CLEARED coin goes on the card — an empty seat first,
             # else the seat of a coin whose read broke, else the weakest coin that is not winning. One duty move per DUTY_SEC, inside the budget.
@@ -9627,7 +9640,7 @@ async def _prime_tick_inner(now):
                               scores=scores_ if ctl_ and scores_ else None, vels=vels_ or None)
             # 🪑 a time exit needs a buy to spare AFTER the empty seats are filled (the open seats take the free buys first)
             open_n = max(0, int(_fuse._f((pol_ or {}).get('seats'))) - len([l for l in cur.get('legs') or [] if not (l.get('placeholder') and not l.get('manualCash'))]))
-            dec_ = _office_reap(cur, px, cfg_t, ctl_, now, dec_, pol_, rd_['live'], vels_, margins_, None if moves_ is None else moves_ - open_n)   # ☠ Reaper's exit requests join the SAME decision list (it has no path of its own)
+            dec_ = _office_reap(cur, px, cfg_t, ctl_, now, dec_, pol_, rd_['live'], vels_, margins_, None if fills_left_ is None else fills_left_ - open_n)   # ☠ Reaper's exit requests join the SAME decision list (it has no path of its own)
             if ctl_:   # ⇄ the live switching evaluation the page shows: the strongest cleared challenger against the weakest held coin (display only — `manage` decided)
                 try:
                     by_ = {x_['mint']: x_ for x_ in _agents.get('table') or []}
@@ -9676,7 +9689,7 @@ async def _prime_tick_inner(now):
                 except ValueError:
                     continue
         if ctl_:   # 🎮 their coin for every empty seat — only `eligible` GO coins, never one cooling / dollar-named, inside the hourly budget
-            used_ = _oe.real_buys(cur.get('events'), _fw_full_ledger(), tid, now)   # 🧮 real buys only: a seat that never bought is not a buy
+            used_ = _oe.real_buys(cur.get('events'), _fw_full_ledger(), tid, now, moves=('fill',))   # 🪑 empty-seat fills (real buys only: a seat that never bought is not a buy)
             on_ = {l.get('mint') for l in cur.get('legs') or []}
             # an empty seat: a full 🟢 GO fills it at once; otherwise the duty's best cleared case fills ONE seat when the 10 minutes are up
             lost2_ = {m_ for m_, at_ in (_office_state().get('lostAt') or {}).items() if now - _fuse._f(at_) < _oe.FAILED_SEC}
@@ -9729,15 +9742,15 @@ async def _prime_tick_inner(now):
             every_ = sorted(b_ - a_ for a_, b_ in zip(tk_, tk_[1:]))[len(tk_) // 2 - 1] if len(tk_) >= 3 else 50.0
             bk_ = ((_fw_load().get('books') or {}).get(tid) or {}) if real_t else {}
             cooled_ = [c_ for c_ in cases_ if c_['cleared'] and (c_['mint'] in cool or c_['mint'] in lost_)]   # cleared, but left the card lately: the rebuy cooldown holds it
-            seat_ctx_ = {'want': pol_['seats'], 'held': held_n, 'cases': [c_ for c_ in cases_ if c_ not in cooled_] if ctl_ else [], 'valid': valid_, 'movesLeft': _ag.CONTROL_MOVES_HR - used_, 'courier': (_office.get('courier') or {}).get('health'),
+            seat_ctx_ = {'want': pol_['seats'], 'held': held_n, 'cases': [c_ for c_ in cases_ if c_ not in cooled_] if ctl_ else [], 'valid': valid_, 'movesLeft': _ag.FILL_MOVES_HR - used_, 'movesHr': _ag.FILL_MOVES_HR, 'courier': (_office.get('courier') or {}).get('health'),
                          'manual': pol_['manual'], 'live': rd_['live'], 'readyWhy': rd_['why'], 'freeUsd': free_, 'minUsd': max(0.05, _fuse._f(cfg_t.get('minOrderUsd'))), 'emptySince': cur.get('agentEmptyAt'), 'target': pol_['seatTarget'], 'now': now, 'nextTickIn': min(every_, pol_['seatTarget']),
                          'control': True, 'halt': (bk_.get('haltWhy') or 'halted') if bk_.get('halt') else None, 'cooled': [c_.get('symbol') for c_ in cooled_], 'moved': moved_,
                          'timerIn': 0 if gos_ or not empty_n else max(0.0, _fuse._f(pol_['seatTarget']) - (now - _fuse._f(cur.get('agentFillAt'))))}
             vetoed_ = 0
             plan_ = _oe.fill_plan({'control': True, 'pol': pol_, 'live': rd_['live'], 'halt': seat_ctx_['halt'], 'courier': seat_ctx_['courier'], 'used': used_, 'gos': gos_, 'wait': wait_,
-                                   'empty': empty_n, 'emptySince': cur.get('agentEmptyAt'), 'lastFill': cur.get('agentFillAt'), 'now': now, 'near': near_, 'emptyFor': empty_for_})
+                                   'empty': empty_n, 'emptySince': cur.get('agentEmptyAt'), 'lastFill': cur.get('agentFillAt'), 'now': now, 'near': near_, 'emptyFor': empty_for_, 'cap': _ag.FILL_MOVES_HR})
             for t_ in plan_:   # 🔌 no fill until the office is LIVE after a restart · never while the keeper is halted or the Courier reads BAD
-                if used_ >= _ag.CONTROL_MOVES_HR:
+                if used_ >= _ag.FILL_MOVES_HR:
                     break
                 try:
                     wd_ = _office_warden(cur, t_, _prime.agent_seat_usd(cur, px, cfg_s), cfg_t, now, 'fill')   # 🛡 sizes THIS seat: it can lower or veto, never raise
@@ -9764,7 +9777,7 @@ async def _prime_tick_inner(now):
                     break
             held_n = len([l for l in cur.get('legs') or [] if not (l.get('placeholder') and not l.get('manualCash'))])   # 🪑 the seat truth AFTER this tick's fills
             _agents['seat'] = {**_oe.seat_state({**seat_ctx_, 'held': held_n, 'vetoed': vetoed_, 'valid': [t_ for t_ in valid_ if t_['mint'] not in {l.get('mint') for l in cur.get('legs') or []}] if held_n < pol_['seats'] else valid_}),
-                               'at': now, 'tickEvery': round(every_, 1), 'movesLeft': max(0, _ag.CONTROL_MOVES_HR - used_), 'freeUsd': round(max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd'))), 2)}
+                               'at': now, 'tickEvery': round(every_, 1), 'movesLeft': max(0, _ag.FILL_MOVES_HR - used_), 'freeUsd': round(max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd'))), 2)}
             _agents['card'] = _ag.card_seats(cur, _agents.get('decisions'), px, cfg_t, take=_of.take_line(cfg_t, _agents.get('scalp')))
             try:   # 🪑 THE BENCH + EVERY SEAT THIS CYCLE (display — the decisions above were made by manage / Reaper / fill_plan)
                 on2_ = {l.get('mint') for l in cur.get('legs') or [] if l.get('mint')}
@@ -9773,7 +9786,8 @@ async def _prime_tick_inner(now):
                 _agents['bench'] = bench_
                 _agents['seatBoard'] = _so.seat_board((_agents['card'] or {}).get('seats'), _office.get('reports'), _agents.get('decisions'), vels_, scores_, bench_,
                                                       _agents.get('switchTests'), now, now, inp_, _agents.get('seat'), pol_['switch'].get('mode'))
-                _agents['seatSummary'] = _so.summary(held_n, pol_['seats'], bench_, used_, _ag.CONTROL_MOVES_HR, max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd'))))
+                _agents['seatSummary'] = {**_so.summary(held_n, pol_['seats'], bench_, used_, _ag.FILL_MOVES_HR, max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd')))),
+                                          'hunt': list(_so.universe(_agents.get('money')))}   # 🧭 what the seats hunt in this phase
                 _agents['seatScores'] = {m_: v_ for m_, v_ in scores_.items() if m_ in on2_ or m_ in {b_['mint'] for b_ in bench_}}
                 bs_ = _so.bench_stats(bench_, (_agents.get('benchStats') or {}).get('mints'))
                 _agents['benchStats'] = bs_
@@ -12339,13 +12353,15 @@ async def _agents_tick(now):
         cand_c.sort(key=lambda c_: (rank_.get(c_['mint'], 999), not c_.get('cleared'), -_fuse._f(c_.get('lean'))))
         why_ = {}
         top_ = {}
+        uni_d = _so.universe(_agents.get('money'))[0]   # 🧭 recovery: more of the deep reviews go to YOUNG coins (≤ 6h), the buyable trench
+        n_cases_, n_new_, young_min_ = (OFFICE_CANDLE_CASES - 4, OFFICE_CANDLE_NEW + 4, _so.YOUNG_H * 60) if uni_d == 'trench' else (OFFICE_CANDLE_CASES, OFFICE_CANDLE_NEW, _md.EARLY_AGE_MIN)
         for c_ in cand_c:
             due_, w_ = _oe.review_due(seen_mem.get(c_['mint']), now)
-            if due_ and len(top_) < OFFICE_CANDLE_CASES:
+            if due_ and len(top_) < n_cases_:
                 top_[c_['mint']] = c_['pair']; b_ = _deep_bucket(w_); why_[b_] = why_.get(b_, 0) + 1
-        for x_ in sorted((x_ for x_ in rows if x_.get('ageH') is not None and _fuse._f(x_['ageH']) * 60 <= _md.EARLY_AGE_MIN and _fuse._f(x_.get('vol5m')) >= 1000 and x_.get('pairAddress')),
+        for x_ in sorted((x_ for x_ in rows if x_.get('ageH') is not None and _fuse._f(x_['ageH']) * 60 <= young_min_ and _fuse._f(x_.get('vol5m')) >= 1000 and x_.get('pairAddress')),
                          key=lambda x_: -_fuse._f(x_.get('vol5m'))):   # 🐣 deep review for the busiest NEWBORNS too: their few real candles are their evidence (cooldown applies)
-            if len([m_ for m_ in top_ if m_ not in {c_['mint'] for c_ in cand_c}]) >= OFFICE_CANDLE_NEW:
+            if len([m_ for m_ in top_ if m_ not in {c_['mint'] for c_ in cand_c}]) >= n_new_:
                 break
             due_, w_ = _oe.review_due(seen_mem.get(x_['mint']), now)
             if due_ and x_['mint'] not in top_:
@@ -12569,19 +12585,20 @@ def _office_scores(cases, cur, vels, lost, now):
     market state's price age, the per-coin memory (stale reject), a thesis that failed on real money, the research packet, and — for a held
     seat — its P/L velocity and Reaper's thesis verdict. Nothing fetched."""
     seen, soc = _office.get('seen') or {}, _social_cache() or {}
+    uni_ = _so.universe(_agents.get('money'))[0]   # 🧭 recovery → new coins first · ≥ 2× → majors first (a tilt, never a check)
     by = {x_.get('mint'): x_ for x_ in _agents.get('table') or []}
     verd = {r_.get('mint'): r_.get('verdict') for r_ in _office.get('reports') or []}
     out = {}
     for c_ in cases or []:
         m = c_.get('mint')
         v_ = _mkt_view(m, c_.get('pair'), now)
-        out[m] = _so.score(c_.get('row'), {'pxAge': None if not v_.get('pxAt') else now - _fuse._f(v_['pxAt']), 'seen': seen.get(m), 'lost': m in (lost or ()), 'social': soc.get(m)})
+        out[m] = _so.score(c_.get('row'), {'pxAge': None if not v_.get('pxAt') else now - _fuse._f(v_['pxAt']), 'seen': seen.get(m), 'lost': m in (lost or ()), 'social': soc.get(m), 'universe': uni_})
     for l in cur.get('legs') or []:
         m = l.get('mint')
         if not m or l.get('placeholder') or m not in by:
             continue   # a held coin off the table has no read this pass: unscored (the switch test falls back to the lean margin)
         v_ = _mkt_view(m, l.get('pairAddress'), now)
-        out[m] = _so.score(by[m], {'pxAge': None if not v_.get('pxAt') else now - _fuse._f(v_['pxAt']), 'social': soc.get(m), 'vel': (vels or {}).get(m) or {'state': 'UNKNOWN'}, 'verdict': verd.get(m)})
+        out[m] = _so.score(by[m], {'pxAge': None if not v_.get('pxAt') else now - _fuse._f(v_['pxAt']), 'social': soc.get(m), 'vel': (vels or {}).get(m) or {'state': 'UNKNOWN'}, 'verdict': verd.get(m), 'universe': uni_})
     return out
 
 
@@ -13047,7 +13064,7 @@ def _office_light(tid, cur, now):
         p['positions'] = _office_positions()
         p['mission'] = {**p['mission'], 'lastAction': last, 'dutyAt': _office['dutyAt']}
         p['seat'], p['switchEval'], p['ready'] = _agents.get('seat'), _agents.get('switchEval'), _oe.ready(_office['boot'], now)
-        p['ops'] = _oe.ops(p['ready'], p['seat'], _office.get('courier'), _is_keeper())
+        p['ops'] = _oe.ops(p['ready'], p['seat'], _office.get('courier'), _is_keeper(), _ag.FILL_MOVES_HR)
         p['cycle'] = {**(_office.get('cycle') or {}), 'nextIn': max(0, round(_fuse._f((_office.get('cycle') or {}).get('at')) + AGENTS_EVERY - now)) if _office.get('cycle') else None}
         p['seatActions'] = _oe.seat_actions(((_agents.get('card') or {}).get('seats')), _agents.get('decisions'), _agents.get('switchEval'), _agents.get('seat'))
         p.update(_office_seat_payload())
@@ -13222,7 +13239,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
                         'speed': {**_oe.speed_view(of.get('speed')), 'seatWakes': int(_office.get('seatWakes') or 0), 'tickEvery': (_agents.get('seat') or {}).get('tickEvery')},
                         'candles': {**_office['candleStat'], 'tape': sum(1 for c_ in _office['charts'].values() if c_.get('src') == 'tape'), 'real': sum(1 for c_ in _office['charts'].values() if c_.get('src') == 'candles')}},
     }
-    _office['payload']['ops'] = _oe.ops(_office['payload']['ready'], _office['payload']['seat'], _office.get('courier'), _is_keeper())
+    _office['payload']['ops'] = _oe.ops(_office['payload']['ready'], _office['payload']['seat'], _office.get('courier'), _is_keeper(), _ag.FILL_MOVES_HR)
     _office['payload']['cycle'] = {**(_office.get('cycle') or {}), 'nextIn': AGENTS_EVERY}
     _office['payload']['seatActions'] = _oe.seat_actions(((_agents.get('card') or {}).get('seats')), _agents.get('decisions'), _agents.get('switchEval'), _agents.get('seat'))
     _office['payload'].update(_office_seat_payload())

@@ -82,7 +82,7 @@ export function OfficePipeline({ pipe, cur, agents, onPick, sel }) {
 // 📈 the chart-intelligence box: the structure state + its measured evidence, four scores, what Trigger / Devil / Warden made of it.
 // Every word is a field of the shared snapshot (`backend/chart_intel.py`); nothing is derived here.
 export const STRUCT_CLS = { 'STRONG UPTREND': 'is-pass', UPTREND: 'is-pass', 'PULLBACK IN UPTREND': 'is-pass', 'CONFIRMED BREAKOUT': 'is-pass', 'BREAKOUT ATTEMPT': 'is-work', ACCUMULATION: 'is-work', COMPRESSION: 'is-wait', RANGE: 'is-wait',
-  UNKNOWN: 'is-wait', 'DATA INVALID': 'is-veto', CHOP: 'is-veto', DISTRIBUTION: 'is-veto', DOWNTREND: 'is-veto', 'LIQUIDITY FAILURE': 'is-veto', 'FAILED BREAKOUT': 'is-veto', PARABOLIC: 'is-obj' };
+  UNKNOWN: 'is-wait', 'DATA INVALID': 'is-veto', CHOP: 'is-veto', DISTRIBUTION: 'is-veto', DOWNTREND: 'is-veto', 'LIQUIDITY FAILURE': 'is-veto', 'FAILED BREAKOUT': 'is-veto', 'BOT LADDER': 'is-veto', PARABOLIC: 'is-obj' };
 export const entryCls = call => (call === 'ENTER NOW' ? 'is-pass' : call === 'SKIP' ? 'is-veto' : 'is-obj');
 const Meter = ({ label, v, bad }) => <span className={`ofb-meter ${bad ? 'is-bad' : ''}`} data-testid={`meter-${label}`}><small>{label}</small><em>{v == null ? '—' : `${Math.round(v)}`}<u>/100</u></em><b aria-hidden><i style={{ transform: `scaleX(${v == null ? 0 : Math.max(0.02, Math.min(1, v / 100))})` }} /></b></span>;
 const money = v => (v == null ? '—' : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Number(v).toFixed(0)}`);

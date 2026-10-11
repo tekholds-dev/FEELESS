@@ -109,6 +109,8 @@ def chart_quality(chart):
     st, q = ch.get('state'), ch.get('q') or {}
     if not st or st == 'UNKNOWN':
         return None, 'no chart read this pass' if not st else 'structure unknown — not judged'
+    if st == 'BOT LADDER':
+        return 'INVALID', 'BOT LADDER: one bot trading it with itself'
     if st == 'DATA INVALID' or (q and q.get('readOk') is False):
         return 'INVALID', f"market data {q.get('state') or 'failed its integrity check'}"
     if st == 'EARLY' or q.get('state') == 'LIMITED_HISTORY':
@@ -135,6 +137,48 @@ SCORE_MARGIN = {'agents': 15.0, 'normal': 15.0, 'conservative': 25.0, 'aggressiv
 ACCEL_EXTRA = 15.0      # … and this much more over a position whose P/L is ACCELERATING
 VEL_PTS = {'ACCELERATING': 10, 'STABLE': 3, 'STALLING': -3, 'REVERSING': -10, 'UNKNOWN': 0}
 THESIS_PTS = {'valid': 5, 'weak': -5, 'invalid': -15}
+
+
+# ── 🧭 WHAT THE SEATS HUNT, BY PHASE (owner, 2026-10-11: "new coins mainly — trench — majors etc once we broke even and doubled or
+# playing safe after good profit") ───────────────────────────────────────────────────────────────────────────────────────────────
+UNIVERSE_SAFE_X = 2.0     # ≥ 2× everything put in → majors first (play safe)
+YOUNG_H, OLD_H = 6.0, 72.0
+MAJOR_AGE_H, MAJOR_LIQ = 168.0, 250_000.0
+
+
+def universe(money):
+    """→ (universe, why). 'trench' while the real card is under what was put in (RECOVERY: new coins first) · 'mixed' past breakeven ·
+    'majors' at ≥ UNIVERSE_SAFE_X × put-in (protect it). Unknown money = 'mixed'. A TILT on the seat score only — no check moves."""
+    v, p = _f((money or {}).get('value')), _f((money or {}).get('putIn'))
+    if v <= 0 or p <= 0:
+        return 'mixed', 'no money reading — no phase tilt'
+    if v < p:
+        return 'trench', f"RECOVERY ${v:.2f} of ${p:.2f} put in — new / trench coins first"
+    if v >= UNIVERSE_SAFE_X * p:
+        return 'majors', f"{v / p:.1f}× what was put in — majors first, play safe"
+    return 'mixed', f"past breakeven ({v / p:.2f}×) — new coins and majors both"
+
+
+def universe_pts(row, uni):
+    """The phase tilt for one row → (pts, why) or None."""
+    v, n = (row or {}).get('vitals') or {}, (row or {}).get('nums') or {}
+    age, liq = v.get('ageH'), _f(n.get('liq') or v.get('liq'))
+    if age is None or uni not in ('trench', 'majors'):
+        return None
+    major = _f(age) >= MAJOR_AGE_H and liq >= MAJOR_LIQ
+    if uni == 'trench':
+        if _f(age) <= YOUNG_H:
+            return 12.0, f"{_f(age):.1f}h old — recovery hunts new coins"
+        if _f(age) <= 24:
+            return 6.0, f"{_f(age):.0f}h old — still young"
+        if major or _f(age) >= OLD_H:
+            return -10.0, f"{_f(age) / 24:.0f}d old — recovery hunts new coins, majors come after breakeven"
+        return None
+    if major:
+        return 15.0, f"established ({_f(age) / 24:.0f}d, ${liq / 1000:.0f}K pool) — 2× reached, play safe"
+    if _f(age) < 24:
+        return -15.0, f"{_f(age):.1f}h old — 2× reached: no trench risk"
+    return None
 
 
 def score(row, ctx=None):
@@ -190,6 +234,9 @@ def score(row, ctx=None):
         add('velocity', VEL_PTS.get(st, 0), f"P/L {st.lower()}" + (f" ({c['vel'].get('why')})" if c['vel'].get('why') else ''))
     if c.get('verdict') in THESIS_PTS:
         add('thesis', THESIS_PTS[c['verdict']], f"thesis {c['verdict']}")
+    up_ = universe_pts(r, c.get('universe'))
+    if up_:
+        add('phase', up_[0], up_[1])
     return {'score': round(max(0.0, min(100.0, sum(p[1] for p in parts))), 1), 'parts': parts, 'quality': qw}
 
 

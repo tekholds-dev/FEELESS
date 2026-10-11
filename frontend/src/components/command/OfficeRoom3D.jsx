@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
@@ -44,9 +44,9 @@ export const seatX = (i, n) => (i - (n - 1) / 2) * (n <= 4 ? 1.15 : SEAT_GAP * 0
 export const seatH = pct => (pct == null ? 0.05 : 0.14 + Math.min(1, Math.abs(Number(pct)) / 30) * 0.95);
 const hex = c => new THREE.Color(c || '#4d6a5c');
 
-function tex(w, h, draw) {
-  const c = document.createElement('canvas'); c.width = w; c.height = h; const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
-  t.userData.redraw = (...a) => { const g = c.getContext('2d'); g.clearRect(0, 0, w, h); draw(g, w, h, ...a); t.needsUpdate = true; }; return t;
+function tex(w, h, draw, sc = 1) {   // sc = drawn at sc× resolution (the close-up camera reads it sharp); `draw` keeps its own w × h coordinates
+  const c = document.createElement('canvas'); c.width = Math.round(w * sc); c.height = Math.round(h * sc); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  t.userData.redraw = (...a) => { const g = c.getContext('2d'); g.setTransform(sc, 0, 0, sc, 0, 0); g.clearRect(0, 0, w, h); draw(g, w, h, ...a); t.needsUpdate = true; }; return t;
 }
 function radial() {   // a soft round light pool (the station's rug light) — one texture, tinted per station
   const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); const r = g.createRadialGradient(64, 64, 4, 64, 64, 64);
@@ -223,13 +223,14 @@ export default function OfficeRoom3D({ model, onSel, onCoin, onSeat, onBoard, ca
   mRef.current = model; camRef.current = camMode; rotRef.current = rotate;
   const onSelRef = useRef(onSel); onSelRef.current = onSel; const onCoinRef = useRef(onCoin); onCoinRef.current = onCoin;
   const onSeatRef = useRef(onSeat); onSeatRef.current = onSeat; const onBoardRef = useRef(onBoard); onBoardRef.current = onBoard;
+  const [zoom, setZoom] = useState(null);   // 🔍 a close-up of one wall board / monitor (owner: "can't click board or stuff on wall to see closer")
 
   useEffect(() => {
     const host = box.current; if (!host) return undefined;
     const W = () => host.clientWidth || 900, H = () => host.clientHeight || 480;
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(1.5, window.devicePixelRatio || 1)); renderer.setSize(W(), H());
-    renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.95;
+    renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.85;
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     host.prepend(renderer.domElement); renderer.domElement.className = 'or3-canvas';
     const scene = new THREE.Scene(); scene.background = new THREE.Color(0x020806); scene.fog = new THREE.Fog(0x020806, 30, 54);
@@ -238,12 +239,12 @@ export default function OfficeRoom3D({ model, onSel, onCoin, onSeat, onBoard, ca
     const cam = new THREE.PerspectiveCamera(fovFor(W() / H()), W() / H(), 0.1, 90); const pos = new THREE.Vector3(0, 9.0, 14.8); const look = new THREE.Vector3(0, 1.55, -0.1); cam.position.copy(pos); cam.lookAt(look);
     // ✨ restrained bloom: only what is really lit (screens, LEDs, the neon sign, the flow arrows, the platform's hologram) glows
     const composer = new EffectComposer(renderer); composer.setPixelRatio(Math.min(1.5, window.devicePixelRatio || 1)); composer.setSize(W(), H());
-    composer.addPass(new RenderPass(scene, cam)); const bloom = new UnrealBloomPass(new THREE.Vector2(W(), H()), 0.5, 0.45, 0.9); composer.addPass(bloom); composer.addPass(new OutputPass());
+    composer.addPass(new RenderPass(scene, cam)); const bloom = new UnrealBloomPass(new THREE.Vector2(W(), H()), 0.16, 0.25, 0.97);   // 🌫 owner: "the glow of the atmosphere needs to be down" composer.addPass(bloom); composer.addPass(new OutputPass());
     scene.add(new THREE.HemisphereLight(0xcffff0, 0x06140e, 0.5));
     const key = new THREE.DirectionalLight(0xffffff, 1.0); key.position.set(-6, 14, 10); key.castShadow = true; key.shadow.mapSize.set(2048, 2048);
     Object.assign(key.shadow.camera, { left: -13, right: 13, top: 10, bottom: -10, near: 1, far: 42 }); key.shadow.normalBias = 0.03; key.shadow.radius = 4; scene.add(key);
-    [[Z1 + 0.4, 0xe8fff4], [Z2 + 0.4, 0xd6ffe8]].forEach(([z, c]) => { const sp = new THREE.SpotLight(c, 26, 24, 0.95, 0.8, 1.5); sp.position.set(0, 9.5, z + 1.5); sp.target.position.set(0, 0, z); scene.add(sp); scene.add(sp.target); });   // a light pool over each row
-    [[-6, 0x9fffd0], [0, 0xe8fff4], [6, 0xb8c8ff]].forEach(([x, c]) => { const pl = new THREE.PointLight(c, 18, 14, 1.6); pl.position.set(x, 6.6, -2.4); scene.add(pl); });   // the ceiling rail over the wall screens
+    [[Z1 + 0.4, 0xe8fff4], [Z2 + 0.4, 0xd6ffe8]].forEach(([z, c]) => { const sp = new THREE.SpotLight(c, 20, 24, 0.95, 0.8, 1.5); sp.position.set(0, 9.5, z + 1.5); sp.target.position.set(0, 0, z); scene.add(sp); scene.add(sp.target); });   // a light pool over each row
+    [[-6, 0x9fffd0], [0, 0xe8fff4], [6, 0xb8c8ff]].forEach(([x, c]) => { const pl = new THREE.PointLight(c, 11, 14, 1.6); pl.position.set(x, 6.6, -2.4); scene.add(pl); });   // the ceiling rail over the wall screens
     const M = (c, r = 0.5, m = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m });
     const E = (c, i = 1.4) => new THREE.MeshStandardMaterial({ color: 0, emissive: c, emissiveIntensity: i });
     const box3 = (w, h, dd, mat, x, y, z, cast = true, geo = null) => { const o = new THREE.Mesh(geo || new THREE.BoxGeometry(w, h, dd), mat); o.position.set(x, y, z); o.castShadow = cast; o.receiveShadow = true; scene.add(o); return o; };
@@ -251,43 +252,43 @@ export default function OfficeRoom3D({ model, onSel, onCoin, onSeat, onBoard, ca
     // the room: a glossy tiled floor, a panelled back wall with light rails, two side walls, a ceiling rail of light panels over the wall screens
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(36, 26), new THREE.MeshPhysicalMaterial({ map: floorTex(), color: 0xffffff, roughness: 0.2, metalness: 0.35, clearcoat: 0.8, clearcoatRoughness: 0.22 }));
     floor.rotation.x = -Math.PI / 2; floor.position.z = 3; floor.receiveShadow = true; scene.add(floor);
-    const wallM = M(0x0a1913, 0.78, 0.15); const panelM = M(0x0e2219, 0.55, 0.3); const railE = E(0x45e486, 2.2); const coolE = E(0x4fd8ff, 1.6);
+    const wallM = M(0x0a1913, 0.78, 0.15); const panelM = M(0x0e2219, 0.55, 0.3); const railE = E(0x45e486, 0.8); const coolE = E(0x4fd8ff, 0.55);
     box3(22.4, 7.6, 0.2, wallM, 0, 3.8, WALL - 0.1);
     for (let i = 0; i < 11; i += 1) { const x = -10.2 + i * 2.04; box3(1.9, 6.6, 0.06, panelM, x, 3.6, WALL + 0.02); }   // wall panels
     box3(22.4, 0.06, 0.06, railE, 0, 0.24, WALL + 0.08, false); box3(22.4, 0.06, 0.06, coolE, 0, 7.15, WALL + 0.08, false);
     [-11.2, 11.2].forEach(x => { box3(0.2, 7.6, 15, wallM, x, 3.8, 2.2); box3(0.06, 0.06, 15, railE, x + (x < 0 ? 0.12 : -0.12), 0.24, 2.2, false);
       for (let i = 0; i < 5; i += 1) box3(0.05, 6.4, 2.6, panelM, x + (x < 0 ? 0.13 : -0.13), 3.6, -3.6 + i * 2.9); });
     box3(22.4, 0.3, 2.2, M(0x07120d, 0.6, 0.3), 0, 7.55, WALL + 1.0, false);   // the ceiling soffit over the wall …
-    for (let i = 0; i < 6; i += 1) box3(2.6, 0.04, 0.5, E(0xdfffee, 1.2), -8.4 + i * 3.36, 7.39, WALL + 1.2, false);   // … with its light panels
-    for (let i = 0; i < 12; i += 1) box3(0.035, 6.4, 0.03, E(0x2fe07a, 1.1), -11.22 + i * 2.04, 3.6, WALL + 0.07, false);   // vertical light seams between the wall panels
+    for (let i = 0; i < 6; i += 1) box3(2.6, 0.04, 0.5, E(0xdfffee, 0.55), -8.4 + i * 3.36, 7.39, WALL + 1.2, false);   // … with its light panels
+    for (let i = 0; i < 12; i += 1) box3(0.035, 6.4, 0.03, E(0x2fe07a, 0.35), -11.22 + i * 2.04, 3.6, WALL + 0.07, false);   // vertical light seams between the wall panels
     // the screens: CURRENT CANDIDATE + PIPELINE STATUS on the back wall · the neon sign + your limits on the left wall · new coins per cycle + the switch test on the right
-    const wallT = tex(1400, 640, drawWall); box3(8.1, 3.75, 0.14, M(0x05080b, 0.25, 0.6), -1.7, 4.3, WALL + 0.02, true, RB(8.1, 3.75, 0.14, 0.06));
+    const wallT = tex(1400, 640, drawWall, 1.5); box3(8.1, 3.75, 0.14, M(0x05080b, 0.25, 0.6), -1.7, 4.3, WALL + 0.02, true, RB(8.1, 3.75, 0.14, 0.06));
     const wallP = plane(7.85, 3.59, wallT, -1.7, 4.3, WALL + 0.1, { kind: 'wall' });
-    const statT = tex(512, 336, drawStatus); box3(3.8, 2.55, 0.12, M(0x05080b, 0.25, 0.6), 4.85, 4.55, WALL + 0.02, true, RB(3.8, 2.55, 0.12, 0.05));
+    const statT = tex(512, 336, drawStatus, 2); box3(3.8, 2.55, 0.12, M(0x05080b, 0.25, 0.6), 4.85, 4.55, WALL + 0.02, true, RB(3.8, 2.55, 0.12, 0.05));
     const statP = plane(3.62, 2.38, statT, 4.85, 4.55, WALL + 0.09, { kind: 'board', board: 'pipeline' });
         const sign = tex(900, 560, drawSign); plane(4.6, 2.86, sign, -8.95, 4.85, -3.95, null, 0.9, { transparent: true, depthWrite: false });
-    const limT = tex(640, 300, drawLimits); const limP = plane(3.0, 1.41, limT, -8.9, 2.3, -3.75, { kind: 'board', board: 'limits' }, 0.9);
-    const turnT = tex(560, 330, drawTurnover); const turnP = plane(3.1, 1.83, turnT, 8.95, 4.75, -3.85, { kind: 'board', board: 'pipeline' }, -0.9);
-    const edgeT = tex(512, 300, drawEdge); const edgeP = plane(3.0, 1.76, edgeT, 8.9, 2.35, -3.75, { kind: 'board', board: 'switch' }, -0.9);
+    const limT = tex(640, 300, drawLimits, 2); const limP = plane(3.0, 1.41, limT, -8.9, 2.3, -3.75, { kind: 'board', board: 'limits' }, 0.9);
+    const turnT = tex(560, 330, drawTurnover, 2); const turnP = plane(3.1, 1.83, turnT, 8.95, 4.75, -3.85, { kind: 'board', board: 'pipeline' }, -0.9);
+    const edgeT = tex(512, 300, drawEdge, 2); const edgeP = plane(3.0, 1.76, edgeT, 8.9, 2.35, -3.75, { kind: 'board', board: 'switch' }, -0.9);
     const potM = M(0x1a221e, 0.5, 0.2); const leafM = new THREE.MeshStandardMaterial({ color: 0x1f6b3a, roughness: 0.55, side: THREE.DoubleSide }); const leafG = new THREE.ConeGeometry(0.11, 1.0, 5, 1, true); leafG.translate(0, 0.5, 0);
     [[-10.1, -4.0, 3], [10.1, -4.0, 7], [-10.3, 7.8, 11], [10.3, 7.8, 13]].forEach(([x, z, sd]) => { const pl = makePlant(potM, leafM, leafG, sd); pl.position.set(x, 0, z); pl.scale.setScalar(1.35); scene.add(pl); });
 
     // the ten stations: a black desk with a green under-glow, three monitors (activity · runtime · record), keyboard, an office chair and the desk's robot sitting in it
     const rugT = radial(); const deskTop = new THREE.MeshPhysicalMaterial({ color: 0x0b110f, roughness: 0.22, metalness: 0.45, clearcoat: 1, clearcoatRoughness: 0.15 }); const legM = M(0x1f2a26, 0.3, 0.75);
-    const bezel = new THREE.MeshPhysicalMaterial({ color: 0x05080b, roughness: 0.2, metalness: 0.6, clearcoat: 1 }); const glowE = E(0x15d16a, 2.0); const chairM = new THREE.MeshPhysicalMaterial({ color: 0x0c0f10, roughness: 0.42, metalness: 0.1, clearcoat: 0.4 });
+    const bezel = new THREE.MeshPhysicalMaterial({ color: 0x05080b, roughness: 0.2, metalness: 0.6, clearcoat: 1 }); const glowE = E(0x15d16a, 0.7); const chairM = new THREE.MeshPhysicalMaterial({ color: 0x0c0f10, roughness: 0.42, metalness: 0.1, clearcoat: 0.4 });
     const deskG = RB(2.7, 0.08, 1.05, 0.03); const mainB = RB(1.5, 0.92, 0.05, 0.03); const sideB = RB(1.0, 0.64, 0.04, 0.025); const kbG = RB(0.6, 0.025, 0.2, 0.01);
     const st = (mRef.current?.stations || []).map((s0, i) => { const [x, z] = DESK_AT(i); const k = s0.key; const ag = AG[k];
-      const rugM = new THREE.MeshBasicMaterial({ map: rugT, color: hex(ag), transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false });
+      const rugM = new THREE.MeshBasicMaterial({ map: rugT, color: hex(ag), transparent: true, opacity: 0.05, blending: THREE.AdditiveBlending, depthWrite: false });
       const rug = new THREE.Mesh(new THREE.PlaneGeometry(4.0, 3.0), rugM); rug.rotation.x = -Math.PI / 2; rug.position.set(x, 0.008, z + 0.5); scene.add(rug);
       box3(2.7, 0.08, 1.05, deskTop, x, 0.78, z, true, deskG); box3(2.62, 0.03, 0.03, glowE, x, 0.72, z + 0.5, false);   // the green under-glow
       [-1.28, 1.28].forEach(a => box3(0.06, 0.74, 0.92, legM, x + a, 0.37, z)); box3(2.5, 0.42, 0.04, legM, x, 0.5, z - 0.44);
       box3(0.6, 0.025, 0.2, M(0x0d1412, 0.4, 0.4), x, 0.835, z + 0.22, true, kbG); box3(0.07, 0.02, 0.11, M(0x0d1412, 0.4, 0.4), x + 0.45, 0.83, z + 0.24);
-      const scr = tex(360, 230, drawDesk); box3(1.5, 0.92, 0.05, bezel, x, 1.58, z - 0.28, true, mainB);
+      const scr = tex(360, 230, drawDesk, 2); box3(1.5, 0.92, 0.05, bezel, x, 1.58, z - 0.28, true, mainB);
       const mon = plane(1.42, 0.86, scr, x, 1.58, z - 0.25, { k, kind: 'monitor' }); box3(0.06, 0.4, 0.06, legM, x, 1.0, z - 0.3); box3(0.05, 0.5, 0.05, legM, x - 1.1, 1.05, z - 0.14); box3(0.05, 0.5, 0.05, legM, x + 1.1, 1.05, z - 0.14); box3(0.4, 0.02, 0.22, legM, x, 0.83, z - 0.3);
-      const sideT = tex(220, 170, drawSide); const sg = new THREE.Group(); sg.position.set(x - 1.1, 1.4, z - 0.12); sg.rotation.y = 0.42; scene.add(sg);
+      const sideT = tex(220, 170, drawSide, 2); const sg = new THREE.Group(); sg.position.set(x - 1.1, 1.4, z - 0.12); sg.rotation.y = 0.42; scene.add(sg);
       const sb = new THREE.Mesh(sideB, bezel); sb.castShadow = true; sg.add(sb); const side = new THREE.Mesh(new THREE.PlaneGeometry(0.94, 0.59), new THREE.MeshBasicMaterial({ map: sideT, toneMapped: false })); side.position.z = 0.025; sg.add(side);
       side.userData = { k, kind: 'monitor' };
-      const thirdT = tex(220, 170, drawThird); const tg = new THREE.Group(); tg.position.set(x + 1.1, 1.4, z - 0.12); tg.rotation.y = -0.42; scene.add(tg);
+      const thirdT = tex(220, 170, drawThird, 2); const tg = new THREE.Group(); tg.position.set(x + 1.1, 1.4, z - 0.12); tg.rotation.y = -0.42; scene.add(tg);
       const tb = new THREE.Mesh(sideB, bezel); tb.castShadow = true; tg.add(tb); const third = new THREE.Mesh(new THREE.PlaneGeometry(0.94, 0.59), new THREE.MeshBasicMaterial({ map: thirdT, toneMapped: false })); third.position.z = 0.025; tg.add(third);
       third.userData = { k, kind: 'monitor' };
       const scan = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.04), new THREE.MeshBasicMaterial({ color: hex(ag), transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false })); scan.position.set(x, 1.58, z - 0.24); scene.add(scan);
@@ -300,7 +301,7 @@ export default function OfficeRoom3D({ model, onSel, onCoin, onSeat, onBoard, ca
     // the chain: a glowing arrow between consecutive desks (row 1 left → right, a turn down at the end, row 2 right → left), lit up to the desk the candidate stands at
     const arrowS = new THREE.Shape([new THREE.Vector2(-0.34, -0.07), new THREE.Vector2(0.06, -0.07), new THREE.Vector2(0.06, -0.17), new THREE.Vector2(0.34, 0), new THREE.Vector2(0.06, 0.17), new THREE.Vector2(0.06, 0.07), new THREE.Vector2(-0.34, 0.07)]);
     const arrowG = new THREE.ExtrudeGeometry(arrowS, { depth: 0.05, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.012, bevelSegments: 2 }); arrowG.center();
-    const segs = Array.from({ length: 9 }, (_, i) => { const [xa, za] = DESK_AT(i); const [xb, zb] = DESK_AT(i + 1); const m = E(0x15d16a, 0.9);
+    const segs = Array.from({ length: 9 }, (_, i) => { const [xa, za] = DESK_AT(i); const [xb, zb] = DESK_AT(i + 1); const m = E(0x15d16a, 0.45);
       let p0, p1;
       if (i === 4) { p0 = new THREE.Vector3(xa, 0.07, 0.95); p1 = new THREE.Vector3(xb, 0.07, 0.95); }   // Devil → Warden: the aisle between the rows, on the floor
       else { p0 = new THREE.Vector3(xa + 1.38, 1.05, za + 0.2); p1 = new THREE.Vector3(xb - 1.38, 1.05, zb + 0.2); }
@@ -314,15 +315,15 @@ export default function OfficeRoom3D({ model, onSel, onCoin, onSeat, onBoard, ca
     const plat = new THREE.Mesh(new THREE.CylinderGeometry(2.15, 2.32, 0.26, 6), new THREE.MeshPhysicalMaterial({ color: 0x08130f, roughness: 0.2, metalness: 0.7, clearcoat: 1 })); plat.position.set(PX, 0.13, PZ); plat.rotation.y = Math.PI / 6; plat.receiveShadow = true; plat.castShadow = true; scene.add(plat);
     const edge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.CylinderGeometry(2.15, 2.32, 0.26, 6)), new THREE.LineBasicMaterial({ color: 0x5dff9f })); edge.position.copy(plat.position); edge.rotation.y = Math.PI / 6; scene.add(edge);
     const inner = new THREE.Mesh(new THREE.RingGeometry(1.78, 1.87, 6), new THREE.MeshBasicMaterial({ color: 0x45e486, toneMapped: false, side: THREE.DoubleSide })); inner.rotation.set(-Math.PI / 2, 0, Math.PI / 6); inner.position.set(PX, 0.265, PZ); scene.add(inner);
-    const platT = tex(560, 104, drawPlatform); platT.userData.redraw(null);
+    const platT = tex(560, 104, drawPlatform, 2); platT.userData.redraw(null);
     const platP = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 0.63), new THREE.MeshBasicMaterial({ map: platT, toneMapped: false, transparent: true, opacity: 0.92, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-    platP.position.set(PX, 3.05, PZ - 0.6); platP.rotation.x = -0.32; platP.scale.setScalar(1.25); scene.add(platP);   // the hologram over the card: seats · bench · buys left
-    const holoM = new THREE.MeshBasicMaterial({ color: 0x45e486, transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+    platP.position.set(PX, 3.05, PZ - 0.6); platP.rotation.x = -0.32; platP.scale.setScalar(1.25); platP.userData = { kind: 'holo', tip: 'the real card: seats · bench · buys left — click to look closer' }; scene.add(platP);   // the hologram over the card: seats · bench · buys left
+    const holoM = new THREE.MeshBasicMaterial({ color: 0x45e486, transparent: true, opacity: 0.035, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
     const holo = new THREE.Mesh(new THREE.CylinderGeometry(1.35, 1.8, 2.3, 6, 1, true), holoM); holo.position.set(PX, 1.42, PZ); holo.rotation.y = Math.PI / 6; scene.add(holo);
-    const spot = new THREE.SpotLight(0xd6ffe8, 40, 16, 0.55, 0.7, 1.6); spot.position.set(PX, 8, PZ + 2); spot.target.position.set(PX, 0.3, PZ); scene.add(spot); scene.add(spot.target);
+    const spot = new THREE.SpotLight(0xd6ffe8, 26, 16, 0.55, 0.7, 1.6); spot.position.set(PX, 8, PZ + 2); spot.target.position.set(PX, 0.3, PZ); scene.add(spot); scene.add(spot.target);
     const slots = Array.from({ length: 6 }, (_, i) => { const grp = new THREE.Group(); grp.position.set(PX + seatX(i, 6), 0.24, PZ); scene.add(grp);
       const base = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.38, 0.08, 32), M(0x10221a, 0.35, 0.4)); base.position.y = 0.04; grp.add(base);
-      const colM = new THREE.MeshPhysicalMaterial({ color: 0x45e486, emissive: 0x45e486, emissiveIntensity: 0.55, roughness: 0.18, clearcoat: 1, transparent: true, opacity: 0.92 });
+      const colM = new THREE.MeshPhysicalMaterial({ color: 0x45e486, emissive: 0x45e486, emissiveIntensity: 0.3, roughness: 0.18, clearcoat: 1, transparent: true, opacity: 0.92 });
       const col = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1, 0.3), colM); col.castShadow = true; col.position.y = 0.08; grp.add(col);
       const ringM = E(0x2c4a3c, 1.4); const ring = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.025, 8, 40), ringM); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.09; grp.add(ring);
       const pT = tex(320, 200, drawSeat); const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.94), new THREE.MeshBasicMaterial({ map: pT, toneMapped: false, transparent: true })); grp.add(plate);
@@ -332,7 +333,7 @@ export default function OfficeRoom3D({ model, onSel, onCoin, onSeat, onBoard, ca
     const chalT = tex(320, 140, drawChallenger); const chal = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 0.55), new THREE.MeshBasicMaterial({ map: chalT, toneMapped: false })); chal.visible = false; scene.add(chal);
     const arcM = E(0x45e486, 1.8); let arc = null; let curve = null; const spark = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 12), E(0xffffff, 3)); spark.visible = false; scene.add(spark);
     // the pass's case files, floating over the desk each one stands at (the current candidate under a beam)
-    const caseObjs = []; const beamM = new THREE.MeshBasicMaterial({ color: 0x45e486, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+    const caseObjs = []; const beamM = new THREE.MeshBasicMaterial({ color: 0x45e486, transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
     const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.62, 1, 24, 1, true), beamM); beam.visible = false; scene.add(beam);
 
     let focusI = -1; let wall = null; let baseAt = Date.now() / 1000; let first = true; const clockT = new THREE.Clock();
@@ -341,7 +342,7 @@ export default function OfficeRoom3D({ model, onSel, onCoin, onSeat, onBoard, ca
         if (!first && s.act !== d.act) s.ripAt = t;   // a ripple only when the desk's word REALLY changed between passes
         s.act = d.act; s.color = d.color; s.ringM.emissive.set(d.color); s.ripM.color.set(d.color); s.selR.visible = !!d.selected;
         s.tip = `${d.name} · ${d.act} — ${d.actWhy}`; s.b.g.traverse(o => { o.userData.tip = s.tip; }); s.mon.userData.tip = `${d.name}'s monitor — ${d.line}`; s.side.userData.tip = `${d.name}: ${d.ms != null ? `${d.ms} ms last pass` : 'no pass timed'} · ${d.acc != null ? `${d.acc}% right over ${d.n}` : `${d.n} judged`}`; });
-      segs.forEach((sg, i) => { const on = i < focusI; sg.m.emissive.setHex(on ? 0x5dff9f : 0x15d16a); sg.m.emissiveIntensity = on ? 2.8 : 0.75; sg.o.userData.tip = on ? 'the candidate passed this step' : 'the chain: Tally → … → Judge'; });
+      segs.forEach((sg, i) => { const on = i < focusI; sg.m.emissive.setHex(on ? 0x5dff9f : 0x15d16a); sg.m.emissiveIntensity = on ? 1.5 : 0.35; sg.o.userData.tip = on ? 'the candidate passed this step' : 'the chain: Tally → … → Judge'; });
       turnT.userData.redraw(m.turnover); turnP.userData.tip = `new coins per cycle (intake registry): ${(m.turnover || []).filter(r => r && r[1] != null).map(r => r[1]).join(' · ') || 'none counted yet'} — click for the intake + cycle log`;
       statT.userData.redraw(m.status); wallT.userData.redraw(wall, 0); sign.userData.redraw(m.ready); limT.userData.redraw(m.limits, m.ready); edgeT.userData.redraw(m.swap, m.missed); platT.userData.redraw(m.summary);
       statP.userData.tip = `pipeline: ${(m.status || []).map(([n, l]) => `${n} ${l}`).join(' · ')} — click for the seats + cycle log`; limP.userData.tip = `your limits — ${m.limits?.manual ? 'CREATOR MANUAL' : 'agents choose inside them'} · click to open them`;
@@ -371,14 +372,30 @@ export default function OfficeRoom3D({ model, onSel, onCoin, onSeat, onBoard, ca
 
     // 🖱 hover tooltips + clicks: a bot or a monitor → that desk · a case file → its coin + its desk · a seat → its coin (Reaper) · the wall → the coin on it
     const ray = new THREE.Raycaster(); const ptr = new THREE.Vector2(); let hover = null;
-    const pickables = () => [...st.flatMap(s => [s.b.g, s.mon, s.side, s.third]), ...slots.filter(x => x.grp.visible).map(x => x.grp), ...caseObjs.map(c => c.mesh), wallP, statP, limP, edgeP, turnP, ...(chal.visible ? [chal] : [])];
+    // 🔍 CLOSE-UP: a screen (wall board · desk monitor · the card's hologram) fills the stage — the camera eases in front of it, square on
+    let close = null;
+    const zoomTo = o0 => { const desk = o0.userData?.kind === 'monitor' ? st.find(s => s.k === o0.userData.k) : null;
+      const o = desk ? desk.mon : o0;   // a desk monitor → the whole desk (its three screens), seen from just over the robot's head
+      const p = o.geometry?.parameters || {}; const ws = o.getWorldScale(new THREE.Vector3()); const w = desk ? 3.3 : (p.width || 1) * ws.x; const h = desk ? 1.3 : (p.height || 1) * ws.y;
+      const c = o.getWorldPosition(new THREE.Vector3()); const n = new THREE.Vector3(0, 0, 1).applyQuaternion(o.getWorldQuaternion(new THREE.Quaternion())).normalize();
+      const vf = (cam.fov * Math.PI) / 180; const hf = 2 * Math.atan(Math.tan(vf / 2) * cam.aspect);
+      const d = Math.max(h / 2 / Math.tan(vf / 2), w / 2 / Math.tan(hf / 2)) * 1.32 + 0.05;   // the whole screen + room for the close-up bar
+      const at = c.clone().addScaledVector(n, d); if (desk) at.y += 2.0;   // high enough to look over the seated robot
+      close = { pos: at, look: c, mode: camRef.current }; setZoom(desk ? `${desk.d?.name || desk.k}'s desk` : o.userData?.tip ? String(o.userData.tip).split(' — ')[0] : 'close-up'); };
+    const unzoom = () => { close = null; setZoom(null); };
+    const ZOOMABLE = new Set(['wall', 'board', 'monitor', 'holo']);
+    const pickables = () => [...st.flatMap(s => [s.b.g, s.mon, s.side, s.third]), ...slots.filter(x => x.grp.visible).map(x => x.grp), ...caseObjs.map(c => c.mesh), wallP, statP, limP, edgeP, turnP, platP, ...(chal.visible ? [chal] : [])];
     const pick = e => { const rc = renderer.domElement.getBoundingClientRect(); ptr.set(((e.clientX - rc.left) / rc.width) * 2 - 1, -((e.clientY - rc.top) / rc.height) * 2 + 1);
       ray.setFromCamera(ptr, cam); const hit = ray.intersectObjects(pickables(), true)[0]; return hit ? hit.object : null; };
     const onMove = e => { const o = pick(e); hover = o?.userData?.k || null; renderer.domElement.style.cursor = o ? 'pointer' : 'default'; const el = tip.current; if (!el) return;
       if (o?.userData?.tip) { const rc = host.getBoundingClientRect(); el.textContent = o.userData.tip; el.style.transform = `translate(${Math.min(e.clientX - rc.left + 14, rc.width - 260)}px, ${e.clientY - rc.top + 14}px)`; el.style.opacity = '1'; } else el.style.opacity = '0'; };
     const onLeave = () => { hover = null; if (tip.current) tip.current.style.opacity = '0'; };
-    const onClick = e => { const o = pick(e); if (!o) return;
-      routePick(o.userData || {}, mRef.current, i => slots[i]?.data, { sel: onSelRef.current, coin: onCoinRef.current, seat: onSeatRef.current, board: onBoardRef.current }); };
+    const onClick = e => { const o = pick(e); if (!o) { if (close) unzoom(); return; }
+      const ud = o.userData || {};
+      if (ZOOMABLE.has(ud.kind)) zoomTo(o);   // 🔍 a screen → look at it up close (its panel view still opens beside the room)
+      if (ud.kind !== 'holo') routePick(ud, mRef.current, i => slots[i]?.data, { sel: onSelRef.current, coin: onCoinRef.current, seat: onSeatRef.current, board: onBoardRef.current }); };
+    const onKey = e => { if (e.key === 'Escape' && close) unzoom(); };
+    window.addEventListener('keydown', onKey);
     renderer.domElement.addEventListener('pointermove', onMove); renderer.domElement.addEventListener('pointerleave', onLeave); renderer.domElement.addEventListener('click', onClick);
     const labs = host.querySelector('.or3-labels'); st.forEach(s => { s.lab = labs?.children[s.i]; });
 
@@ -388,29 +405,31 @@ export default function OfficeRoom3D({ model, onSel, onCoin, onSeat, onBoard, ca
     const v = new THREE.Vector3(); const wantP = new THREE.Vector3(); const wantL = new THREE.Vector3(); let raf = 0, last = 0, wallAt = 0, ang = 0, prevT = 0;
     const frame = moving => {
       const t = clockT.getElapsedTime(); const dt = Math.min(0.1, t - prevT); prevT = t; const mode = camRef.current; const selS = st.find(s => s.sel);
-      if (mode === 'top') { wantP.set(0, 21, 7.4); wantL.set(0, 0, 1.0); }
+      if (close && close.mode !== mode) unzoom();   // a camera button ends the close-up
+      if (close) { wantP.copy(close.pos); wantL.copy(close.look); }
+      else if (mode === 'top') { wantP.set(0, 21, 7.4); wantL.set(0, 0, 1.0); }
       else if (mode === 'card') { wantP.set(PX, 6.4, PZ + 7.4); wantL.set(PX, 1.2, PZ - 0.6); }
       else if (mode === 'focus' && selS) { wantP.set(selS.x * 0.8 + 0.6, 3.6, selS.z + 4.8); wantL.set(selS.x, 1.1, selS.z - 0.2); }
       else { if (rotRef.current && moving) ang += dt * 0.15; const a = rotRef.current ? Math.sin(ang) * 0.5 : 0;   // auto-rotate = a slow sweep across the room (a full orbit would go behind the wall)
         wantP.set(Math.sin(a) * 14.8, 9.0, Math.cos(a) * 14.8); wantL.set(0, 1.55, -0.1); }   // MAIN = the whole room: pulled back ~15% so every desk, the wall and the card platform sit in frame
-      pos.lerp(wantP, moving ? 0.06 : 1); look.lerp(wantL, moving ? 0.08 : 1); cam.position.copy(pos); cam.lookAt(look);
+      pos.lerp(wantP, moving ? 1 - Math.exp(-dt * 3.6) : 1); look.lerp(wantL, moving ? 1 - Math.exp(-dt * 4.8) : 1); cam.position.copy(pos); cam.lookAt(look);   // time-based: lands in ~1s at any frame rate
       if (wall?.reviewAt != null && t - wallAt > 1) { wallAt = t; wallT.userData.redraw(wall, Date.now() / 1000 - baseAt); }   // the review clock on the wall ticks
       if (focusI > 0 && moving) { const u = (t * 0.12) % 1; const L = Math.min(focusI, 9); const seg = Math.floor(u * L); pulse.visible = true; pulse.position.copy(segs[seg].path.getPoint(u * L - seg)); } else pulse.visible = false;
       st.forEach(s => { const { b } = s; const act = s.act || 'WAIT'; const busy = s.focus || ['SCAN', 'REVIEW', 'SUBMITTED', 'LOGGING', 'JUDGE REVIEW'].includes(act); const amp = PULSE[act] || 0;
         if (moving) { b.body.position.y = Math.abs(Math.sin(t * (busy ? 3.0 : 1.4) + s.i)) * 0.02; const sp = busy ? 8 : act === 'WAIT' ? 1.1 : 3.5; b.arms[0].rotation.x = -0.6 + Math.sin(t * sp + s.i) * 0.3; b.arms[1].rotation.x = -0.6 + Math.sin(t * sp + s.i + Math.PI) * 0.3;
           b.head.rotation.y = Math.sin(t * 0.6 + s.i) * (act === 'VETO' || act === 'OBJECT' ? 0.5 : 0.2); const blink = ((t + s.i * 0.7) % 4) < 0.12 ? 0.1 : 1; b.eyes.forEach(e => { e.scale.y = blink; });
-          s.ringM.emissiveIntensity = (act === 'WAIT' ? 0.5 : 1.2) + (amp ? Math.sin(t * 5 + s.i) * amp * 1.1 : 0) + (s.focus ? 0.8 : 0); s.ring.scale.setScalar(1 + (amp ? Math.sin(t * 5 + s.i) * amp * 0.05 : 0));
-          s.rugM.opacity = (act === 'WAIT' ? 0.08 : 0.14) + (s.sel ? 0.14 : 0) + (s.focus ? 0.08 : 0) + (amp ? Math.sin(t * 2.5 + s.i) * amp * 0.06 : 0);
+          s.ringM.emissiveIntensity = (act === 'WAIT' ? 0.3 : 0.7) + (amp ? Math.sin(t * 5 + s.i) * amp * 0.6 : 0) + (s.focus ? 0.4 : 0); s.ring.scale.setScalar(1 + (amp ? Math.sin(t * 5 + s.i) * amp * 0.05 : 0));
+          s.rugM.opacity = (act === 'WAIT' ? 0.03 : 0.06) + (s.sel ? 0.08 : 0) + (s.focus ? 0.04 : 0) + (amp ? Math.sin(t * 2.5 + s.i) * amp * 0.03 : 0);
           s.selR.rotation.z = t * (act === 'SUBMITTED' ? 2.2 : 0.6);
           const scan = act === 'SCAN' || act === 'LOGGING'; s.scan.material.opacity = scan ? 0.75 : 0; if (scan) s.scan.position.y = 1.58 - 0.42 + ((t * 0.7 + s.i * 0.13) % 1) * 0.84;
           const r = t - s.ripAt; if (r >= 0 && r < 1.2) { s.rip.scale.setScalar(1 + r * 1.6); s.ripM.opacity = (1 - r / 1.2) * 0.8; } else s.ripM.opacity = 0; }
-        else { s.ringM.emissiveIntensity = act === 'WAIT' ? 0.5 : 1.2; s.rugM.opacity = (act === 'WAIT' ? 0.08 : 0.14) + (s.sel ? 0.14 : 0); s.scan.material.opacity = 0; s.ripM.opacity = 0; }
+        else { s.ringM.emissiveIntensity = act === 'WAIT' ? 0.3 : 0.7; s.rugM.opacity = (act === 'WAIT' ? 0.03 : 0.06) + (s.sel ? 0.08 : 0); s.scan.material.opacity = 0; s.ripM.opacity = 0; }
         b.white.emissive.setHex(hover === s.k ? 0x16351f : 0);
         if (s.lab) { v.set(s.bx, 2.2, s.bz); v.project(cam); const out = v.z > 1; s.lab.style.transform = `translate(${(v.x * 0.5 + 0.5) * renderer.domElement.clientWidth}px, ${(-v.y * 0.5 + 0.5) * renderer.domElement.clientHeight}px) translate(-50%, -100%)`; s.lab.style.visibility = out ? 'hidden' : 'visible'; } });
       slots.forEach((sl, i) => { if (!sl.grp.visible) return; sl.h += (sl.want - sl.h) * (moving ? 0.08 : 1); sl.col.scale.y = sl.h; sl.col.position.y = 0.08 + sl.h / 2; sl.plate.position.set(0, 0.08 + Math.max(sl.h, sl.ghost.visible ? 0.55 : 0) + 0.5, 0); if (sl.ghost.visible && moving) sl.ghostM.opacity = 0.12 + Math.sin(t * 3 + i) * 0.08; sl.plate.quaternion.copy(cam.quaternion);
         const d = sl.data; const filling = d && !d.symbol && d.decision === 'FILLING'; sl.ringM.emissiveIntensity = filling && moving ? 1.4 + Math.sin(t * 4 + i) * 1.1 : d?.selected ? 3 : 1.4; sl.ring.scale.setScalar(d?.selected ? 1.18 : 1); });
       caseObjs.forEach(c => { c.mesh.quaternion.copy(cam.quaternion); if (moving) c.mesh.position.y = c.base + Math.sin(t * 1.6 + c.i) * 0.03; c.mesh.scale.setScalar(c.c.selected ? 1.15 : c.c.current ? 1.08 : 1); });
-      if (beam.visible && moving) beamM.opacity = 0.12 + Math.sin(t * 2) * 0.05;
+      if (beam.visible && moving) beamM.opacity = 0.06 + Math.sin(t * 2) * 0.025;
       chal.quaternion.copy(cam.quaternion);
       if (curve && moving && arcM.emissiveIntensity > 1) { const u = (t * 0.45) % 1; spark.visible = true; spark.position.copy(curve.getPoint(u)); } else spark.visible = false;
       if (bloomOn) composer.render(); else renderer.render(scene, cam);
@@ -420,16 +439,17 @@ export default function OfficeRoom3D({ model, onSel, onCoin, onSeat, onBoard, ca
       frame(true); };
     raf = requestAnimationFrame(loop); frame(false);
     const ro = new ResizeObserver(() => { renderer.setSize(W(), H()); composer.setSize(W(), H()); bloom.setSize(W(), H()); cam.aspect = W() / H(); cam.fov = fovFor(cam.aspect); cam.updateProjectionMatrix(); }); ro.observe(host);
-    api.current = { apply };
-    return () => { cancelAnimationFrame(raf); io.disconnect(); ro.disconnect(); renderer.domElement.removeEventListener('pointermove', onMove); renderer.domElement.removeEventListener('pointerleave', onLeave); renderer.domElement.removeEventListener('click', onClick);
+    api.current = { apply, unzoom };
+    return () => { cancelAnimationFrame(raf); io.disconnect(); ro.disconnect(); window.removeEventListener('keydown', onKey); renderer.domElement.removeEventListener('pointermove', onMove); renderer.domElement.removeEventListener('pointerleave', onLeave); renderer.domElement.removeEventListener('click', onClick);
       scene.traverse(o => { if (o.geometry) o.geometry.dispose(); const m = o.material; (Array.isArray(m) ? m : m ? [m] : []).forEach(mm => { if (mm.map) mm.map.dispose(); mm.dispose(); }); });
       rugT.dispose(); pm.dispose(); composer.dispose(); renderer.dispose(); renderer.domElement.remove(); api.current = null; };
   }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { api.current?.apply(); }, [model]);   // a new pass / another selection → monitors, rings, the wall, the chain, the card, the cases
-  return <div className="or3" ref={box} data-testid="ofr-3d">
+  return <div className={`or3 ${zoom ? 'is-zoom' : ''}`} ref={box} data-testid="ofr-3d">
     <div className="or3-labels">{(model?.stations || []).map(s => <button key={s.key} type="button" className={`or3-lab ${s.cls} ${s.selected ? 'is-on' : ''} ${s.focus ? 'is-focus' : ''}`} style={{ '--ag': AG[s.key], '--act': ACT_FX[s.act] || '#7d998b' }}
       onClick={() => onSel(s.key)} aria-pressed={!!s.selected} data-tip={`${s.name} · ${s.act} — ${s.actWhy}`} data-testid={`desk-${s.key}`}><b>{s.name}</b><em>{s.act}</em></button>)}</div>
     <div className="or3-tip" ref={tip} aria-hidden />
+    {zoom && <div className="or3-zoom" data-testid="or3-zoom"><span>🔍 {zoom}</span><button type="button" className="m-btn" onClick={() => api.current?.unzoom()} data-testid="or3-unzoom">✕ Back to the room</button></div>}
   </div>;
 }

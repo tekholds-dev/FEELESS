@@ -19,6 +19,8 @@ export function Vel({ v, why }) {
 }
 
 // ── the strip above the room: OCCUPANCY x/4 · TARGET · BENCH · BUYS LEFT · CASH + one tile per seat ──────────────────────────────
+const HUNT = { trench: 'NEW COINS', mixed: 'NEW + MAJORS', majors: 'MAJORS' };   // seat_ops.universe: recovery → new coins first · ≥ 2× → majors
+
 export function SeatStrip({ o, onSeat, sel }) {
   const sb = o?.seatBoard || []; const s = o?.seatSummary;
   if (!s && !sb.length) return null;
@@ -28,7 +30,8 @@ export function SeatStrip({ o, onSeat, sel }) {
       {chip('occ', 'OCCUPANCY', s ? `${s.occupancy} / ${s.target}` : '—', s && s.occupancy >= s.target ? 'is-ok' : 'is-warn', 'seats holding a coin now / seats the card runs')}
       {chip('target', 'TARGET', s ? `${s.target} / ${s.target}` : '—', '', 'every seat filled — whenever that many defensible coins exist (cash is a valid position)')}
       {chip('bench', 'BENCH', s ? `${s.benchReady} ready · ${o?.benchStats?.near ?? 0} near · ${s.bench}` : '—', s?.benchReady ? 'is-ok' : '', 'ranked challengers behind the seats — ready = cleared every desk AND the newest live check · near = one check still coming')}
-      {chip('buys', 'BUYS LEFT', s ? `${s.buysLeft} / ${s.budget}` : '—', s && !s.buysLeft ? 'is-bad' : '', `the hourly hard buy budget (fills + switches) — ${s ? s.buysUsed : 0} used this hour`)}
+      {chip('buys', 'FILLS LEFT', s ? `${s.buysLeft} / ${s.budget}` : '—', s && !s.buysLeft ? 'is-bad' : '', `empty-seat fills this hour (a runaway guard) — ${s ? s.buysUsed : 0} used; switches have their own 6 an hour`)}
+      {s?.hunt && chip('hunt', 'HUNTING', HUNT[s.hunt[0]] || s.hunt[0], '', s.hunt[1])}
       {chip('cash', 'CASH', s?.cash != null ? usd(s.cash) : '—', '', 'free card cash the empty seats share')}
       {chip('office', 'OFFICE', o?.ops?.office || '—', o?.ops?.office === 'LIVE' ? 'is-ok' : 'is-warn', 'LIVE = positions read back + the market refilled after a restart; until then no discretionary move')}
       {chip('keeper', 'KEEPER', o?.ops?.keeper || '—', o?.ops?.keeper === '1 active' ? 'is-ok' : 'is-bad', 'exactly one keeper process may send real orders')}

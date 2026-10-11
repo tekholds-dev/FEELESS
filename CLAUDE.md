@@ -3066,3 +3066,23 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   no extension earned / time" no longer sells a flat coin to cash while there is no buy to spare after the empty seats (buys left − open seats ≤ 0) (2026-10-11: 15-minute R9 exits
   emptied seats the budget then kept empty for up to an hour). The report carries `deferred`; the seat board reads HOLD with the reason.
   Stops, rug / drain / scan exits, invalidation (R5t), trails, the take line and the creator's max hold (R9c) are never deferred.
+- 🤖 BOT LADDER (`chart_intel.ladder`, state 'BOT LADDER' in STATES + BAD; owner, 2026-10-11 on $ROAR: "obviously a wash / rug chart"): on REAL
+  candles, ≥ 80% of the moving candles within ±25% of one step (`steps`), minute volume nearly flat (`volCv` 0.02 < spread ≤ 0.5; a figure that
+  never changes is a filled value, not judged), both directions (`flips` ≥ 0.3), step 0.05–5%. Measured live: $ROAR / $DOTF (both held by the
+  agents at the time) / $CATE / $AORP / $ECHO / $ATFS / $HOTBOT 97–100% steps, spread 0.15–0.30, ~$100–150 a minute; every real chart ≤ 55%
+  and ≥ 0.32. → entry SKIP (E0b), hard Devil objection `chart_bot_ladder`, risk 0 (Warden vetoes), seat quality INVALID, Reaper's review
+  `invalid` → R5t exit of a held agent coin. A tape (closes only) is never judged — so a best-available fill needs a real-candle read.
+- 🪑 NO EMPTY SEAT, 30 SECONDS (owner, same day; this REPLACES "6 real buys an hour" for empty seats): `agents.FILL_MOVES_HR` 24 = a runaway guard
+  for EMPTY-seat fills only (`real_buys(moves=('fill',))`, `fill_plan(cap=)`); switches keep `CONTROL_MOVES_HR` 6 (`moves=('swap',)`). Best
+  available after `NEAR_PATIENCE_SEC` 30 (was 90); `SEAT_HEARTBEAT_SEC` 25 in `_real_guard_loop` runs a tier tick while an agent seat is empty
+  (it is the tick that decides). Time exits defer on fills left − open seats. Strip chip FILLS LEFT. Cost: more round trips (~1.5% each).
+- 🧭 THE PHASE DECIDES WHAT THE SEATS HUNT (`seat_ops.universe/universe_pts`, ctx `universe` in `_office_scores`, strip chip HUNTING): under what
+  was put in = 'trench' (≤ 6h +12, ≤ 24h +6, ≥ 3 days / established −10) · past breakeven = 'mixed' · ≥ 2× = 'majors' (established ≥ 7d +
+  $250K pool +15, < 24h −15). A tilt on the seat score only — every check, the owner's min age and the hard skips stand. In 'trench' the deep
+  review gives 10 slots to coins ≤ 6h old (by 5-min volume) and 14 to the bench (was 6 newborns ≤ 20 min + 18).
+  Edge audit the same day: 0 of 477 rules positive after a 3% round trip; < 15 min −79% typical an hour, 1–3h −31%, 12h+ −3%.
+- 🔍 ROOM CLOSE-UP + LESS GLOW (`OfficeRoom3D`): click a wall board (candidate · pipeline · limits · new coins · switch test), a desk monitor (frames
+  the whole three-screen desk from over the robot) or the card's hologram → the camera eases square in front of it (`zoomTo`, time-based ease
+  `1 − e^(−dt·k)`), board / monitor canvases drawn at 2× (`tex(.., sc)`), bar "🔍 … ✕ Back to the room", Esc or a click on empty space ends it,
+  a camera button too; desk labels hide meanwhile. Bloom 0.16 / 0.25 / 0.97 (was 0.5 / 0.45 / 0.9), exposure 0.85, every rail / under-glow /
+  rug / ring / arrow / holo / beam roughly halved.
