@@ -107,3 +107,10 @@ def test_best_available_needs_a_real_candle_read():
     tape = {'src': 'tape', 'state': 'RANGE', 'entry': ['WAIT FOR DATA', 'x', 'tape'], 'risk': [0.5, 'x'], 'q': {'readOk': True}}
     assert oe.live_check(row, mkt, tape, 1.0, near=True)['ok'] is False
     assert oe.live_check(row, mkt, {**tape, 'src': 'candles'}, 1.0, near=True)['ok'] is True
+
+
+def test_recovery_scans_young_coins_first():
+    mk = lambda m, age, lean: {'mint': m, 'lean': lean, 'row': {'vitals': {'safe': None, 'ageH': age}, 'nums': {}}}
+    cs = [mk('OLD', 900, 3.0), mk('YOUNG', 2.0, 0.5), mk('MID', 30, 2.0)]
+    assert [c['mint'] for c in oe.scan_order(cs, 1, universe='trench')] == ['YOUNG']
+    assert [c['mint'] for c in oe.scan_order(cs, 1, universe='mixed')] == ['OLD']

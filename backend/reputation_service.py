@@ -12457,7 +12457,7 @@ async def _agents_tick(now):
             if rcfg_.get('agentControl'):
                 ch_m = {((_agents.get('switchEval') or {}).get('challenger') or {}).get('symbol')}
                 cs_all = _ag.investigate(table, set(), 0, st.get('burned') or {}, top=0)
-                picked_ = _oe.scan_order(cs_all, 3, {c_['mint'] for c_ in cs_all if c_.get('symbol') in ch_m}, _office.get('seen'))
+                picked_ = _oe.scan_order(cs_all, 3, {c_['mint'] for c_ in cs_all if c_.get('symbol') in ch_m}, _office.get('seen'), _so.universe(_agents.get('money'))[0])   # 🧭 recovery: young coins scanned first
                 _office['scans'] = {'at': now, 'asked': [{'symbol': c_['symbol'], 'tier': c_['scanTier'], 'lean': c_['lean']} for c_ in picked_]}
                 for c_ in picked_:   # strongest unscanned reads first (any age), by priority tier, never FIFO
                     asyncio.ensure_future(_scan_wake(c_['mint'])); _office['load']['scansAsked'] = int(_office['load'].get('scansAsked') or 0) + 1

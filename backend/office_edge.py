@@ -794,11 +794,14 @@ def scan_tier(c, challengers=(), seen=None):
     return 5
 
 
-def scan_order(cases, n=2, challengers=(), seen=None):
-    """🕵 Which unscanned cases get a holder scan this pass — by priority tier (`SCAN_TIERS`), then the strongest read, then 5-min pace.
-    Never FIFO. → cases, each with `scanTier`."""
+def scan_order(cases, n=2, challengers=(), seen=None, universe=None):
+    """🕵 Which unscanned cases get a holder scan this pass — by priority tier (`SCAN_TIERS`), then (in 'trench' = recovery) the young coins
+    (≤ seat_ops.YOUNG_H), then the strongest read, then 5-min pace. Never FIFO. → cases, each with `scanTier`. (2026-10-11: young coins
+    could never clear — 'holders not scanned' — so a recovery card kept buying 40–300-day-old coins.)"""
+    import seat_ops as _so
     un = [c for c in cases or [] if ((c.get('row') or {}).get('vitals') or {}).get('safe') is None and _f(c.get('lean')) > 0]
-    ranked = sorted(un, key=lambda c: (scan_tier(c, challengers, seen), -_f(c.get('lean')), -_f(((c.get('row') or {}).get('nums') or {}).get('pace'))))[:n]
+    young = lambda c: universe == 'trench' and ((c.get('row') or {}).get('vitals') or {}).get('ageH') is not None and _f(c['row']['vitals']['ageH']) <= _so.YOUNG_H
+    ranked = sorted(un, key=lambda c: (scan_tier(c, challengers, seen), 0 if young(c) else 1, -_f(c.get('lean')), -_f(((c.get('row') or {}).get('nums') or {}).get('pace'))))[:n]
     return [{**c, 'scanTier': SCAN_TIERS[scan_tier(c, challengers, seen)]} for c in ranked]
 
 

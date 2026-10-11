@@ -3079,7 +3079,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🧭 THE PHASE DECIDES WHAT THE SEATS HUNT (`seat_ops.universe/universe_pts`, ctx `universe` in `_office_scores`, strip chip HUNTING): under what
   was put in = 'trench' (≤ 6h +12, ≤ 24h +6, ≥ 3 days / established −10) · past breakeven = 'mixed' · ≥ 2× = 'majors' (established ≥ 7d +
   $250K pool +15, < 24h −15). A tilt on the seat score only — every check, the owner's min age and the hard skips stand. In 'trench' the deep
-  review gives 10 slots to coins ≤ 6h old (by 5-min volume) and 14 to the bench (was 6 newborns ≤ 20 min + 18).
+  review gives 10 slots to coins ≤ 6h old (by 5-min volume) and 14 to the bench (was 6 newborns ≤ 20 min + 18), and the holder-scan queue
+  (`scan_order(.., universe)`) scans young coins first — first live hour after the tilt every seat still went to 40h–300d coins: young ones
+  never cleared "holders not scanned".
   Edge audit the same day: 0 of 477 rules positive after a 3% round trip; < 15 min −79% typical an hour, 1–3h −31%, 12h+ −3%.
 - 🔍 ROOM CLOSE-UP + LESS GLOW (`OfficeRoom3D`): click a wall board (candidate · pipeline · limits · new coins · switch test), a desk monitor (frames
   the whole three-screen desk from over the robot) or the card's hologram → the camera eases square in front of it (`zoomTo`, time-based ease
