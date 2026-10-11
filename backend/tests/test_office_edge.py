@@ -791,3 +791,10 @@ def test_build_hashes_and_hex_ids_are_never_read_as_another_contract():
     s = sr.site_read(html, 'https://frog.fun', 'FroGGyMint1111111111111111111111111111pump')
     assert s['mints'] == [] and s['mintMatch'] == 'unknown' and not sr.crosscheck('FroGGyMint1111111111111111111111111111pump', None, s, None)['conflict']
     assert sr.mints_in('CA: 9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin') == ['9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin']
+
+
+def test_a_website_without_any_x_link_is_not_called_a_different_x():
+    import social_research as sr
+    s = sr.site_read('<html><title>Human</title><body>gm</body></html>', 'https://human.ai', 'M')
+    cc = sr.crosscheck('M', 'https://x.com/human_ai', s, None)
+    assert cc['siteLinksX'] is None and cc['flags'] == []

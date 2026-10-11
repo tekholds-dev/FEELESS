@@ -182,7 +182,7 @@ def crosscheck(mint, row_x, site, x):
     flags = []
     handle = (X_RE.match(row_x or '') or [None, None])[1] if row_x else None
     site_x = [h.lower() for h in s.get('x') or []]
-    links_x = None if not (handle and s.get('reachable')) else (handle.lower() in site_x)
+    links_x = None if not (handle and s.get('reachable') and site_x) else (handle.lower() in site_x)   # a site that links NO X is unknown, never "a different X"
     x_site = xx.get('website')
     links_site = None if not (x_site and s.get('url')) else (_host(x_site) == _host(s.get('url')))
     conflict = bool(s.get('mints')) and mint not in (s.get('mints') or []) and s.get('mintMatch') == 'no'

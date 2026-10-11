@@ -12460,7 +12460,7 @@ def _office_load_pass():
 import social_research as _sr
 SOCIAL_PATH = FUSE_HQ_PATH.parent / 'social_cache.json'   # 🔎 the research packets (≤ SOCIAL_KEEP, newest kept) — reloaded once after a restart
 SOCIAL_KEEP = 400
-SOCIAL_V = 2   # bump when the parser changes (v2: mints from visible text only)
+SOCIAL_V = 3   # bump when the parser changes (v2: mints from visible text only · v3: no X link on a site = unknown)
 _social: dict = {'cache': None, 'busy': False, 'searched': {}}
 
 
