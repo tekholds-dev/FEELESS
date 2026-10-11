@@ -909,7 +909,7 @@ def cycle_view(intake_, table, cases, charts, first, now, last_at, every, n_cycl
 LIVE_CHASE, LIVE_FALL = 15.0, -8.0   # since the case was read: up more than this = chasing, down more than this = falling (Trigger's own hard lines)
 
 
-def live_check(row, mkt, chart, now, near=False):
+def live_check(row, mkt, chart, now, near=False, meta=None):
     """May this cleared case still be bought RIGHT NOW? `row` = the case as read in its agent pass ({px, at}), `mkt` = the shared market
     state ({px, pxAt, liq, tapeAt, flow}), `chart` = the newest shared chart (rebuilt when a new real candle landed — no rediscovery).
     → {ok, why, px, move, pxAge, chartState, entry}. A move past Trigger's own lines since the read, a fresh chart that no longer says
@@ -927,7 +927,14 @@ def live_check(row, mkt, chart, now, near=False):
     if ent and ent[0] != 'ENTER NOW' and (ent[0] == 'SKIP' or (ch.get('src') == 'candles' and not near)):
         return {**out, 'ok': False, 'why': f"the newest chart says {ent[0]}: {ent[2] if len(ent) > 2 else ''}".strip()}
     fl_ = ch.get('f') or {}
-    if near and (ch.get('src') != 'candles' or int(_f(fl_.get('stepN'))) < _ci.LADDER_MIN or fl_.get('volCv') is None):
+    young_ = near and (ch.get('src') != 'candles' or int(_f(fl_.get('stepN'))) < _ci.LADDER_MIN or fl_.get('volCv') is None)
+    if young_ and (meta or {}).get('verdict') == 'ORGANIC':
+        # 🧬 TRENCH META: a launch too young for the bot-ladder test is judged on its TAPE instead — a real crowd of distinct wallets,
+        # no one-wallet pump, no same-size loop, buyers leading (owner, 2026-10-11: "vitals needed for them to trench meta")
+        out = {**out, 'why': f"🧬 trench meta ORGANIC — {meta.get('why')}", 'meta': meta}
+    elif young_ and meta:
+        return {**out, 'ok': False, 'why': f"🧬 trench meta {meta.get('verdict')} — {meta.get('why')}", 'meta': meta}
+    if young_ and (meta or {}).get('verdict') != 'ORGANIC':
         # 🤖 best available needs the bot-ladder test to have RUN: ≥ 15 real candles that MOVED + a measured volume spread (2026-10-11: three coins
         # bought on 93%-flat rows read BOT LADDER two minutes later, once their candles moved)
         return {**out, 'ok': False, 'why': f"{int(_f(fl_.get('stepN')))} moving 1-minute candles — best available needs {_ci.LADDER_MIN} with volume (the bot-ladder test must run first)"}

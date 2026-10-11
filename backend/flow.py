@@ -199,3 +199,47 @@ def flow_exits(card, flows, px_by_mint, cfg, now, sell_usd=None, intel=None):
                             'mint': l.get('mint'), 'px': px, 'why': f"{why} — sold at {pct:+.0f}%, seat reserved for the next coin"})
         hits.append((l.get('symbol'), kind, why))
     return (c if c is not None else card), hits
+
+
+# ── 🧬 TRENCH META: the vitals of a coin too young for a chart (owner, 2026-10-11: "add on vitals needed for them to TRENCH META") ──────
+META_SEC = 300            # the last 5 minutes of real swaps
+META_MIN_TRADES = 8       # fewer = THIN (nothing to judge)
+META_MIN_WALLETS = 6      # distinct wallets trading
+META_ONE_WALLET = 45.0    # one wallet's share of all buying ≥ this = ONE WALLET (a one-man pump)
+META_SAME_SIZE = 50.0     # trades of the exact same $ size ≥ this % = BOT (a loop, not a crowd)
+META_SELL_RATIO = 1.5     # sells ≥ 1.5× buys = DUMPING
+
+
+def trench_meta(trades, now, sec=META_SEC):
+    """🧬 A launch's crowd from its tape alone — what a trencher checks before a candle chart exists. → {verdict, why, wallets, buyers,
+    trades, buyUsd, sellUsd, topBuyerPct, sameSizePct, pxChg} · verdict ORGANIC (a real crowd buying) · BOT (same-size loop) · ONE WALLET
+    (one buyer is the pump) · DUMPING (sellers lead) · THIN (too few trades). Pure; a reading, never a promise."""
+    rows = sorted((t for t in (trades or []) if isinstance(t, dict) and 0 <= now - _ts(t) <= sec), key=_ts)
+    n = len(rows)
+    buy = sum(_f(t.get('usd')) for t in rows if t.get('kind') == 'buy'); sell = sum(_f(t.get('usd')) for t in rows if t.get('kind') == 'sell')
+    wallets = {t.get('wallet') for t in rows if t.get('wallet')}
+    by = {}
+    for t in rows:
+        if t.get('kind') == 'buy' and t.get('wallet'):
+            by[t['wallet']] = by.get(t['wallet'], 0.0) + _f(t.get('usd'))
+    top = round(max(by.values()) / buy * 100, 1) if by and buy > 0 else None
+    sizes = {}
+    for t in rows:
+        k = round(_f(t.get('usd')), 2)
+        if k > 0:
+            sizes[k] = sizes.get(k, 0) + 1
+    same = round(max(sizes.values()) / n * 100, 1) if sizes and n else None
+    pxs = [_f(t.get('price')) for t in rows if _f(t.get('price')) > 0]
+    out = {'trades': n, 'wallets': len(wallets), 'buyers': len(by), 'buyUsd': round(buy, 2), 'sellUsd': round(sell, 2), 'topBuyerPct': top, 'sameSizePct': same,
+           'pxChg': round((pxs[-1] / pxs[0] - 1) * 100, 2) if len(pxs) >= 2 else 0.0}
+    if n < META_MIN_TRADES or len(wallets) < 3:
+        return {**out, 'verdict': 'THIN', 'why': f'{n} trades by {len(wallets)} wallets in {sec // 60} min — nothing to judge yet'}
+    if same is not None and same >= META_SAME_SIZE and n >= 10:
+        return {**out, 'verdict': 'BOT', 'why': f'{same:.0f}% of {n} trades are the exact same size — a loop, not a crowd'}
+    if top is not None and top >= META_ONE_WALLET:
+        return {**out, 'verdict': 'ONE WALLET', 'why': f'one wallet did {top:.0f}% of all buying — the pump is one buyer'}
+    if sell >= META_SELL_RATIO * max(buy, 0.01):
+        return {**out, 'verdict': 'DUMPING', 'why': f'${sell:,.0f} sold vs ${buy:,.0f} bought in {sec // 60} min'}
+    if len(wallets) < META_MIN_WALLETS:
+        return {**out, 'verdict': 'THIN', 'why': f'only {len(wallets)} wallets trading — not a crowd yet'}
+    return {**out, 'verdict': 'ORGANIC', 'why': f'{len(by)} buyers · {len(wallets)} wallets · top buyer {top or 0:.0f}% · same-size {same or 0:.0f}% · ${buy:,.0f} in / ${sell:,.0f} out'}

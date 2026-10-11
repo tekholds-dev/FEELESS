@@ -3139,3 +3139,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   close; off in fx-lite / reduced motion). 🫀 `ChartPulse` (`components/terminal/ChartPulse.jsx`, `styles/chartPulse.css` `cpl-*`) on EVERY
   PriceChart: vital grade ring + score + the read that fits + a beat per real trade, from the shared paced `useCoinRead` (no new poller).
   Known: the browser hits lite-api.jup.ag price v3 directly somewhere (21× 429 on one war room) — not fixed yet.
+- 🧬 TRENCH META (owner, 2026-10-11: "vitals needed for them to TRENCH META"; `flow.trench_meta` pure + tested, `office_edge.live_check(meta=)`):
+  a seat candidate too young for the bot-ladder test (< 15 moving 1-min candles — every launch minutes old failed it, the card sat on 1 coin
+  with $2 cash) is judged on its last 5 min of real swaps: ORGANIC (≥ 8 trades, ≥ 6 wallets, top buyer < 45%, same-size < 50%, buys not
+  1.5× outsold) takes the seat; BOT / ONE WALLET / DUMPING / THIN are refused with the reason. ≤ 6 tapes a tick via the shared `_flow_fetch`.
+  Every later live check (fall, broken chart, pool under half) still runs.

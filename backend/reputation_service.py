@@ -9756,7 +9756,15 @@ async def _prime_tick_inner(now):
                 if cand_ or held_p:
                     await _jup_prices([t_['mint'] for t_ in cand_] + list(held_p))
                     await _office_candle_refresh({**held_p, **{t_['mint']: t_['pair'] for t_ in cand_}}, now)
-                live_ = {t_['mint']: _oe.live_check(t_, _mkt_view(t_['mint'], t_['pair'], now), _office['charts'].get(t_['mint']), now, near=t_['mint'] in near_m) for t_ in cand_}
+                young_p = [t_['pair'] for t_ in near0_ if t_.get('pair') and int(_fuse._f(((_office['charts'].get(t_['mint']) or {}).get('f') or {}).get('stepN'))) < _ci.LADDER_MIN][:6]
+                meta_ = {}
+                if young_p:   # 🧬 TRENCH META: the tape of each candidate too young for a chart (≤ 6 pools, the shared 12s tape cache)
+                    await _flow_fetch(young_p)
+                    meta_ = {p_: _flow.trench_meta((_flow_trades.get(p_) or (0, []))[1], time.time()) for p_ in young_p}
+                live_ = {t_['mint']: _oe.live_check(t_, _mkt_view(t_['mint'], t_['pair'], now), _office['charts'].get(t_['mint']), now, near=t_['mint'] in near_m, meta=meta_.get(t_.get('pair'))) for t_ in cand_}
+                for t_ in near0_:   # the seat's event says what the tape showed
+                    if (meta_.get(t_.get('pair')) or {}).get('verdict') == 'ORGANIC' and t_.get('nearReady'):
+                        t_['nearReady'] = (t_['nearReady'] + f" · 🧬 {meta_[t_['pair']]['why']}")[:300]
                 moved_ = [{'symbol': t_['symbol'], **live_[t_['mint']]} for t_ in cand_ if not live_[t_['mint']]['ok'] and t_['mint'] not in near_m]
                 gos_ = [{**t_, 'px': live_[t_['mint']]['px']} if t_['mint'] in live_ else t_ for t_ in gos_ if t_['mint'] not in live_ or live_[t_['mint']]['ok']]
                 wait_ = [{**t_, 'px': live_[t_['mint']]['px']} if t_['mint'] in live_ else t_ for t_ in wait_ if t_['mint'] not in live_ or live_[t_['mint']]['ok']]
