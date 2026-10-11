@@ -3055,3 +3055,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   a coin the wallet does not hold opens its seat down to `NEW_SEAT_MIN` $0.05 (the top-up minimum is for coins already held).
 - 🧹 A WRITTEN-OFF COIN STAYS WRITTEN OFF (`fuse_wallet.strays`: the newest keeper row for that mint is a `writeoff` → never re-adopted): Jef / QI /
   Musk looped adopt → refused sell → write-off every 5 minutes (1,799 ledger rows), crowding real fills out of the 2,000-row ledger doc.
+- 🧮 THE HOURLY BUY BUDGET COUNTS REAL BUYS (`office_edge.real_buys`, both counters in the tier tick): an agent fill / switch counts when the
+  ledger has a FILLED buy of that coin for the card at / after it, or while it may still be landing (≤ `BUY_LAND_SEC` 180s); a seat that went
+  back to cash without a buy is not a buy. Swap events now carry the new coin's `mint`. (The two 08:40 seats that never bought used 2 of 6.)

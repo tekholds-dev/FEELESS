@@ -9592,7 +9592,7 @@ async def _prime_tick_inner(now):
         rd_ = _oe.ready(_office['boot'], now)
         if ctl_:
             cur['agentWant'] = pol_['seats']
-        moves_ = max(0, _ag.CONTROL_MOVES_HR - sum(1 for e in cur.get('events') or [] if e.get('kind') == 'agent' and e.get('move') in ('fill', 'swap') and now - _fuse._f(e.get('at')) < 3600)) if ctl_ else None
+        moves_ = max(0, _ag.CONTROL_MOVES_HR - _oe.real_buys(cur.get('events'), _fw_full_ledger(), tid, now)) if ctl_ else None   # 🧮 real buys only
         if real_t and cur and (ctl_ or (((cfg_t.get('agentFeed') and (_agents.get('view') or {}).get('feed')) or cfg_t.get('agentLearn')) and not cur.get('holdAll'))) and not cur.get('flooredAt'):
             # 🕙 THE 10-MINUTE DUTY (in control): they investigate the board and their best CLEARED coin goes on the card — an empty seat first,
             # else the seat of a coin whose read broke, else the weakest coin that is not winning. One duty move per DUTY_SEC, inside the budget.
@@ -9667,14 +9667,14 @@ async def _prime_tick_inner(now):
                         for l in cur['legs']:
                             if l.get('mint') == t_['mint']:
                                 l.update(bought={**(l.get('bought') or {}), 'tag': '🤖 agents GO' if t_.get('go') else '🤖 agents · 10-min duty'}, slMode='hold', rideOrRug=True, ticket=True); l.pop('picked', None)
-                        cur['events'] = cur['events'][:-1] + [{**cur['events'][-1], 'kind': 'agent', 'move': 'swap', 'why': f"🤖 agents swapped ${x['symbol']} for ${t_['symbol']}: {x['why']}"}]
+                        cur['events'] = cur['events'][:-1] + [{**cur['events'][-1], 'kind': 'agent', 'move': 'swap', 'mint': t_['mint'], 'why': f"🤖 agents swapped ${x['symbol']} for ${t_['symbol']}: {x['why']}"}]
                         if ctl_:
                             cur['agentDutyAt'] = now
                         cur = _prime.note_dropped(was_, cur, now, cfg_t['rotateHours'], px)
                 except ValueError:
                     continue
         if ctl_:   # 🎮 their coin for every empty seat — only `eligible` GO coins, never one cooling / dollar-named, inside the hourly budget
-            used_ = sum(1 for e in cur.get('events') or [] if e.get('kind') == 'agent' and e.get('move') in ('fill', 'swap') and now - _fuse._f(e.get('at')) < 3600)
+            used_ = _oe.real_buys(cur.get('events'), _fw_full_ledger(), tid, now)   # 🧮 real buys only: a seat that never bought is not a buy
             on_ = {l.get('mint') for l in cur.get('legs') or []}
             # an empty seat: a full 🟢 GO fills it at once; otherwise the duty's best cleared case fills ONE seat when the 10 minutes are up
             lost2_ = {m_ for m_, at_ in (_office_state().get('lostAt') or {}).items() if now - _fuse._f(at_) < _oe.FAILED_SEC}

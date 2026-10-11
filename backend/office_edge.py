@@ -268,6 +268,33 @@ def fill_plan(ctx):
     return plan[:max(left, 0)]
 
 
+# ── 🧮 THE HOURLY BUY BUDGET COUNTS REAL BUYS ──────────────────────────────────────────────────────────────────────────────────────
+BUY_LAND_SEC = 180     # a seat filled this recently may still be landing its buy: it counts until the ledger says otherwise
+
+
+def real_buys(events, ledger, card, now, window=3600.0):
+    """How many of the agents' fills / switches in the last hour were REAL buys (`CONTROL_MOVES_HR` is "6 real buys an hour"): a move counts
+    when the keeper's ledger has a FILLED buy of that coin for this card at / after it, or while its buy may still be landing
+    (≤ BUY_LAND_SEC); a move whose coin never got a buy (the seat went back to cash) is not a buy. A move without a coin id counts (safe side).
+    2026-10-11: two seats filled in the first tick after a restart never bought anything and still used 2 of the 6 — the card sat at 2/4
+    with "buy budget used" while 4 real buys had happened."""
+    t0 = _f(now) - window
+    filled = {}
+    for r in reversed(ledger or []):
+        if _f(r.get('at')) < t0 - 60:
+            break
+        if r.get('card') == card and r.get('side') == 'buy' and r.get('status') == 'filled' and r.get('mint'):
+            filled.setdefault(r['mint'], []).append(_f(r.get('at')))
+    n = 0
+    for e in events or []:
+        if e.get('kind') != 'agent' or e.get('move') not in ('fill', 'swap') or _f(e.get('at')) < t0:
+            continue
+        m, at = e.get('mint'), _f(e.get('at'))
+        if not m or any(x >= at - 5 for x in filled.get(m, ())) or _f(now) - at <= BUY_LAND_SEC:
+            n += 1
+    return n
+
+
 # ── 🪑 BEST AVAILABLE: an empty seat does not wait forever on the entry moment ───────────────────────────────────────────────────────
 NEAR_PATIENCE_SEC = 90       # a seat empty this long with NOTHING cleared takes the best near-ready coin …
 NEAR_MIN_SCORE = 40.0        # … scoring at least this (seat_ops.score) …

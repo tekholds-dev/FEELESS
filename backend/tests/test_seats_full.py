@@ -119,3 +119,19 @@ def test_a_written_off_coin_is_never_adopted_back_into_the_card():
     assert fw.strays({'DEAD': 5000}, {'DEAD': 6}, books, ledger, 10_000.0) == []
     ledger2 = ledger + [{'card': 'degen', 'side': 'sell', 'mint': 'LIVE', 'pair': 'PL', 'symbol': 'LIVE', 'at': 200.0, 'status': 'failed'}]
     assert [s['mint'] for s in fw.strays({'DEAD': 5000, 'LIVE': 7}, {}, books, ledger2, 10_000.0)] == ['LIVE']   # a real leftover still comes back
+
+
+def test_the_hourly_budget_counts_real_buys_not_seats_that_never_bought():
+    ev = [{'kind': 'agent', 'move': 'fill', 'mint': 'A', 'at': 1000.0}, {'kind': 'agent', 'move': 'fill', 'mint': 'B', 'at': 1000.0},   # never bought
+          {'kind': 'agent', 'move': 'fill', 'mint': 'C', 'at': 1200.0}, {'kind': 'agent', 'move': 'swap', 'mint': 'D', 'at': 1300.0},
+          {'kind': 'agent', 'move': 'fill', 'mint': 'E', 'at': 1950.0},                                                               # still landing
+          {'kind': 'agent', 'move': 'swap', 'at': 1400.0},                                                                            # old event, no coin id: counts
+          {'kind': 'agent', 'move': 'pull', 'mint': 'C', 'at': 1500.0}, {'kind': 'rotate', 'mint': 'A', 'at': 1055.0}]
+    led = [{'card': 'degen', 'side': 'buy', 'status': 'filled', 'mint': 'C', 'at': 1203.0}, {'card': 'degen', 'side': 'buy', 'status': 'filled', 'mint': 'D', 'at': 1301.0},
+           {'card': 'degen', 'side': 'buy', 'status': 'skipped', 'mint': 'B', 'at': 1010.0}, {'card': 'other', 'side': 'buy', 'status': 'filled', 'mint': 'A', 'at': 1010.0}]
+    assert oe.real_buys(ev, led, 'degen', 2000.0) == 4                                          # C, D, E (landing), the id-less swap — never A or B
+    assert oe.real_buys(ev, led, 'degen', 2000.0 + 3600) == 0                                   # an hour later the window is empty
+    import inspect
+    import reputation_service as rs
+    src = inspect.getsource(rs._prime_tick_inner)
+    assert src.count('_oe.real_buys(') == 2 and "e.get('move') in ('fill', 'swap') and now -" not in src
