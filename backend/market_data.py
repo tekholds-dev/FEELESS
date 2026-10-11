@@ -216,7 +216,7 @@ def _ctx(m, judged, cover, with_v, g, liq, flow, ohlc, src):
         vol, vword = 'REAL', f'per-candle volume on {with_v} of {g} rows'
     elif with_v or board:
         vol = 'PARTIAL'
-        vword = (f'per-candle volume on {with_v} of {g} rows' if with_v else 'no per-candle volume (these bars are built from recorded prices)') + (f" · 5-min ${v5:,.0f} / 1-hour ${_num(v1) or 0:,.0f} from the launch board" if board else '')
+        vword = (f'per-candle volume on {with_v} of {g} rows' if with_v else 'no per-candle volume (these bars are built from recorded prices)') + (f" · 5-min ${v5 or 0:,.0f} / 1-hour ${_num(v1) or 0:,.0f} from the launch board" if board else '')
     else:
         vol, vword = 'UNAVAILABLE', 'VOLUME UNAVAILABLE'
     vsrc = ' + '.join(x for x in ((f"candle bars ({m.get('provider') or 'provider'} history)" if with_v else None), ('launch board 5-min / 1-hour totals (DexScreener / Jupiter)' if board else None)) if x) or None

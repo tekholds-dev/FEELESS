@@ -9653,8 +9653,10 @@ async def _prime_tick_inner(now):
                 gos_ = [{**t_, 'px': live_[t_['mint']]['px']} if t_['mint'] in live_ else t_ for t_ in gos_ if t_['mint'] not in live_ or live_[t_['mint']]['ok']]
                 wait_ = [{**t_, 'px': live_[t_['mint']]['px']} if t_['mint'] in live_ else t_ for t_ in wait_ if t_['mint'] not in live_ or live_[t_['mint']]['ok']]
                 _office['live'] = {'at': now, 'checked': [{'symbol': t_['symbol'], **live_[t_['mint']]} for t_ in cand_]}
-            except Exception as e:
+            except Exception as e:   # fail CLOSED: a decision that could not be checked against the newest market state is not taken this tick
                 print('live check:', e)
+                moved_ = [{'symbol': t_.get('symbol'), 'ok': False, 'why': f'live check failed ({type(e).__name__}) — not bought this tick'} for t_ in (gos_ + wait_)[:2]]
+                gos_, wait_ = [], []
             valid_ = [] if pol_['manual'] else gos_ + ([] if pol_['entry'] == 'go' else wait_)
             if empty_n and valid_ and not _office.get('validSince'):
                 _office['validSince'] = now
@@ -12423,7 +12425,8 @@ async def _office_candle_refresh(want, now):
         _office['candles'][pa] = (now, rows, meta_)
         x_ = by.get(m) or {}
         nm, vt = x_.get('nums') or {}, x_.get('vitals') or {}
-        meta = {**(meta_ or {}), 'vol1h': vt.get('vol1h'), 'txns1h': vt.get('txns1h'), 'buy': nm.get('buy'), 'liqAge': 0.0, 'ageMin': None if vt.get('ageH') is None else _fuse._f(vt['ageH']) * 60}
+        bp_ = next((p_ for p_ in _open_pairs if p_.get('pairAddress') == pa), None) or {}
+        meta = {**(meta_ or {}), 'vol5m': ((bp_.get('volume') or {}).get('m5')), 'vol1h': vt.get('vol1h'), 'txns1h': vt.get('txns1h'), 'buy': nm.get('buy'), 'liqAge': 0.0, 'ageMin': None if vt.get('ageH') is None else _fuse._f(vt['ageH']) * 60}
         ch = _ci.read(rows, now, True, 'candles', meta, buy=nm.get('buy'), liq=nm.get('liq') or None, liq_d=nm.get('liqD'), flow=(_flow_now.get(pa) or (0, None))[1])
         _office['charts'][m] = ch
         if x_:

@@ -797,8 +797,8 @@ def live_check(row, mkt, chart, now):
 def freshness(now, price_at=(), tape_at=(), candle_at=(), liq_at=None, input_at=None, decision_at=None):
     """⏱ How old each input REALLY is, separately (seconds; None = nothing measured): the newest price, tape, real candle and pool reading
     behind the decisions, the agent pass the cases came from, and the last seat decision."""
-    age = lambda ts: None if not [t for t in ts or () if t] else round(_f(now) - max(_f(t) for t in ts if t), 1)
-    one = lambda t: None if not t else round(_f(now) - _f(t), 1)
+    age = lambda ts: None if not [t for t in ts or () if t] else round(max(0.0, _f(now) - max(_f(t) for t in ts if t)), 1)
+    one = lambda t: None if not t else round(max(0.0, _f(now) - _f(t)), 1)
     return {'price': age(price_at), 'tape': age(tape_at), 'candle': age(candle_at), 'liquidity': one(liq_at), 'agentInput': one(input_at), 'decision': one(decision_at)}
 
 

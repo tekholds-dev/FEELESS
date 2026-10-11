@@ -283,3 +283,10 @@ def test_breakeven_is_a_milestone_and_only_real_equity_at_twice_the_put_in_makes
     assert g['phase'] == 'GROWTH' and g['locked'] and g['nextStage'] == 'LOCKED' and g['toBreakeven'] == 1.5 and g['toDouble'] == -28.0 and not g['underwater']
     assert of.mission({'value': 60.0, 'putIn': 29.5}, 9, done, 0, NOW)['nextStage'] == 'ELIGIBLE' and m['goal'] == list(of.TEAM_GOAL)
     assert ag.mission(1.30, 29.5, {'x': 50})['key'] == 'breakeven' and ag.mission(31.0, 29.5, {'x': 50})['key'] == 'double' and ag.mission(59.0, 29.5, {'x': 50})['key'] == 'tenx'
+
+
+def test_a_meta_with_hour_volume_but_no_five_minute_figure_never_crashes_the_label():
+    import market_data as md
+    rows = [[60 * i, 1.0 + 0.01 * i, 1.02 + 0.01 * i, 0.99 + 0.01 * i, 1.01 + 0.01 * i, 0] for i in range(12)]
+    q = md.quality(rows, 12 * 60, True, 'candles', {'provider': 'jupiter', 'vol1h': 50_000, 'liqAge': 0}, liq=60_000)   # 2026-10-10: crashed every live check
+    assert q['state'] in md.STATES and '5-min $0' in (q['prov'].get('volumeWord') or '')
