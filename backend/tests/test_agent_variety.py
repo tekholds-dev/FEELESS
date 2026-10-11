@@ -93,3 +93,9 @@ def test_a_lane_launch_seat_is_a_trench_leg_for_the_keeper():
     old = ap.agent_seat(card, {**row, 'trench': False}, {}, {'coins': 4}, 1000.0)
     assert 'trench' not in old['legs'][0]
     assert ag.CONTROL_MIN_LIQ == 10_000   # above the keeper's own trench floor ($8K): a seat the agents take is not refused for its pool
+
+
+def test_the_fill_hands_the_trench_flag_to_the_seat():
+    src = open('backend/reputation_service.py').read()
+    i = src.index('cur = _prime.agent_seat(cur, {')
+    assert "'trench': t_['trench']" in src[i:i + 400]   # $MM was refused at the general $16K floor: the flag never reached the leg

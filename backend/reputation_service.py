@@ -9791,7 +9791,7 @@ async def _prime_tick_inner(now):
                     if wd_['veto']:
                         vetoed_ += 1
                         continue
-                    cur = _prime.agent_seat(cur, {'mint': t_['mint'], 'symbol': t_['symbol'], 'pairAddress': t_['pair'], 'price': t_['px'], 'liquidityUsd': (t_.get('nums') or {}).get('liq'),
+                    cur = _prime.agent_seat(cur, {'mint': t_['mint'], 'symbol': t_['symbol'], 'pairAddress': t_['pair'], 'price': t_['px'], 'liquidityUsd': (t_.get('nums') or {}).get('liq'), 'trench': t_['trench'],
                                                   'ageH': (t_.get('vitals') or {}).get('ageH'), 'vol1h': (t_.get('vitals') or {}).get('vol1h'), 'buyShare': (t_.get('nums') or {}).get('buy'),
                                                   'tag': '🤖 agents GO · in control' if t_.get('go') else '🤖 agents · seat floor' if t_.get('floor') else '🤖 agents · best available' if t_.get('nearReady') else '🤖 agents · 10-min duty',
                                                   'why': (t_.get('trigger') or ['', ''])[1] if t_.get('go') else t_['nearReady'] if t_.get('nearReady') else f"their strongest cleared read (lean {t_['why']['lean']:+.1f})"}, px, cfg_s, now, max_usd=wd_['allowed'])
