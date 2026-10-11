@@ -325,8 +325,10 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       if (fuse.lock > 0) add({ price: fuse.lock * ratio, color: '#9fe3ff', lineWidth: 1, lineStyle: 2, title: `❄ locks +${fuse.lockPct}%` });
       if (fuse.trail > 0) add({ price: fuse.trail * ratio, color: '#f5c542', lineWidth: 1, lineStyle: 2, title: `🏔 trail −${fuse.trailPct}% off peak` });
     }
+    // 🤖 extra named levels (the agents' take · support · invalidation …): [{ px, title, color }]
+    (fuse?.lines || []).forEach(l => { if (l?.px > 0) add({ price: l.px * ratio, color: l.color || '#9fb3a8', lineWidth: 1, lineStyle: 2, title: l.title || '' }); });
     return drop;
-  }, [userEntry, tradeKey, charting, ratio, displayCandles, fuse?.entry, fuse?.stop, fuse?.lock, fuse?.trail]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userEntry, tradeKey, charting, ratio, displayCandles, fuse?.entry, fuse?.stop, fuse?.lock, fuse?.trail, (fuse?.lines || []).map(l => `${l?.px}:${l?.title}`).join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 🧰 chart tools (FVG · magnets · gun line · germ · meta edge): read from the candles on screen, drawn on every chart
   const toolsOn = useChartTools();

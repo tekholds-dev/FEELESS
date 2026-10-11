@@ -44,3 +44,18 @@ def test_confirmed_agent_exit_becomes_a_lesson_once():
     assert p['pct'] == -3.5 and p['holdMin'] == 15.0 and 'age:>7d' in p['k'] and 'tag:🤖' in p['k'] and 'by:engine' in p['k']
     assert rl.note_closed(st, pos, 2000.0) == st   # same coin within 15 min = not twice
     assert rl.note_closed({}, {**pos, 'confirmed': False}, 2000.0) == {}
+
+
+def test_agents_trade_under_3m_market_cap_only():
+    assert ag.AGENT_MAX_MCAP == 3_000_000
+    assert ag.under_cap({'mcap': 2_900_000}) and not ag.under_cap({'mcap': 3_000_000}) and not ag.under_cap({'mcap': 12e6})
+    assert ag.under_cap({'mcap': None}) and ag.under_cap({})   # a launch seconds old may not carry a cap yet
+
+
+def test_the_board_shows_the_newest_launches_not_only_the_strongest_reads():
+    old = [{'mint': f'o{i}', 'vitals': {'ageH': 500}} for i in range(30)]
+    new = [{'mint': f'n{i}', 'vitals': {'ageH': i * 0.1}} for i in range(30)] + [{'mint': 'unk', 'vitals': {}}]
+    rows = ag.view_rows(old + new)
+    assert [r['mint'] for r in rows[:24]] == [f'o{i}' for i in range(24)]
+    assert [r['mint'] for r in rows[24:]] == [f'n{i}' for i in range(24)]   # newest first, age unknown left out
+    assert len(ag.view_rows(new[:5] + old)) == 24                             # young coins already in the top are not repeated

@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChartBox, DataLine, dqWord, dump, sgn, usd, ago, clock, ms, STRUCT_CLS } from './OfficeBoard';
 import { tiny } from '../../lib/num';
+import { useLiveCandles } from '../../lib/liveCandles';
 import { EdgeBand, SocialLine } from './OfficeEdge';
 import { SeatStrip, SeatsPane, ProofSources } from './SeatOps';
 import '../../styles/officeRoom.css';
@@ -73,25 +74,22 @@ export function candleGeom(rows, levels = [], w = 420, h = 170, pad = 4) {
     lines: lv.filter(l => l.px <= hi && l.px >= lo).map(l => ({ ...l, y: y(l.px) })),
     off: lv.filter(l => l.px > hi || l.px < lo).map(l => ({ ...l, up: l.px > hi })) };   // too far to draw to scale: named at the edge it lies beyond, never squashed in
 }
-// SVG labels go through createElement: the dev server's babel plugin wraps a JSX {expr} child in a <span>, which SVG cannot draw
-const T = (props, text) => React.createElement('text', props, text);
 
-export function CandleChart({ bars, levels, note, big }) {
-  const g = useMemo(() => candleGeom(bars?.rows, levels, big ? 520 : 420, big ? 100 : 150), [bars, levels, big]);
-  if (!g) return <div className="ofr-nochart" data-testid="ofr-nochart">no candles for this coin this pass — the agents are not shown a chart they did not read</div>;
-  const q = bars.q; const tape = bars.src === 'tape';
-  const volWord = tape ? 'VOLUME UNAVAILABLE (a tape has no volume)' : g.volN ? `VOLUME ${g.volN === g.bars.length ? 'REAL' : 'PARTIAL'} · measured on ${g.volN} of ${g.bars.length} bars${g.volN < g.bars.length ? ' — none drawn for the rest' : ''}` : 'VOLUME UNAVAILABLE for these bars';
-  return <figure className="ofr-chart" data-testid="ofr-chart" data-tip={bars.src === 'candles' ? 'The same one-minute candles the agents read this pass, with their levels.' : "Tally's own tape (closes only): drawn as a line, never as candles."}>
-    <svg viewBox={`0 0 ${g.w} ${g.h}`} preserveAspectRatio="none" role="img" aria-label="The candles the agents read this pass, with their levels">
-      {g.lines.map(l => <g key={l.label} className={`ofr-lv ${l.cls || ''}`}><line x1="0" x2={g.w - 54} y1={l.y} y2={l.y} />{T({ x: g.w - 52, y: l.y + 3 }, l.label)}</g>)}
-      {tape ? null : g.vols.map((v, i) => <rect key={`v${i}`} className={`ofr-vol ${v.up ? 'is-up' : 'is-dn'}`} x={v.x - v.bw / 2} y={g.h - v.hgt} width={v.bw} height={v.hgt} />)}
-      {bars.src === 'tape' ? <polyline className="ofr-line" points={g.bars.map(b => `${b.x},${b.c}`).join(' ')} /> : g.bars.map((b, i) => <g key={i} className={b.up ? 'ofr-up' : 'ofr-dn'}><line x1={b.x} x2={b.x} y1={b.h} y2={b.l} /><rect x={b.x - b.bw / 2} y={Math.min(b.o, b.c)} width={b.bw} height={Math.max(0.8, Math.abs(b.c - b.o))} /></g>)}
-      {g.off.map((l, i) => <g key={l.label} className={`ofr-lv ${l.cls || ''}`}>{T({ x: 4 + g.off.filter((x, j) => j < i && x.up === l.up).length * 92, y: l.up ? 9 : g.h - 3 }, `${l.up ? '↑' : '↓'} ${l.label}`)}</g>)}
-      <g className="ofr-lv is-last"><line x1="0" x2={g.w - 54} y1={g.y(g.last)} y2={g.y(g.last)} />{T({ x: g.w - 52, y: g.y(g.last) + 3 }, tiny(g.last))}</g>
-    </svg>
-    <figcaption>{bars.src === 'candles' ? `${bars.rows.length} one-minute candles — the same rows the agents read` : `RECONSTRUCTED FROM TAPE · ${bars.rows.length} tape readings (closes only, drawn as a line)`}{note ? ` · ${note}` : ''}</figcaption>
-    <DataLine q={q} compact noVol />
-    <p className="ofr-volw" data-testid="ofr-volw">{volWord}{q?.volumeWord && q.volume === 'PARTIAL' && / from the launch board/.test(q.volumeWord) ? ` · totals${q.volumeWord.split(' · ').pop().replace(/^.*?(5-min)/, ' $1')}` : ''}</p>
+const PriceChartLazy = lazy(() => import('../terminal/PriceChart').then(m => ({ default: m.PriceChart })));
+const LV_COLOR = { 'is-entry': '#15d16a', 'is-take': '#9fe3ff', 'is-stop': '#ff8fa3', 'is-sup': '#f5c542' };
+// 👁 THE LIVE CHART: the same FEELESS PriceChart the war room and the mini chart draw (live 1-minute candles, its own stream), with the
+// agents' levels on it; under it, the data-quality line of what the agents themselves read on their last pass
+export function LiveChart({ view, big }) {
+  const pair = useMemo(() => (view?.pair ? { chainId: 'solana', pairAddress: view.pair, baseToken: { address: view.mint, symbol: view.symbol }, priceUsd: view.px || null } : null), [view?.pair, view?.mint, view?.symbol, view?.px]);
+  const lines = useMemo(() => ({ lines: (view?.levels || []).map(l => ({ px: l.px, title: l.label, color: LV_COLOR[l.cls] })) }), [view?.levels]);
+  if (!pair) return <div className="ofr-nochart" data-testid="ofr-nochart">no pool for this coin — nothing to chart</div>;
+  const q = view.bars?.q;
+  return <figure className={`ofr-chart ${big ? 'is-big' : ''}`} data-testid="ofr-chart" data-tip="The live FEELESS chart of this coin — the same chart the war room draws — with the agents' levels on it.">
+    <div className="ofr-live-chart"><Suspense fallback={<div className="ofr-nochart">loading the live chart…</div>}>
+      <PriceChartLazy key={view.pair} pair={pair} interval="1m" metric="price" showVolume fuse={lines} />
+    </Suspense></div>
+    <figcaption>LIVE · the FEELESS chart{view.note ? ` · ${view.note}` : ''} · <button type="button" className="ofr-wr" onClick={() => window.dispatchEvent(new CustomEvent('feeless:war-room', { detail: pair }))} data-testid="ofr-warroom">⚔ war room</button></figcaption>
+    {q ? <DataLine q={q} compact noVol /> : null}
   </figure>;
 }
 
@@ -99,12 +97,12 @@ export function CandleChart({ bars, levels, note, big }) {
 export function coinView(o, sym) {
   const p = (o?.positions || []).find(x => x.symbol === sym);
   if (p) { const e = p.entry; const th = p.thesis;
-    return { kind: 'position', symbol: p.symbol, bars: p.bars, pos: p, structure: p.structure, note: `REAPER: ${p.decision}`,
+    return { kind: 'position', symbol: p.symbol, pair: p.pair, mint: p.mint, px: p.px, bars: p.bars, pos: p, structure: p.structure, note: `REAPER: ${p.decision}`,
       levels: [e && { px: e, label: 'entry', cls: 'is-entry' }, e && p.take && { px: e * (1 + p.take / 100), label: `take +${p.take}%`, cls: 'is-take' }, e && p.stop && { px: e * (1 + p.stop / 100), label: `stop ${p.stop}%`, cls: 'is-stop' },
         th?.invalidation && { px: th.invalidation, label: 'invalid', cls: 'is-stop' }, th?.support && { px: th.support, label: 'support', cls: 'is-sup' }].filter(Boolean) }; }
   const cc = o?.currentCase; const c = cc && (!sym || cc.symbol === sym) ? cc : (o?.queue || []).find(x => x.symbol === sym && x.chart);   // any candidate of the pass: its own rows + chart read
   if (!c) return null; const f = c.chart?.f || {};
-  return { kind: 'case', symbol: c.symbol, bars: c.bars, cur: c, structure: c.chart?.state, note: c.chart ? `TRIGGER: ${c.chart.entry?.[0]}` : null,
+  return { kind: 'case', symbol: c.symbol, pair: c.pair, mint: c.mint, px: c.px, bars: c.bars, cur: c, structure: c.chart?.state, note: c.chart ? `TRIGGER: ${c.chart.entry?.[0]}` : null,
     levels: [f.resistance && { px: f.resistance, label: 'resist', cls: 'is-take' }, f.support && { px: f.support, label: 'support', cls: 'is-sup' },
       f.px && c.chart?.stop && { px: f.px * (1 - c.chart.stop / 100), label: `stop −${c.chart.stop}%`, cls: 'is-stop' }].filter(Boolean) };
 }
@@ -144,7 +142,7 @@ export function seatsOf(o, card, coin) {
 export function roomModel(o, sel, coin, card) {
   const focus = focusOf(o); const names = Object.fromEntries((o?.agents || []).map(a => [a.key, a.name])); const hot = hotPosition(o?.positions);
   const view = coinView(o, coin) || coinView(o, o?.currentCase?.symbol) || (hot ? coinView(o, hot.symbol) : null); const c = view?.cur; const p = view?.pos;
-  const wall = !view ? null : { kind: view.kind, symbol: view.symbol, bars: view.bars, levels: view.levels, structure: view.structure || 'NO CHART', move: p ? p.pct : c?.chart?.f?.r5 ?? null,
+  const wall = !view ? null : { kind: view.kind, symbol: view.symbol, pair: view.pair, mint: view.mint, bars: view.bars, levels: view.levels, structure: view.structure || 'NO CHART', move: p ? p.pct : c?.chart?.f?.r5 ?? null,
     stage: p ? 'Reaper' : names[focus] || focus, decision: p ? p.decision : c?.chart?.entry?.[0] || String(c?.trigger?.call?.[0] || '—').toUpperCase(),
     warden: p ? (p.warden != null ? `${p.warden}×` : 'not sized') : c?.warden ? `${c.warden.eff}×${c.warden.veto ? ' VETO' : ''}` : c?.chart ? `${c.chart.risk?.[0]}× chart risk` : '—',
     devil: p ? (p.devil === 'object' ? 'OBJECT' : p.devil === 'agree' ? 'NO OBJECTION' : '—') : c?.devil?.verdict === 'agree' ? 'NO OBJECTION' : c?.devil ? 'OBJECT' : '—',
@@ -206,7 +204,7 @@ export function RoomScene({ o, sel, onSel, coin, onCoin, card, onSeat }) {
         <small>{view?.kind === 'position' ? 'OPEN POSITION' : 'CURRENT CANDIDATE'}</small>
         {view ? <><div className="ofr-shead"><b>${view.symbol}</b>{view.structure ? <Tag cls={STRUCT_CLS[view.structure]}>{view.structure}</Tag> : null}
           <em className={r5 > 0 ? 'ofr-pos' : r5 < 0 ? 'ofr-neg' : ''}>{r5 == null ? '—' : sgn(r5)}<u>{view.kind === 'position' ? ' since entry' : ' 5m'}</u></em></div>
-          <CandleChart bars={view.bars} levels={view.levels} note={view.note} />
+          <LiveChart view={view} />
           {view.kind === 'case' ? <p className="ofr-facts"><span>liq <b>{vit.liq != null ? `$${(vit.liq / 1000).toFixed(0)}K` : '—'}</b></span><span>age <b>{vit.ageH != null ? `${Number(vit.ageH).toFixed(1)}h` : '—'}</b></span><span>buy <b>{f.buy != null ? `${Math.round(f.buy)}%` : '—'}</b></span><span>top-10 <b>{vit.top10 != null ? `${Math.round(vit.top10)}%` : '—'}</b></span></p>
             : <p className="ofr-facts"><span>peak <b>{sgn(view.pos.peak)}</b></span><span>held <b>{clock((view.pos.heldMin || 0) * 60)}</b></span><span>obeying <b>{view.pos.obeying}</b></span></p>}</>
           : <span className="ofr-nil">no candidate and no open position this pass</span>}
@@ -279,7 +277,7 @@ export function AgentPanel({ o, a, coin, onCoin, tabReq }) {
         <span><small>POSITION SIZE</small><em>{p ? usd(p.usd) : wd ? usd(wd.allowed) : '—'}</em><u>{p ? 'on the card now' : wd ? `asked ${usd(wd.requested)} · ${wd.decided}` : 'sized when a seat opens'}</u></span></div>
       <div className="ofr-csel"><small>CHART</small>{coins.map(s => <button key={s} type="button" className={view?.symbol === s ? 'is-on' : ''} onClick={() => onCoin(s)} data-testid={`coin-${s}`}>${s}</button>)}
         {review != null ? <em data-testid="ofr-review">⏱ next review {clock(review)}</em> : null}</div>
-      {view ? <CandleChart bars={view.bars} levels={view.levels} note={view.note} big /> : <div className="ofr-nochart">no candidate and no open position this pass</div>}
+      {view ? <LiveChart view={view} big /> : <div className="ofr-nochart">no candidate and no open position this pass</div>}
       <div className="ofr-intel" data-testid="ofr-intel"><small>CHART INTELLIGENCE{view ? ` · $${view.symbol}` : ''}</small>
         {(() => { const s = ch || p?.chart; const st = view?.structure; return <div className="ofr-igrid">
           <span><u>Structure</u><b>{st ? <Tag cls={STRUCT_CLS[st]}>{st}</Tag> : '—'}</b></span><span><u>Trend</u><b>{s?.trend ?? '—'}<i>/100</i></b></span><span><u>Chop</u><b>{s?.chop ?? '—'}<i>/100</i></b></span>
@@ -354,7 +352,11 @@ export function OfficeHQ({ o, roomOn = true, passAt, gl: gl0, card, onEdge }) {
   useLayoutEffect(() => { const fit = () => { const el = box.current; const st = el?.querySelector('.ofr-main'); if (!el || !st) return; const top = st.getBoundingClientRect().top + (window.scrollY || 0);
     const rosterH = el.querySelector('.ofr-roster')?.offsetHeight || 96; el.style.setProperty('--ofr-h', `${Math.round(Math.max(390, Math.min(720, window.innerHeight - top - rosterH - 22)))}px`); };
     fit(); window.addEventListener('resize', fit); return () => window.removeEventListener('resize', fit); }, [o?.cold, roomOn]);
-  const model = useMemo(() => (o && !o.cold ? roomModel(o, cur, coin, card) : null), [o, cur, coin, card]);
+  const model0 = useMemo(() => (o && !o.cold ? roomModel(o, cur, coin, card) : null), [o, cur, coin, card]);
+  // 👁 the wall screen draws the coin's LIVE chart (the war room's own 1-minute candles, re-read every 10s), never the pass's snapshot
+  const wallLive = useLiveCandles(model0?.wall?.pair, model0?.wall?.mint);
+  const model = useMemo(() => (model0?.wall && wallLive ? { ...model0, wall: { ...model0.wall, bars: { ...(model0.wall.bars || {}), rows: wallLive.rows, src: 'candles' },
+    caption: `LIVE · the FEELESS chart · ${wallLive.rows.length} one-minute candles (${wallLive.provider || 'FEELESS'} + live ticks) · updated every 10s` } } : model0), [model0, wallLive]);
   if (!o || o.cold) return <section className="ofr" data-testid="office-hq"><p className="ofr-nil">waiting for the agents' first pass — the room shows nothing it was not handed</p></section>;
   const a = (o.agents || []).find(x => x.key === cur);
   return <section className={`ofr ${roomOn ? '' : 'is-flat'}`} data-testid="office-hq" ref={box}>

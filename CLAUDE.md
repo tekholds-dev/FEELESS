@@ -3110,3 +3110,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🔁 Any confirmed agent exit at a loss → `lostAt` 6h (`office_edge.note_lost`; only the desk's own pull wrote it — DOTF came back 4×) ·
   🏛 `agents.established`: > 7d, pool ≥ $100K, scan failed ONLY on top-10 = scanned (Bonk / SNDK / LIT) · `real_learn.note_closed`: every
   confirmed agent exit is a lesson (95 positions had left 3).
+- 🎯 AGENTS UNDER $3M (owner, 2026-10-11: "less than 3mil mc"; `agents.AGENT_MAX_MCAP`, `under_cap`, applied to the desk's rows in `_agents_tick`;
+  unknown cap kept, coins on the card kept so their exits run). The tab's board (`agents.view_rows`) = top 24 by verdict + the 24 NEWEST
+  launches (≤ 6h) the desk read — the owner saw Pump radar coins and thought the agents missed them; the intake registry showed every one
+  taken in within a minute. 👁 Agents tab charts = the FEELESS `PriceChart` (`OfficeRoom.LiveChart`, agents' levels via `fuse.lines`, a new
+  optional PriceChart prop) and the 3D wall screen draws `lib/liveCandles.useLiveCandles` (the war room's own 1m candles, every 10s).

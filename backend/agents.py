@@ -996,7 +996,7 @@ def view(state, table, feed=False, real=None, mind=None, cfg=None, decisions=Non
     proven = 5 in st_['conquered']
     return {'agents': cards, 'team': lr['cards']['team'], 'control': lr['cards']['control'], 'bar': lr['bar'], 'stage': st_, 'proven5': proven,
             'drivers': sorted(({'key': k, 'words': word(k), **v} for k, v in lr['drivers'].items()), key=lambda x: -_f(x['med'])),
-            'table': table[:24], 'desk': paper(state), 'open': len((state or {}).get('open') or {}), 'feed': bool(feed and proven), 'feedAsked': bool(feed),
+            'table': view_rows(table), 'desk': paper(state), 'open': len((state or {}).get('open') or {}), 'feed': bool(feed and proven), 'feedAsked': bool(feed),
             'road': road(state, real), 'thoughts': list(reversed(((state or {}).get('feed') or [])[-40:])), 'real': real or {}, 'mind': mind or {},
             'ideas': sorted(({'id': i, **v} for i, v in ((state or {}).get('ideas') or {}).items()), key=lambda x: (x['status'] != 'new', -_f(x.get('at')))),
             'cfg': {'agentFeed': bool((cfg or {}).get('agentFeed')), 'agentLearn': bool((cfg or {}).get('agentLearn')), 'agentLearnPct': int(_f((cfg or {}).get('agentLearnPct') or 100)), 'agentTrust': bool((cfg or {}).get('agentTrust')), 'agentControl': bool((cfg or {}).get('agentControl')), 'agentScalp': bool((cfg or {}).get('agentScalp', True)), 'agentDial': (cfg or {}).get('agentDial') if (cfg or {}).get('agentDial') in DIALS else 'normal',
@@ -1295,6 +1295,25 @@ def min_age_of(cfg):
 def stage_of(age_h):
     """NEWBORN (< 15 min) · EARLY (< 1h) · DEVELOPING (< 24h) · MATURE — context for which evidence a coin can have, never a gate."""
     return None if age_h is None else next(k for k, top in AGE_STAGES if _f(age_h) < top)
+
+
+AGENT_MAX_MCAP = 3_000_000.0   # 🎯 owner, 2026-10-11: "less than 3mil mc" — the agents trade launches under $3M market cap only
+
+
+def under_cap(row, cap=AGENT_MAX_MCAP):
+    """Is this coin under the agents' market-cap line? An unknown cap is kept (a launch seconds old may not carry one yet)."""
+    mc = (row or {}).get('mcap')
+    return mc is None or _f(mc) <= 0 or _f(mc) < _f(cap)
+
+
+def view_rows(table, top=24, young=24, young_h=6.0):
+    """The board the tab shows: the top `top` by verdict + lean, then the `young` NEWEST launches (≤ young_h) the desk read this pass
+    that are not already in it — every new coin the agents looked at is on screen, not only the strongest reads."""
+    head = list(table or [])[:top]
+    seen = {x.get('mint') for x in head}
+    kids = [x for x in table or [] if x.get('mint') not in seen and ((x.get('vitals') or {}).get('ageH') is not None) and _f(x['vitals']['ageH']) <= young_h]
+    kids.sort(key=lambda x: _f((x.get('vitals') or {}).get('ageH')))
+    return head + kids[:young]
 
 
 ESTABLISHED_H = 168.0           # mirror of runners.PICK_OLD_H / PICK_OLD_LIQ (a test keeps them equal): the owner's verified-pick rule

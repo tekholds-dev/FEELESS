@@ -2,6 +2,8 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
 import { AgentDesk, agentLine, rowState, rowWhy, pipsOf, leanFill, boardRows, boardCounts, passLeft } from './AgentDesk';
+jest.mock('../../lib/liveCandles', () => ({ useLiveCandles: () => null }));   // no network in tests
+jest.mock('../terminal/PriceChart', () => ({ PriceChart: () => <div data-testid="price-chart" /> }));   // the live chart needs a canvas
 
 const view = {
   agents: [['tally', '📊', 'Tally', 'tracks the numbers'], ['sherlock', '🔍', 'Sherlock', 'knows why they moved'], ['trigger', '⏱', 'Trigger', 'knows when to enter'], ['devil', '⚖', 'Devil', 'argues it is right — or not']]

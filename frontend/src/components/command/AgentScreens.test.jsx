@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { act } from 'react';
 import { AgentDesk } from './AgentDesk';
 import { heat, reasonsOf, scopeOf, docketOf, listFor, seatMoves, CardNow, CourtBand, Court, MissionBar, DutyBox, dutyLeft, GrowthCards, PowerLadder } from './AgentScreens';
+jest.mock('../../lib/liveCandles', () => ({ useLiveCandles: () => null }));   // no network in tests
+jest.mock('../terminal/PriceChart', () => ({ PriceChart: () => <div data-testid="price-chart" /> }));   // the live chart needs a canvas
 
 const row = (mint, symbol, d5, lean, trig, dev, go, drivers, rug) => ({ mint, symbol, pair: `P${mint}`, go, nums: { d5, pace: 2, buy: 60 }, why: { lean, drivers }, trigger: [trig, 'why t'], devil: [dev, dev === 'object' ? 'its read is BOND RUN' : ''], vitals: { top10: 40, rug, organic: 3 } });
 const table = [row('A', 'GOOD', 4, 2.4, 'enter', 'agree', true, [['surge', 1, 'volume surging'], ['buyers', 0.5, 'buyers in charge']], 10),

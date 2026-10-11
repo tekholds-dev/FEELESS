@@ -1,8 +1,12 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { OfficeHQ, RoomScene, AgentPanel, Roster, CandleChart, TeamTrace, traceOf, roomModel, agentTag, focusOf, ticker, hotPosition, candleGeom, coinView, PANEL_TABS, AG, TAG_CLS } from './OfficeRoom';
+import { OfficeHQ, RoomScene, AgentPanel, Roster, LiveChart, TeamTrace, traceOf, roomModel, agentTag, focusOf, ticker, hotPosition, candleGeom, coinView, PANEL_TABS, AG, TAG_CLS } from './OfficeRoom';
 import office from './__fixtures__/office.json';
+
+// the live chart component itself needs a canvas; here it reports what it was handed (the same pair + levels the real one draws)
+jest.mock('../../lib/liveCandles', () => ({ useLiveCandles: () => null }));   // no network in tests: the wall keeps the pass's rows
+jest.mock('../terminal/PriceChart', () => ({ PriceChart: p => <div data-testid="price-chart" data-pair={p.pair.pairAddress} data-interval={p.interval} data-lines={(p.fuse?.lines || []).map(l => l.title).join('|')} /> }));
 
 const mount = async node => { const el = document.createElement('div'); document.body.appendChild(el); await act(async () => { createRoot(el).render(node); }); return el; };
 const q = (el, id) => el.querySelector(`[data-testid="${id}"]`);
@@ -36,14 +40,17 @@ test('the chart draws the candles the agents read and their levels — entry, ta
   expect(candleGeom([[0, 1, 1, 1, 1]], [])).toBeNull(); expect(candleGeom(null, [])).toBeNull();
 });
 
-test('a coin with no candles is shown no chart, never a drawn guess', async () => {
-  const el = await mount(<CandleChart bars={null} levels={[]} />);
-  expect(q(el, 'ofr-nochart').textContent).toContain('not shown a chart they did not read');
-  const ok = await mount(<CandleChart bars={office.positions[0].bars} levels={coinView(office, office.positions[0].symbol).levels} note="REAPER: HOLD" />);
-  expect(q(ok, 'ofr-chart').querySelectorAll('.ofr-up rect, .ofr-dn rect').length).toBe(office.positions[0].bars.rows.length);
-  const tape = await mount(<CandleChart bars={{ src: 'tape', rows: office.positions[0].bars.rows }} levels={[]} />);
-  expect(q(tape, 'ofr-chart').querySelectorAll('rect').length).toBe(0); expect(q(tape, 'ofr-chart').querySelector('polyline')).not.toBeNull(); expect(q(tape, 'ofr-chart').textContent).toContain('closes only');   // a tape has no wicks: drawn as a line, never as fake candles
-  expect(q(ok, 'ofr-chart').textContent).toContain('the same rows the agents read'); expect(q(ok, 'ofr-chart').textContent).toContain('entry');
+test('the chart is the LIVE FEELESS chart of the coin, with the agents\' levels on it — no pool, no chart', async () => {
+  const el = await mount(<LiveChart view={null} />);
+  expect(q(el, 'ofr-nochart').textContent).toContain('no pool');
+  const v = coinView(office, office.positions[0].symbol);
+  expect(v.pair).toBe(office.positions[0].pair); expect(v.mint).toBe(office.positions[0].mint);
+  const ok = await mount(<LiveChart view={v} big />);
+  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  const pc = q(ok, 'price-chart');
+  expect(pc.getAttribute('data-pair')).toBe(office.positions[0].pair); expect(pc.getAttribute('data-interval')).toBe('1m');
+  expect(pc.getAttribute('data-lines').split('|')).toEqual(expect.arrayContaining(['entry', `take +${office.positions[0].take}%`, `stop ${office.positions[0].stop}%`]));
+  expect(q(ok, 'ofr-chart').textContent).toContain('LIVE · the FEELESS chart'); expect(q(ok, 'ofr-warroom')).not.toBeNull();
 });
 
 test('the room: ten stations in chain order, the candidate on the wall, the pass\'s case files, the live ticker', async () => {
@@ -146,20 +153,6 @@ test('volume bars exist only where a bar carries its own measured figure, and a 
   const some = rows.map((r, i) => [...r.slice(0, 5), i < 4 ? r[5] : null]);
   expect(candleGeom(some, []).vols).toHaveLength(4);                                        // 4 figures → 4 bars: nothing is filled in for the rest
   expect(candleGeom(rows.map(r => [...r.slice(0, 5), null]), []).vols).toEqual([]);         // no figure at all → no volume bars at all
-  const el = await mount(<CandleChart bars={{ ...office.currentCase.bars, rows: some }} levels={[]} />);
-  expect(el.querySelectorAll('.ofr-vol')).toHaveLength(4);
-  expect(q(el, 'ofr-volw').textContent).toContain('measured on 4 of');
-  expect(q(el, 'ofb-dq').textContent).toContain('DATA QUALITY');                            // Tally's verdict sits ON the chart
-  expect(q(el, 'dq-candles').textContent).toContain(office.currentCase.bars.q.label);
-  const none = await mount(<CandleChart bars={{ ...office.currentCase.bars, rows: rows.map(r => [...r.slice(0, 5), null]) }} levels={[]} />);
-  expect(none.querySelectorAll('.ofr-vol')).toHaveLength(0);
-  expect(q(none, 'ofr-volw').textContent).toContain('VOLUME UNAVAILABLE');
-  const tape = await mount(<CandleChart bars={{ src: 'tape', rows: rows.map(r => [...r.slice(0, 5), null]), q: { ...office.currentCase.bars.q, state: 'NO_REAL_CANDLES', conf: 45, synthetic: true, enterOk: false, label: 'RECONSTRUCTED FROM TAPE · 30 readings', volume: 'UNAVAILABLE' } }} levels={[]} />);
-  expect(tape.querySelector('.ofr-line')).not.toBeNull();                                   // a line, never candles
-  expect(tape.querySelectorAll('.ofr-up, .ofr-dn, .ofr-vol')).toHaveLength(0);
-  expect(tape.textContent).toContain('RECONSTRUCTED FROM TAPE');
-  expect(q(tape, 'ofr-volw').textContent).toContain('VOLUME UNAVAILABLE');
-  expect(roomModel(office, 'tally', null).wall.caption).toContain(`DATA ${office.currentCase.bars.q.state.replace(/_/g, ' ')} ${office.currentCase.bars.q.conf}%`);   // the 3D wall monitor says it too
 });
 
 test('the team trace: each desk answers its own question for the candidate, then FINAL and WHY — all from the payload', async () => {
