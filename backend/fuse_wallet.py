@@ -1635,10 +1635,13 @@ def money_trail(rows, book, since, now, sol_px, prices=None):
             'routeRentBackUsd': route_back, 'unexplainedUsd': unexplained}
 
 
-def stuck_buys(card, now, benched_mints=(), secs=STUCK_BUY_SEC, missed=None, pending_mint=None, busy=False):
+def stuck_buys(card, now, benched_mints=(), secs=STUCK_BUY_SEC, missed=None, pending_mint=None, busy=False, buy_pass_at=None):
     """⏳ Legs of a real card waiting on a buy that won't land → [pairAddress]. Benched coins at once · a coin whose buy was refused or
     failed (`missed` = the book's {mint: {first, …}}) `RETRY_SEC` after that miss · any other after `secs`. A coin with a transaction
-    in flight (`pending_mint`) is NEVER swapped — it may still land."""
+    in flight (`pending_mint`) is NEVER swapped — it may still land. `buy_pass_at` = when the keeper last reached its BUY step for this
+    card: the 30s clock only runs once a buy pass came after the coin was wanted — a coin the keeper never had a chance to buy (a pass
+    halted on sells, the first pass after a restart, a pass still running) is not "stuck" (2026-10-11: $UDR and $WOTF were seated in the
+    first tick after a restart, no order was ever built for them, and 55s later both seats went back to cash)."""
     bench, missed, out = set(benched_mints), missed or {}, []
     for l in (card or {}).get('legs') or []:
         m = l.get('mint')
@@ -1648,7 +1651,8 @@ def stuck_buys(card, now, benched_mints=(), secs=STUCK_BUY_SEC, missed=None, pen
         miss_at = _f((missed.get(m) or {}).get('last') or (missed.get(m) or {}).get('first'))
         # `busy` = the keeper is working on another order for this card (one in flight, or a sale that just landed): this buy is only
         # QUEUED behind it, so the 30s clock does not run — else every swap (sell, then buy a tick later) would re-pick its coin for good
-        if m in bench or (not busy and now - since >= secs) or (miss_at and now - miss_at >= RETRY_SEC):
+        had_pass = buy_pass_at is None or _f(buy_pass_at) >= since
+        if m in bench or (not busy and had_pass and now - since >= secs) or (miss_at and now - miss_at >= RETRY_SEC):
             out.append(l['pairAddress'])
     return out
 

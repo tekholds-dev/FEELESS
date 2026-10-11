@@ -90,3 +90,22 @@ def test_the_service_wires_best_available_into_the_one_fill_path():
     src = inspect.getsource(rs._prime_tick_inner)
     assert '_oe.near_ready(' in src and "'near': near_" in src and "'emptyFor': empty_for_" in src and 'best available' in src
     assert "'near': t_.get('nearReady')" in inspect.getsource(rs._office_ctx)                    # → Warden W19 sizes it
+
+
+def test_a_seat_is_never_called_stuck_before_the_keeper_had_a_buy_pass_at_it():
+    import fuse_wallet as fw
+    card = {'legs': [{'mint': 'NEW', 'pairAddress': 'PN', 'buying': True, 'buyingSince': 1000.0}]}
+    assert fw.stuck_buys(card, 1100.0) == ['PN']                                                  # old behaviour: 30s and out
+    assert fw.stuck_buys(card, 1100.0, buy_pass_at=990.0) == []                                   # the keeper never reached its buy step since
+    assert fw.stuck_buys(card, 1100.0, buy_pass_at=1010.0) == ['PN']                              # it had its chance and built nothing → re-pick
+    assert fw.stuck_buys({'legs': [{**card['legs'][0], 'mint': 'B'}]}, 1001.0, benched_mints={'B'}, buy_pass_at=0) == ['PN']   # benched: at once
+
+
+def test_the_stuck_check_judges_a_new_coin_by_the_keepers_new_seat_floor():
+    import inspect
+    import fuse_wallet as fw
+    import reputation_service as rs
+    src = inspect.getsource(rs._prime_tick_inner)
+    assert 'buy_pass_at=_FW_BUY_PASS.get(tid' in src and '_fw.NEW_SEAT_MIN if not _fw.held_units(book_s' in src
+    assert '_FW_BUY_PASS[tid] = time.time()' in inspect.getsource(rs._fw_tick_inner if hasattr(rs, '_fw_tick_inner') else rs._fw_tick)
+    assert fw.NEW_SEAT_MIN <= 0.05

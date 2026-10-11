@@ -9257,7 +9257,8 @@ async def _prime_tick_inner(now):
         if mo_t:
             cfg_t = {**cfg_t, 'minOrderUsd': mo_t}
         stuck = set(_fw.stuck_buys(cur, now, bench, missed=book_s.get('misses'), pending_mint=(book_s.get('pending') or {}).get('toMint') or (book_s.get('pending') or {}).get('mint'),
-                                     busy=bool(book_s.get('pending')) or _fw.slip_busy(book_s, now) or now - max([_fuse._f(t) for t in (book_s.get('soldAt') or {}).values()] or [0.0]) < 45)) if cur and cur.get('real') else set()
+                                     busy=bool(book_s.get('pending')) or _fw.slip_busy(book_s, now) or now - max([_fuse._f(t) for t in (book_s.get('soldAt') or {}).values()] or [0.0]) < 45,
+                                     buy_pass_at=_FW_BUY_PASS.get(tid, 0.0))) if cur and cur.get('real') else set()
         # (the stuck-buy swap runs BELOW, after every filter — see "⏳ STUCK BUYS")
         # ⏳ EVERY door obeys the card's min age on real money (pools, runners, seat refills, replacements, mover swaps): a row whose
         # age is known and under `runnerMinAgeH` is out whatever list it came from. $Grok came in 20 minutes old through a list
@@ -9356,9 +9357,10 @@ async def _prime_tick_inner(now):
                 why_s += f' ({why_x})' if why_x else ''   # the keeper's own reason, so a refused pick is never silent
                 try:
                     want_usd = _fuse._f(l.get('wantUnits')) * (_fuse._f(px.get(pa)) or _fuse._f(l.get('entry')))
-                    if mo_t and want_usd < mo_t and want_usd < _fw.LEFTOVER_MIN_USD:
+                    floor_s = _fw.NEW_SEAT_MIN if not _fw.held_units(book_s, l.get('mint')) else mo_t   # the keeper's own floor: a NEW coin opens its seat down to $0.05
+                    if floor_s and want_usd < floor_s and want_usd < _fw.LEFTOVER_MIN_USD:
                         # the seat's money is under the smallest order the keeper sends: another coin would wait just the same
-                        why_s = f"its ${want_usd:.2f} is under the smallest order the card can send (${mo_t:.2f})"
+                        why_s = f"its ${want_usd:.2f} is under the smallest order the card can send (${floor_s:.2f})"
                         raise ValueError('unfundable seat')
                     tmp = {**cur, 'legs': [{**x, 'units': _fuse._f(x.get('wantUnits'))} if x is l else x for x in cur['legs']]}
                     # ⏭ NEXT UP FIRST (owner: "fall back to retry or swap to the next up buyable"): Coming up's ready coins from the last tick, in its order
@@ -10547,6 +10549,7 @@ def _fw_kick_now():
     _fw_bg.add(t); t.add_done_callback(_fw_bg.discard)
 
 
+_FW_BUY_PASS: dict = {}   # {card id: when the keeper last reached its BUY step} — the stuck-buy clock runs only after one (fuse_wallet.stuck_buys)
 _FW_KICK: dict = {}   # {'at': when a real buy was refused / failed} → the round loop re-picks that seat RETRY_SEC later, not a tick later
 
 
@@ -11130,6 +11133,8 @@ async def _fw_tick_inner(now):
                     book = done_
         drained_ = []
         for side in (('sell',) if book.get('halt') or book.get('pending') else ('sell', 'buy')):   # ⏸ halted = sells only (owner's queued sells still land)
+            if side == 'buy':
+                _FW_BUY_PASS[tid] = time.time()   # ⏳ the keeper reached its buy step for this card (a coin wanted before `now` had its chance)
             for o in [{**x, 'cardPays': int(card.get('rounds') or 0) >= 5} for x in _fw.orders(tid, want, book, px, sol_px, cfg, now, count_sells=side == 'sell') if x['side'] == side]:
                 if hold and swap_out(o):
                     continue   # the replacement isn't buyable yet → this coin stays (cuts and the owner's own ✂ always go through)

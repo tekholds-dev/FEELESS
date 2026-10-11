@@ -3049,3 +3049,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   DATA INVALID, a hard chart objection (risk 0), COLLAPSING / INVALID quality, a failed live check or a seat score < 40. Same fill path
   (`fill_plan` → Warden → `agent_seat`), tag "🤖 agents · best available", HALF a seat at most (Warden W19). The creator's "GO only" entry,
   MANUAL, the hourly buy budget, a halted keeper and Courier BAD all still stop it. Tests: `tests/test_seats_full.py`.
+- ⏳ A SEAT IS "STUCK" ONLY AFTER THE KEEPER HAD A BUY PASS AT IT (`fuse_wallet.stuck_buys(buy_pass_at=)` ← `_FW_BUY_PASS[card]`, stamped when
+  `_fw_tick_inner` reaches its buy step): 2026-10-11 the agents seated $UDR + $WOTF in the first tick after a restart, no order was ever
+  built, and 55s later both went back to cash as "under the smallest order ($0.13)". The unfundable check now uses the keeper's own floor:
+  a coin the wallet does not hold opens its seat down to `NEW_SEAT_MIN` $0.05 (the top-up minimum is for coins already held).
