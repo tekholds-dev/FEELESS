@@ -109,3 +109,30 @@ def test_the_service_reads_every_outlet_once_and_builds_rows_for_coins_the_board
 def test_tallys_tape_keeps_at_least_every_coin_the_intake_can_read():
     import agents as ag
     assert ag.SERIES_COINS >= oe.INTAKE_MAX                                                     # a coin read this pass never loses its tape to the next
+
+
+def test_the_agents_pass_runs_on_its_own_sixty_second_loop_never_behind_the_warm_loop():
+    import inspect
+    import reputation_service as rs
+    assert '_agents_tick' not in inspect.getsource(rs._fuse_warm)                               # it rode the warm loop and ran every ~3 min
+    src = inspect.getsource(rs._agents_loop)
+    assert '_agents_tick' in src and '_runner_live' in src
+    assert rs.AGENTS_EVERY <= 60
+
+
+def test_two_callers_share_one_board_build(monkeypatch):
+    import reputation_service as rs
+    built = []
+
+    async def slow():
+        built.append(1)
+        await asyncio.sleep(0.05)
+        rs._runner_live_cache.update(at=1e12, data={'rows': ['x']})
+        return {'rows': ['x']}
+    monkeypatch.setattr(rs, '_runner_live_build', slow)
+    monkeypatch.setattr(rs, '_runner_live_cache', {'at': 0.0, 'data': {'rows': ['old']}})
+
+    async def both():
+        return await asyncio.gather(rs._runner_live(), rs._runner_live())
+    a, b = asyncio.run(both())
+    assert len(built) == 1 and {'rows': ['old']} in (a, b)                                   # the second caller read the last board while one build ran

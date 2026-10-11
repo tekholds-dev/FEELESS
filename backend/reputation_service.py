@@ -5900,6 +5900,16 @@ async def _runner_live():
     gated + scored. 30s cache — the board is shared by every viewer."""
     if _runner_live_cache['data'] and time.time() - _runner_live_cache['at'] < 40 and not _FUSE_FORCE.get():   # warmed every 25s in the background
         return _runner_live_cache['data']
+    if _runner_live_cache.get('busy') and _runner_live_cache['data'] and time.time() - _runner_live_cache['busy'] < 90:
+        return _runner_live_cache['data']   # one build at a time: a second caller (the agents' loop, the warm loop) reads the last board
+    _runner_live_cache['busy'] = time.time()
+    try:
+        return await _runner_live_build()
+    finally:
+        _runner_live_cache['busy'] = 0.0
+
+
+async def _runner_live_build():
     async with httpx.AsyncClient(timeout=10) as http:
         async def feed(kind, page=1):
             try:
@@ -6160,6 +6170,7 @@ async def _runner_start():
     if not os.environ.get('PYTEST_CURRENT_TEST'):
         asyncio.create_task(_runner_loop())
         asyncio.create_task(_fuse_warm_loop())
+        asyncio.create_task(_agents_loop())
         asyncio.create_task(_prime_bell_loop())
         asyncio.create_task(_real_guard_loop())
 
@@ -8225,8 +8236,8 @@ async def _real_guard_loop():
                 agents_c = [c for c in cards_all if c.get('holdAll')]
                 mints = [l.get('mint') for c in cards_all for l in c.get('legs') or [] if l.get('mint') and not _prime.safe_anchor(l)]
                 if mints:
-                    for m in mints:
-                        _jup_px_cache.pop(m, None)   # a FRESH read: the shared 20s cache is too slow for a stop
+                    for m in [l.get('mint') for c in cards for l in c.get('legs') or [] if l.get('mint') and not _prime.safe_anchor(l)]:
+                        _jup_px_cache.pop(m, None)   # a FRESH read for the ENGINE's stops (the shared 20s cache is too slow for a stop) — the agents' seats ride the shared cache (Reaper's ticks act on them; no extra Jupiter calls)
                     px = await _jup_prices(mints)
                     rcfg = _prime_real_cfg(); now = time.time()
                     wake_ = False
@@ -12130,6 +12141,21 @@ async def fuse_wallet_card(request: Request):
     return {'ok': True}
 
 
+async def _agents_loop():
+    """🤖 THE 60-SECOND OPERATING LOOP: the agents' pass runs on its OWN clock (AGENTS_EVERY), never behind the warm loop's dozen builders
+    (it rode that loop and ran every ~3 minutes). The launch board it reads is refreshed first when it is over ~50s old (one build at a
+    time: `_runner_live` shares an in-flight build). No new fetch kind — the same board, the same pass."""
+    await asyncio.sleep(25)
+    while True:
+        try:
+            if time.time() - _fuse._f(_runner_live_cache.get('at')) > 50:
+                await _runner_live()
+            await _agents_tick(time.time())
+        except Exception as e:
+            print('agents loop:', e)
+        await asyncio.sleep(5)
+
+
 async def _fuse_warm_loop():
     """Fuse runs in the background: every 25s the live runner board, Runner discovery, the Arena stage and the season board
     are rebuilt, so every page load is served from a fresh cache and never waits on scans or prices."""
@@ -12361,6 +12387,14 @@ async def _agents_tick(now):
             _office_cycle_log(table, now)
         except Exception as e:
             print('cycle log:', e)
+        try:   # 🔁 EVERY SEAT, EVERY CYCLE: with Agent Control on, a pass that is not followed by a tier tick within 30s wakes one — each held seat
+            # gets a fresh HOLD / PROTECT / TAKE / EXIT / SWAP stamped on THIS pass's read (the same tick that would have run anyway, earlier)
+            if (rcfg_.get('agentControl') and _is_keeper() and not os.environ.get('PYTEST_CURRENT_TEST') and now - _fuse._f(_office.get('tickAt')) > 30
+                    and now - _fuse._f(_office.get('cycleWakeAt')) > 30):
+                _office['cycleWakeAt'] = now
+                asyncio.ensure_future(_prime_tick(time.time()))
+        except Exception as e:
+            print('cycle wake:', e)
         try:   # 🪑 an empty agent seat + a candidate that just CLEARED → the existing tier tick runs now instead of up to a tick later (≤ once per 30s;
             # no new loop, no new fetch: the tick it wakes is the one that would have run anyway)
             seat_ = _agents.get('seat') or {}
@@ -13292,7 +13326,6 @@ async def _fuse_warm():
         await _crowd_build()
     if _fuse_warm_n['n'] % 3 == 1:   # 💾 finished holder scans survive a restart (a restart used to blank every list for minutes)
         _intel_save()
-    await _agents_tick(time.time())   # 🤖 the agent desk, a pass a minute
     try:   # 🗑 trench scan (~2 min, cached; heavy on-chain counts only for the 5 busiest finalists)
         await _trench_build(time.time())
     except Exception as e:

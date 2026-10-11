@@ -161,7 +161,7 @@ export function roomModel(o, sel, coin, card) {
     cases: (o?.queue || []).slice(0, 6).map((x, i) => ({ symbol: x.symbol, mint: x.mint, at: x.at, state: TAG_WORD[x.state] || x.state, cleared: !!x.cleared, go: !!x.go, structure: x.structure || null, current: i === 0, selected: !!coin && coin === x.symbol })),
     status: [[o?.seatSummary ? `${o.seatSummary.occupancy}/${o.seatSummary.target}` : (o?.positions || []).length, 'seats held', '#a07bff'], [o?.seatSummary ? `${o.seatSummary.benchReady}/${o.seatSummary.bench}` : '—', 'bench ready', '#6cc7ff'],
       [o?.office?.cleared ?? 0, 'cleared', '#45e486'], [(o?.office?.cases ?? 0) - (o?.office?.cleared ?? 0), 'blocked', '#f5c451'], [o?.cycle?.read ?? o?.office?.coins ?? 0, 'coins read this pass', '#7d998b'], [o?.execution?.health || '—', 'execution', o?.execution?.health === 'HEALTHY' ? '#45e486' : '#ff6b86']],
-    summary: o?.seatSummary || null,
+    summary: o?.seatSummary || null, turnover: (o?.cycleLog || []).slice(-14).map(l => [l.n, l.intake?.newUnique ?? null, l.intake?.deskNew ?? null]),
     seats: seatsOf(o, card, coin), seat: o?.seat ? { state: o.seat.state, reason: o.seat.reason, emptyFor: o.seat.emptyFor, target: o.seat.target } : null,
     ready: o?.ready ? { state: o.ready.state, live: !!o.ready.live, steps: o.ready.steps || [], why: o.ready.why } : null,
     swap: o?.switchEval ? { from: o.switchEval.current?.symbol || null, to: o.switchEval.challenger?.symbol || null, ok: !!o.switchEval.switch, edge: o.switchEval.edge, need: o.switchEval.need, why: o.switchEval.why,
