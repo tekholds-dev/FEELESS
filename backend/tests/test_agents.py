@@ -513,7 +513,11 @@ def test_a_soft_objection_must_be_backed_by_its_own_record():
     why = {'lean': 3, 'drivers': []}
     row = {'safe': True, 'tv': {'call': ['x', 'WATCH'], 'rug': 5}, 'mint': 'M', 'mind': {'bots': (60, ['only 0% of the volume is organic', 'wash-traded volume']), 'crowd': {'swarm': True, 'swarmShare': 0.8}}}
     n = {'c1': 5, 'age': 3}
-    assert ag.devil('enter', n, why, row, {'busted': set()})[0] == 'object'                                              # no record yet: the belief stands
+    one = {**row, 'mind': {'bots': row['mind']['bots']}}
+    w = []
+    assert ag.devil_args('enter', n, why, one, {'busted': set()}, warns=w) == [] and {x[0] for x in w} == {'botted'}   # one bot signal, no record yet: a WARNING, never a veto
+    assert ag.devil('enter', n, why, one, {'busted': set()})[0] == 'agree'
+    assert ag.devil('enter', n, why, row, {'busted': set()})[0] == 'object'                                               # a swarm AND a botted launch together: material
     flat = {'busted': set(), 'drivers': {'botted': {'n': 300, 'med': 0.0}, 'swarm': {'n': 40, 'med': 0.4}}}
     assert ag.devil('enter', n, why, row, flat) == ('agree', 'no evidence against it')                                    # 300 judged calls say it is no worse than any coin → waved through
     bad = {'busted': set(), 'drivers': {'botted': {'n': 300, 'med': -4.0}, 'swarm': {'n': 40, 'med': 0.4}}}
@@ -540,7 +544,9 @@ def test_a_rug_sign_must_beat_the_base_rate_and_old_rugs_are_never_counted_twice
 
 def test_a_duty_case_is_judged_on_the_coin_not_on_triggers_losing_streak():
     why = {'lean': 3, 'drivers': []}; row = {'safe': True, 'tv': {'call': ['x', 'WATCH'], 'rug': 5}, 'mint': 'M'}; n = {'c1': 5, 'age': 3}
-    losing = {'busted': set(), 'cards': {'trigger': {'n': 40, 'med': -2.0}}}
-    assert ag.devil('enter', n, why, row, losing)[0] == 'object'                       # Trigger's own entry: its losing record still stops it
+    losing = {'busted': set(), 'cards': {'trigger': {'n': 40, 'med': -4.0}}}
+    assert ag.devil('enter', n, why, row, losing)[0] == 'object'                       # Trigger's own entry: a STRONG losing record still stops it
+    w = []
+    assert ag.devil_args('enter', n, why, row, {'busted': set(), 'cards': {'trigger': {'n': 40, 'med': -2.0}}}, warns=w) == [] and w[0][0] == 'trigger_losing'   # a mild one warns
     assert ag.devil('enter', n, why, row, losing, duty=True)[0] == 'agree'             # a duty case: the coin itself is clean
     assert ag.devil('enter', n, why, {**row, 'tv': {'call': ['x', 'WATCH'], 'rug': 80}}, losing, duty=True)[0] == 'object'   # … and a dirty coin never is

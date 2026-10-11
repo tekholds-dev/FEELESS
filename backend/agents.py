@@ -196,6 +196,8 @@ def word(k):
         return f"🕸 found on {SOURCES.get(k[4:], k[4:])}"
     if str(k).startswith('pad:'):
         return f"🚀 launch context {k[4:]}"
+    if str(k).startswith('band:'):
+        return f"💰 {BAND_WORD.get(k[5:], k[5:])} cap band"
     if str(k).startswith('chart:'):
         return f"📈 chart reads {k[6:]}"
     if str(k).startswith('idea:'):
@@ -298,7 +300,23 @@ def drivers(n, row):
     out += list(((row.get('mind') or {}).get('drivers')) or [])   # 🧠 the human read: narrative, crowd vs swarm, botted, dip tuggers
     out += [f'strat:{k}' for k in strats(row, n)]                   # 🎯 the named meme strategies it fits
     out += [f'src:{k}' for k in (row.get('src') or [])]              # 🕸 where the crawl found it (each corner of the trench is judged)
+    if mc_band(row.get('mcap')):
+        out.append(f"band:{mc_band(row.get('mcap'))}")               # 💰 the market-cap band — context, no belief: only its own record weighs
     return [d for d in dict.fromkeys(out) if d]
+
+
+# 💰 MARKET-CAP BANDS: classification, never a gate — the desk learns which band pays (driver `band:<k>`, record only)
+BANDS = (('micro', 25_000), ('early', 100_000), ('building', 250_000), ('momentum', 500_000), ('established', 1_000_000), ('1m+', float('inf')))
+BAND_WORD = {'micro': 'MICRO / EARLY (< $25K)', 'early': 'EARLY TRENCH ($25K–$100K)', 'building': 'BUILDING ($100K–$250K)', 'momentum': 'MOMENTUM ($250K–$500K)',
+             'established': 'ESTABLISHED TRENCH ($500K–$1M)', '1m+': '$1M+'}
+
+
+def mc_band(mcap):
+    """→ band key for a market cap, None when the cap is unknown. A label: no band is ever excluded."""
+    v = _f(mcap)
+    if v <= 0:
+        return None
+    return next(k for k, top in BANDS if v < top)
 
 
 BELIEF_K = 8   # a starting belief counts like 8 judged calls; every judged call moves the weight toward what really happened
@@ -408,7 +426,8 @@ def trigger(n, why, row, learned):
     if d5 < -8:
         return 'skip', f'{d5:.0f}% in 5 min — falling'
     need = 5 if (learned or {}).get('trial') == 'tally' else 3   # 👨‍⚖️ Tally on trial: more readings before anyone may enter
-    if int(n.get('pts') or 0) < need:
+    bars_ = int(_f(((row.get('chart') or {}).get('f') or {}).get('n'))) if ((row.get('chart') or {}).get('src') == 'candles' and ((row.get('chart') or {}).get('q') or {}).get('enterOk')) else 0
+    if max(int(n.get('pts') or 0), bars_) < need:   # 🐣 ENTER-grade real candles count as readings: a newborn is not made to wait three passes for Tally's own tape
         return 'wait', f'Tally has under {need} readings of this coin yet'
     if why['lean'] >= bar and (n.get('buy') is None or _f(n['buy']) >= 55):
         return 'enter', f"lean {why['lean']:+.1f} ≥ bar {bar:.1f}: " + ', '.join(d[2] for d in why['drivers'][:2])
@@ -416,13 +435,19 @@ def trigger(n, why, row, learned):
 
 
 # ── ⚖ DEVIL ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-def devil_args(call, n, why, row, learned, duty=False):
-    """EVERY objection Devil has to an ENTER, each under its named rule (DEVIL_RULES) → [(rule id, the evidence in words)], strongest first.
-    Its learned distrust: any driver of this call whose own 5-min record is negative, and Trigger's own record when it is losing."""
+STRONG_MED, STRONG_N = -3.0, 20   # a soft rule becomes a VETO only on a strong record: ≥ 20 judged calls typically ≤ −3% at 5 min
+
+
+def devil_args(call, n, why, row, learned, duty=False, warns=None):
+    """EVERY material objection Devil has to an ENTER → [(rule id, the evidence in words)], strongest first = the VETOES.
+    A WARNING (`warns`, when a list is handed in) is noted, never a veto: the coin is new (age is context), a reason against it is already
+    inside Sherlock's lean ("found on volume leaders"), or a soft rule stands only on belief / a weak record. Hard safety rules (busted read,
+    rug meter, ran > 150%, never holder-scanned, burned us, learned rug signs, an approved avoid, Devil on trial) are always vetoes.
+    (2026-10-10: Devil objected to 26 of 34 case files — mostly "against it: found on volume leaders", a reason Sherlock had already weighed.)"""
     if call != 'enter':
         return []
     n, row = n or {}, row or {}
-    args = []
+    args, w_ = [], (warns if warns is not None else [])
     rd = ((row.get('tv') or {}).get('call') or [None, None])[1]
     busted = (learned or {}).get('busted')
     if rd in (busted if busted is not None else BUSTED):   # the reads' LIVE records when the service has them (busted_now), else the old fixed list
@@ -432,37 +457,38 @@ def devil_args(call, n, why, row, learned, duty=False):
     if n.get('c1') is not None and _f(n['c1']) > 150:
         args.append(('ran', f"already +{_f(n['c1']):.0f}% on the hour — it ran"))
     if n.get('age') is not None and _f(n['age']) < 0.25:
-        args.append(('young', 'under 15 minutes old'))
+        w_.append(('young', 'new launch: under 15 minutes old — limited history (context, not a veto)'))
     if row.get('safe') is not True:
         args.append(('unscanned', 'holders never scanned'))
     if row.get('mint') in ((learned or {}).get('burned') or {}):
         args.append(('burned', 'burned us within the last 6h — a GO on it lost 20%+ in 5 min'))
     mind = row.get('mind') or {}
-    # a SOFT signal objects only while its own record backs it: under DRIVER_MIN_N judged calls it stands on belief; after that it must
-    # really be followed by losses (typical 5-min result < SOFT_MED), else it is noted and waved through. (2026-10-10: "botted launch"
-    # blocked 9 of 25 duty cases while 554 judged calls with it read no worse than a random coin.)
     ld_ = (learned or {}).get('drivers') or {}
-    backed = lambda k: int((ld_.get(k) or {}).get('n') or 0) < DRIVER_MIN_N or _f((ld_.get(k) or {}).get('med')) < SOFT_MED
-    if (mind.get('crowd') or {}).get('swarm') and backed('swarm'):
-        args.append(('swarm', f"the callers are a bot swarm ({round(_f(mind['crowd'].get('swarmShare')) * 100)}% the same line)"))
-    if _f((mind.get('bots') or (0, []))[0]) >= 40 and backed('botted'):
-        args.append(('botted', 'botted launch: ' + '; '.join((mind['bots'][1] or [])[:2])))
+    recorded = lambda k: int((ld_.get(k) or {}).get('n') or 0) >= DRIVER_MIN_N
+    bad_rec = lambda k: recorded(k) and _f((ld_.get(k) or {}).get('med')) < SOFT_MED
+    if (mind.get('crowd') or {}).get('swarm'):   # a soft signal vetoes only when its OWN record is really followed by losses; on belief it warns
+        (args if bad_rec('swarm') else w_).append(('swarm', f"the callers are a bot swarm ({round(_f(mind['crowd'].get('swarmShare')) * 100)}% the same line)"))
+    if _f((mind.get('bots') or (0, []))[0]) >= 40:
+        (args if bad_rec('botted') else w_).append(('botted', 'botted launch: ' + '; '.join((mind['bots'][1] or [])[:2])))
+    if {'swarm', 'botted'} <= {x[0] for x in w_} and not (recorded('swarm') and recorded('botted')):   # both bot signals on one coin (a swarm of callers AND a botted launch), not yet cleared by their records = material: a veto
+        args += [x for x in w_ if x[0] in ('botted', 'swarm')]
+        w_[:] = [x for x in w_ if x[0] not in ('botted', 'swarm')]
     pr_ = ((learned or {}).get('pads') or {}).get((row.get('launch') or {}).get('key')) or {}
     if int(pr_.get('enterN') or 0) >= PAD_MIN_N and pr_.get('enterMed5') is not None and _f(pr_['enterMed5']) <= PAD_BAD_MED:   # 🚀 a launch-specific failure pattern, on OUR record only
         args.append(('pad_losing', f"launch context {row['launch']['key']} loses on our own entries: {pr_['enterN']} ENTER calls, typical {_f(pr_['enterMed5']):+.1f}% at 5 min"))
     orec = (learned or {}).get('objrec') or {}
     for rule, text in (row.get('chart') or {}).get('objs') or []:   # 📈 the chart thesis attacked on its measurements (chart_intel.objections)
         v = orec.get(rule) or {}
-        if _ci.CHART_RULES.get(rule, (True,))[0] or int(v.get('n') or 0) < DRIVER_MIN_N or _f(v.get('med')) <= 0:   # a soft chart rule stands until its own record shows it blocks winners
-            args.append((rule, text))
+        hard_ = _ci.CHART_RULES.get(rule, (True,))[0]
+        (args if hard_ or (int(v.get('n') or 0) >= DRIVER_MIN_N and _f(v.get('med')) <= 0) else w_).append((rule, text))   # a soft chart rule vetoes once its record shows it right
     bad = [d for d in why['drivers'] if d[1] < 0]
     if bad:
-        args.append(('against', 'against it: ' + ', '.join(d[2] for d in bad[:2])))
-    learned_d = (learned or {}).get('drivers') or {}
+        w_.append(('against', 'against it: ' + ', '.join(d[2] for d in bad[:2])))   # already inside Sherlock's lean — noted, never counted twice
     for k, _w, words in why['drivers']:
-        v = learned_d.get(k) or {}
+        v = ld_.get(k) or {}
         if int(v.get('n') or 0) >= DRIVER_MIN_N and _f(v.get('med')) < 0 and _f(_w) > 0:
-            args.append(('driver_losing', f"'{words}' has been followed by {_f(v['med']):+.1f}% lately"))
+            strong_ = int(v.get('n') or 0) >= STRONG_N and _f(v.get('med')) <= STRONG_MED
+            (args if strong_ else w_).append(('driver_losing', f"'{words}' has been followed by {_f(v['med']):+.1f}% lately"))
     have_ = {d[0] for d in why['drivers']}
     rs_ = [x for x in have_ if ((learned or {}).get('rugSigns') or {}).get(x, 0) >= RUG_SIGN_N and not x.startswith('src:open')]
     if len(rs_) >= 2:   # 🔬 learned from autopsies: these reasons keep showing up on coins that rugged
@@ -472,13 +498,13 @@ def devil_args(call, n, why, row, learned, duty=False):
             args.append(('avoid', f"approved avoid-tactic {iid}: {word(pair[0])} + {word(pair[1])}"))
     tr = ((learned or {}).get('cards') or {}).get('trigger') or {}
     if not duty and int(tr.get('n') or 0) >= 15 and _f(tr.get('med')) < 0:   # about TRIGGER'S entries — a duty case is not one (its bar is waived), so it is judged on the coin alone
-        args.append(('trigger_losing', f"Trigger's last {tr['n']} calls: {_f(tr['med']):+.1f}% typical"))
+        (args if _f(tr.get('med')) <= STRONG_MED else w_).append(('trigger_losing', f"Trigger's last {tr['n']} calls: {_f(tr['med']):+.1f}% typical"))
     return args
 
 
 # ⚖ Devil's rules by name: (hard?, what it is). HARD = it can never be waived or out-voted; SOFT = it stands only while its own record backs it.
 DEVIL_RULES = {'busted_read': (True, "the coin's read is a busted call on its own 1h record"), 'rug_meter': (True, 'rug meter ≥ 50'), 'ran': (True, 'already ran > +150% on the hour'),
-               'young': (True, 'under 15 minutes old'), 'unscanned': (True, 'holders never scanned'), 'burned': (True, 'burned us in the last 6h'),
+               'young': (False, 'under 15 minutes old — a WARNING (age is context)'), 'unscanned': (True, 'holders never scanned'), 'burned': (True, 'burned us in the last 6h'),
                'swarm': (False, 'the callers are a bot swarm'), 'botted': (False, 'botted launch'), 'against': (False, 'a reason against it is on the table'),
                'driver_losing': (False, 'one of its reasons has been followed by losses lately'), 'rug_signs': (True, 'rug signs learned from our autopsies'),
                'avoid': (True, 'a creator-approved avoid tactic'), 'pad_losing': (False, 'this launch context loses on our own entries'), 'trigger_losing': (False, "Trigger's own recent entries are losing"), 'trial': (True, 'Devil is on trial: only strong reads pass'),
@@ -566,7 +592,8 @@ def desk(state, rows, now, dial=None, busted=None, weather_fn=None, candles=None
             real = candles.get(m)
             # 🧪 MARKET-DATA TRUTH: Tally validates the rows as fetched (market_data.quality) before any desk reads structure from them. `meta` =
             # what is known about where they came from: the candle provider, the board's own volume totals, how fresh the pool reading is.
-            meta = {**((cmeta or {}).get(m) or {} if real else {}), 'vol5m': r.get('vol5m'), 'vol1h': r.get('vol1h'), 'txns1h': r.get('txns1h'), 'buy': n.get('buy'), 'liqAge': 0.0}
+            meta = {**((cmeta or {}).get(m) or {} if real else {}), 'vol5m': r.get('vol5m'), 'vol1h': r.get('vol1h'), 'txns1h': r.get('txns1h'), 'buy': n.get('buy'), 'liqAge': 0.0,
+                    'ageMin': None if r.get('ageH') is None else _f(r['ageH']) * 60}   # 🐣 how old the coin is: a newborn's few candles read as LIMITED HISTORY, not bad data
             chart = _ci.read(real if real else _ci.from_tape(ser.get(m)), now, bool(real), 'candles' if real else 'tape', meta, buy=n.get('buy'), liq=n.get('liq') or None, liq_d=n.get('liqD'), flow=(flows or {}).get(r.get('pairAddress')))
             perf['chart'] += _t.perf_counter() - t0
             if charts_out is not None:
@@ -597,7 +624,8 @@ def desk(state, rows, now, dial=None, busted=None, weather_fn=None, candles=None
         verdict, arg = ('—', '') if call != 'enter' else (('object', dargs[0][1]) if dargs else ('agree', 'no evidence against it')); perf['devil'] += _t.perf_counter() - t0
         if learned['trial'] == 'devil' and verdict == 'agree' and why['lean'] < bar_ + TRIAL_BAR:   # 👨‍⚖️ Devil on trial: only strong reads pass
             verdict, arg = 'object', f"on trial — only a strong read passes (lean {why['lean']:+.1f} < {bar_ + TRIAL_BAR:.1f})"
-        objs = devil_args('enter', n, why, {**r, 'mint': m}, learned, duty=True) if call in ('enter', 'wait') and why['lean'] > 0 else None
+        warns_ = []
+        objs = devil_args('enter', n, why, {**r, 'mint': m}, learned, duty=True, warns=warns_) if call in ('enter', 'wait') and why['lean'] > 0 else None
         case = None if objs is None else (['object', objs[0][1]] if objs else ['agree', 'no evidence against it'])
         if case and learned['trial'] == 'devil' and case[0] == 'agree' and why['lean'] < bar_ + TRIAL_BAR:
             case, objs = ['object', 'on trial — only a strong read passes'], [('trial', 'on trial — only a strong read passes')]
@@ -607,7 +635,7 @@ def desk(state, rows, now, dial=None, busted=None, weather_fn=None, candles=None
                       'mind': {'narr': rd['narr'][1], 'hot': rd['narr'][2], 'callers': rd['crowd']['callers'], 'swarm': rd['crowd']['swarm'],
                                'slang': rd['crowd']['slang'], 'bots': rd['bots'][0], 'tug': rd['tug'][0]},
                       'analysis': _tm.analysis(r.get('symbol'), rd, n, call, verdict, arg), 'opinion': opinion(why, call, verdict, arg),
-                      'strats': [STRAT_NAME[k] for k in strats(r, n)],
+                      'strats': [STRAT_NAME[k] for k in strats(r, n)], 'warns': [list(w) for w in warns_[:6]], 'band': mc_band(r.get('mcap')),
                       'vitals': {k: r.get(k) for k in ('mcap', 'ageH', 'liq', 'vol1h', 'buyShare', 'top10', 'bundledN', 'snipersN', 'dev', 'holders', 'safe', 'curve', 'curvePct', 'txns1h')}
                                 | {'organic': (r.get('vital') or {}).get('organicPct'), 'rug': (r.get('tv') or {}).get('rug'), 'read': ((r.get('tv') or {}).get('call') or [None, None])[1]}})
     table.sort(key=lambda x: (not x['go'], x['trigger'][0] != 'enter', -x['why']['lean']))

@@ -385,7 +385,7 @@ def test_the_exposure_helpers_show_the_same_checks_the_desks_rule_by():
     assert [of.scan_status(True, now=10), of.scan_status(None), of.scan_status(None, inflight=True), of.scan_status(None, failed_at=100, now=150), of.scan_status(True, scanned_at=1, now=5000)] == ['DONE', 'REQUESTED', 'RUNNING', 'FAILED', 'STALE']
     assert all(ag.devil_rule_of(text) == rule for rule, text in ag.devil_args('enter', {'c1': 300, 'age': 0.1}, {'drivers': [], 'lean': 2}, {'safe': None, 'tv': {'rug': 70, 'call': ['', 'X', '']}}, {'busted': {'X'}}))
     objs = ag.devil_args('enter', {'c1': 300, 'age': 0.1}, {'drivers': [], 'lean': 2}, {'safe': None, 'tv': {'rug': 70, 'call': ['', 'X', '']}}, {'busted': {'X'}})
-    assert [o[0] for o in objs] == ['busted_read', 'rug_meter', 'ran', 'young', 'unscanned'] and all(ag.DEVIL_RULES[o[0]][0] for o in objs)   # every objection has its rule, all hard
+    assert [o[0] for o in objs] == ['busted_read', 'rug_meter', 'ran', 'unscanned'] and all(ag.DEVIL_RULES[o[0]][0] for o in objs)   # every objection has its rule, all hard (age is a warning now)
 
 
 def test_the_pipeline_shows_each_desk_and_everything_after_a_stop_waits():

@@ -51,7 +51,8 @@ def test_the_same_buy_share_reads_as_different_structures_and_flow_alone_never_d
 
 
 def test_every_state_comes_from_measured_thresholds_and_short_data_is_unknown():
-    assert ci.read(bars([1.0, 1.01, 1.02]))['state'] == 'UNKNOWN' and ci.read([])['state'] == 'UNKNOWN' and ci.read(bars([1.0, 1.01, 1.02]))['entry'][0] == 'WAIT FOR CONFIRMATION'
+    assert ci.read(bars([1.0, 1.01]))['state'] == 'UNKNOWN' and ci.read([])['state'] == 'UNKNOWN' and ci.read(bars([1.0, 1.01]))['entry'][0] == 'WAIT FOR CONFIRMATION'
+    assert ci.read(bars([1.0, 1.01, 1.02]))['state'] == 'EARLY'                                                  # 🐣 three real candles: the structure it has so far
     para = ci.read(bars([1.0] * 10 + [1.02, 1.08, 1.16, 1.25, 1.36, 1.48]))
     assert para['state'] == 'PARABOLIC' and para['entry'][:2] == ['WAIT FOR PULLBACK', 'E2 no chasing'] and para['risk'][0] == 0.25 and para['objs'][0][0] == 'chart_parabolic'
     down = ci.read(bars([1.0 * (0.985 ** i) * (1.004 if i % 3 == 2 else 1) for i in range(24)]))
@@ -118,7 +119,9 @@ def test_devils_chart_objections_point_at_measurements_and_soft_ones_need_their_
     assert all(k in ag.DEVIL_RULES for k in ci.CHART_RULES) and ag.DEVIL_RULES['chart_parabolic'][0] is True and ag.DEVIL_RULES['chart_wick'][0] is False
     row = {'safe': True, 'tv': {'rug': 5, 'call': ['', 'X', '']}, 'chart': {'objs': [['chart_divergence', 'price +4% on buy flow 40%']]}}
     why = {'drivers': [], 'lean': 2}
-    assert ag.devil_args('enter', {}, why, row, {})[0][0] == 'chart_divergence'                                   # a soft chart rule stands on belief …
+    w = []
+    assert ag.devil_args('enter', {}, why, row, {}, warns=w) == [] and w[0][0] == 'chart_divergence'               # a soft chart rule on belief only WARNS …
+    assert ag.devil_args('enter', {}, why, row, {'objrec': {'chart_divergence': {'n': 12, 'med': -2.0}}})[0][0] == 'chart_divergence'   # … and vetoes once its record shows it right
     assert ag.devil_args('enter', {}, why, row, {'objrec': {'chart_divergence': {'n': 12, 'med': 4.0}}}) == []    # … until its OWN record shows it blocks winners
     hard = {**row, 'chart': {'objs': [['chart_parabolic', 'parabolic: +30% in 5 min']]}}
     assert ag.devil_args('enter', {}, why, hard, {'objrec': {'chart_parabolic': {'n': 99, 'med': 50.0}}})[0][0] == 'chart_parabolic'   # a hard one is never waived

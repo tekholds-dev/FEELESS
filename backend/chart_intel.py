@@ -27,7 +27,9 @@ STOP_FLOOR = 8.0   # the tightest a normal stop may be
 CATASTROPHIC_STOP = 45.0   # 🧱 the hard ceiling: a position down this much is closed whatever any learned / promoted setting says. Not a tunable.
 
 STATES = ('STRONG UPTREND', 'UPTREND', 'PULLBACK IN UPTREND', 'BREAKOUT ATTEMPT', 'CONFIRMED BREAKOUT', 'ACCUMULATION', 'COMPRESSION', 'RANGE', 'CHOP',
-          'DISTRIBUTION', 'DOWNTREND', 'LIQUIDITY FAILURE', 'PARABOLIC', 'FAILED BREAKOUT', 'UNKNOWN', 'DATA INVALID')
+          'DISTRIBUTION', 'DOWNTREND', 'LIQUIDITY FAILURE', 'PARABOLIC', 'FAILED BREAKOUT', 'EARLY', 'UNKNOWN', 'DATA INVALID')
+EARLY_MIN = 3      # 🐣 a newborn with EARLY_MIN … MIN_BARS−1 real candles reads as EARLY: the structure it has so far, never "no chart"
+EARLY_CHASE, EARLY_RUN, EARLY_FADE = 15.0, 40.0, -8.0   # last candle %, move since the first open %, the fade that is a SKIP
 DATA_INVALID = 'DATA INVALID'   # 🧪 the rows failed Tally's integrity gate: NOT a structure, NOT a bad coin — nothing is inferred, nothing is sold on it
 GOOD = ('STRONG UPTREND', 'UPTREND', 'PULLBACK IN UPTREND', 'CONFIRMED BREAKOUT')          # the thesis of a long still stands
 BAD = ('DOWNTREND', 'LIQUIDITY FAILURE', 'FAILED BREAKOUT', 'DISTRIBUTION', 'CHOP')        # it does not
@@ -87,7 +89,13 @@ def snapshot(rows, now=0.0, ohlc=True, buy=None, liq=None, liq_d=None, flow=None
     n = len(rs)
     f = {'n': n, 'ohlc': bool(ohlc), 'at': now, 'buy': buy, 'liq': liq, 'liqD': liq_d}
     if n < MIN_BARS:   # too short to measure structure: the price only, every feature unmeasured
-        return {**f, 'px': _f(rs[-1][4]) if rs else None}
+        out = {**f, 'px': _f(rs[-1][4]) if rs else None}
+        if n >= EARLY_MIN and ohlc:   # 🐣 stage-aware: what a few real candles DO say (move so far, greens, last candle, a break of its own lows)
+            o0, c_ = _f(rs[0][1]) or _f(rs[0][4]), [_f(r[4]) for r in rs]
+            lows = [_f(r[3]) for r in rs]
+            out['early'] = {'move': round((c_[-1] / o0 - 1) * 100, 2) if o0 > 0 else 0.0, 'green': sum(1 for r in rs if _f(r[4]) >= _f(r[1])),
+                            'last': round((c_[-1] / c_[-2] - 1) * 100, 2) if c_[-2] > 0 else 0.0, 'broke': c_[-1] < min(lows[:-1]), 'n': n}
+        return out
     o, h, l, c = [_f(r[1]) for r in rs], [_f(r[2]) for r in rs], [_f(r[3]) for r in rs], [_f(r[4]) for r in rs]
     v = [r[5] for r in rs]
     px = c[-1]
@@ -176,6 +184,9 @@ def snapshot(rows, now=0.0, ohlc=True, buy=None, liq=None, liq_d=None, flow=None
 def classify(f):
     """→ (state, evidence [words with the measurement], contradictions [same], confidence 0–1). The first rule that holds decides."""
     n = int(_f((f or {}).get('n')))
+    if n < MIN_BARS and (f or {}).get('early'):
+        e = f['early']
+        return 'EARLY', [f"{e['n']} real candles so far: {e['move']:+.1f}% since its first open, {e['green']} green"], ([f"broke under its own lows"] if e['broke'] else []), 0.2
     if n < MIN_BARS or f.get('trend') is None:
         return 'UNKNOWN', [f'{n} one-minute candles — {MIN_BARS} are needed'], [], 0.0
     ev, con = [], []
@@ -225,6 +236,17 @@ def classify(f):
 
 def entry_call(f, state):
     """⏱ Is THIS MOMENT a place to take risk? → (call, rule id, why). A good chart at a bad spot is a WAIT; a vertical candle is never chased."""
+    if state == 'EARLY':   # 🐣 the evidence a newborn HAS: its few candles, its buyers — the +15% candle is still never chased
+        e = f['early']
+        if e['last'] > EARLY_CHASE or e['move'] > EARLY_RUN:
+            return 'WAIT FOR PULLBACK', 'E2e no chasing (early)', f"{e['last']:+.0f}% last candle, {e['move']:+.0f}% since launch — a newborn spike is not chased"
+        if e['broke'] or e['move'] <= EARLY_FADE:
+            return 'SKIP', 'E1e early fade', f"{e['move']:+.1f}% since its first open{', under its own lows' if e['broke'] else ''}"
+        if f.get('buy') is not None and _f(f['buy']) < 50:
+            return 'WAIT FOR CONFIRMATION', 'E13e sellers lead (early)', f"buy flow {_f(f['buy']):.0f}% on a {e['n']}-candle launch"
+        if e['move'] >= 0 and e['green'] * 2 >= e['n']:
+            return 'ENTER NOW', 'E13 early stage', f"{e['n']} real candles, {e['move']:+.1f}% since launch, {e['green']} green — early evidence, half size"
+        return 'WAIT FOR CONFIRMATION', 'E13e no direction (early)', f"{e['move']:+.1f}% since launch, {e['green']} of {e['n']} green"
     if state == 'UNKNOWN':
         return 'WAIT FOR CONFIRMATION', 'E0 no chart', f"only {int(_f((f or {}).get('n')))} candles — structure cannot be read yet"
     if state in ('LIQUIDITY FAILURE', 'DOWNTREND', 'CHOP', 'DISTRIBUTION', 'FAILED BREAKOUT'):
@@ -304,6 +326,8 @@ def risk(f, state):
         return 0.0, 'market data failed its integrity check — no size'
     if not f or state == 'UNKNOWN':
         return 0.5, 'structure unknown — half size'
+    if state == 'EARLY':
+        return 0.5, 'EARLY: a few real candles — half size'
     if state in ('CHOP', 'DOWNTREND', 'LIQUIDITY FAILURE', 'FAILED BREAKOUT', 'DISTRIBUTION'):
         return 0.0, f'{state} — no size'
     if state == 'PARABOLIC':
@@ -340,7 +364,7 @@ def stop_for(f, state, ctx=None, ceiling=30.0):
     room = min(support_gap(f), 12.0) + 2 * _f(f['atr'])
     parts = [f"support {min(support_gap(f), 12.0):.1f}% away + 2 candles of {f['atr']:.1f}%"]
     for cond, word in ((0 < _f(c.get('liq')) < 50_000, 'thin pool'), (c.get('ageH') is not None and _f(c['ageH']) < 6, 'under 6h old'),
-                       (c.get('courier') in ('DEGRADED', 'BAD'), 'execution degraded'), (state in ('CONFIRMED BREAKOUT', 'BREAKOUT ATTEMPT', 'UNKNOWN'), 'unproven structure')):
+                       (c.get('courier') in ('DEGRADED', 'BAD'), 'execution degraded'), (state in ('CONFIRMED BREAKOUT', 'BREAKOUT ATTEMPT', 'UNKNOWN', 'EARLY'), 'unproven structure')):
         if cond:
             room *= 0.8; parts.append(f'−20% {word}')
     stop = round(_clamp(room, STOP_FLOOR, top), 1)

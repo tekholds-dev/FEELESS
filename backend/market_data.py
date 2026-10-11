@@ -31,13 +31,14 @@ FLAT_SPARSE, FLAT_CAUTION = 0.5, 0.25
 VOL_REAL = 0.8       # share of moving bars that must carry a volume figure for per-candle volume to be called REAL
 TRUSTED_MIN = 80
 
-STATES = ('TRUSTED', 'USABLE_WITH_CAUTION', 'SPARSE', 'STALE', 'INCONSISTENT', 'MALFORMED', 'NO_REAL_CANDLES', 'NO_VOLUME', 'NO_LIQUIDITY', 'UNTRUSTED')
+EARLY_BARS, EARLY_AGE_MIN = 3, 20   # 🐣 a launch younger than ~20 min with ≥ 3 real 1m candles: LIMITED HISTORY (stage-aware), never "bad data"
+STATES = ('TRUSTED', 'USABLE_WITH_CAUTION', 'LIMITED_HISTORY', 'SPARSE', 'STALE', 'INCONSISTENT', 'MALFORMED', 'NO_REAL_CANDLES', 'NO_VOLUME', 'NO_LIQUIDITY', 'UNTRUSTED')
 READ_FAIL = ('MALFORMED', 'INCONSISTENT', 'STALE', 'UNTRUSTED')    # an INTEGRITY failure: no desk may infer structure from these rows
-STRUCT_FAIL = READ_FAIL + ('SPARSE',)                              # … and an existing position's thesis is not reviewed against them
-ENTER_OK = ('TRUSTED', 'USABLE_WITH_CAUTION')                      # the only states a chart-based ENTER may stand on
-CAP = {'UNTRUSTED': 0, 'MALFORMED': 5, 'INCONSISTENT': 20, 'STALE': 30, 'SPARSE': 40, 'NO_REAL_CANDLES': 45, 'NO_VOLUME': 60, 'NO_LIQUIDITY': 60}
-RISK = {'TRUSTED': 1.0, 'USABLE_WITH_CAUTION': 1.0, 'NO_REAL_CANDLES': 0.5, 'NO_VOLUME': 0.5, 'NO_LIQUIDITY': 0.5, 'SPARSE': 0.5}   # everything else 0 — bad data never sizes a seat up
-WORDS = {'TRUSTED': 'trusted', 'USABLE_WITH_CAUTION': 'usable with caution', 'SPARSE': 'sparse', 'STALE': 'stale', 'INCONSISTENT': 'inconsistent', 'MALFORMED': 'malformed',
+STRUCT_FAIL = READ_FAIL + ('SPARSE', 'LIMITED_HISTORY')           # … and an existing position's thesis is not reviewed against them (a few candles never INVALIDATE a hold)
+ENTER_OK = ('TRUSTED', 'USABLE_WITH_CAUTION', 'LIMITED_HISTORY')   # the only states a chart-based ENTER may stand on (early = real candles, few of them, at half size)
+CAP = {'LIMITED_HISTORY': 60, 'UNTRUSTED': 0, 'MALFORMED': 5, 'INCONSISTENT': 20, 'STALE': 30, 'SPARSE': 40, 'NO_REAL_CANDLES': 45, 'NO_VOLUME': 60, 'NO_LIQUIDITY': 60}
+RISK = {'TRUSTED': 1.0, 'USABLE_WITH_CAUTION': 1.0, 'LIMITED_HISTORY': 0.5, 'NO_REAL_CANDLES': 0.5, 'NO_VOLUME': 0.5, 'NO_LIQUIDITY': 0.5, 'SPARSE': 0.5}   # everything else 0 — bad data never sizes a seat up
+WORDS = {'TRUSTED': 'trusted', 'USABLE_WITH_CAUTION': 'usable with caution', 'LIMITED_HISTORY': 'early data / limited history', 'SPARSE': 'sparse', 'STALE': 'stale', 'INCONSISTENT': 'inconsistent', 'MALFORMED': 'malformed',
          'NO_REAL_CANDLES': 'no real candles', 'NO_VOLUME': 'no volume', 'NO_LIQUIDITY': 'no liquidity', 'UNTRUSTED': 'untrusted'}
 FLOW_CALC = 'buy % = buys ÷ (buys + sells) by transaction COUNT over the board\'s last hour'
 TAPE_CALC = 'trade tape: $ bought vs $ sold in the last 90 seconds (parsed swaps)'
@@ -186,6 +187,9 @@ def quality(rows, now=0.0, ohlc=True, src='candles', meta=None, liq=None, flow=N
         state = 'STALE'
     elif derived:
         state = 'NO_REAL_CANDLES'
+    elif (EARLY_BARS <= g < MIN_BARS and ohlc and src == 'candles' and _num(m.get('ageMin')) is not None and _num(m.get('ageMin')) <= EARLY_AGE_MIN
+          and flat_share <= FLAT_SPARSE and not m.get('partial')):
+        state = 'LIMITED_HISTORY'   # 🐣 a newborn has few candles because it IS new — every integrity check still had to pass
     elif g < MIN_BARS or flat_share > FLAT_SPARSE or m.get('partial') or (not ohlc and big_gap > 600):
         state = 'SPARSE'
     elif judged and ctx['volume'] == 'UNAVAILABLE':
@@ -235,7 +239,10 @@ def _ctx(m, judged, cover, with_v, g, liq, flow, ohlc, src):
 
 def _out(state, conf, checks, fails, soft, prov):
     bad = [c for c in checks if not c[1]]
-    why = bad[0][2] if bad else {'NO_REAL_CANDLES': 'reconstructed from the tape — not exchange candles'}.get(state, 'every integrity check passed')
+    why = bad[0][2] if bad else {'NO_REAL_CANDLES': 'reconstructed from the tape — not exchange candles', 'LIMITED_HISTORY': 'EARLY DATA — a new launch: few real candles exist yet, each one passed the integrity checks'}.get(state, 'every integrity check passed')
+    if state == 'LIMITED_HISTORY':
+        oth = [c for c in bad if c[0] != 'enough']
+        why = 'EARLY DATA / LIMITED HISTORY — a new launch: few real candles exist yet' + (f' ({oth[0][2]})' if oth else '')
     if state == 'NO_REAL_CANDLES':
         why = 'reconstructed — not real OHLC candles' + (f' ({bad[0][2]})' if bad else '')
     return {'state': state, 'conf': int(conf), 'checks': checks, 'fails': list(fails), 'soft': list(soft), 'why': why,
