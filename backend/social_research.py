@@ -65,8 +65,14 @@ def _meta(html, *names):
 
 
 def mints_in(text):
-    """Every Solana-address-shaped string on the page (deduped, page order). Pure regex: a match is a CLAIM the page makes."""
-    return list(dict.fromkeys(MINT_RE.findall(text or '')))
+    """Every Solana-address-shaped string in the page's VISIBLE text (deduped, page order) — mixed case with a digit, never pure hex
+    (build hashes / EVM-style ids in scripts and attributes were read as "another contract" on 2026-10-10). A match is a CLAIM."""
+    out = []
+    for m in MINT_RE.findall(text or ''):
+        if re.fullmatch(r'[0-9a-fA-F]+', m) or not (re.search(r'[a-z]', m) and re.search(r'[A-Z]', m) and re.search(r'[1-9]', m)):
+            continue
+        out.append(m)
+    return list(dict.fromkeys(out))
 
 
 def links_in(html):
@@ -83,7 +89,7 @@ def site_read(html, url, mint):
         return {'url': url, 'reachable': False, 'title': None, 'description': None, 'mints': [], 'mintShown': False, 'mintMatch': 'unknown', 'x': [], 'tg': [], 'text': ''}
     title = (re.search(r'(?is)<title[^>]*>(.*?)</title>', html) or [None, None])[1]
     txt = _text(html)
-    ms = mints_in(html)
+    ms = mints_in(txt)   # visible text only — never script / style / attribute hashes
     ln = links_in(html)
     match = 'yes' if mint and mint in ms else ('no' if ms else 'unknown')   # a page showing ONLY other addresses = a mismatch claim
     return {'url': url, 'reachable': True, 'title': _html.unescape(title.strip())[:140] if title else None,

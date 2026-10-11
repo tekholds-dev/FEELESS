@@ -782,3 +782,12 @@ def test_research_reuses_its_cache_picks_only_the_strongest_and_fetches_each_pag
     assert n2 == 2 and 'duckduckgo' in calls[0]                                                                    # one bounded search only when it carries no link
     _, n3 = asyncio.run(sr.research(nolink, fetch=search, now=1000, cache_search={'ZZ': 999}))
     assert n3 == 0                                                                                                 # searched recently: not again
+
+
+def test_build_hashes_and_hex_ids_are_never_read_as_another_contract():
+    import social_research as sr
+    html = ('<html><head><script src="/_next/static/chunks/ec3933a1b2c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9.js"></script></head>'
+            '<body class="Xk9qPz3LmN2vB7rT5yW1aE4sD6fG8hJ"><p>Welcome to the frog pond</p></body></html>')
+    s = sr.site_read(html, 'https://frog.fun', 'FroGGyMint1111111111111111111111111111pump')
+    assert s['mints'] == [] and s['mintMatch'] == 'unknown' and not sr.crosscheck('FroGGyMint1111111111111111111111111111pump', None, s, None)['conflict']
+    assert sr.mints_in('CA: 9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin') == ['9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin']

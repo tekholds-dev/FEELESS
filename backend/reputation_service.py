@@ -12460,12 +12460,14 @@ def _office_load_pass():
 import social_research as _sr
 SOCIAL_PATH = FUSE_HQ_PATH.parent / 'social_cache.json'   # 🔎 the research packets (≤ SOCIAL_KEEP, newest kept) — reloaded once after a restart
 SOCIAL_KEEP = 400
+SOCIAL_V = 2   # bump when the parser changes (v2: mints from visible text only)
 _social: dict = {'cache': None, 'busy': False, 'searched': {}}
 
 
 def _social_cache():
     if _social['cache'] is None:
-        _social['cache'] = dict((_json_load(SOCIAL_PATH, {}) or {}).get('packets') or {})
+        d_ = _json_load(SOCIAL_PATH, {}) or {}
+        _social['cache'] = dict(d_.get('packets') or {}) if d_.get('v') == SOCIAL_V else {}   # an older parser's packets are re-read, never trusted
     return _social['cache']
 
 
@@ -12494,7 +12496,7 @@ async def _research_tick(cases, rows_by, now):
         _social['searched'] = {k_: t_ for k_, t_ in _social['searched'].items() if now - t_ < _sr.TTL['search']}
         _office['load']['browser'] = int(_office['load'].get('browser') or 0) + n
         _office['load']['researched'] = int(_office['load'].get('researched') or 0) + 1
-        _json_save(SOCIAL_PATH, {'packets': cache})
+        _json_save(SOCIAL_PATH, {'v': SOCIAL_V, 'packets': cache})
     finally:
         _social['busy'] = False
     return n
