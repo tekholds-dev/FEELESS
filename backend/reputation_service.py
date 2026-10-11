@@ -9735,7 +9735,7 @@ async def _prime_tick_inner(now):
                 if cand_ or held_p:
                     await _jup_prices([t_['mint'] for t_ in cand_] + list(held_p))
                     await _office_candle_refresh({**held_p, **{t_['mint']: t_['pair'] for t_ in cand_}}, now)
-                live_ = {t_['mint']: _oe.live_check(t_, _mkt_view(t_['mint'], t_['pair'], now), _office['charts'].get(t_['mint']), now, near=t_['mint'] in near_m, floor=bool(t_.get('floor'))) for t_ in cand_}
+                live_ = {t_['mint']: _oe.live_check(t_, _mkt_view(t_['mint'], t_['pair'], now), _office['charts'].get(t_['mint']), now, near=t_['mint'] in near_m) for t_ in cand_}
                 moved_ = [{'symbol': t_['symbol'], **live_[t_['mint']]} for t_ in cand_ if not live_[t_['mint']]['ok'] and t_['mint'] not in near_m]
                 gos_ = [{**t_, 'px': live_[t_['mint']]['px']} if t_['mint'] in live_ else t_ for t_ in gos_ if t_['mint'] not in live_ or live_[t_['mint']]['ok']]
                 wait_ = [{**t_, 'px': live_[t_['mint']]['px']} if t_['mint'] in live_ else t_ for t_ in wait_ if t_['mint'] not in live_ or live_[t_['mint']]['ok']]

@@ -345,7 +345,6 @@ def near_ready(cases, scores=None, live=None, min_score=NEAR_MIN_SCORE):
     return sorted(out, key=lambda r: -_f(r.get('nearScore')))
 
 
-FLOOR_SKIP_OK = ('E1 bad structure: CHOP',)   # the only Trigger SKIP a seat floor may take: no clear direction is not a danger
 FLOOR_DEVIL_HARD = ('busted_read', 'rug_meter', 'ran', 'unscanned', 'burned', 'rug_signs', 'avoid', 'data_integrity', 'chart_bot_ladder', 'identity')
 FLOOR_BAD_CHART = ('DATA INVALID', 'BOT LADDER', 'LIQUIDITY FAILURE', 'DOWNTREND', 'FAILED BREAKOUT')
 
@@ -353,9 +352,8 @@ FLOOR_BAD_CHART = ('DATA INVALID', 'BOT LADDER', 'LIQUIDITY FAILURE', 'DOWNTREND
 def floor_ready(table, skip=()):
     """🪑 THE SEAT FLOOR (owner, 2026-10-11: "no seat should ever be empty — 30 secs to decide"): when nothing is a GO, cleared or near-ready,
     an empty seat takes the best coin of EVERYTHING the desk read this pass (not only the positive-lean case files) that clears every HARD
-    safety line: holder scan passed · pool ≥ CONTROL_MIN_LIQ · rug meter < 50 · not +150% on the hour · no hard Devil objection · Trigger's
-    only allowed SKIP is a choppy chart (never a +15% candle, a −8% fall, a thin pool, a failed scan or a bot ladder) · the chart is not
-    invalid / a bot ladder / a liquidity failure / a downtrend / collapsing. Best lean first, then 1h volume. The live check, the Warden (half
+    safety line: holder scan passed · pool ≥ CONTROL_MIN_LIQ · rug meter < 50 · not +150% on the hour · no hard Devil objection · no Trigger
+    SKIP and no hard chart objection (risk 0) · the chart is not invalid / a bot ladder / a liquidity failure / a downtrend / collapsing. Best lean first, then 1h volume. The live check, the Warden (half
     a seat at most, W19), the hourly guard and the keeper still decide each one."""
     import seat_ops as _so
     out = []
@@ -367,7 +365,7 @@ def floor_ready(table, skip=()):
         if _f(n.get('liq') or v.get('liq')) < _ag.CONTROL_MIN_LIQ or _f(v.get('rug')) >= 50 or _f(n.get('c1')) > 150:
             continue
         call, why = (list(x.get('trigger') or ['skip', '']) + [''])[:2]
-        if call == 'skip' and not any(str(why).startswith(k) for k in FLOOR_SKIP_OK):
+        if call == 'skip' or _f((ch.get('risk') or [1.0])[0]) <= 0:   # any Trigger SKIP (spike · fall · thin · failed scan · bad structure) or a hard chart objection = no
             continue
         if x.get('drule') in FLOOR_DEVIL_HARD or any((o or [None])[0] in FLOOR_DEVIL_HARD for o in x.get('objs') or []):
             continue
@@ -911,7 +909,7 @@ def cycle_view(intake_, table, cases, charts, first, now, last_at, every, n_cycl
 LIVE_CHASE, LIVE_FALL = 15.0, -8.0   # since the case was read: up more than this = chasing, down more than this = falling (Trigger's own hard lines)
 
 
-def live_check(row, mkt, chart, now, near=False, floor=False):
+def live_check(row, mkt, chart, now, near=False):
     """May this cleared case still be bought RIGHT NOW? `row` = the case as read in its agent pass ({px, at}), `mkt` = the shared market
     state ({px, pxAt, liq, tapeAt, flow}), `chart` = the newest shared chart (rebuilt when a new real candle landed — no rediscovery).
     → {ok, why, px, move, pxAge, chartState, entry}. A move past Trigger's own lines since the read, a fresh chart that no longer says
@@ -926,7 +924,7 @@ def live_check(row, mkt, chart, now, near=False, floor=False):
         return {**out, 'ok': False, 'why': f'{move:+.1f}% since the read — not chased'}
     if move is not None and move < LIVE_FALL:
         return {**out, 'ok': False, 'why': f'{move:+.1f}% since the read — falling'}
-    if ent and ent[0] != 'ENTER NOW' and ((ent[0] == 'SKIP' and not (floor and ch.get('state') == 'CHOP')) or (ch.get('src') == 'candles' and not near)):   # 🪑 the seat floor may take a choppy chart (no direction ≠ danger)
+    if ent and ent[0] != 'ENTER NOW' and (ent[0] == 'SKIP' or (ch.get('src') == 'candles' and not near)):
         return {**out, 'ok': False, 'why': f"the newest chart says {ent[0]}: {ent[2] if len(ent) > 2 else ''}".strip()}
     fl_ = ch.get('f') or {}
     if near and (ch.get('src') != 'candles' or int(_f(fl_.get('stepN'))) < _ci.LADDER_MIN or fl_.get('volCv') is None):

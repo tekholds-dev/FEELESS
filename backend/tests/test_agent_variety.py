@@ -73,13 +73,14 @@ def _row(m, **k):
 
 def test_seat_floor_takes_the_best_safe_coin_and_never_a_hard_block():
     good = _row('GOOD', why={'lean': 0.9})
-    ok2 = _row('CHOPPY', trigger=['skip', 'E1 bad structure: CHOP: no long thesis here'], why={'lean': -0.2})
+    ok2 = _row('QUIET', why={'lean': -0.2})
     bad = [_row('UNSCANNED', vitals={'safe': None}), _row('FAILED', vitals={'safe': False}), _row('THIN', nums={'liq': 9_000}, vitals={'liq': 9_000}),
            _row('RUG', vitals={'rug': 60}), _row('RAN', nums={'c1': 400}), _row('TOP', trigger=['skip', '+22% in 5 min — that is the top']),
            _row('FALL', trigger=['skip', '-11% in 5 min — falling']), _row('LADDER', chart={'state': 'BOT LADDER'}),
-           _row('BUSTED', objs=[['busted_read', 'its read is RUG BAIT']]), _row('HELD')]
+           _row('BUSTED', objs=[['busted_read', 'its read is RUG BAIT']]), _row('CHOP', trigger=['skip', 'E1 bad structure: CHOP: no long thesis here']),
+           _row('RISK0', chart={'state': 'RANGE', 'risk': [0.0, 'hard objection']}), _row('HELD')]
     got = oe.floor_ready([ok2, *bad, good], skip={'HELD'})
-    assert [r['mint'] for r in got] == ['GOOD', 'CHOPPY']   # best lean first; every hard block left out
+    assert [r['mint'] for r in got] == ['GOOD', 'QUIET']   # best lean first; every hard block left out
     assert got[0]['floor'] is True and 'seat floor' in got[0]['nearReady']
 
 
@@ -92,13 +93,3 @@ def test_a_lane_launch_seat_is_a_trench_leg_for_the_keeper():
     old = ap.agent_seat(card, {**row, 'trench': False}, {}, {'coins': 4}, 1000.0)
     assert 'trench' not in old['legs'][0]
     assert ag.CONTROL_MIN_LIQ == 10_000   # above the keeper's own trench floor ($8K): a seat the agents take is not refused for its pool
-
-
-def test_seat_floor_live_check_allows_a_choppy_chart_but_never_a_fall():
-    row, mkt = {'px': 1.0}, {'px': 1.01}
-    chop = {'state': 'CHOP', 'src': 'candles', 'entry': ['SKIP', 'E1 bad structure', 'CHOP'], 'f': {'stepN': 30, 'volCv': 0.4}, 'risk': [0.5]}
-    assert oe.live_check(row, mkt, chop, 1.0, near=True)['ok'] is False                 # best available: a SKIP chart still blocks
-    assert oe.live_check(row, mkt, chop, 1.0, near=True, floor=True)['ok'] is True       # the seat floor may take a choppy chart
-    assert oe.live_check(row, {'px': 0.85}, chop, 1.0, near=True, floor=True)['ok'] is False   # … never one falling since the read
-    ladder = {**chop, 'state': 'BOT LADDER', 'entry': ['SKIP', 'E0b bot ladder', '']}
-    assert oe.live_check(row, mkt, ladder, 1.0, near=True, floor=True)['ok'] is False
