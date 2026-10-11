@@ -109,3 +109,13 @@ def test_the_stuck_check_judges_a_new_coin_by_the_keepers_new_seat_floor():
     assert 'buy_pass_at=_FW_BUY_PASS.get(tid' in src and '_fw.NEW_SEAT_MIN if not _fw.held_units(book_s' in src
     assert '_FW_BUY_PASS[tid] = time.time()' in inspect.getsource(rs._fw_tick_inner if hasattr(rs, '_fw_tick_inner') else rs._fw_tick)
     assert fw.NEW_SEAT_MIN <= 0.05
+
+
+def test_a_written_off_coin_is_never_adopted_back_into_the_card():
+    import fuse_wallet as fw
+    books = {'degen': {'legs': {}}}
+    ledger = [{'card': 'degen', 'side': 'sell', 'mint': 'DEAD', 'pair': 'PD', 'symbol': 'DEAD', 'at': 100.0, 'status': 'skipped'},
+              {'card': 'degen', 'side': 'writeoff', 'mint': 'DEAD', 'pair': 'PD', 'symbol': 'DEAD', 'at': 101.0, 'status': 'done'}]
+    assert fw.strays({'DEAD': 5000}, {'DEAD': 6}, books, ledger, 10_000.0) == []
+    ledger2 = ledger + [{'card': 'degen', 'side': 'sell', 'mint': 'LIVE', 'pair': 'PL', 'symbol': 'LIVE', 'at': 200.0, 'status': 'failed'}]
+    assert [s['mint'] for s in fw.strays({'DEAD': 5000, 'LIVE': 7}, {}, books, ledger2, 10_000.0)] == ['LIVE']   # a real leftover still comes back

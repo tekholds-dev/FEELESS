@@ -1021,6 +1021,8 @@ def strays(wallet_tokens, decimals, books, ledger, now, settle=300):
         rows = [r for r in ledger or [] if r.get('mint') == mint and r.get('card') in (books or {}) and r.get('pair')]
         if not rows or now - _f(rows[-1].get('at')) < settle:   # never traded by the keeper, or still settling
             continue
+        if rows[-1].get('side') == 'writeoff':   # written off on purpose ("the coins stay in the wallet, the keeper stops trying"): never
+            continue                             # re-adopted — Jef / QI / Musk looped adopt → refused sell → write-off every 5 min (1,799 rows)
         last = rows[-1]
         out.append({'card': last['card'], 'mint': mint, 'atoms': int(_f(atoms)), 'decimals': int((decimals or {}).get(mint) or last.get('decimals') or 0),
                     'pair': last['pair'], 'symbol': last.get('symbol')})
