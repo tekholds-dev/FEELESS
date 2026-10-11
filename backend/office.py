@@ -18,6 +18,7 @@ import json
 from types import MappingProxyType
 
 import agents as _ag
+import opportunity as _opp
 import chart_intel as _ci
 import market_data as _md
 import office_edge as _oe
@@ -373,7 +374,7 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
         hit('W16 identity', 0.5, f"identity confidence {_f(cc['confidence']):.0f}/100: {'; '.join(cc.get('flags') or [])[:120]}")
         rules[-1]['evidence'] = {'sourceUrl': cc.get('sourceUrl'), 'flags': list(cc.get('flags') or [])[:3], 'at': (c.get('social') or {}).get('at')}
     if c.get('near'):   # 🪑 best available (the entry moment is not confirmed): half a seat at most — the rest of the evidence earned the other half
-        hit('W19 entry not confirmed', NEAR_SIZE, str(c['near'])[:160])
+        hit('W19 confidence tier', _opp.TIER_SIZE.get(c.get('tier'), NEAR_SIZE), str(c['near'])[:160])   # 🎯 A full · B 75% · C 50% (sized by confidence, never raised)
     if c.get('openSeats') and c.get('free') is not None:   # 🪑 multi-seat sizing: the first valid seat may not make the other open seats impossible
         m_, why_ = _so.seat_room(req, c.get('free'), c.get('openSeats'), floor)
         if why_:
@@ -583,7 +584,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R5t thesis invalidated', f"{pct:+.1f}% — entered on {th.get('structure')}; now {rv['why'][0]}", 'pull'
         elif trail_on and p['peak'] >= arm and pct <= trail_line and pct >= MIN_KEEP:
             st, rule, ev, act = 'TAKE', ('R7v trail tightened' if tight < 1 else 'R7 trailing protection'), f"peaked {p['peak']:+.1f}%, now {pct:+.1f}% — " + (f"{_f(tr_.get('pct')) * tight:g} points off the peak (your trail" + (', tightened: P/L reversing)' if tight < 1 else ')') if tr_.get('mode') == 'custom' else f"gave back over {T('giveBackPct') * tight:g}% of it" + (' (tightened: P/L reversing)' if tight < 1 else '')), 'pull'
-        elif mine and rv and rv['verdict'] == 'weak' and 'lower high' in rv['why'][0] and pct >= MIN_KEEP:   # green is not a reason to keep holding
+        elif mine and rv and rv['verdict'] == 'weak' and 'lower high' in rv['why'][0] and pct >= MIN_KEEP and vl.get('state') != 'ACCELERATING':   # green is not a reason to keep holding — unless its P/L is still accelerating (the trail protects it: let a winner work)
             st, rule, ev, act = 'TAKE', 'R7s structure turned', f"{pct:+.1f}% and {rv['why'][0]} — banked before it is given back", 'pull'
         elif mine and live and rv and rv['window'] >= granted and rv['verdict'] == 'valid' and rv['window'] >= base_w and pct < take:   # ⏳ past its base hold a seat is EARNED, never kept by default
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R9e no extension earned', f"{rv['window']} of {granted} windows used, {pct:+.1f}% — {p.get('extWhy') or 'a winner earns extra time, this seat did not'}", 'pull'
@@ -760,6 +761,7 @@ def file_position(arch, p, now):
            'low': round(_f(p.get('low')), 2), 'lastPct': p.get('pct'), 'path': list(p.get('path') or [])[-PATH_KEEP:], 'rule': p.get('askRule') or 'left the card by another rule',
            'byReaper': bool(p.get('askRule')), 'confirmed': bool(p.get('confirmed')), 'realPct': p.get('realPct'), 'exit': {k: v for k, v in (p.get('exit') or {}).items() if k in ('state', 'sig', 'at', 'usd', 'delta', 'realUsd', 'err')},
            'wx': p.get('wx'), 'warden': p.get('warden'), 'launch': p.get('launch'), 'tag': p.get('tag'), 'take': p.get('take'), 'exitStructure': p.get('chartNow'), 'windows': p.get('lastWin'),
+           'liq': p.get('liq'), 'liqPct': p.get('liqPct'), 'top10': p.get('top10'), 'quality': p.get('quality'), 'dd': bool(p.get('dataDegraded') or p.get('dd')), 'vel': (p.get('vel') or {}).get('state') if isinstance(p.get('vel'), dict) else p.get('vel'),
            'thesis': None if not p.get('thesis') else {k: p['thesis'].get(k) for k in ('structure', 'call', 'triggerRule', 'support', 'invalidation', 'stopPct', 'expectedHoldWindows', 'at')}}
     prev = ps[-1]['h'] if ps else a.get('posAnchor', '')
     rec['h'] = _hash(prev, {k: v for k, v in rec.items() if k != 'h'})

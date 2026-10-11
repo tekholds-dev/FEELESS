@@ -161,6 +161,24 @@ export function CardNow({ card, power, cfg, gos, call, isOwner = true, onDone, o
 // PAPER (every GO) and CARD (every coin that left a real seat) — and the stake the next paper GO gets (🔥 heater / 🧊 cold).
 const BOT = { tally: '📊', sherlock: '🔍', trigger: '⏱', devil: '⚖' };
 const Pips = ({ last, syms }) => <span className="ags-pips">{(last || []).slice(0, 16).map((v, i) => <i key={i} className={v > 0 ? 'is-up' : 'is-dn'} data-tip={`${syms?.[i] ? `$${syms[i]} ` : ''}${pct(v)}`} />)}{!(last || []).length && <small>none yet</small>}</span>;
+const DESK_NAME = { tally: '📊 Tally', sherlock: '🔍 Sherlock', weather: '🌦 Weather', trigger: '⏱ Trigger', devil: '⚖ Devil', warden: '🛡 Warden', reaper: '☠ Reaper' };
+const CAUSE_WORD = { rugged: 'rug / pool drained', collapsing_entry: 'bought into a fall', entered_on_wait: 'entered on a wait', thin_pool: 'thin pool', weak_holders: 'weak holders',
+  bad_data: 'stale / sparse data', gave_back: 'gave back a winner', held_too_long: 'held a flat seat too long', variance: 'valid setup that lost' };
+// 👨‍⚖️ THE JUDGE'S COURT (owner's spec, 2026-10-11): loss accountability, not a fear engine — the last loss (root cause · desk · lesson · rule
+// action), the last win (why it worked), each desk's responsibility, the patterns, and the rules it runs (shadow → promoted, bounded, 24h)
+export function JudgeCourt({ court }) {
+  const c = court || {}; const L = c.lastLoss; const W = c.lastWin;
+  const action = L ? (c.promoted || []).some(p => p.cause === L.cause) ? '⚖ PROMOTED (ranking penalty, 24h)' : (c.shadow || []).some(p => p.cause === L.cause) ? '👁 SHADOW (shown, not applied)' : L.cause === 'variance' ? 'no change — valid setup' : '📝 recorded' : null;
+  return <div className="jct" data-testid="judge-court">
+    <div className="jct-row"><b>LAST LOSS</b>{L ? <span data-testid="jct-loss">${L.sym} <em className="m-neg">{pct(L.pct)}</em> · {CAUSE_WORD[L.cause] || L.cause} · {L.desk ? DESK_NAME[L.desk] : 'no desk'} · <i>{L.decision}</i><u>{L.lesson} → {action}</u></span> : <small>no loss reviewed yet</small>}</div>
+    <div className="jct-row"><b>LAST WIN</b>{W ? <span data-testid="jct-win">${W.sym} <em className="m-pos">{pct(W.pct)}</em> · {W.why}</span> : <small>no win reviewed yet</small>}</div>
+    <div className="jct-row"><b>RESPONSIBILITY</b><span className="jct-desks">{Object.entries(c.scores || {}).map(([k, v]) => <i key={k} className={v >= 50 ? 'is-hot' : v > 0 ? 'is-warm' : ''} data-tip={`${DESK_NAME[k]}: average responsibility over the last ${c.losses || 0} losses`}>{DESK_NAME[k]} {v}</i>)}</span></div>
+    <div className="jct-row"><b>LOSS PATTERNS</b><span>{(c.lossPatterns || []).map(p => <i key={p.cause}>{p.n}× {CAUSE_WORD[p.cause] || p.cause}</i>)}{c.variance ? <i>{c.variance}× valid setups that lost</i> : null}{!(c.lossPatterns || []).length && !c.variance ? <small>none yet</small> : null}</span></div>
+    <div className="jct-row"><b>WIN PATTERNS</b><span>{(c.winPatterns || []).map(p => <i key={p.pattern}>{p.n}× {p.pattern.replace('|', ' · tier ')} ({pct(p.avg)})</i>)}{!(c.winPatterns || []).length ? <small>none yet</small> : null}</span></div>
+    <div className="jct-row"><b>RULES</b><span>{(c.shadow || []).map(p => <i key={`s${p.cause}`} className="is-shadow" data-tip={p.note}>👁 {CAUSE_WORD[p.cause]} ({p.n}×)</i>)}{(c.promoted || []).map(p => <i key={`p${p.cause}`} className="is-promoted" data-tip={`${p.change} — a ranking penalty of ${p.points} on '${p.penalty}', expires 24h after the last case`}>⚖ {CAUSE_WORD[p.cause]} ({p.n}×) {p.points}</i>)}{!(c.shadow || []).length && !(c.promoted || []).length ? <small>no rule changes — one loss is not a rule</small> : null}</span></div>
+  </div>;
+}
+
 export function CourtBand({ judge, proof, desk, onPick, onCourt }) {
   const j = judge || {}; const pr = proof || {}; const heat = desk?.heat || 'even';
   return <div className="ags-court" data-testid="ags-court">

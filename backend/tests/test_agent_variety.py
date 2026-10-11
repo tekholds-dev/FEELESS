@@ -46,12 +46,12 @@ def test_confirmed_agent_exit_becomes_a_lesson_once():
     assert rl.note_closed({}, {**pos, 'confirmed': False}, 2000.0) == {}
 
 
-def test_agents_hunt_only_new_launches_under_1m():
-    assert ag.AGENT_MAX_MCAP == 1_000_000 and ag.AGENT_MAX_AGE_H == 72
-    assert ag.under_cap({'mcap': 990_000}) and not ag.under_cap({'mcap': 1_000_000}) and ag.under_cap({})
-    assert ag.in_lane({'mcap': 400_000, 'ageH': 2}) and ag.in_lane({'ageH': 0.01})          # a seconds-old launch with no cap yet
-    assert not ag.in_lane({'mcap': 400_000, 'ageH': 770})                                    # $QUBT: old and flat — never again
-    assert not ag.in_lane({'mcap': 2_000_000, 'ageH': 1}) and not ag.in_lane({'mcap': 400_000})   # over the cap · age unknown
+def test_universe_is_under_200k_live_cap_and_bands_are_context():
+    import opportunity as op
+    assert ag.AGENT_MAX_MCAP == 200_000 == op.MAX_MCAP and op.MIN_LIQ == ag.CONTROL_MIN_LIQ
+    assert ag.in_lane({'mcap': 150_000}) and ag.in_lane({'mcap': 5_000, 'ageH': 0.01}) and ag.in_lane({'mcap': 90_000, 'ageH': 900})   # age is never a veto
+    assert not ag.in_lane({'mcap': 200_000}) and not ag.in_lane({'mcap': 0}) and not ag.in_lane({})
+    assert ag.trench_band(8_000) == 'NEWBORN MICRO' and ag.trench_band(120_000) == 'MOMENTUM TRENCH' and ag.trench_band(250_000) is None
 
 
 def test_the_board_shows_the_newest_launches_not_only_the_strongest_reads():
@@ -69,19 +69,6 @@ def _row(m, **k):
     for kk, vv in k.items():
         base[kk] = {**base[kk], **vv} if isinstance(vv, dict) and isinstance(base.get(kk), dict) else vv
     return base
-
-
-def test_seat_floor_takes_the_best_safe_coin_and_never_a_hard_block():
-    good = _row('GOOD', why={'lean': 0.9})
-    ok2 = _row('QUIET', why={'lean': -0.2})
-    bad = [_row('UNSCANNED', vitals={'safe': None}), _row('FAILED', vitals={'safe': False}), _row('THIN', nums={'liq': 9_000}, vitals={'liq': 9_000}),
-           _row('RUG', vitals={'rug': 60}), _row('RAN', nums={'c1': 400}), _row('TOP', trigger=['skip', '+22% in 5 min — that is the top']),
-           _row('FALL', trigger=['skip', '-11% in 5 min — falling']), _row('LADDER', chart={'state': 'BOT LADDER'}),
-           _row('BUSTED', objs=[['busted_read', 'its read is RUG BAIT']]), _row('CHOP', trigger=['skip', 'E1 bad structure: CHOP: no long thesis here']),
-           _row('RISK0', chart={'state': 'RANGE', 'risk': [0.0, 'hard objection']}), _row('HELD')]
-    got = oe.floor_ready([ok2, *bad, good], skip={'HELD'})
-    assert [r['mint'] for r in got] == ['GOOD', 'QUIET']   # best lean first; every hard block left out
-    assert got[0]['floor'] is True and 'seat floor' in got[0]['nearReady']
 
 
 def test_a_lane_launch_seat_is_a_trench_leg_for_the_keeper():
@@ -106,19 +93,6 @@ def test_keeper_tops_up_agent_seats_but_never_a_young_pick_ticket():
     assert fw.agent_seat({'ticket': True, 'bought': {'tag': '🤖 agents · seat floor'}})
     assert not fw.agent_seat({'ticket': True, 'bought': {'tag': '🎟 your pick'}})
     assert not fw.agent_seat({})
-
-
-def test_last_resort_takes_weak_structures_but_never_a_danger():
-    weak = _row('WEAK', trigger=['skip', 'E1 bad structure: DOWNTREND: lower lows'], chart={'state': 'DOWNTREND'})
-    busted = _row('BUSTED', objs=[['busted_read', 'its read is WASH TRADED']], chart={'state': 'UPTREND'})
-    up = _row('UP', why={'lean': -1.0}, chart={'state': 'UPTREND'})
-    no = [_row('SPIKE', trigger=['skip', '+30% in 5 min — that is the top']), _row('FALL', trigger=['skip', '-12% in 5 min — falling']),
-          _row('RUGM', objs=[['rug_meter', 'rug meter 60']]), _row('LADDER', chart={'state': 'BOT LADDER'}), _row('FAILED', vitals={'safe': False}),
-          _row('THIN', nums={'liq': 5_000}, vitals={'liq': 5_000}), _row('RISK0', chart={'state': 'UPTREND', 'risk': [0.0]})]
-    assert [r['mint'] for r in oe.floor_ready([weak, busted, up, *no])] == ['UP']    # tier 1: only the clean 'wait'
-    got = [r['mint'] for r in oe.floor_ready([weak, busted, up, *no], last=True)]
-    assert got == ['BUSTED', 'UP']     # a weak read is allowed; a downtrend (a collapsing chart) and every danger stay out
-    assert oe.floor_ready([up], last=True)[0]['lastResort'] is True
 
 
 def test_judge_rules_on_real_seats_double_and_studies_misses():

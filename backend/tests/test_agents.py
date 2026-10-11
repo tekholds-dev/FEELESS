@@ -14,7 +14,7 @@ def test_the_four_are_one_chain_and_go_needs_trigger_and_devil():
     g = by['GOOD']
     assert [d[0] for d in g['why']['drivers']][:2] == ['surge', 'buyers'] or set(d[0] for d in g['why']['drivers']) >= {'surge', 'buyers'}
     assert g['trigger'][0] == 'enter' and g['devil'][0] == 'agree' and g['go']
-    assert by['RUN']['trigger'][0] == 'enter' and by['RUN']['devil'][0] == 'object' and 'BOND RUN' in by['RUN']['devil'][1] and not by['RUN']['go']
+    assert by['RUN']['trigger'][0] == 'enter' and by['RUN']['devil'][0] == 'agree' and any(w[0] == 'busted_read' for w in by['RUN']['warns'])   # no live record: the old list only WARNS (rank penalty)
     assert by['RUG']['trigger'][0] == 'skip' and by['RUG']['devil'][0] == '—'
     assert table[0]['symbol'] == 'GOOD'                                           # GO calls first
 
@@ -31,7 +31,7 @@ def test_trigger_never_buys_a_top_a_falling_knife_or_a_thin_pool():
 def test_calls_are_judged_at_5_15_60_and_every_agent_keeps_its_own_card():
     st, table = {}, []
     for t in (0, 60, 120):
-        st, table = ag.desk(st, [row('GOOD'), row('RUN', tv={'call': ['🎢', 'BOND RUN', 'good'], 'rug': 10}), row('W', vol5m=1000, buyShare=50)], t)
+        st, table = ag.desk(st, [row('GOOD'), row('RUN', tv={'call': ['🎢', 'BOND RUN', 'good'], 'rug': 10}), row('W', vol5m=1000, buyShare=50)], t, None, {'BOND RUN': -82.0})
     st = ag.record(st, table, 120)
     assert set(st['open']) == {'GOOD', 'RUN', 'W'} and st['open']['GOOD']['go'] and st['open']['W']['kind'] == 'wait'
     px = {'GOOD': 1.1, 'RUN': 0.8, 'W': 1.0}
@@ -81,7 +81,7 @@ def test_5_minutes_is_passed_only_by_10x_ing_the_trench_desk_and_a_bust_starts_o
 def test_thoughts_and_results_read_as_the_agents_talking():
     st = {}
     for t in (0, 60, 120):
-        st, table = ag.desk(st, [row('GOOD'), row('RUN', tv={'call': ['🎢', 'BOND RUN', 'good'], 'rug': 10})], t)
+        st, table = ag.desk(st, [row('GOOD'), row('RUN', tv={'call': ['🎢', 'BOND RUN', 'good'], 'rug': 10})], t, None, {'BOND RUN': -82.0})   # BOND RUN's real record: −82% typical = a hard veto
     who = [x['who'] for x in st['feed'][-8:]]
     assert {'tally', 'sherlock', 'trigger', 'devil'} <= set(who)
     assert any('GO' in x['text'] for x in st['feed'] if x['who'] == 'devil') and any('OBJECTS' in x['text'] for x in st['feed'])
@@ -499,13 +499,14 @@ def test_they_stay_in_five_minutes_until_the_real_card_is_back_to_breakeven_and_
 def test_devils_busted_reads_come_from_the_reads_own_live_records_not_a_fixed_list():
     keys = {'WASH TRADED': 'wash', 'BOND RUN': 'bond', 'TREND DOWN': 'tdown', 'NEW': 'new'}
     proof = {'wash': {'n': 60, 'medPct': -0.2}, 'bond': {'n': 60, 'medPct': -62.1}, 'tdown': {'n': 60, 'medPct': 0.3}, 'new': {'n': 8, 'medPct': -90}}
-    assert ag.busted_now(proof, keys) == {'BOND RUN'} and ag.busted_now({}, keys) is None           # flat reads are not busted · 8 settled is too few to call
+    assert ag.busted_now(proof, keys) == {'BOND RUN': -62.1} and ag.busted_now({}, keys) is None    # flat reads are not busted · 8 settled is too few to call
     why = {'lean': 3, 'drivers': []}
     row = lambda rd: {'safe': True, 'tv': {'call': ['x', rd], 'rug': 5}, 'mint': 'M'}
     n = {'c1': 5, 'age': 3}
-    assert ag.devil('enter', n, why, row('WASH TRADED'), {'busted': {'BOND RUN'}})[0] == 'agree'      # its record is flat → no objection
-    assert ag.devil('enter', n, why, row('BOND RUN'), {'busted': {'BOND RUN'}})[0] == 'object'
-    assert ag.devil('enter', n, why, row('WASH TRADED'), {})[0] == 'object'                           # no live record → the old list stands in
+    assert ag.devil('enter', n, why, row('WASH TRADED'), {'busted': {'BOND RUN': -62.1}})[0] == 'agree'      # its record is flat → no objection
+    assert ag.devil('enter', n, why, row('BOND RUN'), {'busted': {'BOND RUN': -62.1}})[0] == 'object'       # −62% typical: a safety failure → hard veto
+    assert ag.devil('enter', n, why, row('BOND RUN'), {'busted': {'BOND RUN': -25.0}})[0] == 'agree'        # busted but milder: a strong WARNING
+    assert ag.devil('enter', n, why, row('WASH TRADED'), {})[0] == 'agree'                           # no live record → the old list only warns
     assert ag.devil('enter', n, why, {**row('WASH TRADED'), 'tv': {'call': ['x', 'WASH TRADED'], 'rug': 62}}, {'busted': set()})[0] == 'object'   # every other check still stands
 
 

@@ -229,3 +229,16 @@ body.theme-day .ags-zoom.is-trigger, body.theme-day .ags-g.is-trigger { --ag: #a
   .ags-ztop .m-seg { order: 3; width: 100%; display: flex; } .ags-ztop .m-seg > button { flex: 1; padding: 6px 2px; font-size: 11px; }
   .ags-grow { grid-template-columns: 1fr; } .ags-rungs { grid-template-columns: 1fr; } .ags-seats { grid-template-columns: 1fr 1fr; } .ags-heat.is-big { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); grid-auto-rows: 50px; }
 }
+
+/* 👨‍⚖️ Judge's court (JudgeCourt) */
+.jct { display: grid; gap: 4px; margin-top: 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--m-line-hi); background: rgba(0, 0, 0, .22); font-size: 11px; }
+.jct-row { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 8px; align-items: baseline; }
+.jct-row > b { font: 700 9px var(--m-mono); letter-spacing: .1em; color: var(--m-mute); }
+.jct-row > span { display: flex; flex-wrap: wrap; gap: 4px 8px; min-width: 0; color: var(--m-text); }
+.jct-row u { text-decoration: none; display: block; width: 100%; color: var(--m-dim); font-size: 10.5px; }
+.jct-row i { font-style: normal; } .jct-row small { color: var(--m-mute); }
+.jct-desks i, .jct-row i.is-shadow, .jct-row i.is-promoted { padding: 1px 6px; border-radius: 999px; border: 1px solid var(--m-line-hi); font: 600 10px var(--m-mono); }
+.jct-desks i.is-warm { color: var(--gold, #f5c542); border-color: rgba(245, 197, 66, .5); } .jct-desks i.is-hot { color: #ff8fa3; border-color: rgba(255, 143, 163, .55); }
+.jct-row i.is-shadow { color: #9fe3ff; } .jct-row i.is-promoted { color: #ff8fa3; border-color: rgba(255, 143, 163, .55); }
+body.theme-day .jct { background: rgba(236, 246, 240, .9); }
+@media (max-width: 640px) { .jct-row { grid-template-columns: minmax(0, 1fr); } }

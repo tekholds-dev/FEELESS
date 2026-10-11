@@ -9745,12 +9745,15 @@ async def _prime_tick_inner(now):
             on_n = {l.get('mint') for l in cur.get('legs') or []}
             gw_m = {t_['mint'] for t_ in gos_ + wait_}   # (computed even when cleared coins exist: they may fail the live check below and leave nothing)
             near0_ = [] if pol_['manual'] or not empty_n else [r_ for r_ in _oe.near_ready([c_ for c_ in cases_ if c_['mint'] not in cool and c_['mint'] not in lost_ and c_['mint'] not in on_n and c_['mint'] not in gw_m and not _fw.dollar_named(c_.get('symbol'))], scores_)][:empty_n + 2]
-            if empty_n and not pol_['manual'] and len(near0_) < empty_n:   # 🪑 no seat stays empty: the seat floor tops the list up (hard safety only)
+            if empty_n and not pol_['manual']:   # 🎯 RANK, DON'T VETO: every coin of the pass → hard NO or an A / B / C-tier candidate (opportunity.rank)
                 skip_f = set(cool) | set(lost_) | set(on_n) | set(gw_m) | {t_['mint'] for t_ in near0_} | set((_json_load(AGENTS_PATH, {}).get('burned') or {}).keys())
-                near0_ = near0_ + [t_ for t_ in _oe.floor_ready(_agents.get('table'), skip_f) if not _fw.dollar_named(t_.get('symbol'))][:empty_n - len(near0_) + 8]   # deep enough that coins failing the live check hand the seat to the next ones
-                if len(near0_) < empty_n + 2 and cur.get('agentEmptyAt') and now - _fuse._f(cur['agentEmptyAt']) >= _oe.FLOOR_LAST_SEC:   # 🪑 still short after 60s: the last resort
-                    skip_l = skip_f | {t_['mint'] for t_ in near0_}
-                    near0_ = near0_ + [t_ for t_ in _oe.floor_ready(_agents.get('table'), skip_l, last=True) if not _fw.dollar_named(t_.get('symbol'))][:empty_n + 8]
+                ost_ = {}
+                ranked_ = [t_ for t_ in _opp.rank(_agents.get('table'), skip_f, lost_, None, ost_, _jr.penalties((_office.get('court') or {}).get('promoted'))) if not _fw.dollar_named(t_.get('symbol'))]
+                _office['opp'] = {**ost_, 'at': now, 'top': [{'symbol': t_['symbol'], 'tier': t_['tier'], 'score': t_['opp']} for t_ in ranked_[:6]]}
+                for t_ in near0_:   # best-available coins (every check passed but the moment) get their tier too
+                    if not t_.get('tier'):
+                        s_, _p = _opp.score(t_, lost_); t_['tier'] = _opp.tier_of(s_) or 'C'; t_['opp'] = s_
+                near0_ = near0_ + ranked_[:empty_n - len(near0_) + 8]
             near_m = {t_['mint'] for t_ in near0_}
             near_ = []
             try:
@@ -9804,7 +9807,7 @@ async def _prime_tick_inner(now):
                         continue
                     cur = _prime.agent_seat(cur, {'mint': t_['mint'], 'symbol': t_['symbol'], 'pairAddress': t_['pair'], 'price': t_['px'], 'liquidityUsd': (t_.get('nums') or {}).get('liq'), 'trench': t_['trench'],
                                                   'ageH': (t_.get('vitals') or {}).get('ageH'), 'vol1h': (t_.get('vitals') or {}).get('vol1h'), 'buyShare': (t_.get('nums') or {}).get('buy'),
-                                                  'tag': '🤖 agents GO · in control' if t_.get('go') else '🤖 agents · seat floor' if t_.get('floor') else '🤖 agents · best available' if t_.get('nearReady') else '🤖 agents · 10-min duty',
+                                                  'tag': '🤖 agents GO · in control' if t_.get('go') else f"🤖 agents · {t_['tier']}-tier" if t_.get('tier') else '🤖 agents · best available' if t_.get('nearReady') else '🤖 agents · 10-min duty',
                                                   'why': (t_.get('trigger') or ['', ''])[1] if t_.get('go') else t_['nearReady'] if t_.get('nearReady') else f"their strongest cleared read (lean {t_['why']['lean']:+.1f})"}, px, cfg_s, now, max_usd=wd_['allowed'])
                     used_ += 1; cur['agentDutyAt'] = now; cur['agentFillAt'] = now
                     _intake['reg'] = _in.stamp(_intake_reg(), 'seat', [t_['mint']], now)   # 🕸 clear → seat latency
@@ -12310,6 +12313,8 @@ def _intel_restore():
 
 import agents as _ag
 import trench_mind as _tm
+import opportunity as _opp
+import judge_review as _jr
 LINGO_PATH = FUSE_HQ_PATH.parent / 'trench_lingo.json'   # 📖 slang the desk learned from Pump callers' own words (per-day counts + learned words)
 AGENTS_PATH = FUSE_HQ_PATH.parent / 'agents.json'   # 🤖 the agent desk: Tally's tapes, every call, every judged result
 AGENTS_EVERY = 55.0                                 # one pass a minute, whenever the backend is up (internet = it runs)
@@ -12985,7 +12990,7 @@ def _office_ctx(cur, t_, now):
     return {'value': money.get('value'), 'putIn': money.get('putIn'), 'peak': max(hrs.values()) if hrs else None, 'cash': max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd'))),
             'seats': len(cur.get('legs') or []), 'liq': n.get('liq') or v.get('liq'), 'ageH': v.get('ageH'), 'd5': n.get('d5'), 'top10': v.get('top10'),
             'lives': ((_agents.get('view') or {}).get('lives') or {}).get('n'), 'lastReal': (_agents_real().get('last') or [])[-3:], 'weather': _agents.get('weather'), 'courier': (_office.get('courier') or {}).get('health'),
-            'chart': (_office.get('charts') or {}).get(t_.get('mint')), 'social': (_social_cache() or {}).get(t_.get('mint')), 'near': t_.get('nearReady'), 'policy': _oe.policy((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'launch': _oe.launch_context(t_)}
+            'chart': (_office.get('charts') or {}).get(t_.get('mint')), 'social': (_social_cache() or {}).get(t_.get('mint')), 'near': t_.get('nearReady'), 'tier': t_.get('tier'), 'policy': _oe.policy((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'launch': _oe.launch_context(t_)}
 
 
 def _office_warden(cur, t_, requested, cfg_t, now, move):
@@ -13148,8 +13153,17 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
             print('lost / learn:', e)
     for p_ in closed:
         arch = _of.file_position(arch, p_, now)
+        if p_.get('confirmed'):   # 👨‍⚖️ every confirmed exit gets the Judge's review (root cause · desk · severity · change · confidence)
+            try:
+                of['judge'] = _jr.note(of.get('judge'), arch['positions'][-1], now)
+            except Exception as e:
+                print('judge review:', e)
         if p_.get('confirmed') and p_.get('mint'):   # 🕸 how this coin's real seat ended → its outlets' win / loss record (context, never a gate)
             _intake['reg'] = _in.outcome(_intake_reg(), p_['mint'], _fuse._f(p_.get('realPct') if p_.get('realPct') is not None else p_.get('pct')), now)
+    if not (of.get('judge') or {}).get('reviews'):   # first run: the Judge reviews the positions already on file (once)
+        for p_ in [x for x in (arch.get('positions') or []) if x.get('confirmed')][-40:]:
+            of['judge'] = _jr.note(of.get('judge'), p_, now)
+    _office['court'] = _jr.court(of.get('judge'), now)
     if closed:   # 🪑 an exit was confirmed: the empty seat looks for its replacement now (the bench), not a pass later
         _seat_wake_maybe(now, 'exit confirmed')
     # 🗄 the pass's case files (strongest first) + every real agent action since the last pass
@@ -13279,6 +13293,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         'agents': _of.agent_cards(cards, {'live': live, 'office': of}), 'currentCase': cur_case, 'pipeline': pipe,
         'queue': queue, 'positions': _office_positions(), 'exiting': [{'mint': p_['mint'], 'sym': p_.get('sym'), 'rule': p_.get('askRule'), 'state': (p_.get('exit') or {}).get('state'), 'since': p_.get('leftAt')} for p_ in _office['exiting']],
         'execution': cour, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': list(reversed((of.get('lineage') or [])[-8:])), 'devil': dv_rec[:10], 'needShadow': _of.SHADOW_N, 'needPropose': _of.PROPOSE_N},
+        'court': _office.get('court'), 'opp': _office.get('opp'),   # 👨‍⚖️ the Judge's loss / win reviews + rules · 🎯 this pass's A / B / C ranking counts
         'judge': {'trial': jd.get('trial'), 'handicap': jd.get('handicap'), 'mvp': jd.get('mvp'), 'rulings': jd.get('n'), 'minN': _of.JUDGE_MIN_N, 'demoteN': _of.JUDGE_DEMOTE_N,
                   'contribution': _of.contribution(st, arch, of, cour, _agents_real(), money)},
         'data': {'states': dq_, 'trusted': dq_.get('TRUSTED', 0), 'enterGrade': dq_.get('TRUSTED', 0) + dq_.get('USABLE_WITH_CAUTION', 0), 'coins': len(_office['charts']),

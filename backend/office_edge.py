@@ -345,49 +345,6 @@ def near_ready(cases, scores=None, live=None, min_score=NEAR_MIN_SCORE):
     return sorted(out, key=lambda r: -_f(r.get('nearScore')))
 
 
-FLOOR_DEVIL_HARD = ('busted_read', 'rug_meter', 'ran', 'unscanned', 'burned', 'rug_signs', 'avoid', 'data_integrity', 'chart_bot_ladder', 'identity')
-FLOOR_BAD_CHART = ('DATA INVALID', 'BOT LADDER', 'LIQUIDITY FAILURE', 'DOWNTREND', 'FAILED BREAKOUT')
-
-
-FLOOR_LAST_SEC = 60           # 🪑 a seat empty this long with nothing from the seat floor takes the LAST RESORT
-FLOOR_LAST_HARD = ('that is the top', 'falling', 'failed the holder', 'pullable', 'bot ladder', 'E0')   # Trigger skips that stay a NO even then
-FLOOR_LAST_CHART = ('DATA INVALID', 'BOT LADDER', 'LIQUIDITY FAILURE')
-FLOOR_LAST_PREF = {'UPTREND': 0, 'PULLBACK IN UPTREND': 0, 'CONFIRMED BREAKOUT': 1, 'BREAKOUT ATTEMPT': 1, 'COMPRESSION': 2, 'ACCUMULATION': 2, 'RANGE': 3, 'EARLY': 3}
-
-
-def floor_ready(table, skip=(), last=False):
-    """🪑 THE SEAT FLOOR (owner, 2026-10-11: "no seat should ever be empty — 30 secs to decide"): when nothing is a GO, cleared or near-ready,
-    an empty seat takes the best coin of EVERYTHING the desk read this pass (not only the positive-lean case files) that clears every HARD
-    safety line: holder scan passed · pool ≥ CONTROL_MIN_LIQ · rug meter < 50 · not +150% on the hour · no hard Devil objection · no Trigger
-    SKIP and no hard chart objection (risk 0) · the chart is not invalid / a bot ladder / a liquidity failure / a downtrend / collapsing. Best lean first, then 1h volume. The live check, the Warden (half
-    a seat at most, W19), the hourly guard and the keeper still decide each one."""
-    import seat_ops as _so
-    out = []
-    for x in table or []:
-        m = x.get('mint')
-        v, n, ch = x.get('vitals') or {}, x.get('nums') or {}, x.get('chart') or {}
-        if not m or m in skip or _f(x.get('px')) <= 0 or v.get('safe') is not True:
-            continue
-        if _f(n.get('liq') or v.get('liq')) < _ag.CONTROL_MIN_LIQ or _f(v.get('rug')) >= 50 or _f(n.get('c1')) > 150:
-            continue
-        call, why = (list(x.get('trigger') or ['skip', '']) + [''])[:2]
-        if _f((ch.get('risk') or [1.0])[0]) <= 0:   # a hard chart objection: the Warden vetoes it anyway
-            continue
-        if call == 'skip' and (not last or any(h in str(why) for h in FLOOR_LAST_HARD)):   # the last resort may take a weak structure — never a spike, a fall, a thin pool, a failed scan, a bot
-            continue
-        hard_ = set(FLOOR_DEVIL_HARD) - ({'busted_read'} if last else set())   # last resort: a read type's poor record is a warning, the coin's own dangers still veto
-        if x.get('drule') in hard_ or any((o or [None])[0] in hard_ for o in x.get('objs') or []):
-            continue
-        if ch.get('state') in (FLOOR_LAST_CHART if last else FLOOR_BAD_CHART) or _so.chart_quality(ch)[0] in ('COLLAPSING', 'INVALID'):
-            continue
-        out.append({**x, 'floor': True, 'lastResort': bool(last), 'nearScore': _f((x.get('why') or {}).get('lean')),
-                    'nearReady': (f"seat floor · last resort after {FLOOR_LAST_SEC}s — hard safety passed (scan · pool · rug · no spike / fall / bot); the agents' read: {why}" if last
-                                  else f"seat floor after {NEAR_PATIENCE_SEC}s — every hard safety line passed, nothing better this pass; the agents' read: {why}")[:240]})
-    if last:   # the healthiest structure first (uptrend → breakout → base → range → the rest), then the read, then volume
-        return sorted(out, key=lambda r: (FLOOR_LAST_PREF.get((r.get('chart') or {}).get('state'), 5), -_f(r.get('nearScore')), -_f((r.get('vitals') or {}).get('vol1h'))))
-    return sorted(out, key=lambda r: (-_f(r.get('nearScore')), -_f((r.get('vitals') or {}).get('vol1h'))))
-
-
 def cycle_due(pol, last_at, now):
     """🔁 THE ACTIVE CYCLE: every creator seat target (60s on the real card; never under 30s) the desk re-evaluates EVERY seat — empty seats
     look for a fill, held seats are compared with the best cleared challenger (`switch_test`). A due cycle is a DECISION (keep · protect ·

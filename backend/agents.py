@@ -432,7 +432,8 @@ def trigger(n, why, row, learned):
     if 0 < _f(n.get('liq')) < CONTROL_MIN_LIQ:
         return 'skip', f"pool ${_f(n.get('liq')) / 1000:.0f}K — pullable"
     d5 = _f(n.get('d5'))
-    if d5 > 15:
+    young_ = n.get('age') is not None and _f(n['age']) < 6   # 🐣 NEWBORN / EARLY: a fast candle is how a launch moves — only a vertical one is the top
+    if d5 > (40 if young_ else 15):
         return 'skip', f'+{d5:.0f}% in 5 min — that is the top'
     if d5 < -8:
         return 'skip', f'{d5:.0f}% in 5 min — falling'
@@ -461,12 +462,16 @@ def devil_args(call, n, why, row, learned, duty=False, warns=None):
     args, w_ = [], (warns if warns is not None else [])
     rd = ((row.get('tv') or {}).get('call') or [None, None])[1]
     busted = (learned or {}).get('busted')
-    if rd in (busted if busted is not None else BUSTED):   # the reads' LIVE records when the service has them (busted_now), else the old fixed list
-        args.append(('busted_read', f'its read is {rd} — a busted call on its own record'))
+    sev_ = busted_severity(rd, busted)
+    if sev_ == 'hard':   # its read type's own record is a safety failure (coins like it typically lose half in an hour)
+        args.append(('busted_read', f"its read is {rd} — coins with it typically {_f(busted.get(rd)):+.0f}% in an hour (hard veto)"))
+    elif sev_:   # a poor but not catastrophic record: a STRONG WARNING (rank penalty), not this coin's own danger
+        w_.append(('busted_read', f'its read is {rd} — a busted call on its own record (strong warning)'))
     if _f((row.get('tv') or {}).get('rug')) >= 50:
         args.append(('rug_meter', f"rug meter {_f(row['tv']['rug']):.0f}"))
-    if n.get('c1') is not None and _f(n['c1']) > 150:
-        args.append(('ran', f"already +{_f(n['c1']):.0f}% on the hour — it ran"))
+    if n.get('c1') is not None and _f(n['c1']) > 150:   # 🚀 stage-aware: under 1h old the "1h change" is launch-to-now, not a pump on an hour
+        young_ = n.get('age') is not None and _f(n['age']) < 1
+        (w_ if young_ else args).append(('ran', f"+{_f(n['c1']):.0f}% since launch — a launch's climb, judged on its slope (warning)" if young_ else f"already +{_f(n['c1']):.0f}% on the hour — it ran"))
     if n.get('age') is not None and _f(n['age']) < 0.25:
         w_.append(('young', 'new launch: under 15 minutes old — limited history (context, not a veto)'))
     if row.get('safe') is not True:
@@ -518,7 +523,7 @@ def devil_args(call, n, why, row, learned, duty=False, warns=None):
 
 
 # ⚖ Devil's rules by name: (hard?, what it is). HARD = it can never be waived or out-voted; SOFT = it stands only while its own record backs it.
-DEVIL_RULES = {'busted_read': (True, "the coin's read is a busted call on its own 1h record"), 'rug_meter': (True, 'rug meter ≥ 50'), 'ran': (True, 'already ran > +150% on the hour'),
+DEVIL_RULES = {'busted_read': (True, "the coin's read type: a HARD veto when its own 1h record is ≤ −50% typical, else a strong warning (rank penalty)"), 'rug_meter': (True, 'rug meter ≥ 50'), 'ran': (True, 'already ran > +150% on the hour (a coin under 1h old: a warning — that is launch-to-now)'),
                'young': (False, 'under 15 minutes old — a WARNING (age is context)'), 'unscanned': (True, 'holders never scanned'), 'burned': (True, 'burned us in the last 6h'),
                'swarm': (False, 'the callers are a bot swarm'), 'botted': (False, 'botted launch'), 'against': (False, 'a reason against it is on the table'),
                'driver_losing': (False, 'one of its reasons has been followed by losses lately'), 'rug_signs': (True, 'rug signs learned from our autopsies'),
@@ -557,12 +562,26 @@ def busted_now(proof, call_keys):
     there is no record to judge from (the fixed list stands in)."""
     if not proof:
         return None
-    out = set()
+    out = {}   # {read: its typical 1h %} — membership works like the old set; the median decides the SEVERITY (busted_severity)
     for label, key in (call_keys or {}).items():
         r = proof.get(key) or {}
         if int(_f(r.get('n'))) >= BUST_N and r.get('medPct') is not None and _f(r['medPct']) <= BUST_MED:
-            out.add(label)
+            out[label] = round(_f(r['medPct']), 1)
     return out
+
+
+BUST_HARD = -50.0   # a read type whose coins typically lose half in an hour is a safety failure on the record: HARD VETO
+
+
+def busted_severity(rd, busted):
+    """'hard' (its own record ≤ BUST_HARD: BOND RUN −82%, EARLY RUSH −64% …) · 'strong' (busted, milder) · None. The fixed fallback list
+    (no live record) is 'strong' only — a warning, never a veto on belief."""
+    if busted is None:
+        return 'strong' if rd in BUSTED else None
+    if rd not in busted:
+        return None
+    med = busted.get(rd) if isinstance(busted, dict) else None
+    return 'hard' if med is not None and _f(med) <= BUST_HARD else 'strong'
 
 
 PAD_MIN_N, PAD_BAD_MED = 15, -3.0   # 🚀 Devil objects to a launch context only on ≥ 15 of our own ENTER calls with a typical 5-min result ≤ −3%
@@ -1328,22 +1347,27 @@ def stage_of(age_h):
     return None if age_h is None else next(k for k, top in AGE_STAGES if _f(age_h) < top)
 
 
-AGENT_MAX_MCAP = 1_000_000.0   # 🎯 owner, 2026-10-11: "only less than 1mil mc now!!! ONLY" (was $3M an hour earlier)
-AGENT_MAX_AGE_H = 72.0         # 🗑 and NEW launches (24h → 72h, owner "widen the window", same day): "still going for the safest coins" — the old flat coins best-available kept filling seats with
+AGENT_MAX_MCAP = 200_000.0     # 🎯 owner's spec, 2026-10-11 (latest): NEW entries only under $200K live market cap (held coins keep running)
+MC_BANDS = ((10_000, 'NEWBORN MICRO'), (25_000, 'EARLY MICRO'), (50_000, 'EARLY TRENCH'), (100_000, 'BUILDING'), (150_000, 'MOMENTUM TRENCH'), (200_000, 'UPPER TRENCH'))
 
 
 def under_cap(row, cap=AGENT_MAX_MCAP):
-    """Is this coin under the agents' market-cap line? An unknown cap is kept (a launch seconds old may not carry one yet)."""
+    """Is this coin's LIVE market cap known and in (0, cap)? (the universe for NEW entries)"""
     mc = (row or {}).get('mcap')
-    return mc is None or _f(mc) <= 0 or _f(mc) < _f(cap)
+    return mc is not None and 0 < _f(mc) < _f(cap)
 
 
-def in_lane(row, cap=AGENT_MAX_MCAP, max_age_h=AGENT_MAX_AGE_H):
-    """🗑 THE AGENTS' HUNTING GROUND: under the market-cap line AND launched within `max_age_h` (a known age — an unknown one could be a
-    year-old coin). Nothing else is read, so no door — GO, cleared case, best available, switch — can fall back to an old flat coin.
-    Every safety check (holder scan, rug meter, pool, chase / falling) still decides inside the lane."""
-    a = (row or {}).get('ageH')
-    return under_cap(row, cap) and a is not None and 0 <= _f(a) <= _f(max_age_h)
+def trench_band(mc):
+    """The under-$200K trench band of a market cap — context and ranking, never a veto. None above the universe."""
+    for top, name in MC_BANDS:
+        if 0 < _f(mc) < top:
+            return name
+    return None
+
+
+def in_lane(row, cap=AGENT_MAX_MCAP):
+    """🗑 THE AGENTS' UNIVERSE for new entries: live market cap > 0 and under the cap. Age is context (ranking), never a veto."""
+    return under_cap(row, cap)
 
 
 def view_rows(table, top=24, young=24, young_h=6.0):

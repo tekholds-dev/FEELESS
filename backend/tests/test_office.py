@@ -383,8 +383,8 @@ def test_the_exposure_helpers_show_the_same_checks_the_desks_rule_by():
     s = of.sherlock_read(x, ag.learn(st, 5))
     assert s['lean'] == x['why']['lean'] and all({'key', 'weight', 'words', 'n', 'med'} <= set(r) for r in s['for'] + s['against']) and 'top-10 share unknown' in s['unresolved']
     assert [of.scan_status(True, now=10), of.scan_status(None), of.scan_status(None, inflight=True), of.scan_status(None, failed_at=100, now=150), of.scan_status(True, scanned_at=1, now=5000)] == ['DONE', 'REQUESTED', 'RUNNING', 'FAILED', 'STALE']
-    assert all(ag.devil_rule_of(text) == rule for rule, text in ag.devil_args('enter', {'c1': 300, 'age': 0.1}, {'drivers': [], 'lean': 2}, {'safe': None, 'tv': {'rug': 70, 'call': ['', 'X', '']}}, {'busted': {'X'}}))
-    objs = ag.devil_args('enter', {'c1': 300, 'age': 0.1}, {'drivers': [], 'lean': 2}, {'safe': None, 'tv': {'rug': 70, 'call': ['', 'X', '']}}, {'busted': {'X'}})
+    assert all(ag.devil_rule_of(text) == rule for rule, text in ag.devil_args('enter', {'c1': 300, 'age': 2}, {'drivers': [], 'lean': 2}, {'safe': None, 'tv': {'rug': 70, 'call': ['', 'X', '']}}, {'busted': {'X': -80.0}}))
+    objs = ag.devil_args('enter', {'c1': 300, 'age': 2}, {'drivers': [], 'lean': 2}, {'safe': None, 'tv': {'rug': 70, 'call': ['', 'X', '']}}, {'busted': {'X': -80.0}})
     assert [o[0] for o in objs] == ['busted_read', 'rug_meter', 'ran', 'unscanned'] and all(ag.DEVIL_RULES[o[0]][0] for o in objs)   # every objection has its rule, all hard (age is a warning now)
 
 

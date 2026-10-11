@@ -144,3 +144,14 @@ test('the 10-minute duty: a clock to the next move, their lives on real money, t
   expect(q('duty-clock').textContent).toContain('not in control');
   await act(async () => { root.unmount(); });
 });
+
+test('the Judge court: last loss with cause, desk, lesson and rule action · last win · responsibility · rules', async () => {
+  const { JudgeCourt } = require('./AgentScreens');
+  const court = { lastLoss: { sym: 'T', pct: -14, cause: 'thin_pool', desk: 'warden', decision: 'bad decision', lesson: 'Warden: a smaller seat' }, lastWin: { sym: 'W', pct: 22, why: 'entered on UPTREND · peak +30%' },
+    scores: { tally: 0, trigger: 20, warden: 60 }, losses: 3, lossPatterns: [{ cause: 'thin_pool', n: 3 }], winPatterns: [], shadow: [], promoted: [{ cause: 'thin_pool', n: 3, points: -8, penalty: 'thin pool', change: 'x' }] };
+  const el = document.createElement('div'); document.body.appendChild(el);
+  const { createRoot } = require('react-dom/client'); const { act } = require('react');
+  await act(async () => { createRoot(el).render(<JudgeCourt court={court} />); });
+  expect(el.querySelector('[data-testid="jct-loss"]').textContent).toContain('thin pool'); expect(el.textContent).toContain('PROMOTED');
+  expect(el.querySelector('[data-testid="jct-win"]').textContent).toContain('UPTREND'); expect(el.textContent).toContain('🛡 Warden 60');
+});

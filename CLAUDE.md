@@ -3151,3 +3151,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   on every agent seat that left the real card (real_learn pieces tagged 🤖, handed in as `state.realPieces` each pass): ≥ +3% win → Tally
   (≤ 10 min) else Sherlock · ≤ −15% → Devil (let a dump through) · other ≤ −3% → Trigger (timing); `REAL_WEIGHT` 2 in the net that picks
   who is ON TRIAL. `miss_study`: waits that ran ≥ +10% grouped by Trigger's own reason (calls now store `tw`) → `judge.missWhy` on the strip.
+- 🎯 RANK, DON'T VETO (owner's spec, 2026-10-11; `backend/opportunity.py` pure + tested): every desk coin → `hard_fail` (failed / unread holder
+  scan · pool < $10K · cap ≥ $200K · rug ≥ 50 · Devil hard rule · invalid / bot-ladder / liquidity-failure chart · +40% vertical or −15% knife
+  5-min candle · no price) = NO; everything else = `score` 0–100 with cited parts → tier A ≥ 65 (full seat) · B ≥ 45 (75%) · C ≥ 25 (50%),
+  Warden W19 sizes by `TIER_SIZE` (its own steps). The ranked list replaces the old seat floor / last resort. Devil: a read type's busted
+  record is a HARD veto only when ≤ −50% typical (`BUST_HARD`, `busted_now` returns {read: median}), else a STRONG WARNING; "ran > 150%" on a
+  coin < 1h old is a warning (launch-to-now). Trigger: a launch < 6h skips only a +40% candle (mature: +15%). Reaper R7s "structure turned"
+  never banks a green coin whose P/L is ACCELERATING (the trail protects it). Universe for NEW entries: live cap in (0, $200K)
+  (`AGENT_MAX_MCAP`, `trench_band` NEWBORN MICRO … UPPER TRENCH = context); held coins keep running past it; age is never a veto.
+- 👨‍⚖️ JUDGE REVIEWS (`backend/judge_review.py` pure + tested; office state `judge.reviews`, payload `court`, UI `JudgeCourt` in the Judge drawer):
+  every confirmed agent exit → root cause (rugged · gave_back · collapsing_entry · bad_data · thin_pool · weak_holders · entered_on_wait ·
+  held_too_long · variance) · responsible desk · severity · change · "valid decision that lost" vs "bad decision"; wins → why it worked. A cause
+  becomes a rule only by repetition: 1 = record · 2 = SHADOW · ≥ 3 in the last 20 reviews = PROMOTED as a ≤ 8-point RANKING penalty
+  (`opportunity.judge_hits`) that expires 24h after its last case — never a hard veto; unrelated losses tighten nothing.

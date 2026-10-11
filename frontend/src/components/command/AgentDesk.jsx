@@ -6,7 +6,7 @@ import { useLivePrices } from '../../lib/livePrices';
 import { liveOverlay, livePairs } from '../../lib/agentLive';
 import '../../styles/agentDesk.css';
 import { pct, tone, CALL, VERDICT, VERD, rowState, rowWhy, pipsOf, leanFill } from '../../lib/agentRead';
-import { MiniScreen, ZoomScreen, CardNow, CourtBand, MissionBar, DutyBox, GrowthCards, PowerLadder } from './AgentScreens';
+import { MiniScreen, ZoomScreen, CardNow, CourtBand, JudgeCourt, MissionBar, DutyBox, GrowthCards, PowerLadder } from './AgentScreens';
 import { OfficeBoard, OfficeMission } from './OfficeBoard';
 import { OfficeHQ, ticker } from './OfficeRoom';
 import { ReadyStrip, SeatState, SwitchEval, CreatorLimits, ReviewQueue, MissedWinners, LaunchRecord } from './OfficeEdge';
@@ -274,7 +274,7 @@ export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
       {open('mission') ? <MissionBar mission={d.mission} scalp={d.scalp} desk={d.desk} /> : null}
       {open('seats') ? <CardNow card={d.card} power={d.power} cfg={d.cfg} gos={t.filter(x => x.go)} call={call} isOwner={isOwner} onDone={load} onMore={() => setLens('life')} /> : null}
       {open('duty') ? <DutyBox duty={d.duty} lives={d.lives} underwater={d.underwater} onPick={sym => { setLens('live'); setJump({ sym, n: Date.now() }); }} /> : null}
-      {open('judge') ? <CourtBand judge={d.judge} proof={d.proof} desk={d.desk} onPick={sym => { setLens('live'); setJump({ sym, n: Date.now() }); }} onCourt={() => setZoom('judge')} /> : null}</div> : null}
+      {open('judge') ? <CourtBand judge={d.judge} proof={d.proof} desk={d.desk} onPick={sym => { setLens('live'); setJump({ sym, n: Date.now() }); }} onCourt={() => setZoom('judge')} /> : null}{open('judge') ? <JudgeCourt court={d.office?.court} /> : null}</div> : null}
     {zoom && <ZoomScreen d={d} agent={zoom} setAgent={k => { setZoom(k); setSel(k); }} close={() => setZoom(null)} />}
     <OfficeHQ o={d.office} roomOn={office} passAt={p.at} card={d.card} onEdge={k => (['limits', 'review', 'missed'].includes(k) ? setLens(k) : setDrawer(x => (x === 'edge' ? null : 'edge')))} />
     {show('limits') && <div className="agd-grid is-ctl" data-testid="lens-limits-pane"><div className="agd-wide"><CreatorLimits policy={d.office?.policy} mission={d.office?.mission} cfg={d.cfg} o={d.office} isOwner={isOwner} busy={busy} save={save} /></div>
