@@ -171,7 +171,7 @@ AGENTS = (('tally', '📊', 'Tally', 'tracks the numbers'), ('sherlock', '🔍',
           ('trigger', '⏱', 'Trigger', 'knows when to enter'), ('devil', '⚖', 'Devil', 'argues it is right — or not'))
 STAGES = (5, 15, 60)            # minutes: conquer 5 first, then 15, then the hour
 SERIES_N = 15                   # points kept per coin (one a pass, ~1 min apart)
-SERIES_COINS = 160
+SERIES_COINS = 260                # ≥ the intake (office_edge.INTAKE_MAX) so nothing read this pass loses its tape
 KEEP_DONE = 3000
 PROVE_N, PROVE_WIN = 30, 55.0
 PROVE_X = 10.0                  # 🎯 owner, 2026-10-09: "they should trench and 10x what they start with to pass 5 min"

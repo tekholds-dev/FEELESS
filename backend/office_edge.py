@@ -218,7 +218,7 @@ def seat_state(ctx):
     if valid:
         k = min(len(valid), empty)
         if n and rest[0] != 'REBUY COOLDOWN':   # the seats a valid coin does not cover: no OTHER coin cleared
-            rest = (rest[0], f"no other coin cleared — " + ', '.join(f'{w} ({kk})' for _, w, kk in bl[:3]) if bl else 'no other coin cleared')
+            rest = (rest[0], "no other coin cleared — " + ', '.join(f'{w} ({kk})' for _, w, kk in bl[:3]) if bl else 'no other coin cleared')
         if c.get('vetoed') and int(_f(c.get('vetoed'))) >= len(valid):
             return out('NO VALID ENTRY', 'WARDEN VETO', f"WARDEN VETO — the Warden vetoed {', '.join('$' + str(x.get('symbol')) for x in valid[:3])}")
         if not any(x.get('go') for x in valid) and _f(c.get('timerIn')) > 0:
@@ -253,6 +253,13 @@ def fill_plan(ctx):
         return []
     duty = list(c.get('wait') or [])[:1] if may_fill({'go': False}, pol, c.get('emptySince'), _f(c.get('now')), _f(c.get('lastFill'))) else []
     return list(c.get('gos') or []) + duty
+
+
+def cycle_due(pol, last_at, now):
+    """🔁 THE ACTIVE CYCLE: every creator seat target (60s on the real card; never under 30s) the desk re-evaluates EVERY seat — empty seats
+    look for a fill, held seats are compared with the best cleared challenger (`switch_test`). A due cycle is a DECISION (keep · protect ·
+    take · exit · switch · fill · cash), never a forced trade: the superiority test, the Warden and the hourly buy budget still decide."""
+    return _f(now) - _f(last_at) >= max(30.0, _f((pol or {}).get('seatTarget') or SEAT_TARGET_AUTO))
 
 
 # ── ⇄ SWITCHING: superiority, not churn ──────────────────────────────────────────────────────────────────────────────────────────
@@ -623,3 +630,106 @@ def ops(ready_, seat, courier, keeper, moves_hr=None):
             'nextIn': s.get('nextIn'), 'block': None if not s.get('empty') or code == 'FILLING' else s.get('reason'), 'code': code or None,
             'execution': ex, 'budget': {'left': s.get('movesLeft'), 'of': moves_hr if moves_hr is not None else _ag.CONTROL_MOVES_HR},
             'cash': s.get('freeUsd')}
+
+
+# ── 🕸 INTAKE: the full board, cheaply screened, with reserved room for what matters NOW ─────────────────────────────────────────────
+INTAKE_MAX = 240
+INTAKE_SLOTS = (('recheck', None), ('new', 50), ('accel', 25), ('grad', 20), ('momentum', 25), ('busy', 80), ('listed', 40))
+GRAD_AGE_H = 6.0     # a pool younger than this that is off its launch curve = a recent graduation
+
+
+def _pace(r):
+    v1 = _f(r.get('vol1h'))
+    return _f(r.get('vol5m')) * 12 / v1 if v1 > 0 else 0.0
+
+
+def intake(rows, recheck=(), listed=None, cap=INTAKE_MAX):
+    """→ the coins Tally reads this pass, each with `intake` = the reasons it got a seat at the table (deduped, ≤ cap).
+    Reserved, in this order: RECHECK (held coins + last pass's cases + challengers — always) · NEW (the youngest launches the board has,
+    ANY age: a coin seconds old reaches Tally on the next pass) · ACCEL (5-min volume pace vs its hour) · GRAD (off the curve, pool < 6h) ·
+    MOMENTUM (5-min move on ≥ $2K) · BUSY (front-runners) · LISTED (on the most tracked lists). Cheap: board numbers only, no fetch."""
+    rs = [r for r in rows or [] if r.get('mint')]
+    by = {r['mint']: r for r in rs}
+    lst = listed or {}
+    picks = {
+        'recheck': [by[m] for m in dict.fromkeys(recheck or ()) if m in by],
+        'new': sorted((r for r in rs if r.get('ageH') is not None), key=lambda r: _f(r['ageH'])),
+        'accel': sorted((r for r in rs if _f(r.get('vol5m')) >= 1000 and _pace(r) > 1.0), key=lambda r: -_pace(r)),
+        'grad': sorted((r for r in rs if r.get('curve') is False and r.get('ageH') is not None and _f(r['ageH']) <= GRAD_AGE_H), key=lambda r: -_f(r.get('vol1h'))),
+        'momentum': sorted((r for r in rs if _f(r.get('vol5m')) >= 2000 and r.get('chg5m') is not None and _f(r['chg5m']) > 0), key=lambda r: -_f(r['chg5m'])),
+        'busy': sorted(rs, key=lambda r: -_f(r.get('front'))),
+        'listed': sorted((r for r in rs if lst.get(r['mint'])), key=lambda r: (-len(lst[r['mint']]), -_f(r.get('front'))))}
+    out, tags = [], {}
+    for k, n in INTAKE_SLOTS:
+        took = 0
+        for r in picks[k]:
+            if n is not None and took >= n:
+                break
+            if r['mint'] in tags:
+                tags[r['mint']].append(k)
+                continue
+            if len(out) >= cap:
+                break
+            tags[r['mint']] = [k]; out.append(r); took += 1
+    return [{**r, 'intake': tags[r['mint']]} for r in out]
+
+
+def scan_order(cases, n=2):
+    """🕵 Which unscanned cases get a holder scan this pass: the STRONGEST reads first (lean, then 5-min pace) — never FIFO."""
+    un = [c for c in cases or [] if ((c.get('row') or {}).get('vitals') or {}).get('safe') is None and _f(c.get('lean')) > 0]
+    return sorted(un, key=lambda c: (-_f(c.get('lean')), -_f(((c.get('row') or {}).get('nums') or {}).get('pace'))))[:n]
+
+
+SEAT_ACTIONS = ('HOLD', 'REVIEW', 'CHALLENGER FOUND', 'SWITCHING', 'TAKE / EXIT', 'FILLING', 'CASH — NO VALID ENTRY')
+
+
+def seat_actions(seats, decisions, switch_eval, seat):
+    """🪑 What each seat is doing THIS cycle (display only — `manage` / Reaper / `fill_plan` decided). Held seat: SWITCHING (a swap was
+    decided) · TAKE / EXIT (a pull) · CHALLENGER FOUND (a cleared challenger was tested against it and the seat was kept — the failing line
+    says why) · REVIEW (Reaper / the desk is re-reading it, nothing decided) · HOLD. Empty seat: FILLING, else CASH — NO VALID ENTRY + its code."""
+    dec = {d.get('pair'): d for d in decisions or []}
+    sw = switch_eval or {}
+    ch = sw.get('challenger') or {}
+    per_empty = list((seat or {}).get('seats') or [])
+    out, k = [], 0
+    for x in seats or []:
+        if x.get('kind') == 'open' or not x.get('symbol'):
+            e = per_empty[k] if k < len(per_empty) else {}
+            k += 1
+            code = e.get('code') or (seat or {}).get('code')
+            out.append({'symbol': None, 'action': 'FILLING' if code == 'FILLING' else 'CASH — NO VALID ENTRY', 'code': code, 'why': e.get('reason') or (seat or {}).get('reason')})
+            continue
+        d = dec.get(x.get('pair')) or {}
+        a = d.get('action')
+        if a == 'swap':
+            act = 'SWITCHING'
+        elif a == 'pull':
+            act = 'TAKE / EXIT'
+        elif ch.get('cleared') and (sw.get('current') or {}).get('symbol') == x.get('symbol') and not sw.get('switch'):
+            act = 'CHALLENGER FOUND'
+        elif x.get('buying'):
+            act = 'FILLING'
+        elif a == 'hold' and 'not on the table' in str(d.get('why') or ''):
+            act = 'REVIEW'
+        else:
+            act = 'HOLD'
+        why = sw.get('why') if act == 'CHALLENGER FOUND' else d.get('why') or ''
+        out.append({'symbol': x.get('symbol'), 'pct': x.get('pct'), 'action': act, 'why': why, 'to': d.get('toSym') or (ch.get('symbol') if act == 'CHALLENGER FOUND' else None)})
+    return out
+
+
+def cycle_view(intake_, table, cases, charts, first, now, last_at, every, n_cycle):
+    """🔁 One line per 60s cycle: what the desk looked at and what it found. Counts only — read from this pass's objects."""
+    t = list(table or [])
+    cl = [c for c in cases or [] if c.get('cleared')]
+    best = (cl or list(cases or []) or [None])[0]
+    bands = {}
+    for x in t:
+        if x.get('band'):
+            bands[x['band']] = bands.get(x['band'], 0) + 1
+    return {'n': n_cycle, 'at': now, 'lastAt': last_at, 'every': every, 'nextIn': max(0, round(_f(last_at) + _f(every) - _f(now))) if last_at else None,
+            'board': (intake_ or {}).get('board'), 'newLaunches': (intake_ or {}).get('newLaunches'), 'newToDesk': sum(1 for v in (first or {}).values() if _f(v.get('t')) >= _f(now) - 1),
+            'screened': (intake_ or {}).get('screened'), 'by': (intake_ or {}).get('by'), 'read': len(t),
+            'reviewed': sum(1 for c in (charts or {}).values() if (c or {}).get('src') == 'candles'), 'cases': len(cases or []), 'cleared': len(cl),
+            'best': None if not best else {'symbol': best.get('symbol'), 'lean': best.get('lean'), 'cleared': bool(best.get('cleared')),
+                                           'blocked': next((k[2] for k in best.get('checks') or [] if not k[1]), None)}, 'bands': bands}

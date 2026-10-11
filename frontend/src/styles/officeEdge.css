@@ -121,6 +121,13 @@ body.theme-day .oed-up, body.theme-day .oed-lines li.is-ok > span { color: #0f8a
 .oed-op b { font-size: 12px; }
 .oed-op.is-ok b { color: #45e486; } .oed-op.is-wait b { color: var(--m-warn, var(--gold)); } .oed-op.is-bad b { color: #ff8fa3; }
 .oed-op-block { flex: 1 1 260px; min-width: 0; } .oed-op-block em { font-style: normal; font-size: 10.5px; color: var(--m-dim); overflow-wrap: anywhere; }
+.oed-cycle { display: grid; gap: 6px; margin: 0 0 8px; } .oed-cycle .oed-ops { margin: 0; }
+.oed-acts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.oed-acts li { display: grid; gap: 1px; padding: 5px 9px; border: 1px solid var(--m-line, rgba(21,209,106,.18)); border-radius: 8px; font-family: 'JetBrains Mono', monospace; min-width: 0; }
+.oed-acts small { font-size: 9px; letter-spacing: .12em; color: var(--m-dim); } .oed-acts b { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oed-acts em { font-style: normal; font-size: 10.5px; color: var(--m-dim); overflow-wrap: anywhere; }
+.oed-acts li.is-ok em { color: #45e486; } .oed-acts li.is-go em { color: #45e486; font-weight: 700; } .oed-acts li.is-wait em { color: var(--m-warn, var(--gold)); }
+body.theme-day .oed-acts em, body.theme-day .oed-acts small { color: #3e5a4b; } body.theme-day .oed-acts li.is-ok em, body.theme-day .oed-acts li.is-go em { color: #0d7a3f; }
 .oed-seats { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
 .oed-seats li { display: grid; grid-template-columns: 54px auto 1fr; gap: 6px; align-items: center; font-size: 11px; }
 .oed-seats small { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: .1em; color: var(--m-dim); }

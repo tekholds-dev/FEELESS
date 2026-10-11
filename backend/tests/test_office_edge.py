@@ -413,7 +413,7 @@ def test_the_one_office_payload_carries_the_edge_pass_and_the_creators_post_save
     _one_pass(rs, {}, 0)
     p = rs._office['payload']
     assert {'policy', 'ready', 'seat', 'switchEval', 'review', 'launch', 'ops'} <= set(p) and p['review']['blocking'] is False
-    assert p['ops']['office'] == 'WARMING' and p['ops']['keeper'] == '1 active'
+    assert p['ops']['office'] == 'WARMING' and p['ops']['keeper'] == '1 active' and 'cycle' in p and isinstance(p['seatActions'], list)
     assert {c['key'] for c in p['policy']['controls']} == {k for k, *_ in oe.CONTROLS} and all(c['agentsNow'] for c in p['policy']['controls'])
     assert p['ready']['state'] == 'OFFICE WARMING UP' and set(p['performance']['speed']) >= {'seatEmpty', 'validToFill', 'exitToFill', 'seatWakes'}
     assert p['launch']['pads'] == oe.PADS and 'UNKNOWN' in p['launch']['source']
@@ -532,3 +532,110 @@ def test_a_coin_scanned_on_request_off_the_runner_board_is_judged_by_the_same_sa
         assert row['safe'] is (not rs._rn.safety_fails(c, rs._runner_cfg())) and row['safe'] is not None        # the scan now reaches the agents' row, judged the same way
     finally:
         rs._intel_cache.pop('OFFBOARDmint', None)
+
+
+# ── 🔁 THE LIVE TRENCH: 60s cycle · full intake · stage-aware evidence · warnings vs vetoes ────────────────────────────────────────
+def _brow(m, **k):
+    return {'mint': m, 'symbol': m, 'pairAddress': 'P' + m, 'price': 1.0, 'ageH': 50, 'vol1h': 50_000, 'vol5m': 3000, 'chg5m': 1.0, 'curve': False, 'front': 40, **k}
+
+
+def test_a_new_board_launch_reaches_the_intake_on_the_next_pass_however_busy_the_board_is():
+    board = [_brow(f'OLD{i}', front=90 - i * 0.1, vol1h=900_000) for i in range(400)] + [_brow('BABY', ageH=0.01, vol1h=800, vol5m=800, front=3, curve=True)]
+    got = oe.intake(board, recheck=['HELD'], listed={})
+    tags = {x['mint']: x['intake'] for x in got}
+    assert 'BABY' in tags and 'new' in tags['BABY'] and len(got) <= oe.INTAKE_MAX                                # seconds old, quiet, deep in the board: still read this pass
+    held = oe.intake(board + [_brow('HELD', front=0)], recheck=['HELD'])
+    assert held[0]['mint'] == 'HELD' and held[0]['intake'][0] == 'recheck'                                         # what the card holds is always re-read
+    big = oe.intake(board + [_brow('WHALE', mcap=40_000_000, front=0.1)], listed={'WHALE': ['movers', 'volume']})
+    assert any(x['mint'] == 'WHALE' and 'listed' in x['intake'] for x in big)                                     # a $1M+ coin stays eligible
+    assert len({x['mint'] for x in got}) == len(got)                                                               # deduped
+
+
+def test_market_cap_bands_classify_never_exclude_and_are_learned_from_the_record_only():
+    assert [ag.mc_band(v) for v in (5_000, 60_000, 150_000, 300_000, 700_000, 5_000_000, None, 0)] == ['micro', 'early', 'building', 'momentum', 'established', '1m+', None, None]
+    d = ag.drivers({'buy': 55, 'pts': 4}, {'mcap': 5_000_000})
+    assert 'band:1m+' in d and ag.PRIOR.get('band:1m+') is None and ag.word('band:micro').startswith('💰 MICRO')   # no belief: only its own record weighs
+    st, table = ag.desk({}, [{'mint': 'BIG', 'symbol': 'BIG', 'price': 1, 'mcap': 3_000_000, 'vol5m': 1, 'vol1h': 10, 'liq': 90_000, 'ageH': 300, 'safe': True}], 100)
+    assert table and table[0]['band'] == '1m+'                                                                    # read, not dropped
+
+
+def test_a_very_young_launch_is_not_rejected_for_its_age_and_uses_stage_aware_evidence():
+    w = []
+    assert ag.devil_args('enter', {'age': 0.05}, {'drivers': [], 'lean': 3}, {'safe': True, 'tv': {'rug': 5}}, {'busted': set()}, warns=w) == []
+    assert w[0][0] == 'young' and ag.DEVIL_RULES['young'][0] is False                                              # age is a WARNING, never a veto
+    rows = [[60 * i, 1.0 + 0.02 * i, 1.03 + 0.02 * i, 0.99 + 0.02 * i, 1.02 + 0.02 * i, 500] for i in range(4)]
+    early = ci.read(rows, 240, True, 'candles', {'ageMin': 4, 'provider': 'jupiter', 'vol5m': 5000, 'vol1h': 20_000, 'liqAge': 0}, liq=40_000)
+    assert early['state'] == 'EARLY' and early['q']['state'] == 'LIMITED_HISTORY' and early['q']['enterOk'] and early['entry'][0] == 'ENTER NOW'
+    assert 'EARLY DATA' in early['q']['why'] and early['risk'][0] == 0.5                                          # labelled early, half size — never "bad data"
+    old = ci.read(rows, 240, True, 'candles', {'ageMin': 600, 'provider': 'jupiter', 'vol5m': 5000, 'vol1h': 20_000, 'liqAge': 0}, liq=40_000)
+    assert old['q']['state'] == 'SPARSE' and old['entry'][0] == 'WAIT FOR DATA'                                    # a 10h coin with 4 candles IS thin data
+    spike = [[60 * i, 1.0, 1.0, 1.0, 1.0, 500] for i in range(3)] + [[180, 1.0, 1.3, 1.0, 1.25, 900]]
+    assert ci.read(spike, 240, True, 'candles', {'ageMin': 4, 'provider': 'jupiter'})['entry'][0] == 'WAIT FOR PULLBACK'   # a +25% newborn candle is still never chased
+    dump = [[60 * i, 1.0 - 0.03 * i, 1.0 - 0.03 * i, 0.97 - 0.03 * i, 0.98 - 0.03 * i, 500] for i in range(4)]
+    assert ci.read(dump, 240, True, 'candles', {'ageMin': 4, 'provider': 'jupiter'})['entry'][0] == 'SKIP'
+    tr = ag.trigger({'pts': 1, 'buy': 60, 'd5': 1}, {'lean': 5, 'drivers': []}, {'safe': True, 'chart': {'src': 'candles', 'f': {'n': 4}, 'q': {'enterOk': True}}}, {'bar': 1.5})
+    assert tr[0] == 'enter'                                                                                       # its real candles count as readings
+    assert ag.trigger({'pts': 1, 'buy': 60, 'd5': 1}, {'lean': 5, 'drivers': []}, {'safe': True}, {'bar': 1.5})[0] == 'wait'
+    young = trow('YNG', ageH=0.2)
+    assert ag.investigate([young], set(), 0)[0]['cleared'] and not ag.investigate([young], set(), 1)[0]['cleared']   # only the CREATOR's min-age setting can hold it
+
+
+def test_devil_warnings_are_not_vetoes_but_hard_safety_still_is():
+    why = {'lean': 3, 'drivers': [('src:volume', -0.4, 'found on volume leaders')]}
+    w = []
+    assert ag.devil_args('enter', {'age': 5}, why, {'safe': True, 'tv': {'rug': 5}}, {'busted': set()}, warns=w) == [] and w[0][0] == 'against'   # already in the lean: noted only
+    strong = {'busted': set(), 'drivers': {'src:volume': {'n': 40, 'med': -6.0}}}
+    pos = {'lean': 3, 'drivers': [('src:volume', 0.4, 'found on volume leaders')]}
+    assert ag.devil_args('enter', {'age': 5}, pos, {'safe': True, 'tv': {'rug': 5}}, strong)[0][0] == 'driver_losing'   # a STRONG record is a veto
+    mild = {'busted': set(), 'drivers': {'src:volume': {'n': 40, 'med': -1.0}}}
+    assert ag.devil_args('enter', {'age': 5}, pos, {'safe': True, 'tv': {'rug': 5}}, mild) == []                          # a mild one only warns
+    for row, n in (({'safe': None, 'tv': {'rug': 5}}, {}), ({'safe': True, 'tv': {'rug': 70}}, {}), ({'safe': True, 'tv': {'rug': 5}}, {'c1': 400})):
+        assert ag.devil('enter', {'age': 5, **n}, why, row, {'busted': set()})[0] == 'object'                  # unscanned · rug meter · ran: never softened
+
+
+def test_every_cycle_re_evaluates_held_seats_against_challengers_but_a_timer_never_forces_a_trade():
+    pol = oe.policy({'agentSeatTarget': 60})
+    assert oe.cycle_due(pol, 0, 61) and not oe.cycle_due(pol, 1000, 1030) and oe.cycle_due(oe.policy({'agentSeatTarget': 30}), 1000, 1031)
+    assert oe.cycle_due(oe.policy({}), 1000, 1030) and not oe.cycle_due(oe.policy({}), 1000, 1020)               # never under 30s
+    cfg = {'agentTakePct': 10, 'agentMode': 'auto', 'trenchMinAgeH': 1}
+    legs = [leg('W', at=1), leg('L', at=1)]
+    table = [trow('W', lean=0.1), trow('L', lean=0.1)]
+    none = ag.manage(legs, table, {'PW': 1.05, 'PL': 0.9}, cfg, control=True, now=7200, moves_left=1, picks=[], rotate=True)
+    assert all(x['action'] == 'hold' for x in none)                                                               # cycle due, no challenger: keep — nothing manufactured
+    assert oe.fill_plan(_fctx(wait=[], gos=[])) == []
+    new = [trow('NEW', lean=5)]
+    d = {x['symbol']: x for x in ag.manage(legs, table + new, {'PW': 1.05, 'PL': 0.9}, cfg, control=True, now=7200, moves_left=1, picks=new, rotate=True)}
+    assert d['W']['action'] == 'hold' and d['L']['action'] == 'swap'                                              # the winner is protected, the loser is challenged
+    agg = oe.policy({'agentSwitch': 'aggressive'})
+    weak = {'symbol': 'L', 'pnl': -5, 'heldMin': 40, 'lean': 0.2, 'verdict': 'weak'}
+    assert not oe.switch_test(weak, {'symbol': 'N', 'lean': 0.6, 'cleared': True}, agg)['switch']               # aggressive: margin 0.4 < 0.5 — still superiority
+    assert oe.switch_test(weak, {'symbol': 'N', 'lean': 0.8, 'cleared': True}, agg)['switch']
+    assert not oe.switch_test({**weak, 'pnl': 3}, {'symbol': 'N', 'lean': 9, 'cleared': True}, agg)['switch']    # a winner is never surrendered for a new coin
+
+
+def test_holder_scans_go_to_the_strongest_unscanned_reads_first():
+    mk = lambda m, lean, safe=None, pace=0.0: {'mint': m, 'symbol': m, 'lean': lean, 'row': {'vitals': {'safe': safe}, 'nums': {'pace': pace}}}
+    cases = [mk('weak', 0.3), mk('done', 9, safe=True), mk('strong', 4), mk('neg', -1), mk('mid', 2, pace=3), mk('mid2', 2, pace=1)]
+    assert [c['mint'] for c in oe.scan_order(cases, 3)] == ['strong', 'mid', 'mid2']
+
+
+def test_each_seat_says_what_it_is_doing_this_cycle_and_the_cycle_line_counts_the_funnel():
+    seats = [{'kind': 'agent', 'symbol': 'A', 'pair': 'PA', 'pct': 3.0}, {'kind': 'agent', 'symbol': 'B', 'pair': 'PB', 'pct': -4.0},
+             {'kind': 'yours', 'symbol': 'C', 'pair': 'PC', 'pct': -2.0}, {'kind': 'open', 'symbol': None}]
+    dec = [{'pair': 'PA', 'action': 'hold', 'why': 'ok'}, {'pair': 'PB', 'action': 'swap', 'toSym': 'N'}, {'pair': 'PC', 'action': 'hold'}]
+    sw = {'current': {'symbol': 'C'}, 'challenger': {'symbol': 'Z', 'cleared': True}, 'switch': False, 'why': 'held 10 min — needs 30'}
+    seat = {'code': 'NO CLEARED CANDIDATE', 'reason': 'r', 'seats': [{'seat': 4, 'code': 'NO CLEARED CANDIDATE', 'reason': 'nothing cleared'}]}
+    a = oe.seat_actions(seats, dec, sw, seat)
+    assert [x['action'] for x in a] == ['HOLD', 'SWITCHING', 'CHALLENGER FOUND', 'CASH — NO VALID ENTRY'] and a[2]['to'] == 'Z' and a[3]['code'] == 'NO CLEARED CANDIDATE'
+    assert all(x['action'] in oe.SEAT_ACTIONS for x in a)
+    cy = oe.cycle_view({'board': 900, 'screened': 240, 'newLaunches': 120, 'by': {'new': 50}}, [{'band': 'micro'}, {'band': 'micro'}, {'band': '1m+'}],
+                       [case('X'), case('Y', cleared=False)], {'X': {'src': 'candles'}, 'Y': {'src': 'tape'}}, {'X': {'t': 1000}, 'Y': {'t': 10}}, 1000, 940, 60, 7)
+    assert cy['board'] == 900 and cy['screened'] == 240 and cy['reviewed'] == 1 and cy['cleared'] == 1 and cy['best']['symbol'] == 'X' and cy['newToDesk'] == 1
+    assert cy['bands'] == {'micro': 2, '1m+': 1} and cy['nextIn'] == 0 and cy['n'] == 7
+
+
+def test_the_decision_module_has_no_wallet_network_or_execution_path_of_its_own():
+    import inspect
+    src = inspect.getsource(oe)
+    for bad in ('httpx', 'fuse_wallet', 'signTransaction', 'sendTransaction', 'import requests', '_fw_', 'asyncio'):
+        assert bad not in src, bad                                                                                # fill_plan / intake / cycle only DECIDE; the existing keeper path executes

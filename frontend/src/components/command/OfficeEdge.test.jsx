@@ -103,3 +103,15 @@ test('every empty seat shows its own reason code and the ops line says why the a
   expect(q(o, 'oed-op-budget').textContent).toContain(`${fx.ops.budget.left} / ${fx.ops.budget.of}`);
   expect((await mount(<OpsLine o={null} />)).textContent).toBe('');
 });
+
+test('the 60s cycle line shows the funnel and every seat says what it is doing', async () => {
+  const { CycleLine } = require('./OfficeEdge');
+  const fx = require('./__fixtures__/cycle.json');
+  const el = await mount(<CycleLine c={fx.cycle} acts={fx.acts} now={fx.cycle.at + 20} />);
+  expect(q(el, 'oed-cy-last').textContent).toContain('20s ago'); expect(q(el, 'oed-cy-next').textContent).toContain('40s');
+  expect(q(el, 'oed-cy-board').textContent).toContain('812'); expect(q(el, 'oed-cy-screened').textContent).toContain('240');
+  expect(q(el, 'oed-cy-new').textContent).toContain('133'); expect(q(el, 'oed-cy-reviewed').textContent).toContain('1');
+  expect(q(el, 'oed-cy-best').textContent).toContain('$NEWB');
+  expect(Array.from(q(el, 'oed-acts').querySelectorAll('li em')).map(x => x.textContent)).toEqual(fx.acts.map(a => a.action));
+  expect((await mount(<CycleLine c={null} />)).textContent).toBe('');
+});

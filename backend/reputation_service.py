@@ -6221,8 +6221,9 @@ _open_cache: dict = {'at': 0.0, 'rows': [], 'calls': {}}
 TRENCH_CALLOUT_PATH = FUSE_HQ_PATH.parent / 'trench_callouts.json'
 
 
-def _open_board():
-    """🚪 The open trench list: every launch coin in the feed ranked as a front-runner, each with what it has not passed."""
+def _open_board(n=None):
+    """🚪 The open trench list: every launch coin in the feed ranked as a front-runner, each with what it has not passed. `n` = how many
+    (default the list's OPEN_MAX; the agents' intake reads the WHOLE feed)."""
     rcfg = _runner_cfg()
     scanned = {}
     for r in _runner_cands:
@@ -6235,7 +6236,7 @@ def _open_board():
             got = _open_scan_judge(p, m, rcfg)
             if got:
                 scanned[m] = got
-    return _trench.open_board(_open_pairs, scanned, time.time() * 1000)
+    return _trench.open_board(_open_pairs, scanned, time.time() * 1000, **({'n': n} if n else {}))
 
 
 _open_scan_memo: dict = {}   # mint → (scan checkedAt, judged) — one judgement per scan
@@ -9558,7 +9559,11 @@ async def _prime_tick_inner(now):
         if real_t and cur and (ctl_ or (((cfg_t.get('agentFeed') and (_agents.get('view') or {}).get('feed')) or cfg_t.get('agentLearn')) and not cur.get('holdAll'))) and not cur.get('flooredAt'):
             # 🕙 THE 10-MINUTE DUTY (in control): they investigate the board and their best CLEARED coin goes on the card — an empty seat first,
             # else the seat of a coin whose read broke, else the weakest coin that is not winning. One duty move per DUTY_SEC, inside the budget.
-            due_ = bool(ctl_ and moves_ and now - _fuse._f(cur.get('agentDutyAt')) >= _ag.DUTY_SEC)
+            # 🔁 THE ACTIVE CYCLE (owner, 2026-10-10: "decisions every ~60s, not a review desk"): every seat target the held seats are compared
+            # with the best cleared challenger (superiority test) — the 10-minute duty stays for deeper review only. Budget-capped, never forced.
+            due_ = bool(ctl_ and moves_ and _oe.cycle_due(pol_, cur.get('agentCycleAt'), now))
+            if due_:
+                cur['agentCycleAt'] = now; _office['cycleN'] = int(_office.get('cycleN') or 0) + 1
             lost_ = {m_ for m_, at_ in (_office_state().get('lostAt') or {}).items() if now - _fuse._f(at_) < _oe.FAILED_SEC}   # a thesis that failed on real money is not bought back for 6h
             cases_ = _ag.investigate(_agents.get('table'), {l.get('mint') for l in cur.get('legs') or []}, cfg_t.get('trenchMinAgeH', 1), (_json_load(AGENTS_PATH, {}).get('burned') or {}), top=0) if ctl_ else []
             picks_ = [c_['row'] for c_ in cases_ if c_['cleared'] and not _fw.dollar_named(c_.get('symbol')) and c_['mint'] not in cool and c_['mint'] not in lost_] if ctl_ else None
@@ -12125,9 +12130,7 @@ import trench_mind as _tm
 LINGO_PATH = FUSE_HQ_PATH.parent / 'trench_lingo.json'   # 📖 slang the desk learned from Pump callers' own words (per-day counts + learned words)
 AGENTS_PATH = FUSE_HQ_PATH.parent / 'agents.json'   # 🤖 the agent desk: Tally's tapes, every call, every judged result
 AGENTS_EVERY = 55.0                                 # one pass a minute, whenever the backend is up (internet = it runs)
-AGENTS_SEE = 80                                     # the open list's busiest coins each pass …
-AGENTS_NEW = 40                                     # … + the 40 newest launches (≤ 1h) — they must aim at NEW coins too
-AGENTS_LISTED = 40                                  # … + up to 40 more board coins the tracked lists carry (most lists first): board data only, no new fetch
+# 🕸 the intake = office_edge.intake (reserved room for rechecks · newest · accelerating · graduations · momentum · busiest · listed, ≤ INTAKE_MAX)
 _agents: dict = {'at': 0.0, 'table': [], 'view': None}
 
 
@@ -12141,9 +12144,7 @@ async def _agents_tick(now):
     try:
         # 🕸 THE CRAWL: the busiest open-list coins + the NEWEST launches (≤ 1h) — and every coin is tagged with every corner of the trench it
         # showed up in (Pump trending / callouts / live, movers, volume, fed, waves, cooling, proven callers …): each source is a learned driver
-        ob_ = _open_board() or []
-        newest_ = sorted((x for x in ob_ if x.get('ageH') is not None and _fuse._f(x['ageH']) <= 1), key=lambda x: _fuse._f(x['ageH']))[:AGENTS_NEW]
-        seen_ = {x.get('mint') for x in newest_}
+        ob_ = _open_board(len(_open_pairs) or None) or []   # 🕸 the WHOLE launch feed the board holds (not just the top 200 front-runners)
         src_ = {}
         for k_, lst_ in (_lens_rows or {}).items():
             for r_ in lst_ or []:
@@ -12152,16 +12153,18 @@ async def _agents_tick(now):
         for c_ in _pump_calls.get('calls') or []:
             if c_.get('mint') and 'calls' not in src_.get(c_['mint'], []):
                 src_.setdefault(c_['mint'], []).append('calls')
-        busy_ = [x for x in ob_ if x.get('mint') not in seen_][:AGENTS_SEE]
-        took_ = seen_ | {x.get('mint') for x in busy_}
-        # 🕸 the board holds more coins than the busiest 80: the ones the tracked lists carry join the intake (bounded, board rows only)
-        listed_ = sorted((x for x in ob_ if x.get('mint') not in took_ and src_.get(x.get('mint'))), key=lambda x: (-len(src_[x['mint']]), -_fuse._f(x.get('front'))))[:AGENTS_LISTED]
-        raw = [_with_tv(x) for x in busy_ + listed_ + newest_]
+        held_m = [l.get('mint') for l in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '', {}).get('legs') or [] if l.get('mint')]
+        recheck_ = held_m + [c_['mint'] for c_ in _ag.investigate(_agents.get('table'), set(), 0, {}, top=20)]   # held coins + last pass's strongest cases / challengers
+        taken_ = _oe.intake(ob_, recheck_, src_)
+        _office['intake'] = {'board': len(ob_), 'screened': len(taken_), 'by': {k_: sum(1 for x in taken_ if k_ in x['intake']) for k_, _n in _oe.INTAKE_SLOTS},
+                             'newLaunches': sum(1 for x in ob_ if x.get('ageH') is not None and _fuse._f(x['ageH']) <= 1)}
+        seen_ = {x.get('mint') for x in taken_ if 'new' in x['intake'] and x.get('ageH') is not None and _fuse._f(x['ageH']) <= 1}
+        raw = [_with_tv(x) for x in taken_]
         for x in raw:
             x['src'] = ['open'] + (['new'] if x.get('mint') in seen_ else []) + src_.get(x.get('mint'), [])
-        cut_ = set((_ag.learn(_json_load(AGENTS_PATH, {}), 5).get('cut') or {}).keys())   # 🕸 source budget: losing corners get half the room
+        cut_ = set((_ag.learn(_json_load(AGENTS_PATH, {}), 5).get('cut') or {}).keys())   # 🕸 source budget: losing corners get half the room (never a recheck or a new launch)
         if cut_:
-            keep_ = [x for x in raw if not (set(x['src']) - {'open'}) or not (set(x['src']) - {'open'}) <= cut_]
+            keep_ = [x for x in raw if 'recheck' in x['intake'] or 'new' in x['intake'] or not (set(x['src']) - {'open'}) or not (set(x['src']) - {'open'}) <= cut_]
             trim_ = [x for x in raw if x not in keep_]
             raw = keep_ + trim_[:len(trim_) // 2]
         tv_ = {x.get('mint'): x.get('tv') for x in raw}
@@ -12192,7 +12195,10 @@ async def _agents_tick(now):
         # 📈 ONE shared chart snapshot per coin: real 1-min candles for the coins on the real card + last pass's strongest cases (≤ a dozen
         # requests, cached), Tally's own tape for everything else. Every desk reads that one object.
         held_ = {l.get('mint'): l.get('pairAddress') for l in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(tid_r or '', {}).get('legs') or [] if l.get('mint') and not l.get('placeholder')}
-        top_ = {c_['mint']: c_['pair'] for c_ in _ag.investigate(_agents.get('table'), set(held_), 1, {}, top=OFFICE_CANDLE_CASES)}
+        top_ = {c_['mint']: c_['pair'] for c_ in _ag.investigate(_agents.get('table'), set(held_), 0, {}, top=OFFICE_CANDLE_CASES)}
+        for x_ in sorted((x_ for x_ in rows if x_.get('ageH') is not None and _fuse._f(x_['ageH']) * 60 <= _md.EARLY_AGE_MIN and _fuse._f(x_.get('vol5m')) >= 1000 and x_.get('pairAddress')),
+                         key=lambda x_: -_fuse._f(x_.get('vol5m')))[:OFFICE_CANDLE_NEW]:   # 🐣 deep review for the busiest NEWBORNS too: their few real candles are their evidence
+            top_.setdefault(x_['mint'], x_['pairAddress'])
         cmap_ = await _office_candles({**top_, **held_}, now)
         flows_ = {p_: w_ for p_, (at_, w_) in list(_flow_now.items()) if w_ and now - _fuse._f(at_) <= 90}
         charts_ = {}
@@ -12235,6 +12241,13 @@ async def _agents_tick(now):
         except Exception:
             pass
         _agents.update(table=table, view=_ag.view(st, table, bool(rcfg_.get('agentFeed')), _agents_real(), _agents.get('mind'), rcfg_, _agents.get('decisions'), now, _agents.get('card'), _agents.get('money')))
+        try:   # 🔁 this cycle's funnel, for the page (counts from this pass's objects only)
+            prev_ = (_office.get('cycle') or {}).get('at')
+            _office['cycle'] = _oe.cycle_view(_office.get('intake'), table, _ag.investigate(table, set(), rcfg_.get('trenchMinAgeH', 1), st.get('burned') or {}, top=0),
+                                              _office.get('charts'), st.get('first'), now, now, max(AGENTS_EVERY, _fuse._f(_oe.policy(rcfg_)['seatTarget'])), int(_office.get('cycleN') or 0))
+            _office['cycle']['prevAt'] = prev_
+        except Exception as e:
+            print('cycle view:', e)
         try:   # 🏢 the rest of the office on the SAME snapshot: Archivist files + settles, exits are confirmed, the Judge scores all ten
             _office_pass(st, table, now, rcfg_, jp, arch_, cour_, tid_r, (time.perf_counter() - t_tick) * 1000)
         except Exception as e:
@@ -12255,7 +12268,7 @@ async def _agents_tick(now):
             pass
         try:   # 🕵 ACTIVE INVESTIGATION: their 2 strongest reads that nobody has holder-scanned yet get a scan requested (deduped, rate-paced)
             if rcfg_.get('agentControl'):
-                for c_ in [c_ for c_ in _ag.investigate(table, set(), rcfg_.get('trenchMinAgeH', 1), st.get('burned') or {}, top=0) if not c_['checks'][0][1] and (c_['row'].get('vitals') or {}).get('safe') is None][:2]:
+                for c_ in _oe.scan_order(_ag.investigate(table, set(), 0, st.get('burned') or {}, top=0), 2):   # strongest unscanned reads first (any age), never FIFO
                     asyncio.ensure_future(_runner_intel(c_['mint']))
         except Exception:
             pass
@@ -12278,7 +12291,8 @@ import chart_intel as _ci
 import market_data as _md
 import office_edge as _oe
 OFFICE_CANDLE_TTL = 50.0    # one read of a coin's 1-minute candles serves every desk for the whole pass (and the tier ticks until the next one)
-OFFICE_CANDLE_CASES = 6     # real candles for the held coins + the strongest cases; every other coin is read from Tally's own tape (no request at all)
+OFFICE_CANDLE_CASES = 10    # real candles for the held coins + the strongest cases; every other coin is read from Tally's own tape (no request at all)
+OFFICE_CANDLE_NEW = 4       # … + the busiest launches under ~20 min old (local candles service, one request per pool, 50s cache)
 
 
 async def _office_candles(want, now):
@@ -12478,6 +12492,8 @@ def _office_light(tid, cur, now):
         p['mission'] = {**p['mission'], 'lastAction': last, 'dutyAt': _office['dutyAt']}
         p['seat'], p['switchEval'], p['ready'] = _agents.get('seat'), _agents.get('switchEval'), _oe.ready(_office['boot'], now)
         p['ops'] = _oe.ops(p['ready'], p['seat'], _office.get('courier'), _is_keeper())
+        p['cycle'] = {**(_office.get('cycle') or {}), 'nextIn': max(0, round(_fuse._f((_office.get('cycle') or {}).get('at')) + AGENTS_EVERY - now)) if _office.get('cycle') else None}
+        p['seatActions'] = _oe.seat_actions(((_agents.get('card') or {}).get('seats')), _agents.get('decisions'), _agents.get('switchEval'), _agents.get('seat'))
 
 
 def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
@@ -12642,6 +12658,8 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
                         'candles': {**_office['candleStat'], 'tape': sum(1 for c_ in _office['charts'].values() if c_.get('src') == 'tape'), 'real': sum(1 for c_ in _office['charts'].values() if c_.get('src') == 'candles')}},
     }
     _office['payload']['ops'] = _oe.ops(_office['payload']['ready'], _office['payload']['seat'], _office.get('courier'), _is_keeper())
+    _office['payload']['cycle'] = {**(_office.get('cycle') or {}), 'nextIn': AGENTS_EVERY}
+    _office['payload']['seatActions'] = _oe.seat_actions(((_agents.get('card') or {}).get('seats')), _agents.get('decisions'), _agents.get('switchEval'), _agents.get('seat'))
     _office['payload']['performance']['passMs'] = round(sum(_fuse._f(ms.get(a)) for a in _of.CHAIN), 2)
     try:   # a read-only snapshot of what the page was handed (like agents_duty.json) — for checking the office without signing in to HQ
         _json_save(DATA_DIR / 'agent_office_view.json', _office['payload'])

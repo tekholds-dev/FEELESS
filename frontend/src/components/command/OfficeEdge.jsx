@@ -12,6 +12,25 @@ const SEAT_CLS = { FULL: 'is-ok', FILLING: 'is-go', 'NO VALID ENTRY': 'is-wait',
 
 // 🩺 LIVE OPERATION HEALTH — why the agents are (or are not) filling seats, in one line of real fields
 const EX_CLS = { HEALTHY: 'is-ok', DEGRADED: 'is-wait', BLOCKED: 'is-bad', UNKNOWN: '' };
+// 🔁 THE 60s CYCLE — what the desk looked at this pass and what each seat is doing
+const ACT_CLS = { HOLD: 'is-ok', REVIEW: '', 'CHALLENGER FOUND': 'is-wait', SWITCHING: 'is-go', 'TAKE / EXIT': 'is-wait', FILLING: 'is-go', 'CASH — NO VALID ENTRY': '' };
+export function CycleLine({ c, acts, now }) {
+  if (!c || !c.at) return null;
+  const t = now || Date.now() / 1000; const ago = Math.max(0, Math.round(t - c.at)); const next = Math.max(0, Math.round(c.at + (c.every || 60) - t));
+  const cell = (k, l, v, tip) => <span key={k} className="oed-op" data-testid={`oed-cy-${k}`} data-tip={tip}><small>{l}</small><b>{v ?? '—'}</b></span>;
+  const best = c.best ? `$${c.best.symbol} ${c.best.cleared ? '✓' : '·'} ${Number(c.best.lean || 0).toFixed(1)}` : 'none';
+  return <div className="oed-cycle" data-testid="oed-cycle">
+    <div className="oed-ops">
+      {cell('last', 'LAST CYCLE', `${ago}s ago`, `cycle #${c.n ?? '—'}`)}{cell('next', 'NEXT CYCLE', `${next}s`)}
+      {cell('new', 'NEW LAUNCHES', c.newLaunches, `≤ 1h old on the board · ${c.newToDesk ?? 0} new to the desk this pass`)}{cell('board', 'BOARD', c.board, 'every launch coin the feed holds')}
+      {cell('screened', 'CHEAP SCREENED', c.screened, Object.entries(c.by || {}).map(([k, v]) => `${k} ${v}`).join(' · '))}{cell('reviewed', 'DEEP REVIEWED', c.reviewed, 'read on real 1-minute candles')}
+      {cell('cleared', 'CLEARED', c.cleared, `of ${c.cases ?? 0} case files`)}{cell('best', 'BEST CHALLENGER', best, c.best?.blocked || (c.best?.cleared ? 'cleared every desk' : ''))}
+    </div>
+    {(acts || []).length > 0 && <ul className="oed-acts" data-testid="oed-acts">{acts.map((a, i) => <li key={i} className={ACT_CLS[a.action] || ''} data-tip={a.why || ''}>
+      <small>SEAT {i + 1}</small><b>{a.symbol ? `$${a.symbol}` : '▫ open'}</b><em>{a.action}{a.to ? ` → $${a.to}` : ''}</em></li>)}</ul>}
+  </div>;
+}
+
 export function OpsLine({ o }) {
   if (!o) return null;
   const cell = (k, l, v, cls, tip) => <span key={k} className={`oed-op ${cls || ''}`} data-testid={`oed-op-${k}`} data-tip={tip}><small>{l}</small><b>{v}</b></span>;
