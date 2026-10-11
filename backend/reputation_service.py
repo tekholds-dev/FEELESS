@@ -9647,7 +9647,7 @@ async def _prime_tick_inner(now):
                 pool_ = [c_ for c_ in cases_ if c_['mint'] not in cool and c_['mint'] not in lost_ and c_['mint'] not in on_r and not _fw.dollar_named(c_.get('symbol'))]
                 ready_n = len([c_ for c_ in pool_ if c_['cleared']]) + len(_oe.near_ready(pool_, scores_))
                 spare_ = min(fills_left_, ready_n) - open_n
-            dec_ = _office_reap(cur, px, cfg_t, ctl_, now, dec_, pol_, rd_['live'], vels_, margins_, spare_)   # ☠ Reaper's exit requests join the SAME decision list (it has no path of its own)
+            dec_ = _office_reap(cur, px, cfg_t, ctl_, now, dec_, pol_, rd_['live'], vels_, margins_, spare_, edge=margins_)   # 🪓 a flat coin is swapped only for a clearly better one   # ☠ Reaper's exit requests join the SAME decision list (it has no path of its own)
             if ctl_:   # ⇄ the live switching evaluation the page shows: the strongest cleared challenger against the weakest held coin (display only — `manage` decided)
                 try:
                     by_ = {x_['mint']: x_ for x_ in _agents.get('table') or []}
@@ -12985,7 +12985,7 @@ def _office_warden(cur, t_, requested, cfg_t, now, move):
     return wd
 
 
-def _office_reap(cur, px, cfg_t, ctl, now, dec, pol=None, live=True, vels=None, margins=None, buys_left=None):
+def _office_reap(cur, px, cfg_t, ctl, now, dec, pol=None, live=True, vels=None, margins=None, buys_left=None, edge=None):
     """☠ Reaper looks at the open positions on the real card each tier tick and adds its exit requests to the agents' own decision
     list. Any failure leaves the list exactly as `agents.manage` returned it."""
     try:
@@ -13007,7 +13007,7 @@ def _office_reap(cur, px, cfg_t, ctl, now, dec, pol=None, live=True, vels=None, 
             g['take'] = _of.take_line(cfg_t, _agents.get('scalp'))
         _office.update(pos=pos, reports=rep, gone=list(_office.get('gone') or []) + gone)
         _office_lat('reaper', (time.perf_counter() - t0) * 1000)
-        return _of.merge_reaper(dec, rep, buys_left)
+        return _of.merge_reaper(dec, rep, buys_left, edge)
     except Exception as e:
         print('reaper:', e)
         return dec

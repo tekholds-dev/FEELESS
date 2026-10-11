@@ -633,11 +633,14 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
 
 
 TIME_EXITS = ('R9', 'R9e')   # thesis-review TIME exits (windows used / no extension earned / time) — never R9c, the creator's own max hold
+TIME_CUT_PCT = -3.0          # 🪓 a time exit sells a coin that is LOSING at least this much …
+SWAP_COST_PCT = 2.0          # … or one a clearly better coin beats by the switch margin: a flat round trip costs ~2% of a $0.12 seat
 
 
-def merge_reaper(decisions, reports, buys_left=None):
+def merge_reaper(decisions, reports, buys_left=None, edge=None):
     """Reaper's requests join the card's EXISTING agent decisions (the list `agents.manage` returns and the service already acts on): a
     coin the desk would hold is pulled when Reaper asks; a swap / pull the desk already decided stands. No new action kind exists.
+    🪓 … and a time exit fires only for a coin that is LOSING (≤ TIME_CUT_PCT) or one a clearly better coin beats (`edge` {mint: (score margin, need)}).
     🪑 With no buy to spare (`buys_left` = buys left this hour − seats already empty, ≤ 0) a TIME exit is deferred: the seat could not be refilled this hour, so selling a flat
     coin to cash only pays the exit and leaves the seat idle (2026-10-11: 15-minute R9 exits emptied seats the budget then kept empty).
     Stops, the rug / drain / scan exits, invalidation, trails, the take line and the creator's max hold are never deferred."""
@@ -650,6 +653,12 @@ def merge_reaper(decisions, reports, buys_left=None):
         if left is not None and is_time(r):
             if left <= 0:
                 r['deferred'] = 'no replacement is ready (or no buy is free) — a time exit only swaps, it never leaves the seat in cash (stops, invalidation and trails still act)'
+                continue
+            e_ = (edge or {}).get(r.get('mint'))
+            better_ = bool(e_) and e_[0] is not None and _f(e_[0]) >= _f(e_[1])
+            if _f(r.get('pct')) > TIME_CUT_PCT and not better_:   # 🪓 (2026-10-11: 113 swaps in 4h, nearly every flat coin sold ~1% lighter + fees — the churn WAS the loss)
+                r['deferred'] = (f"flat ({_f(r.get('pct')):+.1f}%) and no clearly better coin" + (f" (best is +{_f(e_[0]):.0f} score, needs +{_f(e_[1]):.0f})" if e_ and e_[0] is not None else '')
+                                 + f" — a swap costs ~{SWAP_COST_PCT:.0f}% round trip, so it keeps the seat and gets its chance to run (stops and trails still act)")
                 continue
             left -= 1
         i = next((i for i, d in enumerate(out) if d.get('pair') == r['pair']), None)

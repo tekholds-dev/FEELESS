@@ -152,8 +152,8 @@ def test_best_available_has_its_own_live_check_the_entry_moment_may_wait_a_broke
 
 def test_time_exits_wait_while_the_buy_budget_is_used_safety_exits_never_do():
     dec = [{'pair': 'A', 'action': 'hold'}, {'pair': 'B', 'action': 'hold'}, {'pair': 'C', 'action': 'hold'}, {'pair': 'D', 'action': 'hold'}]
-    rep = [{'pair': 'A', 'action': 'pull', 'rule': 'R9 windows used', 'evidence': '3 of 3'}, {'pair': 'B', 'action': 'pull', 'rule': 'R5 stop', 'evidence': '-30%'},
-           {'pair': 'C', 'action': 'pull', 'rule': 'R9c creator max hold', 'evidence': 'yours'}, {'pair': 'D', 'action': 'pull', 'rule': 'R9e no extension earned', 'evidence': 'x'}]
+    rep = [{'pair': 'A', 'action': 'pull', 'rule': 'R9 windows used', 'evidence': '3 of 3', 'pct': -4.0}, {'pair': 'B', 'action': 'pull', 'rule': 'R5 stop', 'evidence': '-30%'},
+           {'pair': 'C', 'action': 'pull', 'rule': 'R9c creator max hold', 'evidence': 'yours'}, {'pair': 'D', 'action': 'pull', 'rule': 'R9e no extension earned', 'evidence': 'x', 'pct': -5.0}]
     got = {d['pair']: d['action'] for d in of.merge_reaper(dec, [dict(r) for r in rep], buys_left=0)}
     assert got == {'A': 'hold', 'B': 'pull', 'C': 'pull', 'D': 'hold'}
     assert {d['pair']: d['action'] for d in of.merge_reaper(dec, [dict(r) for r in rep], buys_left=2)} == {'A': 'pull', 'B': 'pull', 'C': 'pull', 'D': 'pull'}
@@ -173,7 +173,7 @@ def test_a_deferred_time_exit_reads_hold_on_the_seat_board():
 
 def test_a_time_exit_is_a_swap_the_weakest_flat_coin_uses_the_one_spare_replacement():
     dec = [{'pair': 'A', 'action': 'hold'}, {'pair': 'B', 'action': 'hold'}]
-    rep = [{'pair': 'A', 'action': 'pull', 'rule': 'R9 windows used', 'evidence': 'x', 'pct': 0.4}, {'pair': 'B', 'action': 'pull', 'rule': 'R9 windows used', 'evidence': 'x', 'pct': -0.7}]
+    rep = [{'pair': 'A', 'action': 'pull', 'rule': 'R9 windows used', 'evidence': 'x', 'pct': -3.5}, {'pair': 'B', 'action': 'pull', 'rule': 'R9 windows used', 'evidence': 'x', 'pct': -6.0}]
     got = {d['pair']: d['action'] for d in of.merge_reaper(dec, [dict(r) for r in rep], buys_left=1)}
     assert got == {'A': 'hold', 'B': 'pull'}                                                     # one replacement ready → only the weaker coin is swapped
     r_ = [dict(r) for r in rep]
@@ -183,3 +183,20 @@ def test_a_time_exit_is_a_swap_the_weakest_flat_coin_uses_the_one_spare_replacem
     import reputation_service as rs
     src = inspect.getsource(rs._prime_tick_inner)
     assert 'ready_n = len([c_ for c_ in pool_ if c_[\'cleared\']]) + len(_oe.near_ready(pool_, scores_))' in src and 'min(fills_left_, ready_n) - open_n' in src
+
+
+def test_a_flat_coin_keeps_its_seat_unless_it_is_losing_or_a_clearly_better_coin_is_ready():
+    dec = [{'pair': p, 'action': 'hold'} for p in 'ABCD']
+    rep = [{'pair': 'A', 'mint': 'a', 'action': 'pull', 'rule': 'R9 windows used', 'evidence': 'x', 'pct': 0.4},     # flat, nothing better
+           {'pair': 'B', 'mint': 'b', 'action': 'pull', 'rule': 'R9 windows used', 'evidence': 'x', 'pct': -4.0},    # losing: cut
+           {'pair': 'C', 'mint': 'c', 'action': 'pull', 'rule': 'R9e no extension earned', 'evidence': 'x', 'pct': 1.0},   # flat, a clearly better coin
+           {'pair': 'D', 'mint': 'd', 'action': 'pull', 'rule': 'R5 stop', 'evidence': 'x', 'pct': -9.0}]           # a stop always acts
+    edge = {'a': (5.0, 15.0), 'c': (22.0, 15.0)}
+    r_ = [dict(r) for r in rep]
+    got = {d['pair']: d['action'] for d in of.merge_reaper(dec, r_, buys_left=4, edge=edge)}
+    assert got == {'A': 'hold', 'B': 'pull', 'C': 'pull', 'D': 'pull'}
+    assert 'a swap costs ~2% round trip' in r_[0]['deferred'] and 'needs +15' in r_[0]['deferred']
+    assert {d['pair']: d['action'] for d in of.merge_reaper(dec, [dict(r) for r in rep], buys_left=None, edge=edge)} == {p: 'pull' for p in 'ABCD'}   # engine cards: unchanged
+    import inspect
+    import reputation_service as rs
+    assert 'spare_, edge=margins_)' in inspect.getsource(rs._prime_tick_inner)

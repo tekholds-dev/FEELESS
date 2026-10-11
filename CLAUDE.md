@@ -3096,3 +3096,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`f.stepN`), a measured volume spread): two coins were bought on ONE candle, three more on 93%-flat rows that read BOT LADDER 2 min later.
   `NEAR_MIN_SCORE` 15 on the seat score WITHOUT its phase part: the recovery tilt (−10 on old coins) once pushed the only near-ready coins under
   the old 40 floor and left three seats empty for 10 minutes — the tilt orders coins, it never keeps a seat empty.
+- 🪓 NO FLAT CHURN (`office.merge_reaper(.., edge)`, `TIME_CUT_PCT` −3, `SWAP_COST_PCT` 2): a Reaper TIME exit (R9 / R9e) sells only a coin that is
+  LOSING ≥ 3% or one a clearly better ready coin beats by the switch margin (`margins_` {mint: (score margin, need)}); a flat coin keeps its
+  seat ("a swap costs ~2% round trip"). Found 2026-10-11 (scripts/fuse-report.py 4): 113 swaps in 4h, nearly every coin bought $0.12 and sold a
+  cent lighter, realized −$0.11 + fees $0.10 on a $1.28 card — the churn WAS the loss. Stops, rug / dump exits, trails and takes unchanged.
