@@ -3132,3 +3132,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   lock, so `idle_sweep` tops them up toward an equal share once every seat is held (banked profit goes straight back in; payouts are already
   impossible under put-in). Young hand-pick tickets stay locked. Top-up "can't add $1": wallet $2.64 = card $0.74 + fee reserve 0.019 SOL
   ($2.11) → $0 free; the reserve is the owner's setting (HQ › Fuse › 👛) — never lowered by an agent.
+- 🎞 LIVE CHARTS, REAL TICKS (owner, 2026-10-11: "real time, 30fps, real candle moves, unique FEELESS charts + one vital on all charts"):
+  `candles_service` stream re-reads the price ≤ `SWAP_PRICE_AGE` 1s after a real on-chain swap log (idle seconds keep the shared 5s cache —
+  the 5s cache was why live candles moved only every 5s); `PriceChart` eases the forming candle's body to each REAL tick at 30fps
+  (`lib/tween.tweenClose`, ~350ms, last frame = the tick, wick = true high / low at once, a new bucket finalises the old candle on its real
+  close; off in fx-lite / reduced motion). 🫀 `ChartPulse` (`components/terminal/ChartPulse.jsx`, `styles/chartPulse.css` `cpl-*`) on EVERY
+  PriceChart: vital grade ring + score + the read that fits + a beat per real trade, from the shared paced `useCoinRead` (no new poller).
+  Known: the browser hits lite-api.jup.ag price v3 directly somewhere (21× 429 on one war room) — not fixed yet.

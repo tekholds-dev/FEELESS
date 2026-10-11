@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChartBg } from './ChartBg';
 import { useChartBg } from '../../lib/chartBg';
 import { ChartToolsMenu, useToolDraw } from './ChartTools';
+import { ChartPulse } from './ChartPulse';
+import { tweenClose } from '../../lib/tween';
 import { toolRead, useChartTools } from '../../lib/chartTools';
 import { ChartGrab } from './ChartGrab';
 import { withGrab } from '../../lib/chartGrab';
@@ -346,6 +348,19 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     if (!charting || !pair?.pairAddress || !pair?.chainId) return undefined;
     const bucket = LIVE_INTERVAL_SECONDS[interval] || 3600;
     let alive = true;
+    // 🎞 30fps candle moves: each REAL tick eases the forming candle's body from where it is drawn to the new real price (~350ms, a frame every
+    // ≥ 33ms); the wick takes the true high / low at once and the last frame is exactly the tick — nothing moves between real ticks.
+    const smooth = typeof window !== 'undefined' && !document.body.classList.contains('fx-lite') && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    let anim = null; let raf = 0; let frameAt = 0; let shown = null;
+    const draw = now => {
+      raf = 0;
+      if (!alive || !anim) return;
+      if (now - frameAt < 33) { raf = requestAnimationFrame(draw); return; }
+      frameAt = now;
+      const c = tweenClose(anim.from, anim.to, (now - anim.start) / anim.dur);
+      try { seriesRef.current?.series.update({ ...anim.bar, close: c }); shown = c; } catch { anim = null; return; }
+      if (now - anim.start < anim.dur) raf = requestAnimationFrame(draw); else anim = null;
+    };
     const apply = (usd, live) => {
       try {
         if (!alive || !(usd > 0)) return;
@@ -358,6 +373,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
         if (ref0 > 0 && !(value > ref0 / 20 && value < ref0 * 20)) return; // bad read, not a real 1s move
         const t = Math.floor(Date.now() / 1000 / bucket) * bucket;
         if (ref.kind === 'candle') {
+          if (anim && t > anim.bar.time) { try { ref.series.update(anim.bar); } catch { /* chart gone */ } anim = null; shown = null; }   // a new candle: the last one ends on its REAL close, never mid-ease
           // Missed buckets (hidden tab, stalled stream): draw them flat at the last close — never skip a candle.
           // (a very long gap fills its last 500 buckets — it used to skip the whole gap).
           for (let gt = Math.max(last.time + bucket, t - bucket * 500); gt < t; gt += bucket) {
@@ -365,7 +381,10 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
           }
           const bar = t > last.time ? { time: t, open: last.close, high: Math.max(last.close, value), low: Math.min(last.close, value), close: value }
             : { ...last, high: Math.max(last.high, value), low: Math.min(last.low, value), close: value };
-          ref.series.update(bar);
+          if (smooth && t === last.time && shown != null && typeof requestAnimationFrame !== 'undefined') {   // same candle: ease the body to the new real close
+            anim = { bar, from: shown, to: value, start: performance.now(), dur: 350 };
+            if (!raf) raf = requestAnimationFrame(draw);
+          } else { anim = null; ref.series.update(bar); shown = value; }
           lastBarRef.current = bar;
         } else {
           const point = { time: Math.max(t, last.time), value };
@@ -394,7 +413,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     tick();
     let n = 0;
     const timer = setInterval(() => { n += 1; if (!streaming || n % 4 === 0) tick(); }, 1200);   // ≤1.5s freshness; ~5s when streaming
-    return () => { alive = false; clearInterval(timer); try { ws?.close(); } catch { /* ignore */ } };
+    return () => { alive = false; clearInterval(timer); if (raf && typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(raf); try { ws?.close(); } catch { /* ignore */ } };
   }, [charting, interval, pair?.baseToken?.address, pair?.chainId, pair?.pairAddress]);
   const [livePx, setLivePx] = useState(null);
   useEffect(() => { if (!feePos) return undefined; const t = setInterval(() => { const b = lastBarRef.current; if (b) setLivePx(b.close ?? b.value); }, 1200); return () => clearInterval(t); }, [feePos]);
@@ -423,6 +442,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     {!priceMetric && !metricAvailable && <div className="chart-message metric-unavailable" role="status" data-testid={`chart-${metric}-unavailable`}><strong>{metricLabel} unavailable</strong><span>The provider did not supply a {metricLabel.toLowerCase()} value for this pair. No value is estimated.</span></div>}
     {charting && hasChart && <div className="candle-canvas" ref={container} data-testid="candlestick-canvas" />}
     {charting && hasChart && displayCandles.length > 0 && <ChartToolsMenu read={toolsRead} />}
+    {charting && hasChart && pair?.chainId === 'solana' && pair?.baseToken?.address && <ChartPulse mint={pair.baseToken.address} beat={livePrice?.usd} />}
     {charting && hasChart && fuse?.tpl && <ChartGrab seriesRef={seriesRef} container={container} fuse={fuse} ratio={ratio} />}
     {charting && hasChart && <div className="chart-foot-chips">{createdAt && <span className="chart-age" title={new Date(createdAt).toLocaleString()}>🕒 Created {ageLabel(createdAt)} ago</span>}{feeLiveProp === undefined && <button type="button" className={`chart-fee-toggle ${feeOwn ? 'on' : ''}`} onClick={() => setFeeOwn(v => !v)}>🐱 Fee {feeOwn ? 'on' : 'off'}</button>}</div>}
     {charting && hasChart && displayCandles.length > 0 && <button type="button" className="chart-style-toggle" data-testid="chart-style-toggle" onClick={toggleStyle} title="Switch line / candles">{chartStyle === 'line' || (chartStyle === 'auto' && displayCandles.length < 3) ? '▮ Candles' : '〰 Line'}</button>}

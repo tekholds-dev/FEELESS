@@ -1024,17 +1024,18 @@ import json as _json
 from fastapi import WebSocket, WebSocketDisconnect
 
 STREAM_MIN_GAP = 0.35
+SWAP_PRICE_AGE = 1.0   # ⚡ after a real swap the live price may be at most this old (idle seconds keep the shared 5s cache)
 _streams: dict = {}   # key -> {'clients': set(), 'task': Task, 'last': 0.0, 'price': None}
 
 
 _px_cache: dict = {}
 
 
-async def _jup_price(mint):
+async def _jup_price(mint, max_age=5.0):
     """USD price with fallbacks (keyed Jupiter → free Jupiter → DexScreener), cached 5s per mint so
     thousands of viewers never multiply upstream calls. A 429 on one source never blanks a chart."""
     hit = _px_cache.get(mint)
-    if hit and time.time() - hit[0] < 5:
+    if hit and time.time() - hit[0] < max_age:
         return hit[1]
     key_ = os.environ.get('JUPITER_API_KEY', '')
     async with httpx.AsyncClient(timeout=5) as http:
@@ -1060,9 +1061,9 @@ async def _jup_price(mint):
     return hit[1] if hit else None
 
 
-async def _stream_price(mint):
+async def _stream_price(mint, max_age=5.0):
     try:
-        return await _jup_price(mint)
+        return await _jup_price(mint, max_age)
     except Exception:
         return None
 
@@ -1081,12 +1082,12 @@ async def _broadcast(key, msg):
         st['clients'].discard(ws)
 
 
-async def _push_price(key, chain, pair, mint):
+async def _push_price(key, chain, pair, mint, fresh=False):
     st = _streams.get(key)
     if not st or time.time() - st['last'] < STREAM_MIN_GAP:
         return
     st['last'] = time.time()
-    px = await _stream_price(mint)
+    px = await _stream_price(mint, SWAP_PRICE_AGE if fresh else 5.0)   # ⚡ a real swap just landed: re-read the price (≤ 1s old), not the 5s cache
     # Sanity gate: a tick 20x away from the last accepted price is a bad read (wrong token, quote-side
     # price), never a real move inside one second. Dropping it keeps charts and stored bars clean.
     prev = st['price']
@@ -1120,11 +1121,13 @@ async def _upstream(key, chain, pair):
                 await ws.send(_json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': 'logsSubscribe', 'params': [{'mentions': [mint]}, {'commitment': 'processed'}]}))
                 backoff = 1
                 while key in _streams:
+                    swap_ = False
                     try:
                         await asyncio.wait_for(ws.recv(), timeout=1)
+                        swap_ = True   # an on-chain log for this coin = a trade landed
                     except asyncio.TimeoutError:
                         pass   # no swap event this second: refresh anyway (≤1s freshness guaranteed)
-                    await _push_price(key, chain, pair, mint)
+                    await _push_price(key, chain, pair, mint, fresh=swap_)
         except Exception:
             # Stream down: keep viewers live by polling every second until it reconnects.
             until = time.time() + min(30, backoff); backoff *= 2

@@ -1,0 +1,22 @@
+/* 🫀 FEELESS VITAL badge — top-right of every chart (PriceChart). Built from m-* tokens; transform / opacity only. */
+.cpl { position: absolute; top: 6px; right: 58px; z-index: 4; display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px 3px 4px; border-radius: 999px;
+  background: rgba(3, 12, 8, .82); border: 1px solid var(--m-line-hi, rgba(21, 209, 106, .35)); font: 700 10px var(--m-mono, 'JetBrains Mono', monospace); color: var(--m-text, #e6fff0);
+  pointer-events: auto; cursor: help; transition: border-color .2s; }
+.cpl:hover, .cpl:focus-visible { border-color: #15d16a; outline: none; }
+.cpl-ring { position: relative; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  background: conic-gradient(var(--cpl-c, #15d16a) calc(var(--cpl-k) * 360deg), rgba(255, 255, 255, .08) 0); }
+.cpl-ring::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: #04100a; }
+.cpl-ring b { position: relative; z-index: 1; font-size: 11px; color: var(--cpl-c, #15d16a); }
+.cpl.is-good { --cpl-c: #45e486; } .cpl.is-warn { --cpl-c: var(--gold, #f5c542); } .cpl.is-bad { --cpl-c: #ff8fa3; }
+.cpl-txt { display: grid; line-height: 1.05; }
+.cpl-txt small { font-size: 7.5px; letter-spacing: .12em; color: var(--m-mute, #8fa79a); }
+.cpl-txt em { font-style: normal; font-size: 11px; display: inline-flex; gap: 5px; align-items: baseline; }
+.cpl-txt em u { text-decoration: none; font-size: 8px; color: var(--m-mute, #8fa79a); }
+.cpl-txt em i { font-style: normal; font-size: 9px; color: var(--m-dim, #c9d8cf); }
+.cpl-txt em i.is-good { color: #45e486; } .cpl-txt em i.is-warn { color: var(--gold, #f5c542); } .cpl-txt em i.is-bad { color: #ff8fa3; }
+.cpl-beat { width: 7px; height: 7px; border-radius: 50%; background: var(--cpl-c, #15d16a); animation: cplBeat .6s ease-out; }
+@keyframes cplBeat { 0% { transform: scale(1.9); opacity: 1; } 100% { transform: scale(1); opacity: .55; } }
+body.fx-lite .cpl-beat { animation: none; }
+@media (prefers-reduced-motion: reduce) { .cpl-beat { animation: none; } }
+body.theme-day .cpl { background: rgba(236, 246, 240, .94); color: #0b1a14; border-color: #b8d4c4; } body.theme-day .cpl-ring::after { background: #eef6f1; }
+@media (max-width: 640px) { .cpl { right: 6px; top: 34px; } .cpl-txt small { display: none; } }
