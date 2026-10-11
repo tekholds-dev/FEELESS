@@ -3100,3 +3100,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   LOSING ≥ 3% or one a clearly better ready coin beats by the switch margin (`margins_` {mint: (score margin, need)}); a flat coin keeps its
   seat ("a swap costs ~2% round trip"). Found 2026-10-11 (scripts/fuse-report.py 4): 113 swaps in 4h, nearly every coin bought $0.12 and sold a
   cent lighter, realized −$0.11 + fees $0.10 on a $1.28 card — the churn WAS the loss. Stops, rug / dump exits, trails and takes unchanged.
+- 👁 THE AGENTS WATCH THE LIVE CHART (owner, 2026-10-11: "watching a live chart we already have, not a snapshot"; `candles_service` `POST
+  /api/candles/live` {pairs: {pool: mint}} → `live_merge`, `_live_hist`, `LIVE_HIST_SEC` 600, `LIVE_NEW_BUILDS` 24 / call, 4 at a time):
+  `_office_candles` + `_office_candle_refresh` make ONE batched local call for EVERY desk coin (was ≤ 28 single fetches; everything else read
+  Tally's one-price-a-pass tape) → the war room's own chart: provider history kept from the last build + FEELESS's live 15s ticks, each pool
+  marked watched. History is fetched in the background only when missing / > 10 min old (RPC providers are a daily budget). Mint hints
+  only from loopback (a remote caller can't point a pool at another coin). `OFFICE_CANDLE_TTL` 12s. Measured: desk coins on candles 2/24 →
+  24/24, entry-grade 17/275 → ~73/142; a flat chart now means the coin really is quiet.
+- 🔁 Any confirmed agent exit at a loss → `lostAt` 6h (`office_edge.note_lost`; only the desk's own pull wrote it — DOTF came back 4×) ·
+  🏛 `agents.established`: > 7d, pool ≥ $100K, scan failed ONLY on top-10 = scanned (Bonk / SNDK / LIT) · `real_learn.note_closed`: every
+  confirmed agent exit is a lesson (95 positions had left 3).

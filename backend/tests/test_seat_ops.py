@@ -331,7 +331,7 @@ def test_a_new_one_minute_candle_reaches_the_case_without_rediscovering_it(monke
 
     class R:
         def json(self):
-            return {'candles': dump, 'provider': 'jupiter', 'source': 'candles'}
+            return {'charts': {'PNC': {'candles': dump, 'provider': 'jupiter', 'source': 'candles'}}}
 
     class C:
         def __init__(self, *a, **k):
@@ -343,8 +343,8 @@ def test_a_new_one_minute_candle_reaches_the_case_without_rediscovering_it(monke
         async def __aexit__(self, *a):
             return False
 
-        async def get(self, url, params=None):
-            assert url.endswith('/PNC')
+        async def post(self, url, json=None):
+            assert url.endswith('/api/candles/live') and list(json['pairs']) == ['PNC']
             return R()
     monkeypatch.setattr(rs.httpx, 'AsyncClient', C)
     monkeypatch.delenv('PYTEST_CURRENT_TEST', raising=False)

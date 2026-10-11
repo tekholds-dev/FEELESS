@@ -274,17 +274,19 @@ def test_one_candle_read_per_coin_per_pass_and_the_page_never_causes_one(monkeyp
         def __init__(self, *a, **k): pass
         async def __aenter__(self): return self
         async def __aexit__(self, *a): return False
-        async def get(self, url, params=None):
-            hits.append(url.rsplit('/', 1)[1])
+        async def post(self, url, json=None):   # 👁 ONE batched live-chart call for the whole desk
+            assert url.endswith('/api/candles/live')
+            hits.extend(sorted(json['pairs']))
+            rows_ = [[1000 - 60 * (30 - i)] + r[1:] for i, r in enumerate(UP + UP[:6])]
             class R:
-                json = staticmethod(lambda: {'candles': [[1000 - 60 * (30 - i)] + r[1:] for i, r in enumerate(UP + UP[:6])]})
+                json = staticmethod(lambda: {'charts': {p_: {'candles': rows_, 'provider': 'Jupiter'} for p_ in hits[-len(json['pairs']):]}})
             return R()
     monkeypatch.setattr(rs.httpx, 'AsyncClient', Http)
     monkeypatch.delenv('PYTEST_CURRENT_TEST', raising=False)
     want = {'A': 'PA', 'B': 'PB', 'A2': 'PA'}                                                                     # two desks / two mints asking for the same pool
     got = asyncio.run(rs._office_candles(want, 1000))
-    assert sorted(hits) == ['PA', 'PB'] and set(got) == {'A', 'B', 'A2'} and rs._office['candleStat']['req'] == 2 and rs._office['candleStat']['merged'] == 1 and rs._office['candleStat']['dup'] == 0
-    asyncio.run(rs._office_candles(want, 1020))                                                                   # the same pass / the next tier tick: served from the cache
+    assert sorted(hits) == ['PA', 'PB'] and set(got) == {'A', 'B', 'A2'} and rs._office['candleStat']['req'] == 1 and rs._office['candleStat']['merged'] == 1 and rs._office['candleStat']['dup'] == 0
+    asyncio.run(rs._office_candles(want, 1000 + rs.OFFICE_CANDLE_TTL - 1))                                        # inside the live TTL: served from the cache
     assert len(hits) == 2 and rs._office['candleStat'] == {**rs._office['candleStat'], 'req': 0, 'cached': 2}
     asyncio.run(rs._office_candles(want, 1000 + rs.OFFICE_CANDLE_TTL + 1))
     assert len(hits) == 4                                                                                         # next pass: one read per pool again, never more

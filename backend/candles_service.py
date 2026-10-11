@@ -22,7 +22,7 @@ import httpx
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -738,12 +738,89 @@ def _candles_out(chain, pair_address, interval, hist, provider, own, ticks):
     else:
         out = {'candles': _fill_gaps(own, interval_seconds), 'provider': 'FEELESS', 'interval': interval, 'tickCount': len(ticks),
                'source': 'Real prices observed across FEELESS sessions — provider has no history for this pool yet.'}
+    if hist and len(hist) >= 2:   # 👁 the provider history behind this chart, kept for the agents' live watch (`/api/candles/live`)
+        _live_hist[(chain, pair_address, interval)] = (time.time(), hist, provider)
     if out['candles']:  # never cache an empty answer — a brand-new coin must fill in on the next poll
         _resp_cache[(chain, pair_address, interval)] = (time.time(), out)
     if len(_resp_cache) > 2000:
         for k in sorted(_resp_cache, key=lambda k: _resp_cache[k][0])[:500]:
             _resp_cache.pop(k, None)
     return out
+
+
+# 👁 THE AGENTS WATCH THE LIVE CHART (owner, 2026-10-11: "they need to be watching a live chart we already have, not a snapshot"):
+# one batched call for every coin on the desk. Each pool is marked watched (the recorder ticks it every 15s, exactly like an open war
+# room chart); the answer = the SAME chart the war room draws — the provider history this service already fetched, with FEELESS's own
+# live 15s ticks as the newest candles — built from memory, no provider call per coin. A pool's history is (re)fetched in the
+# background only when it has none or it is older than LIVE_HIST_SEC, a few at a time (the RPC-backed providers are a daily budget).
+_live_hist: dict = {}
+_live_builds: dict = {}
+LIVE_HIST_SEC = 600
+LIVE_MAX_PAIRS = 400
+LIVE_NEW_BUILDS = 24      # history fetches started per call at most
+LIVE_CONCURRENCY = 4
+_live_sem = None
+
+
+def live_merge(hist, provider, own, interval_seconds):
+    """Provider history + FEELESS's own live bars → the war room's chart (own bars override / extend the provider's). Pure."""
+    if hist and len(hist) >= 2:
+        own_by_t = {c[0]: c for c in own}
+        merged = [own_by_t.pop(c[0], c) for c in hist] + [c for c in own if c[0] > hist[-1][0]]
+        return _fill_gaps(merged, interval_seconds, own), provider
+    return (_fill_gaps(own, interval_seconds) if own else []), 'FEELESS'
+
+
+async def _live_build(chain, pair, interval):
+    global _live_sem
+    if _live_sem is None:
+        _live_sem = asyncio.Semaphore(LIVE_CONCURRENCY)
+    async with _live_sem:
+        try:
+            await _build_candles(chain, pair, interval)
+        except Exception:
+            pass
+
+
+class LivePayload(BaseModel):
+    chain: str = 'solana'
+    interval: str = '1m'
+    pairs: dict = {}
+
+
+@app.post('/api/candles/live')
+async def live_charts(payload: LivePayload, request: Request):
+    """{pairs: {pool: mint}} → {charts: {pool: {candles, provider, tickCount, liveAt, histAgeSec}}}. A mint hint is only taken from this
+    machine (the backend's own board); from anywhere else the pool is just marked watched — nobody can point a chart at another coin."""
+    chain, interval = payload.chain, payload.interval if payload.interval in INTERVAL_SECONDS else '1m'
+    if chain not in DEX_CHAIN:
+        return {'charts': {}}
+    local = (request.client.host if request.client else '') in ('127.0.0.1', '::1', 'localhost')
+    now, step = time.time(), INTERVAL_SECONDS.get(interval, 60)
+    store, out, started = _load(), {}, 0
+    for pair, mint in list((payload.pairs or {}).items())[:LIVE_MAX_PAIRS]:
+        if not _re_pair.match(pair or ''):
+            continue
+        _hot_pairs[_pair_key(chain, pair)] = now
+        if local and mint and _re_pair.match(str(mint)):
+            _base_token.setdefault(f'{chain}:{pair}', mint)
+        key = (chain, pair, interval)
+        h = _live_hist.get(key)
+        b = _live_builds.get(key)
+        if (not h or now - h[0] > LIVE_HIST_SEC) and (not b or b.done()) and started < LIVE_NEW_BUILDS:
+            _live_builds[key] = asyncio.create_task(_live_build(chain, pair, interval)); started += 1
+        ticks = store.get(_pair_key(chain, pair), [])
+        candles, prov = live_merge(h[1] if h else None, h[2] if h else None, _bucket_candles(ticks, step), step)
+        if candles:
+            out[pair] = {'candles': candles, 'provider': prov, 'interval': interval, 'tickCount': len(ticks), 'partial': not h,
+                         'source': f'{prov} price history, sharpened with FEELESS-recorded live ticks.' if h else 'FEELESS-recorded live ticks; provider history is loading.',
+                         'liveAt': ticks[-1]['t'] if ticks else None, 'histAgeSec': round(now - h[0]) if h else None}
+    for k in [k for k, v in _live_builds.items() if v.done()]:
+        _live_builds.pop(k, None)
+    if len(_live_hist) > 3000:
+        for k in sorted(_live_hist, key=lambda k: _live_hist[k][0])[:600]:
+            _live_hist.pop(k, None)
+    return {'charts': out, 'started': started}
 
 
 _trade_cache: dict = {}

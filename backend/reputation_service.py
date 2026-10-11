@@ -12375,7 +12375,7 @@ async def _agents_tick(now):
                 top_[x_['mint']] = x_['pairAddress']; b_ = _deep_bucket(w_); why_[b_] = why_.get(b_, 0) + 1
         _office['deepWhy'] = why_
         _office['deepNow'] = [m_ for m_ in top_ if m_ not in held_]   # this pass's DEEP reviews (real candles) — held coins are re-read every pass anyway
-        cmap_ = await _office_candles({**top_, **held_}, now)
+        cmap_ = await _office_candles({**{r_['mint']: r_['pairAddress'] for r_ in rows if r_.get('mint') and r_.get('pairAddress')}, **top_, **held_}, now)   # 👁 every coin on the desk reads the LIVE chart
         flows_ = {p_: w_ for p_, (at_, w_) in list(_flow_now.items()) if w_ and now - _fuse._f(at_) <= 90}
         charts_ = {}
         st, table = _ag.desk(st, rows, now, ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentDial'), bust_, weather_fn=wfn_, candles=cmap_, flows=flows_, charts_out=charts_, cmeta=_office.get('cmeta'))   # 🎚 the creator's dial
@@ -12498,7 +12498,7 @@ import chart_intel as _ci
 import market_data as _md
 import office_edge as _oe
 import seat_ops as _so
-OFFICE_CANDLE_TTL = 50.0    # one read of a coin's 1-minute candles serves every desk for the whole pass (and the tier ticks until the next one)
+OFFICE_CANDLE_TTL = 12.0    # 👁 live: the chart is re-read when it is older than this (one batched local call for the whole desk); one read of a coin's 1-minute candles serves every desk for the whole pass (and the tier ticks until the next one)
 def _deep_bucket(why):
     """Why a coin got a deep review, as one bucket: first look · not rejected last time · news (a material change) · cooldown over."""
     return 'first look' if why == 'never deep-reviewed' else 'not rejected' if why == 'was not rejected' else 'news' if str(why).startswith('changed') else 'cooldown over'
@@ -12522,19 +12522,19 @@ async def _office_candles(want, now):
     todo = [pa for pa in pools if pa not in fresh]
     stat = {'req': 0, 'cached': len(fresh), 'merged': len([1 for m, pa in (want or {}).items() if m and pa]) - len(pools), 'coins': len(pools), 'dup': len(todo) - len(set(todo))}   # dup = a pool requested twice in one pass: 0 by construction
     if todo and not os.environ.get('PYTEST_CURRENT_TEST'):
-        async def one(http, pa):
-            try:
-                r = await http.get(f'http://127.0.0.1:5099/api/candles/solana/{pa}', params={'interval': '1m'})
-                d_ = r.json() or {}
-                # 🧪 the rows are kept EXACTLY as served (nothing dropped: Tally validates them as fetched) + where they came from
-                return pa, list(d_.get('candles') or [])[-_ci.LOOK - 5:], {'provider': d_.get('provider'), 'source': d_.get('source'), 'tickCount': d_.get('tickCount'), 'partial': bool(d_.get('partial')), 'fetchedAt': now}
-            except Exception:
-                return pa, None, None
-        async with httpx.AsyncClient(timeout=4) as http:
-            for pa, rows, meta_ in await asyncio.gather(*(one(http, pa) for pa in todo)):
-                stat['req'] += 1
-                if rows:
-                    _office['candles'][pa] = (now, rows, meta_)
+        # 👁 THE LIVE CHART, not a snapshot: ONE batched call to the candles service for every coin on the desk — the same chart the war
+        # room draws (provider history + FEELESS's live 15s ticks); each pool is marked watched, so its newest candle keeps moving
+        try:
+            async with httpx.AsyncClient(timeout=6) as http:
+                r = await http.post('http://127.0.0.1:5099/api/candles/live', json={'chain': 'solana', 'interval': '1m', 'pairs': {pa: pools[pa] for pa in todo}})
+                got = (r.json() or {}).get('charts') or {}
+                stat['req'] = 1; stat['live'] = len(got); stat['started'] = (r.json() or {}).get('started')
+                for pa, d_ in got.items():
+                    rows = list(d_.get('candles') or [])[-_ci.LOOK - 5:]   # 🧪 kept EXACTLY as served (Tally validates them as fetched)
+                    if rows:
+                        _office['candles'][pa] = (now, rows, {'provider': d_.get('provider'), 'source': d_.get('source'), 'tickCount': d_.get('tickCount'), 'partial': bool(d_.get('partial')), 'fetchedAt': now, 'liveAt': d_.get('liveAt')})
+        except Exception as e:
+            print('live charts:', e)
         for pa in [pa for pa, v in _office['candles'].items() if now - v[0] > 600]:
             _office['candles'].pop(pa, None)
     stat['ms'] = round((time.perf_counter() - t0) * 1000, 1)
@@ -12548,7 +12548,7 @@ async def _office_candles(want, now):
             _office['cmeta'][m] = (hit[2] if len(hit) > 2 else None) or {}
     return out
 OFFICE_LAT_N = 120
-OFFICE_REFRESH_MAX = 8      # ⚡ per tier tick: at most this many pools get their candles re-read (only those whose read is older than OFFICE_CANDLE_TTL)
+OFFICE_REFRESH_MAX = 40     # ⚡ per tier tick (one batched call): at most this many pools get their candles re-read (only those whose read is older than OFFICE_CANDLE_TTL)
 
 
 def _mkt_view(mint, pair, now=None):
@@ -12617,14 +12617,12 @@ async def _office_candle_refresh(want, now):
     todo = dict(list(stale.items())[:OFFICE_REFRESH_MAX])
     if not todo or os.environ.get('PYTEST_CURRENT_TEST'):
         return 0
-    async with httpx.AsyncClient(timeout=4) as http:
-        async def one(pa):
-            try:
-                d_ = (await http.get(f'http://127.0.0.1:5099/api/candles/solana/{pa}', params={'interval': '1m'})).json() or {}
-                return pa, list(d_.get('candles') or [])[-_ci.LOOK - 5:], {'provider': d_.get('provider'), 'source': d_.get('source'), 'tickCount': d_.get('tickCount'), 'partial': bool(d_.get('partial')), 'fetchedAt': now}
-            except Exception:
-                return pa, None, None
-        got = await asyncio.gather(*(one(pa) for pa in todo.values()))
+    try:   # 👁 the LIVE chart for every coin a decision stands on: one batched local call (provider history + live 15s ticks)
+        async with httpx.AsyncClient(timeout=4) as http:
+            live_ = ((await http.post('http://127.0.0.1:5099/api/candles/live', json={'chain': 'solana', 'interval': '1m', 'pairs': {pa: m for m, pa in todo.items()}})).json() or {}).get('charts') or {}
+    except Exception:
+        live_ = {}
+    got = [(pa, list((live_.get(pa) or {}).get('candles') or [])[-_ci.LOOK - 5:], {k_: (live_.get(pa) or {}).get(k_) for k_ in ('provider', 'source', 'tickCount', 'liveAt')} | {'partial': bool((live_.get(pa) or {}).get('partial')), 'fetchedAt': now}) for pa in todo.values()]
     _office['load']['candleRefresh'] = int(_office['load'].get('candleRefresh') or 0) + len(todo)
     by = {x_.get('mint'): x_ for x_ in _agents.get('table') or []}
     n = 0
