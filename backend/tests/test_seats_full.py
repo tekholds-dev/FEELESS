@@ -140,7 +140,7 @@ def test_the_hourly_budget_counts_real_buys_not_seats_that_never_bought():
 def test_best_available_has_its_own_live_check_the_entry_moment_may_wait_a_broken_chart_may_not():
     row = {'px': 1.0, 'nums': {'liq': 100_000}}
     mkt = {'px': 1.01, 'liq': 95_000}
-    wait = {'src': 'candles', 'n': 30, 'state': 'RANGE', 'entry': ['WAIT FOR BREAKOUT', 'x', 'waits for a close above 1.05'], 'risk': [0.75, 'range'], 'q': {'readOk': True}}
+    wait = {'src': 'candles', 'n': 30, 'f': {'stepN': 30, 'volCv': 0.9}, 'state': 'RANGE', 'entry': ['WAIT FOR BREAKOUT', 'x', 'waits for a close above 1.05'], 'risk': [0.75, 'range'], 'q': {'readOk': True}}
     assert oe.live_check(row, mkt, wait, 1000.0)['ok'] is False                                  # a cleared case: the chart must still say ENTER NOW
     assert oe.live_check(row, mkt, wait, 1000.0, near=True)['ok'] is True                        # best available: that is what "near" means
     assert oe.live_check(row, mkt, {**wait, 'entry': ['SKIP', 'x', 'falling']}, 1000.0, near=True)['ok'] is False

@@ -106,8 +106,10 @@ def test_best_available_needs_a_real_candle_read():
     row, mkt = {'px': 1.0, 'nums': {'liq': 100_000}}, {'px': 1.0, 'liq': 100_000}
     tape = {'src': 'tape', 'state': 'RANGE', 'entry': ['WAIT FOR DATA', 'x', 'tape'], 'risk': [0.5, 'x'], 'q': {'readOk': True}}
     assert oe.live_check(row, mkt, tape, 1.0, near=True)['ok'] is False
-    assert oe.live_check(row, mkt, {**tape, 'src': 'candles', 'n': 1}, 1.0, near=True)['ok'] is False       # one candle cannot show a ladder
-    assert oe.live_check(row, mkt, {**tape, 'src': 'candles', 'n': ci.LADDER_MIN}, 1.0, near=True)['ok'] is True
+    assert oe.live_check(row, mkt, {**tape, 'src': 'candles', 'n': 1, 'f': {'stepN': 1, 'volCv': 0.9}}, 1.0, near=True)['ok'] is False   # one candle cannot show a ladder
+    assert oe.live_check(row, mkt, {**tape, 'src': 'candles', 'n': 30, 'f': {'stepN': 2, 'volCv': 0.9}}, 1.0, near=True)['ok'] is False  # 30 rows, 2 moved (flat rows)
+    assert oe.live_check(row, mkt, {**tape, 'src': 'candles', 'n': 30, 'f': {'stepN': 20, 'volCv': None}}, 1.0, near=True)['ok'] is False  # no volume: untested
+    assert oe.live_check(row, mkt, {**tape, 'src': 'candles', 'n': 30, 'f': {'stepN': ci.LADDER_MIN, 'volCv': 0.9}}, 1.0, near=True)['ok'] is True
 
 
 def test_recovery_scans_young_coins_first():

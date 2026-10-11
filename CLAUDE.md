@@ -3092,6 +3092,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   Reaper's R9 / R9e time exits fire only while a fill is free AND a replacement is ready NOW (cleared cases + `near_ready`, after the open
   seats take theirs: `min(fills left, ready) − open seats`), weakest flat coin first; otherwise `deferred` ("no replacement is ready"). Found
   live 2026-10-11 11:17: right after a restart R9 sold four flat coins (+0.5 / +0.1 / −0.1 / −0.7%) into cash and the card sat at 0/4.
-  Best available also needs ≥ `LADDER_MIN` 15 real 1-minute candles (two coins were bought on ONE candle — no ladder could be seen).
+  Best available also needs the bot-ladder test to have RUN on the full read (`live_check(near)`: real candles, ≥ `LADDER_MIN` 15 that MOVED
+  (`f.stepN`), a measured volume spread): two coins were bought on ONE candle, three more on 93%-flat rows that read BOT LADDER 2 min later.
   `NEAR_MIN_SCORE` 15 on the seat score WITHOUT its phase part: the recovery tilt (−10 on old coins) once pushed the only near-ready coins under
   the old 40 floor and left three seats empty for 10 minutes — the tilt orders coins, it never keeps a seat empty.

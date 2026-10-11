@@ -883,8 +883,11 @@ def live_check(row, mkt, chart, now, near=False):
         return {**out, 'ok': False, 'why': f'{move:+.1f}% since the read — falling'}
     if ent and ent[0] != 'ENTER NOW' and (ent[0] == 'SKIP' or (ch.get('src') == 'candles' and not near)):
         return {**out, 'ok': False, 'why': f"the newest chart says {ent[0]}: {ent[2] if len(ent) > 2 else ''}".strip()}
-    if near and (ch.get('src') != 'candles' or int(_f(ch.get('n'))) < _ci.LADDER_MIN):   # 🤖 best available needs ≥ 15 REAL candles: only those can show a bot ladder
-        return {**out, 'ok': False, 'why': f"{int(_f(ch.get('n')))} real 1-minute candles — best available needs {_ci.LADDER_MIN} (a bot ladder can only be seen on them)"}
+    fl_ = ch.get('f') or {}
+    if near and (ch.get('src') != 'candles' or int(_f(fl_.get('stepN'))) < _ci.LADDER_MIN or fl_.get('volCv') is None):
+        # 🤖 best available needs the bot-ladder test to have RUN: ≥ 15 real candles that MOVED + a measured volume spread (2026-10-11: three coins
+        # bought on 93%-flat rows read BOT LADDER two minutes later, once their candles moved)
+        return {**out, 'ok': False, 'why': f"{int(_f(fl_.get('stepN')))} moving 1-minute candles — best available needs {_ci.LADDER_MIN} with volume (the bot-ladder test must run first)"}
     if near and (ch.get('state') == _ci.DATA_INVALID or (ch.get('q') or {}).get('readOk') is False or _f((ch.get('risk') or [1.0])[0]) <= 0):
         return {**out, 'ok': False, 'why': f"the newest chart turned against it ({ch.get('state')})"}   # 🪑 best available: the entry moment may wait, a broken chart may not
     liq0, liq = _f(((r.get('nums') or {}).get('liq'))), _f(m.get('liq'))
