@@ -3144,3 +3144,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   with $2 cash) is judged on its last 5 min of real swaps: ORGANIC (≥ 8 trades, ≥ 6 wallets, top buyer < 45%, same-size < 50%, buys not
   1.5× outsold) takes the seat; BOT / ONE WALLET / DUMPING / THIN are refused with the reason. ≤ 6 tapes a tick via the shared `_flow_fetch`.
   Every later live check (fall, broken chart, pool under half) still runs.
+- 🪑 SEAT FLOOR LAST RESORT (`office_edge.floor_ready(last=True)`, `FLOOR_LAST_SEC` 60): a seat still empty after 60s with nothing from the
+  seat floor may take a weak read (a "wait", negative lean, a read type with a poor record = warning) — never a +15% spike / −8% fall / thin
+  pool / failed scan / bot ladder / rug ≥ 50 / risk-0 chart / downtrend (collapsing); healthiest structure first. Tag "🪑 last resort".

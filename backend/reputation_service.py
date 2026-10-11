@@ -9748,6 +9748,9 @@ async def _prime_tick_inner(now):
             if empty_n and not pol_['manual'] and len(near0_) < empty_n:   # 🪑 no seat stays empty: the seat floor tops the list up (hard safety only)
                 skip_f = set(cool) | set(lost_) | set(on_n) | set(gw_m) | {t_['mint'] for t_ in near0_} | set((_json_load(AGENTS_PATH, {}).get('burned') or {}).keys())
                 near0_ = near0_ + [t_ for t_ in _oe.floor_ready(_agents.get('table'), skip_f) if not _fw.dollar_named(t_.get('symbol'))][:empty_n - len(near0_) + 8]   # deep enough that coins failing the live check hand the seat to the next ones
+                if len(near0_) < empty_n + 2 and cur.get('agentEmptyAt') and now - _fuse._f(cur['agentEmptyAt']) >= _oe.FLOOR_LAST_SEC:   # 🪑 still short after 60s: the last resort
+                    skip_l = skip_f | {t_['mint'] for t_ in near0_}
+                    near0_ = near0_ + [t_ for t_ in _oe.floor_ready(_agents.get('table'), skip_l, last=True) if not _fw.dollar_named(t_.get('symbol'))][:empty_n + 8]
             near_m = {t_['mint'] for t_ in near0_}
             near_ = []
             try:

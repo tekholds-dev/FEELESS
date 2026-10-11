@@ -106,3 +106,16 @@ def test_keeper_tops_up_agent_seats_but_never_a_young_pick_ticket():
     assert fw.agent_seat({'ticket': True, 'bought': {'tag': '🤖 agents · seat floor'}})
     assert not fw.agent_seat({'ticket': True, 'bought': {'tag': '🎟 your pick'}})
     assert not fw.agent_seat({})
+
+
+def test_last_resort_takes_weak_structures_but_never_a_danger():
+    weak = _row('WEAK', trigger=['skip', 'E1 bad structure: DOWNTREND: lower lows'], chart={'state': 'DOWNTREND'})
+    busted = _row('BUSTED', objs=[['busted_read', 'its read is WASH TRADED']], chart={'state': 'UPTREND'})
+    up = _row('UP', why={'lean': -1.0}, chart={'state': 'UPTREND'})
+    no = [_row('SPIKE', trigger=['skip', '+30% in 5 min — that is the top']), _row('FALL', trigger=['skip', '-12% in 5 min — falling']),
+          _row('RUGM', objs=[['rug_meter', 'rug meter 60']]), _row('LADDER', chart={'state': 'BOT LADDER'}), _row('FAILED', vitals={'safe': False}),
+          _row('THIN', nums={'liq': 5_000}, vitals={'liq': 5_000}), _row('RISK0', chart={'state': 'UPTREND', 'risk': [0.0]})]
+    assert [r['mint'] for r in oe.floor_ready([weak, busted, up, *no])] == ['UP']    # tier 1: only the clean 'wait'
+    got = [r['mint'] for r in oe.floor_ready([weak, busted, up, *no], last=True)]
+    assert got == ['BUSTED', 'UP']     # a weak read is allowed; a downtrend (a collapsing chart) and every danger stay out
+    assert oe.floor_ready([up], last=True)[0]['lastResort'] is True

@@ -349,7 +349,13 @@ FLOOR_DEVIL_HARD = ('busted_read', 'rug_meter', 'ran', 'unscanned', 'burned', 'r
 FLOOR_BAD_CHART = ('DATA INVALID', 'BOT LADDER', 'LIQUIDITY FAILURE', 'DOWNTREND', 'FAILED BREAKOUT')
 
 
-def floor_ready(table, skip=()):
+FLOOR_LAST_SEC = 60           # 🪑 a seat empty this long with nothing from the seat floor takes the LAST RESORT
+FLOOR_LAST_HARD = ('that is the top', 'falling', 'failed the holder', 'pullable', 'bot ladder', 'E0')   # Trigger skips that stay a NO even then
+FLOOR_LAST_CHART = ('DATA INVALID', 'BOT LADDER', 'LIQUIDITY FAILURE')
+FLOOR_LAST_PREF = {'UPTREND': 0, 'PULLBACK IN UPTREND': 0, 'CONFIRMED BREAKOUT': 1, 'BREAKOUT ATTEMPT': 1, 'COMPRESSION': 2, 'ACCUMULATION': 2, 'RANGE': 3, 'EARLY': 3}
+
+
+def floor_ready(table, skip=(), last=False):
     """🪑 THE SEAT FLOOR (owner, 2026-10-11: "no seat should ever be empty — 30 secs to decide"): when nothing is a GO, cleared or near-ready,
     an empty seat takes the best coin of EVERYTHING the desk read this pass (not only the positive-lean case files) that clears every HARD
     safety line: holder scan passed · pool ≥ CONTROL_MIN_LIQ · rug meter < 50 · not +150% on the hour · no hard Devil objection · no Trigger
@@ -365,14 +371,20 @@ def floor_ready(table, skip=()):
         if _f(n.get('liq') or v.get('liq')) < _ag.CONTROL_MIN_LIQ or _f(v.get('rug')) >= 50 or _f(n.get('c1')) > 150:
             continue
         call, why = (list(x.get('trigger') or ['skip', '']) + [''])[:2]
-        if call == 'skip' or _f((ch.get('risk') or [1.0])[0]) <= 0:   # any Trigger SKIP (spike · fall · thin · failed scan · bad structure) or a hard chart objection = no
+        if _f((ch.get('risk') or [1.0])[0]) <= 0:   # a hard chart objection: the Warden vetoes it anyway
             continue
-        if x.get('drule') in FLOOR_DEVIL_HARD or any((o or [None])[0] in FLOOR_DEVIL_HARD for o in x.get('objs') or []):
+        if call == 'skip' and (not last or any(h in str(why) for h in FLOOR_LAST_HARD)):   # the last resort may take a weak structure — never a spike, a fall, a thin pool, a failed scan, a bot
             continue
-        if ch.get('state') in FLOOR_BAD_CHART or _so.chart_quality(ch)[0] in ('COLLAPSING', 'INVALID'):
+        hard_ = set(FLOOR_DEVIL_HARD) - ({'busted_read'} if last else set())   # last resort: a read type's poor record is a warning, the coin's own dangers still veto
+        if x.get('drule') in hard_ or any((o or [None])[0] in hard_ for o in x.get('objs') or []):
             continue
-        out.append({**x, 'floor': True, 'nearScore': _f((x.get('why') or {}).get('lean')),
-                    'nearReady': f"seat floor after {NEAR_PATIENCE_SEC}s — every hard safety line passed, nothing better this pass; the agents' read: {why}"[:220]})
+        if ch.get('state') in (FLOOR_LAST_CHART if last else FLOOR_BAD_CHART) or _so.chart_quality(ch)[0] in ('COLLAPSING', 'INVALID'):
+            continue
+        out.append({**x, 'floor': True, 'lastResort': bool(last), 'nearScore': _f((x.get('why') or {}).get('lean')),
+                    'nearReady': (f"seat floor · last resort after {FLOOR_LAST_SEC}s — hard safety passed (scan · pool · rug · no spike / fall / bot); the agents' read: {why}" if last
+                                  else f"seat floor after {NEAR_PATIENCE_SEC}s — every hard safety line passed, nothing better this pass; the agents' read: {why}")[:240]})
+    if last:   # the healthiest structure first (uptrend → breakout → base → range → the rest), then the read, then volume
+        return sorted(out, key=lambda r: (FLOOR_LAST_PREF.get((r.get('chart') or {}).get('state'), 5), -_f(r.get('nearScore')), -_f((r.get('vitals') or {}).get('vol1h'))))
     return sorted(out, key=lambda r: (-_f(r.get('nearScore')), -_f((r.get('vitals') or {}).get('vol1h'))))
 
 
