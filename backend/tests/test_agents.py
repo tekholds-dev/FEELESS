@@ -216,12 +216,12 @@ def test_an_agent_coin_whose_pool_drains_is_pulled_at_once_even_at_a_loss():
 
 
 def test_rug_autopsy_teaches_devil_its_rug_signs_and_history_snapshots():
-    rugs = [{'mint': f'r{i}', 'sym': f'R{i}', 'at': 100 + i, 'kind': 'enter', 'go': True, 'drivers': ['fresh', 'callers', 'src:open'], 'lean': 2, 'p5': -80.0} for i in range(3)]
-    fine = [{'mint': f'f{i}', 'sym': f'F{i}', 'at': 200 + i, 'kind': 'enter', 'go': True, 'drivers': (['fresh', 'callers'] if i < 5 else ['buyers']) + ['src:open'], 'lean': 2, 'p5': 3.0} for i in range(40)]
-    st = ag.autopsy({'done': rugs + fine}, 1000.0)   # 3 of the 8 fresh + callers coins rugged (38%) vs 7% of all coins → a real sign
-    assert len(st['autopsies']) == 3 and st['rugSigns']['fresh'] == 3 and 'src:open' not in st['rugSigns'] and 'rugged (-80% in 5 min) after a GO' in st['autopsies'][0]['text']
-    assert ag.autopsy(st, 1100.0)['rugSigns']['fresh'] == 3                                   # each rug is counted once
-    v, why = ag.devil('enter', {'pts': 5, 'liq': 50000}, {'drivers': [('fresh', 1, 'x'), ('callers', 1, 'y')], 'lean': 3}, {'mint': 'Z', 'safe': True}, ag.learn(st, 5))
+    rugs = [{'mint': f'r{i}', 'sym': f'R{i}', 'at': 100 + i, 'kind': 'enter', 'go': True, 'drivers': ['whale', 'callers', 'src:open'], 'lean': 2, 'p5': -80.0} for i in range(3)]
+    fine = [{'mint': f'f{i}', 'sym': f'F{i}', 'at': 200 + i, 'kind': 'enter', 'go': True, 'drivers': (['whale', 'callers'] if i < 5 else ['buyers']) + ['src:open'], 'lean': 2, 'p5': 3.0} for i in range(40)]
+    st = ag.autopsy({'done': rugs + fine}, 1000.0)   # 3 of the 8 whale + callers coins rugged (38%) vs 7% of all coins → a real sign
+    assert len(st['autopsies']) == 3 and st['rugSigns']['whale'] == 3 and 'src:open' not in st['rugSigns'] and 'fresh' not in ag.rug_lift(rugs + fine) and 'rugged (-80% in 5 min) after a GO' in st['autopsies'][0]['text']
+    assert ag.autopsy(st, 1100.0)['rugSigns']['whale'] == 3                                   # each rug is counted once
+    v, why = ag.devil('enter', {'pts': 5, 'liq': 50000}, {'drivers': [('whale', 1, 'x'), ('callers', 1, 'y')], 'lean': 3}, {'mint': 'Z', 'safe': True}, ag.learn(st, 5))
     assert v == 'object' and 'rug signs from our autopsies' in why
     h = ag.history({}, 5000.0)
     assert len(h['hist']) == 1 and set(h['hist'][0]) >= {'at', 'tally', 'trigger'}

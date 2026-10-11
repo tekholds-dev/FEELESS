@@ -369,6 +369,8 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
     elif cc.get('confidence') is not None and _f(cc['confidence']) < 40:
         hit('W16 identity', 0.5, f"identity confidence {_f(cc['confidence']):.0f}/100: {'; '.join(cc.get('flags') or [])[:120]}")
         rules[-1]['evidence'] = {'sourceUrl': cc.get('sourceUrl'), 'flags': list(cc.get('flags') or [])[:3], 'at': (c.get('social') or {}).get('at')}
+    if c.get('near'):   # 🪑 best available (the entry moment is not confirmed): half a seat at most — the rest of the evidence earned the other half
+        hit('W19 entry not confirmed', 0.5, str(c['near'])[:160])
     if c.get('openSeats') and c.get('free') is not None:   # 🪑 multi-seat sizing: the first valid seat may not make the other open seats impossible
         m_, why_ = _so.seat_room(req, c.get('free'), c.get('openSeats'), floor)
         if why_:

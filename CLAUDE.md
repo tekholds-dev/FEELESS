@@ -3009,3 +3009,43 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `process` shim) rendering `<AgentDesk call={readOnly} />` on `backend/data/agents_view.json` + the edge fixture, serve it via a temporary
   launch.json entry (restore the file at once), and screenshot full-res with the cached Playwright `chrome-headless-shell --headless
   --use-angle=swiftshader --window-size=1440,900 --virtual-time-budget=9000 --screenshot=…` (the Browser pane scales 1440×900 to 800×500).
+- 🪑 FOUR LIVE SEATS (`backend/seat_ops.py` pure + tested `tests/test_seat_ops.py`; owner, 2026-10-10 "4/4 seats occupied when valid opportunities exist —
+  never a forced trade"): P/L VELOCITY from REAL valuation reads (`_office['vel']`, every tier tick + the fast guard on the shared 20s price cache;
+  ACCELERATING · STABLE · STALLING · REVERSING, UNKNOWN until 3 reads over 90s) → REVERSING tightens the trail (R7v, give-back × 0.6); past the
+  30-min BASE (`BASE_WINDOWS` 6) a seat is EARNED window by window — only a winner (P/L > 0, accelerating / stable, thesis valid, pool ≥ 75%
+  of entry, chart not collapsing, no challenger ahead by the switch margin) → else R9e "no extension earned" (≤ MAX_WINDOWS 12 always).
+  SEAT SCORE (hand-set, labelled on the page, RANKS coins that passed every gate — never an entry) → bench (20: ready · near · new · dropped),
+  switch = score margin (`SCORE_MARGIN` agents 15 / conservative 25 / aggressive 8, +15 over an accelerating position; a green coin is still
+  never switched; a broken read whose P/L is climbing is not switched). Every open seat takes its OWN cleared coin in the same tick (+3
+  fallbacks after a veto); Warden W17 `seat_room` (one fill ≤ free ÷ open seats) + W18 chart quality (CLEAN · EARLY · CHOPPY · EXTENDED ·
+  UNSTABLE · COLLAPSING · INVALID — EARLY is never COLLAPSING). Seat utilization per seat (occupied · empty: waiting / safety / budget / cash).
+  Agent seats: their tape is read every 15s (`_flow_guard` skipped held cards — tape sat 60–160s old) + the rug radar is Reaper's hard R4r.
+- 🕸 ONE LIVE INTAKE (`backend/intake.py` pure + tested `tests/test_intake.py`, registry `data/intake_registry.json`): every EXISTING outlet —
+  Pump pulse + migrations (the PumpPortal live stream `/api/pump/pulse`, already running; there is NO separate FEELESS RPC new-mint listener),
+  the launch board, the runner board, tracked lists, Pump callouts, fed runners, the FEELESS radar, the card — noted per mint (first / last
+  seen, first seen per source, the office stamps intake · deep · clear · seat, how its real seat ended). Coins the board does not carry get
+  their row from ONE batched Jupiter token read (`INTAKE_JUP` 150, 60s cache). `office_edge.intake` reserves `fresh` (pulse / migr, never
+  cooled) + `outlets` slots; a rejected coin with nothing new gives up its seat at the table (busy / listed) and its deep review. Source
+  records are CONTEXT — never a gate. Page: Seats view › ONE LIVE INTAKE (new unique mints, per-outlet funnel, latencies).
+- 🔁 THE 60s LOOP IS REAL: `_agents_loop` (own task, AGENTS_EVERY 55s) — the agents' pass rode `_fuse_warm`'s dozen builders and ran every ~3
+  min. It refreshes the launch board first when it is > 50s old (`_runner_live` shares ONE build in flight) and wakes a tier tick when none
+  ran in 30s (a fresh decision per held seat per cycle). Deep review = the bench's top first, 18 + 6 newborns, every pick says why it was due.
+- 🧾 PROOF (`social_research.evidence/legal_level`): every claim = an item with URL · fetched-at · title · exact launch mint vs the address the
+  source showed · excerpt; legal = NONE · WEAK · PARTIAL from pages the project links (one bounded read), STRONG never claimed (no registry is
+  queried); labels are facts (ENTITY FOUND · ENTITY NOT VERIFIED · TERMS FOUND · REGISTRATION NUMBER SHOWN · AUDIT DOCUMENT FOUND) — never
+  "legit / official / verified". Devil's identity warning, the Warden's W16 rule and the Archivist's record (`office.evidence_refs`) carry it.
+- 🏢 THE ROOM = the owner's target image (2026-10-10), procedural (the repo has NO 3D model files): row 1 Tally → Devil, row 2 Warden · Courier ·
+  [THE REAL CARD hex + hologram] · Reaper · Archivist · Judge (both left → right), seated robots at black three-monitor desks (activity ·
+  runtime · record) with a green under-glow, glowing flow arrows, neon FEELESS HQ sign (left), candidate + pipeline screens (back), new-coins
+  per cycle + switch test (right), restrained bloom (off in fx-lite). Every click = `routePick` in OfficeRoom.jsx (tested). The Seat strip
+  (OCCUPANCY · TARGET · BENCH · BUYS LEFT · CASH · OFFICE · KEEPER · EXECUTION + four seat tiles) sits over the room; the ops / cycle lines moved
+  into the panel's 🪑 Seats view.
+- 🪑 SEATS STAY FULL WITHOUT PASSING A HARD BLOCK (owner, 2026-10-11: "they must keep seats full"; overnight utilization was 7.6%):
+  (1) CONTEXT IS NEVER A VETO (`agents.CONTEXT_DRIVERS` src: · band: · soc: · pad: · narr: · strat: · chart: + `fresh` / `narr_hot`, `is_context`):
+  `rug_lift`, `rug_signs` and Devil's learned-rug-sign veto skip them — Devil objected to 61 of 79 cases with "rug signs" = "found on callouts ·
+  $1M+ cap band · ai narrative". They still weigh in Sherlock's lean on their own record. (2) BEST AVAILABLE (`office_edge.near_ready`,
+  `NEAR_PATIENCE_SEC` 90, `NEAR_MIN_SCORE` 40): a seat empty ≥ 90s with NOTHING cleared (no GO, no cleared case) takes the best near-ready
+  coin — every safety check passed (scan · age · pool · burn · Devil) and ONLY the entry moment (chart) / ENTER-grade data is open; never
+  DATA INVALID, a hard chart objection (risk 0), COLLAPSING / INVALID quality, a failed live check or a seat score < 40. Same fill path
+  (`fill_plan` → Warden → `agent_seat`), tag "🤖 agents · best available", HALF a seat at most (Warden W19). The creator's "GO only" entry,
+  MANUAL, the hourly buy budget, a halted keeper and Courier BAD all still stop it. Tests: `tests/test_seats_full.py`.

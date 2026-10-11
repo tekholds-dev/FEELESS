@@ -262,7 +262,46 @@ def fill_plan(ctx):
     # + up to 3 fallbacks: a candidate the Warden vetoes (or that fails its last check) hands the seat to the NEXT ranked one in the same tick
     duty = list(c.get('wait') or [])[:max(1, int(_f(c.get('empty')))) + 3] if may_fill({'go': False}, pol, c.get('emptySince'), _f(c.get('now')), _f(c.get('lastFill'))) else []
     left = max(0, _ag.CONTROL_MOVES_HR - int(_f(c.get('used'))))
-    return (list(c.get('gos') or []) + duty)[:max(left, 0)]
+    plan = list(c.get('gos') or []) + duty
+    if not plan and c.get('near') and _f(c.get('emptyFor')) >= NEAR_PATIENCE_SEC and pol.get('entry') != 'go':   # 🪑 nothing cleared and the seat waited: the best near-ready coin
+        plan = list(c['near'])[:max(1, int(_f(c.get('empty')))) + 2]
+    return plan[:max(left, 0)]
+
+
+# ── 🪑 BEST AVAILABLE: an empty seat does not wait forever on the entry moment ───────────────────────────────────────────────────────
+NEAR_PATIENCE_SEC = 90       # a seat empty this long with NOTHING cleared takes the best near-ready coin …
+NEAR_MIN_SCORE = 40.0        # … scoring at least this (seat_ops.score) …
+NEAR_SOFT = ('chart', 'data')   # … whose ONLY open checks are the entry moment / ENTER-grade data — every safety check passed
+
+
+def near_ready(cases, scores=None, live=None, min_score=NEAR_MIN_SCORE):
+    """The coins an empty seat may take when nothing CLEARED (owner, 2026-10-11: "they must keep seats full" — never past a hard block):
+    every check passed except the entry moment (chart) and/or ENTER-grade data · no hard chart objection (risk > 0) · the data is READABLE
+    (never DATA INVALID) · the chart is not COLLAPSING / INVALID · the newest live check is not against it · seat score ≥ min. Best score first.
+    The holder scan, the pool, the burn / rebuy rules and Devil's objections are NOT soft: a coin failing any of them never appears here."""
+    import seat_ops as _so
+    out = []
+    for c in cases or []:
+        if c.get('cleared'):
+            continue
+        fails = [k for k in c.get('checks') or [] if not k[1]]
+        if not fails or any(k[0] not in NEAR_SOFT for k in fails):
+            continue
+        row = c.get('row') or {}
+        ch = row.get('chart') or {}
+        q = ch.get('q') or {}
+        if ch.get('state') == _ci.DATA_INVALID or q.get('readOk') is False or _f((ch.get('risk') or [1.0])[0]) <= 0:
+            continue
+        if _so.chart_quality(ch)[0] in ('COLLAPSING', 'INVALID'):
+            continue
+        lc = (live or {}).get(c.get('mint'))
+        if lc is not None and not lc[0]:
+            continue
+        sc = _f(((scores or {}).get(c.get('mint')) or {}).get('score'))
+        if sc < min_score:
+            continue
+        out.append({**row, 'nearReady': f"best available after {NEAR_PATIENCE_SEC}s — every safety check passed; not yet: {'; '.join(k[2] for k in fails)[:140]}", 'nearScore': sc})
+    return sorted(out, key=lambda r: -_f(r.get('nearScore')))
 
 
 def cycle_due(pol, last_at, now):

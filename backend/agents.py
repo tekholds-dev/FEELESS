@@ -505,7 +505,7 @@ def devil_args(call, n, why, row, learned, duty=False, warns=None):
             strong_ = int(v.get('n') or 0) >= STRONG_N and _f(v.get('med')) <= STRONG_MED
             (args if strong_ else w_).append(('driver_losing', f"'{words}' has been followed by {_f(v['med']):+.1f}% lately"))
     have_ = {d[0] for d in why['drivers']}
-    rs_ = [x for x in have_ if ((learned or {}).get('rugSigns') or {}).get(x, 0) >= RUG_SIGN_N and not x.startswith('src:open')]
+    rs_ = [x for x in have_ if ((learned or {}).get('rugSigns') or {}).get(x, 0) >= RUG_SIGN_N and not is_context(x)]
     if len(rs_) >= 2:   # 🔬 learned from autopsies: these reasons keep showing up on coins that rugged
         args.append(('rug_signs', 'rug signs from our autopsies: ' + ', '.join(word(x) for x in rs_[:3])))
     for iid, pair in ((learned or {}).get('avoid') or {}).items():   # 🚫 a creator-approved AVOID tactic
@@ -1500,6 +1500,17 @@ RUG_P5, RUG_SIGN_N = -50.0, 3
 RUG_LIFT, RUG_MIN_CALLS = 2.0, 8
 
 
+CONTEXT_DRIVERS = ('src:', 'band:', 'soc:', 'pad:', 'narr:', 'strat:', 'chart:')   # where a coin was found / its cap band / narrative / launchpad / chart label: CONTEXT
+CONTEXT_EXACT = ('fresh', 'narr_hot')                                                # (owner, 2026-10-11: a source or a label is never a hard veto — every coin earns its own call)
+
+
+def is_context(driver):
+    """A context driver (source · band · narrative · launchpad · strategy · chart label · age) — it weighs in Sherlock's lean from its own record,
+    it is never a learned RUG SIGN (one rush of rugging launches from one outlet turned 'found on callouts' into a veto on every coin)."""
+    x = str(driver or '')
+    return x.startswith(CONTEXT_DRIVERS) or x in CONTEXT_EXACT
+
+
 def rug_lift(judged):
     """☠ The REAL rug signs, rebuilt from the record every time (never a running counter): a reason is a rug sign only when it showed up in
     ≥ RUG_SIGN_N rugs AND coins carrying it rugged at ≥ RUG_LIFT × the base rate (≥ RUG_MIN_CALLS judged calls with it). A reason nearly
@@ -1515,6 +1526,8 @@ def rug_lift(judged):
     for d in js:
         rg = is_rug(d)
         for x in set(d.get('drivers') or []):
+            if is_context(x):
+                continue
             n[x] = n.get(x, 0) + 1
             if rg:
                 r[x] = r.get(x, 0) + 1
@@ -1548,7 +1561,7 @@ def autopsy(state, now):
 def rug_signs(row_drivers, state):
     """The rug signs a coin carries right now: its drivers that have each shown up in ≥ RUG_SIGN_N rugs."""
     sg = (state or {}).get('rugSigns') or {}
-    return [x for x in row_drivers or [] if sg.get(x, 0) >= RUG_SIGN_N and not x.startswith('src:open')]
+    return [x for x in row_drivers or [] if sg.get(x, 0) >= RUG_SIGN_N and not is_context(x)]
 
 
 # ── 📈 DESK HISTORY — each agent's record over time, per generation ─────────────────────────────────────────────────────────────────

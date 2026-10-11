@@ -9693,8 +9693,13 @@ async def _prime_tick_inner(now):
             moved_, live_ = [], {}
             gos_ = sorted(gos_, key=lambda t_: -_fuse._f((scores_.get(t_['mint']) or {}).get('score')))   # 🏅 best seat score first
             wait_ = sorted(wait_, key=lambda t_: -_fuse._f((scores_.get(t_['mint']) or {}).get('score')))
+            # 🪑 BEST AVAILABLE: nothing cleared + a seat that has waited → the best near-ready coins (every safety check passed, the entry moment
+            # not confirmed) are live-checked too, so the seat can take one at half size (Warden W19) instead of sitting in cash indefinitely
+            on_n = {l.get('mint') for l in cur.get('legs') or []}
+            near0_ = [] if pol_['manual'] or gos_ or wait_ or not empty_n else [r_ for r_ in _oe.near_ready([c_ for c_ in cases_ if c_['mint'] not in cool and c_['mint'] not in lost_ and c_['mint'] not in on_n and not _fw.dollar_named(c_.get('symbol'))], scores_)][:empty_n + 2]
+            near_ = []
             try:
-                cand_ = (gos_ + wait_)[:max(6, pol_['seats'] + 2)]
+                cand_ = (gos_ + wait_)[:max(6, pol_['seats'] + 2)] + near0_
                 held_p = {l.get('mint'): l.get('pairAddress') for l in cur.get('legs') or [] if l.get('mint') and not l.get('placeholder')}
                 if cand_ or held_p:
                     await _jup_prices([t_['mint'] for t_ in cand_] + list(held_p))
@@ -9704,11 +9709,13 @@ async def _prime_tick_inner(now):
                 gos_ = [{**t_, 'px': live_[t_['mint']]['px']} if t_['mint'] in live_ else t_ for t_ in gos_ if t_['mint'] not in live_ or live_[t_['mint']]['ok']]
                 wait_ = [{**t_, 'px': live_[t_['mint']]['px']} if t_['mint'] in live_ else t_ for t_ in wait_ if t_['mint'] not in live_ or live_[t_['mint']]['ok']]
                 _office['live'] = {'at': now, 'checked': [{'symbol': t_['symbol'], **live_[t_['mint']]} for t_ in cand_]}
+                near_ = [{**t_, 'px': live_[t_['mint']]['px']} for t_ in near0_ if t_['mint'] in live_ and live_[t_['mint']]['ok']]
             except Exception as e:   # fail CLOSED: a decision that could not be checked against the newest market state is not taken this tick
                 print('live check:', e)
                 moved_ = [{'symbol': t_.get('symbol'), 'ok': False, 'why': f'live check failed ({type(e).__name__}) — not bought this tick'} for t_ in (gos_ + wait_)[:2]]
                 gos_, wait_ = [], []
-            valid_ = [] if pol_['manual'] else gos_ + ([] if pol_['entry'] == 'go' else wait_)
+            empty_for_ = (now - _fuse._f(cur.get('agentEmptyAt'))) if cur.get('agentEmptyAt') else 0.0
+            valid_ = [] if pol_['manual'] else gos_ + ([] if pol_['entry'] == 'go' else wait_) + (near_ if (not gos_ and not wait_ and empty_for_ >= _oe.NEAR_PATIENCE_SEC and pol_['entry'] != 'go') else [])
             if empty_n and valid_ and not _office.get('validSince'):
                 _office['validSince'] = now
             free_ = max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd')))
@@ -9722,7 +9729,7 @@ async def _prime_tick_inner(now):
                          'timerIn': 0 if gos_ or not empty_n else max(0.0, _fuse._f(pol_['seatTarget']) - (now - _fuse._f(cur.get('agentFillAt'))))}
             vetoed_ = 0
             plan_ = _oe.fill_plan({'control': True, 'pol': pol_, 'live': rd_['live'], 'halt': seat_ctx_['halt'], 'courier': seat_ctx_['courier'], 'used': used_, 'gos': gos_, 'wait': wait_,
-                                   'empty': empty_n, 'emptySince': cur.get('agentEmptyAt'), 'lastFill': cur.get('agentFillAt'), 'now': now})
+                                   'empty': empty_n, 'emptySince': cur.get('agentEmptyAt'), 'lastFill': cur.get('agentFillAt'), 'now': now, 'near': near_, 'emptyFor': empty_for_})
             for t_ in plan_:   # 🔌 no fill until the office is LIVE after a restart · never while the keeper is halted or the Courier reads BAD
                 if used_ >= _ag.CONTROL_MOVES_HR:
                     break
@@ -9733,7 +9740,8 @@ async def _prime_tick_inner(now):
                         continue
                     cur = _prime.agent_seat(cur, {'mint': t_['mint'], 'symbol': t_['symbol'], 'pairAddress': t_['pair'], 'price': t_['px'], 'liquidityUsd': (t_.get('nums') or {}).get('liq'),
                                                   'ageH': (t_.get('vitals') or {}).get('ageH'), 'vol1h': (t_.get('vitals') or {}).get('vol1h'), 'buyShare': (t_.get('nums') or {}).get('buy'),
-                                                  'tag': '🤖 agents GO · in control' if t_.get('go') else '🤖 agents · 10-min duty', 'why': (t_.get('trigger') or ['', ''])[1] if t_.get('go') else f"their strongest cleared read (lean {t_['why']['lean']:+.1f})"}, px, cfg_s, now, max_usd=wd_['allowed'])
+                                                  'tag': '🤖 agents GO · in control' if t_.get('go') else '🤖 agents · best available' if t_.get('nearReady') else '🤖 agents · 10-min duty',
+                                                  'why': (t_.get('trigger') or ['', ''])[1] if t_.get('go') else t_['nearReady'] if t_.get('nearReady') else f"their strongest cleared read (lean {t_['why']['lean']:+.1f})"}, px, cfg_s, now, max_usd=wd_['allowed'])
                     used_ += 1; cur['agentDutyAt'] = now; cur['agentFillAt'] = now
                     _intake['reg'] = _in.stamp(_intake_reg(), 'seat', [t_['mint']], now)   # 🕸 clear → seat latency
                     st_o = _office_state()   # ⏱ how long the seat sat empty, how long a valid candidate waited, how long after an exit the next fill came
@@ -12424,7 +12432,7 @@ async def _agents_tick(now):
             if rcfg_.get('agentControl'):
                 ch_m = {((_agents.get('switchEval') or {}).get('challenger') or {}).get('symbol')}
                 cs_all = _ag.investigate(table, set(), 0, st.get('burned') or {}, top=0)
-                picked_ = _oe.scan_order(cs_all, 2, {c_['mint'] for c_ in cs_all if c_.get('symbol') in ch_m}, _office.get('seen'))
+                picked_ = _oe.scan_order(cs_all, 3, {c_['mint'] for c_ in cs_all if c_.get('symbol') in ch_m}, _office.get('seen'))
                 _office['scans'] = {'at': now, 'asked': [{'symbol': c_['symbol'], 'tier': c_['scanTier'], 'lean': c_['lean']} for c_ in picked_]}
                 for c_ in picked_:   # strongest unscanned reads first (any age), by priority tier, never FIFO
                     asyncio.ensure_future(_scan_wake(c_['mint'])); _office['load']['scansAsked'] = int(_office['load'].get('scansAsked') or 0) + 1
@@ -12903,7 +12911,7 @@ def _office_ctx(cur, t_, now):
     return {'value': money.get('value'), 'putIn': money.get('putIn'), 'peak': max(hrs.values()) if hrs else None, 'cash': max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd'))),
             'seats': len(cur.get('legs') or []), 'liq': n.get('liq') or v.get('liq'), 'ageH': v.get('ageH'), 'd5': n.get('d5'), 'top10': v.get('top10'),
             'lives': ((_agents.get('view') or {}).get('lives') or {}).get('n'), 'lastReal': (_agents_real().get('last') or [])[-3:], 'weather': _agents.get('weather'), 'courier': (_office.get('courier') or {}).get('health'),
-            'chart': (_office.get('charts') or {}).get(t_.get('mint')), 'social': (_social_cache() or {}).get(t_.get('mint')), 'policy': _oe.policy((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'launch': _oe.launch_context(t_)}
+            'chart': (_office.get('charts') or {}).get(t_.get('mint')), 'social': (_social_cache() or {}).get(t_.get('mint')), 'near': t_.get('nearReady'), 'policy': _oe.policy((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'launch': _oe.launch_context(t_)}
 
 
 def _office_warden(cur, t_, requested, cfg_t, now, move):
