@@ -265,20 +265,68 @@ async def fetch_dom(url, timeout=FETCH_SEC):
     if not exe or not re.match(r'^https?://', str(url or ''), re.I):
         return None
     prof = tempfile.mkdtemp(prefix='feeless-research-')
+    proc = None
     try:
         proc = await asyncio.create_subprocess_exec(exe, '--headless', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--disable-extensions',
                                                     f'--user-data-dir={prof}', '--virtual-time-budget=6000', '--dump-dom', str(url),
-                                                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
-        try:
-            out, _ = await asyncio.wait_for(proc.communicate(), timeout)
-        except asyncio.TimeoutError:
-            proc.kill()
-            return None
+                                                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL, start_new_session=True)
+        out, _ = await asyncio.wait_for(proc.communicate(), timeout)
         return out.decode('utf-8', 'replace')[:1_500_000] if out else None
-    except Exception:
+    except Exception:   # timeout / cancel / crash: the WHOLE browser (its own process group: renderers too) goes, never left running
         return None
     finally:
+        if proc is not None and proc.returncode is None:
+            _kill_group(proc.pid)
         shutil.rmtree(prof, ignore_errors=True)
+
+
+def _kill_group(pid):
+    import signal
+    try:
+        os.killpg(os.getpgid(pid), signal.SIGKILL)
+    except (ProcessLookupError, PermissionError, OSError):
+        pass
+
+
+def _etime_sec(s):
+    """ps etime ([[dd-]hh:]mm:ss) → seconds."""
+    d, _, rest = str(s).strip().rpartition('-')
+    parts = [int(x) for x in rest.split(':')]
+    while len(parts) < 3:
+        parts.insert(0, 0)
+    return (int(d) if d else 0) * 86400 + parts[0] * 3600 + parts[1] * 60 + parts[2]
+
+
+def orphans(ps_lines, older_than=2 * FETCH_SEC):
+    """PIDs of research browsers (our throwaway-profile marker in the command line) running longer than `older_than` — e.g. left by a
+    backend restart in the middle of a fetch. Pure: `ps_lines` = 'pid etime args' rows."""
+    out = []
+    for ln in ps_lines or []:
+        bits = str(ln).split(None, 2)
+        if len(bits) == 3 and 'feeless-research-' in bits[2] and bits[0].isdigit():
+            try:
+                if _etime_sec(bits[1]) > older_than:
+                    out.append(int(bits[0]))
+            except ValueError:
+                continue
+    return out
+
+
+def reap_orphans():
+    """Kill every research browser older than 2 × FETCH_SEC (called before each research job). → how many."""
+    import subprocess
+    try:
+        lines = subprocess.run(['ps', '-Ao', 'pid,etime,args'], capture_output=True, text=True, timeout=5).stdout.splitlines()[1:]
+    except Exception:
+        return 0
+    pids = orphans(lines)
+    for pid in pids:
+        _kill_group(pid)
+        try:
+            os.kill(pid, 9)
+        except OSError:
+            pass
+    return len(pids)
 
 
 def search_url(q):

@@ -798,3 +798,13 @@ def test_a_website_without_any_x_link_is_not_called_a_different_x():
     s = sr.site_read('<html><title>Human</title><body>gm</body></html>', 'https://human.ai', 'M')
     cc = sr.crosscheck('M', 'https://x.com/human_ai', s, None)
     assert cc['siteLinksX'] is None and cc['flags'] == []
+
+
+def test_a_research_browser_left_running_is_found_and_only_ours_are_touched():
+    import social_research as sr
+    lines = ['66983 19:48 /x/chrome-headless-shell --headless --user-data-dir=/tmp/feeless-research-ab12 --dump-dom https://a.fun',
+             '70001 00:05 /x/chrome-headless-shell --user-data-dir=/tmp/feeless-research-cd34 --dump-dom https://b.fun',
+             '70002 1-02:00:00 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+             '70003 45:00 /x/chrome-headless-shell --user-data-dir=/Users/me/profile']
+    assert sr.orphans(lines) == [66983]                                                                         # ours and old: killed; a fresh fetch / the user's own Chrome: never
+    assert sr._etime_sec('1-02:03:04') == 93784 and sr._etime_sec('05') == 5 and sr._etime_sec('19:48') == 1188

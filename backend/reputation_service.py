@@ -12479,6 +12479,7 @@ async def _research_tick(cases, rows_by, now):
     _social['busy'] = True
     n = 0
     try:
+        _office['load']['orphansKilled'] = int(_office['load'].get('orphansKilled') or 0) + _sr.reap_orphans()   # a browser left by a restart mid-fetch never keeps running
         cache = _social_cache()
         for c_ in _sr.pick(cases, cache, now):
             row = {**(rows_by.get(c_['mint']) or {}), 'mint': c_['mint'], 'symbol': c_.get('symbol'), 'launch': (c_.get('row') or {}).get('launch')}
