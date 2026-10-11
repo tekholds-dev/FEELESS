@@ -6229,7 +6229,53 @@ def _open_board():
         if r.get('mint') and r.get('scanned') and _fuse._f(r.get('top10')) > 0:   # a scan with no top-10 reading is not a scan (it read "top-10 hold 0%" = safe)
             bad = _rn.safety_fails(r, rcfg)
             scanned[r['mint']] = (not bad, bad[:4], {k: r.get(k) for k in ('top10', 'dev', 'insiders', 'bundled')})
+    for p in _open_pairs:   # 🕵 a coin scanned on request (the agents' investigation, a quick look) but not on the runner board: judged the same way
+        m = (p.get('baseToken') or {}).get('address')
+        if m and m not in scanned:
+            got = _open_scan_judge(p, m, rcfg)
+            if got:
+                scanned[m] = got
     return _trench.open_board(_open_pairs, scanned, time.time() * 1000)
+
+
+_open_scan_memo: dict = {}   # mint → (scan checkedAt, judged) — one judgement per scan
+
+
+def _open_scan_judge(pair, mint, rcfg):
+    """(safe, fails, facts) for a coin whose OWN holder scan is in the intel cache and complete, else None. The SAME candidate + safety
+    gates the runner board uses (same creator flag / rep inputs); nothing is loosened. Why: the agents request scans for their strongest
+    unscanned cases, the scan landed in the cache, but the open list judged safety only from the runner board's candidates — so an older
+    coin off that board read "holders never scanned" forever and its case could never clear (2026-10-10, $WOSE)."""
+    it = _intel_fresh(mint)
+    if not it or it.get('top10Pct') is None or _fuse._f(it.get('top10Pct')) <= 0:
+        return None
+    key = it.get('checkedAt')
+    hit = _open_scan_memo.get(mint)
+    if hit and hit[0] == key:
+        return hit[1]
+    try:
+        creator = it.get('creator')
+        brec = _block_load()['wallets'].get(creator) if creator else None
+        flagged = bool(creator and ((_is_blocked(brec) and brec.get('reported')) or (_shield_cache.get(creator, (0, {}))[1] or {}).get('verdict') == 'bot'))
+        crep = None
+        if creator:
+            try:
+                crep = _quick_rep(creator).get('level')
+            except Exception:
+                crep = None
+            if _is_blocked(brec) and not brec.get('reported') and crep != 'high':
+                crep = 'suspect'
+        c = _rn.candidate(pair, it, flagged, False, time.time() * 1000, mayhem=mint in _mayhem_mints, creator_rep=crep)
+        if not c.get('scanned') or _fuse._f(c.get('top10')) <= 0:
+            return None
+        bad = _rn.safety_fails(c, rcfg)
+        out = (not bad, bad[:4], {k: c.get(k) for k in ('top10', 'dev', 'insiders', 'bundled')})
+    except Exception:
+        return None
+    if len(_open_scan_memo) > 2000:
+        _open_scan_memo.clear()
+    _open_scan_memo[mint] = (key, out)
+    return out
 
 
 import pump_calls as _pc
@@ -9582,22 +9628,28 @@ async def _prime_tick_inner(now):
             elif not empty_n:
                 cur.pop('agentEmptyAt', None); _office.pop('validSince', None)
             wait_ = [t_ for t_ in (picks_ or []) if t_['mint'] not in on_ and t_['mint'] not in {g_['mint'] for g_ in gos_}]
-            duty_ = wait_[:1] if empty_n and not pol_['manual'] and _oe.may_fill({'go': False}, pol_, cur.get('agentEmptyAt'), now, cur.get('agentFillAt')) else []
             valid_ = [] if pol_['manual'] else gos_ + ([] if pol_['entry'] == 'go' else wait_)
             if empty_n and valid_ and not _office.get('validSince'):
                 _office['validSince'] = now
             free_ = max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd')))
             tk_ = _office.get('ticks') or []
             every_ = sorted(b_ - a_ for a_, b_ in zip(tk_, tk_[1:]))[len(tk_) // 2 - 1] if len(tk_) >= 3 else 50.0
-            _agents['seat'] = {**_oe.seat_state({'want': pol_['seats'], 'held': held_n, 'cases': cases_ if ctl_ else [], 'valid': valid_, 'movesLeft': _ag.CONTROL_MOVES_HR - used_, 'courier': (_office.get('courier') or {}).get('health'),
-                                                 'manual': pol_['manual'], 'live': rd_['live'], 'readyWhy': rd_['why'], 'freeUsd': free_, 'minUsd': max(0.05, _fuse._f(cfg_t.get('minOrderUsd'))), 'emptySince': cur.get('agentEmptyAt'), 'target': pol_['seatTarget'], 'now': now, 'nextTickIn': min(every_, pol_['seatTarget'])}),
-                               'at': now, 'tickEvery': round(every_, 1), 'movesLeft': max(0, _ag.CONTROL_MOVES_HR - used_), 'freeUsd': round(free_, 2)}
-            for t_ in ([] if pol_['manual'] or not rd_['live'] else gos_ + duty_):   # 🔌 no fill until the office is LIVE after a restart
+            bk_ = ((_fw_load().get('books') or {}).get(tid) or {}) if real_t else {}
+            cooled_ = [c_ for c_ in cases_ if c_['cleared'] and (c_['mint'] in cool or c_['mint'] in lost_)]   # cleared, but left the card lately: the rebuy cooldown holds it
+            seat_ctx_ = {'want': pol_['seats'], 'held': held_n, 'cases': [c_ for c_ in cases_ if c_ not in cooled_] if ctl_ else [], 'valid': valid_, 'movesLeft': _ag.CONTROL_MOVES_HR - used_, 'courier': (_office.get('courier') or {}).get('health'),
+                         'manual': pol_['manual'], 'live': rd_['live'], 'readyWhy': rd_['why'], 'freeUsd': free_, 'minUsd': max(0.05, _fuse._f(cfg_t.get('minOrderUsd'))), 'emptySince': cur.get('agentEmptyAt'), 'target': pol_['seatTarget'], 'now': now, 'nextTickIn': min(every_, pol_['seatTarget']),
+                         'control': True, 'halt': (bk_.get('haltWhy') or 'halted') if bk_.get('halt') else None, 'cooled': [c_.get('symbol') for c_ in cooled_],
+                         'timerIn': 0 if gos_ or not empty_n else max(0.0, _fuse._f(pol_['seatTarget']) - (now - _fuse._f(cur.get('agentFillAt'))))}
+            vetoed_ = 0
+            plan_ = _oe.fill_plan({'control': True, 'pol': pol_, 'live': rd_['live'], 'halt': seat_ctx_['halt'], 'courier': seat_ctx_['courier'], 'used': used_, 'gos': gos_, 'wait': wait_,
+                                   'empty': empty_n, 'emptySince': cur.get('agentEmptyAt'), 'lastFill': cur.get('agentFillAt'), 'now': now})
+            for t_ in plan_:   # 🔌 no fill until the office is LIVE after a restart · never while the keeper is halted or the Courier reads BAD
                 if used_ >= _ag.CONTROL_MOVES_HR:
                     break
                 try:
                     wd_ = _office_warden(cur, t_, _prime.agent_seat_usd(cur, px, cfg_s), cfg_t, now, 'fill')   # 🛡 sizes THIS seat: it can lower or veto, never raise
                     if wd_['veto']:
+                        vetoed_ += 1
                         continue
                     cur = _prime.agent_seat(cur, {'mint': t_['mint'], 'symbol': t_['symbol'], 'pairAddress': t_['pair'], 'price': t_['px'], 'liquidityUsd': (t_.get('nums') or {}).get('liq'),
                                                   'ageH': (t_.get('vitals') or {}).get('ageH'), 'vol1h': (t_.get('vitals') or {}).get('vol1h'), 'buyShare': (t_.get('nums') or {}).get('buy'),
@@ -9615,7 +9667,14 @@ async def _prime_tick_inner(now):
                     cur.pop('agentExitAt', None); cur.pop('agentEmptyAt', None); _office.pop('validSince', None)
                 except ValueError:
                     break
+            held_n = len([l for l in cur.get('legs') or [] if not (l.get('placeholder') and not l.get('manualCash'))])   # 🪑 the seat truth AFTER this tick's fills
+            _agents['seat'] = {**_oe.seat_state({**seat_ctx_, 'held': held_n, 'vetoed': vetoed_, 'valid': [t_ for t_ in valid_ if t_['mint'] not in {l.get('mint') for l in cur.get('legs') or []}] if held_n < pol_['seats'] else valid_}),
+                               'at': now, 'tickEvery': round(every_, 1), 'movesLeft': max(0, _ag.CONTROL_MOVES_HR - used_), 'freeUsd': round(max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd'))), 2)}
             _agents['card'] = _ag.card_seats(cur, _agents.get('decisions'), px, cfg_t, take=_of.take_line(cfg_t, _agents.get('scalp')))
+        elif real_t and cur and pol_:   # 🪑 Agent Control OFF (or a hold the owner set): the seats still say why the agents fill nothing
+            _agents['seat'] = {**_oe.seat_state({'want': pol_['seats'], 'held': len([l for l in cur.get('legs') or [] if not (l.get('placeholder') and not l.get('manualCash'))]), 'now': now, 'control': False,
+                                                 'offWhy': None if not cfg_t.get('agentControl') else ('the card is floored — it re-deals before the agents act' if cur.get('flooredAt') else 'your own ✋ hold stands — nobody trades until you release it')}),
+                               'at': now, 'movesLeft': 0, 'freeUsd': round(max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd'))), 2)}
         if real_t and cur:
             _office_light(tid, cur, now)   # 🏢 the office's live bits (positions · last real action · duty clock) — memory only
         # 🔥 TOP-3 AUTO SEAT (owner, 2026-10-09: "those coins automatically get swapped into a seat and buy-vs-sell gets it gone"): the
@@ -12068,6 +12127,7 @@ AGENTS_PATH = FUSE_HQ_PATH.parent / 'agents.json'   # 🤖 the agent desk: Tally
 AGENTS_EVERY = 55.0                                 # one pass a minute, whenever the backend is up (internet = it runs)
 AGENTS_SEE = 80                                     # the open list's busiest coins each pass …
 AGENTS_NEW = 40                                     # … + the 40 newest launches (≤ 1h) — they must aim at NEW coins too
+AGENTS_LISTED = 40                                  # … + up to 40 more board coins the tracked lists carry (most lists first): board data only, no new fetch
 _agents: dict = {'at': 0.0, 'table': [], 'view': None}
 
 
@@ -12084,7 +12144,6 @@ async def _agents_tick(now):
         ob_ = _open_board() or []
         newest_ = sorted((x for x in ob_ if x.get('ageH') is not None and _fuse._f(x['ageH']) <= 1), key=lambda x: _fuse._f(x['ageH']))[:AGENTS_NEW]
         seen_ = {x.get('mint') for x in newest_}
-        raw = [_with_tv(x) for x in [x for x in ob_ if x.get('mint') not in seen_][:AGENTS_SEE] + newest_]
         src_ = {}
         for k_, lst_ in (_lens_rows or {}).items():
             for r_ in lst_ or []:
@@ -12093,6 +12152,11 @@ async def _agents_tick(now):
         for c_ in _pump_calls.get('calls') or []:
             if c_.get('mint') and 'calls' not in src_.get(c_['mint'], []):
                 src_.setdefault(c_['mint'], []).append('calls')
+        busy_ = [x for x in ob_ if x.get('mint') not in seen_][:AGENTS_SEE]
+        took_ = seen_ | {x.get('mint') for x in busy_}
+        # 🕸 the board holds more coins than the busiest 80: the ones the tracked lists carry join the intake (bounded, board rows only)
+        listed_ = sorted((x for x in ob_ if x.get('mint') not in took_ and src_.get(x.get('mint'))), key=lambda x: (-len(src_[x['mint']]), -_fuse._f(x.get('front'))))[:AGENTS_LISTED]
+        raw = [_with_tv(x) for x in busy_ + listed_ + newest_]
         for x in raw:
             x['src'] = ['open'] + (['new'] if x.get('mint') in seen_ else []) + src_.get(x.get('mint'), [])
         cut_ = set((_ag.learn(_json_load(AGENTS_PATH, {}), 5).get('cut') or {}).keys())   # 🕸 source budget: losing corners get half the room
@@ -12413,6 +12477,7 @@ def _office_light(tid, cur, now):
         p['positions'] = _office_positions()
         p['mission'] = {**p['mission'], 'lastAction': last, 'dutyAt': _office['dutyAt']}
         p['seat'], p['switchEval'], p['ready'] = _agents.get('seat'), _agents.get('switchEval'), _oe.ready(_office['boot'], now)
+        p['ops'] = _oe.ops(p['ready'], p['seat'], _office.get('courier'), _is_keeper())
 
 
 def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
@@ -12473,7 +12538,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
     of.update(viol=viol, lat=_office['lat'], pos=_office['pos'], exiting=_office['exiting'], sized={m: v for m, v in _office['sized'].items() if m in _office['pos'] or m in on}, theses=_office['theses'])
     try:   # 🔎 the winners we missed: an autopsy for every coin the board watched for an hour that ran and that the card did not hold —
         # from files already on disk (the brain's settled watch list, the case files, Tally's tape). Paper only: nothing here can trade.
-        arch, new_m = _oe.missed_winners(arch, [d_ for d_ in (_json_load(BRAIN_PATH, {}).get('done') or [])[-600:] if _fuse._f(d_.get('at')) > _fuse._f(of.get('missedAt'))], ser, now, on, _fuse._f(of.get('missedAt')))
+        arch, new_m = _oe.missed_winners(arch, [d_ for d_ in (_json_load(BRAIN_PATH, {}).get('done') or [])[-600:] if _fuse._f(d_.get('at')) > _fuse._f(of.get('missedAt'))], ser, now, on, _fuse._f(of.get('missedAt')), st.get('first'))
         of['missedAt'] = now
     except Exception as e:
         print('missed winners:', e)
@@ -12576,6 +12641,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
                         'speed': {**_oe.speed_view(of.get('speed')), 'seatWakes': int(_office.get('seatWakes') or 0), 'tickEvery': (_agents.get('seat') or {}).get('tickEvery')},
                         'candles': {**_office['candleStat'], 'tape': sum(1 for c_ in _office['charts'].values() if c_.get('src') == 'tape'), 'real': sum(1 for c_ in _office['charts'].values() if c_.get('src') == 'candles')}},
     }
+    _office['payload']['ops'] = _oe.ops(_office['payload']['ready'], _office['payload']['seat'], _office.get('courier'), _is_keeper())
     _office['payload']['performance']['passMs'] = round(sum(_fuse._f(ms.get(a)) for a in _of.CHAIN), 2)
     try:   # a read-only snapshot of what the page was handed (like agents_duty.json) — for checking the office without signing in to HQ
         _json_save(DATA_DIR / 'agent_office_view.json', _office['payload'])

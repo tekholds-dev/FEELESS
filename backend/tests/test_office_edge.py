@@ -412,7 +412,8 @@ def test_the_one_office_payload_carries_the_edge_pass_and_the_creators_post_save
     rs._office['boot'] = {'at': 4000, 'passes': 0, 'coins': 0, 'reconciled': False}
     _one_pass(rs, {}, 0)
     p = rs._office['payload']
-    assert {'policy', 'ready', 'seat', 'switchEval', 'review', 'launch'} <= set(p) and p['review']['blocking'] is False
+    assert {'policy', 'ready', 'seat', 'switchEval', 'review', 'launch', 'ops'} <= set(p) and p['review']['blocking'] is False
+    assert p['ops']['office'] == 'WARMING' and p['ops']['keeper'] == '1 active'
     assert {c['key'] for c in p['policy']['controls']} == {k for k, *_ in oe.CONTROLS} and all(c['agentsNow'] for c in p['policy']['controls'])
     assert p['ready']['state'] == 'OFFICE WARMING UP' and set(p['performance']['speed']) >= {'seatEmpty', 'validToFill', 'exitToFill', 'seatWakes'}
     assert p['launch']['pads'] == oe.PADS and 'UNKNOWN' in p['launch']['source']
@@ -434,3 +435,100 @@ def test_the_one_office_payload_carries_the_edge_pass_and_the_creators_post_save
         asyncio.run(rs.admin_agents_set(Req({'review': {'key': key, 'mark': 'buy'}})))
     monkeypatch.setattr(rs, '_require_admin', lambda r: None)
     assert asyncio.run(rs.admin_agents_office(None))['review']['items']['entry'][0]['mark']['mark'] == 'agree'
+
+
+# ── 🪑 FAST SEAT FILL + EVERY EMPTY SEAT HAS ONE PRIMARY REASON ────────────────────────────────────────────────────────────────────
+def _fctx(**k):
+    return {'control': True, 'pol': oe.policy({}), 'live': True, 'halt': None, 'courier': 'HEALTHY', 'used': 0, 'gos': [], 'wait': [{'mint': 'CLR', 'symbol': 'CLR'}],
+            'empty': 2, 'emptySince': 900, 'lastFill': 0, 'now': 1000, **k}
+
+
+def test_a_cleared_candidate_with_an_open_seat_cash_and_a_live_office_is_tried_without_the_ten_minute_duty():
+    assert oe.fill_plan(_fctx()) == [{'mint': 'CLR', 'symbol': 'CLR'}]                                          # duty clock never asked
+    assert oe.fill_plan(_fctx(lastFill=990)) == []                                                               # only the creator's seat target (30s) may hold it
+    assert oe.fill_plan(_fctx(lastFill=990, gos=[{'mint': 'GO'}])) == [{'mint': 'GO'}]                          # a full GO never waits
+    assert oe.fill_plan(_fctx(wait=[])) == []                                                                    # no valid candidate → the seat stays cash
+
+
+def test_nothing_is_tried_when_control_is_off_manual_warming_halted_courier_bad_or_the_budget_is_used():
+    assert oe.fill_plan(_fctx(control=False)) == []
+    assert oe.fill_plan(_fctx(pol=oe.policy({'agentAuthority': 'manual'}))) == []
+    assert oe.fill_plan(_fctx(live=False)) == []
+    assert oe.fill_plan(_fctx(halt='token balance below card books')) == []
+    assert oe.fill_plan(_fctx(courier='BAD')) == []
+    assert oe.fill_plan(_fctx(used=ag.CONTROL_MOVES_HR)) == []
+    assert oe.fill_plan(_fctx(empty=0, gos=[{'mint': 'GO'}])) == []
+    assert oe.fill_plan(_fctx(pol=oe.policy({'agentEntry': 'go'}))) == []                                        # entry style "GO only": a cleared case never fills
+    assert oe.fill_plan(_fctx(courier='DEGRADED')) == [{'mint': 'CLR', 'symbol': 'CLR'}]                          # degraded = the Warden sizes it down, not a block
+
+
+def test_every_empty_seat_carries_exactly_one_primary_reason_code():
+    base = {'want': 4, 'held': 1, 'movesLeft': 3, 'freeUsd': 1.0, 'minUsd': 0.1, 'now': 1000, 'emptySince': 950, 'target': 30, 'live': True, 'control': True}
+    code = lambda **k: oe.seat_state({**base, **k})
+    for k, want in (({'control': False}, 'CREATOR POLICY'), ({'manual': True}, 'CREATOR POLICY'), ({'live': False}, 'OFFICE NOT LIVE'), ({'halt': 'halted'}, 'EXECUTION BLOCK'),
+                    ({'courier': 'BAD'}, 'COURIER BLOCK'), ({'movesLeft': 0}, 'BUY BUDGET'), ({'freeUsd': 0.01}, 'NO CASH'), ({}, 'NO VALID ENTRY'),
+                    ({'cases': [case('A', cleared=False, checks=[['scan', True, ''], ['chart', False, '']])]}, 'WAITING FOR CONFIRMATION'),
+                    ({'cases': [case('A', cleared=False, checks=[['data', False, '']])]}, 'DATA DEGRADED'),
+                    ({'cases': [case('A', cleared=False, checks=[['devil', False, '']])]}, 'NO CLEARED CANDIDATE'),
+                    ({'cooled': ['OLD']}, 'REBUY COOLDOWN'),
+                    ({'valid': [{'symbol': 'V'}], 'vetoed': 1}, 'WARDEN VETO'),
+                    ({'valid': [{'symbol': 'V'}], 'timerIn': 12}, 'WAITING FOR SEAT TIMER')):
+        s = code(**k)
+        assert s['code'] == want and len(s['seats']) == 3 and all(x['code'] in oe.SEAT_CODES and x['reason'] for x in s['seats']), (k, s['code'])
+        assert s['code'] in oe.SEAT_CODES
+    one = code(valid=[{'symbol': 'V'}], cases=[case('A', cleared=False, checks=[['devil', False, '']])])
+    assert [x['code'] for x in one['seats']] == ['FILLING', 'NO CLEARED CANDIDATE', 'NO CLEARED CANDIDATE']     # one valid coin fills one seat; the rest say why
+    assert code(valid=[{'symbol': 'G', 'go': True}], timerIn=12)['code'] == 'FILLING'                           # a GO is never on the timer
+    assert code(held=4)['seats'] == [] and code(held=4)['code'] == 'FULL'
+
+
+def test_the_ops_line_reads_only_state_the_office_holds():
+    s = oe.seat_state({'want': 4, 'held': 2, 'movesLeft': 5, 'freeUsd': 1.29, 'minUsd': 0.1, 'now': 1000, 'live': True, 'control': True,
+                       'cases': [case('A', cleared=False, checks=[['devil', False, '']])]})
+    o = oe.ops({'live': True}, {**s, 'movesLeft': 5, 'freeUsd': 1.29}, {'health': 'HEALTHY'}, True)
+    assert o == {'office': 'LIVE', 'keeper': '1 active', 'openSeats': 2, 'valid': 0, 'cleared': 0, 'nextIn': None, 'block': s['reason'], 'code': 'NO CLEARED CANDIDATE',
+                 'execution': 'HEALTHY', 'budget': {'left': 5, 'of': ag.CONTROL_MOVES_HR}, 'cash': 1.29}
+    assert oe.ops({'live': False}, {'code': 'EXECUTION BLOCK', 'empty': 1}, {'health': 'HEALTHY'}, False)['execution'] == 'BLOCKED'
+    assert oe.ops({}, {}, {'health': 'BAD'}, True)['execution'] == 'BLOCKED' and oe.ops({}, {}, {'health': 'DEGRADED'}, True)['execution'] == 'DEGRADED'
+
+
+def test_a_coin_read_hours_ago_is_never_called_never_discovered_after_the_tape_evicted_it():
+    now = 50_000
+    st = {'first': {'OLD': {'t': now - 30 * 3600, 'c': 'w'}, 'KEEP': {'t': now - 600, 'c': 'w', 'r': 'RANGE', 'l': 1.2}}}
+    fs = ag.first_seen(st, now)
+    assert 'OLD' not in fs and 'KEEP' in fs                                                                      # bounded to 24h
+    done = [{'mint': 'KEEP', 'sym': 'KEEP', 'at': now - 60, 'peak': 80.0, 'end': 20.0, 'x': {'50': now - 300}}]
+    _, gone = oe.missed_winners({}, done, {}, now)                                                               # the tape lost it: nothing on file
+    assert gone[0]['reason'] == 'NEVER DISCOVERED'
+    _, kept = oe.missed_winners({}, done, {}, now, first_seen=fs)
+    assert kept[0]['reason'] == 'WAITED TOO LONG' and kept[0]['seen'] is True and kept[0]['seenAt'] == now - 600
+    big = ag.first_seen({'first': {f'M{i}': {'t': now - i} for i in range(ag.FIRST_KEEP + 50)}}, now)
+    assert len(big) == ag.FIRST_KEEP and 'M0' in big                                                             # newest kept
+
+
+def test_the_desk_stamps_each_coins_first_call_once():
+    rows = [{'mint': 'A', 'symbol': 'A', 'price': 1.0, 'vol5m': 100, 'vol1h': 1000, 'buyShare': 55, 'liq': 60_000, 'ageH': 5, 'safe': True}]
+    st, _ = ag.desk({}, rows, 1000)
+    first = dict(st['first'])
+    assert 'A' in first and first['A']['t'] == 1000
+    st2, _ = ag.desk(st, [{**rows[0], 'price': 1.1}], 1060)
+    assert st2['first']['A']['t'] == 1000                                                                        # the first stamp never moves
+
+
+def test_a_coin_scanned_on_request_off_the_runner_board_is_judged_by_the_same_safety_gates(monkeypatch):
+    import time as _t
+    import reputation_service as rs
+    pair = {'baseToken': {'address': 'OFFBOARDmint', 'symbol': 'OFF'}, 'pairAddress': 'POFF', 'priceUsd': '1', 'liquidity': {'usd': 80_000}, 'volume': {'h1': 60_000, 'm5': 5_000},
+            'txns': {'h1': {'buys': 300, 'sells': 200}}, 'pairCreatedAt': (_t.time() - 100 * 3600) * 1000, 'marketCap': 2_000_000}
+    monkeypatch.setattr(rs, '_runner_cands', [])
+    monkeypatch.setattr(rs, '_open_pairs', [pair])
+    rs._open_scan_memo.clear()
+    assert next(r for r in rs._open_board() if r['mint'] == 'OFFBOARDmint')['safe'] is None                     # never scanned: says so
+    rs._intel_cache['OFFBOARDmint'] = (_t.time(), {'mint': 'OFFBOARDmint', 'checkedAt': _t.time(), 'top10Pct': 18.0, 'devHoldingPct': 1.0, 'insiderPct': 1.0, 'bundledWallets': 0,
+                                                    'sniperCount': 0, 'creator': None, 'topHolders': [{'pct': 5}], 'supply': 1e9})
+    try:
+        row = next(r for r in rs._open_board() if r['mint'] == 'OFFBOARDmint')
+        c = rs._rn.candidate(pair, rs._intel_cache['OFFBOARDmint'][1], False, False, _t.time() * 1000)
+        assert row['safe'] is (not rs._rn.safety_fails(c, rs._runner_cfg())) and row['safe'] is not None        # the scan now reaches the agents' row, judged the same way
+    finally:
+        rs._intel_cache.pop('OFFBOARDmint', None)

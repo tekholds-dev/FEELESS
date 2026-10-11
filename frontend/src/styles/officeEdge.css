@@ -115,6 +115,18 @@ body.theme-day .oed-box, body.theme-day .oed-ready { background: #f2faf5; border
 body.theme-day .oed-side, body.theme-day .oed-tiles > span, body.theme-day .oed-ctl > li, body.theme-day .oed-item, body.theme-day .oed-sub-box { background: #e8f4ed; border-color: #cfe6d8; }
 body.theme-day .oed-chip { background: #eef7f1; border-color: #cfe6d8; color: #10261b; } body.theme-day .oed-bar { background: #d6e9de; }
 body.theme-day .oed-up, body.theme-day .oed-lines li.is-ok > span { color: #0f8a45; } body.theme-day .oed-tag.is-ok, body.theme-day .oed-tag.is-go, body.theme-day .oed-chip.is-go b { color: #0f8a45; }
+.oed-ops { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+.oed-op { display: grid; gap: 1px; padding: 5px 9px; border: 1px solid var(--m-line, rgba(21,209,106,.18)); border-radius: 8px; min-width: 78px; font-family: 'JetBrains Mono', monospace; }
+.oed-op small { font-size: 9px; letter-spacing: .12em; color: var(--m-dim); }
+.oed-op b { font-size: 12px; }
+.oed-op.is-ok b { color: #45e486; } .oed-op.is-wait b { color: var(--m-warn, var(--gold)); } .oed-op.is-bad b { color: #ff8fa3; }
+.oed-op-block { flex: 1 1 260px; min-width: 0; } .oed-op-block em { font-style: normal; font-size: 10.5px; color: var(--m-dim); overflow-wrap: anywhere; }
+.oed-seats { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.oed-seats li { display: grid; grid-template-columns: 54px auto 1fr; gap: 6px; align-items: center; font-size: 11px; }
+.oed-seats small { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: .1em; color: var(--m-dim); }
+.oed-seats em { font-style: normal; color: var(--m-dim); overflow-wrap: anywhere; min-width: 0; }
+body.theme-day .oed-op small, body.theme-day .oed-seats em, body.theme-day .oed-op-block em { color: #3e5a4b; }
+body.theme-day .oed-op.is-ok b { color: #0d7a3f; }
 body.theme-day .oed-why, body.theme-day .oed-now, body.theme-day .oed-lesson { color: #3e5a4b; }
 @media (max-width: 1180px) { .oed-groups { grid-template-columns: 1fr; } .oed-band { grid-template-columns: repeat(3, minmax(0, 1fr)); } .oed-drawer { grid-template-columns: 1fr; } .oed-split { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .oed-band { grid-template-columns: repeat(2, minmax(0, 1fr)); } .oed-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .oed-ready ol { grid-template-columns: repeat(2, minmax(0, 1fr)); }

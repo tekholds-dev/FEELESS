@@ -8,7 +8,26 @@ import '../../styles/officeEdge.css';
 // existing POST /admin/agents (limits → realCfg via clean_cfg · review marks → display state the office never reads back).
 
 export const WHO_CLS = { 'AGENTS CHOOSE': 'is-agents', 'CREATOR OVERRIDE': 'is-you' };
-const SEAT_CLS = { FULL: 'is-ok', FILLING: 'is-go', 'NO VALID ENTRY': 'is-wait', 'OFFICE WARMING UP': 'is-warm', 'CREATOR MANUAL': 'is-you' };
+const SEAT_CLS = { FULL: 'is-ok', FILLING: 'is-go', 'NO VALID ENTRY': 'is-wait', 'OFFICE WARMING UP': 'is-warm', 'CREATOR MANUAL': 'is-you', 'AGENT CONTROL OFF': 'is-you' };
+
+// 🩺 LIVE OPERATION HEALTH — why the agents are (or are not) filling seats, in one line of real fields
+const EX_CLS = { HEALTHY: 'is-ok', DEGRADED: 'is-wait', BLOCKED: 'is-bad', UNKNOWN: '' };
+export function OpsLine({ o }) {
+  if (!o) return null;
+  const cell = (k, l, v, cls, tip) => <span key={k} className={`oed-op ${cls || ''}`} data-testid={`oed-op-${k}`} data-tip={tip}><small>{l}</small><b>{v}</b></span>;
+  return <div className="oed-ops" data-testid="oed-ops">
+    {cell('office', 'OFFICE', o.office, o.office === 'LIVE' ? 'is-ok' : 'is-wait')}
+    {cell('keeper', 'KEEPER', o.keeper, o.keeper === '1 active' ? 'is-ok' : 'is-bad')}
+    {cell('open', 'OPEN SEATS', o.openSeats, o.openSeats ? 'is-wait' : 'is-ok')}
+    {cell('valid', 'VALID', o.valid, o.valid ? 'is-ok' : '')}
+    {cell('cleared', 'CLEARED', o.cleared, '')}
+    {cell('next', 'NEXT SEAT ACTION', o.nextIn != null ? `${o.nextIn}s` : '—', '')}
+    {cell('exec', 'EXECUTION', o.execution, EX_CLS[o.execution])}
+    {cell('budget', 'BUY BUDGET', `${o.budget?.left ?? '—'} / ${o.budget?.of ?? '—'}`, o.budget?.left === 0 ? 'is-bad' : '', 'real buys left this hour')}
+    {cell('cash', 'CASH', o.cash != null ? `$${Number(o.cash).toFixed(2)}` : '—', '')}
+    {o.block ? <span className="oed-op oed-op-block is-wait" data-testid="oed-op-block" data-tip={o.block}><small>SEAT BLOCK</small><b>{o.code}</b><em>{o.block}</em></span> : null}
+  </div>;
+}
 const tag = (cls, text, tip, key) => <i key={key} className={`oed-tag ${cls || ''}`} data-tip={tip}>{text}</i>;
 const pctCls = v => (v == null ? '' : Number(v) > 0 ? 'oed-up' : Number(v) < 0 ? 'oed-dn' : '');
 
@@ -31,6 +50,7 @@ export function SeatState({ s, speed }) {
   return <div className={`oed-box oed-seat ${SEAT_CLS[s.state] || ''}`} data-testid="oed-seat">
     <header><b>🪑 EMPTY SEATS</b>{tag(SEAT_CLS[s.state], s.state)}<em>{s.held} of {s.want} held{s.empty ? ` · ${s.empty} open` : ''}</em></header>
     <p className="oed-why" data-testid="oed-seat-why">{s.reason}</p>
+    {(s.seats || []).length > 0 && <ul className="oed-seats" data-testid="oed-seat-list">{s.seats.map(x => <li key={x.seat}><small>SEAT {x.seat}</small>{tag(x.code === 'FILLING' ? 'is-go' : 'is-wait', x.code)}<em>{x.reason}</em></li>)}</ul>}
     {s.empty ? <div className="oed-meter" data-tip={`empty ${s.emptyFor ?? 0}s · your target ${s.target}s`}><small>EMPTY FOR</small><span className={`oed-bar ${late ? 'is-late' : ''}`}><i style={{ transform: `scaleX(${Math.max(0.02, fill)})` }} /><u style={{ left: '50%' }} /></span>
       <b className={late ? 'oed-dn' : ''}>{s.emptyFor != null ? `${s.emptyFor}s` : '—'}<u> / target {s.target}s</u></b>{s.nextIn != null && <em>next tick in {s.nextIn}s</em>}</div> : null}
     {(s.validSyms || []).length > 0 && <p className="oed-chips">{s.validSyms.map(x => tag('is-go', `$${x}`, 'cleared every desk — takes the next empty seat', x))}</p>}

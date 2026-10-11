@@ -167,10 +167,17 @@ def blockers(cases):
     return [[k, CHECK_WORD.get(k, k), n] for k, n in sorted(cnt.items(), key=lambda kv: -kv[1])]
 
 
+SEAT_CODES = ('FILLING', 'NO VALID ENTRY', 'NO CLEARED CANDIDATE', 'WAITING FOR CONFIRMATION', 'WAITING FOR SEAT TIMER', 'BUY BUDGET', 'NO CASH',
+              'WARDEN VETO', 'COURIER BLOCK', 'CREATOR POLICY', 'REBUY COOLDOWN', 'DATA DEGRADED', 'OFFICE NOT LIVE', 'EXECUTION BLOCK', 'OTHER')
+BLOCK_CODE = {'chart': 'WAITING FOR CONFIRMATION', 'data': 'DATA DEGRADED', 'burn': 'REBUY COOLDOWN'}   # every other failing check = NO CLEARED CANDIDATE
+
+
 def seat_state(ctx):
     """One line of truth for the agents' empty seats. `ctx` = {want, held, cases (the pass's case files), go (eligible GO coins),
     valid (candidates that would be allowed to fill NOW), movesLeft, courier, manual, live, freeUsd, minUsd, emptySince, target, now,
-    nextTickIn}. → {state, empty, valid, reason, emptyFor, target, nextIn, late, blockers}
+    nextTickIn, control (Agent Control on), timerIn (seconds before a cleared case may take a seat; GO never waits), vetoed (valid coins
+    the Warden vetoed this tick), halt (the keeper's halt word)}. → {state, code, empty, valid, reason, emptyFor, target, nextIn, late,
+    blockers, seats: [{seat, code, reason}]} — EVERY empty seat carries exactly one primary reason code (`SEAT_CODES`).
     FILLING = a valid candidate exists and the next tier tick takes it · NO VALID ENTRY = nothing clears (cash is a valid position)."""
     c = ctx or {}
     want, held, now = int(_f(c.get('want'))), int(_f(c.get('held'))), _f(c.get('now'))
@@ -178,25 +185,48 @@ def seat_state(ctx):
     valid = list(c.get('valid') or [])
     bl = blockers(c.get('cases'))
     base = {'empty': empty, 'want': want, 'held': held, 'valid': len(valid), 'validSyms': [str(x.get('symbol')) for x in valid][:4], 'target': int(_f(c.get('target')) or SEAT_TARGET_AUTO), 'blockers': bl,
-            'emptyFor': round(now - _f(c['emptySince'])) if empty and c.get('emptySince') else None, 'nextIn': None}
+            'emptyFor': round(now - _f(c['emptySince'])) if empty and c.get('emptySince') else None, 'nextIn': None,
+            'cleared': sum(1 for x in c.get('cases') or [] if x.get('cleared'))}
+
+    def out(state, code, reason, n_fill=0, rest=None, **kw):
+        rest = rest or (code, reason)
+        seats = [{'seat': held + i + 1, 'code': 'FILLING' if i < n_fill else rest[0], 'reason': (f"${valid[i].get('symbol')} cleared — the next tick fills it" if i < n_fill else rest[1])} for i in range(empty)]
+        return {**base, 'state': state, 'code': code, 'reason': reason, 'seats': seats, **kw}
     if not empty:
-        return {**base, 'state': 'FULL', 'reason': f'{held} of {want} seats held'}
+        return out('FULL', 'FULL', f'{held} of {want} seats held')
+    if c.get('control') is False:
+        return out('AGENT CONTROL OFF', 'CREATOR POLICY', c.get('offWhy') or 'Agent Control is OFF — the agents fill nothing (your switch)')
     if c.get('manual'):
-        return {**base, 'state': 'CREATOR MANUAL', 'reason': 'you hold the decisions — the agents fill nothing'}
+        return out('CREATOR MANUAL', 'CREATOR POLICY', 'you hold the decisions — the agents fill nothing')
     if c.get('live') is False:   # 🔌 after a restart nothing discretionary happens until the office has refilled and read every position back
-        return {**base, 'state': 'OFFICE WARMING UP', 'reason': f"waits for LIVE — {c.get('readyWhy') or 'the office is refilling after a restart'}"}
+        return out('OFFICE WARMING UP', 'OFFICE NOT LIVE', f"waits for LIVE — {c.get('readyWhy') or 'the office is refilling after a restart'}")
+    if c.get('halt'):
+        return out('NO VALID ENTRY', 'EXECUTION BLOCK', f"EXECUTION BLOCK — the keeper is halted: {c.get('halt')}")
     if c.get('courier') == 'BAD':
-        return {**base, 'state': 'NO VALID ENTRY', 'reason': 'EXECUTION BLOCK — Courier reads execution BAD'}
+        return out('NO VALID ENTRY', 'COURIER BLOCK', 'COURIER BLOCK — Courier reads execution BAD (an EXECUTION BLOCK until the keeper lands again)')
     if int(_f(c.get('movesLeft'))) <= 0:
-        return {**base, 'state': 'NO VALID ENTRY', 'reason': f'hourly budget used ({_ag.CONTROL_MOVES_HR} real buys an hour) — churn is not the goal'}
+        return out('NO VALID ENTRY', 'BUY BUDGET', f'BUY BUDGET — hourly budget used ({_ag.CONTROL_MOVES_HR} real buys an hour); churn is not the goal')
     if _f(c.get('freeUsd')) < max(0.05, _f(c.get('minUsd'))):
-        return {**base, 'state': 'NO VALID ENTRY', 'reason': f"NO CASH — ${_f(c.get('freeUsd')):.2f} free card cash"}
-    if valid:
-        late = base['emptyFor'] is not None and base['emptyFor'] > base['target']
-        return {**base, 'state': 'FILLING', 'reason': f"${valid[0].get('symbol')} cleared every desk — the next tick fills the seat", 'nextIn': max(0, round(_f(c.get('nextTickIn')))) if c.get('nextTickIn') is not None else None, 'late': late}
+        return out('NO VALID ENTRY', 'NO CASH', f"NO CASH — ${_f(c.get('freeUsd')):.2f} free card cash")
     n = len(c.get('cases') or [])
+    first = bl[0] if bl else None
     why = 'no coin has a positive read this pass' if not n else f"0 of {n} case files clear — " + ', '.join(f'{w} ({k})' for _, w, k in bl[:3])
-    return {**base, 'state': 'NO VALID ENTRY', 'reason': why}
+    rest = ('NO VALID ENTRY', why) if not n else (BLOCK_CODE.get(first[0], 'NO CLEARED CANDIDATE') if first else 'NO CLEARED CANDIDATE', why)
+    if c.get('cooled'):   # the case files that DID clear all left the card lately (cooldown / a thesis that failed on real money)
+        why = f"cleared but on the rebuy cooldown: {', '.join('$' + str(x) for x in list(c['cooled'])[:3])}" + (f' · {why}' if n else '')
+        rest = ('REBUY COOLDOWN', why)
+    if valid:
+        k = min(len(valid), empty)
+        if n and rest[0] != 'REBUY COOLDOWN':   # the seats a valid coin does not cover: no OTHER coin cleared
+            rest = (rest[0], f"no other coin cleared — " + ', '.join(f'{w} ({kk})' for _, w, kk in bl[:3]) if bl else 'no other coin cleared')
+        if c.get('vetoed') and int(_f(c.get('vetoed'))) >= len(valid):
+            return out('NO VALID ENTRY', 'WARDEN VETO', f"WARDEN VETO — the Warden vetoed {', '.join('$' + str(x.get('symbol')) for x in valid[:3])}")
+        if not any(x.get('go') for x in valid) and _f(c.get('timerIn')) > 0:
+            return out('FILLING', 'WAITING FOR SEAT TIMER', f"${valid[0].get('symbol')} cleared — the seat target lets it in {round(_f(c['timerIn']))}s", rest=('WAITING FOR SEAT TIMER', f"cleared case waits {round(_f(c['timerIn']))}s for the seat target"), nextIn=round(_f(c['timerIn'])))
+        late = base['emptyFor'] is not None and base['emptyFor'] > base['target']
+        return out('FILLING', 'FILLING', f"${valid[0].get('symbol')} cleared every desk — the next tick fills the seat", n_fill=k, rest=rest,
+                   nextIn=max(0, round(_f(c.get('nextTickIn')))) if c.get('nextTickIn') is not None else None, late=late)
+    return out('NO VALID ENTRY', rest[0], rest[1])
 
 
 def may_fill(case_row, pol, empty_since, now, last_fill_at=0.0):
@@ -208,6 +238,21 @@ def may_fill(case_row, pol, empty_since, now, last_fill_at=0.0):
         return False
     gap = _f((pol or {}).get('seatTarget') or SEAT_TARGET_AUTO)
     return bool(empty_since) and now - _f(last_fill_at) >= gap
+
+
+def fill_plan(ctx):
+    """🪑 THE fast-seat decision, one place: which already-known candidates the tier tick may try for the EMPTY seats right now, in order.
+    ctx = {control, pol, live, halt, courier, used, gos (full 🟢 GO coins, eligible), wait (the duty's CLEARED cases), empty, emptySince,
+    lastFill, now}. A full GO never waits; a cleared case waits only for the creator's seat target (never the 10-minute duty clock).
+    Nothing is tried while Agent Control is off, under creator MANUAL, before the office is LIVE, while the keeper is halted, while the
+    Courier reads execution BAD or once the hourly buy budget is used. Every try still goes through the Warden and the existing keeper path."""
+    c = ctx or {}
+    pol = c.get('pol') or {}
+    if (not c.get('control') or pol.get('manual') or not c.get('live') or c.get('halt') or c.get('courier') == 'BAD'
+            or int(_f(c.get('used'))) >= _ag.CONTROL_MOVES_HR or int(_f(c.get('empty'))) <= 0):
+        return []
+    duty = list(c.get('wait') or [])[:1] if may_fill({'go': False}, pol, c.get('emptySince'), _f(c.get('now')), _f(c.get('lastFill'))) else []
+    return list(c.get('gos') or []) + duty
 
 
 # ── ⇄ SWITCHING: superiority, not churn ──────────────────────────────────────────────────────────────────────────────────────────
@@ -406,7 +451,7 @@ def counterfactual(cases):
     return {k: None if not c else {'at': c['at'], **_outs(c)} for k, c in pick.items()}
 
 
-def missed_winners(arch, brain_done, series, now, held=(), since=0.0):
+def missed_winners(arch, brain_done, series, now, held=(), since=0.0, first_seen=None):
     """🔎 File an autopsy for every coin the board watched for an hour that peaked ≥ WINNER_PCT and that the card did not hold. Inputs
     are things ALREADY on disk / in memory: the brain's settled watch list (peak, the time each level was crossed), the Archivist's
     case files (what every desk said, hash-chained) and Tally's own tape stamps. `since` = only winners settled after this.
@@ -428,6 +473,9 @@ def missed_winners(arch, brain_done, series, now, held=(), since=0.0):
         cs = [c for c in by.get(m, []) if start - 1800 <= _f(c['at']) <= at]
         first = cs[0] if cs else None
         stamp = next((p for p in (series or {}).get(m) or [] if p.get('c')), None)
+        fs_ = (first_seen or {}).get(m)
+        if fs_ and (not stamp or _f(fs_.get('t')) < _f(stamp.get('t'))):   # the first stamp the desk kept past the tape's eviction is earlier
+            stamp = fs_
         seen = None if not stamp else {'call': {'s': 'skip', 'w': 'wait', 'e': 'enter'}.get(stamp.get('c')), 'why': stamp.get('r'), 'lean': stamp.get('l'), 'at': stamp.get('t')}
         reason, who, rule, correct = classify_miss(first, cs, seen, m in (held or ()))
         if reason == 'HELD':
@@ -559,3 +607,19 @@ def speed_view(sp):
         xs = [x for x in (sp or {}).get(k) or [] if x is not None]
         out[k] = {'n': len(xs), 'med': _med(xs), 'avg': round(sum(xs) / len(xs), 1) if xs else None, 'max': max(xs) if xs else None}
     return out
+
+
+# ── 🩺 LIVE OPERATION HEALTH: one compact line that says why the agents are or are not filling seats ──────────────────────────────
+def ops(ready_, seat, courier, keeper, moves_hr=None):
+    """→ {office, keeper, openSeats, valid, cleared, nextIn, block, code, execution, budget, cash}. Pure: every field is read from
+    state the office already holds (no fetch). execution = BLOCKED (keeper halted / Courier BAD) · DEGRADED · HEALTHY."""
+    s, r = seat or {}, ready_ or {}
+    code = s.get('code') or ''
+    halted = code == 'EXECUTION BLOCK'
+    h = (courier or {}).get('health')
+    ex = 'BLOCKED' if halted or h == 'BAD' else 'DEGRADED' if h == 'DEGRADED' else 'HEALTHY' if h == 'HEALTHY' else 'UNKNOWN'
+    return {'office': 'LIVE' if r.get('live') else 'WARMING', 'keeper': '1 active' if keeper else 'NOT THIS PROCESS',
+            'openSeats': int(_f(s.get('empty'))), 'valid': int(_f(s.get('valid'))), 'cleared': int(_f(s.get('cleared'))),
+            'nextIn': s.get('nextIn'), 'block': None if not s.get('empty') or code == 'FILLING' else s.get('reason'), 'code': code or None,
+            'execution': ex, 'budget': {'left': s.get('movesLeft'), 'of': moves_hr if moves_hr is not None else _ag.CONTROL_MOVES_HR},
+            'cash': s.get('freeUsd')}

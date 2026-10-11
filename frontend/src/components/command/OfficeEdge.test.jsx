@@ -87,3 +87,19 @@ test('missed winners and launch context: paper-only study with counts, counterfa
   expect(q(l, 'oed-launch').textContent).toContain('UNKNOWN');
   expect(q(await mount(<LaunchRecord launch={{ record: {}, pads: {} }} />), 'oed-launch').textContent).toContain('no judged call carries its launch context yet');
 });
+
+// 🩺 ops line + per-seat reasons (fixture = the backend's own office_edge.seat_state / ops output)
+test('every empty seat shows its own reason code and the ops line says why the agents are or are not filling', async () => {
+  const { OpsLine } = require('./OfficeEdge');
+  const fx = require('./__fixtures__/seatOps.json');
+  const s = await mount(<SeatState s={fx.seat} />);
+  const li = q(s, 'oed-seat-list').querySelectorAll('li');
+  expect(li.length).toBe(fx.seat.empty);
+  expect(Array.from(li).map(x => x.querySelector('.oed-tag').textContent)).toEqual(fx.seat.seats.map(x => x.code));
+  const o = await mount(<OpsLine o={fx.ops} />);
+  expect(q(o, 'oed-op-office').textContent).toContain('LIVE'); expect(q(o, 'oed-op-keeper').textContent).toContain('1 active');
+  expect(q(o, 'oed-op-open').textContent).toContain(String(fx.ops.openSeats)); expect(q(o, 'oed-op-exec').textContent).toContain('HEALTHY');
+  expect(q(o, 'oed-op-block').textContent).toContain(fx.ops.code); expect(q(o, 'oed-op-cash').textContent).toContain('$1.29');
+  expect(q(o, 'oed-op-budget').textContent).toContain(`${fx.ops.budget.left} / ${fx.ops.budget.of}`);
+  expect((await mount(<OpsLine o={null} />)).textContent).toBe('');
+});

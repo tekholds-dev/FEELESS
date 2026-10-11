@@ -246,6 +246,17 @@ def tally(state, rows, now):
     return ser, nums
 
 
+FIRST_KEEP, FIRST_SEC = 4000, 24 * 3600   # 🔎 first-seen stamps: newest 4,000 coins, ≤ 24h (the missed-winner lookback is 6h)
+
+
+def first_seen(state, now):
+    """{mint: {t, c, r, l}} = the first call the desk ever stamped on a coin, kept past the tape's eviction, bounded."""
+    fs = {m: v for m, v in ((state or {}).get('first') or {}).items() if now - _f((v or {}).get('t')) <= FIRST_SEC}
+    if len(fs) > FIRST_KEEP:
+        fs = dict(sorted(fs.items(), key=lambda kv: -_f(kv[1].get('t')))[:FIRST_KEEP])
+    return fs
+
+
 # ── 🔍 SHERLOCK ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 def drivers(n, row):
     """What is moving this coin, from Tally's numbers + the coin's read / tape / callers → [driver keys]."""
@@ -526,6 +537,8 @@ def desk(state, rows, now, dial=None, busted=None, weather_fn=None, candles=None
     ser, nums = tally(st, rows, now)
     perf['tally'] += _t.perf_counter() - t0
     st['series'] = ser
+    first_ = first_seen(st, now)
+    st['first'] = first_
     learned['regime'] = regime(nums)
     if weather_fn:   # 🌦 Weather (office.weather) reads the board once a pass; ONLY its clamped bar adjustment reaches Trigger — never a gate
         t0 = _t.perf_counter(); wx = weather_fn(nums, rows, st, now); perf['weather'] = _t.perf_counter() - t0
@@ -578,6 +591,8 @@ def desk(state, rows, now, dial=None, busted=None, weather_fn=None, candles=None
         s_ = ser.get(m) or []
         if s_ and next((p_.get('c') for p_ in reversed(s_) if p_.get('c')), None) != call[0]:   # 🔎 Tally's tape keeps Trigger's call each time it CHANGES (the missed-winner study reads the first one)
             s_[-1].update(c=call[0], r=str(reason)[:60], l=why['lean'])
+        if m not in first_:   # 🔎 the FIRST stamp survives the tape's eviction (15 points × 160 coins): a coin read hours ago is never "never discovered"
+            first_[m] = {'t': now, 'c': call[0], 'r': str(reason)[:60], 'l': why['lean']}
         t0 = _t.perf_counter(); dargs = devil_args(call, n, why, {**r, 'mint': m}, learned) if call == 'enter' else []
         verdict, arg = ('—', '') if call != 'enter' else (('object', dargs[0][1]) if dargs else ('agree', 'no evidence against it')); perf['devil'] += _t.perf_counter() - t0
         if learned['trial'] == 'devil' and verdict == 'agree' and why['lean'] < bar_ + TRIAL_BAR:   # 👨‍⚖️ Devil on trial: only strong reads pass
