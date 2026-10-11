@@ -99,3 +99,10 @@ def test_the_fill_hands_the_trench_flag_to_the_seat():
     src = open('backend/reputation_service.py').read()
     i = src.index('cur = _prime.agent_seat(cur, {')
     assert "'trench': t_['trench']" in src[i:i + 400]   # $MM was refused at the general $16K floor: the flag never reached the leg
+
+
+def test_keeper_tops_up_agent_seats_but_never_a_young_pick_ticket():
+    import fuse_wallet as fw
+    assert fw.agent_seat({'ticket': True, 'bought': {'tag': '🤖 agents · seat floor'}})
+    assert not fw.agent_seat({'ticket': True, 'bought': {'tag': '🎟 your pick'}})
+    assert not fw.agent_seat({})

@@ -93,7 +93,7 @@ def target(card, prices):
         px = _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
         t = out.setdefault(l['mint'], {'units': 0.0, 'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'px': px, 'role': l.get('role'), 'arena': bool(l.get('arena')), 'trench': bool(l.get('trench')), 'picked': bool(l.get('picked')),
                                        'trim': bool(l.get('trimAt')) and _f(l.get('trimAt')) > 0, 'trimAt': _f(l.get('trimAt')),
-                                       'manualCash': bool(l.get('manualCash')), 'locked': bool(l.get('ride') or l.get('frozen') or l.get('ticket') or l.get('scout') or l.get('house'))})   # 🎟 a small ticket (scout / trench drop / young hand pick) is never topped up to a full seat
+                                       'manualCash': bool(l.get('manualCash')), 'locked': bool(l.get('ride') or l.get('frozen') or (l.get('ticket') and not agent_seat(l)) or l.get('scout') or l.get('house'))})   # 🎟 a small ticket (scout / trench drop / young hand pick) is never topped up to a full seat
         t['units'] += _f(l.get('units')) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)   # a coin whose buy hasn't landed is still WANTED
     return out
 
@@ -314,6 +314,13 @@ def refused_now(book, mint, now):
 
 
 SWEEP_WAIT_SEC = 300   # idle cash waits this long after a failed / refused buy (the engine is re-picking that seat)
+
+
+def agent_seat(l):
+    """🤖 A coin the agents put in a seat (tag 🤖 …). It carries `ticket` for the engine's own doors, but for the keeper it is a FULL
+    seat: idle card cash tops it up toward an equal share (owner, 2026-10-11: "use all card cash and recycle it into the card until
+    breakeven and doubled" — $0.74 of a $0.94 card sat idle because every agent seat read as a never-top-up ticket)."""
+    return str(((l or {}).get('bought') or {}).get('tag') or '').startswith('🤖')
 
 
 def idle_sweep(card_id, card, book, tgt, sol_free, sol_px, cfg, now):

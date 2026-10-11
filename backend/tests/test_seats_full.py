@@ -77,11 +77,12 @@ def test_an_empty_seat_takes_the_best_available_only_after_it_waited_and_only_wh
     assert len(oe.fill_plan(_ctx(emptyFor=999, used=oe._ag.CONTROL_MOVES_HR - 1))) == 1           # the hourly buy budget still caps it
 
 
-def test_warden_gives_a_best_available_coin_half_a_seat_at_most():
+def test_warden_gives_a_best_available_coin_a_full_seat():
+    """Owner, 2026-10-11: "use all card cash" — W19 no longer halves a best-available / seat-floor fill (NEAR_SIZE 1.0)."""
     base = {'liq': 500_000, 'ageH': 30, 'courier': 'OK'}
     full = of.warden(1.0, base)
-    half = of.warden(1.0, {**base, 'near': 'best available after 90s — not yet: chart'})
-    assert half['allowed'] <= full['allowed'] * 0.5 + 1e-9 and any(r['id'].startswith('W19') for r in half['rules'])
+    near = of.warden(1.0, {**base, 'near': 'best available after 30s — not yet: chart'})
+    assert of.NEAR_SIZE == 1.0 and abs(near['allowed'] - full['allowed']) < 1e-9
 
 
 def test_the_service_wires_best_available_into_the_one_fill_path():

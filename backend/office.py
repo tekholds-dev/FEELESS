@@ -318,6 +318,9 @@ def courier(ledger, book, now, card=None, office=None):
 
 
 # ── 🛡 WARDEN ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+NEAR_SIZE = 1.0   # 🪑 W19: a best-available / seat-floor fill takes a FULL equal seat (owner, 2026-10-11: "use all card cash") — was 0.5
+
+
 def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
     """🛡 How much of an EXISTING real-card move may go ahead. `requested` = the $ the card's own rule would spend; `ctx` = measured
     values (card value / put-in / peak, lives, last real results, the candidate's pool / age / 5-min move / top-10, the weather, the
@@ -370,7 +373,7 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
         hit('W16 identity', 0.5, f"identity confidence {_f(cc['confidence']):.0f}/100: {'; '.join(cc.get('flags') or [])[:120]}")
         rules[-1]['evidence'] = {'sourceUrl': cc.get('sourceUrl'), 'flags': list(cc.get('flags') or [])[:3], 'at': (c.get('social') or {}).get('at')}
     if c.get('near'):   # 🪑 best available (the entry moment is not confirmed): half a seat at most — the rest of the evidence earned the other half
-        hit('W19 entry not confirmed', 0.5, str(c['near'])[:160])
+        hit('W19 entry not confirmed', NEAR_SIZE, str(c['near'])[:160])
     if c.get('openSeats') and c.get('free') is not None:   # 🪑 multi-seat sizing: the first valid seat may not make the other open seats impossible
         m_, why_ = _so.seat_room(req, c.get('free'), c.get('openSeats'), floor)
         if why_:

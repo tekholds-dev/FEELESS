@@ -3127,3 +3127,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   audit (`_jup_judge`, same gates as `_open_scan_judge`, live authority = flagged) — every candidate read "holders not scanned" while the RPC
   scanner queued · Agents tab $/% move live (`lib/agentLive.liveOverlay` on the shared 3s `useLivePrices`, against each position's entry) ·
   `.hq-real .hrt-acts` unpinned under 1180px (the wrapped bar covered the card).
+- 💵 ALL CARD CASH WORKS (owner, 2026-10-11: "use all card cash, recycle into the card until breakeven and doubled"): `office.NEAR_SIZE` 1.0 (W19
+  no longer halves a best-available / seat-floor fill) · `fuse_wallet.agent_seat(l)` (tag 🤖…) exempts agent coins from the keeper's ticket
+  lock, so `idle_sweep` tops them up toward an equal share once every seat is held (banked profit goes straight back in; payouts are already
+  impossible under put-in). Young hand-pick tickets stay locked. Top-up "can't add $1": wallet $2.64 = card $0.74 + fee reserve 0.019 SOL
+  ($2.11) → $0 free; the reserve is the owner's setting (HQ › Fuse › 👛) — never lowered by an agent.
