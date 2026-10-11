@@ -3063,6 +3063,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   ledger has a FILLED buy of that coin for the card at / after it, or while it may still be landing (≤ `BUY_LAND_SEC` 180s); a seat that went
   back to cash without a buy is not a buy. Swap events now carry the new coin's `mint`. (The two 08:40 seats that never bought used 2 of 6.)
 - 🪑 TIME EXITS WAIT FOR A FREE BUY (`office.merge_reaper(.., buys_left)`, `TIME_EXITS` R9 / R9e): with the hourly buy budget used, "windows used /
-  no extension earned / time" no longer sells a flat coin to cash — the seat could not be refilled this hour (2026-10-11: 15-minute R9 exits
+  no extension earned / time" no longer sells a flat coin to cash while there is no buy to spare after the empty seats (buys left − open seats ≤ 0) (2026-10-11: 15-minute R9 exits
   emptied seats the budget then kept empty for up to an hour). The report carries `deferred`; the seat board reads HOLD with the reason.
   Stops, rug / drain / scan exits, invalidation (R5t), trails, the take line and the creator's max hold (R9c) are never deferred.

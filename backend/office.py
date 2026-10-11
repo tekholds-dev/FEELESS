@@ -638,7 +638,7 @@ TIME_EXITS = ('R9', 'R9e')   # thesis-review TIME exits (windows used / no exten
 def merge_reaper(decisions, reports, buys_left=None):
     """Reaper's requests join the card's EXISTING agent decisions (the list `agents.manage` returns and the service already acts on): a
     coin the desk would hold is pulled when Reaper asks; a swap / pull the desk already decided stands. No new action kind exists.
-    🪑 With the hourly buy budget used (`buys_left` ≤ 0) a TIME exit is deferred: the seat could not be refilled this hour, so selling a flat
+    🪑 With no buy to spare (`buys_left` = buys left this hour − seats already empty, ≤ 0) a TIME exit is deferred: the seat could not be refilled this hour, so selling a flat
     coin to cash only pays the exit and leaves the seat idle (2026-10-11: 15-minute R9 exits emptied seats the budget then kept empty).
     Stops, the rug / drain / scan exits, invalidation, trails, the take line and the creator's max hold are never deferred."""
     out = list(decisions or [])

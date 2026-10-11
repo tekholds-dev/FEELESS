@@ -160,6 +160,9 @@ def test_time_exits_wait_while_the_buy_budget_is_used_safety_exits_never_do():
     r_ = [dict(r) for r in rep]
     of.merge_reaper(dec, r_, buys_left=0)
     assert 'buy budget' in r_[0]['deferred'] and 'deferred' not in r_[1]
+    import inspect
+    import reputation_service as rs
+    assert 'moves_ - open_n' in inspect.getsource(rs._prime_tick_inner)                            # the open seats take the free buys first
 
 
 def test_a_deferred_time_exit_reads_hold_on_the_seat_board():
