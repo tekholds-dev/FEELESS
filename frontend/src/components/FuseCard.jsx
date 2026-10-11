@@ -133,8 +133,8 @@ export function LiveFuseCard({ r: r0, aura = '', look = null, label = null, serv
       return <li key={l.pairAddress + (l.sig || '')} className={`fcd-leg ${l.soldUsd != null ? 'is-out' : ''} ${st}`}
       data-tip={`${l.symbol}: in ${m$(l.usd)} → now ${m$(l.valueUsd)}${l.priceNow ? ` · price $${fmtPx(l.priceNow)}` : ''}${l.soldUsd != null ? ' · sold' : (l.realizedUsd || 0) > 0 ? ` · took ${m$(l.realizedUsd)}` : ''}${!l.priced && l.soldUsd == null ? ' · no live price' : ''}`}>
       <b><LegLogo l={l} />{l.role === 'runner' ? '🏃 ' : l.role === 'anchor' ? '⚓ ' : ''}{l.symbol}{STATE_ICON[st] && <i className="fcl-st">{STATE_ICON[st]}</i>}</b>
-      <em key={l.buying ? 'b' : l.pnlPct.toFixed(1)} className={`fcl-flip ${l.buying ? 'fcd-buying' : l.pnlPct >= 0 ? 'up' : 'down'}`}>{l.buying ? '⏳ buying…' : l.soldUsd != null ? 'sold' : `${l.pnlPct >= 0 ? '+' : ''}${l.pnlPct.toFixed(1)}% · ${l.pnlUsd >= 0 ? '+' : '−'}${m$(Math.abs(l.pnlUsd || 0)).replace('−', '')}`}</em>
-      <span>{l.buying ? 'keeper retries next tick' : `${m$(l.usd)} in → ${m$(l.valueUsd)} now`}</span>
+      <em key={l.open ? 'o' : l.buying ? 'b' : l.pnlPct.toFixed(1)} className={`fcl-flip ${l.open ? 'fcd-open' : l.buying ? 'fcd-buying' : l.pnlPct >= 0 ? 'up' : 'down'}`}>{l.open ? '○ seat open' : l.buying ? '⏳ buying…' : l.soldUsd != null ? 'sold' : `${l.pnlPct >= 0 ? '+' : ''}${l.pnlPct.toFixed(1)}% · ${l.pnlUsd >= 0 ? '+' : '−'}${m$(Math.abs(l.pnlUsd || 0)).replace('−', '')}`}</em>
+      <span>{l.open ? 'the next clean coin takes it' : l.buying ? 'keeper retries next tick' : `${m$(l.usd)} in → ${m$(l.valueUsd)} now`}</span>
       {l.soldUsd == null && <LegFlow l={l} m5={m5} h1={live.get(l.pairAddress)?.h1} />}</li>; })}</ul>
     <dl className="fcd-sum"><dt>Put in</dt><dd>{m$(r.costUsd)}</dd><dt>In card</dt><dd>{m$(r.valueUsd - paid)}</dd><dt>Paid out</dt><dd className="up">{m$(paid)}</dd>
       <dt>P&L</dt><dd className={up ? 'up' : 'down'}><b>{m$(r.pnlUsd)} ({up ? '+' : ''}{r.pnlPct.toFixed(1)}%)</b></dd></dl>

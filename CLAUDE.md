@@ -3121,3 +3121,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   no Trigger skip, chart risk > 0 · chart not invalid / bot ladder / liquidity failure / downtrend / collapsing); live check (≥ 15 moving candles) + Warden
   W19 half seat + keeper still decide. `CONTROL_MIN_LIQ` $20K → $10K and lane legs carry `trench` → the keeper's trench floor ($8K): the lane is
   launches under $1M, whose pools are $10–20K (17 of 30 scan-passed lane coins sat under the old $20K line; the seat floor had 1 coin, now ~9).
+- 🪑 SEATS FULL, part 2 (2026-10-11): lane age 24h → 72h (`AGENT_MAX_AGE_H`) · ANY reserved seat (incl. an owner's ✂ sell-all `manualCash`
+  slot — its cash is plain card cash) is OPEN for the agents (`agent_seat` replaces it; HeeHaw's held one seat for 2.5h) · the card view carries
+  `placeholder` → the face reads "○ seat open", never "⏳ buying…" · the agents' intake rows (newest launches off the board) get Jupiter's holder
+  audit (`_jup_judge`, same gates as `_open_scan_judge`, live authority = flagged) — every candidate read "holders not scanned" while the RPC
+  scanner queued · Agents tab $/% move live (`lib/agentLive.liveOverlay` on the shared 3s `useLivePrices`, against each position's entry) ·
+  `.hq-real .hrt-acts` unpinned under 1180px (the wrapped bar covered the card).

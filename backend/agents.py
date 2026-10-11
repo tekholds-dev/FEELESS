@@ -1298,7 +1298,7 @@ def stage_of(age_h):
 
 
 AGENT_MAX_MCAP = 1_000_000.0   # 🎯 owner, 2026-10-11: "only less than 1mil mc now!!! ONLY" (was $3M an hour earlier)
-AGENT_MAX_AGE_H = 24.0         # 🗑 and NEW launches: "still going for the safest coins" — the old flat coins best-available kept filling seats with
+AGENT_MAX_AGE_H = 72.0         # 🗑 and NEW launches (24h → 72h, owner "widen the window", same day): "still going for the safest coins" — the old flat coins best-available kept filling seats with
 
 
 def under_cap(row, cap=AGENT_MAX_MCAP):

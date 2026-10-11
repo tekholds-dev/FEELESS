@@ -290,7 +290,7 @@ body.theme-day .hrt-gauge { background: #fff; border-color: #d8e2dc; } body.them
 .ce-typed { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; align-items: end; margin: 6px 0; }
 .ce-typed label { display: grid; gap: 3px; } .ce-typed small { font-family: var(--m-mono); font-size: 9.5px; letter-spacing: .1em; color: var(--m-dim); text-transform: uppercase; }
 .hrt-acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .hrt-top-up { display: inline-flex; gap: 4px; } .hrt-top-up .m-input { width: 70px; }
-.fcd-legs .fcd-leg em.fcd-buying { color: var(--gold); }
+.fcd-legs .fcd-leg em.fcd-buying { color: var(--gold); } .fcd-legs .fcd-leg em.fcd-open { color: var(--m-mute, #8fa79a); }
 .hq-real .prime-txs i { font-style: normal; font-size: 10px; }
 .cyb { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; } .cyb small { font-family: var(--m-mono); font-size: 9px; letter-spacing: .12em; color: var(--m-dim); } .cyb .m-input { width: auto; min-width: 110px; padding: 6px 8px; font-size: 12px; } .cyb b { font-size: 11px; color: var(--m-accent); }
 .ce-now { font-style: normal; font-size: .62em; opacity: .85; letter-spacing: 0; }
@@ -383,6 +383,7 @@ body.theme-day .ce-group .m-label { color: #0b7a4a; } body.theme-day .ce-row sma
 @keyframes hrIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 body.fx-lite .hq-real-card::before, body.fx-lite .hrt-fold[open] > :not(summary) { animation: none; }
 @media (prefers-reduced-motion: reduce) { .hq-real-card::before, .hrt-fold[open] > :not(summary) { animation: none; } .hrt-coins li, .hrt-fold > summary::after { transition: none; } }
+@media (max-width: 1180px) { .hq-real .hrt-acts { position: static; } }   /* wrapped into 3–4 rows (~220px) the pinned bar covered the card's goal + money tiles */
 body.theme-day .hrt-fold { background: #fff; border-color: #d8e2dc; } body.theme-day .hq-real .hrt-acts { background: #fffffff0; } body.theme-day .hq-real-card::before, body.theme-day .hq-real-card::after { display: none; }
 @media (max-width: 640px) { .hq-real-card { position: static; padding: 14px 10px; } .hq-real-card > * { zoom: 1; } .hq-real .hrt-acts { position: static; } .hrt-coins li { grid-template-columns: minmax(0, 1fr) auto; row-gap: 6px; } .hrt-coins li > .hrt-ctl { grid-column: 1 / -1; flex-wrap: wrap; justify-content: flex-start; min-width: 0; } }
 

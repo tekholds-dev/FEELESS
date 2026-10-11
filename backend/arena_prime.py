@@ -3080,7 +3080,7 @@ def summary(card, prices, cfg=None):
     rot = _f((cfg or {}).get('rotateHours')) or DEFAULT_CFG['rotateHours']
     paid = round(_f(card.get('walletUsd')), 4)
     legs = [{**{k: l[k] for k in ('mint', 'pairAddress', 'symbol', 'role', 'entry', 'units', 'costUsd')}, 'stars': l.get('stars') or 3,
-             'house': bool(l.get('house')), 'ticket': bool(l.get('ticket')), 'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'), 'tp': l.get('tp'), 'sl': l.get('sl'), 'division': l.get('division'), 'swapTo': (l.get('swapTo') or {}).get('symbol'), 'ride': bool(l.get('ride')), 'high': l.get('high'), 'rideFrom': l.get('rideFrom'), 'bought': l.get('bought'), 'picked': bool(l.get('picked')), 'buying': bool(l.get('buying')),
+             'house': bool(l.get('house')), 'ticket': bool(l.get('ticket')), 'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'), 'tp': l.get('tp'), 'sl': l.get('sl'), 'division': l.get('division'), 'swapTo': (l.get('swapTo') or {}).get('symbol'), 'ride': bool(l.get('ride')), 'high': l.get('high'), 'rideFrom': l.get('rideFrom'), 'bought': l.get('bought'), 'picked': bool(l.get('picked')), 'buying': bool(l.get('buying')), 'placeholder': bool(l.get('placeholder')),   # a reserved seat: the screen shows it OPEN, never "buying…"
              'loseRounds': int(l.get('loseRounds') or 0),
              'firstEntry': l.get('firstEntry') or l['entry'], 'at': l.get('at'), 'now': _f(prices.get(l['pairAddress'])) or l['entry'],
              'pnlPct': round(((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100, 2) if l['entry'] else 0.0,
@@ -3366,7 +3366,7 @@ SEAT_QUEUE_MAX = 5
 def agent_seat_usd(card, prices, cfg):
     """What `agent_seat` would spend on the next empty seat: an equal share of the card, capped by the FREE card cash. (The Warden is
     shown this number and may only lower it.)"""
-    legs = [l for l in (card or {}).get('legs') or [] if not (l.get('placeholder') and not l.get('manualCash'))]
+    legs = [l for l in (card or {}).get('legs') or [] if not l.get('placeholder')]   # a reserved seat with no coin is an OPEN seat for the agents
     want = int(_f((cfg or {}).get('coins')))
     free = max(0.0, _f((card or {}).get('cash')) - _f((card or {}).get('holdCashUsd')))
     total = sum(_f(l.get('units')) * (_f((prices or {}).get(l['pairAddress'])) or _f(l.get('entry'))) for l in legs) + free
@@ -3380,7 +3380,7 @@ def agent_seat(card, row, prices, cfg, now, min_usd=0.05, max_usd=None):
     a draining pool still take it out). → new card. ValueError = no empty seat / not enough free cash / no price."""
     c = {**card, 'legs': [dict(l) for l in card.get('legs') or []], 'events': list(card.get('events') or [])}
     want = int(_f((cfg or {}).get('coins')))
-    c['legs'] = [l for l in c['legs'] if not (l.get('placeholder') and not l.get('manualCash'))]
+    c['legs'] = [l for l in c['legs'] if not l.get('placeholder')]   # 🪑 any reserved seat (incl. an owner's ✂ sell-all slot: its cash is plain card cash) is the seat being filled
     if any(l.get('mint') == row.get('mint') for l in c['legs']):
         raise ValueError('already on the card')
     if not want or len(c['legs']) >= want:

@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner';
 import { openCoin } from '../CoinDrawer';
 import { openWarRoom } from '../WarRoomHost';
+import { useLivePrices } from '../../lib/livePrices';
+import { liveOverlay, livePairs } from '../../lib/agentLive';
 import '../../styles/agentDesk.css';
 import { pct, tone, CALL, VERDICT, VERD, rowState, rowWhy, pipsOf, leanFill } from '../../lib/agentRead';
 import { MiniScreen, ZoomScreen, CardNow, CourtBand, MissionBar, DutyBox, GrowthCards, PowerLadder } from './AgentScreens';
@@ -227,7 +229,8 @@ const Kpi = ({ id, label, val, sub, cls, on, onClick, tip }) => <button type="bu
 const Ring = ({ v, icon }) => <span className="agd-ring" aria-hidden><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" /><circle cx="20" cy="20" r="16" className={v == null ? 'is-none' : v >= 55 ? 'is-up' : v >= 45 ? 'is-mid' : 'is-dn'} strokeDasharray={`${Math.max(0, Math.min(100, v || 0))} 100`} pathLength="100" /></svg><b>{icon}</b></span>;
 
 export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
-  const [d, setD] = useState(null); const [busy, setBusy] = useState(false); const [sel, setSel] = useState('tally'); const [who, setWho] = useState('all'); const [zoom, setZoom] = useState(null); const [jump, setJump] = useState(null);
+  const [d0, setD] = useState(null); const livePx = useLivePrices(livePairs(d0)); const d = liveOverlay(d0, livePx);   // 👁 positions + seats move with live prices (3s), against their entry snapshot
+  const [busy, setBusy] = useState(false); const [sel, setSel] = useState('tally'); const [who, setWho] = useState('all'); const [zoom, setZoom] = useState(null); const [jump, setJump] = useState(null);
   const [lens, setLensS] = useState(() => lens0 || (l => (LENSES.some(x => x[0] === l) ? l : 'live'))(mem.get('feeless.agentLens', 'live'))); const [drawer, setDrawer] = useState(null); const [office, setOffice] = useState(() => mem.get('feeless.agentRoom', 'on') !== 'off');
   const setLens = k => { setLensS(k); mem.set('feeless.agentLens', k); };
   const load = useCallback(() => call('/admin/agents').then(setD).catch(e => toast.error(e.message)), [call]);

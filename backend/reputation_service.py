@@ -6296,6 +6296,27 @@ def _open_scan_judge(pair, mint, rcfg):
     return out
 
 
+def _jup_judge(pair, mint, facts, rcfg):
+    """(safe, fails, facts) from JUPITER'S AUDIT when our own RPC holder scan has not landed — the same stand-in the runner board and the
+    open board already use (`lite_intel`), judged by the SAME candidate + safety gates; live mint / freeze authority = flagged. Why
+    (2026-10-11): the agents' intake rows for the newest launches never got it, so every seat's best candidate read "holders not scanned"
+    while the RPC scanner (≈ 1 call/s) worked through its queue, and the real card sat with 4 empty seats. Our full scan still replaces it."""
+    it = _ja.lite_intel(facts)
+    if not it or it.get('top10Pct') is None:
+        return None
+    try:
+        creator = it.get('creator')
+        brec = _block_load()['wallets'].get(creator) if creator else None
+        flagged = bool(creator and ((_is_blocked(brec) and brec.get('reported')) or (_shield_cache.get(creator, (0, {}))[1] or {}).get('verdict') == 'bot')) or _ja.authority_bad(facts)
+        c = _rn.candidate(pair, it, flagged, False, time.time() * 1000, mayhem=mint in _mayhem_mints)
+        if not c.get('scanned') or _fuse._f(c.get('top10')) <= 0:
+            return None
+        bad = _rn.safety_fails(c, rcfg)
+        return (not bad, bad[:4], {k: c.get(k) for k in ('top10', 'dev', 'insiders', 'bundled')})
+    except Exception:
+        return None
+
+
 import pump_calls as _pc
 
 _pump_calls: dict = {'at': 0.0, 'board': {'coins': [], 'top': [], 'latest': [], 'n': 0}, 'map': {}, 'ok': 0.0}
@@ -9617,7 +9638,7 @@ async def _prime_tick_inner(now):
             lost_ = {m_ for m_, at_ in (_office_state().get('lostAt') or {}).items() if now - _fuse._f(at_) < _oe.FAILED_SEC}   # a thesis that failed on real money is not bought back for 6h
             cases_ = _ag.investigate(_agents.get('table'), {l.get('mint') for l in cur.get('legs') or []}, _ag.min_age_of(cfg_t), (_json_load(AGENTS_PATH, {}).get('burned') or {}), top=0) if ctl_ else []
             picks_ = [c_['row'] for c_ in cases_ if c_['cleared'] and not _fw.dollar_named(c_.get('symbol')) and c_['mint'] not in cool and c_['mint'] not in lost_] if ctl_ else None
-            full_ = bool(ctl_ and len([l for l in cur.get('legs') or [] if not (l.get('placeholder') and not l.get('manualCash'))]) >= pol_['seats'])
+            full_ = bool(ctl_ and len([l for l in cur.get('legs') or [] if not l.get('placeholder')]) >= pol_['seats'])
             # 🔌 a coin is "off their radar" only when the office is LIVE again after a restart AND it has been missing for the grace
             radar_ = {m_ for m_, p_ in (_office.get('pos') or {}).items() if _oe.radar_gone(p_.get('offSince'), now, rd_['live'])}
             # 📈 P/L VELOCITY (real valuation reads of every held seat) + 🏅 the SEAT SCORE of every case and every held seat: the challengers are
@@ -9640,7 +9661,7 @@ async def _prime_tick_inner(now):
                               scores=scores_ if ctl_ and scores_ else None, vels=vels_ or None)
             # 🪑 A TIME EXIT IS A SWAP (owner: "no seat should be empty, 30 secs to choose what gets swapped"): it fires only while a buy is free AND
             # a replacement is ready NOW (cleared cases + best-available coins, after the empty seats take theirs) — never a flat coin sold into cash
-            open_n = max(0, int(_fuse._f((pol_ or {}).get('seats'))) - len([l for l in cur.get('legs') or [] if not (l.get('placeholder') and not l.get('manualCash'))]))
+            open_n = max(0, int(_fuse._f((pol_ or {}).get('seats'))) - len([l for l in cur.get('legs') or [] if not l.get('placeholder')]))
             spare_ = None
             if fills_left_ is not None:
                 on_r = {l.get('mint') for l in cur.get('legs') or []}
@@ -9707,7 +9728,7 @@ async def _prime_tick_inner(now):
             # best CLEARED case (every safety check + chart + data gate passed, only Trigger's bar waived) fills one seat per seat target
             # (30s / 60s) — from candidates ALREADY known, no new fetch. Same Warden, same keeper, same hourly budget. No candidate = cash.
             cfg_s = {**cfg_t, 'coins': pol_['seats']}
-            held_n = len([l for l in cur.get('legs') or [] if not (l.get('placeholder') and not l.get('manualCash'))])
+            held_n = len([l for l in cur.get('legs') or [] if not l.get('placeholder')])
             empty_n = max(0, pol_['seats'] - held_n)
             if empty_n and not cur.get('agentEmptyAt'):
                 cur['agentEmptyAt'] = now
@@ -9788,7 +9809,7 @@ async def _prime_tick_inner(now):
                     cur.pop('agentExitAt', None); cur.pop('agentEmptyAt', None); _office.pop('validSince', None)
                 except ValueError:
                     break
-            held_n = len([l for l in cur.get('legs') or [] if not (l.get('placeholder') and not l.get('manualCash'))])   # 🪑 the seat truth AFTER this tick's fills
+            held_n = len([l for l in cur.get('legs') or [] if not l.get('placeholder')])   # 🪑 the seat truth AFTER this tick's fills
             _agents['seat'] = {**_oe.seat_state({**seat_ctx_, 'held': held_n, 'vetoed': vetoed_, 'valid': [t_ for t_ in valid_ if t_['mint'] not in {l.get('mint') for l in cur.get('legs') or []}] if held_n < pol_['seats'] else valid_}),
                                'at': now, 'tickEvery': round(every_, 1), 'movesLeft': max(0, _ag.FILL_MOVES_HR - used_), 'freeUsd': round(max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd'))), 2)}
             _agents['card'] = _ag.card_seats(cur, _agents.get('decisions'), px, cfg_t, take=_of.take_line(cfg_t, _agents.get('scalp')))
@@ -12712,7 +12733,7 @@ async def _intake_pass(ob, now):
             if not r:
                 continue
             r['curve'] = not t_.get('graduatedPool') and (pr.get('dexId') == 'pumpfun' or t_.get('bondingCurve') is not None)   # still on its launch curve
-            sc = _open_scan_judge(pr, m_, rcfg)
+            sc = _open_scan_judge(pr, m_, rcfg) or _jup_judge(pr, m_, _ja.facts(t_), rcfg)   # 🧪 Jupiter's audit stands in until our own scan lands
             r.update({'front': _trench.front_score(r), 'safe': None if not sc else bool(sc[0]), 'fails': ['not scanned yet — holders unknown'] if not sc else list(sc[1] or []),
                       'soft': True, 'open': True, 'outlet': True, **({k_: v_ for k_, v_ in (sc[2] or {}).items() if v_ is not None} if sc and len(sc) > 2 else {})})
             extra.append(r)

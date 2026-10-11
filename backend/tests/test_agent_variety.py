@@ -47,7 +47,7 @@ def test_confirmed_agent_exit_becomes_a_lesson_once():
 
 
 def test_agents_hunt_only_new_launches_under_1m():
-    assert ag.AGENT_MAX_MCAP == 1_000_000 and ag.AGENT_MAX_AGE_H == 24
+    assert ag.AGENT_MAX_MCAP == 1_000_000 and ag.AGENT_MAX_AGE_H == 72
     assert ag.under_cap({'mcap': 990_000}) and not ag.under_cap({'mcap': 1_000_000}) and ag.under_cap({})
     assert ag.in_lane({'mcap': 400_000, 'ageH': 2}) and ag.in_lane({'ageH': 0.01})          # a seconds-old launch with no cap yet
     assert not ag.in_lane({'mcap': 400_000, 'ageH': 770})                                    # $QUBT: old and flat — never again

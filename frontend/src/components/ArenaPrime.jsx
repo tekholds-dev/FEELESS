@@ -69,7 +69,7 @@ export const primeRow = c => { const funded = c.real ? (c.realBook?.fundedUsd ||
   // 🔒 the card face shows the SAME number as ALL-TIME beside it: the price result, fees apart (it read −$1.88 next to −$1.60)
   pnlUsd: c.real ? allTime(c, funded) : total - funded, pnlPct: funded > 0 ? (c.real ? allTime(c, funded) / funded * 100 : (total / funded - 1) * 100) : 0,
   legs: c.legs.map(l => ({ pairAddress: l.pairAddress, symbol: l.symbol, role: l.role, mint: l.mint, usd: l.costUsd, tokens: l.units, valueUsd: l.usd,
-    pnlUsd: l.usd - l.costUsd, pnlPct: l.costUsd ? (l.usd / l.costUsd - 1) * 100 : 0, priced: true, priceNow: l.now, stars: l.stars, liq: l.liq, buying: l.buying || (c.real && !(l.usd > 0)) })) }); };
+    pnlUsd: l.usd - l.costUsd, pnlPct: l.costUsd ? (l.usd / l.costUsd - 1) * 100 : 0, priced: true, priceNow: l.now, stars: l.stars, liq: l.liq, buying: !l.placeholder && (l.buying || (c.real && !(l.usd > 0))), open: !!l.placeholder })) }); };   // a reserved seat is an OPEN seat, never "buying…"
 export const arenaRow = (c, live) => c.real ? primeRow(c) : revalue(primeRow(c), live);
 
 // 👑 Prime League shows the REAL card(s) + the ONE paper card doing best; the other paper cards fold away (they still run and
