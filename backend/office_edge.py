@@ -257,8 +257,12 @@ def fill_plan(ctx):
     if (not c.get('control') or pol.get('manual') or not c.get('live') or c.get('halt') or c.get('courier') == 'BAD'
             or int(_f(c.get('used'))) >= _ag.CONTROL_MOVES_HR or int(_f(c.get('empty'))) <= 0):
         return []
-    duty = list(c.get('wait') or [])[:1] if may_fill({'go': False}, pol, c.get('emptySince'), _f(c.get('now')), _f(c.get('lastFill'))) else []
-    return list(c.get('gos') or []) + duty
+    # 🪑🪑🪑🪑 every open seat may take its OWN cleared case in the same cycle (best score first, one coin per seat — never the whole system
+    # serialised behind one coin); the hourly buy budget, the Warden and `agent_seat` (one seat per coin) still decide each try
+    # + up to 3 fallbacks: a candidate the Warden vetoes (or that fails its last check) hands the seat to the NEXT ranked one in the same tick
+    duty = list(c.get('wait') or [])[:max(1, int(_f(c.get('empty')))) + 3] if may_fill({'go': False}, pol, c.get('emptySince'), _f(c.get('now')), _f(c.get('lastFill'))) else []
+    left = max(0, _ag.CONTROL_MOVES_HR - int(_f(c.get('used'))))
+    return (list(c.get('gos') or []) + duty)[:max(left, 0)]
 
 
 def cycle_due(pol, last_at, now):
@@ -281,18 +285,30 @@ def switch_test(cur, new, pol):
     nl = _f(n.get('lean') if n.get('lean') is not None else ((n.get('why') or {}).get('lean')))
     edge = round(nl - own, 2)
     bad = next((k for k in n.get('checks') or [] if not k[1]), None) if n else None
-    weak_ = c.get('verdict') in ('weak', 'invalid') or own <= 0 or held >= 2 * _f(sw.get('holdMin'))
+    vel = c.get('vel') if isinstance(c.get('vel'), str) else (c.get('vel') or {}).get('state')
+    weak_ = c.get('verdict') in ('weak', 'invalid') or own <= 0 or held >= 2 * _f(sw.get('holdMin')) or (vel == 'REVERSING' and pnl <= 0)
+    if vel == 'ACCELERATING' and c.get('verdict') != 'invalid':   # 📈 a position climbing back is not called weak on its read alone
+        weak_ = c.get('verdict') == 'weak' and held >= 2 * _f(sw.get('holdMin'))
+    # 🏅 SUPERIORITY by the seat score when both are scored (seat_ops.score: read · momentum · structure · liquidity · holders · live data ·
+    # identity · stale / dead / failed penalties · velocity · thesis) — the margin rises by ACCEL_EXTRA over an accelerating position;
+    # with no scores the old lean margin stands
+    import seat_ops as _so
+    sc_c, sc_n = c.get('score'), n.get('score')
+    scored = sc_c is not None and sc_n is not None
+    need = _so.margin_need(sw.get('mode'), vel, pnl) if scored else _f(sw.get('edge'))
+    sup = round(_f(sc_n) - _f(sc_c), 1) if scored else edge
     # every line of the test, evaluated (the page draws all of them — the first failing one is the answer)
     lines = [['switching on', bool(sw.get('on')), f"mode {sw.get('mode')}"],
              ['challenger cleared every desk', bool(n and n.get('cleared')), 'no challenger this pass' if not n else 'cleared' if n.get('cleared') else (CHECK_WORD.get(bad[0], bad[0]) if bad else 'not every desk passed it')],
              ['position not frozen / riding', not (c.get('frozen') or c.get('riding')), 'frozen' if c.get('frozen') else 'riding' if c.get('riding') else 'free'],
              ['position not a winner', not pnl > 0, f'{pnl:+.1f}%'],
              ['held long enough', held >= _f(sw.get('holdMin')), f"{held:.0f} of {_f(sw.get('holdMin')):.0f} min"],
-             ['read margin', edge >= _f(sw.get('edge')), f"{edge:+.1f} vs {_f(sw.get('edge')):+.1f} needed"],
-             ['position is weak', weak_, f"thesis {c.get('verdict') or 'unread'} · lean {own:+.1f}"]]
-    out = {'switch': False, 'edge': edge, 'need': sw.get('edge'), 'mode': sw.get('mode'), 'lines': lines,
-           'current': {'symbol': c.get('symbol'), 'pnl': round(pnl, 2), 'heldMin': round(held, 1), 'lean': round(own, 2), 'thesis': c.get('verdict'), 'structure': c.get('structure')},
-           'challenger': None if not n else {'symbol': n.get('symbol'), 'lean': round(nl, 2), 'cleared': bool(n.get('cleared')), 'structure': ((n.get('row') or n).get('chart') or {}).get('state'),
+             (['score margin', sup >= need, f"{_f(sc_n):.0f} vs {_f(sc_c):.0f} = {sup:+.0f} (needs +{need:.0f}{' — its P/L is accelerating' if vel == 'ACCELERATING' else ''})"] if scored
+              else ['read margin', edge >= _f(sw.get('edge')), f"{edge:+.1f} vs {_f(sw.get('edge')):+.1f} needed"]),
+             ['position is weak', weak_, f"thesis {c.get('verdict') or 'unread'} · lean {own:+.1f}" + (f" · P/L {vel.lower()}" if vel and vel != 'UNKNOWN' else '')]]
+    out = {'switch': False, 'edge': edge, 'need': need if scored else sw.get('edge'), 'mode': sw.get('mode'), 'lines': lines, 'margin': sup if scored else None, 'scored': scored,
+           'current': {'symbol': c.get('symbol'), 'pnl': round(pnl, 2), 'heldMin': round(held, 1), 'lean': round(own, 2), 'thesis': c.get('verdict'), 'structure': c.get('structure'), 'score': sc_c, 'vel': vel},
+           'challenger': None if not n else {'symbol': n.get('symbol'), 'lean': round(nl, 2), 'cleared': bool(n.get('cleared')), 'score': sc_n, 'structure': ((n.get('row') or n).get('chart') or {}).get('state'),
                                              'data': (((n.get('row') or n).get('chart') or {}).get('q') or {}).get('state')}}
     no = lambda why: {**out, 'why': why}
     if not sw.get('on'):
@@ -307,11 +323,14 @@ def switch_test(cur, new, pol):
         return no(f'{pnl:+.1f}% — a winner is not surrendered for a new coin')
     if held < _f(sw.get('holdMin')):
         return no(f"held {held:.0f} min — needs {_f(sw.get('holdMin')):.0f}")
-    if edge < _f(sw.get('edge')):
+    if scored and sup < need:
+        return no(f"score margin {sup:+.0f} — needs +{need:.0f} ({_f(sc_n):.0f} vs {_f(sc_c):.0f}{', its P/L is accelerating' if vel == 'ACCELERATING' else ''})")
+    if not scored and edge < _f(sw.get('edge')):
         return no(f"read margin {edge:+.1f} — needs {_f(sw.get('edge')):+.1f} (lean {nl:+.1f} vs {own:+.1f})")
     if not weak_:
         return no('the position\'s own thesis still stands — opportunity cost alone is not enough yet')
-    return {**out, 'switch': True, 'why': f"{pnl:+.1f}% after {held:.0f} min, thesis {c.get('verdict') or 'unread'}, lean {own:+.1f} → ${n.get('symbol')} cleared every desk with lean {nl:+.1f} (margin {edge:+.1f} ≥ {_f(sw.get('edge')):+.1f})"}
+    mw = f"score {_f(sc_n):.0f} vs {_f(sc_c):.0f}, margin {sup:+.0f} ≥ +{need:.0f}" if scored else f"lean {nl:+.1f}, margin {edge:+.1f} ≥ {_f(sw.get('edge')):+.1f}"
+    return {**out, 'switch': True, 'why': f"{pnl:+.1f}% after {held:.0f} min, thesis {c.get('verdict') or 'unread'}{', P/L ' + vel.lower() if vel and vel != 'UNKNOWN' else ''} → ${n.get('symbol')} cleared every desk ({mw})"}
 
 
 # ── 🚀 LAUNCH CONTEXT: only what is measurable ───────────────────────────────────────────────────────────────────────────────────
@@ -639,8 +658,8 @@ def ops(ready_, seat, courier, keeper, moves_hr=None):
 
 
 # ── 🕸 INTAKE: the full board, cheaply screened, with reserved room for what matters NOW ─────────────────────────────────────────────
-INTAKE_MAX = 240
-INTAKE_SLOTS = (('recheck', None), ('new', 50), ('accel', 25), ('grad', 20), ('momentum', 25), ('busy', 80), ('listed', 40))
+INTAKE_MAX = 300
+INTAKE_SLOTS = (('recheck', None), ('fresh', 60), ('new', 40), ('accel', 25), ('grad', 20), ('momentum', 25), ('outlets', 30), ('busy', 60), ('listed', 40))
 GRAD_AGE_H = 6.0     # a pool younger than this that is off its launch curve = a recent graduation
 
 
@@ -649,7 +668,7 @@ def _pace(r):
     return _f(r.get('vol5m')) * 12 / v1 if v1 > 0 else 0.0
 
 
-def intake(rows, recheck=(), listed=None, cap=INTAKE_MAX, cool=()):
+def intake(rows, recheck=(), listed=None, cap=INTAKE_MAX, cool=(), fresh=None, outlets=None):
     """→ the coins Tally reads this pass, each with `intake` = the reasons it got a seat at the table (deduped, ≤ cap).
     Reserved, in this order: RECHECK (held coins + last pass's cases + challengers — always) · NEW (the youngest launches the board has,
     ANY age: a coin seconds old reaches Tally on the next pass) · ACCEL (5-min volume pace vs its hour) · GRAD (off the curve, pool < 6h) ·
@@ -658,14 +677,19 @@ def intake(rows, recheck=(), listed=None, cap=INTAKE_MAX, cool=()):
     by = {r['mint']: r for r in rs}
     lst = listed or {}
     cl = set(cool or ())
+    fr, ot = fresh or {}, outlets or {}
     picks = {
         'recheck': [by[m] for m in dict.fromkeys(recheck or ()) if m in by],
-        'new': sorted((r for r in rs if r.get('ageH') is not None), key=lambda r: _f(r['ageH'])),
+        # 🆕 FRESH (reserved): the live launch / migration stream's coins, newest first — never behind an old volume leader, never cooled
+        'fresh': sorted((r for r in rs if r['mint'] in fr), key=lambda r: (_f(r['ageH']) if r.get('ageH') is not None else 99.0, -_f(r.get('vol5m')))),
+        # 🕸 OUTLETS (reserved): callouts · fed runners · radar · runner board — sources the board's own ranking may not lift
+        'outlets': sorted((r for r in rs if r['mint'] in ot and r['mint'] not in cl), key=lambda r: (-len(ot[r['mint']]), -_f(r.get('front')))),
+        'new': sorted((r for r in rs if r.get('ageH') is not None), key=lambda r: (r['mint'] in cl, _f(r['ageH']))),   # ♻ a rejected launch with nothing new goes to the back
         'accel': sorted((r for r in rs if _f(r.get('vol5m')) >= 1000 and _pace(r) > 1.0), key=lambda r: (r['mint'] in cl, -_pace(r))),
         'grad': sorted((r for r in rs if r.get('curve') is False and r.get('ageH') is not None and _f(r['ageH']) <= GRAD_AGE_H), key=lambda r: (r['mint'] in cl, -_f(r.get('vol1h')))),
         'momentum': sorted((r for r in rs if _f(r.get('vol5m')) >= 2000 and r.get('chg5m') is not None and _f(r['chg5m']) > 0), key=lambda r: (r['mint'] in cl, -_f(r['chg5m']))),
-        'busy': sorted(rs, key=lambda r: (r['mint'] in cl, -_f(r.get('front')))),   # ♻ a rejected coin with nothing new goes to the back of its slot
-        'listed': sorted((r for r in rs if lst.get(r['mint'])), key=lambda r: (r['mint'] in cl, -len(lst[r['mint']]), -_f(r.get('front'))))}
+        'busy': sorted((r for r in rs if r['mint'] not in cl), key=lambda r: -_f(r.get('front'))),   # ♻ a rejected coin with nothing new gives its seat at the table to a coin that has news
+        'listed': sorted((r for r in rs if lst.get(r['mint']) and r['mint'] not in cl), key=lambda r: (-len(lst[r['mint']]), -_f(r.get('front'))))}
     out, tags = [], {}
     for k, n in INTAKE_SLOTS:
         took = 0

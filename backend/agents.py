@@ -20,7 +20,7 @@ import chart_intel as _ci
 
 # 🕸 THE CRAWL: every place the desk pulls coins from each pass — each one is a driver `src:<key>` judged on its own record, so the agents
 # learn which corner of the trench pays (owner: "access multiple ends to get info — only for trenching")
-SOURCES = {'open': 'the open launch list', 'new': 'the newest launches (≤ 1h)', 'ptrend': 'Pump trending', 'calls': 'Pump callouts',
+SOURCES = {'open': 'the open launch list', 'new': 'the newest launches (≤ 1h)', 'pulse': 'Pump pulse (PumpPortal live launches)', 'migr': 'Pump migrations (PumpPortal live)', 'outlet': 'callouts / fed runners / radar / runner board', 'ptrend': 'Pump trending', 'calls': 'Pump callouts',
            'pump': 'Pump live', 'movers': 'movers', 'volume': 'volume leaders', 'fed': 'fed runners (paired launches)', 'wave': 'narrative leaders',
            'exhale': 'cooling-off coins', 'procall': 'proven callers', 'prebreak': 'before-the-break setups', 'double': 'double signal'}
 
@@ -171,7 +171,7 @@ AGENTS = (('tally', '📊', 'Tally', 'tracks the numbers'), ('sherlock', '🔍',
           ('trigger', '⏱', 'Trigger', 'knows when to enter'), ('devil', '⚖', 'Devil', 'argues it is right — or not'))
 STAGES = (5, 15, 60)            # minutes: conquer 5 first, then 15, then the hour
 SERIES_N = 15                   # points kept per coin (one a pass, ~1 min apart)
-SERIES_COINS = 260                # ≥ the intake (office_edge.INTAKE_MAX) so nothing read this pass loses its tape
+SERIES_COINS = 340                # ≥ the intake (office_edge.INTAKE_MAX 300) so nothing read this pass loses its tape
 KEEP_DONE = 3000
 PROVE_N, PROVE_WIN = 30, 55.0
 PROVE_X = 10.0                  # 🎯 owner, 2026-10-09: "they should trench and 10x what they start with to pass 5 min"
@@ -471,8 +471,10 @@ def devil_args(call, n, why, row, learned, duty=False, warns=None):
         w_.append(('young', 'new launch: under 15 minutes old — limited history (context, not a veto)'))
     if row.get('safe') is not True:
         args.append(('unscanned', 'holders never scanned'))
-    for fl in ((row.get('social') or {}).get('warnings') or [])[:2]:   # 🔎 identity flags from the research packet: WARNINGS (a page can be down or new)
-        w_.append(('identity', f'identity: {fl}'))
+    cc_ = (row.get('social') or {}).get('cross') or {}
+    for fl in ((row.get('social') or {}).get('warnings') or [])[:2]:   # 🔎 identity flags from the research packet: WARNINGS (a page can be down or new) — with the proof
+        proof_ = f" [launch mint {str(cc_.get('launchMint') or row.get('mint') or '?')[:8]}… · source {cc_.get('sourceUrl') or '?'} shows {str(cc_.get('sourceMint') or '?')[:8]}…]" if 'contract' in fl else ''
+        w_.append(('identity', f'identity: {fl}{proof_}'))
     if row.get('mint') in ((learned or {}).get('burned') or {}):
         args.append(('burned', 'burned us within the last 6h — a GO on it lost 20%+ in 5 min'))
     mind = row.get('mind') or {}
@@ -1339,7 +1341,7 @@ def eligible(table, on=(), min_age_h=0.0, burned=()):
     return sorted(out, key=lambda x: -_f((x.get('why') or {}).get('lean')))
 
 
-def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_left=None, picks=None, rotate=False, pol=None, radar=None, cases=None, reviews=None, live=True):
+def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_left=None, picks=None, rotate=False, pol=None, radar=None, cases=None, reviews=None, live=True, scores=None, vels=None):
     """For every coin the agents put on the card: under the take line it HOLDS (in control a coin whose read broke may be switched); AT the
     take line who decides is the creator's policy (office_edge.policy):
       CREATOR OVERRIDE take-profit, or a LEARNED scalp line (AGENTS CHOOSE, once adopted) → banked at the line: 'swap' into a fresh GO
@@ -1347,7 +1349,9 @@ def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_l
       AGENTS CHOOSE before a line is learned → the agents READ it: still clean (Trigger not SKIP, lean ≥ 0, 5-min ≥ −3%, buyers ≥ 50%) and its
       thesis not weak / invalid (Reaper's review, `reviews` {mint: verdict}) → let it run (Reaper's trail protects it); else bank it.
     `live` False (the office refilling after a restart): no read-based or switch move at all — a gap in OUR data is never a reason; a
-    coin at the take line is banked on price alone and the draining-pool pull still acts. → [{pair, symbol, action: hold | pull | swap, why, to}]"""
+    coin at the take line is banked on price alone and the draining-pool pull still acts. → [{pair, symbol, action: hold | pull | swap, why, to}]
+    `scores` {mint: seat_ops.score} + `vels` {mint: seat_ops.velocity}: a switch is judged on SUPERIORITY (score margin by switching
+    mode, +ACCEL_EXTRA over an accelerating position); a broken read whose P/L is ACCELERATING is not switched on the read alone."""
     take = _f((cfg or {}).get('agentTakePct') or 10)
     mode = (cfg or {}).get('agentMode') or 'auto'
     # ⚡ SCALP (cfg `agentScalp`, and only once a plan is adopted from their own paths): the take line is the plan's — and AT it the coin is
@@ -1404,6 +1408,14 @@ def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_l
                     broke = f"{_f(x_['nums']['d5']):+.1f}% in 5 min"
                 elif x_['nums'].get('buy') is not None and _f(x_['nums']['buy']) < 50:
                     broke = f"buyers down to {_f(x_['nums']['buy']):.0f}%"
+            vst = ((vels or {}).get(l.get('mint')) or {}).get('state')
+            if broke and vst == 'ACCELERATING':   # 📈 the read broke but the P/L is climbing: not switched on the read alone (Reaper's trail / stop still act)
+                broke = None
+            if broke and scores is not None:   # 🏅 a broken read still needs a challenger that outscores it (half the switching margin)
+                import seat_ops as _so
+                sc_c, sc_n = ((scores or {}).get(l.get('mint')) or {}).get('score'), ((scores or {}).get(gos[0].get('mint')) or {}).get('score')
+                if sc_c is not None and sc_n is not None and _f(sc_n) - _f(sc_c) < _so.margin_need(sw.get('mode')) / 2:
+                    broke = None
             if broke:
                 out.append({'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'action': 'swap', 'why': f"{pnl:+.1f}%, {broke} → switched for their GO ${gos[0]['symbol']}", 'to': gos[0]})
                 gos = gos[1:]; continue
@@ -1451,7 +1463,9 @@ def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_l
             if not x_ and not off(l.get('mint')):
                 continue   # not on the table inside the grace: its read is unknown, so it is not compared
             t_ = _oe.switch_test({'symbol': l.get('symbol'), 'pnl': pnl, 'heldMin': (now - _f(l['at'])) / 60, 'lean': _f(((x_ or {}).get('why') or {}).get('lean')), 'verdict': (reviews or {}).get(l.get('mint')),
-                                  'structure': ((x_ or {}).get('chart') or {}).get('state'), 'frozen': l.get('frozen'), 'riding': l.get('ride')}, ncase, pol)
+                                  'structure': ((x_ or {}).get('chart') or {}).get('state'), 'frozen': l.get('frozen'), 'riding': l.get('ride'),
+                                  'score': ((scores or {}).get(l.get('mint')) or {}).get('score'), 'vel': (vels or {}).get(l.get('mint'))},
+                                 {**ncase, 'score': ((scores or {}).get(new.get('mint')) or {}).get('score')}, pol)
             if t_['switch']:
                 cands.append((pnl, l, t_))
         if cands:

@@ -7,7 +7,7 @@ import { pct, tone, CALL, VERDICT, VERD, rowState, rowWhy, pipsOf, leanFill } fr
 import { MiniScreen, ZoomScreen, CardNow, CourtBand, MissionBar, DutyBox, GrowthCards, PowerLadder } from './AgentScreens';
 import { OfficeBoard, OfficeMission } from './OfficeBoard';
 import { OfficeHQ, ticker } from './OfficeRoom';
-import { ReadyStrip, SeatState, SwitchEval, CreatorLimits, ReviewQueue, MissedWinners, LaunchRecord, OpsLine, CycleLine } from './OfficeEdge';
+import { ReadyStrip, SeatState, SwitchEval, CreatorLimits, ReviewQueue, MissedWinners, LaunchRecord } from './OfficeEdge';
 
 export { rowState, rowWhy, pipsOf, leanFill };
 
@@ -254,8 +254,6 @@ export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
         <button type="button" className="m-btn" onClick={load} data-tip="Re-read the desk now (it is served from memory — no rate limit)" data-testid="agd-refresh">↻</button>
         <button type="button" className="m-btn agd-log" onClick={warLog} data-testid="agd-log">⬇ War log</button></div></header>
     <OfficeMission m={d.office?.mission} bare />
-    <OpsLine o={d.office?.ops} />
-    <CycleLine c={d.office?.cycle} acts={d.office?.seatActions} fresh={d.office?.fresh} load={d.office?.loadPass} />
     <div className="agd-kpis" data-testid="agd-kpis">
       <Kpi id="mission" label={om.phase === 'GROWTH' ? '🎓 TO 2× PUT-IN' : om.phase === 'GRADUATED' ? '🎓 2× REACHED' : '🎯 BREAKEVEN'} val={om.value != null ? `$${Number(om.value).toFixed(2)}` : '—'} cls={om.locked ? 'agd-warn' : 'm-pos'} sub={om.putIn != null ? (om.phase === 'GROWTH' ? `of $${Number(om.doubleTarget).toFixed(2)} · next stage locked` : `of $${Number(om.putIn).toFixed(2)}${om.needX ? ` · needs ${om.needX}×` : ''} · then 2× = $${Number(om.doubleTarget ?? om.putIn * 2).toFixed(2)}`) : 'no real card numbers yet'} on={open('mission') && lens !== 'all'} onClick={() => tog('mission')} tip="Phase 1: back to breakeven. Phase 2: the real card to 2× the put-in — only then can the next stage unlock. Opens the goal bars." />
       <Kpi id="seats" label="🎮 IN CONTROL" val={`${seats.filter(x => x.mint).length} / ${seats.length || '—'}`} sub={d.cfg?.agentControl ? 'seats on your card' : 'control is off'} on={open('seats') && lens !== 'all'} onClick={() => tog('seats')} tip="The real card as seats. Opens the seats with their controls (fill, swap, pull)." />

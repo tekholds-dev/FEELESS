@@ -116,20 +116,25 @@ function drawWall(g, w, h, wall, now) {
   (wall.facts || []).forEach(([k, v], i) => { const y = 64 + i * 64; const x = w - 210; g.fillStyle = '#7d998b'; g.font = mono(16, 700); g.fillText(k, x, y); g.fillStyle = '#e6fff0'; g.font = mono(28, 800); g.fillText(cut(v, 9), x, y + 30); });
   g.fillStyle = '#7d998b'; g.font = mono(17, 600); g.fillText(cut(wall.caption, 100), X, h - 26);
 }
-function drawSeat(g, w, h, s) {
-  const dc = DEC_CSS[s.decision] || '#7d998b'; g.fillStyle = s.symbol ? '#03100b' : '#06160f'; g.fillRect(0, 0, w, h); const k = KIND_CSS[s.kind] || '#7d998b'; g.fillStyle = k; g.fillRect(0, 0, w, 12);
-  g.strokeStyle = s.symbol ? k : dc; g.lineWidth = 4; g.strokeRect(2, 2, w - 4, h - 4); g.fillStyle = k; g.font = mono(22, 800); g.fillText(KIND_WORD[s.kind] || s.kind, 14, 42);
-  if (!s.symbol) { g.fillStyle = dc; g.font = mono(34, 800); g.fillText(cut(s.decision, 14), 14, 104); g.fillStyle = '#9fb3a8'; g.font = mono(21, 600); g.fillText('cash is a valid position', 14, 150); return; }
-  g.fillStyle = '#ffffff'; g.font = mono(42, 800); g.fillText(`$${cut(s.symbol, 8)}`, 14, 92);
-  g.fillStyle = s.pct == null ? '#7d998b' : s.pct >= 0 ? '#45e486' : '#ff6b86'; g.font = mono(36, 800); g.fillText(s.pct == null ? '—' : `${s.pct >= 0 ? '+' : ''}${Number(s.pct).toFixed(1)}%`, 14, 140);
-  g.fillStyle = DEC_CSS[s.decision] || '#e6fff0'; g.font = mono(22, 800); g.fillText(cut(s.buying ? 'BUYING' : s.decision, 18), 14, 180);
+const VEL_CSS = { ACCELERATING: ['▲ ACCEL', '#45e486'], STABLE: ['▬ STABLE', '#9fb3a8'], STALLING: ['◆ STALL', '#f5c451'], REVERSING: ['▼ REVERSE', '#ff6b86'], UNKNOWN: ['· READING', '#7d998b'] };
+function drawSeat(g, w, h, s) {   // one seat plate: who holds it · % since entry · P/L velocity · this cycle's result · the best challenger and its margin (open: the next candidate + why)
+  const dc = DEC_CSS[s.decision] || '#7d998b'; g.fillStyle = s.symbol ? '#03100b' : '#06160f'; g.fillRect(0, 0, w, h); const k = KIND_CSS[s.kind] || '#7d998b'; g.fillStyle = k; g.fillRect(0, 0, w, 10);
+  g.strokeStyle = s.symbol ? k : dc; g.lineWidth = 4; g.strokeRect(2, 2, w - 4, h - 4); g.fillStyle = k; g.font = mono(20, 800); g.fillText(KIND_WORD[s.kind] || s.kind, 14, 36);
+  if (!s.symbol) { g.fillStyle = dc; g.font = mono(26, 800); g.fillText(cut(s.decision, 20), 14, 80); g.fillStyle = s.ready ? '#45e486' : '#c9d8cf'; g.font = mono(28, 800); g.fillText(s.next ? `next $${cut(s.next, 8)}` : 'no candidate', 14, 122);
+    g.fillStyle = s.ready ? '#45e486' : '#f5c451'; g.font = mono(20, 800); g.fillText(s.next ? (s.ready ? 'READY' : 'NOT READY') : '', 14, 156); g.fillStyle = '#9fb3a8'; g.font = mono(17, 600); g.fillText('cash is a valid position', 14, 186); return; }
+  g.fillStyle = '#ffffff'; g.font = mono(38, 800); g.fillText(`$${cut(s.symbol, 8)}`, 14, 78);
+  g.fillStyle = s.pct == null ? '#7d998b' : s.pct >= 0 ? '#45e486' : '#ff6b86'; g.font = mono(30, 800); g.fillText(s.pct == null ? '—' : `${s.pct >= 0 ? '+' : ''}${Number(s.pct).toFixed(1)}%`, 14, 116);
+  const [vw, vc] = VEL_CSS[s.vel] || VEL_CSS.UNKNOWN; g.fillStyle = vc; g.font = mono(19, 800); g.fillText(vw, 170, 114);
+  g.fillStyle = DEC_CSS[s.decision] || '#e6fff0'; g.font = mono(22, 800); g.fillText(cut(s.buying ? 'BUYING' : s.decision, 18), 14, 152);
+  g.fillStyle = '#9fb3a8'; g.font = mono(16, 600); g.fillText(s.chal ? cut(`vs $${s.chal} ${s.margin != null ? `${s.margin >= 0 ? '+' : ''}${Math.round(s.margin)}/${Math.round(s.need)}` : ''}`, 28) : s.score != null ? `score ${Math.round(s.score)} · no challenger` : 'no challenger', 14, 184);
 }
 function drawCase(g, w, h, c) {
   const col = c.go ? '#45e486' : c.cleared ? '#6cc7ff' : '#f5c451'; g.fillStyle = c.current ? '#071a10' : '#050d0a'; g.fillRect(0, 0, w, h); g.strokeStyle = col; g.lineWidth = c.current ? 7 : 4; g.strokeRect(3, 3, w - 6, h - 6);
   g.fillStyle = '#ffffff'; g.font = mono(34, 800); g.fillText(`$${cut(c.symbol, 8)}`, 14, 44); g.fillStyle = col; g.font = mono(18, 800); g.fillText(c.go ? 'GO' : c.cleared ? 'CLEARED' : cut(c.state, 10), w - 120, 40);
   g.fillStyle = '#8fb9c9'; g.font = mono(17, 600); g.fillText(cut(`${c.structure || 'no chart'} · at ${c.at}`, 26), 14, 78);
 }
-function drawPlatform(g, w, h) { g.fillStyle = '#04140d'; g.fillRect(0, 0, w, h); g.fillStyle = '#45e486'; g.font = mono(40, 800); g.fillText('THE REAL CARD', 26, 52); g.fillStyle = '#7d998b'; g.font = mono(20, 600); g.fillText('height = % since entry · colour = who holds it', 26, 86); }
+function drawPlatform(g, w, h, sm) { g.fillStyle = '#04140d'; g.fillRect(0, 0, w, h); g.fillStyle = '#45e486'; g.font = mono(36, 800); g.fillText('THE REAL CARD', 26, 46);
+  g.fillStyle = '#e6fff0'; g.font = mono(22, 800); g.fillText(sm ? `SEATS ${sm.occupancy}/${sm.target} · BENCH ${sm.benchReady}/${sm.bench} · BUYS ${sm.buysLeft}` : 'height = % since entry · colour = who holds it', 26, 86); }
 function drawChallenger(g, w, h, sw) {
   g.fillStyle = sw.ok ? '#052014' : '#1a1405'; g.fillRect(0, 0, w, h); g.strokeStyle = sw.ok ? '#45e486' : '#f5c451'; g.lineWidth = 6; g.strokeRect(3, 3, w - 6, h - 6);
   g.fillStyle = '#8fb9c9'; g.font = mono(20, 700); g.fillText('CHALLENGER', 18, 34); g.fillStyle = '#ffffff'; g.font = mono(40, 800); g.fillText(`$${cut(sw.to || '—', 8)}`, 18, 84);
@@ -162,10 +167,11 @@ function makeBot(k) {   // a small station figure — identity comes from its co
   return { g, body, head, eyes, arms, white };
 }
 
-export default function OfficeRoom3D({ model, onSel, onCoin, cam: camMode = 'main', rotate = false }) {
+export default function OfficeRoom3D({ model, onSel, onCoin, onSeat, onBoard, cam: camMode = 'main', rotate = false }) {
   const box = useRef(null); const tip = useRef(null); const api = useRef(null); const mRef = useRef(model); const camRef = useRef(camMode); const rotRef = useRef(rotate);
   mRef.current = model; camRef.current = camMode; rotRef.current = rotate;
   const onSelRef = useRef(onSel); onSelRef.current = onSel; const onCoinRef = useRef(onCoin); onCoinRef.current = onCoin;
+  const onSeatRef = useRef(onSeat); onSeatRef.current = onSeat; const onBoardRef = useRef(onBoard); onBoardRef.current = onBoard;
 
   useEffect(() => {
     const host = box.current; if (!host) return undefined;
@@ -175,10 +181,10 @@ export default function OfficeRoom3D({ model, onSel, onCoin, cam: camMode = 'mai
     renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.18;
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     host.prepend(renderer.domElement); renderer.domElement.className = 'or3-canvas';
-    const scene = new THREE.Scene(); scene.background = new THREE.Color(0x030b08); scene.fog = new THREE.Fog(0x030b08, 26, 46);
+    const scene = new THREE.Scene(); scene.background = new THREE.Color(0x030b08); scene.fog = new THREE.Fog(0x030b08, 30, 52);
     const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.24;
-    const fovFor = a => Math.max(32, Math.min(56, (2 * Math.atan(Math.tan((64 * Math.PI) / 360) / a) * 180) / Math.PI));   // the wall + all ten desks stay in frame at any width
-    const cam = new THREE.PerspectiveCamera(fovFor(W() / H()), W() / H(), 0.1, 90); const pos = new THREE.Vector3(0, 11.6, 15.3); const look = new THREE.Vector3(0, 1.35, 0.15); cam.position.copy(pos); cam.lookAt(look);
+    const fovFor = a => Math.max(42, Math.min(56, (2 * Math.atan(Math.tan((64 * Math.PI) / 360) / a) * 180) / Math.PI));   // the wall + all ten desks stay in frame at any width (a wide, short stage keeps ≥ 42° tall: the wall's top screens never cut)
+    const cam = new THREE.PerspectiveCamera(fovFor(W() / H()), W() / H(), 0.1, 90); const pos = new THREE.Vector3(0, 13.1, 17.6); const look = new THREE.Vector3(0, 1.75, 0.15); cam.position.copy(pos); cam.lookAt(look);
     scene.add(new THREE.HemisphereLight(0xd8fff0, 0x0b1d16, 0.85));
     const key = new THREE.DirectionalLight(0xffffff, 1.7); key.position.set(-6, 14, 9); key.castShadow = true; key.shadow.mapSize.set(2048, 2048);
     Object.assign(key.shadow.camera, { left: -13, right: 13, top: 10, bottom: -10, near: 1, far: 40 }); key.shadow.normalBias = 0.03; scene.add(key);
@@ -194,11 +200,11 @@ export default function OfficeRoom3D({ model, onSel, onCoin, cam: camMode = 'mai
     [-11.2, 11.2].forEach(x => { box3(0.2, 7.4, 14, M(0x07150f, 0.86), x, 3.7, 1.8); box3(0.06, 0.06, 14, E(0x15d16a, 0.9), x + (x < 0 ? 0.12 : -0.12), 0.22, 1.8, false); });
     // the wall: sign · your limits + readiness (left) · the candidate monitor (centre) · pipeline status · switch test + missed winners (right)
     const sign = tex(720, 230, drawSign); plane(4.3, 1.37, sign, -8.0, 5.4, WALL + 0.03);
-    const limT = tex(640, 300, drawLimits); plane(4.3, 2.02, limT, -8.0, 3.25, WALL + 0.03);
+    const limT = tex(640, 300, drawLimits); const limP = plane(4.3, 2.02, limT, -8.0, 3.25, WALL + 0.03, { kind: 'board', board: 'limits' });
     const wallT = tex(1400, 640, drawWall); box3(9.8, 4.6, 0.12, M(0x0b1118, 0.3, 0.4), -0.3, 4.4, WALL + 0.0);
     const wallP = plane(9.6, 4.39, wallT, -0.3, 4.4, WALL + 0.07, { kind: 'wall' });
-    const statT = tex(512, 336, drawStatus); plane(4.0, 2.62, statT, 7.6, 5.2, WALL + 0.03);
-    const edgeT = tex(512, 300, drawEdge); plane(4.0, 2.34, edgeT, 7.6, 2.55, WALL + 0.03);
+    const statT = tex(512, 336, drawStatus); const statP = plane(4.0, 2.62, statT, 7.6, 5.2, WALL + 0.03, { kind: 'board', board: 'pipeline' });
+    const edgeT = tex(512, 300, drawEdge); const edgeP = plane(4.0, 2.34, edgeT, 7.6, 2.55, WALL + 0.03, { kind: 'board', board: 'switch' });
 
     const rugT = radial(); const deskM = M(0x1d3a2d, 0.3, 0.35); const legM = M(0x2a3d34, 0.3, 0.7);
     const st = (mRef.current?.stations || []).map((s0, i) => { const [x, z] = DESK_AT(i); const k = s0.key; const ag = AG[k];
@@ -227,7 +233,7 @@ export default function OfficeRoom3D({ model, onSel, onCoin, cam: camMode = 'mai
     // 💵 THE REAL CARD on the hex platform between the rows
     const plat = new THREE.Mesh(new THREE.CylinderGeometry(3.0, 3.15, 0.24, 6), M(0x0a1712, 0.25, 0.55)); plat.position.set(0, 0.12, PZ); plat.rotation.y = Math.PI / 6; plat.receiveShadow = true; scene.add(plat);
     const edge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.CylinderGeometry(3.0, 3.15, 0.24, 6)), new THREE.LineBasicMaterial({ color: 0x45e486 })); edge.position.copy(plat.position); edge.rotation.y = Math.PI / 6; scene.add(edge);
-    const platT = tex(560, 104, drawPlatform); platT.userData.redraw(); const platP = new THREE.Mesh(new THREE.PlaneGeometry(2.7, 0.5), new THREE.MeshBasicMaterial({ map: platT, toneMapped: false, transparent: true })); platP.rotation.x = -Math.PI / 2; platP.position.set(0, 0.245, PZ + 2.05); scene.add(platP);
+    const platT = tex(560, 104, drawPlatform); platT.userData.redraw(null); const platP = new THREE.Mesh(new THREE.PlaneGeometry(2.7, 0.5), new THREE.MeshBasicMaterial({ map: platT, toneMapped: false, transparent: true })); platP.rotation.x = -Math.PI / 2; platP.position.set(0, 0.245, PZ + 2.05); scene.add(platP);
     const spot = new THREE.SpotLight(0xd6ffe8, 46, 18, 0.55, 0.7, 1.6); spot.position.set(0, 8, PZ + 2); spot.target.position.set(0, 0.3, PZ); scene.add(spot); scene.add(spot.target);
     const slots = Array.from({ length: 6 }, (_, i) => { const grp = new THREE.Group(); grp.position.set(seatX(i, 6), 0.24, PZ); scene.add(grp);
       const base = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.38, 0.08, 32), M(0x10221a, 0.35, 0.4)); base.position.y = 0.04; grp.add(base);
@@ -251,7 +257,9 @@ export default function OfficeRoom3D({ model, onSel, onCoin, cam: camMode = 'mai
         s.act = d.act; s.color = d.color; s.ringM.emissive.set(d.color); s.ripM.color.set(d.color); s.selR.visible = !!d.selected;
         s.tip = `${d.name} · ${d.act} — ${d.actWhy}`; s.b.g.traverse(o => { o.userData.tip = s.tip; }); s.mon.userData.tip = `${d.name}'s monitor — ${d.line}`; s.side.userData.tip = `${d.name}: ${d.ms != null ? `${d.ms} ms last pass` : 'no pass timed'} · ${d.acc != null ? `${d.acc}% right over ${d.n}` : `${d.n} judged`}`; });
       segs.forEach((sg, i) => { const on = i < focusI; sg.m.color.setHex(on ? 0x45e486 : 0x15d16a); sg.m.opacity = on ? 0.95 : 0.3; });
-      statT.userData.redraw(m.status); wallT.userData.redraw(wall, 0); sign.userData.redraw(m.ready); limT.userData.redraw(m.limits, m.ready); edgeT.userData.redraw(m.swap, m.missed);
+      statT.userData.redraw(m.status); wallT.userData.redraw(wall, 0); sign.userData.redraw(m.ready); limT.userData.redraw(m.limits, m.ready); edgeT.userData.redraw(m.swap, m.missed); platT.userData.redraw(m.summary);
+      statP.userData.tip = `pipeline: ${(m.status || []).map(([n, l]) => `${n} ${l}`).join(' · ')} — click for the seats + cycle log`; limP.userData.tip = `your limits — ${m.limits?.manual ? 'CREATOR MANUAL' : 'agents choose inside them'} · click to open them`;
+      edgeP.userData.tip = m.swap ? `switch test: $${m.swap.from} vs $${m.swap.to} — ${m.swap.why} · click for every seat's test` : 'switch test: no held coin to test';
       wallP.userData.tip = wall ? `the wall: $${wall.symbol} — ${wall.kind === 'position' ? 'open position' : 'current candidate'} · ${wall.decision}` : 'nothing on the wall this pass';
       const ss = (m.seats || []).slice(0, 6); const n = Math.max(1, ss.length);
       slots.forEach((sl, i) => { const d = ss[i]; sl.data = d || null; sl.grp.visible = !!d; if (!d) return; sl.grp.position.x = seatX(i, n);
@@ -277,14 +285,15 @@ export default function OfficeRoom3D({ model, onSel, onCoin, cam: camMode = 'mai
 
     // 🖱 hover tooltips + clicks: a bot or a monitor → that desk · a case file → its coin + its desk · a seat → its coin (Reaper) · the wall → the coin on it
     const ray = new THREE.Raycaster(); const ptr = new THREE.Vector2(); let hover = null;
-    const pickables = () => [...st.flatMap(s => [s.b.g, s.mon, s.side]), ...slots.filter(x => x.grp.visible).map(x => x.grp), ...caseObjs.map(c => c.mesh), wallP, ...(chal.visible ? [chal] : [])];
+    const pickables = () => [...st.flatMap(s => [s.b.g, s.mon, s.side]), ...slots.filter(x => x.grp.visible).map(x => x.grp), ...caseObjs.map(c => c.mesh), wallP, statP, limP, edgeP, ...(chal.visible ? [chal] : [])];
     const pick = e => { const rc = renderer.domElement.getBoundingClientRect(); ptr.set(((e.clientX - rc.left) / rc.width) * 2 - 1, -((e.clientY - rc.top) / rc.height) * 2 + 1);
       ray.setFromCamera(ptr, cam); const hit = ray.intersectObjects(pickables(), true)[0]; return hit ? hit.object : null; };
     const onMove = e => { const o = pick(e); hover = o?.userData?.k || null; renderer.domElement.style.cursor = o ? 'pointer' : 'default'; const el = tip.current; if (!el) return;
       if (o?.userData?.tip) { const rc = host.getBoundingClientRect(); el.textContent = o.userData.tip; el.style.transform = `translate(${Math.min(e.clientX - rc.left + 14, rc.width - 260)}px, ${e.clientY - rc.top + 14}px)`; el.style.opacity = '1'; } else el.style.opacity = '0'; };
     const onLeave = () => { hover = null; if (tip.current) tip.current.style.opacity = '0'; };
     const onClick = e => { const o = pick(e); if (!o) return; const u = o.userData || {};
-      if (u.kind === 'seat') { const d = slots[u.seat]?.data; if (d?.symbol) { onCoinRef.current && onCoinRef.current(d.symbol); onSelRef.current('reaper'); } }
+      if (u.kind === 'seat') { const d = slots[u.seat]?.data; if (onSeatRef.current) onSeatRef.current(d?.sb || (d?.symbol ? { symbol: d.symbol } : { empty: true })); else if (d?.symbol) { onCoinRef.current && onCoinRef.current(d.symbol); onSelRef.current('reaper'); } }
+      else if (u.kind === 'board') { if (onBoardRef.current) onBoardRef.current(u.board); }
       else if (u.kind === 'case') { onCoinRef.current && onCoinRef.current(u.sym); onSelRef.current(u.at); }
       else if (u.kind === 'wall') { const w = mRef.current?.wall; if (w?.symbol) onCoinRef.current && onCoinRef.current(w.symbol); onSelRef.current(w?.kind === 'position' ? 'reaper' : mRef.current?.focus || 'tally'); }
       else if (u.k) onSelRef.current(u.k); };
@@ -300,7 +309,7 @@ export default function OfficeRoom3D({ model, onSel, onCoin, cam: camMode = 'mai
       else if (mode === 'card') { wantP.set(0, 6.4, PZ + 8.6); wantL.set(0, 1.0, PZ - 0.4); }
       else if (mode === 'focus' && selS) { wantP.set(selS.x * 0.8 + 0.6, 3.6, selS.z + 4.8); wantL.set(selS.x, 1.1, selS.z - 0.2); }
       else { if (rotRef.current && moving) ang += dt * 0.15; const a = rotRef.current ? Math.sin(ang) * 0.5 : 0;   // auto-rotate = a slow sweep across the room (a full orbit would go behind the wall)
-        wantP.set(Math.sin(a) * 15.3, 11.6, Math.cos(a) * 15.3); wantL.set(0, 1.35, 0.15); }
+        wantP.set(Math.sin(a) * 17.6, 13.1, Math.cos(a) * 17.6); wantL.set(0, 1.75, 0.15); }   // MAIN = the whole room: pulled back ~15% so every desk, the wall and the card platform sit in frame
       pos.lerp(wantP, moving ? 0.06 : 1); look.lerp(wantL, moving ? 0.08 : 1); cam.position.copy(pos); cam.lookAt(look);
       if (wall?.reviewAt != null && t - wallAt > 1) { wallAt = t; wallT.userData.redraw(wall, Date.now() / 1000 - baseAt); }   // the review clock on the wall ticks
       if (focusI > 0 && moving) { const u = (t * 0.12) % 1; const L = Math.min(focusI, 9); const seg = Math.floor(u * L); pulse.visible = true; pulse.position.copy(segs[seg].path.getPoint(u * L - seg)); pulse.position.y = 0.14; } else pulse.visible = false;

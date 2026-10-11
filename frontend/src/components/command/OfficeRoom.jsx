@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, use
 import { ChartBox, DataLine, dqWord, dump, sgn, usd, ago, clock, ms, STRUCT_CLS } from './OfficeBoard';
 import { tiny } from '../../lib/num';
 import { EdgeBand, SocialLine } from './OfficeEdge';
+import { SeatStrip, SeatsPane, ProofSources } from './SeatOps';
 import '../../styles/officeRoom.css';
 
 const OfficeRoom3D = lazy(() => import('./OfficeRoom3D'));
@@ -127,9 +128,12 @@ export function deskLine(key, o) {
 export function seatsOf(o, card, coin) {
   const rep = Object.fromEntries((o?.positions || []).map(p => [p.symbol, p])); const seat = o?.seat || {};
   const rows = (card?.seats || []).length ? card.seats : (o?.positions || []).map(p => ({ symbol: p.symbol, kind: p.owner === 'agents' ? 'agent' : 'engine', pct: p.pct }));
-  const out = rows.slice(0, 6).map((x, i) => { const r = x.symbol ? rep[x.symbol] : null; const open = x.kind === 'open' || !x.symbol;
+  // 🪑 this cycle's result per seat (velocity · score · best challenger · next candidate): a held seat by its coin, an open one by order
+  const sbHeld = Object.fromEntries((o?.seatBoard || []).filter(b => !b.empty && b.symbol).map(b => [b.symbol, b])); const sbOpen = (o?.seatBoard || []).filter(b => b.empty); let k = 0;
+  const out = rows.slice(0, 6).map((x, i) => { const r = x.symbol ? rep[x.symbol] : null; const open = x.kind === 'open' || !x.symbol; const b = open ? (sbOpen[k++] || null) : (sbHeld[x.symbol] || null);
     return { i, symbol: open ? null : x.symbol, kind: open ? 'open' : x.kind, pct: open ? null : (x.pct ?? r?.pct ?? null), action: x.action || null, toSym: x.toSym || null,
-      decision: open ? (seat.state || 'OPEN') : r?.decision || (x.action ? String(x.action).toUpperCase() : 'HOLD'), rule: r?.rule || null, state: x.state || '', buying: !!x.buying, selected: !!coin && coin === x.symbol }; });
+      decision: open ? (b?.code || seat.state || 'OPEN') : b?.result || r?.decision || (x.action ? String(x.action).toUpperCase() : 'HOLD'), rule: r?.rule || null, state: x.state || '', buying: !!x.buying, selected: !!coin && coin === x.symbol,
+      vel: b?.vel || null, score: b?.score ?? null, chal: b?.challenger?.symbol || null, margin: b?.margin ?? null, need: b?.need ?? null, next: b?.next?.symbol || null, ready: !!b?.ready, sb: b }; });
   const want = seat.want || 0;
   for (let i = out.length; i < Math.min(6, want); i += 1) out.push({ i, symbol: null, kind: 'open', pct: null, decision: seat.state || 'OPEN', rule: null, state: '', selected: false });
   return out;
@@ -155,7 +159,9 @@ export function roomModel(o, sel, coin, card) {
       return { key: a.key, name: a.name, icon: a.icon, tag, cls: TAG_CLS[tag] || 'is-wait', act, actWhy, color: ACT_FX[act] || '#4d6a5c', line: deskLine(a.key, o), focus: focus === a.key, selected: sel === a.key,
         gen: c.gen ?? 1, status: c.status || null, acc: c.accuracy ?? null, n: c.n ?? 0, ms: pf.last ?? c.latency?.last ?? null, series: (pf.series || []).slice(-24) }; }),
     cases: (o?.queue || []).slice(0, 6).map((x, i) => ({ symbol: x.symbol, mint: x.mint, at: x.at, state: TAG_WORD[x.state] || x.state, cleared: !!x.cleared, go: !!x.go, structure: x.structure || null, current: i === 0, selected: !!coin && coin === x.symbol })),
-    status: [[o?.office?.cleared ?? 0, 'cleared', '#45e486'], [(o?.office?.cases ?? 0) - (o?.office?.cleared ?? 0), 'blocked', '#f5c451'], [(o?.positions || []).length, 'open positions', '#6cc7ff'], [o?.office?.coins ?? 0, 'coins read', '#7d998b'], [o?.execution?.health || '—', 'execution', o?.execution?.health === 'HEALTHY' ? '#45e486' : '#ff6b86']],
+    status: [[o?.seatSummary ? `${o.seatSummary.occupancy}/${o.seatSummary.target}` : (o?.positions || []).length, 'seats held', '#a07bff'], [o?.seatSummary ? `${o.seatSummary.benchReady}/${o.seatSummary.bench}` : '—', 'bench ready', '#6cc7ff'],
+      [o?.office?.cleared ?? 0, 'cleared', '#45e486'], [(o?.office?.cases ?? 0) - (o?.office?.cleared ?? 0), 'blocked', '#f5c451'], [o?.cycle?.read ?? o?.office?.coins ?? 0, 'coins read this pass', '#7d998b'], [o?.execution?.health || '—', 'execution', o?.execution?.health === 'HEALTHY' ? '#45e486' : '#ff6b86']],
+    summary: o?.seatSummary || null,
     seats: seatsOf(o, card, coin), seat: o?.seat ? { state: o.seat.state, reason: o.seat.reason, emptyFor: o.seat.emptyFor, target: o.seat.target } : null,
     ready: o?.ready ? { state: o.ready.state, live: !!o.ready.live, steps: o.ready.steps || [], why: o.ready.why } : null,
     swap: o?.switchEval ? { from: o.switchEval.current?.symbol || null, to: o.switchEval.challenger?.symbol || null, ok: !!o.switchEval.switch, edge: o.switchEval.edge, need: o.switchEval.need, why: o.switchEval.why,
@@ -188,7 +194,7 @@ const Spark = ({ xs, cls }) => { const v = (xs || []).filter(x => x != null); if
   const hi = Math.max(...v); const lo = Math.min(...v); const sp = (hi - lo) || 1;
   return <svg className={`ofr-spark ${cls || ''}`} viewBox="0 0 60 18" preserveAspectRatio="none" aria-hidden><polyline points={v.map((x, i) => `${(i / (v.length - 1)) * 60},${16 - ((x - lo) / sp) * 14}`).join(' ')} /></svg>; };
 
-export function RoomScene({ o, sel, onSel, coin, onCoin, card }) {
+export function RoomScene({ o, sel, onSel, coin, onCoin, card, onSeat }) {
   const focus = focusOf(o); const c = o.currentCase; const view = coinView(o, coin) || coinView(o, c?.symbol) || (o.positions?.[0] ? coinView(o, o.positions[0].symbol) : null);
   const q = o.queue || []; const f = view?.cur?.chart?.f || {}; const vit = view?.cur?.sherlock?.vitals || {};
   const r5 = view?.kind === 'position' ? view.pos.pct : f.r5;
@@ -220,7 +226,7 @@ export function RoomScene({ o, sel, onSel, coin, onCoin, card }) {
     <div className="ofr-queue" data-testid="ofr-queue"><small>CASE FILES THIS PASS</small>{q.length ? q.map(x => <button key={x.mint} type="button" className={`ofr-case ${coin === x.symbol ? 'is-on' : ''} ${x.cleared ? 'is-pass' : 'is-obj'}`} style={{ '--ag': AG[x.at] }}
       onClick={() => { onCoin(x.symbol); onSel(x.at); }} data-tip={x.word} data-testid={`case-${x.symbol}`}><b>${x.symbol}</b><em>{x.structure || 'no chart'}</em><u>at {x.at} · {TAG_WORD[x.state] || x.state}</u></button>) : <span className="ofr-nil">no case file this pass</span>}</div>
     <div className="ofr-cardrow" data-testid="ofr-cardrow"><small>THE REAL CARD · {o.seat ? `${o.seat.held}/${o.seat.want} seats · ${o.seat.state}` : 'seats'}{o.ready && !o.ready.live ? ` · ${o.ready.state}` : ''}</small>
-      {seatsOf(o, card, coin).map(x => <button key={x.i} type="button" className={`ofr-seat is-${x.kind} ${x.selected ? 'is-on' : ''}`} onClick={() => x.symbol && onCoin(x.symbol)} disabled={!x.symbol} data-tip={x.rule ? `${x.rule}` : x.decision} data-testid={`seat-${x.i}`}>
+      {seatsOf(o, card, coin).map(x => <button key={x.i} type="button" className={`ofr-seat is-${x.kind} ${x.selected ? 'is-on' : ''}`} onClick={() => (onSeat ? onSeat(x.sb || (x.symbol ? { symbol: x.symbol } : { empty: true, seat: x.i + 1 })) : x.symbol && onCoin(x.symbol))} data-tip={x.rule ? `${x.rule}` : x.symbol ? x.decision : `open seat — ${x.decision}${x.next ? ` · next $${x.next}` : ''}`} data-testid={`seat-${x.i}`}>
         <b>{x.symbol ? `$${x.symbol}` : 'open'}</b><em className={x.pct > 0 ? 'ofr-pos' : x.pct < 0 ? 'ofr-neg' : ''}>{x.pct == null ? '—' : sgn(x.pct)}</em><u>{x.kind} · {x.decision}</u></button>)}</div>
     <p className="ofr-flow"><span>Flow: {(o.office?.chain || []).join(' → ')}</span><b data-testid="ofr-ticker">{ticker(o)}</b></p>
   </div>;
@@ -247,10 +253,11 @@ export function PolicyBlock({ o, p }) {
 }
 // 🚀 the launch context of the coin on screen — only what is measured (office_edge.launch_context); unknown stays UNKNOWN
 export const launchOf = (o, sym) => (o?.positions || []).find(x => x.symbol === sym)?.launch || (o?.queue || []).find(x => x.symbol === sym)?.launch || null;
-export const PANEL_TABS = [['live', 'Live decision'], ['beliefs', 'Beliefs & ethics'], ['inputs', 'Current inputs'], ['chart', 'Chart intel'], ['code', 'Source code']];
+export const PANEL_TABS = [['live', 'Live decision'], ['seats', '🪑 Seats'], ['beliefs', 'Beliefs & ethics'], ['inputs', 'Current inputs'], ['chart', 'Chart intel'], ['code', 'Source code']];
 
-export function AgentPanel({ o, a, coin, onCoin }) {
-  const [tab, setTab] = useState('live'); const [, tick] = useState(0);
+export function AgentPanel({ o, a, coin, onCoin, tabReq }) {
+  const [tab, setTab] = useState(() => tabReq?.tab || 'live'); const [, tick] = useState(0);
+  useEffect(() => { if (tabReq?.tab) setTab(tabReq.tab); }, [tabReq]);   // a seat / board clicked in the room opens the view that explains it
   useEffect(() => { const t = setInterval(() => tick(n => n + 1), 1000); return () => clearInterval(t); }, []);
   if (!a) return null;
   const c = a.card || {}; const [tag, word] = agentTag(a.key, o); const hot = hotPosition(o.positions);
@@ -284,10 +291,12 @@ export function AgentPanel({ o, a, coin, onCoin }) {
       <PolicyBlock o={o} p={p} />
       {(() => { const ln = view ? launchOf(o, view.symbol) : null; return ln ? <p className="ofr-launch" data-testid="ofr-launch"><small>LAUNCH</small><b>{ln.pad}</b><span>{ln.type}</span>{ln.curvePct != null ? <span>curve {Math.round(ln.curvePct)}%</span> : null}{ln.ageH != null ? <span>{Number(ln.ageH).toFixed(1)}h old</span> : null}{ln.graduated != null ? <span>{ln.graduated ? 'graduated' : 'pre-graduation'}</span> : null}<u>measured from the mint + the launch board · anything else UNKNOWN</u></p> : null; })()}
       {view ? <SocialLine p={(o.social || {})[view.cur?.mint || p?.mint]} /> : null}
+      {view ? <ProofSources p={(o.social || {})[view.cur?.mint || p?.mint]} mint={view.cur?.mint || p?.mint} now={o.at} /> : null}
       <TeamTrace t={view?.kind === 'case' ? traceOf(o, view.symbol) : null} pos={p} />
       <div className="ofr-rul" data-testid="ofr-rulings"><small>LIVE RULINGS · every desk, newest first</small>{rulingsOf(o, 3).length ? <ul>{rulingsOf(o, 3).map((r, i) => <li key={i} className={r.key === a.key ? 'is-me' : ''} style={{ '--ag': AG[r.key] }} data-tip={r.text}><u>{hhmm(r.at)}</u><b>{r.name}</b> {r.text}</li>)}</ul> : <span className="ofr-nil">none on record yet</span>}</div>
       <p className="ofr-files" data-testid="ofr-files"><small>RUNTIME last {ms(c.latency?.last)} · p95 {ms(c.latency?.p95)}</small>{(a.code || []).map(k => <span key={k.file}><code>{k.file}</code><code className="ofr-fn">{k.fn[0]}()</code></span>)}</p>
     </div>}
+    {tab === 'seats' && <SeatsPane o={o} onCoin={sym => onCoin(sym)} focus={coin} />}
     {tab === 'beliefs' && <div className="ofr-pane" data-testid="pane-beliefs"><p className="ofr-job" data-testid="ofr-job"><b>{a.job}</b> {a.question}</p><p className="ofr-ideo">{a.ideology}</p>
       <small>ETHICS</small><ul className="ofr-list">{a.ethics.map(x => <li key={x}>{x}</li>)}</ul><small>IMMUTABLE RULES</small><ul className="ofr-list">{a.hard.map(x => <li key={x}>{x}</li>)}</ul>
       <small>FORBIDDEN</small><ul className="ofr-list is-no">{a.forbidden.map(x => <li key={x}>{x}</li>)}</ul>
@@ -321,7 +330,11 @@ export const CAMS = [['main', 'Main'], ['card', 'Card'], ['top', 'Top'], ['focus
 const pref = { get: (k, d) => { try { return localStorage.getItem(k) || d; } catch (e) { return d; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* private window */ } } };
 
 export function OfficeHQ({ o, roomOn = true, passAt, gl: gl0, card, onEdge }) {
-  const [sel, setSel] = useState(null); const [coin, setCoin] = useState(null); const [gl] = useState(() => (gl0 != null ? gl0 : has3D()));
+  const [sel, setSel] = useState(null); const [coin, setCoin] = useState(null); const [gl] = useState(() => (gl0 != null ? gl0 : has3D())); const [tabReq, setTabReq] = useState(null);
+  // 🪑 a seat (strip / room) → a held seat opens its coin under Reaper's live decision; an empty seat opens the Seats view with its reason
+  const onSeat = x => { if (!x) return; if (x.symbol) { setCoin(x.symbol); setSel('reaper'); setTabReq({ tab: 'live', at: Date.now() }); } else setTabReq({ tab: 'seats', at: Date.now() }); };
+  // 🧱 a wall board → the view that holds its numbers (pipeline / switch board → Seats · limits → your limits lens)
+  const onBoard = k => { if (k === 'limits') { if (onEdge) onEdge('limits'); return; } setTabReq({ tab: 'seats', at: Date.now() }); };
   const [cam, setCam] = useState(() => pref.get('feeless.roomCam', 'main')); const [rot, setRot] = useState(() => pref.get('feeless.roomRot', 'off') === 'on');
   const cur = sel || focusOf(o); const box = useRef(null);
   // the office takes exactly the height the window has left under the mission + status strip, so room · panel · roster share ONE view
@@ -335,13 +348,14 @@ export function OfficeHQ({ o, roomOn = true, passAt, gl: gl0, card, onEdge }) {
     <header className="ofr-bar"><b>🏢 THE AGENT OFFICE</b><span className="ofr-live"><i />live</span><small className="ofr-pass">last pass {ago(passAt || o.at)}</small><EdgeBand o={o} onOpen={onEdge} />
       {roomOn && gl ? <span className="ofr-cams"><span className="m-seg" role="group" aria-label="Camera">{CAMS.map(([k, l]) => <button key={k} type="button" className={cam === k ? 'active' : ''} onClick={() => { setCam(k); pref.set('feeless.roomCam', k); }} data-testid={`cam-${k}`}>{l}</button>)}</span>
         <button type="button" className={`m-btn ${rot ? 'is-on' : ''}`} aria-pressed={rot} onClick={() => { setRot(!rot); pref.set('feeless.roomRot', rot ? 'off' : 'on'); }} data-tip="Sweep the camera slowly across the room (Main room view)" data-testid="cam-rotate">⟳ {rot ? 'Rotating' : 'Rotate'}</button></span> : null}</header>
+    <SeatStrip o={o} sel={coin} onSeat={onSeat} />
     <div className="ofr-main">
       {roomOn ? <div className="ofr-stage" data-testid="ofr-stage">
-        {gl ? <Suspense fallback={<div className="ofr-loading">building the room…</div>}><OfficeRoom3D model={model} onSel={setSel} onCoin={setCoin} cam={cam} rotate={rot} /></Suspense> : <RoomScene o={o} sel={cur} onSel={setSel} coin={coin} onCoin={setCoin} card={card} />}
+        {gl ? <Suspense fallback={<div className="ofr-loading">building the room…</div>}><OfficeRoom3D model={model} onSel={setSel} onCoin={setCoin} onSeat={onSeat} onBoard={onBoard} cam={cam} rotate={rot} /></Suspense> : <RoomScene o={o} sel={cur} onSel={setSel} coin={coin} onCoin={setCoin} card={card} onSeat={onSeat} />}
         {gl ? <div className="ofr-foot" data-testid="ofr-foot"><span className="ofr-flowline"><small>FLOW</small>{(o.agents || []).map((x, i) => <React.Fragment key={x.key}>{i ? <i aria-hidden>→</i> : null}<button type="button" className={`${focusOf(o) === x.key ? 'is-focus' : ''} ${cur === x.key ? 'is-on' : ''}`} style={{ '--ag': AG[x.key] }} onClick={() => setSel(x.key)} data-tip={x.job}>{x.name}</button></React.Fragment>)}</span>
           <button type="button" className="ofr-now" onClick={() => { const c = o.currentCase || hotPosition(o.positions); if (c) { setCoin(c.symbol); setSel(o.currentCase ? focusOf(o) : 'reaper'); } }} data-testid="ofr-foot-ticker"><i aria-hidden />{ticker(o)}</button></div> : null}
       </div> : null}
-      <AgentPanel key={cur} o={o} a={a} coin={coin} onCoin={setCoin} /></div>
+      <AgentPanel key={cur} o={o} a={a} coin={coin} onCoin={setCoin} tabReq={tabReq} /></div>
     <Roster o={o} sel={cur} onSel={setSel} />
   </section>;
 }

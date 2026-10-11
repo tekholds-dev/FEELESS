@@ -21,6 +21,7 @@ import agents as _ag
 import chart_intel as _ci
 import market_data as _md
 import office_edge as _oe
+import seat_ops as _so
 
 _f, _med = _ag._f, _ag._med
 
@@ -362,10 +363,16 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
     if ln.get('measured') and _oe.LAUNCH_RISK.get(ln.get('type')):   # 🚀 launch mechanism risk: an unknown / pre-graduation launch is at most half size
         hit('W15 launch context', _oe.LAUNCH_RISK[ln['type']], f"launch: {ln.get('pad')} · {ln.get('type')}")
     cc = (c.get('social') or {}).get('cross') or {}
-    if cc.get('conflict'):   # 🔎 the coin's own website shows another contract: a quarter seat at most (hype never grows one)
-        hit('W16 identity', 0.25, 'the website shows a different contract than this mint')
+    if cc.get('conflict'):   # 🔎 the coin's own website shows another contract: a quarter seat at most (hype never grows one) — the proof rides with the rule
+        hit('W16 identity', 0.25, f"the website shows a different contract than this mint — {cc.get('sourceUrl') or 'site'} shows {str(cc.get('sourceMint') or '?')[:10]}…, launch mint {str(cc.get('launchMint') or '?')[:10]}…")
+        rules[-1]['evidence'] = {'sourceUrl': cc.get('sourceUrl'), 'sourceMint': cc.get('sourceMint'), 'launchMint': cc.get('launchMint'), 'at': (c.get('social') or {}).get('at')}
     elif cc.get('confidence') is not None and _f(cc['confidence']) < 40:
         hit('W16 identity', 0.5, f"identity confidence {_f(cc['confidence']):.0f}/100: {'; '.join(cc.get('flags') or [])[:120]}")
+        rules[-1]['evidence'] = {'sourceUrl': cc.get('sourceUrl'), 'flags': list(cc.get('flags') or [])[:3], 'at': (c.get('social') or {}).get('at')}
+    if c.get('openSeats') and c.get('free') is not None:   # 🪑 multi-seat sizing: the first valid seat may not make the other open seats impossible
+        m_, why_ = _so.seat_room(req, c.get('free'), c.get('openSeats'), floor)
+        if why_:
+            hit('W17 seat room', m_, why_)
     dq = (c.get('chart') or {}).get('q')
     if dq and _f(dq.get('risk')) < 1:   # 🧪 unknown / degraded market data can only shrink the seat (market_data.RISK) — there is no state that grows it
         hit('W13 market data', _f(dq.get('risk')), f"data {str(dq.get('state')).replace('_', ' ').lower()} ({dq.get('conf')}%): {dq.get('why')}")
@@ -373,6 +380,9 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
         cm, cwhy = (c['chart'].get('risk') or [1.0, ''])[:2]
         if _f(cm) < 1:
             hit('W12 chart risk', _f(cm), f"{c['chart'].get('state')}: {cwhy}")
+        qw_, qwhy_ = _so.chart_quality(c['chart'])
+        if qw_ in _so.QUALITY_SIZE:   # 📊 chart quality: a choppy / extended / unstable chart can only shrink a seat (after W12: a tie is W12's)
+            hit('W18 chart quality', _so.QUALITY_SIZE[qw_], f'{qw_}: {qwhy_}')
     raw = min([r['mult'] for r in rules] or [1.0])
     mult = max(s for s in WARDEN_STEPS if s <= raw + 1e-9)
     allowed = round(req * mult, 6)
@@ -436,14 +446,17 @@ def reaper_replay(path, p, take):
     return _f(path[-1]) if path else 0.0
 
 
-def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_=None, tape=None, office=None, sized=None, charts=None, theses=None, pol=None, live=True):
+def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_=None, tape=None, office=None, sized=None, charts=None, theses=None, pol=None, live=True, vels=None, margins=None, rug=None):
     """☠ One look at every position the agents hold on the real card (in control: every coin that is not frozen). It keeps each one's
     record (entry, peak, path, depth and top-10 at entry) and rules, in this order — the first that fires decides:
       R1 pool collapsed · R2 invalidated (failed scan / rug meter) · R3 holders concentrating · R4 whale dump on the tape · R5 stop* ·
       R6 the card's take line · R7 trailing protection · R8 momentum failed after 15 min* · R9 time with no read left* · else HOLD.
       (* only on coins the agents put on the card: other coins keep the card's own stop and are switched by `agents.manage`.)
     A ruling with `action: 'pull'` is a REQUEST: the service merges it into the card's existing agent decisions (merge_reaper) and the
-    keeper sells; the position stays 'exit requested' until the ledger confirms it. No price = no ruling. → (positions, reports, gone)"""
+    keeper sells; the position stays 'exit requested' until the ledger confirms it. No price = no ruling. → (positions, reports, gone)
+    `vels` {mint: seat_ops.velocity} = P/L VELOCITY from real reads (REVERSING tightens the trail · a winner must be ACCELERATING / STABLE to
+    EARN windows past its base) · `margins` {mint: (best challenger's score margin, the margin a switch needs)} · `rug` {pair: why} = the
+    rug radar on the live tape (creator / top-holder dump) → R4r, a hard safety exit."""
     T = lambda k: tune(office, 'reaper', k)
     pos = {m: dict(v) for m, v in (pos or {}).items()}
     by = {x['mint']: x for x in table or []}
@@ -509,14 +522,27 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             stop = min(stop, _f(pol['sl']))
         tr_ = pol.get('trail') or {}
         arm = _f(tr_.get('arm')) if tr_.get('mode') == 'custom' else T('protectAt')
-        trail_line = (p['peak'] - _f(tr_.get('pct'))) if tr_.get('mode') == 'custom' else p['peak'] * (1 - T('giveBackPct') / 100)
+        tight = 0.6 if (vels or {}).get(m, {}).get('state') == 'REVERSING' else 1.0   # 📉 P/L REVERSING: the trail banks sooner (tighter protection, never looser)
+        trail_line = (p['peak'] - _f(tr_.get('pct')) * tight) if tr_.get('mode') == 'custom' else p['peak'] * (1 - T('giveBackPct') * tight / 100)
         trail_on = tr_.get('mode') != 'off'
         max_hold = _f(pol.get('maxHold')) or None
+        vl = (vels or {}).get(m) or {'state': 'UNKNOWN'}
+        quality = _so.chart_quality(ch)[0] if ch else None
+        mg_, need_ = (margins or {}).get(m) or (None, None)
         rv = _ci.review(th, ch, pct, held, p.get('granted')) if th else None
-        if rv and rv['window'] > int(p.get('lastWin') or 0):   # a 5-minute checkpoint: a thesis that still stands EARNS the next window (bounded)
+        base_w = max(int((th or {}).get('expectedHoldWindows') or _ci.MIN_WINDOWS), _so.BASE_WINDOWS)
+        if rv and rv['window'] > int(p.get('lastWin') or 0):   # a 5-minute checkpoint: a thesis that still stands keeps its BASE windows; past them a WINNER must EARN each one
             p['lastWin'] = rv['window']
             if rv['verdict'] == 'valid':
-                p['granted'] = min(int(th.get('maxHoldWindows') or _ci.MAX_WINDOWS), max(int(rv['granted']), rv['window'] + 1))
+                cap_w = int(th.get('maxHoldWindows') or _ci.MAX_WINDOWS)
+                if rv['window'] + 1 <= base_w:
+                    p['granted'] = min(cap_w, max(int(rv['granted']), rv['window'] + 1))
+                else:
+                    earned, ewhy = _so.extension(pct, vl, 'valid', (lq1 / lq0) if lq0 > 0 and lq1 > 0 else None, quality, mg_, need_)
+                    p['extWhy'] = ewhy
+                    if earned and rv['window'] + 1 <= cap_w:
+                        p['granted'] = min(cap_w, max(int(rv['granted']), rv['window'] + 1))
+                        p['ext'] = (list(p.get('ext') or []) + [{'at': now, 'window': rv['window'] + 1, 'why': ewhy}])[-12:]
         granted = int(p.get('granted') or (th or {}).get('expectedHoldWindows') or _ci.MIN_WINDOWS)
         if max_hold:
             granted = max(1, min(granted, int(max_hold // _ci.WINDOW_MIN) or 1))
@@ -526,6 +552,8 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev, act = 'EXIT INVALIDATED', 'R1 liquidity collapse', f'pool ${lq1 / 1000:.1f}K = {round(lq1 / lq0 * 100)}% of its ${lq0 / 1000:.1f}K entry depth', 'pull'
         elif v.get('safe') is False or _f(v.get('rug')) >= RUG_EXIT:
             st, rule, ev, act = 'EXIT INVALIDATED', 'R2 hard invalidation', 'the holder scan now fails' if v.get('safe') is False else f"rug meter {_f(v.get('rug')):.0f} ≥ {RUG_EXIT:g}", 'pull'
+        elif (rug or {}).get(l.get('pairAddress')):   # 🚨 the rug radar on the live tape: the creator / a top-holder wallet is dumping — a hard safety exit
+            st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R4r rug radar', f"{rug[l.get('pairAddress')]} at {pct:+.1f}%", 'pull'
         elif top1 is not None and top0 is not None and _f(top1) >= 30 and _f(top1) - _f(top0) >= TOP10_JUMP:
             st, rule, ev, act = 'EXIT INVALIDATED', 'R3 holders concentrating', f'top-10 {_f(top0):.0f}% → {_f(top1):.0f}% since entry', 'pull'
         elif tp == 'dump' and (pct > 0 or (n.get('buy') is not None and _f(n['buy']) < 45)):
@@ -549,9 +577,11 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         elif mine and rv and rv['verdict'] == 'invalid' and held >= 2:   # the reason it was bought is gone: out, green or red — P&L does not decide this
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R5t thesis invalidated', f"{pct:+.1f}% — entered on {th.get('structure')}; now {rv['why'][0]}", 'pull'
         elif trail_on and p['peak'] >= arm and pct <= trail_line and pct >= MIN_KEEP:
-            st, rule, ev, act = 'TAKE', 'R7 trailing protection', f"peaked {p['peak']:+.1f}%, now {pct:+.1f}% — " + (f"{_f(tr_.get('pct')):g} points off the peak (your trail)" if tr_.get('mode') == 'custom' else f"gave back over {T('giveBackPct'):g}% of it"), 'pull'
+            st, rule, ev, act = 'TAKE', ('R7v trail tightened' if tight < 1 else 'R7 trailing protection'), f"peaked {p['peak']:+.1f}%, now {pct:+.1f}% — " + (f"{_f(tr_.get('pct')) * tight:g} points off the peak (your trail" + (', tightened: P/L reversing)' if tight < 1 else ')') if tr_.get('mode') == 'custom' else f"gave back over {T('giveBackPct') * tight:g}% of it" + (' (tightened: P/L reversing)' if tight < 1 else '')), 'pull'
         elif mine and rv and rv['verdict'] == 'weak' and 'lower high' in rv['why'][0] and pct >= MIN_KEEP:   # green is not a reason to keep holding
             st, rule, ev, act = 'TAKE', 'R7s structure turned', f"{pct:+.1f}% and {rv['why'][0]} — banked before it is given back", 'pull'
+        elif mine and live and rv and rv['window'] >= granted and rv['verdict'] == 'valid' and rv['window'] >= base_w and pct < take:   # ⏳ past its base hold a seat is EARNED, never kept by default
+            st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R9e no extension earned', f"{rv['window']} of {granted} windows used, {pct:+.1f}% — {p.get('extWhy') or 'a winner earns extra time, this seat did not'}", 'pull'
         elif mine and live and rv and rv['window'] >= granted and rv['verdict'] == 'weak' and pct < take:   # its windows are used up and the chart earned no more (time: LIVE only)
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R9 windows used', f"{rv['window']} of {granted} five-minute windows used, {pct:+.1f}%, {rv['why'][0]}", 'pull'
         elif mine and live and held >= MOMENTUM_MIN and broke and pct >= MIN_KEEP:
@@ -591,6 +621,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
                     'nextReview': (rv or {}).get('next') if rv else round((int(held // _ci.WINDOW_MIN) + 1) * _ci.WINDOW_MIN * 60 - held * 60),
                     'chart': None if not ch else {k: ch.get(k) for k in ('trend', 'chop', 'mom', 'ext')} | {k: (ch.get('f') or {}).get(k) for k in ('hh', 'hl', 'lh', 'll', 'lastHigh', 'lastLow', 'accel', 'decay', 'upWick', 'liqD')},
                     'tape': tp, 'usd': round(_f(l.get('units')) * px, 4), 'warden': p.get('warden'), 'dataDegraded': degraded, 'data': _md.compact((ch or {}).get('q')),
+                    'vel': vl.get('state'), 'velWhy': vl.get('why'), 'quality': quality, 'ext': len(p.get('ext') or []), 'extWhy': p.get('extWhy'), 'baseWindows': base_w if th else None,
                     'launch': p.get('launch'), 'onTable': bool(x), 'offRadarSec': None if x or not p.get('offSince') else round(now - _f(p.get('offSince'))), 'live': bool(live), 'limits': {'tp': pol.get('tp'), 'sl': pol.get('sl'), 'maxHold': max_hold, 'trail': tr_.get('mode'), 'manual': manual}})
     gone = []
     for m in [m for m in pos if m not in on]:
@@ -1195,7 +1226,22 @@ def lineage_of(case, ctx, action=None):
             'chart': None if not row.get('chart') else {'state': row['chart']['state'], 'entry': row['chart']['entry'][:2], 'trend': row['chart'].get('trend'), 'chop': row['chart'].get('chop'),
                                                         'mom': row['chart'].get('mom'), 'ext': row['chart'].get('ext'), 'src': row['chart'].get('src')},
             'data': (lambda q: None if not q else {'state': q.get('state'), 'conf': q.get('conf'), 'why': q.get('why'), 'label': q.get('label'), 'realOhlc': q.get('realOhlc'), 'volume': q.get('volume'), 'liquidity': q.get('liquidity')})((row.get('chart') or {}).get('q')),   # 🧪 the exact data-quality state at decision time
-            'warden': None if not wd else {'req': wd['requested'], 'allowed': wd['allowed'], 'mult': wd['eff'], 'rule': wd['decided']}, 'courier': (ctx.get('courier') or {}).get('health')}
+            'warden': None if not wd else {'req': wd['requested'], 'allowed': wd['allowed'], 'mult': wd['eff'], 'rule': wd['decided'],
+                                           'evidence': next((r_.get('evidence') for r_ in wd.get('rules') or [] if r_.get('id') == wd.get('decided') and r_.get('evidence')), None)},
+            'courier': (ctx.get('courier') or {}).get('health'), 'evidence': evidence_refs(row.get('social'))}
+
+
+def evidence_refs(packet):
+    """🧾 The proof a decision stood on, kept WITH the decision (never only a prose summary): the research packet's time, the mint match with
+    the exact launch mint, the address the source showed and its URL, the narrative with the sources that support it, identity confidence,
+    the legal level, and every evidence item as [kind, status, url]."""
+    p = packet or {}
+    if not p:
+        return None
+    cc, nar, lg = p.get('cross') or {}, p.get('narrative') or {}, p.get('legal') or {}
+    return {'at': p.get('at'), 'mintMatch': cc.get('mintMatch'), 'launchMint': cc.get('launchMint') or p.get('mint'), 'sourceMint': cc.get('sourceMint'), 'sourceUrl': cc.get('sourceUrl'),
+            'conflict': bool(cc.get('conflict')), 'identity': cc.get('confidence'), 'narrative': nar.get('class'), 'narrativeSources': [s_.get('url') or s_.get('source') for s_ in nar.get('sources') or []][:4],
+            'legal': lg.get('level'), 'items': [[e.get('kind'), e.get('status'), e.get('url')] for e in p.get('evidence') or []]}
 
 
 def trace(case, ctx, report=None):

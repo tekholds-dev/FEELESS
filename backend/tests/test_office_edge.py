@@ -808,3 +808,73 @@ def test_a_research_browser_left_running_is_found_and_only_ours_are_touched():
              '70003 45:00 /x/chrome-headless-shell --user-data-dir=/Users/me/profile']
     assert sr.orphans(lines) == [66983]                                                                         # ours and old: killed; a fresh fetch / the user's own Chrome: never
     assert sr._etime_sec('1-02:03:04') == 93784 and sr._etime_sec('05') == 5 and sr._etime_sec('19:48') == 1188
+
+
+# ── 🧾 PROOF: every social / identity claim carries its evidence ────────────────────────────────────────────────────────────────────
+NO_WORDS = ('legit', 'verified', 'backed', 'real project', 'official', 'active community', 'safe token')
+
+
+def _strings(x):
+    if isinstance(x, dict):
+        return [s for v in x.values() for s in _strings(v)]
+    if isinstance(x, list):
+        return [s for v in x for s in _strings(v)]
+    return [x.lower()] if isinstance(x, str) else []
+
+
+def test_every_research_claim_carries_its_source_url_time_title_and_exact_mint_match():
+    import social_research as sr
+    MINT = 'AcmeAgentMint11111111111111111111111111pump'
+    calls = []
+
+    async def fake(url):
+        calls.append(url)
+        return _fx('terms.html') if url.endswith('/terms') else _fx('site_legal.html') if 'acme.ai' in url else _fx('x_wall.html')
+    row = {'mint': MINT, 'symbol': 'ACME', 'name': 'Acme', 'site': 'https://acme.ai', 'x': 'https://x.com/acme_ai'}
+    p, n = asyncio.run(sr.research(row, fetch=fake, now=5000))
+    assert n == 3 and calls == ['https://acme.ai', 'https://x.com/acme_ai', 'https://acme.ai/terms']                  # ONE bounded legal read, from a link the project gave
+    ev = {e['kind']: e for e in p['evidence']}
+    assert set(ev) == {k for k, _ in sr.EVIDENCE_KINDS}
+    w = ev['website']
+    assert w['status'] == 'FOUND' and w['url'] == 'https://acme.ai' and w['fetchedAt'] == 5000 and w['title'].startswith('ACME') and w['mintMatch'] == 'YES'
+    assert w['launchMint'] == MINT and w['sourceMint'] == MINT and MINT in w['excerpt']
+    assert ev['x']['status'] == 'UNKNOWN' and 'login wall' in ev['x']['note']                                          # signed-out wall: unknown, never "inactive"
+    assert ev['launch']['status'] == 'FOUND' and ev['launch']['url'] == f'https://pump.fun/coin/{MINT}' and 'not opened' in ev['launch']['note']
+    assert ev['telegram']['url'] == 'https://t.me/acmeportal' and ev['github']['url'] == 'https://github.com/acme-labs/agent'
+    assert ev['audit']['status'] == 'FOUND' and 'certik' in ev['audit']['url'] and 'never guarantees' in ev['audit']['note']
+    assert ev['terms']['url'] == 'https://acme.ai/terms' and ev['terms']['fetchedAt'] == 5000 and ev['terms']['note'] == 'opened and read'
+    lg = p['legal']
+    assert lg['level'] == 'PARTIAL' and lg['entity'] == 'Acme Labs Ltd' and lg['jurisdiction'] == 'England and Wales' and lg['regRef'] == '12345678'
+    assert {'ENTITY FOUND', 'ENTITY NOT VERIFIED', 'TERMS FOUND', 'REGISTRATION NUMBER SHOWN', 'AUDIT DOCUMENT FOUND'} <= set(lg['labels'])
+    assert 'no public registry was checked' in lg['note'] and lg['level'] != 'STRONG'                                 # STRONG needs a registry: never claimed
+    assert ev['legal']['status'] == 'FOUND' and ev['legal']['url'] == 'https://acme.ai/terms' and 'PARTIAL' in ev['legal']['note']
+    assert p['narrative']['class'] == 'AI / TECH' and p['narrative']['sources'] and all(s_['keywords'] for s_ in p['narrative']['sources'])
+    for s_ in _strings({'ev': p['evidence'], 'legal': p['legal']}):
+        assert not any(wd in s_.replace('not verified', '') for wd in NO_WORDS), s_                                      # no blanket "legit / verified / official" label ("ENTITY NOT VERIFIED" is the fact)
+
+
+def test_missing_evidence_is_unknown_and_a_mint_mismatch_keeps_its_proof_through_devil_warden_and_the_archive():
+    import social_research as sr
+    p0 = sr.packet({'mint': 'Zz9noLinksMint1111111111111111111111111', 'symbol': 'ZZ'}, None, None, now=1)
+    st0 = {e['kind']: e['status'] for e in p0['evidence']}
+    assert st0 == {'website': 'UNKNOWN', 'x': 'UNKNOWN', 'launch': 'UNKNOWN', 'telegram': 'UNKNOWN', 'github': 'UNKNOWN', 'legal': 'UNKNOWN', 'terms': 'UNKNOWN', 'audit': 'UNKNOWN'}
+    assert p0['legal']['level'] == 'NONE' and p0['cross']['confidence'] is None
+    MINT = 'FroGGyMint1111111111111111111111111111pump'
+    bad = sr.site_read(_fx('site_other_mint.html'), 'https://froggy-official.xyz', MINT)
+    pk = sr.packet({'mint': MINT, 'symbol': 'FROGGY', 'x': 'https://x.com/froggy_sol'}, bad, None, now=777)
+    w = next(e for e in pk['evidence'] if e['kind'] == 'website')
+    other = bad['mints'][0]
+    assert w['mintMatch'] == 'NO' and w['launchMint'] == MINT and w['sourceMint'] == other != MINT and w['url'] == 'https://froggy-official.xyz'
+    assert pk['cross']['sourceUrl'] == 'https://froggy-official.xyz' and pk['cross']['sourceMint'] == other
+    row = {**trow('FROGGY'), 'mint': MINT, 'social': pk}
+    warns = []
+    ag.devil_args('enter', row['nums'], row['why'], row, {}, warns=warns)
+    idw = ' '.join(w_[1] for w_ in warns if w_[0] == 'identity')
+    assert 'froggy-official.xyz' in idw and other[:8] in idw and MINT[:8] in idw                                    # Devil's warning names launch mint, source URL, source mint
+    wd = of.warden(1.0, {'value': 4.0, 'liq': 500_000, 'ageH': 20, 'courier': 'HEALTHY', 'social': pk})
+    w16 = next(r_ for r_ in wd['rules'] if r_['id'] == 'W16 identity')
+    assert w16['mult'] == 0.25 and w16['evidence']['sourceUrl'] == 'https://froggy-official.xyz' and w16['evidence']['launchMint'] == MINT
+    c = {'mint': MINT, 'symbol': 'FROGGY', 'px': 1.0, 'cleared': False, 'checks': [], 'row': row}
+    rec = of.lineage_of(c, {'warden': {**wd, 'decided': 'W16 identity'}})
+    assert rec['evidence']['sourceMint'] == other and rec['evidence']['sourceUrl'] == 'https://froggy-official.xyz' and rec['evidence']['launchMint'] == MINT
+    assert rec['warden']['evidence']['sourceUrl'] == 'https://froggy-official.xyz' and ['website', 'FOUND', 'https://froggy-official.xyz'] in rec['evidence']['items']

@@ -63,7 +63,7 @@ test('the room: ten stations in chain order, the candidate on the wall, the pass
 test('the live panel: decision, lines, the chart with its coin picker, chart intelligence, rulings, files — and four more tabs of real state', async () => {
   const a = office.agents.find(x => x.key === 'reaper'); const p = office.positions[0]; let coin = null;
   const el = await mount(<AgentPanel o={office} a={a} coin={null} onCoin={s => { coin = s; }} />);
-  expect(PANEL_TABS.map(t => t[1])).toEqual(['Live decision', 'Beliefs & ethics', 'Current inputs', 'Chart intel', 'Source code']);
+  expect(PANEL_TABS.map(t => t[1])).toEqual(['Live decision', '🪑 Seats', 'Beliefs & ethics', 'Current inputs', 'Chart intel', 'Source code']);
   const live = q(el, 'pane-live').textContent;
   for (const w of ['CURRENT DECISION', 'RECORD', 'TAKE / STOP', 'RISK', 'POSITION SIZE', 'CHART INTELLIGENCE', 'LIVE RULINGS', 'RUNTIME last']) expect(live).toContain(w);
   expect(live).toContain(`+${p.take}% / ${p.stop}%`); expect(live).toContain(`${p.takeSource} take`);                    // Reaper opens on ITS position
@@ -111,7 +111,7 @@ test('the 3D room is handed real state only: ten stations, the candidate on the 
   expect(m.stations.every(s => s.tag === agentTag(s.key, office)[0] && s.line === deskLine(s.key, office) && TAG_CLS[s.tag] === s.cls)).toBe(true);   // every station = the payload's own word
   expect(m.wall.symbol).toBe(office.currentCase.symbol); expect(m.wall.structure).toBe(office.currentCase.chart.state); expect(m.wall.decision).toBe(office.currentCase.chart.entry[0]);
   expect(m.wall.bars).toBe(office.currentCase.bars); expect(m.wall.stage).toBe(office.agents.find(a => a.key === focusOf(office)).name);                  // the SAME candle rows, not a copy or a sketch
-  expect(m.wall.devil).toMatch(/NO OBJECTION|OBJECT/); expect(m.status[0]).toEqual([office.office.cleared, 'cleared', '#45e486']);
+  expect(m.wall.devil).toMatch(/NO OBJECTION|OBJECT/); expect(m.status.find(x => x[1] === 'cleared')).toEqual([office.office.cleared, 'cleared', '#45e486']);
   const p = office.positions[0]; const w = roomModel(office, 'reaper', p.symbol).wall;
   expect(w.kind).toBe('position'); expect(w.decision).toBe(p.decision); expect(w.stage).toBe('Reaper'); expect(w.levels.map(l => l.label)).toEqual(expect.arrayContaining(['entry', 'invalid', 'support'])); expect(w.reviewAt).not.toBeNull();
   expect(roomModel({ agents: office.agents, pipeline: [] }, null, null).wall).toBeNull();                                                              // no candidate, no position → an empty wall, never a made-up coin
