@@ -61,3 +61,34 @@ def test_the_board_shows_the_newest_launches_not_only_the_strongest_reads():
     assert [r['mint'] for r in rows[:24]] == [f'o{i}' for i in range(24)]
     assert [r['mint'] for r in rows[24:]] == [f'n{i}' for i in range(24)]   # newest first, age unknown left out
     assert len(ag.view_rows(new[:5] + old)) == 24                             # young coins already in the top are not repeated
+
+
+def _row(m, **k):
+    base = {'mint': m, 'symbol': m, 'pair': 'P' + m, 'px': 1.0, 'vitals': {'safe': True, 'liq': 40_000, 'rug': 10, 'vol1h': 20_000},
+            'nums': {'liq': 40_000, 'c1': 20}, 'trigger': ['wait', 'lean +0.3 under the bar 1.0'], 'why': {'lean': 0.3}, 'chart': {'state': 'RANGE'}, 'objs': []}
+    for kk, vv in k.items():
+        base[kk] = {**base[kk], **vv} if isinstance(vv, dict) and isinstance(base.get(kk), dict) else vv
+    return base
+
+
+def test_seat_floor_takes_the_best_safe_coin_and_never_a_hard_block():
+    good = _row('GOOD', why={'lean': 0.9})
+    ok2 = _row('CHOPPY', trigger=['skip', 'E1 bad structure: CHOP: no long thesis here'], why={'lean': -0.2})
+    bad = [_row('UNSCANNED', vitals={'safe': None}), _row('FAILED', vitals={'safe': False}), _row('THIN', nums={'liq': 9_000}, vitals={'liq': 9_000}),
+           _row('RUG', vitals={'rug': 60}), _row('RAN', nums={'c1': 400}), _row('TOP', trigger=['skip', '+22% in 5 min — that is the top']),
+           _row('FALL', trigger=['skip', '-11% in 5 min — falling']), _row('LADDER', chart={'state': 'BOT LADDER'}),
+           _row('BUSTED', objs=[['busted_read', 'its read is RUG BAIT']]), _row('HELD')]
+    got = oe.floor_ready([ok2, *bad, good], skip={'HELD'})
+    assert [r['mint'] for r in got] == ['GOOD', 'CHOPPY']   # best lean first; every hard block left out
+    assert got[0]['floor'] is True and 'seat floor' in got[0]['nearReady']
+
+
+def test_a_lane_launch_seat_is_a_trench_leg_for_the_keeper():
+    import arena_prime as ap
+    card = {'legs': [], 'cash': 1.0, 'events': []}
+    row = {'mint': 'NEW', 'symbol': 'NEW', 'pairAddress': 'PNEW', 'price': 0.001, 'trench': True}
+    got = ap.agent_seat(card, row, {}, {'coins': 4}, 1000.0)
+    assert got['legs'][0]['trench'] is True and got['legs'][0]['rideOrRug'] is True
+    old = ap.agent_seat(card, {**row, 'trench': False}, {}, {'coins': 4}, 1000.0)
+    assert 'trench' not in old['legs'][0]
+    assert ag.CONTROL_MIN_LIQ == 10_000   # above the keeper's own trench floor ($8K): a seat the agents take is not refused for its pool

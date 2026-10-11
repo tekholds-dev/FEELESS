@@ -9689,6 +9689,8 @@ async def _prime_tick_inner(now):
                         for l in cur['legs']:
                             if l.get('mint') == t_['mint']:
                                 l.update(bought={**(l.get('bought') or {}), 'tag': '🤖 agents GO' if t_.get('go') else '🤖 agents · 10-min duty'}, slMode='hold', rideOrRug=True, ticket=True); l.pop('picked', None)
+                                if _ag.in_lane(t_.get('vitals') or {}):
+                                    l['trench'] = True
                         cur['events'] = cur['events'][:-1] + [{**cur['events'][-1], 'kind': 'agent', 'move': 'swap', 'mint': t_['mint'], 'why': f"🤖 agents swapped ${x['symbol']} for ${t_['symbol']}: {x['why']}"}]
                         if ctl_:
                             cur['agentDutyAt'] = now
@@ -9722,6 +9724,9 @@ async def _prime_tick_inner(now):
             on_n = {l.get('mint') for l in cur.get('legs') or []}
             gw_m = {t_['mint'] for t_ in gos_ + wait_}   # (computed even when cleared coins exist: they may fail the live check below and leave nothing)
             near0_ = [] if pol_['manual'] or not empty_n else [r_ for r_ in _oe.near_ready([c_ for c_ in cases_ if c_['mint'] not in cool and c_['mint'] not in lost_ and c_['mint'] not in on_n and c_['mint'] not in gw_m and not _fw.dollar_named(c_.get('symbol'))], scores_)][:empty_n + 2]
+            if empty_n and not pol_['manual'] and len(near0_) < empty_n:   # 🪑 no seat stays empty: the seat floor tops the list up (hard safety only)
+                skip_f = set(cool) | set(lost_) | set(on_n) | set(gw_m) | {t_['mint'] for t_ in near0_} | set((_json_load(AGENTS_PATH, {}).get('burned') or {}).keys())
+                near0_ = near0_ + [t_ for t_ in _oe.floor_ready(_agents.get('table'), skip_f) if not _fw.dollar_named(t_.get('symbol'))][:empty_n - len(near0_) + 2]
             near_m = {t_['mint'] for t_ in near0_}
             near_ = []
             try:
@@ -9757,6 +9762,7 @@ async def _prime_tick_inner(now):
             plan_ = _oe.fill_plan({'control': True, 'pol': pol_, 'live': rd_['live'], 'halt': seat_ctx_['halt'], 'courier': seat_ctx_['courier'], 'used': used_, 'gos': gos_, 'wait': wait_,
                                    'empty': empty_n, 'emptySince': cur.get('agentEmptyAt'), 'lastFill': cur.get('agentFillAt'), 'now': now, 'near': near_, 'emptyFor': empty_for_, 'cap': _ag.FILL_MOVES_HR})
             for t_ in plan_:   # 🔌 no fill until the office is LIVE after a restart · never while the keeper is halted or the Courier reads BAD
+                t_ = {**t_, 'trench': _ag.in_lane(t_.get('vitals') or {})}   # 🗑 a lane launch → the keeper's trench pool floor
                 if used_ >= _ag.FILL_MOVES_HR:
                     break
                 try:
@@ -9766,7 +9772,7 @@ async def _prime_tick_inner(now):
                         continue
                     cur = _prime.agent_seat(cur, {'mint': t_['mint'], 'symbol': t_['symbol'], 'pairAddress': t_['pair'], 'price': t_['px'], 'liquidityUsd': (t_.get('nums') or {}).get('liq'),
                                                   'ageH': (t_.get('vitals') or {}).get('ageH'), 'vol1h': (t_.get('vitals') or {}).get('vol1h'), 'buyShare': (t_.get('nums') or {}).get('buy'),
-                                                  'tag': '🤖 agents GO · in control' if t_.get('go') else '🤖 agents · best available' if t_.get('nearReady') else '🤖 agents · 10-min duty',
+                                                  'tag': '🤖 agents GO · in control' if t_.get('go') else '🤖 agents · seat floor' if t_.get('floor') else '🤖 agents · best available' if t_.get('nearReady') else '🤖 agents · 10-min duty',
                                                   'why': (t_.get('trigger') or ['', ''])[1] if t_.get('go') else t_['nearReady'] if t_.get('nearReady') else f"their strongest cleared read (lean {t_['why']['lean']:+.1f})"}, px, cfg_s, now, max_usd=wd_['allowed'])
                     used_ += 1; cur['agentDutyAt'] = now; cur['agentFillAt'] = now
                     _intake['reg'] = _in.stamp(_intake_reg(), 'seat', [t_['mint']], now)   # 🕸 clear → seat latency

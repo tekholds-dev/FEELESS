@@ -429,7 +429,7 @@ def trigger(n, why, row, learned):
     bar = bar_now(learned)
     if row.get('safe') is False:
         return 'skip', 'failed the holder safety scan'
-    if 0 < _f(n.get('liq')) < 20_000:
+    if 0 < _f(n.get('liq')) < CONTROL_MIN_LIQ:
         return 'skip', f"pool ${_f(n.get('liq')) / 1000:.0f}K — pullable"
     d5 = _f(n.get('d5'))
     if d5 > 15:
@@ -1274,7 +1274,7 @@ CONTROL_HOLD_MIN = 15      # 🎮 in control: a coin is never switched in its fi
 CONTROL_MOVES_HR = 6       # 🎮 in control: at most this many SWITCHES an hour (a held coin sold for another) — churn × cost is what drained the card
 FILL_MOVES_HR = 24         # 🪑 filling an EMPTY seat has its own runaway guard (owner, 2026-10-11: "no seat should be empty, 30 secs to choose"):
                            # one fill per seat per 10 min on average — a seat that empties is refilled, a loop that refills every tick is stopped
-CONTROL_MIN_LIQ = 20_000.0
+CONTROL_MIN_LIQ = 10_000.0   # 🗑 the agents trade launches under $1M (2026-10-11): $10K clears the keeper's own trench floor ($8K) with margin; was $20K
 
 
 DUTY_SEC = 600             # 🕙 in control they put their best CLEARED coin on the card every 10 minutes (owner, 2026-10-10)

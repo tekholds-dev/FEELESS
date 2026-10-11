@@ -3115,3 +3115,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   launches (≤ 6h) the desk read — the owner saw Pump radar coins and thought the agents missed them; the intake registry showed every one
   taken in within a minute. 👁 Agents tab charts = the FEELESS `PriceChart` (`OfficeRoom.LiveChart`, agents' levels via `fuse.lines`, a new
   optional PriceChart prop) and the 3D wall screen draws `lib/liveCandles.useLiveCandles` (the war room's own 1m candles, every 10s).
+- 🪑 SEAT FLOOR (owner, 2026-10-11: "no seat should ever be empty, 30 secs to decide"; `office_edge.floor_ready`, appended to near-ready in the tier
+  tick, tag "🤖 agents · seat floor"): after 30s with no GO / cleared / near-ready coin, an empty seat takes the best coin of EVERYTHING the desk
+  read in the lane that clears the HARD lines (scan passed · pool ≥ `CONTROL_MIN_LIQ` · rug < 50 · not +150% 1h · no hard Devil objection · Trigger's
+  only allowed skip = CHOP · chart not invalid / bot ladder / liquidity failure / downtrend / collapsing); live check (≥ 15 moving candles) + Warden
+  W19 half seat + keeper still decide. `CONTROL_MIN_LIQ` $20K → $10K and lane legs carry `trench` → the keeper's trench floor ($8K): the lane is
+  launches under $1M, whose pools are $10–20K (17 of 30 scan-passed lane coins sat under the old $20K line; the seat floor had 1 coin, now ~9).

@@ -170,7 +170,7 @@ def weather(nums, rows, state, now, courier_health=None, office=None):
     liqs = [_f(n.get('liq')) for n in ns if _f(n.get('liq')) > 0]
     green = round(sum(1 for x in ds if x > 0) / len(ds) * 100) if ds else None
     by = {r.get('mint'): r for r in rows or []}
-    viable = sum(1 for m, n in (nums or {}).items() if (by.get(m) or {}).get('safe') is not False and _f(n.get('liq')) >= 20_000 and -8 <= _f(n.get('d5')) <= 15
+    viable = sum(1 for m, n in (nums or {}).items() if (by.get(m) or {}).get('safe') is not False and _f(n.get('liq')) >= _ag.CONTROL_MIN_LIQ and -8 <= _f(n.get('d5')) <= 15
                  and (n.get('buy') is None or _f(n['buy']) >= 55))
     new_n = sum(1 for r in rows or [] if r.get('ageH') is not None and _f(r['ageH']) <= 1)
     bots = sum(1 for r in rows or [] if _f(((r.get('mind') or {}).get('bots') or (0,))[0]) >= 40 or ((r.get('mind') or {}).get('crowd') or {}).get('swarm'))
@@ -917,7 +917,7 @@ def trigger_checks(row, perf=None):
     need = 5 if (perf or {}).get('trial') == 'tally' else 3
     d5, liq = _f(n.get('d5')), _f(n.get('liq'))
     return [['scan', v.get('safe') is not False, 'holder scan did not fail' if v.get('safe') is not False else 'failed the holder scan', True],
-            ['pool', not (0 < liq < 20_000), f'pool ${liq / 1000:.0f}K', True], ['top', d5 <= 15, f'{d5:+.1f}% in 5 min (≤ +15)', True], ['fall', d5 >= -8, f'{d5:+.1f}% in 5 min (≥ −8)', True],
+            ['pool', not (0 < liq < _ag.CONTROL_MIN_LIQ), f'pool ${liq / 1000:.0f}K', True], ['top', d5 <= 15, f'{d5:+.1f}% in 5 min (≤ +15)', True], ['fall', d5 >= -8, f'{d5:+.1f}% in 5 min (≥ −8)', True],
             ['readings', int(n.get('pts') or 0) >= need, f"{int(n.get('pts') or 0)} of {need} readings", False],
             ['lean', _f(why.get('lean')) >= bar, f"lean {_f(why.get('lean')):+.1f} vs bar {bar:.2f}", False],
             ['buyers', n.get('buy') is None or _f(n['buy']) >= 55, 'buyers unknown' if n.get('buy') is None else f"buyers {_f(n['buy']):.0f}% (≥ 55)", False]] + (
