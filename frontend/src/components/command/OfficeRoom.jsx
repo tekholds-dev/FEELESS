@@ -1,7 +1,7 @@
 import React, { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChartBox, DataLine, dqWord, dump, sgn, usd, ago, clock, ms, STRUCT_CLS } from './OfficeBoard';
 import { tiny } from '../../lib/num';
-import { EdgeBand } from './OfficeEdge';
+import { EdgeBand, SocialLine } from './OfficeEdge';
 import '../../styles/officeRoom.css';
 
 const OfficeRoom3D = lazy(() => import('./OfficeRoom3D'));
@@ -283,6 +283,7 @@ export function AgentPanel({ o, a, coin, onCoin }) {
           <span className="is-wide"><u>{p ? 'Thesis' : 'Entry call'}</u><b>{p ? (p.thesis ? `${p.thesis.structure} · ${p.thesis.triggerRule} → now ${p.verdict || 'unchecked'}` : 'no thesis on file') : ch ? `${ch.entry?.[0]} — ${ch.entry?.[2]}` : '—'}</b></span></div>; })()}</div>
       <PolicyBlock o={o} p={p} />
       {(() => { const ln = view ? launchOf(o, view.symbol) : null; return ln ? <p className="ofr-launch" data-testid="ofr-launch"><small>LAUNCH</small><b>{ln.pad}</b><span>{ln.type}</span>{ln.curvePct != null ? <span>curve {Math.round(ln.curvePct)}%</span> : null}{ln.ageH != null ? <span>{Number(ln.ageH).toFixed(1)}h old</span> : null}{ln.graduated != null ? <span>{ln.graduated ? 'graduated' : 'pre-graduation'}</span> : null}<u>measured from the mint + the launch board · anything else UNKNOWN</u></p> : null; })()}
+      {view ? <SocialLine p={(o.social || {})[view.cur?.mint || p?.mint]} /> : null}
       <TeamTrace t={view?.kind === 'case' ? traceOf(o, view.symbol) : null} pos={p} />
       <div className="ofr-rul" data-testid="ofr-rulings"><small>LIVE RULINGS · every desk, newest first</small>{rulingsOf(o, 3).length ? <ul>{rulingsOf(o, 3).map((r, i) => <li key={i} className={r.key === a.key ? 'is-me' : ''} style={{ '--ag': AG[r.key] }} data-tip={r.text}><u>{hhmm(r.at)}</u><b>{r.name}</b> {r.text}</li>)}</ul> : <span className="ofr-nil">none on record yet</span>}</div>
       <p className="ofr-files" data-testid="ofr-files"><small>RUNTIME last {ms(c.latency?.last)} · p95 {ms(c.latency?.p95)}</small>{(a.code || []).map(k => <span key={k.file}><code>{k.file}</code><code className="ofr-fn">{k.fn[0]}()</code></span>)}</p>

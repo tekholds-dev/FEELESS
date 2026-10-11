@@ -394,7 +394,7 @@ def test_in_control_they_buy_only_eligible_go_coins_switch_a_broken_read_after_1
     assert [x['mint'] for x in ag.eligible(table, {'HELD'}, 1.0)] == ['GOOD', 'OK2']                 # minutes-old / unknown age / thin pool / unscanned / objected / on the card: all out
     assert [x['mint'] for x in ag.eligible(table, set(), 1.0, burned={'GOOD'})] == ['OK2', 'HELD']
     leg = lambda m, at=0, **k: {'symbol': m, 'pairAddress': 'P' + m, 'mint': m, 'units': 1, 'entry': 1.0, 'at': at, **k}
-    cfg = {'agentTakePct': 20, 'agentMode': 'auto', 'trenchMinAgeH': 1}
+    cfg = {'agentTakePct': 20, 'agentMode': 'auto', 'agentMinAgeH': 1}
     now = 3600
     broke = row('MINE', go=False, lean=-1.0, trig='wait')
     legs = [leg('MINE', at=now - 20 * 60), leg('FRESH', at=now - 5 * 60), leg('ICE', at=0, frozen=True)]

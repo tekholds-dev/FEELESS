@@ -115,3 +115,17 @@ test('the 60s cycle line shows the funnel and every seat says what it is doing',
   expect(Array.from(q(el, 'oed-acts').querySelectorAll('li em')).map(x => x.textContent)).toEqual(fx.acts.map(a => a.action));
   expect((await mount(<CycleLine c={null} />)).textContent).toBe('');
 });
+
+test('the narrative packet shows identity, mint match and real source links; freshness and load are separate fields', async () => {
+  const { SocialLine, CycleLine } = require('./OfficeEdge');
+  const fx = require('./__fixtures__/social.json'); const cy = require('./__fixtures__/cycle.json');
+  const el = await mount(<SocialLine p={fx.packet} now={fx.packet.at} />);
+  expect(q(el, 'oed-soc-narr').textContent).toContain('ANIMAL'); expect(q(el, 'oed-soc-mint').textContent).toContain('yes');
+  expect(q(el, 'oed-soc-id').textContent).toContain(`${fx.packet.cross.confidence}/100`);
+  expect(q(el, 'oed-soc-site').querySelector('a').getAttribute('href')).toBe('https://froggy.fun'); expect(q(el, 'oed-soc-x').querySelector('a').getAttribute('href')).toBe('https://x.com/froggy_sol');
+  expect(q(el, 'oed-soc-x').textContent).toContain('ACTIVE');
+  expect((await mount(<SocialLine p={null} />)).textContent).toContain('not researched yet');
+  const c = await mount(<CycleLine c={cy.cycle} acts={cy.acts} now={cy.cycle.at} fresh={fx.fresh} load={fx.load} />);
+  expect(q(c, 'oed-cy-f-price').textContent).toContain('10s'); expect(q(c, 'oed-cy-f-candle').textContent).toContain('60s'); expect(q(c, 'oed-cy-f-agentInput').textContent).toContain('50s');
+  expect(q(c, 'oed-cy-scans').textContent).toContain('2'); expect(q(c, 'oed-cy-social').textContent).toContain('4');
+});

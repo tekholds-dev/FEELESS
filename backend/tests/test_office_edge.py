@@ -32,7 +32,7 @@ def case(m, lean=2.0, cleared=True, checks=None):
 # ── 🎛 THE CREATOR'S LIMITS ───────────────────────────────────────────────────────────────────────────────────────────────────────
 def test_unknown_or_wild_policy_values_fall_back_to_agents_choose_or_are_clamped_never_silently_wild():
     assert oe.clean_policy({}) == {'agentAuthority': 'agents', 'agentTp': 0.0, 'agentSl': 0.0, 'agentTrail': 'auto', 'agentTrailArm': 0.0, 'agentTrailPct': 0.0, 'agentMaxHold': 0.0,
-                                   'agentSizePct': 0.0, 'agentSeatTarget': 0, 'agentSwitch': 'agents', 'agentEntry': 'agents'}
+                                   'agentSizePct': 0.0, 'agentSeatTarget': 0, 'agentSwitch': 'agents', 'agentEntry': 'agents', 'agentMinAgeH': 0.0}
     wild = oe.clean_policy({'agentAuthority': 'god', 'agentTp': 9999, 'agentSl': 0.5, 'agentMaxHold': -3, 'agentSizePct': 99, 'agentSeatTarget': 7, 'agentSwitch': 'yolo', 'agentEntry': 'x', 'agentTrail': 'z'})
     assert wild['agentAuthority'] == 'agents' and wild['agentTp'] == oe.BOUNDS['agentTp'][1] and wild['agentSl'] == oe.BOUNDS['agentSl'][0]   # clamped into the bounds
     assert wild['agentMaxHold'] == 0.0 and wild['agentSizePct'] == oe.BOUNDS['agentSizePct'][1] and wild['agentSeatTarget'] == 0 and (wild['agentSwitch'], wild['agentEntry'], wild['agentTrail']) == ('agents', 'agents', 'auto')
@@ -639,3 +639,146 @@ def test_the_decision_module_has_no_wallet_network_or_execution_path_of_its_own(
     src = inspect.getsource(oe)
     for bad in ('httpx', 'fuse_wallet', 'signTransaction', 'sendTransaction', 'import requests', '_fw_', 'asyncio'):
         assert bad not in src, bad                                                                                # fill_plan / intake / cycle only DECIDE; the existing keeper path executes
+
+
+# ── ⚡ REALTIME: a case file never freezes the market state ─────────────────────────────────────────────────────────────────────────
+def test_a_case_read_at_price_a_sees_price_b_and_a_new_candle_without_being_rediscovered(monkeypatch):
+    import reputation_service as rs
+    row = {**trow('LIVE'), 'px': 1.00}
+    monkeypatch.setitem(rs._jup_px_cache, 'LIVE', (1000.0, 1.25))                                               # the shared price moved A → B
+    v = rs._mkt_view('LIVE', 'PLIVE', 1005.0)
+    assert v['px'] == 1.25 and v['pxSrc'] == 'jupiter' and v['pxAt'] == 1000.0
+    chk = oe.live_check(row, v, None, 1005.0)
+    assert chk['px'] == 1.25 and chk['move'] == 25.0 and not chk['ok'] and 'not chased' in chk['why']           # Trigger's line on the NEWEST price
+    monkeypatch.setitem(rs._jup_px_cache, 'LIVE', (1001.0, 1.03))
+    assert oe.live_check(row, rs._mkt_view('LIVE', 'PLIVE', 1005.0), None, 1005.0)['ok']                         # a small move: the read stands
+    up = [[60 * i, 1.0 + 0.01 * i, 1.012 + 0.01 * i, 0.995 + 0.01 * i, 1.008 + 0.01 * i, 900] for i in range(20)]
+    meta = {'provider': 'jupiter', 'vol5m': 9000, 'vol1h': 90_000, 'liqAge': 0, 'ageMin': 500}
+    before = ci.read(up, 1200, True, 'candles', meta, liq=80_000)
+    dump = up + [[1200, 1.2, 1.2, 0.9, 0.92, 4000]]                                                               # a new completed 1-minute candle lands
+    after = ci.read(dump, 1260, True, 'candles', meta, liq=80_000)
+    monkeypatch.setitem(rs._office['charts'], 'LIVE', after)
+    assert before['entry'][0] != after['entry'][0] or after['entry'][0] != 'ENTER NOW'
+    got = oe.live_check(row, rs._mkt_view('LIVE', 'PLIVE', 1265.0), rs._mkt_view('LIVE', 'PLIVE', 1265.0)['chart'], 1265.0)
+    assert not got['ok'] and 'newest chart' in got['why']                                                         # the SAME case now reads the new candle
+
+
+def test_freshness_reports_each_input_separately_and_says_none_when_nothing_was_measured():
+    f = oe.freshness(1000, [990, None, 995], [970], [940], 980, 950, 998)
+    assert f == {'price': 5.0, 'tape': 30.0, 'candle': 60.0, 'liquidity': 20.0, 'agentInput': 50.0, 'decision': 2.0}
+    assert oe.freshness(1000) == {'price': None, 'tape': None, 'candle': None, 'liquidity': None, 'agentInput': None, 'decision': None}
+
+
+def test_a_thirty_second_old_launch_enters_the_intake_and_graduation_is_only_context():
+    board = [_brow(f'B{i}', front=80) for i in range(300)] + [_brow('NOW', ageH=30 / 3600, curve=True, mcap=6_000), _brow('GRAD', ageH=2, curve=False, vol1h=40_000)]
+    tags = {x['mint']: x['intake'] for x in oe.intake(board)}
+    assert 'new' in tags['NOW'] and 'grad' in tags['GRAD']
+    assert ag.stage_of(30 / 3600) == 'NEWBORN' and ag.stage_of(0.5) == 'EARLY' and ag.stage_of(5) == 'DEVELOPING' and ag.stage_of(48) == 'MATURE' and ag.stage_of(None) is None
+    two = trow('TWO', ageH=2 / 60)
+    c = ag.investigate([two], set(), ag.min_age_of({}))[0]
+    assert c['cleared'] and 'NEWBORN' in dict((k[0], k[2]) for k in c['checks'])['age']                         # evaluated, labelled — not rejected
+    assert ag.min_age_of({}) == 0 and ag.min_age_of({'agentMinAgeH': 1}) == 1 and ag.min_age_of({'agentMinAgeH': 7}) == 0 and ag.min_age_of({'trenchMinAgeH': 1}) == 0
+    assert oe.clean_policy({'agentMinAgeH': 0.25})['agentMinAgeH'] == 0.25 and any(x['key'] == 'agentMinAgeH' for x in oe.controls({}))
+    rows = [[60 * i, 1.0 + 0.01 * i, 1.015 + 0.01 * i, 0.995 + 0.01 * i, 1.008 + 0.01 * i, 100 + i] for i in range(3)]
+    q = ci.read(rows, 180, True, 'candles', {'ageMin': 3, 'provider': 'jupiter'})['q']
+    assert q['state'] == 'LIMITED_HISTORY' and q['state'] not in ('MALFORMED', 'INCONSISTENT', 'STALE', 'UNTRUSTED')   # few candles ≠ DATA INVALID
+
+
+# ── ♻ SAME COIN AGAIN ───────────────────────────────────────────────────────────────────────────────────────────────────────────────
+def test_a_rejected_coin_waits_until_something_material_changes():
+    rej = case('R', cleared=False, checks=[['scan', True, ''], ['chart', False, 'RANGE → WAIT FOR BREAKOUT']])
+    row = {**trow('R'), 'px': 1.0}
+    m = oe.note_seen({}, [row], [rej], {'R'}, 1000)
+    e = m['R']
+    assert e['first'] == 1000 and e['review'] == 1000 and 'WAIT FOR BREAKOUT' in e['reject']
+    assert not oe.review_due(e, 1060)[0]                                                                          # rejected 60s ago, nothing new
+    assert oe.review_due(e, 1000 + oe.REVIEW_COOL_SEC)[0]                                                         # bounded: the cooldown ends
+    m2 = oe.note_seen(m, [{**row, 'px': 1.08}], [rej], set(), 1060)
+    due, why = oe.review_due(m2['R'], 1060)
+    assert due and 'price' in why                                                                                  # a material move wakes it at once
+    m3 = oe.note_seen(m, [{**row, 'vitals': {**row['vitals'], 'safe': None}}], [rej], set(), 1030)
+    m3 = oe.note_seen(m3, [row], [rej], set(), 1050)
+    assert oe.review_due(m3['R'], 1050)[0] and 'scan' in oe.review_due(m3['R'], 1050)[1]                         # a holder scan landing wakes it
+    m4 = oe.note_seen(m, [{**row, 'chart': {'state': 'CONFIRMED BREAKOUT'}}], [rej], set(), 1040)
+    assert oe.review_due(m4['R'], 1040)[0]                                                                        # a breakout wakes it
+    board = [_brow('R', front=99, ageH=500)] + [_brow(f'X{i}', front=50) for i in range(300)]
+    assert 'busy' in {x['mint']: x['intake'] for x in oe.intake(board)}['R']                                       # without news it would take a busy seat first …
+    assert 'R' not in {x['mint'] for x in oe.intake(board, cool={'R'})}                                            # … cooled, the seat goes to a coin with news
+
+
+def test_holder_scans_follow_the_priority_tiers():
+    mk = lambda m, lean, checks, ageH=8, pace=0.0, liq=60_000: {'mint': m, 'symbol': m, 'lean': lean, 'checks': checks,
+                                                                 'row': {'vitals': {'safe': None, 'ageH': ageH, 'liq': liq}, 'nums': {'pace': pace, 'liq': liq}}}
+    only = [['scan', False, ''], ['age', True, ''], ['devil', True, '']]
+    more = [['scan', False, ''], ['devil', False, '']]
+    cases = [mk('plain', 3.0, more), mk('chal', 0.5, more), mk('fresh', 0.4, more, ageH=0.1, pace=3), mk('blockonly', 0.6, only), mk('near', 2.0, only)]
+    got = oe.scan_order(cases, 5, challengers={'chal'})
+    assert [c['mint'] for c in got] == ['near', 'blockonly', 'fresh', 'chal', 'plain'] and got[0]['scanTier'] == oe.SCAN_TIERS[0]
+
+
+# ── 🔎 SOCIAL RESEARCH (fixtures only — the suite never opens a live site) ─────────────────────────────────────────────────────────
+def _fx(name):
+    import pathlib
+    return (pathlib.Path(__file__).parent / 'fixtures' / 'social' / name).read_text()
+
+
+def test_website_and_x_research_cross_check_the_mint_and_classify_the_narrative():
+    import social_research as sr
+    MINT = 'FroGGyMint1111111111111111111111111111pump'
+    site = sr.site_read(_fx('site_match.html'), 'https://froggy.fun', MINT)
+    assert site['mintMatch'] == 'yes' and site['x'] == ['froggy_sol'] and site['tg'] == ['froggyportal'] and site['title'].startswith('FROGGY')
+    x = sr.x_read(_fx('x_profile.html'), 'https://x.com/froggy_sol', MINT, now=1791700000)
+    assert x['available'] and x['followers'] == 12500 and x['following'] == 1204 and x['mintMentioned'] and x['website'] == 'https://froggy.fun'
+    assert x['posts'][0]['text'].startswith('frog szn') and x['lastPostAt']
+    row = {'mint': MINT, 'symbol': 'FROGGY', 'name': 'Froggy', 'x': 'https://x.com/froggy_sol', 'site': 'https://froggy.fun'}
+    p = sr.packet(row, site, x, now=x['lastPostAt'] + 3600)
+    assert p['cross']['mintMatch'] == 'yes' and p['cross']['siteLinksX'] is True and p['cross']['xLinksSite'] is True and not p['cross']['conflict']
+    assert p['cross']['confidence'] >= 80 and p['narrative']['class'] == 'ANIMAL' and p['social'] == 'ACTIVE' and p['narrative']['class'] in sr.NARRATIVES
+    bad = sr.site_read(_fx('site_other_mint.html'), 'https://froggy-official.xyz', MINT)
+    pb = sr.packet(row, bad, None, now=1)
+    assert bad['mintMatch'] == 'no' and pb['cross']['conflict'] and pb['cross']['confidence'] < 40 and pb['warnings'] and pb['cross']['siteLinksX'] is False
+
+
+def test_unavailable_social_is_unknown_never_a_veto_and_identity_only_shrinks_a_seat():
+    import social_research as sr
+    wall = sr.x_read(_fx('x_wall.html'), 'https://x.com/whoever', 'M')
+    assert wall['available'] is False and sr.freshness(wall, 0) == 'UNAVAILABLE' and sr.freshness(None, 0) == 'UNKNOWN'
+    p = sr.packet({'mint': 'M', 'symbol': 'NEW'}, None, None, now=1)
+    assert p['cross']['confidence'] is None and p['social'] == 'UNKNOWN' and p['warnings'] == []                  # nothing to judge: unknown, not low
+    row = {'safe': True, 'tv': {'rug': 5}, 'social': p}
+    assert ag.devil('enter', {'age': 0.1}, {'lean': 3, 'drivers': []}, row, {'busted': set()})[0] == 'agree'
+    conflict = sr.packet({'mint': 'M', 'symbol': 'X'}, sr.site_read(_fx('site_other_mint.html'), 'https://a.xyz', 'M'), None, now=1)
+    w = []
+    assert ag.devil_args('enter', {'age': 5}, {'lean': 3, 'drivers': []}, {'safe': True, 'tv': {'rug': 5}, 'social': conflict}, {'busted': set()}, warns=w) == []
+    assert any(x[0] == 'identity' for x in w)                                                                      # a WARNING …
+    ctx = {'value': 4.0, 'putIn': 4.0, 'cash': 4.0, 'seats': 1, 'liq': 90_000, 'ageH': 10, 'd5': 1, 'top10': 10, 'courier': 'HEALTHY', 'social': conflict}
+    wd = of.warden(1.0, ctx, {})
+    assert wd['allowed'] <= 0.25 + 1e-9 and any(r['id'] == 'W16 identity' for r in wd['rules'])                    # … and a smaller seat, never a bigger one
+    hype = {**ctx, 'social': sr.packet({'mint': 'M', 'symbol': 'MOON'}, None, {'available': True, 'posts': [{'text': 'moon lfg send it', 'at': 1}], 'lastPostAt': 1, 'url': 'u'}, now=2)}
+    assert of.warden(1.0, hype, {})['allowed'] <= 1.0
+
+
+def test_research_reuses_its_cache_picks_only_the_strongest_and_fetches_each_page_once():
+    import social_research as sr
+    calls = []
+
+    async def fake(url):
+        calls.append(url)
+        return _fx('site_match.html') if 'froggy.fun' in url else _fx('x_profile.html')
+    row = {'mint': 'FroGGyMint1111111111111111111111111111pump', 'symbol': 'FROGGY', 'site': 'https://froggy.fun', 'x': 'https://x.com/froggy_sol'}
+    p, n = asyncio.run(sr.research(row, fetch=fake, now=1000))
+    assert n == 2 and calls == ['https://froggy.fun', 'https://x.com/froggy_sol'] and p['cross']['mintMatch'] == 'yes'   # one fetch per page
+    cache = {row['mint']: p}
+    assert not sr.due(cache, row['mint'], 1000 + 60) and sr.due(cache, row['mint'], 1000 + sr.TTL['social'])
+    cases = [{'mint': row['mint'], 'lean': 3, 'cleared': True}, {'mint': 'B', 'lean': 2}, {'mint': 'C', 'lean': 1}, {'mint': 'D', 'lean': 0.5}, {'mint': 'E', 'lean': -1}]
+    assert [c['mint'] for c in sr.pick(cases, cache, 1100)] == ['B', 'C', 'D']                                   # cached one skipped, a negative read never opened
+    calls.clear()
+    nolink = {'mint': 'ZZ', 'symbol': 'ZZ'}
+
+    async def search(url):
+        calls.append(url)
+        return '<a class="result__a" href="https://zz.fun">ZZ</a>' if 'duckduckgo' in url else _fx('site_match.html')
+    _, n2 = asyncio.run(sr.research(nolink, fetch=search, now=1000))
+    assert n2 == 2 and 'duckduckgo' in calls[0]                                                                    # one bounded search only when it carries no link
+    _, n3 = asyncio.run(sr.research(nolink, fetch=search, now=1000, cache_search={'ZZ': 999}))
+    assert n3 == 0                                                                                                 # searched recently: not again

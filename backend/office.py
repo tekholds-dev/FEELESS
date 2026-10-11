@@ -361,6 +361,11 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
     ln = c.get('launch') or {}
     if ln.get('measured') and _oe.LAUNCH_RISK.get(ln.get('type')):   # 🚀 launch mechanism risk: an unknown / pre-graduation launch is at most half size
         hit('W15 launch context', _oe.LAUNCH_RISK[ln['type']], f"launch: {ln.get('pad')} · {ln.get('type')}")
+    cc = (c.get('social') or {}).get('cross') or {}
+    if cc.get('conflict'):   # 🔎 the coin's own website shows another contract: a quarter seat at most (hype never grows one)
+        hit('W16 identity', 0.25, 'the website shows a different contract than this mint')
+    elif cc.get('confidence') is not None and _f(cc['confidence']) < 40:
+        hit('W16 identity', 0.5, f"identity confidence {_f(cc['confidence']):.0f}/100: {'; '.join(cc.get('flags') or [])[:120]}")
     dq = (c.get('chart') or {}).get('q')
     if dq and _f(dq.get('risk')) < 1:   # 🧪 unknown / degraded market data can only shrink the seat (market_data.RISK) — there is no state that grows it
         hit('W13 market data', _f(dq.get('risk')), f"data {str(dq.get('state')).replace('_', ' ').lower()} ({dq.get('conf')}%): {dq.get('why')}")
@@ -1135,7 +1140,7 @@ STAGE_STATES = ('WAITING', 'WORKING', 'PASS', 'OBJECT', 'VETO', 'DONE', 'ERROR',
 
 def current_case(table, on=(), cfg=None, burned=(), reports=None):
     """The coin the office is working on right now: the strongest case file not on the card (cleared first), else the strongest read."""
-    cs = _ag.investigate(table, set(on or ()), (cfg or {}).get('trenchMinAgeH', 1), burned or {}, top=1)
+    cs = _ag.investigate(table, set(on or ()), _ag.min_age_of(cfg), burned or {}, top=1)
     return cs[0] if cs else None
 
 

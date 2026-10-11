@@ -10,14 +10,34 @@ import '../../styles/officeEdge.css';
 export const WHO_CLS = { 'AGENTS CHOOSE': 'is-agents', 'CREATOR OVERRIDE': 'is-you' };
 const SEAT_CLS = { FULL: 'is-ok', FILLING: 'is-go', 'NO VALID ENTRY': 'is-wait', 'OFFICE WARMING UP': 'is-warm', 'CREATOR MANUAL': 'is-you', 'AGENT CONTROL OFF': 'is-you' };
 
+// 🔎 THE NARRATIVE PACKET — what the website / X research found for one coin (every source opens the real page)
+const SOC_CLS = { ACTIVE: 'is-ok', STALE: 'is-wait', UNAVAILABLE: '', UNKNOWN: '' };
+const MATCH_CLS = { yes: 'is-ok', no: 'is-bad', unknown: '' };
+export function SocialLine({ p, now }) {
+  if (!p) return <p className="oed-soc oed-soc-nil" data-testid="oed-social"><small>NARRATIVE</small><span>not researched yet — only the strongest candidates are read</span></p>;
+  const t = now || Date.now() / 1000; const n = p.narrative || {}; const cc = p.cross || {}; const w = p.website || {}; const x = p.x || {};
+  const ago_ = s => (s ? `${Math.max(0, Math.round((t - s) / 60))}m ago` : '—');
+  const link = (u, l) => (u && /^https?:\/\//.test(u) ? <a href={u} target="_blank" rel="noopener noreferrer">{l}</a> : <span>{l}</span>);
+  const cell = (k, l, v, cls, tip) => <span key={k} className={`oed-op ${cls || ''}`} data-testid={`oed-soc-${k}`} data-tip={tip}><small>{l}</small><b>{v}</b></span>;
+  return <div className="oed-soc" data-testid="oed-social">
+    {cell('narr', 'NARRATIVE', `${n.class || 'UNKNOWN'}${n.confidence ? ` ${Math.round(n.confidence * 100)}%` : ''}`, '', (n.keywords || []).join(', '))}
+    {cell('id', 'IDENTITY', cc.confidence == null ? 'unknown' : `${cc.confidence}/100`, cc.confidence == null ? '' : cc.confidence >= 70 ? 'is-ok' : cc.confidence < 40 ? 'is-bad' : 'is-wait', (cc.flags || []).join(' · ') || 'no conflicts found')}
+    {cell('site', 'WEBSITE', w.url ? link(w.url, w.reachable === false ? 'unreachable' : (w.title || 'open')) : 'none', w.reachable === false ? 'is-wait' : '')}
+    {cell('x', 'SOCIAL', x.url ? link(x.url, `${p.social}${x.followers != null ? ` · ${x.followers.toLocaleString()}` : ''}`) : p.social || 'UNKNOWN', SOC_CLS[p.social])}
+    {cell('mint', 'MINT MATCH', cc.mintMatch || 'unknown', MATCH_CLS[cc.mintMatch], cc.conflict ? 'the website shows another contract' : '')}
+    {cell('last', 'LAST SOCIAL', ago_(x.lastPostAt), '')}
+    {cell('age', 'RESEARCH AGE', ago_(p.at), '')}
+  </div>;
+}
+
 // 🩺 LIVE OPERATION HEALTH — why the agents are (or are not) filling seats, in one line of real fields
 const EX_CLS = { HEALTHY: 'is-ok', DEGRADED: 'is-wait', BLOCKED: 'is-bad', UNKNOWN: '' };
 // 🔁 THE 60s CYCLE — what the desk looked at this pass and what each seat is doing
 const ACT_CLS = { HOLD: 'is-ok', REVIEW: '', 'CHALLENGER FOUND': 'is-wait', SWITCHING: 'is-go', 'TAKE / EXIT': 'is-wait', FILLING: 'is-go', 'CASH — NO VALID ENTRY': '' };
-export function CycleLine({ c, acts, now }) {
+export function CycleLine({ c, acts, now, fresh, load }) {
   if (!c || !c.at) return null;
   const t = now || Date.now() / 1000; const ago = Math.max(0, Math.round(t - c.at)); const next = Math.max(0, Math.round(c.at + (c.every || 60) - t));
-  const cell = (k, l, v, tip) => <span key={k} className="oed-op" data-testid={`oed-cy-${k}`} data-tip={tip}><small>{l}</small><b>{v ?? '—'}</b></span>;
+  const cell = (k, l, v, tip) => <span key={k} className={`oed-op ${typeof tip === 'string' && tip.startsWith('is-') ? tip : ''}`} data-testid={`oed-cy-${k}`} data-tip={typeof tip === 'string' && tip.startsWith('is-') ? '' : tip}><small>{l}</small><b>{v ?? '—'}</b></span>;
   const best = c.best ? `$${c.best.symbol} ${c.best.cleared ? '✓' : '·'} ${Number(c.best.lean || 0).toFixed(1)}` : 'none';
   return <div className="oed-cycle" data-testid="oed-cycle">
     <div className="oed-ops">
@@ -25,7 +45,11 @@ export function CycleLine({ c, acts, now }) {
       {cell('new', 'NEW LAUNCHES', c.newLaunches, `≤ 1h old on the board · ${c.newToDesk ?? 0} new to the desk this pass`)}{cell('board', 'BOARD', c.board, 'every launch coin the feed holds')}
       {cell('screened', 'CHEAP SCREENED', c.screened, Object.entries(c.by || {}).map(([k, v]) => `${k} ${v}`).join(' · '))}{cell('reviewed', 'DEEP REVIEWED', c.reviewed, 'read on real 1-minute candles')}
       {cell('cleared', 'CLEARED', c.cleared, `of ${c.cases ?? 0} case files`)}{cell('best', 'BEST CHALLENGER', best, c.best?.blocked || (c.best?.cleared ? 'cleared every desk' : ''))}
+      {cell('unique', 'UNIQUE THIS CYCLE', c.read, `${c.freshVsLast ?? '—'} not read last cycle`)}
+      {load ? <>{cell('scans', 'HOLDER SCANS', load.scans, `${load.scanWakes ?? 0} landed and woke their case`)}{cell('social', 'SOCIAL RESEARCHED', load.browser, 'browser page reads this cycle (strongest candidates only)')}</> : null}
     </div>
+    {fresh ? <div className="oed-ops oed-fresh" data-testid="oed-fresh">{[['price', 'PRICE AGE'], ['tape', 'TAPE AGE'], ['candle', 'CANDLE AGE'], ['liquidity', 'LIQUIDITY AGE'], ['agentInput', 'AGENT INPUT AGE'], ['decision', 'DECISION AGE']].map(([k, l]) =>
+      cell(`f-${k}`, l, fresh[k] == null ? '—' : `${Math.round(fresh[k])}s`, fresh[k] != null && fresh[k] > 180 ? 'is-wait' : ''))}</div> : null}
     {(acts || []).length > 0 && <ul className="oed-acts" data-testid="oed-acts">{acts.map((a, i) => <li key={i} className={ACT_CLS[a.action] || ''} data-tip={a.why || ''}>
       <small>SEAT {i + 1}</small><b>{a.symbol ? `$${a.symbol}` : '▫ open'}</b><em>{a.action}{a.to ? ` → $${a.to}` : ''}</em></li>)}</ul>}
   </div>;
@@ -114,10 +138,10 @@ export function EdgeBand({ o, onOpen }) {
 
 // 🎛 YOUR LIMITS — per control AGENTS CHOOSE (0 / 'agents') or CREATOR OVERRIDE (a value), plus the master authority
 const OPT_WORD = { agents: '🤖 agents', off: 'off', conservative: 'conservative', normal: 'normal', aggressive: 'aggressive', go: 'GO only', auto: '🤖 agents', custom: 'custom' };
-export const optLabel = (key, v, unit) => (v === 0 || v === 'agents' || (key === 'agentTrail' && v === 'auto') ? '🤖 agents' : typeof v === 'number' ? `${key === 'agentSl' ? '−' : key === 'agentTp' ? '+' : ''}${v}${unit === '%' || unit === '% of card' ? '%' : unit === 'min' ? 'm' : unit === 's' ? 's' : ''}` : OPT_WORD[v] || String(v));
+export const optLabel = (key, v, unit) => (key === 'agentMinAgeH' && v > 0 ? (v < 1 ? `${Math.round(v * 60)}m+` : `${v}h+`) : key === 'agentMinAgeH' ? '🐣 any age' : v === 0 || v === 'agents' || (key === 'agentTrail' && v === 'auto') ? '🤖 agents' : typeof v === 'number' ? `${key === 'agentSl' ? '−' : key === 'agentTp' ? '+' : ''}${v}${unit === '%' || unit === '% of card' ? '%' : unit === 'min' ? 'm' : unit === 's' ? 's' : ''}` : OPT_WORD[v] || String(v));
 const TRAIL_SUB = [['agentTrailArm', 'arm at +', [5, 10, 15, 20, 30]], ['agentTrailPct', 'points off the peak', [3, 5, 8, 10, 15]]];
 export const LIMIT_GROUPS = [['EXITS', 'when a coin leaves', ['agentTp', 'agentSl', 'agentTrail', 'agentMaxHold']], ['SIZE & SEATS', 'how much goes in, and where', ['agentSizePct', 'agentSeats', 'agentSeatTarget']],
-  ['MOVES', 'when a seat is filled or handed over', ['agentSwitch', 'agentEntry']]];
+  ['MOVES', 'when a seat is filled or handed over', ['agentSwitch', 'agentEntry', 'agentMinAgeH']]];
 // the rule IN FORCE on each open position right now (what Reaper is obeying): take · stop · hold · trail, each with who set it
 export function positionPolicy(o) {
   const pol = o?.policy || {};

@@ -128,6 +128,11 @@ body.theme-day .oed-up, body.theme-day .oed-lines li.is-ok > span { color: #0f8a
 .oed-acts em { font-style: normal; font-size: 10.5px; color: var(--m-dim); overflow-wrap: anywhere; }
 .oed-acts li.is-ok em { color: #45e486; } .oed-acts li.is-go em { color: #45e486; font-weight: 700; } .oed-acts li.is-wait em { color: var(--m-warn, var(--gold)); }
 body.theme-day .oed-acts em, body.theme-day .oed-acts small { color: #3e5a4b; } body.theme-day .oed-acts li.is-ok em, body.theme-day .oed-acts li.is-go em { color: #0d7a3f; }
+.oed-soc { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; } .oed-soc a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.oed-soc a:hover, .oed-soc a:focus-visible { color: #45e486; outline: none; } .oed-soc-nil { font-size: 11px; color: var(--m-dim); gap: 8px; align-items: center; }
+.oed-soc-nil small { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .12em; }
+.oed-fresh .oed-op b { font-size: 11.5px; }
+body.theme-day .oed-soc-nil, body.theme-day .oed-soc a:hover { color: #0d7a3f; }
 .oed-seats { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
 .oed-seats li { display: grid; grid-template-columns: 54px auto 1fr; gap: 6px; align-items: center; font-size: 11px; }
 .oed-seats small { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: .1em; color: var(--m-dim); }

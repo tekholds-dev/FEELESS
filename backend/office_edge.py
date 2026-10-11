@@ -33,7 +33,7 @@ SEAT_TARGET_AUTO = 30
 SWITCH = {'agents': (1.0, 30.0), 'off': None, 'conservative': (1.5, 45.0), 'normal': (1.0, 30.0), 'aggressive': (0.5, 15.0)}   # → (lean margin, minutes held). Aggressive only lowers the margin — never under these floors
 SWITCH_FLOOR = (0.5, _ag.CONTROL_HOLD_MIN)
 ENTRY = ('agents', 'go')                         # agents = a full GO at once, the duty's cleared case on the seat target · go = a full GO only
-POLICY_KEYS = ('agentAuthority', 'agentTp', 'agentSl', 'agentTrail', 'agentTrailArm', 'agentTrailPct', 'agentMaxHold', 'agentSizePct', 'agentSeatTarget', 'agentSwitch', 'agentEntry')
+POLICY_KEYS = ('agentMinAgeH', 'agentAuthority', 'agentTp', 'agentSl', 'agentTrail', 'agentTrailArm', 'agentTrailPct', 'agentMaxHold', 'agentSizePct', 'agentSeatTarget', 'agentSwitch', 'agentEntry')
 
 
 def _num(p, k):
@@ -50,7 +50,8 @@ def clean_policy(p):
             'agentTp': _num(p, 'agentTp'), 'agentSl': _num(p, 'agentSl'), 'agentTrail': p.get('agentTrail') if p.get('agentTrail') in TRAIL else 'auto',
             'agentTrailArm': _num(p, 'agentTrailArm'), 'agentTrailPct': _num(p, 'agentTrailPct'), 'agentMaxHold': _num(p, 'agentMaxHold'), 'agentSizePct': _num(p, 'agentSizePct'),
             'agentSeatTarget': int(_f(p.get('agentSeatTarget'))) if int(_f(p.get('agentSeatTarget'))) in SEAT_TARGETS else 0,
-            'agentSwitch': p.get('agentSwitch') if p.get('agentSwitch') in SWITCH else 'agents', 'agentEntry': p.get('agentEntry') if p.get('agentEntry') in ENTRY else 'agents'}
+            'agentSwitch': p.get('agentSwitch') if p.get('agentSwitch') in SWITCH else 'agents', 'agentEntry': p.get('agentEntry') if p.get('agentEntry') in ENTRY else 'agents',
+            'agentMinAgeH': _ag.min_age_of(p)}
 
 
 def policy(cfg):
@@ -81,7 +82,7 @@ def policy(cfg):
             'entry': c['agentEntry'], 'exit': mode,
             'who': {'takeProfit': who(c['agentTp']), 'stopLoss': who(c['agentSl']), 'trailing': who(trail != 'auto'), 'maxHold': who(c['agentMaxHold']), 'positionSize': who(c['agentSizePct']),
                     'seatCount': 'CREATOR OVERRIDE', 'entryStyle': who(c['agentEntry'] != 'agents'), 'exitStyle': who(mode != 'auto'), 'switching': who(c['agentSwitch'] != 'agents'),
-                    'emptySeat': who(c['agentSeatTarget'])},
+                    'emptySeat': who(c['agentSeatTarget']), 'minAge': who(c['agentMinAgeH'])}, 'minAgeH': c['agentMinAgeH'],
             'hard': {'catastrophicStop': _ci.CATASTROPHIC_STOP, 'movesPerHour': _ag.CONTROL_MOVES_HR, 'minPool': _ag.CONTROL_MIN_LIQ}}
 
 
@@ -89,7 +90,7 @@ def policy(cfg):
 # and — under AGENTS CHOOSE — what the agents are actually using right now (`now`, filled by the service from live state; None = not known)
 OPTIONS = {'agentAuthority': list(AUTHORITY), 'agentTp': [0, *TP_OPTS], 'agentSl': [0, *SL_OPTS], 'agentTrail': list(TRAIL), 'agentTrailArm': [0, 5, 10, 15, 20, 30],
            'agentTrailPct': [0, 3, 5, 8, 10, 15], 'agentMaxHold': [0, *HOLD_OPTS], 'agentSizePct': [0, *SIZE_OPTS], 'agentSeatTarget': list(SEAT_TARGETS),
-           'agentSwitch': ['agents', 'off', 'conservative', 'normal', 'aggressive'], 'agentEntry': list(ENTRY)}
+           'agentSwitch': ['agents', 'off', 'conservative', 'normal', 'aggressive'], 'agentEntry': list(ENTRY), 'agentMinAgeH': list(_ag.AGENT_MIN_AGES)}
 CONTROLS = (('agentTp', 'takeProfit', 'Take profit', '%', 'AT your line the coin is banked. They may still leave earlier on a broken thesis or the trail.'),
             ('agentSl', 'stopLoss', 'Stop-loss', '%', 'Your most tolerated loss. Their own structure stop may be tighter, never wider.'),
             ('agentTrail', 'trailing', 'Trailing protection', None, 'off = no give-back protection · custom = arm at +A%, bank P points under the peak.'),
@@ -97,7 +98,8 @@ CONTROLS = (('agentTp', 'takeProfit', 'Take profit', '%', 'AT your line the coin
             ('agentSizePct', 'positionSize', 'Seat size cap', '% of card', 'The most of the card one seat may be. The Warden may size smaller, never larger.'),
             ('agentSwitch', 'switching', 'Switching', None, 'How much stronger a challenger must read, and how long a coin is held, before its seat is given up. A winner is never surrendered.'),
             ('agentEntry', 'entryStyle', 'Entry', None, 'agents = a full GO, or the duty\'s cleared case on an empty seat · go = a full GO only.'),
-            ('agentSeatTarget', 'emptySeat', 'Empty-seat target', 's', 'How soon a cleared case may fill an empty seat (a full GO never waits).'))
+            ('agentSeatTarget', 'emptySeat', 'Empty-seat target', 's', 'How soon a cleared case may fill an empty seat (a full GO never waits).'),
+            ('agentMinAgeH', 'minAge', 'Youngest coin', 'h', '0 = any age: a newborn is judged on the evidence it CAN have (real candles so far, tape, pool, holder scan). A number = no coin younger than that.'))
 
 
 def controls(cfg, now=None):
@@ -121,7 +123,8 @@ def agents_now(take, tunables, thesis=None):
             'agentSizePct': f"the Warden: ≤ {_f(t.get('maxSeatPct')):g}% of the card, smaller on risk",
             'agentSwitch': f"read margin ≥ {SWITCH['agents'][0]:+.1f} after {SWITCH['agents'][1]:g} min, or a broken read after {_ag.CONTROL_HOLD_MIN} min",
             'agentEntry': 'a full GO at once, or the duty\'s cleared case',
-            'agentSeatTarget': f'{SEAT_TARGET_AUTO}s'}
+            'agentSeatTarget': f'{SEAT_TARGET_AUTO}s',
+            'agentMinAgeH': 'any age — stage-aware evidence (NEWBORN · EARLY · DEVELOPING · MATURE); safety, pool, scan and the chart still decide'}
 
 
 # ── 🔌 RESTART / REFILL: a gap in OUR data is never evidence about a coin ───────────────────────────────────────────────────────────
@@ -212,6 +215,9 @@ def seat_state(ctx):
     first = bl[0] if bl else None
     why = 'no coin has a positive read this pass' if not n else f"0 of {n} case files clear — " + ', '.join(f'{w} ({k})' for _, w, k in bl[:3])
     rest = ('NO VALID ENTRY', why) if not n else (BLOCK_CODE.get(first[0], 'NO CLEARED CANDIDATE') if first else 'NO CLEARED CANDIDATE', why)
+    if c.get('moved') and not valid:   # ⚡ cleared on the last read, but the newest price / chart says not now
+        why = 'cleared, then moved since the read: ' + '; '.join(f"${x.get('symbol')} {x.get('why')}" for x in list(c['moved'])[:2])
+        rest = ('WAITING FOR CONFIRMATION', why)
     if c.get('cooled'):   # the case files that DID clear all left the card lately (cooldown / a thesis that failed on real money)
         why = f"cleared but on the rebuy cooldown: {', '.join('$' + str(x) for x in list(c['cooled'])[:3])}" + (f' · {why}' if n else '')
         rest = ('REBUY COOLDOWN', why)
@@ -643,7 +649,7 @@ def _pace(r):
     return _f(r.get('vol5m')) * 12 / v1 if v1 > 0 else 0.0
 
 
-def intake(rows, recheck=(), listed=None, cap=INTAKE_MAX):
+def intake(rows, recheck=(), listed=None, cap=INTAKE_MAX, cool=()):
     """→ the coins Tally reads this pass, each with `intake` = the reasons it got a seat at the table (deduped, ≤ cap).
     Reserved, in this order: RECHECK (held coins + last pass's cases + challengers — always) · NEW (the youngest launches the board has,
     ANY age: a coin seconds old reaches Tally on the next pass) · ACCEL (5-min volume pace vs its hour) · GRAD (off the curve, pool < 6h) ·
@@ -651,14 +657,15 @@ def intake(rows, recheck=(), listed=None, cap=INTAKE_MAX):
     rs = [r for r in rows or [] if r.get('mint')]
     by = {r['mint']: r for r in rs}
     lst = listed or {}
+    cl = set(cool or ())
     picks = {
         'recheck': [by[m] for m in dict.fromkeys(recheck or ()) if m in by],
         'new': sorted((r for r in rs if r.get('ageH') is not None), key=lambda r: _f(r['ageH'])),
-        'accel': sorted((r for r in rs if _f(r.get('vol5m')) >= 1000 and _pace(r) > 1.0), key=lambda r: -_pace(r)),
-        'grad': sorted((r for r in rs if r.get('curve') is False and r.get('ageH') is not None and _f(r['ageH']) <= GRAD_AGE_H), key=lambda r: -_f(r.get('vol1h'))),
-        'momentum': sorted((r for r in rs if _f(r.get('vol5m')) >= 2000 and r.get('chg5m') is not None and _f(r['chg5m']) > 0), key=lambda r: -_f(r['chg5m'])),
-        'busy': sorted(rs, key=lambda r: -_f(r.get('front'))),
-        'listed': sorted((r for r in rs if lst.get(r['mint'])), key=lambda r: (-len(lst[r['mint']]), -_f(r.get('front'))))}
+        'accel': sorted((r for r in rs if _f(r.get('vol5m')) >= 1000 and _pace(r) > 1.0), key=lambda r: (r['mint'] in cl, -_pace(r))),
+        'grad': sorted((r for r in rs if r.get('curve') is False and r.get('ageH') is not None and _f(r['ageH']) <= GRAD_AGE_H), key=lambda r: (r['mint'] in cl, -_f(r.get('vol1h')))),
+        'momentum': sorted((r for r in rs if _f(r.get('vol5m')) >= 2000 and r.get('chg5m') is not None and _f(r['chg5m']) > 0), key=lambda r: (r['mint'] in cl, -_f(r['chg5m']))),
+        'busy': sorted(rs, key=lambda r: (r['mint'] in cl, -_f(r.get('front')))),   # ♻ a rejected coin with nothing new goes to the back of its slot
+        'listed': sorted((r for r in rs if lst.get(r['mint'])), key=lambda r: (r['mint'] in cl, -len(lst[r['mint']]), -_f(r.get('front'))))}
     out, tags = [], {}
     for k, n in INTAKE_SLOTS:
         took = 0
@@ -674,10 +681,34 @@ def intake(rows, recheck=(), listed=None, cap=INTAKE_MAX):
     return [{**r, 'intake': tags[r['mint']]} for r in out]
 
 
-def scan_order(cases, n=2):
-    """🕵 Which unscanned cases get a holder scan this pass: the STRONGEST reads first (lean, then 5-min pace) — never FIFO."""
+SCAN_TIERS = ('near entry, only the holder scan missing', 'blocked only on holder data', 'fresh launch with strong tape + pool', 'challenger near the switch line', 'expired scan recheck', 'positive read')
+
+
+def scan_tier(c, challengers=(), seen=None):
+    """Which priority tier a case is in for a holder scan (0 = first). Only unscanned cases with a positive read are ranked at all."""
+    row = c.get('row') or {}
+    v, n = row.get('vitals') or {}, row.get('nums') or {}
+    fails = [k[0] for k in c.get('checks') or [] if not k[1]]
+    only_scan = fails == ['scan']
+    if only_scan and _f(c.get('lean')) >= 1.5:
+        return 0
+    if only_scan:
+        return 1
+    if v.get('ageH') is not None and _f(v['ageH']) < 1 and _f(n.get('pace')) >= 1.5 and _f(n.get('liq') or v.get('liq')) >= _ag.CONTROL_MIN_LIQ:
+        return 2
+    if c.get('mint') in set(challengers or ()):
+        return 3
+    if ((seen or {}).get(c.get('mint')) or {}).get('snap', {}).get('safe') is not None:
+        return 4
+    return 5
+
+
+def scan_order(cases, n=2, challengers=(), seen=None):
+    """🕵 Which unscanned cases get a holder scan this pass — by priority tier (`SCAN_TIERS`), then the strongest read, then 5-min pace.
+    Never FIFO. → cases, each with `scanTier`."""
     un = [c for c in cases or [] if ((c.get('row') or {}).get('vitals') or {}).get('safe') is None and _f(c.get('lean')) > 0]
-    return sorted(un, key=lambda c: (-_f(c.get('lean')), -_f(((c.get('row') or {}).get('nums') or {}).get('pace'))))[:n]
+    ranked = sorted(un, key=lambda c: (scan_tier(c, challengers, seen), -_f(c.get('lean')), -_f(((c.get('row') or {}).get('nums') or {}).get('pace'))))[:n]
+    return [{**c, 'scanTier': SCAN_TIERS[scan_tier(c, challengers, seen)]} for c in ranked]
 
 
 SEAT_ACTIONS = ('HOLD', 'REVIEW', 'CHALLENGER FOUND', 'SWITCHING', 'TAKE / EXIT', 'FILLING', 'CASH — NO VALID ENTRY')
@@ -718,7 +749,7 @@ def seat_actions(seats, decisions, switch_eval, seat):
     return out
 
 
-def cycle_view(intake_, table, cases, charts, first, now, last_at, every, n_cycle):
+def cycle_view(intake_, table, cases, charts, first, now, last_at, every, n_cycle, prev=None):
     """🔁 One line per 60s cycle: what the desk looked at and what it found. Counts only — read from this pass's objects."""
     t = list(table or [])
     cl = [c for c in cases or [] if c.get('cleared')]
@@ -729,7 +760,113 @@ def cycle_view(intake_, table, cases, charts, first, now, last_at, every, n_cycl
             bands[x['band']] = bands.get(x['band'], 0) + 1
     return {'n': n_cycle, 'at': now, 'lastAt': last_at, 'every': every, 'nextIn': max(0, round(_f(last_at) + _f(every) - _f(now))) if last_at else None,
             'board': (intake_ or {}).get('board'), 'newLaunches': (intake_ or {}).get('newLaunches'), 'newToDesk': sum(1 for v in (first or {}).values() if _f(v.get('t')) >= _f(now) - 1),
-            'screened': (intake_ or {}).get('screened'), 'by': (intake_ or {}).get('by'), 'read': len(t),
+            'screened': (intake_ or {}).get('screened'), 'by': (intake_ or {}).get('by'), 'read': len({x.get('mint') for x in t}),
+            'freshVsLast': None if prev is None else len({x.get('mint') for x in t} - set(prev)),
             'reviewed': sum(1 for c in (charts or {}).values() if (c or {}).get('src') == 'candles'), 'cases': len(cases or []), 'cleared': len(cl),
             'best': None if not best else {'symbol': best.get('symbol'), 'lean': best.get('lean'), 'cleared': bool(best.get('cleared')),
                                            'blocked': next((k[2] for k in best.get('checks') or [] if not k[1]), None)}, 'bands': bands}
+
+
+# ── ⚡ LIVE CHECK: a case file keeps its thesis; the decision reads the NEWEST shared market state ──────────────────────────────────
+LIVE_CHASE, LIVE_FALL = 15.0, -8.0   # since the case was read: up more than this = chasing, down more than this = falling (Trigger's own hard lines)
+
+
+def live_check(row, mkt, chart, now):
+    """May this cleared case still be bought RIGHT NOW? `row` = the case as read in its agent pass ({px, at}), `mkt` = the shared market
+    state ({px, pxAt, liq, tapeAt, flow}), `chart` = the newest shared chart (rebuilt when a new real candle landed — no rediscovery).
+    → {ok, why, px, move, pxAge, chartState, entry}. A move past Trigger's own lines since the read, a fresh chart that no longer says
+    ENTER NOW (or a SKIP), or a pool that fell under half its read depth = not now. No newer reading = the case's own read stands."""
+    r, m, ch = row or {}, mkt or {}, chart or {}
+    px0, px = _f(r.get('px')), _f(m.get('px'))
+    move = round((px / px0 - 1) * 100, 2) if px0 > 0 and px > 0 else None
+    ent = list(ch.get('entry') or [])
+    out = {'ok': True, 'why': 'the read still stands', 'px': px or px0, 'move': move, 'pxAge': None if not m.get('pxAt') else round(_f(now) - _f(m['pxAt']), 1),
+           'chartState': ch.get('state'), 'entry': ent[:2]}
+    if move is not None and move > LIVE_CHASE:
+        return {**out, 'ok': False, 'why': f'{move:+.1f}% since the read — not chased'}
+    if move is not None and move < LIVE_FALL:
+        return {**out, 'ok': False, 'why': f'{move:+.1f}% since the read — falling'}
+    if ent and ent[0] != 'ENTER NOW' and (ch.get('src') == 'candles' or ent[0] == 'SKIP'):
+        return {**out, 'ok': False, 'why': f"the newest chart says {ent[0]}: {ent[2] if len(ent) > 2 else ''}".strip()}
+    liq0, liq = _f(((r.get('nums') or {}).get('liq'))), _f(m.get('liq'))
+    if liq0 > 0 and 0 < liq < liq0 * 0.5:
+        return {**out, 'ok': False, 'why': f'pool fell to {round(liq / liq0 * 100)}% of its read depth'}
+    return out
+
+
+def freshness(now, price_at=(), tape_at=(), candle_at=(), liq_at=None, input_at=None, decision_at=None):
+    """⏱ How old each input REALLY is, separately (seconds; None = nothing measured): the newest price, tape, real candle and pool reading
+    behind the decisions, the agent pass the cases came from, and the last seat decision."""
+    age = lambda ts: None if not [t for t in ts or () if t] else round(_f(now) - max(_f(t) for t in ts if t), 1)
+    one = lambda t: None if not t else round(_f(now) - _f(t), 1)
+    return {'price': age(price_at), 'tape': age(tape_at), 'candle': age(candle_at), 'liquidity': one(liq_at), 'agentInput': one(input_at), 'decision': one(decision_at)}
+
+
+# ── ♻ SAME COIN AGAIN: a rejected coin with nothing new waits; a material change brings it straight back ─────────────────────────────
+REVIEW_COOL_SEC = 240      # a deep-reviewed, rejected coin is not deep-reviewed again for 4 min …
+SEEN_KEEP = 3000
+MATERIAL = {'px': 5.0, 'liq': 25.0, 'vol5m': 100.0}   # … unless price moved ≥ 5%, the pool ≥ 25%, 5-min volume doubled — or a scan / graduation / chart / socials changed
+
+
+def snap_of(row):
+    v, ch = row.get('vitals') or {}, row.get('chart') or {}
+    return {'px': _f(row.get('px')), 'liq': _f((row.get('nums') or {}).get('liq') or v.get('liq')), 'vol5m': _f(v.get('vol5m') or row.get('vol5m')),
+            'safe': v.get('safe'), 'curve': v.get('curve'), 'chart': ch.get('state'), 'social': bool(row.get('site') or row.get('x') or (row.get('social') or {}).get('ok'))}
+
+
+def material(prev, cur):
+    """What changed enough to look again → words, or None. (A breakout / a new state, a scan landing, a graduation, socials appearing count.)"""
+    if not prev:
+        return 'first look'
+    pct = lambda a, b: abs(b / a - 1) * 100 if a > 0 and b > 0 else 0.0
+    if pct(prev.get('px', 0), cur.get('px', 0)) >= MATERIAL['px']:
+        return f"price {(cur['px'] / prev['px'] - 1) * 100:+.1f}%"
+    if pct(prev.get('liq', 0), cur.get('liq', 0)) >= MATERIAL['liq']:
+        return 'pool moved'
+    if prev.get('vol5m', 0) > 0 and cur.get('vol5m', 0) >= prev['vol5m'] * (1 + MATERIAL['vol5m'] / 100):
+        return '5-min volume doubled'
+    for k, w in (('safe', 'holder scan landed'), ('curve', 'graduated / migrated'), ('chart', 'chart changed'), ('social', 'socials changed')):
+        if prev.get(k) != cur.get(k) and cur.get(k) is not None:
+            return f"{w} ({cur.get(k)})" if k == 'chart' else w
+    return None
+
+
+def note_seen(mem, table, cases, reviewed, now):
+    """Update the per-coin memory: first seen · last seen · last deep review · last reject reason · last material change. Bounded."""
+    m = dict(mem or {})
+    cs = {c['mint']: c for c in cases or []}
+    for x in table or []:
+        k = x.get('mint')
+        if not k:
+            continue
+        e = dict(m.get(k) or {'first': now})
+        cur = snap_of(x)
+        ch = material(e.get('snap'), cur)
+        if ch:
+            e['changed'], e['changeWhy'] = now, ch
+        e['last'], e['snap'] = now, cur
+        if k in (reviewed or ()):
+            e['review'] = now
+        c = cs.get(k)
+        if c and not c.get('cleared'):
+            e['reject'] = next((w[2] for w in c.get('checks') or [] if not w[1]), 'not cleared')
+        elif c:
+            e.pop('reject', None)
+        m[k] = e
+    if len(m) > SEEN_KEEP:
+        m = dict(sorted(m.items(), key=lambda kv: -_f(kv[1].get('last')))[:SEEN_KEEP])
+    return m
+
+
+def review_due(e, now):
+    """May this coin get a DEEP review now? Never reviewed · not rejected last time · something material changed since that review ·
+    or the cooldown ran out. → (due, why)"""
+    if not e or not e.get('review'):
+        return True, 'never deep-reviewed'
+    if not e.get('reject'):
+        return True, 'was not rejected'
+    if _f(e.get('changed')) > _f(e['review']):
+        return True, f"changed: {e.get('changeWhy')}"
+    if _f(now) - _f(e['review']) >= REVIEW_COOL_SEC:
+        return True, 'cooldown over'
+    return False, f"rejected {round(_f(now) - _f(e['review']))}s ago ({e.get('reject')}) — nothing new"

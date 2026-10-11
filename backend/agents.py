@@ -185,7 +185,8 @@ WORDS = {'buyers': 'buyers in charge', 'sellers': 'sellers in charge', 'surge': 
          'whale_in': 'big buys on the tape', 'whale_out': 'big sells on the tape', 'callers': 'Pump callers piling in', 'drain': 'pool draining',
          'fresh': 'launched under an hour ago', 'wash': 'wash-traded volume', 'pullback': 'pulled back after a run', 'chasing': 'already spiking (5 min)',
          'falling': 'falling right now', 'holders_up': 'holders arriving', 'narr_hot': 'riding a hot narrative', 'crowd_real': 'real callers on it',
-         'swarm': 'botted callout swarm', 'botted': 'botted launch', 'tug': 'dip tuggers catching a dump'}
+         'swarm': 'botted callout swarm', 'botted': 'botted launch', 'tug': 'dip tuggers catching a dump',
+         'id_conflict': 'its website shows another contract', 'id_weak': 'weak identity (site / X do not line up)'}
 
 
 def word(k):
@@ -196,6 +197,8 @@ def word(k):
         return f"🕸 found on {SOURCES.get(k[4:], k[4:])}"
     if str(k).startswith('pad:'):
         return f"🚀 launch context {k[4:]}"
+    if str(k).startswith('soc:'):
+        return f"🔎 {k[4:].lower()} narrative (researched)"
     if str(k).startswith('band:'):
         return f"💰 {BAND_WORD.get(k[5:], k[5:])} cap band"
     if str(k).startswith('chart:'):
@@ -302,6 +305,14 @@ def drivers(n, row):
     out += [f'src:{k}' for k in (row.get('src') or [])]              # 🕸 where the crawl found it (each corner of the trench is judged)
     if mc_band(row.get('mcap')):
         out.append(f"band:{mc_band(row.get('mcap'))}")               # 💰 the market-cap band — context, no belief: only its own record weighs
+    soc = row.get('social') or {}
+    if (soc.get('narrative') or {}).get('class') not in (None, 'UNKNOWN'):
+        out.append(f"soc:{soc['narrative']['class']}")              # 🔎 the researched narrative — no belief: only its own record weighs (hype never enters by itself)
+    cc = soc.get('cross') or {}
+    if cc.get('conflict'):
+        out.append('id_conflict')
+    elif cc.get('confidence') is not None and _f(cc['confidence']) < 40:
+        out.append('id_weak')
     return [d for d in dict.fromkeys(out) if d]
 
 
@@ -460,6 +471,8 @@ def devil_args(call, n, why, row, learned, duty=False, warns=None):
         w_.append(('young', 'new launch: under 15 minutes old — limited history (context, not a veto)'))
     if row.get('safe') is not True:
         args.append(('unscanned', 'holders never scanned'))
+    for fl in ((row.get('social') or {}).get('warnings') or [])[:2]:   # 🔎 identity flags from the research packet: WARNINGS (a page can be down or new)
+        w_.append(('identity', f'identity: {fl}'))
     if row.get('mint') in ((learned or {}).get('burned') or {}):
         args.append(('burned', 'burned us within the last 6h — a GO on it lost 20%+ in 5 min'))
     mind = row.get('mind') or {}
@@ -509,6 +522,7 @@ DEVIL_RULES = {'busted_read': (True, "the coin's read is a busted call on its ow
                'driver_losing': (False, 'one of its reasons has been followed by losses lately'), 'rug_signs': (True, 'rug signs learned from our autopsies'),
                'avoid': (True, 'a creator-approved avoid tactic'), 'pad_losing': (False, 'this launch context loses on our own entries'), 'trigger_losing': (False, "Trigger's own recent entries are losing"), 'trial': (True, 'Devil is on trial: only strong reads pass'),
                **{k: v for k, v in _ci.CHART_RULES.items()},
+               'identity': (False, 'an identity flag from the website / X research'),
                'unrecorded': (False, 'reason not stored (calls judged before objections kept their reason)'), 'other': (False, 'other')}
 _RULE_TEXT = (('its read is', 'busted_read'), ('rug meter', 'rug_meter'), ('already +', 'ran'), ('under 15 minutes', 'young'), ('holders never', 'unscanned'), ('burned us', 'burned'),
               ('the callers are', 'swarm'), ('botted launch', 'botted'), ('against it', 'against'), ('rug signs', 'rug_signs'), ('approved avoid', 'avoid'), ("Trigger's last", 'trigger_losing'),
@@ -1078,7 +1092,7 @@ def objections(state, hours=24, now=0.0):
 def duty_view(state, table, cfg=None, card=None):
     """🕙 What the page shows of the 10-minute duty: when the next move is due and the case files (the row itself stripped)."""
     on = {x.get('mint') for x in ((card or {}).get('seats') or []) if x.get('mint')}
-    cases = investigate(table, on, (cfg or {}).get('trenchMinAgeH', 1), ((state or {}).get('burned') or {}), top=6)
+    cases = investigate(table, on, min_age_of(cfg), ((state or {}).get('burned') or {}), top=6)
     return {'every': DUTY_SEC, 'at': _f((card or {}).get('dutyAt')), 'on': bool((cfg or {}).get('agentControl')), 'movesHr': CONTROL_MOVES_HR,
             'cases': [{k: v for k, v in c.items() if k != 'row'} for c in cases], 'cleared': sum(1 for c in cases if c['cleared'])}
 
@@ -1264,7 +1278,22 @@ DUTY_ROTATE_MIN = 30       # … a coin that is not winning may give its seat to
 DUTY_EDGE = 1.0            # … and only when the new coin's lean beats its own by this much
 
 
-def investigate(table, on=(), min_age_h=1.0, burned=(), top=6):
+AGENT_MIN_AGES = (0, 0.05, 0.25, 0.5, 1)   # 🐣 cfg `agentMinAgeH` (hours) — the agents' OWN youngest-coin line (creator limit); 0 = any age, stage-aware evidence decides
+AGE_STAGES = (('NEWBORN', 0.25), ('EARLY', 1.0), ('DEVELOPING', 24.0), ('MATURE', float('inf')))
+
+
+def min_age_of(cfg):
+    """The agents' min-age line (hours). Its own key: the engine's trench drop keeps `trenchMinAgeH`. Unknown / unlisted → 0 (any age)."""
+    v = (cfg or {}).get('agentMinAgeH')
+    return _f(v) if v is not None and _f(v) in AGENT_MIN_AGES else 0.0
+
+
+def stage_of(age_h):
+    """NEWBORN (< 15 min) · EARLY (< 1h) · DEVELOPING (< 24h) · MATURE — context for which evidence a coin can have, never a gate."""
+    return None if age_h is None else next(k for k, top in AGE_STAGES if _f(age_h) < top)
+
+
+def investigate(table, on=(), min_age_h=0.0, burned=(), top=6):
     """🕵 THE CASE FILE for the 10-minute duty: every coin Trigger did not SKIP with a positive lean, strongest read first. Each gets
     five checks — holder scan passed · old enough (unknown age = fail) · pool ≥ $20K · Trigger has no hard skip · Devil has no objection
     (asked as if it were an ENTER: for the duty slot ONLY Trigger's bar is waived, never a safety check). `cleared` = all five pass.
@@ -1279,7 +1308,8 @@ def investigate(table, on=(), min_age_h=1.0, burned=(), top=6):
         case = x.get('case') or ['object', 'not argued this pass']
         age_ok = v.get('ageH') is not None and _f(v['ageH']) >= _f(min_age_h)
         checks = [['scan', v.get('safe') is True, 'holder scan passed' if v.get('safe') is True else 'holders not scanned' if v.get('safe') is None else 'failed the holder scan'],
-                  ['age', age_ok, f"{_f(v['ageH']):.1f}h old" if v.get('ageH') is not None else 'age unknown'],
+                  ['age', age_ok, (f"{stage_of(v['ageH'])} · {_f(v['ageH']) * 60:.0f} min old" if _f(v['ageH']) < 1 else f"{stage_of(v['ageH'])} · {_f(v['ageH']):.1f}h old")
+                   + ('' if age_ok else f" — under your agents' {_f(min_age_h):g}h line") if v.get('ageH') is not None else 'age unknown'],
                   ['pool', liq >= CONTROL_MIN_LIQ, f'pool ${liq / 1000:.0f}K'],
                   ['burn', x.get('mint') not in (burned or ()), 'not burned' if x.get('mint') not in (burned or ()) else 'burned us in the last 6h'],
                   ['devil', case[0] == 'agree', case[1] or ('Devil agrees' if case[0] == 'agree' else 'Devil objects')]]
@@ -1295,7 +1325,7 @@ def investigate(table, on=(), min_age_h=1.0, burned=(), top=6):
     return out[:top] if top else out
 
 
-def eligible(table, on=(), min_age_h=1.0, burned=()):
+def eligible(table, on=(), min_age_h=0.0, burned=()):
     """🎮 The coins the agents may put REAL money in while they control the card: a 🟢 GO (Trigger entered AND Devil agreed — so the holder
     scan passed, no +15% candle, not falling, no busted read, rug < 50, not burned) that is also ≥ `min_age_h` old (unknown age = out),
     in a pool ≥ $20K with a live price, and not already on the card. Best lean first."""
@@ -1343,7 +1373,7 @@ def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_l
     on = {l.get('mint') for l in legs or []}
     # 🎮 IN CONTROL (cfg `agentControl`): they manage EVERY coin on the card, a switch needs an `eligible` coin (age, pool, scan), a coin
     # whose read broke may be switched for one after CONTROL_HOLD_MIN even at a loss — and never more than `moves_left` switches.
-    gos = (list(picks) if picks is not None else eligible(table, on, (cfg or {}).get('trenchMinAgeH', 1))) if control else [x for x in table or [] if x.get('go') and x['mint'] not in on]
+    gos = (list(picks) if picks is not None else eligible(table, on, min_age_of(cfg))) if control else [x for x in table or [] if x.get('go') and x['mint'] not in on]
     if control and moves_left is not None:
         gos = gos[:max(0, int(moves_left))]
     out = []
