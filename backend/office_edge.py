@@ -263,7 +263,7 @@ def fill_plan(ctx):
     duty = list(c.get('wait') or [])[:max(1, int(_f(c.get('empty')))) + 3] if may_fill({'go': False}, pol, c.get('emptySince'), _f(c.get('now')), _f(c.get('lastFill'))) else []
     left = max(0, _ag.CONTROL_MOVES_HR - int(_f(c.get('used'))))
     plan = list(c.get('gos') or []) + duty
-    if not plan and c.get('near') and _f(c.get('emptyFor')) >= NEAR_PATIENCE_SEC and pol.get('entry') != 'go':   # 🪑 nothing cleared and the seat waited: the best near-ready coin
+    if not plan and not c.get('wait') and c.get('near') and _f(c.get('emptyFor')) >= NEAR_PATIENCE_SEC and pol.get('entry') != 'go':   # 🪑 nothing cleared and the seat waited: the best near-ready coin
         plan = list(c['near'])[:max(1, int(_f(c.get('empty')))) + 2]
     return plan[:max(left, 0)]
 
@@ -861,7 +861,7 @@ def cycle_view(intake_, table, cases, charts, first, now, last_at, every, n_cycl
 LIVE_CHASE, LIVE_FALL = 15.0, -8.0   # since the case was read: up more than this = chasing, down more than this = falling (Trigger's own hard lines)
 
 
-def live_check(row, mkt, chart, now):
+def live_check(row, mkt, chart, now, near=False):
     """May this cleared case still be bought RIGHT NOW? `row` = the case as read in its agent pass ({px, at}), `mkt` = the shared market
     state ({px, pxAt, liq, tapeAt, flow}), `chart` = the newest shared chart (rebuilt when a new real candle landed — no rediscovery).
     → {ok, why, px, move, pxAge, chartState, entry}. A move past Trigger's own lines since the read, a fresh chart that no longer says
@@ -876,8 +876,10 @@ def live_check(row, mkt, chart, now):
         return {**out, 'ok': False, 'why': f'{move:+.1f}% since the read — not chased'}
     if move is not None and move < LIVE_FALL:
         return {**out, 'ok': False, 'why': f'{move:+.1f}% since the read — falling'}
-    if ent and ent[0] != 'ENTER NOW' and (ch.get('src') == 'candles' or ent[0] == 'SKIP'):
+    if ent and ent[0] != 'ENTER NOW' and (ent[0] == 'SKIP' or (ch.get('src') == 'candles' and not near)):
         return {**out, 'ok': False, 'why': f"the newest chart says {ent[0]}: {ent[2] if len(ent) > 2 else ''}".strip()}
+    if near and (ch.get('state') == _ci.DATA_INVALID or (ch.get('q') or {}).get('readOk') is False or _f((ch.get('risk') or [1.0])[0]) <= 0):
+        return {**out, 'ok': False, 'why': f"the newest chart turned against it ({ch.get('state')})"}   # 🪑 best available: the entry moment may wait, a broken chart may not
     liq0, liq = _f(((r.get('nums') or {}).get('liq'))), _f(m.get('liq'))
     if liq0 > 0 and 0 < liq < liq0 * 0.5:
         return {**out, 'ok': False, 'why': f'pool fell to {round(liq / liq0 * 100)}% of its read depth'}

@@ -9625,7 +9625,7 @@ async def _prime_tick_inner(now):
             dec_ = _ag.manage(cur.get('legs'), _agents.get('table'), px, cfg_t, _agents.get('scalp'), control=ctl_, now=now, moves_left=(1 if due_ and full_ else 0) if ctl_ else moves_,   # an EMPTY seat is the duty's first job: no switch while one is open
                               picks=picks_, rotate=bool(due_ and full_), pol=pol_, radar=radar_, cases=cases_, reviews={r_.get('mint'): r_.get('verdict') for r_ in _office.get('reports') or []}, live=rd_['live'],
                               scores=scores_ if ctl_ and scores_ else None, vels=vels_ or None)
-            dec_ = _office_reap(cur, px, cfg_t, ctl_, now, dec_, pol_, rd_['live'], vels_, margins_)   # ☠ Reaper's exit requests join the SAME decision list (it has no path of its own)
+            dec_ = _office_reap(cur, px, cfg_t, ctl_, now, dec_, pol_, rd_['live'], vels_, margins_, moves_)   # ☠ Reaper's exit requests join the SAME decision list (it has no path of its own)
             if ctl_:   # ⇄ the live switching evaluation the page shows: the strongest cleared challenger against the weakest held coin (display only — `manage` decided)
                 try:
                     by_ = {x_['mint']: x_ for x_ in _agents.get('table') or []}
@@ -9698,7 +9698,9 @@ async def _prime_tick_inner(now):
             # 🪑 BEST AVAILABLE: nothing cleared + a seat that has waited → the best near-ready coins (every safety check passed, the entry moment
             # not confirmed) are live-checked too, so the seat can take one at half size (Warden W19) instead of sitting in cash indefinitely
             on_n = {l.get('mint') for l in cur.get('legs') or []}
-            near0_ = [] if pol_['manual'] or gos_ or wait_ or not empty_n else [r_ for r_ in _oe.near_ready([c_ for c_ in cases_ if c_['mint'] not in cool and c_['mint'] not in lost_ and c_['mint'] not in on_n and not _fw.dollar_named(c_.get('symbol'))], scores_)][:empty_n + 2]
+            gw_m = {t_['mint'] for t_ in gos_ + wait_}   # (computed even when cleared coins exist: they may fail the live check below and leave nothing)
+            near0_ = [] if pol_['manual'] or not empty_n else [r_ for r_ in _oe.near_ready([c_ for c_ in cases_ if c_['mint'] not in cool and c_['mint'] not in lost_ and c_['mint'] not in on_n and c_['mint'] not in gw_m and not _fw.dollar_named(c_.get('symbol'))], scores_)][:empty_n + 2]
+            near_m = {t_['mint'] for t_ in near0_}
             near_ = []
             try:
                 cand_ = (gos_ + wait_)[:max(6, pol_['seats'] + 2)] + near0_
@@ -9706,8 +9708,8 @@ async def _prime_tick_inner(now):
                 if cand_ or held_p:
                     await _jup_prices([t_['mint'] for t_ in cand_] + list(held_p))
                     await _office_candle_refresh({**held_p, **{t_['mint']: t_['pair'] for t_ in cand_}}, now)
-                live_ = {t_['mint']: _oe.live_check(t_, _mkt_view(t_['mint'], t_['pair'], now), _office['charts'].get(t_['mint']), now) for t_ in cand_}
-                moved_ = [{'symbol': t_['symbol'], **live_[t_['mint']]} for t_ in cand_ if not live_[t_['mint']]['ok']]
+                live_ = {t_['mint']: _oe.live_check(t_, _mkt_view(t_['mint'], t_['pair'], now), _office['charts'].get(t_['mint']), now, near=t_['mint'] in near_m) for t_ in cand_}
+                moved_ = [{'symbol': t_['symbol'], **live_[t_['mint']]} for t_ in cand_ if not live_[t_['mint']]['ok'] and t_['mint'] not in near_m]
                 gos_ = [{**t_, 'px': live_[t_['mint']]['px']} if t_['mint'] in live_ else t_ for t_ in gos_ if t_['mint'] not in live_ or live_[t_['mint']]['ok']]
                 wait_ = [{**t_, 'px': live_[t_['mint']]['px']} if t_['mint'] in live_ else t_ for t_ in wait_ if t_['mint'] not in live_ or live_[t_['mint']]['ok']]
                 _office['live'] = {'at': now, 'checked': [{'symbol': t_['symbol'], **live_[t_['mint']]} for t_ in cand_]}
@@ -12957,7 +12959,7 @@ def _office_warden(cur, t_, requested, cfg_t, now, move):
     return wd
 
 
-def _office_reap(cur, px, cfg_t, ctl, now, dec, pol=None, live=True, vels=None, margins=None):
+def _office_reap(cur, px, cfg_t, ctl, now, dec, pol=None, live=True, vels=None, margins=None, buys_left=None):
     """☠ Reaper looks at the open positions on the real card each tier tick and adds its exit requests to the agents' own decision
     list. Any failure leaves the list exactly as `agents.manage` returned it."""
     try:
@@ -12979,7 +12981,7 @@ def _office_reap(cur, px, cfg_t, ctl, now, dec, pol=None, live=True, vels=None, 
             g['take'] = _of.take_line(cfg_t, _agents.get('scalp'))
         _office.update(pos=pos, reports=rep, gone=list(_office.get('gone') or []) + gone)
         _office_lat('reaper', (time.perf_counter() - t0) * 1000)
-        return _of.merge_reaper(dec, rep)
+        return _of.merge_reaper(dec, rep, buys_left)
     except Exception as e:
         print('reaper:', e)
         return dec

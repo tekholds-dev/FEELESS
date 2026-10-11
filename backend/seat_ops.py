@@ -242,6 +242,8 @@ def seat_result(report, decision):
     d, r = decision or {}, report or {}
     if d.get('action') == 'swap':
         return 'SWAP'
+    if r.get('deferred') and d.get('action') != 'pull':   # Reaper's time exit waits for a free buy: the seat keeps its coin
+        return 'HOLD'
     if d.get('action') == 'pull' or r.get('action') == 'pull':
         return 'TAKE' if _f(r.get('pct', d.get('pct'))) >= 0 and r.get('state') != 'EXIT INVALIDATED' else 'EXIT'
     if r.get('state') == 'TAKE':
@@ -289,7 +291,7 @@ def seat_board(seats, reports, decisions, vels, scores, bench_, tests, now, deci
                     'structure': r.get('structure'), 'heldMin': r.get('heldMin'), 'protection': prot, 'score': sc.get('score'),
                     'challenger': None if not best else {'symbol': best.get('symbol'), 'score': best.get('score'), 'ready': best.get('ready')},
                     'margin': mg, 'need': need, 'switch': bool(t.get('switch')), 'switchWhy': t.get('why'),
-                    'result': seat_result(r, d), 'why': d.get('why') or r.get('evidence') or x.get('why'), 'rule': r.get('rule'),
+                    'result': seat_result(r, d), 'why': (f"{r.get('rule')} waits — {r['deferred']}" if r.get('deferred') and d.get('action') != 'pull' else None) or d.get('why') or r.get('evidence') or x.get('why'), 'rule': r.get('rule'),
                     'decidedAt': decided_at, 'inputAt': (input_at or {}).get(m), 'buying': bool(x.get('buying'))})
     return out
 

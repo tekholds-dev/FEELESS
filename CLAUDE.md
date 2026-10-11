@@ -3049,6 +3049,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   DATA INVALID, a hard chart objection (risk 0), COLLAPSING / INVALID quality, a failed live check or a seat score < 40. Same fill path
   (`fill_plan` → Warden → `agent_seat`), tag "🤖 agents · best available", HALF a seat at most (Warden W19). The creator's "GO only" entry,
   MANUAL, the hourly buy budget, a halted keeper and Courier BAD all still stop it. Tests: `tests/test_seats_full.py`.
+  Near-ready coins get their OWN live check (`live_check(near=True)`): a chase, a fall, a SKIP, invalid data / a hard chart objection or a
+  drained pool still fail it — "waiting for confirmation" does not (the plain check fails every not-ENTER-NOW chart, so best-available
+  never fired). They are computed even when cleared coins exist (those may fail their live check); a cleared coin waiting on the seat
+  timer still beats best-available (`fill_plan` uses near only with no GO and no cleared case).
 - ⏳ A SEAT IS "STUCK" ONLY AFTER THE KEEPER HAD A BUY PASS AT IT (`fuse_wallet.stuck_buys(buy_pass_at=)` ← `_FW_BUY_PASS[card]`, stamped when
   `_fw_tick_inner` reaches its buy step): 2026-10-11 the agents seated $UDR + $WOTF in the first tick after a restart, no order was ever
   built, and 55s later both went back to cash as "under the smallest order ($0.13)". The unfundable check now uses the keeper's own floor:
@@ -3058,3 +3062,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🧮 THE HOURLY BUY BUDGET COUNTS REAL BUYS (`office_edge.real_buys`, both counters in the tier tick): an agent fill / switch counts when the
   ledger has a FILLED buy of that coin for the card at / after it, or while it may still be landing (≤ `BUY_LAND_SEC` 180s); a seat that went
   back to cash without a buy is not a buy. Swap events now carry the new coin's `mint`. (The two 08:40 seats that never bought used 2 of 6.)
+- 🪑 TIME EXITS WAIT FOR A FREE BUY (`office.merge_reaper(.., buys_left)`, `TIME_EXITS` R9 / R9e): with the hourly buy budget used, "windows used /
+  no extension earned / time" no longer sells a flat coin to cash — the seat could not be refilled this hour (2026-10-11: 15-minute R9 exits
+  emptied seats the budget then kept empty for up to an hour). The report carries `deferred`; the seat board reads HOLD with the reason.
+  Stops, rug / drain / scan exits, invalidation (R5t), trails, the take line and the creator's max hold (R9c) are never deferred.
