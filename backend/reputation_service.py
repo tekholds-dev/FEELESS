@@ -9638,9 +9638,16 @@ async def _prime_tick_inner(now):
             dec_ = _ag.manage(cur.get('legs'), _agents.get('table'), px, cfg_t, _agents.get('scalp'), control=ctl_, now=now, moves_left=(1 if due_ and full_ else 0) if ctl_ else moves_,   # an EMPTY seat is the duty's first job: no switch while one is open
                               picks=picks_, rotate=bool(due_ and full_), pol=pol_, radar=radar_, cases=cases_, reviews={r_.get('mint'): r_.get('verdict') for r_ in _office.get('reports') or []}, live=rd_['live'],
                               scores=scores_ if ctl_ and scores_ else None, vels=vels_ or None)
-            # 🪑 a time exit needs a buy to spare AFTER the empty seats are filled (the open seats take the free buys first)
+            # 🪑 A TIME EXIT IS A SWAP (owner: "no seat should be empty, 30 secs to choose what gets swapped"): it fires only while a buy is free AND
+            # a replacement is ready NOW (cleared cases + best-available coins, after the empty seats take theirs) — never a flat coin sold into cash
             open_n = max(0, int(_fuse._f((pol_ or {}).get('seats'))) - len([l for l in cur.get('legs') or [] if not (l.get('placeholder') and not l.get('manualCash'))]))
-            dec_ = _office_reap(cur, px, cfg_t, ctl_, now, dec_, pol_, rd_['live'], vels_, margins_, None if fills_left_ is None else fills_left_ - open_n)   # ☠ Reaper's exit requests join the SAME decision list (it has no path of its own)
+            spare_ = None
+            if fills_left_ is not None:
+                on_r = {l.get('mint') for l in cur.get('legs') or []}
+                pool_ = [c_ for c_ in cases_ if c_['mint'] not in cool and c_['mint'] not in lost_ and c_['mint'] not in on_r and not _fw.dollar_named(c_.get('symbol'))]
+                ready_n = len([c_ for c_ in pool_ if c_['cleared']]) + len(_oe.near_ready(pool_, scores_))
+                spare_ = min(fills_left_, ready_n) - open_n
+            dec_ = _office_reap(cur, px, cfg_t, ctl_, now, dec_, pol_, rd_['live'], vels_, margins_, spare_)   # ☠ Reaper's exit requests join the SAME decision list (it has no path of its own)
             if ctl_:   # ⇄ the live switching evaluation the page shows: the strongest cleared challenger against the weakest held coin (display only — `manage` decided)
                 try:
                     by_ = {x_['mint']: x_ for x_ in _agents.get('table') or []}

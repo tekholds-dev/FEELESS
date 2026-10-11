@@ -3088,3 +3088,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `1 − e^(−dt·k)`), board / monitor canvases drawn at 2× (`tex(.., sc)`), bar "🔍 … ✕ Back to the room", Esc or a click on empty space ends it,
   a camera button too; desk labels hide meanwhile. Bloom 0.16 / 0.25 / 0.97 (was 0.5 / 0.45 / 0.9), exposure 0.85, every rail / under-glow /
   rug / ring / arrow / holo / beam roughly halved.
+- 🪑 A TIME EXIT IS A SWAP (owner: "no seat should be empty, 30 secs to choose what gets swapped"; `merge_reaper(.., buys_left)` is now a COUNT):
+  Reaper's R9 / R9e time exits fire only while a fill is free AND a replacement is ready NOW (cleared cases + `near_ready`, after the open
+  seats take theirs: `min(fills left, ready) − open seats`), weakest flat coin first; otherwise `deferred` ("no replacement is ready"). Found
+  live 2026-10-11 11:17: right after a restart R9 sold four flat coins (+0.5 / +0.1 / −0.1 / −0.7%) into cash and the card sat at 0/4.
+  Best available also needs ≥ `LADDER_MIN` 15 real 1-minute candles (two coins were bought on ONE candle — no ladder could be seen).
+  `NEAR_MIN_SCORE` 15 on the seat score WITHOUT its phase part: the recovery tilt (−10 on old coins) once pushed the only near-ready coins under
+  the old 40 floor and left three seats empty for 10 minutes — the tilt orders coins, it never keeps a seat empty.

@@ -106,7 +106,8 @@ def test_best_available_needs_a_real_candle_read():
     row, mkt = {'px': 1.0, 'nums': {'liq': 100_000}}, {'px': 1.0, 'liq': 100_000}
     tape = {'src': 'tape', 'state': 'RANGE', 'entry': ['WAIT FOR DATA', 'x', 'tape'], 'risk': [0.5, 'x'], 'q': {'readOk': True}}
     assert oe.live_check(row, mkt, tape, 1.0, near=True)['ok'] is False
-    assert oe.live_check(row, mkt, {**tape, 'src': 'candles'}, 1.0, near=True)['ok'] is True
+    assert oe.live_check(row, mkt, {**tape, 'src': 'candles', 'n': 1}, 1.0, near=True)['ok'] is False       # one candle cannot show a ladder
+    assert oe.live_check(row, mkt, {**tape, 'src': 'candles', 'n': ci.LADDER_MIN}, 1.0, near=True)['ok'] is True
 
 
 def test_recovery_scans_young_coins_first():
@@ -114,3 +115,10 @@ def test_recovery_scans_young_coins_first():
     cs = [mk('OLD', 900, 3.0), mk('YOUNG', 2.0, 0.5), mk('MID', 30, 2.0)]
     assert [c['mint'] for c in oe.scan_order(cs, 1, universe='trench')] == ['YOUNG']
     assert [c['mint'] for c in oe.scan_order(cs, 1, universe='mixed')] == ['OLD']
+
+
+def test_the_phase_tilt_never_keeps_a_seat_empty():
+    case = {'mint': 'OLD', 'cleared': False, 'checks': [['scan', True, ''], ['chart', False, 'WAIT FOR BREAKOUT']],
+            'row': {'mint': 'OLD', 'chart': {'state': 'RANGE', 'risk': [0.75, 'range'], 'q': {'readOk': True}}}}
+    sc = {'OLD': {'score': 12.0, 'parts': [['read', 22.0, ''], ['phase', -10.0, 'old coin']]}}
+    assert [r['mint'] for r in oe.near_ready([case], sc)] == ['OLD']                           # 12 with the tilt, 22 without: the tilt does not decide

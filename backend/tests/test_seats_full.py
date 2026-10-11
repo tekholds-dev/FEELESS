@@ -140,7 +140,7 @@ def test_the_hourly_budget_counts_real_buys_not_seats_that_never_bought():
 def test_best_available_has_its_own_live_check_the_entry_moment_may_wait_a_broken_chart_may_not():
     row = {'px': 1.0, 'nums': {'liq': 100_000}}
     mkt = {'px': 1.01, 'liq': 95_000}
-    wait = {'src': 'candles', 'state': 'RANGE', 'entry': ['WAIT FOR BREAKOUT', 'x', 'waits for a close above 1.05'], 'risk': [0.75, 'range'], 'q': {'readOk': True}}
+    wait = {'src': 'candles', 'n': 30, 'state': 'RANGE', 'entry': ['WAIT FOR BREAKOUT', 'x', 'waits for a close above 1.05'], 'risk': [0.75, 'range'], 'q': {'readOk': True}}
     assert oe.live_check(row, mkt, wait, 1000.0)['ok'] is False                                  # a cleared case: the chart must still say ENTER NOW
     assert oe.live_check(row, mkt, wait, 1000.0, near=True)['ok'] is True                        # best available: that is what "near" means
     assert oe.live_check(row, mkt, {**wait, 'entry': ['SKIP', 'x', 'falling']}, 1000.0, near=True)['ok'] is False
@@ -159,13 +159,27 @@ def test_time_exits_wait_while_the_buy_budget_is_used_safety_exits_never_do():
     assert {d['pair']: d['action'] for d in of.merge_reaper(dec, [dict(r) for r in rep], buys_left=2)} == {'A': 'pull', 'B': 'pull', 'C': 'pull', 'D': 'pull'}
     r_ = [dict(r) for r in rep]
     of.merge_reaper(dec, r_, buys_left=0)
-    assert 'buy budget' in r_[0]['deferred'] and 'deferred' not in r_[1]
+    assert 'no replacement is ready' in r_[0]['deferred'] and 'deferred' not in r_[1]
     import inspect
     import reputation_service as rs
-    assert 'fills_left_ - open_n' in inspect.getsource(rs._prime_tick_inner)                            # the open seats take the free buys first
+    assert 'min(fills_left_, ready_n) - open_n' in inspect.getsource(rs._prime_tick_inner)                            # the open seats take the free buys first
 
 
 def test_a_deferred_time_exit_reads_hold_on_the_seat_board():
     import seat_ops as so
     r = {'action': 'pull', 'rule': 'R9 windows used', 'state': 'EXIT INVALIDATED', 'pct': -1.0, 'deferred': 'the hourly buy budget is used'}
     assert so.seat_result(r, {'action': 'hold'}) == 'HOLD' and so.seat_result({**r, 'deferred': None}, {'action': 'hold'}) == 'EXIT'
+
+
+def test_a_time_exit_is_a_swap_the_weakest_flat_coin_uses_the_one_spare_replacement():
+    dec = [{'pair': 'A', 'action': 'hold'}, {'pair': 'B', 'action': 'hold'}]
+    rep = [{'pair': 'A', 'action': 'pull', 'rule': 'R9 windows used', 'evidence': 'x', 'pct': 0.4}, {'pair': 'B', 'action': 'pull', 'rule': 'R9 windows used', 'evidence': 'x', 'pct': -0.7}]
+    got = {d['pair']: d['action'] for d in of.merge_reaper(dec, [dict(r) for r in rep], buys_left=1)}
+    assert got == {'A': 'hold', 'B': 'pull'}                                                     # one replacement ready → only the weaker coin is swapped
+    r_ = [dict(r) for r in rep]
+    of.merge_reaper(dec, r_, buys_left=0)
+    assert all('no replacement is ready' in x['deferred'] for x in r_)
+    import inspect
+    import reputation_service as rs
+    src = inspect.getsource(rs._prime_tick_inner)
+    assert 'ready_n = len([c_ for c_ in pool_ if c_[\'cleared\']]) + len(_oe.near_ready(pool_, scores_))' in src and 'min(fills_left_, ready_n) - open_n' in src

@@ -642,12 +642,16 @@ def merge_reaper(decisions, reports, buys_left=None):
     coin to cash only pays the exit and leaves the seat idle (2026-10-11: 15-minute R9 exits emptied seats the budget then kept empty).
     Stops, the rug / drain / scan exits, invalidation, trails, the take line and the creator's max hold are never deferred."""
     out = list(decisions or [])
-    for r in reports or []:
+    left = None if buys_left is None else int(buys_left)
+    is_time = lambda r: str(r.get('rule') or '').split(' ')[0] in TIME_EXITS
+    for r in sorted(reports or [], key=lambda r: (not is_time(r), _f(r.get('pct')))):   # the weakest flat coin uses a spare replacement first
         if r.get('action') != 'pull':
             continue
-        if buys_left is not None and int(buys_left) <= 0 and str(r.get('rule') or '').split(' ')[0] in TIME_EXITS:
-            r['deferred'] = 'the hourly buy budget is used — the seat could not be refilled, so it keeps this coin until a buy is free (stops, invalidation and trails still act)'
-            continue
+        if left is not None and is_time(r):
+            if left <= 0:
+                r['deferred'] = 'no replacement is ready (or no buy is free) — a time exit only swaps, it never leaves the seat in cash (stops, invalidation and trails still act)'
+                continue
+            left -= 1
         i = next((i for i, d in enumerate(out) if d.get('pair') == r['pair']), None)
         d = {'pair': r['pair'], 'symbol': r.get('symbol'), 'action': 'pull', 'why': f"☠ Reaper {r['rule']}: {r['evidence']}", 'reaper': r['rule']}
         if i is None:

@@ -298,7 +298,7 @@ def real_buys(events, ledger, card, now, window=3600.0, moves=('fill', 'swap')):
 
 # ── 🪑 BEST AVAILABLE: an empty seat does not wait forever on the entry moment ───────────────────────────────────────────────────────
 NEAR_PATIENCE_SEC = 30       # a seat empty this long with NOTHING cleared takes the best near-ready coin (owner: "30 secs to choose") …
-NEAR_MIN_SCORE = 40.0        # … scoring at least this (seat_ops.score) …
+NEAR_MIN_SCORE = 15.0        # … scoring at least this (seat_ops.score WITHOUT its phase tilt — the tilt orders coins, it never keeps a seat empty) …
 NEAR_SOFT = ('chart', 'data')   # … whose ONLY open checks are the entry moment / ENTER-grade data — every safety check passed
 
 
@@ -325,8 +325,9 @@ def near_ready(cases, scores=None, live=None, min_score=NEAR_MIN_SCORE):
         lc = (live or {}).get(c.get('mint'))
         if lc is not None and not lc[0]:
             continue
-        sc = _f(((scores or {}).get(c.get('mint')) or {}).get('score'))
-        if sc < min_score:
+        sd = (scores or {}).get(c.get('mint')) or {}
+        sc = _f(sd.get('score'))
+        if sc - sum(_f(p[1]) for p in sd.get('parts') or [] if p and p[0] == 'phase') < min_score:   # (2026-10-11: the recovery tilt's −10 on old coins left 3 seats empty)
             continue
         out.append({**row, 'nearReady': f"best available after {NEAR_PATIENCE_SEC}s — every safety check passed; not yet: {'; '.join(k[2] for k in fails)[:140]}", 'nearScore': sc})
     return sorted(out, key=lambda r: -_f(r.get('nearScore')))
@@ -882,8 +883,8 @@ def live_check(row, mkt, chart, now, near=False):
         return {**out, 'ok': False, 'why': f'{move:+.1f}% since the read — falling'}
     if ent and ent[0] != 'ENTER NOW' and (ent[0] == 'SKIP' or (ch.get('src') == 'candles' and not near)):
         return {**out, 'ok': False, 'why': f"the newest chart says {ent[0]}: {ent[2] if len(ent) > 2 else ''}".strip()}
-    if near and ch.get('src') != 'candles':   # 🤖 best available needs a REAL-candle read: only real candles show a bot ladder (a tape cannot)
-        return {**out, 'ok': False, 'why': 'no real 1-minute candles read yet — best available waits for them'}
+    if near and (ch.get('src') != 'candles' or int(_f(ch.get('n'))) < _ci.LADDER_MIN):   # 🤖 best available needs ≥ 15 REAL candles: only those can show a bot ladder
+        return {**out, 'ok': False, 'why': f"{int(_f(ch.get('n')))} real 1-minute candles — best available needs {_ci.LADDER_MIN} (a bot ladder can only be seen on them)"}
     if near and (ch.get('state') == _ci.DATA_INVALID or (ch.get('q') or {}).get('readOk') is False or _f((ch.get('risk') or [1.0])[0]) <= 0):
         return {**out, 'ok': False, 'why': f"the newest chart turned against it ({ch.get('state')})"}   # 🪑 best available: the entry moment may wait, a broken chart may not
     liq0, liq = _f(((r.get('nums') or {}).get('liq'))), _f(m.get('liq'))
