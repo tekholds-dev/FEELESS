@@ -12324,7 +12324,7 @@ async def _agents_tick(now):
             trim_ = [x for x in raw if x not in keep_]
             raw = keep_ + trim_[:len(trim_) // 2]
         tv_ = {x.get('mint'): x.get('tv') for x in raw}
-        rows = [{**r, 'tv': tv_.get(r.get('mint')) or r.get('tv')} for r in _clean_rows([dict(x) for x in raw])]
+        rows = [_ag.established({**r, 'tv': tv_.get(r.get('mint')) or r.get('tv')}) for r in _clean_rows([dict(x) for x in raw])]   # 🏛 an established coin's top-10 = exchange / pool wallets, not a failed scan
         # 🧠 the human read: who is calling each coin on Pump and what they write, the narratives hot on the board, the lingo they use
         calls_ = _pump_calls.get('calls') or []
         by_m = {}
@@ -13096,6 +13096,15 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
     t0 = time.perf_counter()
     still, closed = _of.confirm_exits(_office['exiting'], _office.get('gone') or [], _office_ledger(), now, tid)
     _office.update(exiting=still, gone=[])
+    if closed:   # 🔁 every confirmed agent exit at a loss → no re-buy for 6h (any rule) · 🧠 every confirmed result → a real-money lesson
+        try:
+            of['lostAt'] = _oe.note_lost(of.get('lostAt'), closed, now)
+            rl_ = _json_load(REAL_LEARN_PATH, {})
+            for p_ in closed:
+                rl_ = _rl.note_closed(rl_, p_, now)
+            _json_save(REAL_LEARN_PATH, rl_); _rl_cache['at'] = 0.0
+        except Exception as e:
+            print('lost / learn:', e)
     for p_ in closed:
         arch = _of.file_position(arch, p_, now)
         if p_.get('confirmed') and p_.get('mint'):   # 🕸 how this coin's real seat ended → its outlets' win / loss record (context, never a gate)

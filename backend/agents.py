@@ -1297,6 +1297,25 @@ def stage_of(age_h):
     return None if age_h is None else next(k for k, top in AGE_STAGES if _f(age_h) < top)
 
 
+ESTABLISHED_H = 168.0           # mirror of runners.PICK_OLD_H / PICK_OLD_LIQ (a test keeps them equal): the owner's verified-pick rule
+ESTABLISHED_LIQ = 100_000.0
+CONCENTRATION_FAILS = ('top 10',)   # the only scan fail an established coin may carry: exchange / pool wallets ARE its top 10
+
+
+def established(row):
+    """🏛 An established coin (> 7 days old, pool ≥ $100K) whose holder scan failed ONLY on top-10 concentration counts as scan-passed
+    for the agents — the same rule the owner's verified picks use. Found 2026-10-11: Bonk, SNDK, LIT, USELESS, ANSEM ($100K–$7M pools,
+    $100K–$460K an hour) all read "failed the holder safety scan" because exchange and pool wallets hold their supply, so the agents
+    could never pick a high-volume coin. Any other fail (creator, dev, authority, unscanned) stands. → row (a copy, flagged) or the row."""
+    r = row or {}
+    if r.get('safe') is not False or r.get('ageH') is None or _f(r['ageH']) <= ESTABLISHED_H or _f(r.get('liq')) < ESTABLISHED_LIQ:
+        return row
+    fails = [str(x).lower() for x in r.get('fails') or []]
+    if not fails or not all(any(k in x for k in CONCENTRATION_FAILS) for x in fails):
+        return row
+    return {**r, 'safe': True, 'established': True}
+
+
 def investigate(table, on=(), min_age_h=0.0, burned=(), top=6):
     """🕵 THE CASE FILE for the 10-minute duty: every coin Trigger did not SKIP with a positive lean, strongest read first. Each gets
     five checks — holder scan passed · old enough (unknown age = fail) · pool ≥ $20K · Trigger has no hard skip · Devil has no objection

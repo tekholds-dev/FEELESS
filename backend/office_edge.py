@@ -273,6 +273,18 @@ def fill_plan(ctx):
 BUY_LAND_SEC = 180     # a seat filled this recently may still be landing its buy: it counts until the ledger says otherwise
 
 
+def note_lost(lost, closed, now):
+    """🔁 NO SAME COIN AGAIN: every CONFIRMED agent exit that did not make money (real result ≤ 0) puts the coin on the 6h "lost"
+    list — whatever rule sold it (stop, swap, flow exit, thesis, time, "left by another rule"). Only the desk's own pull wrote it
+    before, so $DOTF came back 4× and $UDR / $SARP 3× in a day. → {mint: at} (entries older than FAILED_SEC dropped)"""
+    out = {m: a for m, a in (lost or {}).items() if now - _f(a) < FAILED_SEC}
+    for p in closed or []:
+        r = p.get('realPct')
+        if p.get('confirmed') and p.get('mint') and r is not None and _f(r) <= 0:
+            out[p['mint']] = _f(p.get('closedAt')) or now
+    return out
+
+
 def real_buys(events, ledger, card, now, window=3600.0, moves=('fill', 'swap')):
     """How many of the agents' fills / switches in the last hour were REAL buys (`CONTROL_MOVES_HR` is "6 real buys an hour"): a move counts
     when the keeper's ledger has a FILLED buy of that coin for this card at / after it, or while its buy may still be landing

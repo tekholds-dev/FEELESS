@@ -68,6 +68,26 @@ def note(state, leg, px_exit, now, why=''):
     return st
 
 
+def note_closed(state, pos, now):
+    """🧠 A CONFIRMED agent position (the office archive's record: real result from the keeper's ledger) → one lesson. Agent exits
+    (stops, swaps, thesis, time) rarely pass through the card-diff hook, so 95 closed positions had left 3 pieces. Skipped when the
+    card-diff hook already wrote this coin within 15 min, or when no real result is known. → new state"""
+    st = dict(state or {})
+    p = pos or {}
+    r = p.get('realPct')
+    if not p.get('confirmed') or r is None or not p.get('mint'):
+        return st
+    end = _f(p.get('closedAt')) or now
+    if any(x.get('mint') == p['mint'] and abs(_f(x.get('at')) - end) < 900 for x in (st.get('pieces') or [])[-200:]):
+        return st
+    start = _f(p.get('since'))
+    b = {'ageH': (p.get('launch') or {}).get('ageH'), 'tag': p.get('tag'), 'picked': False}
+    piece = {'at': end, 'mint': p['mint'], 'symbol': p.get('sym'), 'pct': round(_f(r), 2),
+             'holdMin': round((end - start) / 60, 1) if 0 < start <= end else None, 'why': str(p.get('rule') or '')[:60], 'k': keys(b)}
+    st['pieces'] = ((st.get('pieces') or []) + [piece])[-KEEP:]
+    return st
+
+
 def table(state):
     """{bucket: {n, medPct, wonPct}} over every recorded piece (median: one moonshot can't carry a bucket)."""
     by = {}
