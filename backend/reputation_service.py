@@ -8966,6 +8966,24 @@ async def _proof_gate_fix_1010(now):
     return True
 
 
+async def _agent_real_fix_1012(now):
+    """💵 Once (owner, 2026-10-12, after the edge audit read NO PROVEN EDGE: "continue with real money unless more issues"): the agents trade
+    real money again (`agentPaper` False). Best available stays off, the held-card leaks stay closed, the real-money memory and the agent cost
+    caps stay on. Paper again: HQ › Agents › ⚙ Control (agentPaper) — old value in data/realcfg_before_agentreal1012.json."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('agentRealFix1012') or not rc:
+            return False
+        _json_save(DATA_DIR / 'realcfg_before_agentreal1012.json', {'agentPaper': rc.get('agentPaper', True)})
+        pr['realCfg'] = _prime.clean_cfg({**rc, 'agentPaper': False})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'agentPaper'})
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | {'agentPaper'})
+        pr['agentRealFix1012'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _curve_fix_1011(now):
     """🎢 Once (owner, 2026-10-11: "seats not filled means they too strict" — 11 of 41 hard NOs were fresh Pump coins on their launch curve,
     which no agent seat could buy): agent seats may buy a curve coin (`agentCurve`), judged on the curve's own depth; every keeper check
@@ -9291,6 +9309,7 @@ async def _prime_tick_inner(now):
     await _keephalf_fix_1010(now)
     await _proof_gate_fix_1010(now)
     await _curve_fix_1011(now)
+    await _agent_real_fix_1012(now)
     await _agent_control_fix_1010(now)
     await _agent_duty_fix_1010(now)
     await _rush_fix_1009(now)

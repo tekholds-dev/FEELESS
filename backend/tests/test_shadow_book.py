@@ -62,3 +62,8 @@ def test_a_held_card_gets_no_engine_replacement_of_any_kind():
     assert 'R9' not in {l.get('mint') for l in out['legs']}
     src = open(__import__('reputation_service').__file__).read()
     assert "if cur.get('holdBy') in ('proof', 'agents'):   # 🎮 held: the ENGINE swaps nothing in" in src
+
+
+def test_the_owner_put_the_agents_back_on_real_money_once():
+    src = open(__import__('reputation_service').__file__).read()
+    assert 'await _agent_real_fix_1012(now)' in src and "'agentPaper': False" in src and 'agentRealFix1012' in src
