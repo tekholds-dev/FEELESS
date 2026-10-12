@@ -137,7 +137,7 @@ def step(state, rows, now, hard=None, tiers=None, phases=None, held=()):
         reads = list(e.get('reads') or [])
         if len(reads) < rd:   # one read per round, taken from the CURRENT live row
             reads.append({**read_of(r, tier, score, phases.get(m), now), 'round': rd})
-        e = {**e, 'sym': r.get('symbol'), 'reads': reads, 'round': rd}
+        e = {**e, 'sym': r.get('symbol'), 'reads': reads, 'round': rd, 'seen': now}
         if r.get('go'):
             e = close(m, e, 'ENTER', f"full 🟢 GO in round {rd}")
         elif rd >= MAX_ROUNDS and len(reads) >= MAX_ROUNDS:
@@ -146,8 +146,8 @@ def step(state, rows, now, hard=None, tiers=None, phases=None, held=()):
         s['c'][m] = e
     # a candidate that left the universe mid-rounds (aged out, cap crossed, off the board) is closed, not left waiting
     for m, e in list(s['c'].items()):
-        if m not in seen and not e.get('decision') and m not in held:
-            s['c'][m] = close(m, e, 'COOLDOWN', 'left the new-entry universe')
+        if m not in seen and not e.get('decision') and m not in held and now - _f(e.get('seen') or e.get('first')) > ROUND_SEC:   # one pass off the list is a flicker, not an exit
+            s['c'][m] = close(m, e, 'COOLDOWN', 'left the new-entry universe for a whole round')
         if e.get('decision') and now - _f(e.get('decidedAt')) > REJECT_SEC + 3600:
             s['c'].pop(m, None)
     s['hist'] = s['hist'][-HIST_KEEP:]

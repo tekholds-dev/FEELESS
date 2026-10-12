@@ -177,3 +177,12 @@ def test_an_unread_holder_scan_is_pending_not_a_rejection():
     assert s['c']['P']['decision'] == 'ENTER'
     s = _run([(0, [r]), (310, [r]), (620, [r])], hard={'P': 'holders not read yet'})
     assert s['c']['P']['decision'] == 'COOLDOWN' and 'pending' in s['c']['P']['why']
+
+
+def test_a_coin_flickering_off_the_list_for_one_pass_keeps_its_rounds():
+    r = row('F')
+    s = tr.step({}, [r], 0, {}, {'F': ('B', 60)})
+    s = tr.step(s, [], 40, {}, {})                                            # one pass off the list (volume / cap wobble)
+    assert not s['c']['F'].get('decision')
+    s = tr.step(s, [], 40 + tr.ROUND_SEC + 1, {}, {})                        # gone a whole round: closed
+    assert s['c']['F']['decision'] == 'COOLDOWN' and 'whole round' in s['c']['F']['why']
