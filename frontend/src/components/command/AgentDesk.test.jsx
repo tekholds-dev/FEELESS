@@ -88,7 +88,7 @@ test('the desk is interactive: one lens at a time, KPI tiles jump, the board fil
   expect(q('agd-clock')).not.toBeNull();
   await act(async () => { q('board-go').click(); });
   expect(q('agd-row-GOOD')).not.toBeNull(); expect(q('agd-row-RUN')).toBeNull();
-  await act(async () => { q('board-obj').click(); });
+  await act(async () => { q('board-warn').click(); });   // ⚖ an ordinary objection is a WARNING (gold), never a hard block
   expect(q('agd-row-RUN')).not.toBeNull(); expect(q('agd-row-GOOD')).toBeNull();
   await act(async () => { el.querySelector('.agd-fl').click(); });   // a feed line about $RUN → the board resets and opens that coin
   expect(q('agd-open-RUN').getAttribute('aria-expanded')).toBe('true'); expect(q('agd-row-GOOD')).not.toBeNull();
@@ -113,12 +113,13 @@ test('the desk is interactive: one lens at a time, KPI tiles jump, the board fil
 
 test('board + clock helpers: a row\'s state, the fact that decided it, the pips, the lean meter, filter / search / sort, the pass clock', () => {
   const [good, run] = view.table; const wait = { mint: 'M3', symbol: 'MEH', nums: { d5: -2 }, why: { drivers: [], lean: -1 }, trigger: ['wait', 'lean under the bar'], devil: ['—', ''], vitals: { vol1h: 5 } };
-  expect([good, run, wait].map(rowState)).toEqual(['go', 'obj', 'wait']);
+  expect([good, run, wait].map(rowState)).toEqual(['go', 'warn', 'wait']);
+  expect(rowState({ ...run, drule: 'data_integrity' })).toBe('obj');   // only a hard veto (corrupt data / bot ladder) is BLOCKED
   expect(rowWhy(good)).toBe('volume surging vs the hour'); expect(rowWhy(run)).toBe('its read is BOND RUN'); expect(rowWhy(wait)).toBe('lean under the bar');
   expect(pipsOf(run).map(p => p[2])).toEqual(['up', 'up', 'go', 'no']); expect(pipsOf(wait).map(p => p[2])).toEqual(['dn', 'dn', 'wait', 'idle']);
   expect(leanFill(1.5, 1.5)).toBe(0.5); expect(leanFill(9, 1.5)).toBe(1); expect(leanFill(null, null)).toBe(0);
   const t = [good, run, wait];
-  expect(boardCounts(t)).toEqual({ all: 3, go: 1, enter: 2, obj: 1, wait: 1, skip: 0 });
+  expect(boardCounts(t)).toEqual({ all: 3, go: 1, enter: 2, warn: 1, obj: 0, wait: 1, skip: 0 });
   expect(boardRows(t, { f: 'enter' }).map(x => x.symbol)).toEqual(['GOOD', 'RUN']); expect(boardRows(t, { q: '$me' }).map(x => x.symbol)).toEqual(['MEH']);
   expect(boardRows(t, { sort: 'd5' }).map(x => x.symbol)).toEqual(['RUN', 'GOOD', 'MEH']); expect(boardRows(t, { sort: 'vol' })[0].symbol).toBe('GOOD');
   expect(passLeft(100, 130)).toEqual({ age: 30, left: 30, frac: 0.5 }); expect(passLeft(100, 400).left).toBe(0); expect(passLeft(0, 5)).toBeNull();

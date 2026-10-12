@@ -35,7 +35,7 @@ test('tap a mini screen → the zoom: tap a mark or step ‹ › through the coi
   await act(async () => { q('screen-tally').click(); });
   expect(q('ags-zoom')).not.toBeNull(); expect(q('tile-GOOD')).not.toBeNull(); expect(q('ags-dossier').textContent).toContain('$GOOD'); expect(q('ags-dossier').textContent).toContain('1 / 3');
   await act(async () => { q('tile-RUN').click(); });
-  expect(q('ags-dossier').textContent).toContain('$RUN'); expect(q('ags-dossier').textContent).toContain('OBJECTED'); expect(q('ags-dossier').textContent).toContain('BOND RUN');
+  expect(q('ags-dossier').textContent).toContain('$RUN'); expect(q('ags-dossier').textContent).toContain('DEVIL WARNS'); expect(q('ags-dossier').textContent).toContain('BOND RUN');
   await act(async () => { q('ags-next').click(); });
   expect(q('ags-dossier').textContent).toContain('$MEH');
   await act(async () => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' })); });

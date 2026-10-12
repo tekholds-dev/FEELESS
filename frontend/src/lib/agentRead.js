@@ -4,10 +4,14 @@ export const pct = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).to
 export const tone = v => (v == null ? '' : v > 0 ? 'm-pos' : v < 0 ? 'm-neg' : '');
 export const CALL = { enter: ['ENTER', 'is-go'], wait: ['WAIT', 'is-wait'], skip: ['SKIP', 'is-no'] };
 export const VERDICT = { agree: ['agrees', 'is-go'], object: ['objects', 'is-no'], '—': ['—', ''] };
-export const rowState = x => (x.go ? 'go' : x.trigger?.[0] === 'enter' ? 'obj' : x.trigger?.[0] === 'skip' ? 'skip' : 'wait');
-export const VERD = { go: '🟢 GO', obj: '✕ OBJECTED', wait: 'WAIT', skip: 'SKIP' };
+// ⚖ Devil is not the king of the office (trench_crew.py): an objection is a WARNING that lowers confidence; only a HARD veto (corrupt data,
+// a bot ladder — mirrors trench_crew.DEVIL_HARD, change both) blocks. "Trigger ENTER + Devil objects" used to read ✕ OBJECTED for every objection.
+export const DEVIL_HARD = ['data_integrity', 'chart_bot_ladder'];
+export const devilHard = x => DEVIL_HARD.includes(x?.drule);
+export const rowState = x => (x.go ? 'go' : x.trigger?.[0] === 'enter' ? (devilHard(x) ? 'obj' : 'warn') : x.trigger?.[0] === 'skip' ? 'skip' : 'wait');
+export const VERD = { go: '🟢 GO', warn: '⚠ DEVIL WARNS', obj: '✕ BLOCKED (hard)', wait: 'WAIT', skip: 'SKIP' };
 export const rowWhy = x => { const st = rowState(x); const top = (x.why?.drivers || [])[0];
-  return st === 'go' ? (top ? top[2] : 'all four agree') : st === 'obj' ? (x.devil?.[1] || 'Devil objects') : (x.trigger?.[1] || (top ? top[2] : 'nothing moving it')); };
+  return st === 'go' ? (top ? top[2] : 'all four agree') : st === 'obj' || st === 'warn' ? (x.devil?.[1] || 'Devil objects') : (x.trigger?.[1] || (top ? top[2] : 'nothing moving it')); };
 export const pipsOf = x => { const d5 = Number(x.nums?.d5); const lean = Number(x.why?.lean) || 0; const t = x.trigger?.[0]; const v = x.devil?.[0];
   return [['tally', '📊', Number.isFinite(d5) ? (d5 >= 0 ? 'up' : 'dn') : 'flat', `Tally: ${pct(Number.isFinite(d5) ? d5 : null)} in 5 min`],
     ['sherlock', '🔍', lean > 0 ? 'up' : lean < 0 ? 'dn' : 'flat', `Sherlock: lean ${lean.toFixed(1)}`],

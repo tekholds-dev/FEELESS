@@ -160,7 +160,7 @@ def entered(state, now):
 
 
 def summary(state, now):
-    """For the command center: round counts, how candidates ended, average rounds before a decision."""
+    """For the Agents tab: round counts, how candidates ended, average rounds before a decision."""
     c = (state or {}).get('c') or {}
     live = [e for e in c.values() if not e.get('decision')]
     hist = (state or {}).get('hist') or []

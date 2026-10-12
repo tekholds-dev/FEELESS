@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { rowState } from '../../lib/agentRead';
 import '../../styles/agentRoom.css';
 
 // 🏢 THE AGENT OFFICE (owner, 2026-10-09: "real cartoon robots and places, looks like a game but it isn't one — an actual animated office with
@@ -18,8 +19,8 @@ const Office3D = lazy(() => import('./AgentOffice3D'));   // 🧊 the real 3D of
 export const has3D = () => { try { const c = document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl'))); } catch (e) { return false; } };
 export const AGENTS = [['tally', '📊', 'Tally', 'numbers'], ['sherlock', '🔍', 'Sherlock', 'why'], ['trigger', '⏱', 'Trigger', 'when'], ['devil', '⚖', 'Devil', 'argues']];
 export const packetsOf = table => (table || []).slice(0, 8).map(x => ({ k: x.mint, sym: x.symbol,
-  end: x.go ? 'go' : x.trigger?.[0] === 'enter' ? 'obj' : x.trigger?.[0] === 'skip' ? 'skip' : 'wait' }));
-const END = { go: '🟢', obj: '✕', wait: '⏳', skip: '⛔' };
+  end: rowState(x) }));   // ONE meaning of a decision: lib/agentRead.rowState (no second copy here)
+const END = { go: '🟢', warn: '⚠', obj: '✕', wait: '⏳', skip: '⛔' };
 const ago = t => { const s = Math.max(0, Math.round(Date.now() / 1000 - t)); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
 // a typing speed for each robot: more real ms this pass → busier hands, bounded so it never strobes
 export const spinSec = ms => Math.max(1.2, Math.min(8, 8 - Math.log10(1 + Math.max(0, Number(ms) || 0)) * 3));

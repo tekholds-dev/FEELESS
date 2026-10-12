@@ -99,3 +99,5 @@ body.theme-day .sop-seat.is-on { background: rgba(21,209,106,.18); }
 body.theme-day .sop-fresh { border-color: rgba(10, 120, 60, .3); }
 /* ⏱ the round bar sits on its own line above the seat summary */
 .sop-rounds { margin-bottom: 6px; border-bottom: 1px dashed rgba(69, 228, 134, .18); padding-bottom: 6px; }
+/* ⚙ the kernel's hunter lanes + ranked candidates under the round bar */
+.sop-kernel { margin-bottom: 6px; }

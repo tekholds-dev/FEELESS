@@ -242,3 +242,5 @@ body.theme-day .agd .is-trigger { --ag: #a87b12; } body.theme-day .agd .is-tally
 .agd-drawer { display: grid; gap: 8px; padding: 8px; border-radius: var(--m-r); border: 1px dashed var(--m-line-hi); animation: agdIn .2s var(--m-ease) both; min-width: 0; }
 @media (max-width: 1180px) { .agd-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); } } @media (max-width: 640px) { .agd-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
+/* ⚖ a Devil WARNING (lowers confidence) is gold, never the red of a hard block */
+.agd-tr.is-warn { border-left-color: var(--m-warn); } .agd-verdict.is-warn { border-color: var(--m-warn); color: var(--m-warn); }

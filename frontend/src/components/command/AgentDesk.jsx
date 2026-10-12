@@ -2,9 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner';
 import { openCoin } from '../CoinDrawer';
 import { openWarRoom } from '../WarRoomHost';
-import { useLivePrices } from '../../lib/livePrices';
-import { liveOverlay, livePairs } from '../../lib/agentLive';
 import '../../styles/agentDesk.css';
+import { useAgentHub } from '../../lib/agentHub';
 import { pct, tone, CALL, VERDICT, VERD, rowState, rowWhy, pipsOf, leanFill } from '../../lib/agentRead';
 import { MiniScreen, ZoomScreen, CardNow, CourtBand, JudgeCourt, MissionBar, DutyBox, GrowthCards, PowerLadder } from './AgentScreens';
 import { OfficeBoard, OfficeMission } from './OfficeBoard';
@@ -183,7 +182,7 @@ export function PassClock({ at, onDue }) {
 
 // 🪙 THE COIN BOARD — one line per coin: 5-min move · four pips (each agent's word, in chain order) · Sherlock's lean against Trigger's bar ·
 // the verdict · the ONE fact that decided it. A row opens every agent's full word, the vitals, the written brief and the coin's chart.
-export const BOARD = [['all', 'All'], ['go', '🟢 GO'], ['enter', '⌖ ENTER'], ['obj', '✕ Objected'], ['wait', 'WAIT'], ['skip', 'SKIP']];
+export const BOARD = [['all', 'All'], ['go', '🟢 GO'], ['enter', '⌖ ENTER'], ['warn', '⚠ Devil warns'], ['obj', '✕ Blocked'], ['wait', 'WAIT'], ['skip', 'SKIP']];
 export const SORTS = [['desk', "Desk's order"], ['lean', 'Strongest read'], ['d5', '5-min move'], ['vol', '1h volume']];
 const inFilter = (x, f) => f === 'all' || (f === 'enter' ? x.trigger?.[0] === 'enter' : rowState(x) === f);
 export const boardCounts = table => Object.fromEntries(BOARD.map(([k]) => [k, (table || []).filter(x => inFilter(x, k)).length]));
@@ -258,12 +257,12 @@ const Kpi = ({ id, label, val, sub, cls, on, onClick, tip }) => <button type="bu
 const Ring = ({ v, icon }) => <span className="agd-ring" aria-hidden><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" /><circle cx="20" cy="20" r="16" className={v == null ? 'is-none' : v >= 55 ? 'is-up' : v >= 45 ? 'is-mid' : 'is-dn'} strokeDasharray={`${Math.max(0, Math.min(100, v || 0))} 100`} pathLength="100" /></svg><b>{icon}</b></span>;
 
 export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
-  const [d0, setD] = useState(null); const livePx = useLivePrices(livePairs(d0)); const d = liveOverlay(d0, livePx);   // 👁 positions + seats move with live prices (3s), against their entry snapshot
+  const cc = useAgentHub(call); const d = cc.d;   // 🛰 ONE agent hub store: the snapshot + the shared live prices (positions + seats move every 3s)
   const [busy, setBusy] = useState(false); const [sel, setSel] = useState('tally'); const [who, setWho] = useState('all'); const [zoom, setZoom] = useState(null); const [jump, setJump] = useState(null);
   const [lens, setLensS] = useState(() => lens0 || (l => (LENSES.some(x => x[0] === l) ? l : 'live'))(mem.get('feeless.agentLens', 'live'))); const [drawer, setDrawer] = useState(null); const [office, setOffice] = useState(() => mem.get('feeless.agentRoom', 'on') !== 'off');
   const setLens = k => { setLensS(k); mem.set('feeless.agentLens', k); };
-  const load = useCallback(() => call('/admin/agents').then(setD).catch(e => toast.error(e.message)), [call]);
-  useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, 20000); return () => clearInterval(t); }, [load]);
+  const load = cc.load;
+  useEffect(() => { if (cc.err) toast.error(cc.err.message); }, [cc.err]);
   if (!d) return <p className="cc-empty">Waking the agents…</p>;
   const st = d.stage || {}; const t = d.table || []; const p = d.perf || {}; const rg = p.regime; const goN = t.filter(x => x.go).length; const enterN = t.filter(x => x.trigger?.[0] === 'enter').length;
   const newIdeas = (d.ideas || []).filter(i => i.status === 'new').length; const reviewOpen = Object.values(d.office?.review?.open || {}).reduce((a, b) => a + b, 0); const atRisk = Object.values(d.life || {}).filter(l => l && l.status && l.status !== 'alive').length;

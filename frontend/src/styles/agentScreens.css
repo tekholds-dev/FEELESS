@@ -242,3 +242,4 @@ body.theme-day .ags-zoom.is-trigger, body.theme-day .ags-g.is-trigger { --ag: #a
 .jct-row i.is-shadow { color: #9fe3ff; } .jct-row i.is-promoted { color: #ff8fa3; border-color: rgba(255, 143, 163, .55); }
 body.theme-day .jct { background: rgba(236, 246, 240, .9); }
 @media (max-width: 640px) { .jct-row { grid-template-columns: minmax(0, 1fr); } }
+.ags-chip.is-warn { border-color: var(--m-warn); color: var(--m-warn); }

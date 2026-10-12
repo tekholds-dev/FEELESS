@@ -109,3 +109,4 @@ body.theme-day .agr-detail { color: #13281d; } body.theme-day .agr-head b, body.
 .agr-who { margin: 8px; } .agr-stage { display: grid; }
 .agr.is-big .agr3 { aspect-ratio: auto; height: min(72vh, 46vw); }
 @media (max-width: 640px) { .agr3-bub { font-size: 9px; padding: 3px 6px; } }
+.agr-slip.is-warn rect { fill: #fff1c9; stroke: #f5c451; }
