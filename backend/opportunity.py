@@ -7,6 +7,7 @@ thin pool, stale data, identity doubt, weak holders, a failed setup, Devil's war
 The seats choose the best AVAILABLE valid opportunity instead of waiting for a perfect coin. A ranking, never a promise. Pure, tested."""
 
 TIER_A, TIER_B, TIER_C = 65.0, 45.0, 25.0
+TIER_STOP = {'A': 25.0, 'B': 18.0, 'C': 12.0}   # 🛑 the stop CEILING per tier (Reaper): 6h on the real card — 9 'bought into a fall' losses at −23…−37% were 3/4 of all the loss
 TIER_SIZE = {'A': 1.0, 'B': 0.75, 'C': 0.5}   # on the Warden's own steps (1 · .75 · .5 · .25): B = 75% of a seat, C = 50%
 MAX_MCAP = 200_000.0             # 🎯 the hard universe for NEW entries: live market cap under $200K (owner's spec, 2026-10-11) — mirrors agents.AGENT_MAX_MCAP
 MIN_LIQ = 8_000.0                # mirrors agents.CONTROL_MIN_LIQ (a test keeps them equal) = the keeper's trench floor
@@ -120,6 +121,12 @@ def score(row, lost=(), meta=None, pens=None):
         add(k, p)
     total = max(0.0, min(100.0, 50 + sum(p for _k, p in parts)))
     return round(total, 1), parts
+
+
+def tier_of_tag(tag):
+    """'🤖 agents · B-tier' → 'B' (the tier a seat was bought on), else None."""
+    t = str(tag or '')
+    return t.split('-tier')[0][-1] if '-tier' in t and t.split('-tier')[0][-1:] in ('A', 'B', 'C') else None
 
 
 def tier_of(s):

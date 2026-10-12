@@ -3173,3 +3173,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   slots and 26 safe sub-$200K pools never reached the desk (127 read, 125 hard-failed, card empty). `in_lane` = live cap $10K … $200K
   (`AGENT_MIN_MCAP`) with ≥ $1K traded in the hour (`AGENT_MIN_VOL1H`) — owner: "no min starting thresholds, starting mc 10k with vol".
   `CONTROL_MIN_LIQ` = $8K = the keeper's own trench floor (nothing under it is buyable).
+- 🛑 STOP BY TIER (`opportunity.TIER_STOP` A 25 · B 18 · C 12, `tier_of_tag` from the leg's 🤖 tag; Reaper takes min(its own stop, the tier's)):
+  6h on the real card 2026-10-11 = 54 exits, 18 W / 36 L, −4.25% avg; 9 "bought into a fall" losses at −23…−37% were ~3/4 of the loss
+  (Trigger 15 · Reaper 8 · Devil 2 by the Judge). A lower-confidence seat now risks less; exits only ever tighten.

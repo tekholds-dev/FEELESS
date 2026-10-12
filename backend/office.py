@@ -528,6 +528,9 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         stop = min(_f(th['stopPct']), T('stopPct')) if th and th.get('stopPct') else T('stopPct')   # this entry's own stop, never wider than the tunable ceiling
         if pol.get('sl'):   # 🎛 CREATOR OVERRIDE: your maximum tolerated loss can only make the stop TIGHTER (the catastrophic stop stays above it, untouched)
             stop = min(stop, _f(pol['sl']))
+        tier_ = _opp.tier_of_tag((l.get('bought') or {}).get('tag'))
+        if tier_ in _opp.TIER_STOP:   # 🎯 a lower-confidence entry risks less: the stop ceiling follows its tier (A 25 · B 18 · C 12) — only ever TIGHTER
+            stop = min(stop, _opp.TIER_STOP[tier_])
         tr_ = pol.get('trail') or {}
         arm = _f(tr_.get('arm')) if tr_.get('mode') == 'custom' else T('protectAt')
         tight = 0.6 if (vels or {}).get(m, {}).get('state') == 'REVERSING' else 1.0   # 📉 P/L REVERSING: the trail banks sooner (tighter protection, never looser)

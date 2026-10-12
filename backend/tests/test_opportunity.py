@@ -72,3 +72,10 @@ def test_the_tier_shrinks_on_top_of_the_other_rules_never_masked_by_them():
     young = {'liq': 500_000, 'ageH': 0.5, 'courier': 'OK', 'near': 'x'}                  # W4 young already halves the seat
     a, c = (of.warden(1.0, {**young, 'tier': k})['allowed'] for k in ('A', 'C'))
     assert a == 0.5 and c == 0.25 and c < a                                              # as the "smallest rule" C was masked: both read 0.5
+
+
+def test_a_lower_confidence_seat_risks_less():
+    assert op.tier_of_tag('🤖 agents · C-tier') == 'C' and op.tier_of_tag('🤖 agents · best available') is None and op.tier_of_tag(None) is None
+    assert op.TIER_STOP['C'] < op.TIER_STOP['B'] < op.TIER_STOP['A'] <= 30
+    import inspect
+    assert '_opp.TIER_STOP[tier_]' in inspect.getsource(of.reap)   # Reaper only ever tightens with it
