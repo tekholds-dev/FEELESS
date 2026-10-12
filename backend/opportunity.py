@@ -115,6 +115,9 @@ def score(row, lost=(), meta=None, pens=None):
         add(f'warning: {k}', -10 if k in ('busted_read', 'ran', 'identity') else -4)
     if x.get('mint') in (lost or ()):
         add('failed setup lately', -12)
+    mc_ = _f(v.get('mcap'))
+    if 0 < mc_ < MAX_MCAP:
+        add('trench band (< $200K)', 6)   # the owner's own universe ranks first; the wider lane only fills what it cannot
     if x.get('go'):
         add('GO (all four agree)', 15)
     for k, p in judge_hits(x, pens):
@@ -133,7 +136,7 @@ def tier_of(s):
     return 'A' if s >= TIER_A else 'B' if s >= TIER_B else 'C' if s >= TIER_C else None
 
 
-def rank(table, skip=(), lost=(), metas=None, stats=None, pens=None):
+def rank(table, skip=(), lost=(), metas=None, stats=None, pens=None, cap=MAX_MCAP):
     """Every coin of the pass → hard NO, or a scored + tiered candidate (best first). `stats` (dict) collects the counts the page shows."""
     out, st = [], stats if stats is not None else {}
     st.update({'considered': 0, 'hard': 0, 'hardWhy': {}, 'warned': 0, 'A': 0, 'B': 0, 'C': 0, 'weak': 0})
@@ -142,7 +145,7 @@ def rank(table, skip=(), lost=(), metas=None, stats=None, pens=None):
         if not m or m in skip:
             continue
         st['considered'] += 1
-        why = hard_fail(x)
+        why = hard_fail(x, cap)
         if why:
             st['hard'] += 1
             k = why.split(' —')[0].split(' $')[0][:40]
@@ -157,6 +160,6 @@ def rank(table, skip=(), lost=(), metas=None, stats=None, pens=None):
             continue
         st[t] += 1
         top = sorted(parts, key=lambda p: -abs(p[1]))[:3]
-        out.append({**x, 'opp': s, 'tier': t, 'oppParts': parts,
+        out.append({**x, 'opp': s, 'oppRaw': round(50 + sum(p for _k, p in parts), 1), 'tier': t, 'oppParts': parts,   # raw = the order (a strong coin passes 100: a cap would tie them)
                     'nearReady': f"{t}-tier {s:.0f}/100 — " + ' · '.join(f"{k} {p:+.0f}" for k, p in top)})
-    return sorted(out, key=lambda r: -r['opp'])
+    return sorted(out, key=lambda r: -r['oppRaw'])

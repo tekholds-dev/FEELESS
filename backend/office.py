@@ -393,6 +393,8 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
         rules.append({'id': 'W19 confidence tier', 'mult': round(tier_m, 3), 'why': f"{c.get('tier') or 'unconfirmed'}-tier: ×{tier_m:g} on top — {str(c.get('near'))[:140]}"})
         raw = raw * tier_m
     mult = max(s for s in WARDEN_STEPS if s <= raw + 1e-9)
+    if mult == 0 and raw > 1e-9:   # 🪑 shrinking is never a veto: a seat cut below the smallest step keeps the smallest one (only a ×0 rule vetoes)
+        mult = min(s for s in WARDEN_STEPS if s > 0)
     allowed = round(req * mult, 6)
     if 0 < allowed < floor <= req:   # a cut that would leave an unsendable order: the smallest sendable one instead — still under what was asked
         allowed = round(floor, 6)

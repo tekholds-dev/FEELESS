@@ -37,6 +37,7 @@ CREED = (
     "Every opinion says how much of it is earned and how much is still belief.",
 )
 SURVIVE_N, SCRAP_N, SURVIVE_RIGHT = 30, 60, 45.0
+REAL_PROBATION_N, REAL_SCRAP_N = 3, 5   # 💵 real losses an agent caused this life, net of the real wins credited to it
 BURN_SEC, BURN_PCT = 6 * 3600, -20.0   # 🔥 a GO that lost 20%+ in 5 min burns that coin for 6h
 BUDGET_N = 50                          # 🕸 a crawl source with 50+ judged calls and a losing record gets its share cut
 
@@ -61,8 +62,16 @@ def survival(state, h=5):
         c = lr['cards'][a]
         n = int(c['n'] or 0)
         bad = (_f(c['med']) < 0 and _f(c['won']) < SURVIVE_RIGHT) if a == 'trigger' else (c['right'] is not None and _f(c['right']) < SURVIVE_RIGHT)
-        status = 'scrap' if bad and n >= SCRAP_N else 'probation' if bad and n >= SURVIVE_N else 'alive'
-        out[a] = {'gen': int(gen.get(a) or 1), 'born': _f(born.get(a)), 'n': n, 'right': c['right'], 'med': c['med'], 'status': status}
+        # 💵 REAL MONEY DECIDES LIFE (owner, 2026-10-11: "survive or the next gen comes in — the Judge easy, but not on losses"): paper calls can
+        # only put an agent on PROBATION; the real losses the Judge pins on it this life (responsibility ≥ 50), net of the real wins credited to
+        # it, scrap it at REAL_SCRAP_N
+        b_ = _f(born.get(a))
+        lost_ = sum(1 for r in (state or {}).get('realReviews') or [] if r.get('kind') == 'loss' and _f(r.get('at')) >= b_ and _f((r.get('resp') or {}).get(a)) >= 50)
+        won_ = sum(1 for p in (state or {}).get('realPieces') or [] if _f(p.get('at')) >= b_ and real_ruling(p).get('credit') == a)
+        net_ = lost_ - won_
+        status = 'scrap' if net_ >= REAL_SCRAP_N else 'probation' if net_ >= REAL_PROBATION_N or (bad and n >= SURVIVE_N) else 'alive'
+        out[a] = {'gen': int(gen.get(a) or 1), 'born': b_, 'n': n, 'right': c['right'], 'med': c['med'], 'status': status,
+                  'realLost': lost_, 'realWon': won_, 'realNet': net_}
     return out
 
 
@@ -1373,6 +1382,21 @@ def in_lane(row, cap=AGENT_MAX_MCAP):
     """🗑 THE AGENTS' UNIVERSE for new entries: live market cap $10K … under the cap, with volume. Age is context (ranking), never a veto."""
     r = row or {}
     return under_cap(r, cap) and _f(r.get('mcap')) >= AGENT_MIN_MCAP and _f(r.get('vol1h')) >= AGENT_MIN_VOL1H
+
+
+LANE_CAPS = (200_000.0, 1_000_000.0, 5_000_000.0)   # 🪜 the universe widens only when the one below cannot fill the seats
+LANE_NEED = 12          # safe, buyable coins wanted in the lane (4 seats × the ones the keeper / live check will refuse)
+
+
+def lane_cap(rows, need=LANE_NEED):
+    """🪑 SEATS FULL, PERMANENTLY (owner, 2026-10-11: "seats always empty — perma fix"): the smallest cap in LANE_CAPS whose lane holds
+    `need` coins that are actually buyable — holder scan passed, pool ≥ CONTROL_MIN_LIQ, real volume. Under $200K is always first in line
+    (ranked first); the lane only reaches $1M / $5M while $200K alone cannot fill 4 seats (it held 1–3 safe coins a pass). → cap"""
+    ok = lambda r: r.get('safe') is True and _f(r.get('liq')) >= CONTROL_MIN_LIQ
+    for cap in LANE_CAPS:
+        if sum(1 for r in rows or [] if in_lane(r, cap) and ok(r)) >= need:
+            return cap
+    return LANE_CAPS[-1]
 
 
 def view_rows(table, top=24, young=24, young_h=6.0):

@@ -159,11 +159,13 @@ def test_an_agent_that_stays_wrong_is_scrapped_and_reborn_with_nothing_but_belie
     wrong = [mk(i, True, -2.0) for i in range(40)]                                              # Tally said "keeps going", it fell — 40 times
     assert ag.survival({'done': wrong})['tally']['status'] == 'probation'
     st = {'done': wrong + [mk(100 + i, True, -2.0) for i in range(25)]}
+    assert ag.survival(st)['tally']['status'] == 'probation'                                     # paper alone never kills (the Judge is easy on paper)
+    st['realReviews'] = [{'kind': 'loss', 'at': 2000 + i, 'resp': {'tally': 60}} for i in range(5)]   # … real losses pinned on Tally do
     assert ag.survival(st)['tally']['status'] == 'scrap'
     st2, dead = ag.evolve(st, 5000.0)
     assert 'tally' in dead and st2['gen']['tally'] == 2 and st2['born']['tally'] == 5000.0
     assert st2['lineage'][-1]['agent'] == 'tally' and st2['lineage'][-1]['n'] == 65
-    assert ag.survival(st2)['tally'] == {'gen': 2, 'born': 5000.0, 'n': 0, 'right': None, 'med': None, 'status': 'alive'}   # a fresh life
+    assert ag.survival(st2)['tally'] == {'gen': 2, 'born': 5000.0, 'n': 0, 'right': None, 'med': None, 'status': 'alive', 'realLost': 0, 'realWon': 0, 'realNet': 0}   # a fresh life
     assert 'reborn as generation 2' in st2['feed'][-1]['text']
     assert ag.learn(st2)['drivers'].get('buyers', {}).get('n') == 65                           # Sherlock is alive: it keeps its own record
 
@@ -188,12 +190,13 @@ def test_the_live_desk_uses_its_own_record_regime_and_burned_memory():
 def test_a_rug_gets_one_second_opinion_and_a_death_passes_its_lesson_on():
     mk = lambda i, p: {'mint': str(i), 'at': 1000 + i, 'kind': 'wait', 'drivers': ['callers'], 'lean': -1, 'tallyUp': True, 'p5': p}
     one_rug = [mk(i, -0.1) for i in range(64)] + [mk(99, -95.0)]                          # 65 wrong calls, but one rug is most of the loss
-    st, dead = ag.evolve({'done': one_rug}, 5000.0)
+    real = [{'kind': 'loss', 'at': 2000 + i, 'resp': {'tally': 60}} for i in range(5)]     # (a death needs REAL losses pinned on the agent)
+    st, dead = ag.evolve({'done': one_rug, 'realReviews': real}, 5000.0)
     assert dead == [] and st['grace']['tally'] == 1 and 'spared once' in st['feed'][-1]['text']
     st2, dead2 = ag.evolve(st, 5100.0)                                                      # same generation: no second grace
     assert dead2 == ['tally'] and st2['gen']['tally'] == 2 and 'I carry what killed it' in st2['feed'][-1]['text']
     spread = [mk(i, -3.0) for i in range(65)]
-    st3, dead3 = ag.evolve({'done': spread}, 5000.0)
+    st3, dead3 = ag.evolve({'done': spread, 'realReviews': real}, 5000.0)
     assert dead3 == ['tally'] and 'spread over' in st3['lineage'][-1]['why']
     les = ag.lesson({'done': [{**mk(i, -6.0), 'kind': 'enter', 'drivers': ['callers']} for i in range(10)]}, 'sherlock')
     assert les['drivers'][0][0] == 'callers' and les['drivers'][0][1] == -6.0

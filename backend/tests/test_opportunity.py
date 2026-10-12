@@ -25,7 +25,7 @@ def test_minor_warning_is_not_a_veto_and_ranks_lower():
     clean, warned = row('A'), row('B', warns=[['young', 'new'], ['busted_read', 'WASH TRADED']])
     assert op.hard_fail(warned) is None
     got = op.rank([warned, clean])
-    assert [r['mint'] for r in got] == ['A', 'B'] and got[1]['opp'] < got[0]['opp']
+    assert [r['mint'] for r in got] == ['A', 'B'] and got[1]['oppRaw'] < got[0]['oppRaw']   # (both may show 100: the order is the raw total)
 
 
 def test_early_launch_and_huge_launch_return_are_not_overextension():
@@ -79,3 +79,10 @@ def test_a_lower_confidence_seat_risks_less():
     assert op.TIER_STOP['C'] < op.TIER_STOP['B'] < op.TIER_STOP['A'] <= 30
     import inspect
     assert '_opp.TIER_STOP[tier_]' in inspect.getsource(of.reap)   # Reaper only ever tightens with it
+
+
+def test_shrinking_is_never_a_veto():
+    hostile = {'liq': 500_000, 'ageH': 30, 'courier': 'OK', 'near': 'x', 'tier': 'C', 'weather': {'regime': 'HOSTILE', 'mods': {'size': 0.25}}}
+    w = of.warden(1.0, hostile)
+    assert not w['veto'] and w['allowed'] > 0                                # HOSTILE × C-tier used to snap to 0 = a veto (bitdog)
+    assert of.warden(1.0, {**hostile, 'courier': 'BAD'})['veto']             # a real ×0 rule (execution BAD) still vetoes

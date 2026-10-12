@@ -3176,3 +3176,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🛑 STOP BY TIER (`opportunity.TIER_STOP` A 25 · B 18 · C 12, `tier_of_tag` from the leg's 🤖 tag; Reaper takes min(its own stop, the tier's)):
   6h on the real card 2026-10-11 = 54 exits, 18 W / 36 L, −4.25% avg; 9 "bought into a fall" losses at −23…−37% were ~3/4 of the loss
   (Trigger 15 · Reaper 8 · Devil 2 by the Judge). A lower-confidence seat now risks less; exits only ever tighten.
+- 🪑 SEATS FULL, PERMANENT (2026-10-11): (1) the Warden never turns shrinking into a veto — a seat cut below the smallest step keeps the
+  smallest (only a ×0 rule vetoes); HOSTILE × C-tier had snapped to 0 and vetoed fills. (2) `agents.lane_cap`: the universe is the smallest
+  of `LANE_CAPS` ($200K → $1M → $5M) holding `LANE_NEED` 12 BUYABLE coins (scan passed, pool ≥ $8K, volume); sub-$200K ranks +6 first.
+  (3) Ranking orders by the raw total (`oppRaw`) — strong coins passed 100 and tied. 💵 SURVIVAL ON REAL MONEY: paper calls can only put an
+  agent on probation; the Judge's real-loss reviews pinned on it this life (responsibility ≥ 50) net of its credited real wins → probation
+  at 3, scrapped + reborn at 5 (`REAL_PROBATION_N` / `REAL_SCRAP_N`, `state.realReviews` handed in each pass).

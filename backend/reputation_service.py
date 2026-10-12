@@ -9748,8 +9748,8 @@ async def _prime_tick_inner(now):
             if empty_n and not pol_['manual']:   # 🎯 RANK, DON'T VETO: every coin of the pass → hard NO or an A / B / C-tier candidate (opportunity.rank)
                 skip_f = set(cool) | set(lost_) | set(on_n) | set(gw_m) | {t_['mint'] for t_ in near0_} | set((_json_load(AGENTS_PATH, {}).get('burned') or {}).keys())
                 ost_ = {}
-                ranked_ = [t_ for t_ in _opp.rank(_agents.get('table'), skip_f, lost_, None, ost_, _jr.penalties((_office.get('court') or {}).get('promoted'))) if not _fw.dollar_named(t_.get('symbol'))]
-                _office['opp'] = {**ost_, 'at': now, 'top': [{'symbol': t_['symbol'], 'tier': t_['tier'], 'score': t_['opp']} for t_ in ranked_[:6]]}
+                ranked_ = [t_ for t_ in _opp.rank(_agents.get('table'), skip_f, lost_, None, ost_, _jr.penalties((_office.get('court') or {}).get('promoted')), _agents.get('laneCap') or _opp.MAX_MCAP) if not _fw.dollar_named(t_.get('symbol'))]
+                _office['opp'] = {**ost_, 'at': now, 'cap': _agents.get('laneCap'), 'top': [{'symbol': t_['symbol'], 'tier': t_['tier'], 'score': t_['opp']} for t_ in ranked_[:6]]}
                 for t_ in near0_:   # best-available coins (every check passed but the moment) get their tier too
                     if not t_.get('tier'):
                         s_, _p = _opp.score(t_, lost_); t_['tier'] = _opp.tier_of(s_) or 'C'; t_['opp'] = s_
@@ -12342,7 +12342,8 @@ async def _agents_tick(now):
             print('intake:', e); extra_, fresh_, outl_ = [], {}, {}
         ob_ = ob_ + extra_
         held_l = {l.get('mint') for l in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '', {}).get('legs') or [] if l.get('mint')}
-        ob_ = [x for x in ob_ if x.get('mint') in held_l or _ag.in_lane(x)]   # 🎯 the universe FIRST: intake slots go to coins under the cap (they were spent on $200K+ coins, then dropped — 26 safe sub-$200K pools never reached the desk)
+        cap_ = _ag.lane_cap(ob_); _agents['laneCap'] = cap_   # 🪜 the smallest cap that can fill the seats ($200K first)
+        ob_ = [x for x in ob_ if x.get('mint') in held_l or _ag.in_lane(x, cap_)]   # 🎯 the universe FIRST: intake slots go to coins under the cap (they were spent on $200K+ coins, then dropped — 26 safe sub-$200K pools never reached the desk)
         src_ = {}
         for k_, lst_ in (_lens_rows or {}).items():
             for r_ in lst_ or []:
@@ -12370,7 +12371,7 @@ async def _agents_tick(now):
             raw = keep_ + trim_[:len(trim_) // 2]
         tv_ = {x.get('mint'): x.get('tv') for x in raw}
         rows = [_ag.established({**r, 'tv': tv_.get(r.get('mint')) or r.get('tv')}) for r in _clean_rows([dict(x) for x in raw])]   # 🏛 an established coin's top-10 = exchange / pool wallets, not a failed scan
-        rows = [r for r in rows if r.get('mint') in held_m or _ag.in_lane(r)]   # 🗑 under $1M AND ≤ 24h old only (coins on the card stay: their exits still run)
+        rows = [r for r in rows if r.get('mint') in held_m or _ag.in_lane(r, _agents.get('laneCap') or _ag.AGENT_MAX_MCAP)]   # 🎯 the lane (the ladder's cap) — coins on the card stay: their exits still run
         # 🧠 the human read: who is calling each coin on Pump and what they write, the narratives hot on the board, the lingo they use
         calls_ = _pump_calls.get('calls') or []
         by_m = {}
@@ -12387,6 +12388,7 @@ async def _agents_tick(now):
         st = _json_load(AGENTS_PATH, {})
         try:   # 👨‍⚖️ the Judge rules on REAL money too: the agents' own seats that left the card (the card's ledger result)
             st['realPieces'] = [{k_: p_.get(k_) for k_ in ('symbol', 'mint', 'pct', 'holdMin', 'why', 'at')} for p_ in (_json_load(REAL_LEARN_PATH, {}).get('pieces') or []) if 'tag:🤖' in (p_.get('k') or [])][-30:]
+            st['realReviews'] = [{k_: r_.get(k_) for k_ in ('kind', 'at', 'resp', 'cause', 'sym')} for r_ in ((_office_state().get('judge') or {}).get('reviews') or [])][-60:]   # 💵 the Judge's real-loss reviews decide who survives
         except Exception:
             pass
         try:   # ⚖ Devil's busted reads = the reads' own live 1-hour records, never a fixed list
