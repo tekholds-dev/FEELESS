@@ -3343,3 +3343,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   Devil's objections are a confidence weight on `open_score` (`devil_factor`: strong ×0.85, other ×0.95, floor ×0.6); the dev dumping now is
   the one Devil item on the wall (`dev_dumping` in `open_ok`); Warden's uncertainty rules W2 weather · W4 newborn · W20 exit risk · W21
   concentration SHRINK to ≥ ×0.5 (`warden_rules`), only W1 / W3 / W17 (+ W11, W22) can stop a buy; Sherlock's unknown is never a reject.
+- 🪖 Trench mode exits: Reaper's R2 (holder scan fails / rug ≥ 65) and R3 (top-10 concentrating) do not fire with `agentOpen` — the live
+  chart, liquidity (R1), stops, the rug radar on the tape and the trail decide. 🧾 A stuck buy is not stuck when the LEDGER shows it filled
+  in the last 3 min (the card book had not synced: $Americaexe filled, then sent "back to cash" 2 s later).

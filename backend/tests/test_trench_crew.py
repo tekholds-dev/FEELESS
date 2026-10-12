@@ -38,3 +38,10 @@ def test_warden_shrinks_in_trench_mode_and_only_execution_can_veto():
     w = of.warden(1.0, ctx)
     assert not w['veto'] and w['allowed'] == 0.5 and all(r['mult'] >= crew.SHRINK_FLOOR for r in w['rules'])
     assert of.warden(1.0, {**ctx, 'courier': 'BAD'})['veto']
+
+
+def test_in_trench_mode_reaper_exits_on_the_chart_and_liquidity_not_a_holder_scan():
+    src = (ROOT / 'backend' / 'office.py').read_text()
+    assert "and not (cfg or {}).get('agentOpen'):   # 🪖 trench mode: a holder scan / rug score is not an exit" in src
+    rs = (ROOT / 'backend' / 'reputation_service.py').read_text()
+    assert "a buy the LEDGER shows filled in the last 3 min is not stuck" in rs

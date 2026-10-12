@@ -613,13 +613,13 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         st, rule, ev, act = 'HOLD', 'R10 hold', f"{pct:+.1f}% · peak {p['peak']:+.1f}% · take line +{take:g}%", None
         if lq0 > 0 and 0 < lq1 < lq0 * _ag.DRAIN_PULL:
             st, rule, ev, act = 'EXIT INVALIDATED', 'R1 liquidity collapse', f'pool ${lq1 / 1000:.1f}K = {round(lq1 / lq0 * 100)}% of its ${lq0 / 1000:.1f}K entry depth', 'pull'
-        elif v.get('safe') is False or _f(v.get('rug')) >= RUG_EXIT:
+        elif (v.get('safe') is False or _f(v.get('rug')) >= RUG_EXIT) and not (cfg or {}).get('agentOpen'):   # 🪖 trench mode: a holder scan / rug score is not an exit — the live chart and liquidity are
             st, rule, ev, act = 'EXIT INVALIDATED', 'R2 hard invalidation', 'the holder scan now fails' if v.get('safe') is False else f"rug meter {_f(v.get('rug')):.0f} ≥ {RUG_EXIT:g}", 'pull'
         elif (rug or {}).get(l.get('pairAddress')):   # 🚨 the rug radar on the live tape: the creator / a top-holder wallet is dumping — a hard safety exit
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R4r rug radar', f"{rug[l.get('pairAddress')]} at {pct:+.1f}%", 'pull'
         elif pr_ == 'HIGH' and live:   # 🕵 the launch's early buyers are unloading into us (creator / a dump-record wallet / a cluster): out before the timeout
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R4e early wallets unloading', f"{prwhy_} at {pct:+.1f}%", 'pull'
-        elif top1 is not None and top0 is not None and _f(top1) >= 30 and _f(top1) - _f(top0) >= TOP10_JUMP:
+        elif top1 is not None and top0 is not None and _f(top1) >= 30 and _f(top1) - _f(top0) >= TOP10_JUMP and not (cfg or {}).get('agentOpen'):
             st, rule, ev, act = 'EXIT INVALIDATED', 'R3 holders concentrating', f'top-10 {_f(top0):.0f}% → {_f(top1):.0f}% since entry', 'pull'
         elif tp == 'dump' and (pct > 0 or (n.get('buy') is not None and _f(n['buy']) < 45)):
             st, rule, ev, act = ('TAKE' if pct > 0 else 'EXIT INVALIDATED'), 'R4 whale dump', f"the tape reads a dump at {pct:+.1f}%" + (f", buyers {_f(n['buy']):.0f}%" if n.get('buy') is not None else ''), 'pull'

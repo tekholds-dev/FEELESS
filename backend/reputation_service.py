@@ -9479,6 +9479,9 @@ async def _prime_tick_inner(now):
         stuck = set(_fw.stuck_buys(cur, now, bench, missed=book_s.get('misses'), pending_mint=(book_s.get('pending') or {}).get('toMint') or (book_s.get('pending') or {}).get('mint'),
                                      busy=bool(book_s.get('pending')) or _fw.slip_busy(book_s, now) or now - max([_fuse._f(t) for t in (book_s.get('soldAt') or {}).values()] or [0.0]) < 45,
                                      buy_pass_at=_FW_BUY_PASS.get(tid, 0.0))) if cur and cur.get('real') else set()
+        if stuck:   # 🧾 a buy the LEDGER shows filled in the last 3 min is not stuck — the card's book just hasn't synced yet ($Americaexe filled 13:48:59, sent back to cash 13:49:01)
+            landed_ = {r_.get('mint') for r_ in _fw_full_ledger()[-200:] if r_.get('card') == tid and r_.get('side') == 'buy' and r_.get('status') == 'filled' and now - _fuse._f(r_.get('at')) < 180}
+            stuck = {pa_ for pa_ in stuck if next((l_.get('mint') for l_ in cur.get('legs') or [] if l_.get('pairAddress') == pa_), None) not in landed_}
         # (the stuck-buy swap runs BELOW, after every filter — see "⏳ STUCK BUYS")
         # ⏳ EVERY door obeys the card's min age on real money (pools, runners, seat refills, replacements, mover swaps): a row whose
         # age is known and under `runnerMinAgeH` is out whatever list it came from. $Grok came in 20 minutes old through a list
