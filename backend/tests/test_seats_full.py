@@ -55,10 +55,10 @@ def test_near_ready_takes_only_coins_whose_only_open_checks_are_the_entry_moment
     scores = {c['mint']: {'score': 70} for c in cases}
     scores['DATA'] = {'score': 90}
     scores['LOW'] = {'score': 10}
-    out = oe.near_ready(cases, scores)
+    out = oe.near_ready(cases, scores, min_entry=0)
     assert [r['mint'] for r in out] == ['DATA', 'CHART']                                          # best score first; every hard block stays out
     assert 'every safety check passed' in out[0]['nearReady'] and out[0]['pair'] == 'PDATA'
-    assert [r['mint'] for r in oe.near_ready(cases, scores, live={'DATA': (False, 'price ran')})] == ['CHART']   # the newest live check wins
+    assert [r['mint'] for r in oe.near_ready(cases, scores, min_entry=0, live={'DATA': (False, 'price ran')})] == ['CHART']   # the newest live check wins
 
 
 def _ctx(**kw):

@@ -310,11 +310,12 @@ def real_buys(events, ledger, card, now, window=3600.0, moves=('fill', 'swap')):
 
 # ── 🪑 BEST AVAILABLE: an empty seat does not wait forever on the entry moment ───────────────────────────────────────────────────────
 NEAR_PATIENCE_SEC = 30       # a seat empty this long with NOTHING cleared takes the best near-ready coin (owner: "30 secs to choose") …
+NEAR_MIN_ENTRY = 50.0        # 🎯 … AND an entry score (opportunity.score) of at least B-tier — never 'the least bad coin'
 NEAR_MIN_SCORE = 15.0        # … scoring at least this (seat_ops.score WITHOUT its phase tilt — the tilt orders coins, it never keeps a seat empty) …
 NEAR_SOFT = ('chart', 'data')   # … whose ONLY open checks are the entry moment / ENTER-grade data — every safety check passed
 
 
-def near_ready(cases, scores=None, live=None, min_score=NEAR_MIN_SCORE):
+def near_ready(cases, scores=None, live=None, min_score=NEAR_MIN_SCORE, min_entry=NEAR_MIN_ENTRY):
     """The coins an empty seat may take when nothing CLEARED (owner, 2026-10-11: "they must keep seats full" — never past a hard block):
     every check passed except the entry moment (chart) and/or ENTER-grade data · no hard chart objection (risk > 0) · the data is READABLE
     (never DATA INVALID) · the chart is not COLLAPSING / INVALID · the newest live check is not against it · seat score ≥ min. Best score first.
@@ -340,6 +341,10 @@ def near_ready(cases, scores=None, live=None, min_score=NEAR_MIN_SCORE):
         sd = (scores or {}).get(c.get('mint')) or {}
         sc = _f(sd.get('score'))
         if sc - sum(_f(p[1]) for p in sd.get('parts') or [] if p and p[0] == 'phase') < min_score:   # (2026-10-11: the recovery tilt's −10 on old coins left 3 seats empty)
+            continue
+        import opportunity as _opp
+        es_ = _opp.score(row)[0]
+        if es_ < min_entry:   # 🎯 the fallback door needs a B-tier ENTRY score: it bought 70 old coins at −0.9% avg, 31% won (2026-10-11) — cash beats a bad setup
             continue
         out.append({**row, 'nearReady': f"best available after {NEAR_PATIENCE_SEC}s — every safety check passed; not yet: {'; '.join(k[2] for k in fails)[:140]}", 'nearScore': sc})
     return sorted(out, key=lambda r: -_f(r.get('nearScore')))
@@ -748,13 +753,35 @@ def _pace(r):
     return _f(r.get('vol5m')) * 12 / v1 if v1 > 0 else 0.0
 
 
+OLD_INTAKE_H = 12.0   # 🆕 a coin older than this joins the table only while it is waking up (or as a recheck)
+
+
+def stale_old(r):
+    """A board row over 12h old that is NOT waking up (pace ≥ 2× its hour on ≥ $3K in 5 min, or a +5% 5-min move on ≥ $2K, or a fresh
+    graduation) — it gives its intake slot to a fresh launch (owner, 2026-10-11: 0–12h coins must dominate)."""
+    h = r.get('ageH')
+    if h is None or _f(h) <= OLD_INTAKE_H:
+        return False
+    v5 = _f(r.get('vol5m'))
+    return not ((v5 >= 3000 and _pace(r) >= 2) or (v5 >= 2000 and _f(r.get('chg5m')) >= 5))
+
+
+def fresh_key(r):
+    """Order inside a slot: the freshness ladder first (0–15m · 15–60m · 1–3h · 3–6h · 6–12h · older), then the slot's own measure."""
+    h = r.get('ageH')
+    if h is None:
+        return 6
+    m = _f(h) * 60
+    return 0 if m < 15 else 1 if m < 60 else 2 if m < 180 else 3 if m < 360 else 4 if m < 720 else 5
+
+
 def intake(rows, recheck=(), listed=None, cap=INTAKE_MAX, cool=(), fresh=None, outlets=None):
     """→ the coins Tally reads this pass, each with `intake` = the reasons it got a seat at the table (deduped, ≤ cap).
     Reserved, in this order: RECHECK (held coins + last pass's cases + challengers — always) · NEW (the youngest launches the board has,
     ANY age: a coin seconds old reaches Tally on the next pass) · ACCEL (5-min volume pace vs its hour) · GRAD (off the curve, pool < 6h) ·
     MOMENTUM (5-min move on ≥ $2K) · BUSY (front-runners) · LISTED (on the most tracked lists). Cheap: board numbers only, no fetch."""
-    rs = [r for r in rows or [] if r.get('mint')]
-    by = {r['mint']: r for r in rs}
+    by = {r['mint']: r for r in rows or [] if r.get('mint')}
+    rs = [r for r in by.values() if not stale_old(r)]   # recheck still reads every held coin / case whatever its age (from `by`)
     lst = listed or {}
     cl = set(cool or ())
     fr, ot = fresh or {}, outlets or {}
@@ -762,14 +789,15 @@ def intake(rows, recheck=(), listed=None, cap=INTAKE_MAX, cool=(), fresh=None, o
         'recheck': [by[m] for m in dict.fromkeys(recheck or ()) if m in by],
         # 🆕 FRESH (reserved): the live launch / migration stream's coins, newest first — never behind an old volume leader, never cooled
         'fresh': sorted((r for r in rs if r['mint'] in fr), key=lambda r: (_f(r['ageH']) if r.get('ageH') is not None else 99.0, -_f(r.get('vol5m')))),
-        # 🕸 OUTLETS (reserved): callouts · fed runners · radar · runner board — sources the board's own ranking may not lift
-        'outlets': sorted((r for r in rs if r['mint'] in ot and r['mint'] not in cl), key=lambda r: (-len(ot[r['mint']]), -_f(r.get('front')))),
+        # 🕸 OUTLETS (reserved): callouts · fed runners · radar · runner board — sources the board's own ranking may not lift. A callout / listing
+        # is NEWS: an old coin may return through it (and through LISTED = re-entering a tracked ranking), never through plain 'busy'
+        'outlets': sorted((r for r in by.values() if r['mint'] in ot and r['mint'] not in cl), key=lambda r: (-len(ot[r['mint']]), -_f(r.get('front')))),
         'new': sorted((r for r in rs if r.get('ageH') is not None), key=lambda r: (r['mint'] in cl, _f(r['ageH']))),   # ♻ a rejected launch with nothing new goes to the back
-        'accel': sorted((r for r in rs if _f(r.get('vol5m')) >= 1000 and _pace(r) > 1.0), key=lambda r: (r['mint'] in cl, -_pace(r))),
+        'accel': sorted((r for r in rs if _f(r.get('vol5m')) >= 1000 and _pace(r) > 1.0), key=lambda r: (r['mint'] in cl, fresh_key(r), -_pace(r))),
         'grad': sorted((r for r in rs if r.get('curve') is False and r.get('ageH') is not None and _f(r['ageH']) <= GRAD_AGE_H), key=lambda r: (r['mint'] in cl, -_f(r.get('vol1h')))),
-        'momentum': sorted((r for r in rs if _f(r.get('vol5m')) >= 2000 and r.get('chg5m') is not None and _f(r['chg5m']) > 0), key=lambda r: (r['mint'] in cl, -_f(r['chg5m']))),
-        'busy': sorted((r for r in rs if r['mint'] not in cl), key=lambda r: -_f(r.get('front'))),   # ♻ a rejected coin with nothing new gives its seat at the table to a coin that has news
-        'listed': sorted((r for r in rs if lst.get(r['mint']) and r['mint'] not in cl), key=lambda r: (-len(lst[r['mint']]), -_f(r.get('front'))))}
+        'momentum': sorted((r for r in rs if _f(r.get('vol5m')) >= 2000 and r.get('chg5m') is not None and _f(r['chg5m']) > 0), key=lambda r: (r['mint'] in cl, fresh_key(r), -_f(r['chg5m']))),
+        'busy': sorted((r for r in rs if r['mint'] not in cl), key=lambda r: (fresh_key(r), -_f(r.get('front')))),   # ♻ a rejected coin with nothing new gives its seat at the table to a coin that has news
+        'listed': sorted((r for r in by.values() if lst.get(r['mint']) and r['mint'] not in cl), key=lambda r: (-len(lst[r['mint']]), -_f(r.get('front'))))}
     out, tags = [], {}
     for k, n in INTAKE_SLOTS:
         took = 0
@@ -814,7 +842,8 @@ def scan_order(cases, n=2, challengers=(), seen=None, universe=None):
     import seat_ops as _so
     un = [c for c in cases or [] if ((c.get('row') or {}).get('vitals') or {}).get('safe') is None and _f(c.get('lean')) > 0]
     young = lambda c: universe == 'trench' and ((c.get('row') or {}).get('vitals') or {}).get('ageH') is not None and _f(c['row']['vitals']['ageH']) <= _so.YOUNG_H
-    ranked = sorted(un, key=lambda c: (scan_tier(c, challengers, seen), 0 if young(c) else 1, -_f(c.get('lean')), -_f(((c.get('row') or {}).get('nums') or {}).get('pace'))))[:n]
+    fk = lambda c: fresh_key(((c.get('row') or {}).get('vitals') or {}))   # 🆕 holder scans follow the freshness ladder (0–15m first) inside each tier
+    ranked = sorted(un, key=lambda c: (scan_tier(c, challengers, seen), fk(c), 0 if young(c) else 1, -_f(c.get('lean')), -_f(((c.get('row') or {}).get('nums') or {}).get('pace'))))[:n]
     return [{**c, 'scanTier': SCAN_TIERS[scan_tier(c, challengers, seen)]} for c in ranked]
 
 
@@ -991,3 +1020,51 @@ def review_due(e, now):
     if _f(now) - _f(e['review']) >= REVIEW_COOL_SEC:
         return True, 'cooldown over'
     return False, f"rejected {round(_f(now) - _f(e['review']))}s ago ({e.get('reject')}) — nothing new"
+
+
+FRESH_LABELS = ('0–15m', '15–60m', '1–3h', '3–6h', '6–12h', '12h+', 'age ?')
+
+
+def _med_(xs):
+    xs = sorted(x for x in xs if x is not None)
+    return None if not xs else round(xs[len(xs) // 2], 1)
+
+
+def fresh_view(table, deep=(), cleared=(), prev=(), ranked=None, positions=None, now=0.0, cooled=0):
+    """🆕 THE FRESH-TRENCH PIPELINE for one cycle (owner, 2026-10-11: "I want to visibly confirm that bought coins are actually fresh"):
+    rows per freshness bucket · deep reviewed / cleared per bucket · unique vs repeats vs new · median age reviewed · the top 5 ranked
+    candidates (age · MC · source · volume / buyer velocity · tier) · median age at ENTRY of the agents' real buys (last 24h vs before)."""
+    import opportunity as _opp
+    rows = [x for x in table or [] if x.get('mint')]
+    by = {x['mint']: x for x in rows}
+    lab = lambda x: FRESH_LABELS[fresh_key((x or {}).get('vitals') or {})]
+    cnt = lambda ms: {k: sum(1 for m in ms if m in by and lab(by[m]) == k) for k in FRESH_LABELS}
+    am = lambda x: None if ((x or {}).get('vitals') or {}).get('ageH') is None else _f(x['vitals']['ageH']) * 60
+    pv = set(prev or ())
+    top = []
+    for x in (ranked or [])[:5]:
+        vpm, bpm = _opp.velocity(x)
+        top.append({'symbol': x.get('symbol'), 'ageMin': None if am(x) is None else round(am(x)), 'mc': (x.get('vitals') or {}).get('mcap'), 'src': [s for s in x.get('src') or [] if s != 'open'][:3],
+                    'vpm': vpm, 'bpm': bpm, 'tier': x.get('tier'), 'score': x.get('opp'), 'fresh': _opp.fresh_bucket(x)[0]})
+    ent = [(p.get('since'), (p.get('launch') or {}).get('ageH')) for p in positions or [] if (p.get('launch') or {}).get('ageH') is not None]
+    recent = [h * 60 for t, h in ent if now - _f(t) <= 86400]
+    older = [h * 60 for t, h in ent if now - _f(t) > 86400]
+    return {'buckets': cnt(by), 'deep': cnt(deep or ()), 'cleared': cnt(cleared or ()),
+            'unique': len(by), 'repeats': len(set(by) & pv), 'newUnique': len(set(by) - pv), 'cooled': int(cooled or 0),
+            'ageReviewedMin': _med_([am(by[m]) for m in deep or () if m in by]), 'ageTableMin': _med_([am(x) for x in rows]),
+            'top': top, 'boughtAgeMin24h': _med_(recent), 'boughtAgeMinBefore': _med_(older), 'bought24h': len(recent)}
+
+
+def candle_order(rows, deep=None, held=None):
+    """📈 THE CANDLE BUDGET FOLLOWS NEW / BUSY COINS. The candles service builds a limited number of new histories per call IN REQUEST
+    ORDER, so the order IS the allocation: fresh 0–12h coins first (deep reviews first, then the freshness ladder, then 5-min $), then
+    older coins, held coins LAST (the tier tick re-reads them every tick anyway). → ordered {mint: pool}"""
+    hd, dp = dict(held or {}), dict(deep or {})
+    rs = [r for r in rows or [] if r.get('mint') and r.get('pairAddress') and r['mint'] not in hd]
+    rs.sort(key=lambda r: (fresh_key(r) > 4, r['mint'] not in dp, fresh_key(r), -_f(r.get('vol5m'))))
+    out = {r['mint']: r['pairAddress'] for r in rs}
+    for m, pa in dp.items():
+        if m not in hd and m not in out:
+            out[m] = pa
+    out.update(hd)
+    return out

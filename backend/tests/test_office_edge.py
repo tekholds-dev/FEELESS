@@ -701,8 +701,10 @@ def test_a_rejected_coin_waits_until_something_material_changes():
     assert oe.review_due(m3['R'], 1050)[0] and 'scan' in oe.review_due(m3['R'], 1050)[1]                         # a holder scan landing wakes it
     m4 = oe.note_seen(m, [{**row, 'chart': {'state': 'CONFIRMED BREAKOUT'}}], [rej], set(), 1040)
     assert oe.review_due(m4['R'], 1040)[0]                                                                        # a breakout wakes it
-    board = [_brow('R', front=99, ageH=500)] + [_brow(f'X{i}', front=50) for i in range(300)]
+    board = [_brow('R', front=99, ageH=8)] + [_brow(f'X{i}', front=50, ageH=8) for i in range(300)]
     assert 'busy' in {x['mint']: x['intake'] for x in oe.intake(board)}['R']                                       # without news it would take a busy seat first …
+    stale = [_brow('S', front=99, ageH=500, vol5m=500)] + [_brow(f'X{i}', front=50) for i in range(300)]
+    assert 'S' not in {x['mint'] for x in oe.intake(stale)}                                                         # 🆕 12h+ and not waking up: no seat at the table
     assert 'R' not in {x['mint'] for x in oe.intake(board, cool={'R'})}                                            # … cooled, the seat goes to a coin with news
 
 

@@ -133,7 +133,7 @@ test('🕵 launch intel cells: every field with its tone and evidence', () => {
   expect(c['buyer rank']).toMatchObject({ v: 'FIRST 25', t: 'good' });
   expect(c['first 10'].t).toBe('bad'); expect(c.bundle).toMatchObject({ v: 'BUNDLED', t: 'warn' });
   expect(c.bundle.tip).toContain('30 launches');
-  expect(c['early wallets']).toMatchObject({ v: '22% held · worsening', t: 'bad' }); expect(c['early wallets'].tip).toContain('3 exit');
+  expect(c['early supply']).toMatchObject({ v: '22% held · worsening', t: 'bad' }); expect(c['early supply'].tip).toContain('3 exit');
   expect(c['FOMO phase']).toMatchObject({ v: 'ACCELERATING', t: 'good' }); expect(c['exit pressure']).toMatchObject({ v: 'WATCH', t: 'warn' });
   expect(c['dev / cluster'].t).toBe('bad'); expect(c.confidence.v).toBe('80%');
 });

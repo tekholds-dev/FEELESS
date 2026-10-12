@@ -25,10 +25,18 @@ CAUSES = {
     'after_distribution': ('devil', 'high', 'Devil: never enter while the early wallets are selling into the move (distribution)', 'early selling'),
     'crowd_fomo': ('trigger', 'mid', 'Trigger: this was the crowd\'s top — enter in early / accelerating FOMO, not after it', 'crowd fomo'),
     'bundled_exit': ('warden', 'mid', 'Warden: a bundled / clustered launch still holding its early supply gets a smaller seat', 'bundled'),
+    'too_old': ('sherlock', 'mid', 'Ranking: a coin over 12h old needs a waking-up signal before it takes a seat from a fresh launch', None),
+    'fallback_entry': ('trigger', 'mid', 'Seats: the best-available door must clear a B-tier entry score — cash beats the least-bad coin', None),
     'gave_back': ('reaper', 'mid', 'Reaper: trail a +8% winner tighter', None),
     'held_too_long': ('reaper', 'low', 'Reaper: replace a flat seat sooner', None),
     'variance': (None, 'none', 'none — a valid setup that lost; no rule changes', None),
 }
+
+
+# every loss in ONE of five words (owner, 2026-10-11): what kind of mistake it was — never a reason to tighten everything
+LOSS_CLASS = {'variance': 'NORMAL LOSS', 'gave_back': 'BAD EXIT', 'held_too_long': 'BAD HOLD', 'collapsing_entry': 'BAD TIMING', 'entered_on_wait': 'BAD TIMING',
+              'crowd_fomo': 'BAD TIMING', 'after_distribution': 'BAD ENTRY', 'bundled_exit': 'BAD ENTRY', 'thin_pool': 'BAD ENTRY', 'weak_holders': 'BAD ENTRY',
+              'too_old': 'BAD ENTRY', 'fallback_entry': 'BAD ENTRY', 'bad_data': 'BAD ENTRY', 'rugged': 'BAD ENTRY'}
 
 
 def _f(v):
@@ -70,6 +78,10 @@ def review(p):
         cause = 'crowd_fomo'
     elif li.get('cls') in ('BUNDLED', 'INSIDER-LIKE CLUSTER') and _f(li.get('early')) >= 20 and pct <= -10:
         cause = 'bundled_exit'
+    elif 'best available' in str(p.get('tag') or '') and pct <= -3:
+        cause = 'fallback_entry'
+    elif _f((p.get('launch') or {}).get('ageH') if (p.get('launch') or {}).get('ageH') is not None else li.get('ageH')) >= 12 and pct <= -3:
+        cause = 'too_old'
     elif peak >= 8 and pct <= 0:
         cause = 'gave_back'
     elif len(path) >= 2 and min(path[:2]) <= -5:
@@ -98,7 +110,7 @@ def review(p):
     if pct <= -10 and tier in ('B', 'C') and p.get('warden') is not None and _f(p.get('warden')) >= 0.75:   # 🛡 a low-confidence entry at ≥ 75% of a seat: the Warden sized too large
         resp['warden'] = max(resp['warden'], 50)
     sized_ = resp['warden'] >= 50 and cause != 'rugged'
-    return {**base, 'kind': 'loss', 'cause': cause, 'desk': desk, 'oversized': sized_, 'severity': sev, 'change': change, 'resp': resp,
+    return {**base, 'kind': 'loss', 'cause': cause, 'lossClass': LOSS_CLASS.get(cause, 'BAD ENTRY'), 'desk': desk, 'oversized': sized_, 'severity': sev, 'change': change, 'resp': resp,
             'decision': 'valid decision that lost' if cause == 'variance' else 'bad decision',
             'lesson': change if cause != 'variance' else 'the setup was valid — keep taking it; size handles the variance'}
 

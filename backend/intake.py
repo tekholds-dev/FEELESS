@@ -80,12 +80,13 @@ def stamp(reg, stage, mints, now):
     return r
 
 
-def outcome(reg, mint, pct, now):
-    """How a real seat in this coin ended (% at exit, price result) — the per-source win / loss record."""
+def outcome(reg, mint, pct, now, hold_min=None, age_h=None, mc=None):
+    """How a real seat in this coin ended (% at exit, price result, minutes held, launch age + market cap at entry) — the per-source record."""
     r = dict(reg or {})
     e = r.get(mint)
     if e is not None:
-        r[mint] = {**e, 'out': round(_f(pct), 2), 'outAt': now}
+        r[mint] = {**e, 'out': round(_f(pct), 2), 'outAt': now, **({'holdMin': round(_f(hold_min), 1)} if hold_min is not None else {}),
+                   **({'ageEntryH': round(_f(age_h), 2)} if age_h is not None else {}), **({'mcEntry': round(_f(mc))} if mc is not None else {})}
     return r
 
 
@@ -134,12 +135,19 @@ def per_source(reg, now, window=WINDOW):
                 a.setdefault('_outs', []).append(_f(e['out']))
             if e.get('seat') and _f(e['seat']) >= _f(e.get('first')):
                 a.setdefault('_tte', []).append(_f(e['seat']) - _f(e.get('first')))
+            for k_, f_ in (('_hold', 'holdMin'), ('_age', 'ageEntryH'), ('_mc', 'mcEntry')):
+                if e.get(f_) is not None:
+                    a.setdefault(k_, []).append(_f(e[f_]))
+            if e.get('born') and e.get('first'):
+                a.setdefault('_ageSeen', []).append((_f(e['first']) - _f(e['born'])) / 60)
     for a in out.values():   # 🕵 which outlet deserves priority: win rate · median P/L · rug rate (≤ −50% exits) · time from first seen to our entry
         outs, tte = a.pop('_outs', []), a.pop('_tte', [])
         a['winRate'] = round(100 * a['won'] / (a['won'] + a['lost'])) if a['won'] + a['lost'] else None
         a['medPct'] = _med(outs)
         a['rugRate'] = round(100 * sum(x <= -50 for x in outs) / len(outs)) if outs else None
         a['timeToEntry'] = _med(tte)
+        a['medHoldMin'] = _med(a.pop('_hold', [])); a['medAgeEntryH'] = _med(a.pop('_age', [])); a['medMcEntry'] = _med(a.pop('_mc', []))
+        a['medAgeSeenMin'] = _med(a.pop('_ageSeen', []))   # how old a launch was when THIS source first showed it to us
     return dict(sorted(out.items(), key=lambda kv: -kv[1]['seen']))
 
 

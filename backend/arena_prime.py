@@ -510,6 +510,7 @@ def clean_cfg(p):
     out['agentLearn'] = bool((p or {}).get('agentLearn', False))   # 🎓 ONE real seat for the agents to learn on BEFORE they are proven
     out['agentLearnPct'] = int(_f((p or {}).get('agentLearnPct'))) if int(_f((p or {}).get('agentLearnPct'))) in (5, 10, 15, 100) else 100   # 100 = a WHOLE seat (owner: "they run 1 whole seat")
     out['agentDial'] = (p or {}).get('agentDial') if (p or {}).get('agentDial') in ('chill', 'normal', 'crazy') else 'normal'   # 🎚 the creator's dial on Trigger's bar (agents.DIALS)
+    out['agentCurve'] = bool((p or {}).get('agentCurve', False))   # 🎢 owner's switch: the agents may seat a fresh Pump coin still on its launch curve (off by default)
     out['agentScalp'] = bool((p or {}).get('agentScalp', True))   # ⚡ an agent seat banks at the desk's learned scalp take line (only once a plan is adopted)
     out['agentControl'] = bool((p or {}).get('agentControl', False))   # 🎮 the agents control EVERY seat of the real card (the engine's own doors are off)
     out['agentTrust'] = bool((p or {}).get('agentTrust', False))   # 🤝 a 2nd agent seat once the suggestions the owner took are proven (≥ 10 closed, typical > 0)
@@ -3396,6 +3397,8 @@ def agent_seat(card, row, prices, cfg, now, min_usd=0.05, max_usd=None):
         raise ValueError(f'only ${free:.2f} free — a seat needs more')
     leg = _leg(row, usd, now, 'runner')
     leg.update(slMode='hold', rideOrRug=True, ticket=True)
+    if row.get('curve'):   # 🎢 a fresh launch still on its curve (only with the owner's `agentCurve` switch): the keeper judges the curve's own depth
+        leg['curve'] = True
     if row.get('trench'):   # 🗑 a launch from the agents' lane (≤ 24h, < $1M): the keeper holds it to its TRENCH pool floor, not the general one
         leg['trench'] = True
     c['legs'].append(leg)

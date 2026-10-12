@@ -472,7 +472,7 @@ def _li_snap(li, v=None):
     exit pressure, our buyer rank, age and cap at entry."""
     if not li:
         return None
-    return {k: li.get(k) for k in ('phase', 'healthy', 'cls', 'first10', 'first25', 'early', 'trend', 'press', 'danger', 'rank', 'ageH', 'mcap')}
+    return {k: li.get(k) for k in ('phase', 'healthy', 'cls', 'first10', 'first25', 'early', 'trend', 'press', 'danger', 'rank', 'ageH', 'mcap', 'pump', 'ewp', 'vpm', 'bpm', 'fresh')}
 
 
 def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_=None, tape=None, office=None, sized=None, charts=None, theses=None, pol=None, live=True, vels=None, margins=None, rug=None, press=None):
@@ -515,7 +515,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         pct = (px / entry - 1) * 100
         p = pos.get(m) or {'entry': entry, 'since': _f(l.get('at')) or now, 'peak': pct, 'low': pct, 'path': [], 'liq0': _f(l.get('liq')) or None, 'top0': v.get('top10'),
                            'sym': l.get('symbol'), 'tag': (l.get('bought') or {}).get('tag'), 'wx': (weather_ or {}).get('regime'), 'warden': (sized or {}).get(m), 'launch': (x or {}).get('launch'),
-                           'li': _li_snap((x or {}).get('li'), (x or {}).get('vitals'))}
+                           'li': _li_snap((x or {}).get('li'), (x or {}).get('vitals')), 'src': [s_ for s_ in (x or {}).get('src') or [] if s_ != 'open'][:4]}
         if abs(_f(p.get('entry')) - entry) > entry * 1e-6:   # a rebuy / top-up moved the book entry: the peak is measured from the new one
             p.update(entry=entry, peak=pct, low=pct, path=[])
         p['peak'], p['low'] = max(_f(p.get('peak')), pct), min(_f(p.get('low')), pct)
@@ -805,7 +805,7 @@ def file_position(arch, p, now):
            'wx': p.get('wx'), 'warden': p.get('warden'), 'launch': p.get('launch'), 'tag': p.get('tag'), 'take': p.get('take'), 'exitStructure': p.get('chartNow'), 'windows': p.get('lastWin'),
            'liq': p.get('liq'), 'liqPct': p.get('liqPct'), 'top10': p.get('top10'), 'quality': p.get('quality'), 'dd': bool(p.get('dataDegraded') or p.get('dd')), 'vel': (p.get('vel') or {}).get('state') if isinstance(p.get('vel'), dict) else p.get('vel'),
            'thesis': None if not p.get('thesis') else {k: p['thesis'].get(k) for k in ('structure', 'call', 'triggerRule', 'support', 'invalidation', 'stopPct', 'expectedHoldWindows', 'at')},
-           'li': p.get('li')}
+           'li': p.get('li'), 'src': p.get('src')}
     prev = ps[-1]['h'] if ps else a.get('posAnchor', '')
     rec['h'] = _hash(prev, {k: v for k, v in rec.items() if k != 'h'})
     ps.append(rec)

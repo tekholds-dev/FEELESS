@@ -3220,3 +3220,19 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   BREAKING DOWN is banked at once (`R7b breakdown`). Reports carry `fresh` (price · tape · candle · agent input · decision ages, `stale`) and
   `phase` (`market_phase`: BASE · EARLY MOVE · ACCELERATION · BREAKOUT · RUNNING · DISTRIBUTION · REVERSAL · COLLAPSE); rows carry `mp`.
   UI: PositionCard RUN + FreshLine, OfficePositions WakeLine (payload `wake`). Trail LEVELS are unchanged — only the timing moved.
+- 🆕 FRESH TRENCH SELECTION (owner, 2026-10-11, after the audit: of 149 confirmed agent buys the median coin was 48h old, 85 were 1d+ old
+  (24% won), the "best available" door made 70 of them (median age 101h, −0.9% avg) and the seat floor 18 (−6.6% avg)). ROOT CAUSE: the
+  keeper never bought a coin still on its launch CURVE for an agent seat (only owner picks) — every newborn Pump coin was out of reach — and
+  the score rewarded history (deep pool +10, big hourly volume +8, a long chart). Now: `opportunity.FRESH_LADDER` (0–15m +16 · 15–60m +13 ·
+  1–3h +10 · 3–6h +6 · 6–12h +2 · 12h+ −10 unless `reawake`), `velocity` ($/min + buys/min over the coin's OWN life, ≤ 60 min) replaces
+  absolute volume, liquidity is safety (+4 max), a young coin's short chart is not penalised, a < 15 min coin's 5-min move is judged at
+  +100% (its launch), Pump phase (`launch_intel.pump_phase`) + early-wallet pressure (`wallet_pressure`) score in; tiers C ≥ 40 (was 25),
+  below = REJECT; best available (`near_ready`) needs an entry score ≥ `NEAR_MIN_ENTRY` 50. Intake: `office_edge.stale_old` keeps 12h+ coins
+  that are not waking up off every slot but recheck / outlets (callouts) / listed (re-entered a ranking); slots ordered by `fresh_key`.
+  Deep review 12 cases + 12 newborns (≤ 12h, freshness ladder first), cases sorted fresh-first; holder scans `scan_order` fresh-first in
+  every phase; candle requests `candle_order` (fresh 0–12h first, held LAST — the candles service builds histories in request order).
+  🎢 `agentCurve` (realCfg, OFF by default, HQ › Agents › ⚙ Control): an agent seat may buy a curve coin (leg + order `curve` →
+  `live_buy_market` uses the curve depth); every keeper check still runs. Judge: `lossClass` BAD ENTRY · BAD TIMING · BAD HOLD · BAD EXIT ·
+  NORMAL LOSS + causes `too_old` / `fallback_entry`. Pipeline per cycle = `cycle.fresh` (`office_edge.fresh_view`) → `FreshBlock` in the
+  Seats view; intake sources add median P/L · rug % · hold · age + MC at entry · age first seen. 1-second charts: NOT available (providers
+  start at 1m; per-second data for 30–80 desk coins = reading every swap from RPC — the rate-limit hole).

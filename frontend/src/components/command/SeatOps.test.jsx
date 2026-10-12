@@ -111,3 +111,14 @@ test('every object in the 3D room routes its click to real data — bot, monitor
   expect(routePick({}, model, null, cb)).toBeNull();
   expect(got).toEqual([['sel', 'devil'], ['sel', 'reaper'], ['coin', 'C3'], ['sel', 'warden'], ['seat', 'ACME'], ['seat', 'EMPTY'], ['coin', 'CAND'], ['sel', 'trigger'], ['board', 'limits'], ['board', 'pipeline']]);
 });
+
+test('🆕 fresh pipeline block: buckets, repeats, age at entry, candle allocation, top 5', async () => {
+  const { FreshBlock } = require('./SeatOps');
+  const el = document.createElement('div'); document.body.appendChild(el);
+  const { createRoot } = require('react-dom/client'); const { act } = require('react');
+  await act(async () => { createRoot(el).render(<FreshBlock f={{ buckets: { '0–15m': 4, '12h+': 2 }, deep: { '0–15m': 3 }, cleared: {}, unique: 30, repeats: 12, newUnique: 18, cooled: 5,
+    ageReviewedMin: 40, boughtAgeMin24h: 50, boughtAgeMinBefore: 2900, bought24h: 3, candles: { allocFirst: { fresh: 20, old: 4, held: 0 }, allocBefore: { fresh: 6, old: 14, held: 4 } },
+    top: [{ symbol: 'BABY', ageMin: 7, mc: 64000, src: ['pulse'], vpm: 1200, bpm: 3.1, tier: 'A', score: 71 }] }} />); });
+  expect(el.textContent).toContain('30 · 12 · 18 · 5'); expect(el.textContent).toContain('50m vs 2d'); expect(el.textContent).toContain('20 / 4 / 0');
+  expect(el.textContent).toContain('$BABY'); expect(el.textContent).toContain('pulse');
+});

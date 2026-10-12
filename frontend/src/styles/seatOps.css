@@ -93,3 +93,7 @@ body.theme-day .sop-seat.is-on { background: rgba(21,209,106,.18); }
 @media (max-width: 1180px) { .sop-strip { grid-template-columns: 1fr; } .sop-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .sop-sum { grid-template-columns: repeat(3, minmax(0, 1fr)); } .sop-seats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sop-ev { grid-template-columns: 1fr; }
   .sop-bench li { grid-template-columns: 22px minmax(60px, auto) 30px minmax(0, 1fr); } .sop-bench i { display: none; } }
+.sop-fresh { display: grid; gap: 6px; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(21, 209, 106, .3); }
+.sop-fresh > small { font: 800 9.5px var(--m-mono); letter-spacing: .08em; color: var(--m-accent); }
+.sop-fresh td.is-old { color: var(--m-mute); }
+body.theme-day .sop-fresh { border-color: rgba(10, 120, 60, .3); }

@@ -91,7 +91,7 @@ def target(card, prices):
     out = {}
     for l in card.get('legs') or []:
         px = _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
-        t = out.setdefault(l['mint'], {'units': 0.0, 'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'px': px, 'role': l.get('role'), 'arena': bool(l.get('arena')), 'trench': bool(l.get('trench')), 'picked': bool(l.get('picked')),
+        t = out.setdefault(l['mint'], {'units': 0.0, 'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'px': px, 'role': l.get('role'), 'arena': bool(l.get('arena')), 'trench': bool(l.get('trench')), 'picked': bool(l.get('picked')), 'curve': bool(l.get('curve')),
                                        'trim': bool(l.get('trimAt')) and _f(l.get('trimAt')) > 0, 'trimAt': _f(l.get('trimAt')),
                                        'manualCash': bool(l.get('manualCash')), 'locked': bool(l.get('ride') or l.get('frozen') or (l.get('ticket') and not agent_seat(l)) or l.get('scout') or l.get('house'))})   # 🎟 a small ticket (scout / trench drop / young hand pick) is never topped up to a full seat
         t['units'] += _f(l.get('units')) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)   # a coin whose buy hasn't landed is still WANTED
@@ -295,7 +295,7 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
         buys.append({'id': f"{card_id}:{now:.0f}:b:{mint[:6]}", 'card': card_id, 'side': 'buy', 'mint': mint, 'pair': t['pair'], 'symbol': t['symbol'],
                      'lamports': int(usd / sol_px * 1e9), 'usd': round(usd, 4), 'midPx': t['px'], 'at': now, 'why': 'card buys its coin',
                      **({'rentDeposit': rent} if rent else {}),
-                     **({'arena': True} if t.get('arena') else {}), **({'trench': True} if t.get('trench') else {}), **({'picked': True} if t.get('picked') else {})})
+                     **({'arena': True} if t.get('arena') else {}), **({'trench': True} if t.get('trench') else {}), **({'picked': True} if t.get('picked') else {}), **({'curve': True} if t.get('curve') else {})})
     if card.get('holdBy') == 'proof':   # 🧪 proof-gate hold: sells (stops, rug shield, profit takes) go out — no buy does
         buys = []
     sweep = idle_sweep(card_id, card, book, tgt, sol_free, sol_px, cfg, now) if not sells and not buys else None
@@ -367,7 +367,7 @@ def idle_sweep(card_id, card, book, tgt, sol_free, sol_px, cfg, now):
         return None
     return {'id': f"{card_id}:{now:.0f}:b:{mint[:6]}", 'card': card_id, 'side': 'buy', 'mint': mint, 'pair': t['pair'], 'symbol': t['symbol'],
             'lamports': int(usd / sol_px * 1e9), 'usd': round(usd, 4), 'midPx': t['px'], 'at': now, 'why': 'idle card cash back into its coin',
-            **({'arena': True} if t.get('arena') else {}), **({'trench': True} if t.get('trench') else {}), **({'picked': True} if t.get('picked') else {})}
+            **({'arena': True} if t.get('arena') else {}), **({'trench': True} if t.get('trench') else {}), **({'picked': True} if t.get('picked') else {}), **({'curve': True} if t.get('curve') else {})}
 
 
 def spent_24h(ledger, now):
@@ -416,9 +416,9 @@ def live_buy_market(order, pair, cfg):
         return False, 'live market unavailable or pair/mint mismatch', {}
     px = _f(p.get('priceUsd'))
     liq = _f((p.get('liquidity') or {}).get('usd'))
-    if liq <= 0 and order.get('picked') and p.get('dexId') in ('pumpfun', 'meteoradbc', 'launchlab', 'raydium-launchlab', 'moonshot'):   # = fuse.CURVE_DEXES
-        # 🎯 the OWNER picked a coin still on Pump's launch curve: no pool figure exists, the curve's own depth is used
-        # (= fuse.curve_liq at a conservative $100 SOL). The engine never buys a curve coin by itself.
+    if liq <= 0 and (order.get('picked') or order.get('curve')) and p.get('dexId') in ('pumpfun', 'meteoradbc', 'launchlab', 'raydium-launchlab', 'moonshot'):   # = fuse.CURVE_DEXES
+        # 🎯 the OWNER picked a coin still on Pump's launch curve — or the owner's `agentCurve` switch let the AGENTS seat one (leg `curve`):
+        # no pool figure exists, the curve's own depth is used (= fuse.curve_liq at a conservative $100 SOL). The engine's other doors never do.
         liq = round(2 * (32.19 * _f(p.get('marketCap') or p.get('fdv')) * 100.0) ** 0.5, 2)
     floor = liq_floor(cfg, order.get('arena'), order.get('trench'), order.get('picked'))
     if px <= 0:

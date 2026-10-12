@@ -116,11 +116,11 @@ def test_recovery_scans_young_coins_first():
     mk = lambda m, age, lean: {'mint': m, 'lean': lean, 'row': {'vitals': {'safe': None, 'ageH': age}, 'nums': {}}}
     cs = [mk('OLD', 900, 3.0), mk('YOUNG', 2.0, 0.5), mk('MID', 30, 2.0)]
     assert [c['mint'] for c in oe.scan_order(cs, 1, universe='trench')] == ['YOUNG']
-    assert [c['mint'] for c in oe.scan_order(cs, 1, universe='mixed')] == ['OLD']
+    assert [c['mint'] for c in oe.scan_order(cs, 1, universe='mixed')] == ['YOUNG']   # 🆕 the freshness ladder orders holder scans in every phase now
 
 
 def test_the_phase_tilt_never_keeps_a_seat_empty():
     case = {'mint': 'OLD', 'cleared': False, 'checks': [['scan', True, ''], ['chart', False, 'WAIT FOR BREAKOUT']],
             'row': {'mint': 'OLD', 'chart': {'state': 'RANGE', 'risk': [0.75, 'range'], 'q': {'readOk': True}}}}
     sc = {'OLD': {'score': 12.0, 'parts': [['read', 22.0, ''], ['phase', -10.0, 'old coin']]}}
-    assert [r['mint'] for r in oe.near_ready([case], sc)] == ['OLD']                           # 12 with the tilt, 22 without: the tilt does not decide
+    assert [r['mint'] for r in oe.near_ready([case], sc, min_entry=0)] == ['OLD']                           # 12 with the tilt, 22 without: the tilt does not decide

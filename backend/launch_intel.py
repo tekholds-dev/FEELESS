@@ -255,6 +255,50 @@ def phase(n, m=None, tr=None, press=None, ext=None):
     return ph, healthy, why
 
 
+PUMP_PHASES = ('DISCOVERY', 'EARLY ACCELERATION', 'FIRST PULLBACK', 'RECLAIM', 'BREAKOUT', 'RUNNING', 'LATE FOMO', 'DISTRIBUTION', 'COLLAPSE')
+
+
+def pump_phase(n, chart_state=None, fomo=None, age_min=None, candles=None):
+    """🎢 A fresh launch's entry phase from the CURRENT read (Tally's numbers + the live chart's state + the FOMO phase). Recent momentum, never
+    launch → now. Preferred: EARLY ACCELERATION · FIRST PULLBACK · RECLAIM · BREAKOUT. Avoided: LATE FOMO · DISTRIBUTION · COLLAPSE."""
+    n = n or {}
+    d5, c1, pace = _f(n.get('d5')), n.get('c1'), n.get('pace')
+    if fomo in ('COLLAPSE', 'DISTRIBUTION'):
+        return fomo
+    if fomo == 'CROWD FOMO' or (c1 is not None and _f(c1) >= 150 and d5 >= 15):
+        return 'LATE FOMO'
+    if chart_state in ('CONFIRMED BREAKOUT', 'BREAKOUT ATTEMPT'):
+        return 'BREAKOUT'
+    if chart_state == 'PULLBACK IN UPTREND':
+        return 'RECLAIM' if d5 >= 0 else 'FIRST PULLBACK'
+    if chart_state in ('UPTREND', 'STRONG UPTREND'):
+        return 'RUNNING'
+    if pace is not None and _f(pace) >= 1.5 and d5 > 2:
+        return 'EARLY ACCELERATION'
+    if (age_min is not None and _f(age_min) < 5) or (candles is not None and candles <= 3):
+        return 'DISCOVERY'
+    return 'DISCOVERY' if pace is None or _f(pace) >= 0.5 else None
+
+
+def wallet_pressure(m, tr=None, press=None):
+    """EARLY WALLET PRESSURE: POSITIVE (first buyers holding / adding, supply spreading out) · NEUTRAL · WARNING (some selling, supply
+    re-concentrating) · DUMPING (selling now on the tape, or half the read ones gone). None = no early-buyer map read."""
+    if press == 'HIGH':
+        return 'DUMPING'
+    if not m or not m.get('read'):
+        return 'WARNING' if press == 'WATCH' else None
+    acts = [w.get('action') for w in m.get('wallets') or [] if w.get('action')]
+    out = sum(a in ('EXIT', 'DUMP') for a in acts) / max(1, len(acts))
+    add = sum(a == 'ADD' for a in acts)
+    if out >= 0.5:
+        return 'DUMPING'
+    if press == 'WATCH' or tr == 'WORSENING' or out >= 0.25:
+        return 'WARNING'
+    if tr == 'IMPROVING' or (add and out < 0.1):
+        return 'POSITIVE'
+    return 'NEUTRAL'
+
+
 # ── 10 · OUR BUYER RANK ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
 def rank_band(our_rank=None, holders=None):
     """FIRST 10 · FIRST 25 · FIRST 50 · LATER. Exact when our wallet is in the early map (`our_rank`); else ≈ the holder count at entry."""
@@ -331,4 +375,4 @@ def view(m, cls, cls_ev, tr, ph, healthy, ph_why, press, press_why, players, ban
     return {'ageH': ageH, 'mcap': mcap, 'rank': band, 'first10': (m or {}).get('first10Pct'), 'first25': (m or {}).get('first25Pct'),
             'largest': (m or {}).get('largestPct'), 'cluster': (m or {}).get('clusterPct'), 'early': (m or {}).get('nowPct'),
             'cls': cls, 'clsWhy': cls_ev, 'trend': tr, 'acts': acts, 'phase': ph, 'healthy': healthy, 'phaseWhy': ph_why,
-            'press': press, 'pressWhy': press_why, 'players': len(players or {}), 'danger': danger, 'conf': conf}
+            'press': press, 'pressWhy': press_why, 'players': len(players or {}), 'danger': danger, 'conf': conf, 'ewp': wallet_pressure(m, tr, press)}

@@ -6834,6 +6834,10 @@ def _li_row(x, now):
     ph, healthy, why = _li.phase(n, m, tr, press, (x.get('chart') or {}).get('ext'))
     band = _li.rank_band(None, v.get('holders'))
     out = _li.view(m, cls, ev, tr, ph, healthy, why, press, pwhy, players, band, v.get('ageH'), v.get('mcap'))
+    ch_ = x.get('chart') or {}
+    out['pump'] = _li.pump_phase(n, ch_.get('state'), ph, None if v.get('ageH') is None else _fuse._f(v['ageH']) * 60, int(_fuse._f((ch_.get('f') or {}).get('n'))) or None)
+    vpm_, bpm_ = _opp.velocity(x)
+    out['vpm'], out['bpm'], out['fresh'] = vpm_, bpm_, _opp.fresh_bucket(x)[0]
     out['clsRec'] = (_li_state().get('byClass') or {}).get(cls)   # how this launch class really did (1h, settled) — learned, never assumed
     return out
 
@@ -9909,7 +9913,7 @@ async def _prime_tick_inner(now):
                     if wd_['veto']:
                         vetoed_ += 1
                         continue
-                    cur = _prime.agent_seat(cur, {'mint': t_['mint'], 'symbol': t_['symbol'], 'pairAddress': t_['pair'], 'price': t_['px'], 'liquidityUsd': (t_.get('nums') or {}).get('liq'), 'trench': t_['trench'],
+                    cur = _prime.agent_seat(cur, {'mint': t_['mint'], 'symbol': t_['symbol'], 'pairAddress': t_['pair'], 'price': t_['px'], 'liquidityUsd': (t_.get('nums') or {}).get('liq'), 'trench': t_['trench'], 'curve': bool((t_.get('vitals') or {}).get('curve') and cfg_t.get('agentCurve')),
                                                   'ageH': (t_.get('vitals') or {}).get('ageH'), 'vol1h': (t_.get('vitals') or {}).get('vol1h'), 'buyShare': (t_.get('nums') or {}).get('buy'),
                                                   'tag': '🤖 agents GO · in control' if t_.get('go') else f"🤖 agents · {t_['tier']}-tier" if t_.get('tier') else '🤖 agents · best available' if t_.get('nearReady') else '🤖 agents · 10-min duty',
                                                   'why': (t_.get('trigger') or ['', ''])[1] if t_.get('go') else t_['nearReady'] if t_.get('nearReady') else f"their strongest cleared read (lean {t_['why']['lean']:+.1f})"}, px, cfg_s, now, max_usd=wd_['allowed'])
@@ -12478,6 +12482,11 @@ async def _agents_tick(now):
             raw = keep_ + trim_[:len(trim_) // 2]
         tv_ = {x.get('mint'): x.get('tv') for x in raw}
         rows = [_ag.established({**r, 'tv': tv_.get(r.get('mint')) or r.get('tv')}) for r in _clean_rows([dict(x) for x in raw])]   # 🏛 an established coin's top-10 = exchange / pool wallets, not a failed scan
+        if ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentCurve'):   # 🎢 owner's switch: a fresh Pump coin still on its curve
+            sp_ = await _sol_usd_live()   # has no pool figure — its curve depth stands in (0 = unknown → the conservative $100)
+            for r in rows:
+                if r.get('curve') and _fuse._f(r.get('liq')) <= 0 and _fuse._f(r.get('mcap')) > 0:
+                    r['liq'] = _fuse.curve_liq(r['mcap'], sp_ or 100.0); r['liqCurve'] = True
         rows = [r for r in rows if r.get('mint') in held_m or _ag.in_lane(r, _agents.get('laneCap') or _ag.AGENT_MAX_MCAP)]   # 🎯 the lane (the ladder's cap) — coins on the card stay: their exits still run
         # 🧠 the human read: who is calling each coin on Pump and what they write, the narratives hot on the board, the lingo they use
         calls_ = _pump_calls.get('calls') or []
@@ -12516,17 +12525,19 @@ async def _agents_tick(now):
         # is not re-reviewed (its slot goes to a coin with news); each pick records WHY it was due (never reviewed · material change · cooldown over)
         cand_c = _ag.investigate(_agents.get('table'), set(held_), 0, {}, top=60)
         rank_ = {b_.get('mint'): i_ for i_, b_ in enumerate(_agents.get('bench') or [])}
-        cand_c.sort(key=lambda c_: (rank_.get(c_['mint'], 999), not c_.get('cleared'), -_fuse._f(c_.get('lean'))))
+        _fk = lambda r_: _oe.fresh_key(r_ or {})
+        _old_c = lambda c_: _fk((c_.get('row') or {}).get('vitals')) >= 5 and not _opp.reawake(c_.get('row'))   # 🆕 12h+ and not waking up: deep review only when nothing fresher is due
+        cand_c.sort(key=lambda c_: (_old_c(c_), _fk((c_.get('row') or {}).get('vitals')), rank_.get(c_['mint'], 999), not c_.get('cleared'), -_fuse._f(c_.get('lean'))))
         why_ = {}
         top_ = {}
         uni_d = _so.universe(_agents.get('money'))[0]   # 🧭 recovery: more of the deep reviews go to YOUNG coins (≤ 6h), the buyable trench
-        n_cases_, n_new_, young_min_ = (OFFICE_CANDLE_CASES - 4, OFFICE_CANDLE_NEW + 4, _so.YOUNG_H * 60) if uni_d == 'trench' else (OFFICE_CANDLE_CASES, OFFICE_CANDLE_NEW, _md.EARLY_AGE_MIN)
+        n_cases_, n_new_, young_min_ = OFFICE_CANDLE_CASES - 6, OFFICE_CANDLE_NEW + 6, _opp.OLD_H * 60   # 🆕 0–12h coins dominate the deep review, whatever the phase
         for c_ in cand_c:
             due_, w_ = _oe.review_due(seen_mem.get(c_['mint']), now)
             if due_ and len(top_) < n_cases_:
                 top_[c_['mint']] = c_['pair']; b_ = _deep_bucket(w_); why_[b_] = why_.get(b_, 0) + 1
         for x_ in sorted((x_ for x_ in rows if x_.get('ageH') is not None and _fuse._f(x_['ageH']) * 60 <= young_min_ and _fuse._f(x_.get('vol5m')) >= 1000 and x_.get('pairAddress')),
-                         key=lambda x_: -_fuse._f(x_.get('vol5m'))):   # 🐣 deep review for the busiest NEWBORNS too: their few real candles are their evidence (cooldown applies)
+                         key=lambda x_: (_fk(x_), -_fuse._f(x_.get('vol5m')))):   # 🆕 freshness ladder first (0–15m …), then the busiest   # 🐣 deep review for the busiest NEWBORNS too: their few real candles are their evidence (cooldown applies)
             if len([m_ for m_ in top_ if m_ not in {c_['mint'] for c_ in cand_c}]) >= n_new_:
                 break
             due_, w_ = _oe.review_due(seen_mem.get(x_['mint']), now)
@@ -12534,7 +12545,17 @@ async def _agents_tick(now):
                 top_[x_['mint']] = x_['pairAddress']; b_ = _deep_bucket(w_); why_[b_] = why_.get(b_, 0) + 1
         _office['deepWhy'] = why_
         _office['deepNow'] = [m_ for m_ in top_ if m_ not in held_]   # this pass's DEEP reviews (real candles) — held coins are re-read every pass anyway
-        cmap_ = await _office_candles({**{r_['mint']: r_['pairAddress'] for r_ in rows if r_.get('mint') and r_.get('pairAddress')}, **top_, **held_}, now)   # 👁 every coin on the desk reads the LIVE chart
+        # 📈 CANDLE BUDGET FOLLOWS NEW / BUSY COINS: the candles service builds a limited number of new histories per call IN REQUEST ORDER —
+        # it used to get the intake order (held + last pass's cases first). Now: fresh 0–12h coins by the ladder + 5-min $, then the deep
+        # reviews, then everything else, held coins LAST (the tier tick re-reads them every tick anyway).
+        cat_ = {}
+        for r_ in rows:
+            if r_.get('mint'):
+                cat_[r_['mint']] = 'held' if r_['mint'] in held_ else ('fresh' if _fk(r_) <= 4 else 'old')
+        want_c = _oe.candle_order(rows, top_, held_)
+        old_ord = list(dict.fromkeys([r_['mint'] for r_ in rows if r_.get('mint') and r_.get('pairAddress')] + list(top_) + list(held_)))[:24]
+        cmap_ = await _office_candles(want_c, now, cat_)   # 👁 every coin on the desk reads the LIVE chart
+        _office['candleStat']['allocBefore'] = {k_: sum(1 for m_ in old_ord if cat_.get(m_, 'held' if m_ in held_ else 'old') == k_) for k_ in ('fresh', 'old', 'held')}   # what the old order would have built first
         flows_ = {p_: w_ for p_, (at_, w_) in list(_flow_now.items()) if w_ and now - _fuse._f(at_) <= 90}
         charts_ = {}
         st, table = _ag.desk(st, rows, now, ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentDial'), bust_, weather_fn=wfn_, candles=cmap_, flows=flows_, charts_out=charts_, cmeta=_office.get('cmeta'))   # 🎚 the creator's dial
@@ -12587,6 +12608,14 @@ async def _agents_tick(now):
             _office['cycle'] = _oe.cycle_view(_office.get('intake'), table, _ag.investigate(table, set(), _ag.min_age_of(rcfg_), st.get('burned') or {}, top=0),
                                               _office.get('charts'), st.get('first'), now, now, max(AGENTS_EVERY, _fuse._f(_oe.policy(rcfg_)['seatTarget'])), int(_office.get('cycleN') or 0), _office.get('lastMints'))
             _office['cycle']['prevAt'] = prev_
+            try:   # 🆕 the fresh-trench pipeline of this cycle (buckets · deep · cleared · repeats · top 5 · age at entry) — display only
+                arch_p_ = _json_load(ARCHIVE_PATH, {}).get('positions') or []
+                _office['cycle']['fresh'] = _oe.fresh_view(table, _office.get('deepNow') or [], [c_['mint'] for c_ in _ag.investigate(table, set(), _ag.min_age_of(rcfg_), st.get('burned') or {}, top=0) if c_.get('cleared')],
+                                                           _office.get('lastMints'), _opp.rank(table, set(), (), None, None, None, _agents.get('laneCap') or _opp.MAX_MCAP), arch_p_ + list(_office.get('pos', {}).values()), now,
+                                                           (_office.get('intake') or {}).get('cooled'))
+                _office['cycle']['fresh']['candles'] = {k_: (_office.get('candleStat') or {}).get(k_) for k_ in ('allocFirst', 'allocBefore', 'loaded')}
+            except Exception as e:
+                print('fresh view:', e)
             _office['lastMints'] = [x_.get('mint') for x_ in table]
         except Exception as e:
             print('cycle view:', e)
@@ -12668,7 +12697,7 @@ OFFICE_CANDLE_CASES = 18    # real candles for the held coins + the top of the b
 OFFICE_CANDLE_NEW = 6       # … + the busiest launches under ~20 min old (local candles service, one request per pool, 50s cache)
 
 
-async def _office_candles(want, now):
+async def _office_candles(want, now, cats=None):
     """📈 The 1-minute candles behind the chart, ONCE per coin per pass: `want` = {mint: pool}. One request per pool that is not cached
     (the candles service on this machine), in parallel; nothing is fetched twice in a pass and no desk fetches for itself.
     → {mint: rows}. Tests never fetch."""
@@ -12698,6 +12727,10 @@ async def _office_candles(want, now):
         for pa in [pa for pa, v in _office['candles'].items() if now - v[0] > 600]:
             _office['candles'].pop(pa, None)
     stat['ms'] = round((time.perf_counter() - t0) * 1000, 1)
+    if cats is not None:   # 📈 which kind of coin the real candles went to this pass (fresh 0–12h · old · held) + the first 24 requested (the builds)
+        first_ = list((want or {}).keys())[:24]
+        stat['allocFirst'] = {k_: sum(1 for m_ in first_ if (cats.get(m_) or 'held') == k_) for k_ in ('fresh', 'old', 'held')}
+        stat['loaded'] = {k_: sum(1 for m_, pa_ in (want or {}).items() if (cats.get(m_) or 'held') == k_ and (_office['candles'].get(pa_) or (0, None))[1]) for k_ in ('fresh', 'old', 'held')}
     _office['candleStat'] = stat
     out = {}
     for m, pa in (want or {}).items():
@@ -13333,7 +13366,9 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
             except Exception as e:
                 print('judge review:', e)
         if p_.get('confirmed') and p_.get('mint'):   # 🕸 how this coin's real seat ended → its outlets' win / loss record (context, never a gate)
-            _intake['reg'] = _in.outcome(_intake_reg(), p_['mint'], _fuse._f(p_.get('realPct') if p_.get('realPct') is not None else p_.get('pct')), now)
+            _intake['reg'] = _in.outcome(_intake_reg(), p_['mint'], _fuse._f(p_.get('realPct') if p_.get('realPct') is not None else p_.get('pct')), now,
+                                         (_fuse._f(p_.get('closedAt') or now) - _fuse._f(p_.get('since'))) / 60 if p_.get('since') else None,
+                                         (p_.get('launch') or {}).get('ageH'), (p_.get('li') or {}).get('mcap'))
     if not (of.get('judge') or {}).get('reviews'):   # first run: the Judge reviews the positions already on file (once)
         for p_ in [x for x in (arch.get('positions') or []) if x.get('confirmed')][-40:]:
             of['judge'] = _jr.note(of.get('judge'), p_, now)
@@ -13580,7 +13615,7 @@ async def admin_agents_set(request: Request):
     ch = {}
     if 'feed' in body:
         ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl') + _oe.POLICY_KEYS:
+    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve') + _oe.POLICY_KEYS:
         if k in (body.get('cfg') or {}):
             ch[k] = body['cfg'][k]
     if ch:

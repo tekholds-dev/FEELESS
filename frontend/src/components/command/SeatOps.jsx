@@ -97,6 +97,27 @@ export function SeatsPane({ o, onCoin, focus }) {
   </div>;
 }
 
+// ── 🆕 THE FRESH-TRENCH PIPELINE: is the attention (and the buying) on 0–12h coins? ─────────────────────────────────────────────────
+const hm = m => (m == null ? '—' : m < 90 ? `${Math.round(m)}m` : m < 2880 ? `${(m / 60).toFixed(1)}h` : `${Math.round(m / 1440)}d`);
+export const FRESH_BUCKETS = ['0–15m', '15–60m', '1–3h', '3–6h', '6–12h', '12h+'];
+export function FreshBlock({ f }) {
+  if (!f) return null;
+  const al = f.candles?.allocFirst || {}; const ab = f.candles?.allocBefore || {};
+  return <div className="sop-fresh" data-testid="sop-fresh"><small>🆕 FRESH TRENCH · where the agents' attention went this cycle</small>
+    <table className="sop-log"><thead><tr><th>age</th>{FRESH_BUCKETS.map(b => <th key={b}>{b}</th>)}</tr></thead><tbody>
+      {[['on the desk', f.buckets], ['deep reviewed', f.deep], ['cleared', f.cleared]].map(([k, v]) => <tr key={k}><td>{k}</td>{FRESH_BUCKETS.map(b => <td key={b} className={b === '12h+' ? 'is-old' : ''}>{v?.[b] ?? 0}</td>)}</tr>)}</tbody></table>
+    <div className="sop-ages">
+      <span data-tip="coins on the desk this cycle · how many were already on it last cycle · how many are new · rejects cooled until something changes"><small>UNIQUE · REPEAT · NEW · COOLED</small><b>{f.unique} · {f.repeats} · {f.newUnique} · {f.cooled}</b></span>
+      <span><small>MEDIAN AGE REVIEWED</small><b>{hm(f.ageReviewedMin)}</b></span>
+      <span data-tip={`median launch age at ENTRY of the agents' real buys — last 24h (${f.bought24h} buys) vs before`}><small>AGE AT ENTRY · 24H vs BEFORE</small><b>{hm(f.boughtAgeMin24h)} vs {hm(f.boughtAgeMinBefore)}</b></span>
+      <span data-tip="the first 24 coins asked for real candles (the candles service builds new histories in request order) — now vs the old order"><small>CANDLES FIRST 24 · fresh / old / held</small><b>{al.fresh ?? 0} / {al.old ?? 0} / {al.held ?? 0}</b><u>old order {ab.fresh ?? 0} / {ab.old ?? 0} / {ab.held ?? 0}</u></span>
+    </div>
+    {f.top?.length ? <table className="sop-log" data-testid="sop-fresh-top"><thead><tr><th>top 5</th><th>age</th><th>MC</th><th>source</th><th>$/min</th><th>buys/min</th><th>tier</th></tr></thead>
+      <tbody>{f.top.map(t => <tr key={t.symbol}><td>${t.symbol}</td><td>{hm(t.ageMin)}</td><td>{t.mc ? `$${Math.round(t.mc / 1000)}K` : '—'}</td><td>{(t.src || []).join(' · ') || 'board'}</td><td>{t.vpm ?? '—'}</td><td>{t.bpm ?? '—'}</td><td>{t.tier} {t.score != null ? Math.round(t.score) : ''}</td></tr>)}</tbody></table>
+      : <p className="sop-note">no coin ranked A / B / C this cycle — the seats wait in cash rather than take a reject</p>}
+  </div>;
+}
+
 // ── 🕸 THE ONE LIVE INTAKE: this cycle's turnover, the latencies, every outlet's funnel ────────────────────────────────────────────
 const secTxt = v => (v == null ? '—' : v >= 120 ? `${Math.round(v / 60)}m` : `${Math.round(v)}s`);
 export function IntakeBlock({ o }) {
@@ -121,10 +142,13 @@ export function IntakeBlock({ o }) {
       {cell('seats', 'SEATS', sm.target ? `${sm.occupancy} held · ${sm.open} open` : '—')}
       {cell('desknew', 'DESK TURNOVER', c.deskNew != null ? `${c.deskNew} new / ${c.desk}` : '—', 'coins on the desk this pass that were not on it last pass')}
     </div>
+    <FreshBlock f={it.fresh} />
     <div className="sop-ages" data-testid="sop-latency">{[['sourceToIntake', 'SOURCE → INTAKE'], ['intakeToDeep', 'INTAKE → DEEP REVIEW'], ['deepToClear', 'DEEP → CLEAR'], ['clearToSeat', 'CLEAR → SEAT'], ['birthToSeen', 'LAUNCH → FIRST SEEN']].map(([k, label]) =>
       <span key={k} data-tip={`median over the last 6h · ${lat[k]?.n ?? 0} coins`}><small>{label}</small><b>{secTxt(lat[k]?.med)}</b><u>n {lat[k]?.n ?? 0}</u></span>)}</div>
-    <div className="sop-logwrap"><table className="sop-log" data-testid="sop-sources"><thead><tr><th>outlet (6h)</th><th>seen</th><th>found first</th><th>promoted</th><th>deep</th><th>cleared</th><th>bought</th><th>won / lost</th></tr></thead>
-      <tbody>{Object.entries(iv.sources || {}).slice(0, 14).map(([k, v]) => <tr key={k}><td>{iv.labels?.[k] || k}</td><td>{v.seen}</td><td>{v.firstFinder}</td><td>{v.promoted}</td><td>{v.deep}</td><td>{v.cleared}</td><td>{v.bought}</td><td>{v.won} / {v.lost}</td></tr>)}</tbody></table></div>
+    <div className="sop-logwrap"><table className="sop-log" data-testid="sop-sources"><thead><tr><th>outlet (6h)</th><th>seen</th><th>found first</th><th>promoted</th><th>deep</th><th>cleared</th><th>bought</th><th>won / lost</th><th>median P/L</th><th>rugged</th><th>median hold</th><th>age at entry</th><th>MC at entry</th><th>age first seen</th></tr></thead>
+      <tbody>{Object.entries(iv.sources || {}).slice(0, 14).map(([k, v]) => <tr key={k}><td>{iv.labels?.[k] || k}</td><td>{v.seen}</td><td>{v.firstFinder}</td><td>{v.promoted}</td><td>{v.deep}</td><td>{v.cleared}</td><td>{v.bought}</td><td>{v.won} / {v.lost}</td>
+        <td>{v.medPct == null ? '—' : `${v.medPct > 0 ? '+' : ''}${v.medPct}%`}</td><td>{v.rugRate == null ? '—' : `${v.rugRate}%`}</td><td>{v.medHoldMin == null ? '—' : `${Math.round(v.medHoldMin)}m`}</td>
+        <td>{hm(v.medAgeEntryH == null ? null : v.medAgeEntryH * 60)}</td><td>{v.medMcEntry == null ? '—' : `$${Math.round(v.medMcEntry / 1000)}K`}</td><td>{hm(v.medAgeSeenMin)}</td></tr>)}</tbody></table></div>
     <p className="sop-note">{iv.note}</p>
   </div>;
 }

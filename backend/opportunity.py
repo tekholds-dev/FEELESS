@@ -3,10 +3,10 @@
 Every coin the desk read goes through ONE hard-safety check (`hard_fail`): a genuine danger is a NO. Everything else is a SCORE 0–100 from
 cited parts (momentum, acceleration, structure, liquidity, holders, volume, freshness, identity, data) minus penalties (chop, extension,
 thin pool, stale data, identity doubt, weak holders, a failed setup, Devil's warnings) → a TIER:
-  A (≥ 65) full Warden size · B (45–65) 75% · C (25–45) 50% · below 25 = not worth a seat.
+  A (≥ 65) full Warden size · B (50–65) 75% · C (40–50) 50% · below 40 = REJECT (no seat — cash beats a bad setup).
 The seats choose the best AVAILABLE valid opportunity instead of waiting for a perfect coin. A ranking, never a promise. Pure, tested."""
 
-TIER_A, TIER_B, TIER_C = 65.0, 45.0, 25.0
+TIER_A, TIER_B, TIER_C = 65.0, 50.0, 40.0   # 🎯 C needs 40 now (was 25): below it is a REJECT — cash beats a clearly bad setup (owner, 2026-10-11)
 TIER_STOP = {'A': 25.0, 'B': 18.0, 'C': 12.0}   # 🛑 the stop CEILING per tier (Reaper): 6h on the real card — 9 'bought into a fall' losses at −23…−37% were 3/4 of all the loss
 TIER_SIZE = {'A': 1.0, 'B': 0.75, 'C': 0.5}   # on the Warden's own steps (1 · .75 · .5 · .25): B = 75% of a seat, C = 50%
 MAX_MCAP = 200_000.0             # 🎯 the hard universe for NEW entries: live market cap under $200K (owner's spec, 2026-10-11) — mirrors agents.AGENT_MAX_MCAP
@@ -25,6 +25,50 @@ def _f(v):
         return x if x == x else 0.0
     except (TypeError, ValueError):
         return 0.0
+
+
+# 🆕 FRESHNESS LADDER (owner, 2026-10-11): new entries come from 0–12h coins, the first 0–3h above all. 12h+ is deprioritised (never rejected)
+# unless it is waking up again (volume pace ≥ 2× its hour on ≥ $3K in 5 min).
+FRESH_LADDER = ((0.25, 'EXTREME 0–15m', 16), (1.0, 'VERY HIGH 15–60m', 13), (3.0, 'HIGH 1–3h', 10), (6.0, 'MEDIUM 3–6h', 6), (12.0, 'LOW-MED 6–12h', 2))
+OLD_H, OLD_PTS = 12.0, -10
+YOUNG_VERTICAL = 100.0            # a coin under 15 min: its "5-min move" is mostly launch → now — only +100% in 5 min is a vertical candle
+
+
+def age_min(row):
+    v = (row or {}).get('vitals') or row or {}
+    h = v.get('ageH')
+    return None if h is None else _f(h) * 60
+
+
+def reawake(row):
+    """An old coin re-entering the action: volume pace ≥ 2× its hour on ≥ $3K in 5 min."""
+    n = (row or {}).get('nums') or {}
+    return _f(n.get('pace')) >= 2 and _f(n.get('v5')) >= 3000
+
+
+def fresh_bucket(row):
+    """→ (label, points). Age is the launch's, from the pool's creation; unknown age = no points."""
+    am = age_min(row)
+    if am is None:
+        return None, 0
+    for h, label, pts in FRESH_LADDER:
+        if am < h * 60:
+            return label, pts
+    return ('12h+ (waking up)', 0) if reawake(row) else ('12h+ deprioritised', OLD_PTS)
+
+
+def velocity(row):
+    """🌊 Volume and buyer VELOCITY ($ / min, buys / min), normalised by the coin's own life: a 3-minute-old coin with $20K is judged on
+    $20K / 3 min, not against an hour it has not lived. → (vol per min, buys per min) — None where the board has no reading."""
+    x = row or {}
+    v, n = x.get('vitals') or {}, x.get('nums') or {}
+    am = age_min(x)
+    life = max(1.0, min(60.0, am)) if am is not None else 60.0
+    v5 = n.get('v5')
+    vpm = (_f(v5) / 5.0) if v5 is not None and (am is None or am >= 5) else (_f(v.get('vol1h')) / life if v.get('vol1h') is not None else None)
+    tx, buy = v.get('txns1h'), n.get('buy') if n.get('buy') is not None else v.get('buyShare')
+    bpm = (_f(tx) * _f(buy) / 100.0 / life) if tx is not None and buy is not None else None
+    return (None if vpm is None else round(vpm, 1)), (None if bpm is None else round(bpm, 2))
 
 
 DEAD_5M_USD = 300.0     # 💀 under $300 traded in the last 5 min = nobody is trading it now …
@@ -78,7 +122,8 @@ def hard_fail(row, mcap_cap=MAX_MCAP, min_liq=MIN_LIQ):
     if ch.get('state') in HARD_CHART:
         return f"chart {ch['state']}"
     d5 = _f(n.get('d5'))
-    if d5 > VERTICAL:
+    am_ = age_min(x)
+    if d5 > (YOUNG_VERTICAL if am_ is not None and am_ < 15 else VERTICAL):   # 🆕 acceleration, not launch → now: a newborn's 5-min move is mostly its launch
         return f'+{d5:.0f}% in 5 min — a vertical candle'
     if d5 < FALL_HARD:
         return f'{d5:.0f}% in 5 min — a knife'
@@ -117,21 +162,27 @@ def score(row, lost=(), meta=None, pens=None):
     add('structure', GOOD.get(ch.get('state'), 0))
     if _f(ch.get('ext')) >= 75 and not young:
         add('extended', -8)
-    add('liquidity', 10 if liq >= 100_000 else 6 if liq >= 40_000 else 2 if liq >= 20_000 else -4)
+    add('liquidity', 4 if liq >= 20_000 else 1 if liq >= 12_000 else -4)   # 🆕 a deep pool is SAFETY, not an edge — it used to hand old coins +10
     t10 = v.get('top10')
     if t10 is not None:
         add('holders', 6 if _f(t10) < 20 else 0 if _f(t10) < 30 else -8)
-    vol = _f(v.get('vol1h'))
-    add('fresh volume', 8 if vol >= 200_000 else 5 if vol >= 50_000 else 2 if vol >= 10_000 else -4)
-    if age is not None:
-        add('launch freshness', 6 if _f(age) <= 6 else 3 if _f(age) <= 24 else 0)
+    fb, fpts = fresh_bucket(x)
+    if fb:
+        add(f'freshness {fb}', fpts)
+    vpm, bpm = velocity(x)
+    if vpm is not None:   # 🌊 volume VELOCITY ($/min over the coin's own life): $100/min = 0 · $1K/min +8 · $5K/min +12
+        import math
+        add('volume velocity', max(-6.0, min(12.0, (math.log10(max(vpm, 1.0)) - 2.0) * 8.0)))
+    if bpm is not None:
+        add('buyer velocity', max(-4.0, min(8.0, (bpm - 1.0) * 2.0)))
     buy = n.get('buy')
     if buy is not None:
         add('buyers', max(-8, min(6, (_f(buy) - 52) * 0.6)))
     if x.get('social') or v.get('site') or v.get('x'):
         add('identity', 3)
     q = (ch.get('q') or {}).get('state')
-    add('data', 4 if q in ('TRUSTED', 'USABLE_WITH_CAUTION') else -6 if q in ('STALE', 'SPARSE', 'NO_REAL_CANDLES') else 0)
+    young_ = age is not None and _f(age) * 60 < 30
+    add('data', 4 if q in ('TRUSTED', 'USABLE_WITH_CAUTION') else -6 if q == 'STALE' or (q in ('SPARSE', 'NO_REAL_CANDLES') and not young_) else 0)   # 🆕 a coin minutes old CAN'T have a long chart: judged by its stage
     if (meta or {}).get('verdict') == 'ORGANIC':
         add('organic tape', 8)
     elif (meta or {}).get('verdict') in ('BOT', 'ONE WALLET', 'DUMPING'):
@@ -147,6 +198,12 @@ def score(row, lost=(), meta=None, pens=None):
     if 0 < mc_ < MAX_MCAP:
         add('trench band (< $200K)', 6)   # the owner's own universe ranks first; the wider lane only fills what it cannot
     li = x.get('li') or {}
+    pp = li.get('pump')
+    if pp:   # 🎢 the Pump entry phase: early acceleration / first pullback / reclaim / healthy breakout preferred; late FOMO avoided
+        add(f'pump {pp.lower()}', {'EARLY ACCELERATION': 8, 'FIRST PULLBACK': 8, 'RECLAIM': 7, 'BREAKOUT': 5, 'DISCOVERY': 2, 'RUNNING': 0, 'LATE FOMO': -12}.get(pp, 0))
+    ewp = li.get('ewp')
+    if ewp:
+        add(f'early wallets {ewp.lower()}', {'POSITIVE': 5, 'NEUTRAL': 0, 'WARNING': -6, 'DUMPING': -14}.get(ewp, 0))
     ph = li.get('phase')
     if ph in ('EARLY FOMO', 'ACCELERATING'):   # 🕵 enter early / accelerating, never the crowd's top
         add(f'phase {ph.lower()}' + ('' if li.get('healthy') is not False else ' (unhealthy)'), (8 if ph == 'ACCELERATING' else 6) if li.get('healthy') is not False else 0)
