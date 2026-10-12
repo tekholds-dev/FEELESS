@@ -99,7 +99,7 @@ def test_a_restart_gap_never_exits_a_position_but_price_pool_and_safety_exits_ne
     for px, rule in ((0.5, 'R5x catastrophic stop'), (0.69, 'R5 stop')):                                          # price exits act while warming up
         assert run(leg('A'), px, [trow('A')], live=False)[1][0]['rule'] == rule
     assert run(leg('A', liqNow=10_000), 1.0, [trow('A')], live=False)[1][0]['rule'] == 'R1 liquidity collapse'  # … the pool rule
-    assert run(leg('A'), 1.0, [trow('A', safe=False)], live=False)[1][0]['rule'] == 'R2 hard invalidation'      # … the scan / rug rule
+    assert run(leg('A'), 1.0, [trow('A', safe=False)], live=False)[1][0]['action'] is None                       # … a holder scan is never an exit
     tl = run(leg('A'), 1.03, [trow('A', lean=-1.0)], live=False)[1][0]
     assert tl['action'] is None and tl['state'] != 'TAKE'                                                         # a read / time exit waits for LIVE (flagged, never sold)
     mx = lambda live: of.reap([leg('A', at=1)], [trow('A')], {'PA': 1.02}, {**cfg, 'agentMaxHold': 30}, None, 3600, live=live)[1][0]

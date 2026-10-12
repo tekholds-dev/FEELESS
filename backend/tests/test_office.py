@@ -124,9 +124,9 @@ def test_reaper_rules_in_order_with_evidence_and_never_rules_on_a_missing_price(
     assert one(leg('A', buying=True, units=0), 1.0)['exec'] == 'unconfirmed'                                      # a buy not on the ledger is not a position yet
     r = one(leg('A', liqNow=20_000), 1.2)
     assert (r['state'], r['rule'], r['action']) == ('EXIT INVALIDATED', 'R1 liquidity collapse', 'pull') and '33%' in r['evidence']
-    assert one(leg('A'), 1.0, [trow('A', safe=False)])['rule'] == 'R2 hard invalidation' and one(leg('A'), 1.0, [trow('A', rug=70)])['rule'] == 'R2 hard invalidation'
+    assert one(leg('A'), 1.0, [trow('A', safe=False)])['action'] is None and one(leg('A'), 1.0, [trow('A', rug=70)])['action'] is None   # a holder scan / a rug score is evidence, never an exit
     pos, rep, _ = run(leg('A'), 1.0, [trow('A', top10=15)])
-    assert run(leg('A'), 1.0, [trow('A', top10=40)], pos)[1][0]['rule'] == 'R3 holders concentrating'           # 15% → 40% since entry
+    assert run(leg('A'), 1.0, [trow('A', top10=40)], pos)[1][0]['action'] is None                                # … nor is the top-10 share moving
     assert one(leg('A'), 1.04, tape={'PA': 'dump'})['state'] == 'TAKE' and one(leg('A'), 0.97, tape={'PA': 'dump'})['state'] == 'PROTECT'
     assert one(leg('A'), 0.69)['rule'] == 'R5 stop' and one(leg('A'), 0.72)['state'] == 'HOLD'                   # default stop −30
     t = one(leg('A'), 1.12)

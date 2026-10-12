@@ -54,8 +54,6 @@ WEATHER_BAR_RANGE = (-0.25, 1.0)     # the most Weather may move Trigger's bar (
 WEATHER_SIZE_RANGE = (0.25, 1.0)     # the most Weather may shrink a move (never grow it)
 WARDEN_STEPS = (1.0, 0.75, 0.5, 0.25, 0.0)
 WARDEN_MIN_USD = 0.05                # a seat the keeper could not send is not a smaller risk, it is no trade
-RUG_EXIT = 65.0                      # ☠ rug meter at which an open position is invalidated
-TOP10_JUMP = 10.0                    # ☠ top-10 share up this many points since entry (and ≥ 30%) = holders concentrating
 MIN_KEEP = 1.5                       # ☠ a trailing take only fires while there is still this much % to bank
 DEAD_CASH_MIN = 15.0                 # 💀 dead this long (no trades / off their radar): exit to CASH even with no replacement ready
 DEAD_HOLD_MIN = 5.0                  # 💀 minutes held before a dead coin (no trades) gives its seat away
@@ -136,7 +134,7 @@ CONSTITUTION = _frozen({
                'forbidden': ('buying', 'selling by itself: its exits go through the card\'s existing action path', 'giving a winner\'s seat to a new candidate',
                              'touching a coin the creator froze'),
                'hard': (f'catastrophic stop −{_ci.CATASTROPHIC_STOP:g}%: a constant no learning or promotion can move or switch off', f'a normal stop stays inside {_ci.STOP_FLOOR:g}% … {_ci.CATASTROPHIC_STOP - 5:g}%',
-                        f'a thesis gets at least {_ci.MIN_WINDOWS} five-minute windows and at most {_ci.MAX_WINDOWS}; an invalidated thesis leaves at once', 'pool under half its entry depth = out now', f'rug meter ≥ {RUG_EXIT:g} or a failed holder scan = out', f'top-10 up {TOP10_JUMP:g} pts since entry (and ≥ 30%) = out',
+                        f'a thesis gets at least {_ci.MIN_WINDOWS} five-minute windows and at most {_ci.MAX_WINDOWS}; an invalidated thesis leaves at once', 'pool under half its entry depth = out now', 'a holder scan or a rug score is evidence for the brain, never an exit — the live chart, the tape and liquidity decide',
                         'the take line stays the card\'s own (agentTakePct / the learned scalp line)', 'no price = no ruling this tick'),
                'chart': ('thesis', 'review', 'stop_for'), 'code': {'file': 'backend/office.py', 'fn': ('reap', 'reaper_replay', 'merge_reaper', 'confirm_exits')}},
     'archivist': {'icon': '🗄', 'name': 'Archivist', 'role': 'The permanent decision lineage and the learning derived from it.', 'ideology': 'Every real decision becomes evidence.',
@@ -499,7 +497,7 @@ def _li_snap(li, v=None):
 def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_=None, tape=None, office=None, sized=None, charts=None, theses=None, pol=None, live=True, vels=None, margins=None, rug=None, press=None):
     """☠ One look at every position the agents hold on the real card (in control: every coin that is not frozen). It keeps each one's
     record (entry, peak, path, depth and top-10 at entry) and rules, in this order — the first that fires decides:
-      R1 pool collapsed · R2 invalidated (failed scan / rug meter) · R3 holders concentrating · R4 whale dump on the tape · R5 stop* ·
+      R1 pool collapsed · R4 whale dump / R4r rug radar / R4e early wallets on the live tape · R5 stop* · (a holder scan or a rug score is evidence for the brain, never an exit) ·
       R6 the card's take line · R7 trailing protection · R8 momentum failed after 15 min* · R9 time with no read left* · else HOLD.
       (* only on coins the agents put on the card: other coins keep the card's own stop and are switched by `agents.manage`.)
     A ruling with `action: 'pull'` is a REQUEST: the service merges it into the card's existing agent decisions (merge_reaper) and the
@@ -611,14 +609,10 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         st, rule, ev, act = 'HOLD', 'R10 hold', f"{pct:+.1f}% · peak {p['peak']:+.1f}% · take line +{take:g}%", None
         if lq0 > 0 and 0 < lq1 < lq0 * _uni.DRAIN_PULL:
             st, rule, ev, act = 'EXIT INVALIDATED', 'R1 liquidity collapse', f'pool ${lq1 / 1000:.1f}K = {round(lq1 / lq0 * 100)}% of its ${lq0 / 1000:.1f}K entry depth', 'pull'
-        elif (v.get('safe') is False or _f(v.get('rug')) >= RUG_EXIT) and not (cfg or {}).get('agentOpen'):   # 🪖 trench mode: a holder scan / rug score is not an exit — the live chart and liquidity are
-            st, rule, ev, act = 'EXIT INVALIDATED', 'R2 hard invalidation', 'the holder scan now fails' if v.get('safe') is False else f"rug meter {_f(v.get('rug')):.0f} ≥ {RUG_EXIT:g}", 'pull'
         elif (rug or {}).get(l.get('pairAddress')):   # 🚨 the rug radar on the live tape: the creator / a top-holder wallet is dumping — a hard safety exit
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R4r rug radar', f"{rug[l.get('pairAddress')]} at {pct:+.1f}%", 'pull'
         elif pr_ == 'HIGH' and live:   # 🕵 the launch's early buyers are unloading into us (creator / a dump-record wallet / a cluster): out before the timeout
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R4e early wallets unloading', f"{prwhy_} at {pct:+.1f}%", 'pull'
-        elif top1 is not None and top0 is not None and _f(top1) >= 30 and _f(top1) - _f(top0) >= TOP10_JUMP and not (cfg or {}).get('agentOpen'):
-            st, rule, ev, act = 'EXIT INVALIDATED', 'R3 holders concentrating', f'top-10 {_f(top0):.0f}% → {_f(top1):.0f}% since entry', 'pull'
         elif tp == 'dump' and (pct > 0 or (n.get('buy') is not None and _f(n['buy']) < 45)):
             st, rule, ev, act = ('TAKE' if pct > 0 else 'EXIT INVALIDATED'), 'R4 whale dump', f"the tape reads a dump at {pct:+.1f}%" + (f", buyers {_f(n['buy']):.0f}%" if n.get('buy') is not None else ''), 'pull'
         elif pct <= -_ci.CATASTROPHIC_STOP:   # 🧱 the hard ceiling, every coin Reaper watches — a constant: no tunable, promotion or thesis reaches it
