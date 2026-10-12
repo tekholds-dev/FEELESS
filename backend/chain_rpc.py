@@ -27,7 +27,7 @@ RPC_COOLDOWN_SECONDS = 30
 RPC_BURST_COOLDOWN = 4   # a plain burst 429 (not a spent plan) only rests that node a few seconds — at 30s the scanners' bursts cooled EVERY lane at once and holder scans came back empty
 SCAN_CONCURRENCY = 4     # holder / launch scans in flight at once across all scanners (the free plans' burst limits are low)
 _scan_gate = asyncio.Semaphore(SCAN_CONCURRENCY)
-RPC_MAX_RETRIES = len(RPC_POOL)
+RPC_MAX_RETRIES = len(RPC_POOL)   # every node may be tried once per call
 
 
 def _next_rpc_endpoint() -> Optional[str]:
@@ -93,11 +93,30 @@ def _scan_slot() -> bool:
     return True
 
 
+_unsupported: dict = {}   # (endpoint, method) → until: a plan that REFUSES one method (403 / -32600 / -32601 / -16500) skips just that method
+UNSUPPORTED_SEC = 3600
+UNSUPPORTED_CODES = (-32600, -32601, -16500)
+
+
+def method_refused(status, body=None):
+    """Is this answer "your plan / this node does not serve that method" (not a rate limit, not an outage)? → bool"""
+    if status == 403:
+        return True
+    err = (body or {}).get('error') if isinstance(body, dict) else None
+    return isinstance(err, dict) and err.get('code') in UNSUPPORTED_CODES
+
+
+def _usable(e, method, now):
+    return max(_rpc_cooldown_until.get(e, 0), _quota_until.get(e, 0), _unsupported.get((e, method), 0)) <= now
+
+
 async def _rpc(http: httpx.AsyncClient, method: str, params: list, scan: bool = True):
-    """Calls the RPC pool with retry + per-endpoint cooldown on failure or rate-limit."""
+    """Calls the RPC pool with retry + per-endpoint cooldown on failure or rate-limit. A node that refuses only THIS method (a free plan
+    without getTokenLargestAccounts) skips that method for an hour and stays in the pool for everything else — it used to rest the
+    whole node 30s on every holder scan."""
     last_error = None
     now = time.time()
-    order = [e for e in RPC_POOL if max(_rpc_cooldown_until.get(e, 0), _quota_until.get(e, 0)) <= now] or ([_next_rpc_endpoint()] if RPC_POOL else [])
+    order = [e for e in RPC_POOL if _usable(e, method, now)] or ([_next_rpc_endpoint()] if RPC_POOL else [])
     if scan and not any(_quota_until.get(e, 0) <= now for e in KEEPER_LANES) and len([e for e in RPC_POOL if e not in KEEPER_LANES]) > 1:
         order = [e for e in order if e != KEEPER_PUBLIC] or order   # every keyed plan is spent → the keeper lives on this node; scanners stay off it
     for endpoint in order[:RPC_MAX_RETRIES]:
@@ -117,9 +136,15 @@ async def _rpc(http: httpx.AsyncClient, method: str, params: list, scan: bool = 
                 _rpc_cooldown_until[endpoint] = time.time() + (RPC_COOLDOWN_SECONDS if spent else RPC_BURST_COOLDOWN)
                 last_error = 'rate_limited'
                 continue
+            if res.status_code == 403:
+                _unsupported[(endpoint, method)] = time.time() + UNSUPPORTED_SEC
+                last_error = 'method_refused'
+                continue
             res.raise_for_status()
             body = res.json()
             if 'error' in body:
+                if method_refused(200, body):
+                    _unsupported[(endpoint, method)] = time.time() + UNSUPPORTED_SEC
                 last_error = body['error']
                 continue
             return body.get('result')
@@ -156,7 +181,7 @@ async def rpc_priority(http: httpx.AsyncClient, method: str, params: list, tries
     then the public pool."""
     import asyncio
     now = time.time()
-    lanes = [e for e in KEEPER_LANES if _quota_until.get(e, 0) <= now]
+    lanes = [e for e in KEEPER_LANES if _quota_until.get(e, 0) <= now and _unsupported.get((e, method), 0) <= now] or [e for e in KEEPER_LANES if _quota_until.get(e, 0) <= now]
     i = 0   # which lane is next; a lane dropped as spent never shifts the order of the ones after it
     for attempt in range(max(tries, len(lanes) + 2) if lanes else 0):
         if not lanes:
@@ -181,6 +206,8 @@ async def rpc_priority(http: httpx.AsyncClient, method: str, params: list, tries
             i += 1
             continue
         if res.status_code != 200:
+            if res.status_code == 403:   # this plan refuses the method: skip it for this method only (an hour)
+                _unsupported[(endpoint, method)] = time.time() + UNSUPPORTED_SEC
             if len(lanes) == 1:
                 break
             i += 1

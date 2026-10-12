@@ -8939,6 +8939,25 @@ async def _proof_gate_fix_1010(now):
     return True
 
 
+async def _curve_fix_1011(now):
+    """🎢 Once (owner, 2026-10-11: "seats not filled means they too strict" — 11 of 41 hard NOs were fresh Pump coins on their launch curve,
+    which no agent seat could buy): agent seats may buy a curve coin (`agentCurve`), judged on the curve's own depth; every keeper check
+    still runs. Old value: data/realcfg_before_curve1011.json. Off again: HQ › Agents › ⚙ Control › 🎢."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('curveFix1011') or not rc:
+            return False
+        ch = {'agentCurve': True}
+        _json_save(DATA_DIR / 'realcfg_before_curve1011.json', {k: rc.get(k) for k in ch})
+        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
+        pr['curveFix1011'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _agent_control_set(on, now):
     """🎮 Switch agent control of the real card on / off: ON = the card is held by the agents (their moves only); OFF = that hold is
     released (the proof gate, when on, judges the card again at its next tick)."""
@@ -9244,6 +9263,7 @@ async def _prime_tick_inner(now):
     await _floor_off_fix_1009(now)
     await _keephalf_fix_1010(now)
     await _proof_gate_fix_1010(now)
+    await _curve_fix_1011(now)
     await _agent_control_fix_1010(now)
     await _agent_duty_fix_1010(now)
     await _rush_fix_1009(now)
@@ -12488,6 +12508,10 @@ async def _agents_tick(now):
             for r in rows:
                 if r.get('curve') and _fuse._f(r.get('liq')) <= 0 and _fuse._f(r.get('mcap')) > 0:
                     r['liq'] = _fuse.curve_liq(r['mcap'], sp_ or 100.0); r['liqCurve'] = True
+        for r in rows:   # 🧪 the agents' own holder line: failed ONLY on concentration, inside the agents' limits → passes as a half-seat coin
+            soft_ = _ag.agent_holder_pass(r)
+            if soft_:
+                r['safe'], r['holderSoft'] = True, soft_
         rows = [r for r in rows if r.get('mint') in held_m or _ag.in_lane(r, _agents.get('laneCap') or _ag.AGENT_MAX_MCAP)]   # 🎯 the lane (the ladder's cap) — coins on the card stay: their exits still run
         # 🧠 the human read: who is calling each coin on Pump and what they write, the narratives hot on the board, the lingo they use
         calls_ = _pump_calls.get('calls') or []
@@ -13189,7 +13213,7 @@ def _office_ctx(cur, t_, now):
     return {'value': money.get('value'), 'putIn': money.get('putIn'), 'peak': max(hrs.values()) if hrs else None, 'cash': max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd'))),
             'seats': len(cur.get('legs') or []), 'liq': n.get('liq') or v.get('liq'), 'ageH': v.get('ageH'), 'd5': n.get('d5'), 'top10': v.get('top10'),
             'lives': ((_agents.get('view') or {}).get('lives') or {}).get('n'), 'lastReal': (_agents_real().get('last') or [])[-3:], 'weather': _agents.get('weather'), 'courier': (_office.get('courier') or {}).get('health'),
-            'chart': (_office.get('charts') or {}).get(t_.get('mint')), 'social': (_social_cache() or {}).get(t_.get('mint')), 'near': t_.get('nearReady'), 'tier': t_.get('tier'), 'policy': _oe.policy((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'launch': _oe.launch_context(t_), 'li': t_.get('li')}
+            'chart': (_office.get('charts') or {}).get(t_.get('mint')), 'social': (_social_cache() or {}).get(t_.get('mint')), 'near': t_.get('nearReady'), 'tier': t_.get('tier'), 'policy': _oe.policy((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'launch': _oe.launch_context(t_), 'li': t_.get('li'), 'holderSoft': (t_.get('vitals') or {}).get('holderSoft')}
 
 
 def _office_warden(cur, t_, requested, cfg_t, now, move):

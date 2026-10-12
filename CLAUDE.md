@@ -3247,3 +3247,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   A degraded chart never decides a chart-based exit (R7b guard). RPC: payload `rpc` = keyed lanes (provider + in / out of quota, no URL) →
   `RpcLanes`. RPC lanes are NOT a discovery source: no RPC first-seen listener exists — new mints come from Pump's live stream + the
   boards. A new Helius key cannot do holder scans (free plan refuses getTokenLargestAccounts, −32600); `HELIUS_RPC_URL` = the Helius-only data key.
+- 🧪 AGENTS' OWN HOLDER LINE + 🎢 CURVE ON + 📡 PER-METHOD REFUSAL (owner, 2026-10-11: "seats not filled means they too strict"; at the time 41 of
+  43 candidates were hard NOs: holder scan 17 · no pool (curve coins) 11 · dead 9): `agents.agent_holder_pass` — a row the scan failed ONLY on
+  the concentration gates ('Top 10 under' · 'Snipers/bundlers under' · 'Dev holds under') passes the agents' lane inside top-10 < 40% ·
+  insiders < 20% · ≤ 4 bundled · dev < 10% (numbers read; unread fails closed) as `holderSoft` → Warden W21 half seat. A flagged creator, dev
+  selling, a top-10 spike, mayhem, live authority stay hard NOs; the engine's runner gates are untouched. `_curve_fix_1011` switched
+  `agentCurve` ON (old value data/realcfg_before_curve1011.json). RPC: a node that refuses ONE method (403 / −32600 / −32601 / −16500 — free
+  plans without getTokenLargestAccounts: Helius free, OnFinality, Tatum) skips that method for an hour (`chain_rpc._unsupported`) and stays
+  in the pool for everything else — a 403 used to rest the whole node 30s on every holder scan. Holder scans: only Alchemy answers them
+  (2026-10-11); Jupiter's audit stands in for unscanned coins.

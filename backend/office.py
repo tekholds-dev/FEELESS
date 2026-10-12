@@ -391,6 +391,8 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
         qw_, qwhy_ = _so.chart_quality(c['chart'])
         if qw_ in _so.QUALITY_SIZE:   # 📊 chart quality: a choppy / extended / unstable chart can only shrink a seat (after W12: a tie is W12's)
             hit('W18 chart quality', _so.QUALITY_SIZE[qw_], f'{qw_}: {qwhy_}')
+    if c.get('holderSoft'):   # 🧪 W21: passed only on the agents' own (wider) concentration line — a half seat
+        hit('W21 concentrated launch', 0.5, 'concentrated holders, inside the agents\' line: ' + '; '.join(c['holderSoft'][:3]))
     li_ = c.get('li') or {}
     if li_:   # 🕵 W20 exit risk: who could dump on us — a clustered / bundled launch still holding its early supply, early wallets selling now (shrinks only)
         if li_.get('press') == 'HIGH':

@@ -146,3 +146,15 @@ def test_one_active_index_reads_the_same_row_every_desk_reads():
     ix = next(r for r in oe.active_index(table, {}, 1000.0) if r['mint'] == 'NEW')
     assert ix['liveMC'] == x['vitals']['mcap'] and ix['launchAgeMin'] == round(x['vitals']['ageH'] * 60, 1) and ix['holderStatus'] == 'passed'
     assert ix['eligible'] == (opp.hard_fail(x) is None) and ix['realCandles'] is True and ix['fresh'].startswith('EXTREME')
+
+
+def test_the_agents_own_holder_line_passes_concentration_only_and_never_a_rugger():
+    base = {'safe': False, 'top10': 32, 'insiders': 12, 'bundled': 2, 'dev': 7}
+    assert ag.agent_holder_pass({**base, 'fails': ['Top 10 under 25%', 'Dev holds under 5%']})
+    assert ag.agent_holder_pass({**base, 'fails': ['Top 10 under 25%', 'Creator not flagged (Bot shield / blocklist)']}) is None   # a flagged creator stays a NO
+    assert ag.agent_holder_pass({**base, 'top10': 45, 'fails': ['Top 10 under 25%']}) is None                                     # past the agents' 40% line
+    assert ag.agent_holder_pass({**base, 'dev': None, 'fails': ['Dev holds under 5%']}) is None                                   # unread = fails closed
+    assert ag.agent_holder_pass({**base, 'safe': True, 'fails': []}) is None
+    import office as of
+    w = of.warden(1.0, {'holderSoft': ['Top 10 under 25%']}, floor=0.05)
+    assert any(r['id'] == 'W21 concentrated launch' and r['mult'] == 0.5 for r in w['rules'])

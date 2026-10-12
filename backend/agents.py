@@ -682,7 +682,7 @@ def desk(state, rows, now, dial=None, busted=None, weather_fn=None, candles=None
                                'slang': rd['crowd']['slang'], 'bots': rd['bots'][0], 'tug': rd['tug'][0]},
                       'analysis': _tm.analysis(r.get('symbol'), rd, n, call, verdict, arg), 'opinion': opinion(why, call, verdict, arg),
                       'strats': [STRAT_NAME[k] for k in strats(r, n)], 'warns': [list(w) for w in warns_[:6]], 'band': mc_band(r.get('mcap')),
-                      'vitals': {k: r.get(k) for k in ('mcap', 'ageH', 'liq', 'vol1h', 'buyShare', 'top10', 'bundledN', 'snipersN', 'dev', 'holders', 'safe', 'curve', 'curvePct', 'txns1h')}
+                      'vitals': {k: r.get(k) for k in ('mcap', 'ageH', 'liq', 'vol1h', 'buyShare', 'top10', 'bundledN', 'snipersN', 'dev', 'holders', 'safe', 'curve', 'curvePct', 'txns1h', 'holderSoft')}
                                 | {'organic': (r.get('vital') or {}).get('organicPct'), 'rug': (r.get('tv') or {}).get('rug'), 'read': ((r.get('tv') or {}).get('call') or [None, None])[1]}})
     table.sort(key=lambda x: (not x['go'], x['trigger'][0] != 'enter', -x['why']['lean']))
     st['feed'] = (list(st.get('feed') or []) + thoughts(table, now))[-FEED_KEEP:]
@@ -1378,6 +1378,31 @@ def trench_band(mc):
 
 AGENT_MIN_MCAP = 10_000.0      # 🎯 owner, 2026-10-11: "starting mc 10k with vol" — the universe starts at a $10K live cap …
 AGENT_MIN_VOL1H = 1_000.0      # … with real volume (≥ $1K traded in the last hour); no other starting minimum
+
+
+# 🧪 THE AGENTS' OWN HOLDER LINE (owner, 2026-10-11: "seats not filled means they too strict"): the engine's runner gates (top-10 < 25%,
+# snipers / bundlers < 10% · ≤ 1 bundled, dev < 5%) were tuned for full-size seats on older runners — a launch minutes old is concentrated
+# by nature, so 17 of 30 young desk coins were a hard NO. For the agents' lane those three CONCENTRATION gates move to the lines below
+# (the coin passes as `holderSoft` and the Warden takes a half seat, W21); every other safety gate — a flagged / rugger creator, the dev
+# selling, a top-10 spike, mayhem, live mint / freeze authority — stays a hard NO, and an unread number fails closed.
+AGENT_TOP10, AGENT_INSIDERS, AGENT_BUNDLED, AGENT_DEV = 40.0, 20.0, 4, 10.0
+CONC_GATES = ('Top 10 under', 'Snipers/bundlers under', 'Dev holds under')
+
+
+def agent_holder_pass(r):
+    """A board row the holder scan FAILED only on concentration, inside the agents' own lines → the concentration labels it carries (it
+    may take a half seat), else None (the scan's verdict stands)."""
+    r = r or {}
+    fails = [str(f) for f in r.get('fails') or []]
+    if r.get('safe') is not False or not fails or not all(f.startswith(CONC_GATES) for f in fails):
+        return None
+    vals = (r.get('top10'), r.get('insiders'), r.get('bundled') if r.get('bundled') is not None else r.get('bundledN'), r.get('dev'))
+    if any(v is None for v in vals):
+        return None
+    t10, ins, bun, dev = (_f(v) for v in vals)
+    if t10 < AGENT_TOP10 and ins < AGENT_INSIDERS and bun <= AGENT_BUNDLED and dev < AGENT_DEV:
+        return fails
+    return None
 
 
 def in_lane(row, cap=AGENT_MAX_MCAP):
