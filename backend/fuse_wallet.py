@@ -313,6 +313,11 @@ def refused_now(book, mint, now):
     return bool(m) and now - _f(m.get('last')) < REFUSED_SEC and any(w in str(m.get('why') or '') for w in SAFETY_WORDS)
 
 
+def no_buy(book, now):
+    """Every coin the keeper will not buy for this book right now: benched, or refused by a safety check in the last 2 minutes."""
+    return benched(book, now) | {m for m in (book.get('misses') or {}) if refused_now(book, m, now)}
+
+
 SWEEP_WAIT_SEC = 300   # idle cash waits this long after a failed / refused buy (the engine is re-picking that seat)
 
 

@@ -9786,7 +9786,7 @@ async def _prime_tick_inner(now):
             if due_:
                 cur['agentCycleAt'] = now; _office['cycleN'] = int(_office.get('cycleN') or 0) + 1
             lost_ = {m_ for m_, at_ in (_office_state().get('lostAt') or {}).items() if now - _fuse._f(at_) < _oe.FAILED_SEC}   # a thesis that failed on real money is not bought back for 6h
-            cool = set(cool) | _prime.agent_out(cur, now)   # 🚫 what the agents just left (10 min; a rug / danger exit 6h) is never a candidate
+            cool = set(cool) | _agent_blocked(cur, now)
             cases_ = _ag.investigate(_agents.get('table'), {l.get('mint') for l in cur.get('legs') or []}, _ag.min_age_of(cfg_t), (_json_load(AGENTS_PATH, {}).get('burned') or {}), top=0) if ctl_ else []
             picks_ = [c_['row'] for c_ in cases_ if c_['cleared'] and not _fw.dollar_named(c_.get('symbol')) and c_['mint'] not in cool and c_['mint'] not in lost_] if ctl_ else None
             full_ = bool(ctl_ and len([l for l in cur.get('legs') or [] if not l.get('placeholder')]) >= pol_['seats'])
@@ -9956,7 +9956,7 @@ async def _prime_tick_inner(now):
                 t_ = {**t_, 'trench': _ag.in_lane(t_.get('vitals') or {})}   # 🗑 a lane launch → the keeper's trench pool floor
                 if used_ >= _ag.FILL_MOVES_HR:
                     break
-                if t_['mint'] in _prime.agent_out(cur, now):   # 🚫 banked / pulled earlier in THIS tick (TOPCAT was sold and re-bought in one second)
+                if t_['mint'] in _agent_blocked(cur, now):   # 🚫 banked / pulled / refused earlier in THIS tick
                     continue
                 try:
                     wd_ = _office_warden(cur, t_, _prime.agent_seat_usd(cur, px, cfg_s), cfg_t, now, 'fill')   # 🛡 sizes THIS seat: it can lower or veto, never raise
@@ -12480,6 +12480,14 @@ AGENTS_PATH = FUSE_HQ_PATH.parent / 'agents.json'   # 🤖 the agent desk: Tally
 AGENTS_EVERY = 18.0                                 # ⚡ 3× a minute (owner, 2026-10-11: "seats never empty — 3× as fast"); a pass takes ~2s
 # 🕸 the intake = office_edge.intake (reserved room for rechecks · newest · accelerating · graduations · momentum · busiest · listed, ≤ INTAKE_MAX)
 _agents: dict = {'at': 0.0, 'table': [], 'view': None}
+
+
+def _agent_blocked(card, now):
+    """🚫 ONE list of coins the agents may not buy right now: what they just left (`arena_prime.agent_out`: 10 min, a rug / danger exit 6h)
+    + what the keeper benched or refused on a safety check (no route back, sell-back tax, price gap) for ANY book. 2026-10-12: $TikTok and
+    $REGGIE were refused "no route back to SOL" and the seat sat empty while the agents' own lists still offered them."""
+    books = (_fw_load().get('books') or {}).values()
+    return _prime.agent_out(card, now) | set().union(set(), *[_fw.no_buy(b, now) for b in books])
 
 
 async def _agents_tick(now):

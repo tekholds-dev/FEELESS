@@ -3272,3 +3272,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - ☠⚡ FAST REAP (`office.fast_reap`, in `_real_guard_loop` every 6s): agent seats carry no card stop and the card is `holdAll` by the agents,
   so `arena_prime.fast_stop` NEVER ran for them — stops at −12…−25% filled at −18…−52%. Reaper stamps `stopNow` on each position every tick;
   the guard pulls an agent coin at that line (or −45%) via `agent_pull` → keeper → tick. Feed-gap rule (> 50% in the first 90s) as fast_stop.
+- 🚫 `_agent_blocked(card, now)` = THE one list of coins the agents may not buy right now: `arena_prime.agent_out` (just left: 10 min / danger
+  6h) + `fuse_wallet.no_buy` (benched, or refused by a safety check ≤ 2 min — no route back, sell-back tax, price gap) on every book. Used for
+  the candidate cool set AND re-checked in the fill loop. New "don't buy this" source ⇒ add it there, never a third inline set.
