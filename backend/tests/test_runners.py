@@ -81,7 +81,7 @@ def test_service_board_rounds_proof_and_addon(monkeypatch):
         p['pairCreatedAt'] = now_ms - 2 * 3.6e6
     async def live_pairs():
         return None
-    async def fake_intel(mint): return {**CLEAN, 'top10Pct': 90 if mint == 'rug' else 18}
+    async def fake_intel(mint, *a, **k): return {**CLEAN, 'top10Pct': 90 if mint == 'rug' else 18}
     class H:
         def __init__(self, *a, **k): pass
         async def __aenter__(self): return self

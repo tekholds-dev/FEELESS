@@ -5,6 +5,7 @@ are fallback-only, so a rate-limited public node never blocks resolution. Each e
 skipped for a cooldown window instead of failing every request that hits it.
 """
 import asyncio
+import contextvars
 import json
 import os
 import time
@@ -118,6 +119,50 @@ def _usable(e, method, now):
 # 🔗 SINGLEFLIGHT (request coalescing): identical READ calls in flight at the same moment — the same (method, params) asked by several
 # scanners / desks — share ONE physical request; everyone awaits the same future. Writes are never coalesced (each send is its own).
 RPC_STATS = {'logical': 0, 'physical': 0, 'saved': 0, 'r429': 0, 'refused': 0}
+# 📏 WHERE THE CALLS GO: per method (logical · physical · rate-limited) and per TAG — the scan scheduler tags every call of a coin's deep
+# scan with its mint (a context variable, so every nested read is attributed without threading an argument through). Counters only.
+RPC_TAG: contextvars.ContextVar = contextvars.ContextVar('rpc_tag', default=None)
+RPC_BY_METHOD: dict = {}     # method → [logical, physical, 429]
+RPC_BY_TAG: dict = {}        # tag (a mint) → [logical, physical]
+TAG_KEEP = 600
+STATS_SINCE = time.time()
+
+
+def _count(method, i):
+    row = RPC_BY_METHOD.get(method)
+    if row is None:
+        row = RPC_BY_METHOD[method] = [0, 0, 0]
+    row[i] += 1
+    tag = RPC_TAG.get()
+    if tag is not None and i < 2:
+        t = RPC_BY_TAG.get(tag)
+        if t is None:
+            if len(RPC_BY_TAG) >= TAG_KEEP:
+                for k in list(RPC_BY_TAG)[:TAG_KEEP // 4]:
+                    RPC_BY_TAG.pop(k, None)
+            t = RPC_BY_TAG[tag] = [0, 0]
+        t[i] += 1
+
+
+def rpc_metrics(now=None):
+    """Logical vs physical RPC, what singleflight saved, rate limits, calls by method and calls per coin (tagged scans). No URL, no key."""
+    now = now or time.time()
+    per = sorted(RPC_BY_TAG.values(), key=lambda t: -t[1])
+    n = len(per)
+    med = lambda xs: (sorted(xs)[len(xs) // 2] if xs else None)
+    return {**RPC_STATS, 'sinceSec': round(now - STATS_SINCE, 1), 'retries': max(0, RPC_STATS['physical'] - (RPC_STATS['logical'] - RPC_STATS['saved'])),
+            'requestsByMethod': {m: {'logical': v[0], 'physical': v[1], 'r429': v[2]} for m, v in sorted(RPC_BY_METHOD.items(), key=lambda kv: -kv[1][1])[:12]},
+            'requestsPerMint': {'mints': n, 'logicalMedian': med([t[0] for t in per]), 'physicalMedian': med([t[1] for t in per]), 'physicalMax': per[0][1] if per else None,
+                                'logicalTotal': sum(t[0] for t in per), 'physicalTotal': sum(t[1] for t in per)}}
+
+
+def rpc_stats_reset():
+    """Zero the counters (a measurement window: after a restart, in tests)."""
+    global STATS_SINCE
+    for k in RPC_STATS:
+        RPC_STATS[k] = 0
+    RPC_BY_METHOD.clear(); RPC_BY_TAG.clear()
+    STATS_SINCE = time.time()
 _SF_WRITE = ('sendTransaction', 'requestAirdrop', 'simulateTransaction')
 _sf_inflight: dict = {}
 
@@ -132,6 +177,7 @@ def _sf_key(method, params):
 async def _rpc(http: httpx.AsyncClient, method: str, params: list, scan: bool = True):
     """The ONE read path for scanners: singleflight over `_rpc_physical` (identical in-flight reads share one request)."""
     RPC_STATS['logical'] += 1
+    _count(method, 0)
     key = None if method in _SF_WRITE else _sf_key(method, params)
     if key is None:
         return await _rpc_physical(http, method, params, scan)
@@ -168,6 +214,7 @@ async def _rpc_physical(http: httpx.AsyncClient, method: str, params: list, scan
             continue
         try:
             RPC_STATS['physical'] += 1
+            _count(method, 1)
             if scan:
                 async with _scan_gate:
                     res = await http.post(endpoint, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params})
@@ -175,6 +222,7 @@ async def _rpc_physical(http: httpx.AsyncClient, method: str, params: list, scan
                 res = await http.post(endpoint, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params})
             if res.status_code == 429:
                 RPC_STATS['r429'] += 1
+                _count(method, 2)
                 spent = out_of_quota(429, res.text, res.headers)
                 if spent:
                     _quota_until[endpoint] = time.time() + spent

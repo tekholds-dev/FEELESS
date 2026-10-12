@@ -63,29 +63,42 @@ def test_an_empty_holder_reading_is_incomplete_not_zero_percent(monkeypatch):
 
 
 def test_one_scan_per_coin_in_flight_and_a_failed_one_is_not_re_queued_for_45s(monkeypatch):
+    """Every request goes through the ONE scheduler (trench_kernel/enrich.py): eight askers share one scan, a failed coin rests."""
     rs = pytest.importorskip('reputation_service')
+    import trench_kernel.enrich as en
     calls = []
 
     async def slow_intel(chain, mint):
         calls.append(mint)
         await asyncio.sleep(0.05)
-        return {'mint': mint, 'top10Pct': 12.0, 'checkedAt': 1}
+        rs._intel_cache[mint] = (rs.time.time(), {'mint': mint, 'top10Pct': 12.0, 'checkedAt': 1})
+        return rs._intel_cache[mint][1]
 
+    monkeypatch.delenv('PYTEST_CURRENT_TEST', raising=False)
+    monkeypatch.setitem(rs._fuse_warm_n, 'restored', True)
     monkeypatch.setattr(rs, 'token_intel', slow_intel)
-    rs._intel_cache.pop('DedupeMint', None); rs._intel_inflight.clear(); rs._intel_failed.clear()
+    e = en.Enricher(boot_at=0.0); e.tokens = 500.0
+    monkeypatch.setattr(rs, '_ENRICH', e)
+    monkeypatch.setattr(rs, '_intel_waiters', {})
+    monkeypatch.setitem(rs._enrich_timer, 'h', None)
+    rs._intel_cache.pop('DedupeMint', None); rs._intel_failed.clear()
 
     async def go():
-        return await asyncio.gather(*[rs._runner_intel('DedupeMint') for _ in range(8)])   # 8 board builds ask for the same coin at once
+        return await asyncio.gather(*[rs._runner_intel('DedupeMint', en.PRIO['READY'], 'test', wait=True) for _ in range(8)])   # 8 askers, the same coin, at once
     out = asyncio.run(go())
-    assert len(calls) == 1 and all(o and o['top10Pct'] == 12.0 for o in out)
+    assert len(calls) == 1 and all(o and o['top10Pct'] == 12.0 for o in out) and e.count['started'] == 1 and e.count['joined'] == 7
 
     async def boom(chain, mint):
         calls.append('boom')
         raise RuntimeError('pool exhausted')
     monkeypatch.setattr(rs, 'token_intel', boom)
+    monkeypatch.setitem(rs._enrich_timer, 'h', None)
     calls.clear(); rs._intel_cache.pop('FailMint', None)
-    assert asyncio.run(rs._runner_intel('FailMint')) is None and asyncio.run(rs._runner_intel('FailMint')) is None
-    assert calls == ['boom']       # the second ask inside 45s never reaches the RPC
+    e.tokens, e.tokAt = en.BURST, rs.time.time()   # (the first scan spent the budget: a second FIRST scan would wait ~16s for it — refill for the test)
+    ask = lambda: asyncio.run(rs._runner_intel('FailMint', en.PRIO['READY'], 'test', wait=True))
+    assert ask() is None and ask() is None
+    assert calls == ['boom'] and e.status('FailMint', rs.time.time()) == 'UNAVAILABLE'       # the second ask inside its back-off never reaches the RPC
+    rs._intel_cache.pop('DedupeMint', None)
 
 
 def test_a_busy_coin_pages_back_to_its_launch_and_unknown_launch_is_never_a_fake_zero(monkeypatch):

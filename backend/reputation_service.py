@@ -1116,6 +1116,8 @@ async def token_intel(chain: str, mint: str):
                                  'flaggedFunder': flagged_funders.get(w)}
                             for w in all_offenders}
     _intel_cache[mint] = (time.time(), out)
+    if out.get('top10Pct') is not None:
+        _ENRICH.note_success(mint, time.time())   # (a scan a user asked for directly is fresh evidence for the scheduler too)
     try:
         _absorb_intel(mint, out)
     except Exception:
@@ -2962,7 +2964,7 @@ async def coin_read(mint: str):
         # 🔍 a coin someone is LOOKING at gets our full holder scan now (insiders · bundled · snipers — Jupiter's audit has none of them);
         # one scan per coin in flight, the next read of this endpoint carries the result
         scanning = True
-        asyncio.ensure_future(_runner_intel(mint))
+        asyncio.ensure_future(_runner_intel(mint, _enr.PRIO['LOOK'], 'coin read'))
     if c.get('bundled') is not None and row.get('bundledN') is None and row.get('scanned') is True:   # never a 0 from a coin whose launch was not read
         row['bundledN'] = c.get('bundled')
     if jf and row.get('holders') is None:
@@ -3126,7 +3128,7 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
         for r in [x for x in live if not x.get('scanned')][:PICK_SCAN_TOP]:
             m = r.get('baseAddress') or r.get('mint')
             if m:
-                asyncio.ensure_future(_runner_intel(m))
+                asyncio.ensure_future(_runner_intel(m, _enr.PRIO['MOVER'], 'pick list'))
     cmap_f = _cand_map()   # the quick look's tiles: cap, logo, 5-min volume, trades an hour, curve % on EVERY tab's rows
     for r in live:
         m_ = r.get('baseAddress') or r.get('mint')
@@ -4156,7 +4158,7 @@ async def coin_edge(mints: str = Query('', max_length=3000), intel: bool = False
     todo = [m for m in ms if m not in out]
     if todo:
         if intel and len(todo) <= 3:
-            await asyncio.gather(*[_runner_intel(m) for m in todo], return_exceptions=True)
+            await asyncio.gather(*[_runner_intel(m, _enr.PRIO['LOOK'], 'trade tape') for m in todo], return_exceptions=True)
         pulses = await _edge_pulses(todo)
         ver = (await verify_batch(','.join(todo)))['verify']
         snip = {}
@@ -5821,41 +5823,119 @@ _mayhem_mints: set = set()
 
 def _runner_cfg():
     return _rn.clean_cfg(_json_load(RUNNERS_PATH, {}).get('cfg') or {})
-_runner_sem = asyncio.Semaphore(4)
+import trench_kernel.enrich as _enr
+# 🔎 THE ONE ENRICHMENT SCHEDULER (trench_kernel/enrich.py): every deep holder / launch scan in this process is asked for here, by priority,
+# on a budget of RPC calls a second, with freshness that survives a restart. No caller starts a scan itself.
+try:
+    _ENRICH_CPS = max(0.2, float(os.environ.get('RPC_ENRICH_CPS', '') or _enr.CALLS_PER_SEC))
+except ValueError:
+    _ENRICH_CPS = _enr.CALLS_PER_SEC
+_ENRICH = _enr.Enricher(boot_at=time.time(), calls_per_sec=_ENRICH_CPS, ttl=INTEL_TTL)
+_intel_inflight = _ENRICH.inflight   # mint → when its ONE scan started (the scheduler's own book; kept under the old name for the page)
+_intel_failed: dict = {}             # mint → when its last scan failed (display)
+_intel_waiters: dict = {}            # mint → the future everyone waiting on that scan shares
+_enrich_timer: dict = {'h': None}
+ENRICH_WAIT_SEC = 14.0               # a caller that WAITS for a scan (a held / ready coin, a coin someone opened) waits at most this long
 
 
-_intel_inflight: dict = {}   # mint → the ONE scan in flight (every board build used to queue its own copy of the same scan behind the 4-slot semaphore)
-_intel_failed: dict = {}     # mint → when its last scan failed (not asked again for 45s, so the coins behind it get their turn)
+def _intel_boot():
+    """Once per process, BEFORE the first scan request is judged: scan results + the scheduler's freshness book come back from disk."""
+    if not _fuse_warm_n.get('restored') and not os.environ.get('PYTEST_CURRENT_TEST'):
+        _fuse_warm_n['restored'] = True
+        print('intel restored:', _intel_restore())
 
 
-def _intel_fresh(mint):
+def _intel_fresh(mint, prio=3):
+    """The cached scan when it is still fresh for a request of this priority (a complete scan: the TTL — ×4 for a coin nobody is acting
+    on; an incomplete one: 60s), else None."""
     hit = _intel_cache.get(mint)
-    return hit[1] if hit and time.time() - hit[0] < (INTEL_TTL if (hit[1] or {}).get('top10Pct') is not None else 60) else None
-
-
-async def _runner_intel_scan(mint):
-    async with _runner_sem:
-        got = _intel_fresh(mint)   # a copy that waited in the queue finds the scan already done
-        if got is not None:
-            return got
-        try:
-            return await asyncio.wait_for(token_intel('solana', mint), 12)
-        except Exception:
-            _intel_failed[mint] = time.time()
-            return None
-
-
-async def _runner_intel(mint):
-    got = _intel_fresh(mint)
-    if got is not None:
-        return got
-    if time.time() - _intel_failed.get(mint, 0.0) < 45:
+    if not hit:
         return None
-    task = _intel_inflight.get(mint)
-    if task is None:
-        task = _intel_inflight[mint] = asyncio.ensure_future(_runner_intel_scan(mint))
-        task.add_done_callback(lambda _t, m=mint: _intel_inflight.pop(m, None))
-    return await asyncio.shield(task)
+    if (hit[1] or {}).get('top10Pct') is None:
+        return hit[1] if time.time() - hit[0] < 60 else None
+    return hit[1] if time.time() - hit[0] < _ENRICH.ttl_for(prio) else None
+
+
+async def _enrich_scan(mint):
+    """ONE deep scan, started by the scheduler: every RPC call it makes is tagged with the mint (calls per coin), its outcome goes back
+    to the scheduler (fresh · failed · rate-limited) and everyone waiting on it gets the result."""
+    out, r429 = None, _chain.RPC_STATS['r429']
+    tok = _chain.RPC_TAG.set(mint)
+    try:
+        out = await asyncio.wait_for(token_intel('solana', mint), 12)
+    except Exception:
+        out = None
+    finally:
+        _chain.RPC_TAG.reset(tok)
+    ok = bool(out and out.get('top10Pct') is not None)
+    now = time.time()
+    _ENRICH.finished(mint, now, ok, rate_limited=(not ok and _chain.RPC_STATS['r429'] > r429))
+    if ok:
+        _intel_failed.pop(mint, None)
+    else:
+        _intel_failed[mint] = now
+        if len(_intel_failed) > 2000:
+            for k in sorted(_intel_failed, key=_intel_failed.get)[:500]:
+                _intel_failed.pop(k, None)
+    fut = _intel_waiters.pop(mint, None)
+    if fut is not None and not fut.done():
+        fut.set_result(out)
+    _enrich_pump()
+
+
+def _enrich_pump():
+    """Start whatever the scheduler says is due (priority first, inside the concurrency limit and the call budget) and set ONE timer for
+    the next moment something could start. Called on every request and every finished scan — there is no polling loop."""
+    if os.environ.get('PYTEST_CURRENT_TEST'):
+        return
+    now = time.time()
+    for m in _ENRICH.due(now):
+        _ENRICH.started(m, now)
+        asyncio.ensure_future(_enrich_scan(m))
+    nxt = _ENRICH.next_in(now)
+    if nxt is not None and (_enrich_timer['h'] is None or _enrich_timer['h'].cancelled() or _enrich_timer.get('at', 0) <= now):
+        try:
+            loop = asyncio.get_event_loop()
+            _enrich_timer['at'] = now + nxt
+
+            def _fire():
+                _enrich_timer['h'] = None
+                _enrich_pump()
+            _enrich_timer['h'] = loop.call_later(nxt, _fire)
+        except RuntimeError:
+            pass
+
+
+async def _runner_intel(mint, prio=5, why='board', wait=None):
+    """THE one door to a coin's deep scan. Fresh in the cache → that. Otherwise the request joins the scheduler's queue at `prio`
+    (trench_kernel.enrich.PRIO: 0 HELD · 1 READY · 2 hunter lane / someone is looking · 3 top CONTENDING · 4 movers · 5 the rest) and:
+    a caller with priority ≤ 2 (or `wait=True`) waits for the result (≤ ENRICH_WAIT_SEC); everyone else gets the last known scan (maybe
+    stale, maybe None) at once — the result lands in the cache for their next read. A coin whose scan is pending, rate-limited or
+    unavailable is never rejected for it."""
+    if not mint:
+        return None
+    _intel_boot()
+    got = _intel_fresh(mint, prio)
+    now = time.time()
+    if got is not None:   # the cache answers: no scan, no queue (a complete scan also refreshes the scheduler's own book)
+        if got.get('top10Pct') is not None:
+            _ENRICH.note_success(mint, (_intel_cache.get(mint) or (0,))[0])
+        _ENRICH.count['skippedFresh'] += 1
+        return got
+    st = _ENRICH.request(mint, prio, why, now, known=mint in _launch_facts)
+    stale = (_intel_cache.get(mint) or (0, None))[1]
+    if st in ('fresh', 'deferred') or os.environ.get('PYTEST_CURRENT_TEST'):
+        return stale
+    fut = _intel_waiters.get(mint)
+    if fut is None or fut.done():
+        fut = _intel_waiters[mint] = asyncio.get_event_loop().create_future()
+    _enrich_pump()
+    if not (wait if wait is not None else prio <= 2):
+        return stale
+    try:
+        return await asyncio.wait_for(asyncio.shield(fut), ENRICH_WAIT_SEC)
+    except Exception:
+        return stale
 
 
 _runner_widen = {'level': 0, 'at': 0.0, 'log': []}
@@ -5985,7 +6065,7 @@ async def _runner_live_build():
             seen.add(m_c); pairs.append(feed_by[m_c])
     busiest += [p for p in pairs if (p.get('baseToken') or {}).get('address') in cat_m and p not in busiest][:30]
     # Never block the board on scans: wait ≤6s, the rest keep running and land in the cache for the next refresh.
-    tasks = {(p.get('baseToken') or {}).get('address'): asyncio.ensure_future(_runner_intel((p.get('baseToken') or {}).get('address'))) for p in busiest}
+    tasks = {(p.get('baseToken') or {}).get('address'): asyncio.ensure_future(_runner_intel((p.get('baseToken') or {}).get('address'), _enr.PRIO['REST'], 'board')) for p in busiest}   # the board ASKS (lowest priority): it gets the last known scan now, the fresh one on a later build
     if tasks:
         await asyncio.wait(list(tasks.values()), timeout=6)
     intel = {m: t.result() for m, t in tasks.items() if t.done() and not t.cancelled() and t.exception() is None}
@@ -6618,7 +6698,7 @@ async def _trench_build(now):
     # on the runner board — they join the finalists on the next pass
     need = sorted((r for r in every if r.get('mint') and _trench.precheck(r, loose) == ['holder scan not done yet']), key=lambda r: -_fuse._f(r.get('vol1h')))[:12]
     if need:
-        asyncio.ensure_future(asyncio.gather(*[_runner_intel(r['mint']) for r in need], return_exceptions=True))
+        asyncio.ensure_future(asyncio.gather(*[_runner_intel(r['mint'], _enr.PRIO['MOVER'], 'trench finalist') for r in need], return_exceptions=True))
     for r in every:
         if r.get('mint') and r['mint'] not in seen and not _trench.precheck(r, loose):
             seen.add(r['mint']); pool.append(r)
@@ -7488,7 +7568,7 @@ async def _pick_verify(mint, pair_address):
         lp = (await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pair_address}])).get(pair_address) or {}
         if (lp.get('baseToken') or {}).get('address') != mint:
             return False, ['no live pool reading for this coin right now'], None
-        it = await _runner_intel(mint)
+        it = await _runner_intel(mint, _enr.PRIO['LOOK'], 'owner pick', wait=True)
         flagged, crep = _creator_state(it)
         c = _rn.candidate(lp, it, flagged, False, time.time() * 1000, mayhem=mint in _mayhem_mints, creator_rep=crep,
                           hist=_runner_track(mint, time.time(), _fuse._f(lp.get('curveProgress')), (it or {}).get('top10Pct'), (it or {}).get('devHoldingPct')))
@@ -12431,26 +12511,34 @@ async def admin_data_cleaner(request: Request):
 
 
 INTEL_DISK = DATA_DIR / 'intel_cache.json'
-INTEL_DISK_MAX_AGE, INTEL_DISK_KEEP = 1800.0, 300
+INTEL_DISK_MAX_AGE, INTEL_DISK_KEEP = 6 * 3600.0, 400   # scan RESULTS kept across a restart (a result older than its TTL is served as STALE while its refresh waits its turn)
 LAUNCH_DISK, LAUNCH_KEEP = DATA_DIR / 'launch_facts.json', 4000
+ENRICH_DISK = DATA_DIR / 'enrich_fresh.json'             # the scheduler's freshness book: last success / last attempt / back-off per mint
+_intel_saved: dict = {'key': None}
 
 
 def _intel_save():
-    """Write the COMPLETE holder scans (top-10 known) of the last 30 min to disk, newest 300."""
+    """Write the COMPLETE holder scans (top-10 known) of the last 6h to disk (newest 400), the launch facts, and the scan scheduler's
+    freshness book — so a restart knows what was scanned when, and what was failing."""
     try:
         now = time.time()
         rows = sorted(((m, at, out) for m, (at, out) in list(_intel_cache.items()) if isinstance(out, dict) and out.get('top10Pct') is not None and now - at < INTEL_DISK_MAX_AGE),
                       key=lambda x: -x[1])[:INTEL_DISK_KEEP]
-        _json_save(INTEL_DISK, {'at': now, 'rows': [[m, at, out] for m, at, out in rows]})
+        key = hash(tuple((m, round(at)) for m, at, _o in rows))
+        if key != _intel_saved['key']:   # (only when a scan landed since the last write)
+            _json_save(INTEL_DISK, {'at': now, 'rows': [[m, at, out] for m, at, out in rows]})
+            _intel_saved['key'] = key
         lf = sorted(_launch_facts.items(), key=lambda kv: -_fuse._f(kv[1].get('at')))[:LAUNCH_KEEP]
         _json_save(LAUNCH_DISK, {'at': now, 'rows': dict(lf)})
+        _json_save(ENRICH_DISK, _ENRICH.snapshot(now))
     except Exception as e:
         print('intel save:', e)
 
 
 def _intel_restore():
-    """At start: bring back scans younger than 30 min (they are re-scanned on the normal schedule; a coin is never 'unscanned' just
-    because the service restarted). → how many came back"""
+    """At start: the scan results of the last 6h come back WITH THEIR AGE (a coin is never 'unscanned' just because the service
+    restarted — an old result is STALE, not gone), and the scheduler gets its freshness book back: what is still fresh is not scanned
+    again, what was failing keeps its back-off, and everything else waits its turn in the priority queue. → how many results came back"""
     try:
         for m, v in ((_json_load(LAUNCH_DISK, {}) or {}).get('rows') or {}).items():
             _launch_facts.setdefault(m, v)
@@ -12460,8 +12548,14 @@ def _intel_restore():
                 continue   # an old 'top-10 0%' with no holders behind it was a failed read, never a clean scan
             if now - _fuse._f(at) < INTEL_DISK_MAX_AGE and m not in _intel_cache:
                 _intel_cache[m] = (_fuse._f(at), out); n += 1
+        got = _ENRICH.restore(_json_load(ENRICH_DISK, {}) or {}, now, have=set(_intel_cache))
+        for m, (at, out) in list(_intel_cache.items()):   # every complete result in memory is known to the scheduler at its real age
+            if isinstance(out, dict) and out.get('top10Pct') is not None:
+                _ENRICH.note_success(m, at)
+        print('enrich freshness restored:', got, 'records ·', n, 'scan results')
         return n
-    except Exception:
+    except Exception as e:
+        print('intel restore:', e)
         return 0
 
 
@@ -12580,6 +12674,15 @@ def _paper_view(st, paper, rcfg, now):
     return v
 
 
+def _kernel_view(now):
+    """The kernel's bounded view for the page + each candidate's EVIDENCE state from the scan scheduler (FRESH · STALE · PENDING ·
+    RATE_LIMITED · UNAVAILABLE — a state of the evidence, never a verdict on the coin)."""
+    v = _tk.KERNEL.view(now)
+    for c_ in v.get('candidates') or []:
+        c_['scan'] = _ENRICH.status(c_['mint'], now)
+    return v
+
+
 def _kernel_ctx(now):
     """The small context the ten agents read: held positions (entry · peak · Reaper's stop) · the weather · execution health · the Judge's weights."""
     pos = _office.get('pos') or {}
@@ -12591,19 +12694,43 @@ def _kernel_ctx(now):
             'live': rd.get('live') if rd else None, 'weights': _judge_weights(now), 'lessons': _tkl.lessons(_lc_book(now))}   # 🧬 only the generations IN CONTROL
 
 
-ENRICH_TOP = 4   # 🔎 Tier 2: holder / early-wallet scans only for the strongest candidates the brain asks about (Tier 0 = the whole intake, zero RPC)
+ENRICH_TOP = 4      # 🔎 Tier 2: holder / early-wallet scans for the strongest candidates only (Tier 0 = the whole intake, zero RPC)
+ENRICH_MOVERS = 2   # … + at most this many brand-new movers a pass
 
 
 def _kernel_pass(table, now):
-    """⚙ The desk's rows → the kernel (only changed mints re-judged) → ONE enrichment scheduler: Sherlock's 'holders pending' requests for
-    the ENRICH_TOP best-ranked candidates go to the existing deduped scan path (`_runner_intel`: one scan per mint in flight, a failed one
-    rests 45s) — no agent fetches for itself, no duplicate scan."""
-    _tk.KERNEL.run(table, now, _kernel_ctx(now), source='desk')
-    asked = []
-    for m_, d_ in sorted(((m_, d_) for m_, d_ in _tk.KERNEL.dec.items() if d_['status'] in ('READY', 'CONTENDING') and 'holders' in d_['opinions']['sherlock']['requests']),
-                         key=lambda kv: -kv[1]['rank'])[:ENRICH_TOP]:
-        asyncio.ensure_future(_runner_intel(m_)); asked.append(m_)
-    _office['enrich'] = {'at': now, 'asked': len(asked), 'holderInflight': len(_intel_inflight), 'tier0': len(_tk.KERNEL.store.mints)}
+    """⚙ The sensed rows → the kernel (only changed mints re-judged) → the ONE enrichment scheduler. Sherlock's evidence requests are
+    queued by what the kernel is doing with each coin: HELD first, then READY, then the coin each hunter lane is watching, then the top
+    contenders, then fast new movers — nothing else is asked for here, and no agent fetches for itself. A coin whose scan is pending,
+    rate-limited or unavailable stays exactly where its rank puts it."""
+    ctx = _kernel_ctx(now)
+    ev = _tk.KERNEL.run(table, now, ctx, source='desk')
+    K, P = _tk.KERNEL, _enr.PRIO
+    want = {}   # mint → (priority, why): the most important reason wins
+    def ask(m_, p_, why_):
+        if m_ and (m_ not in want or p_ < want[m_][0]):
+            want[m_] = (p_, why_)
+    for m_ in (ctx.get('held') or {}):
+        ask(m_, P['HELD'], 'held')
+    for m_, _d in K.ready(n=ENRICH_TOP):
+        ask(m_, P['READY'], 'ready')
+    for l_ in K.lanes:
+        if l_.get('mint') and l_.get('state') != 'HELD':
+            ask(l_['mint'], P['ARMED'], 'hunter lane')
+    cont_ = sorted(((m_, d_) for m_, d_ in K.dec.items() if d_['status'] == 'CONTENDING' and m_ in K.store.mints), key=lambda kv: -kv[1]['rank'])
+    for m_, _d in cont_[:ENRICH_TOP]:
+        ask(m_, P['CONTENDING'], 'top contender')
+    for m_ in [m_ for m_, e_ in ev.items() if 'new' in e_ and (K.dec.get(m_) or {}).get('status') in ('READY', 'CONTENDING')][:ENRICH_MOVERS]:
+        ask(m_, P['MOVER'], 'new mover')
+    asked = 0
+    for m_, (p_, why_) in want.items():
+        d_ = K.dec.get(m_) or {}
+        op_ = d_.get('opinions') or {}
+        if p_ > P['HELD'] and 'holders' not in ((op_.get('sherlock') or {}).get('requests') or []) and _intel_fresh(m_, p_) is not None:
+            continue   # Sherlock has what he asked for and it is still fresh
+        asyncio.ensure_future(_runner_intel(m_, p_, why_, wait=False)); asked += 1
+    em_ = _ENRICH.metrics(now)
+    _office['enrich'] = {'at': now, 'asked': asked, 'holderInflight': em_['inflight'], 'tier0': len(K.store.mints), 'queue': em_['queueDepth'], **em_}
 
 
 def _rounds_pass(table, now):
@@ -13814,7 +13941,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         _office['payload']['social'] = {m_: {k_: v_ for k_, v_ in sc_[m_].items() if k_ not in ('search',)} for m_ in want_ if m_ in sc_}
         _office['payload'].update(fresh=_office_fresh(now), live=_office.get('live'), open=_office.get('open'), scans=_office.get('scans'), loadPass=_office_load_pass(),
                                   lifecycle=_lifecycle(now),
-                                  kernel=_tk.KERNEL.view(now), rpcStats=dict(_chain.RPC_STATS), enrich=_office.get('enrich'),
+                                  kernel=_kernel_view(now), rpcStats=_chain.rpc_metrics(now), enrich={**(_office.get('enrich') or {}), **_ENRICH.metrics(now)},
                                   generations=_tkl.generations(_lc_book(now), now, _lc_shadows()),
                                   deskStats=_jr.desk_stats(((_office_state().get('judge') or {}).get('reviews')) or []),
                                   rounds={**_tr.summary(_rounds_state(), now), 'roundSec': _tr.ROUND_SEC, 'desk': {'n': int(now // _tr.ROUND_SEC) % int(86400 // _tr.ROUND_SEC) + 1, 'left': round(_tr.ROUND_SEC - now % _tr.ROUND_SEC, 1)},
@@ -13957,7 +14084,7 @@ async def admin_agents_set(request: Request):
 
 async def _fuse_warm():
     if not _fuse_warm_n.get('restored'):
-        _fuse_warm_n['restored'] = True; print('intel restored:', _intel_restore())
+        _intel_boot()
     _FUSE_FORCE.set(True)          # task-local: viewers never see it, they keep reading the previous copy
     _fuse_warm_n['n'] += 1
     if _fuse_warm_n['n'] % 24 == 2:   # ~10 min: who the elite traders are + what they bought (FeeCat learns from it)
@@ -20882,7 +21009,7 @@ async def launch_radar(limit: int = Query(30, ge=1, le=100)):
         hit = _intel_cache.get(l['mint'])
         intel = hit[1] if hit else None
         if not hit and queued < 3:
-            queued += 1; asyncio.create_task(_quiet(token_intel('solana', l['mint'])))
+            queued += 1; asyncio.create_task(_quiet(_runner_intel(l['mint'], _enr.PRIO['HELD'], 'card leg')))
         w = primary_of(l['wallet'])
         t = _trust_cache.get(w)
         if not t and w not in _trust_pending and len(_trust_pending) < 8:

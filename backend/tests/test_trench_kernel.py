@@ -125,7 +125,7 @@ def test_local_latency_targets_on_a_500_coin_batch():
 
 
 def test_one_enrichment_scheduler_asks_only_for_the_strongest_and_reuses_the_deduped_scan():
-    assert 'ENRICH_TOP = 4' in SRC and 'asyncio.ensure_future(_runner_intel(m_))' in SRC
+    assert 'ENRICH_TOP = 4' in SRC and 'asyncio.ensure_future(_runner_intel(m_, p_, why_, wait=False))' in SRC   # → the ONE scheduler (tests/test_kernel_enrich.py)
     k = tk.Kernel()
     k.run([row(f'S{i}', vitals={'mcap': 40_000, 'liq': 20_000, 'ageH': 0.05, 'vol1h': 20_000, 'safe': None}) for i in range(6)], 100.0)
     assert all('holders' in d['opinions']['sherlock']['requests'] for d in k.dec.values())   # Sherlock asks; the scheduler decides how many
