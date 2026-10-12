@@ -9539,6 +9539,9 @@ async def _prime_tick_inner(now):
                 why_x = ((book_s.get('benched') or {}).get(l.get('mint')) or (book_s.get('misses') or {}).get(l.get('mint')) or {}).get('why')
                 why_s += f' ({why_x})' if why_x else ''   # the keeper's own reason, so a refused pick is never silent
                 try:
+                    if cur.get('holdBy') in ('proof', 'agents'):   # 🎮 held: the ENGINE swaps nothing in (2026-10-12: a refused agent buy became $Business, an engine pick)
+                        why_s += ' — the card is held, no replacement'
+                        raise ValueError('held')
                     want_usd = _fuse._f(l.get('wantUnits')) * (_fuse._f(px.get(pa)) or _fuse._f(l.get('entry')))
                     floor_s = _fw.NEW_SEAT_MIN if not _fw.held_units(book_s, l.get('mint')) else mo_t   # the keeper's own floor: a NEW coin opens its seat down to $0.05
                     if floor_s and want_usd < floor_s and want_usd < _fw.LEFTOVER_MIN_USD:

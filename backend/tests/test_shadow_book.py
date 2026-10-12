@@ -46,3 +46,19 @@ def test_the_judge_proposes_but_never_moves_a_live_threshold():
     import judge_review as jr
     promoted = [{'penalty': 'thin pool', 'points': -8}]
     assert jr.penalties(promoted) == {} and jr.penalties(promoted, live=True) == {'thin pool': -8.0}
+
+
+def test_a_held_card_gets_no_engine_replacement_of_any_kind():
+    """2026-10-12: under the agents' hold a refused agent buy became $Business (stuck-buy swap) and a stop's reserved seat bought $CHILLGUY (30s fallback)."""
+    mk = lambda i: {'mint': f'R{i}', 'pairAddress': f'PR{i}', 'symbol': f'R{i}', 'price': 1.0, 'liq': 500_000, 'liquidityUsd': 500_000, 'score': 90 - i, 'stars': 3, 'chg1h': 5.0}
+    held, chill = [mk(i) for i in range(3)], {**mk(9), 'chg5m': 1.0, 'cStruct': 'up'}
+    base = {'coins': 4, 'rotateHours': 0.25, 'rescuePct': 0, 'cycleEvery': 0, 'cycles': {t: 'off' for t in ap.DEFAULT_CYCLES}, 'lockBankPct': 0, 'tpStakeUsd': 0}
+    cfg = {**ap.clean_cfg(base), 'seatFallback': [chill]}
+    card = ap.deal('degen', [], held, ap.clean_cfg({**base, 'coins': 3}), 0.0, [], shape='degen')
+    seat = {**card['legs'][-1], 'mint': 'GONE', 'pairAddress': 'PG', 'units': 0.0, 'costUsd': 0.0, 'reserveUsd': 0.3, 'placeholder': True}
+    card = {**card, 'legs': card['legs'] + [seat], 'cash': card.get('cash', 0) + 1.0, 'holdAll': True, 'holdBy': 'agents', 'seatEmptyAt': 0.0}
+    px = {x['pairAddress']: 1.0 for x in held + [chill]}
+    out = ap.tick(card, px, [], held, cfg, 500.0, [], {}, {})
+    assert 'R9' not in {l.get('mint') for l in out['legs']}
+    src = open(__import__('reputation_service').__file__).read()
+    assert "if cur.get('holdBy') in ('proof', 'agents'):   # 🎮 held: the ENGINE swaps nothing in" in src

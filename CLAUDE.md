@@ -3299,3 +3299,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   GRADUATION (proposed, owner decides): ≥ 100 forward shadow fills · NET avg > 0 and median ≥ 0 after measured costs at the planned hold ·
   profit factor > 1.2 · beats the random control by ≥ 2 pts · bootstrap mean > 0 in ≥ 90% · top-3 trades < 30% of profit · max DD < 20% of
   stake — on trades AFTER the rule was frozen.
+- 🔒 A HELD CARD BUYS NOTHING FROM THE ENGINE (2026-10-12, found 5 min after paper mode went live): `fallback_coin()` (the 30s fill of a
+  reserved seat) and the stuck-buy swap ignored `holdBy` — a refused agent buy became $Business, and a stop's reserved seat bought $CHILLGUY.
+  Both now return / slot back to cash under `holdBy` proof | agents. After ANY "no real buys" change, read the ledger 5 minutes later.

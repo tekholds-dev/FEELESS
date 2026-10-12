@@ -2239,6 +2239,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             src = [x for x in src if _f(x.get('vol1h')) >= STRICT_VOL1H and (x.get('buyShare') is None or _f(x.get('buyShare')) >= STRICT_BUYS)]
         return next((x for x in src if x['mint'] not in have() and _f(x.get('price')) > 0 and price_agrees(x, prices)), None)
     def fallback_coin():   # 🪑 the next-best watched coin (see reputation_service: `seatFallback`), never one on the card
+        if c.get('holdBy') in ('proof', 'agents'):   # 🧪 / 🎮 held: no ENGINE buy of any kind (2026-10-12: a stop's reserved seat bought $CHILLGUY under the agents' hold)
+            return None
         return next((x for x in cfg.get('seatFallback') or [] if x.get('mint') not in have() and _f(x.get('price')) > 0 and price_agrees(x, prices)), None)
     # A prior replace may have reserved its slot when that feed had no eligible candidate. Heal it as soon as one exists.
     # This runs before TP/stops/rotation, preserves the configured slot count, and spends only the cash already returned by that sale.
