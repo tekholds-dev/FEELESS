@@ -3,7 +3,7 @@ import { ChartBg } from './ChartBg';
 import { useChartBg } from '../../lib/chartBg';
 import { ChartToolsMenu, useToolDraw } from './ChartTools';
 import { ChartPulse } from './ChartPulse';
-import { tweenClose } from '../../lib/tween';
+import { tweenClose, mergeLiveBar } from '../../lib/tween';
 import { toolRead, useChartTools } from '../../lib/chartTools';
 import { ChartGrab } from './ChartGrab';
 import { withGrab } from '../../lib/chartGrab';
@@ -50,6 +50,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   const lastBarRef = useRef(null);
   const markersRef = useRef(null);
   const [livePrice, setLivePrice] = useState(null);
+  const liveBarRef = useRef(null);   // the forming candle as the LIVE feed built it (kept across history reloads)
   const [feePos, setFeePos] = useState(null);
   const [feeOpen, setFeeOpen] = useState(false);
   const priceLinesRef = useRef([]);
@@ -190,7 +191,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
         priceFormat: { type: 'custom', formatter: axisFormat, minMove },
       });
       const bars = displayCandles.map(([time, open, high, low, close]) => ({ time, open, high, low, close }));
-      series.setData(bars);
+      series.setData(mergeLiveBar(bars, liveBarRef.current, interval, pair?.pairAddress));   // 🕯 a history reload never overwrites the LIVE forming candle
       seriesRef.current = { kind: 'candle', series };
       lastBarRef.current = bars[bars.length - 1] || null;
       series.priceScale().applyOptions({ scaleMargins: { top: .12, bottom: showVolume ? .24 : .12 } });
@@ -385,7 +386,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
             anim = { bar, from: shown, to: value, start: performance.now(), dur: 350 };
             if (!raf) raf = requestAnimationFrame(draw);
           } else { anim = null; ref.series.update(bar); shown = value; }
-          lastBarRef.current = bar;
+          lastBarRef.current = bar; liveBarRef.current = { ...bar, iv: interval, pool: pairLive.current?.pairAddress };
         } else {
           const point = { time: Math.max(t, last.time), value };
           ref.series.update(point);
@@ -412,7 +413,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     }
     tick();
     let n = 0;
-    const timer = setInterval(() => { n += 1; if (!streaming || n % 4 === 0) tick(); }, 1200);   // ≤1.5s freshness; ~5s when streaming
+    const timer = setInterval(() => { n += 1; if (!streaming) tick(); }, 1200);   // backup poll ONLY while the stream is down: one price feed per candle, never two
     return () => { alive = false; clearInterval(timer); if (raf && typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(raf); try { ws?.close(); } catch { /* ignore */ } };
   }, [charting, interval, pair?.baseToken?.address, pair?.chainId, pair?.pairAddress]);
   const [livePx, setLivePx] = useState(null);

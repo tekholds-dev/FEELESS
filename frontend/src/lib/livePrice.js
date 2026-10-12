@@ -5,12 +5,12 @@ export async function fetchLivePrice(pair) {
   const mint = pair?.baseToken?.address;
   if (chain === 'solana' && mint) {
     try {
-      const res = await fetch(`https://lite-api.jup.ag/price/v3?ids=${mint}`);
+      // 💲 the SAME live price the chart's stream pushes (server: Jupiter → fallbacks, one shared cache) — never a second feed on one candle
+      const res = await fetch(`/api/candles/price/solana/${pair.pairAddress}?mint=${mint}`);
       if (res.ok) {
         const body = await res.json();
-        const row = body?.[mint];
-        const usd = Number(row?.usdPrice);
-        if (usd > 0) return { usd, change24h: Number(row.priceChange24h), source: 'Jupiter' };
+        const usd = Number(body?.p);
+        if (usd > 0) return { usd, source: 'Jupiter' };
       }
     } catch {
       // fall through to DexScreener
@@ -39,16 +39,16 @@ export function formatLivePrice(v) {
   return `$${n.toFixed(digits)}`;
 }
 
-// Batch live prices for many pairs: Jupiter for all Solana mints in one call, DexScreener per chain.
+// Batch live prices for many pairs: the server's live price for Solana mints (one call per 50), DexScreener per chain.
 export async function fetchLivePrices(pairs) {
   const out = new Map();
   const sol = pairs.filter(p => p.chainId === 'solana' && p.baseToken?.address);
   for (let i = 0; i < sol.length; i += 50) {
     try {
       const ids = sol.slice(i, i + 50).map(p => p.baseToken.address).join(',');
-      const res = await fetch(`https://lite-api.jup.ag/price/v3?ids=${ids}`);
+      const res = await fetch(`/api/candles/prices?mints=${ids}`);   // the server's shared live price (the browser never calls Jupiter itself: it 429'd)
       const body = res.ok ? await res.json() : {};
-      sol.slice(i, i + 50).forEach(p => { const u = Number(body?.[p.baseToken.address]?.usdPrice); if (u > 0) out.set(`${p.chainId}-${p.baseToken.address}`, { usd: u, source: 'Jupiter' }); });
+      sol.slice(i, i + 50).forEach(p => { const u = Number(body?.[p.baseToken.address]); if (u > 0) out.set(`${p.chainId}-${p.baseToken.address}`, { usd: u, source: 'Jupiter' }); });
     } catch { /* keep going */ }
   }
   const rest = pairs.filter(p => !out.has(`${p.chainId}-${p.baseToken?.address}`) && p.pairAddress);

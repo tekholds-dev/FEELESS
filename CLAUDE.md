@@ -3164,3 +3164,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   held_too_long · variance) · responsible desk · severity · change · "valid decision that lost" vs "bad decision"; wins → why it worked. A cause
   becomes a rule only by repetition: 1 = record · 2 = SHADOW · ≥ 3 in the last 20 reviews = PROMOTED as a ≤ 8-point RANKING penalty
   (`opportunity.judge_hits`) that expires 24h after its last case — never a hard veto; unrelated losses tighten nothing.
+- 🕯 ONE PRICE FEED PER CANDLE (2026-10-11, "current candle glitches up and all the way down"): the chart's backup poll ran beside the stream
+  and called Jupiter FROM THE BROWSER — on a 429 it fell back to DexScreener's single-pool price, a second feed on the same candle. Now
+  `lib/livePrice` reads `GET /api/candles/price/{chain}/{pair}` / `GET /api/candles/prices?mints=` (the stream's own source + cache), the poll
+  runs ONLY while the stream is down, and a 15–60s history reload keeps the live forming candle (`lib/tween.mergeLiveBar`). Still calling
+  lite-api.jup.ag from the browser (not on the chart path): FusePage, FuseEvolve, QuickTrade, FeeInputs, lib/livePriceHub, lib/solPrice.

@@ -1135,6 +1135,31 @@ async def _upstream(key, chain, pair):
                 await _push_price(key, chain, pair, mint); await asyncio.sleep(1)
 
 
+@app.get('/api/candles/price/{chain}/{pair}')
+async def live_price(chain: str, pair: str, mint: Optional[str] = None):
+    """💲 THE live price of a pool's coin — the SAME source the stream pushes (Jupiter → keyed → DexScreener fallback, shared 5s cache), so
+    a chart's backup poll never mixes a second price feed into its forming candle (a browser-side Jupiter call that 429'd fell back to
+    DexScreener's single-pool price and the candle jumped up and down). → {p, t} or {p: None}."""
+    if chain != 'solana' or not _re_pair.match(pair or ''):
+        return {'p': None}
+    m = await _pair_base_token(chain, pair) or (mint if mint and _re_pair.match(mint) else None)
+    if not m:
+        return {'p': None}
+    px = await _stream_price(m)
+    return {'p': px, 't': time.time()}
+
+
+@app.get('/api/candles/prices')
+async def live_prices(mints: str = ''):
+    """💲 The same live price for many coins at once (≤ 60 mints, the shared 5s cache, 8 at a time) → {mint: price}."""
+    ms = [m for m in dict.fromkeys((mints or '').split(',')) if _re_pair.match(m)][:60]
+    sem = asyncio.Semaphore(8)
+    async def one(m):
+        async with sem:
+            return m, await _stream_price(m)
+    return {m: p for m, p in await asyncio.gather(*(one(m) for m in ms)) if p}
+
+
 @app.websocket('/api/candles/stream/{chain}/{pair}')
 async def price_stream(ws: WebSocket, chain: str, pair: str):
     if chain != 'solana' or not (32 <= len(pair) <= 44) or not pair.isalnum():
