@@ -273,3 +273,77 @@ def rank(table, skip=(), lost=(), metas=None, stats=None, pens=None, cap=MAX_MCA
         out.append({**x, 'opp': s, 'oppRaw': round(50 + sum(p for _k, p in parts), 1), 'tier': t, 'oppParts': parts,   # raw = the order (a strong coin passes 100: a cap would tie them)
                     'nearReady': f"{t}-tier {s:.0f}/100 — " + ' · '.join(f"{k} {p:+.0f}" for k, p in top)})
     return sorted(out, key=lambda r: -r['oppRaw'])
+
+
+# ── ⚡ OPEN MODE = TRUE TRENCHING (owner, 2026-10-12: "no reputation theater — newness, volume, buyers, liquidity, the live chart / tape,
+# early wallets, momentum; the agents build their OWN live narrative"). Pure + tested (tests/test_trench_open.py).
+NARRATIVES = ('HOT EARLY MOVE', 'BUILDING', 'BREAKOUT', 'RUNNING', 'STALLING', 'DISTRIBUTING', 'COLLAPSING')
+SKIP_NARRATIVES = ('DISTRIBUTING', 'COLLAPSING')
+OPEN_FRESH = ((5 / 60, 1.5), (0.25, 1.35), (1.0, 1.2), (3.0, 1.0), (6.0, 0.8))   # newness factor by age (h)
+
+
+def narrative(row):
+    """The coin's LIVE narrative from facts of THIS pass only (5-min move · volume pace · buyers · pool change · live chart phase · early
+    wallets) — nothing inherited from old records. → (narrative, why)."""
+    x = row or {}
+    n, v, li = x.get('nums') or {}, x.get('vitals') or {}, x.get('li') or {}
+    d5, pace, buy = _f(n.get('d5')), _f(n.get('pace') or x.get('pace')), n.get('buy')
+    mp, ewp, lq = x.get('mp'), li.get('ewp'), n.get('liqD')
+    age = v.get('ageH')
+    if d5 <= -15 or mp == 'COLLAPSE' or (lq is not None and _f(lq) <= -40):
+        return 'COLLAPSING', f"{d5:+.0f}% in 5 min" + (f", pool {_f(lq):+.0f}%" if lq is not None else '') + (f", chart {mp.lower()}" if mp else '')
+    if ewp == 'DUMPING' or mp == 'DISTRIBUTION' or (d5 > 0 and buy is not None and _f(buy) < 45):
+        return 'DISTRIBUTING', 'early wallets dumping' if ewp == 'DUMPING' else f"price up on {_f(buy):.0f}% buyers" if buy is not None and d5 > 0 else 'chart distribution'
+    if age is not None and _f(age) < 0.25 and d5 > 0 and pace >= 1.5:
+        return 'HOT EARLY MOVE', f"{_f(age) * 60:.0f} min old, {d5:+.0f}% on {pace:.1f}× volume pace"
+    if mp == 'BREAKOUT' or mp == 'RECLAIM':
+        return 'BREAKOUT', f"live chart {mp.lower()}"
+    if d5 > 0 and (buy is None or _f(buy) >= 55) and pace >= 1.0:
+        return 'RUNNING', f"{d5:+.1f}% on rising volume, buyers {_f(buy):.0f}%" if buy is not None else f"{d5:+.1f}% on rising volume"
+    if abs(d5) < 1 and pace < 1.0:
+        return 'STALLING', f"{d5:+.1f}% and volume slowing ({pace:.1f}×)"
+    return 'BUILDING', f"{d5:+.1f}% in 5 min, volume pace {pace:.1f}×"
+
+
+def open_score(row, weights=None):
+    """NEWNESS × VOLUME VELOCITY × BUYER VELOCITY × LIVE MOMENTUM × early wallets (× the Judge's evidence weight when it has one).
+    No holder, rug, creator, source or history part. → (score 0–~250, parts)."""
+    import math
+    x = row or {}
+    n, v, li = x.get('nums') or {}, x.get('vitals') or {}, x.get('li') or {}
+    age = v.get('ageH')
+    f_new = next((m for h, m in OPEN_FRESH if age is not None and _f(age) < h), 0.5)
+    vpm, bpm = velocity(x)
+    f_vol = max(0.3, min(2.0, 0.4 + (math.log10(max(_f(vpm), 1.0)) * 0.35)))          # $10/min ≈ 0.75 · $1K/min ≈ 1.45 · $10K/min = 1.8
+    f_buy = max(0.4, min(1.6, 0.6 + _f(bpm) * 0.2)) if bpm is not None else 0.8
+    f_mom = max(0.4, min(1.5, 1.0 + _f(n.get('d5')) / 30.0))
+    f_ewp = {'POSITIVE': 1.15, 'NEUTRAL': 1.0, 'WARNING': 0.8, 'DUMPING': 0.5}.get(li.get('ewp'), 1.0)
+    f_judge = max(0.7, min(1.3, _f((weights or {}).get(x.get('mint'), 1.0)) or 1.0))
+    parts = [('newness', round(f_new, 2)), ('volume velocity', round(f_vol, 2)), ('buyer velocity', round(f_buy, 2)), ('momentum', round(f_mom, 2)),
+             ('early wallets', round(f_ewp, 2)), ('judge weight', round(f_judge, 2))]
+    return round(100 * f_new * f_vol * f_buy * f_mom * f_ewp * f_judge, 1), parts
+
+
+def open_ok(row, min_liq=MIN_LIQ):
+    """EXECUTION SAFETY only (not strategy): a live price · traded in the last 5 min · inside the universe (0 < cap < $200K, ≤ 6h old) · a
+    pool the keeper can buy into · readable market data (not invalid / malformed / a bot ladder) · not a live collapse or distribution.
+    → None or the reason."""
+    x = row or {}
+    v, n, ch = x.get('vitals') or {}, x.get('nums') or {}, x.get('chart') or {}
+    if _f(x.get('px')) <= 0:
+        return 'no live price'
+    d = dead_now(x)
+    if d:
+        return d
+    if not (0 < _f(v.get('mcap')) < MAX_MCAP):
+        return 'outside 0 < cap < $200K'
+    if v.get('ageH') is None or _f(v['ageH']) > MAX_AGE_H:
+        return 'not ≤ 6h old'
+    if _f(n.get('liq') or v.get('liq')) < min_liq:
+        return 'pool under the keeper floor (cannot get in and back out)'
+    if ch.get('state') in HARD_CHART:
+        return f"market data {ch['state'].lower()}"
+    nar, why = narrative(x)
+    if nar in SKIP_NARRATIVES:
+        return f"{nar.lower()}: {why}"
+    return None

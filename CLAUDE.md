@@ -3323,3 +3323,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `born` restarts, lineage keeps `lesson` (the most common cause). Before, a desk could only change gen if it had a promoted tunable to reset —
   it never did, so they sat at gen 1 forever. ⏱ Rounds: an unread holder scan / price is PENDING (never a reject); a candidate off the list
   for one pass keeps its rounds (closed after a whole round away).
+- ⚡ OPEN TRENCHING (owner, 2026-10-12: "no reputation theater — newness, volume, buyers, liquidity, live chart / tape, early wallets, momentum";
+  realCfg `agentOpen`, ON via `_agent_open_fix_1012`, backup data/realcfg_before_open1012.json): every empty seat takes the top of
+  `opportunity.open_score` = newness × volume velocity × buyer velocity × 5-min momentum × early wallets × the Judge's evidence weight
+  (real-money memory → ×0.7…×1.3, never a veto). `open_ok` = EXECUTION SAFETY only: live price · traded in 5 min · 0 < cap < $200K and
+  ≤ 6h · pool ≥ the keeper floor · readable market data · live narrative not DISTRIBUTING / COLLAPSING. `narrative()` = HOT EARLY MOVE ·
+  BUILDING · BREAKOUT · RUNNING · STALLING · DISTRIBUTING · COLLAPSING from THIS pass only. No holder scan, rug meter, creator / coin /
+  source reputation, Devil veto, chart-rule block, 3-round wait or age halving decides an open-mode seat. Warden in open mode = W1
+  execution · W3 pool share · W17 seat room (+ W11 smallest order + W22 "SIZE TOO SMALL FOR COSTS"). Still on: the keeper's own buy checks
+  (route / sell-back / price near market), the office LIVE, keeper halt, Courier BAD, the hourly fill guard, Reaper's exits, the
+  just-left / keeper-refused block (`_agent_blocked`). Payload `open` → RoundBar "⚡ OPEN · TOP".

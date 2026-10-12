@@ -37,6 +37,8 @@ export function RoundBar({ o }) {
     {cell('screen', 'SCREENED → DEEP', `${o?.cycle?.screened ?? '—'} → ${o?.cycle?.reviewed ?? '—'}`, 'cheap Tally screen of the whole feed → coins given the expensive reads (holders · chart · social)')}
     {cell('tiers', 'A · B · C · NO', `${op.A ?? 0} · ${op.B ?? 0} · ${op.C ?? 0} · ${op.hard ?? 0}`, 'opportunity tiers of this pass; NO = a hard safety / universe failure')}
     {cell('bench', 'SEATS · BENCH', `${s.occupancy ?? 0}/${s.target ?? 4} · ${s.bench ?? 0}`, 'seats holding a coin · challengers behind them')}
+    {o?.open ? cell('open', '⚡ OPEN · TOP', o.open.top?.length ? o.open.top.slice(0, 2).map(t => `$${t.symbol} ${t.narrative?.toLowerCase()}`).join(' · ') : 'nothing tradeable',
+      `volume + newness only: ${o.open.read} read · ${o.open.ranked} tradeable · skipped: ${Object.entries(o.open.skipped || {}).map(([k, v]) => `${k} ${v}`).join(' · ') || 'none'}`, o.open.ranked ? 'is-ok' : 'is-warn') : null}
     {cell('ages', 'PRICE · TAPE · CANDLE · LIQ · DECISION', [fr.price, fr.tape, fr.candle, fr.liquidity, fr.decision].map(age).join(' · '), 'how old each input behind the decisions really is', fr.price > 30 || fr.candle > 90 ? 'is-warn' : '')}
   </div>;
 }

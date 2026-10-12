@@ -8966,6 +8966,23 @@ async def _proof_gate_fix_1010(now):
     return True
 
 
+async def _agent_open_fix_1012(now):
+    """⚡ Once (owner, 2026-10-12: "no blocks, no reputation scoring — volume and newness only; no seat should be empty"): `agentOpen` on.
+    The keeper's own buy checks (sell-back, price near market, pool floor) still run. Old value: data/realcfg_before_open1012.json."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('agentOpenFix1012') or not rc:
+            return False
+        _json_save(DATA_DIR / 'realcfg_before_open1012.json', {'agentOpen': rc.get('agentOpen', False)})
+        pr['realCfg'] = _prime.clean_cfg({**rc, 'agentOpen': True})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'agentOpen'})
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | {'agentOpen'})
+        pr['agentOpenFix1012'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _agent_real_fix_1012(now):
     """💵 Once (owner, 2026-10-12, after the edge audit read NO PROVEN EDGE: "continue with real money unless more issues"): the agents trade
     real money again (`agentPaper` False). Best available stays off, the held-card leaks stay closed, the real-money memory and the agent cost
@@ -9310,6 +9327,7 @@ async def _prime_tick_inner(now):
     await _proof_gate_fix_1010(now)
     await _curve_fix_1011(now)
     await _agent_real_fix_1012(now)
+    await _agent_open_fix_1012(now)
     await _agent_control_fix_1010(now)
     await _agent_duty_fix_1010(now)
     await _rush_fix_1009(now)
@@ -10007,6 +10025,25 @@ async def _prime_tick_inner(now):
             vetoed_ = 0
             plan_ = _oe.fill_plan({'control': True, 'pol': pol_, 'live': rd_['live'], 'halt': seat_ctx_['halt'], 'courier': seat_ctx_['courier'], 'used': used_, 'gos': gos_, 'wait': wait_,
                                    'empty': empty_n, 'emptySince': cur.get('agentEmptyAt'), 'lastFill': cur.get('agentFillAt'), 'now': now, 'near': near_, 'emptyFor': empty_for_, 'cap': _ag.FILL_MOVES_HR})
+            if (cfg_t.get('agentOpen') and empty_n and not pol_['manual'] and rd_['live'] and not seat_ctx_['halt'] and seat_ctx_['courier'] != 'BAD'
+                    and used_ < _ag.FILL_MOVES_HR):   # ⚡ OPEN MODE (execution health, a LIVE office and the runaway fill guard still apply): every empty seat takes the top of the volume + newness ranking NOW
+                blk_ = _agent_blocked(cur, now) | {l.get('mint') for l in cur.get('legs') or []}
+                mem_w = {}
+                if (_real_mem(now) or {}).get('proof', {}).get('ok'):   # 🧠 the Judge's evidence moves the RANKING weight (×0.7 … ×1.3), never a veto
+                    for x_ in _agents.get('table') or []:
+                        ch_ = x_.get('chart') or {}
+                        est_, _c = _rm.estimate(_real_mem(now), _rm.feats(ch_.get('state'), (ch_.get('entry') or [None, None])[1] if len(ch_.get('entry') or []) > 1 else None, '', (x_.get('li') or {}).get('phase'), (x_.get('li') or {}).get('cls'), (x_.get('vitals') or {}).get('ageH')))
+                        mem_w[x_.get('mint')] = 1 + (_fuse._f(est_) - _fuse._f(_real_mem(now).get('base'))) / 50
+                seen_ = [x_ for x_ in _agents.get('table') or [] if x_.get('mint') and x_['mint'] not in blk_ and not _fw.dollar_named(x_.get('symbol'))]
+                skip_ = {x_['mint']: _opp.open_ok(x_) for x_ in seen_}
+                open_ = sorted([x_ for x_ in seen_ if not skip_[x_['mint']]], key=lambda x_: -_opp.open_score(x_, mem_w)[0])
+                def _nar(x_):
+                    n_, w_ = _opp.narrative(x_); return f"⚡ {n_} — {w_} · score {_opp.open_score(x_, mem_w)[0]:g}"
+                plan_ = [{**x_, 'pair': x_.get('pair') or x_.get('pairAddress'), 'px': _shadow_px(x_), 'tier': 'A', 'open': True, 'opp': _opp.open_score(x_, mem_w)[0],
+                          'nearReady': _nar(x_)} for x_ in open_[:empty_n + 3]]
+                _office['open'] = {'at': now, 'read': len(seen_), 'ranked': len(open_),
+                                   'top': [{'symbol': x_.get('symbol'), 'score': _opp.open_score(x_, mem_w)[0], 'narrative': _opp.narrative(x_)[0]} for x_ in open_[:8]],
+                                   'skipped': dict(__import__('collections').Counter(str(w_).split(':')[0].split(' —')[0] for w_ in skip_.values() if w_).most_common(6))}
             if cfg_t.get('agentPaper'):   # 📄 PAPER: every seat the agents would fill is recorded in the shadow book at the live price — no real buy
                 for t_ in plan_[:max(0, empty_n)]:
                     _shadow_note(t_, 'fill', now, cur)
@@ -10025,7 +10062,7 @@ async def _prime_tick_inner(now):
                         continue
                     cur = _prime.agent_seat(cur, {'mint': t_['mint'], 'symbol': t_['symbol'], 'pairAddress': t_['pair'], 'price': t_['px'], 'liquidityUsd': (t_.get('nums') or {}).get('liq'), 'trench': t_['trench'], 'curve': bool((t_.get('vitals') or {}).get('curve') and cfg_t.get('agentCurve')),
                                                   'ageH': (t_.get('vitals') or {}).get('ageH'), 'vol1h': (t_.get('vitals') or {}).get('vol1h'), 'buyShare': (t_.get('nums') or {}).get('buy'),
-                                                  'tag': '🤖 agents GO · in control' if t_.get('go') else f"🤖 agents · {t_['tier']}-tier · ⏱ round 3" if t_.get('roundEnter') else f"🤖 agents · {t_['tier']}-tier" if t_.get('tier') else '🤖 agents · best available' if t_.get('nearReady') else '🤖 agents · 10-min duty',
+                                                  'tag': '🤖 agents GO · in control' if t_.get('go') else '🤖 agents · ⚡ open (volume + new)' if t_.get('open') else f"🤖 agents · {t_['tier']}-tier · ⏱ round 3" if t_.get('roundEnter') else f"🤖 agents · {t_['tier']}-tier" if t_.get('tier') else '🤖 agents · best available' if t_.get('nearReady') else '🤖 agents · 10-min duty',
                                                   'why': (t_.get('trigger') or ['', ''])[1] if t_.get('go') else t_['nearReady'] if t_.get('nearReady') else f"their strongest cleared read (lean {t_['why']['lean']:+.1f})"}, px, cfg_s, now, max_usd=wd_['allowed'])
                     used_ += 1; cur['agentDutyAt'] = now; cur['agentFillAt'] = now
                     _intake['reg'] = _in.stamp(_intake_reg(), 'seat', [t_['mint']], now)   # 🕸 clear → seat latency
@@ -13444,6 +13481,8 @@ def _office_warden(cur, t_, requested, cfg_t, now, move):
     try:
         t0 = time.perf_counter()
         ctx_ = _office_ctx(cur, t_, now)
+        if t_.get('open'):
+            ctx_['open'] = True   # ⚡ open mode: only execution · pool share · seat room
         if move == 'fill':   # 🪑 multi-seat sizing: how many seats are still open and the free cash they share (W17)
             seats_ = int(_fuse._f(_oe.policy(cfg_t).get('seats') or cfg_t.get('coins') or 0))
             held_ = len([l for l in cur.get('legs') or [] if not (l.get('placeholder') and not l.get('manualCash'))])
@@ -13782,7 +13821,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         sc_ = _social_cache()
         want_ = {x_.get('mint') for x_ in (_agents.get('table') or [])[:30]} | set(_office.get('pos') or {})
         _office['payload']['social'] = {m_: {k_: v_ for k_, v_ in sc_[m_].items() if k_ not in ('search',)} for m_ in want_ if m_ in sc_}
-        _office['payload'].update(fresh=_office_fresh(now), live=_office.get('live'), scans=_office.get('scans'), loadPass=_office_load_pass(),
+        _office['payload'].update(fresh=_office_fresh(now), live=_office.get('live'), open=_office.get('open'), scans=_office.get('scans'), loadPass=_office_load_pass(),
                                   deskStats=_jr.desk_stats(((_office_state().get('judge') or {}).get('reviews')) or []),
                                   rounds={**_tr.summary(_rounds_state(), now), 'roundSec': _tr.ROUND_SEC, 'desk': {'n': int(now // _tr.ROUND_SEC) % int(86400 // _tr.ROUND_SEC) + 1, 'left': round(_tr.ROUND_SEC - now % _tr.ROUND_SEC, 1)},
                                           'live': sorted([{'mint': m_, 'sym': e_.get('sym'), 'round': e_.get('round'), 'left': _tr.time_left(e_['first'], now),
@@ -13878,7 +13917,7 @@ async def admin_agents_set(request: Request):
     ch = {}
     if 'feed' in body:
         ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper') + _oe.POLICY_KEYS:
+    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen') + _oe.POLICY_KEYS:
         if k in (body.get('cfg') or {}):
             ch[k] = body['cfg'][k]
     if ch:

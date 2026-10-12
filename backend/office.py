@@ -326,6 +326,7 @@ def courier(ledger, book, now, card=None, office=None):
 NEAR_SIZE = 1.0   # 🪑 W19: a best-available / seat-floor fill takes a FULL equal seat (owner, 2026-10-11: "use all card cash") — was 0.5
 
 
+OPEN_RULES = ('W1', 'W3', 'W17')   # ⚡ open mode: execution health · pool share · each open seat its share of the cash
 COST_MAX_PCT = 5.0   # 💸 W22: a seat whose measured round-trip drag (sell-back loss + 2× network fee ÷ size) is over this is not bought
 
 
@@ -406,6 +407,8 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
         elif li_.get('cls') in ('BUNDLED', 'INSIDER-LIKE CLUSTER') or li_.get('press') == 'WATCH' or _f(li_.get('danger')) > 0:
             hit('W20 exit risk', 0.75, '; '.join(x for x in (li_.get('cls') if li_.get('cls') in ('BUNDLED', 'INSIDER-LIKE CLUSTER') else None, li_.get('pressWhy'),
                                                               f"{int(_f(li_.get('danger')))} early wallet(s) with a dump / rug record" if _f(li_.get('danger')) else None) if x))
+    if c.get('open'):   # ⚡ OPEN MODE (owner, 2026-10-12: "no gates — volume and newness only"): only execution, pool share and seat room size it
+        rules = [r for r in rules if r['id'].split(' ')[0] in OPEN_RULES]; tier_m = 1.0
     raw = min([r['mult'] for r in rules] or [1.0])
     if tier_m < 1:   # 🎯 size by CONFIDENCE: the tier multiplies whatever the other rules allowed (as the smallest rule it was masked: every seat came out ×0.4)
         rules.append({'id': 'W19 confidence tier', 'mult': round(tier_m, 3), 'why': f"{c.get('tier') or 'unconfirmed'}-tier: ×{tier_m:g} on top — {str(c.get('near'))[:140]}"})
@@ -424,7 +427,7 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
     if allowed > 0 and (rt or fee):   # 💸 W22 COST: a seat this size must be able to beat its OWN round trip (measured sell-back loss + the network fee both ways)
         drag = rt + 2 * fee / allowed * 100
         if drag > COST_MAX_PCT:
-            rules.append({'id': 'W22 cost', 'mult': 0.0, 'why': f"a ${allowed:.2f} seat pays ~{drag:.1f}% just to get in and out (> {COST_MAX_PCT:g}%) — not worth the fees"})
+            rules.append({'id': 'W22 cost', 'mult': 0.0, 'why': f"SIZE TOO SMALL FOR COSTS — a ${allowed:.2f} seat pays ~{drag:.1f}% just to get in and out (> {COST_MAX_PCT:g}%); not a strategy failure"})
             allowed, mult = 0.0, 0.0
     return {'requested': round(req, 4), 'allowed': round(allowed, 4), 'mult': mult, 'eff': round(allowed / req, 3) if req > 0 else 0.0, 'veto': allowed <= 0,
             'rules': rules, 'decided': min(rules, key=lambda r: r['mult'])['id'] if rules else 'none — full size',
