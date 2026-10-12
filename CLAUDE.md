@@ -3277,3 +3277,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   the candidate cool set AND re-checked in the fill loop. New "don't buy this" source ⇒ add it there, never a third inline set.
 - 📉 FALLING = NO (`opportunity.FALL_HARD` −8, was −15): a coin down ≥ 8% in 5 min is a hard no for every new agent entry (it scored a −20
   "falling" penalty and could still rank C-tier: $Squeeze stopped −38% one minute after the buy, $STRKT −6% in two).
+- 🧠 REAL-MONEY MEMORY (owner, 2026-10-12: "learn from all real money losses and go again — paper won't prove it"; `backend/real_memory.py`
+  pure + tested, `_real_mem` rebuilt each minute from the archive's confirmed real exits): entry features (chart structure · the chart's entry
+  rule · door / tier · launch phase · class · age) → shrunk median real result per bucket; a candidate whose WORST bucket is ≥ 3 points under
+  the card's typical real trade is not bought (filtered from GO / cleared / best-available before `fill_plan`, reasons in `live.memory`). Used
+  only while it beats its own skips walk-forward (oldest 60% learn, newest 40% judged). 2026-10-12: kept 29 of 106 unseen real trades at
+  +1.2% avg vs skipped 77 at −3.8% (worst: PARABOLIC −10, E3 −10, E2 −7, C-tier −3). `MemoryLine` under Reaper's take line.
+- ⚡ AGENT BUYS COST LESS (`fuse_wallet.AGENT_PRICE_GAP_PCT` 2.5 / `AGENT_ROUNDTRIP_PCT` 3.5 for orders flagged `agent` = leg tag 🤖): 261 real
+  agent buys in 24h filled 1.0% over mid (p90 4.5%) and sold straight back 2.3% lower — every scalp started −2…−3%. Engine coins keep 5 / 6.

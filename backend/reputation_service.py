@@ -9936,6 +9936,21 @@ async def _prime_tick_inner(now):
                 print('live check:', e)
                 moved_ = [{'symbol': t_.get('symbol'), 'ok': False, 'why': f'live check failed ({type(e).__name__}) — not bought this tick'} for t_ in (gos_ + wait_)[:2]]
                 gos_, wait_ = [], []
+            # 🧠 REAL-MONEY MEMORY: every confirmed real exit, filed by what the coin looked like at the buy — a candidate whose learned
+            # real result is ≤ −4% is not bought (only while the memory beats its own skips on unseen real trades). Relearned every minute.
+            mem_ = _real_mem(now)
+            mem_out = []
+            def _mem_ok(t_):
+                ch_ = _office['charts'].get(t_['mint']) or {}
+                tag_ = '🤖 agents GO' if t_.get('go') else f"{t_['tier']}-tier" if t_.get('tier') else 'best available' if t_.get('nearReady') else 'duty'
+                why_ = _rm.judge(mem_, _rm.feats(ch_.get('state'), (ch_.get('entry') or [None, None])[1] if len(ch_.get('entry') or []) > 1 else None, tag_,
+                                                 (t_.get('li') or {}).get('phase'), (t_.get('li') or {}).get('cls'), (t_.get('vitals') or {}).get('ageH')))
+                if why_:
+                    mem_out.append({'symbol': t_.get('symbol'), 'ok': False, 'why': why_})
+                return not why_
+            gos_, wait_, near_ = [t_ for t_ in gos_ if _mem_ok(t_)], [t_ for t_ in wait_ if _mem_ok(t_)], [t_ for t_ in near_ if _mem_ok(t_)]
+            if mem_out:
+                _office['live'] = {**(_office.get('live') or {}), 'memory': mem_out[:8]}
             empty_for_ = (now - _fuse._f(cur.get('agentEmptyAt'))) if cur.get('agentEmptyAt') else 0.0
             valid_ = [] if pol_['manual'] else gos_ + ([] if pol_['entry'] == 'go' else wait_) + (near_ if (not gos_ and not wait_ and empty_for_ >= _oe.NEAR_PATIENCE_SEC and pol_['entry'] != 'go') else [])
             if empty_n and valid_ and not _office.get('validSince'):
@@ -12475,11 +12490,26 @@ import opportunity as _opp
 import launch_intel as _li
 import market_wake as _mw
 import judge_review as _jr
+import real_memory as _rm
 LINGO_PATH = FUSE_HQ_PATH.parent / 'trench_lingo.json'   # 📖 slang the desk learned from Pump callers' own words (per-day counts + learned words)
 AGENTS_PATH = FUSE_HQ_PATH.parent / 'agents.json'   # 🤖 the agent desk: Tally's tapes, every call, every judged result
 AGENTS_EVERY = 18.0                                 # ⚡ 3× a minute (owner, 2026-10-11: "seats never empty — 3× as fast"); a pass takes ~2s
 # 🕸 the intake = office_edge.intake (reserved room for rechecks · newest · accelerating · graduations · momentum · busiest · listed, ≤ INTAKE_MAX)
 _agents: dict = {'at': 0.0, 'table': [], 'view': None}
+
+
+_rm_cache: dict = {'at': 0.0, 'mem': None}
+
+
+def _real_mem(now):
+    """🧠 The real-money memory (`real_memory.build` over the archive's confirmed real exits), rebuilt at most once a minute."""
+    if _rm_cache['mem'] is None or now - _rm_cache['at'] >= 60:
+        try:
+            _rm_cache['mem'] = _rm.build((_json_load(ARCHIVE_PATH, {}) or {}).get('positions'))
+        except Exception as e:
+            print('real memory:', str(e)[:120]); _rm_cache['mem'] = _rm_cache['mem'] or {}
+        _rm_cache['at'] = now
+    return _rm_cache['mem']
 
 
 def _agent_blocked(card, now):
@@ -13597,7 +13627,8 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         sc_ = _social_cache()
         want_ = {x_.get('mint') for x_ in (_agents.get('table') or [])[:30]} | set(_office.get('pos') or {})
         _office['payload']['social'] = {m_: {k_: v_ for k_, v_ in sc_[m_].items() if k_ not in ('search',)} for m_ in want_ if m_ in sc_}
-        _office['payload'].update(fresh=_office_fresh(now), live=_office.get('live'), scans=_office.get('scans'), loadPass=_office_load_pass())
+        _office['payload'].update(fresh=_office_fresh(now), live=_office.get('live'), scans=_office.get('scans'), loadPass=_office_load_pass(),
+                                  memory={k_: v_ for k_, v_ in (_real_mem(now) or {}).items() if k_ != 'cells'} | {'worst': sorted(((v_['est'], k_, v_['n']) for k_, v_ in ((_real_mem(now) or {}).get('cells') or {}).items()))[:6]})
     except Exception as e:
         print('fresh:', e)
     _office['payload']['performance']['passMs'] = round(sum(_fuse._f(ms.get(a)) for a in _of.CHAIN), 2)

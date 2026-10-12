@@ -234,9 +234,21 @@ export function TakeLine({ t }) {
     <span><small>RULE ID</small><em>{t.ruleId}</em><u>{t.rule}</u></span></div>;
 }
 
-export function OfficePositions({ positions, exiting, take, wake }) {
+export function MemoryLine({ m }) {
+  if (!m || !m.n) return null;
+  const p = m.proof || {};
+  return <div className="ofb-take" data-testid="ofb-memory" data-tip="Every confirmed real exit, filed by what the coin looked like at the buy. A candidate whose learned real result is 3+ points under the card's typical trade is not bought — only while the memory beats its own skips on real trades it never saw.">
+    <span><small>🧠 REAL MEMORY</small><em className={p.ok ? 'ofb-up' : 'ofb-warn'}>{p.ok ? 'IN USE' : 'PROVING'}</em><u>{m.n} real trades</u></span>
+    <span><small>KEPT (UNSEEN)</small><em>{p.take?.avg == null ? '—' : sgn(p.take.avg, 1)}</em><u>n {p.take?.n ?? 0}</u></span>
+    <span><small>SKIPPED (UNSEEN)</small><em className="ofb-dn">{p.skip?.avg == null ? '—' : sgn(p.skip.avg, 1)}</em><u>n {p.skip?.n ?? 0}</u></span>
+    <span><small>VETO</small><em>≤ {sgn(m.veto, 1)}</em></span>
+    <span><small>WORST ENTRIES</small><em>{(m.worst || []).slice(0, 3).map(w => `${w[1]} ${sgn(w[0], 0)}`).join(' · ') || '—'}</em></span></div>;
+}
+
+export function OfficePositions({ positions, exiting, take, wake, memory }) {
   return <div className="ofb-box" data-testid="ofb-positions"><b>☠ REAPER · open positions on the real card</b>
     <TakeLine t={take} />
+    <MemoryLine m={memory} />
     <WakeLine w={wake} />
     {positions?.length ? <div className="ofb-poslist">{positions.map(p => <PositionCard key={p.mint} p={p} />)}</div> : <span className="ofb-nil">no open position Reaper is responsible for</span>}
     {exiting?.length ? <p className="ofb-exiting">{exiting.map(e => <Tag key={e.mint} cls="is-work" tip="Left the card; it is closed only when the ledger shows the confirmed sale.">${e.sym} exit {e.state} · {e.rule || 'card rule'}</Tag>)}</p> : null}
@@ -287,7 +299,7 @@ export function OfficeBoard({ o }) {
     {a ? null : <p className="ofb-hint">Tap a desk (or a stage of the line) to open its ideology, ethics, immutable and tunable rules, this pass's inputs and output, its record and the code that runs it.</p>}
     <div className="ofb-agents" data-testid="ofb-agents">{(o.agents || []).map(x => <React.Fragment key={x.key}><AgentCard a={x} on={sel === x.key} onPick={pick} />
       {sel === x.key ? <AgentDetail a={x} learning={o.learning} /> : null}</React.Fragment>)}</div>
-    <OfficePositions positions={o.positions} exiting={o.exiting} take={o.take} />
+    <OfficePositions positions={o.positions} exiting={o.exiting} take={o.take} wake={o.wake} memory={o.memory} />
     <OfficeExecution x={o.execution} />
     <div className="ofb-two"><OfficeLearning l={o.learning} /><OfficePerf perf={o.performance} agents={o.agents} /></div>
   </div>;

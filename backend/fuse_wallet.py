@@ -91,7 +91,7 @@ def target(card, prices):
     out = {}
     for l in card.get('legs') or []:
         px = _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
-        t = out.setdefault(l['mint'], {'units': 0.0, 'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'px': px, 'role': l.get('role'), 'arena': bool(l.get('arena')), 'trench': bool(l.get('trench')), 'picked': bool(l.get('picked')), 'curve': bool(l.get('curve')),
+        t = out.setdefault(l['mint'], {'units': 0.0, 'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'px': px, 'role': l.get('role'), 'arena': bool(l.get('arena')), 'trench': bool(l.get('trench')), 'picked': bool(l.get('picked')), 'curve': bool(l.get('curve')), 'agent': agent_seat(l),
                                        'trim': bool(l.get('trimAt')) and _f(l.get('trimAt')) > 0, 'trimAt': _f(l.get('trimAt')),
                                        'manualCash': bool(l.get('manualCash')), 'locked': bool(l.get('ride') or l.get('frozen') or (l.get('ticket') and not agent_seat(l)) or l.get('scout') or l.get('house'))})   # 🎟 a small ticket (scout / trench drop / young hand pick) is never topped up to a full seat
         t['units'] += _f(l.get('units')) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)   # a coin whose buy hasn't landed is still WANTED
@@ -295,7 +295,7 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
         buys.append({'id': f"{card_id}:{now:.0f}:b:{mint[:6]}", 'card': card_id, 'side': 'buy', 'mint': mint, 'pair': t['pair'], 'symbol': t['symbol'],
                      'lamports': int(usd / sol_px * 1e9), 'usd': round(usd, 4), 'midPx': t['px'], 'at': now, 'why': 'card buys its coin',
                      **({'rentDeposit': rent} if rent else {}),
-                     **({'arena': True} if t.get('arena') else {}), **({'trench': True} if t.get('trench') else {}), **({'picked': True} if t.get('picked') else {}), **({'curve': True} if t.get('curve') else {})})
+                     **({'arena': True} if t.get('arena') else {}), **({'trench': True} if t.get('trench') else {}), **({'picked': True} if t.get('picked') else {}), **({'curve': True} if t.get('curve') else {}), **({'agent': True} if t.get('agent') else {})})
     if card.get('holdBy') == 'proof':   # 🧪 proof-gate hold: sells (stops, rug shield, profit takes) go out — no buy does
         buys = []
     sweep = idle_sweep(card_id, card, book, tgt, sol_free, sol_px, cfg, now) if not sells and not buys else None
@@ -372,7 +372,7 @@ def idle_sweep(card_id, card, book, tgt, sol_free, sol_px, cfg, now):
         return None
     return {'id': f"{card_id}:{now:.0f}:b:{mint[:6]}", 'card': card_id, 'side': 'buy', 'mint': mint, 'pair': t['pair'], 'symbol': t['symbol'],
             'lamports': int(usd / sol_px * 1e9), 'usd': round(usd, 4), 'midPx': t['px'], 'at': now, 'why': 'idle card cash back into its coin',
-            **({'arena': True} if t.get('arena') else {}), **({'trench': True} if t.get('trench') else {}), **({'picked': True} if t.get('picked') else {}), **({'curve': True} if t.get('curve') else {})}
+            **({'arena': True} if t.get('arena') else {}), **({'trench': True} if t.get('trench') else {}), **({'picked': True} if t.get('picked') else {}), **({'curve': True} if t.get('curve') else {}), **({'agent': True} if t.get('agent') else {})}
 
 
 def spent_24h(ledger, now):
@@ -1310,6 +1310,12 @@ MAX_SELL_GAP_PCT = 8.0      # a SELL may pay at most this much under the market 
 MAX_ROUNDTRIP_PCT = 6.0     # buying then selling straight back may lose at most this (fees + impact both ways)
 
 
+# ⚡ AGENT SCALPS START IN A HOLE (2026-10-12, 261 real agent buys in 24h): fills landed 1.0% above mid (p90 4.5%) and sold straight back for
+# 2.3% less at the median — every entry began −2…−3% before the coin moved, on 5-minute holds. An agent seat's buy must cost less.
+AGENT_PRICE_GAP_PCT = 2.5
+AGENT_ROUNDTRIP_PCT = 3.5
+
+
 def buy_safety(order, quote_out_atoms, decimals, sell_back_lamports):
     """(ok, why) for a REAL buy, from two read-only quotes: the buy price must be near the market price (no stale / manipulated
     route) and the coin must SELL straight back for SOL without a big loss (no honeypot, transfer tax or one-way pool)."""
@@ -1318,13 +1324,14 @@ def buy_safety(order, quote_out_atoms, decimals, sell_back_lamports):
         return False, 'quote returned no coins'
     px = _f(order.get('usd')) / out
     mid = _f(order.get('midPx'))
-    if decimals is not None and mid > 0 and (px / mid - 1) * 100 > MAX_PRICE_GAP_PCT:   # unknown decimals → only the sell-back check
-        return False, f"buy price {((px / mid - 1) * 100):.1f}% above market (> {MAX_PRICE_GAP_PCT:g}%)"
+    gap_cap = AGENT_PRICE_GAP_PCT if order.get('agent') else MAX_PRICE_GAP_PCT
+    if decimals is not None and mid > 0 and (px / mid - 1) * 100 > gap_cap:   # unknown decimals → only the sell-back check
+        return False, f"buy price {((px / mid - 1) * 100):.1f}% above market (> {gap_cap:g}%)"
     if sell_back_lamports is None:
         return False, "can't sell it back to SOL (no route) — skipped"
     loss = (1 - _f(sell_back_lamports) / max(1, _f(order.get('lamports')))) * 100
     # 🎯 the owner's own pick may use their own limit (6–10%, cfg `pickSellBackPct`); the engine's coins always use 6%
-    cap = max(MAX_ROUNDTRIP_PCT, min(10.0, _f(order.get('maxRoundtripPct')))) if order.get('picked') else MAX_ROUNDTRIP_PCT
+    cap = max(MAX_ROUNDTRIP_PCT, min(10.0, _f(order.get('maxRoundtripPct')))) if order.get('picked') else AGENT_ROUNDTRIP_PCT if order.get('agent') else MAX_ROUNDTRIP_PCT
     if loss > cap:
         return False, f"sells back for {loss:.1f}% less (> {cap:g}%) — tax / thin / one-way"
     return True, ''

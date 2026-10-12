@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { OfficeBoard, OfficeMission, ChartBox, DataLine, dqWord, DQ_CLS, PositionCard, TakeLine, actionResult, nextDuty, clock, ago, sgn, ms, entryCls, STAGE_CLS, STRUCT_CLS, DECISION_CLS } from './OfficeBoard';
+import { OfficeBoard, OfficeMission, ChartBox, DataLine, dqWord, DQ_CLS, PositionCard, TakeLine, MemoryLine, actionResult, nextDuty, clock, ago, sgn, ms, entryCls, STAGE_CLS, STRUCT_CLS, DECISION_CLS } from './OfficeBoard';
 import office from './__fixtures__/office.json';
 
 const mount = async node => { const el = document.createElement('div'); document.body.appendChild(el); await act(async () => { createRoot(el).render(node); }); return el; };
@@ -192,4 +192,13 @@ test('⏱ freshness + ⚡ wake lines render what Reaper decided on', async () =>
   expect(f.textContent).toContain('STALE INPUTS'); expect(f.textContent).toContain('candle 2m'); expect(f.textContent).toContain('price 4s');
   const w = await mount(<WakeLine w={{ reaper: 3, trigger: 1, watching: 6, log: [{ at: Date.now() / 1000 - 5, kind: 'reaper', sym: 'DOPE', why: 'reversal: +2.1% from a +9.0% peak' }] }} />);
   expect(w.textContent).toContain('Reaper 3'); expect(w.textContent).toContain('$DOPE: reversal');
+});
+
+test('the real-money memory line says if it is in use, what it kept and skipped on unseen real trades, and the worst entries', async () => {
+  const m = { n: 264, veto: -4.15, proof: { ok: true, take: { n: 29, avg: 1.17 }, skip: { n: 77, avg: -3.79 } }, worst: [[-10.35, 'struct:PARABOLIC', 12], [-9.68, 'rule:E3', 17]] };
+  const el = await mount(<MemoryLine m={m} />);
+  const t = el.querySelector('[data-testid="ofb-memory"]').textContent;
+  expect(t).toContain('IN USE'); expect(t).toContain('264 real trades'); expect(t).toContain('struct:PARABOLIC');
+  const none = await mount(<MemoryLine m={{ n: 0 }} />);
+  expect(none.querySelector('[data-testid="ofb-memory"]')).toBeNull();
 });
