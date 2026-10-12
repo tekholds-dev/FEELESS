@@ -264,7 +264,7 @@ def fill_plan(ctx):
     duty = list(c.get('wait') or [])[:max(1, int(_f(c.get('empty')))) + 3] if may_fill({'go': False}, pol, c.get('emptySince'), _f(c.get('now')), _f(c.get('lastFill'))) else []
     left = max(0, cap - int(_f(c.get('used'))))
     plan = list(c.get('gos') or []) + duty
-    if not plan and not c.get('wait') and c.get('near') and _f(c.get('emptyFor')) >= NEAR_PATIENCE_SEC and pol.get('entry') != 'go':   # 🪑 nothing cleared and the seat waited: the best near-ready coin
+    if c.get('allowNear', BEST_AVAILABLE) and not plan and not c.get('wait') and c.get('near') and _f(c.get('emptyFor')) >= NEAR_PATIENCE_SEC and pol.get('entry') != 'go':   # 🪑 nothing cleared and the seat waited: the best near-ready coin
         plan = list(c['near'])[:max(1, int(_f(c.get('empty')))) + 2]
     return plan[:max(left, 0)]
 
@@ -309,6 +309,9 @@ def real_buys(events, ledger, card, now, window=3600.0, moves=('fill', 'swap')):
 
 
 # ── 🪑 BEST AVAILABLE: an empty seat does not wait forever on the entry moment ───────────────────────────────────────────────────────
+# 🚫 BEST AVAILABLE / SEAT FLOOR / RANKED FILL = OFF (owner's emergency edge audit, 2026-10-12): an empty seat is CASH, never "buy something".
+# Real record, 24h: 84 such fills, 21% won, median GROSS −1.3%, net −3.0%, −$0.59 — negative before costs. Only a full GO or a cleared case fills.
+BEST_AVAILABLE = False
 NEAR_PATIENCE_SEC = 10       # a seat empty this long with NOTHING cleared takes the best near-ready coin (owner: "30 secs to choose") …
 NEAR_MIN_ENTRY = 50.0        # 🎯 … AND an entry score (opportunity.score) of at least B-tier — never 'the least bad coin'
 NEAR_MIN_SCORE = 15.0        # … scoring at least this (seat_ops.score WITHOUT its phase tilt — the tilt orders coins, it never keeps a seat empty) …

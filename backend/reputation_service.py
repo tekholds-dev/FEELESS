@@ -9955,6 +9955,7 @@ async def _prime_tick_inner(now):
             if mem_out:
                 _office['live'] = {**(_office.get('live') or {}), 'memory': mem_out[:8]}
             empty_for_ = (now - _fuse._f(cur.get('agentEmptyAt'))) if cur.get('agentEmptyAt') else 0.0
+            near_ = near_ if _oe.BEST_AVAILABLE else []   # 🚫 forced occupancy is off: an empty seat stays cash
             valid_ = [] if pol_['manual'] else gos_ + ([] if pol_['entry'] == 'go' else wait_) + (near_ if (not gos_ and not wait_ and empty_for_ >= _oe.NEAR_PATIENCE_SEC and pol_['entry'] != 'go') else [])
             if empty_n and valid_ and not _office.get('validSince'):
                 _office['validSince'] = now

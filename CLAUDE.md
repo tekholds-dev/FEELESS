@@ -3285,3 +3285,17 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   +1.2% avg vs skipped 77 at −3.8% (worst: PARABOLIC −10, E3 −10, E2 −7, C-tier −3). `MemoryLine` under Reaper's take line.
 - ⚡ AGENT BUYS COST LESS (`fuse_wallet.AGENT_PRICE_GAP_PCT` 2.5 / `AGENT_ROUNDTRIP_PCT` 3.5 for orders flagged `agent` = leg tag 🤖): 261 real
   agent buys in 24h filled 1.0% over mid (p90 4.5%) and sold straight back 2.3% lower — every scalp started −2…−3%. Engine coins keep 5 / 6.
+- 📄 EMERGENCY EDGE AUDIT (owner, 2026-10-12 — this REPLACES "seats never empty" and 4/4 occupancy as a goal): (1) `agentPaper` (realCfg,
+  ON by default, `arena_prime.clean_cfg`): agents decide on PAPER — no new real buy or switch-in; Reaper, stops, rug / drain, fast reap and
+  every exit still manage coins already held. Real money returns ONLY by the owner's switch after graduation (below). (2) `office_edge.
+  BEST_AVAILABLE` False: best available / seat floor / ranked fills are off — an empty seat is cash (84 real fills: median GROSS −1.3%).
+  (3) 📄 `backend/shadow_book.py` + `_shadow_note/_shadow_controls/_shadow_settle` (`data/shadow_book.json`): every would-be fill + controls
+  from the same moment (best not chosen · random eligible · a WAIT coin) graded at 30s…1h from prices seen AFTER the decision, NET of the card's
+  own measured round trip (`_shadow_cost`: ledger sell-back + 2× fee); `verdict` = agents vs random. (4) `judge_review.LIVE_RULES` False: the
+  Judge proposes, never changes a live threshold. (5) `scripts/real-audit.py [card]` (read-only → data/real_audit.json): every round trip from
+  the LEDGER, attribution (source · age · door · entry rule · exit), churn, cost drag, Monte Carlo, rolling walk-forward. 2026-10-12, 24h:
+  240 agent trips · NET −$2.15 on $35 turnover · median −3.2% · 26% won · PF 0.26 · cost ≈ 1.8%/trip · resampled mean > 0 in 0% · walk-forward:
+  0 rules → NO PROVEN EDGE. Losses: bad selection 39% · late entry 32% · rug 15% · bad exit 7% · execution (as the deciding cause) < 1%.
+  GRADUATION (proposed, owner decides): ≥ 100 forward shadow fills · NET avg > 0 and median ≥ 0 after measured costs at the planned hold ·
+  profit factor > 1.2 · beats the random control by ≥ 2 pts · bootstrap mean > 0 in ≥ 90% · top-3 trades < 30% of profit · max DD < 20% of
+  stake — on trades AFTER the rule was frozen.

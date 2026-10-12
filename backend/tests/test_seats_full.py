@@ -63,7 +63,7 @@ def test_near_ready_takes_only_coins_whose_only_open_checks_are_the_entry_moment
 
 def _ctx(**kw):
     c = {'control': True, 'pol': {'entry': 'auto'}, 'live': True, 'halt': None, 'courier': 'OK', 'used': 0, 'gos': [], 'wait': [], 'empty': 2,
-         'emptySince': 0, 'lastFill': 0, 'now': 1000.0, 'near': [{'mint': 'N1'}, {'mint': 'N2'}, {'mint': 'N3'}, {'mint': 'N4'}, {'mint': 'N5'}], 'emptyFor': 0}
+         'emptySince': 0, 'lastFill': 0, 'now': 1000.0, 'near': [{'mint': 'N1'}, {'mint': 'N2'}, {'mint': 'N3'}, {'mint': 'N4'}, {'mint': 'N5'}], 'emptyFor': 0, 'allowNear': True}
     c.update(kw)
     return c
 
@@ -265,3 +265,11 @@ def test_a_coin_falling_eight_percent_in_five_minutes_is_a_hard_no():
     row = lambda d5: {'mint': 'X', 'symbol': 'X', 'px': 1.0, 'nums': {'d5': d5, 'liq': 20000}, 'vitals': {'safe': True, 'ageH': 2, 'mcap': 50000, 'liq': 20000}}
     assert 'in 5 min' in str(opp.hard_fail(row(-9.0)) or '')
     assert 'in 5 min' not in str(opp.hard_fail(row(-5.0)) or '')
+
+
+def test_an_empty_seat_is_cash_best_available_is_off():
+    """Emergency edge audit: best available / seat floor fills were negative before costs (84 real fills, median gross −1.3%)."""
+    assert oe.BEST_AVAILABLE is False
+    assert oe.fill_plan({**_ctx(emptyFor=999), 'allowNear': oe.BEST_AVAILABLE}) == []
+    src = open(__import__('reputation_service').__file__).read()
+    assert 'near_ = near_ if _oe.BEST_AVAILABLE else []' in src
