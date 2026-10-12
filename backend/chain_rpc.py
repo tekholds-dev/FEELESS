@@ -5,6 +5,7 @@ are fallback-only, so a rate-limited public node never blocks resolution. Each e
 skipped for a cooldown window instead of failing every request that hits it.
 """
 import asyncio
+import json
 import os
 import time
 from typing import Optional
@@ -42,8 +43,12 @@ def _next_rpc_endpoint() -> Optional[str]:
 
 # The scanners' share of the dedicated endpoint, in calls a second (fractions allowed). A free plan is a DAILY budget (QuickNode
 # 50,000 requests a day ≈ 0.58 a second): at 5 a second the holder scans spent all of it by late morning and the keeper fell back to
-# public nodes; at 0 the scans starve (public nodes refuse most holder lookups) and the trench / volume lists go empty. Default 0.3 a
-# second ≈ 26K a day for scans, the rest for the keeper. A paid plan can raise it with RPC_SCAN_RPS.
+# public nodes; at 0 the scans starve (public nodes refuse most holder lookups) and the trench / volume lists go empty. DEFAULT 1.0 a
+# second (≈ 86K a day on the DEDICATED lane only): raised deliberately on 2026-10-08 — at 0.3 and 0.5 the scan queue starved and 184 of 200
+# feed coins read "not scanned yet". It is safe because (1) it budgets only the dedicated endpoint, the keeper always keeps its own lane
+# (`rpc_priority`), (2) a spent plan is parked until its reset (`out_of_quota`), (3) identical in-flight reads are coalesced (`_rpc`
+# singleflight below) and (4) trench mode no longer needs a holder scan to buy, so scans run for Sherlock's evidence on the strongest
+# coins only. A free plan that runs dry can lower it with RPC_SCAN_RPS.
 try:
     SCAN_RPS = max(0.0, float(os.environ.get('RPC_SCAN_RPS', '1.0') or 0))
 except ValueError:
@@ -110,7 +115,45 @@ def _usable(e, method, now):
     return max(_rpc_cooldown_until.get(e, 0), _quota_until.get(e, 0), _unsupported.get((e, method), 0)) <= now
 
 
+# 🔗 SINGLEFLIGHT (request coalescing): identical READ calls in flight at the same moment — the same (method, params) asked by several
+# scanners / desks — share ONE physical request; everyone awaits the same future. Writes are never coalesced (each send is its own).
+RPC_STATS = {'logical': 0, 'physical': 0, 'saved': 0, 'r429': 0, 'refused': 0}
+_SF_WRITE = ('sendTransaction', 'requestAirdrop', 'simulateTransaction')
+_sf_inflight: dict = {}
+
+
+def _sf_key(method, params):
+    try:
+        return method + ':' + json.dumps(params, sort_keys=True, default=str)
+    except Exception:
+        return None
+
+
 async def _rpc(http: httpx.AsyncClient, method: str, params: list, scan: bool = True):
+    """The ONE read path for scanners: singleflight over `_rpc_physical` (identical in-flight reads share one request)."""
+    RPC_STATS['logical'] += 1
+    key = None if method in _SF_WRITE else _sf_key(method, params)
+    if key is None:
+        return await _rpc_physical(http, method, params, scan)
+    fut = _sf_inflight.get(key)
+    if fut is not None:
+        RPC_STATS['saved'] += 1
+        return await asyncio.shield(fut)
+    fut = asyncio.get_event_loop().create_future()
+    _sf_inflight[key] = fut
+    try:
+        res = await _rpc_physical(http, method, params, scan)
+        fut.set_result(res)
+        return res
+    except BaseException as e:
+        fut.set_exception(e)
+        fut.exception()   # mark retrieved: a coalesced waiter re-raises it, no "never retrieved" warning
+        raise
+    finally:
+        _sf_inflight.pop(key, None)
+
+
+async def _rpc_physical(http: httpx.AsyncClient, method: str, params: list, scan: bool = True):
     """Calls the RPC pool with retry + per-endpoint cooldown on failure or rate-limit. A node that refuses only THIS method (a free plan
     without getTokenLargestAccounts) skips that method for an hour and stays in the pool for everything else — it used to rest the
     whole node 30s on every holder scan."""
@@ -124,12 +167,14 @@ async def _rpc(http: httpx.AsyncClient, method: str, params: list, scan: bool = 
             last_error = last_error or 'scan_budget'   # over the scanners' share → try the next endpoint, leave the plan to the keeper
             continue
         try:
+            RPC_STATS['physical'] += 1
             if scan:
                 async with _scan_gate:
                     res = await http.post(endpoint, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params})
             else:
                 res = await http.post(endpoint, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params})
             if res.status_code == 429:
+                RPC_STATS['r429'] += 1
                 spent = out_of_quota(429, res.text, res.headers)
                 if spent:
                     _quota_until[endpoint] = time.time() + spent
@@ -137,6 +182,7 @@ async def _rpc(http: httpx.AsyncClient, method: str, params: list, scan: bool = 
                 last_error = 'rate_limited'
                 continue
             if res.status_code == 403:
+                RPC_STATS['refused'] += 1
                 _unsupported[(endpoint, method)] = time.time() + UNSUPPORTED_SEC
                 last_error = 'method_refused'
                 continue

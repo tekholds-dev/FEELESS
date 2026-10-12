@@ -9816,6 +9816,7 @@ async def _prime_tick_inner(now):
                 _office['boot']['reconciled'] = True
             _office['ticks'] = (list(_office.get('ticks') or []) + [now])[-6:]
         rd_ = _oe.ready(_office['boot'], now)
+        _office['ready'] = rd_   # the kernel's Courier reads the office's readiness
         if ctl_:
             cur['agentWant'] = pol_['seats']
         moves_ = max(0, _ag.CONTROL_MOVES_HR - _oe.real_buys(cur.get('events'), _fw_full_ledger(), tid, now, moves=('swap',))) if ctl_ else None   # 🧮 SWITCHES (real buys only)
@@ -10031,22 +10032,16 @@ async def _prime_tick_inner(now):
             if (cfg_t.get('agentOpen') and empty_n and not pol_['manual'] and rd_['live'] and not seat_ctx_['halt'] and seat_ctx_['courier'] != 'BAD'
                     and used_ < _ag.FILL_MOVES_HR):   # ⚡ OPEN MODE (execution health, a LIVE office and the runaway fill guard still apply): every empty seat takes the top of the volume + newness ranking NOW
                 blk_ = _agent_blocked(cur, now) | {l.get('mint') for l in cur.get('legs') or []}
-                mem_w = {}
-                if (_real_mem(now) or {}).get('proof', {}).get('ok'):   # 🧠 the Judge's evidence moves the RANKING weight (×0.7 … ×1.3), never a veto
-                    for x_ in _agents.get('table') or []:
-                        ch_ = x_.get('chart') or {}
-                        est_, _c = _rm.estimate(_real_mem(now), _rm.feats(ch_.get('state'), (ch_.get('entry') or [None, None])[1] if len(ch_.get('entry') or []) > 1 else None, '', (x_.get('li') or {}).get('phase'), (x_.get('li') or {}).get('cls'), (x_.get('vitals') or {}).get('ageH')))
-                        mem_w[x_.get('mint')] = 1 + (_fuse._f(est_) - _fuse._f(_real_mem(now).get('base'))) / 50
-                seen_ = [x_ for x_ in _agents.get('table') or [] if x_.get('mint') and x_['mint'] not in blk_ and not _fw.dollar_named(x_.get('symbol'))]
-                skip_ = {x_['mint']: _opp.open_ok(x_) for x_ in seen_}
-                open_ = sorted([x_ for x_ in seen_ if not skip_[x_['mint']]], key=lambda x_: -_opp.open_score(x_, mem_w)[0])
-                def _nar(x_):
-                    n_, w_ = _opp.narrative(x_); return f"⚡ {n_} — {w_} · score {_opp.open_score(x_, mem_w)[0]:g}"
-                plan_ = [{**x_, 'pair': x_.get('pair') or x_.get('pairAddress'), 'px': _shadow_px(x_), 'tier': 'A', 'open': True, 'opp': _opp.open_score(x_, mem_w)[0],
-                          'nearReady': _nar(x_)} for x_ in open_[:empty_n + 3]]
-                _office['open'] = {'at': now, 'read': len(seen_), 'ranked': len(open_),
-                                   'top': [{'symbol': x_.get('symbol'), 'score': _opp.open_score(x_, mem_w)[0], 'narrative': _opp.narrative(x_)[0]} for x_ in open_[:8]],
-                                   'skipped': dict(__import__('collections').Counter(str(w_).split(':')[0].split(' —')[0] for w_ in skip_.values() if w_).most_common(6))}
+                # ⚙ ONE candidate lifecycle: the seat fill reads the kernel's READY list (ranked once, by the ten-agent brain) — no second ranking here
+                rdy_ = [(m_, d_) for m_, d_ in _tk.KERNEL.ready(exclude=blk_) if not _fw.dollar_named((_tk.KERNEL.store.mints[m_]['identity'] or {}).get('symbol'))]
+                plan_ = []
+                for m_, d_ in rdy_[:empty_n + 3]:
+                    x_ = _tk.KERNEL.store.mints[m_]['row']
+                    plan_.append({**x_, 'pair': x_.get('pair') or x_.get('pairAddress'), 'px': _shadow_px(x_), 'tier': 'A', 'open': True, 'opp': d_['rank'],
+                                  'nearReady': f"⚡ {d_['why']} · rank {d_['rank']:g} · size ×{d_['opinions']['warden']['size']:g}"})
+                _office['open'] = {'at': now, 'read': len(_tk.KERNEL.store.mints), 'ranked': len(rdy_),
+                                   'top': [{'symbol': _tk.KERNEL.store.mints[m_]['identity']['symbol'], 'score': d_['rank'], 'narrative': d_['opinions']['trigger']['narrative']} for m_, d_ in rdy_[:8]],
+                                   'skipped': _tk.KERNEL.metrics(now)['byStatus']}
             if cfg_t.get('agentPaper'):   # 📄 PAPER: every seat the agents would fill is recorded in the shadow book at the live price — no real buy
                 for t_ in plan_[:max(0, empty_n)]:
                     _shadow_note(t_, 'fill', now, cur)
@@ -12580,6 +12575,8 @@ import real_memory as _rm
 import shadow_book as _sb
 import trench_rounds as _tr
 import generations as _gen
+import trench_kernel.kernel as _tk
+import trench_kernel.lifecycle as _tkl
 LINGO_PATH = FUSE_HQ_PATH.parent / 'trench_lingo.json'   # 📖 slang the desk learned from Pump callers' own words (per-day counts + learned words)
 AGENTS_PATH = FUSE_HQ_PATH.parent / 'agents.json'   # 🤖 the agent desk: Tally's tapes, every call, every judged result
 AGENTS_EVERY = 18.0                                 # ⚡ 3× a minute (owner, 2026-10-11: "seats never empty — 3× as fast"); a pass takes ~2s
@@ -12613,6 +12610,34 @@ def _rounds_state():
     if _rounds['state'] is None:
         _rounds['state'] = _json_load(ROUNDS_PATH, {}) or {}
     return _rounds['state']
+
+
+def _judge_weights(now):
+    """🧠 The Judge's evidence weights per mint (real-money memory → ×0.7 … ×1.3; only while the memory proves itself) — a weight, never a veto."""
+    mem = _real_mem(now) or {}
+    if not mem.get('proof', {}).get('ok'):
+        return {}
+    w = {}
+    for x_ in _agents.get('table') or []:
+        ch_ = x_.get('chart') or {}
+        est_, _c = _rm.estimate(mem, _rm.feats(ch_.get('state'), (ch_.get('entry') or [None, None])[1] if len(ch_.get('entry') or []) > 1 else None, '', (x_.get('li') or {}).get('phase'), (x_.get('li') or {}).get('cls'), (x_.get('vitals') or {}).get('ageH')))
+        w[x_.get('mint')] = 1 + (_fuse._f(est_) - _fuse._f(mem.get('base'))) / 50
+    return w
+
+
+def _kernel_ctx(now):
+    """The small context the ten agents read: held positions (entry · peak · Reaper's stop) · the weather · execution health · the Judge's weights."""
+    pos = _office.get('pos') or {}
+    held = {l.get('mint'): {'entry': _fuse._f(l.get('entry')), 'peak': _fuse._f((pos.get(l.get('mint')) or {}).get('peak')), 'stopNow': (pos.get(l.get('mint')) or {}).get('stopNow')}
+            for l in ((((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '') or {}).get('legs') or [])
+            if l.get('mint') and not l.get('placeholder') and _fuse._f(l.get('units')) > 0}
+    rd = _office.get('ready') or {}
+    return {'held': held, 'regime': (_agents.get('weather') or {}).get('regime'), 'courier': (_office.get('courier') or {}).get('health'),
+            'live': rd.get('live') if rd else None, 'weights': _judge_weights(now)}
+
+
+def _kernel_pass(table, now):
+    _tk.KERNEL.run(table, now, _kernel_ctx(now), source='desk')
 
 
 def _rounds_pass(table, now):
@@ -12949,6 +12974,10 @@ async def _agents_tick(now):
                 asyncio.create_task(_prime_tick(time.time()))
         except Exception as e:
             print('seat wake:', e)
+        try:   # ⚙ THE KERNEL: the desk's rows → one MintState per mint → only the changed ones re-judged by the ten-agent brain
+            _kernel_pass(table, now)
+        except Exception as e:
+            print('kernel:', str(e)[:120])
         try:   # ⏱ THE 5-MINUTE ROUNDS: every candidate of the new-entry universe moves round 1 → 2 → 3 → ENTER / REJECT / COOLDOWN
             _rounds_pass(table, now)
         except Exception as e:
@@ -13139,6 +13168,14 @@ async def _market_wake(agents_c, now):
     lp = await _live_px([l['mint'] for l in legs_] + list(cand_))
     if not lp:
         return False
+    try:   # ⚙ every live price is an EVENT for the kernel: the held coin / candidate is re-judged at once (measured: market move → Reaper decision)
+        kctx_ = None
+        for m_, px_ in lp.items():
+            if m_ in _tk.KERNEL.store.mints:
+                kctx_ = kctx_ or _kernel_ctx(time.time())
+                _tk.KERNEL.price_event(m_, px_, time.time(), kctx_)
+    except Exception as e:
+        print('kernel price event:', str(e)[:100])
     tick = False
     for l in legs_:
         m = l['mint']
@@ -13844,6 +13881,8 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         _office['payload']['social'] = {m_: {k_: v_ for k_, v_ in sc_[m_].items() if k_ not in ('search',)} for m_ in want_ if m_ in sc_}
         _office['payload'].update(fresh=_office_fresh(now), live=_office.get('live'), open=_office.get('open'), scans=_office.get('scans'), loadPass=_office_load_pass(),
                                   lifecycle=_lifecycle(now),
+                                  kernel=_tk.KERNEL.view(now), rpcStats=dict(_chain.RPC_STATS),
+                                  generations=_tkl.generations(_json_load(AGENTS_PATH, {}) or {}, _office_state(), now, _jr.desk_stats(((_office_state().get('judge') or {}).get('reviews')) or [])),
                                   deskStats=_jr.desk_stats(((_office_state().get('judge') or {}).get('reviews')) or []),
                                   rounds={**_tr.summary(_rounds_state(), now), 'roundSec': _tr.ROUND_SEC, 'desk': {'n': int(now // _tr.ROUND_SEC) % int(86400 // _tr.ROUND_SEC) + 1, 'left': round(_tr.ROUND_SEC - now % _tr.ROUND_SEC, 1)},
                                           'live': sorted([{'mint': m_, 'sym': e_.get('sym'), 'round': e_.get('round'), 'left': _tr.time_left(e_['first'], now),
