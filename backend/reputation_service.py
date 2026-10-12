@@ -8340,7 +8340,7 @@ async def _flow_settle(now):
         print('flow settle:', e)
 
 
-SEAT_HEARTBEAT_SEC = 25   # an empty agent seat gets a tier tick at least this often (the 30-second seat decision needs a tick to run in)
+SEAT_HEARTBEAT_SEC = 8   # an empty agent seat gets a tier tick at least this often (the 30-second seat decision needs a tick to run in)
 
 
 async def _real_guard_loop():
@@ -12355,7 +12355,7 @@ async def _agents_loop():
     await asyncio.sleep(25)
     while True:
         try:
-            if time.time() - _fuse._f(_runner_live_cache.get('at')) > 50:
+            if time.time() - _fuse._f(_runner_live_cache.get('at')) > AGENTS_EVERY:
                 await _runner_live()
             await _agents_tick(time.time())
         except Exception as e:
@@ -12447,7 +12447,7 @@ import market_wake as _mw
 import judge_review as _jr
 LINGO_PATH = FUSE_HQ_PATH.parent / 'trench_lingo.json'   # 📖 slang the desk learned from Pump callers' own words (per-day counts + learned words)
 AGENTS_PATH = FUSE_HQ_PATH.parent / 'agents.json'   # 🤖 the agent desk: Tally's tapes, every call, every judged result
-AGENTS_EVERY = 55.0                                 # one pass a minute, whenever the backend is up (internet = it runs)
+AGENTS_EVERY = 18.0                                 # ⚡ 3× a minute (owner, 2026-10-11: "seats never empty — 3× as fast"); a pass takes ~2s
 # 🕸 the intake = office_edge.intake (reserved room for rechecks · newest · accelerating · graduations · momentum · busiest · listed, ≤ INTAKE_MAX)
 _agents: dict = {'at': 0.0, 'table': [], 'view': None}
 

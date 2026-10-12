@@ -14,7 +14,7 @@ RUN_MIN = 3.0
 MOVE_CAND = 3.0       # a waiting candidate moving this much since its read → wake Trigger
 BREAKOUT = 0.5        # % above the candidate's local high (its last candles) = a live breakout
 GAP_POS = 6.0         # seconds between two wakes of the same position
-GAP_CAND = 20.0       # seconds between two early agent passes (a pass reads every coin: it is not free)
+GAP_CAND = 8.0        # seconds between two early agent passes (a pass reads every coin: it is not free)
 RUN_STATES = ('ACCELERATING', 'RUNNING', 'STALLING', 'REVERSING', 'BREAKING DOWN')
 
 

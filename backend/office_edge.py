@@ -28,8 +28,8 @@ AUTHORITY = ('agents', 'manual')                 # agents = CREATOR LIMITS + AGE
 TP_OPTS, SL_OPTS, HOLD_OPTS, SIZE_OPTS = (5, 10, 15, 20, 30, 50), (3, 5, 8, 10, 15, 20), (5, 10, 15, 30, 60, 120), (10, 15, 25, 40)
 BOUNDS = {'agentTp': (2.0, 200.0), 'agentSl': (2.0, 40.0), 'agentTrailArm': (2.0, 100.0), 'agentTrailPct': (1.0, 50.0), 'agentMaxHold': (5.0, 240.0), 'agentSizePct': (5.0, 50.0)}
 TRAIL = ('auto', 'off', 'custom')
-SEAT_TARGETS = (0, 30, 60)                       # 0 = AUTO (30s)
-SEAT_TARGET_AUTO = 30
+SEAT_TARGETS = (0, 30, 60)                       # 0 = AUTO (10s)
+SEAT_TARGET_AUTO = 10
 SWITCH = {'agents': (1.0, 30.0), 'off': None, 'conservative': (1.5, 45.0), 'normal': (1.0, 30.0), 'aggressive': (0.5, 15.0)}   # → (lean margin, minutes held). Aggressive only lowers the margin — never under these floors
 SWITCH_FLOOR = (0.5, _ag.CONTROL_HOLD_MIN)
 ENTRY = ('agents', 'go')                         # agents = a full GO at once, the duty's cleared case on the seat target · go = a full GO only
@@ -309,7 +309,7 @@ def real_buys(events, ledger, card, now, window=3600.0, moves=('fill', 'swap')):
 
 
 # ── 🪑 BEST AVAILABLE: an empty seat does not wait forever on the entry moment ───────────────────────────────────────────────────────
-NEAR_PATIENCE_SEC = 30       # a seat empty this long with NOTHING cleared takes the best near-ready coin (owner: "30 secs to choose") …
+NEAR_PATIENCE_SEC = 10       # a seat empty this long with NOTHING cleared takes the best near-ready coin (owner: "30 secs to choose") …
 NEAR_MIN_ENTRY = 50.0        # 🎯 … AND an entry score (opportunity.score) of at least B-tier — never 'the least bad coin'
 NEAR_MIN_SCORE = 15.0        # … scoring at least this (seat_ops.score WITHOUT its phase tilt — the tilt orders coins, it never keeps a seat empty) …
 NEAR_SOFT = ('chart', 'data')   # … whose ONLY open checks are the entry moment / ENTER-grade data — every safety check passed

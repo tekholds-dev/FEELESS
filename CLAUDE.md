@@ -3256,3 +3256,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   plans without getTokenLargestAccounts: Helius free, OnFinality, Tatum) skips that method for an hour (`chain_rpc._unsupported`) and stays
   in the pool for everything else — a 403 used to rest the whole node 30s on every holder scan. Holder scans: only Alchemy answers them
   (2026-10-11); Jupiter's audit stands in for unscanned coins.
+- ⚡ AGENTS 3× FASTER (owner, 2026-10-11: "seats never empty — agents must work 3× as fast"; all 4 seats sat empty with 2 ranked coins, HW2
+  refused "+16.5% since the read" on a 55s-old read): `AGENTS_EVERY` 18s (a pass takes ~2s; the runner board refreshes on the same clock),
+  `SEAT_HEARTBEAT_SEC` 8, `NEAR_PATIENCE_SEC` 10, `SEAT_TARGET_AUTO` 10, `market_wake.GAP_CAND` 8, `FILL_MOVES_HR` 36 (switches keep 6). No
+  new provider polling: Jupiter / candles / DexScreener keep their caches + pacing. The real choke is SUPPLY (40 in lane, 34 hard NOs: holder
+  scan 14 · dead 11) — speed gets the ones that clear seated before they move.

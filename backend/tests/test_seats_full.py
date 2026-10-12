@@ -69,7 +69,7 @@ def _ctx(**kw):
 
 
 def test_an_empty_seat_takes_the_best_available_only_after_it_waited_and_only_when_nothing_cleared():
-    assert oe.fill_plan(_ctx(emptyFor=10)) == []                                                  # too soon: the entry moment may still come
+    assert oe.fill_plan(_ctx(emptyFor=oe.NEAR_PATIENCE_SEC - 5)) == []                                                  # too soon: the entry moment may still come
     assert [r['mint'] for r in oe.fill_plan(_ctx(emptyFor=oe.NEAR_PATIENCE_SEC))] == ['N1', 'N2', 'N3', 'N4']   # 2 seats + 2 fallbacks
     assert [r['mint'] for r in oe.fill_plan(_ctx(emptyFor=999, gos=[{'mint': 'GO'}]))] == ['GO']  # a real GO always first, near-ready never mixed in
     assert oe.fill_plan(_ctx(emptyFor=999, pol={'entry': 'go'})) == []                            # the creator's "GO only" stands
@@ -201,3 +201,11 @@ def test_a_flat_coin_keeps_its_seat_unless_it_is_losing_or_a_clearly_better_coin
     import inspect
     import reputation_service as rs
     assert 'spare_, edge=margins_)' in inspect.getsource(rs._prime_tick_inner)
+
+
+def test_the_agents_work_three_times_as_fast():
+    """Owner, 2026-10-11: "seats never empty — agents must work 3× as fast": a pass every 18s (was 55), an empty seat ticks every 8s (was 25),
+    best available after 10s (was 30), a candidate's live move wakes a pass after 8s (was 20), the cleared-case seat timer 10s (was 30)."""
+    import reputation_service as rs, market_wake as mw
+    assert rs.AGENTS_EVERY <= 20 and rs.SEAT_HEARTBEAT_SEC <= 10 and oe.NEAR_PATIENCE_SEC <= 10 and mw.GAP_CAND <= 10 and oe.SEAT_TARGET_AUTO <= 10
+    assert oe._ag.FILL_MOVES_HR >= 36   # the fill guard grows with the pace (switches keep CONTROL_MOVES_HR)

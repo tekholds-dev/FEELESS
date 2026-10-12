@@ -210,7 +210,7 @@ def test_a_cleared_case_fills_on_the_seat_target_and_a_full_go_never_waits():
     pol = oe.policy({})
     assert oe.may_fill({'go': True}, pol, None, 0)                                                                # a full GO fills at once
     assert not oe.may_fill({'go': False}, pol, None, 1000)                                                        # no empty seat recorded → no duty fill
-    assert oe.may_fill({'go': False}, pol, 900, 1000, last_fill_at=900) and not oe.may_fill({'go': False}, pol, 990, 1000, last_fill_at=990)   # one cleared fill per 30s
+    assert oe.may_fill({'go': False}, pol, 900, 1000, last_fill_at=900) and not oe.may_fill({'go': False}, pol, 995, 1000, last_fill_at=995)   # one cleared fill per 10s (auto)
     assert not oe.may_fill({'go': False}, oe.policy({'agentEntry': 'go'}), 900, 1000)                              # entry = GO only: a cleared case never fills
     assert not oe.may_fill({'go': False}, oe.policy({'agentSeatTarget': 60}), 900, 1000, last_fill_at=950) and oe.may_fill({'go': False}, oe.policy({'agentSeatTarget': 60}), 900, 1000, last_fill_at=900)
 
@@ -445,8 +445,8 @@ def _fctx(**k):
 
 def test_a_cleared_candidate_with_an_open_seat_cash_and_a_live_office_is_tried_without_the_ten_minute_duty():
     assert oe.fill_plan(_fctx()) == [{'mint': 'CLR', 'symbol': 'CLR'}]                                          # duty clock never asked
-    assert oe.fill_plan(_fctx(lastFill=990)) == []                                                               # only the creator's seat target (30s) may hold it
-    assert oe.fill_plan(_fctx(lastFill=990, gos=[{'mint': 'GO'}])) == [{'mint': 'GO'}]                          # a full GO never waits
+    assert oe.fill_plan(_fctx(lastFill=995)) == []                                                               # only the creator's seat target (auto 10s) may hold it
+    assert oe.fill_plan(_fctx(lastFill=995, gos=[{'mint': 'GO'}])) == [{'mint': 'GO'}]                          # a full GO never waits
     assert oe.fill_plan(_fctx(wait=[])) == []                                                                    # no valid candidate → the seat stays cash
 
 
