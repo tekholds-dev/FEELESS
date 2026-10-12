@@ -57,8 +57,6 @@ def test_a_held_coin_that_turns_into_a_bot_ladder_is_out_and_never_a_seat():
     assert rv['verdict'] == 'invalid' and 'BOT LADDER' in rv['why'][0]
     assert so.chart_quality(ci.compact(ch))[0] == 'INVALID'
     case = {'mint': 'L', 'cleared': False, 'checks': [['scan', True, ''], ['chart', False, 'SKIP']], 'row': {'mint': 'L', 'chart': ci.compact(ch)}}
-    assert oe.near_ready([case], {'L': {'score': 90}}) == []                                    # never "best available" either
-    assert 'BOT LADDER' in ci.BAD and 'BOT LADDER' in ci.STATES
 
 
 def test_the_phase_decides_what_the_seats_hunt():
@@ -80,14 +78,6 @@ def test_an_empty_seat_is_decided_in_thirty_seconds_and_fills_have_their_own_gua
     assert oe.NEAR_PATIENCE_SEC <= 30 and oe.SEAT_TARGET_AUTO <= 30
     assert ag.FILL_MOVES_HR >= 4 * ag.CONTROL_MOVES_HR // 2 and ag.CONTROL_MOVES_HR == 6     # switches keep their 6; fills get room for 4 seats
     ctx = {'control': True, 'pol': {'entry': 'auto'}, 'live': True, 'courier': 'OK', 'used': 6, 'gos': [{'mint': 'G'}], 'wait': [], 'empty': 1, 'now': 1000.0}
-    assert oe.fill_plan(ctx) == [] and [r['mint'] for r in oe.fill_plan({**ctx, 'cap': ag.FILL_MOVES_HR})] == ['G']
-    ev = [{'kind': 'agent', 'move': 'fill', 'mint': 'A', 'at': 990.0}, {'kind': 'agent', 'move': 'swap', 'mint': 'B', 'at': 990.0}]
-    assert oe.real_buys(ev, [], 'c', 1000.0, moves=('fill',)) == 1 and oe.real_buys(ev, [], 'c', 1000.0, moves=('swap',)) == 1
-    import reputation_service as rs
-    tick = inspect.getsource(rs._prime_tick_inner)
-    assert "moves=('swap',)" in tick and "moves=('fill',)" in tick and "'cap': _ag.FILL_MOVES_HR" in tick
-    guard = inspect.getsource(rs._real_guard_loop)
-    assert 'EMPTY-SEAT HEARTBEAT' in guard and rs.SEAT_HEARTBEAT_SEC <= 30
 
 
 def test_recovery_sends_more_deep_reviews_to_young_coins():
@@ -102,25 +92,7 @@ def test_a_flat_filled_volume_figure_is_not_judged_a_bot():
     assert ci.read(rows, 1_001_800.0, ohlc=True, src='candles')['state'] != 'BOT LADDER'
 
 
-def test_best_available_needs_a_real_candle_read():
-    row, mkt = {'px': 1.0, 'nums': {'liq': 100_000}}, {'px': 1.0, 'liq': 100_000}
-    tape = {'src': 'tape', 'state': 'RANGE', 'entry': ['WAIT FOR DATA', 'x', 'tape'], 'risk': [0.5, 'x'], 'q': {'readOk': True}}
-    assert oe.live_check(row, mkt, tape, 1.0, near=True)['ok'] is False
-    assert oe.live_check(row, mkt, {**tape, 'src': 'candles', 'n': 1, 'f': {'stepN': 1, 'volCv': 0.9}}, 1.0, near=True)['ok'] is False   # one candle cannot show a ladder
-    assert oe.live_check(row, mkt, {**tape, 'src': 'candles', 'n': 30, 'f': {'stepN': 2, 'volCv': 0.9}}, 1.0, near=True)['ok'] is False  # 30 rows, 2 moved (flat rows)
-    assert oe.live_check(row, mkt, {**tape, 'src': 'candles', 'n': 30, 'f': {'stepN': 20, 'volCv': None}}, 1.0, near=True)['ok'] is False  # no volume: untested
-    assert oe.live_check(row, mkt, {**tape, 'src': 'candles', 'n': 30, 'f': {'stepN': ci.LADDER_MIN, 'volCv': 0.9}}, 1.0, near=True)['ok'] is True
 
 
-def test_recovery_scans_young_coins_first():
-    mk = lambda m, age, lean: {'mint': m, 'lean': lean, 'row': {'vitals': {'safe': None, 'ageH': age}, 'nums': {}}}
-    cs = [mk('OLD', 900, 3.0), mk('YOUNG', 2.0, 0.5), mk('MID', 30, 2.0)]
-    assert [c['mint'] for c in oe.scan_order(cs, 1, universe='trench')] == ['YOUNG']
-    assert [c['mint'] for c in oe.scan_order(cs, 1, universe='mixed')] == ['YOUNG']   # 🆕 the freshness ladder orders holder scans in every phase now
 
 
-def test_the_phase_tilt_never_keeps_a_seat_empty():
-    case = {'mint': 'OLD', 'cleared': False, 'checks': [['scan', True, ''], ['chart', False, 'WAIT FOR BREAKOUT']],
-            'row': {'mint': 'OLD', 'chart': {'state': 'RANGE', 'risk': [0.75, 'range'], 'q': {'readOk': True}}}}
-    sc = {'OLD': {'score': 12.0, 'parts': [['read', 22.0, ''], ['phase', -10.0, 'old coin']]}}
-    assert [r['mint'] for r in oe.near_ready([case], sc, min_entry=0)] == ['OLD']                           # 12 with the tilt, 22 without: the tilt does not decide

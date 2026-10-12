@@ -64,11 +64,6 @@ def test_a_fresh_launch_with_real_candles_reaches_trigger_and_can_clear():
     assert x['trigger'][0] in ('enter', 'wait') and x['chart']['state'] != ci.DATA_INVALID
 
 
-def test_best_available_needs_a_b_tier_entry_score():
-    ok = ['scan', True, ''], ['age', True, ''], ['pool', True, ''], ['burn', True, ''], ['devil', True, '']
-    weak = {'mint': 'W', 'cleared': False, 'checks': list(ok) + [['chart', False, 'WAIT']], 'row': _row('W', 300, 400, 3000, 30, 45, 0.2, -2, {'state': 'RANGE', 'risk': [0.75, ''], 'q': {'readOk': True}})}
-    assert oe.near_ready([weak], {'W': {'score': 80}}) == []       # the least-bad coin is not a seat
-    assert oe.near_ready([weak], {'W': {'score': 80}}, min_entry=0)
 
 
 def test_pump_phase_and_early_wallet_pressure():

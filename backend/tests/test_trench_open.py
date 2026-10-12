@@ -38,7 +38,7 @@ def test_ranking_is_newness_times_volume_times_buyers_times_momentum():
 
 
 def test_open_mode_fills_every_empty_seat_through_the_one_path_and_the_warden_keeps_only_execution():
-    assert "if (cfg_t.get('agentOpen') and empty_n and not pol_['manual'] and rd_['live'] and not seat_ctx_['halt'] and seat_ctx_['courier'] != 'BAD'" in SRC and SRC.count('_prime.agent_seat(') == 1
+    assert "plan_ = valid_[:empty_n + 3] if (empty_n and not pol_['manual'] and rd_['live'] and not seat_ctx_['halt'] and seat_ctx_['courier'] != 'BAD' and used_ < _uni.FILL_MOVES_HR) else []" in SRC and SRC.count('_prime.agent_seat(') == 1
     base = {'liq': 500_000, 'ageH': 0.05, 'courier': 'OK', 'holderSoft': ['Top 10 under'], 'li': {'press': 'HIGH', 'pressWhy': 'x'}}
     w0 = of.warden(0.13, {**base, 'open': True})
     assert not w0['veto'] and w0['allowed'] == 0.065 and 'size, not a no' in w0['rules'][0]['why']   # uncertainty SHRINKS (≥ ×0.5), never vetoes

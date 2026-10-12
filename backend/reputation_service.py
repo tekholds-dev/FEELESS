@@ -9801,7 +9801,7 @@ async def _prime_tick_inner(now):
         # 🤖 AGENT SEATS: coins the agents put on the card hold until `agentTakePct` profit; in profit the desk reads them again and lets them
         # run, pulls them (profit to cash, seat left open) or swaps them for a fresh GO runner (agents.manage). Only while they are proven.
         if real_t and cur:   # 🎮 the card as seats for HQ › Agents (display only)
-            _agents['card'] = _ag.card_seats(cur, None, px, cfg_t, take=_of.take_line(cfg_t, _agents.get('scalp')))
+            _agents['card'] = _pos.card_seats(cur, None, px, cfg_t, take=_of.take_line(cfg_t, _agents.get('scalp')))
         # 🎮 AGENT CONTROL (cfg `agentControl`; owner, 2026-10-10: "the agents should have control over my seats and switching coins … real
         # moves on my real money card — GO"): the card is held BY THE AGENTS (`holdBy: 'agents'` — every engine door that checks holdAll is
         # off: rotation, re-shape, rush, cycles, the engine's seat refill) and only they buy: they fill empty seats with `eligible` GO coins,
@@ -9819,68 +9819,52 @@ async def _prime_tick_inner(now):
         _office['ready'] = rd_   # the kernel's Courier reads the office's readiness
         if ctl_:
             cur['agentWant'] = pol_['seats']
-        moves_ = max(0, _ag.CONTROL_MOVES_HR - _oe.real_buys(cur.get('events'), _fw_full_ledger(), tid, now, moves=('swap',))) if ctl_ else None   # 🧮 SWITCHES (real buys only)
-        fills_left_ = max(0, _ag.FILL_MOVES_HR - _oe.real_buys(cur.get('events'), _fw_full_ledger(), tid, now, moves=('fill',))) if ctl_ else None   # 🪑 empty-seat fills
+        moves_ = max(0, _uni.CONTROL_MOVES_HR - _oe.real_buys(cur.get('events'), _fw_full_ledger(), tid, now, moves=('swap',))) if ctl_ else None   # 🧮 SWITCHES (real buys only)
+        fills_left_ = max(0, _uni.FILL_MOVES_HR - _oe.real_buys(cur.get('events'), _fw_full_ledger(), tid, now, moves=('fill',))) if ctl_ else None   # 🪑 empty-seat fills
         if real_t and cur and (ctl_ or (((cfg_t.get('agentFeed') and (_agents.get('view') or {}).get('feed')) or cfg_t.get('agentLearn')) and not cur.get('holdAll'))) and not cur.get('flooredAt'):
-            # 🕙 THE 10-MINUTE DUTY (in control): they investigate the board and their best CLEARED coin goes on the card — an empty seat first,
-            # else the seat of a coin whose read broke, else the weakest coin that is not winning. One duty move per DUTY_SEC, inside the budget.
-            # 🔁 THE ACTIVE CYCLE (owner, 2026-10-10: "decisions every ~60s, not a review desk"): every seat target the held seats are compared
-            # with the best cleared challenger (superiority test) — the 10-minute duty stays for deeper review only. Budget-capped, never forced.
+            # ⚙ HELD SEATS — ONE brain: the kernel's position manager (trench_kernel.positions) + Reaper (office.reap). A challenger is a coin the
+            # kernel has READY; a held coin and its challenger are compared on the kernel's own rank. No paper call, case file, lean or duty clock.
             due_ = bool(ctl_ and moves_ and _oe.cycle_due(pol_, cur.get('agentCycleAt'), now))
             if due_:
                 cur['agentCycleAt'] = now; _office['cycleN'] = int(_office.get('cycleN') or 0) + 1
-            lost_ = {m_ for m_, at_ in (_office_state().get('lostAt') or {}).items() if now - _fuse._f(at_) < _oe.FAILED_SEC}   # a thesis that failed on real money is not bought back for 6h
             cool = set(cool) | _agent_blocked(cur, now)
-            cases_ = _ag.investigate(_agents.get('table'), {l.get('mint') for l in cur.get('legs') or []}, _ag.min_age_of(cfg_t), (_json_load(AGENTS_PATH, {}).get('burned') or {}), top=0) if ctl_ else []
-            picks_ = [c_['row'] for c_ in cases_ if c_['cleared'] and not _fw.dollar_named(c_.get('symbol')) and c_['mint'] not in cool and c_['mint'] not in lost_] if ctl_ else None
+            on_k = {l.get('mint') for l in cur.get('legs') or []}
+            ranks_ = _tk.KERNEL.ranks()
+            ready_ = [c_ for c_ in (_tk.KERNEL.candidate(m_, d_) for m_, d_ in _tk.KERNEL.ready(exclude=set(cool) | on_k)) if c_ and not _fw.dollar_named(c_.get('symbol'))]
+            cases_ = _tk.KERNEL.cases(exclude=on_k) if ctl_ else []
             full_ = bool(ctl_ and len([l for l in cur.get('legs') or [] if not l.get('placeholder')]) >= pol_['seats'])
-            # 🔌 a coin is "off their radar" only when the office is LIVE again after a restart AND it has been missing for the grace
+            # 🔌 a coin is "off the board" only when the office is LIVE again after a restart AND it has been missing for the grace
             radar_ = {m_ for m_, p_ in (_office.get('pos') or {}).items() if _oe.radar_gone(p_.get('offSince'), now, rd_['live'])}
-            # 📈 P/L VELOCITY (real valuation reads of every held seat) + 🏅 the SEAT SCORE of every case and every held seat: the challengers are
-            # ranked by it (best first into every open seat), a switch must beat the held seat by the switching margin. Display + ranking only.
-            vels_, scores_, margins_ = {}, {}, {}
+            vels_, margins_ = {}, {}
+            scores_ = {m_: {'score': r_} for m_, r_ in ranks_.items()}   # 🏅 the kernel's rank IS the seat score (one ranking)
             if ctl_:
                 try:
                     vels_ = _office_vels(cur, px, now)
-                    scores_ = _office_scores(cases_, cur, vels_, lost_, now)
-                    picks_ = sorted(picks_ or [], key=lambda r_: -_fuse._f((scores_.get(r_.get('mint')) or {}).get('score')))
-                    best_s = (scores_.get((picks_[0] if picks_ else {}).get('mint')) or {}).get('score')
+                    best_r = ranks_.get(ready_[0]['mint']) if ready_ else None
                     for l in cur.get('legs') or []:
-                        hs_ = (scores_.get(l.get('mint')) or {}).get('score')
-                        if best_s is not None and hs_ is not None:
-                            margins_[l.get('mint')] = (round(best_s - hs_, 1), _so.margin_need(pol_['switch'].get('mode'), vels_.get(l.get('mint'))))
+                        hr_ = ranks_.get(l.get('mint'))
+                        if best_r is not None and hr_ is not None:   # (how far the best READY coin outranks this seat, what a switch needs)
+                            margins_[l.get('mint')] = (round(best_r - hr_, 1), round(hr_ * (_pos.margin_need(pol_['switch'].get('mode')) - 1), 1))
                 except Exception as e:
-                    print('seat scores:', e)
-            dec_ = _ag.manage(cur.get('legs'), _agents.get('table'), px, cfg_t, _agents.get('scalp'), control=ctl_, now=now, moves_left=(1 if due_ and full_ else 0) if ctl_ else moves_,   # an EMPTY seat is the duty's first job: no switch while one is open
-                              picks=picks_, rotate=bool(due_ and full_), pol=pol_, radar=radar_, cases=cases_, reviews={r_.get('mint'): r_.get('verdict') for r_ in _office.get('reports') or []}, live=rd_['live'],
-                              scores=scores_ if ctl_ and scores_ else None, vels=vels_ or None)
-            # 🪑 A TIME EXIT IS A SWAP (owner: "no seat should be empty, 30 secs to choose what gets swapped"): it fires only while a buy is free AND
-            # a replacement is ready NOW (cleared cases + best-available coins, after the empty seats take theirs) — never a flat coin sold into cash
+                    print('seat ranks:', e)
+            dec_ = _pos.manage(cur.get('legs'), _agents.get('table'), px, cfg_t, _agents.get('scalp'), control=ctl_, now=now, moves_left=((1 if due_ and full_ else 0) if ctl_ else moves_),   # an EMPTY seat comes first: no switch while one is open
+                               challengers=ready_, pol=pol_, radar=radar_, reviews={r_.get('mint'): r_.get('verdict') for r_ in _office.get('reports') or []}, live=rd_['live'], ranks=ranks_, vels=vels_ or None)
+            # 🪑 A TIME EXIT IS A SWAP: it fires only while a buy is free AND a READY replacement exists NOW (after the empty seats take theirs)
             open_n = max(0, int(_fuse._f((pol_ or {}).get('seats'))) - len([l for l in cur.get('legs') or [] if not l.get('placeholder')]))
-            spare_ = None
-            if fills_left_ is not None:
-                on_r = {l.get('mint') for l in cur.get('legs') or []}
-                pool_ = [c_ for c_ in cases_ if c_['mint'] not in cool and c_['mint'] not in lost_ and c_['mint'] not in on_r and not _fw.dollar_named(c_.get('symbol'))]
-                ready_n = len([c_ for c_ in pool_ if c_['cleared']]) + len(_oe.near_ready(pool_, scores_))
-                spare_ = min(fills_left_, ready_n) - open_n
-            dec_ = _office_reap(cur, px, cfg_t, ctl_, now, dec_, pol_, rd_['live'], vels_, margins_, spare_, edge=margins_)   # 🪓 a flat coin is swapped only for a clearly better one   # ☠ Reaper's exit requests join the SAME decision list (it has no path of its own)
-            if ctl_:   # ⇄ the live switching evaluation the page shows: the strongest cleared challenger against the weakest held coin (display only — `manage` decided)
+            spare_ = None if fills_left_ is None else min(fills_left_, len(ready_)) - open_n
+            dec_ = _office_reap(cur, px, cfg_t, ctl_, now, dec_, pol_, rd_['live'], vels_, margins_, spare_, edge=margins_)   # ☠ Reaper's exit requests join the SAME decision list (it has no path of its own)
+            if ctl_:   # ⇄ the switching evaluation the page shows: each held coin against the best READY challenger (display only — `positions.manage` decided)
                 try:
-                    by_ = {x_['mint']: x_ for x_ in _agents.get('table') or []}
-                    ch_ = next((c_ for c_ in cases_ if c_['cleared'] and c_['mint'] not in cool and c_['mint'] not in lost_), None) or (cases_[0] if cases_ else None)
+                    verd_ = {r_.get('mint'): r_.get('verdict') for r_ in _office.get('reports') or []}
                     held_l = [l for l in cur.get('legs') or [] if not l.get('placeholder') and _fuse._f(l.get('units')) > 0 and _fuse._f(l.get('entry')) > 0 and _fuse._f(px.get(l.get('pairAddress'))) > 0]
-                    ch_ = next((c_ for c_ in cases_ if c_['cleared'] and c_['mint'] not in cool and c_['mint'] not in lost_ and picks_ and c_['mint'] == picks_[0].get('mint')), None) or ch_   # the BEST-scored cleared challenger
-                    tests_ = [{'mint': l.get('mint'), **_oe.switch_test({'symbol': l.get('symbol'), 'pnl': (_fuse._f(px[l['pairAddress']]) / _fuse._f(l['entry']) - 1) * 100, 'heldMin': (now - _fuse._f(l.get('at'))) / 60 if l.get('at') else 0.0,
-                                               'lean': _fuse._f(((by_.get(l.get('mint')) or {}).get('why') or {}).get('lean')), 'verdict': next((r_.get('verdict') for r_ in _office.get('reports') or [] if r_.get('mint') == l.get('mint')), None),
-                                               'structure': ((by_.get(l.get('mint')) or {}).get('chart') or {}).get('state'), 'frozen': l.get('frozen'), 'riding': l.get('ride'),
-                                               'score': (scores_.get(l.get('mint')) or {}).get('score'), 'vel': vels_.get(l.get('mint'))},
-                                              None if not ch_ else {**ch_, 'score': (scores_.get(ch_['mint']) or {}).get('score')}, pol_)} for l in held_l]
+                    tests_ = [{'mint': l.get('mint'), **_pos.switch_view(l, (_fuse._f(px[l['pairAddress']]) / _fuse._f(l['entry']) - 1) * 100, (now - _fuse._f(l.get('at'))) / 60 if l.get('at') else 0.0,
+                                                                        ready_[0] if ready_ else None, ranks_, pol_, verd_.get(l.get('mint')), vels_.get(l.get('mint')))} for l in held_l]
                     _agents['switchTests'] = tests_
                     _agents['switchEval'] = None if not tests_ else {**min(tests_, key=lambda t_: (not t_['switch'], t_['current']['pnl'])), 'at': now, 'dueIn': max(0, round(_fuse._f(cur.get('agentCycleAt')) + max(30.0, _fuse._f(pol_['seatTarget'])) - now)), 'full': full_}
                 except Exception as e:
                     print('switch eval:', e)
             _agents['decisions'] = [{k: v for k, v in x.items() if k != 'to'} | ({'toSym': x['to']['symbol']} if x.get('to') else {}) for x in dec_]
-            _agents['card'] = _ag.card_seats(cur, _agents['decisions'], px, cfg_t, take=_of.take_line(cfg_t, _agents.get('scalp')))
+            _agents['card'] = _pos.card_seats(cur, _agents['decisions'], px, cfg_t, take=_of.take_line(cfg_t, _agents.get('scalp')))
             paper_ = bool(cfg_t.get('agentPaper'))
             for x in dec_:
                 try:
@@ -9907,8 +9891,8 @@ async def _prime_tick_inner(now):
                         cur = _prime.replace_leg(cur, x['pair'], px, p_t, [row_], anchors, cfg_t, now)
                         for l in cur['legs']:
                             if l.get('mint') == t_['mint']:
-                                l.update(bought={**(l.get('bought') or {}), 'tag': '🤖 agents GO' if t_.get('go') else '🤖 agents · 10-min duty'}, slMode='hold', rideOrRug=True, ticket=True); l.pop('picked', None)
-                                if _ag.in_lane(t_.get('vitals') or {}):
+                                l.update(bought={**(l.get('bought') or {}), 'tag': '🤖 agents READY · switch'}, slMode='hold', rideOrRug=True, ticket=True); l.pop('picked', None)
+                                if _uni.in_lane(t_.get('vitals') or {}):
                                     l['trench'] = True
                         cur['events'] = cur['events'][:-1] + [{**cur['events'][-1], 'kind': 'agent', 'move': 'swap', 'mint': t_['mint'], 'why': f"🤖 agents swapped ${x['symbol']} for ${t_['symbol']}: {x['why']}"}]
                         if ctl_:
@@ -9916,15 +9900,8 @@ async def _prime_tick_inner(now):
                         cur = _prime.note_dropped(was_, cur, now, cfg_t['rotateHours'], px)
                 except ValueError:
                     continue
-        if ctl_:   # 🎮 their coin for every empty seat — only `eligible` GO coins, never one cooling / dollar-named, inside the hourly budget
+        if ctl_:   # ⚙ EMPTY SEATS — ONE candidate lifecycle: every fill comes from the kernel's READY list (ranked once, by the ten-agent brain)
             used_ = _oe.real_buys(cur.get('events'), _fw_full_ledger(), tid, now, moves=('fill',))   # 🪑 empty-seat fills (real buys only: a seat that never bought is not a buy)
-            on_ = {l.get('mint') for l in cur.get('legs') or []}
-            # an empty seat: a full 🟢 GO fills it at once; otherwise the duty's best cleared case fills ONE seat when the 10 minutes are up
-            lost2_ = {m_ for m_, at_ in (_office_state().get('lostAt') or {}).items() if now - _fuse._f(at_) < _oe.FAILED_SEC}
-            gos_ = [t_ for t_ in _ag.eligible(_agents.get('table'), on_, _ag.min_age_of(cfg_t), ((_json_load(AGENTS_PATH, {}).get('burned') or {}))) if not _fw.dollar_named(t_.get('symbol')) and t_['mint'] not in cool and t_['mint'] not in lost2_]
-            # 🪑 AN EMPTY SEAT DOES NOT WAIT FOR THE 10-MINUTE DUTY (owner, 2026-10-10): a full GO fills it at once (as before); the duty's
-            # best CLEARED case (every safety check + chart + data gate passed, only Trigger's bar waived) fills one seat per seat target
-            # (30s / 60s) — from candidates ALREADY known, no new fetch. Same Warden, same keeper, same hourly budget. No candidate = cash.
             cfg_s = {**cfg_t, 'coins': pol_['seats']}
             held_n = len([l for l in cur.get('legs') or [] if not l.get('placeholder')])
             empty_n = max(0, pol_['seats'] - held_n)
@@ -9932,124 +9909,48 @@ async def _prime_tick_inner(now):
                 cur['agentEmptyAt'] = now
             elif not empty_n:
                 cur.pop('agentEmptyAt', None); _office.pop('validSince', None)
-            wait_ = [t_ for t_ in (picks_ or []) if t_['mint'] not in on_ and t_['mint'] not in {g_['mint'] for g_ in gos_}]
-            # ⚡ LIVE CHECK: the case file keeps its thesis, the decision reads the NEWEST shared market state — Jupiter's live price (shared 20s
-            # cache) and the chart rebuilt from any new real candle (`_office_candle_refresh`, held coins + these candidates). No rediscovery.
+            blk_ = _agent_blocked(cur, now) | {l.get('mint') for l in cur.get('legs') or []}
+            valid_ = [c_ for c_ in (_tk.KERNEL.candidate(m_, d_) for m_, d_ in _tk.KERNEL.ready(exclude=blk_)) if c_ and not _fw.dollar_named(c_.get('symbol'))]
+            for c_ in valid_:
+                c_.update(tier='A', opp=c_['rank'], nearReady=f"⚡ {c_['kwhy']} · rank {c_['rank']:g} · size ×{c_['size']:g}")
+            cases_ = _tk.KERNEL.cases(exclude={l.get('mint') for l in cur.get('legs') or []})
+            cooled_ = [c_ for c_ in cases_ if c_['cleared'] and c_['mint'] in blk_]   # READY, but it left the card lately / the keeper refused it: the rebuy block holds it
             moved_, live_ = [], {}
-            gos_ = sorted(gos_, key=lambda t_: -_fuse._f((scores_.get(t_['mint']) or {}).get('score')))   # 🏅 best seat score first
-            wait_ = sorted(wait_, key=lambda t_: -_fuse._f((scores_.get(t_['mint']) or {}).get('score')))
-            # 🪑 BEST AVAILABLE: nothing cleared + a seat that has waited → the best near-ready coins (every safety check passed, the entry moment
-            # not confirmed) are live-checked too, so the seat can take one at half size (Warden W19) instead of sitting in cash indefinitely
-            on_n = {l.get('mint') for l in cur.get('legs') or []}
-            gw_m = {t_['mint'] for t_ in gos_ + wait_}   # (computed even when cleared coins exist: they may fail the live check below and leave nothing)
-            near0_ = [] if pol_['manual'] or not empty_n else [r_ for r_ in _oe.near_ready([c_ for c_ in cases_ if c_['mint'] not in cool and c_['mint'] not in lost_ and c_['mint'] not in on_n and c_['mint'] not in gw_m and not _fw.dollar_named(c_.get('symbol'))], scores_)][:empty_n + 2]
-            if empty_n and not pol_['manual']:   # 🎯 RANK, DON'T VETO: every coin of the pass → hard NO or an A / B / C-tier candidate (opportunity.rank)
-                skip_f = set(cool) | set(lost_) | set(on_n) | set(gw_m) | {t_['mint'] for t_ in near0_} | set((_json_load(AGENTS_PATH, {}).get('burned') or {}).keys())
-                ost_ = {}
-                skip_f = skip_f - set(lost_)   # 🔁 a coin sold at a loss is a RANKING penalty here (−12), not an exclusion — in a small lane the 6h block removed most safe coins
-                ranked_ = [t_ for t_ in _opp.rank(_agents.get('table'), skip_f, lost_, None, ost_, _jr.penalties((_office.get('court') or {}).get('promoted')), _agents.get('laneCap') or _opp.MAX_MCAP) if not _fw.dollar_named(t_.get('symbol'))]
-                _agents['laneStep'] = _ag.lane_step(_agents.get('laneStep') or _ag.LANE_CAPS[0], len(ranked_), empty_n + 2)   # 🪜 short of candidates → wider next pass
-                _office['opp'] = {**ost_, 'at': now, 'cap': _agents.get('laneCap'), 'next': _agents['laneStep'], 'top': [{'symbol': t_['symbol'], 'tier': t_['tier'], 'score': t_['opp']} for t_ in ranked_[:6]]}
-                for t_ in near0_:   # best-available coins (every check passed but the moment) get their tier too
-                    if not t_.get('tier'):
-                        s_, _p = _opp.score(t_, lost_); t_['tier'] = _opp.tier_of(s_) or 'C'; t_['opp'] = s_
-                near0_ = near0_ + ranked_[:empty_n - len(near0_) + 8]
-            # ⏱ ROUND-3 ENTER: a candidate that held up over three 5-minute rounds (A / B tier confirmed, or a C tier improving every round)
-            # competes for the open seats — through the same live check, real-money memory, Warden sizing (its tier) and keeper as any coin
-            enter_ = _tr.entered(_rounds_state(), now) if empty_n and not pol_['manual'] else {}
-            if enter_:
-                by_t = {x_.get('mint'): x_ for x_ in _agents.get('table') or []}
-                for m_, why_ in enter_.items():
-                    x_ = by_t.get(m_)
-                    if not x_ or m_ in cool or m_ in on_n or m_ in gw_m:
-                        continue
-                    s_, _p = _opp.score(x_); tr_ = _opp.tier_of(s_) or 'C'
-                    near0_.append({**x_, 'pair': x_.get('pair') or x_.get('pairAddress'), 'tier': tr_, 'opp': s_, 'roundEnter': why_,
-                                   'nearReady': f"⏱ round 3 ENTER — {why_}"})
-            near_m = {t_['mint'] for t_ in near0_}
-            near_ = []
-            try:
-                cand_ = (gos_ + wait_)[:max(6, pol_['seats'] + 2)] + near0_
+            try:   # 👁 the LIVE chart for every held coin + the READY coins (one batched local call) and what a live breakout is measured from
+                cand_ = valid_[:max(6, pol_['seats'] + 2)] + [c_ for c_ in (_tk.KERNEL.candidate(x_['mint']) for x_ in cases_ if x_['status'] == 'CONTENDING') if c_][:6]
                 held_p = {l.get('mint'): l.get('pairAddress') for l in cur.get('legs') or [] if l.get('mint') and not l.get('placeholder')}
                 if cand_ or held_p:
                     await _jup_prices([t_['mint'] for t_ in cand_] + list(held_p))
-                    await _office_candle_refresh({**held_p, **{t_['mint']: t_['pair'] for t_ in cand_}}, now)
+                    await _office_candle_refresh({**held_p, **{t_['mint']: t_['pair'] for t_ in cand_ if t_.get('pair')}}, now)
                     _office['watchC'] = {t_['mint']: {'sym': t_.get('symbol'), 'px': _fuse._f((_jup_px_cache.get(t_['mint']) or (0, 0))[1]) or _fuse._f(t_.get('px')),
                                                       'high': max([_fuse._f(r_[2]) for r_ in ((_office['candles'].get(t_['pair']) or (0, []))[1] or [])[-10:]] or [0])}
                                          for t_ in cand_ if t_.get('mint') and t_.get('pair')}   # ⚡ what a live breakout / material move is measured from
-                young_p = [t_['pair'] for t_ in near0_ if t_.get('pair') and int(_fuse._f(((_office['charts'].get(t_['mint']) or {}).get('f') or {}).get('stepN'))) < _ci.LADDER_MIN][:6]
-                meta_ = {}
-                if young_p:   # 🧬 TRENCH META: the tape of each candidate too young for a chart (≤ 6 pools, the shared 12s tape cache)
-                    await _flow_fetch(young_p)
-                    meta_ = {p_: _flow.trench_meta((_flow_trades.get(p_) or (0, []))[1], time.time()) for p_ in young_p}
-                live_ = {t_['mint']: _oe.live_check(t_, _mkt_view(t_['mint'], t_['pair'], now), _office['charts'].get(t_['mint']), now, near=t_['mint'] in near_m, meta=meta_.get(t_.get('pair')), ranked=bool(t_.get('tier'))) for t_ in cand_}
-                for t_ in near0_:   # the seat's event says what the tape showed
-                    if (meta_.get(t_.get('pair')) or {}).get('verdict') == 'ORGANIC' and t_.get('nearReady'):
-                        t_['nearReady'] = (t_['nearReady'] + f" · 🧬 {meta_[t_['pair']]['why']}")[:300]
-                moved_ = [{'symbol': t_['symbol'], **live_[t_['mint']]} for t_ in cand_ if not live_[t_['mint']]['ok'] and t_['mint'] not in near_m]
-                gos_ = [{**t_, 'px': live_[t_['mint']]['px']} if t_['mint'] in live_ else t_ for t_ in gos_ if t_['mint'] not in live_ or live_[t_['mint']]['ok']]
-                wait_ = [{**t_, 'px': live_[t_['mint']]['px']} if t_['mint'] in live_ else t_ for t_ in wait_ if t_['mint'] not in live_ or live_[t_['mint']]['ok']]
-                _office['live'] = {'at': now, 'checked': [{'symbol': t_['symbol'], **live_[t_['mint']]} for t_ in cand_]}
-                near_ = [{**t_, 'px': live_[t_['mint']]['px']} for t_ in near0_ if t_['mint'] in live_ and live_[t_['mint']]['ok']]
-            except Exception as e:   # fail CLOSED: a decision that could not be checked against the newest market state is not taken this tick
-                print('live check:', e)
-                moved_ = [{'symbol': t_.get('symbol'), 'ok': False, 'why': f'live check failed ({type(e).__name__}) — not bought this tick'} for t_ in (gos_ + wait_)[:2]]
-                gos_, wait_ = [], []
-            # 🧠 REAL-MONEY MEMORY: every confirmed real exit, filed by what the coin looked like at the buy — a candidate whose learned
-            # real result is ≤ −4% is not bought (only while the memory beats its own skips on unseen real trades). Relearned every minute.
-            mem_ = _real_mem(now)
-            mem_out = []
-            def _mem_ok(t_):
-                ch_ = _office['charts'].get(t_['mint']) or {}
-                tag_ = '🤖 agents GO' if t_.get('go') else f"{t_['tier']}-tier" if t_.get('tier') else 'best available' if t_.get('nearReady') else 'duty'
-                why_ = _rm.judge(mem_, _rm.feats(ch_.get('state'), (ch_.get('entry') or [None, None])[1] if len(ch_.get('entry') or []) > 1 else None, tag_,
-                                                 (t_.get('li') or {}).get('phase'), (t_.get('li') or {}).get('cls'), (t_.get('vitals') or {}).get('ageH')))
-                if why_:
-                    mem_out.append({'symbol': t_.get('symbol'), 'ok': False, 'why': why_})
-                return not why_
-            gos_, wait_, near_ = [t_ for t_ in gos_ if _mem_ok(t_)], [t_ for t_ in wait_ if _mem_ok(t_)], [t_ for t_ in near_ if _mem_ok(t_)]
-            if mem_out:
-                _office['live'] = {**(_office.get('live') or {}), 'memory': mem_out[:8]}
-            empty_for_ = (now - _fuse._f(cur.get('agentEmptyAt'))) if cur.get('agentEmptyAt') else 0.0
-            rnd_ok_ = [t_ for t_ in near_ if t_.get('roundEnter')]   # ⏱ a confirmed 3-round decision is a CLEARED case (not "best available")
-            wait_ = wait_ + [t_ for t_ in rnd_ok_ if t_['mint'] not in {w_['mint'] for w_ in wait_}]
-            near_ = near_ if _oe.BEST_AVAILABLE else []   # 🚫 forced occupancy is off: an empty seat stays cash
-            valid_ = [] if pol_['manual'] else gos_ + ([] if pol_['entry'] == 'go' else wait_) + (near_ if (not gos_ and not wait_ and empty_for_ >= _oe.NEAR_PATIENCE_SEC and pol_['entry'] != 'go') else [])
+                _office['live'] = {'at': now, 'checked': []}
+            except Exception as e:
+                print('live refresh:', e)
             if empty_n and valid_ and not _office.get('validSince'):
                 _office['validSince'] = now
             free_ = max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd')))
             tk_ = _office.get('ticks') or []
             every_ = sorted(b_ - a_ for a_, b_ in zip(tk_, tk_[1:]))[len(tk_) // 2 - 1] if len(tk_) >= 3 else 50.0
             bk_ = ((_fw_load().get('books') or {}).get(tid) or {}) if real_t else {}
-            cooled_ = [c_ for c_ in cases_ if c_['cleared'] and (c_['mint'] in cool or c_['mint'] in lost_)]   # cleared, but left the card lately: the rebuy cooldown holds it
-            seat_ctx_ = {'want': pol_['seats'], 'held': held_n, 'cases': [c_ for c_ in cases_ if c_ not in cooled_] if ctl_ else [], 'valid': valid_, 'movesLeft': _ag.FILL_MOVES_HR - used_, 'movesHr': _ag.FILL_MOVES_HR, 'courier': (_office.get('courier') or {}).get('health'),
+            seat_ctx_ = {'want': pol_['seats'], 'held': held_n, 'cases': [c_ for c_ in cases_ if c_ not in cooled_ and c_['status'] != 'TRACKING'], 'valid': valid_, 'movesLeft': _uni.FILL_MOVES_HR - used_, 'movesHr': _uni.FILL_MOVES_HR, 'courier': (_office.get('courier') or {}).get('health'),
                          'manual': pol_['manual'], 'live': rd_['live'], 'readyWhy': rd_['why'], 'freeUsd': free_, 'minUsd': max(0.05, _fuse._f(cfg_t.get('minOrderUsd'))), 'emptySince': cur.get('agentEmptyAt'), 'target': pol_['seatTarget'], 'now': now, 'nextTickIn': min(every_, pol_['seatTarget']),
-                         'control': True, 'halt': (bk_.get('haltWhy') or 'halted') if bk_.get('halt') else None, 'cooled': [c_.get('symbol') for c_ in cooled_], 'moved': moved_,
-                         'timerIn': 0 if gos_ or not empty_n else max(0.0, _fuse._f(pol_['seatTarget']) - (now - _fuse._f(cur.get('agentFillAt'))))}
+                         'control': True, 'halt': (bk_.get('haltWhy') or 'halted') if bk_.get('halt') else None, 'cooled': [c_.get('symbol') for c_ in cooled_], 'moved': moved_, 'timerIn': 0}
             vetoed_ = 0
-            plan_ = _oe.fill_plan({'control': True, 'pol': pol_, 'live': rd_['live'], 'halt': seat_ctx_['halt'], 'courier': seat_ctx_['courier'], 'used': used_, 'gos': gos_, 'wait': wait_,
-                                   'empty': empty_n, 'emptySince': cur.get('agentEmptyAt'), 'lastFill': cur.get('agentFillAt'), 'now': now, 'near': near_, 'emptyFor': empty_for_, 'cap': _ag.FILL_MOVES_HR})
-            if (cfg_t.get('agentOpen') and empty_n and not pol_['manual'] and rd_['live'] and not seat_ctx_['halt'] and seat_ctx_['courier'] != 'BAD'
-                    and used_ < _ag.FILL_MOVES_HR):   # ⚡ OPEN MODE (execution health, a LIVE office and the runaway fill guard still apply): every empty seat takes the top of the volume + newness ranking NOW
-                blk_ = _agent_blocked(cur, now) | {l.get('mint') for l in cur.get('legs') or []}
-                # ⚙ ONE candidate lifecycle: the seat fill reads the kernel's READY list (ranked once, by the ten-agent brain) — no second ranking here
-                rdy_ = [(m_, d_) for m_, d_ in _tk.KERNEL.ready(exclude=blk_) if not _fw.dollar_named((_tk.KERNEL.store.mints[m_]['identity'] or {}).get('symbol'))]
-                plan_ = []
-                for m_, d_ in rdy_[:empty_n + 3]:
-                    x_ = _tk.KERNEL.store.mints[m_]['row']
-                    plan_.append({**x_, 'pair': x_.get('pair') or x_.get('pairAddress'), 'px': _shadow_px(x_), 'tier': 'A', 'open': True, 'opp': d_['rank'],
-                                  'nearReady': f"⚡ {d_['why']} · rank {d_['rank']:g} · size ×{d_['opinions']['warden']['size']:g}"})
-                _office['open'] = {'at': now, 'read': len(_tk.KERNEL.store.mints), 'ranked': len(rdy_),
-                                   'top': [{'symbol': _tk.KERNEL.store.mints[m_]['identity']['symbol'], 'score': d_['rank'], 'narrative': d_['opinions']['trigger']['narrative']} for m_, d_ in rdy_[:8]],
-                                   'skipped': _tk.KERNEL.metrics(now)['byStatus']}
-            if cfg_t.get('agentPaper'):   # 📄 PAPER: every seat the agents would fill is recorded in the shadow book at the live price — no real buy
+            # the money boundary for a fill: the creator not on manual · the office LIVE · the keeper not halted · Courier not BAD · the runaway guard
+            plan_ = valid_[:empty_n + 3] if (empty_n and not pol_['manual'] and rd_['live'] and not seat_ctx_['halt'] and seat_ctx_['courier'] != 'BAD' and used_ < _uni.FILL_MOVES_HR) else []
+            _office['open'] = {'at': now, 'read': len(_tk.KERNEL.store.mints), 'ranked': len(valid_), 'top': [{'symbol': c_['symbol'], 'score': c_['rank'], 'narrative': c_['narrative']} for c_ in valid_[:8]],
+                               'skipped': _tk.KERNEL.metrics(now)['byStatus']}
+            _office['opp'] = {'at': now, 'cap': _agents.get('laneCap'), 'top': [{'symbol': c_['symbol'], 'tier': c_['status'], 'score': c_['rank']} for c_ in cases_[:6]]}
+            if cfg_t.get('agentPaper'):   # 📄 PAPER: every seat the kernel would fill is recorded in the shadow book at the live price — no real buy
                 for t_ in plan_[:max(0, empty_n)]:
                     _shadow_note(t_, 'fill', now, cur)
-                _shadow_controls(plan_[:max(0, empty_n)], near0_ + gos_ + wait_, cases_, now)
+                _shadow_controls(plan_[:max(0, empty_n)], [c_['row'] for c_ in cases_ if c_['status'] == 'CONTENDING'][:12], cases_, now)
                 plan_ = []
             for t_ in plan_:   # 🔌 no fill until the office is LIVE after a restart · never while the keeper is halted or the Courier reads BAD
-                t_ = {**t_, 'trench': _ag.in_lane(t_.get('vitals') or {})}   # 🗑 a lane launch → the keeper's trench pool floor
-                if used_ >= _ag.FILL_MOVES_HR:
+                t_ = {**t_, 'trench': _uni.in_lane(t_.get('vitals') or {})}   # 🗑 a lane launch → the keeper's trench pool floor
+                if used_ >= _uni.FILL_MOVES_HR:
                     break
                 if t_['mint'] in _agent_blocked(cur, now):   # 🚫 banked / pulled / refused earlier in THIS tick
                     continue
@@ -10060,8 +9961,7 @@ async def _prime_tick_inner(now):
                         continue
                     cur = _prime.agent_seat(cur, {'mint': t_['mint'], 'symbol': t_['symbol'], 'pairAddress': t_['pair'], 'price': t_['px'], 'liquidityUsd': (t_.get('nums') or {}).get('liq'), 'trench': t_['trench'], 'curve': bool((t_.get('vitals') or {}).get('curve') and cfg_t.get('agentCurve')),
                                                   'ageH': (t_.get('vitals') or {}).get('ageH'), 'vol1h': (t_.get('vitals') or {}).get('vol1h'), 'buyShare': (t_.get('nums') or {}).get('buy'),
-                                                  'tag': '🤖 agents GO · in control' if t_.get('go') else '🤖 agents · ⚡ open (volume + new)' if t_.get('open') else f"🤖 agents · {t_['tier']}-tier · ⏱ round 3" if t_.get('roundEnter') else f"🤖 agents · {t_['tier']}-tier" if t_.get('tier') else '🤖 agents · best available' if t_.get('nearReady') else '🤖 agents · 10-min duty',
-                                                  'why': (t_.get('trigger') or ['', ''])[1] if t_.get('go') else t_['nearReady'] if t_.get('nearReady') else f"their strongest cleared read (lean {t_['why']['lean']:+.1f})"}, px, cfg_s, now, max_usd=wd_['allowed'])
+                                                  'tag': '🤖 agents · ⚡ READY (kernel)', 'why': t_['nearReady']}, px, cfg_s, now, max_usd=wd_['allowed'])
                     used_ += 1; cur['agentDutyAt'] = now; cur['agentFillAt'] = now
                     _intake['reg'] = _in.stamp(_intake_reg(), 'seat', [t_['mint']], now)   # 🕸 clear → seat latency
                     st_o = _office_state()   # ⏱ how long the seat sat empty, how long a valid candidate waited, how long after an exit the next fill came
@@ -10078,8 +9978,8 @@ async def _prime_tick_inner(now):
                     break
             held_n = len([l for l in cur.get('legs') or [] if not l.get('placeholder')])   # 🪑 the seat truth AFTER this tick's fills
             _agents['seat'] = {**_oe.seat_state({**seat_ctx_, 'held': held_n, 'vetoed': vetoed_, 'valid': [t_ for t_ in valid_ if t_['mint'] not in {l.get('mint') for l in cur.get('legs') or []}] if held_n < pol_['seats'] else valid_}),
-                               'at': now, 'tickEvery': round(every_, 1), 'movesLeft': max(0, _ag.FILL_MOVES_HR - used_), 'freeUsd': round(max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd'))), 2)}
-            _agents['card'] = _ag.card_seats(cur, _agents.get('decisions'), px, cfg_t, take=_of.take_line(cfg_t, _agents.get('scalp')))
+                               'at': now, 'tickEvery': round(every_, 1), 'movesLeft': max(0, _uni.FILL_MOVES_HR - used_), 'freeUsd': round(max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd'))), 2)}
+            _agents['card'] = _pos.card_seats(cur, _agents.get('decisions'), px, cfg_t, take=_of.take_line(cfg_t, _agents.get('scalp')))
             try:   # 🪑 THE BENCH + EVERY SEAT THIS CYCLE (display — the decisions above were made by manage / Reaper / fill_plan)
                 on2_ = {l.get('mint') for l in cur.get('legs') or [] if l.get('mint')}
                 bench_ = _so.bench(cases_, scores_, on2_, {m_: (v_['ok'], v_['why']) for m_, v_ in live_.items()}, [c_['mint'] for c_ in cooled_])
@@ -10087,7 +9987,7 @@ async def _prime_tick_inner(now):
                 _agents['bench'] = bench_
                 _agents['seatBoard'] = _so.seat_board((_agents['card'] or {}).get('seats'), _office.get('reports'), _agents.get('decisions'), vels_, scores_, bench_,
                                                       _agents.get('switchTests'), now, now, inp_, _agents.get('seat'), pol_['switch'].get('mode'))
-                _agents['seatSummary'] = {**_so.summary(held_n, pol_['seats'], bench_, used_, _ag.FILL_MOVES_HR, max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd')))),
+                _agents['seatSummary'] = {**_so.summary(held_n, pol_['seats'], bench_, used_, _uni.FILL_MOVES_HR, max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd')))),
                                           'hunt': list(_so.universe(_agents.get('money')))}   # 🧭 what the seats hunt in this phase
                 _agents['seatScores'] = {m_: v_ for m_, v_ in scores_.items() if m_ in on2_ or m_ in {b_['mint'] for b_ in bench_}}
                 bs_ = _so.bench_stats(bench_, (_agents.get('benchStats') or {}).get('mints'))
@@ -12565,7 +12465,9 @@ def _intel_restore():
         return 0
 
 
-import agents as _ag
+import paper_desk as _pd   # 📝 the OFFLINE practice record (graded paper calls) — it has no live authority
+import trench_kernel.universe as _uni
+import trench_kernel.senses as _sn
 import trench_mind as _tm
 import opportunity as _opp
 import launch_intel as _li
@@ -12577,6 +12479,8 @@ import trench_rounds as _tr
 import generations as _gen
 import trench_kernel.kernel as _tk
 import trench_kernel.lifecycle as _tkl
+import trench_kernel.positions as _pos
+import trench_kernel.view as _tkv
 LINGO_PATH = FUSE_HQ_PATH.parent / 'trench_lingo.json'   # 📖 slang the desk learned from Pump callers' own words (per-day counts + learned words)
 AGENTS_PATH = FUSE_HQ_PATH.parent / 'agents.json'   # 🤖 the agent desk: Tally's tapes, every call, every judged result
 AGENTS_EVERY = 18.0                                 # ⚡ 3× a minute (owner, 2026-10-11: "seats never empty — 3× as fast"); a pass takes ~2s
@@ -12587,21 +12491,55 @@ _agents: dict = {'at': 0.0, 'table': [], 'view': None}
 _rm_cache: dict = {'at': 0.0, 'mem': None}
 
 
-def _lifecycle(now):
-    """🧬 Every role's ACTIVE generation + the ones it replaced (SHADOW 24h, then RETIRED), with the shadow record of the office desks:
-    the same real exits since the switch replayed with the OLD generation's settings vs the NEW one's (Reaper's price rules)."""
-    of_ = _office_state()
-    shadows = {}
+LIFECYCLE_PATH = FUSE_HQ_PATH.parent / 'agent_lifecycle.json'   # 🧬 the ONE generation book of all ten roles (trench_kernel/lifecycle.py)
+_lc_mem: dict = {'book': None}
+
+
+def _lc_book(now=None):
+    """The ONE lifecycle book. First run: the two old books (the four desks' gen / born / lineage, the office desks' + their tunables) are
+    migrated into it once; after that nothing else holds a generation."""
+    if _lc_mem['book'] is None:
+        b = _json_load(LIFECYCLE_PATH, {}) or {}
+        if not b.get('roles'):
+            b = _tkl.new_book(now or time.time(), _json_load(AGENTS_PATH, {}) or {}, _json_load(OFFICE_PATH, {}) or {})
+        _lc_mem['book'] = _tkl.ensure(b, now or time.time())
+    return _lc_mem['book']
+
+
+def _lc_shadows():
+    """The replaced Reaper generation vs its successor on the SAME real exits since the switch (its price rules replayed with each lesson)."""
+    out = {}
     try:
-        pos_ = (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or []
-        take_ = _of.take_line(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), _agents.get('scalp'))
-        for x_ in reversed(of_.get('lineage') or []):
-            a_ = x_.get('agent')
-            if a_ == 'reaper' and a_ not in shadows and x_.get('oldTune') and x_.get('newTune'):
-                shadows[a_] = _gen.shadow_record(pos_, x_['oldTune'], x_['newTune'], _fuse._f(x_.get('at')), take_, _of.reaper_replay)
+        x_ = next((x for x in reversed(_lc_book().get('lineage') or []) if x.get('role') == 'reaper' and x.get('status') == 'SHADOW'), None)
+        if x_:
+            of_ = _office_state()
+            pos_ = (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or []
+            take_ = _of.take_line(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), _agents.get('scalp'))
+            old_ = {k_: _of.tune({'tune': {'reaper': x_.get('lesson') or {}}}, 'reaper', k_) for k_ in _of.TUNABLE['reaper']}
+            out['reaper'] = _gen.shadow_record(pos_, old_, _of.tunes(of_, 'reaper'), _fuse._f(x_.get('retiredAt')), take_, _of.reaper_replay)
     except Exception as e:
         print('lifecycle shadow:', str(e)[:100])
-    return _gen.lifecycle(_json_load(AGENTS_PATH, {}) or {}, of_, now, shadows)
+    return out
+
+
+def _lifecycle(now):
+    """🧬 The page's per-role view of the ONE book: the generation in control + the ones it replaced (SHADOW 24h, then RETIRED)."""
+    gens = _tkl.generations(_lc_book(now), now, _lc_shadows())
+    return {g['role']: {'active': {'gen': g['generation'], 'since': g['bornAt'], 'status': g['status'], 'why': g.get('why'), 'net': g.get('net'), 'lesson': g.get('lessonVector')}, 'past': g['lineage']} for g in gens}
+
+
+def _lc_evaluate(of, arch, cour, now):
+    """🧬 ONE evaluation of all ten roles on the Judge's reviews of REAL exits (the only evidence). A replaced office desk's new lesson is
+    written to its tunables on this same call; a brain-side role's lesson is read by the kernel on its next judgement. → (office state, events)"""
+    reviews = ((of.get('judge') or {}).get('reviews')) or []
+    integrity = {'courier': int((cour or {}).get('duplicates') or 0) + int((cour or {}).get('unsigned') or 0), 'archivist': int(_of.verify(arch) or 0), 'judge': 0}
+    book, ev = _tkl.evaluate(_lc_book(now), reviews, now, tunable=_of.TUNABLE, integrity=integrity, desk_stats=_jr.desk_stats(reviews))
+    book, tune_ = _tkl.sync_office(book, of.get('tune'), {e_['role'] for e_ in ev if e_['kind'] == 'replaced'})
+    _lc_mem['book'] = book
+    _json_save(LIFECYCLE_PATH, book)
+    return {**of, 'tune': tune_}, ev
+
+
 ROUNDS_PATH = FUSE_HQ_PATH.parent / 'trench_rounds.json'   # ⏱ candidates' 5-minute rounds + the round history (trench_rounds.py)
 _rounds: dict = {'state': None}
 
@@ -12625,6 +12563,23 @@ def _judge_weights(now):
     return w
 
 
+def _paper_view(st, paper, rcfg, now):
+    """📝 The page's practice-desk payload (board rows, feed, records). Every row carries the KERNEL's decision as `k` — the one meaning of a
+    coin's state the page shows (READY · CONTENDING · TRACKING · HELD, Devil's graded evidence, the Warden's size)."""
+    v = _pd.view(st, paper or [], bool(rcfg.get('agentFeed')), _agents_real(), _agents.get('mind'), rcfg, _agents.get('decisions'), now, _agents.get('card'), _agents.get('money'))
+    try:
+        for x_ in v.get('table') or []:
+            d_ = _tk.KERNEL.dec.get(x_.get('mint'))
+            if d_:
+                op_ = d_['opinions']
+                x_['k'] = {'status': d_['status'], 'rank': d_['rank'], 'why': str(d_['why'])[:140], 'trigger': op_['trigger']['state'], 'narrative': op_['trigger']['narrative'],
+                           'devil': [[o, sv, str(w)[:90]] for o, sv, w in op_['devil']['objections']][:4], 'hard': bool(op_['devil']['hard']), 'size': op_['warden']['size'],
+                           'unknown': op_['sherlock']['unknown'], 'courier': bool(op_['courier']['ok'])}
+    except Exception as e:
+        print('paper view:', str(e)[:120])
+    return v
+
+
 def _kernel_ctx(now):
     """The small context the ten agents read: held positions (entry · peak · Reaper's stop) · the weather · execution health · the Judge's weights."""
     pos = _office.get('pos') or {}
@@ -12633,7 +12588,7 @@ def _kernel_ctx(now):
             if l.get('mint') and not l.get('placeholder') and _fuse._f(l.get('units')) > 0}
     rd = _office.get('ready') or {}
     return {'held': held, 'regime': (_agents.get('weather') or {}).get('regime'), 'courier': (_office.get('courier') or {}).get('health'),
-            'live': rd.get('live') if rd else None, 'weights': _judge_weights(now)}
+            'live': rd.get('live') if rd else None, 'weights': _judge_weights(now), 'lessons': _tkl.lessons(_lc_book(now))}   # 🧬 only the generations IN CONTROL
 
 
 ENRICH_TOP = 4   # 🔎 Tier 2: holder / early-wallet scans only for the strongest candidates the brain asks about (Tier 0 = the whole intake, zero RPC)
@@ -12785,12 +12740,12 @@ async def _agents_tick(now):
             print('intake:', e); extra_, fresh_, outl_ = [], {}, {}
         ob_ = ob_ + extra_
         held_l = {l.get('mint') for l in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '', {}).get('legs') or [] if l.get('mint')}
-        cap_ = max(_ag.lane_cap(ob_), _agents.get('laneStep') or _ag.LANE_CAPS[0]); _agents['laneCap'] = cap_   # 🪜 the smallest cap that can fill the seats ($200K first) — or wider, when last pass's ranking came up short
-        ob_ = [x for x in ob_ if x.get('mint') in held_l or _ag.in_lane(x, cap_)]   # 🎯 the universe FIRST: intake slots go to coins under the cap (they were spent on $200K+ coins, then dropped — 26 safe sub-$200K pools never reached the desk)
+        cap_ = max(_uni.lane_cap(ob_), _agents.get('laneStep') or _uni.LANE_CAPS[0]); _agents['laneCap'] = cap_   # 🪜 the smallest cap that can fill the seats ($200K first) — or wider, when last pass's ranking came up short
+        ob_ = [x for x in ob_ if x.get('mint') in held_l or _uni.in_lane(x, cap_)]   # 🎯 the universe FIRST: intake slots go to coins under the cap (they were spent on $200K+ coins, then dropped — 26 safe sub-$200K pools never reached the desk)
         src_ = {}
         for k_, lst_ in (_lens_rows or {}).items():
             for r_ in lst_ or []:
-                if r_.get('mint') and k_ in _ag.SOURCES:
+                if r_.get('mint') and k_ in _sn.SOURCES:
                     src_.setdefault(r_['mint'], []).append(k_)
         for c_ in _pump_calls.get('calls') or []:
             if c_.get('mint') and 'calls' not in src_.get(c_['mint'], []):
@@ -12800,7 +12755,7 @@ async def _agents_tick(now):
         cool_ = {k_ for k_, e_ in seen_mem.items() if not _oe.review_due(e_, now)[0]}
         # held coins always + last pass's strongest cases / bench — but a rejected case with nothing new since does not hold a seat at the table
         stale_ = lambda r_: _oe.fresh_key((r_ or {}).get('vitals') or r_ or {}) >= 5 and not _opp.reawake(r_ or {})   # 🧊 12h+ and not waking up: no automatic recheck
-        recheck_ = held_m + [c_['mint'] for c_ in _ag.investigate(_agents.get('table'), set(), 0, {}, top=20) if c_['mint'] not in cool_ and not stale_(c_.get('row'))] + [b_['mint'] for b_ in _agents.get('bench') or [] if b_.get('mint') not in cool_ and not stale_(b_)]
+        recheck_ = held_m + [c_['mint'] for c_ in _tk.KERNEL.cases(top=20, statuses=('READY', 'CONTENDING')) if c_['mint'] not in cool_ and not stale_(c_.get('row'))] + [b_['mint'] for b_ in _agents.get('bench') or [] if b_.get('mint') not in cool_ and not stale_(b_)]
         taken_ = _oe.intake(ob_, recheck_, src_, cool=cool_, fresh=fresh_, outlets=outl_)
         _office['intake'] = {'board': len(ob_), 'boardFeed': len(ob_) - len(extra_), 'outletRows': len(extra_), 'screened': len(taken_), 'by': {k_: sum(1 for x in taken_ if k_ in x['intake']) for k_, _n in _oe.INTAKE_SLOTS},
                              'newLaunches': sum(1 for x in ob_ if x.get('ageH') is not None and _fuse._f(x['ageH']) <= 1), 'cooled': len(cool_)}
@@ -12808,23 +12763,18 @@ async def _agents_tick(now):
         raw = [_with_tv(x) for x in taken_]
         for x in raw:
             x['src'] = ['open'] + (['new'] if x.get('mint') in seen_ else []) + src_.get(x.get('mint'), []) + list(fresh_.get(x.get('mint')) or []) + (['outlet'] if x.get('mint') in outl_ else [])
-        cut_ = set((_ag.learn(_json_load(AGENTS_PATH, {}), 5).get('cut') or {}).keys())   # 🕸 source budget: losing corners get half the room (never a recheck or a new launch)
-        if cut_:
-            keep_ = [x for x in raw if 'recheck' in x['intake'] or 'new' in x['intake'] or 'fresh' in x['intake'] or not (set(x['src']) - {'open'}) or not (set(x['src']) - {'open'}) <= cut_]   # a source's record is context, never a gate on the fresh / reserved room
-            trim_ = [x for x in raw if x not in keep_]
-            raw = keep_ + trim_[:len(trim_) // 2]
         tv_ = {x.get('mint'): x.get('tv') for x in raw}
-        rows = [_ag.established({**r, 'tv': tv_.get(r.get('mint')) or r.get('tv')}) for r in _clean_rows([dict(x) for x in raw])]   # 🏛 an established coin's top-10 = exchange / pool wallets, not a failed scan
+        rows = [_uni.established({**r, 'tv': tv_.get(r.get('mint')) or r.get('tv')}) for r in _clean_rows([dict(x) for x in raw])]   # 🏛 an established coin's top-10 = exchange / pool wallets, not a failed scan
         if ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentCurve'):   # 🎢 owner's switch: a fresh Pump coin still on its curve
             sp_ = await _sol_usd_live()   # has no pool figure — its curve depth stands in (0 = unknown → the conservative $100)
             for r in rows:
                 if r.get('curve') and _fuse._f(r.get('liq')) <= 0 and _fuse._f(r.get('mcap')) > 0:
                     r['liq'] = _fuse.curve_liq(r['mcap'], sp_ or 100.0); r['liqCurve'] = True
         for r in rows:   # 🧪 the agents' own holder line: failed ONLY on concentration, inside the agents' limits → passes as a half-seat coin
-            soft_ = _ag.agent_holder_pass(r)
+            soft_ = _uni.agent_holder_pass(r)
             if soft_:
                 r['safe'], r['holderSoft'] = True, soft_
-        rows = [r for r in rows if r.get('mint') in held_m or _ag.in_lane(r, _agents.get('laneCap') or _ag.AGENT_MAX_MCAP)]   # 🎯 the lane (the ladder's cap) — coins on the card stay: their exits still run
+        rows = [r for r in rows if r.get('mint') in held_m or _uni.in_lane(r, _agents.get('laneCap') or _uni.AGENT_MAX_MCAP)]   # 🎯 the lane (the ladder's cap) — coins on the card stay: their exits still run
         # 🧠 the human read: who is calling each coin on Pump and what they write, the narratives hot on the board, the lingo they use
         calls_ = _pump_calls.get('calls') or []
         by_m = {}
@@ -12845,7 +12795,7 @@ async def _agents_tick(now):
         except Exception:
             pass
         try:   # ⚖ Devil's busted reads = the reads' own live 1-hour records, never a fixed list
-            bust_ = _ag.busted_now(_trench.meta_proof(_json_load(CALL_PROOF_PATH, {}), keys=tuple(dict.fromkeys(CALL_KEYS.values()))), CALL_KEYS)
+            bust_ = _sn.busted(_trench.meta_proof(_json_load(CALL_PROOF_PATH, {}), keys=tuple(dict.fromkeys(CALL_KEYS.values()))), CALL_KEYS)
         except Exception:
             bust_ = None
         t_tick = time.perf_counter()
@@ -12860,7 +12810,7 @@ async def _agents_tick(now):
         seen_mem = _office.get('seen') or {}
         # 🔬 DEEP REVIEW (real 1-min candles) = the top of the ranked bench first, then the strongest reads — but a rejected coin with nothing new
         # is not re-reviewed (its slot goes to a coin with news); each pick records WHY it was due (never reviewed · material change · cooldown over)
-        cand_c = _ag.investigate(_agents.get('table'), set(held_), 0, {}, top=60)
+        cand_c = _tk.KERNEL.cases(exclude=set(held_), top=60, statuses=('READY', 'CONTENDING'))   # ⚙ the kernel's own ranked candidates (last pass) pick the deep reviews
         rank_ = {b_.get('mint'): i_ for i_, b_ in enumerate(_agents.get('bench') or [])}
         _fk = lambda r_: _oe.fresh_key(r_ or {})
         _old_c = lambda c_: _fk((c_.get('row') or {}).get('vitals')) >= 5 and not _opp.reawake(c_.get('row'))   # 🆕 12h+ and not waking up: deep review only when nothing fresher is due
@@ -12895,60 +12845,73 @@ async def _agents_tick(now):
         _office['candleStat']['allocBefore'] = {k_: sum(1 for m_ in old_ord if cat_.get(m_, 'held' if m_ in held_ else 'old') == k_) for k_ in ('fresh', 'old', 'held')}   # what the old order would have built first
         flows_ = {p_: w_ for p_, (at_, w_) in list(_flow_now.items()) if w_ and now - _fuse._f(at_) <= 90}
         charts_ = {}
-        st, table = _ag.desk(st, rows, now, ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentDial'), bust_, weather_fn=wfn_, candles=cmap_, flows=flows_, charts_out=charts_, cmeta=_office.get('cmeta'))   # 🎚 the creator's dial
+        rcfg_ = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
+        # 📡 THE SENSES: ONE row per mint — Tally's tape, the shared chart read, the human read, the launch context, Devil's EVIDENCE. No verdict.
+        st, table, sctx_ = _sn.sense(st, rows, now, candles=cmap_, flows=flows_, charts_out=charts_, cmeta=_office.get('cmeta'), busted=bust_, weather_fn=wfn_)
         for m_, pa_ in held_.items():   # a held coin that is off the board still gets its chart (Reaper needs it), from the same candle read
             if m_ not in charts_ and cmap_.get(m_):
                 charts_[m_] = _ci.read(cmap_[m_], now, True, 'candles', None if not (_office.get('cmeta') or {}).get(m_) else {**{k_: v_ for k_, v_ in _office['cmeta'][m_].items() if k_ in ('provider', 'source', 'tickCount', 'partial')}, 'noCtx': True}, flow=flows_.get(pa_))   # off the board: no pool / volume reading is handed in, so neither is judged (the row checks still run)
         _office['charts'] = charts_
-        _li_attach(table, now)   # 🕵 launch intelligence on every desk row (early-buyer map, launch class, FOMO phase, exit pressure) — cache reads only
+        _li_attach(table, now)   # 🕵 launch intelligence on every sensed row (early-buyer map, launch class, FOMO phase, exit pressure) — cache reads only
         _agents['passAt'] = now
+        _agents['weather'] = st.get('weather')
+        _agents['table'] = table   # the SENSED rows: what every live decision reads (no paper verdict exists on them)
+        try:   # ⚙ THE KERNEL DECIDES HERE — sensed rows → one MintState per mint → the ten-agent brain → ONE reducer. Nothing below can change it.
+            _kernel_pass(table, now)
+        except Exception as e:
+            print('kernel:', str(e)[:160])
+        kcases_ = _tk.KERNEL.cases()   # the kernel's case files of THIS pass (the seat board, the scan / research order and the registry read these)
         try:   # ♻ per-coin memory: first / last seen · last deep review · last reject · last material change
-            _office['seen'] = _oe.note_seen(_office.get('seen'), table, _ag.investigate(table, set(), 0, st.get('burned') or {}, top=0), {m_ for m_, c_ in charts_.items() if (c_ or {}).get('src') == 'candles'}, now)
+            _office['seen'] = _oe.note_seen(_office.get('seen'), table, kcases_, {m_ for m_, c_ in charts_.items() if (c_ or {}).get('src') == 'candles'}, now)
         except Exception as e:
             print('seen:', e)
-        _agents['weather'] = st.get('weather')
         if len(table) >= _oe.READY_MIN_COINS:   # 🔌 a full pass on a real board since this process started (the refill the restart race waits for)
             _office['boot']['passes'] = int(_office['boot'].get('passes') or 0) + 1
         _office['boot']['coins'] = len(table)
-        st = _ag.record(st, table, now)
+        # 📝 THE PAPER DESK (offline practice): graded calls on the same sensed rows, recorded and judged at 5 / 15 / 60 min. Evidence for the
+        # Judge and the page — no fill, switch, exit, size or generation reads anything it writes (tests/test_kernel_authority.py).
         arch_ = _json_load(ARCHIVE_PATH, {})
-        want = list(dict.fromkeys(list((st.get('open') or {}).keys()) + [c_['d']['mint'] for c_ in arch_.get('cases') or [] if c_['d'].get('mint') and 'p60' not in (c_.get('out') or {})]))   # ONE batched price read for the calls AND the archive's open cases
-        jp = await _jup_prices(want) if want else {}
-        if not want or jp:
-            before = st
-            st = _ag.settle(st, lambda m: (jp or {}).get(m), now)
-            st['feed'] = (list(st.get('feed') or []) + _ag.results(before, st, now))[-_ag.FEED_KEEP:]
-        st['money'] = _agents.get('money') or st.get('money') or {}   # 💵 the real card's value vs put-in: the 5-minute stage stays locked while it is underwater
-        st = _ag.reckon(st, _agents_real(), now)   # ❤ their lives ride on the real seat's closed coins
-        st = _ag.scalp_adopt(st, now)          # ⚡ adopt / change / drop the scalp plan learned from their own 5-minute paths
-        _agents['scalp'] = st.get('scalp')
-        st = _ag.burn(st, now)                 # 🔥 a GO that lost 20%+ burns its coin for 6h
-        st = _ag.autopsy(st, now)              # 🔬 every rug on the desk: what we saw, what we missed → Devil's rug signs
-        st = _ag.history(st, now)              # 📈 each agent's record over time (every 30 min)
-        st, scrapped_ = _ag.evolve(st, now)   # ⚔ survive or be scrapped: a long-wrong agent is reborn as the next generation
-        n_ideas = len(st.get('ideas') or {})
-        st = _ag.ideas(st)   # 💡 tactics found in their own record go up to the creator
-        for iid, v in (st.get('ideas') or {}).items():
-            if v.get('status') == 'new' and v.get('at', 0) and len(st['ideas']) > n_ideas and iid not in (_agents.get('told') or set()):
-                _agents.setdefault('told', set()).add(iid)
-                st['feed'] = (list(st.get('feed') or []) + [{'at': now, 'who': 'desk', 'sym': '', 'text': f"💡 new idea for the creator: {v['text']}"}])[-_ag.FEED_KEEP:]
+        jp = {}
+        paper_ = table
+        try:
+            st, paper_ = _pd.calls(st, table, sctx_, now, rcfg_.get('agentDial'), bust_)
+            st = _pd.record(st, paper_, now)
+            want = list(dict.fromkeys(list((st.get('open') or {}).keys()) + [c_['d']['mint'] for c_ in arch_.get('cases') or [] if c_['d'].get('mint') and 'p60' not in (c_.get('out') or {})]))   # ONE batched price read for the calls AND the archive's open cases
+            jp = await _jup_prices(want) if want else {}
+            if not want or jp:
+                before = st
+                st = _pd.settle(st, lambda m: (jp or {}).get(m), now)
+                st['feed'] = (list(st.get('feed') or []) + _pd.results(before, st, now))[-_pd.FEED_KEEP:]
+            st['money'] = _agents.get('money') or st.get('money') or {}
+            st = _pd.scalp_adopt(st, now)          # ⚡ the take line learned from their own graded 5-minute paths (used only while proven, owner switch `agentScalp`)
+            _agents['scalp'] = st.get('scalp')
+            st = _pd.burn(st, now)
+            st = _pd.autopsy(st, now)
+            st = _pd.history(st, now)
+            n_ideas = len(st.get('ideas') or {})
+            st = _pd.ideas(st)   # 💡 tactics found in the practice record go up to the creator
+            for iid, v in (st.get('ideas') or {}).items():
+                if v.get('status') == 'new' and v.get('at', 0) and len(st['ideas']) > n_ideas and iid not in (_agents.get('told') or set()):
+                    _agents.setdefault('told', set()).add(iid)
+                    st['feed'] = (list(st.get('feed') or []) + [{'at': now, 'who': 'desk', 'sym': '', 'text': f"💡 new idea for the creator: {v['text']}"}])[-_pd.FEED_KEEP:]
+        except Exception as e:
+            print('paper desk:', str(e)[:160])
         _json_save(AGENTS_PATH, st)
-        rcfg_ = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
         try:   # 🎯 the mission reads the real card's own money (server value vs put-in) — the same numbers My cards shows
             rc_ = next((c for c in (await _prime_view()) if c.get('real')), None)
             _agents['money'] = {'value': rc_.get('valueUsd'), 'putIn': (rc_.get('math') or {}).get('putIn')} if rc_ else {}
         except Exception:
             pass
-        _agents.update(table=table, view=_ag.view(st, table, bool(rcfg_.get('agentFeed')), _agents_real(), _agents.get('mind'), rcfg_, _agents.get('decisions'), now, _agents.get('card'), _agents.get('money')))
+        _agents.update(paper=paper_, view=_paper_view(st, paper_, rcfg_, now))
         try:   # 🔁 this cycle's funnel, for the page (counts from this pass's objects only)
             prev_ = (_office.get('cycle') or {}).get('at')
-            _office['cycle'] = _oe.cycle_view(_office.get('intake'), table, _ag.investigate(table, set(), _ag.min_age_of(rcfg_), st.get('burned') or {}, top=0),
+            _office['cycle'] = _oe.cycle_view(_office.get('intake'), table, kcases_,
                                               _office.get('charts'), st.get('first'), now, now, max(AGENTS_EVERY, _fuse._f(_oe.policy(rcfg_)['seatTarget'])), int(_office.get('cycleN') or 0), _office.get('lastMints'))
             _office['cycle']['prevAt'] = prev_
             try:   # 🆕 the fresh-trench pipeline of this cycle (buckets · deep · cleared · repeats · top 5 · age at entry) — display only
                 arch_p_ = _json_load(ARCHIVE_PATH, {}).get('positions') or []
-                _office['cycle']['fresh'] = _oe.fresh_view(table, _office.get('deepNow') or [], [c_['mint'] for c_ in _ag.investigate(table, set(), _ag.min_age_of(rcfg_), st.get('burned') or {}, top=0) if c_.get('cleared')],
-                                                           _office.get('lastMints'), _opp.rank(table, set(), (), None, None, None, _agents.get('laneCap') or _opp.MAX_MCAP), arch_p_ + list(_office.get('pos', {}).values()), now,
+                _office['cycle']['fresh'] = _oe.fresh_view(table, _office.get('deepNow') or [], [c_['mint'] for c_ in kcases_ if c_.get('cleared')],
+                                                           _office.get('lastMints'), [{**c_['row'], 'opp': c_['rank'], 'tier': c_['status']} for c_ in kcases_ if c_['status'] in ('READY', 'CONTENDING')], arch_p_ + list(_office.get('pos', {}).values()), now,
                                                            (_office.get('intake') or {}).get('cooled'))
                 _office['cycle']['fresh']['candles'] = {k_: (_office.get('candleStat') or {}).get(k_) for k_ in ('allocFirst', 'allocBefore', 'loaded')}
                 hv_ = sorted(_fuse._f((x_.get('vitals') or {}).get('ageH')) * 60 for x_ in table if x_.get('mint') in set(held_m) and (x_.get('vitals') or {}).get('ageH') is not None)
@@ -12964,7 +12927,7 @@ async def _agents_tick(now):
         except Exception as e:
             print('office:', e)
         try:   # 🕸 the intake registry's stamps for this pass (agent intake · deep review · cleared) + the turnover of the desk
-            _intake_after(table, _ag.investigate(table, set(), _ag.min_age_of(rcfg_), st.get('burned') or {}, top=0), now)
+            _intake_after(table, kcases_, now)
         except Exception as e:
             print('intake after:', e)
         try:   # 🔁 EVERY SEAT, EVERY CYCLE: with Agent Control on, a pass that is not followed by a tier tick within 30s wakes one — each held seat
@@ -12980,15 +12943,11 @@ async def _agents_tick(now):
             seat_ = _agents.get('seat') or {}
             if (rcfg_.get('agentControl') and seat_.get('empty') and _is_keeper() and now - _fuse._f(_office.get('seatWakeAt')) >= _oe.SEAT_TARGET_AUTO and not os.environ.get('PYTEST_CURRENT_TEST')
                     and (_office.get('courier') or {}).get('health') != 'BAD' and seat_.get('movesLeft') and not _oe.policy(rcfg_)['manual'] and _oe.ready(_office['boot'], now)['live']
-                    and any(c_['cleared'] for c_ in _ag.investigate(table, {x_.get('mint') for x_ in ((_agents.get('card') or {}).get('seats') or []) if x_.get('mint')}, _ag.min_age_of(rcfg_), st.get('burned') or {}, top=0))):
+                    and any(c_['cleared'] and c_['mint'] not in {x_.get('mint') for x_ in ((_agents.get('card') or {}).get('seats') or []) if x_.get('mint')} for c_ in kcases_)):
                 _office['seatWakeAt'] = now; _office['seatWakes'] = int(_office.get('seatWakes') or 0) + 1
                 asyncio.create_task(_prime_tick(time.time()))
         except Exception as e:
             print('seat wake:', e)
-        try:   # ⚙ THE KERNEL: the desk's rows → one MintState per mint → only the changed ones re-judged by the ten-agent brain
-            _kernel_pass(table, now)
-        except Exception as e:
-            print('kernel:', str(e)[:120])
         try:   # ⏱ THE 5-MINUTE ROUNDS: every candidate of the new-entry universe moves round 1 → 2 → 3 → ENTER / REJECT / COOLDOWN
             _rounds_pass(table, now)
         except Exception as e:
@@ -12997,29 +12956,19 @@ async def _agents_tick(now):
             _json_save(DATA_DIR / 'agents_view.json', {**_agents['view'], **({'card': _agents['card']} if _agents.get('card') else {}), 'office': _office.get('payload')})
         except Exception:
             pass
-        try:   # 🕵 ACTIVE INVESTIGATION: their 2 strongest reads that nobody has holder-scanned yet get a scan requested (deduped, rate-paced)
-            if rcfg_.get('agentControl'):
-                ch_m = {((_agents.get('switchEval') or {}).get('challenger') or {}).get('symbol')}
-                cs_all = _ag.investigate(table, set(), 0, st.get('burned') or {}, top=0)
-                picked_ = _oe.scan_order(cs_all, 3, {c_['mint'] for c_ in cs_all if c_.get('symbol') in ch_m}, _office.get('seen'), _so.universe(_agents.get('money'))[0])   # 🧭 recovery: young coins scanned first
-                _office['scans'] = {'at': now, 'asked': [{'symbol': c_['symbol'], 'tier': c_['scanTier'], 'lean': c_['lean']} for c_ in picked_]}
-                for c_ in picked_:   # strongest unscanned reads first (any age), by priority tier, never FIFO
-                    asyncio.ensure_future(_scan_wake(c_['mint'])); _office['load']['scansAsked'] = int(_office['load'].get('scansAsked') or 0) + 1
-        except Exception:
-            pass
         try:   # 🔎 the narrative packet for the strongest candidates only (background; one job at a time; cached by TTL)
             rows_by_ = {r_.get('mint'): r_ for r_ in rows}
-            asyncio.ensure_future(_research_tick(_ag.investigate(table, set(), 0, st.get('burned') or {}, top=12), rows_by_, now))
+            asyncio.ensure_future(_research_tick([c_ for c_ in kcases_ if c_['status'] != 'TRACKING'][:12], rows_by_, now))
         except Exception as e:
             print('research start:', e)
         try:   # 🔁 ONE LINE PER ~60s CYCLE: what the office looked at, what it found, what each seat did, how fresh every input was
             _office_cycle_log(table, now)
         except Exception as e:
             print('cycle log:', e)
-        try:   # 🕵 the duty's case files on disk each pass (read-only snapshot: what cleared, what blocked each coin)
-            dv_ = _agents['view'].get('duty') or {}
-            _json_save(DATA_DIR / 'agents_duty.json', {'at': now, 'on': dv_.get('on'), 'cleared': dv_.get('cleared'), 'dutyAt': dv_.get('at'),
-                                                       'cases': [{'symbol': c_['symbol'], 'lean': c_['lean'], 'cleared': c_['cleared'], 'blocked': [k_[2] for k_ in c_['checks'] if not k_[1]]} for c_ in _ag.investigate(table, set(), _ag.min_age_of(rcfg_), st.get('burned') or {}, top=25)]})
+        try:   # ⚙ the kernel's case files on disk each pass (read-only snapshot: what is READY, what holds each coin back) — read THIS first when no fill happens
+            _json_save(DATA_DIR / 'agents_duty.json', {'at': now, 'ready': sum(1 for c_ in kcases_ if c_['cleared']), 'byStatus': _tk.KERNEL.metrics(now)['byStatus'],
+                                                       'cases': [{'symbol': c_['symbol'], 'status': c_['status'], 'rank': c_['rank'], 'cleared': c_['cleared'], 'why': str(c_.get('kwhy') or '')[:120],
+                                                                  'blocked': [k_[2] for k_ in c_['checks'] if not k_[1]]} for c_ in kcases_[:25]]})
         except Exception:
             pass
     except Exception as e:
@@ -13128,26 +13077,6 @@ def _office_vels(cur, px, now):
     return out
 
 
-def _office_scores(cases, cur, vels, lost, now):
-    """🏅 The seat score of every case and every held seat (seat_ops.score) from what the office already holds: the table row, the shared
-    market state's price age, the per-coin memory (stale reject), a thesis that failed on real money, the research packet, and — for a held
-    seat — its P/L velocity and Reaper's thesis verdict. Nothing fetched."""
-    seen, soc = _office.get('seen') or {}, _social_cache() or {}
-    uni_ = _so.universe(_agents.get('money'))[0]   # 🧭 recovery → new coins first · ≥ 2× → majors first (a tilt, never a check)
-    by = {x_.get('mint'): x_ for x_ in _agents.get('table') or []}
-    verd = {r_.get('mint'): r_.get('verdict') for r_ in _office.get('reports') or []}
-    out = {}
-    for c_ in cases or []:
-        m = c_.get('mint')
-        v_ = _mkt_view(m, c_.get('pair'), now)
-        out[m] = _so.score(c_.get('row'), {'pxAge': None if not v_.get('pxAt') else now - _fuse._f(v_['pxAt']), 'seen': seen.get(m), 'lost': m in (lost or ()), 'social': soc.get(m), 'universe': uni_})
-    for l in cur.get('legs') or []:
-        m = l.get('mint')
-        if not m or l.get('placeholder') or m not in by:
-            continue   # a held coin off the table has no read this pass: unscored (the switch test falls back to the lean margin)
-        v_ = _mkt_view(m, l.get('pairAddress'), now)
-        out[m] = _so.score(by[m], {'pxAge': None if not v_.get('pxAt') else now - _fuse._f(v_['pxAt']), 'social': soc.get(m), 'vel': (vels or {}).get(m) or {'state': 'UNKNOWN'}, 'verdict': verd.get(m), 'universe': uni_})
-    return out
 
 
 _wake: dict = {'pos': {}, 'candAt': 0.0, 'log': [], 'n': 0, 'candN': 0}
@@ -13359,7 +13288,7 @@ def _office_cycle_log(table, now):
     cy, it = _office.get('cycle') or {}, _office.get('intake') or {}
     prev = (_office.get('cycleLog') or [None])[-1] or {}
     seen = _office.get('seen') or {}
-    cases = _ag.investigate(table, set(), 0, {}, top=0)
+    cases = _tk.KERNEL.cases(statuses=('READY', 'CONTENDING'))
     top5 = [c_.get('symbol') for c_ in cases[:5]]
     newin = [x_.get('symbol') for x_ in table if 'new' in (x_.get('intake') or []) and x_.get('ageH') is not None and _fuse._f(x_['ageH']) <= 1 and x_.get('mint') not in set(prev.get('mints') or [])]
     reviewed = set(_office.get('deepNow') or [])
@@ -13460,26 +13389,6 @@ async def _research_tick(cases, rows_by, now):
     return n
 
 
-async def _scan_wake(mint):
-    """🕵 A holder scan the agents asked for: the moment it lands, that coin's case is judged again (the same safety gates as the open
-    list) and its row in the agents' table is updated — the next tier tick sees it, no rediscovery."""
-    try:
-        it = await _runner_intel(mint)
-    except Exception:
-        it = None
-    if not it:
-        return False
-    pair = next((p_ for p_ in _open_pairs if (p_.get('baseToken') or {}).get('address') == mint), None)
-    got = _open_scan_judge(pair, mint, _runner_cfg()) if pair else None
-    if not got:
-        return False
-    for x_ in _agents.get('table') or []:
-        if x_.get('mint') == mint:
-            x_.setdefault('vitals', {})['safe'] = bool(got[0]); x_['wokeAt'] = time.time()
-    _office['load']['scanWakes'] = int(_office['load'].get('scanWakes') or 0) + 1
-    if got[0]:   # the scan PASSED: if that case now clears and a seat is open, the tier tick runs now (≤ once per 30s, same gates as the pass's wake)
-        _seat_wake_maybe(time.time(), 'holder scan landed')
-    return True
 
 
 def _seat_wake_maybe(now, why=''):
@@ -13493,7 +13402,7 @@ def _seat_wake_maybe(now, why=''):
         if now - _fuse._f(_office.get('seatWakeAt')) < _oe.SEAT_TARGET_AUTO or (_office.get('courier') or {}).get('health') == 'BAD' or _oe.policy(rcfg_)['manual'] or not _oe.ready(_office['boot'], now)['live']:
             return False
         on_ = {x_.get('mint') for x_ in ((_agents.get('card') or {}).get('seats') or []) if x_.get('mint')}
-        if not any(c_['cleared'] for c_ in _ag.investigate(_agents.get('table'), on_, _ag.min_age_of(rcfg_), (_json_load(AGENTS_PATH, {}).get('burned') or {}), top=0)):
+        if not _tk.KERNEL.ready(n=1, exclude=on_):   # nothing READY in the kernel: no reason to wake a fill
             return False
         _office['seatWakeAt'] = now; _office['seatWakes'] = int(_office.get('seatWakes') or 0) + 1; _office['seatWakeWhy'] = why
         asyncio.ensure_future(_prime_tick(time.time()))
@@ -13540,7 +13449,7 @@ def _office_ctx(cur, t_, now):
     money = _agents.get('money') or {}
     return {'value': money.get('value'), 'putIn': money.get('putIn'), 'peak': max(hrs.values()) if hrs else None, 'cash': max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd'))),
             'seats': len(cur.get('legs') or []), 'liq': n.get('liq') or v.get('liq'), 'ageH': v.get('ageH'), 'd5': n.get('d5'), 'top10': v.get('top10'),
-            'lives': ((_agents.get('view') or {}).get('lives') or {}).get('n'), 'lastReal': (_agents_real().get('last') or [])[-3:], 'weather': _agents.get('weather'), 'courier': (_office.get('courier') or {}).get('health'),
+            'lastReal': (_agents_real().get('last') or [])[-3:], 'weather': _agents.get('weather'), 'courier': (_office.get('courier') or {}).get('health'),
             'chart': (_office.get('charts') or {}).get(t_.get('mint')), 'social': (_social_cache() or {}).get(t_.get('mint')), 'near': t_.get('nearReady'), 'tier': t_.get('tier'), 'policy': _oe.policy((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'launch': _oe.launch_context(t_), 'li': t_.get('li'), 'holderSoft': (t_.get('vitals') or {}).get('holderSoft')}
 
 
@@ -13550,8 +13459,9 @@ def _office_warden(cur, t_, requested, cfg_t, now, move):
     try:
         t0 = time.perf_counter()
         ctx_ = _office_ctx(cur, t_, now)
-        if t_.get('open'):
-            ctx_['open'] = True   # ⚡ open mode: only execution · pool share · seat room
+        ctx_['open'] = True   # 🪖 every agent move is a kernel candidate: execution rules as they are, uncertainty only SHRINKS (trench_crew.warden_rules)
+        if t_.get('size') is not None:   # the brain's Warden opinion (uncertainty → size) enters the ONE sizing as rule W0
+            ctx_.update(kernelSize=t_.get('size'), kernelWhy=t_.get('sizeWhy'))
         if move == 'fill':   # 🪑 multi-seat sizing: how many seats are still open and the free cash they share (W17)
             seats_ = int(_fuse._f(_oe.policy(cfg_t).get('seats') or cfg_t.get('coins') or 0))
             held_ = len([l for l in cur.get('legs') or [] if not (l.get('placeholder') and not l.get('manualCash'))])
@@ -13682,7 +13592,7 @@ def _office_light(tid, cur, now):
         p['positions'] = _office_positions()
         p['mission'] = {**p['mission'], 'lastAction': last, 'dutyAt': _office['dutyAt']}
         p['seat'], p['switchEval'], p['ready'] = _agents.get('seat'), _agents.get('switchEval'), _oe.ready(_office['boot'], now)
-        p['ops'] = _oe.ops(p['ready'], p['seat'], _office.get('courier'), _is_keeper(), _ag.FILL_MOVES_HR)
+        p['ops'] = _oe.ops(p['ready'], p['seat'], _office.get('courier'), _is_keeper(), _uni.FILL_MOVES_HR)
         p['index'] = (_office.get('index') or [])[:80]
         p['rpc'] = {'lanes': _rpc_quota_state(), 'note': 'keyed lanes = keeper sends / balances first, then holder scans (budgeted); discovery comes from Pump\'s live stream + the launch boards — no RPC first-seen listener runs'}
         p['wake'] = {'reaper': _wake['n'], 'trigger': _wake['candN'], 'log': list(_wake['log'])[-8:], 'watching': len(_office.get('watchC') or {})}   # ⚡ market-event wakeups
@@ -13704,7 +13614,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         if perf.get(a) is not None:
             _office_lat(a, _fuse._f(perf[a]))
     view = _agents.get('view') or {}
-    lr = _ag.learn(st, 5)
+    bust_seen = {(x_.get('vitals') or {}).get('read') for x_ in table if any(e_[0] == 'busted_read' for e_ in x_.get('ev') or [])} - {None}
     on = {x.get('mint') for x in ((_agents.get('card') or {}).get('seats') or []) if x.get('mint')}
     # 📮→☠ exits: a position that left the card is closed only when the ledger confirms the sale
     t0 = time.perf_counter()
@@ -13738,17 +13648,17 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         _seat_wake_maybe(now, 'exit confirmed')
     # 🗄 the pass's case files (strongest first) + every real agent action since the last pass
     wx = st.get('weather') or {}
-    ctx0 = {'weather': wx, 'courier': cour, 'bar': perf.get('bar')}
-    cases = _ag.investigate(table, on, _ag.min_age_of(rcfg), st.get('burned') or {}, top=8)
+    ctx0 = {'weather': wx, 'courier': cour}
+    cases = _tk.KERNEL.cases(exclude=on, top=8, statuses=('READY', 'CONTENDING'))   # ⚙ the kernel's own candidates — the Archivist files what the KERNEL decided
     for c_ in cases:
-        arch = _of.file_case(arch, _of.lineage_of(c_, ctx0), now)
+        arch = _of.file_case(arch, _tkv.lineage(c_, {**ctx0, 'evidence': _of.evidence_refs(c_['row'].get('social'))}), now)
     seen = _fuse._f(of.get('actionSeen'))
     wd = _office.get('warden')
     by_m = {x['mint']: x for x in table}
     for e in [e for e in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(tid or '', {}).get('events') or [] if e.get('kind') == 'agent' and e.get('move') in ('fill', 'swap', 'pull', 'veto') and _fuse._f(e.get('at')) > seen]:
         x_ = by_m.get(e.get('mint')) or next((x for x in table if x.get('symbol') == e.get('symbol')), None)
-        full = next((c_ for c_ in _ag.investigate([x_], set(), _ag.min_age_of(rcfg), st.get('burned') or {}, top=0)), None) if x_ else None
-        d_ = _of.lineage_of(full, {**ctx0, 'warden': wd if wd and wd.get('mint') == (x_ or {}).get('mint') else None}, e.get('move')) if full else {'mint': e.get('mint'), 'sym': e.get('symbol'), 'action': e.get('move'), 'px': None}
+        full = _tk.KERNEL.case(x_['mint']) if x_ else None
+        d_ = _tkv.lineage(full, {**ctx0, 'warden': wd if wd and wd.get('mint') == (x_ or {}).get('mint') else None, 'evidence': _of.evidence_refs(full['row'].get('social'))}, e.get('move')) if full else {'mint': e.get('mint'), 'sym': e.get('symbol'), 'action': e.get('move'), 'px': None}
         arch = _of.file_case(arch, {**d_, 'usd': e.get('usd'), 'eventAt': e.get('at'), 'why': str(e.get('why') or '')[:140]}, now)
         of['actionSeen'] = max(_fuse._f(of.get('actionSeen')), _fuse._f(e.get('at')))
     if jp:
@@ -13781,8 +13691,17 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         of['missedAt'] = now
     except Exception as e:
         print('missed winners:', e)
-    cards = _of.scorecards(st, arch, of, _agents_real(), cour)
-    of = _of.demote(of, cards, now, (of.get('judge') or {}).get('reviews'))   # 💵 office desks evolve on real money too
+    try:   # 🧬 ONE lifecycle for all ten roles: real-money evidence only; a failed generation is replaced on this call
+        of, lc_ev_ = _lc_evaluate(of, arch, cour, now)
+        for e_ in lc_ev_:
+            line_ = (f"🧬 generation {e_['gen']} replaced by generation {e_['to']} — {e_['why']}. New lesson: {e_['changed']}" if e_['kind'] == 'replaced'
+                     else f"🧬 generation {e_['gen']} on PROBATION — {e_['why']}" if e_['kind'] == 'probation' else f"🧬 generation {e_['gen']} back to ACTIVE — {e_['why']}")
+            st['feed'] = (list(st.get('feed') or []) + [{'at': now, 'who': e_['role'], 'sym': '', 'text': line_}])[-_pd.FEED_KEEP:]
+            if e_['kind'] == 'replaced':
+                _audit('agent-generation', {'role': e_['role'], 'from': e_['gen'], 'to': e_['to'], 'why': e_['why'], 'changed': e_['changed']})
+    except Exception as e:
+        print('lifecycle:', str(e)[:160])
+    cards = _of.scorecards(st, arch, of, _agents_real(), cour, life={g_['role']: g_ for g_ in _tkl.generations(_lc_book(now), now)})
     _office_lat('judge', (time.perf_counter() - t0) * 1000)
     of['lat'] = _office['lat']
     _office['state'] = of
@@ -13794,31 +13713,33 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         row = case['row']
         m = case['mint']
         scan = _of.scan_status((row.get('vitals') or {}).get('safe'), m in _intel_inflight, _fuse._f(_intel_failed.get(m)), _fuse._f((_intel_cache.get(m) or (0,))[0]) if isinstance(_intel_cache.get(m), (tuple, list)) else 0.0, now, INTEL_TTL)
-        cur_ctx = {'tally': _of.tally_read(row, ser.get(m), now), 'sherlock': _of.sherlock_read(row, lr), 'weather': wx, 'courier': cour, 'scan': scan,
-                   'warden': wd if wd and wd.get('mint') == m and now - _fuse._f(wd.get('at')) <= 900 else None, 'filed': True, 'bar': perf.get('bar')}
-        cur_case = {'mint': m, 'symbol': case.get('symbol'), 'pair': case.get('pair'), 'px': case.get('px'), 'lean': case.get('lean'), 'cleared': case.get('cleared'), 'go': case.get('go'),
-                    'checks': case['checks'], 'tally': cur_ctx['tally'], 'sherlock': {**cur_ctx['sherlock'], 'scan': scan}, 'trigger': {'call': row['trigger'], 'checks': _of.trigger_checks(row, perf)},
-                    'devil': {'verdict': (row.get('case') or row.get('devil'))[0], 'objections': [{'rule': o[0], 'evidence': o[1], 'hard': _ag.DEVIL_RULES.get(o[0], (False, ''))[0], 'override': False} for o in row.get('objs') or []]},
-                    'warden': cur_ctx['warden'], 'opinion': row.get('opinion'), 'chart': _office_chart_view(_office['charts'].get(m), row)}
+        cur_ctx = {'tally': _of.tally_read(row, ser.get(m), now), 'weather': wx, 'courier': cour, 'scan': scan,
+                   'warden': wd if wd and wd.get('mint') == m and now - _fuse._f(wd.get('at')) <= 900 else None, 'filed': True}
+        cur_case = {**_tkv.case_view(case, cur_ctx), 'chart': _office_chart_view(_office['charts'].get(m), row)}
     ms = {a: (_office['lat'].get(a) or [None])[-1] for a in _of.CHAIN}
     feed = st.get('feed') or []
     rec = lambda who: [{'at': f.get('at'), 'text': (f"${f['sym']} · " if f.get('sym') else '') + str(f.get('text') or '')[:150]} for f in feed if f.get('who') == who][-4:][::-1]
-    base_bar = lr.get('bar')
-    dv_rec = _of.devil_record(st, 72, now)
-    jd = view.get('judge') or _ag.judge(st)
+    dv_rec = _of.devil_record(st, 72, now)   # 📝 the practice desk's objection record (display)
+    gens_ = {g_['role']: g_ for g_ in _tkl.generations(_lc_book(now), now)}
+    reviews_ = ((of.get('judge') or {}).get('reviews')) or []
+    kmet_ = _tk.KERNEL.metrics(now)
+    pl_all = [(c_, _tkv.pipeline(c_, {'courier': cour, 'ms': {}})) for c_ in cases[:4]]
+    krec = lambda who: [{'at': now, 'text': f"${c_['symbol']} · " + next((s_['word'] for s_ in pl_ if s_['agent'] == who), '')[:150]} for c_, pl_ in pl_all]   # what THIS desk said about the top candidates of this pass
+    top_ = cases[0] if cases else None
+    op_ = (top_ or {}).get('op') or {}
     live = {
-        'tally': {'task': (view.get('tasks') or {}).get('tally'), 'at': perf.get('at'), 'rule': 'readings ≥ 3 before an entry · stale > 150s', 'decision': f"{perf.get('coins')} coins read · {stale} stale tapes this pass",
-                  'inputs': cur_ctx.get('tally'), 'output': (cur_case or {}).get('tally', {}).get('nums'), 'recent': rec('tally')},
-        'sherlock': {'task': (view.get('tasks') or {}).get('sherlock'), 'at': perf.get('at'), 'rule': f"learned weight from {_ag.DRIVER_MIN_N} judged calls", 'decision': None if not case else f"${case['symbol']} lean {case['lean']:+.1f}",
-                     'inputs': None if not case else {'vitals': cur_ctx['sherlock']['vitals'], 'scan': cur_ctx['scan']}, 'output': None if not case else {k: cur_ctx['sherlock'][k] for k in ('lean', 'for', 'against', 'earned', 'unresolved')}, 'recent': rec('sherlock')},
-        'weather': {'task': f"read {(wx.get('inputs') or {}).get('coins')} coins + {(wx.get('inputs') or {}).get('rugN')} judged calls", 'at': wx.get('at'), 'rule': 'regime → bar ' + f"{_of.weather_adj(wx):+.2f}" + f" · size ×{_of.weather_size(wx):g}",
+        'tally': {'task': f"measured {perf.get('coins')} coins this pass", 'at': perf.get('at'), 'rule': 'one MintState per mint · every section its own timestamp', 'decision': f"{perf.get('coins')} coins read · {stale} stale tapes · {kmet_['mints']} mints in state",
+                  'inputs': cur_ctx.get('tally'), 'output': op_.get('tally'), 'recent': krec('tally')},
+        'sherlock': {'task': f"evidence for {len(cases)} candidates · {(_office.get('enrich') or {}).get('queue', 0)} scan(s) queued", 'at': perf.get('at'), 'rule': 'UNKNOWN is research, never a rejection', 'decision': None if not top_ else f"${top_['symbol']} known: {', '.join(op_['sherlock']['known']) or 'nothing yet'}",
+                     'inputs': None if not top_ else {'vitals': top_['row'].get('vitals'), 'scan': cur_ctx.get('scan')}, 'output': op_.get('sherlock'), 'recent': krec('sherlock')},
+        'weather': {'task': f"read {(wx.get('inputs') or {}).get('coins')} coins + {(wx.get('inputs') or {}).get('rugN')} judged calls", 'at': wx.get('at'), 'rule': 'regime → rank ×' + f"{(op_.get('weather') or {}).get('factor', 1):g}" + f" · size ×{_of.weather_size(wx):g}",
                     'decision': f"{wx.get('regime')} ({round(_fuse._f(wx.get('confidence')) * 100)}% confidence)", 'inputs': wx.get('inputs'), 'output': {'regime': wx.get('regime'), 'why': wx.get('why'), 'mods': wx.get('mods'), 'missing': wx.get('missing')},
                     'recent': [{'at': w_['at'], 'text': f"{w_['regime']} — {w_['why']}"} for w_ in (of.get('weatherLog') or [])[-4:]][::-1]},
-        'trigger': {'task': (view.get('tasks') or {}).get('trigger'), 'at': perf.get('at'), 'rule': f"bar {perf.get('bar')} = own record {base_bar} · weather {_of.weather_adj(wx):+.2f} · dial {_ag.DIALS.get(perf.get('dial') or 'normal', 0):+.2f}" + (' · trial +0.5' if perf.get('trial') == 'trigger' else ''),
-                    'decision': None if not case else f"${case['symbol']} {case['row']['trigger'][0].upper()}", 'inputs': {'bar': perf.get('bar'), 'baseBar': base_bar, 'weatherAdj': _of.weather_adj(wx), 'dial': perf.get('dial'), 'dialAdj': _ag.DIALS.get(perf.get('dial') or 'normal', 0), 'trial': perf.get('trial'), 'floor': _ag.BAR_FLOOR},
-                    'output': None if not cur_case else cur_case['trigger'], 'recent': rec('trigger')},
-        'devil': {'task': (view.get('tasks') or {}).get('devil'), 'at': perf.get('at'), 'rule': 'every objection under a named rule', 'decision': None if not cur_case else f"${case['symbol']} {cur_case['devil']['verdict'].upper()}",
-                  'inputs': {'bustedReads': sorted(view.get('busted') or []) if view.get('busted') else None, 'burned': len(st.get('burned') or {}), 'rugSigns': len(lr.get('rugSigns') or {})}, 'output': None if not cur_case else cur_case['devil'], 'recent': rec('devil'), 'record': dv_rec[:10]},
+        'trigger': {'task': f"timing for {len(cases)} candidates from the live narrative", 'at': perf.get('at'), 'rule': f"ENTER on hot early move · breakout · running; READY from rank {_tk._b.READY_MIN:g}",
+                    'decision': None if not top_ else f"${top_['symbol']} {op_['trigger']['state']}", 'inputs': {'readyMin': _tk._b.READY_MIN, 'lesson': (gens_.get('trigger') or {}).get('lessonVector')},
+                    'output': op_.get('trigger'), 'recent': krec('trigger')},
+        'devil': {'task': f"challenged {len(cases)} candidates", 'at': perf.get('at'), 'rule': 'evidence lowers the rank; only the hard wall blocks', 'decision': None if not top_ else f"${top_['symbol']} {_tkv.devil_view(op_)['word']}",
+                  'inputs': {'bustedReads': sorted(bust_seen) if bust_seen else None, 'lesson': (gens_.get('devil') or {}).get('lessonVector')}, 'output': None if not top_ else _tkv.devil_view(op_), 'recent': krec('devil'), 'record': dv_rec[:10]},
         'warden': {'task': 'sizes each agent seat before it is filled', 'at': (wd or {}).get('at'), 'rule': (wd or {}).get('decided'), 'decision': None if not wd else f"${wd.get('sym')} ${wd['requested']:.2f} → ${wd['allowed']:.2f}" + (' VETO' if wd['veto'] else ''),
                    'inputs': None if not wd else {k: v for k, v in wd.items() if k in ('requested', 'limits')}, 'output': None if not wd else {k: wd[k] for k in ('allowed', 'mult', 'eff', 'veto', 'rules', 'decided')},
                    'recent': [{'at': w_['at'], 'text': f"${w_['sym']} {w_['move']} ${w_['req']:.2f} → ${w_['allowed']:.2f} · {w_['rule']}: {w_['why']}"} for w_ in (of.get('wardenLog') or [])[-4:]][::-1]},
@@ -13832,40 +13753,41 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         'archivist': {'task': f"filed {len(cases)} case(s) this pass · {len(closed)} position(s) closed", 'at': now, 'rule': 'hash-chained · bounded · losses kept', 'decision': f"{len(arch.get('cases') or [])} cases · {len(arch.get('positions') or [])} positions on file",
                       'inputs': {'caseCap': _of.ARCH_CASES, 'positionCap': _of.ARCH_POS, 'filedEver': arch.get('filed')}, 'output': {'hashBreaks': viol['archivist']['rule'], 'folded': sum(v['n'] for k, v in (arch.get('agg') or {}).items() if k in ('cleared', 'blocked'))},
                       'recent': [{'at': c_['at'], 'text': f"${c_['d'].get('sym')} {'cleared' if c_['d'].get('cleared') else 'blocked'}" + (f" · {c_['d']['action']}" if c_['d'].get('action') else '') + (f" → {c_['out']['p5']:+.1f}% at 5 min" if (c_.get('out') or {}).get('p5') is not None else '')} for c_ in (arch.get('cases') or [])[-4:]][::-1]},
-        'judge': {'task': f"{jd.get('n')} rulings on the book · {sum(1 for c_ in (of.get('candidates') or {}).values() if c_['status'] == 'shadow')} candidate(s) in shadow", 'at': now, 'rule': f"probation ≥ {_of.JUDGE_MIN_N} samples · demotion ≥ {_of.JUDGE_DEMOTE_N}",
-                  'decision': f"on trial: {jd.get('trial') or 'nobody'}" + (f" · 👑 {jd['mvp']}" if jd.get('mvp') else ''), 'inputs': {'score': jd.get('score')}, 'output': {'trial': jd.get('trial'), 'handicap': jd.get('handicap'), 'mvp': jd.get('mvp'), 'missed': jd.get('missed')}, 'recent': rec('judge')},
+        'judge': {'task': f"{len(reviews_)} real exits reviewed · {sum(1 for c_ in (of.get('candidates') or {}).values() if c_['status'] == 'shadow')} tunable(s) in shadow", 'at': now,
+                  'rule': f"one lifecycle for ten roles: PROBATION at net {_tkl.PROBATION_N} real losses pinned · replaced at {_tkl.REPLACE_N}",
+                  'decision': 'on probation: ' + (', '.join(r_ for r_, g_ in gens_.items() if g_['status'] == 'PROBATION') or 'nobody'),
+                  'inputs': {'reviews': len(reviews_)}, 'output': {'probation': [r_ for r_, g_ in gens_.items() if g_['status'] == 'PROBATION'], 'generations': {r_: g_['generation'] for r_, g_ in gens_.items()}},
+                  'recent': [{'at': x_.get('retiredAt'), 'text': f"{x_.get('role')} gen {x_.get('gen')} replaced — {x_.get('why')}"} for x_ in (_lc_book(now).get('lineage') or [])[-4:]][::-1]},
     }
     cands = [{**{k: v for k, v in c_.items() if k != 'shadow'}, 'eval': c_.get('eval') or _of.evaluate(c_)} for c_ in sorted((of.get('candidates') or {}).values(), key=lambda c_: -c_['at'])[:6]]
-    pipe = _of.pipeline(case, {**cur_ctx, 'ms': ms})
+    pipe = _tkv.pipeline(case, {**cur_ctx, 'ms': ms})
     if cur_case:
         cur_case['bars'] = _office_bars(case.get('pair'), case['mint'])
-    queue = []   # every case file of this pass with the desk it stands at right now (the first desk that has not passed it)
+    queue = []   # every kernel candidate of this pass with the desk it stands at right now (the first desk that has not passed it)
     for c_ in cases[:6]:
-        pl_ = pipe if c_ is case else _of.pipeline(c_, {'tally': _of.tally_read(c_['row'], ser.get(c_['mint']), now), 'sherlock': _of.sherlock_read(c_['row'], lr), 'weather': wx, 'courier': cour, 'ms': {}})
-        at_ = next((s_ for s_ in pl_ if s_['agent'] not in ('archivist', 'judge') and s_['state'] not in ('PASS', 'DONE')), pl_[5])
+        cx_ = cur_ctx if c_ is case else {'tally': _of.tally_read(c_['row'], ser.get(c_['mint']), now), 'weather': wx, 'courier': cour}
+        pl_ = pipe if c_ is case else _tkv.pipeline(c_, {**cx_, 'ms': {}})
+        at_ = next((s_ for s_ in pl_ if s_['agent'] not in ('archivist', 'judge', 'reaper') and s_['state'] not in ('PASS', 'DONE', 'WARN')), pl_[5])
         ch_ = c_['row'].get('chart') or {}
-        queue.append({'mint': c_['mint'], 'symbol': c_.get('symbol'), 'lean': c_.get('lean'), 'cleared': c_.get('cleared'), 'go': c_.get('go'), 'at': at_['agent'], 'state': at_['state'], 'word': str(at_['word'])[:140],
-                      'structure': ch_.get('state'), 'entry': (ch_.get('entry') or [None])[0], 'conf': ch_.get('conf'), 'data': ch_.get('q'),
-                      # every candidate can be put on the chart: the SAME rows + chart read the desks used for it this pass (memory only)
-                      'launch': c_['row'].get('launch'),
+        queue.append({'mint': c_['mint'], 'symbol': c_.get('symbol'), 'lean': c_.get('rank'), 'rank': c_.get('rank'), 'status': c_['status'], 'cleared': c_.get('cleared'), 'go': c_.get('cleared'), 'at': at_['agent'], 'state': at_['state'], 'word': str(at_['word'])[:140],
+                      'structure': ch_.get('state'), 'entry': (ch_.get('entry') or [None])[0], 'conf': ch_.get('conf'), 'data': ch_.get('q'), 'launch': c_['row'].get('launch'),
                       'pair': c_.get('pair'), 'bars': _office_bars(c_.get('pair'), c_['mint']), 'chart': _office_chart_view(_office['charts'].get(c_['mint']), c_['row']),
-                      'devil': {'verdict': (c_['row'].get('case') or c_['row'].get('devil') or ['—'])[0], 'objections': [{'rule': o_[0], 'evidence': o_[1]} for o_ in c_['row'].get('objs') or []]},
-                      'trace': _of.trace(c_, cur_ctx if c_ is case else {'tally': _of.tally_read(c_['row'], ser.get(c_['mint']), now), 'sherlock': _of.sherlock_read(c_['row'], lr), 'weather': wx, 'courier': cour})})
+                      'devil': _tkv.devil_view(c_['op']), 'trace': _tkv.trace(c_, cx_)})
     if cur_case:
-        cur_case['trace'] = queue[0]['trace'] if queue and queue[0]['mint'] == cur_case['mint'] else _of.trace(case, cur_ctx)
+        cur_case['trace'] = queue[0]['trace'] if queue and queue[0]['mint'] == cur_case['mint'] else _tkv.trace(case, cur_ctx)
     dq_ = {}
     for c_ in _office['charts'].values():
         k_ = ((c_.get('q') or {}).get('state')) or 'NOT READ'
         dq_[k_] = dq_.get(k_, 0) + 1
     _office['payload'] = {
-        'at': now, 'mission': _of.mission(money, (view.get('lives') or {}).get('n'), view.get('stage'), _office.get('dutyAt'), now, _office.get('last'), view.get('underwater')) | {'dutyAt': _office.get('dutyAt'), 'control': bool(rcfg.get('agentControl'))},
+        'at': now, 'mission': _of.mission(money, view.get('stage'), now, _office.get('last'), view.get('underwater')) | {'control': bool(rcfg.get('agentControl')), 'probation': [r_ for r_, g_ in gens_.items() if g_['status'] == 'PROBATION']},
         'office': {'chain': list(_of.CHAIN), 'priority': list(_of.PRIORITY), 'coins': perf.get('coins'), 'cases': len(cases), 'cleared': sum(1 for c_ in cases if c_['cleared'])},
         'agents': _of.agent_cards(cards, {'live': live, 'office': of}), 'currentCase': cur_case, 'pipeline': pipe,
         'queue': queue, 'positions': _office_positions(), 'exiting': [{'mint': p_['mint'], 'sym': p_.get('sym'), 'rule': p_.get('askRule'), 'state': (p_.get('exit') or {}).get('state'), 'since': p_.get('leftAt')} for p_ in _office['exiting']],
         'execution': cour, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': list(reversed((of.get('lineage') or [])[-8:])), 'devil': dv_rec[:10], 'needShadow': _of.SHADOW_N, 'needPropose': _of.PROPOSE_N},
         'index': (_office.get('index') or [])[:80], 'rpc': {'lanes': _rpc_quota_state(), 'note': 'keyed lanes = keeper sends / balances first, then holder scans (budgeted); discovery comes from Pump\'s live stream + the launch boards — no RPC first-seen listener runs'},
         'court': _office.get('court'), 'opp': _office.get('opp'),   # 👨‍⚖️ the Judge's loss / win reviews + rules · 🎯 this pass's A / B / C ranking counts
-        'judge': {'trial': jd.get('trial'), 'handicap': jd.get('handicap'), 'mvp': jd.get('mvp'), 'rulings': jd.get('n'), 'minN': _of.JUDGE_MIN_N, 'demoteN': _of.JUDGE_DEMOTE_N,
+        'judge': {'probation': [r_ for r_, g_ in gens_.items() if g_['status'] == 'PROBATION'], 'rulings': len(reviews_), 'probationAt': _tkl.PROBATION_N, 'replaceAt': _tkl.REPLACE_N,
                   'contribution': _of.contribution(st, arch, of, cour, _agents_real(), money)},
         'data': {'states': dq_, 'trusted': dq_.get('TRUSTED', 0), 'enterGrade': dq_.get('TRUSTED', 0) + dq_.get('USABLE_WITH_CAUTION', 0), 'coins': len(_office['charts']),
                  'meaning': 'TRUSTED = real 1-minute OHLC from the candles service, every integrity check passed, newest bar ≤ 240s old, per-candle volume on ≥ 80% of moving bars, a live pool reading, confidence ≥ 80',
@@ -13876,13 +13798,13 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         'policy': {**_oe.policy(rcfg), 'controls': _oe.controls(rcfg, _oe.agents_now(_of.take_info(rcfg, st.get('scalp')), {**_of.tunes(of, 'reaper'), 'maxSeatPct': _of.tune(of, 'warden', 'maxSeatPct')},
                                                                                     next(({'stopPct': r_['thesis']['stopPct'], 'sym': r_.get('symbol')} for r_ in _office.get('reports') or [] if (r_.get('thesis') or {}).get('stopPct')), None)))},
         'ready': _oe.ready(_office['boot'], now), 'seat': _agents.get('seat'), 'switchEval': _agents.get('switchEval'),
-        'review': _oe.review(st, arch, of, now, marks=of.get('reviewMarks')), 'launch': {'record': _oe.pad_record(_ag._judged(st, 5)), 'pads': dict(_oe.PADS), 'types': list(_oe.TYPES),
+        'review': _oe.review(st, arch, of, now, marks=of.get('reviewMarks')), 'launch': {'record': _oe.pad_record(_pd._judged(st, 5)), 'pads': dict(_oe.PADS), 'types': list(_oe.TYPES),
                                                            'source': 'mint suffix + the launch board row (curve flag, pool age) — anything else is UNKNOWN'},
         'performance': {'deskMs': round(desk_ms, 1), 'agents': {a: {**_of.lat(_office['lat'].get(a)), 'series': list(_office['lat'].get(a) or [])[-30:]} for a in _of.CHAIN}, 'chart': _of.lat(_office['lat'].get('chart')),
                         'speed': {**_oe.speed_view(of.get('speed')), 'seatWakes': int(_office.get('seatWakes') or 0), 'tickEvery': (_agents.get('seat') or {}).get('tickEvery')},
                         'candles': {**_office['candleStat'], 'tape': sum(1 for c_ in _office['charts'].values() if c_.get('src') == 'tape'), 'real': sum(1 for c_ in _office['charts'].values() if c_.get('src') == 'candles')}},
     }
-    _office['payload']['ops'] = _oe.ops(_office['payload']['ready'], _office['payload']['seat'], _office.get('courier'), _is_keeper(), _ag.FILL_MOVES_HR)
+    _office['payload']['ops'] = _oe.ops(_office['payload']['ready'], _office['payload']['seat'], _office.get('courier'), _is_keeper(), _uni.FILL_MOVES_HR)
     _office['payload']['cycle'] = {**(_office.get('cycle') or {}), 'nextIn': AGENTS_EVERY}
     _office['payload']['seatActions'] = _oe.seat_actions(((_agents.get('card') or {}).get('seats')), _agents.get('decisions'), _agents.get('switchEval'), _agents.get('seat'))
     _office['payload'].update(_office_seat_payload())
@@ -13893,7 +13815,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         _office['payload'].update(fresh=_office_fresh(now), live=_office.get('live'), open=_office.get('open'), scans=_office.get('scans'), loadPass=_office_load_pass(),
                                   lifecycle=_lifecycle(now),
                                   kernel=_tk.KERNEL.view(now), rpcStats=dict(_chain.RPC_STATS), enrich=_office.get('enrich'),
-                                  generations=_tkl.generations(_json_load(AGENTS_PATH, {}) or {}, _office_state(), now, _jr.desk_stats(((_office_state().get('judge') or {}).get('reviews')) or [])),
+                                  generations=_tkl.generations(_lc_book(now), now, _lc_shadows()),
                                   deskStats=_jr.desk_stats(((_office_state().get('judge') or {}).get('reviews')) or []),
                                   rounds={**_tr.summary(_rounds_state(), now), 'roundSec': _tr.ROUND_SEC, 'desk': {'n': int(now // _tr.ROUND_SEC) % int(86400 // _tr.ROUND_SEC) + 1, 'left': round(_tr.ROUND_SEC - now % _tr.ROUND_SEC, 1)},
                                           'live': sorted([{'mint': m_, 'sym': e_.get('sym'), 'round': e_.get('round'), 'left': _tr.time_left(e_['first'], now),
@@ -13945,14 +13867,19 @@ def _agents_go_rows(legs=(), seats=2, learn=False, learn_pct=100, trust=False):
             return []
         learning = False
     elif learn:
-        if held >= (2 if trust and _ag.trusted(_agents_real()) else 1):   # 🤝 earned trust: a 2nd seat
+        if held >= (2 if trust and _pos.trusted(_agents_real()) else 1):   # 🤝 earned trust: a 2nd seat
             return []
         learning = True
     else:
         return []
-    return [{'mint': x['mint'], 'symbol': x['symbol'], 'pairAddress': x['pair'], 'price': x['px'], 'liq': (x['nums'] or {}).get('liq'), 'safe': True, 'ageH': (x.get('vitals') or {}).get('ageH'),
-             'trenchOnly': True, 'trenchScore': 900 + x['why']['lean'], 'tag': '🤖 agents GO' + (' · 🎓 learning seat' if learning else ''),
-             **({'stakePct': int(learn_pct or 100)} if learning else {})} for x in _agents.get('table') or [] if x.get('go')][:1 if learning else 4]
+    on_ = {l.get('mint') for l in legs or []}
+    out = []
+    for m_, d_ in _tk.KERNEL.ready(exclude=on_):   # ⚙ the kernel's READY candidates (never a paper GO): the engine's trench drop still applies every one of its own checks
+        x = _tk.KERNEL.candidate(m_, d_)
+        if x and not _fw.dollar_named(x.get('symbol')):
+            out.append({'mint': x['mint'], 'symbol': x['symbol'], 'pairAddress': x['pair'], 'price': x['px'], 'liq': (x.get('nums') or {}).get('liq'), 'safe': (x.get('vitals') or {}).get('safe') is True, 'ageH': (x.get('vitals') or {}).get('ageH'),
+                        'trenchOnly': True, 'trenchScore': 900 + x['rank'], 'tag': '🤖 agents READY' + (' · 🎓 learning seat' if learning else ''), **({'stakePct': int(learn_pct or 100)} if learning else {})})
+    return out[:1 if learning else 4]
 
 
 @app.get('/api/reputation/admin/agents')
@@ -13963,7 +13890,7 @@ async def admin_agents(request: Request):
     if not _agents.get('view'):
         st = _json_load(AGENTS_PATH, {})
         rcfg_ = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
-        _agents['view'] = _ag.view(st, _agents.get('table') or [], bool(rcfg_.get('agentFeed')), _agents_real(), _agents.get('mind'), rcfg_, _agents.get('decisions'), time.time(), _agents.get('card'), _agents.get('money'))
+        _agents['view'] = _paper_view(st, _agents.get('paper') or [], rcfg_, time.time())
     v_ = _agents['view']
     if _agents.get('card') and (v_.get('card') or {}) != _agents['card']:   # the card moves every tier tick; the view is rebuilt once a minute
         v_ = {**v_, 'card': _agents['card']}
@@ -13974,7 +13901,7 @@ async def admin_agents(request: Request):
 async def admin_agents_log(request: Request, hours: int = Query(24, ge=1, le=168)):
     """🧾 The agent desk's war log (calls, GO vs control, deaths + lessons, ideas, best / worst, calibration) as data + Markdown to export."""
     _require_admin(request)
-    log, md = _ag.war_log(_json_load(AGENTS_PATH, {}), time.time(), hours)
+    log, md = _pd.war_log(_json_load(AGENTS_PATH, {}), time.time(), hours)
     return {'log': log, 'md': md}
 
 
@@ -14021,7 +13948,7 @@ async def admin_agents_set(request: Request):
     idea = body.get('idea') or {}
     if idea.get('id'):
         try:
-            _json_save(AGENTS_PATH, _ag.review(_json_load(AGENTS_PATH, {}), str(idea['id']), idea.get('action')))
+            _json_save(AGENTS_PATH, _pd.review(_json_load(AGENTS_PATH, {}), str(idea['id']), idea.get('action')))
         except ValueError as e:
             raise HTTPException(400, str(e))
     _agents['view'] = None

@@ -90,3 +90,18 @@ def _no_chain_balance_reads(monkeypatch):
             return None
         monkeypatch.setattr(rs, '_wallet_held', _none)
     yield
+
+
+@pytest.fixture(autouse=True)
+def _fresh_kernel(monkeypatch):
+    """Every test gets its OWN kernel and lifecycle book: the process-wide KERNEL / the cached book must never leak a decision or a
+    generation from one test into the next."""
+    try:
+        import trench_kernel.kernel as _tk
+        monkeypatch.setattr(_tk, 'KERNEL', _tk.Kernel())
+    except Exception:
+        pass
+    import sys
+    rs = sys.modules.get('reputation_service')
+    if rs is not None and hasattr(rs, '_lc_mem'):
+        monkeypatch.setitem(rs._lc_mem, 'book', None)

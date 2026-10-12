@@ -115,21 +115,9 @@ def test_judge_rules_on_real_seats_double_and_studies_misses():
 def test_the_universe_is_applied_before_intake_picks():
     src = open('backend/reputation_service.py').read() if __import__('os').path.exists('backend/reputation_service.py') else open('reputation_service.py').read()
     i = src.index('ob_ = ob_ + extra_'); j = src.index('taken_ = _oe.intake(', i)
-    assert '_ag.in_lane(x, cap_)' in src[i:j] and '_ag.lane_cap(ob_)' in src[i:j]   # filtering after intake let $200K+ coins use the slots and starved the desk
+    assert '_uni.in_lane(x, cap_)' in src[i:j] and '_uni.lane_cap(ob_)' in src[i:j]   # filtering after intake let $200K+ coins use the slots and starved the desk
 
 
-def test_real_losses_decide_survival_paper_only_probation():
-    lost = lambda i, desk: {'kind': 'loss', 'at': 100 + i, 'resp': {desk: 60}}
-    st = {'born': {'trigger': 50}, 'realReviews': [lost(i, 'trigger') for i in range(5)]}
-    assert ag.survival(st)['trigger']['status'] == 'scrap' and ag.survival(st)['trigger']['realNet'] == 5
-    st2 = {**st, 'realReviews': [lost(i, 'trigger') for i in range(3)]}
-    assert ag.survival(st2)['trigger']['status'] == 'scrap'                                         # 🧬 3 net real losses = replaced (no probation in control)
-    assert ag.survival({**st, 'realReviews': [lost(i, 'trigger') for i in range(2)]})['trigger']['status'] == 'watch'
-    st3 = {**st, 'realPieces': [{'pct': 20, 'holdMin': 30, 'at': 200 + i} for i in range(3)]}       # wins credited to Sherlock don't save Trigger
-    assert ag.survival(st3)['trigger']['realNet'] == 5
-    st4 = {'born': {'trigger': 500}, 'realReviews': [lost(i, 'trigger') for i in range(9)]}          # losses from its LAST life don't count
-    assert ag.survival(st4)['trigger']['status'] == 'alive'
-    assert ag.survival({})['devil']['status'] == 'alive'                                             # no real record: nobody dies on paper alone
 
 
 def test_the_new_entry_universe_is_hard_capped_at_200k():

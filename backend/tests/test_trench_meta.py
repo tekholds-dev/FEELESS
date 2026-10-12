@@ -23,12 +23,3 @@ def test_bot_loop_one_wallet_dump_and_thin_are_caught():
     assert flow.trench_meta([{**tr(i, usd=5 + i), 'ts': NOW - 900} for i in range(20)], NOW)['verdict'] == 'THIN'   # older than 5 min = not counted
 
 
-def test_young_coin_takes_a_seat_only_on_an_organic_tape():
-    row, mkt = {'px': 1.0}, {'px': 1.01}
-    young = {'state': 'EARLY', 'src': 'candles', 'entry': ['WAIT FOR CONFIRMATION', 'E13e no direction (early)', ''], 'f': {'stepN': 4}, 'risk': [0.5]}
-    assert oe.live_check(row, mkt, young, NOW, near=True)['ok'] is False                                    # no tape read = the old rule
-    ok = oe.live_check(row, mkt, young, NOW, near=True, meta={'verdict': 'ORGANIC', 'why': '9 buyers'})
-    assert ok['ok'] is True and 'trench meta ORGANIC' in ok['why']
-    bad = oe.live_check(row, mkt, young, NOW, near=True, meta={'verdict': 'BOT', 'why': 'loop'})
-    assert bad['ok'] is False and 'BOT' in bad['why']
-    assert oe.live_check(row, {'px': 0.85}, young, NOW, near=True, meta={'verdict': 'ORGANIC', 'why': ''})['ok'] is False   # falling still blocks

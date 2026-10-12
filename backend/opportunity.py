@@ -305,7 +305,7 @@ def narrative(row):
     return 'BUILDING', f"{d5:+.1f}% in 5 min, volume pace {pace:.1f}×"
 
 
-def open_score(row, weights=None):
+def open_score(row, weights=None, devil_strong=None):
     """NEWNESS × VOLUME VELOCITY × BUYER VELOCITY × LIVE MOMENTUM × early wallets (× the Judge's evidence weight when it has one).
     No holder, rug, creator, source or history part. → (score 0–~250, parts)."""
     import math
@@ -320,7 +320,7 @@ def open_score(row, weights=None):
     f_ewp = {'POSITIVE': 1.15, 'NEUTRAL': 1.0, 'WARNING': 0.8, 'DUMPING': 0.5}.get(li.get('ewp'), 1.0)
     f_judge = max(0.7, min(1.3, _f((weights or {}).get(x.get('mint'), 1.0)) or 1.0))
     import trench_crew as _crew
-    f_devil, _objs = _crew.devil_factor(x)   # ⚖ Devil challenges: objections lower confidence, they don't veto
+    f_devil, _objs = _crew.devil_factor(x, devil_strong)   # ⚖ Devil challenges: evidence lowers confidence, it never vetoes
     parts = [('newness', round(f_new, 2)), ('volume velocity', round(f_vol, 2)), ('buyer velocity', round(f_buy, 2)), ('momentum', round(f_mom, 2)),
              ('early wallets', round(f_ewp, 2)), ('judge weight', round(f_judge, 2)), ('devil', f_devil)]
     return round(100 * f_new * f_vol * f_buy * f_mom * f_ewp * f_judge * f_devil, 1), parts

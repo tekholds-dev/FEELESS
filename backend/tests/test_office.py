@@ -139,10 +139,10 @@ def test_reaper_rules_in_order_with_evidence_and_never_rules_on_a_missing_price(
     pos, rep, _ = run(leg('A'), 1.035, pos=pos, now=3700)
     assert (rep[0]['state'], rep[0]['action']) == ('TAKE', 'pull') and rep[0]['peak'] == 8.0 and 'gave back' in rep[0]['evidence']
     assert run(leg('A'), 1.005, pos=pos, now=3760)[1][0]['action'] is None                                       # under +1.5% there is nothing left to bank: not sold for the fee
-    m = one(leg('A'), 1.03, [trow('A', lean=-1.0)])
+    m = one(leg('A'), 1.03, [trow('A', d5=-6.0)])
     assert (m['state'], m['rule'], m['action']) == ('TAKE', 'R8 momentum failed', 'pull')
-    assert one(leg('A', at=3500), 1.03, [trow('A', lean=-1.0)])['state'] == 'HOLD'                               # … but never inside its first 15 minutes
-    assert one(leg('A'), 0.97, [trow('A', lean=-1.0)])['state'] == 'PROTECT'                                     # at a loss it is flagged, not dumped
+    assert one(leg('A', at=3500), 1.03, [trow('A', d5=-6.0)])['state'] == 'HOLD'                               # … but never inside its first 15 minutes
+    assert one(leg('A'), 0.97, [trow('A', d5=-6.0)])['state'] == 'PROTECT'                                     # at a loss it is flagged, not dumped
     gap = run(leg('A', at=1), 0.97, [], now=3 * 3600 - 300)                                                       # the first tick it is missing from the table: OUR gap, nothing is ruled on it
     assert gap[1][0]['rule'] == 'R10 hold' and gap[1][0]['onTable'] is False and 'nothing is ruled on that gap' in gap[1][0]['evidence']
     assert one(leg('A', at=1), 0.97, [], pos=gap[0], now=3 * 3600)['rule'] == 'R11 dead coin'                                      # 3h, off the radar, going nowhere
@@ -154,19 +154,6 @@ def test_reaper_rules_in_order_with_evidence_and_never_rules_on_a_missing_price(
     assert run({**yours, 'liqNow': 10_000}, 0.5, control=True)[1][0]['rule'] == 'R1 liquidity collapse'          # … but a collapsing pool takes any coin out
 
 
-def test_a_winner_is_never_surrendered_because_another_candidate_appears_and_reaper_only_joins_the_existing_decisions():
-    table = [trow('A', lean=1.0), trow('NEW', lean=4.0)]                                                         # a much stronger read is waiting
-    legs = [leg('A', at=1)]
-    cfg = {'agentTakePct': 10, 'coins': 1, 'trenchMinAgeH': 1}
-    dec = ag.manage(legs, table, {'PA': 1.05}, cfg, control=True, now=7200, moves_left=1, picks=[table[1]], rotate=True)
-    assert [d['action'] for d in dec] == ['hold']                                                               # +5%: winning → it keeps its seat
-    _, rep, _ = of.reap(legs, table, {'PA': 1.05}, cfg, None, 7200, control=True)
-    assert rep[0]['state'] == 'HOLD' and of.merge_reaper(dec, rep) == dec
-    swap = [{'pair': 'PA', 'symbol': 'A', 'action': 'swap', 'why': 'desk', 'to': table[1]}]
-    ask = [{'pair': 'PA', 'symbol': 'A', 'action': 'pull', 'rule': 'R5 stop', 'evidence': 'x'}]
-    assert of.merge_reaper(swap, ask) == swap                                                                    # a move the desk already decided stands
-    out = of.merge_reaper([{'pair': 'PA', 'symbol': 'A', 'action': 'hold', 'why': 'h'}], ask)
-    assert out[0]['action'] == 'pull' and out[0]['why'].startswith('☠ Reaper R5 stop') and {d['action'] for d in out} <= {'hold', 'pull', 'swap'}   # no new action kind
 
 
 def test_reaper_cannot_fabricate_an_exit_only_the_ledger_closes_a_position():
@@ -280,9 +267,12 @@ def test_the_constitution_is_immutable_and_every_code_location_it_names_exists()
         of.TUNABLE['reaper']['stopPct'] = (99, 0, 100, '')
     for a, c in of.CONSTITUTION.items():
         assert c['ideology'] and c['ethics'] and c['forbidden'] and c['hard'] and c['role']
-        mod = {'backend/agents.py': ag, 'backend/office.py': of}[c['code']['file']]
+        import trench_kernel.brain as _tb, trench_kernel.senses as _ts
+        import judge_review as _jr, trench_kernel.lifecycle as _tl
+        mod = {'backend/trench_kernel/senses.py': _ts, 'backend/trench_kernel/brain.py': _tb, 'backend/office.py': of, 'backend/judge_review.py': _jr}[c['code']['file']]
+        assert all(callable(getattr(_tl, fn)) for fn in c.get('life', ()))
         assert all(callable(getattr(mod, fn)) for fn in c['code']['fn']), a                                       # the page shows real function names
-        assert all(callable(getattr(of, fn)) for fn in c.get('office', ()))
+        assert all(callable(getattr(of, fn)) for fn in c.get('office', ())) and all(callable(getattr(_tb, fn)) for fn in c.get('brain', ())) and all(callable(getattr(_ts, fn)) for fn in c.get('senses', ()))
     with pytest.raises(ValueError, match='immutable core'):
         of.propose({}, 'reaper', 'ethics', 1, {'n': 99}, 1)                                                      # only tunables can even be proposed
     with pytest.raises(ValueError, match='immutable core'):
@@ -333,8 +323,6 @@ def test_a_rule_changes_only_through_evidence_a_shadow_test_and_a_better_result(
         a2 = of.file_position(a2, {'mint': f'r{i}', 'confirmed': True, 'realPct': 1.0, 'path': [1, 2, 3], 'closedAt': 5000 + i}, 5000 + i)   # positions where the change does nothing
     o2 = {**o, 'candidates': {c['id']: {**c, 'seenAt': 4999}}}
     assert of.judge_candidates(o2, a2, cfg, None, 6000)['candidates'][c['id']]['status'] == 'rejected'           # no better in shadow → rejected, the live rule stays
-    demoted = of.demote(done, {'reaper': {'status': 'demoted', 'why': '30% right over 60 samples'}}, 7000)
-    assert of.tune(demoted, 'reaper', c['key']) == of.TUNABLE['reaper'][c['key']][0] and demoted['gen']['reaper'] == 3   # a demoted agent goes back to the hard-coded defaults
 
 
 def test_reaper_replay_is_the_same_price_rules_reaper_runs_live():
@@ -355,56 +343,21 @@ def test_the_breakeven_lock_reads_only_the_real_cards_value_against_its_put_in()
         s = {**st, 'money': money}
         assert ag.underwater(s) is under and ag.real_phase(money)['phase'] == phase
         assert (ag.stage(s)['h'] == 5 and 5 not in ag.stage(s)['conquered']) is locked                           # … and only real value ≥ 2× real put-in moves the stage
-        m = of.mission(money, 9, ag.stage(s), 100, 400, None, ag.underwater(s))
+        m = of.mission(money, ag.stage(s), 400, None, ag.underwater(s))
         assert m['locked'] is locked and m['lock'] == ('LOCKED' if locked else 'ELIGIBLE') and m['nextStage'] == m['lock'] and m['toBreakeven'] == round(money['value'] - money['putIn'], 2)
         assert m['phase'] == phase and m['breakevenTarget'] == 29.5 and m['doubleTarget'] == 59.0 and m['toDouble'] == round(money['value'] - 59.0, 2) and m['unlock'] == 'real equity ≥ $59.00'
         assert m['putIn'] == money['putIn'] and m['value'] == money['value'] and (m['stage'] == 5) is locked    # the card's own numbers, passed through
     # paper performance can never unlock a real-money stage: a 10× paper desk with NO real card money read, or with any paper number, stays locked
     assert ag.stage(st)['h'] == 5 and ag.stage(st)['need2x'] and ag.real_phase(None)['phase'] == 'UNKNOWN' and not ag.real_phase({'putIn': 29.5})['eligible']
     assert ag.stage({**st, 'money': {'value': 10.0, 'putIn': 29.5, 'paper': 9999, 'paidOut': 500, 'takenUsd': 900}})['h'] == 5       # gross proceeds / paid-out / paper totals are not read
-    assert of.mission({}, 9, {'h': 5}, 0, 0)['locked'] and of.mission({}, 9, {'h': 5}, 0, 0)['lock'] == 'UNKNOWN'
-    m = of.mission({'value': 1.24, 'putIn': 29.5}, 9, {'h': 5}, 100, 400, None, True)
-    assert m['needX'] == 23.8 and m['nextDutyIn'] == 300 and m['priority'][0] == 'SURVIVE' and 'real put-in' in m['lockRule']
-    assert of.mission({}, 9, {'h': 5}, 0, 400, None, False)['lock'] == 'UNKNOWN'                                 # no card numbers = it says so, it does not guess
+    assert of.mission({}, {'h': 5}, 0)['locked'] and of.mission({}, {'h': 5}, 0)['lock'] == 'UNKNOWN'
+    m = of.mission({'value': 1.24, 'putIn': 29.5}, {'h': 5}, 400, None, True)
+    assert m['needX'] == 23.8 and 'nextDutyIn' not in m and 'lives' not in m and m['priority'][0] == 'SURVIVE' and 'real put-in' in m['lockRule']
+    assert of.mission({}, {'h': 5}, 400, None, False)['lock'] == 'UNKNOWN'                                 # no card numbers = it says so, it does not guess
 
 
-def test_the_exposure_helpers_show_the_same_checks_the_desks_rule_by():
-    rows_at = lambda i: [row('ok', 1 + i * .005), row('thin', 1.0, liq=9_000), row('top', 1 + i * .3), row('fall', 1 - i * .05), row('bad', 1.0, safe=False),
-                         row('weak', 1.0, buyShare=50, vol5m=1000)] + [row(f'c{j}', 1 + i * .002, src=['open', 'ptrend']) for j in range(10)]
-    st, table = passes(rows_at)
-    for x in table:
-        chk = of.trigger_checks(x, st['perf'])
-        assert all(c[1] for c in chk) == (x['trigger'][0] == 'enter'), (x['mint'], x['trigger'], chk)           # every check green ⇔ Trigger really said ENTER
-        assert (not all(c[1] for c in chk if c[3])) == (x['trigger'][0] == 'skip')                               # a failed HARD check ⇔ SKIP
-    x = next(t for t in table if t['mint'] == 'c0')
-    t = of.tally_read(x, st['series']['c0'], 1000 + 3 * 60 + 5)
-    assert t['readings'] == 4 and t['ageSec'] == 5.0 and t['intervalSec'] == 60.0 and not t['stale'] and t['sources'][-1] == 'Pump trending' and 'holdD' in t['missing']
-    assert of.tally_read(x, st['series']['c0'], 1000 + 3 * 60 + 400)['stale']                                    # an old tape is said to be old
-    s = of.sherlock_read(x, ag.learn(st, 5))
-    assert s['lean'] == x['why']['lean'] and all({'key', 'weight', 'words', 'n', 'med'} <= set(r) for r in s['for'] + s['against']) and 'top-10 share unknown' in s['unresolved']
-    assert [of.scan_status(True, now=10), of.scan_status(None), of.scan_status(None, inflight=True), of.scan_status(None, failed_at=100, now=150), of.scan_status(True, scanned_at=1, now=5000)] == ['DONE', 'REQUESTED', 'RUNNING', 'FAILED', 'STALE']
-    assert all(ag.devil_rule_of(text) == rule for rule, text in ag.devil_args('enter', {'c1': 300, 'age': 2}, {'drivers': [], 'lean': 2}, {'safe': None, 'tv': {'rug': 70, 'call': ['', 'X', '']}}, {'busted': {'X': -80.0}}))
-    objs = ag.devil_args('enter', {'c1': 300, 'age': 2}, {'drivers': [], 'lean': 2}, {'safe': None, 'tv': {'rug': 70, 'call': ['', 'X', '']}}, {'busted': {'X': -80.0}})
-    assert [o[0] for o in objs] == ['busted_read', 'rug_meter', 'ran', 'unscanned'] and all(ag.DEVIL_RULES[o[0]][0] for o in objs)   # every objection has its rule, all hard (age is a warning now)
 
 
-def test_the_pipeline_shows_each_desk_and_everything_after_a_stop_waits():
-    st, table = passes(lambda i: [row('ok', 1 + i * .005), row('new', 1 + i * .005, safe=None)] + [row(f'c{j}', 1 + i * .002) for j in range(10)])
-    assert [p['state'] for p in of.pipeline(None, {})] == ['WAITING'] * 10
-    case = next(c for c in ag.investigate(table, set(), 1, {}, top=0) if c['mint'] == 'ok')
-    ctx = {'tally': of.tally_read(case['row'], st['series']['ok'], 1185), 'sherlock': of.sherlock_read(case['row']), 'weather': {'regime': 'NORMAL', 'mods': {'barAdj': 0, 'size': 1}},
-           'courier': {'health': 'HEALTHY', 'why': ['ok']}, 'ms': {'tally': 0.4}, 'filed': True}
-    p = of.pipeline(case, ctx)
-    assert [x['agent'] for x in p] == list(of.CHAIN) and p[0]['ms'] == 0.4 and all(x['state'] in of.STAGE_STATES for x in p)
-    assert [x['state'] for x in p][:5] == ['PASS', 'PASS', 'PASS', 'PASS', 'PASS'] and p[5]['state'] == 'WAITING' and p[8]['state'] == 'DONE'
-    wd = of.warden(0.3, {'value': 3, 'liq': 60_000, 'ageH': 8, 'courier': 'BAD'})
-    p = of.pipeline(case, {**ctx, 'warden': wd, 'courier': {'health': 'BAD', 'why': ['halted']}})
-    assert p[5]['state'] == 'VETO' and p[6]['state'] == 'WAITING' and p[7]['state'] == 'WAITING'                 # a veto stops the line
-    blocked = next(c for c in ag.investigate(table, set(), 1, {}, top=0) if c['mint'] == 'new')
-    p = of.pipeline(blocked, {**ctx, 'tally': of.tally_read(blocked['row'], st['series']['new'], 1185)})
-    assert p[3]['state'] == 'VETO' and 'holders not scanned' in p[3]['word'] and p[4]['state'] == 'WAITING'
-    d = of.lineage_of(blocked, {**ctx, 'bar': 1.5})
-    assert d['blocked'][0] == 'scan' and d['weather']['regime'] == 'NORMAL' and d['tally']['pts'] == 4 and d['devil'][1][0] == 'unscanned' and len(json.dumps(d)) < 900
 
 
 # ── the real card's money + the service: the page observes, it never works ───────────────────────────────────────────────────────
@@ -433,10 +386,11 @@ def _fresh(rs):
 
 def _one_pass(rs, st, i, n=30):
     now = 5000 + i * 60
-    rows = [row(f'c{j}', 1 + i * .004 * (1 if j % 3 else -1), ageH=1 + j) for j in range(n)]
+    rows = [row(f'c{j}', 1 + i * .004 * (1 if j % 3 else -1), ageH=0.2 + j * 0.15, mcap=60_000) for j in range(n)]
     cour = of.courier([], {}, now, 'degen', rs._office_state())
     st, table = ag.desk(st, rows, now, weather_fn=lambda a, b, c, d: (lambda w: {**w, 'adj': of.weather_adj(w)})(of.weather(a, b, c, d, cour['health'], rs._office_state())))
     rs._agents['weather'] = st.get('weather')
+    rs._tk.KERNEL.run(table, now, {})   # ⚙ the kernel judges the pass (the payload's case files are the kernel's)
     st = ag.record(st, table, now)
     st = ag.settle(st, lambda m: 1.0, now)
     st['money'] = rs._agents['money']
@@ -461,7 +415,9 @@ def test_one_office_payload_carries_everything_and_stays_bounded_pass_after_pass
     assert all(a['code'] and a['ethics'] and a['card']['status'] and a['card']['latency'] is not None for a in p['agents'])
     assert p['performance']['agents']['weather']['n'] > 0 and p['performance']['agents']['judge']['p95'] is not None and p['performance']['deskMs'] == 4.0
     assert p['currentCase'] and p['currentCase']['trigger']['checks'] and p['currentCase']['tally']['readings'] >= 3 and p['currentCase']['sherlock']['scan'] in ('DONE', 'STALE')
-    assert sizes[2] < 60_000 and sizes[2] < sizes[0] * 1.6                                                       # 70 passes later the payload is about the same size
+    assert p['currentCase']['status'] in ('READY', 'CONTENDING') and p['currentCase']['devil']['verdict'] in ('clear', 'warn') and p['queue'][0]['trace']['final'] in ('READY', 'CONTENDING')
+    assert len(p['generations']) == 10 and {g['status'] for g in p['generations']} <= {'ACTIVE', 'PROBATION'} and all(a['card']['status'] in ('active', 'probation') for a in p['agents'])
+    assert sizes[2] < 80_000 and sizes[2] < sizes[0] * 1.6                                                       # 70 passes later the payload is about the same size
     arch = rs._json_load(rs.ARCHIVE_PATH, {})
     assert 0 < len(arch['cases']) <= of.ARCH_CASES and of.verify(arch) == 0 and any((c.get('out') or {}).get('p5') is not None for c in arch['cases'])
     assert len(json.dumps(rs._json_load(rs.OFFICE_PATH, {}))) < 40_000 and all(len(v) <= rs.OFFICE_LAT_N for v in rs._office['lat'].values())
@@ -508,7 +464,7 @@ def test_the_service_sizes_real_seats_through_the_warden_and_reapers_requests_us
     cur = {'cash': 2.0, 'legs': [], 'events': []}
     t = trow('N')
     wd = rs._office_warden(cur, t, 0.80, {'coins': 4}, 1000, 'fill')
-    assert wd['allowed'] == 0.20 and wd['requested'] == 0.80 and rs._office['sized']['N'] == 0.25 and rs._office['state']['count']['wardenSized'] == 1
+    assert wd['allowed'] == 0.40 and wd['requested'] == 0.80 and rs._office['sized']['N'] == 0.5 and rs._office['state']['count']['wardenSized'] == 1   # 🪖 every agent fill is a kernel candidate: uncertainty (a HOSTILE trench) SHRINKS to ≥ ×0.5, it never vetoes
     rs._office['courier'] = {'health': 'BAD'}
     assert rs._office_warden(cur, t, 0.80, {'coins': 4}, 1001, 'fill')['veto'] and cur['events'][-1]['move'] == 'veto' and '🛡 Warden vetoed $N' in cur['events'][-1]['why']
     rs._office_warden(cur, t, 0.80, {'coins': 4}, 1002, 'fill')

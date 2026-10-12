@@ -42,23 +42,6 @@ NO = lambda k: [k, False, f'{k} not yet']
 SAFE = [OK('scan'), OK('age'), OK('pool'), OK('burn'), OK('devil')]
 
 
-def test_near_ready_takes_only_coins_whose_only_open_checks_are_the_entry_moment():
-    cases = [_case('CHART', SAFE + [NO('chart'), OK('data')]),
-             _case('DATA', SAFE + [OK('chart'), NO('data')]),
-             _case('SCAN', [NO('scan')] + SAFE[1:] + [NO('chart')]),
-             _case('DEVIL', SAFE[:4] + [NO('devil'), NO('chart')]),
-             _case('POOL', SAFE[:2] + [NO('pool')] + SAFE[3:] + [NO('chart')]),
-             _case('INVALID', SAFE + [NO('chart')], chart={'state': 'DATA INVALID', 'risk': [0.0, 'x'], 'q': {'readOk': False}}),
-             _case('HARDOBJ', SAFE + [NO('chart')], chart={'state': 'PARABOLIC', 'risk': [0.0, 'hard'], 'q': {'readOk': True}}),
-             _case('CLEAR', SAFE, cleared=True),
-             _case('LOW', SAFE + [NO('chart')])]
-    scores = {c['mint']: {'score': 70} for c in cases}
-    scores['DATA'] = {'score': 90}
-    scores['LOW'] = {'score': 10}
-    out = oe.near_ready(cases, scores, min_entry=0)
-    assert [r['mint'] for r in out] == ['DATA', 'CHART']                                          # best score first; every hard block stays out
-    assert 'every safety check passed' in out[0]['nearReady'] and out[0]['pair'] == 'PDATA'
-    assert [r['mint'] for r in oe.near_ready(cases, scores, min_entry=0, live={'DATA': (False, 'price ran')})] == ['CHART']   # the newest live check wins
 
 
 def _ctx(**kw):
@@ -68,13 +51,6 @@ def _ctx(**kw):
     return c
 
 
-def test_an_empty_seat_takes_the_best_available_only_after_it_waited_and_only_when_nothing_cleared():
-    assert oe.fill_plan(_ctx(emptyFor=oe.NEAR_PATIENCE_SEC - 5)) == []                                                  # too soon: the entry moment may still come
-    assert [r['mint'] for r in oe.fill_plan(_ctx(emptyFor=oe.NEAR_PATIENCE_SEC))] == ['N1', 'N2', 'N3', 'N4']   # 2 seats + 2 fallbacks
-    assert [r['mint'] for r in oe.fill_plan(_ctx(emptyFor=999, gos=[{'mint': 'GO'}]))] == ['GO']  # a real GO always first, near-ready never mixed in
-    assert oe.fill_plan(_ctx(emptyFor=999, pol={'entry': 'go'})) == []                            # the creator's "GO only" stands
-    assert oe.fill_plan(_ctx(emptyFor=999, courier='BAD')) == [] and oe.fill_plan(_ctx(emptyFor=999, live=False)) == []
-    assert len(oe.fill_plan(_ctx(emptyFor=999, used=oe._ag.CONTROL_MOVES_HR - 1))) == 1           # the hourly buy budget still caps it
 
 
 def test_warden_gives_a_best_available_coin_a_full_seat():
@@ -85,12 +61,6 @@ def test_warden_gives_a_best_available_coin_a_full_seat():
     assert of.NEAR_SIZE == 1.0 and abs(near['allowed'] - full['allowed']) < 1e-9
 
 
-def test_the_service_wires_best_available_into_the_one_fill_path():
-    import inspect
-    import reputation_service as rs
-    src = inspect.getsource(rs._prime_tick_inner)
-    assert '_oe.near_ready(' in src and "'near': near_" in src and "'emptyFor': empty_for_" in src and 'best available' in src
-    assert "'near': t_.get('nearReady')" in inspect.getsource(rs._office_ctx)                    # → Warden W19 sizes it
 
 
 def test_a_seat_is_never_called_stuck_before_the_keeper_had_a_buy_pass_at_it():
@@ -138,17 +108,6 @@ def test_the_hourly_budget_counts_real_buys_not_seats_that_never_bought():
     assert src.count('_oe.real_buys(') >= 2 and "e.get('move') in ('fill', 'swap') and now -" not in src
 
 
-def test_best_available_has_its_own_live_check_the_entry_moment_may_wait_a_broken_chart_may_not():
-    row = {'px': 1.0, 'nums': {'liq': 100_000}}
-    mkt = {'px': 1.01, 'liq': 95_000}
-    wait = {'src': 'candles', 'n': 30, 'f': {'stepN': 30, 'volCv': 0.9}, 'state': 'RANGE', 'entry': ['WAIT FOR BREAKOUT', 'x', 'waits for a close above 1.05'], 'risk': [0.75, 'range'], 'q': {'readOk': True}}
-    assert oe.live_check(row, mkt, wait, 1000.0)['ok'] is False                                  # a cleared case: the chart must still say ENTER NOW
-    assert oe.live_check(row, mkt, wait, 1000.0, near=True)['ok'] is True                        # best available: that is what "near" means
-    assert oe.live_check(row, mkt, {**wait, 'entry': ['SKIP', 'x', 'falling']}, 1000.0, near=True)['ok'] is False
-    assert oe.live_check(row, mkt, {**wait, 'state': 'DATA INVALID', 'risk': [0.0, 'bad']}, 1000.0, near=True)['ok'] is False
-    assert oe.live_check(row, {'px': 1.2, 'liq': 95_000}, wait, 1000.0, near=True)['ok'] is False   # a chase is still a chase
-    assert oe.live_check(row, {'px': 1.0, 'liq': 30_000}, wait, 1000.0, near=True)['ok'] is False   # a drained pool is still out
-    assert oe.fill_plan(_ctx(emptyFor=999, wait=[{'mint': 'CLEARED'}], lastFill=999.0, emptySince=990.0)) == []   # a cleared coin on the seat timer beats best-available
 
 
 def test_time_exits_wait_while_the_buy_budget_is_used_safety_exits_never_do():
@@ -163,7 +122,7 @@ def test_time_exits_wait_while_the_buy_budget_is_used_safety_exits_never_do():
     assert 'no replacement is ready' in r_[0]['deferred'] and 'deferred' not in r_[1]
     import inspect
     import reputation_service as rs
-    assert 'min(fills_left_, ready_n) - open_n' in inspect.getsource(rs._prime_tick_inner)                            # the open seats take the free buys first
+    assert 'min(fills_left_, len(ready_)) - open_n' in inspect.getsource(rs._prime_tick_inner)                       # READY replacements, after the open seats take theirs
 
 
 def test_a_deferred_time_exit_reads_hold_on_the_seat_board():
@@ -183,7 +142,7 @@ def test_a_time_exit_is_a_swap_the_weakest_flat_coin_uses_the_one_spare_replacem
     import inspect
     import reputation_service as rs
     src = inspect.getsource(rs._prime_tick_inner)
-    assert 'ready_n = len([c_ for c_ in pool_ if c_[\'cleared\']]) + len(_oe.near_ready(pool_, scores_))' in src and 'min(fills_left_, ready_n) - open_n' in src
+    assert "ready_ = [c_ for c_ in (_tk.KERNEL.candidate(m_, d_) for m_, d_ in _tk.KERNEL.ready(" in src and 'min(fills_left_, len(ready_)) - open_n' in src   # a replacement = a coin the KERNEL has READY
 
 
 def test_a_flat_coin_keeps_its_seat_unless_it_is_losing_or_a_clearly_better_coin_is_ready():
@@ -208,7 +167,6 @@ def test_the_agents_work_three_times_as_fast():
     best available after 10s (was 30), a candidate's live move wakes a pass after 8s (was 20), the cleared-case seat timer 10s (was 30)."""
     import reputation_service as rs, market_wake as mw
     assert rs.AGENTS_EVERY <= 20 and rs.SEAT_HEARTBEAT_SEC <= 10 and oe.NEAR_PATIENCE_SEC <= 10 and mw.GAP_CAND <= 10 and oe.SEAT_TARGET_AUTO <= 10
-    assert oe._ag.FILL_MOVES_HR >= 36   # the fill guard grows with the pace (switches keep CONTROL_MOVES_HR)
 
 
 def test_a_coin_the_agents_just_left_is_not_bought_back():
@@ -225,14 +183,6 @@ def test_a_coin_the_agents_just_left_is_not_bought_back():
     assert 'cool = set(cool) | _agent_blocked(cur, now)' in src and "if t_['mint'] in _agent_blocked(cur, now):" in src
 
 
-def test_a_chart_that_says_no_chasing_or_too_violent_is_never_bought_by_any_door():
-    """Real record 2026-10-11: E2 (no chasing) median −16.8%, E3 (too violent) −13.2% — 11 of 26 stop-outs, bought by best available / ranked."""
-    ch = lambda rule: {'src': 'candles', 'state': 'PARABOLIC', 'entry': ['WAIT FOR PULLBACK', rule, 'x'], 'f': {'stepN': 30, 'volCv': 0.3}, 'risk': [0.5]}
-    row, mkt = {'px': 1.0, 'nums': {'liq': 20000}}, {'px': 1.0, 'liq': 20000}
-    for rule in ('E2 no chasing', 'E2e no chasing (early)', 'E3 too violent'):
-        r = oe.live_check(row, mkt, ch(rule), 100.0, near=True, ranked=True)
-        assert not r['ok'] and 'never bought' in r['why'], rule
-    assert oe.live_check(row, mkt, ch('E4 no direction yet'), 100.0, near=True, ranked=True)['ok']   # the rest keep the old rules
 
 
 def test_the_six_second_guard_stops_an_agent_seat_at_reapers_own_line():
@@ -267,9 +217,3 @@ def test_a_coin_falling_eight_percent_in_five_minutes_is_a_hard_no():
     assert 'in 5 min' not in str(opp.hard_fail(row(-5.0)) or '')
 
 
-def test_an_empty_seat_is_cash_best_available_is_off():
-    """Emergency edge audit: best available / seat floor fills were negative before costs (84 real fills, median gross −1.3%)."""
-    assert oe.BEST_AVAILABLE is False
-    assert oe.fill_plan({**_ctx(emptyFor=999), 'allowNear': oe.BEST_AVAILABLE}) == []
-    src = open(__import__('reputation_service').__file__).read()
-    assert 'near_ = near_ if _oe.BEST_AVAILABLE else []' in src

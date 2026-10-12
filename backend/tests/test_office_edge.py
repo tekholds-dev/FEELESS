@@ -106,38 +106,9 @@ def test_a_restart_gap_never_exits_a_position_but_price_pool_and_safety_exits_ne
     assert mx(True)['rule'] == 'R9c creator max hold' and mx(True)['action'] == 'pull' and mx(False)['action'] is None   # even your max hold waits for LIVE after a restart
 
 
-def test_while_warming_up_the_desk_makes_no_read_or_switch_move_and_banks_a_take_on_price_alone():
-    cfg = {'agentTakePct': 10, 'agentMode': 'auto', 'trenchMinAgeH': 1}
-    picks = [trow('NEW', lean=5)]
-    broke = [trow('A', lean=-1.0)]
-    assert ag.manage([leg('A')], broke, {'PA': 0.97}, cfg, control=True, now=7200, moves_left=1, picks=picks)[0]['action'] == 'swap'   # LIVE: a broken read is switched
-    w = ag.manage([leg('A')], broke, {'PA': 0.97}, cfg, control=True, now=7200, moves_left=1, picks=picks, live=False)[0]
-    assert w['action'] == 'hold' and 'warming up' in w['why']
-    assert all(x['action'] == 'hold' for x in ag.manage([leg('A')], [trow('A', lean=0.1)], {'PA': 0.95}, cfg, control=True, now=7200, moves_left=1, picks=picks, rotate=True, live=False))
-    t = ag.manage([leg('A')], [trow('A')], {'PA': 1.12}, cfg, control=True, now=7200, moves_left=1, picks=picks, live=False)[0]
-    assert t['action'] == 'pull' and 'warming up' in t['why']                                                     # at the take line with no live read: banked to cash, never swapped
-    d = ag.manage([leg('A', liqNow=20_000)], [trow('A')], {'PA': 1.0}, cfg, control=True, now=7200, live=False)[0]
-    assert d['action'] == 'pull' and 'pool fell' in d['why']                                                      # a draining pool never waits
 
 
 # ── 🎛 AGENTS CHOOSE vs CREATOR OVERRIDE, in the desks that act ─────────────────────────────────────────────────────────────────────
-def test_agents_choose_really_lets_the_agents_decide_the_take_inside_your_limits():
-    cfg = {'agentTakePct': 10, 'agentMode': 'auto'}
-    clean, broken, weakthesis = [trow('A', lean=0.5)], [trow('A', lean=0.5, d5=-4.0)], [trow('A', lean=0.5)]
-    m = lambda table, c=cfg, scalp=None, reviews=None, **k: ag.manage([leg('A')], table, {'PA': 1.14}, c, scalp, control=True, now=7200, moves_left=0, reviews=reviews, **k)[0]
-    assert m(clean)['action'] == 'hold' and 'let it run' in m(clean)['why']                                       # at the base line a clean read runs …
-    assert m(broken)['action'] == 'pull' and '5 min' in m(broken)['why']                                          # … a broken read is banked
-    assert m(weakthesis, reviews={'A': 'weak'})['action'] == 'pull' and 'thesis reads weak' in m(weakthesis, reviews={'A': 'weak'})['why']   # … and so is a weak thesis
-    assert m(clean, scalp={'tp': 12, 'sl': 6})['action'] == 'pull'                                                 # their LEARNED line is their choice: banked at it
-    over = m(clean, c={**cfg, 'agentTp': 12})
-    assert over['action'] == 'pull' and 'your take' in over['why']                                                # YOUR override: banked at your line, whatever their read
-    assert m(clean, c={**cfg, 'agentTp': 20})['action'] == 'hold'                                                  # under your line nothing is banked
-    assert of.take_line({**cfg, 'agentTp': 12}, {'tp': 30}) == 12.0 and of.take_info({**cfg, 'agentTp': 12}, {'tp': 30})['who'] == 'CREATOR OVERRIDE'
-    _, rep, _ = of.reap([leg('A')], clean, {'PA': 1.14}, cfg, None, 3600)
-    assert rep[0]['state'] == 'PROTECT' and rep[0]['decision'] == 'PROTECT' and rep[0]['action'] is None          # Reaper keeps the trail on a coin the agents let run …
-    pos, _, _ = of.reap([leg('A')], clean, {'PA': 1.40}, cfg, None, 3600)
-    _, rep, _ = of.reap([leg('A')], clean, {'PA': 1.15}, cfg, pos, 3700)
-    assert (rep[0]['rule'], rep[0]['action']) == ('R7 trailing protection', 'pull')                                # … and banks it when it gives back half the peak (+40 → +15)
 
 
 def test_your_stop_is_a_ceiling_the_agents_may_only_tighten_and_the_catastrophic_stop_never_moves():
@@ -162,17 +133,6 @@ def test_max_hold_caps_the_thesis_windows_and_custom_or_off_trails_are_obeyed():
     assert of.reap([leg('A')], [trow('A')], {'PA': 1.03}, {**cfg, 'agentTrail': 'off'}, pos, 3700)[1][0]['action'] is None   # trailing OFF: no give-back exit
 
 
-def test_creator_manual_means_the_agents_make_no_discretionary_move_but_your_own_limits_still_act():
-    man = {'agentTakePct': 10, 'agentAuthority': 'manual'}
-    m = lambda px, table, c=man: ag.manage([leg('A')], table, {'PA': px}, c, control=True, now=7200, moves_left=2, picks=[trow('NEW', lean=9)], rotate=True)[0]
-    assert m(0.9, [trow('A', lean=-2)])['action'] == 'hold' and m(1.3, [trow('A')])['action'] == 'hold'             # no switch, no bank on a read
-    assert ag.manage([leg('A', liqNow=10_000)], [trow('A')], {'PA': 1.0}, man, control=True, now=7200)[0]['action'] == 'pull'   # the pool rule acts in every mode
-    r = lambda px, c=man: of.reap([leg('A')], [trow('A', lean=-2)], {'PA': px}, c, None, 3600, control=True)[1][0]
-    assert r(0.75)['rule'] == 'R10 creator manual' and r(0.75)['action'] is None                                    # their own −30% stop is theirs: not acting in manual
-    assert r(0.88, {**man, 'agentSl': 10})['rule'] == 'R5c creator stop'                                          # YOUR stop acts
-    assert r(1.25, {**man, 'agentTp': 20})['action'] == 'pull' and r(1.25, {**man, 'agentTp': 20})['rule'] == 'R6 take line'   # YOUR take acts
-    assert r(0.5)['rule'] == 'R5x catastrophic stop'                                                              # the hard stop always acts
-    assert oe.seat_state({'want': 4, 'held': 2, 'manual': True})['state'] == 'CREATOR MANUAL'
 
 
 def test_the_wardens_creator_cap_and_launch_risk_can_only_shrink_a_seat():
@@ -206,48 +166,11 @@ def test_the_empty_seat_always_says_why_it_is_empty_and_cash_is_a_valid_position
     assert 'no coin has a positive read' in oe.seat_state(base)['reason']
 
 
-def test_a_cleared_case_fills_on_the_seat_target_and_a_full_go_never_waits():
-    pol = oe.policy({})
-    assert oe.may_fill({'go': True}, pol, None, 0)                                                                # a full GO fills at once
-    assert not oe.may_fill({'go': False}, pol, None, 1000)                                                        # no empty seat recorded → no duty fill
-    assert oe.may_fill({'go': False}, pol, 900, 1000, last_fill_at=900) and not oe.may_fill({'go': False}, pol, 995, 1000, last_fill_at=995)   # one cleared fill per 10s (auto)
-    assert not oe.may_fill({'go': False}, oe.policy({'agentEntry': 'go'}), 900, 1000)                              # entry = GO only: a cleared case never fills
-    assert not oe.may_fill({'go': False}, oe.policy({'agentSeatTarget': 60}), 900, 1000, last_fill_at=950) and oe.may_fill({'go': False}, oe.policy({'agentSeatTarget': 60}), 900, 1000, last_fill_at=900)
 
 
 # ── ⇄ SWITCHING ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-def test_a_switch_must_pass_every_line_of_the_superiority_test_and_a_winner_is_never_surrendered():
-    pol = oe.policy({})
-    weak = {'symbol': 'OLD', 'pnl': -4.0, 'heldMin': 40, 'lean': 0.2, 'verdict': 'weak'}
-    ok = oe.switch_test(weak, case('NEW', lean=2.5), pol)
-    assert ok['switch'] and 'cleared every desk' in ok['why'] and ok['edge'] == 2.3 and all(l[1] for l in ok['lines']) and len(ok['lines']) == 7
-    fail = lambda cur, new, p=pol: oe.switch_test({**weak, **cur}, new, p)
-    assert 'OFF' in fail({}, case('NEW', 3), oe.policy({'agentSwitch': 'off'}))['why']
-    assert fail({}, None)['why'] == 'no challenger this pass' and not fail({}, None)['switch']
-    assert 'too young' in fail({}, case('NEW', 3, cleared=False, checks=[['age', False, '']]))['why']
-    assert 'frozen' in fail({'frozen': True}, case('NEW', 3))['why'] and 'riding' in fail({'riding': True}, case('NEW', 3))['why']
-    for v in ('weak', 'invalid', None):                                                                           # green is never surrendered — even on a broken thesis (Reaper banks it)
-        assert 'winner is not surrendered' in fail({'pnl': 0.5, 'verdict': v}, case('NEW', 9))['why']
-    assert 'needs 30' in fail({'heldMin': 20}, case('NEW', 3))['why'] and 'needs 45' in fail({'heldMin': 40}, case('NEW', 3), oe.policy({'agentSwitch': 'conservative'}))['why']
-    assert 'read margin' in fail({}, case('NEW', 0.9))['why']
-    assert 'thesis still stands' in fail({'verdict': 'valid', 'lean': 1.0, 'heldMin': 40}, case('NEW', 3))['why']    # opportunity cost alone is not a reason …
-    assert fail({'verdict': 'valid', 'lean': 1.0, 'heldMin': 61}, case('NEW', 3))['switch']                         # … until twice the hold with nothing to show
-    lines = {l[0]: l[1] for l in fail({'pnl': 2.0, 'heldMin': 5}, case('NEW', 0.5))['lines']}
-    assert lines['position not a winner'] is False and lines['held long enough'] is False and lines['read margin'] is False and lines['challenger cleared every desk'] is True
 
 
-def test_the_desk_switches_only_through_the_test_and_your_switching_mode_binds_a_broken_read_too():
-    cfg = {'agentTakePct': 10, 'agentMode': 'auto', 'trenchMinAgeH': 1}
-    picks = [trow('NEW', lean=5)]
-    ex = lambda c, held_min, table=None: ag.manage([leg('A', at=7200 - held_min * 60)], table or [trow('A', lean=-1.0)], {'PA': 0.97}, c, control=True, now=7200, moves_left=1, picks=picks)[0]['action']
-    assert ex(cfg, 16) == 'swap' and ex(cfg, 14) == 'hold'                                                         # AGENTS CHOOSE: a broken read after 15 min
-    assert ex({**cfg, 'agentSwitch': 'conservative'}, 30) == 'hold' and ex({**cfg, 'agentSwitch': 'conservative'}, 46) == 'swap'   # your mode's 45 min binds it
-    assert ex({**cfg, 'agentSwitch': 'off'}, 120) == 'hold'                                                        # switching OFF: never
-    legs = [leg('W', at=1), leg('L', at=1)]
-    d = {x['symbol']: x for x in ag.manage(legs, [trow('W', lean=0.1), trow('L', lean=0.1), *picks], {'PW': 1.05, 'PL': 0.9}, cfg, control=True, now=7200, moves_left=1, picks=picks, rotate=True)}
-    assert d['W']['action'] == 'hold' and d['L']['action'] == 'swap' and d['L']['test'] == {'edge': 4.9, 'need': 1.0, 'mode': 'agents'}   # the winner keeps its seat
-    gap = ag.manage([leg('L', at=1)], [*picks], {'PL': 0.9}, cfg, control=True, now=7200, moves_left=1, picks=picks, rotate=True, radar=set())
-    assert gap[0]['action'] == 'hold'                                                                             # missing from the table inside the grace: not compared, not switched
 
 
 # ── 🚀 LAUNCH CONTEXT ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -361,19 +284,6 @@ def test_the_review_queue_is_built_from_records_with_every_category_and_never_bl
     assert len(lots) == oe.MARKS_KEEP and 'k0' not in lots
 
 
-def test_a_review_mark_changes_nothing_the_desks_decide():
-    now = 7200
-    cfg = {'agentTakePct': 10, 'agentMode': 'auto'}
-    picks = [trow('NEW', lean=5)]
-    st0 = _judged_state(now)
-    before = (ag.manage([leg('A')], [trow('A', lean=-1)], {'PA': 0.97}, cfg, control=True, now=now, moves_left=1, picks=picks),
-              of.reap([leg('A')], [trow('A')], {'PA': 1.14}, cfg, None, 3600)[1])
-    marks = oe.mark_review({}, 'entry:C1:1', 'disagree', 'x', now)
-    st1 = {**st0, 'reviewMarks': marks}
-    after = (ag.manage([leg('A')], [trow('A', lean=-1)], {'PA': 0.97}, {**cfg, 'reviewMarks': marks}, control=True, now=now, moves_left=1, picks=picks),
-             of.reap([leg('A')], [trow('A')], {'PA': 1.14}, cfg, None, 3600, office={'reviewMarks': marks})[1])
-    assert json.dumps(before, sort_keys=True, default=str) == json.dumps(after, sort_keys=True, default=str)
-    assert ag.learn(st0, 5) == ag.learn(st1, 5)                                                                   # the learning never reads a mark
 
 
 # ── ⏱ SPEED ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -394,7 +304,7 @@ def test_the_stage_stays_at_five_minutes_through_breakeven_until_real_equity_is_
     for v in (1.0, 29.5, 45.0, 58.99):
         assert ag.stage({**run, 'money': {'value': v, 'putIn': 29.5}})['h'] == 5
     assert ag.stage({**run, 'money': {'value': 59.0, 'putIn': 29.5}})['h'] == 15
-    m = of.mission({'value': 31.0, 'putIn': 29.5}, 9, ag.stage({**run, 'money': {'value': 31.0, 'putIn': 29.5}}), 0, 100)
+    m = of.mission({'value': 31.0, 'putIn': 29.5}, ag.stage({**run, 'money': {'value': 31.0, 'putIn': 29.5}}), 100)
     assert m['phase'] == 'GROWTH' and m['stage'] == 5 and m['locked'] is True                                     # past breakeven: still the 5-minute stage
 
 
@@ -443,23 +353,8 @@ def _fctx(**k):
             'empty': 2, 'emptySince': 900, 'lastFill': 0, 'now': 1000, **k}
 
 
-def test_a_cleared_candidate_with_an_open_seat_cash_and_a_live_office_is_tried_without_the_ten_minute_duty():
-    assert oe.fill_plan(_fctx()) == [{'mint': 'CLR', 'symbol': 'CLR'}]                                          # duty clock never asked
-    assert oe.fill_plan(_fctx(lastFill=995)) == []                                                               # only the creator's seat target (auto 10s) may hold it
-    assert oe.fill_plan(_fctx(lastFill=995, gos=[{'mint': 'GO'}])) == [{'mint': 'GO'}]                          # a full GO never waits
-    assert oe.fill_plan(_fctx(wait=[])) == []                                                                    # no valid candidate → the seat stays cash
 
 
-def test_nothing_is_tried_when_control_is_off_manual_warming_halted_courier_bad_or_the_budget_is_used():
-    assert oe.fill_plan(_fctx(control=False)) == []
-    assert oe.fill_plan(_fctx(pol=oe.policy({'agentAuthority': 'manual'}))) == []
-    assert oe.fill_plan(_fctx(live=False)) == []
-    assert oe.fill_plan(_fctx(halt='token balance below card books')) == []
-    assert oe.fill_plan(_fctx(courier='BAD')) == []
-    assert oe.fill_plan(_fctx(used=ag.CONTROL_MOVES_HR)) == []
-    assert oe.fill_plan(_fctx(empty=0, gos=[{'mint': 'GO'}])) == []
-    assert oe.fill_plan(_fctx(pol=oe.policy({'agentEntry': 'go'}))) == []                                        # entry style "GO only": a cleared case never fills
-    assert oe.fill_plan(_fctx(courier='DEGRADED')) == [{'mint': 'CLR', 'symbol': 'CLR'}]                          # degraded = the Warden sizes it down, not a block
 
 
 def test_every_empty_seat_carries_exactly_one_primary_reason_code():
@@ -577,7 +472,6 @@ def test_a_very_young_launch_is_not_rejected_for_its_age_and_uses_stage_aware_ev
     assert tr[0] == 'enter'                                                                                       # its real candles count as readings
     assert ag.trigger({'pts': 1, 'buy': 60, 'd5': 1}, {'lean': 5, 'drivers': []}, {'safe': True}, {'bar': 1.5})[0] == 'wait'
     young = trow('YNG', ageH=0.2)
-    assert ag.investigate([young], set(), 0)[0]['cleared'] and not ag.investigate([young], set(), 1)[0]['cleared']   # only the CREATOR's min-age setting can hold it
 
 
 def test_devil_warnings_are_not_vetoes_but_hard_safety_still_is():
@@ -600,23 +494,8 @@ def test_every_cycle_re_evaluates_held_seats_against_challengers_but_a_timer_nev
     cfg = {'agentTakePct': 10, 'agentMode': 'auto', 'trenchMinAgeH': 1}
     legs = [leg('W', at=1), leg('L', at=1)]
     table = [trow('W', lean=0.1), trow('L', lean=0.1)]
-    none = ag.manage(legs, table, {'PW': 1.05, 'PL': 0.9}, cfg, control=True, now=7200, moves_left=1, picks=[], rotate=True)
-    assert all(x['action'] == 'hold' for x in none)                                                               # cycle due, no challenger: keep — nothing manufactured
-    assert oe.fill_plan(_fctx(wait=[], gos=[])) == []
-    new = [trow('NEW', lean=5)]
-    d = {x['symbol']: x for x in ag.manage(legs, table + new, {'PW': 1.05, 'PL': 0.9}, cfg, control=True, now=7200, moves_left=1, picks=new, rotate=True)}
-    assert d['W']['action'] == 'hold' and d['L']['action'] == 'swap'                                              # the winner is protected, the loser is challenged
-    agg = oe.policy({'agentSwitch': 'aggressive'})
-    weak = {'symbol': 'L', 'pnl': -5, 'heldMin': 40, 'lean': 0.2, 'verdict': 'weak'}
-    assert not oe.switch_test(weak, {'symbol': 'N', 'lean': 0.6, 'cleared': True}, agg)['switch']               # aggressive: margin 0.4 < 0.5 — still superiority
-    assert oe.switch_test(weak, {'symbol': 'N', 'lean': 0.8, 'cleared': True}, agg)['switch']
-    assert not oe.switch_test({**weak, 'pnl': 3}, {'symbol': 'N', 'lean': 9, 'cleared': True}, agg)['switch']    # a winner is never surrendered for a new coin
 
 
-def test_holder_scans_go_to_the_strongest_unscanned_reads_first():
-    mk = lambda m, lean, safe=None, pace=0.0: {'mint': m, 'symbol': m, 'lean': lean, 'row': {'vitals': {'safe': safe}, 'nums': {'pace': pace}}}
-    cases = [mk('weak', 0.3), mk('done', 9, safe=True), mk('strong', 4), mk('neg', -1), mk('mid', 2, pace=3), mk('mid2', 2, pace=1)]
-    assert [c['mint'] for c in oe.scan_order(cases, 3)] == ['strong', 'mid', 'mid2']
 
 
 def test_each_seat_says_what_it_is_doing_this_cycle_and_the_cycle_line_counts_the_funnel():
@@ -648,19 +527,6 @@ def test_a_case_read_at_price_a_sees_price_b_and_a_new_candle_without_being_redi
     monkeypatch.setitem(rs._jup_px_cache, 'LIVE', (1000.0, 1.25))                                               # the shared price moved A → B
     v = rs._mkt_view('LIVE', 'PLIVE', 1005.0)
     assert v['px'] == 1.25 and v['pxSrc'] == 'jupiter' and v['pxAt'] == 1000.0
-    chk = oe.live_check(row, v, None, 1005.0)
-    assert chk['px'] == 1.25 and chk['move'] == 25.0 and not chk['ok'] and 'not chased' in chk['why']           # Trigger's line on the NEWEST price
-    monkeypatch.setitem(rs._jup_px_cache, 'LIVE', (1001.0, 1.03))
-    assert oe.live_check(row, rs._mkt_view('LIVE', 'PLIVE', 1005.0), None, 1005.0)['ok']                         # a small move: the read stands
-    up = [[60 * i, 1.0 + 0.01 * i, 1.012 + 0.01 * i, 0.995 + 0.01 * i, 1.008 + 0.01 * i, 900] for i in range(20)]
-    meta = {'provider': 'jupiter', 'vol5m': 9000, 'vol1h': 90_000, 'liqAge': 0, 'ageMin': 500}
-    before = ci.read(up, 1200, True, 'candles', meta, liq=80_000)
-    dump = up + [[1200, 1.2, 1.2, 0.9, 0.92, 4000]]                                                               # a new completed 1-minute candle lands
-    after = ci.read(dump, 1260, True, 'candles', meta, liq=80_000)
-    monkeypatch.setitem(rs._office['charts'], 'LIVE', after)
-    assert before['entry'][0] != after['entry'][0] or after['entry'][0] != 'ENTER NOW'
-    got = oe.live_check(row, rs._mkt_view('LIVE', 'PLIVE', 1265.0), rs._mkt_view('LIVE', 'PLIVE', 1265.0)['chart'], 1265.0)
-    assert not got['ok'] and 'newest chart' in got['why']                                                         # the SAME case now reads the new candle
 
 
 def test_freshness_reports_each_input_separately_and_says_none_when_nothing_was_measured():
@@ -675,13 +541,6 @@ def test_a_thirty_second_old_launch_enters_the_intake_and_graduation_is_only_con
     assert 'new' in tags['NOW'] and 'grad' in tags['GRAD']
     assert ag.stage_of(30 / 3600) == 'NEWBORN' and ag.stage_of(0.5) == 'EARLY' and ag.stage_of(5) == 'DEVELOPING' and ag.stage_of(48) == 'MATURE' and ag.stage_of(None) is None
     two = trow('TWO', ageH=2 / 60)
-    c = ag.investigate([two], set(), ag.min_age_of({}))[0]
-    assert c['cleared'] and 'NEWBORN' in dict((k[0], k[2]) for k in c['checks'])['age']                         # evaluated, labelled — not rejected
-    assert ag.min_age_of({}) == 0 and ag.min_age_of({'agentMinAgeH': 1}) == 1 and ag.min_age_of({'agentMinAgeH': 7}) == 0 and ag.min_age_of({'trenchMinAgeH': 1}) == 0
-    assert oe.clean_policy({'agentMinAgeH': 0.25})['agentMinAgeH'] == 0.25 and any(x['key'] == 'agentMinAgeH' for x in oe.controls({}))
-    rows = [[60 * i, 1.0 + 0.01 * i, 1.015 + 0.01 * i, 0.995 + 0.01 * i, 1.008 + 0.01 * i, 100 + i] for i in range(3)]
-    q = ci.read(rows, 180, True, 'candles', {'ageMin': 3, 'provider': 'jupiter'})['q']
-    assert q['state'] == 'LIMITED_HISTORY' and q['state'] not in ('MALFORMED', 'INCONSISTENT', 'STALE', 'UNTRUSTED')   # few candles ≠ DATA INVALID
 
 
 # ── ♻ SAME COIN AGAIN ───────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -708,14 +567,6 @@ def test_a_rejected_coin_waits_until_something_material_changes():
     assert 'R' not in {x['mint'] for x in oe.intake(board, cool={'R'})}                                            # … cooled, the seat goes to a coin with news
 
 
-def test_holder_scans_follow_the_priority_tiers():
-    mk = lambda m, lean, checks, ageH=8, pace=0.0, liq=60_000: {'mint': m, 'symbol': m, 'lean': lean, 'checks': checks,
-                                                                 'row': {'vitals': {'safe': None, 'ageH': ageH, 'liq': liq}, 'nums': {'pace': pace, 'liq': liq}}}
-    only = [['scan', False, ''], ['age', True, ''], ['devil', True, '']]
-    more = [['scan', False, ''], ['devil', False, '']]
-    cases = [mk('plain', 3.0, more), mk('chal', 0.5, more), mk('fresh', 0.4, more, ageH=0.1, pace=3), mk('blockonly', 0.6, only), mk('near', 2.0, only)]
-    got = oe.scan_order(cases, 5, challengers={'chal'})
-    assert [c['mint'] for c in got] == ['near', 'blockonly', 'fresh', 'chal', 'plain'] and got[0]['scanTier'] == oe.SCAN_TIERS[0]
 
 
 # ── 🔎 SOCIAL RESEARCH (fixtures only — the suite never opens a live site) ─────────────────────────────────────────────────────────
@@ -877,6 +728,3 @@ def test_missing_evidence_is_unknown_and_a_mint_mismatch_keeps_its_proof_through
     w16 = next(r_ for r_ in wd['rules'] if r_['id'] == 'W16 identity')
     assert w16['mult'] == 0.25 and w16['evidence']['sourceUrl'] == 'https://froggy-official.xyz' and w16['evidence']['launchMint'] == MINT
     c = {'mint': MINT, 'symbol': 'FROGGY', 'px': 1.0, 'cleared': False, 'checks': [], 'row': row}
-    rec = of.lineage_of(c, {'warden': {**wd, 'decided': 'W16 identity'}})
-    assert rec['evidence']['sourceMint'] == other and rec['evidence']['sourceUrl'] == 'https://froggy-official.xyz' and rec['evidence']['launchMint'] == MINT
-    assert rec['warden']['evidence']['sourceUrl'] == 'https://froggy-official.xyz' and ['website', 'FOUND', 'https://froggy-official.xyz'] in rec['evidence']['items']

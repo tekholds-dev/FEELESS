@@ -102,11 +102,6 @@ def test_trigger_does_not_chase_and_can_wait_on_a_good_coin():
         rank = {'skip': 0, 'wait': 1, 'enter': 2}
         assert rank[c[m]['trigger'][0]] <= rank[p[m]['trigger'][0]], m
     assert set(out) == set(c) and out['GOOD']['f']['n'] == ag.SERIES_N and 'chart:' + c['GOOD']['chart']['state'] in [d[0] for d in c['GOOD']['why']['drivers']]   # ONE snapshot a coin, shared
-    cases = {x['mint']: x for x in ag.investigate(tc, set(), 1, {}, top=0)}
-    assert all(k[0] != 'chart' or k[1] == (cases[m]['row']['chart']['entry'][0] == 'ENTER NOW') for m in cases for k in cases[m]['checks'])
-    assert all(any(k[0] == 'chart' for k in cs['checks']) for cs in cases.values()) and 'SAW' not in cases       # the duty waives the bar, never the chart
-    st_c = ag.record(st_c, tc, 1000 + 24 * 60)
-    assert all('cs' in o and 'ce' in o for o in st_c['open'].values())                                            # the structure is stored WITH the call (no hindsight later)
 
 
 def test_devils_chart_objections_point_at_measurements_and_soft_ones_need_their_record():

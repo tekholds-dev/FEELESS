@@ -10,11 +10,13 @@ here is a decision ABOUT the existing agent path on the creator's real card, or 
   missed_winners  the coins that ran while we did not hold them: why, per desk, with paper counterfactuals — never a trade
   review          the creator's asynchronous review queue (it is only ever READ by the page; no desk waits on it)
 """
-import agents as _ag
+import paper_desk as _pd   # 📝 the OFFLINE practice record (graded paper calls) — it has no live authority
+import trench_kernel.universe as _uni
+import trench_kernel.senses as _sn
 import chart_intel as _ci
 import market_data as _md
 
-_f = _ag._f
+_f = _sn._f
 
 
 def _med(xs):
@@ -31,7 +33,7 @@ TRAIL = ('auto', 'off', 'custom')
 SEAT_TARGETS = (0, 30, 60)                       # 0 = AUTO (10s)
 SEAT_TARGET_AUTO = 10
 SWITCH = {'agents': (1.0, 30.0), 'off': None, 'conservative': (1.5, 45.0), 'normal': (1.0, 30.0), 'aggressive': (0.5, 15.0)}   # → (lean margin, minutes held). Aggressive only lowers the margin — never under these floors
-SWITCH_FLOOR = (0.5, _ag.CONTROL_HOLD_MIN)
+SWITCH_FLOOR = (0.5, _uni.CONTROL_HOLD_MIN)
 ENTRY = ('agents', 'go')                         # agents = a full GO at once, the duty's cleared case on the seat target · go = a full GO only
 POLICY_KEYS = ('agentMinAgeH', 'agentAuthority', 'agentTp', 'agentSl', 'agentTrail', 'agentTrailArm', 'agentTrailPct', 'agentMaxHold', 'agentSizePct', 'agentSeatTarget', 'agentSwitch', 'agentEntry')
 
@@ -51,7 +53,7 @@ def clean_policy(p):
             'agentTrailArm': _num(p, 'agentTrailArm'), 'agentTrailPct': _num(p, 'agentTrailPct'), 'agentMaxHold': _num(p, 'agentMaxHold'), 'agentSizePct': _num(p, 'agentSizePct'),
             'agentSeatTarget': int(_f(p.get('agentSeatTarget'))) if int(_f(p.get('agentSeatTarget'))) in SEAT_TARGETS else 0,
             'agentSwitch': p.get('agentSwitch') if p.get('agentSwitch') in SWITCH else 'agents', 'agentEntry': p.get('agentEntry') if p.get('agentEntry') in ENTRY else 'agents',
-            'agentMinAgeH': _ag.min_age_of(p)}
+            'agentMinAgeH': _uni.min_age_of(p)}
 
 
 def policy(cfg):
@@ -83,14 +85,14 @@ def policy(cfg):
             'who': {'takeProfit': who(c['agentTp']), 'stopLoss': who(c['agentSl']), 'trailing': who(trail != 'auto'), 'maxHold': who(c['agentMaxHold']), 'positionSize': who(c['agentSizePct']),
                     'seatCount': 'CREATOR OVERRIDE', 'entryStyle': who(c['agentEntry'] != 'agents'), 'exitStyle': who(mode != 'auto'), 'switching': who(c['agentSwitch'] != 'agents'),
                     'emptySeat': who(c['agentSeatTarget']), 'minAge': who(c['agentMinAgeH'])}, 'minAgeH': c['agentMinAgeH'],
-            'hard': {'catastrophicStop': _ci.CATASTROPHIC_STOP, 'movesPerHour': _ag.CONTROL_MOVES_HR, 'minPool': _ag.CONTROL_MIN_LIQ}}
+            'hard': {'catastrophicStop': _ci.CATASTROPHIC_STOP, 'movesPerHour': _uni.CONTROL_MOVES_HR, 'minPool': _uni.CONTROL_MIN_LIQ}}
 
 
 # the creator's controls as the page draws them: one row per control, its options (0 / 'agents' = AGENTS CHOOSE), who decides now,
 # and — under AGENTS CHOOSE — what the agents are actually using right now (`now`, filled by the service from live state; None = not known)
 OPTIONS = {'agentAuthority': list(AUTHORITY), 'agentTp': [0, *TP_OPTS], 'agentSl': [0, *SL_OPTS], 'agentTrail': list(TRAIL), 'agentTrailArm': [0, 5, 10, 15, 20, 30],
            'agentTrailPct': [0, 3, 5, 8, 10, 15], 'agentMaxHold': [0, *HOLD_OPTS], 'agentSizePct': [0, *SIZE_OPTS], 'agentSeatTarget': list(SEAT_TARGETS),
-           'agentSwitch': ['agents', 'off', 'conservative', 'normal', 'aggressive'], 'agentEntry': list(ENTRY), 'agentMinAgeH': list(_ag.AGENT_MIN_AGES)}
+           'agentSwitch': ['agents', 'off', 'conservative', 'normal', 'aggressive'], 'agentEntry': list(ENTRY), 'agentMinAgeH': list(_uni.AGENT_MIN_AGES)}
 CONTROLS = (('agentTp', 'takeProfit', 'Take profit', '%', 'AT your line the coin is banked. They may still leave earlier on a broken thesis or the trail.'),
             ('agentSl', 'stopLoss', 'Stop-loss', '%', 'Your most tolerated loss. Their own structure stop may be tighter, never wider.'),
             ('agentTrail', 'trailing', 'Trailing protection', None, 'off = no give-back protection · custom = arm at +A%, bank P points under the peak.'),
@@ -121,7 +123,7 @@ def agents_now(take, tunables, thesis=None):
             'agentTrail': f"arms at +{_f(t.get('protectAt')):g}%, banks after giving back {_f(t.get('giveBackPct')):g}% of the peak",
             'agentMaxHold': f"thesis windows: {_ci.MIN_WINDOWS * _ci.WINDOW_MIN}–{_ci.MAX_WINDOWS * _ci.WINDOW_MIN} min, earned 5 min at a time",
             'agentSizePct': f"the Warden: ≤ {_f(t.get('maxSeatPct')):g}% of the card, smaller on risk",
-            'agentSwitch': f"read margin ≥ {SWITCH['agents'][0]:+.1f} after {SWITCH['agents'][1]:g} min, or a broken read after {_ag.CONTROL_HOLD_MIN} min",
+            'agentSwitch': f"read margin ≥ {SWITCH['agents'][0]:+.1f} after {SWITCH['agents'][1]:g} min, or a broken read after {_uni.CONTROL_HOLD_MIN} min",
             'agentEntry': 'a full GO at once, or the duty\'s cleared case',
             'agentSeatTarget': f'{SEAT_TARGET_AUTO}s',
             'agentMinAgeH': 'any age — stage-aware evidence (NEWBORN · EARLY · DEVELOPING · MATURE); safety, pool, scan and the chart still decide'}
@@ -208,7 +210,7 @@ def seat_state(ctx):
     if c.get('courier') == 'BAD':
         return out('NO VALID ENTRY', 'COURIER BLOCK', 'COURIER BLOCK — Courier reads execution BAD (an EXECUTION BLOCK until the keeper lands again)')
     if int(_f(c.get('movesLeft'))) <= 0:
-        return out('NO VALID ENTRY', 'BUY BUDGET', f"BUY BUDGET — the hourly budget of {int(_f(c.get('movesHr')) or _ag.FILL_MOVES_HR)} empty-seat fills is used (a runaway guard)")
+        return out('NO VALID ENTRY', 'BUY BUDGET', f"BUY BUDGET — the hourly budget of {int(_f(c.get('movesHr')) or _uni.FILL_MOVES_HR)} empty-seat fills is used (a runaway guard)")
     if _f(c.get('freeUsd')) < max(0.05, _f(c.get('minUsd'))):
         return out('NO VALID ENTRY', 'NO CASH', f"NO CASH — ${_f(c.get('freeUsd')):.2f} free card cash")
     n = len(c.get('cases') or [])
@@ -235,38 +237,8 @@ def seat_state(ctx):
     return out('NO VALID ENTRY', rest[0], rest[1])
 
 
-def may_fill(case_row, pol, empty_since, now, last_fill_at=0.0):
-    """May the duty's CLEARED case (Trigger's bar waived, every safety check passed) take an EMPTY seat now? A full 🟢 GO never waits.
-    Under entry style 'go' only a GO fills. Otherwise one cleared fill per seat target: the seat does not wait for the 10-minute duty."""
-    if (case_row or {}).get('go'):
-        return True
-    if (pol or {}).get('entry') == 'go':
-        return False
-    gap = _f((pol or {}).get('seatTarget') or SEAT_TARGET_AUTO)
-    return bool(empty_since) and now - _f(last_fill_at) >= gap
 
 
-def fill_plan(ctx):
-    """🪑 THE fast-seat decision, one place: which already-known candidates the tier tick may try for the EMPTY seats right now, in order.
-    ctx = {control, pol, live, halt, courier, used, gos (full 🟢 GO coins, eligible), wait (the duty's CLEARED cases), empty, emptySince,
-    lastFill, now}. A full GO never waits; a cleared case waits only for the creator's seat target (never the 10-minute duty clock).
-    Nothing is tried while Agent Control is off, under creator MANUAL, before the office is LIVE, while the keeper is halted, while the
-    Courier reads execution BAD or once the hourly buy budget is used. Every try still goes through the Warden and the existing keeper path."""
-    c = ctx or {}
-    pol = c.get('pol') or {}
-    cap = int(_f(c.get('cap')) or _ag.CONTROL_MOVES_HR)   # the service hands the FILL guard (agents.FILL_MOVES_HR); switches keep CONTROL_MOVES_HR
-    if (not c.get('control') or pol.get('manual') or not c.get('live') or c.get('halt') or c.get('courier') == 'BAD'
-            or int(_f(c.get('used'))) >= cap or int(_f(c.get('empty'))) <= 0):
-        return []
-    # 🪑🪑🪑🪑 every open seat may take its OWN cleared case in the same cycle (best score first, one coin per seat — never the whole system
-    # serialised behind one coin); the hourly buy budget, the Warden and `agent_seat` (one seat per coin) still decide each try
-    # + up to 3 fallbacks: a candidate the Warden vetoes (or that fails its last check) hands the seat to the NEXT ranked one in the same tick
-    duty = list(c.get('wait') or [])[:max(1, int(_f(c.get('empty')))) + 3] if may_fill({'go': False}, pol, c.get('emptySince'), _f(c.get('now')), _f(c.get('lastFill'))) else []
-    left = max(0, cap - int(_f(c.get('used'))))
-    plan = list(c.get('gos') or []) + duty
-    if c.get('allowNear', BEST_AVAILABLE) and not plan and not c.get('wait') and c.get('near') and _f(c.get('emptyFor')) >= NEAR_PATIENCE_SEC and pol.get('entry') != 'go':   # 🪑 nothing cleared and the seat waited: the best near-ready coin
-        plan = list(c['near'])[:max(1, int(_f(c.get('empty')))) + 2]
-    return plan[:max(left, 0)]
 
 
 # ── 🧮 THE HOURLY BUY BUDGET COUNTS REAL BUYS ──────────────────────────────────────────────────────────────────────────────────────
@@ -308,49 +280,12 @@ def real_buys(events, ledger, card, now, window=3600.0, moves=('fill', 'swap')):
     return n
 
 
-# ── 🪑 BEST AVAILABLE: an empty seat does not wait forever on the entry moment ───────────────────────────────────────────────────────
-# 🚫 BEST AVAILABLE / SEAT FLOOR / RANKED FILL = OFF (owner's emergency edge audit, 2026-10-12): an empty seat is CASH, never "buy something".
-# Real record, 24h: 84 such fills, 21% won, median GROSS −1.3%, net −3.0%, −$0.59 — negative before costs. Only a full GO or a cleared case fills.
-BEST_AVAILABLE = False
 NEAR_PATIENCE_SEC = 10       # a seat empty this long with NOTHING cleared takes the best near-ready coin (owner: "30 secs to choose") …
 NEAR_MIN_ENTRY = 50.0        # 🎯 … AND an entry score (opportunity.score) of at least B-tier — never 'the least bad coin'
 NEAR_MIN_SCORE = 15.0        # … scoring at least this (seat_ops.score WITHOUT its phase tilt — the tilt orders coins, it never keeps a seat empty) …
 NEAR_SOFT = ('chart', 'data')   # … whose ONLY open checks are the entry moment / ENTER-grade data — every safety check passed
 
 
-def near_ready(cases, scores=None, live=None, min_score=NEAR_MIN_SCORE, min_entry=NEAR_MIN_ENTRY):
-    """The coins an empty seat may take when nothing CLEARED (owner, 2026-10-11: "they must keep seats full" — never past a hard block):
-    every check passed except the entry moment (chart) and/or ENTER-grade data · no hard chart objection (risk > 0) · the data is READABLE
-    (never DATA INVALID) · the chart is not COLLAPSING / INVALID · the newest live check is not against it · seat score ≥ min. Best score first.
-    The holder scan, the pool, the burn / rebuy rules and Devil's objections are NOT soft: a coin failing any of them never appears here."""
-    import seat_ops as _so
-    out = []
-    for c in cases or []:
-        if c.get('cleared'):
-            continue
-        fails = [k for k in c.get('checks') or [] if not k[1]]
-        if not fails or any(k[0] not in NEAR_SOFT for k in fails):
-            continue
-        row = c.get('row') or {}
-        ch = row.get('chart') or {}
-        q = ch.get('q') or {}
-        if ch.get('state') == _ci.DATA_INVALID or q.get('readOk') is False or _f((ch.get('risk') or [1.0])[0]) <= 0:
-            continue
-        if _so.chart_quality(ch)[0] in ('COLLAPSING', 'INVALID'):
-            continue
-        lc = (live or {}).get(c.get('mint'))
-        if lc is not None and not lc[0]:
-            continue
-        sd = (scores or {}).get(c.get('mint')) or {}
-        sc = _f(sd.get('score'))
-        if sc - sum(_f(p[1]) for p in sd.get('parts') or [] if p and p[0] == 'phase') < min_score:   # (2026-10-11: the recovery tilt's −10 on old coins left 3 seats empty)
-            continue
-        import opportunity as _opp
-        es_ = _opp.score(row)[0]
-        if es_ < min_entry:   # 🎯 the fallback door needs a B-tier ENTRY score: it bought 70 old coins at −0.9% avg, 31% won (2026-10-11) — cash beats a bad setup
-            continue
-        out.append({**row, 'nearReady': f"best available after {NEAR_PATIENCE_SEC}s — every safety check passed; not yet: {'; '.join(k[2] for k in fails)[:140]}", 'nearScore': sc})
-    return sorted(out, key=lambda r: -_f(r.get('nearScore')))
 
 
 def cycle_due(pol, last_at, now):
@@ -360,65 +295,6 @@ def cycle_due(pol, last_at, now):
     return _f(now) - _f(last_at) >= max(30.0, _f((pol or {}).get('seatTarget') or SEAT_TARGET_AUTO))
 
 
-# ── ⇄ SWITCHING: superiority, not churn ──────────────────────────────────────────────────────────────────────────────────────────
-def switch_test(cur, new, pol):
-    """May `new` (a case file) take the seat of `cur` (a held position)? → {switch, why, edge, need, current, challenger}
-    cur = {symbol, pnl, heldMin, lean, verdict (thesis: valid | weak | invalid | unknown | None), structure, liq, frozen, riding}
-    Every line must hold: switching is on · the challenger CLEARED every desk · the position is not a winner · it has been held long
-    enough · the challenger's read beats its own by the margin · the position is weak (thesis not valid, or its read gone, or twice the
-    hold with nothing to show). A new coin being greener, a candle, or five minutes passing is none of these."""
-    sw = (pol or {}).get('switch') or {'on': True, 'edge': SWITCH['agents'][0], 'holdMin': SWITCH['agents'][1], 'mode': 'agents'}
-    c, n = cur or {}, new or {}
-    pnl, held, own = _f(c.get('pnl')), _f(c.get('heldMin')), _f(c.get('lean'))
-    nl = _f(n.get('lean') if n.get('lean') is not None else ((n.get('why') or {}).get('lean')))
-    edge = round(nl - own, 2)
-    bad = next((k for k in n.get('checks') or [] if not k[1]), None) if n else None
-    vel = c.get('vel') if isinstance(c.get('vel'), str) else (c.get('vel') or {}).get('state')
-    weak_ = c.get('verdict') in ('weak', 'invalid') or own <= 0 or held >= 2 * _f(sw.get('holdMin')) or (vel == 'REVERSING' and pnl <= 0)
-    if vel == 'ACCELERATING' and c.get('verdict') != 'invalid':   # 📈 a position climbing back is not called weak on its read alone
-        weak_ = c.get('verdict') == 'weak' and held >= 2 * _f(sw.get('holdMin'))
-    # 🏅 SUPERIORITY by the seat score when both are scored (seat_ops.score: read · momentum · structure · liquidity · holders · live data ·
-    # identity · stale / dead / failed penalties · velocity · thesis) — the margin rises by ACCEL_EXTRA over an accelerating position;
-    # with no scores the old lean margin stands
-    import seat_ops as _so
-    sc_c, sc_n = c.get('score'), n.get('score')
-    scored = sc_c is not None and sc_n is not None
-    need = _so.margin_need(sw.get('mode'), vel, pnl) if scored else _f(sw.get('edge'))
-    sup = round(_f(sc_n) - _f(sc_c), 1) if scored else edge
-    # every line of the test, evaluated (the page draws all of them — the first failing one is the answer)
-    lines = [['switching on', bool(sw.get('on')), f"mode {sw.get('mode')}"],
-             ['challenger cleared every desk', bool(n and n.get('cleared')), 'no challenger this pass' if not n else 'cleared' if n.get('cleared') else (CHECK_WORD.get(bad[0], bad[0]) if bad else 'not every desk passed it')],
-             ['position not frozen / riding', not (c.get('frozen') or c.get('riding')), 'frozen' if c.get('frozen') else 'riding' if c.get('riding') else 'free'],
-             ['position not a winner', not pnl > 0, f'{pnl:+.1f}%'],
-             ['held long enough', held >= _f(sw.get('holdMin')), f"{held:.0f} of {_f(sw.get('holdMin')):.0f} min"],
-             (['score margin', sup >= need, f"{_f(sc_n):.0f} vs {_f(sc_c):.0f} = {sup:+.0f} (needs +{need:.0f}{' — its P/L is accelerating' if vel == 'ACCELERATING' else ''})"] if scored
-              else ['read margin', edge >= _f(sw.get('edge')), f"{edge:+.1f} vs {_f(sw.get('edge')):+.1f} needed"]),
-             ['position is weak', weak_, f"thesis {c.get('verdict') or 'unread'} · lean {own:+.1f}" + (f" · P/L {vel.lower()}" if vel and vel != 'UNKNOWN' else '')]]
-    out = {'switch': False, 'edge': edge, 'need': need if scored else sw.get('edge'), 'mode': sw.get('mode'), 'lines': lines, 'margin': sup if scored else None, 'scored': scored,
-           'current': {'symbol': c.get('symbol'), 'pnl': round(pnl, 2), 'heldMin': round(held, 1), 'lean': round(own, 2), 'thesis': c.get('verdict'), 'structure': c.get('structure'), 'score': sc_c, 'vel': vel},
-           'challenger': None if not n else {'symbol': n.get('symbol'), 'lean': round(nl, 2), 'cleared': bool(n.get('cleared')), 'score': sc_n, 'structure': ((n.get('row') or n).get('chart') or {}).get('state'),
-                                             'data': (((n.get('row') or n).get('chart') or {}).get('q') or {}).get('state')}}
-    no = lambda why: {**out, 'why': why}
-    if not sw.get('on'):
-        return no('switching is OFF (your setting)')
-    if not n:
-        return no('no challenger this pass')
-    if not n.get('cleared'):
-        return no(f"challenger not cleared: {CHECK_WORD.get(bad[0], bad[0]) if bad else 'not every desk passed it'}")
-    if c.get('frozen') or c.get('riding'):
-        return no('the position is frozen / riding — never switched')
-    if pnl > 0:   # a green coin is never handed to a challenger: if its thesis broke, Reaper banks it (R5t) and the seat opens on its own
-        return no(f'{pnl:+.1f}% — a winner is not surrendered for a new coin')
-    if held < _f(sw.get('holdMin')):
-        return no(f"held {held:.0f} min — needs {_f(sw.get('holdMin')):.0f}")
-    if scored and sup < need:
-        return no(f"score margin {sup:+.0f} — needs +{need:.0f} ({_f(sc_n):.0f} vs {_f(sc_c):.0f}{', its P/L is accelerating' if vel == 'ACCELERATING' else ''})")
-    if not scored and edge < _f(sw.get('edge')):
-        return no(f"read margin {edge:+.1f} — needs {_f(sw.get('edge')):+.1f} (lean {nl:+.1f} vs {own:+.1f})")
-    if not weak_:
-        return no('the position\'s own thesis still stands — opportunity cost alone is not enough yet')
-    mw = f"score {_f(sc_n):.0f} vs {_f(sc_c):.0f}, margin {sup:+.0f} ≥ +{need:.0f}" if scored else f"lean {nl:+.1f}, margin {edge:+.1f} ≥ {_f(sw.get('edge')):+.1f}"
-    return {**out, 'switch': True, 'why': f"{pnl:+.1f}% after {held:.0f} min, thesis {c.get('verdict') or 'unread'}{', P/L ' + vel.lower() if vel and vel != 'UNKNOWN' else ''} → ${n.get('symbol')} cleared every desk ({mw})"}
 
 
 # ── 🚀 LAUNCH CONTEXT: only what is measurable ───────────────────────────────────────────────────────────────────────────────────
@@ -459,7 +335,7 @@ def launch_gate(launch, lean, bar):
     """⏱ Trigger's stricter confidence for a MEASURED but UNKNOWN launch mechanism: an ENTER needs lean ≥ bar + PAD_UNKNOWN_BAR.
     → None (no change) or the WAIT reason. It can only turn an ENTER into a WAIT — never the other way, never on an unmeasured row."""
     ln = launch or {}
-    need = _f(bar) + _ag.PAD_UNKNOWN_BAR
+    need = _f(bar) + _pd.PAD_UNKNOWN_BAR
     if ln.get('type') == 'unknown' and ln.get('measured') and _f(lean) < need:
         return f"unknown launch context — needs lean {need:.2f}, has {_f(lean):+.1f}"
     return None
@@ -542,7 +418,7 @@ def classify_miss(first, cases, seen, held=False):
         return 'CREATOR POLICY', 'devil', 'burned us in the last 6h', None
     if 'devil' in blocked:
         soft = next((r for r in rules if r not in ('unscanned', 'young', 'ran', 'burned')), rules[0] if rules else 'objection')
-        return 'DEVIL OBJECTION', 'devil', soft, False if not _ag.DEVIL_RULES.get(soft, (True,))[0] else None
+        return 'DEVIL OBJECTION', 'devil', soft, False if not _pd.DEVIL_RULES.get(soft, (True,))[0] else None
     if 'data' in blocked and 'chart' not in blocked:
         return 'BAD DATA', 'tally', f'data {data or "not ENTER-grade"}', None
     if 'chart' in blocked or 'data' in blocked:
@@ -668,7 +544,7 @@ def review(state, arch, office, now, n=8, marks=None):
     """📝 Everything waiting for the creator's eyes, by category. It is BUILT from the records and only ever READ by the page — no desk
     reads it back, nothing waits on it being opened or marked. Each item: coin · launch · time · move · what happened · what the office
     knew · which agent / rule mattered · counterfactual where one exists · the lesson · the evidence count · the creator's mark."""
-    js = [d for d in _ag._judged(state or {}, 5) if now - _f(d.get('at')) <= LOOKBACK_SEC]
+    js = [d for d in _pd._judged(state or {}, 5) if now - _f(d.get('at')) <= LOOKBACK_SEC]
     ms = missed_summary(arch, now, n)
     item = lambda d, what, agent, rule, lesson, move=None: {'sym': d.get('sym'), 'mint': d.get('mint'), 'launch': d.get('pad'), 'at': d.get('at'), 'move': _f(d.get('p5')) if move is None else move, 'what': what,
                                                             'knew': {'lean': d.get('lean'), 'structure': d.get('cs'), 'entry': d.get('ce'), 'data': d.get('dq'), 'drivers': (d.get('drivers') or [])[:4]}, 'agent': agent, 'rule': rule,
@@ -688,7 +564,7 @@ def review(state, arch, office, now, n=8, marks=None):
     wl = (office or {}).get('wardenLog') or []
     risk = [{'sym': w.get('sym'), 'at': w.get('at'), 'move': None, 'what': f"{w.get('move')} ${_f(w.get('req')):.2f} → ${_f(w.get('allowed')):.2f}", 'agent': 'warden', 'rule': w.get('rule'), 'lesson': w.get('why')}
             for w in wl if _f(w.get('allowed')) < _f(w.get('req'))][-n:]
-    pads = pad_record(_ag._judged(state or {}, 5))
+    pads = pad_record(_pd._judged(state or {}, 5))
     launch = [{'sym': None, 'launch': k, 'at': None, 'move': v['med5'], 'what': f"{v['n']} judged calls · typical {v['med5']:+.1f}% at 5 min" + (f" · {v['med15']:+.1f}% at 15" if v.get('med15') is not None else '') + f" · {v['won']}% up",
                'agent': 'judge', 'rule': 'launch context record', 'lesson': 'too few to read' if not v['known'] else 'this context loses on our calls' if _f(v['med5']) < 0 else 'this context holds up on our calls', 'n': v['n']}
               for k, v in sorted(pads.items(), key=lambda kv: -kv[1]['n'])][:n]
@@ -741,7 +617,7 @@ def ops(ready_, seat, courier, keeper, moves_hr=None):
     return {'office': 'LIVE' if r.get('live') else 'WARMING', 'keeper': '1 active' if keeper else 'NOT THIS PROCESS',
             'openSeats': int(_f(s.get('empty'))), 'valid': int(_f(s.get('valid'))), 'cleared': int(_f(s.get('cleared'))),
             'nextIn': s.get('nextIn'), 'block': None if not s.get('empty') or code == 'FILLING' else s.get('reason'), 'code': code or None,
-            'execution': ex, 'budget': {'left': s.get('movesLeft'), 'of': moves_hr if moves_hr is not None else _ag.CONTROL_MOVES_HR},
+            'execution': ex, 'budget': {'left': s.get('movesLeft'), 'of': moves_hr if moves_hr is not None else _uni.CONTROL_MOVES_HR},
             'cash': s.get('freeUsd')}
 
 
@@ -819,35 +695,8 @@ def intake(rows, recheck=(), listed=None, cap=INTAKE_MAX, cool=(), fresh=None, o
 SCAN_TIERS = ('near entry, only the holder scan missing', 'blocked only on holder data', 'fresh launch with strong tape + pool', 'challenger near the switch line', 'expired scan recheck', 'positive read')
 
 
-def scan_tier(c, challengers=(), seen=None):
-    """Which priority tier a case is in for a holder scan (0 = first). Only unscanned cases with a positive read are ranked at all."""
-    row = c.get('row') or {}
-    v, n = row.get('vitals') or {}, row.get('nums') or {}
-    fails = [k[0] for k in c.get('checks') or [] if not k[1]]
-    only_scan = fails == ['scan']
-    if only_scan and _f(c.get('lean')) >= 1.5:
-        return 0
-    if only_scan:
-        return 1
-    if v.get('ageH') is not None and _f(v['ageH']) < 1 and _f(n.get('pace')) >= 1.5 and _f(n.get('liq') or v.get('liq')) >= _ag.CONTROL_MIN_LIQ:
-        return 2
-    if c.get('mint') in set(challengers or ()):
-        return 3
-    if ((seen or {}).get(c.get('mint')) or {}).get('snap', {}).get('safe') is not None:
-        return 4
-    return 5
 
 
-def scan_order(cases, n=2, challengers=(), seen=None, universe=None):
-    """🕵 Which unscanned cases get a holder scan this pass — by priority tier (`SCAN_TIERS`), then (in 'trench' = recovery) the young coins
-    (≤ seat_ops.YOUNG_H), then the strongest read, then 5-min pace. Never FIFO. → cases, each with `scanTier`. (2026-10-11: young coins
-    could never clear — 'holders not scanned' — so a recovery card kept buying 40–300-day-old coins.)"""
-    import seat_ops as _so
-    un = [c for c in cases or [] if ((c.get('row') or {}).get('vitals') or {}).get('safe') is None and _f(c.get('lean')) > 0]
-    young = lambda c: universe == 'trench' and ((c.get('row') or {}).get('vitals') or {}).get('ageH') is not None and _f(c['row']['vitals']['ageH']) <= _so.YOUNG_H
-    fk = lambda c: fresh_key(((c.get('row') or {}).get('vitals') or {}))   # 🆕 holder scans follow the freshness ladder (0–15m first) inside each tier
-    ranked = sorted(un, key=lambda c: (scan_tier(c, challengers, seen), fk(c), 0 if young(c) else 1, -_f(c.get('lean')), -_f(((c.get('row') or {}).get('nums') or {}).get('pace'))))[:n]
-    return [{**c, 'scanTier': SCAN_TIERS[scan_tier(c, challengers, seen)]} for c in ranked]
 
 
 SEAT_ACTIONS = ('HOLD', 'REVIEW', 'CHALLENGER FOUND', 'SWITCHING', 'TAKE / EXIT', 'FILLING', 'CASH — NO VALID ENTRY')
@@ -913,43 +762,6 @@ LIVE_CHASE, LIVE_FALL = 15.0, -8.0   # since the case was read: up more than thi
 LOSING_ENTRIES = ('E2', 'E3')
 
 
-def live_check(row, mkt, chart, now, near=False, meta=None, ranked=False):
-    """May this cleared case still be bought RIGHT NOW? `row` = the case as read in its agent pass ({px, at}), `mkt` = the shared market
-    state ({px, pxAt, liq, tapeAt, flow}), `chart` = the newest shared chart (rebuilt when a new real candle landed — no rediscovery).
-    → {ok, why, px, move, pxAge, chartState, entry}. A move past Trigger's own lines since the read, a fresh chart that no longer says
-    ENTER NOW (or a SKIP), or a pool that fell under half its read depth = not now. No newer reading = the case's own read stands."""
-    r, m, ch = row or {}, mkt or {}, chart or {}
-    px0, px = _f(r.get('px')), _f(m.get('px'))
-    move = round((px / px0 - 1) * 100, 2) if px0 > 0 and px > 0 else None
-    ent = list(ch.get('entry') or [])
-    out = {'ok': True, 'why': 'the read still stands', 'px': px or px0, 'move': move, 'pxAge': None if not m.get('pxAt') else round(_f(now) - _f(m['pxAt']), 1),
-           'chartState': ch.get('state'), 'entry': ent[:2]}
-    if move is not None and move > LIVE_CHASE:
-        return {**out, 'ok': False, 'why': f'{move:+.1f}% since the read — not chased'}
-    if move is not None and move < LIVE_FALL:
-        return {**out, 'ok': False, 'why': f'{move:+.1f}% since the read — falling'}
-    if ent and ent[0] != 'ENTER NOW' and ((ent[0] == 'SKIP' and not (ranked and ch.get('state') == 'CHOP')) or (ch.get('src') == 'candles' and not near)):   # 🎯 a RANKED coin may be choppy (a quarter seat) — never a trap
-        return {**out, 'ok': False, 'why': f"the newest chart says {ent[0]}: {ent[2] if len(ent) > 2 else ''}".strip()}
-    if ent and ent[0] != 'ENTER NOW' and str(ent[1] if len(ent) > 1 else '').split(' ')[0].rstrip('e') in LOSING_ENTRIES:
-        return {**out, 'ok': False, 'why': f"the chart says {ent[1]} — that entry lost ~15% typical on real money, never bought"}
-    fl_ = ch.get('f') or {}
-    young_ = near and (ch.get('src') != 'candles' or int(_f(fl_.get('stepN'))) < _ci.LADDER_MIN or fl_.get('volCv') is None)
-    if young_ and (meta or {}).get('verdict') == 'ORGANIC':
-        # 🧬 TRENCH META: a launch too young for the bot-ladder test is judged on its TAPE instead — a real crowd of distinct wallets,
-        # no one-wallet pump, no same-size loop, buyers leading (owner, 2026-10-11: "vitals needed for them to trench meta")
-        out = {**out, 'why': f"🧬 trench meta ORGANIC — {meta.get('why')}", 'meta': meta}
-    elif young_ and meta:
-        return {**out, 'ok': False, 'why': f"🧬 trench meta {meta.get('verdict')} — {meta.get('why')}", 'meta': meta}
-    if young_ and (meta or {}).get('verdict') != 'ORGANIC':
-        # 🤖 best available needs the bot-ladder test to have RUN: ≥ 15 real candles that MOVED + a measured volume spread (2026-10-11: three coins
-        # bought on 93%-flat rows read BOT LADDER two minutes later, once their candles moved)
-        return {**out, 'ok': False, 'why': f"{int(_f(fl_.get('stepN')))} moving 1-minute candles — best available needs {_ci.LADDER_MIN} with volume (the bot-ladder test must run first)"}
-    if near and (ch.get('state') == _ci.DATA_INVALID or (ch.get('q') or {}).get('readOk') is False or _f((ch.get('risk') or [1.0])[0]) <= 0):
-        return {**out, 'ok': False, 'why': f"the newest chart turned against it ({ch.get('state')})"}   # 🪑 best available: the entry moment may wait, a broken chart may not
-    liq0, liq = _f(((r.get('nums') or {}).get('liq'))), _f(m.get('liq'))
-    if liq0 > 0 and 0 < liq < liq0 * 0.5:
-        return {**out, 'ok': False, 'why': f'pool fell to {round(liq / liq0 * 100)}% of its read depth'}
-    return out
 
 
 def freshness(now, price_at=(), tape_at=(), candle_at=(), liq_at=None, input_at=None, decision_at=None):

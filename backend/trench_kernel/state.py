@@ -50,7 +50,7 @@ def from_row(row, now, sources=()):
                   'earlyWallets': li.get('ewp') or ('PENDING' if not li else 'UNKNOWN'), 'press': li.get('press'), 'pressWhy': li.get('pressWhy'),
                   'cls': li.get('cls'), 'holderAt': v.get('scanAt') or (now if safe is not None else None), 'walletAt': li.get('at') or (now if li else None)},
         'research': {'status': 'READY' if soc else 'UNKNOWN', 'site': x.get('site') or v.get('site'), 'x': x.get('x') or v.get('x'), 'researchAt': now if soc else None},
-        'objections': [list(o)[:2] for o in (x.get('objs') or []) if o] + ([[x['drule'], 'desk rule']] if x.get('drule') else []),
+        'objections': [list(o)[:2] for o in (x.get('ev') or []) if o],   # Devil's EVIDENCE from the senses (trench_kernel.senses.evidence) — never the paper desk's objs / drule
         'row': x,   # the desk row itself (opportunity.* reads it); never serialised into the payload
     }
 

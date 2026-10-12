@@ -77,6 +77,44 @@ class Kernel:
         r = sorted([(m, d) for m, d in self.dec.items() if d['status'] == 'READY' and m not in exclude and m in self.store.mints], key=lambda kv: -kv[1]['rank'])
         return r[:n] if n else r
 
+    def ranks(self):
+        """{mint: the kernel's rank} for every judged mint (held coins too — a challenger is compared with the coin it would replace)."""
+        return {m: d['rank'] for m, d in self.dec.items() if m in self.store.mints}
+
+    def candidate(self, m, d=None):
+        """ONE candidate as a row a fill / a switch / the seat board reads: the sensed row + the kernel's decision."""
+        d = d or self.dec.get(m)
+        ms = self.store.mints.get(m)
+        if not d or not ms:
+            return None
+        x, op = ms['row'], d['opinions']
+        return {**x, 'pair': x.get('pair') or x.get('pairAddress'), 'px': ms['market'].get('price') or x.get('px'), 'status': d['status'], 'rank': d['rank'], 'kwhy': d['why'],
+                'size': op['warden']['size'], 'sizeWhy': op['warden']['why'], 'narrative': op['trigger']['narrative'], 'open': True}
+
+    def case(self, m):
+        """ONE kernel case file (any status) — the sensed row + the ten opinions + the reducer's steps as checks. None = not judged."""
+        d, ms = self.dec.get(m), self.store.mints.get(m)
+        if not d or not ms:
+            return None
+        op = d['opinions']
+        wall = next((w for _o, s, w in op['devil']['objections'] if s == 'HARD_VETO'), None)
+        checks = [['wall', not wall, str(wall or 'inside the hard wall')[:120]],
+                  ['timing', op['trigger']['state'] == 'ENTER', f"{op['trigger']['narrative']} → {op['trigger']['state']}: {str(op['trigger']['why'])[:90]}"],
+                  ['execution', bool(op['courier']['ok']), str(op['courier']['why'])[:90]],
+                  ['rank', d['rank'] >= _b.READY_MIN, f"rank {d['rank']:g} (READY from {_b.READY_MIN:g})"]]
+        return {'mint': m, 'symbol': ms['identity']['symbol'], 'pair': ms['identity']['pair'], 'px': ms['market'].get('price'), 'rank': d['rank'], 'lean': d['rank'],
+                'cleared': d['status'] == 'READY', 'status': d['status'], 'go': d['status'] == 'READY', 'checks': checks, 'unknown': op['sherlock']['unknown'], 'row': ms['row'],
+                'op': op, 'kwhy': d['why'], 'parts': d.get('parts')}
+
+    def cases(self, exclude=(), top=0, statuses=('READY', 'CONTENDING', 'TRACKING')):
+        """The kernel's CASE FILES (the seat board, the bench, the candle / research order, the Archivist read these): one per judged
+        candidate not excluded, READY first then by rank. `cleared` = READY. `checks` = the reducer's own steps (the wall · timing ·
+        execution · rank) — not a second set of rules."""
+        ex = set(exclude or ())
+        out = [c for c in (self.case(m) for m, d in list(self.dec.items()) if m not in ex and d['status'] in statuses) if c]
+        out.sort(key=lambda c: (not c['cleared'], c['status'] == 'TRACKING', -c['rank']))
+        return out[:top] if top else out
+
     def metrics(self, now):
         up = max(1.0, now - self.t0)
         st = self.store.stats

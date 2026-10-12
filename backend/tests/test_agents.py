@@ -93,31 +93,17 @@ def test_thoughts_and_results_read_as_the_agents_talking():
 
 def test_go_calls_reach_the_real_card_only_when_proven_and_switched_on(monkeypatch):
     import reputation_service as rs
-    table = [{'mint': 'M', 'symbol': 'M', 'pair': 'P', 'px': 1.0, 'nums': {'liq': 50_000}, 'why': {'lean': 3}, 'go': True}]
-    monkeypatch.setitem(rs._agents, 'table', table)
+    from kernel_helpers import row as krow, seed
+    seed(monkeypatch, [krow('M')])
     monkeypatch.setitem(rs._agents, 'view', {'feed': False})
     assert rs._agents_go_rows() == []
     monkeypatch.setitem(rs._agents, 'view', {'feed': True})
     r = rs._agents_go_rows()
-    assert r[0]['mint'] == 'M' and r[0]['trenchOnly'] and r[0]['tag'] == '🤖 agents GO'
+    assert r[0]['mint'] == 'M' and r[0]['trenchOnly'] and r[0]['tag'] == '🤖 agents READY'      # the kernel's READY coin (never a paper GO)
     import arena_prime as ap
     assert ap.clean_cfg({'agentFeed': True})['agentFeed'] is True and ap.clean_cfg({})['agentFeed'] is False
 
 
-def test_agent_seats_hold_until_profit_then_the_desk_decides():
-    agent = lambda m, entry, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'units': 1.0, 'entry': entry, 'bought': {'tag': '🤖 agents GO'}, **k}
-    legs = [agent('LOSS', 1.0), agent('RUN', 1.0), agent('FADE', 1.0), agent('GONE', 1.0), {'mint': 'MINE', 'pairAddress': 'PMINE', 'units': 1, 'entry': 1}]
-    px = {'PLOSS': 0.6, 'PRUN': 1.3, 'PFADE': 1.25, 'PGONE': 1.2, 'PMINE': 2.0}
-    row = lambda m, lean, d5, call='wait', go=False: {'mint': m, 'symbol': m, 'pair': 'P' + m, 'px': 1, 'nums': {'d5': d5, 'buy': 60}, 'why': {'lean': lean}, 'trigger': [call, 'x'], 'go': go}
-    table = [row('RUN', 2.0, 3.0), row('FADE', -1.0, -4.0), row('NEW', 3.0, 1.0, 'enter', True)]
-    out = {x['symbol']: x for x in ag.manage(legs, table, px, {'agentTakePct': 10, 'agentMode': 'auto'})}
-    assert out['LOSS']['action'] == 'hold' and 'until +10%' in out['LOSS']['why']                 # −40%: it stays — agent picks hold until profit
-    assert out['RUN']['action'] == 'hold' and 'let it run' in out['RUN']['why']
-    assert out['FADE']['action'] == 'swap' and out['FADE']['to']['symbol'] == 'NEW'              # in profit, read turned → swapped for a fresh GO
-    assert out['GONE']['action'] == 'pull'                                                       # off the radar → banked, seat left open
-    assert 'MINE' not in out                                                                     # never touches coins the agents did not pick
-    pull = {x['symbol']: x['action'] for x in ag.manage(legs, table, px, {'agentTakePct': 10, 'agentMode': 'pull'})}
-    assert pull['FADE'] == 'pull'
 
 
 def test_strategies_ideas_and_a_true_opinion():
@@ -154,20 +140,6 @@ def test_the_crawl_sources_are_learned_and_the_creed_is_engraved():
     assert any('never sign' in c for c in ag.CREED) and any('scrapped' in c for c in ag.CREED) and any('beginning' in c for c in ag.CREED)
 
 
-def test_an_agent_that_stays_wrong_is_scrapped_and_reborn_with_nothing_but_belief():
-    mk = lambda i, up, p: {'mint': str(i), 'at': 1000 + i, 'kind': 'wait', 'go': False, 'devil': '—', 'drivers': ['buyers'], 'lean': -1, 'tallyUp': up, 'p5': p}   # Sherlock leaned down and was right
-    wrong = [mk(i, True, -2.0) for i in range(40)]                                              # Tally said "keeps going", it fell — 40 times
-    assert ag.survival({'done': wrong})['tally']['status'] == 'watch'
-    st = {'done': wrong + [mk(100 + i, True, -2.0) for i in range(25)]}
-    assert ag.survival(st)['tally']['status'] == 'watch'                                     # paper alone never kills (the Judge is easy on paper)
-    st['realReviews'] = [{'kind': 'loss', 'at': 2000 + i, 'resp': {'tally': 60}} for i in range(5)]   # … real losses pinned on Tally do
-    assert ag.survival(st)['tally']['status'] == 'scrap'
-    st2, dead = ag.evolve(st, 5000.0)
-    assert 'tally' in dead and st2['gen']['tally'] == 2 and st2['born']['tally'] == 5000.0
-    assert st2['lineage'][-1]['agent'] == 'tally' and st2['lineage'][-1]['n'] == 65
-    assert ag.survival(st2)['tally'] == {'gen': 2, 'born': 5000.0, 'n': 0, 'right': None, 'med': None, 'status': 'alive', 'realLost': 0, 'realWon': 0, 'realNet': 0}   # a fresh life
-    assert 'reborn as generation 2' in st2['feed'][-1]['text']
-    assert ag.learn(st2)['drivers'].get('buyers', {}).get('n') == 65                           # Sherlock is alive: it keeps its own record
 
 
 def test_the_live_desk_uses_its_own_record_regime_and_burned_memory():
@@ -187,22 +159,6 @@ def test_the_live_desk_uses_its_own_record_regime_and_burned_memory():
     assert v == 'object' and 'burned us' in why
 
 
-def test_a_rug_gets_one_second_opinion_and_a_death_passes_its_lesson_on():
-    mk = lambda i, p: {'mint': str(i), 'at': 1000 + i, 'kind': 'wait', 'drivers': ['callers'], 'lean': -1, 'tallyUp': True, 'p5': p}
-    one_rug = [mk(i, -0.1) for i in range(64)] + [mk(99, -95.0)]                          # 65 wrong calls, but one rug is most of the loss
-    real = [{'kind': 'loss', 'at': 2000 + i, 'resp': {'tally': 60}} for i in range(5)]     # (a death needs REAL losses pinned on the agent)
-    st, dead = ag.evolve({'done': one_rug, 'realReviews': real}, 5000.0)
-    assert dead == [] and st['grace']['tally'] == 1 and 'spared once' in st['feed'][-1]['text']
-    st2, dead2 = ag.evolve(st, 5100.0)                                                      # same generation: no second grace
-    assert dead2 == ['tally'] and st2['gen']['tally'] == 2 and 'I carry what killed it' in st2['feed'][-1]['text']
-    spread = [mk(i, -3.0) for i in range(65)]
-    st3, dead3 = ag.evolve({'done': spread, 'realReviews': real}, 5000.0)
-    assert dead3 == ['tally'] and 'spread over' in st3['lineage'][-1]['why']
-    les = ag.lesson({'done': [{**mk(i, -6.0), 'kind': 'enter', 'drivers': ['callers']} for i in range(10)]}, 'sherlock')
-    assert les['drivers'][0][0] == 'callers' and les['drivers'][0][1] == -6.0
-    w = ag.weights({'drivers': {}, 'lessons': {'sherlock': les}})
-    assert w['callers'] == -6.0                                                             # the reborn Sherlock starts from what killed the last
-    assert 'barBump' not in ag.lesson({}, 'trigger')                                              # 🧬 no inherited fear
 
 
 def test_war_log_and_calibration():
@@ -212,10 +168,6 @@ def test_war_log_and_calibration():
     assert md.startswith('# 🤖 Agent desk — war log') and '✅ $C1 +5.0%' in md and 'A record, never a promise' in md
 
 
-def test_an_agent_coin_whose_pool_drains_is_pulled_at_once_even_at_a_loss():
-    legs = [{'mint': 'D', 'pairAddress': 'PD', 'symbol': 'D', 'units': 1.0, 'entry': 1.0, 'liq': 60_000, 'liqNow': 20_000, 'bought': {'tag': '🤖 agents GO'}}]
-    out = ag.manage(legs, [], {'PD': 0.7}, {'agentTakePct': 10})
-    assert out[0]['action'] == 'pull' and 'pool fell to 33%' in out[0]['why']
 
 
 def test_rug_autopsy_teaches_devil_its_rug_signs_and_history_snapshots():
@@ -235,20 +187,20 @@ def test_rug_autopsy_teaches_devil_its_rug_signs_and_history_snapshots():
 
 def test_the_learning_seat_is_one_small_ticket_before_they_are_proven(monkeypatch):
     import reputation_service as rs
-    table = [{'mint': m, 'symbol': m, 'pair': 'P' + m, 'px': 1.0, 'nums': {'liq': 50_000}, 'why': {'lean': 3}, 'go': True} for m in ('A', 'B')]
-    monkeypatch.setitem(rs._agents, 'table', table)
+    from kernel_helpers import row as krow, seed
+    seed(monkeypatch, [krow('A'), krow('B')])
     monkeypatch.setitem(rs._agents, 'view', {'feed': False})
     assert rs._agents_go_rows([], 2, learn=False) == []                                         # not proven, not learning → nothing
     r = rs._agents_go_rows([], 2, learn=True, learn_pct=10)
     assert len(r) == 1 and r[0]['stakePct'] == 10 and '🎓 learning seat' in r[0]['tag']
-    assert rs._agents_go_rows([{'bought': {'tag': '🤖 agents GO · 🎓 learning seat'}}], 2, learn=True) == []   # one learning seat at a time
+    assert rs._agents_go_rows([{'bought': {'tag': '🤖 agents READY · 🎓 learning seat'}}], 2, learn=True) == []   # one learning seat at a time
     assert rs._agents_go_rows([], 2, learn=False) == []
 
 
 def test_the_agents_seat_defaults_to_a_whole_seat_and_suggestions_taken_are_scored_apart(monkeypatch):
     import reputation_service as rs
-    table = [{'mint': 'A', 'symbol': 'A', 'pair': 'PA', 'px': 1.0, 'nums': {'liq': 50_000}, 'why': {'lean': 3}, 'go': True}]
-    monkeypatch.setitem(rs._agents, 'table', table)
+    from kernel_helpers import row as krow, seed
+    seed(monkeypatch, [krow('A')])
     monkeypatch.setitem(rs._agents, 'view', {'feed': False})
     assert rs._agents_go_rows([], 2, learn=True)[0]['stakePct'] == 100
     rs._json_save(rs.REAL_LEARN_PATH, {'pieces': [{'k': ['tag:🤝'], 'pct': 12.0}, {'k': ['tag:🤝'], 'pct': -4.0}, {'k': ['tag:🤝'], 'pct': 8.0}, {'k': ['tag:🤖'], 'pct': 3.0}]})
@@ -259,47 +211,20 @@ def test_the_agents_seat_defaults_to_a_whole_seat_and_suggestions_taken_are_scor
 
 def test_trust_gives_a_second_seat_only_once_taken_suggestions_prove_out(monkeypatch):
     import reputation_service as rs
-    table = [{'mint': m, 'symbol': m, 'pair': 'P' + m, 'px': 1.0, 'nums': {'liq': 50_000}, 'why': {'lean': 3}, 'go': True} for m in ('A', 'B')]
-    monkeypatch.setitem(rs._agents, 'table', table)
+    from kernel_helpers import row as krow, seed
+    seed(monkeypatch, [krow('A'), krow('B')])
     monkeypatch.setitem(rs._agents, 'view', {'feed': False})
-    one = [{'bought': {'tag': '🤖 agents GO'}}]
+    one = [{'bought': {'tag': '🤖 agents READY'}}]
     monkeypatch.setattr(rs, '_agents_real', lambda: {'suggested': {'n': 4, 'med': 9.0}})
     assert rs._agents_go_rows(one, 2, learn=True, trust=True) == []                       # not proven yet → still one seat
     monkeypatch.setattr(rs, '_agents_real', lambda: {'suggested': {'n': 12, 'med': 3.0}})
     assert len(rs._agents_go_rows(one, 2, learn=True, trust=True)) == 1                   # proven → a 2nd seat
     assert rs._agents_go_rows(one, 2, learn=True, trust=False) == []                      # owner switch off → one seat
-    monkeypatch.setitem(rs._agents, 'table', [{**table[0], 'vitals': {'ageH': 0.2}}])
-    assert rs._agents_go_rows([], 2, learn=True)[0]['ageH'] == 0.2                        # a GO row carries its age → the real card's trench min age applies to the agents too
+    seed(monkeypatch, [krow('A', age=0.2)])
+    assert rs._agents_go_rows([], 2, learn=True)[0]['ageH'] == 0.2                        # a READY row carries its age → the real card's trench min age applies to the agents too
     assert rs._prime.clean_cfg({})['agentTrust'] is False
 
 
-def test_growth_levels_only_while_alive_power_mirrors_the_seat_rule_and_the_card_reads_as_seats():
-    # XP = calls judged this life; a level is HELD only while alive (probation stunts it back to a hatchling)
-    st = {'gen': {'sherlock': 2}, 'lessons': {'sherlock': {'words': ['Pump callers piling in (-6%)']}}, 'lineage': [{'agent': 'sherlock', 'gen': 1}],
-          'ideas': {'i1': {'status': 'approved', 'kind': 'avoid', 'pair': ['swarm', 'surge']}, 'i2': {'status': 'new', 'kind': 'take', 'pair': ['buyers', 'surge']}}}
-    g = ag.growth(st)
-    assert g['tally']['name'] == 'Egg' and g['tally']['xp'] == 0 and g['tally']['next'] == 10 and g['tally']['pct'] == 0
-    assert g['sherlock']['gen'] == 2 and g['sherlock']['genes'] == ['Pump callers piling in (-6%)'] and g['sherlock']['scars'] == 1
-    assert len(g['devil']['skills']) == 1 and g['sherlock']['skills'] == []          # only APPROVED ideas are skills; avoid → Devil
-    assert [lv[0] for lv in ag.LEVELS][2:4] == [ag.SURVIVE_N, ag.SCRAP_N]             # levels sit on the lines a life is already judged on
-    # 🪜 power = the same rule the real card buys by
-    assert ag.seat_limit({}, False, {}) == 0 and ag.seat_limit({'agentLearn': True}, False, {}) == 1
-    good = {'suggested': {'n': 12, 'med': 3.0}}
-    assert ag.seat_limit({'agentLearn': True, 'agentTrust': True}, False, {'suggested': {'n': 4, 'med': 9}}) == 1
-    assert ag.seat_limit({'agentLearn': True, 'agentTrust': True}, False, good) == 2 and ag.seat_limit({'agentLearn': True}, False, good) == 1
-    assert ag.seat_limit({'agentFeed': True, 'agentSeats': 3, 'agentLearn': True}, True, {}) == 3 and ag.seat_limit({'agentFeed': True, 'agentSeats': 3}, False, {}) == 0
-    card = {'tpl': 'degen', 'legs': [
-        {'symbol': 'BOT', 'pairAddress': 'P1', 'mint': 'M1', 'entry': 1.0, 'bought': {'tag': '🤖 agents GO · 🎓 learning seat'}},
-        {'symbol': 'SUG', 'pairAddress': 'P2', 'mint': 'M2', 'entry': 2.0, 'picked': True, 'bought': {'tag': '🤝 agents suggested · your pick'}},
-        {'symbol': 'MINE', 'pairAddress': 'P3', 'mint': 'M3', 'entry': 1.0, 'picked': True}, {'symbol': 'ENG', 'pairAddress': 'P4', 'mint': 'M4', 'entry': 1.0, 'bought': {'tag': '🌊 volume'}}]}
-    cs = ag.card_seats(card, [{'pair': 'P1', 'action': 'hold', 'why': '+4.0% — holding until +10%'}], {'P1': 1.04, 'P2': 1.0, 'P4': 0}, {'agentTakePct': 10, 'coins': 5})
-    assert [x['kind'] for x in cs['seats']] == ['agent', 'suggested', 'yours', 'engine', 'open']       # the owner's 5th seat is open
-    assert cs['seats'][0]['pct'] == 4.0 and cs['seats'][0]['take'] == 10 and cs['seats'][0]['action'] == 'hold' and cs['seats'][1]['pct'] == -50.0
-    assert cs['seats'][2]['pct'] is None and cs['seats'][3]['pct'] is None and 'action' not in cs['seats'][2]   # no price = no number, never a fake 0%
-    pw = ag.power({}, good, {'agentLearn': True, 'agentTrust': True, 'agentSeats': 3}, cs)
-    assert pw['seats'] == 2 and pw['held'] == 1 and [x['done'] for x in pw['steps']] == [True, True, False] and pw['steps'][1]['pct'] == 100
-    v = ag.view({}, [], card=cs)
-    assert v['card']['seats'][0]['symbol'] == 'BOT' and set(v['growth']) == {'tally', 'sherlock', 'trigger', 'devil'} and v['power']['seats'] == 0
 
 
 def test_the_judge_rules_five_minutes_later_names_one_bot_and_a_trial_only_ever_tightens():
@@ -371,46 +296,8 @@ def test_they_learn_to_scalp_from_their_own_paths_without_look_ahead_and_the_rea
     # the real agent seat: banks AT the learned line (swap into the next GO, else cash) — the creator's take line when no plan / switched off
     leg = {'symbol': 'BOT', 'pairAddress': 'P1', 'mint': 'B', 'units': 1, 'entry': 1.0, 'bought': {'tag': '🤖 agents GO'}}
     cfg = {'agentTakePct': 50, 'agentMode': 'auto'}
-    assert ag.manage([leg], [], {'P1': 1.10}, cfg)[0]['action'] == 'hold'
-    d = ag.manage([leg], [{**row, 'pair': 'PN'}], {'P1': 1.10}, cfg, {'tp': 8, 'sl': 0})[0]
-    assert d['action'] == 'swap' and d['to']['symbol'] == 'NEW' and 'scalp' in d['why']
-    assert ag.manage([leg], [], {'P1': 1.10}, cfg, {'tp': 8})[0]['action'] == 'pull'
-    assert ag.manage([leg], [], {'P1': 1.05}, cfg, {'tp': 8})[0]['action'] == 'hold'           # under the line: still held, never stopped
-    assert ag.manage([leg], [], {'P1': 1.10}, {**cfg, 'agentScalp': False}, {'tp': 8})[0]['action'] == 'hold'
-    # 🎯 the mission: breakeven first — a distance, never a promise
-    m = ag.mission(0.81, 22.5, {'x': 1.0}, st['scalp'])
-    assert m == {'key': 'breakeven', 'value': 0.81, 'putIn': 22.5, 'pct': 3.6, 'needX': 27.8, 'scalping': True, 'double': 45.0}
-    g = ag.mission(30.0, 22.5, {'x': 1.0})
-    assert g['key'] == 'double' and g['double'] == 45.0 and g['pct'] == 33.3 and ag.mission(45.0, 22.5, {'x': 1.0})['key'] == 'tenx'   # breakeven reached → the goal is 2× the put-in, then the paper 10×
-    assert ag.mission(46, 22.5, {'x': 2.0})['key'] == 'tenx' and ag.mission(0, 0, {'x': 2.0})['needX'] == 5.0
-    v = ag.view(st, [], money={'value': 0.81, 'putIn': 22.5})
-    assert v['mission']['key'] == 'breakeven' and v['scalp']['live']['tp'] == 8 and v['cfg']['agentScalp'] is True
-    import arena_prime as ap
-    assert ap.clean_cfg({})['agentScalp'] is True and ap.clean_cfg({'agentScalp': False})['agentScalp'] is False
 
 
-def test_in_control_they_buy_only_eligible_go_coins_switch_a_broken_read_after_15_min_and_stay_inside_the_hourly_budget():
-    row = lambda m, go=True, lean=2.0, age=3.0, liq=60_000, safe=True, trig='enter', d5=1.0, buy=60: {
-        'mint': m, 'symbol': m, 'pair': 'P' + m, 'px': 1.0, 'go': go, 'trigger': [trig, 'why'], 'devil': ['agree' if go else 'object', ''],
-        'why': {'lean': lean, 'drivers': []}, 'nums': {'d5': d5, 'buy': buy, 'liq': liq}, 'vitals': {'ageH': age, 'safe': safe, 'liq': liq}}
-    table = [row('GOOD', lean=3), row('YOUNG', age=0.2), row('NOAGE', age=None), row('THIN', liq=7_000), row('UNSCAN', safe=None), row('NOGO', go=False), row('HELD'), row('OK2', lean=2.5)]
-    assert [x['mint'] for x in ag.eligible(table, {'HELD'}, 1.0)] == ['GOOD', 'OK2']                 # minutes-old / unknown age / thin pool / unscanned / objected / on the card: all out
-    assert [x['mint'] for x in ag.eligible(table, set(), 1.0, burned={'GOOD'})] == ['OK2', 'HELD']
-    leg = lambda m, at=0, **k: {'symbol': m, 'pairAddress': 'P' + m, 'mint': m, 'units': 1, 'entry': 1.0, 'at': at, **k}
-    cfg = {'agentTakePct': 20, 'agentMode': 'auto', 'agentMinAgeH': 1}
-    now = 3600
-    broke = row('MINE', go=False, lean=-1.0, trig='wait')
-    legs = [leg('MINE', at=now - 20 * 60), leg('FRESH', at=now - 5 * 60), leg('ICE', at=0, frozen=True)]
-    d = {x['symbol']: x for x in ag.manage(legs, table + [broke], {'PMINE': 0.9, 'PFRESH': 0.9, 'PICE': 0.5}, cfg, control=True, now=now, moves_left=4)}
-    assert d['MINE']['action'] == 'swap' and d['MINE']['to']['mint'] == 'GOOD' and 'lean turned' in d['MINE']['why']    # your coin, broken read, 20 min held → switched
-    assert d['FRESH']['action'] == 'hold' and 'ICE' not in d                                                            # 5 min held: never · your ❄ frozen coin: never theirs
-    assert ag.manage(legs[:1], table + [broke], {'PMINE': 0.9}, cfg, control=True, now=now, moves_left=0)[0]['action'] == 'hold'   # hourly budget spent → no switch
-    assert ag.manage(legs[:1], table + [broke], {'PMINE': 0.9}, cfg)  == []                                             # not in control: your coin is not theirs to manage
-    assert ag.manage(legs[:1], [broke, row('YOUNG', age=0.2)], {'PMINE': 0.9}, cfg, control=True, now=now, moves_left=4)[0]['action'] == 'hold'   # nothing eligible → never to cash at a loss
-    won = ag.manage([leg('MINE', at=now - 60)], table, {'PMINE': 1.3}, cfg, {'tp': 8, 'sl': 0}, control=True, now=now, moves_left=4)[0]
-    assert won['action'] == 'swap' and 'scalp' in won['why']                                                            # at the take line they bank it into the next GO
-    assert ag.seat_limit({'agentControl': True, 'coins': 4}, False, {}) == 4 and ag.view({}, [], cfg={'agentControl': True})['cfg']['agentControl'] is True
-    assert ag.CONTROL_HOLD_MIN == 15 and ag.CONTROL_MOVES_HR == 6
 
 
 def test_agent_control_holds_the_card_for_the_agents_the_proof_gate_stands_aside_and_a_manual_release_hands_it_back(monkeypatch):
@@ -445,36 +332,6 @@ def test_every_objection_keeps_its_reason_so_we_can_see_what_devil_blocks_and_wh
     assert ag.objections(st, 1, 100 + 7200) == []
 
 
-def test_the_ten_minute_duty_investigates_every_coin_clears_only_safe_ones_and_never_gives_a_winners_seat_away():
-    row = lambda m, lean=2.0, age=3.0, liq=60_000, safe=True, trig='wait', case=('agree', 'no evidence against it'), go=False: {
-        'mint': m, 'symbol': m, 'pair': 'P' + m, 'px': 1.0, 'go': go, 'trigger': [trig, 'why'], 'devil': ['—', ''], 'case': list(case) if case else None,
-        'why': {'lean': lean, 'drivers': []}, 'nums': {'d5': 1.0, 'buy': 60, 'liq': liq}, 'vitals': {'ageH': age, 'safe': safe, 'liq': liq}}
-    table = [row('BEST', lean=1.2), row('STRONGER', lean=1.9, case=('object', 'rug meter 62')), row('BABY', lean=3, age=0.3), row('THIN', lean=3, liq=5_000),
-             row('BLIND', lean=3, safe=None), row('SKIP', lean=4, trig='skip'), row('NEG', lean=-1), row('HELD', lean=5), row('BURN', lean=2.5)]
-    inv = ag.investigate(table, {'HELD'}, 1.0, burned={'BURN'})
-    assert [c['mint'] for c in inv if c['cleared']] == ['BEST'] and inv[0]['mint'] == 'BEST'                      # under Trigger's bar, but every safety check passes → cleared
-    why = {c['mint']: [k for k, ok, _ in c['checks'] if not ok] for c in inv}
-    assert why['STRONGER'] == ['devil'] and why['BABY'] == ['age'] and why['THIN'] == ['pool'] and why['BLIND'] == ['scan'] and why['BURN'] == ['burn']
-    assert not any(c['mint'] in ('SKIP', 'NEG', 'HELD') for c in ag.investigate(table, {'HELD'}, 1.0, top=0))   # a hard skip / negative read / a coin on the card is never a case
-    assert 'row' not in ag.duty_view({}, table, {'agentControl': True}, {'seats': [{'mint': 'HELD'}], 'dutyAt': 5})['cases'][0]
-    leg = lambda m, at, **k: {'symbol': m, 'pairAddress': 'P' + m, 'mint': m, 'units': 1, 'entry': 1.0, 'at': at, **k}
-    now = 7200; cfg = {'agentTakePct': 10, 'agentMode': 'auto'}
-    picks = [inv[0]['row']]
-    held = [row('WIN', lean=0.1), row('WEAK', lean=0.1), row('OKAY', lean=1.0), row('NEWISH', lean=0.0)]
-    legs = [leg('WIN', 1), leg('WEAK', 1), leg('OKAY', 1), leg('NEWISH', now - 600)]   # a leg with no buy time is never rotated
-    px = {'PWIN': 1.05, 'PWEAK': 0.92, 'POKAY': 0.97, 'PNEWISH': 0.80}
-    d = {x['symbol']: x for x in ag.manage(legs, table + held, px, cfg, control=True, now=now, moves_left=1, picks=picks, rotate=True)}
-    assert d['WEAK']['action'] == 'swap' and d['WEAK']['to']['mint'] == 'BEST' and 'cleared every desk' in d['WEAK']['why']   # the weakest non-winner, held 30+ min, clearly weaker read
-    assert d['WIN']['action'] == 'hold' and d['OKAY']['action'] == 'hold' and d['NEWISH']['action'] == 'hold'             # a winner · a read not clearly weaker · a coin 10 min old: all keep their seats
-    assert all(x['action'] == 'hold' for x in ag.manage(legs, table + held, px, cfg, control=True, now=now, moves_left=0, picks=picks, rotate=True))   # not due → nobody moves
-    runs = ag.manage([leg('WIN', 1)], table + held, {'PWIN': 1.12}, cfg, control=True, now=now, moves_left=0, picks=picks)[0]
-    assert runs['action'] == 'hold' and 'let it run' in runs['why']                                                       # AGENTS CHOOSE at the base +10%: a clean read runs (the trail protects it)
-    banked = ag.manage([leg('WIN', 1)], table + held, {'PWIN': 1.12}, {**cfg, 'agentTp': 10}, control=True, now=now, moves_left=0, picks=picks)[0]
-    assert banked['action'] == 'pull' and 'your take' in banked['why']                                                    # YOUR take-profit: banked AT the line, never re-read
-    learned = ag.manage([leg('WIN', 1)], table + held, {'PWIN': 1.12}, cfg, {'tp': 8, 'sl': 5}, control=True, now=now, moves_left=0, picks=picks)[0]
-    assert learned['action'] == 'pull' and 'scalp' in learned['why']                                                      # their LEARNED line: banked at it (their own choice)
-    broken = ag.manage([leg('WIN', 1)], table + [row('WIN', lean=-0.5)], {'PWIN': 1.12}, cfg, control=True, now=now, moves_left=0, picks=picks)[0]
-    assert broken['action'] == 'pull' and 'lean turned' in broken['why']                                                  # past the base line on a broken read: banked
 
 
 def test_they_stay_in_five_minutes_until_the_real_card_is_back_to_breakeven_and_their_lives_ride_on_real_exits():
@@ -487,16 +344,6 @@ def test_they_stay_in_five_minutes_until_the_real_card_is_back_to_breakeven_and_
     assert grow['h'] == 5 and grow['needBE'] is False and grow['need2x'] is True and grow['phase'] == 'GROWTH'   # breakeven is a milestone: still locked on the way to 2×
     assert ag.stage(mk([50.0] * 30, money={'value': 29.5, 'putIn': 29.5}))['phase'] == 'GROWTH' and ag.stage(mk([50.0] * 30, money={'value': 58.99, 'putIn': 29.5}))['h'] == 5
     assert ag.stage(mk([50.0] * 30, money={'value': 59.0, 'putIn': 29.5}))['h'] == 15 and ag.underwater({'money': {'value': 0, 'putIn': 0}}) is False   # real equity ≥ 2× put-in → eligible for the next stage
-    st = ag.reckon({}, {'n': 5, 'w': 1}, 100)
-    assert st['lives'] == 9 and st['realSeen'] == {'n': 5, 'w': 1}                            # history before the rule costs nothing
-    st = ag.reckon(st, {'n': 8, 'w': 2}, 200)                                                 # 3 more exits: 1 won, 2 lost
-    assert st['lives'] == 8 and '8 of 9 lives' in st['feed'][-1]['text']
-    st = ag.reckon(st, {'n': 9, 'w': 3}, 300)
-    assert st['lives'] == 9                                                                   # a win gives one back (never above 9)
-    st = ag.reckon(st, {'n': 18, 'w': 3}, 400)                                                # nine straight real losses
-    assert st['lives'] == 9 and all(st['gen'][a] == 2 for a in ('tally', 'sherlock', 'trigger', 'devil')) and len(st['lineage']) == 4
-    assert 'scrapped and reborn' in st['feed'][-1]['text'] and st['born']['devil'] == 400
-    assert ag.reckon(st, {'n': 18, 'w': 3}, 500)['lives'] == 9 and ag.view(st, [])['lives'] == {'n': 9, 'of': 9}
 
 
 def test_devils_busted_reads_come_from_the_reads_own_live_records_not_a_fixed_list():

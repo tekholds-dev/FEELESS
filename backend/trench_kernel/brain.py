@@ -11,6 +11,8 @@ Hunter lanes: four always hunting — HUNTING (searching) · ARMED (a READY cand
 import opportunity as _opp
 import trench_crew as _crew
 
+from . import lifecycle as _lc
+
 ROLES = ('tally', 'sherlock', 'weather', 'trigger', 'devil', 'warden', 'courier', 'reaper', 'archivist', 'judge')
 SEVERITY = ('INFO', 'WARNING', 'STRONG_WARNING', 'HARD_VETO')
 TRIGGER_OF = {'HOT EARLY MOVE': 'ENTER', 'BREAKOUT': 'ENTER', 'RUNNING': 'ENTER', 'BUILDING': 'ARM', 'STALLING': 'WAIT', 'DISTRIBUTING': 'NO', 'COLLAPSING': 'NO'}
@@ -34,8 +36,9 @@ def tally(ms):
             'cap': m.get('marketCap'), 'liq': m.get('liquidity'), 'vpm': vpm, 'bpm': bpm, 'move5m': m.get('move5m'), 'sources': len(i.get('sources') or [])}
 
 
-def sherlock(ms):
-    """Known evidence vs UNKNOWN / PENDING (a research state, never a rejection) + what to fetch next."""
+def sherlock(ms, lessons=None):
+    """Known evidence vs UNKNOWN / PENDING (a research state, never a rejection) + what to fetch next. `walletTrust` (the live Sherlock
+    generation's lesson) scales how hard early-wallet evidence moves the rank."""
     c, r = ms['chain'], ms['research']
     known, unknown, req = [], [], []
     (known if c['holderStatus'] == 'READY' else unknown).append('holders')
@@ -46,7 +49,8 @@ def sherlock(ms):
     if r['status'] != 'READY':
         req.append('research')
     f = {'POSITIVE': 1.08, 'NEUTRAL': 1.0, 'WARNING': 0.92, 'DUMPING': 0.85}.get(c.get('earlyWallets'), 1.0)
-    return {'known': known, 'unknown': unknown, 'requests': req, 'factor': f}
+    f = round(1 + (f - 1) * _lc.lesson_value(lessons, 'sherlock', 'walletTrust'), 3)
+    return {'known': known, 'unknown': unknown, 'requests': req, 'factor': f, 'holderStatus': c['holderStatus']}
 
 
 def weather(ms, ctx):
@@ -54,13 +58,20 @@ def weather(ms, ctx):
     return {'regime': reg, 'factor': WEATHER_F.get(reg, 1.0)}
 
 
-def trigger(ms):
+def trigger(ms, lessons=None):
+    """WHEN, from the live narrative of this pass. `lateMove` (the live Trigger generation's lesson, 0 = off): a coin already up that much
+    in 5 minutes is ARMED, not entered."""
     nar, why = _opp.narrative(ms['row'])
-    return {'narrative': nar, 'why': why, 'state': TRIGGER_OF.get(nar, 'WAIT')}
+    st = TRIGGER_OF.get(nar, 'WAIT')
+    late = _lc.lesson_value(lessons, 'trigger', 'lateMove')
+    if st == 'ENTER' and late > 0 and _f(ms['market'].get('move5m')) >= late:
+        st, why = 'ARM', f"{why} — already {_f(ms['market'].get('move5m')):+.0f}% in 5 min (armed, not chased)"
+    return {'narrative': nar, 'why': why, 'state': st}
 
 
-def devil(ms):
-    """→ {objections: [(id, severity, why)], hard, confidence}. Only the hard wall is HARD_VETO; the rest weigh."""
+def devil(ms, lessons=None):
+    """→ {objections: [(id, severity, why)], hard, confidence}. Only the hard wall is HARD_VETO; the rest weigh. Reads the senses'
+    evidence (`ms['objections']`) — never the paper desk's agree / object."""
     out = []
     wall = _opp.open_ok(ms['row'])
     if wall:
@@ -70,7 +81,7 @@ def devil(ms):
         out.append((o, sev, why))
     if ms['chain'].get('earlyWallets') == 'WARNING':
         out.append(('early_wallets', 'WARNING', 'an early wallet is selling'))
-    conf, _ = _crew.devil_factor(ms['row'])
+    conf, _ = _crew.devil_factor(ms['row'], _lc.lesson_value(lessons, 'devil', 'strong'))
     return {'objections': out, 'hard': any(s == 'HARD_VETO' for _o, s, _w in out), 'confidence': conf}
 
 
@@ -121,9 +132,10 @@ def think(ms, ctx=None):
     """All ten opinions + the reduced decision for ONE mint. Pure."""
     c = ctx or {}
     held = (c.get('held') or {}).get(ms['identity']['mint'])
-    t, sh, we, tr, dv = tally(ms), sherlock(ms), weather(ms, c), trigger(ms), devil(ms)
+    ls = c.get('lessons')   # {role: lesson} of the generations IN CONTROL (lifecycle.lessons) — a shadow / retired one is never in it
+    t, sh, we, tr, dv = tally(ms), sherlock(ms, ls), weather(ms, c), trigger(ms, ls), devil(ms, ls)
     wa, co = warden(ms, dv, sh), courier(c)
-    base, parts = _opp.open_score(ms['row'], c.get('weights'))
+    base, parts = _opp.open_score(ms['row'], c.get('weights'), _lc.lesson_value(ls, 'devil', 'strong'))
     rank = round(base * we['factor'] * sh['factor'], 1)
     op = {'tally': t, 'sherlock': sh, 'weather': we, 'trigger': tr, 'devil': dv, 'warden': wa, 'courier': co,
           'reaper': reaper(ms, held), 'archivist': {'sources': ms['identity']['sources']}, 'judge': judge(ms, c.get('weights'))}

@@ -11,9 +11,11 @@ function here ranks, labels or explains something the existing path (Trigger →
   seat_board      what each seat is doing THIS cycle: result · decided-at · market-input-at · velocity · score · best challenger · margin
   summary         OCCUPANCY x/4 · TARGET · BENCH · BUYS USED / LEFT · CASH
 """
-import agents as _ag
+import paper_desk as _pd   # 📝 the OFFLINE practice record (graded paper calls) — it has no live authority
+import trench_kernel.universe as _uni
+import trench_kernel.senses as _sn
 
-_f = _ag._f
+_f = _sn._f
 
 # ── 📈 P/L VELOCITY ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
 VELOCITY = ('ACCELERATING', 'STABLE', 'STALLING', 'REVERSING')
@@ -199,7 +201,7 @@ def score(row, ctx=None):
     qw, qwhy = chart_quality(r.get('chart'))
     add('structure', QUALITY_PTS.get(qw, 6), f'{qw or "UNKNOWN"} — {qwhy}')
     liq = _f(n.get('liq') or v.get('liq'))
-    lp = 0.0 if liq < _ag.CONTROL_MIN_LIQ else 6 + min(9.0, 9 * (liq - _ag.CONTROL_MIN_LIQ) / 480_000)
+    lp = 0.0 if liq < _uni.CONTROL_MIN_LIQ else 6 + min(9.0, 9 * (liq - _uni.CONTROL_MIN_LIQ) / 480_000)
     liqd = n.get('liqD')
     lp += 0 if liqd is None else 3 if _f(liqd) >= 5 else -5 if _f(liqd) <= -20 else 0
     add('liquidity', lp, f'pool ${liq / 1000:.0f}K' + (f' ({_f(liqd):+.0f}% since first read)' if liqd is not None else ''))

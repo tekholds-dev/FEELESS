@@ -35,7 +35,7 @@ def test_pending_holder_and_research_data_never_reject_a_candidate():
 
 def test_an_ordinary_devil_warning_never_hard_blocks_and_warden_shrinks():
     k = tk.Kernel()
-    k.run([row('D', objs=[['rug_signs', 'x'], ['identity', 'no site']])], 100.0)
+    k.run([row('D', ev=[['rug_meter', 'rug meter 60'], ['identity', 'no site']])], 100.0)
     d = k.dec['D']
     dv = d['opinions']['devil']
     assert not dv['hard'] and {s for _o, s, _w in dv['objections']} == {'STRONG_WARNING', 'WARNING'}
@@ -101,11 +101,12 @@ def test_singleflight_collapses_identical_in_flight_reads_into_one_physical_call
 
 
 def test_all_ten_roles_share_one_lifecycle_record():
-    gens = tl.generations({'gen': {'tally': 7}}, {'gen': {'reaper': 2}, 'lineage': [{'agent': 'reaper', 'gen': 1, 'at': 50, 'why': 'x'}]}, 100.0)
+    b = tl.new_book(100.0, {'gen': {'tally': 7}}, {'gen': {'reaper': 2}, 'lineage': [{'agent': 'reaper', 'gen': 1, 'at': 50, 'why': 'x'}]})
+    gens = tl.generations(b, 100.0)
     assert [g['role'] for g in gens] == list(tb.ROLES) and all(g['status'] == 'ACTIVE' for g in gens)
     r = next(g for g in gens if g['role'] == 'reaper')
-    assert r['generation'] == 2 and r['lineage'][0]['status'] == 'SHADOW'
-    assert set(gens[0]) >= {'role', 'generation', 'bornAt', 'status', 'decisions', 'winsAttributed', 'lossesAttributed', 'netImpact', 'lessons', 'lineage', 'lastEvaluation'}
+    assert r['generation'] == 2 and r['lineage'][0]['gen'] == 1 and gens[0]['generation'] == 7
+    assert set(gens[0]) >= {'role', 'generation', 'bornAt', 'status', 'decisions', 'winsAttributed', 'lossesAttributed', 'netImpact', 'lessons', 'lessonVector', 'lineage', 'lastEvaluation'}
 
 
 def test_the_seat_fill_reads_the_kernel_and_there_is_one_execution_path():

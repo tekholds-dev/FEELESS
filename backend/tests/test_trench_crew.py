@@ -21,10 +21,12 @@ def test_ten_roles_and_the_doc_say_the_same_thing():
 
 def test_devil_objections_are_confidence_not_vetoes_and_only_a_dev_dump_is_the_wall():
     plain = opp.open_score(row())[0]
-    warned = row(objs=[['rug_signs', 'x'], ['identity', 'y'], ['ran', 'z']])
+    warned = row(ev=[['rug_meter', 'x'], ['identity', 'y'], ['ran', 'z']])
     assert opp.open_ok(warned) is None and opp.open_score(warned)[0] < plain                  # weighed, not blocked
-    assert crew.devil_factor(row(objs=[['rug_meter', '']] * 9))[0] == crew.DEVIL_MIN         # never below ×0.6
+    assert crew.devil_factor(row(ev=[['rug_meter', '']] * 9))[0] == crew.DEVIL_MIN         # never below ×0.6
     assert opp.open_ok(row(li={'press': 'HIGH', 'pressWhy': 'creator sold $400 in 90s'})) == 'the dev is dumping now'
+    paper = row(objs=[['burned', 'x'], ['rug_signs', 'y']], drule='unscanned')
+    assert opp.open_score(paper)[0] == plain and crew.devil_factor(paper) == (1.0, [])            # the paper desk's objections are not evidence
 
 
 def test_sherlock_unknown_is_a_research_state_not_a_rejection():

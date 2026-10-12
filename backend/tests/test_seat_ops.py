@@ -147,33 +147,8 @@ def _card(cash=4.0, legs=None):
     return {'real': True, 'cash': cash, 'legs': legs or [], 'events': []}
 
 
-def test_four_valid_candidates_target_four_independent_seats_and_one_coin_never_takes_two():
-    four = [{'mint': m, 'symbol': m} for m in 'ABCD']
-    plan = oe.fill_plan(_fctx(wait=four))
-    assert [p['mint'] for p in plan] == ['A', 'B', 'C', 'D']                                     # every open seat its own coin, the same cycle
-    two = oe.fill_plan(_fctx(wait=four + [{'mint': 'E'}], empty=2))
-    assert [p['mint'] for p in two[:2]] == ['A', 'B'] and len(two) == 5                                       # 2 seats + 3 fallbacks (a veto hands the seat to the next); agent_seat stops at full
-    cfg = {'coins': 4, 'minOrderUsd': 0.1}
-    c = _card(4.0)
-    for m in 'ABCD':
-        usd = ap.agent_seat_usd(c, {}, cfg)
-        assert abs(usd - 1.0) < 1e-9                                                              # an equal share, never the whole cash
-        c = ap.agent_seat(c, {'mint': m, 'symbol': m, 'pairAddress': 'P' + m, 'price': 1.0, 'liquidityUsd': 90_000}, {}, cfg, 1000)
-    assert len([l for l in c['legs'] if not l.get('placeholder')]) == 4
-    try:
-        ap.agent_seat(_card(4.0, [dict(c['legs'][0])]), {'mint': 'A', 'symbol': 'A', 'pairAddress': 'PA', 'price': 1.0}, {}, cfg, 1000)
-        assert False, 'one coin took two seats'
-    except ValueError as e:
-        assert 'already on the card' in str(e)
 
 
-def test_the_buy_budget_still_caps_every_cycle_and_cash_stays_when_nothing_passes_hard_safety():
-    four = [{'mint': m, 'symbol': m} for m in 'ABCD']
-    assert len(oe.fill_plan(_fctx(wait=four, used=ag.CONTROL_MOVES_HR - 1))) == 1
-    assert oe.fill_plan(_fctx(wait=four, used=ag.CONTROL_MOVES_HR)) == []
-    assert oe.fill_plan(_fctx(wait=[], gos=[])) == []                                           # nothing cleared every desk: cash is the position
-    b = so.bench([case('X', cleared=False, block='failed the holder scan'), case('Y', cleared=False, block='pool under $20K')], {'X': {'score': 80}, 'Y': {'score': 70}})
-    assert b and not any(x['ready'] for x in b)
 
 
 def test_the_first_seat_never_makes_the_other_open_seats_impossible():
@@ -186,36 +161,8 @@ def test_the_first_seat_never_makes_the_other_open_seats_impossible():
 
 
 # ── ⇄ SUPERIORITY: winners protected, weak losers replaced ──────────────────────────────────────────────────────────────────────
-def test_a_winner_is_protected_from_a_weaker_challenger_and_a_weak_loser_switches_to_a_materially_better_one():
-    pol = oe.policy({})
-    loser = {'symbol': 'L', 'pnl': -6.0, 'heldMin': 40, 'lean': 0.3, 'verdict': 'weak', 'score': 30, 'vel': {'state': 'REVERSING'}}
-    good = {'symbol': 'N', 'lean': 2.5, 'cleared': True, 'score': 55}
-    t = oe.switch_test(loser, good, pol)
-    assert t['switch'] and t['scored'] and t['margin'] == 25 and 'score' in t['why']
-    assert not oe.switch_test(loser, {**good, 'score': 40}, pol)['switch']                       # +10 < +15: not materially better
-    assert not oe.switch_test({**loser, 'pnl': 4.0}, {**good, 'score': 99}, pol)['switch']      # a winner is never surrendered
-    climbing = {**loser, 'vel': {'state': 'ACCELERATING'}}
-    r = oe.switch_test(climbing, {**good, 'score': 52}, pol)
-    assert not r['switch'] and 'accelerating' in r['why']                                        # +22 < +30 over a climbing position
-    assert oe.switch_test({**loser, 'verdict': 'weak', 'heldMin': 80, 'vel': {'state': 'ACCELERATING'}}, {**good, 'score': 75}, pol)['switch']
-    assert oe.switch_test(loser, {**good, 'score': 40}, oe.policy({'agentSwitch': 'aggressive'}))['switch']   # aggressive lowers the margin (+10 ≥ +8)
-    unscored = oe.switch_test({**loser, 'score': None}, {**good, 'score': None}, pol)
-    assert not unscored['scored'] and any(ln[0] == 'read margin' for ln in unscored['lines'])     # no scores: the old lean margin stands
 
 
-def test_the_desk_switches_a_weak_loser_for_the_best_challenger_and_keeps_a_climbing_coin():
-    cfg = {'agentTakePct': 10, 'agentMode': 'auto'}
-    legs = [leg('L', at=1), leg('C', at=1)]
-    table = [trow('L', lean=-0.5), trow('C', lean=-0.5), trow('NEW', lean=4)]
-    px = {'PL': 0.9, 'PC': 0.95}
-    sc = {'L': {'score': 20}, 'C': {'score': 20}, 'NEW': {'score': 70}}
-    vels = {'L': {'state': 'REVERSING'}, 'C': {'state': 'ACCELERATING'}}
-    d = {x['symbol']: x for x in ag.manage(legs, table, px, cfg, control=True, now=7200, moves_left=2, picks=[table[2]], scores=sc, vels=vels)}
-    assert d['L']['action'] == 'swap' and d['L']['to']['symbol'] == 'NEW'
-    assert d['C']['action'] == 'hold'                                                            # its read broke, but its P/L is climbing back
-    weak_ch = {**sc, 'NEW': {'score': 22}}
-    d2 = {x['symbol']: x for x in ag.manage(legs, table, px, cfg, control=True, now=7200, moves_left=2, picks=[table[2]], scores=weak_ch, vels={})}
-    assert all(x['action'] == 'hold' for x in d2.values())                                       # a challenger that does not outscore it is no reason
 
 
 # ── ☠ REAPER: velocity, earned windows, the rug radar ─────────────────────────────────────────────────────────────────────────────

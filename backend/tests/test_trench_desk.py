@@ -117,19 +117,16 @@ def test_a_c_tier_enters_only_when_it_improved_every_round():
     assert s['c']['C']['decision'] == 'ENTER' and 'small size' in s['c']['C']['why']
 
 
-def test_round_enters_fill_through_the_one_execution_path():
-    assert "near0_.append({**x_, 'pair': x_.get('pair') or x_.get('pairAddress'), 'tier': tr_, 'opp': s_, 'roundEnter': why_," in SRC
-    assert "wait_ = wait_ + [t_ for t_ in rnd_ok_" in SRC                     # → fill_plan → Warden → agent_seat → keeper
+def test_rounds_are_learning_windows_and_never_a_fill_door():
+    """Kernel finalize: the 5-minute rounds grade candidates (the shadow book keeps every ENTER / REJECT / COOLDOWN) — no fill reads them."""
+    tick = SRC[SRC.index('async def _prime_tick_inner('):]
+    tick = tick[:tick.index('\nasync def ', 10)]
+    assert '_tr.entered(' not in tick and 'roundEnter' not in tick and '_rounds_pass(table, now)' in SRC
     assert SRC.count('_prime.agent_seat(') == 1                              # one seat-fill call; no second engine
     assert 'class FuseWallet' not in SRC and SRC.count('def _fw_execute(') == 1
 
 
 # ── seats + positions ──────────────────────────────────────────────────────────────────────────────────────────────────────────
-def test_four_independent_candidates_can_target_four_seats():
-    four = [{'mint': m} for m in 'ABCD']
-    ctx = {'control': True, 'pol': oe.policy({}), 'live': True, 'courier': 'OK', 'used': 0, 'gos': [], 'wait': four, 'empty': 4,
-           'emptySince': 900, 'lastFill': 0, 'now': 1000.0, 'cap': ag.FILL_MOVES_HR}
-    assert [r['mint'] for r in oe.fill_plan(ctx)][:4] == ['A', 'B', 'C', 'D']
 
 
 def test_a_runner_keeps_running_and_a_loser_leaves_before_the_round_ends():
@@ -188,11 +185,3 @@ def test_a_coin_flickering_off_the_list_for_one_pass_keeps_its_rounds():
     assert s['c']['F']['decision'] == 'COOLDOWN' and 'whole round' in s['c']['F']['why']
 
 
-def test_an_office_desk_that_keeps_losing_real_money_starts_its_next_generation_with_the_lesson():
-    """Owner, 2026-10-12: "ok to lose but not learning and still in the gen is crazy" — Warden had 16 real losses pinned and was gen 1."""
-    rv = [{'kind': 'loss', 'at': 10 + i, 'resp': {'warden': 1}, 'cause': 'thin_pool'} for i in range(6)]
-    o = of.demote({}, {}, 100.0, rv)
-    assert o['gen']['warden'] == 2 and o['born']['warden'] == 100.0 and o['lineage'][-1]['lesson'] == 'thin_pool'
-    assert of.demote(o, {}, 200.0, rv)['gen']['warden'] == 2                     # its new life starts clean: old losses don't count twice
-    few = [{'kind': 'loss', 'at': 1, 'resp': {'reaper': 1}}] * 3 + [{'kind': 'win', 'at': 2, 'exit': 'R7 trail'}]
-    assert of.demote({}, {}, 100.0, few).get('gen', {}).get('reaper') is None      # 3 losses − 1 win: still ACTIVE (replaced at 3 net)

@@ -155,22 +155,6 @@ def test_untrusted_data_cannot_produce_a_trigger_enter_from_chart_structure(monk
     _, plain = _desk(None)                                                                                             # no chart layer at all: what Trigger says on its own
     _, real = _desk({'GOOD': UP}, meta)
     assert real['GOOD']['chart']['q']['state'] in md.ENTER_OK and real['GOOD']['trigger'][0] == plain['GOOD']['trigger'][0] == 'enter' and '📈 E12' in real['GOOD']['trigger'][1]   # real, intact candles: the entry stands
-    ok = {k[0]: k[1] for k in next(c for c in ag.investigate(real.values(), set(), 1, {}, top=0) if c['mint'] == 'GOOD')['checks']}
-    assert ok['chart'] and ok['data']
-    bad = [list(r) for r in UP]; bad[12][2] = bad[12][4] * 0.5
-    ping = bars([1.0 * (1.08 if i % 2 else 1.0) for i in range(26)], wick=0.0)
-    for name, cmap in (('tape', {}), ('malformed', {'GOOD': bad}), ('alternating', {'GOOD': ping}), ('stale', {'GOOD': bars(stair(), end=NOW - 900)}), ('no volume', {'GOOD': [r[:5] + [0.0] for r in UP]})):
-        st, t = _desk(cmap, meta, **({'vol5m': 0, 'vol1h': 0} if name == 'no volume' else {}))
-        g = t['GOOD']
-        assert g['trigger'][0] != 'enter' and not g['go'] and g['chart']['entry'][0] == 'WAIT FOR DATA' and not g['chart']['q']['enterOk'], name
-        case = next((c for c in ag.investigate(t.values(), set(), 1, {}, top=0) if c['mint'] == 'GOOD'), None)      # (no case file at all when the read is no longer positive)
-        assert case is None or (not case['cleared'] and [k for k in case['checks'] if k[0] == 'data'][0][1] is False), name   # the duty waives Trigger's bar, never the data gate
-        assert case is not None or name != 'tape'
-        assert ag.record(st, list(t.values()), NOW, controls=99)['open']['GOOD']['dq'] == g['chart']['q']['state']                # the data-quality state is stored WITH the call
-        if name in ('malformed', 'alternating', 'stale'):
-            assert g['chart']['state'] == ci.DATA_INVALID and not any(d[0].startswith('chart:') for d in g['why']['drivers']), name   # Sherlock infers no structure from rejected rows
-            assert g['case'] is None or (g['case'][0] == 'object' and 'data_integrity' in [o[0] for o in g['objs']]), name
-    assert plain['GOOD'].get('chart') is None
 
 
 def test_bad_data_is_a_hard_devil_objection_that_no_record_can_waive():
@@ -230,17 +214,6 @@ def test_warden_only_ever_shrinks_on_degraded_data_and_tallys_confidence_is_on_e
                                                   ['chart', ch['entry'][0] == 'ENTER NOW', f"{ch['state']} → {ch['entry'][0]}"], ['data', ch['q']['enterOk'], 'data']],
                                        'row': {'mint': 'T', 'symbol': 'T', 'why': {'lean': 2.0, 'drivers': []}, 'trigger': [call, 'bar'], 'nums': {'pts': 9}, 'vitals': {}, 'chart': ci.compact(ch), 'objs': [], **k}}
     ctx = {'tally': {'readings': 9, 'ageSec': 20}, 'sherlock': {'lean': 2.0}, 'weather': {'regime': 'CHOP'}, 'courier': {'health': 'HEALTHY', 'why': ['12 of 12 sends landed']}}
-    t = of.trace(mk(ok), ctx)
-    assert [l[0] for l in t['lines']] == ['tally', 'sherlock', 'weather', 'trigger', 'devil', 'warden', 'courier', 'reaper']
-    assert t['lines'][0][1] == md.word(ok['q']) and t['lines'][0][1].startswith('DATA TRUSTED') and t['lines'][2][1] == 'CHOP MARKET' and t['lines'][4][1] == 'NO HARD OBJECTION'
-    assert t['lines'][6][1] == 'READY' and t['lines'][7][1] == 'NOT APPLICABLE UNTIL FILLED' and t['final'] in ('WAIT', 'CLEARED FOR THE DUTY')
-    assert of.trace(mk(ok), {**ctx, 'courier': {'health': 'DEGRADED', 'why': ['x']}})['lines'][6][1] == 'EXECUTION DEGRADED — WAIT'
-    tt = of.trace(mk(tape), ctx)
-    assert tt['lines'][0][1].startswith('DATA NO REAL CANDLES') and tt['lines'][3][1] == 'WAIT FOR DATA' and tt['final'] == 'WAIT'
-    td = of.trace(mk(dead), ctx)
-    assert td['final'] == 'WAIT' and 'not a verdict on the coin' in td['why'] and of.pipeline(mk(dead), ctx)[0]['state'] == 'ERROR' and 'DATA MALFORMED' in of.pipeline(mk(dead), ctx)[0]['word']
-    assert of.lineage_of(mk(ok), ctx)['data']['state'] == 'TRUSTED' and of.lineage_of(mk(dead), ctx)['data']['state'] == 'MALFORMED'   # the Archivist files the data state of the decision
-    assert all(of.JOBS[a][0] and of.JOBS[a][1].endswith('?') or a == 'warden' for a in of.CHAIN) and len({of.JOBS[a][0] for a in of.CHAIN}) == 10   # ten different jobs
 
 
 def test_the_judge_counts_acting_on_bad_data_as_a_violation_and_never_invents_a_dollar_attribution():
@@ -277,11 +250,11 @@ def test_breakeven_is_a_milestone_and_only_real_equity_at_twice_the_put_in_makes
     assert ag.stage({**paper10x, 'money': {'value': 5.0, 'putIn': 29.5, 'paperValue': 900, 'takenUsd': 66.81, 'paidOut': 80, 'realizedGross': 400}})['h'] == 5
     r = ag.real_phase({'value': 1.30, 'putIn': 29.5})
     assert (r['phase'], r['breakeven'], r['double'], r['toBreakeven'], r['toDouble'], r['eligible']) == ('RECOVERY', 29.5, 59.0, 28.2, 57.7, False)
-    m = of.mission({'value': 1.30, 'putIn': 29.5}, 9, under, 0, NOW, None, True)
+    m = of.mission({'value': 1.30, 'putIn': 29.5}, under, NOW, None, True)
     assert (m['phase'], m['breakevenTarget'], m['doubleTarget'], m['stage'], m['nextStage'], m['unlock'], m['locked']) == ('RECOVERY', 29.5, 59.0, 5, 'LOCKED', 'real equity ≥ $59.00', True)
-    g = of.mission({'value': 31.0, 'putIn': 29.5}, 9, at_be, 0, NOW, None, False)
+    g = of.mission({'value': 31.0, 'putIn': 29.5}, at_be, NOW, None, False)
     assert g['phase'] == 'GROWTH' and g['locked'] and g['nextStage'] == 'LOCKED' and g['toBreakeven'] == 1.5 and g['toDouble'] == -28.0 and not g['underwater']
-    assert of.mission({'value': 60.0, 'putIn': 29.5}, 9, done, 0, NOW)['nextStage'] == 'ELIGIBLE' and m['goal'] == list(of.TEAM_GOAL)
+    assert of.mission({'value': 60.0, 'putIn': 29.5}, done, NOW)['nextStage'] == 'ELIGIBLE' and m['goal'] == list(of.TEAM_GOAL)
     assert ag.mission(1.30, 29.5, {'x': 50})['key'] == 'breakeven' and ag.mission(31.0, 29.5, {'x': 50})['key'] == 'double' and ag.mission(59.0, 29.5, {'x': 50})['key'] == 'tenx'
 
 

@@ -41,18 +41,20 @@ HARD_WALL = ('no live price', 'no trades in the last 5 minutes', 'outside the un
 
 # ⚖ Devil's objection severities in trench mode: HARD → the wall; everything else is a confidence weight on the ranking
 DEVIL_HARD = ('data_integrity', 'chart_bot_ladder')                      # corrupt data (sell impossibility / dev dump are checked by the wall itself)
-DEVIL_STRONG = ('rug_meter', 'rug_signs', 'busted_read', 'burned')      # ×0.85 each
+DEVIL_STRONG = ('rug_meter', 'busted_read')                              # ×0.85 each (the coin's own danger, on evidence of THIS pass / its read's settled record)
 DEVIL_MIN = 0.6                                                          # all objections together never cut a coin's rank below ×0.6
 
 
-def devil_factor(row):
-    """→ (factor, [objection ids]) — Devil CHALLENGES: each objection is a confidence deduction (strong ×0.85, other ×0.95), floored."""
-    objs = [o[0] for o in (row or {}).get('objs') or [] if o] + ([row['drule']] if (row or {}).get('drule') else [])
-    m = 1.0
+def devil_factor(row, strong=None):
+    """→ (factor, [evidence ids]) — Devil CHALLENGES: each piece of evidence against the coin (row `ev`, trench_kernel.senses.evidence) is
+    a confidence deduction (strong ×0.85 — or the live Devil generation's own `strong` — other ×0.95), floored. The paper desk's
+    objections (`objs` / `drule`) are not read."""
+    objs = [o[0] for o in (row or {}).get('ev') or [] if o]
+    m, s_ = 1.0, (0.85 if strong is None else max(0.75, min(0.9, float(strong))))
     for o in objs:
         if o in DEVIL_HARD:
             continue   # the wall handles these (market data)
-        m *= 0.85 if o in DEVIL_STRONG else 0.95
+        m *= s_ if o in DEVIL_STRONG else 0.95
     return max(DEVIL_MIN, round(m, 3)), objs
 
 
@@ -63,7 +65,7 @@ def dev_dumping(row):
 
 
 # 🛡 Warden in trench mode: these rules SHRINK (never below SHRINK_FLOOR); only the execution rules can veto
-WARDEN_SHRINK = ('W2', 'W4', 'W20', 'W21')   # weather · a newborn · early-wallet exit risk · concentrated holders
+WARDEN_SHRINK = ('W0', 'W2', 'W4', 'W20', 'W21')   # the brain's own uncertainty · weather · a newborn · early-wallet exit risk · concentrated holders
 WARDEN_EXEC = ('W1', 'W3', 'W17')            # execution health · pool share · each open seat its share of the cash
 SHRINK_FLOOR = 0.5
 
