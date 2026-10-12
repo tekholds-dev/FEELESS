@@ -19,6 +19,7 @@ from types import MappingProxyType
 
 import agents as _ag
 import opportunity as _opp
+import market_wake as _mw
 import chart_intel as _ci
 import market_data as _md
 import office_edge as _oe
@@ -447,7 +448,7 @@ def take_info(cfg, scalp=None):
             'needN': _ag.SCALP_N, 'promoted': None}
 
 
-OBEY = {'R11': 'dead coin swap', 'R4e': 'hard safety exit', 'R5c': 'creator stop-loss', 'R9c': 'creator max hold', 'R1': 'hard safety exit', 'R2': 'hard safety exit', 'R3': 'hard safety exit', 'R5x': 'hard safety exit', 'R4': 'invalidation exit', 'R5t': 'invalidation exit', 'R5': 'structure-aware stop',
+OBEY = {'R7b': 'trailing protection', 'R11': 'dead coin swap', 'R4e': 'hard safety exit', 'R5c': 'creator stop-loss', 'R9c': 'creator max hold', 'R1': 'hard safety exit', 'R2': 'hard safety exit', 'R3': 'hard safety exit', 'R5x': 'hard safety exit', 'R4': 'invalidation exit', 'R5t': 'invalidation exit', 'R5': 'structure-aware stop',
         'R6': 'take line', 'R7': 'trailing protection', 'R7s': 'trailing protection', 'R8': 'thesis review', 'R9': 'thesis review', 'R10': 'thesis hold', 'R0': 'waiting'}
 
 
@@ -556,6 +557,10 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         tr_ = pol.get('trail') or {}
         arm = _f(tr_.get('arm')) if tr_.get('mode') == 'custom' else T('protectAt')
         pr_, prwhy_ = press.get(l.get('pairAddress')) or (None, None)   # 🕵 the early wallets selling on the live tape
+        inval_ = _f((th or {}).get('invalidation'))
+        chpx_ = _f(((ch or {}).get('f') or {}).get('px'))   # the live chart's last close (same FEELESS candles the screens draw)
+        rs_ = _mw.run_state(pct, p['peak'], (vels or {}).get(m, {}).get('state'), bool(th) and inval_ > 0 and px < inval_ and 0 < chpx_ < inval_)   # ⚡ the run: live price AND live chart under the line
+        runner_ = rs_ in ('ACCELERATING', 'RUNNING') and pct > 0   # 🏃 a winner the chart still backs: no time window sells it
         tight = 0.6 if (vels or {}).get(m, {}).get('state') == 'REVERSING' or pr_ == 'WATCH' else 1.0   # 📉 P/L REVERSING: the trail banks sooner (tighter protection, never looser)
         trail_line = (p['peak'] - _f(tr_.get('pct')) * tight) if tr_.get('mode') == 'custom' else p['peak'] * (1 - T('giveBackPct') * tight / 100)
         trail_on = tr_.get('mode') != 'off'
@@ -614,17 +619,19 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R5t thesis invalidated', f"{pct:+.1f}% — entered on {th.get('structure')}; now {rv['why'][0]}", 'pull'
         elif trail_on and p['peak'] >= arm and pct <= trail_line and pct >= MIN_KEEP:
             st, rule, ev, act = 'TAKE', ('R7v trail tightened' if tight < 1 else 'R7 trailing protection'), f"peaked {p['peak']:+.1f}%, now {pct:+.1f}% — " + (f"{_f(tr_.get('pct')) * tight:g} points off the peak (your trail" + (', tightened: P/L reversing)' if tight < 1 else ')') if tr_.get('mode') == 'custom' else f"gave back over {T('giveBackPct') * tight:g}% of it" + (' (tightened: P/L reversing)' if tight < 1 else '')), 'pull'
+        elif mine and rs_ == 'BREAKING DOWN' and pct >= MIN_KEEP:   # ⚡ a green coin that just lost its invalidation line: banked now, not at the next window
+            st, rule, ev, act = 'TAKE', 'R7b breakdown', f"{pct:+.1f}% and the price lost its invalidation line {inval_:.10g} — banked on the live chart", 'pull'
         elif mine and rv and rv['verdict'] == 'weak' and 'lower high' in rv['why'][0] and pct >= MIN_KEEP and vl.get('state') != 'ACCELERATING':   # green is not a reason to keep holding — unless its P/L is still accelerating (the trail protects it: let a winner work)
             st, rule, ev, act = 'TAKE', 'R7s structure turned', f"{pct:+.1f}% and {rv['why'][0]} — banked before it is given back", 'pull'
-        elif mine and live and rv and rv['window'] >= granted and rv['verdict'] == 'valid' and rv['window'] >= base_w and pct < take:   # ⏳ past its base hold a seat is EARNED, never kept by default
+        elif mine and live and not (runner_ and not (mg_ is not None and _f(mg_) >= _f(need_))) and rv and rv['window'] >= granted and rv['verdict'] == 'valid' and rv['window'] >= base_w and pct < take:   # a runner keeps its seat on time — only a clearly better challenger takes it   # ⏳ past its base hold a seat is EARNED, never kept by default
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R9e no extension earned', f"{rv['window']} of {granted} windows used, {pct:+.1f}% — {p.get('extWhy') or 'a winner earns extra time, this seat did not'}", 'pull'
-        elif mine and live and rv and rv['window'] >= granted and rv['verdict'] == 'weak' and pct < take:   # its windows are used up and the chart earned no more (time: LIVE only)
+        elif mine and live and not runner_ and rv and rv['window'] >= granted and rv['verdict'] == 'weak' and pct < take:   # its windows are used up and the chart earned no more (time: LIVE only)
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R9 windows used', f"{rv['window']} of {granted} five-minute windows used, {pct:+.1f}%, {rv['why'][0]}", 'pull'
         elif mine and live and held >= DEAD_HOLD_MIN and pct < take and ((x and _opp.dead_now(x)) or broke == 'off their radar'):   # 💀 nobody trades it / they can't read it any more: the seat goes to a coin people ARE trading (swap only — merge_reaper)
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R11 dead coin', f"{pct:+.1f}% after {held:.0f} min — " + (_opp.dead_now(x) if x else 'off their radar (not a coin they trade any more)'), 'pull'
         elif mine and live and held >= MOMENTUM_MIN and broke and pct >= MIN_KEEP:
             st, rule, ev, act = 'TAKE', 'R8 momentum failed', f'{pct:+.1f}% and {broke} after {held:.0f} min — banked while it is still a gain', 'pull'
-        elif mine and live and not th and held >= T('timeMaxMin') and broke and pct < take / 2:
+        elif mine and live and not runner_ and not th and held >= T('timeMaxMin') and broke and pct < take / 2:
             st, rule, ev, act = 'EXIT INVALIDATED', 'R9 time', f"{held:.0f} min held, {pct:+.1f}%, {broke} — no read left to wait on", 'pull'
         elif runs and pct >= take:   # AGENTS CHOOSE: past the base line the coin runs only while their read stays clean — the trail above banks it
             st, rule, ev = 'PROTECT', 'R6 take line', f"{pct:+.1f}% ≥ +{take:g}% (base take, AGENTS CHOOSE): they read it every pass — it runs while clean, the trail banks it under {max(MIN_KEEP, trail_line):+.1f}%" if trail_on and p['peak'] >= arm else f"{pct:+.1f}% ≥ +{take:g}% (base take, AGENTS CHOOSE): they read it every pass — it runs while clean"
@@ -643,6 +650,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             ev += f" · DATA DEGRADED ({ch['q']['state'] if ch and ch.get('q') else 'no data'}) — held on the hard risk / liquidity / execution rules only"
         if st == 'HOLD' and rv and rv['verdict'] == 'valid':
             ev = f"{pct:+.1f}% · {'; '.join(rv['why'][:4])} · window {rv['window'] + 1} of {granted}"
+        p['decPx'], p['decAt'] = px, now   # ⚡ the price this decision stood on: the fast guard wakes Reaper when the live price moves materially from it
         if act:
             p.setdefault('askAt', now); p['askRule'] = rule
         p['state'], p['rule'] = st, rule
@@ -659,7 +667,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
                     'nextReview': (rv or {}).get('next') if rv else round((int(held // _ci.WINDOW_MIN) + 1) * _ci.WINDOW_MIN * 60 - held * 60),
                     'chart': None if not ch else {k: ch.get(k) for k in ('trend', 'chop', 'mom', 'ext')} | {k: (ch.get('f') or {}).get(k) for k in ('hh', 'hl', 'lh', 'll', 'lastHigh', 'lastLow', 'accel', 'decay', 'upWick', 'liqD')},
                     'tape': tp, 'usd': round(_f(l.get('units')) * px, 4), 'warden': p.get('warden'), 'dataDegraded': degraded, 'data': _md.compact((ch or {}).get('q')),
-                    'vel': vl.get('state'), 'velWhy': vl.get('why'), 'quality': quality, 'ext': len(p.get('ext') or []), 'extWhy': p.get('extWhy'), 'baseWindows': base_w if th else None,
+                    'vel': vl.get('state'), 'velWhy': vl.get('why'), 'run': rs_, 'runner': runner_, 'quality': quality, 'ext': len(p.get('ext') or []), 'extWhy': p.get('extWhy'), 'baseWindows': base_w if th else None,
                     'launch': p.get('launch'), 'onTable': bool(x), 'offRadarSec': None if x or not p.get('offSince') else round(now - _f(p.get('offSince'))), 'live': bool(live), 'limits': {'tp': pol.get('tp'), 'sl': pol.get('sl'), 'maxHold': max_hold, 'trail': tr_.get('mode'), 'manual': manual}})
     gone = []
     for m in [m for m in pos if m not in on]:

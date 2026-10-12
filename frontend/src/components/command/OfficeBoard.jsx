@@ -181,6 +181,23 @@ export function AgentDetail({ a, learning }) {
 export const DECISION_CLS = { HOLD: 'is-hold', 'HOLD 5 MORE': 'is-hold', PROTECT: 'is-prot', 'TAKE PROFIT': 'is-take', EXIT: 'is-exit' };
 
 // ☠ one card per live position: what it was entered on, what the chart says now, and what Reaper rules — with the rule it is obeying
+const RUN_CLS = { ACCELERATING: 'ofb-up', RUNNING: 'ofb-up', STALLING: '', REVERSING: 'ofb-warn', 'BREAKING DOWN': 'ofb-dn' };
+const age_ = s => (s == null ? '—' : s < 90 ? `${s}s` : `${Math.round(s / 60)}m`);
+
+// ⏱ DATA FRESHNESS for a seat: how old each input of Reaper's last decision was (price · tape · candle · agent input · decision)
+export function FreshLine({ f }) {
+  if (!f) return null;
+  return <p className={`ofb-fresh ${f.stale ? 'is-stale' : ''}`} data-testid="ofb-fresh"><small>{f.stale ? 'STALE INPUTS' : 'INPUT AGE'}</small>
+    {[['price', f.price], ['tape', f.tape], ['candle', f.candle], ['agent input', f.input], ['decision', f.decision]].map(([k, v]) => <span key={k}>{k} <b>{age_(v)}</b></span>)}</p>;
+}
+
+// ⚡ MARKET-EVENT WAKEUPS: the live chart woke Reaper / Trigger between office passes (the timer is never the reason a move is missed)
+export function WakeLine({ w }) {
+  if (!w) return null;
+  return <div className="ofb-wake" data-testid="ofb-wake"><small>⚡ CHART WAKEUPS</small><span>Reaper <b>{w.reaper}</b> · Trigger <b>{w.trigger}</b> · watching <b>{w.watching}</b> candidates</span>
+    {(w.log || []).slice(-4).reverse().map(x => <i key={`${x.at}${x.sym}${x.kind}`}>{ago(x.at)} · {x.kind === 'reaper' ? '☠' : '⏱'} ${x.sym}: {x.why}</i>)}</div>;
+}
+
 export function PositionCard({ p }) {
   const [, tick] = useState(0);
   useEffect(() => { const t = setInterval(() => tick(n => n + 1), 1000); return () => clearInterval(t); }, []);
@@ -195,11 +212,13 @@ export function PositionCard({ p }) {
       <span><small>STRUCTURE NOW</small><em>{p.structure ? <Tag cls={STRUCT_CLS[p.structure] || 'is-wait'}>{p.structure}</Tag> : <i className="ofb-nil">no chart</i>}</em>{p.verdict ? <u>thesis {p.verdict}</u> : null}</span>
       <span><small>HELD</small><em>{p.heldMin == null ? '—' : clock(p.heldMin * 60)}</em>{p.window != null ? <u>window {p.window + 1} of {p.granted}</u> : null}</span>
       <span><small>NOW</small><em className={p.pct > 0 ? 'ofb-up' : p.pct < 0 ? 'ofb-dn' : ''}>{sgn(p.pct)}</em><u>{usd(p.usd)}{p.warden != null && p.warden < 1 ? ` · 🛡 ×${p.warden}` : ''}</u></span>
+      <span data-tip="From the CURRENT live price + live chart: accelerating / running = the chart still backs it (no time window sells it) · reversing = giving back the run · breaking down = under its invalidation line"><small>RUN</small><em className={RUN_CLS[p.run] || ''}>{p.run || '—'}</em>{p.phase ? <u>{p.phase}</u> : null}</span>
       <span><small>PEAK</small><em>{sgn(p.peak)}</em></span>
       <span><small>FROM PEAK</small><em className={p.dd > 0 ? 'ofb-dn' : ''}>{p.dd == null ? '—' : `−${p.dd.toFixed(1)} pts`}</em></span>
       <span><small>NEXT REVIEW</small><em>{left == null ? '—' : clock(left)}</em></span>
       <span data-tip={`take +${p.take}% (${p.takeSource}) · stop ${p.stop}% · catastrophic ${p.hardStop}% (hard-coded)`}><small>LINES</small><em>+{p.take}% / {p.stop}%</em><u>{p.takeSource} take · hard {p.hardStop}%</u></span>
     </div>
+    <FreshLine f={p.fresh} />
     <p className="ofb-pwhy"><small>OBEYING</small><Tag>{p.obeying || '—'}</Tag><b>{p.rule}</b><span>{p.evidence}</span></p>
     {p.why?.length ? <ul className="ofb-rules is-for">{p.why.map(x => <li key={x}>{x}</li>)}</ul> : null}
     {th ? <details className="ofb-feat"><summary>entry thesis (saved at the fill, never rewritten)</summary>{dump({ ...th, at: ago(th.at) })}</details> : null}
@@ -215,9 +234,10 @@ export function TakeLine({ t }) {
     <span><small>RULE ID</small><em>{t.ruleId}</em><u>{t.rule}</u></span></div>;
 }
 
-export function OfficePositions({ positions, exiting, take }) {
+export function OfficePositions({ positions, exiting, take, wake }) {
   return <div className="ofb-box" data-testid="ofb-positions"><b>☠ REAPER · open positions on the real card</b>
     <TakeLine t={take} />
+    <WakeLine w={wake} />
     {positions?.length ? <div className="ofb-poslist">{positions.map(p => <PositionCard key={p.mint} p={p} />)}</div> : <span className="ofb-nil">no open position Reaper is responsible for</span>}
     {exiting?.length ? <p className="ofb-exiting">{exiting.map(e => <Tag key={e.mint} cls="is-work" tip="Left the card; it is closed only when the ledger shows the confirmed sale.">${e.sym} exit {e.state} · {e.rule || 'card rule'}</Tag>)}</p> : null}
   </div>;

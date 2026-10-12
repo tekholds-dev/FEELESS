@@ -185,3 +185,11 @@ test('the data line names reconstructed, missing-volume and invalid data as exac
   expect(Object.keys(DQ_CLS)).toHaveLength(10);                                             // every one of the ten states has its look
   expect(STRUCT_CLS['DATA INVALID']).toBe('is-veto');
 });
+
+test('⏱ freshness + ⚡ wake lines render what Reaper decided on', async () => {
+  const { FreshLine, WakeLine } = require('./OfficeBoard');
+  const f = await mount(<FreshLine f={{ price: 4, tape: 12, candle: 95, input: 40, decision: 1, stale: true }} />);
+  expect(f.textContent).toContain('STALE INPUTS'); expect(f.textContent).toContain('candle 2m'); expect(f.textContent).toContain('price 4s');
+  const w = await mount(<WakeLine w={{ reaper: 3, trigger: 1, watching: 6, log: [{ at: Date.now() / 1000 - 5, kind: 'reaper', sym: 'DOPE', why: 'reversal: +2.1% from a +9.0% peak' }] }} />);
+  expect(w.textContent).toContain('Reaper 3'); expect(w.textContent).toContain('$DOPE: reversal');
+});

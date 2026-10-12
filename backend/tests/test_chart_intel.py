@@ -194,7 +194,7 @@ def test_reaper_holds_past_one_window_while_the_saved_thesis_stands_and_leaves_w
     p, rep, _ = run(0.99, th['expectedHoldWindows'] * 5 * 60 + 5, rng, p)
     assert (rep[0]['rule'], rep[0]['state'], rep[0]['action'], rep[0]['decision']) == ('R9 windows used', 'EXIT INVALIDATED', 'pull', 'EXIT') and f"{th['expectedHoldWindows']} of {th['expectedHoldWindows']}" in rep[0]['evidence']
     p, rep, _ = run(1.03, th['expectedHoldWindows'] * 5 * 60 + 5, rng, run(1.02, 60, rng)[0])
-    assert (rep[0]['rule'], rep[0]['state'], rep[0]['decision']) == ('R9 windows used', 'TAKE', 'TAKE PROFIT')
+    assert (rep[0]['rule'], rep[0]['state'], rep[0]['decision']) == ('R7b breakdown', 'TAKE', 'TAKE PROFIT')     # ⚡ green and under its invalidation on the live price AND the live chart: banked now, not at the window
     # INVALIDATED: support broke into a downtrend → out at −3%, minutes after entry, far above any stop
     dn = ci.read(bars(stair(12) + [stair(12)[-1] * (0.97 ** i) for i in range(1, 13)]))
     assert dn['state'] == 'DOWNTREND'

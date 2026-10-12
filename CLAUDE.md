@@ -3207,3 +3207,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   winners looked like by phase / rank / class). Intake per-source adds win rate · median · rug rate · time to entry. New entries HARD
   $200K (`LANE_CAPS` = (200_000,)); held winners keep running. Being "first 10" needs a same-block sniper (forbidden): the rank is
   RECORDED and judged, never forced. Coins scanned before this have no `early` list — the map fills as new launches are read.
+- ⚡ THE CHART DRIVES THE TIMING (owner, 2026-10-11: "the timer should NEVER be the reason we miss the move"; `backend/market_wake.py` pure + tested
+  `tests/test_market_wake.py`): the ~60s office pass stays; between passes the 6s fast guard (`_market_wake` in `_real_guard_loop`) reads ONE
+  batched local call to the candles service's live price (`_live_px` → `/api/candles/prices`, the same price the charts draw — no new provider
+  polling) for the agents' seats + the tier tick's candidates (`_office['watchC']`: price at read + local high of the last 10 live 1m candles).
+  Seat: `position_wake` (≥ 2.5% from Reaper's last decision price `decPx` · a new high · a reversal giving back ≥ max(2 pts, 30%) of a ≥ +3% peak
+  · crossed below support / invalidation) → the fresh price goes into `_jup_px_cache`, that pool's live candles are marked stale, the tier tick
+  runs NOW (≤ 1 wake per seat per 6s). Candidate: `candidate_wake` (≥ 3% since its read · a live breakout ≥ 0.5% over its local high) →
+  `_agents['wake']` → the agents' loop (2s sleep) runs the next pass at once (≥ 20s apart). Reaper: `run_state` ACCELERATING · RUNNING ·
+  STALLING · REVERSING · BREAKING DOWN (live price AND the live chart's last close under the thesis invalidation); a RUNNER (accelerating /
+  running, green) is never sold by a time window (R9 / R9e / R9 time) — only a clearly better challenger takes its seat; a green coin
+  BREAKING DOWN is banked at once (`R7b breakdown`). Reports carry `fresh` (price · tape · candle · agent input · decision ages, `stale`) and
+  `phase` (`market_phase`: BASE · EARLY MOVE · ACCELERATION · BREAKOUT · RUNNING · DISTRIBUTION · REVERSAL · COLLAPSE); rows carry `mp`.
+  UI: PositionCard RUN + FreshLine, OfficePositions WakeLine (payload `wake`). Trail LEVELS are unchanged — only the timing moved.

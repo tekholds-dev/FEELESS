@@ -6842,6 +6842,7 @@ def _li_attach(table, now):
     for x in table or []:
         try:
             x['li'] = _li_row(x, now)
+            x['mp'] = _mw.market_phase(x.get('chart'), x['li'])   # BASE · EARLY MOVE · ACCELERATION · BREAKOUT · RUNNING · DISTRIBUTION · REVERSAL · COLLAPSE
         except Exception as e:
             print('launch intel:', e)
             break
@@ -8373,6 +8374,11 @@ async def _real_guard_loop():
                         for m_ in _so.hard_cross(c.get('legs'), px, stops_, _fuse._f(_oe.policy(rcfg).get('sl')) or None, _ci.CATASTROPHIC_STOP):
                             if now - _guard_seen.get(m_, 0) >= 30:
                                 _guard_seen[m_] = now; wake_ = True
+                    if agents_c:
+                        try:   # ⚡ the chart drives the timing: a material live move on a seat / a waiting candidate wakes Reaper / Trigger now
+                            wake_ = (await _market_wake(agents_c, now)) or wake_
+                        except Exception as e:
+                            print('market wake:', e)
                     if wake_:
                         await _prime_tick(time.time())
                     if now - _flow_at['t'] >= FLOW_EVERY:   # 🌊 + 🚨 flow exits and the rug radar, every ~15s
@@ -9857,6 +9863,9 @@ async def _prime_tick_inner(now):
                 if cand_ or held_p:
                     await _jup_prices([t_['mint'] for t_ in cand_] + list(held_p))
                     await _office_candle_refresh({**held_p, **{t_['mint']: t_['pair'] for t_ in cand_}}, now)
+                    _office['watchC'] = {t_['mint']: {'sym': t_.get('symbol'), 'px': _fuse._f((_jup_px_cache.get(t_['mint']) or (0, 0))[1]) or _fuse._f(t_.get('px')),
+                                                      'high': max([_fuse._f(r_[2]) for r_ in ((_office['candles'].get(t_['pair']) or (0, []))[1] or [])[-10:]] or [0])}
+                                         for t_ in cand_ if t_.get('mint') and t_.get('pair')}   # ⚡ what a live breakout / material move is measured from
                 young_p = [t_['pair'] for t_ in near0_ if t_.get('pair') and int(_fuse._f(((_office['charts'].get(t_['mint']) or {}).get('f') or {}).get('stepN'))) < _ci.LADDER_MIN][:6]
                 meta_ = {}
                 if young_p:   # 🧬 TRENCH META: the tape of each candidate too young for a chart (≤ 6 pools, the shared 12s tape cache)
@@ -12327,7 +12336,7 @@ async def _agents_loop():
             await _agents_tick(time.time())
         except Exception as e:
             print('agents loop:', e)
-        await asyncio.sleep(5)
+        await asyncio.sleep(2)
 
 
 async def _fuse_warm_loop():
@@ -12410,6 +12419,7 @@ import agents as _ag
 import trench_mind as _tm
 import opportunity as _opp
 import launch_intel as _li
+import market_wake as _mw
 import judge_review as _jr
 LINGO_PATH = FUSE_HQ_PATH.parent / 'trench_lingo.json'   # 📖 slang the desk learned from Pump callers' own words (per-day counts + learned words)
 AGENTS_PATH = FUSE_HQ_PATH.parent / 'agents.json'   # 🤖 the agent desk: Tally's tapes, every call, every judged result
@@ -12422,7 +12432,8 @@ async def _agents_tick(now):
     """🤖 One pass of the four agents (Tally → Sherlock → Trigger → Devil) over the busiest open-list coins, then every open call is judged
     at 5 / 15 / 60 min at Jupiter's price. Runs in the warm loop — any hour, whenever there is internet. A pass where Jupiter answers
     nothing is not judged (an outage must not read as every coin vanishing)."""
-    if now - _agents['at'] < AGENTS_EVERY or os.environ.get('PYTEST_CURRENT_TEST'):
+    woke = _fuse._f(_agents.get('wake')) > _fuse._f(_agents['at'])   # ⚡ a live breakout / material move on a waiting candidate: Trigger re-reads now
+    if (now - _agents['at'] < AGENTS_EVERY and not (woke and now - _agents['at'] >= _mw.GAP_CAND)) or os.environ.get('PYTEST_CURRENT_TEST'):
         return
     _agents['at'] = now
     try:
@@ -12756,6 +12767,56 @@ def _office_scores(cases, cur, vels, lost, now):
         v_ = _mkt_view(m, l.get('pairAddress'), now)
         out[m] = _so.score(by[m], {'pxAge': None if not v_.get('pxAt') else now - _fuse._f(v_['pxAt']), 'social': soc.get(m), 'vel': (vels or {}).get(m) or {'state': 'UNKNOWN'}, 'verdict': verd.get(m), 'universe': uni_})
     return out
+
+
+_wake: dict = {'pos': {}, 'candAt': 0.0, 'log': [], 'n': 0, 'candN': 0}
+
+
+async def _live_px(mints):
+    """⚡ The live price the FEELESS charts draw (the candles service's stream price, its shared 5s cache) for many coins in ONE local call."""
+    ms = [m for m in dict.fromkeys(mints or []) if m][:60]
+    if not ms or os.environ.get('PYTEST_CURRENT_TEST'):
+        return {}
+    try:
+        async with httpx.AsyncClient(timeout=3) as http:
+            r = await http.get('http://127.0.0.1:5099/api/candles/prices', params={'mints': ','.join(ms)})
+            return {m: _fuse._f(v) for m, v in (r.json() or {}).items() if _fuse._f(v) > 0}
+    except Exception:
+        return {}
+
+
+def _wake_note(kind, sym, why, now):
+    _wake['log'] = (list(_wake['log']) + [{'at': now, 'kind': kind, 'sym': sym, 'why': '; '.join(why[:2])}])[-20:]
+
+
+async def _market_wake(agents_c, now):
+    """⚡ MARKET-EVENT WAKEUPS between office passes: the live chart price for the agents' seats and their waiting candidates → a material
+    change wakes Reaper (tier tick on freshly refreshed live candles) or Trigger (an early agents' pass). → True when the tier tick should run now."""
+    pos_ = _office.get('pos') or {}
+    legs_ = [l for c in agents_c for l in c.get('legs') or [] if l.get('mint') in pos_ and not l.get('placeholder')]
+    cand_ = _office.get('watchC') or {}
+    lp = await _live_px([l['mint'] for l in legs_] + list(cand_))
+    if not lp:
+        return False
+    tick = False
+    for l in legs_:
+        m = l['mint']
+        why = _mw.position_wake(pos_[m], lp.get(m))
+        if why and _mw.due(_wake['pos'].get(m), now, _mw.GAP_POS):
+            _wake['pos'][m] = now; _wake['n'] += 1; tick = True
+            _jup_px_cache[m] = (now, lp[m])   # the tick decides on THIS price (the shared 20s cache could be a candle old)
+            pa = l.get('pairAddress')
+            if pa and _office['candles'].get(pa):   # … and on a re-read live chart (the refresh skips anything younger than its TTL)
+                _office['candles'][pa] = (0.0,) + tuple(_office['candles'][pa][1:])
+            _wake_note('reaper', l.get('symbol'), why, now)
+    hit = [(m, _mw.candidate_wake(c, lp.get(m))) for m, c in cand_.items()]
+    hit = [(m, w) for m, w in hit if w]
+    if hit and _mw.due(_wake['candAt'], now, _mw.GAP_CAND) and now - _fuse._f(_agents.get('at')) >= _mw.GAP_CAND:
+        _wake['candAt'] = now; _wake['candN'] += 1
+        _agents['wake'] = now   # the agents' loop runs its next pass now (≤ 2s), not at the 55s mark
+        for m, w in hit[:3]:
+            _wake_note('trigger', (cand_.get(m) or {}).get('sym'), w, now)
+    return tick
 
 
 async def _office_candle_refresh(want, now):
@@ -13157,6 +13218,12 @@ def _office_reap(cur, px, cfg_t, ctl, now, dec, pol=None, live=True, vels=None, 
                                   vels=vels, margins=margins, rug=rug, press=press)
         for g in gone:
             g['take'] = _of.take_line(cfg_t, _agents.get('scalp'))
+        by_ = {x_.get('mint'): x_ for x_ in _agents.get('table') or []}
+        for r_ in rep:   # ⏱ DATA FRESHNESS per seat: nothing is called LIVE on stale inputs
+            m_, pa_ = r_.get('mint'), r_.get('pair')
+            r_['fresh'] = _mw.ages(now, (_jup_px_cache.get(m_) or (None,))[0], (_flow_now.get(pa_) or (None,))[0], (_office['candles'].get(pa_) or (None,))[0],
+                                   (by_.get(m_) or {}).get('chartAt') or _agents.get('passAt'), now)
+            r_['phase'] = _mw.market_phase((_office.get('charts') or {}).get(m_), (by_.get(m_) or {}).get('li'))
         _office.update(pos=pos, reports=rep, gone=list(_office.get('gone') or []) + gone)
         _office_lat('reaper', (time.perf_counter() - t0) * 1000)
         return _of.merge_reaper(dec, rep, buys_left, edge)
@@ -13224,6 +13291,7 @@ def _office_light(tid, cur, now):
         p['mission'] = {**p['mission'], 'lastAction': last, 'dutyAt': _office['dutyAt']}
         p['seat'], p['switchEval'], p['ready'] = _agents.get('seat'), _agents.get('switchEval'), _oe.ready(_office['boot'], now)
         p['ops'] = _oe.ops(p['ready'], p['seat'], _office.get('courier'), _is_keeper(), _ag.FILL_MOVES_HR)
+        p['wake'] = {'reaper': _wake['n'], 'trigger': _wake['candN'], 'log': list(_wake['log'])[-8:], 'watching': len(_office.get('watchC') or {})}   # ⚡ market-event wakeups
         p['cycle'] = {**(_office.get('cycle') or {}), 'nextIn': max(0, round(_fuse._f((_office.get('cycle') or {}).get('at')) + AGENTS_EVERY - now)) if _office.get('cycle') else None}
         p['seatActions'] = _oe.seat_actions(((_agents.get('card') or {}).get('seats')), _agents.get('decisions'), _agents.get('switchEval'), _agents.get('seat'))
         p.update(_office_seat_payload())
