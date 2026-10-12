@@ -12,7 +12,15 @@ SOL = 'So11111111111111111111111111111111111111112'
 
 
 def jup(mints):
-    # httpx (backend venv, ships its own CA bundle): the Mac's python.org urllib often has no CA certs → "offline" + a fake $150 SOL
+    # the local candles service first (the price every FEELESS chart draws, shared cache — no 429), then Jupiter
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:5099/api/candles/prices?mints={','.join(mints)}", timeout=6) as r:
+            d = {m: float(v) for m, v in (json.loads(r.read()) or {}).items() if v}
+        if d.get(SOL):
+            return d
+    except Exception:
+        pass
+    # httpx (backend venv, ships its own CA bundle): the Mac's python.org urllib often has no CA certs
     try:
         import httpx
         d = httpx.get('https://lite-api.jup.ag/price/v3', params={'ids': ','.join(mints)}, timeout=8).json()
@@ -34,7 +42,10 @@ def main():
     books = d.get('books') or {}
     now = time.time(); since = now - hours * 3600
     mints = sorted({m for b in books.values() for m in (b.get('legs') or {})} | {SOL})
-    px = jup(mints); sol_px = px.get(SOL) or 150.0
+    px = jup(mints); sol_px = px.get(SOL)
+    if not sol_px:   # 💲 never a made-up SOL price: a constant $150 once made every SOL figure read ~38% high
+        print('SOL price unavailable (candles service + Jupiter both failed) — no dollar report rather than a wrong one')
+        return
     u = lambda v: f"${v:,.2f}" if v is not None else '—'
     print(f"FUSE WALLET — last {hours:g}h · SOL {u(sol_px)}{'' if px else ' (offline: held coins at cost)'}")
     wallet = [r for r in rows if r.get('card') == 'wallet' and r.get('at', 0) >= since]
