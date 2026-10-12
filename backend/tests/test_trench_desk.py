@@ -165,3 +165,15 @@ def test_every_agents_tab_chart_is_the_live_feeless_chart():
     room = (FRONT / 'OfficeRoom.jsx').read_text()
     assert '<PriceChartLazy' in room and 'useLiveCandles(model0?.wall?.pair' in room   # panel / seats / candidates = PriceChart · wall = the war room's own 1m candles
     assert 'export function RoundBar' in (FRONT / 'SeatOps.jsx').read_text()
+
+
+def test_an_unread_holder_scan_is_pending_not_a_rejection():
+    """Live, 2026-10-12: 'holders not read yet' was REJECTED for 30 min — every newborn starts unscanned."""
+    r = row('P')
+    s = tr.step({}, [r], 0, {'P': 'holders not read yet'}, {})
+    assert not s['c']['P'].get('decision') and s['c']['P']['reads'][0]['pending'] == 'holders not read yet'
+    s = tr.step(s, [r], 310, {}, {'P': ('B', 60)})                            # the scan landed: it keeps its rounds
+    s = tr.step(s, [{**r, 'px': 1.02}], 620, {}, {'P': ('B', 62)})
+    assert s['c']['P']['decision'] == 'ENTER'
+    s = _run([(0, [r]), (310, [r]), (620, [r])], hard={'P': 'holders not read yet'})
+    assert s['c']['P']['decision'] == 'COOLDOWN' and 'pending' in s['c']['P']['why']

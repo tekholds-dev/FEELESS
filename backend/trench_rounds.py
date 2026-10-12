@@ -20,6 +20,7 @@ WAKE_PX = 5.0             # a ≥ 5% price move since the last read, a tier upgr
 AVOID = ('LATE FOMO', 'DISTRIBUTION', 'COLLAPSE')
 PREFER = ('EARLY ACCELERATION', 'FIRST PULLBACK', 'RECLAIM', 'BREAKOUT')
 HIST_KEEP = 400
+PENDING = ('holders not read yet', 'no live price')   # not a NO yet: a newborn's holder scan / price is still coming — it keeps its rounds
 TIER_RANK = {'A': 3, 'B': 2, 'C': 1}
 
 
@@ -42,7 +43,7 @@ def time_left(first, now):
 
 def read_of(row, tier, score, phase, now):
     n, v, li = row.get('nums') or {}, row.get('vitals') or {}, row.get('li') or {}
-    return {'at': round(now, 1), 'px': _f(row.get('px')), 'tier': tier, 'score': None if score is None else round(_f(score), 1),
+    return {'at': round(now, 1), 'px': _f(row.get('px')), 'tier': tier, 'pending': row.get('_pending'), 'score': None if score is None else round(_f(score), 1),
             'buy': n.get('buy'), 'liq': n.get('liq') or v.get('liq'), 'd5': n.get('d5'), 'phase': phase, 'ewp': li.get('ewp'),
             'go': bool(row.get('go'))}
 
@@ -71,7 +72,9 @@ def improving(reads):
 def decide(reads):
     """Round 3 → (ENTER | REJECT | COOLDOWN, why)."""
     z = reads[-1]
-    ok, why = confirmed(reads)
+    if z.get('pending'):
+        return 'COOLDOWN', f"still pending after three rounds: {z['pending']}"
+    ok, why = confirmed([r for r in reads if not r.get('pending')] or reads)
     if not z.get('tier'):
         return 'REJECT', 'no tier after three rounds (score under C)'
     if not ok:
@@ -86,6 +89,8 @@ def decide(reads):
 def woken(e, row, tier, now):
     """A cooled / rejected coin comes back as a new round 1 when something MATERIAL changed."""
     last = (e.get('reads') or [{}])[-1]
+    if last.get('pending') and tier:
+        return f"{last['pending']} -> now read"
     px, lp = _f(row.get('px')), _f(last.get('px'))
     if px > 0 and lp > 0 and abs(px / lp - 1) * 100 >= WAKE_PX:
         return f"price {(px / lp - 1) * 100:+.1f}% since its last read"
@@ -119,14 +124,15 @@ def step(state, rows, now, hard=None, tiers=None, phases=None, held=()):
                 e = close(m, {**e, 'decision': None}, 'COOLDOWN', 'ENTER not seated within its round')
             elif e['decision'] in ('COOLDOWN', 'REJECT'):
                 w = woken(e, r, tier, now) if not hard.get(m) else None
-                if w or now >= _f(e.get('until')):
+                if w or now >= _f(e.get('until')) or e.get('why') in PENDING:   # an old 'pending' rejection is not a rejection
                     e = {'first': now, 'sym': r.get('symbol'), 'reads': [], 'woke': w or 'cooldown over'}
             s['c'][m] = e
             if e.get('decision'):
                 continue
         e = e or {'first': now, 'sym': r.get('symbol'), 'reads': []}
-        if hard.get(m):
+        if hard.get(m) and hard[m] not in PENDING:
             s['c'][m] = close(m, e, 'REJECT', hard[m]); continue
+        r = {**r, '_pending': hard.get(m)} if hard.get(m) else r
         rd = round_of(e['first'], now)
         reads = list(e.get('reads') or [])
         if len(reads) < rd:   # one read per round, taken from the CURRENT live row
