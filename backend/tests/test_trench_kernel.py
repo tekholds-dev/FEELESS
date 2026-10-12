@@ -128,3 +128,11 @@ def test_one_enrichment_scheduler_asks_only_for_the_strongest_and_reuses_the_ded
     k = tk.Kernel()
     k.run([row(f'S{i}', vitals={'mcap': 40_000, 'liq': 20_000, 'ageH': 0.05, 'vol1h': 20_000, 'safe': None}) for i in range(6)], 100.0)
     assert all('holders' in d['opinions']['sherlock']['requests'] for d in k.dec.values())   # Sherlock asks; the scheduler decides how many
+
+
+def test_the_view_is_consistent_after_a_newer_price_event():
+    k = tk.Kernel()
+    k.run([row('A'), row('B')], 100.0, {'held': {}})
+    k.price_event('B', 1.05, 130.0, {'held': {'B': {'entry': 1.0, 'peak': 0, 'stopNow': 20}}})   # B became held after the pass
+    v = k.view(120.0)
+    assert [l['mint'] for l in v['lanes'] if l['state'] == 'HELD'] == ['B'] and all(c['decidedAgo'] >= 0 for c in v['candidates'])
