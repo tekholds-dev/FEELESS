@@ -38,7 +38,7 @@ export function CycleLine({ c, acts, now, fresh, load }) {
   if (!c || !c.at) return null;
   const t = now || Date.now() / 1000; const ago = Math.max(0, Math.round(t - c.at)); const next = Math.max(0, Math.round(c.at + (c.every || 60) - t));
   const cell = (k, l, v, tip) => <span key={k} className={`oed-op ${typeof tip === 'string' && tip.startsWith('is-') ? tip : ''}`} data-testid={`oed-cy-${k}`} data-tip={typeof tip === 'string' && tip.startsWith('is-') ? '' : tip}><small>{l}</small><b>{v ?? '—'}</b></span>;
-  const best = c.best ? `$${c.best.symbol} ${c.best.cleared ? '✓' : '·'} ${Number(c.best.lean || 0).toFixed(1)}` : 'none';
+  const best = c.best ? `$${c.best.symbol} ${c.best.cleared ? '✓' : '·'} rank ${Math.round(Number(c.best.lean || 0))}` : 'none';
   return <div className="oed-cycle" data-testid="oed-cycle">
     <div className="oed-ops">
       {cell('last', 'LAST CYCLE', `${ago}s ago`, `cycle #${c.n ?? '—'}`)}{cell('next', 'NEXT CYCLE', `${next}s`)}
@@ -109,11 +109,11 @@ export function SwitchEval({ e }) {
   return <div className={`oed-box oed-switch ${e.switch ? 'is-go' : 'is-hold'}`} data-testid="oed-switch">
     <header><b>⇄ SWITCH TEST</b>{tag(e.switch ? 'is-go' : 'is-wait', e.switch ? 'SWITCH' : 'SEAT KEPT')}<em>{e.mode ? `mode ${e.mode}` : ''}{e.dueIn != null ? ` · next duty ${clock(e.dueIn)}` : ''}</em></header>
     <div className="oed-vs">
-      <span className="oed-side"><small>HELD</small><b>${c.symbol || '—'}</b><em className={pctCls(c.pnl)}>{sgn(c.pnl)}</em><u>{c.heldMin != null ? `${Math.round(c.heldMin)} min` : '—'} · lean {sgn(c.lean, 1, '')} · thesis {c.thesis || 'unread'}</u></span>
+      <span className="oed-side"><small>HELD</small><b>${c.symbol || '—'}</b><em className={pctCls(c.pnl)}>{sgn(c.pnl)}</em><u>{c.heldMin != null ? `${Math.round(c.heldMin)} min` : '—'} · rank {c.score ?? '—'} · thesis {c.thesis || 'unread'}</u></span>
       <span className="oed-arrow" aria-hidden>{e.switch ? '⇄' : '⇸'}</span>
-      <span className="oed-side"><small>CHALLENGER</small>{n ? <><b>${n.symbol}</b><em>{n.cleared ? 'cleared' : 'not cleared'}</em><u>lean {sgn(n.lean, 1, '')} · {n.structure || 'no chart'}{n.data ? ` · data ${String(n.data).replace(/_/g, ' ').toLowerCase()}` : ''}</u></> : <b className="oed-nil">none</b>}</span>
+      <span className="oed-side"><small>CHALLENGER</small>{n ? <><b>${n.symbol}</b><em>{n.cleared ? 'READY' : 'not ready'}</em><u>rank {n.score ?? '—'} · {n.structure || 'no chart'}{n.data ? ` · data ${String(n.data).replace(/_/g, ' ').toLowerCase()}` : ''}</u></> : <b className="oed-nil">none</b>}</span>
     </div>
-    <div className="oed-meter" data-tip="Read margin = challenger's lean − the held coin's lean. The tick is what your mode needs."><small>READ MARGIN</small><span className="oed-bar is-mid"><i className={Number(e.edge) >= need ? '' : 'is-short'} style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, Math.max(0, Number(e.edge) || 0) / span))})` }} /><u style={{ left: `${Math.min(100, (need / span) * 100)}%` }} /></span>
+    <div className="oed-meter" data-tip="Rank margin = the READY challenger's kernel rank − the held coin's. The tick is what your switching mode needs."><small>RANK MARGIN</small><span className="oed-bar is-mid"><i className={Number(e.edge) >= need ? '' : 'is-short'} style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, Math.max(0, Number(e.edge) || 0) / span))})` }} /><u style={{ left: `${Math.min(100, (need / span) * 100)}%` }} /></span>
       <b>{sgn(e.edge, 1, '')}<u> / need {sgn(need, 1, '')}</u></b></div>
     <ul className="oed-lines" data-testid="oed-lines">{(e.lines || []).map(([l, ok, d]) => <li key={l} className={ok ? 'is-ok' : 'is-no'}><span aria-hidden>{ok ? '✓' : '✕'}</span><b>{l}</b><em>{d}</em></li>)}</ul>
     <p className="oed-why" data-testid="oed-switch-why">{e.why}</p>
@@ -251,6 +251,6 @@ export function LaunchRecord({ launch }) {
         <td><span className="oed-bar is-mid"><i className={v.med5 < 0 ? 'is-short' : ''} style={{ transform: `scaleX(${Math.min(1, Math.abs(v.med5 || 0) / max)})` }} /></span></td>
         <td className={pctCls(v.med15)}>{v.med15 == null ? '—' : sgn(v.med15)}</td><td>{v.won}%</td><td>{v.enterN ? `${v.enterN} · ${sgn(v.enterMed5)}` : '—'}</td></tr>)}</tbody></table>
       : <span className="oed-nil">no judged call carries its launch context yet — calls store it from this version on</span>}
-    <p className="oed-why">{launch?.source} · fewer than 5 calls = “too few”, never a verdict · Devil objects to a context only on ≥ 15 of our own ENTER calls with a typical 5-min result ≤ −3%.</p>
+    <p className="oed-why">{launch?.source} · fewer than 5 calls = “too few”, never a verdict · the paper Devil refuses a context only on ≥ 15 of our own ENTER calls with a typical 5-min result ≤ −3%.</p>
   </div>;
 }

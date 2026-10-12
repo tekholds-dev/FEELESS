@@ -3,11 +3,13 @@ import { createRoot } from 'react-dom/client';
 import { act } from 'react';
 import { AgentAlert, agentAlerts, weakestSeat } from './ArenaPrime';
 
-const go = (sym, extra = {}) => ({ mint: sym, pair: 'P' + sym, symbol: sym, px: 1, go: true, nums: { d5: 3, buy: 64, liq: 60000 }, why: { lean: 2.5, drivers: [['buyers', 1, 'buyers in charge']] }, trigger: ['enter', 'x'], devil: ['agree', 'no evidence against it'], ...extra });
+// READY is the KERNEL's word (`k`); the paper desk's `go` alerts nobody
+const K = { status: 'READY', rank: 150, trigger: 'ENTER', narrative: 'RUNNING', why: 'RUNNING — buyers in charge', devil: [], size: 1, unknown: [], courier: true };
+const go = (sym, extra = {}) => ({ mint: sym, pair: 'P' + sym, symbol: sym, px: 1, go: false, k: K, nums: { d5: 3, buy: 64, liq: 60000 }, why: { lean: 2.5, drivers: [['buyers', 1, 'buyers in charge']] }, trigger: ['enter', 'x'], devil: ['agree', 'no evidence against it'], ...extra });
 const legs = [{ mint: 'A', pairAddress: 'PA', symbol: 'A', pnlPct: 12 }, { mint: 'B', pairAddress: 'PB', symbol: 'B', pnlPct: -8 }, { mint: 'F', pairAddress: 'PF', symbol: 'F', pnlPct: -30, frozen: true }];
 
 test('alerts: only GO coins not on the card and not seen; the weakest swappable seat is the default; frozen never', () => {
-  expect(agentAlerts([go('X'), go('A'), go('Y', { go: false }), go('Z')], legs, { Z: 1 }).map(x => x.symbol)).toEqual(['X']);
+  expect(agentAlerts([go('X'), go('A'), go('Y', { go: true, k: { ...K, status: 'CONTENDING', rank: 90 } }), go('Z')], legs, { Z: 1 }).map(x => x.symbol)).toEqual(['X']);
   expect(weakestSeat(legs).symbol).toBe('B');
 });
 

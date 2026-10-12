@@ -12964,7 +12964,6 @@ async def _agents_tick(now):
         cand_c.sort(key=lambda c_: (_old_c(c_), _fk((c_.get('row') or {}).get('vitals')), rank_.get(c_['mint'], 999), not c_.get('cleared'), -_fuse._f(c_.get('lean'))))
         why_ = {}
         top_ = {}
-        uni_d = _so.universe(_agents.get('money'))[0]   # 🧭 recovery: more of the deep reviews go to YOUNG coins (≤ 6h), the buyable trench
         n_cases_, n_new_, young_min_ = OFFICE_CANDLE_CASES - 6, OFFICE_CANDLE_NEW + 6, _opp.OLD_H * 60   # 🆕 0–12h coins dominate the deep review, whatever the phase
         for c_ in cand_c:
             due_, w_ = _oe.review_due(seen_mem.get(c_['mint']), now)
@@ -13936,8 +13935,6 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
                    'warden': wd if wd and wd.get('mint') == m and now - _fuse._f(wd.get('at')) <= 900 else None, 'filed': True}
         cur_case = {**_tkv.case_view(case, cur_ctx), 'chart': _office_chart_view(_office['charts'].get(m), row)}
     ms = {a: (_office['lat'].get(a) or [None])[-1] for a in _of.CHAIN}
-    feed = st.get('feed') or []
-    rec = lambda who: [{'at': f.get('at'), 'text': (f"${f['sym']} · " if f.get('sym') else '') + str(f.get('text') or '')[:150]} for f in feed if f.get('who') == who][-4:][::-1]
     dv_rec = _of.devil_record(st, 72, now)   # 📝 the practice desk's objection record (display)
     gens_ = {g_['role']: g_ for g_ in _tkl.generations(_lc_book(now), now)}
     reviews_ = ((of.get('judge') or {}).get('reviews')) or []
@@ -14003,7 +14000,8 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         'office': {'chain': list(_of.CHAIN), 'priority': list(_of.PRIORITY), 'coins': perf.get('coins'), 'cases': len(cases), 'cleared': sum(1 for c_ in cases if c_['cleared'])},
         'agents': _of.agent_cards(cards, {'live': live, 'office': of}), 'currentCase': cur_case, 'pipeline': pipe,
         'queue': queue, 'positions': _office_positions(), 'exiting': [{'mint': p_['mint'], 'sym': p_.get('sym'), 'rule': p_.get('askRule'), 'state': (p_.get('exit') or {}).get('state'), 'since': p_.get('leftAt')} for p_ in _office['exiting']],
-        'execution': cour, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': list(reversed((of.get('lineage') or [])[-8:])), 'devil': dv_rec[:10], 'needShadow': _of.SHADOW_N, 'needPropose': _of.PROPOSE_N},
+        'execution': cour, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': [{'agent': x_.get('role'), 'gen': x_.get('gen'), 'why': f"{x_.get('status') or 'replaced'} — {x_.get('why') or ''}" + (f" · next generation: {x_['changed']}" if x_.get('changed') else ''), 'at': x_.get('retiredAt')}
+                                                         for x_ in reversed((_lc_book(now).get('lineage') or [])[-12:])], 'devil': dv_rec[:10], 'needShadow': _of.SHADOW_N, 'needPropose': _of.PROPOSE_N},
         'index': (_office.get('index') or [])[:80], 'rpc': {'lanes': _rpc_quota_state(), 'note': 'keyed lanes = keeper sends / balances first, then holder scans (budgeted); discovery comes from Pump\'s live stream + the launch boards — no RPC first-seen listener runs'},
         'court': _office.get('court'), 'opp': _office.get('opp'),   # 👨‍⚖️ the Judge's loss / win reviews + rules · 🎯 this pass's A / B / C ranking counts
         'judge': {'probation': [r_ for r_, g_ in gens_.items() if g_['status'] == 'PROBATION'], 'rulings': len(reviews_), 'probationAt': _tkl.PROBATION_N, 'replaceAt': _tkl.REPLACE_N,

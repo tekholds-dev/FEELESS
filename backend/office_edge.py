@@ -158,7 +158,7 @@ def radar_gone(off_since, now, live=True):
 
 # ── 🪑 EMPTY SEATS ───────────────────────────────────────────────────────────────────────────────────────────────────────────────
 FAILED_SEC = 6 * 3600     # a coin the agents left at a loss is not bought back for 6h (never the same failed thesis again)
-CHECK_WORD = {'scan': 'holder scan', 'age': 'too young', 'pool': 'pool under $20K', 'burn': 'burned us', 'devil': 'Devil objects', 'chart': 'entry timing not ready', 'data': 'data not ENTER-grade'}
+CHECK_WORD = {'scan': 'holder scan', 'age': 'too young', 'pool': 'pool under $20K', 'burn': 'burned us', 'devil': 'Devil blocks', 'chart': 'entry timing not ready', 'data': 'data not ENTER-grade'}
 
 
 def blockers(cases):
@@ -552,7 +552,7 @@ def review(state, arch, office, now, n=8, marks=None):
     ent = [d for d in js if d.get('kind') == 'enter']
     entry = [item(d, f"ENTER, {_f(d['p5']):+.1f}% at 5 min", 'trigger', d.get('ce') or 'bar', 'entered a move that was already ending' if d.get('cs') in ('PARABOLIC', 'DISTRIBUTION') else 'the read did not hold for 5 minutes')
              for d in sorted(ent, key=lambda d: _f(d['p5'])) if _f(d['p5']) <= -10][:n]
-    vet = [item(d, f"Devil objected, it ran {_f(d['p5']):+.1f}% in 5 min", 'devil', d.get('devilRule') or d.get('devilWhy'), 'this objection blocked a winner — its own record decides whether it keeps standing')
+    vet = [item(d, f"paper Devil refused it, it ran {_f(d['p5']):+.1f}% in 5 min", 'devil', d.get('devilRule') or d.get('devilWhy'), 'this objection blocked a winner — its own record decides whether it keeps standing')
            for d in sorted(ent, key=lambda d: -_f(d['p5'])) if d.get('devil') == 'object' and _f(d['p5']) >= 10][:n]
     dq = [item(d, f"data {d.get('dq')} at the call", 'tally', d.get('dq'), 'nothing was entered on it' if d.get('kind') != 'enter' else 'ENTERED on data that was not ENTER-grade')
           for d in js if d.get('dq') and d['dq'] in _md.READ_FAIL][-n:]

@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { tiny } from '../../lib/num';
+import { devilOf, rowState, VERD } from '../../lib/agentRead';
+import { useOffice } from '../../lib/agentHub';
 import '../../styles/officeBoard.css';
 
 // 🏢 THE OFFICE (HQ › Agents › 🏢 Office): the ten desks of the real-money chain as DATA — the mission from the real card's own numbers,
@@ -7,8 +9,12 @@ import '../../styles/officeBoard.css';
 // agent is: ideology, ethics, immutable rules, tunables with their bounds, this pass's inputs and output, its record and the code
 // that runs it. Nothing here computes a number of its own: it renders the one payload `backend/office.py` builds each pass.
 
-export const STAGE_CLS = { WAITING: 'is-wait', WORKING: 'is-work', PASS: 'is-pass', OBJECT: 'is-obj', VETO: 'is-veto', DONE: 'is-done', ERROR: 'is-err', STALE: 'is-stale' };
-export const STATUS_CLS = { alive: 'is-alive', probation: 'is-prob', demoted: 'is-dem', retired: 'is-ret' };
+// a desk's stage for a candidate. WARN = Devil's ordinary concern (it lowers a rank and never stops the line); only VETO / ERROR stop it
+export const STAGE_CLS = { WAITING: 'is-wait', WORKING: 'is-work', PASS: 'is-pass', WARN: 'is-obj', VETO: 'is-veto', DONE: 'is-done', ERROR: 'is-err', STALE: 'is-stale' };
+export const STAGE_WORD = { WARN: '⚠ WARNS', VETO: '✕ BLOCKED' };
+// ONE lifecycle for all ten roles: the generation in control is ACTIVE or on PROBATION (a replaced one is SHADOW, then RETIRED)
+export const STATUS_CLS = { active: 'is-alive', alive: 'is-alive', probation: 'is-prob', shadow: 'is-dem', retired: 'is-ret' };
+export const DEVIL_TAG = { veto: 'is-veto', warn: 'is-obj', clear: 'is-pass' };
 export const REAP_CLS = { HOLD: 'is-hold', PROTECT: 'is-prot', TAKE: 'is-take', 'EXIT INVALIDATED': 'is-exit' };
 export const HEALTH_CLS = { HEALTHY: 'is-pass', DEGRADED: 'is-obj', BAD: 'is-veto' };
 
@@ -24,7 +30,6 @@ export const actionResult = r => { const s = r?.state;
   if (s === 'refused') return ['is-obj', `REFUSED by the keeper — ${r.err || ''}`];
   if (s === 'vetoed') return ['is-veto', 'VETOED by the Warden — nothing was sent'];
   return ['is-wait', 'NOT CONFIRMED YET — no filled row on the ledger']; };
-export const nextDuty = (m, now = Date.now() / 1000) => (!m?.control ? null : m.dutyAt ? Math.max(0, m.dutyAt + (m.dutyEvery || 600) - now) : 0);
 
 const Tag = ({ cls, children, tip }) => <i className={`ofb-tag ${cls || ''}`} data-tip={tip}>{children}</i>;
 
@@ -46,7 +51,7 @@ export function OfficeMission({ m, bare }) {
   const [, tick] = useState(0);
   useEffect(() => { const t = setInterval(() => tick(n => n + 1), 1000); return () => clearInterval(t); }, []);
   if (!m) return <div className="ofb-mission is-cold" data-testid="ofb-mission"><b>💵 REAL MONEY MISSION</b><span className="ofb-nil">waiting for the agents' first pass — nothing is shown until the real card's own numbers arrive</span></div>;
-  const left = nextDuty(m); const la = m.lastAction; const [rc, rt] = actionResult(la?.result); const be = m.toBreakeven;
+  const la = m.lastAction; const prob = m.probation || []; const [rc, rt] = actionResult(la?.result); const be = m.toBreakeven;
   return <div className={`ofb-mission ${m.locked ? 'is-locked' : 'is-clear'} ${bare ? 'is-bare' : ''}`} data-testid="ofb-mission">
     {bare ? null : <b data-tip="Every number here is the real Fuse card's own: its server value and what you put in. The page computes nothing.">💵 REAL MONEY MISSION</b>}
     <div className="ofb-mgrid">
@@ -57,7 +62,7 @@ export function OfficeMission({ m, bare }) {
       <span data-testid="ofb-double"><small>DOUBLE TARGET {usd(m.doubleTarget)}</small><em className={m.toDouble == null ? '' : m.toDouble >= 0 ? 'ofb-up' : 'ofb-dn'}>{m.toDouble == null ? '—' : m.toDouble >= 0 ? '✓ reached' : `−$${Math.abs(m.toDouble).toFixed(2)}`}</em><u>{m.toDouble == null ? '' : m.toDouble >= 0 ? 'graduation target met' : `to 2×${m.needX2 ? ` · needs ${m.needX2}×` : ''}`}</u></span>
       <span data-testid="ofb-stage"><small>CURRENT STAGE</small><em>{m.stage} MIN</em><u>{m.phase === 'GROWTH' ? 'growth mode' : m.phase === 'RECOVERY' ? 'recovery mode' : ''}</u></span>
       <span data-testid="ofb-lock" data-tip={m.lockRule}><small>NEXT STAGE</small><em className={m.locked ? 'ofb-warn' : 'ofb-up'}>{m.lock === 'UNKNOWN' ? '— UNKNOWN' : m.locked ? '🔒 LOCKED' : '🔓 ELIGIBLE'}</em><u data-testid="ofb-unlock">unlock: {m.unlock || 'real equity ≥ 2× put-in'}</u></span>
-      <span data-testid="ofb-lives"><small>TEAM LIVES</small><em className={m.lives != null && m.lives <= 3 ? 'ofb-dn' : ''}>{m.lives ?? '—'} / {m.livesOf}</em><u data-testid="ofb-duty">next duty {left == null ? 'off (control off)' : left <= 0 ? 'due now' : clock(left)}</u></span>
+      <span data-testid="ofb-gens" data-tip="ONE lifecycle for all ten roles, judged on REAL exits only: PROBATION at 2 net real losses pinned on a role, its generation replaced at 3."><small>GENERATIONS</small><em className={prob.length ? 'ofb-warn' : 'ofb-up'}>{prob.length ? `${prob.length} ⚠ PROBATION` : '10 ACTIVE'}</em><u>{prob.length ? prob.join(' · ') : 'judged on real exits only'}</u></span>
       {bare ? <span className="ofb-lasttile" data-testid="ofb-last" data-tip={la ? `${la.why} — ${rt}` : 'no real agent action since the service started'}><small>LAST REAL ACTION</small><em>{la ? `${la.move?.toUpperCase()} $${la.sym}` : '—'}</em>{la ? <u className={rc}>{rt.split(' — ')[0].split(' · ')[0]} · {ago(la.at)}</u> : null}</span> : null}
     </div>
     {bare ? null : <>    <p className="ofb-last" data-testid="ofb-last"><small>LAST REAL ACTION</small>{la ? <><span>{la.move?.toUpperCase()} ${la.sym}{la.usd != null ? ` · ${usd(la.usd)}` : ''} · {ago(la.at)}</span><Tag cls={rc}>{rt}</Tag><span className="ofb-why">{la.why}</span></> : <span className="ofb-nil">none since the service started</span>}</p>
@@ -69,11 +74,11 @@ export function OfficePipeline({ pipe, cur, agents, onPick, sel }) {
   const icon = Object.fromEntries((agents || []).map(a => [a.key, [a.icon, a.name]]));
   return <div className="ofb-pipe" data-testid="ofb-pipe">
     <div className="ofb-phead"><b>🧵 THE LINE · the current candidate, desk by desk</b>
-      {cur ? <span className="ofb-cand" data-testid="ofb-cand">${cur.symbol} <small>lean {sgn(cur.lean, 1, '')} · {cur.cleared ? <Tag cls="is-pass">CLEARED</Tag> : <Tag cls="is-obj">BLOCKED</Tag>}{cur.go ? <Tag cls="is-pass">GO</Tag> : null}</small></span> : <span className="ofb-nil">no candidate this pass</span>}</div>
+      {cur ? <span className="ofb-cand" data-testid="ofb-cand">${cur.symbol} <small>rank {cur.rank ?? '—'} · <Tag cls={rowState(cur) === 'go' ? 'is-pass' : rowState(cur) === 'obj' ? 'is-veto' : rowState(cur) === 'warn' ? 'is-obj' : 'is-wait'} tip={cur.why}>{VERD[rowState(cur)]}</Tag></small></span> : <span className="ofb-nil">no candidate this pass</span>}</div>
     <ol className="ofb-stages">{(pipe || []).map((s, i) => <li key={s.agent} className={`ofb-stage ${STAGE_CLS[s.state] || 'is-wait'} ${sel === s.agent ? 'is-on' : ''}`} style={{ '--i': i }}>
       <button type="button" onClick={() => onPick(s.agent)} aria-pressed={sel === s.agent} data-testid={`stage-${s.agent}`} data-tip={s.word}>
         <span className="ofb-sname">{icon[s.agent]?.[0]} {icon[s.agent]?.[1] || s.agent}</span>
-        <strong>{s.state}</strong><small className="ofb-sms">{ms(s.ms)}</small><span className="ofb-sword">{s.word}</span></button></li>)}</ol>
+        <strong>{STAGE_WORD[s.state] || s.state}</strong><small className="ofb-sms">{ms(s.ms)}</small><span className="ofb-sword">{s.word}</span></button></li>)}</ol>
     {cur ? <div className="ofb-checks" data-testid="ofb-checks">{(cur.checks || []).map(c => <Tag key={c[0]} cls={c[1] ? 'is-pass' : 'is-veto'} tip={c[2]}>{c[1] ? '✓' : '✕'} {c[0]} · {c[2]}</Tag>)}</div> : null}
     {cur ? <ChartBox c={cur.chart} cur={cur} /> : null}
   </div>;
@@ -109,7 +114,7 @@ export function DataLine({ q, degraded, compact, noVol }) {
 
 export function ChartBox({ c, cur }) {
   if (!c) return <div className="ofb-chart is-none" data-testid="ofb-chart"><b>📈 CHART</b><span className="ofb-nil">no chart snapshot for this coin this pass — nothing is claimed about its structure</span></div>;
-  const f = c.f || {}; const wd = cur?.warden; const dv = cur?.devil;
+  const f = c.f || {}; const wd = cur?.warden?.preview ? null : cur?.warden; const dv = devilOf(cur);
   return <div className="ofb-chart" data-testid="ofb-chart">
     <div className="ofb-chead"><b>📈 CHART · what the agents read</b><Tag cls={STRUCT_CLS[c.state] || 'is-wait'} tip={`${c.n} one-minute candles · ${c.src === 'candles' ? 'real OHLC candles' : "Tally's own tape (closes only — wicks not measured)"}`}>{c.state}</Tag>
       <small>{c.src === 'candles' ? `${c.n} candles` : `RECONSTRUCTED FROM TAPE · ${c.n} tape readings`} · structure confidence {c.conf == null ? '—' : `${Math.round(c.conf * 100)}%`}</small></div>
@@ -118,7 +123,7 @@ export function ChartBox({ c, cur }) {
       <span className="ofb-meter"><small>FLOW</small><em>{f.buy == null ? '—' : `${Math.round(f.buy)}%`}<u> buy</u></em></span><span className="ofb-meter"><small>LIQUIDITY</small><em>{money(f.liq)}</em>{f.liqD != null ? <u>{sgn(f.liqD, 0)} on our tape</u> : null}</span></div>
     <div className="ofb-calls">
       <span data-testid="chart-trigger"><small>TRIGGER</small><Tag cls={entryCls(c.entry?.[0])} tip={c.entry?.[2]}>{c.entry?.[0]}</Tag><i>{c.entry?.[1]} — {c.entry?.[2]}</i></span>
-      <span data-testid="chart-devil"><small>DEVIL</small><Tag cls={dv?.verdict === 'agree' ? 'is-pass' : 'is-obj'}>{dv?.verdict === 'agree' ? 'NO OBJECTION' : 'OBJECT'}</Tag><i>{(c.objs || []).length ? c.objs.map(o => o[1]).join(' · ') : 'no chart objection the measurements support'}</i></span>
+      <span data-testid="chart-devil"><small>DEVIL</small><Tag cls={DEVIL_TAG[dv.verdict]}>{dv.word}</Tag><i>{dv.objections.length ? dv.objections.map(o => o.evidence).slice(0, 3).join(' · ') : 'no evidence against it this pass'}</i></span>
       <span data-testid="chart-warden"><small>WARDEN</small><Tag cls={!c.risk || c.risk[0] >= 1 ? 'is-pass' : c.risk[0] <= 0 ? 'is-veto' : 'is-obj'}>{wd ? `${wd.eff}×` : `${c.risk?.[0] ?? '—'}× chart`}</Tag><i>{c.risk?.[1]}{wd ? ` · sized ${usd(wd.requested)} → ${usd(wd.allowed)} (${wd.decided})` : ''}</i></span>
       <span data-testid="chart-stop"><small>STOP IF ENTERED</small><Tag>−{c.stop}%</Tag><i>{(c.stopParts || []).join(' · ')} · catastrophic −{c.hardStop}% (hard-coded)</i></span></div>
     <div className="ofb-evid"><ul className="ofb-rules is-for">{(c.ev || []).map(x => <li key={x}>{x}</li>)}</ul><ul className="ofb-rules is-against">{(c.con || []).map(x => <li key={x}>{x}</li>)}</ul></div>
@@ -127,12 +132,12 @@ export function ChartBox({ c, cur }) {
 }
 
 const acc = c => (c?.accuracy == null ? '—' : `${c.accuracy}%`);
-const STATUS_WORD = { alive: '🟢 alive', probation: '⚠ probation', demoted: '⬇ demoted', retired: '☠ retired' };
+const STATUS_WORD = { active: '🟢 ACTIVE', alive: '🟢 ACTIVE', probation: '⚠ PROBATION', shadow: 'SHADOW', retired: 'RETIRED' };
 
 export function AgentCard({ a, on, onPick }) {
   const c = a.card || {};
   return <button type="button" className={`ofb-agent ${STATUS_CLS[c.status] || 'is-alive'} ${on ? 'is-on' : ''}`} aria-pressed={on} onClick={() => onPick(a.key)} data-testid={`office-${a.key}`}>
-    <span className="ofb-ahead"><b>{a.icon} {a.name}</b><Tag cls={STATUS_CLS[c.status]} tip={c.why}>{STATUS_WORD[c.status] || '—'}</Tag></span>
+    <span className="ofb-ahead"><b>{a.icon} {a.name}</b><Tag cls={STATUS_CLS[c.status]} tip={c.lifeWhy || c.why}>{STATUS_WORD[c.status] || '—'}</Tag></span>
     <small className="ofb-role">{a.role}</small>
     <span className="ofb-nums"><span data-tip="Survival score 0–100: accuracy weighted by how much record there is, minus rule violations and stale data."><small>SURVIVAL</small><em>{c.survival ?? '—'}</em></span>
       <span data-tip="How much record stands behind the score (samples ÷ (samples + 30))."><small>CONF</small><em>{c.confidence != null ? `${Math.round(c.confidence * 100)}%` : '—'}</em></span>
@@ -141,7 +146,7 @@ export function AgentCard({ a, on, onPick }) {
     <span className="ofb-line"><small>TASK</small>{a.task || <i className="ofb-nil">idle</i>}</span>
     <span className="ofb-line"><small>LAST DECISION · {ago(a.decisionAt)}</small>{a.decision || <i className="ofb-nil">none yet</i>}</span>
     <span className="ofb-line"><small>RULE IN PLAY</small>{a.rule || <i className="ofb-nil">—</i>}</span>
-    <span className="ofb-line"><small>WHY THIS STATE</small>{c.why || '—'}{c.violations ? <Tag cls="is-veto">{c.violations} violation(s)</Tag> : null}{c.stale ? <Tag cls="is-stale">{c.stale} stale reads</Tag> : null}</span>
+    <span className="ofb-line"><small>THIS GENERATION · real exits only</small>{c.lifeWhy || c.why || '—'}{c.violations ? <Tag cls="is-veto">{c.violations} violation(s)</Tag> : null}{c.stale ? <Tag cls="is-stale">{c.stale} stale reads</Tag> : null}</span>
     <span className="ofb-line"><small>CONTRIBUTION{c.unit ? ` · ${c.unit}` : ''}</small><span>{c.profit != null ? <em className="ofb-up">{sgn(c.profit)}</em> : null} {c.loss != null ? <em className="ofb-dn">{sgn(c.loss, c.unit?.includes('fill') ? 2 : 1)}</em> : null}{c.profit == null && c.loss == null ? <i className="ofb-nil">nothing measured yet</i> : null}</span></span>
   </button>;
 }
@@ -172,7 +177,7 @@ export function AgentDetail({ a, learning }) {
       <Sec title="SURVIVAL RECORD" id="sec-survival"><dl className="ofb-kv">{score.map(([k, v]) => <React.Fragment key={k}><dt>{k}</dt><dd>{v == null ? <span className="ofb-nil">not measurable for this desk</span> : <span className="ofb-val">{v}</span>}</dd></React.Fragment>)}</dl>
         <p className="ofb-lat">runtime: last {ms(c.latency?.last)} · p50 {ms(c.latency?.p50)} · p95 {ms(c.latency?.p95)} · max {ms(c.latency?.max)} ({c.latency?.n || 0} passes)</p></Sec>
       <Sec title="GENERATION HISTORY" id="sec-gen">{lin.length || cands.length ? <ul className="ofb-recent">{cands.map(x => <li key={x.id}><small>{x.status}</small>{x.key} {x.live} → {x.value} · shadow {x.eval?.n ?? 0}/{x.eval?.need ?? learning?.needShadow}{x.eval?.n ? ` · live ${sgn(x.eval.live, 2)} vs candidate ${sgn(x.eval.cand, 2)}` : ''}</li>)}
-        {lin.map((x, i) => <li key={i}><small>gen {x.gen}</small>{x.why}</li>)}</ul> : <span className="ofb-nil">generation {c.gen ?? 1} — no change promoted, no demotion</span>}</Sec>
+        {lin.map((x, i) => <li key={i}><small>gen {x.gen}</small>{x.why}</li>)}</ul> : <span className="ofb-nil">generation {c.gen ?? 1} — no change promoted, never replaced</span>}</Sec>
       <Sec title="SOURCE CODE" id="sec-code"><ul className="ofb-code">{(a.code || []).map(k => <li key={k.file}><code>{k.file}</code>{k.fn.map(f => <code key={f} className="ofb-fn">{f}()</code>)}</li>)}</ul></Sec>
     </div>
   </div>;
@@ -286,7 +291,8 @@ export function OfficeLearning({ l }) {
     <p className="ofb-lat">a rule changes only this way: {l?.needPropose} archived positions → the Judge proposes ONE change → {l?.needShadow} new positions in shadow → it must beat the live rule → promoted. {(l?.candidates || []).filter(c => c.status === 'shadow').length} in shadow now.</p></div>;
 }
 
-export function OfficeBoard({ o }) {
+export function OfficeBoard({ o: o0 }) {
+  const o = useOffice(o0);   // 🛰 the hub's office (a prop wins: a test / a pop-out)
   const [sel, setSel] = useState(null); const boardRef = useRef(null);
   // the opened desk sits right under its card; when that is off screen (a tap on the line above) the PAGE moves to it — never a scroll inside a card
   useEffect(() => { if (!sel) return; try { const r = boardRef.current?.querySelector('.ofb-detail')?.getBoundingClientRect();

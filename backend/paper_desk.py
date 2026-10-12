@@ -835,7 +835,7 @@ def results(before, after, now):
     for m, o in ((after or {}).get('open') or {}).items():
         if o.get('p5') is not None and m not in was and o.get('kind') == 'enter':
             ok = _f(o['p5']) > 0
-            out.append({'at': now, 'who': 'desk', 'sym': o.get('sym'), 'text': f"{'✅' if ok else '❌'} ${o.get('sym')} {'GO' if o.get('go') else 'objected'} → {_f(o['p5']):+.1f}% after 5 min"
+            out.append({'at': now, 'who': 'desk', 'sym': o.get('sym'), 'text': f"{'✅' if ok else '❌'} ${o.get('sym')} {'GO' if o.get('go') else 'refused on paper'} → {_f(o['p5']):+.1f}% after 5 min"
                         + ('' if o.get('go') else (' (Devil was right)' if not ok else ' (Devil was wrong)'))})
             r_ = ruling(o)
             if r_['verdict'] != 'push':
@@ -1133,7 +1133,7 @@ def tasks(state, table, now):
     return {'tally': f"read {len(t)} coins · {moving} moving ≥ 3% in 5 min",
             'sherlock': f"weighed {nd} reasons · {round(sum(share) / len(share) * 100) if share else 0}% of today's reads are our own record",
             'trigger': f"{calls.get('enter', 0)} ENTER · {calls.get('wait', 0)} WAIT · {calls.get('skip', 0)} SKIP · bar {lr['bar']}",
-            'devil': f"objected to {obj} of {len(enters)} entries" + (f" · {len((state or {}).get('open') or {})} calls waiting on the clock" if state else ''),
+            'devil': f"paper: refused {obj} of {len(enters)} entries" + (f" · {len((state or {}).get('open') or {})} calls waiting on the clock" if state else ''),
             'at': now}
 
 

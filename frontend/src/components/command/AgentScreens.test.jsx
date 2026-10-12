@@ -2,27 +2,29 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
 import { AgentDesk } from './AgentDesk';
-import { heat, reasonsOf, scopeOf, docketOf, listFor, seatMoves, CardNow, CourtBand, Court, MissionBar, DutyBox, dutyLeft, GrowthCards, PowerLadder } from './AgentScreens';
+import { heat, reasonsOf, scopeOf, docketOf, listFor, seatMoves, CardNow, CourtBand, Court, MissionBar } from './AgentScreens';
 jest.mock('../../lib/liveCandles', () => ({ useLiveCandles: () => null }));   // no network in tests
 jest.mock('../terminal/PriceChart', () => ({ PriceChart: () => <div data-testid="price-chart" /> }));   // the live chart needs a canvas
 
-const row = (mint, symbol, d5, lean, trig, dev, go, drivers, rug) => ({ mint, symbol, pair: `P${mint}`, go, nums: { d5, pace: 2, buy: 60 }, why: { lean, drivers }, trigger: [trig, 'why t'], devil: [dev, dev === 'object' ? 'its read is BOND RUN' : ''], vitals: { top10: 40, rug, organic: 3 } });
+// `k` = the KERNEL's decision on the row; trigger / devil / go are the practice desk's paper words (they decide nothing)
+const K = { A: { status: 'READY', rank: 150, trigger: 'ENTER', narrative: 'RUNNING', why: 'RUNNING — rank 150', devil: [], size: 1, unknown: [], courier: true },
+  B: { status: 'CONTENDING', rank: 100, trigger: 'ARM', narrative: 'BUILDING', why: 'BUILDING — rank 100', devil: [['busted_read', 'STRONG_WARNING', 'its read is BOND RUN']], size: 0.75, unknown: [], courier: true },
+  C: { status: 'TRACKING', rank: 20, trigger: 'NO', narrative: 'STALLING', why: 'STALLING — rank 20', devil: [], size: 0, unknown: [], courier: true } };
+const row = (mint, symbol, d5, lean, trig, dev, go, drivers, rug) => ({ mint, symbol, pair: `P${mint}`, go, k: K[mint], nums: { d5, pace: 2, buy: 60 }, why: { lean, drivers }, trigger: [trig, 'why t'], devil: [dev, dev === 'object' ? 'its read is BOND RUN' : ''], vitals: { top10: 40, rug, organic: 3 } });
 const table = [row('A', 'GOOD', 4, 2.4, 'enter', 'agree', true, [['surge', 1, 'volume surging'], ['buyers', 0.5, 'buyers in charge']], 10),
   row('B', 'RUN', 9, 1.9, 'enter', 'object', false, [['surge', 1, 'volume surging'], ['swarm', -1, 'copy-paste callers']], 70), row('C', 'MEH', -2, 0.2, 'wait', '—', false, [], 20)];
 const view = { agents: [['tally', '📊', 'Tally'], ['sherlock', '🔍', 'Sherlock'], ['trigger', '⏱', 'Trigger'], ['devil', '⚖', 'Devil']].map(([key, icon, name]) => ({ key, icon, name, job: 'job', n: 12, med: 1, right: 55 })),
   stage: { h: 5, conquered: [], needN: 30, needWin: 55 }, desk: { start: 20, now: 20, x: 1, best: 1, busts: 0, trades: 0 }, road: { pct: 3, paper: { done: false, x: 1, need: 10, n: 0, needN: 30 }, real: { open: false, n: 0, needN: 10 } },
   bar: 1.5, perf: { tally: 1, sherlock: 2, trigger: 1, devil: 1, coins: 3, at: Date.now() / 1000 - 10 }, tasks: { tally: 'read 3 coins' }, life: {}, thoughts: [], table, cfg: { agentLearn: true },
-  growth: { tally: { level: 2, icon: '🧒', name: 'Rookie', xp: 40, next: 60, nextName: '🦾 Veteran', pct: 33, earned: 57, gen: 1, stunted: false, genes: [], skills: [], scars: 0 },
-    sherlock: { level: 1, icon: '🐣', name: 'Hatchling', xp: 44, next: 30, nextName: '🧒 Rookie', pct: 0, earned: 31, gen: 2, stunted: true, genes: ['callers piling in (-6%)'], skills: [], scars: 1 } },
-  power: { seats: 1, held: 1, steps: [{ key: 'learn', icon: '🎓', seats: 1, on: true, done: true, pct: 100, need: 'your switch' }, { key: 'trust', icon: '🤝', seats: 2, on: false, done: false, pct: 30, need: '3/10 closed · +8.0%' }, { key: 'proven', icon: '🏆', seats: 3, on: true, done: false, pct: 7, need: '1.17× of 10× · 12/30 calls' }] },
   card: { tpl: 'degen', seats: [{ symbol: 'BOT', pair: 'P1', mint: 'M1', kind: 'agent', pct: 5, take: 10, action: 'hold', why: '+5.0% — holding until +10%' }, { symbol: 'MINE', pair: 'P2', mint: 'M2', kind: 'yours', pct: null }, { kind: 'open', symbol: null, pct: null }] } };
 
 test('screen helpers: heat, reasons (who carries them), the scope (bar at the middle), the docket and the click-through order', () => {
   expect(heat(0)).toBe(0.12); expect(heat(-5)).toBe(0.5); expect(heat(40)).toBe(1);
   const rs = reasonsOf(table); expect(rs[0]).toMatchObject({ key: 'surge', n: 2, w: 1, mints: ['A', 'B'] }); expect(rs.find(r => r.key === 'swarm').w).toBe(-1);
-  const sc = scopeOf([{ mint: 'X', symbol: 'X', nums: { d5: 0 }, why: { lean: 1.5 }, trigger: ['enter'], go: true }], 1.5);
-  expect(sc[0]).toMatchObject({ go: true, call: 'enter', y: 0.5 }); expect(sc[0].x).toBeCloseTo(1 / 3);
-  expect(docketOf(table).map(x => [x.sym, x.ok, x.go, x.rug])).toEqual([['GOOD', true, true, 10], ['RUN', false, false, 70]]);
+  const sc = scopeOf([{ mint: 'X', symbol: 'X', nums: { d5: 0 }, why: { lean: 9 }, trigger: ['skip'], go: false, k: { status: 'READY', rank: 120, trigger: 'ENTER' } }]);
+  expect(sc[0]).toMatchObject({ go: true, call: 'enter', y: 0.5 }); expect(sc[0].x).toBeCloseTo(1 / 3);                      // the READY line sits at the middle; the paper lean / call is not read
+  expect(scopeOf([{ mint: 'P', go: true, trigger: ['enter'] }])).toEqual([]);                                                 // a paper GO with no kernel decision is not on the scope
+  expect(docketOf(table).map(x => [x.sym, x.verdict, x.go, x.rug])).toEqual([['GOOD', 'clear', true, 10], ['RUN', 'warn', false, 70]]);   // a concern is a WARNING — the paper desk's 'object' is not a block
   expect(listFor('tally', table)).toEqual(['A', 'B', 'C']); expect(listFor('devil', table)).toEqual(['A', 'B']); expect(listFor('trigger', table)[0]).toBe('A');
   expect(listFor('sherlock', table, 'swarm')).toEqual(['B']); expect(listFor('devil', [table[2]])).toEqual(['C']);   // no ENTER → the whole pass
 });
@@ -31,7 +33,7 @@ test('tap a mini screen → the zoom: tap a mark or step ‹ › through the coi
   const call = jest.fn(async () => view); const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<AgentDesk call={call} lens="live" />); });
   const q = id => document.querySelector(`[data-testid="${id}"]`);
-  expect(q('screen-tally').textContent).toContain('3'); expect(q('screen-devil').textContent).toContain('1/2'); expect(q('ags-zoom')).toBeNull();
+  expect(q('screen-tally').textContent).toContain('3'); expect(q('screen-devil').textContent).toContain('1 ⚠ · 0 ✕'); expect(q('ags-zoom')).toBeNull();
   await act(async () => { q('screen-tally').click(); });
   expect(q('ags-zoom')).not.toBeNull(); expect(q('tile-GOOD')).not.toBeNull(); expect(q('ags-dossier').textContent).toContain('$GOOD'); expect(q('ags-dossier').textContent).toContain('1 / 3');
   await act(async () => { q('tile-RUN').click(); });
@@ -45,26 +47,24 @@ test('tap a mini screen → the zoom: tap a mark or step ‹ › through the coi
   await act(async () => { q('reason-swarm').click(); });
   expect(q('chip-MEH')).toBeNull(); expect(q('chip-GOOD')).toBeNull(); expect(q('ags-dossier').textContent).toContain('$RUN');   // only the coins with that reason
   await act(async () => { q('zoom-devil').click(); });
-  expect(q('ticket-GOOD').textContent).toContain('GO'); expect(q('ticket-RUN').textContent).toContain('✕');
+  expect(q('ticket-GOOD').textContent).toContain('READY'); expect(q('ticket-RUN').textContent).toContain('⚠'); expect(q('ticket-RUN').textContent).not.toContain('✕');
   await act(async () => { q('zoom-trigger').click(); });
   expect(q('dot-GOOD')).not.toBeNull();
   await act(async () => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
   expect(q('ags-zoom')).toBeNull();
   expect(q('ags-card')).toBeNull(); expect(q('kpi-seats').textContent).toContain('IN CONTROL');                      // the seats are one tap away on the status strip
   await act(async () => { q('kpi-seats').click(); });
-  expect(q('ags-card').textContent).toContain('$BOT'); expect(q('ags-pow').textContent).toContain('1 / 1 seats');
+  expect(q('ags-card').textContent).toContain('$BOT'); expect(q('ags-pow').textContent).toContain('1 / 3 seats');
   await act(async () => { root.unmount(); });
 });
 
-test('the real card as seats, growth cards and the seat ladder', async () => {
+test('the real card as seats: who holds each one, no price = "—", and an unset card says paper only', async () => {
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
-  await act(async () => { root.render(<><CardNow card={view.card} power={view.power} cfg={view.cfg} /><GrowthCards growth={view.growth} agents={view.agents} /><PowerLadder power={view.power} /></>); });
+  await act(async () => { root.render(<CardNow card={view.card} cfg={view.cfg} />); });
   const q = id => el.querySelector(`[data-testid="${id}"]`);
   expect(q('seat-BOT').className).toContain('is-agent'); expect(q('seat-BOT').textContent).toContain('+5.0%'); expect(q('seat-BOT').textContent).toContain('⏳');
   expect(q('seat-MINE').textContent).toContain('—'); expect(q('ags-card').textContent).toContain('open');   // no price = "—", never a fake 0%
-  expect(q('grow-tally').textContent).toContain('Rookie'); expect(q('grow-tally').textContent).toContain('40/60'); expect(q('grow-tally').textContent).toContain('57% earned');
-  expect(q('grow-sherlock').className).toContain('is-stunted'); expect(q('grow-sherlock').textContent).toContain('⚠ stunted'); expect(q('grow-sherlock').textContent).toContain('☠×1'); expect(q('grow-sherlock').textContent).toContain('🧬 callers piling in');
-  expect(q('rung-learn').textContent).toContain('✓ live'); expect(q('rung-trust').textContent).toContain('3/10 closed'); expect(q('rung-trust').textContent).toContain('switch off'); expect(q('ags-ladder').textContent).toContain('1 held of 1');
+  expect(q('ags-ladder')).toBeNull(); expect(q('grow-tally')).toBeNull();                                    // levels / seat ladder are gone: ONE lifecycle, in the generations lens
   await act(async () => { root.render(<CardNow card={{}} cfg={{}} />); });
   expect(q('ags-card').textContent).toContain('paper only');
   await act(async () => { root.unmount(); });
@@ -81,7 +81,7 @@ test('every seat is a control: an open seat fills with a GO coin, a held seat sw
   expect(seatMoves({ kind: 'yours', symbol: 'MINE', pair: 'P2', state: 'ride' }, 'degen', gos)).toEqual([]);   // a riding coin is never swapped from here
   const call = jest.fn(async (path, o) => { const b = JSON.parse(o.body); if (b.pickSwap && !b.pickSwap.ack) throw new Error('⚠ ⏳ $MINE was bought 4 min ago'); return { ok: true }; });
   const done = jest.fn(); const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
-  await act(async () => { root.render(<CardNow card={view.card} power={view.power} cfg={view.cfg} gos={gos} call={call} onDone={done} />); });
+  await act(async () => { root.render(<CardNow card={view.card} cfg={view.cfg} gos={gos} call={call} onDone={done} />); });
   const q = id => el.querySelector(`[data-testid="${id}"]`);
   expect(q('ags-tray')).toBeNull();
   await act(async () => { q('seat-open-2').click(); });
@@ -122,26 +122,6 @@ test('the mission: breakeven first as a distance (never a promise), then the pap
   await act(async () => { root.render(<MissionBar mission={{ key: 'tenx', value: 30, putIn: 22.5 }} scalp={{ n: 24, needN: 20, best: { tp: 8, sl: 0, avg: 3.1 }, flat: { avg: -2 }, peak: 9, live: { tp: 8, sl: 0 } }} desk={{ x: 2 }} />); });
   expect(q('goal-breakeven').className).toContain('is-done'); expect(q('goal-tenx').className).toContain('is-now');
   expect(q('ags-scalp').textContent).toContain('LIVE'); expect(q('ags-scalp').textContent).toContain('TP +8%'); expect(q('ags-scalp').textContent).toContain('no stop'); expect(q('ags-scalp').textContent).toContain('+3.1%'); expect(q('ags-scalp').textContent).toContain('-2%');
-  await act(async () => { root.unmount(); });
-});
-
-test('the 10-minute duty: a clock to the next move, their lives on real money, the breakeven lock and a case file per coin', async () => {
-  expect(dutyLeft({ at: 1000, every: 600 }, 1250)).toBe(350); expect(dutyLeft({ at: 1000, every: 600 }, 9999)).toBe(0); expect(dutyLeft({ at: 0 }, 5)).toBe(0);
-  const now = Date.now() / 1000; const pick = jest.fn();
-  const duty = { on: true, every: 600, at: now - 100, cases: [
-    { mint: 'A', symbol: 'BEST', lean: 1.2, cleared: true, checks: [['scan', true, 'holder scan passed'], ['age', true, '3.0h old'], ['pool', true, 'pool $60K'], ['burn', true, 'not burned'], ['devil', true, 'no evidence against it']] },
-    { mint: 'B', symbol: 'BABY', lean: 3, cleared: false, checks: [['scan', true, 'holder scan passed'], ['age', false, '0.3h old'], ['pool', true, 'pool $60K'], ['burn', true, 'not burned'], ['devil', true, 'ok']] }] };
-  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const q = id => el.querySelector(`[data-testid="${id}"]`);
-  await act(async () => { root.render(<DutyBox duty={duty} lives={{ n: 7, of: 9 }} underwater onPick={pick} />); });
-  expect(q('duty-clock').textContent).toMatch(/next move 8:[12]\d/); expect(q('ags-lives').textContent).toBe('❤❤❤❤❤❤❤♡♡'); expect(q('ags-lock').textContent).toContain('until breakeven');
-  expect(q('case-file-BEST').className).toContain('is-clear'); expect(q('case-file-BEST').textContent).toContain('NEXT UP'); expect(q('case-file-BEST').querySelectorAll('.is-ok').length).toBe(5);
-  expect(q('case-file-BABY').className).toContain('is-blocked'); expect(q('case-file-BABY').textContent).toContain('0.3h old'); expect(q('case-file-BABY').querySelectorAll('.is-no').length).toBe(1);
-  await act(async () => { q('case-file-BABY').click(); });
-  expect(pick).toHaveBeenCalledWith('BABY');
-  await act(async () => { root.render(<DutyBox duty={{ ...duty, at: now - 700, cases: duty.cases.slice(1) }} lives={{ n: 9, of: 9 }} />); });
-  expect(q('duty-clock').textContent).toContain('nothing cleared yet'); expect(q('ags-lock')).toBeNull();
-  await act(async () => { root.render(<DutyBox duty={{ on: false, cases: [] }} />); });
-  expect(q('duty-clock').textContent).toContain('not in control');
   await act(async () => { root.unmount(); });
 });
 

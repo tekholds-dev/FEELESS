@@ -2,6 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
 import { OfficeHQ, RoomScene, AgentPanel, Roster, Lineage, LiveChart, TeamTrace, traceOf, roomModel, agentTag, focusOf, ticker, hotPosition, candleGeom, coinView, PANEL_TABS, AG, TAG_CLS } from './OfficeRoom';
+import { VERD, rowState } from '../../lib/agentRead';
 import office from './__fixtures__/office.json';
 
 // the live chart component itself needs a canvas; here it reports what it was handed (the same pair + levels the real one draws)
@@ -116,9 +117,9 @@ test('the 3D room is handed real state only: ten stations, the candidate on the 
   const m = roomModel(office, 'reaper', null);
   expect(m.stations.map(s => s.key)).toEqual(CHAIN); expect(m.stations.filter(s => s.focus).map(s => s.key)).toEqual([focusOf(office)]); expect(m.stations.find(s => s.key === 'reaper').selected).toBe(true);
   expect(m.stations.every(s => s.tag === agentTag(s.key, office)[0] && s.line === deskLine(s.key, office) && TAG_CLS[s.tag] === s.cls)).toBe(true);   // every station = the payload's own word
-  expect(m.wall.symbol).toBe(office.currentCase.symbol); expect(m.wall.structure).toBe(office.currentCase.chart.state); expect(m.wall.decision).toBe(office.currentCase.chart.entry[0]);
+  expect(m.wall.symbol).toBe(office.currentCase.symbol); expect(m.wall.structure).toBe(office.currentCase.chart.state); expect(m.wall.decision).toBe(VERD[rowState({ k: office.currentCase })]);   // the kernel's decision — the same word the board shows
   expect(m.wall.bars).toBe(office.currentCase.bars); expect(m.wall.stage).toBe(office.agents.find(a => a.key === focusOf(office)).name);                  // the SAME candle rows, not a copy or a sketch
-  expect(m.wall.devil).toMatch(/NO OBJECTION|OBJECT/); expect(m.status.find(x => x[1] === 'cleared')).toEqual([office.office.cleared, 'cleared', '#45e486']);
+  expect(m.wall.devil).toMatch(/NO OBJECTION|DEVIL WARNS|BLOCKED/); expect(m.wall.devil).not.toMatch(/OBJECTED/); expect(m.status.find(x => x[1] === 'ready')).toEqual([office.office.cleared, 'ready', '#45e486']);
   const p = office.positions[0]; const w = roomModel(office, 'reaper', p.symbol).wall;
   expect(w.kind).toBe('position'); expect(w.decision).toBe(p.decision); expect(w.stage).toBe('Reaper'); expect(w.levels.map(l => l.label)).toEqual(expect.arrayContaining(['entry', 'invalid', 'support'])); expect(w.reviewAt).not.toBeNull();
   expect(roomModel({ agents: office.agents, pipeline: [] }, null, null).wall).toBeNull();                                                              // no candidate, no position → an empty wall, never a made-up coin
@@ -220,8 +221,8 @@ test('the roster shows each desk\'s REAL-money record — never a sum of % (Reap
 });
 
 test('a replaced generation is shown as SHADOW / RETIRED under the ACTIVE one, with why, what changed and the shadow record', async () => {
-  const o2 = { ...office, lifecycle: { reaper: { active: { gen: 2, status: 'ACTIVE' }, past: [{ gen: 1, status: 'SHADOW', at: 5, why: 'real money: 4 losses pinned vs 1 win', changed: 'arms its trail at +4%',
-    shadow: { n: 8, old: -3.1, new: -0.4, edge: 2.7, verdict: 'new generation better' } }] } } };
+  const o2 = { ...office, generations: office.generations.map(g => (g.role === 'reaper' ? { ...g, generation: 2, status: 'ACTIVE', lineage: [{ gen: 1, status: 'SHADOW', at: 5, why: 'real money: 4 losses pinned vs 1 win', changed: 'arms its trail at +4%',
+    shadow: { n: 8, old: -3.1, new: -0.4, edge: 2.7, verdict: 'new generation better' } }] } : g)) };
   const r = await mount(<Roster o={o2} sel="tally" onSel={() => {}} />);
   expect(q(r, 'roster-status-reaper').textContent).toContain('ACTIVE'); expect(q(r, 'roster-reaper').textContent).toContain('GEN 2');
   const t = q(r, 'lineage-reaper-1').textContent;

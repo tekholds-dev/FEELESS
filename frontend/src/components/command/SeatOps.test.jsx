@@ -165,6 +165,6 @@ test('the kernel board: four hunter lanes, Devil warnings never read as a block,
   expect(el.querySelectorAll('[data-testid^="hunter-"]')).toHaveLength(4);
   expect(el.querySelector('[data-testid="hunter-2"]').textContent).toContain('ARMED · $BBB');
   const dv = el.querySelector('[data-testid="kc-devil-BBB"]').textContent;
-  expect(dv).toContain('strong warning'); expect(dv).not.toContain('VETO'); expect(el.textContent).not.toContain('BLOCKED');
+  expect(dv).toContain('⚠ DEVIL WARNS'); expect(dv).not.toContain('VETO'); expect(el.textContent).not.toContain('BLOCKED');
   expect(el.querySelector('[data-testid="kc-fresh-BBB"]').textContent).toContain('decision 4s ago'); expect(el.querySelector('[data-testid="kc-fresh-BBB"]').textContent).toContain('market 2s ago');
 });

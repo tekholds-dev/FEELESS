@@ -34,6 +34,8 @@ import { FuseBanner, CallAlert } from './QuickPulse';
 import { PayMap } from './PayMap';
 
 import { tiny } from '../lib/num';
+import { useAgentHub, hubSnapshot } from '../lib/agentHub';
+import { rowState, rowWhy, devilOf, kOf, VERD } from '../lib/agentRead';
 // ⭐ ARENA PRIME: FEELESS's own top-tier cards, FULLY AUTO on paper — auto TP/SL, auto-compound, 2 coins rotate every 6h. Different
 // from creator picks: these are the public proof the automation works before any trader's config goes auto. "Buy now" loads the
 // card into the Lab (traders: up to 3 pools + 3 runners; you approve one wallet transaction).
@@ -968,14 +970,14 @@ function TrenchRush({ rows, onPick, busy, cool }) {
 // 🤖 the agent desk as a swap-in list (creator / admin wallets only — it reads the owner-gated /admin/agents): GO calls first, then every
 // ENTER Devil objected to, then the rest; each row carries the four agents' words.
 export const AGENT_LENS = ['agents', '🤖 Agents'];
-export const agentPool = x => ({ baseAddress: x.mint, mint: x.mint, pairAddress: x.pair, symbol: x.symbol, priceUsd: x.px, liquidityUsd: x.nums?.liq, change5m: x.nums?.d5, chg1h: x.nums?.c1,
-  buyShare: x.nums?.buy, ageH: x.nums?.age, agent: { go: x.go, call: x.trigger?.[0], why: x.trigger?.[1], devil: x.devil?.[0], arg: x.devil?.[1], lean: x.why?.lean, drivers: (x.why?.drivers || []).slice(0, 3).map(d => d[2]) },
-  divisionLabel: `${x.go ? '🟢 GO' : x.trigger?.[0] === 'enter' ? '⚖ objected' : `⏱ ${String(x.trigger?.[0] || '').toUpperCase()}`} · lean ${Number(x.why?.lean || 0) >= 0 ? '+' : ''}${x.why?.lean ?? 0}` });
+export const agentPool = x => { const st = rowState(x); const dv = devilOf(x); const k = kOf(x) || {};
+  return { baseAddress: x.mint, mint: x.mint, pairAddress: x.pair, symbol: x.symbol, priceUsd: x.px, liquidityUsd: x.nums?.liq, change5m: x.nums?.d5, chg1h: x.nums?.c1, buyShare: x.nums?.buy, ageH: x.nums?.age,
+    agent: { state: st, word: VERD[st], why: rowWhy(x), rank: k.rank ?? null, devil: dv.word, arg: dv.first?.evidence || '' },   /* the KERNEL's decision — the same word the Agents tab shows */
+    divisionLabel: `${VERD[st]}${k.rank != null ? ` · rank ${Math.round(k.rank)}` : ''}` }; };
 export function AgentChip({ a }) {
   if (!a) return null;
-  const word = a.go ? '🟢 GO' : a.call === 'enter' ? '⚖ objects' : a.call === 'skip' ? '⛔ skip' : '⏳ wait';
-  return <i className={`sp-agent ${a.go ? 'is-go' : a.call === 'enter' ? 'is-obj' : 'is-wait'}`} data-testid="sp-agent"
-    data-tip={`🔍 ${a.drivers?.join(' · ') || 'nothing moving it'} → lean ${a.lean} · ⏱ ${String(a.call || '').toUpperCase()}: ${a.why || ''}${a.devil && a.devil !== '—' ? ` · ⚖ ${a.devil}: ${a.arg}` : ''}`}>{word}</i>;
+  return <i className={`sp-agent ${a.state === 'go' || a.state === 'held' ? 'is-go' : a.state === 'obj' ? 'is-obj' : 'is-wait'}`} data-testid="sp-agent"
+    data-tip={`${a.why || 'no decision yet'}${a.rank != null ? ` · rank ${Math.round(a.rank)}` : ''} · ⚖ ${a.devil}${a.arg ? `: ${a.arg}` : ''}`}>{a.word}</i>;
 }
 export const PICK_LENSES = [['best', '🏆 Best now'], ['live', '🚀 Live movers'], ['ptrend', '🔥 Pump trending'], ['procall', '🎯 Proven callers'], ['wave', '🌊 Narrative leaders'], ['exhale', '🧊 Cooling off'], ['trench', '🗑 Trench · 🧠 brain'], ['majors', '🪙 Majors & stocks']];
 const LENS_URLS = { majors: ['majors', 'stocks', 'risers'] };   // one tab, several sources (first source first; one row per coin)
@@ -1064,20 +1066,19 @@ export function LearnLine({ l }) {
 // never shows) — the same list an open seat takes from. Tap a coin → its live read; pick the seat → ⚡ in now or ⏱ at the bell.
 const MEDALS = ['🥇', '🥈', '🥉'];
 // 🤖 AGENT ALERT (owner, 2026-10-09: "on-screen noti in my cards when an agent found a good coin, and one click to fill, see or sub"): the
-// agent desk is polled every 20s (owner-gated GET /admin/agents); a 🟢 GO coin not on the card pops up ONCE (seen list per browser, 1h)
+// the shared agent hub (owner-gated; one snapshot + deltas); a 🟢 READY coin not on the card pops up ONCE (seen list per browser, 1h)
 // with the agents' reasons and ONE tap: 🪑 Fill seat (an empty seat) · ⇄ Swap for the weakest coin you may swap (your pick of seat in the
 // select) · 👀 See (coin drawer). The same pick path as Best 3 — every check / warning still applies. Never more than 2 alerts at once.
 const SEEN_KEY = 'feeless.agentSeen';
 const seenGet = () => { try { const o = JSON.parse(localStorage.getItem(SEEN_KEY) || '{}'); const now = Date.now(); return Object.fromEntries(Object.entries(o).filter(([, t]) => now - t < 3600e3)); } catch { return {}; } };
 const seenAdd = m => { try { localStorage.setItem(SEEN_KEY, JSON.stringify({ ...seenGet(), [m]: Date.now() })); } catch { /* private window */ } };
 export const agentAlerts = (table, legs, seen, n = 2) => { const on = new Set((legs || []).map(l => l.mint));
-  return (table || []).filter(x => x.go && !on.has(x.mint) && !seen[x.mint]).slice(0, n); };
+  return (table || []).filter(x => rowState(x) === 'go' && !on.has(x.mint) && !seen[x.mint]).slice(0, n); };   /* READY by the kernel — a paper GO alerts nobody */
 export const weakestSeat = legs => (legs || []).filter(l => l.symbol !== 'SOL' && !l.ride && !l.frozen && !l.placeholder && !l.buying)
   .sort((a, b) => (Number(a.pnlPct) || 0) - (Number(b.pnlPct) || 0))[0] || null;
 export function AgentAlert({ call, legs = [], emptySeats = 0, onFill, onSwap, busy }) {
-  const [table, setTable] = useState([]); const [seen, setSeen] = useState(seenGet); const [seat, setSeat] = useState({});
-  useEffect(() => { if (!call) return undefined; let on = true; const load = () => !document.hidden && call('/admin/agents').then(v => on && setTable(v?.table || [])).catch(() => {});
-    load(); const t = setInterval(load, 20000); return () => { on = false; clearInterval(t); }; }, [call]);
+  const hub = useAgentHub(call); const table = hub.d?.table || [];   /* the ONE agent hub (snapshot once, then deltas) — no poller of its own */
+  const [seen, setSeen] = useState(seenGet); const [seat, setSeat] = useState({});
   const shown = agentAlerts(table, legs, seen);
   if (!shown.length) return null;
   const done = m => { seenAdd(m); setSeen(seenGet()); };
@@ -1087,9 +1088,9 @@ export function AgentAlert({ call, legs = [], emptySeats = 0, onFill, onSwap, bu
     const to = seat[x.mint] || weak?.pairAddress || ''; const out = swappable.find(l => l.pairAddress === to);
     return <div key={x.mint} className="aga" style={{ '--i': i }} role="status" data-testid={`aga-${x.symbol}`}>
       <button type="button" className="aga-x" onClick={() => done(x.mint)} aria-label="Dismiss">✕</button>
-      <b>🤖 Agents found <button type="button" className="aga-sym" onClick={() => openCoin({ mint: x.mint, pairAddress: x.pair, symbol: x.symbol })}>${x.symbol}</button> <i>🟢 GO</i></b>
-      <small>🔍 {(x.why?.drivers || []).slice(0, 2).map(d => d[2]).join(' · ') || 'moving'} · lean {x.why?.lean >= 0 ? '+' : ''}{x.why?.lean}</small>
-      <small>📊 {x.nums?.d5 >= 0 ? '+' : ''}{x.nums?.d5}% 5m{x.nums?.buy != null ? ` · ${Math.round(x.nums.buy)}% buys` : ''} · ⚖ Devil: {x.devil?.[1] || 'agrees'}</small>
+      <b>🤖 Agents found <button type="button" className="aga-sym" onClick={() => openCoin({ mint: x.mint, pairAddress: x.pair, symbol: x.symbol })}>${x.symbol}</button> <i>{VERD.go}</i></b>
+      <small>🔍 {rowWhy(x) || 'moving'}{kOf(x)?.rank != null ? ` · rank ${Math.round(kOf(x).rank)}` : ''}</small>
+      <small>📊 {x.nums?.d5 >= 0 ? '+' : ''}{x.nums?.d5}% 5m{x.nums?.buy != null ? ` · ${Math.round(x.nums.buy)}% buys` : ''} · ⚖ Devil: {devilOf(x).word}{devilOf(x).first?.evidence ? ` — ${devilOf(x).first.evidence}` : ''}</small>
       <span className="aga-do">
         {emptySeats > 0 && onFill && <button type="button" className="m-btn m-go" disabled={busy} onClick={() => { onFill(r); done(x.mint); }} data-testid={`aga-fill-${x.symbol}`}>🪑 Fill seat</button>}
         {swappable.length > 0 && onSwap && <><select className="m-input aga-sel" value={to} onChange={e => setSeat(o => ({ ...o, [x.mint]: e.target.value }))} aria-label="Coin to swap out">{swappable.map(l => <option key={l.pairAddress} value={l.pairAddress}>for ${l.symbol}{l.pnlPct != null ? ` (${l.pnlPct >= 0 ? '+' : ''}${Number(l.pnlPct).toFixed(0)}%)` : ''}</option>)}</select>
@@ -1165,14 +1166,16 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
     const s = q.trim();
     const url = s.length >= 2 ? `/api/reputation/fuses/search?q=${encodeURIComponent(s)}` : lens === 'trench' ? '/api/reputation/fuses/trench' : lens === 'arena' ? '/api/reputation/fuses/contenders' : `/api/reputation/fuses/discover?lens=${lens}&chain=solana`;
     const many = s.length < 2 && LENS_URLS[lens];
-    const get = s.length < 2 && lens === 'agents' && call ? call('/admin/agents').then(v => ({ pools: (v?.table || []).map(agentPool) }))   // 🤖 creator / admin only
+    const get = s.length < 2 && lens === 'agents' && call ? hubSnapshot(call).then(v => ({ pools: (v?.table || []).map(agentPool) }))   // 🤖 creator / admin only
       : many ? Promise.all(many.map(k => fetch(apiUrl(`/api/reputation/fuses/discover?lens=${k}&chain=solana`)).then(r => (r.ok ? r.json() : null)).catch(() => null))).then(xs => ({ pools: xs.flatMap(x => (x && x.pools) || []) }))
       : fetch(apiUrl(url)).then(r => (r.ok ? r.json() : null));
     const t = setTimeout(() => get.then(x => { if (!alive || !x) return; setWhy(x.why || ''); setBproof(x.proof || null);
       if (x.checked) setTr({ floor: x.floor || 0, checked: x.checked.length, rules: x.rules, level: Number(x.level) || 0, brain: x.brain || null });
       const raw = x.pools || (x.checked ? x.rows || [] : x.all || (x.divisions || []).flatMap(dv => dv.rows));
       const seen = new Set(); setRows(raw.map(pickRow).filter(r => r.mint && r.pairAddress && !PICK_STABLES.has(String(r.symbol || '').toUpperCase()) && !seen.has(r.mint) && seen.add(r.mint)).slice(0, s.length < 2 ? 300 : 30)); }).catch(() => alive && setRows([])), s.length >= 2 ? 300 : 0);
-    return () => { alive = false; clearTimeout(t); }; }, [lens, q, nonce, tick]);
+    return () => { alive = false; clearTimeout(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lens, q, nonce, tick]);
   const live = useLivePrices((rows || []).slice(0, lim + 20).map(r => r.pairAddress));
   // 📈 a baby chart per row: the last ~2h of recorded prices (one batched call per list); tap the ticker → the coin's live flow
   const [sparks, setSparks] = useState({});

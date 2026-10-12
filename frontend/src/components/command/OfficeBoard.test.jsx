@@ -1,13 +1,13 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { OfficeBoard, OfficeMission, ChartBox, DataLine, dqWord, DQ_CLS, PositionCard, TakeLine, MemoryLine, actionResult, nextDuty, clock, ago, sgn, ms, entryCls, STAGE_CLS, STRUCT_CLS, DECISION_CLS } from './OfficeBoard';
+import { OfficeBoard, OfficeMission, ChartBox, DataLine, dqWord, DQ_CLS, PositionCard, TakeLine, MemoryLine, actionResult, clock, ago, sgn, ms, entryCls, STAGE_CLS, STRUCT_CLS, DECISION_CLS } from './OfficeBoard';
 import office from './__fixtures__/office.json';
 
 const mount = async node => { const el = document.createElement('div'); document.body.appendChild(el); await act(async () => { createRoot(el).render(node); }); return el; };
 const q = (el, id) => el.querySelector(`[data-testid="${id}"]`);
 
-test('the mission shows the real card\'s own numbers, the lock, lives, the duty clock and what the LEDGER says of the last action', async () => {
+test('the mission shows the real card\'s own numbers, the lock, the generations and what the LEDGER says of the last action', async () => {
   const el = await mount(<OfficeMission m={office.mission} />);
   expect(q(el, 'ofb-putin').textContent).toContain('$29.50');
   expect(q(el, 'ofb-value').textContent).toContain('$1.24');
@@ -22,8 +22,7 @@ test('the mission shows the real card\'s own numbers, the lock, lives, the duty 
   expect(q(el, 'ofb-lock').textContent).toContain('LOCKED');
   expect(q(el, 'ofb-unlock').textContent).toContain('real equity ≥ $59.00');               // the unlock condition is on screen, not in a tip
   expect(q(el, 'ofb-lock').getAttribute('data-tip')).toContain('breakeven is milestone 1, not graduation');
-  expect(q(el, 'ofb-lives').textContent).toContain('9 / 9');
-  expect(q(el, 'ofb-duty').textContent).toContain('next duty');
+  expect(q(el, 'ofb-gens').textContent).toContain('GENERATIONS'); expect(q(el, 'ofb-lives')).toBeNull(); expect(q(el, 'ofb-duty')).toBeNull();   // ONE lifecycle: no team lives, no duty clock
   expect(q(el, 'ofb-last').textContent).toContain('FILL $c3');
   expect(q(el, 'ofb-last').textContent).toContain('CONFIRMED on-chain');
   // breakeven reached = GROWTH mode: the milestone is ticked and the next stage is STILL locked
@@ -47,9 +46,6 @@ test('a sent order is never shown as filled: the result line is the ledger state
   expect(actionResult({ state: 'refused', err: 'pool too thin' })[0]).toBe('is-obj');
   expect(actionResult({ state: 'vetoed' })[1]).toContain('nothing was sent');
   expect(actionResult({ state: 'confirmed', delta: 0.21, realPct: -4 })[1]).toBe('CONFIRMED on-chain · +0.21% vs mid · -4.0% real');
-  expect(nextDuty({ control: false })).toBeNull();
-  expect(nextDuty({ control: true, dutyAt: 1000, dutyEvery: 600 }, 1200)).toBe(400);
-  expect(nextDuty({ control: true, dutyAt: 1000, dutyEvery: 600 }, 9999)).toBe(0);
   expect([clock(425), ago(100, 130), ago(0), sgn(null), sgn(2.345, 2), ms(0.123), ms(42.6), ms(null)]).toEqual(['7m 05s', '30s ago', '—', '—', '+2.35%', '0.12 ms', '43 ms', '—']);
 });
 
@@ -58,14 +54,14 @@ test('the office board: the line of ten, ten live cards, and a desk opens to its
   const stages = [...el.querySelectorAll('.ofb-stage')];
   expect(stages.map(s => s.querySelector('button').getAttribute('data-testid'))).toEqual(['tally', 'sherlock', 'weather', 'trigger', 'devil', 'warden', 'courier', 'reaper', 'archivist', 'judge'].map(k => `stage-${k}`));
   expect(stages.every(s => Object.values(STAGE_CLS).some(c => s.classList.contains(c)))).toBe(true);
-  expect(q(el, 'stage-devil').textContent).toMatch(/PASS|OBJECT/);
+  expect(q(el, 'stage-devil').textContent).toMatch(/PASS|WARNS|BLOCKED/);
   expect(q(el, 'stage-tally').textContent).toMatch(/ms/);
   expect(q(el, 'ofb-cand').textContent).toContain(`$${office.currentCase.symbol}`);
-  expect(q(el, 'ofb-checks').textContent).toContain('scan');
+  expect(q(el, 'ofb-checks').textContent).toContain('wall');
   expect(el.querySelectorAll('.ofb-agent').length).toBe(10);
   const reaper = q(el, 'office-reaper');
-  for (const word of ['SURVIVAL', 'CONF', 'SAMPLES', 'GEN', 'LAST RUN', 'TASK', 'LAST DECISION', 'RULE IN PLAY', 'WHY THIS STATE', 'CONTRIBUTION']) expect(reaper.textContent).toContain(word);
-  expect(q(el, 'office-tally').textContent).toMatch(/alive|probation/);
+  for (const word of ['SURVIVAL', 'CONF', 'SAMPLES', 'GEN', 'LAST RUN', 'TASK', 'LAST DECISION', 'RULE IN PLAY', 'THIS GENERATION', 'CONTRIBUTION']) expect(reaper.textContent).toContain(word);
+  expect(q(el, 'office-tally').textContent).toMatch(/ACTIVE|PROBATION/i);
   expect(el.querySelector('[data-testid="detail-reaper"]')).toBeNull();
   await act(async () => { reaper.click(); });
   const d = q(el, 'detail-reaper');

@@ -261,7 +261,7 @@ def analysis(sym, rd, nums, call, verdict, arg):
     if n.get('d5') is not None:
         parts.append(f"Tape: {_f(n['d5']):+.1f}% in 5 min" + (f", volume {n['pace']}× its hourly pace" if n.get('pace') is not None else '') + (f", {round(_f(n['buy']))}% buys" if n.get('buy') is not None else '') + '.')
     c = {'enter': 'Trigger says ENTER', 'wait': 'Trigger says WAIT', 'skip': 'Trigger says SKIP'}.get(call, '')
-    v = {'agree': 'and Devil cannot knock it down', 'object': f'but Devil objects: {arg}'}.get(verdict, '')
+    v = {'agree': 'and Devil cannot knock it down', 'object': f'but the paper Devil refuses: {arg}'}.get(verdict, '')
     if c:
         parts.append(f"{c} {v}".strip() + '.')
     seed = sym or ''

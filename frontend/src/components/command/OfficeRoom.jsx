@@ -1,6 +1,8 @@
 import React, { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChartBox, DataLine, dqWord, dump, sgn, usd, ago, clock, ms, STRUCT_CLS } from './OfficeBoard';
 import { tiny } from '../../lib/num';
+import { devilOf, rowState, VERD } from '../../lib/agentRead';
+import { useOffice } from '../../lib/agentHub';
 import { useLiveCandles } from '../../lib/liveCandles';
 import { mcapOf } from '../../lib/mcap';
 import { useLivePrices } from '../../lib/livePrices';
@@ -18,8 +20,9 @@ export const has3D = () => { try { const c = document.createElement('canvas'); r
 // (`backend/office.py` + `chart_intel.py`) — nothing here computes a trade number of its own.
 
 export const AG = { tally: '#1fd178', sherlock: '#a07bff', weather: '#4fd8ff', trigger: '#f5c451', devil: '#ff6b86', warden: '#6c9bff', courier: '#ffb02e', reaper: '#c77dff', archivist: '#9fb3c8', judge: '#ffd166' };
-export const TAG_WORD = { PASS: 'PASS', WAITING: 'WAIT', WORKING: 'REVIEW', OBJECT: 'OBJECT', VETO: 'VETO', DONE: 'DONE', ERROR: 'ERROR', STALE: 'STALE' };
-export const TAG_CLS = { PASS: 'is-pass', DONE: 'is-pass', WAIT: 'is-wait', REVIEW: 'is-work', OBJECT: 'is-obj', STALE: 'is-obj', VETO: 'is-veto', ERROR: 'is-veto', EXIT: 'is-veto', 'TAKE PROFIT': 'is-work', PROTECT: 'is-obj', HOLD: 'is-pass', 'HOLD 5 MORE': 'is-pass', SIZED: 'is-pass' };
+// a desk's word for the candidate. WARN = Devil's ordinary concern → 'WARNS' (it weighs, it never blocks); only VETO blocks.
+export const TAG_WORD = { PASS: 'PASS', WAITING: 'WAIT', WORKING: 'REVIEW', WARN: 'WARNS', VETO: 'VETO', DONE: 'DONE', ERROR: 'ERROR', STALE: 'STALE' };
+export const TAG_CLS = { PASS: 'is-pass', DONE: 'is-pass', WAIT: 'is-wait', REVIEW: 'is-work', WARNS: 'is-obj', STALE: 'is-obj', VETO: 'is-veto', ERROR: 'is-veto', EXIT: 'is-veto', 'TAKE PROFIT': 'is-work', PROTECT: 'is-obj', HOLD: 'is-pass', 'HOLD 5 MORE': 'is-pass', SIZED: 'is-pass' };
 const URGENT = ['EXIT', 'TAKE PROFIT', 'PROTECT', 'HOLD 5 MORE', 'HOLD'];
 
 // the position Reaper is most pressed on (an exit before a take before a protect before a hold)
@@ -35,9 +38,9 @@ export function agentTag(key, o) {
 // ⚡ what each desk is DOING this pass — the word the room reacts to. Every word is read from the payload: Tally's coins read, a desk's
 // stage for the candidate, the Warden's last sizing, the Courier's ledger (an order in flight = SUBMITTED, the last real action confirmed
 // on the ledger = CONFIRMED), Reaper's most urgent position, the Archivist's filed cases, the Judge's rulings. → [word, why]
-export const ACT_FX = { SCAN: '#45e486', PASS: '#45e486', WAIT: '#4d6a5c', REVIEW: '#6cc7ff', OBJECT: '#f5c451', VETO: '#ff4466', SIZED: '#6c9bff', SUBMITTED: '#ffb02e', CONFIRMED: '#45e486',
+export const ACT_FX = { SCAN: '#45e486', PASS: '#45e486', WAIT: '#4d6a5c', REVIEW: '#6cc7ff', WARNS: '#f5c451', VETO: '#ff4466', SIZED: '#6c9bff', SUBMITTED: '#ffb02e', CONFIRMED: '#45e486',
   PROTECT: '#f5c451', TAKE: '#6cc7ff', EXIT: '#ff4466', HOLD: '#45e486', LOGGING: '#9fb3c8', 'JUDGE REVIEW': '#ffd166', ERROR: '#ff4466', STALE: '#f5c451' };
-const STAGE_ACT = { PASS: 'PASS', DONE: 'PASS', WAITING: 'WAIT', WORKING: 'REVIEW', OBJECT: 'OBJECT', VETO: 'VETO', ERROR: 'ERROR', STALE: 'STALE' };
+const STAGE_ACT = { PASS: 'PASS', DONE: 'PASS', WAITING: 'WAIT', WORKING: 'REVIEW', WARN: 'WARNS', VETO: 'VETO', ERROR: 'ERROR', STALE: 'STALE' };
 export function activityOf(key, o) {
   const st = (o?.pipeline || []).find(s => s.agent === key); const stage = [STAGE_ACT[st?.state] || 'WAIT', st?.word || 'nothing this pass'];
   if (key === 'tally') return (o?.office?.coins ?? 0) > 0 && st?.state !== 'STALE' ? ['SCAN', `${o.office.coins} coins read this pass`] : stage;
@@ -50,7 +53,7 @@ export function activityOf(key, o) {
   if (key === 'reaper') { const p = hotPosition(o?.positions); if (!p) return ['WAIT', 'no open position'];
     const d = p.decision || p.state; return [d === 'TAKE PROFIT' ? 'TAKE' : d === 'EXIT' ? 'EXIT' : d === 'PROTECT' ? 'PROTECT' : 'HOLD', `$${p.symbol}: ${p.rule} — ${p.evidence}`]; }
   if (key === 'archivist') return (o?.office?.cases ?? 0) > 0 ? ['LOGGING', `${o.office.cases} case file${o.office.cases === 1 ? '' : 's'} filed this pass`] : stage;
-  if (key === 'judge') return (o?.judge?.rulings ?? 0) > 0 ? ['JUDGE REVIEW', `${o.judge.rulings} rulings on the book · on trial: ${o.judge.trial || 'nobody'}`] : stage;
+  if (key === 'judge') return (o?.judge?.rulings ?? 0) > 0 ? ['JUDGE REVIEW', `${o.judge.rulings} real exits reviewed · on probation: ${(o.judge.probation || []).join(', ') || 'nobody'}`] : stage;
   return stage;
 }
 // where the current candidate stands: the first desk that has not passed it
@@ -115,10 +118,10 @@ export function coinView(o, sym) {
 export function deskLine(key, o) {
   const a = (o?.agents || []).find(x => x.key === key) || {}; const c = o?.currentCase; const wx = (o?.agents || []).find(x => x.key === 'weather')?.output || {}; const x = o?.execution || {}; const p = hotPosition(o?.positions);
   if (key === 'tally') return `${o?.office?.coins ?? 0} coins read${c ? ` · $${c.symbol} ${c.tally?.readings ?? 0} readings` : ''}`;
-  if (key === 'sherlock') return c ? `$${c.symbol} ${c.chart?.state || 'no chart'} · lean ${sgn(c.lean, 1, '')}` : 'no candidate';
+  if (key === 'sherlock') return c ? `$${c.symbol} ${c.chart?.state || 'no chart'} · ${(c.sherlock?.unknown || []).length ? `researching ${c.sherlock.unknown.join(', ')}` : 'evidence complete'}` : 'no candidate';
   if (key === 'weather') return wx.regime ? `${wx.regime} · bar ${sgn(wx.mods?.barAdj, 2, '')} · size ×${wx.mods?.size ?? '—'}` : 'no regime yet';
-  if (key === 'trigger') return c ? `$${c.symbol} ${c.chart?.entry?.[0] || String(c.trigger?.call?.[0] || '').toUpperCase()}` : 'no candidate';
-  if (key === 'devil') return c ? (c.devil?.objections?.length ? `OBJECT ${c.devil.objections[0].rule}` : 'no objection') : 'no candidate';
+  if (key === 'trigger') return c ? `$${c.symbol} ${c.trigger?.state || String(c.trigger?.call?.[0] || '').toUpperCase()}${c.trigger?.narrative ? ` · ${c.trigger.narrative}` : ''}` : 'no candidate';
+  if (key === 'devil') { if (!c) return 'no candidate'; const dv = devilOf(c); return dv.first ? `${dv.word} · ${dv.first.rule}` : dv.word; }
   if (key === 'warden') { const w = c?.warden; return w ? `${w.eff}× · ${usd(w.requested)} → ${usd(w.allowed)}` : c?.chart ? `chart risk ${c.chart.risk?.[0]}× · sizes when a seat opens` : 'waits for a seat'; }
   if (key === 'courier') { const l = x.last?.[0]; return `${x.health || '—'} · ${x.fills ?? 0}/${x.sends ?? 0} confirmed${x.pending ? ` · ${x.pending.side} $${x.pending.sym} in flight` : l ? ` · last ${l.state}` : ''}`; }
   if (key === 'reaper') return p ? `$${p.symbol} ${sgn(p.pct)} · ${p.structure || 'no chart'} · ${p.obeying}` : 'no open position';
@@ -147,22 +150,22 @@ export function roomModel(o, sel, coin, card) {
   const focus = focusOf(o); const names = Object.fromEntries((o?.agents || []).map(a => [a.key, a.name])); const hot = hotPosition(o?.positions);
   const view = coinView(o, coin) || coinView(o, o?.currentCase?.symbol) || (hot ? coinView(o, hot.symbol) : null); const c = view?.cur; const p = view?.pos;
   const wall = !view ? null : { kind: view.kind, symbol: view.symbol, pair: view.pair, mint: view.mint, bars: view.bars, levels: view.levels, structure: view.structure || 'NO CHART', move: p ? p.pct : c?.chart?.f?.r5 ?? null,
-    stage: p ? 'Reaper' : names[focus] || focus, decision: p ? p.decision : c?.chart?.entry?.[0] || String(c?.trigger?.call?.[0] || '—').toUpperCase(),
+    stage: p ? 'Reaper' : names[focus] || focus, decision: p ? p.decision : c ? VERD[rowState(c)] : '—',
     warden: p ? (p.warden != null ? `${p.warden}×` : 'not sized') : c?.warden ? `${c.warden.eff}×${c.warden.veto ? ' VETO' : ''}` : c?.chart ? `${c.chart.risk?.[0]}× chart risk` : '—',
-    devil: p ? (p.devil === 'object' ? 'OBJECT' : p.devil === 'agree' ? 'NO OBJECTION' : '—') : c?.devil?.verdict === 'agree' ? 'NO OBJECTION' : c?.devil ? 'OBJECT' : '—',
+    devil: p || !c ? '—' : devilOf(c).word, devilVerdict: p || !c ? null : devilOf(c).verdict,
     reviewAt: p?.nextReview != null ? Math.max(0, p.nextReview - (Date.now() / 1000 - (o?.at || Date.now() / 1000))) : null,
     facts: p ? [['ENTRY', tiny(p.entry)], ['PEAK', sgn(p.peak)], ['HELD', p.heldMin != null ? `${Math.round(p.heldMin)}m` : '—'], ['TAKE', p.take != null ? `+${p.take}%` : '—'], ['STOP', p.stop != null ? `${p.stop}%` : '—'], ['LIQ', p.liq != null ? `$${Math.round(p.liq / 1000)}K` : '—']]
       : [['LIQ', c?.sherlock?.vitals?.liq != null ? `$${Math.round(c.sherlock.vitals.liq / 1000)}K` : '—'], ['AGE', c?.sherlock?.vitals?.ageH != null ? `${Number(c.sherlock.vitals.ageH).toFixed(1)}h` : '—'], ['BUYS', c?.chart?.f?.buy != null ? `${Math.round(c.chart.f.buy)}%` : '—'],
-         ['TOP-10', c?.sherlock?.vitals?.top10 != null ? `${Math.round(c.sherlock.vitals.top10)}%` : '—'], ['LEAN', c?.lean != null ? sgn(c.lean, 1, '') : '—'], ['TREND', c?.chart?.trend != null ? `${c.chart.trend}/100` : '—']],
+         ['TOP-10', c?.sherlock?.vitals?.top10 != null ? `${Math.round(c.sherlock.vitals.top10)}%` : '—'], ['RANK', c?.rank != null ? String(c.rank) : '—'], ['TREND', c?.chart?.trend != null ? `${c.chart.trend}/100` : '—']],
     data: view.bars?.q || c?.chart?.q || p?.data || null,
     caption: view.bars ? `${view.bars.q ? `DATA ${dqWord(view.bars.q)} ${view.bars.q.conf}% · ` : ''}${view.bars.src === 'candles' ? `${view.bars.rows.length} one-minute candles` : `RECONSTRUCTED FROM TAPE · ${view.bars.rows.length} readings`} · VOLUME ${view.bars.volume || 'UNAVAILABLE'}` : 'no candles this pass' };
   return { wall, focus,
     stations: (o?.agents || []).map(a => { const [tag] = agentTag(a.key, o); const [act, actWhy] = activityOf(a.key, o); const c = a.card || {}; const pf = o?.performance?.agents?.[a.key] || {};
       return { key: a.key, name: a.name, icon: a.icon, tag, cls: TAG_CLS[tag] || 'is-wait', act, actWhy, color: ACT_FX[act] || '#4d6a5c', line: deskLine(a.key, o), focus: focus === a.key, selected: sel === a.key,
         gen: c.gen ?? 1, status: c.status || null, acc: c.accuracy ?? null, n: c.n ?? 0, ms: pf.last ?? c.latency?.last ?? null, series: (pf.series || []).slice(-24) }; }),
-    cases: (o?.queue || []).slice(0, 6).map((x, i) => ({ symbol: x.symbol, mint: x.mint, at: x.at, state: TAG_WORD[x.state] || x.state, cleared: !!x.cleared, go: !!x.go, structure: x.structure || null, current: i === 0, selected: !!coin && coin === x.symbol })),
+    cases: (o?.queue || []).slice(0, 6).map((x, i) => ({ symbol: x.symbol, mint: x.mint, at: x.at, state: TAG_WORD[x.state] || x.state, cleared: !!x.cleared, go: x.status === 'READY', word: VERD[rowState(x)], structure: x.structure || null, current: i === 0, selected: !!coin && coin === x.symbol })),
     status: [[o?.seatSummary ? `${o.seatSummary.occupancy}/${o.seatSummary.target}` : (o?.positions || []).length, 'seats held', '#a07bff'], [o?.seatSummary ? `${o.seatSummary.benchReady}/${o.seatSummary.bench}` : '—', 'bench ready', '#6cc7ff'],
-      [o?.office?.cleared ?? 0, 'cleared', '#45e486'], [(o?.office?.cases ?? 0) - (o?.office?.cleared ?? 0), 'blocked', '#f5c451'], [o?.cycle?.read ?? o?.office?.coins ?? 0, 'coins read this pass', '#7d998b'], [o?.execution?.health || '—', 'execution', o?.execution?.health === 'HEALTHY' ? '#45e486' : '#ff6b86']],
+      [o?.office?.cleared ?? 0, 'ready', '#45e486'], [(o?.office?.cases ?? 0) - (o?.office?.cleared ?? 0), 'contending', '#f5c451'], [o?.cycle?.read ?? o?.office?.coins ?? 0, 'coins read this pass', '#7d998b'], [o?.execution?.health || '—', 'execution', o?.execution?.health === 'HEALTHY' ? '#45e486' : '#ff6b86']],
     summary: o?.seatSummary || null, turnover: (o?.cycleLog || []).slice(-14).map(l => [l.n, l.intake?.newUnique ?? null, l.intake?.deskNew ?? null]),
     seats: seatsOf(o, card, coin), seat: o?.seat ? { state: o.seat.state, reason: o.seat.reason, emptyFor: o.seat.emptyFor, target: o.seat.target } : null,
     ready: o?.ready ? { state: o.ready.state, live: !!o.ready.live, steps: o.ready.steps || [], why: o.ready.why } : null,
@@ -185,7 +188,7 @@ export function TeamTrace({ t, pos }) {
   if (!t && !pos) return null;
   const lines = t ? t.lines : [['reaper', pos.decision, pos.rule]];
   return <div className="ofr-trace" data-testid="ofr-trace"><small>TEAM TRACE · ${t ? t.symbol : pos.symbol} · one mission, each desk its own question</small>
-    {t ? <p data-tip={t.why} className={`ofr-final ${{ GO: 'is-go', CLEARED: 'is-cleared', SKIP: 'is-skip', BLOCKED: 'is-blocked' }[String(t.final).split(' ')[0]] || ''}`} data-testid="ofr-final"><b>FINAL</b><em>{t.final}</em><span><u>WHY</u> {t.why}</span></p> : null}
+    {t ? <p data-tip={t.why} className={`ofr-final ${{ READY: 'is-go', GO: 'is-go', CONTENDING: 'is-cleared', HELD: 'is-cleared', TRACKING: 'is-skip', BLOCKED: 'is-blocked' }[String(t.final).split(' ')[0]] || ''}`} data-testid="ofr-final"><b>FINAL</b><em>{t.final}</em><span><u>WHY</u> {t.why}</span></p> : null}
     <ul>{lines.map(l => <li key={l[0]} style={{ '--ag': AG[l[0]] }} data-tip={l[2] || undefined}><b>{l[0].toUpperCase()}</b><span>{l[1]}</span></li>)}</ul></div>;
 }
 export const hhmm = at => { const d = new Date(at * 1000); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
@@ -269,7 +272,7 @@ export function AgentPanel({ o, a, coin, onCoin, tabReq }) {
   const coins = [...new Set([o.currentCase?.symbol, ...(o.positions || []).map(x => x.symbol), ...(o.queue || []).filter(x => x.chart).map(x => x.symbol)].filter(Boolean))].slice(0, 6);
   return <aside className="ofr-panel" style={{ '--ag': AG[a.key] }} data-testid="ofr-panel">
     <header className="ofr-phead"><span className="ofr-pname" data-tip={a.role}><b>{a.icon} {a.name.toUpperCase()}</b><small>gen {c.gen ?? 1} · {a.role}</small></span>
-      <Tag cls={c.status === 'alive' ? 'is-pass' : 'is-obj'} tip={c.why}>● {c.status === 'alive' ? 'LIVE' : (c.status || '—').toUpperCase()}</Tag></header>
+      <Tag cls={['active', 'alive'].includes(c.status) ? 'is-pass' : c.status === 'probation' ? 'is-wait' : 'is-obj'} tip={c.lifeWhy || c.why}>● {(c.status === 'alive' ? 'active' : c.status || '—').toUpperCase()}</Tag></header>
     <div className="m-seg ofr-tabs" role="tablist" aria-label={`${a.name} views`}>{PANEL_TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`ptab-${k}`}>{l}</button>)}</div>
     {tab === 'live' && <div className="ofr-pane" data-testid="pane-live">
       <div className="ofr-decision" data-tip={`${a.decision || word}${a.rule ? ` · rule: ${a.rule}` : ''}`}><small>CURRENT DECISION · {ago(a.decisionAt)}{a.rule ? ` · rule: ${a.rule}` : ''}</small><b><Tag cls={TAG_CLS[tag]}>{tag}</Tag>{a.decision || word}</b>
@@ -318,12 +321,13 @@ export function AgentPanel({ o, a, coin, onCoin, tabReq }) {
 }
 
 export function Roster({ o, sel, onSel }) {
-  const lc = o.lifecycle || {};   /* 🧬 one ACTIVE generation per role; the ones it replaced are SHADOW (24h) then RETIRED */
-  const act = (o.agents || []).filter(a => (lc[a.key]?.active?.status || 'ACTIVE') === 'ACTIVE').length;
+  const gens = Object.fromEntries((o.generations || []).map(g => [g.role, g]));   /* 🧬 ONE lifecycle for all ten: the generation in control is ACTIVE or PROBATION; the one it replaced is SHADOW (24h) then RETIRED */
+  const stOf = k => gens[k]?.status || 'ACTIVE';
+  const act = (o.agents || []).filter(a => stOf(a.key) === 'ACTIVE').length;
   return <div className="ofr-roster" data-testid="ofr-roster"><small>AGENT ROSTER · {act} / {(o.agents || []).length} ACTIVE</small>
     <div className="ofr-rgrid">{(o.agents || []).map(a => { const c = a.card || {}; const [tag, word] = agentTag(a.key, o); const ds = o.deskStats?.[a.key]; const net = ds?.medNet ?? null; const has = net != null;   /* 📋 the desk's REAL-money record (Judge reviews of real exits) — never a sum of % */
       return <button key={a.key} type="button" className={`ofr-rcard ${TAG_CLS[tag] || 'is-wait'} ${sel === a.key ? 'is-on' : ''}`} style={{ '--ag': AG[a.key] }} onClick={() => onSel(a.key)} aria-pressed={sel === a.key} data-tip={`${a.role} ${c.why || ''}`} data-testid={`roster-${a.key}`}>
-        <span className="ofr-rhead"><i className="ofr-ricon" aria-hidden>{a.icon}</i><span><b>{a.name}</b><u>GEN {lc[a.key]?.active?.gen ?? c.gen ?? 1} · <i className={(lc[a.key]?.active?.status || 'ACTIVE') === 'ACTIVE' ? 'ofr-pos' : 'ofr-warn'} data-testid={`roster-status-${a.key}`}>● {lc[a.key]?.active?.status || 'ACTIVE'}</i></u></span>
+        <span className="ofr-rhead"><i className="ofr-ricon" aria-hidden>{a.icon}</i><span><b>{a.name}</b><u>GEN {gens[a.key]?.generation ?? c.gen ?? 1} · <i className={stOf(a.key) === 'ACTIVE' ? 'ofr-pos' : 'ofr-warn'} data-tip={gens[a.key]?.why} data-testid={`roster-status-${a.key}`}>● {stOf(a.key)}</i></u></span>
           <em className={net > 0 ? 'ofr-pos' : net < 0 ? 'ofr-neg' : ''} data-tip={has ? `REAL trades: ${ds.decisions} decisions · ${ds.accuracy}% made money · ${ds.winResp} wins credited · ${ds.lossResp} losses the Judge pinned on it · median net trade ${sgn(ds.medNet, 1)}` : 'no real trades judged yet'} data-testid={`roster-net-${a.key}`}>{has ? `${sgn(net, 1)} med` : '—'}</em></span>
         <span className="ofr-rmid" data-tip={`runtime per pass, last ${(o.performance?.agents?.[a.key]?.series || []).length} passes (ms)`}><Spark xs={o.performance?.agents?.[a.key]?.series} /><span><b data-tip="share of its REAL trades that made money (paper record in the card's tip)">{ds?.accuracy == null ? (c.accuracy == null ? '—' : `${c.accuracy}%`) : `${ds.accuracy}%`}</b><u>{ds ? `real ${ds.decisions} · W${ds.winResp} · L${ds.lossResp}` : `n ${c.n ?? 0}`} · conf {c.confidence != null ? `${Math.round(c.confidence * 100)}%` : '—'} · {ms(c.latency?.last)}</u></span></span>
         <span className="ofr-rtag" data-tip={word}>{tag}</span></button>; })}</div>
@@ -332,13 +336,12 @@ export function Roster({ o, sel, onSel }) {
 
 // 🧬 the generations that were REPLACED: why, what the new one changed, and the shadow record (old vs new on the same real exits)
 export function Lineage({ o }) {
-  const lc = o?.lifecycle || {};
-  const rows = Object.entries(lc).flatMap(([k, v]) => (v.past || []).slice(0, 2).map(p => ({ k, ...p, now: v.active }))).filter(r => r.gen).sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 8);
+  const rows = (o?.generations || []).flatMap(g => (g.lineage || []).slice(0, 2).map(p => ({ k: g.role, ...p, now: { gen: g.generation, status: g.status } }))).filter(r => r.gen).sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 8);
   if (!rows.length) return null;
   const name = k => (o.agents || []).find(a => a.key === k)?.name || k;
   return <div className="ofr-lineage" data-testid="ofr-lineage"><small>REPLACED GENERATIONS</small>
     {rows.map((r, i) => <p key={`${r.k}-${r.gen}-${i}`} data-testid={`lineage-${r.k}-${r.gen}`}>
-      <b>{name(r.k).toUpperCase()} GEN {r.now?.gen} · ACTIVE</b> <i className={r.status === 'SHADOW' ? 'ofr-warn' : 'ofr-neg'}>old gen {r.gen} · {r.status}</i>
+      <b>{name(r.k).toUpperCase()} GEN {r.now?.gen} · {r.now?.status || 'ACTIVE'}</b> <i className={r.status === 'SHADOW' ? 'ofr-warn' : 'ofr-neg'}>old gen {r.gen} · {r.status}</i>
       <span> — why replaced: {r.why || '—'}{r.changed ? ` · what changed: ${Array.isArray(r.changed) ? r.changed.join(', ') : r.changed}` : ''}{r.shadow ? ` · shadow: ${r.shadow.verdict}${r.shadow.edge != null ? ` (new ${r.shadow.new}% vs old ${r.shadow.old}%, n ${r.shadow.n})` : ''}` : ''}</span></p>)}
   </div>;
 }
@@ -359,7 +362,8 @@ export function routePick(u, model, seatData, cb) {
 export const CAMS = [['main', 'Main'], ['card', 'Card'], ['top', 'Top'], ['focus', 'Focus']];
 const pref = { get: (k, d) => { try { return localStorage.getItem(k) || d; } catch (e) { return d; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* private window */ } } };
 
-export function OfficeHQ({ o, roomOn = true, passAt, gl: gl0, card, onEdge }) {
+export function OfficeHQ({ o: o0, roomOn = true, passAt, gl: gl0, card, onEdge }) {
+  const o = useOffice(o0);   // 🛰 the room, the panel and the roster all draw the hub's office (a prop wins: a test / a pop-out)
   const [sel, setSel] = useState(null); const [coin, setCoin] = useState(null); const [gl] = useState(() => (gl0 != null ? gl0 : has3D())); const [tabReq, setTabReq] = useState(null);
   // 🪑 a seat (strip / room) → a held seat opens its coin under Reaper's live decision; an empty seat opens the Seats view with its reason
   const onSeat = x => { if (!x) return; if (x.symbol) { setCoin(x.symbol); setSel('reaper'); setTabReq({ tab: 'live', at: Date.now() }); } else setTabReq({ tab: 'seats', at: Date.now() }); };

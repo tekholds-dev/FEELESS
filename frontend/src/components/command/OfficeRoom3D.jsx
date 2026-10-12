@@ -16,7 +16,7 @@ import { AG, ACT_FX, candleGeom, routePick } from './OfficeRoom';
 //   · ten stations in TWO ROWS that snake (Tally → Devil left to right, Warden → Judge back), so the pipeline is one lit chevron path; each
 //     station has its identity (agent colour on the rug light, desk strip, lamp, ring), a main monitor (its activity word + this pass's line)
 //     and a side monitor (its real runtime per pass + its own record). The ring, rug and a one-shot ripple react to the desk's ACTIVITY word
-//     (SCAN · PASS · WAIT · OBJECT · VETO · SIZED · SUBMITTED · CONFIRMED · PROTECT · TAKE · EXIT · LOGGING · JUDGE REVIEW) — a ripple fires
+//     (SCAN · PASS · WAIT · WARNS · VETO · SIZED · SUBMITTED · CONFIRMED · PROTECT · TAKE · EXIT · LOGGING · JUDGE REVIEW) — a ripple fires
 //     only when the word really changed between passes.
 //   · the pass's CASE FILES float over the desk each one stands at (the current candidate lit by a beam); click one → its coin + that desk.
 //   · THE REAL CARD on the hex platform between the rows: one pedestal per seat (height = % since entry, colour = who holds it, plate = the
@@ -37,7 +37,7 @@ const KIND_HEX = { agent: 0xa07bff, suggested: 0xf5c451, yours: 0xf5c451, engine
 const KIND_CSS = { agent: '#a07bff', suggested: '#f5c451', yours: '#f5c451', engine: '#6cc7ff', open: '#7d998b' };
 const KIND_WORD = { agent: '🤖 AGENTS', suggested: '🤝 SUGGESTED', yours: '👤 YOURS', engine: '⚙ ENGINE', open: '▫ OPEN SEAT' };
 const DEC_CSS = { HOLD: '#45e486', 'HOLD 5 MORE': '#45e486', PROTECT: '#f5c451', 'TAKE PROFIT': '#6cc7ff', EXIT: '#ff6b86', PULL: '#6cc7ff', SWAP: '#a07bff', FILLING: '#45e486', FULL: '#45e486', 'NO VALID ENTRY': '#7d998b', 'OFFICE WARMING UP': '#f5c451', 'CREATOR MANUAL': '#f5c451' };
-const PULSE = { VETO: 1, EXIT: 0.9, OBJECT: 0.5, TAKE: 0.45, 'JUDGE REVIEW': 0.35, REVIEW: 0.35, SUBMITTED: 0.4, PROTECT: 0.3, ERROR: 1, STALE: 0.4 };
+const PULSE = { VETO: 1, EXIT: 0.9, WARNS: 0.3, TAKE: 0.45, 'JUDGE REVIEW': 0.35, REVIEW: 0.35, SUBMITTED: 0.4, PROTECT: 0.3, ERROR: 1, STALE: 0.4 };
 export const SEAT_GAP = 1.22;
 export const seatX = (i, n) => (i - (n - 1) / 2) * (n <= 4 ? 1.15 : SEAT_GAP * 0.8);   // up to four seats get room for their full plates; five or six close up
 // a seat's pedestal height follows its % since entry (capped at ±30% so one runner never hides the rest), never a guess
@@ -123,7 +123,7 @@ function drawWall(g, w, h, wall, now) {
   g.fillStyle = '#c2a8ff'; g.font = mono(24, 700); g.fillText(`${cut(wall.stage, 12)} · ${cut(wall.decision, 18)}`, 30, 150);
   if (wall.move != null) { g.fillStyle = wall.move >= 0 ? '#45e486' : '#ff6b86'; g.font = mono(58, 800); g.fillText(`${wall.move >= 0 ? '+' : ''}${wall.move.toFixed(1)}%`, 28, 222); g.fillStyle = '#7d998b'; g.font = mono(18, 600); g.fillText(wall.kind === 'position' ? 'since entry' : 'in 5 min', 30, 248); }
   const rows = [['STRUCTURE', wall.structure], ['WARDEN', wall.warden], ['DEVIL', wall.devil], ['NEXT REVIEW', wall.reviewAt != null ? mmss(wall.reviewAt - now) : '—']];
-  rows.forEach(([k, v], i) => { const y = 296 + i * 46; g.fillStyle = '#7d998b'; g.font = mono(16, 700); g.fillText(k, 30, y); g.fillStyle = k === 'DEVIL' && v === 'OBJECT' ? '#ff6b86' : '#e6fff0'; g.font = mono(24, 800); g.fillText(cut(v || '—', 20), 30, y + 24); });
+  rows.forEach(([k, v], i) => { const y = 296 + i * 46; g.fillStyle = '#7d998b'; g.font = mono(16, 700); g.fillText(k, 30, y); g.fillStyle = k === 'DEVIL' && wall.devilVerdict === 'veto' ? '#ff6b86' : k === 'DEVIL' && wall.devilVerdict === 'warn' ? '#f5c451' : '#e6fff0'; g.font = mono(24, 800); g.fillText(cut(v || '—', 20), 30, y + 24); });
   const X = 390, Y = 30, CW = w - X - 230, CH = h - 92; g.fillStyle = '#01060a'; g.fillRect(X, Y, CW, CH);
   const geo = candleGeom(wall.bars?.rows, wall.levels, CW, CH, 12);
   if (!geo) { g.fillStyle = '#7d998b'; g.font = mono(24, 700); g.fillText('NO CANDLE DATA FOR THIS COIN THIS PASS', X + 30, Y + CH / 2); }
@@ -153,7 +153,7 @@ function drawSeat(g, w, h, s) {   // one seat plate: who holds it · % since ent
 }
 function drawCase(g, w, h, c) {
   const col = c.go ? '#45e486' : c.cleared ? '#6cc7ff' : '#f5c451'; g.fillStyle = c.current ? '#071a10' : '#050d0a'; g.fillRect(0, 0, w, h); g.strokeStyle = col; g.lineWidth = c.current ? 7 : 4; g.strokeRect(3, 3, w - 6, h - 6);
-  g.fillStyle = '#ffffff'; g.font = mono(34, 800); g.fillText(`$${cut(c.symbol, 8)}`, 14, 44); g.fillStyle = col; g.font = mono(18, 800); g.fillText(c.go ? 'GO' : c.cleared ? 'CLEARED' : cut(c.state, 10), w - 120, 40);
+  g.fillStyle = '#ffffff'; g.font = mono(34, 800); g.fillText(`$${cut(c.symbol, 8)}`, 14, 44); g.fillStyle = col; g.font = mono(18, 800); g.fillText(cut(c.go ? 'READY' : c.word || c.state, 12), w - 150, 40);
   g.fillStyle = '#8fb9c9'; g.font = mono(17, 600); g.fillText(cut(`${c.structure || 'no chart'} · at ${c.at}`, 26), 14, 78);
 }
 function drawPlatform(g, w, h, sm) { g.fillStyle = '#04140d'; g.fillRect(0, 0, w, h); g.fillStyle = '#45e486'; g.font = mono(36, 800); g.fillText('THE REAL CARD', 26, 46);
@@ -417,7 +417,7 @@ export default function OfficeRoom3D({ model, onSel, onCoin, onSeat, onBoard, ca
       if (focusI > 0 && moving) { const u = (t * 0.12) % 1; const L = Math.min(focusI, 9); const seg = Math.floor(u * L); pulse.visible = true; pulse.position.copy(segs[seg].path.getPoint(u * L - seg)); } else pulse.visible = false;
       st.forEach(s => { const { b } = s; const act = s.act || 'WAIT'; const busy = s.focus || ['SCAN', 'REVIEW', 'SUBMITTED', 'LOGGING', 'JUDGE REVIEW'].includes(act); const amp = PULSE[act] || 0;
         if (moving) { b.body.position.y = Math.abs(Math.sin(t * (busy ? 3.0 : 1.4) + s.i)) * 0.02; const sp = busy ? 8 : act === 'WAIT' ? 1.1 : 3.5; b.arms[0].rotation.x = -0.6 + Math.sin(t * sp + s.i) * 0.3; b.arms[1].rotation.x = -0.6 + Math.sin(t * sp + s.i + Math.PI) * 0.3;
-          b.head.rotation.y = Math.sin(t * 0.6 + s.i) * (act === 'VETO' || act === 'OBJECT' ? 0.5 : 0.2); const blink = ((t + s.i * 0.7) % 4) < 0.12 ? 0.1 : 1; b.eyes.forEach(e => { e.scale.y = blink; });
+          b.head.rotation.y = Math.sin(t * 0.6 + s.i) * (act === 'VETO' ? 0.5 : act === 'WARNS' ? 0.3 : 0.2); const blink = ((t + s.i * 0.7) % 4) < 0.12 ? 0.1 : 1; b.eyes.forEach(e => { e.scale.y = blink; });
           s.ringM.emissiveIntensity = (act === 'WAIT' ? 0.3 : 0.7) + (amp ? Math.sin(t * 5 + s.i) * amp * 0.6 : 0) + (s.focus ? 0.4 : 0); s.ring.scale.setScalar(1 + (amp ? Math.sin(t * 5 + s.i) * amp * 0.05 : 0));
           s.rugM.opacity = (act === 'WAIT' ? 0.03 : 0.06) + (s.sel ? 0.08 : 0) + (s.focus ? 0.04 : 0) + (amp ? Math.sin(t * 2.5 + s.i) * amp * 0.03 : 0);
           s.selR.rotation.z = t * (act === 'SUBMITTED' ? 2.2 : 0.6);

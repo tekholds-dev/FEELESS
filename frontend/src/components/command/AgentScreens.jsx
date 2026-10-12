@@ -3,19 +3,18 @@ import { createPortal } from 'react-dom';
 import { openCoin } from '../CoinDrawer';
 import { toast } from 'sonner';
 import { openWarRoom } from '../WarRoomHost';
-import { pct, tone, VERD, rowState, rowWhy, pipsOf, leanFill } from '../../lib/agentRead';
+import { pct, tone, VERD, rowState, rowWhy, pipsOf, rankFill, devilOf, kOf, READY_MIN } from '../../lib/agentRead';
 import '../../styles/agentScreens.css';
 
 // 🖥 THE AGENTS' SCREENS (owner, 2026-10-10: "degen complex but simple — click to zoom to see their screens, click through lists, not so
 // much reading, more meta visuals, realtime data"). Each agent has ONE screen that IS its work this pass, drawn — not written:
 //   📊 Tally  = HEAT WALL: every coin it read as a tile, green / pink by its 5-min move, brighter = bigger
 //   🔍 Sherlock = REASON BARS: the reasons it weighed, longest = most coins; tap a reason → only the coins that carry it
-//   ⏱ Trigger = SCOPE: every coin as a dot (→ 5-min move, ↑ Sherlock's lean), the line is its bar — dots above it are ENTER
-//   ⚖ Devil  = DOCKET: every ENTER as a stamped ticket (✓ agrees · ✕ objects) with the coin's rug meter
+//   ⏱ Trigger = SCOPE: every coin as a dot (→ 5-min move, ↑ the kernel's rank), the line is READY — dots above it with ENTER are READY
+//   ⚖ Devil  = DOCKET: every candidate as a stamped ticket (✓ nothing against it · ⚠ warns: it weighs · ✕ the hard wall: the only block)
 // A mini screen sits on each agent's card; a tap ZOOMS it (portal, Esc / outside closes, tabs switch agent). In the zoom every mark is a
 // coin: tap it, or step with ‹ › / ← →, and its DOSSIER (meters, the four pips, the one fact that decided it) follows.
-// Also here: 🎮 CardNow (the creator's real card as seats — who holds each, what the agents are doing with theirs), 🧬 GrowthCards
-// (level · XP · earned-vs-born brain · genes · scars · skills) and 🪜 PowerLadder (how many real seats the team has earned).
+// Also here: 🎮 CardNow (the creator's real card as seats — who holds each, what the agents are doing with theirs).
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const num = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
 export const heat = v => clamp(Math.abs(num(v)) / 10, 0.12, 1);
@@ -23,15 +22,16 @@ export const heat = v => clamp(Math.abs(num(v)) / 10, 0.12, 1);
 export const reasonsOf = table => { const m = {};
   (table || []).forEach(x => (x.why?.drivers || []).forEach(dd => { const r = (m[dd[0]] = m[dd[0]] || { key: dd[0], words: dd[2], n: 0, w: 0, mints: [] }); r.n += 1; r.w += num(dd[1]); r.mints.push(x.mint); }));
   return Object.values(m).map(r => ({ ...r, w: r.w / r.n })).sort((a, b) => b.n - a.n); };
-// the scope: x = 5-min move (−10 … +20), y = lean (−bar … +3 bars) → 0 … 1; the bar sits at 0.5
-export const scopeOf = (table, bar) => { const b = Math.max(0.5, num(bar) || 1.5);
-  return (table || []).map(x => ({ mint: x.mint, sym: x.symbol, call: x.trigger?.[0] || 'wait', go: !!x.go,
-    x: clamp((num(x.nums?.d5) + 10) / 30, 0.02, 0.98), y: clamp((num(x.why?.lean) + b) / (4 * b), 0.03, 0.97) })); };
-export const docketOf = table => (table || []).filter(x => x.trigger?.[0] === 'enter').map(x => ({ mint: x.mint, sym: x.symbol, ok: x.devil?.[0] === 'agree', go: !!x.go, why: x.devil?.[1] || '', rug: x.vitals?.rug }));
+// the scope: x = 5-min move (−10 … +20), y = the KERNEL's rank (0 … 2× the READY line) → 0 … 1; the READY line sits at 0.5
+export const scopeOf = table => (table || []).filter(x => kOf(x)).map(x => { const k = kOf(x);
+  return { mint: x.mint, sym: x.symbol, call: String(k.trigger || 'wait').toLowerCase(), go: k.status === 'READY', x: clamp((num(x.nums?.d5) + 10) / 30, 0.02, 0.98), y: clamp(rankFill(k.rank), 0.03, 0.97) }; });
+// the docket: every candidate Devil looked at this pass with HIS word for it — clear · warn (it weighs) · veto (the hard wall, the only block)
+export const docketOf = table => (table || []).filter(x => { const k = kOf(x); return k && (k.status === 'READY' || k.status === 'CONTENDING' || devilOf(k).verdict === 'veto'); })
+  .map(x => { const dv = devilOf(x); return { mint: x.mint, sym: x.symbol, verdict: dv.verdict, ok: dv.verdict === 'clear', go: kOf(x).status === 'READY', why: dv.first?.evidence || '', rug: x.vitals?.rug }; });
 // the order ‹ › walks for each screen
 export const listFor = (agent, table, reason) => { const t = table || [];
-  if (agent === 'devil') { const e = t.filter(x => x.trigger?.[0] === 'enter'); return (e.length ? e : t).map(x => x.mint); }
-  if (agent === 'trigger') return [...t].sort((a, b) => num(b.why?.lean) - num(a.why?.lean)).map(x => x.mint);
+  if (agent === 'devil') { const e = docketOf(t); return (e.length ? e : t).map(x => x.mint); }
+  if (agent === 'trigger') return [...t].sort((a, b) => num(kOf(b)?.rank) - num(kOf(a)?.rank)).map(x => x.mint);
   if (agent === 'sherlock' && reason) return t.filter(x => (x.why?.drivers || []).some(dd => dd[0] === reason)).map(x => x.mint);
   return t.map(x => x.mint); };
 const NAMES = { tally: ['📊', 'Tally', 'HEAT WALL'], sherlock: ['🔍', 'Sherlock', 'REASONS'], trigger: ['⏱', 'Trigger', 'SCOPE'], devil: ['⚖', 'Devil', 'DOCKET'], judge: ['👨‍⚖️', 'Judge', 'COURT'] };
@@ -50,37 +50,40 @@ function Reasons({ t, big, reason, setReason }) {
       <span>{r.words}</span><u><i style={{ transform: `scaleX(${r.n / top})` }} /></u><em>×{r.n}</em></button>
     : <u key={r.key} className={r.w >= 0 ? 'is-up' : 'is-dn'}><i style={{ transform: `scaleX(${r.n / top})` }} /></u>)}</div>;
 }
-function Scope({ t, bar, big, cur, pick }) {
-  const dots = scopeOf(t, bar);
-  return <div className={`ags-scope ${big ? 'is-big' : ''}`}><span className="ags-bar" data-tip={big ? `Trigger's bar ${num(bar || 1.5).toFixed(1)} — above it is an ENTER` : undefined}>{big && <small>BAR {num(bar || 1.5).toFixed(1)}</small>}</span><span className="ags-zero" />
-    {big && <><small className="ags-ax is-x">5-min move →</small><small className="ags-ax is-y">lean ↑</small></>}
+function Scope({ t, big, cur, pick }) {
+  const dots = scopeOf(t);
+  return <div className={`ags-scope ${big ? 'is-big' : ''}`}><span className="ags-bar" data-tip={big ? `The READY line: rank ${READY_MIN} (with Trigger ENTER, inside the hard wall, execution healthy)` : undefined}>{big && <small>READY · rank {READY_MIN}</small>}</span><span className="ags-zero" />
+    {big && <><small className="ags-ax is-x">5-min move →</small><small className="ags-ax is-y">kernel rank ↑</small></>}
     {dots.map(p => { const st = { left: `${p.x * 100}%`, bottom: `${p.y * 100}%` }; const cls = `ags-dot is-${p.go ? 'go' : p.call} ${cur === p.mint ? 'is-cur' : ''}`;
       return big ? <button type="button" key={p.mint} className={cls} style={st} onClick={() => pick(p.mint)} data-tip={`$${p.sym}`} aria-label={`$${p.sym}`} data-testid={`dot-${p.sym}`} /> : <i key={p.mint} className={cls} style={st} />; })}</div>;
 }
+const STAMP = { clear: '✓', warn: '⚠', veto: '✕' };
+const STAMP_CLS = { clear: 'is-ok', warn: 'is-warn', veto: 'is-no' };
 function Docket({ t, big, cur, pick }) {
   const ds = docketOf(t);
-  if (!ds.length) return <div className="ags-empty">{big ? 'Trigger sent no ENTER this pass — nothing to argue' : 'nothing to argue'}</div>;
+  if (!ds.length) return <div className="ags-empty">{big ? 'no candidate inside the wall this pass — nothing to challenge' : 'nothing to challenge'}</div>;
   return <div className={`ags-docket ${big ? 'is-big' : ''}`}>{ds.slice(0, big ? 16 : 8).map(x => big
-    ? <button type="button" key={x.mint} className={`ags-ticket ${x.ok ? 'is-ok' : 'is-no'} ${cur === x.mint ? 'is-cur' : ''}`} onClick={() => pick(x.mint)} data-testid={`ticket-${x.sym}`}>
-      <b className="ags-stamp">{x.ok ? (x.go ? 'GO' : '✓') : '✕'}</b><span>${x.sym}</span>{x.rug != null && <u data-tip={`rug meter ${Math.round(x.rug)}`}><i style={{ transform: `scaleX(${clamp(x.rug / 100, 0.03, 1)})` }} /></u>}</button>
-    : <i key={x.mint} className={`ags-stamp ${x.ok ? 'is-ok' : 'is-no'}`}>{x.ok ? '✓' : '✕'}</i>)}</div>;
+    ? <button type="button" key={x.mint} className={`ags-ticket ${STAMP_CLS[x.verdict]} ${cur === x.mint ? 'is-cur' : ''}`} onClick={() => pick(x.mint)} data-tip={x.why || undefined} data-testid={`ticket-${x.sym}`}>
+      <b className="ags-stamp">{x.go ? 'READY' : STAMP[x.verdict]}</b><span>${x.sym}</span>{x.rug != null && <u data-tip={`rug meter ${Math.round(x.rug)}`}><i style={{ transform: `scaleX(${clamp(x.rug / 100, 0.03, 1)})` }} /></u>}</button>
+    : <i key={x.mint} className={`ags-stamp ${STAMP_CLS[x.verdict]}`}>{STAMP[x.verdict]}</i>)}</div>;
 }
-const stat = (k, d) => { const t = d?.table || []; const e = t.filter(x => x.trigger?.[0] === 'enter');
-  if (k === 'judge') return [`${d?.judge?.wins ?? 0}–${d?.judge?.losses ?? 0}`, 'ruled'];
-  return k === 'tally' ? [d?.perf?.coins ?? t.length, 'read'] : k === 'sherlock' ? [reasonsOf(t).length, 'reasons'] : k === 'trigger' ? [e.length, 'ENTER'] : [`${e.filter(x => x.devil?.[0] === 'object').length}/${e.length}`, 'objected']; };
+const stat = (k, d) => { const t = d?.table || []; const dk = docketOf(t);
+  if (k === 'judge') return [d?.office?.judge?.rulings ?? 0, 'real exits reviewed'];
+  return k === 'tally' ? [d?.perf?.coins ?? t.length, 'read'] : k === 'sherlock' ? [t.filter(x => (kOf(x)?.unknown || []).length).length, 'researching']
+    : k === 'trigger' ? [t.filter(x => kOf(x)?.status === 'READY').length, 'READY'] : [`${dk.filter(x => x.verdict === 'warn').length} ⚠ · ${dk.filter(x => x.verdict === 'veto').length} ✕`, 'of ' + dk.length]; };
 export function MiniScreen({ k, d }) {
   const t = d?.table || []; const [n, l] = stat(k, d);
   return <span className={`ags-screen is-${k}`}><span className="ags-face" aria-hidden>
-    {k === 'tally' ? <Heat t={t} /> : k === 'sherlock' ? <Reasons t={t} /> : k === 'trigger' ? <Scope t={t} bar={d?.bar} /> : <Docket t={t} />}<span className="ags-sweep" /></span>
+    {k === 'tally' ? <Heat t={t} /> : k === 'sherlock' ? <Reasons t={t} /> : k === 'trigger' ? <Scope t={t} /> : <Docket t={t} />}<span className="ags-sweep" /></span>
     <span className="ags-stat"><b>{n}</b>{l}</span></span>;
 }
 
 // ── a coin's dossier: meters, not sentences ──
 const Meter = ({ label, val, fill, cls = '', mark, split }) => <div className={`ags-meter ${cls}`}><small>{label}</small>
   <u className={split ? 'is-split' : ''}><i style={{ transform: `scaleX(${clamp(fill, 0, 1)})` }} />{mark != null && <s style={{ left: `${clamp(mark, 0, 1) * 100}%` }} />}</u><em>{val}</em></div>;
-export function Dossier({ x, bar, idx, n, step }) {
+export function Dossier({ x, idx, n, step }) {
   if (!x) return <div className="ags-dossier"><div className="ags-empty">tap a coin on the screen</div></div>;
-  const st = rowState(x); const v = x.vitals || {}; const d5 = x.nums?.d5; const lean = num(x.why?.lean);
+  const st = rowState(x); const v = x.vitals || {}; const d5 = x.nums?.d5; const rank = num(kOf(x)?.rank);
   return <div className="ags-dossier" data-testid="ags-dossier">
     <div className="ags-dtop"><button type="button" className="ags-step" onClick={() => step(-1)} aria-label="Previous coin" data-testid="ags-prev">‹</button>
       <span className="ags-dsym"><b>${x.symbol}</b><small>{idx + 1} / {n}</small></span>
@@ -89,7 +92,7 @@ export function Dossier({ x, bar, idx, n, step }) {
     <div className="ags-chain">{pipsOf(x).map(([k, ic, s, tip], i) => <React.Fragment key={k}>{i > 0 && <span className={`ags-link is-${s === 'idle' ? 'idle' : 'on'}`} />}<i className={`is-${s} is-${k}`} data-tip={tip}>{ic}</i></React.Fragment>)}</div>
     <p className="ags-fact">{rowWhy(x)}</p>
     <div className="ags-meters">
-      <Meter label="LEAN" val={lean.toFixed(1)} fill={leanFill(lean, bar)} mark={0.5} cls={lean >= 0 ? 'is-up' : 'is-dn'} />
+      <Meter label="RANK" val={Math.round(rank)} fill={rankFill(rank)} mark={0.5} cls={rank >= READY_MIN ? 'is-up' : ''} />
       {x.nums?.pace != null && <Meter label="PACE" val={`${x.nums.pace}×`} fill={num(x.nums.pace) / 4} cls="is-up" />}
       {x.nums?.buy != null && <Meter label="BUYERS" val={`${Math.round(x.nums.buy)}%`} fill={num(x.nums.buy) / 100} split cls={x.nums.buy >= 50 ? 'is-up' : 'is-dn'} />}
       {v.top10 != null && <Meter label="TOP-10" val={`${Math.round(v.top10)}%`} fill={num(v.top10) / 60} cls={v.top10 >= 35 ? 'is-dn' : 'is-up'} />}
@@ -116,24 +119,24 @@ export function ZoomScreen({ d, agent, setAgent, close }) {
       <div className="ags-zbody"><div className="ags-big" key={agent}>
         {agent === 'tally' ? <Heat t={t} big cur={at} pick={setCur} /> : agent === 'sherlock' ? <><Reasons t={t} big reason={reason} setReason={setReason} />
           <div className="ags-chips">{list.map(m => { const r = t.find(q => q.mint === m); return r ? <button type="button" key={m} className={`ags-chip is-${rowState(r)} ${at === m ? 'is-cur' : ''}`} onClick={() => setCur(m)} data-testid={`chip-${r.symbol}`}>${r.symbol}</button> : null; })}</div></>
-          : agent === 'trigger' ? <Scope t={t} bar={d?.barNow || d?.bar} big cur={at} pick={setCur} /> : agent === 'judge' ? <Court judge={d?.judge} onPick={setCur} objections={d?.objections} /> : <Docket t={t} big cur={at} pick={setCur} />}</div>
-        <Dossier x={x} bar={d?.bar} idx={idx} n={list.length} step={step} /></div>
+          : agent === 'trigger' ? <Scope t={t} big cur={at} pick={setCur} /> : agent === 'judge' ? <Court judge={d?.judge} onPick={setCur} objections={d?.objections} /> : <Docket t={t} big cur={at} pick={setCur} />}</div>
+        <Dossier x={x} idx={idx} n={list.length} step={step} /></div>
     </div></div>, document.body);
 }
 
 // 🎮 ON YOUR CARD NOW — the real card as seats, and every seat is a CONTROL: tap it → what the agents can do with it right now.
-//   ▫ open → 🤖 fill it with one of their GO coins · any held seat → ⇄ swap one of their GO coins in · 🤖 their own seat → 💰 pull to cash.
+//   ▫ open → 🤖 fill it with one of the kernel's READY coins · any held seat → ⇄ swap one of the kernel's READY coins in · 🤖 their own seat → 💰 pull to cash.
 // Every action is the creator's own tap through the card's normal paths (POST /admin/arena/prime fillSeat / pickSwap / manualSell): the
 // same checks, and a ⚠ warning comes back as "do it anyway" — never a silent buy. An agent seat shows its bar to their take line.
 const KIND = { agent: ['🤖', 'agents'], suggested: ['🤝', 'their pick, your tap'], yours: ['👤', 'yours'], engine: ['⚙', 'engine'], open: ['▫', 'open'] };
 const ACT = { hold: '⏳', pull: '💰', swap: '⇄' };
 export const seatMoves = (seat, tpl, gos) => { if (!seat || !tpl) return [];
   const g = (gos || []).slice(0, 3);
-  if (seat.kind === 'open') return g.map(x => ({ key: `fill-${x.symbol}`, label: `🤖 $${x.symbol}`, tip: `Fill this seat with their GO coin $${x.symbol} now`, go: true, body: { fillSeat: { tpl, to: x.mint, toPair: x.pair, via: 'agents' } }, k: 'fillSeat' }));
-  const swaps = seat.state ? [] : g.map(x => ({ key: `swap-${x.symbol}`, label: `⇄ $${x.symbol}`, tip: `Swap $${seat.symbol} out for their GO coin $${x.symbol} now`, body: { pickSwap: { tpl, pairAddress: seat.pair, to: x.mint, toPair: x.pair, via: 'agents', now: true } }, k: 'pickSwap' }));
+  if (seat.kind === 'open') return g.map(x => ({ key: `fill-${x.symbol}`, label: `🤖 $${x.symbol}`, tip: `Fill this seat with the kernel's READY coin $${x.symbol} now`, go: true, body: { fillSeat: { tpl, to: x.mint, toPair: x.pair, via: 'agents' } }, k: 'fillSeat' }));
+  const swaps = seat.state ? [] : g.map(x => ({ key: `swap-${x.symbol}`, label: `⇄ $${x.symbol}`, tip: `Swap $${seat.symbol} out for the kernel's READY coin $${x.symbol} now`, body: { pickSwap: { tpl, pairAddress: seat.pair, to: x.mint, toPair: x.pair, via: 'agents', now: true } }, k: 'pickSwap' }));
   return seat.kind === 'agent' ? [{ key: 'pull', label: '💰 Pull', tip: `Sell $${seat.symbol} to card cash now — the seat opens`, go: true, body: { manualSell: { tpl, pairAddress: seat.pair, pct: 100 } }, k: 'manualSell' }, ...swaps] : swaps; };
-export function CardNow({ card, power, cfg, gos, call, isOwner = true, onDone, onMore }) {
-  const seats = card?.seats || []; const pw = power || {}; const on = cfg?.agentLearn || cfg?.agentFeed;
+export function CardNow({ card, cfg, gos, call, isOwner = true, onDone, onMore }) {
+  const seats = card?.seats || []; const on = cfg?.agentLearn || cfg?.agentFeed; const mine = seats.filter(x => x.kind === 'agent').length;
   const [at, setAt] = useState(null); const [busy, setBusy] = useState(false); const [warn, setWarn] = useState(null);
   if (!seats.length) return <div className="ags-card is-off" data-testid="ags-card"><b>🎮 ON YOUR CARD</b><small>{on ? 'waiting for the card’s next tick' : 'no real card is funded — the agents trade paper only'}</small></div>;
   const cur = at != null ? seats[at] : null; const free = (gos || []).filter(x => !seats.some(s => s.mint === x.mint)); const moves = seatMoves(cur, card.tpl, free);
@@ -142,7 +145,7 @@ export function CardNow({ card, power, cfg, gos, call, isOwner = true, onDone, o
     catch (e) { if (!body[m.k].ack && String(e.message || '').startsWith('⚠')) setWarn({ text: e.message, m, body: { [m.k]: { ...body[m.k], ack: true } } }); else toast.error(e.message); }
     finally { setBusy(false); } };
   return <div className={`ags-card ${cur ? 'is-open' : ''}`} data-testid="ags-card"><span className="ags-cardh"><b>🎮 {cfg?.agentControl ? 'AGENTS IN CONTROL' : 'ON YOUR CARD NOW'}</b>
-    <button type="button" className="ags-pow" onClick={onMore} data-tip="Seats the agents may hold right now — earned (🧬 Growth)" data-testid="ags-pow">🤖 {pw.held ?? 0} / {pw.seats ?? 0} seats</button></span>
+    <button type="button" className="ags-pow" onClick={onMore} data-tip="Seats holding a coin the agents bought · open the generations" data-testid="ags-pow">🤖 {mine} / {seats.length} seats</button></span>
     <div className="ags-seats">{seats.map((s, i) => { const k = KIND[s.kind] || KIND.engine; const prog = s.kind === 'agent' && s.pct != null && s.take ? clamp(s.pct / s.take, 0, 1) : null;
       return <button type="button" key={s.pair || `o${i}`} className={`ags-seat is-${s.kind} ${at === i ? 'is-cur' : ''}`} aria-expanded={at === i} onClick={() => { setAt(at === i ? null : i); setWarn(null); }}
         data-tip={s.kind === 'open' ? 'Open seat — tap to fill it' : s.kind === 'agent' ? (s.why || 'the agents hold this seat') : `${k[1]}${s.tag ? ` · ${s.tag}` : ''}`} data-testid={s.kind === 'open' ? `seat-open-${i}` : `seat-${s.symbol}`}>
@@ -152,7 +155,7 @@ export function CardNow({ card, power, cfg, gos, call, isOwner = true, onDone, o
     {cur && <div className="ags-tray m-pop" data-testid="ags-tray"><span className="ags-trayh">{(KIND[cur.kind] || KIND.engine)[0]} {cur.kind === 'open' ? 'OPEN SEAT' : `$${cur.symbol}`}{cur.state ? ` · ${cur.state === 'ride' ? '❄ riding' : '🧊 frozen'}` : ''}</span>
       {warn ? <><small className="ags-warn">{warn.text}</small><button type="button" className="m-btn" disabled={busy} onClick={() => send(warn.m, warn.body)} data-testid="seat-ack">I understand — do it anyway</button><button type="button" className="m-btn" onClick={() => setWarn(null)}>Cancel</button></>
         : <>{moves.map(m => <button type="button" key={m.key} className={`m-btn ${m.go ? 'm-go' : ''}`} disabled={busy || !isOwner || !call} data-tip={m.tip} onClick={() => send(m, m.body)} data-testid={`move-${m.key}`}>{m.label}</button>)}
-          {!moves.length && <small>{cur.state ? 'locked — a riding / frozen coin is never swapped from here' : 'no GO coin from the agents right now'}</small>}
+          {!moves.length && <small>{cur.state ? 'locked — a riding / frozen coin is never swapped from here' : 'no READY coin in the kernel right now'}</small>}
           {cur.kind !== 'open' && <button type="button" className="m-btn" onClick={() => openCoin({ mint: cur.mint, pairAddress: cur.pair, symbol: cur.symbol })} data-testid="move-coin">🪙</button>}</>}</div>}</div>;
 }
 
@@ -188,7 +191,7 @@ export function CourtBand({ judge, proof, desk, onPick, onCourt }) {
         {j.real && (j.real.wins + j.real.losses) > 0 && <i className="is-real" data-tip="The agents' own seats on your real card, ruled on the card's ledger — each counts double" data-testid="ags-real">💵 real {j.real.wins}W · {j.real.losses}L</i>}
         {j.mvp && <i className="is-mvp" data-tip="Best net over the last rulings" data-testid="ags-mvp">👑 {BOT[j.mvp]}</i>}</span>
       <span className="ags-tape">{(j.rulings || []).slice(0, 10).map((r, i) => <button type="button" key={`${r.mint}-${r.at}`} className={`ags-rule is-${r.verdict}`} style={{ '--i': Math.min(i, 8) }} onClick={() => onPick && onPick(r.sym)}
-        data-tip={`${r.kind === 'real' ? '💵 real seat' : r.kind === 'go' ? 'GO' : r.kind === 'objected' ? 'objected' : 'waited — it ran'} · ${r.credit ? `${BOT[r.credit]} called it` : ''}${r.credit && r.blame ? ' · ' : ''}${r.blame ? `${BOT[r.blame]} takes the L` : ''}`} data-testid={`rule-${r.sym}`}>
+        data-tip={`${r.kind === 'real' ? '💵 real seat' : r.kind === 'go' ? 'GO' : r.kind === 'objected' ? 'paper refused' : 'waited — it ran'} · ${r.credit ? `${BOT[r.credit]} called it` : ''}${r.credit && r.blame ? ' · ' : ''}${r.blame ? `${BOT[r.blame]} takes the L` : ''}`} data-testid={`rule-${r.sym}`}>
         {r.verdict === 'win' ? '🏆' : r.verdict === 'miss' ? '😴' : '🔨'} ${r.sym} <em>{pct(r.pct)}</em><u>{BOT[r.verdict === 'win' ? r.credit : r.blame] || ''}</u></button>)}
         {!(j.rulings || []).length && <small>first ruling lands 5 min after their first final call</small>}</span></div>
     <div className="ags-proof" data-testid="ags-proof">
@@ -230,48 +233,4 @@ export function MissionBar({ mission, scalp, desk }) {
       {live ? <em>TP +{live.tp}% <small>· {live.sl ? `SL −${live.sl}%` : 'no stop'}</small></em> : <em>{sp.n ?? 0}<small> / {sp.needN ?? 20} paths</small></em>}
       {sp.best && sp.n ? <span className="ags-vs"><i className={sp.best.avg > 0 ? 'm-pos' : 'm-neg'}>⚡ {fmt(sp.best.avg)}</i><small>vs hold</small><i className={(sp.flat?.avg ?? 0) > 0 ? 'm-pos' : 'm-neg'}>{fmt(sp.flat?.avg)}</i>{sp.peak != null && <small>· peak {fmt(sp.peak)}</small>}</span>
         : <u><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, (sp.n || 0) / (sp.needN || 20)))})` }} /></u>}</div></div>;
-}
-
-// 🕙 THE 10-MINUTE DUTY — in control they must put their best CLEARED coin on the card every 10 minutes. This is the investigation,
-// drawn: a countdown to the next move, ❤ the team's lives on real money, 🔒 the 5-minute lock while the card is underwater, and the
-// case files — each coin with its five checks (scan · age · pool · burn · Devil) as pips; the first cleared one is NEXT UP.
-const CHK = { scan: '🧬', age: '⏳', pool: '💧', burn: '🔥', devil: '⚖' };
-export const dutyLeft = (duty, now) => (!duty?.at ? 0 : Math.max(0, Math.round(duty.at + (duty.every || 600) - now)));
-export function DutyBox({ duty, lives, underwater, onPick }) {
-  const [now, setNow] = useState(() => Date.now() / 1000);
-  useEffect(() => { const t = setInterval(() => { if (!document.hidden) setNow(Date.now() / 1000); }, 1000); return () => clearInterval(t); }, []);
-  if (!duty) return null;
-  const left = dutyLeft(duty, now); const cases = duty.cases || []; const L = lives || { n: 9, of: 9 };
-  return <div className={`ags-duty ${duty.on ? 'is-on' : ''}`} data-testid="ags-duty">
-    <div className="ags-dutyh"><b>🕙 10-MIN DUTY</b>
-      <em className={left ? '' : 'is-due'} data-testid="duty-clock" data-tip="In control, their best cleared coin goes on the card every 10 minutes: an empty seat first, else the seat of a coin whose read broke, else the weakest coin that is not winning.">{!duty.on ? 'agents not in control' : left ? `next move ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : cases.some(c => c.cleared) ? 'moving now' : 'investigating — nothing cleared yet'}</em>
-      <span className="ags-lives" data-tip={`Their lives on REAL money: a winning real exit +1, a losing one −1. At 0 all four are scrapped and reborn.`} data-testid="ags-lives">{'❤'.repeat(Math.max(0, L.n))}<i>{'♡'.repeat(Math.max(0, L.of - L.n))}</i></span>
-      {underwater && <span className="ags-lock" data-tip="They cannot leave the 5-minute stage until your real card is back to what you put in." data-testid="ags-lock">🔒 5m until breakeven</span>}</div>
-    <div className="ags-casefiles">{cases.map((c, i) => { const bad = c.checks.find(k => !k[1]);
-      return <button type="button" key={c.mint} className={`ags-case2 ${c.cleared ? 'is-clear' : 'is-blocked'}`} style={{ '--i': i }} onClick={() => onPick && onPick(c.symbol)} data-testid={`case-file-${c.symbol}`}>
-        <b>${c.symbol}</b><em>lean {c.lean > 0 ? '+' : ''}{c.lean}</em>
-        <span className="ags-chk">{c.checks.map(([k, ok, words]) => <i key={k} className={ok ? 'is-ok' : 'is-no'} data-tip={words}>{CHK[k] || '•'}</i>)}</span>
-        <small>{c.cleared ? (cases.findIndex(x => x.cleared) === i ? '▶ NEXT UP' : 'cleared') : bad ? bad[2] : ''}</small></button>; })}
-      {!cases.length && <div className="ags-empty">no coin has a positive read right now — they keep looking</div>}</div></div>;
-}
-
-// 🧬 GROWTH — an agent grows only by surviving judged calls; a level is HELD only while it is alive
-const LV = ['🥚', '🐣', '🧒', '🦾', '🧠', '👑'];
-export function GrowthCards({ growth, agents, onZoom }) {
-  if (!growth) return null;
-  return <div className="ags-grow" data-testid="ags-grow">{(agents || []).map(a => { const g = growth[a.key]; if (!g) return null;
-    return <div key={a.key} className={`ags-g is-${a.key} ${g.stunted ? 'is-stunted' : ''}`} data-testid={`grow-${a.key}`}>
-      <button type="button" className="ags-gtop" onClick={() => onZoom && onZoom(a.key)} data-tip={`Open ${a.name}'s screen`}><span className="ags-lv">{g.icon}</span><span><b>{a.icon} {a.name}</b><small>{g.name} · gen {g.gen}{g.scars ? ` · ☠×${g.scars}` : ''}</small></span></button>
-      <div className="ags-track" aria-hidden>{LV.map((ic, i) => <i key={ic} className={i < g.level ? 'is-done' : i === g.level ? 'is-now' : ''}>{ic}</i>)}</div>
-      <div className="ags-xp" data-tip={g.stunted ? 'On probation — the level is held back until its record recovers' : g.next ? `${g.xp} of ${g.next} judged calls to ${g.nextName}` : 'top level'}><u><i style={{ transform: `scaleX(${Math.max(0.02, g.pct / 100)})` }} /></u><em>{g.stunted ? '⚠ stunted' : g.next ? `${g.xp}/${g.next}` : 'MAX'}</em></div>
-      <div className="ags-brain" data-tip={`${g.earned}% of its judgement is its own record · ${100 - g.earned}% is still the belief it was born with`}><small>🧠</small><u><i style={{ transform: `scaleX(${Math.max(0.02, g.earned / 100)})` }} /></u><em>{g.earned}% earned</em></div>
-      <div className="ags-genes">{(g.genes || []).map(w => <i key={w} className="is-gene" data-tip="inherited from its last life">🧬 {w}</i>)}{(g.skills || []).map(w => <i key={w} className="is-skill" data-tip="a tactic you approved">✦ {w}</i>)}
-        {!(g.genes || []).length && !(g.skills || []).length && <small>no genes yet · first life</small>}</div></div>; })}</div>;
-}
-const RUNG = { learn: 'LEARNING', trust: 'TRUSTED', proven: 'PROVEN' };
-export function PowerLadder({ power }) {
-  if (!power?.steps) return null;
-  return <div className="ags-ladder" data-testid="ags-ladder"><b>🪜 SEATS THEY'VE EARNED ON YOUR CARD · {power.held} held of {power.seats}</b>
-    <div className="ags-rungs">{power.steps.map(s => <div key={s.key} className={`ags-rung ${s.done ? 'is-done' : s.on ? 'is-on' : ''}`} data-testid={`rung-${s.key}`} data-tip={s.key === 'learn' ? 'Your switch: one real seat to learn on' : s.key === 'trust' ? 'A 2nd seat once the suggestions you took prove out — and you switch it on' : 'Their full seat count once the paper desk 10×s — and the feed is on'}>
-      <span>{s.icon}</span><b>{RUNG[s.key]}<small>{s.seats} seat{s.seats === 1 ? '' : 's'}</small></b><u><i style={{ transform: `scaleX(${Math.max(0.02, s.pct / 100)})` }} /></u><em>{s.done ? '✓ live' : s.need}{!s.on && s.key !== 'learn' ? ' · switch off' : ''}</em></div>)}</div></div>;
 }
