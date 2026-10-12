@@ -3,7 +3,8 @@ import { ChartBg } from './ChartBg';
 import { useChartBg } from '../../lib/chartBg';
 import { ChartToolsMenu, useToolDraw } from './ChartTools';
 import { ChartPulse } from './ChartPulse';
-import { tweenClose, mergeLiveBar } from '../../lib/tween';
+import { tweenClose, mergeLiveBar, liveBar } from '../../lib/tween';
+import { mcapOf } from '../../lib/mcap';
 import { toolRead, useChartTools } from '../../lib/chartTools';
 import { ChartGrab } from './ChartGrab';
 import { withGrab } from '../../lib/chartGrab';
@@ -74,7 +75,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   // Candles come only from the FEELESS candle service (Jupiter/Alchemy/Helius behind a shared cache + our own ticks).
   const { data, loading, error } = useMarket(null);
   const metricLabel = metric === 'marketCap' ? 'Market cap' : 'FDV';
-  const metricValue = metric === 'marketCap' ? pair?.marketCap : pair?.fdv;
+  const metricValue = metric === 'marketCap' ? mcapOf(pair?.priceUsd, pair?.marketCap, pair?.baseToken?.address) : pair?.fdv;   // 📊 a launchpad coin with no cap yet: price × its fixed 1B supply
   const metricAvailable = metricValue !== null && metricValue !== undefined && metricValue !== '' && Number.isFinite(Number(metricValue));
   const price = Number(pair?.priceUsd);
   const ratio = !priceMetric && metricAvailable && price > 0 ? Number(metricValue) / price : 1;
@@ -375,13 +376,11 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
         const t = Math.floor(Date.now() / 1000 / bucket) * bucket;
         if (ref.kind === 'candle') {
           if (anim && t > anim.bar.time) { try { ref.series.update(anim.bar); } catch { /* chart gone */ } anim = null; shown = null; }   // a new candle: the last one ends on its REAL close, never mid-ease
-          // Missed buckets (hidden tab, stalled stream): draw them flat at the last close — never skip a candle.
-          // (a very long gap fills its last 500 buckets — it used to skip the whole gap).
-          for (let gt = Math.max(last.time + bucket, t - bucket * 500); gt < t; gt += bucket) {
-            ref.series.update({ time: gt, open: last.close, high: last.close, low: last.close, close: last.close });
-          }
-          const bar = t > last.time ? { time: t, open: last.close, high: Math.max(last.close, value), low: Math.min(last.close, value), close: value }
-            : { ...last, high: Math.max(last.high, value), low: Math.min(last.low, value), close: value };
+          // 🕯 true data only (`liveBar`): a 1–2 bucket gap continues from the last close; a stale history (a coin indexed late) opens the new
+          // candle at the first REAL tick and leaves the gap empty — no fake candle from an old price, no invented flat minutes
+          const lb = liveBar(last, value, t, bucket);
+          lb.fill.forEach(f => { try { ref.series.update(f); } catch { /* chart gone */ } });
+          const bar = lb.bar;
           if (smooth && t === last.time && shown != null && typeof requestAnimationFrame !== 'undefined') {   // same candle: ease the body to the new real close
             anim = { bar, from: shown, to: value, start: performance.now(), dur: 350 };
             if (!raf) raf = requestAnimationFrame(draw);

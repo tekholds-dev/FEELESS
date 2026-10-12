@@ -16,3 +16,13 @@ test('a history reload keeps the live forming candle: same bucket merged, a newe
   expect(mergeLiveBar(bars, lb, '5m', 'P')).toEqual(bars); expect(mergeLiveBar(bars, lb, '1m', 'Q')).toEqual(bars);
   expect(mergeLiveBar(bars, { ...lb, time: 60 }, '1m', 'P')).toEqual(bars);   // an older live bar never rewrites history
 });
+
+test('a stale history never makes one fake candle from an old close to the live price: the candle opens at the first real tick', () => {
+  const { liveBar } = require('./tween');
+  const last = { time: 1000, open: 1, high: 1, low: 1, close: 1 };
+  const stale = liveBar(last, 2, 1000 + 60 * 10, 60);                      // 10 minutes behind, price doubled
+  expect(stale.fill).toEqual([]); expect(stale.bar).toEqual({ time: 1600, open: 2, high: 2, low: 2, close: 2 });
+  const fresh = liveBar(last, 1.1, 1120, 60);                                // 2 buckets behind: a real continuation
+  expect(fresh.fill).toHaveLength(1); expect(fresh.bar.open).toBe(1); expect(fresh.bar.close).toBe(1.1);
+  expect(liveBar(last, 1.2, 1000, 60).bar).toEqual({ ...last, high: 1.2, close: 1.2 });
+});

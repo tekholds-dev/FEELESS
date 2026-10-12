@@ -3354,3 +3354,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   give-back · held_too_long → 60 min / stop 20% · rug / thin pool / bundle exit → stop 20%; Warden thin pool → 0.75% of a pool · BAD SIZE →
   30% seat), bounded by TUNABLE; old tunes are NOT inherited (lineage keeps `oldTune` / `newTune` / `changed`). The Trigger +0.5 bar per
   death (`barBump`) is gone — no inherited fear. Payload `lifecycle` (+ Reaper's `shadow_record`) → roster "GEN n · ACTIVE" + `Lineage`.
+- 🕯 TRUE DATA AT THE LIVE EDGE (`lib/tween.liveBar`, PriceChart's live apply): a new live candle opens at the previous close only when the
+  history is current (≤ `STALE_BUCKETS` 2 behind); a history that ended minutes ago (a coin indexed late) opens the candle at the FIRST REAL
+  TICK and leaves the gap empty — it drew one fake candle from the old close to the live price ($STREAM: entry → 2×) and invented flat
+  minutes. 📊 MARKET CAP FIRST (`lib/mcap.mcapOf`): no live cap for a launchpad mint (…pump / …bonk) = price × its fixed 1B supply — used by
+  PriceChart itself, the Agents tab chart, coin drawer, quick look and mini chart (they fell back to a PRICE chart for every fresh curve coin).

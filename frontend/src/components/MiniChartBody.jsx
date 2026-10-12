@@ -1,3 +1,4 @@
+import { mcapOf } from '../lib/mcap';
 import React from 'react';
 import { BsBar } from './BsBar';
 import { PriceChart } from './terminal/PriceChart';
@@ -20,7 +21,7 @@ export default function MiniChartBody({ pair, tf, fuse: carried, metric = 'marke
   if (!fuse) for (const c of d?.cards || []) { const l = (c.legs || []).find(x => x.pairAddress === pair.pairAddress && Number(x.entry) > 0 && !x.buying); if (l) { fuse = fuseLevels(l, c.cfgEff || d.cfg, c.label); break; } }
   const px = Number(pair.priceUsd) || 0;
   const mine = myPos?.tokensHeld > 0 ? Number(myPos.fillPrice || myPos.avgEntry) || 0 : 0;
-  const mc = Number(pair.marketCap) || 0; const asMc = metric === 'marketCap' && mc > 0 && px > 0; const k = asMc ? mc / px : 1;
+  const mc = mcapOf(px, pair.marketCap, pair.baseToken?.address) || 0; /* 📊 market cap first */ const asMc = metric === 'marketCap' && mc > 0 && px > 0; const k = asMc ? mc / px : 1;
   const p4 = v => (asMc ? mcf(Number(v) * k) : pp(v));
   return <>
     {pair?.baseToken?.address && <div className="mch-bs"><BsBar mint={pair.baseToken.address} compact /></div>}

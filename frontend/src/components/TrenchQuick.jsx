@@ -1,3 +1,4 @@
+import { mcapOf } from '../lib/mcap';
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLivePrices } from '../lib/livePrices';
@@ -95,7 +96,7 @@ export function TrenchQuick({ row, list = [], onClose, onPick, busy }) {
   useEffect(() => { if (list[idx + 1]) warmCoin(list[idx + 1]); }, [idx, list]);   // the next coin is ready before → is pressed
   const pair = useMemo(() => (r ? { chainId: 'solana', pairAddress: r.pairAddress, baseToken: { address: r.mint, symbol: r.symbol }, info: { imageUrl: r.logo } } : null), [r?.pairAddress, r?.mint, r?.symbol, r?.logo]);   // eslint-disable-line react-hooks/exhaustive-deps
   if (!r) return null;
-  const price = live?.price ?? r.price; const mc = live?.mc || r.mcap;
+  const price = live?.price ?? r.price; const mc = mcapOf(price, live?.mc || r.mcap, r.mint);   // 📊 market cap first
   const useMc = mc > 0 && price > 0;
   const tone = r.tv?.call?.[2] || 'warn';
   const copy = () => { try { navigator.clipboard?.writeText(r.mint); setCopied(true); setTimeout(() => setCopied(false), 1400); } catch { /* no clipboard */ } };

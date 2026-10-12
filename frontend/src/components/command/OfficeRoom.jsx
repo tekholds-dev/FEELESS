@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, use
 import { ChartBox, DataLine, dqWord, dump, sgn, usd, ago, clock, ms, STRUCT_CLS } from './OfficeBoard';
 import { tiny } from '../../lib/num';
 import { useLiveCandles } from '../../lib/liveCandles';
+import { mcapOf } from '../../lib/mcap';
 import { useLivePrices } from '../../lib/livePrices';
 import { EdgeBand, SocialLine } from './OfficeEdge';
 import { SeatStrip, SeatsPane, ProofSources } from './SeatOps';
@@ -82,7 +83,7 @@ const LV_COLOR = { 'is-entry': '#15d16a', 'is-take': '#9fe3ff', 'is-stop': '#ff8
 // agents' levels on it; under it, the data-quality line of what the agents themselves read on their last pass
 export function LiveChart({ view, big }) {
   const live = useLivePrices(view?.pair ? [view.pair] : []).get(view?.pair);   // 📊 every chart opens on MARKET CAP (the shared live-price record carries `mc`)
-  const mc = live?.mc > 0 && live?.price > 0 ? live.mc : null;
+  const mc = mcapOf(live?.price ?? view?.px, live?.mc, view?.mint);   // 📊 market cap first — a fresh curve coin: price × its 1B supply
   const pair = useMemo(() => (view?.pair ? { chainId: 'solana', pairAddress: view.pair, baseToken: { address: view.mint, symbol: view.symbol }, priceUsd: live?.price ?? view.px ?? null, marketCap: mc } : null), [view?.pair, view?.mint, view?.symbol, view?.px, live?.price, mc]);
   const lines = useMemo(() => ({ lines: (view?.levels || []).map(l => ({ px: l.px, title: l.label, color: LV_COLOR[l.cls] })) }), [view?.levels]);
   if (!pair) return <div className="ofr-nochart" data-testid="ofr-nochart">no pool for this coin — nothing to chart</div>;
