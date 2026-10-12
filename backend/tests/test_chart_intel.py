@@ -43,7 +43,7 @@ def test_the_same_buy_share_reads_as_different_structures_and_flow_alone_never_d
     assert ci.read(CHOP, buy=80)['state'] == 'CHOP'                                                               # … and 80% buys does not turn a saw into a trend
     assert a['f']['hh'] >= 2 and a['f']['hl'] >= 2 and any('higher highs' in e for e in a['ev']) and any('buy flow 55%' in e for e in a['ev'])
     assert any('buy flow 48%' in c for c in ci.read(UP, buy=48)['con'])                                           # weak flow is a stated contradiction, not a verdict
-    assert b['entry'][0] == 'SKIP' and b['risk'][0] == 0.0 and b['objs'][0][0] == 'chart_chop' and '/100' in b['objs'][0][1]
+    assert b['entry'][0] == 'SKIP' and b['risk'][0] == 0.25 and b['objs'][0][0] == 'chart_chop' and '/100' in b['objs'][0][1]   # chop: no entry call, a quarter seat at most when ranked
     green = bars([1.0, 1.001, 1.002, 1.0005, 1.0015, 1.001, 1.002, 1.0012, 1.002, 1.0018, 1.0022, 1.002])        # mostly green candles, no move at all
     assert ci.read(green)['state'] not in ('STRONG UPTREND', 'UPTREND', 'PARABOLIC')                              # a count of green candles is not a trend
     one = bars([1.0] * 12 + [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.12, 1.119])
@@ -131,7 +131,7 @@ def test_warden_sizes_by_chart_risk_and_still_never_raises():
     base = {'value': 4.0, 'liq': 200_000, 'ageH': 20, 'courier': 'HEALTHY'}
     assert of.warden(0.4, {**base, 'chart': ci.read(UP)})['mult'] == 1.0                                          # a clean established trend: normal size
     w = of.warden(0.4, {**base, 'chart': ci.read(CHOP)})
-    assert w['veto'] and w['decided'] == 'W12 chart risk' and 'CHOP' in w['rules'][0]['why']
+    assert not w['veto'] and w['decided'] == 'W12 chart risk' and 'CHOP' in w['rules'][0]['why'] and w['mult'] <= 0.25   # chop shrinks, never a veto
     brk = of.warden(0.4, {**base, 'chart': ci.read(bars([1.0 + 0.004 * (i % 2) for i in range(18)] + [1.012, 1.02, 1.024]))})
     assert brk['allowed'] == 0.2 and brk['decided'] == 'W12 chart risk'
     assert of.warden(0.4, {**base, 'chart': ci.read(bars([1.0] * 10 + [1.02, 1.08, 1.16, 1.25, 1.36, 1.48]))})['mult'] <= 0.25

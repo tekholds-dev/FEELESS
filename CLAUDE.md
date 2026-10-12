@@ -3182,3 +3182,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (3) Ranking orders by the raw total (`oppRaw`) — strong coins passed 100 and tied. 💵 SURVIVAL ON REAL MONEY: paper calls can only put an
   agent on probation; the Judge's real-loss reviews pinned on it this life (responsibility ≥ 50) net of its credited real wins → probation
   at 3, scrapped + reborn at 5 (`REAL_PROBATION_N` / `REAL_SCRAP_N`, `state.realReviews` handed in each pass).
+- 🪑 Why the seats stayed empty after all that (2026-10-11): the lane's safe coins were on the desk, but (1) most had been OURS and were sold
+  at a loss → the 6h `lostAt` block removed them (now a −12 RANKING penalty in `opportunity.rank`, not an exclusion; the 3-round cooldown
+  stays) and (2) CHOP charts carried risk 0 → a Warden veto (now `chart_intel.risk` CHOP = 0.25, and `live_check(ranked=True)` lets a
+  ranked CHOP coin through — DOWNTREND / FAILED BREAKOUT / LIQUIDITY FAILURE / DISTRIBUTION stay at no size). −15% / +40% 5-min candles stay hard.

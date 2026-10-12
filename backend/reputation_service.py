@@ -9748,6 +9748,7 @@ async def _prime_tick_inner(now):
             if empty_n and not pol_['manual']:   # 🎯 RANK, DON'T VETO: every coin of the pass → hard NO or an A / B / C-tier candidate (opportunity.rank)
                 skip_f = set(cool) | set(lost_) | set(on_n) | set(gw_m) | {t_['mint'] for t_ in near0_} | set((_json_load(AGENTS_PATH, {}).get('burned') or {}).keys())
                 ost_ = {}
+                skip_f = skip_f - set(lost_)   # 🔁 a coin sold at a loss is a RANKING penalty here (−12), not an exclusion — in a small lane the 6h block removed most safe coins
                 ranked_ = [t_ for t_ in _opp.rank(_agents.get('table'), skip_f, lost_, None, ost_, _jr.penalties((_office.get('court') or {}).get('promoted')), _agents.get('laneCap') or _opp.MAX_MCAP) if not _fw.dollar_named(t_.get('symbol'))]
                 _office['opp'] = {**ost_, 'at': now, 'cap': _agents.get('laneCap'), 'top': [{'symbol': t_['symbol'], 'tier': t_['tier'], 'score': t_['opp']} for t_ in ranked_[:6]]}
                 for t_ in near0_:   # best-available coins (every check passed but the moment) get their tier too
@@ -9767,7 +9768,7 @@ async def _prime_tick_inner(now):
                 if young_p:   # 🧬 TRENCH META: the tape of each candidate too young for a chart (≤ 6 pools, the shared 12s tape cache)
                     await _flow_fetch(young_p)
                     meta_ = {p_: _flow.trench_meta((_flow_trades.get(p_) or (0, []))[1], time.time()) for p_ in young_p}
-                live_ = {t_['mint']: _oe.live_check(t_, _mkt_view(t_['mint'], t_['pair'], now), _office['charts'].get(t_['mint']), now, near=t_['mint'] in near_m, meta=meta_.get(t_.get('pair'))) for t_ in cand_}
+                live_ = {t_['mint']: _oe.live_check(t_, _mkt_view(t_['mint'], t_['pair'], now), _office['charts'].get(t_['mint']), now, near=t_['mint'] in near_m, meta=meta_.get(t_.get('pair')), ranked=bool(t_.get('tier'))) for t_ in cand_}
                 for t_ in near0_:   # the seat's event says what the tape showed
                     if (meta_.get(t_.get('pair')) or {}).get('verdict') == 'ORGANIC' and t_.get('nearReady'):
                         t_['nearReady'] = (t_['nearReady'] + f" · 🧬 {meta_[t_['pair']]['why']}")[:300]

@@ -365,7 +365,9 @@ def risk(f, state):
         return 0.5, 'structure unknown — half size'
     if state == 'EARLY':
         return 0.5, 'EARLY: a few real candles — half size'
-    if state in ('CHOP', 'DOWNTREND', 'LIQUIDITY FAILURE', 'FAILED BREAKOUT', 'DISTRIBUTION'):
+    if state == 'CHOP':   # 🪑 no direction is not a danger: a quarter seat (owner, 2026-10-11: "imperfect but good = smaller yes") — a trap stays at no size
+        return 0.25, 'CHOP: no direction — quarter size at most'
+    if state in ('DOWNTREND', 'LIQUIDITY FAILURE', 'FAILED BREAKOUT', 'DISTRIBUTION'):
         return 0.0, f'{state} — no size'
     if state == 'PARABOLIC':
         return 0.25, f"parabolic ({_f(f.get('r5')):+.0f}% in 5 min) — quarter size at most"
