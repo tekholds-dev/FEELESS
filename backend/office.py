@@ -373,8 +373,7 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
     elif cc.get('confidence') is not None and _f(cc['confidence']) < 40:
         hit('W16 identity', 0.5, f"identity confidence {_f(cc['confidence']):.0f}/100: {'; '.join(cc.get('flags') or [])[:120]}")
         rules[-1]['evidence'] = {'sourceUrl': cc.get('sourceUrl'), 'flags': list(cc.get('flags') or [])[:3], 'at': (c.get('social') or {}).get('at')}
-    if c.get('near'):   # 🪑 best available (the entry moment is not confirmed): half a seat at most — the rest of the evidence earned the other half
-        hit('W19 confidence tier', _opp.TIER_SIZE.get(c.get('tier'), NEAR_SIZE), str(c['near'])[:160])   # 🎯 A full · B 75% · C 50% (sized by confidence, never raised)
+    tier_m = _opp.TIER_SIZE.get(c.get('tier'), NEAR_SIZE) if c.get('near') else 1.0   # 🎯 W19 confidence tier: A full · B 75% · C 50% — applied ON TOP of the rest (below)
     if c.get('openSeats') and c.get('free') is not None:   # 🪑 multi-seat sizing: the first valid seat may not make the other open seats impossible
         m_, why_ = _so.seat_room(req, c.get('free'), c.get('openSeats'), floor)
         if why_:
@@ -390,6 +389,9 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
         if qw_ in _so.QUALITY_SIZE:   # 📊 chart quality: a choppy / extended / unstable chart can only shrink a seat (after W12: a tie is W12's)
             hit('W18 chart quality', _so.QUALITY_SIZE[qw_], f'{qw_}: {qwhy_}')
     raw = min([r['mult'] for r in rules] or [1.0])
+    if tier_m < 1:   # 🎯 size by CONFIDENCE: the tier multiplies whatever the other rules allowed (as the smallest rule it was masked: every seat came out ×0.4)
+        rules.append({'id': 'W19 confidence tier', 'mult': round(tier_m, 3), 'why': f"{c.get('tier') or 'unconfirmed'}-tier: ×{tier_m:g} on top — {str(c.get('near'))[:140]}"})
+        raw = raw * tier_m
     mult = max(s for s in WARDEN_STEPS if s <= raw + 1e-9)
     allowed = round(req * mult, 6)
     if 0 < allowed < floor <= req:   # a cut that would leave an unsendable order: the smallest sendable one instead — still under what was asked
