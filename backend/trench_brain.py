@@ -72,6 +72,17 @@ def feats(r):
         out.append('top10:' + _band(_f(r['top10']), (15, 25, 35), ('<15', '15-25', '25-35', '35+')))
     if r.get('site') is not None or r.get('x') is not None:
         out.append('soc:' + {2: 'site+x', 1: 'one'}.get(bool(r.get('site')) + bool(r.get('x')), 'none'))
+    # 🕵 the bad guys' footprint (our holder scan): bundles · snipers · insiders · dev — the brain learns which footprints pay and which rug
+    if r.get('bundledN') is not None:
+        out.append('bund:' + _band(_f(r['bundledN']), (1, 3), ('0', '1-2', '3+')))
+    if r.get('snipersN') is not None:
+        out.append('snipe:' + _band(_f(r['snipersN']), (1, 5), ('0', '1-4', '5+')))
+    if r.get('insiders') is not None:
+        out.append('ins:' + _band(_f(r['insiders']), (2, 8), ('<2', '2-8', '8+')))
+    if r.get('dev') is not None:
+        out.append('dev:' + _band(_f(r['dev']), (0.5, 5), ('out', '<5', '5+')))
+    if r.get('vol5m') is not None:
+        out.append('live:' + _band(_f(r['vol5m']), (300, 3000), ('dead', 'slow', 'busy')))
     call = ((r.get('tv') or {}).get('call') or [None, None])[1]
     if call:
         out.append('read:' + str(call))

@@ -3186,3 +3186,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   at a loss → the 6h `lostAt` block removed them (now a −12 RANKING penalty in `opportunity.rank`, not an exclusion; the 3-round cooldown
   stays) and (2) CHOP charts carried risk 0 → a Warden veto (now `chart_intel.risk` CHOP = 0.25, and `live_check(ranked=True)` lets a
   ranked CHOP coin through — DOWNTREND / FAILED BREAKOUT / LIQUIDITY FAILURE / DISTRIBUTION stay at no size). −15% / +40% 5-min candles stay hard.
+- 💀 DEAD COINS + NO STOCK SEATS (owner, 2026-10-11, screenshot of $MRNA flat for 10 min: "no buy / sell in 3–10 min = dead"): Tally keeps
+  `nums.v5` (5-min $) + `tx`; `opportunity.dead_now` (< `DEAD_5M_USD` $300 in 5 min, or pace < 0.2 with < $1.5K) = a HARD no for every door
+  (`hard_fail`, `agents.eligible`, case check `alive`); a held agent coin dead for ≥ `DEAD_HOLD_MIN` 5 min → Reaper `R11 dead coin`, a SWAP
+  exit (`SWAP_EXITS`: fires only while a replacement is ready, exempt from the 🪓 flat-churn rule). `agents.in_lane` refuses `fuse.ALL_MAJORS`
+  (the $5M lane widening had seated MRNA / MU xStocks, dead outside US hours). 🕵 Trench brain features `bund:` `snipe:` `ins:` `dev:` `live:`
+  — the bad guys' footprint is LEARNED against the +50 / −30 play (record, not a rule). Being "first 10 in" a launch needs a same-block
+  sniper = a new execution path (forbidden) and the record says < 15 min launches lose −78% an hour; say that, don't build it.

@@ -52,6 +52,7 @@ WARDEN_MIN_USD = 0.05                # a seat the keeper could not send is not a
 RUG_EXIT = 65.0                      # ☠ rug meter at which an open position is invalidated
 TOP10_JUMP = 10.0                    # ☠ top-10 share up this many points since entry (and ≥ 30%) = holders concentrating
 MIN_KEEP = 1.5                       # ☠ a trailing take only fires while there is still this much % to bank
+DEAD_HOLD_MIN = 5.0                  # 💀 minutes held before a dead coin (no trades) gives its seat away
 MOMENTUM_MIN = 15.0                  # ☠ minutes held before a broken read counts (the card's record: exits inside 15 min lose)
 EXIT_WAIT_SEC = 1800                 # 📮 an exit not confirmed on the ledger after 30 min is filed as UNCONFIRMED, never as done
 JUDGE_MIN_N = 30                     # 👨‍⚖️ nobody is put on probation under this many judged samples …
@@ -437,7 +438,7 @@ def take_info(cfg, scalp=None):
             'needN': _ag.SCALP_N, 'promoted': None}
 
 
-OBEY = {'R5c': 'creator stop-loss', 'R9c': 'creator max hold', 'R1': 'hard safety exit', 'R2': 'hard safety exit', 'R3': 'hard safety exit', 'R5x': 'hard safety exit', 'R4': 'invalidation exit', 'R5t': 'invalidation exit', 'R5': 'structure-aware stop',
+OBEY = {'R11': 'dead coin swap', 'R5c': 'creator stop-loss', 'R9c': 'creator max hold', 'R1': 'hard safety exit', 'R2': 'hard safety exit', 'R3': 'hard safety exit', 'R5x': 'hard safety exit', 'R4': 'invalidation exit', 'R5t': 'invalidation exit', 'R5': 'structure-aware stop',
         'R6': 'take line', 'R7': 'trailing protection', 'R7s': 'trailing protection', 'R8': 'thesis review', 'R9': 'thesis review', 'R10': 'thesis hold', 'R0': 'waiting'}
 
 
@@ -597,6 +598,8 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R9e no extension earned', f"{rv['window']} of {granted} windows used, {pct:+.1f}% — {p.get('extWhy') or 'a winner earns extra time, this seat did not'}", 'pull'
         elif mine and live and rv and rv['window'] >= granted and rv['verdict'] == 'weak' and pct < take:   # its windows are used up and the chart earned no more (time: LIVE only)
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R9 windows used', f"{rv['window']} of {granted} five-minute windows used, {pct:+.1f}%, {rv['why'][0]}", 'pull'
+        elif mine and live and x and held >= DEAD_HOLD_MIN and _opp.dead_now(x) and pct < take:   # 💀 nobody trades it: the seat goes to a coin people ARE trading (swap only — merge_reaper)
+            st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R11 dead coin', f"{pct:+.1f}% after {held:.0f} min — {_opp.dead_now(x)}", 'pull'
         elif mine and live and held >= MOMENTUM_MIN and broke and pct >= MIN_KEEP:
             st, rule, ev, act = 'TAKE', 'R8 momentum failed', f'{pct:+.1f}% and {broke} after {held:.0f} min — banked while it is still a gain', 'pull'
         elif mine and live and not th and held >= T('timeMaxMin') and broke and pct < take / 2:
@@ -644,6 +647,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
 
 
 TIME_EXITS = ('R9', 'R9e')   # thesis-review TIME exits (windows used / no extension earned / time) — never R9c, the creator's own max hold
+SWAP_EXITS = TIME_EXITS + ('R11',)   # exits that only SWAP (fire only while a replacement is ready); a dead coin is not 'flat churn' — it skips the 🪓 rule
 TIME_CUT_PCT = -3.0          # 🪓 a time exit sells a coin that is LOSING at least this much …
 SWAP_COST_PCT = 2.0          # … or one a clearly better coin beats by the switch margin: a flat round trip costs ~2% of a $0.12 seat
 
@@ -657,7 +661,8 @@ def merge_reaper(decisions, reports, buys_left=None, edge=None):
     Stops, the rug / drain / scan exits, invalidation, trails, the take line and the creator's max hold are never deferred."""
     out = list(decisions or [])
     left = None if buys_left is None else int(buys_left)
-    is_time = lambda r: str(r.get('rule') or '').split(' ')[0] in TIME_EXITS
+    is_time = lambda r: str(r.get('rule') or '').split(' ')[0] in SWAP_EXITS
+    is_flat = lambda r: str(r.get('rule') or '').split(' ')[0] in TIME_EXITS
     for r in sorted(reports or [], key=lambda r: (not is_time(r), _f(r.get('pct')))):   # the weakest flat coin uses a spare replacement first
         if r.get('action') != 'pull':
             continue
@@ -667,7 +672,7 @@ def merge_reaper(decisions, reports, buys_left=None, edge=None):
                 continue
             e_ = (edge or {}).get(r.get('mint'))
             better_ = bool(e_) and e_[0] is not None and _f(e_[0]) >= _f(e_[1])
-            if _f(r.get('pct')) > TIME_CUT_PCT and not better_:   # 🪓 (2026-10-11: 113 swaps in 4h, nearly every flat coin sold ~1% lighter + fees — the churn WAS the loss)
+            if is_flat(r) and _f(r.get('pct')) > TIME_CUT_PCT and not better_:   # 🪓 (2026-10-11: 113 swaps in 4h, nearly every flat coin sold ~1% lighter + fees — the churn WAS the loss)
                 r['deferred'] = (f"flat ({_f(r.get('pct')):+.1f}%) and no clearly better coin" + (f" (best is +{_f(e_[0]):.0f} score, needs +{_f(e_[1]):.0f})" if e_ and e_[0] is not None else '')
                                  + f" — a swap costs ~{SWAP_COST_PCT:.0f}% round trip, so it keeps the seat and gets its chance to run (stops and trails still act)")
                 continue

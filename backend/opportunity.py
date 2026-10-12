@@ -27,6 +27,24 @@ def _f(v):
         return 0.0
 
 
+DEAD_5M_USD = 300.0     # 💀 under $300 traded in the last 5 min = nobody is trading it now …
+DEAD_PACE, DEAD_PACE_USD = 0.2, 1500.0   # … or the 5 min ran under a fifth of the hour's pace with under $1.5K in it (the hour's volume is gone)
+
+
+def dead_now(row):
+    """💀 None = people are trading it NOW, else why it is dead. Reads Tally's 5-min $ (`nums.v5`) and pace; no reading = not judged.
+    A dead coin can't go anywhere and can't be sold well either — it never takes a seat, and a held one gives its seat away."""
+    n = (row or {}).get('nums') or {}
+    if n.get('v5') is None:
+        return None
+    v5, pace = _f(n['v5']), n.get('pace')
+    if v5 < DEAD_5M_USD:
+        return f'dead — ${v5:,.0f} traded in the last 5 min'
+    if pace is not None and _f(pace) < DEAD_PACE and v5 < DEAD_PACE_USD:
+        return f'dead — 5-min volume ${v5:,.0f} is {_f(pace):.2f}× the hour\'s pace'
+    return None
+
+
 def hard_fail(row, mcap_cap=MAX_MCAP, min_liq=MIN_LIQ):
     """The ONLY reasons a coin is a NO: holder scan failed / never read (no holder safety at all) · a pool under the floor (a pull or no
     exit) · market cap ≥ the cap · rug meter ≥ 50 · a hard Devil rule (rug signs, burned us, an approved avoid, bad data, a bot ladder) ·
@@ -35,6 +53,9 @@ def hard_fail(row, mcap_cap=MAX_MCAP, min_liq=MIN_LIQ):
     v, n, ch = x.get('vitals') or {}, x.get('nums') or {}, x.get('chart') or {}
     if _f(x.get('px')) <= 0:
         return 'no live price'
+    dead = dead_now(x)
+    if dead:
+        return dead
     if v.get('safe') is False:
         return 'failed the holder safety scan'
     if v.get('safe') is not True:

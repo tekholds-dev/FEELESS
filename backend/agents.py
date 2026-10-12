@@ -17,6 +17,7 @@ positive median and ≥ PROVE_WIN % won — then the 15-minute stage opens. A re
 
 import trench_mind as _tm
 import chart_intel as _ci
+import opportunity as _opp
 
 # 🕸 THE CRAWL: every place the desk pulls coins from each pass — each one is a driver `src:<key>` judged on its own record, so the agents
 # learn which corner of the trench pays (owner: "access multiple ends to get info — only for trenching")
@@ -253,7 +254,8 @@ def tally(state, rows, now):
         nums[m] = {'d5': round(d5, 2), 'c1': r.get('chg1h'), 'pace': None if pace is None else round(pace, 2), 'buy': r.get('buyShare'),
                    'liq': pt['liq'], 'liqD': round((pt['liq'] / liq0 - 1) * 100, 1) if liq0 > 0 and pt['liq'] > 0 else None,
                    'holdD': (_f(pt['h']) - _f(s[0].get('h'))) if pt['h'] is not None and s[0].get('h') is not None else None,
-                   'age': r.get('ageH'), 'pts': len(s)}
+                   'age': r.get('ageH'), 'pts': len(s),
+                   'v5': None if r.get('vol5m') is None else round(_f(r['vol5m']), 1), 'tx': r.get('txns1h')}   # 💀 5-min $ traded + trades in the hour (is anyone trading it NOW?)
     if len(ser) > SERIES_COINS:   # keep the most recently seen coins
         for m in sorted(ser, key=lambda k: ser[k][-1]['t'])[:len(ser) - SERIES_COINS]:
             ser.pop(m)
@@ -1381,7 +1383,17 @@ AGENT_MIN_VOL1H = 1_000.0      # … with real volume (≥ $1K traded in the las
 def in_lane(row, cap=AGENT_MAX_MCAP):
     """🗑 THE AGENTS' UNIVERSE for new entries: live market cap $10K … under the cap, with volume. Age is context (ranking), never a veto."""
     r = row or {}
+    if r.get('mint') in _majors():   # 🪙 majors + xStocks are never a trench seat (MRNA / MU sat dead outside US market hours, 2026-10-11)
+        return False
     return under_cap(r, cap) and _f(r.get('mcap')) >= AGENT_MIN_MCAP and _f(r.get('vol1h')) >= AGENT_MIN_VOL1H
+
+
+def _majors():
+    try:
+        import fuse as _fz
+        return _fz.ALL_MAJORS
+    except Exception:
+        return {}
 
 
 LANE_CAPS = (200_000.0, 1_000_000.0, 5_000_000.0)   # 🪜 the universe widens only when the one below cannot fill the seats
@@ -1460,6 +1472,7 @@ def investigate(table, on=(), min_age_h=0.0, burned=(), top=6):
                    + ('' if age_ok else f" — under your agents' {_f(min_age_h):g}h line") if v.get('ageH') is not None else 'age unknown'],
                   ['pool', liq >= CONTROL_MIN_LIQ, f'pool ${liq / 1000:.0f}K'],
                   ['burn', x.get('mint') not in (burned or ()), 'not burned' if x.get('mint') not in (burned or ()) else 'burned us in the last 6h'],
+                  ['alive', not _opp.dead_now(x), _opp.dead_now(x) or 'people are trading it now'],
                   ['devil', case[0] == 'agree', case[1] or ('Devil agrees' if case[0] == 'agree' else 'Devil objects')]]
         if x.get('chart'):   # 📈 the moment itself: the duty waives Trigger's BAR, never the chart — a coin is only bought where the structure gives an entry
             ec = x['chart']['entry']
@@ -1480,7 +1493,7 @@ def eligible(table, on=(), min_age_h=0.0, burned=()):
     out = []
     for x in table or []:
         v = x.get('vitals') or {}
-        if (not x.get('go') or x.get('mint') in on or x.get('mint') in (burned or ()) or _f(x.get('px')) <= 0 or v.get('safe') is not True
+        if (not x.get('go') or x.get('mint') in on or x.get('mint') in (burned or ()) or _f(x.get('px')) <= 0 or v.get('safe') is not True or _opp.dead_now(x)
                 or v.get('ageH') is None or _f(v['ageH']) < _f(min_age_h) or _f((x.get('nums') or {}).get('liq') or v.get('liq')) < CONTROL_MIN_LIQ):
             continue
         out.append(x)
