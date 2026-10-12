@@ -317,14 +317,29 @@ export function AgentPanel({ o, a, coin, onCoin, tabReq }) {
 }
 
 export function Roster({ o, sel, onSel }) {
-  const alive = (o.agents || []).filter(a => a.card?.status === 'alive').length;
-  return <div className="ofr-roster" data-testid="ofr-roster"><small>AGENT ROSTER · {alive} / {(o.agents || []).length} alive</small>
+  const lc = o.lifecycle || {};   /* 🧬 one ACTIVE generation per role; the ones it replaced are SHADOW (24h) then RETIRED */
+  const act = (o.agents || []).filter(a => (lc[a.key]?.active?.status || 'ACTIVE') === 'ACTIVE').length;
+  return <div className="ofr-roster" data-testid="ofr-roster"><small>AGENT ROSTER · {act} / {(o.agents || []).length} ACTIVE</small>
     <div className="ofr-rgrid">{(o.agents || []).map(a => { const c = a.card || {}; const [tag, word] = agentTag(a.key, o); const ds = o.deskStats?.[a.key]; const net = ds?.medNet ?? null; const has = net != null;   /* 📋 the desk's REAL-money record (Judge reviews of real exits) — never a sum of % */
       return <button key={a.key} type="button" className={`ofr-rcard ${TAG_CLS[tag] || 'is-wait'} ${sel === a.key ? 'is-on' : ''}`} style={{ '--ag': AG[a.key] }} onClick={() => onSel(a.key)} aria-pressed={sel === a.key} data-tip={`${a.role} ${c.why || ''}`} data-testid={`roster-${a.key}`}>
-        <span className="ofr-rhead"><i className="ofr-ricon" aria-hidden>{a.icon}</i><span><b>{a.name}</b><u>gen {c.gen ?? 1} · <i className={c.status === 'alive' ? 'ofr-pos' : 'ofr-warn'}>● {c.status || '—'}</i></u></span>
+        <span className="ofr-rhead"><i className="ofr-ricon" aria-hidden>{a.icon}</i><span><b>{a.name}</b><u>GEN {lc[a.key]?.active?.gen ?? c.gen ?? 1} · <i className={(lc[a.key]?.active?.status || 'ACTIVE') === 'ACTIVE' ? 'ofr-pos' : 'ofr-warn'} data-testid={`roster-status-${a.key}`}>● {lc[a.key]?.active?.status || 'ACTIVE'}</i></u></span>
           <em className={net > 0 ? 'ofr-pos' : net < 0 ? 'ofr-neg' : ''} data-tip={has ? `REAL trades: ${ds.decisions} decisions · ${ds.accuracy}% made money · ${ds.winResp} wins credited · ${ds.lossResp} losses the Judge pinned on it · median net trade ${sgn(ds.medNet, 1)}` : 'no real trades judged yet'} data-testid={`roster-net-${a.key}`}>{has ? `${sgn(net, 1)} med` : '—'}</em></span>
         <span className="ofr-rmid" data-tip={`runtime per pass, last ${(o.performance?.agents?.[a.key]?.series || []).length} passes (ms)`}><Spark xs={o.performance?.agents?.[a.key]?.series} /><span><b data-tip="share of its REAL trades that made money (paper record in the card's tip)">{ds?.accuracy == null ? (c.accuracy == null ? '—' : `${c.accuracy}%`) : `${ds.accuracy}%`}</b><u>{ds ? `real ${ds.decisions} · W${ds.winResp} · L${ds.lossResp}` : `n ${c.n ?? 0}`} · conf {c.confidence != null ? `${Math.round(c.confidence * 100)}%` : '—'} · {ms(c.latency?.last)}</u></span></span>
-        <span className="ofr-rtag" data-tip={word}>{tag}</span></button>; })}</div></div>;
+        <span className="ofr-rtag" data-tip={word}>{tag}</span></button>; })}</div>
+    <Lineage o={o} /></div>;
+}
+
+// 🧬 the generations that were REPLACED: why, what the new one changed, and the shadow record (old vs new on the same real exits)
+export function Lineage({ o }) {
+  const lc = o?.lifecycle || {};
+  const rows = Object.entries(lc).flatMap(([k, v]) => (v.past || []).slice(0, 2).map(p => ({ k, ...p, now: v.active }))).filter(r => r.gen).sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 8);
+  if (!rows.length) return null;
+  const name = k => (o.agents || []).find(a => a.key === k)?.name || k;
+  return <div className="ofr-lineage" data-testid="ofr-lineage"><small>REPLACED GENERATIONS</small>
+    {rows.map((r, i) => <p key={`${r.k}-${r.gen}-${i}`} data-testid={`lineage-${r.k}-${r.gen}`}>
+      <b>{name(r.k).toUpperCase()} GEN {r.now?.gen} · ACTIVE</b> <i className={r.status === 'SHADOW' ? 'ofr-warn' : 'ofr-neg'}>old gen {r.gen} · {r.status}</i>
+      <span> — why replaced: {r.why || '—'}{r.changed ? ` · what changed: ${Array.isArray(r.changed) ? r.changed.join(', ') : r.changed}` : ''}{r.shadow ? ` · shadow: ${r.shadow.verdict}${r.shadow.edge != null ? ` (new ${r.shadow.new}% vs old ${r.shadow.old}%, n ${r.shadow.n})` : ''}` : ''}</span></p>)}
+  </div>;
 }
 
 // 🖱 what a click on any object in the room does — one pure function (tested without WebGL): a seat → its live position / the empty seat's

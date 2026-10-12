@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { OfficeHQ, RoomScene, AgentPanel, Roster, LiveChart, TeamTrace, traceOf, roomModel, agentTag, focusOf, ticker, hotPosition, candleGeom, coinView, PANEL_TABS, AG, TAG_CLS } from './OfficeRoom';
+import { OfficeHQ, RoomScene, AgentPanel, Roster, Lineage, LiveChart, TeamTrace, traceOf, roomModel, agentTag, focusOf, ticker, hotPosition, candleGeom, coinView, PANEL_TABS, AG, TAG_CLS } from './OfficeRoom';
 import office from './__fixtures__/office.json';
 
 // the live chart component itself needs a canvas; here it reports what it was handed (the same pair + levels the real one draws)
@@ -97,8 +97,8 @@ test('the roster: ten live cards with gen, status, runtime line, record and the 
   const picks = [];
   const r = await mount(<Roster o={office} sel="tally" onSel={k => picks.push(k)} />);
   expect([...r.querySelectorAll('.ofr-rcard')].map(b => b.getAttribute('data-testid'))).toEqual(CHAIN.map(k => `roster-${k}`));
-  expect(q(r, 'ofr-roster').textContent).toContain('/ 10 alive'); expect(q(r, 'roster-reaper').textContent).toContain(office.positions[0].decision);
-  expect(q(r, 'roster-tally').textContent).toContain('gen 1'); expect(q(r, 'roster-tally').querySelector('polyline')).not.toBeNull();
+  expect(q(r, 'ofr-roster').textContent).toContain('/ 10 ACTIVE'); expect(q(r, 'roster-reaper').textContent).toContain(office.positions[0].decision);
+  expect(q(r, 'roster-tally').textContent).toContain('GEN 1 · ● ACTIVE'); expect(q(r, 'roster-tally').querySelector('polyline')).not.toBeNull();
   await act(async () => { q(r, 'roster-warden').click(); });
   expect(picks).toEqual(['warden']);
   const el = await mount(<OfficeHQ o={office} roomOn />);
@@ -217,4 +217,13 @@ test('the roster shows each desk\'s REAL-money record — never a sum of % (Reap
   expect(el.textContent).toContain('med'); expect(el.textContent).not.toContain('468');
   expect(el.getAttribute('data-tip')).toContain('3 losses the Judge pinned');
   expect(q(r, 'roster-reaper').textContent).toContain('real 80 · W25 · L3'); expect(q(r, 'roster-reaper').textContent).toContain('38%');
+});
+
+test('a replaced generation is shown as SHADOW / RETIRED under the ACTIVE one, with why, what changed and the shadow record', async () => {
+  const o2 = { ...office, lifecycle: { reaper: { active: { gen: 2, status: 'ACTIVE' }, past: [{ gen: 1, status: 'SHADOW', at: 5, why: 'real money: 4 losses pinned vs 1 win', changed: 'arms its trail at +4%',
+    shadow: { n: 8, old: -3.1, new: -0.4, edge: 2.7, verdict: 'new generation better' } }] } } };
+  const r = await mount(<Roster o={o2} sel="tally" onSel={() => {}} />);
+  expect(q(r, 'roster-status-reaper').textContent).toContain('ACTIVE'); expect(q(r, 'roster-reaper').textContent).toContain('GEN 2');
+  const t = q(r, 'lineage-reaper-1').textContent;
+  expect(t).toContain('REAPER GEN 2 · ACTIVE'); expect(t).toContain('old gen 1 · SHADOW'); expect(t).toContain('arms its trail at +4%'); expect(t).toContain('new generation better');
 });

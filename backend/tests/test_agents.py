@@ -157,9 +157,9 @@ def test_the_crawl_sources_are_learned_and_the_creed_is_engraved():
 def test_an_agent_that_stays_wrong_is_scrapped_and_reborn_with_nothing_but_belief():
     mk = lambda i, up, p: {'mint': str(i), 'at': 1000 + i, 'kind': 'wait', 'go': False, 'devil': '—', 'drivers': ['buyers'], 'lean': -1, 'tallyUp': up, 'p5': p}   # Sherlock leaned down and was right
     wrong = [mk(i, True, -2.0) for i in range(40)]                                              # Tally said "keeps going", it fell — 40 times
-    assert ag.survival({'done': wrong})['tally']['status'] == 'probation'
+    assert ag.survival({'done': wrong})['tally']['status'] == 'watch'
     st = {'done': wrong + [mk(100 + i, True, -2.0) for i in range(25)]}
-    assert ag.survival(st)['tally']['status'] == 'probation'                                     # paper alone never kills (the Judge is easy on paper)
+    assert ag.survival(st)['tally']['status'] == 'watch'                                     # paper alone never kills (the Judge is easy on paper)
     st['realReviews'] = [{'kind': 'loss', 'at': 2000 + i, 'resp': {'tally': 60}} for i in range(5)]   # … real losses pinned on Tally do
     assert ag.survival(st)['tally']['status'] == 'scrap'
     st2, dead = ag.evolve(st, 5000.0)
@@ -202,7 +202,7 @@ def test_a_rug_gets_one_second_opinion_and_a_death_passes_its_lesson_on():
     assert les['drivers'][0][0] == 'callers' and les['drivers'][0][1] == -6.0
     w = ag.weights({'drivers': {}, 'lessons': {'sherlock': les}})
     assert w['callers'] == -6.0                                                             # the reborn Sherlock starts from what killed the last
-    assert ag.lesson({}, 'trigger')['barBump'] == 0.5
+    assert 'barBump' not in ag.lesson({}, 'trigger')                                              # 🧬 no inherited fear
 
 
 def test_war_log_and_calibration():

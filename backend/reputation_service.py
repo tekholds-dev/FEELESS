@@ -12579,6 +12579,7 @@ import judge_review as _jr
 import real_memory as _rm
 import shadow_book as _sb
 import trench_rounds as _tr
+import generations as _gen
 LINGO_PATH = FUSE_HQ_PATH.parent / 'trench_lingo.json'   # 📖 slang the desk learned from Pump callers' own words (per-day counts + learned words)
 AGENTS_PATH = FUSE_HQ_PATH.parent / 'agents.json'   # 🤖 the agent desk: Tally's tapes, every call, every judged result
 AGENTS_EVERY = 18.0                                 # ⚡ 3× a minute (owner, 2026-10-11: "seats never empty — 3× as fast"); a pass takes ~2s
@@ -12587,6 +12588,23 @@ _agents: dict = {'at': 0.0, 'table': [], 'view': None}
 
 
 _rm_cache: dict = {'at': 0.0, 'mem': None}
+
+
+def _lifecycle(now):
+    """🧬 Every role's ACTIVE generation + the ones it replaced (SHADOW 24h, then RETIRED), with the shadow record of the office desks:
+    the same real exits since the switch replayed with the OLD generation's settings vs the NEW one's (Reaper's price rules)."""
+    of_ = _office_state()
+    shadows = {}
+    try:
+        pos_ = (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or []
+        take_ = _of.take_line(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), _agents.get('scalp'))
+        for x_ in reversed(of_.get('lineage') or []):
+            a_ = x_.get('agent')
+            if a_ == 'reaper' and a_ not in shadows and x_.get('oldTune') and x_.get('newTune'):
+                shadows[a_] = _gen.shadow_record(pos_, x_['oldTune'], x_['newTune'], _fuse._f(x_.get('at')), take_, _of.reaper_replay)
+    except Exception as e:
+        print('lifecycle shadow:', str(e)[:100])
+    return _gen.lifecycle(_json_load(AGENTS_PATH, {}) or {}, of_, now, shadows)
 ROUNDS_PATH = FUSE_HQ_PATH.parent / 'trench_rounds.json'   # ⏱ candidates' 5-minute rounds + the round history (trench_rounds.py)
 _rounds: dict = {'state': None}
 
@@ -13825,6 +13843,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         want_ = {x_.get('mint') for x_ in (_agents.get('table') or [])[:30]} | set(_office.get('pos') or {})
         _office['payload']['social'] = {m_: {k_: v_ for k_, v_ in sc_[m_].items() if k_ not in ('search',)} for m_ in want_ if m_ in sc_}
         _office['payload'].update(fresh=_office_fresh(now), live=_office.get('live'), open=_office.get('open'), scans=_office.get('scans'), loadPass=_office_load_pass(),
+                                  lifecycle=_lifecycle(now),
                                   deskStats=_jr.desk_stats(((_office_state().get('judge') or {}).get('reviews')) or []),
                                   rounds={**_tr.summary(_rounds_state(), now), 'roundSec': _tr.ROUND_SEC, 'desk': {'n': int(now // _tr.ROUND_SEC) % int(86400 // _tr.ROUND_SEC) + 1, 'left': round(_tr.ROUND_SEC - now % _tr.ROUND_SEC, 1)},
                                           'live': sorted([{'mint': m_, 'sym': e_.get('sym'), 'round': e_.get('round'), 'left': _tr.time_left(e_['first'], now),

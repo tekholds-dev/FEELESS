@@ -3346,3 +3346,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🪖 Trench mode exits: Reaper's R2 (holder scan fails / rug ≥ 65) and R3 (top-10 concentrating) do not fire with `agentOpen` — the live
   chart, liquidity (R1), stops, the rug radar on the tape and the trail decide. 🧾 A stuck buy is not stuck when the LEDGER shows it filled
   in the last 3 min (the card book had not synced: $Americaexe filled, then sent "back to cash" 2 s later).
+- 🧬 TRUE SUBSTITUTION (owner, 2026-10-12: "demotion is not enough — bad generation out, new generation in"; `backend/generations.py` pure +
+  tested): ACTIVE · SHADOW (the replaced generation, 24h, judged on the same real exits) · BENCHED (owner) · RETIRED. No "probation / demoted
+  but still trading": office desks are replaced in `office.demote` on their own demoted record (a fresh gen gets 1h) or `OFFICE_REAL_SCRAP_N`
+  3 net real losses pinned; the four desks at `REAL_SCRAP_N` 3 (`agents.survival` 'watch' is a label only). The new generation = hard-coded
+  DEFAULTS + only the fix for how the last one failed (`generations.improve`, `CAUSE_PATCH`: Reaper gave_back → trail arms +4% / 35%
+  give-back · held_too_long → 60 min / stop 20% · rug / thin pool / bundle exit → stop 20%; Warden thin pool → 0.75% of a pool · BAD SIZE →
+  30% seat), bounded by TUNABLE; old tunes are NOT inherited (lineage keeps `oldTune` / `newTune` / `changed`). The Trigger +0.5 bar per
+  death (`barBump`) is gone — no inherited fear. Payload `lifecycle` (+ Reaper's `shadow_record`) → roster "GEN n · ACTIVE" + `Lineage`.

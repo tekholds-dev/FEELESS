@@ -38,7 +38,7 @@ CREED = (
     "Every opinion says how much of it is earned and how much is still belief.",
 )
 SURVIVE_N, SCRAP_N, SURVIVE_RIGHT = 30, 60, 45.0
-REAL_PROBATION_N, REAL_SCRAP_N = 3, 5   # 💵 real losses an agent caused this life, net of the real wins credited to it
+REAL_PROBATION_N, REAL_SCRAP_N = 3, 3   # 💵 real losses an agent caused this life, net of the real wins credited to it → replaced (no probation in control)
 BURN_SEC, BURN_PCT = 6 * 3600, -20.0   # 🔥 a GO that lost 20%+ in 5 min burns that coin for 6h
 BUDGET_N = 50                          # 🕸 a crawl source with 50+ judged calls and a losing record gets its share cut
 
@@ -70,7 +70,7 @@ def survival(state, h=5):
         lost_ = sum(1 for r in (state or {}).get('realReviews') or [] if r.get('kind') == 'loss' and _f(r.get('at')) >= b_ and _f((r.get('resp') or {}).get(a)) >= 50)
         won_ = sum(1 for p in (state or {}).get('realPieces') or [] if _f(p.get('at')) >= b_ and real_ruling(p).get('credit') == a)
         net_ = lost_ - won_
-        status = 'scrap' if net_ >= REAL_SCRAP_N else 'probation' if net_ >= REAL_PROBATION_N or (bad and n >= SURVIVE_N) else 'alive'
+        status = 'scrap' if net_ >= REAL_SCRAP_N else 'watch' if net_ >= REAL_PROBATION_N - 1 or (bad and n >= SURVIVE_N) else 'alive'   # 🧬 no 'probation but still trading': repeated real failure = replaced; 'watch' is a label only
         out[a] = {'gen': int(gen.get(a) or 1), 'born': b_, 'n': n, 'right': c['right'], 'med': c['med'], 'status': status,
                   'realLost': lost_, 'realWon': won_, 'realNet': net_}
     return out
@@ -100,9 +100,7 @@ def lesson(state, agent, h=5):
     bad = sorted(((x, v['med'], v['n']) for x, v in lr['drivers'].items() if v['n'] >= 5 and v['med'] < 0), key=lambda t: t[1])[:6]
     prev = ((state or {}).get('lessons') or {}).get(agent) or {}
     out = {'drivers': [list(b) for b in bad], 'words': [f"{word(b[0])} ({b[1]:+.1f}%, n {b[2]})" for b in bad[:3]]}
-    if agent == 'trigger':
-        out['barBump'] = min(1.5, _f(prev.get('barBump')) + 0.5)
-    return out
+    return out   # 🧬 no inherited fear: a reborn Trigger used to start +0.5 pickier per death (generations.py) — lessons only, never a stricter bar
 
 
 def evolve(state, now):
@@ -777,7 +775,7 @@ def learn(state, h=5):
     t = cards['trigger']
     bar = 1.5 if not t['n'] or t['n'] < 15 else (2.5 if _f(t['med']) < 0 else 1.0 if _f(t['won']) >= 60 else 1.5)   # losing → pickier
     lessons = (state or {}).get('lessons') or {}
-    bar += _f((lessons.get('trigger') or {}).get('barBump'))   # a reborn Trigger starts pickier than the one that died
+    # (a reborn Trigger no longer starts pickier — lessons only, never a stricter bar: generations.py)
     cal = {}
     for d in enters_all:   # 🎯 calibration: does a stronger lean really win more?
         b_ = '0–1' if _f(d.get('lean')) < 1 else '1–2' if _f(d.get('lean')) < 2 else '2–3' if _f(d.get('lean')) < 3 else '3+'

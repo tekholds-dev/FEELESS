@@ -1107,6 +1107,7 @@ def scorecards(state, arch, office, real=None, courier_=None):
             k.update(chartN=len(co), chartRight=round(sum(1 for x in co if _f(x['p5']) <= 0) / len(co) * 100) if co else None)
         acc = c['won'] if a == 'trigger' else c['right']
         why = {'alive': f"{acc if acc is not None else '—'}% right over {s['n']} calls this life", 'probation': f"under {_ag.SURVIVE_RIGHT}% right over {s['n']} calls — scrapped at {_ag.SCRAP_N}",
+               'watch': f"ACTIVE · on watch — {s.get('realNet', 0)} net real losses pinned this life (replaced at {_ag.REAL_SCRAP_N})",
                'scrap': f"still under {_ag.SURVIVE_RIGHT}% right at {s['n']} calls — reborn next pass"}[s['status']]
         if jd['trial'] == a:
             why += f" · on trial: {jd['handicap']}"
@@ -1236,7 +1237,7 @@ def judge_candidates(office, arch, cfg, scalp, now):
     return o
 
 
-OFFICE_REAL_SCRAP_N = 5   # 💵 real losses the Judge pinned on an office desk THIS life, net of the real wins credited to it → its next generation
+OFFICE_REAL_SCRAP_N = 3   # 💵 real losses the Judge pinned on an office desk THIS life, net of the real wins credited to it → replaced by its next generation
 
 
 def office_real_net(reviews, a, born):
@@ -1251,24 +1252,33 @@ def office_real_net(reviews, a, born):
 
 
 def demote(office, cards, now, reviews=None):
-    """An office desk starts its NEXT GENERATION when the Judge DEMOTED it (enough samples, degraded edge) or when REAL MONEY says so
-    (OFFICE_REAL_SCRAP_N net losses pinned on it this life). Its promoted tunables go back to the hard-coded defaults, `born` restarts,
-    and the lineage keeps the lesson (the most common cause of the losses it carried). 2026-10-12: Warden had 16 real losses pinned and
-    was still gen 1 — the only way out used to need a promoted tunable to reset, which it never had. The four desks: `agents.evolve`."""
+    """🧬 TRUE SUBSTITUTION for the office desks (generations.py): a desk whose own record the Judge DEMOTED, or that real money condemned
+    (OFFICE_REAL_SCRAP_N net losses pinned on it this life), is REPLACED at once — the new generation is ACTIVE on this same tick, starting
+    from the hard-coded DEFAULTS plus only the fix for how the last one failed (`generations.improve`); the old generation's settings go to
+    the lineage (it is SHADOW for 24h: the same real exits replayed with its settings vs the new ones). There is no 'demoted but still in
+    control' state any more."""
+    import generations as _gn
     o = dict(office or {})
     born = dict(o.get('born') or {})
     for a in ('weather', 'warden', 'courier', 'reaper'):
         born.setdefault(a, 0.0)
         net, lost, won, cause = office_real_net(reviews, a, born[a])
-        paper = (cards.get(a) or {}).get('status') == 'demoted' and bool((o.get('tune') or {}).get(a))
+        paper = (cards.get(a) or {}).get('status') == 'demoted' and now - _f(born[a]) > 3600   # its own judged record (a fresh generation gets an hour)
         if not (paper or net >= OFFICE_REAL_SCRAP_N):
             continue
-        t = {k: dict(v) for k, v in (o.get('tune') or {}).items()}; t.pop(a, None)
+        old_t = {k: tune(o, a, k) for k in TUNABLE.get(a, {})}
+        patch, changed = _gn.improve(a, _gn.failure_causes(reviews, a, born[a]), TUNABLE)
+        t = {k: dict(v) for k, v in (o.get('tune') or {}).items()}
+        if patch:
+            t[a] = dict(patch)
+        else:
+            t.pop(a, None)
         g = dict(o.get('gen') or {}); g[a] = int(g.get(a) or 1) + 1
-        why = (f"scrapped on real money: {lost} losses pinned this life vs {won} wins credited — lesson: {cause}" if net >= OFFICE_REAL_SCRAP_N
-               else f"demoted: {cards[a]['why']}") + ' — tunables back to defaults'
+        why = (f"real money: {lost} losses pinned this life vs {won} wins credited (most often {cause})" if net >= OFFICE_REAL_SCRAP_N
+               else f"its own record: {cards[a]['why']}")
         born[a] = now
-        o.update(tune=t, gen=g, lineage=(list(o.get('lineage') or []) + [{'agent': a, 'gen': g[a] - 1, 'at': now, 'why': why, 'lesson': cause}])[-40:])
+        o.update(tune=t, gen=g, lineage=(list(o.get('lineage') or []) + [{'agent': a, 'gen': g[a] - 1, 'at': now, 'died': now, 'why': why, 'lesson': cause,
+                                                                           'changed': '; '.join(changed), 'oldTune': old_t, 'newTune': {k: tune({'tune': t}, a, k) for k in TUNABLE.get(a, {})}}])[-40:])
     o['born'] = born
     return o
 

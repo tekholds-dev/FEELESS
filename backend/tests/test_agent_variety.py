@@ -123,7 +123,8 @@ def test_real_losses_decide_survival_paper_only_probation():
     st = {'born': {'trigger': 50}, 'realReviews': [lost(i, 'trigger') for i in range(5)]}
     assert ag.survival(st)['trigger']['status'] == 'scrap' and ag.survival(st)['trigger']['realNet'] == 5
     st2 = {**st, 'realReviews': [lost(i, 'trigger') for i in range(3)]}
-    assert ag.survival(st2)['trigger']['status'] == 'probation'
+    assert ag.survival(st2)['trigger']['status'] == 'scrap'                                         # 🧬 3 net real losses = replaced (no probation in control)
+    assert ag.survival({**st, 'realReviews': [lost(i, 'trigger') for i in range(2)]})['trigger']['status'] == 'watch'
     st3 = {**st, 'realPieces': [{'pct': 20, 'holdMin': 30, 'at': 200 + i} for i in range(3)]}       # wins credited to Sherlock don't save Trigger
     assert ag.survival(st3)['trigger']['realNet'] == 5
     st4 = {'born': {'trigger': 500}, 'realReviews': [lost(i, 'trigger') for i in range(9)]}          # losses from its LAST life don't count

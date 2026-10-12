@@ -185,3 +185,6 @@ body.theme-day .ofr-policy td.is-you, body.theme-day .ofr-policy th.is-you { col
 @keyframes ofrZoom { from { transform: translate(-50%, -6px); } to { transform: translate(-50%, 0); } }
 @media (prefers-reduced-motion: reduce) { .or3-zoom { animation: none; } }
 body.theme-day .or3-zoom { background: rgba(236, 246, 240, .95); color: #0b2a1a; }
+/* 🧬 replaced generations under the roster */
+.ofr-lineage { margin-top: 8px; padding-top: 6px; border-top: 1px dashed rgba(69, 228, 134, .2); font-size: 11px; }
+.ofr-lineage p { margin: 3px 0; }

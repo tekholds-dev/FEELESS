@@ -194,5 +194,5 @@ def test_an_office_desk_that_keeps_losing_real_money_starts_its_next_generation_
     o = of.demote({}, {}, 100.0, rv)
     assert o['gen']['warden'] == 2 and o['born']['warden'] == 100.0 and o['lineage'][-1]['lesson'] == 'thin_pool'
     assert of.demote(o, {}, 200.0, rv)['gen']['warden'] == 2                     # its new life starts clean: old losses don't count twice
-    few = [{'kind': 'loss', 'at': 1, 'resp': {'reaper': 1}}] * 4 + [{'kind': 'win', 'at': 2, 'exit': 'R7 trail'}]
-    assert of.demote({}, {}, 100.0, few).get('gen', {}).get('reaper') is None      # 4 losses − 1 win: still alive
+    few = [{'kind': 'loss', 'at': 1, 'resp': {'reaper': 1}}] * 3 + [{'kind': 'win', 'at': 2, 'exit': 'R7 trail'}]
+    assert of.demote({}, {}, 100.0, few).get('gen', {}).get('reaper') is None      # 3 losses − 1 win: still ACTIVE (replaced at 3 net)
