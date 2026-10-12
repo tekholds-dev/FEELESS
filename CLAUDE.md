@@ -3359,3 +3359,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   TICK and leaves the gap empty — it drew one fake candle from the old close to the live price ($STREAM: entry → 2×) and invented flat
   minutes. 📊 MARKET CAP FIRST (`lib/mcap.mcapOf`): no live cap for a launchpad mint (…pump / …bonk) = price × its fixed 1B supply — used by
   PriceChart itself, the Agents tab chart, coin drawer, quick look and mini chart (they fell back to a PRICE chart for every fresh curve coin).
+- ⚙ THE AGENT KERNEL (owner's consolidation spec, 2026-10-12; `docs/AGENT_KERNEL.md`, `backend/trench_kernel/`): ONE MintState per mint
+  (`state.MintStore`, per-section timestamps, deduped, events only for what changed) · ONE candidate lifecycle DISCOVERED → TRACKING →
+  CONTENDING → READY → ORDER_PENDING → HELD → EXIT_PENDING → CLOSED (data pending = TRACKING, never rejected) · ONE ten-agent brain
+  (`brain.think`: pure opinions, Devil INFO / WARNING / STRONG_WARNING / HARD_VETO, Warden sizes, one reducer) · four hunter lanes HUNTING /
+  ARMED / HELD · `kernel.KERNEL` re-judges only affected mints, live prices are events (`price_event`), latency p50 / p95 measured. Trench-mode
+  seat fills read `KERNEL.ready()` (no second ranking). ONE enrichment scheduler (`_kernel_pass` → `_runner_intel`, `ENRICH_TOP` 4). RPC
+  singleflight in `chain_rpc._rpc` (`RPC_STATS`). UI: `lib/agentHub.useAgentHub` + `KernelBoard`; `agentRead.rowState` is the one decision
+  meaning. New agent logic ⇒ a pure function in `trench_kernel/brain.py`, never a fetch inside an agent.

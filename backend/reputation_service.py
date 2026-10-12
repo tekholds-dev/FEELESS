@@ -12636,8 +12636,19 @@ def _kernel_ctx(now):
             'live': rd.get('live') if rd else None, 'weights': _judge_weights(now)}
 
 
+ENRICH_TOP = 4   # 🔎 Tier 2: holder / early-wallet scans only for the strongest candidates the brain asks about (Tier 0 = the whole intake, zero RPC)
+
+
 def _kernel_pass(table, now):
+    """⚙ The desk's rows → the kernel (only changed mints re-judged) → ONE enrichment scheduler: Sherlock's 'holders pending' requests for
+    the ENRICH_TOP best-ranked candidates go to the existing deduped scan path (`_runner_intel`: one scan per mint in flight, a failed one
+    rests 45s) — no agent fetches for itself, no duplicate scan."""
     _tk.KERNEL.run(table, now, _kernel_ctx(now), source='desk')
+    asked = []
+    for m_, d_ in sorted(((m_, d_) for m_, d_ in _tk.KERNEL.dec.items() if d_['status'] in ('READY', 'CONTENDING') and 'holders' in d_['opinions']['sherlock']['requests']),
+                         key=lambda kv: -kv[1]['rank'])[:ENRICH_TOP]:
+        asyncio.ensure_future(_runner_intel(m_)); asked.append(m_)
+    _office['enrich'] = {'at': now, 'asked': len(asked), 'holderInflight': len(_intel_inflight), 'tier0': len(_tk.KERNEL.store.mints)}
 
 
 def _rounds_pass(table, now):
@@ -13881,7 +13892,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         _office['payload']['social'] = {m_: {k_: v_ for k_, v_ in sc_[m_].items() if k_ not in ('search',)} for m_ in want_ if m_ in sc_}
         _office['payload'].update(fresh=_office_fresh(now), live=_office.get('live'), open=_office.get('open'), scans=_office.get('scans'), loadPass=_office_load_pass(),
                                   lifecycle=_lifecycle(now),
-                                  kernel=_tk.KERNEL.view(now), rpcStats=dict(_chain.RPC_STATS),
+                                  kernel=_tk.KERNEL.view(now), rpcStats=dict(_chain.RPC_STATS), enrich=_office.get('enrich'),
                                   generations=_tkl.generations(_json_load(AGENTS_PATH, {}) or {}, _office_state(), now, _jr.desk_stats(((_office_state().get('judge') or {}).get('reviews')) or [])),
                                   deskStats=_jr.desk_stats(((_office_state().get('judge') or {}).get('reviews')) or []),
                                   rounds={**_tr.summary(_rounds_state(), now), 'roundSec': _tr.ROUND_SEC, 'desk': {'n': int(now // _tr.ROUND_SEC) % int(86400 // _tr.ROUND_SEC) + 1, 'left': round(_tr.ROUND_SEC - now % _tr.ROUND_SEC, 1)},

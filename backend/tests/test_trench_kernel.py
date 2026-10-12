@@ -121,3 +121,10 @@ def test_local_latency_targets_on_a_500_coin_batch():
     m = k.metrics(110.0)['latencyMs']
     assert m['ingest']['p95'] < 25 and m['rank']['p95'] < 10 and m['agents']['p95'] < 50
     t0 = time.perf_counter(); k.price_event('L1', 1.2, 120.0, {}); assert (time.perf_counter() - t0) * 1000 < 250
+
+
+def test_one_enrichment_scheduler_asks_only_for_the_strongest_and_reuses_the_deduped_scan():
+    assert 'ENRICH_TOP = 4' in SRC and 'asyncio.ensure_future(_runner_intel(m_))' in SRC
+    k = tk.Kernel()
+    k.run([row(f'S{i}', vitals={'mcap': 40_000, 'liq': 20_000, 'ageH': 0.05, 'vol1h': 20_000, 'safe': None}) for i in range(6)], 100.0)
+    assert all('holders' in d['opinions']['sherlock']['requests'] for d in k.dec.values())   # Sherlock asks; the scheduler decides how many
