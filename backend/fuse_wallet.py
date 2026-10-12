@@ -1905,3 +1905,73 @@ def sol_price_pick(px, last, now):
     if _f(last.get('px')) > 0 and now - _f(last.get('at')) <= SOL_LAST_SEC:
         return _f(last['px'])
     return 0.0
+
+
+# ── ⏱ ONE EXECUTION LIFECYCLE + quote freshness + execution metrics (2026-10-12 execution audit) ──────────────────────────────────
+# The keeper already: resolves a pending tx before anything new (restart included — `pending` lives in the book on disk), sells before
+# buys behind a sell-before-buy barrier, keeps ONE in-flight transaction per card, saves `pending` BEFORE the broadcast, re-sends the SAME
+# signed tx (never re-signs), and clears a tx that failed simulation at once. What was missing: a limit on how old a quote may be when it
+# is built into a transaction (secure-buy / sell-safety quotes sit between the quote and the build), one word for where an order is, and
+# the numbers. Nothing here sends, signs or sizes.
+QUOTE_TTL = {'buy': 8.0, 'sell': 5.0}    # seconds a quote may age before it is built into a tx; an URGENT exit gets half
+URGENT_WHY = ('stop', 'rug', 'drain', 'flow', 'dead', 'exit', 'floor', 'sell all', 'invalid')
+EXEC_STATES = ('INTENT', 'QUOTE_PENDING', 'QUOTE_READY', 'SIGNING', 'SENDING', 'SUBMITTED', 'CONFIRMING', 'FILLED', 'FAILED', 'EXPIRED', 'RECONCILING', 'CLOSED')
+
+
+def urgent_order(order):
+    """An exit that protects money (stop, rug, drain, flow, dead coin, floor, sell-all) — refreshed faster, never behind a buy."""
+    return (order or {}).get('side') == 'sell' and any(w in str((order or {}).get('why') or '').lower() for w in URGENT_WHY)
+
+
+def quote_ttl(order):
+    return QUOTE_TTL.get((order or {}).get('side'), 8.0) * (0.5 if urgent_order(order) else 1.0)
+
+
+def quote_stale(quoted_at, now, order):
+    """True when a quote is too old to build into a transaction for this order (unknown quote time = stale)."""
+    q = _f(quoted_at)
+    return not q or now - q > quote_ttl(order)
+
+
+def exec_state(row, now=None):
+    """A ledger row or a book's `pending` → ONE canonical lifecycle word. The ledger is the only truth; this only names it."""
+    r = row or {}
+    st = str(r.get('status') or '')
+    err = str(r.get('err') or '').lower()
+    if st == 'filled':
+        return 'FILLED'
+    if st == 'sent':
+        sent = _f(r.get('sentAt'))
+        return 'SUBMITTED' if not sent or (now is not None and now - sent < 3) else 'CONFIRMING'
+    if st == 'failed':
+        return 'EXPIRED' if 'expired' in err or 'never landed' in err else 'FAILED'
+    if st in ('skipped', 'dry'):
+        return 'FAILED' if st == 'skipped' else 'QUOTE_READY'
+    if st == 'quoted':
+        return 'QUOTE_READY'
+    if st in ('fix', 'writeoff', 'routefix'):
+        return 'RECONCILING'
+    return 'INTENT'
+
+
+def _med(xs):
+    xs = sorted(x for x in xs if x is not None)
+    return None if not xs else round(xs[len(xs) // 2], 2)
+
+
+def exec_metrics(ledger, now, window=3600.0, dupes=0):
+    """The Courier's numbers over the last hour, from the ledger only: sends, fills, failed / expired, refused routes, quote age at send,
+    send → confirmed, expected vs actual price, retries, stale-quote refreshes, sell vs buy counts, duplicate requests dropped."""
+    rows = [r for r in (ledger or []) if now - _f(r.get('at')) <= window and r.get('side') in ('buy', 'sell')]
+    sent = [r for r in rows if r.get('status') in ('filled', 'failed')]
+    return {'window': int(window), 'sends': len(sent), 'fills': sum(1 for r in sent if r.get('status') == 'filled'),
+            'failed': sum(1 for r in sent if exec_state(r) == 'FAILED'), 'expired': sum(1 for r in sent if exec_state(r) == 'EXPIRED'),
+            'refused': sum(1 for r in rows if r.get('status') == 'skipped'),
+            'noRoute': sum(1 for r in rows if 'no route' in str(r.get('err') or '').lower() or 'not tradable' in str(r.get('err') or '').lower()),
+            'quoteAgeMed': _med([_f(r.get('quoteAgeSec')) for r in sent if r.get('quoteAgeSec') is not None]),
+            'landMed': _med([_f(r.get('landSec')) for r in sent if r.get('landSec') is not None]),
+            'slipMed': _med([_f(r.get('delta')) for r in sent if r.get('delta') is not None]),
+            'retries': sum(1 for r in rows if r.get('slipRetry') or r.get('retrySlipBps')),
+            'staleRefresh': sum(int(_f(r.get('quoteRefresh'))) for r in rows),
+            'urgentSells': sum(1 for r in sent if urgent_order(r)), 'sells': sum(1 for r in sent if r.get('side') == 'sell'),
+            'buys': sum(1 for r in sent if r.get('side') == 'buy'), 'dupesDropped': int(dupes)}

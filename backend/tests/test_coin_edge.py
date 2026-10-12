@@ -34,3 +34,30 @@ def test_edge_endpoint_reads_caches_in_one_call(monkeypatch):
     e = asyncio.run(rs.coin_edge(mints=f'{M},bad,{M}'))['edge']
     assert list(e) == [M] and e[M]['pulse']['m5Change'] == 5 and e[M]['snipersOut'] and e[M]['runner']['score'] == 81
     assert [s['kind'] for s in e[M]['signals']] == ['snipers-out', 'verified']
+
+
+def test_edge_never_waits_on_a_slow_read_and_never_clears_the_ranking_cache(monkeypatch):
+    """⚡ A coin with a record answers at once (refreshed in the background); a cold coin waits ≤ the budget and its incomplete record
+    refills soon; the coin cache and the 🧬 ranking cache are different objects (one name once made a clear() crash the ranking)."""
+    import asyncio
+    import time
+    import pytest
+    rs = pytest.importorskip('reputation_service')
+    assert rs._edge_cache is not rs._edge_rank_cache and 'rows' in rs._edge_rank_cache
+    M, N = 'So11111111111111111111111111111111111111112', 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+
+    async def slow(*a, **k):
+        await asyncio.sleep(5)
+        return {}
+    monkeypatch.setattr(rs, '_edge_pulses', slow); monkeypatch.setattr(rs, 'verify_batch', slow)
+    monkeypatch.setattr(rs, 'EDGE_COLD_BUDGET', 0.05)
+    rs._edge_cache.clear(); rs._edge_inflight.clear()
+    rs._edge_cache[M] = (time.time() - 60, {'mint': M, 'old': True})        # 60s old: stale but shown at once
+
+    async def go():
+        t0 = time.time()
+        r = await rs.coin_edge(mints=f'{M},{N}')
+        return r, time.time() - t0, set(rs._edge_inflight)
+    r, took, infl = asyncio.run(go())
+    assert took < 1.0 and r['edge'][M] == {'mint': M, 'old': True} and N in r['edge'] and M in infl
+    assert time.time() - rs._edge_cache[N][0] >= 11                           # incomplete → refills on the next poll

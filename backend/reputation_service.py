@@ -3331,7 +3331,7 @@ async def _fuses_discover_raw(lens, chain):
         # with live numbers from the runner board — never an empty tab
         cm_ = _cand_map()
         rows_ = []
-        for x in (_edge_cache.get('rows') or [])[:20]:
+        for x in (_edge_rank_cache.get('rows') or [])[:20]:
             c_ = cm_.get(x.get('mint')) or {}
             rows_.append({**x, **{k: c_.get(k) for k in ('liq', 'chg5m', 'chg1h', 'vol1h', 'ageH', 'buyShare', 'mcap') if c_.get(k) is not None},
                           'liquidityUsd': c_.get('liq'), 'priceUsd': x.get('priceUsd') or c_.get('price'),
@@ -4147,6 +4147,52 @@ async def _edge_pulses(mints):
     return {m: _edge_pulse.get(m, (0, None))[1] for m in mints}
 
 
+EDGE_STALE_SEC = 600.0     # an edge record this young is shown at once while a fresh one is built in the background
+EDGE_COLD_BUDGET = 3.0     # a coin with NO record waits at most this long for pulse + verification (an incomplete record refills soon)
+_edge_inflight: set = set()
+
+
+async def _edge_build(todo, now, budget=None):
+    """Build edge records for `todo` (pulse · verification · snipers · runner gates · sources · elite flow · buys vs sells). With a
+    `budget` the slow reads are cut off and the incomplete record is cached for only ~3s, so the next poll fills it in."""
+    async def _cap(coro, default):
+        try:
+            return await (asyncio.wait_for(coro, timeout=budget) if budget else coro)
+        except Exception:
+            return default
+    pulses, ver_ = await asyncio.gather(_cap(_edge_pulses(todo), None), _cap(verify_batch(','.join(todo)), None))
+    partial = pulses is None or ver_ is None
+    pulses, ver = pulses or {}, ((ver_ or {}).get('verify') or {})
+    snip = {}
+    for e in _radar['events']:
+        if e['kind'] == 'snipers-out' and now - e['at'] < 6 * 3600:
+            snip.setdefault(e.get('mint') or e['pair'], e)
+    live = _runner_live_cache.get('data') or {}
+    runner = {r['mint']: r for r in (live.get('dropped') or []) + (live.get('passing') or [])}
+    disc = {r['mint']: r.get('sources') or [] for r in ((_runner_disc_cache.get('data') or {}).get('runners') or [])}
+    flow = ((_crowd_cache.get('data') or {}).get('flow')) or {}
+    try:
+        bs_ = await asyncio.wait_for(_bs_rows(todo), timeout=2.5)   # 🌊 buys vs sells 5m / 1h (+ the live 90s tape for held coins); never slows the edge
+    except Exception:
+        bs_ = {}
+    out = {}
+    for m in todo:
+        rec = {**_edge.compose(m, pulses.get(m), snip.get(m), ver.get(m), (_intel_cache.get(m) or (0, None))[1], runner.get(m), disc.get(m), flow.get(m)), 'bs': bs_.get(m)}
+        _edge_cache[m] = (now - 12 if partial else now, rec); out[m] = rec
+    if len(_edge_cache) > 5000:
+        _edge_cache.clear()
+    return out
+
+
+async def _edge_refresh(ms):
+    try:
+        await _edge_build(ms, time.time())
+    except Exception as e:
+        print('edge refresh:', type(e).__name__)
+    finally:
+        _edge_inflight.difference_update(ms)
+
+
 @app.get('/api/reputation/edge')
 async def coin_edge(mints: str = Query('', max_length=3000), intel: bool = False):
     """Coin edge for up to 60 coins: pulse, snipers out, verification, forensics, runner gates + bond boxes, Fuse sources, elite
@@ -4156,28 +4202,20 @@ async def coin_edge(mints: str = Query('', max_length=3000), intel: bool = False
     now = time.time()
     out = {m: _edge_cache[m][1] for m in ms if now - _edge_cache.get(m, (0, None))[0] < 15 and not (intel and not _edge_cache[m][1].get('intel'))}
     todo = [m for m in ms if m not in out]
-    if todo:
-        if intel and len(todo) <= 3:
-            await asyncio.gather(*[_runner_intel(m, _enr.PRIO['LOOK'], 'trade tape') for m in todo], return_exceptions=True)
-        pulses = await _edge_pulses(todo)
-        ver = (await verify_batch(','.join(todo)))['verify']
-        snip = {}
-        for e in _radar['events']:
-            if e['kind'] == 'snipers-out' and now - e['at'] < 6 * 3600:
-                snip.setdefault(e.get('mint') or e['pair'], e)
-        live = _runner_live_cache.get('data') or {}
-        runner = {r['mint']: r for r in (live.get('dropped') or []) + (live.get('passing') or [])}
-        disc = {r['mint']: r.get('sources') or [] for r in ((_runner_disc_cache.get('data') or {}).get('runners') or [])}
-        flow = ((_crowd_cache.get('data') or {}).get('flow')) or {}
-        try:
-            bs_ = await asyncio.wait_for(_bs_rows(todo), timeout=2.5)   # 🌊 buys vs sells 5m / 1h (+ the live 90s tape for held coins); never slows the edge
-        except Exception:
-            bs_ = {}
-        for m in todo:
-            rec = {**_edge.compose(m, pulses.get(m), snip.get(m), ver.get(m), (_intel_cache.get(m) or (0, None))[1], runner.get(m), disc.get(m), flow.get(m)), 'bs': bs_.get(m)}
-            _edge_cache[m] = (now, rec); out[m] = rec
-        if len(_edge_cache) > 5000:
-            _edge_cache.clear()
+    if intel and todo and len(todo) <= 3:
+        await asyncio.gather(*[_runner_intel(m, _enr.PRIO['LOOK'], 'trade tape') for m in todo], return_exceptions=True)
+    # ⚡ STALE-WHILE-REVALIDATE: a record under EDGE_STALE_SEC is answered now and refreshed in the background (a cold build waited on
+    # pulses + verification for ~10s and held the browser's connection slots — every other request on the page queued behind it)
+    stale = [m for m in todo if not intel and m in _edge_cache and now - _edge_cache[m][0] < EDGE_STALE_SEC]
+    for m in stale:
+        out[m] = _edge_cache[m][1]
+    fresh = [m for m in stale if m not in _edge_inflight]
+    if fresh:
+        _edge_inflight.update(fresh)
+        asyncio.create_task(_edge_refresh(fresh))
+    cold = [m for m in todo if m not in out]
+    if cold:
+        out.update(await _edge_build(cold, now, EDGE_COLD_BUDGET))
     return {'edge': out, 'at': now}
 
 
@@ -7109,7 +7147,7 @@ import confluence as _cf
 EDGE_PROOF_PATH = FUSE_HQ_PATH.parent / 'edge_proof.json'   # 🧬 learned combos (bucket → settled 1h result) + Coming up's own record ('up')
 EDGE_TRACK_TOP = 40          # the best-ranked coins whose combo bucket is noted each pass
 EDGE_BUY_MIN = -25.0         # the engine never takes a coin whose evidence says it typically loses more than this in an hour
-_edge_cache: dict = {'at': 0.0, 'rows': []}
+_edge_rank_cache: dict = {'at': 0.0, 'rows': []}   # 🧬 the confluence ranking (was named _edge_cache — the same name as the per-coin edge cache, which cleared it)
 _up_last: list = []          # [(mint, price)] Coming up's ready coins at the last tier tick — scored like any list ('up')
 
 
@@ -7127,8 +7165,8 @@ def _swapin_lists():
 
 def _edge_rank():
     """🧬 Every swap-in coin ranked by evidence (confluence.rank), 20s cache."""
-    if time.time() - _edge_cache['at'] < 20 and _edge_cache['rows']:
-        return _edge_cache['rows']
+    if time.time() - _edge_rank_cache['at'] < 20 and _edge_rank_cache['rows']:
+        return _edge_rank_cache['rows']
     combo = _trench.meta_proof(_json_load(EDGE_PROOF_PATH, {}), keys=tuple(k for k in _json_load(EDGE_PROOF_PATH, {}) if k != 'up'))
     calls = _call_cache.get('proof') or {}
     rows = _cf.rank(_swapin_lists(), _list_records(), calls, combo, lambda r: CALL_KEYS.get(((r.get('tv') or {}).get('call') or [None, None])[1]), _real_table())
@@ -7140,7 +7178,7 @@ def _edge_rank():
             if _fuse._f(sp_.get('n')) >= 5:
                 r['edge'] = {**r['edge'], 'edge': round(r['edge']['edge'] + _fuse._f(sp_.get('medPct')) / 2, 1), 'parts': r['edge']['parts'] + [[f"🐳 smart wallets buying ({len(h_)}) — radar record", sp_.get('medPct')]]}
     rows.sort(key=lambda x: (-x['edge']['edge'], -x['edge']['known']))
-    _edge_cache.update(at=time.time(), rows=rows)
+    _edge_rank_cache.update(at=time.time(), rows=rows)
     return rows
 
 
@@ -10887,6 +10925,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
     """One keeper order: real Jupiter quote → the owner's hard limits → Circle signs (Fuse wallet only) → we broadcast → the confirmed
     tx's balance changes ARE the fill. Every outcome goes to the audit ledger; fills + failures reach the owner's inbox."""
     if book.get('pending'):
+        _FW_DUPES['n'] += 1
         return book   # defense in depth: never overwrite the one in-flight signature with a second sell or buy
     now = time.time()
     # `card` must be present on every outcome. Without it, secure-quote refusals (price gap / no sell-back route) were logged but
@@ -10929,6 +10968,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
         for attempt in range(3):   # 🔁 strong retry: a busy route gets fresh quotes, each with a little more slippage (≤ the 3% hard cap)
             try:
                 q = await _fw_quote(order, {**cfg, 'slippageBps': min(max(300, slip_cap), int(cfg['slippageBps']) + 75 * attempt)})
+                q_at = time.time()
                 break
             except HTTPException:
                 if attempt == 2:
@@ -10965,6 +11005,21 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
         async with _fw_lock:
             d = _fw_load(); _fw_record(d, row); _fw_save(d)
         return book
+    if _fw.quote_stale(q_at, time.time(), order):   # ⏱ the safety quotes took time: never build a tx on a quote older than its TTL
+        try:
+            q = await _fw_quote(order, cfg); q_at = time.time(); row['quoteRefresh'] = 1
+            row['impactPct'] = round(_fuse._f(q.get('priceImpactPct')) * 100, 3); row['quoteOut'] = q.get('outAmount')
+            if order['side'] == 'buy':   # a fresh buy quote is checked again (near market + sells back) — safety never skipped for speed
+                ok_s, why_s, row['sellBackPct'] = await _fw_secure_buy(order, cfg, q)
+                if not ok_s:
+                    raise HTTPException(400, why_s)
+        except HTTPException as e:
+            row.update(status='skipped', err=f'fresh quote: {str(e.detail)[:120]}')
+            async with _fw_lock:
+                d = _fw_load()
+                if not _fw.logged_recently(d.get('ledger'), row, now):
+                    _fw_record(d, row); _fw_save(d)
+            return book
     async with _fw_lock:   # ⚡ txs that didn't land lately → this one pays a higher priority fee (24% of buys timed out at a flat fee)
         boost = _fw.landing_boost(_fw_load().get('ledger'), tid, now)
     try:
@@ -10972,14 +11027,14 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
             try:
                 swap = await _fw_jup('POST', '/swap/v1/swap', json={'quoteResponse': q, 'userPublicKey': cfg['address'], 'wrapAndUnwrapSol': True, 'dynamicComputeUnitLimit': True,
                                                                     'prioritizationFeeLamports': {'priorityLevelWithMaxLamports': {'maxLamports': _fw.priority_cap(attempt, boost, sol_px), 'priorityLevel': 'veryHigh' if attempt or boost else 'high'}}})
-                row['lastValidBlockHeight'] = swap.get('lastValidBlockHeight')
+                row['lastValidBlockHeight'] = swap.get('lastValidBlockHeight'); row['quoteAgeSec'] = round(time.time() - q_at, 2)
                 signed = await _fw_sign(cfg, swap.get('swapTransaction'), f"FEELESS {tid} {order['side']} {order.get('symbol')}")
                 break
             except HTTPException:
                 if attempt == 2:
                     raise
                 await asyncio.sleep(1.5)
-                q = await _fw_quote(order, cfg)   # fresh quote for the rebuild
+                q = await _fw_quote(order, cfg); q_at = time.time()   # fresh quote for the rebuild
     except HTTPException as e:
         row.update(status='failed', err=f'build/sign: {str(e.detail)[:120]}')
         async with _fw_lock:
@@ -11037,6 +11092,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
     return book
 
 
+_FW_DUPES = {'n': 0}   # 🔁 orders dropped because the card already had a tx in flight (one in-flight tx per card)
 C2C_COOL_SEC = 600   # after a one-transaction swap fails, that card does plain two-step swaps for 10 minutes
 
 
@@ -12688,6 +12744,7 @@ _fuse_warm_n = {'n': 0}
 
 
 import data_cleaner as _dc
+import storage_trim as _strim
 
 _data_clean_last: dict = {}
 
@@ -12700,6 +12757,14 @@ async def _data_clean(now):
         out, st = _dc.slim_chat(d, now)
         if st['messages']:
             CHAT_PATH.write_text(json.dumps(out))
+    try:   # 🧹 re-fetchable caches + diagnostic logs only (storage_trim.py): the logo cache had grown to 1.0 GB
+        lg_ = await asyncio.to_thread(_strim.trim_logos, LOGO_DIR, now)
+        lo_ = [] if os.environ.get('PYTEST_CURRENT_TEST') else await asyncio.to_thread(_strim.trim_logs)
+        st = {**st, 'logos': lg_, 'logs': lo_}
+        if lg_.get('files') or lo_:
+            print(f"storage trim: logos −{lg_.get('freed', 0) / 1e6:.0f} MB ({lg_.get('files')} files) · logs {lo_}")
+    except Exception as e:
+        print('storage trim:', type(e).__name__)
     _data_clean_last.update(at=now, chat=st)
     if st['messages']:
         print(f"data cleaner: chat −{st['bytes'] / 1e6:.2f} MB ({st['messages']} old messages slimmed)")
@@ -12710,7 +12775,10 @@ async def _data_clean(now):
 async def admin_data_cleaner(request: Request):
     """HQ: what the cleaner freed on its last run."""
     _require_admin(request)
-    return {'last': _data_clean_last, 'rules': ['Chat: coin snapshots older than 1h lose their stale signal blocks (text, author and the coin stay)']}
+    return {'last': _data_clean_last, 'rules': ['Chat: coin snapshots older than 1h lose their stale signal blocks (text, author and the coin stay)',
+                                                f'Logo cache ≤ {_strim.LOGO_MAX_BYTES // 2**20} MB (oldest first, nothing under a day old); a logo over {_strim.LOGO_FILE_MAX // 2**20:.1f} MB is not cached',
+                                                f'Service logs in /tmp over {_strim.LOG_MAX_BYTES // 2**20} MB keep their newest {_strim.LOG_KEEP_BYTES // 2**20} MB',
+                                                'Never touched: ledgers, .db files, records, archives, agent lineage']}
 
 
 INTEL_DISK = DATA_DIR / 'intel_cache.json'
@@ -14363,7 +14431,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         'office': {'chain': list(_of.CHAIN), 'priority': list(_of.PRIORITY), 'coins': perf.get('coins'), 'cases': len(cases), 'cleared': sum(1 for c_ in cases if c_['cleared'])},
         'agents': _of.agent_cards(cards, {'live': live, 'office': of}), 'currentCase': cur_case, 'pipeline': pipe,
         'queue': queue, 'positions': _office_positions(), 'exiting': [{'mint': p_['mint'], 'sym': p_.get('sym'), 'rule': p_.get('askRule'), 'state': (p_.get('exit') or {}).get('state'), 'since': p_.get('leftAt')} for p_ in _office['exiting']],
-        'execution': cour, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': [{'agent': x_.get('role'), 'gen': x_.get('gen'), 'why': f"{x_.get('status') or 'replaced'} — {x_.get('why') or ''}" + (f" · next generation: {x_['changed']}" if x_.get('changed') else ''), 'at': x_.get('retiredAt')}
+        'execution': {**cour, 'metrics': _fw.exec_metrics(_fw_load().get('ledger'), now, dupes=_FW_DUPES['n'])}, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': [{'agent': x_.get('role'), 'gen': x_.get('gen'), 'why': f"{x_.get('status') or 'replaced'} — {x_.get('why') or ''}" + (f" · next generation: {x_['changed']}" if x_.get('changed') else ''), 'at': x_.get('retiredAt')}
                                                          for x_ in reversed((_lc_book(now).get('lineage') or [])[-12:])], 'devil': dv_rec[:10], 'needShadow': _of.SHADOW_N, 'needPropose': _of.PROPOSE_N},
         'index': (_office.get('index') or [])[:80], 'rpc': {'lanes': _rpc_quota_state(), 'note': 'keyed lanes = keeper sends / balances first, then holder scans (budgeted); discovery comes from Pump\'s live stream + the launch boards — no RPC first-seen listener runs'},
         'court': _office.get('court'), 'opp': _office.get('opp'),   # 👨‍⚖️ the Judge's loss / win reviews + rules · 🎯 this pass's A / B / C ranking counts
@@ -21677,7 +21745,8 @@ async def token_logo(mint: str):
             raise HTTPException(404, 'No logo found.')
         ct, body = got
         ext = {'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'image/svg+xml': 'svg'}.get(ct, 'img')
-        (LOGO_DIR / f'{mint}.{ext}').write_bytes(body)
+        if _strim.cache_logo_ok(body):   # a huge logo is served, never cached (the cache had grown to 1.0 GB)
+            (LOGO_DIR / f'{mint}.{ext}').write_bytes(body)
         return Response(body, media_type=ct, headers=headers)
 
 

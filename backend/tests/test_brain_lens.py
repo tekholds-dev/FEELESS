@@ -34,7 +34,7 @@ def test_live_movers_are_real_5_minute_moves_and_best_now_is_never_empty(monkeyp
     out = rs._live_movers()
     assert [r['symbol'] for r in out] == ['M'] and '+12% in 5m on $8.0K traded' in out[0]['divisionLabel']
     monkeypatch.setattr(rs, '_best_rows', [])
-    monkeypatch.setattr(rs, '_edge_cache', {'rows': [{'mint': 'E', 'symbol': 'E', 'priceUsd': 1.0, 'edge': {'edge': 2.2}}]})
+    monkeypatch.setattr(rs, '_edge_rank_cache', {'rows': [{'mint': 'E', 'symbol': 'E', 'priceUsd': 1.0, 'edge': {'edge': 2.2}}]})
     monkeypatch.setattr(rs, '_cand_map', lambda: {'E': {'liq': 60000, 'chg1h': 4}})
     best = asyncio.run(rs._fuses_discover_raw('best', 'solana'))['pools']
     assert best[0]['symbol'] == 'E' and best[0]['liquidityUsd'] == 60000 and 'evidence +2.2%/1h' in best[0]['divisionLabel']
