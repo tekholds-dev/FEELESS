@@ -1399,6 +1399,19 @@ def lane_cap(rows, need=LANE_NEED):
     return LANE_CAPS[-1]
 
 
+def lane_step(cap, ranked, need):
+    """🪜 The lane follows the RESULT, not the board's flags: fewer ranked candidates than `need` (open seats + 2) → one step wider next pass;
+    three times `need` or more → one step back toward $200K. (The board marked 16 sub-$200K coins safe, yet 33 of 35 failed the desk's
+    hard checks and the seats sat empty while the cap never moved.) → the next cap"""
+    caps = list(LANE_CAPS)
+    i = caps.index(cap) if cap in caps else 0
+    if ranked < need and i < len(caps) - 1:
+        return caps[i + 1]
+    if ranked >= 3 * need and i > 0:
+        return caps[i - 1]
+    return caps[i]
+
+
 def view_rows(table, top=24, young=24, young_h=6.0):
     """The board the tab shows: the top `top` by verdict + lean, then the `young` NEWEST launches (≤ young_h) the desk read this pass
     that are not already in it — every new coin the agents looked at is on screen, not only the strongest reads."""

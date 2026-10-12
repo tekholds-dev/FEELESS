@@ -139,3 +139,8 @@ def test_the_lane_widens_only_when_200k_cannot_fill_the_seats():
     assert ag.lane_cap([]) == ag.LANE_CAPS[-1]
     unsafe = [{**safe(f'u{i}', 80_000), 'safe': False} for i in range(30)] + small[:2]
     assert ag.lane_cap(unsafe) != 200_000                       # only BUYABLE coins count toward filling
+
+
+def test_the_lane_follows_the_ranking_result():
+    assert ag.lane_step(200_000, 0, 5) == 1_000_000 and ag.lane_step(1_000_000, 1, 5) == 5_000_000 and ag.lane_step(5_000_000, 0, 5) == 5_000_000
+    assert ag.lane_step(5_000_000, 15, 5) == 1_000_000 and ag.lane_step(200_000, 30, 5) == 200_000 and ag.lane_step(1_000_000, 7, 5) == 1_000_000

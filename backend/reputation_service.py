@@ -9750,7 +9750,8 @@ async def _prime_tick_inner(now):
                 ost_ = {}
                 skip_f = skip_f - set(lost_)   # 🔁 a coin sold at a loss is a RANKING penalty here (−12), not an exclusion — in a small lane the 6h block removed most safe coins
                 ranked_ = [t_ for t_ in _opp.rank(_agents.get('table'), skip_f, lost_, None, ost_, _jr.penalties((_office.get('court') or {}).get('promoted')), _agents.get('laneCap') or _opp.MAX_MCAP) if not _fw.dollar_named(t_.get('symbol'))]
-                _office['opp'] = {**ost_, 'at': now, 'cap': _agents.get('laneCap'), 'top': [{'symbol': t_['symbol'], 'tier': t_['tier'], 'score': t_['opp']} for t_ in ranked_[:6]]}
+                _agents['laneStep'] = _ag.lane_step(_agents.get('laneStep') or _ag.LANE_CAPS[0], len(ranked_), empty_n + 2)   # 🪜 short of candidates → wider next pass
+                _office['opp'] = {**ost_, 'at': now, 'cap': _agents.get('laneCap'), 'next': _agents['laneStep'], 'top': [{'symbol': t_['symbol'], 'tier': t_['tier'], 'score': t_['opp']} for t_ in ranked_[:6]]}
                 for t_ in near0_:   # best-available coins (every check passed but the moment) get their tier too
                     if not t_.get('tier'):
                         s_, _p = _opp.score(t_, lost_); t_['tier'] = _opp.tier_of(s_) or 'C'; t_['opp'] = s_
@@ -12343,7 +12344,7 @@ async def _agents_tick(now):
             print('intake:', e); extra_, fresh_, outl_ = [], {}, {}
         ob_ = ob_ + extra_
         held_l = {l.get('mint') for l in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '', {}).get('legs') or [] if l.get('mint')}
-        cap_ = _ag.lane_cap(ob_); _agents['laneCap'] = cap_   # 🪜 the smallest cap that can fill the seats ($200K first)
+        cap_ = max(_ag.lane_cap(ob_), _agents.get('laneStep') or _ag.LANE_CAPS[0]); _agents['laneCap'] = cap_   # 🪜 the smallest cap that can fill the seats ($200K first) — or wider, when last pass's ranking came up short
         ob_ = [x for x in ob_ if x.get('mint') in held_l or _ag.in_lane(x, cap_)]   # 🎯 the universe FIRST: intake slots go to coins under the cap (they were spent on $200K+ coins, then dropped — 26 safe sub-$200K pools never reached the desk)
         src_ = {}
         for k_, lst_ in (_lens_rows or {}).items():
