@@ -8402,7 +8402,7 @@ async def _real_guard_loop():
                             for tid_, c_ in list(cs_.items()):
                                 if not (c_ and c_.get('real')):
                                     continue
-                                hits_ = _of.fast_reap(c_.get('legs'), px, _office.get('pos') or {}, now)
+                                hits_ = _of.fast_reap(c_.get('legs'), px, _office.get('pos') or {}, now, _office_state())
                                 nw_ = c_
                                 for pair_, why_ in hits_:
                                     try:

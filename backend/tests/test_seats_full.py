@@ -245,7 +245,7 @@ def test_the_six_second_guard_stops_an_agent_seat_at_reapers_own_line():
     assert [h[0] for h in hits] == ['PA']               # B is yours (the card's own stop) · C: −70% in its first 5s = a feed gap
     assert of.fast_reap(legs, {'A': 0.9}, pos, 1000.0) == []
     src = open(__import__('reputation_service').__file__).read()
-    assert '_of.fast_reap(c_.get(\'legs\'), px, _office.get(\'pos\') or {}, now)' in src
+    assert '_of.fast_reap(c_.get(\'legs\'), px, _office.get(\'pos\') or {}, now, _office_state())' in src
 
 
 def test_a_coin_the_keeper_refused_is_off_the_agents_list():

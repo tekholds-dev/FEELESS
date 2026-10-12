@@ -44,3 +44,12 @@ def test_open_mode_fills_every_empty_seat_through_the_one_path_and_the_warden_ke
     assert of.warden(0.13, {**base, 'open': True, 'courier': 'BAD'})['veto']    # execution health still does
     w = of.warden(0.05, {**base, 'open': True, 'rtPct': 2.4, 'feeUsd': 0.001}, floor=0.05)
     assert w['veto'] and 'SIZE TOO SMALL FOR COSTS' in w['rules'][-1]['why']
+
+
+def test_reaper_reads_the_live_chart_on_every_6_second_read_not_every_5_minutes():
+    legs = [{'mint': 'T', 'pairAddress': 'PT', 'units': 10, 'entry': 1.0, 'real': True, 'at': 0, 'bought': {'tag': '🤖 agents'}},
+            {'mint': 'I', 'pairAddress': 'PI', 'units': 10, 'entry': 1.0, 'real': True, 'at': 0, 'bought': {'tag': '🤖 agents'}}]
+    pos = {'T': {'stopNow': 20, 'peak': 12.0}, 'I': {'stopNow': 20, 'thesis': {'invalidation': 0.97}}}
+    hits = dict(of.fast_reap(legs, {'T': 1.05, 'I': 0.96}, pos, 500.0))
+    assert 'trailing protection' in hits['PT'] and 'invalidated' in hits['PI']
+    assert of.fast_reap(legs, {'T': 1.10, 'I': 0.99}, pos, 500.0) == []        # still running / above its line: nothing

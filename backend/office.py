@@ -1478,7 +1478,7 @@ def agent_cards(cards, ctx):
 FAST_GAP_PCT, FAST_GAP_SEC = 50.0, 90.0   # a > 50% "loss" in a coin's first 90s is a feed gap, never sold (same rule as arena_prime.fast_stop)
 
 
-def fast_reap(legs, px_by_mint, pos, now):
+def fast_reap(legs, px_by_mint, pos, now, office=None):
     """→ [(pairAddress, why)] for agent coins the wallet holds that are AT Reaper's stop for them (`stopNow`, set on the position each
     tick) or the catastrophic −45%. Why (2026-10-11, 173 exits): agent seats carry no card stop and the card is held by the agents
     (`holdAll`), so `arena_prime.fast_stop` never ran for them — R5 stops set at −12…−25% filled at −18…−52% (sum −485% of −370%)."""
@@ -1497,4 +1497,15 @@ def fast_reap(legs, px_by_mint, pos, now):
         line = min(stop, _ci.CATASTROPHIC_STOP)
         if dd <= -line:
             out.append((l.get('pairAddress'), f"☠ Reaper R5 stop (⚡ 6-second guard): {dd:+.1f}% ≤ −{line:g}%"))
+            continue
+        # 👁 REAPER READS THE LIVE CHART (owner, 2026-10-12: "reaper reviews live chart, not every 5 mins"): the same exits the tick makes
+        # from the chart — a thesis invalidated (live price under the invalidation line, losing) and the trailing protection (a peak that
+        # armed it given back) — are applied on every 6-second live read, not only when the tick comes round.
+        inv = _f((p.get('thesis') or {}).get('invalidation'))
+        if inv > 0 and px < inv and dd < 0:
+            out.append((l.get('pairAddress'), f"☠ Reaper R5t thesis invalidated (👁 live chart): {dd:+.1f}% — price under its invalidation line"))
+            continue
+        peak = max(_f(p.get('peak')), dd)
+        if peak >= tune(office, 'reaper', 'protectAt') and dd <= peak * (1 - tune(office, 'reaper', 'giveBackPct') / 100) and dd >= MIN_KEEP:
+            out.append((l.get('pairAddress'), f"☠ Reaper R7 trailing protection (👁 live chart): peaked {peak:+.1f}%, now {dd:+.1f}% — banked"))
     return out

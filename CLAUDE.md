@@ -3333,3 +3333,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   execution · W3 pool share · W17 seat room (+ W11 smallest order + W22 "SIZE TOO SMALL FOR COSTS"). Still on: the keeper's own buy checks
   (route / sell-back / price near market), the office LIVE, keeper halt, Courier BAD, the hourly fill guard, Reaper's exits, the
   just-left / keeper-refused block (`_agent_blocked`). Payload `open` → RoundBar "⚡ OPEN · TOP".
+- 👁 REAPER READS THE LIVE CHART (owner, 2026-10-12: "reaper reviews live chart, not every 5 mins"): `office.fast_reap(.., office)` in the
+  6-second guard now applies, from the live chart price, the stop · R5t thesis invalidated (price under the thesis invalidation, losing) ·
+  R7 trailing protection (peak ≥ `protectAt`, given back `giveBackPct`, still ≥ +1.5%) → `agent_pull` → keeper. The 5-minute rounds are
+  only the position's clock for the display; no exit waits for them.
