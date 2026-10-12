@@ -408,7 +408,8 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
             hit('W20 exit risk', 0.75, '; '.join(x for x in (li_.get('cls') if li_.get('cls') in ('BUNDLED', 'INSIDER-LIKE CLUSTER') else None, li_.get('pressWhy'),
                                                               f"{int(_f(li_.get('danger')))} early wallet(s) with a dump / rug record" if _f(li_.get('danger')) else None) if x))
     if c.get('open'):   # ⚡ OPEN MODE (owner, 2026-10-12: "no gates — volume and newness only"): only execution, pool share and seat room size it
-        rules = [r for r in rules if r['id'].split(' ')[0] in OPEN_RULES]; tier_m = 1.0
+        import trench_crew as _crew
+        rules = _crew.warden_rules(rules); tier_m = 1.0   # 🪖 trench crew: execution rules as they are, uncertainty only SHRINKS (≥ ×0.5)
     raw = min([r['mult'] for r in rules] or [1.0])
     if tier_m < 1:   # 🎯 size by CONFIDENCE: the tier multiplies whatever the other rules allowed (as the smallest rule it was masked: every seat came out ×0.4)
         rules.append({'id': 'W19 confidence tier', 'mult': round(tier_m, 3), 'why': f"{c.get('tier') or 'unconfirmed'}-tier: ×{tier_m:g} on top — {str(c.get('near'))[:140]}"})

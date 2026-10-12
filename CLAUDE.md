@@ -3337,3 +3337,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   6-second guard now applies, from the live chart price, the stop · R5t thesis invalidated (price under the thesis invalidation, losing) ·
   R7 trailing protection (peak ≥ `protectAt`, given back `giveBackPct`, still ≥ +1.5%) → `agent_pull` → keeper. The 5-minute rounds are
   only the position's clock for the display; no exit waits for them.
+- 🪖 THE TRENCH CREW (owner, 2026-10-12; `backend/trench_crew.py` + `docs/TRENCH_CREW.md` — change both, `tests/test_trench_crew.py` checks
+  they agree): ten roles (Tally discovers · Sherlock investigates · Weather contextualizes · Trigger times · Devil challenges · Warden sizes ·
+  Courier executes · Reaper manages · Archivist remembers · Judge improves) + `HARD_WALL` (the money boundary only). In trench (open) mode:
+  Devil's objections are a confidence weight on `open_score` (`devil_factor`: strong ×0.85, other ×0.95, floor ×0.6); the dev dumping now is
+  the one Devil item on the wall (`dev_dumping` in `open_ok`); Warden's uncertainty rules W2 weather · W4 newborn · W20 exit risk · W21
+  concentration SHRINK to ≥ ×0.5 (`warden_rules`), only W1 / W3 / W17 (+ W11, W22) can stop a buy; Sherlock's unknown is never a reject.
