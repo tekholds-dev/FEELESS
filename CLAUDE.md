@@ -3367,3 +3367,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   seat fills read `KERNEL.ready()` (no second ranking). ONE enrichment scheduler (`_kernel_pass` → `_runner_intel`, `ENRICH_TOP` 4). RPC
   singleflight in `chain_rpc._rpc` (`RPC_STATS`). UI: `lib/agentHub.useAgentHub` + `KernelBoard`; `agentRead.rowState` is the one decision
   meaning. New agent logic ⇒ a pure function in `trench_kernel/brain.py`, never a fetch inside an agent.
+- 🎛 THE AGENTS COCKPIT + 🧠 AI ROUTER (owner's reference image, 2026-10-12; `docs/AGENT_KERNEL.md` › UI + AI router): HQ › Agents opens on
+  `AgentCockpit` (mission ribbon · 4 seats · ONE market-cap chart with real T D W B R X markers · live decisions · decision panel with Live / Inputs /
+  Seats / Review / Trace · ten-agent matrix · review queue + owner review · operator controls); the old desk sits in one `▸ MORE` fold.
+  `backend/ai_router.py` = local LM Studio first, then Groq / OpenRouter / OpenAI / xAI / custom; advisory notes only (displayed, never a rank,
+  size, READY, order or stop); Tally / Trigger / Reaper / Courier / Warden never ask (test). Keys live in backend/.env (placeholders added), shown
+  only as set + last 4. `LOCAL_LLM_ENABLED=false` switches the local model off; the kernel never waits on a model.

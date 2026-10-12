@@ -65,6 +65,26 @@ starved the scan queue). Keyed lanes, quota parking, per-method refusal, keeper 
 `frontend/src/lib/agentHub.js` — `useAgentHub()` is the one store (snapshot + shared live prices) with selectors; `KernelBoard` (SeatOps) shows the
 lanes and candidates; `agentRead.rowState` is the one decision meaning (a Devil warning is ⚠, only a hard veto is ✕ BLOCKED).
 
+THE COCKPIT (`components/command/AgentCockpit.jsx` + `lib/cockpit.js` + `styles/agentCockpit.css`, the top of HQ › Agents, built to the owner's
+reference): mission ribbon (`missionTiles`: put in · equity · net P&L · phase · breakeven · lives · occupancy · cycle · last real action · cash ·
+keeper · execution) → four seats (`seatCards` + `seatState`: HUNTING · ARMED · HELD · PROTECT · ROTATE · EXITING · OPEN) → ONE market-cap chart
+(price × the kernel's resolved supply; unknown supply = MC UNAVAILABLE, never a price chart) with the tape's real events lettered T D W B R X
+(`letterMarkers`) → the LIVE DECISIONS strip (the kernel's decision tape) | the AGENT DECISION PANEL (live decision · inputs with freshness words ·
+seats · owner review · trace in chain order) → the ten-agent matrix | review queue + OWNER REVIEW → operator controls (the creator's own limits on
+the same `/admin/agents {cfg}` path) + the AI chip. Everything older (KPI tiles, lenses, the office room) sits in ONE `▸ MORE` fold. An agent pulses
+only when ITS tape id moves (`newEvents`); MC / % / $ glide to each real value at ≤ 30fps (`useEasedNumber` — display only, no request).
+
+## AI router (advisory only)
+
+`backend/ai_router.py` (`ROUTER.reason(http, env, cfg, case, role)`): OpenAI-compatible chat providers tried in order — local LM Studio
+(`LOCAL_LLM_ENABLED` / `LOCAL_LLM_BASE_URL` loopback only / `LOCAL_LLM_MODEL`, ONE inference at a time + a queue of 2) → Groq → OpenRouter → OpenAI →
+xAI → any OpenAI-compatible host. Timeout / 429 / refused / malformed = the next provider; all fail = `NONE` (deterministic only). Answers are a
+validated JSON object (`parse_advice`: stance from a fixed list, numbers clamped, summary ≤ 200 chars) cached 2 min per case and shared while in
+flight. Roles that may ask: Sherlock · Devil · Judge · owner review · manager. NEVER: Tally, Trigger, Reaper, Courier, Warden (refused in code).
+The service's `_ai_loop` (own task, every 15s, ≤ 3 cases: owner review → a conflicted ENTER + Devil warning → the top contender → the newest Judge
+review) writes `office.ai.notes[mint][role]`; nothing reads them but the page. Owner routes: `GET|POST /admin/ai/providers` (order + on / off,
+`data/ai_providers.json`, no secrets) · `POST /admin/ai/test` · `POST /admin/ai-key` (keys tested, saved to backend/.env, never returned).
+
 ## Legacy kept on purpose
 
 - `agents.py` desk (desk / investigate / manage / evolve / survival / lives / burn) — it still builds the rows the kernel reads, runs the four
