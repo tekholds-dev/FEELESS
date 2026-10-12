@@ -9929,6 +9929,8 @@ async def _prime_tick_inner(now):
                 t_ = {**t_, 'trench': _ag.in_lane(t_.get('vitals') or {})}   # 🗑 a lane launch → the keeper's trench pool floor
                 if used_ >= _ag.FILL_MOVES_HR:
                     break
+                if t_['mint'] in _prime.agent_out(cur, now):   # 🚫 banked / pulled earlier in THIS tick (TOPCAT was sold and re-bought in one second)
+                    continue
                 try:
                     wd_ = _office_warden(cur, t_, _prime.agent_seat_usd(cur, px, cfg_s), cfg_t, now, 'fill')   # 🛡 sizes THIS seat: it can lower or veto, never raise
                     if wd_['veto']:
