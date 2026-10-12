@@ -3265,3 +3265,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   the agent block): any agent exit = out 10 min (`AGENT_OUT_SEC`), a rug / drain / dump / failed-scan / catastrophic exit (`AGENT_OUT_RULES`
   R1 R2 R4 R4r R4e R5x, or "rug / drain / pulled" in the reason) = out 6h. Found the first minutes of the 3× clock: $Rupshld filled → rug
   radar → filled again, 3 real buys in 60s, then its pool was pulled (−$0.14). agent_pull wrote no cool stamp at all.
+- 🚫 THE CHART'S OWN "NO" HOLDS FOR EVERY DOOR (`office_edge.LOSING_ENTRIES` E2 no chasing · E3 too violent, in `live_check`): best available /
+  ranked / seat-floor fills waived the entry moment and bought them — real record 2026-10-11 (173 agent exits): E2 median −16.8%, E3 −13.2%,
+  11 of the 26 stop-outs; ENTER NOW entries ≈ flat. Reaper's −400% on the roster was a SUM of % (now the average per exit): R5 stops were
+  −485 of the −370 total, everything else ≈ +115 — the entries lose, not the exits.
+- ☠⚡ FAST REAP (`office.fast_reap`, in `_real_guard_loop` every 6s): agent seats carry no card stop and the card is `holdAll` by the agents,
+  so `arena_prime.fast_stop` NEVER ran for them — stops at −12…−25% filled at −18…−52%. Reaper stamps `stopNow` on each position every tick;
+  the guard pulls an agent coin at that line (or −45%) via `agent_pull` → keeper → tick. Feed-gap rule (> 50% in the first 90s) as fast_stop.

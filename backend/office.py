@@ -557,6 +557,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         tier_ = _opp.tier_of_tag((l.get('bought') or {}).get('tag'))
         if tier_ in _opp.TIER_STOP:   # 🎯 a lower-confidence entry risks less: the stop ceiling follows its tier (A 25 · B 18 · C 12) — only ever TIGHTER
             stop = min(stop, _opp.TIER_STOP[tier_])
+        p['stopNow'] = stop   # ⚡ the 6-second guard stops an agent seat at THIS line between ticks (`fast_reap`)
         tr_ = pol.get('trail') or {}
         arm = _f(tr_.get('arm')) if tr_.get('mode') == 'custom' else T('protectAt')
         pr_, prwhy_ = press.get(l.get('pairAddress')) or (None, None)   # 🕵 the early wallets selling on the live tape
@@ -1431,4 +1432,30 @@ def agent_cards(cards, ctx):
                     'tunable': [{'key': t, 'value': tune(ctx.get('office'), a, t), 'default': d[0], 'lo': d[1], 'hi': d[2], 'what': d[3]} for t, d in (TUNABLE.get(a) or {}).items()],
                     'task': live.get('task'), 'decision': live.get('decision'), 'decisionAt': live.get('at'), 'rule': live.get('rule'), 'inputs': live.get('inputs'), 'output': live.get('output'),
                     'recent': live.get('recent') or [], 'card': k})
+    return out
+
+
+# ── ⚡ FAST REAP: the 6-second guard applies Reaper's own stop to the agents' seats between ticks ───────────────────────────────────
+FAST_GAP_PCT, FAST_GAP_SEC = 50.0, 90.0   # a > 50% "loss" in a coin's first 90s is a feed gap, never sold (same rule as arena_prime.fast_stop)
+
+
+def fast_reap(legs, px_by_mint, pos, now):
+    """→ [(pairAddress, why)] for agent coins the wallet holds that are AT Reaper's stop for them (`stopNow`, set on the position each
+    tick) or the catastrophic −45%. Why (2026-10-11, 173 exits): agent seats carry no card stop and the card is held by the agents
+    (`holdAll`), so `arena_prime.fast_stop` never ran for them — R5 stops set at −12…−25% filled at −18…−52% (sum −485% of −370%)."""
+    out = []
+    for l in legs or []:
+        if not _ag.is_agent(l) or l.get('placeholder') or l.get('buying') or l.get('frozen') or not l.get('real') or _f(l.get('units')) <= 0:
+            continue
+        px, entry = _f((px_by_mint or {}).get(l.get('mint'))), _f(l.get('entry'))
+        p = (pos or {}).get(l.get('mint')) or {}
+        stop = _f(p.get('stopNow'))
+        if px <= 0 or entry <= 0 or stop <= 0:
+            continue
+        dd = (px / entry - 1) * 100
+        if dd <= -FAST_GAP_PCT and now - _f(l.get('at')) < FAST_GAP_SEC:
+            continue
+        line = min(stop, _ci.CATASTROPHIC_STOP)
+        if dd <= -line:
+            out.append((l.get('pairAddress'), f"☠ Reaper R5 stop (⚡ 6-second guard): {dd:+.1f}% ≤ −{line:g}%"))
     return out

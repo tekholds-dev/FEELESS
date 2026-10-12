@@ -8393,6 +8393,33 @@ async def _real_guard_loop():
                             except Exception as e:
                                 print('flow exit keeper:', str(e)[:120])
                             await _prime_tick(time.time())
+                    # ☠⚡ AGENT SEATS: the card is held by the agents (`holdAll`) and their coins carry no card stop, so `fast_stop` never ran
+                    # for them — Reaper's stop for each seat is applied here, every 6s, not at the next tick
+                    try:
+                        reaped_ = False
+                        async with _prime_tick_lock:
+                            d_ = _json_load(FUSE_HQ_PATH, {}); cs_ = dict((d_.get('prime') or {}).get('cards') or {})
+                            for tid_, c_ in list(cs_.items()):
+                                if not (c_ and c_.get('real')):
+                                    continue
+                                hits_ = _of.fast_reap(c_.get('legs'), px, _office.get('pos') or {}, now)
+                                nw_ = c_
+                                for pair_, why_ in hits_:
+                                    try:
+                                        nw_ = _prime.agent_pull(nw_, pair_, {pair_: px.get(next((l.get('mint') for l in nw_.get('legs') or [] if l.get('pairAddress') == pair_), None))}, {}, now, why_)
+                                        nw_['agentExitAt'] = now
+                                    except ValueError:
+                                        pass
+                                if nw_ is not c_:
+                                    _learn_drops(c_, nw_, lambda l: _fuse._f(px.get(l.get('mint'))), now)
+                                    cs_[tid_] = nw_; reaped_ = True
+                            if reaped_:
+                                d_['prime'] = {**(d_.get('prime') or {}), 'cards': cs_}; _json_save(FUSE_HQ_PATH, d_)
+                        if reaped_:
+                            await _fw_tick(now)
+                            await _prime_tick(time.time())
+                    except Exception as e:
+                        print('fast reap:', str(e)[:120])
                     hit = [s for c in cards for s in _prime.guard_hits(c, px, rcfg)]
                     due = [l.get('mint') for c in cards for l in c.get('legs') or [] if l.get('symbol') in hit and now - _guard_seen.get(l.get('mint'), 0) >= 30]
                     if due:

@@ -223,3 +223,26 @@ def test_a_coin_the_agents_just_left_is_not_bought_back():
     assert ap.agent_out(c, 1000.0 + ap.AGENT_OUT_DANGER_SEC + 1) == set()  # a rug exit: 6h
     src = open(__import__('reputation_service').__file__).read()
     assert 'cool = set(cool) | _prime.agent_out(cur, now)' in src and "if t_['mint'] in _prime.agent_out(cur, now):" in src
+
+
+def test_a_chart_that_says_no_chasing_or_too_violent_is_never_bought_by_any_door():
+    """Real record 2026-10-11: E2 (no chasing) median −16.8%, E3 (too violent) −13.2% — 11 of 26 stop-outs, bought by best available / ranked."""
+    ch = lambda rule: {'src': 'candles', 'state': 'PARABOLIC', 'entry': ['WAIT FOR PULLBACK', rule, 'x'], 'f': {'stepN': 30, 'volCv': 0.3}, 'risk': [0.5]}
+    row, mkt = {'px': 1.0, 'nums': {'liq': 20000}}, {'px': 1.0, 'liq': 20000}
+    for rule in ('E2 no chasing', 'E2e no chasing (early)', 'E3 too violent'):
+        r = oe.live_check(row, mkt, ch(rule), 100.0, near=True, ranked=True)
+        assert not r['ok'] and 'never bought' in r['why'], rule
+    assert oe.live_check(row, mkt, ch('E4 no direction yet'), 100.0, near=True, ranked=True)['ok']   # the rest keep the old rules
+
+
+def test_the_six_second_guard_stops_an_agent_seat_at_reapers_own_line():
+    import office as of
+    legs = [{'mint': 'A', 'pairAddress': 'PA', 'units': 10, 'entry': 1.0, 'real': True, 'at': 0, 'bought': {'tag': '🤖 agents · B-tier'}},
+            {'mint': 'B', 'pairAddress': 'PB', 'units': 10, 'entry': 1.0, 'real': True, 'at': 0, 'bought': {'tag': '🎯 your pick'}},
+            {'mint': 'C', 'pairAddress': 'PC', 'units': 10, 'entry': 1.0, 'real': True, 'at': 995, 'bought': {'tag': '🤖 agents'}}]
+    pos = {m: {'stopNow': 12.0} for m in 'ABC'}
+    hits = of.fast_reap(legs, {'A': 0.86, 'B': 0.5, 'C': 0.3}, pos, 1000.0)
+    assert [h[0] for h in hits] == ['PA']               # B is yours (the card's own stop) · C: −70% in its first 5s = a feed gap
+    assert of.fast_reap(legs, {'A': 0.9}, pos, 1000.0) == []
+    src = open(__import__('reputation_service').__file__).read()
+    assert '_of.fast_reap(c_.get(\'legs\'), px, _office.get(\'pos\') or {}, now)' in src

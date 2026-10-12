@@ -905,6 +905,9 @@ def cycle_view(intake_, table, cases, charts, first, now, last_at, every, n_cycl
 
 # ── ⚡ LIVE CHECK: a case file keeps its thesis; the decision reads the NEWEST shared market state ──────────────────────────────────
 LIVE_CHASE, LIVE_FALL = 15.0, -8.0   # since the case was read: up more than this = chasing, down more than this = falling (Trigger's own hard lines)
+# 🚫 entries the chart itself refused, bought anyway by the best-available / ranked doors — the real card's record (2026-10-11, 173 agent exits):
+# E2 "no chasing" n10 median −16.8% · E3 "too violent, no stop fits" n16 median −13.2% = 11 of the 26 stop-outs; ENTER NOW entries ≈ flat
+LOSING_ENTRIES = ('E2', 'E3')
 
 
 def live_check(row, mkt, chart, now, near=False, meta=None, ranked=False):
@@ -924,6 +927,8 @@ def live_check(row, mkt, chart, now, near=False, meta=None, ranked=False):
         return {**out, 'ok': False, 'why': f'{move:+.1f}% since the read — falling'}
     if ent and ent[0] != 'ENTER NOW' and ((ent[0] == 'SKIP' and not (ranked and ch.get('state') == 'CHOP')) or (ch.get('src') == 'candles' and not near)):   # 🎯 a RANKED coin may be choppy (a quarter seat) — never a trap
         return {**out, 'ok': False, 'why': f"the newest chart says {ent[0]}: {ent[2] if len(ent) > 2 else ''}".strip()}
+    if ent and ent[0] != 'ENTER NOW' and str(ent[1] if len(ent) > 1 else '').split(' ')[0].rstrip('e') in LOSING_ENTRIES:
+        return {**out, 'ok': False, 'why': f"the chart says {ent[1]} — that entry lost ~15% typical on real money, never bought"}
     fl_ = ch.get('f') or {}
     young_ = near and (ch.get('src') != 'candles' or int(_f(fl_.get('stepN'))) < _ci.LADDER_MIN or fl_.get('volCv') is None)
     if young_ and (meta or {}).get('verdict') == 'ORGANIC':

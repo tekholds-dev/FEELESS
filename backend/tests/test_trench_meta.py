@@ -25,7 +25,7 @@ def test_bot_loop_one_wallet_dump_and_thin_are_caught():
 
 def test_young_coin_takes_a_seat_only_on_an_organic_tape():
     row, mkt = {'px': 1.0}, {'px': 1.01}
-    young = {'state': 'EARLY', 'src': 'candles', 'entry': ['WAIT FOR CONFIRMATION', 'E2e', ''], 'f': {'stepN': 4}, 'risk': [0.5]}
+    young = {'state': 'EARLY', 'src': 'candles', 'entry': ['WAIT FOR CONFIRMATION', 'E13e no direction (early)', ''], 'f': {'stepN': 4}, 'risk': [0.5]}
     assert oe.live_check(row, mkt, young, NOW, near=True)['ok'] is False                                    # no tape read = the old rule
     ok = oe.live_check(row, mkt, young, NOW, near=True, meta={'verdict': 'ORGANIC', 'why': '9 buyers'})
     assert ok['ok'] is True and 'trench meta ORGANIC' in ok['why']
