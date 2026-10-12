@@ -3275,3 +3275,5 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🚫 `_agent_blocked(card, now)` = THE one list of coins the agents may not buy right now: `arena_prime.agent_out` (just left: 10 min / danger
   6h) + `fuse_wallet.no_buy` (benched, or refused by a safety check ≤ 2 min — no route back, sell-back tax, price gap) on every book. Used for
   the candidate cool set AND re-checked in the fill loop. New "don't buy this" source ⇒ add it there, never a third inline set.
+- 📉 FALLING = NO (`opportunity.FALL_HARD` −8, was −15): a coin down ≥ 8% in 5 min is a hard no for every new agent entry (it scored a −20
+  "falling" penalty and could still rank C-tier: $Squeeze stopped −38% one minute after the buy, $STRKT −6% in two).

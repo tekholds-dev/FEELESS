@@ -258,3 +258,10 @@ def test_a_coin_the_keeper_refused_is_off_the_agents_list():
     assert fw.no_buy(book, 1000.0 + fw.REFUSED_SEC + 1) == {'BN'}
     src = open(__import__('reputation_service').__file__).read()
     assert '_fw.no_buy(b, now)' in src and '_prime.agent_out(card, now)' in src
+
+
+def test_a_coin_falling_eight_percent_in_five_minutes_is_a_hard_no():
+    import opportunity as opp
+    row = lambda d5: {'mint': 'X', 'symbol': 'X', 'px': 1.0, 'nums': {'d5': d5, 'liq': 20000}, 'vitals': {'safe': True, 'ageH': 2, 'mcap': 50000, 'liq': 20000}}
+    assert 'in 5 min' in str(opp.hard_fail(row(-9.0)) or '')
+    assert 'in 5 min' not in str(opp.hard_fail(row(-5.0)) or '')

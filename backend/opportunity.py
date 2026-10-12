@@ -11,7 +11,7 @@ TIER_STOP = {'A': 25.0, 'B': 18.0, 'C': 12.0}   # 🛑 the stop CEILING per tier
 TIER_SIZE = {'A': 1.0, 'B': 0.75, 'C': 0.5}   # on the Warden's own steps (1 · .75 · .5 · .25): B = 75% of a seat, C = 50%
 MAX_MCAP = 200_000.0             # 🎯 the hard universe for NEW entries: live market cap under $200K (owner's spec, 2026-10-11) — mirrors agents.AGENT_MAX_MCAP
 MIN_LIQ = 8_000.0                # mirrors agents.CONTROL_MIN_LIQ (a test keeps them equal) = the keeper's trench floor
-FALL_HARD = -15.0                # a −15% 5-minute candle is a knife: NO · −8…−15 is a heavy penalty
+FALL_HARD = -8.0                 # ≤ −8% in 5 min = falling NOW: NO (2026-10-12: $Squeeze C-tier 'falling −20' stopped −38% a minute later, $STRKT too)
 VERTICAL = 40.0                  # +40% in 5 min = buying a vertical candle: NO · +15…+40 on a young coin is a penalty
 HARD_DEVIL = ('rug_meter', 'burned', 'rug_signs', 'avoid', 'data_integrity', 'chart_bot_ladder', 'unscanned', 'busted_read')   # busted_read reaches Devil's VETO list only at hard severity (≤ −50% typical)
 HARD_CHART = ('DATA INVALID', 'BOT LADDER', 'LIQUIDITY FAILURE')
