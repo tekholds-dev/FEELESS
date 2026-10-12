@@ -512,6 +512,9 @@ def clean_cfg(p):
     out['agentDial'] = (p or {}).get('agentDial') if (p or {}).get('agentDial') in ('chill', 'normal', 'crazy') else 'normal'   # 🎚 the creator's dial on Trigger's bar (agents.DIALS)
     out['agentCurve'] = bool((p or {}).get('agentCurve', False))   # 🎢 owner's switch: the agents may seat a fresh Pump coin still on its launch curve (off by default)
     out['agentScalp'] = bool((p or {}).get('agentScalp', True))   # ⚡ an agent seat banks at the desk's learned scalp take line (only once a plan is adopted)
+    # 📄 EMERGENCY EDGE AUDIT (owner, 2026-10-12): the agents decide on PAPER — no new real buy or switch-in; Reaper, stops, rug / drain and
+    # every exit keep managing coins already held. ON by default: real money returns only by the owner's own switch after the graduation proof.
+    out['agentPaper'] = bool((p or {}).get('agentPaper', True))
     out['agentControl'] = bool((p or {}).get('agentControl', False))   # 🎮 the agents control EVERY seat of the real card (the engine's own doors are off)
     out['agentTrust'] = bool((p or {}).get('agentTrust', False))   # 🤝 a 2nd agent seat once the suggestions the owner took are proven (≥ 10 closed, typical > 0)
     out.update(_oe.clean_policy(p))   # 🎛 the creator's limits on the agents (take · stop · trail · max hold · size · seat target · switching · entry · authority)

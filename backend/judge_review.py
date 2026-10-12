@@ -171,8 +171,15 @@ def launch_shape(rs):
     return out
 
 
-def penalties(promoted):
-    """The promoted rules as ranking penalties: {feature words: points} (opportunity.score subtracts them from matching coins)."""
+LIVE_RULES = False   # 🧊 FROZEN (owner's edge audit, 2026-10-12): the Judge studies and PROPOSES; it never changes a live threshold from a few
+                     # cases. A promoted rule waits for evidence → shadow test → unseen validation → the owner's promotion.
+
+
+def penalties(promoted, live=None):
+    """The promoted rules as ranking penalties: {feature words: points} (opportunity.score subtracts them from matching coins).
+    Frozen: {} unless LIVE_RULES (or live=True) — the proposals stay on record (`court`), they do not move the ranking."""
+    if not (LIVE_RULES if live is None else live):
+        return {}
     out = {}
     for r in promoted or []:
         if r.get('penalty'):

@@ -9837,8 +9837,11 @@ async def _prime_tick_inner(now):
                     print('switch eval:', e)
             _agents['decisions'] = [{k: v for k, v in x.items() if k != 'to'} | ({'toSym': x['to']['symbol']} if x.get('to') else {}) for x in dec_]
             _agents['card'] = _ag.card_seats(cur, _agents['decisions'], px, cfg_t, take=_of.take_line(cfg_t, _agents.get('scalp')))
+            paper_ = bool(cfg_t.get('agentPaper'))
             for x in dec_:
                 try:
+                    if x['action'] == 'swap' and paper_:   # 📄 a switch-in is a real BUY: on paper it is only recorded (the shadow book)
+                        _shadow_note(x.get('to'), 'switch', now, cur); continue
                     if x['action'] == 'swap' and ctl_ and _office_warden(cur, x['to'], _fuse._f(next((_fuse._f(l.get('units')) * (_fuse._f(px.get(l.get('pairAddress'))) or _fuse._f(l.get('entry'))) for l in cur.get('legs') or [] if l.get('pairAddress') == x['pair']), 0.0)), cfg_t, now, 'swap')['veto']:
                         continue   # 🛡 a switch carries the old seat's money as it is: the Warden may only veto it
                     if x['action'] == 'pull' and ctl_:
@@ -9967,6 +9970,11 @@ async def _prime_tick_inner(now):
             vetoed_ = 0
             plan_ = _oe.fill_plan({'control': True, 'pol': pol_, 'live': rd_['live'], 'halt': seat_ctx_['halt'], 'courier': seat_ctx_['courier'], 'used': used_, 'gos': gos_, 'wait': wait_,
                                    'empty': empty_n, 'emptySince': cur.get('agentEmptyAt'), 'lastFill': cur.get('agentFillAt'), 'now': now, 'near': near_, 'emptyFor': empty_for_, 'cap': _ag.FILL_MOVES_HR})
+            if cfg_t.get('agentPaper'):   # 📄 PAPER: every seat the agents would fill is recorded in the shadow book at the live price — no real buy
+                for t_ in plan_[:max(0, empty_n)]:
+                    _shadow_note(t_, 'fill', now, cur)
+                _shadow_controls(plan_[:max(0, empty_n)], near0_ + gos_ + wait_, cases_, now)
+                plan_ = []
             for t_ in plan_:   # 🔌 no fill until the office is LIVE after a restart · never while the keeper is halted or the Courier reads BAD
                 t_ = {**t_, 'trench': _ag.in_lane(t_.get('vitals') or {})}   # 🗑 a lane launch → the keeper's trench pool floor
                 if used_ >= _ag.FILL_MOVES_HR:
@@ -12403,6 +12411,7 @@ async def _agents_loop():
             if time.time() - _fuse._f(_runner_live_cache.get('at')) > AGENTS_EVERY:
                 await _runner_live()
             await _agents_tick(time.time())
+            await _shadow_settle(time.time())
         except Exception as e:
             print('agents loop:', e)
         await asyncio.sleep(2)
@@ -12491,6 +12500,7 @@ import launch_intel as _li
 import market_wake as _mw
 import judge_review as _jr
 import real_memory as _rm
+import shadow_book as _sb
 LINGO_PATH = FUSE_HQ_PATH.parent / 'trench_lingo.json'   # 📖 slang the desk learned from Pump callers' own words (per-day counts + learned words)
 AGENTS_PATH = FUSE_HQ_PATH.parent / 'agents.json'   # 🤖 the agent desk: Tally's tapes, every call, every judged result
 AGENTS_EVERY = 18.0                                 # ⚡ 3× a minute (owner, 2026-10-11: "seats never empty — 3× as fast"); a pass takes ~2s
@@ -12499,6 +12509,74 @@ _agents: dict = {'at': 0.0, 'table': [], 'view': None}
 
 
 _rm_cache: dict = {'at': 0.0, 'mem': None}
+SHADOW_PATH = FUSE_HQ_PATH.parent / 'shadow_book.json'   # 📄 paper decisions + controls (shadow_book.py), graded at 30s … 1h
+_shadow: dict = {'book': None, 'cost': None, 'costAt': 0.0, 'dirty': False}
+
+
+def _shadow_cost(now):
+    """The round trip a $0.10 agent seat REALLY pays, from the card's own recent filled buys: the sell-back loss quoted at the buy + the
+    network fee both ways as a share of the order. Re-measured every 10 min; never a constant guess."""
+    if _shadow['cost'] is None or now - _shadow['costAt'] > 600:
+        try:
+            rows = [r for r in _fw_full_ledger()[-600:] if r.get('side') == 'buy' and r.get('status') == 'filled' and _fuse._f(r.get('usd')) > 0]
+            rt = [abs(_fuse._f(r.get('sellBackPct'))) for r in rows if r.get('sellBackPct') is not None]
+            fee = [2 * _fuse._f(r.get('feeUsd')) / _fuse._f(r['usd']) * 100 for r in rows if r.get('feeUsd') is not None]
+            _shadow['cost'] = round((_st_med(rt) if rt else 2.3) + (_st_med(fee) if fee else 1.0), 3)
+        except Exception as e:
+            print('shadow cost:', str(e)[:100]); _shadow['cost'] = _shadow['cost'] or 3.3
+        _shadow['costAt'] = now
+    return _shadow['cost']
+
+
+def _st_med(v):
+    v = sorted(v); n = len(v)
+    return (v[n // 2] if n % 2 else (v[n // 2 - 1] + v[n // 2]) / 2) if n else 0.0
+
+
+def _shadow_book():
+    if _shadow['book'] is None:
+        _shadow['book'] = _json_load(SHADOW_PATH, {}) or {}
+    return _shadow['book']
+
+
+def _shadow_px(row):
+    return _fuse._f(row.get('px')) or _fuse._f((_jup_px_cache.get(row.get('mint')) or (0, 0))[1])
+
+
+def _shadow_note(row, kind, now, card=None):
+    """📄 One paper decision at the live price of the decision moment."""
+    try:
+        if row:
+            _shadow['book'] = _sb.note(_shadow_book(), row, kind, now, _shadow_px(row), _shadow_cost(now)); _shadow['dirty'] = True
+    except Exception as e:
+        print('shadow note:', str(e)[:100])
+
+
+def _shadow_controls(chosen, pool, cases, now):
+    """🎲 The control group of the same moment: best not chosen · random eligible · a WAIT coin."""
+    try:
+        if not chosen:
+            return
+        waits = [c_.get('row') or c_ for c_ in cases or [] if not c_.get('cleared')]
+        for g_, r_ in _sb.controls(chosen, pool, waits, now).items():
+            _shadow['book'] = _sb.note(_shadow_book(), r_, g_, now, _shadow_px(r_), _shadow_cost(now))
+        _shadow['dirty'] = True
+    except Exception as e:
+        print('shadow controls:', str(e)[:100])
+
+
+async def _shadow_settle(now):
+    """Grade open shadow rows with the live chart price (one local batched call) and save when anything changed."""
+    b = _shadow_book()
+    ms = _sb.due(b, now)
+    if ms:
+        px = {}
+        for i in range(0, len(ms), 60):
+            px.update(await _live_px(ms[i:i + 60]))
+        _shadow['book'] = _sb.settle(b, px, now); _shadow['dirty'] = True
+    if _shadow['dirty']:
+        _shadow['book']['report'] = _sb.report(_shadow['book']); _shadow['book']['verdict'] = _sb.verdict(_shadow['book']['report'])
+        _json_save(SHADOW_PATH, _shadow['book']); _shadow['dirty'] = False
 
 
 def _real_mem(now):
@@ -13715,7 +13793,7 @@ async def admin_agents_set(request: Request):
     ch = {}
     if 'feed' in body:
         ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve') + _oe.POLICY_KEYS:
+    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper') + _oe.POLICY_KEYS:
         if k in (body.get('cfg') or {}):
             ch[k] = body['cfg'][k]
     if ch:
