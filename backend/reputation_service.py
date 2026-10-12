@@ -6271,6 +6271,7 @@ async def _runner_start():
         asyncio.create_task(_runner_loop())
         asyncio.create_task(_fuse_warm_loop())
         asyncio.create_task(_agents_loop())
+        asyncio.create_task(_ai_loop())
         asyncio.create_task(_prime_bell_loop())
         asyncio.create_task(_real_guard_loop())
 
@@ -12199,6 +12200,198 @@ async def admin_rpc_set(request: Request):
     return {'ok': True, 'slot': slot, 'provider': _chain.provider_of(url), 'holders': bool(res.get('holders')), 'ms': res.get('ms'), 'lanes': _rpc_quota_state()}
 
 
+@app.get('/api/reputation/admin/ai-key')
+async def admin_ai_key_status(request: Request):
+    """🔑 Owner only: which AI providers have a key — provider, set, the last 4 characters. Never a key."""
+    _require_owner(request)
+    return _aik.status(os.environ)
+
+
+@app.post('/api/reputation/admin/ai-key')
+async def admin_ai_key_set(request: Request):
+    """🔑 Owner only: save an AI API key (OpenAI · Anthropic · Gemini · OpenRouter · Groq · xAI · any OpenAI-compatible https base).
+    It is TESTED first (one read-only list-models request — no tokens spent), saved to backend/.env as the one active line of its
+    variable and set in this process. `{provider, clear: true}` removes it. The key is never returned, logged, audited or echoed in
+    an error. Storing a key does not make any agent call a model (ai_keys.py)."""
+    me = _require_owner(request)
+    body = await request.json()
+    env = Path(__file__).parent / '.env'
+    prov = str(body.get('provider') or '')
+    if body.get('clear'):
+        if prov not in _aik.PROVIDERS:
+            raise HTTPException(400, 'Pick a provider.')
+        var = _aik.PROVIDERS[prov][1]
+        if not os.environ.get('PYTEST_CURRENT_TEST') and env.exists():
+            txt = _aik.env_without(env.read_text(), var)
+            if os.environ.get(_aik.ACTIVE_VAR) == prov:
+                txt = _aik.env_without(txt, _aik.ACTIVE_VAR)
+            env.write_text(txt)
+        os.environ.pop(var, None)
+        if os.environ.get(_aik.ACTIVE_VAR) == prov:
+            os.environ.pop(_aik.ACTIVE_VAR, None)
+        ad = _admin_load(); _audit(ad, me, 'ai-key', f'{prov} cleared'); _admin_save(ad)
+        return {'ok': True, **_aik.status(os.environ)}
+    try:
+        c = _aik.clean(prov, body.get('key'), body.get('base'), body.get('model'))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    async with httpx.AsyncClient(timeout=10) as http:
+        res = await _aik.probe(http, c)
+    if not res.get('ok'):
+        raise HTTPException(400, f"Not saved — {res.get('err')}.")
+    lines = _aik.env_lines(c)
+    if not os.environ.get('PYTEST_CURRENT_TEST'):
+        txt = env.read_text() if env.exists() else ''
+        for var, val in lines:
+            txt = _chain.env_with_key(txt, var, val)
+        env.write_text(txt)
+    for var, val in lines:
+        os.environ[var] = val
+    ad = _admin_load(); _audit(ad, me, 'ai-key', f"{c['provider']} saved"); _admin_save(ad)   # the provider only — never the key
+    return {'ok': True, 'ms': res.get('ms'), 'models': res.get('models') or [], **_aik.status(os.environ)}
+
+
+# ---- 🧠 THE AI ROUTER (backend/ai_router.py): optional, advisory, never in a hot loop or at the money boundary ----
+import ai_router as _air
+AI_CFG_PATH = DATA_DIR / 'ai_providers.json'   # the provider order + on / off (no secrets — keys live in backend/.env only)
+AI_EVERY = 15.0                                 # one advisory round every 15s, ≤ AI_JOBS cases (local inference is one at a time)
+AI_JOBS = 3
+AI_NOTES_KEEP = 60
+_ai = {'notes': {}, 'http': None, 'rounds': 0, 'lastAt': None, 'lastMs': None}
+
+
+def _ai_cfg():
+    return _json_load(AI_CFG_PATH, {}) or {}
+
+
+def _ai_http():
+    if _ai['http'] is None:
+        _ai['http'] = httpx.AsyncClient(timeout=20)   # ONE pooled client for every provider
+    return _ai['http']
+
+
+def _ai_view(now=None, light=False):
+    """The page's AI block: the provider rows (state, model, latency, failures — never a key), totals, and the advice per coin.
+    `light` = the office payload's copy (compact rows, the newest 12 notes); the full rows come from GET /admin/ai/providers."""
+    now = time.time() if now is None else now
+    v = _air.ROUTER.view(os.environ, _ai_cfg(), now)
+    notes = {m_: n_ for m_, n_ in _ai['notes'].items()}
+    if light:
+        keep = sorted(notes, key=lambda k_: -max(_fuse._f(x_.get('at')) for x_ in notes[k_].values()))[:12]
+        return {'providers': [{k_: r_.get(k_) for k_ in ('key', 'label', 'enabled', 'state', 'lastMs')} for r_ in v['providers']], 'active': v['active'],
+                'totals': v['totals'], 'notes': {m_: {ro_: {k_: n_.get(k_) for k_ in ('source', 'label', 'advice', 'at')} for ro_, n_ in notes[m_].items()} for m_ in keep},
+                'lastAt': _ai['lastAt']}
+    return {**v, 'notes': notes, 'rounds': _ai['rounds'], 'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY}
+
+
+def _ai_jobs(now):
+    """What is worth a model's time this round (never every coin): the owner's review list → a conflicted case (Trigger ENTER + a Devil
+    warning) → the top contender → the newest Judge review of a real exit. Each case is asked once per change (the router caches)."""
+    p = _office.get('payload') or {}
+    out = []
+    for r_ in (p.get('ownerReview') or [])[:2]:
+        if r_.get('mint'):
+            out.append(('owner', {'mint': r_['mint'], 'symbol': r_.get('symbol'), 'state': r_.get('state'), 'why': r_.get('why'), 'cap': r_.get('mc'),
+                                  'trigger': (r_.get('trigger') or {}).get('state'), 'devil': (r_.get('devil') or {}).get('severity'), 'pending': r_.get('pending')}, 'high'))
+    cands = (p.get('kernel') or {}).get('candidates') or []
+    open_ = [c_ for c_ in cands if c_.get('status') in ('READY', 'CONTENDING')]
+    conf = next((c_ for c_ in open_ if c_.get('trigger') == 'ENTER' and c_.get('devil') and not any(d_[1] == 'HARD_VETO' for d_ in c_['devil'])), None)
+    if conf:
+        out.append(('devil', conf, 'normal'))
+    top = next((c_ for c_ in open_ if c_ is not conf), None)
+    if top:
+        out.append(('sherlock', top, 'normal'))
+    rv = (((_office_state().get('judge') or {}).get('reviews')) or [])
+    if rv:
+        r_ = rv[-1]
+        if r_.get('mint') and now - _fuse._f(r_.get('at')) < 3600:
+            out.append(('judge', {'mint': r_['mint'], 'symbol': r_.get('sym'), 'result': r_.get('pct'), 'cause': r_.get('cause'), 'peak': r_.get('peak'),
+                                  'heldMin': r_.get('held'), 'rule': r_.get('exit'), 'structure': r_.get('entry'), 'phase': r_.get('phase'), 'why': r_.get('why') or r_.get('lesson')}, 'normal'))
+    return out[:AI_JOBS]
+
+
+def _ai_case(c):
+    """A kernel candidate → the compact case the router sends (it whitelists again)."""
+    return {**{k_: c.get(k_) for k_ in ('mint', 'symbol', 'status', 'rank', 'ageMin', 'cap', 'liq', 'vol5m', 'move5m', 'buyShare', 'narrative', 'trigger', 'size', 'unknown',
+                                       'state', 'why', 'pending', 'result', 'cause', 'peak', 'heldMin', 'rule', 'structure', 'phase')},
+            'devil': [f"{d_[0]} {d_[1]}" for d_ in (c.get('devil') or []) if isinstance(d_, (list, tuple)) and len(d_) >= 2] if isinstance(c.get('devil'), list) else c.get('devil')}
+
+
+async def _ai_round(now):
+    """One advisory round. Every answer is DISPLAYED (notes by coin + role, with its source); nothing it says reaches a decision."""
+    env, cfg = os.environ, _ai_cfg()
+    if not any(not r_['why'] and r_['enabled'] for r_ in (_air.provider(env, k_, cfg) for k_ in _air.PROVIDERS)):
+        return 0
+    jobs = _ai_jobs(now)
+    if not jobs:
+        return 0
+    t0 = time.perf_counter()
+    res = await asyncio.gather(*[_air.ROUTER.reason(_ai_http(), env, cfg, _ai_case(c_), role_, urg_) for role_, c_, urg_ in jobs], return_exceptions=True)
+    n = 0
+    for (role_, c_, _u), r_ in zip(jobs, res):
+        if isinstance(r_, Exception) or not isinstance(r_, dict):
+            continue
+        m_ = c_.get('mint')
+        if not m_:
+            continue
+        _ai['notes'].setdefault(m_, {})[role_] = {k_: r_.get(k_) for k_ in ('source', 'label', 'advice', 'ms', 'at', 'tried', 'why', 'cached')} | {'symbol': c_.get('symbol')}
+        n += 1
+    if len(_ai['notes']) > AI_NOTES_KEEP:
+        for m_ in sorted(_ai['notes'], key=lambda k_: max(_fuse._f(v_.get('at')) for v_ in _ai['notes'][k_].values()))[:len(_ai['notes']) - AI_NOTES_KEEP]:
+            _ai['notes'].pop(m_, None)
+    _ai.update(rounds=_ai['rounds'] + 1, lastAt=round(time.time(), 1), lastMs=round((time.perf_counter() - t0) * 1000))
+    try:
+        if _office.get('payload') is not None:
+            _office['payload']['ai'] = _ai_view(light=True)
+            _tke.HUB.publish('ai_update', 'ai', _office['payload']['ai'], time.time())
+    except Exception:
+        pass
+    return n
+
+
+async def _ai_loop():
+    """🧠 The advisory loop — its own task, so a slow model can never delay a pass, a tick, a stop or an order."""
+    await asyncio.sleep(20)
+    while True:
+        try:
+            await _ai_round(time.time())
+        except Exception as e:
+            print('ai:', type(e).__name__)
+        await asyncio.sleep(AI_EVERY)
+
+
+@app.get('/api/reputation/admin/ai/providers')
+async def admin_ai_providers(request: Request):
+    """🧠 Owner only: the AI providers in their order — state, model, latency, failures. Never a key."""
+    _require_owner(request)
+    return _ai_view()
+
+
+@app.post('/api/reputation/admin/ai/providers')
+async def admin_ai_providers_set(request: Request):
+    """🧠 Owner only: the provider ORDER and ON / OFF (`{order: [...], enabled: {key: bool}}`). Keys are never sent here."""
+    me = _require_owner(request)
+    body = await request.json()
+    cfg = _air.clean_cfg(body if isinstance(body, dict) else {}, _ai_cfg())
+    _json_save(AI_CFG_PATH, cfg)
+    ad = _admin_load(); _audit(ad, me, 'ai-providers', f"order {','.join(cfg['order']) or 'default'}"); _admin_save(ad)
+    if _office.get('payload') is not None:
+        _office['payload']['ai'] = _ai_view(light=True)
+    return _ai_view()
+
+
+@app.post('/api/reputation/admin/ai/test')
+async def admin_ai_test(request: Request):
+    """🧠 Owner only: one tiny request to ONE provider (≈ 10 tokens) → online / offline / rate limited + its latency. Never a key."""
+    _require_owner(request)
+    body = await request.json()
+    key = str((body or {}).get('provider') or '')
+    if key not in _air.PROVIDERS:
+        raise HTTPException(400, 'Pick a provider.')
+    res = await _air.ROUTER.test(_ai_http(), os.environ, _ai_cfg(), key)
+    return {**res, **_ai_view()}
+
+
 _rpc_warned = {'day': ''}
 
 
@@ -12589,6 +12782,7 @@ import trench_kernel.metrics as _tkm
 import trench_kernel.events as _tke
 import trench_kernel.supply as _tks
 import owner_review as _owr
+import ai_keys as _aik
 LINGO_PATH = FUSE_HQ_PATH.parent / 'trench_lingo.json'   # 📖 slang the desk learned from Pump callers' own words (per-day counts + learned words)
 AGENTS_PATH = FUSE_HQ_PATH.parent / 'agents.json'   # 🤖 the agent desk: Tally's tapes, every call, every judged result
 AGENTS_EVERY = 18.0                                 # ⚡ 3× a minute (owner, 2026-10-11: "seats never empty — 3× as fast"); a pass takes ~2s
@@ -13910,6 +14104,8 @@ def _hub_publish(now, light=False):
         H.sync('agent_update', {a_['key']: {k_: a_.get(k_) for k_ in ('key', 'task', 'decision', 'decisionAt', 'rule', 'card')} for a_ in p.get('agents') or []}, now)
         H.publish('lifecycle_update', 'generations', p.get('generations') or [], now)
         H.publish('metric_update', 'metrics', {'kernel': k.get('metrics'), 'enrich': p.get('enrich'), 'rpc': p.get('rpcStats'), 'stream': H.stats()}, now)
+        if p.get('ai'):
+            H.publish('ai_update', 'ai', p.get('ai'), now)
         H.publish('snapshot', 'office', {'at': p.get('at')}, now, force=True)
     except Exception as e:
         print('hub:', str(e)[:140])
@@ -14213,7 +14409,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         print('fresh:', e)
     _office['payload']['performance']['passMs'] = round(sum(_fuse._f(ms.get(a)) for a in _of.CHAIN), 2)
     _tape_ledger(now)
-    _office['payload'].update(tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now),
+    _office['payload'].update(tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now), ai=_ai_view(now, light=True),
                               universe={'capUsd': _agents.get('laneCap') or _uni.AGENT_MAX_MCAP, 'minCapUsd': _uni.AGENT_MIN_MCAP, 'maxAgeH': _uni.AGENT_MAX_AGE_H, 'inLane': len(_agents.get('table') or []),
                                         'board': (_office.get('intake') or {}).get('board'), 'mints': len(_tk.KERNEL.store.mints)})
     _hub_publish(now)   # 📡 this pass as DELTAS: only what changed since the last one

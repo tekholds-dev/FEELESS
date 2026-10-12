@@ -32,6 +32,9 @@ def _market(mk, age_min, owner):
     return {k: v for k, v in out.items() if v is not None}
 
 
+TRACK_VIEW = 8   # TRACKING coins the page sees beside the contenders (the review queue's NEW / TRACKING rows)
+
+
 class Kernel:
     def __init__(self):
         self.store = _s.MintStore()
@@ -167,6 +170,8 @@ class Kernel:
         """The bounded payload: lanes, the top candidates with every agent's line, per-section ages, metrics."""
         rows = sorted([(m, d) for m, d in self.dec.items() if m in self.store.mints and d['status'] in ('READY', 'CONTENDING', 'ORDER_PENDING', 'HELD', 'EXIT_PENDING')],
                       key=lambda kv: (kv[1]['status'] not in ('HELD', 'EXIT_PENDING', 'ORDER_PENDING'), -kv[1]['rank']))[:top]
+        rows += sorted([(m, d) for m, d in self.dec.items() if m in self.store.mints and d['status'] == 'TRACKING'],   # 👀 the review queue's TRACKING rows (bounded)
+                       key=lambda kv: -kv[1]['rank'])[:TRACK_VIEW]
         out = []
         for m, d in rows:
             ms, op = self.store.mints[m], d['opinions']
