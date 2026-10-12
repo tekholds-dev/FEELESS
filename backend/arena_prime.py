@@ -3420,7 +3420,27 @@ def agent_pull(card, pair, prices, liqs, now, why=''):
     c['legs'] = [x for x in c['legs'] if x is not l]
     c['cash'] = round(_f(c.get('cash')) + got, 6)
     c['events'].append({'at': now, 'kind': 'agent', 'move': 'pull', 'symbol': l.get('symbol'), 'usd': round(got, 4), 'why': f"🤖 agents banked ${l.get('symbol')} (${got:.2f} to card cash): {why}"})
+    if l.get('mint'):   # 🚫 the agents never buy back what they just left (2026-10-11: $Rupshld bought 3× in a minute between rug-radar exits, then rugged)
+        c['agentOut'] = {**{m: v for m, v in (c.get('agentOut') or {}).items() if now - _f((v or {}).get('at')) < AGENT_OUT_DANGER_SEC},
+                         l['mint']: {'at': now, 'danger': agent_out_danger(why)}}
     return c
+
+
+AGENT_OUT_SEC = 600.0           # any agent exit: the coin sits out 10 min (no sell → buy-back churn on the fast clock)
+AGENT_OUT_DANGER_SEC = 6 * 3600.0   # a rug / drain / dump / failed-scan / catastrophic exit: out for 6h
+AGENT_OUT_RULES = ('R1', 'R2', 'R4', 'R4r', 'R4e', 'R5x')
+
+
+def agent_out_danger(why):
+    import re
+    m = re.search(r'Reaper (R\d+[a-z]?)\b', str(why or ''))
+    return bool((m and m.group(1) in AGENT_OUT_RULES) or re.search(r'rug|drain|pulled', str(why or ''), re.I))
+
+
+def agent_out(card, now):
+    """Mints the agents may not buy right now: left in the last 10 min, or left on a danger rule in the last 6h."""
+    return {m for m, v in ((card or {}).get('agentOut') or {}).items()
+            if now - _f((v or {}).get('at')) < (AGENT_OUT_DANGER_SEC if (v or {}).get('danger') else AGENT_OUT_SEC)}
 
 
 def seats_used(c):

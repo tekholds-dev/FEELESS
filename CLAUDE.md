@@ -3261,3 +3261,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `SEAT_HEARTBEAT_SEC` 8, `NEAR_PATIENCE_SEC` 10, `SEAT_TARGET_AUTO` 10, `market_wake.GAP_CAND` 8, `FILL_MOVES_HR` 36 (switches keep 6). No
   new provider polling: Jupiter / candles / DexScreener keep their caches + pacing. The real choke is SUPPLY (40 in lane, 34 hard NOs: holder
   scan 14 · dead 11) — speed gets the ones that clear seated before they move.
+- 🚫 THE AGENTS NEVER BUY BACK WHAT THEY JUST LEFT (`arena_prime.agent_pull` stamps card `agentOut`; `agent_out(card, now)` joins `cool` in
+  the agent block): any agent exit = out 10 min (`AGENT_OUT_SEC`), a rug / drain / dump / failed-scan / catastrophic exit (`AGENT_OUT_RULES`
+  R1 R2 R4 R4r R4e R5x, or "rug / drain / pulled" in the reason) = out 6h. Found the first minutes of the 3× clock: $Rupshld filled → rug
+  radar → filled again, 3 real buys in 60s, then its pool was pulled (−$0.14). agent_pull wrote no cool stamp at all.

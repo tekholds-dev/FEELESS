@@ -9759,6 +9759,7 @@ async def _prime_tick_inner(now):
             if due_:
                 cur['agentCycleAt'] = now; _office['cycleN'] = int(_office.get('cycleN') or 0) + 1
             lost_ = {m_ for m_, at_ in (_office_state().get('lostAt') or {}).items() if now - _fuse._f(at_) < _oe.FAILED_SEC}   # a thesis that failed on real money is not bought back for 6h
+            cool = set(cool) | _prime.agent_out(cur, now)   # 🚫 what the agents just left (10 min; a rug / danger exit 6h) is never a candidate
             cases_ = _ag.investigate(_agents.get('table'), {l.get('mint') for l in cur.get('legs') or []}, _ag.min_age_of(cfg_t), (_json_load(AGENTS_PATH, {}).get('burned') or {}), top=0) if ctl_ else []
             picks_ = [c_['row'] for c_ in cases_ if c_['cleared'] and not _fw.dollar_named(c_.get('symbol')) and c_['mint'] not in cool and c_['mint'] not in lost_] if ctl_ else None
             full_ = bool(ctl_ and len([l for l in cur.get('legs') or [] if not l.get('placeholder')]) >= pol_['seats'])

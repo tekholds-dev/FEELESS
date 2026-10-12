@@ -209,3 +209,17 @@ def test_the_agents_work_three_times_as_fast():
     import reputation_service as rs, market_wake as mw
     assert rs.AGENTS_EVERY <= 20 and rs.SEAT_HEARTBEAT_SEC <= 10 and oe.NEAR_PATIENCE_SEC <= 10 and mw.GAP_CAND <= 10 and oe.SEAT_TARGET_AUTO <= 10
     assert oe._ag.FILL_MOVES_HR >= 36   # the fill guard grows with the pace (switches keep CONTROL_MOVES_HR)
+
+
+def test_a_coin_the_agents_just_left_is_not_bought_back():
+    """2026-10-11: $Rupshld was filled → rug-radar exit → filled again 3× in a minute (real buys), then its pool was pulled."""
+    import arena_prime as ap
+    card = {'cash': 0.0, 'legs': [{'mint': 'RUG', 'symbol': 'RUG', 'pairAddress': 'P1', 'units': 100.0, 'entry': 0.001},
+                                  {'mint': 'OK', 'symbol': 'OK', 'pairAddress': 'P2', 'units': 100.0, 'entry': 0.001}]}
+    c = ap.agent_pull(card, 'P1', {'P1': 0.001}, {}, 1000.0, '☠ Reaper R4r rug radar: 🚨 a top holder dumped $226')
+    c = ap.agent_pull(c, 'P2', {'P2': 0.001}, {}, 1000.0, '☠ Reaper R7s structure turned: +3.2%')
+    assert ap.agent_out(c, 1100.0) == {'RUG', 'OK'}                       # nothing comes straight back
+    assert ap.agent_out(c, 1000.0 + ap.AGENT_OUT_SEC + 1) == {'RUG'}      # a plain exit: 10 min
+    assert ap.agent_out(c, 1000.0 + ap.AGENT_OUT_DANGER_SEC + 1) == set()  # a rug exit: 6h
+    src = open(__import__('reputation_service').__file__).read()
+    assert 'cool = set(cool) | _prime.agent_out(cur, now)' in src
