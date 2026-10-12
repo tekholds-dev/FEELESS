@@ -41,7 +41,7 @@ import httpx
 import ds_pace
 import launchpad_board as _launchpad_board
 ds_pace.install(110, 20)   # 📡 this process's share of DexScreener's ~300/min per IP (market service takes 150)
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from urllib.parse import quote
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -12585,6 +12585,7 @@ import trench_kernel.lifecycle as _tkl
 import trench_kernel.positions as _pos
 import trench_kernel.view as _tkv
 import trench_kernel.metrics as _tkm
+import trench_kernel.events as _tke
 LINGO_PATH = FUSE_HQ_PATH.parent / 'trench_lingo.json'   # 📖 slang the desk learned from Pump callers' own words (per-day counts + learned words)
 AGENTS_PATH = FUSE_HQ_PATH.parent / 'agents.json'   # 🤖 the agent desk: Tally's tapes, every call, every judged result
 AGENTS_EVERY = 18.0                                 # ⚡ 3× a minute (owner, 2026-10-11: "seats never empty — 3× as fast"); a pass takes ~2s
@@ -13261,7 +13262,8 @@ async def _market_wake(agents_c, now):
         for m_, px_ in lp.items():
             if m_ in _tk.KERNEL.store.mints:
                 kctx_ = kctx_ or _kernel_ctx(time.time())
-                _tk.KERNEL.price_event(m_, px_, time.time(), kctx_)
+                d_px_ = _tk.KERNEL.price_event(m_, px_, time.time(), kctx_)
+                _tke.HUB.publish('mint_update', m_, {'mint': m_, 'price': px_, 'priceAt': round(time.time(), 2), 'status': (d_px_ or {}).get('status'), 'reaper': ((d_px_ or {}).get('opinions') or {}).get('reaper')}, time.time())   # 📡 a live price → the page, now
     except Exception as e:
         print('kernel price event:', str(e)[:100])
     tick = False
@@ -13725,6 +13727,74 @@ def _office_positions():
     return out
 
 
+_DELTA_DROP = ('ages', 'decidedAgo')      # relative ages tick every second: the stream sends absolute `times` / `decidedAt` instead
+_POS_DROP = ('bars',)                      # a position's candles are the snapshot's (and the charts' own stream) — never re-sent per tick
+
+
+def _hub_publish(now, light=False):
+    """📡 Turn the page's payload into DELTAS on the kernel's hub: each kernel candidate, hunter lane set, position, agent card,
+    generation book, execution state and metric block is sent only when its content changed. `light` (a tier tick between passes):
+    positions, seats and execution only. Memory only — it reads nothing and never raises into its caller."""
+    try:
+        p = _office.get('payload')
+        if not p:
+            return
+        H = _tke.HUB
+        H.sync('position_update', {x_['mint']: {k_: v_ for k_, v_ in x_.items() if k_ not in _POS_DROP} for x_ in p.get('positions') or [] if x_.get('mint')}, now)
+        H.publish('execution_update', 'office', {'courier': {k_: (_office.get('courier') or {}).get(k_) for k_ in ('health', 'why', 'pending', 'sends', 'fills', 'failed', 'landMed')},
+                                                 'ready': p.get('ready'), 'seat': p.get('seat'), 'ops': p.get('ops'), 'lastAction': (p.get('mission') or {}).get('lastAction'),
+                                                 'seatBoard': p.get('seatBoard'), 'seatSummary': p.get('seatSummary'), 'wake': p.get('wake')}, now)
+        if light:
+            return
+        k = p.get('kernel') or {}
+        H.sync('candidate_update', {c_['mint']: {k_: v_ for k_, v_ in c_.items() if k_ not in _DELTA_DROP} for c_ in k.get('candidates') or []}, now)
+        H.publish('hunter_update', 'lanes', k.get('lanes') or [], now)
+        H.sync('agent_update', {a_['key']: {k_: a_.get(k_) for k_ in ('key', 'task', 'decision', 'decisionAt', 'rule', 'card')} for a_ in p.get('agents') or []}, now)
+        H.publish('lifecycle_update', 'generations', p.get('generations') or [], now)
+        H.publish('metric_update', 'metrics', {'kernel': k.get('metrics'), 'enrich': p.get('enrich'), 'rpc': p.get('rpcStats'), 'stream': H.stats()}, now)
+        H.publish('snapshot', 'office', {'at': p.get('at')}, now, force=True)
+    except Exception as e:
+        print('hub:', str(e)[:140])
+
+
+STREAM_MAX_SEC = 1800.0     # a stream ends after 30 min (the page reconnects with its last sequence — nothing is lost)
+STREAM_BEAT_SEC = 15.0
+
+
+@app.get('/api/reputation/admin/agents/stream')
+async def admin_agents_stream(request: Request, since: int = 0):
+    """📡 The office's live DELTAS as Server-Sent Events (creator / admin wallets): the page loads the snapshot once (GET /admin/agents)
+    and then applies these — `candidate_update` · `hunter_update` · `position_update` · `agent_update` · `lifecycle_update` ·
+    `execution_update` · `metric_update` · `mint_update` (a live price) · `snapshot` (a pass ended). `resync` = the page fell behind (or
+    the service restarted): reload the snapshot once. Read-only: a stream runs no desk, no scan, no quote and no wallet call."""
+    _require_admin(request)
+    H = _tke.HUB
+    if len(H.subs) >= _tke.MAX_SUBS:
+        raise HTTPException(429, 'Too many live office streams are open — close another HQ tab.')
+
+    async def gen():
+        seq, t0 = int(since or 0), time.time()
+        evs, gap = H.since(seq)
+        yield f"event: hello\ndata: {json.dumps({'seq': H.seq, 'resync': bool(gap), 'snapshotAt': (_office.get('payload') or {}).get('at')})}\n\n"
+        if gap:
+            seq = H.seq
+        while time.time() - t0 < STREAM_MAX_SEC:
+            if await request.is_disconnected():
+                return
+            evs, gap = H.since(seq)
+            if gap:
+                seq = H.seq
+                yield f"event: resync\ndata: {json.dumps({'seq': seq})}\n\n"
+                continue
+            for e_ in evs:
+                yield _tke.sse(e_)
+                seq = e_['seq']
+            if not await H.wait(seq, STREAM_BEAT_SEC):
+                yield ': beat\n\n'
+        yield f"event: bye\ndata: {json.dumps({'seq': seq})}\n\n"
+    return StreamingResponse(gen(), media_type='text/event-stream', headers={'Cache-Control': 'no-cache, no-transform', 'X-Accel-Buffering': 'no', 'Content-Encoding': 'identity', 'Connection': 'keep-alive'})
+
+
 def _office_light(tid, cur, now):
     """Between agent passes: the last real agent action (with what the LEDGER says about it), the duty clock and Reaper's positions
     are refreshed on the cached payload. Memory only — no read, no quote, no scan."""
@@ -13738,7 +13808,7 @@ def _office_light(tid, cur, now):
     p = _office.get('payload')
     if p:
         p['positions'] = _office_positions()
-        p['mission'] = {**p['mission'], 'lastAction': last, 'dutyAt': _office['dutyAt']}
+        p['mission'] = {**p['mission'], 'lastAction': last}
         p['seat'], p['switchEval'], p['ready'] = _agents.get('seat'), _agents.get('switchEval'), _oe.ready(_office['boot'], now)
         p['ops'] = _oe.ops(p['ready'], p['seat'], _office.get('courier'), _is_keeper(), _uni.FILL_MOVES_HR)
         p['index'] = (_office.get('index') or [])[:80]
@@ -13751,6 +13821,7 @@ def _office_light(tid, cur, now):
             p['fresh'] = _office_fresh(now); p['live'] = _office.get('live'); p['scans'] = _office.get('scans')
         except Exception as e:
             print('fresh:', e)
+        _hub_publish(now, light=True)   # 📡 positions · seats · the last real action → the delta stream (only what changed)
 
 
 def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
@@ -13976,6 +14047,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
     except Exception as e:
         print('fresh:', e)
     _office['payload']['performance']['passMs'] = round(sum(_fuse._f(ms.get(a)) for a in _of.CHAIN), 2)
+    _hub_publish(now)   # 📡 this pass as DELTAS: only what changed since the last one
     try:   # a read-only snapshot of what the page was handed (like agents_duty.json) — for checking the office without signing in to HQ
         _json_save(DATA_DIR / 'agent_office_view.json', _office['payload'])
     except Exception:

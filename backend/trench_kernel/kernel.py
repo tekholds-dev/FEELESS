@@ -139,6 +139,7 @@ class Kernel:
                         'devil': [[o, s, str(w)[:80]] for o, s, w in op['devil']['objections']][:4], 'devilConf': op['devil']['confidence'],
                         'size': op['warden']['size'], 'sizeWhy': op['warden']['why'], 'courier': op['courier']['ok'], 'reaper': op['reaper'],
                         'unknown': op['sherlock']['unknown'], 'ages': _s.ages(ms, now), 'decidedAgo': round(max(0.0, now - self.decAt.get(m, now)), 1),
+                        'times': _s.times(ms), 'decidedAt': round(self.decAt.get(m, now), 2),   # absolute, per section: what the delta stream sends (the page computes each age itself)
                         'sources': ms['identity']['sources'][:6]})
         held = [m for m, d in self.dec.items() if d['status'] in ('HELD', 'EXIT_PENDING') and m in self.store.mints]   # the lanes from the CURRENT decisions (a price event may be newer than the pass)
         self.lanes = _b.lanes({m: d for m, d in self.dec.items() if m in self.store.mints}, held)

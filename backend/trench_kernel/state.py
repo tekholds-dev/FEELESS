@@ -135,5 +135,12 @@ def ages(ms, now):
             'holders': a(ms['chain'].get('holderAt')), 'wallets': a(ms['chain'].get('walletAt')), 'research': a(ms['research'].get('researchAt'))}
 
 
+def times(ms):
+    """Per-section ABSOLUTE timestamps (None = never read) — stable between passes, so an unchanged coin produces no delta."""
+    a = lambda t: None if not t else round(_f(t), 2)
+    return {'price': a(ms['market'].get('priceAt')), 'market': a(ms['market'].get('marketAt')), 'candle': a(ms['chart'].get('candleAt')),
+            'holders': a(ms['chain'].get('holderAt')), 'wallets': a(ms['chain'].get('walletAt')), 'research': a(ms['research'].get('researchAt'))}
+
+
 def now():
     return _time.time()
