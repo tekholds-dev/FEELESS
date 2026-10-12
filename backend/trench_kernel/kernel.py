@@ -3,6 +3,7 @@ four hunter lanes. One instance per process (`KERNEL`). Measured, not claimed: e
 import time as _t
 
 from . import brain as _b
+from . import metrics as _m
 from . import state as _s
 
 LAT_KEEP = 400
@@ -22,6 +23,7 @@ class Kernel:
         self.counts = {'events': 0, 'rejudged': 0, 'passes': 0, 'priceEvents': 0}
         self.t0 = _t.time()
         self.lanes = []
+        self.timings = _m.Timings()   # 📏 decision → order, discovery → entry, age at entry, wake → decision (noted by the service)
 
     def _lat(self, k, ms):
         self.lat[k] = (self.lat[k] + [ms])[-LAT_KEEP:]
@@ -45,7 +47,9 @@ class Kernel:
         ev = self.store.ingest(rows, now, source)
         self._lat('ingest', (_t.perf_counter() - a) * 1000 / max(1, len(rows or [])))
         held = set((ctx.get('held') or {}).keys())
-        affected = set(ev) | {m for m in held if m in self.store.mints} | {m for m in self.store.mints if m not in self.dec}
+        pend = set(ctx.get('pending') or ())
+        affected = (set(ev) | {m for m in held | pend if m in self.store.mints} | {m for m in self.store.mints if m not in self.dec}
+                    | {m for m, d in self.dec.items() if d['status'] == 'ORDER_PENDING' and m in self.store.mints})   # an order that landed / was called off is re-judged
         a = _t.perf_counter()
         self.judge(affected, ctx, now)
         self._lat('rank', (_t.perf_counter() - a) * 1000 / max(1, len(affected)))
@@ -120,7 +124,7 @@ class Kernel:
         st = self.store.stats
         return {'eventsPerSec': round(self.counts['events'] / up, 3), 'uniqueMintsPerMin': round(len(st['firstSeen']) / up * 60, 2),
                 'dupesDropped': st['dupes'], 'mints': len(self.store.mints), 'rejudged': self.counts['rejudged'], 'passes': self.counts['passes'],
-                'latencyMs': {k: {'p50': _p(v, 0.5), 'p95': _p(v, 0.95), 'n': len(v)} for k, v in self.lat.items()},
+                'latencyMs': {k: {'p50': _p(v, 0.5), 'p95': _p(v, 0.95), 'n': len(v)} for k, v in self.lat.items()}, 'timings': self.timings.view(),
                 'byStatus': {s: sum(1 for c in self.store.cand.values() if c['status'] == s) for s in _s.STATES}}
 
     def view(self, now, top=24):

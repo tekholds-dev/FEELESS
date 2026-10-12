@@ -139,15 +139,17 @@ def think(ms, ctx=None):
     rank = round(base * we['factor'] * sh['factor'], 1)
     op = {'tally': t, 'sherlock': sh, 'weather': we, 'trigger': tr, 'devil': dv, 'warden': wa, 'courier': co,
           'reaper': reaper(ms, held), 'archivist': {'sources': ms['identity']['sources']}, 'judge': judge(ms, c.get('weights'))}
-    return {'opinions': op, 'rank': rank, 'parts': parts, **reduce(op, rank, held)}
+    return {'opinions': op, 'rank': rank, 'parts': parts, **reduce(op, rank, held, ms['identity']['mint'] in (c.get('pending') or ()))}
 
 
-def reduce(op, rank, held):
+def reduce(op, rank, held, pending=False):
     """ONE decision: HELD / EXIT_PENDING for a position; else READY (ENTER, no hard veto, execution ok, rank ≥ READY_MIN) · CONTENDING
     (passes the wall) · TRACKING (data pending / outside the universe / blocked by the wall — never 'rejected')."""
     if held:
         a = (op['reaper'] or {}).get('action')
         return {'status': 'EXIT_PENDING' if a in ('EXIT', 'TAKE') else 'HELD', 'why': (op['reaper'] or {}).get('why')}
+    if pending:   # a seat exists for it and the keeper is buying: it is not a candidate any more, and the ledger — not this — says when it is HELD
+        return {'status': 'ORDER_PENDING', 'why': 'seat created — waiting for the keeper\'s confirmed fill'}
     dv = op['devil']
     if dv['hard']:
         w = next((why for _o, s, why in dv['objections'] if s == 'HARD_VETO'), 'hard wall')

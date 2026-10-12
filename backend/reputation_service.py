@@ -10043,6 +10043,14 @@ async def _prime_tick_inner(now):
                                                   'ageH': (t_.get('vitals') or {}).get('ageH'), 'vol1h': (t_.get('vitals') or {}).get('vol1h'), 'buyShare': (t_.get('nums') or {}).get('buy'),
                                                   'tag': '🤖 agents · ⚡ READY (kernel)', 'why': t_['nearReady']}, px, cfg_s, now, max_usd=wd_['allowed'])
                     used_ += 1; cur['agentDutyAt'] = now; cur['agentFillAt'] = now
+                    try:   # 📏 decision → order · discovery → entry · the coin's age at entry
+                        K_ = _tk.KERNEL
+                        K_.timings.note('readyToSeatSec', now - _fuse._f((K_.store.cand.get(t_['mint']) or {}).get('since') or now))
+                        K_.timings.note('discoveryToEntrySec', now - _fuse._f(K_.store.stats['firstSeen'].get(t_['mint']) or now))
+                        K_.timings.note('ageAtEntryMin', None if (t_.get('vitals') or {}).get('ageH') is None else _fuse._f(t_['vitals']['ageH']) * 60)
+                        K_.store.set_status(t_['mint'], 'ORDER_PENDING', now, 'seat created — the keeper buys it')
+                    except Exception as e:
+                        print('timings:', e)
                     _intake['reg'] = _in.stamp(_intake_reg(), 'seat', [t_['mint']], now)   # 🕸 clear → seat latency
                     st_o = _office_state()   # ⏱ how long the seat sat empty, how long a valid candidate waited, how long after an exit the next fill came
                     sp_ = st_o.get('speed') or {}
@@ -11219,6 +11227,7 @@ async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
                    openedSol=_fuse._f(fill.get('openedSol')))
         if p.get('sentAt'):
             row['landSec'] = round(max(0.0, time.time() - _fuse._f(p['sentAt'])), 1)   # 📮 send → booked from the chain (the Courier's landing time)
+            row['sentAt'], row['confirmedAt'] = round(_fuse._f(p['sentAt']), 2), round(time.time(), 2)   # 📏 order submitted · fill confirmed (kernel timings)
         if p.get('side') == 'sell':
             row.update(proceedsUsd=f['usd'], realizedPnlUsd=round(f['usd'] - row['costUsd'], 6))
         # The cached wallet balance predates this confirmed fill. Force the keeper's
@@ -12575,6 +12584,7 @@ import trench_kernel.kernel as _tk
 import trench_kernel.lifecycle as _tkl
 import trench_kernel.positions as _pos
 import trench_kernel.view as _tkv
+import trench_kernel.metrics as _tkm
 LINGO_PATH = FUSE_HQ_PATH.parent / 'trench_lingo.json'   # 📖 slang the desk learned from Pump callers' own words (per-day counts + learned words)
 AGENTS_PATH = FUSE_HQ_PATH.parent / 'agents.json'   # 🤖 the agent desk: Tally's tapes, every call, every judged result
 AGENTS_EVERY = 18.0                                 # ⚡ 3× a minute (owner, 2026-10-11: "seats never empty — 3× as fast"); a pass takes ~2s
@@ -12680,6 +12690,12 @@ def _kernel_view(now):
     v = _tk.KERNEL.view(now)
     for c_ in v.get('candidates') or []:
         c_['scan'] = _ENRICH.status(c_['mint'], now)
+    try:   # 📏 order → fill, timed from the keeper's own ledger rows (the truth of a fill)
+        tid_ = _office.get('tid')
+        ev_ = (((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(tid_ or '') or {}).get('events') or []
+        v['metrics']['execution'] = _tkm.execution(_office_ledger(), ev_, tid_, now)
+    except Exception as e:
+        print('exec timings:', str(e)[:100])
     return v
 
 
@@ -12690,7 +12706,9 @@ def _kernel_ctx(now):
             for l in ((((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '') or {}).get('legs') or [])
             if l.get('mint') and not l.get('placeholder') and _fuse._f(l.get('units')) > 0}
     rd = _office.get('ready') or {}
-    return {'held': held, 'regime': (_agents.get('weather') or {}).get('regime'), 'courier': (_office.get('courier') or {}).get('health'),
+    legs_ = ((((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '') or {}).get('legs') or [])
+    pending = {l.get('mint') for l in legs_ if l.get('mint') and not l.get('placeholder') and _fuse._f(l.get('units')) <= 0}   # a seat the keeper is still buying
+    return {'held': held, 'pending': pending, 'regime': (_agents.get('weather') or {}).get('regime'), 'courier': (_office.get('courier') or {}).get('health'),
             'live': rd.get('live') if rd else None, 'weights': _judge_weights(now), 'lessons': _tkl.lessons(_lc_book(now))}   # 🧬 only the generations IN CONTROL
 
 
@@ -12854,6 +12872,7 @@ async def _agents_tick(now):
     if (now - _agents['at'] < AGENTS_EVERY and not (woke and now - _agents['at'] >= _mw.GAP_CAND)) or os.environ.get('PYTEST_CURRENT_TEST'):
         return
     _agents['at'] = now
+    wake_at_ = _fuse._f(_agents.get('wake')) if woke else 0.0
     try:
         # 🕸 THE CRAWL: the busiest open-list coins + the NEWEST launches (≤ 1h) — and every coin is tagged with every corner of the trench it
         # showed up in (Pump trending / callouts / live, movers, volume, fed, waves, cooling, proven callers …): each source is a learned driver
@@ -12987,6 +13006,8 @@ async def _agents_tick(now):
             _kernel_pass(table, now)
         except Exception as e:
             print('kernel:', str(e)[:160])
+        if wake_at_:   # 📏 a live market event woke the office → the kernel has re-judged
+            _tk.KERNEL.timings.note('wakeToDecisionSec', time.time() - wake_at_)
         kcases_ = _tk.KERNEL.cases()   # the kernel's case files of THIS pass (the seat board, the scan / research order and the registry read these)
         try:   # ♻ per-coin memory: first / last seen · last deep review · last reject · last material change
             _office['seen'] = _oe.note_seen(_office.get('seen'), table, kcases_, {m_ for m_, c_ in charts_.items() if (c_ or {}).get('src') == 'candles'}, now)
