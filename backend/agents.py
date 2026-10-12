@@ -1324,7 +1324,7 @@ CONTROL_HOLD_MIN = 15      # 🎮 in control: a coin is never switched in its fi
 CONTROL_MOVES_HR = 6       # 🎮 in control: at most this many SWITCHES an hour (a held coin sold for another) — churn × cost is what drained the card
 FILL_MOVES_HR = 24         # 🪑 filling an EMPTY seat has its own runaway guard (owner, 2026-10-11: "no seat should be empty, 30 secs to choose"):
                            # one fill per seat per 10 min on average — a seat that empties is refilled, a loop that refills every tick is stopped
-CONTROL_MIN_LIQ = 10_000.0   # 🗑 the agents trade launches under $1M (2026-10-11): $10K clears the keeper's own trench floor ($8K) with margin; was $20K
+CONTROL_MIN_LIQ = 8_000.0    # 🗑 = the keeper's own trench floor ($8K): no lower is buyable at all (owner, 2026-10-11: "no min starting thresholds"); was $20K → $10K
 
 
 DUTY_SEC = 600             # 🕙 in control they put their best CLEARED coin on the card every 10 minutes (owner, 2026-10-10)
@@ -1365,9 +1365,14 @@ def trench_band(mc):
     return None
 
 
+AGENT_MIN_MCAP = 10_000.0      # 🎯 owner, 2026-10-11: "starting mc 10k with vol" — the universe starts at a $10K live cap …
+AGENT_MIN_VOL1H = 1_000.0      # … with real volume (≥ $1K traded in the last hour); no other starting minimum
+
+
 def in_lane(row, cap=AGENT_MAX_MCAP):
-    """🗑 THE AGENTS' UNIVERSE for new entries: live market cap > 0 and under the cap. Age is context (ranking), never a veto."""
-    return under_cap(row, cap)
+    """🗑 THE AGENTS' UNIVERSE for new entries: live market cap $10K … under the cap, with volume. Age is context (ranking), never a veto."""
+    r = row or {}
+    return under_cap(r, cap) and _f(r.get('mcap')) >= AGENT_MIN_MCAP and _f(r.get('vol1h')) >= AGENT_MIN_VOL1H
 
 
 def view_rows(table, top=24, young=24, young_h=6.0):

@@ -12341,6 +12341,8 @@ async def _agents_tick(now):
         except Exception as e:
             print('intake:', e); extra_, fresh_, outl_ = [], {}, {}
         ob_ = ob_ + extra_
+        held_l = {l.get('mint') for l in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '', {}).get('legs') or [] if l.get('mint')}
+        ob_ = [x for x in ob_ if x.get('mint') in held_l or _ag.in_lane(x)]   # 🎯 the universe FIRST: intake slots go to coins under the cap (they were spent on $200K+ coins, then dropped — 26 safe sub-$200K pools never reached the desk)
         src_ = {}
         for k_, lst_ in (_lens_rows or {}).items():
             for r_ in lst_ or []:

@@ -51,7 +51,7 @@ def test_weather_can_move_triggers_bar_only_inside_its_range_and_can_never_remov
     forged = lambda *_: {'regime': 'HOT', 'adj': -99.0, 'mods': {'barAdj': -99.0, 'size': 9.0}}   # a Weather object trying to throw the gates open
     assert of.weather_adj(forged()) == of.WEATHER_BAR_RANGE[0] and of.weather_size(forged()) == 1.0
     wfn = lambda nums, rows, st, now: (lambda w: {**w, 'adj': of.weather_adj(w)})(forged())
-    bad = lambda i: [row('SCAN', 1 + i * .01, safe=False), row('THIN', 1 + i * .01, liq=9_000), row('TOP', 1 + i * .3), row('RUG', 1 + i * .01, tv={'call': ['', 'SEND IT', ''], 'rug': 80}),
+    bad = lambda i: [row('SCAN', 1 + i * .01, safe=False), row('THIN', 1 + i * .01, liq=7_000), row('TOP', 1 + i * .3), row('RUG', 1 + i * .01, tv={'call': ['', 'SEND IT', ''], 'rug': 80}),
                      row('NEW', 1 + i * .01, safe=None)] + [row(f'ok{j}', 1 + i * .005) for j in range(12)]
     st, table = passes(bad, wfn)
     by = {x['mint']: x for x in table}

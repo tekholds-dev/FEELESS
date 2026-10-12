@@ -24,7 +24,7 @@ def test_trigger_never_buys_a_top_a_falling_knife_or_a_thin_pool():
     why = {'lean': 5, 'drivers': []}
     assert ag.trigger(n, why, {}, {})[0] == 'skip'
     assert ag.trigger({**n, 'd5': -12}, why, {}, {})[0] == 'skip'
-    assert ag.trigger({**n, 'd5': 2, 'liq': 9000}, why, {}, {})[0] == 'skip'
+    assert ag.trigger({**n, 'd5': 2, 'liq': 7000}, why, {}, {})[0] == 'skip'
     assert ag.trigger({**n, 'd5': 2}, why, {}, {})[0] == 'enter'
 
 
@@ -390,7 +390,7 @@ def test_in_control_they_buy_only_eligible_go_coins_switch_a_broken_read_after_1
     row = lambda m, go=True, lean=2.0, age=3.0, liq=60_000, safe=True, trig='enter', d5=1.0, buy=60: {
         'mint': m, 'symbol': m, 'pair': 'P' + m, 'px': 1.0, 'go': go, 'trigger': [trig, 'why'], 'devil': ['agree' if go else 'object', ''],
         'why': {'lean': lean, 'drivers': []}, 'nums': {'d5': d5, 'buy': buy, 'liq': liq}, 'vitals': {'ageH': age, 'safe': safe, 'liq': liq}}
-    table = [row('GOOD', lean=3), row('YOUNG', age=0.2), row('NOAGE', age=None), row('THIN', liq=9_000), row('UNSCAN', safe=None), row('NOGO', go=False), row('HELD'), row('OK2', lean=2.5)]
+    table = [row('GOOD', lean=3), row('YOUNG', age=0.2), row('NOAGE', age=None), row('THIN', liq=7_000), row('UNSCAN', safe=None), row('NOGO', go=False), row('HELD'), row('OK2', lean=2.5)]
     assert [x['mint'] for x in ag.eligible(table, {'HELD'}, 1.0)] == ['GOOD', 'OK2']                 # minutes-old / unknown age / thin pool / unscanned / objected / on the card: all out
     assert [x['mint'] for x in ag.eligible(table, set(), 1.0, burned={'GOOD'})] == ['OK2', 'HELD']
     leg = lambda m, at=0, **k: {'symbol': m, 'pairAddress': 'P' + m, 'mint': m, 'units': 1, 'entry': 1.0, 'at': at, **k}

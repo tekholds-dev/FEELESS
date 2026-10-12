@@ -49,7 +49,8 @@ def test_confirmed_agent_exit_becomes_a_lesson_once():
 def test_universe_is_under_200k_live_cap_and_bands_are_context():
     import opportunity as op
     assert ag.AGENT_MAX_MCAP == 200_000 == op.MAX_MCAP and op.MIN_LIQ == ag.CONTROL_MIN_LIQ
-    assert ag.in_lane({'mcap': 150_000}) and ag.in_lane({'mcap': 5_000, 'ageH': 0.01}) and ag.in_lane({'mcap': 90_000, 'ageH': 900})   # age is never a veto
+    assert ag.in_lane({'mcap': 150_000, 'vol1h': 5_000}) and ag.in_lane({'mcap': 12_000, 'ageH': 0.01, 'vol1h': 2_000}) and ag.in_lane({'mcap': 90_000, 'ageH': 900, 'vol1h': 9_000})   # age is never a veto
+    assert not ag.in_lane({'mcap': 5_000, 'vol1h': 9_000}) and not ag.in_lane({'mcap': 50_000, 'vol1h': 200})   # under $10K cap · no real volume
     assert not ag.in_lane({'mcap': 200_000}) and not ag.in_lane({'mcap': 0}) and not ag.in_lane({})
     assert ag.trench_band(8_000) == 'NEWBORN MICRO' and ag.trench_band(120_000) == 'MOMENTUM TRENCH' and ag.trench_band(250_000) is None
 
@@ -79,7 +80,7 @@ def test_a_lane_launch_seat_is_a_trench_leg_for_the_keeper():
     assert got['legs'][0]['trench'] is True and got['legs'][0]['rideOrRug'] is True
     old = ap.agent_seat(card, {**row, 'trench': False}, {}, {'coins': 4}, 1000.0)
     assert 'trench' not in old['legs'][0]
-    assert ag.CONTROL_MIN_LIQ == 10_000   # above the keeper's own trench floor ($8K): a seat the agents take is not refused for its pool
+    assert ag.CONTROL_MIN_LIQ == 8_000    # = the keeper's own trench floor ($8K): a seat the agents take is never refused for its pool
 
 
 def test_the_fill_hands_the_trench_flag_to_the_seat():
@@ -108,3 +109,9 @@ def test_judge_rules_on_real_seats_double_and_studies_misses():
                     {'kind': 'wait', 'p5': 30, 'at': 3, 'tw': '+22% in 5 min — that is the top', 'mint': 'Z'}]}
     m = ag.miss_study(st2)
     assert m[0]['why'] == 'lean # under the bar #' and m[0]['n'] == 2
+
+
+def test_the_universe_is_applied_before_intake_picks():
+    src = open('backend/reputation_service.py').read() if __import__('os').path.exists('backend/reputation_service.py') else open('reputation_service.py').read()
+    i = src.index('ob_ = ob_ + extra_'); j = src.index('taken_ = _oe.intake(', i)
+    assert '_ag.in_lane(x)' in src[i:j]   # filtering after intake let $200K+ coins use the slots and starved the desk

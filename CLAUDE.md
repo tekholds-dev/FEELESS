@@ -3169,3 +3169,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `lib/livePrice` reads `GET /api/candles/price/{chain}/{pair}` / `GET /api/candles/prices?mints=` (the stream's own source + cache), the poll
   runs ONLY while the stream is down, and a 15–60s history reload keeps the live forming candle (`lib/tween.mergeLiveBar`). Still calling
   lite-api.jup.ag from the browser (not on the chart path): FusePage, FuseEvolve, QuickTrade, FeeInputs, lib/livePriceHub, lib/solPrice.
+- 🎯 Universe applied BEFORE intake (`ob_` filtered by `in_lane` / held in `_agents_tick`): filtering after intake let $200K+ coins take the
+  slots and 26 safe sub-$200K pools never reached the desk (127 read, 125 hard-failed, card empty). `in_lane` = live cap $10K … $200K
+  (`AGENT_MIN_MCAP`) with ≥ $1K traded in the hour (`AGENT_MIN_VOL1H`) — owner: "no min starting thresholds, starting mc 10k with vol".
+  `CONTROL_MIN_LIQ` = $8K = the keeper's own trench floor (nothing under it is buyable).
