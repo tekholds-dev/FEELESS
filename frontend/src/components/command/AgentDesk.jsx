@@ -56,6 +56,25 @@ export function MindBox({ m }) {
 const big = v => (v == null ? '—' : v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${Math.round(v / 1e3)}K` : `$${Math.round(v)}`);
 const age = h => (h == null ? '—' : h < 1 ? `${Math.max(1, Math.round(h * 60))}m` : h < 48 ? `${Math.round(h)}h` : `${Math.round(h / 24)}d`);
 // 🩺 the coin's vitals beside the verdict — every number the agents saw, bad ones pink
+// 🕵 LAUNCH INTEL — the early-buyer map read: every cell [label, value, tone, evidence]. Tone: good / warn / bad / '' (no opinion).
+const PH_TONE = { 'PRE-FOMO': '', 'EARLY FOMO': 'good', 'ACCELERATING': 'good', 'CROWD FOMO': 'warn', 'DISTRIBUTION': 'bad', 'COLLAPSE': 'bad' };
+const CLS_TONE = { NORMAL: 'good', 'HEAVY SNIPER ACTIVITY': 'warn', BUNDLED: 'warn', 'INSIDER-LIKE CLUSTER': 'bad', UNKNOWN: '' };
+const pc = v => (v == null ? '—' : `${Number(v).toFixed(v >= 10 ? 0 : 1)}%`);
+export const liCells = li => { if (!li) return [];
+  const acts = Object.entries(li.acts || {}).map(([k, n]) => `${n} ${k.toLowerCase()}`).join(' · ');
+  const rec = li.clsRec ? ` · this class: ${li.clsRec.n} launches, typical ${li.clsRec.med > 0 ? '+' : ''}${li.clsRec.med}% an hour, ${li.clsRec.rug}% rugged` : '';
+  return [['launch age', age(li.ageH), '', 'time since the pool was created'], ['MC', big(li.mcap), '', 'live market cap'],
+    ['buyer rank', li.rank?.[0] || '—', li.rank?.[0] === 'FIRST 10' || li.rank?.[0] === 'FIRST 25' ? 'good' : '', li.rank ? `if we bought now: ${li.rank[1]}` : 'holder count not read'],
+    ['first 10', pc(li.first10), li.first10 >= 30 ? 'bad' : li.first10 >= 15 ? 'warn' : li.first10 != null ? 'good' : '', 'supply the first 10 buyers took (their own buy transactions)'],
+    ['first 25', pc(li.first25), li.first25 >= 45 ? 'bad' : li.first25 >= 25 ? 'warn' : '', 'supply the first 25 buyers took'],
+    ['bundle', li.cls || '—', CLS_TONE[li.cls] || '', (li.clsWhy || []).join(' · ') + rec],
+    ['early wallets', li.early == null ? '—' : `${pc(li.early)} held${li.trend ? ` · ${li.trend.toLowerCase()}` : ''}`, li.trend === 'WORSENING' ? 'bad' : li.trend === 'IMPROVING' ? 'good' : '', acts ? `what the first buyers did: ${acts}` : 'their balances not read yet'],
+    ['FOMO phase', li.phase || '—', li.healthy === false ? 'bad' : PH_TONE[li.phase] || '', (li.phaseWhy || []).join(' · ')],
+    ['exit pressure', li.press || '—', li.press === 'HIGH' ? 'bad' : li.press === 'WATCH' ? 'warn' : li.press === 'NONE' ? 'good' : '', li.pressWhy || 'no early wallet sold on the live tape (only held coins and recent cases have a tape)'],
+    ['dev / cluster', li.danger ? `${li.danger} with a dump / rug record` : li.players ? `${li.players} known wallet(s)` : 'none known', li.danger ? 'bad' : '', 'early wallets whose public record (≥ 3 settled launches) is a fast dumper, rug-associated or dev-linked'],
+    ['confidence', `${li.conf ?? 0}%`, '', 'how much of this read is measured: early map · balances · history · wallet memory']];
+};
+
 export const vitalCells = v => [['cap', big(v?.mcap)], ['age', age(v?.ageH)], ['pool', big(v?.liq)], ['1h vol', big(v?.vol1h)],
   ['buys', v?.buyShare != null ? `${Math.round(v.buyShare)}%` : '—', v?.buyShare != null && v.buyShare < 50], ['top-10', v?.top10 != null ? `${Math.round(v.top10)}%` : '—', v?.top10 != null && v.top10 >= 35],
   ['bundles', v?.bundledN ?? '—', v?.bundledN != null && v.bundledN >= 3], ['snipers', v?.snipersN ?? '—', v?.snipersN != null && v.snipersN >= 8],
@@ -175,7 +194,7 @@ function CoinRow({ x, bar, sel, open, toggle }) {
       <span className="agd-pips">{pipsOf(x).map(([k, ic, s, tip]) => <i key={k} className={`is-${s} ${sel === k ? 'is-sel' : ''}`} data-tip={tip}>{ic}</i>)}</span>
       <span className="agd-lean" data-tip={`Sherlock's lean ${lean.toFixed(1)} · the mark is Trigger's bar ${Number(bar || 1.5).toFixed(1)}`}><i className={lean >= 0 ? 'is-up' : 'is-dn'} style={{ transform: `scaleX(${leanFill(lean, bar)})` }} /><u /></span>
       <span className={`agd-verdict is-${st}`}>{VERD[st]}</span>
-      <span className="agd-whyline">{rowWhy(x)}</span>
+      <span className="agd-whyline">{x.li?.phase && <b className={`agd-ph is-${x.li.healthy === false ? 'bad' : PH_TONE[x.li.phase] || 'flat'}`} data-testid={`ph-${x.symbol}`}>{x.li.phase}</b>}{rowWhy(x)}</span>
       <span className="agd-chev" aria-hidden>▾</span>
     </button>
     {open && <div className="agd-trb m-pop">
@@ -186,6 +205,8 @@ function CoinRow({ x, bar, sel, open, toggle }) {
         <div className="is-devil"><small>⚖ Devil · argues</small><span><b className={`agd-call ${v[1]}`}>{v[0]}</b> {x.devil?.[1] || (x.trigger?.[0] === 'enter' ? '' : 'only ENTER calls are argued')}</span></div>
       </div>
       {x.vitals && <span className="agd-vit" data-testid={`vit-${x.symbol}`}>{vitalCells(x.vitals).map(([k, val, bad]) => <i key={k} className={bad ? 'is-bad' : ''}><small>{k}</small>{val}</i>)}</span>}
+      {x.li && <div className="agd-li" data-testid={`li-${x.symbol}`}><small>🕵 LAUNCH INTEL · public on-chain behaviour, never a claim about a person</small>
+        <span>{liCells(x.li).map(([k, val, t, tip]) => <i key={k} className={t ? `is-${t}` : ''} data-tip={tip}><small>{k}</small>{val}</i>)}</span></div>}
       {x.opinion && <p className="agd-op" data-testid={`op-${x.symbol}`}>🗣 {x.opinion}{(x.strats || []).map(t => <i key={t}>🎯 {t}</i>)}</p>}
       {x.analysis?.text && <p className="agd-brief">{x.mind?.narr && <i>{x.mind.narr}{x.mind.hot ? ' 🔥' : ''}</i>}{x.mind?.swarm && <i className="is-bad">🤖 swarm</i>}{x.mind?.bots >= 40 && <i className="is-bad">🤖 botted</i>}{x.mind?.tug && <i>🪝 tuggers</i>}{x.analysis.text}</p>}
       <div className="agd-acts"><button type="button" className="m-btn m-go" onClick={() => openCoin({ mint: x.mint, pairAddress: x.pair, symbol: x.symbol })} data-testid={`agd-coin-${x.symbol}`}>🪙 Open coin</button>

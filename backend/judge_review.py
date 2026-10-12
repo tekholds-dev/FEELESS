@@ -22,6 +22,9 @@ CAUSES = {
     'thin_pool': ('warden', 'mid', 'Warden: a smaller seat in this liquidity band', 'thin pool'),
     'weak_holders': ('devil', 'mid', 'Devil: holder concentration counted against the rank', 'weak holders'),
     'bad_data': ('tally', 'mid', 'Tally: stale or sparse data should not carry an entry', 'thin data'),
+    'after_distribution': ('devil', 'high', 'Devil: never enter while the early wallets are selling into the move (distribution)', 'early selling'),
+    'crowd_fomo': ('trigger', 'mid', 'Trigger: this was the crowd\'s top — enter in early / accelerating FOMO, not after it', 'crowd fomo'),
+    'bundled_exit': ('warden', 'mid', 'Warden: a bundled / clustered launch still holding its early supply gets a smaller seat', 'bundled'),
     'gave_back': ('reaper', 'mid', 'Reaper: trail a +8% winner tighter', None),
     'held_too_long': ('reaper', 'low', 'Reaper: replace a flat seat sooner', None),
     'variance': (None, 'none', 'none — a valid setup that lost; no rule changes', None),
@@ -47,15 +50,26 @@ def review(p):
     held = max(0.0, (_f(p.get('closedAt')) - _f(p.get('since'))) / 60) if p.get('since') else None
     rule = str(p.get('rule') or '')
     tier = (str(p.get('tag') or '').split('· ')[-1].split('-tier')[0] if '-tier' in str(p.get('tag') or '') else None)
+    lis = p.get('li') or {}
     base = {'sym': p.get('sym'), 'mint': p.get('mint'), 'at': _f(p.get('closedAt')), 'pct': round(pct, 2), 'held': None if held is None else round(held, 1),
-            'peak': round(peak, 1), 'entry': entry, 'call': call, 'tier': tier, 'exit': rule, 'band': p.get('band')}
+            'peak': round(peak, 1), 'entry': entry, 'call': call, 'tier': tier, 'exit': rule, 'band': p.get('band'),
+            'phase': lis.get('phase'), 'cls': lis.get('cls'), 'rank': (lis.get('rank') or [None])[0], 'early': lis.get('early'), 'ageH': lis.get('ageH'), 'mcap': lis.get('mcap')}
     if pct > 0:
         why = [x for x in (f"entered on {entry}" if entry else None, f"{call}" if call else None, f"peak +{peak:.0f}%" if peak else None,
-                           f"held {held:.0f} min" if held is not None else None, f"exit: {rule}" if rule else None, f"tier {tier}" if tier else None) if x]
+                           f"held {held:.0f} min" if held is not None else None, f"exit: {rule}" if rule else None, f"tier {tier}" if tier else None,
+                           f"phase {base['phase']}" if base['phase'] else None, f"{base['cls']}" if base['cls'] else None, f"buyer rank {base['rank']}" if base['rank'] else None,
+                           f"early wallets held {base['early']:.0f}%" if base['early'] is not None else None) if x]
         return {**base, 'kind': 'win', 'why': ' · '.join(why), 'pattern': f"{entry or 'unknown'}|{tier or '-'}"}
     resp = {d: 0 for d in DESKS}
+    li = p.get('li') or {}
     if any(k in rule for k in ('R1', 'R2', 'R4', 'rug', 'drain', 'pool')) or _f(p.get('liqPct')) and _f(p.get('liqPct')) < 50:
-        cause = 'rugged'
+        cause = 'after_distribution' if li.get('phase') == 'DISTRIBUTION' or li.get('press') in ('WATCH', 'HIGH') else 'rugged'
+    elif li.get('phase') == 'DISTRIBUTION' or li.get('press') in ('WATCH', 'HIGH'):
+        cause = 'after_distribution'
+    elif li.get('phase') == 'CROWD FOMO' and pct <= -5:
+        cause = 'crowd_fomo'
+    elif li.get('cls') in ('BUNDLED', 'INSIDER-LIKE CLUSTER') and _f(li.get('early')) >= 20 and pct <= -10:
+        cause = 'bundled_exit'
     elif peak >= 8 and pct <= 0:
         cause = 'gave_back'
     elif len(path) >= 2 and min(path[:2]) <= -5:
@@ -129,7 +143,20 @@ def court(state, now):
             'lossPatterns': [{'cause': c, 'n': len(v), 'desk': CAUSES[c][0]} for c, v in sorted(by.items(), key=lambda kv: -len(kv[1]))][:5],
             'variance': sum(1 for r in losses if r.get('cause') == 'variance'),
             'winPatterns': sorted(({'pattern': k, 'n': len(v), 'avg': round(sum(v) / len(v), 1)} for k, v in wp.items()), key=lambda x: -x['n'])[:5],
-            'shadow': shadow, 'promoted': promoted}
+            'shadow': shadow, 'promoted': promoted, 'launchShape': launch_shape(rs)}
+
+
+def launch_shape(rs):
+    """🕵 WHAT EARLY WINNERS LOOK LIKE vs losers: every reviewed exit (all kept, not only the recent window) grouped by its launch shape at
+    entry — FOMO phase, buyer rank, launch class → {key: {value: {n, won %, avg}}}. Only reviews that carried a launch-intel snapshot."""
+    out = {}
+    for k in ('phase', 'rank', 'cls'):
+        g = {}
+        for r in rs or []:
+            if r.get(k):
+                g.setdefault(r[k], []).append(_f(r.get('pct')))
+        out[k] = {v: {'n': len(xs), 'won': round(100 * sum(x > 0 for x in xs) / len(xs)), 'avg': round(sum(xs) / len(xs), 1)} for v, xs in g.items()}
+    return out
 
 
 def penalties(promoted):

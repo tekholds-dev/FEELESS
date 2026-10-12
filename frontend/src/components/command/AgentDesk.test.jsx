@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { AgentDesk, agentLine, rowState, rowWhy, pipsOf, leanFill, boardRows, boardCounts, passLeft } from './AgentDesk';
+import { AgentDesk, agentLine, rowState, rowWhy, pipsOf, leanFill, boardRows, boardCounts, passLeft, liCells } from './AgentDesk';
 jest.mock('../../lib/liveCandles', () => ({ useLiveCandles: () => null }));   // no network in tests
 jest.mock('../terminal/PriceChart', () => ({ PriceChart: () => <div data-testid="price-chart" /> }));   // the live chart needs a canvas
 
@@ -122,4 +122,18 @@ test('board + clock helpers: a row\'s state, the fact that decided it, the pips,
   expect(boardRows(t, { f: 'enter' }).map(x => x.symbol)).toEqual(['GOOD', 'RUN']); expect(boardRows(t, { q: '$me' }).map(x => x.symbol)).toEqual(['MEH']);
   expect(boardRows(t, { sort: 'd5' }).map(x => x.symbol)).toEqual(['RUN', 'GOOD', 'MEH']); expect(boardRows(t, { sort: 'vol' })[0].symbol).toBe('GOOD');
   expect(passLeft(100, 130)).toEqual({ age: 30, left: 30, frac: 0.5 }); expect(passLeft(100, 400).left).toBe(0); expect(passLeft(0, 5)).toBeNull();
+});
+
+test('🕵 launch intel cells: every field with its tone and evidence', () => {
+  expect(liCells(null)).toEqual([]);
+  const c = Object.fromEntries(liCells({ ageH: 0.3, mcap: 85000, rank: ['FIRST 25', '≈ holders at entry'], first10: 34, first25: 40, cls: 'BUNDLED', clsWhy: ['5 wallets bought in the creation slot'],
+    early: 22, trend: 'WORSENING', acts: { EXIT: 3, HOLD: 4 }, phase: 'ACCELERATING', healthy: true, phaseWhy: ['volume 2×'], press: 'WATCH', pressWhy: 'early buyer #3 sold $90',
+    danger: 1, players: 2, conf: 80, clsRec: { n: 30, med: -12, rug: 20 } }).map(([k, v, t, tip]) => [k, { v, t, tip }]));
+  expect(c['launch age'].v).toBe('18m'); expect(c.MC.v).toBe('$85K');
+  expect(c['buyer rank']).toMatchObject({ v: 'FIRST 25', t: 'good' });
+  expect(c['first 10'].t).toBe('bad'); expect(c.bundle).toMatchObject({ v: 'BUNDLED', t: 'warn' });
+  expect(c.bundle.tip).toContain('30 launches');
+  expect(c['early wallets']).toMatchObject({ v: '22% held · worsening', t: 'bad' }); expect(c['early wallets'].tip).toContain('3 exit');
+  expect(c['FOMO phase']).toMatchObject({ v: 'ACCELERATING', t: 'good' }); expect(c['exit pressure']).toMatchObject({ v: 'WATCH', t: 'warn' });
+  expect(c['dev / cluster'].t).toBe('bad'); expect(c.confidence.v).toBe('80%');
 });

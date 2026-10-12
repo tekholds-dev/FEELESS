@@ -95,7 +95,7 @@ def test_a_restart_gap_never_exits_a_position_but_price_pool_and_safety_exits_ne
     assert rep[0]['action'] is None and 'offSince' not in pos['A']                                                # … is dropped while warming up
     pos, rep, _ = run(leg('A'), 0.97, [], pos=pos, now=3 * 3600 - 290)                                           # LIVE again: the grace starts NOW
     assert rep[0]['action'] is None and pos['A']['offSince'] == 3 * 3600 - 290 and 'under the 180s grace' in rep[0]['evidence']
-    assert run(leg('A'), 0.97, [], pos=pos, now=3 * 3600 - 290 + oe.RADAR_GRACE_SEC)[1][0]['rule'] == 'R9 time'  # missing for the full grace while LIVE → it may rule
+    assert run(leg('A'), 0.97, [], pos=pos, now=3 * 3600 - 290 + oe.RADAR_GRACE_SEC)[1][0]['rule'] == 'R11 dead coin'  # (an off-radar seat is now a swap-only R11 exit) missing for the full grace while LIVE → it may rule
     for px, rule in ((0.5, 'R5x catastrophic stop'), (0.69, 'R5 stop')):                                          # price exits act while warming up
         assert run(leg('A'), px, [trow('A')], live=False)[1][0]['rule'] == rule
     assert run(leg('A', liqNow=10_000), 1.0, [trow('A')], live=False)[1][0]['rule'] == 'R1 liquidity collapse'  # … the pool rule

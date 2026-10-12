@@ -1396,7 +1396,7 @@ def _majors():
         return {}
 
 
-LANE_CAPS = (200_000.0, 1_000_000.0, 5_000_000.0)   # 🪜 the universe widens only when the one below cannot fill the seats
+LANE_CAPS = (200_000.0,)   # 🎯 HARD new-entry universe 0 < live cap < $200K (owner, 2026-10-11) — held winners keep running past it   # 🪜 the universe widens only when the one below cannot fill the seats
 LANE_NEED = 12          # safe, buyable coins wanted in the lane (4 seats × the ones the keeper / live check will refuse)
 
 
@@ -1473,6 +1473,8 @@ def investigate(table, on=(), min_age_h=0.0, burned=(), top=6):
                   ['pool', liq >= CONTROL_MIN_LIQ, f'pool ${liq / 1000:.0f}K'],
                   ['burn', x.get('mint') not in (burned or ()), 'not burned' if x.get('mint') not in (burned or ()) else 'burned us in the last 6h'],
                   ['alive', not _opp.dead_now(x), _opp.dead_now(x) or 'people are trading it now'],
+                  ['fomo', (x.get('li') or {}).get('phase') != 'DISTRIBUTION' and (x.get('li') or {}).get('press') != 'HIGH',
+                   (lambda li: f"{li.get('phase') or 'phase not read'}" + (f" — {li.get('pressWhy')}" if li.get('pressWhy') else ''))(x.get('li') or {})],
                   ['devil', case[0] == 'agree', case[1] or ('Devil agrees' if case[0] == 'agree' else 'Devil objects')]]
         if x.get('chart'):   # 📈 the moment itself: the duty waives Trigger's BAR, never the chart — a coin is only bought where the structure gives an entry
             ec = x['chart']['entry']

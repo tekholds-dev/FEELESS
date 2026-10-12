@@ -131,6 +131,15 @@ def per_source(reg, now, window=WINDOW):
             a['bought'] += 1 if e.get('seat') else 0
             if e.get('out') is not None:
                 a['won' if _f(e['out']) > 0 else 'lost'] += 1
+                a.setdefault('_outs', []).append(_f(e['out']))
+            if e.get('seat') and _f(e['seat']) >= _f(e.get('first')):
+                a.setdefault('_tte', []).append(_f(e['seat']) - _f(e.get('first')))
+    for a in out.values():   # 🕵 which outlet deserves priority: win rate · median P/L · rug rate (≤ −50% exits) · time from first seen to our entry
+        outs, tte = a.pop('_outs', []), a.pop('_tte', [])
+        a['winRate'] = round(100 * a['won'] / (a['won'] + a['lost'])) if a['won'] + a['lost'] else None
+        a['medPct'] = _med(outs)
+        a['rugRate'] = round(100 * sum(x <= -50 for x in outs) / len(outs)) if outs else None
+        a['timeToEntry'] = _med(tte)
     return dict(sorted(out.items(), key=lambda kv: -kv[1]['seen']))
 
 

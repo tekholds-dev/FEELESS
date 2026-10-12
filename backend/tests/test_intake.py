@@ -34,7 +34,8 @@ def test_the_office_stamps_each_stage_once_and_latency_is_measured_between_them(
     assert lat['clearToSeat'] == {'med': 30.0, 'n': 1} and lat['birthToSeen'] == {'med': 50.0, 'n': 1}
     r = it.outcome(r, 'A', 12.5, 1300)
     f = it.per_source(r, 1300)
-    assert f['pulse'] == {'seen': 1, 'firstFinder': 1, 'promoted': 1, 'deep': 1, 'cleared': 1, 'bought': 1, 'won': 1, 'lost': 0}
+    assert f['pulse'] == {'seen': 1, 'firstFinder': 1, 'promoted': 1, 'deep': 1, 'cleared': 1, 'bought': 1, 'won': 1, 'lost': 0,
+                          'winRate': 100, 'medPct': 12.5, 'rugRate': 0, 'timeToEntry': 150.0}
     assert f['open']['promoted'] == 1 and f['open']['bought'] == 0
 
 

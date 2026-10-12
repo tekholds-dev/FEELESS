@@ -918,6 +918,21 @@ async def _coin_card(http, mint):
 
 
 @app.get('/api/reputation/intel/{chain}/{mint}')
+def _early_buy(tx, payer, mint, supply):
+    """🕵 One early transaction → {w, slot, sol, pct} when the payer RECEIVED this coin (a buy), else None. Public tx data only."""
+    try:
+        meta = tx.get('meta') or {}
+        amt = lambda bals: sum(_fuse._f((b.get('uiTokenAmount') or {}).get('uiAmount')) for b in bals or [] if b.get('mint') == mint and b.get('owner') == payer)
+        got = amt(meta.get('postTokenBalances')) - amt(meta.get('preTokenBalances'))
+        if got <= 0:
+            return None
+        pre, post = meta.get('preBalances') or [0], meta.get('postBalances') or [0]
+        sol = max(0.0, (_fuse._f(pre[0]) - _fuse._f(post[0])) / 1e9)
+        return {'w': payer, 'slot': tx.get('slot'), 'sol': round(sol, 4), 'pct': round(got / supply * 100, 3) if supply else None}
+    except Exception:
+        return None
+
+
 async def token_intel(chain: str, mint: str):
     """On-chain launch forensics for a token: bundles, snipers, holder concentration, dev bag.
     Bundled = distinct wallets (not the creator) buying in the mint's creation slot.
@@ -975,7 +990,7 @@ async def token_intel(chain: str, mint: str):
         else:
             # 🧬 page back to the LAUNCH (≤ SIG_PAGES × 1000 txs): a busy coin has > 1000 txs, and the "oldest of the last 1000" was a random
             # mid-life trader — read as the creator, with 0 bundled / 0 snipers (2026-10-08 $giftr: wrong creator, real creator held 4.4%).
-            sigs, before, page = [], None, []
+            sigs, before, page, early_buys = [], None, [], []
             for _ in range(SIG_PAGES):
                 page = await _rpc(http, 'getSignaturesForAddress', [mint, {'limit': 1000, **({'before': before} if before else {})}]) or []
                 sigs += page
@@ -988,7 +1003,7 @@ async def token_intel(chain: str, mint: str):
             if sigs:
                 oldest = sorted(sigs, key=lambda x: (x.get('slot') or 0))[:40]
                 create_slot = oldest[0].get('slot')
-                early = [x for x in oldest if (x.get('slot') or 0) <= create_slot + 3 and not x.get('err')][:25]
+                early = [x for x in oldest if not x.get('err')][:28]   # 🕵 the first ~25 buyers (bundles / snipers still judged by slot below)
                 sem = asyncio.Semaphore(6)
 
                 async def fetch(sig):
@@ -1008,13 +1023,17 @@ async def token_intel(chain: str, mint: str):
                         continue
                     if payer == creator:
                         continue
-                    (bundled if tx.get('slot') == create_slot else snipers).add(payer)
+                    if (tx.get('slot') or 0) <= create_slot + 3:
+                        (bundled if tx.get('slot') == create_slot else snipers).add(payer)
+                    eb = _early_buy(tx, payer, mint, supply)
+                    if eb and payer not in {e['w'] for e in early_buys}:
+                        early_buys.append(eb)
                 snipers -= bundled
                 out['createSlot'] = create_slot
                 out['historyComplete'] = True
             if creator:
                 _launch_facts[mint] = {'creator': creator, 'bundled': sorted(bundled), 'snipers': sorted(snipers), 'createSlot': out.get('createSlot'),
-                                       'historyComplete': out.get('historyComplete'), 'at': time.time()}
+                                       'historyComplete': out.get('historyComplete'), 'at': time.time(), 'early': early_buys[:25]}
         if mint.endswith('pump') and not os.environ.get('PYTEST_CURRENT_TEST'):   # 🟢 Pump's own record names the creator — it wins over our read (cached 60s, public)
             try:
                 pc = (await pump_profile_get(mint) or {}).get('creator')
@@ -1033,7 +1052,8 @@ async def token_intel(chain: str, mint: str):
         out['devHoldingPct'] = round(sum(r['pct'] or 0 for r in wallets if r['owner'] == creator), 2) if supply and creator else None
         # Live holding of every flagged wallet (not just top holders): 0 = sold out, shown struck through.
         if supply:
-            flagged = (sorted(bundled) + [w for w in sorted(snipers) if w not in bundled])[:30]
+            early_w = [e['w'] for e in ((_launch_facts.get(mint) or {}).get('early') or [])]
+            flagged = list(dict.fromkeys(sorted(bundled) + sorted(snipers) + early_w))[:36]   # 🕵 + the first buyers: what the early wallets did since
             sem = asyncio.Semaphore(8)
             async def bal(w):
                 async with sem:
@@ -6641,6 +6661,7 @@ async def _trench_build(now):
     await _call_track(now)
     await _procall_track(now)
     await _brain_track(now)
+    await _li_track(now)
     try:   # 🔗 Pump's own socials for the open list's busiest coins + the real card's coins (lists read the cache)
         legs_ = [l.get('mint') for c_ in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if c_.get('real') for l in c_.get('legs') or []]
         await _pump_links_warm(legs_ + [r.get('mint') for r in (_open_board() or [])[:60]])
@@ -6776,6 +6797,78 @@ async def _procall_track(now):
 
 
 import trench_brain as _tb
+LI_PATH = FUSE_HQ_PATH.parent / 'launch_intel.json'   # 🕵 launches noted with their early-buyer map → settled 1h later → wallet memory
+_li_st: dict = {'st': None}
+
+
+def _li_state():
+    if _li_st['st'] is None:
+        _li_st['st'] = _json_load(LI_PATH, {})
+    return _li_st['st']
+
+
+def _li_parts(mint, ageH=None):
+    """🕵 (early map, class, evidence, players, creator) for one coin from the CACHES only (launch facts + holder scan + funder links)."""
+    lf = _launch_facts.get(mint) or {}
+    hit = _intel_cache.get(mint)
+    it = (hit[1] if hit else {}) or {}
+    creator = it.get('creator') or lf.get('creator')
+    ff = it.get('flaggedFunders') or {}
+    early = lf.get('early') or []
+    m = _li.early_map(early, it.get('flaggedHoldings'), {e['w']: (ff.get(e['w']) or {}).get('funder') for e in early}, creator, young=ageH is not None and _fuse._f(ageH) < 1)
+    bn = None if it.get('bundledWallets') is None and not lf else len(it.get('bundledWallets') or lf.get('bundled') or [])
+    sn = None if it.get('sniperWallets') is None and not lf else len(it.get('sniperWallets') or lf.get('snipers') or [])
+    cls, ev = _li.classify(m, bn, sn, it.get('insidersHoldingPct'), bool(it.get('knownRings')))
+    players = _li.known_players(m, _li_state().get('mem'))
+    return m, cls, ev, players, creator
+
+
+def _li_row(x, now):
+    """The launch-intel line for one desk row (dict) — every field carries its evidence; None-safe."""
+    v, n, mint = x.get('vitals') or {}, x.get('nums') or {}, x.get('mint')
+    m, cls, ev, players, creator = _li_parts(mint, v.get('ageH'))
+    e = (_li_state().get('open') or {}).get(mint) or {}
+    tr = _li.trend(e.get('hist'))
+    at_, w_ = _flow_now.get(x.get('pair') or x.get('pairAddress')) or (0, None)
+    press, pwhy = _li.pressure(w_ if w_ and now - _fuse._f(at_) <= 90 else None, m, players, creator)
+    ph, healthy, why = _li.phase(n, m, tr, press, (x.get('chart') or {}).get('ext'))
+    band = _li.rank_band(None, v.get('holders'))
+    out = _li.view(m, cls, ev, tr, ph, healthy, why, press, pwhy, players, band, v.get('ageH'), v.get('mcap'))
+    out['clsRec'] = (_li_state().get('byClass') or {}).get(cls)   # how this launch class really did (1h, settled) — learned, never assumed
+    return out
+
+
+def _li_attach(table, now):
+    for x in table or []:
+        try:
+            x['li'] = _li_row(x, now)
+        except Exception as e:
+            print('launch intel:', e)
+            break
+
+
+async def _li_track(now):
+    """🕵 Note every desk coin that has an early-buyer map (and the real card's coins), append its early-supply history, settle launches
+    an hour old at Jupiter's price → wallet memory + the record per launch class. A pass where Jupiter answers nothing is skipped."""
+    try:
+        st = dict(_li_state())
+        for x in (_agents.get('table') or []):
+            mint = x.get('mint')
+            if not mint or not (_launch_facts.get(mint) or {}).get('early'):
+                continue
+            m, cls, _ev, _p, creator = _li_parts(mint, (x.get('vitals') or {}).get('ageH'))
+            st = _li.note(st, mint, m, cls, x.get('px'), now, (x.get('vitals') or {}).get('ageH'), creator)
+        due = [mt for mt, e in (st.get('open') or {}).items() if now - _fuse._f(e.get('t')) >= _li.SETTLE_SEC]
+        jp = await _jup_prices(due) if due else {}
+        if not due or jp:
+            st = _li.settle(st, lambda mt: (jp or {}).get(mt), now)
+        st['byClass'] = _li.by_class(st.get('done'))
+        _li_st['st'] = st
+        _json_save(LI_PATH, st)
+    except Exception as e:
+        print('launch intel track:', e)
+
+
 BRAIN_PATH = FUSE_HQ_PATH.parent / 'trench_brain.json'   # 🧠 every trench coin seen, judged on the PLAY (+50% first = hit, −30% first = cut)
 BRAIN_SEE = 120                                          # the open list's busiest coins noted each pass
 BRAIN_NEW, BRAIN_NEW_H = 80, 3.0                         # + the 80 newest launches (≤ 3h old) — the brain learns where the trench actually starts
@@ -12316,6 +12409,7 @@ def _intel_restore():
 import agents as _ag
 import trench_mind as _tm
 import opportunity as _opp
+import launch_intel as _li
 import judge_review as _jr
 LINGO_PATH = FUSE_HQ_PATH.parent / 'trench_lingo.json'   # 📖 slang the desk learned from Pump callers' own words (per-day counts + learned words)
 AGENTS_PATH = FUSE_HQ_PATH.parent / 'agents.json'   # 🤖 the agent desk: Tally's tapes, every call, every judged result
@@ -12437,6 +12531,7 @@ async def _agents_tick(now):
             if m_ not in charts_ and cmap_.get(m_):
                 charts_[m_] = _ci.read(cmap_[m_], now, True, 'candles', None if not (_office.get('cmeta') or {}).get(m_) else {**{k_: v_ for k_, v_ in _office['cmeta'][m_].items() if k_ in ('provider', 'source', 'tickCount', 'partial')}, 'noCtx': True}, flow=flows_.get(pa_))   # off the board: no pool / volume reading is handed in, so neither is judged (the row checks still run)
         _office['charts'] = charts_
+        _li_attach(table, now)   # 🕵 launch intelligence on every desk row (early-buyer map, launch class, FOMO phase, exit pressure) — cache reads only
         _agents['passAt'] = now
         try:   # ♻ per-coin memory: first / last seen · last deep review · last reject · last material change
             _office['seen'] = _oe.note_seen(_office.get('seen'), table, _ag.investigate(table, set(), 0, st.get('burned') or {}, top=0), {m_ for m_, c_ in charts_.items() if (c_ or {}).get('src') == 'candles'}, now)
@@ -12996,7 +13091,7 @@ def _office_ctx(cur, t_, now):
     return {'value': money.get('value'), 'putIn': money.get('putIn'), 'peak': max(hrs.values()) if hrs else None, 'cash': max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd'))),
             'seats': len(cur.get('legs') or []), 'liq': n.get('liq') or v.get('liq'), 'ageH': v.get('ageH'), 'd5': n.get('d5'), 'top10': v.get('top10'),
             'lives': ((_agents.get('view') or {}).get('lives') or {}).get('n'), 'lastReal': (_agents_real().get('last') or [])[-3:], 'weather': _agents.get('weather'), 'courier': (_office.get('courier') or {}).get('health'),
-            'chart': (_office.get('charts') or {}).get(t_.get('mint')), 'social': (_social_cache() or {}).get(t_.get('mint')), 'near': t_.get('nearReady'), 'tier': t_.get('tier'), 'policy': _oe.policy((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'launch': _oe.launch_context(t_)}
+            'chart': (_office.get('charts') or {}).get(t_.get('mint')), 'social': (_social_cache() or {}).get(t_.get('mint')), 'near': t_.get('nearReady'), 'tier': t_.get('tier'), 'policy': _oe.policy((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'launch': _oe.launch_context(t_), 'li': t_.get('li')}
 
 
 def _office_warden(cur, t_, requested, cfg_t, now, move):
@@ -13043,7 +13138,7 @@ def _office_reap(cur, px, cfg_t, ctl, now, dec, pol=None, live=True, vels=None, 
     try:
         t0 = time.perf_counter()
         _office_state()
-        tape, rug = {}, {}
+        tape, rug, press = {}, {}, {}
         for l in cur.get('legs') or []:
             at_, w_ = _flow_now.get(l.get('pairAddress')) or (0, None)
             if w_ and now - _fuse._f(at_) <= 90:
@@ -13053,8 +13148,13 @@ def _office_reap(cur, px, cfg_t, ctl, now, dec, pol=None, live=True, vels=None, 
                     why_ = _flow.rug_why(w_, it_.get('creator'), it_.get('watch'), _fuse._f(l.get('liqNow')) or _fuse._f(l.get('liq')) or None)
                     if why_:
                         rug[l.get('pairAddress')] = why_
+                    try:   # 🕵 the launch's early buyers selling on the same tape → exit pressure (Reaper R4e / a tighter trail)
+                        m_, _c, _e, pl_, cr_ = _li_parts(l.get('mint'))
+                        press[l.get('pairAddress')] = _li.pressure(w_, m_, pl_, cr_)
+                    except Exception:
+                        pass
         pos, rep, gone = _of.reap(cur.get('legs'), _agents.get('table'), px, cfg_t, _office['pos'], now, _agents.get('scalp'), ctl, _agents.get('weather'), tape, _office_state(), _office['sized'], _office.get('charts'), _office.get('theses'), pol=pol, live=live,
-                                  vels=vels, margins=margins, rug=rug)
+                                  vels=vels, margins=margins, rug=rug, press=press)
         for g in gone:
             g['take'] = _of.take_line(cfg_t, _agents.get('scalp'))
         _office.update(pos=pos, reports=rep, gone=list(_office.get('gone') or []) + gone)

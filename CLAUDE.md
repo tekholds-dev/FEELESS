@@ -3193,3 +3193,17 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (the $5M lane widening had seated MRNA / MU xStocks, dead outside US hours). 🕵 Trench brain features `bund:` `snipe:` `ins:` `dev:` `live:`
   — the bad guys' footprint is LEARNED against the +50 / −30 play (record, not a rule). Being "first 10 in" a launch needs a same-block
   sniper = a new execution path (forbidden) and the record says < 15 min launches lose −78% an hour; say that, don't build it.
+- 🕵 ADVERSARIAL LAUNCH INTELLIGENCE (owner's spec, 2026-10-11; `backend/launch_intel.py` pure + tested, state `data/launch_intel.json`): public
+  on-chain behaviour only, no new scanner. The ONE launch read (`token_intel` → `_launch_facts.early`, same ~25 tx reads, `_early_buy`) now keeps
+  the first 25 buyers in order with SOL + supply bought; the 15-min flagged-balance re-read covers them → `early_map` (first 10 / 25 %, largest,
+  clustered = same slot / same size / known funder, held now, each wallet HOLD · ADD · PARTIAL SELL · EXIT · DUMP) → `classify` (NORMAL · HEAVY
+  SNIPER ACTIVITY · BUNDLED · INSIDER-LIKE CLUSTER · UNKNOWN) · `trend` · `phase` (PRE-FOMO … DISTRIBUTION · COLLAPSE + healthy) · `pressure`
+  (early wallets selling on the 90s tape: NONE · WATCH · HIGH) · `rank_band` (≈ holders unless our wallet is in the map). `_li_attach` puts
+  `li` on every desk row; `_li_track` (trench pass) notes launches, settles them 1h later → wallet memory (`wclass`: EARLY WINNER · FAST
+  DUMPER · RUG-ASSOCIATED · DEV-LINKED, ≥ 3 launches) + `byClass` record. USES: DISTRIBUTION / pressure HIGH = hard no (`hard_fail`, case
+  check `fomo`); EARLY / ACCELERATING rank up, CROWD down; a launch class moves the rank ONLY from its own settled record (≥ 20); Warden
+  W20 exit risk (HIGH veto · cluster holding ≥ 20% ×0.5 · bundled / watch / dump-record wallet ×0.75); Reaper R4e (HIGH → out) + WATCH
+  tightens the trail; positions keep `li` at entry → Judge causes after_distribution · crowd_fomo · bundled_exit + `launchShape` (what
+  winners looked like by phase / rank / class). Intake per-source adds win rate · median · rug rate · time to entry. New entries HARD
+  $200K (`LANE_CAPS` = (200_000,)); held winners keep running. Being "first 10" needs a same-block sniper (forbidden): the rank is
+  RECORDED and judged, never forced. Coins scanned before this have no `early` list — the map fills as new launches are read.

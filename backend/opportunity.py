@@ -70,6 +70,11 @@ def hard_fail(row, mcap_cap=MAX_MCAP, min_liq=MIN_LIQ):
     hd = [o[0] for o in x.get('objs') or [] if o and o[0] in HARD_DEVIL] + ([x['drule']] if x.get('drule') in HARD_DEVIL else [])
     if hd:
         return f'Devil hard veto: {hd[0]}'
+    li = x.get('li') or {}
+    if li.get('phase') == 'DISTRIBUTION':   # 🕵 exit-liquidity FOMO: up big while the early wallets sell into it — we would be their exit
+        return 'distribution — ' + '; '.join((li.get('phaseWhy') or [])[:2])
+    if li.get('press') == 'HIGH':
+        return 'early wallets unloading — ' + str(li.get('pressWhy'))
     if ch.get('state') in HARD_CHART:
         return f"chart {ch['state']}"
     d5 = _f(n.get('d5'))
@@ -86,7 +91,9 @@ def judge_hits(row, pens):
     v, n, ch = x.get('vitals') or {}, x.get('nums') or {}, x.get('chart') or {}
     test = {'thin pool': lambda: 0 < _f(n.get('liq') or v.get('liq')) < 20_000, 'falling now': lambda: _f(n.get('d5')) < -3,
             'chart says wait': lambda: (ch.get('entry') or [None])[0] not in (None, 'ENTER NOW'), 'weak holders': lambda: _f(v.get('top10')) >= 30,
-            'thin data': lambda: (ch.get('q') or {}).get('state') in ('SPARSE', 'NO_REAL_CANDLES', 'STALE')}
+            'thin data': lambda: (ch.get('q') or {}).get('state') in ('SPARSE', 'NO_REAL_CANDLES', 'STALE'),
+            'early selling': lambda: (x.get('li') or {}).get('press') in ('WATCH', 'HIGH'), 'crowd fomo': lambda: (x.get('li') or {}).get('phase') == 'CROWD FOMO',
+            'bundled': lambda: (x.get('li') or {}).get('cls') in ('BUNDLED', 'INSIDER-LIKE CLUSTER')}
     return [(f'judge: {k}', _f(p)) for k, p in (pens or {}).items() if k in test and test[k]()]
 
 
@@ -139,6 +146,19 @@ def score(row, lost=(), meta=None, pens=None):
     mc_ = _f(v.get('mcap'))
     if 0 < mc_ < MAX_MCAP:
         add('trench band (< $200K)', 6)   # the owner's own universe ranks first; the wider lane only fills what it cannot
+    li = x.get('li') or {}
+    ph = li.get('phase')
+    if ph in ('EARLY FOMO', 'ACCELERATING'):   # 🕵 enter early / accelerating, never the crowd's top
+        add(f'phase {ph.lower()}' + ('' if li.get('healthy') is not False else ' (unhealthy)'), (8 if ph == 'ACCELERATING' else 6) if li.get('healthy') is not False else 0)
+    elif ph == 'CROWD FOMO':
+        add('crowd fomo (late)', -10 if li.get('healthy') is False else -6)
+    if li.get('press') == 'WATCH':
+        add('an early wallet is selling', -5)
+    if _f(li.get('danger')):
+        add('early wallets with a dump / rug record', -min(12, 6 * _f(li['danger'])))
+    rec = li.get('clsRec') or {}
+    if _f(rec.get('n')) >= 20:   # the launch class's OWN settled record decides whether bundled / sniped launches rank lower — never assumed
+        add(f"{str(li.get('cls')).lower()} record", max(-10, min(6, _f(rec.get('med')) / 5)))
     if x.get('go'):
         add('GO (all four agree)', 15)
     for k, p in judge_hits(x, pens):

@@ -389,6 +389,15 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
         qw_, qwhy_ = _so.chart_quality(c['chart'])
         if qw_ in _so.QUALITY_SIZE:   # 📊 chart quality: a choppy / extended / unstable chart can only shrink a seat (after W12: a tie is W12's)
             hit('W18 chart quality', _so.QUALITY_SIZE[qw_], f'{qw_}: {qwhy_}')
+    li_ = c.get('li') or {}
+    if li_:   # 🕵 W20 exit risk: who could dump on us — a clustered / bundled launch still holding its early supply, early wallets selling now (shrinks only)
+        if li_.get('press') == 'HIGH':
+            hit('W20 exit risk', 0.0, f"early wallets unloading now: {li_.get('pressWhy')}")
+        elif li_.get('cls') == 'INSIDER-LIKE CLUSTER' and _f(li_.get('early')) >= 20:
+            hit('W20 exit risk', 0.5, f"insider-like cluster still holds {_f(li_['early']):.0f}% of supply — a small seat until it spreads out")
+        elif li_.get('cls') in ('BUNDLED', 'INSIDER-LIKE CLUSTER') or li_.get('press') == 'WATCH' or _f(li_.get('danger')) > 0:
+            hit('W20 exit risk', 0.75, '; '.join(x for x in (li_.get('cls') if li_.get('cls') in ('BUNDLED', 'INSIDER-LIKE CLUSTER') else None, li_.get('pressWhy'),
+                                                              f"{int(_f(li_.get('danger')))} early wallet(s) with a dump / rug record" if _f(li_.get('danger')) else None) if x))
     raw = min([r['mult'] for r in rules] or [1.0])
     if tier_m < 1:   # 🎯 size by CONFIDENCE: the tier multiplies whatever the other rules allowed (as the smallest rule it was masked: every seat came out ×0.4)
         rules.append({'id': 'W19 confidence tier', 'mult': round(tier_m, 3), 'why': f"{c.get('tier') or 'unconfirmed'}-tier: ×{tier_m:g} on top — {str(c.get('near'))[:140]}"})
@@ -438,7 +447,7 @@ def take_info(cfg, scalp=None):
             'needN': _ag.SCALP_N, 'promoted': None}
 
 
-OBEY = {'R11': 'dead coin swap', 'R5c': 'creator stop-loss', 'R9c': 'creator max hold', 'R1': 'hard safety exit', 'R2': 'hard safety exit', 'R3': 'hard safety exit', 'R5x': 'hard safety exit', 'R4': 'invalidation exit', 'R5t': 'invalidation exit', 'R5': 'structure-aware stop',
+OBEY = {'R11': 'dead coin swap', 'R4e': 'hard safety exit', 'R5c': 'creator stop-loss', 'R9c': 'creator max hold', 'R1': 'hard safety exit', 'R2': 'hard safety exit', 'R3': 'hard safety exit', 'R5x': 'hard safety exit', 'R4': 'invalidation exit', 'R5t': 'invalidation exit', 'R5': 'structure-aware stop',
         'R6': 'take line', 'R7': 'trailing protection', 'R7s': 'trailing protection', 'R8': 'thesis review', 'R9': 'thesis review', 'R10': 'thesis hold', 'R0': 'waiting'}
 
 
@@ -457,7 +466,15 @@ def reaper_replay(path, p, take):
     return _f(path[-1]) if path else 0.0
 
 
-def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_=None, tape=None, office=None, sized=None, charts=None, theses=None, pol=None, live=True, vels=None, margins=None, rug=None):
+def _li_snap(li, v=None):
+    """🕵 What the launch looked like when we bought (kept on the position → the Judge's review): phase, class, first-10 / early supply,
+    exit pressure, our buyer rank, age and cap at entry."""
+    if not li:
+        return None
+    return {k: li.get(k) for k in ('phase', 'healthy', 'cls', 'first10', 'first25', 'early', 'trend', 'press', 'danger', 'rank', 'ageH', 'mcap')}
+
+
+def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_=None, tape=None, office=None, sized=None, charts=None, theses=None, pol=None, live=True, vels=None, margins=None, rug=None, press=None):
     """☠ One look at every position the agents hold on the real card (in control: every coin that is not frozen). It keeps each one's
     record (entry, peak, path, depth and top-10 at entry) and rules, in this order — the first that fires decides:
       R1 pool collapsed · R2 invalidated (failed scan / rug meter) · R3 holders concentrating · R4 whale dump on the tape · R5 stop* ·
@@ -469,6 +486,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
     EARN windows past its base) · `margins` {mint: (best challenger's score margin, the margin a switch needs)} · `rug` {pair: why} = the
     rug radar on the live tape (creator / top-holder dump) → R4r, a hard safety exit."""
     T = lambda k: tune(office, 'reaper', k)
+    press = press or {}
     pos = {m: dict(v) for m, v in (pos or {}).items()}
     by = {x['mint']: x for x in table or []}
     take = take_line(cfg, scalp)
@@ -495,7 +513,8 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         v = (x or {}).get('vitals') or {}
         pct = (px / entry - 1) * 100
         p = pos.get(m) or {'entry': entry, 'since': _f(l.get('at')) or now, 'peak': pct, 'low': pct, 'path': [], 'liq0': _f(l.get('liq')) or None, 'top0': v.get('top10'),
-                           'sym': l.get('symbol'), 'tag': (l.get('bought') or {}).get('tag'), 'wx': (weather_ or {}).get('regime'), 'warden': (sized or {}).get(m), 'launch': (x or {}).get('launch')}
+                           'sym': l.get('symbol'), 'tag': (l.get('bought') or {}).get('tag'), 'wx': (weather_ or {}).get('regime'), 'warden': (sized or {}).get(m), 'launch': (x or {}).get('launch'),
+                           'li': _li_snap((x or {}).get('li'), (x or {}).get('vitals'))}
         if abs(_f(p.get('entry')) - entry) > entry * 1e-6:   # a rebuy / top-up moved the book entry: the peak is measured from the new one
             p.update(entry=entry, peak=pct, low=pct, path=[])
         p['peak'], p['low'] = max(_f(p.get('peak')), pct), min(_f(p.get('low')), pct)
@@ -536,7 +555,8 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             stop = min(stop, _opp.TIER_STOP[tier_])
         tr_ = pol.get('trail') or {}
         arm = _f(tr_.get('arm')) if tr_.get('mode') == 'custom' else T('protectAt')
-        tight = 0.6 if (vels or {}).get(m, {}).get('state') == 'REVERSING' else 1.0   # 📉 P/L REVERSING: the trail banks sooner (tighter protection, never looser)
+        pr_, prwhy_ = press.get(l.get('pairAddress')) or (None, None)   # 🕵 the early wallets selling on the live tape
+        tight = 0.6 if (vels or {}).get(m, {}).get('state') == 'REVERSING' or pr_ == 'WATCH' else 1.0   # 📉 P/L REVERSING: the trail banks sooner (tighter protection, never looser)
         trail_line = (p['peak'] - _f(tr_.get('pct')) * tight) if tr_.get('mode') == 'custom' else p['peak'] * (1 - T('giveBackPct') * tight / 100)
         trail_on = tr_.get('mode') != 'off'
         max_hold = _f(pol.get('maxHold')) or None
@@ -568,6 +588,8 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev, act = 'EXIT INVALIDATED', 'R2 hard invalidation', 'the holder scan now fails' if v.get('safe') is False else f"rug meter {_f(v.get('rug')):.0f} ≥ {RUG_EXIT:g}", 'pull'
         elif (rug or {}).get(l.get('pairAddress')):   # 🚨 the rug radar on the live tape: the creator / a top-holder wallet is dumping — a hard safety exit
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R4r rug radar', f"{rug[l.get('pairAddress')]} at {pct:+.1f}%", 'pull'
+        elif pr_ == 'HIGH' and live:   # 🕵 the launch's early buyers are unloading into us (creator / a dump-record wallet / a cluster): out before the timeout
+            st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R4e early wallets unloading', f"{prwhy_} at {pct:+.1f}%", 'pull'
         elif top1 is not None and top0 is not None and _f(top1) >= 30 and _f(top1) - _f(top0) >= TOP10_JUMP:
             st, rule, ev, act = 'EXIT INVALIDATED', 'R3 holders concentrating', f'top-10 {_f(top0):.0f}% → {_f(top1):.0f}% since entry', 'pull'
         elif tp == 'dump' and (pct > 0 or (n.get('buy') is not None and _f(n['buy']) < 45)):
@@ -598,8 +620,8 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R9e no extension earned', f"{rv['window']} of {granted} windows used, {pct:+.1f}% — {p.get('extWhy') or 'a winner earns extra time, this seat did not'}", 'pull'
         elif mine and live and rv and rv['window'] >= granted and rv['verdict'] == 'weak' and pct < take:   # its windows are used up and the chart earned no more (time: LIVE only)
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R9 windows used', f"{rv['window']} of {granted} five-minute windows used, {pct:+.1f}%, {rv['why'][0]}", 'pull'
-        elif mine and live and x and held >= DEAD_HOLD_MIN and _opp.dead_now(x) and pct < take:   # 💀 nobody trades it: the seat goes to a coin people ARE trading (swap only — merge_reaper)
-            st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R11 dead coin', f"{pct:+.1f}% after {held:.0f} min — {_opp.dead_now(x)}", 'pull'
+        elif mine and live and held >= DEAD_HOLD_MIN and pct < take and ((x and _opp.dead_now(x)) or broke == 'off their radar'):   # 💀 nobody trades it / they can't read it any more: the seat goes to a coin people ARE trading (swap only — merge_reaper)
+            st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R11 dead coin', f"{pct:+.1f}% after {held:.0f} min — " + (_opp.dead_now(x) if x else 'off their radar (not a coin they trade any more)'), 'pull'
         elif mine and live and held >= MOMENTUM_MIN and broke and pct >= MIN_KEEP:
             st, rule, ev, act = 'TAKE', 'R8 momentum failed', f'{pct:+.1f}% and {broke} after {held:.0f} min — banked while it is still a gain', 'pull'
         elif mine and live and not th and held >= T('timeMaxMin') and broke and pct < take / 2:
@@ -774,7 +796,8 @@ def file_position(arch, p, now):
            'byReaper': bool(p.get('askRule')), 'confirmed': bool(p.get('confirmed')), 'realPct': p.get('realPct'), 'exit': {k: v for k, v in (p.get('exit') or {}).items() if k in ('state', 'sig', 'at', 'usd', 'delta', 'realUsd', 'err')},
            'wx': p.get('wx'), 'warden': p.get('warden'), 'launch': p.get('launch'), 'tag': p.get('tag'), 'take': p.get('take'), 'exitStructure': p.get('chartNow'), 'windows': p.get('lastWin'),
            'liq': p.get('liq'), 'liqPct': p.get('liqPct'), 'top10': p.get('top10'), 'quality': p.get('quality'), 'dd': bool(p.get('dataDegraded') or p.get('dd')), 'vel': (p.get('vel') or {}).get('state') if isinstance(p.get('vel'), dict) else p.get('vel'),
-           'thesis': None if not p.get('thesis') else {k: p['thesis'].get(k) for k in ('structure', 'call', 'triggerRule', 'support', 'invalidation', 'stopPct', 'expectedHoldWindows', 'at')}}
+           'thesis': None if not p.get('thesis') else {k: p['thesis'].get(k) for k in ('structure', 'call', 'triggerRule', 'support', 'invalidation', 'stopPct', 'expectedHoldWindows', 'at')},
+           'li': p.get('li')}
     prev = ps[-1]['h'] if ps else a.get('posAnchor', '')
     rec['h'] = _hash(prev, {k: v for k, v in rec.items() if k != 'h'})
     ps.append(rec)

@@ -130,17 +130,10 @@ def test_real_losses_decide_survival_paper_only_probation():
     assert ag.survival({})['devil']['status'] == 'alive'                                             # no real record: nobody dies on paper alone
 
 
-def test_the_lane_widens_only_when_200k_cannot_fill_the_seats():
+def test_the_new_entry_universe_is_hard_capped_at_200k():
+    """🎯 owner, 2026-10-11: new entries only 0 < live cap < $200K — the lane never widens, whatever the ranking says."""
     safe = lambda m, mc: {'mint': m, 'mcap': mc, 'vol1h': 5_000, 'safe': True, 'liq': 20_000}
-    small = [safe(f's{i}', 80_000) for i in range(12)]
-    assert ag.lane_cap(small) == 200_000
-    few = [safe(f's{i}', 80_000) for i in range(3)] + [safe(f'm{i}', 600_000) for i in range(10)]
-    assert ag.lane_cap(few) == 1_000_000
-    assert ag.lane_cap([]) == ag.LANE_CAPS[-1]
-    unsafe = [{**safe(f'u{i}', 80_000), 'safe': False} for i in range(30)] + small[:2]
-    assert ag.lane_cap(unsafe) != 200_000                       # only BUYABLE coins count toward filling
-
-
-def test_the_lane_follows_the_ranking_result():
-    assert ag.lane_step(200_000, 0, 5) == 1_000_000 and ag.lane_step(1_000_000, 1, 5) == 5_000_000 and ag.lane_step(5_000_000, 0, 5) == 5_000_000
-    assert ag.lane_step(5_000_000, 15, 5) == 1_000_000 and ag.lane_step(200_000, 30, 5) == 200_000 and ag.lane_step(1_000_000, 7, 5) == 1_000_000
+    assert ag.LANE_CAPS == (200_000,)
+    assert ag.lane_cap([]) == 200_000 and ag.lane_cap([safe('m', 600_000)]) == 200_000
+    assert ag.lane_step(200_000, 0, 5) == 200_000 and ag.lane_step(5_000_000, 0, 5) == 200_000
+    assert ag.in_lane(safe('a', 150_000)) and not ag.in_lane(safe('b', 250_000))
