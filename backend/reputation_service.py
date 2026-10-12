@@ -12467,7 +12467,8 @@ async def _agents_tick(now):
         seen_mem = _office.get('seen') or {}
         cool_ = {k_ for k_, e_ in seen_mem.items() if not _oe.review_due(e_, now)[0]}
         # held coins always + last pass's strongest cases / bench — but a rejected case with nothing new since does not hold a seat at the table
-        recheck_ = held_m + [c_['mint'] for c_ in _ag.investigate(_agents.get('table'), set(), 0, {}, top=20) if c_['mint'] not in cool_] + [b_['mint'] for b_ in _agents.get('bench') or [] if b_.get('mint') not in cool_]
+        stale_ = lambda r_: _oe.fresh_key((r_ or {}).get('vitals') or r_ or {}) >= 5 and not _opp.reawake(r_ or {})   # 🧊 12h+ and not waking up: no automatic recheck
+        recheck_ = held_m + [c_['mint'] for c_ in _ag.investigate(_agents.get('table'), set(), 0, {}, top=20) if c_['mint'] not in cool_ and not stale_(c_.get('row'))] + [b_['mint'] for b_ in _agents.get('bench') or [] if b_.get('mint') not in cool_ and not stale_(b_)]
         taken_ = _oe.intake(ob_, recheck_, src_, cool=cool_, fresh=fresh_, outlets=outl_)
         _office['intake'] = {'board': len(ob_), 'boardFeed': len(ob_) - len(extra_), 'outletRows': len(extra_), 'screened': len(taken_), 'by': {k_: sum(1 for x in taken_ if k_ in x['intake']) for k_, _n in _oe.INTAKE_SLOTS},
                              'newLaunches': sum(1 for x in ob_ if x.get('ageH') is not None and _fuse._f(x['ageH']) <= 1), 'cooled': len(cool_)}
@@ -12614,6 +12615,9 @@ async def _agents_tick(now):
                                                            _office.get('lastMints'), _opp.rank(table, set(), (), None, None, None, _agents.get('laneCap') or _opp.MAX_MCAP), arch_p_ + list(_office.get('pos', {}).values()), now,
                                                            (_office.get('intake') or {}).get('cooled'))
                 _office['cycle']['fresh']['candles'] = {k_: (_office.get('candleStat') or {}).get(k_) for k_ in ('allocFirst', 'allocBefore', 'loaded')}
+                hv_ = sorted(_fuse._f((x_.get('vitals') or {}).get('ageH')) * 60 for x_ in table if x_.get('mint') in set(held_m) and (x_.get('vitals') or {}).get('ageH') is not None)
+                _office['cycle']['fresh']['ageHeldMin'] = round(hv_[len(hv_) // 2], 1) if hv_ else None
+                _office['index'] = _oe.active_index(table, _office.get('seen'), now, _agents.get('laneCap'))   # 🗂 the ONE active candidate index (recomputed from this pass)
             except Exception as e:
                 print('fresh view:', e)
             _office['lastMints'] = [x_.get('mint') for x_ in table]
@@ -13324,6 +13328,8 @@ def _office_light(tid, cur, now):
         p['mission'] = {**p['mission'], 'lastAction': last, 'dutyAt': _office['dutyAt']}
         p['seat'], p['switchEval'], p['ready'] = _agents.get('seat'), _agents.get('switchEval'), _oe.ready(_office['boot'], now)
         p['ops'] = _oe.ops(p['ready'], p['seat'], _office.get('courier'), _is_keeper(), _ag.FILL_MOVES_HR)
+        p['index'] = (_office.get('index') or [])[:80]
+        p['rpc'] = {'lanes': _rpc_quota_state(), 'note': 'keyed lanes = keeper sends / balances first, then holder scans (budgeted); discovery comes from Pump\'s live stream + the launch boards — no RPC first-seen listener runs'}
         p['wake'] = {'reaper': _wake['n'], 'trigger': _wake['candN'], 'log': list(_wake['log'])[-8:], 'watching': len(_office.get('watchC') or {})}   # ⚡ market-event wakeups
         p['cycle'] = {**(_office.get('cycle') or {}), 'nextIn': max(0, round(_fuse._f((_office.get('cycle') or {}).get('at')) + AGENTS_EVERY - now)) if _office.get('cycle') else None}
         p['seatActions'] = _oe.seat_actions(((_agents.get('card') or {}).get('seats')), _agents.get('decisions'), _agents.get('switchEval'), _agents.get('seat'))

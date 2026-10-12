@@ -3236,3 +3236,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   NORMAL LOSS + causes `too_old` / `fallback_entry`. Pipeline per cycle = `cycle.fresh` (`office_edge.fresh_view`) → `FreshBlock` in the
   Seats view; intake sources add median P/L · rug % · hold · age + MC at entry · age first seen. 1-second charts: NOT available (providers
   start at 1m; per-second data for 30–80 desk coins = reading every swap from RPC — the rate-limit hole).
+- 🗂 ONE ACTIVE CANDIDATE INDEX + FRESH-FIRST STORES (owner, 2026-10-11): every desk already reads THIS pass's desk row; `office_edge.active_index`
+  (payload `index`, `ActiveIndex` in the Seats view) lists it per mint (first / last seen, launch age, fresh bucket, live MC, pool, 5-min $,
+  volume / buyer velocity, sources, launchpad, real candles, holder state, chart quality, market phase, social, last change / review,
+  cooldown) with `eligible` RECOMPUTED every pass from `opportunity.hard_fail` — no cached eligibility anywhere. Stale stores: 12h+ coins that
+  are not waking up get no automatic recheck from last pass's cases / bench, and a 12h+ reject cools `STALE_COOL_MULT` 3× longer
+  (`review_due` reads the snapshot's age). DEAD HOLDINGS: Reaper reads `run` RUNNING · HEALTHY · STALLING · REVERSING · BREAKING DOWN · DEAD;
+  dead (no trades / off their radar) → `R11` swap as soon as a replacement clears, and after `DEAD_CASH_MIN` 15 min dead → `R11x dead coin →
+  cash` with NO replacement needed; a red coin under its invalidation in a bad structure already leaves by `R5t` (no replacement needed).
+  A degraded chart never decides a chart-based exit (R7b guard). RPC: payload `rpc` = keyed lanes (provider + in / out of quota, no URL) →
+  `RpcLanes`. RPC lanes are NOT a discovery source: no RPC first-seen listener exists — new mints come from Pump's live stream + the
+  boards. A new Helius key cannot do holder scans (free plan refuses getTokenLargestAccounts, −32600); `HELIUS_RPC_URL` = the Helius-only data key.

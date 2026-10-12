@@ -122,3 +122,14 @@ test('🆕 fresh pipeline block: buckets, repeats, age at entry, candle allocati
   expect(el.textContent).toContain('30 · 12 · 18 · 5'); expect(el.textContent).toContain('50m vs 2d'); expect(el.textContent).toContain('20 / 4 / 0');
   expect(el.textContent).toContain('$BABY'); expect(el.textContent).toContain('pulse');
 });
+
+test('🗂 active index + 📡 RPC lanes render the canonical candidates and lane health (no URLs)', async () => {
+  const { ActiveIndex, RpcLanes } = require('./SeatOps');
+  const el = document.createElement('div'); document.body.appendChild(el);
+  const { createRoot } = require('react-dom/client'); const { act } = require('react');
+  await act(async () => { createRoot(el).render(<div><RpcLanes r={{ lanes: [{ lane: 1, provider: 'alchemy.com', spent: false }, { lane: 2, provider: 'helius-rpc.com', spent: true, backInMin: 40 }], note: 'n' }} />
+    <ActiveIndex rows={[{ mint: 'A', symbol: 'BABY', eligible: true, launchAgeMin: 6, liveMC: 52000, volVelocity: 900, buyerVelocity: 3, holderStatus: 'passed', realCandles: true, chartQuality: 'EARLY', marketPhase: 'EARLY MOVE', sources: ['pulse'], cooldownLeft: 0 },
+      { mint: 'B', symbol: 'OLDY', eligible: false, why: 'dead — $40 traded in the last 5 min', launchAgeMin: 3000, holderStatus: 'passed', sources: [] }]} /></div>); });
+  expect(el.textContent).toContain('alchemy.com'); expect(el.textContent).toContain('out of quota · back in 40m');
+  expect(el.textContent).toContain('1 eligible / 2'); expect(el.textContent).toContain('$BABY'); expect(el.textContent).toContain('dead — $40');
+});

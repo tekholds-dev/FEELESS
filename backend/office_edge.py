@@ -961,7 +961,7 @@ MATERIAL = {'px': 5.0, 'liq': 25.0, 'vol5m': 100.0}   # … unless price moved �
 def snap_of(row):
     v, ch = row.get('vitals') or {}, row.get('chart') or {}
     return {'px': _f(row.get('px')), 'liq': _f((row.get('nums') or {}).get('liq') or v.get('liq')), 'vol5m': _f(v.get('vol5m') or row.get('vol5m')),
-            'safe': v.get('safe'), 'curve': v.get('curve'), 'chart': ch.get('state'), 'social': bool(row.get('site') or row.get('x') or (row.get('social') or {}).get('ok'))}
+            'safe': v.get('safe'), 'curve': v.get('curve'), 'chart': ch.get('state'), 'social': bool(row.get('site') or row.get('x') or (row.get('social') or {}).get('ok')), 'ageH': v.get('ageH')}
 
 
 def material(prev, cur):
@@ -1008,6 +1008,9 @@ def note_seen(mem, table, cases, reviewed, now):
     return m
 
 
+STALE_COOL_MULT = 3   # a rejected coin over 12h old waits 3× the normal cooldown unless something material changes
+
+
 def review_due(e, now):
     """May this coin get a DEEP review now? Never reviewed · not rejected last time · something material changed since that review ·
     or the cooldown ran out. → (due, why)"""
@@ -1017,7 +1020,8 @@ def review_due(e, now):
         return True, 'was not rejected'
     if _f(e.get('changed')) > _f(e['review']):
         return True, f"changed: {e.get('changeWhy')}"
-    if _f(now) - _f(e['review']) >= REVIEW_COOL_SEC:
+    cool = REVIEW_COOL_SEC * (STALE_COOL_MULT if _f((e.get('snap') or {}).get('ageH')) > OLD_INTAKE_H else 1)   # 🧊 a 12h+ reject cools 3× longer
+    if _f(now) - _f(e['review']) >= cool:
         return True, 'cooldown over'
     return False, f"rejected {round(_f(now) - _f(e['review']))}s ago ({e.get('reject')}) — nothing new"
 
@@ -1052,7 +1056,8 @@ def fresh_view(table, deep=(), cleared=(), prev=(), ranked=None, positions=None,
     return {'buckets': cnt(by), 'deep': cnt(deep or ()), 'cleared': cnt(cleared or ()),
             'unique': len(by), 'repeats': len(set(by) & pv), 'newUnique': len(set(by) - pv), 'cooled': int(cooled or 0),
             'ageReviewedMin': _med_([am(by[m]) for m in deep or () if m in by]), 'ageTableMin': _med_([am(x) for x in rows]),
-            'top': top, 'boughtAgeMin24h': _med_(recent), 'boughtAgeMinBefore': _med_(older), 'bought24h': len(recent)}
+            'top': top, 'boughtAgeMin24h': _med_(recent), 'boughtAgeMinBefore': _med_(older), 'bought24h': len(recent),
+            'ageClearedMin': _med_([am(by[m]) for m in cleared or () if m in by])}
 
 
 def candle_order(rows, deep=None, held=None):
@@ -1068,3 +1073,36 @@ def candle_order(rows, deep=None, held=None):
             out[m] = pa
     out.update(hd)
     return out
+
+
+
+INDEX_FIELDS = ('mint', 'symbol', 'firstSeen', 'lastSeen', 'launchAgeMin', 'fresh', 'liveMC', 'liquidity', 'vol5m', 'volVelocity', 'buyerVelocity', 'sources', 'launchpad',
+                'realCandles', 'holderStatus', 'chartQuality', 'marketPhase', 'social', 'lastMaterialChange', 'lastReview', 'cooldownLeft', 'eligible', 'why')
+
+
+def active_index(table, seen=None, now=0.0, cap=None):
+    """🗂 THE ONE ACTIVE CANDIDATE INDEX: one line per mint built from THIS pass's desk row — the same object Tally, Sherlock, Trigger,
+    Devil read and the Warden / Reaper / Judge are handed — plus the per-coin memory (first / last seen, last review, cooldown). Nothing
+    here is a cached eligibility: `eligible` is recomputed every pass from the hard checks (opportunity.hard_fail) on live data."""
+    import opportunity as _opp
+    import seat_ops as _so
+    import market_wake as _mw
+    out = []
+    for x in table or []:
+        m = x.get('mint')
+        if not m:
+            continue
+        v, n, ch = x.get('vitals') or {}, x.get('nums') or {}, x.get('chart') or {}
+        e = (seen or {}).get(m) or {}
+        vpm, bpm = _opp.velocity(x)
+        why = _opp.hard_fail(x, cap or _opp.MAX_MCAP)
+        due, _w = review_due(e, now)
+        cool = 0 if due or not e.get('review') else max(0, round(REVIEW_COOL_SEC * (STALE_COOL_MULT if _f(v.get('ageH')) > OLD_INTAKE_H else 1) - (now - _f(e.get('review')))))
+        out.append({'mint': m, 'symbol': x.get('symbol'), 'firstSeen': e.get('first'), 'lastSeen': e.get('last'),
+                    'launchAgeMin': None if v.get('ageH') is None else round(_f(v['ageH']) * 60, 1), 'fresh': _opp.fresh_bucket(x)[0],
+                    'liveMC': v.get('mcap'), 'liquidity': n.get('liq') or v.get('liq'), 'vol5m': n.get('v5'), 'volVelocity': vpm, 'buyerVelocity': bpm,
+                    'sources': [s for s in x.get('src') or [] if s != 'open'], 'launchpad': (x.get('launch') or {}).get('pad'),
+                    'realCandles': ch.get('src') == 'candles', 'holderStatus': {True: 'passed', False: 'failed'}.get(v.get('safe'), 'not read'),
+                    'chartQuality': _so.chart_quality(ch)[0] if ch else None, 'marketPhase': _mw.market_phase(ch, x.get('li')), 'social': bool(x.get('social') or v.get('site') or v.get('x')),
+                    'lastMaterialChange': e.get('changed'), 'lastReview': e.get('review'), 'cooldownLeft': cool, 'eligible': why is None, 'why': why})
+    return sorted(out, key=lambda r: (not r['eligible'], fresh_key({'ageH': None if r['launchAgeMin'] is None else r['launchAgeMin'] / 60}), -_f(r['volVelocity'])))

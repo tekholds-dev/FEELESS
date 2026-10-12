@@ -53,6 +53,7 @@ WARDEN_MIN_USD = 0.05                # a seat the keeper could not send is not a
 RUG_EXIT = 65.0                      # ☠ rug meter at which an open position is invalidated
 TOP10_JUMP = 10.0                    # ☠ top-10 share up this many points since entry (and ≥ 30%) = holders concentrating
 MIN_KEEP = 1.5                       # ☠ a trailing take only fires while there is still this much % to bank
+DEAD_CASH_MIN = 15.0                 # 💀 dead this long (no trades / off their radar): exit to CASH even with no replacement ready
 DEAD_HOLD_MIN = 5.0                  # 💀 minutes held before a dead coin (no trades) gives its seat away
 MOMENTUM_MIN = 15.0                  # ☠ minutes held before a broken read counts (the card's record: exits inside 15 min lose)
 EXIT_WAIT_SEC = 1800                 # 📮 an exit not confirmed on the ledger after 30 min is filed as UNCONFIRMED, never as done
@@ -448,7 +449,7 @@ def take_info(cfg, scalp=None):
             'needN': _ag.SCALP_N, 'promoted': None}
 
 
-OBEY = {'R7b': 'trailing protection', 'R11': 'dead coin swap', 'R4e': 'hard safety exit', 'R5c': 'creator stop-loss', 'R9c': 'creator max hold', 'R1': 'hard safety exit', 'R2': 'hard safety exit', 'R3': 'hard safety exit', 'R5x': 'hard safety exit', 'R4': 'invalidation exit', 'R5t': 'invalidation exit', 'R5': 'structure-aware stop',
+OBEY = {'R11x': 'dead coin exit', 'R7b': 'trailing protection', 'R11': 'dead coin swap', 'R4e': 'hard safety exit', 'R5c': 'creator stop-loss', 'R9c': 'creator max hold', 'R1': 'hard safety exit', 'R2': 'hard safety exit', 'R3': 'hard safety exit', 'R5x': 'hard safety exit', 'R4': 'invalidation exit', 'R5t': 'invalidation exit', 'R5': 'structure-aware stop',
         'R6': 'take line', 'R7': 'trailing protection', 'R7s': 'trailing protection', 'R8': 'thesis review', 'R9': 'thesis review', 'R10': 'thesis hold', 'R0': 'waiting'}
 
 
@@ -559,8 +560,14 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         pr_, prwhy_ = press.get(l.get('pairAddress')) or (None, None)   # 🕵 the early wallets selling on the live tape
         inval_ = _f((th or {}).get('invalidation'))
         chpx_ = _f(((ch or {}).get('f') or {}).get('px'))   # the live chart's last close (same FEELESS candles the screens draw)
-        rs_ = _mw.run_state(pct, p['peak'], (vels or {}).get(m, {}).get('state'), bool(th) and inval_ > 0 and px < inval_ and 0 < chpx_ < inval_)   # ⚡ the run: live price AND live chart under the line
+        dq_ok_ = not (ch and ch.get('q') and not ch['q'].get('structOk'))   # 🧪 a degraded chart never decides a chart-based exit
+        rs_ = _mw.run_state(pct, p['peak'], (vels or {}).get(m, {}).get('state'), bool(th) and dq_ok_ and inval_ > 0 and px < inval_ and 0 < chpx_ < inval_)   # ⚡ the run: live price AND live chart under the line
         runner_ = rs_ in ('ACCELERATING', 'RUNNING') and pct > 0   # 🏃 a winner the chart still backs: no time window sells it
+        dead_ = (_opp.dead_now(x) if x else None) or ('off their radar (not a coin they trade any more)' if broke == 'off their radar' else None)
+        if dead_ and live:
+            p.setdefault('deadSince', now)
+        else:
+            p.pop('deadSince', None)
         tight = 0.6 if (vels or {}).get(m, {}).get('state') == 'REVERSING' or pr_ == 'WATCH' else 1.0   # 📉 P/L REVERSING: the trail banks sooner (tighter protection, never looser)
         trail_line = (p['peak'] - _f(tr_.get('pct')) * tight) if tr_.get('mode') == 'custom' else p['peak'] * (1 - T('giveBackPct') * tight / 100)
         trail_on = tr_.get('mode') != 'off'
@@ -613,6 +620,8 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev = 'HOLD', 'R10 creator manual', f"{pct:+.1f}% · you hold the decisions — only the hard safety exits and your own limits act"
         elif mine and pct <= -stop:   # their own coins carry no card stop (ride-or-rug seats) — this is it; other coins keep the card's own stop
             st, rule, ev, act = 'EXIT INVALIDATED', 'R5 stop', f"{pct:+.1f}% ≤ −{stop:g}%" + (f" ({'; '.join((th.get('stopParts') or [])[:2])})" if th else ' (no thesis on file: the ceiling)'), 'pull'
+        elif mine and live and dead_ and held >= DEAD_CASH_MIN and now - _f(p.get('deadSince') or now) >= DEAD_CASH_MIN * 60 and pct < take:   # 💀 dead 15 min: CASH beats a coin nobody trades — no replacement needed
+            st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R11x dead coin → cash', f"{pct:+.1f}% — {dead_} for {round((now - _f(p.get('deadSince'))) / 60)} min; the seat refills from the live bench", 'pull'
         elif pct >= take and not runs:
             st, rule, ev = 'TAKE', 'R6 take line', f"{pct:+.1f}% ≥ +{take:g}% ({tsrc} take) — the card's own take rule banks it"
         elif mine and rv and rv['verdict'] == 'invalid' and held >= 2:   # the reason it was bought is gone: out, green or red — P&L does not decide this
@@ -627,8 +636,8 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R9e no extension earned', f"{rv['window']} of {granted} windows used, {pct:+.1f}% — {p.get('extWhy') or 'a winner earns extra time, this seat did not'}", 'pull'
         elif mine and live and not runner_ and rv and rv['window'] >= granted and rv['verdict'] == 'weak' and pct < take:   # its windows are used up and the chart earned no more (time: LIVE only)
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R9 windows used', f"{rv['window']} of {granted} five-minute windows used, {pct:+.1f}%, {rv['why'][0]}", 'pull'
-        elif mine and live and held >= DEAD_HOLD_MIN and pct < take and ((x and _opp.dead_now(x)) or broke == 'off their radar'):   # 💀 nobody trades it / they can't read it any more: the seat goes to a coin people ARE trading (swap only — merge_reaper)
-            st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R11 dead coin', f"{pct:+.1f}% after {held:.0f} min — " + (_opp.dead_now(x) if x else 'off their radar (not a coin they trade any more)'), 'pull'
+        elif mine and live and held >= DEAD_HOLD_MIN and pct < take and dead_:   # 💀 nobody trades it / they can't read it any more: the seat goes to a coin people ARE trading (swap only — merge_reaper)
+            st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R11 dead coin', f"{pct:+.1f}% after {held:.0f} min — {dead_} (swapped as soon as a replacement clears; cash after {DEAD_CASH_MIN:g} min dead)", 'pull'
         elif mine and live and held >= MOMENTUM_MIN and broke and pct >= MIN_KEEP:
             st, rule, ev, act = 'TAKE', 'R8 momentum failed', f'{pct:+.1f}% and {broke} after {held:.0f} min — banked while it is still a gain', 'pull'
         elif mine and live and not runner_ and not th and held >= T('timeMaxMin') and broke and pct < take / 2:
@@ -667,7 +676,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
                     'nextReview': (rv or {}).get('next') if rv else round((int(held // _ci.WINDOW_MIN) + 1) * _ci.WINDOW_MIN * 60 - held * 60),
                     'chart': None if not ch else {k: ch.get(k) for k in ('trend', 'chop', 'mom', 'ext')} | {k: (ch.get('f') or {}).get(k) for k in ('hh', 'hl', 'lh', 'll', 'lastHigh', 'lastLow', 'accel', 'decay', 'upWick', 'liqD')},
                     'tape': tp, 'usd': round(_f(l.get('units')) * px, 4), 'warden': p.get('warden'), 'dataDegraded': degraded, 'data': _md.compact((ch or {}).get('q')),
-                    'vel': vl.get('state'), 'velWhy': vl.get('why'), 'run': rs_, 'runner': runner_, 'quality': quality, 'ext': len(p.get('ext') or []), 'extWhy': p.get('extWhy'), 'baseWindows': base_w if th else None,
+                    'vel': vl.get('state'), 'velWhy': vl.get('why'), 'run': 'DEAD' if dead_ else ('HEALTHY' if rs_ == 'STALLING' and pct >= 0 and (rv or {}).get('verdict') == 'valid' else rs_), 'runner': runner_, 'deadMin': None if not p.get('deadSince') else round((now - _f(p['deadSince'])) / 60, 1), 'quality': quality, 'ext': len(p.get('ext') or []), 'extWhy': p.get('extWhy'), 'baseWindows': base_w if th else None,
                     'launch': p.get('launch'), 'onTable': bool(x), 'offRadarSec': None if x or not p.get('offSince') else round(now - _f(p.get('offSince'))), 'live': bool(live), 'limits': {'tp': pol.get('tp'), 'sl': pol.get('sl'), 'maxHold': max_hold, 'trail': tr_.get('mode'), 'manual': manual}})
     gone = []
     for m in [m for m in pos if m not in on]:

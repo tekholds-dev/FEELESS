@@ -110,3 +110,39 @@ def test_the_curve_switch_lets_an_agent_seat_buy_a_curve_coin_on_its_curve_depth
     assert not fw.live_buy_market({'side': 'buy', 'mint': 'M', 'trench': True}, pair, cfg)[0]                 # the engine's other doors: never
     ok, why, info = fw.live_buy_market({'side': 'buy', 'mint': 'M', 'trench': True, 'curve': True}, pair, cfg)
     assert info['liq'] > 0                                                                                       # judged on the curve's own depth
+
+
+def _leg(m='D'):
+    return {'mint': m, 'symbol': m, 'pairAddress': 'P' + m, 'entry': 1.0, 'units': 1.0, 'at': 1, 'liq': 30_000, 'liqNow': 30_000, 'bought': {'tag': '🤖 agents · B-tier'}}
+
+
+def test_a_dead_holding_exits_to_cash_after_15_min_without_a_replacement():
+    import office as of
+    row = {'mint': 'D', 'symbol': 'D', 'pair': 'PD', 'px': 0.99, 'why': {'lean': 0.5, 'drivers': []}, 'trigger': ['wait', ''], 'devil': ['—', ''],
+           'nums': {'d5': 0, 'buy': 50, 'liq': 30_000, 'v5': 40, 'pace': 0.1}, 'vitals': {'safe': True, 'rug': 5}}
+    cfg = {'agentTakePct': 20, 'agentScalp': False}
+    pos, rep, _ = of.reap([_leg()], [row], {'PD': 0.99}, cfg, None, 600, control=True)
+    assert rep[0]['rule'] == 'R11 dead coin' and rep[0]['run'] == 'DEAD'
+    assert of.merge_reaper([], [dict(rep[0])], buys_left=0) == []                                  # no replacement yet: swap waits …
+    pos, rep, _ = of.reap([_leg()], [row], {'PD': 0.99}, cfg, pos, 600 + 15 * 60 + 5, control=True)
+    assert rep[0]['rule'] == 'R11x dead coin → cash'
+    out = of.merge_reaper([], [dict(rep[0])], buys_left=0)
+    assert out and out[0]['action'] == 'pull'                                                       # … 15 min dead: cash, no replacement needed
+
+
+def test_an_old_reject_cools_three_times_longer():
+    e = {'review': 1000, 'reject': 'WAIT', 'snap': {'ageH': 30}}
+    assert not oe.review_due(e, 1000 + oe.REVIEW_COOL_SEC + 5)[0]
+    assert oe.review_due(e, 1000 + oe.REVIEW_COOL_SEC * 3 + 5)[0]
+    assert oe.review_due({**e, 'snap': {'ageH': 2}}, 1000 + oe.REVIEW_COOL_SEC + 5)[0]
+
+
+def test_one_active_index_reads_the_same_row_every_desk_reads():
+    rise = [1.0, 1.03, 1.06, 1.05, 1.09, 1.12, 1.15, 1.19]
+    row = {'mint': 'NEW', 'symbol': 'NEW', 'pairAddress': 'Pn', 'price': 1.19, 'ageH': 0.15, 'mcap': 60_000, 'liq': 25_000, 'vol1h': 14_000, 'vol5m': 9_000,
+           'txns1h': 260, 'buyShare': 66, 'chg5m': 9.0, 'chg1h': 19.0, 'safe': True, 'top10': 18, 'src': ['open', 'pulse']}
+    st, table = ag.desk({}, [row], 1000.0, candles={'NEW': _bars(rise, t0=1000.0 - 7 * 60 - 20)})
+    x = next(t for t in table if t['mint'] == 'NEW')
+    ix = next(r for r in oe.active_index(table, {}, 1000.0) if r['mint'] == 'NEW')
+    assert ix['liveMC'] == x['vitals']['mcap'] and ix['launchAgeMin'] == round(x['vitals']['ageH'] * 60, 1) and ix['holderStatus'] == 'passed'
+    assert ix['eligible'] == (opp.hard_fail(x) is None) and ix['realCandles'] is True and ix['fresh'].startswith('EXTREME')

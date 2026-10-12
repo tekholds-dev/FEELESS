@@ -109,6 +109,7 @@ export function FreshBlock({ f }) {
     <div className="sop-ages">
       <span data-tip="coins on the desk this cycle · how many were already on it last cycle · how many are new · rejects cooled until something changes"><small>UNIQUE · REPEAT · NEW · COOLED</small><b>{f.unique} · {f.repeats} · {f.newUnique} · {f.cooled}</b></span>
       <span><small>MEDIAN AGE REVIEWED</small><b>{hm(f.ageReviewedMin)}</b></span>
+      <span><small>MEDIAN AGE CLEARED · HELD</small><b>{hm(f.ageClearedMin)} · {hm(f.ageHeldMin)}</b></span>
       <span data-tip={`median launch age at ENTRY of the agents' real buys — last 24h (${f.bought24h} buys) vs before`}><small>AGE AT ENTRY · 24H vs BEFORE</small><b>{hm(f.boughtAgeMin24h)} vs {hm(f.boughtAgeMinBefore)}</b></span>
       <span data-tip="the first 24 coins asked for real candles (the candles service builds new histories in request order) — now vs the old order"><small>CANDLES FIRST 24 · fresh / old / held</small><b>{al.fresh ?? 0} / {al.old ?? 0} / {al.held ?? 0}</b><u>old order {ab.fresh ?? 0} / {ab.old ?? 0} / {ab.held ?? 0}</u></span>
     </div>
@@ -116,6 +117,24 @@ export function FreshBlock({ f }) {
       <tbody>{f.top.map(t => <tr key={t.symbol}><td>${t.symbol}</td><td>{hm(t.ageMin)}</td><td>{t.mc ? `$${Math.round(t.mc / 1000)}K` : '—'}</td><td>{(t.src || []).join(' · ') || 'board'}</td><td>{t.vpm ?? '—'}</td><td>{t.bpm ?? '—'}</td><td>{t.tier} {t.score != null ? Math.round(t.score) : ''}</td></tr>)}</tbody></table>
       : <p className="sop-note">no coin ranked A / B / C this cycle — the seats wait in cash rather than take a reject</p>}
   </div>;
+}
+
+// ── 📡 RPC LANES: provider + in / out of quota (never a URL) ─────────────────────────────────────────────────────────────────────
+export function RpcLanes({ r }) {
+  if (!r?.lanes?.length) return null;
+  return <div className="sop-ages" data-testid="sop-rpc" data-tip={r.note}><span><small>📡 RPC LANES</small><b>{r.lanes.length}</b></span>
+    {r.lanes.map(l => <span key={l.lane} className={l.spent ? 'is-bad' : 'is-ok'}><small>LANE {l.lane}</small><b>{l.provider}</b><u>{l.spent ? `out of quota · back in ${l.backInMin}m` : 'answering'}</u></span>)}</div>;
+}
+
+// ── 🗂 THE ONE ACTIVE CANDIDATE INDEX: every desk reads this pass's row; eligibility recomputed every pass ─────────────────────────
+export function ActiveIndex({ rows }) {
+  const [all, setAll] = React.useState(false);
+  if (!rows?.length) return null;
+  const shown = all ? rows : rows.slice(0, 12);
+  return <div className="sop-logwrap" data-testid="sop-index"><table className="sop-log"><thead><tr><th>🗂 active index ({rows.filter(r => r.eligible).length} eligible / {rows.length})</th><th>age</th><th>MC</th><th>$/min</th><th>buys/min</th><th>holders</th><th>chart</th><th>phase</th><th>sources</th><th>cooldown</th><th>status</th></tr></thead>
+    <tbody>{shown.map(r => <tr key={r.mint} className={r.eligible ? '' : 'is-old'}><td>${r.symbol}</td><td>{hm(r.launchAgeMin)}</td><td>{r.liveMC ? `$${Math.round(r.liveMC / 1000)}K` : '—'}</td><td>{r.volVelocity ?? '—'}</td><td>{r.buyerVelocity ?? '—'}</td>
+      <td>{r.holderStatus}</td><td>{r.realCandles ? r.chartQuality || 'candles' : 'tape'}</td><td>{r.marketPhase || '—'}</td><td>{(r.sources || []).slice(0, 3).join(' · ') || 'board'}</td><td>{r.cooldownLeft ? secTxt(r.cooldownLeft) : '—'}</td><td>{r.eligible ? 'eligible' : r.why}</td></tr>)}</tbody></table>
+    {rows.length > 12 ? <button type="button" className="m-btn" onClick={() => setAll(a => !a)} data-testid="sop-index-all">{all ? 'Show 12' : `Show all ${rows.length}`}</button> : null}</div>;
 }
 
 // ── 🕸 THE ONE LIVE INTAKE: this cycle's turnover, the latencies, every outlet's funnel ────────────────────────────────────────────
@@ -143,6 +162,8 @@ export function IntakeBlock({ o }) {
       {cell('desknew', 'DESK TURNOVER', c.deskNew != null ? `${c.deskNew} new / ${c.desk}` : '—', 'coins on the desk this pass that were not on it last pass')}
     </div>
     <FreshBlock f={it.fresh} />
+    <RpcLanes r={o?.rpc} />
+    <ActiveIndex rows={o?.index} />
     <div className="sop-ages" data-testid="sop-latency">{[['sourceToIntake', 'SOURCE → INTAKE'], ['intakeToDeep', 'INTAKE → DEEP REVIEW'], ['deepToClear', 'DEEP → CLEAR'], ['clearToSeat', 'CLEAR → SEAT'], ['birthToSeen', 'LAUNCH → FIRST SEEN']].map(([k, label]) =>
       <span key={k} data-tip={`median over the last 6h · ${lat[k]?.n ?? 0} coins`}><small>{label}</small><b>{secTxt(lat[k]?.med)}</b><u>n {lat[k]?.n ?? 0}</u></span>)}</div>
     <div className="sop-logwrap"><table className="sop-log" data-testid="sop-sources"><thead><tr><th>outlet (6h)</th><th>seen</th><th>found first</th><th>promoted</th><th>deep</th><th>cleared</th><th>bought</th><th>won / lost</th><th>median P/L</th><th>rugged</th><th>median hold</th><th>age at entry</th><th>MC at entry</th><th>age first seen</th></tr></thead>
