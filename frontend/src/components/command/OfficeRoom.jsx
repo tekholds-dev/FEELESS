@@ -319,10 +319,10 @@ export function AgentPanel({ o, a, coin, onCoin, tabReq }) {
 export function Roster({ o, sel, onSel }) {
   const alive = (o.agents || []).filter(a => a.card?.status === 'alive').length;
   return <div className="ofr-roster" data-testid="ofr-roster"><small>AGENT ROSTER · {alive} / {(o.agents || []).length} alive</small>
-    <div className="ofr-rgrid">{(o.agents || []).map(a => { const c = a.card || {}; const [tag, word] = agentTag(a.key, o); const net = (c.profit ?? 0) + (c.loss ?? 0); const has = c.profit != null || c.loss != null;
+    <div className="ofr-rgrid">{(o.agents || []).map(a => { const c = a.card || {}; const [tag, word] = agentTag(a.key, o); const net = (c.profit ?? 0) + (c.loss ?? 0); const has = c.profit != null || c.loss != null; const avg = has && c.n ? net / c.n : null;   /* 📏 the AVERAGE per sample — a sum of % over 158 exits read as "−468%" */
       return <button key={a.key} type="button" className={`ofr-rcard ${TAG_CLS[tag] || 'is-wait'} ${sel === a.key ? 'is-on' : ''}`} style={{ '--ag': AG[a.key] }} onClick={() => onSel(a.key)} aria-pressed={sel === a.key} data-tip={`${a.role} ${c.why || ''}`} data-testid={`roster-${a.key}`}>
         <span className="ofr-rhead"><i className="ofr-ricon" aria-hidden>{a.icon}</i><span><b>{a.name}</b><u>gen {c.gen ?? 1} · <i className={c.status === 'alive' ? 'ofr-pos' : 'ofr-warn'}>● {c.status || '—'}</i></u></span>
-          <em className={net > 0 ? 'ofr-pos' : net < 0 ? 'ofr-neg' : ''} data-tip={c.unit || 'contribution: nothing measured yet'}>{has ? sgn(net) : '—'}</em></span>
+          <em className={net > 0 ? 'ofr-pos' : net < 0 ? 'ofr-neg' : ''} data-tip={has ? `avg per sample (${c.n || 0}) · ${c.unit || ''} · sum ${sgn(net)}` : 'contribution: nothing measured yet'} data-testid={`roster-net-${a.key}`}>{avg != null ? `${sgn(avg)} avg` : has ? sgn(net) : '—'}</em></span>
         <span className="ofr-rmid" data-tip={`runtime per pass, last ${(o.performance?.agents?.[a.key]?.series || []).length} passes (ms)`}><Spark xs={o.performance?.agents?.[a.key]?.series} /><span><b data-tip="right % on its own judged record">{c.accuracy == null ? '—' : `${c.accuracy}%`}</b><u>n {c.n ?? 0} · conf {c.confidence != null ? `${Math.round(c.confidence * 100)}%` : '—'} · {ms(c.latency?.last)}</u></span></span>
         <span className="ofr-rtag" data-tip={word}>{tag}</span></button>; })}</div></div>;
 }
