@@ -81,7 +81,10 @@ def review(p):
             resp['sherlock'] = 20   # the reasons pointed in
         if cause == 'rugged':
             resp['warden'] = 30     # it was sized into it
-    return {**base, 'kind': 'loss', 'cause': cause, 'desk': desk, 'severity': sev, 'change': change, 'resp': resp,
+    if pct <= -10 and tier in ('B', 'C') and p.get('warden') is not None and _f(p.get('warden')) >= 0.75:   # 🛡 a low-confidence entry at ≥ 75% of a seat: the Warden sized too large
+        resp['warden'] = max(resp['warden'], 50)
+    sized_ = resp['warden'] >= 50 and cause != 'rugged'
+    return {**base, 'kind': 'loss', 'cause': cause, 'desk': desk, 'oversized': sized_, 'severity': sev, 'change': change, 'resp': resp,
             'decision': 'valid decision that lost' if cause == 'variance' else 'bad decision',
             'lesson': change if cause != 'variance' else 'the setup was valid — keep taking it; size handles the variance'}
 

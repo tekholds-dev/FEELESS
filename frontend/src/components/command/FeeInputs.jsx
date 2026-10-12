@@ -18,7 +18,7 @@ export function useSolUsd() {
   useEffect(() => {
     let alive = true;
     const SOL = 'So11111111111111111111111111111111111111112';
-    fetch(`https://lite-api.jup.ag/price/v3?ids=${SOL}`).then(r => r.json()).then(d => alive && setPx(Number(d?.[SOL]?.usdPrice) || null)).catch(() => {});
+    fetch(`/api/candles/prices?mints=${SOL}`).then(r => r.json()).then(d => alive && setPx(Number(d?.[SOL]) || null)).catch(() => {});
     return () => { alive = false; };
   }, []);
   return px;

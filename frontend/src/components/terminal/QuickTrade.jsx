@@ -79,7 +79,7 @@ function QuickTradeInner({ pair }) {
   useEffect(() => { try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch {} }, [prefs]);
   useEffect(() => {
     let alive = true;
-    fetch(`https://lite-api.jup.ag/price/v3?ids=${SOL}`).then(r => r.json()).then(d => alive && setSolUsd(Number(d?.[SOL]?.usdPrice) || null)).catch(() => {});
+    fetch(`/api/candles/prices?mints=${SOL}`).then(r => r.json()).then(d => alive && setSolUsd(Number(d?.[SOL]) || null)).catch(() => {});
     return () => { alive = false; };
   }, []);
   useEffect(() => {

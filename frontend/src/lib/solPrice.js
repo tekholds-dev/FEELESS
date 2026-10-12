@@ -5,8 +5,8 @@ const SOL = 'So11111111111111111111111111111111111111112';
 let cache = { at: 0, p: null, pending: null };
 export function getSolPrice() {
   if (cache.p && Date.now() - cache.at < 60000) return Promise.resolve(cache.p);
-  if (!cache.pending) cache.pending = fetch(`https://lite-api.jup.ag/price/v3?ids=${SOL}`).then(r => r.json())
-    .then(d => { cache = { at: Date.now(), p: Number(d?.[SOL]?.usdPrice) || null, pending: null }; return cache.p; })
+  if (!cache.pending) cache.pending = fetch(`/api/candles/prices?mints=${SOL}`).then(r => r.json())   // the server's shared live price (the browser never calls Jupiter itself: it 429'd)
+    .then(d => { cache = { at: Date.now(), p: Number(d?.[SOL]) || null, pending: null }; return cache.p; })
     .catch(() => { cache.pending = null; return cache.p; });
   return cache.pending;
 }

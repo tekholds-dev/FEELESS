@@ -47,3 +47,9 @@ def test_a_promoted_rule_is_a_ranking_penalty_never_a_veto():
     row = {'mint': 'M', 'px': 1, 'vitals': {'safe': True, 'liq': 15_000, 'mcap': 50_000, 'rug': 5}, 'nums': {'liq': 15_000, 'd5': 1}, 'chart': {'state': 'UPTREND'}, 'why': {'lean': 1}}
     plain = op.score(row)[0]; pen = op.score(row, pens={'thin pool': -8.0})[0]
     assert pen == plain - 8 and op.hard_fail(row) is None
+
+
+def test_warden_shares_the_blame_for_a_low_confidence_seat_sized_large():
+    r = jr.review(pos('O', -18, tag='🤖 agents · C-tier', warden=1.0, thesis={'structure': 'RANGE', 'call': 'ENTER NOW'}))
+    assert r['oversized'] and r['resp']['warden'] >= 50
+    assert not jr.review(pos('O2', -18, tag='🤖 agents · A-tier', warden=1.0))['oversized']   # a full A seat was the right size

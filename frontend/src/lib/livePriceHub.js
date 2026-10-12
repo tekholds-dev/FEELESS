@@ -13,12 +13,12 @@ async function poll() {
   for (let i = 0; i < mints.length; i += 50) {
     try {
       const batch = mints.slice(i, i + 50);
-      const res = await fetch(`https://lite-api.jup.ag/price/v3?ids=${batch.join(',')}`);
+      const res = await fetch(`/api/candles/prices?mints=${batch.join(',')}`);   // the server's shared live price (one source, one cache)
       if (!res.ok) continue;
       const body = await res.json();
       let changed = false;
       batch.forEach(m => {
-        const usd = Number(body?.[m]?.usdPrice);
+        const usd = Number(body?.[m]);
         if (usd > 0 && prices.get(m) !== usd) { prices.set(m, usd); changed = true; }
       });
       if (changed) listeners.forEach(fn => fn());

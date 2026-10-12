@@ -3167,8 +3167,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🕯 ONE PRICE FEED PER CANDLE (2026-10-11, "current candle glitches up and all the way down"): the chart's backup poll ran beside the stream
   and called Jupiter FROM THE BROWSER — on a 429 it fell back to DexScreener's single-pool price, a second feed on the same candle. Now
   `lib/livePrice` reads `GET /api/candles/price/{chain}/{pair}` / `GET /api/candles/prices?mints=` (the stream's own source + cache), the poll
-  runs ONLY while the stream is down, and a 15–60s history reload keeps the live forming candle (`lib/tween.mergeLiveBar`). Still calling
-  lite-api.jup.ag from the browser (not on the chart path): FusePage, FuseEvolve, QuickTrade, FeeInputs, lib/livePriceHub, lib/solPrice.
+  runs ONLY while the stream is down, and a 15–60s history reload keeps the live forming candle (`lib/tween.mergeLiveBar`). The browser
+  NEVER calls lite-api.jup.ag: every price (SOL hints, live price hub, Fuse pages, quick trade) reads `/api/candles/prices?mints=`.
 - 🎯 Universe applied BEFORE intake (`ob_` filtered by `in_lane` / held in `_agents_tick`): filtering after intake let $200K+ coins take the
   slots and 26 safe sub-$200K pools never reached the desk (127 read, 125 hard-failed, card empty). `in_lane` = live cap $10K … $200K
   (`AGENT_MIN_MCAP`) with ≥ $1K traded in the hour (`AGENT_MIN_VOL1H`) — owner: "no min starting thresholds, starting mc 10k with vol".

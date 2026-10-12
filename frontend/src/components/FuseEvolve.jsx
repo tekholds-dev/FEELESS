@@ -31,7 +31,7 @@ export function FuseEvolve({ call, onLoad, maxLegs = 10 }) {
   const [style, setStyle] = useState('yield'); const [legs, setLegs] = useState(3); const [gens, setGens] = useState(16); const [budget, setBudget] = useState(5);
   const [solUsd, setSolUsd] = useState(null); const [d, setD] = useState(null); const [shown, setShown] = useState(0); const [busy, setBusy] = useState(false); const [blood, setBlood] = useState(false);
   const timer = useRef(null);
-  useEffect(() => { fetch(`https://lite-api.jup.ag/price/v3?ids=${SOL}`).then(r => r.json()).then(x => setSolUsd(Number(x?.[SOL]?.usdPrice) || null)).catch(() => {}); return () => clearInterval(timer.current); }, []);
+  useEffect(() => { fetch(`/api/candles/prices?mints=${SOL}`).then(r => r.json()).then(x => setSolUsd(Number(x?.[SOL]) || null)).catch(() => {}); return () => clearInterval(timer.current); }, []);
   const sol = solUsd ? budget / solUsd : null;
   const run = async () => {
     setBusy(true); setD(null); setShown(0); clearInterval(timer.current);

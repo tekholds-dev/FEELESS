@@ -9,7 +9,7 @@ const CH = (n, f) => ({ pools: [`a${n}`, `b${n}`], fitness: f, bornGen: 2, parts
   legs: [{ pairAddress: `a${n}`, symbol: 'AAA', quote: 'SOL', weight: 60, chainId: 'solana' }, { pairAddress: `b${n}`, symbol: 'BBB', quote: 'SOL', weight: 40, chainId: 'solana' }] });
 
 test('evolve: sends strategy + budget, replays generations, loads a champion into the Lab', async () => {
-  global.fetch = jest.fn(async () => ({ json: async () => ({ So11111111111111111111111111111111111111112: { usdPrice: 200 } }) }));
+  global.fetch = jest.fn(async () => ({ json: async () => ({ So11111111111111111111111111111111111111112: 200 }) }));
   const call = jest.fn(async () => ({ history: [{ gen: 0, best: 40, avg: 20 }, { gen: 1, best: 55, avg: 30 }], champions: [CH(1, 55), CH(2, 50)], pool: 20, evaluated: 64 }));
   const onLoad = jest.fn();
   const el = document.createElement('div'); document.body.appendChild(el);
