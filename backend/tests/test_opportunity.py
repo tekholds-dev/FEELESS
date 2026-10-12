@@ -69,7 +69,7 @@ def test_counts_for_the_page():
 
 
 def test_the_tier_shrinks_on_top_of_the_other_rules_never_masked_by_them():
-    young = {'liq': 500_000, 'ageH': 0.5, 'courier': 'OK', 'near': 'x'}                  # W4 young already halves the seat
+    young = {'liq': 500_000, 'ageH': 0.1, 'courier': 'OK', 'near': 'x'}                  # W4 young already halves the seat
     a, c = (of.warden(1.0, {**young, 'tier': k})['allowed'] for k in ('A', 'C'))
     assert a == 0.5 and c == 0.25 and c < a                                              # as the "smallest rule" C was masked: both read 0.5
 

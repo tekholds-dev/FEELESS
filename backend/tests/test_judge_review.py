@@ -44,7 +44,7 @@ def test_unrelated_losses_do_not_tighten_anything():
 
 
 def test_a_promoted_rule_is_a_ranking_penalty_never_a_veto():
-    row = {'mint': 'M', 'px': 1, 'vitals': {'safe': True, 'liq': 15_000, 'mcap': 50_000, 'rug': 5}, 'nums': {'liq': 15_000, 'd5': 1}, 'chart': {'state': 'UPTREND'}, 'why': {'lean': 1}}
+    row = {'mint': 'M', 'px': 1, 'vitals': {'safe': True, 'liq': 15_000, 'mcap': 50_000, 'rug': 5, 'ageH': 1.0}, 'nums': {'liq': 15_000, 'd5': 1}, 'chart': {'state': 'UPTREND'}, 'why': {'lean': 1}}
     plain = op.score(row)[0]; pen = op.score(row, pens={'thin pool': -8.0})[0]
     assert pen == plain - 8 and op.hard_fail(row) is None
 

@@ -65,7 +65,7 @@ export const liCells = li => { if (!li) return [];
   const rec = li.clsRec ? ` · this class: ${li.clsRec.n} launches, typical ${li.clsRec.med > 0 ? '+' : ''}${li.clsRec.med}% an hour, ${li.clsRec.rug}% rugged` : '';
   const PUMP_T = { 'EARLY ACCELERATION': 'good', 'FIRST PULLBACK': 'good', RECLAIM: 'good', BREAKOUT: 'good', 'LATE FOMO': 'bad', DISTRIBUTION: 'bad', COLLAPSE: 'bad' };
   const EWP_T = { POSITIVE: 'good', NEUTRAL: '', WARNING: 'warn', DUMPING: 'bad' };
-  return [['freshness', li.fresh || '—', /12h\+ dep/.test(li.fresh || '') ? 'warn' : /EXTREME|VERY HIGH|HIGH/.test(li.fresh || '') ? 'good' : '', '0–15m extreme · 15–60m very high · 1–3h high · 3–6h medium · 6–12h low-medium · 12h+ deprioritised unless waking up'],
+  return [['freshness', li.fresh || '—', /6h\+/.test(li.fresh || '') ? 'warn' : /EXTREME|VERY HIGH|HIGH/.test(li.fresh || '') ? 'good' : '', '0–5m extreme · 5–15m very high · 15–60m high · 1–3h medium-high · 3–6h medium · 6h+ no new entry'],
     ['launch age', age(li.ageH), '', 'time since the pool was created'], ['MC', big(li.mcap), '', 'live market cap'],
     ['vol velocity', li.vpm == null ? '—' : `$${li.vpm >= 1000 ? `${(li.vpm / 1000).toFixed(1)}K` : Math.round(li.vpm)}/min`, li.vpm >= 1000 ? 'good' : li.vpm != null && li.vpm < 100 ? 'warn' : '', '$ traded per minute over the coin\'s own life (≤ 60 min) — a 3-minute-old coin is not judged against an hour it has not lived'],
     ['buyer velocity', li.bpm == null ? '—' : `${li.bpm}/min`, li.bpm >= 2 ? 'good' : '', 'buys per minute over its own life'],

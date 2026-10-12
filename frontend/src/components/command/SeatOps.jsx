@@ -21,11 +21,46 @@ export function Vel({ v, why }) {
 // ── the strip above the room: OCCUPANCY x/4 · TARGET · BENCH · BUYS LEFT · CASH + one tile per seat ──────────────────────────────
 const HUNT = { trench: 'NEW COINS', mixed: 'NEW + MAJORS', majors: 'MAJORS' };   // seat_ops.universe: recovery → new coins first · ≥ 2× → majors
 
+// ── ⏱ THE ROUND BAR: the desk's 5-minute clock + everything the spec asks to see at a glance (one payload, nothing fetched) ──────────
+const AGE_BANDS = ['0–5m', '5–15m', '15–60m', '1–3h', '3–6h'];
+const mmss = s => (s == null ? '—' : `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`);
+export function RoundBar({ o }) {
+  const r = o?.rounds; if (!r) return null;
+  const b = o?.cycle?.fresh?.buckets || {}; const op = o?.opp || {}; const fr = o?.fresh || {}; const s = o?.seatSummary || {};
+  const age = v => (v == null ? '—' : `${Math.round(v)}s`);
+  const cell = (k, l, v, tip, cls) => <span key={k} className={`sop-chip ${cls || ''}`} data-tip={tip} data-testid={`rb-${k}`}><small>{l}</small><b>{v}</b></span>;
+  return <div className="sop-sum sop-rounds" data-testid="round-bar">
+    {cell('round', 'ROUND', `${r.desk?.n ?? '—'} · ${mmss(r.desk?.left)} left`, 'the desk\'s 5-minute clock; every candidate also runs its own round 1 → 2 → 3 from the pass it was first seen')}
+    {cell('cands', 'R1 · R2 · R3', `${r.round?.['1'] ?? 0} · ${r.round?.['2'] ?? 0} · ${r.round?.['3'] ?? 0}`, 'candidates in round 1 (discovery) · round 2 (confirm) · round 3 (decide) — none waits past round 3')}
+    {cell('dec', 'DECIDED 1H', `${r.decided1h?.ENTER ?? 0} in · ${r.decided1h?.REJECT ?? 0} no · ${r.decided1h?.COOLDOWN ?? 0} cool`, `ENTER · REJECT · COOLDOWN in the last hour — average ${r.avgRounds ?? '—'} rounds before a decision`)}
+    {cell('new', 'NEW MINTS', AGE_BANDS.map(k => b[k] ?? 0).join(' · '), `on the desk this cycle by launch age: ${AGE_BANDS.join(' · ')}`)}
+    {cell('screen', 'SCREENED → DEEP', `${o?.cycle?.screened ?? '—'} → ${o?.cycle?.reviewed ?? '—'}`, 'cheap Tally screen of the whole feed → coins given the expensive reads (holders · chart · social)')}
+    {cell('tiers', 'A · B · C · NO', `${op.A ?? 0} · ${op.B ?? 0} · ${op.C ?? 0} · ${op.hard ?? 0}`, 'opportunity tiers of this pass; NO = a hard safety / universe failure')}
+    {cell('bench', 'SEATS · BENCH', `${s.occupancy ?? 0}/${s.target ?? 4} · ${s.bench ?? 0}`, 'seats holding a coin · challengers behind them')}
+    {cell('ages', 'PRICE · TAPE · CANDLE · LIQ · DECISION', [fr.price, fr.tape, fr.candle, fr.liquidity, fr.decision].map(age).join(' · '), 'how old each input behind the decisions really is', fr.price > 30 || fr.candle > 90 ? 'is-warn' : '')}
+  </div>;
+}
+
+// ⏱ ROUND HISTORY (Archivist): each finished candidate — round 1 read · round 2 read · round 3 decision — so patience is judged, not assumed
+const DEC_CLS = { ENTER: 'is-ok', REJECT: 'is-bad', COOLDOWN: 'is-wait' };
+export function RoundHistory({ r, onCoin }) {
+  const h = r?.recent || [];
+  if (!h.length) return null;
+  return <div data-testid="round-history"><small>ROUND HISTORY · LAST {h.length}</small>
+    <ul className="sop-board">{h.map((x, i) => <li key={`${x.sym}-${x.at}-${i}`}>
+      <span className="sop-k"><button type="button" className="sop-coin" onClick={() => onCoin && onCoin(x.sym)}>${x.sym}</button></span>
+      <span className="sop-v"><i className={`sop-tag ${DEC_CLS[x.decision] || ''}`}>{x.decision}</i> after {x.rounds} round{x.rounds === 1 ? '' : 's'}</span>
+      <span className="sop-full">{(x.reads || []).map(rd => `R${rd.round} ${rd.tier || '—'} ${rd.score != null ? Math.round(rd.score) : '—'}${rd.phase ? ` ${rd.phase.toLowerCase()}` : ''}`).join(' → ')} · {x.why}</span></li>)}</ul></div>;
+}
+
 export function SeatStrip({ o, onSeat, sel }) {
   const sb = o?.seatBoard || []; const s = o?.seatSummary;
   if (!s && !sb.length) return null;
+  const posOf = sym => (o?.positions || []).find(p => p.symbol === sym);
+  const candOf = sym => (o?.rounds?.live || []).find(c => c.sym === sym);
   const chip = (k, l, v, cls, tip) => <span key={k} className={`sop-chip ${cls || ''}`} data-tip={tip} data-testid={`sop-${k}`}><small>{l}</small><b>{v}</b></span>;
   return <div className="sop-strip" data-testid="sop-strip">
+    <RoundBar o={o} />
     <div className="sop-sum">
       {chip('occ', 'OCCUPANCY', s ? `${s.occupancy} / ${s.target}` : '—', s && s.occupancy >= s.target ? 'is-ok' : 'is-warn', 'seats holding a coin now / seats the card runs')}
       {chip('target', 'TARGET', s ? `${s.target} / ${s.target}` : '—', '', 'every seat filled — whenever that many defensible coins exist (cash is a valid position)')}
@@ -42,13 +77,13 @@ export function SeatStrip({ o, onSeat, sel }) {
           data-tip={`Seat ${x.seat} is open — ${x.code || ''}: ${x.block || ''}`}>
           <span className="sop-head"><small>SEAT {x.seat}</small><em>OPEN</em></span>
           <b>{x.next ? `next $${x.next.symbol}` : 'no candidate'}</b>
-          <span className="sop-line">{x.ready ? <i className="sop-ok">READY</i> : <i className="sop-wait">{x.code || 'NOT READY'}</i>}{x.nextEval != null ? <u>{x.nextEval}s</u> : null}</span>
+          <span className="sop-line">{x.ready ? <i className="sop-ok">READY</i> : <i className="sop-wait">{x.code || 'NOT READY'}</i>}{x.next && candOf(x.next.symbol) ? <u data-testid={`sop-seat-round-${x.seat}`}>{candOf(x.next.symbol).tier || '—'}-tier · R{candOf(x.next.symbol).round}</u> : null}{x.nextEval != null ? <u>{x.nextEval}s</u> : null}</span>
           <span className="sop-why">{short(x.block, 70)}</span></button>
       : <button key={x.seat} type="button" className={`sop-seat ${RES_CLS[x.result] || ''} ${sel && sel === x.symbol ? 'is-on' : ''}`} onClick={() => onSeat && onSeat(x)} data-testid={`sop-seat-${x.seat}`}
           data-tip={`$${x.symbol} — ${x.result}: ${x.why || ''}`}>
           <span className="sop-head"><small>SEAT {x.seat}</small><em className={`sop-res ${RES_CLS[x.result] || ''}`}>{x.result}</em></span>
           <b>${x.symbol} <span className={pcls(x.pct)}>{pct(x.pct)}</span></b>
-          <span className="sop-line"><Vel v={x.vel} why={x.velWhy} />{x.heldMin != null ? <u>{Math.round(x.heldMin)}m</u> : null}</span>
+          <span className="sop-line"><Vel v={x.vel} why={x.velWhy} />{x.heldMin != null ? <u>{Math.round(x.heldMin)}m</u> : null}{posOf(x.symbol)?.posRound ? <u data-testid={`sop-seat-round-${x.seat}`} data-tip={`round ${posOf(x.symbol).posRound.round} of this position · ${posOf(x.symbol).roundAction} · MFE ${pct(posOf(x.symbol).mfe)} · MAE ${pct(posOf(x.symbol).mae)}`}>R{posOf(x.symbol).posRound.round} {posOf(x.symbol).roundAction}</u> : null}</span>
           <span className="sop-why">{x.score != null ? `score ${Math.round(x.score)}` : 'unscored'}{x.challenger ? ` · vs $${x.challenger.symbol} ${x.margin != null ? `${x.margin >= 0 ? '+' : ''}${Math.round(x.margin)}/${Math.round(x.need)}` : ''}` : ' · no challenger'}</span></button>)}</div>
   </div>;
 }
@@ -63,6 +98,7 @@ export function SeatsPane({ o, onCoin, focus }) {
     <OpsLine o={o?.ops} />
     <CycleLine c={o?.cycle} load={o?.loadPass} />
     <IntakeBlock o={o} />
+    <RoundHistory r={o?.rounds} onCoin={onCoin} />
     <small>EVERY SEAT · THIS CYCLE</small>
     <ul className="sop-board">{sb.length ? sb.map(x => <li key={x.seat} className={`${x.empty ? 'is-open' : ''} ${focus && focus === (x.symbol || `seat${x.seat}`) ? 'is-on' : ''}`} data-testid={`sop-row-${x.seat}`}>
       {x.empty ? <>
@@ -99,13 +135,13 @@ export function SeatsPane({ o, onCoin, focus }) {
 
 // ── 🆕 THE FRESH-TRENCH PIPELINE: is the attention (and the buying) on 0–12h coins? ─────────────────────────────────────────────────
 const hm = m => (m == null ? '—' : m < 90 ? `${Math.round(m)}m` : m < 2880 ? `${(m / 60).toFixed(1)}h` : `${Math.round(m / 1440)}d`);
-export const FRESH_BUCKETS = ['0–15m', '15–60m', '1–3h', '3–6h', '6–12h', '12h+'];
+export const FRESH_BUCKETS = ['0–5m', '5–15m', '15–60m', '1–3h', '3–6h', '6h+'];
 export function FreshBlock({ f }) {
   if (!f) return null;
   const al = f.candles?.allocFirst || {}; const ab = f.candles?.allocBefore || {};
   return <div className="sop-fresh" data-testid="sop-fresh"><small>🆕 FRESH TRENCH · where the agents' attention went this cycle</small>
     <table className="sop-log"><thead><tr><th>age</th>{FRESH_BUCKETS.map(b => <th key={b}>{b}</th>)}</tr></thead><tbody>
-      {[['on the desk', f.buckets], ['deep reviewed', f.deep], ['cleared', f.cleared]].map(([k, v]) => <tr key={k}><td>{k}</td>{FRESH_BUCKETS.map(b => <td key={b} className={b === '12h+' ? 'is-old' : ''}>{v?.[b] ?? 0}</td>)}</tr>)}</tbody></table>
+      {[['on the desk', f.buckets], ['deep reviewed', f.deep], ['cleared', f.cleared]].map(([k, v]) => <tr key={k}><td>{k}</td>{FRESH_BUCKETS.map(b => <td key={b} className={b === '6h+' ? 'is-old' : ''}>{v?.[b] ?? 0}</td>)}</tr>)}</tbody></table>
     <div className="sop-ages">
       <span data-tip="coins on the desk this cycle · how many were already on it last cycle · how many are new · rejects cooled until something changes"><small>UNIQUE · REPEAT · NEW · COOLED</small><b>{f.unique} · {f.repeats} · {f.newUnique} · {f.cooled}</b></span>
       <span><small>MEDIAN AGE REVIEWED</small><b>{hm(f.ageReviewedMin)}</b></span>

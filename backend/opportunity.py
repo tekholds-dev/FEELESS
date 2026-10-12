@@ -27,10 +27,11 @@ def _f(v):
         return 0.0
 
 
-# 🆕 FRESHNESS LADDER (owner, 2026-10-11): new entries come from 0–12h coins, the first 0–3h above all. 12h+ is deprioritised (never rejected)
-# unless it is waking up again (volume pace ≥ 2× its hour on ≥ $3K in 5 min).
-FRESH_LADDER = ((0.25, 'EXTREME 0–15m', 16), (1.0, 'VERY HIGH 15–60m', 13), (3.0, 'HIGH 1–3h', 10), (6.0, 'MEDIUM 3–6h', 6), (12.0, 'LOW-MED 6–12h', 2))
-OLD_H, OLD_PTS = 12.0, -10
+# 🆕 FRESHNESS LADDER (owner's trench-desk spec, 2026-10-12): the NEW-ENTRY universe is ≤ 6h old — 0–5m extreme · 5–15m very high ·
+# 15–60m high · 1–3h medium-high · 3–6h medium. Older = no new autonomous entry (`hard_fail`); held winners keep running.
+FRESH_LADDER = ((5 / 60, 'EXTREME 0–5m', 18), (0.25, 'VERY HIGH 5–15m', 15), (1.0, 'HIGH 15–60m', 12), (3.0, 'MEDIUM-HIGH 1–3h', 8), (6.0, 'MEDIUM 3–6h', 4))
+MAX_AGE_H = 6.0                   # 🚫 a coin older than this (or of unknown age) never gets a NEW autonomous entry
+OLD_H, OLD_PTS = 6.0, -10
 YOUNG_VERTICAL = 100.0            # a coin under 15 min: its "5-min move" is mostly launch → now — only +100% in 5 min is a vertical candle
 
 
@@ -54,7 +55,7 @@ def fresh_bucket(row):
     for h, label, pts in FRESH_LADDER:
         if am < h * 60:
             return label, pts
-    return ('12h+ (waking up)', 0) if reawake(row) else ('12h+ deprioritised', OLD_PTS)
+    return ('6h+ no new entry', OLD_PTS)
 
 
 def velocity(row):
@@ -104,8 +105,14 @@ def hard_fail(row, mcap_cap=MAX_MCAP, min_liq=MIN_LIQ):
         return 'failed the holder safety scan'
     if v.get('safe') is not True:
         return 'holders not read yet'
-    if v.get('mcap') is not None and _f(v['mcap']) >= mcap_cap:
-        return f"market cap ${_f(v['mcap']) / 1e6:.1f}M ≥ ${mcap_cap / 1e6:.0f}M"
+    if v.get('mcap') is None or _f(v['mcap']) <= 0:   # 🎯 unknown cap is not eligible until it is resolved
+        return 'market cap unknown'
+    if _f(v['mcap']) >= mcap_cap:
+        return f"market cap ${_f(v['mcap']) / 1e3:.0f}K ≥ ${mcap_cap / 1e3:.0f}K"
+    if v.get('ageH') is None:   # 🕐 unknown age never masquerades as fresh
+        return 'launch age unknown'
+    if _f(v['ageH']) > MAX_AGE_H:
+        return f"{_f(v['ageH']):.1f}h old — no new entry past {MAX_AGE_H:g}h"
     liq = _f(n.get('liq') or v.get('liq'))
     if liq < min_liq:
         return f'pool ${liq / 1000:.0f}K under ${min_liq / 1000:.0f}K'
@@ -115,6 +122,8 @@ def hard_fail(row, mcap_cap=MAX_MCAP, min_liq=MIN_LIQ):
     if hd:
         return f'Devil hard veto: {hd[0]}'
     li = x.get('li') or {}
+    if x.get('mp') in ('DISTRIBUTION', 'COLLAPSE'):   # 📈 the live chart's trench phase: never a new entry into distribution / a collapse
+        return f"chart phase {x['mp']}"
     if li.get('phase') == 'DISTRIBUTION':   # 🕵 exit-liquidity FOMO: up big while the early wallets sell into it — we would be their exit
         return 'distribution — ' + '; '.join((li.get('phaseWhy') or [])[:2])
     if li.get('press') == 'HIGH':
@@ -201,6 +210,9 @@ def score(row, lost=(), meta=None, pens=None):
     pp = li.get('pump')
     if pp:   # 🎢 the Pump entry phase: early acceleration / first pullback / reclaim / healthy breakout preferred; late FOMO avoided
         add(f'pump {pp.lower()}', {'EARLY ACCELERATION': 8, 'FIRST PULLBACK': 8, 'RECLAIM': 7, 'BREAKOUT': 5, 'DISCOVERY': 2, 'RUNNING': 0, 'LATE FOMO': -12}.get(pp, 0))
+    mp = x.get('mp')   # 📈 the live chart's TRENCH PHASE (market_wake.PHASES): prefer the early ones, avoid the late ones
+    if mp:
+        add(f'chart {mp.lower()}', {'EARLY ACCELERATION': 6, 'FIRST PULLBACK': 6, 'RECLAIM': 6, 'BREAKOUT': 4, 'DISCOVERY': 0, 'RUNNING': 0, 'LATE FOMO': -15, 'REVERSAL': -10}.get(mp, 0))
     ewp = li.get('ewp')
     if ewp:
         add(f'early wallets {ewp.lower()}', {'POSITIVE': 5, 'NEUTRAL': 0, 'WARNING': -6, 'DUMPING': -14}.get(ewp, 0))

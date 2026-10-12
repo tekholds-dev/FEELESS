@@ -27,12 +27,12 @@ def test_a_new_accelerating_launch_outranks_a_flat_old_coin_with_more_history():
     old = _row('OLD', 300, 900, 40_000, 300, 50, 0.3, 0.1, ci.compact(ci.read(_bars(flat))) if hasattr(ci, 'compact') else ci.read(_bars(flat)), liq=150_000, mcap=180_000)
     rise = [1.0, 1.04, 1.09, 1.12, 1.18, 1.22, 1.27, 1.33]
     new = _row('NEW', 8 / 60, 9_000, 14_000, 260, 66, 3.0, 9.0, ci.read(_bars(rise)), liq=25_000, mcap=60_000)
-    assert opp.hard_fail(new) is None and opp.hard_fail(old) is None
+    assert opp.hard_fail(new) is None and 'no new entry past 6h' in opp.hard_fail(old)   # a 300h coin is not a new entry at all now
     s_old, s_new = opp.score(old)[0], opp.score(new)[0]
     assert s_new > s_old
     ranked = [r['mint'] for r in opp.rank([old, new])]
     assert ranked[0] == 'NEW'
-    assert opp.fresh_bucket(new)[0].startswith('EXTREME') and opp.fresh_bucket(old)[0] == '12h+ deprioritised'
+    assert opp.fresh_bucket(new)[0].startswith('VERY HIGH') and opp.fresh_bucket(old)[0] == '6h+ no new entry'
 
 
 def test_velocity_is_normalised_by_the_coins_own_life():
@@ -50,7 +50,7 @@ def test_the_candle_budget_goes_to_fresh_busy_coins_first_and_held_last():
     rows = [{'mint': 'OLD', 'pairAddress': 'Po', 'ageH': 200, 'vol5m': 90_000}, {'mint': 'NEWQ', 'pairAddress': 'Pq', 'ageH': 0.05, 'vol5m': 500},
             {'mint': 'NEWB', 'pairAddress': 'Pb', 'ageH': 0.1, 'vol5m': 20_000}, {'mint': 'MID', 'pairAddress': 'Pm', 'ageH': 2, 'vol5m': 30_000}]
     order = list(oe.candle_order(rows, {'MID': 'Pm'}, {'HELD': 'Ph'}))
-    assert order == ['MID', 'NEWB', 'NEWQ', 'OLD', 'HELD']
+    assert order == ['MID', 'NEWQ', 'NEWB', 'OLD', 'HELD']   # 0–5m is the extreme band (trench-desk spec), then 5–15m
 
 
 def test_a_fresh_launch_with_real_candles_reaches_trigger_and_can_clear():
@@ -100,7 +100,7 @@ def test_judge_classifies_every_loss():
 def test_fresh_view_counts_buckets_repeats_and_age_at_entry():
     t = [{'mint': 'A', 'vitals': {'ageH': 0.1}}, {'mint': 'B', 'vitals': {'ageH': 2}}, {'mint': 'C', 'vitals': {'ageH': 40}}]
     v = oe.fresh_view(t, deep=['A'], prev=['C'], positions=[{'since': 99_000, 'launch': {'ageH': 0.5}}, {'since': 1, 'launch': {'ageH': 50}}], now=100_000)
-    assert v['buckets']['0–15m'] == 1 and v['buckets']['12h+'] == 1 and v['deep']['0–15m'] == 1
+    assert sum(v['buckets'][k] for k in ('0–5m', '5–15m')) == 1 and v['buckets']['6h+'] == 1 and sum(v['deep'][k] for k in ('0–5m', '5–15m')) == 1
     assert v['repeats'] == 1 and v['newUnique'] == 2 and v['boughtAgeMin24h'] == 30 and v['boughtAgeMinBefore'] == 3000
 
 
@@ -145,7 +145,7 @@ def test_one_active_index_reads_the_same_row_every_desk_reads():
     x = next(t for t in table if t['mint'] == 'NEW')
     ix = next(r for r in oe.active_index(table, {}, 1000.0) if r['mint'] == 'NEW')
     assert ix['liveMC'] == x['vitals']['mcap'] and ix['launchAgeMin'] == round(x['vitals']['ageH'] * 60, 1) and ix['holderStatus'] == 'passed'
-    assert ix['eligible'] == (opp.hard_fail(x) is None) and ix['realCandles'] is True and ix['fresh'].startswith('EXTREME')
+    assert ix['eligible'] == (opp.hard_fail(x) is None) and ix['realCandles'] is True and ix['fresh'] == opp.fresh_bucket(x)[0] and ix['fresh'].startswith(('EXTREME', 'VERY HIGH'))
 
 
 def test_the_agents_own_holder_line_passes_concentration_only_and_never_a_rugger():

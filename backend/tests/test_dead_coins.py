@@ -7,7 +7,7 @@ import trench_brain as tb
 
 
 def _row(v5, pace=1.0, **kw):
-    return {'mint': 'M', 'px': 1.0, 'nums': {'v5': v5, 'pace': pace, 'liq': 50_000, 'd5': 0}, 'vitals': {'safe': True, 'mcap': 100_000, 'liq': 50_000}, **kw}
+    return {'mint': 'M', 'px': 1.0, 'nums': {'v5': v5, 'pace': pace, 'liq': 50_000, 'd5': 0}, 'vitals': {'safe': True, 'mcap': 100_000, 'liq': 50_000, 'ageH': 1.0}, **kw}
 
 
 def test_dead_now_reads_the_last_5_minutes():
@@ -25,7 +25,7 @@ def test_a_dead_coin_is_a_hard_no():
 
 def test_majors_and_stocks_are_never_in_the_agents_lane():
     stock = next(iter(fuse.STOCKS))
-    r = {'mint': stock, 'mcap': 100_000, 'vol1h': 50_000}
+    r = {'mint': stock, 'mcap': 100_000, 'vol1h': 50_000, 'ageH': 1.0}
     assert agents.in_lane(r) is False
     assert agents.in_lane({**r, 'mint': 'NEW'}) is True
 

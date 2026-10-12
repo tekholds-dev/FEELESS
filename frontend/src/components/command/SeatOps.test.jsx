@@ -116,7 +116,7 @@ test('🆕 fresh pipeline block: buckets, repeats, age at entry, candle allocati
   const { FreshBlock } = require('./SeatOps');
   const el = document.createElement('div'); document.body.appendChild(el);
   const { createRoot } = require('react-dom/client'); const { act } = require('react');
-  await act(async () => { createRoot(el).render(<FreshBlock f={{ buckets: { '0–15m': 4, '12h+': 2 }, deep: { '0–15m': 3 }, cleared: {}, unique: 30, repeats: 12, newUnique: 18, cooled: 5,
+  await act(async () => { createRoot(el).render(<FreshBlock f={{ buckets: { '0–5m': 4, '6h+': 2 }, deep: { '0–5m': 3 }, cleared: {}, unique: 30, repeats: 12, newUnique: 18, cooled: 5,
     ageReviewedMin: 40, boughtAgeMin24h: 50, boughtAgeMinBefore: 2900, bought24h: 3, candles: { allocFirst: { fresh: 20, old: 4, held: 0 }, allocBefore: { fresh: 6, old: 14, held: 4 } },
     top: [{ symbol: 'BABY', ageMin: 7, mc: 64000, src: ['pulse'], vpm: 1200, bpm: 3.1, tier: 'A', score: 71 }] }} />); });
   expect(el.textContent).toContain('30 · 12 · 18 · 5'); expect(el.textContent).toContain('50m vs 2d'); expect(el.textContent).toContain('20 / 4 / 0');
@@ -132,4 +132,25 @@ test('🗂 active index + 📡 RPC lanes render the canonical candidates and lan
       { mint: 'B', symbol: 'OLDY', eligible: false, why: 'dead — $40 traded in the last 5 min', launchAgeMin: 3000, holderStatus: 'passed', sources: [] }]} /></div>); });
   expect(el.textContent).toContain('alchemy.com'); expect(el.textContent).toContain('out of quota · back in 40m');
   expect(el.textContent).toContain('1 eligible / 2'); expect(el.textContent).toContain('$BABY'); expect(el.textContent).toContain('dead — $40');
+});
+
+test('the round bar shows the desk round, candidates per round, decisions, new mints by age band, tiers and input ages', async () => {
+  const { RoundBar } = require('./SeatOps');
+  const el = document.createElement('div'); document.body.appendChild(el);
+  const o = { rounds: { desk: { n: 140, left: 125 }, round: { 1: 6, 2: 3, 3: 1 }, decided1h: { ENTER: 2, REJECT: 9, COOLDOWN: 4 }, avgRounds: 2.6 },
+    cycle: { screened: 71, reviewed: 24, fresh: { buckets: { '0–5m': 4, '5–15m': 7, '15–60m': 9, '1–3h': 5, '3–6h': 2 } } },
+    opp: { A: 1, B: 2, C: 3, hard: 30 }, seatSummary: { occupancy: 2, target: 4, bench: 5 }, fresh: { price: 4, tape: 20, candle: 50, liquidity: 4, decision: 1 } };
+  await act(async () => { createRoot(el).render(<RoundBar o={o} />); });
+  const t = el.textContent;
+  expect(t).toContain('140 · 2:05 left'); expect(t).toContain('6 · 3 · 1'); expect(t).toContain('2 in · 9 no · 4 cool');
+  expect(t).toContain('4 · 7 · 9 · 5 · 2'); expect(t).toContain('71 → 24'); expect(t).toContain('1 · 2 · 3 · 30'); expect(t).toContain('2/4 · 5');
+});
+
+test('the round history shows each candidate\'s round reads and how it ended', async () => {
+  const { RoundHistory } = require('./SeatOps');
+  const el = document.createElement('div'); document.body.appendChild(el);
+  const r = { recent: [{ sym: 'NEWB', decision: 'ENTER', rounds: 3, why: 'B-tier, held across rounds over 3 rounds', at: 1,
+    reads: [{ round: 1, tier: 'C', score: 44, phase: 'DISCOVERY' }, { round: 2, tier: 'B', score: 52 }, { round: 3, tier: 'B', score: 58, phase: 'EARLY ACCELERATION' }] }] };
+  await act(async () => { createRoot(el).render(<RoundHistory r={r} />); });
+  expect(el.textContent).toContain('ENTER after 3 rounds'); expect(el.textContent).toContain('R1 C 44 discovery → R2 B 52 → R3 B 58 early acceleration');
 });

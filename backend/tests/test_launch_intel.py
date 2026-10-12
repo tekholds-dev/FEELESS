@@ -97,7 +97,7 @@ def test_note_settle_memory_and_class_record():
 
 
 def _row(li_):
-    return {'mint': 'M', 'px': 1.0, 'nums': {'v5': 5000, 'pace': 1, 'liq': 50_000, 'd5': 1}, 'vitals': {'safe': True, 'mcap': 100_000, 'liq': 50_000}, 'li': li_}
+    return {'mint': 'M', 'px': 1.0, 'nums': {'v5': 5000, 'pace': 1, 'liq': 50_000, 'd5': 1}, 'vitals': {'safe': True, 'mcap': 100_000, 'liq': 50_000, 'ageH': 1.0}, 'li': li_}
 
 
 def test_ranking_never_buys_into_distribution_and_ranks_early_fomo_up():

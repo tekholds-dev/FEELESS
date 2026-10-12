@@ -24,6 +24,7 @@ import chart_intel as _ci
 import market_data as _md
 import office_edge as _oe
 import seat_ops as _so
+import trench_rounds as _tr
 
 _f, _med = _ag._f, _ag._med
 
@@ -71,7 +72,7 @@ TUNABLE = _frozen({
                 'thinLiqK': (30.0, 20.0, 50.0, 'median pool ($K) under which the trench is THIN')},
     'warden': {'poolSharePct': (1.0, 0.5, 2.0, 'most of a pool one seat may be'),
                'maxSeatPct': (40.0, 25.0, 50.0, 'most of the card one new seat may be'),
-               'youngH': (6.0, 1.0, 12.0, 'coins younger than this get half size'),
+               'youngH': (0.25, 0.25, 12.0, 'coins younger than this get half size (the ≤ 6h trench universe sizes uncertainty by its tier; only a newborn is halved here)'),
                'ddPct': (25.0, 15.0, 40.0, 'card drawdown from its 24h peak at which new seats are halved')},
     'courier': {'badFailPct': (50.0, 40.0, 60.0, 'failed sends in 15 min at which execution is BAD'),
                 'degradedFailPct': (25.0, 15.0, 35.0, 'failed sends in the hour at which execution is DEGRADED'),
@@ -325,6 +326,9 @@ def courier(ledger, book, now, card=None, office=None):
 NEAR_SIZE = 1.0   # 🪑 W19: a best-available / seat-floor fill takes a FULL equal seat (owner, 2026-10-11: "use all card cash") — was 0.5
 
 
+COST_MAX_PCT = 5.0   # 💸 W22: a seat whose measured round-trip drag (sell-back loss + 2× network fee ÷ size) is over this is not bought
+
+
 def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
     """🛡 How much of an EXISTING real-card move may go ahead. `requested` = the $ the card's own rule would spend; `ctx` = measured
     values (card value / put-in / peak, lives, last real results, the candidate's pool / age / 5-min move / top-10, the weather, the
@@ -416,6 +420,12 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
     if allowed < floor:
         allowed, mult = 0.0, 0.0
     allowed = min(allowed, req)
+    rt, fee = _f(c.get('rtPct')), _f(c.get('feeUsd'))
+    if allowed > 0 and (rt or fee):   # 💸 W22 COST: a seat this size must be able to beat its OWN round trip (measured sell-back loss + the network fee both ways)
+        drag = rt + 2 * fee / allowed * 100
+        if drag > COST_MAX_PCT:
+            rules.append({'id': 'W22 cost', 'mult': 0.0, 'why': f"a ${allowed:.2f} seat pays ~{drag:.1f}% just to get in and out (> {COST_MAX_PCT:g}%) — not worth the fees"})
+            allowed, mult = 0.0, 0.0
     return {'requested': round(req, 4), 'allowed': round(allowed, 4), 'mult': mult, 'eff': round(allowed / req, 3) if req > 0 else 0.0, 'veto': allowed <= 0,
             'rules': rules, 'decided': min(rules, key=lambda r: r['mult'])['id'] if rules else 'none — full size',
             'limits': {'steps': list(WARDEN_STEPS), 'floorUsd': floor, **tunes(office, 'warden')}}
@@ -678,6 +688,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
                     'structure': (ch or {}).get('state'), 'chartSrc': (ch or {}).get('src'), 'verdict': (rv or {}).get('verdict'), 'why': (rv or {}).get('why') or [], 'window': (rv or {}).get('window'), 'granted': granted if th else None,
                     'nextReview': (rv or {}).get('next') if rv else round((int(held // _ci.WINDOW_MIN) + 1) * _ci.WINDOW_MIN * 60 - held * 60),
                     'chart': None if not ch else {k: ch.get(k) for k in ('trend', 'chop', 'mom', 'ext')} | {k: (ch.get('f') or {}).get(k) for k in ('hh', 'hl', 'lh', 'll', 'lastHigh', 'lastLow', 'accel', 'decay', 'upWick', 'liqD')},
+                    **{'posRound': _tr.position_round(_f(p.get('since')) or now, now), 'roundAction': _tr.action_word(st), 'mfe': round(_f(p.get('peak')), 2), 'mae': round(_f(p.get('low')), 2), 'src': p.get('src')},   # ⏱ the position's own 5-minute round
                     'tape': tp, 'usd': round(_f(l.get('units')) * px, 4), 'warden': p.get('warden'), 'dataDegraded': degraded, 'data': _md.compact((ch or {}).get('q')),
                     'vel': vl.get('state'), 'velWhy': vl.get('why'), 'run': 'DEAD' if dead_ else ('HEALTHY' if rs_ == 'STALLING' and pct >= 0 and (rv or {}).get('verdict') == 'valid' else rs_), 'runner': runner_, 'deadMin': None if not p.get('deadSince') else round((now - _f(p['deadSince'])) / 60, 1), 'quality': quality, 'ext': len(p.get('ext') or []), 'extWhy': p.get('extWhy'), 'baseWindows': base_w if th else None,
                     'launch': p.get('launch'), 'onTable': bool(x), 'offRadarSec': None if x or not p.get('offSince') else round(now - _f(p.get('offSince'))), 'live': bool(live), 'limits': {'tp': pol.get('tp'), 'sl': pol.get('sl'), 'maxHold': max_hold, 'trail': tr_.get('mode'), 'manual': manual}})

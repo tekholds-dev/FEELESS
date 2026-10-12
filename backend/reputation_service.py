@@ -6846,7 +6846,7 @@ def _li_attach(table, now):
     for x in table or []:
         try:
             x['li'] = _li_row(x, now)
-            x['mp'] = _mw.market_phase(x.get('chart'), x['li'])   # BASE · EARLY MOVE · ACCELERATION · BREAKOUT · RUNNING · DISTRIBUTION · REVERSAL · COLLAPSE
+            x['mp'] = _mw.market_phase(x.get('chart'), x['li'])   # the trench phase (market_wake.PHASES)
         except Exception as e:
             print('launch intel:', e)
             break
@@ -9932,6 +9932,18 @@ async def _prime_tick_inner(now):
                     if not t_.get('tier'):
                         s_, _p = _opp.score(t_, lost_); t_['tier'] = _opp.tier_of(s_) or 'C'; t_['opp'] = s_
                 near0_ = near0_ + ranked_[:empty_n - len(near0_) + 8]
+            # ⏱ ROUND-3 ENTER: a candidate that held up over three 5-minute rounds (A / B tier confirmed, or a C tier improving every round)
+            # competes for the open seats — through the same live check, real-money memory, Warden sizing (its tier) and keeper as any coin
+            enter_ = _tr.entered(_rounds_state(), now) if empty_n and not pol_['manual'] else {}
+            if enter_:
+                by_t = {x_.get('mint'): x_ for x_ in _agents.get('table') or []}
+                for m_, why_ in enter_.items():
+                    x_ = by_t.get(m_)
+                    if not x_ or m_ in cool or m_ in on_n or m_ in gw_m:
+                        continue
+                    s_, _p = _opp.score(x_); tr_ = _opp.tier_of(s_) or 'C'
+                    near0_.append({**x_, 'pair': x_.get('pair') or x_.get('pairAddress'), 'tier': tr_, 'opp': s_, 'roundEnter': why_,
+                                   'nearReady': f"⏱ round 3 ENTER — {why_}"})
             near_m = {t_['mint'] for t_ in near0_}
             near_ = []
             try:
@@ -9977,6 +9989,8 @@ async def _prime_tick_inner(now):
             if mem_out:
                 _office['live'] = {**(_office.get('live') or {}), 'memory': mem_out[:8]}
             empty_for_ = (now - _fuse._f(cur.get('agentEmptyAt'))) if cur.get('agentEmptyAt') else 0.0
+            rnd_ok_ = [t_ for t_ in near_ if t_.get('roundEnter')]   # ⏱ a confirmed 3-round decision is a CLEARED case (not "best available")
+            wait_ = wait_ + [t_ for t_ in rnd_ok_ if t_['mint'] not in {w_['mint'] for w_ in wait_}]
             near_ = near_ if _oe.BEST_AVAILABLE else []   # 🚫 forced occupancy is off: an empty seat stays cash
             valid_ = [] if pol_['manual'] else gos_ + ([] if pol_['entry'] == 'go' else wait_) + (near_ if (not gos_ and not wait_ and empty_for_ >= _oe.NEAR_PATIENCE_SEC and pol_['entry'] != 'go') else [])
             if empty_n and valid_ and not _office.get('validSince'):
@@ -10011,7 +10025,7 @@ async def _prime_tick_inner(now):
                         continue
                     cur = _prime.agent_seat(cur, {'mint': t_['mint'], 'symbol': t_['symbol'], 'pairAddress': t_['pair'], 'price': t_['px'], 'liquidityUsd': (t_.get('nums') or {}).get('liq'), 'trench': t_['trench'], 'curve': bool((t_.get('vitals') or {}).get('curve') and cfg_t.get('agentCurve')),
                                                   'ageH': (t_.get('vitals') or {}).get('ageH'), 'vol1h': (t_.get('vitals') or {}).get('vol1h'), 'buyShare': (t_.get('nums') or {}).get('buy'),
-                                                  'tag': '🤖 agents GO · in control' if t_.get('go') else f"🤖 agents · {t_['tier']}-tier" if t_.get('tier') else '🤖 agents · best available' if t_.get('nearReady') else '🤖 agents · 10-min duty',
+                                                  'tag': '🤖 agents GO · in control' if t_.get('go') else f"🤖 agents · {t_['tier']}-tier · ⏱ round 3" if t_.get('roundEnter') else f"🤖 agents · {t_['tier']}-tier" if t_.get('tier') else '🤖 agents · best available' if t_.get('nearReady') else '🤖 agents · 10-min duty',
                                                   'why': (t_.get('trigger') or ['', ''])[1] if t_.get('go') else t_['nearReady'] if t_.get('nearReady') else f"their strongest cleared read (lean {t_['why']['lean']:+.1f})"}, px, cfg_s, now, max_usd=wd_['allowed'])
                     used_ += 1; cur['agentDutyAt'] = now; cur['agentFillAt'] = now
                     _intake['reg'] = _in.stamp(_intake_reg(), 'seat', [t_['mint']], now)   # 🕸 clear → seat latency
@@ -12524,6 +12538,7 @@ import market_wake as _mw
 import judge_review as _jr
 import real_memory as _rm
 import shadow_book as _sb
+import trench_rounds as _tr
 LINGO_PATH = FUSE_HQ_PATH.parent / 'trench_lingo.json'   # 📖 slang the desk learned from Pump callers' own words (per-day counts + learned words)
 AGENTS_PATH = FUSE_HQ_PATH.parent / 'agents.json'   # 🤖 the agent desk: Tally's tapes, every call, every judged result
 AGENTS_EVERY = 18.0                                 # ⚡ 3× a minute (owner, 2026-10-11: "seats never empty — 3× as fast"); a pass takes ~2s
@@ -12532,6 +12547,38 @@ _agents: dict = {'at': 0.0, 'table': [], 'view': None}
 
 
 _rm_cache: dict = {'at': 0.0, 'mem': None}
+ROUNDS_PATH = FUSE_HQ_PATH.parent / 'trench_rounds.json'   # ⏱ candidates' 5-minute rounds + the round history (trench_rounds.py)
+_rounds: dict = {'state': None}
+
+
+def _rounds_state():
+    if _rounds['state'] is None:
+        _rounds['state'] = _json_load(ROUNDS_PATH, {}) or {}
+    return _rounds['state']
+
+
+def _rounds_pass(table, now):
+    """⏱ One round step over the desk's live table (CURRENT rows only): hard safety → REJECT now; tier + score + trench phase per read;
+    round 3 decides. Each decision is also noted in the shadow book (its own group), so whether patience helped is measured, not assumed."""
+    held = {x_.get('mint') for x_ in ((_agents.get('card') or {}).get('seats') or []) if x_.get('mint')}
+    rows = [x_ for x_ in table or [] if x_.get('mint') and not _fw.dollar_named(x_.get('symbol'))]
+    hard, tiers, phases = {}, {}, {}
+    for x_ in rows:
+        h_ = _opp.hard_fail(x_)
+        if h_:
+            hard[x_['mint']] = h_; continue
+        s_, _p = _opp.score(x_)
+        tiers[x_['mint']] = (_opp.tier_of(s_), s_)
+        phases[x_['mint']] = x_.get('mp')
+    before = {m_: e_.get('decision') for m_, e_ in (_rounds_state().get('c') or {}).items()}
+    st = _tr.step(_rounds_state(), rows, now, hard, tiers, phases, held)
+    by_ = {x_['mint']: x_ for x_ in rows}
+    for m_, e_ in st['c'].items():   # 📄 every NEW decision → the shadow book (ENTER / REJECT / COOLDOWN as their own groups)
+        if e_.get('decision') and before.get(m_) != e_['decision'] and m_ in by_ and now - _fuse._f(e_.get('decidedAt')) < 1:
+            _shadow['book'] = _sb.note(_shadow_book(), {**by_[m_], 'tier': (tiers.get(m_) or (None,))[0]}, 'r_' + e_['decision'].lower(), now, _shadow_px(by_[m_]), _shadow_cost(now))
+            _shadow['dirty'] = True
+    _rounds['state'] = st
+    _json_save(ROUNDS_PATH, st)
 SHADOW_PATH = FUSE_HQ_PATH.parent / 'shadow_book.json'   # 📄 paper decisions + controls (shadow_book.py), graded at 30s … 1h
 _shadow: dict = {'book': None, 'cost': None, 'costAt': 0.0, 'dirty': False}
 
@@ -12545,6 +12592,8 @@ def _shadow_cost(now):
             rt = [abs(_fuse._f(r.get('sellBackPct'))) for r in rows if r.get('sellBackPct') is not None]
             fee = [2 * _fuse._f(r.get('feeUsd')) / _fuse._f(r['usd']) * 100 for r in rows if r.get('feeUsd') is not None]
             _shadow['cost'] = round((_st_med(rt) if rt else 2.3) + (_st_med(fee) if fee else 1.0), 3)
+            _shadow['rt'] = round(_st_med(rt), 3) if rt else 2.3
+            _shadow['feeUsd'] = round(_st_med([_fuse._f(r.get('feeUsd')) for r in rows if r.get('feeUsd') is not None]), 6) if rows else 0.0
         except Exception as e:
             print('shadow cost:', str(e)[:100]); _shadow['cost'] = _shadow['cost'] or 3.3
         _shadow['costAt'] = now
@@ -12842,6 +12891,10 @@ async def _agents_tick(now):
                 asyncio.create_task(_prime_tick(time.time()))
         except Exception as e:
             print('seat wake:', e)
+        try:   # ⏱ THE 5-MINUTE ROUNDS: every candidate of the new-entry universe moves round 1 → 2 → 3 → ENTER / REJECT / COOLDOWN
+            _rounds_pass(table, now)
+        except Exception as e:
+            print('rounds:', str(e)[:120])
         try:   # a read-only copy of exactly what GET /admin/agents answers (for checking the real page without an HQ sign-in)
             _json_save(DATA_DIR / 'agents_view.json', {**_agents['view'], **({'card': _agents['card']} if _agents.get('card') else {}), 'office': _office.get('payload')})
         except Exception:
@@ -13395,6 +13448,7 @@ def _office_warden(cur, t_, requested, cfg_t, now, move):
             seats_ = int(_fuse._f(_oe.policy(cfg_t).get('seats') or cfg_t.get('coins') or 0))
             held_ = len([l for l in cur.get('legs') or [] if not (l.get('placeholder') and not l.get('manualCash'))])
             ctx_.update(openSeats=max(0, seats_ - held_), free=ctx_.get('cash'))
+            _shadow_cost(now); ctx_.update(rtPct=_shadow.get('rt'), feeUsd=_shadow.get('feeUsd'))   # 💸 W22: the card's measured round trip
         wd = _of.warden(requested, ctx_, _office_state(), floor=max(0.05, _fuse._f(cfg_t.get('minOrderUsd'))))
         _office_lat('warden', (time.perf_counter() - t0) * 1000)
     except Exception as e:
@@ -13729,6 +13783,14 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         want_ = {x_.get('mint') for x_ in (_agents.get('table') or [])[:30]} | set(_office.get('pos') or {})
         _office['payload']['social'] = {m_: {k_: v_ for k_, v_ in sc_[m_].items() if k_ not in ('search',)} for m_ in want_ if m_ in sc_}
         _office['payload'].update(fresh=_office_fresh(now), live=_office.get('live'), scans=_office.get('scans'), loadPass=_office_load_pass(),
+                                  deskStats=_jr.desk_stats(((_office_state().get('judge') or {}).get('reviews')) or []),
+                                  rounds={**_tr.summary(_rounds_state(), now), 'roundSec': _tr.ROUND_SEC, 'desk': {'n': int(now // _tr.ROUND_SEC) % int(86400 // _tr.ROUND_SEC) + 1, 'left': round(_tr.ROUND_SEC - now % _tr.ROUND_SEC, 1)},
+                                          'live': sorted([{'mint': m_, 'sym': e_.get('sym'), 'round': e_.get('round'), 'left': _tr.time_left(e_['first'], now),
+                                                           'tier': ((e_.get('reads') or [{}])[-1]).get('tier'), 'score': ((e_.get('reads') or [{}])[-1]).get('score'),
+                                                           'phase': ((e_.get('reads') or [{}])[-1]).get('phase')}
+                                                          for m_, e_ in (_rounds_state().get('c') or {}).items() if not e_.get('decision')], key=lambda r_: (-(r_['round'] or 0), -_fuse._f(r_['score'])))[:12],
+                                          'recent': [{k_: h_.get(k_) for k_ in ('sym', 'decision', 'why', 'at', 'rounds')} | {'reads': [{k_: r_.get(k_) for k_ in ('round', 'tier', 'score', 'px', 'phase')} for r_ in h_.get('reads') or []]}
+                                                     for h_ in (_rounds_state().get('hist') or [])[-12:]][::-1]},
                                   memory={k_: v_ for k_, v_ in (_real_mem(now) or {}).items() if k_ != 'cells'} | {'worst': sorted(((v_['est'], k_, v_['n']) for k_, v_ in ((_real_mem(now) or {}).get('cells') or {}).items()))[:6]})
     except Exception as e:
         print('fresh:', e)

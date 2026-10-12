@@ -58,7 +58,7 @@ def test_run_states_and_phase_and_freshness():
     assert mw.run_state(4, 12) == 'REVERSING'
     assert mw.run_state(-1, 0) == 'STALLING'
     assert mw.run_state(5, 6, broke=True) == 'BREAKING DOWN'
-    assert mw.market_phase({'state': 'CONFIRMED BREAKOUT'}) == 'BREAKOUT' and mw.market_phase({'state': 'COMPRESSION'}) == 'BASE'
+    assert mw.market_phase({'state': 'CONFIRMED BREAKOUT'}) == 'BREAKOUT' and mw.market_phase({'state': 'COMPRESSION'}) == 'DISCOVERY'
     assert mw.market_phase({'state': 'UPTREND'}, {'phase': 'DISTRIBUTION'}) == 'DISTRIBUTION'
     a = mw.ages(100, price_at=95, candle_at=40, decision_at=99)
     assert a['price'] == 5 and a['candle'] == 60 and a['tape'] is None and a['stale'] is False

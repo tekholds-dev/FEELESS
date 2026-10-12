@@ -215,6 +215,28 @@ def walk_forward(ts, folds=5, min_n=8):
     return {'folds': rows, 'taken': summary(took), 'all': summary(every)}
 
 
+def replay(t):
+    """🔁 Sanity check (never tuning): what the trench-desk rules would have done with this real trade, from entry facts only."""
+    import opportunity as _opp
+    if t.get('ageH') is None or f(t.get('ageH')) > _opp.MAX_AGE_H:
+        return 'BLOCKED', 'over 6h / unknown age'
+    if t.get('mcap') is None or f(t.get('mcap')) >= _opp.MAX_MCAP:
+        return 'BLOCKED', 'cap ≥ $200K / unknown'
+    if t.get('rule') in ('E2', 'E3'):
+        return 'BLOCKED', 'chart said no chasing / too violent'
+    if t['door'] in ('best available', 'seat floor'):
+        return 'BLOCKED', 'best available is off'
+    if t.get('struct') == 'PARABOLIC':
+        return 'SMALLER', 'LATE FOMO scores −15'
+    if t['door'] == 'C':
+        return 'SMALLER', 'C-tier = half a seat'
+    if t['exit'] == 'stop' and t.get('mae') is not None and f(t['netPct']) < f(t.get('mae')) - 5:
+        return 'EXITED EARLIER', '6-second fast stop'
+    if t['door'] in ('A', 'B', 'duty'):
+        return 'DELAYED', 'needs 3 rounds unless a full GO'
+    return 'SAME', ''
+
+
 def main():
     card = sys.argv[1] if len(sys.argv) > 1 else 'degen'
     path = DATA / 'fuse_wallet.json'
@@ -273,6 +295,18 @@ def main():
         for title, key in (('source', 'bySource'), ('age', 'byAge'), ('entry door', 'byEntry'), ('entry rule', 'byRule'), ('exit', 'byExit')):
             print(f'   by {title}: ' + ' · '.join(f"{k} n{v['n']} ${v['netUsd']:+.2f} ({v['medNetPct']:+.0f}%)" for k, v in w[key].items() if v))
     ag7 = [t for t in all_t if t['agent']]
+    los = [t for t in ag7 if t['net'] < 0 and t['close'] >= now - 48 * 3600]
+    rp = defaultdict(lambda: [0, 0.0])
+    for t in los:
+        k, _w = replay(t); rp[k][0] += 1; rp[k][1] += t['net']
+    out['replay48h'] = {k: {'n': v[0], 'usd': round(v[1], 4)} for k, v in rp.items()}
+    print('\n== RECENT LOSING AGENT TRADES UNDER THE NEW RULES (48h, sanity check — nothing tuned to them) ==')
+    print('   ' + ' · '.join(f"{k} {v[0]} (${v[1]:+.2f})" for k, v in sorted(rp.items(), key=lambda kv: -kv[1][0])) + f"   of {len(los)} losers")
+    wins = [t for t in ag7 if t['net'] > 0 and t['close'] >= now - 48 * 3600]
+    wb = [t for t in wins if replay(t)[0] == 'BLOCKED']
+    unk = sum(1 for t in los + wins if t.get('ageH') is None)
+    out['replay48hWinnersBlocked'] = {'n': len(wb), 'of': len(wins), 'usd': round(sum(t['net'] for t in wb), 4)}
+    print(f"   …and the same rules would have blocked {len(wb)} of {len(wins)} WINNERS (${sum(t['net'] for t in wb):+.2f}) · {unk} trips had no age on record (counted as blocked)")
     wf = walk_forward(ag7)
     out['walkForward'] = wf
     print('\n== OUT-OF-SAMPLE (rolling walk-forward on the agents\' real trips, NET after costs) ==')

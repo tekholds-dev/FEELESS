@@ -13,7 +13,7 @@ import random as _rnd
 import statistics as _st
 
 HORIZONS = (30, 60, 120, 300, 600, 900, 1800, 3600)
-GROUPS = ('fill', 'switch', 'ctl_top', 'ctl_random', 'ctl_wait')
+GROUPS = ('fill', 'switch', 'ctl_top', 'ctl_random', 'ctl_wait', 'r_enter', 'r_reject', 'r_cooldown')   # r_* = the round-3 decisions (did patience help?)
 DEDUP_SEC = 600.0     # the same coin in the same group is noted once per 10 min
 KEEP = 4000
 VANISHED = -100.0

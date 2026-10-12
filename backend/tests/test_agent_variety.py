@@ -49,8 +49,9 @@ def test_confirmed_agent_exit_becomes_a_lesson_once():
 def test_universe_is_under_200k_live_cap_and_bands_are_context():
     import opportunity as op
     assert ag.AGENT_MAX_MCAP == 200_000 == op.MAX_MCAP and op.MIN_LIQ == ag.CONTROL_MIN_LIQ
-    assert ag.in_lane({'mcap': 150_000, 'vol1h': 5_000}) and ag.in_lane({'mcap': 12_000, 'ageH': 0.01, 'vol1h': 2_000}) and ag.in_lane({'mcap': 90_000, 'ageH': 900, 'vol1h': 9_000})   # age is never a veto
-    assert not ag.in_lane({'mcap': 5_000, 'vol1h': 9_000}) and not ag.in_lane({'mcap': 50_000, 'vol1h': 200})   # under $10K cap · no real volume
+    assert ag.in_lane({'mcap': 150_000, 'ageH': 5.9, 'vol1h': 5_000}) and ag.in_lane({'mcap': 4_000, 'ageH': 0.01, 'vol1h': 2_000})   # 0 < cap, ≤ 6h
+    assert not ag.in_lane({'mcap': 150_000, 'vol1h': 5_000}) and not ag.in_lane({'mcap': 90_000, 'ageH': 6.5, 'vol1h': 9_000})        # unknown age · > 6h
+    assert not ag.in_lane({'mcap': 50_000, 'ageH': 1, 'vol1h': 200})   # no real volume
     assert not ag.in_lane({'mcap': 200_000}) and not ag.in_lane({'mcap': 0}) and not ag.in_lane({})
     assert ag.trench_band(8_000) == 'NEWBORN MICRO' and ag.trench_band(120_000) == 'MOMENTUM TRENCH' and ag.trench_band(250_000) is None
 
@@ -132,7 +133,7 @@ def test_real_losses_decide_survival_paper_only_probation():
 
 def test_the_new_entry_universe_is_hard_capped_at_200k():
     """🎯 owner, 2026-10-11: new entries only 0 < live cap < $200K — the lane never widens, whatever the ranking says."""
-    safe = lambda m, mc: {'mint': m, 'mcap': mc, 'vol1h': 5_000, 'safe': True, 'liq': 20_000}
+    safe = lambda m, mc: {'mint': m, 'mcap': mc, 'vol1h': 5_000, 'safe': True, 'liq': 20_000, 'ageH': 1.0}
     assert ag.LANE_CAPS == (200_000,)
     assert ag.lane_cap([]) == 200_000 and ag.lane_cap([safe('m', 600_000)]) == 200_000
     assert ag.lane_step(200_000, 0, 5) == 200_000 and ag.lane_step(5_000_000, 0, 5) == 200_000

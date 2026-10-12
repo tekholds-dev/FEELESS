@@ -1376,7 +1376,8 @@ def trench_band(mc):
     return None
 
 
-AGENT_MIN_MCAP = 10_000.0      # 🎯 owner, 2026-10-11: "starting mc 10k with vol" — the universe starts at a $10K live cap …
+AGENT_MIN_MCAP = 0.0           # 🎯 owner's trench-desk spec, 2026-10-12: 0 < live cap < $200K (was $10K) …
+AGENT_MAX_AGE_H = 6.0          # … and a KNOWN launch age ≤ 6h for a new entry (unknown age is not eligible; held coins keep running)
 AGENT_MIN_VOL1H = 1_000.0      # … with real volume (≥ $1K traded in the last hour); no other starting minimum
 
 
@@ -1406,11 +1407,12 @@ def agent_holder_pass(r):
 
 
 def in_lane(row, cap=AGENT_MAX_MCAP):
-    """🗑 THE AGENTS' UNIVERSE for new entries: live market cap $10K … under the cap, with volume. Age is context (ranking), never a veto."""
+    """🗑 THE AGENTS' UNIVERSE for new entries: 0 < live market cap < the cap, ≥ $1K traded in the hour, a known launch age ≤ 6h."""
     r = row or {}
     if r.get('mint') in _majors():   # 🪙 majors + xStocks are never a trench seat (MRNA / MU sat dead outside US market hours, 2026-10-11)
         return False
-    return under_cap(r, cap) and _f(r.get('mcap')) >= AGENT_MIN_MCAP and _f(r.get('vol1h')) >= AGENT_MIN_VOL1H
+    return (under_cap(r, cap) and _f(r.get('mcap')) > AGENT_MIN_MCAP and _f(r.get('vol1h')) >= AGENT_MIN_VOL1H
+            and r.get('ageH') is not None and _f(r.get('ageH')) <= AGENT_MAX_AGE_H)
 
 
 def _majors():

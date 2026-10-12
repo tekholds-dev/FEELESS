@@ -185,3 +185,26 @@ def penalties(promoted, live=None):
         if r.get('penalty'):
             out[r['penalty']] = min(out.get(r['penalty'], 0.0), _f(r.get('points')))
     return out
+
+
+# ── 📋 PER-DESK REAL-MONEY RECORD (owner's spec: "no BS scorecards — real decisions, win / loss responsibility, accuracy, median net impact")
+ENTRY_DESKS = ('tally', 'sherlock', 'weather', 'trigger', 'devil', 'warden')   # every real entry passed through each of these
+TAKE_EXITS = ('R6', 'R7')                                                         # Reaper's own profit exits (take / trail / structure / reversal)
+
+
+def desk_stats(reviews):
+    """From the Judge's reviews of REAL exits only. decisions = real trades the desk took part in (every entry desk on every entry;
+    Reaper on every exit) · winResp = wins it is credited with (entry desks on every win; Reaper only when its own profit exit took it) ·
+    lossResp = losses the Judge PINNED on it (resp > 0 — "variance" losses blame nobody) · accuracy = share of the trades it took part in
+    that made money (no desk can read 100% because the Judge never blamed it) · medNet = median real % of those trades. Nothing summed."""
+    import statistics as _st
+    out = {}
+    rv = [r for r in reviews or [] if r.get('kind') in ('win', 'loss')]
+    for d in ENTRY_DESKS + ('reaper',):
+        win = sum(1 for r in rv if r['kind'] == 'win' and (d in ENTRY_DESKS or str(r.get('exit') or '').startswith(TAKE_EXITS)))
+        loss = sum(1 for r in rv if r['kind'] == 'loss' and _f((r.get('resp') or {}).get(d)) > 0)
+        vals = [_f(r.get('pct')) for r in rv]
+        out[d] = {'decisions': len(rv), 'winResp': win, 'lossResp': loss,
+                  'accuracy': round(sum(1 for v in vals if v > 0) / len(vals) * 100) if vals else None,
+                  'medNet': round(_st.median(vals), 2) if vals else None}
+    return out

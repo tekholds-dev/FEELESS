@@ -209,10 +209,12 @@ test('the panel shows your limit vs the agents vs the rule in force, the launch 
   expect(q(hq, 'ofr-cardrow').querySelectorAll('.ofr-seat').length).toBe(office.seat.want);
 });
 
-test('the roster shows an agent\'s AVERAGE per exit, never a sum of % ("Reaper −468%" was 158 exits added up)', async () => {
-  const o2 = { ...office, agents: (office.agents || []).map(a => a.key === 'reaper' ? { ...a, card: { ...(a.card || {}), n: 158, profit: 257, loss: -725.6, unit: 'real % on exits it asked for' } } : a) };
+test('the roster shows each desk\'s REAL-money record — never a sum of % (Reaper read "−468%" = 158 exits added up)', async () => {
+  const o2 = { ...office, agents: (office.agents || []).map(a => a.key === 'reaper' ? { ...a, card: { ...(a.card || {}), n: 158, profit: 257, loss: -725.6 } } : a),
+    deskStats: { reaper: { decisions: 80, winResp: 25, lossResp: 3, accuracy: 38, medNet: -0.86 } } };
   const r = await mount(<Roster o={o2} sel="tally" onSel={() => {}} />);
   const el = q(r, 'roster-net-reaper');
-  expect(el.textContent).toContain('avg'); expect(el.textContent).not.toContain('468');
-  expect(el.getAttribute('data-tip')).toContain('sum');
+  expect(el.textContent).toContain('med'); expect(el.textContent).not.toContain('468');
+  expect(el.getAttribute('data-tip')).toContain('3 losses the Judge pinned');
+  expect(q(r, 'roster-reaper').textContent).toContain('real 80 · W25 · L3'); expect(q(r, 'roster-reaper').textContent).toContain('38%');
 });

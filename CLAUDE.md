@@ -3302,3 +3302,18 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🔒 A HELD CARD BUYS NOTHING FROM THE ENGINE (2026-10-12, found 5 min after paper mode went live): `fallback_coin()` (the 30s fill of a
   reserved seat) and the stuck-buy swap ignored `holdBy` — a refused agent buy became $Business, and a stop's reserved seat bought $CHILLGUY.
   Both now return / slot back to cash under `holdBy` proof | agents. After ANY "no real buys" change, read the ledger 5 minutes later.
+- ⏱ THE TRENCH DESK (owner's one-and-done spec, 2026-10-12): NEW-ENTRY UNIVERSE = 0 < live cap < $200K AND a KNOWN launch age ≤ 6h
+  (`opportunity.MAX_AGE_H`, `agents.AGENT_MAX_AGE_H`, `in_lane`, `hard_fail`: unknown age / unknown cap = not eligible; held coins keep
+  running). Freshness ladder 0–5m 18 · 5–15m 15 · 15–60m 12 · 1–3h 8 · 3–6h 4 (`FRESH_LADDER`, `fresh_key`, `FRESH_LABELS`, intake
+  `OLD_INTAKE_H` 6). ⏱ `backend/trench_rounds.py` (pure + tested, `_rounds_pass` each agent pass, `data/trench_rounds.json`): every
+  candidate runs its own 5-minute rounds — one read per round from the CURRENT row; hard fail = REJECT at once; full GO = ENTER early;
+  round 3 = ENTER (A / B confirmed: price held ≥ −3%, buyers ≥ 50%, pool ≥ 80%, no avoid phase, early wallets not dumping; C only when
+  every read improved) / REJECT / COOLDOWN (15 min; REJECT 30; a ≥ 5% move, tier upgrade or GO wakes it into a new round 1). An ENTER lives
+  one round. Round ENTERs join `wait_` (cleared) after the near / ranked live check → memory → Warden (tier size) → `agent_seat` → keeper.
+  Each decision is also a shadow-book group (`r_enter`/`r_reject`/`r_cooldown`). 📈 `market_wake.PHASES` DISCOVERY · EARLY ACCELERATION ·
+  FIRST PULLBACK · RECLAIM · BREAKOUT · RUNNING · LATE FOMO · DISTRIBUTION · REVERSAL · COLLAPSE (`market_phase` → row `mp`): score +6 early /
+  −15 LATE FOMO / −10 REVERSAL, DISTRIBUTION / COLLAPSE = hard no. 💸 Warden W22 (`COST_MAX_PCT` 5): measured round trip (ledger sell-back +
+  2× fee ÷ seat) over 5% = no buy; W4 now halves only a coin < 15 min (`youngH` 0.25 — every coin is < 6h now, halving all made every seat
+  fee-bound). Reaper reports carry `posRound` + `roundAction` + MFE / MAE. 📋 `judge_review.desk_stats` → payload `deskStats` → roster: real
+  decisions · wins credited · losses pinned · % of its real trades that made money · median net (never a sum). Display: `RoundBar` +
+  `RoundHistory` (SeatOps). `scripts/real-audit.py` replays recent losers under the rules AND counts the winners they would have blocked.

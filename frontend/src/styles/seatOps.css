@@ -97,3 +97,5 @@ body.theme-day .sop-seat.is-on { background: rgba(21,209,106,.18); }
 .sop-fresh > small { font: 800 9.5px var(--m-mono); letter-spacing: .08em; color: var(--m-accent); }
 .sop-fresh td.is-old { color: var(--m-mute); }
 body.theme-day .sop-fresh { border-color: rgba(10, 120, 60, .3); }
+/* ⏱ the round bar sits on its own line above the seat summary */
+.sop-rounds { margin-bottom: 6px; border-bottom: 1px dashed rgba(69, 228, 134, .18); padding-bottom: 6px; }

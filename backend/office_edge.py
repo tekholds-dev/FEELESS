@@ -756,7 +756,7 @@ def _pace(r):
     return _f(r.get('vol5m')) * 12 / v1 if v1 > 0 else 0.0
 
 
-OLD_INTAKE_H = 12.0   # 🆕 a coin older than this joins the table only while it is waking up (or as a recheck)
+OLD_INTAKE_H = 6.0    # 🆕 a coin older than this (the 6h new-entry universe) joins the table only as a recheck of something held
 
 
 def stale_old(r):
@@ -770,12 +770,12 @@ def stale_old(r):
 
 
 def fresh_key(r):
-    """Order inside a slot: the freshness ladder first (0–15m · 15–60m · 1–3h · 3–6h · 6–12h · older), then the slot's own measure."""
+    """Order inside a slot: the freshness ladder first (0–5m · 5–15m · 15–60m · 1–3h · 3–6h · 6h+), then the slot's own measure."""
     h = r.get('ageH')
     if h is None:
         return 6
     m = _f(h) * 60
-    return 0 if m < 15 else 1 if m < 60 else 2 if m < 180 else 3 if m < 360 else 4 if m < 720 else 5
+    return 0 if m < 5 else 1 if m < 15 else 2 if m < 60 else 3 if m < 180 else 4 if m < 360 else 5
 
 
 def intake(rows, recheck=(), listed=None, cap=INTAKE_MAX, cool=(), fresh=None, outlets=None):
@@ -1034,7 +1034,7 @@ def review_due(e, now):
     return False, f"rejected {round(_f(now) - _f(e['review']))}s ago ({e.get('reject')}) — nothing new"
 
 
-FRESH_LABELS = ('0–15m', '15–60m', '1–3h', '3–6h', '6–12h', '12h+', 'age ?')
+FRESH_LABELS = ('0–5m', '5–15m', '15–60m', '1–3h', '3–6h', '6h+', 'age ?')
 
 
 def _med_(xs):

@@ -68,7 +68,7 @@ def test_weather_can_move_triggers_bar_only_inside_its_range_and_can_never_remov
 def test_warden_only_ever_reduces_caps_or_vetoes_and_names_the_rule_that_did_it():
     full = of.warden(0.40, {'value': 4.0, 'liq': 200_000, 'ageH': 20, 'd5': 1, 'top10': 12, 'lives': 9, 'courier': 'HEALTHY', 'weather': {'regime': 'NORMAL', 'mods': {'size': 1.0}}})
     assert full['allowed'] == 0.40 and full['mult'] == 1.0 and not full['rules'] and full['decided'].startswith('none')
-    young = of.warden(0.40, {'value': 4.0, 'liq': 200_000, 'ageH': 2, 'courier': 'HEALTHY'})
+    young = of.warden(0.40, {'value': 4.0, 'liq': 200_000, 'ageH': 0.1, 'courier': 'HEALTHY'})
     assert young['allowed'] == 0.20 and young['decided'] == 'W4 age'
     assert of.warden(0.40, {'value': 4.0, 'liq': 200_000, 'ageH': 20, 'courier': 'BAD'})['veto']                      # execution BAD = no new money
     hostile = of.warden(0.40, {'value': 4.0, 'liq': 200_000, 'ageH': 20, 'weather': {'regime': 'HOSTILE', 'mods': {'size': 0.25}}})

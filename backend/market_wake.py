@@ -86,22 +86,30 @@ def run_state(pct, peak, vel=None, broke=False):
     return 'STALLING'
 
 
-# chart_intel state → the owner's market-phase words (CURRENT live candles)
-PHASE_OF = {'EARLY': 'EARLY MOVE', 'ACCUMULATION': 'BASE', 'COMPRESSION': 'BASE', 'RANGE': 'BASE', 'CHOP': 'BASE',
-            'BREAKOUT ATTEMPT': 'BREAKOUT', 'CONFIRMED BREAKOUT': 'BREAKOUT', 'STRONG UPTREND': 'RUNNING', 'UPTREND': 'RUNNING', 'PULLBACK IN UPTREND': 'RUNNING',
-            'PARABOLIC': 'ACCELERATION', 'DISTRIBUTION': 'DISTRIBUTION', 'FAILED BREAKOUT': 'REVERSAL',
+# chart_intel state → THE TRENCH PHASE (owner's trench-desk spec, 2026-10-12): DISCOVERY · EARLY ACCELERATION · FIRST PULLBACK · RECLAIM ·
+# BREAKOUT · RUNNING · LATE FOMO · DISTRIBUTION · REVERSAL · COLLAPSE (CURRENT live candles + the launch read)
+PHASES = ('DISCOVERY', 'EARLY ACCELERATION', 'FIRST PULLBACK', 'RECLAIM', 'BREAKOUT', 'RUNNING', 'LATE FOMO', 'DISTRIBUTION', 'REVERSAL', 'COLLAPSE')
+PHASE_OF = {'EARLY': 'EARLY ACCELERATION', 'ACCUMULATION': 'DISCOVERY', 'COMPRESSION': 'DISCOVERY', 'RANGE': 'DISCOVERY', 'CHOP': 'DISCOVERY',
+            'BREAKOUT ATTEMPT': 'BREAKOUT', 'CONFIRMED BREAKOUT': 'BREAKOUT', 'STRONG UPTREND': 'RUNNING', 'UPTREND': 'RUNNING', 'PULLBACK IN UPTREND': 'FIRST PULLBACK',
+            'PARABOLIC': 'LATE FOMO', 'DISTRIBUTION': 'DISTRIBUTION', 'FAILED BREAKOUT': 'REVERSAL',
             'DOWNTREND': 'COLLAPSE', 'LIQUIDITY FAILURE': 'COLLAPSE', 'BOT LADDER': 'COLLAPSE'}
 
 
 def market_phase(chart, li=None):
-    """BASE · EARLY MOVE · ACCELERATION · BREAKOUT · RUNNING · DISTRIBUTION · REVERSAL · COLLAPSE from the live chart (+ the launch read)."""
-    st = (chart or {}).get('state')
+    """→ one of PHASES (or None with no read). A pullback that took back ≥ 60% of its dip with a green last candle = RECLAIM."""
+    ch = chart or {}
+    st = ch.get('state')
     ph = (li or {}).get('phase')
     if ph in ('DISTRIBUTION', 'COLLAPSE'):
         return ph
-    if ph == 'ACCELERATING' and PHASE_OF.get(st) in (None, 'BASE', 'EARLY MOVE'):
-        return 'ACCELERATION'
-    return PHASE_OF.get(st) or ('EARLY MOVE' if ph == 'EARLY FOMO' else None)
+    if ph == 'CROWD FOMO':
+        return 'LATE FOMO'
+    f = ch.get('f') or {}
+    if st == 'PULLBACK IN UPTREND' and _f(f.get('recovery')) >= 0.6 and _f(f.get('pullback')) > 0:
+        return 'RECLAIM'
+    if ph in ('ACCELERATING', 'EARLY FOMO') and PHASE_OF.get(st) in (None, 'DISCOVERY'):
+        return 'EARLY ACCELERATION'
+    return PHASE_OF.get(st) or ('DISCOVERY' if ph == 'PRE-FOMO' else None)
 
 
 def ages(now, price_at=None, tape_at=None, candle_at=None, input_at=None, decision_at=None):

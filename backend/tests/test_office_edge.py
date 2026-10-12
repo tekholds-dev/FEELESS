@@ -692,7 +692,7 @@ def test_a_rejected_coin_waits_until_something_material_changes():
     e = m['R']
     assert e['first'] == 1000 and e['review'] == 1000 and 'WAIT FOR BREAKOUT' in e['reject']
     assert not oe.review_due(e, 1060)[0]                                                                          # rejected 60s ago, nothing new
-    assert oe.review_due(e, 1000 + oe.REVIEW_COOL_SEC)[0]                                                         # bounded: the cooldown ends
+    assert oe.review_due(e, 1000 + oe.REVIEW_COOL_SEC * oe.STALE_COOL_MULT)[0]                                                       # bounded: the cooldown ends
     m2 = oe.note_seen(m, [{**row, 'px': 1.08}], [rej], set(), 1060)
     due, why = oe.review_due(m2['R'], 1060)
     assert due and 'price' in why                                                                                  # a material move wakes it at once
@@ -701,7 +701,7 @@ def test_a_rejected_coin_waits_until_something_material_changes():
     assert oe.review_due(m3['R'], 1050)[0] and 'scan' in oe.review_due(m3['R'], 1050)[1]                         # a holder scan landing wakes it
     m4 = oe.note_seen(m, [{**row, 'chart': {'state': 'CONFIRMED BREAKOUT'}}], [rej], set(), 1040)
     assert oe.review_due(m4['R'], 1040)[0]                                                                        # a breakout wakes it
-    board = [_brow('R', front=99, ageH=8)] + [_brow(f'X{i}', front=50, ageH=8) for i in range(300)]
+    board = [_brow('R', front=99, ageH=3)] + [_brow(f'X{i}', front=50, ageH=3) for i in range(300)]
     assert 'busy' in {x['mint']: x['intake'] for x in oe.intake(board)}['R']                                       # without news it would take a busy seat first …
     stale = [_brow('S', front=99, ageH=500, vol5m=500)] + [_brow(f'X{i}', front=50) for i in range(300)]
     assert 'S' not in {x['mint'] for x in oe.intake(stale)}                                                         # 🆕 12h+ and not waking up: no seat at the table
