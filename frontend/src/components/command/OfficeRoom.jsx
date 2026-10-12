@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, use
 import { ChartBox, DataLine, dqWord, dump, sgn, usd, ago, clock, ms, STRUCT_CLS } from './OfficeBoard';
 import { tiny } from '../../lib/num';
 import { useLiveCandles } from '../../lib/liveCandles';
+import { useLivePrices } from '../../lib/livePrices';
 import { EdgeBand, SocialLine } from './OfficeEdge';
 import { SeatStrip, SeatsPane, ProofSources } from './SeatOps';
 import '../../styles/officeRoom.css';
@@ -80,13 +81,15 @@ const LV_COLOR = { 'is-entry': '#15d16a', 'is-take': '#9fe3ff', 'is-stop': '#ff8
 // 👁 THE LIVE CHART: the same FEELESS PriceChart the war room and the mini chart draw (live 1-minute candles, its own stream), with the
 // agents' levels on it; under it, the data-quality line of what the agents themselves read on their last pass
 export function LiveChart({ view, big }) {
-  const pair = useMemo(() => (view?.pair ? { chainId: 'solana', pairAddress: view.pair, baseToken: { address: view.mint, symbol: view.symbol }, priceUsd: view.px || null } : null), [view?.pair, view?.mint, view?.symbol, view?.px]);
+  const live = useLivePrices(view?.pair ? [view.pair] : []).get(view?.pair);   // 📊 every chart opens on MARKET CAP (the shared live-price record carries `mc`)
+  const mc = live?.mc > 0 && live?.price > 0 ? live.mc : null;
+  const pair = useMemo(() => (view?.pair ? { chainId: 'solana', pairAddress: view.pair, baseToken: { address: view.mint, symbol: view.symbol }, priceUsd: live?.price ?? view.px ?? null, marketCap: mc } : null), [view?.pair, view?.mint, view?.symbol, view?.px, live?.price, mc]);
   const lines = useMemo(() => ({ lines: (view?.levels || []).map(l => ({ px: l.px, title: l.label, color: LV_COLOR[l.cls] })) }), [view?.levels]);
   if (!pair) return <div className="ofr-nochart" data-testid="ofr-nochart">no pool for this coin — nothing to chart</div>;
   const q = view.bars?.q;
   return <figure className={`ofr-chart ${big ? 'is-big' : ''}`} data-testid="ofr-chart" data-tip="The live FEELESS chart of this coin — the same chart the war room draws — with the agents' levels on it.">
     <div className="ofr-live-chart"><Suspense fallback={<div className="ofr-nochart">loading the live chart…</div>}>
-      <PriceChartLazy key={view.pair} pair={pair} interval="1m" metric="price" showVolume fuse={lines} />
+      <PriceChartLazy key={`${view.pair}-${mc ? 'mc' : 'px'}`} pair={pair} interval="1m" metric={mc ? 'marketCap' : 'price'} /* the agents' levels are scaled to the cap by the chart itself */ showVolume fuse={lines} />
     </Suspense></div>
     <figcaption>LIVE · the FEELESS chart{view.note ? ` · ${view.note}` : ''} · <button type="button" className="ofr-wr" onClick={() => window.dispatchEvent(new CustomEvent('feeless:war-room', { detail: pair }))} data-testid="ofr-warroom">⚔ war room</button></figcaption>
     {q ? <DataLine q={q} compact noVol /> : null}
