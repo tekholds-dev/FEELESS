@@ -60,9 +60,9 @@ export function activityOf(key, o) {
 export const focusOf = o => o?.queue?.[0]?.at || (o?.pipeline || []).find(s => !['PASS', 'DONE'].includes(s.state) && !['archivist', 'judge'].includes(s.agent))?.agent || 'tally';
 export function ticker(o) {
   const names = Object.fromEntries((o?.agents || []).map(a => [a.key, a.name])); const c = o?.currentCase; const p = hotPosition(o?.positions);
-  if (p && ['EXIT', 'TAKE PROFIT', 'PROTECT'].includes(p.decision)) return `Reaper: ${p.decision} $${p.symbol} — ${p.rule}`;
+  if (p && ['EXIT', 'TAKE PROFIT', 'PROTECT'].includes(p.decision)) return `Reaper: ${p.decision} $${p.symbol}${p.rule ? ` — ${p.rule}` : ''}`;
   if (c) { const at = focusOf(o); const st = (o.pipeline || []).find(s => s.agent === at); return `$${c.symbol} at ${names[at] || at} — ${st?.state || ''}: ${st?.word || ''}`; }
-  return p ? `Reaper: ${p.decision} $${p.symbol}` : 'no candidate this pass';
+  return p ? `Reaper: ${p.decision || p.state || 'HOLD'} $${p.symbol}` : 'no candidate this pass';   // never "Reaper: undefined"
 }
 
 // candles → SVG geometry. `levels` = [{ px, label, cls }] drawn as lines; everything is scaled to the candles AND the levels in view.

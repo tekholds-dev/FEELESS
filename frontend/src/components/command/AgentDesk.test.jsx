@@ -79,7 +79,14 @@ test('the desk is interactive: one lens at a time, KPI tiles open ONE drawer, th
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<AgentDesk call={call} />); });
   const q = id => el.querySelector(`[data-testid="${id}"]`);
-  expect(q('agent-desk').textContent).toContain('REAL MONEY MISSION'); expect(q('office-hq')).not.toBeNull(); expect(q('office-board')).toBeNull();
+  expect(q('agent-desk').textContent).toContain('REAL MONEY MISSION'); expect(q('office-board')).toBeNull();
+  expect(q('agent-cockpit')).not.toBeNull(); expect(q('office-hq')).toBeNull();                                        // 🎛 the cockpit is the tab; the 3D office is opt-in
+  expect(q('agent-desk').firstElementChild.nextElementSibling.getAttribute('data-testid')).toBe('agent-cockpit');   // header → the cockpit (its own mission ribbon first)
+  expect(q('agent-cockpit').firstElementChild.getAttribute('data-testid')).toBe('ack-ribbon'); expect(q('agd-more')).not.toBeNull();   // everything older sits in ONE ▸ MORE fold
+  await act(async () => { q('agd-office').click(); });
+  expect(q('office-hq')).not.toBeNull();
+  await act(async () => { q('agd-office').click(); });
+  expect(q('office-hq')).toBeNull();
   expect(q('agd-stream').textContent).toContain('snapshot');                                                           // no stream in a test: the snapshot poll is said, never "live"
   for (const k of ['mission', 'seats', 'kernel', 'judge', 'go', 'desk', 'road', 'market', 'ideas', 'gens']) expect(q(`kpi-${k}`)).not.toBeNull();
   expect(q('agd-drawer')).toBeNull();
