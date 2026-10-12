@@ -3317,3 +3317,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   fee-bound). Reaper reports carry `posRound` + `roundAction` + MFE / MAE. 📋 `judge_review.desk_stats` → payload `deskStats` → roster: real
   decisions · wins credited · losses pinned · % of its real trades that made money · median net (never a sum). Display: `RoundBar` +
   `RoundHistory` (SeatOps). `scripts/real-audit.py` replays recent losers under the rules AND counts the winners they would have blocked.
+- 🧬 OFFICE DESKS EVOLVE ON REAL MONEY (owner, 2026-10-12: "ok to lose but not learning and still in the gen is crazy"): `office.demote(.., reviews)`
+  — Weather / Warden / Courier / Reaper start their next generation at `OFFICE_REAL_SCRAP_N` 5 real losses the Judge pinned on them THIS life
+  net of the real wins credited (`office_real_net`; Reaper credited only for its own profit exits), or on a paper demotion; tunables reset,
+  `born` restarts, lineage keeps `lesson` (the most common cause). Before, a desk could only change gen if it had a promoted tunable to reset —
+  it never did, so they sat at gen 1 forever. ⏱ Rounds: an unread holder scan / price is PENDING (never a reject); a candidate off the list
+  for one pass keeps its rounds (closed after a whole round away).

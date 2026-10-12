@@ -1232,15 +1232,40 @@ def judge_candidates(office, arch, cfg, scalp, now):
     return o
 
 
-def demote(office, cards, now):
-    """An office agent the Judge DEMOTED (enough samples, degraded edge) loses its promoted tunables — back to the hard-coded defaults —
-    and starts its next generation. The four desks are scrapped by `agents.evolve`, never here."""
+OFFICE_REAL_SCRAP_N = 5   # 💵 real losses the Judge pinned on an office desk THIS life, net of the real wins credited to it → its next generation
+
+
+def office_real_net(reviews, a, born):
+    """Real losses pinned on desk `a` since it was born, minus the real wins credited to it (Reaper: its own profit exits; Warden /
+    Weather / Courier: every win they sized / let through). → (net, lost, won, the most common cause of its losses)"""
+    import collections
+    rv = [r for r in reviews or [] if _f(r.get('at')) >= _f(born)]
+    lost = [r for r in rv if r.get('kind') == 'loss' and _f((r.get('resp') or {}).get(a)) > 0]
+    won = [r for r in rv if r.get('kind') == 'win' and (a != 'reaper' or str(r.get('exit') or '').startswith(('R6', 'R7')))]
+    cause = collections.Counter(str(r.get('cause') or r.get('lossClass') or '?') for r in lost).most_common(1)
+    return len(lost) - len(won), len(lost), len(won), (cause[0][0] if cause else None)
+
+
+def demote(office, cards, now, reviews=None):
+    """An office desk starts its NEXT GENERATION when the Judge DEMOTED it (enough samples, degraded edge) or when REAL MONEY says so
+    (OFFICE_REAL_SCRAP_N net losses pinned on it this life). Its promoted tunables go back to the hard-coded defaults, `born` restarts,
+    and the lineage keeps the lesson (the most common cause of the losses it carried). 2026-10-12: Warden had 16 real losses pinned and
+    was still gen 1 — the only way out used to need a promoted tunable to reset, which it never had. The four desks: `agents.evolve`."""
     o = dict(office or {})
+    born = dict(o.get('born') or {})
     for a in ('weather', 'warden', 'courier', 'reaper'):
-        if (cards.get(a) or {}).get('status') == 'demoted' and (o.get('tune') or {}).get(a):
-            t = {k: dict(v) for k, v in (o.get('tune') or {}).items()}; t.pop(a, None)
-            g = dict(o.get('gen') or {}); g[a] = int(g.get(a) or 1) + 1
-            o.update(tune=t, gen=g, lineage=(list(o.get('lineage') or []) + [{'agent': a, 'gen': g[a] - 1, 'at': now, 'why': f"demoted: {cards[a]['why']} — tunables back to defaults"}])[-40:])
+        born.setdefault(a, 0.0)
+        net, lost, won, cause = office_real_net(reviews, a, born[a])
+        paper = (cards.get(a) or {}).get('status') == 'demoted' and bool((o.get('tune') or {}).get(a))
+        if not (paper or net >= OFFICE_REAL_SCRAP_N):
+            continue
+        t = {k: dict(v) for k, v in (o.get('tune') or {}).items()}; t.pop(a, None)
+        g = dict(o.get('gen') or {}); g[a] = int(g.get(a) or 1) + 1
+        why = (f"scrapped on real money: {lost} losses pinned this life vs {won} wins credited — lesson: {cause}" if net >= OFFICE_REAL_SCRAP_N
+               else f"demoted: {cards[a]['why']}") + ' — tunables back to defaults'
+        born[a] = now
+        o.update(tune=t, gen=g, lineage=(list(o.get('lineage') or []) + [{'agent': a, 'gen': g[a] - 1, 'at': now, 'why': why, 'lesson': cause}])[-40:])
+    o['born'] = born
     return o
 
 

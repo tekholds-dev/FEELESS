@@ -13674,7 +13674,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
     except Exception as e:
         print('missed winners:', e)
     cards = _of.scorecards(st, arch, of, _agents_real(), cour)
-    of = _of.demote(of, cards, now)
+    of = _of.demote(of, cards, now, (of.get('judge') or {}).get('reviews'))   # 💵 office desks evolve on real money too
     _office_lat('judge', (time.perf_counter() - t0) * 1000)
     of['lat'] = _office['lat']
     _office['state'] = of

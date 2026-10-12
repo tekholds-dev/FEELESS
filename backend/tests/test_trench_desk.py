@@ -186,3 +186,13 @@ def test_a_coin_flickering_off_the_list_for_one_pass_keeps_its_rounds():
     assert not s['c']['F'].get('decision')
     s = tr.step(s, [], 40 + tr.ROUND_SEC + 1, {}, {})                        # gone a whole round: closed
     assert s['c']['F']['decision'] == 'COOLDOWN' and 'whole round' in s['c']['F']['why']
+
+
+def test_an_office_desk_that_keeps_losing_real_money_starts_its_next_generation_with_the_lesson():
+    """Owner, 2026-10-12: "ok to lose but not learning and still in the gen is crazy" — Warden had 16 real losses pinned and was gen 1."""
+    rv = [{'kind': 'loss', 'at': 10 + i, 'resp': {'warden': 1}, 'cause': 'thin_pool'} for i in range(6)]
+    o = of.demote({}, {}, 100.0, rv)
+    assert o['gen']['warden'] == 2 and o['born']['warden'] == 100.0 and o['lineage'][-1]['lesson'] == 'thin_pool'
+    assert of.demote(o, {}, 200.0, rv)['gen']['warden'] == 2                     # its new life starts clean: old losses don't count twice
+    few = [{'kind': 'loss', 'at': 1, 'resp': {'reaper': 1}}] * 4 + [{'kind': 'win', 'at': 2, 'exit': 'R7 trail'}]
+    assert of.demote({}, {}, 100.0, few).get('gen', {}).get('reaper') is None      # 4 losses − 1 win: still alive
