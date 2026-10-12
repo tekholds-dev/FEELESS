@@ -203,8 +203,17 @@ export function missionTiles(d, seats) {
     { k: 'last', label: 'LAST REAL ACTION', text: la ? `${String(la.move || '').toUpperCase()} $${la.sym}` : '—', sub: la?.at ? `${Math.max(0, Math.round((Date.now() / 1000 - la.at) / 60))}m ago · ${la.result?.state || 'sent'}` : 'none since the service started', tip: la?.why },
     { k: 'cash', label: 'CASH', val: num(ops.cash ?? ss.cash), fmt: 'usd', sub: 'free card cash' },
     { k: 'keeper', label: 'KEEPER', text: ops.keeper ? String(ops.keeper).toUpperCase() : '—', sub: ops.office ? `office ${String(ops.office).toLowerCase()}` : null, cls: /1 active/i.test(ops.keeper || '') ? 'm-pos' : ops.keeper ? 'is-warn' : '' },
-    { k: 'exec', label: 'EXECUTION', text: x.health || ops.execution || '—', sub: x.sends != null ? `${x.fills ?? 0} of ${x.sends} sends filled / h` : null, cls: (x.health || ops.execution) === 'HEALTHY' ? 'm-pos' : (x.health || ops.execution) === 'BAD' ? 'm-neg' : (x.health || ops.execution) ? 'is-warn' : '', tip: (x.why || []).join(' · ') },
+    { k: 'exec', label: 'EXECUTION', text: x.health || ops.execution || '—', sub: x.sends != null ? `${x.fills ?? 0} of ${x.sends} sends filled / h` : null, cls: (x.health || ops.execution) === 'HEALTHY' ? 'm-pos' : (x.health || ops.execution) === 'BAD' ? 'm-neg' : (x.health || ops.execution) ? 'is-warn' : '', tip: [...(x.why || []), execWords(x.metrics)].filter(Boolean).join(' · ') },
   ];
+}
+
+// the Courier's last-hour numbers in words (from the ledger — backend fuse_wallet.exec_metrics); null when none came
+export function execWords(m) {
+  if (!m) return null;
+  const p = [`${m.fills}/${m.sends} filled`, m.expired ? `${m.expired} expired` : null, m.quoteAgeMed != null ? `quote ${m.quoteAgeMed}s old at send` : null,
+    m.landMed != null ? `lands in ${m.landMed}s` : null, m.slipMed != null ? `${m.slipMed > 0 ? '+' : ''}${m.slipMed}% vs mid` : null,
+    m.staleRefresh ? `${m.staleRefresh} stale quotes refreshed` : null, m.dupesDropped ? `${m.dupesDropped} duplicate requests dropped` : null, m.retries ? `${m.retries} retries` : null];
+  return p.filter(Boolean).join(' · ');
 }
 
 // ── chart markers: ONE letter per real event (T Trigger · D Devil · W Warden · B buy filled · R Reaper · X exit) ──────────────────

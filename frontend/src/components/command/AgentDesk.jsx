@@ -297,6 +297,7 @@ export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
     <AgentCockpit call={call} isOwner={isOwner} />
     <details className="agd-more" open={more} onToggle={e => setMore(e.currentTarget.open)} data-testid="agd-more">
     <summary data-testid="agd-more-sum"><b>▸ MORE</b><small>paper desk · kernel board · judge court · limits · lenses · the office room</small></summary>
+    {more ? <>
     <div className="agd-kpis" data-testid="agd-kpis">
       <Kpi id="mission" label={om.phase === 'GROWTH' ? '🎓 TO 2× PUT-IN' : om.phase === 'GRADUATED' ? '🎓 2× REACHED' : '🎯 BREAKEVEN'} val={om.value != null ? `$${Number(om.value).toFixed(2)}` : '—'} cls={om.locked ? 'agd-warn' : 'm-pos'} sub={om.putIn != null ? (om.phase === 'GROWTH' ? `of $${Number(om.doubleTarget).toFixed(2)} · next stage locked` : `of $${Number(om.putIn).toFixed(2)}${om.needX ? ` · needs ${om.needX}×` : ''} · then 2× = $${Number(om.doubleTarget ?? om.putIn * 2).toFixed(2)}`) : 'no real card numbers yet'} on={open('mission') && lens !== 'all'} onClick={() => tog('mission')} tip="Phase 1: back to breakeven. Phase 2: the real card to 2× the put-in — only then can the next stage unlock. Opens the goal bars." />
       <Kpi id="seats" label="🎮 IN CONTROL" val={`${seats.filter(x => x.mint).length} / ${seats.length || '—'}`} sub={d.cfg?.agentControl ? 'seats on your card' : 'control is off'} on={open('seats') && lens !== 'all'} onClick={() => tog('seats')} tip="The real card as seats. Opens the seats with their controls (fill, swap, pull)." />
@@ -350,5 +351,5 @@ export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
         <small className="m-dim">Control group (coins Trigger said WAIT): {d.control?.n ? `${pct(d.control.med)} typical` : 'not judged yet'} — the team must beat this to mean anything. Slippage on a 5-min scalp is not modelled.</small></div>
       <AgentControls cfg={d.cfg} decisions={d.decisions} proven={d.proven5} isOwner={isOwner} busy={busy} save={save} /></div>}
     {lens !== 'all' && <div className="m-seg agd-lens" role="tablist" aria-label="Agent desk lens">{LENSES.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)} data-testid={`lens-${k}`}>{l}{k === 'live' && goN ? <small>{goN} READY</small> : k === 'learn' && newIdeas ? <small>{newIdeas} 💡</small> : k === 'life' && atRisk ? <small>{atRisk} ⚠</small> : k === 'review' && reviewOpen ? <small>{reviewOpen} 📝</small> : k === 'limits' && d.office?.policy?.manual ? <small>✋ manual</small> : null}</button>)}</div>}
-  </details></section></AgentHubProvider>;
+  </> : null}</details></section></AgentHubProvider>;
 }

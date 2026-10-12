@@ -1,5 +1,5 @@
 import { seatCards, focusMint, chartModel, chartMarkers, decisionOf, tapeOf, tapeTone, lastByMint, mcFrom, supplyFrom, reviewQueue, bucketCounts, inBucket, supplyWord,
-  seatState, pnlUsdOf, missionTiles, letterMarkers, freshWord, inputsOf, traceOf, newEvents, maxIdByAgent, queueStatus, queueMc } from './cockpit';
+  seatState, pnlUsdOf, execWords, missionTiles, letterMarkers, freshWord, inputsOf, traceOf, newEvents, maxIdByAgent, queueStatus, queueMc } from './cockpit';
 import { easedAt, EASE_MS } from './easedNumber';
 import { applyDelta, TAPE_KEEP } from './agentHub';
 
@@ -137,4 +137,10 @@ test('review queue: status words + market cap from supply, else the live cap (no
 test('hub: an ai_update delta replaces the AI block (advisory notes only)', () => {
   const raw = applyDelta({ office: { kernel: { candidates: [{ mint: 'M', rank: 9 }] } } }, { kind: 'ai_update', data: { providers: [{ key: 'local', state: 'ONLINE' }], notes: { M: { devil: { source: 'local' } } } } });
   expect(raw.office.ai.providers[0].state).toBe('ONLINE'); expect(raw.office.kernel.candidates[0].rank).toBe(9);
+});
+
+test('the Courier\'s numbers in words, only from what the ledger metrics carry', () => {
+  expect(execWords(null)).toBeNull();
+  expect(execWords({ sends: 4, fills: 3, expired: 1, quoteAgeMed: 1.2, landMed: 8, slipMed: 0.9, staleRefresh: 2, dupesDropped: 0, retries: 0 }))
+    .toBe('3/4 filled · 1 expired · quote 1.2s old at send · lands in 8s · +0.9% vs mid · 2 stale quotes refreshed');
 });

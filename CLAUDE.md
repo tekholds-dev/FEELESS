@@ -3373,3 +3373,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `backend/ai_router.py` = local LM Studio first, then Groq / OpenRouter / OpenAI / xAI / custom; advisory notes only (displayed, never a rank,
   size, READY, order or stop); Tally / Trigger / Reaper / Courier / Warden never ask (test). Keys live in backend/.env (placeholders added), shown
   only as set + last 4. `LOCAL_LLM_ENABLED=false` switches the local model off; the kernel never waits on a model.
+- ⏱ EXECUTION LIFECYCLE + QUOTE TTL (2026-10-12 execution audit; `fuse_wallet.exec_state / quote_stale / exec_metrics`): the keeper already resolves
+  a pending tx before anything new (restart included), sells before buys, ONE in-flight tx per card, pending saved before the send, the SAME
+  signed tx re-sent, simulation failures cleared at once. Added: a quote is never built into a tx past `QUOTE_TTL` (buy 8s · sell 5s · urgent
+  exit — stop / rug / drain / flow / dead / floor / sell-all — half); a refreshed buy quote passes the secure-buy check again; `quoteAgeSec` +
+  `quoteRefresh` on the row; `_FW_DUPES` counts requests dropped on an in-flight card; `office.execution.metrics` (ledger only) → the EXECUTION
+  tile. `exec_state` NAMES a ledger row in one lifecycle word — it is not a second state machine. Slippage stays inside the existing caps.
+- 🧹 STORAGE (`storage_trim.py`, hourly with `_data_clean`): the logo cache (was 1.0 GB) ≤ 300 MB oldest-first (never < 1 day old), a logo > 1.5 MB
+  is served but not cached; `/tmp/feeless-*.log` over 20 MB keep their newest 5 MB. Ledgers, .db files, records, archives, lineage: never.
+  The AI router persists nothing (in-memory notes ≤ 60 coins).
+- ⚡ `/edge` is stale-while-revalidate (`EDGE_STALE_SEC` 600, background `_edge_refresh`) and a cold coin waits ≤ `EDGE_COLD_BUDGET` 3s: a 10s
+  cold build held the browser's connection slots and every request on the page queued behind it (search read 12s in the browser, 6 ms on the
+  server). The confluence ranking cache is `_edge_rank_cache` — it shared the name `_edge_cache` with the per-coin cache, whose clear() at
+  5,000 coins wiped its `at` / `rows` (KeyError). The Agents tab's ▸ MORE fold mounts nothing while closed.

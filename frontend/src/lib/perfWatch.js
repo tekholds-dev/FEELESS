@@ -72,5 +72,6 @@ export function startPerfWatch() {
   } catch { /* longtask unsupported (Safari) */ }
   setInterval(sampleFps, 30000); setTimeout(sampleFps, 5000);
   setInterval(flush, 60000);
-  document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
+  let hidAt = 0;   // a tab flicking hidden / visible must not post a report each time (≤ one hidden-flush per 10s)
+  document.addEventListener('visibilitychange', () => { if (document.hidden && Date.now() - hidAt > 10000) { hidAt = Date.now(); flush(); } });
 }

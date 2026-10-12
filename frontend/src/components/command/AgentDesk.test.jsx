@@ -74,7 +74,7 @@ test('the Agents tab shows the KERNEL\'s decision on every coin; the practice de
 });
 
 test('the desk is interactive: one lens at a time, KPI tiles open ONE drawer, the board filters by the kernel\'s state', async () => {
-  try { localStorage.removeItem('feeless.agentLens'); localStorage.removeItem('feeless.agentRoom'); } catch (e) { /* none */ }
+  try { localStorage.removeItem('feeless.agentLens'); localStorage.removeItem('feeless.agentRoom'); localStorage.setItem('feeless.agentMore', 'open'); } catch (e) { /* none */ }
   const call = jest.fn(async (path, opts) => (opts ? { ok: true } : view));
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<AgentDesk call={call} />); });
@@ -120,7 +120,7 @@ test('the desk is interactive: one lens at a time, KPI tiles open ONE drawer, th
   await act(async () => { q('lens-board').click(); });
   expect(q('office-board')).not.toBeNull();
   await act(async () => { root.unmount(); });
-  try { localStorage.removeItem('feeless.agentLens'); localStorage.removeItem('feeless.agentRoom'); } catch (e) { /* none */ }
+  try { localStorage.removeItem('feeless.agentLens'); localStorage.removeItem('feeless.agentRoom'); localStorage.setItem('feeless.agentMore', 'open'); } catch (e) { /* none */ }
 });
 
 test('ONE meaning of a decision: the state, the fact that decided it, the pips, Devil\'s word, filter / search / sort, the pass clock', () => {
@@ -161,4 +161,17 @@ test('🕵 launch intel cells: every field with its tone and evidence', () => {
   expect(c['early supply']).toMatchObject({ v: '22% held · worsening', t: 'bad' }); expect(c['early supply'].tip).toContain('3 exit');
   expect(c['FOMO phase']).toMatchObject({ v: 'ACCELERATING', t: 'good' }); expect(c['exit pressure']).toMatchObject({ v: 'WATCH', t: 'warn' });
   expect(c['dev / cluster'].t).toBe('bad'); expect(c.confidence.v).toBe('80%');
+});
+
+test('⚡ the ▸ MORE fold mounts nothing while closed — no hidden lenses, boards or mini screens rendering behind the cockpit', async () => {
+  try { localStorage.setItem('feeless.agentMore', 'closed'); localStorage.removeItem('feeless.agentLens'); } catch (e) { /* none */ }
+  const call = jest.fn(async (path, opts) => (opts ? { ok: true } : view));
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<AgentDesk call={call} />); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  expect(q('agent-cockpit')).not.toBeNull(); expect(q('agd-more')).not.toBeNull();
+  expect(q('agd-kpis')).toBeNull(); expect(q('lens-live-pane')).toBeNull(); expect(el.querySelectorAll('.ags-mini')).toHaveLength(0);
+  expect(call.mock.calls.filter(c => !c[1]).map(c => c[0])).toEqual(['/admin/agents']);                              // still ONE request
+  await act(async () => { root.unmount(); });
+  try { localStorage.removeItem('feeless.agentMore'); } catch (e) { /* none */ }
 });
