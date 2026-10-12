@@ -139,10 +139,11 @@ def think(ms, ctx=None):
     rank = round(base * we['factor'] * sh['factor'], 1)
     op = {'tally': t, 'sherlock': sh, 'weather': we, 'trigger': tr, 'devil': dv, 'warden': wa, 'courier': co,
           'reaper': reaper(ms, held), 'archivist': {'sources': ms['identity']['sources']}, 'judge': judge(ms, c.get('weights'))}
-    return {'opinions': op, 'rank': rank, 'parts': parts, **reduce(op, rank, held, ms['identity']['mint'] in (c.get('pending') or ()))}
+    return {'opinions': op, 'rank': rank, 'parts': parts,
+            **reduce(op, rank, held, ms['identity']['mint'] in (c.get('pending') or ()), ms['identity']['mint'] in (c.get('watchOnly') or ()))}
 
 
-def reduce(op, rank, held, pending=False):
+def reduce(op, rank, held, pending=False, watch=False):
     """ONE decision: HELD / EXIT_PENDING for a position; else READY (ENTER, no hard veto, execution ok, rank ≥ READY_MIN) · CONTENDING
     (passes the wall) · TRACKING (data pending / outside the universe / blocked by the wall — never 'rejected')."""
     if held:
@@ -155,6 +156,8 @@ def reduce(op, rank, held, pending=False):
         w = next((why for _o, s, why in dv['objections'] if s == 'HARD_VETO'), 'hard wall')
         return {'status': 'TRACKING', 'why': w}
     if op['trigger']['state'] == 'ENTER' and op['courier']['ok'] and rank >= READY_MIN:
+        if watch:   # 👤 on the desk only because the owner asked for a review: judged and shown, never a fill — ARM is the owner's own step
+            return {'status': 'CONTENDING', 'why': f"would be READY (rank {rank:g}) — owner review only; ARM lets the agents take it", 'wouldBeReady': True}
         return {'status': 'READY', 'why': f"{op['trigger']['narrative']} — {op['trigger']['why']}"}
     return {'status': 'CONTENDING', 'why': f"{op['trigger']['narrative']} — rank {rank:g}"}
 

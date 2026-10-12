@@ -14,7 +14,8 @@ never makes a holder scan or an agent decision look newer than it is.
 import asyncio
 import json
 
-KINDS = ('mint_update', 'candidate_update', 'agent_update', 'hunter_update', 'position_update', 'lifecycle_update', 'execution_update', 'metric_update', 'snapshot')
+KINDS = ('mint_update', 'candidate_update', 'agent_update', 'hunter_update', 'position_update', 'lifecycle_update', 'execution_update', 'metric_update', 'snapshot',
+         'decision', 'owner_update')   # 📜 one REAL kernel decision event (the tape) · the owner's review list
 KEEP = 2000
 MAX_SUBS = 12
 
@@ -36,14 +37,16 @@ class Hub:
         self.sent = {k: 0 for k in KINDS}
         self.skipped = 0
 
-    def publish(self, kind, key, data, now, force=False):
-        """One delta, only if it changed. → the event, or None (unchanged)."""
+    def publish(self, kind, key, data, now, force=False, track=True):
+        """One delta, only if it changed. → the event, or None (unchanged). `track=False` = an EVENT (a decision line): always sent, and
+        nothing is remembered about it (it is never compared with a later one)."""
         assert kind in KINDS, kind
-        h = _h(data)
-        if not force and h is not None and self.last.get((kind, key)) == h:
+        h = _h(data) if track else None
+        if track and not force and h is not None and self.last.get((kind, key)) == h:
             self.skipped += 1
             return None
-        self.last[(kind, key)] = h
+        if track:
+            self.last[(kind, key)] = h
         self.seq += 1
         e = {'seq': self.seq, 'kind': kind, 'key': key, 'at': round(float(now), 2), 'data': data}
         self.log.append(e)

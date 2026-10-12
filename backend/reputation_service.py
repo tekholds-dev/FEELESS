@@ -8488,6 +8488,7 @@ async def _real_guard_loop():
                                     try:
                                         nw_ = _prime.agent_pull(nw_, pair_, {pair_: px.get(next((l.get('mint') for l in nw_.get('legs') or [] if l.get('pairAddress') == pair_), None))}, {}, now, why_)
                                         nw_['agentExitAt'] = now
+                                        _tk.KERNEL.note('reaper', 'EXIT (live chart)', str(why_)[:140], now, mint=next((l.get('mint') for l in c_.get('legs') or [] if l.get('pairAddress') == pair_), None), key=f'fast:{int(now)}')
                                     except ValueError:
                                         pass
                                 if nw_ is not c_:
@@ -12586,6 +12587,8 @@ import trench_kernel.positions as _pos
 import trench_kernel.view as _tkv
 import trench_kernel.metrics as _tkm
 import trench_kernel.events as _tke
+import trench_kernel.supply as _tks
+import owner_review as _owr
 LINGO_PATH = FUSE_HQ_PATH.parent / 'trench_lingo.json'   # 📖 slang the desk learned from Pump callers' own words (per-day counts + learned words)
 AGENTS_PATH = FUSE_HQ_PATH.parent / 'agents.json'   # 🤖 the agent desk: Tally's tapes, every call, every judged result
 AGENTS_EVERY = 18.0                                 # ⚡ 3× a minute (owner, 2026-10-11: "seats never empty — 3× as fast"); a pass takes ~2s
@@ -12710,7 +12713,132 @@ def _kernel_ctx(now):
     legs_ = ((((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '') or {}).get('legs') or [])
     pending = {l.get('mint') for l in legs_ if l.get('mint') and not l.get('placeholder') and _fuse._f(l.get('units')) <= 0}   # a seat the keeper is still buying
     return {'held': held, 'pending': pending, 'regime': (_agents.get('weather') or {}).get('regime'), 'courier': (_office.get('courier') or {}).get('health'),
-            'live': rd.get('live') if rd else None, 'weights': _judge_weights(now), 'lessons': _tkl.lessons(_lc_book(now))}   # 🧬 only the generations IN CONTROL
+            'live': rd.get('live') if rd else None, 'weights': _judge_weights(now), 'lessons': _tkl.lessons(_lc_book(now)),
+            'watchOnly': {m_ for m_ in _owner.get('only') or () if _tk.KERNEL.owner.get(m_) != 'arm'}}   # 👤 review / track only: judged, never READY   # 🧬 only the generations IN CONTROL
+
+
+OWNER_REVIEW_PATH = FUSE_HQ_PATH.parent / 'owner_review.json'   # 👤 the owner's review / track / arm list (owner_review.py)
+_owner: dict = {'book': None, 'only': set()}
+_tape_seen: dict = {'ledger': 0.0, 'reap': {}, 'regime': None, 'hub': 0}
+
+
+def _owner_book(now):
+    """The owner's list, pruned (a review lasts 30 min, an ARM 6h → then tracked). Loaded once; written only when it changes."""
+    if _owner['book'] is None:
+        _owner['book'] = dict((_json_load(OWNER_REVIEW_PATH, {}) or {}).get('book') or {})
+    b = _owr.prune(_owner['book'], now)
+    if b != _owner['book']:
+        _owner['book'] = b
+        _json_save(OWNER_REVIEW_PATH, {'book': b, 'at': now})
+    return b
+
+
+def _owner_view(now):
+    """The owner's review rows from the kernel's own state (newest first). A coin the kernel has not read yet = RESOLVING."""
+    K = _tk.KERNEL
+    b = _owner_book(now)
+    return [_owr.result(m_, e_, K.store.mints.get(m_), K.dec.get(m_), _ENRICH.status(m_, now), now, only=m_ in (_owner.get('only') or ()))
+            for m_, e_ in sorted(b.items(), key=lambda kv: -_fuse._f(kv[1].get('at')))]
+
+
+async def _owner_resolve(addr):
+    """An address from the owner's box → (mint, symbol) or (None, None). A mint FEELESS already knows; a POOL it knows; else ONE Jupiter
+    token lookup (it finds a coin by mint or by any of its pools). Never an RPC call, never an arbitrary URL."""
+    K = _tk.KERNEL
+    if addr in K.store.mints:
+        return addr, K.store.mints[addr]['identity'].get('symbol')
+    for m_, ms_ in K.store.mints.items():
+        if ms_['identity'].get('pair') == addr:
+            return m_, ms_['identity'].get('symbol')
+    for p_ in _open_pairs:
+        bt_ = p_.get('baseToken') or {}
+        if bt_.get('address') == addr or p_.get('pairAddress') == addr:
+            return bt_.get('address'), bt_.get('symbol')
+    if os.environ.get('PYTEST_CURRENT_TEST'):
+        return None, None
+    try:
+        async with httpx.AsyncClient(timeout=6) as http:
+            pr = await _launchpad_board.jup_lookup(http, addr)
+        bt_ = (pr or {}).get('baseToken') or {}
+        return (bt_.get('address'), bt_.get('symbol')) if bt_.get('address') else (None, None)
+    except Exception as e:
+        print('owner resolve:', str(e)[:100])
+        return None, None
+
+
+async def _owner_act(text, action, now):
+    """ONE owner action (REVIEW · TRACK · ARM · IGNORE) on a pasted CA / link → the list. It only edits the owner's list and wakes the
+    agents' next pass: no order, no quote, no wallet call — the kernel decides the coin exactly as it decides every other."""
+    ref = _owr.parse(text)
+    if not ref:
+        raise ValueError('paste a Solana mint (CA), or a pump.fun / dexscreener.com/solana / birdeye.so token link')
+    if action == 'ignore' and ref['address'] in _owner_book(now):
+        mint, sym = ref['address'], None
+    else:
+        mint, sym = await _owner_resolve(ref['address'])
+        if not mint and ref['kind'] == 'mint':
+            mint = ref['address']   # a mint from a Pump / Birdeye link: the next agent pass reads it (RESOLVING until then)
+    if not mint:
+        raise ValueError('no Solana coin found for that address yet — a brand-new mint can take a minute to be indexed')
+    b = _owr.apply(_owner_book(now), mint, action, now, sym, ref['source'])
+    _owner['book'] = b
+    _json_save(OWNER_REVIEW_PATH, {'book': b, 'at': now})
+    _tk.KERNEL.owner = _owr.modes(b, now)
+    _tk.KERNEL.note('owner', action.upper(), {'review': 'sent through the normal agent review', 'track': 'kept on the owner\'s list', 'arm': 'owner priority — it still has to be READY on its own and pass every execution check',
+                                              'ignore': 'off the owner\'s list'}[action], now, mint=mint, key=f'{action}:{int(now)}')
+    _audit('owner-review', {'mint': mint, 'action': action, 'source': ref['source']})
+    if action != 'ignore':
+        _agents['wake'] = now   # the agents read it on their next pass (≤ a few seconds), not at the clock
+    _tape_flush(now)
+    return mint
+
+
+def _tape_flush(now):
+    """📡 New decision-tape rows + the owner's list → the hub (one event per REAL decision; nothing is sent when nothing happened)."""
+    try:
+        H, T = _tke.HUB, _tk.KERNEL.tape
+        for r_ in T.since(_tape_seen['hub']):
+            H.publish('decision', str(r_['id']), r_, now, track=False)
+            _tape_seen['hub'] = r_['id']
+        H.publish('owner_update', 'owner', _owner_view(now), now)
+    except Exception as e:
+        print('tape flush:', str(e)[:120])
+
+
+def _tape_ledger(now):
+    """📮 Courier's lines on the tape = the keeper's OWN ledger rows for the real card (sent → confirmed fill / failed / refused). The
+    ledger is the truth of a fill; this only reads it."""
+    try:
+        tid_ = _office.get('tid')
+        since_ = _tape_seen['ledger'] or (now - 900)
+        new_ = [r_ for r_ in _office_ledger(200) if r_.get('side') in ('buy', 'sell') and (not tid_ or r_.get('card') == tid_) and _fuse._f(r_.get('at')) > since_]
+        for r_ in new_:
+            st_ = 'FILLED' if _of.confirmed(r_) else 'FAILED' if r_.get('status') == 'failed' else 'REFUSED' if r_.get('status') == 'skipped' else str(r_.get('status') or '').upper()
+            if st_ not in ('FILLED', 'FAILED', 'REFUSED'):
+                continue
+            usd_ = _fuse._f(r_.get('usd'))
+            why_ = (f"${usd_:.2f}" + (f" · landed in {_fuse._f(r_.get('landSec')):.0f}s" if r_.get('landSec') is not None else '')) if st_ == 'FILLED' else str(r_.get('err') or r_.get('why') or '')[:120]
+            _tk.KERNEL.note('courier', f"{st_} {str(r_.get('side')).upper()}", why_, _fuse._f(r_.get('at')) or now, mint=r_.get('mint'), px=_fuse._f(r_.get('px')) or None,
+                            result={'state': st_.lower(), 'usd': round(usd_, 4), 'sig': r_.get('sig') if st_ == 'FILLED' else None, 'side': r_.get('side')}, key=f"{r_.get('sig') or r_.get('id') or r_.get('at')}:{st_}")
+            _tape_seen['ledger'] = max(_tape_seen['ledger'], _fuse._f(r_.get('at')))
+        if not _tape_seen['ledger']:
+            _tape_seen['ledger'] = now - 900
+    except Exception as e:
+        print('tape ledger:', str(e)[:120])
+
+
+def _tape_reaper(reports, now):
+    """☠ Reaper's lines = its ruling on each open position, written when the ruling CHANGES (HOLD → PROTECT → TAKE / EXIT)."""
+    try:
+        for r_ in reports or []:
+            m_ = r_.get('mint')
+            dec_ = r_.get('decision') or r_.get('state')
+            if not m_ or not dec_:
+                continue
+            _tk.KERNEL.note('reaper', dec_, f"{r_.get('rule') or ''} — {str(r_.get('evidence') or '')[:110]}".strip(' —'), now, mint=m_, px=_fuse._f(r_.get('px')) or None,
+                            result={'pct': r_.get('pct')}, key=f"{dec_}:{r_.get('rule')}")
+    except Exception as e:
+        print('tape reaper:', str(e)[:120])
 
 
 ENRICH_TOP = 4      # 🔎 Tier 2: holder / early-wallet scans for the strongest candidates only (Tier 0 = the whole intake, zero RPC)
@@ -12722,6 +12850,12 @@ def _kernel_pass(table, now):
     queued by what the kernel is doing with each coin: HELD first, then READY, then the coin each hunter lane is watching, then the top
     contenders, then fast new movers — nothing else is asked for here, and no agent fetches for itself. A coin whose scan is pending,
     rate-limited or unavailable stays exactly where its rank puts it."""
+    _tk.KERNEL.owner = _owr.modes(_owner_book(now), now)
+    for r_ in table or []:   # 📊 a reliable token supply (our own holder scan read it from the chain) rides on the row → the MintState's supply
+        if r_.get('mint') and not r_.get('supply'):
+            s_ = _fuse._f((_intel_cache.get(r_['mint']) or (0, {}))[1].get('supply')) if isinstance(_intel_cache.get(r_['mint']), (tuple, list)) else 0
+            if s_ > 0:
+                r_['supply'] = s_
     ctx = _kernel_ctx(now)
     ev = _tk.KERNEL.run(table, now, ctx, source='desk')
     K, P = _tk.KERNEL, _enr.PRIO
@@ -12736,6 +12870,9 @@ def _kernel_pass(table, now):
     for l_ in K.lanes:
         if l_.get('mint') and l_.get('state') != 'HELD':
             ask(l_['mint'], P['ARMED'], 'hunter lane')
+    for m_, mode_ in K.owner.items():   # 👤 the owner asked: its research is queued ahead of the pack (an armed coin with the READY ones)
+        if m_ in K.store.mints:
+            ask(m_, P['READY'] if mode_ == 'arm' else P['LOOK'], f'owner {mode_}')
     cont_ = sorted(((m_, d_) for m_, d_ in K.dec.items() if d_['status'] == 'CONTENDING' and m_ in K.store.mints), key=lambda kv: -kv[1]['rank'])
     for m_, _d in cont_[:ENRICH_TOP]:
         ask(m_, P['CONTENDING'], 'top contender')
@@ -12882,13 +13019,16 @@ async def _agents_tick(now):
         # lists · callouts · fed runners · the radar · the card) is noted in ONE registry; coins the board does not carry get their row
         # from Jupiter's token data (one batched read, the existing cache) so a launch seconds old reaches Tally on this pass
         try:
-            extra_, fresh_, outl_ = await _intake_pass(ob_, now)
+            own_ = _owr.modes(_owner_book(now), now)   # 👤 the owner's review / track / arm list: each gets a seat at the desk's table (the SAME agents read it)
+            board_m = {x.get('mint') for x in ob_}
+            extra_, fresh_, outl_ = await _intake_pass(ob_, now, list(own_))
         except Exception as e:
-            print('intake:', e); extra_, fresh_, outl_ = [], {}, {}
+            print('intake:', e); extra_, fresh_, outl_, own_, board_m = [], {}, {}, {}, set()
         ob_ = ob_ + extra_
         held_l = {l.get('mint') for l in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '', {}).get('legs') or [] if l.get('mint')}
         cap_ = max(_uni.lane_cap(ob_), _agents.get('laneStep') or _uni.LANE_CAPS[0]); _agents['laneCap'] = cap_   # 🪜 the smallest cap that can fill the seats ($200K first) — or wider, when last pass's ranking came up short
-        ob_ = [x for x in ob_ if x.get('mint') in held_l or _uni.in_lane(x, cap_)]   # 🎯 the universe FIRST: intake slots go to coins under the cap (they were spent on $200K+ coins, then dropped — 26 safe sub-$200K pools never reached the desk)
+        _owner['only'] = {m_ for m_ in own_ if m_ not in held_l and not (m_ in board_m or m_ in fresh_ or m_ in outl_)} | {x.get('mint') for x in ob_ if x.get('mint') in own_ and x.get('mint') not in held_l and not _uni.in_lane(x, cap_)}
+        ob_ = [x for x in ob_ if x.get('mint') in held_l or x.get('mint') in own_ or _uni.in_lane(x, cap_)]   # 🎯 the universe FIRST: intake slots go to coins under the cap (they were spent on $200K+ coins, then dropped — 26 safe sub-$200K pools never reached the desk)
         src_ = {}
         for k_, lst_ in (_lens_rows or {}).items():
             for r_ in lst_ or []:
@@ -12902,7 +13042,7 @@ async def _agents_tick(now):
         cool_ = {k_ for k_, e_ in seen_mem.items() if not _oe.review_due(e_, now)[0]}
         # held coins always + last pass's strongest cases / bench — but a rejected case with nothing new since does not hold a seat at the table
         stale_ = lambda r_: _oe.fresh_key((r_ or {}).get('vitals') or r_ or {}) >= 5 and not _opp.reawake(r_ or {})   # 🧊 12h+ and not waking up: no automatic recheck
-        recheck_ = held_m + [c_['mint'] for c_ in _tk.KERNEL.cases(top=20, statuses=('READY', 'CONTENDING')) if c_['mint'] not in cool_ and not stale_(c_.get('row'))] + [b_['mint'] for b_ in _agents.get('bench') or [] if b_.get('mint') not in cool_ and not stale_(b_)]
+        recheck_ = held_m + list(own_) + [c_['mint'] for c_ in _tk.KERNEL.cases(top=20, statuses=('READY', 'CONTENDING')) if c_['mint'] not in cool_ and not stale_(c_.get('row'))] + [b_['mint'] for b_ in _agents.get('bench') or [] if b_.get('mint') not in cool_ and not stale_(b_)]
         taken_ = _oe.intake(ob_, recheck_, src_, cool=cool_, fresh=fresh_, outlets=outl_)
         _office['intake'] = {'board': len(ob_), 'boardFeed': len(ob_) - len(extra_), 'outletRows': len(extra_), 'screened': len(taken_), 'by': {k_: sum(1 for x in taken_ if k_ in x['intake']) for k_, _n in _oe.INTAKE_SLOTS},
                              'newLaunches': sum(1 for x in ob_ if x.get('ageH') is not None and _fuse._f(x['ageH']) <= 1), 'cooled': len(cool_)}
@@ -12921,7 +13061,7 @@ async def _agents_tick(now):
             soft_ = _uni.agent_holder_pass(r)
             if soft_:
                 r['safe'], r['holderSoft'] = True, soft_
-        rows = [r for r in rows if r.get('mint') in held_m or _uni.in_lane(r, _agents.get('laneCap') or _uni.AGENT_MAX_MCAP)]   # 🎯 the lane (the ladder's cap) — coins on the card stay: their exits still run
+        rows = [({**r, 'owner': own_[r['mint']]} if r.get('mint') in own_ else r) for r in rows if r.get('mint') in held_m or r.get('mint') in own_ or _uni.in_lane(r, _agents.get('laneCap') or _uni.AGENT_MAX_MCAP)]   # 🎯 the lane (the ladder's cap) — coins on the card stay: their exits still run
         # 🧠 the human read: who is calling each coin on Pump and what they write, the narratives hot on the board, the lingo they use
         calls_ = _pump_calls.get('calls') or []
         by_m = {}
@@ -13001,6 +13141,10 @@ async def _agents_tick(now):
         _li_attach(table, now)   # 🕵 launch intelligence on every sensed row (early-buyer map, launch class, FOMO phase, exit pressure) — cache reads only
         _agents['passAt'] = now
         _agents['weather'] = st.get('weather')
+        rg_ = (st.get('weather') or {}).get('regime')
+        if rg_ and rg_ != _tape_seen.get('regime'):   # 🌦 one line when the regime CHANGES
+            _tk.KERNEL.note('weather', rg_, '; '.join(str(x_) for x_ in ((st.get('weather') or {}).get('why') or [])[:2]) or 'regime read from this pass', now, key=f'regime:{rg_}:{int(now // 60)}')
+            _tape_seen['regime'] = rg_
         _agents['table'] = table   # the SENSED rows: what every live decision reads (no paper verdict exists on them)
         try:   # ⚙ THE KERNEL DECIDES HERE — sensed rows → one MintState per mint → the ten-agent brain → ONE reducer. Nothing below can change it.
             _kernel_pass(table, now)
@@ -13332,7 +13476,7 @@ def _intake_reg():
     return _intake['reg']
 
 
-async def _intake_pass(ob, now):
+async def _intake_pass(ob, now, owner=()):
     """🕸 Every existing outlet → the registry; rows for the coins the board does not carry → (extra rows, fresh {mint: [pulse|migr]},
     outlets {mint: [calls|feeders|radar|runner]}). One local read of the Pump pulse (PumpPortal live stream, already running) and ONE
     batched Jupiter token read for the missing rows — no new crawler, no RPC."""
@@ -13366,7 +13510,7 @@ async def _intake_pass(ob, now):
     for s_ in ('calls', 'feeders', 'radar', 'runner'):
         for x in seen[s_]:
             outlets.setdefault(x['mint'], []).append(s_)
-    want = [m_ for m_ in list(dict.fromkeys(list(fresh) + list(outlets))) if m_ not in have][:INTAKE_JUP]
+    want = [m_ for m_ in dict.fromkeys(owner or ()) if m_ not in have] + [m_ for m_ in list(dict.fromkeys(list(fresh) + list(outlets))) if m_ not in have and m_ not in (owner or ())][:INTAKE_JUP]   # 👤 the owner's review coins first (never cut)
     extra = []
     if want and not os.environ.get('PYTEST_CURRENT_TEST'):
         miss = [m_ for m_ in want if not (_jup_tok_cache.get(m_) and now - _fuse._f(_jup_tok_cache[m_][0]) < 60)]
@@ -13630,6 +13774,7 @@ def _office_warden(cur, t_, requested, cfg_t, now, move):
             cnt['wardenVeto'] = int(cnt.get('wardenVeto') or 0) + 1
             st['wardenLog'] = (list(st.get('wardenLog') or []) + [{'at': now, 'sym': t_.get('symbol'), 'move': move, 'req': wd['requested'], 'allowed': 0, 'rule': wd['decided'], 'why': min(wd['rules'], key=lambda r: r['mult'])['why']}])[-30:]
             cur.setdefault('events', []).append({'at': now, 'kind': 'agent', 'move': 'veto', 'symbol': t_.get('symbol'), 'why': f"🛡 Warden vetoed ${t_.get('symbol')} ({move}): {min(wd['rules'], key=lambda r: r['mult'])['why']}"})
+            _tk.KERNEL.note('warden', 'VETO', f"{move}: {min(wd['rules'], key=lambda r: r['mult'])['why']}", now, mint=t_.get('mint'), key=f'veto:{int(now // 600)}')
     else:
         _office['sized'][t_.get('mint')] = wd['eff']
         ch_ = (_office.get('charts') or {}).get(t_.get('mint'))
@@ -13638,6 +13783,8 @@ def _office_warden(cur, t_, requested, cfg_t, now, move):
             _office['theses'][t_.get('mint')] = _ci.thesis(ch_, now, {'liq': n_.get('liq') or v_.get('liq'), 'ageH': v_.get('ageH'), 'courier': (_office.get('courier') or {}).get('health')},
                                                            _of.tune(st, 'reaper', 'stopPct'), _of.take_line(cfg_t, _agents.get('scalp')))
         if move == 'fill':
+            _tk.KERNEL.note('warden', f"SIZE ${_fuse._f(wd['allowed']):.2f}", (min(wd['rules'], key=lambda r: r['mult'])['why'] if wd['rules'] else 'no rule bit — full size'), now, mint=t_.get('mint'),
+                            result={'usd': round(_fuse._f(wd['allowed']), 4), 'requested': round(_fuse._f(wd['requested']), 4)}, key=f"sized:{int(now)}")
             cnt['wardenSized'] = int(cnt.get('wardenSized') or 0) + 1
             st['wardenLog'] = (list(st.get('wardenLog') or []) + [{'at': now, 'sym': t_.get('symbol'), 'move': move, 'req': wd['requested'], 'allowed': wd['allowed'], 'rule': wd['decided'], 'why': (min(wd['rules'], key=lambda r: r['mult'])['why'] if wd['rules'] else 'no rule bit — full size')}])[-30:]
     st['count'] = cnt
@@ -13676,6 +13823,7 @@ def _office_reap(cur, px, cfg_t, ctl, now, dec, pol=None, live=True, vels=None, 
                                    (by_.get(m_) or {}).get('chartAt') or _agents.get('passAt'), now)
             r_['phase'] = _mw.market_phase((_office.get('charts') or {}).get(m_), (by_.get(m_) or {}).get('li'))
         _office.update(pos=pos, reports=rep, gone=list(_office.get('gone') or []) + gone)
+        _tape_reaper(rep, now)
         _office_lat('reaper', (time.perf_counter() - t0) * 1000)
         return _of.merge_reaper(dec, rep, buys_left, edge)
     except Exception as e:
@@ -13720,9 +13868,19 @@ def _office_bars(pair, mint=None, n=40):
 def _office_positions():
     """Reaper's reports as the page gets them: + the position's own % path since entry and the candles behind its chart."""
     out = []
+    led_ = None
     for r in _office.get('reports') or []:
         p_ = (_office.get('pos') or {}).get(r.get('mint')) or {}
-        out.append({**r, 'path': list(p_.get('path') or [])[-40:], 'bars': _office_bars(r.get('pair'), r.get('mint'))})
+        mk_ = ((_tk.KERNEL.store.mints.get(r.get('mint')) or {}).get('market')) or {}
+        sup_ = mk_.get('supply')
+        if led_ is None:
+            led_ = _office_ledger(400)
+        fills_ = [{'at': _fuse._f(x_.get('at')), 'side': x_.get('side'), 'px': _fuse._f(x_.get('px')) or None, 'usd': round(_fuse._f(x_.get('usd')), 4), 'mc': _tks.mc(x_.get('px'), sup_)}
+                  for x_ in led_ if x_.get('mint') == r.get('mint') and x_.get('side') in ('buy', 'sell') and _of.confirmed(x_) and (not _office.get('tid') or x_.get('card') == _office.get('tid'))][-6:]
+        ent_ = _fuse._f(r.get('entry'))
+        out.append({**r, 'path': list(p_.get('path') or [])[-40:], 'bars': _office_bars(r.get('pair'), r.get('mint')),
+                    'supply': sup_, 'supplySrc': mk_.get('supplySrc'), 'mc': _tks.mc(r.get('px'), sup_), 'entryMc': _tks.mc(ent_, sup_),   # 📊 the chart language: price × supply (None = unavailable)
+                    'peakMc': _tks.mc(ent_ * (1 + _fuse._f(r.get('peak')) / 100), sup_) if r.get('peak') is not None else None, 'fills': fills_})
     return out
 
 
@@ -13739,6 +13897,7 @@ def _hub_publish(now, light=False):
         if not p:
             return
         H = _tke.HUB
+        _tape_flush(now)
         H.sync('position_update', {x_['mint']: {k_: v_ for k_, v_ in x_.items() if k_ not in _POS_DROP} for x_ in p.get('positions') or [] if x_.get('mint')}, now)
         H.publish('execution_update', 'office', {'courier': {k_: (_office.get('courier') or {}).get(k_) for k_ in ('health', 'why', 'pending', 'sends', 'fills', 'failed', 'landMed')},
                                                  'ready': p.get('ready'), 'seat': p.get('seat'), 'ops': p.get('ops'), 'lastAction': (p.get('mission') or {}).get('lastAction'),
@@ -13820,6 +13979,8 @@ def _office_light(tid, cur, now):
             p['fresh'] = _office_fresh(now); p['live'] = _office.get('live'); p['scans'] = _office.get('scans')
         except Exception as e:
             print('fresh:', e)
+        _tape_ledger(now)
+        p['tape'] = _tk.KERNEL.tape.view()
         _hub_publish(now, light=True)   # 📡 positions · seats · the last real action → the delta stream (only what changed)
 
 
@@ -13849,9 +14010,14 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
             print('lost / learn:', e)
     for p_ in closed:
         arch = _of.file_position(arch, p_, now)
+        _tk.KERNEL.note('archivist', 'FILED', f"{'confirmed' if p_.get('confirmed') else 'UNCONFIRMED'} exit" + (f" {_fuse._f(p_.get('pct')):+.1f}%" if p_.get('pct') is not None else '') + (f" · {p_.get('askRule')}" if p_.get('askRule') else ''),
+                        now, mint=p_.get('mint'), result={'pct': p_.get('pct')}, key=f"filed:{p_.get('leftAt') or int(now)}")
         if p_.get('confirmed'):   # 👨‍⚖️ every confirmed exit gets the Judge's review (root cause · desk · severity · change · confidence)
             try:
                 of['judge'] = _jr.note(of.get('judge'), arch['positions'][-1], now)
+                rv_ = (((of.get('judge') or {}).get('reviews')) or [{}])[-1]
+                _tk.KERNEL.note('judge', 'REVIEW', f"{rv_.get('kind') or 'exit'}: {rv_.get('cause') or '—'}" + (f" → {rv_.get('resp')}" if rv_.get('resp') else ''), now, mint=p_.get('mint'),
+                                result={'pct': p_.get('pct')}, key=f"review:{p_.get('leftAt') or int(now)}")
             except Exception as e:
                 print('judge review:', e)
         if p_.get('confirmed') and p_.get('mint'):   # 🕸 how this coin's real seat ended → its outlets' win / loss record (context, never a gate)
@@ -13915,6 +14081,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
             line_ = (f"🧬 generation {e_['gen']} replaced by generation {e_['to']} — {e_['why']}. New lesson: {e_['changed']}" if e_['kind'] == 'replaced'
                      else f"🧬 generation {e_['gen']} on PROBATION — {e_['why']}" if e_['kind'] == 'probation' else f"🧬 generation {e_['gen']} back to ACTIVE — {e_['why']}")
             st['feed'] = (list(st.get('feed') or []) + [{'at': now, 'who': e_['role'], 'sym': '', 'text': line_}])[-_pd.FEED_KEEP:]
+            _tk.KERNEL.note('judge', {'replaced': 'GENERATION REPLACED', 'probation': 'PROBATION'}.get(e_['kind'], 'BACK TO ACTIVE'), f"{e_['role']} gen {e_['gen']} — {e_['why']}", now, key=f"lc:{e_['role']}:{e_['kind']}:{e_['gen']}")
             if e_['kind'] == 'replaced':
                 _audit('agent-generation', {'role': e_['role'], 'from': e_['gen'], 'to': e_['to'], 'why': e_['why'], 'changed': e_['changed']})
     except Exception as e:
@@ -14045,6 +14212,10 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
     except Exception as e:
         print('fresh:', e)
     _office['payload']['performance']['passMs'] = round(sum(_fuse._f(ms.get(a)) for a in _of.CHAIN), 2)
+    _tape_ledger(now)
+    _office['payload'].update(tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now),
+                              universe={'capUsd': _agents.get('laneCap') or _uni.AGENT_MAX_MCAP, 'minCapUsd': _uni.AGENT_MIN_MCAP, 'maxAgeH': _uni.AGENT_MAX_AGE_H, 'inLane': len(_agents.get('table') or []),
+                                        'board': (_office.get('intake') or {}).get('board'), 'mints': len(_tk.KERNEL.store.mints)})
     _hub_publish(now)   # 📡 this pass as DELTAS: only what changed since the last one
     try:   # a read-only snapshot of what the page was handed (like agents_duty.json) — for checking the office without signing in to HQ
         _json_save(DATA_DIR / 'agent_office_view.json', _office['payload'])
@@ -14163,6 +14334,15 @@ async def admin_agents_set(request: Request):
                 p_['open'] = {k: sum(1 for it in v if not it.get('mark')) for k, v in (p_.get('items') or {}).items()}
         except ValueError as e:
             raise HTTPException(400, str(e))
+    ow = body.get('owner') or {}
+    owned = None
+    if ow.get('input') or ow.get('mint'):   # 👤 owner coin review: REVIEW · TRACK · ARM · IGNORE — it edits the owner's list only (no order, no quote, no wallet call)
+        try:
+            owned = await _owner_act(str(ow.get('input') or ow.get('mint')), str(ow.get('action') or 'review').lower(), time.time())
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        if _office.get('payload') is not None:
+            _office['payload']['ownerReview'] = _owner_view(time.time())
     idea = body.get('idea') or {}
     if idea.get('id'):
         try:
@@ -14170,7 +14350,7 @@ async def admin_agents_set(request: Request):
         except ValueError as e:
             raise HTTPException(400, str(e))
     _agents['view'] = None
-    return {'ok': True, **ch, **({'review': marked} if rv.get('key') else {})}
+    return {'ok': True, **ch, **({'review': marked} if rv.get('key') else {}), **({'owner': {'mint': owned, 'list': _owner_view(time.time())}} if owned else {})}
 
 
 async def _fuse_warm():

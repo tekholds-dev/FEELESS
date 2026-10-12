@@ -11,6 +11,8 @@ Cooldown is metadata (`coolUntil`), not a separate universe. Pure (no I/O) and f
 """
 import time as _time
 
+from . import supply as _sup
+
 STATES = ('DISCOVERED', 'TRACKING', 'CONTENDING', 'READY', 'ORDER_PENDING', 'HELD', 'EXIT_PENDING', 'CLOSED')
 DATA = ('PENDING', 'READY', 'UNKNOWN', 'FAILED')
 EVENTS = ('new', 'price', 'volume', 'buyers', 'liquidity', 'candle', 'chart', 'holders', 'wallets', 'research', 'order', 'peak', 'invalidation')
@@ -31,11 +33,13 @@ def _pct(a, b):
     return abs(b / a - 1) * 100 if a > 0 and b > 0 else 0.0
 
 
-def from_row(row, now, sources=()):
+def from_row(row, now, sources=(), prev=None):
     """The desk row (Tally's tape + the board's numbers + the chart read + the launch intel) → one MintState. Pure."""
     x = row or {}
     n, v, ch, li = x.get('nums') or {}, x.get('vitals') or {}, x.get('chart') or {}, x.get('li') or {}
     safe = v.get('safe')
+    pm = (prev or {}).get('market') or {}
+    sup, sup_src = _sup.resolve(x.get('mint'), x.get('px'), v.get('mcap'), x.get('supply') or v.get('supply'), (pm.get('supply'), pm.get('supplySrc')))
     soc = bool(x.get('site') or x.get('x') or v.get('site') or v.get('x') or (x.get('social') or {}).get('ok'))
     return {
         'identity': {'mint': x.get('mint'), 'symbol': x.get('symbol'), 'pair': x.get('pair') or x.get('pairAddress'),
@@ -43,7 +47,8 @@ def from_row(row, now, sources=()):
                      'ageH': v.get('ageH'), 'launch': (x.get('launch') or {}).get('type')},
         'market': {'price': _f(x.get('px')) or None, 'marketCap': v.get('mcap'), 'liquidity': n.get('liq') or v.get('liq'), 'volume5m': n.get('v5'),
                    'volume1h': v.get('vol1h'), 'pace': n.get('pace'), 'buyShare': n.get('buy'), 'move5m': n.get('d5'), 'liqChange': n.get('liqD'),
-                   'trades1h': v.get('txns1h'), 'priceAt': now, 'marketAt': now},
+                   'trades1h': v.get('txns1h'), 'priceAt': now, 'marketAt': now,
+                   'supply': sup, 'supplySrc': sup_src},   # 📊 price × supply = the market cap every Agents chart is drawn in (None = unavailable, never a guess)
         'chart': {'state': ch.get('state'), 'phase': x.get('mp'), 'src': ch.get('src'), 'candles': ch.get('n'), 'quality': (ch.get('q') or {}).get('state'),
                   'entry': (ch.get('entry') or [None])[0], 'candleAt': ch.get('at') or (now if ch.get('src') == 'candles' else None)},
         'chain': {'holderStatus': 'READY' if safe is not None else 'PENDING', 'holderSafe': safe, 'top10': v.get('top10'), 'rug': v.get('rug'),
@@ -102,7 +107,7 @@ class MintStore:
             seen.add(m)
             prev = self.mints.get(m)
             srcs = ((prev or {}).get('identity') or {}).get('sources') or []
-            cur = from_row(r, now, srcs + ([source] if source else []))
+            cur = from_row(r, now, srcs + ([source] if source else []), prev)
             ev = material(prev, cur)
             self.mints[m] = cur
             self.stats['ingested'] += 1
