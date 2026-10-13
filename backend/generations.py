@@ -16,9 +16,10 @@ def _f(v):
         return 0.0
 
 
-def improve(agent, causes, tunable):
-    """→ (lesson patch, [what changed]) for the NEXT generation (trench_kernel.lifecycle.improve)."""
-    return _improve(agent, causes, tunable)
+def improve(agent, causes, tunable, prev=None, wins=0):
+    """→ (lesson patch, [what changed]) for the NEXT generation (trench_kernel.lifecycle.improve): the fix for how it failed + what a
+    WINNING generation earned (`prev` lesson, `wins` credited real wins)."""
+    return _improve(agent, causes, tunable, prev=prev, wins=wins)
 
 
 def shadow_record(positions, old_p, new_p, since, take, replay):

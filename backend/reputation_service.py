@@ -11342,7 +11342,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
             async with _fw_lock:
                 d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book); _fw_save(d)
             slip = _fw.retry_slip(order['side'], slip_cap, cfg['slippageBps'], slip_try)   # a BUY retry opens to 5% max, first try stays normal
-            if ('0x1771' not in msg and '6001' not in msg) or slip_try == 2:
+            if ('0x1771' not in msg and '6001' not in msg) or slip_try >= _fw.slip_retries(order['side']):   # a buy: ONE retry at 5% · a sell: two
                 row.update(status='failed', err=('slippage exceeded at send' if ('0x1771' in msg or '6001' in msg) else 'simulation failed') + f' (tried ≤{slip / 100:.2f}%)')
                 async with _fw_lock:
                     d = _fw_load(); _fw_record(d, row); _fw_save(d)
@@ -11365,7 +11365,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
     # order goes again at once — fresh quote, more room (`buy_escalation` / `sell_escalation`), every live-pool / limit / secure-buy
     # check again — up to `SLIP_RETRIES` times. Before, one such failure re-picked the owner's seat 15s later ($FLY, $LOOP).
     n_ = int(order.get('slipRetry') or 0)
-    if not book.get('pending') and n_ < _fw.SLIP_RETRIES and order.get('side') in ('buy', 'sell'):
+    if not book.get('pending') and order.get('side') in ('buy', 'sell') and n_ < _fw.slip_retries(order['side']):
         last_ = next((r for r in reversed(_fw_peek().get('ledger') or []) if r.get('id') == row.get('id')), None)
         if last_ and last_.get('status') == 'failed' and _fw.SLIP_ERR in str(last_.get('err') or ''):
             base_id = order.get('baseId') or order.get('id') or f"{tid}:{order.get('mint')}"

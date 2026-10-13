@@ -145,3 +145,15 @@ def test_the_shadow_record_compares_old_and_new_on_the_same_real_exits():
     r = gn.shadow_record(pos, old, new, 100, 50, of.reaper_replay)
     assert r['n'] == 6 and r['new'] > r['old'] and r['verdict'] == 'new generation better'
     assert 'too early' in gn.shadow_record(pos[:2], old, new, 100, 50, of.reaper_replay)['verdict']
+
+
+def test_a_generation_that_won_hands_down_what_it_won_with_and_a_loser_hands_down_nothing():
+    prev = {'stopPct': 22.0, 'protectAt': 9.0}
+    # it never won: nothing is inherited (no inherited fear) — only the fix
+    assert lc.improve('reaper', ['gave_back'], of.TUNABLE, prev=prev, wins=1)[0] == {'protectAt': 4.0, 'giveBackPct': 35.0}
+    # it won 4 real trades: the stop it won with is kept; the trail it FAILED on is replaced by the fix, never kept
+    lesson, words = lc.improve('reaper', ['gave_back'], of.TUNABLE, prev=prev, wins=4)
+    assert lesson == {'stopPct': 22.0, 'protectAt': 4.0, 'giveBackPct': 35.0} and any('kept stopPct 22' in w for w in words)
+    lo, hi = of.TUNABLE['reaper']['stopPct'][1], of.TUNABLE['reaper']['stopPct'][2]
+    assert lo <= lc.improve('reaper', [], of.TUNABLE, prev={'stopPct': 999, 'notAKey': 1}, wins=5)[0]['stopPct'] <= hi     # clamped; unknown keys dropped
+    assert gn.improve('reaper', ['gave_back'], of.TUNABLE, prev=prev, wins=4)[0] == lesson

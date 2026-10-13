@@ -3467,3 +3467,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   pre-sell buy checks). "COURIER BLOCK" / "route unavailable (HTTP 429)" ⇒ count the keeper's Jupiter calls per pass before anything else. The
   market service's own log is full of DexScreener 429s (launch board) — not fixed here. 📮 Courier counts a SEND only when something was signed:
   a row that failed at "build/sign … (HTTP 429)" with no signature is not a failed send (four of them read execution BAD and blocked every seat 15 min).
+- 🎯 BUY SLIPPAGE = 3% THEN ONE RETRY AT 5% (owner, 2026-10-12; `fuse_wallet.BUY_SLIP_FIRST` 300 · `BUY_SLIP_MAX` 500 · `BUY_SLIP_RETRIES` 1 ·
+  `slip_retries(side)`): a buy's first try is 3% whatever the wallet's own slippage setting; a slippage failure (at send or on-chain) gets ONE
+  retry at 5%; the retry's failure is a miss (`slip_transient`) and the agents leave that coin 10 min (`agent_no_buy` counts slippage). Sells keep
+  two retries and their steps to 8% — an exit must land. This REPLACES "the first 2 slippage failures are not misses" for buys.
+- 🧬 INHERIT THE GREAT (`trench_kernel.lifecycle.improve(role, causes, tunable, prev, wins)`, `GREAT_WINS` 3): a replaced generation that had ≥ 3
+  REAL wins credited hands down the settings it won with — except the keys its own failure is being fixed on; a generation that never won hands down
+  nothing (the earlier "no inherited fear" rule stands for losers). Lineage `changed` says "kept stopPct 22 — it won 4 real trades with it". The
+  model's judged record (`ai_proof.json`) and the real-money memory are shared by every generation — a new one starts with them, never from zero.

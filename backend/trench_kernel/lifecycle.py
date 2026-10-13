@@ -125,11 +125,22 @@ def attribute(reviews, role, born, integrity=None):
     return {'decisions': len(rv), 'wins': len(won), 'losses': len(lost), 'net': len(lost) - len(won), 'causes': [k for k, _ in c.most_common()]}
 
 
-def improve(role, causes, tunable=None):
-    """→ (lesson {key: value}, [what changed]) for the NEXT generation: the DEFAULTS plus only the fix for how the last one failed, each
-    value clamped to its bounds. Nothing of the old generation's lesson is inherited."""
+GREAT_WINS = 3   # 🧬 "inherit the great": a generation with at least this many REAL wins credited passes on the settings it won with
+
+
+def improve(role, causes, tunable=None, prev=None, wins=0):
+    """→ (lesson {key: value}, [what changed]) for the NEXT generation: the DEFAULTS plus the fix for how the last one failed, each
+    value clamped to its bounds. 🧬 INHERIT THE GREAT (owner, 2026-10-12): a generation that EARNED real wins (≥ GREAT_WINS credited) hands
+    down the settings it won with — except the ones its own failure is being fixed on. A generation that never won hands down nothing
+    (no inherited fear: a loser's settings die with it)."""
     b = _bounds(tunable).get(role) or {}
     patch, words = {}, []
+    fixed = {key for c in causes or [] for key, _v, _w in (CAUSE_PATCH.get(role) or {}).get(str(c), [])}
+    if int(wins or 0) >= GREAT_WINS:
+        for key, val in (prev or {}).items():
+            if key in b and key not in fixed and val is not None:
+                _d, lo, hi, _w = b[key]
+                patch[key] = max(lo, min(hi, _f(val))); words.append(f"kept {key} {patch[key]:g} — it won {int(wins)} real trades with it")
     for c in causes or []:
         for key, val, w in (CAUSE_PATCH.get(role) or {}).get(str(c), []):
             if key in patch or key not in b:
@@ -157,7 +168,7 @@ def evaluate(book, reviews, now, tunable=None, integrity=None, desk_stats=None):
         v.update(decisions=a['decisions'], wins=a['wins'], losses=a['losses'], net=a['net'], netImpact=ds.get('medNet'), lastEval=now)
         was = v['status']
         if a['net'] >= REPLACE_N and a['losses'] > 0 and now - _f(v['bornAt']) >= MIN_LIFE_SEC:
-            lesson, changed = improve(r, a['causes'], tunable)
+            lesson, changed = improve(r, a['causes'], tunable, prev=v.get('lesson'), wins=a['wins'])
             why = (f"{a['losses']} integrity failures this life" if r in INTEGRITY_ROLES
                    else f"real money: {a['losses']} losses pinned this life vs {a['wins']} wins credited" + (f" (most often {a['causes'][0]})" if a['causes'] else ''))
             for x in lineage:   # only ONE shadow per role: the generation before this one is retired now

@@ -154,7 +154,9 @@ def sell_escalation(ledger, card_id, mint, now, base_bps):
 
 SLIP_ERR = 'slippage exceeded'   # every slippage failure's err starts with this (at send = simulation, on-chain = landed and reverted)
 BUY_SLIP_MAX = 500       # bps — a buy that keeps failing on slippage may use up to 5% (the secure-buy price gap still caps it at 5% over market)
-SLIP_RETRIES = 2         # extra tries the keeper makes AT ONCE after a slippage failure (fresh quote, more room, every check again)
+BUY_SLIP_FIRST = 300     # bps — a buy's FIRST try (owner, 2026-10-12: "3% slip, max 5% one-time retry buy")
+BUY_SLIP_RETRIES = 1     # …and ONE retry at 5% (`BUY_SLIP_MAX`). A second slippage failure is a miss: the seat goes to another coin
+SLIP_RETRIES = 2         # (sells) extra tries the keeper makes AT ONCE after a slippage failure (fresh quote, more room, every check again)
 SLIP_FREE = 3            # slippage failures of one coin in 15 min before they count as a miss (bench / re-pick)
 SLIP_BUSY_SEC = 45       # a seat whose buy just failed on slippage is being retried — the stuck-buy clock waits this long
 
@@ -179,8 +181,13 @@ def buy_escalation(ledger, card_id, mint, now, base_bps):
     counted as a refusal and the seat was handed to another coin 15s later. → (starting bps, cap bps)"""
     n = slip_fails(ledger, card_id, mint, 'buy', now)
     if n <= 0:
-        return int(base_bps), 300
+        return BUY_SLIP_FIRST, BUY_SLIP_FIRST   # 3% on the first try, whatever the wallet's own (sell) slippage setting is
     return BUY_SLIP_MAX, BUY_SLIP_MAX
+
+
+def slip_retries(side):
+    """How many AT-ONCE retries a slippage failure gets: a buy ONE (at 5%), a sell two (an exit must land)."""
+    return BUY_SLIP_RETRIES if side == 'buy' else SLIP_RETRIES
 
 
 def retry_slip(side, cap, base_bps, try_n):
@@ -195,7 +202,8 @@ def slip_transient(ledger, row, now):
     for this coin in 15 min, this one included). A coin that keeps outrunning 5% slippage still ends up benched."""
     if SLIP_ERR not in str(row.get('err') or ''):
         return False
-    return slip_fails(ledger, row.get('card'), row.get('mint'), row.get('side'), now) + 1 < SLIP_FREE
+    free = BUY_SLIP_RETRIES + 1 if row.get('side') == 'buy' else SLIP_FREE   # a buy: the first failure is retried once; the retry's failure counts
+    return slip_fails(ledger, row.get('card'), row.get('mint'), row.get('side'), now) + 1 < free
 
 
 def slip_busy(book, now):
@@ -326,7 +334,7 @@ def agent_no_buy(book, now):
     agents re-seated $VirlX402 / $S402 / $DOT every ~2 min, each time refused again (price gap · no route back · thin pool) — the seat sat
     empty while the same three coins used every try."""
     return no_buy(book, now) | {m for m, v in (book.get('misses') or {}).items()
-                                if now - _f((v or {}).get('last')) < AGENT_REFUSED_SEC and any(w in str((v or {}).get('why') or '') for w in SAFETY_WORDS)}
+                                if now - _f((v or {}).get('last')) < AGENT_REFUSED_SEC and any(w in str((v or {}).get('why') or '') for w in SAFETY_WORDS + (SLIP_ERR,))}
 
 
 SWEEP_WAIT_SEC = 300   # idle cash waits this long after a failed / refused buy (the engine is re-picking that seat)

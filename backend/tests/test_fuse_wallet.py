@@ -1349,16 +1349,19 @@ def test_slippage_failure_is_retried_not_counted_as_a_refused_buy():
     assert fw.chain_err({'InstructionError': [2, {'Custom': 1}]}) == 'tx failed on-chain'
     S = lambda at, side='buy', mint='M', err=fw.SLIP_ERR + ' on-chain': {'card': 'c', 'mint': mint, 'side': side, 'status': 'failed', 'err': err, 'at': at}
     # buys escalate on slippage only: +1.5% (≤ 4.5%), then +2.5% (≤ 5%), never further; an old or other-coin failure is forgotten
-    assert fw.buy_escalation([], 'c', 'M', 1000.0, 100) == (100, 300)
+    assert fw.buy_escalation([], 'c', 'M', 1000.0, 100) == (300, 300)                # 3% on the first try (owner, 2026-10-12)
     assert fw.buy_escalation([S(900)], 'c', 'M', 1000.0, 100) == (500, 500)          # a retry opens straight to 5%
     assert fw.buy_escalation([S(900), S(950)], 'c', 'M', 1000.0, 300) == (500, 500)   # … and never past it
     assert fw.retry_slip('buy', 300, 100, 0) == 500 and fw.retry_slip('sell', 300, 100, 0) == 175   # at-send retry: buy 5% max, sells keep their steps
-    assert fw.buy_escalation([S(10), S(900, mint='X'), S(900, err='live pool too thin')], 'c', 'M', 1000.0, 100) == (100, 300)
+    assert fw.buy_escalation([S(10), S(900, mint='X'), S(900, err='live pool too thin')], 'c', 'M', 1000.0, 100) == (300, 300)
     # the first slippage failures are transient (no miss → the seat is not re-picked); the 3rd in 15 min counts
     row = S(1000)
     assert fw.slip_transient([], row, 1000.0) is True
-    assert fw.slip_transient([S(900)], row, 1000.0) is True
-    assert fw.slip_transient([S(900), S(950)], row, 1000.0) is False
+    assert fw.slip_transient([S(900)], row, 1000.0) is False                          # a buy gets ONE retry at 5%: its failure is a miss (the seat moves on)
+    sell = S(1000, side='sell')
+    assert fw.slip_transient([S(900, side='sell')], sell, 1000.0) is True and fw.slip_transient([S(900, side='sell'), S(950, side='sell')], sell, 1000.0) is False
+    assert fw.slip_retries('buy') == 1 and fw.slip_retries('sell') == 2 and fw.BUY_SLIP_FIRST == 300 and fw.BUY_SLIP_MAX == 500
+    assert 'M' in fw.agent_no_buy({'misses': {'M': {'last': 990.0, 'why': fw.SLIP_ERR + ' on-chain'}}}, 1000.0)   # …and the agents pick another coin for 10 min
     assert fw.slip_transient([], S(1000, err='buy price 9% above market (> 5%)'), 1000.0) is False   # a safety refusal still counts
     # while the keeper retries, the stuck-buy clock waits
     assert fw.slip_busy({'slipAt': 990.0}, 1000.0) is True and fw.slip_busy({'slipAt': 900.0}, 1000.0) is False and fw.slip_busy({}, 1000.0) is False
