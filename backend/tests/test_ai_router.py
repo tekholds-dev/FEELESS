@@ -238,7 +238,8 @@ def test_the_advisory_round_only_writes_notes(monkeypatch):
     assert n == 1 and rs._ai['notes']['MINTZYN']['devil']['source'] == 'local'          # a conflicted case (ENTER + a warning) → Devil's second opinion
     assert payload['kernel']['candidates'][0] == cand and payload['ai']['notes']['MINTZYN']['devil']['advice']['stance'] == 'WATCH'
     monkeypatch.setenv('LOCAL_LLM_ENABLED', 'false')
-    monkeypatch.delenv('GROQ_API_KEY'); monkeypatch.delenv('OPENAI_API_KEY')
+    for k_ in ('GROQ_API_KEY', 'OPENAI_API_KEY', 'OPENROUTER_API_KEY', 'XAI_API_KEY', 'AI_API_KEY', 'AI_BASE_URL'):   # the owner's real backend/.env may carry any of them
+        monkeypatch.delenv(k_, raising=False)
     assert run(rs._ai_round(1001.0)) == 0                                                # no provider → the round does nothing (kernel unaffected)
 
 

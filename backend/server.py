@@ -17,6 +17,8 @@ load_dotenv(ROOT_DIR / '.env')
 load_dotenv(ROOT_DIR / 'market.env')
 from market import create_market_router
 import ds_pace
+import http_ctx
+http_ctx.install()   # ⚡ every httpx client in this process shares ONE TLS context (a new client re-read the CA bundle)
 ds_pace.install(150, 30)   # 📡 this process's share of DexScreener's ~300/min per IP (reputation service takes 110)
 from intelligence import Intelligence
 from trading import TradingService

@@ -19,6 +19,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 import httpx
+import http_ctx
+http_ctx.install()   # ⚡ every httpx client in this process shares ONE TLS context (a new client re-read the CA bundle)
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel

@@ -3392,3 +3392,24 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   pruned brace-aware). The cockpit chart draws ONLY real fills (small ▲▼ at the fill price, no letters); decisions stay in the rail under it.
   Chart axes never print a negative price / market cap. 💹 Users' coin charts (TrenchChart › PnlBadge): the P&L ticker glides at ≤ 30fps and
   each REAL price tick flashes in its direction, glow by how far it moved (`lib/pnlTicker.js`, `styles/pnlTicker.css`) — users only.
+- 🧊 EVENT-LOOP LAG CATCHER (`backend/loop_lag.py` pure + tested; started in reputation_service `_start_background`; admin
+  `GET /admin/perf/loop`; `data/loop_lag.json` every 30s = the same view + per-store JSON load / save seconds, readable without an HQ
+  sign-in): a thread pings the loop every 50 ms; while a ping is unanswered > 0.25s the loop thread's stack is sampled and the blocked
+  time is charged to the project frames on it ("task › … › function:line"), plus what worker threads were running. 2026-10-12 first
+  reading: the main backend's loop was BLOCKED 29% of the time (stalls to 10.8s) — that was the "lag" on every page, not the browser
+  (startup = 35 requests, gzip on, one store + SSE). Fixed from its list: (1) `_block_load` rebuilt a 100K-wallet dict PER ROW of the
+  runner board → one view per file version (`_block_view`); scanner strikes are written ≤ 1/min (`_block_save`, a person's report and a
+  shutdown write at once; `_block_flush` primes the parse cache — no 14 MB re-parse). (2) pump_callers.json (31 MB) was parsed +
+  re-written on the loop every minute → kept in memory, tracked in a worker thread, written every 10 min with `_json_save_soft`
+  (pure-Python encoder: the C `json.dumps` / `json.loads` hold the GIL for the WHOLE document — a worker thread does not help them).
+  (3) hygiene.json (6 MB) was re-written + re-parsed on every holder scan → only when a count changed, ≤ 1/min (`_hygiene_flush`).
+  (4) the intel desk (~7s of pure Python) ran on the loop at startup and inline every 10 min → `_desk_get` = ONE shared build in a
+  worker thread; readers never rebuild inline. (5) `_fw_peek()` = READ-ONLY Fuse wallet doc parsed once per write (`store.KV.stamp`);
+  only pure read sites use it — anything that writes still takes its own `_fw_load()`. NEVER mutate what `_fw_peek` returns.
+  (6) `backend/http_ctx.py` (installed in all four services): every `httpx.AsyncClient` without its own `verify` shares ONE TLS
+  context (a new client re-read the CA bundle: 5.7 ms → 0.1 ms each, 141 call sites in reputation_service alone). (7) candles
+  service: the 68 MB tick store is streamed to disk pair by pair (`_stream_store`) — one `json.dumps` froze live candles ~1s every
+  20s. "THE SITE LAGS" ⇒ read `data/loop_lag.json` FIRST (top culprits + `json` costs), then `uptime` + `sysctl vm.swapusage`: that
+  day the Mac sat at load 14–21 on 8 cores with 16.4 of 17.4 GB swap used, which makes every 20 ms parse a multi-second stall.
+  Restarting ONE service by hand: `pkill -f "uvicorn <app>"` and let keep-alive start it (its 120s grace) — a hand start races
+  keep-alive's probe and gets killed. A new store over ~1 MB must not be saved / parsed on the loop per event: debounce + keep in memory.

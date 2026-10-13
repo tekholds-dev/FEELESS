@@ -50,6 +50,14 @@ class KV:
         except ValueError:
             return default
 
+    def stamp(self, key='doc'):
+        """When this key was last written (None = never): lets a read-only caller reuse its parsed copy until the next put."""
+        with self.lock:
+            c = _conn(self.db)
+            row = c.execute('SELECT at FROM kv WHERE k = ?', (key,)).fetchone()
+            c.close()
+        return row[0] if row else None
+
     def put(self, value, key='doc'):
         blob = json.dumps(value)
         with self.lock:

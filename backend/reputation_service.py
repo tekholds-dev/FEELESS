@@ -39,6 +39,8 @@ from typing import List, Optional
 
 import httpx
 import ds_pace
+import http_ctx
+http_ctx.install()   # ⚡ every httpx client in this process shares ONE TLS context (a new client re-read the CA bundle)
 import launchpad_board as _launchpad_board
 ds_pace.install(110, 20)   # 📡 this process's share of DexScreener's ~300/min per IP (market service takes 150)
 from fastapi.responses import JSONResponse, Response, StreamingResponse
@@ -52,6 +54,7 @@ DATA_DIR.mkdir(exist_ok=True)
 STORE_PATH = DATA_DIR / 'reputation.json'
 
 # Solana RPC pool + retrying client live in chain_rpc.py (one module per job); imported here so every caller is unchanged.
+import loop_lag as _loop_lag
 import chain_rpc as _chain
 from chain_rpc import quota_state as _rpc_quota_state, RPC_POOL, _alchemy, _dedicated, _rpc_cooldown_until, _next_rpc_endpoint, _rpc, broadcast as _rpc_broadcast, rpc_priority as _krpc  # noqa: F401
 
@@ -514,6 +517,19 @@ async def _refresh_all_markets():
 @app.on_event('startup')
 async def _start_background():
     asyncio.create_task(_refresh_all_markets())
+    if not os.environ.get('PYTEST_CURRENT_TEST'):
+        _loop_lag.WATCH.start(asyncio.get_running_loop())
+        asyncio.create_task(_loop_lag_dump())
+
+
+async def _loop_lag_dump():
+    # the catcher's own page for checking without an HQ sign-in (function names only, never data)
+    while True:
+        await asyncio.sleep(30)
+        try:
+            await asyncio.to_thread(_json_save, DATA_DIR / 'loop_lag.json', {**_loop_lag.WATCH.view(), 'json': sorted(([k, v[0], round(v[1], 2)] for k, v in _json_cost.items()), key=lambda r: -r[2])[:25]})
+        except Exception:
+            pass
 
 
 @app.get('/api/reputation/creator/{chain}/{address}')
@@ -1099,7 +1115,7 @@ async def token_intel(chain: str, mint: str):
         distinct_funders = {v['funder'] for v in flagged_funders.values()}
         flags.append(f"{len(flagged_funders)} sniper/bundler wallet(s) here were funded by {len(distinct_funders)} wallet(s) already linked to prior rug/snipe launches.")
     try:   # the Intel desk: are known crews inside this launch?
-        crew = intel_desk.check(_desk_build()['snap']['index'], _desk['rings'], all_offenders + ([creator] if creator else []))
+        crew = intel_desk.check((await _desk_get())['snap']['index'], _desk['rings'], all_offenders + ([creator] if creator else []))
     except Exception:
         crew = {'known': {}, 'rings': []}
     out['knownActors'] = len(crew['known'])
@@ -2053,15 +2069,54 @@ def _protected_wallets():
     return set(_owner_wallets()) | set(_admin_wallets()) | {FEE_CREATOR_WALLET} | set(extra)
 
 
+_block_view = {'key': None, 'd': None}
+
+
 def _block_load():
-    d = {'wallets': {}}
+    # ⚡ ONE filtered view per on-disk version: the runner board asks per creator, and rebuilding a 100K-wallet dict per row
+    # blocked the event loop for up to 10s (loop_lag, 2026-10-12). Writers mutate the view, then write the file → a new version.
+    d = {'wallets': {}}; ver = None
     if BLOCK_PATH.exists():
         try:
-            d = _cached_json(BLOCK_PATH)
+            d = _cached_json(BLOCK_PATH); ver = _parse_cache[str(BLOCK_PATH)][0]
         except Exception:
-            pass
+            ver = None
     safe = _protected_wallets()
-    return {**d, 'wallets': {w: r for w, r in (d.get('wallets') or {}).items() if w not in safe}}
+    key = (ver, frozenset(safe))
+    if ver is not None and _block_view['key'] == key:
+        return _block_view['d']
+    if _block_dirty['on'] and _block_view['d'] is not None:   # the view is being replaced: what it learned goes to disk first
+        _block_flush(_block_view['d'])
+        return _block_load()
+    out = {**d, 'wallets': {w: r for w, r in (d.get('wallets') or {}).items() if w not in safe}}
+    if ver is not None:
+        _block_view.update(key=key, d=out)
+    return out
+
+
+BLOCK_SAVE_SEC = 60
+_block_dirty = {'on': False, 'at': 0.0}
+
+
+def _block_flush(d=None):
+    d = d if d is not None else _block_view['d']
+    if d is None:
+        return
+    t0 = time.perf_counter()
+    tmp = BLOCK_PATH.with_suffix('.tmp'); tmp.write_text(json.dumps(d)); tmp.replace(BLOCK_PATH)
+    st = BLOCK_PATH.stat(); ver = (st.st_mtime_ns, st.st_size)
+    _parse_cache[str(BLOCK_PATH)] = (ver, d)   # what was written IS the current version: no 14 MB re-parse, no view rebuild
+    _block_view.update(key=(ver, frozenset(_protected_wallets())), d=d)
+    _block_dirty.update(on=False, at=time.time())
+    _json_cost_note('save', BLOCK_PATH, t0)
+
+
+def _block_save(d, now=False):
+    """⚡ Strikes recorded by the scanner are written at most once a minute (each write was 14 MB serialized + parsed again on the event
+    loop, several times a minute). The view in memory is the truth in between; a report by a person and a shutdown write at once."""
+    _block_dirty['on'] = True
+    if now or d is not _block_view['d'] or os.environ.get('PYTEST_CURRENT_TEST') or time.time() - _block_dirty['at'] >= BLOCK_SAVE_SEC:
+        _block_flush(d)
 
 
 def _is_blocked(rec):
@@ -2082,7 +2137,7 @@ async def _record_offenders(mint, bundled, snipers):
                 rec = d['wallets'].setdefault(w, {'mints': {}, 'firstSeen': time.time()})
                 rec['mints'].setdefault(mint, role)
                 rec['lastSeen'] = time.time()
-        BLOCK_PATH.write_text(json.dumps(d))
+        _block_save(d)
     asyncio.create_task(_trace_funders(mint, list(bundled) + list(snipers)))
 
 
@@ -2142,7 +2197,7 @@ async def _trace_funders(mint, offenders):
                 for m in d['funders'][funder]['mints']:
                     brec['mints'].setdefault(m, 'funder')
                 brec['lastSeen'] = time.time()
-                BLOCK_PATH.write_text(json.dumps(bl))
+                _block_save(bl)
 
 
 def funder_lookup(wallet: str):
@@ -2188,7 +2243,7 @@ async def add_to_blocklist(payload: BlockPayload):
             rec.setdefault('reports', []).append({'mint': payload.mint, 'role': evidence[w], 'by': (payload.reporter or 'anon')[:64], 'at': time.time()})
             rec['reports'] = rec['reports'][-20:]
             accepted.append(w)
-        BLOCK_PATH.write_text(json.dumps(d))
+        _block_save(d, now=True)
     _intel_cache.pop(payload.mint, None)
     # Season points only for wallets nobody had reported yet: 25 each, capped at 100 per coin.
     if fresh:
@@ -3351,7 +3406,7 @@ async def _fuses_discover_raw(lens, chain):
         # sitewide"): every list FEELESS shows (Pump trending · movers · Pump live · volume · dips · the Arena's ranked coins) woven together one
         # coin from each in turn, MINUS every coin the real card bought, sold or holds in the last 24h. Safety facts ride on every row as usual.
         now_ = time.time()
-        touched = {r.get('mint') for r in (_fw_load().get('ledger') or []) if now_ - _fuse._f(r.get('at')) < 86400 and r.get('status') in ('filled', 'confirmed', 'sent', None)}
+        touched = {r.get('mint') for r in (_fw_peek().get('ledger') or []) if now_ - _fuse._f(r.get('at')) < 86400 and r.get('status') in ('filled', 'confirmed', 'sent', None)}
         for c_ in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values():
             if c_.get('real'):
                 touched |= {l.get('mint') for l in c_.get('legs') or []}
@@ -6322,7 +6377,7 @@ import arena_prime as _prime
 
 def _prime_cfg():
     cfg = _prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cfg') or {})
-    cal = _fw.calibrate(_fw_load().get('ledger'))
+    cal = _fw.calibrate(_fw_peek().get('ledger'))
     if cal.get('feeUsd') is not None:   # 🎯 paper pays what a real swap from the Fuse wallet costs (network + priority)
         cfg['paperFeeUsd'] = cal['feeUsd']
     return cfg
@@ -6499,9 +6554,7 @@ async def _pump_calls_build(force=False):
             calls_ = b.pop('calls', [])
             _pump_calls['calls'] = calls_[-600:]   # 📣 the raw calls: the callout-spike sell reads who is piling in right now
             try:   # 🎯 caller scoreboard: every call noted once, judged an hour later
-                cst = _pc.caller_track(_json_load(PUMP_CALLERS_PATH, {}), calls_, now * 1000)
-                _json_save(PUMP_CALLERS_PATH, cst)
-                _pump_calls['callers'] = _pc.caller_board(cst)
+                _pump_calls['callers'] = await asyncio.to_thread(_pump_callers_pass, calls_, now)
                 _pc.mark_pros(b, _pump_calls['callers'])
             except Exception as e:
                 print('pump callers:', e)
@@ -6528,6 +6581,26 @@ def _pc_rows(rows):
 
 
 PUMP_CALLERS_PATH = FUSE_HQ_PATH.parent / 'pump_callers.json'
+PUMP_CALLERS_SAVE_SEC = 600
+_pump_callers = {'st': None, 'saved': 0.0}
+
+
+def _pump_callers_pass(calls, now):
+    """🎯 The caller scoreboard's pass, in a WORKER THREAD (one at a time: `_pump_calls_flight`). The 30 MB record lives in memory — read
+    once per start, written every 10 min with the soft encoder — it used to be parsed + re-written on the event loop every minute
+    (≈ 4s of frozen service). `caller_track` returns a NEW state each pass, so the copy being written is never mutated."""
+    if _pump_callers['st'] is None:
+        try:
+            _pump_callers['st'] = json.loads(PUMP_CALLERS_PATH.read_text()) if PUMP_CALLERS_PATH.exists() else {}
+        except Exception:
+            _pump_callers['st'] = {}
+        _pump_callers['saved'] = now
+    st = _pc.caller_track(_pump_callers['st'], calls, now * 1000)
+    _pump_callers['st'] = st
+    if now - _pump_callers['saved'] >= PUMP_CALLERS_SAVE_SEC:
+        _pump_callers['saved'] = now
+        _json_save_soft(PUMP_CALLERS_PATH, st)
+    return _pc.caller_board(st)
 _rush_sent: dict = {}   # mint → when the owner was last told (one alert per coin per 6h)
 
 
@@ -6809,7 +6882,7 @@ async def _owner_moves_tick(now):
     try:
         hq = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
         st = _json_load(OWNER_MOVES_PATH, {})
-        led = _fw_load().get('ledger') or []
+        led = _fw_peek().get('ledger') or []
         posts = []
         for tid, c in hq.items():
             if not c.get('real'):
@@ -7374,7 +7447,7 @@ async def _fuse_trench_raw(meta=''):
         g = _trench.meta_gate(meta)
         view = [{**_trench_row(x[0], x[1], x[2], g), 'trenchLevel': meta} for x in got]
         return {'cfg': own, 'view': meta, 'metas': board, 'options': _trench.OWN_OPTIONS, 'checked': [{k: v.get(k) for k in keys} for v in view], 'pass': sum(1 for v in view if v['ok']),
-                'rows': [], 'floor': _fw.clean_cfg(_fw_load().get('cfg') or {})['trenchMinLiqUsd'], 'level': meta, 'seen': _trench_cache.get('seen', 0), 'funnel': [], 'at': _trench_cache.get('at'),
+                'rows': [], 'floor': _fw.clean_cfg(_fw_peek().get('cfg') or {})['trenchMinLiqUsd'], 'level': meta, 'seen': _trench_cache.get('seen', 0), 'funnel': [], 'at': _trench_cache.get('at'),
                 'rules': f"≤ {g['maxAgeH']:g}h old · ${g['minMcap'] / 1000:g}K–${g['maxMcap'] / 1000:g}K cap · ≥ {g['minHolders']} holders · ≥ {g['minTxns1h']} trades/h · ≥ ${g['minVol1h'] / 1000:g}K 1h volume · safety checks as always"}
     have_ = {x.get('mint') for x in (_trench_cache.get('rows') or [])} | {x.get('mint') for x in (_trench_cache.get('checked') or []) if _trench.soft_only(x.get('fails'))} | {x.get('mint') for x in (_trench_cache.get('fallback') or [])}
     # 👀 never an empty picker: nothing passing and no near-miss → the busiest SAFE fresh coins that only miss soft checks right now
@@ -7401,7 +7474,7 @@ async def _fuse_trench_raw(meta=''):
     return {'cfg': own, 'metas': board, 'options': _trench.OWN_OPTIONS, 'checked': [{k: r.get(k) for k in keys} for r in _trench_cache.get('checked') or []], 'pass': len(_trench_cache.get('rows') or []),
             'inBand': sum(1 for r in _runner_cands if not _trench.band_miss(r, g)), 'nearMiss': sum(1 for x in extra_u if not x.get('outside')),
             'rows': [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'trench': True} for r in _trench_cache.get('rows') or []] + extra_u,
-            'floor': _fw.clean_cfg(_fw_load().get('cfg') or {})['trenchMinLiqUsd'], 'level': _trench_cache.get('level'),
+            'floor': _fw.clean_cfg(_fw_peek().get('cfg') or {})['trenchMinLiqUsd'], 'level': _trench_cache.get('level'),
             'seen': _trench_cache.get('seen', 0), 'funnel': _trench_cache.get('funnel') or [],
             'at': _trench_cache.get('at'), 'rules': f"≤ {g['maxAgeH']:g}h old · broke ${g['minMcap'] / 1000:g}K · ≥ {g['minHolders']} holders · ≥ {g['minTxns1h']} trades/h · "
                                                      f"≥ {g['minBuyShare']:g}% buys · top-10 < {g['maxTop10']:g}% · dev < {g['maxDev']:g}% · creator not suspect / high · mint + freeze revoked"}
@@ -8255,6 +8328,16 @@ def _is_keeper():
 async def _keeper_stop():
     _keeper_state['stopping'] = True   # loops still running during shutdown must not trade
     _single.release(KEEPER_LOCK)
+    for flush in (lambda: _block_flush() if _block_dirty['on'] else None, _hygiene_flush):   # debounced stores: nothing learned is lost on a stop
+        try:
+            flush()
+        except Exception:
+            pass
+    try:   # the caller scoreboard is written every 10 min: keep what was learned since
+        if _pump_callers['st'] is not None and not os.environ.get('PYTEST_CURRENT_TEST'):
+            _json_save(PUMP_CALLERS_PATH, _pump_callers['st'])
+    except Exception:
+        pass
 
 
 async def _prime_tick(now):
@@ -9574,7 +9657,7 @@ async def _prime_tick_inner(now):
                     tr_seen.add(x.get('mint')); tr_all.append({**x, 'trenchOnly': True})
             r_t = r_t + sorted(tr_all, key=lambda x: -_fuse._f(x.get('trenchScore') or x.get('score')))
         # 🪑 coins real money couldn't buy safely (2× in 10 min) are benched 1h for EVERY tier — paper never trades what real can't
-        bench = set().union(*[_fw.benched(b, now) for b in (_fw_load().get('books') or {}).values()] or [set()])
+        bench = set().union(*[_fw.benched(b, now) for b in (_fw_peek().get('books') or {}).values()] or [set()])
         if bench:
             p_t, r_t = [x for x in p_t if x.get('mint') not in bench], [x for x in r_t if x.get('mint') not in bench]
         if real_t:   # 🚪 real money never buys a coin that is falling right now (coins already on the card are not judged here)
@@ -10456,7 +10539,7 @@ async def _fuse_prime_build():
     _flv = {p: {**{k: w.get(k) for k in ('buyUsd', 'sellUsd', 'n', 'pxChg', 'sellShare')}, 'age': round(_fnow - at)} for p, (at, w) in list(_flow_now.items()) if w and _fnow - at < 90}
     _fpr = _trench.meta_proof(_json_load(FLOW_PROOF_PATH, {}), keys=('flow', 'rug'))
     return {'flow': _flv, 'flowProof': _fpr, 'ladder': _lad, 'meta': _prime.meta_for(_fuse._f(_rc.get('rotateHours')) or 1.0, _seed) if _rc else None, 'cards': await _prime_view(), 'humanStyle': {'tiers': _ht, 'picks': _hn, 'need': _ps.MIN_PICKS, 'ready': bool(_hp), 'words': _ps.words(_hp),
-                           'moves': _om.summary(next((v for k, v in _json_load(OWNER_MOVES_PATH, {}).items() if isinstance(v, dict)), {}))}, 'renewed': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('renewed') or {}), 'scrapped': [{k: x.get(k) for k in ('tpl', 'at', 'label', 'text', 'valueUsd', 'putInUsd', 'rounds')} for x in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('scrapped') or [])[-12:]], 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'weather': _real_weather(), 'suggest': _json_load(PG_SIM_PATH, {}).get('byClock') or {}, 'realGuard': _prime.real_guard({**_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'instantSwapPct': _fuse._f(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('instantSwapPct'))}, (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or ())[1], 'paperMatch': _fw.paper_match(_fw_load().get('quoteAudit')), 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'lockCfg': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}), 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner'), 'realOwnerSet': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or []}
+                           'moves': _om.summary(next((v for k, v in _json_load(OWNER_MOVES_PATH, {}).items() if isinstance(v, dict)), {}))}, 'renewed': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('renewed') or {}), 'scrapped': [{k: x.get(k) for k in ('tpl', 'at', 'label', 'text', 'valueUsd', 'putInUsd', 'rounds')} for x in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('scrapped') or [])[-12:]], 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'weather': _real_weather(), 'suggest': _json_load(PG_SIM_PATH, {}).get('byClock') or {}, 'realGuard': _prime.real_guard({**_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'instantSwapPct': _fuse._f(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('instantSwapPct'))}, (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or ())[1], 'paperMatch': _fw.paper_match(_fw_peek().get('quoteAudit')), 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'lockCfg': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}), 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner'), 'realOwnerSet': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or []}
 
 
 @app.post('/api/reputation/admin/arena/prime')
@@ -10563,7 +10646,7 @@ async def fuse_prime_admin(request: Request):
             if not row and pk.get('toPair'):   # 🔎 any coin from the Lab lenses / search: verified LIVE on its own pool right now
                 lp = (await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pk['toPair'], 'mint': pk.get('to')}])).get(pk['toPair']) or {}
                 lp = _fuse.with_curve(lp)   # 🆕 the owner may pick a coin still on Pump's curve (the keeper's quote checks still decide)
-                fcfg_ = _fw.clean_cfg(_fw_load().get('cfg') or {})
+                fcfg_ = _fw.clean_cfg(_fw_peek().get('cfg') or {})
                 raw_ = next((p_ for p_ in _open_pairs if (p_.get('baseToken') or {}).get('address') == pk['to']), None)   # 🚪 a launch coin the open list shows
                 if raw_ is not None and (lp.get('baseToken') or {}).get('address') != pk['to']:
                     lp = _fuse.with_curve(raw_)   # the live lookup missed (busy source / pool not indexed yet): the feed's own pair for this coin stands in
@@ -10603,7 +10686,7 @@ async def fuse_prime_admin(request: Request):
             if not card:
                 raise HTTPException(404, 'No card for that tier yet.')
             if cand and card.get('real'):   # 💵 real money keeps its own floor: the pick must be buyable
-                floor = _fw.liq_floor(_fw_load().get('cfg') or {}, trench=bool(cand.get('trenchOnly')), picked=True)   # 🗑 trench picks use the trench floor
+                floor = _fw.liq_floor(_fw_peek().get('cfg') or {}, trench=bool(cand.get('trenchOnly')), picked=True)   # 🗑 trench picks use the trench floor
                 if _fuse._f(cand.get('liquidityUsd')) < floor:
                     raise HTTPException(400, f"${cand['symbol']} pool is ${_fuse._f(cand.get('liquidityUsd')):,.0f} — under the ${floor:,.0f} real-buy floor (Edit Fuse › Limits).")
             # ⚠ WARN, NEVER BLOCK (owner's rule: "warn users, don't stop them"): a pick that fails a check comes back as a warning
@@ -10654,7 +10737,7 @@ async def fuse_prime_admin(request: Request):
         pools, runners, anchors = await _prime_candidates()
         # ⇄ a manual swap picks only BUYABLE coins (same gates as the engine): pool ≥ the real-buy floor, not benched, not on another tier
         fw_cfg = _fw_load().get('cfg') or {}
-        bench = set().union(*[_fw.benched(b, time.time()) for b in (_fw_load().get('books') or {}).values()] or [set()])
+        bench = set().union(*[_fw.benched(b, time.time()) for b in (_fw_peek().get('books') or {}).values()] or [set()])
         def _lq(x):
             v = x.get('liquidity'); return _fuse._f(v.get('usd') if isinstance(v, dict) else v) or _fuse._f(x.get('liq')) or _fuse._f(x.get('liquidityUsd'))
         other = {l.get('mint') for t, cc in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).items() if t != rep['tpl'] for l in cc.get('legs') or [] if l.get('role') != 'anchor'}
@@ -10802,8 +10885,23 @@ def _fw_save(d):
     _store.KV(FUSE_WALLET_PATH).put(d)
 
 
+_fw_peek_cache = {'key': None, 'd': None}
+
+
+def _fw_peek():
+    """⚡ READ-ONLY view of the Fuse wallet doc, parsed once per write (the 1.2 MB doc was parsed for every cfg / ledger look: dozens of
+    times a tick). NEVER mutate or save what this returns — anything that writes uses `_fw_load()` (its own fresh copy), as before."""
+    if os.environ.get('PYTEST_CURRENT_TEST'):
+        return _fw_load()
+    kv = _store.KV(FUSE_WALLET_PATH)
+    key = (str(FUSE_WALLET_PATH), kv.stamp())
+    if _fw_peek_cache['key'] != key or key[1] is None:
+        _fw_peek_cache.update(key=key, d=_fw_load())
+    return _fw_peek_cache['d']
+
+
 def _fw_cfg():
-    return _fw.clean_cfg(_fw_load().get('cfg') or {})
+    return _fw.clean_cfg(_fw_peek().get('cfg') or {})
 
 
 _fw_signer = {'ok': False, 'at': 0.0}
@@ -10939,7 +11037,7 @@ async def _fw_preflight(tid, buys, cfg, now):
         ok, why, snap = _fw.live_buy_market(o, live.get(o.get('pair')), cfg)
         row.update(snap)
         if ok:
-            ok, why = _fw.check(row, cfg, _fw_load().get('ledger'), now)
+            ok, why = _fw.check(row, cfg, _fw_peek().get('ledger'), now)
             if not ok and any(x in why for x in _FW_NOT_COIN):
                 continue   # a cap / pause is not the coin's fault — nothing to hold a sell for
         if ok and o.get('lamports', 0) > 0:
@@ -11020,11 +11118,11 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
     # never counted by _fw_record, so the same unsafe mint retried forever instead of reaching the existing bench-and-replace path.
     slip_cap, cfg0 = 300, cfg
     if order.get('side') == 'sell':   # 🚪 an exit that already failed on slippage gets more room and any route
-        s0_, slip_cap, wide_ = _fw.sell_escalation(_fw_load().get('ledger'), tid, order.get('mint'), now, cfg['slippageBps'])
+        s0_, slip_cap, wide_ = _fw.sell_escalation(_fw_peek().get('ledger'), tid, order.get('mint'), now, cfg['slippageBps'])
         if wide_:
             cfg = {**cfg, 'slippageBps': s0_}; order = {**order, 'wide': True}
     elif order.get('side') == 'buy':   # 🚪 a buy that just failed on slippage gets a little more room (≤ 5%; the price-gap check still runs)
-        s0_, slip_cap = _fw.buy_escalation(_fw_load().get('ledger'), tid, order.get('mint'), now, cfg['slippageBps'])
+        s0_, slip_cap = _fw.buy_escalation(_fw_peek().get('ledger'), tid, order.get('mint'), now, cfg['slippageBps'])
         cfg = {**cfg, 'slippageBps': s0_}
     row = {**order, 'card': tid, 'liq': liq, 'status': 'quoted'}
     if order.get('side') == 'buy':
@@ -11087,7 +11185,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
                 _fw_record(d, row); _fw_save(d)
         return book
     async with _fw_lock:
-        ok, why = _fw.check(row, cfg, _fw_load().get('ledger'), now, row['impactPct'])   # row carries the pool's liquidity
+        ok, why = _fw.check(row, cfg, _fw_peek().get('ledger'), now, row['impactPct'])   # row carries the pool's liquidity
     if not ok or not _fw_signer_ready():
         row.update(status='skipped' if not ok else 'dry', err=why or 'signing not available — quoted only')
         async with _fw_lock:
@@ -11109,7 +11207,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
                     _fw_record(d, row); _fw_save(d)
             return book
     async with _fw_lock:   # ⚡ txs that didn't land lately → this one pays a higher priority fee (24% of buys timed out at a flat fee)
-        boost = _fw.landing_boost(_fw_load().get('ledger'), tid, now)
+        boost = _fw.landing_boost(_fw_peek().get('ledger'), tid, now)
     try:
         for attempt in range(3):   # build + sign retried too (Jupiter / Circle blips); nothing is sent until a signed tx exists
             try:
@@ -11173,7 +11271,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
     # check again — up to `SLIP_RETRIES` times. Before, one such failure re-picked the owner's seat 15s later ($FLY, $LOOP).
     n_ = int(order.get('slipRetry') or 0)
     if not book.get('pending') and n_ < _fw.SLIP_RETRIES and order.get('side') in ('buy', 'sell'):
-        last_ = next((r for r in reversed(_fw_load().get('ledger') or []) if r.get('id') == row.get('id')), None)
+        last_ = next((r for r in reversed(_fw_peek().get('ledger') or []) if r.get('id') == row.get('id')), None)
         if last_ and last_.get('status') == 'failed' and _fw.SLIP_ERR in str(last_.get('err') or ''):
             base_id = order.get('baseId') or order.get('id') or f"{tid}:{order.get('mint')}"
             return await _fw_execute(tid, {**order, 'baseId': base_id, 'id': f'{base_id}:r{n_ + 1}', 'slipRetry': n_ + 1}, book, cfg0, sol_px, liq)
@@ -11223,7 +11321,7 @@ async def _fw_execute_swap(tid, sell, buy, book, cfg, sol_px, liq):
             if not _fw.sell_safety(sell, q_sell.get('outAmount'), sol_px, jp)[0]:
                 return None
         async with _fw_lock:
-            boost = _fw.landing_boost(_fw_load().get('ledger'), tid, now)
+            boost = _fw.landing_boost(_fw_peek().get('ledger'), tid, now)
         swap = await _fw_jup('POST', '/swap/v1/swap', json={'quoteResponse': q_dir, 'userPublicKey': cfg['address'], 'wrapAndUnwrapSol': True, 'dynamicComputeUnitLimit': True,
                                                             'prioritizationFeeLamports': {'priorityLevelWithMaxLamports': {'maxLamports': _fw.priority_cap(0, boost, sol_px), 'priorityLevel': 'veryHigh' if boost else 'high'}}})
         signed = await _fw_sign(cfg, swap.get('swapTransaction'), f"FEELESS {tid} swap {sell.get('symbol')} to {buy.get('symbol')}")
@@ -11501,7 +11599,7 @@ async def _fw_deposit_scan(cfg, now):
     dd = _json_load(FUSE_DEPOSITS_PATH, {})
     if dd.get('address') != cfg['address']:
         dd = {'address': cfg['address'], 'cursor': None, 'rows': []}
-    ours = {r.get('sig') for r in _fw_load().get('ledger') or [] if r.get('sig')}
+    ours = {r.get('sig') for r in _fw_peek().get('ledger') or [] if r.get('sig')}
     added = 0
     async with httpx.AsyncClient(timeout=15) as http:
         sigs = await _krpc(http, 'getSignaturesForAddress', [cfg['address'], {'limit': 40, **({'until': dd['cursor']} if dd.get('cursor') else {})}]) or []
@@ -11634,7 +11732,7 @@ async def _fw_tick_inner(now):
         async with _admin_lock:
             h = _json_load(FUSE_HQ_PATH, {}); cs = (h.get('prime') or {}).get('cards') or {}
             if cs.get(tid):
-                still_real = tid in _fw_load()['books']
+                still_real = tid in _fw_peek()['books']
                 was_label = cs[tid].get('label')
                 cs[tid] = _fw.sync_card(cs[tid], book, px, sol_px) if still_real else _fw.back_to_paper(cs[tid], _fw.book_value(book, px, sol_px), now)
                 _json_save(FUSE_HQ_PATH, h)
@@ -11927,7 +12025,7 @@ def _fw_full_ledger():
     if n != _fw_full_cache['n']:
         rows = lg.rows(limit=max(1, n))
         _fw_full_cache.update(n=n, rows=rows[::-1])
-    return _fw_full_cache['rows'] or (_fw_load().get('ledger') or [])
+    return _fw_full_cache['rows'] or (_fw_peek().get('ledger') or [])
 
 
 def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
@@ -14545,7 +14643,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         'office': {'chain': list(_of.CHAIN), 'priority': list(_of.PRIORITY), 'coins': perf.get('coins'), 'cases': len(cases), 'cleared': sum(1 for c_ in cases if c_['cleared'])},
         'agents': _of.agent_cards(cards, {'live': live, 'office': of}), 'currentCase': cur_case, 'pipeline': pipe,
         'queue': queue, 'positions': _office_positions(), 'exiting': [{'mint': p_['mint'], 'sym': p_.get('sym'), 'rule': p_.get('askRule'), 'state': (p_.get('exit') or {}).get('state'), 'since': p_.get('leftAt')} for p_ in _office['exiting']],
-        'execution': {**cour, 'metrics': _fw.exec_metrics(_fw_load().get('ledger'), now, dupes=_FW_DUPES['n'])}, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': [{'agent': x_.get('role'), 'gen': x_.get('gen'), 'why': f"{x_.get('status') or 'replaced'} — {x_.get('why') or ''}" + (f" · next generation: {x_['changed']}" if x_.get('changed') else ''), 'at': x_.get('retiredAt')}
+        'execution': {**cour, 'metrics': _fw.exec_metrics(_fw_peek().get('ledger'), now, dupes=_FW_DUPES['n'])}, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': [{'agent': x_.get('role'), 'gen': x_.get('gen'), 'why': f"{x_.get('status') or 'replaced'} — {x_.get('why') or ''}" + (f" · next generation: {x_['changed']}" if x_.get('changed') else ''), 'at': x_.get('retiredAt')}
                                                          for x_ in reversed((_lc_book(now).get('lineage') or [])[-12:])], 'devil': dv_rec[:10], 'needShadow': _of.SHADOW_N, 'needPropose': _of.PROPOSE_N},
         'index': (_office.get('index') or [])[:80], 'rpc': {'lanes': _rpc_quota_state(), 'note': 'keyed lanes = keeper sends / balances first, then holder scans (budgeted); discovery comes from Pump\'s live stream + the launch boards — no RPC first-seen listener runs'},
         'court': _office.get('court'), 'opp': _office.get('opp'),   # 👨‍⚖️ the Judge's loss / win reviews + rules · 🎯 this pass's A / B / C ranking counts
@@ -16465,9 +16563,19 @@ def _cached_json(path):
     hit = _parse_cache.get(str(path))
     if hit and hit[0] == key:
         return hit[1]
+    t0 = time.perf_counter()
     obj = json.loads(path.read_text())
+    _json_cost_note('load', path, t0)
     _parse_cache[str(path)] = (key, obj)
     return obj
+
+
+_json_cost = {}   # 'load:runners.json' → [times, seconds] (bounded by the number of stores; shown by the loop-lag catcher)
+
+
+def _json_cost_note(kind, path, t0):
+    c = _json_cost.setdefault(f'{kind}:{path.name}', [0, 0.0])
+    c[0] += 1; c[1] += time.perf_counter() - t0
 
 
 def _json_load(path, default):
@@ -16478,8 +16586,21 @@ def _json_load(path, default):
 
 
 def _json_save(path, d):
+    t0 = time.perf_counter()
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix('.tmp'); tmp.write_text(json.dumps(d)); tmp.replace(path)
+    _json_cost_note('save', path, t0)
+
+
+def _json_save_soft(path, d):
+    """For a worker thread and a BIG store nobody mutates meanwhile: the pure-Python encoder yields the GIL between chunks, so the
+    event loop keeps answering (json.dumps holds it for the whole document: 0.46s for 31 MB)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix('.tmp')
+    with open(tmp, 'w') as f:
+        for chunk in json.JSONEncoder().iterencode(d):
+            f.write(chunk)
+    tmp.replace(path)
 
 
 # Lookups that answer 404 by design when there's simply no data yet (a creator never seen before).
@@ -18402,15 +18523,32 @@ async def search_profiles(q: str, limit: int = 6):
 
 # ---- Live FEELESS intelligence counts (Learn tab) ------------------------------------------
 _marked = {'snipers': set(), 'bundlers': set(), 'mints': set()}
+_hygiene_mem = {'d': None, 'dirty': False, 'at': 0.0}
+
+
+def _hygiene_flush():
+    hp = DATA_DIR / 'hygiene.json'
+    if _hygiene_mem['d'] is None or not _hygiene_mem['dirty']:
+        return
+    _json_save(hp, _hygiene_mem['d'])
+    st = hp.stat()
+    _parse_cache[str(hp)] = ((st.st_mtime_ns, st.st_size), _hygiene_mem['d'])   # readers (`_hygiene`) keep reading the copy in memory
+    _hygiene_mem.update(dirty=False, at=time.time())
 
 
 def _absorb_intel(mint, out):
     creator = out.get('creator') if isinstance(out.get('creator'), str) else (out.get('creator') or {}).get('address')
     if creator:
         hp = DATA_DIR / 'hygiene.json'
-        d = _json_load(hp, {})
-        d.setdefault(creator, {'launches': {}})['launches'][mint] = {'snipers': len(out.get('sniperWallets') or []), 'bundled': len(out.get('bundledWallets') or [])}
-        _json_save(hp, d)
+        d = _hygiene_mem['d'] if _hygiene_mem['d'] is not None and not os.environ.get('PYTEST_CURRENT_TEST') else _json_load(hp, {})
+        _hygiene_mem['d'] = d
+        rec = {'snipers': len(out.get('sniperWallets') or []), 'bundled': len(out.get('bundledWallets') or [])}
+        la = d.setdefault(creator, {'launches': {}})['launches']
+        if la.get(mint) != rec:   # ⚡ a re-scan with the same counts writes nothing (the 6 MB store was re-written + re-parsed per scan)
+            la[mint] = rec
+            _hygiene_mem['dirty'] = True
+        if _hygiene_mem['dirty'] and (os.environ.get('PYTEST_CURRENT_TEST') or time.time() - _hygiene_mem['at'] >= 60):
+            _hygiene_flush()
     for w in out.get('sniperWallets') or []:
         _marked['snipers'].add(w if isinstance(w, str) else (w or {}).get('wallet') or (w or {}).get('owner'))
     for w in out.get('bundledWallets') or []:
@@ -22489,6 +22627,15 @@ async def perf_config():
     return {'forceLite': bool(_json_load(PERF_CFG_PATH, {}).get('forceLite'))}
 
 
+@app.get('/api/reputation/admin/perf/loop')
+async def perf_loop(request: Request, reset: int = 0):
+    _require_admin(request)
+    out = _loop_lag.WATCH.view()
+    if reset:
+        _loop_lag.WATCH.reset()
+    return out
+
+
 class PerfCfgIn(BaseModel):
     forceLite: bool
 
@@ -23392,8 +23539,8 @@ _desk = {'at': 0, 'snap': None, 'rings': [], 'actors': {}}
 def _desk_build(force=False):
     """Rebuild the desk from the blocklist, funder graph and creator records (cheap: local data only). Cached 10 min;
     the saved file keeps a daily history so the owner can see the department's catch grow."""
-    if not force and _desk['snap'] and time.time() - _desk['at'] < 600:
-        return _desk
+    if not force and _desk['snap'] and (_desk.get('bg') or time.time() - _desk['at'] < 600):
+        return _desk   # with the background loop running a reader NEVER rebuilds inline (it froze the service ~7s every 10 min)
     creators = {}
     for key, rec in (_load().get('creators') or {}).items():
         if not str(key).startswith('solana:'):
@@ -23415,13 +23562,39 @@ def _desk_build(force=False):
     return _desk
 
 
-async def _desk_loop():
-    while True:
+def _desk_build_bg(force=False):
+    # in a worker thread: ~7s of pure Python over the blocklist + funder graph. The loop may change a store mid-read → try again.
+    for _ in range(3):
         try:
-            _desk_build(force=True)
-        except Exception:
-            pass
-        await asyncio.sleep(1800)
+            return _desk_build(force)
+        except RuntimeError:
+            time.sleep(0.5)
+    return _desk
+
+
+_desk_flight: dict = {}
+
+
+async def _desk_get(force=False):
+    """The desk for an async reader: the copy in memory, or (first read after a start / a forced sweep) ONE shared build in a worker thread."""
+    if _desk['snap'] is not None and not force:
+        return _desk
+    t = _desk_flight.get('t')
+    if t is None or t.done():
+        t = _desk_flight['t'] = asyncio.ensure_future(asyncio.to_thread(_desk_build_bg, True))
+    try:
+        await asyncio.shield(t)
+    except Exception:
+        pass
+    return _desk
+
+
+async def _desk_loop():
+    _desk['bg'] = True
+    await asyncio.sleep(5)
+    while True:
+        await _desk_get(force=True)
+        await asyncio.sleep(600)
 
 
 @app.on_event('startup')
@@ -23433,7 +23606,7 @@ async def _desk_start():
 async def intel_desk_view(request: Request):
     """Most wanted, crews, predicted next moves and the department's daily catch."""
     _require_admin(request)
-    d = _desk_build()
+    d = await _desk_get()
     snap = {k: v for k, v in d['snap'].items() if k != 'index'}
     return {**snap, 'history': _json_load(INTEL_DESK_PATH, {'history': []}).get('history', [])[-30:]}
 
@@ -23441,14 +23614,14 @@ async def intel_desk_view(request: Request):
 @app.post('/api/reputation/admin/intel-desk/sweep')
 async def intel_desk_sweep(request: Request):
     _require_admin(request)
-    d = _desk_build(force=True)
+    d = await _desk_get(force=True)
     return {'ok': True, 'totals': d['snap']['totals']}
 
 
 @app.get('/api/reputation/admin/intel-desk/actor/{address}')
 async def intel_desk_actor(request: Request, address: str):
     _require_admin(request)
-    d = _desk_build()
+    d = await _desk_get()
     a = d['actors'].get(address)
     if not a:
         raise HTTPException(404, 'Not in the database (no strikes, no funding links, no bad launches).')
@@ -23459,7 +23632,7 @@ async def intel_desk_actor(request: Request, address: str):
 @app.get('/api/reputation/intel/check')
 async def intel_check(addresses: str = Query('', max_length=6000)):
     """Which known ruggers / snipers / funders (and crews) are in this list of wallets. Used by FeeCat, shield, chat."""
-    d = _desk_build()
+    d = await _desk_get()
     wanted = [a for a in dict.fromkeys(x.strip() for x in addresses.split(',')) if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', a)][:150]
     return intel_desk.check(d['snap']['index'], d['rings'], wanted)
 
