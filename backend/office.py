@@ -749,15 +749,27 @@ def merge_reaper(decisions, reports, buys_left=None, edge=None):
     return out
 
 
-def confirm_exits(exiting, gone, ledger, now, card=None):
+def confirm_exits(exiting, gone, ledger, now, card=None, used=None):
     """📮→☠ A position that left the card is 'exit requested' until the keeper's ledger shows the confirmed sale; only then is it CLOSED
-    with the real result. Not confirmed after EXIT_WAIT_SEC → filed as unconfirmed (no result claimed). → (still exiting, closed)"""
+    with the real result. Not confirmed after EXIT_WAIT_SEC → filed as unconfirmed (no result claimed). → (still exiting, closed)
+    ONE SALE = ONE RESULT: a coin that left the card and came straight back used to leave two or three waiting records, and the one
+    later sale closed them all (12 of 77 archived "real results" were the same sale counted again — memory and the Judge learned each
+    twice). The newest record of a coin takes the sale; an older one is filed as a duplicate with no result. `used` = sale
+    signatures already filed. Each closed record carries `gap` = real result − the last tracked move (the fill vs what the path saw)."""
     ex = list(exiting or []) + [{**g, 'exit': {'state': 'requested'}} for g in gone or []]
-    still, closed = [], []
+    still, closed, taken = [], [], set(used or ())
+    newest = {}
     for p in ex:
+        if _f(p.get('since')) >= _f((newest.get(p.get('mint')) or {}).get('since')):
+            newest[p.get('mint')] = p
+    for p in sorted(ex, key=lambda p: newest.get(p.get('mint')) is not p):   # the newest record of each coin is matched first
         f = fill_state(ledger, p['mint'], 'sell', _f(p.get('askAt') or p.get('leftAt')) - 120, card)
-        if f['state'] == 'confirmed':
-            closed.append({**p, 'exit': f, 'confirmed': True, 'realPct': f.get('realPct'), 'closedAt': f['at']})
+        if f['state'] == 'confirmed' and (f.get('sig') in taken or newest.get(p.get('mint')) is not p):
+            closed.append({**p, 'exit': {'state': 'duplicate', 'sig': f.get('sig'), 'at': f.get('at')}, 'confirmed': False, 'realPct': None, 'closedAt': now})
+        elif f['state'] == 'confirmed':
+            taken.add(f.get('sig'))
+            gap = None if f.get('realPct') is None or p.get('pct') is None else round(_f(f['realPct']) - _f(p['pct']), 2)
+            closed.append({**p, 'exit': f, 'confirmed': True, 'realPct': f.get('realPct'), 'gap': gap, 'closedAt': f['at']})
         elif now - _f(p.get('leftAt')) >= EXIT_WAIT_SEC:
             closed.append({**p, 'exit': {**f, 'state': 'unconfirmed'}, 'confirmed': False, 'realPct': None, 'closedAt': now})
         else:
@@ -838,7 +850,7 @@ def file_position(arch, p, now):
            'wx': p.get('wx'), 'warden': p.get('warden'), 'launch': p.get('launch'), 'tag': p.get('tag'), 'take': p.get('take'), 'exitStructure': p.get('chartNow'), 'windows': p.get('lastWin'),
            'liq': p.get('liq'), 'liqPct': p.get('liqPct'), 'top10': p.get('top10'), 'quality': p.get('quality'), 'dd': bool(p.get('dataDegraded') or p.get('dd')), 'vel': (p.get('vel') or {}).get('state') if isinstance(p.get('vel'), dict) else p.get('vel'),
            'thesis': None if not p.get('thesis') else {k: p['thesis'].get(k) for k in ('structure', 'call', 'triggerRule', 'support', 'invalidation', 'stopPct', 'expectedHoldWindows', 'at')},
-           'li': p.get('li'), 'src': p.get('src')}
+           'li': p.get('li'), 'src': p.get('src'), 'gap': p.get('gap')}
     prev = ps[-1]['h'] if ps else a.get('posAnchor', '')
     rec['h'] = _hash(prev, {k: v for k, v in rec.items() if k != 'h'})
     ps.append(rec)

@@ -508,3 +508,17 @@ def test_reaper_reads_the_buy_sell_vital_banks_green_seats_and_only_tightens_red
     assert one(1.20, {'state': 'BUYERS', 'why': 'x', 'hot': True})['action'] is None
     base, red = one(0.95, None), one(0.95, sellers)
     assert red['action'] is None and abs(red['stop']) == round(max(of._ci.STOP_FLOOR, abs(base['stop']) * of.FLOW_TIGHT), 6) and abs(red['stop']) <= abs(base['stop'])
+
+
+def test_one_sale_closes_one_position_and_the_older_record_of_that_coin_is_a_duplicate():
+    led = [{'mint': 'M', 'side': 'sell', 'status': 'filled', 'sig': 'S1', 'at': 1000.0, 'usd': 1.0, 'px': 1.0, 'midPx': 1.0, 'costUsd': 2.0, 'realizedPnlUsd': -1.0, 'card': 'degen'}]
+    old = {'mint': 'M', 'since': 100.0, 'leftAt': 990.0, 'pct': -3.0}
+    new = {'mint': 'M', 'since': 600.0, 'leftAt': 995.0, 'pct': -20.0}
+    still, closed = of.confirm_exits([old], [new], led, 1001.0, 'degen')
+    real = [c for c in closed if c['confirmed']]
+    assert not still and len(real) == 1 and real[0]['since'] == 600.0 and real[0]['realPct'] == -50.0 and real[0]['gap'] == -30.0
+    dup = next(c for c in closed if not c['confirmed'])
+    assert dup['exit']['state'] == 'duplicate' and dup['realPct'] is None
+    # a sale already filed is never a second result
+    still, closed = of.confirm_exits([new], [], led, 1001.0, 'degen', used={'S1'})
+    assert closed[0]['confirmed'] is False and closed[0]['exit']['state'] == 'duplicate'

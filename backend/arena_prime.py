@@ -3431,8 +3431,18 @@ def agent_pull(card, pair, prices, liqs, now, why=''):
     c['events'].append({'at': now, 'kind': 'agent', 'move': 'pull', 'symbol': l.get('symbol'), 'usd': round(got, 4), 'why': f"🤖 agents banked ${l.get('symbol')} (${got:.2f} to card cash): {why}"})
     if l.get('mint'):   # 🚫 the agents never buy back what they just left (2026-10-11: $Rupshld bought 3× in a minute between rug-radar exits, then rugged)
         c['agentOut'] = {**{m: v for m, v in (c.get('agentOut') or {}).items() if now - _f((v or {}).get('at')) < AGENT_OUT_DANGER_SEC},
-                         l['mint']: {'at': now, 'danger': agent_out_danger(why)}}
+                         l['mint']: {'at': now, 'danger': agent_out_danger(why), **({'urgent': True} if urgent_exit(why) else {})}}
     return c
+
+
+URGENT_EXIT_WORDS = ('stop', 'rug', 'drain', 'dump', 'invalid', 'collapse', 'sellers', 'breakdown', 'pulled')
+
+
+def urgent_exit(why):
+    """⚡ An agent exit that PROTECTS money (stop · rug · drain · dump · thesis invalidated · sellers took over · breakdown): the
+    keeper sends its sale as urgent (fresher quote, lands first). A take / time / dead-coin swap is not."""
+    w = str(why or '').lower()
+    return any(k in w for k in URGENT_EXIT_WORDS)
 
 
 AGENT_OUT_SEC = 600.0           # any agent exit: the coin sits out 10 min (no sell → buy-back churn on the fast clock)

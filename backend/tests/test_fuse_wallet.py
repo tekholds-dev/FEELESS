@@ -1444,3 +1444,16 @@ def test_a_top_up_counts_reserve_sol_parked_as_rent_and_never_drains_the_wallets
     assert fw.free_for_topup(0.036428, books, 0.019, 0.0) == fw.free_sol(0.036428, books, 0.019)   # no rent parked = the old rule exactly
     assert fw.free_for_topup(0.036428, books, 0.019, 0.004) == 0.01208                      # by the reserve when that is the tighter line
     assert fw.free_for_topup(0.012, books, 0.019, 0.05) == 0.0                              # never under the liquid floor
+
+
+def test_an_urgent_exit_may_pay_one_percent_of_the_sale_to_land_and_never_over_half_a_cent():
+    base = fw.priority_cap(0, 0, 100.0)
+    assert fw.priority_cap(0, 0, 100.0, 0.30) > base                          # $0.30 stop → up to $0.003
+    assert fw.priority_cap(0, 0, 100.0, 0.05) == base                         # 1% of a 5c sale is under the normal first try
+    assert fw.priority_cap(0, 0, 100.0, 500.0) == fw.priority_cap(9, 9, 100.0)   # the ceiling is the same half cent
+    card = {'agentOut': {'M': {'at': 100.0, 'urgent': True}, 'N': {'at': 100.0}}}
+    o = fw.mark_urgent({'side': 'sell', 'mint': 'M', 'why': 'not on the card any more'}, card, 160.0)
+    assert o.get('urgent') and fw.urgent_order(o)
+    assert not fw.urgent_order(fw.mark_urgent({'side': 'sell', 'mint': 'N', 'why': 'not on the card any more'}, card, 160.0))
+    assert not fw.urgent_order(fw.mark_urgent({'side': 'sell', 'mint': 'M', 'why': 'not on the card any more'}, card, 100.0 + fw.URGENT_MARK_SEC + 1))
+    assert not fw.urgent_order(fw.mark_urgent({'side': 'buy', 'mint': 'M'}, card, 160.0))

@@ -15,6 +15,8 @@ Also here: `trade_tape` — every real agent trade as ONE story (decision → fi
 the Judge's ruling), built only from records that already exist (ledger rows, the archive, the Judge's reviews, the model's log).
 """
 
+import real_memory as _rmem
+
 CAUSES = {
     'crowd fomo': "bought the crowd's top (launch phase CROWD FOMO)",
     'bundled': 'a bundled / insider-like launch',
@@ -31,6 +33,12 @@ BLOCK_SEC = 6 * 3600.0
 MAX_RULES = 12
 LOG_KEEP = 60
 WHY_LEN = 120
+GRADE_SEC = 1800.0     # a coin a directive ranked down is judged 30 min later …
+GRADE_GONE_SEC = 7200.0  # … no price for 2h = it is gone (−100%)
+GRADE_AGAIN = 6 * 3600.0  # the same coin is noted for the same cause at most every 6h
+GRADE_MIN_N = 10       # a directive's own record weighs from 10 judged coins
+GRADE_BAD_MED = 3.0    # coins it ranked DOWN went UP a typical 3%+ → the lesson is wrong
+GRADE_OPEN, GRADE_DONE = 300, 60
 
 
 def _f(v, d=0.0):
@@ -51,7 +59,8 @@ def new_state():
 
 def _st(state):
     s = dict(state or {})
-    return {'rules': [dict(r) for r in s.get('rules') or []], 'blocked': dict(s.get('blocked') or {}), 'log': list(s.get('log') or []), 'n': int(_f(s.get('n')))}
+    return {'rules': [dict(r) for r in s.get('rules') or []], 'blocked': dict(s.get('blocked') or {}), 'log': list(s.get('log') or []), 'n': int(_f(s.get('n'))),
+            **({'grade': s['grade']} if s.get('grade') else {})}
 
 
 def active(state, now):
@@ -150,12 +159,80 @@ def coach_case(reviews, mem=None, rules=None):
             'rules': [f"{r['key']} {r['points']:+.0f} by {r['by']}" for r in rules or []][:5], 'vocab': list(CAUSES)[:8]}
 
 
+# ── 📏 every directive is GRADED on what the coins it ranked down did next (a bad lesson expires on evidence) ─────────────────────
+def grade_note(state, hits, now):
+    """`hits` = {cause: [(mint, sym, px)]} — the coins a LIVE directive matched this pass. Each coin is noted once per cause per 6h at
+    its price; nothing is bought, sold or blocked by a note."""
+    s = _st(state)
+    g = dict(s.get('grade') or {})
+    opn, seen = list(g.get('open') or []), dict(g.get('seen') or {})
+    for key, rows in (hits or {}).items():
+        if key not in CAUSES:
+            continue
+        for mint, sym, px in rows or []:
+            k = f'{key}|{mint}'
+            if not mint or _f(px) <= 0 or (k in seen and now - _f(seen[k]) < GRADE_AGAIN):
+                continue
+            seen[k] = now
+            opn.append({'key': key, 'mint': mint, 'sym': sym, 'px': _f(px), 'at': now})
+    g.update(open=opn[-GRADE_OPEN:], seen={k: t for k, t in seen.items() if now - _f(t) < GRADE_AGAIN})
+    s['grade'] = g
+    return s
+
+
+def grade_settle(state, prices, now):
+    """Notes ≥ 30 min old are judged at the coin's price now (`prices` {mint: px}); no price for 2h = −100%. → (state, settled n)"""
+    s = _st(state)
+    g = dict(s.get('grade') or {})
+    done, keep, n = {k: list(v) for k, v in (g.get('done') or {}).items()}, [], 0
+    for o in g.get('open') or []:
+        age, px = now - _f(o.get('at')), _f((prices or {}).get(o.get('mint')))
+        if age < GRADE_SEC or (px <= 0 and age < GRADE_GONE_SEC):
+            keep.append(o); continue
+        pct = max(-100.0, min(300.0, (px / _f(o['px']) - 1) * 100)) if px > 0 else -100.0
+        done[o['key']] = (done.get(o['key'], []) + [round(pct, 1)])[-GRADE_DONE:]
+        n += 1
+    g.update(open=keep, done=done)
+    s['grade'] = g
+    return s, n
+
+
+def grades(state):
+    """{cause: {n, med, up, verdict}} — what the coins each directive ranked down did in the next 30 min. `right` = they typically
+    fell (the lesson holds) · `wrong` = they typically ROSE 3%+ (it ranks winners down) · `open` = under 10 judged or in between."""
+    out = {}
+    for k, v in (((state or {}).get('grade') or {}).get('done') or {}).items():
+        if not v:
+            continue
+        med = _med(v)
+        out[k] = {'n': len(v), 'med': med, 'up': sum(1 for x in v if x > 0),
+                  'verdict': 'open' if len(v) < GRADE_MIN_N else 'wrong' if med >= GRADE_BAD_MED else 'right' if med < 0 else 'open'}
+    return out
+
+
+def drop_wrong(state, now):
+    """A MODEL directive whose own record says it is wrong ends now (logged). An owner directive is never ended for them — the page
+    shows its record and the owner decides. → (state, [ended causes])"""
+    s = _st(state)
+    gr = grades(s)
+    bad = [r for r in s['rules'] if r.get('by') == 'ai' and _f(r.get('until')) > now and (gr.get(r['key']) or {}).get('verdict') == 'wrong']
+    if not bad:
+        return s, []
+    s['rules'] = [r for r in s['rules'] if r not in bad]
+    s['log'] = (s['log'] + [{'at': now, 'by': 'record', 'key': r['key'], 'points': 0,
+                             'why': f"ended by its own record: coins it ranked down rose a typical {gr[r['key']]['med']:+.1f}% (n {gr[r['key']]['n']})"} for r in bad])[-LOG_KEEP:]
+    return s, [r['key'] for r in bad]
+
+
 def view(state, now, judge_pens=None):
-    """The page's coach box: every weight on the ranking right now (owner · ai · judge) + the vocabulary + the last moves."""
+    """The page's coach box: every weight on the ranking right now (owner · ai · judge) + its own record + the vocabulary + the last moves."""
+    gr = grades(state)
     rows = [{**r, 'left': round(_f(r['until']) - now), 'words': CAUSES.get(r['key'])} for r in active(state, now)]
     mine = {r['key'] for r in rows}
     rows += [{'id': None, 'key': k, 'by': 'judge', 'points': _f(p), 'why': 'repeat real-loss cause (≥ 3 of the last 20 reviews)', 'words': CAUSES.get(k)} for k, p in (judge_pens or {}).items() if k not in mine]
-    return {'rules': rows, 'causes': [{'key': k, 'words': w} for k, w in CAUSES.items()], 'blocked': len(blocked(state, now)),
+    rows = [{**r, 'grade': gr.get(r['key'])} for r in rows]
+    return {'rules': rows, 'causes': [{'key': k, 'words': w, 'grade': gr.get(k)} for k, w in CAUSES.items()], 'blocked': len(blocked(state, now)),
+            'watching': len(((state or {}).get('grade') or {}).get('open') or []),
             'log': list(reversed(((state or {}).get('log') or [])[-12:])), 'pts': {'owner': OWNER_PTS, 'strong': OWNER_MAX, 'ai': AI_PTS}}
 
 
@@ -187,7 +264,9 @@ def trade_tape(ledger, positions, reviews=None, ai_log=None, card=None, n=30):
         th = (p or {}).get('thesis') or {}
         row = {'mint': m, 'sym': b.get('symbol'), 'at': t,
                'buy': {'usd': _f(b.get('usd')) or None, 'px': px or None, 'mid': mid or None, 'slipPct': round((px / mid - 1) * 100, 2) if px > 0 and mid > 0 else None,
-                       'landSec': b.get('landSec'), 'impactPct': b.get('impactPct'), 'sig': b.get('sig'), 'why': b.get('why')},
+                       'landSec': b.get('landSec'), 'impactPct': b.get('impactPct'), 'sig': b.get('sig'), 'why': b.get('why'),
+                       # decided → sent: the thesis is written the moment the fill was allowed; the keeper's send is stamped on the row
+                       'waitSec': round(_f(b.get('sentAt')) - _f(th.get('at')), 1) if th.get('at') and 0 <= _f(b.get('sentAt')) - _f(th.get('at')) <= 1800 else None},
                'why': {'tag': (p or {}).get('tag'), 'structure': th.get('structure'), 'rule': th.get('triggerRule'), 'src': list((p or {}).get('src') or [])[:5] or None,
                        'phase': ((p or {}).get('li') or {}).get('phase'), 'size': (p or {}).get('warden')},
                'ai': {k: ai.get(k) for k in ('stance', 'summary', 'risk_flags', 'label', 'role')} if ai else None,
@@ -208,7 +287,10 @@ def tape_stats(rows):
     done = sorted(_f(r['result']['pct']) for r in rows or [] if r.get('result'))
     slips = sorted(_f(r['buy']['slipPct']) for r in rows or [] if (r.get('buy') or {}).get('slipPct') is not None)
     med = lambda v: round(v[len(v) // 2] if len(v) % 2 else (v[len(v) // 2 - 1] + v[len(v) // 2]) / 2, 2) if v else None
-    return {'n': len(done), 'won': sum(1 for x in done if x > 0), 'medPct': med(done), 'open': sum(1 for r in rows or [] if r.get('open')), 'medSlipPct': med(slips)}
+    waits = sorted(_f(r['buy']['waitSec']) for r in rows or [] if (r.get('buy') or {}).get('waitSec') is not None)
+    lands = sorted(_f(r['buy']['landSec']) for r in rows or [] if (r.get('buy') or {}).get('landSec') is not None)
+    return {'n': len(done), 'won': sum(1 for x in done if x > 0), 'medPct': med(done), 'open': sum(1 for r in rows or [] if r.get('open')), 'medSlipPct': med(slips),
+            'medWaitSec': med(waits), 'medLandSec': med(lands)}
 
 
 # ── 📏 graded on REAL fills: every source list and every exit rule gets its own record ───────────────────────────────────────────
@@ -229,10 +311,9 @@ def _rec(groups):
 def source_record(positions):
     """{source: {n, med, won}} over confirmed real exits — a coin counts for every source that listed it. Results capped at ±100%."""
     g = {}
-    for p in positions or []:
-        if p.get('confirmed') and p.get('realPct') is not None:
-            for s_ in list(p.get('src') or [])[:6]:
-                g.setdefault(str(s_), []).append(max(-100.0, min(100.0, _f(p['realPct']))))
+    for p in _rmem.trades(positions):   # one record per sale
+        for s_ in list(p.get('src') or [])[:6]:
+            g.setdefault(str(s_), []).append(max(-100.0, min(100.0, _f(p['realPct']))))
     return _rec(g)
 
 
@@ -248,8 +329,49 @@ def rule_record(positions):
     """{exit rule id: {n, med, won}} over confirmed real exits (R4f sellers took over, R4c buying climax, R5 stop, R7 trail …) — how each
     exit rule's trades really ended. The new tape exits are judged here before anyone trusts them."""
     g = {}
-    for p in positions or []:
-        if p.get('confirmed') and p.get('realPct') is not None and p.get('rule'):
+    for p in _rmem.trades(positions):   # one record per sale
+        if p.get('rule'):
             k = str(p['rule']).split(' ')[0]
             g.setdefault(k if k[:1] == 'R' and k[1:2].isdigit() else 'other', []).append(max(-100.0, min(100.0, _f(p['realPct']))))
     return _rec(g)
+
+
+# ── 🧪 "exit on the thesis, not the stop" — replayed on every real trade before anyone ships it ─────────────────────────────────
+LINE_SLIP = 4.0   # points a cut typically fills past the reading that triggered it (the real stops' own median)
+LINE_TRY = (8, 12, 15)
+LINE_MIN_N, LINE_EDGE = 40, 3.0   # a tighter line is worth proposing from 40 real trades, +3 points on the average AND no worse a median
+
+
+def line_replay(positions):
+    """Would a TIGHTER invalidation line have paid? Each real trade's recorded path is replayed with a cut at −X% (filled LINE_SLIP
+    lower; a trade that really ended worse keeps its real result) against what really happened. Also counts the trades that were
+    already past −15% at the FIRST look after the fill (`gapped`): no exit line saves those — only a faster / better entry does.
+    → {n, actual, lines: [{x, avg, med, won, cutWinners}], gapped, best, verdict}"""
+    ts = _rmem.trades(positions)
+    real = [max(-100.0, min(100.0, _f(p['realPct']))) for p in ts]
+    if not real:
+        return {'n': 0}
+    stat = lambda v: {'avg': round(sum(v) / len(v), 2), 'med': _med(v), 'won': sum(1 for x in v if x > 0)}
+    lines = []
+    for x in LINE_TRY:
+        out, cut = [], 0
+        for p, r in zip(ts, real):
+            path = [_f(v) for v in p.get('path') or []]
+            hit = next((v for v in path if v <= -x), None)
+            if hit is None and _f(p.get('low')) <= -x:
+                hit = _f(p.get('low'))
+            if hit is None:
+                out.append(r); continue
+            new = max(-100.0, hit - LINE_SLIP)
+            if r <= 0:
+                new = max(new, r)   # it lost anyway: the cut can only have ended it earlier, never worse than it really ended
+            else:
+                cut += 1            # a real WINNER this line would have thrown away
+            out.append(new)
+        lines.append({'x': x, **stat(out), 'cutWinners': cut})
+    act = stat(real)
+    best = max(lines, key=lambda l: l['avg'])
+    ok = len(real) >= LINE_MIN_N and best['avg'] - act['avg'] >= LINE_EDGE and _f(best['med']) >= _f(act['med'])
+    return {'n': len(real), 'actual': act, 'lines': lines, 'gapped': sum(1 for p in ts if (p.get('path') or [0])[0] <= -15), 'best': best['x'],
+            'verdict': 'pays' if ok else 'not proven'}
+

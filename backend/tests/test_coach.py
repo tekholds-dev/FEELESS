@@ -55,7 +55,7 @@ def test_the_trade_tape_is_one_story_per_real_buy_from_records_that_exist():
     assert a['buy']['slipPct'] == 2.0 and a['why']['structure'] == 'UPTREND' and a['ai']['summary'] == 'clean, dev holding' and a['sells'][0]['sig'] == 'S1'
     assert a['result'] == {'pct': 20.0, 'usd': 0.2, 'peak': 31.0, 'heldMin': 5.0, 'rule': 'R7 trail'} and a['judge']['kind'] == 'win' and not a['open']
     assert t[0]['open'] and 'result' not in t[0] and t[0]['ai'] is None                         # an open trade claims no result
-    assert co.tape_stats(t) == {'n': 1, 'won': 1, 'medPct': 20.0, 'open': 1, 'medSlipPct': 2.0}
+    assert co.tape_stats(t) == {'n': 1, 'won': 1, 'medPct': 20.0, 'open': 1, 'medSlipPct': 2.0, 'medWaitSec': None, 'medLandSec': 3.1}
 
 
 def test_sources_and_exit_rules_are_graded_on_real_fills_only():
@@ -77,3 +77,55 @@ def test_the_model_coach_answers_from_the_vocabulary_and_the_memory_halves_a_wor
     ms = ts.from_row({'mint': 'K', 'symbol': 'K', 'pair': 'PK', 'px': 1.0, 'nums': {'v5': 8000, 'pace': 2, 'liq': 20000, 'd5': 6, 'buy': 62}, 'vitals': {'mcap': 40000, 'liq': 20000, 'ageH': 1.0, 'vol1h': 20000, 'txns1h': 300, 'safe': True}}, 100.0)
     full, half = tb.think(ms)['opinions']['warden'], tb.think(ms, {'weights': {'K': 0.8}})['opinions']['warden']
     assert half['size'] == max(0.5, round(full['size'] * tb.MEM_SIZE, 2)) and 'worse half' in half['why'] and tb.think(ms, {'weights': {'K': 1.2}})['opinions']['warden'] == full
+
+
+# ── 📏 directives graded on their own record · 🧪 the thesis-line replay · one sale = one result ────────────────────────────────
+def test_a_directive_is_graded_on_the_coins_it_ranked_down_and_a_wrong_model_rule_ends_itself():
+    s, r = co.add(co.new_state(), 'thin pool', 'ai', 'thin pools keep losing', 0)
+    s, own = co.add(s, 'falling now', 'owner', 'mine', 0)
+    hits = {'thin pool': [(f'm{i}', f'S{i}', 1.0) for i in range(12)], 'falling now': [(f'f{i}', f'F{i}', 1.0) for i in range(12)], 'not a cause': [('x', 'X', 1.0)]}
+    s = co.grade_note(s, hits, 10)
+    assert len(s['grade']['open']) == 24
+    assert len(co.grade_note(s, hits, 20)['grade']['open']) == 24          # the same coin is not noted twice inside 6h
+    s, n = co.grade_settle(s, {f'm{i}': 1.10 for i in range(12)} | {f'f{i}': 0.8 for i in range(12)}, 10 + co.GRADE_SEC - 1)
+    assert n == 0                                                             # not 30 minutes old yet
+    s, n = co.grade_settle(s, {f'm{i}': 1.10 for i in range(12)} | {f'f{i}': 0.8 for i in range(12)}, 10 + co.GRADE_SEC + 1)
+    g = co.grades(s)
+    assert n == 24 and g['thin pool']['verdict'] == 'wrong' and g['thin pool']['med'] == 10.0 and g['falling now']['verdict'] == 'right'
+    v = co.view(s, 100)
+    assert next(x for x in v['rules'] if x['key'] == 'thin pool')['grade']['n'] == 12
+    s2, ended = co.drop_wrong(s, 100)
+    assert ended == ['thin pool'] and [x['key'] for x in co.active(s2, 100)] == ['falling now']
+    assert 'ended by its own record' in s2['log'][-1]['why']
+    s3, _ = co.add(co.new_state(), 'thin pool', 'owner', 'my call', 0)   # an OWNER rule is never ended for them
+    s3['grade'] = s['grade']
+    assert co.drop_wrong(s3, 100)[1] == []
+
+
+def test_a_coin_with_no_price_is_judged_gone_only_after_two_hours():
+    s = co.grade_note(co.new_state(), {'thin pool': [('m', 'S', 1.0)]}, 0)
+    s, n = co.grade_settle(s, {}, co.GRADE_SEC + 5)
+    assert n == 0 and len(s['grade']['open']) == 1
+    s, n = co.grade_settle(s, {}, co.GRADE_GONE_SEC + 5)
+    assert n == 1 and s['grade']['done']['thin pool'] == [-100.0]
+
+
+def _pos(pct, path, sig, low=None):
+    return {'confirmed': True, 'realPct': pct, 'path': path, 'low': min(path) if low is None else low, 'exit': {'sig': sig}, 'closedAt': 1.0, 'rule': 'R5 stop', 'src': ['pulse']}
+
+
+def test_line_replay_cuts_losers_counts_the_winners_it_throws_away_and_the_gapped_trades():
+    ps = [_pos(-30, [-2, -9, -20], 'a'), _pos(20, [-10, 5, 20], 'b'), _pos(-40, [-38], 'c'), _pos(5, [1, 4], 'd')]
+    r = co.line_replay(ps)
+    l8 = next(l for l in r['lines'] if l['x'] == 8)
+    assert r['n'] == 4 and r['gapped'] == 1 and l8['cutWinners'] == 1
+    assert l8['avg'] == round((-13 + -14 + -40 + 5) / 4, 2)                   # −9 − 4 · the winner cut at −10 − 4 · the gap kept its real −40
+    assert r['verdict'] == 'not proven'                                       # 4 trades prove nothing
+    assert co.line_replay([]) == {'n': 0}
+
+
+def test_one_sale_is_one_result_in_every_record():
+    ps = [_pos(-30, [-1], 'same'), _pos(-30, [-2], 'same'), _pos(10, [3], 'other')]
+    assert co.rule_record(ps)['R5']['n'] == 2 and co.source_record(ps)['pulse']['n'] == 2
+    import real_memory
+    assert len(real_memory.trades(ps)) == 2

@@ -75,8 +75,13 @@ def pos_feats(p):
 
 
 def trades(positions):
-    """Confirmed real exits with a real result, oldest first."""
-    return sorted([p for p in positions or [] if p.get('confirmed') and p.get('realPct') is not None], key=lambda p: _f(p.get('closedAt')))
+    """Confirmed real exits with a real result, oldest first — ONE record per sale: older archives hold the same sale filed under
+    several records of a coin that left the card and came back (12 of 77 on 2026-10-13); the newest record of a sale is the trade."""
+    by = {}
+    for i, p in enumerate(positions or []):
+        if p.get('confirmed') and p.get('realPct') is not None:
+            by[(p.get('exit') or {}).get('sig') or f'#{i}'] = p
+    return sorted(by.values(), key=lambda p: _f(p.get('closedAt')))
 
 
 def _cells(rows, base):

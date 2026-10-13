@@ -8394,7 +8394,7 @@ async def _prime_tick(now):
     async with _prime_tick_lock:   # the warm loop and the 🔔 round bell never run two ticks at once
         n = await _prime_tick_inner(now)
     try:
-        await _fw_tick(now)   # 👛 real tier cards follow the engine with real swaps
+        await _fw_tick(time.time())   # 👛 real tier cards follow the engine with real swaps (its OWN clock: the tier tick above took seconds)
     except Exception as e:
         print('fuse wallet:', e)
     return n
@@ -11366,11 +11366,12 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
             return book
     async with _fw_lock:   # ⚡ txs that didn't land lately → this one pays a higher priority fee (24% of buys timed out at a flat fee)
         boost = _fw.landing_boost(_fw_peek().get('ledger'), tid, now)
+    urgent_ = order.get('side') == 'sell' and _fw.urgent_order(order)   # ⚡ a stop / rug / drain / flow exit lands first (≤ 1% of the sale, ≤ half a cent)
     try:
         for attempt in range(3):   # build + sign retried too (Jupiter / Circle blips); nothing is sent until a signed tx exists
             try:
                 swap = await _fw_jup('POST', '/swap/v1/swap', json={'quoteResponse': q, 'userPublicKey': cfg['address'], 'wrapAndUnwrapSol': True, 'dynamicComputeUnitLimit': True,
-                                                                    'prioritizationFeeLamports': {'priorityLevelWithMaxLamports': {'maxLamports': _fw.priority_cap(attempt, boost, sol_px), 'priorityLevel': 'veryHigh' if attempt or boost else 'high'}}})
+                                                                    'prioritizationFeeLamports': {'priorityLevelWithMaxLamports': {'maxLamports': _fw.priority_cap(attempt, boost, sol_px, _fuse._f(order.get('usd')) if urgent_ else 0.0), 'priorityLevel': 'veryHigh' if attempt or boost or urgent_ else 'high'}}})
                 row['lastValidBlockHeight'] = swap.get('lastValidBlockHeight'); row['quoteAgeSec'] = round(time.time() - q_at, 2)
                 signed = await _fw_sign(cfg, swap.get('swapTransaction'), f"FEELESS {tid} {order['side']} {order.get('symbol')}")
                 break
@@ -11651,12 +11652,30 @@ async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
 _fw_tick_lock = asyncio.Lock()
 
 
+_FW_AGAIN: dict = {'at': 0.0}   # a keeper pass was asked for while one was running
+
+
+def _fw_catch_up():
+    """⚡ DECISIONS DON'T WAIT FOR THE NEXT TRIGGER. A keeper pass sends its orders one at a time and waits for each to confirm
+    (2026-10-13: a median 24s each), so a pass with three orders runs well over a minute — and every decision made meanwhile (a
+    stop, a filled seat) used to be SKIPPED until some later trigger: decision → send was a median 89s, 5 min at the slow end, and
+    the price had moved 15%+ by the fill. Now a request that found the keeper busy runs ONE pass as soon as the running one ends.
+    Still one pass at a time (`_fw_tick_lock`), still sells first, nothing about an order changes."""
+    if _FW_AGAIN.get('at') and not _fw_tick_lock.locked() and not os.environ.get('PYTEST_CURRENT_TEST'):
+        _FW_AGAIN['at'] = 0.0
+        _fw_kick_now()
+
+
 async def _fw_tick(now):
     """ONE keeper at a time: the round bell and the warm loop both call this after their tier tick — two keepers at once traded the
     same orders twice (sold WETH ×2, bought SPEC ×2 at 14:56). A tick that finds one running skips; the next tick catches up."""
-    if _fw_tick_lock.locked() or not _is_keeper():
+    if not _is_keeper():
+        return 0
+    if _fw_tick_lock.locked():
+        _FW_AGAIN['at'] = time.time()   # ⚡ asked for while a pass was running → ONE more pass the moment it ends (below)
         return 0
     async with _fw_tick_lock:
+        _FW_AGAIN['at'] = 0.0
         n = await _fw_tick_inner(now)
         if time.time() - _FW_GAS.get('at', 0) > 60:   # ⛽ one balance read a minute (never per viewer)
             try:
@@ -11741,6 +11760,8 @@ async def _fw_tick(now):
                     _rpc_quota_notice()
             except Exception as e:
                 print('fuse wallet gas:', e)
+        if _FW_AGAIN.get('at'):
+            asyncio.get_event_loop().call_soon(_fw_catch_up)   # runs once this pass has let go of the lock
         return n
 
 
@@ -11845,7 +11866,7 @@ async def _fw_tick_inner(now):
         for side in (('sell',) if book.get('halt') or book.get('pending') else ('sell', 'buy')):   # ⏸ halted = sells only (owner's queued sells still land)
             if side == 'buy':
                 _FW_BUY_PASS[tid] = time.time()   # ⏳ the keeper reached its buy step for this card (a coin wanted before `now` had its chance)
-            for o in [{**x, 'cardPays': int(card.get('rounds') or 0) >= 5} for x in _fw.orders(tid, want, book, px, sol_px, cfg, now, count_sells=side == 'sell') if x['side'] == side]:
+            for o in [_fw.mark_urgent({**x, 'cardPays': int(card.get('rounds') or 0) >= 5}, card, time.time()) for x in _fw.orders(tid, want, book, px, sol_px, cfg, now, count_sells=side == 'sell') if x['side'] == side]:
                 if hold and swap_out(o):
                     continue   # the replacement isn't buyable yet → this coin stays (cuts and the owner's own ✂ always go through)
                 leg_liq = next((_fuse._f(l.get('liqNow')) or _fuse._f(l.get('liq')) for l in card.get('legs') or [] if l.get('mint') == o.get('mint')), 0.0)
@@ -14009,10 +14030,38 @@ def _trade_tape(now):
         try:
             rows = _co.trade_tape(_fw_full_ledger()[-900:], (_json_load(ARCHIVE_PATH, {}) or {}).get('positions'), ((_office_state().get('judge') or {}).get('reviews')) or [], _ai.get('log') or [], n=24)
             pos_ = (_json_load(ARCHIVE_PATH, {}) or {}).get('positions')
-            _coach.update(tape={'rows': rows, 'stats': _co.tape_stats(rows), 'sources': _co.source_record(pos_), 'rules': _co.rule_record(pos_)}, tapeAt=now)
+            _coach.update(tape={'rows': rows, 'stats': _co.tape_stats(rows), 'sources': _co.source_record(pos_), 'rules': _co.rule_record(pos_), 'line': _co.line_replay(pos_)}, tapeAt=now)
+            _coach_grade(now)
         except Exception as e:
             print('trade tape:', str(e)[:120])
     return _coach['tape']
+
+
+def _coach_grade(now):
+    """📏 Every live directive (owner · model · Judge) is graded on the coins it ranked down: noted once at the desk's own price, judged
+    30 min later from the desk's price again (no fetch). A MODEL directive its own record proves wrong ends itself; an owner's is shown."""
+    try:
+        st_ = _coach_state()
+        keys = set(_coach_pens(now))
+        table = _agents.get('table') or []
+        hits = {}
+        for x_ in table if keys else []:
+            for words_, _p in _opp.judge_hits(x_, {k_: -1.0 for k_ in keys}):
+                hits.setdefault(words_.split(': ', 1)[-1], []).append((x_.get('mint'), x_.get('symbol'), _fuse._f(x_.get('px'))))
+        had = bool(((st_.get('grade') or {}).get('open')))
+        if not hits and not had:
+            return
+        st_ = _co.grade_note(st_, hits, now)
+        st_, n_ = _co.grade_settle(st_, {x_.get('mint'): _fuse._f(x_.get('px')) for x_ in table}, now)
+        st_, ended = _co.drop_wrong(st_, now)
+        for k_ in ended:
+            _tk.KERNEL.note('judge', 'RULE ENDED', f"📏 {k_}: ended by its own record", now, key=f"coachend:{k_}:{int(now // 3600)}")
+        _coach['s'] = st_
+        if n_ or ended or now - _coach.get('gradeSaved', 0.0) >= 300:
+            _coach['gradeSaved'] = now
+            _json_save(COACH_PATH, st_)
+    except Exception as e:
+        print('coach grade:', str(e)[:120])
 
 
 async def _coach_ai(now, env, cfg):
@@ -15188,7 +15237,8 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
     on = {x.get('mint') for x in ((_agents.get('card') or {}).get('seats') or []) if x.get('mint')}
     # 📮→☠ exits: a position that left the card is closed only when the ledger confirms the sale
     t0 = time.perf_counter()
-    still, closed = _of.confirm_exits(_office['exiting'], _office.get('gone') or [], _office_ledger(), now, tid)
+    still, closed = _of.confirm_exits(_office['exiting'], _office.get('gone') or [], _office_ledger(), now, tid,
+                                      used={(p_.get('exit') or {}).get('sig') for p_ in ((arch or {}).get('positions') or [])[-120:] if p_.get('confirmed')} - {None})
     _office.update(exiting=still, gone=[])
     if closed:   # 🔁 every confirmed agent exit at a loss → no re-buy for 6h (any rule) · 🧠 every confirmed result → a real-money lesson
         try:

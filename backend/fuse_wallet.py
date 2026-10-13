@@ -1416,14 +1416,20 @@ BASE_LAMPORTS = 5_000  # Solana's signature fee
 MIN_PRIORITY = 1_000
 
 
-def priority_cap(attempt, boost, sol_usd=0.0):
+URGENT_FEE_SHARE = 0.01   # an urgent exit may pay up to 1% of what it sells to land NOW — still never over PENNY_USD
+
+
+def priority_cap(attempt, boost, sol_usd=0.0, urgent_usd=0.0):
     """Max priority fee (lamports) so base + priority stays WAY under a penny: first try ≤ $0.001; each retry / recent miss adds
     $0.001; never over $0.005 whatever happens (it used to climb to 300K lamports ≈ $0.04 on a retry). Landing comes from the
-    one-hop route + re-sending the same signed tx to every node, not from paying more. No SOL price → 10K lamports a step, ≤ 70K."""
+    one-hop route + re-sending the same signed tx to every node, not from paying more. No SOL price → 10K lamports a step, ≤ 70K.
+    ⚡ `urgent_usd` = the $ an URGENT EXIT sells (stop · rug · drain · flow · floor): its first try may pay up to 1% of that, inside
+    the same half-cent ceiling. Why: 2026-10-13 real swaps landed a median 24s after the send (some 60s) at the bottom fee, and
+    stops on −12…−30% lines filled near −35% — on a falling coin every second is points. Buys and plain sells are unchanged."""
     level = max(0, int(attempt)) + max(0, int(boost))
     if _f(sol_usd) <= 0:
         return min(70_000, 10_000 * (level + 1))
-    usd = min(PENNY_USD, FIRST_USD * (level + 1))
+    usd = min(PENNY_USD, max(FIRST_USD * (level + 1), URGENT_FEE_SHARE * max(0.0, _f(urgent_usd))))
     # the signature fee alone is 5,000 lamports: when SOL is dear the $ cap leaves no room, so a retry still steps up by a little
     return max(MIN_PRIORITY * (min(level, 4) + 1), int(round(usd / _f(sol_usd) * 1e9)) - BASE_LAMPORTS)
 
@@ -1986,7 +1992,21 @@ EXEC_STATES = ('INTENT', 'QUOTE_PENDING', 'QUOTE_READY', 'SIGNING', 'SENDING', '
 
 def urgent_order(order):
     """An exit that protects money (stop, rug, drain, flow, dead coin, floor, sell-all) — refreshed faster, never behind a buy."""
-    return (order or {}).get('side') == 'sell' and any(w in str((order or {}).get('why') or '').lower() for w in URGENT_WHY)
+    o = order or {}
+    return o.get('side') == 'sell' and (bool(o.get('urgent')) or any(w in str(o.get('why') or '').lower() for w in URGENT_WHY))
+
+
+URGENT_MARK_SEC = 600.0
+
+
+def mark_urgent(order, card, now):
+    """The keeper's sell of a coin that left the card reads only 'not on the card any more' — it never knew the coin left on a STOP,
+    so no real exit was ever treated as urgent. The card's own stamp for that coin (`agentOut[mint].urgent`, written when the agents
+    pulled it) marks the order for 10 min."""
+    st = (((card or {}).get('agentOut') or {}).get((order or {}).get('mint'))) or {}
+    if (order or {}).get('side') == 'sell' and st.get('urgent') and 0 <= now - _f(st.get('at')) <= URGENT_MARK_SEC:
+        return {**order, 'urgent': True}
+    return order
 
 
 def quote_ttl(order):
