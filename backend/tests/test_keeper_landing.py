@@ -522,6 +522,8 @@ def test_jupiter_has_two_lanes_a_429_on_the_keyed_one_is_answered_by_the_public_
             return R(429, {}) if 'api.jup.ag' in url and 'lite' not in url else R(200, {'outAmount': '5'})
     monkeypatch.setattr(rs.httpx, 'AsyncClient', H)
     monkeypatch.setenv('JUPITER_API_KEY', 'k' * 24)
+    for n_ in ('_2', '_3', '_4', '_5', '_6'):   # the owner's real extra keys in backend/.env must not change this test's lanes
+        monkeypatch.delenv(f'JUPITER_API_KEY{n_}', raising=False)
     monkeypatch.setattr(rs, 'JUP_GAP_SEC', 0.0)
     rs._FW_JUP_PACE.update(lock=None, next={}, rest={})
     monkeypatch.setitem(rs._FW_JUP_BUSY, 'at', 0.0)
