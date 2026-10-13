@@ -24,3 +24,13 @@ body.theme-day .cc-groups > button i { background: #0001; }
 body.fx-lite .hqj-list { animation: none; } @media (prefers-reduced-motion: reduce) { .hqj-list { animation: none; } }
 body.theme-day .hqj { color: #4b5f55; } body.theme-day .hqj-list { background: #fff; border-color: #0b7a3e44; } body.theme-day .hqj-list button { color: #10261a; } body.theme-day .hqj-list button.active, body.theme-day .hqj-list button:hover { background: #0b7a3e; color: #fff; }
 @media (max-width: 640px) { .hqj { max-width: none; } }
+/* ⏳ every HQ write: the clicked button is busy until the server answers + one bar on top (lib/hqBusy.js) */
+.cc-shell :is(button, [role="button"])[aria-busy="true"] { pointer-events: none; cursor: progress; animation: hqBusyPulse .8s ease-in-out infinite alternate; }
+@keyframes hqBusyPulse { from { opacity: .85; } to { opacity: .4; } }
+.hq-busy { position: sticky; top: 0; z-index: 40; height: 0; pointer-events: none; }
+.hq-busy > i { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--m-accent, #15d16a), transparent); transform-origin: left center; animation: hqBusySlide 1.1s linear infinite; }
+@keyframes hqBusySlide { from { transform: translateX(-60%) scaleX(.4); } to { transform: translateX(120%) scaleX(.4); } }
+.hq-busy > span { position: absolute; right: 12px; top: 8px; padding: 5px 10px; border-radius: 8px; font: 700 10.5px var(--m-mono, 'JetBrains Mono', monospace); letter-spacing: .04em; color: var(--gold, #f5c451); background: rgba(6, 14, 10, .96); border: 1px solid rgba(245, 196, 81, .35); }
+body.fx-lite .hq-busy > i, body.fx-lite .cc-shell [aria-busy="true"] { animation: none; } body.fx-lite .cc-shell [aria-busy="true"] { opacity: .5; }
+@media (prefers-reduced-motion: reduce) { .hq-busy > i, .cc-shell [aria-busy="true"] { animation: none; } .cc-shell [aria-busy="true"] { opacity: .5; } }
+body.theme-day .hq-busy > span { background: #fff; color: #8a5a00; border-color: rgba(138, 90, 0, .35); }

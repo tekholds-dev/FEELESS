@@ -3605,3 +3605,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   AUTO LITE IS GONE: `fx-lite` is only the user's own switch (or HQ forceLite). The perf report carries `fx` {running, paused, shed,
   pressure}. Measured on Fuse › Arena: 167 endless animations, 136 of them off-screen. A new animated surface needs nothing; the
   `FX_SURFACES` class list is the older, coarser net and stays.
+- ⏳ EVERY HQ BUTTON REACTS (`lib/hqBusy.js` `hqWrite` / `useHqBusy`, wired once in HqDeck's `call`; `HqBusyBar`, `hq-busy` in hqNav.css):
+  every HQ write marks the button just clicked `aria-busy` (dim, pulsing, unclickable) until the server answers, shares ONE request for
+  an identical write already in flight (a double click never sends twice) and shows a bar on top of HQ that explains a wait past 4s
+  ("the keeper finishes its pass"). Owner money routes wait on `_fw_tick_lock` by design — the button used to look dead meanwhile.
+  A new HQ button needs nothing as long as it uses `call`. Fuse wallet ↩ (sell every coin) now asks first. 🩺 `data/perf_view.json`
+  (every 30s, last 15 min): what browsers feel — routes by p95, pages by fps / blocked ms, the FX governor's counts — readable without
+  an HQ sign-in. "A PAGE / BUTTON IS SLOW" ⇒ read perf_view.json (browser) and loop_lag.json (server) before touching code.

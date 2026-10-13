@@ -530,6 +530,13 @@ async def _loop_lag_dump():
             await asyncio.to_thread(_json_save, DATA_DIR / 'loop_lag.json', {**_loop_lag.WATCH.view(), 'json': sorted(([k, v[0], round(v[1], 2)] for k, v in _json_cost.items()), key=lambda r: -r[2])[:25]})
         except Exception:
             pass
+        try:   # 🩺 what browsers FEEL (the lag catcher's own reports, last 15 min): routes by p95, pages by fps / blocked ms, the FX governor's counts — route + page names only
+            cut_ = time.time() - 900
+            rec_ = [x for x in _perf_samples if x['at'] >= cut_]
+            fx_ = [x.get('fx') for x in rec_ if x.get('fx')][-6:]
+            await asyncio.to_thread(_json_save, DATA_DIR / 'perf_view.json', {**perf.summarize(rec_), 'fx': fx_, 'at': time.time()})
+        except Exception:
+            pass
 
 
 @app.get('/api/reputation/creator/{chain}/{address}')
@@ -23251,12 +23258,14 @@ class PerfIn(BaseModel):
     fps: Optional[float] = Field(default=None, ge=0, le=240)
     lite: bool = False
     errors: int = Field(default=0, ge=0, le=1000)
+    fx: dict = Field(default_factory=dict)   # the FX governor's counts: {running, paused, shed, pressure}
 
 
 @app.post('/api/reputation/perf')
 async def perf_report(p: PerfIn):
     api = {str(k)[:160]: [float(x) for x in v[:50] if isinstance(x, (int, float))] for k, v in list(p.api.items())[:40] if isinstance(v, list)}
-    _perf_samples.append({**p.dict(), 'api': api, 'at': time.time()})
+    fx = {k: float(v) for k, v in list(p.fx.items())[:6] if k in ('running', 'paused', 'shed', 'pressure') and isinstance(v, (int, float))}
+    _perf_samples.append({**p.dict(), 'api': api, 'fx': fx, 'at': time.time()})
     return {'ok': True}
 
 

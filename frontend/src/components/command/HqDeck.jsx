@@ -48,6 +48,7 @@ import { IntelDesk } from './IntelDesk';
 import { FeeBook } from './FeeBook';
 import { useMoneyPulse, refreshPulse } from '../../lib/moneyPulse';
 import { tiny } from '../../lib/num';
+import { hqWrite, useHqBusy } from '../../lib/hqBusy';
 const NftStudio = lazy(() => import('../nft/NftStudio').then(m => ({ default: m.NftStudio })));
 
 const SESSION_KEY = 'feeless:cc-session';
@@ -62,6 +63,13 @@ const sortBugs = list => [...list].sort((a, b) => ((SEVERITY[a.kind]?.[0] ?? 1) 
   || ((['fixed', 'wontfix'].includes(a.status) ? 1 : 0) - (['fixed', 'wontfix'].includes(b.status) ? 1 : 0)) || (b.at - a.at));
 
 const ROLE_TABS_FIRST = { moderator: 'mod', marketing: 'marketing' };
+// ⏳ one bar for every HQ write in flight; it says what is happening once a write is slow (most waits = the keeper finishing a swap pass)
+function HqBusyBar() {
+  const b = useHqBusy();
+  if (!b.n) return null;
+  return <div className={`hq-busy ${b.slow ? 'is-slow' : ''}`} role="status" data-testid="hq-busy"><i />{b.slow ? <span>⏳ still working{b.label ? ` — ${b.label}` : ''} · the server answers once the keeper finishes its current pass</span> : null}</div>;
+}
+
 export function HqDeck({ address, signMessage, onClose }) {
   const [session, setSession] = useState(() => readSession(address));
   const [tab, setTab] = useState('numbers');
@@ -85,13 +93,13 @@ export function HqDeck({ address, signMessage, onClose }) {
   const [role, setRole] = useState('');
   useEffect(() => { fetch(apiUrl(`/api/reputation/admin/is-admin/${address}`)).then(r => r.json()).then(d => setIsOwner(!!d.owner)).catch(() => {}); }, [address]);
 
-  const call = useCallback(async (path, opts = {}) => {
+  const call = useCallback((path, opts = {}) => hqWrite(opts.method && opts.method !== 'GET' ? `${opts.method} ${path} ${opts.body || ''}` : null, async () => {
     const res = await fetch(apiUrl(`/api/reputation${path}`), { ...opts, headers: { 'Content-Type': 'application/json', 'x-admin-address': address, 'x-admin-ts': String(session?.ts || ''), 'x-admin-sig': session?.sig || '', ...(opts.headers || {}) } });
     const body = await res.json().catch(() => ({}));
     if (res.status === 401) { localStorage.removeItem(SESSION_KEY); setSession(null); toast.error(body.detail ? errorText(body, 401) : 'HQ session ended — sign in again.'); }
     if (!res.ok) throw new Error(errorText(body, res.status));
     return body;
-  }, [address, session]);
+  }), [address, session]);
 
   const signIn = async () => {
     setBusy(true);
@@ -132,7 +140,7 @@ export function HqDeck({ address, signMessage, onClose }) {
   const ROLE_TABS = { moderator: ['investigate', 'shield', 'verify', 'overview', 'mod', 'bugs', 'latency'], marketing: ['marketing', 'broadcast', 'kols', 'ads', 'ideas', 'traffic', 'numbers'] };
   const allowed = id => !ROLE_TABS[role] || ROLE_TABS[role].includes(id);
   const TABS = [['agents', '🤖 Agents', Activity], ['investigate', 'Intel desk', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['shield', '🛡 Bot shield', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['money', 'Money', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['fuse', '⚛️ Fuse', Award], ['nfts', 'NFTs', Gift], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
-  return <div className="cc-shell" data-testid="hq-shell">
+  return <div className="cc-shell" data-testid="hq-shell"><HqBusyBar />
     <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">HQ</h2><small>{role && role !== 'owner' ? `🔑 ${role}` : '👑'} {shortAddress(address)} · session signed · live</small></div><TreasuryPulse call={call} onOpen={openTab} />
       {/* two levels, one row each: pick a group, see only its tools (was four stacked rows of 30 buttons) */}
       <nav className="cc-tabs cc-nav2" data-testid="cc-nav"><HqJump tabs={TABS.filter(t => allowed(t[0]))} onGo={jump} />{(() => { const groups = TAB_GROUPS.filter(g => g[1].some(allowed)); const cur = grp || (groups.find(g => g[1].includes(tab)) || groups[0] || [''])[0];
