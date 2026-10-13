@@ -269,7 +269,10 @@ def courier(ledger, book, now, card=None, office=None):
     fill vs mid price, time to land, fees, retries, duplicate signatures, the order in flight. → {health: HEALTHY | DEGRADED | BAD, why, …}"""
     T = lambda k: tune(office, 'courier', k)
     rows = [r for r in ledger or [] if r.get('side') in ('buy', 'sell') and (not card or r.get('card') == card) and now - _f(r.get('at')) <= 3600]
-    sends = [r for r in rows if r.get('status') in ('filled', 'failed')]
+    # a row that failed BEFORE anything was signed (Jupiter busy: "build/sign: … (HTTP 429)") was never sent — it says nothing about landing.
+    # 2026-10-12: four such rows on one $0.08 sell read "4 of 4 sends failed", execution BAD, and every seat sat blocked for 15 minutes.
+    unsent = lambda r: r.get('status') == 'failed' and not r.get('sig') and any(w in str(r.get('err') or '') for w in ('build/sign', '(HTTP 429)', '(HTTP 5'))
+    sends = [r for r in rows if r.get('status') in ('filled', 'failed') and not unsent(r)]
     s15 = [r for r in sends if now - _f(r.get('at')) <= 900]
     fails = lambda rs: sum(1 for r in rs if r.get('status') == 'failed')
     fills = [r for r in sends if confirmed(r)]

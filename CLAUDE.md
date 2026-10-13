@@ -3465,4 +3465,5 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   failed "Jupiter route unavailable (HTTP 429)" four passes running → Courier read execution BAD → COURIER BLOCK on all four seats. The keyed lane
   (`JUPITER_API_KEY` IS set — a free key ≈ 1 request a second) was hit by bursts of quotes (direct + multi + sell-back + build per order, + the
   pre-sell buy checks). "COURIER BLOCK" / "route unavailable (HTTP 429)" ⇒ count the keeper's Jupiter calls per pass before anything else. The
-  market service's own log is full of DexScreener 429s (launch board) — not fixed here.
+  market service's own log is full of DexScreener 429s (launch board) — not fixed here. 📮 Courier counts a SEND only when something was signed:
+  a row that failed at "build/sign … (HTTP 429)" with no signature is not a failed send (four of them read execution BAD and blocked every seat 15 min).

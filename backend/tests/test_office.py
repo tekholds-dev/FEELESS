@@ -484,3 +484,11 @@ def test_the_service_sizes_real_seats_through_the_warden_and_reapers_requests_us
     monkeypatch.setattr(rs, '_fw_full_ledger', lambda: [{'card': 'degen', 'side': 'buy', 'mint': 'A', 'symbol': 'A', 'status': 'filled', 'sig': 'SIG', 'at': 3995, 'usd': 0.3, 'midPx': 1, 'px': 1.001}])
     rs._office_light('degen', {**card, 'events': [{'at': 3990, 'kind': 'agent', 'move': 'fill', 'symbol': 'A', 'mint': 'A', 'usd': 0.3, 'why': 'x'}]}, 4001)
     assert rs._office['last']['result']['state'] == 'confirmed' and rs._office['last']['result']['sig'] == 'SIG'
+
+
+def test_a_quote_that_was_never_signed_is_not_a_failed_send_for_the_courier():
+    now = 10_000.0
+    busy = [{'at': now - 60 * i, 'card': 'degen', 'side': 'sell', 'status': 'failed', 'err': 'build/sign: Jupiter route unavailable (HTTP 429)'} for i in range(1, 5)]
+    assert of.courier(busy, {}, now, 'degen')['health'] != 'BAD'                                  # Jupiter was busy: nothing was sent, nothing failed to land
+    real = [{'at': now - 60 * i, 'card': 'degen', 'side': 'sell', 'status': 'failed', 'sig': f'S{i}', 'err': 'expired — never landed'} for i in range(1, 5)]
+    assert of.courier(real, {}, now, 'degen')['health'] == 'BAD'                                  # signed, sent and lost: that IS an execution problem
