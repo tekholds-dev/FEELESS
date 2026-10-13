@@ -1,4 +1,5 @@
 import { apiUrl } from './api';
+import { fxPressure, setFxPressure, fxStats } from './fxPause';
 
 // Lag catcher: measures what this browser actually feels (API latency, long tasks, FPS), reports once a
 // minute, and flips the site into lite effects when the device is struggling. Cheap by design: one fetch
@@ -40,8 +41,15 @@ function sampleFps() {
 function flush() {
   const fps = state.fps.length ? Math.round(state.fps.reduce((a, b) => a + b, 0) / state.fps.length) : null;
   const report = { page: window.location.pathname.replace(/\/[1-9A-HJ-NP-Za-km-z]{32,44}|\/0x[0-9a-fA-F]{40}/g, '/:id'), api: state.api, longTasks: state.longTasks, longMs: state.longMs, fps, lite: document.body.classList.contains('fx-lite'), errors: state.errors };
-  if (!liteMode() && shouldGoLite(report)) { state.slowStreak += 1; if (state.slowStreak >= 3) setLite(`auto@${Date.now()}`); } else state.slowStreak = 0;   // 3 bad minutes, not 2
-  if (isAutoLite(liteMode()) && fps != null) { state.okStreak = shouldGoLite(report) ? 0 : (state.okStreak || 0) + 1; if (state.okStreak >= 3) { state.okStreak = 0; setLite(''); } }
+  // 🩺 A FIX, NOT A LITE MODE (owner, 2026-10-13): two bad minutes → the FX governor pauses only the BIG animated layers (the ones that
+  // cost frames); every small effect, colour and layout stays. Three healthy minutes → they come back. The whole-site lite look is
+  // only ever the user's own switch now.
+  const bad = shouldGoLite(report);
+  if (!liteMode()) {
+    if (bad) { state.okStreak = 0; state.slowStreak += 1; if (state.slowStreak >= 2 && !fxPressure()) setFxPressure(1); }
+    else if (fps != null) { state.slowStreak = 0; if (fxPressure()) { state.okStreak = (state.okStreak || 0) + 1; if (state.okStreak >= 3) { state.okStreak = 0; setFxPressure(0); } } }
+  }
+  report.fx = { ...fxStats, pressure: fxPressure() };
   const has = Object.keys(report.api).length || report.longTasks || fps != null;
   Object.assign(state, { api: {}, longTasks: 0, longMs: 0, fps: [], errors: 0 });
   if (!has) return;

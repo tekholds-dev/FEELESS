@@ -3597,3 +3597,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   accounts, so the deposit read as "refilling the reserve" and only $0.87 was "free". Parked rent now counts toward the reserve (the
   `free_for_owed` rule); the wallet always keeps 0.006 SOL liquid outside the cards; the refusal names the numbers. "CAN'T TOP UP" ⇒
   compare `reconciliation.outsideCardSol` with `keeper.rent.parkedSol` first.
+- 🩺 FX GOVERNOR = THE LAG CATCHER'S FIX (`lib/fxPause.js` `govern` / `setFxPressure` / `fxStats`, started with `startFxPause`; owner,
+  2026-10-13: "lag catcher actually fixes instead of a lite mode"): every ~1.5s (+ scroll / resize / tab visibility) it reads EVERY endless
+  animation on the page — no class list — and pauses those off-screen, with no box, or in a hidden tab, resuming them when they are back
+  (it only resumes what it paused; one-shot animations are never touched). `perfWatch.flush`: two bad minutes (< 24 fps or > 1.5s blocked)
+  → `setFxPressure(1)` = only layers ≥ `BIG_PX` 150,000 px² pause (sweeps, auroras, drifting backdrops); three healthy minutes → back.
+  AUTO LITE IS GONE: `fx-lite` is only the user's own switch (or HQ forceLite). The perf report carries `fx` {running, paused, shed,
+  pressure}. Measured on Fuse › Arena: 167 endless animations, 136 of them off-screen. A new animated surface needs nothing; the
+  `FX_SURFACES` class list is the older, coarser net and stays.
