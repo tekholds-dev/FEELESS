@@ -12022,15 +12022,16 @@ def _fw_full_ledger():
     $22.50, and realized / you-vs-engine lost their oldest fills. Re-read only when the table grew (one COUNT per call)."""
     lg = _store.Ledger(FUSE_WALLET_PATH)
     n = lg.count()
-    if n != _fw_full_cache['n']:
-        rows = lg.rows(limit=max(1, n))
-        _fw_full_cache.update(n=n, rows=rows[::-1])
+    if n != _fw_full_cache['n'] or _fw_full_cache.get('db') != str(lg.db):
+        fresh = _fw_full_cache.get('db') != str(lg.db) or n < _fw_full_cache['n'] or _fw_full_cache['n'] < 0
+        new, last = lg.since(0 if fresh else _fw_full_cache.get('last') or 0)   # ⚡ only the rows appended since the last read
+        _fw_full_cache.update(n=n, db=str(lg.db), last=last, rows=new if fresh else _fw_full_cache['rows'] + new)
     return _fw_full_cache['rows'] or (_fw_peek().get('ledger') or [])
 
 
 def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
     """What everyone sees on a REAL tier card: since when, $ funded, the last swaps with their tx, real network fees."""
-    d = _fw_load(); b = d['books'].get(tid)
+    d = _fw_peek(); b = d['books'].get(tid)   # read-only: this view only reads the doc (lists it builds are its own)
     if not b:
         return None
     seen, rows = set(), []

@@ -3411,5 +3411,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   service: the 68 MB tick store is streamed to disk pair by pair (`_stream_store`) — one `json.dumps` froze live candles ~1s every
   20s. "THE SITE LAGS" ⇒ read `data/loop_lag.json` FIRST (top culprits + `json` costs), then `uptime` + `sysctl vm.swapusage`: that
   day the Mac sat at load 14–21 on 8 cores with 16.4 of 17.4 GB swap used, which makes every 20 ms parse a multi-second stall.
+  (8) `_fw_full_ledger` reads only the rows appended since its last read (`store.Ledger.since`); `_fw_public` reads `_fw_peek()`.
+  After: blocked 29% → 13% of loop time in steady state on the same overloaded machine; candles probe p95 113 → 29 ms.
   Restarting ONE service by hand: `pkill -f "uvicorn <app>"` and let keep-alive start it (its 120s grace) — a hand start races
   keep-alive's probe and gets killed. A new store over ~1 MB must not be saved / parsed on the loop per event: debounce + keep in memory.

@@ -101,3 +101,25 @@ def test_every_async_client_shares_one_tls_context_unless_it_brings_its_own():
     assert pool(a) is ctx and pool(b) is ctx
     assert pool(httpx.AsyncClient(verify=False)) is not ctx          # a caller's own choice is kept
     assert isinstance(httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(200)))._transport, httpx.MockTransport)
+
+
+def test_full_ledger_reads_only_new_rows_and_matches_a_full_read():
+    import reputation_service as rs
+    import store
+    lg = store.Ledger(rs.FUSE_WALLET_PATH)
+    rs._fw_full_cache.update(n=-1, rows=[], db=None, last=0)
+    for i in range(3):
+        lg.append({'at': 100 + i, 'card': 'degen', 'id': f'o{i}'})
+    first = rs._fw_full_ledger()
+    assert [r['id'] for r in first] == ['o0', 'o1', 'o2']
+    calls = []
+    real = store.Ledger.since
+    store.Ledger.since = lambda self, after_id=0: (calls.append(after_id), real(self, after_id))[1]
+    try:
+        lg.append({'at': 200, 'card': 'degen', 'id': 'o3'})
+        again = rs._fw_full_ledger()
+        assert rs._fw_full_ledger() is again and len(calls) == 1 and calls[0] > 0     # one incremental read, then the cache
+    finally:
+        store.Ledger.since = real
+    assert [r['id'] for r in again] == ['o0', 'o1', 'o2', 'o3'] == [r['id'] for r in lg.rows(limit=10)[::-1]]
+    assert [r['id'] for r in first] == ['o0', 'o1', 'o2']                              # a list handed out earlier is never changed

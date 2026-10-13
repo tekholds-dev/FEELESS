@@ -92,6 +92,15 @@ class Ledger:
             c.close()
         return out
 
+    def since(self, after_id=0):
+        """Rows appended after `after_id`, oldest first → (rows, last id). Lets a reader keep the whole table in memory and fetch only
+        what is new (re-reading thousands of rows for every appended one blocked the service)."""
+        with self.lock:
+            c = _conn(self.db)
+            got = c.execute(f'SELECT id, row FROM {self.table} WHERE id > ? ORDER BY id ASC', (int(after_id or 0),)).fetchall()
+            c.close()
+        return [json.loads(r[1]) for r in got], (got[-1][0] if got else int(after_id or 0))
+
     def count(self):
         with self.lock:
             c = _conn(self.db)
