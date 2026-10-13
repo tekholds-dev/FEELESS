@@ -940,7 +940,6 @@ async def _coin_card(http, mint):
     return card
 
 
-@app.get('/api/reputation/intel/{chain}/{mint}')
 def _early_buy(tx, payer, mint, supply):
     """🕵 One early transaction → {w, slot, sol, pct} when the payer RECEIVED this coin (a buy), else None. Public tx data only."""
     try:
@@ -956,6 +955,7 @@ def _early_buy(tx, payer, mint, supply):
         return None
 
 
+@app.get('/api/reputation/intel/{chain}/{mint}')   # ⚠ keep this decorator ON token_intel: a helper inserted under it (2026-10-11) bound the route to the helper and every read answered 422
 async def token_intel(chain: str, mint: str):
     """On-chain launch forensics for a token: bundles, snipers, holder concentration, dev bag.
     Bundled = distinct wallets (not the creator) buying in the mint's creation slot.
@@ -13724,7 +13724,10 @@ async def _owner_act(text, action, now):
     _tk.KERNEL.owner = _owr.modes(b, now)
     _tk.KERNEL.note('owner', action.upper(), {'review': 'sent through the normal agent review', 'track': 'kept on the owner\'s list', 'arm': 'owner priority — it still has to be READY on its own and pass every execution check',
                                               'ignore': 'off the owner\'s list'}[action], now, mint=mint, key=f'{action}:{int(now)}')
-    _audit('owner-review', {'mint': mint, 'action': action, 'source': ref['source']})
+    try:   # audited like every owner action (this call had the wrong arguments: every REVIEW / TRACK / ARM / IGNORE answered 500 after it had already saved)
+        ad_ = _admin_load(); _audit(ad_, 'owner', 'owner-review', f"{action} {mint} via {ref['source']}"); _admin_save(ad_)
+    except Exception as e:
+        print('owner-review audit:', str(e)[:120])
     if action != 'ignore':
         _agents['wake'] = now   # the agents read it on their next pass (≤ a few seconds), not at the clock
     _tape_flush(now)

@@ -3612,3 +3612,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   A new HQ button needs nothing as long as it uses `call`. Fuse wallet ↩ (sell every coin) now asks first. 🩺 `data/perf_view.json`
   (every 30s, last 15 min): what browsers feel — routes by p95, pages by fps / blocked ms, the FX governor's counts — readable without
   an HQ sign-in. "A PAGE / BUTTON IS SLOW" ⇒ read perf_view.json (browser) and loop_lag.json (server) before touching code.
+- 🔌 TWO BROKEN ENDPOINTS FOUND FROM THE LOGS (2026-10-13; `tests/test_routes_bound.py` guards both kinds): (1) `GET /intel/{chain}/{mint}`
+  answered 422 on EVERY read since 2026-10-11 — a helper (`_early_buy`) was inserted between the route decorator and `token_intel`, so the
+  route was bound to the helper (launch forensics, coin intel tags: 136 failures in one log). (2) the Agents cockpit's owner review
+  (REVIEW · TRACK · ARM · IGNORE) answered 500 on every click — `_audit` called with the wrong arguments AFTER the list had been saved.
+  "A BUTTON DOESN'T WORK" ⇒ count non-2xx by route in /tmp/feeless-*.log first:
+  `grep -E '" (4|5)[0-9][0-9] ' /tmp/feeless-reputation.log | sed -E 's/.*"(GET|POST)/\1/' | sort | uniq -c | sort -rn | head`.
+  NEVER put a new def between a decorator and its handler.
