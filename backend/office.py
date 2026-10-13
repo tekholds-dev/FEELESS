@@ -420,6 +420,10 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
         cap_ = c.get('capital') or {}   # 💰 the capital desk (capital.py): size follows the agents' own REAL record
         live_ = cap_.get('state') in ('GROW', 'STEADY', 'PROTECT') and cap_.get('mult') is not None
         rules = _crew.warden_rules(rules, cap_.get('floor') if live_ else None); tier_m = 1.0   # 🪖 trench crew: execution rules as they are, uncertainty only SHRINKS (≥ ×0.5, or the capital desk's floor)
+        if cap_.get('rugCapPct') and _f(c.get('value')) > 0 and req > 0:   # ☠ W24: the whole seat is what a rug takes — one rug may cost ≤ the rug budget of the CARD
+            m24 = _f(c['value']) * _f(cap_['rugCapPct']) / 100 / req
+            if m24 < 1:
+                rules.append({'id': 'W24 rug budget', 'mult': round(_clamp(m24, 0.05, 1.0), 3), 'why': f"☠ a seat ≤ {_f(cap_['rugCapPct']):g}% of the ${_f(c['value']):.2f} card: about 1 seat in 8 rugs for the whole seat, in under a minute — no stop gets out"})
         if live_:
             rules.append({'id': 'W23 capital', 'mult': round(_clamp(_f(cap_['mult']), 0.25, 1.0), 3), 'why': f"💰 {cap_.get('state')}: {str(cap_.get('why'))[:170]}"})
     raw = min([r['mult'] for r in rules] or [1.0])

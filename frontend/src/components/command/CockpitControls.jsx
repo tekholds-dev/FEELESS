@@ -78,6 +78,7 @@ function CapitalMeter({ cap }) {
       <span className="is-win"><i style={{ transform: `scaleX(${c.win})` }} /><u>avg win {c.winPct > 0 ? '+' : ''}{c.winPct}%</u></span>
       <span className="is-loss"><i style={{ transform: `scaleX(${c.loss})` }} /><u>avg loss {c.lossPct}%</u></span>
       <small>payoff {c.payoff ?? '—'} · Kelly {c.kelly ?? '—'}</small></p> : null}
+    {c.rug ? <p className="acx-capbrake" data-testid="acx-rug">{c.rug}</p> : null}
     {c.brake ? <p className="acx-capbrake" data-testid="acx-brake">🧯 BRAKE · {c.brake.downPct}% off the 24h high — smallest seats until it climbs back</p> : null}
     {c.doors?.length ? <p className="acx-capdoors" data-testid="acx-doors">{c.doors.map(d => <span key={d.k} className={`is-${String(d.state).toLowerCase()}`}
       data-tip={`${d.label} door: ${d.n} real exits, ${d.won}% won, ${d.exp > 0 ? '+' : ''}${d.exp}% a bet — each door is sized by its own record once it has 12 exits`}>

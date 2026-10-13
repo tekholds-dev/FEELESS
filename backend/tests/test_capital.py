@@ -53,17 +53,36 @@ def _tt(pcts, tag):
     return [{'realPct': p, 'closedAt': i, 'rule': 'x', 'tag': tag} for i, p in enumerate(pcts)]
 
 
-def test_each_door_is_sized_by_its_own_record_and_the_brake_beats_them_all():
+def test_a_door_sizes_down_on_its_own_record_never_up_past_the_desk_and_the_brake_beats_them_all():
     armed = _tt([20, 20, -8] * 8, '🤖 agents · 🎯 ARMED (seat target)')                         # the armed door wins…
-    ready = _tt([6, -25, -25] * 8, '🤖 agents · ⚡ READY (kernel)')                             # …the ready door loses
-    v = cap.view(armed + ready, 4, True, value=5.0, peak=5.2)
-    assert v['doors']['armed']['state'] == 'GROW' and v['doors']['ready']['state'] == 'PROTECT' and cap.door('x READY · switch') == 'ready'
-    assert cap.for_door(v, 'armed')['mult'] >= 0.75 and cap.for_door(v, 'ready')['mult'] == 0.25 and 'ready door' in cap.for_door(v, 'ready')['why']
-    assert cap.armed_size(v) == 1.0 and cap.armed_size({**v, 'on': False}) == 0.5              # armed earns the full size on its own record
-    assert cap.armed_size(cap.view(_tt([6, -25, -25] * 8, 'ARMED'), 4, True)) == 0.25 and cap.armed_size(cap.view([], 4, True)) == 0.5
-    thin = cap.view(_tt([5, 5, -3] * 2, 'ARMED') + ready, 4, True)                              # 6 armed exits: the desk's stance stands in
-    assert cap.for_door(thin, 'armed')['state'] == thin['state']
-    assert v['brake']['on'] is False and 'by door' in cap.lesson(v)
-    b = cap.view(armed + ready, 4, True, value=4.0, peak=5.0)                                   # −20% off the 24h high
-    assert b['brake']['on'] and b['brake']['downPct'] == 20.0 and cap.for_door(b, 'armed') == {'state': 'PROTECT', 'mult': 0.25, 'floor': 0.25, 'why': '🧯 ' + b['brake']['why']}
+    ready = _tt([18, 18, 18, -25] * 6, '🤖 agents · ⚡ READY (kernel)')
+    inter = [{**t, 'closedAt': i} for i, t in enumerate(x for pair in zip(armed, ready) for x in pair)]
+    v = cap.view(inter, 4, True, value=5.0, peak=5.2)
+    assert v['state'] == 'GROW' and v['doors']['armed']['state'] == 'GROW' and cap.door('x READY · switch') == 'ready'
+    assert cap.for_door(v, 'armed')['mult'] >= 0.75 and cap.armed_size(v) == 1.0 and cap.armed_size({**v, 'on': False}) == 0.5   # armed earns the full size: desk AND door in GROW
+    bad_ready = [{**t, 'closedAt': i} for i, t in enumerate(x for pair in zip(_tt([30, 30, -5] * 10, 'ARMED'), _tt([4, -12, -12] * 10, 'READY')) for x in pair)]
+    w = cap.view(bad_ready, 4, True)                                                            # the desk wins overall, the ready door loses on its own
+    assert w['state'] in ('STEADY', 'GROW') and w['doors']['ready']['state'] == 'PROTECT'
+    assert cap.for_door(w, 'ready')['mult'] == 0.25 and 'ready door' in cap.for_door(w, 'ready')['why'] and cap.for_door(w, 'armed')['state'] == w['state']
+    losing = cap.view(_tt([6, -25, -25] * 8, 'ARMED'), 4, True)
+    assert losing['state'] == 'PROTECT' and cap.armed_size(losing) == 1.0                       # already the smallest seat: never halved again into an unsendable order
+    assert cap.armed_size(cap.view([], 4, True)) == 0.5 and 'by door' in cap.lesson(v)
+    b = cap.view(inter, 4, True, value=4.0, peak=5.0)                                           # −20% off the 24h high
+    fd = cap.for_door(b, 'armed')
+    assert b['brake']['on'] and b['brake']['downPct'] == 20.0 and (fd['state'], fd['mult'], fd['floor']) == ('PROTECT', 0.25, 0.25) and fd['why'].startswith('🧯') and cap.armed_size(b) == 1.0
     assert cap.brake(None, 5.0)['on'] is False and cap.brake(5.0, None)['on'] is False and cap.brake(6.0, 5.0)['on'] is False
+
+
+def test_the_long_record_with_its_rugs_is_the_ceiling_and_one_rug_may_cost_only_the_rug_budget():
+    """A 30-exit streak with no rug in it read GROW, seats went ×0.75 and the next rug took 17% of the card in 47 seconds ($X, 2026-10-13)."""
+    old = _t([10, 10, -80, 10, -20, 10, -75, 10] * 12)                                          # 96 exits, 1 in 4 a rug: the average bet loses
+    hot = [{**t, 'closedAt': 1000 + i} for i, t in enumerate(_t([15, 15, -8] * 10))]             # then 30 clean winners
+    v = cap.view(old + hot, 4, True, value=4.0, peak=4.0)
+    assert cap.stance(cap.record(old + hot), 4)['state'] in ('STEADY', 'GROW')                  # the window alone would press…
+    assert v['state'] == 'PROTECT' and v['mult'] == 0.25 and 'rugs included' in v['why']         # …the long record does not let it
+    assert v['rug']['on'] and v['rug']['rugs'] >= 20 and 9 < v['rug']['capPct'] < 12 and '☠' in cap.lesson(v)
+    assert cap.view(hot, 4, True)['rug']['on'] is False and cap.view(hot, 4, True)['state'] in ('STEADY', 'GROW')   # under 50 exits: no long record to hold it back
+    base = {'value': 4.0, 'putIn': 37.0, 'cash': 4.0, 'open': True}
+    w = of.warden(1.0, {**base, 'capital': {'state': 'GROW', 'mult': 1.0, 'floor': 0.75, 'why': 'x', 'rugCapPct': 10.0}})
+    assert w['allowed'] == 0.25 and any(r['id'].startswith('W24') for r in w['rules'])          # $1 asked, 10% of a $4 card = $0.40 → the ×0.25 step
+    assert not any(r['id'].startswith('W24') for r in of.warden(0.30, {**base, 'capital': {'state': 'GROW', 'mult': 1.0, 'floor': 0.75, 'why': 'x', 'rugCapPct': 10.0}})['rules'])   # already inside the budget

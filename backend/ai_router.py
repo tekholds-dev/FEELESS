@@ -27,7 +27,7 @@ import ai_keys as _aik
 # key → (label, key env var or None, model env var, base env var or None, fixed base, default model, timeout s, concurrency)
 PROVIDERS = {
     'local': ('LOCAL LM STUDIO', None, 'LOCAL_LLM_MODEL', 'LOCAL_LLM_BASE_URL', 'http://127.0.0.1:1234/v1', 'qwen2.5-7b-instruct-mlx', 30.0, 1),   # the vitals answer took 16–31s on the owner's Mac (its own loop: nothing waits on it)
-    'groq': ('GROQ', 'GROQ_API_KEY', 'GROQ_MODEL', None, 'https://api.groq.com/openai/v1', 'qwen/qwen3.8-27b', 8.0, 2),   # 2026-10-13: llama-3.1-8b-instant is gone from Groq (404 → the fallback never answered); this one answers the vitals schema in ~0.9s
+    'groq': ('GROQ', 'GROQ_API_KEY', 'GROQ_MODEL', None, 'https://api.groq.com/openai/v1', 'qwen/qwen3.8-27b', 8.0, 1),   # 2026-10-13: llama-3.1-8b-instant is gone from Groq (404 → the fallback never answered); this one answers the vitals schema in ~0.9s
     'openrouter': ('OPENROUTER', 'OPENROUTER_API_KEY', 'OPENROUTER_MODEL', None, 'https://openrouter.ai/api/v1', 'openrouter/auto', 10.0, 2),
     'openai': ('OPENAI', 'OPENAI_API_KEY', 'OPENAI_MODEL', None, 'https://api.openai.com/v1', 'gpt-4o-mini', 10.0, 2),
     'xai': ('XAI / GROK', 'XAI_API_KEY', 'XAI_MODEL', None, 'https://api.x.ai/v1', 'grok-3-mini', 10.0, 2),
@@ -50,6 +50,7 @@ DEFER_PRIO = 3             # a job at this priority or lower (bigger number) is 
 PRIO = {'owner': 0, 'manager': 1, 'ready': 2, 'devil': 3, 'contender': 4, 'judge': 5, 'coach': 2, 'lab': 3}   # owner review → a conflict → a READY coin → ambiguous → top contender → a closed trade
 RATE_COOL = 60.0           # a 429 rests that provider this long (or its Retry-After, ≤ 5 min)
 FAIL_COOL = (0.0, 0.0, 15.0, 30.0, 60.0)   # cool-down by consecutive failures (2 free, then 15s … 60s)
+BUDGET_WAIT_MAX = 20.0    # a call waits at most this long for the provider's minute budget / a short Retry-After
 MAX_TOKENS = 260          # the short structured answer
 LABEL = {'local': 'LOCAL AI', 'groq': 'GROQ', 'openrouter': 'OPENROUTER', 'openai': 'OPENAI', 'xai': 'XAI', 'custom': 'CUSTOM AI', 'NONE': 'NONE'}
 _KEYLIKE = re.compile(r'[A-Za-z0-9_\-]{20,}')
@@ -201,6 +202,27 @@ def parse_advice(text):
     return out
 
 
+def est_tokens(msgs):
+    """A safe over-estimate of what one call costs the provider's minute budget: ~3 chars a token for the prompt + the answer cap."""
+    return int(sum(len(str(m.get('content') or '')) for m in msgs or []) / 3) + MAX_TOKENS
+
+
+def reset_sec(v):
+    """'142ms' · '4m19.2s' · '7.5s' · '12' → seconds (0 when unreadable)."""
+    t = str(v or '').strip().lower()
+    if not t:
+        return 0.0
+    if t.endswith('ms'):
+        return _f(t[:-2]) / 1000
+    tot, num = 0.0, ''
+    for ch in t:
+        if ch.isdigit() or ch == '.':
+            num += ch
+        elif ch in 'hms' and num:
+            tot += _f(num) * {'h': 3600, 'm': 60, 's': 1}[ch]; num = ''
+    return tot + (_f(num) if num else 0.0)
+
+
 TUNE_KEYS = ('giveBackPct', 'protectAt', 'stopPct')   # 🎚 the Reaper settings the coach may ask to move (office.REAPER_GRID) — a shadow test decides, never the model
 CASE_KEYS = ('symbol', 'status', 'rank', 'ageMin', 'cap', 'liq', 'vol5m', 'move5m', 'buyShare', 'narrative', 'trigger', 'devil', 'size', 'unknown',
              'holders', 'chart', 'flow', 'launch', 'crowd',   # 🔍 Sherlock's brief: one short line each, built by the service from readings it ALREADY has
@@ -297,12 +319,13 @@ class Router:
     def __init__(self):
         self.stats = {k: {'requests': 0, 'ok': 0, 'fail': 0, 'timeouts': 0, 'rateLimited': 0, 'malformed': 0, 'lastMs': None, 'lastOkAt': None,
                           'lastErr': None, 'lastAt': None, 'streak': 0, 'coolUntil': 0.0, 'state': 'UNTESTED'} for k in PROVIDERS}
-        self.totals = {'asked': 0, 'answered': 0, 'none': 0, 'fallbacks': 0, 'cached': 0, 'refused': 0, 'deferred': 0, 'skipped': 0}
+        self.totals = {'asked': 0, 'answered': 0, 'none': 0, 'fallbacks': 0, 'cached': 0, 'refused': 0, 'deferred': 0, 'skipped': 0, 'paced': 0}
         self.recent = []         # (at, ms, provider) of the last answers — calls/min and average latency
         self.cache = {}
         self.inflight = {}
         self.waiting = {k: 0 for k in PROVIDERS}
         self._sem = {}
+        self.budget = {}   # provider → what it said is left of its tokens-per-minute budget
 
     def busy(self, env, cfg):
         """Is the FIRST usable provider the local model and is it running an inference right now?"""
@@ -357,6 +380,23 @@ class Router:
         s = self.stats[key]
         s.update(ok=s['ok'] + 1, streak=0, lastMs=ms, lastOkAt=now, lastAt=now, state='ONLINE', coolUntil=0.0, lastErr=None)
 
+    def _budget_note(self, key, headers, now):
+        """What the provider says is left of its tokens-per-minute budget (OpenAI-style `x-ratelimit-*` headers) → remembered per provider."""
+        h = headers or {}
+        rem, lim, rst = h.get('x-ratelimit-remaining-tokens'), h.get('x-ratelimit-limit-tokens'), h.get('x-ratelimit-reset-tokens')
+        if rem is None:
+            return
+        self.budget[key] = {'remain': _f(rem), 'limit': _f(lim), 'resetAt': now + reset_sec(rst), 'at': now}
+
+    def budget_wait(self, key, need, now):
+        """Seconds to wait before a call needing `need` tokens fits this provider's minute budget (0 = go now; None = it can never fit)."""
+        b = self.budget.get(key)
+        if not b or now >= b['resetAt'] or need <= b['remain']:
+            return 0.0
+        if b['limit'] and need > b['limit']:
+            return None
+        return max(0.0, b['resetAt'] - now)
+
     async def _call(self, http, p, env, msgs, now):
         """ONE chat completion → (text, None) or (None, (kind, err, cool)). The key is read here and never leaves this function."""
         kvar = PROVIDERS[p['key']][1]
@@ -370,9 +410,10 @@ class Router:
             return None, ('timeout', f"no answer in {p['timeout']:g}s", None)
         except Exception as e:   # refused connection, DNS, TLS … — the type only, never a message that could carry a URL or key
             return None, ('fail', f'{type(e).__name__}', None)
+        self._budget_note(p['key'], r.headers, time.time())
         if r.status_code == 429:
             ra = _f(r.headers.get('retry-after'), RATE_COOL)
-            return None, ('rate', '429 rate limited', max(5.0, min(300.0, ra)))
+            return None, ('rate', '429 rate limited', max(1.0, min(300.0, ra)))
         if r.status_code in (401, 403):
             return None, ('fail', f'{r.status_code} key refused', None)
         if r.status_code >= 400:
@@ -446,9 +487,20 @@ class Router:
                 async with self.sem(key):
                     self.waiting[key] -= 1
                     queued = False
+                    # ⏳ FIT THE PROVIDER'S MINUTE BUDGET instead of firing into a 429 (2026-10-13: Groq allows 8K tokens a minute; two ~3K-token
+                    # cases a round → the second was refused, the provider "cooled" and 5 of 6 asks came back NONE — the model was barely in the game)
+                    need = est_tokens(msgs)
+                    w = self.budget_wait(key, need, time.time())
+                    if w and w <= BUDGET_WAIT_MAX:
+                        self.totals['paced'] = self.totals.get('paced', 0) + 1
+                        await asyncio.sleep(w + 0.05)
                     s['requests'] += 1
                     t0 = time.perf_counter()
                     text, err = await self._call(http, p, env, msgs, now)
+                    if err and err[0] == 'rate' and (err[2] or 0) <= BUDGET_WAIT_MAX and key != 'local':   # a short "try again in Ns": wait it out ONCE, then one more try
+                        self.totals['paced'] = self.totals.get('paced', 0) + 1
+                        await asyncio.sleep(_f(err[2], 2.0) + 0.1)
+                        text, err = await self._call(http, p, env, msgs, now)
                     ms = round((time.perf_counter() - t0) * 1000)
             except Exception as e:
                 if queued:

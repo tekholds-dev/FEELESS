@@ -101,7 +101,9 @@ def armed_size(v):
     d = ((v or {}).get('doors') or {}).get('armed') or {}
     if not (v or {}).get('on'):
         return ARMED_BASE
-    return 1.0 if d.get('state') == 'GROW' else 0.25 if d.get('state') == 'PROTECT' else ARMED_BASE
+    if ORDER.get(v.get('state'), 1) == 0 or (v.get('brake') or {}).get('on'):
+        return 1.0   # the Warden already cut this fill to the smallest seat: halving it again leaves an order too small to send
+    return 1.0 if d.get('state') == 'GROW' and v.get('state') == 'GROW' else ARMED_BASE
 
 
 def brake(value, peak, pct=BRAKE_PCT):
@@ -116,20 +118,50 @@ def brake(value, peak, pct=BRAKE_PCT):
 def for_door(v, tag_or_door):
     """The stance ONE fill is sized by: 🧯 the brake first, then its door's own record once that door has ≥ MIN_N exits, else the desk's."""
     v = v or {}
+    cap_ = (v.get('rug') or {}).get('capPct')
     if (v.get('brake') or {}).get('on'):
-        return {'state': 'PROTECT', 'mult': PROTECT_MULT, 'floor': PROTECT_MULT, 'why': '🧯 ' + str(v['brake'].get('why'))}
+        return {'state': 'PROTECT', 'mult': PROTECT_MULT, 'floor': PROTECT_MULT, 'why': '🧯 ' + str(v['brake'].get('why')), 'rugCapPct': cap_}
+    if ORDER.get(v.get('state'), 1) == 0:   # the desk itself is in PROTECT (long record): no door lifts it
+        return {**{k_: v.get(k_) for k_ in ('state', 'mult', 'floor', 'why')}, 'rugCapPct': cap_}
     k = tag_or_door if tag_or_door in ('armed', 'ready', 'other') else door(tag_or_door)
     d = (v.get('doors') or {}).get(k) or {}
     if int((d.get('record') or {}).get('n') or 0) >= MIN_N and d.get('state') in ('PROTECT', 'STEADY', 'GROW'):
-        return {'state': d['state'], 'mult': d['mult'], 'floor': d['floor'], 'why': f"{d.get('label')} door — {d.get('why')}"}
-    return {k_: v.get(k_) for k_ in ('state', 'mult', 'floor', 'why')}
+        if ORDER.get(d['state'], 1) <= ORDER.get(v.get('state'), 1):   # a door may size DOWN from the desk's stance on its own record, never up past it
+            return {'state': d['state'], 'mult': d['mult'], 'floor': d['floor'], 'why': f"{d.get('label')} door — {d.get('why')}", 'rugCapPct': cap_}
+    return {**{k_: v.get(k_) for k_ in ('state', 'mult', 'floor', 'why')}, 'rugCapPct': cap_}
+
+
+LONG = 150            # ☠ the long record: rugs are ~1 seat in 8 — a 30-exit window often holds none, so it can never be the one that presses size
+LONG_MIN = 50
+RUG_PCT = -45.0       # a seat that ended here or worse = a rug (the whole seat is the risk, whatever the stop line says)
+RUG_RATE_MIN = 5.0    # % of seats rugged (long record) from which the rug budget applies
+RUG_BUDGET_PCT = 8.0  # ☠ one rug may cost at most this share of the CARD: a seat is capped at budget ÷ the average rug loss
+ORDER = {'PROTECT': 0, 'PROVING': 1, 'STEADY': 2, 'GROW': 3}
+
+
+def rugs(trades, n=LONG):
+    """The long record's tail → {n, rugs, ratePct, avgPct, capPct} — `capPct` = the largest seat (% of the card) one rug may take."""
+    r = _pcts(trades, n)
+    bad = [x for x in r if x <= RUG_PCT]
+    rate = len(bad) / len(r) * 100 if r else 0.0
+    avg = sum(bad) / len(bad) if bad else 0.0
+    on = len(r) >= LONG_MIN and rate >= RUG_RATE_MIN
+    return {'n': len(r), 'rugs': len(bad), 'ratePct': round(rate, 1), 'avgPct': round(avg, 1), 'on': on,
+            'capPct': round(RUG_BUDGET_PCT / (abs(avg) / 100), 1) if on and avg < 0 else None}
 
 
 def view(trades, seats=4, on=True, value=None, peak=None):
     """The one object the Warden, the page and the model coach read."""
     rec = record(trades)
     st = stance(rec, seats)
-    return {'on': bool(on), 'record': rec, **st, 'leaks': leaks(trades), 'window': WINDOW, 'needN': PROVE_N, 'doors': doors(trades, seats), 'brake': brake(value, peak)}
+    lrec = record(trades, LONG)
+    if lrec['n'] >= LONG_MIN:   # ☠ the long record (rugs included) is the ceiling: the short window can lower the stance, never lift it past this
+        lst = stance(lrec, seats)
+        if ORDER.get(lst['state'], 1) < ORDER.get(st['state'], 1):
+            st = {**lst, 'why': f"the last {rec['n']} exits read {st['state']}, but the last {lrec['n']} (rugs included) read {lst['state']} — {lst['why']}"}
+    rg = rugs(trades)
+    return {'on': bool(on), 'record': rec, **st, 'leaks': leaks(trades), 'window': WINDOW, 'needN': PROVE_N, 'doors': doors(trades, seats), 'brake': brake(value, peak),
+            'long': lrec, 'rug': rg}
 
 
 def lesson(v):
@@ -138,6 +170,7 @@ def lesson(v):
     if not r.get('n'):
         return None
     dz = ' · '.join(f"{d['label']} {d['record']['wonPct']}% won {_f(d['record'].get('expPct')):+.1f}%/bet (n {d['record']['n']})" for d in (v.get('doors') or {}).values() if d['record'].get('n'))
+    rg = v.get('rug') or {}
     lk = ' · '.join(f"{x['rule']} {x['sumPct']:+.0f}% over {x['n']}" for x in (v.get('leaks') or []) if x['sumPct'] < 0)
     return (f"{v.get('state')}: {r['n']} real exits, {r.get('wonPct')}% won, avg win {_f(r.get('avgWin')):+.1f}% vs avg loss {_f(r.get('avgLoss')):+.1f}% "
-            f"(payoff {r.get('payoff')}), {_f(r.get('expPct')):+.1f}% a bet, Kelly {r.get('kelly')}" + (f" · by door: {dz}" if dz else '') + (f" · 🧯 {v['brake']['why']}" if (v.get('brake') or {}).get('on') else '') + (f" · losses come from: {lk}" if lk else ''))[:420]
+            f"(payoff {r.get('payoff')}), {_f(r.get('expPct')):+.1f}% a bet, Kelly {r.get('kelly')}" + (f" · ☠ {rg['rugs']} of the last {rg['n']} seats rugged ({rg['ratePct']}%, avg {rg['avgPct']}%)" if rg.get('rugs') else '') + (f" · by door: {dz}" if dz else '') + (f" · 🧯 {v['brake']['why']}" if (v.get('brake') or {}).get('on') else '') + (f" · losses come from: {lk}" if lk else ''))[:420]

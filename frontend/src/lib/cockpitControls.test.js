@@ -68,7 +68,8 @@ test('💰 doors + 🧯 brake + 👁 trail lab reads', () => {
   const { capitalRead, trailRead } = require('./cockpitControls');
   const c = capitalRead({ on: true, state: 'STEADY', mult: 0.5, record: { n: 30, wonPct: 60, avgWin: 12, avgLoss: -10, expPct: 3 }, brake: { on: true, downPct: 18 },
     doors: { armed: { label: '🎯 armed', state: 'GROW', mult: 0.75, record: { n: 22, wonPct: 68, expPct: 6 } }, ready: { label: '⚡ ready', state: 'PROTECT', mult: 0.25, record: { n: 5, wonPct: 20, expPct: -9 } }, x: { record: { n: 0 } } } });
-  expect(c.brake.downPct).toBe(18);
+  expect(c.brake.downPct).toBe(18); expect(c.rug).toBeNull();
+  expect(capitalRead({ on: true, state: 'PROTECT', record: { n: 30 }, rug: { on: true, rugs: 18, n: 134, avgPct: -74, capPct: 10.8 } }).rug).toBe('☠ 18 of the last 134 seats rugged (avg -74%) — a seat ≤ 10.8% of the card');
   expect(c.doors.map(d => [d.k, d.state, d.size])).toEqual([['armed', 'GROW', 0.75], ['ready', 'PROVING', null]]);   // 5 exits: not sized by its own door yet
   expect(trailRead(null).n).toBe(0); expect(trailRead({ n: 0, watching: 3 }).line).toMatch(/watching 3 exits/);
   const t = trailRead({ n: 40, need: 30, pays: true, left: 4.2, live: { arm: 4, give: 35, avg: 1.1 }, best: { arm: 8, give: 50, avg: 5.3 },

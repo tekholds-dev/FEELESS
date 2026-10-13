@@ -374,3 +374,17 @@ def test_the_local_model_is_the_owners_background_jobs_go_to_the_cloud_or_nowher
     none = run(air.Router().reason(Http({'x': [chat(GOOD)]}), env(LOCAL_LLM_BACKGROUND=None, GROQ_API_KEY=None, OPENAI_API_KEY=None), {}, CASE, 'devil'))
     assert none['source'] == 'NONE' and none['advice'] is None                           # no cloud key = deterministic only, never the local GPU
     assert air.PROVIDERS['groq'][5] == 'qwen/qwen3.8-27b'
+
+
+def test_the_router_fits_the_providers_minute_budget_instead_of_firing_into_a_429():
+    import ai_router as air
+    assert air.reset_sec('142ms') == 0.142 and air.reset_sec('4m19.2s') == 259.2 and air.reset_sec('7.5s') == 7.5 and air.reset_sec('12') == 12 and air.reset_sec(None) == 0
+    r = air.Router()
+    assert r.budget_wait('groq', 3000, 100.0) == 0.0                                         # nothing known yet: go
+    r._budget_note('groq', {'x-ratelimit-remaining-tokens': '900', 'x-ratelimit-limit-tokens': '8000', 'x-ratelimit-reset-tokens': '6s'}, 100.0)
+    assert r.budget_wait('groq', 600, 101.0) == 0.0                                          # fits what is left
+    assert 4.9 < r.budget_wait('groq', 3000, 101.0) <= 5.0                                   # does not fit: wait for the reset, not a 429
+    assert r.budget_wait('groq', 3000, 107.0) == 0.0 and r.budget_wait('groq', 9000, 101.0) is None   # after the reset · bigger than the whole budget
+    r._budget_note('groq', {}, 200.0)                                                         # a provider without the headers changes nothing
+    assert r.budget['groq']['at'] == 100.0 and air.est_tokens([{'content': 'x' * 3000}]) == 1000 + air.MAX_TOKENS
+    assert air.PROVIDERS['groq'][7] == 1                                                      # one cloud call at a time: two at once was the 429

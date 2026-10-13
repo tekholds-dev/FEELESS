@@ -66,6 +66,7 @@ export function capitalRead(cap) {
     line: `${n} real exits · ${r.wonPct}% won · ${r.expPct > 0 ? '+' : ''}${r.expPct}% a bet`,
     facts: (cap.leaks || []).filter(x => x.sumPct < 0).slice(0, 3).map(x => `${x.rule} ${x.sumPct}% over ${x.n}`), why: cap.why,
     brake: cap.brake?.on ? cap.brake : null,
+    rug: cap.rug?.on ? `☠ ${cap.rug.rugs} of the last ${cap.rug.n} seats rugged (avg ${cap.rug.avgPct}%) — a seat ≤ ${cap.rug.capPct}% of the card` : null,
     doors: Object.entries(cap.doors || {}).filter(([, d]) => d?.record?.n).map(([k, d]) => ({ k, label: d.label, n: d.record.n, won: d.record.wonPct, exp: d.record.expPct,
       state: d.record.n >= 12 ? d.state : 'PROVING', size: d.record.n >= 12 ? d.mult ?? null : null })) };
 }

@@ -3869,3 +3869,17 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 📡 `backend/jup_rest.py` (market service only, `install()` after ds_pace): a Jupiter READ lane (host + key + `/tokens/` | `/price/`) that
   answers 429 rests its Retry-After (else 8s); a call to a resting lane answers 429 at once with no network request. Quote / swap paths are
   never touched. 2026-10-13: 536 token lookups in 21 min, every one refused, half a second apart.
+- ☠ CAPITAL v3 = SIZED FOR THE RUG (2026-10-13, the same evening capital v1 shipped: a 30-exit streak with no rug in it read GROW, seats went
+  ×0.5 → ×0.75 ($0.53 → $0.85), and $X — 2 min old — went −85% in 47 seconds: −$0.72 = 17% of the card; $PEVEIL −77% in 41s; 15 other trades
+  made +$1.19 that window). 134 real agent exits: 18 rugs (13.4%, avg −74%), spread over EVERY age / class / phase bucket; no selection rule
+  held walk-forward (LATE FOMO lost in the older 60% and won in the newest 40%). So: (1) the LONG record (`LONG` 150 exits, rugs included, from
+  `LONG_MIN` 50) is the CEILING — the 30-exit window may lower the stance, never lift it past the long one (`capital.view`); (2) a door may
+  size DOWN from the desk's stance, never up; armed fills earn ×1 only when desk AND door are GROW, and are not halved again once the seat is
+  already the smallest; (3) ☠ RUG BUDGET (`rugs`, `RUG_BUDGET_PCT` 8, Warden rule `W24 rug budget`): one rug may cost ≤ 8% of the CARD →
+  a seat ≤ 8 ÷ avg rug loss (≈ 10.8% of the card today), whatever the stance. THE WHOLE SEAT IS THE RISK ON A LAUNCH COIN — never size from a
+  stop line or a short window again. Today this reads PROTECT (long record −5.1% a bet): quarter seats until the long record turns.
+- 🧠 THE MODEL WAS BARELY ANSWERING (same day): Groq's free plan = 8K tokens a MINUTE; two ~3K-token cases a round fired together, the second
+  was refused, the provider "cooled", and 5 of 6 asks came back NONE (0.1 calls / min, the coach had said nothing). `ai_router`: the provider's
+  own `x-ratelimit-remaining-tokens` / `reset-tokens` are remembered (`_budget_note`), a call that would not fit WAITS for the reset
+  (`budget_wait`, ≤ `BUDGET_WAIT_MAX` 20s) instead of firing into a 429, a short Retry-After is waited out once, Groq runs one call at a time.
+  "THE AI ISN'T HELPING" ⇒ read `office.ai.totals` (asked vs answered vs none) and the provider state before anything about its judgement.
