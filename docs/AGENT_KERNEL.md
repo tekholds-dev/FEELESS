@@ -74,15 +74,20 @@ seats · owner review · trace in chain order) → the ten-agent matrix | review
 the same `/admin/agents {cfg}` path) + the AI chip. Everything older (KPI tiles, lenses, the office room) sits in ONE `▸ MORE` fold. An agent pulses
 only when ITS tape id moves (`newEvents`); MC / % / $ glide to each real value at ≤ 30fps (`useEasedNumber` — display only, no request).
 
-## AI router (advisory only)
+## AI router (advisory; a PROVEN stance may weigh ±10% on the rank)
 
 `backend/ai_router.py` (`ROUTER.reason(http, env, cfg, case, role)`): OpenAI-compatible chat providers tried in order — local LM Studio
 (`LOCAL_LLM_ENABLED` / `LOCAL_LLM_BASE_URL` loopback only / `LOCAL_LLM_MODEL`, ONE inference at a time + a queue of 2) → Groq → OpenRouter → OpenAI →
 xAI → any OpenAI-compatible host. Timeout / 429 / refused / malformed = the next provider; all fail = `NONE` (deterministic only). Answers are a
-validated JSON object (`parse_advice`: stance from a fixed list, numbers clamped, summary ≤ 200 chars) cached 2 min per case and shared while in
+validated JSON object (`parse_advice`: stance from a fixed list, numbers clamped, summary ≤ 200 chars) cached per case state and shared while in
 flight. Roles that may ask: Sherlock · Devil · Judge · owner review · manager. NEVER: Tally, Trigger, Reaper, Courier, Warden (refused in code).
 The service's `_ai_loop` (own task, every 15s, ≤ 3 cases: owner review → a conflicted ENTER + Devil warning → the top contender → the newest Judge
-review) writes `office.ai.notes[mint][role]`; nothing reads them but the page. Owner routes: `GET|POST /admin/ai/providers` (order + on / off,
+review) writes `office.ai.notes[mint][role]` + the decision log `office.ai.log` (🧠 AI tab). LOW USAGE: `case_key` = the case's STATE (status ·
+trigger · Devil's objections · coarse numbers), cached 10 min — a coin that only wiggled is not asked again. Sherlock's brief (`_ai_brief`: holders ·
+chart · flow · launch · crowd, one short line each) is built from readings the desk already has — no fetch. THE AGENTS LEARN FROM THE MODEL ON ITS
+RECORD (`backend/ai_learn.py`, `data/ai_proof.json`): each stance is noted at that price, judged 15 min later (no price for 1h = −100%); a stance moves
+the kernel's rank (`opportunity.open_score(ai_w=)`, ctx `aiw`) by ×0.9 / ×1.1 only with ≥ 20 judged calls AND a typical result clearly better / worse
+than the model's other calls. Unproven = ×1.0. The model never places, sizes, blocks or sells. `POST /admin/ai/ask` = the owner asks about one coin. Owner routes: `GET|POST /admin/ai/providers` (order + on / off,
 `data/ai_providers.json`, no secrets) · `POST /admin/ai/test` · `POST /admin/ai-key` (keys tested, saved to backend/.env, never returned).
 
 ## Legacy kept on purpose

@@ -54,6 +54,14 @@ export function AiPane({ ai, call, isOwner = true, focus, focusSym, onPick, onPr
       <button type="button" className="m-btn" onClick={onProviders} data-testid="cai-providers">⚙ providers</button></div>
     {st.n ? <div className="cai-agreebar" data-tip="How often the model's stance matched what the kernel itself decided (the kernel never reads the model)"><small>MODEL vs KERNEL</small>
       <span className="cai-meter"><i style={{ transform: `scaleX(${(st.pct || 0) / 100})` }} /></span><b>{st.pct}% agree</b><small>{st.agree} of {st.n}</small></div> : null}
+    {ai?.learn ? <div className={`cai-learn is-${String(ai.learn.state).toLowerCase().replace(/\s+/g, '-')}`} data-testid="cai-learn"
+      data-tip={`Every stance the model gives is noted at that price and judged ${ai.learn.judgeMin} min later. A stance moves the agents' ranking (±10% at most) only once ${ai.learn.minN} of its calls are judged AND its coins really did better / worse than the model's other calls.`}>
+      <span className="cai-lhead"><b>🎓 AGENTS LEARNING FROM THE MODEL</b><em>{ai.learn.state}</em></span><small>{ai.learn.why}{ai.learn.open ? ` · ${ai.learn.open} call${ai.learn.open === 1 ? '' : 's'} waiting for their ${ai.learn.judgeMin} min` : ''}</small>
+      {(ai.learn.rows || []).length ? <ul className="cai-lrows">{ai.learn.rows.slice(0, 6).map(r => <li key={r.stance} className={r.factor > 1 ? 'is-up' : r.factor < 1 ? 'is-dn' : ''}>
+        <em className={`cai-stance ${STANCE_TONE[r.stance] || 'is-hold'}`}>{r.stance}</em>
+        <span className="cai-meter"><i style={{ transform: `scaleX(${Math.min(1, r.n / ai.learn.minN)})` }} /></span>
+        <small>{r.n} judged · typical <b className={r.med > 0 ? 'm-pos' : r.med < 0 ? 'm-neg' : ''}>{r.med > 0 ? '+' : ''}{r.med}%</b> · {r.up}% up</small>
+        <u>{r.factor !== 1 ? `rank ×${r.factor}` : r.proven ? 'no edge' : 'learning'}</u></li>)}</ul> : null}</div> : null}
     <form className="cai-ask" onSubmit={ask} autoComplete="off" data-testid="cai-ask">
       <label className="cai-lab" htmlFor="cai-ask-in">🧠 ASK THE MODEL{focusSym && !typed ? <small> · ${focusSym} (the coin on the chart)</small> : null}</label>
       <div className="cai-askrow"><input id="cai-ask-in" className="m-input" value={txt} onChange={e => { setTxt(e.target.value); setTyped(true); }} placeholder="coin on the desk — CA / mint or a pump.fun · dexscreener link" aria-label="Coin to ask the model about"

@@ -3436,3 +3436,27 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
     "export never imported outside tests" scan before calling a surface clean.
   · SwapWorkspace test: only `/api/trading/` calls take a scripted answer — a shared poller (coin edge) used to swallow the /execute
     answer under load. test_keeper_landing's scanner-share test freezes its clock. Both had been refusing the push gate on a loaded Mac.
+- 🛂 SEATS: CHECK THE BUY BEFORE THE SEAT (2026-10-12, "seats staying empty" — 6h ledger: 231 agent buys refused vs 34 filled; every refusal emptied
+  the seat again and the agents re-picked the same coin): `_seat_precheck` (in the agents' fill loop, real card) runs the KEEPER'S OWN checks before
+  `agent_seat` — `_fw_live_pairs` → `live_buy_market`, then the same two read-only quotes (`_fw_quote` + `_fw_secure_buy` + impact) for as many coins
+  as there are open seats; a coin that fails gets no seat and sits out (`_agent_refused`: 3 min market / 10 min safety / 30 min no route) and the next
+  READY coin is tried in the same tick; quotes stand down 20s after any Jupiter 429 (`_FW_JUP_BUSY` — sells and real buys keep the quota). The seat
+  starts from the LIVE depth + price (the board row was minutes old: rug shield "$18K → $8K pulled" and Reaper −24% three seconds after a buy).
+  `_fw_live_pairs` third fresh source = Pump's own coin record (`launchpad_board.pump_pair`; 101 of the 231 were "live market unavailable" on coins
+  too new for DexScreener / Jupiter). `live_buy_market`: a `curve` / picked order on a curve dex = max(reported, the curve's depth) — the agents' row
+  read the curve ($10K) while the gate read Jupiter's paid-in SOL ($5K). `_fw_secure_buy` reads the market price FRESH (the 20s cache read "4.6% above
+  market" on any coin running). `fuse_wallet.agent_no_buy` (10 min after a safety refusal) feeds `_agent_blocked`. A seat the wallet does not hold yet
+  (`real` card, leg not `real`) is never stopped by Reaper (R0) or "pulled" by the rug shield. The open seat on the cockpit lists the last refusals
+  (`seat.refused`, keeper's own words). EMPTY SEATS ⇒ group the 6h ledger's skipped buys by reason FIRST (`status in skipped/failed`).
+- 💹 P&L ON EVERY CHART (`components/terminal/ChartPnl.jsx`: `useMyPosition` + `PnlBadge` moved here, `ChartPnl` drawn by `PriceChart` itself; prop
+  `pnl` = false (off) · an object {label, pos} (a position handed in) · absent (the viewer's own, ONE shared read per coin via `sharedJson`); the host
+  chart's streamed price drives it — no second poll). TrenchChart keeps its own badge (`pnl={false}`). Cockpit chart = `plain` (no scene) + the
+  `LiveTrade` strip (`tradeBar`: entry → now · live P&L · a bar from the stop to the take) and lives INSIDE `.ack-plot` (`--ack-h`; the terminal's
+  `!important` chart heights spilled out of the box). `cockpitAi.css` is imported AFTER agentCockpit.css (it owns the plot height + the meta pass).
+- 🧠 THE MODEL'S DECISIONS + THE AGENTS LEARN FROM THEM (`AiDecisions.jsx` `AiPane` = decision panel tab 🧠 AI: provider line, model-vs-kernel agree
+  meter, ASK box → `POST /admin/ai/ask`, decision log `office.ai.log` (60 kept, 30 sent) with AGREES / DISAGREES (`lib/aiRead.js`), 🎓 learning box
+  `office.ai.learn`). `backend/ai_learn.py` (pure, tested): each stance noted once per coin / 30 min, judged 15 min later; `factor` ×0.9 (proven
+  warning) / ×1.1 (proven spotter) only with ≥ 20 judged AND ≥ 2 pts apart from the model's base rate → kernel ctx `aiw` → `open_score(ai_w=)`
+  (clamped 0.9–1.1). THIS REPLACES "an AI answer never changes a rank" — still never an order, size, block, stop or sell, and an unproven model
+  weighs exactly nothing. Low usage: `ai_router.case_key` is the case's STATE (coarse numbers), `CACHE_SEC` 600; `_ai_brief` gives Sherlock holders ·
+  chart · flow · launch · crowd from the desk's own row (no fetch). 2026-10-12 the local model answers in ~4s; Groq key set but untested.

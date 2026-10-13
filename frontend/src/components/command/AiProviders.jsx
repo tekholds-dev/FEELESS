@@ -32,7 +32,7 @@ export function AiProviders({ call, isOwner = true, ai, close }) {
   return <div className="aip-shade" onMouseDown={e => { if (e.target === e.currentTarget) close(); }} data-testid="ai-providers-shade">
     <aside className="aip" role="dialog" aria-label="AI providers" data-testid="ai-providers">
       <header><b>🧠 AI PROVIDERS</b><small>fallback order · advisory only</small><button type="button" className="m-btn" onClick={close} aria-label="Close" data-testid="aip-close">✕</button></header>
-      <p className="aip-note">{v?.note || 'Advisory only: an AI answer is shown next to the desk that asked; it never changes a rank, a size, READY, an order or a stop.'}
+      <p className="aip-note">{v?.note || 'Advisory only: an AI answer is shown next to the desk that asked; it never places, sizes, blocks or sells anything; a stance moves the ranking (±10% at most) only once it is proven on its own judged record.'}
         {' '}Never asked by: {(v?.never || ['tally', 'trigger', 'reaper', 'courier', 'warden']).join(' · ')}.</p>
       <ol className="aip-list" data-testid="aip-list">{rows.map((r, i) => <li key={r.key} className={`${r.enabled ? '' : 'is-disabled'}`} data-testid={`aip-row-${r.key}`}>
         <span className="aip-pri">{r.priority}</span>

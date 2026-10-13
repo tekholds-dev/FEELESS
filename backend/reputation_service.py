@@ -10189,9 +10189,9 @@ async def _prime_tick_inner(now):
                     _shadow_note(t_, 'fill', now, cur)
                 _shadow_controls(plan_[:max(0, empty_n)], [c_['row'] for c_ in cases_ if c_['status'] == 'CONTENDING'][:12], cases_, now)
                 plan_ = []
-            pre_ = await _seat_precheck(plan_[:empty_n + 2], cfg_t, now) if (plan_ and real_t) else None   # 🛂 the keeper's market gate BEFORE the seat
+            pre_ = await _seat_precheck(plan_[:empty_n + 3], cfg_t, now, seat_usd=_prime.agent_seat_usd(cur, px, cfg_s), need=empty_n) if (plan_ and real_t) else None   # 🛂 the keeper's market gate BEFORE the seat
             _office['pre'] = {'at': now, 'asked': len(plan_), 'passed': len(pre_) if pre_ is not None else None,
-                              'refused': [{'symbol': t_.get('symbol'), 'why': (_agent_refused.get(t_['mint']) or (0, ''))[1]} for t_ in plan_ if pre_ is not None and t_['mint'] not in pre_][:6]}
+                              'refused': [{'symbol': t_.get('symbol'), 'why': _agent_refused[t_['mint']][1]} for t_ in plan_ if pre_ is not None and t_['mint'] in _agent_refused][:6]}
             for t_ in plan_:   # 🔌 no fill until the office is LIVE after a restart · never while the keeper is halted or the Courier reads BAD
                 t_ = {**t_, 'trench': _uni.in_lane(t_.get('vitals') or {})}   # 🗑 a lane launch → the keeper's trench pool floor
                 if used_ >= _uni.FILL_MOVES_HR:
@@ -10990,6 +10990,10 @@ async def _fw_balances(addr):
     return {'sol': int((bal or {}).get('value') or 0) / 1e9, 'tokens': tokens, 'decimals': decs}
 
 
+JUP_BUSY_SEC = 20.0
+_FW_JUP_BUSY = {'at': 0.0}   # when Jupiter last answered 429 / 5xx — sells and real buys keep the quota
+
+
 async def _fw_jup(method, path, **kw):
     key = os.environ.get('JUPITER_API_KEY')
     base = 'https://api.jup.ag' if key else 'https://lite-api.jup.ag'
@@ -10998,6 +11002,7 @@ async def _fw_jup(method, path, **kw):
             r = await http.request(method, base + path, headers={'x-api-key': key} if key else {}, **kw)
             if r.status_code != 429 and r.status_code < 500:
                 break
+            _FW_JUP_BUSY['at'] = time.time()   # Jupiter is rate-limiting us: optional reads (the seat pre-check's quotes) stand down for a while
             await asyncio.sleep(1.5 * (attempt + 1))
     try:
         data = r.json() if r.content else {}
@@ -11037,6 +11042,7 @@ async def _fw_secure_buy(order, cfg, q):
     except HTTPException:
         back_l = None
     try:   # market = Jupiter's own price (what routes really pay); a DexScreener pair can lag on young coins
+        _jup_px_cache.pop(order['mint'], None)   # …read FRESH: the 20s-old cached price made a coin running +3% a minute read "4.6% above market" on every try
         jp = _fuse._f(((await _jup_prices([order['mint']])) or {}).get(order['mint']))
     except Exception:
         jp = 0.0
@@ -11065,6 +11071,18 @@ async def _fw_live_pairs(orders):
             jp = _launchpad_board.jup_pair(toks.get(m)) if toks.get(m) else None
             if jp:
                 live[pa] = {**jp, 'pairAddress': pa}
+    miss = {pa: m for pa, m in miss.items() if pa not in live and str(m).endswith('pump')}
+    if miss:   # 📡 third fresh source: Pump's own record for a coin too new for either index (≤ 4 a call, each its own short read)
+        async def one(pa, m):
+            try:
+                async with httpx.AsyncClient(timeout=5, headers={'User-Agent': 'Mozilla/5.0'}) as http:
+                    r = await http.get(f'https://frontend-api-v3.pump.fun/coins-v2/{m}')
+                return pa, _launchpad_board.pump_pair(r.json() if r.status_code == 200 else None, pa)
+            except Exception:
+                return pa, None
+        for pa, pp in await asyncio.gather(*[one(pa, m) for pa, m in list(miss.items())[:4]]):
+            if pp and (pp.get('baseToken') or {}).get('address') == miss[pa]:
+                live[pa] = pp
     return live
 
 
@@ -12541,10 +12559,72 @@ async def admin_ai_key_set(request: Request):
 
 # ---- 🧠 THE AI ROUTER (backend/ai_router.py): optional, advisory, never in a hot loop or at the money boundary ----
 import ai_router as _air
+import ai_learn as _ail
 AI_CFG_PATH = DATA_DIR / 'ai_providers.json'   # the provider order + on / off (no secrets — keys live in backend/.env only)
 AI_EVERY = 15.0                                 # one advisory round every 15s, ≤ AI_JOBS cases (local inference is one at a time)
 AI_JOBS = 3
 AI_NOTES_KEEP = 60
+AI_PROOF_PATH = DATA_DIR / 'ai_proof.json'      # 🧠 the model's stances, each judged 15 min later (ai_learn.py) — its record is what the agents learn from
+
+
+def _ai_book():
+    if _ai.get('book') is None:
+        _ai['book'] = _json_load(AI_PROOF_PATH, {}) or {}
+    return _ai['book']
+
+
+def _ai_brief(mint):
+    """🔍 Sherlock's brief for ONE coin: five short lines from readings the desk ALREADY has this pass (holders · chart · flow · launch ·
+    crowd) — no fetch, no extra request, ~60 tokens. Unknown stays absent (the model is told unknown is unknown)."""
+    x = next((r_ for r_ in (_agents.get('table') or []) if r_.get('mint') == mint), None)
+    if not x:
+        return {}
+    v, n, ch, la, mi, li = x.get('vitals') or {}, x.get('nums') or {}, x.get('chart') or {}, x.get('launch') or {}, x.get('mind') or {}, x.get('li') or {}
+    g = lambda lab, val, unit='': f'{lab} {val:g}{unit}' if isinstance(val, (int, float)) else None
+    j = lambda *xs: ' · '.join(t_ for t_ in xs if t_) or None
+    return {k_: v_ for k_, v_ in {
+        'holders': j(g('top10', v.get('top10'), '%'), g('dev', v.get('dev'), '%'), g('bundled', v.get('bundledN')), g('snipers', v.get('snipersN')), g('holders', v.get('holders')),
+                     g('organic vol', v.get('organic'), '%'), 'scan passed' if v.get('safe') is True else 'scan FAILED' if v.get('safe') is False else None),
+        'chart': j(ch.get('state'), ' / '.join(str(e_) for e_ in (ch.get('entry') or [])[:2]) or None, (ch.get('q') or {}).get('state')),
+        'flow': j(g('1h', n.get('c1'), '%'), g('pace', n.get('pace'), 'x'), g('pool chg', n.get('liqD'), '%'), g('holders chg', n.get('holdD'), '%'), x.get('mp'), v.get('read')),
+        'launch': j(la.get('pad'), la.get('type'), g('curve', la.get('curvePct'), '%'), li.get('cls') if li.get('cls') not in (None, 'UNKNOWN') else None, li.get('phase')),
+        'crowd': j(mi.get('narr'), g('callers', mi.get('callers')) if mi.get('callers') else None, 'copy-paste swarm' if mi.get('swarm') else None, g('bots', mi.get('bots'), '%') if mi.get('bots') else None),
+    }.items() if v_}
+
+
+def _ai_learn_note(role, c, res, now):
+    """A stance on a LIVE candidate is noted for judging (never a closed trade, never a held coin's review)."""
+    st = ((res or {}).get('advice') or {}).get('stance')
+    if not st or role == 'judge' or c.get('result') is not None or not c.get('mint'):
+        return
+    px = _fuse._f(c.get('price')) or _fuse._f((_jup_px_cache.get(c['mint']) or (0, 0))[1])
+    _ai['book'] = _ail.note(_ai_book(), role, c['mint'], st, px, now, c.get('symbol'))
+
+
+async def _ai_learn_settle(now):
+    due = sorted({c_['mint'] for c_ in (_ai_book().get('open') or []) if now - _fuse._f(c_.get('at')) >= _ail.JUDGE_SEC})[:40]
+    if not due:
+        return
+    try:
+        px = await _jup_prices(due)
+    except Exception:
+        return   # a pass where the price source answers nothing is not judged
+    if not px:
+        return
+    n0 = len(_ai_book().get('done') or [])
+    _ai['book'] = _ail.settle(_ai_book(), px, now)
+    if len(_ai['book'].get('done') or []) != n0 and not os.environ.get('PYTEST_CURRENT_TEST'):
+        _json_save(AI_PROOF_PATH, _ai['book'])
+
+
+def _ai_weights(now):
+    """{mint: ×0.9 … ×1.1} — ONLY for stances proven on the model's own judged record (empty until then)."""
+    try:
+        return _ail.weights(_ai['notes'], _ail.record(_ai_book()), now)
+    except Exception:
+        return {}
+
+
 AI_LOG_KEEP = 60            # 🧠 the model's own decisions, newest last (memory only): what it was asked, what it said, what the kernel said
 _ai = {'notes': {}, 'http': None, 'rounds': 0, 'lastAt': None, 'lastMs': None, 'log': []}
 
@@ -12583,7 +12663,7 @@ def _ai_view(now=None, light=False):
         return {'providers': [{k_: r_.get(k_) for k_ in ('key', 'label', 'enabled', 'state', 'lastMs')} for r_ in v['providers']], 'active': v['active'],
                 'totals': v['totals'], 'notes': {m_: {ro_: {k_: n_.get(k_) for k_ in ('source', 'label', 'advice', 'at')} for ro_, n_ in notes[m_].items()} for m_ in keep},
                 'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY, 'log': _ai['log'][-30:],
-                'model': next((r_.get('model') for r_ in v['providers'] if r_.get('key') == v['active']), None)}
+                'model': next((r_.get('model') for r_ in v['providers'] if r_.get('key') == v['active']), None), 'learn': _ail.view(_ai_book())}
     return {**v, 'notes': notes, 'rounds': _ai['rounds'], 'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY}
 
 
@@ -12615,7 +12695,8 @@ def _ai_jobs(now):
 
 def _ai_case(c):
     """A kernel candidate → the compact case the router sends (it whitelists again)."""
-    return {**{k_: c.get(k_) for k_ in ('mint', 'symbol', 'status', 'rank', 'ageMin', 'cap', 'liq', 'vol5m', 'move5m', 'buyShare', 'narrative', 'trigger', 'size', 'unknown',
+    return {**_ai_brief(c.get('mint')),
+            **{k_: c.get(k_) for k_ in ('mint', 'symbol', 'status', 'rank', 'ageMin', 'cap', 'liq', 'vol5m', 'move5m', 'buyShare', 'narrative', 'trigger', 'size', 'unknown',
                                        'state', 'why', 'pending', 'result', 'cause', 'peak', 'heldMin', 'rule', 'structure', 'phase')},
             'devil': [f"{d_[0]} {d_[1]}" for d_ in (c.get('devil') or []) if isinstance(d_, (list, tuple)) and len(d_) >= 2] if isinstance(c.get('devil'), list) else c.get('devil')}
 
@@ -12625,6 +12706,7 @@ async def _ai_round(now):
     env, cfg = os.environ, _ai_cfg()
     if not any(not r_['why'] and r_['enabled'] for r_ in (_air.provider(env, k_, cfg) for k_ in _air.PROVIDERS)):
         return 0
+    await _ai_learn_settle(now)   # 🧠 the model's earlier stances are judged against what the coin did (no model call)
     jobs = _ai_jobs(now)
     if not jobs:
         return 0
@@ -12639,6 +12721,7 @@ async def _ai_round(now):
             continue
         _ai['notes'].setdefault(m_, {})[role_] = {k_: r_.get(k_) for k_ in ('source', 'label', 'advice', 'ms', 'at', 'tried', 'why', 'cached')} | {'symbol': c_.get('symbol')}
         _ai_log(role_, c_, r_)
+        _ai_learn_note(role_, c_, r_, now)
         n += 1
     if len(_ai['notes']) > AI_NOTES_KEEP:
         for m_ in sorted(_ai['notes'], key=lambda k_: max(_fuse._f(v_.get('at')) for v_ in _ai['notes'][k_].values()))[:len(_ai['notes']) - AI_NOTES_KEEP]:
@@ -12688,7 +12771,7 @@ async def admin_ai_providers_set(request: Request):
 async def admin_ai_ask(request: Request):
     """🧠 Owner only: ASK THE MODEL about one coin now (`{input: CA | link | mint, role: sherlock | devil | owner}`). The case is the
     kernel's own row for that coin (nothing typed by hand reaches the model except the address). The answer is DISPLAYED — in the
-    decision log and beside the coin; it never changes a rank, a size, READY, an order or a stop."""
+    decision log and beside the coin; it never places, sizes, blocks or sells anything; a stance moves the ranking (±10% at most) only once it is proven on its own judged record."""
     _require_owner(request)
     body = await request.json()
     ref = _owr.parse(str((body or {}).get('input') or ''))
@@ -12716,6 +12799,7 @@ async def admin_ai_ask(request: Request):
     if res.get('advice'):
         _ai['notes'].setdefault(c['mint'], {})[role] = {k_: res.get(k_) for k_ in ('source', 'label', 'advice', 'ms', 'at', 'tried', 'why', 'cached')} | {'symbol': c.get('symbol')}
     _ai_log(role, case, res, asked=True)
+    _ai_learn_note(role, c, res, time.time())
     if _office.get('payload') is not None:
         _office['payload']['ai'] = _ai_view(light=True)
         try:
@@ -13265,7 +13349,7 @@ def _kernel_ctx(now):
     legs_ = ((((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '') or {}).get('legs') or [])
     pending = {l.get('mint') for l in legs_ if l.get('mint') and not l.get('placeholder') and _fuse._f(l.get('units')) <= 0}   # a seat the keeper is still buying
     return {'held': held, 'pending': pending, 'regime': (_agents.get('weather') or {}).get('regime'), 'courier': (_office.get('courier') or {}).get('health'),
-            'live': rd.get('live') if rd else None, 'weights': _judge_weights(now), 'lessons': _tkl.lessons(_lc_book(now)),
+            'live': rd.get('live') if rd else None, 'weights': _judge_weights(now), 'aiw': _ai_weights(now), 'lessons': _tkl.lessons(_lc_book(now)),
             'watchOnly': {m_ for m_ in _owner.get('only') or () if _tk.KERNEL.owner.get(m_) != 'arm'}}   # 👤 review / track only: judged, never READY   # 🧬 only the generations IN CONTROL
 
 
@@ -13568,19 +13652,20 @@ def _seat_refusals(tid, now, window=900.0, keep=5):
             continue
         seen.add(r_.get('mint'))
         out.append({'symbol': r_.get('symbol'), 'why': str(r_.get('err') or r_.get('why') or '')[:110], 'at': round(at_, 1), 'by': 'keeper'})
-    for m_, (until_, why_) in _agent_refused.items():
-        if m_ not in seen:
-            out.append({'symbol': (_tk.KERNEL.candidate(m_) or {}).get('symbol') or m_[:4], 'why': why_, 'at': round(until_ - AGENT_PRE_SEC, 1), 'by': 'pre-check'})
+    for m_, (_until, why_, at_) in _agent_refused.items():
+        if m_ not in seen and now - at_ <= window:
+            out.append({'symbol': (_tk.KERNEL.candidate(m_) or {}).get('symbol') or m_[:4], 'why': why_, 'at': round(at_, 1), 'by': 'pre-check'})
     return sorted(out, key=lambda x_: -x_['at'])[:keep]
 
 
+AGENT_NOROUTE_SEC = 1800.0   # no way back to SOL / no route at all: 30 min (a curve coin's route does not appear in two)
 AGENT_PRE_SEC = 180.0   # a coin that failed the seat pre-check (no live pool read / pool under the floor) sits out 3 min
 SEAT_PRE_OK_SEC = 20.0
 _seat_pre_ok = {}       # mint → (at, {liq, px}): coins that passed the pre-check in the last 20s
-_agent_refused = {}     # mint → (until, why): the 🛂 seat pre-check's own refusals (memory only)
+_agent_refused = {}     # mint → (until, why, at): the 🛂 seat pre-check's own refusals (memory only)
 
 
-async def _seat_precheck(plan, cfg_t, now):
+async def _seat_precheck(plan, cfg_t, now, seat_usd=0.0, need=1):
     """🛂 CHECK THE BUY BEFORE THE SEAT (read-only; ONE batched live read for the coins about to be seated): the keeper's own final market
     gate (`fuse_wallet.live_buy_market`: the exact pool answers, it holds this mint, a live price, pool ≥ its floor) run BEFORE a seat is
     created. 2026-10-12: of 20 agent seats in 25 min, 9 were refused by that gate seconds later ("live market unavailable", "live pool too
@@ -13599,14 +13684,37 @@ async def _seat_precheck(plan, cfg_t, now):
         print('seat precheck:', type(e).__name__)
         return {**out, **{t_['mint']: {} for t_ in plan}}   # the read itself failed: the keeper's own gate still decides
     cfg = _fw_cfg()
+    try:
+        sol_px = await _sol_usd_live() if seat_usd > 0 else 0.0
+    except Exception:
+        sol_px = 0.0
     for t_ in plan:
-        o_ = {'side': 'buy', 'mint': t_.get('mint'), 'trench': _uni.in_lane(t_.get('vitals') or {}), 'curve': bool((t_.get('vitals') or {}).get('curve') and cfg_t.get('agentCurve'))}
+        if len(out) >= need:   # enough coins for the open seats: the rest are not quoted this tick (Jupiter's free tier is shared with the keeper)
+            break
+        o_ = {'side': 'buy', 'mint': t_.get('mint'), 'pair': t_.get('pair'), 'symbol': t_.get('symbol'), 'agent': True, 'trench': _uni.in_lane(t_.get('vitals') or {}),
+              'curve': bool((t_.get('vitals') or {}).get('curve') and cfg_t.get('agentCurve'))}
         ok_, why_, lv_ = _fw.live_buy_market(o_, live.get(t_.get('pair')), cfg)
+        hold_ = AGENT_PRE_SEC
+        if ok_ and sol_px > 0 and seat_usd > 0 and time.time() - _FW_JUP_BUSY['at'] > JUP_BUSY_SEC:
+            # 🛡 the SAME two read-only quotes the keeper takes before it signs (buy near market · sells straight back · impact): a coin the
+            # keeper would refuse never gets a seat, so the card shows no "buy refused" and the seat goes to the next coin in this tick
+            o_.update(usd=round(seat_usd, 4), lamports=int(seat_usd / sol_px * 1e9), midPx=lv_.get('midPx'), liq=lv_.get('liq'))
+            try:
+                q_ = await _fw_quote(o_, cfg)
+                ok_, why_, _b = await _fw_secure_buy(o_, cfg, q_)
+                if ok_ and _fuse._f(q_.get('priceImpactPct')) * 100 > cfg['maxImpactPct']:
+                    ok_, why_ = False, f"price impact {_fuse._f(q_.get('priceImpactPct')) * 100:.2f}% > {cfg['maxImpactPct']:g}%"
+                if not ok_:
+                    hold_ = AGENT_NOROUTE_SEC if 'no route' in why_ else _fw.AGENT_REFUSED_SEC
+            except HTTPException as e:
+                if any(u_ in str(e.detail).lower() for u_ in _fw.UNROUTABLE):
+                    ok_, why_, hold_ = False, 'Jupiter has no route for it yet', AGENT_NOROUTE_SEC
+                # anything else (a busy Jupiter, a 429) is not the coin's fault: it passes and the keeper's own gate decides
         if ok_:
             out[t_['mint']] = {'liq': _fuse._f(lv_.get('liq')) or None, 'px': _fuse._f(lv_.get('midPx')) or None}
             _seat_pre_ok[t_['mint']] = (now, out[t_['mint']])
         else:
-            _agent_refused[t_['mint']] = (now + AGENT_PRE_SEC, why_)
+            _agent_refused[t_['mint']] = (now + hold_, why_, now)
     return out
 
 

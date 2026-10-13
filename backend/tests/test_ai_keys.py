@@ -34,7 +34,7 @@ def test_the_page_only_ever_sees_set_and_the_last_four():
     rows = {r['key']: r for r in st['providers']}
     assert rows['openai'] == {'key': 'openai', 'label': 'OpenAI', 'set': True, 'hint': '…wxyz', 'active': True}
     assert rows['anthropic']['set'] and not rows['anthropic']['active'] and not rows['gemini']['set']
-    assert st['active'] == 'openai' and st['model'] == 'gpt-4o-mini' and st['used'] == 'advisory' and 'never changes a rank, a size, READY, an order or a stop' in st['note']
+    assert st['active'] == 'openai' and st['model'] == 'gpt-4o-mini' and st['used'] == 'advisory' and 'never places, sizes, blocks or sells anything; a stance moves the ranking (±10% at most) only once it is proven on its own judged record' in st['note']
     assert aik.status({'AI_PROVIDER': 'openai'})['active'] is None                               # a provider with no key is not active
     assert aik.scrub(f'boom {KEY} and {KEY[5:25]}', KEY).count('•••') >= 2 and KEY[5:17] not in aik.scrub(f'x {KEY[5:25]}', KEY)
 

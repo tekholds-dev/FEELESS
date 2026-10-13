@@ -40,3 +40,19 @@ test('a chart draws the P&L ticker itself: a seat position handed in, nothing wh
   expect(q(await mount(<ChartPnl pair={pair} price={0.00003} pnl={false} />), 'my-pnl')).toBeNull();
   expect(q(await mount(<ChartPnl pair={pair} price={0.00003} />), 'my-pnl')).toBeNull();   // no wallet connected: nothing to show
 });
+
+test('the live trade strip on the cockpit chart: where now sits between the stop and the take', () => {
+  const { tradeBar } = require('./AgentCockpit');
+  const b = tradeBar({ entry: 1, stop: 20, take: 40 }, 1.1);
+  expect(Math.round(b.pct)).toBe(10); expect(b.lo).toBe(-20); expect(b.hi).toBe(40); expect(b.at).toBeCloseTo(0.5); expect(b.zero).toBeCloseTo(1 / 3);
+  expect(tradeBar({ entry: 1, stop: 20, take: 40 }, 5).at).toBe(1); expect(tradeBar({ entry: 1, stop: 20, take: 40 }, 0.1).at).toBe(0);   // clamped inside the bar
+  expect(tradeBar({ entry: 0 }, 1)).toBeNull(); expect(tradeBar({ entry: 1 }, 1.2).hasStop).toBe(false);
+});
+
+test("the model's record is on the page: what the agents learned from it, and whether it is used yet", async () => {
+  const learn = { state: 'LEARNING', why: '6 of 20 judged calls — the model is shown, not used', open: 3, minN: 20, judgeMin: 15, rows: [{ stance: 'AVOID', n: 6, med: -8.2, up: 17, factor: 1, proven: false }] };
+  const el = await mount(<AiPane ai={{ ...AI, learn }} call={jest.fn()} focus="A" />);
+  expect(q(el, 'cai-learn').textContent).toContain('LEARNING'); expect(q(el, 'cai-learn').textContent).toContain('6 judged'); expect(q(el, 'cai-learn').textContent).toContain('3 calls waiting');
+  const used = await mount(<AiPane ai={{ ...AI, learn: { ...learn, state: 'IN USE', rows: [{ stance: 'AVOID', n: 25, med: -12, up: 20, factor: 0.9, proven: true }] } }} call={jest.fn()} focus="A" />);
+  expect(q(used, 'cai-learn').textContent).toContain('rank ×0.9');
+});

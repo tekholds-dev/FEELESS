@@ -244,3 +244,18 @@ def test_a_seat_whose_buy_has_not_landed_is_never_stopped_or_pulled():
     _pos, rep, _gone = of.reap([{**leg, 'real': True}], [], {'P': 0.5}, {}, {}, 60.0, control=True, real=True)
     assert rep[0]['action'] == 'pull'                                    # held for real: the catastrophic stop acts
     assert ap.RUG_LIQ < 1
+
+
+def test_pumps_own_record_is_the_third_fresh_source_for_a_buy_gate():
+    import launchpad_board as lb
+    import fuse_wallet as fw
+    rec = {'mint': 'NEWpump', 'symbol': 'NEW', 'usd_market_cap': 30000, 'complete': False, 'bonding_curve': 'CURVE'}
+    p = lb.pump_pair(rec, 'P9')
+    assert p['pairAddress'] == 'P9' and p['dexId'] == 'pumpfun' and abs(float(p['priceUsd']) - 3e-5) < 1e-12 and p['source'] == 'pump'
+    cfg = fw.clean_cfg({'trenchMinLiqUsd': 8000})
+    assert fw.live_buy_market({'side': 'buy', 'mint': 'NEWpump', 'trench': True, 'curve': True}, p, cfg)[0]       # an agentCurve seat: the curve's depth
+    assert not fw.live_buy_market({'side': 'buy', 'mint': 'NEWpump', 'trench': True}, p, cfg)[0]                  # any other door: no pool, no buy
+    assert not fw.live_buy_market({'side': 'buy', 'mint': 'OTHERpump', 'trench': True, 'curve': True}, p, cfg)[0]  # never another coin's record
+    assert lb.pump_pair({**rec, 'is_banned': True}) is None and lb.pump_pair({**rec, 'usd_market_cap': 0}) is None and lb.pump_pair(None) is None
+    done = lb.pump_pair({**rec, 'complete': True, 'canonical_pool_liquidity_usd': 42000, 'pump_swap_pool': 'POOL'})
+    assert done['dexId'] == 'pumpswap' and done['liquidity']['usd'] == 42000 and done['pairAddress'] == 'POOL'

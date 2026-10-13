@@ -83,7 +83,7 @@ def status(env):
             for k, (lab, var, _u, _a) in PROVIDERS.items()]
     return {'providers': rows, 'active': active if any(r['active'] for r in rows) else None, 'model': env.get(MODEL_VARS.get(active, MODEL_VAR)) or env.get(MODEL_VAR) or None,
             'base': host_of(env.get(BASE_VAR)) if active == 'custom' else None, 'used': 'advisory',
-            'note': 'Advisory only: the AI router may ask a provider for a note beside Sherlock / Devil / the Judge / your review — it never changes a rank, a size, READY, an order or a stop.'}
+            'note': 'Advisory only: the AI router may ask a provider for a note beside Sherlock / Devil / the Judge / your review — it never places, sizes, blocks or sells anything; a stance moves the ranking (±10% at most) only once it is proven on its own judged record.'}
 
 
 def env_lines(c):

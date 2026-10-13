@@ -85,7 +85,7 @@ def test_local_first_then_fallback_on_timeout_429_malformed_and_offline():
     out = run(air.ROUTER.reason(h, env(), {}, CASE, 'sherlock'))
     assert out['source'] == 'groq' and air.ROUTER.stats['local']['state'] == 'RATE LIMITED' and air.ROUTER.stats['local']['coolUntil'] > 0
     assert h.calls[1][2]['Authorization'] == f'Bearer {GROQ}'                           # the key goes ONLY to its own provider's header
-    out2 = run(air.ROUTER.reason(h, env(), {}, {**CASE, 'rank': 181}, 'sherlock'))
+    out2 = run(air.ROUTER.reason(h, env(), {}, {**CASE, 'rank': 480}, 'sherlock'))
     assert ['local', 'RATE LIMITED'] in out2['tried'] and out2['source'] == 'groq'      # still resting: skipped without a call
 
 
@@ -165,7 +165,7 @@ def test_local_is_one_at_a_time_with_a_bounded_queue():
 
     async def many():
         s = Slow({})
-        return s, await asyncio.gather(*[air.ROUTER.reason(s, env(), {}, {**CASE, 'rank': i}, 'sherlock') for i in range(5)])
+        return s, await asyncio.gather(*[air.ROUTER.reason(s, env(), {}, {**CASE, 'rank': i * 100}, 'sherlock') for i in range(5)])
     s, outs = run(many())
     srcs = [o['source'] for o in outs]
     assert srcs.count('local') == 3 and srcs.count('groq') == 2                           # 1 running + 2 queued; the rest go to the next provider
@@ -288,7 +288,7 @@ def test_the_seat_precheck_runs_the_keepers_own_market_gate_before_a_seat_exists
     rs._fw_live_pairs = live
     rs._agent_refused.clear(); rs._seat_pre_ok.clear()
     try:
-        ok = asyncio.run(rs._seat_precheck(plan, {}, 1000.0))
+        ok = asyncio.run(rs._seat_precheck(plan, {}, 1000.0, need=3))
     finally:
         rs._fw_live_pairs = old
     assert set(ok) == {'GOODpump'} and ok['GOODpump']['liq'] == 500000 and ok['GOODpump']['px'] == 0.5   # the seat starts from the LIVE depth + price
@@ -296,3 +296,15 @@ def test_the_seat_precheck_runs_the_keepers_own_market_gate_before_a_seat_exists
     assert {'THINpump', 'GONEpump'} <= rs._agent_blocked({}, 1001.0) and 'GOODpump' not in rs._agent_blocked({}, 1001.0)
     assert not ({'THINpump', 'GONEpump'} & rs._agent_blocked({}, 1000.0 + rs.AGENT_PRE_SEC + 1))                 # …and they come back after 3 minutes
     rs._agent_refused.clear(); rs._seat_pre_ok.clear()
+
+
+def test_low_usage_a_coin_that_only_wiggled_is_the_same_case_and_a_changed_state_is_a_new_one():
+    base = {**CASE, 'move5m': 12.0, 'vol5m': 5200, 'buyShare': 58, 'why': 'rank 180.4'}
+    k = air.case_key(base, 'sherlock')
+    assert air.case_key({**base, 'rank': 183.7, 'move5m': 13.1, 'vol5m': 5900, 'buyShare': 59, 'why': 'rank 183.7', 'flow': 'pace 2.1x'}, 'sherlock') == k   # a wiggle: no second inference
+    assert air.case_key({**base, 'status': 'CONTENDING'}, 'sherlock') != k and air.case_key({**base, 'trigger': 'ARM'}, 'sherlock') != k
+    assert air.case_key({**base, 'devil': ['rug STRONG_WARNING']}, 'sherlock') != k and air.case_key({**base, 'rank': 320}, 'sherlock') != k
+    assert air.case_key({**base, 'move5m': 45.0}, 'sherlock') != k and air.case_key(base, 'devil') != k and air.case_key({**base, 'mint': 'OTHER'}, 'sherlock') != k
+    assert air.CACHE_SEC >= 600
+    c = air.compact({**base, 'holders': 'top10 18% · dev 2% · scan passed', 'chart': 'COMPRESSION', 'crowd': 'callers 3'})
+    assert c['holders'].startswith('top10') and c['chart'] == 'COMPRESSION' and 'wallet' not in c and 'url' not in c      # Sherlock's brief reaches the model; nothing else does

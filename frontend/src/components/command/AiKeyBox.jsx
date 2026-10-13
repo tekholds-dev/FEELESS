@@ -34,6 +34,6 @@ export function AiKeyBox({ call, isOwner = true }) {
         <button type="submit" className="m-btn m-go" disabled={!isOwner || busy || !key.trim() || (prov === 'custom' && !base.trim())} data-testid="ai-key-save">{busy ? 'Testing…' : 'Test & save'}</button></div></form>
     {err ? <p className="ack-ai-note is-warn" data-testid="ai-key-err">{err}</p> : null}
     {models.length ? <p className="ack-ai-note" data-testid="ai-key-models">The key answered — models it can use include: {models.join(' · ')}</p> : null}
-    <p className="ack-ai-note" data-testid="ai-key-note">{st?.active ? `Active: ${rows.find(r => r.active)?.label}${st.model ? ` · ${st.model}` : ''}${st.base ? ` · ${st.base}` : ''}. ` : ''}{st?.note || 'Advisory only — a model never changes a rank, a size, READY, an order or a stop.'}</p>
+    <p className="ack-ai-note" data-testid="ai-key-note">{st?.active ? `Active: ${rows.find(r => r.active)?.label}${st.model ? ` · ${st.model}` : ''}${st.base ? ` · ${st.base}` : ''}. ` : ''}{st?.note || 'Advisory only — a model never places, sizes, blocks or sells anything; a stance moves the ranking (±10% at most) only once it is proven on its own judged record.'}</p>
   </section>;
 }

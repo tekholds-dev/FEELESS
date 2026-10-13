@@ -65,8 +65,6 @@
 .ack-cmc .ack-num { font-size: 15px; color: var(--m-text); }
 .ack-ctools { display: inline-flex; flex-wrap: nowrap; align-items: center; gap: 6px; margin-left: auto; }
 .ack-iv { display: inline-flex; flex-wrap: nowrap; } .ack-wr { font-size: 11px; }
-.ack-plot { height: clamp(320px, 48vh, 500px); min-height: 0; }
-.ack-plot > * { height: 100%; }
 .ack-plot :is(.chart-foot-chips, .chart-style-toggle, .chart-source, .chart-stale-note) { display: none !important; }   /* the header + marker rail carry these; in the plot they covered the time axis */
 .ack-mrail { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 6px; font: 600 10px var(--m-mono); color: var(--m-mute); }
 .ack-mkey, .ack-mlist { display: inline-flex; flex-wrap: wrap; gap: 4px; }
@@ -225,7 +223,7 @@ button.ack-ml { cursor: pointer; transition: transform .12s var(--m-ease), borde
   .ack-tcards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 1180px) { .ack-main, .ack-foot { grid-template-columns: minmax(0, 1fr); } .ack-panel { position: static; } .ack-seatrow { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ack-pbody { max-height: none; } }
 @media (max-width: 640px) {
-  .ack-seatrow, .ack-tcards { grid-template-columns: minmax(0, 1fr); } .ack-plot { height: 300px; } .ack-ctools { margin-left: 0; } .ack-agents { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ack-seatrow, .ack-tcards { grid-template-columns: minmax(0, 1fr); } .ack-ctools { margin-left: 0; } .ack-agents { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ack-trow button { grid-template-columns: 38px 80px minmax(0, 1fr); } .ack-trow .ack-tsym { display: none; } .ack-trow .ack-twhy { grid-column: 1 / -1; }
   .ack-queue th:nth-child(4), .ack-queue td:nth-child(4) { display: none; } .ack-own-list li { flex-wrap: wrap; } .ack-ptiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ack-inputs li { grid-template-columns: 90px 86px minmax(0, 1fr); } .ack-op { min-width: calc(50% - 6px); } .ack-aichip { margin-left: 0; }

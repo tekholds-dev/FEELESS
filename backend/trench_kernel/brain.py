@@ -135,7 +135,7 @@ def think(ms, ctx=None):
     ls = c.get('lessons')   # {role: lesson} of the generations IN CONTROL (lifecycle.lessons) — a shadow / retired one is never in it
     t, sh, we, tr, dv = tally(ms), sherlock(ms, ls), weather(ms, c), trigger(ms, ls), devil(ms, ls)
     wa, co = warden(ms, dv, sh), courier(c)
-    base, parts = _opp.open_score(ms['row'], c.get('weights'), _lc.lesson_value(ls, 'devil', 'strong'))
+    base, parts = _opp.open_score(ms['row'], c.get('weights'), _lc.lesson_value(ls, 'devil', 'strong'), c.get('aiw'))
     rank = round(base * we['factor'] * sh['factor'], 1)
     op = {'tally': t, 'sherlock': sh, 'weather': we, 'trigger': tr, 'devil': dv, 'warden': wa, 'courier': co,
           'reaper': reaper(ms, held), 'archivist': {'sources': ms['identity']['sources']}, 'judge': judge(ms, c.get('weights'))}

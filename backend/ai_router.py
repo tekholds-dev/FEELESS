@@ -7,7 +7,7 @@ WHAT IT IS FOR (ADVISORY_ROLES): Sherlock's compact read of a case, Devil's seco
 a real exit, the owner's coin review, a desk summary. WHAT IT MAY NEVER TOUCH (tests): Tally's intake, Trigger's timing, Reaper's tick,
 Courier's execution and the Warden's money boundary — `reason` refuses those roles outright. Its answer is a small validated JSON object
 (`parse_advice`: stance from a fixed list, numbers clamped, the summary trimmed); anything else is dropped. The answer is DISPLAYED next to
-the desk that asked — it never changes a rank, a size, a READY, an order or a stop. There is no order, quote or wallet call in this module.
+the desk that asked — it never places, sizes, blocks or sells anything; a stance moves the ranking (±10% at most) only once it is proven on its own judged record. There is no order, quote or wallet call in this module.
 
 PROVIDERS are OpenAI-compatible chat endpoints, tried in the configured order; a timeout, a 429, a refused connection or a malformed answer
 falls through to the next. All of them failing = deterministic only ('NONE') — the kernel never waits on a model:
@@ -39,7 +39,7 @@ FORBIDDEN_ROLES = ('tally', 'trigger', 'reaper', 'courier', 'warden')        # h
 STANCES = ('WATCH', 'ENTER', 'WAIT', 'AVOID', 'HOLD', 'PROTECT', 'EXIT', 'SKIP')
 AGENTS = ('tally', 'sherlock', 'weather', 'trigger', 'devil', 'warden', 'courier', 'reaper', 'archivist', 'judge')
 QUEUE_MAX = 2              # requests allowed to WAIT for a busy provider (local: 1 running + 2 waiting); more → next provider
-CACHE_SEC = 120.0          # the same case asked again inside 2 minutes = the cached answer (no second inference)
+CACHE_SEC = 600.0          # the same case (same coin, same STATE — see case_key) inside 10 minutes = the cached answer (no second inference)
 RATE_COOL = 60.0           # a 429 rests that provider this long (or its Retry-After, ≤ 5 min)
 FAIL_COOL = (0.0, 0.0, 15.0, 30.0, 60.0)   # cool-down by consecutive failures (2 free, then 15s … 60s)
 MAX_TOKENS = 220
@@ -147,6 +147,8 @@ def parse_advice(text):
 
 
 CASE_KEYS = ('symbol', 'status', 'rank', 'ageMin', 'cap', 'liq', 'vol5m', 'move5m', 'buyShare', 'narrative', 'trigger', 'devil', 'size', 'unknown',
+             'holders', 'chart', 'flow', 'launch', 'crowd',   # 🔍 Sherlock's brief: one short line each, built by the service from readings it ALREADY has
+
              'pct', 'peak', 'heldMin', 'decision', 'rule', 'reason', 'structure', 'phase', 'result', 'cause', 'state', 'why', 'pending')
 
 
@@ -185,8 +187,26 @@ def messages(case, role):
     return [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': f"{ROLE_ASK.get(role, ROLE_ASK['manager'])}\nCASE: {json.dumps(compact(case), separators=(',', ':'))}"}]
 
 
+_KEY_STEP = {'rank': 50.0, 'move5m': 10.0, 'buyShare': 10.0, 'pct': 10.0, 'peak': 10.0, 'result': 5.0}
+_KEY_SKIP = ('why', 'reason', 'holders', 'chart', 'flow', 'launch', 'crowd', 'heldMin', 'size')   # wording / detail that changes every pass
+
+
+def _coarse(k, v):
+    """A number as the STATE it stands for: rank to the nearest 50, moves to the nearest 10 pts, money to its order of magnitude, age
+    to its band — a coin that only wiggled is the same case (one inference, not one per pass)."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return v
+    if k in _KEY_STEP:
+        return round(float(v) / _KEY_STEP[k])
+    if k == 'ageMin':
+        return next((i for i, lim in enumerate((5, 15, 60, 180, 360)) if v < lim), 9)
+    return len(str(int(abs(v)))) if abs(v) >= 1 else 0   # cap / liq / vol: digits = order of magnitude
+
+
 def case_key(case, role):
-    c = compact(case)
+    """🪙 LOW USAGE: the cache key is the case's STATE (status · trigger · Devil's objections · narrative · coarse numbers), not every
+    number — the old key hashed rank and the 5-min move to the decimal, so the same coin was a "new" case on nearly every pass."""
+    c = {k: _coarse(k, v) for k, v in compact(case).items() if k not in _KEY_SKIP}
     return f"{role}:{(case or {}).get('mint') or ''}:{hashlib.sha1(json.dumps(c, sort_keys=True).encode()).hexdigest()[:12]}"
 
 
@@ -376,7 +396,7 @@ class Router:
         live = next((r for r in rows if r['state'] == 'ONLINE'), None)
         return {'providers': rows, 'order': [r['key'] for r in rows], 'active': live['key'] if live else None, 'totals': dict(self.totals),
                 'roles': list(ADVISORY_ROLES), 'never': list(FORBIDDEN_ROLES),
-                'note': 'Advisory only: an AI answer is shown next to the desk that asked; it never changes a rank, a size, READY, an order or a stop.'}
+                'note': 'Advisory only: an AI answer is shown next to the desk that asked; it never places, sizes, blocks or sells anything; a stance moves the ranking (±10% at most) only once it is proven on its own judged record.'}
 
 
 ROUTER = Router()

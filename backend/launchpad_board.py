@@ -291,6 +291,25 @@ def pump_profile(d, now_ms=0):
             'lastTradeAt': f(d.get('last_trade_timestamp')) or None, 'url': f"https://pump.fun/coin/{d['mint']}"}
 
 
+def pump_pair(d, pair_address=None):
+    """📡 Pump's own coin record → the pair shape every buy gate reads (the THIRD fresh source, after DexScreener and Jupiter: a coin
+    minutes old is in neither index yet, and 101 of 231 refused agent buys in 6h on 2026-10-12 were "live market unavailable").
+    Price = Pump's own $ cap ÷ its fixed 1B supply. A banned coin, or one with no cap, is no pair. `source: 'pump'`."""
+    if not isinstance(d, dict) or not d.get('mint') or d.get('is_banned'):
+        return None
+    try:
+        mc = float(d.get('usd_market_cap') or d.get('market_cap_usd') or 0)
+        liq = float(d.get('canonical_pool_liquidity_usd') or 0)
+    except (TypeError, ValueError):
+        return None
+    if not mc > 0:
+        return None
+    done = d.get('complete') is True
+    return {'chainId': 'solana', 'dexId': 'pumpswap' if done else 'pumpfun', 'pairAddress': pair_address or d.get('pump_swap_pool') or d.get('bonding_curve') or d['mint'],
+            'baseToken': {'address': d['mint'], 'symbol': str(d.get('symbol') or '')[:20], 'name': str(d.get('name') or '')[:60]},
+            'priceUsd': str(mc / 1e9), 'liquidity': {'usd': liq if done else 0.0}, 'marketCap': mc, 'fdv': mc, 'source': 'pump'}
+
+
 def keep_last_board(hit, ranked, failed, now):
     """📡 True = serve the previous board: this build lost DexScreener batches AND came out empty or under a third of the last one,
     while that one is < 10 min old. 2026-10-07: a 429 burst built an EMPTY board, it was cached as fresh, and every list went blank.

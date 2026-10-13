@@ -13,6 +13,7 @@ import { openCoin } from '../CoinDrawer';
 import { AiProviders, aiChip } from './AiProviders';
 import { AiPane } from './AiDecisions';
 import '../../styles/agentCockpit.css';
+import '../../styles/cockpitAi.css';   // after the cockpit sheet: it owns the plot's height + the meta pass
 
 // 🎛 THE AGENTS COCKPIT (HQ › Agents, the whole top of the tab — built to the owner's reference, 2026-10-12): REAL MONEY MISSION ribbon ·
 // the four SEATS · ONE chart in MARKET CAP with the agents' real events lettered on it (T D W B R X) · the LIVE DECISIONS strip · the
@@ -79,6 +80,26 @@ function SeatCard({ s, on, onPick, readyN }) {
   </button>;
 }
 
+// 🟢 ON THE CHART: the live trade as one meta strip — entry MC → now MC, the live P&L, and how far the price is from the take and the
+// stop (a bar: left edge = the stop, right edge = the take, the dot = now). Every number is the position's own or the live price.
+export function tradeBar(pos, px) {
+  const e = Number(pos?.entry); const p = Number(px) || Number(pos?.px); const sl = Number(pos?.stop); const tp = Number(pos?.take);
+  if (!(e > 0) || !(p > 0)) return null;
+  const pct = (p / e - 1) * 100; const lo = sl > 0 ? -Math.abs(sl) : -30; const hi = tp > 0 ? tp : 50;
+  return { pct, lo, hi, at: Math.max(0, Math.min(1, (pct - lo) / (hi - lo))), zero: Math.max(0, Math.min(1, (0 - lo) / (hi - lo))), hasStop: sl > 0, hasTake: tp > 0 };
+}
+function LiveTrade({ pos, m }) {
+  const b = tradeBar(pos, m?.price); if (!b) return null;
+  const k = m?.mc && m?.price ? m.mc / m.price : null;
+  return <div className={`ack-trade ${b.pct >= 0 ? 'is-up' : 'is-dn'}`} data-testid="ack-trade">
+    <span className="ack-trk"><small>ENTRY</small><b>{k ? mcWord(Number(pos.entry) * k) : priceFmt(pos.entry)}</b></span>
+    <span className="ack-trk"><small>NOW</small><LiveNum v={k ? m.mc : m?.price} fmt={k ? mcWord : priceFmt} cls="" /></span>
+    <span className="ack-trk is-pnl"><small>LIVE P&amp;L</small><LiveNum v={b.pct} fmt={x => pc(x)} testid="ack-trade-pct" /></span>
+    <span className="ack-trbar" data-tip={`${b.hasStop ? `stop ${b.lo.toFixed(0)}%` : 'no stop line'} ← now ${b.pct >= 0 ? '+' : ''}${b.pct.toFixed(1)}% → ${b.hasTake ? `take +${b.hi.toFixed(0)}%` : 'no take line'}`}>
+      <small>{b.hasStop ? `${b.lo.toFixed(0)}%` : '—'}</small><span><u style={{ left: `${b.zero * 100}%` }} /><i style={{ transform: `translateX(${(b.at * 100).toFixed(1)}cqw)` }} /></span><small>{b.hasTake ? `+${b.hi.toFixed(0)}%` : '—'}</small></span>
+    <span className="ack-trk"><small>☠ REAPER</small><b>{pos.decision || pos.state || 'HOLD'}</b></span></div>;
+}
+
 // ── 📈 the chart: market cap, always ──────────────────────────────────────────────────────────────────────────────────────────────
 export const IVS = [['1m', '1m'], ['5m', '5m'], ['15m', '15m']];
 function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent }) {
@@ -87,9 +108,6 @@ function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent }) {
   // ON the plot: only confirmed FILLS, as small arrows at the real fill price (no letters, no decision blocks over the candles);
   // every decision stays readable in the rail under the chart
   const chartMarkers = useMemo(() => markers.filter(k => k.text === 'B' || (k.text === 'X' && k.agent === 'courier')).map(({ id, agent, action, why, mc, at, text, ...k }) => ({ ...k, text: '' })), [markers]);
-  const seatPnl = useMemo(() => { const e = Number(pos?.entry); const u = Number(pos?.usd); const p = Number(pos?.pct);
-    if (!(e > 0) || !(u > 0) || !Number.isFinite(p) || p <= -100) return false;
-    const cost = u / (1 + p / 100); return { label: 'SEAT', pos: { tokensHeld: cost / e, avgEntry: e, investedPoolUsd: cost, locked: true } }; }, [pos?.entry, pos?.usd, pos?.pct]);
   if (!m) return <div className="ack-chart is-empty" data-testid="ack-chart"><p className="ack-nil">No coin on the desk yet — the chart opens on the first seat or READY candidate.</p></div>;
   const vol = cand?.vol5m; const liq = pos?.liq ?? cand?.liq;
   return <div className="ack-chart" data-testid="ack-chart">
@@ -105,8 +123,8 @@ function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent }) {
         <i className="ack-livechip">● MC chart</i></span></header>
     {!m.pair ? <p className="ack-nil" data-testid="ack-nopool">No pool for this coin yet — nothing to chart.</p>
       : !m.mc ? <p className="ack-nil is-warn" data-testid="ack-mc-unavailable"><b>MC UNAVAILABLE</b> — no supply is known for this coin yet (no token supply, not a launchpad mint, no live cap). The raw price is never charted in its place.</p>
-        : <div className="ack-plot"><Suspense fallback={<p className="ack-nil">loading the live chart…</p>}>
-          <PriceChartLazy key={`${m.pair}-${iv}`} pair={pair} interval={iv} metric="marketCap" showVolume markers={chartMarkers} fuse={fuse} pnl={seatPnl} /></Suspense></div>}
+        : <div className="ack-plot">{pos ? <LiveTrade pos={pos} m={m} /> : null}<Suspense fallback={<p className="ack-nil">loading the live chart…</p>}>
+          <PriceChartLazy key={`${m.pair}-${iv}`} pair={pair} interval={iv} metric="marketCap" showVolume markers={chartMarkers} fuse={fuse} pnl={false} plain /></Suspense></div>}
     <div className="ack-mrail" data-testid="ack-mrail"><span className="ack-mkey"><i className="ack-ml is-B">▲<small>real buy</small></i><i className="ack-ml is-X">▼<small>real sell</small></i><small>on the chart · decisions →</small></span>
       {markers.length ? <span className="ack-mlist">{markers.slice(-12).map(k => <button key={k.id} type="button" className={`ack-ml is-${k.text}`} onClick={() => onAgent(k.agent)}
         data-tip={`${new Date(k.at * 1000).toLocaleTimeString()} · ${TAPE_AGENT[k.agent]?.[1] || k.agent} · ${k.action}${k.why ? ` — ${k.why}` : ''}${k.mc ? ` · MC ${mcWord(k.mc)}` : ''} · ${ago(k.at)} ago`}
