@@ -176,6 +176,8 @@ def test_scanners_only_get_their_share_of_the_dedicated_endpoint(monkeypatch):
     monkeypatch.setattr(chain_rpc, '_dedicated', 'DED'); monkeypatch.setattr(chain_rpc, 'RPC_POOL', ['DED', 'pub'])
     monkeypatch.setattr(chain_rpc, 'RPC_MAX_RETRIES', 2); monkeypatch.setattr(chain_rpc, '_scan_stamps', []); monkeypatch.setattr(chain_rpc, 'SCAN_RPS', 2)
     monkeypatch.setattr(chain_rpc, '_rpc_cooldown_until', {})
+    t0 = chain_rpc.time.time()
+    monkeypatch.setattr(chain_rpc.time, 'time', lambda: t0)   # the same instant for all four: on a loaded machine the real clock refilled the bucket between calls
     http = _Http([_Res(200, {'result': 1})] * 4)
     for _ in range(4):
         assert asyncio.run(chain_rpc._rpc(http, 'getBalance', ['W'])) == 1
