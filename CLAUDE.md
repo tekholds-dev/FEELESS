@@ -3824,3 +3824,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `meme_terms.wave_roles`: the biggest-then-oldest coin of a ticker wave leads, the rest copy). First dip after bonding, real callers stacking
   and the clean dip catch were already there (2026-10-13 5-min records: +1.1% n13 · −10.6% n51 · −4.8% n15; volume burst −34.7% n115).
   House money at 2× is an EXIT that already exists (`houseAt` / moon ladder), not a selection rule. None of them touches real money by itself.
+- 💰 CAPITAL DESK (`backend/capital.py` pure + tested `tests/test_capital.py`; owner, 2026-10-13: "agents must be taught capital management and
+  how to grow faster"; realCfg `agentCapital`, on by default; `_capital_view` → payload `capital`, Warden ctx `capital`, the model coach's case
+  `capital` line): size follows the agents' own last 30 CONFIRMED real exits — win rate, avg win, avg loss, payoff, expectancy, Kelly.
+  🧪 PROVING (< 12 exits, or winning with < 20) = seats as before · 🛡 PROTECT (Kelly ≤ 0: the average bet loses) = Warden rule `W23 capital`
+  ×0.25 and uncertain coins may shrink to ×0.25 · ⚖ STEADY (winning by a hair: half-Kelly of the card < ¾ seat) = ×0.5 · 🚀 GROW (20+ exits,
+  half-Kelly ≥ ¾ seat) = ×0.75 / ×1 and an uncertain coin may take ×0.75 instead of ×0.5 (`trench_crew.warden_rules(rules, floor)`).
+  Never more than the card's own seat (allowed ≤ requested stands); execution rules W1 / W3 / W17 / W11 / W22 untouched; a seat is a share of
+  the card NOW, so winnings compound by themselves. `leaks` = which exit rules lost the window's money (the lesson). Page: `CapitalMeter` +
+  the `agentCapital` switch in 🪑 SEATS & ENTRY (`capitalRead` in lib/cockpitControls.js). FIRST READING (114 real agent exits): all-time
+  40% won, +20.9 / −26.8, Kelly −0.36 → no size was right; last 30: 57% won, +15.8 / −19.1, payoff 0.83, +0.7% a bet, Kelly 0.04 → STEADY;
+  the 20 exits after the chart gate: 65% won, +15.3 / −11.2, payoff 1.36 (thin). 112 of 114 seats had been ×0.5 whatever the record said.
+  THE PAYOFF IS THE PROBLEM, NOT THE SIZE: stops (R5 / R5x / R1) lost $3.68 of a net −$0.85 — losses fill ~−27% against −12…−25% lines.
+  Growing faster = a smaller average loss or a bigger average win; pressing size on a 20-trade record is how the card went $28 → $0.47.

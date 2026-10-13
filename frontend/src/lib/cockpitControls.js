@@ -55,6 +55,18 @@ export function regretRows(rg) {
   });
 }
 
+// 💰 the capital desk (backend/capital.py), read for the page: one verdict, the seat size it sets, win vs loss as two bars, ≤ 3 leaks
+export const CAP_WORD = { PROTECT: '🛡 PROTECT', PROVING: '🧪 PROVING', STEADY: '⚖ STEADY', GROW: '🚀 GROW' };
+export function capitalRead(cap) {
+  const r = cap?.record || {}; const n = r.n || 0;
+  if (!cap || !n) return { state: 'PROVING', word: CAP_WORD.PROVING, size: null, n: 0, facts: [], win: 0, loss: 0, line: 'no real exits on record yet' };
+  const aw = Math.abs(r.avgWin || 0); const al = Math.abs(r.avgLoss || 0); const top = Math.max(aw, al, 1);
+  return { state: cap.state, word: CAP_WORD[cap.state] || cap.state, size: cap.on === false ? null : cap.mult ?? null, off: cap.on === false, n,
+    win: aw / top, loss: al / top, winPct: r.avgWin, lossPct: r.avgLoss, won: r.wonPct, payoff: r.payoff, exp: r.expPct, kelly: r.kelly,
+    line: `${n} real exits · ${r.wonPct}% won · ${r.expPct > 0 ? '+' : ''}${r.expPct}% a bet`,
+    facts: (cap.leaks || []).filter(x => x.sumPct < 0).slice(0, 3).map(x => `${x.rule} ${x.sumPct}% over ${x.n}`), why: cap.why };
+}
+
 // who decides a control right now → its tone class
 export const whoTone = w => (w === 'CREATOR OVERRIDE' ? 'is-you' : w === 'YOUR BAND' ? 'is-band' : 'is-agents');
 export const WHO_WORD = { 'CREATOR OVERRIDE': 'YOURS', 'YOUR BAND': 'YOUR BAND', 'AGENTS CHOOSE': 'AGENTS' };

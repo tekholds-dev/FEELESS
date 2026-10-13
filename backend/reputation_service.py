@@ -14154,6 +14154,17 @@ def _real_trades():
     return _real_tr['rows']
 
 
+def _capital_view():
+    """💰 The capital desk's read of the agents' own confirmed real exits (capital.py) — what the Warden sizes by, the page shows and the
+    model coach is taught. `on` = the owner's switch (realCfg `agentCapital`); off = shown and taught, sizes nothing."""
+    rc = _prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
+    try:
+        return _cap.view(_real_trades(), int(_fuse._f(rc.get('agentSeats') or rc.get('coins') or 4)) or 4, rc.get('agentCapital'))
+    except Exception as e:
+        print('capital:', e)
+        return {'on': False, 'record': {'n': 0}, 'state': 'PROVING', 'mult': None, 'floor': None, 'why': 'no record read', 'leaks': []}
+
+
 def _real_mem(now):
     """🧠 The real-money memory (`real_memory.build` over the archive's confirmed real exits), rebuilt at most once a minute."""
     if _rm_cache['mem'] is None or now - _rm_cache['at'] >= 60:
@@ -14244,6 +14255,7 @@ def _teach_state():
         _teach['st'] = _json_load(TEACH_PATH, {}) or {}
     return _teach['st']
 import regret as _rg
+import capital as _cap
 REGRET_PATH = DATA_DIR / 'regret.json'
 _regret: dict = {'b': None, 'at': 0.0, 'savedAt': 0.0}
 
@@ -14367,6 +14379,7 @@ async def _coach_ai(now, env, cfg):
         mem_ = _real_mem(now) or {}
         case = _co.coach_case(reviews, {'worst': sorted(((v_['est'], k_, v_['n']) for k_, v_ in (mem_.get('cells') or {}).items()))[:4]}, _co.active(st_, now),
                               _co.grades(st_), (_coach.get('tape') or {}).get('rules'), (_coach.get('tape') or {}).get('stats'))
+        case['capital'] = _cap.lesson(_capital_view())   # 💰 the desk's money record: win rate, payoff, Kelly, where the losses come from
         res = await _air.ROUTER.reason(_ai_http(), env, cfg, case, 'coach', 'normal', prio=_air.PRIO['coach'])
         ad = (res or {}).get('advice') or {}
         n = 0
@@ -15264,6 +15277,9 @@ def _office_warden(cur, t_, requested, cfg_t, now, move):
     try:
         t0 = time.perf_counter()
         ctx_ = _office_ctx(cur, t_, now)
+        cap_ = _capital_view()
+        if cap_.get('on'):   # 💰 size follows the agents' own real record (W23): smallest seats while it loses, half-Kelly once winning is proven
+            ctx_['capital'] = cap_
         ctx_['open'] = True   # 🪖 every agent move is a kernel candidate: execution rules as they are, uncertainty only SHRINKS (trench_crew.warden_rules)
         if t_.get('size') is not None:   # the brain's Warden opinion (uncertainty → size) enters the ONE sizing as rule W0
             ctx_.update(kernelSize=t_.get('size'), kernelWhy=t_.get('sizeWhy'))
@@ -15762,7 +15778,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         print('fresh:', e)
     _office['payload']['performance']['passMs'] = round(sum(_fuse._f(ms.get(a)) for a in _of.CHAIN), 2)
     _tape_ledger(now)
-    _office['payload'].update(tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now), ai=_ai_view(now, light=True), net=_net_stats(now), armed=_office.get('armed'), lab=_lab_view(now), regret=_rg.view(_regret_book(), now), teach=_tch.view(_teach_state()),
+    _office['payload'].update(tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now), ai=_ai_view(now, light=True), net=_net_stats(now), armed=_office.get('armed'), lab=_lab_view(now), regret=_rg.view(_regret_book(), now), capital=_capital_view(), teach=_tch.view(_teach_state()),
                               universe={'capUsd': _uni.band()[1], 'minCapUsd': _uni.band()[0], 'word': _uni.band_word(), 'maxAgeH': _uni.AGENT_MAX_AGE_H, 'inLane': len(_agents.get('table') or []),
                                         'board': (_office.get('intake') or {}).get('board'), 'mints': len(_tk.KERNEL.store.mints)})
     _hub_publish(now)   # 📡 this pass as DELTAS: only what changed since the last one
@@ -15909,7 +15925,7 @@ async def admin_agents_set(request: Request):
     ch = {}
     if 'feed' in body:
         ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait') + _oe.POLICY_KEYS:
+    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital') + _oe.POLICY_KEYS:
         if k in (body.get('cfg') or {}):
             ch[k] = body['cfg'][k]
     if ch:

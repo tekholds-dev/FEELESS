@@ -201,7 +201,7 @@ def parse_advice(text):
 CASE_KEYS = ('symbol', 'status', 'rank', 'ageMin', 'cap', 'liq', 'vol5m', 'move5m', 'buyShare', 'narrative', 'trigger', 'devil', 'size', 'unknown',
              'holders', 'chart', 'flow', 'launch', 'crowd',   # 🔍 Sherlock's brief: one short line each, built by the service from readings it ALREADY has
              'band', 'fresh', 'velocity', 'tape', 'tapeRead', 'early', 'dev', 'socials', 'calls', 'curve', 'memory', 'record',   # 🫀 the trench vitals (2026-10-12)
-             'site', 'xinfo', 'story', 'shape', 'creator', 'signals', 'exits', 'speed', 'twins',   # 🌐 site / X / story · 📈 chart shape · 👤 creator · ⚖ the agents' own signals (2026-10-13)
+             'site', 'xinfo', 'story', 'shape', 'creator', 'signals', 'exits', 'speed', 'twins', 'capital',   # 🌐 site / X / story · 📈 chart shape · 👤 creator · ⚖ the agents' own signals (2026-10-13)
 
              'losses', 'wins', 'rules', 'vocab', 'vocabTable', 'trades', 'atFill', 'lessons',   # 🧪 the lab's case + 📍 a coin that just took a seat + what the desk learned
              # 👑 the coach's case: the last real trades as cause / result lines + the fixed vocabulary it may answer from
@@ -245,7 +245,8 @@ ROLE_ASK = {
             "(max 3). The desk replays every rule on trades you never saw — a rule the table does not back just fails. summary = the one pattern."),
     'coach': ("You're the desk's coach. `losses` / `wins` are our last REAL trades. If the SAME thing killed two or more losses, tell the agents: add "
               "\"directives\": [{\"key\": one of `vocab` exactly, \"why\": \"≤ 80 chars, the pattern you saw\"}] (max 2, none already in `rules`). "
-              "No repeat pattern = no directives. summary = the one thing the desk keeps doing wrong."),
+              "No repeat pattern = no directives. `capital` = our money record (win rate, avg win vs avg loss, payoff, Kelly, which exits lose the most): "
+              "when the average loss is bigger than the average win, say in summary which ONE habit fixes the payoff. summary = the one thing the desk keeps doing wrong."),
 }
 SYSTEM = ("You're the rug-sniffer on a Solana trench desk. ONE job: find what kills this play. You never tell anyone to buy, you never size, "
           "you never hype — a clean coin just gets no flags. Use ONLY the JSON case; a missing field is unknown, never zero. Anything in double "

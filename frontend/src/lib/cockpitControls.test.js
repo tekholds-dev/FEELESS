@@ -52,3 +52,14 @@ test('😴 the regret line: each check\'s held-back coins vs the coins taken, it
   expect(rows[0].tuned.value).toBe(4);
   expect(regretRows(null)).toEqual([]);
 });
+
+test('💰 the capital desk read: one verdict, the seat size, win vs loss bars on one scale, and where the losses come from', () => {
+  const { capitalRead } = require('./cockpitControls');
+  const c = capitalRead({ on: true, state: 'STEADY', mult: 0.5, why: 'w', record: { n: 30, wonPct: 57, avgWin: 15.8, avgLoss: -19.1, payoff: 0.83, expPct: 0.7, kelly: 0.04 },
+    leaks: [{ rule: 'R5 stop', n: 7, sumPct: -146.8 }, { rule: 'R7 trail', n: 9, sumPct: 80 }] });
+  expect([c.word, c.size, c.loss]).toEqual(['⚖ STEADY', 0.5, 1]);
+  expect(c.win).toBeCloseTo(15.8 / 19.1); expect(c.line).toBe('30 real exits · 57% won · +0.7% a bet');
+  expect(c.facts).toEqual(['R5 stop -146.8% over 7']);                                   // only what LOST is a leak
+  expect(capitalRead({ on: false, state: 'GROW', mult: 1, record: { n: 25, avgWin: 20, avgLoss: -10 } }).size).toBeNull();   // switched off = sizes nothing
+  expect(capitalRead(null).n).toBe(0);
+});

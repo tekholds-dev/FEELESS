@@ -70,13 +70,15 @@ WARDEN_EXEC = ('W1', 'W3', 'W17')            # execution health · pool share ·
 SHRINK_FLOOR = 0.5
 
 
-def warden_rules(rules):
-    """Trench-mode filter for the Warden's rule hits: execution rules as they are; uncertainty rules shrink to ≥ ×SHRINK_FLOOR; the rest drop."""
+def warden_rules(rules, floor=None):
+    """Trench-mode filter for the Warden's rule hits: execution rules as they are; uncertainty rules shrink to ≥ ×SHRINK_FLOOR; the rest drop.
+    `floor` = the 💰 capital desk's own floor for an uncertain coin (0.25 while the real record loses · 0.75 once winning is proven)."""
+    fl = SHRINK_FLOOR if floor is None else max(0.25, min(1.0, float(floor)))
     out = []
     for r in rules or []:
         rid = str(r.get('id') or '').split(' ')[0]
         if rid in WARDEN_EXEC:
             out.append(r)
         elif rid in WARDEN_SHRINK:
-            out.append({**r, 'mult': max(SHRINK_FLOOR, float(r.get('mult') or 0)), 'why': f"{r.get('why')} — trench mode: size, not a no"})
+            out.append({**r, 'mult': max(fl, float(r.get('mult') or 0)), 'why': f"{r.get('why')} — trench mode: size, not a no"})
     return out

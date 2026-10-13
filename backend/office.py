@@ -417,7 +417,11 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
                                                               f"{int(_f(li_.get('danger')))} early wallet(s) with a dump / rug record" if _f(li_.get('danger')) else None) if x))
     if c.get('open'):   # ⚡ OPEN MODE (owner, 2026-10-12: "no gates — volume and newness only"): only execution, pool share and seat room size it
         import trench_crew as _crew
-        rules = _crew.warden_rules(rules); tier_m = 1.0   # 🪖 trench crew: execution rules as they are, uncertainty only SHRINKS (≥ ×0.5)
+        cap_ = c.get('capital') or {}   # 💰 the capital desk (capital.py): size follows the agents' own REAL record
+        live_ = cap_.get('state') in ('GROW', 'STEADY', 'PROTECT') and cap_.get('mult') is not None
+        rules = _crew.warden_rules(rules, cap_.get('floor') if live_ else None); tier_m = 1.0   # 🪖 trench crew: execution rules as they are, uncertainty only SHRINKS (≥ ×0.5, or the capital desk's floor)
+        if live_:
+            rules.append({'id': 'W23 capital', 'mult': round(_clamp(_f(cap_['mult']), 0.25, 1.0), 3), 'why': f"💰 {cap_.get('state')}: {str(cap_.get('why'))[:170]}"})
     raw = min([r['mult'] for r in rules] or [1.0])
     if tier_m < 1:   # 🎯 size by CONFIDENCE: the tier multiplies whatever the other rules allowed (as the smallest rule it was masked: every seat came out ×0.4)
         rules.append({'id': 'W19 confidence tier', 'mult': round(tier_m, 3), 'why': f"{c.get('tier') or 'unconfirmed'}-tier: ×{tier_m:g} on top — {str(c.get('near'))[:140]}"})

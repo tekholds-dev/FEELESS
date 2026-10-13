@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { hubLoad, useAi } from '../../lib/agentHub';
-import { CTRL_GROUPS, optWord, whoTone, WHO_WORD, bandTrack, hasIntel, gateCounts, GATE_WORDS, regretRows } from '../../lib/cockpitControls';
+import { CTRL_GROUPS, optWord, whoTone, WHO_WORD, bandTrack, hasIntel, gateCounts, GATE_WORDS, regretRows, capitalRead } from '../../lib/cockpitControls';
 import { aiMetricsLine } from '../../lib/aiRead';
 import { AiChipBtn } from './AiProviders';
 import '../../styles/agentControls.css';
@@ -69,6 +69,19 @@ function RegretLine({ rg }) {
     <b>{r.label}</b><span>{r.n ? `${pct(r.med)} vs ${pct(r.taken)}` : '—'}</span><em>{r.tuned ? `🤖 → ${r.tuned.value === false ? 'OFF' : r.tuned.value}` : r.verdict === 'costly' ? 'COSTLY' : r.verdict === 'right' ? 'RIGHT' : r.verdict === 'even' ? 'EVEN' : `${r.n}/12`}</em></li>)}</ul>;
 }
 
+// 💰 CAPITAL DESK: the seat size the agents' own real record has earned — verdict · size · win vs loss bars · where the losses come from
+function CapitalMeter({ cap }) {
+  const c = capitalRead(cap);
+  return <div className={`acx-cap is-${String(c.state).toLowerCase()}`} data-testid="acx-capital" data-state={c.state} data-tip={c.why || c.line}>
+    <p className="acx-caphead"><b>{c.word}</b><span>{c.line}</span><em>{c.off ? 'OFF' : c.size ? `SEAT ×${c.size}` : 'SEATS AS BEFORE'}</em></p>
+    {c.n ? <p className="acx-capbars" aria-label="Average win against average loss">
+      <span className="is-win"><i style={{ transform: `scaleX(${c.win})` }} /><u>avg win {c.winPct > 0 ? '+' : ''}{c.winPct}%</u></span>
+      <span className="is-loss"><i style={{ transform: `scaleX(${c.loss})` }} /><u>avg loss {c.lossPct}%</u></span>
+      <small>payoff {c.payoff ?? '—'} · Kelly {c.kelly ?? '—'}</small></p> : null}
+    {c.facts.length ? <p className="acx-capfacts">{c.facts.map(f => <span key={f}>🩸 {f}</span>)}</p> : null}
+  </div>;
+}
+
 export function CockpitControls({ o, call, isOwner, onAi }) {
   const pol = o?.policy || {}; const ctl = Object.fromEntries((pol.controls || []).map(c => [c.key, c]));
   const [pend, setPend] = useState({}); const busy = Object.keys(pend).length > 0;
@@ -90,6 +103,10 @@ export function CockpitControls({ o, call, isOwner, onAi }) {
       {CTRL_GROUPS.map(([g, title, blurb, keys]) => { const rows = keys.filter(k => ctl[k]); if (!rows.length) return null;
         return <div key={g} className={`acx-card is-${g}`} data-testid={`acx-${g}`}><p className="acx-ctitle"><b>{title}</b><small>{blurb}</small></p>
           {g === 'universe' ? <BandTrack band={pol.band} cands={cands} /> : null}
+          {g === 'seats' ? <CapitalMeter cap={o?.capital} /> : null}
+          {g === 'seats' ? <ControlRow c={{ key: 'agentCapital', label: '💰 Size by the record', who: o?.capital?.on === false ? 'CREATOR OVERRIDE' : 'AGENTS CHOOSE', value: o?.capital?.on === false ? 'off' : 'on', options: ['on', 'off'],
+            means: 'ON: a seat is sized by the agents\' own last 30 REAL exits — smallest seats (×0.25) while the average bet loses, ×0.5 while the edge is thin, half-Kelly (up to the full seat) once 20+ exits prove it wins. It can never give more than the card\'s own seat. OFF = seats as before; the record is still shown and taught.' }}
+            pending={pend.agentCapital} disabled={!isOwner || busy} onPick={(kk, v) => save({ agentCapital: v === 'on' }, kk, v)} /> : null}
           {g === 'gate' ? <GateLine refused={o?.seat?.refused} armed={o?.armed} /> : null}
           {g === 'gate' ? <RegretLine rg={o?.regret} /> : null}
           {g === 'gate' ? <ControlRow c={{ key: 'chartWait', label: '🎯 Chart says go', who: pol.chartGo === false ? 'CREATOR OVERRIDE' : 'AGENTS CHOOSE', value: pol.chartGo === false ? 'off' : 'on', options: ['on', 'off'],
