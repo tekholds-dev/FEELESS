@@ -10,7 +10,8 @@ import reputation_service as rs
 
 GROQ = 'gsk_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcd'
 OAI = 'sk-proj-ZYXWVUTSRQPONMLKJIHGFEDCBA9876543210wxyz'
-GOOD = json.dumps({'priority': 82, 'stance': 'WATCH', 'confidence_delta': -0.08, 'wake': ['sherlock', 'trigger'], 'summary': 'Buyer velocity strong; wait for reclaim.', 'deep_review': False})
+GOOD = json.dumps({'summary': 'Buyer velocity strong; wait for reclaim.', 'risk_flags': ['no site / X'], 'narrative': 'AI agent meta, early', 'creator_context': 'fresh dev, 2 launches',
+                   'confidence_delta': -0.08, 'wake': ['sherlock', 'trigger']})
 CASE = {'mint': 'MINTZYN', 'symbol': 'ZYN', 'status': 'READY', 'rank': 180, 'ageMin': 3, 'liq': 21000, 'trigger': 'ENTER', 'devil': ['identity WARNING'], 'wallet': 'SECRETWALLET', 'url': 'https://x.y/z'}
 
 
@@ -58,11 +59,15 @@ def run(c):
 
 def test_advice_is_validated_and_clamped_or_dropped():
     a = air.parse_advice('```json\n' + GOOD + '\n```')
-    assert a == {'priority': 82, 'stance': 'WATCH', 'confidence_delta': -0.08, 'wake': ['sherlock', 'trigger'], 'summary': 'Buyer velocity strong; wait for reclaim.', 'deep_review': False}
-    wild = air.parse_advice({'priority': 900, 'stance': 'enter', 'confidence_delta': 7, 'wake': ['trigger', 'courier', 'nobody', 'trigger', 5], 'summary': 'x\x00y' + 'z' * 400, 'deep_review': 'yes'})
-    assert wild['priority'] == 100 and wild['stance'] == 'ENTER' and wild['confidence_delta'] == 0.25 and wild['wake'] == ['trigger', 'courier']
-    assert len(wild['summary']) == 200 and '\x00' not in wild['summary'] and wild['deep_review'] is False
-    for bad in ('', 'I think it pumps', '{"stance": "MOON", "summary": "x"}', '{"stance": "WATCH"}', '{"stance": "WATCH", "summary": "  "}', '[1,2]', '{broken'):
+    assert a == {'summary': 'Buyer velocity strong; wait for reclaim.', 'confidence_delta': -0.08, 'wake': ['sherlock', 'trigger'], 'stance': 'CAUTION',
+                 'risk_flags': ['no site / X'], 'narrative': 'AI agent meta, early', 'creator_context': 'fresh dev, 2 launches'}   # ONLY the vital fields (+ the derived stance)
+    wild = air.parse_advice({'priority': 900, 'stance': 'ENTER', 'confidence_delta': 7, 'wake': ['trigger', 'courier', 'nobody', 'trigger', 5], 'summary': 'x\x00y' + 'z ' * 200,
+                             'deep_review': 'yes', 'conflict_resolution': 'none', 'narrative': 'unknown', 'risk_flags': ['a', 5, '', 'b', 'c', 'd', 'e']})
+    assert wild['stance'] == 'FAVOR' and wild['confidence_delta'] == 0.25 and wild['wake'] == ['trigger', 'courier'] and 'priority' not in wild and 'deep_review' not in wild
+    assert len(wild['summary']) == 200 and '\x00' not in wild['summary'] and wild['risk_flags'] == ['a', 'b', 'c', 'd']
+    assert 'conflict_resolution' not in wild and 'narrative' not in wild                                     # "none" / "unknown" = nothing said
+    assert air.parse_advice({'summary': 'flat'})['stance'] == 'NEUTRAL' and air.stance_of(-0.08) == 'CAUTION'
+    for bad in ('', 'I think it pumps', '{"stance": "WATCH"}', '{"summary": "  "}', '[1,2]', '{broken'):
         assert air.parse_advice(bad) is None
 
 
@@ -70,7 +75,7 @@ def test_local_first_then_fallback_on_timeout_429_malformed_and_offline():
     air.ROUTER.__init__()
     h = Http({'127.0.0.1': [R(500, {})], 'groq.com': [chat('not json at all')], 'openai.com': [chat(GOOD)]})
     out = run(air.ROUTER.reason(h, env(), {}, CASE, 'sherlock'))
-    assert out['source'] == 'openai' and out['advice']['stance'] == 'WATCH' and [t[0] for t in out['tried']] == ['local', 'groq', 'openai']
+    assert out['source'] == 'openai' and out['advice']['stance'] == 'CAUTION' and [t[0] for t in out['tried']] == ['local', 'groq', 'openai']
     assert air.ROUTER.stats['local']['state'] == 'OFFLINE' and air.ROUTER.stats['groq']['state'] == 'BAD ANSWER' and air.ROUTER.totals['fallbacks'] == 2
 
     air.ROUTER.__init__()
@@ -188,7 +193,7 @@ def test_order_config_and_the_view_never_carry_a_key():
 
 def test_the_test_button_reports_state_and_latency():
     air.ROUTER.__init__()
-    ok = run(air.ROUTER.test(Http({'127.0.0.1': [chat('{"stance":"WATCH","summary":"FEELESS AI ONLINE","priority":50}')]}), env(), {}, 'local'))
+    ok = run(air.ROUTER.test(Http({'127.0.0.1': [chat('{"summary":"FEELESS AI ONLINE","confidence_delta":0}')]}), env(), {}, 'local'))
     assert ok['ok'] and ok['state'] == 'ONLINE' and air.ROUTER.stats['local']['lastOkAt']
     assert run(air.ROUTER.test(Http({}), env(XAI_API_KEY=None), {}, 'xai')) == {'ok': False, 'state': 'KEY MISSING', 'err': 'KEY MISSING'}
     bad = run(air.ROUTER.test(Http({'groq.com': [R(429, {})]}), env(), {}, 'groq'))
@@ -224,7 +229,7 @@ def test_owner_routes_save_order_test_and_never_echo_a_key(monkeypatch):
 def test_the_advisory_round_only_writes_notes(monkeypatch):
     """An AI answer lands in office.ai.notes with its source — the kernel's candidates, ranks and statuses are untouched."""
     air.ROUTER.__init__()
-    cand = {'mint': 'MINTZYN', 'symbol': 'ZYN', 'status': 'READY', 'rank': 180, 'trigger': 'ENTER', 'devil': [['identity', 'WARNING', 'no site']]}
+    cand = {'mint': 'MINTZYN', 'symbol': 'ZYN', 'status': 'READY', 'rank': 180, 'trigger': 'ENTER', 'cap': 50_000, 'devil': [['identity', 'WARNING', 'no site']]}
     payload = {'kernel': {'candidates': [dict(cand)]}, 'ownerReview': []}
     monkeypatch.setattr(rs, '_office', {'payload': payload})
     monkeypatch.setattr(rs, '_office_state', lambda: {})
@@ -235,8 +240,9 @@ def test_the_advisory_round_only_writes_notes(monkeypatch):
     monkeypatch.setitem(rs._ai, 'http', h)
     monkeypatch.setitem(rs._ai, 'notes', {})
     n = run(rs._ai_round(1000.0))
-    assert n == 1 and rs._ai['notes']['MINTZYN']['devil']['source'] == 'local'          # a conflicted case (ENTER + a warning) → Devil's second opinion
-    assert payload['kernel']['candidates'][0] == cand and payload['ai']['notes']['MINTZYN']['devil']['advice']['stance'] == 'WATCH'
+    assert n == 1 and rs._ai['notes']['MINTZYN']['sherlock']['source'] == 'local'        # a READY coin in the band → Sherlock's narrative + creator read
+    assert payload['kernel']['candidates'][0] == cand and payload['ai']['notes']['MINTZYN']['sherlock']['advice']['narrative'] == 'AI agent meta, early'
+    assert payload['ai']['metrics']['callsPerMin'] is not None and payload['ai']['metrics']['provider'] == 'local'
     monkeypatch.setenv('LOCAL_LLM_ENABLED', 'false')
     for k_ in ('GROQ_API_KEY', 'OPENAI_API_KEY', 'OPENROUTER_API_KEY', 'XAI_API_KEY', 'AI_API_KEY', 'AI_BASE_URL'):   # the owner's real backend/.env may carry any of them
         monkeypatch.delenv(k_, raising=False)
@@ -257,13 +263,15 @@ def test_the_models_decisions_are_logged_once_each_for_the_page_and_nothing_read
     import reputation_service as rs
     rs._ai['log'] = []
     case = {'mint': 'M1', 'symbol': 'AAA', 'status': 'CONTENDING', 'trigger': 'ARM'}
-    ans = {'source': 'local', 'label': 'LOCAL AI', 'ms': 900, 'at': 100.0, 'advice': {'stance': 'WAIT', 'confidence_delta': -0.2, 'priority': 40, 'summary': 'fake breakout', 'deep_review': True}}
+    ans = {'source': 'local', 'label': 'LOCAL AI', 'ms': 900, 'at': 100.0, 'advice': {'stance': 'CAUTION', 'confidence_delta': -0.2, 'summary': 'fake breakout', 'risk_flags': ['bundled'],
+                                                                                 'conflict_resolution': 'Devil wins: 4 bundles hold 30%'}}
     rs._ai_log('devil', case, ans)
     rs._ai_log('devil', case, {**ans, 'cached': True})                      # the SAME decision served from the cache: not a second line
     rs._ai_log('sherlock', case, {'source': 'NONE', 'advice': None, 'why': 'no provider answered'})   # the desk's own round: silence is not a decision
     assert len(rs._ai['log']) == 1
     row = rs._ai['log'][0]
-    assert (row['role'], row['symbol'], row['stance'], row['delta'], row['kernel'], row['trigger'], row['deep']) == ('devil', 'AAA', 'WAIT', -0.2, 'CONTENDING', 'ARM', True)
+    assert (row['role'], row['symbol'], row['stance'], row['delta'], row['kernel'], row['trigger'], row['risk_flags']) == ('devil', 'AAA', 'CAUTION', -0.2, 'CONTENDING', 'ARM', ['bundled'])
+    assert row['conflict_resolution'] == 'Devil wins: 4 bundles hold 30%' and 'deep' not in row and 'priority' not in row
     rs._ai_log('owner', case, {'source': 'NONE', 'advice': None, 'why': 'no provider answered'}, asked=True)   # the owner ASKED: the miss is shown
     assert rs._ai['log'][-1]['asked'] and rs._ai['log'][-1]['stance'] is None and 'no provider' in rs._ai['log'][-1]['why']
     for i in range(rs.AI_LOG_KEEP + 20):
@@ -331,3 +339,23 @@ def test_while_jupiter_is_busy_no_seat_is_taken_and_no_coin_is_blamed():
     finally:
         rs._fw_live_pairs, rs._sol_usd_live, rs._FW_JUP_BUSY['at'] = old
         rs._agent_refused.clear(); rs._seat_pre_ok.clear()
+
+
+def test_low_priority_cases_defer_while_the_local_model_is_busy_and_the_metrics_say_so():
+    """owner's lag-fix spec: local concurrency 1, a small priority queue, low priority DEFERS instead of waiting behind a busy model."""
+    async def go():
+        r = air.Router()
+        h = Http({'127.0.0.1': ['sleep']})
+        busy = asyncio.ensure_future(r.reason(h, env(GROQ_API_KEY=None, OPENAI_API_KEY=None), {}, CASE, 'owner', 'high', prio=air.PRIO['owner']))
+        await asyncio.sleep(0.05)                                                    # the local model is now running the owner's review
+        low = await r.reason(h, env(GROQ_API_KEY=None, OPENAI_API_KEY=None), {}, {**CASE, 'mint': 'OTHER'}, 'sherlock', prio=air.PRIO['contender'])
+        assert low['deferred'] and low['advice'] is None and r.totals['deferred'] == 1 and len(h.calls) == 1   # no second inference was queued
+        m = r.metrics()
+        assert m['active'] == 1 and m['deferred'] == 1 and m['inflight'] == 1
+        busy.cancel()
+        return r
+    r = asyncio.run(go())
+    r.recent = [(1000.0, 900, 'local'), (1010.0, 1100, 'local')]; r.totals.update(cached=2, answered=2)
+    m = r.metrics(now=1020.0)
+    assert m['callsPerMin'] == 0.2 and m['avgMs'] == 1000 and m['provider'] == 'local' and m['cacheHitPct'] == 50
+    assert set(air.PRIO) >= {'owner', 'manager', 'ready', 'devil', 'contender', 'judge'} and air.PRIO['owner'] < air.PRIO['manager'] < air.PRIO['ready'] < air.DEFER_PRIO

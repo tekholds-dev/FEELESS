@@ -33,9 +33,9 @@ def _median(xs):
     return None if not n else s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2
 
 
-def note(book, role, mint, stance, px, now, symbol=None, vitals=None, timing=None):
-    """One model stance → an open call (once per coin + stance per 30 min, only with a live price). The model's rug vital and timing word
-    ride on the call so each is judged on its own record (`vital_record`). → new book"""
+def note(book, role, mint, stance, px, now, symbol=None, flags=None):
+    """One model stance → an open call (once per coin + stance per 30 min, only with a live price). How many risk flags it raised rides
+    on the call, so "the model flagged 2+ risks" is judged on its own record too (`vital_record`). → new book"""
     b = {'open': list((book or {}).get('open') or []), 'done': list((book or {}).get('done') or [])}
     if not mint or not stance or _f(px) <= 0:
         return b
@@ -43,10 +43,8 @@ def note(book, role, mint, stance, px, now, symbol=None, vitals=None, timing=Non
     if any(c['mint'] == mint and c['stance'] == st and now - _f(c['at']) < RENOTE_SEC for c in b['open'] + b['done'][-80:]):
         return b
     c = {'mint': mint, 'symbol': symbol, 'role': role, 'stance': st, 'px': _f(px), 'at': round(now, 1)}
-    if isinstance((vitals or {}).get('rug'), (int, float)):
-        c['rug'] = int(vitals['rug'])
-    if timing:
-        c['timing'] = str(timing).upper()
+    if isinstance(flags, int):
+        c['flags'] = flags
     b['open'] = (b['open'] + [c])[-KEEP_OPEN:]
     return b
 
@@ -78,12 +76,11 @@ def record(book):
     return {k: {'n': len(v), 'med': round(_median(v), 2), 'up': round(100 * sum(1 for x in v if x > 0) / len(v))} for k, v in by.items()}
 
 
-# 🫀 THE MODEL'S VITALS, each on its OWN record (a bucket of its calls): a high rug read, a low rug read, an EARLY timing, a LATE / CHASE
-# timing, a DEAD one. Read against the base rate of ALL its calls exactly like a stance.
-RUG_HIGH, RUG_LOW = 60, 30
-BUCKETS = (('RUG:HIGH', 'rug ≥ 60', lambda c: _f(c.get('rug'), -1) >= RUG_HIGH), ('RUG:LOW', 'rug ≤ 30', lambda c: 0 <= _f(c.get('rug'), -1) <= RUG_LOW),
-           ('TIME:EARLY', 'timing EARLY', lambda c: c.get('timing') == 'EARLY'), ('TIME:LATE', 'timing LATE / CHASE', lambda c: c.get('timing') in ('LATE', 'CHASE')),
-           ('TIME:DEAD', 'timing DEAD', lambda c: c.get('timing') == 'DEAD'))
+# 🚩 THE MODEL'S RISK FLAGS on their OWN record: "it raised 2+ risk flags" and "it raised none", each read against the base rate of ALL
+# its calls exactly like a stance. (The 2026-10-12 rug / timing meters were retired by the owner's vital-intel spec on 2026-10-13: their
+# record separated winners in one half of the night only.)
+BUCKETS = (('FLAGS:2+', '2+ risk flags', lambda c: isinstance(c.get('flags'), int) and c['flags'] >= 2),
+           ('FLAGS:0', 'no risk flag', lambda c: c.get('flags') == 0))
 BUCKET_LABEL = {k: lab for k, lab, _t in BUCKETS}
 
 
@@ -106,7 +103,7 @@ def advice_factor(rec, vrec, advice):
     """One model answer → ×0.9 … ×1.1 from its stance AND every vital bucket it falls in (proven ones only). Any proven warning wins
     (the most cautious factor); otherwise a proven spotter; otherwise ×1.0."""
     a = advice or {}
-    fs = [factor(rec, a.get('stance'))] + [factor(vrec, k) for k in buckets_of({'rug': (a.get('vitals') or {}).get('rug'), 'timing': a.get('timing')})]
+    fs = [factor(rec, a.get('stance'))] + [factor(vrec, k) for k in buckets_of({'flags': len(a.get('risk_flags') or [])})]
     lo, hi = min(fs), max(fs)
     return lo if lo < 1.0 else hi
 

@@ -45,17 +45,10 @@ export function bandTrack(min, max, cands) {
   return { lo: mn > 0 ? capX(mn) : 0, hi: capX(mx) ?? 1, dots, inside: dots.filter(d => d.inside).length, ready: dots.filter(d => d.inside && d.ready).length };
 }
 
-// 🫀 the model's vitals as meters: rug reads INVERTED (high = bad); the others high = good. Unknown = not drawn.
-export const VITAL_ROWS = [['rug', 'RUG RISK', true], ['narrative', 'NARRATIVE', false], ['crowd', 'CROWD', false], ['momentum', 'MOMENTUM', false]];
-export const TIMING_TONE = { EARLY: 'is-good', 'ON TIME': 'is-good', LATE: 'is-warn', CHASE: 'is-bad', DEAD: 'is-bad' };
-export function vitalRows(a) {
-  const v = a?.vitals || {};
-  return VITAL_ROWS.filter(([k]) => Number.isFinite(Number(v[k])) && v[k] !== null && v[k] !== undefined).map(([k, label, inv]) => {
-    const n = Math.max(0, Math.min(100, Number(v[k]))); const good = inv ? n <= 30 : n >= 60; const bad = inv ? n >= 60 : n <= 30;
-    return { k, label, v: n, fill: n / 100, tone: good ? 'is-good' : bad ? 'is-bad' : 'is-warn' };
-  });
-}
-export const hasVitals = a => !!(a && ((a.vitals && Object.keys(a.vitals).length) || a.timing || (a.flags || []).length));
+// 🧠 the model's vital intel (summary · risk flags · narrative · creator context · conflict resolution · confidence delta): unknown = not drawn
+export const INTEL_ROWS = [['narrative', '📖', 'NARRATIVE'], ['creator_context', '👤', 'CREATOR'], ['conflict_resolution', '⚖', 'CONFLICT']];
+export const hasIntel = a => !!(a && (a.summary || (a.risk_flags || []).length || INTEL_ROWS.some(([k]) => a[k])));
+export const intelRows = a => INTEL_ROWS.filter(([k]) => a?.[k]).map(([k, icon, label]) => ({ k, icon, label, text: a[k] }));
 
 // the newest model answer about one coin (any desk) — for the queue's AI column and a seat
 export function aiOf(notes, mint) {

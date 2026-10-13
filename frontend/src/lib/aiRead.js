@@ -1,7 +1,7 @@
 // 🧠 THE MODEL'S DECISIONS, READ (pure — the Agents cockpit's AI tab). A model answer is ADVISORY: these helpers only say how its
 // stance sits next to what the kernel itself decided at that moment. Nothing here feeds a decision.
-export const STANCE_TONE = { ENTER: 'is-good', HOLD: 'is-good', PROTECT: 'is-good', WATCH: 'is-hold', WAIT: 'is-warn', AVOID: 'is-bad', EXIT: 'is-bad', SKIP: 'is-bad' };
-const BULL = new Set(['ENTER', 'HOLD', 'PROTECT']); const BEAR = new Set(['AVOID', 'EXIT', 'SKIP']);
+export const STANCE_TONE = { FAVOR: 'is-good', NEUTRAL: 'is-hold', CAUTION: 'is-warn', ENTER: 'is-good', HOLD: 'is-good', PROTECT: 'is-good', WATCH: 'is-hold', WAIT: 'is-warn', AVOID: 'is-bad', EXIT: 'is-bad', SKIP: 'is-bad' };
+const BULL = new Set(['FAVOR', 'ENTER', 'HOLD', 'PROTECT']); const BEAR = new Set(['CAUTION', 'AVOID', 'EXIT', 'SKIP']);   // FAVOR / NEUTRAL / CAUTION = the vital-intel stance (derived from its confidence delta)
 const IN = new Set(['READY', 'ORDER_PENDING', 'HELD', 'HOLD', 'PROTECT']);
 
 // model vs kernel: AGREES · DISAGREES · MORE EAGER (the model would enter, the kernel waits) · null (a closed trade / no kernel word)
@@ -26,4 +26,12 @@ export function agreeStats(ai) {
   const rs = (ai?.log || []).map(agreeOf).filter(Boolean);
   const ok = rs.filter(a => a.word === 'AGREES').length;
   return { n: rs.length, agree: ok, pct: rs.length ? Math.round((ok / rs.length) * 100) : null };
+}
+
+// the live AI line: queue · active · calls / min · cache hit % · average latency · provider · deferred / skipped (the router's own counters)
+export function aiMetricsLine(m) {
+  if (!m) return null;
+  const sec = v => (v == null ? '—' : v >= 1000 ? `${(v / 1000).toFixed(1)}s` : `${v}ms`);
+  return [['QUEUE', m.queue ?? 0], ['ACTIVE', m.active ?? 0], ['CALLS / MIN', m.callsPerMin ?? 0], ['CACHE HIT', m.cacheHitPct == null ? '—' : `${m.cacheHitPct}%`],
+    ['AVG LATENCY', sec(m.avgMs)], ['PROVIDER', m.provider ? String(m.provider).toUpperCase() : '—'], ['DEFERRED · SKIPPED', `${m.deferred ?? 0} · ${m.skipped ?? 0}`]];
 }

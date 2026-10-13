@@ -119,24 +119,38 @@ const S = { raw: null, err: null, call: null, refs: 0, subs: new Set(), poll: nu
 const emit = () => { S.snap = { raw: S.raw, err: S.err, live: S.live }; S.subs.forEach(f => f()); };
 const session = () => { try { const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); return s && s.address && s.sig ? s : null; } catch (e) { return null; } };
 
+// 🧠 THE AI STORE (owner's lag-fix spec, 2026-10-13: "patch only the affected agent card when AI returns — do not re-render the whole
+// Agents tab"): the model's answers live in their OWN tiny store. An `ai_update` re-renders only the components that show AI (`useAi`)
+// — the seats, chart, tape, matrix and queue never re-render for it. The snapshot's own copy (`office.ai`) is only a first-paint fallback.
+const AI = { v: null, subs: new Set() };
+export const aiSet = v => { if (v && typeof v === 'object' && v !== AI.v) { AI.v = v; AI.subs.forEach(f => f()); } };
+const aiSub = f => { AI.subs.add(f); return () => AI.subs.delete(f); };
+const aiGet = () => AI.v;
+export function useAi(fallback = null) { const v = useSyncExternalStore(aiSub, aiGet, aiGet); return v || fallback || null; }
+
 export function hubLoad() {
   if (!S.call) return Promise.resolve(null);
   if (S.loading) return S.loading;
-  S.loading = S.call('/admin/agents').then(r => { S.raw = r; S.err = null; emit(); return r; }).catch(e => { S.err = e; emit(); return null; }).finally(() => { S.loading = null; });
+  S.loading = S.call('/admin/agents').then(r => { S.raw = r; S.err = null; aiSet(r?.office?.ai); emit(); return r; }).catch(e => { S.err = e; emit(); return null; }).finally(() => { S.loading = null; });
   return S.loading;
 }
 // a one-off reader (the swap-in picker's 🤖 list): the hub's current snapshot when it is running, else ONE request — never a second poller
 export const hubSnapshot = call => (S.raw ? Promise.resolve(S.raw) : call ? call('/admin/agents') : Promise.resolve(null));
-export const hubApply = ev => { const next = applyDelta(S.raw, ev); if (next !== S.raw) { S.raw = next; emit(); } };
+export const hubApply = ev => { if (ev?.kind === 'ai_update') { aiSet(ev.data); return; } const next = applyDelta(S.raw, ev); if (next !== S.raw) { S.raw = next; emit(); } };
 // ⚡ STREAM deltas are folded in at once but PAINTED together: a kernel pass sends a burst (one delta per candidate that changed) and each
 // used to re-render the whole Agents tab — dozens of full renders inside a second, every pass. Now ≤ one paint per EMIT_MS.
 export const EMIT_MS = 150;
 let emitTimer = null;
+// 💤 A BACKGROUND TAB COLLECTS, IT DOES NOT PAINT (2026-10-13: the server counted 3 live copies of the Agents tab, each re-rendering on
+// every delta while out of sight): deltas keep folding into the snapshot, the page paints ONCE when it is shown again.
+const hidden = () => typeof document !== 'undefined' && document.hidden;
 const emitSoon = () => {
+  if (hidden()) { S.dirty = true; return; }
   if (process.env.NODE_ENV === 'test') { emit(); return; }
   if (!emitTimer) emitTimer = setTimeout(() => { emitTimer = null; emit(); }, EMIT_MS);
 };
-const streamApply = ev => { const next = applyDelta(S.raw, ev); if (next !== S.raw) { S.raw = next; emitSoon(); } };
+const onVisible = () => { if (!hidden() && S.dirty) { S.dirty = false; emit(); } };
+export const streamApply = ev => { if (ev?.kind === 'ai_update') { aiSet(ev.data); return; } const next = applyDelta(S.raw, ev); if (next !== S.raw) { S.raw = next; emitSoon(); } };   // AI never repaints the tab
 
 async function runStream() {
   const s = session();
@@ -164,13 +178,14 @@ async function runStream() {
 
 function start() {
   if (S.poll) return;
+  if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible);
   hubLoad();
   let last = Date.now();
   S.poll = setInterval(() => { const due = S.live ? SNAPSHOT_LIVE_MS : S.every; if (Date.now() - last >= due - 50) { last = Date.now(); if (!(typeof document !== 'undefined' && document.hidden)) hubLoad(); } }, 1000);
   runStream();
 }
-function stop() { if (emitTimer) { clearTimeout(emitTimer); emitTimer = null; } if (S.poll) { clearInterval(S.poll); S.poll = null; } if (S.abort) { try { S.abort.abort(); } catch (e) { /* closed */ } S.abort = null; } S.live = false; }
-export function hubReset() { stop(); Object.assign(S, { raw: null, err: null, call: null, refs: 0, seq: 0, live: false, loading: null, every: SNAPSHOT_MS }); S.subs.clear(); S.snap = { raw: null, err: null, live: false }; }   // tests
+function stop() { if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible); if (emitTimer) { clearTimeout(emitTimer); emitTimer = null; } if (S.poll) { clearInterval(S.poll); S.poll = null; } if (S.abort) { try { S.abort.abort(); } catch (e) { /* closed */ } S.abort = null; } S.live = false; }
+export function hubReset() { stop(); AI.v = null; AI.subs.clear(); Object.assign(S, { raw: null, err: null, call: null, refs: 0, seq: 0, live: false, loading: null, every: SNAPSHOT_MS, dirty: false }); S.subs.clear(); S.snap = { raw: null, err: null, live: false }; }   // tests
 
 const subscribe = f => { S.subs.add(f); return () => S.subs.delete(f); };
 const getSnap = () => S.snap;

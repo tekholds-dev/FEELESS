@@ -1,4 +1,4 @@
-import { optWord, whoTone, bandTrack, capX, vitalRows, hasVitals, aiOf, tradeBar, tickDir, TIMING_TONE, CTRL_GROUPS } from './cockpitControls';
+import { optWord, whoTone, bandTrack, capX, intelRows, hasIntel, aiOf, tradeBar, tickDir, CTRL_GROUPS } from './cockpitControls';
 
 test('every control option reads as a short trader word on its segment', () => {
   expect([0, 50].map(v => optWord('agentTp', v))).toEqual(['AGENTS', '+50%']); expect(optWord('agentSl', 15)).toBe('−15%');
@@ -17,12 +17,11 @@ test('the MC band sits on a log track and every real candidate is a dot (lit ins
   expect(t.lo).toBeCloseTo(capX(12000)); expect(t.hi).toBeCloseTo(capX(300000)); expect(bandTrack(0, 100000, []).lo).toBe(0);
 });
 
-test("the model's vitals read as meters — rug inverted — and only what it said is drawn", () => {
-  const r = vitalRows({ vitals: { rug: 80, narrative: 70, crowd: 20, momentum: 45 } });
-  expect(r.map(x => [x.k, x.tone])).toEqual([['rug', 'is-bad'], ['narrative', 'is-good'], ['crowd', 'is-bad'], ['momentum', 'is-warn']]);
-  expect(vitalRows({ vitals: { rug: 10 } })[0].tone).toBe('is-good'); expect(vitalRows({})).toEqual([]); expect(vitalRows({ vitals: { rug: null } })).toEqual([]);
-  expect(hasVitals({ timing: 'EARLY' })).toBe(true); expect(hasVitals({ stance: 'WAIT' })).toBe(false); expect(TIMING_TONE.CHASE).toBe('is-bad');
-  const notes = { M: { devil: { advice: { stance: 'WAIT' }, at: 10 }, sherlock: { advice: { stance: 'WATCH', vitals: { rug: 40 } }, at: 20 } } };
+test("the model's trench intel reads as labelled rows, and only what it said is drawn", () => {
+  const r = intelRows({ narrative: 'AI agent meta, early', creator_context: 'fresh dev, 2 launches', conflict_resolution: null });
+  expect(r.map(x => [x.k, x.label])).toEqual([['narrative', 'NARRATIVE'], ['creator_context', 'CREATOR']]); expect(intelRows({})).toEqual([]); expect(intelRows(null)).toEqual([]);
+  expect(hasIntel({ risk_flags: ['dev sold 40%'] })).toBe(true); expect(hasIntel({ summary: 'x' })).toBe(true); expect(hasIntel({ stance: 'NEUTRAL' })).toBe(false);
+  const notes = { M: { devil: { advice: { stance: 'CAUTION' }, at: 10 }, sherlock: { advice: { stance: 'FAVOR', narrative: 'cat meta' }, at: 20 } } };
   expect(aiOf(notes, 'M').role).toBe('sherlock'); expect(aiOf(notes, 'X')).toBeNull();
 });
 

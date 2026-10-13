@@ -1,3 +1,4 @@
+import { useAi } from '../../lib/agentHub';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AiKeyBox } from './AiKeyBox';
@@ -10,6 +11,12 @@ const STATE_CLS = { ONLINE: 'is-on', 'RATE LIMITED': 'is-warn', OFFLINE: 'is-bad
 const ago = at => { if (!at) return 'never'; const s = Math.max(0, Math.round(Date.now() / 1000 - at)); return s < 60 ? `${s}s ago` : s < 3600 ? `${Math.round(s / 60)}m ago` : `${(s / 3600).toFixed(1)}h ago`; };
 
 // the compact status chip: "AI · LOCAL ● 42ms · GROQ ○ …" from the router's own rows (no request of its own)
+// the AI chip as its own AI-store subscriber (the desk header + the controls): an AI answer repaints this button only
+export function AiChipBtn({ o, onClick, testid = 'ack-aichip' }) {
+  const ai = useAi(o?.ai); const c = aiChip(ai);
+  return <button type="button" className={`ack-aichip ${c.cls}`} onClick={onClick} data-tip={c.tip} data-testid={testid}><b>AI</b>{c.parts.map(([k, l, x]) => <span key={k} className={x}>{l}</span>)}</button>;
+}
+
 export function aiChip(ai) {
   const rows = ai?.providers || [];
   if (!rows.length) return { cls: 'is-off', parts: [['none', 'not loaded', 'is-off']], tip: 'AI router status arrives with the next agent pass' };

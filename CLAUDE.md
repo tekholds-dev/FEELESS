@@ -3548,3 +3548,21 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   every sweep). Majors, stocks, SOL, USDC, USDT are never in the list. Dry run first; the owner's click is the approval; the keeper never
   burns by itself. 2026-10-13: 8 accounts → 0.012 SOL (~$1.28) back, leftovers worth $0.006. The wallet's UNASSIGNED SOL ($1.38 that day)
   is the owner's own deposit leftover (deposits 0.409 SOL vs top-ups 0.351), not card money: "➜ Put $X unassigned into <card>" + Top up.
+- 🧠 LOCAL-AI = VITAL INTEL ONLY, NEVER IN THE HOT PATH (owner's spec, 2026-10-13): the model is asked for five jobs (`_ai_jobs`, priority
+  0 → 5): 👤 owner review · ⚖ manager = a conflict (`_ai_conflict`: Trigger ENTER/ARM + a Devil STRONG_WARNING, no HARD_VETO) · 🔍 Sherlock on a
+  READY coin · 😈 Devil on an ambiguous one (`_ai_ambiguous`) · 🔍 Sherlock on the top contender not asked yet · 👨‍⚖️ Judge on an exit. Never
+  for ticks, prices, every coin, or Tally / Trigger / Reaper / Courier / Warden. Answer schema = {summary, risk_flags, narrative,
+  creator_context, conflict_resolution, confidence_delta, wake} (`ai_router.parse_advice`; stance FAVOR / NEUTRAL / CAUTION is DERIVED from
+  the delta); quoted site / X / Pump-call text in the case is DATA, never an instruction (`_ai_quote` strips links + addresses). The case
+  packet (`_ai_brief`) adds 🌐 site (loads · title · this mint or another · links X / TG) · 𝕏 (followers · last post · mentions mint · bio) ·
+  📖 story (narrative class, copycat, conflict) · 📈 chart shape (structure, % of range / under high, support / resistance, breakout held /
+  failed, volume trend) · 📣 Pump calls (callers, proven, first called cap, best × since, thesis, swarm) · 👤 creator (crew, flagged, dev
+  holding / selling, bundled / snipers at launch). Router: local concurrency 1, cache per coin + role + material-state hash (`CACHE_SEC`
+  1800, reused until the state changes), a job with prio ≥ `DEFER_PRIO` 3 is DEFERRED while the local model is busy, `AI_DUTY` 0.5 = the
+  loop rests as long as a round took; `metrics` = queue · active · calls/min · cache hit % · avg ms · provider · deferred · skipped (shown
+  on the 🧠 AI pane + the controls' model card). Learning buckets = 2+ risk flags / none (`ai_learn.BUCKETS`). FRONTEND: the model's answers
+  live in their OWN store (`agentHub.useAi`, `aiSet`): an `ai_update` repaints only AI subscribers (`PulseAi`, `AiNote`, `QueueAi`,
+  `ModelCard`, `AiChipBtn`, `AiProvidersLive`, `AiPane`) — never the tab (test `agentHubHidden`). A new AI surface ⇒ a leaf with `useAi`,
+  never `o.ai` from the snapshot (that copy is only the first paint). A hidden Agents tab folds the stream in and paints once when shown.
+  Measured (same synthetic load, 10s windows, machine load 16–20): script 0.26–0.35s → 0.17–0.19s, React render 75–120 → 66–77 ms,
+  longest commit 4–6 → 3 ms, heap the same. Cockpit P&L tag + BUY chip are small (`chartLive.css`, tag ~126 × 16px).

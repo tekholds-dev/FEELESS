@@ -11,7 +11,7 @@ import { ticker } from './agentWords';
 import { ReadyStrip, SeatState, SwitchEval, CreatorLimits, ReviewQueue, MissedWinners, LaunchRecord } from './OfficeEdge';
 import { KernelBoard } from './SeatOps';
 import { AgentCockpit } from './AgentCockpit';
-import { aiChip } from './AiProviders';
+import { AiChipBtn } from './AiProviders';
 
 export { rowState, rowWhy, pipsOf, rankFill };
 
@@ -290,7 +290,7 @@ export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
 </div>
       <div className="m-seg agd-dial" role="group" aria-label="How hard the agents trade" data-tip={`📝 The PRACTICE desk's bar (now ${Number(d.barNow || d.bar || 1.5).toFixed(1)}): 🧊 pickier · 🔥 more paper entries. It moves graded paper calls only — the live kernel has no dial: READY = Trigger ENTER + inside the hard wall + execution healthy + rank ≥ ${READY_MIN}.`}>
         {DIAL.map(([k, l]) => <button key={k} type="button" disabled={busy || !isOwner} className={dial === k ? 'active' : ''} onClick={() => save({ cfg: { agentDial: k } })} data-testid={`dial-${k}`}>{l}</button>)}</div>
-      <div className="agd-headacts">{(c => <button type="button" className={`ack-aichip ${c.cls}`} onClick={() => window.dispatchEvent(new CustomEvent('feeless:agents-ai'))} data-tip={c.tip} data-testid="agd-aikey"><b>AI</b>{c.parts.map(([k, l, x]) => <span key={k} className={x}>{l}</span>)}</button>)(aiChip(d.office?.ai))}
+      <div className="agd-headacts"><AiChipBtn o={d.office} onClick={() => window.dispatchEvent(new CustomEvent('feeless:agents-ai'))} testid="agd-aikey" />
         <button type="button" className="m-btn" onClick={load} data-tip="Re-read the desk now (it is served from memory — no rate limit)" data-testid="agd-refresh">↻</button>
         <button type="button" className="m-btn agd-log" onClick={warLog} data-testid="agd-log">⬇ War log</button></div></header>
     <AgentCockpit call={call} isOwner={isOwner} />

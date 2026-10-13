@@ -12634,6 +12634,17 @@ def _ai_book():
     return _ai['book']
 
 
+_AI_URL = _re.compile(r'https?://\S+|www\.\S+|[A-Za-z0-9]{32,}')
+
+
+def _ai_quote(t, n=70):
+    """Third-party words (a site title, an X bio, a caller's thesis) for the model: links + addresses stripped, quotes removed, trimmed,
+    and handed over IN QUOTES — the system prompt tells the model quoted text is data from the coin's own pages, never an instruction."""
+    t = _AI_URL.sub('', _re.sub(r'[\x00-\x1f\x7f"]+', ' ', str(t or ''))).strip()
+    t = _re.sub(r'\s+', ' ', t)
+    return f'"{t[:n].rstrip()}{"…" if len(t) > n else ""}"' if t else None
+
+
 def _ai_brief(mint):
     """🔍 Sherlock's brief for ONE coin, from readings the desk ALREADY has this pass — no fetch, no extra request. The five original
     lines (holders · chart · flow · launch · crowd) + the trench vitals (owner, 2026-10-12: "pull more vital info from the AI provider to
@@ -12667,6 +12678,24 @@ def _ai_brief(mint):
     except Exception:
         dev_dump = False
     soc = [k_ for k_, on_ in (('site', x.get('site') or v.get('site')), ('X', x.get('x') or v.get('x')), ('Telegram', v.get('tg'))) if on_]
+    # 🌐 SITE / X / STORY from the coin's own research packet (social_research: the site and X read by our headless browser)
+    pk = x.get('social') or (_social.get('cache') or {}).get(mint) or {}
+    ws, xs, cr, nar = pk.get('website') or {}, pk.get('x') or {}, pk.get('cross') or {}, pk.get('narrative') or {}
+    mm_ = {'match': 'shows THIS mint', 'yes': 'shows THIS mint', 'mismatch': 'shows a DIFFERENT mint', 'no': 'shows a DIFFERENT mint'}
+    lp_ = _fuse._f(xs.get('lastPostAt'))
+    # 📈 CHART SHAPE from the agents' own read of the live 1-minute candles (chart_intel features)
+    cf = ch.get('f') or (((_office.get('charts') or {}).get(mint) or {}).get('f')) or {}
+    px_c, sup_, res_ = _fuse._f(cf.get('px')), _fuse._f(cf.get('support')), _fuse._f(cf.get('resistance'))
+    ld_ = (pcs or {}).get('lead') or {}
+    fa_ = _fuse._f(ld_.get('at') or (pcs or {}).get('lastAt'))
+    # 👤 CREATOR / DEPLOYER from caches the desk already holds: Jupiter's dev launch record, our holder scan's creator + its rep, the launch read
+    cw_ = _ja.crew((_jup_facts.get(mint) or (0, None))[1] or {})
+    it_ = (_intel_cache.get(mint) or (0, {}))[1] if isinstance(_intel_cache.get(mint), (tuple, list)) else {}
+    try:
+        cfl_, crep_ = _creator_state(it_) if it_ else (False, None)
+    except Exception:
+        cfl_, crep_ = False, None
+    lf_ = _launch_facts.get(mint) or {}
     return {k_: v_ for k_, v_ in {
         'holders': j(g('top10', v.get('top10'), '%'), g('dev', v.get('dev'), '%'), g('bundled', v.get('bundledN')), g('snipers', v.get('snipersN')), g('holders', v.get('holders')),
                      g('organic vol', v.get('organic'), '%'), 'scan passed' if v.get('safe') is True else 'scan FAILED' if v.get('safe') is False else None),
@@ -12685,8 +12714,31 @@ def _ai_brief(mint):
                    g('wallets with a dump record', li.get('danger')) if _fuse._f(li.get('danger')) else None),
         'dev': j(g('dev holds', v.get('dev'), '%'), 'the dev is SELLING now' if dev_dump else None),
         'socials': ('set: ' + ', '.join(soc)) if soc else 'no site / X set',
-        'pump': j(f"{pcs.get('callers') or 1} Pump caller{'' if (pcs.get('callers') or 1) == 1 else 's'}", g('proven callers', pcs.get('pro')) if pcs.get('pro') else None,
-                  f"called at ${_fuse._f(pcs.get('firstMc')) / 1e3:.0f}K" if pcs.get('firstMc') else None, g('best since call', lead_.get('mult'), '×')) if pcs else None,
+        'creator': j(cw_.get('why') if cw_.get('kind') != 'unknown' else None, 'creator FLAGGED (rug report / bot)' if cfl_ else None,
+                     f"creator rep {crep_}" if crep_ else None, g('dev holds', v.get('dev'), '%'), 'the dev is SELLING now' if dev_dump else None,
+                     f"{len(lf_.get('bundled') or [])} bundled wallets at launch" if lf_.get('bundled') else None,
+                     f"{len(lf_.get('snipers') or [])} snipers at launch" if lf_.get('snipers') else None),
+        'calls': j(f"{pcs.get('callers') or 1} Pump caller{'' if (pcs.get('callers') or 1) == 1 else 's'}" + (f" ({pcs['pro']} proven)" if pcs.get('pro') else ''),
+                   f"first called at ${_fuse._f(pcs.get('firstMc')) / 1e3:.0f}K" if pcs.get('firstMc') else None, g('best since the call', lead_.get('mult'), '×'),
+                   f"lead caller {'verified · ' if ld_.get('verified') else ''}{int(_fuse._f(ld_.get('views'))):,} views" if ld_.get('views') or ld_.get('verified') else None,
+                   f"called {int((now - fa_) / 60)} min ago" if fa_ > 0 else None, f"thesis {_ai_quote(ld_.get('thesis'))}" if ld_.get('thesis') else None,
+                   'copy-paste caller swarm' if mi.get('swarm') else None, ('slang ' + ', '.join(map(str, (mi.get('slang') or [])[:3]))) if mi.get('slang') else None) if pcs else None,
+        'site': j(('site loads' if ws.get('reachable') else 'site set but does NOT load') if ws.get('url') else None, _ai_quote(ws.get('title'), 60) if ws.get('reachable') else None,
+                  mm_.get(str(ws.get('mintMatch') or '').lower()), 'links its X' if ws.get('x') else None, 'links a Telegram' if ws.get('tg') else None) if ws else None,
+        'xinfo': j(('X account readable' if xs.get('available') else 'X set but not readable') if xs.get('url') else None, f"{int(_fuse._f(xs.get('followers'))):,} followers" if xs.get('followers') is not None else None,
+                   f"last post {int((now - lp_) / 3600)}h ago" if lp_ > 0 else None, 'mentions this mint' if xs.get('mintMentioned') else None,
+                   f"bio {_ai_quote(xs.get('bio'), 60)}" if xs.get('bio') else None) if xs else None,
+        'story': j(nar.get('class'), f"{_fuse._f(nar.get('confidence')) * 100:.0f}% sure" if nar.get('class') else None, ('keywords ' + ', '.join(map(str, (nar.get('keywords') or [])[:4]))) if nar.get('keywords') else None,
+                   'COPYCAT of another coin' if cr.get('copycat') else None, 'site / X CONFLICT' if cr.get('conflict') else None, ('flags ' + ', '.join(map(str, (cr.get('flags') or [])[:3]))) if cr.get('flags') else None) if (nar or cr) else None,
+        'shape': j(f"last candles {cf['seq']} (G up · R down)" if cf.get('seq') else None,
+                   ' · '.join(f'{lab} {cf[k_]:+.0f}%' for k_, lab in (('r5', '5m'), ('r15', '15m'), ('r30', '30m')) if isinstance(cf.get(k_), (int, float))) or None,
+                   f"{cf.get('hh', 0)} higher highs / {cf.get('hl', 0)} higher lows / {cf.get('lh', 0)} lower highs / {cf.get('ll', 0)} lower lows" if cf.get('n') and 'hh' in cf else None,
+                   f"at {_fuse._f(cf.get('pos')) * 100:.0f}% of its range, {_fuse._f(cf.get('distHigh')):.0f}% under the high" if cf.get('pos') is not None and cf.get('distHigh') is not None else None,
+                   f"pulled back {_fuse._f(cf.get('pullback')):.0f}%" if _fuse._f(cf.get('pullback')) > 0 else None,
+                   ('breakout FAILED' if cf.get('breakFailed') else f"base, breakout held {cf.get('breakHeld')}×" if cf.get('base') and cf.get('breakHeld') else 'basing' if cf.get('base') else None),
+                   f"support {(1 - sup_ / px_c) * 100:.0f}% below" if 0 < sup_ < px_c else None, f"resistance {(res_ / px_c - 1) * 100:.0f}% above" if res_ > 0 and px_c > 0 and res_ > px_c else None,
+                   g('volume trend', cf.get('volTrend'), '×'), g('squeeze', cf.get('squeeze'), '×'), 'momentum decaying' if cf.get('decay') else None,
+                   f"trend {cf.get('trend')} · chop {cf.get('chop')} · extension {cf.get('ext')} /100" if cf.get('trend') is not None else None) if cf.get('n') else None,
         'curve': (f"on the launch curve {_fuse._f(v.get('curvePct') or la.get('curvePct')):.0f}%" if (v.get('curve') or la.get('curvePct')) and not la.get('graduated') else 'graduated' if la.get('graduated') else None),
         'memory': (f"our real card: coins like this ({cell_}) returned {est_:+.0f}% typical (all real trades {_fuse._f(mem_.get('base')):+.0f}%, n {mem_.get('n') or 0})" if cell_
                    else f"our real card's typical trade {_fuse._f(mem_.get('base')):+.0f}% (n {mem_.get('n')})" if mem_.get('n') else None),
@@ -12702,7 +12754,7 @@ def _ai_learn_note(role, c, res, now):
         return
     px = _fuse._f(c.get('price')) or _fuse._f((_jup_px_cache.get(c['mint']) or (0, 0))[1])
     ad_ = (res or {}).get('advice') or {}
-    _ai['book'] = _ail.note(_ai_book(), role, c['mint'], st, px, now, c.get('symbol'), ad_.get('vitals'), ad_.get('timing'))
+    _ai['book'] = _ail.note(_ai_book(), role, c['mint'], st, px, now, c.get('symbol'), len(ad_.get('risk_flags') or []))
 
 
 async def _ai_learn_settle(now):
@@ -12747,8 +12799,8 @@ def _ai_log(role, case, res, asked=False):
     if not asked and (not ad or res.get('cached')):
         return
     row = {'at': round(_fuse._f(res.get('at')) or time.time(), 1), 'role': role, 'mint': case.get('mint'), 'symbol': case.get('symbol'), 'source': res.get('source'), 'label': res.get('label'),
-           'ms': res.get('ms'), 'stance': (ad or {}).get('stance'), 'delta': (ad or {}).get('confidence_delta'), 'priority': (ad or {}).get('priority'), 'summary': (ad or {}).get('summary'),
-           'deep': bool((ad or {}).get('deep_review')), 'vitals': (ad or {}).get('vitals'), 'timing': (ad or {}).get('timing'), 'flags': (ad or {}).get('flags'), 'kernel': case.get('status') or case.get('state') or (f"closed {case.get('result'):+.1f}%" if isinstance(case.get('result'), (int, float)) else None),
+           'ms': res.get('ms'), 'stance': (ad or {}).get('stance'), 'delta': (ad or {}).get('confidence_delta'), 'summary': (ad or {}).get('summary'),
+           **{k_: (ad or {}).get(k_) for k_ in ('risk_flags', 'narrative', 'creator_context', 'conflict_resolution')}, 'kernel': case.get('status') or case.get('state') or (f"closed {case.get('result'):+.1f}%" if isinstance(case.get('result'), (int, float)) else None),
            'trigger': case.get('trigger') if isinstance(case.get('trigger'), str) else None, 'asked': bool(asked), 'why': None if ad else str(res.get('why') or 'no provider answered')[:120]}
     _ai['log'] = (_ai['log'] + [row])[-AI_LOG_KEEP:]
 
@@ -12773,47 +12825,78 @@ def _ai_view(now=None, light=False):
         keep = sorted(notes, key=lambda k_: -max(_fuse._f(x_.get('at')) for x_ in notes[k_].values()))[:12]
         return {'providers': [{k_: r_.get(k_) for k_ in ('key', 'label', 'enabled', 'state', 'lastMs')} for r_ in v['providers']], 'active': v['active'],
                 'totals': v['totals'], 'notes': {m_: {ro_: {k_: n_.get(k_) for k_ in ('source', 'label', 'advice', 'at')} for ro_, n_ in notes[m_].items()} for m_ in keep},
-                'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY, 'log': _ai['log'][-20:],
+                'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY, 'log': _ai['log'][-20:], 'metrics': v.get('metrics'),
                 'model': next((r_.get('model') for r_ in v['providers'] if r_.get('key') == v['active']), None), 'learn': {**_ail.view(_ai_book()), 'on': _ai_learn_on()},
                 'slip': {'firstPct': _fw.BUY_SLIP_FIRST / 100, 'retryPct': _fw.BUY_SLIP_MAX / 100, 'retries': _fw.BUY_SLIP_RETRIES}}
     return {**v, 'notes': notes, 'rounds': _ai['rounds'], 'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY}
 
 
 def _ai_jobs(now):
-    """What is worth a model's time this round (never every coin): the owner's review list → a conflicted case (Trigger ENTER + a Devil
-    warning) → the top contender → the newest Judge review of a real exit. Each case is asked once per change (the router caches)."""
+    """What is worth a model's time this round (never every coin, never a price tick) → [(role, case, urgency, prio)] best first:
+    the owner's review list (0) → a CONFLICT the Manager resolves (1) → READY coins in the band (2) → an AMBIGUOUS setup for Devil (3)
+    → the top in-band contender (4) → the newest Judge review of a real exit (5). A case already answered in this material STATE is
+    skipped (counted) — the router would only hand back its cached answer. Low priorities (≥ DEFER_PRIO) defer while the model is busy."""
     p = _office.get('payload') or {}
-    out = []
+    out, P = [], _air.PRIO
     for r_ in (p.get('ownerReview') or [])[:2]:
         if r_.get('mint'):
             out.append(('owner', {'mint': r_['mint'], 'symbol': r_.get('symbol'), 'state': r_.get('state'), 'why': r_.get('why'), 'cap': r_.get('mc'),
-                                  'trigger': (r_.get('trigger') or {}).get('state'), 'devil': (r_.get('devil') or {}).get('severity'), 'pending': r_.get('pending')}, 'high'))
+                                  'trigger': (r_.get('trigger') or {}).get('state'), 'devil': (r_.get('devil') or {}).get('severity'), 'pending': r_.get('pending')}, 'high', P['owner']))
     cands = (p.get('kernel') or {}).get('candidates') or []
-    # 🫀 trench coverage (2026-10-12): every READY coin gets the model's vitals BEFORE a seat can take it, then the top contenders inside
-    # the owner's MC band — a case already answered in this STATE is skipped (the router would only hand back its cached answer)
-    new_ = lambda role_, c_: not _air.ROUTER.fresh(_ai_case(c_), role_, now)
     open_ = [c_ for c_ in cands if c_.get('status') in ('READY', 'CONTENDING')]
     inband = [c_ for c_ in open_ if _uni.under_cap({'mcap': c_.get('cap')})]
-    for c_ in [c_ for c_ in inband if c_.get('status') == 'READY' and new_('sherlock', c_)][:2]:
-        out.append(('sherlock', c_, 'high'))
-    conf = next((c_ for c_ in open_ if c_.get('trigger') == 'ENTER' and c_.get('devil') and not any(d_[1] == 'HARD_VETO' for d_ in c_['devil']) and new_('devil', c_)), None)
-    if conf:
-        out.append(('devil', conf, 'normal'))
-    asked_ = {c_.get('mint') for _r, c_, _u in out}
-    for c_ in [c_ for c_ in inband if c_.get('mint') not in asked_ and new_('sherlock', c_)][:2]:
-        out.append(('sherlock', c_, 'normal'))
+    asked_ = {c_.get('mint') for _r, c_, _u, _p in out}
+
+    def add(role_, c_, urg_, pr_):
+        if c_.get('mint') in asked_:
+            return
+        if _air.ROUTER.fresh(_ai_case(c_), role_, now):
+            _air.ROUTER.totals['skipped'] += 1   # same coin, same state: the cached answer stands
+            return
+        out.append((role_, c_, urg_, pr_)); asked_.add(c_.get('mint'))
+    for c_ in [c_ for c_ in inband if _ai_conflict(c_)][:1]:
+        add('manager', c_, 'high', P['manager'])
+    for c_ in [c_ for c_ in inband if c_.get('status') == 'READY'][:2]:
+        add('sherlock', c_, 'high', P['ready'])
+    for c_ in [c_ for c_ in inband if _ai_ambiguous(c_)][:1]:
+        add('devil', c_, 'normal', P['devil'])
+    for c_ in [c_ for c_ in inband if c_.get('status') == 'CONTENDING' and c_.get('mint') not in asked_][:1]:
+        add('sherlock', c_, 'normal', P['contender'])
     rv = (((_office_state().get('judge') or {}).get('reviews')) or [])
     if rv:
         r_ = rv[-1]
         if r_.get('mint') and now - _fuse._f(r_.get('at')) < 3600:
             out.append(('judge', {'mint': r_['mint'], 'symbol': r_.get('sym'), 'result': r_.get('pct'), 'cause': r_.get('cause'), 'peak': r_.get('peak'),
-                                  'heldMin': r_.get('held'), 'rule': r_.get('exit'), 'structure': r_.get('entry'), 'phase': r_.get('phase'), 'why': r_.get('why') or r_.get('lesson')}, 'normal'))
-    return out[:AI_JOBS]
+                                  'heldMin': r_.get('held'), 'rule': r_.get('exit'), 'structure': r_.get('entry'), 'phase': r_.get('phase'), 'why': r_.get('why') or r_.get('lesson')}, 'normal', P['judge']))
+    return sorted(out, key=lambda j_: j_[3])[:AI_JOBS]
+
+
+def _ai_signals(c):
+    """⚖ What the agents themselves say about this coin, in one line (Trigger · Devil · kernel status / rank · Warden · Sherlock's unknowns)."""
+    dv = [f"{d_[0]} {str(d_[1]).replace('_', ' ')}" for d_ in (c.get('devil') or []) if isinstance(d_, (list, tuple)) and len(d_) >= 2]
+    parts = [f"Trigger {c['trigger']}" + (f" ({c['narrative']})" if c.get('narrative') else '') if c.get('trigger') else None,
+             ('Devil ' + '; '.join(dv[:3])) if dv else 'Devil no objection' if c.get('trigger') else None,
+             f"kernel {c['status']}" + (f" rank {round(_fuse._f(c.get('rank')))} vs READY {round(_tkb.READY_MIN)}" if c.get('rank') is not None else '') if c.get('status') else None,
+             f"Warden ×{c['size']}" if c.get('size') is not None else None, ('unknown: ' + ', '.join(c['unknown'][:3])) if c.get('unknown') else None]
+    return ' · '.join(x for x in parts if x) or None
+
+
+def _ai_conflict(c):
+    """The agents disagree: Trigger wants in (ENTER) while Devil grades a STRONG warning (not the hard wall)."""
+    dv = c.get('devil') or []
+    return c.get('trigger') == 'ENTER' and any(isinstance(d_, (list, tuple)) and len(d_) > 1 and d_[1] == 'STRONG_WARNING' for d_ in dv) and not any(
+        isinstance(d_, (list, tuple)) and len(d_) > 1 and d_[1] == 'HARD_VETO' for d_ in dv)
+
+
+def _ai_ambiguous(c):
+    """Close to a call either way: CONTENDING within 20% of the READY line with Trigger ENTER / ARM, or READY with holders still unknown."""
+    near = c.get('status') == 'CONTENDING' and c.get('trigger') in ('ENTER', 'ARM') and _fuse._f(c.get('rank')) >= 0.8 * _tkb.READY_MIN
+    return near or (c.get('status') == 'READY' and 'holders' in (c.get('unknown') or []))
 
 
 def _ai_case(c):
     """A kernel candidate → the compact case the router sends (it whitelists again)."""
-    return {**_ai_brief(c.get('mint')),
+    return {**_ai_brief(c.get('mint')), 'signals': _ai_signals(c),
             **{k_: c.get(k_) for k_ in ('mint', 'symbol', 'status', 'rank', 'ageMin', 'cap', 'liq', 'vol5m', 'move5m', 'buyShare', 'narrative', 'trigger', 'size', 'unknown',
                                        'state', 'why', 'pending', 'result', 'cause', 'peak', 'heldMin', 'rule', 'structure', 'phase')},
             'devil': [f"{d_[0]} {d_[1]}" for d_ in (c.get('devil') or []) if isinstance(d_, (list, tuple)) and len(d_) >= 2] if isinstance(c.get('devil'), list) else c.get('devil')}
@@ -12829,11 +12912,11 @@ async def _ai_round(now):
     if not jobs:
         return 0
     t0 = time.perf_counter()
-    res = await asyncio.gather(*[_air.ROUTER.reason(_ai_http(), env, cfg, _ai_case(c_), role_, urg_) for role_, c_, urg_ in jobs], return_exceptions=True)
+    res = await asyncio.gather(*[_air.ROUTER.reason(_ai_http(), env, cfg, _ai_case(c_), role_, urg_, prio=pr_) for role_, c_, urg_, pr_ in jobs], return_exceptions=True)
     n = 0
-    for (role_, c_, _u), r_ in zip(jobs, res):
-        if isinstance(r_, Exception) or not isinstance(r_, dict):
-            continue
+    for (role_, c_, _u, _p), r_ in zip(jobs, res):
+        if isinstance(r_, Exception) or not isinstance(r_, dict) or r_.get('deferred'):
+            continue   # a deferred job keeps its last answer (it is asked again on a quieter round)
         m_ = c_.get('mint')
         if not m_:
             continue
@@ -12854,15 +12937,25 @@ async def _ai_round(now):
     return n
 
 
+AI_DUTY = 0.5   # 💻 the local model may be busy at most half the time: after a round, wait at least as long as it took (owner, 2026-10-13: "so laggy")
+
+
+def _ai_pause(round_sec):
+    """Seconds to wait before the next advisory round: AI_EVERY, or longer when the last round kept the model busy (a 60s round on
+    a loaded Mac → 60s off). A cloud provider answering in a second keeps the normal pace."""
+    return max(AI_EVERY, _fuse._f(round_sec) * (1 - AI_DUTY) / AI_DUTY)
+
+
 async def _ai_loop():
     """🧠 The advisory loop — its own task, so a slow model can never delay a pass, a tick, a stop or an order."""
     await asyncio.sleep(20)
     while True:
+        t0 = time.time()
         try:
             await _ai_round(time.time())
         except Exception as e:
             print('ai:', type(e).__name__)
-        await asyncio.sleep(AI_EVERY)
+        await asyncio.sleep(_ai_pause(time.time() - t0))
 
 
 @app.get('/api/reputation/admin/ai/providers')
@@ -13384,6 +13477,7 @@ import shadow_book as _sb
 import trench_rounds as _tr
 import generations as _gen
 import trench_kernel.kernel as _tk
+import trench_kernel.brain as _tkb
 import trench_kernel.lifecycle as _tkl
 import trench_kernel.positions as _pos
 import trench_kernel.view as _tkv

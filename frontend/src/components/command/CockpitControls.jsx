@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
-import { hubLoad } from '../../lib/agentHub';
-import { CTRL_GROUPS, optWord, whoTone, WHO_WORD, bandTrack, hasVitals } from '../../lib/cockpitControls';
-import { aiChip } from './AiProviders';
+import { hubLoad, useAi } from '../../lib/agentHub';
+import { CTRL_GROUPS, optWord, whoTone, WHO_WORD, bandTrack, hasIntel } from '../../lib/cockpitControls';
+import { aiMetricsLine } from '../../lib/aiRead';
+import { AiChipBtn } from './AiProviders';
 import '../../styles/agentControls.css';
 
 // 🎛 OPERATOR CONTROLS, META (owner, 2026-10-12: "update controls to be meta"): the creator's own limits as grouped segment rows instead
@@ -34,7 +35,23 @@ export function BandTrack({ band, cands }) {
   </div>;
 }
 
-export function CockpitControls({ o, call, isOwner, ai, onAi }) {
+// 🧠 the model card — its own AI-store subscriber, with the router's live counters (owner's spec: queue · active · calls/min · cache hit ·
+// average latency · provider · deferred / skipped)
+function ModelCard({ o, pend, disabled, onPick }) {
+  const ai = useAi(o?.ai); const lr = ai?.learn || {};
+  const intelN = Object.values(ai?.notes || {}).filter(n => Object.values(n || {}).some(x => hasIntel(x?.advice))).length;
+  return <div className="acx-card is-model" data-testid="acx-model"><p className="acx-ctitle"><b>🧠 MODEL</b><small>vital intel only — narrative, creator, conflicts, risks; it weighs only once its own record proves it</small></p>
+    <ControlRow c={{ key: 'agentAiLearn', label: 'Learn from the model', who: lr.on === false ? 'CREATOR OVERRIDE' : 'AGENTS CHOOSE', value: lr.on === false ? 'off' : 'on', options: ['on', 'off'],
+      means: 'ON: a stance or risk read PROVEN on the model\'s own judged record (20+ calls, clearly better / worse than its other calls) moves the ranking by up to 10%. OFF: asked, shown and judged — it weighs nothing. It never buys, sizes, blocks or sells.' }}
+      pending={pend.agentAiLearn} disabled={disabled} onPick={onPick} />
+    <p className={`acx-state is-${String(lr.state || 'off').toLowerCase().replace(/\s+/g, '-')}`} data-testid="acx-model-state"><em>{lr.state || 'NO MODEL'}</em><span>{lr.why || 'start LM Studio or add a key under ⚙ providers'}</span></p>
+    {ai?.metrics ? <p className="acx-cover is-metrics" data-testid="acx-ai-metrics">{aiMetricsLine(ai.metrics).map(([l, v]) => <span key={l}><small>{l}</small><b>{v}</b></span>)}</p> : null}
+    <p className="acx-cover"><span><small>COINS WITH INTEL</small><b data-testid="acx-intel-n">{intelN}</b></span><span><small>JUDGED</small><b>{lr.all?.n ?? 0}</b></span></p>
+    {ai?.slip ? <span className="ack-fixed" data-tip="Your buy rule (fixed in the keeper): the first try at this slippage, then ONE retry; a second slippage failure gives the seat to another coin. Sells keep their own steps — an exit must land." data-testid="ack-slip"><small>BUY SLIPPAGE</small><b>{ai.slip.firstPct}% → {ai.slip.retryPct}% × {ai.slip.retries} retry</b></span> : null}
+    <button type="button" className="m-btn acx-all" onClick={() => window.dispatchEvent(new CustomEvent('feeless:agents-lens', { detail: 'limits' }))} data-testid="ack-all-limits">All limits →</button></div>;
+}
+
+export function CockpitControls({ o, call, isOwner, onAi }) {
   const pol = o?.policy || {}; const ctl = Object.fromEntries((pol.controls || []).map(c => [c.key, c]));
   const [pend, setPend] = useState({}); const busy = Object.keys(pend).length > 0;
   const save = async (cfg, key, val) => {
@@ -43,8 +60,6 @@ export function CockpitControls({ o, call, isOwner, ai, onAi }) {
     try { await call('/admin/agents', { method: 'POST', body: JSON.stringify({ cfg }) }); await hubLoad(); toast.success('saved — the agents use it on the next tick'); }
     catch (e) { toast.error(e.message); } finally { setPend({}); }
   };
-  const chip = aiChip(ai); const lr = ai?.learn || {};
-  const vitN = Object.values(ai?.notes || {}).filter(n => Object.values(n || {}).some(x => hasVitals(x?.advice))).length;
   const cands = ((o?.kernel || {}).candidates || []);
   return <section className="ack-ops acx" data-testid="ack-ops">
     <header className="acx-head"><b>🎛 OPERATOR CONTROLS</b><small>your limits on the agents — one tap saves; the agents read them on the next tick</small>
@@ -52,21 +67,13 @@ export function CockpitControls({ o, call, isOwner, ai, onAi }) {
         <button type="button" role="radio" aria-checked={!pol.manual} disabled={!isOwner || busy} className={!pol.manual ? 'active' : ''} onClick={() => pol.manual && save({ agentAuthority: 'agents' })} data-testid="ack-auth-agents">🤖 Agents inside limits</button>
         <button type="button" role="radio" aria-checked={!!pol.manual} disabled={!isOwner || busy} className={pol.manual ? 'active is-manual' : ''} onClick={() => !pol.manual && save({ agentAuthority: 'manual' })}
           data-tip="MANUAL: no agent fill, switch or read-bank — only hard safety exits and your own overrides act" data-testid="ack-auth-manual">✋ Manual</button></span>
-      <button type="button" className={`ack-aichip ${chip.cls}`} onClick={onAi} data-tip={chip.tip} data-testid="ack-aichip"><b>AI</b>{chip.parts.map(([k, l, c]) => <span key={k} className={c}>{l}</span>)}</button></header>
+      <AiChipBtn o={o} onClick={onAi} /></header>
     <div className="acx-grid">
       {CTRL_GROUPS.map(([g, title, blurb, keys]) => { const rows = keys.filter(k => ctl[k]); if (!rows.length) return null;
         return <div key={g} className={`acx-card is-${g}`} data-testid={`acx-${g}`}><p className="acx-ctitle"><b>{title}</b><small>{blurb}</small></p>
           {g === 'universe' ? <BandTrack band={pol.band} cands={cands} /> : null}
           {rows.map(k => <ControlRow key={k} c={ctl[k]} pending={pend[k]} disabled={!isOwner || busy} onPick={(kk, v) => save({ [kk]: v }, kk, v)} />)}</div>; })}
-      <div className="acx-card is-model" data-testid="acx-model"><p className="acx-ctitle"><b>🧠 MODEL</b><small>the AI reads every READY coin's vitals first — it weighs only once its own record proves it</small></p>
-        <ControlRow c={{ key: 'agentAiLearn', label: 'Learn from the model', who: lr.on === false ? 'CREATOR OVERRIDE' : 'AGENTS CHOOSE', value: lr.on === false ? 'off' : 'on', options: ['on', 'off'],
-          means: 'ON: a stance or vital PROVEN on the model\'s own judged record (20+ calls, clearly better / worse than its other calls) moves the ranking by up to 10%. OFF: asked, shown and judged — it weighs nothing. It never buys, sizes, blocks or sells.' }}
-          pending={pend.agentAiLearn} disabled={!isOwner || busy} onPick={(k, v) => save({ agentAiLearn: v === 'on' }, k, v)} />
-        <p className={`acx-state is-${String(lr.state || 'off').toLowerCase().replace(/\s+/g, '-')}`} data-testid="acx-model-state"><em>{lr.state || 'NO MODEL'}</em><span>{lr.why || 'start LM Studio or add a key under ⚙ providers'}</span></p>
-        <p className="acx-cover"><span><small>ANSWERS</small><b>{ai?.totals?.answered ?? 0}</b></span><span><small>CACHED</small><b>{ai?.totals?.cached ?? 0}</b></span>
-          <span><small>WITH VITALS</small><b data-testid="acx-vitals-n">{vitN}</b></span><span><small>JUDGED</small><b>{lr.all?.n ?? 0}</b></span></p>
-        {ai?.slip ? <span className="ack-fixed" data-tip="Your buy rule (fixed in the keeper): the first try at this slippage, then ONE retry; a second slippage failure gives the seat to another coin. Sells keep their own steps — an exit must land." data-testid="ack-slip"><small>BUY SLIPPAGE</small><b>{ai.slip.firstPct}% → {ai.slip.retryPct}% × {ai.slip.retries} retry</b></span> : null}
-        <button type="button" className="m-btn acx-all" onClick={() => window.dispatchEvent(new CustomEvent('feeless:agents-lens', { detail: 'limits' }))} data-testid="ack-all-limits">All limits →</button></div>
+      <ModelCard o={o} pend={pend} disabled={!isOwner || busy} onPick={(k, v) => save({ agentAiLearn: v === 'on' }, k, v)} />
     </div>
   </section>;
 }

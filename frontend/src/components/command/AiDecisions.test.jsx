@@ -52,20 +52,24 @@ test('the live trade strip on the cockpit chart: where now sits between the stop
   expect(tradeBar({ entry: 0 }, 1)).toBeNull(); expect(tradeBar({ entry: 1 }, 1.2).hasStop).toBe(false);
 });
 
-test("🫀 the model's vitals: meters, the timing word and its flags on every answer; the queue cell; each vital's own record", async () => {
-  const { AiVitals, AiCell } = require('./AiDecisions');
-  const a = { stance: 'WATCH', summary: 'early, bots light', vitals: { rug: 70, narrative: 85, crowd: 20, momentum: 90 }, timing: 'EARLY', flags: ['no site / X', 'top10 21%'] };
-  const el = await mount(<AiVitals a={a} testid="v" />);
-  expect(q(el, 'v').querySelectorAll('.avt-meters li')).toHaveLength(4); expect(q(el, 'v').textContent).toContain('RUG RISK'); expect(q(el, 'v').textContent).toContain('⏱ EARLY');
-  expect(q(el, 'v').querySelector('.avt-meters li').className).toBe('is-bad'); expect(q(el, 'v').textContent).toContain('top10 21%');
-  expect((await mount(<AiVitals a={{ stance: 'WAIT', summary: 'x' }} testid="none" />)).querySelector('[data-testid="none"]')).toBeNull();   // nothing said = nothing drawn
+test("🧠 the model's trench intel: narrative, creator, conflict and risk flags on every answer; the queue cell; the live router counters", async () => {
+  const { AiIntel, AiCell } = require('./AiDecisions');
+  const a = { stance: 'CAUTION', summary: 'cat meta copy, dev fresh', risk_flags: ['site shows a different mint', 'top10 41%'], narrative: 'cat meta — third copy today', creator_context: 'fresh dev, 1 launch', conflict_resolution: null };
+  const el = await mount(<AiIntel a={a} testid="v" />);
+  expect(q(el, 'v').querySelectorAll('.avt-intel li')).toHaveLength(2); expect(q(el, 'v').textContent).toContain('NARRATIVE'); expect(q(el, 'v').textContent).toContain('fresh dev');
+  expect(q(el, 'v').querySelectorAll('.avt-flag.is-risk')).toHaveLength(2); expect(q(el, 'v').textContent).toContain('cat meta copy');
+  expect((await mount(<AiIntel a={{ stance: 'NEUTRAL' }} testid="none" />)).querySelector('[data-testid="none"]')).toBeNull();   // nothing said = nothing drawn
+  expect((await mount(<AiIntel a={{ stance: 'NEUTRAL', summary: 'x' }} mini testid="m" />)).querySelector('[data-testid="m"]')).toBeNull();   // a log row prints the summary itself
   const cell = await mount(<AiCell a={a} />);
-  expect(cell.textContent).toContain('WATCH'); expect(cell.querySelector('.avt-rug').className).toContain('is-bad'); expect(cell.textContent).toContain('EARLY');
+  expect(cell.textContent).toContain('CAUTION'); expect(cell.querySelector('.avt-rugs').textContent).toBe('🚩2');
   expect((await mount(<AiCell a={null} />)).textContent).toBe('—');
-  const learn = { state: 'LEARNING', why: 'x', open: 0, minN: 20, judgeMin: 15, rows: [], vitals: [{ bucket: 'RUG:HIGH', label: 'rug ≥ 60', n: 12, med: -40, up: 8, factor: 1, proven: false }, { bucket: 'TIME:DEAD', label: 'timing DEAD', n: 0, med: null, up: null, factor: 1 }] };
-  const pane = await mount(<AiPane ai={{ ...AI, learn, log: [{ at: 5, role: 'sherlock', mint: 'A', symbol: 'A', stance: 'WATCH', summary: 's', vitals: { rug: 70 }, timing: 'LATE' }] }} call={jest.fn()} focus="A" />);
-  expect(q(pane, 'cai-learn-vitals').textContent).toContain('rug ≥ 60'); expect(q(pane, 'cai-learn-vitals').textContent).not.toContain('timing DEAD');   // only judged buckets
-  expect(q(pane, 'cai-log').textContent).toContain('⏱ LATE');
+  const learn = { state: 'LEARNING', why: 'x', open: 0, minN: 20, judgeMin: 15, rows: [], vitals: [{ bucket: 'FLAGS:2+', label: '2+ risk flags', n: 12, med: -40, up: 8, factor: 1, proven: false }, { bucket: 'FLAGS:0', label: 'no risk flag', n: 0, med: null, up: null, factor: 1 }] };
+  const metrics = { queue: 2, active: 1, callsPerMin: 3, cacheHitPct: 61, avgMs: 4200, provider: 'local', deferred: 5, skipped: 9 };
+  const pane = await mount(<AiPane ai={{ ...AI, learn, metrics, log: [{ at: 5, role: 'sherlock', mint: 'A', symbol: 'A', stance: 'CAUTION', summary: 's', narrative: 'dog meta', risk_flags: ['dev selling'] }] }} call={jest.fn()} focus="A" />);
+  expect(q(pane, 'cai-learn-vitals').textContent).toContain('2+ risk flags'); expect(q(pane, 'cai-learn-vitals').textContent).not.toContain('no risk flag');   // only judged buckets
+  expect(q(pane, 'cai-log').textContent).toContain('dog meta'); expect(q(pane, 'cai-log').textContent).toContain('dev selling');
+  const m = q(pane, 'cai-metrics').textContent;
+  ['QUEUE2', 'ACTIVE1', 'CALLS / MIN3', 'CACHE HIT61%', 'AVG LATENCY4.2s', 'PROVIDERLOCAL', '5 · 9'].forEach(x => expect(m).toContain(x));
 });
 
 test("the model's record is on the page: what the agents learned from it, and whether it is used yet", async () => {
