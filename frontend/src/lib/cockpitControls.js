@@ -43,6 +43,18 @@ export function gateCounts(refused) {
   return out;
 }
 
+// 😴 THE REGRET LEDGER on the page: every check's blocked coins vs the coins taken (graded 30 min later), and what the agents tuned it to
+export const REGRET_CHECKS = [['gate:gap', 'price gap', 'agentGapPct'], ['gate:back', 'sell-back', 'agentBackPct'], ['gate:pool', 'thin pool', 'agentPoolMin'],
+  ['flow:PEAK', 'peak wait', 'peakWait'], ['flow:SELLERS', 'sellers wait', 'sellersWait']];
+export function regretRows(rg) {
+  const rec = rg?.record || {}; const tk = rec.taken; const tune = rg?.tune || {};
+  return REGRET_CHECKS.filter(([k, , key]) => rec[k] || tune[key]).map(([k, label, key]) => {
+    const b = rec[k]; const d = b && tk ? b.med - tk.med : null;
+    return { k, label, n: b?.n || 0, med: b?.med ?? null, taken: tk?.med ?? null, ran: b?.ran ?? null, tuned: tune[key] || null,
+      verdict: d == null || (b?.n || 0) < 12 || (tk?.n || 0) < 12 ? 'learning' : d >= 5 ? 'costly' : d <= -5 ? 'right' : 'even' };
+  });
+}
+
 // who decides a control right now → its tone class
 export const whoTone = w => (w === 'CREATOR OVERRIDE' ? 'is-you' : w === 'YOUR BAND' ? 'is-band' : 'is-agents');
 export const WHO_WORD = { 'CREATOR OVERRIDE': 'YOURS', 'YOUR BAND': 'YOUR BAND', 'AGENTS CHOOSE': 'AGENTS' };

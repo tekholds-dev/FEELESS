@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { hubLoad, useAi } from '../../lib/agentHub';
-import { CTRL_GROUPS, optWord, whoTone, WHO_WORD, bandTrack, hasIntel, gateCounts, GATE_WORDS } from '../../lib/cockpitControls';
+import { CTRL_GROUPS, optWord, whoTone, WHO_WORD, bandTrack, hasIntel, gateCounts, GATE_WORDS, regretRows } from '../../lib/cockpitControls';
 import { aiMetricsLine } from '../../lib/aiRead';
 import { AiChipBtn } from './AiProviders';
 import '../../styles/agentControls.css';
@@ -59,6 +59,16 @@ function GateLine({ refused, armed }) {
     {armed?.n ? <span className="acx-gpill is-armed" data-tip={(armed.syms || []).map(s => `$${s}`).join(' · ')}>🎯 <b>{armed.n}</b>armed in</span> : null}</p>;
 }
 
+// 😴 what each check COST: the coins it held back vs the coins taken, 30 min later — and the notch the agents moved it to (only where you left AGENTS)
+const pct = v => (v == null ? '—' : `${v > 0 ? '+' : ''}${Number(v).toFixed(1)}%`);
+function RegretLine({ rg }) {
+  const rows = regretRows(rg);
+  if (!rows.length) return <p className="acx-regret is-empty" data-testid="acx-regret">😴 learning from the coins they skip — graded 30 min after each block</p>;
+  return <ul className="acx-regret" data-testid="acx-regret">{rows.map(r => <li key={r.k} className={`is-${r.verdict}`}
+    data-tip={`${r.n} coins this check held back did ${pct(r.med)} 30 min later vs ${pct(r.taken)} for the coins taken (${r.ran ?? 0}% ran +20%)${r.tuned ? ` · 🤖 ${r.tuned.why}` : ''}`}>
+    <b>{r.label}</b><span>{r.n ? `${pct(r.med)} vs ${pct(r.taken)}` : '—'}</span><em>{r.tuned ? `🤖 → ${r.tuned.value === false ? 'OFF' : r.tuned.value}` : r.verdict === 'costly' ? 'COSTLY' : r.verdict === 'right' ? 'RIGHT' : r.verdict === 'even' ? 'EVEN' : `${r.n}/12`}</em></li>)}</ul>;
+}
+
 export function CockpitControls({ o, call, isOwner, onAi }) {
   const pol = o?.policy || {}; const ctl = Object.fromEntries((pol.controls || []).map(c => [c.key, c]));
   const [pend, setPend] = useState({}); const busy = Object.keys(pend).length > 0;
@@ -81,6 +91,7 @@ export function CockpitControls({ o, call, isOwner, onAi }) {
         return <div key={g} className={`acx-card is-${g}`} data-testid={`acx-${g}`}><p className="acx-ctitle"><b>{title}</b><small>{blurb}</small></p>
           {g === 'universe' ? <BandTrack band={pol.band} cands={cands} /> : null}
           {g === 'gate' ? <GateLine refused={o?.seat?.refused} armed={o?.armed} /> : null}
+          {g === 'gate' ? <RegretLine rg={o?.regret} /> : null}
           {rows.map(k => <ControlRow key={k} c={ctl[k]} pending={pend[k]} disabled={!isOwner || busy} onPick={(kk, v) => save({ [kk]: v }, kk, v)} />)}</div>; })}
       <ModelCard o={o} pend={pend} disabled={!isOwner || busy} onPick={(k, v) => save({ agentAiLearn: v === 'on' }, k, v)} />
     </div>

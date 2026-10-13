@@ -10232,7 +10232,7 @@ async def _prime_tick_inner(now):
             vetoed_ = 0
             # the money boundary for a fill: the creator not on manual · the office LIVE · the keeper not halted · Courier not BAD · the runaway guard
             plan_ = valid_[:empty_n + 3] if (empty_n and not pol_['manual'] and rd_['live'] and not seat_ctx_['halt'] and seat_ctx_['courier'] != 'BAD' and used_ < _uni.FILL_MOVES_HR) else []
-            _fw.set_agent_limits(cfg_t)   # 🎛 the owner's price-gap / sell-back / pool-floor / curve limits for agent buys: the pre-check and the keeper read the same ones
+            _fw.set_agent_limits(_regret_limits(cfg_t))   # 😴 tuned by the regret ledger where the owner left AGENTS · 🎛 the owner's price-gap / sell-back / pool-floor / curve limits for agent buys: the pre-check and the keeper read the same ones
             if plan_ is not None and pol_.get('entry') == 'armed' and empty_n and not pol_['manual'] and rd_['live'] and not seat_ctx_['halt'] and seat_ctx_['courier'] != 'BAD' and used_ < _uni.FILL_MOVES_HR:
                 # 🎯 KEEP SEATS FULL (the owner's entry mode): a seat empty past the owner's target with too few READY coins takes the best ARMED
                 # coins (Trigger: "building, not yet") at HALF a seat — never a WAIT / NO coin, never a hard veto, never a blocked one
@@ -10254,7 +10254,11 @@ async def _prime_tick_inner(now):
                         if v_:
                             _flow_mark(t_['mint'], v_, t_.get('symbol'), now)
                         why_ = _flow.vital_block(v_)
+                        wt_ = _rg.effective(cfg_t, _regret_book())
+                        if why_ and not wt_.get({'PEAK': 'peakWait', 'SELLERS': 'sellersWait'}.get((v_ or {}).get('state'), ''), True):
+                            why_ = None   # 😴 this tape wait was switched off by the regret ledger: the coins it held back kept beating the ones taken
                         if why_:
+                            _regret_note(t_['mint'], f"flow:{v_.get('state')}", _fuse._f(t_.get('px')), t_.get('symbol'))
                             waits_.append({'symbol': t_.get('symbol'), 'why': why_})
                             _tk.KERNEL.note('trigger', 'WAIT', f"the tape says wait — {why_}", now, mint=t_['mint'], key=f"flow:{int(now // 120)}")
                             continue
@@ -10296,7 +10300,8 @@ async def _prime_tick_inner(now):
                                                   'tag': '🤖 agents · ⚡ READY (kernel)' if not t_.get('armed') else '🤖 agents · 🎯 ARMED (seat target)', 'why': t_['nearReady']}, px, cfg_s, now,
                                           max_usd=wd_['allowed'] * (_oe.ARMED_SIZE if t_.get('armed') else 1.0))
                     used_ += 1; cur['agentDutyAt'] = now; cur['agentFillAt'] = now
-                    _ai.setdefault('fillQ', {})[t_['mint']] = now   # 📍 the model reads this coin once more AT the fill (record only — it never undoes a buy)
+                    _ai.setdefault('fillQ', {})[t_['mint']] = now
+                    _regret_note(t_['mint'], 'taken', _fuse._f(t_.get('px')), t_.get('symbol'))   # 😴 the baseline every blocked coin is graded against   # 📍 the model reads this coin once more AT the fill (record only — it never undoes a buy)
                     try:   # 📏 decision → order · discovery → entry · the coin's age at entry
                         K_ = _tk.KERNEL
                         K_.timings.note('readyToSeatSec', now - _fuse._f((K_.store.cand.get(t_['mint']) or {}).get('since') or now))
@@ -13768,7 +13773,7 @@ def _kernel_ctx(now):
     legs_ = ((((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '') or {}).get('legs') or [])
     pending = {l.get('mint') for l in legs_ if l.get('mint') and not l.get('placeholder') and _fuse._f(l.get('units')) <= 0}   # a seat the keeper is still buying
     return {'held': held, 'pending': pending, 'regime': (_agents.get('weather') or {}).get('regime'), 'courier': (_office.get('courier') or {}).get('health'),
-            'live': rd.get('live') if rd else None, 'weights': _judge_weights(now), 'aiw': _ai_weights(now), 'pens': _coach_pens(now), 'lessons': _tkl.lessons(_lc_book(now)), 'lab': _rlab.trigger_lessons(_lab_state()),
+            'live': rd.get('live') if rd else None, 'weights': _judge_weights(now), 'aiw': _ai_weights(now), 'pens': _coach_pens(now), 'lessons': _tkl.lessons(_lc_book(now)), 'lab': _rlab.trigger_lessons(_lab_state()), 'waits': _rg.effective(_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), _regret_book()),
             'watchOnly': {m_ for m_ in _owner.get('only') or () if _tk.KERNEL.owner.get(m_) != 'arm'}}   # 👤 review / track only: judged, never READY   # 🧬 only the generations IN CONTROL
 
 
@@ -14169,6 +14174,54 @@ def _coach_grade(now):
 
 
 import rule_lab as _rlab
+import regret as _rg
+REGRET_PATH = DATA_DIR / 'regret.json'
+_regret: dict = {'b': None, 'at': 0.0, 'savedAt': 0.0}
+
+
+def _regret_book():
+    if _regret['b'] is None:
+        _regret['b'] = _json_load(REGRET_PATH, {}) or {}
+    return _regret['b']
+
+
+def _regret_note(mint, why, px, sym=None):
+    """😴 A coin a check blocked (or the desk took: why='taken') — graded 30 min later beside the taken ones (regret.py)."""
+    if mint and why:
+        _regret['b'] = _rg.note(_regret_book(), mint, why, px, time.time(), sym)
+
+
+def _regret_limits(cfg):
+    """The limits + tape waits the agents buy by: the owner's own value when set, else what the regret ledger tuned, else the default."""
+    try:
+        return {**(cfg or {}), **_rg.effective(cfg or {}, _regret_book())}
+    except Exception:
+        return cfg or {}
+
+
+async def _regret_tick(now):
+    """Once a minute: every open note's peak + its grade when due (one batched public price read), then one tuning look (regret.tune)."""
+    if now - _regret['at'] < 60:
+        return
+    _regret['at'] = now
+    try:
+        b = _regret_book()
+        mints = list(dict.fromkeys(c_['mint'] for c_ in (b.get('open') or [])))[:80]
+        px = await _jup_prices(mints) if mints else {}
+        if mints and not px:
+            return   # a pass where the price source answers nothing grades nothing
+        b = _rg.watch(b, px, now)
+        rc = _prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
+        b, ch = _rg.tune(b, rc, now)
+        _regret['b'] = b
+        for c_ in ch:
+            _tk.KERNEL.note('judge', 'TWEAK', f"😴 {c_['key']} → {c_['to']}: {c_['why']}", now, key=f"regret:{c_['key']}:{int(now // 600)}")
+        if ch or now - _regret['savedAt'] >= 120:
+            _json_save(REGRET_PATH, b); _regret['savedAt'] = now
+    except Exception as e:
+        print('regret:', str(e)[:140])
+
+
 LAB_PATH = DATA_DIR / 'rule_lab.json'
 LAB_EVERY, LAB_JUDGE_EVERY = 3600.0, 600.0
 _lab: dict = {'st': None, 'at': 0.0, 'judgedAt': 0.0, 'said': None}
@@ -14345,6 +14398,7 @@ async def _seat_precheck(plan, cfg_t, now, seat_usd=0.0, need=1):
             _seat_pre_ok[t_['mint']] = (now, out[t_['mint']])
         else:
             _agent_refused[t_['mint']] = (now + hold_, why_, now)
+            _regret_note(t_['mint'], _rg.why_class(why_), _fuse._f((lv_ or {}).get('midPx')) or _fuse._f(t_.get('px')), t_.get('symbol'))   # 😴 graded later beside the coins taken
     return out
 
 
@@ -14357,6 +14411,7 @@ async def _agents_tick(now):
         return
     _agents['at'] = now
     wake_at_ = _fuse._f(_agents.get('wake')) if woke else 0.0
+    await _regret_tick(now)   # 😴 grade the coins the checks blocked + tune the checks the owner left on AGENTS (once a minute)
     try:   # 🎯 the owner's MC band (realCfg agentMcMin / agentMcMax, default $12K–$300K) — every reader of the universe reads it from here
         _uni.set_band(_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}))
     except Exception as e:
@@ -15276,7 +15331,7 @@ def _hub_publish(now, light=False):
         H.sync('position_update', {x_['mint']: {k_: v_ for k_, v_ in x_.items() if k_ not in _POS_DROP} for x_ in p.get('positions') or [] if x_.get('mint')}, now)
         H.publish('execution_update', 'office', {'courier': {k_: (_office.get('courier') or {}).get(k_) for k_ in ('health', 'why', 'pending', 'sends', 'fills', 'failed', 'landMed')},
                                                  'ready': p.get('ready'), 'seat': p.get('seat'), 'ops': p.get('ops'), 'lastAction': (p.get('mission') or {}).get('lastAction'),
-                                                 'seatBoard': p.get('seatBoard'), 'seatSummary': p.get('seatSummary'), 'wake': p.get('wake'), 'armed': _office.get('armed')}, now)
+                                                 'seatBoard': p.get('seatBoard'), 'seatSummary': p.get('seatSummary'), 'wake': p.get('wake'), 'armed': _office.get('armed'), 'regret': p.get('regret'), 'lab': p.get('lab')}, now)
         if light:
             return
         k = p.get('kernel') or {}
@@ -15619,7 +15674,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         print('fresh:', e)
     _office['payload']['performance']['passMs'] = round(sum(_fuse._f(ms.get(a)) for a in _of.CHAIN), 2)
     _tape_ledger(now)
-    _office['payload'].update(tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now), ai=_ai_view(now, light=True), net=_net_stats(now), armed=_office.get('armed'), lab=_lab_view(now),
+    _office['payload'].update(tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now), ai=_ai_view(now, light=True), net=_net_stats(now), armed=_office.get('armed'), lab=_lab_view(now), regret=_rg.view(_regret_book(), now),
                               universe={'capUsd': _uni.band()[1], 'minCapUsd': _uni.band()[0], 'word': _uni.band_word(), 'maxAgeH': _uni.AGENT_MAX_AGE_H, 'inLane': len(_agents.get('table') or []),
                                         'board': (_office.get('intake') or {}).get('board'), 'mints': len(_tk.KERNEL.store.mints)})
     _hub_publish(now)   # 📡 this pass as DELTAS: only what changed since the last one

@@ -43,3 +43,12 @@ test('🛂 the buy gate counts the keeper\'s refusals by the limit that refused 
   expect(labLine({ test: { n: 7, avg: -12, rest: -3.1 } })).toBe('unseen 7: -12.0% vs -3.1%');
   expect(labLine({ lossHits: 4 })).toBe('4 recent real losses fit it');
 });
+
+test('😴 the regret line: each check\'s held-back coins vs the coins taken, its verdict, and what the agents tuned it to', () => {
+  const { regretRows } = require('./cockpitControls');
+  const rows = regretRows({ record: { taken: { n: 20, med: -6 }, 'gate:gap': { n: 14, med: 12, ran: 30 }, 'gate:pool': { n: 15, med: -20, ran: 5 }, 'flow:PEAK': { n: 3, med: 4 } },
+    tune: { agentGapPct: { value: 4, why: 'x' } } });
+  expect(rows.map(r => [r.k, r.verdict])).toEqual([['gate:gap', 'costly'], ['gate:pool', 'right'], ['flow:PEAK', 'learning']]);
+  expect(rows[0].tuned.value).toBe(4);
+  expect(regretRows(null)).toEqual([]);
+});

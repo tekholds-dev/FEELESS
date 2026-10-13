@@ -62,7 +62,7 @@ def weather(ms, ctx):
     return {'regime': reg, 'factor': WEATHER_F.get(reg, 1.0)}
 
 
-def trigger(ms, lessons=None, lab=None):
+def trigger(ms, lessons=None, lab=None, waits=None):
     """WHEN, from the live narrative of this pass. `lateMove` (the live Trigger generation's lesson, 0 = off): a coin already up that much
     in 5 minutes is ARMED, not entered."""
     nar, why = _opp.narrative(ms['row'])
@@ -71,9 +71,10 @@ def trigger(ms, lessons=None, lab=None):
     if st == 'ENTER' and late > 0 and _f(ms['market'].get('move5m')) >= late:
         st, why = 'ARM', f"{why} — already {_f(ms['market'].get('move5m')):+.0f}% in 5 min (armed, not chased)"
     fv = ms['market'].get('flow') or {}   # 🌊 the live tape decides the MOMENT: never into sellers, never into the top of a spike
-    if st in ('ENTER', 'ARM') and fv.get('state') == 'SELLERS':
+    w = waits or {}   # 😴 the regret ledger may switch a tape wait OFF when the coins it held back kept beating the ones taken (regret.tune)
+    if st in ('ENTER', 'ARM') and fv.get('state') == 'SELLERS' and w.get('sellersWait', True):
         st, why = 'WAIT', f"{why} — but {fv.get('why')}"
-    elif st == 'ENTER' and fv.get('state') == 'PEAK':
+    elif st == 'ENTER' and fv.get('state') == 'PEAK' and w.get('peakWait', True):
         st, why = 'ARM', f"{why} — {fv.get('why')} (armed for the dip, not bought at the top)"
     if st == 'ENTER' and lab:   # 🧪 Trigger's lessons from the rule lab: a live AVOID rule on the entry moment, proven on our real fills, arms the coin
         fs = set(_lab.row_feats(ms['row']))
@@ -147,7 +148,7 @@ def think(ms, ctx=None):
     c = ctx or {}
     held = (c.get('held') or {}).get(ms['identity']['mint'])
     ls = c.get('lessons')   # {role: lesson} of the generations IN CONTROL (lifecycle.lessons) — a shadow / retired one is never in it
-    t, sh, we, tr, dv = tally(ms), sherlock(ms, ls), weather(ms, c), trigger(ms, ls, c.get('lab')), devil(ms, ls)
+    t, sh, we, tr, dv = tally(ms), sherlock(ms, ls), weather(ms, c), trigger(ms, ls, c.get('lab'), c.get('waits')), devil(ms, ls)
     wa, co = warden(ms, dv, sh), courier(c)
     mw = (c.get('weights') or {}).get(ms['identity']['mint'])
     if mw is not None and _f(mw) < 1.0 and wa['size'] > 0:   # 🧠 the real-money memory puts this coin in the WORSE half of what the card has bought: it still takes the seat, at half size

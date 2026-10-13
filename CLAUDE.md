@@ -3747,3 +3747,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🧹 CHART TAGS NEVER STACK (`lib/chartLevels.spreadAround`, `LIVE_ROOM` 16): level tags are spread apart AND kept off the live price row (the
   P&L tag riding the candle + the axis's own price label); a tag moved off its own line is dashed (`.clx-tag.is-moved`). The owner's
   screenshot had seat P&L, entry and take tags on top of each other near the price.
+- 😴 THE REGRET LEDGER (`backend/regret.py` pure + tested; `_regret_tick` once a minute in the agents' pass, `data/regret.json`, payload +
+  stream `regret` → `RegretLine` in the 🛂 BUY GATE card; owner, 2026-10-13: "learn like you do from missed opportunities and tweaks … last
+  forever untouched"): the missed-winner autopsy files only coins that RAN, so it can never say a block was wrong. Here EVERY coin a check
+  blocked (pre-check refusals by `why_class`: gap · back · pool · route; the tape waits flow:PEAK / flow:SELLERS) is noted at its price
+  beside every coin the desk TOOK (`taken`), and all are graded 30 min later (end %, peak, dumped; no price for 2h = −100%). TWEAKS, only
+  where the owner left AGENTS: a buy-gate limit steps ONE notch looser (gap 2.5 → 4 → 6 → 8 · back 3.5 → 5 → 7 → 10 · pool $8K → 5K → 3K)
+  when ≥ 12 blocked and ≥ 12 taken coins show the blocked ones ≥ 5 pts better AND dumping no more (+5); a tape wait switches OFF the same
+  way and back ON when its blocked coins turn ≥ 5 pts worse; one notch per 6h; a tweak whose taken coins since did ≥ 5 pts worse is rolled
+  back and rests 12h. `_regret_limits(cfg)` = owner value › tuned value › default, read by `set_agent_limits` and the kernel ctx `waits`
+  (`brain.trigger(.., waits)`). The no-route / honeypot / below-market checks and every exit never move. Stamp checks guard a missing stamp.
+- 🔑 Jupiter keys: each in its OWN name (`JUPITER_API_KEY`, `_2` … `_6`). 2026-10-13 the owner pasted two keys on one line as a second
+  `JUPITER_API_KEY=` (the loader keeps the first value of a repeated name → both ignored); split into `_2` / `_3`, both answered 200 while
+  key 1 was 429. Probe a key with one quote + one price call and print the status only.
