@@ -401,3 +401,20 @@ def test_a_duty_case_is_judged_on_the_coin_not_on_triggers_losing_streak():
     assert ag.devil_args('enter', n, why, row, {'busted': set(), 'cards': {'trigger': {'n': 40, 'med': -2.0}}}, warns=w) == [] and w[0][0] == 'trigger_losing'   # a mild one warns
     assert ag.devil('enter', n, why, row, losing, duty=True)[0] == 'agree'             # a duty case: the coin itself is clean
     assert ag.devil('enter', n, why, {**row, 'tv': {'call': ['x', 'WATCH'], 'rug': 80}}, losing, duty=True)[0] == 'object'   # … and a dirty coin never is
+
+
+def test_the_degen_ideas_are_paper_first_strategies_with_no_starting_belief():
+    import meme_terms as mt
+    base = {'li': {'phase': 'PRE-FOMO'}, 'mind': {}}
+    assert 'base_crowd' in ag.strats(base, {'d5': 1.0, 'buy': 61, 'holdD': 4})
+    assert 'base_crowd' not in ag.strats(base, {'d5': 9.0, 'buy': 61, 'holdD': 4})             # already moving = not the base
+    assert 'base_crowd' not in ag.strats(base, {'d5': 1.0, 'buy': 61})                          # holders not read = not claimed
+    assert 'pro_first_call' in ag.strats({'pros': 1, 'mind': {'crowd': {'callers': 1}}}, {})
+    assert 'pro_first_call' not in ag.strats({'pros': 1, 'mind': {'crowd': {'callers': 6}}}, {})  # six callers in = not the first call
+    assert ag.strats({'waveRole': 'copy', 'mind': {}}, {}) == ['wave_copycat'] and ag.strats({'waveRole': 'lead', 'mind': {}}, {}) == ['wave_original']
+    for k in ('base_crowd', 'pro_first_call', 'wave_original', 'wave_copycat'):
+        assert ag.PRIOR.get(f'strat:{k}') is None and ag.word(f'strat:{k}').startswith('🎯')    # record only, never a belief
+    trend = [{'kind': 'wave', 'term': 'pepe', 'today': 12, 'coins': []}, {'kind': 'wave', 'term': 'tiny', 'today': 3, 'coins': []}]
+    rows = [{'mint': 'A', 'symbol': 'PEPE', 'mcap': 90000, 'ageH': 5}, {'mint': 'B', 'symbol': 'PEPE2', 'name': 'baby pepe', 'mcap': 20000, 'ageH': 1},
+            {'mint': 'C', 'symbol': 'DOG', 'mcap': 5000}, {'mint': 'D', 'symbol': 'TINY', 'mcap': 1}, {'mint': 'E', 'symbol': 'TINY', 'mcap': 2}]
+    assert mt.wave_roles(trend, rows) == {'A': 'lead', 'B': 'copy'}                               # a 3-coin "wave" is not a wave

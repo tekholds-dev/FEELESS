@@ -162,3 +162,20 @@ def test_the_judges_repeat_loss_causes_rank_a_matching_coin_down_and_never_veto_
     assert round(c['rank'] / a['rank'], 2) >= tb.PEN_FLOOR and any('judge: crowd fomo' in str(p[0]) for p in b['parts'])
     clean = ts.from_row(row('K'), 100.0)
     assert tb.think(clean, {'pens': {'crowd fomo': -8.0}})['rank'] == tb.think(clean)['rank']   # a coin the cause does not match is untouched
+
+
+def test_a_candidate_that_left_the_desk_steps_down_instead_of_staying_ready_on_an_old_reading():
+    """Lynk ran to $18K, died back to $3K and stayed "2 min old, +3%" for 25 minutes: seated three times on a reading nobody refreshed."""
+    k = tk.Kernel()
+    k.run([row('GONE'), row('LIVE')], 100.0)
+    assert k.dec['GONE']['status'] in ('READY', 'CONTENDING')
+    k.run([row('LIVE')], 150.0)                                   # one missed pass is not stale
+    assert k.dec['GONE']['status'] in ('READY', 'CONTENDING')
+    k.run([row('LIVE')], 100.0 + tk.STALE_SEC + 1)
+    assert k.dec['GONE']['status'] == 'TRACKING' and 'off the desk' in k.dec['GONE']['why'] and k.dec['LIVE']['status'] in ('READY', 'CONTENDING')
+    assert 'GONE' not in [m for m, _d in k.ready()] and 'GONE' not in [c['mint'] for c in k.cases(statuses=('READY', 'CONTENDING'))]
+    k.price_event('GONE', 1.5, 100.0 + tk.STALE_SEC + 5)          # a live price alone never makes it a candidate again
+    assert k.dec['GONE']['status'] == 'TRACKING'
+    k.price_event('GONE', 1.0, 100.0 + tk.STALE_SEC + 6)          # (back at the row's own price: the fresh row below raises no price event)
+    k.run([row('GONE'), row('LIVE')], 100.0 + tk.STALE_SEC + 20)  # the desk reads it again: judged on the fresh row
+    assert k.dec['GONE']['status'] in ('READY', 'CONTENDING')

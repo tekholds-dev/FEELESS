@@ -7166,16 +7166,24 @@ async def _brain_track(now):
         jp = await _jup_prices(watch, judge=True) if watch else {}
         if watch and not jp:
             return
-        st = _tb.track(st, rows, lambda m: (jp or {}).get(m), now)
+        clean_ = _fuse._f(st.get('cleanFrom')) or now   # 🩹 results from here on were graded with every price source reachable (see edge_audit `since`)
+        st = {**_tb.track(st, rows, lambda m: (jp or {}).get(m), now), 'cleanFrom': clean_}
         _json_save(BRAIN_PATH, st)
-        _brain.update(at=now, tbl=_tb.table(st['done']), sum=_tb.summary(st))
+        cl_ = _brain_clean(st)
+        _brain.update(at=now, tbl=_tb.table(cl_['done']), sum=_tb.summary(cl_))
     except Exception as e:
         print('trench brain:', e)
 
 
+def _brain_clean(st):
+    """The brain LEARNS only from coins settled since `cleanFrom`: before it a refused price source was filed as a vanished coin (−100%)."""
+    since = _fuse._f((st or {}).get('cleanFrom'))
+    return {**(st or {}), 'done': [x for x in (st or {}).get('done') or [] if _fuse._f(x.get('at')) >= since]}
+
+
 def _brain_state():
     if _brain['sum'] is None:
-        st = _json_load(BRAIN_PATH, {})
+        st = _brain_clean(_json_load(BRAIN_PATH, {}))
         _brain.update(tbl=_tb.table(st.get('done') or []), sum=_tb.summary(st))
     return _brain
 
@@ -9208,7 +9216,8 @@ async def _proof_gate_tick(now):
     A hold the owner set by hand is never touched. Owner inbox once per change."""
     import edge_audit as _ea
     calls_ = list(_agents_mem.get().get('done') or [])   # a copy taken on the loop: the live object keeps changing while the audit runs in its thread
-    a = await asyncio.to_thread(lambda: _ea.audit((_json_load(BRAIN_PATH, {}).get('done') or []), calls_, _ea.COST, now))
+    br_ = _json_load(BRAIN_PATH, {})
+    a = await asyncio.to_thread(lambda: _ea.audit(br_.get('done') or [], calls_, _ea.COST, now, _fuse._f(br_.get('cleanFrom'))))
     _json_save(EDGE_AUDIT_PATH, {**a, 'gate': _ea.gate(a), 'words': _ea.words(a)})
     g = _ea.gate(a)
     if g == 'wait':
@@ -9255,6 +9264,29 @@ async def _proof_gate_fix_1010(now):
         await _proof_gate_tick(now)   # judge at once — never wait an hour to stop a bleed
     except Exception as e:
         print('proof gate:', e)
+    return True
+
+
+async def _proof_clean_1013(now):
+    """🩹 Once: every 1-hour paper record restarts (2026-10-13: 45–80% of their settled rows were −100% "vanished" coins that were alive —
+    the graders' price fallback timed out at 3s on a 5–7s batch). Those rows decided Devil's busted reads, paused lists, the edge score
+    and the proof gate. Settled rows only; open coins keep running; never a money record. Old rows: data/proof_before_clean1013.json."""
+    flag = DATA_DIR / 'proof_clean.json'
+    if _json_load(flag, {}).get('fix1013'):
+        return False
+    old, n = {}, 0
+    for path in (TRENCH_META_PATH, ENTRY_PROOF_PATH, CALL_PROOF_PATH, PROCALL_PROOF_PATH, BOTTOM_PROOF_PATH, LENS_PROOF_PATH, EDGE_PROOF_PATH, FLOW_PROOF_PATH):
+        st = _json_load(path, {})
+        new, k = _trench.proof_restart(st)
+        if k:
+            old[path.name] = st; n += k; _json_save(path, new)
+    doc = _json_load(TRENCH_CALLOUT_PATH, {})
+    new, k = _trench.proof_restart(doc.get('state') or {})
+    if k:
+        old[TRENCH_CALLOUT_PATH.name] = doc.get('state'); n += k; _json_save(TRENCH_CALLOUT_PATH, {**doc, 'state': new})
+    if old:
+        _json_save(DATA_DIR / 'proof_before_clean1013.json', old)
+    _json_save(flag, {'fix1013': now, 'rows': n})
     return True
 
 
@@ -9643,6 +9675,7 @@ async def _prime_tick_inner(now):
     await _proof_gate_fix_1010(now)
     await _curve_fix_1011(now)
     await _armed_fix_1013(now)
+    await _proof_clean_1013(now)
     await _agent_real_fix_1012(now)
     await _agent_open_fix_1012(now)
     await _agent_control_fix_1010(now)
@@ -14416,6 +14449,11 @@ async def _seat_precheck(plan, cfg_t, now, seat_usd=0.0, need=1):
               'curve': bool((t_.get('vitals') or {}).get('curve') and cfg_t.get('agentCurve'))}
         ok_, why_, lv_ = _fw.live_buy_market(o_, live.get(t_.get('pair')), cfg)
         hold_ = AGENT_PRE_SEC
+        cap_ = _fuse._f((live.get(t_.get('pair')) or {}).get('marketCap') or (live.get(t_.get('pair')) or {}).get('fdv'))
+        if ok_ and cap_ > 0 and not (_uni.band()[0] <= cap_ < _uni.band()[1]):
+            # 🎯 the owner's band is judged on the LIVE cap too: the desk's row can be minutes old, and a launch that ran to $18K and died back
+            # to its $3K floor was seated again and again on its old reading (Lynk / JEANPAD / TIMUR / SAVELLS, 2026-10-13)
+            ok_, why_ = False, f"live cap ${cap_:,.0f} is outside your {_uni.band_word()} band (the desk's reading was old)"
         if ok_ and sol_px > 0 and seat_usd > 0 and time.time() - _FW_JUP_BUSY['at'] <= JUP_BUSY_SEC:
             continue   # Jupiter is rate-limiting us: the keeper's own buy would fail the same way → no seat this tick, the coin is NOT marked refused
         if ok_ and sol_px > 0 and seat_usd > 0:
@@ -14515,7 +14553,12 @@ async def _agents_tick(now):
             by_m.setdefault(c_.get('mint'), []).append(c_)
         hot_ = _tm.hot_narratives(rows)
         soc_ = _social_cache()
-        rows = [{**r, 'mind': _tm.read(r, by_m.get(r.get('mint')), hot_), **({'social': soc_[r['mint']]} if r.get('mint') in soc_ else {})} for r in rows if not _fw.dollar_named(r.get('symbol'))]
+        try:   # 🧨 who leads each ticker wave and who copies it · how many PROVEN Pump callers are on the coin (strategy inputs, paper first)
+            wr_ = _mt.wave_roles(_mt.trending(_json_load(MEME_PATH, {}), now), rows)
+        except Exception:
+            wr_ = {}
+        rows = [{**r, 'mind': _tm.read(r, by_m.get(r.get('mint')), hot_), 'waveRole': wr_.get(r.get('mint')), 'pros': int((_pump_calls['map'].get(r.get('mint')) or {}).get('pro') or 0),
+                 **({'social': soc_[r['mint']]} if r.get('mint') in soc_ else {})} for r in rows if not _fw.dollar_named(r.get('symbol'))]
         lingo = _tm.learn_lingo(_lingo_mem.get(), [c_.get('thesis') for c_ in calls_ if c_.get('thesis')], now)
         _lingo_mem.put(lingo, now)
         _agents['mind'] = {'hot': [{'key': k, **v} for k, v in list(hot_.items())[:6]], 'dictionary': len(_tm.SLANG),
@@ -14831,13 +14874,17 @@ def _office_vels(cur, px, now):
 _wake: dict = {'pos': {}, 'candAt': 0.0, 'log': [], 'n': 0, 'candN': 0}
 
 
+LIVE_PX_SEC, LIVE_PX_BULK_SEC = 3, 8   # a few held seats answer fast; a 60-coin grading batch may take two upstream calls — a 3s cut-off
+# returned NOTHING for the whole batch, and the graders read that as every coin vanishing (2026-10-13)
+
+
 async def _live_px(mints):
     """⚡ The live price the FEELESS charts draw (the candles service's stream price, its shared 5s cache) for many coins in ONE local call."""
     ms = [m for m in dict.fromkeys(mints or []) if m][:60]
     if not ms or os.environ.get('PYTEST_CURRENT_TEST'):
         return {}
     try:
-        async with httpx.AsyncClient(timeout=3) as http:
+        async with httpx.AsyncClient(timeout=LIVE_PX_SEC if len(ms) <= 12 else LIVE_PX_BULK_SEC) as http:
             r = await http.get('http://127.0.0.1:5099/api/candles/prices', params={'mints': ','.join(ms)})
             return {m: _fuse._f(v) for m, v in (r.json() or {}).items() if _fuse._f(v) > 0}
     except Exception:

@@ -129,6 +129,21 @@ WAVE_MIN = 10          # a wave = at least this many coins named after the word 
 WAVE_ALIVE_VOL1H = 5000.0
 
 
+def wave_roles(trend, rows, min_today=WAVE_MIN):
+    """{mint: 'lead' | 'copy'} for every coin riding a ticker wave spiking today: the ORIGINAL (biggest, then oldest) leads, every
+    other coin named after the word is a copycat. No safety or socials judged here — just who was first. Pure."""
+    out = {}
+    for t in sorted((t for t in trend or [] if t.get('kind') == 'wave' and int(t.get('today') or 0) >= min_today), key=lambda t: -int(t.get('today') or 0)):
+        refs = set(t.get('coins') or [])
+        named = [r for r in rows or [] if r.get('mint') and (r['mint'] in refs or t['term'] in set(tokenize(f"{r.get('name') or ''} {r.get('symbol') or ''}")))]
+        if len(named) < 2:
+            continue
+        lead = max(named, key=lambda r: (float(r.get('mcap') or 0), float(r.get('ageH') or 0)))
+        for r in named:
+            out.setdefault(r['mint'], 'lead' if r is lead else 'copy')
+    return out
+
+
 def wave_leaders(trend, rows, min_today=WAVE_MIN):
     """🌊 NARRATIVE LEADERS (owner, 2026-10-09: "soon as a coin drops with good narrative and site, no rug"): for every ticker wave
     spiking today, the ORIGINAL — among the coins named after the word, the biggest, then the oldest — never a copycat ("the first

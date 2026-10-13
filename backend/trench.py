@@ -216,11 +216,13 @@ def band_miss(c, cfg=None):
 
 
 PROOF_SEC, PROOF_KEEP, PROOF_MIN = 3600.0, 60, 5
+PROOF_GONE_SEC = 900.0   # vanished (−100%) = still no price from any source 15 min after it was due
 
 
 def meta_track(state, passing, price_of, now, keys=None):
     """📈 Paper proof per meta. `passing` = {meta: [(mint, price)]} right now; a coin a meta passes is noted ONCE at that price and
-    settled an hour later at `price_of(mint)` (no price then = −100%: a coin that vanished is a loss, never dropped from the count).
+    settled an hour later at `price_of(mint)` (still no price `PROOF_GONE_SEC` after that = −100%: a coin that vanished is a loss, never
+    dropped from the count; a single missed read is not).
     A coin is not noted again while open or for 6h after. → new state {meta: {open: {mint: {px, at}}, done: [{pct, at, mint}]}}"""
     out = {}
     for key in (keys or METAS):   # `keys` = any other set of named reads judged the same way (entry setups)
@@ -229,6 +231,8 @@ def meta_track(state, passing, price_of, now, keys=None):
         for mint, o in list(opened.items()):
             if now - _f(o.get('at')) >= PROOF_SEC:
                 px = _f(price_of(mint))
+                if px <= 0 and now - _f(o.get('at')) < PROOF_SEC + PROOF_GONE_SEC:
+                    continue   # 🩹 one missed price read is not a rug: it stays open and is judged on the next pass that prices it
                 done.append({'mint': mint, 'at': now, 'pct': round((px / _f(o['px']) - 1) * 100, 2) if px > 0 and _f(o.get('px')) > 0 else -100.0,
                              **({'age': o['age']} if o.get('age') is not None else {})})
                 opened.pop(mint)
@@ -239,6 +243,18 @@ def meta_track(state, passing, price_of, now, keys=None):
                 opened[mint] = {'px': _f(px), 'at': now, **({'age': round(_f(item[2]), 3)} if len(item) > 2 and item[2] is not None else {})}   # age (h) when we first saw it
         out[key] = {'open': opened, 'done': done[-PROOF_KEEP:]}
     return out
+
+
+def proof_restart(state):
+    """A paper record whose results can't be trusted (graded while the price sources refused us → fake −100%) starts over: every
+    settled row goes, winners and losers alike; coins still open keep running. Non-record keys pass through. → (new state, rows dropped)."""
+    out, n = {}, 0
+    for k, v in (state or {}).items():
+        if isinstance(v, dict) and isinstance(v.get('done'), list):
+            n += len(v['done']); out[k] = {**v, 'done': []}
+        else:
+            out[k] = v
+    return out, n
 
 
 def meta_proof(state, keys=None):

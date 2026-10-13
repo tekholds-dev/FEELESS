@@ -68,3 +68,38 @@ def test_the_text_scout_is_parsed_strictly_and_judged_like_every_read():
     # the same stance on the same coin minutes later at the scan is a separate record from the fill read
     b = ail.note(b, 'sherlock', 'M', 'CAUTION', 1.0, 200.0)
     assert len(b['open']) == 2
+
+
+def test_the_keepers_last_look_uses_the_same_agent_pool_floor_as_the_pre_check():
+    """The live gate read the agents' $5K floor while `check` read the $8K trench floor: a seat was made, then its buy refused, on a loop."""
+    cfg = fw.clean_cfg({'armed': True, 'walletId': 'w', 'address': 'A'})
+    o = {'side': 'buy', 'mint': 'M', 'agent': True, 'trench': True, 'usd': 0.25, 'liq': 6200}
+    fw.set_agent_limits({})
+    assert fw.buy_floor(o, cfg) == 8000 and 'too thin' in fw.check(o, cfg, [], 0.0)[1]
+    fw.set_agent_limits({'agentPoolMin': 5000})
+    assert fw.buy_floor(o, cfg) == 5000 and fw.check(o, cfg, [], 0.0)[0] is True
+    assert fw.live_buy_market(o, _pair(6200), cfg)[0] is True
+    assert fw.buy_floor({**o, 'agent': False}, cfg) == 8000        # an engine order keeps the keeper's own floor
+    fw.set_agent_limits({})
+
+
+def test_the_owners_band_is_judged_on_the_live_cap_before_a_seat_exists():
+    import asyncio
+    import reputation_service as rs
+    import trench_kernel.universe as uni
+    plan = [{'mint': 'LIVEpump', 'pair': 'P1', 'symbol': 'LIVE', 'vitals': {}}, {'mint': 'DEADpump', 'pair': 'P2', 'symbol': 'DEAD', 'vitals': {}}]
+
+    async def live(_orders):
+        return {'P1': {'baseToken': {'address': 'LIVEpump'}, 'priceUsd': '0.5', 'liquidity': {'usd': 50000}, 'dexId': 'pumpswap', 'marketCap': 40000},
+                'P2': {'baseToken': {'address': 'DEADpump'}, 'priceUsd': '0.5', 'liquidity': {'usd': 50000}, 'dexId': 'pumpswap', 'marketCap': 2993}}
+    old, band = rs._fw_live_pairs, uni.band()
+    rs._fw_live_pairs = live
+    uni.set_band({'agentMcMin': 12000, 'agentMcMax': 500000})
+    rs._agent_refused.clear(); rs._seat_pre_ok.clear()
+    try:
+        ok = asyncio.run(rs._seat_precheck(plan, {}, 1000.0, need=3))
+    finally:
+        rs._fw_live_pairs = old
+        uni.set_band({'agentMcMin': band[0], 'agentMcMax': band[1]})
+    assert set(ok) == {'LIVEpump'} and 'outside your' in rs._agent_refused['DEADpump'][1]
+    rs._agent_refused.clear(); rs._seat_pre_ok.clear()

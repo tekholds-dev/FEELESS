@@ -249,7 +249,9 @@ def test_meta_proof_settles_after_an_hour_counts_a_vanished_coin_as_a_loss_and_u
     assert set(st['breakout']['open']) == {'A', 'B', 'G'} and st['baby'] == {'open': {}, 'done': []}
     st = tr.meta_track(st, {'breakout': [('A', 5.0)]}, lambda m: 0, 1800.0)                       # still open: not noted twice, not settled
     assert st['breakout']['open']['A']['px'] == 1.0 and not st['breakout']['done']
-    st = tr.meta_track(st, {'breakout': [('A', 1.2)]}, {'A': 1.2, 'B': 1.0}.get, 3700.0)          # settled: A +20%, B −50%, G vanished
+    st = tr.meta_track(st, {'breakout': [('A', 1.2)]}, {'A': 1.2, 'B': 1.0}.get, 3700.0)          # settled: A +20%, B −50%; G has no price yet
+    assert sorted(d['pct'] for d in st['breakout']['done']) == [-50.0, 20.0] and set(st['breakout']['open']) == {'G'}   # one missed read is not a rug
+    st = tr.meta_track(st, {}, lambda m: None, 3600.0 + tr.PROOF_GONE_SEC, keys=('breakout',)); st['baby'] = {'open': {}, 'done': []}   # still nothing 15 min on: vanished
     assert sorted(d['pct'] for d in st['breakout']['done']) == [-100.0, -50.0, 20.0] and not st['breakout']['open']   # A not re-opened for 6h
     p = tr.meta_proof(st)['breakout']
     assert (p['n'], p['medPct'], p['wonPct'], p['proven']) == (3, -50.0, 33, False)
@@ -286,7 +288,9 @@ def test_the_paper_record_works_for_any_named_read_not_only_metas():
     st = trench.meta_track({}, {'sweep': [('A', 1.0)], 'breakout': [('B', 2.0)], 'sprout': [('Z', 1.0)]}, lambda m: 0, 1000, keys=keys)
     assert set(st) == {'sweep', 'breakout'} and st['sweep']['open']['A']['px'] == 1.0          # only the asked keys are tracked
     st = trench.meta_track(st, {}, lambda m: {'A': 1.2}.get(m), 1000 + trench.PROOF_SEC, keys=keys)
-    assert st['sweep']['done'][0]['pct'] == 20.0 and st['breakout']['done'][0]['pct'] == -100.0   # no price an hour later = a loss
+    assert st['sweep']['done'][0]['pct'] == 20.0 and not st['breakout']['done']                    # B waits for a price…
+    st = trench.meta_track(st, {}, lambda m: None, 1000 + trench.PROOF_SEC + trench.PROOF_GONE_SEC, keys=keys)   # …and is gone 15 min later
+    assert st['sweep']['done'][0]['pct'] == 20.0 and st['breakout']['done'][0]['pct'] == -100.0   # still no price 15 min after the hour = a loss
     pr = trench.meta_proof(st, keys=keys)
     assert pr['sweep'] == {'n': 1, 'medPct': 20.0, 'wonPct': 100, 'open': 0, 'proven': False} and set(pr) == {'sweep', 'breakout'}
 
@@ -349,6 +353,7 @@ def test_callouts_note_a_leader_once_settle_it_an_hour_later_and_feed_reads_newe
     assert b['live'] and b['pct'] == 30.0 and b['symbol'] == 'RUN' and b['mins'] == 5
     st3 = tr.meta_track(st2, {}, lambda m: {'B': 0.0015}.get(m), 1000.0 + tr.PROOF_SEC, keys=tr.CALLOUTS)   # settled: B +50%, the others vanished = −100%
     assert st3['fresh']['done'][0]['pct'] == 50.0 and st3['fresh']['open'] == {}
+    st3 = tr.meta_track(st3, {}, lambda m: None, 1000.0 + tr.PROOF_SEC + tr.PROOF_GONE_SEC, keys=tr.CALLOUTS)   # the unpriced ones get 15 min before they count as gone
     assert {d['mint']: d['pct'] for d in st3['leader']['done']} == {'B': 50.0, 'C': -100.0, 'A': -100.0}
     pr = tr.meta_proof(st3, keys=tr.CALLOUTS)
     assert pr['fresh']['n'] == 1 and pr['leader']['n'] == 3 and pr['leader']['proven'] is False
@@ -511,3 +516,10 @@ def test_the_agents_own_seat_is_a_whole_seat_not_a_ticket():
     whole, small = run(100), run(10)
     assert not whole.get('ticket') and whole.get('rideOrRug')                       # a normal seat the agents run (held until profit)
     assert small.get('ticket') and whole['costUsd'] > small['costUsd'] * 2           # the old 10% ticket is a slice of it
+
+
+def test_a_paper_record_restart_drops_settled_rows_only():
+    import trench as tr
+    st = {'a': {'open': {'M': {'px': 1.0, 'at': 5.0}}, 'done': [{'pct': -100.0}, {'pct': 12.0}]}, 'b': {'open': {}, 'done': []}, 'at': 9}
+    new, n = tr.proof_restart(st)
+    assert n == 2 and new == {'a': {'open': {'M': {'px': 1.0, 'at': 5.0}}, 'done': []}, 'b': {'open': {}, 'done': []}, 'at': 9}

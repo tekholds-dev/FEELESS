@@ -31,8 +31,11 @@ def _card(vals):
     return {'n': len(r), 'med': round(st.median(r), 1), 'avg': round(st.mean(map(_cap, r)), 1), 'up': round(sum(1 for v in r if v > 0) / len(r) * 100)}
 
 
-def audit(brain_done, agent_done=None, cost=COST, now=0.0):
-    d = sorted((x for x in brain_done or [] if x.get('f')), key=lambda x: x.get('at') or 0)
+def audit(brain_done, agent_done=None, cost=COST, now=0.0, since=0.0):
+    """`since` = only records settled at / after it (🩹 `cleanFrom`: results graded while the price sources were refusing us read as
+    −100% "vanished" for coins that were alive — they are left out whole, winners and losers alike, never just the bad ones)."""
+    d = sorted((x for x in brain_done or [] if x.get('f') and (x.get('at') or 0) >= since), key=lambda x: x.get('at') or 0)
+    agent_done = [x for x in agent_done or [] if (x.get('at') or 0) >= since]
     cut = int(len(d) * TRAIN)
     tr, te = d[:cut], d[cut:]
     keys = list(collections.Counter(f for x in d for f in x['f']))
@@ -54,7 +57,7 @@ def audit(brain_done, agent_done=None, cost=COST, now=0.0):
         for kind in ('enter', 'wait'):
             ag[f'{kind}{h[1:]}'] = _card(x[h] - cost for x in agent_done or [] if x.get('kind') == kind and x.get(h) is not None)
     return {'n': len(d), 'cost': cost, 'base': _card(_end(x, cost) for x in d), 'old': _card(_end(x, cost) for x in d if 'age:12h+' in x['f']),
-            'tested': tested, 'trainPos': train_pos, 'held': len(rules), 'rules': sorted(rules, key=lambda r: -r['avg'])[:8], 'agents': ag, 'at': now}
+            'since': since, 'tested': tested, 'trainPos': train_pos, 'held': len(rules), 'rules': sorted(rules, key=lambda r: -r['avg'])[:8], 'agents': ag, 'at': now}
 
 
 def gate(a, min_n=MIN_COINS):
@@ -66,7 +69,8 @@ def gate(a, min_n=MIN_COINS):
 def words(a):
     """One line for the card and the inbox."""
     if gate(a) == 'wait':
-        return f"🧪 proof gate: only {int((a or {}).get('n') or 0)} coins on record — not enough to judge yet"
+        return (f"🧪 proof gate: only {int((a or {}).get('n') or 0)} coins on record"
+                + (' since the price sources were fixed' if (a or {}).get('since') else '') + ' — not enough to judge yet')
     b = a['base']
     if a['held']:
         r = a['rules'][0]

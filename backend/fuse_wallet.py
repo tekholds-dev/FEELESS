@@ -417,7 +417,7 @@ def check(order, cfg, ledger, now, quote_impact_pct=None):
         return False, f"${_f(order.get('usd')):.2f} is over the ${cfg['maxSwapUsd']:g} per-swap cap"
     if order.get('side') == 'buy' and spent_24h(ledger, now) + _f(order.get('usd')) > cfg['dailyUsd']:   # sells never hit the cap (they take risk OFF)
         return False, f"daily cap ${cfg['dailyUsd']:g} reached"
-    floor = liq_floor(cfg, order.get('arena'), order.get('trench'), order.get('picked'))
+    floor = buy_floor(order, cfg)
     if order.get('side') == 'buy' and _f(order.get('liq')) < floor:   # 💧 real money never buys a pool this thin (sells always allowed)
         return False, f"pool too thin: ${_f(order.get('liq')):,.0f} liquidity < ${floor:,.0f} (real buys{' · Arena coin' if order.get('arena') else ''})"
     # 🚪 AN EXIT IS NEVER REFUSED FOR ITS PRICE IMPACT (2026-10-08: two sells were refused at 4.4% / 4.9% against the 3.5% cap, leaving stopped coins
@@ -446,6 +446,17 @@ def agent_limits(order):
     return {**{k: v for k, v in AGENT_LIMITS.items() if v and k != 'curve'}, **{k: v for k, v in order.items() if v not in (None, '')}}
 
 
+def buy_floor(order, cfg):
+    """THE pool floor for a buy — one number for the seat pre-check, the live gate AND `check` (the keeper's last look). An AGENT buy uses
+    the agents' own floor when one is set (the owner's `agentPoolMin`, or the missed-opportunity ledger's tuned value; never under $3K).
+    2026-10-13: the live gate read that floor ($5K) while `check` still read the $8K trench floor → a coin passed the pre-check, took a
+    seat and was refused seconds later, again and again (6 of 11 refused buys in an hour)."""
+    o = agent_limits(order)
+    if o.get('agent') and _f(o.get('poolMin')) > 0:
+        return max(3000.0, _f(o.get('poolMin')))
+    return liq_floor(cfg, o.get('arena'), o.get('trench'), o.get('picked'))
+
+
 def live_buy_market(order, pair, cfg):
     """Fail-closed final market gate for a REAL buy using a freshly fetched pair snapshot.
     Candidate/radar data may be cached; the keeper must re-check the exact pair immediately before signing."""
@@ -466,9 +477,7 @@ def live_buy_market(order, pair, cfg):
         # (a figure > 0 from the Jupiter fallback is the SOL already paid into the curve, not a pool: the agents' own row read the curve's
         # depth ($10K) while this gate read $5K and refused the same coin — 2026-10-12, 9 of 20 agent seats)
         liq = max(liq, round(2 * (32.19 * _f(p.get('marketCap') or p.get('fdv')) * 100.0) ** 0.5, 2))
-    floor = liq_floor(cfg, order.get('arena'), order.get('trench'), order.get('picked'))
-    if order.get('agent') and _f(order.get('poolMin')) > 0:   # 🎛 the owner's own pool floor for agent buys (never under $3K)
-        floor = max(3000.0, _f(order.get('poolMin')))
+    floor = buy_floor(order, cfg)
     if px <= 0:
         return False, 'live market price unavailable', {'liq': liq}
     if liq < floor:

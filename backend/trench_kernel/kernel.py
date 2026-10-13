@@ -9,6 +9,9 @@ from . import supply as _sup
 from . import tape as _tape
 
 LAT_KEEP = 400
+STALE_SEC = 90.0   # 🧊 a candidate the desk has not re-read for this long is not READY / CONTENDING any more: its numbers are a memory.
+# 2026-10-13: a launch that ran to $18K and died back to its $3K floor stayed "2 min old, +3% on 12× volume" in here for 25 minutes and
+# was seated three times (Lynk; JEANPAD / TIMUR / SAVELLS the same) — a mint that leaves the desk used to keep its last decision for good.
 
 
 def _p(xs, q):
@@ -62,6 +65,11 @@ class Kernel:
         return self.tape.add(agent, action, why, now, mint=mint, symbol=(ms['identity']['symbol'] if ms else None),
                              mc=_sup.mc(price, ms['market'].get('supply')) if ms else None, px=price, result=result, key=key)
 
+    def stale(self, m, now):
+        """True = the desk has not re-read this mint for STALE_SEC (a live price event alone does not refresh volume, buyers, age or the chart)."""
+        ms = self.store.mints.get(m)
+        return bool(ms) and now - float(ms['market'].get('marketAt') or 0) > STALE_SEC
+
     def judge(self, mints, ctx, now, events=None):
         for m in mints:
             ms = self.store.mints.get(m)
@@ -70,6 +78,8 @@ class Kernel:
             a = _t.perf_counter()
             d = _b.think(ms, ctx)
             self._lat('agents', (_t.perf_counter() - a) * 1000)
+            if d['status'] in ('READY', 'CONTENDING') and self.stale(m, now):
+                d = {**d, 'status': 'TRACKING', 'stale': True, 'why': f"off the desk for {int(now - (ms['market'].get('marketAt') or 0))}s — its reading is old, waiting for a fresh one"}
             for agent, action, why, key in _tape.diff(self.dec.get(m), d, ms, (events or {}).get(m) or (), now, owner=m in self.owner):
                 self.note(agent, action, why, now, mint=m, key=key)
             self.dec[m], self.decAt[m] = d, now
@@ -85,7 +95,9 @@ class Kernel:
         held = set((ctx.get('held') or {}).keys())
         pend = set(ctx.get('pending') or ())
         affected = (set(ev) | {m for m in held | pend if m in self.store.mints} | {m for m in self.store.mints if m not in self.dec}
-                    | {m for m, d in self.dec.items() if d['status'] == 'ORDER_PENDING' and m in self.store.mints})   # an order that landed / was called off is re-judged
+                    | {m for m, d in self.dec.items() if d['status'] == 'ORDER_PENDING' and m in self.store.mints}   # an order that landed / was called off is re-judged
+                    | {m for m, d in self.dec.items() if d['status'] in ('READY', 'CONTENDING') and self.stale(m, now)}   # 🧊 a candidate that left the desk steps down…
+                    | {m for m, d in self.dec.items() if d.get('stale') and not self.stale(m, now)})   # …and is judged again the pass the desk reads it
         a = _t.perf_counter()
         self.judge(affected, ctx, now, ev)
         self._lat('rank', (_t.perf_counter() - a) * 1000 / max(1, len(affected)))
@@ -155,7 +167,7 @@ class Kernel:
         candidate not excluded, READY first then by rank. `cleared` = READY. `checks` = the reducer's own steps (the wall · timing ·
         execution · rank) — not a second set of rules."""
         ex = set(exclude or ())
-        out = [c for c in (self.case(m) for m, d in list(self.dec.items()) if m not in ex and d['status'] in statuses) if c]
+        out = [c for c in (self.case(m) for m, d in list(self.dec.items()) if m not in ex and d['status'] in statuses and not d.get('stale')) if c]   # 🧊 a coin off the desk is no case
         out.sort(key=lambda c: (not c['cleared'], c['status'] == 'TRACKING', -c['rank']))
         return out[:top] if top else out
 
@@ -171,7 +183,7 @@ class Kernel:
         """The bounded payload: lanes, the top candidates with every agent's line, per-section ages, metrics."""
         rows = sorted([(m, d) for m, d in self.dec.items() if m in self.store.mints and d['status'] in ('READY', 'CONTENDING', 'ORDER_PENDING', 'HELD', 'EXIT_PENDING')],
                       key=lambda kv: (kv[1]['status'] not in ('HELD', 'EXIT_PENDING', 'ORDER_PENDING'), -kv[1]['rank']))[:top]
-        rows += sorted([(m, d) for m, d in self.dec.items() if m in self.store.mints and d['status'] == 'TRACKING'],   # 👀 the review queue's TRACKING rows (bounded)
+        rows += sorted([(m, d) for m, d in self.dec.items() if m in self.store.mints and d['status'] == 'TRACKING' and not d.get('stale')],   # 👀 the review queue's TRACKING rows (bounded)
                        key=lambda kv: -kv[1]['rank'])[:TRACK_VIEW]
         out = []
         for m, d in rows:

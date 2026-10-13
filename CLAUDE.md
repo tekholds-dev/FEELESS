@@ -3800,3 +3800,27 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`_jup_keys`) are the others. The candles service read every chart price with key 1 (the keeper's), ONE coin per call — now every read waiting
   in the same 0.5s goes out as ONE batched call (`_px_batcher`, ≤ 50 coins) on the read key → public → DexScreener. Seat P&L, the fast stop guard
   and exits all read that price: a refused price = a stale seat. New Jupiter read ⇒ `jup_keys.read_key`, never `JUPITER_API_KEY`.
+- 🩹 THE GRADERS' PRICE READ TIMED OUT (2026-10-13, the reason "a rate limit is not a rug" did not hold): `/api/candles/prices` fed the
+  batcher 8 coins a window (a leftover 8-at-a-time limit), so a 60-coin read cost 8 upstream calls and 5–7s, while `_live_px` gave up at 3s
+  and returned NOTHING — every grader (trench brain, list / call / entry / edge / flow proofs, paper desk, shadow book) then filed live coins
+  as vanished (16 of 16 "gone" coins checked had a price). Now: every coin joins ONE batch (60 = 2 calls), a queue over 50 goes back to back,
+  `LIVE_PX_BULK_SEC` 8 for reads > 12 coins, a refused Jupiter lane rests (`_px_rest`, its Retry-After or 6s) instead of being asked every
+  half second. `trench.meta_track`: a coin with no price when due waits `PROOF_GONE_SEC` 15 min before it is −100% (it was instant).
+  `_proof_clean_1013` (once, flag data/proof_clean.json, old rows data/proof_before_clean1013.json): every 1-hour paper record's SETTLED rows
+  restart (45–80% were fake −100%); the trench brain learns and the edge audit / proof gate judge only coins settled since its `cleanFrom`
+  (`edge_audit.audit(since=)`, `_brain_clean`; left out WHOLE — never just the bad rows). Under 500 clean coins the gate reads "wait".
+  "A RECORD READS −100% TYPICAL" ⇒ time one 60-mint call to :5099/api/candles/prices and compare with the caller's timeout first.
+- 🧊 A CANDIDATE OFF THE DESK STEPS DOWN (`trench_kernel.kernel.STALE_SEC` 90, `Kernel.stale`, decision flag `stale`): a mint the desk has not
+  re-read for 90s is TRACKING ("off the desk for Ns"), is no case file and no page row, and is judged again the pass the desk reads it; a live
+  price event alone never makes it a candidate. Found in the card's own events: Lynk was "2 min old, +3% on 12× volume" at 15:36, 15:46 and
+  16:01 (it had died to its $3K floor at 15:52) — 15 of the top 24 candidates had readings 15–66 min old and armed / READY fills came from them.
+  🎯 The seat pre-check also judges the owner's band on the LIVE cap ("live cap $2,993 is outside your $12K–$500K band").
+  💧 `fuse_wallet.buy_floor(order, cfg)` = THE pool floor for the pre-check, the live gate AND `check`: the missed-opportunity ledger had tuned
+  the agents' floor to $5K, `check` still read $8K → a coin passed, took a seat, was refused seconds later, on a loop (6 of 11 refusals / hour).
+  "SAME COIN SEATED AGAIN AND AGAIN" ⇒ read the card's agent-fill events: an identical rank / "N min old" twice = a frozen reading.
+- 🧨 DEGEN IDEAS = PAPER-FIRST STRATEGIES (`paper_desk.STRATS`, drivers `strat:<k>`, no starting belief — only their own judged record weighs;
+  shown with the other drivers): `base_crowd` (launch phase PRE-FOMO, flat 5 min, buyers ≥ 58%, holders growing) · `pro_first_call` (a PROVEN
+  Pump caller on it, ≤ 2 callers so far; row `pros` from the call board) · `wave_original` / `wave_copycat` (row `waveRole` from
+  `meme_terms.wave_roles`: the biggest-then-oldest coin of a ticker wave leads, the rest copy). First dip after bonding, real callers stacking
+  and the clean dip catch were already there (2026-10-13 5-min records: +1.1% n13 · −10.6% n51 · −4.8% n15; volume burst −34.7% n115).
+  House money at 2× is an EXIT that already exists (`houseAt` / moon ladder), not a selection rule. None of them touches real money by itself.

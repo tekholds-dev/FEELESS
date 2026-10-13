@@ -1059,6 +1059,19 @@ _px_q: dict = {}     # mint → [futures] waiting for the next batch
 _px_loop = {'task': None, 'rest': 0.0}
 
 
+_px_rest: dict = {}  # Jupiter lane → not asked again before this time (after a 429)
+PX_REST_SEC = 6.0
+
+
+def px_rest_sec(retry_after):
+    """How long a price lane rests after a 429: its own Retry-After when it sends a sane one (1–30s), else PX_REST_SEC."""
+    try:
+        v = float(retry_after)
+        return v if 1.0 <= v <= 30.0 else PX_REST_SEC
+    except (TypeError, ValueError):
+        return PX_REST_SEC
+
+
 async def _px_fetch(mints):
     """ONE read for many coins: Jupiter on the READ key (never the keeper's), then the public lane, then DexScreener for what is left."""
     got = {}
@@ -1069,8 +1082,12 @@ async def _px_fetch(mints):
             todo = [m for m in mints if m not in got]
             if not todo:
                 break
+            if time.time() < _px_rest.get(url, 0):   # this lane just said 429: asking again only keeps it shut (and costs every batch 2 dead calls)
+                continue
             try:
                 r = await http.get(url, params={'ids': ','.join(todo[:50])}, headers=hdr)
+                if r.status_code == 429:
+                    _px_rest[url] = time.time() + px_rest_sec(r.headers.get('retry-after'))
                 if r.status_code == 200 and isinstance(r.json(), dict):
                     for m, v in (r.json() or {}).items():
                         px = float((v or {}).get('usdPrice') or 0)
@@ -1099,7 +1116,8 @@ async def _px_fetch(mints):
 
 async def _px_batcher():
     while True:
-        await asyncio.sleep(PX_BATCH_SEC)
+        if not _px_q:   # a queue longer than one call (> 50 coins) goes out back to back — only an empty queue waits for the window
+            await asyncio.sleep(PX_BATCH_SEC)
         if not _px_q:
             continue
         batch = list(_px_q.keys())[:50]
@@ -1222,12 +1240,11 @@ async def live_price(chain: str, pair: str, mint: Optional[str] = None):
 
 @app.get('/api/candles/prices')
 async def live_prices(mints: str = ''):
-    """💲 The same live price for many coins at once (≤ 60 mints, the shared 5s cache, 8 at a time) → {mint: price}."""
+    """💲 The same live price for many coins at once (≤ 60 mints, the shared 5s cache) → {mint: price}. Every coin joins the SAME batch:
+    an 8-at-a-time limit here fed the batcher 8 coins a window, so 60 coins cost 8 upstream calls and 5–7s (callers time out at 3s)."""
     ms = [m for m in dict.fromkeys((mints or '').split(',')) if _re_pair.match(m)][:60]
-    sem = asyncio.Semaphore(8)
     async def one(m):
-        async with sem:
-            return m, await _stream_price(m)
+        return m, await _stream_price(m)
     return {m: p for m, p in await asyncio.gather(*(one(m) for m in ms)) if p}
 
 

@@ -23,7 +23,11 @@ def line(name, vals):
 
 
 def main():
-    d = sorted(json.load(open(DATA / 'trench_brain.json')).get('done') or [], key=lambda x: x['at'])
+    br = json.load(open(DATA / 'trench_brain.json'))
+    since = float(br.get('cleanFrom') or 0)   # results graded while price sources refused us read as fake −100%: left out whole
+    d = sorted((x for x in br.get('done') or [] if x['at'] >= since), key=lambda x: x['at'])
+    if since:
+        print(f"(only coins settled since the price fix — {len(br.get('done') or []) - len(d)} older ones left out)")
     end = lambda x: -100.0 if x.get('gone') else (float(x['end']) - COST if x.get('end') is not None else None)
     print(f'EDGE AUDIT · round-trip cost {COST:g}% · {len(d)} coins watched for an hour')
     print(line('hold 1 hour', map(end, d)))
@@ -46,7 +50,7 @@ def main():
             if st.mean(map(cap, b)) > 0 and st.median(b) > 0:
                 held += 1; print('  ✅', ' + '.join(c), line('', b))
     print(f'  rules tested {tested} · positive where they were learned {train_pos} · still positive on unseen coins {held}')
-    a = sorted(json.load(open(DATA / 'agents.json')).get('done') or [], key=lambda x: x['at'])
+    a = sorted((x for x in json.load(open(DATA / 'agents.json')).get('done') or [] if x['at'] >= since), key=lambda x: x['at'])
     print(f'\nAGENT CALLS · {len(a)} judged')
     for h in ('p5', 'p15', 'p60'):
         for kind in ('enter', 'wait'):
@@ -59,5 +63,6 @@ if __name__ == '__main__':
     main()
     sys.path.insert(0, str(DATA.parent))
     import edge_audit as ea
-    a = ea.audit(json.load(open(DATA / 'trench_brain.json')).get('done') or [], json.load(open(DATA / 'agents.json')).get('done') or [], COST)
+    _br = json.load(open(DATA / 'trench_brain.json'))
+    a = ea.audit(_br.get('done') or [], json.load(open(DATA / 'agents.json')).get('done') or [], COST, 0.0, float(_br.get('cleanFrom') or 0))
     print('\nGATE:', ea.gate(a).upper(), '·', ea.words(a))

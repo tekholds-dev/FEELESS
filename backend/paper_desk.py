@@ -274,6 +274,12 @@ STRATS = (
     ('caller_stack', 'real callers stacking', lambda r, n, m: (m.get('crowd') or {}).get('callers', 0) >= 3 and not (m.get('crowd') or {}).get('swarm')
      and (m.get('crowd') or {}).get('hype', 0) > (m.get('crowd') or {}).get('fear', 0)),
     ('clean_dip_catch', 'clean dip catch', lambda r, n, m: (m.get('tug') or (False,))[0] and _f((m.get('bots') or (0,))[0]) < 40),
+    # 🧨 the degen ideas (2026-10-13), PAPER FIRST like every strategy: no starting belief, each weighs only what its own judged record says
+    ('base_crowd', 'crowd forming at the base', lambda r, n, m: (r.get('li') or {}).get('phase') == 'PRE-FOMO' and _f(n.get('buy') or 0) >= 58
+     and -3 <= _f(n.get('d5')) <= 3 and n.get('holdD') is not None and _f(n['holdD']) > 0),
+    ('pro_first_call', "a proven caller's first call", lambda r, n, m: int(r.get('pros') or 0) >= 1 and (m.get('crowd') or {}).get('callers', 0) <= 2),
+    ('wave_original', 'the original of a ticker wave', lambda r, n, m: r.get('waveRole') == 'lead'),
+    ('wave_copycat', 'copycat of a running ticker wave', lambda r, n, m: r.get('waveRole') == 'copy'),
 )
 STRAT_NAME = {k: name for k, name, _ in STRATS}
 

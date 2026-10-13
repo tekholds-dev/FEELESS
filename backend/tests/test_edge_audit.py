@@ -63,3 +63,13 @@ def test_a_proof_hold_buys_nothing_not_even_idle_cash_into_held_coins():
     assert fw.idle_sweep('degen', card, {'sol': 1.0}, {}, 1.0, 100.0, {}, 1000) is None
     import inspect, arena_prime as ap
     assert "c.get('holdBy') != 'proof'" in inspect.getsource(ap.tick)          # the engine's own idle-cash compound is gated too
+
+
+def test_results_graded_before_the_price_fix_are_left_out_whole():
+    import edge_audit as ea
+    old = [{'at': 10.0 + i, 'gone': True, 'f': ['age:12h+']} for i in range(600)]
+    new = [{'at': 1000.0 + i, 'end': 5.0, 'f': ['age:12h+']} for i in range(40)]
+    assert ea.audit(old + new, [], 3.0)['base']['med'] == -100.0
+    a = ea.audit(old + new, [{'at': 5.0, 'kind': 'wait', 'p5': -90.0}], 3.0, 0.0, 1000.0)
+    assert a['n'] == 40 and a['base']['med'] == 2.0 and a['agents']['wait5']['n'] == 0
+    assert ea.gate(a) == 'wait' and 'since the price sources were fixed' in ea.words(a)
