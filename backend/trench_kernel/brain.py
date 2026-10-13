@@ -9,6 +9,7 @@ Devil severities: INFO · WARNING · STRONG_WARNING · HARD_VETO — only the ha
 Hunter lanes: four always hunting — HUNTING (searching) · ARMED (a READY candidate is lined up) · HELD (capital deployed).
 """
 import opportunity as _opp
+import rule_lab as _lab
 import trench_crew as _crew
 
 from . import lifecycle as _lc
@@ -61,7 +62,7 @@ def weather(ms, ctx):
     return {'regime': reg, 'factor': WEATHER_F.get(reg, 1.0)}
 
 
-def trigger(ms, lessons=None):
+def trigger(ms, lessons=None, lab=None):
     """WHEN, from the live narrative of this pass. `lateMove` (the live Trigger generation's lesson, 0 = off): a coin already up that much
     in 5 minutes is ARMED, not entered."""
     nar, why = _opp.narrative(ms['row'])
@@ -74,6 +75,11 @@ def trigger(ms, lessons=None):
         st, why = 'WAIT', f"{why} — but {fv.get('why')}"
     elif st == 'ENTER' and fv.get('state') == 'PEAK':
         st, why = 'ARM', f"{why} — {fv.get('why')} (armed for the dip, not bought at the top)"
+    if st == 'ENTER' and lab:   # 🧪 Trigger's lessons from the rule lab: a live AVOID rule on the entry moment, proven on our real fills, arms the coin
+        fs = set(_lab.row_feats(ms['row']))
+        hit = next((r for r in lab if set(r.get('when') or ()) <= fs), None)
+        if hit:
+            st, why = 'ARM', f"{why} — 🧪 lesson '{hit.get('name')}' (proven on our real fills): armed, not entered"
     return {'narrative': nar, 'why': why, 'state': st, 'flow': fv.get('state')}
 
 
@@ -141,7 +147,7 @@ def think(ms, ctx=None):
     c = ctx or {}
     held = (c.get('held') or {}).get(ms['identity']['mint'])
     ls = c.get('lessons')   # {role: lesson} of the generations IN CONTROL (lifecycle.lessons) — a shadow / retired one is never in it
-    t, sh, we, tr, dv = tally(ms), sherlock(ms, ls), weather(ms, c), trigger(ms, ls), devil(ms, ls)
+    t, sh, we, tr, dv = tally(ms), sherlock(ms, ls), weather(ms, c), trigger(ms, ls, c.get('lab')), devil(ms, ls)
     wa, co = warden(ms, dv, sh), courier(c)
     mw = (c.get('weights') or {}).get(ms['identity']['mint'])
     if mw is not None and _f(mw) < 1.0 and wa['size'] > 0:   # 🧠 the real-money memory puts this coin in the WORSE half of what the card has bought: it still takes the seat, at half size

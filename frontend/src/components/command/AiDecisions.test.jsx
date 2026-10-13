@@ -90,3 +90,13 @@ test('the live pulse reads only real clocks and the kernel\'s own counters', () 
   expect(pulseOf(o, 160000).late).toBe(true);                       // a pass that is overdue is said so
   expect(pulseOf(null).passAge).toBeNull(); expect(pulseOf({}).last).toBeNull();
 });
+
+test('🧪 the rule lab shows each rule with its unseen record and what each desk learned', async () => {
+  const lab = { trades: 41, lessons: { trigger: ['🚫 top tick'] }, said: { summary: 'losers were bought at the top' },
+    rules: [{ id: 'avoid:high:top', act: 'avoid', when: ['high:top'], name: 'top tick', desk: 'trigger', status: 'live', door: 'walk-forward', test: { n: 7, avg: -11.2, rest: -2.4 } },
+      { id: 'avoid:cls:BUNDLED', act: 'avoid', when: ['cls:BUNDLED'], name: 'bundled', desk: 'devil', status: 'proposed', lossHits: 2 }] };
+  const el = await mount(<AiPane ai={AI} lab={lab} call={jest.fn()} focus="A" />);
+  const t = q(el, 'cai-lab').textContent;
+  ['RULE LAB', '41 real trades', '1 live', 'top tick', 'unseen 7: -11.2% vs -2.4%', 'TESTING', '2 recent real losses fit it'].forEach(x => expect(t).toContain(x));
+  expect(q(el, 'cai-lessons').textContent).toContain('trigger');
+});

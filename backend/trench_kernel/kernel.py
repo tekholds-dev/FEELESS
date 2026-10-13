@@ -132,7 +132,7 @@ class Kernel:
             return None
         x, op = ms['row'], d['opinions']
         return {**x, 'pair': x.get('pair') or x.get('pairAddress'), 'px': ms['market'].get('price') or x.get('px'), 'status': d['status'], 'rank': d['rank'], 'kwhy': d['why'],
-                'size': op['warden']['size'], 'sizeWhy': op['warden']['why'], 'narrative': op['trigger']['narrative'], 'open': True}
+                'size': op['warden']['size'], 'sizeWhy': op['warden']['why'], 'narrative': op['trigger']['narrative'], 'trigger': op['trigger']['state'], 'open': True}
 
     def case(self, m):
         """ONE kernel case file (any status) — the sensed row + the ten opinions + the reducer's steps as checks. None = not judged."""

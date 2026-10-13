@@ -4,7 +4,7 @@ import { hubApply, useAi } from '../../lib/agentHub';
 import { TAPE_AGENT } from '../../lib/cockpit';
 import { STANCE_TONE, agreeOf, aiRows, deltaFill, agreeStats, aiMetricsLine } from '../../lib/aiRead';
 import { AG } from './agentWords';
-import { hasIntel, intelRows } from '../../lib/cockpitControls';
+import { hasIntel, intelRows, scoutChips, labLine } from '../../lib/cockpitControls';
 import '../../styles/cockpitAi.css';
 import '../../styles/agentControls.css';
 
@@ -32,6 +32,22 @@ export function AiIntel({ a, mini, testid }) {
     {!mini && a.summary ? <p className="avt-sum">{a.summary}</p> : null}
     {flags.length ? <p className="avt-foot">{flags.map((f, i) => <span key={i} className="avt-flag is-risk">🚩 {f}</span>)}</p> : null}
     {rows.length ? <ul className="avt-intel">{rows.map(r => <li key={r.k} className={`is-${r.k}`}><small>{r.icon} {r.label}</small><span>{r.text}</span></li>)}</ul> : null}
+    {scoutChips(a.scout).length ? <p className="avt-scout" data-testid={testid ? `${testid}-scout` : undefined}>{scoutChips(a.scout).map(([k, l, c]) => <span key={k} className={`avt-sc ${c}`}>{l}</span>)}</p> : null}
+  </div>;
+}
+
+// 🧪 THE RULE LAB — the model proposes a rule in our own words, our REAL fills decide (walk-forward on trades it never saw, or a repeat
+// real loss = a new cause). A live rule is a desk's lesson: a small rank weight, and Trigger arms instead of entering on an entry-moment one.
+export function RuleLab({ lab }) {
+  if (!lab) return null;
+  const rules = lab.rules || []; const les = Object.entries(lab.lessons || {});
+  return <div className="cai-lab" data-testid="cai-lab">
+    <p className="cai-lhead"><b>🧪 RULE LAB</b><small>the model proposes · our {lab.trades || 0} real trades decide · {rules.filter(r => r.status === 'live').length} live</small></p>
+    {les.length ? <p className="cai-lessons" data-testid="cai-lessons">{les.map(([d, ls]) => <span key={d}><b>{d}</b>{ls.join(' · ')}</span>)}</p> : <small className="cai-never">no lesson proven yet — a rule goes live only when unseen real trades back it</small>}
+    {lab.said?.summary ? <small className="cai-say">🧠 {lab.said.summary}</small> : null}
+    {rules.length ? <ul className="cai-labrows">{rules.slice(0, 8).map(r => <li key={r.id} className={`is-${r.status}`} data-tip={r.why || ''}>
+      <em className={`cai-labst is-${r.status}`}>{r.status === 'live' ? (r.door === 'new cause' ? 'NEW CAUSE' : 'LIVE') : r.status === 'failed' ? 'FAILED' : 'TESTING'}</em>
+      <b>{r.act === 'avoid' ? '🚫' : '✅'} {r.name}</b><small>{(r.when || []).join(' & ')} · {r.desk}</small><span>{labLine(r)}</span></li>)}</ul> : null}
   </div>;
 }
 // the review queue's cell: the stance + how many risks the model flagged
@@ -57,7 +73,7 @@ export function AiRow({ r, onPick }) {
     </button></li>;
 }
 
-export function AiPane({ ai: aiProp, call, isOwner = true, focus, focusSym, onPick, onProviders }) {
+export function AiPane({ ai: aiProp, lab, call, isOwner = true, focus, focusSym, onPick, onProviders }) {
   const ai = useAi(aiProp);   // 🧠 the AI store: this pane re-renders when the model answers — the rest of the tab does not
   const [txt, setTxt] = useState(focus || ''); const [role, setRole] = useState('owner'); const [busy, setBusy] = useState(false); const [scope, setScope] = useState('all'); const [ans, setAns] = useState(null);
   const [typed, setTyped] = useState(false);
@@ -80,6 +96,7 @@ export function AiPane({ ai: aiProp, call, isOwner = true, focus, focusSym, onPi
     {ai?.metrics ? <div className="cai-metrics" data-testid="cai-metrics">{aiMetricsLine(ai.metrics).map(([l, v]) => <span key={l}><small>{l}</small><b>{v}</b></span>)}</div> : null}
     {st.n ? <div className="cai-agreebar" data-tip="How often the model's stance matched what the kernel itself decided (the kernel never reads the model)"><small>MODEL vs KERNEL</small>
       <span className="cai-meter"><i style={{ transform: `scaleX(${(st.pct || 0) / 100})` }} /></span><b>{st.pct}% agree</b><small>{st.agree} of {st.n}</small></div> : null}
+    <RuleLab lab={lab} />
     {ai?.learn ? <div className={`cai-learn is-${String(ai.learn.state).toLowerCase().replace(/\s+/g, '-')}`} data-testid="cai-learn"
       data-tip={`Every stance the model gives is noted at that price and judged ${ai.learn.judgeMin} min later. A stance moves the agents' ranking (±10% at most) only once ${ai.learn.minN} of its calls are judged AND its coins really did better / worse than the model's other calls.`}>
       <span className="cai-lhead"><b>🎓 AGENTS LEARNING FROM THE MODEL</b><em>{ai.learn.state}</em></span><small>{ai.learn.why}{ai.learn.open ? ` · ${ai.learn.open} call${ai.learn.open === 1 ? '' : 's'} waiting for their ${ai.learn.judgeMin} min` : ''}</small>

@@ -255,7 +255,8 @@ export function LiveLens({ d, sel, who, setWho, jump }) {
 }
 
 export const DIAL = [['chill', '🧊'], ['normal', '⚡'], ['crazy', '🔥 CRAZY']];
-export const LENSES = [['live', '🟢 Live'], ['limits', '🎛 Limits'], ['review', '📝 Review'], ['missed', '🔎 Missed'], ['board', '📋 Board'], ['learn', '📝 Practice'], ['life', '🧬 Generations'], ['ctl', '⚙ Control']];
+// the bottom bar: the VITAL lenses first (what is happening · what to review · what we missed · the board), then the limits (owner, 2026-10-13)
+export const LENSES = [['live', '🟢 Live'], ['review', '📝 Review'], ['missed', '🔎 Missed'], ['board', '📋 Board'], ['limits', '🎛 Limits'], ['learn', '📝 Practice'], ['life', '🧬 Generations'], ['ctl', '⚙ Control']];
 const mem = { get: (k, dflt) => { try { return localStorage.getItem(k) || dflt; } catch (e) { return dflt; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* private window */ } } };
 const Kpi = ({ id, label, val, sub, cls, on, onClick, tip }) => <button type="button" className={`agd-kpi ${on ? 'active' : ''}`} onClick={onClick} data-tip={tip} data-testid={`kpi-${id}`}><small>{label}</small><b className={cls || ''} key={String(val)}>{val}</b><i>{sub}</i></button>;
 // the ring on each agent = its share of right calls this life (Trigger: % of its ENTERs that won); empty until it has a judged call
@@ -348,6 +349,6 @@ export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
         <span className="agd-road-bar" aria-hidden><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, Math.log10(Math.max(1, d.desk.x || 1))))})` }} /></span>
         <small className="m-dim">Control group (coins Trigger said WAIT): {d.control?.n ? `${pct(d.control.med)} typical` : 'not judged yet'} — the team must beat this to mean anything. Slippage on a 5-min scalp is not modelled.</small></div>
       <AgentControls cfg={d.cfg} decisions={d.decisions} proven={d.proven5} isOwner={isOwner} busy={busy} save={save} /></div>}
-    {lens !== 'all' && <div className="m-seg agd-lens" role="tablist" aria-label="Agent desk lens">{LENSES.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)} data-testid={`lens-${k}`}>{l}{k === 'live' && goN ? <small>{goN} READY</small> : k === 'learn' && newIdeas ? <small>{newIdeas} 💡</small> : k === 'life' && atRisk ? <small>{atRisk} ⚠</small> : k === 'review' && reviewOpen ? <small>{reviewOpen} 📝</small> : k === 'limits' && d.office?.policy?.manual ? <small>✋ manual</small> : null}</button>)}</div>}
+    {lens !== 'all' && <div className="m-seg agd-lens" role="tablist" aria-label="Agent desk lens">{LENSES.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)} data-testid={`lens-${k}`}>{l}{k === 'live' && goN ? <small>{goN} READY</small> : k === 'learn' && newIdeas ? <small>{newIdeas} 💡</small> : k === 'life' && atRisk ? <small>{atRisk} ⚠</small> : k === 'review' && reviewOpen ? <small>{reviewOpen} 📝</small> : k === 'limits' && d.office?.policy?.manual ? <small>✋ manual</small> : k === 'limits' && (d.office?.seat?.refused || []).length ? <small>{d.office.seat.refused.length} held back</small> : null}</button>)}</div>}
   </> : null}</details></section></AgentHubProvider>;
 }

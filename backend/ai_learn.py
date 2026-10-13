@@ -33,18 +33,22 @@ def _median(xs):
     return None if not n else s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2
 
 
-def note(book, role, mint, stance, px, now, symbol=None, flags=None):
+def note(book, role, mint, stance, px, now, symbol=None, flags=None, scout=None, at_fill=False):
     """One model stance → an open call (once per coin + stance per 30 min, only with a live price). How many risk flags it raised rides
     on the call, so "the model flagged 2+ risks" is judged on its own record too (`vital_record`). → new book"""
     b = {'open': list((book or {}).get('open') or []), 'done': list((book or {}).get('done') or [])}
     if not mint or not stance or _f(px) <= 0:
         return b
     st = str(stance).upper()
-    if any(c['mint'] == mint and c['stance'] == st and now - _f(c['at']) < RENOTE_SEC for c in b['open'] + b['done'][-80:]):
+    if any(c['mint'] == mint and c['stance'] == st and bool(c.get('atFill')) == bool(at_fill) and now - _f(c['at']) < RENOTE_SEC for c in b['open'] + b['done'][-80:]):   # a read AT the fill is its own record
         return b
     c = {'mint': mint, 'symbol': symbol, 'role': role, 'stance': st, 'px': _f(px), 'at': round(now, 1)}
     if isinstance(flags, int):
         c['flags'] = flags
+    if scout:
+        c['scout'] = {k: v for k, v in scout.items() if k in ('original', 'thesis', 'site', 'tech')}
+    if at_fill:
+        c['atFill'] = True
     b['open'] = (b['open'] + [c])[-KEEP_OPEN:]
     return b
 
@@ -80,7 +84,13 @@ def record(book):
 # its calls exactly like a stance. (The 2026-10-12 rug / timing meters were retired by the owner's vital-intel spec on 2026-10-13: their
 # record separated winners in one half of the night only.)
 BUCKETS = (('FLAGS:2+', '2+ risk flags', lambda c: isinstance(c.get('flags'), int) and c['flags'] >= 2),
-           ('FLAGS:0', 'no risk flag', lambda c: c.get('flags') == 0))
+           ('FLAGS:0', 'no risk flag', lambda c: c.get('flags') == 0),
+           # 🔎 the text scout, judged like every other read (what only the model can read: the story, the callers, the site, the tech)
+           ('SCOUT:COPY', 'scout: a copycat', lambda c: (c.get('scout') or {}).get('original') is False),
+           ('SCOUT:SWARM', 'scout: a swarm thesis', lambda c: (c.get('scout') or {}).get('thesis') == 'swarm'),
+           ('SCOUT:TECH', 'scout: real tech (60+)', lambda c: _f((c.get('scout') or {}).get('tech'), -1) >= 60),
+           ('SCOUT:MEME', 'scout: pure meme (≤ 20)', lambda c: 0 <= _f((c.get('scout') or {}).get('tech'), -1) <= 20),
+           ('AT:FILL', 'asked at the fill', lambda c: bool(c.get('atFill'))))
 BUCKET_LABEL = {k: lab for k, lab, _t in BUCKETS}
 
 
@@ -103,7 +113,7 @@ def advice_factor(rec, vrec, advice):
     """One model answer → ×0.9 … ×1.1 from its stance AND every vital bucket it falls in (proven ones only). Any proven warning wins
     (the most cautious factor); otherwise a proven spotter; otherwise ×1.0."""
     a = advice or {}
-    fs = [factor(rec, a.get('stance'))] + [factor(vrec, k) for k in buckets_of({'flags': len(a.get('risk_flags') or [])})]
+    fs = [factor(rec, a.get('stance'))] + [factor(vrec, k) for k in buckets_of({'flags': len(a.get('risk_flags') or []), 'scout': a.get('scout')})]
     lo, hi = min(fs), max(fs)
     return lo if lo < 1.0 else hi
 

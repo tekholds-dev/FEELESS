@@ -9283,6 +9283,25 @@ async def _curve_fix_1011(now):
     return True
 
 
+async def _armed_fix_1013(now):
+    """🎯 Once (owner, 2026-10-13: "seat filling is the problem … keep seats full"): entry mode ARMED on the real card — a seat empty past the
+    seat target takes the best ARMED coin at half a seat, and the empty-seat target drops to 15s. Old values: data/realcfg_before_armed1013.json.
+    Back: HQ › Agents › 🎛 controls › Entry = agents."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('armedFix1013') or not rc:
+            return False
+        ch = {'agentEntry': 'armed', 'agentSeatTarget': 15}
+        _json_save(DATA_DIR / 'realcfg_before_armed1013.json', {k: rc.get(k) for k in ch})
+        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
+        pr['armedFix1013'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _agent_control_set(on, now):
     """🎮 Switch agent control of the real card on / off: ON = the card is held by the agents (their moves only); OFF = that hold is
     released (the proof gate, when on, judges the card again at its next tick)."""
@@ -9594,6 +9613,7 @@ async def _prime_tick_inner(now):
     await _keephalf_fix_1010(now)
     await _proof_gate_fix_1010(now)
     await _curve_fix_1011(now)
+    await _armed_fix_1013(now)
     await _agent_real_fix_1012(now)
     await _agent_open_fix_1012(now)
     await _agent_control_fix_1010(now)
@@ -10212,6 +10232,19 @@ async def _prime_tick_inner(now):
             vetoed_ = 0
             # the money boundary for a fill: the creator not on manual · the office LIVE · the keeper not halted · Courier not BAD · the runaway guard
             plan_ = valid_[:empty_n + 3] if (empty_n and not pol_['manual'] and rd_['live'] and not seat_ctx_['halt'] and seat_ctx_['courier'] != 'BAD' and used_ < _uni.FILL_MOVES_HR) else []
+            _fw.set_agent_limits(cfg_t)   # 🎛 the owner's price-gap / sell-back / pool-floor / curve limits for agent buys: the pre-check and the keeper read the same ones
+            if plan_ is not None and pol_.get('entry') == 'armed' and empty_n and not pol_['manual'] and rd_['live'] and not seat_ctx_['halt'] and seat_ctx_['courier'] != 'BAD' and used_ < _uni.FILL_MOVES_HR:
+                # 🎯 KEEP SEATS FULL (the owner's entry mode): a seat empty past the owner's target with too few READY coins takes the best ARMED
+                # coins (Trigger: "building, not yet") at HALF a seat — never a WAIT / NO coin, never a hard veto, never a blocked one
+                try:
+                    arm_ = _oe.armed_fill([c_ for c_ in (_tk.KERNEL.candidate(x_['mint']) for x_ in cases_ if x_['status'] == 'CONTENDING') if c_ and not _fw.dollar_named(c_.get('symbol'))],
+                                          cur.get('agentEmptyAt'), pol_['seatTarget'], now, len(valid_), empty_n, blk_)
+                    for c_ in arm_:
+                        c_.update(tier='C', opp=c_['rank'], armed=True, nearReady=f"🎯 ARMED · {c_['kwhy']} · rank {c_['rank']:g} — your seat target passed, half a seat")
+                    plan_ = plan_ + arm_
+                    _office['armed'] = {'at': now, 'n': len(arm_), 'syms': [c_.get('symbol') for c_ in arm_]}
+                except Exception as e:
+                    print('armed fill:', str(e)[:120])
             if plan_:   # 🌊 THE TAPE DECIDES THE MOMENT: each coin about to take a seat is read on its last 90s of real swaps — never into sellers, never at the top of a spike; a crowd buying goes first
                 try:
                     fl_ = await _flow_fetch([t_.get('pair') for t_ in plan_ if t_.get('pair')])
@@ -10260,8 +10293,10 @@ async def _prime_tick_inner(now):
                         continue
                     cur = _prime.agent_seat(cur, {'mint': t_['mint'], 'symbol': t_['symbol'], 'pairAddress': t_['pair'], 'price': t_['px'], 'liquidityUsd': (t_.get('nums') or {}).get('liq'), 'trench': t_['trench'], 'curve': bool((t_.get('vitals') or {}).get('curve') and cfg_t.get('agentCurve')),
                                                   'ageH': (t_.get('vitals') or {}).get('ageH'), 'vol1h': (t_.get('vitals') or {}).get('vol1h'), 'buyShare': (t_.get('nums') or {}).get('buy'),
-                                                  'tag': '🤖 agents · ⚡ READY (kernel)', 'why': t_['nearReady']}, px, cfg_s, now, max_usd=wd_['allowed'])
+                                                  'tag': '🤖 agents · ⚡ READY (kernel)' if not t_.get('armed') else '🤖 agents · 🎯 ARMED (seat target)', 'why': t_['nearReady']}, px, cfg_s, now,
+                                          max_usd=wd_['allowed'] * (_oe.ARMED_SIZE if t_.get('armed') else 1.0))
                     used_ += 1; cur['agentDutyAt'] = now; cur['agentFillAt'] = now
+                    _ai.setdefault('fillQ', {})[t_['mint']] = now   # 📍 the model reads this coin once more AT the fill (record only — it never undoes a buy)
                     try:   # 📏 decision → order · discovery → entry · the coin's age at entry
                         K_ = _tk.KERNEL
                         K_.timings.note('readyToSeatSec', now - _fuse._f((K_.store.cand.get(t_['mint']) or {}).get('since') or now))
@@ -12857,7 +12892,7 @@ def _ai_learn_note(role, c, res, now):
         return
     px = _fuse._f(c.get('price')) or _fuse._f((_jup_px_cache.get(c['mint']) or (0, 0))[1])
     ad_ = (res or {}).get('advice') or {}
-    _ai['book'] = _ail.note(_ai_book(), role, c['mint'], st, px, now, c.get('symbol'), len(ad_.get('risk_flags') or []))
+    _ai['book'] = _ail.note(_ai_book(), role, c['mint'], st, px, now, c.get('symbol'), len(ad_.get('risk_flags') or []), ad_.get('scout'), bool(c.get('atFill')))
 
 
 async def _ai_learn_settle(now):
@@ -12892,7 +12927,7 @@ def _ai_learn_on():
 
 
 AI_LOG_KEEP = 60            # 🧠 the model's own decisions, newest last (memory only): what it was asked, what it said, what the kernel said
-_ai = {'notes': {}, 'http': None, 'rounds': 0, 'lastAt': None, 'lastMs': None, 'log': []}
+_ai = {'notes': {}, 'http': None, 'rounds': 0, 'lastAt': None, 'lastMs': None, 'log': [], 'fillQ': {}}   # fillQ {mint: at} = coins that just took a real seat
 
 
 def _ai_log(role, case, res, asked=False):
@@ -12946,6 +12981,11 @@ def _ai_jobs(now):
             out.append(('owner', {'mint': r_['mint'], 'symbol': r_.get('symbol'), 'state': r_.get('state'), 'why': r_.get('why'), 'cap': r_.get('mc'),
                                   'trigger': (r_.get('trigger') or {}).get('state'), 'devil': (r_.get('devil') or {}).get('severity'), 'pending': r_.get('pending')}, 'high', P['owner']))
     cands = (p.get('kernel') or {}).get('candidates') or []
+    by_m = {c_.get('mint'): c_ for c_ in cands}
+    for m_, at_ in sorted((_ai.get('fillQ') or {}).items(), key=lambda kv: kv[1])[:1]:   # 📍 ASK AT THE FILL: the coin that just took a real seat, on the live tape —
+        _ai['fillQ'].pop(m_, None)                                                      # a record-only read graded on how that real trade ends (ai_learn AT:FILL)
+        if now - _fuse._f(at_) <= 180 and by_m.get(m_):
+            out.append(('devil', {**by_m[m_], 'atFill': True}, 'high', P['manager']))
     open_ = [c_ for c_ in cands if c_.get('status') in ('READY', 'CONTENDING')]
     inband = [c_ for c_ in open_ if _uni.under_cap({'mcap': c_.get('cap')})]
     asked_ = {c_.get('mint') for _r, c_, _u, _p in out}
@@ -13005,12 +13045,14 @@ async def _ai_round(now):
     if not any(not r_['why'] and r_['enabled'] for r_ in (_air.provider(env, k_, cfg) for k_ in _air.PROVIDERS)):
         return 0
     await _ai_learn_settle(now)   # 🧠 the model's earlier stances are judged against what the coin did (no model call)
+    await _lab_tick(now, env, cfg)   # 🧪 the rule lab: the record re-judges every rule; at most once an hour the model proposes new ones
     await _coach_ai(now, env, cfg)   # 👑 at most every 15 min: the model reads the last real trades and may instruct the agents (bounded, coach.py)
     jobs = _ai_jobs(now)
     if not jobs:
         return 0
     t0 = time.perf_counter()
-    res = await asyncio.gather(*[_air.ROUTER.reason(_ai_http(), env, cfg, _ai_case(c_), role_, urg_, prio=pr_) for role_, c_, urg_, pr_ in jobs], return_exceptions=True)
+    res = await asyncio.gather(*[_air.ROUTER.reason(_ai_http(), env, cfg, {**_ai_case(c_), **({'atFill': True} if c_.get('atFill') else {})}, role_, urg_, prio=pr_)
+                                 for role_, c_, urg_, pr_ in jobs], return_exceptions=True)
     n = 0
     for (role_, c_, _u, _p), r_ in zip(jobs, res):
         if isinstance(r_, Exception) or not isinstance(r_, dict) or r_.get('deferred'):
@@ -13662,10 +13704,17 @@ def _rounds_state():
 
 
 def _judge_weights(now):
-    """🧠 The Judge's evidence weights per mint (real-money memory → ×0.7 … ×1.3; only while the memory proves itself) — a weight, never a veto."""
+    """🧠 The Judge's evidence weights per mint (real-money memory → ×0.7 … ×1.3; only while the memory proves itself) × 🧪 the rule lab's live
+    rules (each passed its own walk-forward on real fills, or named a repeat real loss) — a weight, never a veto."""
     mem = _real_mem(now) or {}
+    lab_ = _lab_state()
     if not mem.get('proof', {}).get('ok'):
-        return {}
+        w = {}
+        for x_ in _agents.get('table') or []:
+            f_ = _rlab.weight(lab_, _rlab.row_feats(x_))
+            if f_ != 1.0:
+                w[x_.get('mint')] = f_
+        return w
     w = {}
     srec_ = _co.source_record((_json_load(ARCHIVE_PATH, {}) or {}).get('positions'))
     for x_ in _agents.get('table') or []:
@@ -13673,6 +13722,7 @@ def _judge_weights(now):
         est_, _c = _rm.estimate(mem, _rm.feats(ch_.get('state'), (ch_.get('entry') or [None, None])[1] if len(ch_.get('entry') or []) > 1 else None, '', (x_.get('li') or {}).get('phase'), (x_.get('li') or {}).get('cls'), (x_.get('vitals') or {}).get('ageH')))
         w[x_.get('mint')] = 1 + (_fuse._f(est_) - _rm.veto_of(mem)) / 40   # against the LINE (the median of our own real trades): the worse half ranks down to ×0.7, the better half up to ×1.3 — a seat is never left empty for it
         w[x_.get('mint')] = max(0.7, min(1.3, w[x_.get('mint')])) * _co.source_factor(srec_, x_.get('src'))   # 📏 … and every source that listed it is a proven loser on REAL fills → ×0.9
+        w[x_.get('mint')] *= _rlab.weight(lab_, _rlab.row_feats(x_))   # 🧪 … and the lab's live rules it matches
     return w
 
 
@@ -13718,7 +13768,7 @@ def _kernel_ctx(now):
     legs_ = ((((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '') or {}).get('legs') or [])
     pending = {l.get('mint') for l in legs_ if l.get('mint') and not l.get('placeholder') and _fuse._f(l.get('units')) <= 0}   # a seat the keeper is still buying
     return {'held': held, 'pending': pending, 'regime': (_agents.get('weather') or {}).get('regime'), 'courier': (_office.get('courier') or {}).get('health'),
-            'live': rd.get('live') if rd else None, 'weights': _judge_weights(now), 'aiw': _ai_weights(now), 'pens': _coach_pens(now), 'lessons': _tkl.lessons(_lc_book(now)),
+            'live': rd.get('live') if rd else None, 'weights': _judge_weights(now), 'aiw': _ai_weights(now), 'pens': _coach_pens(now), 'lessons': _tkl.lessons(_lc_book(now)), 'lab': _rlab.trigger_lessons(_lab_state()),
             'watchOnly': {m_ for m_ in _owner.get('only') or () if _tk.KERNEL.owner.get(m_) != 'arm'}}   # 👤 review / track only: judged, never READY   # 🧬 only the generations IN CONTROL
 
 
@@ -13910,9 +13960,7 @@ def _rounds_pass(table, now):
         s_, _p = _opp.score(x_)
         tiers[x_['mint']] = (_opp.tier_of(s_), s_)
         phases[x_['mint']] = x_.get('mp')
-    before = {m_: e_.get('decision') for m_, e_ in (_rounds_state().get('c') or {}).items()}
     st = _tr.step(_rounds_state(), rows, now, hard, tiers, phases, held)
-    by_ = {x_['mint']: x_ for x_ in rows}
     # 📄 (2026-10-13) the round decisions are no longer paper rows: the paper book holds ONE entry per CONFIRMED real buy + its controls
     # (`_shadow_real_buys`) — paper and real money now grade the same trades, 1 : 1
     _rounds['state'] = st
@@ -14118,6 +14166,61 @@ def _coach_grade(now):
             _json_save(COACH_PATH, st_)
     except Exception as e:
         print('coach grade:', str(e)[:120])
+
+
+import rule_lab as _rlab
+LAB_PATH = DATA_DIR / 'rule_lab.json'
+LAB_EVERY, LAB_JUDGE_EVERY = 3600.0, 600.0
+_lab: dict = {'st': None, 'at': 0.0, 'judgedAt': 0.0, 'said': None}
+
+
+def _lab_state():
+    if _lab['st'] is None:
+        _lab['st'] = _json_load(LAB_PATH, {}) or {}
+    return _lab['st']
+
+
+async def _lab_tick(now, env, cfg):
+    """🧪 THE RULE LAB (owner, 2026-10-13: "the model proposes rules, the record tests them … let it name new causes … all agents need lessons"):
+    every LAB_JUDGE_EVERY every rule on file is re-judged on our REAL trades (no model call — `rule_lab.step`); at most every LAB_EVERY one
+    CLOUD call (never the local model) reads the record by entry feature and may propose up to 3 rules in our own words. Only a rule that
+    passes the walk-forward on real fills — or names a repeat real loss — goes live, as a lesson for its desk (rank ×0.88 / ×1.06; Trigger
+    arms instead of entering on a live entry-moment avoid rule). Never an order, a size or a sell."""
+    if now - _lab['judgedAt'] < LAB_JUDGE_EVERY:
+        return 0
+    _lab['judgedAt'] = now
+    try:
+        trades = _real_trades()
+        props = []
+        if now - _lab['at'] >= LAB_EVERY and len(trades) >= 20:
+            _lab['at'] = now
+            reviews = ((_office_state().get('judge') or {}).get('reviews')) or []
+            case = _rlab.case(trades, _lab_state(), reviews)
+            res = await _air.ROUTER.reason(_ai_http(), env, cfg, case, 'lab', 'normal', prio=_air.PRIO['lab'])
+            ad = (res or {}).get('advice') or {}
+            props = _rlab.clean(ad.get('rules'), _rlab.vocab(trades))
+            _lab['said'] = {'at': now, 'summary': ad.get('summary'), 'proposed': len(props), 'source': (res or {}).get('label') or (res or {}).get('source')}
+        st_, went = _rlab.step(_lab_state(), props, trades, now)
+        _lab['st'] = st_
+        for r_ in went:
+            rp_ = r_.get('replay') or {}
+            _tk.KERNEL.note('judge', 'LESSON', f"🧪 {r_['desk']} learned '{r_['name']}' ({r_['act']} {' & '.join(r_['when'])}) — {r_.get('door')}: unseen "
+                            f"{_fuse._f((rp_.get('test') or {}).get('avg')):+.1f}% vs {_fuse._f((rp_.get('test') or {}).get('rest')):+.1f}%", now, key=f"lab:{r_['id']}")
+        _json_save(LAB_PATH, st_)
+        return len(went)
+    except Exception as e:
+        print('rule lab:', str(e)[:140])
+        return 0
+
+
+def _lab_view(now):
+    """The page's 🧪 RULE LAB: every rule with its status + replay, what each desk learned, the model's last proposal line."""
+    st_ = _lab_state()
+    rows = [{'id': r_['id'], 'act': r_['act'], 'when': r_['when'], 'name': r_['name'], 'why': r_.get('why'), 'desk': r_.get('desk'), 'status': r_.get('status'),
+             'door': r_.get('door'), 'lossHits': r_.get('lossHits'), 'test': (r_.get('replay') or {}).get('test'), 'learn': (r_.get('replay') or {}).get('learn'),
+             'at': r_.get('at'), 'liveAt': r_.get('liveAt')} for r_ in (st_.get('rules') or [])[:16]]
+    return {'rules': rows, 'lessons': _rlab.lessons(st_), 'log': (st_.get('log') or [])[-6:], 'said': _lab.get('said'), 'trades': len(_real_trades()),
+            'next': max(0, round(LAB_EVERY - (now - _lab['at']))) if _lab['at'] else 0}
 
 
 async def _coach_ai(now, env, cfg):
@@ -15047,6 +15150,9 @@ def _office_warden(cur, t_, requested, cfg_t, now, move):
             v_, n_ = t_.get('vitals') or {}, t_.get('nums') or {}
             _office['theses'][t_.get('mint')] = _ci.thesis(ch_, now, {'liq': n_.get('liq') or v_.get('liq'), 'ageH': v_.get('ageH'), 'courier': (_office.get('courier') or {}).get('health')},
                                                            _of.tune(st, 'reaper', 'stopPct'), _of.take_line(cfg_t, _agents.get('scalp')))
+            fv_ = (_office.get('flow') or {}).get(t_.get('mint')) or t_.get('fv')
+            _office['theses'][t_.get('mint')].update(flow={'state': fv_.get('state'), 'buyPct': fv_.get('buyPct'), 'buyers': fv_.get('buyers')} if fv_ else None,
+                                                     distHigh=t_.get('distHigh') if t_.get('distHigh') is not None else ((ch_.get('f') or {}).get('distHigh')))
         if move == 'fill':
             _tk.KERNEL.note('warden', f"SIZE ${_fuse._f(wd['allowed']):.2f}", (min(wd['rules'], key=lambda r: r['mult'])['why'] if wd['rules'] else 'no rule bit — full size'), now, mint=t_.get('mint'),
                             result={'usd': round(_fuse._f(wd['allowed']), 4), 'requested': round(_fuse._f(wd['requested']), 4)}, key=f"sized:{int(now)}")
@@ -15169,7 +15275,7 @@ def _hub_publish(now, light=False):
         H.sync('position_update', {x_['mint']: {k_: v_ for k_, v_ in x_.items() if k_ not in _POS_DROP} for x_ in p.get('positions') or [] if x_.get('mint')}, now)
         H.publish('execution_update', 'office', {'courier': {k_: (_office.get('courier') or {}).get(k_) for k_ in ('health', 'why', 'pending', 'sends', 'fills', 'failed', 'landMed')},
                                                  'ready': p.get('ready'), 'seat': p.get('seat'), 'ops': p.get('ops'), 'lastAction': (p.get('mission') or {}).get('lastAction'),
-                                                 'seatBoard': p.get('seatBoard'), 'seatSummary': p.get('seatSummary'), 'wake': p.get('wake')}, now)
+                                                 'seatBoard': p.get('seatBoard'), 'seatSummary': p.get('seatSummary'), 'wake': p.get('wake'), 'armed': _office.get('armed')}, now)
         if light:
             return
         k = p.get('kernel') or {}
@@ -15512,7 +15618,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         print('fresh:', e)
     _office['payload']['performance']['passMs'] = round(sum(_fuse._f(ms.get(a)) for a in _of.CHAIN), 2)
     _tape_ledger(now)
-    _office['payload'].update(tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now), ai=_ai_view(now, light=True), net=_net_stats(now),
+    _office['payload'].update(tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now), ai=_ai_view(now, light=True), net=_net_stats(now), armed=_office.get('armed'), lab=_lab_view(now),
                               universe={'capUsd': _uni.band()[1], 'minCapUsd': _uni.band()[0], 'word': _uni.band_word(), 'maxAgeH': _uni.AGENT_MAX_AGE_H, 'inLane': len(_agents.get('table') or []),
                                         'board': (_office.get('intake') or {}).get('board'), 'mints': len(_tk.KERNEL.store.mints)})
     _hub_publish(now)   # 📡 this pass as DELTAS: only what changed since the last one

@@ -7,7 +7,7 @@ test('every control option reads as a short trader word on its segment', () => {
   expect([0, 12000].map(v => optWord('agentMcMin', v))).toEqual(['NONE', '$12K']); expect([300000, 1000000].map(v => optWord('agentMcMax', v))).toEqual(['$300K', '$1M']);
   expect(optWord('agentEntry', 'go')).toBe('GO ONLY'); expect(optWord('agentSwitch', 'aggressive')).toBe('AGGRESSIVE'); expect(optWord('agentTrail', 'auto')).toBe('AGENTS');
   expect([whoTone('CREATOR OVERRIDE'), whoTone('YOUR BAND'), whoTone('AGENTS CHOOSE')]).toEqual(['is-you', 'is-band', 'is-agents']);
-  expect(CTRL_GROUPS.map(g => g[0])).toEqual(['universe', 'exits', 'seats']); expect(CTRL_GROUPS[0][3]).toContain('agentMcMax');
+  expect(CTRL_GROUPS.map(g => g[0])).toEqual(['universe', 'exits', 'seats', 'gate']); expect(CTRL_GROUPS[3][3]).toEqual(['agentGapPct', 'agentBackPct', 'agentPoolMin']); expect(CTRL_GROUPS[0][3]).toContain('agentMcMax');
 });
 
 test('the MC band sits on a log track and every real candidate is a dot (lit inside the band, green when READY)', () => {
@@ -31,4 +31,15 @@ test('the live trade bar carries now, the peak, the worst it saw and the trail; 
   expect(b.lowAt).toBeLessThan(b.zero); expect(b.zero).toBeLessThan(b.trailAt); expect(b.trailAt).toBeLessThan(b.at); expect(b.at).toBeLessThan(b.peakAt); expect(b.peakAt).toBeLessThan(b.takeAt);
   expect(tradeBar({ entry: 1, stop: 10, take: 20 }, 2).at).toBeGreaterThan(0.95);                   // past the take: the bar widens, now stays on it
   expect([tickDir(1, 2), tickDir(2, 1), tickDir(1, 1), tickDir(null, 1)]).toEqual([1, -1, 0, 0]);
+});
+
+test('🛂 the buy gate counts the keeper\'s refusals by the limit that refused them; the scout reads as chips; a lab row reads in words', () => {
+  const { gateCounts, scoutChips, labLine, optWord } = require('./cockpitControls');
+  const g = gateCounts([{ why: 'buy price 3.1% above market (> 2.5%)' }, { why: 'live pool too thin: $2,533 liquidity < $8,000' }, { why: 'live pool too thin: $6,287' },
+    { why: 'sells back for 5.0% less (> 3.5%) — tax / thin / one-way' }, { why: 'Jupiter route unavailable (HTTP 429)' }]);
+  expect([g.total, g.gap, g.pool, g.back, g.route]).toEqual([5, 1, 2, 1, 1]);
+  expect([optWord('agentEntry', 'armed'), optWord('agentGapPct', 0), optWord('agentGapPct', 6), optWord('agentPoolMin', 5000)]).toEqual(['ARMED', '2.5%', '≤ 6%', '$5K']);
+  expect(scoutChips({ original: false, thesis: 'swarm', tech: 75 }).map(c => c[1])).toEqual(['📋 COPYCAT', '🗣 SWARM LINE', '⚙ TECH 75']);
+  expect(labLine({ test: { n: 7, avg: -12, rest: -3.1 } })).toBe('unseen 7: -12.0% vs -3.1%');
+  expect(labLine({ lossHits: 4 })).toBe('4 recent real losses fit it');
 });

@@ -30,13 +30,15 @@ AUTHORITY = ('agents', 'manual')                 # agents = CREATOR LIMITS + AGE
 TP_OPTS, SL_OPTS, HOLD_OPTS, SIZE_OPTS = (5, 10, 15, 20, 30, 50), (3, 5, 8, 10, 15, 20), (5, 10, 15, 30, 60, 120), (10, 15, 25, 40)
 BOUNDS = {'agentTp': (2.0, 200.0), 'agentSl': (2.0, 40.0), 'agentTrailArm': (2.0, 100.0), 'agentTrailPct': (1.0, 50.0), 'agentMaxHold': (5.0, 240.0), 'agentSizePct': (5.0, 50.0)}
 TRAIL = ('auto', 'off', 'custom')
-SEAT_TARGETS = (0, 30, 60)                       # 0 = AUTO (10s)
+SEAT_TARGETS = (0, 15, 30, 60)                       # 0 = AUTO (10s)
 SEAT_TARGET_AUTO = 10
 SWITCH = {'agents': (1.0, 30.0), 'off': None, 'conservative': (1.5, 45.0), 'normal': (1.0, 30.0), 'aggressive': (0.5, 15.0)}   # → (lean margin, minutes held). Aggressive only lowers the margin — never under these floors
 SWITCH_FLOOR = (0.5, _uni.CONTROL_HOLD_MIN)
-ENTRY = ('agents', 'go')                         # agents = a full GO at once, the duty's cleared case on the seat target · go = a full GO only
+GAP_OPTS, BACK_OPTS, POOL_OPTS = (4, 6, 8), (5, 7, 10), (3000, 5000, 12000, 20000)   # the owner's own limits for an AGENT buy (0 = the agents' defaults: 2.5% over market · sells back ≤ 3.5% lower · the keeper's $8K trench pool floor)
+ARMED_SIZE = 0.5                                 # 🎯 an ARMED coin (Trigger: building, not yet) takes HALF a seat — it fills the seat, it does not bet it
+ENTRY = ('agents', 'go', 'armed')                         # agents = a full GO at once, the duty's cleared case on the seat target · go = a full GO only
 POLICY_KEYS = ('agentMinAgeH', 'agentAuthority', 'agentTp', 'agentSl', 'agentTrail', 'agentTrailArm', 'agentTrailPct', 'agentMaxHold', 'agentSizePct', 'agentSeatTarget', 'agentSwitch', 'agentEntry',
-               'agentMcMin', 'agentMcMax')   # 🎯 the owner's MC band (universe.clean_band — default $12K–$300K)
+               'agentMcMin', 'agentMcMax', 'agentGapPct', 'agentBackPct', 'agentPoolMin')   # 🎯 the owner's MC band (universe.clean_band — default $12K–$300K)
 
 
 def _num(p, k):
@@ -54,6 +56,9 @@ def clean_policy(p):
             'agentTrailArm': _num(p, 'agentTrailArm'), 'agentTrailPct': _num(p, 'agentTrailPct'), 'agentMaxHold': _num(p, 'agentMaxHold'), 'agentSizePct': _num(p, 'agentSizePct'),
             'agentSeatTarget': int(_f(p.get('agentSeatTarget'))) if int(_f(p.get('agentSeatTarget'))) in SEAT_TARGETS else 0,
             'agentSwitch': p.get('agentSwitch') if p.get('agentSwitch') in SWITCH else 'agents', 'agentEntry': p.get('agentEntry') if p.get('agentEntry') in ENTRY else 'agents',
+            'agentGapPct': int(_f(p.get('agentGapPct'))) if int(_f(p.get('agentGapPct'))) in GAP_OPTS else 0,
+            'agentBackPct': int(_f(p.get('agentBackPct'))) if int(_f(p.get('agentBackPct'))) in BACK_OPTS else 0,
+            'agentPoolMin': int(_f(p.get('agentPoolMin'))) if int(_f(p.get('agentPoolMin'))) in POOL_OPTS else 0,
             'agentMinAgeH': _uni.min_age_of(p), **dict(zip(('agentMcMin', 'agentMcMax'), _uni.clean_band(p)))}
 
 
@@ -82,10 +87,10 @@ def policy(cfg):
             'trail': {'mode': trail, 'arm': c['agentTrailArm'] or None, 'pct': c['agentTrailPct'] or None}, 'maxHold': c['agentMaxHold'] or None, 'sizePct': c['agentSizePct'] or None,
             'seats': max(1, min(seats, want)), 'seatTarget': c['agentSeatTarget'] or SEAT_TARGET_AUTO,
             'switch': {'mode': c['agentSwitch'], 'on': sw is not None, 'edge': None if sw is None else max(SWITCH_FLOOR[0], sw[0]), 'holdMin': None if sw is None else max(SWITCH_FLOOR[1], sw[1])},
-            'entry': c['agentEntry'], 'exit': mode,
+            'entry': c['agentEntry'], 'exit': mode, 'gapPct': c['agentGapPct'] or None, 'backPct': c['agentBackPct'] or None, 'poolMin': c['agentPoolMin'] or None,
             'who': {'takeProfit': who(c['agentTp']), 'stopLoss': who(c['agentSl']), 'trailing': who(trail != 'auto'), 'maxHold': who(c['agentMaxHold']), 'positionSize': who(c['agentSizePct']),
                     'seatCount': 'CREATOR OVERRIDE', 'entryStyle': who(c['agentEntry'] != 'agents'), 'exitStyle': who(mode != 'auto'), 'switching': who(c['agentSwitch'] != 'agents'),
-                    'emptySeat': who(c['agentSeatTarget']), 'minAge': who(c['agentMinAgeH']),
+                    'emptySeat': who(c['agentSeatTarget']), 'minAge': who(c['agentMinAgeH']), 'priceGap': who(c['agentGapPct']), 'sellBack': who(c['agentBackPct']), 'poolMin': who(c['agentPoolMin']),
                     'mcMin': 'CREATOR OVERRIDE' if c['agentMcMin'] != _uni.AGENT_MIN_MCAP else 'YOUR BAND', 'mcMax': 'CREATOR OVERRIDE' if c['agentMcMax'] != _uni.AGENT_MAX_MCAP else 'YOUR BAND'},
             'minAgeH': c['agentMinAgeH'], 'band': {'min': c['agentMcMin'], 'max': c['agentMcMax'], 'word': _uni.band_word((c['agentMcMin'], c['agentMcMax']))},
             'hard': {'catastrophicStop': _ci.CATASTROPHIC_STOP, 'movesPerHour': _uni.CONTROL_MOVES_HR, 'minPool': _uni.CONTROL_MIN_LIQ}}
@@ -96,16 +101,19 @@ def policy(cfg):
 OPTIONS = {'agentAuthority': list(AUTHORITY), 'agentTp': [0, *TP_OPTS], 'agentSl': [0, *SL_OPTS], 'agentTrail': list(TRAIL), 'agentTrailArm': [0, 5, 10, 15, 20, 30],
            'agentTrailPct': [0, 3, 5, 8, 10, 15], 'agentMaxHold': [0, *HOLD_OPTS], 'agentSizePct': [0, *SIZE_OPTS], 'agentSeatTarget': list(SEAT_TARGETS),
            'agentSwitch': ['agents', 'off', 'conservative', 'normal', 'aggressive'], 'agentEntry': list(ENTRY), 'agentMinAgeH': list(_uni.AGENT_MIN_AGES),
-           'agentMcMin': list(_uni.BAND_MINS), 'agentMcMax': list(_uni.BAND_MAXS)}
+           'agentMcMin': list(_uni.BAND_MINS), 'agentMcMax': list(_uni.BAND_MAXS), 'agentGapPct': [0, *GAP_OPTS], 'agentBackPct': [0, *BACK_OPTS], 'agentPoolMin': [0, *POOL_OPTS]}
 CONTROLS = (('agentTp', 'takeProfit', 'Take profit', '%', 'AT your line the coin is banked. They may still leave earlier on a broken thesis or the trail.'),
             ('agentSl', 'stopLoss', 'Stop-loss', '%', 'Your most tolerated loss. Their own structure stop may be tighter, never wider.'),
             ('agentTrail', 'trailing', 'Trailing protection', None, 'off = no give-back protection · custom = arm at +A%, bank P points under the peak.'),
             ('agentMaxHold', 'maxHold', 'Max hold', 'min', 'The longest a coin is held. Their thesis windows may end it sooner, never later.'),
             ('agentSizePct', 'positionSize', 'Seat size cap', '% of card', 'The most of the card one seat may be. The Warden may size smaller, never larger.'),
             ('agentSwitch', 'switching', 'Switching', None, 'How much stronger a challenger must read, and how long a coin is held, before its seat is given up. A winner is never surrendered.'),
-            ('agentEntry', 'entryStyle', 'Entry', None, 'agents = a full GO, or the duty\'s cleared case on an empty seat · go = a full GO only.'),
+            ('agentEntry', 'entryStyle', 'Entry', None, 'agents = a READY coin · go = a full GO only · armed = KEEP SEATS FULL: a seat empty past your target takes the best ARMED coin (Trigger says "building, not yet") — never one it says WAIT / NO on, never past a hard veto.'),
             ('agentSeatTarget', 'emptySeat', 'Empty-seat target', 's', 'How soon a cleared case may fill an empty seat (a full GO never waits).'),
             ('agentMinAgeH', 'minAge', 'Youngest coin', 'h', '0 = any age: a newborn is judged on the evidence it CAN have (real candles so far, tape, pool, holder scan). A number = no coin younger than that.'),
+            ('agentGapPct', 'priceGap', 'Buy price vs market', '%', 'The most an agent buy may cost above the market reading. Tight = fewer, cleaner fills; loose = a running coin still gets bought (most refused buys are this check).'),
+            ('agentBackPct', 'sellBack', 'Sell-back loss', '%', 'The most an agent buy may lose if sold straight back (tax, thin pool). The no-route / honeypot check never moves.'),
+            ('agentPoolMin', 'poolMin', 'Smallest pool', '$', 'The thinnest live pool an agent buy may enter (0 = the keeper\'s $8K trench floor; never under $3K). Thinner = more launches buyable and more rug + slippage risk; the impact and sell-back checks still run.'),
             ('agentMcMin', 'mcMin', 'MC band · floor', '$', 'No NEW entry at or under this live market cap (held coins keep running). Default $12K: under it the curve is still being sniped.'),
             ('agentMcMax', 'mcMax', 'MC band · top', '$', 'No NEW entry at or over this live market cap — a winner already held keeps running past it. Default $300K.'))
 
@@ -131,7 +139,7 @@ def agents_now(take, tunables, thesis=None):
             'agentSizePct': f"the Warden: ≤ {_f(t.get('maxSeatPct')):g}% of the card, smaller on risk",
             'agentSwitch': f"read margin ≥ {SWITCH['agents'][0]:+.1f} after {SWITCH['agents'][1]:g} min, or a broken read after {_uni.CONTROL_HOLD_MIN} min",
             'agentEntry': 'a full GO at once, or the duty\'s cleared case',
-            'agentSeatTarget': f'{SEAT_TARGET_AUTO}s',
+            'agentSeatTarget': f'{SEAT_TARGET_AUTO}s', 'agentGapPct': 'buys cost ≤ 2.5% over the market reading', 'agentBackPct': 'sells straight back ≤ 3.5% lower', 'agentPoolMin': 'live pool ≥ the keeper\'s $8K trench floor',
             'agentMinAgeH': 'any age — stage-aware evidence (NEWBORN · EARLY · DEVELOPING · MATURE); safety, pool, scan and the chart still decide',
             'agentMcMin': f'the band floor {_uni.band_word()}', 'agentMcMax': f'the band top {_uni.band_word()}'}
 
@@ -933,3 +941,15 @@ def active_index(table, seen=None, now=0.0, cap=None):
                     'chartQuality': _so.chart_quality(ch)[0] if ch else None, 'marketPhase': _mw.market_phase(ch, x.get('li')), 'social': bool(x.get('social') or v.get('site') or v.get('x')),
                     'lastMaterialChange': e.get('changed'), 'lastReview': e.get('review'), 'cooldownLeft': cool, 'eligible': why is None, 'why': why})
     return sorted(out, key=lambda r: (not r['eligible'], fresh_key({'ageH': None if r['launchAgeMin'] is None else r['launchAgeMin'] / 60}), -_f(r['volVelocity'])))
+
+
+def armed_fill(cands, empty_since, target, now, have=0, need=0, blocked=()):
+    """🪑 KEEP SEATS FULL (owner's entry mode `armed`): once a seat has sat empty past the owner's target and there are fewer READY coins
+    than empty seats, the best CONTENDING coins whose Trigger says ARM join the fill list — best rank first. Never a coin Trigger says
+    WAIT / NO on, never one the Warden sized to 0 (a hard veto), never a blocked / just-left coin. They still pass the live check, the
+    Warden and every keeper check like any fill. `cands` = kernel candidate rows (status · trigger · rank · size). → rows to add."""
+    if not empty_since or now - _f(empty_since) < _f(target) or need <= have:
+        return []
+    ok = [c for c in cands or [] if c.get('status') == 'CONTENDING' and c.get('trigger') == 'ARM' and _f(c.get('size')) > 0 and c.get('mint') not in set(blocked or ())]
+    return sorted(ok, key=lambda c: -_f(c.get('rank')))[:max(0, need - have)]
+

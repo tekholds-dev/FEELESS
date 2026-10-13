@@ -3715,3 +3715,27 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   fell a typical 39% · its rug read did not separate winners · it judges a snapshot and the fill lands 2 minutes later. Where a model can
   add: reading text (site / X / call thesis), and PROPOSING rules that the record then tests walk-forward — never picking coins itself.
 
+- 🎛 THE OWNER'S BUY GATE + 🎯 ARMED SEATS (owner, 2026-10-13: "seat filling is the problem — fix controls and limits to really allow me to set
+  stuff"; the paused session's WIP finished): realCfg `agentGapPct` 0/4/6/8 (buy ≤ X% over market; 0 = the agents' 2.5%) · `agentBackPct`
+  0/5/7/10 (sells straight back ≤ X% lower; 0 = 3.5%) · `agentPoolMin` 0/3K/5K/12K/20K (smallest live pool; 0 = the keeper's $8K trench floor,
+  never under $3K) — `fuse_wallet.set_agent_limits` (each tier tick) → `agent_limits(order)` inside `live_buy_market` + `buy_safety`: the seat
+  pre-check and the keeper's final gate read the SAME limits. The no-route / honeypot / below-market checks never move. `agentCurve` on = an
+  AGENT coin on a launch curve is judged on the curve's depth whatever the desk row said (READY curve coins were refused as "$2.4K pools").
+  Entry `armed` (`office_edge.armed_fill`, `ARMED_SIZE` 0.5): a seat empty past the owner's target with fewer READY coins than empty seats
+  takes the best CONTENDING coins Trigger ARMS (never WAIT / NO, never a 0-size hard veto, never a blocked coin) at HALF a seat, tag
+  "🎯 ARMED (seat target)"; `_armed_fix_1013` switched the real card to armed + 15s target (old values data/realcfg_before_armed1013.json).
+  HQ › Agents controls: 🛂 BUY GATE card with `GateLine` = the keeper's own refusals counted by the limit that refused them (`gateCounts`).
+  The AgentDesk bottom bar = vital lenses first (Live · Review · Missed · Board) then 🎛 Limits ("N held back" badge).
+- 🧪 THE RULE LAB (`backend/rule_lab.py` pure + tested; `_lab_tick` in the AI round, `data/rule_lab.json`, payload `lab` → `RuleLab` in the
+  🧠 AI tab; owner: "the model proposes rules, the record tests them … let it name new causes … all agents need lessons"): tokens = the entry
+  features our REAL trades are filed by (`real_memory.pos_feats`) + the buy / sell vital at the entry (`flow:`) + how far under its high
+  (`high:top|near|off`; the entry thesis now keeps `flow` + `distHigh`). Once an hour ONE cloud call (role `lab`, never the local model)
+  reads `vocabTable` and may propose ≤ 3 rules in those exact words; every rule is re-judged every 10 min with NO model call. LIVE = passes
+  walk-forward on real fills (oldest 60% and newest 40% both ≥ 3 pts the rule's way, ≥ 6 / 5 matched) or — avoid only — fits ≥ 3 of the
+  last 20 real losses without the replay contradicting it (a NEW CAUSE under the model's name). A live rule is its desk's lesson: rank
+  ×0.88 (avoid) / ×1.06 (favor) through `_judge_weights`, and a live avoid rule on the entry MOMENT arms Trigger instead of entering
+  (`brain.trigger(.., lab)`). Contradicted or 24h unproven = failed. Never an order, a size or a sell.
+- 🔎 TEXT SCOUT + 📍 ASK AT THE FILL: every answer may carry `scout` {original, thesis real|swarm|none, site match|mismatch|none, tech 0–100}
+  (`ai_router.parse_advice`, strict), judged like every read (`ai_learn` buckets SCOUT:COPY · SCOUT:SWARM · SCOUT:TECH · SCOUT:MEME) and shown as
+  chips (`scoutChips`). A coin that just took a real seat is read once more on its live tape (`_ai['fillQ']` → `_ai_jobs` role devil,
+  `atFill`), RECORD ONLY — its own bucket AT:FILL says whether a read at the fill is worth anything; it never undoes a buy.

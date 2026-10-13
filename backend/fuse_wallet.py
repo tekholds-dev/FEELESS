@@ -429,24 +429,46 @@ def check(order, cfg, ledger, now, quote_impact_pct=None):
     return True, ''
 
 
+AGENT_LIMITS = {'gapPct': 0.0, 'backPct': 0.0, 'poolMin': 0.0, 'curve': False}   # 🎛 the owner's limits for AGENT buys (realCfg agentGapPct / agentBackPct / agentPoolMin / agentCurve), set each pass
+
+
+def set_agent_limits(cfg):
+    """🎛 The owner's realCfg → the limits every AGENT buy is judged by, at the seat pre-check AND at the keeper's final gate (one source)."""
+    c = cfg or {}
+    AGENT_LIMITS.update(gapPct=_f(c.get('agentGapPct')), backPct=_f(c.get('agentBackPct')), poolMin=_f(c.get('agentPoolMin')), curve=bool(c.get('agentCurve')))
+    return dict(AGENT_LIMITS)
+
+
+def agent_limits(order):
+    """An AGENT buy order with the owner's limits on it (a value the order carries itself wins). Other orders come back untouched."""
+    if not (order or {}).get('agent'):
+        return order or {}
+    return {**{k: v for k, v in AGENT_LIMITS.items() if v and k != 'curve'}, **{k: v for k, v in order.items() if v not in (None, '')}}
+
+
 def live_buy_market(order, pair, cfg):
     """Fail-closed final market gate for a REAL buy using a freshly fetched pair snapshot.
     Candidate/radar data may be cached; the keeper must re-check the exact pair immediately before signing."""
     if order.get('side') != 'buy':
         return True, '', {}
+    order = agent_limits(order)
     p = pair if isinstance(pair, dict) else {}
     base = (p.get('baseToken') or {}).get('address')
     if not p or not base or base != order.get('mint'):
         return False, 'live market unavailable or pair/mint mismatch', {}
     px = _f(p.get('priceUsd'))
     liq = _f((p.get('liquidity') or {}).get('usd'))
-    if (order.get('picked') or order.get('curve')) and p.get('dexId') in ('pumpfun', 'meteoradbc', 'launchlab', 'raydium-launchlab', 'moonshot'):   # = fuse.CURVE_DEXES
+    # (an AGENT coin is judged on the curve's depth whenever the owner's `agentCurve` is on — it used to be only when the desk row said
+    # 'curve', so READY curve coins were refused at the pre-check as a '$2.4K pool': TACTICS / MCAS / SOLENJOY, 2026-10-13)
+    if (order.get('picked') or order.get('curve') or (order.get('agent') and AGENT_LIMITS.get('curve'))) and p.get('dexId') in ('pumpfun', 'meteoradbc', 'launchlab', 'raydium-launchlab', 'moonshot'):   # = fuse.CURVE_DEXES
         # 🎯 the OWNER picked a coin still on Pump's launch curve — or the owner's `agentCurve` switch let the AGENTS seat one (leg `curve`):
         # no pool figure exists, the curve's own depth is used (= fuse.curve_liq at a conservative $100 SOL). The engine's other doors never do.
         # (a figure > 0 from the Jupiter fallback is the SOL already paid into the curve, not a pool: the agents' own row read the curve's
         # depth ($10K) while this gate read $5K and refused the same coin — 2026-10-12, 9 of 20 agent seats)
         liq = max(liq, round(2 * (32.19 * _f(p.get('marketCap') or p.get('fdv')) * 100.0) ** 0.5, 2))
     floor = liq_floor(cfg, order.get('arena'), order.get('trench'), order.get('picked'))
+    if order.get('agent') and _f(order.get('poolMin')) > 0:   # 🎛 the owner's own pool floor for agent buys (never under $3K)
+        floor = max(3000.0, _f(order.get('poolMin')))
     if px <= 0:
         return False, 'live market price unavailable', {'liq': liq}
     if liq < floor:
@@ -1359,9 +1381,11 @@ def buy_safety(order, quote_out_atoms, decimals, sell_back_lamports):
     out = _f(quote_out_atoms) / (10 ** int(decimals or 0))
     if out <= 0:
         return False, 'quote returned no coins'
+    order = agent_limits(order)
     px = _f(order.get('usd')) / out
     mid = _f(order.get('midPx'))
-    gap_cap = AGENT_PRICE_GAP_PCT if order.get('agent') else MAX_PRICE_GAP_PCT
+    # 🎛 an AGENT buy uses the owner's own limit when they set one (card `agentGapPct` 4 / 6 / 8 → order `gapPct`), never past 8%
+    gap_cap = (max(AGENT_PRICE_GAP_PCT, min(8.0, _f(order.get('gapPct')))) if _f(order.get('gapPct')) > 0 else AGENT_PRICE_GAP_PCT) if order.get('agent') else MAX_PRICE_GAP_PCT
     if decimals is not None and mid > 0 and (px / mid - 1) * 100 > gap_cap:   # unknown decimals → only the sell-back check
         return False, f"buy price {((px / mid - 1) * 100):.1f}% above market (> {gap_cap:g}%)"
     if decimals is not None and mid > 0 and (1 - px / mid) * 100 >= MAX_BELOW_PCT:
@@ -1370,7 +1394,7 @@ def buy_safety(order, quote_out_atoms, decimals, sell_back_lamports):
         return False, "can't sell it back to SOL (no route) — skipped"
     loss = (1 - _f(sell_back_lamports) / max(1, _f(order.get('lamports')))) * 100
     # 🎯 the owner's own pick may use their own limit (6–10%, cfg `pickSellBackPct`); the engine's coins always use 6%
-    cap = max(MAX_ROUNDTRIP_PCT, min(10.0, _f(order.get('maxRoundtripPct')))) if order.get('picked') else AGENT_ROUNDTRIP_PCT if order.get('agent') else MAX_ROUNDTRIP_PCT
+    cap = max(MAX_ROUNDTRIP_PCT, min(10.0, _f(order.get('maxRoundtripPct')))) if order.get('picked') else (max(AGENT_ROUNDTRIP_PCT, min(10.0, _f(order.get('backPct')))) if _f(order.get('backPct')) > 0 else AGENT_ROUNDTRIP_PCT) if order.get('agent') else MAX_ROUNDTRIP_PCT
     if loss > cap:
         return False, f"sells back for {loss:.1f}% less (> {cap:g}%) — tax / thin / one-way"
     return True, ''

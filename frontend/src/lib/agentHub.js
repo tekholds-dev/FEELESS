@@ -47,7 +47,7 @@ export function applyDelta(raw, ev) {
     case 'lifecycle_update': return { ...raw, office: { ...o, generations: data || [] } };
     case 'execution_update': { const d = data || {};
       return { ...raw, office: { ...o, execution: { ...(o.execution || {}), ...(d.courier || {}) }, ready: d.ready ?? o.ready, seat: d.seat ?? o.seat, ops: d.ops ?? o.ops, seatBoard: d.seatBoard ?? o.seatBoard,
-        seatSummary: d.seatSummary ?? o.seatSummary, wake: d.wake ?? o.wake, mission: { ...(o.mission || {}), lastAction: d.lastAction ?? (o.mission || {}).lastAction } } }; }
+        seatSummary: d.seatSummary ?? o.seatSummary, wake: d.wake ?? o.wake, armed: d.armed ?? o.armed, mission: { ...(o.mission || {}), lastAction: d.lastAction ?? (o.mission || {}).lastAction } } }; }
     case 'metric_update': { const d = data || {};
       return { ...raw, office: { ...o, kernel: { ...k, metrics: d.kernel || k.metrics }, enrich: d.enrich || o.enrich, rpcStats: d.rpc || o.rpcStats, stream: d.stream || o.stream } }; }
     case 'mint_update': { if (!data) return raw;

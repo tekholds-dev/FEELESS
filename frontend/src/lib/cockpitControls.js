@@ -7,6 +7,7 @@ export const CTRL_GROUPS = [
   ['universe', '🎯 UNIVERSE', 'Which coins a NEW seat may buy — held winners keep running past the band', ['agentMcMin', 'agentMcMax', 'agentMinAgeH']],
   ['exits', '💰 EXITS', 'How a seat leaves: your line, or the agents\' own read', ['agentTp', 'agentSl', 'agentTrail', 'agentMaxHold']],
   ['seats', '🪑 SEATS & ENTRY', 'How big a seat is, how fast an empty one fills, when a seat is given up', ['agentSizePct', 'agentSeatTarget', 'agentEntry', 'agentSwitch']],
+  ['gate', '🛂 BUY GATE', 'What the keeper accepts on an agent buy — most empty seats are a coin refused right here', ['agentGapPct', 'agentBackPct', 'agentPoolMin']],
 ];
 
 const k$ = v => (v >= 1e6 ? `$${+(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${+(v / 1e3).toFixed(1)}K` : `$${v}`);
@@ -24,10 +25,22 @@ export function optWord(key, v) {
     case 'agentMinAgeH': return n ? hm(Math.round(n * 60)) : 'ANY';
     case 'agentMcMin': return n ? k$(n) : 'NONE';
     case 'agentMcMax': return k$(n);
-    case 'agentEntry': return v === 'go' ? 'GO ONLY' : 'AGENTS';
+    case 'agentEntry': return v === 'go' ? 'GO ONLY' : v === 'armed' ? 'ARMED' : 'AGENTS';
+    case 'agentGapPct': return n ? `≤ ${n}%` : '2.5%';
+    case 'agentBackPct': return n ? `≤ ${n}%` : '3.5%';
+    case 'agentPoolMin': return n ? k$(n) : '$8K';
     case 'agentTrail': case 'agentSwitch': return v === 'agents' || v === 'auto' ? 'AGENTS' : String(v).toUpperCase();
     default: return String(v);
   }
+}
+
+// 🛂 the keeper's own refusals of agent buys (seat pre-check + final gate), counted by the limit that refused them — which knob is closing the seat
+export const GATE_WORDS = [['gap', 'price gap', /above market/i], ['back', 'sell-back', /sells back|sell it back/i], ['pool', 'thin pool', /pool too thin/i],
+  ['route', 'no route / busy', /route|jupiter|429/i]];
+export function gateCounts(refused) {
+  const out = { total: 0 }; GATE_WORDS.forEach(([k]) => { out[k] = 0; });
+  (refused || []).forEach(r => { const w = String(r?.why || ''); const hit = GATE_WORDS.find(([, , re]) => re.test(w)); out.total += 1; out[hit ? hit[0] : 'other'] = (out[hit ? hit[0] : 'other'] || 0) + 1; });
+  return out;
 }
 
 // who decides a control right now → its tone class
@@ -47,7 +60,21 @@ export function bandTrack(min, max, cands) {
 
 // 🧠 the model's vital intel (summary · risk flags · narrative · creator context · conflict resolution · confidence delta): unknown = not drawn
 export const INTEL_ROWS = [['narrative', '📖', 'NARRATIVE'], ['creator_context', '👤', 'CREATOR'], ['conflict_resolution', '⚖', 'CONFLICT']];
-export const hasIntel = a => !!(a && (a.summary || (a.risk_flags || []).length || INTEL_ROWS.some(([k]) => a[k])));
+export const hasIntel = a => !!(a && (a.summary || (a.risk_flags || []).length || INTEL_ROWS.some(([k]) => a[k]) || (a.scout && Object.keys(a.scout).length)));
+// 🔎 the text scout as chips (what only the model reads): original or a copycat · callers' thesis real or a swarm · site matches · real tech 0–100
+export function scoutChips(sc) {
+  const s = sc || {}; const out = [];
+  if (s.original === true) out.push(['orig', '🧬 ORIGINAL', 'is-good']); else if (s.original === false) out.push(['orig', '📋 COPYCAT', 'is-bad']);
+  if (s.thesis === 'real') out.push(['thesis', '🗣 REAL THESIS', 'is-good']); else if (s.thesis === 'swarm') out.push(['thesis', '🗣 SWARM LINE', 'is-bad']);
+  if (s.site === 'match') out.push(['site', '🌐 SITE MATCHES', 'is-good']); else if (s.site === 'mismatch') out.push(['site', '🌐 SITE MISMATCH', 'is-bad']);
+  if (Number.isFinite(s.tech)) out.push(['tech', `⚙ TECH ${s.tech}`, s.tech >= 60 ? 'is-good' : s.tech <= 20 ? 'is-meme' : 'is-hold']);
+  return out;
+}
+// 🧪 the rule lab's row in words: unseen (the newest 40% of real trades) result of the coins it matches vs the rest
+export function labLine(r) {
+  const t = r?.test || {}; const f = v => (v == null ? '—' : `${v > 0 ? '+' : ''}${Number(v).toFixed(1)}%`);
+  return t.n ? `unseen ${t.n}: ${f(t.avg)} vs ${f(t.rest)}` : r?.lossHits ? `${r.lossHits} recent real losses fit it` : 'waiting for trades';
+}
 export const intelRows = a => INTEL_ROWS.filter(([k]) => a?.[k]).map(([k, icon, label]) => ({ k, icon, label, text: a[k] }));
 
 // the newest model answer about one coin (any desk) — for the queue's AI column and a seat

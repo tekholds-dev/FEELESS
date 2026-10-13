@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { hubLoad, useAi } from '../../lib/agentHub';
-import { CTRL_GROUPS, optWord, whoTone, WHO_WORD, bandTrack, hasIntel } from '../../lib/cockpitControls';
+import { CTRL_GROUPS, optWord, whoTone, WHO_WORD, bandTrack, hasIntel, gateCounts, GATE_WORDS } from '../../lib/cockpitControls';
 import { aiMetricsLine } from '../../lib/aiRead';
 import { AiChipBtn } from './AiProviders';
 import '../../styles/agentControls.css';
@@ -51,6 +51,14 @@ function ModelCard({ o, pend, disabled, onPick }) {
     <button type="button" className="m-btn acx-all" onClick={() => window.dispatchEvent(new CustomEvent('feeless:agents-lens', { detail: 'limits' }))} data-testid="ack-all-limits">All limits →</button></div>;
 }
 
+// 🛂 which limit refused the agents' last buys (the keeper's own words) — the knob to turn when a seat stays empty
+function GateLine({ refused, armed }) {
+  const g = gateCounts(refused);
+  return <p className="acx-gate" data-testid="acx-gate">{g.total ? GATE_WORDS.filter(([k]) => g[k]).map(([k, l]) => <span key={k} className={`acx-gpill is-${k}`}><b>{g[k]}</b>{l}</span>)
+    : <span className="acx-gpill is-ok">no refused buy lately</span>}
+    {armed?.n ? <span className="acx-gpill is-armed" data-tip={(armed.syms || []).map(s => `$${s}`).join(' · ')}>🎯 <b>{armed.n}</b>armed in</span> : null}</p>;
+}
+
 export function CockpitControls({ o, call, isOwner, onAi }) {
   const pol = o?.policy || {}; const ctl = Object.fromEntries((pol.controls || []).map(c => [c.key, c]));
   const [pend, setPend] = useState({}); const busy = Object.keys(pend).length > 0;
@@ -72,6 +80,7 @@ export function CockpitControls({ o, call, isOwner, onAi }) {
       {CTRL_GROUPS.map(([g, title, blurb, keys]) => { const rows = keys.filter(k => ctl[k]); if (!rows.length) return null;
         return <div key={g} className={`acx-card is-${g}`} data-testid={`acx-${g}`}><p className="acx-ctitle"><b>{title}</b><small>{blurb}</small></p>
           {g === 'universe' ? <BandTrack band={pol.band} cands={cands} /> : null}
+          {g === 'gate' ? <GateLine refused={o?.seat?.refused} armed={o?.armed} /> : null}
           {rows.map(k => <ControlRow key={k} c={ctl[k]} pending={pend[k]} disabled={!isOwner || busy} onPick={(kk, v) => save({ [kk]: v }, kk, v)} />)}</div>; })}
       <ModelCard o={o} pend={pend} disabled={!isOwner || busy} onPick={(k, v) => save({ agentAiLearn: v === 'on' }, k, v)} />
     </div>

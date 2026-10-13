@@ -34,7 +34,7 @@ PROVIDERS = {
     'custom': ('OPENAI-COMPATIBLE', 'AI_API_KEY', 'AI_MODEL', 'AI_BASE_URL', None, '', 10.0, 1),
 }
 DEFAULT_ORDER = ('local', 'groq', 'openrouter', 'openai', 'xai', 'custom')
-ADVISORY_ROLES = ('sherlock', 'devil', 'judge', 'owner', 'manager', 'coach')
+ADVISORY_ROLES = ('sherlock', 'devil', 'judge', 'owner', 'manager', 'coach', 'lab')
 FORBIDDEN_ROLES = ('tally', 'trigger', 'reaper', 'courier', 'warden')        # hot loops + the money boundary: never a model
 # 🧠 THE VITAL AI RESULT (owner's lag-fix spec, 2026-10-13: "KEEP the vital AI-only intelligence"): the model answers ONLY what the
 # deterministic kernel cannot infer well — the story, who is behind it, what public sources say, which side a conflict falls on — as
@@ -47,7 +47,7 @@ AGENTS = ('tally', 'sherlock', 'weather', 'trigger', 'devil', 'warden', 'courier
 QUEUE_MAX = 2              # requests allowed to WAIT for a busy provider (local: 1 running + 2 waiting); more → next provider
 CACHE_SEC = 1800.0         # the same case (same coin, same material STATE — see case_key) inside 30 min = the cached answer (no second inference)
 DEFER_PRIO = 3             # a job at this priority or lower (bigger number) is DEFERRED when the local model is already busy — it never waits in line
-PRIO = {'owner': 0, 'manager': 1, 'ready': 2, 'devil': 3, 'contender': 4, 'judge': 5, 'coach': 2}   # owner review → a conflict → a READY coin → ambiguous → top contender → a closed trade
+PRIO = {'owner': 0, 'manager': 1, 'ready': 2, 'devil': 3, 'contender': 4, 'judge': 5, 'coach': 2, 'lab': 3}   # owner review → a conflict → a READY coin → ambiguous → top contender → a closed trade
 RATE_COOL = 60.0           # a 429 rests that provider this long (or its Retry-After, ≤ 5 min)
 FAIL_COOL = (0.0, 0.0, 15.0, 30.0, 60.0)   # cool-down by consecutive failures (2 free, then 15s … 60s)
 MAX_TOKENS = 260          # the short structured answer
@@ -179,6 +179,18 @@ def parse_advice(text):
     dirs = [{'key': str(d_.get('key') or '').strip().lower()[:24], 'why': _KEYLIKE.sub('•••', _clean_text(d_.get('why'), 90))} for d_ in (j.get('directives') or []) if isinstance(d_, dict)][:3]
     if dirs:
         out['directives'] = dirs   # 👑 the coach's instructions — coach.from_ai keeps only causes from the fixed vocabulary
+    sc = j.get('scout') if isinstance(j.get('scout'), dict) else {}
+    scout = {k: v for k, v in (('original', sc.get('original') if isinstance(sc.get('original'), bool) else None),
+                               ('thesis', sc.get('thesis') if sc.get('thesis') in ('real', 'swarm', 'none') else None),
+                               ('site', sc.get('site') if sc.get('site') in ('match', 'mismatch', 'none') else None),
+                               ('tech', int(max(0, min(100, _f(sc.get('tech'))))) if isinstance(sc.get('tech'), (int, float)) else None)) if v is not None}
+    if scout:
+        out['scout'] = scout   # 🔎 the text scout: what only a language model reads (original vs copycat, real thesis vs swarm, site match, real tech)
+    rules = [{'act': str(r_.get('act') or '').strip().lower()[:6], 'when': [str(t_)[:40] for t_ in (r_.get('when') or []) if isinstance(t_, str)][:3],
+              'name': _KEYLIKE.sub('•••', _clean_text(r_.get('name'), 40)), 'why': _KEYLIKE.sub('•••', _clean_text(r_.get('why'), 110))}
+             for r_ in (j.get('rules') or []) if isinstance(r_, dict)][:3]
+    if rules:
+        out['rules'] = rules   # 🧪 the lab's proposals — rule_lab.clean keeps only words from our own record, the replay decides
     for k, n in INTEL_FIELDS:
         v = _KEYLIKE.sub('•••', _clean_text(j.get(k), n))
         if v and v.strip(' .').lower() not in ('none', 'n/a', 'na', 'unknown', '-', 'no conflict', 'null'):
@@ -191,8 +203,12 @@ CASE_KEYS = ('symbol', 'status', 'rank', 'ageMin', 'cap', 'liq', 'vol5m', 'move5
              'band', 'fresh', 'velocity', 'tape', 'tapeRead', 'early', 'dev', 'socials', 'calls', 'curve', 'memory', 'record',   # 🫀 the trench vitals (2026-10-12)
              'site', 'xinfo', 'story', 'shape', 'creator', 'signals', 'exits', 'speed', 'twins',   # 🌐 site / X / story · 📈 chart shape · 👤 creator · ⚖ the agents' own signals (2026-10-13)
 
-             'losses', 'wins', 'rules', 'vocab',   # 👑 the coach's case: the last real trades as cause / result lines + the fixed vocabulary it may answer from
+             'losses', 'wins', 'rules', 'vocab', 'vocabTable', 'trades', 'atFill', 'lessons',   # 🧪 the lab's case + 📍 a coin that just took a seat + what the desk learned
+             # 👑 the coach's case: the last real trades as cause / result lines + the fixed vocabulary it may answer from
              'pct', 'peak', 'heldMin', 'decision', 'rule', 'reason', 'structure', 'phase', 'result', 'cause', 'state', 'why', 'pending')
+
+
+LONG_LISTS = {'vocabTable': 20, 'vocab': 60, 'lessons': 8}   # the lab reads a table, not 5 lines
 
 
 def compact(case):
@@ -207,7 +223,7 @@ def compact(case):
         elif isinstance(v, (int, float)):
             out[k] = round(float(v), 4) if abs(float(v)) < 1e6 else round(float(v))
         elif isinstance(v, (list, tuple)):
-            out[k] = [_clean_text(x if not isinstance(x, (list, tuple)) else ' '.join(map(str, x)), 80) for x in v][:5]
+            out[k] = [_clean_text(x if not isinstance(x, (list, tuple)) else ' '.join(map(str, x)), 80) for x in v][:LONG_LISTS.get(k, 5)]
         else:
             out[k] = _clean_text(v, 240)
     return out
@@ -223,6 +239,10 @@ ROLE_ASK = {
     'manager': ("The desk is split on this coin (see `signals`). In conflict_resolution call which side the evidence backs and why, one line."),
     'judge': "A real trade just closed. What decided it and the one thing to do different next time (in summary).",
     'owner': "The boss wants the full read on this coin: story, dev, what kills it. Straight, no fluff.",
+    'lab': ("You're the desk's analyst. `vocabTable` = our REAL trades grouped by an entry feature (how many, the typical result). Find what our "
+            "losers (or winners) have in common that the desk does not already know (`rules`). Add \"rules\": [{\"act\": \"avoid\"|\"favor\", "
+            "\"when\": [1–2 tokens copied EXACTLY from `vocab`], \"name\": \"≤ 40 chars, trench words\", \"why\": \"≤ 100 chars, the numbers you saw\"}] "
+            "(max 3). The desk replays every rule on trades you never saw — a rule the table does not back just fails. summary = the one pattern."),
     'coach': ("You're the desk's coach. `losses` / `wins` are our last REAL trades. If the SAME thing killed two or more losses, tell the agents: add "
               "\"directives\": [{\"key\": one of `vocab` exactly, \"why\": \"≤ 80 chars, the pattern you saw\"}] (max 2, none already in `rules`). "
               "No repeat pattern = no directives. summary = the one thing the desk keeps doing wrong."),
@@ -233,7 +253,7 @@ SYSTEM = ("You're the rug-sniffer on a Solana trench desk. ONE job: find what ki
           "trencher: short, blunt, real slang (jeet, cabal, bundled, farmed, exit liq, cooked, sending) — no corporate words, no disclaimers, "
           "no 'as an AI'. Reply with ONE JSON object on one line and nothing else: {\"summary\": \"≤ 160 chars\", \"risk_flags\": [\"≤ 4 short facts\"], "
           "\"narrative\": \"≤ 90 chars\", \"creator_context\": \"≤ 90 chars\", \"conflict_resolution\": \"≤ 110 chars, only when signals disagree\", "
-          "\"confidence_delta\": -0.25..0 (0 = nothing wrong found), \"wake\": [\"sherlock\"|\"trigger\"|...]}. Leave out a field you can't fill from the case.")
+          "\"confidence_delta\": -0.25..0 (0 = nothing wrong found), \"wake\": [\"sherlock\"|\"trigger\"|...], \"scout\": {\"original\": true|false (the first coin of this story, or a copycat), \"thesis\": \"real\"|\"swarm\"|\"none\" (callers' words: own reasons, or a pasted line), \"site\": \"match\"|\"mismatch\"|\"none\", \"tech\": 0..100 (a real product / tech / team behind it vs a pure meme)}}. Leave out a field you can't fill from the case.")
 
 
 def messages(case, role):

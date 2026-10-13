@@ -300,7 +300,7 @@ function DecisionPanel({ o, dec, pos, cand, mint, seats, readyN, agent, setAgent
       {agent === 'devil' && cand?.devilConf != null ? <p className="ack-fresh">Devil confidence ×{cand.devilConf} (a weight on the rank, never a block)</p> : null}
       <AiNote o={o} mint={mint} agent={agent} onOpen={() => setTab('ai')} />
     </div>) : null}
-    {tab === 'ai' ? <div className="ack-pbody"><AiPane ai={o?.ai || null} call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} onPick={onPick} onProviders={onAi} /></div> : null}
+    {tab === 'ai' ? <div className="ack-pbody"><AiPane ai={o?.ai || null} lab={o?.lab || null} call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} onPick={onPick} onProviders={onAi} /></div> : null}
     {tab === 'inputs' ? <div className="ack-pbody" data-testid="ack-pane-inputs"><ul className="ack-inputs">{inputsOf({ c: cand, pos, live, mc: mcNow }).map(([l, w, s, what]) =>
       <li key={l} data-testid={`ack-in-${l.replace(/\W+/g, '-')}`}><span>{l}</span><i className={`ack-fw ${FRESH_CLS[w]}`}>{w}</i><small>{s == null ? '' : `${secs(s)} old · `}{what}</small></li>)}</ul></div> : null}
     {tab === 'seats' ? <div className="ack-pbody" data-testid="ack-pane-seats"><table className="ack-queue"><thead><tr><th>SEAT</th><th>COIN</th><th>STATE</th><th>AGENT</th><th>CHALLENGER</th><th>NEXT</th></tr></thead>
