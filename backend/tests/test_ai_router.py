@@ -419,3 +419,12 @@ def test_cloud_first_for_the_agents_the_local_model_is_their_last_resort_and_a_p
     r.stats['openrouter']['coolUntil'] = 5000.0
     assert not air.cloud_ready(r, env, {}, 90000.0 - 86400 + 2000)
     assert air.EXTRA_BODY['openrouter']['reasoning'] == {'effort': 'minimal'} and air.EXTRA_BODY['openrouter']['max_tokens'] >= 600   # a reasoning model must be left room to ANSWER
+
+
+def test_the_local_models_own_lane_asks_only_the_local_model():
+    e = env(LOCAL_LLM_BACKGROUND=None)
+    r, h = air.Router(), Http({'127.0.0.1': [chat(GOOD)] * 2, 'groq': [chat(GOOD)] * 2})
+    got = run(r.reason(h, e, {}, CASE, 'sherlock', 'high', prio=2, only=('local',)))
+    assert got['source'] == 'local' and not [c for c in h.calls if 'groq' in c[0]]          # 💻 its own lane: never a cloud call
+    down = run(air.Router().reason(Http({'groq': [chat(GOOD)]}), e, {}, {**CASE, 'mint': 'Q'}, 'sherlock', 'high', prio=2, only=('local',)))
+    assert down['source'] == 'NONE'                                                           # LM Studio not answering: nothing falls through to a paid provider

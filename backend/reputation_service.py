@@ -13045,7 +13045,7 @@ def _ai_view(now=None, light=False):
         keep = sorted(notes, key=lambda k_: -max(_fuse._f(x_.get('at')) for x_ in notes[k_].values()))[:12]
         return {'providers': [{k_: r_.get(k_) for k_ in ('key', 'label', 'enabled', 'state', 'lastMs')} for r_ in v['providers']], 'active': v['active'],
                 'totals': v['totals'], 'notes': {m_: {ro_: {k_: n_.get(k_) for k_ in ('source', 'label', 'advice', 'at')} for ro_, n_ in notes[m_].items()} for m_ in keep},
-                'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY, 'log': _ai['log'][-20:], 'metrics': v.get('metrics'),
+                'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY, 'localLane': {k_: _local_lane.get(k_) for k_ in ('n', 'last', 'busy')}, 'log': _ai['log'][-20:], 'metrics': v.get('metrics'),
                 'model': next((r_.get('model') for r_ in v['providers'] if r_.get('key') == v['active']), None), 'learn': {**_ail.view(_ai_book()), 'on': _ai_learn_on()},
                 'slip': {'firstPct': _fw.BUY_SLIP_FIRST / 100, 'retryPct': _fw.BUY_SLIP_MAX / 100, 'retries': _fw.BUY_SLIP_RETRIES}}
     return {**v, 'notes': notes, 'rounds': _ai['rounds'], 'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY}
@@ -13126,6 +13126,7 @@ async def _ai_round(now):
     env, cfg = os.environ, _ai_cfg()
     if not any(not r_['why'] and r_['enabled'] for r_ in (_air.provider(env, k_, cfg) for k_ in _air.PROVIDERS)):
         return 0
+    asyncio.ensure_future(_local_lane_run(now))   # 💻 the local model's own lane (its own task: a 15–30s inference never holds this round)
     await _ai_learn_settle(now)   # 🧠 the model's earlier stances are judged against what the coin did (no model call)
     await _lab_tick(now, env, cfg)   # 🧪 the rule lab: the record re-judges every rule; at most once an hour the model proposes new ones
     await _coach_ai(now, env, cfg)   # 👑 at most every 15 min: the model reads the last real trades and may instruct the agents (bounded, coach.py)
@@ -13157,6 +13158,45 @@ async def _ai_round(now):
     except Exception:
         pass
     return n
+
+
+LOCAL_LANE_EVERY = 45.0   # 💻 the local model's own lane: one pre-read per this many seconds (LOCAL_LANE_SEC in backend/.env; 0 = off)
+_local_lane = {'at': 0.0, 'busy': False, 'n': 0, 'last': None}
+
+
+def _local_lane_pick(now):
+    """The coin the local model reads next: the best in-band READY / CONTENDING candidate with NO fresh model read (it warms the seat gate)."""
+    cands = ((_office.get('payload') or {}).get('kernel') or {}).get('candidates') or []
+    open_ = [c_ for c_ in cands if c_.get('status') in ('READY', 'CONTENDING') and c_.get('mint') and _uni.under_cap({'mcap': c_.get('cap')})]
+    for c_ in sorted(open_, key=lambda c_: (c_.get('status') != 'READY', -_fuse._f(c_.get('rank')))):
+        if _air.gate_verdict(_ai['notes'].get(c_['mint']), now)[0] is None:
+            return c_
+    return None
+
+
+async def _local_lane_run(now):
+    """💻 THE LOCAL MODEL WORKS FOR THE AGENTS (owner, 2026-10-13: "local LM needs to be stronger for them" · "it stopped running"): its own
+    lane, beside the cloud — every LOCAL_LANE_EVERY it PRE-READS the best candidate nobody has read yet, so the seat gate finds a fresh
+    read waiting (and the cloud is asked less). One inference at a time, in its own task: it never delays a pass, a tick or the cloud round."""
+    every = _fuse._f(os.environ.get('LOCAL_LANE_SEC')) if os.environ.get('LOCAL_LANE_SEC') not in (None, '') else LOCAL_LANE_EVERY
+    if every <= 0 or _local_lane['busy'] or now - _local_lane['at'] < every:
+        return
+    env, cfg = os.environ, _ai_cfg()
+    p_ = _air.provider(env, 'local', cfg)
+    if not p_['enabled'] or p_['why'] or _air.ROUTER.stats['local']['coolUntil'] > now:
+        return
+    c_ = _local_lane_pick(now)
+    if not c_:
+        return
+    _local_lane.update(at=now, busy=True)
+    try:
+        r_ = await _air.ROUTER.reason(_ai_http(), env, cfg, _ai_case(c_), 'sherlock', 'high', prio=_air.PRIO['ready'], only=('local',))
+        if _ai_keep('sherlock', c_, r_, time.time()) and (r_ or {}).get('advice'):
+            _local_lane.update(n=_local_lane['n'] + 1, last={'at': round(time.time(), 1), 'symbol': c_.get('symbol'), 'ms': r_.get('ms'), 'stance': (r_.get('advice') or {}).get('stance')})
+    except Exception as e:
+        print('local lane:', str(e)[:100])
+    finally:
+        _local_lane['busy'] = False
 
 
 AI_GATE_SEC = 7.0   # 🛂 a seat waits at most this long for the model's read of the coin (a cloud answer takes ~5s); no answer in time = the coin goes

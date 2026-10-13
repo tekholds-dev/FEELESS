@@ -3899,3 +3899,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   local model takes it, one case per `LOCAL_BG_EVERY` 45s — never half the time on the GPU the browser draws with. The owner's ASK box is
   still local-first. A stronger local model = load it in LM Studio and set `LOCAL_LLM_MODEL` (the owner's download; 7B is what is loaded).
   "A PROVIDER ANSWERS BUT NOTHING SHOWS" ⇒ print the raw content + usage of one call before touching the parser.
+- 💻 THE LOCAL MODEL HAS ITS OWN LANE (`_local_lane_run`, `LOCAL_LANE_EVERY` 45s, `LOCAL_LANE_SEC` in backend/.env overrides, 0 = off; owner,
+  2026-10-13: "it stopped running LM"): beside the cloud, in its own task, the local model PRE-READS the best in-band READY / CONTENDING coin
+  nobody has read yet (`_local_lane_pick`), `ROUTER.reason(.., only=('local',))` — never a cloud call from that lane. Its read is a normal
+  note: the seat gate finds it fresh (≤ 5 min) and does not ask the cloud again; it is logged and judged like every read. One inference
+  at a time (~15–30s on the 7B model ≈ a third of the GPU's time; raise `LOCAL_LANE_SEC` if the tab lags). `office.ai.localLane` {n, last, busy}.

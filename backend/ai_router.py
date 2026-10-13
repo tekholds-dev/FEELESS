@@ -486,7 +486,7 @@ class Router:
         except Exception:
             return None, ('malformed', 'not a chat-completions answer', None)
 
-    async def reason(self, http, env, cfg, case, role, urgency='normal', now=None, prio=None):
+    async def reason(self, http, env, cfg, case, role, urgency='normal', now=None, prio=None, only=None):
         """Ask the providers in order for advice on one case. Never raises; never blocks longer than the providers' own timeouts.
         `prio` (PRIO): a low-priority job (≥ DEFER_PRIO) is DEFERRED when the local model is already busy — it never queues behind it."""
         now = time.time() if now is None else now
@@ -510,7 +510,7 @@ class Router:
         fut = asyncio.get_running_loop().create_future()
         self.inflight[ck] = fut
         try:
-            res = await self._route(http, env, cfg, case, role, now, urgency, prio)
+            res = await self._route(http, env, cfg, case, role, now, urgency, prio, only)
             if res['advice']:
                 self.cache[ck] = (now, res)
                 if len(self.cache) > 300:
@@ -525,12 +525,12 @@ class Router:
         finally:
             self.inflight.pop(ck, None)
 
-    async def _route(self, http, env, cfg, case, role, now, urgency='normal', prio=None):
+    async def _route(self, http, env, cfg, case, role, now, urgency='normal', prio=None, only=None):
         msgs = messages(case, role)
         tried = []
         t_all = time.perf_counter()
-        order = order_of(env, cfg)
-        own = local_ok(env, role, urgency)
+        order = [k for k in order_of(env, cfg) if not only or k in only]
+        own = local_ok(env, role, urgency) or bool(only and 'local' in only)   # `only=('local',)` = the local model's OWN lane (the service paces it)
         if not own and 'local' in order:   # a background case asks the cloud FIRST; the local model is its last resort (see local_last_resort)
             order = [k for k in order if k != 'local'] + ['local']
         cloud_ok = False
