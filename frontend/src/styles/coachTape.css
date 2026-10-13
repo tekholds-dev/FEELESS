@@ -1,0 +1,56 @@
+/* 🎬 real trade tape + 👑 coach (Agents cockpit). m-* tokens; transform / opacity only. */
+.ack-tapezone { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); gap: var(--ack-gap, 10px); align-items: start; }
+.ctp, .ctp-coach { display: grid; gap: 8px; min-width: 0; }
+.ctp-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.ctp-line { font: 600 10px var(--m-mono); color: var(--m-mute); flex: 1 1 200px; min-width: 0; }
+.ctp-filter button { padding: 4px 9px; font-size: 9.5px; }
+.ctp-list { list-style: none; margin: 0; padding: 0 2px 4px; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(250px, 300px); gap: 8px; overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; scroll-snap-type: x proximity; }
+.ctp-list::-webkit-scrollbar { height: 6px; } .ctp-list::-webkit-scrollbar-thumb { background: var(--m-accent); border-radius: 6px; }
+.ctp-trade { scroll-snap-align: start; display: grid; gap: 6px; align-content: start; padding: 8px 9px; border-radius: 10px; border: 1px solid var(--m-line); border-left: 3px solid var(--m-line); background: rgba(255, 255, 255, .02); animation: ctpIn .22s ease-out both; }
+@keyframes ctpIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.ctp-trade.is-up { border-left-color: var(--m-accent); } .ctp-trade.is-dn { border-left-color: var(--m-danger); } .ctp-trade.is-open { border-left-color: var(--gold); }
+.ctp-trade.is-on { box-shadow: 0 0 0 1px var(--m-accent) inset; }
+.ctp-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 2px 8px; padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
+.ctp-head b { font: 800 13px var(--m-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ctp-head small { grid-row: 2; font: 600 9.5px var(--m-mono); color: var(--m-mute); }
+.ctp-head:hover b { color: var(--m-accent); } .ctp-head:active { transform: scale(.99); } .ctp-head:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; border-radius: 6px; }
+.ctp-res { grid-row: 1 / span 2; grid-column: 2; font: 800 15px var(--m-mono); font-style: normal; font-variant-numeric: tabular-nums; text-align: right; display: grid; }
+.ctp-res i { font: 700 10px var(--m-mono); font-style: normal; color: var(--m-mute); }
+.ctp-trade.is-up .ctp-res { color: var(--m-accent); } .ctp-trade.is-dn .ctp-res { color: var(--m-danger); } .ctp-trade.is-open .ctp-res { color: var(--gold); animation: ctpBlink 1.4s ease-in-out infinite alternate; }
+@keyframes ctpBlink { from { opacity: 1; } to { opacity: .55; } }
+.ctp-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.ctp-steps > li { display: grid; grid-template-columns: 66px minmax(0, 1fr); gap: 6px; align-items: start; }
+.ctp-steps span { font: 700 8.5px var(--m-mono); letter-spacing: .08em; color: var(--m-mute); padding-top: 2px; white-space: nowrap; }
+.ctp-steps p { margin: 0; font: 500 10.5px/1.35 var(--m-mono); color: var(--m-ink, inherit); overflow-wrap: anywhere; } .ctp-steps p small { color: var(--m-mute); font-size: 9.5px; }
+.ctp-steps a { margin-left: 4px; font: 700 9px var(--m-mono); color: var(--m-accent); text-decoration: none; white-space: nowrap; } .ctp-steps a:hover { text-decoration: underline; } .ctp-steps a:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; }
+.ctp-steps .is-judge p { color: var(--gold); } .ctp-steps .is-ai .cai-stance { font-size: 8.5px; margin-right: 3px; } .ctp-warn { color: var(--gold); font-style: normal; }
+.ctp-nil { margin: 0; padding: 10px 2px; font: 500 11px var(--m-mono); color: var(--m-mute); }
+.ctp-grades { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px 16px; }
+.ctp-grade { display: grid; gap: 4px; min-width: 0; } .ctp-grade > small { font: 700 8.5px var(--m-mono); letter-spacing: .1em; color: var(--m-mute); }
+.ctp-grade ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.ctp-grade li { display: grid; grid-template-columns: 76px minmax(30px, 1fr) 42px 58px; gap: 6px; align-items: center; font: 600 10px var(--m-mono); }
+.ctp-grade li b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; } .ctp-grade li em { font-style: normal; text-align: right; font-variant-numeric: tabular-nums; } .ctp-grade li small { color: var(--m-mute); font-size: 9px; text-align: right; }
+.ctp-bar { display: block; height: 4px; border-radius: 3px; background: rgba(255, 255, 255, .06); overflow: hidden; } .ctp-bar > i { display: block; height: 100%; transform-origin: left center; transition: transform .35s ease; background: var(--m-mute); }
+.ctp-grade li.is-up .ctp-bar > i { background: var(--m-accent); } .ctp-grade li.is-dn .ctp-bar > i { background: var(--m-danger); } .ctp-grade li.is-up em { color: var(--m-accent); } .ctp-grade li.is-dn em { color: var(--m-danger); }
+
+.ctp-rules { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.ctp-rules > li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto; gap: 4px 8px; align-items: center; padding: 6px 8px; border-radius: 9px; border: 1px solid var(--m-line); animation: ctpIn .2s ease-out both; }
+.ctp-rules > li.is-owner { border-color: rgba(245, 196, 81, .45); } .ctp-rules > li.is-ai { border-color: rgba(160, 123, 255, .45); border-style: dashed; }
+.ctp-who { font: 700 8.5px var(--m-mono); font-style: normal; letter-spacing: .08em; color: var(--m-mute); white-space: nowrap; }
+.ctp-rules b { font: 800 11px var(--m-mono); text-transform: uppercase; letter-spacing: .04em; } .ctp-rules em { font: 800 11px var(--m-mono); font-style: normal; color: var(--m-danger); }
+.ctp-rules p { grid-column: 1 / -1; margin: 0; font: 500 10px/1.35 var(--m-mono); color: var(--m-mute); overflow-wrap: anywhere; }
+.ctp-yes, .ctp-no { padding: 3px 8px; font-size: 9.5px; } .ctp-no { color: var(--m-danger); }
+.ctp-aisaid { margin: 0; padding: 6px 8px; border-left: 2px solid #a07bff; font: 500 10.5px/1.35 var(--m-mono); color: var(--m-mute); }
+.ctp-teach { display: grid; gap: 6px; padding-top: 6px; border-top: 1px solid var(--m-line); }
+.ctp-causes { display: flex; flex-wrap: wrap; gap: 5px; }
+.ctp-causes > button { padding: 4px 9px; border-radius: 999px; cursor: pointer; font: 700 9.5px var(--m-mono); letter-spacing: .05em; text-transform: uppercase; color: inherit; border: 1px solid var(--m-line); background: none; transition: transform .14s ease, border-color .14s ease, background .14s ease; }
+.ctp-causes > button:hover { border-color: var(--m-accent); transform: translateY(-1px); } .ctp-causes > button:active { transform: scale(.97); } .ctp-causes > button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+.ctp-causes > button.active { background: var(--m-accent); border-color: var(--m-accent); color: var(--m-accent-ink, #03110a); }
+.ctp-acts { display: grid; grid-template-columns: auto minmax(110px, 1fr) auto; gap: 6px; align-items: center; } .ctp-acts .m-input { min-width: 0; }
+
+body.fx-lite .ctp-trade, body.fx-lite .ctp-rules > li, body.fx-lite .ctp-trade.is-open .ctp-res { animation: none; } body.fx-lite .ctp-bar > i { transition: none; }
+@media (prefers-reduced-motion: reduce) { .ctp-trade, .ctp-rules > li, .ctp-trade.is-open .ctp-res { animation: none; } .ctp-bar > i, .ctp-causes > button { transition: none; } }
+body.theme-day .ctp-trade { background: rgba(255, 255, 255, .6); } body.theme-day .ctp-steps .is-judge p, body.theme-day .ctp-trade.is-open .ctp-res, body.theme-day .ctp-warn { color: #8a5a00; }
+body.theme-day .ctp-trade.is-up .ctp-res, body.theme-day .ctp-grade li.is-up em, body.theme-day .ctp-steps a { color: #0d7a41; } body.theme-day .ctp-trade.is-dn .ctp-res, body.theme-day .ctp-grade li.is-dn em, body.theme-day .ctp-rules em { color: #b3261e; }
+body.theme-day .ctp-bar { background: rgba(10, 60, 35, .1); } body.theme-day .ctp-causes > button.active { background: #0d7a41; border-color: #0d7a41; color: #fff; }
+@media (max-width: 1180px) { .ack-tapezone { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) { .ctp-list { grid-auto-columns: minmax(230px, 86vw); } .ctp-acts { grid-template-columns: minmax(0, 1fr); } .ctp-grade li { grid-template-columns: 70px minmax(20px, 1fr) 38px 52px; } }

@@ -3644,3 +3644,24 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   shortcuts (`HQ_JUMPS` → window event `feeless:hq-go` {tab | view | panel}, which HqDeck listens for). Esc / ✕ closes; open state lives
   in sessionStorage. While open `body.hqp-open` hides `.terminal-main` (an opaque pop-out: the page under it paints nothing).
   New HQ shortcut ⇒ one `HQ_JUMPS` row.
+- 👑 THE COACH + 🎬 REAL TRADE TAPE (`backend/coach.py` pure + tested `tests/test_coach.py`; `lib/coachTape.js`, `command/CoachTape.jsx`
+  (`TradeTape`, `CoachBox`), `styles/coachTape.css` `ctp-*`, mounted in the cockpit as `ack-tapezone` between the main row and the matrix;
+  owner, 2026-10-13: "I the creator can strengthen agents and advise to pull coins with a reason that is used and vital, not just a note …
+  AI should be able to instruct / strengthen agents … real tape of entry, fills and agent / AI analysis"):
+  · A DIRECTIVE = one cause from a FIXED vocabulary (`coach.CAUSES` = the features `opportunity.judge_hits` tests on a live coin) + points →
+    kernel ctx `pens` (`_coach_pens`: merged with the Judge's, the stronger per cause) → `brain.think` ranks matching coins down, together
+    ≥ `PEN_FLOOR`. Owner −8 (strengthened −12) for 24h · model −4 for 6h, never over an owner rule. Never an order, a size, a sell or a
+    blocked seat. `POST /admin/agents {coach: {key, why, strong} | {strengthen: id} | {kill: id}}` (creator only, audited, wakes the desk).
+  · ✋ PULL + TEACH (`{coach: {key, why, mint, sym}}` AFTER the page's own `manualSell` call — the sell is the card's existing ✂ path): the
+    cause becomes an owner rule and the coin is off the agents' buy list 6h (`coach.blocked` → `_agent_blocked`).
+  · 🧠 MODEL COACH (`_coach_ai`, role `coach`, ≤ every `COACH_AI_EVERY` 15 min, only with ≥ 2 real losses in 6h; cloud only —
+    `local_ok` is false for it): it reads the last real trades as cause / result lines + the vocabulary and may answer `directives`;
+    `coach.from_ai` keeps only vocabulary causes (≤ 2). They wait for the creator's ✅ Back it / ✕ on the page.
+  · 🎬 `coach.trade_tape` (payload `tradeTape`, rebuilt ≤ every 20s): one story per confirmed agent buy — fill ($, fill vs the decision's
+    market price, seconds to land, tx) → the agents' why (door, thesis, phase, sources, size) → the model's read nearest the buy → exit
+    fills → real result → the Judge's ruling. An open trade claims no result. + `source_record` / `rule_record`: every source list and
+    every exit rule (R4f / R4c included) graded on confirmed real exits only.
+  · ALSO LIVE: memory half-seat (`brain.MEM_SIZE` 0.5: a coin in the worse half of our real trades takes half a seat, never none) ·
+    source weight (`coach.source_factor`: every source of a coin a proven loser on real fills, n ≥ 8, typical ≤ −15% → ×0.9) · second look
+    (a READY coin the rug-sniffer already flagged CAUTION goes behind the ones it did not, in the fill order — no call, never a block).
+  New cause ⇒ add it to `opportunity.judge_hits` AND `coach.CAUSES` (a test checks the vocabulary is a subset).

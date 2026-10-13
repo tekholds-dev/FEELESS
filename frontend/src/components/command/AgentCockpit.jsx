@@ -13,6 +13,7 @@ import { openCoin } from '../CoinDrawer';
 import { AiProviders } from './AiProviders';
 import { AiPane, AiIntel, AiCell } from './AiDecisions';
 import { CockpitControls } from './CockpitControls';
+import { TradeTape, CoachBox } from './CoachTape';
 import { tradeBar, tickDir, aiOf } from '../../lib/cockpitControls';
 import '../../styles/agentCockpit.css';
 import '../../styles/cockpitAi.css';   // after the cockpit sheet: it owns the plot's height + the meta pass
@@ -429,6 +430,7 @@ export function AgentCockpit({ call, isOwner = true }) {
         <DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { if (r.mint) setPick(r.mint); setAgentS(r.agent in AG ? r.agent : null); setTab('live'); }} /></div>
       <DecisionPanel o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
         pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} mcNow={model?.mc} onAi={() => setAiOpen(true)} /></div>
+    <div className="ack-tapezone" data-testid="ack-tapezone"><TradeTape tape={o.tradeTape} mint={mint} onPick={onPick} /><CoachBox coach={o.coach} seats={seats} tpl={d?.card?.tpl} call={call} isOwner={isOwner} /></div>
     <div className="ack-foot"><AgentMatrix o={o} gens={o?.generations || []} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); setTab('live'); }} rows={o.tape} pulse={pulse} />
       <ReviewQueue o={o} call={call} isOwner={isOwner} onPick={m => { onPick(m); if (m && !((o.kernel || {}).candidates || []).some(c => c.mint === m) && !(o.positions || []).some(p => p.mint === m) && !(o.ownerReview || []).some(r => r.mint === m)) openCoin({ mint: m }); }} sel={mint} /></div>
     <CockpitControls o={o} call={call} isOwner={isOwner} onAi={() => setAiOpen(true)} />
