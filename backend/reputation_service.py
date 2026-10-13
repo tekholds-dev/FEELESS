@@ -11070,6 +11070,7 @@ async def _fw_jup(method, path, **kw):
     if _FW_JUP_PACE['lock'] is None:
         _FW_JUP_PACE['lock'] = asyncio.Lock()
     scale = JUP_GAP_SEC / 0.2
+    r = None
     async with httpx.AsyncClient(timeout=20) as http:
         for attempt in range(6):   # 429 / 5xx = that lane rests and the other one answers; every lane resting = wait for the first to come back
             async with _FW_JUP_PACE['lock']:
@@ -11077,7 +11078,12 @@ async def _fw_jup(method, path, **kw):
                 if wait_ > 0:
                     await asyncio.sleep(min(wait_, 6.0))
                 _FW_JUP_PACE['next'][base] = time.time() + JUP_LANE_GAP.get(base, 0.35) * scale
-            r = await http.request(method, base + path, headers=hdr, **kw)
+            try:
+                r = await http.request(method, base + path, headers=hdr, **kw)
+            except httpx.HTTPError:   # 📡 a dropped connection / timeout = that lane rests like a 5xx — it once escaped as a raw error and killed the whole tier tick mid seat-check
+                r = None
+                _FW_JUP_PACE['rest'][base] = time.time() + JUP_LANE_REST * scale
+                continue
             if r.status_code != 429 and r.status_code < 500:
                 break
             try:
@@ -11085,6 +11091,9 @@ async def _fw_jup(method, path, **kw):
             except (TypeError, ValueError, AttributeError):
                 ra_ = 0.0
             _FW_JUP_PACE['rest'][base] = time.time() + min(20.0, max(JUP_LANE_REST, ra_)) * scale
+    if r is None:
+        _FW_JUP_BUSY['at'] = time.time()
+        raise HTTPException(400, 'Jupiter route unavailable (network, HTTP 503)')
     if r.status_code == 429 or r.status_code >= 500:
         # 📡 BUSY = every lane failed THIS call. A 429 on one lane that the other lane then answered is not busy: the public lane is
         # shared with our own price reads and answers 429 most minutes, so marking busy on any 429 kept the seat pre-check standing

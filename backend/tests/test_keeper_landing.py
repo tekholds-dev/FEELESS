@@ -596,3 +596,35 @@ def test_the_final_buy_gate_reads_pump_when_dexscreener_and_jupiter_are_429(monk
     assert 'api.dexscreener.com' in seen and seen.count('frontend-api-v3.pump.fun') == 6
     ok, why, snap = fw.live_buy_market({'side': 'buy', 'mint': 'M0pump', 'pair': 'P0', 'curve': True, 'agent': True, 'trench': True}, live['P0'], fw.DEFAULT_CFG)
     assert ok, why                                                                # the curve's own depth (≈ $20K at $40K cap) clears the trench floor
+
+
+def test_a_dropped_jupiter_connection_rests_that_lane_and_ends_as_a_plain_refusal_never_a_raw_error(monkeypatch):
+    import reputation_service as rs
+    import pytest
+    from fastapi import HTTPException
+
+    class R:
+        status_code, content = 200, b'x'
+        def json(self): return {'outAmount': '7'}
+
+    def client(fail_all):
+        class H:
+            def __init__(self, *a, **k): pass
+            async def __aenter__(self): return self
+            async def __aexit__(self, *a): return False
+            async def request(self, method, url, headers=None, **kw):
+                if fail_all or ('api.jup.ag' in url and 'lite' not in url):
+                    raise rs.httpx.ConnectError('dropped')
+                return R()
+        return H
+    monkeypatch.setenv('JUPITER_API_KEY', 'k' * 24)
+    monkeypatch.setattr(rs, 'JUP_GAP_SEC', 0.0)
+    rs._FW_JUP_PACE.update(lock=None, next={}, rest={})
+    monkeypatch.setitem(rs._FW_JUP_BUSY, 'at', 0.0)
+    monkeypatch.setattr(rs.httpx, 'AsyncClient', client(False))
+    assert asyncio.run(rs._fw_jup('GET', '/swap/v1/quote', params={})) == {'outAmount': '7'}   # the other lane answered
+    rs._FW_JUP_PACE.update(lock=None, next={}, rest={})
+    monkeypatch.setattr(rs.httpx, 'AsyncClient', client(True))
+    with pytest.raises(HTTPException) as e:
+        asyncio.run(rs._fw_jup('GET', '/swap/v1/quote', params={}))
+    assert 'Jupiter route unavailable' in str(e.value.detail) and rs._FW_JUP_BUSY['at'] > 0
