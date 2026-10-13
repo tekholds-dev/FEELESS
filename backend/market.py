@@ -18,7 +18,7 @@ from ecosystem import DEFAULT_MINTS
 from pydantic import BaseModel, Field
 
 import pump_calls
-from launchpad_board import due_mints, fresh_from, launchpad_board_snapshot, save_board_snapshot, BOARD_SNAPSHOT_PATH, JUP_SEARCH, jup_lookup, jup_search_pairs, jup_pair, keep_last_board, BOARD_MAX, BONK_PLATFORM_ID, JUP_LISTS, JUP_RECENT, PUMP_TREND_PARAMS, PUMP_TREND_PATH, PUMP_TREND_TTL, build_board, pump_pages, pump_trend_rows, dex_candidate, jup_candidate, launchlab_candidate, pump_candidate
+from launchpad_board import due_mints, fresh_from, resting, DS_BATCHES, JUP_CALLS, launchpad_board_snapshot, save_board_snapshot, BOARD_SNAPSHOT_PATH, JUP_SEARCH, jup_lookup, jup_search_pairs, jup_pair, keep_last_board, BOARD_MAX, BONK_PLATFORM_ID, JUP_LISTS, JUP_RECENT, PUMP_TREND_PARAMS, PUMP_TREND_PATH, PUMP_TREND_TTL, build_board, pump_pages, pump_trend_rows, dex_candidate, jup_candidate, launchlab_candidate, pump_candidate
 
 BOARD_SCOPES = ('launchpads', 'pump', 'bonk', 'raydium')
 
@@ -372,6 +372,7 @@ def create_market_router(db, intelligence=None):
         }
 
     board_cache = {}
+    ds_try, jup_try = {}, {}   # 📡 mint → when its last fetch was REFUSED (it rests launchpad_board.RETRY_SEC)
     jup_mem = {}    # 📡 mint → (monotonic, Jupiter pair or None): the Jupiter fallback's last answer per coin (launchpad_board.due_mints)
     pair_mem = {}   # 📡 mint → (monotonic, pair): a coin's last good DexScreener snapshot, reused ≤ 5 min when its batch is refused
 
@@ -490,13 +491,16 @@ def create_market_router(db, intelligence=None):
         dex_pairs = dict(seeded)
         # 📡 only the coins that are DUE (hot 180 every 45s · the tail every 4 min — launchpad_board.due_mints); the rest are their last
         # good snapshot (pair_mem). Batches used to be alphabetical over all ~660 mints: every rebuild re-fetched nearly all of them.
-        lookup = sorted(due_mints(mints, pair_mem, monotonic(), skip=seeded))
-        chunks = await asyncio.gather(*[cached('DexScreener', '/tokens/v1/solana/' + ','.join(lookup[i:i + 30]), ttl=20)
-                                        for i in range(0, len(lookup), 30)], return_exceptions=True)
+        t0_ = monotonic()
+        lookup = due_mints(mints, pair_mem, t0_, skip=set(seeded) | resting(ds_try, t0_))[:DS_BATCHES * 30]   # hottest first, ≤ DS_BATCHES a build
+        parts_ = [lookup[i:i + 30] for i in range(0, len(lookup), 30)]
+        chunks = await asyncio.gather(*[cached('DexScreener', '/tokens/v1/solana/' + ','.join(p_), ttl=20) for p_ in parts_], return_exceptions=True)
         failed = 0
-        for res in chunks:
+        for p_, res in zip(parts_, chunks):
             if isinstance(res, Exception):
                 failed += 1
+                for m_ in p_:
+                    ds_try[m_] = t0_   # refused: this coin rests RETRY_SEC (its last good snapshot stands) — retrying every 20s WAS the next refusal
                 continue
             for pair in res[0] if isinstance(res[0], list) else []:
                 mint = (pair.get('baseToken') or {}).get('address')
@@ -522,11 +526,15 @@ def create_market_router(db, intelligence=None):
         for m_, jp_ in fresh_from(miss, jup_mem, now_m).items():   # 📡 Jupiter's answer per coin is remembered too (a coin it has nothing for is not re-asked)
             if jp_:
                 dex_pairs[m_] = jp_
-        miss = due_mints(miss, jup_mem, now_m)
+        miss = due_mints(miss, jup_mem, now_m, skip=resting(jup_try, now_m))[:JUP_CALLS * 100]
         if miss:
             got_j = await asyncio.gather(*[cached('Jupiter', '/tokens/v2/search', {'query': ','.join(miss[i:i + 100])}, ttl=20)
                                            for i in range(0, len(miss), 100)], return_exceptions=True)
             answered = not all(isinstance(r_, Exception) for r_ in got_j)
+            for i_, r_ in enumerate(got_j):
+                if isinstance(r_, Exception):
+                    for m_ in miss[i_ * 100:(i_ + 1) * 100]:
+                        jup_try[m_] = now_m
             for res in got_j:
                 for tok in (res[0] if not isinstance(res, Exception) and isinstance(res[0], list) else []):
                     jp_ = jup_pair(tok)
@@ -536,6 +544,9 @@ def create_market_router(db, intelligence=None):
             if answered:
                 for m_ in miss:
                     jup_mem.setdefault(m_, (now_m, None))   # Jupiter answered and had nothing: not asked again until it is due
+        for d_ in (ds_try, jup_try):
+            for k_ in [k_ for k_, t_ in d_.items() if now_m - t_ > 600]:
+                d_.pop(k_, None)
         if len(jup_mem) > 4000:
             for k_ in sorted(jup_mem, key=lambda k: jup_mem[k][0])[:len(jup_mem) - 3000]:
                 jup_mem.pop(k_, None)

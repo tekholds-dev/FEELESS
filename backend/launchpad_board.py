@@ -443,3 +443,14 @@ def fresh_from(mints, mem, now, hot_n=HOT_N, hot_sec=HOT_SEC, tail_sec=TAIL_SEC)
     """{mint: snapshot} for the mints whose remembered snapshot is still inside its tier (None = the source said it has nothing)."""
     hot = set(list(mints)[:hot_n])
     return {m: mem[m][1] for m in mints if m in mem and now - mem[m][0] < (hot_sec if m in hot else tail_sec)}
+
+
+# 📡 A REFUSED coin rests (2026-10-13, measured after the per-coin fix: 144 DexScreener batches in 150s, half refused — a refused batch left
+# its coins due, so they were re-asked every 20s rebuild and those retries WERE the next refusals). A coin whose fetch was refused sits out
+# RETRY_SEC; one build asks for at most DS_BATCHES DexScreener batches and JUP_CALLS Jupiter searches, the hottest coins first.
+RETRY_SEC, DS_BATCHES, JUP_CALLS = 90.0, 4, 2
+
+
+def resting(tried, now, sec=RETRY_SEC):
+    """The coins whose last fetch was refused less than `sec` ago (they wait; their last good snapshot stands)."""
+    return {m for m, t in (tried or {}).items() if now - t < sec}

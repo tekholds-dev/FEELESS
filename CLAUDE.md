@@ -3765,7 +3765,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   every batch after it, so nearly all 22 batches missed on every 20s rebuild (1,493 DexScreener batch calls in 45 min, HALF refused 429; 755
   Jupiter searches the same way) and every list the agents read went stale. Now only DUE coins are fetched (hot every 45s, tail every 4 min;
   a coin Jupiter had nothing for is remembered as None); quiet-chain search top-ups cache 3–5 min. "LISTS STALE / 429" ⇒ count the market
-  service's outbound calls by endpoint in /tmp/feeless-api.log first.
+  service's outbound calls by endpoint in /tmp/feeless-api.log first. Measured after that fix: still 144 batches / 150s, half refused — a
+  refused batch left its coins due, so they were re-asked every 20s and the retries WERE the next refusals: now a refused coin rests
+  `RETRY_SEC` 90 (`launchpad_board.resting`, `ds_try` / `jup_try`) and a build asks ≤ `DS_BATCHES` 4 DexScreener batches + ≤ `JUP_CALLS` 2
+  Jupiter searches, hottest first. Restart ONE service by PID (`kill <pid>`; keep-alive restarts it): `pkill -f "uvicorn server:app"` inside a
+  shell command also matches that shell's own command line.
 - ⚡ CANDLE FX (`components/terminal/CandleFx.jsx`, `styles/candleFx.css` `cfk-*`, in every PriceChart except `plain` / fx-lite / reduced
   motion): the forming candle's aura rides its drawn close, every REAL tick (the bar's own close, never the eased value) throws a ring, a ≥ 1%
   tick bursts 6 sparks, a new candle flashes its column; the chart area gets `cfk-up` / `cfk-dn`. ONE rAF ≤ 30fps, transform / opacity only.

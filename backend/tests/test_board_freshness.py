@@ -13,3 +13,11 @@ def test_only_due_coins_are_fetched_hot_first_and_the_rest_reuse_their_last_snap
     assert lb.due_mints(mints, {}, 0.0, skip={'M0'})[:1] == ['M1']                      # seeded coins are never re-fetched
     assert lb.fresh_from(mints, {**mem, 'X': (1000.0, None)}, 1000.0 + 60) == {m: {'p': m} for m in mints[lb.HOT_N:]}
     assert lb.fresh_from(['X'], {'X': (1000.0, None)}, 1010.0) == {'X': None}            # "the source had nothing" is remembered too
+
+
+def test_a_refused_coin_rests_and_one_build_asks_for_a_capped_number_of_batches():
+    tried = {'A': 100.0, 'B': 10.0}
+    assert lb.resting(tried, 150.0) == {'A'} and lb.resting(tried, 100.0 + lb.RETRY_SEC + 1) == set()
+    mints = [f'M{i}' for i in range(500)]
+    due = lb.due_mints(mints, {}, 0.0, skip=lb.resting({'M0': 0.0}, 10.0))[:lb.DS_BATCHES * 30]
+    assert len(due) == lb.DS_BATCHES * 30 and due[0] == 'M1'                              # the hottest first, the refused one rests
