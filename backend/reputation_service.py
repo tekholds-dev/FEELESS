@@ -6311,6 +6311,7 @@ async def _runner_start():
         asyncio.create_task(_fuse_warm_loop())
         asyncio.create_task(_agents_loop())
         asyncio.create_task(_ai_loop())
+        asyncio.create_task(_prime_warm())
         asyncio.create_task(_prime_bell_loop())
         asyncio.create_task(_real_guard_loop())
 
@@ -10304,14 +10305,33 @@ async def fuse_card_record(tpl: str):
             'worstPct': min(pcts) if pcts else None, 'avgPct': round(sum(pcts) / len(pcts), 2) if pcts else None}
 
 
+PRIME_DS_BUDGET = 3.0     # DexScreener is only the FALLBACK price here (Jupiter wins for every coin it knows); after a restart its paced
+                          # queue made the first /fuses/prime wait ~12s — it gets this long, then the coin uses the Jupiter price / its own
+_prime_stages: dict = {}
+
+
+async def _prime_reads(rows):
+    """The three reads a Prime view needs, AT ONCE: DexScreener pairs (budgeted), Jupiter prices, SOL/USD. Stage times are kept."""
+    async def timed(name, coro, default, budget=None):
+        t0 = time.perf_counter()
+        try:
+            return await (asyncio.wait_for(coro, timeout=budget) if budget else coro)
+        except Exception:
+            return default
+        finally:
+            _prime_stages[name] = round((time.perf_counter() - t0) * 1000)
+    px, jup, sol = await asyncio.gather(timed('dexscreener', _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in rows]), {}, PRIME_DS_BUDGET),
+                                        timed('jupiter', _jup_prices([l.get('mint') for l in rows]), {}), timed('sol', _sol_usd_live(), 0.0))
+    return dict(px or {}), jup or {}, sol or 0.0
+
+
 async def _prime_view():
     cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
     if not cards:
         return []
     fw_books = _fw_load().get('books') or {}
     market_rows = _fw_market_rows(cards, fw_books)
-    px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in market_rows])
-    jup = await _jup_prices([l.get('mint') for l in market_rows])
+    px, jup, sol_pre = await _prime_reads(market_rows)
     px.update({l['pairAddress']: jup[l['mint']] for l in market_rows if jup.get(l.get('mint'))})
     cyc = _prime_cfg().get('cycles') or _prime.DEFAULT_CYCLES
     def _cyc(tpl):
@@ -10319,10 +10339,7 @@ async def _prime_view():
         return list(seq) if isinstance(seq, tuple) else ['anchor', 'mixed', 'degen'] if seq == 'adaptive' else None
     pcfg = _prime_cfg()
     rcfg = _prime_real_cfg()
-    try:
-        sol_now = await _sol_usd_live()
-    except Exception:
-        sol_now = 0.0
+    sol_now = sol_pre
     def _vs(c, sm):   # card % minus what simply holding SOL did over the same run
         if not (sol_now and _fuse._f(c.get('solStart'))) or c.get('solLate', True):
             return {}
@@ -10358,19 +10375,51 @@ async def _prime_view():
 
 PRIME_FRESH_SEC = 3.0     # a /fuses/prime answer this young is served as is
 PRIME_STALE_SEC = 30.0    # this young: served at once while ONE background rebuild runs (a full build awaits prices — it took 12–13s at times)
-_prime_resp: dict = {'at': 0.0, 'data': None, 'task': None, 'cleared': 0.0}
+_prime_resp: dict = {'at': 0.0, 'data': None, 'task': None, 'cleared': 0.0, 'snap': False, 'savedAt': 0.0}
 
 
 def _prime_resp_clear():
     _prime_resp.update(at=0.0, data=None, task=None, cleared=time.time())
 
 
+PRIME_SNAPSHOT_PATH = DATA_DIR / 'prime_snapshot.json'   # 💾 the last good answer, served on the FIRST request after a restart
+PRIME_SNAP_MAX = 900.0      # a snapshot older than 15 min is never served
+PRIME_SNAP_EVERY = 60.0     # written at most once a minute
+
+
 async def _prime_resp_build():
     t0 = time.time()
     data = await _fuse_prime_build()
     if t0 >= _prime_resp['cleared']:   # a build that began before an owner write never refills the cache with the old state
-        _prime_resp.update(at=time.time(), data=data)
+        _prime_resp.update(at=time.time(), data=data, snap=False)
+        _prime_stages['buildMs'] = round((time.time() - t0) * 1000)
+        if time.time() - _prime_resp.get('savedAt', 0) > PRIME_SNAP_EVERY and not os.environ.get('PYTEST_CURRENT_TEST'):
+            _prime_resp['savedAt'] = time.time()
+            try:
+                await asyncio.to_thread(_json_save, PRIME_SNAPSHOT_PATH, {'at': time.time(), 'data': data})
+            except Exception:
+                pass
     return data
+
+
+def _prime_snapshot(now=None):
+    """The last good /fuses/prime from disk (≤ PRIME_SNAP_MAX old) → (at, data) or None. Read once, on the first request after a start."""
+    now = time.time() if now is None else now
+    try:
+        j = _json_load(PRIME_SNAPSHOT_PATH, {}) or {}
+    except Exception:
+        return None
+    return (j['at'], j['data']) if j.get('data') is not None and now - _fuse._f(j.get('at')) < PRIME_SNAP_MAX else None
+
+
+async def _prime_warm():
+    """Warm /fuses/prime once, 20s after startup — after the keeper and the agents loop have started; it never blocks them."""
+    await asyncio.sleep(20)
+    try:
+        if _prime_resp['data'] is None or _prime_resp.get('snap'):
+            await _prime_resp_build()
+    except Exception as e:
+        print('prime warm:', type(e).__name__)
 
 
 @app.get('/api/reputation/fuses/prime')
@@ -10378,13 +10427,18 @@ async def fuse_prime():
     """⭐ Arena Prime cards — single-flight + stale-while-revalidate over `_fuse_prime_build` (every viewer and poller shares ONE build)."""
     if os.environ.get('PYTEST_CURRENT_TEST'):
         return await _fuse_prime_build()
+    if _prime_resp['data'] is None and not _prime_resp.get('snapTried') and not _prime_resp['cleared']:
+        _prime_resp['snapTried'] = True
+        sn = _prime_snapshot()
+        if sn:
+            _prime_resp.update(at=sn[0], data=sn[1], snap=True)
     age = time.time() - _prime_resp['at']
     t = _prime_resp.get('task')
     if _prime_resp['data'] is not None and age < PRIME_FRESH_SEC:
         return _prime_resp['data']
     if t is None or t.done():
         t = _prime_resp['task'] = asyncio.create_task(_prime_resp_build())
-    if _prime_resp['data'] is not None and age < PRIME_STALE_SEC:
+    if _prime_resp['data'] is not None and (age < PRIME_STALE_SEC or _prime_resp.get('snap')):   # a snapshot is served while ONE build runs
         return _prime_resp['data']
     return await asyncio.shield(t)
 
@@ -14213,6 +14267,22 @@ def _hub_publish(now, light=False):
         print('hub:', str(e)[:140])
 
 
+_SSE = {'connects': 0, 'disconnects': 0, 'resyncs': 0, 'active': 0, 'since': time.time()}   # 📡 measured: live streams + reconnects
+
+
+def _net_stats(now=None):
+    """📏 SSE streams (active · connects / disconnects / resyncs and their rate a minute) + RPC (logical · physical · 429 a minute, top
+    methods, requests per mint) since the service started — for HQ diagnostics and agent_office_view.json. Memory only."""
+    now = time.time() if now is None else now
+    mins = max(1 / 60, (now - _SSE['since']) / 60)
+    r = _chain.rpc_metrics(now)
+    rm = max(1 / 60, _fuse._f(r.get('sinceSec')) / 60) if r else mins
+    return {'sse': {**{k: v for k, v in _SSE.items() if k != 'since'}, 'subscribers': len(_tke.HUB.subs), 'connectsPerMin': round(_SSE['connects'] / mins, 3), 'minutes': round(mins, 1)},
+            'rpc': {'logicalPerMin': round(_fuse._f(r.get('logical')) / rm, 1), 'physicalPerMin': round(_fuse._f(r.get('physical')) / rm, 1), 'r429PerMin': round(_fuse._f(r.get('r429')) / rm, 1),
+                    'topMethods': sorted(((k_, v_.get('physical')) for k_, v_ in (r.get('requestsByMethod') or {}).items()), key=lambda kv: -(kv[1] or 0))[:6],
+                    'perMint': r.get('requestsPerMint'), 'minutes': round(rm, 1)}, 'prime': dict(_prime_stages)}
+
+
 STREAM_MAX_SEC = 1800.0     # a stream ends after 30 min (the page reconnects with its last sequence — nothing is lost)
 STREAM_BEAT_SEC = 15.0
 
@@ -14230,7 +14300,17 @@ async def admin_agents_stream(request: Request, since: int = 0):
 
     async def gen():
         seq, t0 = int(since or 0), time.time()
+        _SSE['connects'] += 1; _SSE['active'] += 1
+        try:
+            async for chunk in _sse_body(seq, t0):
+                yield chunk
+        finally:
+            _SSE['active'] -= 1; _SSE['disconnects'] += 1
+
+    async def _sse_body(seq, t0):
         evs, gap = H.since(seq)
+        if gap:
+            _SSE['resyncs'] += 1
         yield f"event: hello\ndata: {json.dumps({'seq': H.seq, 'resync': bool(gap), 'snapshotAt': (_office.get('payload') or {}).get('at')})}\n\n"
         if gap:
             seq = H.seq
@@ -14239,7 +14319,7 @@ async def admin_agents_stream(request: Request, since: int = 0):
                 return
             evs, gap = H.since(seq)
             if gap:
-                seq = H.seq
+                seq = H.seq; _SSE['resyncs'] += 1
                 yield f"event: resync\ndata: {json.dumps({'seq': seq})}\n\n"
                 continue
             for e_ in evs:
@@ -14511,7 +14591,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         print('fresh:', e)
     _office['payload']['performance']['passMs'] = round(sum(_fuse._f(ms.get(a)) for a in _of.CHAIN), 2)
     _tape_ledger(now)
-    _office['payload'].update(tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now), ai=_ai_view(now, light=True),
+    _office['payload'].update(tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now), ai=_ai_view(now, light=True), net=_net_stats(now),
                               universe={'capUsd': _agents.get('laneCap') or _uni.AGENT_MAX_MCAP, 'minCapUsd': _uni.AGENT_MIN_MCAP, 'maxAgeH': _uni.AGENT_MAX_AGE_H, 'inLane': len(_agents.get('table') or []),
                                         'board': (_office.get('intake') or {}).get('board'), 'mints': len(_tk.KERNEL.store.mints)})
     _hub_publish(now)   # 📡 this pass as DELTAS: only what changed since the last one
@@ -21660,6 +21740,8 @@ async def pools_register(request: Request, p: PoolRegIn):
 # several IPFS gateways, stores the bytes, and serves them with a long cache.
 LOGO_DIR = DATA_DIR / 'logos'
 IPFS_GATEWAYS = ['https://cloudflare-ipfs.com/ipfs/', 'https://gateway.pinata.cloud/ipfs/', 'https://nftstorage.link/ipfs/', 'https://dweb.link/ipfs/', 'https://ipfs.io/ipfs/']
+LOGO_BUDGET = 4.0          # all logo sources together; never a 7–20s wait for one coin
+LOGO_SLOW_RETRY = 180.0    # a lookup that ran out of time is tried again after 3 min (a missing logo: 10 min)
 _logo_miss: dict = {}
 LOGO_OVERRIDE_PATH = DATA_DIR / 'logo_overrides.json'
 
@@ -21732,48 +21814,57 @@ async def token_logo(mint: str):
         hit = next(LOGO_DIR.glob(f'{mint}.*'), None)
         if hit:
             return FileResponse(hit, headers=headers)
-        cands = []
-        async with httpx.AsyncClient(headers={'User-Agent': 'Mozilla/5.0'}) as http:
-            try:
-                d = (await http.get(f'https://api.dexscreener.com/tokens/v1/solana/{mint}', timeout=8)).json()
-                cands += [(p.get('info') or {}).get('imageUrl') for p in (d or [])[:3]]
-            except Exception:
-                pass
-            try:
-                d = (await http.get(f'https://lite-api.jup.ag/tokens/v2/search?query={mint}', timeout=8)).json()
-                cands += [x.get('icon') for x in d if x.get('id') == mint]
-            except Exception:
-                pass
-            try:   # on-chain Metaplex metadata: works on any RPC (getAsset below is Helius-only)
-                acct = await _rpc(http, 'getAccountInfo', [coin_meta.metadata_pda(mint), {'encoding': 'base64'}])
-                data = (((acct or {}).get('value') or {}).get('data') or [None])[0]
-                if data:
-                    uri = coin_meta.parse_metadata(data).get('uri')
-                    if uri:
-                        meta = await _fetch_first(http, _ipfs_variants(uri), want_json=True)
-                        cands.append((meta or {}).get('image'))
-            except Exception:
-                pass
-            if mint.endswith('pump'):
+        async def _find():
+            cands = []
+            async with httpx.AsyncClient(headers={'User-Agent': 'Mozilla/5.0'}) as http:
                 try:
-                    d = (await http.get(f'https://frontend-api-v3.pump.fun/coins-v2/{mint}', timeout=8)).json()
-                    cands.append((d or {}).get('image_uri'))
+                    d = (await http.get(f'https://api.dexscreener.com/tokens/v1/solana/{mint}', timeout=8)).json()
+                    cands += [(p.get('info') or {}).get('imageUrl') for p in (d or [])[:3]]
                 except Exception:
                     pass
-            try:
-                a = await _rpc(http, 'getAsset', {'id': mint})
-                c = (a or {}).get('content') or {}
-                cands += [f.get('cdn_uri') for f in c.get('files') or []] + [(c.get('links') or {}).get('image')]
-                if c.get('json_uri'):
-                    meta = await _fetch_first(http, _ipfs_variants(c['json_uri']), want_json=True)
-                    cands.append((meta or {}).get('image'))
-            except Exception:
-                pass
+                try:
+                    d = (await http.get(f'https://lite-api.jup.ag/tokens/v2/search?query={mint}', timeout=8)).json()
+                    cands += [x.get('icon') for x in d if x.get('id') == mint]
+                except Exception:
+                    pass
+                try:   # on-chain Metaplex metadata: works on any RPC (getAsset below is Helius-only)
+                    acct = await _rpc(http, 'getAccountInfo', [coin_meta.metadata_pda(mint), {'encoding': 'base64'}])
+                    data = (((acct or {}).get('value') or {}).get('data') or [None])[0]
+                    if data:
+                        uri = coin_meta.parse_metadata(data).get('uri')
+                        if uri:
+                            meta = await _fetch_first(http, _ipfs_variants(uri), want_json=True)
+                            cands.append((meta or {}).get('image'))
+                except Exception:
+                    pass
+                if mint.endswith('pump'):
+                    try:
+                        d = (await http.get(f'https://frontend-api-v3.pump.fun/coins-v2/{mint}', timeout=8)).json()
+                        cands.append((d or {}).get('image_uri'))
+                    except Exception:
+                        pass
+                try:
+                    a = await _rpc(http, 'getAsset', {'id': mint})
+                    c = (a or {}).get('content') or {}
+                    cands += [f.get('cdn_uri') for f in c.get('files') or []] + [(c.get('links') or {}).get('image')]
+                    if c.get('json_uri'):
+                        meta = await _fetch_first(http, _ipfs_variants(c['json_uri']), want_json=True)
+                        cands.append((meta or {}).get('image'))
+                except Exception:
+                    pass
+                got = None
+                for u in [x for x in cands if x]:
+                    got = await _fetch_first(http, _ipfs_variants(u))
+                    if got:
+                        break
+            return got
+
+        try:   # ⏱ every source together gets LOGO_BUDGET; a slow miss answers 404 at once (the page falls back to the next logo / glyph)
+            got = await asyncio.wait_for(_find(), timeout=LOGO_BUDGET)
+        except asyncio.TimeoutError:
             got = None
-            for u in [x for x in cands if x]:
-                got = await _fetch_first(http, _ipfs_variants(u))
-                if got:
-                    break
+            _logo_miss[mint] = time.time() - (600 - LOGO_SLOW_RETRY)   # a SLOW coin is retried after LOGO_SLOW_RETRY, a missing one after 10 min
+            raise HTTPException(404, 'No logo found in time.')
         if not got:
             _logo_miss[mint] = time.time()
             raise HTTPException(404, 'No logo found.')

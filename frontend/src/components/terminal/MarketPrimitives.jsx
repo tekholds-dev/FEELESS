@@ -131,7 +131,7 @@ export const TokenAvatar = ({ pair, size = 34, onExhausted, maxAttempts }) => {
     {(!imageUrl || exhausted) && <span className="token-avatar-fallback" aria-hidden="true"><Coins size={Math.round(size * 0.42)} /></span>}
     {imageUrl && !exhausted && <img data-fb-skip="1"
       key={`${imageUrl}-${attempts}`}
-      src={imageUrl}
+      src={imageUrl} loading="lazy" decoding="async"
       alt=""
       onError={() => {
         const nextAttempts = attempts + 1;
