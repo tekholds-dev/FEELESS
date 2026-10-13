@@ -27,7 +27,7 @@ import ai_keys as _aik
 # key → (label, key env var or None, model env var, base env var or None, fixed base, default model, timeout s, concurrency)
 PROVIDERS = {
     'local': ('LOCAL LM STUDIO', None, 'LOCAL_LLM_MODEL', 'LOCAL_LLM_BASE_URL', 'http://127.0.0.1:1234/v1', 'qwen2.5-7b-instruct-mlx', 30.0, 1),   # the vitals answer took 16–31s on the owner's Mac (its own loop: nothing waits on it)
-    'groq': ('GROQ', 'GROQ_API_KEY', 'GROQ_MODEL', None, 'https://api.groq.com/openai/v1', 'llama-3.1-8b-instant', 8.0, 2),
+    'groq': ('GROQ', 'GROQ_API_KEY', 'GROQ_MODEL', None, 'https://api.groq.com/openai/v1', 'qwen/qwen3.8-27b', 8.0, 2),   # 2026-10-13: llama-3.1-8b-instant is gone from Groq (404 → the fallback never answered); this one answers the vitals schema in ~0.9s
     'openrouter': ('OPENROUTER', 'OPENROUTER_API_KEY', 'OPENROUTER_MODEL', None, 'https://openrouter.ai/api/v1', 'openrouter/auto', 10.0, 2),
     'openai': ('OPENAI', 'OPENAI_API_KEY', 'OPENAI_MODEL', None, 'https://api.openai.com/v1', 'gpt-4o-mini', 10.0, 2),
     'xai': ('XAI / GROK', 'XAI_API_KEY', 'XAI_MODEL', None, 'https://api.x.ai/v1', 'grok-3-mini', 10.0, 2),
@@ -71,6 +71,14 @@ def _truthy(v, default=True):
 
 
 # ── configuration (env + the saved order / on-off) ───────────────────────────────────────────────────────────────────────────────────
+def local_ok(env, role=None, urgency='normal'):
+    """💻 THE LOCAL MODEL IS THE OWNER'S, NOT THE BACKGROUND'S (owner, 2026-10-13: "bad lag in this tab — has to be LM Studio"): a 7B model
+    on this Mac took ~13s an answer and ran about half the time on the SAME GPU + memory the browser draws the page with. Background jobs
+    (READY coins, conflicts, contenders, Judge reviews) go to the cloud fallbacks or are not asked at all; the local model answers only
+    what the owner asks for by hand (role 'owner' / urgency 'force'). LOCAL_LLM_BACKGROUND=true puts it back in the background."""
+    return role == 'owner' or urgency == 'force' or _truthy((env or {}).get('LOCAL_LLM_BACKGROUND'), default=False)
+
+
 def order_of(env, cfg=None):
     """The provider order: the saved one, else AI_PROVIDER_ORDER, else the default — unknown names dropped, every provider listed once."""
     raw = (cfg or {}).get('order') or str(env.get('AI_PROVIDER_ORDER') or '').split(',')
@@ -262,6 +270,8 @@ class Router:
     def busy(self, env, cfg):
         """Is the FIRST usable provider the local model and is it running an inference right now?"""
         for key in order_of(env, cfg):
+            if key == 'local' and not local_ok(env):
+                continue
             p = provider(env, key, cfg)
             if p['enabled'] and not p['why'] and self.stats[key]['coolUntil'] <= time.time():
                 return key == 'local' and self.sem(key).locked()
@@ -360,7 +370,7 @@ class Router:
         fut = asyncio.get_running_loop().create_future()
         self.inflight[ck] = fut
         try:
-            res = await self._route(http, env, cfg, case, role, now)
+            res = await self._route(http, env, cfg, case, role, now, urgency)
             if res['advice']:
                 self.cache[ck] = (now, res)
                 if len(self.cache) > 300:
@@ -375,7 +385,7 @@ class Router:
         finally:
             self.inflight.pop(ck, None)
 
-    async def _route(self, http, env, cfg, case, role, now):
+    async def _route(self, http, env, cfg, case, role, now, urgency='normal'):
         msgs = messages(case, role)
         tried = []
         t_all = time.perf_counter()
@@ -383,6 +393,9 @@ class Router:
             p = provider(env, key, cfg)
             s = self.stats[key]
             if not p['enabled'] or p['why']:
+                continue
+            if key == 'local' and not local_ok(env, role, urgency):
+                tried.append([key, 'OWNER ONLY'])
                 continue
             if s['coolUntil'] > time.time():
                 tried.append([key, s['state']])

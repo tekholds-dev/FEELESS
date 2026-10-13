@@ -3578,3 +3578,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   tighten its stop to 70% (`FLOW_TIGHT`, never under `STOP_FLOOR`) — a fast green candle on a held seat is never an exit. It only ever makes
   the agents buy LESS or bank sooner. Page: `SeatFlow` on each cockpit seat (`flowBar`, `thd-flow`) + the 🌊 held-back list on the first open
   seat. Hand-set thresholds, NOT learned — R4f / R4c results land in the archive under their own rule; read them before trusting either.
+- 💻 THE LOCAL MODEL IS OWNER-ONLY (owner, 2026-10-13: "bad lag in this tab, perma fix — has to be LM Studio"; `ai_router.local_ok`): measured
+  that day — event loop blocked only 2.2%, but the 7B MLX model took ~13s an answer and ran ~half the time (`AI_DUTY`) on the SAME M3 GPU +
+  unified memory (24 GB, 16.8 GB swap in use) Chrome draws the Agents tab with. Background jobs (READY coins, conflicts, contenders, Judge
+  reviews) now NEVER run on the local model: they go to the cloud fallbacks, or are not asked (deterministic only) — `tried` reads
+  ['local', 'OWNER ONLY']. The local model answers only role `owner` / urgency `force` (the ASK box). `LOCAL_LLM_BACKGROUND=true` puts it back.
+  The Groq fallback had NEVER answered: its default model `llama-3.1-8b-instant` is gone (404 model_not_found, shown only as OFFLINE) →
+  default `qwen/qwen3.8-27b` (the vitals schema in ~0.9s; gpt-oss-20b / 120b return malformed for it). A PROVIDER READS OFFLINE WITH A KEY SET ⇒
+  curl its /models first. "LAG IN THE AGENTS TAB" ⇒ loop_lag.json, then `office.ai.metrics.provider` + avgMs: 'local' in the background = this.

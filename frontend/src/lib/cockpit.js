@@ -53,12 +53,13 @@ export function seatCards(d, livePx) {
   const board = Object.fromEntries((o.seatBoard || []).filter(b => b.mint).map(b => [b.mint, b])); const cand = Object.fromEntries(((o.kernel || {}).candidates || []).map(c => [c.mint, c]));
   const last = lastByMint(o.tape); const ready = ((o.kernel || {}).candidates || []).filter(c => c.status === 'READY').length;
   const rows = seats.length ? seats : (o.positions || []).map(p => ({ symbol: p.symbol, mint: p.mint, pair: p.pair, kind: p.owner === 'agents' ? 'agent' : 'engine' }));
+  const firstOpen = rows.findIndex(x => !x.mint || x.kind === 'open');   // the notes about READY coins that did not get a seat are shown once, on the first OPEN seat
   return rows.map((x, i) => {
     const open = !x.mint || x.kind === 'open';
     if (open) {   // the server's own reason this seat is open (OFFICE NOT LIVE · NO VALID ENTRY · BUDGET …) — never a promise that it fills
       const sv = (o.seat?.seats || []).find(z => z.seat === i + 1) || (o.seatBoard || []).find(z => z.seat === i + 1 && z.empty) || null;
       return { seat: i + 1, open: true, badge: sv?.code || 'OPEN', why: sv?.reason || sv?.why || o.seat?.reason || `${ready} READY candidate${ready === 1 ? '' : 's'} on the desk this pass`,
-        refused: i === 0 ? (o.seat?.refused || []).slice(0, 3) : [], tapeWait: i === 0 ? (o.flowWait?.rows || []).slice(0, 3) : [] };   // why READY coins did not become positions (the keeper's own words) — once, on the first open seat
+        refused: i === firstOpen ? (o.seat?.refused || []).slice(0, 3) : [], tapeWait: i === firstOpen ? (o.flowWait?.rows || []).slice(0, 3) : [] };   // why READY coins did not become positions (the keeper's own words) — once, on the first open seat
     }
     const p = pos[x.mint] || {}; const b = board[x.mint] || {}; const c = cand[x.mint] || {};
     const lp = livePx && x.pair ? livePx.get?.(x.pair) : null;

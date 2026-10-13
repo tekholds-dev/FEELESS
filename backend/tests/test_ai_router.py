@@ -47,7 +47,7 @@ class Http:
 
 
 def env(**kw):
-    base = {'LOCAL_LLM_ENABLED': 'true', 'LOCAL_LLM_BASE_URL': 'http://127.0.0.1:1234/v1', 'LOCAL_LLM_MODEL': 'qwen2.5-7b-instruct-mlx',
+    base = {'LOCAL_LLM_ENABLED': 'true', 'LOCAL_LLM_BACKGROUND': 'true', 'LOCAL_LLM_BASE_URL': 'http://127.0.0.1:1234/v1', 'LOCAL_LLM_MODEL': 'qwen2.5-7b-instruct-mlx',
             'GROQ_API_KEY': GROQ, 'OPENAI_API_KEY': OAI}
     base.update(kw)
     return {k: v for k, v in base.items() if v is not None}
@@ -359,3 +359,18 @@ def test_low_priority_cases_defer_while_the_local_model_is_busy_and_the_metrics_
     m = r.metrics(now=1020.0)
     assert m['callsPerMin'] == 0.2 and m['avgMs'] == 1000 and m['provider'] == 'local' and m['cacheHitPct'] == 50
     assert set(air.PRIO) >= {'owner', 'manager', 'ready', 'devil', 'contender', 'judge'} and air.PRIO['owner'] < air.PRIO['manager'] < air.PRIO['ready'] < air.DEFER_PRIO
+
+
+def test_the_local_model_is_the_owners_background_jobs_go_to_the_cloud_or_nowhere():
+    """💻 The lag fix: a background case never runs on this Mac's GPU — only what the owner asks for by hand does."""
+    e = env(LOCAL_LLM_BACKGROUND=None)
+    assert not air.local_ok(e, 'sherlock') and air.local_ok(e, 'owner') and air.local_ok(e, 'sherlock', 'force') and air.local_ok(env(), 'judge')
+    r, h = air.Router(), Http({'127.0.0.1': [chat(GOOD)] * 3, 'groq': [chat(GOOD)] * 3})
+    bg = run(r.reason(h, e, {}, CASE, 'sherlock', prio=2))
+    assert bg['source'] == 'groq' and bg['tried'][0] == ['local', 'OWNER ONLY'] and not [c for c in h.calls if '127.0.0.1' in c[0]]
+    assert not r.busy(e, {})                                                             # nothing is ever deferred behind a model that is not used
+    assert run(r.reason(h, e, {}, {**CASE, 'mint': 'OTHER'}, 'owner'))['source'] == 'local'
+    assert run(r.reason(h, e, {}, CASE, 'sherlock', 'force'))['source'] == 'local'       # the owner's ASK box
+    none = run(air.Router().reason(Http({'x': [chat(GOOD)]}), env(LOCAL_LLM_BACKGROUND=None, GROQ_API_KEY=None, OPENAI_API_KEY=None), {}, CASE, 'devil'))
+    assert none['source'] == 'NONE' and none['advice'] is None                           # no cloud key = deterministic only, never the local GPU
+    assert air.PROVIDERS['groq'][5] == 'qwen/qwen3.8-27b'
