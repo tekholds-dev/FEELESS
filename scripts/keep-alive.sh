@@ -8,8 +8,12 @@ GRACE=120
 fresh() { local v="born_$1"; [[ -n "${!v:-}" ]] && (( $(date +%s) - ${!v} < GRACE )); }   # bash 3.2 (macOS): no associative arrays
 start() {
   local port="$1" venv="$2" app="$3" name="$4"
-  pid="$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"; [[ -n "$pid" ]] && kill $pid && sleep 1
-  (cd "$root/backend" && nohup "$venv/bin/python" -m uvicorn "$app" --host 127.0.0.1 --port "$port" >> "/tmp/feeless-$name.log" 2>&1 &)
+  # Stop EVERY copy BY NAME and wait (start-backend.sh's rule): a copy told to stop keeps running while a live stream (HQ › Agents) is
+  # open — it gave up its port, kept its loops and sat beside the new copy for 3+ min (2026-10-12; the keeper lock stopped a double trade).
+  pkill -f "uvicorn $app" 2>/dev/null
+  for _ in $(seq 1 30); do pgrep -f "uvicorn $app" >/dev/null 2>&1 || break; sleep 0.5; done
+  pkill -9 -f "uvicorn $app" 2>/dev/null
+  (cd "$root/backend" && nohup "$venv/bin/python" -m uvicorn "$app" --host 127.0.0.1 --port "$port" --timeout-graceful-shutdown 10 >> "/tmp/feeless-$name.log" 2>&1 &)
   eval "born_$port=$(date +%s)"
   echo "$(date '+%F %T') restarted $name :$port"
 }

@@ -16,7 +16,7 @@ restart() {
   pkill -f "uvicorn $app" 2>/dev/null || true
   for _ in $(seq 1 20); do pgrep -f "uvicorn $app" >/dev/null 2>&1 || break; sleep 0.5; done
   pkill -9 -f "uvicorn $app" 2>/dev/null || true
-  (cd "$dir" && nohup "$venv/bin/python" -m uvicorn "$app" --host 127.0.0.1 --port "$port" > "/tmp/feeless-$name.log" 2>&1 &)
+  (cd "$dir" && nohup "$venv/bin/python" -m uvicorn "$app" --host 127.0.0.1 --port "$port" --timeout-graceful-shutdown 10 > "/tmp/feeless-$name.log" 2>&1 &)
   echo "started $name on :$port"
 }
 

@@ -3413,5 +3413,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   day the Mac sat at load 14–21 on 8 cores with 16.4 of 17.4 GB swap used, which makes every 20 ms parse a multi-second stall.
   (8) `_fw_full_ledger` reads only the rows appended since its last read (`store.Ledger.since`); `_fw_public` reads `_fw_peek()`.
   After: blocked 29% → 13% of loop time in steady state on the same overloaded machine; candles probe p95 113 → 29 ms.
+  🔁 A STOPPED COPY CAN LINGER: uvicorn waits for open connections, and an HQ › Agents live stream never closes → the old copy gave up
+  its port and kept its loops for 3+ min beside the new one (the keeper flock stopped a double trade). keep-alive `start` now stops by
+  NAME, waits 15s, then -9; every launch line carries `--timeout-graceful-shutdown 10`. After ANY restart `pgrep -f "uvicorn reputation_service" | wc -l` = 1.
   Restarting ONE service by hand: `pkill -f "uvicorn <app>"` and let keep-alive start it (its 120s grace) — a hand start races
   keep-alive's probe and gets killed. A new store over ~1 MB must not be saved / parsed on the loop per event: debounce + keep in memory.
