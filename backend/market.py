@@ -18,7 +18,7 @@ from ecosystem import DEFAULT_MINTS
 from pydantic import BaseModel, Field
 
 import pump_calls
-from launchpad_board import launchpad_board_snapshot, save_board_snapshot, BOARD_SNAPSHOT_PATH, JUP_SEARCH, jup_lookup, jup_search_pairs, jup_pair, keep_last_board, BOARD_MAX, BONK_PLATFORM_ID, JUP_LISTS, JUP_RECENT, PUMP_TREND_PARAMS, PUMP_TREND_PATH, PUMP_TREND_TTL, build_board, pump_pages, pump_trend_rows, dex_candidate, jup_candidate, launchlab_candidate, pump_candidate
+from launchpad_board import due_mints, fresh_from, launchpad_board_snapshot, save_board_snapshot, BOARD_SNAPSHOT_PATH, JUP_SEARCH, jup_lookup, jup_search_pairs, jup_pair, keep_last_board, BOARD_MAX, BONK_PLATFORM_ID, JUP_LISTS, JUP_RECENT, PUMP_TREND_PARAMS, PUMP_TREND_PATH, PUMP_TREND_TTL, build_board, pump_pages, pump_trend_rows, dex_candidate, jup_candidate, launchlab_candidate, pump_candidate
 
 BOARD_SCOPES = ('launchpads', 'pump', 'bonk', 'raydium')
 
@@ -372,6 +372,7 @@ def create_market_router(db, intelligence=None):
         }
 
     board_cache = {}
+    jup_mem = {}    # 📡 mint → (monotonic, Jupiter pair or None): the Jupiter fallback's last answer per coin (launchpad_board.due_mints)
     pair_mem = {}   # 📡 mint → (monotonic, pair): a coin's last good DexScreener snapshot, reused ≤ 5 min when its batch is refused
 
     board_refreshing = set()
@@ -487,9 +488,10 @@ def create_market_router(db, intelligence=None):
         first = list(dict.fromkeys(first))
         mints = (first + [m for m in candidates if m not in set(first)])[:BOARD_MAX]
         dex_pairs = dict(seeded)
-        lookup = sorted(m for m in mints if m not in seeded)
-        # 📡 45s per batch (was 20s: 22 batches × 2 boards every 20s ≈ 130 DexScreener calls a minute from this alone → 429s)
-        chunks = await asyncio.gather(*[cached('DexScreener', '/tokens/v1/solana/' + ','.join(lookup[i:i + 30]), ttl=45)
+        # 📡 only the coins that are DUE (hot 180 every 45s · the tail every 4 min — launchpad_board.due_mints); the rest are their last
+        # good snapshot (pair_mem). Batches used to be alphabetical over all ~660 mints: every rebuild re-fetched nearly all of them.
+        lookup = sorted(due_mints(mints, pair_mem, monotonic(), skip=seeded))
+        chunks = await asyncio.gather(*[cached('DexScreener', '/tokens/v1/solana/' + ','.join(lookup[i:i + 30]), ttl=20)
                                         for i in range(0, len(lookup), 30)], return_exceptions=True)
         failed = 0
         for res in chunks:
@@ -505,8 +507,8 @@ def create_market_router(db, intelligence=None):
         now_m = monotonic()
         for m_, p_ in list(dex_pairs.items()):
             pair_mem[m_] = (now_m, p_)
-        for m_ in mints:   # a batch DexScreener refused → that coin's last good snapshot (≤ 5 min), never a hole in the board
-            if m_ not in dex_pairs and m_ in pair_mem and now_m - pair_mem[m_][0] < 300:
+        for m_ in mints:   # not due this build, or its batch was refused → its last good snapshot (≤ 5 min), never a hole in the board
+            if m_ not in dex_pairs and m_ in pair_mem and now_m - pair_mem[m_][0] < 300 and pair_mem[m_][1]:
                 dex_pairs[m_] = pair_mem[m_][1]
         # 📡 FALLBACK — DexScreener had nothing for these coins (refused, or its API answering empty as on 2026-10-07): Jupiter's
         # token data (rows already in hand first, then Jupiter search, 100 mints a call, cached 60s) in the same pair shape.
@@ -517,14 +519,26 @@ def create_market_router(db, intelligence=None):
             if jp_:
                 dex_pairs[m_] = jp_
         miss = [m_ for m_ in mints if m_ not in dex_pairs][:500]
+        for m_, jp_ in fresh_from(miss, jup_mem, now_m).items():   # 📡 Jupiter's answer per coin is remembered too (a coin it has nothing for is not re-asked)
+            if jp_:
+                dex_pairs[m_] = jp_
+        miss = due_mints(miss, jup_mem, now_m)
         if miss:
-            got_j = await asyncio.gather(*[cached('Jupiter', '/tokens/v2/search', {'query': ','.join(miss[i:i + 100])}, ttl=60)
+            got_j = await asyncio.gather(*[cached('Jupiter', '/tokens/v2/search', {'query': ','.join(miss[i:i + 100])}, ttl=20)
                                            for i in range(0, len(miss), 100)], return_exceptions=True)
+            answered = not all(isinstance(r_, Exception) for r_ in got_j)
             for res in got_j:
                 for tok in (res[0] if not isinstance(res, Exception) and isinstance(res[0], list) else []):
                     jp_ = jup_pair(tok)
                     if jp_ and jp_['baseToken']['address'] in candidates:
                         dex_pairs[jp_['baseToken']['address']] = jp_
+                        jup_mem[jp_['baseToken']['address']] = (now_m, jp_)
+            if answered:
+                for m_ in miss:
+                    jup_mem.setdefault(m_, (now_m, None))   # Jupiter answered and had nothing: not asked again until it is due
+        if len(jup_mem) > 4000:
+            for k_ in sorted(jup_mem, key=lambda k: jup_mem[k][0])[:len(jup_mem) - 3000]:
+                jup_mem.pop(k_, None)
         if len(pair_mem) > 4000:
             for k_ in sorted(pair_mem, key=lambda k: pair_mem[k][0])[:len(pair_mem) - 3000]:
                 pair_mem.pop(k_, None)
@@ -696,7 +710,7 @@ def create_market_router(db, intelligence=None):
                 fallback_reason = f'Pump.fun unavailable; using public pool discovery fallback ({primary_error.detail}).'
             chains = SUPPORTED_CHAINS if chain == 'all' else (chain,)
             queries = [(c, q) for c in chains for q in CHAIN_QUOTES.get(c, [])]
-            results = await asyncio.gather(*[cached('DexScreener', '/latest/dex/search', {'q': q}, ttl=60) for _c, q in queries], return_exceptions=True)
+            results = await asyncio.gather(*[cached('DexScreener', '/latest/dex/search', {'q': q}, ttl=180) for _c, q in queries], return_exceptions=True)   # 📡 a quiet chain's top-up: 3 min is fresh enough (739 searches in 45 min)
             best, meta = {}, None
             for (c, _q), res in zip(queries, results):
                 if isinstance(res, Exception):
@@ -864,7 +878,7 @@ def create_market_router(db, intelligence=None):
         """This chain's live pools via its main DEX names (one cached search each), deepest-volume first."""
         queries = CHAIN_QUOTES.get(chain, [])
         hubs = NATIVE_POOLS.get(chain, [])
-        results = await asyncio.gather(*[cached('DexScreener', '/latest/dex/search', {'q': q}, ttl=120) for q in queries],
+        results = await asyncio.gather(*[cached('DexScreener', '/latest/dex/search', {'q': q}, ttl=300) for q in queries],
                                        *[cached('DexScreener', f'/token-pairs/v1/{c}/{a}', ttl=120) for c, a in hubs], return_exceptions=True)
         hub_addrs = {a.lower() for _c, a in hubs}
         allowed = {chain, HOST_CHAIN.get(chain, chain)} | {c for c, _a in hubs}

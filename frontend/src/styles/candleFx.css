@@ -1,0 +1,30 @@
+/* ⚡ CANDLE FX (CandleFx.jsx `cfk-*`): the forming candle's aura, a ring per real tick, sparks on a ≥ 1% tick, a flash when a candle opens.
+   transform / opacity only, one keyframe set (cfk*), hidden in fx-lite / reduced motion. */
+.cfk { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+.cfk-aura, .cfk-ring, .cfk-spark, .cfk-open { position: absolute; left: 0; top: 0; will-change: transform; }
+.cfk-aura { width: 86px; height: 86px; margin: -43px 0 0 -43px; opacity: 0; transition: opacity .3s ease; }
+.cfk-aura i { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle, rgba(69, 228, 134, .30), rgba(21, 209, 106, .08) 42%, transparent 68%);
+  animation: cfkBreath 2.4s ease-in-out infinite; }
+.cfk-aura.is-dn i { background: radial-gradient(circle, rgba(255, 143, 163, .28), rgba(255, 143, 163, .07) 42%, transparent 68%); }
+.cfk-ring { width: 18px; height: 18px; margin: -9px 0 0 -9px; }
+.cfk-ring i { position: absolute; inset: 0; border-radius: 50%; border: 1.5px solid #45e486; opacity: 0; }
+.cfk-ring.is-dn i { border-color: #ff8fa3; }
+.cfk-ring.is-on i { animation: cfkRing .45s ease-out; }
+.cfk-open { width: 2px; margin-left: -1px; opacity: 0; background: linear-gradient(transparent, rgba(143, 211, 255, .55) 30%, rgba(143, 211, 255, .55) 70%, transparent); }
+.cfk-open.is-on { animation: cfkOpen .7s ease-out; }
+.cfk-spark { width: 0; height: 0; }
+.cfk-spark b { position: absolute; left: -1.5px; top: -1.5px; width: 3px; height: 3px; border-radius: 50%; background: #45e486; opacity: 0;
+  transform: rotate(calc(var(--i) * 60deg)) translateX(0); }
+.cfk-spark.is-dn b { background: #ff8fa3; }
+.cfk-spark.is-on b { animation: cfkSpark .6s ease-out; }
+@keyframes cfkBreath { 50% { transform: scale(1.22); opacity: .72; } }
+@keyframes cfkRing { from { transform: scale(.4); opacity: .95; } to { transform: scale(2.7); opacity: 0; } }
+@keyframes cfkOpen { from { opacity: .9; } to { opacity: 0; } }
+@keyframes cfkSpark { from { opacity: 1; transform: rotate(calc(var(--i) * 60deg)) translateX(0); } to { opacity: 0; transform: rotate(calc(var(--i) * 60deg)) translateX(24px); } }
+
+body.fx-lite .cfk { display: none; }
+@media (prefers-reduced-motion: reduce) { .cfk { display: none; } }
+body.theme-day .cfk-aura i { background: radial-gradient(circle, rgba(13, 122, 65, .22), transparent 68%); } body.theme-day .cfk-aura.is-dn i { background: radial-gradient(circle, rgba(180, 35, 70, .2), transparent 68%); }
+body.theme-day .cfk-ring i, body.theme-day .cfk-spark b { border-color: #0d7a41; background: #0d7a41; } body.theme-day .cfk-ring.is-dn i { border-color: #b42346; } body.theme-day .cfk-spark.is-dn b { background: #b42346; }
+body.theme-day .cfk-ring i { background: transparent; }
+@media (max-width: 640px) { .cfk-aura { width: 60px; height: 60px; margin: -30px 0 0 -30px; } }

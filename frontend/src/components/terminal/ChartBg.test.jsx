@@ -16,7 +16,7 @@ test('every chart scene renders its own layers with the FEELESS mark; default dr
   expect(el.querySelectorAll('[data-testid="chart-bg-sunset"] .cbg-sun').length).toBe(1); expect(el.querySelectorAll('[data-testid="chart-bg-sunset"] .cbg-glint').length).toBe(7);
   expect(el.querySelectorAll('[data-testid="chart-bg-aurora"] .cbg-star').length).toBe(18); expect(el.querySelectorAll('[data-testid="chart-bg-aurora"] .cbg-veil').length).toBe(3);
   expect(el.querySelector('[data-testid="chart-bg-reactor"] img.cbg-mark').getAttribute('src')).toContain('feeless-logo');
-  const sel = el.querySelector('[data-testid="chart-bg-pick"]'); expect(sel.options.length).toBe(8);
+  const sel = el.querySelector('[data-testid="chart-bg-pick"]'); expect(sel.options.length).toBe(9);
   await act(async () => { sel.value = 'sunset'; sel.dispatchEvent(new Event('change', { bubbles: true })); });
   expect(getChartBg()).toBe('sunset'); expect(sel.value).toBe('sunset');
   setChartBg('default');

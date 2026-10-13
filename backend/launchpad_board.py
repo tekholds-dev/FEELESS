@@ -422,3 +422,24 @@ def save_board_snapshot(path, kind, ranked, meta, now):
     tmp = p.with_suffix('.tmp')
     tmp.write_text(_json.dumps(d, separators=(',', ':')))
     tmp.replace(p)
+
+
+# 📡 PER-COIN FRESHNESS (2026-10-13: the board sorted its ~660 mints ALPHABETICALLY into 30-mint batches whose cache key is the exact list —
+# one new coin shifted every batch after it, so nearly all 22 batches missed the cache on every 20s rebuild: 1,493 DexScreener batch calls
+# in 45 min, HALF refused (429), plus 755 Jupiter searches the same way — and every list the agents read went stale). Now only the coins
+# that are DUE are fetched: the hottest HOT_N (the board's own priority order: Pump trending, movers, seeded, …) every HOT_SEC, the tail
+# every TAIL_SEC; everything else is the coin's last good snapshot.
+HOT_N, HOT_SEC, TAIL_SEC = 180, 45.0, 240.0
+
+
+def due_mints(mints, mem, now, skip=(), hot_n=HOT_N, hot_sec=HOT_SEC, tail_sec=TAIL_SEC):
+    """`mints` in priority order, `mem` {mint: (t, snapshot or None)} → the mints whose snapshot is missing or older than their tier allows."""
+    hot = set(list(mints)[:hot_n])
+    sk = set(skip or ())
+    return [m for m in mints if m not in sk and not (m in mem and now - mem[m][0] < (hot_sec if m in hot else tail_sec))]
+
+
+def fresh_from(mints, mem, now, hot_n=HOT_N, hot_sec=HOT_SEC, tail_sec=TAIL_SEC):
+    """{mint: snapshot} for the mints whose remembered snapshot is still inside its tier (None = the source said it has nothing)."""
+    hot = set(list(mints)[:hot_n])
+    return {m: mem[m][1] for m in mints if m in mem and now - mem[m][0] < (hot_sec if m in hot else tail_sec)}

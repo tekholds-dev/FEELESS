@@ -13,6 +13,7 @@ import { openCoin } from '../CoinDrawer';
 import { AiProviders } from './AiProviders';
 import { AiPane, AiIntel, AiCell } from './AiDecisions';
 import { CockpitControls } from './CockpitControls';
+import { IntakeBand } from './IntakeBand';
 import { TradeTape, CoachBox } from './CoachTape';
 import { tradeBar, tickDir, aiOf } from '../../lib/cockpitControls';
 import '../../styles/agentCockpit.css';
@@ -438,6 +439,7 @@ export function AgentCockpit({ call, isOwner = true }) {
       <div className="ack-seatrow">{seats.map(s => <SeatCard key={s.seat} s={s} on={!s.open && s.mint === mint} onPick={onPick} readyN={readyN} />)}</div></section>
     <div className="ack-main">
       <div className="ack-left"><CockpitChart m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); setTab('live'); }} />
+        <IntakeBand o={o} mint={mint} onPick={onPick} call={call} isOwner={isOwner} />
         <DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { if (r.mint) setPick(r.mint); setAgentS(r.agent in AG ? r.agent : null); setTab('live'); }} /></div>
       <DecisionPanel o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
         pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} mcNow={model?.mc} onAi={() => setAiOpen(true)} /></div>

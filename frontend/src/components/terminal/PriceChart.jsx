@@ -5,6 +5,7 @@ import { ChartToolsMenu, useToolDraw } from './ChartTools';
 import { ChartPulse } from './ChartPulse';
 import { ChartPnl } from './ChartPnl';
 import { ChartLive } from './ChartLive';
+import { CandleFx } from './CandleFx';
 import { ChartLevels } from './ChartLevels';
 import { feeLevels, ownLevels, toolLevels } from '../../lib/chartLevels';
 import { tweenClose, mergeLiveBar, liveBar } from '../../lib/tween';
@@ -408,6 +409,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     {charting && hasChart && <div className="candle-canvas" ref={container} data-testid="candlestick-canvas" />}
     {charting && hasChart && displayCandles.length > 0 && <ChartToolsMenu read={toolsRead} />}
     {charting && hasChart && pair?.chainId === 'solana' && pair?.baseToken?.address && <ChartPulse mint={pair.baseToken.address} beat={livePrice?.usd} />}
+    {charting && hasChart && !plain && !fxLite && <CandleFx seriesRef={seriesRef} chartRef={chartRef} lastBarRef={lastBarRef} shownRef={shownRef} container={container} />}
     {charting && hasChart && levels.length > 0 && <ChartLevels levels={levels} seriesRef={seriesRef} chartRef={chartRef} lastBarRef={lastBarRef} shownRef={shownRef} container={container} fmt={formatUSD} />}
     {charting && hasChart && <ChartPnl pair={pair} price={livePrice?.usd} pnl={pnl} live={{ seriesRef, chartRef, lastBarRef, shownRef, container, ratio, fmt: v => formatUSD(v * ratio) }} />}
     {charting && hasChart && !(pnl && typeof pnl === 'object') && fuse?.entry > 0 && <ChartLive seriesRef={seriesRef} chartRef={chartRef} lastBarRef={lastBarRef} shownRef={shownRef} container={container} ratio={ratio}

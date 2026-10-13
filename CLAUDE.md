@@ -3760,3 +3760,18 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🔑 Jupiter keys: each in its OWN name (`JUPITER_API_KEY`, `_2` … `_6`). 2026-10-13 the owner pasted two keys on one line as a second
   `JUPITER_API_KEY=` (the loader keeps the first value of a repeated name → both ignored); split into `_2` / `_3`, both answered 200 while
   key 1 was 429. Probe a key with one quote + one price call and print the status only.
+- 📡 LAUNCH BOARD = PER-COIN FRESHNESS (`launchpad_board.due_mints / fresh_from`, `HOT_N` 180 · `HOT_SEC` 45 · `TAIL_SEC` 240; market.py board
+  build + `jup_mem`): the board sorted ~660 mints ALPHABETICALLY into 30-mint batches whose cache key is the exact list — one new coin shifted
+  every batch after it, so nearly all 22 batches missed on every 20s rebuild (1,493 DexScreener batch calls in 45 min, HALF refused 429; 755
+  Jupiter searches the same way) and every list the agents read went stale. Now only DUE coins are fetched (hot every 45s, tail every 4 min;
+  a coin Jupiter had nothing for is remembered as None); quiet-chain search top-ups cache 3–5 min. "LISTS STALE / 429" ⇒ count the market
+  service's outbound calls by endpoint in /tmp/feeless-api.log first.
+- ⚡ CANDLE FX (`components/terminal/CandleFx.jsx`, `styles/candleFx.css` `cfk-*`, in every PriceChart except `plain` / fx-lite / reduced
+  motion): the forming candle's aura rides its drawn close, every REAL tick (the bar's own close, never the eased value) throws a ring, a ≥ 1%
+  tick bursts 6 sparks, a new candle flashes its column; the chart area gets `cfk-up` / `cfk-dn`. ONE rAF ≤ 30fps, transform / opacity only.
+  Theme ⚡ Neon trench (`neon`): a neon grid floor rolling toward you + horizon + beams, the grid turns pink on a red candle (cfk-dn).
+- 🛰 INTAKE BAND (`command/IntakeBand.jsx`, `lib/intakeBand.js`, `styles/intakeBand.css` `ib-*`; cockpit, under the chart, over the decision
+  tape): every coin the kernel reads as a dot — across = live MC (log $1K–$1M, the owner's band shaded), up = IN → CONTENDING → READY → PICKED
+  (dots glide up on transform; new coins pop; READY breathes; PICKED rings) + a lane funnel + intake /min. Tap → splash: MC · age · 5m ·
+  buyers · pool · 5m vol (bad ones flagged), Devil's first objection, the model's read + scout chips, and ⚡ ARM · 📌 TRACK · 🔎 REVIEW ·
+  ✕ IGNORE (the owner-review route) · 📈 CHART. Drawn from the kernel's own state; it decides nothing.
