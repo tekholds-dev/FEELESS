@@ -8,6 +8,7 @@ practice calls, and nothing it writes is read back by the kernel. Pure (no I/O).
 import time as _t
 
 import chart_intel as _ci
+import flow as _fl
 import trench_mind as _tm
 
 # 🕸 THE CRAWL: every place the desk pulls coins from each pass — each one is a driver `src:<key>` judged on its own record, so the agents
@@ -154,6 +155,9 @@ def sense(state, rows, now, candles=None, flows=None, charts_out=None, cmeta=Non
                       'mind': {'narr': rd['narr'][1], 'hot': rd['narr'][2], 'callers': rd['crowd']['callers'], 'swarm': rd['crowd']['swarm'],
                                'slang': rd['crowd']['slang'], 'bots': rd['bots'][0], 'tug': rd['tug'][0]},
                       'src': list(r.get('src') or []), 'ev': [list(e) for e in evidence(r, n, chart, rd, busted)[:8]],
+                      # 🌊 the buy / sell vital from the coin's last 90s of real swaps (only when its tape is fresh) + how far under its high it trades
+                      **({'fv': fv_} if (fv_ := _fl.vital((flows or {}).get(r.get('pairAddress')))) else {}),
+                      **({'distHigh': ((chart or {}).get('f') or {}).get('distHigh')} if ((chart or {}).get('f') or {}).get('distHigh') is not None else {}),
                       **({'social': r['social']} if r.get('social') else {}), **({'site': r['site']} if r.get('site') else {}), **({'x': r['x']} if r.get('x') else {}),
                       'vitals': {k: r.get(k) for k in VITAL_KEYS}
                                 | {'organic': (r.get('vital') or {}).get('organicPct'), 'rug': (r.get('tv') or {}).get('rug'), 'read': ((r.get('tv') or {}).get('call') or [None, None])[1]}})

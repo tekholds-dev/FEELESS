@@ -98,9 +98,16 @@
 .thd-kv u { text-decoration: none; font: 600 8.5px var(--m-mono); color: var(--m-dim); white-space: nowrap; }
 .thd-dec.is-good { color: var(--m-accent) !important; } .thd-dec.is-bad { color: var(--m-danger) !important; }
 .thd-seat { display: block; padding: 3px 0 2px; }
+.thd-flow { display: grid; grid-template-columns: auto minmax(40px, 1fr) auto; align-items: center; gap: 6px; padding: 2px 0; font: 700 8.5px var(--m-mono); letter-spacing: .06em; color: var(--m-mute); }
+.thd-flow b { font-weight: 800; } .thd-flow small { font-size: 8px; white-space: nowrap; }
+.thd-flow.is-up b { color: var(--m-accent); } .thd-flow.is-dn b { color: var(--m-danger); } .thd-flow.is-warn b { color: var(--gold); }
+.thd-flowbar { position: relative; display: block; height: 4px; border-radius: 3px; overflow: hidden; background: rgba(255, 85, 119, .55); }
+.thd-flowbar > i { position: absolute; inset: 0; background: var(--m-accent); transform-origin: left center; transition: transform .35s ease; }
+.thd-flow.is-flat .thd-flowbar { opacity: .6; }
+.ack-refused.is-tape b { color: var(--gold); }
 
 body.fx-lite .acx-card, body.fx-lite .acx-seg > button.is-pending, body.fx-lite .thd-flash { animation: none; }
-body.fx-lite .thd-now, body.fx-lite .thd-fill { transition: none; } body.fx-lite .avt { animation: none; } body.fx-lite .thd-now, body.fx-lite .acx-dot.is-ready { box-shadow: none; }
+body.fx-lite .thd-now, body.fx-lite .thd-fill, body.fx-lite .thd-flowbar > i { transition: none; } body.fx-lite .avt { animation: none; } body.fx-lite .thd-now, body.fx-lite .acx-dot.is-ready { box-shadow: none; }
 @media (prefers-reduced-motion: reduce) {
   .acx-card, .acx-seg > button.is-pending, .thd-flash { animation: none; } .thd-now, .thd-fill, .acx-row { transition: none; } .avt { animation: none; }
 }
@@ -120,3 +127,5 @@ body.theme-day .thd-now { background: #0f2419; box-shadow: none; } body.theme-da
   .ack-trade.thd { grid-template-columns: 1fr; } .thd-pnl { grid-template-columns: auto auto; align-items: baseline; gap: 2px 8px; } .thd-pnl small { grid-column: 1 / -1; }
   .avt-intel li { grid-template-columns: 1fr; gap: 0; }
 }
+body.theme-day .thd-flow.is-up b { color: #0d7a41; } body.theme-day .thd-flow.is-dn b { color: #b3261e; } body.theme-day .thd-flow.is-warn b, body.theme-day .ack-refused.is-tape b { color: #8a5a00; }
+@media (prefers-reduced-motion: reduce) { .thd-flowbar > i { transition: none; } }

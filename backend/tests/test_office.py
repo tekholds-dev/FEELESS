@@ -492,3 +492,19 @@ def test_a_quote_that_was_never_signed_is_not_a_failed_send_for_the_courier():
     assert of.courier(busy, {}, now, 'degen')['health'] != 'BAD'                                  # Jupiter was busy: nothing was sent, nothing failed to land
     real = [{'at': now - 60 * i, 'card': 'degen', 'side': 'sell', 'status': 'failed', 'sig': f'S{i}', 'err': 'expired — never landed'} for i in range(1, 5)]
     assert of.courier(real, {}, now, 'degen')['health'] == 'BAD'                                  # signed, sent and lost: that IS an execution problem
+
+
+def test_reaper_reads_the_buy_sell_vital_banks_green_seats_and_only_tightens_red_ones():
+    cfg = {'agentTakePct': 50, 'agentScalp': False}
+    one = lambda px, fv, **k: of.reap([leg('A')], [trow('A')], {'PA': px}, cfg, None, 3600, control=True, flows={'PA': fv} if fv else None, **k)[1][0]
+    sellers = {'state': 'SELLERS', 'why': 'sellers lead: $40 bought by 2 vs $300 sold by 6 in 90s, price -2.0%', 'tape': None}
+    climax = {'state': 'PEAK', 'why': 'buying climax', 'tape': 'climax'}
+    r = one(1.06, sellers)
+    assert (r['state'], r['rule'], r['action']) == ('TAKE', 'R4f sellers took over', 'pull') and r['flow'] == sellers and r['obeying'].startswith('flow exit')
+    assert one(1.02, sellers)['action'] is None                                              # under a round trip's cost: not sold on one read
+    assert one(1.06, sellers, live=False)['rule'] != 'R4f sellers took over'                 # never before the office is LIVE
+    assert one(1.20, climax)['rule'] == 'R4c buying climax' and one(1.10, climax)['action'] is None
+    assert one(1.20, {'state': 'PEAK', 'why': 'spike', 'tape': None})['action'] is None      # a fast green candle on a seat we hold is not an exit
+    assert one(1.20, {'state': 'BUYERS', 'why': 'x', 'hot': True})['action'] is None
+    base, red = one(0.95, None), one(0.95, sellers)
+    assert red['action'] is None and abs(red['stop']) == round(max(of._ci.STOP_FLOOR, abs(base['stop']) * of.FLOW_TIGHT), 6) and abs(red['stop']) <= abs(base['stop'])

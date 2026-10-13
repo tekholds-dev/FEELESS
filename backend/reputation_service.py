@@ -8523,6 +8523,15 @@ async def _flow_fetch(pairs, max_age=12.0):
     return {p: (_flow_now.get(p) or (0, None))[1] for p in pairs}
 
 
+def _flow_mark(mint, v, sym, now, held=False):
+    """🌊 Keep the newest buy / sell vital per coin for the page (held seats + coins checked before a seat) — bounded, 5 min."""
+    fm = _office.setdefault('flow', {})
+    fm[mint] = {**v, 'at': round(now, 1), 'sym': sym, 'held': held}
+    if len(fm) > 60:
+        for k_ in [k_ for k_, x_ in fm.items() if now - _fuse._f(x_.get('at')) > 300][:40]:
+            fm.pop(k_, None)
+
+
 def _flow_intel(mint):
     """The wallets the rug radar watches for this coin: creator + top-10 wallets + bundle / sniper wallets (scan cache only)."""
     hit = _intel_cache.get(mint)
@@ -10187,6 +10196,24 @@ async def _prime_tick_inner(now):
             vetoed_ = 0
             # the money boundary for a fill: the creator not on manual · the office LIVE · the keeper not halted · Courier not BAD · the runaway guard
             plan_ = valid_[:empty_n + 3] if (empty_n and not pol_['manual'] and rd_['live'] and not seat_ctx_['halt'] and seat_ctx_['courier'] != 'BAD' and used_ < _uni.FILL_MOVES_HR) else []
+            if plan_:   # 🌊 THE TAPE DECIDES THE MOMENT: each coin about to take a seat is read on its last 90s of real swaps — never into sellers, never at the top of a spike; a crowd buying goes first
+                try:
+                    fl_ = await _flow_fetch([t_.get('pair') for t_ in plan_ if t_.get('pair')])
+                    keep_, waits_ = [], []
+                    for t_ in plan_:
+                        v_ = _flow.vital(fl_.get(t_.get('pair')))
+                        if v_:
+                            _flow_mark(t_['mint'], v_, t_.get('symbol'), now)
+                        why_ = _flow.vital_block(v_)
+                        if why_:
+                            waits_.append({'symbol': t_.get('symbol'), 'why': why_})
+                            _tk.KERNEL.note('trigger', 'WAIT', f"the tape says wait — {why_}", now, mint=t_['mint'], key=f"flow:{int(now // 120)}")
+                            continue
+                        keep_.append((0 if v_ and v_.get('state') == 'BUYERS' and v_.get('hot') else 1 if v_ and v_.get('state') == 'BUYERS' else 2, t_))
+                    plan_ = [t_ for _g, t_ in sorted(keep_, key=lambda kv: kv[0])]
+                    _office['flowWait'] = {'at': now, 'rows': waits_[:6]}
+                except Exception as e:
+                    print('flow gate:', str(e)[:120])
             _office['open'] = {'at': now, 'read': len(_tk.KERNEL.store.mints), 'ranked': len(valid_), 'top': [{'symbol': c_['symbol'], 'score': c_['rank'], 'narrative': c_['narrative']} for c_ in valid_[:8]],
                                'skipped': _tk.KERNEL.metrics(now)['byStatus']}
             _office['opp'] = {'at': now, 'cap': _agents.get('laneCap'), 'top': [{'symbol': c_['symbol'], 'tier': c_['status'], 'score': c_['rank']} for c_ in cases_[:6]]}
@@ -14810,11 +14837,14 @@ def _office_reap(cur, px, cfg_t, ctl, now, dec, pol=None, live=True, vels=None, 
     try:
         t0 = time.perf_counter()
         _office_state()
-        tape, rug, press = {}, {}, {}
+        tape, rug, press, fv_ = {}, {}, {}, {}
         for l in cur.get('legs') or []:
             at_, w_ = _flow_now.get(l.get('pairAddress')) or (0, None)
             if w_ and now - _fuse._f(at_) <= 90:
                 tape[l.get('pairAddress')] = _flow.tape_read(w_)
+                fv_[l.get('pairAddress')] = _flow.vital(w_)   # 🌊 the buy / sell vital Reaper reads (R4f / R4c, the tighter stop on a red seat)
+                if l.get('mint') and fv_[l.get('pairAddress')]:
+                    _flow_mark(l.get('mint'), fv_[l.get('pairAddress')], l.get('symbol'), now, held=True)
                 if ctl and l.get('mint'):   # 🚨 the rug radar on the SAME tape for the agents' seats (creator / top-holder / bundle wallets dumping)
                     it_ = _flow_intel(l.get('mint'))
                     why_ = _flow.rug_why(w_, it_.get('creator'), it_.get('watch'), _fuse._f(l.get('liqNow')) or _fuse._f(l.get('liq')) or None)
@@ -14826,7 +14856,7 @@ def _office_reap(cur, px, cfg_t, ctl, now, dec, pol=None, live=True, vels=None, 
                     except Exception:
                         pass
         pos, rep, gone = _of.reap(cur.get('legs'), _agents.get('table'), px, cfg_t, _office['pos'], now, _agents.get('scalp'), ctl, _agents.get('weather'), tape, _office_state(), _office['sized'], _office.get('charts'), _office.get('theses'), pol=pol, live=live, real=bool(cur.get('real')),
-                                  vels=vels, margins=margins, rug=rug, press=press)
+                                  vels=vels, margins=margins, rug=rug, press=press, flows=fv_)
         for g in gone:
             g['take'] = _of.take_line(cfg_t, _agents.get('scalp'))
         by_ = {x_.get('mint'): x_ for x_ in _agents.get('table') or []}
@@ -15013,6 +15043,7 @@ def _office_light(tid, cur, now):
         p['index'] = (_office.get('index') or [])[:80]
         p['rpc'] = {'lanes': _rpc_quota_state(), 'note': 'keyed lanes = keeper sends / balances first, then holder scans (budgeted); discovery comes from Pump\'s live stream + the launch boards — no RPC first-seen listener runs'}
         p['wake'] = {'reaper': _wake['n'], 'trigger': _wake['candN'], 'log': list(_wake['log'])[-8:], 'watching': len(_office.get('watchC') or {})}   # ⚡ market-event wakeups
+        p['flowWait'] = _office.get('flowWait')   # 🌊 READY coins the live tape held back this tick (sellers lead / top of a spike)
         p['cycle'] = {**(_office.get('cycle') or {}), 'nextIn': max(0, round(_fuse._f((_office.get('cycle') or {}).get('at')) + AGENTS_EVERY - now)) if _office.get('cycle') else None}
         p['seatActions'] = _oe.seat_actions(((_agents.get('card') or {}).get('seats')), _agents.get('decisions'), _agents.get('switchEval'), _agents.get('seat'))
         p.update(_office_seat_payload())

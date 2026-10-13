@@ -3566,3 +3566,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   never `o.ai` from the snapshot (that copy is only the first paint). A hidden Agents tab folds the stream in and paints once when shown.
   Measured (same synthetic load, 10s windows, machine load 16–20): script 0.26–0.35s → 0.17–0.19s, React render 75–120 → 66–77 ms,
   longest commit 4–6 → 3 ms, heap the same. Cockpit P&L tag + BUY chip are small (`chartLive.css`, tag ~126 × 16px).
+- 🌊 THE BUY / SELL VITAL (owner, 2026-10-13: "buy/sell bar should be a vital and be wired to Reaper and whomever else who watches … learn not
+  to buy at the peak"; `flow.vital(window)` pure + tested → ONE state from the last 90s of REAL swaps: BUYERS (buys ≥ 1.3× sells, ≥ 3 wallets;
+  `hot` = ≥ 8 buyers) · SELLERS (sells ≥ 1.5× buys on a falling price, or a 🩸 dump) · PEAK (🏔 buying climax, or already +6% inside the window)
+  · BALANCED · THIN (not judged, never a block); `flow.window` now counts distinct `buyers` / `sellers`). WHO READS IT: ⏱ Trigger
+  (`brain.trigger`: SELLERS → WAIT, PEAK → ARM "not bought at the top"; desk row `fv` → MintState `market.flow`, kernel event `flow` on a state
+  change) · the fill gate in `_prime_tick` (each READY coin about to take a seat gets ONE batched `_flow_fetch`, ≤ seats + 3 pools; SELLERS /
+  PEAK waits this tick with a Trigger WAIT line, a crowd buying goes first; `_office['flowWait']` → payload `flowWait`) · rank ×`CROWD_F` 1.05
+  for a hot crowd (a weight, never a gate) · ☠ Reaper (`reap(flows=)` from the tape `_flow_now` already holds — no new fetch): `R4f sellers
+  took over` banks an agent seat ≥ +4% (`FLOW_BANK_PCT`), `R4c buying climax` banks one ≥ +15% (`FLOW_CLIMAX_PCT`), sellers on a RED seat only
+  tighten its stop to 70% (`FLOW_TIGHT`, never under `STOP_FLOOR`) — a fast green candle on a held seat is never an exit. It only ever makes
+  the agents buy LESS or bank sooner. Page: `SeatFlow` on each cockpit seat (`flowBar`, `thd-flow`) + the 🌊 held-back list on the first open
+  seat. Hand-set thresholds, NOT learned — R4f / R4c results land in the archive under their own rule; read them before trusting either.

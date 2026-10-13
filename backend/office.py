@@ -54,6 +54,9 @@ WEATHER_BAR_RANGE = (-0.25, 1.0)     # the most Weather may move Trigger's bar (
 WEATHER_SIZE_RANGE = (0.25, 1.0)     # the most Weather may shrink a move (never grow it)
 WARDEN_STEPS = (1.0, 0.75, 0.5, 0.25, 0.0)
 WARDEN_MIN_USD = 0.05                # a seat the keeper could not send is not a smaller risk, it is no trade
+FLOW_BANK_PCT = 4.0                  # 🌊 sellers take over a seat that is at least this green → banked into the last buyers (above a round trip's cost)
+FLOW_CLIMAX_PCT = 15.0               # 🏔 a buying climax on a seat this green → banked into the climax
+FLOW_TIGHT = 0.7                     # 🌊 sellers lead a RED seat → its stop tightens to 70% (never under chart_intel.STOP_FLOOR), it is not sold on one read
 MIN_KEEP = 1.5                       # ☠ a trailing take only fires while there is still this much % to bank
 DEAD_CASH_MIN = 15.0                 # 💀 dead this long (no trades / off their radar): exit to CASH even with no replacement ready
 DEAD_HOLD_MIN = 5.0                  # 💀 minutes held before a dead coin (no trades) gives its seat away
@@ -470,7 +473,7 @@ def take_info(cfg, scalp=None):
             'needN': _pd.SCALP_N, 'promoted': None}
 
 
-OBEY = {'R11x': 'dead coin exit', 'R7b': 'trailing protection', 'R11': 'dead coin swap', 'R4e': 'hard safety exit', 'R5c': 'creator stop-loss', 'R9c': 'creator max hold', 'R1': 'hard safety exit', 'R2': 'hard safety exit', 'R3': 'hard safety exit', 'R5x': 'hard safety exit', 'R4': 'invalidation exit', 'R5t': 'invalidation exit', 'R5': 'structure-aware stop',
+OBEY = {'R4f': 'flow exit (sellers took over)', 'R4c': 'flow exit (buying climax)', 'R11x': 'dead coin exit', 'R7b': 'trailing protection', 'R11': 'dead coin swap', 'R4e': 'hard safety exit', 'R5c': 'creator stop-loss', 'R9c': 'creator max hold', 'R1': 'hard safety exit', 'R2': 'hard safety exit', 'R3': 'hard safety exit', 'R5x': 'hard safety exit', 'R4': 'invalidation exit', 'R5t': 'invalidation exit', 'R5': 'structure-aware stop',
         'R6': 'take line', 'R7': 'trailing protection', 'R7s': 'trailing protection', 'R8': 'thesis review', 'R9': 'thesis review', 'R10': 'thesis hold', 'R0': 'waiting'}
 
 
@@ -497,7 +500,7 @@ def _li_snap(li, v=None):
     return {k: li.get(k) for k in ('phase', 'healthy', 'cls', 'first10', 'first25', 'early', 'trend', 'press', 'danger', 'rank', 'ageH', 'mcap', 'pump', 'ewp', 'vpm', 'bpm', 'fresh')}
 
 
-def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_=None, tape=None, office=None, sized=None, charts=None, theses=None, pol=None, live=True, vels=None, margins=None, rug=None, press=None, real=False):
+def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_=None, tape=None, office=None, sized=None, charts=None, theses=None, pol=None, live=True, vels=None, margins=None, rug=None, press=None, real=False, flows=None):
     """☠ One look at every position the agents hold on the real card (in control: every coin that is not frozen). It keeps each one's
     record (entry, peak, path, depth and top-10 at entry) and rules, in this order — the first that fires decides:
       R1 pool collapsed · R4 whale dump / R4r rug radar / R4e early wallets on the live tape · R5 stop* · (a holder scan or a rug score is evidence for the brain, never an exit) ·
@@ -560,6 +563,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         else:   # the live read of THIS pass: narrative collapsing / distributing · −3% in 5 min · buyers under 50%
             broke = _pos.broken_read(x)
         tp = (tape or {}).get(l.get('pairAddress'))
+        fv_ = (flows or {}).get(l.get('pairAddress'))   # 🌊 the buy / sell vital (flow.vital) of this seat's last 90s — None = no fresh tape
         ch = (charts or {}).get(m)
         if not p.get('thesis') and (theses or {}).get(m):
             p['thesis'] = dict((theses or {})[m])    # 🧾 the entry thesis: saved ONCE with the position (its own copy), never rewritten
@@ -570,6 +574,8 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         tier_ = _opp.tier_of_tag((l.get('bought') or {}).get('tag'))
         if tier_ in _opp.TIER_STOP:   # 🎯 a lower-confidence entry risks less: the stop ceiling follows its tier (A 25 · B 18 · C 12) — only ever TIGHTER
             stop = min(stop, _opp.TIER_STOP[tier_])
+        if fv_ and fv_.get('state') == 'SELLERS' and pct < 0:   # 🌊 sellers lead a red seat: the stop tightens (never wider, never under the floor)
+            stop = min(stop, max(_ci.STOP_FLOOR, stop * FLOW_TIGHT))
         p['stopNow'] = stop   # ⚡ the 6-second guard stops an agent seat at THIS line between ticks (`fast_reap`)
         tr_ = pol.get('trail') or {}
         arm = _f(tr_.get('arm')) if tr_.get('mode') == 'custom' else T('protectAt')
@@ -618,6 +624,10 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R4e early wallets unloading', f"{prwhy_} at {pct:+.1f}%", 'pull'
         elif tp == 'dump' and (pct > 0 or (n.get('buy') is not None and _f(n['buy']) < 45)):
             st, rule, ev, act = ('TAKE' if pct > 0 else 'EXIT INVALIDATED'), 'R4 whale dump', f"the tape reads a dump at {pct:+.1f}%" + (f", buyers {_f(n['buy']):.0f}%" if n.get('buy') is not None else ''), 'pull'
+        elif mine and live and fv_ and fv_.get('state') == 'SELLERS' and pct >= FLOW_BANK_PCT:   # 🌊 the buy / sell vital flipped to sellers on a green seat: bank it into the last buyers
+            st, rule, ev, act = 'TAKE', 'R4f sellers took over', f"{pct:+.1f}% and {fv_.get('why')} — banked into the last buyers", 'pull'
+        elif mine and live and fv_ and fv_.get('state') == 'PEAK' and fv_.get('tape') == 'climax' and pct >= FLOW_CLIMAX_PCT:   # 🏔 buyers paying up while the price stalls: the top forming
+            st, rule, ev, act = 'TAKE', 'R4c buying climax', f"{pct:+.1f}% and {fv_.get('why')} — banked into the climax", 'pull'
         elif pct <= -_ci.CATASTROPHIC_STOP:   # 🧱 the hard ceiling, every coin Reaper watches — a constant: no tunable, promotion or thesis reaches it
             st, rule, ev, act = 'EXIT INVALIDATED', 'R5x catastrophic stop', f'{pct:+.1f}% ≤ −{_ci.CATASTROPHIC_STOP:g}% (hard-coded)', 'pull'
         elif pol.get('sl') and pct <= -_f(pol['sl']):   # 🎛 the creator's hard stop: every coin Reaper watches, in every mode
@@ -680,7 +690,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         pos[m] = p
         out.append({**base, 'state': st, 'rule': rule, 'evidence': ev, 'action': act, 'exec': 'confirmed', 'entry': entry, 'px': px, 'pct': round(pct, 2), 'peak': round(p['peak'], 2),
                     'dd': round(p['peak'] - pct, 2), 'heldMin': round(held, 1), 'liq': lq1 or None, 'liqPct': round(lq1 / lq0 * 100) if lq0 > 0 and lq1 > 0 else None,
-                    'top10': top1, 'top10D': round(_f(top1) - _f(top0), 1) if top1 is not None and top0 is not None else None, 'lean': lean,
+                    'flow': fv_, 'top10': top1, 'top10D': round(_f(top1) - _f(top0), 1) if top1 is not None and top0 is not None else None, 'lean': lean,
                     'trigger': None if not x else _opp.narrative(x)[0], 'devil': None, 'weather': (weather_ or {}).get('regime'),
                     'take': take, 'takeSource': tsrc, 'stop': -stop, 'hardStop': -_ci.CATASTROPHIC_STOP, 'decision': decision,
                     'armAt': round(arm, 2) if trail_on else None, 'trailAt': round(max(MIN_KEEP, trail_line), 2) if trail_on and p['peak'] >= arm else None, 'obeying': (f'{tsrc} take' if rule.startswith('R6') else OBEY.get(rule.split(' ')[0], 'thesis hold')),

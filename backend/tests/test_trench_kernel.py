@@ -137,3 +137,17 @@ def test_the_view_is_consistent_after_a_newer_price_event():
     k.price_event('B', 1.05, 130.0, {'held': {'B': {'entry': 1.0, 'peak': 0, 'stopNow': 20}}})   # B became held after the pass
     v = k.view(120.0)
     assert [l['mint'] for l in v['lanes'] if l['state'] == 'HELD'] == ['B'] and all(c['decidedAgo'] >= 0 for c in v['candidates'])
+
+
+def test_the_live_tape_decides_triggers_moment_and_a_crowd_only_ranks_a_little_higher():
+    ms = lambda **k: ts.from_row(row('F', **k), 100.0)
+    plain = tb.trigger(ms())
+    assert plain['state'] in ('ENTER', 'ARM') and plain['flow'] is None                      # no fresh tape = not judged
+    sell = tb.trigger(ms(fv={'state': 'SELLERS', 'why': 'sellers lead: $5 vs $90'}))
+    assert sell['state'] == 'WAIT' and 'sellers lead' in sell['why']
+    peak = tb.trigger(ms(fv={'state': 'PEAK', 'why': 'already +8.0% inside 90s'}))
+    assert peak['state'] == 'ARM' and 'not bought at the top' in peak['why']
+    assert tb.trigger(ms(fv={'state': 'THIN', 'why': 'x'}))['state'] == plain['state']
+    a, b = tb.think(ms()), tb.think(ms(fv={'state': 'BUYERS', 'hot': True, 'why': 'a crowd is buying'}))
+    assert round(b['rank'] / a['rank'], 2) == tb.CROWD_F                                     # a rank weight, never a gate
+    assert 'flow' in ts.material(ms(), ms(fv={'state': 'SELLERS', 'why': 'x'})) and 'flow' not in ts.material(ms(), ms())

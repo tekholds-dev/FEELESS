@@ -53,6 +53,8 @@ def window(trades, now, sec=FLOW_SEC):
     big = max((t for t in rows if t.get('kind') == 'sell'), key=lambda t: _f(t.get('usd')), default=None)
     return {'buyUsd': round(buy, 2), 'sellUsd': round(sell, 2), 'n': len(rows), 'sellShare': round(sell / (buy + sell) * 100, 1) if buy + sell > 0 else None,
             'pxChg': round((pxs[-1] / pxs[0] - 1) * 100, 2) if len(pxs) >= 2 else 0.0,
+            'buyers': len({t.get('wallet') for t in rows if t.get('kind') == 'buy' and t.get('wallet')}),
+            'sellers': len({t.get('wallet') for t in rows if t.get('kind') == 'sell' and t.get('wallet')}),
             'bigSell': {'usd': round(_f(big.get('usd')), 2), 'wallet': big.get('wallet')} if big else None,
             'sells': [(t.get('wallet'), _f(t.get('usd'))) for t in rows if t.get('kind') == 'sell']}
 
@@ -208,6 +210,52 @@ META_MIN_WALLETS = 6      # distinct wallets trading
 META_ONE_WALLET = 45.0    # one wallet's share of all buying ≥ this = ONE WALLET (a one-man pump)
 META_SAME_SIZE = 50.0     # trades of the exact same $ size ≥ this % = BOT (a loop, not a crowd)
 META_SELL_RATIO = 1.5     # sells ≥ 1.5× buys = DUMPING
+
+
+VITAL_MIN_TRADES = 4      # fewer swaps in the window = THIN (not judged — never a block on its own)
+VITAL_MIN_USD = 25.0      # … or this little money moved
+VITAL_SELL_RATIO = 1.5    # sells ≥ 1.5× buys on a falling price = SELLERS lead
+VITAL_BUY_RATIO = 1.3     # buys ≥ 1.3× sells with ≥ VITAL_MIN_BUYERS different wallets = BUYERS lead
+VITAL_MIN_BUYERS = 3
+VITAL_HOT_BUYERS = 8      # this many different buyers inside 90s = a crowd (owner: "volume jumping with hella buyers")
+VITAL_SPIKE_PCT = 6.0     # the price up this much inside the window = the top of a spike (not an entry)
+VITAL_STATES = ('BUYERS', 'BALANCED', 'SELLERS', 'PEAK', 'THIN')
+
+
+def vital(win):
+    """🌊 THE BUY / SELL VITAL (owner, 2026-10-13: "buy/sell bar should be a vital and be wired to Reaper and whomever else who watches";
+    "learn not to buy at the peak"). The last 90s of REAL swaps → ONE state every desk reads the same way:
+      BUYERS   — buys ≥ 1.3× sells by $ with ≥ 3 different buyers (`hot` = ≥ 8 buyers: a crowd)
+      SELLERS  — sells ≥ 1.5× buys on a falling price, or the tape reads 🩸 dump
+      PEAK     — a 🏔 buying climax (buyers pay up, the price stalls) or the price already +6% inside the window: the top, not an entry
+      BALANCED — neither side leads · THIN — too few swaps to judge (never a block by itself)
+    → {state, why, buyUsd, sellUsd, buyPct, n, buyers, sellers, pxChg, tape, hot} or None (no tape). Pure; a reading, never a promise."""
+    if not win:
+        return None
+    b, s, n, px = _f(win.get('buyUsd')), _f(win.get('sellUsd')), int(_f(win.get('n'))), _f(win.get('pxChg'))
+    nb, ns = int(_f(win.get('buyers'))), int(_f(win.get('sellers')))
+    tot = b + s
+    tp = tape_read(win)
+    out = {'buyUsd': round(b, 2), 'sellUsd': round(s, 2), 'buyPct': round(b / tot * 100) if tot > 0 else None, 'n': n, 'buyers': nb, 'sellers': ns,
+           'pxChg': round(px, 2), 'tape': tp, 'hot': nb >= VITAL_HOT_BUYERS}
+    money = f"${b:,.0f} bought by {nb} vs ${s:,.0f} sold by {ns} in {FLOW_SEC}s"
+    if n < VITAL_MIN_TRADES or tot < VITAL_MIN_USD:
+        return {**out, 'state': 'THIN', 'why': f"{n} swaps, ${tot:,.0f} in {FLOW_SEC}s — too thin to read"}
+    if tp == 'dump' or (s >= VITAL_SELL_RATIO * max(b, 0.01) and px < 0):
+        return {**out, 'state': 'SELLERS', 'why': f"sellers lead: {money}, price {px:+.1f}%"}
+    if tp == 'climax' or px >= VITAL_SPIKE_PCT:
+        return {**out, 'state': 'PEAK', 'why': (f"buying climax: {money} but the price stalls ({px:+.1f}%)" if tp == 'climax' and px < VITAL_SPIKE_PCT
+                                              else f"already {px:+.1f}% inside {FLOW_SEC}s — the top of the spike")}
+    if b >= VITAL_BUY_RATIO * max(s, 0.01) and nb >= VITAL_MIN_BUYERS:
+        return {**out, 'state': 'BUYERS', 'why': f"{'a crowd is buying' if nb >= VITAL_HOT_BUYERS else 'buyers lead'}: {money}, price {px:+.1f}%"}
+    return {**out, 'state': 'BALANCED', 'why': f"no side leads: {money}, price {px:+.1f}%"}
+
+
+def vital_block(v):
+    """The vital's reason NOT to enter right now (Trigger + the fill gate), else None. THIN / no tape = not judged."""
+    if v and v.get('state') in ('SELLERS', 'PEAK'):
+        return v['why']
+    return None
 
 
 def trench_meta(trades, now, sec=META_SEC):

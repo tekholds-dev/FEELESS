@@ -18,6 +18,7 @@ SEVERITY = ('INFO', 'WARNING', 'STRONG_WARNING', 'HARD_VETO')
 TRIGGER_OF = {'HOT EARLY MOVE': 'ENTER', 'BREAKOUT': 'ENTER', 'RUNNING': 'ENTER', 'BUILDING': 'ARM', 'STALLING': 'WAIT', 'DISTRIBUTING': 'NO', 'COLLAPSING': 'NO'}
 WEATHER_F = {'HOT': 1.1, 'NORMAL': 1.0, 'CHOP': 0.9, 'THIN': 0.85, 'HOSTILE': 0.8}
 LANES = 4
+CROWD_F = 1.05      # ≥ 8 different buyers in 90s with buyers leading (flow.vital `hot`)
 READY_MIN = 120.0     # an open_score this high with Trigger ENTER = READY (the base score is 100 for an average coin)
 
 
@@ -66,7 +67,12 @@ def trigger(ms, lessons=None):
     late = _lc.lesson_value(lessons, 'trigger', 'lateMove')
     if st == 'ENTER' and late > 0 and _f(ms['market'].get('move5m')) >= late:
         st, why = 'ARM', f"{why} — already {_f(ms['market'].get('move5m')):+.0f}% in 5 min (armed, not chased)"
-    return {'narrative': nar, 'why': why, 'state': st}
+    fv = ms['market'].get('flow') or {}   # 🌊 the live tape decides the MOMENT: never into sellers, never into the top of a spike
+    if st in ('ENTER', 'ARM') and fv.get('state') == 'SELLERS':
+        st, why = 'WAIT', f"{why} — but {fv.get('why')}"
+    elif st == 'ENTER' and fv.get('state') == 'PEAK':
+        st, why = 'ARM', f"{why} — {fv.get('why')} (armed for the dip, not bought at the top)"
+    return {'narrative': nar, 'why': why, 'state': st, 'flow': fv.get('state')}
 
 
 def devil(ms, lessons=None):
@@ -136,7 +142,9 @@ def think(ms, ctx=None):
     t, sh, we, tr, dv = tally(ms), sherlock(ms, ls), weather(ms, c), trigger(ms, ls), devil(ms, ls)
     wa, co = warden(ms, dv, sh), courier(c)
     base, parts = _opp.open_score(ms['row'], c.get('weights'), _lc.lesson_value(ls, 'devil', 'strong'), c.get('aiw'))
-    rank = round(base * we['factor'] * sh['factor'], 1)
+    fv = ms['market'].get('flow') or {}
+    crowd = CROWD_F if fv.get('state') == 'BUYERS' and fv.get('hot') else 1.0   # 🌊 a crowd buying on the live tape ranks a little higher (never past a gate)
+    rank = round(base * we['factor'] * sh['factor'] * crowd, 1)
     op = {'tally': t, 'sherlock': sh, 'weather': we, 'trigger': tr, 'devil': dv, 'warden': wa, 'courier': co,
           'reaper': reaper(ms, held), 'archivist': {'sources': ms['identity']['sources']}, 'judge': judge(ms, c.get('weights'))}
     return {'opinions': op, 'rank': rank, 'parts': parts,

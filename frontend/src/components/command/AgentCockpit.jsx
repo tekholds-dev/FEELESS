@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 import { useHub, hubApply, useAi } from '../../lib/agentHub';
 import { rankFill, READY_MIN, devilOf } from '../../lib/agentRead';
-import { seatCards, focusMint, chartModel, decisionOf, tapeOf, tapeTone, TAPE_AGENT, AGE_BUCKETS, bucketCounts, reviewQueue, supplyWord,
+import { seatCards, flowBar, focusMint, chartModel, decisionOf, tapeOf, tapeTone, TAPE_AGENT, AGE_BUCKETS, bucketCounts, reviewQueue, supplyWord,
   seatState, STATE_CLS, missionTiles, letterMarkers, inputsOf, traceOf, CHAIN, maxIdByAgent, newEvents, queueStatus, queueMc } from '../../lib/cockpit';
 import { useEasedNumber } from '../../lib/easedNumber';
 import { STANCE_TONE } from '../../lib/aiRead';
@@ -104,7 +104,8 @@ function SeatCard({ s, on, onPick, readyN }) {
   if (s.open) return <div className={`ack-seat is-open ${on ? 'is-on' : ''}`} data-testid={`ack-seat-${s.seat}`}>
     <header><small>SEAT {s.seat}</small><i className={`ack-badge ${STATE_CLS[st]}`} data-testid={`ack-seat-state-${s.seat}`}>{st}</i></header>
     <p className="ack-open"><b>No position</b><span>{s.why}</span></p>
-    {(s.refused || []).length ? <ul className="ack-refused" data-testid={`ack-seat-refused-${s.seat}`}>{s.refused.map(r => <li key={`${r.symbol}-${r.at}`} data-tip={`${r.by === 'keeper' ? "the keeper's own buy check" : 'the seat pre-check'} · ${ago(r.at)} ago`}><b>${r.symbol}</b><span>{r.why}</span></li>)}</ul> : null}</div>;
+    {(s.refused || []).length ? <ul className="ack-refused" data-testid={`ack-seat-refused-${s.seat}`}>{s.refused.map(r => <li key={`${r.symbol}-${r.at}`} data-tip={`${r.by === 'keeper' ? "the keeper's own buy check" : 'the seat pre-check'} · ${ago(r.at)} ago`}><b>${r.symbol}</b><span>{r.why}</span></li>)}</ul> : null}
+    {(s.tapeWait || []).length ? <ul className="ack-refused is-tape" data-testid={`ack-seat-tape-${s.seat}`}>{s.tapeWait.map(r => <li key={r.symbol} data-tip="🌊 the live tape held this READY coin back this tick — it is re-read on the next one"><b>🌊 ${r.symbol}</b><span>{r.why}</span></li>)}</ul> : null}</div>;
   const last = s.last; const [ic, nm] = TAPE_AGENT[last?.agent] || ['', ''];
   return <button type="button" className={`ack-seat ${on ? 'is-on' : ''} ${s.pct > 0 ? 'is-up' : s.pct < 0 ? 'is-dn' : ''}`} onClick={() => onPick(s.mint)} aria-pressed={on} data-testid={`ack-seat-${s.seat}`}
     data-tip={`${s.tag || s.kind}${s.rule ? ` · Reaper ${s.rule}` : ''}${s.why ? ` — ${s.why}` : ''}`}>
@@ -116,6 +117,7 @@ function SeatCard({ s, on, onPick, readyN }) {
       <dt>IN SEAT</dt><dd>{money(s.usd)}</dd><dt>REALIZED</dt><dd>{s.realized == null ? '—' : signed(s.realized)}</dd></dl>
       <Spark path={s.path} /></div>
     <SeatBar s={s} />
+    <SeatFlow s={s} />
     <p className="ack-now" data-testid={`ack-seat-now-${s.seat}`}><span>☠ Reaper · {s.reaper || '—'}{s.rule ? ` · ${s.rule}` : ''}</span><small>next review {secs(s.nextReview)}</small></p>
     <footer data-testid={`ack-seat-last-${s.seat}`}>{last ? <><span style={{ '--ag': AG[last.agent] || 'var(--m-accent)' }}>{ic} {nm} · {last.action}</span><small>{ago(last.at)} ago</small></> : <span className="m-dim">no decision line yet</span>}</footer>
   </button>;
@@ -142,6 +144,13 @@ function Rail({ b, mini }) {
     {b.trailAt != null ? <s className="thd-line is-trail" style={{ left: `${b.trailAt * 100}%` }} /> : b.armAt != null && !mini ? <s className="thd-line is-arm" style={{ left: `${b.armAt * 100}%` }} /> : null}
     {b.peak > b.pct + 0.5 ? <em className="thd-peak" style={{ left: `${b.peakAt * 100}%` }} /> : null}
     <i className="thd-now" style={{ transform: `translateX(${(b.at * 100).toFixed(2)}cqw)` }} /></span>;
+}
+// 🌊 the seat's buy / sell vital — the same reading Reaper rules on (R4f sellers took over · R4c buying climax · a tighter stop on a red seat)
+export function SeatFlow({ s }) {
+  const f = flowBar(s.flow);
+  if (!f) return null;
+  return <span className={`thd-flow ${f.tone}`} data-testid={`ack-seat-flow-${s.seat}`} data-state={f.state} data-tip={`🌊 last 90s of real swaps — ${f.why}. Reaper reads this: sellers on a green seat = banked, on a red seat = a tighter stop.`}>
+    <b>🌊 {f.word}</b><span className="thd-flowbar"><i style={{ transform: `scaleX(${f.buy.toFixed(3)})` }} /></span><small>{f.line}</small></span>;
 }
 export function SeatBar({ s }) {
   const b = tradeBar({ entry: s.entry, stop: s.stop, take: s.take, mfe: s.peak, trailAt: s.trailAt, armAt: s.armAt }, s.px);

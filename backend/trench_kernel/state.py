@@ -15,7 +15,7 @@ from . import supply as _sup
 
 STATES = ('DISCOVERED', 'TRACKING', 'CONTENDING', 'READY', 'ORDER_PENDING', 'HELD', 'EXIT_PENDING', 'CLOSED')
 DATA = ('PENDING', 'READY', 'UNKNOWN', 'FAILED')
-EVENTS = ('new', 'price', 'volume', 'buyers', 'liquidity', 'candle', 'chart', 'holders', 'wallets', 'research', 'order', 'peak', 'invalidation')
+EVENTS = ('new', 'price', 'volume', 'buyers', 'flow', 'liquidity', 'candle', 'chart', 'holders', 'wallets', 'research', 'order', 'peak', 'invalidation')
 MATERIAL = {'price': 2.0, 'liquidity': 10.0, 'volume': 50.0, 'buyers': 15.0}   # % change that counts as an event
 KEEP = 3000
 
@@ -48,6 +48,7 @@ def from_row(row, now, sources=(), prev=None):
         'market': {'price': _f(x.get('px')) or None, 'marketCap': v.get('mcap'), 'liquidity': n.get('liq') or v.get('liq'), 'volume5m': n.get('v5'),
                    'volume1h': v.get('vol1h'), 'pace': n.get('pace'), 'buyShare': n.get('buy'), 'move5m': n.get('d5'), 'liqChange': n.get('liqD'),
                    'trades1h': v.get('txns1h'), 'priceAt': now, 'marketAt': now,
+                   'flow': x.get('fv'), 'distHigh': x.get('distHigh'),   # 🌊 the 90s buy / sell vital (None = no fresh tape) · % under its recent high
                    'supply': sup, 'supplySrc': sup_src},   # 📊 price × supply = the market cap every Agents chart is drawn in (None = unavailable, never a guess)
         'chart': {'state': ch.get('state'), 'phase': x.get('mp'), 'src': ch.get('src'), 'candles': ch.get('n'), 'quality': (ch.get('q') or {}).get('state'),
                   'entry': (ch.get('entry') or [None])[0], 'candleAt': ch.get('at') or (now if ch.get('src') == 'candles' else None)},
@@ -74,6 +75,8 @@ def material(prev, cur):
         ev.append('volume')
     if pm.get('buyShare') is not None and cm.get('buyShare') is not None and abs(_f(cm['buyShare']) - _f(pm['buyShare'])) >= MATERIAL['buyers']:
         ev.append('buyers')
+    if (pm.get('flow') or {}).get('state') != (cm.get('flow') or {}).get('state'):
+        ev.append('flow')
     if prev['chart'].get('state') != cur['chart'].get('state') or prev['chart'].get('phase') != cur['chart'].get('phase'):
         ev.append('chart')
     if prev['chain'].get('holderStatus') != cur['chain'].get('holderStatus'):

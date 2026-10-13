@@ -1,4 +1,4 @@
-import { seatCards, focusMint, chartModel, chartMarkers, decisionOf, tapeOf, tapeTone, lastByMint, mcFrom, supplyFrom, reviewQueue, bucketCounts, inBucket, supplyWord,
+import { seatCards, flowBar, focusMint, chartModel, chartMarkers, decisionOf, tapeOf, tapeTone, lastByMint, mcFrom, supplyFrom, reviewQueue, bucketCounts, inBucket, supplyWord,
   seatState, pnlUsdOf, execWords, missionTiles, letterMarkers, freshWord, inputsOf, traceOf, newEvents, maxIdByAgent, queueStatus, queueMc } from './cockpit';
 import { easedAt, EASE_MS } from './easedNumber';
 import { applyDelta, TAPE_KEEP } from './agentHub';
@@ -151,4 +151,15 @@ test('team tile: the lives when the card has them, else the ten-agent lifecycle 
   const gens = ['tally', 'devil'].map((role, i) => ({ role, status: i ? 'PROBATION' : 'ACTIVE' }));
   const t = Object.fromEntries(missionTiles({ office: { mission: {}, generations: gens } }, []).map(x => [x.k, x]));
   expect(t.lives).toMatchObject({ label: 'TEAM', text: '1 / 2 ACTIVE', sub: 'probation: devil', cls: 'is-warn' });
+});
+
+test('🌊 a seat carries its buy / sell vital; an open seat lists READY coins the tape held back', () => {
+  const d = { card: { seats: [{ symbol: 'A', mint: 'MA', pair: 'PA', kind: 'agent' }, { kind: 'open' }] },
+    office: { positions: [{ mint: 'MA', entry: 1, px: 1.05, flow: { state: 'SELLERS', buyPct: 12, buyers: 2, sellers: 6, why: 'sellers lead' } }], flowWait: { rows: [{ symbol: 'B', why: 'already +8% inside 90s' }] } } };
+  const [a, open] = seatCards(d);
+  expect(flowBar(a.flow)).toMatchObject({ state: 'SELLERS', word: 'SELLERS LEAD', tone: 'is-dn', buy: 0.12, line: '2 buyers · 6 sellers' });
+  expect(open.tapeWait).toEqual([{ symbol: 'B', why: 'already +8% inside 90s' }]);
+  expect(flowBar({ state: 'BUYERS', hot: true, buyPct: 90 }).word).toBe('CROWD BUYING');
+  expect(flowBar(null)).toBeNull(); expect(flowBar({ state: 'THIN' })).toMatchObject({ known: false, tone: 'is-flat' });
+  expect(seatCards({ card: d.card, office: { positions: [{ mint: 'MA', entry: 1, px: 1 }] } })[0].flow).toBeNull();   // no fresh tape = no bar, never a guess
 });

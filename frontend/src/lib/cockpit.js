@@ -58,7 +58,7 @@ export function seatCards(d, livePx) {
     if (open) {   // the server's own reason this seat is open (OFFICE NOT LIVE · NO VALID ENTRY · BUDGET …) — never a promise that it fills
       const sv = (o.seat?.seats || []).find(z => z.seat === i + 1) || (o.seatBoard || []).find(z => z.seat === i + 1 && z.empty) || null;
       return { seat: i + 1, open: true, badge: sv?.code || 'OPEN', why: sv?.reason || sv?.why || o.seat?.reason || `${ready} READY candidate${ready === 1 ? '' : 's'} on the desk this pass`,
-        refused: i === 0 ? (o.seat?.refused || []).slice(0, 3) : [] };   // why READY coins did not become positions (the keeper's own words) — once, on the first open seat
+        refused: i === 0 ? (o.seat?.refused || []).slice(0, 3) : [], tapeWait: i === 0 ? (o.flowWait?.rows || []).slice(0, 3) : [] };   // why READY coins did not become positions (the keeper's own words) — once, on the first open seat
     }
     const p = pos[x.mint] || {}; const b = board[x.mint] || {}; const c = cand[x.mint] || {};
     const lp = livePx && x.pair ? livePx.get?.(x.pair) : null;
@@ -76,7 +76,7 @@ export function seatCards(d, livePx) {
       usd, pnlUsd: pnlUsdOf(usd, pct), heldMin: num(p.heldMin ?? b.heldMin), rule: p.rule || b.rule || null, why: p.evidence || b.why || x.why || null,
       take: num(p.take ?? x.take), stop: num(p.stop), peak: num(p.mfe ?? p.peak), trailAt: num(p.trailAt), armAt: num(p.armAt), last: last[x.mint] || null, ageMin: ageH != null ? ageH * 60 : num(c.ageMin),
       nextReview: num(p.nextReview), realized: num(p.realizedUsd), path: Array.isArray(p.path) ? p.path.map(num).filter(v => v != null) : [],
-      rotate: !!b.switch, reaper: p.decision || p.state || b.result || null, state: null };
+      flow: p.flow?.state ? p.flow : null, rotate: !!b.switch, reaper: p.decision || p.state || b.result || null, state: null };
   });
 }
 
@@ -300,3 +300,13 @@ export function queueStatus(c) {
   return num(c.ageMin) != null && c.ageMin < 5 ? 'NEW' : 'TRACKING';
 }
 export const queueMc = c => mcFrom(c?.price, c?.supply, c?.cap, c?.mint);
+
+// 🌊 the buy / sell vital of a seat's last 90s of real swaps (flow.vital on the server): one word + the green share of the bar
+export const FLOW_WORD = { BUYERS: 'BUYERS LEAD', SELLERS: 'SELLERS LEAD', PEAK: 'PEAK', BALANCED: 'BALANCED', THIN: 'THIN TAPE' };
+export function flowBar(f) {
+  if (!f?.state) return null;
+  const pct = Number.isFinite(Number(f.buyPct)) ? Math.max(0, Math.min(100, Number(f.buyPct))) : null;
+  return { state: f.state, word: f.state === 'BUYERS' && f.hot ? 'CROWD BUYING' : FLOW_WORD[f.state] || f.state, buy: pct == null ? 0.5 : pct / 100, known: pct != null,
+    tone: f.state === 'BUYERS' ? 'is-up' : f.state === 'SELLERS' ? 'is-dn' : f.state === 'PEAK' ? 'is-warn' : 'is-flat',
+    line: `${f.buyers ?? 0} buyers · ${f.sellers ?? 0} sellers`, why: f.why || '' };
+}

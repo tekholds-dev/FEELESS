@@ -88,3 +88,21 @@ def test_a_winner_at_a_buying_climax_sells_half_its_profit_and_keeps_riding():
     assert hits[0][1] == 'climax' and not l.get('placeholder') and abs(l['units'] - 10 * (1 - 2.5 / 15)) < 1e-6 and out['cash'] > 2.4
     out2, hits2 = fl.flow_exits(out, {'p': w}, {'m': 1.5}, {'flowExit': 'tight', 'rugRadar': False}, NOW + 60)
     assert hits2 == []                                                     # once per 15 min
+
+
+def test_the_buy_sell_vital_names_one_state_every_desk_reads_the_same_way():
+    buys = lambda n, usd=20, px=lambda i: 1.0 + i * 0.002: [T(80 - i * 6, 'buy', usd, px(i), f'b{i}') for i in range(n)]
+    assert fl.vital(None) is None and fl.vital_block(None) is None                                             # no tape = not judged
+    thin = fl.vital(fl.window([T(10, 'buy', 5, 1.0)], NOW))
+    assert thin['state'] == 'THIN' and fl.vital_block(thin) is None                                            # thin is never a block by itself
+    v = fl.vital(fl.window(buys(4) + [T(3, 'sell', 10, 1.008, 's')], NOW))
+    assert v['state'] == 'BUYERS' and not v['hot'] and v['buyers'] == 4 and v['sellers'] == 1 and v['buyPct'] == 89
+    crowd = fl.vital(fl.window(buys(9), NOW))
+    assert crowd['state'] == 'BUYERS' and crowd['hot'] and 'crowd' in crowd['why'] and fl.vital_block(crowd) is None
+    one = fl.vital(fl.window([T(80 - i * 6, 'buy', 20, 1.0 + i * 0.002, 'same') for i in range(6)], NOW))
+    assert one['state'] == 'BALANCED'                                                                          # one wallet buying is not "buyers lead"
+    sell = fl.vital(fl.window([T(80 - i * 8, 'sell' if i % 3 else 'buy', 30 if i % 3 else 5, 1.0 - i * 0.01, f'w{i}') for i in range(9)], NOW))
+    assert sell['state'] == 'SELLERS' and 'sellers lead' in fl.vital_block(sell)
+    spike = fl.vital(fl.window(buys(5, px=lambda i: 1.0 + i * 0.02), NOW))
+    assert spike['state'] == 'PEAK' and 'top of the spike' in fl.vital_block(spike)                            # +8% inside 90s: the top, not an entry
+    assert set(fl.VITAL_STATES) >= {v['state'], thin['state'], sell['state'], spike['state'], one['state']}
