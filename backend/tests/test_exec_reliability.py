@@ -128,3 +128,28 @@ def test_logs_keep_their_newest_tail_and_ledgers_are_never_in_scope(tmp_path):
     assert f.stat().st_size < stt.LOG_KEEP_BYTES + 100 and f.read_bytes().endswith(b'NEWEST LINE\n')
     assert (tmp_path / 'fuse_wallet.db').stat().st_size == stt.LOG_MAX_BYTES + 10                              # a ledger is never a log
     assert stt.LOG_GLOB == 'feeless-*.log'
+
+
+def test_prime_view_is_single_flight_and_an_owner_write_clears_it(monkeypatch):
+    """⚡ /fuses/prime: concurrent viewers share ONE build; a young answer is served at once; an owner write empties the cache and a
+    build that started before the write cannot refill it."""
+    import reputation_service as rs
+    monkeypatch.delenv('PYTEST_CURRENT_TEST', raising=False)
+    calls = {'n': 0}
+
+    async def build():
+        calls['n'] += 1
+        await asyncio.sleep(0.05)
+        return {'n': calls['n']}
+    monkeypatch.setattr(rs, '_fuse_prime_build', build)
+    rs._prime_resp.update(at=0.0, data=None, task=None, cleared=0.0)
+
+    async def go():
+        a = await asyncio.gather(*[rs.fuse_prime() for _ in range(5)])
+        b = await rs.fuse_prime()
+        t = asyncio.create_task(rs._prime_resp_build()); await asyncio.sleep(0.01)
+        rs._prime_resp_clear(); await t
+        return a, b
+    a, b = asyncio.run(go())
+    assert calls['n'] == 2 and all(x == {'n': 1} for x in a) and b == {'n': 1}                                  # 5 viewers → 1 build; young → served
+    assert rs._prime_resp['data'] is None                                                                      # the pre-write build did not refill it

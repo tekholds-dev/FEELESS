@@ -219,7 +219,7 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
       : fetch(apiUrl('/api/reputation/fuses/preview'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
         .then(async r => { const d = await r.json().catch(() => null); if (!r.ok || !d) throw new Error(d?.detail || 'The preview server is busy — trying again in a moment.'); return d; }));
     const t = setTimeout(() => run().then(d => {
-      setPrev(d); setErr('');
+      setPrev(Array.isArray(d?.legs) ? d : null); setErr('');   // only a real preview (a partial answer under load once crashed the plan column)
       if (d?.droppedRunners?.length && onRunnerPicks) {   // a runner just failed a gate: untick it, say which + why (no error wall)
         const gone = new Set(d.droppedRunners.map(x => x.mint));
         onRunnerPicks(rp => rp.filter(x => !gone.has(x.mint)));

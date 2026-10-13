@@ -4160,7 +4160,12 @@ async def _edge_build(todo, now, budget=None):
             return await (asyncio.wait_for(coro, timeout=budget) if budget else coro)
         except Exception:
             return default
-    pulses, ver_ = await asyncio.gather(_cap(_edge_pulses(todo), None), _cap(verify_batch(','.join(todo)), None))
+    async def _bs():
+        try:
+            return await asyncio.wait_for(_bs_rows(todo), timeout=2.5)   # 🌊 buys vs sells 5m / 1h (+ the live 90s tape for held coins); never slows the edge
+        except Exception:
+            return {}
+    pulses, ver_, bs_ = await asyncio.gather(_cap(_edge_pulses(todo), None), _cap(verify_batch(','.join(todo)), None), _bs())   # all three at once
     partial = pulses is None or ver_ is None
     pulses, ver = pulses or {}, ((ver_ or {}).get('verify') or {})
     snip = {}
@@ -4171,10 +4176,6 @@ async def _edge_build(todo, now, budget=None):
     runner = {r['mint']: r for r in (live.get('dropped') or []) + (live.get('passing') or [])}
     disc = {r['mint']: r.get('sources') or [] for r in ((_runner_disc_cache.get('data') or {}).get('runners') or [])}
     flow = ((_crowd_cache.get('data') or {}).get('flow')) or {}
-    try:
-        bs_ = await asyncio.wait_for(_bs_rows(todo), timeout=2.5)   # 🌊 buys vs sells 5m / 1h (+ the live 90s tape for held coins); never slows the edge
-    except Exception:
-        bs_ = {}
     out = {}
     for m in todo:
         rec = {**_edge.compose(m, pulses.get(m), snip.get(m), ver.get(m), (_intel_cache.get(m) or (0, None))[1], runner.get(m), disc.get(m), flow.get(m)), 'bs': bs_.get(m)}
@@ -10355,8 +10356,40 @@ async def _prime_view():
              'audit': [{k: e.get(k) for k in ('at', 'kind', 'symbol', 'usd', 'why', 'to', 'mode')} for e in (c.get('events') or [])[-40:][::-1]]} for c in cards.values()]
 
 
+PRIME_FRESH_SEC = 3.0     # a /fuses/prime answer this young is served as is
+PRIME_STALE_SEC = 30.0    # this young: served at once while ONE background rebuild runs (a full build awaits prices — it took 12–13s at times)
+_prime_resp: dict = {'at': 0.0, 'data': None, 'task': None, 'cleared': 0.0}
+
+
+def _prime_resp_clear():
+    _prime_resp.update(at=0.0, data=None, task=None, cleared=time.time())
+
+
+async def _prime_resp_build():
+    t0 = time.time()
+    data = await _fuse_prime_build()
+    if t0 >= _prime_resp['cleared']:   # a build that began before an owner write never refills the cache with the old state
+        _prime_resp.update(at=time.time(), data=data)
+    return data
+
+
 @app.get('/api/reputation/fuses/prime')
 async def fuse_prime():
+    """⭐ Arena Prime cards — single-flight + stale-while-revalidate over `_fuse_prime_build` (every viewer and poller shares ONE build)."""
+    if os.environ.get('PYTEST_CURRENT_TEST'):
+        return await _fuse_prime_build()
+    age = time.time() - _prime_resp['at']
+    t = _prime_resp.get('task')
+    if _prime_resp['data'] is not None and age < PRIME_FRESH_SEC:
+        return _prime_resp['data']
+    if t is None or t.done():
+        t = _prime_resp['task'] = asyncio.create_task(_prime_resp_build())
+    if _prime_resp['data'] is not None and age < PRIME_STALE_SEC:
+        return _prime_resp['data']
+    return await asyncio.shield(t)
+
+
+async def _fuse_prime_build():
     """⭐ Arena Prime cards (paper, fully auto) with every automation event + the config they run."""
     _rc = _prime_real_cfg() if any((c or {}).get('real') for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values()) else {}
     _seed = sum(ord(ch) for ch in ''.join(sorted(_owner_wallets()))[:44]) if _rc else 0   # ⚡ each owner's card gets its own variant of the meta
@@ -10378,6 +10411,7 @@ async def fuse_prime_admin(request: Request):
     admin = _require_admin(request)
     body = await request.json()
     kick_real_keeper = False
+    _prime_resp_clear()   # an owner write is never answered from a cached /fuses/prime
     async with _admin_lock:
         d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
         was = {t: (_prime.clean_cfg(pr.get('cfg') or {}).get('cycles') or {}).get(t) for t in _prime.TEMPLATES}
