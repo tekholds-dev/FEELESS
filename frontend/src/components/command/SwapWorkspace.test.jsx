@@ -177,6 +177,8 @@ test('keeps an uncertain execution pending across reopen without resending the s
     '/api/trading/execute',
     expect.objectContaining({ method: 'POST', body: expect.stringContaining(orderId) }),
   ]);
+  // the result paints after the execute answer settles: under a loaded machine that is a few more turns than one act() flushes
+  for (let i = 0; i < 60 && !firstMount.container.querySelector('[data-testid="swap-result"] b'); i += 1) await act(async () => { await new Promise(r => setTimeout(r, 50)); });
   expect(firstMount.container.querySelector('[data-testid="swap-result"] b').textContent).toBe('SUBMITTED');
   expect(JSON.parse(localStorage.getItem('feeless.pending-swap-order'))).toEqual({ order_id: orderId });
   expect(localStorage.getItem('feeless.pending-swap-order')).not.toContain('signed_transaction');
