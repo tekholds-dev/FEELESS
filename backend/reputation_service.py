@@ -10994,16 +10994,48 @@ JUP_BUSY_SEC = 20.0
 _FW_JUP_BUSY = {'at': 0.0}   # when Jupiter last answered 429 / 5xx — sells and real buys keep the quota
 
 
+JUP_GAP_SEC = 0.2            # (tests) scale of the per-lane spacing below
+JUP_LANE_GAP = {'https://api.jup.ag': 1.05, 'https://lite-api.jup.ag': 0.35}   # a free key = ~1 request a second; the public lane is shared with our own price reads
+JUP_LANE_REST = 8.0          # a lane that answered 429 rests this long (or its Retry-After, ≤ 20s)
+_FW_JUP_PACE = {'lock': None, 'next': {}, 'rest': {}}
+
+
+def _jup_lanes(key):
+    """📡 Jupiter = TWO lanes, like the RPC: the keyed API (the plan's own quota) and the public one (its own, separate limit). Each lane
+    is PACED to what its plan allows and rests after a 429; a call goes to whichever lane is free first. 2026-10-12: a $0.08 sell failed
+    "route unavailable (HTTP 429)" four passes in a row (quotes were fired in bursts at the keyed lane alone), Courier read execution BAD
+    and every seat was blocked behind it. Never a URL with a key in it; the key rides a header."""
+    return ([('https://api.jup.ag', {'x-api-key': key})] if key else []) + [('https://lite-api.jup.ag', {})]
+
+
+def _jup_pick(lanes, now):
+    """→ (lane, wait seconds): the lane whose next free slot comes first (its spacing and any 429 rest counted)."""
+    free = lambda b: max(_FW_JUP_PACE['next'].get(b, 0.0), _FW_JUP_PACE['rest'].get(b, 0.0))
+    lane = min(lanes, key=lambda l: free(l[0]))
+    return lane, max(0.0, free(lane[0]) - now)
+
+
 async def _fw_jup(method, path, **kw):
-    key = os.environ.get('JUPITER_API_KEY')
-    base = 'https://api.jup.ag' if key else 'https://lite-api.jup.ag'
+    lanes = _jup_lanes(os.environ.get('JUPITER_API_KEY'))
+    if _FW_JUP_PACE['lock'] is None:
+        _FW_JUP_PACE['lock'] = asyncio.Lock()
+    scale = JUP_GAP_SEC / 0.2
     async with httpx.AsyncClient(timeout=20) as http:
-        for attempt in range(3):   # 429 / 5xx = Jupiter busy (several coins at once) → short back-off, never a lost buy
-            r = await http.request(method, base + path, headers={'x-api-key': key} if key else {}, **kw)
+        for attempt in range(6):   # 429 / 5xx = that lane rests and the other one answers; every lane resting = wait for the first to come back
+            async with _FW_JUP_PACE['lock']:
+                (base, hdr), wait_ = _jup_pick(lanes, time.time())
+                if wait_ > 0:
+                    await asyncio.sleep(min(wait_, 6.0))
+                _FW_JUP_PACE['next'][base] = time.time() + JUP_LANE_GAP.get(base, 0.35) * scale
+            r = await http.request(method, base + path, headers=hdr, **kw)
             if r.status_code != 429 and r.status_code < 500:
                 break
             _FW_JUP_BUSY['at'] = time.time()   # Jupiter is rate-limiting us: optional reads (the seat pre-check's quotes) stand down for a while
-            await asyncio.sleep(1.5 * (attempt + 1))
+            try:
+                ra_ = float(r.headers.get('retry-after') or 0)
+            except (TypeError, ValueError, AttributeError):
+                ra_ = 0.0
+            _FW_JUP_PACE['rest'][base] = time.time() + min(20.0, max(JUP_LANE_REST, ra_)) * scale
     try:
         data = r.json() if r.content else {}
     except ValueError:

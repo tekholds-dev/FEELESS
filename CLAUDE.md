@@ -3460,3 +3460,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (clamped 0.9–1.1). THIS REPLACES "an AI answer never changes a rank" — still never an order, size, block, stop or sell, and an unproven model
   weighs exactly nothing. Low usage: `ai_router.case_key` is the case's STATE (coarse numbers), `CACHE_SEC` 600; `_ai_brief` gives Sherlock holders ·
   chart · flow · launch · crowd from the desk's own row (no fetch). 2026-10-12 the local model answers in ~4s; Groq key set but untested.
+- 📡 JUPITER = TWO PACED LANES for the keeper (`_fw_jup`, `_jup_lanes`, `_jup_pick`, `JUP_LANE_GAP` keyed 1.05s · public 0.35s, `JUP_LANE_REST` 8s
+  after a 429 or its Retry-After): a call goes to whichever lane is free first. Found live 2026-10-12 right after the seat fixes: a $0.08 off-card sell
+  failed "Jupiter route unavailable (HTTP 429)" four passes running → Courier read execution BAD → COURIER BLOCK on all four seats. The keyed lane
+  (`JUPITER_API_KEY` IS set — a free key ≈ 1 request a second) was hit by bursts of quotes (direct + multi + sell-back + build per order, + the
+  pre-sell buy checks). "COURIER BLOCK" / "route unavailable (HTTP 429)" ⇒ count the keeper's Jupiter calls per pass before anything else. The
+  market service's own log is full of DexScreener 429s (launch board) — not fixed here.

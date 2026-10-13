@@ -503,3 +503,32 @@ def test_a_plain_burst_429_only_rests_a_scanner_node_a_few_seconds(monkeypatch):
     http = _Http([_Res(429, {}), _Res(200, {'result': 1})])
     assert asyncio.run(chain_rpc._rpc(http, 'getTokenLargestAccounts', ['M'])) == 1
     assert 0 < chain_rpc._rpc_cooldown_until['A'] - time.time() <= chain_rpc.RPC_BURST_COOLDOWN + 1   # 4s, not 30s: bursts must not cool every lane at once
+
+
+def test_jupiter_has_two_lanes_a_429_on_the_keyed_one_is_answered_by_the_public_one(monkeypatch):
+    import reputation_service as rs
+    calls = []
+
+    class R:
+        def __init__(self, code, body): self.status_code, self._b, self.content = code, body, b'x'
+        def json(self): return self._b
+
+    class H:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def request(self, method, url, headers=None, **kw):
+            calls.append((url.split('/')[2], bool((headers or {}).get('x-api-key'))))
+            return R(429, {}) if 'api.jup.ag' in url and 'lite' not in url else R(200, {'outAmount': '5'})
+    monkeypatch.setattr(rs.httpx, 'AsyncClient', H)
+    monkeypatch.setenv('JUPITER_API_KEY', 'k' * 24)
+    monkeypatch.setattr(rs, 'JUP_GAP_SEC', 0.0)
+    rs._FW_JUP_PACE.update(lock=None, next={}, rest={})
+    assert asyncio.run(rs._fw_jup('GET', '/swap/v1/quote', params={})) == {'outAmount': '5'}
+    assert calls == [('api.jup.ag', True), ('lite-api.jup.ag', False)]            # the key rides its own lane's header only; no wait between lanes
+    assert rs._FW_JUP_BUSY['at'] > 0                                             # …and the optional pre-check quotes stand down
+    assert rs._FW_JUP_PACE['rest'].get('https://api.jup.ag', 0) == 0 or rs._FW_JUP_PACE['rest']['https://api.jup.ag'] <= __import__('time').time() + 0.01   # (scaled to 0 in this test)
+    assert [b for b, _h in rs._jup_lanes(None)] == ['https://lite-api.jup.ag'] and len(rs._jup_lanes('x')) == 2
+    rs._FW_JUP_PACE.update(next={'A': 5.0, 'B': 2.0}, rest={'B': 9.0})
+    assert rs._jup_pick([('A', {}), ('B', {})], 1.0) == (('A', {}), 4.0)        # B is resting after a 429: A's next slot comes first
+    rs._FW_JUP_PACE.update(lock=None, next={}, rest={})
