@@ -1,0 +1,58 @@
+/* ⚡ HQ pop-out (creator wallet only) — the launcher on the mini cat + the full-window HQ. m-* tokens; transform / opacity only. */
+.hqp-fab { position: relative; width: 44px; height: 44px; margin: 0 5px 8px auto; display: grid; place-items: center; border-radius: 50%; cursor: pointer;
+  border: 1px solid rgba(21, 209, 106, .55); background: radial-gradient(circle at 35% 30%, #0f3a26, #03110a); color: #eafff3; transition: transform .16s ease, box-shadow .16s ease; }
+.hqp-fab b { font: 800 11px var(--m-mono, 'JetBrains Mono', monospace); letter-spacing: .08em; position: relative; }
+.hqp-fab > i { position: absolute; inset: -4px; border-radius: 50%; border: 1.5px solid transparent; border-top-color: #15d16a; border-right-color: rgba(69, 228, 134, .35); animation: hqpSpin 3.2s linear infinite; }
+.hqp-fab.is-work > i { animation-duration: .7s; border-top-color: var(--gold, #f5c451); }
+.hqp-fab:hover { transform: translateY(-2px) scale(1.06); box-shadow: 0 8px 22px rgba(0, 0, 0, .45), 0 0 18px rgba(21, 209, 106, .45); }
+.hqp-fab:active { transform: scale(.96); } .hqp-fab:focus-visible { outline: 2px solid #45e486; outline-offset: 3px; }
+.hqp-fab.on { background: #15d16a; color: #03110a; border-color: #45e486; }
+@keyframes hqpSpin { to { transform: rotate(360deg); } }
+
+.hqp { position: fixed; inset: 0; z-index: 4000; display: grid; grid-template-rows: auto minmax(0, 1fr); background: #030a07; color: #eafff3; animation: hqpIn .18s ease-out; isolation: isolate; }
+@keyframes hqpIn { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: none; } }
+.hqp-fx { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.hqp-fx > i { position: absolute; width: 46vmax; height: 46vmax; border-radius: 50%; opacity: .2; animation: hqpDrift 26s ease-in-out infinite alternate; }
+.hqp-fx > i:nth-child(1) { left: -14vmax; top: -18vmax; background: radial-gradient(circle, #15d16a 0, transparent 62%); }
+.hqp-fx > i:nth-child(2) { right: -16vmax; top: 10vmax; background: radial-gradient(circle, #1a6bff 0, transparent 62%); animation-duration: 34s; animation-direction: alternate-reverse; opacity: .13; }
+.hqp-fx > i:nth-child(3) { left: 30vw; bottom: -30vmax; background: radial-gradient(circle, #8a4dff 0, transparent 62%); animation-duration: 30s; opacity: .12; }
+@keyframes hqpDrift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(5vmax, 3vmax, 0); } }
+.hqp.is-work .hqp-fx > i:nth-child(1) { opacity: .34; } .hqp.is-slow .hqp-fx > i:nth-child(1) { background: radial-gradient(circle, #f5c451 0, transparent 62%); opacity: .26; }
+
+.hqp-bar { display: flex; align-items: center; gap: 14px; padding: 9px 16px; border-bottom: 1px solid rgba(21, 209, 106, .2); background: rgba(4, 16, 11, .92); min-width: 0; }
+.hqp-mark { position: relative; flex: none; width: 38px; height: 38px; display: grid; place-items: center; }
+.hqp-mark b { font: 800 11px var(--m-mono, 'JetBrains Mono', monospace); letter-spacing: .1em; color: #45e486; }
+.hqp-mark > i { position: absolute; inset: 0; border-radius: 50%; border: 1.5px solid transparent; border-top-color: #15d16a; border-left-color: rgba(21, 209, 106, .25); animation: hqpSpin 4s linear infinite; }
+.hqp-mark > i:nth-child(2) { inset: 5px; border-top-color: transparent; border-bottom-color: #45e486; animation-duration: 2.6s; animation-direction: reverse; }
+.hqp.is-work .hqp-mark > i { animation-duration: .8s; } .hqp.is-work .hqp-mark > i:nth-child(2) { animation-duration: .55s; }
+.hqp.is-slow .hqp-mark > i { border-top-color: var(--gold, #f5c451); animation-duration: 1.6s; } .hqp.is-slow .hqp-mark b { color: var(--gold, #f5c451); }
+.hqp-mark.is-big { width: 86px; height: 86px; } .hqp-mark.is-big b { font-size: 20px; }
+.hqp-mood { display: grid; gap: 1px; min-width: 132px; }
+.hqp-mood b { font: 800 11px var(--m-mono, 'JetBrains Mono', monospace); letter-spacing: .1em; color: #45e486; white-space: nowrap; }
+.hqp-mood small { font: 600 10px var(--m-mono, 'JetBrains Mono', monospace); color: rgba(234, 255, 243, .55); max-width: 30ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hqp.is-work .hqp-mood b { color: #eafff3; animation: hqpBlink .7s ease-in-out infinite alternate; } .hqp.is-slow .hqp-mood b { color: var(--gold, #f5c451); }
+@keyframes hqpBlink { from { opacity: 1; } to { opacity: .55; } }
+.hqp-jumps { display: flex; gap: 6px; flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; padding: 2px; } .hqp-jumps::-webkit-scrollbar { display: none; }
+.hqp-jumps > button { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+  font: 700 10.5px var(--m-mono, 'JetBrains Mono', monospace); letter-spacing: .06em; text-transform: uppercase; color: rgba(234, 255, 243, .8);
+  border: 1px solid rgba(21, 209, 106, .22); background: rgba(21, 209, 106, .05); transition: transform .14s ease, background .14s ease, border-color .14s ease, color .14s ease; }
+.hqp-jumps > button i { font-style: normal; }
+.hqp-jumps > button:hover { transform: translateY(-1px); border-color: rgba(69, 228, 134, .7); background: rgba(21, 209, 106, .14); color: #fff; }
+.hqp-jumps > button:active { transform: scale(.97); } .hqp-jumps > button:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.hqp-jumps > button.active { background: #15d16a; border-color: #45e486; color: #03110a; }
+.hqp-x { flex: none; width: 34px; height: 34px; border-radius: 10px; cursor: pointer; font-size: 14px; color: #ff8fa3; border: 1px solid rgba(255, 143, 163, .35); background: rgba(255, 143, 163, .06); transition: transform .14s ease, background .14s ease; }
+.hqp-x:hover { background: rgba(255, 143, 163, .18); transform: rotate(90deg); } .hqp-x:active { transform: scale(.94); } .hqp-x:focus-visible { outline: 2px solid #ff8fa3; outline-offset: 2px; }
+.hqp-body { min-height: 0; overflow: auto; padding: 14px clamp(10px, 2vw, 26px) 40px; scrollbar-width: thin; scrollbar-color: #15d16a transparent; overscroll-behavior: contain; }
+.hqp-body::-webkit-scrollbar { width: 6px; } .hqp-body::-webkit-scrollbar-thumb { background: #15d16a; border-radius: 6px; }
+.hqp-body .cc-shell > .cc-head .cc-close { display: none; }   /* the pop-out's own ✕ closes it */
+.hqp-load { height: 60vh; display: grid; place-content: center; justify-items: center; gap: 14px; font: 700 11px var(--m-mono, 'JetBrains Mono', monospace); letter-spacing: .12em; text-transform: uppercase; color: rgba(234, 255, 243, .6); }
+body.hqp-open { overflow: hidden; } body.hqp-open .terminal-main { visibility: hidden; }   /* the page under an opaque pop-out paints nothing */
+
+body.fx-lite .hqp, body.fx-lite .hqp-fx > i, body.fx-lite .hqp-mark > i, body.fx-lite .hqp-fab > i, body.fx-lite .hqp-mood b { animation: none; } body.fx-lite .hqp-fx { display: none; }
+@media (prefers-reduced-motion: reduce) { .hqp, .hqp-fx > i, .hqp-mark > i, .hqp-fab > i, .hqp-mood b { animation: none; } .hqp-fab, .hqp-jumps > button, .hqp-x { transition: none; } }
+body.theme-day .hqp { background: #eef6f1; color: #0b2a1b; } body.theme-day .hqp-bar { background: rgba(255, 255, 255, .92); border-bottom-color: rgba(10, 60, 35, .16); }
+body.theme-day .hqp-fx > i { opacity: .12; } body.theme-day .hqp-mood b, body.theme-day .hqp-mark b { color: #0d7a41; } body.theme-day .hqp-mood small { color: rgba(11, 42, 27, .6); }
+body.theme-day .hqp-jumps > button { color: #0b2a1b; border-color: rgba(10, 60, 35, .22); background: rgba(13, 122, 65, .05); } body.theme-day .hqp-jumps > button.active { background: #0d7a41; border-color: #0d7a41; color: #fff; }
+body.theme-day .hqp-fab { background: radial-gradient(circle at 35% 30%, #e3f2e8, #fff); color: #0b2a1b; } body.theme-day .hqp-fab.on { background: #0d7a41; color: #fff; }
+body.theme-day .hqp-x { color: #b3261e; border-color: rgba(179, 38, 30, .35); } body.theme-day .hqp-load { color: rgba(11, 42, 27, .6); }
+@media (max-width: 640px) { .hqp-bar { gap: 8px; padding: 8px 10px; } .hqp-mood { min-width: 0; } .hqp-mood small { display: none; } .hqp-jumps > button { padding: 6px 9px; } .hqp-body { padding: 10px 8px 30px; } }

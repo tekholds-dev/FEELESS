@@ -70,9 +70,13 @@ function HqBusyBar() {
   return <div className={`hq-busy ${b.slow ? 'is-slow' : ''}`} role="status" data-testid="hq-busy"><i />{b.slow ? <span>⏳ still working{b.label ? ` — ${b.label}` : ''} · the server answers once the keeper finishes its current pass</span> : null}</div>;
 }
 
-export function HqDeck({ address, signMessage, onClose }) {
+export function HqDeck({ address, signMessage, onClose, startTab }) {
   const [session, setSession] = useState(() => readSession(address));
-  const [tab, setTab] = useState('numbers');
+  const [tab, setTab] = useState(startTab || 'numbers');
+  // the creator's pop-out (HqPop) jumps between sections from its own header: feeless:hq-go {tab, view, panel}
+  useEffect(() => { const on = e => { const j = e.detail || {}; setGrp(null); if (j.view) { setMoneyView(j.view); setTab('money'); } else if (j.tab) setTab(j.tab);
+    if (j.panel) [80, 500].forEach(ms => setTimeout(() => window.dispatchEvent(new CustomEvent('feeless:fuse-deck-go', { detail: { panel: j.panel } })), ms)); };
+    window.addEventListener('feeless:hq-go', on); return () => window.removeEventListener('feeless:hq-go', on); }, []);
   const [grp, setGrp] = useState(null);   // which nav group is open; null = the group of the current tab
   useEffect(() => { setGrp(null); }, [tab]);
   const [moneyView, setMoneyView] = useState('treasury');

@@ -35,4 +35,5 @@ def test_every_admin_route_calls_a_gate():
 
 def test_public_admin_checks_return_a_bool_only():
     import reputation_service as rs, asyncio
-    assert set(asyncio.run(rs.admin_whoami('x'))) == {'isAdmin'}
+    r = asyncio.run(rs.admin_whoami('x'))
+    assert set(r) == {'isAdmin', 'isOwner'} and all(isinstance(v, bool) for v in r.values())   # yes / no only, never a wallet or a role

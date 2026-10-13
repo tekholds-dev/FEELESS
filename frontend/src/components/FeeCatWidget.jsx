@@ -7,6 +7,7 @@ import { parse, songTitle } from './command/ProfileMusic';
 import { MiniMine, MiniTop } from './MiniDeck';
 import MusicFind, { ytId } from './MusicFind';
 import { apiUrl } from '../lib/api';
+import HqPop from './HqPop';
 
 const PLAYLIST_KEY = 'feeless:site-playlist';
 // ▶ Like YouTube: a refresh comes back to the same song at the same second, still playing (or still paused).
@@ -172,6 +173,7 @@ export function FeeCatWidget() {
         <b>{song?.title || 'Track ' + (i + 1)}</b></div>}
     </div>}
     {playing && src && <iframe ref={frame} key={`${i}-${nonce}-${src.src}`} onLoad={() => setTimeout(hookEnd, 600)} className={`feecat-frame pm-${src.kind} ${open && tab === 'music' && showVideo ? '' : 'is-background'}`} src={startSrc} title="now playing" allow="autoplay; encrypted-media" />}
+    <HqPop />
     <button type="button" className={`feecat-fab ${open ? 'on' : ''}`} onClick={() => setOpen(o => !o)} data-testid="feecat-fab" aria-label="FeeCat">
       <FeeCatMark size={32} variant={playing ? 'gold' : 'mint'} /> {playing && <i className="feecat-note">♪</i>}
     </button>

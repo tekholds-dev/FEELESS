@@ -17377,7 +17377,7 @@ def _audit(d, admin, action, detail):
 
 @app.get('/api/reputation/admin/whoami')
 async def admin_whoami(address: str = ''):
-    return {'isAdmin': address in _admin_wallets()}   # yes/no only — every HQ action still needs a signed admin session
+    return {'isAdmin': address in _admin_wallets(), 'isOwner': address in _owner_wallets()}   # two yes/no only (isOwner = show the creator's HQ pop-out button) — every HQ action still needs a signed admin session
 
 
 async def _token_holders(mint: str):

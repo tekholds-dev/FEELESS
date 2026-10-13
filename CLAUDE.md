@@ -3636,3 +3636,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
     decision's market price (`midPx`) carrying the real fill (`real`) + that moment's control picks. The 5-minute round decisions are no
     longer paper rows. Paper and real now grade the same trades 1 : 1; no model, quote or fetch is spent on it.
   None of this is a promise: the edge audit that day read 0 of 755 rules positive on unseen coins.
+- ⚡ HQ POP-OUT (`components/HqPop.jsx` + `styles/hqPop.css` `hqp-*`, mounted in `FeeCatWidget` above the cat; owner, 2026-10-13: "in my
+  mini cat bottom right, a one click big HQ popout"): CREATOR WALLET ONLY — `GET /admin/whoami` now answers two bools `{isAdmin, isOwner}`
+  and the button renders only on `isOwner` (nothing renders, and no HQ code loads, for anyone else). One click = the whole `HqDeck` in a
+  full-window portal on any page (`startTab="agents"`), still behind the same signed HQ session. Header = spinning HQ mark + a mood read
+  from REAL requests in flight (`hqMood(useHqBusy())`: 🟢 LOCKED IN · ⚡ SENDING IT · ⏳ STILL COOKING — never a canned ticker) + six
+  shortcuts (`HQ_JUMPS` → window event `feeless:hq-go` {tab | view | panel}, which HqDeck listens for). Esc / ✕ closes; open state lives
+  in sessionStorage. While open `body.hqp-open` hides `.terminal-main` (an opaque pop-out: the page under it paints nothing).
+  New HQ shortcut ⇒ one `HQ_JUMPS` row.
