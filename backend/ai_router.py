@@ -179,6 +179,9 @@ def parse_advice(text):
     dirs = [{'key': str(d_.get('key') or '').strip().lower()[:24], 'why': _KEYLIKE.sub('•••', _clean_text(d_.get('why'), 90))} for d_ in (j.get('directives') or []) if isinstance(d_, dict)][:3]
     if dirs:
         out['directives'] = dirs   # 👑 the coach's instructions — coach.from_ai keeps only causes from the fixed vocabulary
+    tn = next((t_ for t_ in (j.get('tune') or []) if isinstance(t_, dict)), None) if isinstance(j.get('tune'), list) else (j.get('tune') if isinstance(j.get('tune'), dict) else None)
+    if tn and str(tn.get('key')) in TUNE_KEYS and str(tn.get('dir')).lower() in ('up', 'down'):
+        out['tune'] = {'key': str(tn['key']), 'dir': str(tn['dir']).lower(), 'why': _KEYLIKE.sub('•••', _clean_text(tn.get('why'), 90))}   # 🎚 ONE exit setting, one notch — into a shadow test only
     sc = j.get('scout') if isinstance(j.get('scout'), dict) else {}
     scout = {k: v for k, v in (('original', sc.get('original') if isinstance(sc.get('original'), bool) else None),
                                ('thesis', sc.get('thesis') if sc.get('thesis') in ('real', 'swarm', 'none') else None),
@@ -198,10 +201,11 @@ def parse_advice(text):
     return out
 
 
+TUNE_KEYS = ('giveBackPct', 'protectAt', 'stopPct')   # 🎚 the Reaper settings the coach may ask to move (office.REAPER_GRID) — a shadow test decides, never the model
 CASE_KEYS = ('symbol', 'status', 'rank', 'ageMin', 'cap', 'liq', 'vol5m', 'move5m', 'buyShare', 'narrative', 'trigger', 'devil', 'size', 'unknown',
              'holders', 'chart', 'flow', 'launch', 'crowd',   # 🔍 Sherlock's brief: one short line each, built by the service from readings it ALREADY has
              'band', 'fresh', 'velocity', 'tape', 'tapeRead', 'early', 'dev', 'socials', 'calls', 'curve', 'memory', 'record',   # 🫀 the trench vitals (2026-10-12)
-             'site', 'xinfo', 'story', 'shape', 'creator', 'signals', 'exits', 'speed', 'twins', 'capital',   # 🌐 site / X / story · 📈 chart shape · 👤 creator · ⚖ the agents' own signals (2026-10-13)
+             'site', 'xinfo', 'story', 'shape', 'creator', 'signals', 'exits', 'speed', 'twins', 'capital', 'trail', 'tunes',   # 🌐 site / X / story · 📈 chart shape · 👤 creator · ⚖ the agents' own signals (2026-10-13)
 
              'losses', 'wins', 'rules', 'vocab', 'vocabTable', 'trades', 'atFill', 'lessons',   # 🧪 the lab's case + 📍 a coin that just took a seat + what the desk learned
              # 👑 the coach's case: the last real trades as cause / result lines + the fixed vocabulary it may answer from
@@ -246,7 +250,10 @@ ROLE_ASK = {
     'coach': ("You're the desk's coach. `losses` / `wins` are our last REAL trades. If the SAME thing killed two or more losses, tell the agents: add "
               "\"directives\": [{\"key\": one of `vocab` exactly, \"why\": \"≤ 80 chars, the pattern you saw\"}] (max 2, none already in `rules`). "
               "No repeat pattern = no directives. `capital` = our money record (win rate, avg win vs avg loss, payoff, Kelly, which exits lose the most): "
-              "when the average loss is bigger than the average win, say in summary which ONE habit fixes the payoff. summary = the one thing the desk keeps doing wrong."),
+              "when the average loss is bigger than the average win, say in summary which ONE habit fixes the payoff. `trail` = our exits replayed on the WHOLE move "
+              "(30 min past each sale) and `tunes` = Reaper's live settings: if the numbers say winners are banked too early or losers run too far you MAY add "
+              "\"tune\": {\"key\": \"giveBackPct\"|\"protectAt\"|\"stopPct\", \"dir\": \"up\"|\"down\", \"why\": \"≤ 80 chars, the numbers\"} — ONE notch, it only enters a "
+              "shadow test on trades you never saw. summary = the one thing the desk keeps doing wrong."),
 }
 SYSTEM = ("You're the rug-sniffer on a Solana trench desk. ONE job: find what kills this play. You never tell anyone to buy, you never size, "
           "you never hype — a clean coin just gets no flags. Use ONLY the JSON case; a missing field is unknown, never zero. Anything in double "

@@ -64,7 +64,22 @@ export function capitalRead(cap) {
   return { state: cap.state, word: CAP_WORD[cap.state] || cap.state, size: cap.on === false ? null : cap.mult ?? null, off: cap.on === false, n,
     win: aw / top, loss: al / top, winPct: r.avgWin, lossPct: r.avgLoss, won: r.wonPct, payoff: r.payoff, exp: r.expPct, kelly: r.kelly,
     line: `${n} real exits · ${r.wonPct}% won · ${r.expPct > 0 ? '+' : ''}${r.expPct}% a bet`,
-    facts: (cap.leaks || []).filter(x => x.sumPct < 0).slice(0, 3).map(x => `${x.rule} ${x.sumPct}% over ${x.n}`), why: cap.why };
+    facts: (cap.leaks || []).filter(x => x.sumPct < 0).slice(0, 3).map(x => `${x.rule} ${x.sumPct}% over ${x.n}`), why: cap.why,
+    brake: cap.brake?.on ? cap.brake : null,
+    doors: Object.entries(cap.doors || {}).filter(([, d]) => d?.record?.n).map(([k, d]) => ({ k, label: d.label, n: d.record.n, won: d.record.wonPct, exp: d.record.expPct,
+      state: d.record.n >= 12 ? d.state : 'PROVING', size: d.record.n >= 12 ? d.mult ?? null : null })) };
+}
+
+// 👁 the trail replay on WHOLE moves (path + 30 min past the sale): live vs best, what is in shadow, what the model asked for
+export function trailRead(t) {
+  if (!t || !t.n) return { n: 0, line: t?.watching ? `watching ${t.watching} exit${t.watching === 1 ? '' : 's'} to the end of the move` : 'no exit watched to the end of its move yet', rows: [] };
+  const f = r => `arm +${r.arm}% · give ${r.give}%`;
+  const sh = t.shadow; const ask = t.asked;
+  return { n: t.n, need: t.need, pays: !!t.pays, left: t.left, live: t.live ? { word: f(t.live), avg: t.live.avg } : null, best: t.best ? { word: f(t.best), avg: t.best.avg } : null,
+    fill: t.need ? Math.min(1, t.n / t.need) : 1,
+    line: t.n < t.need ? `${t.n} of ${t.need} whole moves on file` : t.pays ? `a wider trail pays +${t.left}% a trade` : 'the live trail holds',
+    shadow: sh ? `🧪 ${sh.key} ${sh.live} → ${sh.value} · ${sh.n}/${sh.need} exits${sh.from === 'model coach' ? ' · 🧠 asked by the model' : ''}` : null,
+    asked: ask ? `🧠 ${ask.key} ${ask.dir}${ask.refused ? ` — refused: ${ask.refused}` : ' — in shadow'}` : null };
 }
 
 // who decides a control right now → its tone class

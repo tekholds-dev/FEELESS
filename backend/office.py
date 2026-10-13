@@ -1230,12 +1230,38 @@ def promote(office, cid, now):
     return o
 
 
-def judge_candidates(office, arch, cfg, scalp, now):
+def model_candidate(office, key, direction, n_full, why, now):
+    """🧠 The model coach may ASK for ONE Reaper setting to move one notch (`direction` up | down on REAPER_GRID). It becomes a shadow
+    candidate like the Judge's own — nothing live changes; only the shadow test on positions closed AFTER it can promote it. Refused
+    (→ office unchanged, reason) when the key is not on the grid, a candidate is already in shadow, fewer than PROPOSE_N full paths back
+    it, the same value was judged in the last 24h, or there is no notch left. → (office, reason | None)"""
+    grid = REAPER_GRID.get(key)
+    if not grid or direction not in ('up', 'down'):
+        return office, 'not a tunable the model may ask for'
+    live = tune(office, 'reaper', key)
+    nxt = [v for v in grid if v > live] if direction == 'up' else [v for v in reversed(grid) if v < live]
+    if not nxt:
+        return office, 'no notch left that way'
+    v = nxt[0]
+    if any(c['key'] == key and c['value'] == v and now - _f(c.get('doneAt') or c.get('at')) < 86400 for c in ((office or {}).get('candidates') or {}).values()):
+        return office, 'that value was judged in the last 24h'
+    try:
+        return propose(office, 'reaper', key, v, {'n': int(n_full), 'from': 'model coach', 'why': str(why or '')[:120]}, now), None
+    except ValueError as e:
+        return office, str(e)
+
+
+def judge_candidates(office, arch, cfg, scalp, now, after=None):
     """👨‍⚖️ Once a pass: (1) every position closed since a shadow candidate was proposed is replayed under the live rule AND the candidate;
     (2) a finished shadow test promotes or rejects; (3) with no candidate open, the archive is searched for ONE Reaper setting that
     would have beaten the live one on ≥ PROPOSE_N real positions → proposed (shadow only). → office"""
     o = dict(office or {})
     pos = [p for p in (arch or {}).get('positions') or [] if p.get('confirmed') and len(p.get('path') or []) >= 3]
+    if after is not None:
+        # 👁 THE WHOLE MOVE (after_path.py): a path that ends at our own sale can only ever favour a tighter trail. With after-paths on
+        # file a position is judged on path + the 30 min after the exit — and only once that is filed (never on the truncated path).
+        import after_path as _ap
+        pos = [{**p, 'path': f, 'k': _ap.key_of(p)} for p, f in ((p, _ap.full(p, after)) for p in (arch or {}).get('positions') or [] if p.get('confirmed')) if f and len(f) >= 3]
     take = take_line(cfg, scalp)
     live = tunes(o, 'reaper')
     cs = {k: dict(v) for k, v in (o.get('candidates') or {}).items()}
@@ -1243,7 +1269,12 @@ def judge_candidates(office, arch, cfg, scalp, now):
         if c['status'] != 'shadow' or c['agent'] != 'reaper':
             continue
         seen = int(_f(c.get('seenAt') or c['at']))
-        new = [p for p in pos if _f(p.get('closedAt')) > seen]
+        if after is not None:   # an after-path lands 30 min after the close: keyed by position, never by a moving time mark
+            sk = list(c.get('seenK') or [])
+            new = [p for p in pos if _f(p.get('closedAt')) > _f(c['at']) and p['k'] not in sk]
+            c['seenK'] = (sk + [p['k'] for p in new])[-300:]
+        else:
+            new = [p for p in pos if _f(p.get('closedAt')) > seen]
         if new:
             c['shadow'] = (list(c['shadow']) + [[reaper_replay(p['path'], live, take), reaper_replay(p['path'], {**live, c['key']: c['value']}, take)] for p in new])[-200:]
             c['seenAt'] = max(_f(p['closedAt']) for p in new)

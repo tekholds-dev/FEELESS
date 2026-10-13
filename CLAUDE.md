@@ -3842,3 +3842,30 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   price tick lands (the stream re-reads the price right after each on-chain swap) and at exactly that price — no in-between frames, no rAF
   loop in the chart. `tweenClose` stays for number tickers (`lib/easedNumber`) only; a test fails if the chart imports it again.
   NOT built: candles assembled from the swaps themselves (every fill's own price) — that needs each pool's swaps read from RPC, the daily budget.
+- 👁 REAPER'S REPLAY WAS BLIND PAST ITS OWN SALE (2026-10-13; `backend/after_path.py` pure + tested, `data/after_paths.json` MemStore): the
+  self-tuning (`office.judge_candidates`) replayed each real position's path — which ENDS at the exit — so a tighter trail could only look
+  as good or better and a wider one could never show what it would have kept. That is how protectAt walked 6 → 4 and giveBackPct 50 → 35
+  while winners banked +2% (YUNG peaked +15.4%, banked +1.7%). Now every confirmed agent exit is watched 30 more min (`watch` / `step`, one
+  reading / 30s from the live chart price, no price for 5 min = −100% from there); `judge_candidates(.., after=)` proposes AND shadow-tests
+  on path + after only (a position counts once its after-path is filed, keyed per position); `after_path.grid` = every arm × give-back pair
+  on the whole moves → payload `trail` → 👁 TRAIL LAB in 💰 EXITS (`trailRead`). Under 30 whole moves it says nothing. Nothing ships
+  without the existing propose → 20-exit shadow → promote path. ANY "replay on our own paths" must ask: does the path end where WE left?
+- 🧠 THE MODEL TUNES REAPER — INTO SHADOW ONLY (`ai_router.TUNE_KEYS`, advice `tune` {key giveBackPct | protectAt | stopPct, dir up | down, why};
+  `office.model_candidate`: ONE grid notch, refused when a candidate is in shadow / < 10 whole moves / judged in 24h / no notch left;
+  queued as `_coach['tuneAsk']`, applied in `_office_pass`, tape line AI TUNE). The coach's case now carries `capital` (record · by door ·
+  brake · leaks), `trail` (live vs the top 3 pairs) and `tunes` (Reaper's live settings), and it runs when the MONEY asks (capital PROTECT,
+  the brake on, or the trail grid leaving ≥ 1 pt a trade) — not only after two real losses. The model still never sizes, orders or sells;
+  a shadow test on trades it never saw decides. `real_memory.door` knows `armed` / `ready` (every seat since 2026-10-12 read 'other', so
+  the memory, twins and the rule lab had no door word).
+- 💰 CAPITAL v2 (`capital.py`): SIZE BY DOOR (`doors`, `for_door`: 🎯 armed / ⚡ ready each on its own last 30 real exits once it has 12;
+  the Warden's W23 reads the fill's own door) · an ARMED fill = ×0.5 of the Warden's size, ×1 once the armed door's own record is GROW, ×0.25
+  while it is PROTECT (`armed_size`; replaces the flat `office_edge.ARMED_SIZE` at the fill) · 🧯 DRAWDOWN BRAKE (`brake`, `BRAKE_PCT` 15: card
+  ≥ 15% under its 24h high (office `peaks`) → every fill ×0.25 until it climbs back or the high rolls off; on a ~$4 card that is below what
+  W22 "size too small for costs" lets through, so the brake mostly means NO new buys — intended: stop digging). A withdrawal lowers the
+  card's value and can trip it for ≤ 24h; the `agentCapital` switch turns all of capital off.
+- ⚡ AGENT SEATS ARE GUARDED ON THE LIVE PRICE, EVERY 3s (`AGENT_GUARD_SEC`, `_real_guard_loop`): `fast_reap` judged the agents' coins on
+  `_jup_prices`' shared 20s cache (a 6s loop on a ≤ 26s-old price) — real stops set at −12…−25% were FIRST SEEN at −21…−84%. The guard now
+  merges `_live_px` (the chart's own price, ≤ 5s old, 1s after a swap) over it and loops every 3s while an agent seat is held.
+- 📡 `backend/jup_rest.py` (market service only, `install()` after ds_pace): a Jupiter READ lane (host + key + `/tokens/` | `/price/`) that
+  answers 429 rests its Retry-After (else 8s); a call to a resting lane answers 429 at once with no network request. Quote / swap paths are
+  never touched. 2026-10-13: 536 token lookups in 21 min, every one refused, half a second apart.

@@ -47,3 +47,23 @@ def test_the_warden_reads_the_capital_stance_and_never_returns_more_than_request
     bad = of.warden(1.0, {**base, 'courier': 'BAD', 'capital': {'state': 'GROW', 'mult': 1.0, 'floor': 0.75, 'why': 'proven'}})
     assert bad['veto']                                                                         # execution rules are untouched by it
     assert crew.warden_rules([{'id': 'W4 newborn', 'mult': 0.1, 'why': 'x'}])[0]['mult'] == crew.SHRINK_FLOOR
+
+
+def _tt(pcts, tag):
+    return [{'realPct': p, 'closedAt': i, 'rule': 'x', 'tag': tag} for i, p in enumerate(pcts)]
+
+
+def test_each_door_is_sized_by_its_own_record_and_the_brake_beats_them_all():
+    armed = _tt([20, 20, -8] * 8, '🤖 agents · 🎯 ARMED (seat target)')                         # the armed door wins…
+    ready = _tt([6, -25, -25] * 8, '🤖 agents · ⚡ READY (kernel)')                             # …the ready door loses
+    v = cap.view(armed + ready, 4, True, value=5.0, peak=5.2)
+    assert v['doors']['armed']['state'] == 'GROW' and v['doors']['ready']['state'] == 'PROTECT' and cap.door('x READY · switch') == 'ready'
+    assert cap.for_door(v, 'armed')['mult'] >= 0.75 and cap.for_door(v, 'ready')['mult'] == 0.25 and 'ready door' in cap.for_door(v, 'ready')['why']
+    assert cap.armed_size(v) == 1.0 and cap.armed_size({**v, 'on': False}) == 0.5              # armed earns the full size on its own record
+    assert cap.armed_size(cap.view(_tt([6, -25, -25] * 8, 'ARMED'), 4, True)) == 0.25 and cap.armed_size(cap.view([], 4, True)) == 0.5
+    thin = cap.view(_tt([5, 5, -3] * 2, 'ARMED') + ready, 4, True)                              # 6 armed exits: the desk's stance stands in
+    assert cap.for_door(thin, 'armed')['state'] == thin['state']
+    assert v['brake']['on'] is False and 'by door' in cap.lesson(v)
+    b = cap.view(armed + ready, 4, True, value=4.0, peak=5.0)                                   # −20% off the 24h high
+    assert b['brake']['on'] and b['brake']['downPct'] == 20.0 and cap.for_door(b, 'armed') == {'state': 'PROTECT', 'mult': 0.25, 'floor': 0.25, 'why': '🧯 ' + b['brake']['why']}
+    assert cap.brake(None, 5.0)['on'] is False and cap.brake(5.0, None)['on'] is False and cap.brake(6.0, 5.0)['on'] is False

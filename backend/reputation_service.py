@@ -8413,7 +8413,7 @@ async def _keeper_stop():
     _keeper_state['stopping'] = True   # loops still running during shutdown must not trade
     _single.release(KEEPER_LOCK)
     for flush in (lambda: _block_flush() if _block_dirty['on'] else None, _hygiene_flush,   # debounced stores: nothing learned is lost on a stop
-                  _agents_mem.flush, _lingo_mem.flush, _shadow_flush, _social_flush):
+                  _agents_mem.flush, _lingo_mem.flush, _shadow_flush, _social_flush, _after_mem.flush):
         try:
             flush()
         except Exception:
@@ -8641,6 +8641,10 @@ async def _flow_settle(now):
 SEAT_HEARTBEAT_SEC = 8   # an empty agent seat gets a tier tick at least this often (the 30-second seat decision needs a tick to run in)
 
 
+AGENT_GUARD_SEC = 3   # ⚡ while the agents hold a real seat the guard looks every 3s (one local batched live-price read), else every GUARD_SEC
+_guard_agents = {'held': False}
+
+
 async def _real_guard_loop():
     """⚡ FAST GUARD for real-money cards: every ~10s ONE batched Jupiter price read for the coins a real card holds; a coin at
     its stop / instant-swap line (or a rider off its trail) wakes the tier tick at once instead of waiting for the next
@@ -8654,6 +8658,7 @@ async def _real_guard_loop():
                 cards_all = [c for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if c.get('real') and not c.get('flooredAt') and (not c.get('holdAll') or c.get('holdBy') == 'agents')]
                 cards = [c for c in cards_all if not c.get('holdAll')]
                 agents_c = [c for c in cards_all if c.get('holdAll')]
+                _guard_agents['held'] = any(not l.get('placeholder') and l.get('mint') for c in agents_c for l in c.get('legs') or [])
                 mints = [l.get('mint') for c in cards_all for l in c.get('legs') or [] if l.get('mint') and not _prime.safe_anchor(l)]
                 try:   # 🪑 EMPTY-SEAT HEARTBEAT (owner: "no seat should be empty, 30 secs to choose"): while an agent seat is empty the tier tick runs at
                     # least every SEAT_HEARTBEAT_SEC, so the 30-second decision (cleared → best available) happens on time; the tick decides, nothing else
@@ -8668,6 +8673,12 @@ async def _real_guard_loop():
                     for m in [l.get('mint') for c in cards for l in c.get('legs') or [] if l.get('mint') and not _prime.safe_anchor(l)]:
                         _jup_px_cache.pop(m, None)   # a FRESH read for the ENGINE's stops (the shared 20s cache is too slow for a stop) — the agents' seats ride the shared cache (Reaper's ticks act on them; no extra Jupiter calls)
                     px = await _jup_prices(mints)
+                    am_ = [l.get('mint') for c in agents_c for l in c.get('legs') or [] if l.get('mint') and not l.get('placeholder')]
+                    if am_:   # ⚡ the agents' seats are judged on the LIVE chart price (≤ 5s old, 1s after a swap), not the shared 20s cache: Reaper's stop
+                        try:  # / trail in `fast_reap` acted on a price up to 26s old — stops set at −12…−25% were first SEEN at −21…−84%
+                            px = {**px, **(await _live_px(am_))}
+                        except Exception as e:
+                            print('guard live px:', e)
                     rcfg = _prime_real_cfg(); now = time.time()
                     wake_ = False
                     for c in agents_c:   # 📈 one real valuation read per agent seat + ☠ Reaper's hard lines (its stop · −45% · your stop) wake the tick at once
@@ -8745,7 +8756,7 @@ async def _real_guard_loop():
                         await _prime_tick(time.time())
         except Exception as e:
             print('real guard:', str(e)[:120])
-        await asyncio.sleep(_prime.GUARD_SEC)
+        await asyncio.sleep(AGENT_GUARD_SEC if _guard_agents['held'] else _prime.GUARD_SEC)
 
 
 def _fw_market_rows(cards, books):
@@ -10360,7 +10371,7 @@ async def _prime_tick_inner(now):
                     cur = _prime.agent_seat(cur, {'mint': t_['mint'], 'symbol': t_['symbol'], 'pairAddress': t_['pair'], 'price': t_['px'], 'liquidityUsd': (t_.get('nums') or {}).get('liq'), 'trench': t_['trench'], 'curve': bool((t_.get('vitals') or {}).get('curve') and cfg_t.get('agentCurve')),
                                                   'ageH': (t_.get('vitals') or {}).get('ageH'), 'vol1h': (t_.get('vitals') or {}).get('vol1h'), 'buyShare': (t_.get('nums') or {}).get('buy'),
                                                   'tag': '🤖 agents · ⚡ READY (kernel)' if not t_.get('armed') else '🤖 agents · 🎯 ARMED (seat target)', 'why': t_['nearReady']}, px, cfg_s, now,
-                                          max_usd=wd_['allowed'] * (_oe.ARMED_SIZE if t_.get('armed') else 1.0))
+                                          max_usd=wd_['allowed'] * (_cap.armed_size(_capital_view()) if t_.get('armed') else 1.0))   # 🎯 an armed fill: half — the full size once the ARMED door's own real record proves it
                     used_ += 1; cur['agentDutyAt'] = now; cur['agentFillAt'] = now
                     _ai.setdefault('fillQ', {})[t_['mint']] = now
                     _regret_note(t_['mint'], 'taken', _fuse._f(t_.get('px')), t_.get('symbol'))   # 😴 the baseline every blocked coin is graded against   # 📍 the model reads this coin once more AT the fill (record only — it never undoes a buy)
@@ -14154,12 +14165,42 @@ def _real_trades():
     return _real_tr['rows']
 
 
+AFTER_PATH = DATA_DIR / 'after_paths.json'   # 👁 what each coin did in the 30 min AFTER our exit (after_path.py) — the replay's missing half
+_after_mem = _ms.MemStore(lambda: AFTER_PATH, 60.0, lambda p_, d_: _json_load(p_, d_), lambda p_, o_: _json_save(p_, o_))
+
+
+async def _after_step(now):
+    """One live-price reading for every exit still being watched (one local batched call; nothing is bought, sold or decided here)."""
+    st = _after_mem.get()
+    ms = _ap.mints(st)
+    if not ms:
+        return
+    px = {}
+    for i in range(0, min(len(ms), 120), 60):
+        px.update(await _live_px(ms[i:i + 60]))
+    _after_mem.put(_ap.step(st, px, now), now)
+
+
+def _trail_view(of, arch, rcfg, scalp):
+    """👁 The trail grid on WHOLE moves (path + the 30 min after the sale) + what is in shadow → the page and the model coach."""
+    try:
+        g = _ap.grid((arch or {}).get('positions'), (_after_mem.get() or {}).get('done'), _of.reaper_replay, _of.tunes(of, 'reaper'), _of.take_line(rcfg, scalp))
+    except Exception as e:
+        print('trail grid:', e)
+        g = {'n': 0, 'need': _ap.MIN_N, 'pays': False}
+    sh = next((c for c in ((of or {}).get('candidates') or {}).values() if c.get('status') == 'shadow' and c.get('agent') == 'reaper'), None)
+    return {**g, 'words': _ap.words(g), 'watching': len((_after_mem.get() or {}).get('open') or {}), 'asked': _coach.get('tuneSaid'), 'tunes': _of.tunes(of, 'reaper'),
+            'shadow': None if not sh else {'key': sh['key'], 'value': sh['value'], 'live': sh.get('live'), 'from': (sh.get('evidence') or {}).get('from'), 'why': (sh.get('evidence') or {}).get('why'), **_of.evaluate(sh)}}
+
+
 def _capital_view():
     """💰 The capital desk's read of the agents' own confirmed real exits (capital.py) — what the Warden sizes by, the page shows and the
     model coach is taught. `on` = the owner's switch (realCfg `agentCapital`); off = shown and taught, sizes nothing."""
     rc = _prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
     try:
-        return _cap.view(_real_trades(), int(_fuse._f(rc.get('agentSeats') or rc.get('coins') or 4)) or 4, rc.get('agentCapital'))
+        money = _agents.get('money') or {}
+        hrs = {int(k): _fuse._f(x) for k, x in (_office_state().get('peaks') or {}).items() if time.time() - int(k) * 3600 <= 86400}
+        return _cap.view(_real_trades(), int(_fuse._f(rc.get('agentSeats') or rc.get('coins') or 4)) or 4, rc.get('agentCapital'), money.get('value'), max(hrs.values()) if hrs else None)
     except Exception as e:
         print('capital:', e)
         return {'on': False, 'record': {'n': 0}, 'state': 'PROVING', 'mult': None, 'floor': None, 'why': 'no record read', 'leaks': []}
@@ -14256,6 +14297,7 @@ def _teach_state():
     return _teach['st']
 import regret as _rg
 import capital as _cap
+import after_path as _ap
 REGRET_PATH = DATA_DIR / 'regret.json'
 _regret: dict = {'b': None, 'at': 0.0, 'savedAt': 0.0}
 
@@ -14373,13 +14415,17 @@ async def _coach_ai(now, env, cfg):
     _coach['aiAt'] = now
     try:
         reviews = ((_office_state().get('judge') or {}).get('reviews')) or []
-        if len([r_ for r_ in reviews if _fuse._f(r_.get('pct')) < 0 and now - _fuse._f(r_.get('at')) < 6 * 3600]) < 2:
-            return 0   # nothing to coach on: fewer than two real losses in the last 6h
+        capv_, tr_ = _capital_view(), _office.get('trail') or {}
+        money_ = capv_.get('state') == 'PROTECT' or (capv_.get('brake') or {}).get('on') or (_fuse._f(tr_.get('left')) >= _ap.EDGE and int(tr_.get('n') or 0) >= _ap.MIN_N)
+        if len([r_ for r_ in reviews if _fuse._f(r_.get('pct')) < 0 and now - _fuse._f(r_.get('at')) < 6 * 3600]) < 2 and not money_:
+            return 0   # nothing to coach on: fewer than two real losses in the last 6h AND the money record asks for nothing (not losing, no brake, no trail left on the table)
         st_ = _coach_state()
         mem_ = _real_mem(now) or {}
         case = _co.coach_case(reviews, {'worst': sorted(((v_['est'], k_, v_['n']) for k_, v_ in (mem_.get('cells') or {}).items()))[:4]}, _co.active(st_, now),
                               _co.grades(st_), (_coach.get('tape') or {}).get('rules'), (_coach.get('tape') or {}).get('stats'))
-        case['capital'] = _cap.lesson(_capital_view())   # 💰 the desk's money record: win rate, payoff, Kelly, where the losses come from
+        case['capital'] = _cap.lesson(capv_)   # 💰 the desk's money record: win rate, payoff, Kelly, by door, the brake, where the losses come from
+        case['trail'] = (str(tr_.get('words') or '') + (' · top: ' + ' | '.join(f"arm +{r_['arm']:g}% give {r_['give']:g}% → {r_['avg']:+.1f}% ({r_['won']}% won)" for r_ in (tr_.get('rows') or [])[:3]) if tr_.get('rows') else ''))[:360] or None
+        case['tunes'] = ' · '.join(f"{k_} {v_:g}" for k_, v_ in _of.tunes(_office_state(), 'reaper').items())[:160]
         res = await _air.ROUTER.reason(_ai_http(), env, cfg, case, 'coach', 'normal', prio=_air.PRIO['coach'])
         ad = (res or {}).get('advice') or {}
         n = 0
@@ -14390,7 +14436,9 @@ async def _coach_ai(now, env, cfg):
                 _tk.KERNEL.note('judge', 'AI COACH', f"🧠 {key_} {rule_['points']:+.0f} for 6h — {rule_.get('why') or ''}", now, key=f"aicoach:{key_}:{int(now // 3600)}")
         if n:
             _coach_put(st_)
-        _coach['aiSaid'] = {'at': now, 'summary': ad.get('summary'), 'n': n, 'source': (res or {}).get('label') or (res or {}).get('source')}
+        if ad.get('tune'):   # 🎚 the model asks for ONE exit notch: queued for the office pass, which puts it in SHADOW (office.model_candidate) — never live
+            _coach['tuneAsk'] = {**ad['tune'], 'at': now}
+        _coach['aiSaid'] = {'at': now, 'summary': ad.get('summary'), 'n': n, 'tune': ad.get('tune'), 'source': (res or {}).get('label') or (res or {}).get('source')}
         return n
     except Exception as e:
         print('coach ai:', str(e)[:120])
@@ -14716,6 +14764,10 @@ async def _agents_tick(now):
             _office['lastMints'] = [x_.get('mint') for x_ in table]
         except Exception as e:
             print('cycle view:', e)
+        try:   # 👁 every exit still being watched gets its reading (the trail replay's missing half)
+            await _after_step(now)
+        except Exception as e:
+            print('after path:', e)
         try:   # 🏢 the rest of the office on the SAME snapshot: Archivist files + settles, exits are confirmed, the Judge scores all ten
             _office_pass(st, table, now, rcfg_, jp, arch_, cour_, tid_r, (time.perf_counter() - t_tick) * 1000)
         except Exception as e:
@@ -15278,8 +15330,8 @@ def _office_warden(cur, t_, requested, cfg_t, now, move):
         t0 = time.perf_counter()
         ctx_ = _office_ctx(cur, t_, now)
         cap_ = _capital_view()
-        if cap_.get('on'):   # 💰 size follows the agents' own real record (W23): smallest seats while it loses, half-Kelly once winning is proven
-            ctx_['capital'] = cap_
+        if cap_.get('on'):   # 💰 size follows the agents' own real record (W23) — this fill's own DOOR once that door has a record, 🧯 the drawdown brake first
+            ctx_['capital'] = _cap.for_door(cap_, 'armed' if t_.get('armed') else 'ready')
         ctx_['open'] = True   # 🪖 every agent move is a kernel candidate: execution rules as they are, uncertainty only SHRINKS (trench_crew.warden_rules)
         if t_.get('size') is not None:   # the brain's Warden opinion (uncertainty → size) enters the ONE sizing as rule W0
             ctx_.update(kernelSize=t_.get('size'), kernelWhy=t_.get('sizeWhy'))
@@ -15572,8 +15624,10 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
             _json_save(REAL_LEARN_PATH, rl_); _rl_cache['at'] = 0.0
         except Exception as e:
             print('lost / learn:', e)
+    if closed:   # 👁 every confirmed exit is watched 30 more minutes: what the coin did AFTER we left is what a wider trail would have kept
+        _after_mem.put(_ap.watch(_after_mem.get(), [{**p_, 'closedAt': p_.get('closedAt') or now} for p_ in closed], now), now)
     for p_ in closed:
-        arch = _of.file_position(arch, p_, now)
+        arch = _of.file_position(arch, {**p_, 'closedAt': p_.get('closedAt') or now}, now)
         _tk.KERNEL.note('archivist', 'FILED', f"{'confirmed' if p_.get('confirmed') else 'UNCONFIRMED'} exit" + (f" {_fuse._f(p_.get('pct')):+.1f}%" if p_.get('pct') is not None else '') + (f" · {p_.get('askRule')}" if p_.get('askRule') else ''),
                         now, mint=p_.get('mint'), result={'pct': p_.get('pct')}, key=f"filed:{p_.get('leftAt') or int(now)}")
         if p_.get('confirmed'):   # 👨‍⚖️ every confirmed exit gets the Judge's review (root cause · desk · severity · change · confidence)
@@ -15614,7 +15668,14 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
     _office_lat('archivist', (time.perf_counter() - t0) * 1000)
     # 👨‍⚖️ shadow tests → promotion / rejection, then every agent's scorecard
     t0 = time.perf_counter()
-    of = _of.judge_candidates(of, arch, rcfg, st.get('scalp'), now)
+    ask_ = _coach.pop('tuneAsk', None)
+    if ask_ and now - _fuse._f(ask_.get('at')) < 1800:   # 🧠 the model coach's notch → a shadow candidate (or refused, with the reason on the tape)
+        n_full_ = sum(1 for p_ in arch.get('positions') or [] if p_.get('confirmed') and _ap.full(p_, (_after_mem.get() or {}).get('done')))
+        of, no_ = _of.model_candidate(of, ask_.get('key'), ask_.get('dir'), n_full_, ask_.get('why'), now)
+        _tk.KERNEL.note('judge', 'AI TUNE', f"🧠 asks Reaper {ask_.get('key')} {ask_.get('dir')}: {ask_.get('why') or ''} → " + (f'refused ({no_})' if no_ else 'in shadow — the next 20 exits decide'), now, key=f"aitune:{int(now // 600)}")
+        _coach['tuneSaid'] = {'at': now, **{k_: ask_.get(k_) for k_ in ('key', 'dir', 'why')}, 'refused': no_}
+    of = _of.judge_candidates(of, arch, rcfg, st.get('scalp'), now, after=(_after_mem.get() or {}).get('done') or {})   # 👁 on WHOLE moves: a path ending at our own sale can only favour a tighter trail
+    _office['trail'] = _trail_view(of, arch, rcfg, st.get('scalp'))
     ser = st.get('series') or {}
     stale = sum(1 for x in table if len(ser.get(x['mint']) or []) >= 2 and _fuse._f(ser[x['mint']][-1]['t']) - _fuse._f(ser[x['mint']][-2]['t']) > _of.STALE_SEC)
     viol = {k: dict(v) for k, v in (of.get('viol') or {}).items()}
@@ -15778,7 +15839,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         print('fresh:', e)
     _office['payload']['performance']['passMs'] = round(sum(_fuse._f(ms.get(a)) for a in _of.CHAIN), 2)
     _tape_ledger(now)
-    _office['payload'].update(tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now), ai=_ai_view(now, light=True), net=_net_stats(now), armed=_office.get('armed'), lab=_lab_view(now), regret=_rg.view(_regret_book(), now), capital=_capital_view(), teach=_tch.view(_teach_state()),
+    _office['payload'].update(tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now), ai=_ai_view(now, light=True), net=_net_stats(now), armed=_office.get('armed'), lab=_lab_view(now), regret=_rg.view(_regret_book(), now), capital=_capital_view(), trail=_office.get('trail'), teach=_tch.view(_teach_state()),
                               universe={'capUsd': _uni.band()[1], 'minCapUsd': _uni.band()[0], 'word': _uni.band_word(), 'maxAgeH': _uni.AGENT_MAX_AGE_H, 'inLane': len(_agents.get('table') or []),
                                         'board': (_office.get('intake') or {}).get('board'), 'mints': len(_tk.KERNEL.store.mints)})
     _hub_publish(now)   # 📡 this pass as DELTAS: only what changed since the last one

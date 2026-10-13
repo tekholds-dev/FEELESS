@@ -63,3 +63,17 @@ test('💰 the capital desk read: one verdict, the seat size, win vs loss bars o
   expect(capitalRead({ on: false, state: 'GROW', mult: 1, record: { n: 25, avgWin: 20, avgLoss: -10 } }).size).toBeNull();   // switched off = sizes nothing
   expect(capitalRead(null).n).toBe(0);
 });
+
+test('💰 doors + 🧯 brake + 👁 trail lab reads', () => {
+  const { capitalRead, trailRead } = require('./cockpitControls');
+  const c = capitalRead({ on: true, state: 'STEADY', mult: 0.5, record: { n: 30, wonPct: 60, avgWin: 12, avgLoss: -10, expPct: 3 }, brake: { on: true, downPct: 18 },
+    doors: { armed: { label: '🎯 armed', state: 'GROW', mult: 0.75, record: { n: 22, wonPct: 68, expPct: 6 } }, ready: { label: '⚡ ready', state: 'PROTECT', mult: 0.25, record: { n: 5, wonPct: 20, expPct: -9 } }, x: { record: { n: 0 } } } });
+  expect(c.brake.downPct).toBe(18);
+  expect(c.doors.map(d => [d.k, d.state, d.size])).toEqual([['armed', 'GROW', 0.75], ['ready', 'PROVING', null]]);   // 5 exits: not sized by its own door yet
+  expect(trailRead(null).n).toBe(0); expect(trailRead({ n: 0, watching: 3 }).line).toMatch(/watching 3 exits/);
+  const t = trailRead({ n: 40, need: 30, pays: true, left: 4.2, live: { arm: 4, give: 35, avg: 1.1 }, best: { arm: 8, give: 50, avg: 5.3 },
+    shadow: { key: 'giveBackPct', live: 35, value: 40, n: 6, need: 20, from: 'model coach' } });
+  expect(t.line).toBe('a wider trail pays +4.2% a trade'); expect(t.best.word).toBe('arm +8% · give 50%'); expect(t.shadow).toMatch(/35 → 40 · 6\/20 exits · 🧠 asked by the model/);
+  expect(trailRead({ n: 9, need: 30 }).line).toBe('9 of 30 whole moves on file');
+  expect(trailRead({ n: 31, need: 30, asked: { key: 'stopPct', dir: 'down', refused: 'no notch left that way' } }).asked).toMatch(/refused: no notch/);
+});

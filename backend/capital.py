@@ -76,11 +76,60 @@ def leaks(trades, n=WINDOW, top=3):
     return sorted(out, key=lambda x: x['sumPct'])[:top]
 
 
-def view(trades, seats=4, on=True):
+DOORS = (('armed', 'ARMED', '🎯 armed'), ('ready', 'READY', '⚡ ready'))   # the door a seat came through, read from its card tag
+ARMED_BASE = 0.5      # an armed fill = half of what the Warden allows … until the armed door's OWN record proves it wins
+BRAKE_PCT = 15.0      # 🧯 card worth this much less than its 24h high = smallest seats until it climbs back
+
+
+def door(tag):
+    t = str(tag or '')
+    return next((k for k, word, _l in DOORS if word in t), 'other')
+
+
+def doors(trades, seats=4):
+    """Each door on its OWN last `WINDOW` real exits → {door: {label, record, state, mult, why}}."""
+    out = {}
+    for k, _w, label in DOORS:
+        rec = record([t for t in trades or [] if door(t.get('tag')) == k])
+        out[k] = {'label': label, 'record': rec, **stance(rec, seats)}
+    return out
+
+
+def armed_size(v):
+    """How much of the Warden's size an ARMED fill takes: half (ARMED_BASE) — the full size only once the armed door's own record is in
+    GROW; a quarter while that record is in PROTECT. Capital switched off / no record = half, as before."""
+    d = ((v or {}).get('doors') or {}).get('armed') or {}
+    if not (v or {}).get('on'):
+        return ARMED_BASE
+    return 1.0 if d.get('state') == 'GROW' else 0.25 if d.get('state') == 'PROTECT' else ARMED_BASE
+
+
+def brake(value, peak, pct=BRAKE_PCT):
+    """🧯 DRAWDOWN BRAKE → {on, downPct, why}: the card is worth ≥ `pct` % less than its 24h high."""
+    v, p = _f(value), _f(peak)
+    if v <= 0 or p <= 0 or v >= p:
+        return {'on': False, 'downPct': 0.0, 'why': None}
+    down = (1 - v / p) * 100
+    return {'on': down >= pct, 'downPct': round(down, 1), 'why': f"card ${v:.2f} is {down:.0f}% off its 24h high ${p:.2f}" + (f" (brake at {pct:g}%): smallest seats until it climbs back" if down >= pct else '')}
+
+
+def for_door(v, tag_or_door):
+    """The stance ONE fill is sized by: 🧯 the brake first, then its door's own record once that door has ≥ MIN_N exits, else the desk's."""
+    v = v or {}
+    if (v.get('brake') or {}).get('on'):
+        return {'state': 'PROTECT', 'mult': PROTECT_MULT, 'floor': PROTECT_MULT, 'why': '🧯 ' + str(v['brake'].get('why'))}
+    k = tag_or_door if tag_or_door in ('armed', 'ready', 'other') else door(tag_or_door)
+    d = (v.get('doors') or {}).get(k) or {}
+    if int((d.get('record') or {}).get('n') or 0) >= MIN_N and d.get('state') in ('PROTECT', 'STEADY', 'GROW'):
+        return {'state': d['state'], 'mult': d['mult'], 'floor': d['floor'], 'why': f"{d.get('label')} door — {d.get('why')}"}
+    return {k_: v.get(k_) for k_ in ('state', 'mult', 'floor', 'why')}
+
+
+def view(trades, seats=4, on=True, value=None, peak=None):
     """The one object the Warden, the page and the model coach read."""
     rec = record(trades)
     st = stance(rec, seats)
-    return {'on': bool(on), 'record': rec, **st, 'leaks': leaks(trades), 'window': WINDOW, 'needN': PROVE_N}
+    return {'on': bool(on), 'record': rec, **st, 'leaks': leaks(trades), 'window': WINDOW, 'needN': PROVE_N, 'doors': doors(trades, seats), 'brake': brake(value, peak)}
 
 
 def lesson(v):
@@ -88,6 +137,7 @@ def lesson(v):
     r = (v or {}).get('record') or {}
     if not r.get('n'):
         return None
+    dz = ' · '.join(f"{d['label']} {d['record']['wonPct']}% won {_f(d['record'].get('expPct')):+.1f}%/bet (n {d['record']['n']})" for d in (v.get('doors') or {}).values() if d['record'].get('n'))
     lk = ' · '.join(f"{x['rule']} {x['sumPct']:+.0f}% over {x['n']}" for x in (v.get('leaks') or []) if x['sumPct'] < 0)
     return (f"{v.get('state')}: {r['n']} real exits, {r.get('wonPct')}% won, avg win {_f(r.get('avgWin')):+.1f}% vs avg loss {_f(r.get('avgLoss')):+.1f}% "
-            f"(payoff {r.get('payoff')}), {_f(r.get('expPct')):+.1f}% a bet, Kelly {r.get('kelly')}" + (f" · losses come from: {lk}" if lk else ''))[:300]
+            f"(payoff {r.get('payoff')}), {_f(r.get('expPct')):+.1f}% a bet, Kelly {r.get('kelly')}" + (f" · by door: {dz}" if dz else '') + (f" · 🧯 {v['brake']['why']}" if (v.get('brake') or {}).get('on') else '') + (f" · losses come from: {lk}" if lk else ''))[:420]

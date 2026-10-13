@@ -20,6 +20,8 @@ import ds_pace
 import http_ctx
 http_ctx.install()   # ⚡ every httpx client in this process shares ONE TLS context (a new client re-read the CA bundle)
 ds_pace.install(150, 30)   # 📡 this process's share of DexScreener's ~300/min per IP (reputation service takes 110)
+import jup_rest
+jup_rest.install()   # 📡 a Jupiter token / price lane that answers 429 rests its Retry-After — every lookup was refused, half a second apart (2026-10-13)
 from intelligence import Intelligence
 from trading import TradingService
 from whitepaper import router as docs_router

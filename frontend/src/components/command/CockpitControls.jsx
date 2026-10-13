@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { hubLoad, useAi } from '../../lib/agentHub';
-import { CTRL_GROUPS, optWord, whoTone, WHO_WORD, bandTrack, hasIntel, gateCounts, GATE_WORDS, regretRows, capitalRead } from '../../lib/cockpitControls';
+import { CTRL_GROUPS, optWord, whoTone, WHO_WORD, bandTrack, hasIntel, gateCounts, GATE_WORDS, regretRows, capitalRead, trailRead } from '../../lib/cockpitControls';
 import { aiMetricsLine } from '../../lib/aiRead';
 import { AiChipBtn } from './AiProviders';
 import '../../styles/agentControls.css';
@@ -78,7 +78,24 @@ function CapitalMeter({ cap }) {
       <span className="is-win"><i style={{ transform: `scaleX(${c.win})` }} /><u>avg win {c.winPct > 0 ? '+' : ''}{c.winPct}%</u></span>
       <span className="is-loss"><i style={{ transform: `scaleX(${c.loss})` }} /><u>avg loss {c.lossPct}%</u></span>
       <small>payoff {c.payoff ?? '—'} · Kelly {c.kelly ?? '—'}</small></p> : null}
+    {c.brake ? <p className="acx-capbrake" data-testid="acx-brake">🧯 BRAKE · {c.brake.downPct}% off the 24h high — smallest seats until it climbs back</p> : null}
+    {c.doors?.length ? <p className="acx-capdoors" data-testid="acx-doors">{c.doors.map(d => <span key={d.k} className={`is-${String(d.state).toLowerCase()}`}
+      data-tip={`${d.label} door: ${d.n} real exits, ${d.won}% won, ${d.exp > 0 ? '+' : ''}${d.exp}% a bet — each door is sized by its own record once it has 12 exits`}>
+      <b>{d.label}</b><u>{d.won}% · {d.exp > 0 ? '+' : ''}{d.exp}%</u><em>{d.size ? `×${d.size}` : `${d.n}/12`}</em></span>)}</p> : null}
     {c.facts.length ? <p className="acx-capfacts">{c.facts.map(f => <span key={f}>🩸 {f}</span>)}</p> : null}
+  </div>;
+}
+
+// 👁 TRAIL LAB: Reaper's trail replayed on the whole move (30 min past each sale) — live vs best, the shadow test, the model's ask
+function TrailLab({ trail }) {
+  const t = trailRead(trail);
+  return <div className={`acx-trail ${t.pays ? 'is-pays' : ''}`} data-testid="acx-trail" data-tip={trail?.words || t.line}>
+    <p className="acx-caphead"><b>👁 TRAIL LAB</b><span>{t.line}</span><em>{t.n ? `${t.n} MOVES` : 'WATCHING'}</em></p>
+    {t.n && t.n < t.need ? <p className="acx-trailbar"><i style={{ transform: `scaleX(${t.fill})` }} /></p> : null}
+    {t.live ? <p className="acx-trailrows"><span><small>LIVE</small>{t.live.word}<b>{t.live.avg > 0 ? '+' : ''}{t.live.avg}%</b></span>
+      {t.best ? <span className="is-best"><small>BEST</small>{t.best.word}<b>{t.best.avg > 0 ? '+' : ''}{t.best.avg}%</b></span> : null}</p> : null}
+    {t.shadow ? <p className="acx-capfacts"><span>{t.shadow}</span></p> : null}
+    {t.asked && !t.shadow ? <p className="acx-capfacts"><span>{t.asked}</span></p> : null}
   </div>;
 }
 
@@ -103,6 +120,7 @@ export function CockpitControls({ o, call, isOwner, onAi }) {
       {CTRL_GROUPS.map(([g, title, blurb, keys]) => { const rows = keys.filter(k => ctl[k]); if (!rows.length) return null;
         return <div key={g} className={`acx-card is-${g}`} data-testid={`acx-${g}`}><p className="acx-ctitle"><b>{title}</b><small>{blurb}</small></p>
           {g === 'universe' ? <BandTrack band={pol.band} cands={cands} /> : null}
+          {g === 'exits' ? <TrailLab trail={o?.trail} /> : null}
           {g === 'seats' ? <CapitalMeter cap={o?.capital} /> : null}
           {g === 'seats' ? <ControlRow c={{ key: 'agentCapital', label: '💰 Size by the record', who: o?.capital?.on === false ? 'CREATOR OVERRIDE' : 'AGENTS CHOOSE', value: o?.capital?.on === false ? 'off' : 'on', options: ['on', 'off'],
             means: 'ON: a seat is sized by the agents\' own last 30 REAL exits — smallest seats (×0.25) while the average bet loses, ×0.5 while the edge is thin, half-Kelly (up to the full seat) once 20+ exits prove it wins. It can never give more than the card\'s own seat. OFF = seats as before; the record is still shown and taught.' }}

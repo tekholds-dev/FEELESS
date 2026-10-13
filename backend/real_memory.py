@@ -38,7 +38,7 @@ def door(tag):
     """The door a coin came through, from its card tag (agent_seat writes it)."""
     t = str(tag or '')
     for k, w in (('A', 'A-tier'), ('B', 'B-tier'), ('C', 'C-tier'), ('avail', 'best available'), ('floor', 'floor'),
-                 ('floor', 'last resort'), ('duty', 'duty'), ('go', 'GO')):
+                 ('floor', 'last resort'), ('duty', 'duty'), ('go', 'GO'), ('armed', 'ARMED'), ('ready', 'READY')):   # 🎯 armed / ⚡ ready: every real seat since 2026-10-12 came through one of these two — they all read 'other', so the door said nothing
         if w in t:
             return k
     return 'other'
