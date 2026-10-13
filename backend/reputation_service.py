@@ -10216,7 +10216,8 @@ async def _prime_tick_inner(now):
                             waits_.append({'symbol': t_.get('symbol'), 'why': why_})
                             _tk.KERNEL.note('trigger', 'WAIT', f"the tape says wait — {why_}", now, mint=t_['mint'], key=f"flow:{int(now // 120)}")
                             continue
-                        keep_.append((0 if v_ and v_.get('state') == 'BUYERS' and v_.get('hot') else 1 if v_ and v_.get('state') == 'BUYERS' else 2, t_))
+                        sus_ = any(((n_ or {}).get('advice') or {}).get('stance') == 'CAUTION' for n_ in (_ai['notes'].get(t_['mint']) or {}).values())   # 🧠 SECOND LOOK: the rug-sniffer already flagged this coin → it goes behind the ones it did not (no call made here, never a block)
+                        keep_.append(((0 if v_ and v_.get('state') == 'BUYERS' and v_.get('hot') else 1 if v_ and v_.get('state') == 'BUYERS' else 2) + (3 if sus_ else 0), t_))
                     plan_ = [t_ for _g, t_ in sorted(keep_, key=lambda kv: kv[0])]
                     _office['flowWait'] = {'at': now, 'rows': waits_[:6]}
                 except Exception as e:
@@ -12937,6 +12938,7 @@ async def _ai_round(now):
     if not any(not r_['why'] and r_['enabled'] for r_ in (_air.provider(env, k_, cfg) for k_ in _air.PROVIDERS)):
         return 0
     await _ai_learn_settle(now)   # 🧠 the model's earlier stances are judged against what the coin did (no model call)
+    await _coach_ai(now, env, cfg)   # 👑 at most every 15 min: the model reads the last real trades and may instruct the agents (bounded, coach.py)
     jobs = _ai_jobs(now)
     if not jobs:
         return 0
@@ -13506,6 +13508,7 @@ import market_wake as _mw
 import judge_review as _jr
 import real_memory as _rm
 import shadow_book as _sb
+import coach as _co
 import trench_rounds as _tr
 import generations as _gen
 import trench_kernel.kernel as _tk
@@ -13597,10 +13600,12 @@ def _judge_weights(now):
     if not mem.get('proof', {}).get('ok'):
         return {}
     w = {}
+    srec_ = _co.source_record((_json_load(ARCHIVE_PATH, {}) or {}).get('positions'))
     for x_ in _agents.get('table') or []:
         ch_ = x_.get('chart') or {}
         est_, _c = _rm.estimate(mem, _rm.feats(ch_.get('state'), (ch_.get('entry') or [None, None])[1] if len(ch_.get('entry') or []) > 1 else None, '', (x_.get('li') or {}).get('phase'), (x_.get('li') or {}).get('cls'), (x_.get('vitals') or {}).get('ageH')))
         w[x_.get('mint')] = 1 + (_fuse._f(est_) - _rm.veto_of(mem)) / 40   # against the LINE (the median of our own real trades): the worse half ranks down to ×0.7, the better half up to ×1.3 — a seat is never left empty for it
+        w[x_.get('mint')] = max(0.7, min(1.3, w[x_.get('mint')])) * _co.source_factor(srec_, x_.get('src'))   # 📏 … and every source that listed it is a proven loser on REAL fills → ×0.9
     return w
 
 
@@ -13646,7 +13651,7 @@ def _kernel_ctx(now):
     legs_ = ((((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '') or {}).get('legs') or [])
     pending = {l.get('mint') for l in legs_ if l.get('mint') and not l.get('placeholder') and _fuse._f(l.get('units')) <= 0}   # a seat the keeper is still buying
     return {'held': held, 'pending': pending, 'regime': (_agents.get('weather') or {}).get('regime'), 'courier': (_office.get('courier') or {}).get('health'),
-            'live': rd.get('live') if rd else None, 'weights': _judge_weights(now), 'aiw': _ai_weights(now), 'pens': _jr.penalties((_office.get('court') or {}).get('promoted')), 'lessons': _tkl.lessons(_lc_book(now)),
+            'live': rd.get('live') if rd else None, 'weights': _judge_weights(now), 'aiw': _ai_weights(now), 'pens': _coach_pens(now), 'lessons': _tkl.lessons(_lc_book(now)),
             'watchOnly': {m_ for m_ in _owner.get('only') or () if _tk.KERNEL.owner.get(m_) != 'arm'}}   # 👤 review / track only: judged, never READY   # 🧬 only the generations IN CONTROL
 
 
@@ -13971,6 +13976,77 @@ def _real_mem(now):
     return _rm_cache['mem']
 
 
+COACH_PATH = FUSE_HQ_PATH.parent / 'agent_coach.json'   # 👑 the creator's + the model's live directives (coach.py) — small, written on each change
+_coach: dict = {'s': None, 'tapeAt': 0.0, 'tape': None, 'aiAt': 0.0}
+COACH_AI_EVERY = 900.0   # the model coach looks at the last real trades at most every 15 min (one cheap cloud call; never the local model)
+
+
+def _coach_state():
+    if _coach['s'] is None:
+        _coach['s'] = _json_load(COACH_PATH, None) or _co.new_state()
+    return _coach['s']
+
+
+def _coach_put(state):
+    _coach['s'] = state
+    _json_save(COACH_PATH, state)
+    if _office.get('payload') is not None:
+        _office['payload']['coach'] = _coach_view(time.time())
+
+
+def _coach_pens(now):
+    """👨‍⚖️ + 👑 every ranking weight the kernel reads this pass: the Judge's repeat-loss causes merged with the coach's live directives."""
+    return _co.pens(_coach_state(), now, _jr.penalties((_office.get('court') or {}).get('promoted')))
+
+
+def _coach_view(now):
+    return {**_co.view(_coach_state(), now, _jr.penalties((_office.get('court') or {}).get('promoted'))), 'ai': _coach.get('aiSaid')}
+
+
+def _trade_tape(now):
+    """🎬 The real trade tape for the page (rebuilt at most every 20s): ledger fills + the archive + the Judge's reviews + the model's log."""
+    if _coach['tape'] is None or now - _coach['tapeAt'] >= 20:
+        try:
+            rows = _co.trade_tape(_fw_full_ledger()[-900:], (_json_load(ARCHIVE_PATH, {}) or {}).get('positions'), ((_office_state().get('judge') or {}).get('reviews')) or [], _ai.get('log') or [], n=24)
+            pos_ = (_json_load(ARCHIVE_PATH, {}) or {}).get('positions')
+            _coach.update(tape={'rows': rows, 'stats': _co.tape_stats(rows), 'sources': _co.source_record(pos_), 'rules': _co.rule_record(pos_)}, tapeAt=now)
+        except Exception as e:
+            print('trade tape:', str(e)[:120])
+    return _coach['tape']
+
+
+async def _coach_ai(now, env, cfg):
+    """👑 THE MODEL INSTRUCTS THE AGENTS (owner, 2026-10-13: "AI should be able to understand and instruct / strengthen agents"): one cloud
+    call at most every COACH_AI_EVERY — never the local model (role `coach` is a background job) — over the last real trades' causes.
+    Its `directives` are kept only when the cause is in the fixed vocabulary, land at −4 for 6h (`coach.add(by='ai')`), never over an
+    owner rule, and wait for the creator's ✅ strengthen / ✕ kill on the page. A ranking weight: never an order, a size or a sell."""
+    if now - _coach['aiAt'] < COACH_AI_EVERY:
+        return 0
+    _coach['aiAt'] = now
+    try:
+        reviews = ((_office_state().get('judge') or {}).get('reviews')) or []
+        if len([r_ for r_ in reviews if _fuse._f(r_.get('pct')) < 0 and now - _fuse._f(r_.get('at')) < 6 * 3600]) < 2:
+            return 0   # nothing to coach on: fewer than two real losses in the last 6h
+        st_ = _coach_state()
+        mem_ = _real_mem(now) or {}
+        case = _co.coach_case(reviews, {'worst': sorted(((v_['est'], k_, v_['n']) for k_, v_ in (mem_.get('cells') or {}).items()))[:4]}, _co.active(st_, now))
+        res = await _air.ROUTER.reason(_ai_http(), env, cfg, case, 'coach', 'normal', prio=_air.PRIO['coach'])
+        ad = (res or {}).get('advice') or {}
+        n = 0
+        for key_, why_ in _co.from_ai(ad):
+            st_, rule_ = _co.add(st_, key_, 'ai', why_ or ad.get('summary'), now)
+            if rule_:
+                n += 1
+                _tk.KERNEL.note('judge', 'AI COACH', f"🧠 {key_} {rule_['points']:+.0f} for 6h — {rule_.get('why') or ''}", now, key=f"aicoach:{key_}:{int(now // 3600)}")
+        if n:
+            _coach_put(st_)
+        _coach['aiSaid'] = {'at': now, 'summary': ad.get('summary'), 'n': n, 'source': (res or {}).get('label') or (res or {}).get('source')}
+        return n
+    except Exception as e:
+        print('coach ai:', str(e)[:120])
+        return 0
+
+
 def _agent_blocked(card, now):
     """🚫 ONE list of coins the agents may not buy right now: what they just left (`arena_prime.agent_out`: 10 min, a rug / danger exit 6h)
     + what the keeper benched or refused on a safety check (no route back, sell-back tax, price gap) for ANY book. 2026-10-12: $TikTok and
@@ -13978,7 +14054,7 @@ def _agent_blocked(card, now):
     books = (_fw_peek().get('books') or {}).values()
     for m_ in [m_ for m_, v_ in _agent_refused.items() if v_[0] <= now]:
         _agent_refused.pop(m_, None)
-    return _prime.agent_out(card, now) | set(_agent_refused) | set().union(set(), *[_fw.agent_no_buy(b, now) for b in books])
+    return _prime.agent_out(card, now) | set(_agent_refused) | _co.blocked(_coach_state(), now) | set().union(set(), *[_fw.agent_no_buy(b, now) for b in books])   # + coins the creator pulled with a reason (6h)
 
 
 def _seat_refusals(tid, now, window=900.0, keep=5):
@@ -15285,7 +15361,8 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         'execution': {**cour, 'metrics': _fw.exec_metrics(_fw_peek().get('ledger'), now, dupes=_FW_DUPES['n'])}, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': [{'agent': x_.get('role'), 'gen': x_.get('gen'), 'why': f"{x_.get('status') or 'replaced'} — {x_.get('why') or ''}" + (f" · next generation: {x_['changed']}" if x_.get('changed') else ''), 'at': x_.get('retiredAt')}
                                                          for x_ in reversed((_lc_book(now).get('lineage') or [])[-12:])], 'devil': dv_rec[:10], 'needShadow': _of.SHADOW_N, 'needPropose': _of.PROPOSE_N},
         'index': (_office.get('index') or [])[:80], 'rpc': {'lanes': _rpc_quota_state(), 'note': 'keyed lanes = keeper sends / balances first, then holder scans (budgeted); discovery comes from Pump\'s live stream + the launch boards — no RPC first-seen listener runs'},
-        'court': _office.get('court'), 'opp': _office.get('opp'),   # 👨‍⚖️ the Judge's loss / win reviews + rules · 🎯 this pass's A / B / C ranking counts
+        'court': _office.get('court'), 'opp': _office.get('opp'), 'coach': _coach_view(now), 'tradeTape': _trade_tape(now),   # 👑 the directives in force · 🎬 every real agent trade as one story
+          # 👨‍⚖️ the Judge's loss / win reviews + rules · 🎯 this pass's A / B / C ranking counts
         'judge': {'probation': [r_ for r_, g_ in gens_.items() if g_['status'] == 'PROBATION'], 'rulings': len(reviews_), 'probationAt': _tkl.PROBATION_N, 'replaceAt': _tkl.REPLACE_N,
                   'contribution': _of.contribution(st, arch, of, cour, _agents_real(), money)},
         'data': {'states': dq_, 'trusted': dq_.get('TRUSTED', 0), 'enterGrade': dq_.get('TRUSTED', 0) + dq_.get('USABLE_WITH_CAUTION', 0), 'coins': len(_office['charts']),
@@ -15499,8 +15576,29 @@ async def admin_agents_set(request: Request):
             _agents_mem.put(_pd.review(_agents_mem.get(), str(idea['id']), idea.get('action')), force=True)   # the creator's click is written at once
         except ValueError as e:
             raise HTTPException(400, str(e))
+    cb = body.get('coach') or {}
+    coached = None
+    if cb:   # 👑 the creator strengthens the agents: a directive from the fixed vocabulary (a ranking weight the kernel reads on its next pass) — never an order, a size or a sell
+        now_ = time.time()
+        st_ = _coach_state()
+        if cb.get('strengthen') is not None:
+            st_, coached = _co.strengthen(st_, cb['strengthen'], now_)
+        elif cb.get('kill') is not None:
+            st_, coached = _co.kill(st_, cb['kill'], now_)
+        else:   # add {key, why, strong} · pull-and-teach adds {mint, sym}: the coin is off the agents' buy list for 6h (the SELL is the card's own ✂ path)
+            mint_ = str(cb.get('mint') or '')[:64] or None
+            st_, coached = _co.add(st_, cb.get('key'), 'owner', cb.get('why'), now_, mint=mint_, sym=str(cb.get('sym') or '')[:24] or None, strong=bool(cb.get('strong')))
+        if not coached:
+            raise HTTPException(400, 'Pick a cause from the list (or that directive is gone).')
+        _coach_put(st_)
+        try:
+            ad_ = _admin_load(); _audit(ad_, 'owner', 'agent-coach', f"{'strengthen' if cb.get('strengthen') is not None else 'kill' if cb.get('kill') is not None else 'pull+teach' if cb.get('mint') else 'add'} {coached.get('key')}"); _admin_save(ad_)
+        except Exception as e:
+            print('coach audit:', str(e)[:100])
+        _tk.KERNEL.note('judge', 'COACHED', f"👑 {coached.get('key')} {coached.get('points', 0):+.0f} — {coached.get('why') or 'the creator said so'}", now_, key=f"coach:{int(now_)}")
+        _agents['wake'] = now_
     _agents['view'] = None
-    return {'ok': True, **ch, **({'review': marked} if rv.get('key') else {}), **({'owner': {'mint': owned, 'list': _owner_view(time.time())}} if owned else {})}
+    return {'ok': True, **({'coach': _coach_view(time.time())} if cb else {}), **ch, **({'review': marked} if rv.get('key') else {}), **({'owner': {'mint': owned, 'list': _owner_view(time.time())}} if owned else {})}
 
 
 async def _fuse_warm():

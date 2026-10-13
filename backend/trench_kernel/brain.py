@@ -18,6 +18,7 @@ SEVERITY = ('INFO', 'WARNING', 'STRONG_WARNING', 'HARD_VETO')
 TRIGGER_OF = {'HOT EARLY MOVE': 'ENTER', 'BREAKOUT': 'ENTER', 'RUNNING': 'ENTER', 'BUILDING': 'ARM', 'STALLING': 'WAIT', 'DISTRIBUTING': 'NO', 'COLLAPSING': 'NO'}
 WEATHER_F = {'HOT': 1.1, 'NORMAL': 1.0, 'CHOP': 0.9, 'THIN': 0.85, 'HOSTILE': 0.8}
 LANES = 4
+MEM_SIZE = 0.5       # a coin the real-money memory ranks in the worse half takes half a seat (never under the Warden's own floor)
 PEN_FLOOR = 0.75    # the most the Judge's repeat-loss penalties may rank a coin down (a weight, never a veto)
 CROWD_F = 1.05      # ≥ 8 different buyers in 90s with buyers leading (flow.vital `hot`)
 READY_MIN = 120.0     # an open_score this high with Trigger ENTER = READY (the base score is 100 for an average coin)
@@ -142,6 +143,9 @@ def think(ms, ctx=None):
     ls = c.get('lessons')   # {role: lesson} of the generations IN CONTROL (lifecycle.lessons) — a shadow / retired one is never in it
     t, sh, we, tr, dv = tally(ms), sherlock(ms, ls), weather(ms, c), trigger(ms, ls), devil(ms, ls)
     wa, co = warden(ms, dv, sh), courier(c)
+    mw = (c.get('weights') or {}).get(ms['identity']['mint'])
+    if mw is not None and _f(mw) < 1.0 and wa['size'] > 0:   # 🧠 the real-money memory puts this coin in the WORSE half of what the card has bought: it still takes the seat, at half size
+        wa = {'size': round(max(_crew.SHRINK_FLOOR, wa['size'] * MEM_SIZE), 2), 'why': (wa['why'] + ', ' if wa['why'] != 'full size' else '') + 'worse half of our real trades'}
     base, parts = _opp.open_score(ms['row'], c.get('weights'), _lc.lesson_value(ls, 'devil', 'strong'), c.get('aiw'))
     fv = ms['market'].get('flow') or {}
     crowd = CROWD_F if fv.get('state') == 'BUYERS' and fv.get('hot') else 1.0   # 🌊 a crowd buying on the live tape ranks a little higher (never past a gate)

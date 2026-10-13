@@ -34,7 +34,7 @@ PROVIDERS = {
     'custom': ('OPENAI-COMPATIBLE', 'AI_API_KEY', 'AI_MODEL', 'AI_BASE_URL', None, '', 10.0, 1),
 }
 DEFAULT_ORDER = ('local', 'groq', 'openrouter', 'openai', 'xai', 'custom')
-ADVISORY_ROLES = ('sherlock', 'devil', 'judge', 'owner', 'manager')
+ADVISORY_ROLES = ('sherlock', 'devil', 'judge', 'owner', 'manager', 'coach')
 FORBIDDEN_ROLES = ('tally', 'trigger', 'reaper', 'courier', 'warden')        # hot loops + the money boundary: never a model
 # 🧠 THE VITAL AI RESULT (owner's lag-fix spec, 2026-10-13: "KEEP the vital AI-only intelligence"): the model answers ONLY what the
 # deterministic kernel cannot infer well — the story, who is behind it, what public sources say, which side a conflict falls on — as
@@ -47,7 +47,7 @@ AGENTS = ('tally', 'sherlock', 'weather', 'trigger', 'devil', 'warden', 'courier
 QUEUE_MAX = 2              # requests allowed to WAIT for a busy provider (local: 1 running + 2 waiting); more → next provider
 CACHE_SEC = 1800.0         # the same case (same coin, same material STATE — see case_key) inside 30 min = the cached answer (no second inference)
 DEFER_PRIO = 3             # a job at this priority or lower (bigger number) is DEFERRED when the local model is already busy — it never waits in line
-PRIO = {'owner': 0, 'manager': 1, 'ready': 2, 'devil': 3, 'contender': 4, 'judge': 5}   # owner review → a conflict → a READY coin → ambiguous → top contender → a closed trade
+PRIO = {'owner': 0, 'manager': 1, 'ready': 2, 'devil': 3, 'contender': 4, 'judge': 5, 'coach': 2}   # owner review → a conflict → a READY coin → ambiguous → top contender → a closed trade
 RATE_COOL = 60.0           # a 429 rests that provider this long (or its Retry-After, ≤ 5 min)
 FAIL_COOL = (0.0, 0.0, 15.0, 30.0, 60.0)   # cool-down by consecutive failures (2 free, then 15s … 60s)
 MAX_TOKENS = 260          # the short structured answer
@@ -176,6 +176,9 @@ def parse_advice(text):
     d = round(max(-0.25, min(0.25, _f(j.get('confidence_delta')))), 3)
     out = {'summary': summ, 'confidence_delta': d, 'wake': wake, 'stance': stance_of(d),
            'risk_flags': [f for f in (_flag(x) for x in (j.get('risk_flags') or []) if isinstance(x, str)) if f][:4]}
+    dirs = [{'key': str(d_.get('key') or '').strip().lower()[:24], 'why': _KEYLIKE.sub('•••', _clean_text(d_.get('why'), 90))} for d_ in (j.get('directives') or []) if isinstance(d_, dict)][:3]
+    if dirs:
+        out['directives'] = dirs   # 👑 the coach's instructions — coach.from_ai keeps only causes from the fixed vocabulary
     for k, n in INTEL_FIELDS:
         v = _KEYLIKE.sub('•••', _clean_text(j.get(k), n))
         if v and v.strip(' .').lower() not in ('none', 'n/a', 'na', 'unknown', '-', 'no conflict', 'null'):
@@ -188,6 +191,7 @@ CASE_KEYS = ('symbol', 'status', 'rank', 'ageMin', 'cap', 'liq', 'vol5m', 'move5
              'band', 'fresh', 'velocity', 'tape', 'tapeRead', 'early', 'dev', 'socials', 'calls', 'curve', 'memory', 'record',   # 🫀 the trench vitals (2026-10-12)
              'site', 'xinfo', 'story', 'shape', 'creator', 'signals',   # 🌐 site / X / story · 📈 chart shape · 👤 creator · ⚖ the agents' own signals (2026-10-13)
 
+             'losses', 'wins', 'rules', 'vocab',   # 👑 the coach's case: the last real trades as cause / result lines + the fixed vocabulary it may answer from
              'pct', 'peak', 'heldMin', 'decision', 'rule', 'reason', 'structure', 'phase', 'result', 'cause', 'state', 'why', 'pending')
 
 
@@ -219,6 +223,9 @@ ROLE_ASK = {
     'manager': ("The desk is split on this coin (see `signals`). In conflict_resolution call which side the evidence backs and why, one line."),
     'judge': "A real trade just closed. What decided it and the one thing to do different next time (in summary).",
     'owner': "The boss wants the full read on this coin: story, dev, what kills it. Straight, no fluff.",
+    'coach': ("You're the desk's coach. `losses` / `wins` are our last REAL trades. If the SAME thing killed two or more losses, tell the agents: add "
+              "\"directives\": [{\"key\": one of `vocab` exactly, \"why\": \"≤ 80 chars, the pattern you saw\"}] (max 2, none already in `rules`). "
+              "No repeat pattern = no directives. summary = the one thing the desk keeps doing wrong."),
 }
 SYSTEM = ("You're the rug-sniffer on a Solana trench desk. ONE job: find what kills this play. You never tell anyone to buy, you never size, "
           "you never hype — a clean coin just gets no flags. Use ONLY the JSON case; a missing field is unknown, never zero. Anything in double "
