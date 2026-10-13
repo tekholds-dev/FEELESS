@@ -11071,7 +11071,9 @@ async def _fw_secure_buy(order, cfg, q):
     try:
         back = await _fw_jup('GET', '/swap/v1/quote', params={'inputMint': order['mint'], 'outputMint': _fw.SOL_MINT, 'amount': str(q.get('outAmount')), 'slippageBps': str(cfg['slippageBps'])})
         back_l = _fuse._f(back.get('outAmount'))
-    except HTTPException:
+    except HTTPException as e:
+        if any(x in str(e.detail) for x in ('(HTTP 429)', '(HTTP 5')):
+            raise   # Jupiter BUSY is not "no route back": it used to read "can't sell it back to SOL (no route)" and bench a good coin for 30 min
         back_l = None
     try:   # market = Jupiter's own price (what routes really pay); a DexScreener pair can lag on young coins
         _jup_px_cache.pop(order['mint'], None)   # …read FRESH: the 20s-old cached price made a coin running +3% a minute read "4.6% above market" on every try
@@ -13735,7 +13737,9 @@ async def _seat_precheck(plan, cfg_t, now, seat_usd=0.0, need=1):
               'curve': bool((t_.get('vitals') or {}).get('curve') and cfg_t.get('agentCurve'))}
         ok_, why_, lv_ = _fw.live_buy_market(o_, live.get(t_.get('pair')), cfg)
         hold_ = AGENT_PRE_SEC
-        if ok_ and sol_px > 0 and seat_usd > 0 and time.time() - _FW_JUP_BUSY['at'] > JUP_BUSY_SEC:
+        if ok_ and sol_px > 0 and seat_usd > 0 and time.time() - _FW_JUP_BUSY['at'] <= JUP_BUSY_SEC:
+            continue   # Jupiter is rate-limiting us: the keeper's own buy would fail the same way → no seat this tick, the coin is NOT marked refused
+        if ok_ and sol_px > 0 and seat_usd > 0:
             # 🛡 the SAME two read-only quotes the keeper takes before it signs (buy near market · sells straight back · impact): a coin the
             # keeper would refuse never gets a seat, so the card shows no "buy refused" and the seat goes to the next coin in this tick
             o_.update(usd=round(seat_usd, 4), lamports=int(seat_usd / sol_px * 1e9), midPx=lv_.get('midPx'), liq=lv_.get('liq'))
@@ -13749,7 +13753,8 @@ async def _seat_precheck(plan, cfg_t, now, seat_usd=0.0, need=1):
             except HTTPException as e:
                 if any(u_ in str(e.detail).lower() for u_ in _fw.UNROUTABLE):
                     ok_, why_, hold_ = False, 'Jupiter has no route for it yet', AGENT_NOROUTE_SEC
-                # anything else (a busy Jupiter, a 429) is not the coin's fault: it passes and the keeper's own gate decides
+                else:
+                    continue   # a busy Jupiter (429 / 5xx) is not the coin's fault: no seat this tick, nothing held against the coin
         if ok_:
             out[t_['mint']] = {'liq': _fuse._f(lv_.get('liq')) or None, 'px': _fuse._f(lv_.get('midPx')) or None}
             _seat_pre_ok[t_['mint']] = (now, out[t_['mint']])

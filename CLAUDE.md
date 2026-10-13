@@ -3487,3 +3487,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   Browser pane shows it only on a screenshot). Drawn by `ChartPnl` (`OnChart`) for the viewer's own position on EVERY PriceChart, for a seat
   (`pnl={{label, pos, tagOnly}}` — cockpit + TrenchChart pass `tagOnly`, their own badge / strip carries the numbers) and by PriceChart itself
   for a Fuse card's coin (`fuse.entry`). `pctWord` / `usdWord` / `liveRead` are pure + tested.
+- 📡 A BUSY JUPITER IS NEVER "NO ROUTE" (`_fw_secure_buy` re-raises a 429 / 5xx from the sell-back quote — it used to read "can't sell it back to
+  SOL (no route)" and bench a good coin 30 min) and the seat pre-check takes NO seat while Jupiter is rate-limiting (`_FW_JUP_BUSY` ≤ 20s: the coin
+  is not refused, just not seated this tick — the keeper's buy would fail the same way). 2026-10-12 after every fix above the remaining choke for
+  real fills is Jupiter's own rate limit on BOTH lanes (the public lane is shared with our price / token reads; the key is a free ~1 rps plan).

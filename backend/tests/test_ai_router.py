@@ -308,3 +308,26 @@ def test_low_usage_a_coin_that_only_wiggled_is_the_same_case_and_a_changed_state
     assert air.CACHE_SEC >= 600
     c = air.compact({**base, 'holders': 'top10 18% · dev 2% · scan passed', 'chart': 'COMPRESSION', 'crowd': 'callers 3'})
     assert c['holders'].startswith('top10') and c['chart'] == 'COMPRESSION' and 'wallet' not in c and 'url' not in c      # Sherlock's brief reaches the model; nothing else does
+
+
+def test_while_jupiter_is_busy_no_seat_is_taken_and_no_coin_is_blamed():
+    import asyncio
+    import time
+    import reputation_service as rs
+    plan = [{'mint': 'GOODpump', 'pair': 'P1', 'symbol': 'GOOD', 'vitals': {}}]
+
+    async def live(_orders):
+        return {'P1': {'baseToken': {'address': 'GOODpump'}, 'priceUsd': '0.5', 'liquidity': {'usd': 500000}, 'dexId': 'pumpswap'}}
+
+    async def sol():
+        return 100.0
+    old = (rs._fw_live_pairs, rs._sol_usd_live, rs._FW_JUP_BUSY['at'])
+    rs._fw_live_pairs, rs._sol_usd_live = live, sol
+    rs._agent_refused.clear(); rs._seat_pre_ok.clear()
+    try:
+        rs._FW_JUP_BUSY['at'] = time.time()                      # a 429 seconds ago
+        assert asyncio.run(rs._seat_precheck(plan, {}, 1000.0, seat_usd=0.2, need=1)) == {}
+        assert not rs._agent_refused                             # …the coin is not refused: it is tried again when Jupiter answers
+    finally:
+        rs._fw_live_pairs, rs._sol_usd_live, rs._FW_JUP_BUSY['at'] = old
+        rs._agent_refused.clear(); rs._seat_pre_ok.clear()
