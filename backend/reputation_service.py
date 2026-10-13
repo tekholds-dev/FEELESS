@@ -12897,7 +12897,8 @@ def _ai_learn_note(role, c, res, now):
         return
     px = _fuse._f(c.get('price')) or _fuse._f((_jup_px_cache.get(c['mint']) or (0, 0))[1])
     ad_ = (res or {}).get('advice') or {}
-    _ai['book'] = _ail.note(_ai_book(), role, c['mint'], st, px, now, c.get('symbol'), len(ad_.get('risk_flags') or []), ad_.get('scout'), bool(c.get('atFill')))
+    _ai['book'] = _ail.note(_ai_book(), role, c['mint'], st, px, now, c.get('symbol'), len(ad_.get('risk_flags') or []), ad_.get('scout'), bool(c.get('atFill')),
+                            bool(_tch.hits(_teach_state(), c.get('symbol'), c['mint'])))   # 🎓 a read on a coin the owner taught is graded on its own (TAUGHT)
 
 
 async def _ai_learn_settle(now):
@@ -13037,8 +13038,8 @@ def _ai_ambiguous(c):
 
 
 def _ai_case(c):
-    """A kernel candidate → the compact case the router sends (it whitelists again)."""
-    return {**_ai_brief(c.get('mint')), 'signals': _ai_signals(c),
+    """A kernel candidate → the compact case the router sends (it whitelists again) + 🎓 the owner's teachings that fit the coin."""
+    return {**_ai_brief(c.get('mint')), 'signals': _ai_signals(c), 'lessons': _tch.for_case(_teach_state(), c.get('symbol'), c.get('mint')) or None,
             **{k_: c.get(k_) for k_ in ('mint', 'symbol', 'status', 'rank', 'ageMin', 'cap', 'liq', 'vol5m', 'move5m', 'buyShare', 'narrative', 'trigger', 'size', 'unknown',
                                        'state', 'why', 'pending', 'result', 'cause', 'peak', 'heldMin', 'rule', 'structure', 'phase')},
             'devil': [f"{d_[0]} {d_[1]}" for d_ in (c.get('devil') or []) if isinstance(d_, (list, tuple)) and len(d_) >= 2] if isinstance(c.get('devil'), list) else c.get('devil')}
@@ -14174,6 +14175,15 @@ def _coach_grade(now):
 
 
 import rule_lab as _rlab
+import teach as _tch
+TEACH_PATH = DATA_DIR / 'agent_teach.json'
+_teach: dict = {'st': None}
+
+
+def _teach_state():
+    if _teach['st'] is None:
+        _teach['st'] = _json_load(TEACH_PATH, {}) or {}
+    return _teach['st']
 import regret as _rg
 REGRET_PATH = DATA_DIR / 'regret.json'
 _regret: dict = {'b': None, 'at': 0.0, 'savedAt': 0.0}
@@ -14249,6 +14259,7 @@ async def _lab_tick(now, env, cfg):
             _lab['at'] = now
             reviews = ((_office_state().get('judge') or {}).get('reviews')) or []
             case = _rlab.case(trades, _lab_state(), reviews)
+            case['lessons'] = [f"owner {t['kind']}: {t['text']}" for t in (_teach_state().get('items') or [])[:6]] or None   # 🎓 the lab reads the owner's teachings too
             res = await _air.ROUTER.reason(_ai_http(), env, cfg, case, 'lab', 'normal', prio=_air.PRIO['lab'])
             ad = (res or {}).get('advice') or {}
             props = _rlab.clean(ad.get('rules'), _rlab.vocab(trades))
@@ -15674,7 +15685,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         print('fresh:', e)
     _office['payload']['performance']['passMs'] = round(sum(_fuse._f(ms.get(a)) for a in _of.CHAIN), 2)
     _tape_ledger(now)
-    _office['payload'].update(tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now), ai=_ai_view(now, light=True), net=_net_stats(now), armed=_office.get('armed'), lab=_lab_view(now), regret=_rg.view(_regret_book(), now),
+    _office['payload'].update(tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now), ai=_ai_view(now, light=True), net=_net_stats(now), armed=_office.get('armed'), lab=_lab_view(now), regret=_rg.view(_regret_book(), now), teach=_tch.view(_teach_state()),
                               universe={'capUsd': _uni.band()[1], 'minCapUsd': _uni.band()[0], 'word': _uni.band_word(), 'maxAgeH': _uni.AGENT_MAX_AGE_H, 'inLane': len(_agents.get('table') or []),
                                         'board': (_office.get('intake') or {}).get('board'), 'mints': len(_tk.KERNEL.store.mints)})
     _hub_publish(now)   # 📡 this pass as DELTAS: only what changed since the last one
@@ -15860,6 +15871,19 @@ async def admin_agents_set(request: Request):
             raise HTTPException(400, str(e))
         if _office.get('payload') is not None:
             _office['payload']['ownerReview'] = _owner_view(time.time())
+    tc = body.get('teach') or {}
+    taught = None
+    if tc:   # 🎓 the creator teaches the desk: a note, a narrative or a chart lesson (with a FEELESS-uploaded image) — read by every fitting model case
+        try:
+            _teach['st'] = _tch.remove(_teach_state(), str(tc['remove'])) if tc.get('remove') else _tch.add(_teach_state(), tc, time.time())
+            _json_save(TEACH_PATH, _teach['st'])
+            taught = (_teach['st'].get('items') or [None])[0]
+            if _office.get('payload') is not None:
+                _office['payload']['teach'] = _tch.view(_teach['st'])
+            if not tc.get('remove') and taught:
+                _tk.KERNEL.note('owner', 'TEACH', f"🎓 {taught['kind']}: {taught['text'][:120]}", time.time(), mint=taught.get('mint'), key=f"teach:{taught['id']}")
+        except ValueError as e:
+            raise HTTPException(400, str(e))
     idea = body.get('idea') or {}
     if idea.get('id'):
         try:

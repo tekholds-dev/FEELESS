@@ -1,0 +1,32 @@
+/* 🎓 TEACH THE DESK (TeachBox.jsx `tch-*`): the creator's notes, narratives and chart lessons for the model; rows stagger in (--i × 50ms). */
+.ack-coachcol { display: grid; gap: var(--ack-gap, 10px); align-content: start; min-width: 0; }
+.tch { display: grid; gap: 7px; padding: 9px 10px; border-radius: var(--m-r-sm, 10px); border: 1px solid color-mix(in srgb, #c9b8ff 30%, transparent);
+  background: linear-gradient(160deg, rgba(140, 110, 255, .07), rgba(4, 14, 9, .65)); min-width: 0; }
+.tch-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin: 0; }
+.tch-head b { font: 800 10px var(--m-mono); letter-spacing: .12em; color: var(--m-text); } .tch-head small { flex: 1 1 180px; font: 600 8.5px var(--m-mono); color: var(--m-mute); }
+.tch-head em { font: 800 8.5px var(--m-mono); font-style: normal; letter-spacing: .06em; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; color: #c9b8ff; }
+.tch-head em.is-up { color: var(--m-accent); } .tch-head em.is-dn { color: var(--m-danger); }
+.m-seg.tch-kinds button small { margin-left: 5px; font-size: 8px; opacity: .7; }
+.tch-write { display: grid; gap: 5px; }
+.m-input.tch-text { width: 100%; min-height: 44px; resize: vertical; font: 600 11px/1.4 var(--m-mono); }
+.tch-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.m-btn.tch-clip { padding: 3px 8px; } .tch-thumb { width: 38px; height: 26px; object-fit: cover; border-radius: 4px; border: 1px solid var(--m-line); }
+.tch-coin { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--m-line); font: 700 9px var(--m-mono); color: var(--m-dim); cursor: pointer; transition: border-color .15s ease; }
+.tch-coin:hover { border-color: #c9b8ff; } .tch-coin.is-on { border-color: var(--m-accent); color: var(--m-accent); } .tch-coin input { accent-color: #15d16a; }
+.tch-n { margin-left: auto; font: 600 8.5px var(--m-mono); color: var(--m-mute); }
+.m-btn.tch-send { padding: 4px 12px; font: 800 10px var(--m-mono); letter-spacing: .08em; } .m-btn.tch-send[aria-busy='true'] { opacity: .6; }
+.tch-words { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; } .tch-words i { font: 700 8.5px var(--m-mono); font-style: normal; color: #c9b8ff; padding: 1px 6px; border-radius: 4px; background: rgba(201, 184, 255, .08); }
+.tch-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; max-height: 210px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
+.tch-list::-webkit-scrollbar { width: 6px; } .tch-list::-webkit-scrollbar-thumb { background: #15d16a; border-radius: 3px; }
+.tch-list li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto auto auto; gap: 6px; align-items: center; padding: 4px 6px; border-radius: 6px; background: rgba(255, 255, 255, .03);
+  animation: tchIn .3s ease-out both; animation-delay: calc(var(--i) * 50ms); transition: background .15s ease; }
+.tch-list li:hover { background: rgba(255, 255, 255, .06); } .tch-list li.is-narrative { box-shadow: inset 2px 0 0 #c9b8ff; } .tch-list li.is-chart { box-shadow: inset 2px 0 0 #8fd3ff; }
+.tch-list p { margin: 0; font: 600 10px/1.35 var(--m-mono); color: var(--m-text); overflow-wrap: anywhere; } .tch-list p small { color: var(--m-mute); }
+.tch-age { font: 600 8.5px var(--m-mono); color: var(--m-mute); }
+.tch-x { border: 0; background: none; color: var(--m-mute); cursor: pointer; font-size: 11px; padding: 0 2px; transition: color .15s ease; } .tch-x:hover { color: var(--m-danger); } .tch-x:focus-visible { outline: 1px solid #45e486; }
+@keyframes tchIn { from { opacity: 0; transform: translateY(4px); } }
+body.fx-lite .tch-list li { animation: none; }
+@media (prefers-reduced-motion: reduce) { .tch-list li { animation: none; } .tch-coin, .tch-list li, .tch-x { transition: none; } }
+body.theme-day .tch { background: linear-gradient(160deg, rgba(90, 60, 200, .06), rgba(236, 246, 240, .8)); border-color: rgba(90, 60, 200, .25); }
+body.theme-day .tch-head b, body.theme-day .tch-list p { color: #0f2419; } body.theme-day .tch-list li { background: rgba(10, 60, 35, .04); } body.theme-day .tch-words i { color: #5a3cc8; }
+@media (max-width: 640px) { .tch-list li { grid-template-columns: 18px minmax(0, 1fr) auto; } .tch-list li .tch-age { display: none; } }

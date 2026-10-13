@@ -33,7 +33,7 @@ def _median(xs):
     return None if not n else s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2
 
 
-def note(book, role, mint, stance, px, now, symbol=None, flags=None, scout=None, at_fill=False):
+def note(book, role, mint, stance, px, now, symbol=None, flags=None, scout=None, at_fill=False, taught=False):
     """One model stance → an open call (once per coin + stance per 30 min, only with a live price). How many risk flags it raised rides
     on the call, so "the model flagged 2+ risks" is judged on its own record too (`vital_record`). → new book"""
     b = {'open': list((book or {}).get('open') or []), 'done': list((book or {}).get('done') or [])}
@@ -49,6 +49,8 @@ def note(book, role, mint, stance, px, now, symbol=None, flags=None, scout=None,
         c['scout'] = {k: v for k, v in scout.items() if k in ('original', 'thesis', 'site', 'tech')}
     if at_fill:
         c['atFill'] = True
+    if taught:
+        c['taught'] = True
     b['open'] = (b['open'] + [c])[-KEEP_OPEN:]
     return b
 
@@ -90,7 +92,8 @@ BUCKETS = (('FLAGS:2+', '2+ risk flags', lambda c: isinstance(c.get('flags'), in
            ('SCOUT:SWARM', 'scout: a swarm thesis', lambda c: (c.get('scout') or {}).get('thesis') == 'swarm'),
            ('SCOUT:TECH', 'scout: real tech (60+)', lambda c: _f((c.get('scout') or {}).get('tech'), -1) >= 60),
            ('SCOUT:MEME', 'scout: pure meme (≤ 20)', lambda c: 0 <= _f((c.get('scout') or {}).get('tech'), -1) <= 20),
-           ('AT:FILL', 'asked at the fill', lambda c: bool(c.get('atFill'))))
+           ('AT:FILL', 'asked at the fill', lambda c: bool(c.get('atFill'))),
+           ('TAUGHT', 'a coin you taught', lambda c: bool(c.get('taught'))))   # 🎓 does the owner's teaching make the model's reads better?
 BUCKET_LABEL = {k: lab for k, lab, _t in BUCKETS}
 
 

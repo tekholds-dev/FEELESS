@@ -3775,3 +3775,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (dots glide up on transform; new coins pop; READY breathes; PICKED rings) + a lane funnel + intake /min. Tap → splash: MC · age · 5m ·
   buyers · pool · 5m vol (bad ones flagged), Devil's first objection, the model's read + scout chips, and ⚡ ARM · 📌 TRACK · 🔎 REVIEW ·
   ✕ IGNORE (the owner-review route) · 📈 CHART. Drawn from the kernel's own state; it decides nothing.
+- 🎓 TEACH THE DESK (`backend/teach.py` pure + tested, `data/agent_teach.json`, POST /admin/agents `{teach: {kind, text, mint?, sym?, img?} | {remove}}`
+  (creator only), payload `teach` → `command/TeachBox.jsx` + `styles/teachBox.css` `tch-*` stacked under the coach box): the owner's 💬 notes,
+  📖 narratives (key words → coins whose ticker / name carry them) and 📈 chart lessons (caption + an image from OUR upload store only) go
+  into every fitting model case (`_ai_case` → `lessons`, the lab's case too); every read on a coin the owner taught is graded in its own
+  ai_learn bucket TAUGHT, so the record says whether the teaching helps. The text model reads captions, not pictures (a vision provider would
+  be needed for the image itself). Never an order, a size or a sell.
