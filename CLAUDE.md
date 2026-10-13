@@ -3705,4 +3705,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   record; the real card untouched). Its own record says whether the agents' list pays — never promote it without that.
   The model coach's case now carries what the desk MEASURED (`coach_case(.., grades_, exits, speed)`: each rule's own record, the exit
   rules' real results, call → fill timings; `ai_router.CASE_KEYS` + exits / speed).
+- 📡 EVERY JUPITER KEY IS ITS OWN LANE (`JUP_KEY_ENVS`: `JUPITER_API_KEY`, `_2` … `_6` in backend/.env; `_jup_keys`, `_jup_lanes(list)`,
+  `_jup_lid` = the lane's own pacing slot, base#N from the 2nd key): the keeper's quotes go to whichever lane is free, so N keys ≈ N
+  requests a second. Before, only ONE key was ever read — a second key in .env did nothing. Distinct names (env_loader keeps the first
+  value of a repeated name); restart the reputation service after adding one. Reads (`_jup_prices` / `_jup_tokens`) still use key 1 only.
+- 🧬 THE MODEL SEES OUR OWN TWINS (`real_memory.twins`, case key `twins`, `_real_trades` 60s cache): each case it is asked about carries
+  the real trades that looked most like this coin at entry (≥ 3 shared entry features) and how each REALLY ended. No extra call.
+  THE AI'S REAL LIMITS (2026-10-13, say these before promising anything from it): asked ~0.1×/min · veto-only · its own ENTER calls
+  fell a typical 39% · its rug read did not separate winners · it judges a snapshot and the fill lands 2 minutes later. Where a model can
+  add: reading text (site / X / call thesis), and PROPOSING rules that the record then tests walk-forward — never picking coins itself.
 

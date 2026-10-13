@@ -11050,39 +11050,66 @@ JUP_LANE_REST = 8.0          # a lane that answered 429 rests this long (or its 
 _FW_JUP_PACE = {'lock': None, 'next': {}, 'rest': {}}
 
 
+JUP_KEY_ENVS = ('JUPITER_API_KEY', 'JUPITER_API_KEY_2', 'JUPITER_API_KEY_3', 'JUPITER_API_KEY_4', 'JUPITER_API_KEY_5', 'JUPITER_API_KEY_6')
+_JUP_KEY_N: dict = {}   # key → its lane number (1 = the first key: its pacing slot keeps the plain base name)
+
+
+def _jup_keys(env=None):
+    """Every Jupiter key set in backend/.env (`JUPITER_API_KEY`, `_2` … `_6`), in order, no repeats. Never logged, never returned to a page."""
+    e = os.environ if env is None else env
+    out = []
+    for name in JUP_KEY_ENVS:
+        k = str(e.get(name) or '').strip()
+        if k and k not in out:
+            out.append(k)
+    return out
+
+
 def _jup_lanes(key):
-    """📡 Jupiter = TWO lanes, like the RPC: the keyed API (the plan's own quota) and the public one (its own, separate limit). Each lane
-    is PACED to what its plan allows and rests after a 429; a call goes to whichever lane is free first. 2026-10-12: a $0.08 sell failed
-    "route unavailable (HTTP 429)" four passes in a row (quotes were fired in bursts at the keyed lane alone), Courier read execution BAD
-    and every seat was blocked behind it. Never a URL with a key in it; the key rides a header."""
-    return ([('https://api.jup.ag', {'x-api-key': key})] if key else []) + [('https://lite-api.jup.ag', {})]
+    """📡 Jupiter = LANES, like the RPC: one per key (each plan's own quota: `JUPITER_API_KEY`, `_2` … `_6`) + the public one (its own,
+    separate limit). Each lane is PACED to what its plan allows and rests after a 429; a call goes to whichever lane is free first, so
+    N keys ≈ N requests a second for the keeper's quotes. 2026-10-12: a $0.08 sell failed "route unavailable (HTTP 429)" four passes in
+    a row (quotes were fired in bursts at the keyed lane alone), Courier read execution BAD and every seat was blocked behind it.
+    2026-10-13: call → send was a median 89s — four quotes a buy through ONE ~1 rps key. Never a URL with a key in it; the key rides a header.
+    `key` = one key or a list of keys."""
+    keys = [k for k in ([key] if isinstance(key, str) else list(key or [])) if k]
+    for i, k in enumerate(keys):
+        _JUP_KEY_N.setdefault(k, i + 1)
+    return [('https://api.jup.ag', {'x-api-key': k}) for k in keys] + [('https://lite-api.jup.ag', {})]
+
+
+def _jup_lid(lane):
+    """A lane's own pacing slot: the base for the public lane and the first key, base#N for every further key."""
+    n = _JUP_KEY_N.get((lane[1] or {}).get('x-api-key'), 1)
+    return lane[0] if n <= 1 else f'{lane[0]}#{n}'
 
 
 def _jup_pick(lanes, now):
     """→ (lane, wait seconds): the lane whose next free slot comes first (its spacing and any 429 rest counted)."""
-    free = lambda b: max(_FW_JUP_PACE['next'].get(b, 0.0), _FW_JUP_PACE['rest'].get(b, 0.0))
-    lane = min(lanes, key=lambda l: free(l[0]))
-    return lane, max(0.0, free(lane[0]) - now)
+    free = lambda l: max(_FW_JUP_PACE['next'].get(_jup_lid(l), 0.0), _FW_JUP_PACE['rest'].get(_jup_lid(l), 0.0))
+    lane = min(lanes, key=free)
+    return lane, max(0.0, free(lane) - now)
 
 
 async def _fw_jup(method, path, **kw):
-    lanes = _jup_lanes(os.environ.get('JUPITER_API_KEY'))
+    lanes = _jup_lanes(_jup_keys())
     if _FW_JUP_PACE['lock'] is None:
         _FW_JUP_PACE['lock'] = asyncio.Lock()
     scale = JUP_GAP_SEC / 0.2
     r = None
     async with httpx.AsyncClient(timeout=20) as http:
-        for attempt in range(6):   # 429 / 5xx = that lane rests and the other one answers; every lane resting = wait for the first to come back
+        for attempt in range(max(6, len(lanes) + 3)):   # 429 / 5xx = that lane rests and the other one answers; every lane resting = wait for the first to come back
             async with _FW_JUP_PACE['lock']:
-                (base, hdr), wait_ = _jup_pick(lanes, time.time())
+                lane_, wait_ = _jup_pick(lanes, time.time())
+                (base, hdr), lid = lane_, _jup_lid(lane_)
                 if wait_ > 0:
                     await asyncio.sleep(min(wait_, 6.0))
-                _FW_JUP_PACE['next'][base] = time.time() + JUP_LANE_GAP.get(base, 0.35) * scale
+                _FW_JUP_PACE['next'][lid] = time.time() + JUP_LANE_GAP.get(base, 0.35) * scale
             try:
                 r = await http.request(method, base + path, headers=hdr, **kw)
             except httpx.HTTPError:   # 📡 a dropped connection / timeout = that lane rests like a 5xx — it once escaped as a raw error and killed the whole tier tick mid seat-check
                 r = None
-                _FW_JUP_PACE['rest'][base] = time.time() + JUP_LANE_REST * scale
+                _FW_JUP_PACE['rest'][lid] = time.time() + JUP_LANE_REST * scale
                 continue
             if r.status_code != 429 and r.status_code < 500:
                 break
@@ -11090,7 +11117,7 @@ async def _fw_jup(method, path, **kw):
                 ra_ = float(r.headers.get('retry-after') or 0)
             except (TypeError, ValueError, AttributeError):
                 ra_ = 0.0
-            _FW_JUP_PACE['rest'][base] = time.time() + min(20.0, max(JUP_LANE_REST, ra_)) * scale
+            _FW_JUP_PACE['rest'][lid] = time.time() + min(20.0, max(JUP_LANE_REST, ra_)) * scale
     if r is None:
         _FW_JUP_BUSY['at'] = time.time()
         raise HTTPException(400, 'Jupiter route unavailable (network, HTTP 503)')
@@ -12815,6 +12842,7 @@ def _ai_brief(mint):
                    g('volume trend', cf.get('volTrend'), '×'), g('squeeze', cf.get('squeeze'), '×'), 'momentum decaying' if cf.get('decay') else None,
                    f"trend {cf.get('trend')} · chop {cf.get('chop')} · extension {cf.get('ext')} /100" if cf.get('trend') is not None else None) if cf.get('n') else None,
         'curve': (f"on the launch curve {_fuse._f(v.get('curvePct') or la.get('curvePct')):.0f}%" if (v.get('curve') or la.get('curvePct')) and not la.get('graduated') else 'graduated' if la.get('graduated') else None),
+        'twins': _rm.twins(_real_trades(), _rm.feats(ch.get('state'), (ch.get('entry') or [None, None])[1] if len(ch.get('entry') or []) > 1 else None, '', li.get('phase'), li.get('cls'), v.get('ageH'))),
         'memory': (f"our real card: coins like this ({cell_}) returned {est_:+.0f}% typical (all real trades {_fuse._f(mem_.get('base')):+.0f}%, n {mem_.get('n') or 0})" if cell_
                    else f"our real card's typical trade {_fuse._f(mem_.get('base')):+.0f}% (n {mem_.get('n')})" if mem_.get('n') else None),
         'record': (j(*[f"{k_} {r_['med']:+.0f}% ({r_['n']})" for k_, r_ in sorted(rec_.items(), key=lambda kv: -kv[1]['n']) if k_ != 'ALL'][:3])
@@ -14002,6 +14030,16 @@ def _shadow_flush(now=None):
         return
     _shadow['book']['report'] = _sb.report(_shadow['book']); _shadow['book']['verdict'] = _sb.verdict(_shadow['book']['report'])
     _json_save(SHADOW_PATH, _shadow['book']); _shadow['dirty'] = False; _shadow['savedAt'] = time.time() if now is None else now
+
+
+_real_tr: dict = {'at': 0.0, 'rows': []}
+
+
+def _real_trades():
+    """Our confirmed real exits (one per sale), re-read from the archive at most once a minute — for the model's "twins" line."""
+    if time.time() - _real_tr['at'] > 60:
+        _real_tr.update(at=time.time(), rows=_rm.trades((_json_load(ARCHIVE_PATH, {}) or {}).get('positions')))
+    return _real_tr['rows']
 
 
 def _real_mem(now):

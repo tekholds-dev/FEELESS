@@ -189,7 +189,7 @@ def parse_advice(text):
 CASE_KEYS = ('symbol', 'status', 'rank', 'ageMin', 'cap', 'liq', 'vol5m', 'move5m', 'buyShare', 'narrative', 'trigger', 'devil', 'size', 'unknown',
              'holders', 'chart', 'flow', 'launch', 'crowd',   # 🔍 Sherlock's brief: one short line each, built by the service from readings it ALREADY has
              'band', 'fresh', 'velocity', 'tape', 'tapeRead', 'early', 'dev', 'socials', 'calls', 'curve', 'memory', 'record',   # 🫀 the trench vitals (2026-10-12)
-             'site', 'xinfo', 'story', 'shape', 'creator', 'signals', 'exits', 'speed',   # 🌐 site / X / story · 📈 chart shape · 👤 creator · ⚖ the agents' own signals (2026-10-13)
+             'site', 'xinfo', 'story', 'shape', 'creator', 'signals', 'exits', 'speed', 'twins',   # 🌐 site / X / story · 📈 chart shape · 👤 creator · ⚖ the agents' own signals (2026-10-13)
 
              'losses', 'wins', 'rules', 'vocab',   # 👑 the coach's case: the last real trades as cause / result lines + the fixed vocabulary it may answer from
              'pct', 'peak', 'heldMin', 'decision', 'rule', 'reason', 'structure', 'phase', 'result', 'cause', 'state', 'why', 'pending')

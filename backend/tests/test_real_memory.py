@@ -41,3 +41,15 @@ def test_an_agent_buy_must_cost_less_than_a_normal_one():
     ok, why = fw.buy_safety({**o, 'agent': True}, 0.99 * 1e6, 6, 950_000)
     assert not ok and 'sells back' in why                                                   # … and ≤ 3.5% round trip
     assert fw.target({'legs': [{'mint': 'M', 'pairAddress': 'P', 'units': 1, 'bought': {'tag': '🤖 agents'}}]}, {})['M']['agent']
+
+
+def test_twins_are_our_own_real_trades_that_looked_like_this_coin_with_how_they_ended():
+    import real_memory as rm_
+    def pos(sym, pct, struct, phase, age, at):
+        return {'confirmed': True, 'realPct': pct, 'sym': sym, 'rule': 'R5 stop', 'since': at - 240, 'closedAt': at, 'exit': {'sig': sym},
+                'thesis': {'structure': struct, 'triggerRule': 'E1 x'}, 'li': {'phase': phase}, 'launch': {'ageH': age}}
+    ts = rm_.trades([pos('AAA', -31, 'CHOP', 'CROWD FOMO', 0.2, 100), pos('BBB', 12, 'CHOP', 'CROWD FOMO', 0.2, 200), pos('CCC', 50, 'UPTREND', 'EARLY', 30, 300)])
+    fs = rm_.feats('CHOP', 'E1 x', '', 'CROWD FOMO', None, 0.2)
+    t = rm_.twins(ts, fs)
+    assert t.startswith('2 of our real trades looked like this at entry, 1 won — BBB +12% · R5 stop · held 4m | AAA -31%') and 'CCC' not in t
+    assert rm_.twins(ts, rm_.feats('CHOP')) is None and rm_.twins([], fs) is None

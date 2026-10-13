@@ -163,3 +163,30 @@ def judge(mem, fs):
     if est < veto_of(mem):
         return f"🧠 real-money memory: coins like this ({cell}) returned {est:+.1f}% on our real card — in the worse half, not bought while a better one is ready"
     return None
+
+
+TWIN_MIN, TWIN_N = 3, 3   # a past trade is a "twin" when it shares at least 3 entry features with the coin on the table
+
+
+def twins(trades_, fs, n=TWIN_N):
+    """🧬 The model's few-shot memory: our own REAL trades that looked most like this coin at entry (most shared entry features first,
+    then newest), each with how it really ended — "SYM −31% · R5 stop · held 4m". Real results only; under 3 shared features = no twin.
+    One short line, or None. It costs no call: it rides the case the model is already asked about."""
+    want = {f for f in fs or [] if not f.startswith('door:')}
+    if len(want) < TWIN_MIN:
+        return None
+    hits = []
+    for p in trades_ or []:
+        k = len(want & set(pos_feats(p)))
+        if k >= TWIN_MIN:
+            hits.append((k, _f(p.get('closedAt')), p))
+    if not hits:
+        return None
+    hits.sort(key=lambda h: (-h[0], -h[1]))
+    out = []
+    for _k, _t, p in hits[:n]:
+        held = (_f(p.get('closedAt')) - _f(p.get('since'))) / 60 if p.get('since') else None
+        out.append(f"{p.get('sym')} {_cap(p['realPct']):+.0f}% · {str(p.get('rule') or 'exit').split(':')[0][:26]}" + (f" · held {held:.0f}m" if held is not None and 0 <= held < 6000 else ''))
+    won = sum(1 for h in hits if _cap(h[2]['realPct']) > 0)
+    return (f"{len(hits)} of our real trades looked like this at entry, {won} won — " + ' | '.join(out))[:300]
+

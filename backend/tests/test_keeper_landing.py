@@ -628,3 +628,14 @@ def test_a_dropped_jupiter_connection_rests_that_lane_and_ends_as_a_plain_refusa
     with pytest.raises(HTTPException) as e:
         asyncio.run(rs._fw_jup('GET', '/swap/v1/quote', params={}))
     assert 'Jupiter route unavailable' in str(e.value.detail) and rs._FW_JUP_BUSY['at'] > 0
+
+
+def test_every_jupiter_key_is_its_own_paced_lane(monkeypatch):
+    import reputation_service as rs
+    assert rs._jup_keys({'JUPITER_API_KEY': 'a' * 20, 'JUPITER_API_KEY_2': 'b' * 20, 'JUPITER_API_KEY_3': 'a' * 20, 'JUPITER_API_KEY_5': ' '}) == ['a' * 20, 'b' * 20]
+    rs._JUP_KEY_N.clear()
+    lanes = rs._jup_lanes(['a' * 20, 'b' * 20])
+    assert [b for b, _h in lanes] == ['https://api.jup.ag', 'https://api.jup.ag', 'https://lite-api.jup.ag']
+    assert [rs._jup_lid(l) for l in lanes] == ['https://api.jup.ag', 'https://api.jup.ag#2', 'https://lite-api.jup.ag']
+    monkeypatch.setitem(rs._FW_JUP_PACE, 'next', {'https://api.jup.ag': 9.0, 'https://lite-api.jup.ag': 9.0}); monkeypatch.setitem(rs._FW_JUP_PACE, 'rest', {})
+    assert rs._jup_pick(lanes, 1.0) == (lanes[1], 0.0)                           # key 1 and the public lane are busy: key 2 answers at once
