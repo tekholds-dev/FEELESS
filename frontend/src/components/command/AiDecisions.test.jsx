@@ -56,3 +56,14 @@ test("the model's record is on the page: what the agents learned from it, and wh
   const used = await mount(<AiPane ai={{ ...AI, learn: { ...learn, state: 'IN USE', rows: [{ stance: 'AVOID', n: 25, med: -12, up: 20, factor: 0.9, proven: true }] } }} call={jest.fn()} focus="A" />);
   expect(q(used, 'cai-learn').textContent).toContain('rank ×0.9');
 });
+
+test('the live pulse reads only real clocks and the kernel\'s own counters', () => {
+  const { pulseOf } = require('./AgentCockpit');
+  const o = { cycle: { at: 100, nextIn: 18 }, kernel: { metrics: { mints: 122, rejudged: 394, eventsPerSec: 1.5, uniqueMintsPerMin: 22, latencyMs: { agents: { p50: 0.016 }, priceToReaper: { p50: 0.064 } }, byStatus: { TRACKING: 112, CONTENDING: 8, READY: 2 } } },
+    tape: [{ at: 90, agent: 'tally', action: 'SCAN' }, { at: 104, agent: 'trigger', action: 'ARM', symbol: 'AAA' }], ai: { log: [{ at: 95, stance: 'WAIT', symbol: 'BBB' }] } };
+  const p = pulseOf(o, 109000);
+  expect(p.passAge).toBe(9); expect(p.fill).toBe(0.5); expect(p.late).toBe(false); expect(p.mints).toBe(122); expect(p.brainMs).toBeCloseTo(16); expect(p.wakeMs).toBeCloseTo(64);
+  expect([p.tracking, p.contending, p.ready, p.held]).toEqual([112, 8, 2, 0]); expect(p.last).toMatchObject({ age: 5, agent: 'trigger', action: 'ARM', symbol: 'AAA' }); expect(p.ai).toMatchObject({ age: 14, stance: 'WAIT' });
+  expect(pulseOf(o, 160000).late).toBe(true);                       // a pass that is overdue is said so
+  expect(pulseOf(null).passAge).toBeNull(); expect(pulseOf({}).last).toBeNull();
+});

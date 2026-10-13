@@ -34,7 +34,7 @@ test('the cockpit, laid out like the reference: ribbon → 4 seats → MC chart 
   await act(async () => { root.render(<AgentHubProvider value={hub}><AgentCockpit call={call} /></AgentHubProvider>); });
   await flush();
   const order = [...q('agent-cockpit').children].map(c => c.getAttribute('data-testid') || c.className);
-  expect(order.slice(0, 2)).toEqual(['ack-ribbon', 'ack-seats']); expect(order).toContain('ack-ops');
+  expect(order.slice(0, 3)).toEqual(['ack-ribbon', 'ack-pulse', 'ack-seats']); expect(order).toContain('ack-ops');
   // 💵 the ribbon: the card's own numbers
   for (const k of ['putin', 'equity', 'net', 'phase', 'be', 'lives', 'occ', 'cycle', 'last', 'cash', 'keeper', 'exec']) expect(q(`ack-rt-${k}`)).not.toBeNull();
   expect(q('ack-rt-putin').textContent).toContain('$32.50'); expect(q('ack-rt-phase').textContent).toContain('RECOVERY'); expect(q('ack-rt-keeper').textContent).toContain('1 ACTIVE');

@@ -38,6 +38,36 @@ export function LiveNum({ v, fmt, cls, testid }) {
   return <b className={`ack-num ${cls ?? tone(v)}`} data-testid={testid}>{shown == null ? '—' : fmt(shown)}</b>;
 }
 
+// ── ⚡ the live pulse: the desk working, second by second ──────────────────────────────────────────────────────────────────────────
+// ONE 1-second clock for the whole strip. Every figure is the kernel's own (coins tracked, re-judged, events / s, the ten-agent brain's
+// latency) or an age counted from a real timestamp (the last pass, the last decision line, the model's last answer) — nothing invented.
+function useTick(ms = 1000) { const [n, setN] = useState(() => Date.now()); useEffect(() => { const t = setInterval(() => setN(Date.now()), ms); return () => clearInterval(t); }, [ms]); return n; }
+export function pulseOf(o, nowMs = Date.now()) {
+  const now = nowMs / 1000; const k = (o?.kernel || {}).metrics || {}; const cy = o?.cycle || {}; const every = Number(cy.nextIn) > 0 ? Number(cy.nextIn) : Number(cy.every) || 18;
+  const passAge = cy.at ? Math.max(0, now - cy.at) : null; const last = (o?.tape || []).reduce((m, r) => (r.at > (m?.at || 0) ? r : m), null);
+  const lg = (o?.ai?.log || []); const ai = lg.length ? lg[lg.length - 1] : null; const by = k.byStatus || {};
+  return { passAge, every, fill: passAge == null ? 0 : Math.max(0, Math.min(1, passAge / every)), late: passAge != null && passAge > every * 2,
+    mints: k.mints ?? null, rejudged: k.rejudged ?? null, eps: k.eventsPerSec ?? null, newPerMin: k.uniqueMintsPerMin ?? null,
+    brainMs: k.latencyMs?.agents?.p50 != null ? k.latencyMs.agents.p50 * 1000 : null, wakeMs: k.latencyMs?.priceToReaper?.p50 != null ? k.latencyMs.priceToReaper.p50 * 1000 : null,
+    tracking: by.TRACKING ?? 0, contending: by.CONTENDING ?? 0, ready: by.READY ?? 0, held: by.HELD ?? 0,
+    last: last ? { age: Math.max(0, now - last.at), agent: last.agent, action: last.action, symbol: last.symbol } : null,
+    ai: ai ? { age: Math.max(0, now - ai.at), stance: ai.stance, symbol: ai.symbol } : null };
+}
+function LivePulse({ o, onAi }) {
+  const now = useTick(1000); const p = pulseOf(o, now); const [ic, nm] = TAPE_AGENT[p.last?.agent] || ['•', p.last?.agent || ''];
+  const sec = v => (v == null ? '—' : v < 60 ? `${Math.floor(v)}s` : `${Math.floor(v / 60)}m ${Math.floor(v % 60)}s`);
+  return <section className={`ack-pulse ${p.late ? 'is-late' : ''}`} data-testid="ack-pulse">
+    <span className="ack-pz is-pass" data-tip="The agents' pass: the whole desk re-reads every coin. Between passes the live chart price wakes Reaper and Trigger within seconds."><small>PASS</small><b>{sec(p.passAge)} ago</b>
+      <span className="ack-pzbar"><i style={{ transform: `scaleX(${p.fill})` }} /></span></span>
+    <span className="ack-pz"><small>COINS TRACKED</small><LiveNum v={p.mints} fmt={x => String(Math.round(x))} cls="" testid="ack-pulse-mints" /><u>{p.newPerMin != null ? `${Math.round(p.newPerMin)} new / min` : ''}</u></span>
+    <span className="ack-pz"><small>RE-JUDGED</small><LiveNum v={p.rejudged} fmt={x => String(Math.round(x))} cls="" /><u>{p.eps != null ? `${p.eps.toFixed(1)} events / s` : ''}</u></span>
+    <span className="ack-pz"><small>FUNNEL</small><b><i className="ack-fz is-t">{p.tracking}</i>›<i className="ack-fz is-c">{p.contending}</i>›<i className="ack-fz is-r">{p.ready}</i>›<i className="ack-fz is-h">{p.held}</i></b><u>tracking › contending › ready › held</u></span>
+    <span className="ack-pz"><small>BRAIN</small><b>{p.brainMs != null ? `${p.brainMs < 10 ? p.brainMs.toFixed(1) : Math.round(p.brainMs)}ms` : '—'}</b><u>{p.wakeMs != null ? `price → Reaper ${Math.round(p.wakeMs)}ms` : 'per coin, ten agents'}</u></span>
+    <span className="ack-pz is-wide"><small>LAST DECISION</small><b key={p.last ? `${p.last.agent}-${p.last.action}-${p.last.symbol}` : 'x'} className="ack-pzlast">{p.last ? <>{ic} {nm} · {p.last.action}{p.last.symbol ? ` $${p.last.symbol}` : ''}</> : '—'}</b><u>{p.last ? `${sec(p.last.age)} ago` : 'a quiet tape is a quiet market'}</u></span>
+    <button type="button" className="ack-pz is-ai" onClick={onAi} data-testid="ack-pulse-ai" data-tip="The model's decisions — tap to open"><small>🧠 MODEL</small><b>{p.ai ? `${p.ai.stance || '—'}${p.ai.symbol ? ` $${p.ai.symbol}` : ''}` : 'no answer yet'}</b><u>{p.ai ? `${sec(p.ai.age)} ago` : ''}</u></button>
+  </section>;
+}
+
 // ── 💵 the mission ribbon ───────────────────────────────────────────────────────────────────────────────────────────────────────
 export function MissionRibbon({ tiles, live, cold }) {
   return <section className="ack-ribbon m-live" data-testid="ack-ribbon">
@@ -108,6 +138,10 @@ function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent }) {
   // ON the plot: only confirmed FILLS, as small arrows at the real fill price (no letters, no decision blocks over the candles);
   // every decision stays readable in the rail under the chart
   const chartMarkers = useMemo(() => markers.filter(k => k.text === 'B' || (k.text === 'X' && k.agent === 'courier')).map(({ id, agent, action, why, mc, at, text, ...k }) => ({ ...k, text: '' })), [markers]);
+  // 🟢 the seat's own trade on the candles: a BUY chip at its entry + a P&L tag riding the live candle (the strip above carries the numbers)
+  const seatPnl = useMemo(() => { const e = Number(pos?.entry); const u = Number(pos?.usd); const p = Number(pos?.pct);
+    if (!(e > 0) || !(u > 0) || !Number.isFinite(p) || p <= -100) return false;
+    const cost = u / (1 + p / 100); return { label: 'SEAT', tagOnly: true, pos: { tokensHeld: cost / e, avgEntry: e, investedPoolUsd: cost, at: pos?.at || pos?.since || null } }; }, [pos?.entry, pos?.usd, pos?.pct, pos?.at, pos?.since]);
   if (!m) return <div className="ack-chart is-empty" data-testid="ack-chart"><p className="ack-nil">No coin on the desk yet — the chart opens on the first seat or READY candidate.</p></div>;
   const vol = cand?.vol5m; const liq = pos?.liq ?? cand?.liq;
   return <div className="ack-chart" data-testid="ack-chart">
@@ -124,7 +158,7 @@ function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent }) {
     {!m.pair ? <p className="ack-nil" data-testid="ack-nopool">No pool for this coin yet — nothing to chart.</p>
       : !m.mc ? <p className="ack-nil is-warn" data-testid="ack-mc-unavailable"><b>MC UNAVAILABLE</b> — no supply is known for this coin yet (no token supply, not a launchpad mint, no live cap). The raw price is never charted in its place.</p>
         : <div className="ack-plot">{pos ? <LiveTrade pos={pos} m={m} /> : null}<Suspense fallback={<p className="ack-nil">loading the live chart…</p>}>
-          <PriceChartLazy key={`${m.pair}-${iv}`} pair={pair} interval={iv} metric="marketCap" showVolume markers={chartMarkers} fuse={fuse} pnl={false} plain /></Suspense></div>}
+          <PriceChartLazy key={`${m.pair}-${iv}`} pair={pair} interval={iv} metric="marketCap" showVolume markers={chartMarkers} fuse={fuse} pnl={seatPnl} plain /></Suspense></div>}
     <div className="ack-mrail" data-testid="ack-mrail"><span className="ack-mkey"><i className="ack-ml is-B">▲<small>real buy</small></i><i className="ack-ml is-X">▼<small>real sell</small></i><small>on the chart · decisions →</small></span>
       {markers.length ? <span className="ack-mlist">{markers.slice(-12).map(k => <button key={k.id} type="button" className={`ack-ml is-${k.text}`} onClick={() => onAgent(k.agent)}
         data-tip={`${new Date(k.at * 1000).toLocaleTimeString()} · ${TAPE_AGENT[k.agent]?.[1] || k.agent} · ${k.action}${k.why ? ` — ${k.why}` : ''}${k.mc ? ` · MC ${mcWord(k.mc)}` : ''} · ${ago(k.at)} ago`}
@@ -309,6 +343,9 @@ function OperatorControls({ o, call, isOwner, ai, onAi }) {
         {ctl[k].options.map(v => <option key={String(v)} value={String(v)}>{optLabel(k, v, ctl[k].unit)}</option>)}</select></label> : null))}
     <span className="m-seg ack-auth" role="group" aria-label="Who decides"><button type="button" disabled={!isOwner || busy} className={!pol.manual ? 'active' : ''} onClick={() => save({ agentAuthority: 'agents' })} data-testid="ack-auth-agents">🤖 Agents inside limits</button>
       <button type="button" disabled={!isOwner || busy} className={pol.manual ? 'active is-manual' : ''} onClick={() => save({ agentAuthority: 'manual' })} data-tip="MANUAL: no agent fill, switch or read-bank — only hard safety exits and your own overrides act" data-testid="ack-auth-manual">✋ Manual</button></span>
+    <label className={`ack-op ${ai?.learn?.on === false ? '' : 'is-you'}`} data-tip="ON: a model stance that is PROVEN on its own judged record (20+ calls, clearly better / worse than its other calls) moves the agents' ranking by up to 10%. OFF: the model is still asked, shown and judged — it weighs nothing. It never buys, sizes, blocks or sells either way."><small>🧠 Learn from the model</small>
+      <select className="m-input" value={ai?.learn?.on === false ? 'off' : 'on'} disabled={!isOwner || busy} onChange={e => save({ agentAiLearn: e.target.value === 'on' })} data-testid="ack-op-agentAiLearn"><option value="on">ON · proven stances ±10%</option><option value="off">OFF · shown only</option></select></label>
+    {ai?.slip ? <span className="ack-fixed" data-tip="Your buy rule (fixed in the keeper): the first try at this slippage, then ONE retry; a second slippage failure gives the seat to another coin. Sells keep their own steps — an exit must land." data-testid="ack-slip"><small>BUY SLIPPAGE</small><b>{ai.slip.firstPct}% → {ai.slip.retryPct}% × {ai.slip.retries} retry</b></span> : null}
     <button type="button" className="m-btn" onClick={() => window.dispatchEvent(new CustomEvent('feeless:agents-lens', { detail: 'limits' }))} data-testid="ack-all-limits">All limits →</button>
     <button type="button" className={`ack-aichip ${chip.cls}`} onClick={onAi} data-tip={chip.tip} data-testid="ack-aichip"><b>AI</b>{chip.parts.map(([k, l, c]) => <span key={k} className={c}>{l}</span>)}</button>
   </section>;
@@ -341,6 +378,7 @@ export function AgentCockpit({ call, isOwner = true }) {
   const note = o.ai?.notes?.[mint]; const aiNote = note ? (note[agentNow] ? { ...note[agentNow], role: agentNow } : Object.entries(note).map(([role, v]) => ({ ...v, role }))[0]) : null;
   return <section className="ack" data-testid="agent-cockpit">
     <MissionRibbon tiles={tiles} live={!!cc?.live} />
+    <LivePulse o={o} onAi={() => setTab('ai')} />
     <section className="ack-seats" data-testid="ack-seats"><header><b>🪑 SEAT BOARD</b><small><b className="m-pos">{held}/{seats.length || '—'} active</b> · live prices every 3s · tap a seat = its chart + the agent handling it</small></header>
       <div className="ack-seatrow">{seats.map(s => <SeatCard key={s.seat} s={s} on={!s.open && s.mint === mint} onPick={onPick} readyN={readyN} />)}</div></section>
     <div className="ack-main">

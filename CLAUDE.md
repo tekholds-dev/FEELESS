@@ -3475,3 +3475,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   REAL wins credited hands down the settings it won with — except the keys its own failure is being fixed on; a generation that never won hands down
   nothing (the earlier "no inherited fear" rule stands for losers). Lineage `changed` says "kept stopPct 22 — it won 4 real trades with it". The
   model's judged record (`ai_proof.json`) and the real-money memory are shared by every generation — a new one starts with them, never from zero.
+- ⚡ LIVE PULSE (`LivePulse` + `pulseOf` in AgentCockpit, `ack-pulse` under the mission ribbon): ONE 1-second clock; pass age + a bar to the next
+  pass, coins tracked / new per min, re-judged + events / s, the funnel tracking › contending › ready › held, the brain's own latency, the last
+  decision line and the model's last stance, each with its age ticking. Only the kernel's counters and real timestamps. Operator controls add
+  🧠 Learn from the model (realCfg `agentAiLearn`, on by default: off = asked, shown and judged, weighs nothing) and the fixed BUY SLIPPAGE chip.
+- 🟢 THE TRADE ON THE CANDLES (`components/terminal/ChartLive.jsx` + `styles/chartLive.css` `clv2-*`; owner, 2026-10-12: "meta styled buy and live
+  moving pnl that moves with the current candle"): a ▲ BUY chip pinned at the entry (its price level; at the buy's candle when that is on screen,
+  else pinned left; dimmed when the entry is off the scale) and a P&L tag that RIDES THE LIVE CANDLE — it sits at `shownRef` (the close the forming
+  candle is drawn with, eased between real ticks; PriceChart sets it wherever it sets `shown`) just left of the price axis, with a thin line from
+  entry to now. ONE rAF loop ≤ 30fps writing transforms + text straight to the DOM (no React render per frame; rAF is paused in a hidden tab — the
+  Browser pane shows it only on a screenshot). Drawn by `ChartPnl` (`OnChart`) for the viewer's own position on EVERY PriceChart, for a seat
+  (`pnl={{label, pos, tagOnly}}` — cockpit + TrenchChart pass `tagOnly`, their own badge / strip carries the numbers) and by PriceChart itself
+  for a Fuse card's coin (`fuse.entry`). `pctWord` / `usdWord` / `liveRead` are pure + tested.

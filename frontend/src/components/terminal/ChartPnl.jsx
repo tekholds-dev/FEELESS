@@ -12,6 +12,7 @@ import { tickHeat } from '../../lib/pnlTicker';
 import { mcapOf } from '../../lib/mcap';
 import { tiny } from '../../lib/num';
 import '../../styles/pnlTicker.css';
+import { ChartLive } from './ChartLive';
 
 // The viewer's live position in this coin: average entry from their real swaps, P&L against the
 // live price (updates with every tick), and a flash the moment one of their trades confirms.
@@ -81,10 +82,18 @@ export function PnlBadge({ pos, pair, price, flash, symbol, imageUrl, mcPerPrice
   </div>;
 }
 
-// the badge a chart draws for itself: `pos` given (a Fuse seat, a position the parent already read) → that; else the viewer's own
-function SelfPnl({ pair, price }) {
+// the badge a chart draws for itself: `pos` given (a Fuse seat, a position the parent already read) → that; else the viewer's own.
+// `live` = the host chart's own scale + live candle → the BUY chip and the P&L tag that rides the candle (ChartLive); `tagOnly` = no pill
+// (the parent already shows the numbers — the trench chart's own badge, the cockpit's trade strip).
+const firstBuy = pos => { const b = (pos?.trades || []).filter(t => t.side !== 'sell' && Number(t.ts) > 0).map(t => Number(t.ts)); return b.length ? Math.min(...b) : null; };
+function OnChart({ pos, live, label }) {
+  const entry = Number(pos?.fillPrice) || Number(pos?.avgEntry) || 0; const held = Number(pos?.tokensHeld) || 0;
+  if (!live || !(entry > 0) || !(held > 0)) return null;
+  return <ChartLive {...live} entry={entry} usd={Number(pos.investedPoolUsd) || Number(pos.investedUsd) || entry * held} at={pos.at || firstBuy(pos)} label={label || 'YOU'} entryWord={live.fmt ? live.fmt(entry) : null} />;
+}
+function SelfPnl({ pair, price, live }) {
   const [pos, flash] = useMyPosition(pair);
-  return <Badge pos={pos} flash={flash} pair={pair} price={price} />;
+  return <><Badge pos={pos} flash={flash} pair={pair} price={price} /><OnChart pos={pos} live={live} /></>;
 }
 function Badge({ pos, flash, pair, price, label }) {
   const px = Number(price) > 0 ? Number(price) : Number(pair?.priceUsd) || 0;
@@ -92,7 +101,9 @@ function Badge({ pos, flash, pair, price, label }) {
   return <PnlBadge pos={pos} flash={flash} pair={pair} price={px} live={Number(price) > 0} label={label} cls="pnt-auto" mcPerPrice={mc > 0 && px > 0 ? mc / px : null}
     symbol={pair?.baseToken?.symbol} imageUrl={pair?.info?.imageUrl} />;
 }
-export function ChartPnl({ pair, price, pnl }) {
+export function ChartPnl({ pair, price, pnl, live }) {
   if (pnl === false || !pair?.pairAddress) return null;
-  return pnl && typeof pnl === 'object' ? <Badge pos={pnl.pos || pnl} pair={pair} price={price} label={pnl.label} /> : <SelfPnl pair={pair} price={price} />;
+  if (!(pnl && typeof pnl === 'object')) return <SelfPnl pair={pair} price={price} live={live} />;
+  const pos = pnl.pos || pnl;
+  return <>{pnl.tagOnly ? null : <Badge pos={pos} pair={pair} price={price} label={pnl.label} />}<OnChart pos={pos} live={live} label={pnl.label} /></>;
 }

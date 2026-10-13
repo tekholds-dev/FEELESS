@@ -510,6 +510,7 @@ def clean_cfg(p):
     out['agentLearn'] = bool((p or {}).get('agentLearn', False))   # 🎓 ONE real seat for the agents to learn on BEFORE they are proven
     out['agentLearnPct'] = int(_f((p or {}).get('agentLearnPct'))) if int(_f((p or {}).get('agentLearnPct'))) in (5, 10, 15, 100) else 100   # 100 = a WHOLE seat (owner: "they run 1 whole seat")
     out['agentDial'] = (p or {}).get('agentDial') if (p or {}).get('agentDial') in ('chill', 'normal', 'crazy') else 'normal'   # 🎚 the creator's dial on Trigger's bar (agents.DIALS)
+    out['agentAiLearn'] = bool((p or {}).get('agentAiLearn', True))   # 🧠 owner's switch: a model stance PROVEN on its own judged record may weigh ±10% on the agents' rank (on by default; off = shown only)
     out['agentCurve'] = bool((p or {}).get('agentCurve', False))   # 🎢 owner's switch: the agents may seat a fresh Pump coin still on its launch curve (off by default)
     out['agentScalp'] = bool((p or {}).get('agentScalp', True))   # ⚡ an agent seat banks at the desk's learned scalp take line (only once a plan is adopted)
     # 📄 EMERGENCY EDGE AUDIT (owner, 2026-10-12): the agents decide on PAPER — no new real buy or switch-in; Reaper, stops, rug / drain and

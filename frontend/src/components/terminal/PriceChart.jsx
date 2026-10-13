@@ -4,6 +4,7 @@ import { useChartBg } from '../../lib/chartBg';
 import { ChartToolsMenu, useToolDraw } from './ChartTools';
 import { ChartPulse } from './ChartPulse';
 import { ChartPnl } from './ChartPnl';
+import { ChartLive } from './ChartLive';
 import { tweenClose, mergeLiveBar, liveBar } from '../../lib/tween';
 import { mcapOf } from '../../lib/mcap';
 import { toolRead, useChartTools } from '../../lib/chartTools';
@@ -50,6 +51,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   const seriesRef = useRef(null);
   const chartRef = useRef(null);
   const lastBarRef = useRef(null);
+  const shownRef = useRef(null);   // the close the forming candle is DRAWN with right now (eased between real ticks) — the live P&L tag rides it
   const markersRef = useRef(null);
   const [livePrice, setLivePrice] = useState(null);
   const liveBarRef = useRef(null);   // the forming candle as the LIVE feed built it (kept across history reloads)
@@ -361,7 +363,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       if (now - frameAt < 33) { raf = requestAnimationFrame(draw); return; }
       frameAt = now;
       const c = tweenClose(anim.from, anim.to, (now - anim.start) / anim.dur);
-      try { seriesRef.current?.series.update({ ...anim.bar, close: c }); shown = c; } catch { anim = null; return; }
+      try { seriesRef.current?.series.update({ ...anim.bar, close: c }); shown = c; shownRef.current = c; } catch { anim = null; return; }
       if (now - anim.start < anim.dur) raf = requestAnimationFrame(draw); else anim = null;
     };
     const apply = (usd, live) => {
@@ -376,7 +378,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
         if (ref0 > 0 && !(value > ref0 / 20 && value < ref0 * 20)) return; // bad read, not a real 1s move
         const t = Math.floor(Date.now() / 1000 / bucket) * bucket;
         if (ref.kind === 'candle') {
-          if (anim && t > anim.bar.time) { try { ref.series.update(anim.bar); } catch { /* chart gone */ } anim = null; shown = null; }   // a new candle: the last one ends on its REAL close, never mid-ease
+          if (anim && t > anim.bar.time) { try { ref.series.update(anim.bar); } catch { /* chart gone */ } anim = null; shown = null; shownRef.current = null; }   // a new candle: the last one ends on its REAL close, never mid-ease
           // 🕯 true data only (`liveBar`): a 1–2 bucket gap continues from the last close; a stale history (a coin indexed late) opens the new
           // candle at the first REAL tick and leaves the gap empty — no fake candle from an old price, no invented flat minutes
           const lb = liveBar(last, value, t, bucket);
@@ -385,12 +387,12 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
           if (smooth && t === last.time && shown != null && typeof requestAnimationFrame !== 'undefined') {   // same candle: ease the body to the new real close
             anim = { bar, from: shown, to: value, start: performance.now(), dur: 350 };
             if (!raf) raf = requestAnimationFrame(draw);
-          } else { anim = null; ref.series.update(bar); shown = value; }
+          } else { anim = null; ref.series.update(bar); shown = value; shownRef.current = value; }
           lastBarRef.current = bar; liveBarRef.current = { ...bar, iv: interval, pool: pairLive.current?.pairAddress };
         } else {
           const point = { time: Math.max(t, last.time), value };
           ref.series.update(point);
-          lastBarRef.current = point;
+          lastBarRef.current = point; shownRef.current = value;
         }
       } catch {
         // Keep the last real candle; never invent a tick.
@@ -444,7 +446,9 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     {charting && hasChart && <div className="candle-canvas" ref={container} data-testid="candlestick-canvas" />}
     {charting && hasChart && displayCandles.length > 0 && <ChartToolsMenu read={toolsRead} />}
     {charting && hasChart && pair?.chainId === 'solana' && pair?.baseToken?.address && <ChartPulse mint={pair.baseToken.address} beat={livePrice?.usd} />}
-    {charting && hasChart && <ChartPnl pair={pair} price={livePrice?.usd} pnl={pnl} />}
+    {charting && hasChart && <ChartPnl pair={pair} price={livePrice?.usd} pnl={pnl} live={{ seriesRef, chartRef, lastBarRef, shownRef, container, ratio, fmt: v => formatUSD(v * ratio) }} />}
+    {charting && hasChart && !(pnl && typeof pnl === 'object') && fuse?.entry > 0 && <ChartLive seriesRef={seriesRef} chartRef={chartRef} lastBarRef={lastBarRef} shownRef={shownRef} container={container} ratio={ratio}
+      entry={fuse.entry} at={fuse.at || null} label={fuse.card ? '⚛ CARD' : 'SEAT'} entryWord={formatUSD(fuse.entry * ratio)} />}
     {charting && hasChart && fuse?.tpl && <ChartGrab seriesRef={seriesRef} container={container} fuse={fuse} ratio={ratio} />}
     {charting && hasChart && <div className="chart-foot-chips">{createdAt && <span className="chart-age" title={new Date(createdAt).toLocaleString()}>🕒 Created {ageLabel(createdAt)} ago</span>}{feeLiveProp === undefined && <button type="button" className={`chart-fee-toggle ${feeOwn ? 'on' : ''}`} onClick={() => setFeeOwn(v => !v)}>🐱 Fee {feeOwn ? 'on' : 'off'}</button>}</div>}
     {charting && hasChart && displayCandles.length > 0 && <button type="button" className="chart-style-toggle" data-testid="chart-style-toggle" onClick={toggleStyle} title="Switch line / candles">{chartStyle === 'line' || (chartStyle === 'auto' && displayCandles.length < 3) ? '▮ Candles' : '〰 Line'}</button>}

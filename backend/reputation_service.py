@@ -12652,9 +12652,16 @@ async def _ai_learn_settle(now):
 def _ai_weights(now):
     """{mint: ×0.9 … ×1.1} — ONLY for stances proven on the model's own judged record (empty until then)."""
     try:
+        if not _ai_learn_on():
+            return {}
         return _ail.weights(_ai['notes'], _ail.record(_ai_book()), now)
     except Exception:
         return {}
+
+
+def _ai_learn_on():
+    """The owner's switch (realCfg `agentAiLearn`, on by default): off = the model is still asked, shown and judged — it just weighs nothing."""
+    return bool(_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentAiLearn'))
 
 
 AI_LOG_KEEP = 60            # 🧠 the model's own decisions, newest last (memory only): what it was asked, what it said, what the kernel said
@@ -12695,7 +12702,8 @@ def _ai_view(now=None, light=False):
         return {'providers': [{k_: r_.get(k_) for k_ in ('key', 'label', 'enabled', 'state', 'lastMs')} for r_ in v['providers']], 'active': v['active'],
                 'totals': v['totals'], 'notes': {m_: {ro_: {k_: n_.get(k_) for k_ in ('source', 'label', 'advice', 'at')} for ro_, n_ in notes[m_].items()} for m_ in keep},
                 'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY, 'log': _ai['log'][-20:],
-                'model': next((r_.get('model') for r_ in v['providers'] if r_.get('key') == v['active']), None), 'learn': _ail.view(_ai_book())}
+                'model': next((r_.get('model') for r_ in v['providers'] if r_.get('key') == v['active']), None), 'learn': {**_ail.view(_ai_book()), 'on': _ai_learn_on()},
+                'slip': {'firstPct': _fw.BUY_SLIP_FIRST / 100, 'retryPct': _fw.BUY_SLIP_MAX / 100, 'retries': _fw.BUY_SLIP_RETRIES}}
     return {**v, 'notes': notes, 'rounds': _ai['rounds'], 'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY}
 
 
@@ -15115,7 +15123,7 @@ async def admin_agents_set(request: Request):
     ch = {}
     if 'feed' in body:
         ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen') + _oe.POLICY_KEYS:
+    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn') + _oe.POLICY_KEYS:
         if k in (body.get('cfg') or {}):
             ch[k] = body['cfg'][k]
     if ch:
