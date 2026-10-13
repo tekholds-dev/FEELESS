@@ -4,7 +4,9 @@ import { hubApply } from '../../lib/agentHub';
 import { TAPE_AGENT } from '../../lib/cockpit';
 import { STANCE_TONE, agreeOf, aiRows, deltaFill, agreeStats } from '../../lib/aiRead';
 import { AG } from './agentWords';
+import { vitalRows, hasVitals, TIMING_TONE } from '../../lib/cockpitControls';
 import '../../styles/cockpitAi.css';
+import '../../styles/agentControls.css';
 
 // 🧠 THE MODEL'S DECISIONS (HQ › Agents › decision panel › 🧠 AI; owner, 2026-10-12: "I wanna see the LM model's decisions as well — fix
 // the AI input"). Every answer the local model (or the next provider) gave, newest first: which desk asked, the coin, its STANCE, how
@@ -19,6 +21,29 @@ function Delta({ d }) {
     <i className={f >= 0 ? 'is-up' : 'is-dn'} style={{ transform: `scaleX(${Math.abs(f)})` }} /><u /></span>;
 }
 
+// 🫀 THE MODEL'S VITALS (owner, 2026-10-12: "pull more vital info from the AI provider"): rug risk (high = bad) · narrative · crowd (people vs
+// bots) · momentum as meters, where the coin is in its run, and the ≤ 4 facts the model says decide it. Advisory: a vital weighs on the
+// rank only once its own judged record proves it (the 🎓 box below).
+export function AiVitals({ a, mini, testid }) {
+  if (!hasVitals(a)) return null;
+  const rows = vitalRows(a);
+  return <div className={`avt ${mini ? 'is-mini' : ''}`} data-testid={testid}>
+    {rows.length ? <ul className="avt-meters">{rows.map(r => <li key={r.k} className={r.tone} data-tip={`${r.label} ${r.v}/100 — the model's read from this case${r.k === 'rug' ? ' (high = more likely a pull or dump)' : ''}`}>
+      <small>{r.label}</small><span className="avt-bar"><i style={{ transform: `scaleX(${r.fill})` }} /></span><b>{r.v}</b></li>)}</ul> : null}
+    {a.timing || (a.flags || []).length ? <p className="avt-foot">{a.timing ? <em className={`avt-time ${TIMING_TONE[a.timing] || ''}`}>⏱ {a.timing}</em> : null}
+      {mini ? null : (a.flags || []).map((f, i) => <span key={i} className="avt-flag">{f}</span>)}</p> : null}
+  </div>;
+}
+// the review queue's cell: the stance + the rug meter + the timing word, in one line
+export function AiCell({ a }) {
+  if (!a?.stance) return <small className="avt-none">—</small>;
+  const rug = vitalRows(a).find(r => r.k === 'rug');
+  return <span className="avt-cell" data-tip={`${a.stance}${a.timing ? ` · ${a.timing}` : ''}${rug ? ` · rug ${rug.v}/100` : ''} — ${a.summary || ''}`}>
+    <em className={`cai-stance ${STANCE_TONE[a.stance] || 'is-hold'}`}>{a.stance}</em>
+    {rug ? <span className={`avt-rug ${rug.tone}`}><i style={{ transform: `scaleX(${rug.fill})` }} /></span> : null}
+    {a.timing ? <small className={`avt-time ${TIMING_TONE[a.timing] || ''}`}>{a.timing}</small> : null}</span>;
+}
+
 export function AiRow({ r, onPick }) {
   const [ic, nm] = TAPE_AGENT[r.role] || (r.role === 'owner' ? ['👤', 'You asked'] : ['🧠', r.role]); const ag = agreeOf(r);
   return <li className={`cai-row ${r.asked ? 'is-asked' : ''}`} style={{ '--ag': AG[r.role] || '#c9b8ff' }} data-testid={`cai-row-${r.at}`}>
@@ -27,6 +52,7 @@ export function AiRow({ r, onPick }) {
         {r.stance ? <em className={`cai-stance ${STANCE_TONE[r.stance] || 'is-hold'}`}>{r.stance}</em> : <em className="cai-stance is-off">NO ANSWER</em>}
         {r.stance ? <Delta d={r.delta} /> : null}<small className="cai-age">{ago(r.at)} ago</small></span>
       <span className="cai-say">{r.summary || r.why || '—'}</span>
+      {hasVitals(r) ? <AiVitals a={r} mini /> : null}
       <span className="cai-foot"><i className="cai-src">{r.label || r.source || 'AI'}</i>{r.ms != null ? <small>{r.ms >= 1000 ? `${(r.ms / 1000).toFixed(1)}s` : `${r.ms}ms`}</small> : null}
         {r.kernel ? <small>kernel: <b>{String(r.kernel).replace('_', ' ')}</b>{r.trigger ? ` · ⏱ ${r.trigger}` : ''}</small> : null}
         {ag ? <em className={`cai-agree ${ag.cls}`}>{ag.word}</em> : null}{r.deep ? <small className="cai-deep" data-tip="the model asked for a deeper review of this coin">deep review</small> : null}</span>
@@ -60,6 +86,10 @@ export function AiPane({ ai, call, isOwner = true, focus, focusSym, onPick, onPr
       {(ai.learn.rows || []).length ? <ul className="cai-lrows">{ai.learn.rows.slice(0, 6).map(r => <li key={r.stance} className={r.factor > 1 ? 'is-up' : r.factor < 1 ? 'is-dn' : ''}>
         <em className={`cai-stance ${STANCE_TONE[r.stance] || 'is-hold'}`}>{r.stance}</em>
         <span className="cai-meter"><i style={{ transform: `scaleX(${Math.min(1, r.n / ai.learn.minN)})` }} /></span>
+        <small>{r.n} judged · typical <b className={r.med > 0 ? 'm-pos' : r.med < 0 ? 'm-neg' : ''}>{r.med > 0 ? '+' : ''}{r.med}%</b> · {r.up}% up</small>
+        <u>{r.factor !== 1 ? `rank ×${r.factor}` : r.proven ? 'no edge' : 'learning'}</u></li>)}</ul> : null}
+      {(ai.learn.vitals || []).some(r => r.n) ? <ul className="cai-lrows avt-lrows" data-testid="cai-learn-vitals">{ai.learn.vitals.filter(r => r.n).map(r => <li key={r.bucket} className={r.factor > 1 ? 'is-up' : r.factor < 1 ? 'is-dn' : ''}>
+        <em className="avt-bucket">{r.label}</em><span className="cai-meter"><i style={{ transform: `scaleX(${Math.min(1, r.n / ai.learn.minN)})` }} /></span>
         <small>{r.n} judged · typical <b className={r.med > 0 ? 'm-pos' : r.med < 0 ? 'm-neg' : ''}>{r.med > 0 ? '+' : ''}{r.med}%</b> · {r.up}% up</small>
         <u>{r.factor !== 1 ? `rank ×${r.factor}` : r.proven ? 'no edge' : 'learning'}</u></li>)}</ul> : null}</div> : null}
     <form className="cai-ask" onSubmit={ask} autoComplete="off" data-testid="cai-ask">

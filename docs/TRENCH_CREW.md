@@ -40,7 +40,7 @@ DISTRIBUTING and COLLAPSING are skipped at once; the desk moves to the next coin
 ## The HARD WALL (the money boundary — the only things that can stop a trench buy)
 
 - no live price · no trades in the last 5 minutes
-- outside the universe: 0 < live cap < $200K and ≤ 6h old
+- outside the universe: live cap inside the owner's MC band (default $12K–$300K, HQ › Agents › controls) and ≤ 6h old
 - a pool the keeper cannot buy into
 - market data invalid / malformed / a bot ladder
 - the live chart collapsing or distributing · the dev dumping now

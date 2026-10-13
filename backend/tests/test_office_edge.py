@@ -32,7 +32,8 @@ def case(m, lean=2.0, cleared=True, checks=None):
 # ── 🎛 THE CREATOR'S LIMITS ───────────────────────────────────────────────────────────────────────────────────────────────────────
 def test_unknown_or_wild_policy_values_fall_back_to_agents_choose_or_are_clamped_never_silently_wild():
     assert oe.clean_policy({}) == {'agentAuthority': 'agents', 'agentTp': 0.0, 'agentSl': 0.0, 'agentTrail': 'auto', 'agentTrailArm': 0.0, 'agentTrailPct': 0.0, 'agentMaxHold': 0.0,
-                                   'agentSizePct': 0.0, 'agentSeatTarget': 0, 'agentSwitch': 'agents', 'agentEntry': 'agents', 'agentMinAgeH': 0.0}
+                                   'agentSizePct': 0.0, 'agentSeatTarget': 0, 'agentSwitch': 'agents', 'agentEntry': 'agents', 'agentMinAgeH': 0.0,
+                                   'agentMcMin': 12_000.0, 'agentMcMax': 300_000.0}   # 🎯 the owner's MC band default
     wild = oe.clean_policy({'agentAuthority': 'god', 'agentTp': 9999, 'agentSl': 0.5, 'agentMaxHold': -3, 'agentSizePct': 99, 'agentSeatTarget': 7, 'agentSwitch': 'yolo', 'agentEntry': 'x', 'agentTrail': 'z'})
     assert wild['agentAuthority'] == 'agents' and wild['agentTp'] == oe.BOUNDS['agentTp'][1] and wild['agentSl'] == oe.BOUNDS['agentSl'][0]   # clamped into the bounds
     assert wild['agentMaxHold'] == 0.0 and wild['agentSizePct'] == oe.BOUNDS['agentSizePct'][1] and wild['agentSeatTarget'] == 0 and (wild['agentSwitch'], wild['agentEntry'], wild['agentTrail']) == ('agents', 'agents', 'auto')
@@ -44,7 +45,9 @@ def test_unknown_or_wild_policy_values_fall_back_to_agents_choose_or_are_clamped
 
 def test_policy_says_per_control_who_decides_and_never_goes_under_the_hard_floors():
     p = oe.policy({'agentSeats': 4, 'coins': 4})
-    assert set(p['who'].values()) == {'AGENTS CHOOSE', 'CREATOR OVERRIDE'} and p['who']['seatCount'] == 'CREATOR OVERRIDE'
+    assert set(p['who'].values()) == {'AGENTS CHOOSE', 'CREATOR OVERRIDE', 'YOUR BAND'} and p['who']['seatCount'] == 'CREATOR OVERRIDE'
+    assert p['who']['mcMin'] == p['who']['mcMax'] == 'YOUR BAND' and p['band'] == {'min': 12_000.0, 'max': 300_000.0, 'word': '$12K–$300K'}
+    assert oe.policy({'agentMcMax': 500_000})['who']['mcMax'] == 'CREATOR OVERRIDE'
     assert all(p['who'][k] == 'AGENTS CHOOSE' for k in ('takeProfit', 'stopLoss', 'trailing', 'maxHold', 'positionSize', 'switching', 'emptySeat', 'entryStyle', 'exitStyle'))
     assert (p['tp'], p['sl'], p['maxHold'], p['sizePct'], p['manual'], p['seats'], p['seatTarget']) == (None, None, None, None, False, 4, oe.SEAT_TARGET_AUTO)
     assert p['hard'] == {'catastrophicStop': ci.CATASTROPHIC_STOP, 'movesPerHour': ag.CONTROL_MOVES_HR, 'minPool': ag.CONTROL_MIN_LIQ}

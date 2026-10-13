@@ -34,7 +34,7 @@ CREW = _frozen({
 })
 
 # 🧱 THE HARD WALL — the money boundary. Nothing else may stop a trench buy.
-HARD_WALL = ('no live price', 'no trades in the last 5 minutes', 'outside the universe (0 < cap < $200K, ≤ 6h)', 'pool under what the keeper can buy into',
+HARD_WALL = ('no live price', 'no trades in the last 5 minutes', 'outside the universe (your MC band — default $12K–$300K —, ≤ 6h)', 'pool under what the keeper can buy into',
              'market data invalid / malformed / a bot ladder', 'the live chart collapsing or distributing', 'the dev / creator dumping now',
              'no route back to SOL / a sell-back tax (keeper)', 'price far from market (keeper)', 'keeper halted / Courier BAD / office not live',
              'a seat too small for its own round-trip cost')

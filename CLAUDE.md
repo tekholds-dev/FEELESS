@@ -3491,3 +3491,39 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   SOL (no route)" and bench a good coin 30 min) and the seat pre-check takes NO seat while Jupiter is rate-limiting (`_FW_JUP_BUSY` ≤ 20s: the coin
   is not refused, just not seated this tick — the keeper's buy would fail the same way). 2026-10-12 after every fix above the remaining choke for
   real fills is Jupiter's own rate limit on BOTH lanes (the public lane is shared with our price / token reads; the key is a free ~1 rps plan).
+- 📡 JUPITER "BUSY" = EVERY LANE FAILED (`_fw_jup`: `_FW_JUP_BUSY` is stamped only when the call's FINAL answer is 429 / 5xx). It was stamped on
+  any 429 even when the other lane then answered — the public lane is 429'd most minutes, so the seat pre-check stood down EVERY tick:
+  2026-10-12 23:05 → 23:35 four empty seats, READY coins, 0 buys sent to the keeper. "SEATS EMPTY + READY > 0 + no ledger rows" ⇒ check
+  `_FW_JUP_BUSY` first. 📡 Final buy gate (`_fw_live_pairs`): DexScreener AND Pump's own record (every Pump mint, `LIVE_PUMP_MAX` 12) in
+  parallel, each bounded by `LIVE_SRC_SEC` 4s, then Jupiter only for coins neither answered (its keyed quota belongs to the keeper's quotes).
+  6h before: 62 of 172 refused agent buys read "live market unavailable" — DexScreener + Jupiter public both 429 from this machine, Pump 200.
+- 🎯 THE OWNER'S MC BAND (owner, 2026-10-12: "trench better on coins from 12k-300k mc"; realCfg `agentMcMin` / `agentMcMax`, options
+  `universe.BAND_MINS` 0/5K/10K/12K/20K/30K/50K · `BAND_MAXS` 100K/150K/200K/300K/500K/1M, default $12K–$300K; HQ › Agents › 🎛 controls ›
+  🎯 UNIVERSE): ONE source `trench_kernel.universe.band()` (set from realCfg at the start of every agents pass + on the owner's save) read by
+  `in_lane` / `under_cap`, `opportunity.hard_fail` ("under your $12K floor" / "≥ $300K"), `opportunity.open_ok` ("outside your MC band"), the
+  ranking's band part and the payload `universe`. `lane_cap` = the band top (the $200K → $1M → $5M widening is gone). Held coins keep running.
+- 🫀 THE MODEL'S VITALS (owner, same night: "pull more vital info from the AI provider"): IN — `_ai_brief` adds band · age bucket · $/min +
+  buys/min · the live 90s tape (+ its word `tapeRead`, the only new key in the cache key) · early wallets · dev · socials (presence only, never
+  a URL) · Pump callers · the curve · what our REAL card made on coins like it (`real_memory.estimate`) · the model's own judged record. OUT —
+  `ai_router.parse_advice` keeps `vitals` {rug, narrative, crowd, momentum} 0–100 (clamped, non-numbers dropped), `timing` EARLY / ON TIME /
+  LATE / CHASE / DEAD, ≤ 4 `flags` (cut at a word, `FLAG_LEN` 40, key-shaped runs masked). JUDGED — `ai_learn.note(.., vitals, timing)`,
+  `vital_record` buckets RUG:HIGH (≥ 60) · RUG:LOW (≤ 30) · TIME:EARLY · TIME:LATE (LATE / CHASE) · TIME:DEAD vs the base rate of ALL calls;
+  `advice_factor` = most cautious proven factor of stance + vitals; still ±10% total and nothing until 20 judged. COVERAGE — `_ai_jobs`:
+  every READY coin inside the band first ('high'), then a conflicted case, then the top in-band contenders; a case already answered in this
+  STATE is skipped (`ROUTER.fresh`); `AI_JOBS` 4. Local LM timeout 30s (the vitals answer took 16–31s with the live service sharing the model).
+  The model still never buys, sizes, blocks or sells. UI: `AiVitals` (meters, rug inverted) on the decision panel, every log row (mini), the
+  review queue's 🧠 AI column (`AiCell`), and the 🎓 box's per-vital record (`cai-learn-vitals`).
+- 🎛 OPERATOR CONTROLS ARE META (`CockpitControls.jsx`, `lib/cockpitControls.js`, `styles/agentControls.css` `acx-*` / `avt-*` / `thd-*`):
+  grouped cards (🎯 UNIVERSE with the live band track — this pass's candidates as dots on a log $1K → $1M scale · 💰 EXITS · 🪑 SEATS & ENTRY ·
+  🧠 MODEL), one segment row per control from the server's own option list, a who-badge per row (AGENTS ice blue · YOURS gold · YOUR BAND
+  green), "now · …" = what the agents use under AGENTS CHOOSE, the tapped option pulses until the hub reloads. Test ids `ack-op-<key>` (row,
+  `data-value`) + `ack-op-<key>-<value>` (buttons). The old selects + `.ack-op` / `.ack-auth` CSS are gone.
+- 💹 LIVE P&L HUD (`TradeHud` in AgentCockpit, replaces the strip): P&L % + $ glide to each real tick of the shared 3s poller and flash its
+  direction; one rail stop … take with now, the PEAK (mfe), the worst (mae), the trail line once armed (`office` positions now carry `armAt` /
+  `trailAt`), "gave back" and "to go"; the held clock ticks; Reaper's ruling + next review. Every seat card has the same rail (`SeatBar`) and
+  its P&L / $ now move with the live price against its own entry (`seatCards`), the server's figure only between reads.
+- 💾 THE AGENTS' STORES LIVE IN MEMORY (`backend/mem_store.py` `MemStore`: loaded once, path looked up at call time so the test sandbox holds,
+  written ≤ every N s + flushed in `_keeper_stop`): agents.json 90s (was parsed AND written every pass: ~5.8s of blocked loop / 25 min) ·
+  trench_lingo.json 10 min · shadow_book.json 60s · social_cache.json 120s · agents_view.json / agent_office_view.json 60s. NEVER for money
+  records. A new agent-side store over ~1 MB ⇒ a MemStore. 🐛 the generation-replaced `_audit` call had the wrong arguments (crashed the
+  lifecycle loop on every replacement); the radar's DexScreener batch skips an HTML 429 page instead of printing "radar error" each minute.

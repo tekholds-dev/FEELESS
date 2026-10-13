@@ -524,11 +524,75 @@ def test_jupiter_has_two_lanes_a_429_on_the_keyed_one_is_answered_by_the_public_
     monkeypatch.setenv('JUPITER_API_KEY', 'k' * 24)
     monkeypatch.setattr(rs, 'JUP_GAP_SEC', 0.0)
     rs._FW_JUP_PACE.update(lock=None, next={}, rest={})
+    monkeypatch.setitem(rs._FW_JUP_BUSY, 'at', 0.0)
     assert asyncio.run(rs._fw_jup('GET', '/swap/v1/quote', params={})) == {'outAmount': '5'}
     assert calls == [('api.jup.ag', True), ('lite-api.jup.ag', False)]            # the key rides its own lane's header only; no wait between lanes
-    assert rs._FW_JUP_BUSY['at'] > 0                                             # …and the optional pre-check quotes stand down
+    assert rs._FW_JUP_BUSY['at'] == 0                                            # the other lane ANSWERED: not busy (any-429 = busy kept every seat empty)
     assert rs._FW_JUP_PACE['rest'].get('https://api.jup.ag', 0) == 0 or rs._FW_JUP_PACE['rest']['https://api.jup.ag'] <= __import__('time').time() + 0.01   # (scaled to 0 in this test)
     assert [b for b, _h in rs._jup_lanes(None)] == ['https://lite-api.jup.ag'] and len(rs._jup_lanes('x')) == 2
     rs._FW_JUP_PACE.update(next={'A': 5.0, 'B': 2.0}, rest={'B': 9.0})
     assert rs._jup_pick([('A', {}), ('B', {})], 1.0) == (('A', {}), 4.0)        # B is resting after a 429: A's next slot comes first
     rs._FW_JUP_PACE.update(lock=None, next={}, rest={})
+
+
+def test_jupiter_is_busy_only_when_every_lane_failed(monkeypatch):
+    import reputation_service as rs
+
+    class R:
+        def __init__(self, code): self.status_code, self.content, self.headers = code, b'{}', {}
+        def json(self): return {}
+
+    class H:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def request(self, method, url, headers=None, **kw): return R(429)
+    monkeypatch.setattr(rs.httpx, 'AsyncClient', H)
+    monkeypatch.setenv('JUPITER_API_KEY', 'k' * 24)
+    monkeypatch.setattr(rs, 'JUP_GAP_SEC', 0.0)
+    monkeypatch.setitem(rs._FW_JUP_BUSY, 'at', 0.0)
+    rs._FW_JUP_PACE.update(lock=None, next={}, rest={})
+    try:
+        asyncio.run(rs._fw_jup('GET', '/swap/v1/quote', params={}))
+        raise AssertionError('a call no lane answered must raise')
+    except rs.HTTPException as e:
+        assert '429' in str(e.detail)
+    assert rs._FW_JUP_BUSY['at'] > 0                                             # every lane 429'd → the optional pre-check quotes stand down
+    rs._FW_JUP_PACE.update(lock=None, next={}, rest={})
+
+
+def test_the_final_buy_gate_reads_pump_when_dexscreener_and_jupiter_are_429(monkeypatch):
+    """2026-10-12: DexScreener + Jupiter's public API both 429 from the keeper's machine, Pump 200 → 62 of 172 agent buys were refused
+    "live market unavailable". Pump's own record is now read in parallel for every Pump mint."""
+    import reputation_service as rs
+    import fuse_wallet as fw
+    seen = []
+
+    class R:
+        def __init__(self, code, body): self.status_code, self._b = code, body
+        def json(self):
+            if self._b is None:
+                raise ValueError('html')
+            return self._b
+
+    class H:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, url, *a, **k):
+            seen.append(url.split('/')[2])
+            if 'pump.fun' in url:
+                m = url.rsplit('/', 1)[1]
+                return R(200, {'mint': m, 'symbol': 'NEW', 'usd_market_cap': 40000.0, 'complete': False, 'bonding_curve': 'CURVE'})
+            return R(429, None)   # DexScreener's HTML 429 page
+    monkeypatch.setattr(rs.httpx, 'AsyncClient', H)
+
+    async def toks(mints):
+        raise AssertionError('Jupiter is asked only for coins DexScreener and Pump could not answer')
+    monkeypatch.setattr(rs, '_jup_tokens', toks)
+    orders = [{'pair': f'P{i}', 'mint': f'M{i}pump', 'side': 'buy'} for i in range(6)]   # more than the old cap of 4
+    live = asyncio.run(rs._fw_live_pairs(orders))
+    assert sorted(live) == [f'P{i}' for i in range(6)] and all(live[f'P{i}']['source'] == 'pump' for i in range(6))
+    assert 'api.dexscreener.com' in seen and seen.count('frontend-api-v3.pump.fun') == 6
+    ok, why, snap = fw.live_buy_market({'side': 'buy', 'mint': 'M0pump', 'pair': 'P0', 'curve': True, 'agent': True, 'trench': True}, live['P0'], fw.DEFAULT_CFG)
+    assert ok, why                                                                # the curve's own depth (≈ $20K at $40K cap) clears the trench floor

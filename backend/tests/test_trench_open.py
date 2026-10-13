@@ -15,7 +15,7 @@ def row(m='M', age=0.05, mc=40_000, d5=6.0, buy=62, liq=20_000, v5=8_000, pace=2
 def test_no_reputation_or_holder_gate_only_execution_safety():
     assert opp.open_ok(row()) is None                                  # holder scan FAILED + rug 80: not a reason in open mode
     assert opp.open_ok(row(liq=3_000)).startswith('pool under the keeper floor')
-    assert opp.open_ok(row(age=7)) == 'not ≤ 6h old' and opp.open_ok(row(mc=250_000)).startswith('outside')
+    assert opp.open_ok(row(age=7)) == 'not ≤ 6h old' and opp.open_ok(row(mc=350_000)).startswith('outside') and opp.open_ok(row(mc=8_000)).startswith('outside')
     assert opp.open_ok({**row(), 'chart': {'state': 'DATA INVALID'}}).startswith('market data')
     assert opp.open_ok(row(v5=50, pace=0.05)).startswith('dead')
 

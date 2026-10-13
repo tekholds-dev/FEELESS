@@ -24,7 +24,10 @@ export const D = {
     execution: { health: 'HEALTHY', why: ['14 of 18 sends confirmed this hour'], sends: 18, fills: 14 },
     cycle: { every: 30, nextIn: 18, at: 1000, read: 62 },
     policy: { manual: false, controls: [{ key: 'agentTp', label: 'Take profit', value: 0, options: [0, 20, 50], unit: '%', who: 'AGENTS CHOOSE', means: 'agents choose the take line' },
-      { key: 'agentSl', label: 'Stop loss', value: 25, options: [0, 15, 25], unit: '%', who: 'CREATOR OVERRIDE', means: 'your stop ceiling' }] },
+      { key: 'agentSl', label: 'Stop loss', value: 25, options: [0, 15, 25], unit: '%', who: 'CREATOR OVERRIDE', means: 'your stop ceiling' },
+      { key: 'agentMcMin', label: 'MC band · floor', value: 12000, options: [0, 12000, 20000], unit: '$', who: 'YOUR BAND', means: 'no new entry at or under this cap' },
+      { key: 'agentMcMax', label: 'MC band · top', value: 300000, options: [200000, 300000, 500000], unit: '$', who: 'YOUR BAND', means: 'no new entry at or over this cap' }],
+      band: { min: 12000, max: 300000, word: '$12K–$300K' } },
   },
 };
 

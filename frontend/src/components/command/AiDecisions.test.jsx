@@ -42,11 +42,30 @@ test('a chart draws the P&L ticker itself: a seat position handed in, nothing wh
 });
 
 test('the live trade strip on the cockpit chart: where now sits between the stop and the take', () => {
-  const { tradeBar } = require('./AgentCockpit');
+  const { tradeBar } = require('../../lib/cockpitControls');
   const b = tradeBar({ entry: 1, stop: 20, take: 40 }, 1.1);
   expect(Math.round(b.pct)).toBe(10); expect(b.lo).toBe(-20); expect(b.hi).toBe(40); expect(b.at).toBeCloseTo(0.5); expect(b.zero).toBeCloseTo(1 / 3);
-  expect(tradeBar({ entry: 1, stop: 20, take: 40 }, 5).at).toBe(1); expect(tradeBar({ entry: 1, stop: 20, take: 40 }, 0.1).at).toBe(0);   // clamped inside the bar
+  expect(tradeBar({ entry: 1, stop: 20, take: 40 }, 5).at).toBeGreaterThan(0.99); expect(tradeBar({ entry: 1, stop: 20, take: 40 }, 0.1).at).toBeLessThan(0.02);   // the bar widens: now is always on it
+  const r = tradeBar({ entry: 1, stop: 15, take: 50, mfe: 22, mae: -4, trailAt: 11, armAt: 6 }, 1.12);
+  expect(r.peak).toBe(22); expect(r.low).toBe(-4); expect(r.trail).toBe(11); expect(r.giveBack).toBeCloseTo(10); expect(r.toTake).toBeCloseTo(38);
+  expect(r.peakAt).toBeGreaterThan(r.at); expect(r.trailAt).toBeLessThan(r.at); expect(r.stopAt).toBeLessThan(r.zero);
   expect(tradeBar({ entry: 0 }, 1)).toBeNull(); expect(tradeBar({ entry: 1 }, 1.2).hasStop).toBe(false);
+});
+
+test("🫀 the model's vitals: meters, the timing word and its flags on every answer; the queue cell; each vital's own record", async () => {
+  const { AiVitals, AiCell } = require('./AiDecisions');
+  const a = { stance: 'WATCH', summary: 'early, bots light', vitals: { rug: 70, narrative: 85, crowd: 20, momentum: 90 }, timing: 'EARLY', flags: ['no site / X', 'top10 21%'] };
+  const el = await mount(<AiVitals a={a} testid="v" />);
+  expect(q(el, 'v').querySelectorAll('.avt-meters li')).toHaveLength(4); expect(q(el, 'v').textContent).toContain('RUG RISK'); expect(q(el, 'v').textContent).toContain('⏱ EARLY');
+  expect(q(el, 'v').querySelector('.avt-meters li').className).toBe('is-bad'); expect(q(el, 'v').textContent).toContain('top10 21%');
+  expect((await mount(<AiVitals a={{ stance: 'WAIT', summary: 'x' }} testid="none" />)).querySelector('[data-testid="none"]')).toBeNull();   // nothing said = nothing drawn
+  const cell = await mount(<AiCell a={a} />);
+  expect(cell.textContent).toContain('WATCH'); expect(cell.querySelector('.avt-rug').className).toContain('is-bad'); expect(cell.textContent).toContain('EARLY');
+  expect((await mount(<AiCell a={null} />)).textContent).toBe('—');
+  const learn = { state: 'LEARNING', why: 'x', open: 0, minN: 20, judgeMin: 15, rows: [], vitals: [{ bucket: 'RUG:HIGH', label: 'rug ≥ 60', n: 12, med: -40, up: 8, factor: 1, proven: false }, { bucket: 'TIME:DEAD', label: 'timing DEAD', n: 0, med: null, up: null, factor: 1 }] };
+  const pane = await mount(<AiPane ai={{ ...AI, learn, log: [{ at: 5, role: 'sherlock', mint: 'A', symbol: 'A', stance: 'WATCH', summary: 's', vitals: { rug: 70 }, timing: 'LATE' }] }} call={jest.fn()} focus="A" />);
+  expect(q(pane, 'cai-learn-vitals').textContent).toContain('rug ≥ 60'); expect(q(pane, 'cai-learn-vitals').textContent).not.toContain('timing DEAD');   // only judged buckets
+  expect(q(pane, 'cai-log').textContent).toContain('⏱ LATE');
 });
 
 test("the model's record is on the page: what the agents learned from it, and whether it is used yet", async () => {

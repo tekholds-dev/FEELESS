@@ -35,7 +35,8 @@ SEAT_TARGET_AUTO = 10
 SWITCH = {'agents': (1.0, 30.0), 'off': None, 'conservative': (1.5, 45.0), 'normal': (1.0, 30.0), 'aggressive': (0.5, 15.0)}   # → (lean margin, minutes held). Aggressive only lowers the margin — never under these floors
 SWITCH_FLOOR = (0.5, _uni.CONTROL_HOLD_MIN)
 ENTRY = ('agents', 'go')                         # agents = a full GO at once, the duty's cleared case on the seat target · go = a full GO only
-POLICY_KEYS = ('agentMinAgeH', 'agentAuthority', 'agentTp', 'agentSl', 'agentTrail', 'agentTrailArm', 'agentTrailPct', 'agentMaxHold', 'agentSizePct', 'agentSeatTarget', 'agentSwitch', 'agentEntry')
+POLICY_KEYS = ('agentMinAgeH', 'agentAuthority', 'agentTp', 'agentSl', 'agentTrail', 'agentTrailArm', 'agentTrailPct', 'agentMaxHold', 'agentSizePct', 'agentSeatTarget', 'agentSwitch', 'agentEntry',
+               'agentMcMin', 'agentMcMax')   # 🎯 the owner's MC band (universe.clean_band — default $12K–$300K)
 
 
 def _num(p, k):
@@ -53,7 +54,7 @@ def clean_policy(p):
             'agentTrailArm': _num(p, 'agentTrailArm'), 'agentTrailPct': _num(p, 'agentTrailPct'), 'agentMaxHold': _num(p, 'agentMaxHold'), 'agentSizePct': _num(p, 'agentSizePct'),
             'agentSeatTarget': int(_f(p.get('agentSeatTarget'))) if int(_f(p.get('agentSeatTarget'))) in SEAT_TARGETS else 0,
             'agentSwitch': p.get('agentSwitch') if p.get('agentSwitch') in SWITCH else 'agents', 'agentEntry': p.get('agentEntry') if p.get('agentEntry') in ENTRY else 'agents',
-            'agentMinAgeH': _uni.min_age_of(p)}
+            'agentMinAgeH': _uni.min_age_of(p), **dict(zip(('agentMcMin', 'agentMcMax'), _uni.clean_band(p)))}
 
 
 def policy(cfg):
@@ -84,7 +85,9 @@ def policy(cfg):
             'entry': c['agentEntry'], 'exit': mode,
             'who': {'takeProfit': who(c['agentTp']), 'stopLoss': who(c['agentSl']), 'trailing': who(trail != 'auto'), 'maxHold': who(c['agentMaxHold']), 'positionSize': who(c['agentSizePct']),
                     'seatCount': 'CREATOR OVERRIDE', 'entryStyle': who(c['agentEntry'] != 'agents'), 'exitStyle': who(mode != 'auto'), 'switching': who(c['agentSwitch'] != 'agents'),
-                    'emptySeat': who(c['agentSeatTarget']), 'minAge': who(c['agentMinAgeH'])}, 'minAgeH': c['agentMinAgeH'],
+                    'emptySeat': who(c['agentSeatTarget']), 'minAge': who(c['agentMinAgeH']),
+                    'mcMin': 'CREATOR OVERRIDE' if c['agentMcMin'] != _uni.AGENT_MIN_MCAP else 'YOUR BAND', 'mcMax': 'CREATOR OVERRIDE' if c['agentMcMax'] != _uni.AGENT_MAX_MCAP else 'YOUR BAND'},
+            'minAgeH': c['agentMinAgeH'], 'band': {'min': c['agentMcMin'], 'max': c['agentMcMax'], 'word': _uni.band_word((c['agentMcMin'], c['agentMcMax']))},
             'hard': {'catastrophicStop': _ci.CATASTROPHIC_STOP, 'movesPerHour': _uni.CONTROL_MOVES_HR, 'minPool': _uni.CONTROL_MIN_LIQ}}
 
 
@@ -92,7 +95,8 @@ def policy(cfg):
 # and — under AGENTS CHOOSE — what the agents are actually using right now (`now`, filled by the service from live state; None = not known)
 OPTIONS = {'agentAuthority': list(AUTHORITY), 'agentTp': [0, *TP_OPTS], 'agentSl': [0, *SL_OPTS], 'agentTrail': list(TRAIL), 'agentTrailArm': [0, 5, 10, 15, 20, 30],
            'agentTrailPct': [0, 3, 5, 8, 10, 15], 'agentMaxHold': [0, *HOLD_OPTS], 'agentSizePct': [0, *SIZE_OPTS], 'agentSeatTarget': list(SEAT_TARGETS),
-           'agentSwitch': ['agents', 'off', 'conservative', 'normal', 'aggressive'], 'agentEntry': list(ENTRY), 'agentMinAgeH': list(_uni.AGENT_MIN_AGES)}
+           'agentSwitch': ['agents', 'off', 'conservative', 'normal', 'aggressive'], 'agentEntry': list(ENTRY), 'agentMinAgeH': list(_uni.AGENT_MIN_AGES),
+           'agentMcMin': list(_uni.BAND_MINS), 'agentMcMax': list(_uni.BAND_MAXS)}
 CONTROLS = (('agentTp', 'takeProfit', 'Take profit', '%', 'AT your line the coin is banked. They may still leave earlier on a broken thesis or the trail.'),
             ('agentSl', 'stopLoss', 'Stop-loss', '%', 'Your most tolerated loss. Their own structure stop may be tighter, never wider.'),
             ('agentTrail', 'trailing', 'Trailing protection', None, 'off = no give-back protection · custom = arm at +A%, bank P points under the peak.'),
@@ -101,7 +105,9 @@ CONTROLS = (('agentTp', 'takeProfit', 'Take profit', '%', 'AT your line the coin
             ('agentSwitch', 'switching', 'Switching', None, 'How much stronger a challenger must read, and how long a coin is held, before its seat is given up. A winner is never surrendered.'),
             ('agentEntry', 'entryStyle', 'Entry', None, 'agents = a full GO, or the duty\'s cleared case on an empty seat · go = a full GO only.'),
             ('agentSeatTarget', 'emptySeat', 'Empty-seat target', 's', 'How soon a cleared case may fill an empty seat (a full GO never waits).'),
-            ('agentMinAgeH', 'minAge', 'Youngest coin', 'h', '0 = any age: a newborn is judged on the evidence it CAN have (real candles so far, tape, pool, holder scan). A number = no coin younger than that.'))
+            ('agentMinAgeH', 'minAge', 'Youngest coin', 'h', '0 = any age: a newborn is judged on the evidence it CAN have (real candles so far, tape, pool, holder scan). A number = no coin younger than that.'),
+            ('agentMcMin', 'mcMin', 'MC band · floor', '$', 'No NEW entry at or under this live market cap (held coins keep running). Default $12K: under it the curve is still being sniped.'),
+            ('agentMcMax', 'mcMax', 'MC band · top', '$', 'No NEW entry at or over this live market cap — a winner already held keeps running past it. Default $300K.'))
 
 
 def controls(cfg, now=None):
@@ -126,7 +132,8 @@ def agents_now(take, tunables, thesis=None):
             'agentSwitch': f"read margin ≥ {SWITCH['agents'][0]:+.1f} after {SWITCH['agents'][1]:g} min, or a broken read after {_uni.CONTROL_HOLD_MIN} min",
             'agentEntry': 'a full GO at once, or the duty\'s cleared case',
             'agentSeatTarget': f'{SEAT_TARGET_AUTO}s',
-            'agentMinAgeH': 'any age — stage-aware evidence (NEWBORN · EARLY · DEVELOPING · MATURE); safety, pool, scan and the chart still decide'}
+            'agentMinAgeH': 'any age — stage-aware evidence (NEWBORN · EARLY · DEVELOPING · MATURE); safety, pool, scan and the chart still decide',
+            'agentMcMin': f'the band floor {_uni.band_word()}', 'agentMcMax': f'the band top {_uni.band_word()}'}
 
 
 # ── 🔌 RESTART / REFILL: a gap in OUR data is never evidence about a coin ───────────────────────────────────────────────────────────

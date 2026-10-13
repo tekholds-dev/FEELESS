@@ -167,12 +167,6 @@ button.ack-ml { cursor: pointer; transition: transform .12s var(--m-ease), borde
 .ack-qcoin { all: unset; cursor: pointer; font-weight: 800; color: var(--m-text); } .ack-qcoin:hover { color: var(--m-accent); } .ack-qcoin:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; }
 
 /* 🎛 operator controls */
-.ack-ops { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 10px; }
-.ack-ops > .ack-sub { flex-basis: 100%; margin: 0; }
-.ack-op { display: grid; gap: 2px; min-width: 110px; } .ack-op small { font: 700 8.5px var(--m-mono); letter-spacing: .08em; color: var(--m-mute); text-transform: uppercase; white-space: nowrap; }
-.ack-op .m-input { padding: 4px 8px !important; font: 700 11px var(--m-mono) !important; }
-.ack-op.is-you small { color: var(--m-warn); } .ack-op.is-you .m-input { border-color: color-mix(in srgb, var(--m-warn) 55%, transparent); }
-.ack-auth button { font-size: 10.5px; } .ack-auth .is-manual.active { background: var(--m-warn); border-color: var(--m-warn); color: #0b1a12; }
 .ack-aichip { all: unset; box-sizing: border-box; cursor: pointer; margin-left: auto; display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px; border-radius: 8px; border: 1px solid var(--m-line); font: 700 10px var(--m-mono); color: var(--m-mute);
   transition: transform .12s var(--m-ease), border-color .12s; }
 .ack-aichip:hover { transform: translateY(-1px); border-color: var(--m-line-hi); } .ack-aichip:active { transform: scale(.97); } .ack-aichip:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
@@ -226,7 +220,7 @@ button.ack-ml { cursor: pointer; transition: transform .12s var(--m-ease), borde
   .ack-seatrow, .ack-tcards { grid-template-columns: minmax(0, 1fr); } .ack-ctools { margin-left: 0; } .ack-agents { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ack-trow button { grid-template-columns: 38px 80px minmax(0, 1fr); } .ack-trow .ack-tsym { display: none; } .ack-trow .ack-twhy { grid-column: 1 / -1; }
   .ack-queue th:nth-child(4), .ack-queue td:nth-child(4) { display: none; } .ack-own-list li { flex-wrap: wrap; } .ack-ptiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .ack-inputs li { grid-template-columns: 90px 86px minmax(0, 1fr); } .ack-op { min-width: calc(50% - 6px); } .ack-aichip { margin-left: 0; }
+  .ack-inputs li { grid-template-columns: 90px 86px minmax(0, 1fr); } .ack-aichip { margin-left: 0; }
 }
 body.fx-lite .ack-seat, body.fx-lite .ack-tcard, body.fx-lite .is-pulse, body.fx-lite .aip, body.fx-lite .aip-shade, body.fx-lite .ack-pbody { animation: none; } body.fx-lite .ack-bar i { transition: none; }
 @media (prefers-reduced-motion: reduce) { .ack-seat, .ack-tcard, .is-pulse, .aip, .aip-shade, .ack-pbody { animation: none; } .ack-seat, .ack-tcard, .ack-agent, .ack-bar i, .ack-aichip, .ack-ml { transition: none; } }
@@ -234,6 +228,6 @@ body.theme-day .ack-ribbon, body.theme-day .ack-seats, body.theme-day .ack-chart
 body.theme-day .ack-seat, body.theme-day .ack-tcard, body.theme-day .ack-agent, body.theme-day .ack-ptile, body.theme-day .ack-verdict { background: rgba(255, 255, 255, .5); border-color: rgba(10, 60, 35, .14); }
 body.theme-day .ack-seat.is-on { border-color: #0d7a41; } body.theme-day .ack-badge.is-good, body.theme-day .ack-st.is-ready, body.theme-day .aip-state.is-on { background: #0d7a41; border-color: #0d7a41; color: #fff; }
 body.theme-day .ack-tact.is-good, body.theme-day .ack-mode.is-track, body.theme-day .ack-ai-list li.is-set, body.theme-day .ack-rhead b, body.theme-day .ack-livechip, body.theme-day .ack-fw.is-live, body.theme-day .ack-fw.is-fresh, body.theme-day .ack-aichip .is-on { color: #0d7a41; }
-body.theme-day .ack-badge.is-pend, body.theme-day .ack-badge.is-open, body.theme-day .ack-nil.is-warn, body.theme-day .ack-ai-note.is-warn, body.theme-day .ack-rt .is-warn, body.theme-day .ack-op.is-you small { color: #8a5a00; }
+body.theme-day .ack-badge.is-pend, body.theme-day .ack-badge.is-open, body.theme-day .ack-nil.is-warn, body.theme-day .ack-ai-note.is-warn, body.theme-day .ack-rt .is-warn { color: #8a5a00; }
 body.theme-day .ack-now, body.theme-day .ack-badge.is-hunt { color: #0b5a8a; } body.theme-day .ack-queue th { background: #e8f3ec; } body.theme-day .ack-queue td { border-bottom-color: rgba(10, 60, 35, .08); }
 body.theme-day .aip { background: #eef6f1; } body.theme-day .aip-shade { background: rgba(10, 30, 20, .3); }

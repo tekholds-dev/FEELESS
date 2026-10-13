@@ -159,6 +159,7 @@ def test_the_normal_stop_is_structure_aware_and_bounded_and_the_catastrophic_sto
     yours = {**lg, 'bought': {'tag': '🎯 your pick'}}
     r = of.reap([yours], [], {'PA': 0.5}, {}, None, 600, control=True, office=crazy)[1][0]
     assert r['rule'] == 'R5x catastrophic stop' and r['obeying'] == 'hard safety exit' and r['hardStop'] == -45.0 and r['action'] == 'pull'
+    assert 'armAt' in r and 'trailAt' in r                                                                        # 💹 the live P&L tracker draws the trail from the record
 
 
 LEG = {'mint': 'A', 'symbol': 'A', 'pairAddress': 'PA', 'entry': 1.0, 'units': 1.0, 'at': 1, 'liq': 60_000, 'liqNow': 60_000, 'bought': {'tag': '🤖 agents GO'}}

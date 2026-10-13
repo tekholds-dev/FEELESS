@@ -44,6 +44,9 @@ test('the cockpit, laid out like the reference: ribbon → 4 seats → MC chart 
   expect(q('ack-seat-1').textContent).toContain('$CARLO'); expect(q('ack-seat-1').textContent).toContain('$857.0K');
   expect(q('ack-seat-pct-1').textContent).toBe('+17.4%'); expect(q('ack-seat-usd-1').textContent).toBe('+$0.06'); expect(q('ack-seat-last-1').textContent).toContain('Reaper · PROTECT');
   expect(q('ack-seat-now-1').textContent).toContain('R7 trail'); expect(q('ack-seat-mc-2').textContent).toBe('—');                    // unknown = —, never $0
+  expect(q('ack-seat-bar-1')).not.toBeNull(); expect(q('ack-seat-bar-1').getAttribute('data-tip')).toContain('peak +20%');              // 💹 each seat: stop … now … peak … take
+  expect(q('ack-trade-peak').textContent).toContain('PEAK +20%'); expect(q('ack-trade-peak').textContent).toContain('gave back 2.7');   // the HUD on the chart
+  expect(q('ack-trade-usd')).not.toBeNull(); expect(q('ack-trade-held').textContent).toMatch(/\dm \d\ds|\d\.\dh/);
   expect(q('ack-seat-3').textContent).toContain('1 READY candidate');
   // 📊 market cap is the chart's language; real events lettered T D W B R X
   const last = () => charts[charts.length - 1];
@@ -89,9 +92,15 @@ test('the cockpit, laid out like the reference: ribbon → 4 seats → MC chart 
   await act(async () => { q('ack-own-ignore-MINTRE').click(); });
   expect(call).toHaveBeenLastCalledWith('/admin/agents', { method: 'POST', body: JSON.stringify({ owner: { input: 'MINTREV', action: 'ignore' } }) });
   // 🎛 operator controls: the creator's own limits on the same cfg path
-  expect(q('ack-op-agentSl').value).toBe('25');
-  await act(async () => { pickSel(q('ack-op-agentTp'), '50'); });
+  expect(q('ack-op-agentSl').getAttribute('data-value')).toBe('25'); expect(q('ack-op-agentSl-25').getAttribute('aria-checked')).toBe('true');
+  expect(q('ack-op-agentSl').className).toContain('is-you'); expect(q('ack-op-agentTp').textContent).toContain('AGENTS');           // who decides it, on the row
+  expect(q('ack-op-agentTp-50').textContent).toBe('+50%'); expect(q('ack-op-agentSl-15').textContent).toBe('−15%');
+  await act(async () => { q('ack-op-agentTp-50').click(); });
   expect(call).toHaveBeenCalledWith('/admin/agents', { method: 'POST', body: JSON.stringify({ cfg: { agentTp: 50 } }) });
+  expect(q('acx-band-word').textContent).toBe('$12K–$300K'); expect(q('acx-band').querySelectorAll('.acx-dot').length).toBeGreaterThan(0);   // the band + this pass's coins on it
+  await act(async () => { q('ack-op-agentMcMax-500000').click(); });
+  expect(call).toHaveBeenCalledWith('/admin/agents', { method: 'POST', body: JSON.stringify({ cfg: { agentMcMax: 500000 } }) });
+  expect(q('acx-model')).not.toBeNull(); expect(q('ack-op-agentAiLearn-on').getAttribute('aria-checked')).toBe('true');
   expect(call.mock.calls.every(([, o]) => !/"(buy|sell|swap|quote|order)"/.test(o?.body || ''))).toBe(true);                       // nothing here trades
   // 🧠 AI chip → the providers sheet
   expect(q('ack-aichip').textContent).toContain('LOCAL ● 42ms');

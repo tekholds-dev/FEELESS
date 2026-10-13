@@ -33,15 +33,21 @@ def _median(xs):
     return None if not n else s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2
 
 
-def note(book, role, mint, stance, px, now, symbol=None):
-    """One model stance → an open call (once per coin + stance per 30 min, only with a live price). → new book"""
+def note(book, role, mint, stance, px, now, symbol=None, vitals=None, timing=None):
+    """One model stance → an open call (once per coin + stance per 30 min, only with a live price). The model's rug vital and timing word
+    ride on the call so each is judged on its own record (`vital_record`). → new book"""
     b = {'open': list((book or {}).get('open') or []), 'done': list((book or {}).get('done') or [])}
     if not mint or not stance or _f(px) <= 0:
         return b
     st = str(stance).upper()
     if any(c['mint'] == mint and c['stance'] == st and now - _f(c['at']) < RENOTE_SEC for c in b['open'] + b['done'][-80:]):
         return b
-    b['open'] = (b['open'] + [{'mint': mint, 'symbol': symbol, 'role': role, 'stance': st, 'px': _f(px), 'at': round(now, 1)}])[-KEEP_OPEN:]
+    c = {'mint': mint, 'symbol': symbol, 'role': role, 'stance': st, 'px': _f(px), 'at': round(now, 1)}
+    if isinstance((vitals or {}).get('rug'), (int, float)):
+        c['rug'] = int(vitals['rug'])
+    if timing:
+        c['timing'] = str(timing).upper()
+    b['open'] = (b['open'] + [c])[-KEEP_OPEN:]
     return b
 
 
@@ -72,6 +78,39 @@ def record(book):
     return {k: {'n': len(v), 'med': round(_median(v), 2), 'up': round(100 * sum(1 for x in v if x > 0) / len(v))} for k, v in by.items()}
 
 
+# 🫀 THE MODEL'S VITALS, each on its OWN record (a bucket of its calls): a high rug read, a low rug read, an EARLY timing, a LATE / CHASE
+# timing, a DEAD one. Read against the base rate of ALL its calls exactly like a stance.
+RUG_HIGH, RUG_LOW = 60, 30
+BUCKETS = (('RUG:HIGH', 'rug ≥ 60', lambda c: _f(c.get('rug'), -1) >= RUG_HIGH), ('RUG:LOW', 'rug ≤ 30', lambda c: 0 <= _f(c.get('rug'), -1) <= RUG_LOW),
+           ('TIME:EARLY', 'timing EARLY', lambda c: c.get('timing') == 'EARLY'), ('TIME:LATE', 'timing LATE / CHASE', lambda c: c.get('timing') in ('LATE', 'CHASE')),
+           ('TIME:DEAD', 'timing DEAD', lambda c: c.get('timing') == 'DEAD'))
+BUCKET_LABEL = {k: lab for k, lab, _t in BUCKETS}
+
+
+def buckets_of(c):
+    """The vital buckets one call (or one advice: {rug, timing}) falls in."""
+    return [k for k, _lab, t in BUCKETS if t(c or {})]
+
+
+def vital_record(book):
+    """{bucket: {n, med, up}} + 'ALL' — judged calls only (a call made before vitals existed is in ALL, never in a bucket)."""
+    by = {}
+    for c in (book or {}).get('done') or []:
+        by.setdefault('ALL', []).append(_f(c.get('pct')))
+        for k in buckets_of(c):
+            by.setdefault(k, []).append(_f(c.get('pct')))
+    return {k: {'n': len(v), 'med': round(_median(v), 2), 'up': round(100 * sum(1 for x in v if x > 0) / len(v))} for k, v in by.items()}
+
+
+def advice_factor(rec, vrec, advice):
+    """One model answer → ×0.9 … ×1.1 from its stance AND every vital bucket it falls in (proven ones only). Any proven warning wins
+    (the most cautious factor); otherwise a proven spotter; otherwise ×1.0."""
+    a = advice or {}
+    fs = [factor(rec, a.get('stance'))] + [factor(vrec, k) for k in buckets_of({'rug': (a.get('vitals') or {}).get('rug'), 'timing': a.get('timing')})]
+    lo, hi = min(fs), max(fs)
+    return lo if lo < 1.0 else hi
+
+
 def factor(rec, stance):
     """What a stance is worth on the rank: ×0.9 (a proven warning) · ×1.1 (a proven spotter) · ×1.0 (unproven or neutral). The model's
     stance is read against the base rate of ALL its calls, so a market that falls on everything does not prove every warning."""
@@ -86,12 +125,12 @@ def factor(rec, stance):
     return 1.0
 
 
-def weights(notes, rec, now):
-    """{mint: factor} for the coins the model spoke on in the last 10 minutes (`notes` = {mint: {role: {advice: {stance}, at}}}); several
-    desks' stances on one coin = the most cautious factor. Only non-1.0 factors are returned."""
+def weights(notes, rec, now, vrec=None):
+    """{mint: factor} for the coins the model spoke on in the last 10 minutes (`notes` = {mint: {role: {advice: {stance, vitals, timing}, at}}});
+    several desks' answers on one coin = the most cautious factor. Only non-1.0 factors are returned (±10% at most, stance + vitals together)."""
     out = {}
     for m, roles in (notes or {}).items():
-        fs = [factor(rec, ((n or {}).get('advice') or {}).get('stance')) for n in (roles or {}).values() if now - _f((n or {}).get('at')) <= FRESH_SEC and (n or {}).get('advice')]
+        fs = [advice_factor(rec, vrec, (n or {}).get('advice')) for n in (roles or {}).values() if now - _f((n or {}).get('at')) <= FRESH_SEC and (n or {}).get('advice')]
         if fs and min(fs) != 1.0:
             out[m] = min(fs)
         elif fs and max(fs) != 1.0:
@@ -103,9 +142,12 @@ def view(book, rec=None):
     """The page's line: per stance n / typical / % up / what it is worth now, how many calls are waiting, and the state in a word."""
     rec = rec if rec is not None else record(book)
     rows = [{'stance': k, **v, 'factor': factor(rec, k), 'proven': v['n'] >= MIN_N} for k, v in sorted(rec.items(), key=lambda kv: -kv[1]['n']) if k != 'ALL']
-    used = [r for r in rows if r['factor'] != 1.0]
+    vrec = vital_record(book)
+    vrows = [{'bucket': k, 'label': lab, **vrec.get(k, {'n': 0, 'med': None, 'up': None}), 'factor': factor(vrec, k), 'proven': (vrec.get(k) or {}).get('n', 0) >= MIN_N}
+             for k, lab, _t in BUCKETS]
+    used = [r for r in rows + vrows if r['factor'] != 1.0]
     n = (rec.get('ALL') or {}).get('n', 0)
-    return {'rows': rows, 'all': rec.get('ALL'), 'open': len((book or {}).get('open') or []), 'minN': MIN_N, 'judgeMin': round(JUDGE_SEC / 60),
+    return {'rows': rows, 'vitals': vrows, 'all': rec.get('ALL'), 'open': len((book or {}).get('open') or []), 'minN': MIN_N, 'judgeMin': round(JUDGE_SEC / 60),
             'state': 'IN USE' if used else 'LEARNING' if n < MIN_N else 'NO EDGE YET',
             'why': (f"{len(used)} proven stance{'s' if len(used) != 1 else ''} move{'' if len(used) != 1 else 's'} the rank by up to 10%" if used
-                    else f"{n} of {MIN_N} judged calls — the model is shown, not used" if n < MIN_N else 'judged, but no stance separates winners from losers yet — the model is shown, not used')}
+                    else f"{n} of {MIN_N} judged calls — the model is shown, not used" if n < MIN_N else 'judged, but no stance or vital separates winners from losers yet — the model is shown, not used')}

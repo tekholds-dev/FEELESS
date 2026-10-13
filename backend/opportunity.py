@@ -6,10 +6,13 @@ thin pool, stale data, identity doubt, weak holders, a failed setup, Devil's war
   A (≥ 65) full Warden size · B (50–65) 75% · C (40–50) 50% · below 40 = REJECT (no seat — cash beats a bad setup).
 The seats choose the best AVAILABLE valid opportunity instead of waiting for a perfect coin. A ranking, never a promise. Pure, tested."""
 
+from trench_kernel import universe as _uni
+
 TIER_A, TIER_B, TIER_C = 65.0, 50.0, 40.0   # 🎯 C needs 40 now (was 25): below it is a REJECT — cash beats a clearly bad setup (owner, 2026-10-11)
 TIER_STOP = {'A': 25.0, 'B': 18.0, 'C': 12.0}   # 🛑 the stop CEILING per tier (Reaper): 6h on the real card — 9 'bought into a fall' losses at −23…−37% were 3/4 of all the loss
 TIER_SIZE = {'A': 1.0, 'B': 0.75, 'C': 0.5}   # on the Warden's own steps (1 · .75 · .5 · .25): B = 75% of a seat, C = 50%
-MAX_MCAP = 200_000.0             # 🎯 the hard universe for NEW entries: live market cap under $200K (owner's spec, 2026-10-11) — mirrors agents.AGENT_MAX_MCAP
+MAX_MCAP = 300_000.0             # 🎯 the DEFAULT band top for NEW entries ($12K–$300K, owner 2026-10-12) — the live band is trench_kernel.universe.band()
+MIN_MCAP = 12_000.0              # … and its default floor (both mirror universe.AGENT_MIN_MCAP / AGENT_MAX_MCAP; a test keeps them equal)
 MIN_LIQ = 8_000.0                # mirrors agents.CONTROL_MIN_LIQ (a test keeps them equal) = the keeper's trench floor
 FALL_HARD = -8.0                 # ≤ −8% in 5 min = falling NOW: NO (2026-10-12: $Squeeze C-tier 'falling −20' stopped −38% a minute later, $STRKT too)
 VERTICAL = 40.0                  # +40% in 5 min = buying a vertical candle: NO · +15…+40 on a young coin is a penalty
@@ -90,7 +93,7 @@ def dead_now(row):
     return None
 
 
-def hard_fail(row, mcap_cap=MAX_MCAP, min_liq=MIN_LIQ):
+def hard_fail(row, mcap_cap=None, min_liq=MIN_LIQ):
     """The ONLY reasons a coin is a NO: holder scan failed / never read (no holder safety at all) · a pool under the floor (a pull or no
     exit) · market cap ≥ the cap · rug meter ≥ 50 · a hard Devil rule (rug signs, burned us, an approved avoid, bad data, a bot ladder) ·
     a broken chart (invalid data, a bot ladder, a liquidity failure) · a vertical +40% / a −15% 5-min candle · no price. → reason or None."""
@@ -107,8 +110,12 @@ def hard_fail(row, mcap_cap=MAX_MCAP, min_liq=MIN_LIQ):
         return 'holders not read yet'
     if v.get('mcap') is None or _f(v['mcap']) <= 0:   # 🎯 unknown cap is not eligible until it is resolved
         return 'market cap unknown'
-    if _f(v['mcap']) >= mcap_cap:
-        return f"market cap ${_f(v['mcap']) / 1e3:.0f}K ≥ ${mcap_cap / 1e3:.0f}K"
+    mn_, mx_ = _uni.band()
+    mx_ = min(mx_, _f(mcap_cap)) if mcap_cap else mx_
+    if _f(v['mcap']) >= mx_:
+        return f"market cap ${_f(v['mcap']) / 1e3:.0f}K ≥ ${mx_ / 1e3:.0f}K"
+    if _f(v['mcap']) <= mn_:
+        return f"market cap ${_f(v['mcap']) / 1e3:.1f}K under your ${mn_ / 1e3:.0f}K floor"
     if v.get('ageH') is None:   # 🕐 unknown age never masquerades as fresh
         return 'launch age unknown'
     if _f(v['ageH']) > MAX_AGE_H:
@@ -204,8 +211,8 @@ def score(row, lost=(), meta=None, pens=None):
     if x.get('mint') in (lost or ()):
         add('failed setup lately', -12)
     mc_ = _f(v.get('mcap'))
-    if 0 < mc_ < MAX_MCAP:
-        add('trench band (< $200K)', 6)   # the owner's own universe ranks first; the wider lane only fills what it cannot
+    if _uni.under_cap({'mcap': mc_}):
+        add(f'trench band ({_uni.band_word()})', 6)   # the owner's own band ranks first
     li = x.get('li') or {}
     pp = li.get('pump')
     if pp:   # 🎢 the Pump entry phase: early acceleration / first pullback / reclaim / healthy breakout preferred; late FOMO avoided
@@ -246,7 +253,7 @@ def tier_of(s):
     return 'A' if s >= TIER_A else 'B' if s >= TIER_B else 'C' if s >= TIER_C else None
 
 
-def rank(table, skip=(), lost=(), metas=None, stats=None, pens=None, cap=MAX_MCAP):
+def rank(table, skip=(), lost=(), metas=None, stats=None, pens=None, cap=None):
     """Every coin of the pass → hard NO, or a scored + tiered candidate (best first). `stats` (dict) collects the counts the page shows."""
     out, st = [], stats if stats is not None else {}
     st.update({'considered': 0, 'hard': 0, 'hardWhy': {}, 'warned': 0, 'A': 0, 'B': 0, 'C': 0, 'weak': 0})
@@ -328,7 +335,7 @@ def open_score(row, weights=None, devil_strong=None, ai_w=None):
 
 
 def open_ok(row, min_liq=MIN_LIQ):
-    """EXECUTION SAFETY only (not strategy): a live price · traded in the last 5 min · inside the universe (0 < cap < $200K, ≤ 6h old) · a
+    """EXECUTION SAFETY only (not strategy): a live price · traded in the last 5 min · inside the universe (the owner's MC band, ≤ 6h old) · a
     pool the keeper can buy into · readable market data (not invalid / malformed / a bot ladder) · not a live collapse or distribution.
     → None or the reason."""
     x = row or {}
@@ -338,8 +345,8 @@ def open_ok(row, min_liq=MIN_LIQ):
     d = dead_now(x)
     if d:
         return d
-    if not (0 < _f(v.get('mcap')) < MAX_MCAP):
-        return 'outside 0 < cap < $200K'
+    if not _uni.under_cap({'mcap': v.get('mcap')}):
+        return f"outside your MC band ({_uni.band_word()})"
     if v.get('ageH') is None or _f(v['ageH']) > MAX_AGE_H:
         return 'not ≤ 6h old'
     if _f(n.get('liq') or v.get('liq')) < min_liq:

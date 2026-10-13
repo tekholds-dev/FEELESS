@@ -26,7 +26,7 @@ import ai_keys as _aik
 
 # key → (label, key env var or None, model env var, base env var or None, fixed base, default model, timeout s, concurrency)
 PROVIDERS = {
-    'local': ('LOCAL LM STUDIO', None, 'LOCAL_LLM_MODEL', 'LOCAL_LLM_BASE_URL', 'http://127.0.0.1:1234/v1', 'qwen2.5-7b-instruct-mlx', 12.0, 1),
+    'local': ('LOCAL LM STUDIO', None, 'LOCAL_LLM_MODEL', 'LOCAL_LLM_BASE_URL', 'http://127.0.0.1:1234/v1', 'qwen2.5-7b-instruct-mlx', 30.0, 1),   # the vitals answer took 16–31s on the owner's Mac (its own loop: nothing waits on it)
     'groq': ('GROQ', 'GROQ_API_KEY', 'GROQ_MODEL', None, 'https://api.groq.com/openai/v1', 'llama-3.1-8b-instant', 8.0, 2),
     'openrouter': ('OPENROUTER', 'OPENROUTER_API_KEY', 'OPENROUTER_MODEL', None, 'https://openrouter.ai/api/v1', 'openrouter/auto', 10.0, 2),
     'openai': ('OPENAI', 'OPENAI_API_KEY', 'OPENAI_MODEL', None, 'https://api.openai.com/v1', 'gpt-4o-mini', 10.0, 2),
@@ -37,12 +37,17 @@ DEFAULT_ORDER = ('local', 'groq', 'openrouter', 'openai', 'xai', 'custom')
 ADVISORY_ROLES = ('sherlock', 'devil', 'judge', 'owner', 'manager')
 FORBIDDEN_ROLES = ('tally', 'trigger', 'reaper', 'courier', 'warden')        # hot loops + the money boundary: never a model
 STANCES = ('WATCH', 'ENTER', 'WAIT', 'AVOID', 'HOLD', 'PROTECT', 'EXIT', 'SKIP')
+# 🫀 THE MODEL'S VITALS (owner, 2026-10-12: "pull more vital info from the AI provider to trench better on coins $12K–$300K"): beside its stance
+# the model rates four vitals 0–100 from the case alone, names the TIMING in one word and the ≤ 4 facts that decide it. Each one is shown
+# as a meter and JUDGED on its own record (ai_learn.vital_record) — a vital moves the rank (±10% cap, shared with the stance) only once proven.
+VITALS = ('rug', 'narrative', 'crowd', 'momentum')       # rug = how likely a pull / dump · narrative = story strength · crowd = organic people (100) vs bots (0) · momentum = live move quality
+TIMINGS = ('EARLY', 'ON TIME', 'LATE', 'CHASE', 'DEAD')
 AGENTS = ('tally', 'sherlock', 'weather', 'trigger', 'devil', 'warden', 'courier', 'reaper', 'archivist', 'judge')
 QUEUE_MAX = 2              # requests allowed to WAIT for a busy provider (local: 1 running + 2 waiting); more → next provider
 CACHE_SEC = 600.0          # the same case (same coin, same STATE — see case_key) inside 10 minutes = the cached answer (no second inference)
 RATE_COOL = 60.0           # a 429 rests that provider this long (or its Retry-After, ≤ 5 min)
 FAIL_COOL = (0.0, 0.0, 15.0, 30.0, 60.0)   # cool-down by consecutive failures (2 free, then 15s … 60s)
-MAX_TOKENS = 220
+MAX_TOKENS = 320          # the vitals add ~60 tokens to the answer
 LABEL = {'local': 'LOCAL AI', 'groq': 'GROQ', 'openrouter': 'OPENROUTER', 'openai': 'OPENAI', 'xai': 'XAI', 'custom': 'CUSTOM AI', 'NONE': 'NONE'}
 _KEYLIKE = re.compile(r'[A-Za-z0-9_\-]{20,}')
 _LOOP = re.compile(r'^http://(127\.0\.0\.1|localhost|\[::1\])(:\d{2,5})?(/[A-Za-z0-9._~/-]*)?$')
@@ -130,6 +135,17 @@ def _clean_text(s, n):
     return s[:n]
 
 
+FLAG_LEN = 40
+
+
+def _flag(x):
+    """One flag: cleaned, a key-shaped run masked, cut at a word boundary (never mid-word) to FLAG_LEN."""
+    t = _KEYLIKE.sub('•••', _clean_text(x, 200)).rstrip(' .')
+    if len(t) > FLAG_LEN:
+        t = t[:FLAG_LEN].rsplit(' ', 1)[0].rstrip(' ,;·-') + '…'
+    return t
+
+
 def parse_advice(text):
     """The model's text → a validated advice dict, or None (malformed / no stance / no summary = ignored).
     {priority 0–100, stance ∈ STANCES, confidence_delta −0.25…+0.25, wake ⊆ agent names (≤ 4), summary ≤ 200 chars, deep_review bool}"""
@@ -141,13 +157,25 @@ def parse_advice(text):
     if st not in STANCES or not summ:
         return None
     wake = [w for w in dict.fromkeys(str(x).strip().lower() for x in (j.get('wake') or []) if isinstance(x, str)) if w in AGENTS][:4]
-    return {'priority': int(max(0, min(100, round(_f(j.get('priority'), 50))))), 'stance': st,
-            'confidence_delta': round(max(-0.25, min(0.25, _f(j.get('confidence_delta')))), 3), 'wake': wake, 'summary': summ,
-            'deep_review': j.get('deep_review') is True}
+    out = {'priority': int(max(0, min(100, round(_f(j.get('priority'), 50))))), 'stance': st,
+           'confidence_delta': round(max(-0.25, min(0.25, _f(j.get('confidence_delta')))), 3), 'wake': wake, 'summary': summ,
+           'deep_review': j.get('deep_review') is True}
+    vi = j.get('vitals') if isinstance(j.get('vitals'), dict) else {}
+    vit = {k: int(max(0, min(100, round(_f(vi.get(k)))))) for k in VITALS if isinstance(vi.get(k), (int, float)) and not isinstance(vi.get(k), bool)}
+    if vit:
+        out['vitals'] = vit
+    tm = str(j.get('timing') or '').strip().upper().replace('_', ' ')
+    if tm in TIMINGS:
+        out['timing'] = tm
+    fl = [f for f in (_flag(x) for x in (j.get('flags') or []) if isinstance(x, str)) if f][:4]
+    if fl:
+        out['flags'] = fl
+    return out
 
 
 CASE_KEYS = ('symbol', 'status', 'rank', 'ageMin', 'cap', 'liq', 'vol5m', 'move5m', 'buyShare', 'narrative', 'trigger', 'devil', 'size', 'unknown',
              'holders', 'chart', 'flow', 'launch', 'crowd',   # 🔍 Sherlock's brief: one short line each, built by the service from readings it ALREADY has
+             'band', 'fresh', 'velocity', 'tape', 'tapeRead', 'early', 'dev', 'socials', 'pump', 'curve', 'memory', 'record',   # 🫀 the trench vitals (2026-10-12)
 
              'pct', 'peak', 'heldMin', 'decision', 'rule', 'reason', 'structure', 'phase', 'result', 'cause', 'state', 'why', 'pending')
 
@@ -171,8 +199,9 @@ def compact(case):
 
 
 ROLE_ASK = {
-    'sherlock': 'You are Sherlock: research a launch coin. Say what the evidence supports and what is still unknown.',
-    'devil': 'You are Devil: give a second opinion — the strongest reason this case could be wrong, from the evidence given only.',
+    'sherlock': ('You are Sherlock, trenching Solana launch coins in the market-cap band given as `band`. Read the vitals (holders, early wallets, '
+                 'dev, tape, crowd, socials, Pump callers, curve, the desk\'s real-money memory) and say what the evidence supports and what is still unknown.'),
+    'devil': 'You are Devil: give a second opinion — the strongest reason this case could be wrong (a rug, bots, a late chase), from the evidence given only.',
     'judge': "You are the Judge: attribute this closed real trade's result — what decided it.",
     'owner': 'The owner asked for a review of this coin. Say plainly what the evidence shows.',
     'manager': 'Summarise what the desk is doing in one sentence.',
@@ -180,7 +209,11 @@ ROLE_ASK = {
 SYSTEM = ('You assist a deterministic trading kernel. You are ADVISORY: you never place, size or cancel trades. Use ONLY the JSON case given; '
           'unknown fields are unknown, never zero. Reply with ONE JSON object and nothing else: '
           '{"priority": 0-100, "stance": "WATCH|ENTER|WAIT|AVOID|HOLD|PROTECT|EXIT|SKIP", "confidence_delta": -0.25..0.25, '
-          '"wake": ["sherlock"|"trigger"|...], "summary": "≤ 160 characters", "deep_review": true|false}')
+          '"wake": ["sherlock"|"trigger"|...], "summary": "≤ 160 characters", "deep_review": true|false, '
+          '"vitals": {"rug": 0-100, "narrative": 0-100, "crowd": 0-100, "momentum": 0-100}, "timing": "EARLY|ON TIME|LATE|CHASE|DEAD", '
+          '"flags": ["≤ 4 facts from the case that decide it, ≤ 5 words each"]} — ONE line, no spaces between fields. '
+          'rug = how likely a pull or dump (concentrated holders, bundles, snipers, a selling dev, a drained pool); crowd = real people (100) vs bots (0); '
+          'momentum = how healthy the live move is; timing = where this coin is in its run. A vital you cannot judge from the case: leave it out.')
 
 
 def messages(case, role):
@@ -188,7 +221,8 @@ def messages(case, role):
 
 
 _KEY_STEP = {'rank': 50.0, 'move5m': 10.0, 'buyShare': 10.0, 'pct': 10.0, 'peak': 10.0, 'result': 5.0}
-_KEY_SKIP = ('why', 'reason', 'holders', 'chart', 'flow', 'launch', 'crowd', 'heldMin', 'size')   # wording / detail that changes every pass
+_KEY_SKIP = ('why', 'reason', 'holders', 'chart', 'flow', 'launch', 'crowd', 'heldMin', 'size',   # wording / detail that changes every pass
+             'velocity', 'tape', 'early', 'dev', 'socials', 'pump', 'curve', 'memory', 'record')   # (the tape's WORD `tapeRead` stays in the key)
 
 
 def _coarse(k, v):
@@ -220,6 +254,11 @@ class Router:
         self.inflight = {}
         self.waiting = {k: 0 for k in PROVIDERS}
         self._sem = {}
+
+    def fresh(self, case, role, now=None):
+        """True when this case (same coin, same STATE) already has an answer inside CACHE_SEC — asking again costs nothing but a job slot."""
+        hit = self.cache.get(case_key(case, role))
+        return bool(hit and (time.time() if now is None else now) - hit[0] < CACHE_SEC)
 
     def sem(self, key):
         if key not in self._sem:

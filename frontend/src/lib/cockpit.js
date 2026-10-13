@@ -65,14 +65,16 @@ export function seatCards(d, livePx) {
     const px = num(lp?.price) || num(p.px) || num(c.price);
     const supply = supplyFrom(num(p.px) || num(c.price) || px, p.supply ?? c.supply, lp?.mc, x.mint);
     const entry = num(p.entry);
-    const pct = num(p.pct ?? x.pct ?? b.pct);
+    const pctSrv = num(p.pct ?? x.pct ?? b.pct);
+    // 💹 LIVE: a seat's P&L moves with the shared live price (every 3s) against its own entry — the server's figure only between reads
+    const pct = entry > 0 && num(lp?.price) > 0 ? (num(lp.price) / entry - 1) * 100 : pctSrv;
     const buying = !!(x.buying || b.buying) && p.exec !== 'confirmed';
     const badge = buying ? 'ORDER PENDING' : (p.decision || b.result || (x.action ? String(x.action).toUpperCase() : 'HOLD'));
-    const ageH = num(p.launch?.ageH); const usd = num(p.usd);
+    const ageH = num(p.launch?.ageH); const usd0 = num(p.usd); const usd = usd0 != null && num(p.px) > 0 && num(lp?.price) > 0 ? usd0 * num(lp.price) / num(p.px) : usd0;
     return { seat: i + 1, open: false, symbol: x.symbol, mint: x.mint, pair: x.pair || p.pair, kind: x.kind || 'agent', tag: x.tag || null, buying, badge,
       pct, entry, px, supply, entryMc: num(p.entryMc) || (entry > 0 && supply > 0 ? entry * supply : null), mc: px > 0 && supply > 0 ? px * supply : num(p.mc),
       usd, pnlUsd: pnlUsdOf(usd, pct), heldMin: num(p.heldMin ?? b.heldMin), rule: p.rule || b.rule || null, why: p.evidence || b.why || x.why || null,
-      take: num(p.take ?? x.take), stop: num(p.stop), last: last[x.mint] || null, ageMin: ageH != null ? ageH * 60 : num(c.ageMin),
+      take: num(p.take ?? x.take), stop: num(p.stop), peak: num(p.mfe ?? p.peak), trailAt: num(p.trailAt), armAt: num(p.armAt), last: last[x.mint] || null, ageMin: ageH != null ? ageH * 60 : num(c.ageMin),
       nextReview: num(p.nextReview), realized: num(p.realizedUsd), path: Array.isArray(p.path) ? p.path.map(num).filter(v => v != null) : [],
       rotate: !!b.switch, reaper: p.decision || p.state || b.result || null, state: null };
   });

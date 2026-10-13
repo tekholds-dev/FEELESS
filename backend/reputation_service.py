@@ -8364,7 +8364,8 @@ def _is_keeper():
 async def _keeper_stop():
     _keeper_state['stopping'] = True   # loops still running during shutdown must not trade
     _single.release(KEEPER_LOCK)
-    for flush in (lambda: _block_flush() if _block_dirty['on'] else None, _hygiene_flush):   # debounced stores: nothing learned is lost on a stop
+    for flush in (lambda: _block_flush() if _block_dirty['on'] else None, _hygiene_flush,   # debounced stores: nothing learned is lost on a stop
+                  _agents_mem.flush, _lingo_mem.flush, _shadow_flush, _social_flush):
         try:
             flush()
         except Exception:
@@ -9157,7 +9158,8 @@ async def _proof_gate_tick(now):
     stops, the rug shield and profit takes keep running; the owner's own picks still work — and release it the hour a rule passes.
     A hold the owner set by hand is never touched. Owner inbox once per change."""
     import edge_audit as _ea
-    a = await asyncio.to_thread(lambda: _ea.audit((_json_load(BRAIN_PATH, {}).get('done') or []), (_json_load(AGENTS_PATH, {}).get('done') or []), _ea.COST, now))
+    calls_ = list(_agents_mem.get().get('done') or [])   # a copy taken on the loop: the live object keeps changing while the audit runs in its thread
+    a = await asyncio.to_thread(lambda: _ea.audit((_json_load(BRAIN_PATH, {}).get('done') or []), calls_, _ea.COST, now))
     _json_save(EDGE_AUDIT_PATH, {**a, 'gate': _ea.gate(a), 'words': _ea.words(a)})
     g = _ea.gate(a)
     if g == 'wait':
@@ -11030,12 +11032,16 @@ async def _fw_jup(method, path, **kw):
             r = await http.request(method, base + path, headers=hdr, **kw)
             if r.status_code != 429 and r.status_code < 500:
                 break
-            _FW_JUP_BUSY['at'] = time.time()   # Jupiter is rate-limiting us: optional reads (the seat pre-check's quotes) stand down for a while
             try:
                 ra_ = float(r.headers.get('retry-after') or 0)
             except (TypeError, ValueError, AttributeError):
                 ra_ = 0.0
             _FW_JUP_PACE['rest'][base] = time.time() + min(20.0, max(JUP_LANE_REST, ra_)) * scale
+    if r.status_code == 429 or r.status_code >= 500:
+        # 📡 BUSY = every lane failed THIS call. A 429 on one lane that the other lane then answered is not busy: the public lane is
+        # shared with our own price reads and answers 429 most minutes, so marking busy on any 429 kept the seat pre-check standing
+        # down every tick — 2026-10-12 23:05 → 23:35: four empty seats, READY coins, and not one buy sent to the keeper.
+        _FW_JUP_BUSY['at'] = time.time()
     try:
         data = r.json() if r.content else {}
     except ValueError:
@@ -11084,39 +11090,55 @@ async def _fw_secure_buy(order, cfg, q):
     return ok_s, why_s, None if back_l is None else round((back_l / max(1, order['lamports']) - 1) * 100, 2)
 
 
+LIVE_SRC_SEC = 4.0      # 📡 each fresh source of the final buy gate answers inside this, or is skipped for this read (a paced / 429'd source used to hold the buy 12s+)
+LIVE_PUMP_MAX = 12      # Pump records read in parallel per call (one short GET each)
+
+
 async def _fw_live_pairs(orders):
-    """📡 FRESH live pairs for real-money buy checks (never cached): DexScreener first, then a fresh Jupiter read for every coin it
-    could not answer (keyed by the order's pair). ONE helper for every buy gate — two of the three gates read DexScreener only, so
-    when its API went empty (2026-10-07) every real buy was refused "live market unavailable"."""
+    """📡 FRESH live pairs for real-money buy checks (never cached), every source bounded by LIVE_SRC_SEC: DexScreener AND Pump's own coin
+    record (every Pump mint, in parallel), then Jupiter only for coins neither answered. Precedence DexScreener → Pump → Jupiter.
+    2026-10-12 (6h): 62 of 172 refused agent buys read "live market unavailable" — from this machine DexScreener and Jupiter's public API
+    both answered 429 while Pump answered 200, but Pump was asked only after the other two failed, for at most 4 coins a call."""
     want = {str(o.get('pair')): o.get('mint') for o in orders if o.get('pair')}
-    live = {}
-    try:
-        async with httpx.AsyncClient(timeout=8) as http:
-            mr = await http.get('https://api.dexscreener.com/latest/dex/pairs/solana/' + ','.join(sorted(want)[:30]))
-        live = {p.get('pairAddress'): p for p in ((mr.json() if mr.status_code == 200 else {}) or {}).get('pairs') or [] if p}
-    except Exception:
-        live = {}
+    if not want:
+        return {}
+
+    async def ds_():
+        try:
+            async with httpx.AsyncClient(timeout=LIVE_SRC_SEC) as http:
+                mr = await asyncio.wait_for(http.get('https://api.dexscreener.com/latest/dex/pairs/solana/' + ','.join(sorted(want)[:30])), LIVE_SRC_SEC)
+            return {p.get('pairAddress'): p for p in ((mr.json() if mr.status_code == 200 else {}) or {}).get('pairs') or [] if p}
+        except Exception:
+            return {}
+
+    async def pump_():
+        pm = [(pa, m) for pa, m in want.items() if str(m).endswith('pump')][:LIVE_PUMP_MAX]
+        if not pm:
+            return {}
+        async with httpx.AsyncClient(timeout=LIVE_SRC_SEC, headers={'User-Agent': 'Mozilla/5.0'}) as http:
+            async def one(pa, m):
+                try:
+                    r = await asyncio.wait_for(http.get(f'https://frontend-api-v3.pump.fun/coins-v2/{m}'), LIVE_SRC_SEC)
+                    pp = _launchpad_board.pump_pair(r.json() if r.status_code == 200 else None, pa)
+                    return pa, pp if pp and (pp.get('baseToken') or {}).get('address') == m else None
+                except Exception:
+                    return pa, None
+            return {pa: pp for pa, pp in await asyncio.gather(*[one(pa, m) for pa, m in pm]) if pp}
+
+    d_, p_ = await asyncio.gather(ds_(), pump_())
+    live = {**{pa: pp for pa, pp in p_.items()}, **{pa: x for pa, x in d_.items() if pa in want}}   # DexScreener wins where both answered
     miss = {pa: m for pa, m in want.items() if pa not in live and m}
     if miss:
         for m in miss.values():
             _jup_tok_cache.pop(m, None)
-        toks = await _jup_tokens(list(miss.values()))
+        try:
+            toks = await asyncio.wait_for(_jup_tokens(list(miss.values())), LIVE_SRC_SEC + 2)
+        except Exception:
+            toks = {}
         for pa, m in miss.items():
             jp = _launchpad_board.jup_pair(toks.get(m)) if toks.get(m) else None
             if jp:
                 live[pa] = {**jp, 'pairAddress': pa}
-    miss = {pa: m for pa, m in miss.items() if pa not in live and str(m).endswith('pump')}
-    if miss:   # 📡 third fresh source: Pump's own record for a coin too new for either index (≤ 4 a call, each its own short read)
-        async def one(pa, m):
-            try:
-                async with httpx.AsyncClient(timeout=5, headers={'User-Agent': 'Mozilla/5.0'}) as http:
-                    r = await http.get(f'https://frontend-api-v3.pump.fun/coins-v2/{m}')
-                return pa, _launchpad_board.pump_pair(r.json() if r.status_code == 200 else None, pa)
-            except Exception:
-                return pa, None
-        for pa, pp in await asyncio.gather(*[one(pa, m) for pa, m in list(miss.items())[:4]]):
-            if pp and (pp.get('baseToken') or {}).get('address') == miss[pa]:
-                live[pa] = pp
     return live
 
 
@@ -12594,9 +12616,10 @@ async def admin_ai_key_set(request: Request):
 # ---- 🧠 THE AI ROUTER (backend/ai_router.py): optional, advisory, never in a hot loop or at the money boundary ----
 import ai_router as _air
 import ai_learn as _ail
+import trench_crew as _tcrew
 AI_CFG_PATH = DATA_DIR / 'ai_providers.json'   # the provider order + on / off (no secrets — keys live in backend/.env only)
 AI_EVERY = 15.0                                 # one advisory round every 15s, ≤ AI_JOBS cases (local inference is one at a time)
-AI_JOBS = 3
+AI_JOBS = 4                                     # owner reviews · READY coins · a conflicted case · the top in-band contenders · a Judge review
 AI_NOTES_KEEP = 60
 AI_PROOF_PATH = DATA_DIR / 'ai_proof.json'      # 🧠 the model's stances, each judged 15 min later (ai_learn.py) — its record is what the agents learn from
 
@@ -12608,14 +12631,38 @@ def _ai_book():
 
 
 def _ai_brief(mint):
-    """🔍 Sherlock's brief for ONE coin: five short lines from readings the desk ALREADY has this pass (holders · chart · flow · launch ·
-    crowd) — no fetch, no extra request, ~60 tokens. Unknown stays absent (the model is told unknown is unknown)."""
+    """🔍 Sherlock's brief for ONE coin, from readings the desk ALREADY has this pass — no fetch, no extra request. The five original
+    lines (holders · chart · flow · launch · crowd) + the trench vitals (owner, 2026-10-12: "pull more vital info from the AI provider to
+    trench better on coins $12K–$300K"): the MC band · age bucket · volume / buyer velocity · the live 90s tape · early wallets · the dev ·
+    socials (presence only, never a URL) · Pump callers · the launch curve · what our REAL card made on coins like it · the model's own
+    judged record. ~200 tokens. Unknown stays absent (the model is told unknown is unknown)."""
     x = next((r_ for r_ in (_agents.get('table') or []) if r_.get('mint') == mint), None)
     if not x:
         return {}
     v, n, ch, la, mi, li = x.get('vitals') or {}, x.get('nums') or {}, x.get('chart') or {}, x.get('launch') or {}, x.get('mind') or {}, x.get('li') or {}
-    g = lambda lab, val, unit='': f'{lab} {val:g}{unit}' if isinstance(val, (int, float)) else None
+    g = lambda lab, val, unit='': f'{lab} {val:g}{unit}' if isinstance(val, (int, float)) and not isinstance(val, bool) else None
     j = lambda *xs: ' · '.join(t_ for t_ in xs if t_) or None
+    now = time.time()
+    mc = _fuse._f(v.get('mcap'))
+    band = (f"{_uni.trench_band(mc) or 'trench'} · ${mc / 1e3:.0f}K cap, inside your {_uni.band_word()} band" if _uni.under_cap({'mcap': mc})
+            else f"${mc / 1e3:.0f}K cap — outside your {_uni.band_word()} band" if mc > 0 else None)
+    vpm, bpm = _opp.velocity(x)
+    at_, w_ = _flow_now.get(x.get('pair')) or (0, None)
+    w_ = w_ if w_ and now - _fuse._f(at_) <= 120 else None
+    pc_ = (_pump_calls.get('map') or {}).get(mint)
+    pcs = _pc.summary(pc_) if pc_ else None
+    lead_ = (pcs or {}).get('lead') or {}
+    try:
+        mem_ = _real_mem(now) or {}
+        est_, cell_ = _rm.estimate(mem_, _rm.feats(ch.get('state'), (ch.get('entry') or [None, None])[1] if len(ch.get('entry') or []) > 1 else None, '', li.get('phase'), li.get('cls'), v.get('ageH'))) if mem_.get('cells') else (None, None)
+    except Exception:
+        est_, cell_, mem_ = None, None, {}
+    rec_ = _ail.record(_ai_book())
+    try:
+        dev_dump = _tcrew.dev_dumping(x)
+    except Exception:
+        dev_dump = False
+    soc = [k_ for k_, on_ in (('site', x.get('site') or v.get('site')), ('X', x.get('x') or v.get('x')), ('Telegram', v.get('tg'))) if on_]
     return {k_: v_ for k_, v_ in {
         'holders': j(g('top10', v.get('top10'), '%'), g('dev', v.get('dev'), '%'), g('bundled', v.get('bundledN')), g('snipers', v.get('snipersN')), g('holders', v.get('holders')),
                      g('organic vol', v.get('organic'), '%'), 'scan passed' if v.get('safe') is True else 'scan FAILED' if v.get('safe') is False else None),
@@ -12623,6 +12670,24 @@ def _ai_brief(mint):
         'flow': j(g('1h', n.get('c1'), '%'), g('pace', n.get('pace'), 'x'), g('pool chg', n.get('liqD'), '%'), g('holders chg', n.get('holdD'), '%'), x.get('mp'), v.get('read')),
         'launch': j(la.get('pad'), la.get('type'), g('curve', la.get('curvePct'), '%'), li.get('cls') if li.get('cls') not in (None, 'UNKNOWN') else None, li.get('phase')),
         'crowd': j(mi.get('narr'), g('callers', mi.get('callers')) if mi.get('callers') else None, 'copy-paste swarm' if mi.get('swarm') else None, g('bots', mi.get('bots'), '%') if mi.get('bots') else None),
+        'band': band,
+        'fresh': li.get('fresh') or _opp.fresh_bucket(x)[0],
+        'velocity': j(f"${vpm:,.0f}/min traded" if vpm is not None else None, f"{bpm:.1f} buys/min" if bpm is not None else None, g('5m $', n.get('v5'))),
+        'tape': j(f"last 90s ${_fuse._f(w_.get('buyUsd')):,.0f} bought vs ${_fuse._f(w_.get('sellUsd')):,.0f} sold", g('trades', w_.get('n')), g('price', w_.get('pxChg'), '%'),
+                  f"biggest sell ${_fuse._f((w_.get('bigSell') or {}).get('usd')):,.0f}" if (w_.get('bigSell') or {}).get('usd') else None) if w_ else None,
+        'tapeRead': _flow.tape_read(w_) if w_ else None,
+        'early': j(g('first-10 buyers hold', li.get('first10'), '%'), g('first-25 hold', li.get('first25'), '%'), f"cluster {li['cluster']}" if li.get('cluster') else None,
+                   f"early wallets {str(li['ewp']).lower()}" if li.get('ewp') else None, f"selling pressure {str(li['press']).lower()}" if li.get('press') not in (None, 'NONE') else None,
+                   g('wallets with a dump record', li.get('danger')) if _fuse._f(li.get('danger')) else None),
+        'dev': j(g('dev holds', v.get('dev'), '%'), 'the dev is SELLING now' if dev_dump else None),
+        'socials': ('set: ' + ', '.join(soc)) if soc else 'no site / X set',
+        'pump': j(f"{pcs.get('callers') or 1} Pump caller{'' if (pcs.get('callers') or 1) == 1 else 's'}", g('proven callers', pcs.get('pro')) if pcs.get('pro') else None,
+                  f"called at ${_fuse._f(pcs.get('firstMc')) / 1e3:.0f}K" if pcs.get('firstMc') else None, g('best since call', lead_.get('mult'), '×')) if pcs else None,
+        'curve': (f"on the launch curve {_fuse._f(v.get('curvePct') or la.get('curvePct')):.0f}%" if (v.get('curve') or la.get('curvePct')) and not la.get('graduated') else 'graduated' if la.get('graduated') else None),
+        'memory': (f"our real card: coins like this ({cell_}) returned {est_:+.0f}% typical (all real trades {_fuse._f(mem_.get('base')):+.0f}%, n {mem_.get('n') or 0})" if cell_
+                   else f"our real card's typical trade {_fuse._f(mem_.get('base')):+.0f}% (n {mem_.get('n')})" if mem_.get('n') else None),
+        'record': (j(*[f"{k_} {r_['med']:+.0f}% ({r_['n']})" for k_, r_ in sorted(rec_.items(), key=lambda kv: -kv[1]['n']) if k_ != 'ALL'][:3])
+                   + f" · all {rec_['ALL']['med']:+.0f}% ({rec_['ALL']['n']}) — your own judged calls, 15 min later") if rec_.get('ALL') else None,
     }.items() if v_}
 
 
@@ -12632,7 +12697,8 @@ def _ai_learn_note(role, c, res, now):
     if not st or role == 'judge' or c.get('result') is not None or not c.get('mint'):
         return
     px = _fuse._f(c.get('price')) or _fuse._f((_jup_px_cache.get(c['mint']) or (0, 0))[1])
-    _ai['book'] = _ail.note(_ai_book(), role, c['mint'], st, px, now, c.get('symbol'))
+    ad_ = (res or {}).get('advice') or {}
+    _ai['book'] = _ail.note(_ai_book(), role, c['mint'], st, px, now, c.get('symbol'), ad_.get('vitals'), ad_.get('timing'))
 
 
 async def _ai_learn_settle(now):
@@ -12656,7 +12722,7 @@ def _ai_weights(now):
     try:
         if not _ai_learn_on():
             return {}
-        return _ail.weights(_ai['notes'], _ail.record(_ai_book()), now)
+        return _ail.weights(_ai['notes'], _ail.record(_ai_book()), now, _ail.vital_record(_ai_book()))
     except Exception:
         return {}
 
@@ -12678,7 +12744,7 @@ def _ai_log(role, case, res, asked=False):
         return
     row = {'at': round(_fuse._f(res.get('at')) or time.time(), 1), 'role': role, 'mint': case.get('mint'), 'symbol': case.get('symbol'), 'source': res.get('source'), 'label': res.get('label'),
            'ms': res.get('ms'), 'stance': (ad or {}).get('stance'), 'delta': (ad or {}).get('confidence_delta'), 'priority': (ad or {}).get('priority'), 'summary': (ad or {}).get('summary'),
-           'deep': bool((ad or {}).get('deep_review')), 'kernel': case.get('status') or case.get('state') or (f"closed {case.get('result'):+.1f}%" if isinstance(case.get('result'), (int, float)) else None),
+           'deep': bool((ad or {}).get('deep_review')), 'vitals': (ad or {}).get('vitals'), 'timing': (ad or {}).get('timing'), 'flags': (ad or {}).get('flags'), 'kernel': case.get('status') or case.get('state') or (f"closed {case.get('result'):+.1f}%" if isinstance(case.get('result'), (int, float)) else None),
            'trigger': case.get('trigger') if isinstance(case.get('trigger'), str) else None, 'asked': bool(asked), 'why': None if ad else str(res.get('why') or 'no provider answered')[:120]}
     _ai['log'] = (_ai['log'] + [row])[-AI_LOG_KEEP:]
 
@@ -12719,13 +12785,19 @@ def _ai_jobs(now):
             out.append(('owner', {'mint': r_['mint'], 'symbol': r_.get('symbol'), 'state': r_.get('state'), 'why': r_.get('why'), 'cap': r_.get('mc'),
                                   'trigger': (r_.get('trigger') or {}).get('state'), 'devil': (r_.get('devil') or {}).get('severity'), 'pending': r_.get('pending')}, 'high'))
     cands = (p.get('kernel') or {}).get('candidates') or []
+    # 🫀 trench coverage (2026-10-12): every READY coin gets the model's vitals BEFORE a seat can take it, then the top contenders inside
+    # the owner's MC band — a case already answered in this STATE is skipped (the router would only hand back its cached answer)
+    new_ = lambda role_, c_: not _air.ROUTER.fresh(_ai_case(c_), role_, now)
     open_ = [c_ for c_ in cands if c_.get('status') in ('READY', 'CONTENDING')]
-    conf = next((c_ for c_ in open_ if c_.get('trigger') == 'ENTER' and c_.get('devil') and not any(d_[1] == 'HARD_VETO' for d_ in c_['devil'])), None)
+    inband = [c_ for c_ in open_ if _uni.under_cap({'mcap': c_.get('cap')})]
+    for c_ in [c_ for c_ in inband if c_.get('status') == 'READY' and new_('sherlock', c_)][:2]:
+        out.append(('sherlock', c_, 'high'))
+    conf = next((c_ for c_ in open_ if c_.get('trigger') == 'ENTER' and c_.get('devil') and not any(d_[1] == 'HARD_VETO' for d_ in c_['devil']) and new_('devil', c_)), None)
     if conf:
         out.append(('devil', conf, 'normal'))
-    top = next((c_ for c_ in open_ if c_ is not conf), None)
-    if top:
-        out.append(('sherlock', top, 'normal'))
+    asked_ = {c_.get('mint') for _r, c_, _u in out}
+    for c_ in [c_ for c_ in inband if c_.get('mint') not in asked_ and new_('sherlock', c_)][:2]:
+        out.append(('sherlock', c_, 'normal'))
     rv = (((_office_state().get('judge') or {}).get('reviews')) or [])
     if rv:
         r_ = rv[-1]
@@ -13269,6 +13341,10 @@ import owner_review as _owr
 import ai_keys as _aik
 LINGO_PATH = FUSE_HQ_PATH.parent / 'trench_lingo.json'   # 📖 slang the desk learned from Pump callers' own words (per-day counts + learned words)
 AGENTS_PATH = FUSE_HQ_PATH.parent / 'agents.json'   # 🤖 the agent desk: Tally's tapes, every call, every judged result
+import mem_store as _ms
+AGENTS_SAVE_SEC, LINGO_SAVE_SEC, SHADOW_SAVE_SEC, SOCIAL_SAVE_SEC, VIEW_SAVE_SEC = 90.0, 600.0, 60.0, 120.0, 60.0   # 💾 storage-efficient: the agents' stores live in memory
+_agents_mem = _ms.MemStore(lambda: AGENTS_PATH, AGENTS_SAVE_SEC, lambda p_, d_: _json_load(p_, d_), lambda p_, o_: _json_save(p_, o_))   # loaded once, written ≤ every 90s + on shutdown (it was parsed AND written every pass)
+_lingo_mem = _ms.MemStore(lambda: LINGO_PATH, LINGO_SAVE_SEC, lambda p_, d_: _json_load(p_, d_), lambda p_, o_: _json_save(p_, o_))
 AGENTS_EVERY = 18.0                                 # ⚡ 3× a minute (owner, 2026-10-11: "seats never empty — 3× as fast"); a pass takes ~2s
 # 🕸 the intake = office_edge.intake (reserved room for rechecks · newest · accelerating · graduations · momentum · busiest · listed, ≤ INTAKE_MAX)
 _agents: dict = {'at': 0.0, 'table': [], 'view': None}
@@ -13287,7 +13363,7 @@ def _lc_book(now=None):
     if _lc_mem['book'] is None:
         b = _json_load(LIFECYCLE_PATH, {}) or {}
         if not b.get('roles'):
-            b = _tkl.new_book(now or time.time(), _json_load(AGENTS_PATH, {}) or {}, _json_load(OFFICE_PATH, {}) or {})
+            b = _tkl.new_book(now or time.time(), _agents_mem.get() or {}, _json_load(OFFICE_PATH, {}) or {})
         _lc_mem['book'] = _tkl.ensure(b, now or time.time())
     return _lc_mem['book']
 
@@ -13656,9 +13732,15 @@ async def _shadow_settle(now):
         for i in range(0, len(ms), 60):
             px.update(await _live_px(ms[i:i + 60]))
         _shadow['book'] = _sb.settle(b, px, now); _shadow['dirty'] = True
-    if _shadow['dirty']:
-        _shadow['book']['report'] = _sb.report(_shadow['book']); _shadow['book']['verdict'] = _sb.verdict(_shadow['book']['report'])
-        _json_save(SHADOW_PATH, _shadow['book']); _shadow['dirty'] = False
+    if _shadow['dirty'] and now - _fuse._f(_shadow.get('savedAt')) >= SHADOW_SAVE_SEC:   # 💾 ≤ once a minute (it was every pass)
+        _shadow_flush(now)
+
+
+def _shadow_flush(now=None):
+    if not _shadow.get('dirty') or _shadow.get('book') is None:
+        return
+    _shadow['book']['report'] = _sb.report(_shadow['book']); _shadow['book']['verdict'] = _sb.verdict(_shadow['book']['report'])
+    _json_save(SHADOW_PATH, _shadow['book']); _shadow['dirty'] = False; _shadow['savedAt'] = time.time() if now is None else now
 
 
 def _real_mem(now):
@@ -13772,6 +13854,10 @@ async def _agents_tick(now):
         return
     _agents['at'] = now
     wake_at_ = _fuse._f(_agents.get('wake')) if woke else 0.0
+    try:   # 🎯 the owner's MC band (realCfg agentMcMin / agentMcMax, default $12K–$300K) — every reader of the universe reads it from here
+        _uni.set_band(_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}))
+    except Exception as e:
+        print('band:', e)
     try:
         # 🕸 THE CRAWL: the busiest open-list coins + the NEWEST launches (≤ 1h) — and every coin is tagged with every corner of the trench it
         # showed up in (Pump trending / callouts / live, movers, volume, fed, waves, cooling, proven callers …): each source is a learned driver
@@ -13831,12 +13917,12 @@ async def _agents_tick(now):
         hot_ = _tm.hot_narratives(rows)
         soc_ = _social_cache()
         rows = [{**r, 'mind': _tm.read(r, by_m.get(r.get('mint')), hot_), **({'social': soc_[r['mint']]} if r.get('mint') in soc_ else {})} for r in rows if not _fw.dollar_named(r.get('symbol'))]
-        lingo = _tm.learn_lingo(_json_load(LINGO_PATH, {}), [c_.get('thesis') for c_ in calls_ if c_.get('thesis')], now)
-        _json_save(LINGO_PATH, lingo)
+        lingo = _tm.learn_lingo(_lingo_mem.get(), [c_.get('thesis') for c_ in calls_ if c_.get('thesis')], now)
+        _lingo_mem.put(lingo, now)
         _agents['mind'] = {'hot': [{'key': k, **v} for k, v in list(hot_.items())[:6]], 'dictionary': len(_tm.SLANG),
                            'learned': sorted(({'word': w, **v} for w, v in (lingo.get('learned') or {}).items()), key=lambda x: -_fuse._f(x.get('first')))[:16],
                            'callsRead': len(calls_), 'swarms': sum(1 for r in rows if ((r.get('mind') or {}).get('crowd') or {}).get('swarm'))}
-        st = _json_load(AGENTS_PATH, {})
+        st = _agents_mem.get()
         try:   # 👨‍⚖️ the Judge rules on REAL money too: the agents' own seats that left the card (the card's ledger result)
             st['realPieces'] = [{k_: p_.get(k_) for k_ in ('symbol', 'mint', 'pct', 'holdMin', 'why', 'at')} for p_ in (_json_load(REAL_LEARN_PATH, {}).get('pieces') or []) if 'tag:🤖' in (p_.get('k') or [])][-30:]
             st['realReviews'] = [{k_: r_.get(k_) for k_ in ('kind', 'at', 'resp', 'cause', 'sym')} for r_ in ((_office_state().get('judge') or {}).get('reviews') or [])][-60:]   # 💵 the Judge's real-loss reviews decide who survives
@@ -13949,7 +14035,7 @@ async def _agents_tick(now):
                     st['feed'] = (list(st.get('feed') or []) + [{'at': now, 'who': 'desk', 'sym': '', 'text': f"💡 new idea for the creator: {v['text']}"}])[-_pd.FEED_KEEP:]
         except Exception as e:
             print('paper desk:', str(e)[:160])
-        _json_save(AGENTS_PATH, st)
+        _agents_mem.put(st, now)   # 💾 the live object; written ≤ every 90s (it was 3 MB parsed + written every pass)
         try:   # 🎯 the mission reads the real card's own money (server value vs put-in) — the same numbers My cards shows
             rc_ = next((c for c in (await _prime_view()) if c.get('real')), None)
             _agents['money'] = {'value': rc_.get('valueUsd'), 'putIn': (rc_.get('math') or {}).get('putIn')} if rc_ else {}
@@ -14005,9 +14091,11 @@ async def _agents_tick(now):
             _rounds_pass(table, now)
         except Exception as e:
             print('rounds:', str(e)[:120])
-        try:   # a read-only copy of exactly what GET /admin/agents answers (for checking the real page without an HQ sign-in)
-            vp_ = DATA_DIR / 'agents_view.json'; vt_ = vp_.with_suffix('.tmp')
-            vt_.write_bytes(_agents_page_body()); vt_.replace(vp_)   # the SAME bytes the page gets (already serialized: no second 600 KB dump per pass)
+        try:   # a read-only copy of exactly what GET /admin/agents answers (for checking the real page without an HQ sign-in) — ≤ once a minute
+            if now - _fuse._f(_agents.get('viewSavedAt')) >= VIEW_SAVE_SEC:
+                vp_ = DATA_DIR / 'agents_view.json'; vt_ = vp_.with_suffix('.tmp')
+                vt_.write_bytes(_agents_page_body()); vt_.replace(vp_)   # the SAME bytes the page gets (already serialized: no second 600 KB dump per pass)
+                _agents['viewSavedAt'] = now
         except Exception:
             pass
         try:   # 🔎 the narrative packet for the strongest candidates only (background; one job at a time; cached by TTL)
@@ -14408,6 +14496,12 @@ def _social_cache():
     return _social['cache']
 
 
+def _social_flush(now=None):
+    if not _social.get('dirty') or _social.get('cache') is None:
+        return
+    _json_save(SOCIAL_PATH, {'v': SOCIAL_V, 'packets': _social['cache']}); _social['dirty'] = False; _social['savedAt'] = time.time() if now is None else now
+
+
 async def _research_tick(cases, rows_by, now):
     """🔎 ONE research job at a time, after the agent pass: the strongest due candidates (social_research.pick, ≤ PER_PASS) are read
     through local headless Chromium — their own website / X first, one search only when they carry no link. Never blocks the desks."""
@@ -14438,7 +14532,9 @@ async def _research_tick(cases, rows_by, now):
         _office['load']['browser'] = int(_office['load'].get('browser') or 0) + n
         _office['load']['researched'] = int(_office['load'].get('researched') or 0) + 1
         _social['last'] = {'at': time.time(), 'requests': n, 'coins': done_}
-        _json_save(SOCIAL_PATH, {'v': SOCIAL_V, 'packets': cache})
+        _social['dirty'] = True
+        if now - _fuse._f(_social.get('savedAt')) >= SOCIAL_SAVE_SEC:   # 💾 ≤ every 2 min (it was every research run)
+            _social_flush(now)
     finally:
         _social['busy'] = False
     return n
@@ -14622,7 +14718,7 @@ def _office_bars(pair, mint=None, n=40):
             except Exception:
                 continue   # a row that cannot even be indexed is not drawn (Tally's verdict already says MALFORMED)
         return {'src': 'candles', 'rows': rows, 'q': q, 'volume': (q or {}).get('volume') or ('PARTIAL' if any(r[5] for r in rows) else 'UNAVAILABLE')}
-    ser = ((_json_load(AGENTS_PATH, {}).get('series') or {}).get(mint) or []) if mint else []
+    ser = ((_agents_mem.get().get('series') or {}).get(mint) or []) if mint else []
     rows = _ci.from_tape(ser)[-n:]
     return {'src': 'tape', 'rows': [[int(r[0]), r[1], r[2], r[3], r[4], None] for r in rows], 'q': q, 'volume': 'UNAVAILABLE'} if len(rows) >= 2 else None
 
@@ -14873,7 +14969,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
             st['feed'] = (list(st.get('feed') or []) + [{'at': now, 'who': e_['role'], 'sym': '', 'text': line_}])[-_pd.FEED_KEEP:]
             _tk.KERNEL.note('judge', {'replaced': 'GENERATION REPLACED', 'probation': 'PROBATION'}.get(e_['kind'], 'BACK TO ACTIVE'), f"{e_['role']} gen {e_['gen']} — {e_['why']}", now, key=f"lc:{e_['role']}:{e_['kind']}:{e_['gen']}")
             if e_['kind'] == 'replaced':
-                _audit('agent-generation', {'role': e_['role'], 'from': e_['gen'], 'to': e_['to'], 'why': e_['why'], 'changed': e_['changed']})
+                ad_ = _admin_load(); _audit(ad_, 'agents', 'agent-generation', f"{e_['role']} gen {e_['gen']} → {e_['to']}: {e_['why']} · {e_['changed']}"[:300]); _admin_save(ad_)
     except Exception as e:
         print('lifecycle:', str(e)[:160])
     cards = _of.scorecards(st, arch, of, _agents_real(), cour, life={g_['role']: g_ for g_ in _tkl.generations(_lc_book(now), now)})
@@ -15004,11 +15100,12 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
     _office['payload']['performance']['passMs'] = round(sum(_fuse._f(ms.get(a)) for a in _of.CHAIN), 2)
     _tape_ledger(now)
     _office['payload'].update(tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now), ai=_ai_view(now, light=True), net=_net_stats(now),
-                              universe={'capUsd': _agents.get('laneCap') or _uni.AGENT_MAX_MCAP, 'minCapUsd': _uni.AGENT_MIN_MCAP, 'maxAgeH': _uni.AGENT_MAX_AGE_H, 'inLane': len(_agents.get('table') or []),
+                              universe={'capUsd': _uni.band()[1], 'minCapUsd': _uni.band()[0], 'word': _uni.band_word(), 'maxAgeH': _uni.AGENT_MAX_AGE_H, 'inLane': len(_agents.get('table') or []),
                                         'board': (_office.get('intake') or {}).get('board'), 'mints': len(_tk.KERNEL.store.mints)})
     _hub_publish(now)   # 📡 this pass as DELTAS: only what changed since the last one
-    try:   # a read-only snapshot of what the page was handed (like agents_duty.json) — for checking the office without signing in to HQ
-        _json_save(DATA_DIR / 'agent_office_view.json', _office['payload'])
+    try:   # a read-only snapshot of what the page was handed (like agents_duty.json) — for checking the office without signing in to HQ (≤ once a minute)
+        if now - _fuse._f(_office.get('viewSavedAt')) >= VIEW_SAVE_SEC:
+            _json_save(DATA_DIR / 'agent_office_view.json', _office['payload']); _office['viewSavedAt'] = now
     except Exception:
         pass
 
@@ -15072,7 +15169,7 @@ async def admin_agents(request: Request):
 def _agents_snapshot():
     """Everything the last agent pass + tier tick left in memory (the office rides on the same answer). Runs nothing."""
     if not _agents.get('view'):
-        st = _json_load(AGENTS_PATH, {})
+        st = _agents_mem.get()
         rcfg_ = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
         _agents['view'] = _paper_view(st, _agents.get('paper') or [], rcfg_, time.time())
     v_ = _agents['view']
@@ -15113,7 +15210,7 @@ def _agents_page_body(now=None):
 async def admin_agents_log(request: Request, hours: int = Query(24, ge=1, le=168)):
     """🧾 The agent desk's war log (calls, GO vs control, deaths + lessons, ideas, best / worst, calibration) as data + Markdown to export."""
     _require_admin(request)
-    log, md = _pd.war_log(_json_load(AGENTS_PATH, {}), time.time(), hours)
+    log, md = _pd.war_log(_agents_mem.get(), time.time(), hours)
     return {'log': log, 'md': md}
 
 
@@ -15138,6 +15235,7 @@ async def admin_agents_set(request: Request):
             pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
             pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
             _json_save(FUSE_HQ_PATH, d)
+            _uni.set_band(pr['realCfg'])   # 🎯 a new MC band applies on the very next tick, not the next agents' pass
         if 'agentControl' in ch:   # 🎮 the hold on the card follows the switch at once
             await _agent_control_set(bool(ch['agentControl']), time.time())
     rv = body.get('review') or {}
@@ -15169,7 +15267,7 @@ async def admin_agents_set(request: Request):
     idea = body.get('idea') or {}
     if idea.get('id'):
         try:
-            _json_save(AGENTS_PATH, _pd.review(_json_load(AGENTS_PATH, {}), str(idea['id']), idea.get('action')))
+            _agents_mem.put(_pd.review(_agents_mem.get(), str(idea['id']), idea.get('action')), force=True)   # the creator's click is written at once
         except ValueError as e:
             raise HTTPException(400, str(e))
     _agents['view'] = None
@@ -19334,7 +19432,11 @@ async def _radar_loop():
                 keys = list(pairs)
                 for i in range(0, len(keys), 30):
                     r = await http.get(f"https://api.dexscreener.com/latest/dex/pairs/solana/{','.join(keys[i:i + 30])}")
-                    for p in (r.json() or {}).get('pairs') or []:
+                    try:   # a 429 answers an HTML page — skip this batch (it printed "radar error Expecting value" every minute)
+                        rj_ = r.json() if r.status_code == 200 else {}
+                    except ValueError:
+                        rj_ = {}
+                    for p in (rj_ or {}).get('pairs') or []:
                         pa = p['pairAddress']; sym = p['baseToken']['symbol']
                         liq = float((p.get('liquidity') or {}).get('usd') or 0); px = float(p.get('priceUsd') or 0)
                         h = _radar['hist'].setdefault(pa, [])

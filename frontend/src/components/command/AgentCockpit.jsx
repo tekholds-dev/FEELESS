@@ -8,10 +8,11 @@ import { seatCards, focusMint, chartModel, decisionOf, tapeOf, tapeTone, TAPE_AG
 import { useEasedNumber } from '../../lib/easedNumber';
 import { usd as cash, pct as pc, price as priceFmt } from '../../lib/num';
 import { AG, activityOf } from './agentWords';
-import { optLabel } from './OfficeEdge';
 import { openCoin } from '../CoinDrawer';
-import { AiProviders, aiChip } from './AiProviders';
-import { AiPane } from './AiDecisions';
+import { AiProviders } from './AiProviders';
+import { AiPane, AiVitals, AiCell } from './AiDecisions';
+import { CockpitControls } from './CockpitControls';
+import { tradeBar, tickDir, aiOf } from '../../lib/cockpitControls';
 import '../../styles/agentCockpit.css';
 import '../../styles/cockpitAi.css';   // after the cockpit sheet: it owns the plot's height + the meta pass
 
@@ -105,29 +106,62 @@ function SeatCard({ s, on, onPick, readyN }) {
       <dt>NOW MC</dt><dd><LiveNum v={s.mc} fmt={mcWord} cls="" testid={`ack-seat-mc-${s.seat}`} /></dd><dt>HELD</dt><dd>{mins(s.heldMin)}</dd>
       <dt>IN SEAT</dt><dd>{money(s.usd)}</dd><dt>REALIZED</dt><dd>{s.realized == null ? '—' : signed(s.realized)}</dd></dl>
       <Spark path={s.path} /></div>
+    <SeatBar s={s} />
     <p className="ack-now" data-testid={`ack-seat-now-${s.seat}`}><span>☠ Reaper · {s.reaper || '—'}{s.rule ? ` · ${s.rule}` : ''}</span><small>next review {secs(s.nextReview)}</small></p>
     <footer data-testid={`ack-seat-last-${s.seat}`}>{last ? <><span style={{ '--ag': AG[last.agent] || 'var(--m-accent)' }}>{ic} {nm} · {last.action}</span><small>{ago(last.at)} ago</small></> : <span className="m-dim">no decision line yet</span>}</footer>
   </button>;
 }
 
-// 🟢 ON THE CHART: the live trade as one meta strip — entry MC → now MC, the live P&L, and how far the price is from the take and the
-// stop (a bar: left edge = the stop, right edge = the take, the dot = now). Every number is the position's own or the live price.
-export function tradeBar(pos, px) {
-  const e = Number(pos?.entry); const p = Number(px) || Number(pos?.px); const sl = Number(pos?.stop); const tp = Number(pos?.take);
-  if (!(e > 0) || !(p > 0)) return null;
-  const pct = (p / e - 1) * 100; const lo = sl > 0 ? -Math.abs(sl) : -30; const hi = tp > 0 ? tp : 50;
-  return { pct, lo, hi, at: Math.max(0, Math.min(1, (pct - lo) / (hi - lo))), zero: Math.max(0, Math.min(1, (0 - lo) / (hi - lo))), hasStop: sl > 0, hasTake: tp > 0 };
+// 💹 THE LIVE TRADE HUD (owner, 2026-10-12: "the live pnl tracker can be way more meta"): live P&L % and $ glide to every real tick (the
+// shared 3s price poller — no request of its own) and flash its direction; one bar from the stop to the take carries now, the PEAK it
+// reached, the worst it saw, and the trail line once Reaper armed it; the held clock ticks; Reaper's ruling + its next review. Every
+// number is the position's own record or the live price.
+function useDir(v) {
+  const prev = useRef(null); const [f, setF] = useState({ dir: 0, n: 0 });
+  useEffect(() => { const d = tickDir(prev.current, v); prev.current = v; if (d) setF(x => ({ dir: d, n: x.n + 1 })); }, [v]);
+  return f;
 }
-function LiveTrade({ pos, m }) {
+const pctW = v => (v == null ? '—' : `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(Math.abs(v) < 10 ? 1 : 0)}%`);
+function Rail({ b, mini }) {
+  const up = b.at >= b.zero;
+  return <span className={`thd-rail ${mini ? 'is-mini' : ''}`}>
+    <span className="thd-fill is-up" style={{ left: `${b.zero * 100}%`, width: `${(1 - b.zero) * 100}%`, transform: `scaleX(${up && b.zero < 1 ? (b.at - b.zero) / (1 - b.zero) : 0})` }} />
+    <span className="thd-fill is-dn" style={{ left: 0, width: `${b.zero * 100}%`, transform: `scaleX(${!up && b.zero > 0 ? (b.zero - b.at) / b.zero : 0})` }} />
+    <u className="thd-zero" style={{ left: `${b.zero * 100}%` }} />
+    {b.stopAt != null ? <s className="thd-line is-stop" style={{ left: `${b.stopAt * 100}%` }} /> : null}
+    {b.takeAt != null ? <s className="thd-line is-take" style={{ left: `${b.takeAt * 100}%` }} /> : null}
+    {b.trailAt != null ? <s className="thd-line is-trail" style={{ left: `${b.trailAt * 100}%` }} /> : b.armAt != null && !mini ? <s className="thd-line is-arm" style={{ left: `${b.armAt * 100}%` }} /> : null}
+    {b.peak > b.pct + 0.5 ? <em className="thd-peak" style={{ left: `${b.peakAt * 100}%` }} /> : null}
+    <i className="thd-now" style={{ transform: `translateX(${(b.at * 100).toFixed(2)}cqw)` }} /></span>;
+}
+export function SeatBar({ s }) {
+  const b = tradeBar({ entry: s.entry, stop: s.stop, take: s.take, mfe: s.peak, trailAt: s.trailAt, armAt: s.armAt }, s.px);
+  if (!b) return null;
+  return <span className="thd-seat" data-testid={`ack-seat-bar-${s.seat}`} data-tip={`${b.hasStop ? `stop ${pctW(b.stop)}` : 'no stop line'} · now ${pctW(b.pct)} · peak ${pctW(b.peak)}${b.trail != null ? ` · trail banks under ${pctW(b.trail)}` : ''} · ${b.hasTake ? `take ${pctW(b.take)}` : 'no take line'}`}>
+    <Rail b={b} mini /></span>;
+}
+function TradeHud({ pos, m }) {
+  const now = useTick(1000); const fl = useDir(m?.price);
   const b = tradeBar(pos, m?.price); if (!b) return null;
   const k = m?.mc && m?.price ? m.mc / m.price : null;
-  return <div className={`ack-trade ${b.pct >= 0 ? 'is-up' : 'is-dn'}`} data-testid="ack-trade">
-    <span className="ack-trk"><small>ENTRY</small><b>{k ? mcWord(Number(pos.entry) * k) : priceFmt(pos.entry)}</b></span>
-    <span className="ack-trk"><small>NOW</small><LiveNum v={k ? m.mc : m?.price} fmt={k ? mcWord : priceFmt} cls="" /></span>
-    <span className="ack-trk is-pnl"><small>LIVE P&amp;L</small><LiveNum v={b.pct} fmt={x => pc(x)} testid="ack-trade-pct" /></span>
-    <span className="ack-trbar" data-tip={`${b.hasStop ? `stop ${b.lo.toFixed(0)}%` : 'no stop line'} ← now ${b.pct >= 0 ? '+' : ''}${b.pct.toFixed(1)}% → ${b.hasTake ? `take +${b.hi.toFixed(0)}%` : 'no take line'}`}>
-      <small>{b.hasStop ? `${b.lo.toFixed(0)}%` : '—'}</small><span><u style={{ left: `${b.zero * 100}%` }} /><i style={{ transform: `translateX(${(b.at * 100).toFixed(1)}cqw)` }} /></span><small>{b.hasTake ? `+${b.hi.toFixed(0)}%` : '—'}</small></span>
-    <span className="ack-trk"><small>☠ REAPER</small><b>{pos.decision || pos.state || 'HOLD'}</b></span></div>;
+  const usdNow = Number(pos.usd) > 0 && Number(pos.px) > 0 && Number(m?.price) > 0 ? Number(pos.usd) * Number(m.price) / Number(pos.px) : Number(pos.usd) || null;
+  const pnlUsd = usdNow != null && b.pct > -100 ? usdNow - usdNow / (1 + b.pct / 100) : null;
+  const heldS = Number(pos.since) > 0 ? now / 1000 - Number(pos.since) : Number(pos.heldMin) * 60;
+  const heldW = !(heldS >= 0) ? '—' : heldS < 3600 ? `${Math.floor(heldS / 60)}m ${String(Math.floor(heldS % 60)).padStart(2, '0')}s` : `${(heldS / 3600).toFixed(1)}h`;
+  return <div className={`ack-trade thd ${b.pct >= 0 ? 'is-up' : 'is-dn'}`} data-testid="ack-trade">
+    <span className="thd-pnl"><small>LIVE P&amp;L</small><LiveNum v={b.pct} fmt={x => pc(x)} testid="ack-trade-pct" />
+      <LiveNum v={pnlUsd} fmt={signed} cls={`thd-usd ${tone(pnlUsd)}`} testid="ack-trade-usd" />
+      <i key={fl.n} className={`thd-flash ${fl.dir > 0 ? 'is-up' : fl.dir < 0 ? 'is-dn' : ''}`} aria-hidden /></span>
+    <span className="thd-bar" data-tip={`${b.hasStop ? `stop ${pctW(b.stop)}` : 'no stop line'} ← now ${pctW(b.pct)} → ${b.hasTake ? `take ${pctW(b.take)}` : 'no take line'} · peak ${pctW(b.peak)} · worst ${pctW(b.low)}${b.trail != null ? ` · trail banks under ${pctW(b.trail)}` : b.arm != null ? ` · trail arms at ${pctW(b.arm)}` : ''}`}>
+      <Rail b={b} />
+      <span className="thd-legend"><small className="is-stop">{b.hasStop ? `STOP ${pctW(b.stop)}` : 'NO STOP'}</small>
+        <small className="is-peak" data-testid="ack-trade-peak">PEAK {pctW(b.peak)}{b.giveBack > 0.5 ? ` · gave back ${b.giveBack.toFixed(1)}` : ''}</small>
+        {b.trail != null ? <small className="is-trail">TRAIL {pctW(b.trail)}</small> : null}
+        <small className="is-take">{b.hasTake ? `TAKE ${pctW(b.take)}${b.toTake > 0 ? ` · ${b.toTake.toFixed(1)} to go` : ''}` : 'NO TAKE'}</small></span></span>
+    <span className="thd-kv"><span><small>ENTRY → NOW</small><b>{k ? mcWord(Number(pos.entry) * k) : priceFmt(pos.entry)} → <LiveNum v={k ? m.mc : m?.price} fmt={k ? mcWord : priceFmt} cls="" /></b></span>
+      <span><small>HELD</small><b data-testid="ack-trade-held">{heldW}</b></span>
+      <span><small>☠ REAPER</small><b className={`thd-dec ${/EXIT|TAKE/.test(pos.decision || '') ? 'is-bad' : /PROTECT/.test(pos.decision || '') ? 'is-good' : ''}`}>{pos.decision || pos.state || 'HOLD'}</b>
+        <u>{pos.rule || ''}{pos.nextReview != null ? ` · review ${secs(pos.nextReview)}` : ''}</u></span></span></div>;
 }
 
 // ── 📈 the chart: market cap, always ──────────────────────────────────────────────────────────────────────────────────────────────
@@ -157,7 +191,7 @@ function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent }) {
         <i className="ack-livechip">● MC chart</i></span></header>
     {!m.pair ? <p className="ack-nil" data-testid="ack-nopool">No pool for this coin yet — nothing to chart.</p>
       : !m.mc ? <p className="ack-nil is-warn" data-testid="ack-mc-unavailable"><b>MC UNAVAILABLE</b> — no supply is known for this coin yet (no token supply, not a launchpad mint, no live cap). The raw price is never charted in its place.</p>
-        : <div className="ack-plot">{pos ? <LiveTrade pos={pos} m={m} /> : null}<Suspense fallback={<p className="ack-nil">loading the live chart…</p>}>
+        : <div className="ack-plot">{pos ? <TradeHud pos={pos} m={m} /> : null}<Suspense fallback={<p className="ack-nil">loading the live chart…</p>}>
           <PriceChartLazy key={`${m.pair}-${iv}`} pair={pair} interval={iv} metric="marketCap" showVolume markers={chartMarkers} fuse={fuse} pnl={seatPnl} plain /></Suspense></div>}
     <div className="ack-mrail" data-testid="ack-mrail"><span className="ack-mkey"><i className="ack-ml is-B">▲<small>real buy</small></i><i className="ack-ml is-X">▼<small>real sell</small></i><small>on the chart · decisions →</small></span>
       {markers.length ? <span className="ack-mlist">{markers.slice(-12).map(k => <button key={k.id} type="button" className={`ack-ml is-${k.text}`} onClick={() => onAgent(k.agent)}
@@ -237,6 +271,7 @@ function DecisionPanel({ o, dec, pos, cand, mint, seats, readyN, agent, setAgent
       {agent === 'devil' && cand?.devilConf != null ? <p className="ack-fresh">Devil confidence ×{cand.devilConf} (a weight on the rank, never a block)</p> : null}
       {aiNote?.advice ? <button type="button" className="ack-ai-note is-btn" onClick={() => setTab('ai')} data-testid="ack-ai-note" data-tip={`advisory only — ${aiNote.advice.stance} · priority ${aiNote.advice.priority} · tap = every model decision`}><i className="ack-src">{aiNote.label || aiNote.source}</i><em className="ack-ai-stance">{aiNote.advice.stance}</em>{aiNote.role} · {aiNote.advice.summary}</button>
         : <button type="button" className="ack-ai-note is-btn is-none" onClick={() => setTab('ai')} data-testid="ack-ai-none"><i className="ack-src">AI</i>the model has not been asked about this coin — ask it →</button>}
+      {aiNote?.advice ? <AiVitals a={aiNote.advice} testid="ack-ai-vitals" /> : null}
     </div>) : null}
     {tab === 'ai' ? <div className="ack-pbody"><AiPane ai={o?.ai} call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} onPick={onPick} onProviders={onAi} /></div> : null}
     {tab === 'inputs' ? <div className="ack-pbody" data-testid="ack-pane-inputs"><ul className="ack-inputs">{inputsOf({ c: cand, pos, live, mc: mcNow }).map(([l, w, s, what]) =>
@@ -321,33 +356,13 @@ function ReviewQueue({ o, call, isOwner, onPick, sel }) {
     <header><b>📋 REVIEW QUEUE</b><small>coins the agents are weighing · tap = chart + panel</small></header>
     <OwnerReview o={o} call={call} isOwner={isOwner} onPick={onPick} focus={sel} />
     <div className="m-seg ack-buckets" role="group" aria-label="Launch age">{AGE_BUCKETS.map(([k, l]) => <button key={k} type="button" className={bk === k ? 'active' : ''} onClick={() => setBk(k)} data-testid={`ack-bk-${k}`}>{l} <small>{counts[k]}</small></button>)}</div>
-    {queue.length ? <div className="ack-qwrap"><table className="ack-queue" data-testid="ack-queue"><thead><tr><th>COIN</th><th>AGE</th><th>MC</th><th>5M VOL</th><th>SCORE</th><th>STATUS</th></tr></thead>
+    {queue.length ? <div className="ack-qwrap"><table className="ack-queue" data-testid="ack-queue"><thead><tr><th>COIN</th><th>AGE</th><th>MC</th><th>5M VOL</th><th>SCORE</th><th data-tip="The model's newest read of this coin: its rug-risk meter + where it is in its run (advisory — weighs only once proven)">🧠 AI</th><th>STATUS</th></tr></thead>
       <tbody>{queue.map(c => { const st = queueStatus(c); return <tr key={c.mint} className={sel === c.mint ? 'is-on' : ''} onClick={() => onPick(c.mint)} data-testid={`ack-q-${c.symbol}`}>
         <td><button type="button" className="ack-qcoin" onClick={e => { e.stopPropagation(); onPick(c.mint); }}>${c.symbol}</button>{c.owner ? <i className={`ack-mode is-${c.owner}`}>{c.owner}</i> : null}</td>
         <td>{mins(c.ageMin)}</td><td data-testid={`ack-qmc-${c.symbol}`}>{mcWord(queueMc(c))}</td><td>{mcWord(c.vol5m)}</td><td>{c.rank != null ? Math.round(c.rank) : '—'}</td>
+        <td data-testid={`ack-qai-${c.symbol}`}><AiCell a={aiOf(o?.ai?.notes, c.mint)?.advice} /></td>
         <td><em className={`ack-st is-${st.toLowerCase()}`} data-testid={`ack-qst-${c.symbol}`}>{st}</em></td></tr>; })}</tbody></table></div>
       : <p className="ack-nil" data-testid="ack-queue-empty">No candidate in this age band right now.</p>}
-  </section>;
-}
-
-// ── 🎛 operator controls (the creator's own limits — the same /admin/agents cfg path as HQ › Limits) ─────────────────────────────
-export const OP_KEYS = ['agentSeatTarget', 'agentSwitch', 'agentTp', 'agentSl', 'agentMaxHold', 'agentEntry'];
-function OperatorControls({ o, call, isOwner, ai, onAi }) {
-  const pol = o?.policy || {}; const ctl = Object.fromEntries((pol.controls || []).map(c => [c.key, c])); const [busy, setBusy] = useState(false);
-  const save = async cfg => { if (busy) return; setBusy(true);
-    try { await call('/admin/agents', { method: 'POST', body: JSON.stringify({ cfg }) }); await hubLoad(); toast.success('saved'); } catch (e) { toast.error(e.message); } finally { setBusy(false); } };
-  const chip = aiChip(ai);
-  return <section className="ack-ops" data-testid="ack-ops"><b className="ack-sub">🎛 OPERATOR CONTROLS</b>
-    {OP_KEYS.map(k => (ctl[k] ? <label key={k} className={`ack-op ${ctl[k].who === 'CREATOR OVERRIDE' ? 'is-you' : ''}`} data-tip={ctl[k].means}><small>{ctl[k].label}</small>
-      <select className="m-input" value={String(ctl[k].value)} disabled={!isOwner || busy} onChange={e => { const v = ctl[k].options.find(x => String(x) === e.target.value); save({ [k]: v }); }} data-testid={`ack-op-${k}`}>
-        {ctl[k].options.map(v => <option key={String(v)} value={String(v)}>{optLabel(k, v, ctl[k].unit)}</option>)}</select></label> : null))}
-    <span className="m-seg ack-auth" role="group" aria-label="Who decides"><button type="button" disabled={!isOwner || busy} className={!pol.manual ? 'active' : ''} onClick={() => save({ agentAuthority: 'agents' })} data-testid="ack-auth-agents">🤖 Agents inside limits</button>
-      <button type="button" disabled={!isOwner || busy} className={pol.manual ? 'active is-manual' : ''} onClick={() => save({ agentAuthority: 'manual' })} data-tip="MANUAL: no agent fill, switch or read-bank — only hard safety exits and your own overrides act" data-testid="ack-auth-manual">✋ Manual</button></span>
-    <label className={`ack-op ${ai?.learn?.on === false ? '' : 'is-you'}`} data-tip="ON: a model stance that is PROVEN on its own judged record (20+ calls, clearly better / worse than its other calls) moves the agents' ranking by up to 10%. OFF: the model is still asked, shown and judged — it weighs nothing. It never buys, sizes, blocks or sells either way."><small>🧠 Learn from the model</small>
-      <select className="m-input" value={ai?.learn?.on === false ? 'off' : 'on'} disabled={!isOwner || busy} onChange={e => save({ agentAiLearn: e.target.value === 'on' })} data-testid="ack-op-agentAiLearn"><option value="on">ON · proven stances ±10%</option><option value="off">OFF · shown only</option></select></label>
-    {ai?.slip ? <span className="ack-fixed" data-tip="Your buy rule (fixed in the keeper): the first try at this slippage, then ONE retry; a second slippage failure gives the seat to another coin. Sells keep their own steps — an exit must land." data-testid="ack-slip"><small>BUY SLIPPAGE</small><b>{ai.slip.firstPct}% → {ai.slip.retryPct}% × {ai.slip.retries} retry</b></span> : null}
-    <button type="button" className="m-btn" onClick={() => window.dispatchEvent(new CustomEvent('feeless:agents-lens', { detail: 'limits' }))} data-testid="ack-all-limits">All limits →</button>
-    <button type="button" className={`ack-aichip ${chip.cls}`} onClick={onAi} data-tip={chip.tip} data-testid="ack-aichip"><b>AI</b>{chip.parts.map(([k, l, c]) => <span key={k} className={c}>{l}</span>)}</button>
   </section>;
 }
 
@@ -388,7 +403,7 @@ export function AgentCockpit({ call, isOwner = true }) {
         pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} aiNote={aiNote} mcNow={model?.mc} onAi={() => setAiOpen(true)} /></div>
     <div className="ack-foot"><AgentMatrix o={o} gens={o?.generations || []} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); setTab('live'); }} rows={o.tape} pulse={pulse} />
       <ReviewQueue o={o} call={call} isOwner={isOwner} onPick={m => { onPick(m); if (m && !((o.kernel || {}).candidates || []).some(c => c.mint === m) && !(o.positions || []).some(p => p.mint === m) && !(o.ownerReview || []).some(r => r.mint === m)) openCoin({ mint: m }); }} sel={mint} /></div>
-    <OperatorControls o={o} call={call} isOwner={isOwner} ai={o.ai} onAi={() => setAiOpen(true)} />
+    <CockpitControls o={o} call={call} isOwner={isOwner} ai={o.ai} onAi={() => setAiOpen(true)} />
     {aiOpen ? createPortal(<AiProviders call={call} isOwner={isOwner} ai={o.ai} close={() => setAiOpen(false)} />, document.body) : null}
   </section>;
 }

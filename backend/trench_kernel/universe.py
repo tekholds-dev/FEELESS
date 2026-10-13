@@ -1,6 +1,6 @@
 """🎯 THE TRENCH UNIVERSE + the money-boundary constants (moved out of the old four-desk module, 2026-10-12). Pure.
 
-Who may be looked at for a NEW entry (0 < live cap < $200K, a known launch age ≤ 6h, real volume), the keeper's pool floor, the hourly
+Who may be looked at for a NEW entry (live cap inside the owner's band — default $12K–$300K —, a known launch age ≤ 6h, real volume), the keeper's pool floor, the hourly
 runaway guards, the agents' own holder line and what counts as an agent seat. The kernel, the office and the service read THESE names —
 nothing here is a verdict about a coin's quality (that is the ten-agent brain, trench_kernel/brain.py)."""
 
@@ -60,30 +60,69 @@ def stage_of(age_h):
     return None if age_h is None else next(k for k, top in AGE_STAGES if _f(age_h) < top)
 
 
-AGENT_MAX_MCAP = 200_000.0     # 🎯 owner's spec, 2026-10-11 (latest): NEW entries only under $200K live market cap (held coins keep running)
+AGENT_MAX_MCAP = 300_000.0     # 🎯 owner, 2026-10-12 (latest): "trench better on coins from 12k-300k mc" — NEW entries inside the band (held coins keep running)
 
 
-MC_BANDS = ((10_000, 'NEWBORN MICRO'), (25_000, 'EARLY MICRO'), (50_000, 'EARLY TRENCH'), (100_000, 'BUILDING'), (150_000, 'MOMENTUM TRENCH'), (200_000, 'UPPER TRENCH'))
+AGENT_MIN_MCAP = 12_000.0      # … and at least $12K live cap (under it the curve is still being sniped: the record reads −99% an hour for < 15-min coins)
 
 
-def under_cap(row, cap=AGENT_MAX_MCAP):
-    """Is this coin's LIVE market cap known and in (0, cap)? (the universe for NEW entries)"""
+# 🎛 THE OWNER'S MC BAND (realCfg `agentMcMin` / `agentMcMax`, HQ › Agents › controls): every reader of the universe — the lane, the hard
+# wall, the open-mode wall, the ranking's band part — reads `band()`. The service sets it from the real card's config once a pass.
+BAND_MINS = (0.0, 5_000.0, 10_000.0, 12_000.0, 20_000.0, 30_000.0, 50_000.0)
+BAND_MAXS = (100_000.0, 150_000.0, 200_000.0, 300_000.0, 500_000.0, 1_000_000.0)
+_BAND = [AGENT_MIN_MCAP, AGENT_MAX_MCAP]
+
+
+def clean_band(cfg):
+    """realCfg → (min, max) from the fixed option lists; unknown / unset → the default 12K–300K; a min at or over the max → the default min."""
+    c = cfg or {}
+    mn = _f(c.get('agentMcMin')) if c.get('agentMcMin') is not None and _f(c.get('agentMcMin')) in BAND_MINS else AGENT_MIN_MCAP
+    mx = _f(c.get('agentMcMax')) if c.get('agentMcMax') is not None and _f(c.get('agentMcMax')) in BAND_MAXS else AGENT_MAX_MCAP
+    return (mn if mn < mx else min(AGENT_MIN_MCAP, mx / 2)), mx
+
+
+def set_band(cfg):
+    _BAND[:] = clean_band(cfg)
+    return band()
+
+
+def band():
+    """(min, max) live market cap for a NEW entry, right now."""
+    return _BAND[0], _BAND[1]
+
+
+def k_word(v):
+    v = _f(v)
+    return f"${v / 1e6:g}M" if v >= 1e6 else f"${v / 1e3:g}K" if v >= 1e3 else f"${v:g}"
+
+
+def band_word(b=None):
+    mn, mx = b or band()
+    return f"{k_word(mn)}–{k_word(mx)}" if mn > 0 else f"under {k_word(mx)}"
+
+
+MC_BANDS = ((12_000, 'NEWBORN MICRO'), (25_000, 'EARLY MICRO'), (50_000, 'EARLY TRENCH'), (100_000, 'BUILDING'), (200_000, 'MOMENTUM TRENCH'),
+            (300_000, 'UPPER TRENCH'), (1_000_001, 'BREAKOUT TRENCH'))
+
+
+def under_cap(row, cap=None):
+    """Is this coin's LIVE market cap known and inside the band — min < cap < `cap` (default: the band's max)? (the NEW-entry universe)"""
     mc = (row or {}).get('mcap')
-    return mc is not None and 0 < _f(mc) < _f(cap)
+    mn, mx = band()
+    return mc is not None and max(0.0, mn) < _f(mc) < _f(cap if cap is not None else mx) and _f(mc) > 0
 
 
 def trench_band(mc):
-    """The under-$200K trench band of a market cap — context and ranking, never a veto. None above the universe."""
+    """The trench band name of a market cap — context and ranking, never a veto. None above $1M."""
     for top, name in MC_BANDS:
         if 0 < _f(mc) < top:
             return name
     return None
 
 
-AGENT_MIN_MCAP = 0.0           # 🎯 owner's trench-desk spec, 2026-10-12: 0 < live cap < $200K (was $10K) …
 
 
-AGENT_MAX_AGE_H = 6.0          # … and a KNOWN launch age ≤ 6h for a new entry (unknown age is not eligible; held coins keep running)
+AGENT_MAX_AGE_H = 6.0          # 🕐 a KNOWN launch age ≤ 6h for a new entry (unknown age is not eligible; held coins keep running)
 
 
 AGENT_MIN_VOL1H = 1_000.0      # … with real volume (≥ $1K traded in the last hour); no other starting minimum
@@ -116,12 +155,14 @@ def agent_holder_pass(r):
     return None
 
 
-def in_lane(row, cap=AGENT_MAX_MCAP):
-    """🗑 THE AGENTS' UNIVERSE for new entries: 0 < live market cap < the cap, ≥ $1K traded in the hour, a known launch age ≤ 6h."""
+def in_lane(row, cap=None):
+    """🗑 THE AGENTS' UNIVERSE for new entries: live market cap inside the owner's band (`band()`, default $12K–$300K; `cap` may only
+    LOWER the top), ≥ $1K traded in the hour, a known launch age ≤ 6h."""
     r = row or {}
     if r.get('mint') in _majors():   # 🪙 majors + xStocks are never a trench seat (MRNA / MU sat dead outside US market hours, 2026-10-11)
         return False
-    return (under_cap(r, cap) and _f(r.get('mcap')) > AGENT_MIN_MCAP and _f(r.get('vol1h')) >= AGENT_MIN_VOL1H
+    top = min(band()[1], _f(cap)) if cap else band()[1]
+    return (under_cap(r, top) and _f(r.get('vol1h')) >= AGENT_MIN_VOL1H
             and r.get('ageH') is not None and _f(r.get('ageH')) <= AGENT_MAX_AGE_H)
 
 
@@ -133,28 +174,22 @@ def _majors():
         return {}
 
 
-LANE_CAPS = (200_000.0,)   # 🎯 HARD new-entry universe 0 < live cap < $200K (owner, 2026-10-11) — held winners keep running past it   # 🪜 the universe widens only when the one below cannot fill the seats
+LANE_CAPS = (AGENT_MAX_MCAP,)   # 🎯 the default band's top — the live top is `band()[1]` (the owner's control); held winners keep running past it
 
 
 LANE_NEED = 12          # safe, buyable coins wanted in the lane (4 seats × the ones the keeper / live check will refuse)
 
 
-def lane_cap(rows, need=LANE_NEED):
-    """🪑 SEATS FULL, PERMANENTLY (owner, 2026-10-11: "seats always empty — perma fix"): the smallest cap in LANE_CAPS whose lane holds
-    `need` coins that are actually buyable — holder scan passed, pool ≥ CONTROL_MIN_LIQ, real volume. Under $200K is always first in line
-    (ranked first); the lane only reaches $1M / $5M while $200K alone cannot fill 4 seats (it held 1–3 safe coins a pass). → cap"""
-    ok = lambda r: r.get('safe') is True and _f(r.get('liq')) >= CONTROL_MIN_LIQ
-    for cap in LANE_CAPS:
-        if sum(1 for r in rows or [] if in_lane(r, cap) and ok(r)) >= need:
-            return cap
-    return LANE_CAPS[-1]
+def lane_cap(rows=None, need=LANE_NEED):
+    """The lane's top = the owner's band top (`band()[1]`). `rows` / `need` are kept for callers; the cap never widens past the band."""
+    return band()[1]   # one rung: the owner's band top (the old $200K → $1M → $5M widening was retired — it seated MRNA / MU xStocks)
 
 
 def lane_step(cap, ranked, need):
     """🪜 The lane follows the RESULT, not the board's flags: fewer ranked candidates than `need` (open seats + 2) → one step wider next pass;
     three times `need` or more → one step back toward $200K. (The board marked 16 sub-$200K coins safe, yet 33 of 35 failed the desk's
     hard checks and the seats sat empty while the cap never moved.) → the next cap"""
-    caps = list(LANE_CAPS)
+    caps = [band()[1]]
     i = caps.index(cap) if cap in caps else 0
     if ranked < need and i < len(caps) - 1:
         return caps[i + 1]

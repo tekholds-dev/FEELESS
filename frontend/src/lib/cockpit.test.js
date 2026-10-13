@@ -8,7 +8,9 @@ import { D, PUMP } from '../components/command/__fixtures__/cockpit';
 test('seats: the real card as cards — live %, entry / now in market cap, Reaper\'s ruling, the newest REAL tape line; an open seat says what could fill it', () => {
   const s = seatCards(D, new Map([['P1', { price: 0.0011, at: Date.now() }]]));
   expect(s).toHaveLength(3);
-  expect(s[0]).toMatchObject({ seat: 1, symbol: 'CARLO', badge: 'PROTECT', entryMc: 857000, rule: 'R7 trail', usd: 0.42, heldMin: 4 });
+  expect(s[0]).toMatchObject({ seat: 1, symbol: 'CARLO', badge: 'PROTECT', entryMc: 857000, rule: 'R7 trail', heldMin: 4, peak: 20.1 });
+  expect(s[0].usd).toBeCloseTo(0.42 * 0.0011 / 0.001006); expect(s[0].pct).toBeCloseTo((0.0011 / 0.000857 - 1) * 100);      // 💹 LIVE: the shared price against its own entry
+  expect(seatCards(D)[0]).toMatchObject({ usd: 0.42, pct: 17.39 });                                                            // no live price yet → the server's own figures
   expect(s[0].mc).toBeCloseTo(1_100_000);                                                    // the LIVE price × the kernel's supply
   expect(s[0].last).toMatchObject({ id: 3, agent: 'reaper' });                               // newest line by id, not array order
   expect(s[1]).toMatchObject({ symbol: 'BEAR', badge: 'ORDER PENDING', entryMc: null, mc: null });   // unknown stays unknown — never 0

@@ -17,7 +17,7 @@ def row(m='X', **k):
 
 def test_hard_safety_still_blocks():
     for bad in (row(vitals={'safe': False}), row(vitals={'safe': None}), row(nums={'liq': 5_000}, vitals={'liq': 5_000}), row(vitals={'rug': 70}),
-                row(vitals={'mcap': 250_000}), row(objs=[['rug_signs', 'x']]), row(chart={'state': 'BOT LADDER'}), row(nums={'d5': 55}), row(nums={'d5': -20}), row(px=0)):
+                row(vitals={'mcap': 350_000}), row(vitals={'mcap': 9_000}), row(objs=[['rug_signs', 'x']]), row(chart={'state': 'BOT LADDER'}), row(nums={'d5': 55}), row(nums={'d5': -20}), row(px=0)):
         assert op.hard_fail(bad), bad
 
 

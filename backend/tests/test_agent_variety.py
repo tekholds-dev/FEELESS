@@ -46,14 +46,35 @@ def test_confirmed_agent_exit_becomes_a_lesson_once():
     assert rl.note_closed({}, {**pos, 'confirmed': False}, 2000.0) == {}
 
 
-def test_universe_is_under_200k_live_cap_and_bands_are_context():
+def test_universe_is_the_owners_12k_to_300k_band_and_bands_are_context():
+    """🎯 owner, 2026-10-12: "trench better on coins from 12k-300k mc" — the default band; the owner moves it from the cockpit."""
     import opportunity as op
-    assert ag.AGENT_MAX_MCAP == 200_000 == op.MAX_MCAP and op.MIN_LIQ == ag.CONTROL_MIN_LIQ
-    assert ag.in_lane({'mcap': 150_000, 'ageH': 5.9, 'vol1h': 5_000}) and ag.in_lane({'mcap': 4_000, 'ageH': 0.01, 'vol1h': 2_000})   # 0 < cap, ≤ 6h
+    from trench_kernel import universe as un
+    un.set_band({})
+    assert ag.AGENT_MAX_MCAP == 300_000 == op.MAX_MCAP and ag.AGENT_MIN_MCAP == 12_000 == op.MIN_MCAP and op.MIN_LIQ == ag.CONTROL_MIN_LIQ
+    assert un.band() == (12_000, 300_000) and un.band_word() == '$12K–$300K'
+    assert ag.in_lane({'mcap': 150_000, 'ageH': 5.9, 'vol1h': 5_000}) and ag.in_lane({'mcap': 250_000, 'ageH': 0.5, 'vol1h': 2_000})
+    assert not ag.in_lane({'mcap': 4_000, 'ageH': 0.01, 'vol1h': 2_000}) and not ag.in_lane({'mcap': 12_000, 'ageH': 0.1, 'vol1h': 9_000})   # under / at the floor
     assert not ag.in_lane({'mcap': 150_000, 'vol1h': 5_000}) and not ag.in_lane({'mcap': 90_000, 'ageH': 6.5, 'vol1h': 9_000})        # unknown age · > 6h
     assert not ag.in_lane({'mcap': 50_000, 'ageH': 1, 'vol1h': 200})   # no real volume
-    assert not ag.in_lane({'mcap': 200_000}) and not ag.in_lane({'mcap': 0}) and not ag.in_lane({})
-    assert ag.trench_band(8_000) == 'NEWBORN MICRO' and ag.trench_band(120_000) == 'MOMENTUM TRENCH' and ag.trench_band(250_000) is None
+    assert not ag.in_lane({'mcap': 300_000}) and not ag.in_lane({'mcap': 0}) and not ag.in_lane({})
+    assert ag.trench_band(8_000) == 'NEWBORN MICRO' and ag.trench_band(120_000) == 'MOMENTUM TRENCH' and ag.trench_band(250_000) == 'UPPER TRENCH'
+
+
+def test_the_owner_moves_the_band_from_fixed_options_only():
+    from trench_kernel import universe as un
+    import opportunity as op
+    try:
+        assert un.set_band({'agentMcMin': 20_000, 'agentMcMax': 500_000}) == (20_000, 500_000)
+        assert ag.in_lane({'mcap': 450_000, 'ageH': 1, 'vol1h': 5_000}) and not ag.in_lane({'mcap': 15_000, 'ageH': 1, 'vol1h': 5_000})
+        live = {'px': 1, 'nums': {'v5': 5_000, 'liq': 20_000}, 'vitals': {'safe': True, 'mcap': 15_000, 'ageH': 1}}
+        assert 'under your $20K floor' in op.hard_fail(live) and 'outside your MC band ($20K–$500K)' == op.open_ok(live)
+        assert un.clean_band({'agentMcMin': 7_777, 'agentMcMax': 123}) == (12_000, 300_000)          # not on the option lists → the default
+        assert un.clean_band({'agentMcMin': 50_000, 'agentMcMax': 100_000}) == (50_000, 100_000)
+        assert un.clean_band({'agentMcMin': 0, 'agentMcMax': 100_000}) == (0, 100_000) and un.band_word((0, 100_000)) == 'under $100K'
+        assert ag.in_lane({'mcap': 400_000, 'ageH': 1, 'vol1h': 5_000}, 300_000) is False             # a caller's cap may only LOWER the top
+    finally:
+        un.set_band({})
 
 
 def test_the_board_shows_the_newest_launches_not_only_the_strongest_reads():
@@ -120,10 +141,12 @@ def test_the_universe_is_applied_before_intake_picks():
 
 
 
-def test_the_new_entry_universe_is_hard_capped_at_200k():
-    """🎯 owner, 2026-10-11: new entries only 0 < live cap < $200K — the lane never widens, whatever the ranking says."""
+def test_the_new_entry_universe_is_hard_capped_at_the_band_top():
+    """🎯 new entries only inside the owner's band — the lane never widens past its top, whatever the ranking says."""
+    from trench_kernel import universe as un
+    un.set_band({})
     safe = lambda m, mc: {'mint': m, 'mcap': mc, 'vol1h': 5_000, 'safe': True, 'liq': 20_000, 'ageH': 1.0}
-    assert ag.LANE_CAPS == (200_000,)
-    assert ag.lane_cap([]) == 200_000 and ag.lane_cap([safe('m', 600_000)]) == 200_000
-    assert ag.lane_step(200_000, 0, 5) == 200_000 and ag.lane_step(5_000_000, 0, 5) == 200_000
-    assert ag.in_lane(safe('a', 150_000)) and not ag.in_lane(safe('b', 250_000))
+    assert ag.LANE_CAPS == (300_000,)
+    assert ag.lane_cap([]) == 300_000 and ag.lane_cap([safe('m', 600_000)]) == 300_000
+    assert ag.lane_step(300_000, 0, 5) == 300_000 and ag.lane_step(5_000_000, 0, 5) == 300_000
+    assert ag.in_lane(safe('a', 250_000)) and not ag.in_lane(safe('b', 350_000))

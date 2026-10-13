@@ -27,10 +27,10 @@ def test_over_6h_cannot_get_a_new_entry_and_under_6h_can():
     assert ag.in_lane({'mcap': 80_000, 'ageH': 5.0, 'vol1h': 5_000}) and not ag.in_lane({'mcap': 80_000, 'ageH': 7.0, 'vol1h': 5_000})
 
 
-def test_unknown_age_or_cap_never_masquerades_as_valid_and_the_cap_is_under_200k():
+def test_unknown_age_or_cap_never_masquerades_as_valid_and_the_cap_is_the_band():
     assert opp.hard_fail(row(age=None)) == 'launch age unknown'
     assert opp.hard_fail(row(mc=None)) == 'market cap unknown'
-    assert '≥ $200K' in opp.hard_fail(row(mc=200_000)) and opp.hard_fail(row(mc=199_000)) is None
+    assert '≥ $300K' in opp.hard_fail(row(mc=300_000)) and opp.hard_fail(row(mc=299_000)) is None and 'floor' in opp.hard_fail(row(mc=11_000))
     assert not ag.in_lane({'mcap': 80_000, 'vol1h': 5_000})            # no age → not in the lane
 
 
