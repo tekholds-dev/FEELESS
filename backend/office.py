@@ -852,6 +852,38 @@ def verify(arch):
     return bad
 
 
+VERIFY_FULL_SEC = 300.0   # the whole chain is re-hashed at most this often; between, only records added since the last check
+
+
+def _tail_bad(rows, prev, start, h_of):
+    bad = 0
+    for r in rows[start:]:
+        bad += r.get('h') != _hash(prev, h_of(r)); prev = r.get('h')
+    return bad
+
+
+def verify_inc(arch, memo, now):
+    """`verify`, incrementally (the loop-lag catcher charged the full re-hash 28s in 8h — two desks ran it every pass): the same count
+    when nothing changed; when records were only APPENDED (same anchors, the last checked record still carries its hash) only the new
+    ones are hashed, chained from the last checked link; a rolled list, a changed anchor or `VERIFY_FULL_SEC` passed → the full chain.
+    A rewrite in the middle is always found by the next full check. → (bad, memo)"""
+    a = arch or {}
+    cs, ps = a.get('cases') or [], a.get('positions') or []
+    fp = (a.get('anchor', ''), a.get('posAnchor', ''), len(cs), cs[-1].get('h') if cs else None, len(ps), ps[-1].get('h') if ps else None)
+    m = memo or {}
+    if m.get('fp') == fp and now - _f(m.get('fullAt')) < VERIFY_FULL_SEC:
+        return m['bad'], m
+    old = m.get('fp')
+    appended = (old and now - _f(m.get('fullAt')) < VERIFY_FULL_SEC and old[0] == fp[0] and old[1] == fp[1] and fp[2] >= old[2] and fp[4] >= old[4]
+                and (old[2] == 0 or cs[old[2] - 1].get('h') == old[3]) and (old[4] == 0 or ps[old[4] - 1].get('h') == old[5]))
+    if appended:
+        bad = m['bad'] + _tail_bad(cs, old[3] if old[2] else a.get('anchor', ''), old[2], lambda r: r.get('d')) \
+            + _tail_bad(ps, old[5] if old[4] else a.get('posAnchor', ''), old[4], lambda r: {k: v for k, v in r.items() if k != 'h'})
+        return bad, {'fp': fp, 'bad': bad, 'fullAt': m.get('fullAt')}
+    bad = verify(a)
+    return bad, {'fp': fp, 'bad': bad, 'fullAt': now}
+
+
 def _stat(ps):
     ps = [_f(p) for p in ps if p is not None]
     return {'n': len(ps), 'med': round(_med(ps), 2) if ps else None, 'avg': round(sum(ps) / len(ps), 2) if ps else None, 'up': round(sum(1 for p in ps if p > 0) / len(ps) * 100) if ps else None}

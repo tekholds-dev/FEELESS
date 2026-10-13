@@ -2738,8 +2738,9 @@ _jup_tok_cache: dict = {}   # mint → (at, Jupiter token row) — 60s
 _pair_mint: dict = {}       # pairAddress → mint, learned from every pair answer (the fallback looks coins up by mint)
 
 
-async def _jup_tokens(mints):
-    """📡 Jupiter token rows for these mints (100 per call, cached 60s). The fallback for DexScreener (sitewide data rule: DexScreener, our indexes, Jupiter)."""
+async def _jup_tokens(mints, keyed=False):
+    """📡 Jupiter token rows for these mints (100 per call, cached 60s). The fallback for DexScreener (sitewide data rule: DexScreener, our indexes, Jupiter).
+    The key is spent only for `keyed=True` (the keeper's final buy gate) — see `_jup_prices`."""
     now, out, need = time.time(), {}, []
     for m in dict.fromkeys(x for x in mints if x):
         hit = _jup_tok_cache.get(m)
@@ -2748,7 +2749,7 @@ async def _jup_tokens(mints):
         else:
             need.append(m)
     if need:
-        key = os.getenv('JUPITER_API_KEY', '')
+        key = os.getenv('JUPITER_API_KEY', '') if keyed else ''
         srcs = ([('https://api.jup.ag/tokens/v2/search', {'x-api-key': key})] if key else []) + [('https://lite-api.jup.ag/tokens/v2/search', {})]
         async with httpx.AsyncClient(timeout=8) as http:
             async def one(chunk):
@@ -6308,16 +6309,19 @@ _jup_px_cache: dict = {}
 _jup_calls = {'n': 0}   # every Jupiter price request this process sent (the office reports the per-pass delta)
 
 
-async def _jup_prices(mints):
+async def _jup_prices(mints, keyed=False):
     """🎯 Jupiter's own USD price per mint (price v3 — the price its routes trade at, across every pool), cached 20s. Paper fills
-    and values use THIS so paper sees the same price real money gets (a single DexScreener pair can sit 20–40% away on runners)."""
+    and values use THIS so paper sees the same price real money gets (a single DexScreener pair can sit 20–40% away on runners).
+    🔑 THE KEY BELONGS TO THE MONEY PATH (2026-10-13): reads use the public lane; only `keyed=True` (the keeper's own buy / sell price
+    check) may spend the key. Price reads went keyed-first, unpaced, and ate the ~1 request/s the keeper's quotes need: 30 of 55
+    skipped agent buys overnight were "Jupiter route unavailable (HTTP 429)"."""
     now = time.time()
     want = [m for m in dict.fromkeys(mints or []) if m]
     out = {m: v for m in want for t, v in [_jup_px_cache.get(m, (0, 0))] if now - t < 20 and v > 0}
     miss = [m for m in want if m not in out]
     if miss:
-        key = os.environ.get('JUPITER_API_KEY')
-        sources = ([('https://api.jup.ag/price/v3', {'x-api-key': key})] if key else []) + [('https://lite-api.jup.ag/price/v3', {})]   # keyed first, public fallback
+        key = os.environ.get('JUPITER_API_KEY') if keyed else None
+        sources = ([('https://api.jup.ag/price/v3', {'x-api-key': key})] if key else []) + [('https://lite-api.jup.ag/price/v3', {})]   # the money path: keyed first; every read: public only
         async with httpx.AsyncClient(timeout=6) as http:
             for base, hdr in sources:
                 todo = [m for m in miss if m not in out]
@@ -9588,7 +9592,7 @@ async def _prime_tick_inner(now):
     cards = dict((d.get('prime') or {}).get('cards') or {})
     snap_, ver_ = _prime.card_snap(cards), _hq_ver()   # what the tick STARTED from (an owner write during the tick must win)
     # one pair fetch → live price AND momentum for EVERY coin on the cards (majors + pools too, not only runner-board coins)
-    books = (_fw_load().get('books') or {})
+    books = (_fw_peek().get('books') or {})
     market_rows = _fw_market_rows(cards, books)
     pairs_ = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in market_rows]) if market_rows else {}
     px = {k: _fuse._f(v.get('priceUsd')) for k, v in pairs_.items()}
@@ -9639,7 +9643,7 @@ async def _prime_tick_inner(now):
         # honest preview. ✅ Runners also need confirmation: rising over the last hour with buyers in control (≥55% buys) — no buying the top.
         def _lq(x):
             v = x.get('liquidity'); return _fuse._f(v.get('usd') if isinstance(v, dict) else v) or _fuse._f(x.get('liq')) or liqs.get(x.get('pairAddress'), 0.0)
-        fw_cfg = _fw_load().get('cfg') or {}
+        fw_cfg = _fw_peek().get('cfg') or {}
         floor_of = (lambda x: _fw.liq_floor(fw_cfg, x.get('arena'))) if real_t else (lambda x: PAPER_MIN_LIQ)   # paper ⇄ real floors are separate
         def _confirmed(x):
             if x.get('newMajor'):   # a new major: green over 24h with buyers at least even
@@ -9702,7 +9706,7 @@ async def _prime_tick_inner(now):
             on_ = {l.get('mint') for l in (cur or {}).get('legs') or []}
             p_t = [x for x in p_t if x.get('mint') in on_ or _prime.entry_ok(x, mom)]
             r_t = [x for x in r_t if x.get('mint') in on_ or _prime.entry_ok(x, mom)]
-        book_s = (_fw_load().get('books') or {}).get(tid) or {} if cur and cur.get('real') else {}
+        book_s = (_fw_peek().get('books') or {}).get(tid) or {} if cur and cur.get('real') else {}
         # 💵 the smallest order this card can send (sized to its seats) — the engine never opens a seat or cuts a coin by less
         mo_t = 0.0
         if cur and cur.get('real'):
@@ -9779,7 +9783,7 @@ async def _prime_tick_inner(now):
             p_t = []
         _step('not too young · not dollar-named · record gate', r_t)
         if real_t and cur and cur.get('rebuy'):   # 🔄 a rebuy waits for its sale to land, then the same coin takes the seat at a new entry
-            bl_ = (((_fw_load().get('books') or {}).get(tid) or {}).get('legs') or {}).get(cur['rebuy'].get('mint')) or {}
+            bl_ = (((_fw_peek().get('books') or {}).get(tid) or {}).get('legs') or {}).get(cur['rebuy'].get('mint')) or {}
             cur = _prime.rebuy_in(cur, _fuse._f(bl_.get('atoms')) > 0, now)
         r_pre_ = list(r_t)   # 🔭 the scout's small ticket may take any SAFE mover (age + checks passed), not only coins on the card's full hunt line
         cb_ready_ = {}
@@ -10176,7 +10180,7 @@ async def _prime_tick_inner(now):
             free_ = max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd')))
             tk_ = _office.get('ticks') or []
             every_ = sorted(b_ - a_ for a_, b_ in zip(tk_, tk_[1:]))[len(tk_) // 2 - 1] if len(tk_) >= 3 else 50.0
-            bk_ = ((_fw_load().get('books') or {}).get(tid) or {}) if real_t else {}
+            bk_ = ((_fw_peek().get('books') or {}).get(tid) or {}) if real_t else {}
             seat_ctx_ = {'want': pol_['seats'], 'held': held_n, 'cases': [c_ for c_ in cases_ if c_ not in cooled_ and c_['status'] != 'TRACKING'], 'valid': valid_, 'movesLeft': _uni.FILL_MOVES_HR - used_, 'movesHr': _uni.FILL_MOVES_HR, 'courier': (_office.get('courier') or {}).get('health'),
                          'manual': pol_['manual'], 'live': rd_['live'], 'readyWhy': rd_['why'], 'freeUsd': free_, 'minUsd': max(0.05, _fuse._f(cfg_t.get('minOrderUsd'))), 'emptySince': cur.get('agentEmptyAt'), 'target': pol_['seatTarget'], 'now': now, 'nextTickIn': min(every_, pol_['seatTarget']),
                          'control': True, 'halt': (bk_.get('haltWhy') or 'halted') if bk_.get('halt') else None, 'cooled': [c_.get('symbol') for c_ in cooled_], 'moved': moved_, 'timerIn': 0}
@@ -10283,7 +10287,7 @@ async def _prime_tick_inner(now):
                     pass
         true_usd = None
         if real_t:   # 💵 floor / rescue / fix / runs judge the TRUE book (confirmed coins + card SOL), never the engine's estimate
-            bk = (_fw_load().get('books') or {}).get(tid)
+            bk = (_fw_peek().get('books') or {}).get(tid)
             try:
                 sol_px_t = await _sol_usd_live() if bk else 0.0
             except Exception:
@@ -10459,7 +10463,7 @@ async def _prime_view():
     cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
     if not cards:
         return []
-    fw_books = _fw_load().get('books') or {}
+    fw_books = _fw_peek().get('books') or {}
     market_rows = _fw_market_rows(cards, fw_books)
     px, jup, sol_pre = await _prime_reads(market_rows)
     px.update({l['pairAddress']: jup[l['mint']] for l in market_rows if jup.get(l.get('mint'))})
@@ -11083,7 +11087,7 @@ async def _fw_secure_buy(order, cfg, q):
         back_l = None
     try:   # market = Jupiter's own price (what routes really pay); a DexScreener pair can lag on young coins
         _jup_px_cache.pop(order['mint'], None)   # …read FRESH: the 20s-old cached price made a coin running +3% a minute read "4.6% above market" on every try
-        jp = _fuse._f(((await _jup_prices([order['mint']])) or {}).get(order['mint']))
+        jp = _fuse._f(((await _jup_prices([order['mint']], keyed=True)) or {}).get(order['mint']))
     except Exception:
         jp = 0.0
     ok_s, why_s = _fw.buy_safety({**order, 'midPx': jp or order.get('midPx'), 'maxRoundtripPct': _fw.clean_cfg(cfg)['pickSellBackPct']}, q.get('outAmount'), await _mint_decimals(order['mint']), back_l)
@@ -11132,7 +11136,7 @@ async def _fw_live_pairs(orders):
         for m in miss.values():
             _jup_tok_cache.pop(m, None)
         try:
-            toks = await asyncio.wait_for(_jup_tokens(list(miss.values())), LIVE_SRC_SEC + 2)
+            toks = await asyncio.wait_for(_jup_tokens(list(miss.values()), keyed=True), LIVE_SRC_SEC + 2)
         except Exception:
             toks = {}
         for pa, m in miss.items():
@@ -11288,7 +11292,7 @@ async def _fw_execute(tid, order, book, cfg, sol_px, liq):
                 raise HTTPException(400, why_s)
         elif order['side'] == 'sell' and 'rug' not in str(order.get('why') or ''):   # 🛡 secure sell: the route must pay near the market price
             try:
-                jp = _fuse._f(((await _jup_prices([order['mint']])) or {}).get(order['mint']))
+                jp = _fuse._f(((await _jup_prices([order['mint']], keyed=True)) or {}).get(order['mint']))
             except Exception:
                 jp = 0.0
             ok_s, why_s = _fw.sell_safety(order, q.get('outAmount'), sol_px, jp)
@@ -13116,6 +13120,55 @@ async def fuse_wallet_payout_profit(request: Request):
     ad = _admin_load(); _audit(ad, me, 'fuse-wallet-payout-profit', f'{tid} ${paid:.2f}'); _admin_save(ad)
     return {'ok': True, 'tpl': tid, 'paidUsd': paid, 'availableBeforeUsd': avail, 'fundedUsd': b.get('fundedUsd')}
 
+@app.post('/api/reputation/admin/fuse-wallet/close-dust')
+async def fuse_wallet_close_dust(request: Request):
+    """♻ Owner only — FREE THE RENT OF DEAD COINS: every Fuse-wallet coin account no card holds whose leftover is worth under $0.05 at
+    Jupiter's live price (or was written off) gets its leftover BURNED and the account CLOSED in one transaction, so the rent comes back
+    to the wallet. `{confirm: false}` = the dry run (which coins, their $ value, the rent). `{confirm: true}` = Circle signs ONE Burn +
+    CloseAccount transaction for ≤ 8 accounts; it is booked as a 'close' row and credited like every sweep once it lands. The keeper
+    never burns anything by itself — this button is the owner's approval. Nothing here can touch a coin a card holds."""
+    _require_owner(request)
+    body = await request.json() or {}
+    cfg = _fw_cfg()
+    if not cfg.get('address'):
+        raise HTTPException(400, 'Pick the Fuse wallet first.')
+    d = _fw_peek()
+    keep = {m for b in (d.get('books') or {}).values() for m in (b.get('legs') or {})} | {(b.get('pending') or {}).get(k_) for b in (d.get('books') or {}).values() for k_ in ('mint', 'toMint')}
+    off = {r.get('mint'): _fuse._f(r.get('usd')) for r in _fw_full_ledger() if r.get('side') == 'writeoff' and r.get('mint')}   # the newest write-off's own $ value
+    never = set(_fuse.ALL_MAJORS) | {_fw.SOL_MINT, 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'}   # majors, SOL, USDC, USDT: never burned
+    async with httpx.AsyncClient(timeout=15) as http:
+        res = await asyncio.gather(*[_krpc(http, 'getTokenAccountsByOwner', [cfg['address'], {'programId': pg}, {'encoding': 'jsonParsed', 'commitment': 'confirmed'}]) for pg in _FW_TOKEN_PROGRAMS])
+        rows = [{'pubkey': a.get('pubkey'), 'program': pg, 'lamports': (a.get('account') or {}).get('lamports'), 'info': _parsed_info(a.get('account'))}
+                for pg, r in zip(_FW_TOKEN_PROGRAMS, res) for a in (r or {}).get('value') or []]
+        mints = [r_['info'].get('mint') for r_ in rows if (r_.get('info') or {}).get('mint') and r_['info']['mint'] not in keep]
+        px = await _jup_prices(mints) if mints else {}
+        dead = _fw.dead_accounts(rows, keep, px, off, never=never)
+        sol_px = await _sol_usd_live()
+        plan = {'accounts': [{**x_, 'symbol': next((r_.get('symbol') for r_ in reversed(_fw_full_ledger()) if r_.get('mint') == x_['mint'] and r_.get('symbol')), None)} for x_ in dead],
+                'rentSol': round(sum(x_['rentSol'] for x_ in dead), 9), 'dustUsd': round(sum(x_['usd'] or 0 for x_ in dead), 4), 'solUsd': sol_px,
+                'held': len(rows), 'kept': len(rows) - len(dead)}
+        plan['rentUsd'] = round(plan['rentSol'] * sol_px, 2) if sol_px > 0 else None
+        if not body.get('confirm') or not dead:
+            return {'ok': True, 'dry': True, **plan}
+        if not _fw_signer_ready():
+            raise HTTPException(400, 'Signing is not enabled for the Fuse wallet.')
+        if any(b.get('pending') for b in (d.get('books') or {}).values()):
+            raise HTTPException(409, 'An order is in flight — try again in a minute.')
+        bh = ((await _krpc(http, 'getLatestBlockhash', [{'commitment': 'finalized'}])) or {}).get('value', {}).get('blockhash')
+        signed = await _fw_sign(cfg, _dust.burn_close_tx(cfg['address'], dead, bh), f'FEELESS free rent of {len(dead)} dead coins')
+        sig = signed.get('signature') or signed.get('txHash')
+        await _krpc(http, 'sendTransaction', [signed.get('signedTransaction'), {'encoding': 'base64', 'maxRetries': 3, 'preflightCommitment': 'confirmed'}])
+    now = time.time()
+    row = {'id': f'close:dust:{now:.0f}', 'card': 'wallet', 'side': 'close', 'burn': True, 'n': len(dead), 'sol': plan['rentSol'], 'sig': sig, 'at': now, 'status': 'sent',
+           'closed': [{'mint': x_['mint'], 'lamports': int(x_['rentSol'] * 1e9)} for x_ in dead],
+           'why': f"♻ owner freed the rent of {len(dead)} dead coin accounts (leftovers worth ${plan['dustUsd']:.3f} burned) — the rent comes back to the wallet once confirmed"}
+    async with _fw_lock:
+        d2 = _fw_load(); _fw_record(d2, row); _fw_save(d2)
+    _fw_notify(row)
+    ad = _admin_load(); _audit(ad, 'owner', 'fuse-close-dust', f"{len(dead)} accounts · rent {plan['rentSol']:.6f} SOL · sig {str(sig)[:12]}"); _admin_save(ad)
+    return {'ok': True, 'dry': False, 'sig': sig, **plan}
+
+
 @app.post('/api/reputation/admin/fuse-wallet/withdraw-cash')
 async def fuse_wallet_withdraw_cash(request: Request):
     """Owner only: take card cash OUT of a real card (all of it, or `usd`). The principal drops by what was taken, so profit is
@@ -13394,7 +13447,7 @@ def _lc_evaluate(of, arch, cour, now):
     """🧬 ONE evaluation of all ten roles on the Judge's reviews of REAL exits (the only evidence). A replaced office desk's new lesson is
     written to its tunables on this same call; a brain-side role's lesson is read by the kernel on its next judgement. → (office state, events)"""
     reviews = ((of.get('judge') or {}).get('reviews')) or []
-    integrity = {'courier': int((cour or {}).get('duplicates') or 0) + int((cour or {}).get('unsigned') or 0), 'archivist': int(_of.verify(arch) or 0), 'judge': 0}
+    integrity = {'courier': int((cour or {}).get('duplicates') or 0) + int((cour or {}).get('unsigned') or 0), 'archivist': int(_arch_verify(arch) or 0), 'judge': 0}
     book, ev = _tkl.evaluate(_lc_book(now), reviews, now, tunable=_of.TUNABLE, integrity=integrity, desk_stats=_jr.desk_stats(reviews))
     book, tune_ = _tkl.sync_office(book, of.get('tune'), {e_['role'] for e_ in ev if e_['kind'] == 'replaced'})
     _lc_mem['book'] = book
@@ -14120,6 +14173,14 @@ async def _agents_tick(now):
 import office as _of
 OFFICE_PATH = FUSE_HQ_PATH.parent / 'agent_office.json'     # 🏢 tunables promoted by shadow tests · candidates · open positions · latency rings · counters
 ARCHIVE_PATH = FUSE_HQ_PATH.parent / 'agent_archive.json'   # 🗄 hash-chained decision lineage (≤ 600 cases) + closed real positions (≤ 300); older fold into totals
+_verify_memo: dict = {}
+
+
+def _arch_verify(arch):
+    """🗄 The archive's hash-chain check, incremental (office.verify_inc): the full chain at most every 5 min, new records in between."""
+    bad, m = _of.verify_inc(arch, _verify_memo.get('m'), time.time())
+    _verify_memo['m'] = m
+    return bad
 _office: dict = {'state': None, 'pos': {}, 'exiting': [], 'gone': [], 'lat': {}, 'sized': {}, 'reports': [], 'warden': None, 'courier': None, 'payload': None, 'last': None, 'vetoAt': {},
                  'charts': {}, 'theses': {}, 'candles': {}, 'cmeta': {}, 'load': {}, 'boot': {'at': time.time(), 'passes': 0, 'coins': 0, 'reconciled': False}, 'seatWakeAt': 0.0, 'seatWakes': 0, 'ticks': [], 'candleStat': {'req': 0, 'cached': 0, 'merged': 0, 'dup': 0, 'ms': 0.0, 'coins': 0}}
 import chart_intel as _ci
@@ -14944,7 +15005,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         viol.setdefault(a_, {})
     viol['tally']['stale'] = int(viol['tally'].get('stale') or 0) + stale
     viol.setdefault('courier', {})['rule'] = int(cour.get('duplicates') or 0) + int(cour.get('unsigned') or 0)
-    viol.setdefault('archivist', {})['rule'] = _of.verify(arch)
+    viol.setdefault('archivist', {})['rule'] = _arch_verify(arch)
     viol.setdefault('reaper', {})['rule'] = sum(1 for p_ in arch.get('positions') or [] if p_.get('confirmed') and not (p_.get('exit') or {}).get('sig'))
     money = _agents.get('money') or {}
     if money.get('value') is not None:

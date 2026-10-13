@@ -483,7 +483,7 @@ def test_every_real_buy_gate_reads_jupiter_when_dexscreener_answers_empty(monkey
         async def get(self, url, *a, **k): return R()
     monkeypatch.setattr(rs.httpx, 'AsyncClient', H)
 
-    async def toks(mints):
+    async def toks(mints, **kw):
         return {'M': {'id': 'M', 'symbol': 'SENTS', 'usdPrice': 0.0005, 'liquidity': 77000.0, 'graduatedPool': 'OTHERPOOL'}}
     monkeypatch.setattr(rs, '_jup_tokens', toks)
     live = asyncio.run(rs._fw_live_pairs([{'pair': 'P1', 'mint': 'M', 'side': 'buy'}]))
@@ -587,7 +587,7 @@ def test_the_final_buy_gate_reads_pump_when_dexscreener_and_jupiter_are_429(monk
             return R(429, None)   # DexScreener's HTML 429 page
     monkeypatch.setattr(rs.httpx, 'AsyncClient', H)
 
-    async def toks(mints):
+    async def toks(mints, **kw):
         raise AssertionError('Jupiter is asked only for coins DexScreener and Pump could not answer')
     monkeypatch.setattr(rs, '_jup_tokens', toks)
     orders = [{'pair': f'P{i}', 'mint': f'M{i}pump', 'side': 'buy'} for i in range(6)]   # more than the old cap of 4

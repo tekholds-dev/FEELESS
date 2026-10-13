@@ -310,7 +310,7 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
     return sells + buys + ([sweep] if sweep else [])
 
 
-SAFETY_WORDS = ('sells back', 'above market', 'price impact', 'too thin', "can't sell")
+SAFETY_WORDS = ('sells back', 'above market', 'below market', 'price impact', 'too thin', "can't sell")
 REFUSED_SEC = 120.0
 
 
@@ -1334,6 +1334,8 @@ MAX_ROUNDTRIP_PCT = 6.0     # buying then selling straight back may lose at most
 # ⚡ AGENT SCALPS START IN A HOLE (2026-10-12, 261 real agent buys in 24h): fills landed 1.0% above mid (p90 4.5%) and sold straight back for
 # 2.3% less at the median — every entry began −2…−3% before the coin moved, on 5-minute holds. An agent seat's buy must cost less.
 AGENT_PRICE_GAP_PCT = 2.5
+MAX_BELOW_PCT = 30.0        # 📉 a buy quoted this much UNDER the market reading = the coin crashed since it was picked (or the reading is stale): not bought
+                            # (2026-10-13: $PONSA / $REPE read ~$54K caps at the decision and filled 96% lower — both dead coins, bought blind)
 AGENT_ROUNDTRIP_PCT = 3.5
 
 
@@ -1348,6 +1350,8 @@ def buy_safety(order, quote_out_atoms, decimals, sell_back_lamports):
     gap_cap = AGENT_PRICE_GAP_PCT if order.get('agent') else MAX_PRICE_GAP_PCT
     if decimals is not None and mid > 0 and (px / mid - 1) * 100 > gap_cap:   # unknown decimals → only the sell-back check
         return False, f"buy price {((px / mid - 1) * 100):.1f}% above market (> {gap_cap:g}%)"
+    if decimals is not None and mid > 0 and (1 - px / mid) * 100 >= MAX_BELOW_PCT:
+        return False, f"buy price {((1 - px / mid) * 100):.0f}% below market — the coin crashed since it was picked (or the reading is stale)"
     if sell_back_lamports is None:
         return False, "can't sell it back to SOL (no route) — skipped"
     loss = (1 - _f(sell_back_lamports) / max(1, _f(order.get('lamports')))) * 100
@@ -1454,6 +1458,33 @@ def empty_accounts(token_accounts, keep_mints=()):
         info = a.get('info') or {}
         if int((info.get('tokenAmount') or {}).get('amount') or 0) == 0 and info.get('mint') not in set(keep_mints) and a.get('pubkey') and a.get('program'):
             out.append({'pubkey': a['pubkey'], 'program': a['program'], 'mint': info.get('mint')})
+    return out[:CLOSE_MAX]
+
+
+def dead_accounts(token_accounts, keep_mints=(), prices=None, written_off=None, max_usd=DUST_USD, never=()):
+    """♻ The wallet's DEAD coin accounts (owner, 2026-10-13: "real money cash back"): a coin no card holds whose leftover is worth under
+    `max_usd` at the live price — or, with no live price, a coin the keeper WROTE OFF at under `max_usd` (`written_off` = {mint: $ value
+    recorded at the write-off}). Burning the leftover and closing the account returns its rent (~0.0015 SOL each); the empty-account sweep
+    never touches them, so their rent sat locked for good (2026-10-13: 7 written-off coins held 0.0105 SOL). A coin with value, a coin with
+    no price and no cheap write-off, and anything in `never` (majors, dollar coins) is never touched — a "USDF" pump launch is burnable
+    only because its own write-off said $0.0001. → [{pubkey, program, mint, raw, usd, rentSol}] (≤ CLOSE_MAX)"""
+    keep, px, nev = set(keep_mints or ()) | set(never or ()), prices or {}, set(never or ())
+    off = {m: v for m, v in (written_off or {}).items() if v is not None and _f(v) < max_usd} if isinstance(written_off, dict) else {}
+    out = []
+    for a in token_accounts or []:
+        info = a.get('info') or {}
+        m, ta = info.get('mint'), info.get('tokenAmount') or {}
+        raw = int(_f(ta.get('amount')))
+        if not m or m in keep or not a.get('pubkey') or not a.get('program') or raw <= 0:
+            continue   # empty accounts are the regular sweep's job
+        ui = _f(ta.get('uiAmount')) if ta.get('uiAmount') is not None else raw / 10 ** int(_f(ta.get('decimals')))
+        p = _f(px.get(m))
+        usd = ui * p if p > 0 else None
+        if m in nev:
+            continue
+        if (usd is not None and usd < max_usd) or (usd is None and m in off):
+            out.append({'pubkey': a['pubkey'], 'program': a['program'], 'mint': m, 'raw': raw, 'usd': None if usd is None else round(usd, 5),
+                        'rentSol': round(_f(a.get('lamports')) / 1e9, 9)})
     return out[:CLOSE_MAX]
 
 

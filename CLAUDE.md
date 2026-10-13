@@ -3527,3 +3527,24 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   trench_lingo.json 10 min · shadow_book.json 60s · social_cache.json 120s · agents_view.json / agent_office_view.json 60s. NEVER for money
   records. A new agent-side store over ~1 MB ⇒ a MemStore. 🐛 the generation-replaced `_audit` call had the wrong arguments (crashed the
   lifecycle loop on every replacement); the radar's DexScreener batch skips an HTML 429 page instead of printing "radar error" each minute.
+- 🩹 WHY THE REAL CARD LOSES (2026-10-13, from the ledger, `scripts/real-audit.py` + `scripts/fuse-report.py 24`): put in $32.50 → $0.89;
+  24h = 104 trips, NET −$1.42, 29% won, median −8.6%, median hold 4.4 min, execution ≈ 1.4% a trip; 0–5 min coins −35% avg; stops filled
+  ≈ −35% vs their −12…−30% lines (launch coins gap between 6s checks; fills land 20–155s after the decision); walk-forward on the agents'
+  real trips = NO PROVEN EDGE. The model's 600 judged calls: the coins the desk ranks top fall a typical 18% within 15 min, 26% go up.
+  Its rug read separated winners ONLY in the second half of the night (first half: rug ≥ 60 −66% vs ≤ 30 −60%) and the night's worst real
+  losers had LOW rug reads — so it stays a ±10% weight, never a block. Re-check that split before promoting any AI vital.
+- 📉 CRASHED-COIN BUY REFUSED (`fuse_wallet.MAX_BELOW_PCT` 30, `buy_safety`): a quote ≥ 30% UNDER the market reading = the coin crashed
+  since it was picked (or the reading is stale) → refused ("below market", a SAFETY word → the agents skip it 10 min). $PONSA / $REPE read
+  ~$54K caps at the decision and filled 96% lower. The check used to refuse only quotes ABOVE the reading.
+- 🔑 THE JUPITER KEY BELONGS TO THE MONEY PATH (`_jup_prices(.., keyed=False)`, `_jup_tokens(.., keyed=False)`): every read is public-only;
+  `keyed=True` only for the keeper's secure-buy / secure-sell price and the final buy gate's live-pair read. Reads went keyed-first, unpaced,
+  and ate the ~1 request/s the keeper's quotes need (30 of 55 skipped agent buys overnight: "Jupiter route unavailable (HTTP 429)").
+- ⚡ The tier tick reads the wallet doc through `_fw_peek()` (seven read-only sites; the loop-lag catcher charged `_prime_tick › _fw_load`
+  149s in 8h). Writes still take their own `_fw_load()`. 🗄 Archive hash chain = `office.verify_inc` (`_arch_verify`): new records only,
+  the whole chain at most every `VERIFY_FULL_SEC` 300s (a rewrite in the middle is found by the next full check; test).
+- ♻ DEAD-COIN RENT (`fuse_wallet.dead_accounts`, owner `POST /admin/fuse-wallet/close-dust`, `DeadRent` in HQ › Fuse › 👛): coin accounts no
+  card holds, worth < $0.05 at the live price — or, with no price, written off at < $0.05 by the keeper's own write-off row — get their
+  leftover BURNED + the account CLOSED in ONE wallet-signed tx (`dust.burn_close_tx`, ≤ 8 accounts), booked as a 'close' row (credited like
+  every sweep). Majors, stocks, SOL, USDC, USDT are never in the list. Dry run first; the owner's click is the approval; the keeper never
+  burns by itself. 2026-10-13: 8 accounts → 0.012 SOL (~$1.28) back, leftovers worth $0.006. The wallet's UNASSIGNED SOL ($1.38 that day)
+  is the owner's own deposit leftover (deposits 0.409 SOL vs top-ups 0.351), not card money: "➜ Put $X unassigned into <card>" + Top up.

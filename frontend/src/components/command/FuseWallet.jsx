@@ -52,6 +52,31 @@ export function RpcKey({ call }) {
       <small className="m-dim">The URL is tested first (it must answer), saved on this machine only, and never shown again. Other services pick it up at their next restart.</small></div></details>;
 }
 
+/* ♻ FREE THE RENT OF DEAD COINS (owner, 2026-10-13: "real money cash back"): coin accounts no card holds whose leftover is worth under $0.05
+   (or was written off) keep ~0.0015 SOL of rent each locked for good — the regular sweep only closes EMPTY accounts. A dry run first; then ONE
+   Burn + Close transaction the Fuse wallet signs. The rent comes back to the wallet; ➜ Put … into the card moves it in (you press Top up). */
+export function DeadRent({ call, onDone }) {
+  const [plan, setPlan] = useState(null); const [busy, setBusy] = useState(false);
+  const run = async confirm => {
+    if (busy) return; setBusy(true);
+    try { const r = await call('/admin/fuse-wallet/close-dust', { method: 'POST', body: JSON.stringify({ confirm }) }); setPlan(r);
+      if (confirm && r?.sig) { toast.success(`♻ ${r.accounts.length} dead coin accounts closed — ${usd(r.rentUsd)} of rent coming back`); onDone?.(); } }
+    catch (e) { toast.error(e.message); } finally { setBusy(false); }
+  };
+  const n = plan?.accounts?.length || 0;
+  return <div className="m-note" data-testid="fw-dead">
+    <b>♻ Rent locked in dead coins</b>
+    {!plan ? <span>Coin accounts the cards no longer use still hold their rent. Check which ones can be closed — nothing moves until you confirm.</span>
+      : n ? <span data-testid="fw-dead-plan">{n} dead coin account{n === 1 ? '' : 's'} ({plan.accounts.map(a => `$${a.symbol || a.mint.slice(0, 4)}${a.usd != null ? ` ${usd(a.usd)}` : ' written off'}`).join(' · ')}) →
+        burn their leftovers worth <b className="m-num">{usd(plan.dustUsd)}</b> and get <b className="m-num">{plan.rentSol.toFixed(4)} SOL ({usd(plan.rentUsd)})</b> of rent back to the wallet. {plan.kept} other account{plan.kept === 1 ? '' : 's'} untouched.</span>
+        : <span data-testid="fw-dead-none">No dead coin accounts — {plan.held} coin account{plan.held === 1 ? '' : 's'}, all in use or worth more than $0.05.</span>}
+    {plan?.sig ? <a className="m-btn" href={txUrl(plan.sig)} target="_blank" rel="noreferrer" data-testid="fw-dead-tx">tx ↗</a>
+      : <span className="m-row"><button type="button" className="m-btn" disabled={busy} onClick={() => run(false)} data-testid="fw-dead-check">{busy && !plan ? 'Checking…' : plan ? '↻ Check again' : '🔍 Check dead coins'}</button>
+        {n > 0 && <button type="button" className="m-btn danger" disabled={busy} onClick={() => run(true)} data-testid="fw-dead-go"
+          data-tip="ONE transaction: Burn each leftover (worth under $0.05, gone for good) + Close the account → its rent returns to the Fuse wallet. Coins a card holds are never in the list.">♻ Burn {n} + free {usd(plan.rentUsd)}</button>}</span>}
+  </div>;
+}
+
 export function FuseWallet({ call }) {
   const [d, setD] = useState(null);
   const [cfg, setCfg] = useState(null);
@@ -105,6 +130,7 @@ export function FuseWallet({ call }) {
       {sweep && <button type="button" className="m-btn" data-testid="fw-sweep" data-tip={`Fills the top-up box for ${sweep.label} with ${usd(sweep.usd)} of your unassigned SOL (kept inside the ${usd(d.cfg?.maxCardUsd)} per-card cap). You still press Top up — it counts as new money PUT IN.`} onClick={() => setAmt(a => ({ ...a, [sweep.tpl]: sweep.usd.toFixed(2) }))}>➜ Put {usd(sweep.usd)} unassigned into {sweep.label}</button>}
       {Math.abs(allocationGap) > 0.000001 && <small className="m-dim">Refresh timing difference: {allocationGap.toFixed(6)} SOL. No balance is assigned or spent until a confirmed transaction updates the book.</small>}
       {d.balances?.stale && <small className="m-dim">Showing the last confirmed balance because the live RPC read is temporarily unavailable.</small>}</div>}
+    {d.signer && d.cfg?.address ? <DeadRent call={call} /> : null}
     {d.missing?.length > 0 && <div className="m-note warn" data-testid="fw-missing"><b>⚠ Coins missing from the wallet</b><span>{d.missing.map(m => `${m.mint.slice(0, 6)}… booked ${m.booked}, held ${m.held}`).join(' · ')} — halt the card and check the audit trail.</span></div>}
     {d.recoverable?.length > 0 && <div className="m-note warn" data-testid="fw-recoverable"><span className="m-row">
       <button type="button" className="m-btn danger" onClick={() => setShowStuck(v => !v)} data-testid="fw-stuck-toggle">
