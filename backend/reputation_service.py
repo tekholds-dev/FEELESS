@@ -14200,6 +14200,7 @@ async def _lab_tick(now, env, cfg):
             ad = (res or {}).get('advice') or {}
             props = _rlab.clean(ad.get('rules'), _rlab.vocab(trades))
             _lab['said'] = {'at': now, 'summary': ad.get('summary'), 'proposed': len(props), 'source': (res or {}).get('label') or (res or {}).get('source')}
+        props = props + _rlab.auto_propose(trades, {'rules': list((_lab_state().get('rules') or [])) + props})   # 🧪 the record proposes too — the lab never waits on the model
         st_, went = _rlab.step(_lab_state(), props, trades, now)
         _lab['st'] = st_
         for r_ in went:

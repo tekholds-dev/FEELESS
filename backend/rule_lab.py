@@ -31,7 +31,7 @@ CLAMP = (0.8, 1.1)
 RETIRE_SEC = 24 * 3600
 KEEP = 40
 MAX_WHEN = 2
-MOMENT = ('flow:', 'high:', 'rule:', 'struct:')   # entry-MOMENT tokens: a live avoid rule on these is Trigger's lesson (arm, don't enter)
+MOMENT = ('flow:', 'high:', 'rule:', 'struct:', 'fresh:')   # (fresh: buying a coin minutes old IS a timing call)   # entry-MOMENT tokens: a live avoid rule on these is Trigger's lesson (arm, don't enter)
 
 
 def _f(v, d=0.0):
@@ -50,6 +50,14 @@ def high_band(dist):
     return 'top' if d < 2 else 'near' if d < 8 else 'off'
 
 
+def fresh_band(age_h):
+    """Age at the buy, finer than the memory's bands (the record's sharpest split: < 15 min −14.8% vs 15–60 min −1.4%, 2026-10-13)."""
+    if age_h is None:
+        return None
+    a = _f(age_h)
+    return '<15m' if a < 0.25 else '15-60m' if a < 1 else '1-3h' if a < 3 else '3h+'
+
+
 def trade_feats(p):
     """A closed real trade's entry tokens (what the memory files it by + the tape + the high at entry, when the thesis kept them)."""
     th = (p or {}).get('thesis') or {}
@@ -60,6 +68,10 @@ def trade_feats(p):
     hb = high_band(th.get('distHigh'))
     if hb:
         out.append(f'high:{hb}')
+    la, li = (p or {}).get('launch') or {}, (p or {}).get('li') or {}
+    fb = fresh_band(la.get('ageH') if la.get('ageH') is not None else li.get('ageH'))
+    if fb:
+        out.append(f'fresh:{fb}')
     return out
 
 
@@ -76,6 +88,37 @@ def row_feats(x):
     hb = high_band(x.get('distHigh') if x.get('distHigh') is not None else (ch.get('f') or {}).get('distHigh'))
     if hb:
         out.append(f'high:{hb}')
+    fb = fresh_band(v.get('ageH'))
+    if fb:
+        out.append(f'fresh:{fb}')
+    return out
+
+
+AUTO_N, AUTO_GAP, AUTO_MAX = 10, 5.0, 2
+
+
+def auto_propose(trades, state):
+    """🧪 The lab does not wait for the model: every token our record holds on ≥ AUTO_N real trades whose typical result sits ≥ AUTO_GAP points
+    from the whole record's is proposed as ONE rule (avoid under it, favor over it) — at most AUTO_MAX new a pass, never one on file. The
+    walk-forward still decides; most of these fail, and that is the point (no lesson goes live on in-sample numbers)."""
+    rows = _rm.trades(trades)
+    if len(rows) < 2 * AUTO_N:
+        return []
+    allv = sorted(_rm._cap(p.get('realPct')) for p in rows)
+    base = allv[len(allv) // 2]
+    have = {r['id'] for r in (state or {}).get('rules') or []}
+    out = []
+    for t, x in sorted(vocab(trades).items(), key=lambda kv: -abs(kv[1]['med'] - base)):
+        if x['n'] < AUTO_N or abs(x['med'] - base) < AUTO_GAP:
+            continue
+        act = 'avoid' if x['med'] < base else 'favor'
+        rid = f'{act}:{t}'
+        if rid in have:
+            continue
+        out.append({'id': rid, 'act': act, 'when': [t], 'name': f"{'🚫' if act == 'avoid' else '✅'} {t}"[:40], 'by': 'record',
+                    'why': f"{t}: typical {x['med']:+.0f}% on {x['n']} real trades vs {base:+.0f}% overall", 'desk': desk_of([t])})
+        if len(out) >= AUTO_MAX:
+            break
     return out
 
 

@@ -3739,3 +3739,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`ai_router.parse_advice`, strict), judged like every read (`ai_learn` buckets SCOUT:COPY · SCOUT:SWARM · SCOUT:TECH · SCOUT:MEME) and shown as
   chips (`scoutChips`). A coin that just took a real seat is read once more on its live tape (`_ai['fillQ']` → `_ai_jobs` role devil,
   `atFill`), RECORD ONLY — its own bucket AT:FILL says whether a read at the fill is worth anything; it never undoes a buy.
+- 🧪 The lab never waits on the model (`rule_lab.auto_propose`, every judge pass): any token on ≥ 10 real trades whose typical result sits ≥ 5 pts
+  from the whole record's is proposed (≤ 2 a pass); the walk-forward still decides. Age at entry is a word (`fresh:<15m|15-60m|1-3h|3h+`, a
+  timing word → Trigger's lesson). First run on the real archive (81 trades): favor `phase:PRE-FOMO` went live (+16.7% vs −12.2% unseen, n 6);
+  avoid `struct:EARLY` FAILED (bad in the older 60%, better than the rest in the newest 40%). Reaper's exits learn on their own already
+  (`office.judge_candidates`: real trades moved protectAt 6 → 4 and giveBackPct 50 → 35).
+- 🧹 CHART TAGS NEVER STACK (`lib/chartLevels.spreadAround`, `LIVE_ROOM` 16): level tags are spread apart AND kept off the live price row (the
+  P&L tag riding the candle + the axis's own price label); a tag moved off its own line is dashed (`.clx-tag.is-moved`). The owner's
+  screenshot had seat P&L, entry and take tags on top of each other near the price.

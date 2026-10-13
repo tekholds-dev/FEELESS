@@ -15,6 +15,7 @@
 .clx-row.is-near .clx-line { opacity: 1; }
 .clx-tag { position: absolute; right: 4px; top: -8px; display: inline-flex; align-items: center; gap: 5px; height: 15px; padding: 0 6px; border-radius: 4px;
   font-family: var(--m-mono); white-space: nowrap; background: rgb(4, 14, 9); border: 1px solid color-mix(in srgb, var(--clx-c) 55%, transparent); color: var(--clx-c); z-index: 1; }
+.clx-tag.is-moved { border-style: dashed; opacity: .82; }   /* pushed off its own line so nothing overlaps: the line still marks the level */
 .clx-tag b { font-size: 8.5px; font-weight: 800; letter-spacing: .04em; } .clx-tag small { font-size: 8px; font-weight: 600; color: var(--m-dim); font-variant-numeric: tabular-nums; }
 .clx-tag em { font-style: normal; font-size: 8.5px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--m-ink, #e8fff1); }
 .clx-tag em:empty { display: none; }

@@ -69,3 +69,16 @@ def test_an_unproven_proposal_retires_after_a_day_and_the_case_is_our_own_table(
     assert st['rules'][0]['status'] == 'failed'
     c = L.case(t, st, [{'sym': 'A', 'pct': -9, 'cause': 'rugged'}])
     assert c['trades'] == 30 and any('struct:UPTREND' in x for x in c['vocabTable']) and c['losses'] == ['A: -9% · rugged']
+
+
+def test_the_record_proposes_its_own_rules_and_the_freshest_coins_are_a_word_it_can_use():
+    t = [_trade(i, -15.0 if i % 2 else 3.0, age=0.1 if i % 2 else 2.0) for i in range(40)]
+    assert 'fresh:<15m' in L.trade_feats(t[1]) and 'fresh:1-3h' in L.trade_feats(t[0])
+    props = L.auto_propose(t, {})
+    ids = [p['id'] for p in props]
+    assert 'avoid:fresh:<15m' in ids and len(props) <= L.AUTO_MAX and all(p['by'] == 'record' for p in props)
+    st, went = L.step({}, props, t, 5000)
+    r = next(r for r in st['rules'] if r['id'] == 'avoid:fresh:<15m')
+    assert r['status'] == 'live' and r['desk'] == 'trigger'
+    assert L.auto_propose(t, st) == [] or all(p['id'] not in {x['id'] for x in st['rules']} for p in L.auto_propose(t, st))
+    assert 'fresh:<15m' in L.row_feats({'vitals': {'ageH': 0.05}, 'chart': {}})

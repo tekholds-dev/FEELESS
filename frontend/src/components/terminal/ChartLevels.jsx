@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { distWord, levelRead, spreadTags } from '../../lib/chartLevels';
+import { distWord, levelRead, spreadAround } from '../../lib/chartLevels';
 import '../../styles/chartLevels.css';
 
 // 📏 LIVE LEVELS over the candles (owner, 2026-10-13: "all on-chart stuff needs to be advanced, live styled, no dead lines"). Every row
@@ -30,7 +30,8 @@ export function ChartLevels({ levels, seriesRef, chartRef, lastBarRef, shownRef,
       const ys = rows.map(l => { try { return s.priceToCoordinate(l.px); } catch { return null; } });
       const lim = Math.max(12, h - 30);
       const shown = ys.map((y, i) => (y == null ? null : y < 6 || y > lim ? (rows[i].key ? Math.max(PIN_TOP, Math.min(lim, y)) : null) : y));
-      const tags = spreadTags(shown, lim);
+      let pyLive = null; try { pyLive = px > 0 ? s.priceToCoordinate(px) : null; } catch { pyLive = null; }
+      const tags = spreadAround(shown, lim, [pyLive]);   // 🧹 never under the live P&L tag / the axis's live price label
       rows.forEach((l, i) => {
         const o = els[i]; if (!o) return;
         const y = shown[i];
@@ -38,7 +39,7 @@ export function ChartLevels({ levels, seriesRef, chartRef, lastBarRef, shownRef,
         const ys_ = (y + top).toFixed(1);
         if (o.y !== ys_) { o.y = ys_; o.el.style.opacity = '1'; o.el.style.transform = `translate3d(0, ${ys_}px, 0)`; }
         const ty = (tags[i] - y).toFixed(0);
-        if (o.ty !== ty && o.tag) { o.ty = ty; o.tag.style.transform = `translate3d(0, ${ty}px, 0)`; }
+        if (o.ty !== ty && o.tag) { o.ty = ty; o.tag.style.transform = `translate3d(0, ${ty}px, 0)`; o.tag.classList.toggle('is-moved', Math.abs(Number(ty)) > 3); }   // a tag moved off its own line says so
         const off = ys[i] < 6 || ys[i] > lim;
         if (o.off !== off) { o.off = off; o.el.classList.toggle('is-off', off); }
         const r = levelRead(l.px, px); if (!r) return;

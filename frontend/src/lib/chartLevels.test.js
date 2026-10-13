@@ -34,3 +34,14 @@ test('tags that would overlap are pushed apart and stay inside the plot', () => 
   expect(Math.max(...out)).toBeLessThanOrEqual(296);
   expect(out[1] - out[0]).toBeGreaterThanOrEqual(15); expect(out[2] - out[1]).toBeGreaterThanOrEqual(15);
 });
+
+test('🧹 level tags stay off the live price row (the P&L tag + the axis price label) and still never overlap each other', () => {
+  const { spreadAround, LIVE_ROOM, TAG_GAP } = require('./chartLevels');
+  const live = 100;
+  const out = spreadAround([95, 104, 140, null], 300, [live]);
+  out.filter(y => y != null).forEach(y => expect(Math.abs(y - live)).toBeGreaterThanOrEqual(LIVE_ROOM));
+  const ys = out.filter(y => y != null).sort((a, b) => a - b);
+  ys.slice(1).forEach((y, i) => expect(y - ys[i]).toBeGreaterThanOrEqual(TAG_GAP));
+  expect(out[3]).toBeNull();
+  expect(spreadAround([40, 200], 300, [null])).toEqual([40, 200]);   // no live row → plain spread
+});

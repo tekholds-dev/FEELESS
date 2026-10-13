@@ -61,6 +61,22 @@ export function levelRead(level, px) {
 }
 export const distWord = d => (d == null ? '' : Math.abs(d) < 0.05 ? 'AT IT' : `${d > 0 ? '▲' : '▼'} ${Math.abs(d) >= 1000 ? `${(Math.abs(d) / 100 + 1).toFixed(1)}x` : `${Math.abs(d).toFixed(Math.abs(d) >= 10 ? 0 : 1)}%`}`);
 
+export const LIVE_ROOM = 16;   // px a level tag keeps from the LIVE price row (the P&L tag riding the candle + the axis's own price label sit there)
+
+/** 🧹 Tags spread apart AND kept off fixed rows (`fixed` = y's that never move: the live price). A tag inside a fixed row's room goes to
+ * the nearer side of it; after the spread any tag pushed back in drops below it. Same order as `ys`, null stays null. */
+export function spreadAround(ys, h, fixed = [], gap = TAG_GAP, room = LIVE_ROOM) {
+  const zones = (fixed || []).filter(y => y != null && Number.isFinite(y)).map(y => [y - room, y + room]);
+  const out_ = y => { for (const [a, b] of zones) if (y > a && y < b) return y - a < b - y ? Math.max(0, a) : b; return y; };
+  let out = spreadTags(ys.map(y => (y == null ? null : out_(y))), h, gap);
+  for (let k = 0; k < 2 && zones.length; k += 1) {
+    const again = out.map(y => (y == null ? null : zones.some(([a, b]) => y > a && y < b) ? zones.find(([a, b]) => y > a && y < b)[1] : y));
+    if (again.every((y, i) => y === out[i])) break;
+    out = spreadTags(again, h, gap);
+  }
+  return out;
+}
+
 /** Tags that would overlap are pushed apart: [{y}] (any order) → the y each TAG is drawn at, same order, at least `gap` apart inside [0, h]. */
 export function spreadTags(ys, h, gap = TAG_GAP) {
   const idx = ys.map((y, i) => [y, i]).filter(([y]) => y != null).sort((a, b) => a[0] - b[0]);
