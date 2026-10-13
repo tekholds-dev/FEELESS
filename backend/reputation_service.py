@@ -10344,6 +10344,13 @@ async def _prime_tick_inner(now):
             _office['open'] = {'at': now, 'read': len(_tk.KERNEL.store.mints), 'ranked': len(valid_), 'top': [{'symbol': c_['symbol'], 'score': c_['rank'], 'narrative': c_['narrative']} for c_ in valid_[:8]],
                                'skipped': _tk.KERNEL.metrics(now)['byStatus']}
             _office['opp'] = {'at': now, 'cap': _agents.get('laneCap'), 'top': [{'symbol': c_['symbol'], 'tier': c_['status'], 'score': c_['rank']} for c_ in cases_[:6]]}
+            if plan_ and real_t and empty_n > 0 and not cfg_t.get('agentPaper'):   # 🛂 the model's read BEFORE the seat (cloud only, ≤ 7s; it can only hold a coin back)
+                try:
+                    plan_, aiw_ = await _ai_gate(plan_, empty_n, cfg_t, now)
+                    if aiw_:
+                        _office['flowWait'] = {'at': now, 'rows': (list((_office.get('flowWait') or {}).get('rows') or []) + aiw_)[:6]}
+                except Exception as e:
+                    print('ai gate:', str(e)[:120])
             if cfg_t.get('agentPaper'):   # 📄 PAPER: every seat the kernel would fill is recorded in the shadow book at the live price — no real buy
                 for t_ in plan_[:max(0, empty_n)]:
                     _shadow_note(t_, 'fill', now, cur)
@@ -12834,7 +12841,7 @@ import ai_learn as _ail
 import trench_crew as _tcrew
 AI_CFG_PATH = DATA_DIR / 'ai_providers.json'   # the provider order + on / off (no secrets — keys live in backend/.env only)
 AI_EVERY = 15.0                                 # one advisory round every 15s, ≤ AI_JOBS cases (local inference is one at a time)
-AI_JOBS = 2                                     # owner review · a split desk · a READY coin · an ambiguous setup — two calls a round at most (was 4)
+AI_JOBS = 3                                     # owner review · a split desk · a READY coin · an ambiguous setup — two calls a round at most (was 4)
 AI_NOTES_KEEP = 60
 AI_PROOF_PATH = DATA_DIR / 'ai_proof.json'      # 🧠 the model's stances, each judged 15 min later (ai_learn.py) — its record is what the agents learn from
 
@@ -13150,6 +13157,49 @@ async def _ai_round(now):
     except Exception:
         pass
     return n
+
+
+AI_GATE_SEC = 7.0   # 🛂 a seat waits at most this long for the model's read of the coin (a cloud answer takes ~5s); no answer in time = the coin goes
+
+
+def _ai_keep(role_, c_, r_, now):
+    """One model answer → the notes by coin + role, the log and the judged record (the same bookkeeping the advisory round does)."""
+    if isinstance(r_, Exception) or not isinstance(r_, dict) or r_.get('deferred') or not c_.get('mint'):
+        return False
+    _ai['notes'].setdefault(c_['mint'], {})[role_] = {k_: r_.get(k_) for k_ in ('source', 'label', 'advice', 'ms', 'at', 'tried', 'why', 'cached')} | {'symbol': c_.get('symbol')}
+    _ai_log(role_, c_, r_)
+    _ai_learn_note(role_, c_, r_, now)
+    return True
+
+
+async def _ai_gate(plan, need, cfg_t, now):
+    """🛂 THE MODEL READS A COIN BEFORE IT TAKES A REAL SEAT (2026-10-13: of the last 24 real buys the model had read NONE before the buy —
+    its reads came a round later, for display). For the coins about to be seated: a fresh read is used, a missing one is asked for now
+    (cloud only, in parallel, ≤ AI_GATE_SEC). A strong, specific CAUTION holds that coin back this tick — graded by the regret ledger
+    (`ai:CAUTION`), which switches the wait off if the coins it held back keep beating the ones taken. Silence, a slow answer, no cloud
+    provider or the owner's switch off = the coin goes. It can only ever make the agents buy LESS. → (plan, waits)"""
+    if not plan or not cfg_t.get('agentAiGate', True) or not _rg.effective(cfg_t, _regret_book()).get('aiWait', True):
+        return plan, []
+    env, cfg = os.environ, _ai_cfg()
+    head = plan[:max(1, need) + 2]
+    ask = [t_ for t_ in head if _air.gate_verdict(_ai['notes'].get(t_['mint']), now)[0] is None]
+    if ask and _air.cloud_ready(_air.ROUTER, env, cfg, now):
+        cs_ = [{**t_, 'cap': (t_.get('vitals') or {}).get('mcap'), 'liq': (t_.get('nums') or {}).get('liq'), 'vol5m': (t_.get('nums') or {}).get('v5'), 'move5m': (t_.get('nums') or {}).get('d5'),
+                'buyShare': (t_.get('nums') or {}).get('buy'), 'ageMin': None if (t_.get('vitals') or {}).get('ageH') is None else round(_fuse._f(t_['vitals']['ageH']) * 60, 1), 'state': 'about to take a real seat'} for t_ in ask]
+        tasks = [asyncio.ensure_future(_air.ROUTER.reason(_ai_http(), env, cfg, _ai_case(c_), 'devil', 'high', prio=_air.PRIO['ready'])) for c_ in cs_]
+        for tk_, c_ in zip(tasks, cs_):   # an answer that lands after the wait is still kept (the next tick reads it)
+            tk_.add_done_callback(lambda f_, c_=c_: (not f_.cancelled()) and f_.exception() is None and _ai_keep('devil', c_, f_.result(), time.time()))
+        await asyncio.wait(tasks, timeout=AI_GATE_SEC)
+    out, waits = [], []
+    for t_ in plan:
+        v_, why_ = _air.gate_verdict(_ai['notes'].get(t_['mint']), time.time()) if t_ in head else (None, None)
+        if v_ == 'wait':
+            _regret_note(t_['mint'], 'ai:CAUTION', _fuse._f(t_.get('px')), t_.get('symbol'))
+            waits.append({'symbol': t_.get('symbol'), 'why': f"🧠 {why_}"})
+            _tk.KERNEL.note('devil', 'AI WAIT', f"🧠 the model's read holds it back — {why_}", now, mint=t_['mint'], key=f"aigate:{int(now // 120)}")
+            continue
+        out.append(t_)
+    return out, waits
 
 
 AI_DUTY = 0.5   # 💻 the local model may be busy at most half the time: after a round, wait at least as long as it took (owner, 2026-10-13: "so laggy")
@@ -15986,7 +16036,7 @@ async def admin_agents_set(request: Request):
     ch = {}
     if 'feed' in body:
         ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital') + _oe.POLICY_KEYS:
+    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital', 'agentAiGate') + _oe.POLICY_KEYS:
         if k in (body.get('cfg') or {}):
             ch[k] = body['cfg'][k]
     if ch:

@@ -3883,3 +3883,19 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   own `x-ratelimit-remaining-tokens` / `reset-tokens` are remembered (`_budget_note`), a call that would not fit WAITS for the reset
   (`budget_wait`, ≤ `BUDGET_WAIT_MAX` 20s) instead of firing into a 429, a short Retry-After is waited out once, Groq runs one call at a time.
   "THE AI ISN'T HELPING" ⇒ read `office.ai.totals` (asked vs answered vs none) and the provider state before anything about its judgement.
+- 🛂 THE MODEL READS BEFORE THE SEAT (`_ai_gate`, `ai_router.gate_verdict / cloud_ready`, realCfg `agentAiGate` on by default; switch in
+  🧠 MODEL): 2026-10-13 the trade tape showed the model had read NONE of the last 24 real buys before the buy — its reads came a round
+  later, for display. Now the coins about to take a real seat get their read first: a fresh one (≤ 5 min) is used, a missing one is asked
+  NOW (cloud only, in parallel, ≤ `AI_GATE_SEC` 7s; a late answer is kept for the next tick). A STRONG, SPECIFIC CAUTION
+  (confidence_delta ≤ −0.12 with a named risk) holds that coin back this tick; silence, a slow answer, no cloud provider = the coin goes.
+  Graded by the regret ledger as `ai:CAUTION` (`aiWait`): it switches the wait OFF when the coins held back keep beating the ones taken.
+  It can only make the agents buy LESS. `AI_JOBS` 3.
+- 🧠 PROVIDERS, MEASURED (same day): Groq's free plan has a 200K tokens-a-DAY cap — it was spent, so every ask came back NONE whatever the
+  per-minute pacing did (read the 429 BODY: "tokens per day"). OpenRouter (the owner's key, `OPENROUTER_MODEL`) answered EMPTY: a reasoning
+  model spent all 260 answer tokens thinking → "malformed". `ai_router.EXTRA_BODY['openrouter']` = minimal reasoning + 700 tokens +
+  usage → ~5s, ~$0.0002 a case. 💵 `SPEND_USD_DAY` $1.50 (`AI_DAILY_USD` overrides): a paid provider stops for the UTC day once the costs IT
+  reported pass the cap (`_spend_note` / `over_spend`, state DAILY CAP). 💻 LOCAL = THE AGENTS' BACKUP (`local_last_resort`): background
+  cases ask the cloud FIRST; when no cloud provider could answer a case that matters (prio ≤ 2: owner · split desk · READY coin · coach) the
+  local model takes it, one case per `LOCAL_BG_EVERY` 45s — never half the time on the GPU the browser draws with. The owner's ASK box is
+  still local-first. A stronger local model = load it in LM Studio and set `LOCAL_LLM_MODEL` (the owner's download; 7B is what is loaded).
+  "A PROVIDER ANSWERS BUT NOTHING SHOWS" ⇒ print the raw content + usage of one call before touching the parser.

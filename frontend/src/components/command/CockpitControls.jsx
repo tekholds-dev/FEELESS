@@ -44,6 +44,9 @@ function ModelCard({ o, pend, disabled, onPick }) {
     <ControlRow c={{ key: 'agentAiLearn', label: 'Learn from the model', who: lr.on === false ? 'CREATOR OVERRIDE' : 'AGENTS CHOOSE', value: lr.on === false ? 'off' : 'on', options: ['on', 'off'],
       means: 'ON: a stance or risk read PROVEN on the model\'s own judged record (20+ calls, clearly better / worse than its other calls) moves the ranking by up to 10%. OFF: asked, shown and judged — it weighs nothing. It never buys, sizes, blocks or sells.' }}
       pending={pend.agentAiLearn} disabled={disabled} onPick={onPick} />
+    <ControlRow c={{ key: 'agentAiGate', label: '🛂 Read before a seat', who: (o?.policy || {}).aiGate === false ? 'CREATOR OVERRIDE' : 'AGENTS CHOOSE', value: (o?.policy || {}).aiGate === false ? 'off' : 'on', options: ['on', 'off'],
+      means: 'ON: the model reads every coin BEFORE it takes a real seat (cloud, ≤ 7s). A strong, specific CAUTION holds that coin back this tick; silence or a slow answer never does. It can only make the agents buy less. The regret ledger grades the coins it held back and switches the wait off if they keep beating the ones taken.' }}
+      pending={pend.agentAiGate} disabled={disabled} onPick={onPick} />
     <p className={`acx-state is-${String(lr.state || 'off').toLowerCase().replace(/\s+/g, '-')}`} data-testid="acx-model-state"><em>{lr.state || 'NO MODEL'}</em><span>{lr.why || 'start LM Studio or add a key under ⚙ providers'}</span></p>
     {ai?.metrics ? <p className="acx-cover is-metrics" data-testid="acx-ai-metrics">{aiMetricsLine(ai.metrics).map(([l, v]) => <span key={l}><small>{l}</small><b>{v}</b></span>)}</p> : null}
     <p className="acx-cover"><span><small>COINS WITH INTEL</small><b data-testid="acx-intel-n">{intelN}</b></span><span><small>JUDGED</small><b>{lr.all?.n ?? 0}</b></span></p>
@@ -132,7 +135,7 @@ export function CockpitControls({ o, call, isOwner, onAi }) {
             means: 'ON: a real seat needs the chart\'s own ENTER NOW (real card, 107 agent trades: ENTER NOW +14% typical, 70% won; every WAIT / SKIP chart −3…−29%). No chart yet = half a seat. OFF = the old open trenching. The regret ledger grades the coins it held back and may switch it off.' }}
             pending={pend.chartWait} disabled={!isOwner || busy} onPick={(kk, v) => save({ chartWait: v === 'on' }, kk, v)} /> : null}
           {rows.map(k => <ControlRow key={k} c={ctl[k]} pending={pend[k]} disabled={!isOwner || busy} onPick={(kk, v) => save({ [kk]: v }, kk, v)} />)}</div>; })}
-      <ModelCard o={o} pend={pend} disabled={!isOwner || busy} onPick={(k, v) => save({ agentAiLearn: v === 'on' }, k, v)} />
+      <ModelCard o={o} pend={pend} disabled={!isOwner || busy} onPick={(k, v) => save({ [k]: v === 'on' }, k, v)} />
     </div>
   </section>;
 }

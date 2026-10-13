@@ -28,7 +28,7 @@ import ai_keys as _aik
 PROVIDERS = {
     'local': ('LOCAL LM STUDIO', None, 'LOCAL_LLM_MODEL', 'LOCAL_LLM_BASE_URL', 'http://127.0.0.1:1234/v1', 'qwen2.5-7b-instruct-mlx', 30.0, 1),   # the vitals answer took 16–31s on the owner's Mac (its own loop: nothing waits on it)
     'groq': ('GROQ', 'GROQ_API_KEY', 'GROQ_MODEL', None, 'https://api.groq.com/openai/v1', 'qwen/qwen3.8-27b', 8.0, 1),   # 2026-10-13: llama-3.1-8b-instant is gone from Groq (404 → the fallback never answered); this one answers the vitals schema in ~0.9s
-    'openrouter': ('OPENROUTER', 'OPENROUTER_API_KEY', 'OPENROUTER_MODEL', None, 'https://openrouter.ai/api/v1', 'openrouter/auto', 10.0, 2),
+    'openrouter': ('OPENROUTER', 'OPENROUTER_API_KEY', 'OPENROUTER_MODEL', None, 'https://openrouter.ai/api/v1', 'openrouter/auto', 20.0, 2),
     'openai': ('OPENAI', 'OPENAI_API_KEY', 'OPENAI_MODEL', None, 'https://api.openai.com/v1', 'gpt-4o-mini', 10.0, 2),
     'xai': ('XAI / GROK', 'XAI_API_KEY', 'XAI_MODEL', None, 'https://api.x.ai/v1', 'grok-3-mini', 10.0, 2),
     'custom': ('OPENAI-COMPATIBLE', 'AI_API_KEY', 'AI_MODEL', 'AI_BASE_URL', None, '', 10.0, 1),
@@ -50,6 +50,12 @@ DEFER_PRIO = 3             # a job at this priority or lower (bigger number) is 
 PRIO = {'owner': 0, 'manager': 1, 'ready': 2, 'devil': 3, 'contender': 4, 'judge': 5, 'coach': 2, 'lab': 3}   # owner review → a conflict → a READY coin → ambiguous → top contender → a closed trade
 RATE_COOL = 60.0           # a 429 rests that provider this long (or its Retry-After, ≤ 5 min)
 FAIL_COOL = (0.0, 0.0, 15.0, 30.0, 60.0)   # cool-down by consecutive failures (2 free, then 15s … 60s)
+# per-provider request extras: OpenRouter's reasoning models spend the whole answer cap THINKING unless told not to (2026-10-13: 260 of 260
+# completion tokens were reasoning, the content came back empty → every answer read "malformed"); with minimal reasoning + room it answers in ~5s
+EXTRA_BODY = {'openrouter': {'reasoning': {'effort': 'minimal'}, 'usage': {'include': True}, 'max_tokens': 700}}
+SPEND_USD_DAY = 1.5        # 💵 a paid provider stops for the UTC day once the costs it REPORTED pass this (AI_DAILY_USD overrides; ≈ $0.0002 a case)
+LOCAL_BG_EVERY = 45.0      # 💻 the local model's background lane: at most one case per this many seconds…
+LOCAL_BG_PRIO = 2          # … only owner review / a split desk / a READY coin / the coach, and only when NO cloud provider could answer
 BUDGET_WAIT_MAX = 20.0    # a call waits at most this long for the provider's minute budget / a short Retry-After
 MAX_TOKENS = 260          # the short structured answer
 LABEL = {'local': 'LOCAL AI', 'groq': 'GROQ', 'openrouter': 'OPENROUTER', 'openai': 'OPENAI', 'xai': 'XAI', 'custom': 'CUSTOM AI', 'NONE': 'NONE'}
@@ -78,6 +84,46 @@ def local_ok(env, role=None, urgency='normal'):
     (READY coins, conflicts, contenders, Judge reviews) go to the cloud fallbacks or are not asked at all; the local model answers only
     what the owner asks for by hand (role 'owner' / urgency 'force'). LOCAL_LLM_BACKGROUND=true puts it back in the background."""
     return role == 'owner' or urgency == 'force' or _truthy((env or {}).get('LOCAL_LLM_BACKGROUND'), default=False)
+
+
+GATE_DELTA = -0.12   # 🛂 the model's read holds a coin back from a real seat only at CAUTION this strong, with a named risk, on a fresh read
+GATE_FRESH = 300.0
+
+
+def gate_verdict(notes, now):
+    """🛂 What the model's own reads say about a coin about to take a REAL seat → ('wait', why) | ('go', None) | (None, None) when no
+    read is fresh. Only a strong, specific CAUTION waits; silence never does."""
+    best = None
+    for n in (notes or {}).values():
+        ad = (n or {}).get('advice') or {}
+        if not ad or now - _f((n or {}).get('at')) > GATE_FRESH:
+            continue
+        if best is None or _f(ad.get('confidence_delta')) < _f((best.get('advice') or {}).get('confidence_delta')):
+            best = n
+    if best is None:
+        return None, None
+    ad = best['advice']
+    if ad.get('stance') == 'CAUTION' and _f(ad.get('confidence_delta')) <= GATE_DELTA and (ad.get('risk_flags') or []):
+        return 'wait', f"{'; '.join(str(f) for f in ad['risk_flags'][:2])} — {str(ad.get('summary') or '')[:110]}"
+    return 'go', None
+
+
+def cloud_ready(router, env, cfg, now):
+    """Is a CLOUD provider able to answer right now (configured, enabled, not cooling, under its daily cap)? The fill gate asks only then."""
+    for key in order_of(env, cfg):
+        if key == 'local':
+            continue
+        p = provider(env, key, cfg)
+        if p['enabled'] and not p['why'] and router.stats[key]['coolUntil'] <= now and not router.over_spend(key, env, now):
+            return True
+    return False
+
+
+def local_last_resort(prio, last_at, now, cloud_answered):
+    """💻 THE LOCAL MODEL BACKS THE AGENTS UP (owner, 2026-10-13: "local LM needs to be stronger for them"): when NO cloud provider could answer
+    a case that matters (prio ≤ LOCAL_BG_PRIO), the local model takes it — one case per LOCAL_BG_EVERY at most, so it never runs half the
+    time on the GPU the browser draws with (that was the lag). With a cloud provider answering it stays the owner's."""
+    return (not cloud_answered) and prio is not None and prio <= LOCAL_BG_PRIO and now - _f(last_at) >= LOCAL_BG_EVERY
 
 
 def order_of(env, cfg=None):
@@ -326,6 +372,8 @@ class Router:
         self.waiting = {k: 0 for k in PROVIDERS}
         self._sem = {}
         self.budget = {}   # provider → what it said is left of its tokens-per-minute budget
+        self.spend = {}    # provider → {day, usd, calls}: the costs the provider itself reported today
+        self.localBgAt = 0.0
 
     def busy(self, env, cfg):
         """Is the FIRST usable provider the local model and is it running an inference right now?"""
@@ -388,6 +436,19 @@ class Router:
             return
         self.budget[key] = {'remain': _f(rem), 'limit': _f(lim), 'resetAt': now + reset_sec(rst), 'at': now}
 
+    def _spend_note(self, key, usd, now):
+        day = int(now // 86400)
+        sp = self.spend.get(key)
+        if not sp or sp['day'] != day:
+            sp = self.spend[key] = {'day': day, 'usd': 0.0, 'calls': 0}
+        sp['usd'] = round(sp['usd'] + max(0.0, usd), 6); sp['calls'] += 1
+
+    def over_spend(self, key, env, now):
+        """True = this provider's own reported costs passed today's cap (UTC day)."""
+        sp = self.spend.get(key)
+        cap = _f((env or {}).get('AI_DAILY_USD'), SPEND_USD_DAY) or SPEND_USD_DAY
+        return bool(sp and sp['day'] == int(now // 86400) and sp['usd'] >= cap)
+
     def budget_wait(self, key, need, now):
         """Seconds to wait before a call needing `need` tokens fits this provider's minute budget (0 = go now; None = it can never fit)."""
         b = self.budget.get(key)
@@ -403,7 +464,7 @@ class Router:
         hdr = {'Content-Type': 'application/json'}
         if kvar and env.get(kvar):
             hdr['Authorization'] = f"Bearer {env.get(kvar)}"
-        body = {'model': p['model'], 'messages': msgs, 'temperature': 0.1, 'max_tokens': MAX_TOKENS, 'stream': False}
+        body = {'model': p['model'], 'messages': msgs, 'temperature': 0.1, 'max_tokens': MAX_TOKENS, 'stream': False, **EXTRA_BODY.get(p['key'], {})}
         try:
             r = await asyncio.wait_for(http.post(f"{p['base']}/chat/completions", json=body, headers=hdr), timeout=p['timeout'])
         except asyncio.TimeoutError:
@@ -420,6 +481,7 @@ class Router:
             return None, ('fail', f'HTTP {r.status_code}', None)
         try:
             j = r.json()
+            self._spend_note(p['key'], _f((j.get('usage') or {}).get('cost')), time.time())
             return str(((j.get('choices') or [{}])[0].get('message') or {}).get('content') or ''), None
         except Exception:
             return None, ('malformed', 'not a chat-completions answer', None)
@@ -448,7 +510,7 @@ class Router:
         fut = asyncio.get_running_loop().create_future()
         self.inflight[ck] = fut
         try:
-            res = await self._route(http, env, cfg, case, role, now, urgency)
+            res = await self._route(http, env, cfg, case, role, now, urgency, prio)
             if res['advice']:
                 self.cache[ck] = (now, res)
                 if len(self.cache) > 300:
@@ -463,17 +525,28 @@ class Router:
         finally:
             self.inflight.pop(ck, None)
 
-    async def _route(self, http, env, cfg, case, role, now, urgency='normal'):
+    async def _route(self, http, env, cfg, case, role, now, urgency='normal', prio=None):
         msgs = messages(case, role)
         tried = []
         t_all = time.perf_counter()
-        for key in order_of(env, cfg):
+        order = order_of(env, cfg)
+        own = local_ok(env, role, urgency)
+        if not own and 'local' in order:   # a background case asks the cloud FIRST; the local model is its last resort (see local_last_resort)
+            order = [k for k in order if k != 'local'] + ['local']
+        cloud_ok = False
+        for key in order:
             p = provider(env, key, cfg)
             s = self.stats[key]
             if not p['enabled'] or p['why']:
                 continue
-            if key == 'local' and not local_ok(env, role, urgency):
-                tried.append([key, 'OWNER ONLY'])
+            if key == 'local' and not own:
+                if not local_last_resort(prio, self.localBgAt, time.time(), cloud_ok):
+                    tried.append([key, 'OWNER ONLY'])
+                    continue
+                self.localBgAt = time.time()
+                self.totals['localBg'] = self.totals.get('localBg', 0) + 1
+            if key != 'local' and self.over_spend(key, env, time.time()):
+                tried.append([key, 'DAILY CAP'])
                 continue
             if s['coolUntil'] > time.time():
                 tried.append([key, s['state']])

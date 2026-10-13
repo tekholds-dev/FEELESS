@@ -45,7 +45,7 @@ export function gateCounts(refused) {
 
 // 😴 THE REGRET LEDGER on the page: every check's blocked coins vs the coins taken (graded 30 min later), and what the agents tuned it to
 export const REGRET_CHECKS = [['gate:gap', 'price gap', 'agentGapPct'], ['gate:back', 'sell-back', 'agentBackPct'], ['gate:pool', 'thin pool', 'agentPoolMin'],
-  ['flow:PEAK', 'peak wait', 'peakWait'], ['flow:SELLERS', 'sellers wait', 'sellersWait'], ['chart:WAIT', 'chart wait', 'chartWait']];
+  ['flow:PEAK', 'peak wait', 'peakWait'], ['flow:SELLERS', 'sellers wait', 'sellersWait'], ['chart:WAIT', 'chart wait', 'chartWait'], ['ai:CAUTION', 'model wait', 'aiWait']];
 export function regretRows(rg) {
   const rec = rg?.record || {}; const tk = rec.taken; const tune = rg?.tune || {};
   return REGRET_CHECKS.filter(([k, , key]) => rec[k] || tune[key]).map(([k, label, key]) => {

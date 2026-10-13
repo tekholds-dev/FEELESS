@@ -367,12 +367,16 @@ def test_the_local_model_is_the_owners_background_jobs_go_to_the_cloud_or_nowher
     assert not air.local_ok(e, 'sherlock') and air.local_ok(e, 'owner') and air.local_ok(e, 'sherlock', 'force') and air.local_ok(env(), 'judge')
     r, h = air.Router(), Http({'127.0.0.1': [chat(GOOD)] * 3, 'groq': [chat(GOOD)] * 3})
     bg = run(r.reason(h, e, {}, CASE, 'sherlock', prio=2))
-    assert bg['source'] == 'groq' and bg['tried'][0] == ['local', 'OWNER ONLY'] and not [c for c in h.calls if '127.0.0.1' in c[0]]
+    assert bg['source'] == 'groq' and bg['tried'][0] == ['groq', 'ok'] and not [c for c in h.calls if '127.0.0.1' in c[0]]   # a background case asks the cloud FIRST
     assert not r.busy(e, {})                                                             # nothing is ever deferred behind a model that is not used
     assert run(r.reason(h, e, {}, {**CASE, 'mint': 'OTHER'}, 'owner'))['source'] == 'local'
     assert run(r.reason(h, e, {}, CASE, 'sherlock', 'force'))['source'] == 'local'       # the owner's ASK box
     none = run(air.Router().reason(Http({'x': [chat(GOOD)]}), env(LOCAL_LLM_BACKGROUND=None, GROQ_API_KEY=None, OPENAI_API_KEY=None), {}, CASE, 'devil'))
-    assert none['source'] == 'NONE' and none['advice'] is None                           # no cloud key = deterministic only, never the local GPU
+    assert none['source'] == 'NONE' and none['advice'] is None                           # a case that does not matter never reaches the local GPU
+    nocloud = env(LOCAL_LLM_BACKGROUND=None, GROQ_API_KEY=None, OPENAI_API_KEY=None)
+    r2, h2 = air.Router(), Http({'127.0.0.1': [chat(GOOD)] * 3})
+    assert run(r2.reason(h2, nocloud, {}, CASE, 'sherlock', prio=2))['source'] == 'local'   # 💻 no cloud could answer a READY coin: the local model backs the agents up…
+    assert run(r2.reason(h2, nocloud, {}, {**CASE, 'mint': 'NEXT'}, 'sherlock', prio=2))['source'] == 'NONE'   # …one case per 45s, never half the time
     assert air.PROVIDERS['groq'][5] == 'qwen/qwen3.8-27b'
 
 
@@ -388,3 +392,30 @@ def test_the_router_fits_the_providers_minute_budget_instead_of_firing_into_a_42
     r._budget_note('groq', {}, 200.0)                                                         # a provider without the headers changes nothing
     assert r.budget['groq']['at'] == 100.0 and air.est_tokens([{'content': 'x' * 3000}]) == 1000 + air.MAX_TOKENS
     assert air.PROVIDERS['groq'][7] == 1                                                      # one cloud call at a time: two at once was the 429
+
+
+def test_the_models_read_gates_a_seat_only_on_a_strong_specific_fresh_caution():
+    import ai_router as air
+    n = lambda d, flags, at=100.0, st='CAUTION': {'devil': {'at': at, 'advice': {'stance': st, 'confidence_delta': d, 'risk_flags': flags, 'summary': 'serial rugger'}}}
+    assert air.gate_verdict(None, 110.0) == (None, None) and air.gate_verdict({}, 110.0) == (None, None)        # silence never waits
+    v, why = air.gate_verdict(n(-0.18, ['dev 191 launches', 'site dead']), 110.0)
+    assert v == 'wait' and 'dev 191 launches' in why and 'serial rugger' in why
+    assert air.gate_verdict(n(-0.05, ['x']), 110.0)[0] == 'go' and air.gate_verdict(n(-0.2, []), 110.0)[0] == 'go'   # weak · or no named risk
+    assert air.gate_verdict(n(0.0, [], st='NEUTRAL'), 110.0)[0] == 'go'
+    assert air.gate_verdict(n(-0.2, ['x']), 100.0 + air.GATE_FRESH + 1) == (None, None)                          # an old read is no read
+
+
+def test_cloud_first_for_the_agents_the_local_model_is_their_last_resort_and_a_paid_provider_has_a_daily_cap():
+    import ai_router as air
+    assert air.local_last_resort(2, 0.0, 100.0, False) and not air.local_last_resort(4, 0.0, 100.0, False)        # only cases that matter
+    assert not air.local_last_resort(2, 90.0, 100.0, False) and not air.local_last_resort(2, 0.0, 100.0, True)    # one per 45s · never when the cloud answered
+    assert not air.local_last_resort(None, 0.0, 100.0, False)
+    r = air.Router()
+    env = {'OPENROUTER_API_KEY': 'k' * 30}
+    assert air.cloud_ready(r, env, {}, 1000.0) and not air.cloud_ready(r, {}, {}, 1000.0)
+    r._spend_note('openrouter', 1.0, 1000.0); r._spend_note('openrouter', 0.6, 1001.0)
+    assert r.over_spend('openrouter', env, 1002.0) and not air.cloud_ready(r, env, {}, 1002.0)                     # $1.60 > the $1.50 day cap
+    assert not r.over_spend('openrouter', env, 1002.0 + 86400) and not r.over_spend('openrouter', {**env, 'AI_DAILY_USD': '5'}, 1002.0)
+    r.stats['openrouter']['coolUntil'] = 5000.0
+    assert not air.cloud_ready(r, env, {}, 90000.0 - 86400 + 2000)
+    assert air.EXTRA_BODY['openrouter']['reasoning'] == {'effort': 'minimal'} and air.EXTRA_BODY['openrouter']['max_tokens'] >= 600   # a reasoning model must be left room to ANSWER
