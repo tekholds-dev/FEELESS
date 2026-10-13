@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { tradeCard, tapeLine, gradeRows, coachRows, pullable } from '../../lib/coachTape';
+import { tradeCard, tapeLine, gradeRows, coachRows, pullable, speedMeters, lineWord } from '../../lib/coachTape';
 import { STANCE_TONE } from '../../lib/aiRead';
 import '../../styles/coachTape.css';
 
@@ -16,7 +16,7 @@ function Trade({ r, now, on, onPick }) {
     <button type="button" className="ctp-head" onClick={() => c.mint && onPick?.(c.mint)} data-tip="Put this coin on the chart">
       <b>${c.sym}</b><small>{c.ago} ago</small><em className="ctp-res" data-testid={`ctp-res-${c.sym}`}>{c.head}{c.usd ? <i>{c.usd}</i> : null}</em></button>
     <ol className="ctp-steps">
-      <li className="is-buy"><span>⬇ FILL</span><p>{c.buy.join(' · ') || '—'}{c.slipBad ? <i className="ctp-warn" data-tip="This fill landed more than 2.5% above the market price of the decision"> ⚠</i> : null}
+      <li className="is-buy"><span>⬇ FILL</span><p>{c.buy.join(' · ') || '—'}{c.slipBad ? <i className="ctp-warn" data-tip="This fill landed more than 2.5% above the market price of the decision"> ⚠</i> : null}{c.slow ? <i className="ctp-warn" data-tip="More than a minute passed between the call and the fill"> ⏱</i> : null}
         {c.buySig ? <a href={tx(c.buySig)} target="_blank" rel="noreferrer" aria-label="Buy transaction">tx ↗</a> : null}</p></li>
       <li className="is-why"><span>🤖 WHY</span><p>{c.why.join(' · ') || 'no entry record kept'}{c.src.length ? <small> · from {c.src.join(', ')}</small> : null}</p></li>
       {c.ai ? <li className="is-ai"><span>🧠 {c.ai.label}</span><p><em className={`cai-stance ${STANCE_TONE[c.ai.stance] || 'is-hold'}`}>{c.ai.stance}</em> {c.ai.text}{c.ai.flags.length ? <small> · {c.ai.flags.join(' · ')}</small> : null}</p></li> : null}
@@ -34,6 +34,20 @@ function Graded({ title, rec, tip, testid }) {
       <em>{r.med == null ? '—' : `${r.med > 0 ? '+' : ''}${r.med.toFixed(0)}%`}</em><small>{r.won}/{r.n} won</small></li>)}</ul></div>;
 }
 
+// ⏱ how fast a call becomes a fill — three meters from the tape's own medians (transform-only bars)
+function Speed({ st }) {
+  const ms = speedMeters(st);
+  if (!ms.length) return null;
+  return <div className="ctp-speed" data-testid="ctp-speed">{ms.map(m => <span key={m.k} className={`ctp-meter ${m.tone}`} data-tip={m.tip} data-testid={`ctp-speed-${m.k}`}>
+    <small>{m.label}</small><b>{m.word}</b><i className="ctp-bar"><i style={{ transform: `scaleX(${m.fill.toFixed(3)})` }} /></i></span>)}</div>;
+}
+
+function LineReplay({ line }) {
+  const l = lineWord(line);
+  if (!l) return null;
+  return <p className={`ctp-replay ${l.tone}`} data-testid="ctp-replay" data-tip="Every real trade's recorded path replayed with a tighter cut, against what really happened. It ships only when it clearly pays."><b>🧪 {l.head}</b> {l.text}</p>;
+}
+
 export function TradeTape({ tape, mint, onPick }) {
   const [now, setNow] = useState(() => Date.now() / 1000);
   useEffect(() => { const t = setInterval(() => !document.hidden && setNow(Date.now() / 1000), 15000); return () => clearInterval(t); }, []);
@@ -43,10 +57,12 @@ export function TradeTape({ tape, mint, onPick }) {
     <header className="ctp-top"><span className="m-label">🎬 REAL TRADE TAPE</span><small className="ctp-line" data-testid="ctp-stats">{tapeLine(tape?.stats)}</small>
       <span className="m-seg ctp-filter" role="group" aria-label="Trades">{[['all', 'ALL'], ['open', 'OPEN'], ['won', 'WON'], ['lost', 'LOST']].map(([k, l]) =>
         <button key={k} type="button" className={show === k ? 'active' : ''} onClick={() => setShow(k)} data-testid={`ctp-show-${k}`}>{l}</button>)}</span></header>
+    <Speed st={tape?.stats} />
     {rows.length ? <ul className="ctp-list">{rows.map(r => <Trade key={`${r.mint}-${r.at}`} r={r} now={now} on={r.mint === mint} onPick={onPick} />)}</ul>
       : <p className="ctp-nil">{(tape?.rows || []).length ? 'Nothing in this view.' : 'No confirmed agent buy on the ledger yet — a trade shows here the moment its fill is signed.'}</p>}
     <div className="ctp-grades"><Graded title="📏 SOURCES · REAL FILLS" rec={tape?.sources} testid="ctp-sources" tip="Each list a coin came from, graded only on confirmed real exits (typical result, capped at ±100%). A coin whose every source is a proven loser ranks down 10%." />
       <Graded title="☠ EXIT RULES · REAL FILLS" rec={tape?.rules} testid="ctp-rules" tip="How the trades each exit rule closed really ended. R4f = sellers took over, R4c = buying climax — read these before trusting either." /></div>
+    <LineReplay line={tape?.line} />
   </section>;
 }
 
@@ -66,10 +82,11 @@ export function CoachBox({ coach, seats, tpl, call, isOwner }) {
   };
   return <section className="m-card ctp-coach" data-testid="ctp-coach">
     <header className="ctp-top"><span className="m-label">👑 COACH · WHAT THE AGENTS RANK AGAINST</span>
-      <small className="ctp-line">a weight on the ranking — never an order, a size or a sell{coach?.blocked ? ` · ${coach.blocked} pulled coin${coach.blocked === 1 ? '' : 's'} off their list` : ''}</small></header>
+      <small className="ctp-line">a weight on the ranking — never an order, a size or a sell{coach?.watching ? ` · grading ${coach.watching} coin${coach.watching === 1 ? '' : 's'}` : ''}{coach?.blocked ? ` · ${coach.blocked} pulled coin${coach.blocked === 1 ? '' : 's'} off their list` : ''}</small></header>
     {rows.length ? <ul className="ctp-rules">{rows.map(r => <li key={`${r.by}-${r.key}`} className={`is-${r.by}`} data-testid={`ctp-rule-${r.key.replace(/\s+/g, '-')}`}>
       <i className="ctp-who">{r.icon} {r.who}</i><b>{r.key}</b><em>{r.points == null ? '' : `${r.points.toFixed(0)}%`}</em>
       <p>{r.why || r.words}{r.sym ? ` · from $${r.sym}` : ''}{r.left ? <small> · {r.left}</small> : null}</p>
+      {r.grade ? <span className={`ctp-rgrade ${r.grade.tone}`} data-tip={r.grade.tip} data-testid={`ctp-grade-${r.key.replace(/\s+/g, '-')}`}>{r.grade.icon} {r.grade.word}</span> : null}
       {isOwner && r.canBack ? <button type="button" className="m-btn ctp-yes" onClick={() => post({ strengthen: r.id }, `✅ Backed: ${r.key} is your rule now`)} data-testid={`ctp-back-${r.id}`} data-tip="Make the model's suggestion YOUR rule: full strength for 24h">✅ Back it</button> : null}
       {isOwner && r.canKill ? <button type="button" className="m-btn ctp-no" onClick={() => post({ kill: r.id }, `✕ ${r.key} dropped`)} data-testid={`ctp-kill-${r.id}`} aria-label={`Drop ${r.key}`}>✕</button> : null}</li>)}</ul>
       : <p className="ctp-nil">Nothing is weighing the ranking beyond the agents' own read. Teach them below — or pull a seat with a reason.</p>}

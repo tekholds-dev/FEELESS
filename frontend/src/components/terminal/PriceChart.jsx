@@ -5,6 +5,8 @@ import { ChartToolsMenu, useToolDraw } from './ChartTools';
 import { ChartPulse } from './ChartPulse';
 import { ChartPnl } from './ChartPnl';
 import { ChartLive } from './ChartLive';
+import { ChartLevels } from './ChartLevels';
+import { feeLevels, ownLevels, toolLevels } from '../../lib/chartLevels';
 import { tweenClose, mergeLiveBar, liveBar } from '../../lib/tween';
 import { mcapOf } from '../../lib/mcap';
 import { toolRead, useChartTools } from '../../lib/chartTools';
@@ -19,7 +21,7 @@ import { recordCandleTick, fetchFeelessCandles, getCachedCandles, cacheCandles, 
 import { scrubCandles } from '../../lib/chartMath';
 import { fetchLivePrice } from '../../lib/livePrice';
 import { computeFeeRead } from './FeeLiveRead';
-import { snapMarkers, tradeLevels } from '../../lib/chartMarkers';
+import { snapMarkers } from '../../lib/chartMarkers';
 
 const LIVE_INTERVAL_SECONDS = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400 };
 
@@ -57,7 +59,6 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   const liveBarRef = useRef(null);   // the forming candle as the LIVE feed built it (kept across history reloads)
   const [feePos, setFeePos] = useState(null);
   const [feeOpen, setFeeOpen] = useState(false);
-  const priceLinesRef = useRef([]);
   const [feelessCandles, setFeelessCandles] = useState([]);
   // Chart style: 'auto' (line when data is sparse, candles otherwise), or forced 'line' / 'candle'.
   const sparseRef = useRef(false);
@@ -285,62 +286,23 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   // Fee works on MC charts too: every level is scaled by the same supply ratio as the candles.
   const feeRead = useMemo(() => (feeLive && charting ? computeFeeRead(displayCandles, ratio === 1 ? pair : { ...pair, priceUsd: price * ratio }, feePos && ratio !== 1 ? { ...feePos, entryPriceUsd: Number(feePos.entryPriceUsd) * ratio } : feePos) : null), [feeLive, charting, displayCandles, pair, feePos, ratio, price]);
 
-  // Draw Fee's levels as price lines; turning Fee off removes every one of them.
-  useEffect(() => {
-    const ref = seriesRef.current;
-    const clear = () => { priceLinesRef.current.forEach(l => { try { ref?.series.removePriceLine(l); } catch { /* chart gone */ } }); priceLinesRef.current = []; };
-    clear();
-    if (!ref || !feeRead) return clear;
-    const seen = displayCandles.slice(-300);
-    const band = seen.length ? { lo: Math.min(...seen.map(c => c[3])), hi: Math.max(...seen.map(c => c[2])) } : null;
-    const add = (price, color, title, style = 2) => {
-      if (!Number.isFinite(price) || price <= 0) return;
-      // A level 3x outside the visible range would squash every candle into a flat line.
-      if (band && (price < band.lo / 1.5 || price > band.hi * 1.5)) return; // never let an overlay squash the candles
-      try { priceLinesRef.current.push(ref.series.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title })); }
-      catch { /* chart torn down between render and effect */ }
-    };
-    add(feeRead.resistance, '#fa708c', '🐱 resistance');
-    add(feeRead.support, '#15d16a', '🐱 support');
-    if (feeRead.vwap) add(feeRead.vwap, '#e9bd65', '🐱 fair value', 1);
-    if (feeRead.entry) { add(feeRead.entry, '#5ec8ff', '🐱 Fee entry', 0); add(feeRead.entry * 0.9, '#ff5d73', '🐱 stop −10%', 3); add(feeRead.entry * 1.22, '#7df9d0', '🐱 target +22%', 3); }
-    // Fibonacci retracements of the visible swing: where Fee expects bounces / rejections.
-    const recent = displayCandles.slice(-120);
-    if (recent.length > 10) {
-      const hi = Math.max(...recent.map(c => c.high)); const lo = Math.min(...recent.map(c => c.low));
-      if (hi > lo) [[0.382, '#b388ff'], [0.5, '#9e8cff'], [0.618, '#8a79ff']].forEach(([f, c]) => add(hi - (hi - lo) * f, c, `🐱 fib ${f}`, 3));
-    }
-    return clear;
-  }, [feeRead, displayCandles, trail, dayMode, showVolume]);
-
-  // The viewer's own levels (from their real swaps): your entry = where you filled, after fees (bold gold), plus one thin line
-  // per trade at the exact pool price it filled at — B1, B2… for buys, S1… for sells.
-  const entryLinesRef = useRef([]);
+  // 📏 every level on the chart is a LIVE row (ChartLevels): Fee's read, your own fills + entry, a Fuse card's / the agents' levels and
+  // the chart tools — one list, drawn by one overlay. No static price lines.
+  const feeLv = useMemo(() => {
+    if (!feeRead) return [];
+    const seen = displayCandles.slice(-300); const recent = displayCandles.slice(-120);
+    const band = seen.length ? { lo: Math.min(...seen.map(c => c.low)), hi: Math.max(...seen.map(c => c.high)) } : null;
+    return feeLevels(feeRead, band, recent.length > 10 ? { hi: Math.max(...recent.map(c => c.high)), lo: Math.min(...recent.map(c => c.low)) } : null);
+  }, [feeRead, displayCandles]);
   const tradeKey = (userTrades || []).map(t => `${t.tx}:${t.fillPrice}`).join('|');
-  useEffect(() => {
-    const ref = seriesRef.current;
-    const drop = () => { entryLinesRef.current.forEach(l => { try { ref?.series.removePriceLine(l); } catch { /* chart gone */ } }); entryLinesRef.current = []; };
-    drop();
-    if (!ref || !charting) return drop;
-    const add = o => { try { entryLinesRef.current.push(ref.series.createPriceLine({ axisLabelVisible: true, ...o })); } catch { /* chart torn down */ } };
-    const lv = tradeLevels(userTrades); if (lv.length > 1) lv.forEach(t => add({ price: t.price * ratio, color: t.side === 'sell' ? '#ff8fa3aa' : '#15d16aaa', lineWidth: 1, lineStyle: 2, title: t.title }));
-    if (userEntry > 0) add({ price: userEntry * ratio, color: '#f5c542', lineWidth: 2, lineStyle: 0, title: '◆ your entry' });
-    // ⚛️ the Fuse card's own levels for this coin (opened from the card): entry · stop · lock (freeze) · trail once riding
-    if (fuse?.entry > 0) {
-      add({ price: fuse.entry * ratio, color: '#15d16a', lineWidth: 2, lineStyle: 0, title: '⚛ card entry' });
-      if (fuse.stop > 0) add({ price: fuse.stop * ratio, color: '#ff8fa3', lineWidth: 1, lineStyle: 2, title: `🛑 stop −${fuse.slPct}%` });
-      if (fuse.lock > 0) add({ price: fuse.lock * ratio, color: '#9fe3ff', lineWidth: 1, lineStyle: 2, title: `❄ locks +${fuse.lockPct}%` });
-      if (fuse.trail > 0) add({ price: fuse.trail * ratio, color: '#f5c542', lineWidth: 1, lineStyle: 2, title: `🏔 trail −${fuse.trailPct}% off peak` });
-    }
-    // 🤖 extra named levels (the agents' take · support · invalidation …): [{ px, title, color }]
-    (fuse?.lines || []).forEach(l => { if (l?.px > 0) add({ price: l.px * ratio, color: l.color || '#9fb3a8', lineWidth: 1, lineStyle: 2, title: l.title || '' }); });
-    return drop;
-  }, [userEntry, tradeKey, charting, ratio, displayCandles, fuse?.entry, fuse?.stop, fuse?.lock, fuse?.trail, (fuse?.lines || []).map(l => `${l?.px}:${l?.title}`).join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
+  const ownLv = useMemo(() => (charting ? ownLevels({ userTrades, userEntry, fuse, ratio }) : []),
+    [userEntry, tradeKey, charting, ratio, fuse?.entry, fuse?.stop, fuse?.lock, fuse?.trail, (fuse?.lines || []).map(l => `${l?.px}:${l?.title}`).join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 🧰 chart tools (FVG · magnets · gun line · germ · meta edge): read from the candles on screen, drawn on every chart
   const toolsOn = useChartTools();
   const toolsRead = useMemo(() => (charting && toolsOn.length ? toolRead(displayCandles, toolsOn) : null), [charting, toolsOn, displayCandles]);
   useToolDraw(seriesRef, chartRef, container, toolsRead, [dayMode, showVolume, chartStyle, bgOn, hasChart]);
+  const levels = useMemo(() => [...ownLv, ...feeLv, ...toolLevels(toolsRead)], [ownLv, feeLv, toolsRead]);
 
   // Live ticks: every 3s pull the pair's current price straight from DexScreener and
   // update the forming candle in place (no redraw, zoom preserved).
@@ -446,6 +408,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     {charting && hasChart && <div className="candle-canvas" ref={container} data-testid="candlestick-canvas" />}
     {charting && hasChart && displayCandles.length > 0 && <ChartToolsMenu read={toolsRead} />}
     {charting && hasChart && pair?.chainId === 'solana' && pair?.baseToken?.address && <ChartPulse mint={pair.baseToken.address} beat={livePrice?.usd} />}
+    {charting && hasChart && levels.length > 0 && <ChartLevels levels={levels} seriesRef={seriesRef} chartRef={chartRef} lastBarRef={lastBarRef} shownRef={shownRef} container={container} fmt={formatUSD} />}
     {charting && hasChart && <ChartPnl pair={pair} price={livePrice?.usd} pnl={pnl} live={{ seriesRef, chartRef, lastBarRef, shownRef, container, ratio, fmt: v => formatUSD(v * ratio) }} />}
     {charting && hasChart && !(pnl && typeof pnl === 'object') && fuse?.entry > 0 && <ChartLive seriesRef={seriesRef} chartRef={chartRef} lastBarRef={lastBarRef} shownRef={shownRef} container={container} ratio={ratio}
       entry={fuse.entry} at={fuse.at || null} label={fuse.card ? '⚛ CARD' : 'SEAT'} entryWord={formatUSD(fuse.entry * ratio)} />}

@@ -20,3 +20,18 @@ test('the tape line, the graded lists and the coach rows', () => {
   expect(rows.map(r => [r.who, r.canBack, r.canKill, r.left])).toEqual([['AI', true, true, '2h left'], ['YOU', false, true, '5m left'], ['JUDGE', false, false, null]]);
   expect(pullable([{ open: true }, { mint: 'A', pair: 'P', buying: true }, { mint: 'B', pair: 'P2', symbol: 'B' }]).map(s => s.mint)).toEqual(['B']);
 });
+
+test('call → fill meters, a rule grade chip and the exit-line replay read from the payload', () => {
+  const { speedMeters, ruleGrade, lineWord, tradeCard: tc, coachRows: cr } = require('./coachTape');
+  const ms = speedMeters({ medWaitSec: 89, medLandSec: 12, medSlipPct: 1.4 });
+  expect(ms.map(m => [m.k, m.word, m.tone])).toEqual([['wait', '89s', 'is-bad'], ['land', '12s', 'is-ok'], ['slip', '+1.4%', 'is-ok']]);
+  expect(speedMeters({})).toEqual([]);
+  expect(ruleGrade({ n: 12, med: -6, up: 3, verdict: 'right' })).toMatchObject({ icon: '✅', tone: 'is-up' });
+  expect(ruleGrade({ n: 12, med: 5, up: 9, verdict: 'wrong' }).word).toContain('ranks winners down');
+  expect(ruleGrade(null)).toBeNull();
+  expect(cr({ rules: [{ id: 1, key: 'thin pool', by: 'ai', points: -4, grade: { n: 3, med: 1, up: 2, verdict: 'open' } }] })[0].grade.icon).toBe('👀');
+  const l = lineWord({ n: 65, actual: { avg: -13.2, med: -9.4, won: 19 }, lines: [{ x: 12, avg: -12.1, med: -11.2, won: 15, cutWinners: 4 }], gapped: 12, best: 12, verdict: 'not proven' });
+  expect(l.head).toContain('NOT PROVEN'); expect(l.text).toContain('12 of 65'); expect(lineWord({ n: 0 })).toBeNull();
+  const c = tc({ mint: 'm', sym: 'A', at: 1, buy: { usd: 1, waitSec: 70, landSec: 20 }, open: true }, 100);
+  expect(c.buy).toContain('sent 70s after the call'); expect(c.slow).toBe(true);
+});

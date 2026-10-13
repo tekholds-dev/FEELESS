@@ -3665,3 +3665,35 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
     source weight (`coach.source_factor`: every source of a coin a proven loser on real fills, n ≥ 8, typical ≤ −15% → ×0.9) · second look
     (a READY coin the rug-sniffer already flagged CAUTION goes behind the ones it did not, in the fill order — no call, never a block).
   New cause ⇒ add it to `opportunity.judge_hits` AND `coach.CAUSES` (a test checks the vocabulary is a subset).
+- 🧾 ONE SALE = ONE REAL RESULT (2026-10-13, the "9 of 76 results don't match their path" trace): (1) a coin that left the card and came
+  straight back left two or three waiting records and the ONE later sale closed them all — 12 of 77 archived "real results" were the same
+  sale again (memory, the Judge, source / exit-rule records learned each twice). `office.confirm_exits(.., used=)`: the newest record of a
+  coin takes the sale, older ones are filed `exit.state: 'duplicate'` with no result; `real_memory.trades` (used by coach records too)
+  keeps one record per sale signature for the old archive. (2) the rest of the gap is REAL: the path is the last TRACKED move, the
+  result is the fill — closed records now carry `gap` (real − last tracked). The ledger result was right every time; never "fix" it.
+- ⏱ CALL → FILL IS THE LEAK, NOT THE EXIT LINE (same day, from the ledger + chain): decision → send median 89s (7 min on the newest 24),
+  send → landed median 24s; 11 of 66 real trades were already past −15% at the FIRST look after the fill. `coach.line_replay` (payload
+  `tradeTape.line`, 🧪 line under the tape) replays a tighter cut on every real path: −12% → avg −10.7% vs −11.8% real, 4 winners thrown
+  away, median worse → NOT PROVEN, not shipped; it reads `pays` only from 40 trades, +3 pts on the average and no worse a median.
+  Shipped instead: `_fw_catch_up` (a keeper pass asked for while one runs → ONE more pass the moment it ends, still one at a time) ·
+  the tier tick hands the keeper its OWN clock · ⚡ urgent exits: `arena_prime.urgent_exit` stamps `agentOut[mint].urgent` on a
+  protective agent exit, `fuse_wallet.mark_urgent` marks the keeper's sell (its `why` only ever read 'not on the card any more', so NO
+  real exit was ever urgent), `priority_cap(.., urgent_usd)` lets its first try pay ≤ 1% of the sale, inside the same half-cent
+  ceiling. Tape: `waitSec` per buy + ⏱ `speedMeters` (CALL → SENT · SENT → LANDED · FILL vs CALL PRICE). The remaining wait is
+  Jupiter's free rate limit on the keeper's quotes (4 calls a buy, lanes resting on 429) — a paid Jupiter key is the fix, the owner's call.
+- 📏 DIRECTIVES ARE GRADED (`coach.grade_note / grade_settle / grades / drop_wrong`, `_coach_grade` with the tape rebuild): every coin a
+  live rule (owner · model · Judge) ranks down is noted once per 6h at the desk's price and judged 30 min later (no price for 2h =
+  −100%); from 10 coins: `right` (they typically fell) · `wrong` (they rose 3%+). A MODEL rule proven wrong ends itself (logged); an
+  owner's is only shown (`ctp-rgrade` chip). Stamp checks test the stamp exists first (`now - 0 < N` is true at now ≈ 0).
+- 📈 NO STATIC LINES ON ANY CHART (`lib/chartLevels.js` pure + tested, `components/terminal/ChartLevels.jsx`, `styles/chartLevels.css`
+  `clx-*`; drawn by `PriceChart`, so every chart has it): your fills + entry, a Fuse card's / the agents' entry · stop · lock · trail ·
+  take · support · invalidation, Fee's read and the chart tools' levels are ONE list of live rows — a lit line with a runner, a tag
+  with the price and the LIVE distance (▲ 3.2%), heat inside 2.5%, a one-shot flash when the price crosses, key levels off the scale
+  pinned at the edge (under the vitals ring), overlapping tags pushed apart (`spreadTags`). ONE rAF loop ≤ 30fps writing transforms +
+  text only when a value changed. Never call `createPriceLine` again: a new level ⇒ a row in `ownLevels` / `feeLevels` / `toolLevels`.
+  The tools' soft bands are still `useToolDraw`. Cockpit seat board header: `OpenPnl` (`cockpit.openPnl`: every held seat's live P&L).
+- 👁 THE COCKPIT CAN BE SEEN WITHOUT HQ: a scratch webpack bundle (node API, frontend node_modules, babel-preset-react-app, style-loader +
+  css-loader `url: false`) rendering `<AgentDesk call={readOnly} />` on a COPY of `backend/data/agents_view.json`, served by a tiny
+  GET-only static + proxy server on a FREE port (51399 was still held by an older session's server and served its 3-hour-old bundle —
+  check `lsof -iTCP:<port>` first), screenshot with the cached Playwright headless shell. Scratch only, never shipped.
+

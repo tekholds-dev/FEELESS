@@ -4,6 +4,8 @@ export const signedPct = v => (num(v) == null ? '—' : `${num(v) >= 0 ? '+' : '
 export const money2 = v => (num(v) == null ? '—' : `${num(v) < 0 ? '−' : ''}$${Math.abs(num(v)).toFixed(Math.abs(num(v)) < 10 ? 2 : 0)}`);
 export const agoWord = (at, now = Date.now() / 1000) => { if (!at) return '—'; const s = Math.max(0, Math.round(now - at)); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : s < 86400 ? `${(s / 3600).toFixed(1)}h` : `${Math.round(s / 86400)}d`; };
 
+export const secWord = v => (num(v) == null ? '—' : num(v) < 90 ? `${num(v).toFixed(0)}s` : `${(num(v) / 60).toFixed(1)}m`);
+
 // one trade → what its card shows. tone: up / dn / open. Every word is from the row; a missing piece stays out.
 export function tradeCard(r, now = Date.now() / 1000) {
   const res = r?.result || null; const pct = num(res?.pct);
@@ -13,7 +15,8 @@ export function tradeCard(r, now = Date.now() / 1000) {
   const b = r?.buy || {};
   return { key: `${r?.mint}-${r?.at}`, mint: r?.mint, sym: r?.sym || '?', tone, ago: agoWord(r?.at, now),
     head: r?.open ? 'OPEN' : pct == null ? 'CLOSED' : signedPct(pct), usd: res?.usd != null ? money2(res.usd) : null,
-    buy: [b.usd != null ? `${money2(b.usd)} in` : null, num(b.slipPct) != null ? `filled ${signedPct(b.slipPct)} vs market` : null, num(b.landSec) != null ? `landed ${num(b.landSec).toFixed(0)}s` : null].filter(Boolean),
+    buy: [b.usd != null ? `${money2(b.usd)} in` : null, num(b.slipPct) != null ? `filled ${signedPct(b.slipPct)} vs market` : null, num(b.waitSec) != null ? `sent ${secWord(b.waitSec)} after the call` : null, num(b.landSec) != null ? `landed ${num(b.landSec).toFixed(0)}s` : null].filter(Boolean),
+    slow: num(b.waitSec) != null && num(b.waitSec) + (num(b.landSec) || 0) > 60,
     buySig: b.sig || null, slipBad: num(b.slipPct) != null && num(b.slipPct) > 2.5,
     why, src: (w.src || []).slice(0, 4),
     ai: r?.ai ? { stance: r.ai.stance || 'NEUTRAL', text: r.ai.summary || '', label: r.ai.label || 'AI', flags: (r.ai.risk_flags || []).slice(0, 3) } : null,
@@ -36,7 +39,34 @@ export function coachRows(coach, now = Date.now() / 1000) {
   return ((coach || {}).rules || []).map(r => { const [icon, who] = BY[r.by] || ['·', String(r.by || '').toUpperCase()]; const left = num(r.left) ?? (r.until ? r.until - now : null);
     return { id: r.id, key: r.key, by: r.by, icon, who, points: num(r.points), words: r.words || r.key, why: r.why || '', sym: r.sym || null,
       left: left == null ? null : left >= 3600 ? `${(left / 3600).toFixed(0)}h left` : `${Math.max(1, Math.round(left / 60))}m left`,
-      canBack: r.by === 'ai' && r.id != null, canKill: r.id != null }; });
+      canBack: r.by === 'ai' && r.id != null, canKill: r.id != null, grade: ruleGrade(r.grade) }; });
 }
 // held seats the creator may pull with a reason (never a seat still buying, never an open one)
 export const pullable = seats => (seats || []).filter(s => !s.open && s.mint && s.pair && !s.buying);
+
+// ⏱ the three clocks of a real fill as meters: call → send (the keeper's queue), send → land (the chain), fill vs the call's price.
+// `fill` = share of the bar (60s / 60s / 5% = full); tone: ok under a third, mid under two thirds, bad past it.
+export function speedMeters(st) {
+  const row = (k, label, v, full, word, tip) => (num(v) == null ? null : { k, label, word, tip, fill: Math.max(0.03, Math.min(1, Math.abs(num(v)) / full)),
+    tone: Math.abs(num(v)) / full < 1 / 3 ? 'is-ok' : Math.abs(num(v)) / full < 2 / 3 ? 'is-mid' : 'is-bad' });
+  return [row('wait', 'CALL → SENT', st?.medWaitSec, 60, secWord(st?.medWaitSec), 'Typical time between the agents allowing a buy and the keeper sending it. The keeper sends one order at a time and waits for each to confirm.'),
+    row('land', 'SENT → LANDED', st?.medLandSec, 60, secWord(st?.medLandSec), 'Typical time the chain took to confirm the buy after it was sent.'),
+    row('slip', 'FILL vs CALL PRICE', st?.medSlipPct, 5, signedPct(st?.medSlipPct), 'Typical fill price against the market price when the buy was called (above = paid more).')].filter(Boolean);
+}
+
+// 📏 a directive's own record → one chip. right = the coins it ranked down typically fell · wrong = they rose 3%+ · else still open.
+export function ruleGrade(g) {
+  if (!g || !g.n) return null;
+  const v = g.verdict === 'right' ? ['✅', 'is-up', 'holds'] : g.verdict === 'wrong' ? ['⚠', 'is-dn', 'ranks winners down'] : ['👀', 'is-flat', 'judging'];
+  return { icon: v[0], tone: v[1], word: `${v[2]} · ${signedPct(g.med)} after · n ${g.n}`, tip: `Coins this rule ranked down, 30 minutes later: typical ${signedPct(g.med)}, ${g.up} of ${g.n} went up. A rule is judged from 10 coins.` };
+}
+
+// 🧪 "exit on the thesis, not the stop", replayed on the real trades → one honest line.
+export function lineWord(l) {
+  if (!l || !l.n || !l.actual) return null;
+  const b = (l.lines || []).find(x => x.x === l.best) || {};
+  return { tone: l.verdict === 'pays' ? 'is-up' : 'is-flat', head: l.verdict === 'pays' ? 'A TIGHTER EXIT LINE PAYS' : 'TIGHTER EXIT LINE · NOT PROVEN',
+    text: [`cut at −${l.best}%: average ${signedPct(b.avg)} vs ${signedPct(l.actual.avg)} real`, `${b.won} vs ${l.actual.won} winners (it throws away ${b.cutWinners})`,
+      `${l.gapped} of ${l.n} were already past −15% at the first look — no exit line saves those`].join(' · ') };
+}
+

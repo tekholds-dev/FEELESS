@@ -139,3 +139,13 @@ body.theme-day .ack-pulse { background: rgba(236, 246, 240, .86); border-color: 
 body.theme-day .ack-pzbar { background: rgba(10, 60, 35, .1); } body.theme-day .ack-pzbar i { background: #0d7a41; } body.theme-day .ack-fz.is-r, body.theme-day .ack-fz.is-h { color: #0d7a41; } body.theme-day .ack-fz.is-c { color: #8a5a00; }
 body.theme-day .ack-pz.is-ai { background: linear-gradient(120deg, rgba(110, 80, 220, .1), transparent); } body.theme-day .ack-fixed { border-color: rgba(10, 60, 35, .25); }
 @media (max-width: 640px) { .ack-pz.is-wide { grid-column: span 1; } .ack-pulse { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* 💹 the open book on the seat board header */
+.ack-open { display: inline-flex; align-items: baseline; gap: 8px; padding: 3px 10px; border-radius: 999px; font-family: var(--m-mono); border: 1px solid color-mix(in srgb, var(--m-accent) 45%, transparent); background: color-mix(in srgb, var(--m-accent) 9%, transparent); }
+.ack-open.is-dn { border-color: color-mix(in srgb, var(--m-danger) 45%, transparent); background: color-mix(in srgb, var(--m-danger) 9%, transparent); }
+.ack-open small { font-size: 8px; font-weight: 800; letter-spacing: .12em; color: var(--m-mute); } .ack-open .ack-num { font-size: 13px; } .ack-open i { font-style: normal; font-size: 9px; color: var(--m-dim); }
+.ack-open button { font: 700 9px var(--m-mono); padding: 1px 7px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .14); background: none; color: var(--m-ink, #e8fff1); cursor: pointer; transition: border-color .15s, transform .15s; }
+.ack-open button:hover, .ack-open button:focus-visible { border-color: var(--m-accent); outline: none; } .ack-open button:active { transform: scale(.96); }
+body.theme-day .ack-open { background: rgba(13, 122, 65, .08); border-color: rgba(13, 122, 65, .35); } body.theme-day .ack-open.is-dn { background: rgba(180, 35, 70, .07); border-color: rgba(180, 35, 70, .35); }
+body.theme-day .ack-open button { color: #10261a; border-color: rgba(16, 38, 26, .25); }
+@media (max-width: 640px) { .ack-open i { display: none; } }
+

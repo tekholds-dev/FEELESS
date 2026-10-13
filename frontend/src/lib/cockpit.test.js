@@ -163,3 +163,10 @@ test('🌊 a seat carries its buy / sell vital; an open seat lists READY coins t
   expect(flowBar(null)).toBeNull(); expect(flowBar({ state: 'THIN' })).toMatchObject({ known: false, tone: 'is-flat' });
   expect(seatCards({ card: d.card, office: { positions: [{ mint: 'MA', entry: 1, px: 1 }] } })[0].flow).toBeNull();   // no fresh tape = no bar, never a guess
 });
+
+test('the open book adds held seats on their live numbers and names the best one', () => {
+  const { openPnl } = require('./cockpit');
+  const p = openPnl([{ open: true }, { symbol: 'A', mint: 'a', usd: 1.1, pct: 10, pnlUsd: 0.1 }, { symbol: 'B', mint: 'b', usd: 0.9, pct: -10, pnlUsd: -0.1 }, { symbol: 'C', usd: 1, pct: 5, buying: true }]);
+  expect(p.n).toBe(2); expect(p.usd).toBeCloseTo(2); expect(p.pnl).toBeCloseTo(0); expect(p.best).toMatchObject({ symbol: 'A', pct: 10 });
+  expect(openPnl([{ open: true }])).toBeNull();
+});

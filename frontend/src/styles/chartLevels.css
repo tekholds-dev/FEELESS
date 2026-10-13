@@ -1,0 +1,36 @@
+/* 📏 live levels over the candles (ChartLevels.jsx, `clx-*`): a lit line + a tag per level, placed by transforms from one rAF loop.
+   One keyframe set (`clx*`), transform / opacity only. m-* tokens. */
+.clx { position: absolute; inset: 0; z-index: 4; pointer-events: none; overflow: hidden; --clx-axis: 62px; }
+.clx-row { position: absolute; left: 0; right: var(--clx-axis); top: 0; height: 0; opacity: 0; will-change: transform; --clx-c: var(--m-mute); }
+.clx-row.tone-up { --clx-c: var(--m-accent); } .clx-row.tone-dn { --clx-c: var(--m-danger); } .clx-row.tone-gold { --clx-c: var(--gold, #f5c542); }
+.clx-row.tone-ice { --clx-c: #9fe3ff; } .clx-row.tone-violet { --clx-c: #b388ff; }
+.clx-line { position: absolute; left: 0; right: 0; top: 0; height: 1px; overflow: hidden; opacity: .5;
+  background: linear-gradient(90deg, transparent 0, color-mix(in srgb, var(--clx-c) 55%, transparent) 22%, var(--clx-c) 100%); }
+.clx-row.is-key .clx-line { height: 2px; margin-top: -.5px; opacity: .8; }
+/* the runner: a bright dash travelling toward the price axis — only on key levels and on any level the price is at */
+.clx-run { position: absolute; left: 0; top: 0; width: 22%; height: 100%; opacity: 0;
+  background: linear-gradient(90deg, transparent, #fff 60%, transparent); transform: translateX(-100%); }
+.clx-row.is-key .clx-run, .clx-row.is-near .clx-run { opacity: .75; animation: clxRun 3.4s linear infinite; }
+.clx-row.is-near .clx-run { animation-duration: 1.1s; opacity: 1; }
+.clx-row.is-near .clx-line { opacity: 1; }
+.clx-tag { position: absolute; right: 4px; top: -8px; display: inline-flex; align-items: center; gap: 5px; height: 15px; padding: 0 6px; border-radius: 4px;
+  font-family: var(--m-mono); white-space: nowrap; background: rgb(4, 14, 9); border: 1px solid color-mix(in srgb, var(--clx-c) 55%, transparent); color: var(--clx-c); z-index: 1; }
+.clx-tag b { font-size: 8.5px; font-weight: 800; letter-spacing: .04em; } .clx-tag small { font-size: 8px; font-weight: 600; color: var(--m-dim); font-variant-numeric: tabular-nums; }
+.clx-tag em { font-style: normal; font-size: 8.5px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--m-ink, #e8fff1); }
+.clx-tag em:empty { display: none; }
+.clx-row:not(.is-key) .clx-tag { background: rgba(4, 14, 9, .88); border-color: transparent; } .clx-row:not(.is-key) .clx-tag small { display: none; }
+.clx-row.is-near .clx-tag { background: color-mix(in srgb, var(--clx-c) 88%, #000); color: var(--m-accent-ink, #04130a); border-color: var(--clx-c); }
+.clx-row.is-near .clx-tag em, .clx-row.is-near .clx-tag small { color: inherit; }
+.clx-row.is-near .clx-tag::after { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: clxBeat .8s ease-in-out infinite; }
+.clx-row.is-off .clx-line { opacity: 0; } .clx-row.is-off .clx-tag { opacity: .75; border-style: dashed; }
+.clx-row.is-hit .clx-line { animation: clxHit .9s ease-out 1; }
+@keyframes clxRun { to { transform: translateX(460%); } }
+@keyframes clxBeat { 50% { transform: scale(1.8); opacity: .35; } }
+@keyframes clxHit { 0% { transform: scaleY(7); opacity: 1; } 100% { transform: scaleY(1); opacity: .8; } }
+body.fx-lite .clx-run, body.fx-lite .clx-tag::after, body.fx-lite .clx-row.is-hit .clx-line { animation: none; } body.fx-lite .clx-run { opacity: 0 !important; }
+@media (prefers-reduced-motion: reduce) { .clx-run, .clx-tag::after, .clx-row.is-hit .clx-line { animation: none; } .clx-run { opacity: 0 !important; } }
+body.theme-day .clx-tag, body.theme-day .clx-row:not(.is-key) .clx-tag { background: #f3faf5; } body.theme-day .clx-tag em { color: #10261a; } body.theme-day .clx-tag small { color: #3f5a4a; }
+body.theme-day .clx-row.tone-up { --clx-c: #0d7a41; } body.theme-day .clx-row.tone-dn { --clx-c: #b42346; } body.theme-day .clx-row.tone-gold { --clx-c: #9a6a00; }
+body.theme-day .clx-row.tone-ice { --clx-c: #0b6f9c; } body.theme-day .clx-row.tone-violet { --clx-c: #6a3fd0; } body.theme-day .clx-run { background: linear-gradient(90deg, transparent, #10261a 60%, transparent); }
+body.theme-day .clx-row.is-near .clx-tag { color: #fff; }
+@media (max-width: 640px) { .clx-tag small { display: none; } .clx-row:not(.is-key) .clx-tag b { display: none; } }

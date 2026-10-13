@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { useHub, hubApply, useAi } from '../../lib/agentHub';
 import { rankFill, READY_MIN, devilOf } from '../../lib/agentRead';
 import { seatCards, flowBar, focusMint, chartModel, decisionOf, tapeOf, tapeTone, TAPE_AGENT, AGE_BUCKETS, bucketCounts, reviewQueue, supplyWord,
-  seatState, STATE_CLS, missionTiles, letterMarkers, inputsOf, traceOf, CHAIN, maxIdByAgent, newEvents, queueStatus, queueMc } from '../../lib/cockpit';
+  seatState, STATE_CLS, missionTiles, letterMarkers, inputsOf, traceOf, CHAIN, maxIdByAgent, newEvents, queueStatus, queueMc, openPnl } from '../../lib/cockpit';
 import { useEasedNumber } from '../../lib/easedNumber';
 import { STANCE_TONE } from '../../lib/aiRead';
 import { usd as cash, pct as pc, price as priceFmt } from '../../lib/num';
@@ -396,6 +396,17 @@ function ReviewQueue({ o, call, isOwner, onPick, sel }) {
 
 function AiProvidersLive({ o, ...rest }) { const ai = useAi(o?.ai); return <AiProviders {...rest} ai={ai} />; }
 
+// 💹 the open book in one glance: every held seat's live P&L together ($ and % glide to each real tick) + the seat doing best
+function OpenPnl({ seats, onPick }) {
+  const p = useMemo(() => openPnl(seats), [seats]);
+  if (!p) return null;
+  return <span className={`ack-open ${p.pnl >= 0 ? 'is-up' : 'is-dn'}`} data-testid="ack-open-pnl" data-tip="Every held seat together, on live prices against each seat's own entry. Price result only — fees are apart.">
+    <small>OPEN P&L</small><LiveNum v={p.pnl} fmt={v => `${v >= 0 ? '+' : '−'}$${Math.abs(v).toFixed(Math.abs(v) < 1 ? 3 : 2)}`} testid="ack-open-usd" />
+    {p.pct != null ? <LiveNum v={p.pct} fmt={v => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}%`} testid="ack-open-pct" /> : null}
+    <i>${p.usd.toFixed(2)} at work</i>
+    {p.best && p.n > 1 ? <button type="button" onClick={() => onPick(p.best.mint)} data-testid="ack-open-best">🔥 ${p.best.symbol} {p.best.pct >= 0 ? '+' : ''}{p.best.pct.toFixed(1)}%</button> : null}</span>;
+}
+
 export function AgentCockpit({ call, isOwner = true }) {
   const cc = useHub(); const d = cc?.d; const o = d?.office || null;
   const [pick, setPick] = useState(null); const [iv, setIv] = useState('1m'); const [agent, setAgentS] = useState(null); const [tapeAgent, setTapeAgent] = useState(null);
@@ -423,7 +434,7 @@ export function AgentCockpit({ call, isOwner = true }) {
   return <section className="ack" data-testid="agent-cockpit">
     <MissionRibbon tiles={tiles} live={!!cc?.live} />
     <LivePulse o={o} onAi={() => setTab('ai')} />
-    <section className="ack-seats" data-testid="ack-seats"><header><b>🪑 SEAT BOARD</b><small><b className="m-pos">{held}/{seats.length || '—'} active</b> · live prices every 3s · tap a seat = its chart + the agent handling it</small></header>
+    <section className="ack-seats" data-testid="ack-seats"><header><b>🪑 SEAT BOARD</b><OpenPnl seats={seats} onPick={onPick} /><small><b className="m-pos">{held}/{seats.length || '—'} active</b> · live prices every 3s · tap a seat = its chart + the agent handling it</small></header>
       <div className="ack-seatrow">{seats.map(s => <SeatCard key={s.seat} s={s} on={!s.open && s.mint === mint} onPick={onPick} readyN={readyN} />)}</div></section>
     <div className="ack-main">
       <div className="ack-left"><CockpitChart m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); setTab('live'); }} />

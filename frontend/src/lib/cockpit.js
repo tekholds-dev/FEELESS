@@ -311,3 +311,13 @@ export function flowBar(f) {
     tone: f.state === 'BUYERS' ? 'is-up' : f.state === 'SELLERS' ? 'is-dn' : f.state === 'PEAK' ? 'is-warn' : 'is-flat',
     line: `${f.buyers ?? 0} buyers · ${f.sellers ?? 0} sellers`, why: f.why || '' };
 }
+
+// 💹 every held seat together, live: $ at work, open P&L in $ and % of what is at work, and the seat doing best. null = nothing held.
+export function openPnl(seats) {
+  const held = (seats || []).filter(s => !s.open && !s.buying && num(s.usd) > 0 && num(s.pct) != null);
+  if (!held.length) return null;
+  const usd = held.reduce((a, s) => a + num(s.usd), 0); const pnl = held.reduce((a, s) => a + (num(s.pnlUsd) || 0), 0); const cost = usd - pnl;
+  const best = held.reduce((a, s) => (a == null || num(s.pct) > num(a.pct) ? s : a), null);
+  return { n: held.length, usd, pnl, pct: cost > 0 ? pnl / cost * 100 : null, best: best ? { symbol: best.symbol, pct: num(best.pct), mint: best.mint } : null };
+}
+

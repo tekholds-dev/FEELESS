@@ -22,21 +22,15 @@ export function ChartToolsMenu({ read }) {
   </div>;
 }
 
-// Draw the read on the chart: price lines (they ride the price axis) + soft bands for gaps and the germ, from where each began
-// to the right edge. Bands are plain divs placed from the chart's own coordinates, refreshed while the chart scrolls / zooms.
+// Draw the read's soft BANDS (gaps · the germ) from where each began to the right edge: plain divs placed from the chart's own
+// coordinates, refreshed while the chart scrolls / zooms. The read's LEVELS are live rows now (`lib/chartLevels.toolLevels`).
 export function useToolDraw(seriesRef, chartRef, container, read, deps) {
-  const lines = useRef([]);
   useEffect(() => {
     const ref = seriesRef.current; const chart = chartRef.current; const host = container.current;
-    const drop = () => { lines.current.forEach(l => { try { ref?.series.removePriceLine(l); } catch { /* chart gone */ } }); lines.current = []; };
-    drop();
-    if (!ref || !read) return drop;
-    const add = (price, color, title, lineStyle = 2, lineWidth = 1) => { if (!(price > 0)) return; try { lines.current.push(ref.series.createPriceLine({ price, color, lineWidth, lineStyle, axisLabelVisible: true, title })); } catch { /* chart torn down */ } };
+    if (!ref || !read) return undefined;
     const bands = [];
-    read.fvg.forEach(g => { add(g.mid, g.dir === 'up' ? '#15d16a' : '#ff8fa3', g.dir === 'up' ? '🪜 gap' : '🪜 gap ↓', 3); bands.push({ top: g.top, bot: g.bot, time: g.time, cls: g.dir === 'up' ? 'ctl-band is-up' : 'ctl-band is-down' }); });
-    read.magnets.forEach(m => add(m.price, '#f5c451', `🧲 ${m.hits > 1 ? `×${m.hits} ` : ''}${m.side === 'above' ? 'highs' : 'lows'}`, 1));
-    if (read.gun) add(read.gun.price, read.gun.fired ? '#45e486' : '#ff9a3c', read.gun.fired ? '🔫 fired' : '🔫 gun line', 0, 2);
-    if (read.germ) { add(read.germ.bot, '#b388ff', read.germ.lost ? '🦠 germ lost' : '🦠 germ', 0); bands.push({ top: read.germ.top, bot: read.germ.bot, time: read.germ.time, cls: 'ctl-band is-germ' }); }
+    read.fvg.forEach(g => bands.push({ top: g.top, bot: g.bot, time: g.time, cls: g.dir === 'up' ? 'ctl-band is-up' : 'ctl-band is-down' }));
+    if (read.germ) bands.push({ top: read.germ.top, bot: read.germ.bot, time: read.germ.time, cls: 'ctl-band is-germ' });
     let layer = null; let timer = null;
     if (host && chart && bands.length) {
       layer = document.createElement('div'); layer.className = 'ctl-bands'; host.appendChild(layer);
@@ -47,6 +41,6 @@ export function useToolDraw(seriesRef, chartRef, container, read, deps) {
           d.style.opacity = '1'; d.style.transform = `translate(${x0}px, ${Math.min(y1, y2)}px)`; d.style.width = `${Math.max(0, w - x0)}px`; d.style.height = `${Math.max(2, Math.abs(y2 - y1))}px`; }); } catch { /* chart torn down */ } };
       place(); timer = setInterval(place, 300);
     }
-    return () => { if (timer) clearInterval(timer); if (layer) layer.remove(); drop(); };
+    return () => { if (timer) clearInterval(timer); if (layer) layer.remove(); };
   }, [read, ...deps]); // eslint-disable-line react-hooks/exhaustive-deps
 }
