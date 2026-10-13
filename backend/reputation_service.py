@@ -10189,12 +10189,20 @@ async def _prime_tick_inner(now):
                     _shadow_note(t_, 'fill', now, cur)
                 _shadow_controls(plan_[:max(0, empty_n)], [c_['row'] for c_ in cases_ if c_['status'] == 'CONTENDING'][:12], cases_, now)
                 plan_ = []
+            pre_ = await _seat_precheck(plan_[:empty_n + 2], cfg_t, now) if (plan_ and real_t) else None   # 🛂 the keeper's market gate BEFORE the seat
+            _office['pre'] = {'at': now, 'asked': len(plan_), 'passed': len(pre_) if pre_ is not None else None,
+                              'refused': [{'symbol': t_.get('symbol'), 'why': (_agent_refused.get(t_['mint']) or (0, ''))[1]} for t_ in plan_ if pre_ is not None and t_['mint'] not in pre_][:6]}
             for t_ in plan_:   # 🔌 no fill until the office is LIVE after a restart · never while the keeper is halted or the Courier reads BAD
                 t_ = {**t_, 'trench': _uni.in_lane(t_.get('vitals') or {})}   # 🗑 a lane launch → the keeper's trench pool floor
                 if used_ >= _uni.FILL_MOVES_HR:
                     break
                 if t_['mint'] in _agent_blocked(cur, now):   # 🚫 banked / pulled / refused earlier in THIS tick
                     continue
+                if pre_ is not None:
+                    if t_['mint'] not in pre_:   # 🛂 the keeper would refuse it: no seat, the next READY coin is tried
+                        continue
+                    lv_ = pre_[t_['mint']]
+                    t_ = {**t_, 'px': lv_.get('px') or t_['px'], 'nums': {**(t_.get('nums') or {}), 'liq': lv_.get('liq') or (t_.get('nums') or {}).get('liq')}}
                 try:
                     wd_ = _office_warden(cur, t_, _prime.agent_seat_usd(cur, px, cfg_s), cfg_t, now, 'fill')   # 🛡 sizes THIS seat: it can lower or veto, never raise
                     if wd_['veto']:
@@ -10227,7 +10235,8 @@ async def _prime_tick_inner(now):
                     break
             held_n = len([l for l in cur.get('legs') or [] if not l.get('placeholder')])   # 🪑 the seat truth AFTER this tick's fills
             _agents['seat'] = {**_oe.seat_state({**seat_ctx_, 'held': held_n, 'vetoed': vetoed_, 'valid': [t_ for t_ in valid_ if t_['mint'] not in {l.get('mint') for l in cur.get('legs') or []}] if held_n < pol_['seats'] else valid_}),
-                               'at': now, 'tickEvery': round(every_, 1), 'movesLeft': max(0, _uni.FILL_MOVES_HR - used_), 'freeUsd': round(max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd'))), 2)}
+                               'at': now, 'tickEvery': round(every_, 1), 'movesLeft': max(0, _uni.FILL_MOVES_HR - used_), 'freeUsd': round(max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd'))), 2),
+                               'refused': _seat_refusals(tid, now) if real_t else []}
             _agents['card'] = _pos.card_seats(cur, _agents.get('decisions'), px, cfg_t, take=_of.take_line(cfg_t, _agents.get('scalp')))
             try:   # 🪑 THE BENCH + EVERY SEAT THIS CYCLE (display — the decisions above were made by manage / Reaper / fill_plan)
                 on2_ = {l.get('mint') for l in cur.get('legs') or [] if l.get('mint')}
@@ -12536,7 +12545,21 @@ AI_CFG_PATH = DATA_DIR / 'ai_providers.json'   # the provider order + on / off (
 AI_EVERY = 15.0                                 # one advisory round every 15s, ≤ AI_JOBS cases (local inference is one at a time)
 AI_JOBS = 3
 AI_NOTES_KEEP = 60
-_ai = {'notes': {}, 'http': None, 'rounds': 0, 'lastAt': None, 'lastMs': None}
+AI_LOG_KEEP = 60            # 🧠 the model's own decisions, newest last (memory only): what it was asked, what it said, what the kernel said
+_ai = {'notes': {}, 'http': None, 'rounds': 0, 'lastAt': None, 'lastMs': None, 'log': []}
+
+
+def _ai_log(role, case, res, asked=False):
+    """One model answer → the decision log the page shows (role · coin · stance · confidence · the model's sentence · what the kernel
+    itself said at that moment). A cached answer is the SAME decision — not logged twice. Display only: nothing reads this back."""
+    ad = (res or {}).get('advice') or None
+    if not asked and (not ad or res.get('cached')):
+        return
+    row = {'at': round(_fuse._f(res.get('at')) or time.time(), 1), 'role': role, 'mint': case.get('mint'), 'symbol': case.get('symbol'), 'source': res.get('source'), 'label': res.get('label'),
+           'ms': res.get('ms'), 'stance': (ad or {}).get('stance'), 'delta': (ad or {}).get('confidence_delta'), 'priority': (ad or {}).get('priority'), 'summary': (ad or {}).get('summary'),
+           'deep': bool((ad or {}).get('deep_review')), 'kernel': case.get('status') or case.get('state') or (f"closed {case.get('result'):+.1f}%" if isinstance(case.get('result'), (int, float)) else None),
+           'trigger': case.get('trigger') if isinstance(case.get('trigger'), str) else None, 'asked': bool(asked), 'why': None if ad else str(res.get('why') or 'no provider answered')[:120]}
+    _ai['log'] = (_ai['log'] + [row])[-AI_LOG_KEEP:]
 
 
 def _ai_cfg():
@@ -12559,7 +12582,8 @@ def _ai_view(now=None, light=False):
         keep = sorted(notes, key=lambda k_: -max(_fuse._f(x_.get('at')) for x_ in notes[k_].values()))[:12]
         return {'providers': [{k_: r_.get(k_) for k_ in ('key', 'label', 'enabled', 'state', 'lastMs')} for r_ in v['providers']], 'active': v['active'],
                 'totals': v['totals'], 'notes': {m_: {ro_: {k_: n_.get(k_) for k_ in ('source', 'label', 'advice', 'at')} for ro_, n_ in notes[m_].items()} for m_ in keep},
-                'lastAt': _ai['lastAt']}
+                'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY, 'log': _ai['log'][-30:],
+                'model': next((r_.get('model') for r_ in v['providers'] if r_.get('key') == v['active']), None)}
     return {**v, 'notes': notes, 'rounds': _ai['rounds'], 'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY}
 
 
@@ -12614,6 +12638,7 @@ async def _ai_round(now):
         if not m_:
             continue
         _ai['notes'].setdefault(m_, {})[role_] = {k_: r_.get(k_) for k_ in ('source', 'label', 'advice', 'ms', 'at', 'tried', 'why', 'cached')} | {'symbol': c_.get('symbol')}
+        _ai_log(role_, c_, r_)
         n += 1
     if len(_ai['notes']) > AI_NOTES_KEEP:
         for m_ in sorted(_ai['notes'], key=lambda k_: max(_fuse._f(v_.get('at')) for v_ in _ai['notes'][k_].values()))[:len(_ai['notes']) - AI_NOTES_KEEP]:
@@ -12657,6 +12682,48 @@ async def admin_ai_providers_set(request: Request):
     if _office.get('payload') is not None:
         _office['payload']['ai'] = _ai_view(light=True)
     return _ai_view()
+
+
+@app.post('/api/reputation/admin/ai/ask')
+async def admin_ai_ask(request: Request):
+    """🧠 Owner only: ASK THE MODEL about one coin now (`{input: CA | link | mint, role: sherlock | devil | owner}`). The case is the
+    kernel's own row for that coin (nothing typed by hand reaches the model except the address). The answer is DISPLAYED — in the
+    decision log and beside the coin; it never changes a rank, a size, READY, an order or a stop."""
+    _require_owner(request)
+    body = await request.json()
+    ref = _owr.parse(str((body or {}).get('input') or ''))
+    if not ref:
+        raise HTTPException(400, 'Paste a Solana mint (CA) or a pump.fun / dexscreener / birdeye link.')
+    role = str((body or {}).get('role') or 'owner').lower()
+    if role not in ('sherlock', 'devil', 'owner'):
+        raise HTTPException(400, 'Pick sherlock, devil or owner.')
+    mint = ref['address']
+    p = _office.get('payload') or {}
+    c = next((c_ for c_ in ((p.get('kernel') or {}).get('candidates') or []) if c_.get('mint') == mint or c_.get('pair') == mint), None)
+    if not c:   # held coins and the owner's own list are cases too
+        pos_ = next((x_ for x_ in (p.get('positions') or []) if x_.get('mint') == mint), None)
+        own_ = next((x_ for x_ in (p.get('ownerReview') or []) if x_.get('mint') == mint), None)
+        if pos_:
+            c = {'mint': mint, 'symbol': pos_.get('symbol'), 'status': 'HELD', 'state': pos_.get('decision') or pos_.get('state'), 'why': pos_.get('evidence'), 'cap': pos_.get('mc'),
+                 'liq': pos_.get('liq'), 'structure': pos_.get('structure'), 'phase': pos_.get('phase'), 'result': pos_.get('pct'), 'heldMin': pos_.get('heldMin'), 'rule': pos_.get('rule')}
+        elif own_:
+            c = {'mint': mint, 'symbol': own_.get('symbol'), 'state': own_.get('state'), 'why': own_.get('why'), 'cap': own_.get('mc'), 'trigger': (own_.get('trigger') or {}).get('state'),
+                 'devil': (own_.get('devil') or {}).get('severity'), 'pending': own_.get('pending')}
+    if not c:
+        raise HTTPException(400, 'That coin is not on the desk yet — 🔎 Review it first, the agents read it on their next pass and the model can then be asked.')
+    case = _ai_case(c)
+    res = await _air.ROUTER.reason(_ai_http(), os.environ, _ai_cfg(), case, role, 'force')
+    if res.get('advice'):
+        _ai['notes'].setdefault(c['mint'], {})[role] = {k_: res.get(k_) for k_ in ('source', 'label', 'advice', 'ms', 'at', 'tried', 'why', 'cached')} | {'symbol': c.get('symbol')}
+    _ai_log(role, case, res, asked=True)
+    if _office.get('payload') is not None:
+        _office['payload']['ai'] = _ai_view(light=True)
+        try:
+            _tke.HUB.publish('ai_update', 'ai', _office['payload']['ai'], time.time())
+        except Exception:
+            pass
+    return {'ok': bool(res.get('advice')), 'mint': c['mint'], 'symbol': c.get('symbol'), 'role': role, 'answer': {k_: res.get(k_) for k_ in ('source', 'label', 'advice', 'ms', 'why')},
+            'ai': _ai_view(light=True)}
 
 
 @app.post('/api/reputation/admin/ai/test')
@@ -13483,8 +13550,64 @@ def _agent_blocked(card, now):
     """🚫 ONE list of coins the agents may not buy right now: what they just left (`arena_prime.agent_out`: 10 min, a rug / danger exit 6h)
     + what the keeper benched or refused on a safety check (no route back, sell-back tax, price gap) for ANY book. 2026-10-12: $TikTok and
     $REGGIE were refused "no route back to SOL" and the seat sat empty while the agents' own lists still offered them."""
-    books = (_fw_load().get('books') or {}).values()
-    return _prime.agent_out(card, now) | set().union(set(), *[_fw.no_buy(b, now) for b in books])
+    books = (_fw_peek().get('books') or {}).values()
+    for m_ in [m_ for m_, v_ in _agent_refused.items() if v_[0] <= now]:
+        _agent_refused.pop(m_, None)
+    return _prime.agent_out(card, now) | set(_agent_refused) | set().union(set(), *[_fw.agent_no_buy(b, now) for b in books])
+
+
+def _seat_refusals(tid, now, window=900.0, keep=5):
+    """Why a READY coin did NOT become a position: the keeper's own refusals for this card (ledger, last 15 min) + the seat pre-check's,
+    newest first, one line per coin — shown on the empty seat (it used to read only "rebuy cooldown")."""
+    out, seen = [], set()
+    for r_ in reversed(_fw_full_ledger()[-400:]):
+        at_ = _fuse._f(r_.get('at'))
+        if now - at_ > window:
+            break
+        if r_.get('card') != tid or r_.get('side') != 'buy' or r_.get('status') not in ('skipped', 'failed') or r_.get('mint') in seen:
+            continue
+        seen.add(r_.get('mint'))
+        out.append({'symbol': r_.get('symbol'), 'why': str(r_.get('err') or r_.get('why') or '')[:110], 'at': round(at_, 1), 'by': 'keeper'})
+    for m_, (until_, why_) in _agent_refused.items():
+        if m_ not in seen:
+            out.append({'symbol': (_tk.KERNEL.candidate(m_) or {}).get('symbol') or m_[:4], 'why': why_, 'at': round(until_ - AGENT_PRE_SEC, 1), 'by': 'pre-check'})
+    return sorted(out, key=lambda x_: -x_['at'])[:keep]
+
+
+AGENT_PRE_SEC = 180.0   # a coin that failed the seat pre-check (no live pool read / pool under the floor) sits out 3 min
+SEAT_PRE_OK_SEC = 20.0
+_seat_pre_ok = {}       # mint → (at, {liq, px}): coins that passed the pre-check in the last 20s
+_agent_refused = {}     # mint → (until, why): the 🛂 seat pre-check's own refusals (memory only)
+
+
+async def _seat_precheck(plan, cfg_t, now):
+    """🛂 CHECK THE BUY BEFORE THE SEAT (read-only; ONE batched live read for the coins about to be seated): the keeper's own final market
+    gate (`fuse_wallet.live_buy_market`: the exact pool answers, it holds this mint, a live price, pool ≥ its floor) run BEFORE a seat is
+    created. 2026-10-12: of 20 agent seats in 25 min, 9 were refused by that gate seconds later ("live market unavailable", "live pool too
+    thin: $5,959") — each one emptied the seat again and used a fill. A coin that fails sits out AGENT_PRE_SEC and the next READY coin is
+    tried in the same tick. → {mint: {'liq', 'px'}} for the coins that pass (fresh entry depth + price: the board's row was minutes old,
+    so the rug shield read "$18K → $8K, pulled" and the stop read −24% three seconds after a buy)."""
+    out = {m_: v_[1] for m_, v_ in _seat_pre_ok.items() if now - v_[0] < SEAT_PRE_OK_SEC}   # a pass is good for 20s: no second live read for the same coin
+    for m_ in [m_ for m_ in _seat_pre_ok if m_ not in out]:
+        _seat_pre_ok.pop(m_, None)
+    plan = [t_ for t_ in plan or [] if t_.get('mint') not in out]
+    if not plan:
+        return out
+    try:
+        live = await _fw_live_pairs([{'pair': t_.get('pair'), 'mint': t_.get('mint')} for t_ in plan if t_.get('pair')])
+    except Exception as e:
+        print('seat precheck:', type(e).__name__)
+        return {**out, **{t_['mint']: {} for t_ in plan}}   # the read itself failed: the keeper's own gate still decides
+    cfg = _fw_cfg()
+    for t_ in plan:
+        o_ = {'side': 'buy', 'mint': t_.get('mint'), 'trench': _uni.in_lane(t_.get('vitals') or {}), 'curve': bool((t_.get('vitals') or {}).get('curve') and cfg_t.get('agentCurve'))}
+        ok_, why_, lv_ = _fw.live_buy_market(o_, live.get(t_.get('pair')), cfg)
+        if ok_:
+            out[t_['mint']] = {'liq': _fuse._f(lv_.get('liq')) or None, 'px': _fuse._f(lv_.get('midPx')) or None}
+            _seat_pre_ok[t_['mint']] = (now, out[t_['mint']])
+        else:
+            _agent_refused[t_['mint']] = (now + AGENT_PRE_SEC, why_)
+    return out
 
 
 async def _agents_tick(now):
@@ -14298,7 +14421,7 @@ def _office_reap(cur, px, cfg_t, ctl, now, dec, pol=None, live=True, vels=None, 
                         press[l.get('pairAddress')] = _li.pressure(w_, m_, pl_, cr_)
                     except Exception:
                         pass
-        pos, rep, gone = _of.reap(cur.get('legs'), _agents.get('table'), px, cfg_t, _office['pos'], now, _agents.get('scalp'), ctl, _agents.get('weather'), tape, _office_state(), _office['sized'], _office.get('charts'), _office.get('theses'), pol=pol, live=live,
+        pos, rep, gone = _of.reap(cur.get('legs'), _agents.get('table'), px, cfg_t, _office['pos'], now, _agents.get('scalp'), ctl, _agents.get('weather'), tape, _office_state(), _office['sized'], _office.get('charts'), _office.get('theses'), pol=pol, live=live, real=bool(cur.get('real')),
                                   vels=vels, margins=margins, rug=rug, press=press)
         for g in gone:
             g['take'] = _of.take_line(cfg_t, _agents.get('scalp'))

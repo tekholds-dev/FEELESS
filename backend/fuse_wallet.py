@@ -318,6 +318,17 @@ def no_buy(book, now):
     return benched(book, now) | {m for m in (book.get('misses') or {}) if refused_now(book, m, now)}
 
 
+AGENT_REFUSED_SEC = 600.0   # 🤖 the agents do not re-pick a coin the keeper refused on a SAFETY check for 10 min (the keeper itself retries after 2)
+
+
+def agent_no_buy(book, now):
+    """🤖 Coins the AGENTS may not seat for this book: `no_buy` + any coin a safety check refused in the last 10 minutes. 2026-10-12: the
+    agents re-seated $VirlX402 / $S402 / $DOT every ~2 min, each time refused again (price gap · no route back · thin pool) — the seat sat
+    empty while the same three coins used every try."""
+    return no_buy(book, now) | {m for m, v in (book.get('misses') or {}).items()
+                                if now - _f((v or {}).get('last')) < AGENT_REFUSED_SEC and any(w in str((v or {}).get('why') or '') for w in SAFETY_WORDS)}
+
+
 SWEEP_WAIT_SEC = 300   # idle cash waits this long after a failed / refused buy (the engine is re-picking that seat)
 
 
@@ -421,10 +432,12 @@ def live_buy_market(order, pair, cfg):
         return False, 'live market unavailable or pair/mint mismatch', {}
     px = _f(p.get('priceUsd'))
     liq = _f((p.get('liquidity') or {}).get('usd'))
-    if liq <= 0 and (order.get('picked') or order.get('curve')) and p.get('dexId') in ('pumpfun', 'meteoradbc', 'launchlab', 'raydium-launchlab', 'moonshot'):   # = fuse.CURVE_DEXES
+    if (order.get('picked') or order.get('curve')) and p.get('dexId') in ('pumpfun', 'meteoradbc', 'launchlab', 'raydium-launchlab', 'moonshot'):   # = fuse.CURVE_DEXES
         # 🎯 the OWNER picked a coin still on Pump's launch curve — or the owner's `agentCurve` switch let the AGENTS seat one (leg `curve`):
         # no pool figure exists, the curve's own depth is used (= fuse.curve_liq at a conservative $100 SOL). The engine's other doors never do.
-        liq = round(2 * (32.19 * _f(p.get('marketCap') or p.get('fdv')) * 100.0) ** 0.5, 2)
+        # (a figure > 0 from the Jupiter fallback is the SOL already paid into the curve, not a pool: the agents' own row read the curve's
+        # depth ($10K) while this gate read $5K and refused the same coin — 2026-10-12, 9 of 20 agent seats)
+        liq = max(liq, round(2 * (32.19 * _f(p.get('marketCap') or p.get('fdv')) * 100.0) ** 0.5, 2))
     floor = liq_floor(cfg, order.get('arena'), order.get('trench'), order.get('picked'))
     if px <= 0:
         return False, 'live market price unavailable', {'liq': liq}

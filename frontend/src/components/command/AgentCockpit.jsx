@@ -11,6 +11,7 @@ import { AG, activityOf } from './agentWords';
 import { optLabel } from './OfficeEdge';
 import { openCoin } from '../CoinDrawer';
 import { AiProviders, aiChip } from './AiProviders';
+import { AiPane } from './AiDecisions';
 import '../../styles/agentCockpit.css';
 
 // 🎛 THE AGENTS COCKPIT (HQ › Agents, the whole top of the tab — built to the owner's reference, 2026-10-12): REAL MONEY MISSION ribbon ·
@@ -38,7 +39,7 @@ export function LiveNum({ v, fmt, cls, testid }) {
 
 // ── 💵 the mission ribbon ───────────────────────────────────────────────────────────────────────────────────────────────────────
 export function MissionRibbon({ tiles, live, cold }) {
-  return <section className="ack-ribbon" data-testid="ack-ribbon">
+  return <section className="ack-ribbon m-live" data-testid="ack-ribbon">
     <span className="ack-rhead"><b>💵 REAL MONEY MISSION</b><i className={live ? 'is-live' : ''}>{cold ? 'waiting' : live ? '● live' : '● snapshot'}</i></span>
     {tiles.map(t => <span key={t.k} className="ack-rt" data-testid={`ack-rt-${t.k}`} data-tip={t.tip || undefined}><small>{t.label}</small>
       {t.fmt ? (t.live ? <LiveNum v={t.val} fmt={FMT[t.fmt]} cls={t.cls || ''} /> : <b className={`ack-num ${t.cls || ''}`}>{FMT[t.fmt](t.val)}</b>) : <b className={`ack-num ack-word ${t.cls || ''}`}>{t.text}</b>}
@@ -61,7 +62,8 @@ function SeatCard({ s, on, onPick, readyN }) {
   const st = seatState(s, readyN);
   if (s.open) return <div className={`ack-seat is-open ${on ? 'is-on' : ''}`} data-testid={`ack-seat-${s.seat}`}>
     <header><small>SEAT {s.seat}</small><i className={`ack-badge ${STATE_CLS[st]}`} data-testid={`ack-seat-state-${s.seat}`}>{st}</i></header>
-    <p className="ack-open"><b>No position</b><span>{s.why}</span></p></div>;
+    <p className="ack-open"><b>No position</b><span>{s.why}</span></p>
+    {(s.refused || []).length ? <ul className="ack-refused" data-testid={`ack-seat-refused-${s.seat}`}>{s.refused.map(r => <li key={`${r.symbol}-${r.at}`} data-tip={`${r.by === 'keeper' ? "the keeper's own buy check" : 'the seat pre-check'} · ${ago(r.at)} ago`}><b>${r.symbol}</b><span>{r.why}</span></li>)}</ul> : null}</div>;
   const last = s.last; const [ic, nm] = TAPE_AGENT[last?.agent] || ['', ''];
   return <button type="button" className={`ack-seat ${on ? 'is-on' : ''} ${s.pct > 0 ? 'is-up' : s.pct < 0 ? 'is-dn' : ''}`} onClick={() => onPick(s.mint)} aria-pressed={on} data-testid={`ack-seat-${s.seat}`}
     data-tip={`${s.tag || s.kind}${s.rule ? ` · Reaper ${s.rule}` : ''}${s.why ? ` — ${s.why}` : ''}`}>
@@ -85,6 +87,9 @@ function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent }) {
   // ON the plot: only confirmed FILLS, as small arrows at the real fill price (no letters, no decision blocks over the candles);
   // every decision stays readable in the rail under the chart
   const chartMarkers = useMemo(() => markers.filter(k => k.text === 'B' || (k.text === 'X' && k.agent === 'courier')).map(({ id, agent, action, why, mc, at, text, ...k }) => ({ ...k, text: '' })), [markers]);
+  const seatPnl = useMemo(() => { const e = Number(pos?.entry); const u = Number(pos?.usd); const p = Number(pos?.pct);
+    if (!(e > 0) || !(u > 0) || !Number.isFinite(p) || p <= -100) return false;
+    const cost = u / (1 + p / 100); return { label: 'SEAT', pos: { tokensHeld: cost / e, avgEntry: e, investedPoolUsd: cost, locked: true } }; }, [pos?.entry, pos?.usd, pos?.pct]);
   if (!m) return <div className="ack-chart is-empty" data-testid="ack-chart"><p className="ack-nil">No coin on the desk yet — the chart opens on the first seat or READY candidate.</p></div>;
   const vol = cand?.vol5m; const liq = pos?.liq ?? cand?.liq;
   return <div className="ack-chart" data-testid="ack-chart">
@@ -101,7 +106,7 @@ function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent }) {
     {!m.pair ? <p className="ack-nil" data-testid="ack-nopool">No pool for this coin yet — nothing to chart.</p>
       : !m.mc ? <p className="ack-nil is-warn" data-testid="ack-mc-unavailable"><b>MC UNAVAILABLE</b> — no supply is known for this coin yet (no token supply, not a launchpad mint, no live cap). The raw price is never charted in its place.</p>
         : <div className="ack-plot"><Suspense fallback={<p className="ack-nil">loading the live chart…</p>}>
-          <PriceChartLazy key={`${m.pair}-${iv}`} pair={pair} interval={iv} metric="marketCap" showVolume markers={chartMarkers} fuse={fuse} /></Suspense></div>}
+          <PriceChartLazy key={`${m.pair}-${iv}`} pair={pair} interval={iv} metric="marketCap" showVolume markers={chartMarkers} fuse={fuse} pnl={seatPnl} /></Suspense></div>}
     <div className="ack-mrail" data-testid="ack-mrail"><span className="ack-mkey"><i className="ack-ml is-B">▲<small>real buy</small></i><i className="ack-ml is-X">▼<small>real sell</small></i><small>on the chart · decisions →</small></span>
       {markers.length ? <span className="ack-mlist">{markers.slice(-12).map(k => <button key={k.id} type="button" className={`ack-ml is-${k.text}`} onClick={() => onAgent(k.agent)}
         data-tip={`${new Date(k.at * 1000).toLocaleTimeString()} · ${TAPE_AGENT[k.agent]?.[1] || k.agent} · ${k.action}${k.why ? ` — ${k.why}` : ''}${k.mc ? ` · MC ${mcWord(k.mc)}` : ''} · ${ago(k.at)} ago`}
@@ -132,7 +137,7 @@ function DecisionTape({ rows, agent, setAgent, onPick, fresh }) {
 }
 
 // ── 🧠 the agent decision panel ──────────────────────────────────────────────────────────────────────────────────────────────────
-export const PANEL_TABS = [['live', 'Live decision'], ['inputs', 'Inputs'], ['seats', 'Seats'], ['review', 'Review'], ['trace', 'Trace']];
+export const PANEL_TABS = [['live', 'Live'], ['ai', '🧠 AI'], ['inputs', 'Inputs'], ['seats', 'Seats'], ['review', 'Review'], ['trace', 'Trace']];
 // the agent that answers for this coin right now: Reaper for a held coin, else the first desk standing in its way, else Trigger / Sherlock
 export function leadAgent(dec) {
   if (!dec) return 'tally';
@@ -148,7 +153,7 @@ const FRESH_CLS = { LIVE: 'is-live', FRESH: 'is-fresh', PARTIAL: 'is-part', STAL
 function Tile({ l, v, sub, cls }) { return <span className="ack-ptile"><small>{l}</small><b className={cls || ''}>{v}</b>{sub ? <u>{sub}</u> : null}</span>; }
 const badgeOf = w => (/VETO|EXIT|BLOCK/.test(w) ? 'is-bad' : /WARN/.test(w) ? 'is-warn' : /ENTER|READY|PROTECT|PASS|FILLED|SIZE|SCAN|CONFIRMED/.test(w) ? 'is-good' : 'is-hold');
 
-function DecisionPanel({ o, dec, pos, cand, mint, seats, readyN, agent, setAgent, tab, setTab, pulse, call, isOwner, onPick, aiNote, mcNow }) {
+function DecisionPanel({ o, dec, pos, cand, mint, seats, readyN, agent, setAgent, tab, setTab, pulse, call, isOwner, onPick, aiNote, mcNow, onAi }) {
   const tr = useMemo(() => traceOf(o, mint), [o, mint]);
   const names = Object.fromEntries((o?.agents || []).map(a => [a.key, `${a.icon} ${a.name}`]));
   const line = tr?.lines.find(l => l.agent === agent);
@@ -178,8 +183,10 @@ function DecisionPanel({ o, dec, pos, cand, mint, seats, readyN, agent, setAgent
         <Tile l="NEXT ACTION" v={pos ? (pos.roundAction || pos.decision || '—') : dec.verdict === 'READY' ? 'TAKE A SEAT' : cand?.trigger === 'ENTER' ? 'CLEAR THE WALL' : 'KEEP READING'} sub={pos?.obeying || null} />
         <Tile l="NEXT WAKE" v={pos ? secs(pos.nextReview) : secs(o?.cycle?.nextIn)} sub={pos ? "Reaper's review (the live chart acts sooner)" : 'next agent pass'} /></div>
       {agent === 'devil' && cand?.devilConf != null ? <p className="ack-fresh">Devil confidence ×{cand.devilConf} (a weight on the rank, never a block)</p> : null}
-      {aiNote?.advice ? <p className="ack-ai-note" data-testid="ack-ai-note" data-tip={`advisory only — ${aiNote.advice.stance} · priority ${aiNote.advice.priority}`}><i className="ack-src">{aiNote.label || aiNote.source}</i>{aiNote.role} · {aiNote.advice.summary}</p> : null}
+      {aiNote?.advice ? <button type="button" className="ack-ai-note is-btn" onClick={() => setTab('ai')} data-testid="ack-ai-note" data-tip={`advisory only — ${aiNote.advice.stance} · priority ${aiNote.advice.priority} · tap = every model decision`}><i className="ack-src">{aiNote.label || aiNote.source}</i><em className="ack-ai-stance">{aiNote.advice.stance}</em>{aiNote.role} · {aiNote.advice.summary}</button>
+        : <button type="button" className="ack-ai-note is-btn is-none" onClick={() => setTab('ai')} data-testid="ack-ai-none"><i className="ack-src">AI</i>the model has not been asked about this coin — ask it →</button>}
     </div>) : null}
+    {tab === 'ai' ? <div className="ack-pbody"><AiPane ai={o?.ai} call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} onPick={onPick} onProviders={onAi} /></div> : null}
     {tab === 'inputs' ? <div className="ack-pbody" data-testid="ack-pane-inputs"><ul className="ack-inputs">{inputsOf({ c: cand, pos, live, mc: mcNow }).map(([l, w, s, what]) =>
       <li key={l} data-testid={`ack-in-${l.replace(/\W+/g, '-')}`}><span>{l}</span><i className={`ack-fw ${FRESH_CLS[w]}`}>{w}</i><small>{s == null ? '' : `${secs(s)} old · `}{what}</small></li>)}</ul></div> : null}
     {tab === 'seats' ? <div className="ack-pbody" data-testid="ack-pane-seats"><table className="ack-queue"><thead><tr><th>SEAT</th><th>COIN</th><th>STATE</th><th>AGENT</th><th>CHALLENGER</th><th>NEXT</th></tr></thead>
@@ -322,7 +329,7 @@ export function AgentCockpit({ call, isOwner = true }) {
       <div className="ack-left"><CockpitChart m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); setTab('live'); }} />
         <DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { if (r.mint) setPick(r.mint); setAgentS(r.agent in AG ? r.agent : null); setTab('live'); }} /></div>
       <DecisionPanel o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
-        pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} aiNote={aiNote} mcNow={model?.mc} /></div>
+        pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} aiNote={aiNote} mcNow={model?.mc} onAi={() => setAiOpen(true)} /></div>
     <div className="ack-foot"><AgentMatrix o={o} gens={o?.generations || []} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); setTab('live'); }} rows={o.tape} pulse={pulse} />
       <ReviewQueue o={o} call={call} isOwner={isOwner} onPick={m => { onPick(m); if (m && !((o.kernel || {}).candidates || []).some(c => c.mint === m) && !(o.positions || []).some(p => p.mint === m) && !(o.ownerReview || []).some(r => r.mint === m)) openCoin({ mint: m }); }} sel={mint} /></div>
     <OperatorControls o={o} call={call} isOwner={isOwner} ai={o.ai} onAi={() => setAiOpen(true)} />

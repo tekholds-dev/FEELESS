@@ -494,7 +494,7 @@ def _li_snap(li, v=None):
     return {k: li.get(k) for k in ('phase', 'healthy', 'cls', 'first10', 'first25', 'early', 'trend', 'press', 'danger', 'rank', 'ageH', 'mcap', 'pump', 'ewp', 'vpm', 'bpm', 'fresh')}
 
 
-def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_=None, tape=None, office=None, sized=None, charts=None, theses=None, pol=None, live=True, vels=None, margins=None, rug=None, press=None):
+def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_=None, tape=None, office=None, sized=None, charts=None, theses=None, pol=None, live=True, vels=None, margins=None, rug=None, press=None, real=False):
     """☠ One look at every position the agents hold on the real card (in control: every coin that is not frozen). It keeps each one's
     record (entry, peak, path, depth and top-10 at entry) and rules, in this order — the first that fires decides:
       R1 pool collapsed · R4 whale dump / R4r rug radar / R4e early wallets on the live tape · R5 stop* · (a holder scan or a rug score is evidence for the brain, never an exit) ·
@@ -525,7 +525,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         on.add(m)
         base = {'mint': m, 'pair': l.get('pairAddress'), 'symbol': l.get('symbol'), 'owner': 'agents' if _uni.is_agent(l) else 'card', 'action': None}
         px, entry = _f((prices or {}).get(l.get('pairAddress'))), _f(l.get('entry'))
-        if l.get('buying') or _f(l.get('units')) <= 0 or entry <= 0:
+        if l.get('buying') or _f(l.get('units')) <= 0 or entry <= 0 or (real and not l.get('real')):   # `real` card: the wallet must HOLD it (sync_card) — a seat is not a position until its buy lands
             out.append({**base, 'state': 'HOLD', 'rule': 'R0 waiting for the fill', 'evidence': 'the buy is not confirmed on the ledger yet', 'exec': 'unconfirmed'}); continue
         if px <= 0:
             out.append({**base, 'state': 'HOLD', 'rule': 'R0 no price', 'evidence': 'no live price this tick — nothing is ruled on a guess', 'exec': 'confirmed', 'entry': entry}); continue

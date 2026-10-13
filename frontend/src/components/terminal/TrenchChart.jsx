@@ -1,14 +1,9 @@
 // The trench chart: one component for every place a coin is charted (trenches, globe war room, …).
 // Toolbar (metric, timeframes, volume, calls/fee markers, fullscreen, alert, advanced), your live P&L badge,
 // your own buys/sells pinned on the candles, and the trade side stack (Quick trade, Dip/Rip, rug shield).
-import React, { useMemo, useCallback, useEffect, useRef, useState } from 'react';
+import React, { useMemo, useEffect, useRef, useState } from 'react';
 import { ArrowLeftRight, BarChart3, ExternalLink } from 'lucide-react';
-import { useWallet } from '../../hooks/useWallet';
-import { apiUrl } from '../../lib/api';
-import { applyFill, pnlSummary } from '../../lib/position';
 import { dexUrl } from '../../lib/dexscreener';
-import { fetchLivePrice } from '../../lib/livePrice';
-import { ShareGifButton } from '../ShareGif';
 import { ShieldBadge } from '../Shield';
 import { ChartMetaButtons, useChartMarkers } from './ChartMeta';
 import { PriceChart } from './PriceChart';
@@ -21,9 +16,7 @@ import { QuickTrade } from './QuickTrade';
 import { TradeTape } from './TradeTape';
 import { useTabTitle, chartTitle } from '../../lib/tabTitle';
 import { useLiveFuse } from '../../lib/liveFuse';
-import { useEasedNumber } from '../../lib/easedNumber';
-import { tickHeat } from '../../lib/pnlTicker';
-import '../../styles/pnlTicker.css';
+import { useMyPosition, PnlBadge } from './ChartPnl';
 import { useAdmin } from '../../lib/adminCall';
 import { toast } from 'sonner';
 
@@ -76,74 +69,8 @@ export function TrenchChart({ pair: current, defaultInterval = '1m', onExpand, e
         onClick={rebuy}>{lf.state === 'rebuying' ? '🔄 sold — buying back…' : lf.state === 'buying' ? '🔄 buying back…' : rebuyBusy ? '🔄 selling…' : "🔄 Rebuy at today's price"}</button>}
       {lf.state === 'gone' && <span className="down" data-testid="chart-fuse-gone">no longer on the card</span>}
       {fz.riding ? <span>❄ riding{fz.trail ? <> · out under <em>${tiny(Number(fz.trail), 4)}</em></> : null}</span> : <>{fz.stop ? <span>🛑 stop <em>${tiny(Number(fz.stop), 4)}</em></span> : null}{fz.lock ? <span>❄ locks <em>${tiny(Number(fz.lock), 4)}</em></span> : null}</>}</div>}
-    <div className="chart-with-trade"><div className="chart-fullscreen-wrap" ref={chartWrap}><PnlBadge mcPerPrice={Number(current.marketCap) > 0 && Number(current.priceUsd) > 0 ? Number(current.marketCap) / Number(current.priceUsd) : null} pos={myPos} pair={current} price={Number(current.priceUsd)} flash={tradeFlash} symbol={current.baseToken?.symbol} imageUrl={current.info?.imageUrl} /><ChartBoundary key={`${current.chainId}-${current.pairAddress}-${interval}-${metric}`} pair={current}><PriceChart userEntry={myPos?.tokensHeld > 0 ? (myPos?.fillPrice || myPos?.avgEntry) : null} userTrades={myPos?.trades} pair={current} interval={interval} metric={metric} showVolume={volume} markers={markers} feeLive={showFee} fuse={fz || null} /></ChartBoundary></div>{aside ? <div className="chart-aside">{aside}</div> : tools}</div>{aside && tools}
+    <div className="chart-with-trade"><div className="chart-fullscreen-wrap" ref={chartWrap}><PnlBadge mcPerPrice={Number(current.marketCap) > 0 && Number(current.priceUsd) > 0 ? Number(current.marketCap) / Number(current.priceUsd) : null} pos={myPos} pair={current} price={Number(current.priceUsd)} flash={tradeFlash} symbol={current.baseToken?.symbol} imageUrl={current.info?.imageUrl} /><ChartBoundary key={`${current.chainId}-${current.pairAddress}-${interval}-${metric}`} pair={current}><PriceChart userEntry={myPos?.tokensHeld > 0 ? (myPos?.fillPrice || myPos?.avgEntry) : null} userTrades={myPos?.trades} pair={current} interval={interval} metric={metric} showVolume={volume} markers={markers} feeLive={showFee} fuse={fz || null} pnl={false} /></ChartBoundary></div>{aside ? <div className="chart-aside">{aside}</div> : tools}</div>{aside && tools}
     <TradeTape pair={current} />
   </div>;
 }
-// The viewer's live position in this coin: average entry from their real swaps, P&L against the
-// live price (updates with every tick), and a flash the moment one of their trades confirms.
-export function useMyPosition(pair) {
-  const { wallet } = useWallet() || {};
-  const [pos, setPos] = useState(null); const [flash, setFlash] = useState(0);
-  const token = pair?.baseToken?.address; const address = wallet?.address;
-  // Trades confirmed in this tab that the server hasn't read back yet: kept on top of its answer for 90s.
-  const pending = useRef([]);
-  const withPending = useCallback(server => {
-    const now = Date.now();
-    pending.current = pending.current.filter(f => now - f.at < 90000 && !(server?.trades || []).some(t => t.tx === f.signature));
-    return pending.current.reduce(applyFill, server || null);
-  }, []);
-  const load = useCallback(() => {
-    if (!address || !token || typeof fetch !== 'function') { setPos(null); return; }
-    fetch(apiUrl(`/api/reputation/position/${address}/${token}`)).then(r => (r.ok ? r.json() : Promise.reject(new Error('busy')))).then(d => setPos(withPending(d.position))).catch(() => {});
-  }, [address, token, withPending]);
-  useEffect(() => { pending.current = []; load(); const timer = setInterval(load, 10000); return () => clearInterval(timer); }, [load]);
-  useEffect(() => {
-    const onTrade = e => {
-      const d = e.detail || {};
-      if (d.mint && d.mint !== token) return;
-      if (d.mint && d.tokens > 0) { pending.current.push({ ...d, at: Date.now() }); setPos(p => applyFill(p, d)); }
-      setFlash(Date.now()); setTimeout(load, 2500); setTimeout(load, 8000); setTimeout(load, 20000);
-    };
-    window.addEventListener('feeless:trade-confirmed', onTrade);
-    return () => window.removeEventListener('feeless:trade-confirmed', onTrade);
-  }, [token, load]);
-  return [pos, flash];
-}
-
-function PnlBadge({ pos, pair, price, flash, symbol, imageUrl, mcPerPrice }) {
-  const [open, setOpen] = useState(false);
-  const [livePrice, setLivePrice] = useState(price);
-  useEffect(() => { setLivePrice(price); }, [price]);
-  useEffect(() => {
-    if (!pair?.pairAddress) return undefined;
-    let alive = true;
-    const refresh = () => fetchLivePrice(pair).then(q => { if (alive && Number(q?.usd) > 0) setLivePrice(Number(q.usd)); }).catch(() => {});
-    refresh(); const timer = setInterval(refresh, 2500);
-    return () => { alive = false; clearInterval(timer); };
-  }, [pair]);
-  // 💹 live ticker: each REAL price tick sets the effect level (how far it moved); the numbers glide to the real value at ≤ 30fps
-  const prevPx = useRef(null); const [tick, setTick] = useState({ n: 0, heat: 0, dir: 0 });
-  useEffect(() => { const t = tickHeat(prevPx.current, livePrice); prevPx.current = livePrice; if (t.dir) setTick(x => ({ n: x.n + 1, heat: t.heat, dir: t.dir })); }, [livePrice]);
-  const ok = pos && pos.tokensHeld > 0 && livePrice > 0; const sum0 = ok ? pnlSummary(pos, livePrice) : null;
-  const ePct = useEasedNumber(sum0 ? sum0.pct : null); const eUsd = useEasedNumber(sum0 ? sum0.pnl : null); const eVal = useEasedNumber(sum0 ? sum0.value : null);
-  if (!ok) return null;
-  const fmtMc = v => (v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${v.toFixed(0)}`);
-  const entryPx = Number(pos.fillPrice) || pos.avgEntry; const entryMc = mcPerPrice ? fmtMc(entryPx * mcPerPrice) : null; const nowMc = mcPerPrice ? fmtMc(livePrice * mcPerPrice) : null;
-  const sum = pnlSummary(pos, livePrice); const { pct, value } = sum; const usd = sum.pnl;
-  const sign = v => (v >= 0 ? '+' : '−');
-  const money = v => `$${Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: Math.abs(v) >= 100 ? 0 : 2 })}`;
-  const sp = ePct ?? pct; const su = eUsd ?? usd; const sv = eVal ?? value;
-  return <div key={flash} className={`my-pnl pnt pnt-h-${tick.heat} ${pct >= 0 ? 'up' : 'down'} ${flash ? 'just-traded' : ''} ${open ? 'is-open' : ''}`} data-testid="my-pnl" data-heat={tick.heat}>
-    {tick.n ? <i key={tick.n} className={`pnt-tick ${tick.dir > 0 ? 'is-up' : 'is-dn'}`} aria-hidden="true" /> : null}
-    <button type="button" className="my-pnl-head" onClick={() => setOpen(o => !o)} aria-expanded={open} title="Your live position · tap for details">
-      <small>YOU</small>{pos.locked ? <small className="my-pnl-lock" title="Entry locked: read from your wallet's transaction and priced at the moment you signed">🔒</small> : !pos.pending && <small className="my-pnl-est" title="Not locked yet: some of this is still an estimate">≈</small>}<b className="pnt-pct">{sign(sp)}{Math.abs(sp).toFixed(Math.abs(sp) >= 100 ? 0 : 2)}%</b><span>{sign(su)}{money(su)}</span><em>{money(sv)}</em><i aria-hidden="true">{open ? '▾' : '▸'}</i>
-    </button>
-    {open && <div className="my-pnl-more">
-      <dl className="m-kv"><dt>Bought</dt><dd>{money(sum.bought)}</dd>{sum.sold > 0 && <><dt>Sold</dt><dd>{money(sum.sold)}</dd></>}<dt>Holding</dt><dd>{money(value)}</dd><dt>Entry</dt><dd>{mcPerPrice ? `MC ${fmtMc(sum.entry * mcPerPrice)}` : `$${tiny(sum.entry, 4)}`} <small>after fees</small></dd><dt>Now</dt><dd>{nowMc ? `MC ${nowMc}` : `$${tiny(livePrice, 4)}`}</dd>
-        {pos.realizedUsd ? <><dt>Realized</dt><dd>{sign(pos.realizedUsd)}{money(pos.realizedUsd)}</dd></> : null}{pos.feesUsd ? <><dt>Fees paid</dt><dd>${pos.feesUsd.toFixed(pos.feesUsd < 1 ? 3 : 2)}</dd></> : null}</dl>
-      <small className="my-pnl-src" data-testid="my-pnl-src">{pos.pending ? '⏳ just confirmed · reading the exact fill' : pos.locked ? '🔒 locked · exact on-chain amounts, priced at the moment you signed' : pos.exact ? '✓ exact amounts · price still confirming' : '≈ estimate from the quote (fees in) · exact fill not read yet'}{pos.coverage != null && pos.coverage < 0.95 ? ` · ${Math.round(pos.coverage * 100)}% of your coins have a known cost` : ''} · live ~2.5s</small>
-      <div className="my-pnl-actions"><ShareGifButton className="my-pnl-share" label="🎞 Share" card={{ kicker: 'LIVE POSITION · FEELESS TRENCHES', title: `$${symbol}`, imageUrl, tone: pct >= 0 ? 'up' : 'down', bigValue: Math.abs(pct), bigPrefix: pct >= 0 ? '+' : '−', bigSuffix: '%', bigDigits: 1, lines: [`${usd >= 0 ? '+' : '−'}$${Math.abs(usd).toLocaleString(undefined, { maximumFractionDigits: 2 })} P&L · bought ${money(sum.bought)} · holding ${money(value)}`, entryMc ? `entry MC ${entryMc} · now MC ${nowMc}` : `entry $${tiny(entryPx, 4)} · live $${tiny(livePrice, 4)}`] }} /><button type="button" className="my-pnl-exit" onClick={() => window.dispatchEvent(new CustomEvent('feeless:quick-exit', { detail: { pct: 100, mint: pair?.baseToken?.address } }))}>Exit</button></div>
-    </div>}
-  </div>;
-}
+export { useMyPosition };

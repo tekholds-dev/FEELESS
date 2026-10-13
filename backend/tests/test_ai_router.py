@@ -251,3 +251,48 @@ def test_the_router_has_no_path_to_money():
         assert bad not in src, bad
     imports = {ln.split()[1].split('.')[0] for ln in src.splitlines() if ln.startswith(('import ', 'from '))}
     assert imports <= {'asyncio', 'hashlib', 'json', 're', 'time', 'ai_keys'}
+
+
+def test_the_models_decisions_are_logged_once_each_for_the_page_and_nothing_reads_them_back():
+    import reputation_service as rs
+    rs._ai['log'] = []
+    case = {'mint': 'M1', 'symbol': 'AAA', 'status': 'CONTENDING', 'trigger': 'ARM'}
+    ans = {'source': 'local', 'label': 'LOCAL AI', 'ms': 900, 'at': 100.0, 'advice': {'stance': 'WAIT', 'confidence_delta': -0.2, 'priority': 40, 'summary': 'fake breakout', 'deep_review': True}}
+    rs._ai_log('devil', case, ans)
+    rs._ai_log('devil', case, {**ans, 'cached': True})                      # the SAME decision served from the cache: not a second line
+    rs._ai_log('sherlock', case, {'source': 'NONE', 'advice': None, 'why': 'no provider answered'})   # the desk's own round: silence is not a decision
+    assert len(rs._ai['log']) == 1
+    row = rs._ai['log'][0]
+    assert (row['role'], row['symbol'], row['stance'], row['delta'], row['kernel'], row['trigger'], row['deep']) == ('devil', 'AAA', 'WAIT', -0.2, 'CONTENDING', 'ARM', True)
+    rs._ai_log('owner', case, {'source': 'NONE', 'advice': None, 'why': 'no provider answered'}, asked=True)   # the owner ASKED: the miss is shown
+    assert rs._ai['log'][-1]['asked'] and rs._ai['log'][-1]['stance'] is None and 'no provider' in rs._ai['log'][-1]['why']
+    for i in range(rs.AI_LOG_KEEP + 20):
+        rs._ai_log('devil', case, {**ans, 'at': 200.0 + i})
+    assert len(rs._ai['log']) == rs.AI_LOG_KEEP
+    light = rs._ai_view(light=True)
+    assert len(light['log']) == 30 and 'model' in light and not any('key' in k.lower() and k != 'key' for r in light['providers'] for k in r)
+    src = open(rs.__file__).read()
+    assert "_ai['log']" not in src.split('def _agents_tick')[1].split('def _fuse_warm')[0]   # the agents' pass never reads the model's log
+    rs._ai['log'] = []
+
+
+def test_the_seat_precheck_runs_the_keepers_own_market_gate_before_a_seat_exists():
+    import asyncio
+    import reputation_service as rs
+    plan = [{'mint': 'GOODpump', 'pair': 'P1', 'symbol': 'GOOD', 'vitals': {}}, {'mint': 'THINpump', 'pair': 'P2', 'symbol': 'THIN', 'vitals': {}}, {'mint': 'GONEpump', 'pair': 'P3', 'symbol': 'GONE', 'vitals': {}}]
+
+    async def live(_orders):
+        return {'P1': {'baseToken': {'address': 'GOODpump'}, 'priceUsd': '0.5', 'liquidity': {'usd': 500000}, 'dexId': 'pumpswap'},
+                'P2': {'baseToken': {'address': 'THINpump'}, 'priceUsd': '0.5', 'liquidity': {'usd': 900}, 'dexId': 'pumpswap'}}
+    old = rs._fw_live_pairs
+    rs._fw_live_pairs = live
+    rs._agent_refused.clear(); rs._seat_pre_ok.clear()
+    try:
+        ok = asyncio.run(rs._seat_precheck(plan, {}, 1000.0))
+    finally:
+        rs._fw_live_pairs = old
+    assert set(ok) == {'GOODpump'} and ok['GOODpump']['liq'] == 500000 and ok['GOODpump']['px'] == 0.5   # the seat starts from the LIVE depth + price
+    assert 'too thin' in rs._agent_refused['THINpump'][1] and 'unavailable' in rs._agent_refused['GONEpump'][1]
+    assert {'THINpump', 'GONEpump'} <= rs._agent_blocked({}, 1001.0) and 'GOODpump' not in rs._agent_blocked({}, 1001.0)
+    assert not ({'THINpump', 'GONEpump'} & rs._agent_blocked({}, 1000.0 + rs.AGENT_PRE_SEC + 1))                 # …and they come back after 3 minutes
+    rs._agent_refused.clear(); rs._seat_pre_ok.clear()

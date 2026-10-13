@@ -30,6 +30,6 @@ export default function MiniChartBody({ pair, tf, fuse: carried, metric = 'marke
         {fuse.stop ? <u className="is-stop">🛑 {p4(fuse.stop)}</u> : null}{fuse.lock ? <u className="is-lock">❄ {p4(fuse.lock)}</u> : null}{fuse.trail ? <u className="is-lock">🏔 {p4(fuse.trail)}</u> : null}</span>}
       {mine > 0 && <span className="mch-you" data-tip="Your own FEELESS trades on this coin: your entry and where you stand">👤 <b>{p4(mine)}</b>{px > 0 && <em className={px >= mine ? 'm-pos' : 'm-neg'}>{sg((px / mine - 1) * 100)}</em>}</span>}
     </div>}
-    <PriceChart key={`${pair.pairAddress}-${tf}-${asMc ? 'mc' : 'px'}`} pair={pair} interval={tf} metric={asMc ? 'marketCap' : 'price'} showVolume={false} fuse={fuse} userEntry={mine > 0 ? mine : null} userTrades={myPos?.trades || null} />
+    <PriceChart key={`${pair.pairAddress}-${tf}-${asMc ? 'mc' : 'px'}`} pair={pair} interval={tf} metric={asMc ? 'marketCap' : 'price'} showVolume={false} fuse={fuse} userEntry={mine > 0 ? mine : null} userTrades={myPos?.trades || null} pnl={myPos || false} />
   </>;
 }

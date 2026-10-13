@@ -2424,6 +2424,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         lq, lq0 = _f(liqs.get(l['pairAddress'])), _f(l.get('liq'))
         if safe_anchor(l) or l.get('frozen') or lq <= 0 or lq0 <= 0 or lq > lq0 * RUG_LIQ:
             continue
+        if c.get('real') and not l.get('real'):   # the wallet does not hold it yet (a seat whose buy has not landed): nothing to pull — $S402 was "pulled" 3× without ever being bought
+            continue
         px = _f(prices.get(l['pairAddress'])) or l['entry']
         usd = sell_usd(l['units'], px, lq)
         c['legs'].remove(l); c['cash'] += usd; c['feesUsd'] += fee

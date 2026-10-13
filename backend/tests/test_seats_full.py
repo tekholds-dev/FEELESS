@@ -207,7 +207,7 @@ def test_a_coin_the_keeper_refused_is_off_the_agents_list():
     assert fw.no_buy(book, 1050.0) == {'NR', 'BN'}            # safety refusals + bench; a transient miss is retried
     assert fw.no_buy(book, 1000.0 + fw.REFUSED_SEC + 1) == {'BN'}
     src = open(__import__('reputation_service').__file__).read()
-    assert '_fw.no_buy(b, now)' in src and '_prime.agent_out(card, now)' in src
+    assert '_fw.agent_no_buy(b, now)' in src and '_prime.agent_out(card, now)' in src
 
 
 def test_a_coin_falling_eight_percent_in_five_minutes_is_a_hard_no():
@@ -217,3 +217,30 @@ def test_a_coin_falling_eight_percent_in_five_minutes_is_a_hard_no():
     assert 'in 5 min' not in str(opp.hard_fail(row(-5.0)) or '')
 
 
+
+
+def test_a_refused_coin_sits_out_ten_minutes_for_the_agents_and_a_curve_coin_is_judged_on_its_curve():
+    import fuse_wallet as fw
+    now = 10_000.0
+    book = {'misses': {'GAP': {'n': 1, 'first': now - 300, 'last': now - 300, 'why': 'buy price 4.6% above market (> 2.5%)'},
+                       'BUSY': {'n': 1, 'first': now - 300, 'last': now - 300, 'why': 'Jupiter route unavailable (HTTP 429)'},
+                       'OLD': {'n': 1, 'first': now - 900, 'last': now - 900, 'why': 'sells back for 6.7% less (> 3.5%)'}}}
+    assert fw.no_buy(book, now) == set()                       # the keeper itself retries after 2 minutes
+    assert fw.agent_no_buy(book, now) == {'GAP'}               # the agents pick ANOTHER coin for 10 (a transient miss is never held)
+    cfg = fw.clean_cfg({'trenchMinLiqUsd': 8000})
+    pair = {'baseToken': {'address': 'M'}, 'priceUsd': '0.000008', 'liquidity': {'usd': 5250}, 'marketCap': 7969, 'dexId': 'pumpfun'}
+    assert not fw.live_buy_market({'side': 'buy', 'mint': 'M', 'trench': True}, pair, cfg)[0]            # every other door: the reported figure
+    ok, _why, info = fw.live_buy_market({'side': 'buy', 'mint': 'M', 'trench': True, 'curve': True}, pair, cfg)
+    assert ok and info['liq'] > 8000                           # the owner's agentCurve seat: the curve's own depth
+    assert not fw.live_buy_market({'side': 'buy', 'mint': 'M', 'trench': True, 'curve': True}, {**pair, 'marketCap': 2000}, cfg)[0]   # a tiny curve is still too thin
+
+
+def test_a_seat_whose_buy_has_not_landed_is_never_stopped_or_pulled():
+    import arena_prime as ap
+    import office as of
+    leg = {'mint': 'M', 'pairAddress': 'P', 'symbol': 'X', 'units': 100.0, 'entry': 1.0, 'liq': 18000.0, 'bought': {'tag': '🤖 agents'}, 'at': 0}
+    _pos, rep, _gone = of.reap([leg], [], {'P': 0.5}, {}, {}, 60.0, control=True, real=True)
+    assert rep[0]['rule'].startswith('R0') and not rep[0]['action']      # −50% on a coin the wallet does not hold: no ruling
+    _pos, rep, _gone = of.reap([{**leg, 'real': True}], [], {'P': 0.5}, {}, {}, 60.0, control=True, real=True)
+    assert rep[0]['action'] == 'pull'                                    # held for real: the catastrophic stop acts
+    assert ap.RUG_LIQ < 1

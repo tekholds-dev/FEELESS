@@ -3,6 +3,7 @@ import { ChartBg } from './ChartBg';
 import { useChartBg } from '../../lib/chartBg';
 import { ChartToolsMenu, useToolDraw } from './ChartTools';
 import { ChartPulse } from './ChartPulse';
+import { ChartPnl } from './ChartPnl';
 import { tweenClose, mergeLiveBar, liveBar } from '../../lib/tween';
 import { mcapOf } from '../../lib/mcap';
 import { toolRead, useChartTools } from '../../lib/chartTools';
@@ -24,7 +25,7 @@ const LIVE_INTERVAL_SECONDS = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h
 
 const ageLabel = t => { const s = (Date.now() - t) / 1000; return s < 3600 ? `${Math.max(1, Math.round(s / 60))}m` : s < 86400 ? `${Math.round(s / 3600)}h` : s < 86400 * 60 ? `${Math.round(s / 86400)}d` : `${Math.round(s / 86400 / 30)}mo`; };
 
-export const PriceChart = ({ pair, interval, showVolume, metric = 'price', markers = [], feeLive: feeLiveProp, userEntry = null, userTrades = null, fuse: fuse0 = null }) => {
+export const PriceChart = ({ pair, interval, showVolume, metric = 'price', markers = [], feeLive: feeLiveProp, userEntry = null, userTrades = null, fuse: fuse0 = null, pnl }) => {
   // ✋ a level dragged on this chart and CONFIRMED by the card sits where it was dropped until the card's next read
   const [grabbed, setGrabbed] = useState(null);
   useEffect(() => { setGrabbed(null); }, [fuse0?.pairAddress, fuse0?.slPct, fuse0?.lockPct, fuse0?.trailPct, fuse0?.tpPct]);
@@ -443,6 +444,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     {charting && hasChart && <div className="candle-canvas" ref={container} data-testid="candlestick-canvas" />}
     {charting && hasChart && displayCandles.length > 0 && <ChartToolsMenu read={toolsRead} />}
     {charting && hasChart && pair?.chainId === 'solana' && pair?.baseToken?.address && <ChartPulse mint={pair.baseToken.address} beat={livePrice?.usd} />}
+    {charting && hasChart && <ChartPnl pair={pair} price={livePrice?.usd} pnl={pnl} />}
     {charting && hasChart && fuse?.tpl && <ChartGrab seriesRef={seriesRef} container={container} fuse={fuse} ratio={ratio} />}
     {charting && hasChart && <div className="chart-foot-chips">{createdAt && <span className="chart-age" title={new Date(createdAt).toLocaleString()}>🕒 Created {ageLabel(createdAt)} ago</span>}{feeLiveProp === undefined && <button type="button" className={`chart-fee-toggle ${feeOwn ? 'on' : ''}`} onClick={() => setFeeOwn(v => !v)}>🐱 Fee {feeOwn ? 'on' : 'off'}</button>}</div>}
     {charting && hasChart && displayCandles.length > 0 && <button type="button" className="chart-style-toggle" data-testid="chart-style-toggle" onClick={toggleStyle} title="Switch line / candles">{chartStyle === 'line' || (chartStyle === 'auto' && displayCandles.length < 3) ? '▮ Candles' : '〰 Line'}</button>}

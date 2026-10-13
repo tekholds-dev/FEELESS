@@ -492,7 +492,7 @@ def test_every_real_buy_gate_reads_jupiter_when_dexscreener_answers_empty(monkey
     assert ok and snap['liq'] == 77000.0
     import pathlib
     src = (pathlib.Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text()
-    assert src.count('_fw.live_buy_market(') == 3 and src.count('await _fw_live_pairs(') == 3     # all three gates use the helper
+    assert src.count('_fw.live_buy_market(') == 4 and src.count('await _fw_live_pairs(') == 4     # all three gates + the 🛂 seat pre-check use the helper
 
 
 def test_a_plain_burst_429_only_rests_a_scanner_node_a_few_seconds(monkeypatch):

@@ -57,7 +57,8 @@ export function seatCards(d, livePx) {
     const open = !x.mint || x.kind === 'open';
     if (open) {   // the server's own reason this seat is open (OFFICE NOT LIVE · NO VALID ENTRY · BUDGET …) — never a promise that it fills
       const sv = (o.seat?.seats || []).find(z => z.seat === i + 1) || (o.seatBoard || []).find(z => z.seat === i + 1 && z.empty) || null;
-      return { seat: i + 1, open: true, badge: sv?.code || 'OPEN', why: sv?.reason || sv?.why || o.seat?.reason || `${ready} READY candidate${ready === 1 ? '' : 's'} on the desk this pass` };
+      return { seat: i + 1, open: true, badge: sv?.code || 'OPEN', why: sv?.reason || sv?.why || o.seat?.reason || `${ready} READY candidate${ready === 1 ? '' : 's'} on the desk this pass`,
+        refused: i === 0 ? (o.seat?.refused || []).slice(0, 3) : [] };   // why READY coins did not become positions (the keeper's own words) — once, on the first open seat
     }
     const p = pos[x.mint] || {}; const b = board[x.mint] || {}; const c = cand[x.mint] || {};
     const lp = livePx && x.pair ? livePx.get?.(x.pair) : null;
