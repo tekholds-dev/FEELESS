@@ -26,3 +26,9 @@ test('a stale history never makes one fake candle from an old close to the live 
   expect(fresh.fill).toHaveLength(1); expect(fresh.bar.open).toBe(1); expect(fresh.bar.close).toBe(1.1);
   expect(liveBar(last, 1.2, 1000, 60).bar).toEqual({ ...last, high: 1.2, close: 1.2 });
 });
+
+test('🕯 the forming candle is never eased: the chart draws each real tick at once (no in-between prices)', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '../components/terminal/PriceChart.jsx'), 'utf8');
+  expect(src).not.toMatch(/tweenClose|requestAnimationFrame\(draw\)/);
+  expect(src).toMatch(/ref\.series\.update\(bar\); shownRef\.current = value;/);
+});

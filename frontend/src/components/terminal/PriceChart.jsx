@@ -8,7 +8,7 @@ import { ChartLive } from './ChartLive';
 import { CandleFx } from './CandleFx';
 import { ChartLevels } from './ChartLevels';
 import { feeLevels, ownLevels, toolLevels } from '../../lib/chartLevels';
-import { tweenClose, mergeLiveBar, liveBar } from '../../lib/tween';
+import { mergeLiveBar, liveBar } from '../../lib/tween';
 import { mcapOf } from '../../lib/mcap';
 import { toolRead, useChartTools } from '../../lib/chartTools';
 import { ChartGrab } from './ChartGrab';
@@ -54,7 +54,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   const seriesRef = useRef(null);
   const chartRef = useRef(null);
   const lastBarRef = useRef(null);
-  const shownRef = useRef(null);   // the close the forming candle is DRAWN with right now (eased between real ticks) — the live P&L tag rides it
+  const shownRef = useRef(null);   // the close the forming candle is DRAWN with right now (= the last real tick) — the live P&L tag rides it
   const markersRef = useRef(null);
   const [livePrice, setLivePrice] = useState(null);
   const liveBarRef = useRef(null);   // the forming candle as the LIVE feed built it (kept across history reloads)
@@ -316,19 +316,9 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     if (!charting || !pair?.pairAddress || !pair?.chainId) return undefined;
     const bucket = LIVE_INTERVAL_SECONDS[interval] || 3600;
     let alive = true;
-    // 🎞 30fps candle moves: each REAL tick eases the forming candle's body from where it is drawn to the new real price (~350ms, a frame every
-    // ≥ 33ms); the wick takes the true high / low at once and the last frame is exactly the tick — nothing moves between real ticks.
-    const smooth = typeof window !== 'undefined' && !document.body.classList.contains('fx-lite') && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-    let anim = null; let raf = 0; let frameAt = 0; let shown = null;
-    const draw = now => {
-      raf = 0;
-      if (!alive || !anim) return;
-      if (now - frameAt < 33) { raf = requestAnimationFrame(draw); return; }
-      frameAt = now;
-      const c = tweenClose(anim.from, anim.to, (now - anim.start) / anim.dur);
-      try { seriesRef.current?.series.update({ ...anim.bar, close: c }); shown = c; shownRef.current = c; } catch { anim = null; return; }
-      if (now - anim.start < anim.dur) raf = requestAnimationFrame(draw); else anim = null;
-    };
+    // 🕯 REAL TICKS ONLY (owner, 2026-10-13: "current candle morphing before it becomes its true shape — can't have that"): the forming
+    // candle is redrawn ONLY when a real price tick lands (the stream re-reads the price right after each on-chain swap), at exactly that
+    // price — no eased in-between frames. It used to glide ~350ms through prices nobody traded at.
     const apply = (usd, live) => {
       try {
         if (!alive || !(usd > 0)) return;
@@ -341,16 +331,12 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
         if (ref0 > 0 && !(value > ref0 / 20 && value < ref0 * 20)) return; // bad read, not a real 1s move
         const t = Math.floor(Date.now() / 1000 / bucket) * bucket;
         if (ref.kind === 'candle') {
-          if (anim && t > anim.bar.time) { try { ref.series.update(anim.bar); } catch { /* chart gone */ } anim = null; shown = null; shownRef.current = null; }   // a new candle: the last one ends on its REAL close, never mid-ease
           // 🕯 true data only (`liveBar`): a 1–2 bucket gap continues from the last close; a stale history (a coin indexed late) opens the new
           // candle at the first REAL tick and leaves the gap empty — no fake candle from an old price, no invented flat minutes
           const lb = liveBar(last, value, t, bucket);
           lb.fill.forEach(f => { try { ref.series.update(f); } catch { /* chart gone */ } });
           const bar = lb.bar;
-          if (smooth && t === last.time && shown != null && typeof requestAnimationFrame !== 'undefined') {   // same candle: ease the body to the new real close
-            anim = { bar, from: shown, to: value, start: performance.now(), dur: 350 };
-            if (!raf) raf = requestAnimationFrame(draw);
-          } else { anim = null; ref.series.update(bar); shown = value; shownRef.current = value; }
+          ref.series.update(bar); shownRef.current = value;
           lastBarRef.current = bar; liveBarRef.current = { ...bar, iv: interval, pool: pairLive.current?.pairAddress };
         } else {
           const point = { time: Math.max(t, last.time), value };
@@ -379,7 +365,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     tick();
     let n = 0;
     const timer = setInterval(() => { n += 1; if (!streaming) tick(); }, 1200);   // backup poll ONLY while the stream is down: one price feed per candle, never two
-    return () => { alive = false; clearInterval(timer); if (raf && typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(raf); try { ws?.close(); } catch { /* ignore */ } };
+    return () => { alive = false; clearInterval(timer); try { ws?.close(); } catch { /* ignore */ } };
   }, [charting, interval, pair?.baseToken?.address, pair?.chainId, pair?.pairAddress]);
   const [livePx, setLivePx] = useState(null);
   useEffect(() => { if (!feePos) return undefined; const t = setInterval(() => { const b = lastBarRef.current; if (b) setLivePx(b.close ?? b.value); }, 1200); return () => clearInterval(t); }, [feePos]);

@@ -3837,3 +3837,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   the 20 exits after the chart gate: 65% won, +15.3 / −11.2, payoff 1.36 (thin). 112 of 114 seats had been ×0.5 whatever the record said.
   THE PAYOFF IS THE PROBLEM, NOT THE SIZE: stops (R5 / R5x / R1) lost $3.68 of a net −$0.85 — losses fill ~−27% against −12…−25% lines.
   Growing faster = a smaller average loss or a bigger average win; pressing size on a 20-trade record is how the card went $28 → $0.47.
+- 🕯 THE FORMING CANDLE IS NEVER EASED (owner, 2026-10-13: "current candle morphing before it becomes its true shape — can't have that"; this
+  REPLACES "PriceChart eases the forming candle's body to each real tick at 30fps"): `PriceChart` redraws the live candle ONLY when a real
+  price tick lands (the stream re-reads the price right after each on-chain swap) and at exactly that price — no in-between frames, no rAF
+  loop in the chart. `tweenClose` stays for number tickers (`lib/easedNumber`) only; a test fails if the chart imports it again.
+  NOT built: candles assembled from the swaps themselves (every fill's own price) — that needs each pool's swaps read from RPC, the daily budget.
