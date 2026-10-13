@@ -133,7 +133,7 @@ def test_the_local_base_must_be_this_machine_and_the_case_is_whitelisted():
         assert air.provider(env(LOCAL_LLM_BASE_URL=ok), 'local')['why'] is None
     msgs = air.messages(CASE, 'sherlock')
     blob = msgs[0]['content'] + msgs[1]['content']
-    assert 'SECRETWALLET' not in blob and 'x.y/z' not in blob and '"symbol":"ZYN"' in blob and 'ADVISORY' in blob
+    assert 'SECRETWALLET' not in blob and 'x.y/z' not in blob and '"symbol":"ZYN"' in blob and 'never tell anyone to buy' in blob and 'never size' in blob
 
 
 def test_cache_and_shared_inflight_mean_one_inference_per_case():

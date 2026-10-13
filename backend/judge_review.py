@@ -171,13 +171,14 @@ def launch_shape(rs):
     return out
 
 
-LIVE_RULES = False   # 🧊 FROZEN (owner's edge audit, 2026-10-12): the Judge studies and PROPOSES; it never changes a live threshold from a few
-                     # cases. A promoted rule waits for evidence → shadow test → unseen validation → the owner's promotion.
+LIVE_RULES = True    # 👨‍⚖️ LIVE AS RANKING WEIGHTS (owner, 2026-10-13: "do #3"): a cause the Judge saw ≥ 3× in its last 20 real-loss reviews ranks
+                     # matching coins DOWN (≤ 8 points each, expires 24h after its last case). Never a veto, never a threshold, never a
+                     # sell — a seat is not left empty for it. It was frozen on 2026-10-12 and had never been wired into the live ranking.
 
 
 def penalties(promoted, live=None):
     """The promoted rules as ranking penalties: {feature words: points} (opportunity.score subtracts them from matching coins).
-    Frozen: {} unless LIVE_RULES (or live=True) — the proposals stay on record (`court`), they do not move the ranking."""
+    {} when LIVE_RULES is off (or live=False) — then the proposals only stay on record (`court`)."""
     if not (LIVE_RULES if live is None else live):
         return {}
     out = {}

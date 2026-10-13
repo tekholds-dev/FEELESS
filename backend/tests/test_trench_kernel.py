@@ -151,3 +151,14 @@ def test_the_live_tape_decides_triggers_moment_and_a_crowd_only_ranks_a_little_h
     a, b = tb.think(ms()), tb.think(ms(fv={'state': 'BUYERS', 'hot': True, 'why': 'a crowd is buying'}))
     assert round(b['rank'] / a['rank'], 2) == tb.CROWD_F                                     # a rank weight, never a gate
     assert 'flow' in ts.material(ms(), ms(fv={'state': 'SELLERS', 'why': 'x'})) and 'flow' not in ts.material(ms(), ms())
+
+
+def test_the_judges_repeat_loss_causes_rank_a_matching_coin_down_and_never_veto_it():
+    fomo = lambda **k: ts.from_row(row('J', li={'phase': 'CROWD FOMO', 'cls': 'BUNDLED'}, **k), 100.0)
+    a = tb.think(fomo())
+    b = tb.think(fomo(), {'pens': {'crowd fomo': -8.0}})
+    c = tb.think(fomo(), {'pens': {'crowd fomo': -8.0, 'bundled': -8.0, 'thin pool': -8.0, 'falling now': -8.0}})
+    assert round(b['rank'] / a['rank'], 2) == 0.92 and b['status'] == a['status']               # one cause: −8%, same lifecycle state
+    assert round(c['rank'] / a['rank'], 2) >= tb.PEN_FLOOR and any('judge: crowd fomo' in str(p[0]) for p in b['parts'])
+    clean = ts.from_row(row('K'), 100.0)
+    assert tb.think(clean, {'pens': {'crowd fomo': -8.0}})['rank'] == tb.think(clean)['rank']   # a coin the cause does not match is untouched

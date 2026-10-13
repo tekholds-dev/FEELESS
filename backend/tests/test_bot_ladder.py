@@ -76,7 +76,7 @@ def test_the_phase_decides_what_the_seats_hunt():
 
 def test_an_empty_seat_is_decided_in_thirty_seconds_and_fills_have_their_own_guard():
     assert oe.NEAR_PATIENCE_SEC <= 30 and oe.SEAT_TARGET_AUTO <= 30
-    assert ag.FILL_MOVES_HR >= 4 * ag.CONTROL_MOVES_HR // 2 and ag.CONTROL_MOVES_HR == 6     # switches keep their 6; fills get room for 4 seats
+    assert ag.FILL_MOVES_HR >= 4 * ag.CONTROL_MOVES_HR // 2 and ag.CONTROL_MOVES_HR == 3     # switches: 3 an hour (2026-10-13, owner: trade less, seats stay filled); fills keep their room for 4 seats
     ctx = {'control': True, 'pol': {'entry': 'auto'}, 'live': True, 'courier': 'OK', 'used': 6, 'gos': [{'mint': 'G'}], 'wait': [], 'empty': 1, 'now': 1000.0}
 
 

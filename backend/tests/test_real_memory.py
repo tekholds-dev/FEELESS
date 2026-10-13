@@ -20,6 +20,10 @@ def test_it_learns_the_losing_entries_and_proves_itself_on_unseen_trades():
     bad = rm.feats('PARABOLIC', 'E2 no chasing', '🤖 agents · C-tier', None, None, 2.0)
     good = rm.feats('UPTREND', 'E12 trend in hand', '🤖 agents · A-tier', None, None, 2.0)
     assert 'not bought' in rm.judge(m, bad) and rm.judge(m, good) is None
+    assert rm.estimate(m, bad)[0] < rm.veto_of(m) < rm.estimate(m, good)[0] and m['proof']['skip']['n'] >= rm.PROOF_SKIP   # ranked against each other, not against the card's typical trade
+    every_bad = rm.build([pos(i, (-40.0 if i % 2 else -8.0) - i % 5, 'PARABOLIC' if i % 2 else 'EARLY', 'E2 no chasing' if i % 2 else 'E4 early') for i in range(80)])
+    assert every_bad['proof']['ok'] and every_bad['proof']['skip']['n'] >= rm.PROOF_SKIP        # a card that ONLY loses still tells its worse half apart (the old rule skipped nothing)
+    assert rm.judge(every_bad, rm.feats('PARABOLIC', 'E2 no chasing')) and rm.judge(every_bad, rm.feats('EARLY', 'E4 early')) is None
 
 
 def test_unproven_memory_never_blocks_and_a_drained_pool_outlier_is_capped():

@@ -12658,7 +12658,7 @@ import ai_learn as _ail
 import trench_crew as _tcrew
 AI_CFG_PATH = DATA_DIR / 'ai_providers.json'   # the provider order + on / off (no secrets — keys live in backend/.env only)
 AI_EVERY = 15.0                                 # one advisory round every 15s, ≤ AI_JOBS cases (local inference is one at a time)
-AI_JOBS = 4                                     # owner reviews · READY coins · a conflicted case · the top in-band contenders · a Judge review
+AI_JOBS = 2                                     # owner review · a split desk · a READY coin · an ambiguous setup — two calls a round at most (was 4)
 AI_NOTES_KEEP = 60
 AI_PROOF_PATH = DATA_DIR / 'ai_proof.json'      # 🧠 the model's stances, each judged 15 min later (ai_learn.py) — its record is what the agents learn from
 
@@ -12895,14 +12895,8 @@ def _ai_jobs(now):
         add('sherlock', c_, 'high', P['ready'])
     for c_ in [c_ for c_ in inband if _ai_ambiguous(c_)][:1]:
         add('devil', c_, 'normal', P['devil'])
-    for c_ in [c_ for c_ in inband if c_.get('status') == 'CONTENDING' and c_.get('mint') not in asked_][:1]:
-        add('sherlock', c_, 'normal', P['contender'])
-    rv = (((_office_state().get('judge') or {}).get('reviews')) or [])
-    if rv:
-        r_ = rv[-1]
-        if r_.get('mint') and now - _fuse._f(r_.get('at')) < 3600:
-            out.append(('judge', {'mint': r_['mint'], 'symbol': r_.get('sym'), 'result': r_.get('pct'), 'cause': r_.get('cause'), 'peak': r_.get('peak'),
-                                  'heldMin': r_.get('held'), 'rule': r_.get('exit'), 'structure': r_.get('entry'), 'phase': r_.get('phase'), 'why': r_.get('why') or r_.get('lesson')}, 'normal', P['judge']))
+    # (2026-10-13) no model call for a contender or a closed trade any more: only what can still STOP a buy is worth a call — the
+    # owner's own review, a split desk, a coin about to take a seat, an ambiguous setup. The Judge's review is the engine's own (no model).
     return sorted(out, key=lambda j_: j_[3])[:AI_JOBS]
 
 
@@ -13393,6 +13387,7 @@ async def _agents_loop():
             if time.time() - _fuse._f(_runner_live_cache.get('at')) > AGENTS_EVERY:
                 await _runner_live()
             await _agents_tick(time.time())
+            _shadow_real_buys(time.time())
             await _shadow_settle(time.time())
         except Exception as e:
             print('agents loop:', e)
@@ -13605,7 +13600,7 @@ def _judge_weights(now):
     for x_ in _agents.get('table') or []:
         ch_ = x_.get('chart') or {}
         est_, _c = _rm.estimate(mem, _rm.feats(ch_.get('state'), (ch_.get('entry') or [None, None])[1] if len(ch_.get('entry') or []) > 1 else None, '', (x_.get('li') or {}).get('phase'), (x_.get('li') or {}).get('cls'), (x_.get('vitals') or {}).get('ageH')))
-        w[x_.get('mint')] = 1 + (_fuse._f(est_) - _fuse._f(mem.get('base'))) / 50
+        w[x_.get('mint')] = 1 + (_fuse._f(est_) - _rm.veto_of(mem)) / 40   # against the LINE (the median of our own real trades): the worse half ranks down to ×0.7, the better half up to ×1.3 — a seat is never left empty for it
     return w
 
 
@@ -13651,7 +13646,7 @@ def _kernel_ctx(now):
     legs_ = ((((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '') or {}).get('legs') or [])
     pending = {l.get('mint') for l in legs_ if l.get('mint') and not l.get('placeholder') and _fuse._f(l.get('units')) <= 0}   # a seat the keeper is still buying
     return {'held': held, 'pending': pending, 'regime': (_agents.get('weather') or {}).get('regime'), 'courier': (_office.get('courier') or {}).get('health'),
-            'live': rd.get('live') if rd else None, 'weights': _judge_weights(now), 'aiw': _ai_weights(now), 'lessons': _tkl.lessons(_lc_book(now)),
+            'live': rd.get('live') if rd else None, 'weights': _judge_weights(now), 'aiw': _ai_weights(now), 'pens': _jr.penalties((_office.get('court') or {}).get('promoted')), 'lessons': _tkl.lessons(_lc_book(now)),
             'watchOnly': {m_ for m_ in _owner.get('only') or () if _tk.KERNEL.owner.get(m_) != 'arm'}}   # 👤 review / track only: judged, never READY   # 🧬 only the generations IN CONTROL
 
 
@@ -13846,10 +13841,8 @@ def _rounds_pass(table, now):
     before = {m_: e_.get('decision') for m_, e_ in (_rounds_state().get('c') or {}).items()}
     st = _tr.step(_rounds_state(), rows, now, hard, tiers, phases, held)
     by_ = {x_['mint']: x_ for x_ in rows}
-    for m_, e_ in st['c'].items():   # 📄 every NEW decision → the shadow book (ENTER / REJECT / COOLDOWN as their own groups)
-        if e_.get('decision') and before.get(m_) != e_['decision'] and m_ in by_ and now - _fuse._f(e_.get('decidedAt')) < 1:
-            _shadow['book'] = _sb.note(_shadow_book(), {**by_[m_], 'tier': (tiers.get(m_) or (None,))[0]}, 'r_' + e_['decision'].lower(), now, _shadow_px(by_[m_]), _shadow_cost(now))
-            _shadow['dirty'] = True
+    # 📄 (2026-10-13) the round decisions are no longer paper rows: the paper book holds ONE entry per CONFIRMED real buy + its controls
+    # (`_shadow_real_buys`) — paper and real money now grade the same trades, 1 : 1
     _rounds['state'] = st
     _json_save(ROUNDS_PATH, st)
 SHADOW_PATH = FUSE_HQ_PATH.parent / 'shadow_book.json'   # 📄 paper decisions + controls (shadow_book.py), graded at 30s … 1h
@@ -13908,6 +13901,43 @@ def _shadow_controls(chosen, pool, cases, now):
         _shadow['dirty'] = True
     except Exception as e:
         print('shadow controls:', str(e)[:100])
+
+
+def _shadow_real_buys(now):
+    """📄 PAPER = EVERY CONFIRMED REAL BUY, 1 : 1 (owner, 2026-10-13: "paper should only be with each confirmed buy to tighten paper to real
+    money ratio"). Each FILLED agent buy on the ledger becomes ONE paper entry at the market price of its decision (`midPx`), carrying
+    the price it really filled at (`real`) — so the book says what the fill cost on top of the paper model — plus the control picks of
+    that same moment (best not chosen · random eligible · a WAIT coin): did the agents beat a random coin? No model, no fetch, no quote:
+    the ledger rows already in memory + this pass's desk rows."""
+    try:
+        b = _shadow_book()
+        since = _fuse._f(b.get('buyAt')) or now          # first run: start from now (never a backfill)
+        rows = [r for r in _fw_full_ledger()[-300:] if r.get('side') == 'buy' and r.get('status') == 'filled' and r.get('agent') and r.get('sig')
+                and _fuse._f(r.get('confirmedAt') or r.get('at')) > since]
+        b['buyAt'] = max([since] + [_fuse._f(r.get('confirmedAt') or r.get('at')) for r in rows])
+        if not rows:
+            _shadow['book'] = b
+            return 0
+        by_ = {x_.get('mint'): x_ for x_ in _agents.get('table') or []}
+        cases_ = _tk.KERNEL.cases()
+        chosen = []
+        for r in rows:
+            row_ = {**(by_.get(r['mint']) or {'mint': r['mint'], 'symbol': r.get('symbol')}), 'go': True}
+            px_ = _fuse._f(r.get('midPx')) or _fuse._f(r.get('px'))
+            n0 = len(b.get('rows') or [])
+            b = _sb.note(b, row_, 'fill', now, px_, _shadow_cost(now))
+            if len(b.get('rows') or []) > n0:
+                b['rows'][-1].update(real=_fuse._f(r.get('px')) or None, usd=_fuse._f(r.get('usd')) or None, sig=str(r.get('sig'))[:12])
+                chosen.append(row_)
+        if chosen:
+            waits = [c_.get('row') or c_ for c_ in cases_ if not c_.get('cleared')]
+            for g_, r_ in _sb.controls(chosen, [c_['row'] for c_ in cases_ if c_.get('row') and c_['status'] in ('READY', 'CONTENDING')][:12], waits, now).items():
+                b = _sb.note(b, r_, g_, now, _shadow_px(r_), _shadow_cost(now))
+        _shadow['book'] = b; _shadow['dirty'] = True
+        return len(chosen)
+    except Exception as e:
+        print('shadow real buys:', str(e)[:120])
+        return 0
 
 
 async def _shadow_settle(now):

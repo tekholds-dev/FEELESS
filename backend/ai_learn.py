@@ -15,7 +15,7 @@ RENOTE_SEC = 1800.0      # the same stance on the same coin is one call per 30 m
 MIN_N = 20               # a stance weighs nothing until this many of its calls are judged
 KEEP_OPEN, KEEP_DONE = 200, 600
 WIN_MED, LOSE_MED = 2.0, -5.0     # typical 15-min result that makes a stance a proven spotter / a proven warning
-UP, DOWN = 1.1, 0.9
+UP, DOWN = 1.0, 0.85   # 🚫 VETO-ONLY (owner, 2026-10-13: "do #5"): the model's ENTER calls fell a typical 39% — it can no longer rank a coin UP. A warning PROVEN on its own judged record ranks one down 15%; nothing else it says weighs anything
 FRESH_SEC = 600.0        # a stance applies to its coin for 10 minutes
 
 

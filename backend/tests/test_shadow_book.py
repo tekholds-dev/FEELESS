@@ -45,7 +45,7 @@ def test_the_verdict_never_says_more_than_the_numbers():
 def test_the_judge_proposes_but_never_moves_a_live_threshold():
     import judge_review as jr
     promoted = [{'penalty': 'thin pool', 'points': -8}]
-    assert jr.penalties(promoted) == {} and jr.penalties(promoted, live=True) == {'thin pool': -8.0}
+    assert jr.penalties(promoted, live=False) == {} and jr.penalties(promoted) == {'thin pool': -8.0}
 
 
 def test_a_held_card_gets_no_engine_replacement_of_any_kind():
@@ -67,3 +67,24 @@ def test_a_held_card_gets_no_engine_replacement_of_any_kind():
 def test_the_owner_put_the_agents_back_on_real_money_once():
     src = open(__import__('reputation_service').__file__).read()
     assert 'await _agent_real_fix_1012(now)' in src and "'agentPaper': False" in src and 'agentRealFix1012' in src
+
+
+def test_paper_is_one_entry_per_confirmed_real_buy_with_its_controls(monkeypatch):
+    """📄 1 : 1 with real money: only a FILLED, signed agent buy makes a paper row (at the decision's market price, keeping the real fill)."""
+    import reputation_service as rs
+    buy = lambda m, at, **k: {'side': 'buy', 'status': 'filled', 'agent': True, 'sig': 'S' + m, 'mint': m, 'symbol': m, 'midPx': 1.0, 'px': 1.02, 'usd': 0.5, 'confirmedAt': at, 'at': at - 5, **k}
+    ledger = [buy('OLD', 90.0), buy('A', 110.0), buy('ENGINE', 111.0, agent=False), buy('SKIP', 112.0, status='skipped'), {'side': 'sell', 'status': 'filled', 'agent': True, 'sig': 'x', 'mint': 'A', 'confirmedAt': 113.0}]
+    monkeypatch.setattr(rs, '_fw_full_ledger', lambda: ledger)
+    monkeypatch.setattr(rs, '_shadow', {'book': {'buyAt': 100.0}, 'cost': 2.0, 'costAt': 1e12, 'dirty': False})
+    monkeypatch.setattr(rs, '_shadow_cost', lambda now: 2.0)
+    monkeypatch.setattr(rs, '_agents', {'table': [{'mint': 'A', 'symbol': 'A', 'px': 1.0, 'vitals': {'ageH': 1.0}, 'nums': {}}]})
+    row = lambda m, st, cleared=False: {'mint': m, 'status': st, 'cleared': cleared, 'row': {'mint': m, 'symbol': m, 'px': 2.0, 'opp': 50}}
+    monkeypatch.setattr(rs._tk.KERNEL, 'cases', lambda *a, **k: [row('B', 'CONTENDING'), row('C', 'READY', True), row('W', 'TRACKING')])
+    assert rs._shadow_real_buys(120.0) == 1
+    rows = rs._shadow['book']['rows']
+    fill = [r for r in rows if r['group'] == 'fill']
+    assert [r['mint'] for r in fill] == ['A'] and fill[0]['px'] == 1.0 and fill[0]['real'] == 1.02 and fill[0]['sig'] == 'SA'   # the engine's buy, the skipped one and the old one are not paper
+    assert {r['group'] for r in rows} >= {'fill', 'ctl_top', 'ctl_random'} and 'A' not in {r['mint'] for r in rows if r['group'] != 'fill'}
+    assert rs._shadow_real_buys(130.0) == 0 and len(rs._shadow['book']['rows']) == len(rows)       # the same buy is never noted twice
+    src = (__import__('pathlib').Path(rs.__file__)).read_text()
+    assert "'r_' + e_['decision'].lower()" not in src                                              # round decisions are no longer paper rows

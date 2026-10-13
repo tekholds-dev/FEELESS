@@ -153,7 +153,7 @@ def test_the_judge_records_wins_and_losses_and_no_rule_moves_from_one_outcome():
     rv = [{'kind': 'win', 'pct': 12.0, 'exit': 'R7 trailing protection', 'resp': {}}, {'kind': 'loss', 'pct': -20.0, 'resp': {'devil': 1}}]
     d = jr.desk_stats(rv)
     assert d['devil'] == {'decisions': 2, 'winResp': 1, 'lossResp': 1, 'accuracy': 50, 'medNet': -4.0} and d['reaper']['winResp'] == 1
-    assert jr.penalties([{'penalty': 'thin pool', 'points': -8}]) == {}       # the Judge proposes; nothing changes live
+    assert jr.penalties([{'penalty': 'thin pool', 'points': -8}]) == {'thin pool': -8.0} and jr.penalties([{'penalty': 'thin pool', 'points': -8}], live=False) == {}   # live as ranking weights since 2026-10-13
     one = [{'confirmed': True, 'realPct': -30, 'closedAt': 1, 'thesis': {'structure': 'UPTREND'}}]
     assert not rm.build(one)['proof']['ok'] and rm.judge(rm.build(one), rm.feats('UPTREND')) is None
 

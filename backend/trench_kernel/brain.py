@@ -18,6 +18,7 @@ SEVERITY = ('INFO', 'WARNING', 'STRONG_WARNING', 'HARD_VETO')
 TRIGGER_OF = {'HOT EARLY MOVE': 'ENTER', 'BREAKOUT': 'ENTER', 'RUNNING': 'ENTER', 'BUILDING': 'ARM', 'STALLING': 'WAIT', 'DISTRIBUTING': 'NO', 'COLLAPSING': 'NO'}
 WEATHER_F = {'HOT': 1.1, 'NORMAL': 1.0, 'CHOP': 0.9, 'THIN': 0.85, 'HOSTILE': 0.8}
 LANES = 4
+PEN_FLOOR = 0.75    # the most the Judge's repeat-loss penalties may rank a coin down (a weight, never a veto)
 CROWD_F = 1.05      # ≥ 8 different buyers in 90s with buyers leading (flow.vital `hot`)
 READY_MIN = 120.0     # an open_score this high with Trigger ENTER = READY (the base score is 100 for an average coin)
 
@@ -144,7 +145,14 @@ def think(ms, ctx=None):
     base, parts = _opp.open_score(ms['row'], c.get('weights'), _lc.lesson_value(ls, 'devil', 'strong'), c.get('aiw'))
     fv = ms['market'].get('flow') or {}
     crowd = CROWD_F if fv.get('state') == 'BUYERS' and fv.get('hot') else 1.0   # 🌊 a crowd buying on the live tape ranks a little higher (never past a gate)
-    rank = round(base * we['factor'] * sh['factor'] * crowd, 1)
+    hits = _opp.judge_hits(ms['row'], c.get('pens'))   # 👨‍⚖️ the Judge's repeat real-loss causes that match THIS coin: each ranks it down, together never under ×PEN_FLOOR
+    pen = 1.0
+    for _w, pts in hits:
+        pen *= max(0.5, 1 + pts / 100.0)
+    pen = max(PEN_FLOOR, round(pen, 3))
+    if hits:
+        parts = list(parts) + [('judge: ' + ' · '.join(w.replace('judge: ', '') for w, _p in hits), pen)]
+    rank = round(base * we['factor'] * sh['factor'] * crowd * pen, 1)
     op = {'tally': t, 'sherlock': sh, 'weather': we, 'trigger': tr, 'devil': dv, 'warden': wa, 'courier': co,
           'reaper': reaper(ms, held), 'archivist': {'sources': ms['identity']['sources']}, 'judge': judge(ms, c.get('weights'))}
     return {'opinions': op, 'rank': rank, 'parts': parts,

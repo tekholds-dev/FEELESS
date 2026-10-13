@@ -33,7 +33,7 @@ def is_agent(leg):
 CONTROL_HOLD_MIN = 15      # 🎮 in control: a coin is never switched in its first 15 minutes (the card's own record: exits inside 15 min lose)
 
 
-CONTROL_MOVES_HR = 6       # 🎮 in control: at most this many SWITCHES an hour (a held coin sold for another) — churn × cost is what drained the card
+CONTROL_MOVES_HR = 3       # 🎮 in control: at most this many SWITCHES an hour (a held coin sold for another) — churn × cost is what drained the card
 
 
 FILL_MOVES_HR = 36         # 🪑 filling an EMPTY seat has its own runaway guard (owner, 2026-10-11: "no seat should be empty, 30 secs to choose"):

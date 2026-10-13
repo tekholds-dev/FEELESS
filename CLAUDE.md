@@ -3619,3 +3619,20 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   "A BUTTON DOESN'T WORK" ⇒ count non-2xx by route in /tmp/feeless-*.log first:
   `grep -E '" (4|5)[0-9][0-9] ' /tmp/feeless-reputation.log | sed -E 's/.*"(GET|POST)/\1/' | sort | uniq -c | sort -rn | head`.
   NEVER put a new def between a decorator and its handler.
+- 🧠 AGENTS LEARN FROM REAL WINS + LOSSES, LIVE (owner, 2026-10-13: "do #2, 3, 4 but seats still stay filled, 5"):
+  · #2 `real_memory`: the table now carries a LINE = the median estimate of the card's own real trades; a coin's estimate = the MEAN of its
+    learned buckets (`door:other` says nothing and is dropped). Under the line = the worse half → ranked down (`_judge_weights`: ×0.7 …
+    ×1.3 against the line), never a blocked seat. Proof = ROLLING walk-forward (each trade from the 30th judged by a table built only from
+    the trades before it; ≥ 10 taken, ≥ 5 skipped, ≥ 2 pts apart). Why: the old veto was "3 points under the card's typical trade" — with a
+    typical trade of −23% nothing was ever skipped. 2026-10-13, 76 real exits: ranked first 35 at −7.8% avg vs ranked last 11 at −38.8%.
+  · #3 `judge_review.LIVE_RULES` True + kernel ctx `pens` → `brain.think`: each repeat real-loss cause (≥ 3 in the last 20 reviews) that
+    matches a coin ranks it ×(1 + points/100), all together ≥ `PEN_FLOOR` ×0.75. It had never been wired into the live ranking.
+  · #4 `CONTROL_MOVES_HR` 6 → 3 (a held coin sold for another); empty-seat fills keep `FILL_MOVES_HR` 36 so seats stay filled.
+  · #5 THE MODEL IS VETO-ONLY: `ai_learn.UP` 1.0 / `DOWN` 0.85, `open_score` clamps it to 0.85–1.0 — it can never rank a coin up (its
+    ENTER calls fell a typical 39%); only a warning proven on its own judged record weighs. Trench-voice prompts (`ai_router.SYSTEM` /
+    `ROLE_ASK`: the desk's rug-sniffer, "find what kills the play"). `AI_JOBS` 2 a round: owner review · a split desk · a READY coin ·
+    an ambiguous setup — no call for a contender or a closed trade (the Judge's review is the engine's own). The local model stays owner-only.
+  · 📄 PAPER = ONE ENTRY PER CONFIRMED REAL BUY (`_shadow_real_buys`): each FILLED, signed agent buy on the ledger → one paper row at its
+    decision's market price (`midPx`) carrying the real fill (`real`) + that moment's control picks. The 5-minute round decisions are no
+    longer paper rows. Paper and real now grade the same trades 1 : 1; no model, quote or fetch is spent on it.
+  None of this is a promise: the edge audit that day read 0 of 755 rules positive on unseen coins.

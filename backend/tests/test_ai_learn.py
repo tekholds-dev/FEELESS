@@ -27,7 +27,7 @@ def test_an_unproven_model_weighs_nothing_and_a_proven_stance_moves_the_rank_by_
     few = al.record(_book({'AVOID': [-30] * 5, 'ENTER': [20] * 5}))
     assert al.factor(few, 'AVOID') == 1.0 and al.factor(few, 'ENTER') == 1.0               # under MIN_N: shown, not used
     rec = al.record(_book({'AVOID': [-30] * 25, 'ENTER': [12] * 25, 'WATCH': [0.5] * 25}))
-    assert al.factor(rec, 'AVOID') == al.DOWN == 0.9 and al.factor(rec, 'enter') == al.UP == 1.1 and al.factor(rec, 'WATCH') == 1.0
+    assert al.factor(rec, 'AVOID') == al.DOWN == 0.85 and al.factor(rec, 'enter') == al.UP == 1.0 and al.factor(rec, 'WATCH') == 1.0
     assert al.factor(rec, 'HOLD') == 1.0 and al.factor(rec, None) == 1.0 and al.factor(None, 'AVOID') == 1.0
     bear = al.record(_book({'AVOID': [-20] * 25, 'ENTER': [-20] * 25}))                     # everything fell the same: no stance is a proven warning
     assert al.factor(bear, 'AVOID') == 1.0 and al.factor(bear, 'ENTER') == 1.0
@@ -35,10 +35,10 @@ def test_an_unproven_model_weighs_nothing_and_a_proven_stance_moves_the_rank_by_
     notes = {'A': {'devil': {'advice': {'stance': 'AVOID'}, 'at': now - 60}, 'sherlock': {'advice': {'stance': 'ENTER'}, 'at': now - 60}},   # two desks: the cautious one counts
              'B': {'sherlock': {'advice': {'stance': 'ENTER'}, 'at': now - 60}}, 'C': {'sherlock': {'advice': {'stance': 'WATCH'}, 'at': now - 60}},
              'OLD': {'devil': {'advice': {'stance': 'AVOID'}, 'at': now - al.FRESH_SEC - 1}}}
-    assert al.weights(notes, rec, now) == {'A': 0.9, 'B': 1.1}
+    assert al.weights(notes, rec, now) == {'A': 0.85}
     assert al.weights(notes, few, now) == {}
     v = al.view(_book({'AVOID': [-30] * 25, 'ENTER': [12] * 25}))
-    assert v['state'] == 'IN USE' and {r['stance']: r['factor'] for r in v['rows']} == {'AVOID': 0.9, 'ENTER': 1.1}
+    assert v['state'] == 'IN USE' and {r['stance']: r['factor'] for r in v['rows']} == {'AVOID': 0.85, 'ENTER': 1.0}
     assert al.view(_book({'AVOID': [-30] * 3}))['state'] == 'LEARNING' and al.view(None)['state'] == 'LEARNING'
 
 
@@ -46,6 +46,6 @@ def test_the_kernel_rank_takes_the_models_factor_inside_its_bounds_only():
     import opportunity as opp
     row = {'mint': 'M', 'px': 1.0, 'nums': {'d5': 4, 'v5': 5000, 'pace': 2, 'buy': 60}, 'vitals': {'ageH': 0.2, 'mcap': 40000}}
     plain = opp.open_score(row)[0]
-    assert opp.open_score(row, ai_w={'M': 0.9})[0] < plain < opp.open_score(row, ai_w={'M': 1.1})[0]
-    assert opp.open_score(row, ai_w={'M': 0.1})[0] == opp.open_score(row, ai_w={'M': 0.9})[0]      # clamped: never more than 10%
+    assert opp.open_score(row, ai_w={'M': 0.85})[0] < plain == opp.open_score(row, ai_w={'M': 1.1})[0]   # veto-only: the model never ranks a coin up
+    assert opp.open_score(row, ai_w={'M': 0.1})[0] == opp.open_score(row, ai_w={'M': 0.85})[0]     # clamped: never more than 15% down
     assert opp.open_score(row, ai_w={'OTHER': 0.9})[0] == plain

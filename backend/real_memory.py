@@ -79,49 +79,67 @@ def trades(positions):
     return sorted([p for p in positions or [] if p.get('confirmed') and p.get('realPct') is not None], key=lambda p: _f(p.get('closedAt')))
 
 
-def learn(ts):
-    rows = [(pos_feats(p), _cap(p['realPct'])) for p in ts]
-    if not rows:
-        return {'base': 0.0, 'n': 0, 'cells': {}}
-    base = _st.median([r for _, r in rows])
+def _cells(rows, base):
     cells = {}
     for fs, r in rows:
         for f in fs:
-            cells.setdefault(f, []).append(r)
-    return {'base': round(base, 2), 'n': len(rows),
-            'cells': {f: {'n': len(v), 'med': round(_st.median(v), 2), 'est': round((len(v) * _st.median(v) + SHRINK_K * base) / (len(v) + SHRINK_K), 2)}
-                      for f, v in cells.items() if len(v) >= MIN_N}}
+            if f != 'door:other':    # a door nobody named is every trade: it says nothing
+                cells.setdefault(f, []).append(r)
+    return {f: {'n': len(v), 'med': round(_st.median(v), 2), 'est': round((len(v) * _st.median(v) + SHRINK_K * base) / (len(v) + SHRINK_K), 2)}
+            for f, v in cells.items() if len(v) >= MIN_N}
+
+
+def learn(ts):
+    """The table from these trades + its LINE: the median estimate of the trades it learned from. A coin under the line sits in the
+    worse half of what this card has really bought (2026-10-13: the old veto was "3 points under the card's typical trade" — with a
+    typical trade of −23% the worst buckets read −25.7 and NOTHING was ever skipped; ranked against each other, the worse half of the
+    real trades made −38.8% avg vs −7.8% for the better half, each judged only on the trades before it)."""
+    rows = [(pos_feats(p), _cap(p['realPct'])) for p in ts]
+    if not rows:
+        return {'base': 0.0, 'n': 0, 'cells': {}, 'line': 0.0}
+    base = _st.median([r for _, r in rows])
+    t = {'base': round(base, 2), 'n': len(rows), 'cells': _cells(rows, base)}
+    t['line'] = round(_st.median([estimate(t, fs)[0] for fs, _ in rows]), 2)
+    return t
 
 
 def estimate(table, fs):
-    """→ (estimate %, the bucket that decided it) — the WORST learned bucket the coin falls into; no bucket = the typical trade."""
+    """→ (estimate %, the bucket that drags it most) — the MEAN of the learned buckets the coin falls into (one bad bucket every coin
+    shares no longer decides alone); no bucket = the typical trade."""
     cells = (table or {}).get('cells') or {}
     hits = [(cells[f]['est'], f) for f in fs or [] if f in cells]
     if not hits:
         return _f((table or {}).get('base')), None
-    return min(hits)
+    return round(sum(e for e, _ in hits) / len(hits), 2), min(hits)[1]
 
 
 def veto_of(table):
-    return _f((table or {}).get('base')) - VETO_BELOW
+    """The line a coin must clear: the median estimate of the card's own real trades (older tables: 3 points under the typical trade)."""
+    t = table or {}
+    return _f(t['line']) if t.get('line') is not None else _f(t.get('base')) - VETO_BELOW
+
+
+PROOF_FROM = 30     # the first trade judged (it needs this many before it)
+PROOF_LAST = 120    # … and only the newest trades are replayed (the table is rebuilt for each: keep it cheap)
+PROOF_SKIP = 5
 
 
 def proof(ts):
-    """Walk-forward on real money: learn on the oldest PROOF_SPLIT, screen the rest."""
+    """ROLLING walk-forward on real money: every trade from the 30th is judged by a table built ONLY from the trades before it —
+    above that table's line = it would have been taken first, under = ranked last. Proven while the taken side beats the skipped side."""
     n = len(ts)
-    cut = int(n * PROOF_SPLIT)
-    if n < 30 or cut < 20:
-        return {'ok': False, 'why': f'{n} real trades — needs 30 to prove itself', 'n': n}
-    tbl = learn(ts[:cut])
+    if n < PROOF_FROM + PROOF_TAKE:
+        return {'ok': False, 'why': f'{n} real trades — needs {PROOF_FROM + PROOF_TAKE} to prove itself', 'n': n}
     take, skip = [], []
-    for p in ts[cut:]:
-        (take if estimate(tbl, pos_feats(p))[0] > veto_of(tbl) else skip).append(_cap(p['realPct']))
+    for i in range(max(PROOF_FROM, n - PROOF_LAST), n):
+        tbl = learn(ts[:i])
+        (take if estimate(tbl, pos_feats(ts[i]))[0] >= veto_of(tbl) else skip).append(_cap(ts[i]['realPct']))
     avg = lambda v: round(sum(v) / len(v), 2) if v else None
     med = lambda v: round(_st.median(v), 2) if v else None
-    ok = len(take) >= PROOF_TAKE and bool(skip) and avg(take) - avg(skip) >= PROOF_EDGE
-    return {'ok': ok, 'n': n, 'test': n - cut, 'take': {'n': len(take), 'avg': avg(take), 'med': med(take)},
+    ok = len(take) >= PROOF_TAKE and len(skip) >= PROOF_SKIP and avg(take) - avg(skip) >= PROOF_EDGE
+    return {'ok': ok, 'n': n, 'test': len(take) + len(skip), 'take': {'n': len(take), 'avg': avg(take), 'med': med(take)},
             'skip': {'n': len(skip), 'avg': avg(skip), 'med': med(skip)},
-            'why': (f"on {n - cut} unseen real trades: kept {len(take)} at {avg(take):+.1f}% avg vs skipped {len(skip)} at {avg(skip):+.1f}%"
+            'why': (f"on {len(take) + len(skip)} real trades, each judged only by the trades before it: ranked first {len(take)} at {avg(take):+.1f}% avg vs ranked last {len(skip)} at {avg(skip):+.1f}%"
                     if take and skip else 'nothing to compare yet')}
 
 
@@ -137,6 +155,6 @@ def judge(mem, fs):
     if not (mem or {}).get('proof', {}).get('ok'):
         return None
     est, cell = estimate(mem, fs)
-    if est <= veto_of(mem):
-        return f"🧠 real-money memory: {cell} trades returned {est:+.1f}% on our real card — not bought"
+    if est < veto_of(mem):
+        return f"🧠 real-money memory: coins like this ({cell}) returned {est:+.1f}% on our real card — in the worse half, not bought while a better one is ready"
     return None
