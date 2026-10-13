@@ -3454,7 +3454,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `LiveTrade` strip (`tradeBar`: entry → now · live P&L · a bar from the stop to the take) and lives INSIDE `.ack-plot` (`--ack-h`; the terminal's
   `!important` chart heights spilled out of the box). `cockpitAi.css` is imported AFTER agentCockpit.css (it owns the plot height + the meta pass).
 - 🧠 THE MODEL'S DECISIONS + THE AGENTS LEARN FROM THEM (`AiDecisions.jsx` `AiPane` = decision panel tab 🧠 AI: provider line, model-vs-kernel agree
-  meter, ASK box → `POST /admin/ai/ask`, decision log `office.ai.log` (60 kept, 30 sent) with AGREES / DISAGREES (`lib/aiRead.js`), 🎓 learning box
+  meter, ASK box → `POST /admin/ai/ask`, decision log `office.ai.log` (60 kept, 20 sent) with AGREES / DISAGREES (`lib/aiRead.js`), 🎓 learning box
   `office.ai.learn`). `backend/ai_learn.py` (pure, tested): each stance noted once per coin / 30 min, judged 15 min later; `factor` ×0.9 (proven
   warning) / ×1.1 (proven spotter) only with ≥ 20 judged AND ≥ 2 pts apart from the model's base rate → kernel ctx `aiw` → `open_score(ai_w=)`
   (clamped 0.9–1.1). THIS REPLACES "an AI answer never changes a rank" — still never an order, size, block, stop or sell, and an unproven model

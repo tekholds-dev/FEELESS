@@ -12662,7 +12662,7 @@ def _ai_view(now=None, light=False):
         keep = sorted(notes, key=lambda k_: -max(_fuse._f(x_.get('at')) for x_ in notes[k_].values()))[:12]
         return {'providers': [{k_: r_.get(k_) for k_ in ('key', 'label', 'enabled', 'state', 'lastMs')} for r_ in v['providers']], 'active': v['active'],
                 'totals': v['totals'], 'notes': {m_: {ro_: {k_: n_.get(k_) for k_ in ('source', 'label', 'advice', 'at')} for ro_, n_ in notes[m_].items()} for m_ in keep},
-                'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY, 'log': _ai['log'][-30:],
+                'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY, 'log': _ai['log'][-20:],
                 'model': next((r_.get('model') for r_ in v['providers'] if r_.get('key') == v['active']), None), 'learn': _ail.view(_ai_book())}
     return {**v, 'notes': notes, 'rounds': _ai['rounds'], 'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY}
 

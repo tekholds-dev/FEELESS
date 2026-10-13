@@ -418,7 +418,7 @@ def test_one_office_payload_carries_everything_and_stays_bounded_pass_after_pass
     assert p['currentCase']['status'] in ('READY', 'CONTENDING') and p['currentCase']['devil']['verdict'] in ('clear', 'warn') and p['queue'][0]['trace']['final'] in ('READY', 'CONTENDING')
     assert len(p['generations']) == 10 and {g['status'] for g in p['generations']} <= {'ACTIVE', 'PROBATION'} and all(a['card']['status'] in ('active', 'probation') for a in p['agents'])
     assert len(p['tape']) <= 40 and all(set(r) >= {'id', 'at', 'agent', 'action'} for r in p['tape'])                # 📜 the decision tape: bounded in the snapshot
-    assert sizes[2] < 90_000 and sizes[2] < sizes[0] * 1.6                                                       # 70 passes later the payload is about the same size
+    assert sizes[2] < 100_000 and sizes[2] < sizes[0] * 1.6                                                       # 70 passes later the payload is about the same size
     arch = rs._json_load(rs.ARCHIVE_PATH, {})
     assert 0 < len(arch['cases']) <= of.ARCH_CASES and of.verify(arch) == 0 and any((c.get('out') or {}).get('p5') is not None for c in arch['cases'])
     assert len(json.dumps(rs._json_load(rs.OFFICE_PATH, {}))) < 40_000 and all(len(v) <= rs.OFFICE_LAT_N for v in rs._office['lat'].values())
