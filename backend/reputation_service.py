@@ -8726,7 +8726,7 @@ def _fw_market_rows(cards, books):
 
 
 LEAGUE_RESET = 'restart1'
-PRIME_RESET = 'paper20b'   # (2026-10-05: owner asked for a second restart)   # one-time: every PAPER tier card starts over on $20 (the real card is never touched)
+PRIME_RESET = 'paper20c'   # (2026-10-13: owner — "reset and upgrade fuse arena cards, they are losing"; ⚡ Next Level now inherits the agents)   # was 'paper20b'   # (2026-10-05: owner asked for a second restart)   # one-time: every PAPER tier card starts over on $20 (the real card is never touched)
 
 
 PRIME_UNIQUE = 'unique2'
@@ -9516,6 +9516,11 @@ async def _prime_reset_paper(now):
         pr['archive'] = ((pr.get('archive') or []) + [{'at': now, 'why': 'paper restart on $20', 'cards': {k: {x: c.get(x) for x in ('label', 'startUsd', 'putInUsd', 'walletUsd', 'rounds')} for k, c in gone.items()}}])[-20:]
         pr['cards'] = {k: c for k, c in cards.items() if c.get('real')}
         pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), 'sizeUsd': 20.0})
+        if PRIME_RESET == 'paper20c':   # ⚡ Next Level: off the owner's picking habit (−27%), onto the agents' judged list
+            tp_ = dict((pr.get('cfg') or {}).get('tierPick') or {})
+            tp_['next'] = {'pickStyle': 'agents'}
+            pr['cfg'] = _prime.clean_cfg({**pr['cfg'], 'tierPick': tp_})
+            pr['humanTiers'] = [t_ for t_ in (pr.get('humanTiers') if pr.get('humanTiers') is not None else HUMAN_TIERS_DEFAULT) if t_ != 'next']
         pr['reset'] = PRIME_RESET
         _json_save(FUSE_HQ_PATH, d)
     return len(gone)
@@ -9768,6 +9773,7 @@ async def _prime_tick_inner(now):
         # the "what is hot now" order both pointed at the coins that lost most. Real money buys only runners the record does not
         # expect to lose (cfg `edgeGate`, on by default); no table yet / table failing its own test = the order above stands.
         human_t = bool(not real_t and hs_prof and tid in hs_tiers)
+        agents_t = bool(not real_t and cfg_t.get('pickStyle') == 'agents')   # 🤖 this PAPER card inherits the agents' judged list (below)
         tb_ = _edge_load().get('table')
         pth_ = _json_load(RUNNERS_PATH, {}).get('paths') or {}   # 📈 each candidate's own chart read (chart_read.py) joins its snapshot — table or not
         r_t = [{**x, **_pedge._chart.keys(pth_.get(x.get('mint')) or [], now)} for x in r_t]
@@ -9775,8 +9781,11 @@ async def _prime_tick_inner(now):
             r_t = await _chart_fill(r_t, now)
         if tb_:
             r_t = _pedge.rank(r_t, tb_)
-            if cfg_t.get('edgeGate', True) and not human_t:   # real AND paper (paper = real); a 👤 card is ordered by the owner's style instead
+            if cfg_t.get('edgeGate', True) and not human_t and not agents_t:   # real AND paper (paper = real); a 👤 card is ordered by the owner's style instead
                 r_t = _pedge.gate(r_t, tb_, float(cfg_t.get('edgeFloor') or 0))
+        if agents_t:   # 🤖 its runner candidates ARE the agents' own READY / contending coins (no second scan; old list kept only when the desk is cold)
+            inh_ = _agent_inherit_rows()
+            r_t = inh_ or r_t
         if human_t:   # 👤 this PAPER card buys what the owner would pick: closest to their own picks first (pick_style.py)
             r_t = _ps.rank(r_t, hs_prof)
             # … and EXITS the way the owner does: the real card's own stop / lock / trail / hold / patience (its coins stay its own)
@@ -14078,7 +14087,8 @@ async def _coach_ai(now, env, cfg):
             return 0   # nothing to coach on: fewer than two real losses in the last 6h
         st_ = _coach_state()
         mem_ = _real_mem(now) or {}
-        case = _co.coach_case(reviews, {'worst': sorted(((v_['est'], k_, v_['n']) for k_, v_ in (mem_.get('cells') or {}).items()))[:4]}, _co.active(st_, now))
+        case = _co.coach_case(reviews, {'worst': sorted(((v_['est'], k_, v_['n']) for k_, v_ in (mem_.get('cells') or {}).items()))[:4]}, _co.active(st_, now),
+                              _co.grades(st_), (_coach.get('tape') or {}).get('rules'), (_coach.get('tape') or {}).get('stats'))
         res = await _air.ROUTER.reason(_ai_http(), env, cfg, case, 'coach', 'normal', prio=_air.PRIO['coach'])
         ad = (res or {}).get('advice') or {}
         n = 0
@@ -15488,6 +15498,27 @@ def _agents_real():
     return out
 
 
+def _kernel_row(x):
+    """A kernel candidate as a tier-card candidate row (the fields the engine's own rows carry)."""
+    return {'mint': x['mint'], 'symbol': x['symbol'], 'pairAddress': x['pair'], 'price': x['px'], 'liq': (x.get('nums') or {}).get('liq'), 'safe': (x.get('vitals') or {}).get('safe') is True, 'ageH': (x.get('vitals') or {}).get('ageH')}
+
+
+def _agent_inherit_rows(limit=8):
+    """🤖 INHERIT, NEVER REDO (owner, 2026-10-13: "have the engine build new strats from the agents' work — never waste the agents' time,
+    just inherit"): the runner candidates of a PAPER card on pick style `agents` are the kernel's own judged list — READY first, then
+    CONTENDING, best rank first — exactly what the ten agents already read, ranked, weighed with real-money memory, the Judge's and
+    the coach's penalties this pass. No second scan, no model call, no fetch. A coin the agents rejected is simply not on the list.
+    Paper only: the real card's seats are filled by the agents themselves."""
+    rows = sorted([(m_, d_) for m_, d_ in _tk.KERNEL.dec.items() if d_.get('status') in ('READY', 'CONTENDING') and m_ in _tk.KERNEL.store.mints],
+                  key=lambda kv: (kv[1]['status'] != 'READY', -_fuse._f(kv[1].get('rank'))))
+    out = []
+    for m_, d_ in rows:
+        x = _tk.KERNEL.candidate(m_, d_)
+        if x and x.get('px') and x.get('pair') and not _fw.dollar_named(x.get('symbol')):
+            out.append({**_kernel_row(x), 'score': 60 + min(40.0, _fuse._f(x.get('rank')) / 10), 'tag': f"🤖 inherits the agents · {d_['status']} · rank {_fuse._f(x.get('rank')):.0f}"})
+    return out[:limit]
+
+
 def _agents_go_rows(legs=(), seats=2, learn=False, learn_pct=100, trust=False):
     """The team's GO coins for the real card's rush. PROVEN (5-min stage conquered + `agentFeed`): up to `agentSeats` coins, normal tickets.
     🎓 LEARNING (`agentLearn`, before they are proven): ONE coin at a time — a WHOLE seat at `learn_pct` 100 (default), else a % ticket.
@@ -15509,7 +15540,7 @@ def _agents_go_rows(legs=(), seats=2, learn=False, learn_pct=100, trust=False):
     for m_, d_ in _tk.KERNEL.ready(exclude=on_):   # ⚙ the kernel's READY candidates (never a paper GO): the engine's trench drop still applies every one of its own checks
         x = _tk.KERNEL.candidate(m_, d_)
         if x and not _fw.dollar_named(x.get('symbol')):
-            out.append({'mint': x['mint'], 'symbol': x['symbol'], 'pairAddress': x['pair'], 'price': x['px'], 'liq': (x.get('nums') or {}).get('liq'), 'safe': (x.get('vitals') or {}).get('safe') is True, 'ageH': (x.get('vitals') or {}).get('ageH'),
+            out.append({**_kernel_row(x),
                         'trenchOnly': True, 'trenchScore': 900 + x['rank'], 'tag': '🤖 agents READY' + (' · 🎓 learning seat' if learning else ''), **({'stakePct': int(learn_pct or 100)} if learning else {})})
     return out[:1 if learning else 4]
 

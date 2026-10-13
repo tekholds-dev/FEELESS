@@ -601,11 +601,11 @@ def safe_anchor(l):
 DEFAULT_TIER_PICK = {
     'safe': {'pickStyle': 'hunt', 'runnerMinAgeH': 12, 'runnerMinLiqK': 25, 'runnerMinVolK': 50, 'runnerMinChg1h': 40, 'runnerMinBuy': 0, 'edgeGate': False},
     'balanced': {'pickStyle': 'sniper', 'runnerMinAgeH': 12, 'runnerMinLiqK': 50, 'runnerMinVolK': 0, 'runnerMinChg1h': 0, 'runnerMinBuy': 65, 'edgeGate': True, 'edgeFloor': 3},
-    'next': {'pickStyle': 'human'},
+    'next': {'pickStyle': 'agents'},   # 🤖 the paper card that INHERITS the agents' live work (it was 👤 picks-like-you: −27% on $20)
     'ever': {'pickStyle': 'majors'},
     'degen': {'pickStyle': 'engine'},
 }
-PICK_STYLES = {'hunt': '🚀 runner hunt', 'sniper': '🎯 sniper', 'human': '👤 picks like you', 'majors': '🪙 majors', 'engine': '🧠 engine order'}
+PICK_STYLES = {'hunt': '🚀 runner hunt', 'sniper': '🎯 sniper', 'human': '👤 picks like you', 'majors': '🪙 majors', 'engine': '🧠 engine order', 'agents': '🤖 inherits the agents'}
 
 
 def unique_rows(rows, taken):

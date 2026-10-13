@@ -187,3 +187,10 @@ def test_a_coin_flickering_off_the_list_for_one_pass_keeps_its_rounds():
     assert s['c']['F']['decision'] == 'COOLDOWN' and 'whole round' in s['c']['F']['why']
 
 
+
+
+def test_agents_is_a_pick_style_a_paper_card_can_play_and_the_next_level_card_inherits_them():
+    import arena_prime as ap_, paper_reset as pr_
+    assert ap_.PICK_STYLES['agents'].startswith('🤖') and ap_.tier_cfg({}, 'next')['pickStyle'] == 'agents'
+    assert pr_.STYLE_PICK['agents'] == {'pickStyle': 'agents'} and pr_.STYLE_PICK['human'] == {'pickStyle': 'human'}
+    assert ap_.clean_cfg({'tierPick': {'next': {'pickStyle': 'agents'}}})['tierPick']['next']['pickStyle'] == 'agents'

@@ -16,7 +16,7 @@ SCRAP_KEEP = 60
 EXIT_CHOICES = {'rideAt': (15, 20, 25, 30, 50, 100), 'rideTrail': (8, 10, 15, 20, 30), 'rotateMinDrop': (5, 10, 15, 20), 'rotateConfirm': (2, 3, 4),
                 'minHoldMins': (10, 15, 30, 60, 120), 'instantSwapPct': (0, 15, 20), 'tp': (0, 100, 200, 300)}
 # one ready-made selection per style (what each tier uses by default)
-STYLE_PICK = {'hunt': ap.DEFAULT_TIER_PICK['safe'], 'sniper': ap.DEFAULT_TIER_PICK['balanced'], 'human': ap.DEFAULT_TIER_PICK['next'], 'majors': ap.DEFAULT_TIER_PICK['ever'],
+STYLE_PICK = {'hunt': ap.DEFAULT_TIER_PICK['safe'], 'sniper': ap.DEFAULT_TIER_PICK['balanced'], 'human': {'pickStyle': 'human'}, 'agents': {'pickStyle': 'agents'}, 'majors': ap.DEFAULT_TIER_PICK['ever'],
               'engine': ap.DEFAULT_TIER_PICK['degen']}
 
 

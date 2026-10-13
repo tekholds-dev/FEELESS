@@ -35,7 +35,7 @@ def test_a_fresh_config_is_never_the_old_one_nor_any_scrapped_one_and_proven_com
 
 def test_a_style_no_other_paper_card_plays_is_preferred():
     old = {**pr.current({}, 'safe')}
-    others = ('sniper', 'human', 'majors')                                          # hunt (old) · engine is the only free one
+    others = ('sniper', 'human', 'majors', 'agents')                                      # hunt (old) · engine is the only free one
     for seed in range(6):
         assert pr.fresh_config(old, [], other_styles=others, rnd=random.Random(seed))['cfg']['pickStyle'] == 'engine'
 

@@ -146,5 +146,5 @@ def view(book, rec=None):
     n = (rec.get('ALL') or {}).get('n', 0)
     return {'rows': rows, 'vitals': vrows, 'all': rec.get('ALL'), 'open': len((book or {}).get('open') or []), 'minN': MIN_N, 'judgeMin': round(JUDGE_SEC / 60),
             'state': 'IN USE' if used else 'LEARNING' if n < MIN_N else 'NO EDGE YET',
-            'why': (f"{len(used)} proven stance{'s' if len(used) != 1 else ''} move{'' if len(used) != 1 else 's'} the rank by up to 10%" if used
+            'why': (f"{len(used)} proven stance{'s' if len(used) != 1 else ''} rank{'' if len(used) != 1 else 's'} a coin DOWN by up to 15% — the model never ranks one up" if used
                     else f"{n} of {MIN_N} judged calls — the model is shown, not used" if n < MIN_N else 'judged, but no stance or vital separates winners from losers yet — the model is shown, not used')}

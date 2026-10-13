@@ -3696,4 +3696,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   css-loader `url: false`) rendering `<AgentDesk call={readOnly} />` on a COPY of `backend/data/agents_view.json`, served by a tiny
   GET-only static + proxy server on a FREE port (51399 was still held by an older session's server and served its 3-hour-old bundle —
   check `lsof -iTCP:<port>` first), screenshot with the cached Playwright headless shell. Scratch only, never shipped.
+- 🤖 PAPER CARDS INHERIT THE AGENTS (owner, 2026-10-13: "have the engine build new strats from the agents' work — never waste the agents'
+  time, just inherit"): pick style `agents` (`arena_prime.PICK_STYLES`, default for ⚡ Next Level — it was 👤 picks-like-you, −27% on
+  $20). `_agent_inherit_rows` = the kernel's own READY then CONTENDING coins, best rank first (`_kernel_row` = the one candidate-row
+  shape, shared with `_agents_go_rows`): what the ten agents already read, ranked and weighed this pass — no second scan, no model
+  call, no fetch; the edge gate is skipped for it like the 👤 card; exits stay the tier's own. Paper only. A paper restart may deal
+  it to any tier (`paper_reset.STYLE_PICK`). `PRIME_RESET` 'paper20c' = every paper tier card back on $20 once (runs archived to the
+  record; the real card untouched). Its own record says whether the agents' list pays — never promote it without that.
+  The model coach's case now carries what the desk MEASURED (`coach_case(.., grades_, exits, speed)`: each rule's own record, the exit
+  rules' real results, call → fill timings; `ai_router.CASE_KEYS` + exits / speed).
 

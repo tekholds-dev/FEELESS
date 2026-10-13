@@ -129,3 +129,12 @@ def test_one_sale_is_one_result_in_every_record():
     assert co.rule_record(ps)['R5']['n'] == 2 and co.source_record(ps)['pulse']['n'] == 2
     import real_memory
     assert len(real_memory.trades(ps)) == 2
+
+
+def test_the_model_coach_is_shown_what_the_desk_measured():
+    s, _ = co.add(co.new_state(), 'thin pool', 'owner', 'x', 0)
+    case = co.coach_case([{'sym': 'A', 'pct': -20, 'cause': 'thin pool', 'held': 3}], None, co.active(s, 1), {'thin pool': {'n': 12, 'med': -6.0, 'up': 3, 'verdict': 'right'}},
+                         {'R5': {'n': 14, 'med': -30.6, 'won': 1}, 'R5t': {'n': 5, 'med': 1.6, 'won': 3}, 'R8': {'n': 1, 'med': 11, 'won': 1}}, {'medWaitSec': 89, 'medLandSec': 24, 'medSlipPct': 1.4})
+    assert 'its record: right' in case['rules'][0] and case['exits'].startswith('R5 -31% (n 14)') and 'R8' not in case['exits']
+    assert case['speed'] == 'call→sent 89s · sent→landed 24s · fills +1.4% vs the call'
+    assert co.coach_case([])['speed'] is None
