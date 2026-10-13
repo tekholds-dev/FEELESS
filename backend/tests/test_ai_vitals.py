@@ -22,7 +22,7 @@ def test_the_answer_is_only_the_vital_intel_fields():
 def test_the_prompt_asks_for_the_vitals_and_the_new_brief_fields_reach_the_model():
     sys_ = air.messages({}, 'sherlock')[0]['content']
     assert all(f'"{k}"' in sys_ for k in ('summary', 'risk_flags', 'narrative', 'creator_context', 'conflict_resolution', 'confidence_delta', 'wake'))
-    assert 'conflict_resolution' in air.messages({}, 'manager')[1]['content'] and 'NARRATIVE' in air.messages({}, 'sherlock')[1]['content']
+    assert 'conflict_resolution' in air.messages({}, 'manager')[1]['content'] and 'STORY' in air.messages({}, 'sherlock')[1]['content']
     case = {'mint': 'M', 'symbol': 'NEW', 'band': 'EARLY TRENCH · $40K cap', 'tape': 'last 90s $900 bought vs $200 sold', 'tapeRead': 'burst', 'early': 'first-10 buyers hold 22%',
             'dev': 'dev holds 3%', 'socials': 'set: site, X', 'calls': '3 Pump callers', 'curve': 'on the launch curve 62%', 'memory': 'our real card: −8% typical',
             'record': 'AVOID −75% (4)', 'fresh': 'HIGH 15–60m', 'velocity': '$1,200/min traded', 'wallet': 'NEVER', 'url': 'https://x.com/a'}
@@ -120,7 +120,7 @@ def test_jobs_follow_the_priority_queue_owner_conflict_ready_ambiguous_contender
     monkeypatch.setattr(rs, '_ai_brief', lambda m: {})
     monkeypatch.setattr(rs, 'AI_JOBS', 6)
     jobs = rs._ai_jobs(time.time())
-    assert [(r, c['mint'], p) for r, c, _u, p in jobs] == [('owner', 'OWN', 0), ('manager', 'C1', 1), ('sherlock', 'R1', 2), ('devil', 'AMB', 3), ('sherlock', 'TOP', 4)]
+    assert [(r, c['mint'], p) for r, c, _u, p in jobs] == [('owner', 'OWN', 0), ('manager', 'C1', 1), ('sherlock', 'R1', 2), ('devil', 'AMB', 3)]   # (2026-10-13) no call for a plain contender any more: only what can still stop a buy
     assert 'OUT' not in [c['mint'] for _r, c, _u, _p in jobs]                                         # outside the band: never asked
     old = rs._air.ROUTER.cache.copy(); n0 = rs._air.ROUTER.totals['skipped']
     try:   # R1 already answered in this state → skipped (counted), its slot goes to the next case
