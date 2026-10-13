@@ -66,7 +66,7 @@ function startGovernor() {
   let last = 0; let timer = null;
   const run = () => { timer = null; last = Date.now(); govern(); };
   const soon = () => { if (timer) return; timer = setTimeout(run, Math.max(0, 250 - (Date.now() - last))); };
-  const every = setInterval(() => { if (!document.hidden) run(); }, 1500);
+  const every = setInterval(run, 1500);   // also while hidden: surfaces that mount in a background tab are paused too (a pass with nothing to do costs ~nothing)
   window.addEventListener('scroll', soon, { passive: true, capture: true });
   window.addEventListener('resize', soon, { passive: true });
   document.addEventListener('visibilitychange', run);
