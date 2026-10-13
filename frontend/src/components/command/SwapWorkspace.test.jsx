@@ -62,7 +62,10 @@ const scripted = (...responses) => {
     // Rug shield + FEE points run alongside the trade calls.
     : String(url).includes('/rugshield/') ? Promise.resolve({ ok: true, json: async () => ({ level: 'ok', reasons: [] }) })
       : String(url).includes('/points/') ? Promise.resolve({ ok: true, json: async () => ({ points: 0 }) })
-        : Promise.resolve(queue.shift())));
+        // ONLY a trade call takes the next scripted answer. Shared pollers fire on their own clocks (coin edge, live prices): under a
+        // loaded machine one of them used to swallow the /execute answer and the swap result never rendered.
+        : String(url).includes('/api/trading/') ? Promise.resolve(queue.shift())
+          : Promise.resolve({ ok: true, json: async () => ({}) })));
 };
 const SIDE = ['/holdings/', '/rugshield/', '/points/', '/api/reputation/edge'];   // + the shared coin-edge poller (it fires on its own clock)
 const tradeCalls = () => global.fetch.mock.calls.filter(([url]) => !SIDE.some(k => String(url).includes(k)));
@@ -178,7 +181,7 @@ test('keeps an uncertain execution pending across reopen without resending the s
     expect.objectContaining({ method: 'POST', body: expect.stringContaining(orderId) }),
   ]);
   // the result paints after the execute answer settles: under a loaded machine that is a few more turns than one act() flushes
-  for (let i = 0; i < 60 && !firstMount.container.querySelector('[data-testid="swap-result"] b'); i += 1) await act(async () => { await new Promise(r => setTimeout(r, 50)); });
+  for (let i = 0; i < 30 && !firstMount.container.querySelector('[data-testid="swap-result"] b'); i += 1) await act(async () => { await new Promise(r => setTimeout(r, 50)); });
   expect(firstMount.container.querySelector('[data-testid="swap-result"] b').textContent).toBe('SUBMITTED');
   expect(JSON.parse(localStorage.getItem('feeless.pending-swap-order'))).toEqual({ order_id: orderId });
   expect(localStorage.getItem('feeless.pending-swap-order')).not.toContain('signed_transaction');

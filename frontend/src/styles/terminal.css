@@ -3739,7 +3739,6 @@ body.profile-bg .wallet-profile-page{background:transparent!important}body.profi
 /* holders · animated */
 @keyframes pbg-pan{from{background-position:0% 50%}to{background-position:100% 50%}}
 @keyframes pbg-rain{from{background-position:0 0,0 0}to{background-position:0 600px,0 0}}
-@keyframes pbg-spin{to{transform:rotate(1turn)}}
 .pbg-glitter{background:radial-gradient(2px 2px at 20% 30%,#fff8,transparent),radial-gradient(2px 2px at 70% 60%,#ffd6ff99,transparent),radial-gradient(1.5px 1.5px at 40% 80%,#fff7,transparent),linear-gradient(160deg,#2a0b3d,#12051f 60%,#3a0a2a);background-size:220px 220px,260px 260px,180px 180px,100% 100%;animation:pbg-pan 18s linear infinite alternate}
 .pbg-matrix{background:repeating-linear-gradient(180deg,transparent 0 22px,rgba(0,255,120,.10) 22px 24px),repeating-linear-gradient(90deg,transparent 0 18px,rgba(0,255,120,.05) 18px 20px),#000a03;animation:pbg-rain 6s linear infinite}
 .pbg-sunset,.pbg-vapor,.pbg-aurora,.pbg-plasma,.pbg-goldrush,.pbg-neoncat,.pbg-alpha,.pbg-hologram,.pbg-diamond,.pbg-whale{background-size:300% 300%;animation:pbg-pan 14s ease-in-out infinite alternate}

@@ -3418,3 +3418,21 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   NAME, waits 15s, then -9; every launch line carries `--timeout-graceful-shutdown 10`. After ANY restart `pgrep -f "uvicorn reputation_service" | wc -l` = 1.
   Restarting ONE service by hand: `pkill -f "uvicorn <app>"` and let keep-alive start it (its 120s grace) — a hand start races
   keep-alive's probe and gets killed. A new store over ~1 MB must not be saved / parsed on the loop per event: debounce + keep in memory.
+- 🧈 BUTTER PASS 2 (owner, 2026-10-12: "lag in the Agents tab, slow charts — clean dead code, run like butter"):
+  · Agents stream: a kernel pass sends a BURST of deltas (one per changed candidate) and each one re-rendered the whole tab → `agentHub`
+    folds them in at once but paints ≤ once per `EMIT_MS` 150 ms (`streamApply` / `emitSoon`; `hubApply` for the owner's own taps stays instant).
+  · Agents page payload: `_agents_page_body()` = the snapshot minus what no screen draws (`AGENTS_PAGE_DROP`: index · social · cycleLog ·
+    intakeView · rpc · lifecycle · seatScores · seatActions · opp …, and each row's `social` research packet = 250 KB), serialized ONCE
+    per 2s for every reader (616 → 381 KB, 75 KB gzipped). Memory keeps everything (`_agents_snapshot()`); `data/agents_view.json` = the
+    page's own bytes. A NEW office section the page must draw ⇒ make sure it is not in `AGENTS_PAGE_DROP`.
+  · Charts: a chart already built answers AT ONCE (`RESP_STALE_SEC` 90: fresh < 20s, else the same answer + ONE background rebuild; no
+    pool lookup first) — a repeat poll went 0.4–2s → 2 ms. The live candle comes from the price stream, never from this response.
+  · Lists: `_list_now(key, ttl, rebuild)` = stale-while-revalidate for /fuses/discover, /fuses/trench, /fuses/trench/open
+    (`LIST_STALE_SEC` 180, ONE rebuild per key via `_LIST_REBUILD`); Pump callouts answer from memory with one refresh behind. They
+    cost 2–7s on EVERY 10s cache expiry → ~30 ms. A new list endpoint over ~0.3s to build ⇒ `_list_now`, never an inline rebuild.
+  · Dead code out: SeatOps is only `KernelBoard` now (FreshBlock / RpcLanes / ActiveIndex + a dozen orphan helpers were drawn only by
+    the retired room), 5 unused cockpit constants, 2 in OfficeEdge, 19 dead seatOps rules, 12 unreferenced @keyframes site-wide. The
+    build's lint does NOT flag unused variables — check with eslint `no-unused-vars` (+ `react/jsx-uses-vars`) and an
+    "export never imported outside tests" scan before calling a surface clean.
+  · SwapWorkspace test: only `/api/trading/` calls take a scripted answer — a shared poller (coin edge) used to swallow the /execute
+    answer under load. test_keeper_landing's scanner-share test freezes its clock. Both had been refusing the push gate on a loaded Mac.

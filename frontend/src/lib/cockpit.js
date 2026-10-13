@@ -46,7 +46,6 @@ export function lastByMint(rows) {
 
 // ── the seats ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // Reaper's ruling → the badge (PROTECT / HOLD / EXIT / TAKE …); a seat the keeper is still buying = ORDER PENDING
-export const BADGE_CLS = { PROTECT: 'is-good', 'TAKE PROFIT': 'is-good', TAKE: 'is-good', HOLD: 'is-hold', 'HOLD 5 MORE': 'is-hold', EXIT: 'is-bad', 'EXIT INVALIDATED': 'is-bad', 'ORDER PENDING': 'is-pend', OPEN: 'is-open' };
 // ONE card per seat of the real card: who holds it, its live % since entry, entry / now in MARKET CAP, the $ in the seat, how long it
 // has been held, Reaper's ruling + rule, and the coin's newest real tape line. An open seat says how many READY coins could take it.
 export function seatCards(d, livePx) {
@@ -173,7 +172,6 @@ export function reviewQueue(cands, k = 'all') {
 // ── the seat's state, in the cockpit's words ─────────────────────────────────────────────────────────────────────────────────────
 // OPEN (nothing can take it) · HUNTING (open, READY coins on the desk) · ARMED (the buy is in flight) · HELD · PROTECT (Reaper's trail /
 // protect) · ROTATE (a challenger beats it by the switch margin this pass) · EXITING (Reaper ruled EXIT / TAKE — the sell is on its way)
-export const SEAT_STATES = ['HUNTING', 'ARMED', 'HELD', 'PROTECT', 'ROTATE', 'EXITING', 'OPEN'];
 export const STATE_CLS = { HUNTING: 'is-hunt', ARMED: 'is-pend', HELD: 'is-hold', PROTECT: 'is-good', ROTATE: 'is-rot', EXITING: 'is-bad', OPEN: 'is-open' };
 export function seatState(s, readyN = 0) {
   if (!s || s.open) return readyN > 0 ? 'HUNTING' : 'OPEN';
@@ -227,7 +225,6 @@ const LETTER = {
   courier: r => (/FILLED|CONFIRMED/.test(r.action) ? (/SELL/.test(r.action) ? ['X', '#fa708c', 'aboveBar', 'arrowDown'] : /BUY/.test(r.action) ? ['B', '#15d16a', 'belowBar', 'arrowUp'] : null) : null),
   reaper: r => (/EXIT/.test(r.action) ? ['X', '#ff5577', 'aboveBar', 'arrowDown'] : /PROTECT|TAKE|HOLD/.test(r.action) ? ['R', '#9fe3ff', 'aboveBar', 'circle'] : null),
 };
-export const MARKER_KEY = [['T', 'Trigger'], ['D', 'Devil'], ['W', 'Warden'], ['B', 'buy filled'], ['R', 'Reaper'], ['X', 'exit']];
 // → [{time, position, shape, color, text (the letter), price?, id, agent, action, why, mc, at}] — a line with no time is never drawn
 export function letterMarkers(rows, fills) {
   const out = []; const hasCourier = (rows || []).some(r => r.agent === 'courier');
@@ -242,7 +239,6 @@ export function letterMarkers(rows, fills) {
 }
 
 // ── freshness words (the INPUTS tab) ──────────────────────────────────────────────────────────────────────────────────────────────
-export const FRESH_WORDS = ['LIVE', 'FRESH', 'PARTIAL', 'STALE', 'PENDING', 'UNAVAILABLE'];
 export function freshWord(sec, { pending = false, partial = false } = {}) {
   if (sec == null) return pending ? 'PENDING' : 'UNAVAILABLE';
   if (partial) return 'PARTIAL';
@@ -292,7 +288,6 @@ export function newEvents(prev, rows) {
 }
 
 // ── the review queue's status word ───────────────────────────────────────────────────────────────────────────────────────────────
-export const QUEUE_STATUSES = ['NEW', 'TRACKING', 'CONTENDING', 'READY', 'ANALYZING', 'ARMED', 'PENDING'];
 export function queueStatus(c) {
   if (!c) return 'TRACKING';
   if (c.owner === 'arm') return 'ARMED';

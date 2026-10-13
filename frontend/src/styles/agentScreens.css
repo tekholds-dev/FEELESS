@@ -198,7 +198,6 @@
 @keyframes agsZoom { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
 @keyframes agsGavel { 0% { transform: rotate(-35deg); } 60% { transform: rotate(12deg); } 100% { transform: none; } }
 @keyframes agsThrob { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .75; transform: scale(1.04); } }
-@keyframes agsFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 
 body.fx-lite .ags-sweep { display: none; } body.fx-lite .ags-court *, body.fx-lite .ags-tray { animation: none !important; } body.fx-lite .ags-screen *, body.fx-lite .ags-zoom, body.fx-lite .ags-zoom *, body.fx-lite .ags-seat em, body.fx-lite .ags-shade { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .ags-court *, .ags-tray { animation: none !important; transition: none !important; } .ags-sweep { display: none; } .ags-screen *, .ags-zoom, .ags-zoom *, .ags-shade, .ags-seat *, .ags-mini { animation: none !important; transition: none !important; } }

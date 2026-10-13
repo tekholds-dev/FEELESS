@@ -28,7 +28,6 @@
 @media(max-width:350px){.context-indicator{display:none}.context-bar select{max-width:172px}.heartbeat-caption h1{font-size:28px}.heartbeat-caption{width:90%}.heartbeat-mark{right:0;opacity:.4}.heartbeat-top>.state-tag{font-size:4px}.pulse-cell>strong{font-size:11px}.pulse-cell>small{font-size:5px}.pulse-cell.amber>strong{font-size:9px}.command-home-heading h1{font-size:19px}.command-home-heading .eyebrow{font-size:5px}.command-section-title>small{font-size:5px}.flow-track b{font-size:4px}.allocation-detail h2{font-size:11px}.feecat-banner h1{font-size:30px}.signal-mover-row .token-avatar{display:none}.signal-mover-row b{max-width:80px}.intelligence-card .intel-actions{gap:4px}.intel-actions button{font-size:7px}}
 
 /* ===== CINEMATIC GLOBE HERO ===== */
-@keyframes hintPulse{0%,100%{opacity:.4}50%{opacity:1}}
 
 /* ===== ECOSYSTEM WORLD (blur reveal) ===== */
 .eco-world{position:fixed;inset:0;z-index:130;display:flex;animation:ecoFade .32s ease-out}

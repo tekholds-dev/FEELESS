@@ -123,3 +123,74 @@ def test_full_ledger_reads_only_new_rows_and_matches_a_full_read():
         store.Ledger.since = real
     assert [r['id'] for r in again] == ['o0', 'o1', 'o2', 'o3'] == [r['id'] for r in lg.rows(limit=10)[::-1]]
     assert [r['id'] for r in first] == ['o0', 'o1', 'o2']                              # a list handed out earlier is never changed
+
+
+def test_the_agents_page_gets_a_trimmed_snapshot_serialized_once(monkeypatch):
+    import json
+    import reputation_service as rs
+    office = {'at': 5, 'mission': {'x': 1}, 'index': [1] * 50, 'social': {'big': 'x' * 500}, 'cycleLog': [1], 'kernel': {'candidates': []}}
+    monkeypatch.setattr(rs, '_agents', {'view': {'agents': [{'key': 'tally'}], 'table': [{'mint': 'M', 'symbol': 'S', 'social': {'packet': 'y' * 900}, 'k': {'rank': 1}}]}, 'card': None})
+    monkeypatch.setattr(rs, '_office', {'payload': office})
+    rs._agents_page.update(key=None, body=b'{}')
+    body = rs._agents_page_body(now=100.0)
+    page = json.loads(body)
+    assert page['office'] == {'at': 5, 'mission': {'x': 1}, 'kernel': {'candidates': []}} and page['table'] == [{'mint': 'M', 'symbol': 'S', 'k': {'rank': 1}}]
+    assert rs._agents_page_body(now=100.5) is body                      # every reader inside the window shares the same bytes
+    assert rs._agents_snapshot()['office'] is office and 'social' in office and 'social' in rs._agents['view']['table'][0]   # memory is untouched
+
+
+def test_a_built_chart_answers_at_once_and_refreshes_behind(monkeypatch):
+    import asyncio
+    import time
+    import candles_service as cs
+    built = []
+
+    async def build(chain, pair, interval):
+        built.append(pair); await asyncio.sleep(0.3)
+        out = {'candles': [[1, 1, 1, 1, 1]], 'provider': 'new'}
+        cs._resp_cache[(chain, pair, interval)] = (time.time(), out)
+        return out
+
+    async def hint(*a, **k):
+        raise AssertionError('a chart that is already built never waits on a pool lookup')
+    monkeypatch.setattr(cs, '_build_candles', build); monkeypatch.setattr(cs, '_accept_mint_hint', hint)
+    cs._history_tasks.clear()
+    old = {'candles': [[0, 1, 1, 1, 1]], 'provider': 'old'}
+
+    async def go():
+        cs._resp_cache[('solana', 'P', '1m')] = (time.time() - 5, old)            # fresh: the answer, nothing started
+        assert await cs.get_candles('solana', 'P', '1m', None, 'MINT') is old and built == []
+        cs._resp_cache[('solana', 'P', '1m')] = (time.time() - 40, old)           # 40s old: the same answer NOW, one rebuild behind it
+        t0 = time.time()
+        assert await cs.get_candles('solana', 'P', '1m', None, 'MINT') is old and time.time() - t0 < 0.1
+        assert await cs.get_candles('solana', 'P', '1m', None, 'MINT') is old     # a second poll shares the rebuild in flight
+        await asyncio.sleep(0.4)
+        assert built == ['P'] and (await cs.get_candles('solana', 'P', '1m', None, 'MINT'))['provider'] == 'new'
+    asyncio.run(go())
+
+
+def test_a_stale_list_answers_at_once_while_one_rebuild_runs(monkeypatch):
+    import asyncio
+    import time
+    import reputation_service as rs
+    monkeypatch.delenv('PYTEST_CURRENT_TEST', raising=False)
+    rs._disc_cache.clear(); rs._list_flight.clear()
+    n = {'b': 0}
+
+    async def rebuild():
+        n['b'] += 1
+        assert rs._list_now(('k', ''), 10, rebuild) is None       # inside the rebuild the route really builds
+        await asyncio.sleep(0.05)
+        rs._disc_cache[('k', '')] = (time.time(), 'new')
+
+    async def go():
+        assert rs._list_now(('k', ''), 10, rebuild) is None       # nothing cached: the caller builds
+        rs._disc_cache[('k', '')] = (time.time() - 2, 'old')
+        assert rs._list_now(('k', ''), 10, rebuild) == 'old' and n['b'] == 0          # fresh
+        rs._disc_cache[('k', '')] = (time.time() - 30, 'old')
+        assert rs._list_now(('k', ''), 10, rebuild) == 'old' and rs._list_now(('k', ''), 10, rebuild) == 'old'   # stale: served, ONE rebuild
+        await asyncio.sleep(0.15)
+        assert n['b'] == 1 and rs._list_now(('k', ''), 10, rebuild) == 'new'
+        rs._disc_cache[('k', '')] = (time.time() - rs.LIST_STALE_SEC - 1, 'ancient')
+        assert rs._list_now(('k', ''), 10, rebuild) is None       # too old to show: built now
+    asyncio.run(go())

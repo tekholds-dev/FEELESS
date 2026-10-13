@@ -8,7 +8,6 @@
 .pnt-h-2 .pnt-pct, .pnt-h-3 .pnt-pct { animation: pntBeat .6s ease-out both; }
 .pnt-h-3 { box-shadow: 0 0 18px -4px currentColor; }
 .pnt.up.pnt-h-2, .pnt.up.pnt-h-3 { color: var(--m-accent); } .pnt.down.pnt-h-2, .pnt.down.pnt-h-3 { color: #ff8fa3; }
-@keyframes pntSweep { from { transform: translateX(-100%); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
 @keyframes pntSweepDn { from { transform: translateX(100%); opacity: 1; } to { transform: translateX(-100%); opacity: 0; } }
 @keyframes pntBeat { 0% { transform: scale(1); } 35% { transform: scale(1.08); } 100% { transform: scale(1); } }
 body.fx-lite .pnt-tick, body.fx-lite .pnt-pct { animation: none; } body.fx-lite .pnt-tick { display: none; } body.fx-lite .pnt-h-3 { box-shadow: none; }

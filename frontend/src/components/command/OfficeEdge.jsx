@@ -9,10 +9,6 @@ import '../../styles/officeEdge.css';
 
 const SEAT_CLS = { FULL: 'is-ok', FILLING: 'is-go', 'NO VALID ENTRY': 'is-wait', 'OFFICE WARMING UP': 'is-warm', 'CREATOR MANUAL': 'is-you', 'AGENT CONTROL OFF': 'is-you' };
 
-// 🩺 LIVE OPERATION HEALTH — why the agents are (or are not) filling seats, in one line of real fields
-const EX_CLS = { HEALTHY: 'is-ok', DEGRADED: 'is-wait', BLOCKED: 'is-bad', UNKNOWN: '' };
-// 🔁 THE 60s CYCLE — what the desk looked at this pass and what each seat is doing
-const ACT_CLS = { HOLD: 'is-ok', REVIEW: '', 'CHALLENGER FOUND': 'is-wait', SWITCHING: 'is-go', 'TAKE / EXIT': 'is-wait', FILLING: 'is-go', 'CASH — NO VALID ENTRY': '' };
 const tag = (cls, text, tip, key) => <i key={key} className={`oed-tag ${cls || ''}`} data-tip={tip}>{text}</i>;
 const pctCls = v => (v == null ? '' : Number(v) > 0 ? 'oed-up' : Number(v) < 0 ? 'oed-dn' : '');
 

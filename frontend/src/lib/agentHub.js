@@ -128,6 +128,15 @@ export function hubLoad() {
 // a one-off reader (the swap-in picker's 🤖 list): the hub's current snapshot when it is running, else ONE request — never a second poller
 export const hubSnapshot = call => (S.raw ? Promise.resolve(S.raw) : call ? call('/admin/agents') : Promise.resolve(null));
 export const hubApply = ev => { const next = applyDelta(S.raw, ev); if (next !== S.raw) { S.raw = next; emit(); } };
+// ⚡ STREAM deltas are folded in at once but PAINTED together: a kernel pass sends a burst (one delta per candidate that changed) and each
+// used to re-render the whole Agents tab — dozens of full renders inside a second, every pass. Now ≤ one paint per EMIT_MS.
+export const EMIT_MS = 150;
+let emitTimer = null;
+const emitSoon = () => {
+  if (process.env.NODE_ENV === 'test') { emit(); return; }
+  if (!emitTimer) emitTimer = setTimeout(() => { emitTimer = null; emit(); }, EMIT_MS);
+};
+const streamApply = ev => { const next = applyDelta(S.raw, ev); if (next !== S.raw) { S.raw = next; emitSoon(); } };
 
 async function runStream() {
   const s = session();
@@ -144,7 +153,7 @@ async function runStream() {
       evs.forEach(e => {
         if (e.kind === 'hello') { S.live = true; S.seq = e.data?.seq ?? S.seq; if (e.data?.resync || !S.raw) hubLoad(); emit(); }
         else if (e.kind === 'resync') { S.seq = e.data?.seq ?? S.seq; hubLoad(); }
-        else if (e.kind !== 'bye') { if (e.seq) S.seq = e.seq; hubApply(e); }
+        else if (e.kind !== 'bye') { if (e.seq) S.seq = e.seq; streamApply(e); }
       });
     }
   } catch (e) { /* no stream (offline, a buffering proxy, signed out): the snapshot poll carries on */ }
@@ -160,7 +169,7 @@ function start() {
   S.poll = setInterval(() => { const due = S.live ? SNAPSHOT_LIVE_MS : S.every; if (Date.now() - last >= due - 50) { last = Date.now(); if (!(typeof document !== 'undefined' && document.hidden)) hubLoad(); } }, 1000);
   runStream();
 }
-function stop() { if (S.poll) { clearInterval(S.poll); S.poll = null; } if (S.abort) { try { S.abort.abort(); } catch (e) { /* closed */ } S.abort = null; } S.live = false; }
+function stop() { if (emitTimer) { clearTimeout(emitTimer); emitTimer = null; } if (S.poll) { clearInterval(S.poll); S.poll = null; } if (S.abort) { try { S.abort.abort(); } catch (e) { /* closed */ } S.abort = null; } S.live = false; }
 export function hubReset() { stop(); Object.assign(S, { raw: null, err: null, call: null, refs: 0, seq: 0, live: false, loading: null, every: SNAPSHOT_MS }); S.subs.clear(); S.snap = { raw: null, err: null, live: false }; }   // tests
 
 const subscribe = f => { S.subs.add(f); return () => S.subs.delete(f); };

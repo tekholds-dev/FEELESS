@@ -89,7 +89,6 @@
 
 /* 13 · SHOCKWAVE — rings blasting out from the card */
 .mca-shockwave i { inset: 22% 18%; border-radius: 50%; border: 2px solid rgba(21, 209, 106, .8); opacity: 0; animation: auWave 2.4s ease-out calc(var(--i) * .6s) infinite; }
-@keyframes auWave { 0% { transform: scale(.6); opacity: .9; } 100% { transform: scale(1.5); opacity: 0; } }
 
 /* 14 · TOXIC — slime dripping off the bottom edge */
 .mca-toxic::before { content: ''; position: absolute; left: 12%; right: 12%; bottom: 8%; height: 8%; border-radius: 0 0 40% 40%; background: radial-gradient(80% 100% at 50% 0%, #9dff3a, #3fae12 70%, transparent 72%); box-shadow: 0 0 22px rgba(157, 255, 58, .5); }

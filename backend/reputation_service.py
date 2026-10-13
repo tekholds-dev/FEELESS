@@ -3143,6 +3143,38 @@ def _holder_facts(mint):
 SIGNAL_LENSES, SIGNAL_CACHE_SEC = ('double', 'calls', 'fed'), 30   # 📣 the Pump-signal lists change once a minute at the source: one build serves 30s (no Jupiter burst)
 LIST_CACHE_SEC = 10   # ⚡ every viewer of a pick list shares one build for 10s (the screens re-read every 20s)
 _disc_cache: dict = {}
+LIST_STALE_SEC = 180   # ⚡ a list past its cache time still answers AT ONCE for this long while ONE rebuild runs behind it
+_LIST_REBUILD = contextvars.ContextVar('list_rebuild', default=False)
+_list_flight: dict = {}
+
+
+def _list_now(key, ttl, rebuild):
+    """Stale-while-revalidate for the pick lists (trench 2–7s, open gates 2–3s to build): → the cached answer when it may be served
+    (fresh, or stale with ONE background rebuild started), else None = the caller builds it now. `rebuild` = a coroutine factory
+    that runs the same route; inside it this returns None so the route really builds and stores."""
+    if _LIST_REBUILD.get() or os.environ.get('PYTEST_CURRENT_TEST'):
+        return None
+    hit = _disc_cache.get(key)
+    if not hit:
+        return None
+    age = time.time() - hit[0]
+    if age < ttl:
+        return hit[1]
+    if age >= LIST_STALE_SEC:
+        return None
+    t = _list_flight.get(key)
+    if t is None or t.done():
+        async def run():
+            _LIST_REBUILD.set(True)
+            try:
+                await rebuild()
+            except Exception as e:
+                print('list rebuild:', key, str(e)[:120])
+        _list_flight[key] = asyncio.create_task(run())
+        if len(_list_flight) > 200:
+            for k in [k for k, v in _list_flight.items() if v.done()]:
+                _list_flight.pop(k, None)
+    return hit[1]
 _best_rows: list = []   # 🏆 the engine's banger list from the last real-card tick (clean entry + tape-checked), best first
 
 
@@ -3154,9 +3186,9 @@ async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solan
     """The picker lists + 🧬 holder facts on every launch-coin row (top-10 · dev · insiders · bundled / sniper wallets, from the scan cache) and
     no dead rows (under $3K traded an hour). The top rows of the list just opened get a scan queued, so the facts fill in while it is open."""
     key_ = (lens, chain)
-    hit_ = _disc_cache.get(key_)
-    if hit_ and time.time() - hit_[0] < (SIGNAL_CACHE_SEC if lens in SIGNAL_LENSES else LIST_CACHE_SEC) and not os.environ.get('PYTEST_CURRENT_TEST'):
-        return hit_[1]
+    got_ = _list_now(key_, SIGNAL_CACHE_SEC if lens in SIGNAL_LENSES else LIST_CACHE_SEC, lambda: fuses_discover(lens, chain))
+    if got_ is not None:
+        return got_
     out = await _fuses_discover_raw(lens, chain)
     _disc_cache[key_] = (time.time(), out)   # lists returned as they are (majors, pools…); a dressed launch list replaces this below
     rows = out.get('pools') if isinstance(out, dict) else None
@@ -6527,6 +6559,10 @@ async def _pump_calls_build(force=False):
         return _pump_calls['board']
     if _pump_calls_flight.get('t'):
         return _pump_calls['board']
+    if not force and not _FUSE_FORCE.get() and (_pump_calls['board'].get('coins') or _pump_calls['board'].get('top')):
+        _pump_calls['at'] = now   # ⚡ a viewer gets the board in memory at once; ONE refresh runs behind it (it took 2–5s inline)
+        asyncio.create_task(_pump_calls_build(force=True))
+        return _pump_calls['board']
     _pump_calls_flight['t'] = True
     _pump_calls['at'] = now
     try:
@@ -6762,9 +6798,9 @@ async def _callout_tick(now):
 async def fuse_trench_open():
     """🚪 Open gates: every launch coin the feed sees, front-runners first, nothing filtered (each row says what it has not passed)
     + 📣 the callouts of the last hours with their result. Coin data only. A list to LOOK at; the engine never buys from it."""
-    hit_ = _disc_cache.get(('open', ''))
-    if hit_ and time.time() - hit_[0] < LIST_CACHE_SEC and not os.environ.get('PYTEST_CURRENT_TEST'):
-        return hit_[1]
+    got_ = _list_now(('open', ''), LIST_CACHE_SEC, fuse_trench_open)
+    if got_ is not None:
+        return got_
     rows = _open_board() if _open_pairs else (_open_cache.get('rows') or [])
     await _jup_lite([r.get('mint') for r in rows])
     rows = _clean_rows([dict(r) for r in rows])
@@ -7408,9 +7444,9 @@ def _trench_judge():
 @app.get('/api/reputation/fuses/trench')
 async def fuse_trench(meta: str = Query('', max_length=20)):
     """🗑 The trench list + 🧼 the 10-point clean score and holder facts on every row (owner, 2026-10-08: $giftr, a rug, came from this list)."""
-    hit_ = _disc_cache.get(('trench', meta))
-    if hit_ and time.time() - hit_[0] < LIST_CACHE_SEC and not os.environ.get('PYTEST_CURRENT_TEST'):
-        return hit_[1]
+    got_ = _list_now(('trench', meta), LIST_CACHE_SEC, lambda: fuse_trench(meta))
+    if got_ is not None:
+        return got_
     out = await _fuse_trench_raw(meta)
     if isinstance(out, dict) and out.get('rows'):
         await _jup_lite([r.get('mint') or r.get('baseAddress') for r in out['rows']])
@@ -13694,7 +13730,8 @@ async def _agents_tick(now):
         except Exception as e:
             print('rounds:', str(e)[:120])
         try:   # a read-only copy of exactly what GET /admin/agents answers (for checking the real page without an HQ sign-in)
-            _json_save(DATA_DIR / 'agents_view.json', {**_agents['view'], **({'card': _agents['card']} if _agents.get('card') else {}), 'office': _office.get('payload')})
+            vp_ = DATA_DIR / 'agents_view.json'; vt_ = vp_.with_suffix('.tmp')
+            vt_.write_bytes(_agents_page_body()); vt_.replace(vp_)   # the SAME bytes the page gets (already serialized: no second 600 KB dump per pass)
         except Exception:
             pass
         try:   # 🔎 the narrative packet for the strongest candidates only (background; one job at a time; cached by TTL)
@@ -14753,6 +14790,11 @@ async def admin_agents(request: Request):
     """🤖 HQ › Agents + the swap-in 🤖 Agents list (creator / admin wallets): the four agents, their scorecards, the live table (every agent's
     word per coin), the paper desk and the road to real money. Read-only; only the creator may switch the real-card feed (POST)."""
     _require_admin(request)
+    return Response(_agents_page_body(), media_type='application/json')
+
+
+def _agents_snapshot():
+    """Everything the last agent pass + tier tick left in memory (the office rides on the same answer). Runs nothing."""
     if not _agents.get('view'):
         st = _json_load(AGENTS_PATH, {})
         rcfg_ = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
@@ -14761,6 +14803,34 @@ async def admin_agents(request: Request):
     if _agents.get('card') and (v_.get('card') or {}) != _agents['card']:   # the card moves every tier tick; the view is rebuilt once a minute
         v_ = {**v_, 'card': _agents['card']}
     return {**v_, 'office': _office.get('payload')}   # 🏢 the office rides on the SAME response: the Agents page makes one request
+
+
+# ⚡ WHAT THE PAGE GETS: the snapshot minus the sections no screen draws (they fed the retired room / seat views — 2026-10-12: ~350 KB of a
+# 616 KB answer, most of it each row's research packet), serialized ONCE per 2s for every reader instead of encoded per request.
+AGENTS_PAGE_DROP = ('index', 'social', 'cycleLog', 'intakeView', 'rpc', 'lifecycle', 'seatScores', 'seatActions', 'opp', 'loadPass', 'switchTests')
+AGENTS_ROW_DROP = ('social',)
+AGENTS_PAGE_SEC = 2
+_agents_page: dict = {'key': None, 'body': b'{}'}
+
+
+def _agents_page_dict(snap):
+    off = snap.get('office')
+    return {**snap, 'table': [{k: v for k, v in r.items() if k not in AGENTS_ROW_DROP} if isinstance(r, dict) else r for r in snap.get('table') or []],
+            'office': {k: v for k, v in off.items() if k not in AGENTS_PAGE_DROP} if isinstance(off, dict) else off}
+
+
+def _agents_page_body(now=None):
+    now = time.time() if now is None else now
+    key = (id(_agents.get('view')), id(_office.get('payload')), int(now / AGENTS_PAGE_SEC))
+    if _agents_page['key'] != key:
+        page = _agents_page_dict(_agents_snapshot())
+        try:
+            body = json.dumps(page, separators=(',', ':')).encode()
+        except (TypeError, ValueError):
+            from fastapi.encoders import jsonable_encoder
+            body = json.dumps(jsonable_encoder(page), separators=(',', ':')).encode()
+        _agents_page.update(key=(id(_agents.get('view')), id(_office.get('payload')), int(now / AGENTS_PAGE_SEC)), body=body)
+    return _agents_page['body']
 
 
 @app.get('/api/reputation/admin/agents/log')

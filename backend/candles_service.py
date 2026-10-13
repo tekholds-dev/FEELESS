@@ -646,15 +646,22 @@ async def helius_candles(chain, pair, interval):
 
 @app.get('/api/candles/{chain}/{pair_address}')
 async def get_candles(chain: str, pair_address: str, interval: str = Query('1h'), before: Optional[int] = None, mint: Optional[str] = None):
+    key = (chain, pair_address, interval)
+    hit = None if before else _resp_cache.get(key)
+    if hit and time.time() - hit[0] < RESP_STALE_SEC:
+        # ⚡ A chart we already built answers AT ONCE (no pool lookup, no provider wait). Older than 20s → the same answer now and ONE
+        # rebuild in the background for the next poll; the live candle comes from the price stream, not from this response.
+        _hot_pairs[_pair_key(chain, pair_address)] = time.time()
+        if time.time() - hit[0] >= 20:
+            t_ = _history_tasks.get(key)
+            if not t_ or t_.done():
+                _history_tasks[key] = asyncio.create_task(_build_candles(chain, pair_address, interval))
+        return hit[1]
     await _accept_mint_hint(chain, pair_address, mint)
     if before:
         older = [c for c in await alchemy_candles(chain, pair_address, interval) if c[0] < before]
         return {'candles': _fill_gaps(older, INTERVAL_SECONDS.get(interval, 3600)), 'provider': 'Alchemy' if older else 'none', 'interval': interval, 'before': before}
     _hot_pairs[_pair_key(chain, pair_address)] = time.time()
-    key = (chain, pair_address, interval)
-    hit = _resp_cache.get(key)
-    if hit and time.time() - hit[0] < 20:
-        return hit[1]
     task = _history_tasks.get(key)
     if not task or task.done():
         task = _history_tasks[key] = asyncio.create_task(_build_candles(chain, pair_address, interval))
@@ -677,6 +684,7 @@ async def get_candles(chain: str, pair_address: str, interval: str = Query('1h')
 
 _resp_cache: dict = {}
 _history_tasks: dict = {}
+RESP_STALE_SEC = 90   # a built chart is served this long while its refresh runs behind it
 
 
 FULL_HISTORY = 120   # bars: enough to fill a chart at any interval

@@ -449,7 +449,8 @@ def test_viewing_the_agents_page_runs_no_desk_scan_quote_save_or_wallet_action(m
     first = asyncio.run(rs.admin_agents_office(None))
     for _ in range(200):                                                                                         # a page left open, polling
         assert asyncio.run(rs.admin_agents_office(None)) is first
-        v = asyncio.run(rs.admin_agents(None))
+        v = rs._agents_snapshot()
+        assert asyncio.run(rs.admin_agents(None)).status_code == 200
         assert v['office'] is first and v['agents']
     assert calls == {}                                                                                           # nothing ran: no scan, no quote, no price read, no save, no wallet call
     assert (json.dumps(rs._office['payload'], sort_keys=True, default=str), json.dumps(rs._office['state'], sort_keys=True, default=str), dict(rs._intel_inflight)) == before

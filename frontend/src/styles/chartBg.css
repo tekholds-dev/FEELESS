@@ -62,7 +62,6 @@
 .cbg-deep .cbg-mark { left: 84%; top: 22%; width: clamp(44px, 9%, 84px); opacity: .13; animation: cbgDrift 16s ease-in-out infinite alternate; }
 
 @keyframes cbgTilt { from { transform: rotateX(8deg) rotateY(-10deg); } to { transform: rotateX(-6deg) rotateY(12deg); } }
-@keyframes cbgGyro { from { transform: rotateX(70deg) rotateZ(0); } to { transform: rotateX(70deg) rotateZ(360deg); } }
 @keyframes cbgGyro2 { from { transform: rotateY(68deg) rotateZ(0); } to { transform: rotateY(68deg) rotateZ(-360deg); } }
 @keyframes cbgGyro3 { from { transform: rotateX(35deg) rotateY(45deg) rotateZ(0); } to { transform: rotateX(35deg) rotateY(45deg) rotateZ(360deg); } }
 @keyframes cbgIon { from { transform: rotateZ(calc(var(--i) * 60deg)) rotateX(64deg) rotateZ(0) translateX(150px); } to { transform: rotateZ(calc(var(--i) * 60deg)) rotateX(64deg) rotateZ(360deg) translateX(150px); } }
