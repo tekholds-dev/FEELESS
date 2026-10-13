@@ -993,7 +993,7 @@ def create_market_router(db, intelligence=None):
                     try:
                         async with httpx.AsyncClient(timeout=8) as http:
                             jr = await http.get('https://api.jup.ag/tokens/v2/search', params={'query': mint},
-                                                headers={'x-api-key': os.getenv('JUPITER_API_KEY', '')})
+                                                headers={'x-api-key': __import__('jup_keys').read_key(os.environ) or ''})
                         jt = next((t for t in (jr.json() if jr.status_code == 200 else []) if t.get('id') == mint), None)
                         if jt and jt.get('usdPrice'):
                             image_url = image_url or jt.get('icon')

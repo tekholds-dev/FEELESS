@@ -92,6 +92,9 @@ export function CockpitControls({ o, call, isOwner, onAi }) {
           {g === 'universe' ? <BandTrack band={pol.band} cands={cands} /> : null}
           {g === 'gate' ? <GateLine refused={o?.seat?.refused} armed={o?.armed} /> : null}
           {g === 'gate' ? <RegretLine rg={o?.regret} /> : null}
+          {g === 'gate' ? <ControlRow c={{ key: 'chartWait', label: '🎯 Chart says go', who: pol.chartGo === false ? 'CREATOR OVERRIDE' : 'AGENTS CHOOSE', value: pol.chartGo === false ? 'off' : 'on', options: ['on', 'off'],
+            means: 'ON: a real seat needs the chart\'s own ENTER NOW (real card, 107 agent trades: ENTER NOW +14% typical, 70% won; every WAIT / SKIP chart −3…−29%). No chart yet = half a seat. OFF = the old open trenching. The regret ledger grades the coins it held back and may switch it off.' }}
+            pending={pend.chartWait} disabled={!isOwner || busy} onPick={(kk, v) => save({ chartWait: v === 'on' }, kk, v)} /> : null}
           {rows.map(k => <ControlRow key={k} c={ctl[k]} pending={pend[k]} disabled={!isOwner || busy} onPick={(kk, v) => save({ [kk]: v }, kk, v)} />)}</div>; })}
       <ModelCard o={o} pend={pend} disabled={!isOwner || busy} onPick={(k, v) => save({ agentAiLearn: v === 'on' }, k, v)} />
     </div>

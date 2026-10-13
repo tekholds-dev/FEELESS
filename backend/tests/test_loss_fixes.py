@@ -60,6 +60,8 @@ def test_the_jupiter_key_is_spent_only_by_the_money_path(monkeypatch):
             seen.append((url.split('/')[2], bool((headers or {}).get('x-api-key')))); return R()
     monkeypatch.setattr(rs.httpx, 'AsyncClient', H)
     monkeypatch.setenv('JUPITER_API_KEY', 'k' * 24)
+    for n_ in ('JUPITER_API_KEY_2', 'JUPITER_API_KEY_3', 'JUPITER_API_KEY_4', 'JUPITER_API_KEY_5', 'JUPITER_API_KEY_6', 'JUPITER_READ_KEY'):
+        monkeypatch.delenv(n_, raising=False)   # the owner's real extra keys must not decide this test
     rs._jup_px_cache.clear()
     assert asyncio.run(rs._jup_prices(['M'])) == {'M': 1.5} and seen == [('lite-api.jup.ag', False)]     # a read: public lane only
     rs._jup_px_cache.clear(); seen.clear()

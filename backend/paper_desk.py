@@ -120,6 +120,7 @@ AGENTS = (('tally', '📊', 'Tally', 'tracks the numbers'), ('sherlock', '🔍',
           ('trigger', '⏱', 'Trigger', 'knows when to enter'), ('devil', '⚖', 'Devil', 'argues it is right — or not'))
 STAGES = (5, 15, 60)            # minutes: conquer 5 first, then 15, then the hour
 KEEP_DONE = 3000
+GONE_SEC = 900.0   # 🩹 −100% at the hour only when no source priced the coin for 15 min (a missed read settles at its last move)
 PROVE_N, PROVE_WIN = 30, 55.0
 PROVE_X = 10.0                  # 🎯 owner, 2026-10-09: "they should trench and 10x what they start with to pass 5 min"
 DESK_START, DESK_PCT, DESK_BUST = 20.0, 25.0, 1.0   # paper desk: each GO = 25% of the desk (compounds); under $1 = busted → starts over
@@ -602,12 +603,19 @@ def settle(state, price_of, now):
         o = dict(o)   # never mutate the caller's copy (the 5-min verdict feed compares before / after)
         age = (now - _f(o['at'])) / 60
         px = _f(price_of(m))
+        if px > 0 and _f(o['px']) > 0:
+            o['seen'], o['last'] = round(now, 1), round((px / _f(o['px']) - 1) * 100, 2)
         if px > 0 and _f(o['px']) > 0 and age <= SCALP_MIN_WINDOW and len(o.get('path') or []) < 8:   # ⚡ the first 5 minutes, a reading a pass: what a scalp would have seen
             o['path'] = list(o.get('path') or []) + [round((px / _f(o['px']) - 1) * 100, 2)]
         for h in STAGES:
             key = f'p{h}'
             if key not in o and age >= h:
-                o[key] = round((px / _f(o['px']) - 1) * 100, 2) if px > 0 and _f(o['px']) > 0 else (-100.0 if h == 60 else None)
+                if px > 0 and _f(o['px']) > 0:
+                    o[key] = round((px / _f(o['px']) - 1) * 100, 2)
+                elif h == 60:
+                    o[key] = o['last'] if o.get('last') is not None and now - _f(o.get('seen')) < GONE_SEC else -100.0
+                else:
+                    o[key] = None
         opened[m] = o
         if age >= STAGES[-1]:
             done.append({**o, 'mint': m, 'at': o['at'], 'doneAt': now})

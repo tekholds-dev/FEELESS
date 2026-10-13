@@ -1051,34 +1051,85 @@ _streams: dict = {}   # key -> {'clients': set(), 'task': Task, 'last': 0.0, 'pr
 _px_cache: dict = {}
 
 
+import jup_keys as _jk
+
+PX_BATCH_SEC = 0.5   # 🔑 every price read waiting in this window goes out as ONE batched call (≤ 50 coins)
+PX_WAIT_SEC = 4.0    # a reader waits at most this long, then gets the last good price
+_px_q: dict = {}     # mint → [futures] waiting for the next batch
+_px_loop = {'task': None, 'rest': 0.0}
+
+
+async def _px_fetch(mints):
+    """ONE read for many coins: Jupiter on the READ key (never the keeper's), then the public lane, then DexScreener for what is left."""
+    got = {}
+    rk = _jk.read_key(os.environ)
+    srcs = ([('https://api.jup.ag/price/v3', {'x-api-key': rk})] if rk else []) + [('https://lite-api.jup.ag/price/v3', {})]
+    async with httpx.AsyncClient(timeout=5) as http:
+        for url, hdr in srcs:
+            todo = [m for m in mints if m not in got]
+            if not todo:
+                break
+            try:
+                r = await http.get(url, params={'ids': ','.join(todo[:50])}, headers=hdr)
+                if r.status_code == 200 and isinstance(r.json(), dict):
+                    for m, v in (r.json() or {}).items():
+                        px = float((v or {}).get('usdPrice') or 0)
+                        if px:
+                            got[m] = px
+            except Exception:
+                pass
+        todo = [m for m in mints if m not in got]
+        for i in range(0, len(todo), 30):
+            try:
+                r = await http.get('https://api.dexscreener.com/tokens/v1/solana/' + ','.join(todo[i:i + 30]))
+                best = {}
+                for p in (r.json() or []) if r.status_code == 200 else []:
+                    m = ((p or {}).get('baseToken') or {}).get('address')
+                    liq = float(((p or {}).get('liquidity') or {}).get('usd') or 0)
+                    if m in todo and float(p.get('priceUsd') or 0) > 0 and liq >= best.get(m, (-1, 0))[0]:
+                        best[m] = (liq, float(p['priceUsd']))
+                got.update({m: v for m, (_l, v) in best.items()})
+            except Exception:
+                pass
+    now = time.time()
+    for m, px in got.items():
+        _px_cache[m] = (now, px)
+    return got
+
+
+async def _px_batcher():
+    while True:
+        await asyncio.sleep(PX_BATCH_SEC)
+        if not _px_q:
+            continue
+        batch = list(_px_q.keys())[:50]
+        waiting = {m: _px_q.pop(m) for m in batch}
+        try:
+            got = await _px_fetch(batch)
+        except Exception:
+            got = {}
+        for m, futs in waiting.items():
+            for f in futs:
+                if not f.done():
+                    f.set_result(got.get(m))
+
+
 async def _jup_price(mint, max_age=5.0):
-    """USD price with fallbacks (keyed Jupiter → free Jupiter → DexScreener), cached 5s per mint so
-    thousands of viewers never multiply upstream calls. A 429 on one source never blanks a chart."""
+    """USD price, cached 5s per mint so thousands of viewers never multiply upstream calls. Every read waiting in the same half second
+    goes out as ONE batched call on the READ key (`jup_keys`: never the keeper's quote key), then public Jupiter, then DexScreener.
+    A 429 on one source never blanks a chart: the last good price stands."""
     hit = _px_cache.get(mint)
     if hit and time.time() - hit[0] < max_age:
         return hit[1]
-    key_ = os.environ.get('JUPITER_API_KEY', '')
-    async with httpx.AsyncClient(timeout=5) as http:
-        for url, hdr in (('https://api.jup.ag/price/v3', {'x-api-key': key_}), ('https://lite-api.jup.ag/price/v3', {})):
-            try:
-                r = await http.get(url, params={'ids': mint}, headers=hdr)
-                if r.status_code == 200:
-                    px = float(((r.json() or {}).get(mint) or {}).get('usdPrice') or 0)
-                    if px:
-                        _px_cache[mint] = (time.time(), px)
-                        return px
-            except Exception:
-                pass
-        try:
-            r = await http.get(f'https://api.dexscreener.com/tokens/v1/solana/{mint}')
-            pairs = sorted(r.json() or [], key=lambda p: -float((p.get('liquidity') or {}).get('usd') or 0))
-            px = float((pairs[0] if pairs else {}).get('priceUsd') or 0)
-            if px:
-                _px_cache[mint] = (time.time(), px)
-                return px
-        except Exception:
-            pass
-    return hit[1] if hit else None
+    if not _px_loop['task'] or _px_loop['task'].done():
+        _px_loop['task'] = asyncio.create_task(_px_batcher())
+    fut = asyncio.get_running_loop().create_future()
+    _px_q.setdefault(mint, []).append(fut)
+    try:
+        px = await asyncio.wait_for(asyncio.shield(fut), PX_WAIT_SEC)
+    except Exception:
+        px = None
+    return px or (hit[1] if hit else None)
 
 
 async def _stream_price(mint, max_age=5.0):

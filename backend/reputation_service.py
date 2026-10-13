@@ -2756,7 +2756,7 @@ async def _jup_tokens(mints, keyed=False):
         else:
             need.append(m)
     if need:
-        key = os.getenv('JUPITER_API_KEY', '') if keyed else ''
+        key = os.getenv('JUPITER_API_KEY', '') if keyed else (_jkeys.read_key(os.environ) or '')   # 🔑 reads: the READ key (never the keeper's)
         srcs = ([('https://api.jup.ag/tokens/v2/search', {'x-api-key': key})] if key else []) + [('https://lite-api.jup.ag/tokens/v2/search', {})]
         async with httpx.AsyncClient(timeout=8) as http:
             async def one(chunk):
@@ -2874,7 +2874,7 @@ async def fuses_search(request: Request, q: str = Query(..., min_length=2, max_l
             pairs = []
         if not pairs:   # 📡 DexScreener silent (outage / not indexed yet) → Jupiter's data for the same CA or ticker, same pair shape
             try:
-                key = os.getenv('JUPITER_API_KEY', '')
+                key = _jkeys.read_key(os.environ) or ''
                 base, hdr = ('https://api.jup.ag/tokens/v2/search', {'x-api-key': key}) if key else (_launchpad_board.JUP_SEARCH, {})
                 jr = await http.get(base, params={'query': q.strip().lstrip('$')}, headers=hdr)
                 toks = jr.json() if jr.status_code == 200 else []
@@ -6316,7 +6316,7 @@ _jup_px_cache: dict = {}
 _jup_calls = {'n': 0}   # every Jupiter price request this process sent (the office reports the per-pass delta)
 
 
-async def _jup_prices(mints, keyed=False):
+async def _jup_prices(mints, keyed=False, judge=False):
     """🎯 Jupiter's own USD price per mint (price v3 — the price its routes trade at, across every pool), cached 20s. Paper fills
     and values use THIS so paper sees the same price real money gets (a single DexScreener pair can sit 20–40% away on runners).
     🔑 THE KEY BELONGS TO THE MONEY PATH (2026-10-13): reads use the public lane; only `keyed=True` (the keeper's own buy / sell price
@@ -6327,24 +6327,53 @@ async def _jup_prices(mints, keyed=False):
     out = {m: v for m in want for t, v in [_jup_px_cache.get(m, (0, 0))] if now - t < 20 and v > 0}
     miss = [m for m in want if m not in out]
     if miss:
-        key = os.environ.get('JUPITER_API_KEY') if keyed else None
-        sources = ([('https://api.jup.ag/price/v3', {'x-api-key': key})] if key else []) + [('https://lite-api.jup.ag/price/v3', {})]   # the money path: keyed first; every read: public only
+        key = os.environ.get('JUPITER_API_KEY') if keyed else _jkeys.read_key(os.environ)
+        sources = ([('https://api.jup.ag/price/v3', {'x-api-key': key})] if key else []) + [('https://lite-api.jup.ag/price/v3', {})]   # the money path: the keeper's key; every read: the READ key (jup_keys) else public
         async with httpx.AsyncClient(timeout=6) as http:
             for base, hdr in sources:
                 todo = [m for m in miss if m not in out]
                 if not todo:
                     break
-                try:
-                    for i in range(0, len(todo), 50):
+                for i in range(0, len(todo), 50):   # 🩹 one refused batch never drops the batches after it (it did: 70% of watched coins read "vanished")
+                    try:
                         _jup_calls['n'] += 1
                         d = (await http.get(base, params={'ids': ','.join(todo[i:i + 50])}, headers=hdr)).json() or {}
-                        for m, v in d.items():
+                        for m, v in (d.items() if isinstance(d, dict) else ()):
                             px = _fuse._f((v or {}).get('usdPrice'))
                             if px > 0:
                                 out[m] = px; _jup_px_cache[m] = (now, px)
-                except Exception:
-                    continue   # next source; callers fall back to the pool price when Jupiter has none
+                    except Exception:
+                        continue   # this batch only; callers fall back to the pool price when Jupiter has none
+    if judge:   # 🩹 a RESULT read (a call / a coin judged later): a coin Jupiter did not price this time is NOT a rug
+        out.update(await _judge_fill([m for m in want if m not in out], now))
     return out
+
+
+JUDGE_STALE_SEC = 300   # a price this fresh still judges a result when every live source missed the coin this second
+
+
+async def _judge_fill(miss, now):
+    """The coins Jupiter did not price, from every other place a live price lives: the chart's own live price (candles service), the
+    launch board's last build, then a ≤ 5-min-old Jupiter reading. Only result graders use it — never a stop, a buy or a sale."""
+    got = {}
+    if not miss:
+        return got
+    try:
+        for i in range(0, len(miss), 60):
+            got.update(await _live_px(miss[i:i + 60]))
+    except Exception:
+        pass
+    left = {m for m in miss if m not in got}
+    if left:
+        for p in _open_pairs:
+            m = (p.get('baseToken') or {}).get('address')
+            if m in left and _fuse._f(p.get('priceUsd')) > 0:
+                got[m] = _fuse._f(p['priceUsd']); left.discard(m)
+    for m in list(left):
+        t, v = _jup_px_cache.get(m, (0, 0))
+        if v > 0 and now - t <= JUDGE_STALE_SEC:
+            got[m] = v
+    return got
 
 
 async def _runner_tick(now=None, force=False):
@@ -6793,7 +6822,7 @@ async def _callout_tick(now):
     doc = _json_load(TRENCH_CALLOUT_PATH, {})
     st = doc.get('state') or {}
     due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
-    jp = await _jup_prices(due) if due else {}
+    jp = await _jup_prices(due, judge=True) if due else {}
     st = _trench.meta_track(st, {k: [(r['mint'], r['price'], r.get('ageH')) for r in v] for k, v in calls.items()}, lambda m: (jp or {}).get(m), now, keys=_trench.CALLOUTS)
     names = dict(doc.get('names') or {})
     for v in calls.values():
@@ -6881,7 +6910,7 @@ async def _trench_build(now):
         passing = {k: [(x[0]['mint'], x[0].get('price')) for x in got if gate_(x, _trench.meta_gate(k))[0]] for k in _trench.METAS}
         st = _json_load(TRENCH_META_PATH, {})
         due = [m for s in st.values() for m, o in (s.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
-        jp = await _jup_prices(due) if due else {}
+        jp = await _jup_prices(due, judge=True) if due else {}
         _json_save(TRENCH_META_PATH, _trench.meta_track(st, passing, lambda m: (jp or {}).get(m), now))
     except Exception as e:
         print('trench proof:', e)
@@ -6894,7 +6923,7 @@ async def _trench_build(now):
                 hits[hit[0]].append((r['mint'], r.get('price')))
         st = _json_load(ENTRY_PROOF_PATH, {})
         due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
-        jp = await _jup_prices(due) if due else {}
+        jp = await _jup_prices(due, judge=True) if due else {}
         _json_save(ENTRY_PROOF_PATH, _trench.meta_track(st, hits, lambda m: (jp or {}).get(m), now, keys=_prime.ENTRY_SETUPS))
     except Exception as e:
         print('entry proof:', e)
@@ -6942,7 +6971,7 @@ async def _owner_moves_tick(now):
             fresh = {h_[1] for e in c.get('events') or [] if _fuse._f(e.get('at')) > _fuse._f(log.get('seenAt')) for h_ in [_om.classify(e)] if h_ and h_[1]}
             due = [r['mint'] for r in log.get('rows') or [] if r.get('pct') is None and now - _fuse._f(r.get('at')) >= _om.SETTLE_SEC]
             mints = list(dict.fromkeys([sym[x]['mint'] for x in fresh if x in sym] + due))
-            jp = (await _jup_prices(mints)) if mints else {}
+            jp = (await _jup_prices(mints, judge=True)) if mints else {}
             log, added = _om.collect(log, c, lambda x: ({**sym[x], 'px': (jp or {}).get(sym[x]['mint'])} if x in sym else None), now)
             log, done = _om.settle(log, lambda m: (jp or {}).get(m), now)
             st[tid] = log
@@ -6999,7 +7028,7 @@ async def _call_track(now):
                     by[k_].append((m_, p_))
         st = _json_load(CALL_PROOF_PATH, {})
         due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
-        jp = await _jup_prices(due) if due else {}
+        jp = await _jup_prices(due, judge=True) if due else {}
         st = _trench.meta_track(st, by, lambda m: (jp or {}).get(m), now, keys=tuple(by))
         _json_save(CALL_PROOF_PATH, st)
         _call_cache.update(at=now, send=sorted(send, key=lambda x: -_fuse._f(x['tv'].get('heat')))[:10], proof=_trench.meta_proof(st, keys=tuple(by)))
@@ -7031,7 +7060,7 @@ async def _procall_track(now):
         rows = _pc.pro_entries(_pump_calls.get('calls') or [], _pump_calls.get('callers') or {}, _open_board(), now * 1000)
         st = _json_load(PROCALL_PROOF_PATH, {})
         due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
-        jp = await _jup_prices(due) if due else {}
+        jp = await _jup_prices(due, judge=True) if due else {}
         _json_save(PROCALL_PROOF_PATH, _trench.meta_track(st, {'pro': [(r['mint'], r.get('price')) for r in rows]}, lambda m: (jp or {}).get(m), now, keys=('pro',)))
     except Exception as e:
         print('procall proof:', e)
@@ -7105,7 +7134,7 @@ async def _li_track(now):
             m, cls, _ev, _p, creator = _li_parts(mint, (x.get('vitals') or {}).get('ageH'))
             st = _li.note(st, mint, m, cls, x.get('px'), now, (x.get('vitals') or {}).get('ageH'), creator)
         due = [mt for mt, e in (st.get('open') or {}).items() if now - _fuse._f(e.get('t')) >= _li.SETTLE_SEC]
-        jp = await _jup_prices(due) if due else {}
+        jp = await _jup_prices(due, judge=True) if due else {}
         if not due or jp:
             st = _li.settle(st, lambda mt: (jp or {}).get(mt), now)
         st['byClass'] = _li.by_class(st.get('done'))
@@ -7134,7 +7163,7 @@ async def _brain_track(now):
         tv_ = {x.get('mint'): x.get('tv') for x in raw}
         rows = [{**r, 'tv': tv_.get(r.get('mint')) or r.get('tv')} for r in _clean_rows([dict(x) for x in raw])]
         watch = list((st.get('open') or {}).keys())
-        jp = await _jup_prices(watch) if watch else {}
+        jp = await _jup_prices(watch, judge=True) if watch else {}
         if watch and not jp:
             return
         st = _tb.track(st, rows, lambda m: (jp or {}).get(m), now)
@@ -7259,7 +7288,7 @@ async def _lens_track(now):
                 _lens_rows[k] = [{'mint': r.get('baseAddress') or r.get('mint')} for r in (g.get('pools') or [])[:60]]
         st = _json_load(LENS_PROOF_PATH, {})
         due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
-        jp = await _jup_prices(due) if due else {}
+        jp = await _jup_prices(due, judge=True) if due else {}
         _json_save(LENS_PROOF_PATH, _trench.meta_track(st, passing, lambda m: (jp or {}).get(m), now, keys=LENS_TRACK))
     except Exception as e:
         print('lens proof:', e)
@@ -7319,7 +7348,7 @@ async def _edge_track(now):
         passing['smart'] = [(r['mint'], _fuse._f(r.get('priceUsd') or r.get('price'))) for r in _edge_rank()[:60] if _smart_on(r['mint']) and _fuse._f(r.get('priceUsd') or r.get('price')) > 0]
         keys = tuple(dict.fromkeys(list(st) + list(passing)))
         due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
-        jp = await _jup_prices(due) if due else {}
+        jp = await _jup_prices(due, judge=True) if due else {}
         _json_save(EDGE_PROOF_PATH, _trench.meta_track(st, passing, lambda m: (jp or {}).get(m), now, keys=keys))
     except Exception as e:
         print('edge track:', e)
@@ -7399,7 +7428,7 @@ async def _bottom_track(now):
         rows = await _bottom_rows(now)
         st = _json_load(BOTTOM_PROOF_PATH, {})
         due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
-        jp = await _jup_prices(due) if due else {}
+        jp = await _jup_prices(due, judge=True) if due else {}
         _json_save(BOTTOM_PROOF_PATH, _trench.meta_track(st, {'bottom': [(r['baseAddress'], r.get('priceUsd')) for r in rows[:40] if r.get('baseAddress')]},
                                                          lambda m: (jp or {}).get(m), now, keys=('bottom',)))
     except Exception as e:
@@ -8126,7 +8155,7 @@ async def _predict_tick(now):
         d = _json_load(PREDICT_PATH, {'rounds': {}, 'players': {}}); rounds, players = d.setdefault('rounds', {}), d.setdefault('players', {})
         due = [r for r in rounds.values() if r.get('status') == 'open' and now >= r['closesAt']]
         if due:
-            px = await _jup_prices(sorted({c['mint'] for r in due for c in r['cands']}))
+            px = await _jup_prices(sorted({c['mint'] for r in due for c in r['cands']}), judge=True)
             for r in due:
                 res = _pr.settle(r, px or {})
                 r.update(winner=res['winner'], moves=res['moves'], settledAt=now, status='settled' if res['winner'] else 'void')
@@ -8142,7 +8171,7 @@ async def _predict_tick(now):
         if str(rid) not in rounds and now - rid < 3000:
             lists = {k: v for k, v in _lens_rows.items()}
             mints = [row.get('mint') for k, _l in _pr.DOORS for row in (lists.get(k) or [])[:8]]
-            px = await _jup_prices([m for m in mints if m])
+            px = await _jup_prices([m for m in mints if m], judge=True)
             cands = _pr.candidates(lists, px or {}, _predict_symbols())
             if len(cands) >= 2:
                 rounds[str(rid)] = _pr.new_round(now, cands)
@@ -8464,7 +8493,7 @@ async def _smart_track(now):
             if tr_ and now - at_ < 120:
                 st = _dg.note_buys(st, m_, tr_, now)
         due = list({b['m'] for b in st.get('buys') or [] if now - _fuse._f(b.get('at')) >= _dg.SETTLE_SEC})
-        jp = await _jup_prices(due) if due else {}
+        jp = await _jup_prices(due, judge=True) if due else {}
         st = _dg.settle(st, lambda m: (jp or {}).get(m), now)
         _json_save(SMART_PATH, st)
         _smart.update(set=_dg.smart_set(st), at=now)
@@ -8595,7 +8624,7 @@ async def _flow_settle(now):
         st = _json_load(FLOW_PROOF_PATH, {})
         due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
         if due:
-            jp = await _jup_prices(due)
+            jp = await _jup_prices(due, judge=True)
             _json_save(FLOW_PROOF_PATH, _trench.meta_track(st, {}, lambda m: (jp or {}).get(m), now, keys=tuple(st)))
     except Exception as e:
         print('flow settle:', e)
@@ -11095,14 +11124,10 @@ _JUP_KEY_N: dict = {}   # key → its lane number (1 = the first key: its pacing
 
 
 def _jup_keys(env=None):
-    """Every Jupiter key set in backend/.env (`JUPITER_API_KEY`, `_2` … `_6`), in order, no repeats. Never logged, never returned to a page."""
-    e = os.environ if env is None else env
-    out = []
-    for name in JUP_KEY_ENVS:
-        k = str(e.get(name) or '').strip()
-        if k and k not in out:
-            out.append(k)
-    return out
+    """The KEEPER's Jupiter keys (`JUPITER_API_KEY`, `_2` … `_6`, in order, no repeats) — minus the one set aside for price reads once
+    there are three or more (`jup_keys.read_key`). Never logged, never returned to a page."""
+    import jup_keys as _jk
+    return _jk.keeper_keys(os.environ if env is None else env)
 
 
 def _jup_lanes(key):
@@ -12906,7 +12931,7 @@ async def _ai_learn_settle(now):
     if not due:
         return
     try:
-        px = await _jup_prices(due)
+        px = await _jup_prices(due, judge=True)
     except Exception:
         return   # a pass where the price source answers nothing is not judged
     if not px:
@@ -14176,6 +14201,7 @@ def _coach_grade(now):
 
 import rule_lab as _rlab
 import teach as _tch
+import jup_keys as _jkeys
 TEACH_PATH = DATA_DIR / 'agent_teach.json'
 _teach: dict = {'st': None}
 
@@ -14217,10 +14243,14 @@ async def _regret_tick(now):
     try:
         b = _regret_book()
         mints = list(dict.fromkeys(c_['mint'] for c_ in (b.get('open') or [])))[:80]
-        px = await _jup_prices(mints) if mints else {}
+        px = await _jup_prices(mints, judge=True) if mints else {}
         if mints and not px:
             return   # a pass where the price source answers nothing grades nothing
         b = _rg.watch(b, px, now)
+        for m_, d_ in sorted(list(_tk.KERNEL.dec.items()), key=lambda kv: -_fuse._f(kv[1].get('rank')))[:40]:   # 🎯 coins the chart held back are graded beside the coins taken
+            if (d_.get('opinions') or {}).get('trigger', {}).get('chartWait'):
+                ms_ = _tk.KERNEL.store.mints.get(m_) or {}
+                _regret_note(m_, 'chart:WAIT', _fuse._f((ms_.get('market') or {}).get('price')), (ms_.get('identity') or {}).get('symbol'))
         rc = _prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
         b, ch = _rg.tune(b, rc, now)
         _regret['b'] = b
@@ -14585,7 +14615,7 @@ async def _agents_tick(now):
             st, paper_ = _pd.calls(st, table, sctx_, now, rcfg_.get('agentDial'), bust_)
             st = _pd.record(st, paper_, now)
             want = list(dict.fromkeys(list((st.get('open') or {}).keys()) + [c_['d']['mint'] for c_ in arch_.get('cases') or [] if c_['d'].get('mint') and 'p60' not in (c_.get('out') or {})]))   # ONE batched price read for the calls AND the archive's open cases
-            jp = await _jup_prices(want) if want else {}
+            jp = await _jup_prices(want, judge=True) if want else {}
             if not want or jp:
                 before = st
                 st = _pd.settle(st, lambda m: (jp or {}).get(m), now)
@@ -15832,7 +15862,7 @@ async def admin_agents_set(request: Request):
     ch = {}
     if 'feed' in body:
         ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn') + _oe.POLICY_KEYS:
+    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait') + _oe.POLICY_KEYS:
         if k in (body.get('cfg') or {}):
             ch[k] = body['cfg'][k]
     if ch:
@@ -22201,7 +22231,7 @@ async def token_search(q: str = Query(..., min_length=1, max_length=64)):
 
     async with httpx.AsyncClient(timeout=8) as http:
         async def jupiter():
-            key = os.environ.get('JUPITER_API_KEY', '')
+            key = _jkeys.read_key(os.environ) or ''
             urls = ([('https://api.jup.ag/tokens/v2/search', {'x-api-key': key})] if key else []) + [('https://lite-api.jup.ag/tokens/v2/search', {})]
             for url, headers in urls:
                 try:

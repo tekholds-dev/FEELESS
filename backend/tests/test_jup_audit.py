@@ -66,7 +66,7 @@ def test_send_it_calls_are_scored_and_the_engine_waits_for_proof(monkeypatch):
     monkeypatch.setattr(rs, '_open_pairs', [1])
     monkeypatch.setattr(rs, '_open_board', lambda: [hot, cold])
     async def lite(ms): return {}
-    async def prices(ms): return {m: 1.2 for m in ms}
+    async def prices(ms, **_k): return {m: 1.2 for m in ms}
     monkeypatch.setattr(rs, '_jup_lite', lite); monkeypatch.setattr(rs, '_jup_prices', prices)
     rs._jup_facts['H'] = (0, {'holderChg1h': 120, 'netBuyers1h': 300, 'traders1h': 500, 'devMints': 6, 'devGrads': 3, 'organicPct': 20, 'top10': 14})
     asyncio.run(rs._call_track(1000.0))

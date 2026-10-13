@@ -197,7 +197,7 @@ class PumpNetwork:
         if self.sol_usd and time.time() - self._sol_at < 30:
             return self.sol_usd
         sol = 'So11111111111111111111111111111111111111112'
-        key = (os.environ.get('JUPITER_API_KEY') or '').strip()
+        key = (__import__('jup_keys').read_key(os.environ) or '').strip()   # 🔑 a read: never the keeper's quote key
         # Keyed Jupiter first (the free lite endpoint is shared and often rate-limited).
         sources = ([('https://api.jup.ag/price/v3', {'x-api-key': key})] if key else []) + [('https://lite-api.jup.ag/price/v3', {})]
         async with httpx.AsyncClient(timeout=6) as http:

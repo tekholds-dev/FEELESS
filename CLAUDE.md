@@ -3785,3 +3785,18 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   into every fitting model case (`_ai_case` → `lessons`, the lab's case too); every read on a coin the owner taught is graded in its own
   ai_learn bucket TAUGHT, so the record says whether the teaching helps. The text model reads captions, not pictures (a vision provider would
   be needed for the image itself). Never an order, a size or a sell.
+- 🎯 CHART SAYS GO (2026-10-13, real card 107 agent trades / 24h: chart call ENTER NOW n10 +14% typical, 70% won, +$0.48; WAIT FOR PULLBACK
+  n26 −13% · WAIT FOR DATA n6 −29% · SKIP n9 −10% (bought anyway in open trenching) · stops + gaps were the whole −$2.57): `brain.trigger`
+  turns ENTER / ARM into WAIT when the coin's chart call is not ENTER NOW (`CHART_GO`, so armed fills can't take it either); no chart read =
+  half a seat (`NO_CHART_SIZE`, Warden). Owner switch realCfg `chartWait` (🛂 BUY GATE card, "🎯 Chart says go"); the regret ledger grades
+  every chart-held coin (`chart:WAIT`) beside the taken ones and may switch it off (WAITS) — then back on when it is right again.
+- 🩹 A RATE LIMIT IS NOT A RUG (2026-10-13): Jupiter's public price lane answered 429 nearly every time from this machine, and `_jup_prices`
+  dropped every batch after a failed one → 62–71% of watched coins and ~58 of every 60 settled list / call / read records were "−100%"
+  (busted reads → Devil hard vetoes, paused lists, fake rug signs, agents scrapped on losses that never happened). Now: one refused batch
+  never drops the others; result graders read with `judge=True` (`_judge_fill`: the candles service's live price → the launch board's last
+  build → a ≤ 5-min Jupiter reading); vanished = no price from ANY source for 15 min (`trench_brain.GONE_SEC`, `paper_desk.GONE_SEC`, else the
+  last move). Old records were NOT rewritten — they roll over within hours. "EVERYTHING READS −100%" ⇒ curl the price sources for those mints first.
+- 🔑 THE READ KEY (`backend/jup_keys.py`): with ≥ 3 Jupiter keys the LAST (or `JUPITER_READ_KEY`) is for price / token READS; the keeper's lanes
+  (`_jup_keys`) are the others. The candles service read every chart price with key 1 (the keeper's), ONE coin per call — now every read waiting
+  in the same 0.5s goes out as ONE batched call (`_px_batcher`, ≤ 50 coins) on the read key → public → DexScreener. Seat P&L, the fast stop guard
+  and exits all read that price: a refused price = a stale seat. New Jupiter read ⇒ `jup_keys.read_key`, never `JUPITER_API_KEY`.

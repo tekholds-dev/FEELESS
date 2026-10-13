@@ -23,6 +23,15 @@ MEM_SIZE = 0.5       # a coin the real-money memory ranks in the worse half take
 PEN_FLOOR = 0.75    # the most the Judge's repeat-loss penalties may rank a coin down (a weight, never a veto)
 CROWD_F = 1.05      # ≥ 8 different buyers in 90s with buyers leading (flow.vital `hot`)
 READY_MIN = 120.0     # an open_score this high with Trigger ENTER = READY (the base score is 100 for an average coin)
+CHART_GO = 'ENTER NOW'   # 🎯 the chart's own call a real seat needs (real card 2026-10-13, 107 agent trades: ENTER NOW +14% typical, 70% won;
+                         # every WAIT / SKIP call −3…−29%, 16–30% won). `chartWait` off (owner, or the regret ledger) = the old open trenching
+NO_CHART_SIZE = 0.5      # no chart read yet = half a seat (the 16 such trades: about break-even)
+
+
+def chart_call(ms):
+    """(call, rule) of the coin's chart this pass, or (None, None) when there is no chart read."""
+    e = (((ms or {}).get('row') or {}).get('chart') or {}).get('entry') or []
+    return (e[0] if e else None) or None, (e[1] if len(e) > 1 else None) or None
 
 
 def _f(v):
@@ -76,12 +85,16 @@ def trigger(ms, lessons=None, lab=None, waits=None):
         st, why = 'WAIT', f"{why} — but {fv.get('why')}"
     elif st == 'ENTER' and fv.get('state') == 'PEAK' and w.get('peakWait', True):
         st, why = 'ARM', f"{why} — {fv.get('why')} (armed for the dip, not bought at the top)"
+    call, rule = chart_call(ms)
+    if st in ('ENTER', 'ARM') and call and call != CHART_GO and w.get('chartWait', True):   # 🎯 THE CHART SAYS GO: no real seat on a WAIT / SKIP chart (not even an armed half)
+        st, why = 'WAIT', f"{why} — the chart says {call.lower()} ({rule or '?'}): waits for ENTER NOW"
     if st == 'ENTER' and lab:   # 🧪 Trigger's lessons from the rule lab: a live AVOID rule on the entry moment, proven on our real fills, arms the coin
         fs = set(_lab.row_feats(ms['row']))
         hit = next((r for r in lab if set(r.get('when') or ()) <= fs), None)
         if hit:
             st, why = 'ARM', f"{why} — 🧪 lesson '{hit.get('name')}' (proven on our real fills): armed, not entered"
-    return {'narrative': nar, 'why': why, 'state': st, 'flow': fv.get('state')}
+    return {'narrative': nar, 'why': why, 'state': st, 'flow': fv.get('state'), 'chart': call, 'chartRule': rule,
+            'chartWait': bool(call and call != CHART_GO and w.get('chartWait', True))}
 
 
 def devil(ms, lessons=None):
@@ -101,7 +114,7 @@ def devil(ms, lessons=None):
 
 
 def warden(ms, dv, sh):
-    """Uncertainty → SIZE (≥ ×0.5); ×0 only on a hard veto."""
+    """Uncertainty → SIZE (≥ ×0.5); ×0 only on a hard veto. No chart read yet = half a seat."""
     if dv['hard']:
         return {'size': 0.0, 'why': 'hard wall'}
     m, why = 1.0, []
@@ -112,6 +125,8 @@ def warden(ms, dv, sh):
     age = ms['identity'].get('ageH')
     if age is not None and _f(age) < 0.25:
         m *= 0.85; why.append('newborn')
+    if chart_call(ms)[0] is None:
+        m = min(m, NO_CHART_SIZE); why.append('no chart read yet')
     return {'size': round(max(_crew.SHRINK_FLOOR, m), 2), 'why': ', '.join(why) or 'full size'}
 
 

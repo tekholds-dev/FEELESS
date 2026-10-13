@@ -517,6 +517,7 @@ def clean_cfg(p):
     # every exit keep managing coins already held. ON by default: real money returns only by the owner's own switch after the graduation proof.
     out['agentPaper'] = bool((p or {}).get('agentPaper', True))
     out['agentOpen'] = bool((p or {}).get('agentOpen', False))   # ⚡ owner's switch: volume + newness only, every empty seat filled
+    out['chartWait'] = bool((p or {}).get('chartWait', True))   # 🎯 a real seat needs the chart's own ENTER NOW (off = the regret ledger / owner let WAIT charts in)
     out['agentControl'] = bool((p or {}).get('agentControl', False))   # 🎮 the agents control EVERY seat of the real card (the engine's own doors are off)
     out['agentTrust'] = bool((p or {}).get('agentTrust', False))   # 🤝 a 2nd agent seat once the suggestions the owner took are proven (≥ 10 closed, typical > 0)
     out.update(_oe.clean_policy(p))   # 🎛 the creator's limits on the agents (take · stop · trail · max hold · size · seat target · switching · entry · authority)

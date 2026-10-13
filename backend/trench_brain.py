@@ -19,6 +19,7 @@ SETTLE_SEC = 3600.0    # a coin that touched neither line is settled at its 1h m
 RECENT_SEC = 6 * 3600  # a coin is not noted again for 6h after it settled
 OPEN_MAX = 900         # coins watched at once (oldest dropped first — still counted as their last move, never −100% unfairly)
 KEEP = 4000            # settled coins kept
+GONE_SEC = 900.0       # 🩹 vanished = no price from ANY source for 15 min; a coin priced minutes ago and missed once settles at its last move
 MIN_N = 8              # a cell needs this many settled coins before it counts
 SHRINK = 20.0          # cell weight = n / (n + SHRINK)
 PROOF_MIN = 30         # walk-forward test coins needed before the brain can be trusted
@@ -117,7 +118,7 @@ def track(state, rows, price_of, now):
             o = {**o, 'hi': max(_f(o.get('hi')), pct), 'lo': min(_f(o.get('lo')), pct), 'last': pct, 'seen': now, 'x': x}
             opened[mint] = o
         if now - _f(o.get('at')) >= SETTLE_SEC:   # the whole hour is watched — what happens AFTER a −30% is the lesson a stop needs
-            gone = px <= 0
+            gone = px <= 0 and now - _f(o.get('seen') or o.get('at')) >= GONE_SEC
             d = {'mint': mint, 'sym': o.get('sym'), 'at': now, 'end': round(_f(o.get('last')), 2), 'peak': round(_f(o.get('hi')), 2),
                  'low': round(_f(o.get('lo')), 2), 'gone': gone, 'x': o.get('x') or {}, 'f': o.get('f') or []}
             d['play'] = play(d, TP_PCT, SL_PCT)
