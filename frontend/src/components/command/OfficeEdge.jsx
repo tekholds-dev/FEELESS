@@ -7,70 +7,12 @@ import '../../styles/officeEdge.css';
 // served with GET /admin/agents) — nothing here fetches, computes a trade number or places an order. The creator's buttons post to the
 // existing POST /admin/agents (limits → realCfg via clean_cfg · review marks → display state the office never reads back).
 
-export const WHO_CLS = { 'AGENTS CHOOSE': 'is-agents', 'CREATOR OVERRIDE': 'is-you' };
 const SEAT_CLS = { FULL: 'is-ok', FILLING: 'is-go', 'NO VALID ENTRY': 'is-wait', 'OFFICE WARMING UP': 'is-warm', 'CREATOR MANUAL': 'is-you', 'AGENT CONTROL OFF': 'is-you' };
-
-// 🔎 THE NARRATIVE PACKET — what the website / X research found for one coin (every source opens the real page)
-const SOC_CLS = { ACTIVE: 'is-ok', STALE: 'is-wait', UNAVAILABLE: '', UNKNOWN: '' };
-const MATCH_CLS = { yes: 'is-ok', no: 'is-bad', unknown: '' };
-export function SocialLine({ p, now }) {
-  if (!p) return <p className="oed-soc oed-soc-nil" data-testid="oed-social"><small>NARRATIVE</small><span>not researched yet — only the strongest candidates are read</span></p>;
-  const t = now || Date.now() / 1000; const n = p.narrative || {}; const cc = p.cross || {}; const w = p.website || {}; const x = p.x || {};
-  const ago_ = s => (s ? `${Math.max(0, Math.round((t - s) / 60))}m ago` : '—');
-  const link = (u, l) => (u && /^https?:\/\//.test(u) ? <a href={u} target="_blank" rel="noopener noreferrer">{l}</a> : <span>{l}</span>);
-  const cell = (k, l, v, cls, tip) => <span key={k} className={`oed-op ${cls || ''}`} data-testid={`oed-soc-${k}`} data-tip={tip}><small>{l}</small><b>{v}</b></span>;
-  return <div className="oed-soc" data-testid="oed-social">
-    {cell('narr', 'NARRATIVE', `${n.class || 'UNKNOWN'}${n.confidence ? ` ${Math.round(n.confidence * 100)}%` : ''}`, '', (n.keywords || []).join(', '))}
-    {cell('id', 'IDENTITY', cc.confidence == null ? 'unknown' : `${cc.confidence}/100`, cc.confidence == null ? '' : cc.confidence >= 70 ? 'is-ok' : cc.confidence < 40 ? 'is-bad' : 'is-wait', (cc.flags || []).join(' · ') || 'no conflicts found')}
-    {cell('site', 'WEBSITE', w.url ? link(w.url, w.reachable === false ? 'unreachable' : (w.title || 'open')) : 'none', w.reachable === false ? 'is-wait' : '')}
-    {cell('x', 'SOCIAL', x.url ? link(x.url, `${p.social}${x.followers != null ? ` · ${x.followers.toLocaleString()}` : ''}`) : p.social || 'UNKNOWN', SOC_CLS[p.social])}
-    {cell('mint', 'MINT MATCH', cc.mintMatch || 'unknown', MATCH_CLS[cc.mintMatch], cc.conflict ? 'the website shows another contract' : '')}
-    {cell('last', 'LAST SOCIAL', ago_(x.lastPostAt), '')}
-    {cell('age', 'RESEARCH AGE', ago_(p.at), '')}
-  </div>;
-}
 
 // 🩺 LIVE OPERATION HEALTH — why the agents are (or are not) filling seats, in one line of real fields
 const EX_CLS = { HEALTHY: 'is-ok', DEGRADED: 'is-wait', BLOCKED: 'is-bad', UNKNOWN: '' };
 // 🔁 THE 60s CYCLE — what the desk looked at this pass and what each seat is doing
 const ACT_CLS = { HOLD: 'is-ok', REVIEW: '', 'CHALLENGER FOUND': 'is-wait', SWITCHING: 'is-go', 'TAKE / EXIT': 'is-wait', FILLING: 'is-go', 'CASH — NO VALID ENTRY': '' };
-export function CycleLine({ c, acts, now, fresh, load }) {
-  if (!c || !c.at) return null;
-  const t = now || Date.now() / 1000; const ago = Math.max(0, Math.round(t - c.at)); const next = Math.max(0, Math.round(c.at + (c.every || 60) - t));
-  const cell = (k, l, v, tip) => <span key={k} className={`oed-op ${typeof tip === 'string' && tip.startsWith('is-') ? tip : ''}`} data-testid={`oed-cy-${k}`} data-tip={typeof tip === 'string' && tip.startsWith('is-') ? '' : tip}><small>{l}</small><b>{v ?? '—'}</b></span>;
-  const best = c.best ? `$${c.best.symbol} ${c.best.cleared ? '✓' : '·'} rank ${Math.round(Number(c.best.lean || 0))}` : 'none';
-  return <div className="oed-cycle" data-testid="oed-cycle">
-    <div className="oed-ops">
-      {cell('last', 'LAST CYCLE', `${ago}s ago`, `cycle #${c.n ?? '—'}`)}{cell('next', 'NEXT CYCLE', `${next}s`)}
-      {cell('new', 'NEW LAUNCHES', c.newLaunches, `≤ 1h old on the board · ${c.newToDesk ?? 0} new to the desk this pass`)}{cell('board', 'BOARD', c.board, 'every launch coin the feed holds')}
-      {cell('screened', 'CHEAP SCREENED', c.screened, Object.entries(c.by || {}).map(([k, v]) => `${k} ${v}`).join(' · '))}{cell('reviewed', 'DEEP REVIEWED', c.reviewed, 'read on real 1-minute candles')}
-      {cell('cleared', 'CLEARED', c.cleared, `of ${c.cases ?? 0} case files`)}{cell('best', 'BEST CHALLENGER', best, c.best?.blocked || (c.best?.cleared ? 'cleared every desk' : ''))}
-      {cell('unique', 'UNIQUE THIS CYCLE', c.read, `${c.freshVsLast ?? '—'} not read last cycle`)}
-      {load ? <>{cell('scans', 'HOLDER SCANS', load.scans, `${load.scanWakes ?? 0} landed and woke their case`)}{cell('social', 'SOCIAL RESEARCHED', load.browser, 'browser page reads this cycle (strongest candidates only)')}</> : null}
-    </div>
-    {fresh ? <div className="oed-ops oed-fresh" data-testid="oed-fresh">{[['price', 'PRICE AGE'], ['tape', 'TAPE AGE'], ['candle', 'CANDLE AGE'], ['liquidity', 'LIQUIDITY AGE'], ['agentInput', 'AGENT INPUT AGE'], ['decision', 'DECISION AGE']].map(([k, l]) =>
-      cell(`f-${k}`, l, fresh[k] == null ? '—' : `${Math.round(fresh[k])}s`, fresh[k] != null && fresh[k] > 180 ? 'is-wait' : ''))}</div> : null}
-    {(acts || []).length > 0 && <ul className="oed-acts" data-testid="oed-acts">{acts.map((a, i) => <li key={i} className={ACT_CLS[a.action] || ''} data-tip={a.why || ''}>
-      <small>SEAT {i + 1}</small><b>{a.symbol ? `$${a.symbol}` : '▫ open'}</b><em>{a.action}{a.to ? ` → $${a.to}` : ''}</em></li>)}</ul>}
-  </div>;
-}
-
-export function OpsLine({ o }) {
-  if (!o) return null;
-  const cell = (k, l, v, cls, tip) => <span key={k} className={`oed-op ${cls || ''}`} data-testid={`oed-op-${k}`} data-tip={tip}><small>{l}</small><b>{v}</b></span>;
-  return <div className="oed-ops" data-testid="oed-ops">
-    {cell('office', 'OFFICE', o.office, o.office === 'LIVE' ? 'is-ok' : 'is-wait')}
-    {cell('keeper', 'KEEPER', o.keeper, o.keeper === '1 active' ? 'is-ok' : 'is-bad')}
-    {cell('open', 'OPEN SEATS', o.openSeats, o.openSeats ? 'is-wait' : 'is-ok')}
-    {cell('valid', 'VALID', o.valid, o.valid ? 'is-ok' : '')}
-    {cell('cleared', 'CLEARED', o.cleared, '')}
-    {cell('next', 'NEXT SEAT ACTION', o.nextIn != null ? `${o.nextIn}s` : '—', '')}
-    {cell('exec', 'EXECUTION', o.execution, EX_CLS[o.execution])}
-    {cell('budget', 'BUY BUDGET', `${o.budget?.left ?? '—'} / ${o.budget?.of ?? '—'}`, o.budget?.left === 0 ? 'is-bad' : '', 'real buys left this hour')}
-    {cell('cash', 'CASH', o.cash != null ? `$${Number(o.cash).toFixed(2)}` : '—', '')}
-    {o.block ? <span className="oed-op oed-op-block is-wait" data-testid="oed-op-block" data-tip={o.block}><small>SEAT BLOCK</small><b>{o.code}</b><em>{o.block}</em></span> : null}
-  </div>;
-}
 const tag = (cls, text, tip, key) => <i key={key} className={`oed-tag ${cls || ''}`} data-tip={tip}>{text}</i>;
 const pctCls = v => (v == null ? '' : Number(v) > 0 ? 'oed-up' : Number(v) < 0 ? 'oed-dn' : '');
 
@@ -117,22 +59,6 @@ export function SwitchEval({ e }) {
       <b>{sgn(e.edge, 1, '')}<u> / need {sgn(need, 1, '')}</u></b></div>
     <ul className="oed-lines" data-testid="oed-lines">{(e.lines || []).map(([l, ok, d]) => <li key={l} className={ok ? 'is-ok' : 'is-no'}><span aria-hidden>{ok ? '✓' : '✕'}</span><b>{l}</b><em>{d}</em></li>)}</ul>
     <p className="oed-why" data-testid="oed-switch-why">{e.why}</p>
-  </div>;
-}
-
-// the compact strip on the office itself: one chip per edge-pass state, each opens its full panel
-export function EdgeBand({ o, onOpen }) {
-  if (!o || o.cold) return null;
-  const pol = o.policy || {}; const ctl = pol.controls || []; const yours = ctl.filter(c => c.who === 'CREATOR OVERRIDE').length; const s = o.seat; const e = o.switchEval; const rv = o.review || {};
-  const open = Object.values(rv.open || {}).reduce((a, b) => a + b, 0); const ms = rv.missedSummary || {};
-  const chip = (k, cls, label, val, sub, tip) => <button type="button" className={`oed-chip ${cls || ''}`} onClick={() => onOpen && onOpen(k)} data-tip={tip} data-testid={`oed-chip-${k}`}><small>{label}</small><b>{val}</b><u>{sub}</u></button>;
-  return <div className="oed-band" data-testid="oed-band">
-    {chip('ready', o.ready?.live ? 'is-ok' : 'is-warm', 'READINESS', o.ready?.live ? 'LIVE' : (o.ready?.state || '—').replace('OFFICE ', ''), o.ready?.live ? 'every rule active' : 'no fill / switch / time exit', o.ready?.why)}
-    {chip('seat', SEAT_CLS[s?.state], 'SEATS', s ? `${s.held}/${s.want}` : '—', s?.state || 'next tick', s?.reason)}
-    {chip('switch', e?.switch ? 'is-go' : '', 'SWITCH TEST', e ? (e.switch ? 'SWITCH' : 'KEEP') : '—', e ? `margin ${sgn(e.edge, 1, '')} / ${sgn(e.need, 1, '')}` : 'no test', e?.why)}
-    {chip('limits', pol.manual ? 'is-you' : '', 'YOUR LIMITS', pol.manual ? 'MANUAL' : `${yours} set`, pol.manual ? 'agents make no move' : `${ctl.length - yours} agents choose`, 'Who decides each control: you (CREATOR OVERRIDE) or the agents (AGENTS CHOOSE)')}
-    {chip('review', open ? 'is-warm' : '', 'REVIEW', open, 'waiting · never blocks', rv.note)}
-    {chip('missed', '', 'MISSED WINNERS', ms.n ?? 0, `${ms.correct ?? 0} correct skips · 6h`, ms.note)}
   </div>;
 }
 

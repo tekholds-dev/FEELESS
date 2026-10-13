@@ -159,9 +159,11 @@ def test_the_judge_records_wins_and_losses_and_no_rule_moves_from_one_outcome():
 
 
 def test_every_agents_tab_chart_is_the_live_feeless_chart():
-    room = (FRONT / 'OfficeRoom.jsx').read_text()
-    assert '<PriceChartLazy' in room and 'useLiveCandles(model0?.wall?.pair' in room   # panel / seats / candidates = PriceChart · wall = the war room's own 1m candles
-    assert 'export function RoundBar' in (FRONT / 'SeatOps.jsx').read_text()
+    """The Agents tab = the cockpit: ONE live FEELESS PriceChart, always in market cap; the 3D office is retired (no file, no route)."""
+    cockpit = (FRONT / 'AgentCockpit.jsx').read_text()
+    assert '<PriceChartLazy' in cockpit and 'metric="marketCap"' in cockpit
+    assert not (FRONT / 'OfficeRoom.jsx').exists() and not (FRONT / 'OfficeRoom3D.jsx').exists()
+    assert 'OfficeHQ' not in (FRONT / 'AgentDesk.jsx').read_text()
 
 
 def test_an_unread_holder_scan_is_pending_not_a_rejection():

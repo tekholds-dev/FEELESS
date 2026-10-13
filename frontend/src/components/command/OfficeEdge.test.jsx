@@ -1,26 +1,12 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { EdgeBand, ReadyStrip, SeatState, SwitchEval, CreatorLimits, ReviewQueue, MissedWinners, LaunchRecord, LIMIT_GROUPS, positionPolicy, optLabel } from './OfficeEdge';
+import { ReadyStrip, SeatState, SwitchEval, CreatorLimits, ReviewQueue, MissedWinners, LaunchRecord, LIMIT_GROUPS, positionPolicy, optLabel } from './OfficeEdge';
 import office from './__fixtures__/office.json';
 
 // every panel here is a field of the ONE office payload (the fixture is built by the backend's own office_edge functions)
 const mount = async node => { const el = document.createElement('div'); document.body.appendChild(el); await act(async () => { createRoot(el).render(node); }); return el; };
 const q = (el, id) => el.querySelector(`[data-testid="${id}"]`);
-
-test('the band on the office: readiness · seats · switch test · your limits · review · missed winners — each opens its panel', async () => {
-  const opened = [];
-  const el = await mount(<EdgeBand o={office} onOpen={k => opened.push(k)} />);
-  expect(q(el, 'oed-chip-ready').textContent).toContain('LIVE'); expect(q(el, 'oed-chip-seat').textContent).toContain(`${office.seat.held}/${office.seat.want}`);
-  expect(q(el, 'oed-chip-seat').textContent).toContain('FILLING'); expect(q(el, 'oed-chip-switch').textContent).toContain('KEEP');
-  const yours = office.policy.controls.filter(c => c.who === 'CREATOR OVERRIDE').length;
-  expect(q(el, 'oed-chip-limits').textContent).toContain(`${yours} set`);
-  expect(q(el, 'oed-chip-review').textContent).toContain(String(Object.values(office.review.open).reduce((a, b) => a + b, 0)));
-  expect(q(el, 'oed-chip-missed').textContent).toContain(String(office.review.missedSummary.n));
-  for (const k of ['ready', 'seat', 'switch', 'limits', 'review', 'missed']) await act(async () => { q(el, `oed-chip-${k}`).click(); });
-  expect(opened).toEqual(['ready', 'seat', 'switch', 'limits', 'review', 'missed']);
-  expect((await mount(<EdgeBand o={{ cold: true }} />)).innerHTML).toBe('');                                           // nothing before the first pass
-});
 
 test('restart readiness, the empty seat and the switch test say exactly what the payload says', async () => {
   const r = await mount(<ReadyStrip r={{ state: 'OFFICE WARMING UP', live: false, steps: [['OFFICE WARMING UP', true], ['POSITIONS RECONCILED', false], ['MARKET REFILLED', false], ['LIVE', false]], why: '0 of 2 agent passes since the restart' }} />);
@@ -88,44 +74,3 @@ test('missed winners and launch context: paper-only study with counts, counterfa
   expect(q(await mount(<LaunchRecord launch={{ record: {}, pads: {} }} />), 'oed-launch').textContent).toContain('no judged call carries its launch context yet');
 });
 
-// 🩺 ops line + per-seat reasons (fixture = the backend's own office_edge.seat_state / ops output)
-test('every empty seat shows its own reason code and the ops line says why the agents are or are not filling', async () => {
-  const { OpsLine } = require('./OfficeEdge');
-  const fx = require('./__fixtures__/seatOps.json');
-  const s = await mount(<SeatState s={fx.seat} />);
-  const li = q(s, 'oed-seat-list').querySelectorAll('li');
-  expect(li.length).toBe(fx.seat.empty);
-  expect(Array.from(li).map(x => x.querySelector('.oed-tag').textContent)).toEqual(fx.seat.seats.map(x => x.code));
-  const o = await mount(<OpsLine o={fx.ops} />);
-  expect(q(o, 'oed-op-office').textContent).toContain('LIVE'); expect(q(o, 'oed-op-keeper').textContent).toContain('1 active');
-  expect(q(o, 'oed-op-open').textContent).toContain(String(fx.ops.openSeats)); expect(q(o, 'oed-op-exec').textContent).toContain('HEALTHY');
-  expect(q(o, 'oed-op-block').textContent).toContain(fx.ops.code); expect(q(o, 'oed-op-cash').textContent).toContain('$1.29');
-  expect(q(o, 'oed-op-budget').textContent).toContain(`${fx.ops.budget.left} / ${fx.ops.budget.of}`);
-  expect((await mount(<OpsLine o={null} />)).textContent).toBe('');
-});
-
-test('the 60s cycle line shows the funnel and every seat says what it is doing', async () => {
-  const { CycleLine } = require('./OfficeEdge');
-  const fx = require('./__fixtures__/cycle.json');
-  const el = await mount(<CycleLine c={fx.cycle} acts={fx.acts} now={fx.cycle.at + 20} />);
-  expect(q(el, 'oed-cy-last').textContent).toContain('20s ago'); expect(q(el, 'oed-cy-next').textContent).toContain('40s');
-  expect(q(el, 'oed-cy-board').textContent).toContain('812'); expect(q(el, 'oed-cy-screened').textContent).toContain('240');
-  expect(q(el, 'oed-cy-new').textContent).toContain('133'); expect(q(el, 'oed-cy-reviewed').textContent).toContain('1');
-  expect(q(el, 'oed-cy-best').textContent).toContain('$NEWB');
-  expect(Array.from(q(el, 'oed-acts').querySelectorAll('li em')).map(x => x.textContent)).toEqual(fx.acts.map(a => a.action));
-  expect((await mount(<CycleLine c={null} />)).textContent).toBe('');
-});
-
-test('the narrative packet shows identity, mint match and real source links; freshness and load are separate fields', async () => {
-  const { SocialLine, CycleLine } = require('./OfficeEdge');
-  const fx = require('./__fixtures__/social.json'); const cy = require('./__fixtures__/cycle.json');
-  const el = await mount(<SocialLine p={fx.packet} now={fx.packet.at} />);
-  expect(q(el, 'oed-soc-narr').textContent).toContain('ANIMAL'); expect(q(el, 'oed-soc-mint').textContent).toContain('yes');
-  expect(q(el, 'oed-soc-id').textContent).toContain(`${fx.packet.cross.confidence}/100`);
-  expect(q(el, 'oed-soc-site').querySelector('a').getAttribute('href')).toBe('https://froggy.fun'); expect(q(el, 'oed-soc-x').querySelector('a').getAttribute('href')).toBe('https://x.com/froggy_sol');
-  expect(q(el, 'oed-soc-x').textContent).toContain('ACTIVE');
-  expect((await mount(<SocialLine p={null} />)).textContent).toContain('not researched yet');
-  const c = await mount(<CycleLine c={cy.cycle} acts={cy.acts} now={cy.cycle.at} fresh={fx.fresh} load={fx.load} />);
-  expect(q(c, 'oed-cy-f-price').textContent).toContain('10s'); expect(q(c, 'oed-cy-f-candle').textContent).toContain('60s'); expect(q(c, 'oed-cy-f-agentInput').textContent).toContain('50s');
-  expect(q(c, 'oed-cy-scans').textContent).toContain('2'); expect(q(c, 'oed-cy-social').textContent).toContain('4');
-});

@@ -49,8 +49,8 @@ test('the cockpit, laid out like the reference: ribbon → 4 seats → MC chart 
   const last = () => charts[charts.length - 1];
   expect(q('price-chart').getAttribute('data-metric')).toBe('marketCap'); expect(last().pair.marketCap).toBeCloseTo(1_006_000);
   expect(last().fuse.lines.map(l => l.title)).toEqual(['entry', 'take +50%', 'stop -15%']);
-  expect(last().markers.map(m => m.text)).toEqual(['T', 'B', 'R']); expect(q('ack-chart-mc').textContent).toBe('$1.01M');
-  expect(q('ack-mrail').textContent).toContain('Trigger'); expect(q('ack-mk-3').getAttribute('data-tip')).toContain('Reaper · PROTECT');
+  expect(last().markers).toHaveLength(1); expect(last().markers[0].shape).toBe('arrowUp'); expect(last().markers[0].text).toBe('');   // only the real fill, no letters expect(q('ack-chart-mc').textContent).toBe('$1.01M');
+  expect(q('ack-mrail').textContent).toContain('Trigger enter'); expect(q('ack-mk-3').getAttribute('data-tip')).toContain('Reaper · PROTECT');
   expect(q('ack-iv-5m').parentElement.className).toContain('ack-iv');                                                              // the candle selector is one horizontal seg
   // ⚡ live decisions: newest first
   expect(q('ack-tape').querySelectorAll('.ack-tcard')).toHaveLength(4); expect(q('ack-tape').querySelector('.ack-tcard').textContent).toContain('HARD VETO');

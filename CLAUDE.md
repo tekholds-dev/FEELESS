@@ -3386,3 +3386,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   cold build held the browser's connection slots and every request on the page queued behind it (search read 12s in the browser, 6 ms on the
   server). The confluence ranking cache is `_edge_rank_cache` — it shared the name `_edge_cache` with the per-coin cache, whose clear() at
   5,000 coins wiped its `at` / `rows` (KeyError). The Agents tab's ▸ MORE fold mounts nothing while closed.
+- 🏁 THE 3D OFFICE IS RETIRED (owner, 2026-10-12: "keep the new cockpit, remove the 3D office"): `OfficeRoom.jsx`, `OfficeRoom3D.jsx`,
+  `officeRoom.css` and the room toggle are deleted (older notes that name them are history); the cockpit's helpers live in
+  `components/command/agentWords.js` (AG · activityOf · ticker). Dead SeatOps / OfficeEdge parts only the room used went with it (CSS
+  pruned brace-aware). The cockpit chart draws ONLY real fills (small ▲▼ at the fill price, no letters); decisions stay in the rail under it.
+  Chart axes never print a negative price / market cap. 💹 Users' coin charts (TrenchChart › PnlBadge): the P&L ticker glides at ≤ 30fps and
+  each REAL price tick flashes in its direction, glow by how far it moved (`lib/pnlTicker.js`, `styles/pnlTicker.css`) — users only.

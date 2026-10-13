@@ -144,3 +144,9 @@ test('the Courier\'s numbers in words, only from what the ledger metrics carry',
   expect(execWords({ sends: 4, fills: 3, expired: 1, quoteAgeMed: 1.2, landMed: 8, slipMed: 0.9, staleRefresh: 2, dupesDropped: 0, retries: 0 }))
     .toBe('3/4 filled · 1 expired · quote 1.2s old at send · lands in 8s · +0.9% vs mid · 2 stale quotes refreshed');
 });
+
+test('team tile: the lives when the card has them, else the ten-agent lifecycle (never a dead dash when the team is known)', () => {
+  const gens = ['tally', 'devil'].map((role, i) => ({ role, status: i ? 'PROBATION' : 'ACTIVE' }));
+  const t = Object.fromEntries(missionTiles({ office: { mission: {}, generations: gens } }, []).map(x => [x.k, x]));
+  expect(t.lives).toMatchObject({ label: 'TEAM', text: '1 / 2 ACTIVE', sub: 'probation: devil', cls: 'is-warn' });
+});

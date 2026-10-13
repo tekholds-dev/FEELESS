@@ -4,10 +4,10 @@ import { toast } from 'sonner';
 import { useHub, hubApply, hubLoad } from '../../lib/agentHub';
 import { rankFill, READY_MIN, devilOf } from '../../lib/agentRead';
 import { seatCards, focusMint, chartModel, decisionOf, tapeOf, tapeTone, TAPE_AGENT, AGE_BUCKETS, bucketCounts, reviewQueue, supplyWord,
-  seatState, STATE_CLS, missionTiles, letterMarkers, MARKER_KEY, inputsOf, traceOf, CHAIN, maxIdByAgent, newEvents, queueStatus, queueMc } from '../../lib/cockpit';
+  seatState, STATE_CLS, missionTiles, letterMarkers, inputsOf, traceOf, CHAIN, maxIdByAgent, newEvents, queueStatus, queueMc } from '../../lib/cockpit';
 import { useEasedNumber } from '../../lib/easedNumber';
 import { usd as cash, pct as pc, price as priceFmt } from '../../lib/num';
-import { AG, activityOf } from './OfficeRoom';
+import { AG, activityOf } from './agentWords';
 import { optLabel } from './OfficeEdge';
 import { openCoin } from '../CoinDrawer';
 import { AiProviders, aiChip } from './AiProviders';
@@ -82,7 +82,9 @@ export const IVS = [['1m', '1m'], ['5m', '5m'], ['15m', '15m']];
 function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent }) {
   const pair = useMemo(() => (m?.pair ? { chainId: 'solana', pairAddress: m.pair, baseToken: { address: m.mint, symbol: m.symbol }, priceUsd: m.price, marketCap: m.mc } : null), [m?.pair, m?.mint, m?.symbol, m?.price, m?.mc]);
   const fuse = useMemo(() => ({ lines: m?.lines || [] }), [m?.lines]);
-  const chartMarkers = useMemo(() => markers.map(({ id, agent, action, why, mc, at, ...k }) => k), [markers]);
+  // ON the plot: only confirmed FILLS, as small arrows at the real fill price (no letters, no decision blocks over the candles);
+  // every decision stays readable in the rail under the chart
+  const chartMarkers = useMemo(() => markers.filter(k => k.text === 'B' || (k.text === 'X' && k.agent === 'courier')).map(({ id, agent, action, why, mc, at, text, ...k }) => ({ ...k, text: '' })), [markers]);
   if (!m) return <div className="ack-chart is-empty" data-testid="ack-chart"><p className="ack-nil">No coin on the desk yet — the chart opens on the first seat or READY candidate.</p></div>;
   const vol = cand?.vol5m; const liq = pos?.liq ?? cand?.liq;
   return <div className="ack-chart" data-testid="ack-chart">
@@ -100,10 +102,10 @@ function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent }) {
       : !m.mc ? <p className="ack-nil is-warn" data-testid="ack-mc-unavailable"><b>MC UNAVAILABLE</b> — no supply is known for this coin yet (no token supply, not a launchpad mint, no live cap). The raw price is never charted in its place.</p>
         : <div className="ack-plot"><Suspense fallback={<p className="ack-nil">loading the live chart…</p>}>
           <PriceChartLazy key={`${m.pair}-${iv}`} pair={pair} interval={iv} metric="marketCap" showVolume markers={chartMarkers} fuse={fuse} /></Suspense></div>}
-    <div className="ack-mrail" data-testid="ack-mrail"><span className="ack-mkey">{MARKER_KEY.map(([l, w]) => <i key={l} className={`ack-ml is-${l}`}>{l}<small>{w}</small></i>)}</span>
+    <div className="ack-mrail" data-testid="ack-mrail"><span className="ack-mkey"><i className="ack-ml is-B">▲<small>real buy</small></i><i className="ack-ml is-X">▼<small>real sell</small></i><small>on the chart · decisions →</small></span>
       {markers.length ? <span className="ack-mlist">{markers.slice(-12).map(k => <button key={k.id} type="button" className={`ack-ml is-${k.text}`} onClick={() => onAgent(k.agent)}
         data-tip={`${new Date(k.at * 1000).toLocaleTimeString()} · ${TAPE_AGENT[k.agent]?.[1] || k.agent} · ${k.action}${k.why ? ` — ${k.why}` : ''}${k.mc ? ` · MC ${mcWord(k.mc)}` : ''} · ${ago(k.at)} ago`}
-        data-testid={`ack-mk-${k.id}`}>{k.text}<small>{ago(k.at)}</small></button>)}</span> : <small className="ack-mnone">no real event on this coin yet — markers appear only for decisions and fills that happened</small>}</div>
+        data-testid={`ack-mk-${k.id}`}>{TAPE_AGENT[k.agent]?.[1] || k.agent} {String(k.action || '').toLowerCase()}<small>{ago(k.at)}</small></button>)}</span> : <small className="ack-mnone">no real event on this coin yet — markers appear only for decisions and fills that happened</small>}</div>
   </div>;
 }
 

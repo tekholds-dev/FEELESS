@@ -197,7 +197,10 @@ export function missionTiles(d, seats) {
     { k: 'net', label: 'NET P&L', val: net, fmt: 'usd', live: true, sub: net != null && pin ? `${((net / pin) * 100).toFixed(1)}% of put in` : null, cls: net == null ? '' : net >= 0 ? 'm-pos' : 'm-neg' },
     { k: 'phase', label: 'PHASE', text: m.phase || '—', sub: m.phase === 'RECOVERY' ? '1 of 2 · to breakeven' : m.phase === 'GROWTH' ? '2 of 2 · to 2× put-in' : m.phase === 'GRADUATED' ? '2× reached' : null, cls: m.phase === 'RECOVERY' ? 'is-warn' : m.phase ? 'm-pos' : '' },
     { k: 'be', label: 'BREAKEVEN', val: num(m.breakevenTarget ?? m.putIn), fmt: 'usd', sub: be == null ? null : be >= 0 ? '✓ reached' : `−$${Math.abs(be).toFixed(2)}${m.needX ? ` · needs ${m.needX}×` : ''}`, subCls: be != null && be < 0 ? 'm-neg' : 'm-pos' },
-    { k: 'lives', label: 'TEAM LIVES', text: m.lives != null ? `${m.lives} / ${m.livesOf ?? 9}` : '—', sub: num(m.nextDutyIn) != null ? `next duty ${Math.max(0, Math.round(m.nextDutyIn / 60))}m` : null },
+    m.lives != null ? { k: 'lives', label: 'TEAM LIVES', text: `${m.lives} / ${m.livesOf ?? 9}`, sub: num(m.nextDutyIn) != null ? `next duty ${Math.max(0, Math.round(m.nextDutyIn / 60))}m` : null }
+      : (gs => ({ k: 'lives', label: 'TEAM', text: gs.length ? `${gs.filter(g => g.status === 'ACTIVE').length} / ${gs.length} ACTIVE` : '—',   // the ten-agent lifecycle replaced the 9 lives
+        sub: gs.some(g => g.status === 'PROBATION') ? `probation: ${gs.filter(g => g.status === 'PROBATION').map(g => g.role).join(', ')}` : gs.length ? 'judged on real exits' : null,
+        cls: gs.some(g => g.status === 'PROBATION') ? 'is-warn' : gs.length ? 'm-pos' : '' }))(o.generations || []),
     { k: 'occ', label: 'OCCUPANCY', text: all ? `${held} / ${all}` : '—', sub: ss.bench != null ? `bench ${ss.bench} · ready ${ss.benchReady ?? 0}` : null, cls: all && held < all ? 'is-warn' : '' },
     { k: 'cycle', label: 'CYCLE', text: cy.every ? `${Math.round(cy.every)}s` : '—', sub: num(cy.nextIn) != null ? `next in ${Math.round(cy.nextIn)}s · ${cy.read ?? 0} read` : null },
     { k: 'last', label: 'LAST REAL ACTION', text: la ? `${String(la.move || '').toUpperCase()} $${la.sym}` : '—', sub: la?.at ? `${Math.max(0, Math.round((Date.now() / 1000 - la.at) / 60))}m ago · ${la.result?.state || 'sent'}` : 'none since the service started', tip: la?.why },

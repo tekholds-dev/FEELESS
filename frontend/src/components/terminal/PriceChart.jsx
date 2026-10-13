@@ -174,7 +174,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     const refPrice = Math.abs(Number(displayCandles.length ? displayCandles[displayCandles.length - 1][4] : trail[trail.length - 1]?.value) || 1);
     const decimals = Math.min(12, Math.max(2, -Math.floor(Math.log10(refPrice)) + 3));
     const minMove = Number((10 ** -decimals).toFixed(decimals));
-    const axisFormat = n => (Math.abs(n) >= 1000 ? formatUSD(n) : `$${Number(n).toFixed(decimals)}`);
+    const axisFormat = n => (!(n >= 0) ? '' : Math.abs(n) >= 1000 ? formatUSD(n) : `$${Number(n).toFixed(decimals)}`);   // a price or market cap is never negative: the volume margin below the lowest candle prints no fake "$-2.00K"
     chart.applyOptions({ localization: { locale: 'en-US', priceFormatter: axisFormat } });
     // A few self-recorded bars (quiet coin, no provider history yet) read as noise as candles;
     // show them as a clean price line until real history arrives.

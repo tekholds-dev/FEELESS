@@ -21,6 +21,9 @@ import { QuickTrade } from './QuickTrade';
 import { TradeTape } from './TradeTape';
 import { useTabTitle, chartTitle } from '../../lib/tabTitle';
 import { useLiveFuse } from '../../lib/liveFuse';
+import { useEasedNumber } from '../../lib/easedNumber';
+import { tickHeat } from '../../lib/pnlTicker';
+import '../../styles/pnlTicker.css';
 import { useAdmin } from '../../lib/adminCall';
 import { toast } from 'sonner';
 
@@ -119,15 +122,22 @@ function PnlBadge({ pos, pair, price, flash, symbol, imageUrl, mcPerPrice }) {
     refresh(); const timer = setInterval(refresh, 2500);
     return () => { alive = false; clearInterval(timer); };
   }, [pair]);
-  if (!pos || !(pos.tokensHeld > 0) || !(livePrice > 0)) return null;
+  // 💹 live ticker: each REAL price tick sets the effect level (how far it moved); the numbers glide to the real value at ≤ 30fps
+  const prevPx = useRef(null); const [tick, setTick] = useState({ n: 0, heat: 0, dir: 0 });
+  useEffect(() => { const t = tickHeat(prevPx.current, livePrice); prevPx.current = livePrice; if (t.dir) setTick(x => ({ n: x.n + 1, heat: t.heat, dir: t.dir })); }, [livePrice]);
+  const ok = pos && pos.tokensHeld > 0 && livePrice > 0; const sum0 = ok ? pnlSummary(pos, livePrice) : null;
+  const ePct = useEasedNumber(sum0 ? sum0.pct : null); const eUsd = useEasedNumber(sum0 ? sum0.pnl : null); const eVal = useEasedNumber(sum0 ? sum0.value : null);
+  if (!ok) return null;
   const fmtMc = v => (v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${v.toFixed(0)}`);
   const entryPx = Number(pos.fillPrice) || pos.avgEntry; const entryMc = mcPerPrice ? fmtMc(entryPx * mcPerPrice) : null; const nowMc = mcPerPrice ? fmtMc(livePrice * mcPerPrice) : null;
   const sum = pnlSummary(pos, livePrice); const { pct, value } = sum; const usd = sum.pnl;
   const sign = v => (v >= 0 ? '+' : '−');
   const money = v => `$${Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: Math.abs(v) >= 100 ? 0 : 2 })}`;
-  return <div key={flash} className={`my-pnl ${pct >= 0 ? 'up' : 'down'} ${flash ? 'just-traded' : ''} ${open ? 'is-open' : ''}`} data-testid="my-pnl">
+  const sp = ePct ?? pct; const su = eUsd ?? usd; const sv = eVal ?? value;
+  return <div key={flash} className={`my-pnl pnt pnt-h-${tick.heat} ${pct >= 0 ? 'up' : 'down'} ${flash ? 'just-traded' : ''} ${open ? 'is-open' : ''}`} data-testid="my-pnl" data-heat={tick.heat}>
+    {tick.n ? <i key={tick.n} className={`pnt-tick ${tick.dir > 0 ? 'is-up' : 'is-dn'}`} aria-hidden="true" /> : null}
     <button type="button" className="my-pnl-head" onClick={() => setOpen(o => !o)} aria-expanded={open} title="Your live position · tap for details">
-      <small>YOU</small>{pos.locked ? <small className="my-pnl-lock" title="Entry locked: read from your wallet's transaction and priced at the moment you signed">🔒</small> : !pos.pending && <small className="my-pnl-est" title="Not locked yet: some of this is still an estimate">≈</small>}<b>{sign(pct)}{Math.abs(pct).toFixed(Math.abs(pct) >= 100 ? 0 : 2)}%</b><span>{sign(usd)}{money(usd)}</span><em>{money(value)}</em><i aria-hidden="true">{open ? '▾' : '▸'}</i>
+      <small>YOU</small>{pos.locked ? <small className="my-pnl-lock" title="Entry locked: read from your wallet's transaction and priced at the moment you signed">🔒</small> : !pos.pending && <small className="my-pnl-est" title="Not locked yet: some of this is still an estimate">≈</small>}<b className="pnt-pct">{sign(sp)}{Math.abs(sp).toFixed(Math.abs(sp) >= 100 ? 0 : 2)}%</b><span>{sign(su)}{money(su)}</span><em>{money(sv)}</em><i aria-hidden="true">{open ? '▾' : '▸'}</i>
     </button>
     {open && <div className="my-pnl-more">
       <dl className="m-kv"><dt>Bought</dt><dd>{money(sum.bought)}</dd>{sum.sold > 0 && <><dt>Sold</dt><dd>{money(sum.sold)}</dd></>}<dt>Holding</dt><dd>{money(value)}</dd><dt>Entry</dt><dd>{mcPerPrice ? `MC ${fmtMc(sum.entry * mcPerPrice)}` : `$${tiny(sum.entry, 4)}`} <small>after fees</small></dd><dt>Now</dt><dd>{nowMc ? `MC ${nowMc}` : `$${tiny(livePrice, 4)}`}</dd>

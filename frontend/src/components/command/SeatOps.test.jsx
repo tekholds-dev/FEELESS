@@ -1,8 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { SeatStrip, SeatsPane, ProofSources, CopyMint } from './SeatOps';
-import { OfficeHQ, RoomScene, AgentPanel, roomModel, seatsOf, PANEL_TABS } from './OfficeRoom';
 import office from './__fixtures__/office.json';
 import four from './__fixtures__/fourSeats.json';
 jest.mock('../../lib/liveCandles', () => ({ useLiveCandles: () => null }));   // no network in tests
@@ -14,103 +12,6 @@ const O = { ...office, ...four };
 const mount = async node => { const el = document.createElement('div'); document.body.appendChild(el); await act(async () => { createRoot(el).render(node); }); return el; };
 const q = (el, id) => el.querySelector(`[data-testid="${id}"]`);
 const click = async node => { await act(async () => { node.dispatchEvent(new MouseEvent('click', { bubbles: true })); }); };
-
-test('the strip says occupancy against the 4-seat target, the bench, buys left and cash — and one tile per seat', async () => {
-  const seen = [];
-  const el = await mount(<SeatStrip o={O} onSeat={x => seen.push(x)} />);
-  expect(q(el, 'sop-occ').textContent).toContain('2 / 4'); expect(q(el, 'sop-target').textContent).toContain('4 / 4');
-  expect(q(el, 'sop-bench').textContent).toContain('2 ready'); expect(q(el, 'sop-buys').textContent).toContain('3 / 6'); expect(q(el, 'sop-cash').textContent).toContain('0.85');
-  const s1 = q(el, 'sop-seat-1'); const s2 = q(el, 'sop-seat-2'); const s3 = q(el, 'sop-seat-3'); const s4 = q(el, 'sop-seat-4');
-  expect(s1.textContent).toContain('$ACME'); expect(s1.textContent).toContain('PROTECT'); expect(s1.textContent).toContain('accelerating'); expect(s1.textContent).toContain('vs $BNCH +5/30');
-  expect(s2.textContent).toContain('SWAP'); expect(s2.textContent).toContain('reversing');
-  expect(s3.textContent).toContain('OPEN'); expect(s3.textContent).toContain('next $BNCH'); expect(s3.textContent).toContain('READY');
-  expect(s4.textContent).toContain('next $NXT'); expect(s4.getAttribute('data-tip')).toContain('WAITING FOR CONFIRMATION');
-  await click(s1); await click(s3);
-  expect(seen[0].symbol).toBe('ACME'); expect(seen[1].empty).toBe(true);
-  const none = await mount(<SeatStrip o={{}} />); expect(none.textContent).toBe('');                          // no seat data: nothing invented
-});
-
-test('the Seats pane shows every seat with its result, both timestamps, the bench, input ages and the cycle log', async () => {
-  const coins = [];
-  const el = await mount(<SeatsPane o={O} onCoin={s => coins.push(s)} />);
-  const r1 = q(el, 'sop-row-1');
-  expect(r1.textContent).toContain('PROTECT'); expect(r1.textContent).toContain('valid · UPTREND'); expect(r1.textContent).toContain('34 min');
-  expect(r1.textContent).toContain('stop -18%'); expect(r1.textContent).toContain('$BNCH 71'); expect(r1.textContent).toContain('+5 of +30');
-  expect(r1.textContent).toContain('0s ago'); expect(r1.textContent).toContain('4s old');                      // decided-at + market-input-at, separately
-  expect(q(el, 'sop-row-2').textContent).toContain('margin +33 ≥ +15'); expect(q(el, 'sop-row-3').textContent).toContain('READY');
-  const bench = q(el, 'sop-bench'); expect(bench.querySelectorAll('li').length).toBe(3); expect(bench.textContent).toContain('WAIT FOR CONFIRMATION');
-  const ages = q(el, 'sop-ages'); ['PRICE', 'TAPE', 'REAL CANDLE', 'LIQUIDITY', 'AGENT INPUT', 'DECISION', 'HELD SEATS'].forEach(k => expect(ages.textContent).toContain(k));
-  expect(ages.textContent).toContain('11s'); expect(ages.textContent).toContain('tape 14s');
-  const log = q(el, 'sop-log'); expect(log.querySelectorAll('tbody tr').length).toBe(2); expect(log.textContent).toContain('#42'); expect(log.textContent).toContain('$LOSR SWAP');
-  expect(el.textContent).toContain('not a learned or proven edge');
-  await click(bench.querySelector('.sop-coin')); expect(coins[0]).toBe('BNCH');
-});
-
-test('PROOF / SOURCES: each source FOUND / NOT FOUND / UNKNOWN with its link, the exact mints, the narrative sources and the legal level', async () => {
-  const p = four.social[four.mint];
-  const el = await mount(<ProofSources p={p} mint={four.mint} now={1791700300} />);
-  const web = q(el, 'sop-ev-website'); expect(web.textContent).toContain('FOUND'); expect(web.textContent).toContain('MINT YES');
-  expect(web.querySelector('a').getAttribute('href')).toBe('https://acme.ai'); expect(web.querySelector('a').getAttribute('target')).toBe('_blank');
-  expect(web.querySelector('a').getAttribute('rel')).toContain('noopener');
-  expect(q(el, 'sop-ev-launch').querySelector('a').getAttribute('href')).toBe(`https://pump.fun/coin/${four.mint}`);
-  expect(q(el, 'sop-ev-github').querySelector('a').getAttribute('href')).toContain('github.com/acme-labs');
-  expect(q(el, 'sop-ev-audit').textContent).toContain('never guarantees');
-  expect(q(el, 'sop-legal').textContent).toContain('PARTIAL'); expect(q(el, 'sop-legal').textContent).toContain('ENTITY NOT VERIFIED'); expect(q(el, 'sop-legal').textContent).toContain('no public registry was checked');
-  expect(el.textContent).toContain('AI / TECH'); expect(el.textContent).toMatch(/from .*website/);
-  expect(el.textContent.toLowerCase()).not.toMatch(/\blegit\b|\bbacked\b|real project/);
-  const nil = await mount(<ProofSources p={null} mint="Abc1234567890Abc1234567890Abc12345" />);
-  expect(nil.textContent).toContain('not researched yet');
-  const bad = await mount(<ProofSources p={{ ...p, evidence: [{ kind: 'website', label: '🌐 Website', status: 'FOUND', url: 'javascript:alert(1)' }] }} mint={four.mint} />);
-  expect(q(bad, 'sop-ev-website').querySelector('a')).toBeNull();                                               // only http(s) links ever open
-});
-
-test('the mint is copyable', async () => {
-  const wrote = []; Object.assign(navigator, { clipboard: { writeText: s => { wrote.push(s); return Promise.resolve(); } } });
-  const el = await mount(<CopyMint mint={four.mint} />);
-  await click(q(el, 'sop-copy-mint')); expect(wrote).toEqual([four.mint]); expect(q(el, 'sop-copy-mint').textContent).toContain('copied');
-});
-
-test('the room seats carry this cycle\'s result and every seat — held or open — is clickable to its explanation', async () => {
-  const seats = seatsOf(O, { seats: [{ kind: 'agent', symbol: 'ACME', pct: 6.4 }, { kind: 'agent', symbol: 'LOSR', pct: -4.2 }, { kind: 'open' }, { kind: 'open' }] }, null);
-  expect(seats[0].vel).toBe('ACCELERATING'); expect(seats[0].decision).toBe('PROTECT'); expect(seats[0].chal).toBe('BNCH');
-  expect(seats[2].next).toBe('BNCH'); expect(seats[2].ready).toBe(true);
-  const m = roomModel(O, 'reaper', null, { seats: [{ kind: 'agent', symbol: 'ACME', pct: 6.4 }, { kind: 'open' }] });
-  expect(m.status[0]).toEqual(['2/4', 'seats held', '#a07bff']); expect(m.status[1][1]).toBe('bench ready'); expect(m.summary.target).toBe(4);   // the wall's pipeline board = the live summary
-  const picked = [];
-  const el = await mount(<RoomScene o={O} sel="reaper" onSel={() => {}} coin={null} onCoin={() => {}} card={{ seats: [{ kind: 'agent', symbol: 'ACME', pct: 6.4 }, { kind: 'open' }] }} onSeat={x => picked.push(x)} />);
-  await click(q(el, 'seat-0')); await click(q(el, 'seat-1'));
-  expect(picked[0].symbol).toBe('ACME'); expect(picked[1].empty).toBe(true);                                  // an open seat is never a dead button
-});
-
-test('clicking an open seat opens the Seats view with its reason; a held seat opens its coin under Reaper', async () => {
-  expect(PANEL_TABS.map(t => t[0])).toContain('seats');
-  const el = await mount(<OfficeHQ o={O} roomOn gl={false} card={{ seats: [{ kind: 'agent', symbol: 'ACME', pct: 6.4 }, { kind: 'agent', symbol: 'LOSR', pct: -4.2 }, { kind: 'open' }, { kind: 'open' }] }} />);
-  expect(q(el, 'sop-strip')).not.toBeNull();
-  await click(q(el, 'sop-seat-3'));
-  expect(q(el, 'pane-seats')).not.toBeNull(); expect(q(el, 'pane-seats').textContent).toContain('SEAT 3');
-  await click(q(el, 'sop-seat-1'));
-  expect(q(el, 'pane-live')).not.toBeNull(); expect(q(el, 'ofr-panel').textContent).toContain('REAPER');
-  const panel = await mount(<AgentPanel o={O} a={O.agents.find(x => x.key === 'tally')} coin={null} onCoin={() => {}} tabReq={{ tab: 'seats', at: 1 }} />);
-  expect(q(panel, 'pane-seats')).not.toBeNull();
-});
-
-test('every object in the 3D room routes its click to real data — bot, monitor, case file, seat, wall monitor, wall board', () => {
-  const { routePick } = require('./OfficeRoom');
-  const got = [];
-  const cb = { sel: k => got.push(['sel', k]), coin: c => got.push(['coin', c]), seat: x => got.push(['seat', x.symbol || (x.empty ? 'EMPTY' : '?')]), board: b => got.push(['board', b]) };
-  const model = { wall: { symbol: 'CAND', kind: 'case' }, focus: 'trigger' };
-  const seats = [{ symbol: 'ACME', sb: { symbol: 'ACME', seat: 1 } }, { symbol: null, sb: { empty: true, seat: 2 } }];
-  expect(routePick({ k: 'devil', kind: 'bot' }, model, null, cb)).toBe('bot');
-  expect(routePick({ k: 'reaper', kind: 'monitor' }, model, null, cb)).toBe('monitor');
-  expect(routePick({ kind: 'case', sym: 'C3', at: 'warden' }, model, null, cb)).toBe('case');
-  expect(routePick({ kind: 'seat', seat: 0 }, model, i => seats[i], cb)).toBe('seat');
-  expect(routePick({ kind: 'seat', seat: 1 }, model, i => seats[i], cb)).toBe('seat');
-  expect(routePick({ kind: 'wall' }, model, null, cb)).toBe('wall');
-  expect(routePick({ kind: 'board', board: 'limits' }, model, null, cb)).toBe('board');
-  expect(routePick({ kind: 'board', board: 'pipeline' }, model, null, cb)).toBe('board');
-  expect(routePick({}, model, null, cb)).toBeNull();
-  expect(got).toEqual([['sel', 'devil'], ['sel', 'reaper'], ['coin', 'C3'], ['sel', 'warden'], ['seat', 'ACME'], ['seat', 'EMPTY'], ['coin', 'CAND'], ['sel', 'trigger'], ['board', 'limits'], ['board', 'pipeline']]);
-});
 
 test('🆕 fresh pipeline block: buckets, repeats, age at entry, candle allocation, top 5', async () => {
   const { FreshBlock } = require('./SeatOps');
@@ -132,27 +33,6 @@ test('🗂 active index + 📡 RPC lanes render the canonical candidates and lan
       { mint: 'B', symbol: 'OLDY', eligible: false, why: 'dead — $40 traded in the last 5 min', launchAgeMin: 3000, holderStatus: 'passed', sources: [] }]} /></div>); });
   expect(el.textContent).toContain('alchemy.com'); expect(el.textContent).toContain('out of quota · back in 40m');
   expect(el.textContent).toContain('1 eligible / 2'); expect(el.textContent).toContain('$BABY'); expect(el.textContent).toContain('dead — $40');
-});
-
-test('the round bar shows the desk round, candidates per round, decisions, new mints by age band, tiers and input ages', async () => {
-  const { RoundBar } = require('./SeatOps');
-  const el = document.createElement('div'); document.body.appendChild(el);
-  const o = { rounds: { desk: { n: 140, left: 125 }, round: { 1: 6, 2: 3, 3: 1 }, decided1h: { ENTER: 2, REJECT: 9, COOLDOWN: 4 }, avgRounds: 2.6 },
-    cycle: { screened: 71, reviewed: 24, fresh: { buckets: { '0–5m': 4, '5–15m': 7, '15–60m': 9, '1–3h': 5, '3–6h': 2 } } },
-    opp: { A: 1, B: 2, C: 3, hard: 30 }, seatSummary: { occupancy: 2, target: 4, bench: 5 }, fresh: { price: 4, tape: 20, candle: 50, liquidity: 4, decision: 1 } };
-  await act(async () => { createRoot(el).render(<RoundBar o={o} />); });
-  const t = el.textContent;
-  expect(t).toContain('140 · 2:05 left'); expect(t).toContain('6 · 3 · 1'); expect(t).toContain('2 in · 9 no · 4 cool');
-  expect(t).toContain('4 · 7 · 9 · 5 · 2'); expect(t).toContain('71 → 24'); expect(t).toContain('1 · 2 · 3 · 30'); expect(t).toContain('2/4 · 5');
-});
-
-test('the round history shows each candidate\'s round reads and how it ended', async () => {
-  const { RoundHistory } = require('./SeatOps');
-  const el = document.createElement('div'); document.body.appendChild(el);
-  const r = { recent: [{ sym: 'NEWB', decision: 'ENTER', rounds: 3, why: 'B-tier, held across rounds over 3 rounds', at: 1,
-    reads: [{ round: 1, tier: 'C', score: 44, phase: 'DISCOVERY' }, { round: 2, tier: 'B', score: 52 }, { round: 3, tier: 'B', score: 58, phase: 'EARLY ACCELERATION' }] }] };
-  await act(async () => { createRoot(el).render(<RoundHistory r={r} />); });
-  expect(el.textContent).toContain('ENTER after 3 rounds'); expect(el.textContent).toContain('R1 C 44 discovery → R2 B 52 → R3 B 58 early acceleration');
 });
 
 test('the kernel board: four hunter lanes, Devil warnings never read as a block, market vs decision freshness apart', async () => {

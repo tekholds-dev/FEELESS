@@ -7,7 +7,7 @@ import { useAgentHub, AgentHubProvider } from '../../lib/agentHub';
 import { pct, tone, VERD, rowState, rowWhy, pipsOf, rankFill, devilOf, kOf, practiceOf, READY_MIN } from '../../lib/agentRead';
 import { MiniScreen, ZoomScreen, CardNow, CourtBand, JudgeCourt, MissionBar } from './AgentScreens';
 import { OfficeBoard } from './OfficeBoard';
-import { OfficeHQ, ticker } from './OfficeRoom';
+import { ticker } from './agentWords';
 import { ReadyStrip, SeatState, SwitchEval, CreatorLimits, ReviewQueue, MissedWinners, LaunchRecord } from './OfficeEdge';
 import { KernelBoard } from './SeatOps';
 import { AgentCockpit } from './AgentCockpit';
@@ -264,7 +264,7 @@ const Ring = ({ v, icon }) => <span className="agd-ring" aria-hidden><svg viewBo
 export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
   const cc = useAgentHub(call); const d = cc.d;   // 🛰 ONE agent hub store: the snapshot + the shared live prices (positions + seats move every 3s)
   const [busy, setBusy] = useState(false); const [sel, setSel] = useState('tally'); const [who, setWho] = useState('all'); const [zoom, setZoom] = useState(null); const [jump, setJump] = useState(null);
-  const [lens, setLensS] = useState(() => lens0 || (l => (LENSES.some(x => x[0] === l) ? l : 'live'))(mem.get('feeless.agentLens', 'live'))); const [drawer, setDrawer] = useState(null); const [office, setOffice] = useState(() => mem.get('feeless.agentRoom', 'off') === 'on');   // 🏢 the 3D office is opt-in: the cockpit is the tab
+  const [lens, setLensS] = useState(() => lens0 || (l => (LENSES.some(x => x[0] === l) ? l : 'live'))(mem.get('feeless.agentLens', 'live'))); const [drawer, setDrawer] = useState(null);
   const setLens = k => { setLensS(k); mem.set('feeless.agentLens', k); };
   const [more, setMore] = useState(() => !!lens0 || mem.get('feeless.agentMore', 'closed') === 'open');   // ▸ MORE: everything under the cockpit, one fold
   useEffect(() => { mem.set('feeless.agentMore', more ? 'open' : 'closed'); }, [more]);
@@ -291,12 +291,11 @@ export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
       <div className="m-seg agd-dial" role="group" aria-label="How hard the agents trade" data-tip={`📝 The PRACTICE desk's bar (now ${Number(d.barNow || d.bar || 1.5).toFixed(1)}): 🧊 pickier · 🔥 more paper entries. It moves graded paper calls only — the live kernel has no dial: READY = Trigger ENTER + inside the hard wall + execution healthy + rank ≥ ${READY_MIN}.`}>
         {DIAL.map(([k, l]) => <button key={k} type="button" disabled={busy || !isOwner} className={dial === k ? 'active' : ''} onClick={() => save({ cfg: { agentDial: k } })} data-testid={`dial-${k}`}>{l}</button>)}</div>
       <div className="agd-headacts">{(c => <button type="button" className={`ack-aichip ${c.cls}`} onClick={() => window.dispatchEvent(new CustomEvent('feeless:agents-ai'))} data-tip={c.tip} data-testid="agd-aikey"><b>AI</b>{c.parts.map(([k, l, x]) => <span key={k} className={x}>{l}</span>)}</button>)(aiChip(d.office?.ai))}
-        <button type="button" className="m-btn" onClick={() => { const on = !office; setOffice(on); mem.set('feeless.agentRoom', on ? 'on' : 'off'); }} aria-pressed={office} data-tip="The ten-desk office (3D room, panel, roster) under the cockpit — opt-in" data-testid="agd-office">🏢 Office room {office ? 'on' : 'off'}</button>
         <button type="button" className="m-btn" onClick={load} data-tip="Re-read the desk now (it is served from memory — no rate limit)" data-testid="agd-refresh">↻</button>
         <button type="button" className="m-btn agd-log" onClick={warLog} data-testid="agd-log">⬇ War log</button></div></header>
     <AgentCockpit call={call} isOwner={isOwner} />
     <details className="agd-more" open={more} onToggle={e => setMore(e.currentTarget.open)} data-testid="agd-more">
-    <summary data-testid="agd-more-sum"><b>▸ MORE</b><small>paper desk · kernel board · judge court · limits · lenses · the office room</small></summary>
+    <summary data-testid="agd-more-sum"><b>▸ MORE</b><small>paper desk · kernel board · judge court · limits · lenses</small></summary>
     {more ? <>
     <div className="agd-kpis" data-testid="agd-kpis">
       <Kpi id="mission" label={om.phase === 'GROWTH' ? '🎓 TO 2× PUT-IN' : om.phase === 'GRADUATED' ? '🎓 2× REACHED' : '🎯 BREAKEVEN'} val={om.value != null ? `$${Number(om.value).toFixed(2)}` : '—'} cls={om.locked ? 'agd-warn' : 'm-pos'} sub={om.putIn != null ? (om.phase === 'GROWTH' ? `of $${Number(om.doubleTarget).toFixed(2)} · next stage locked` : `of $${Number(om.putIn).toFixed(2)}${om.needX ? ` · needs ${om.needX}×` : ''} · then 2× = $${Number(om.doubleTarget ?? om.putIn * 2).toFixed(2)}`) : 'no real card numbers yet'} on={open('mission') && lens !== 'all'} onClick={() => tog('mission')} tip="Phase 1: back to breakeven. Phase 2: the real card to 2× the put-in — only then can the next stage unlock. Opens the goal bars." />
@@ -317,7 +316,6 @@ export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
       {open('kernel') ? <KernelBoard o={d.office} onCoin={sym => { setLens('live'); setJump({ sym, n: Date.now() }); }} /> : null}
       {open('judge') ? <JudgeCourt court={d.office?.court} /> : null}</div> : null}
     {zoom && <ZoomScreen d={d} agent={zoom} setAgent={k => { setZoom(k); setSel(k); }} close={() => setZoom(null)} />}
-    {office ? <OfficeHQ o={d.office} roomOn passAt={p.at} card={d.card} onEdge={k => (['limits', 'review', 'missed'].includes(k) ? setLens(k) : setDrawer(x => (x === 'edge' ? null : 'edge')))} /> : null}
     {show('limits') && <div className="agd-grid is-ctl" data-testid="lens-limits-pane"><div className="agd-wide"><CreatorLimits policy={d.office?.policy} mission={d.office?.mission} cfg={d.cfg} o={d.office} isOwner={isOwner} busy={busy} save={save} /></div>
       <ReadyStrip r={d.office?.ready} /><SeatState s={d.office?.seat} speed={d.office?.performance?.speed} /><div className="agd-wide"><SwitchEval e={d.office?.switchEval} /></div></div>}
     {show('review') && <div data-testid="lens-review-pane"><ReviewQueue review={d.office?.review} isOwner={isOwner} save={save} onCoin={it => it.mint && openCoin({ mint: it.mint, symbol: it.sym })} /></div>}
