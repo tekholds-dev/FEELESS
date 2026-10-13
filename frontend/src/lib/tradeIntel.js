@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { apiUrl } from './api';
+import { sweepable } from './cacheSweep';
 
 // Shared, cached lookups for the trade boxes: rug-shield verdicts per coin and FEE points per wallet.
-const shields = new Map(); // mint -> { at, promise }; verdicts refresh after SHIELD_TTL_MS
+const shields = sweepable('rugShield', new Map(), { ttl: 600000, max: 200 }); // mint -> { at, promise }; verdicts refresh after SHIELD_TTL_MS
 const SHIELD_TTL_MS = 120000;
 const SETTLE = new Set(['So11111111111111111111111111111111111111112', 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB']);
 

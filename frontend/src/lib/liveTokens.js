@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { sweepable } from './cacheSweep';
 
-const cache = new Map();
+const cache = sweepable('liveTokens', new Map(), { ttl: 600000, max: 600 });
 const TTL = 20000;
 
 // Live DexScreener market state per token mint, batched 30 per request.

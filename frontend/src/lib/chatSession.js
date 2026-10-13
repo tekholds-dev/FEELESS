@@ -1,4 +1,5 @@
 import { apiUrl } from './api';
+import { sweepable } from './cacheSweep';
 
 // Sign once, chat for 7 days. The token lives only in this browser for this wallet.
 const key = address => `feeless:chat-session:${address}`;
@@ -16,7 +17,7 @@ export function readChatSession(address) {
   return null;
 }
 export function clearChatSession(address) { try { localStorage.removeItem(key(address)); } catch { /* ignore */ } }
-const checked = new Map();
+const checked = sweepable('chatSession', new Map(), { max: 20 });
 // One signature, reused everywhere (chat, DMs, follows, rewards, shop) for 7 days and across linked networks.
 export async function getChatSession(address, signMessage) {
   const cached = readChatSession(address);

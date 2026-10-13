@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../lib/api';
 import { CardFx } from './CardFx';
 import '../styles/pumpProfile.css';
+import { sweepable } from '../lib/cacheSweep';
 
 const big = v => { const n = Number(v); if (!(n > 0)) return '—'; return n >= 1e9 ? `$${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(1)}K` : `$${n.toFixed(0)}`; };
 const age = h => h == null ? '—' : h < 1 ? `${Math.max(1, Math.round(h * 60))}m` : h < 48 ? `${h.toFixed(h < 10 ? 1 : 0)}h` : `${Math.round(h / 24)}d`;
 const short = a => a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '';
 const LINK = { x: '𝕏', telegram: '✈ Telegram', website: '🌐 Website' };
-const cache = new Map();   // mint → {at, data}: one read a minute per coin, shared by the page, the drawer and the chart
+const cache = sweepable('pumpProfile', new Map(), { ttl: 600000, max: 200 });   // mint → {at, data}: one read a minute per coin, shared by the page, the drawer and the chart
 
 export function usePumpProfile(mint) {
   const [p, setP] = useState(() => cache.get(mint)?.data || null);

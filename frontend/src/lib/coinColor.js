@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
+import { sweepable } from './cacheSweep';
 
 // A coin's signature color, sampled from its own logo (via our same-origin image proxy so the
 // canvas isn't tainted). Picks the most saturated, mid-bright hue — not the average, which is
 // usually a muddy grey. Falls back to a stable hue from the address so every coin still glows.
-const cache = new Map();
+const cache = sweepable('coinColor', new Map(), { max: 600 });
 
 const hashHue = s => { let h = 0; for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h % 360; };
 const fallback = seed => `hsl(${hashHue(seed)}, 80%, 60%)`;

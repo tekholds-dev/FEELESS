@@ -952,6 +952,20 @@ def free_for_owed(wallet_sol, books, reserve_sol, parked_rent=0.0):
     return round(max(0.0, min(by_reserve, by_liquid)), 9)
 
 
+TOPUP_LIQUID_MIN = 0.006   # liquid SOL the wallet keeps outside the cards after a top-up: two new coin accounts + fees
+
+
+def free_for_topup(wallet_sol, books, reserve_sol, parked_rent=0.0):
+    """💵 SOL the owner may ASSIGN to a card. Rent parked in the wallet's coin accounts is the fee reserve's money (it returns on every
+    close sweep), so it counts toward the reserve — 2026-10-13: the owner sent 0.0156 SOL ($1.68) and could not top up $1: 0.0135 SOL
+    of the 0.019 reserve sat as rent in 9 coin accounts, so the deposit read as "refilling the reserve" and only $0.87 as free. Never
+    more than the wallet holds outside the cards minus `TOPUP_LIQUID_MIN`; with no rent parked = `free_sol` exactly."""
+    cards = sum(_f(b.get('sol')) + _f(b.get('bankSol')) for b in (books or {}).values())
+    by_reserve = _f(wallet_sol) + max(0.0, _f(parked_rent)) - _f(reserve_sol) - cards
+    by_liquid = _f(wallet_sol) - cards - TOPUP_LIQUID_MIN
+    return round(max(0.0, free_sol(wallet_sol, books, reserve_sol), min(by_reserve, by_liquid)), 9)
+
+
 def settle_owed_in(book, free, now):
     """↘ MONEY THAT IS THE CARD'S COMES BACK TO IT (`owedInSol` / `owedInUsd`): a top-up the books lost is credited from the
     wallet's FREE SOL (never the fee reserve, never another card's) as far as there is any, the rest as more frees up. PUT IN

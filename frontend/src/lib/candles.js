@@ -1,4 +1,5 @@
 import { apiUrl } from './api';
+import { sweepable } from './cacheSweep';
 
 // Fire-and-forget: records a real observed price tick server-side so the
 // FEELESS candle aggregator keeps building real OHLCV history for this pair,
@@ -34,7 +35,7 @@ export function fetchFeelessCandles(chain, pairAddress, interval, before, mint) 
 // Per-pair candle cache so timeframe switches paint instantly; all timeframes are
 // prefetched in parallel the moment a pair opens.
 const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d'];
-const cache = new Map();
+const cache = sweepable('candles', new Map(), { max: 48 });   // 🧹 ~8 coins × 6 timeframes of candle history (the heaviest cache)
 const key = (chain, pair, interval) => `${chain}:${pair}:${interval}`;
 export const getCachedCandles = (chain, pair, interval) => cache.get(key(chain, pair, interval)) || null;
 export function cacheCandles(chain, pair, interval, res) {

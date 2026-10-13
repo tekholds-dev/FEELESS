@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../lib/api';
 import { useCoinMood } from '../lib/coinMood';
+import { sweepable } from '../lib/cacheSweep';
 
 // Animated chat backgrounds, chosen per room in the chat ⚙ panel (saved as themes[room], so a coin's chat keeps its
 // look when you come back). Free: Live (follows the coin's mood), FEE glow, FEE rain, Plain. $FEE holders ≥ $5 unlock
@@ -16,8 +17,8 @@ export const canUse = (id, feeUsd, unlocked = []) => (Number(feeUsd) || 0) >= (N
 // A saved theme you no longer qualify for falls back to Live (nothing breaks, nothing is lost).
 export const chatTheme = (prefs, room, feeUsd = Infinity, unlocked = []) => { const t = (prefs?.themes || {})[room] || 'live'; return canUse(t, feeUsd, unlocked) ? t : 'live'; };
 
-const tiers = new Map();
-const perkCache = new Map();
+const tiers = sweepable('chatTiers', new Map(), { ttl: 900000, max: 300 });
+const perkCache = sweepable('chatPerks', new Map(), { ttl: 900000, max: 300 });
 export function useBadgeBgs(address) {
   const [bgs, setBgs] = useState([]);
   useEffect(() => {

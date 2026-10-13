@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { apiUrl } from './api';
+import { sweepable } from './cacheSweep';
 
 // COIN EDGE: ONE shared poller for every coin on screen (GET /api/reputation/edge — pulse, snipers out, verification,
 // forensics, runner gates + bond boxes, Fuse sources, elite flow). Mounted coins register; one batched request (≤60 per
@@ -7,7 +8,7 @@ import { apiUrl } from './api';
 // usePumpPulse / useSnipersOut / useVerified / fetchIntel all read from here — never add another per-coin poller.
 const REFRESH_MS = 15000;
 const counts = new Map();      // mint -> mounted consumers
-const edges = new Map();       // mint -> edge record
+const edges = sweepable('coinEdge', new Map(), { max: 400, keep: k => counts.has(k) });       // mint -> edge record
 const listeners = new Set();
 let timer = null; let queued = null;
 
@@ -48,7 +49,7 @@ export const edgeOf = mint => edges.get(mint) || null;           // non-hook rea
 export const dropEdge = mint => { edges.delete(mint); };
 
 // One coin's edge WITH forensics (runs the holder scan server-side if it isn't cached) — the tape's wallet tags.
-const intelReq = new Map();
+const intelReq = sweepable('coinIntelReq', new Map(), { ttl: 300000, max: 200 });
 export function fetchEdgeIntel(mint) {
   const hit = intelReq.get(mint);
   if (hit && Date.now() - hit.at < 60000) return hit.p;

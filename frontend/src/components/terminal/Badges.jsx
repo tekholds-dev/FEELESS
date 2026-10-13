@@ -3,10 +3,11 @@ import { BadgeDetail } from '../QuestBoard';
 import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { BadgeIcon } from './BadgeIcon';
+import { sweepable } from '../../lib/cacheSweep';
 
 const BUILTIN = new Set(['feeless-hq', 'fee-holder', 'feecat-holder', 'rfee-holder', 'fee-whale', 'rides-with-fee', 'caller', 'sharp-caller', 'feeless-launcher', 'trusted-creator', 'flagged-creator', 'blocklisted', 'airdrop-recipient']);
 
-const cache = new Map();
+const cache = sweepable('walletBadges', new Map(), { ttl: 900000, max: 400 });
 export function useBadges(address) {
   const [badges, setBadges] = useState(() => cache.get(address)?.badges || []);
   useEffect(() => {

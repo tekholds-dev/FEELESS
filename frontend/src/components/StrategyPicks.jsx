@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../lib/api';
 import '../styles/strategyPicks.css';
+import { sweepable } from '../lib/cacheSweep';
 
 // 🎯 3 strategies for a card's round length — 🛡 Steady · 🧠 Engine pick · 🔥 Hunt — from the background sims on REAL recorded prices
 // (fees in, re-run ~15 min). One tap applies the exits (TP / SL · ❄ freeze + peak trail · round patience · swap-only-below).
 // Shared by HQ tier cards (Edit Fuse) and traders' cards (My cards). It never promises a result: the proof line is what the sims did.
-const cache = new Map();   // one fetch per clock per minute, however many cards show it
+const cache = sweepable('strategyPicks', new Map(), { ttl: 600000, max: 30 });   // one fetch per clock per minute, however many cards show it
 export function loadStrategies(hours) {
   const k = String(Math.round((hours || 1) * 60));
   const hit = cache.get(k);

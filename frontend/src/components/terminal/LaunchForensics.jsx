@@ -6,8 +6,9 @@ import { toast } from 'sonner';
 import { Crosshair, Layers, Users, UserRound, AlertTriangle, RefreshCw, Ban } from 'lucide-react';
 import { apiUrl } from '../../lib/api';
 import { shortAddress } from '../../lib/dexscreener';
+import { sweepable } from '../../lib/cacheSweep';
 
-const cache = new Map();
+const cache = sweepable('launchForensics', new Map(), { max: 60 });
 
 function OffenderPanel({ mint, intel, onChanged }) {
   const { wallet, connect, signMessage } = useWallet() || {};

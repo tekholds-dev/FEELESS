@@ -139,7 +139,7 @@ export const hubSnapshot = call => (S.raw ? Promise.resolve(S.raw) : call ? call
 export const hubApply = ev => { if (ev?.kind === 'ai_update') { aiSet(ev.data); return; } const next = applyDelta(S.raw, ev); if (next !== S.raw) { S.raw = next; emit(); } };
 // ⚡ STREAM deltas are folded in at once but PAINTED together: a kernel pass sends a burst (one delta per candidate that changed) and each
 // used to re-render the whole Agents tab — dozens of full renders inside a second, every pass. Now ≤ one paint per EMIT_MS.
-export const EMIT_MS = 150;
+export const EMIT_MS = 400;   // 150 → 400 (2026-10-13): a busy pass still meant ~6 whole-tab renders a second; live prices and P&L ride their own poller, the owner's taps are instant (hubApply)
 let emitTimer = null;
 // 💤 A BACKGROUND TAB COLLECTS, IT DOES NOT PAINT (2026-10-13: the server counted 3 live copies of the Agents tab, each re-rendering on
 // every delta while out of sight): deltas keep folding into the snapshot, the page paints ONCE when it is shown again.

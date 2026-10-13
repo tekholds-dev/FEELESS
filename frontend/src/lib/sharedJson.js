@@ -2,8 +2,9 @@
 // times at once on load — the slowest copy took 2.1s. Callers within `maxAge` ms get the same answer; `fresh` (after an owner
 // action) skips the cached answer but still shares a request already in flight that started after the action.
 import { apiUrl } from './api';
+import { sweepable } from './cacheSweep';
 
-const cache = new Map();   // url → { at, p }
+const cache = sweepable('sharedJson', new Map(), { ttl: 120000, max: 80 });   // url → { at, p }
 
 export function sharedJson(path, { maxAge = 3000, fresh = false } = {}) {
   const now = Date.now();

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { sweepable } from './cacheSweep';
 
 // Live prices for every card on screen: ONE shared poller (DexScreener pairs, 30 per call, every 3s — live like the trenches —
 // paused while the tab is hidden, never two calls in flight, backs off to 10s for a minute if DexScreener rate-limits (429)).
@@ -9,7 +10,7 @@ let busy = false;
 let slowUntil = 0;
 let lastAt = 0;
 const want = new Map();          // pairAddress -> subscriber count
-const prices = new Map();        // pairAddress -> { price, m5, h1, mc, at }
+const prices = sweepable('livePrices', new Map(), { ttl: 300000, max: 600, keep: k => want.has(k) });        // pairAddress -> { price, m5, h1, mc, at }
 const listeners = new Set();
 let timer = null;
 

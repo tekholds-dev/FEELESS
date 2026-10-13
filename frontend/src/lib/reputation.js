@@ -1,10 +1,11 @@
 import { readChatSession } from './chatSession';
 import { useEffect, useRef, useState } from 'react';
 import { apiUrl } from './api';
+import { sweepable } from './cacheSweep';
 
 // One observe request per pair, shared by every consumer (bolt, badge, card) that mounts while it is in flight.
 const inflight = new Map();
-const memoryCache = new Map();
+const memoryCache = sweepable('repObserve', new Map(), { max: 300 });
 
 export const BADGE_LABEL = {
   trusted: 'Trusted creator',
@@ -115,7 +116,7 @@ export async function fetchClusters(chain = 'solana') {
   return res.json();
 }
 
-const creatorCache = new Map();
+const creatorCache = sweepable('repCreator', new Map(), { max: 200 });
 // Cached, failure-silent lookup: most chat posters have never launched a token (404).
 export function useCreatorTrust(chain, address) {
   const key = chain && address ? `${chain}:${address}` : null;

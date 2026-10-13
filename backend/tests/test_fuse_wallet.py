@@ -1435,3 +1435,12 @@ def test_a_drained_off_card_coin_is_written_off_so_buys_flow_again():
     assert [g['symbol'] for g in gone] == ['QI'] and 'QI' not in b['legs'] and 'DR' in b['legs']   # still on the engine card → never written off here
     b2, gone2 = fw.write_off_drained(book, [], 1000.0 + fw.SELL_QUOTE_SEC + 10)
     assert gone2 == []                                                                          # a stale quote decides nothing
+
+
+def test_a_top_up_counts_reserve_sol_parked_as_rent_and_never_drains_the_wallets_liquid_sol():
+    books = {'degen': {'sol': 0.009348}}
+    assert fw.free_sol(0.036428, books, 0.019) == 0.00808                                   # what the old check saw: $0.87 of a $1.68 deposit
+    assert fw.free_for_topup(0.036428, books, 0.019, 0.013548) == 0.021080                  # reserve fronting rent counts; 0.006 SOL stays liquid
+    assert fw.free_for_topup(0.036428, books, 0.019, 0.0) == fw.free_sol(0.036428, books, 0.019)   # no rent parked = the old rule exactly
+    assert fw.free_for_topup(0.036428, books, 0.019, 0.004) == 0.01208                      # by the reserve when that is the tighter line
+    assert fw.free_for_topup(0.012, books, 0.019, 0.05) == 0.0                              # never under the liquid floor

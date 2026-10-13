@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
+import { sweepable } from './cacheSweep';
 
 // One shared Jupiter poller for every Solana price on screen: components register mints,
 // a single batched request every 2s refreshes them all, subscribers re-render on change.
 const counts = new Map();
-const prices = new Map();
+const prices = sweepable('livePriceHub', new Map(), { max: 400, keep: k => counts.has(k) });
 const listeners = new Set();
 let timer = null;
 

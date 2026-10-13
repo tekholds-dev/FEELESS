@@ -3587,3 +3587,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   default `qwen/qwen3.8-27b` (the vitals schema in ~0.9s; gpt-oss-20b / 120b return malformed for it). A PROVIDER READS OFFLINE WITH A KEY SET ⇒
   curl its /models first. "LAG IN THE AGENTS TAB" ⇒ loop_lag.json, then `office.ai.metrics.provider` + avgMs: 'local' in the background = this.
 - ☀ DAY LAG, part 2 (2026-10-13, tips.css): the day sweep `.terminal-main::before` was still a full-screen `mix-blend-mode: soft-light` layer over the page (anything moving under it re-blended the viewport every frame), the two day auroras (`day-aurora-a/b`, App.css) drifted full-screen under the translucent day panels and `body.theme-day::before` carried a filter. All three are off in day; the static wash stays. Never put a blend mode or filter on a full-screen layer.
+- 🧹 AUTO CACHE CLEAN (`lib/cacheSweep.js` `sweepable(name, map, {ttl, max, at, keep})` + `sweepNow`, tested): 20 module-level frontend caches
+  keyed by coin / wallet / URL never evicted (candle histories, live prices, coin edge, profiles, rep, rug shield, sharedJson answers …) —
+  a tab open for days (the owner's: six) only grew. ONE sweep a minute + when the tab is hidden: entries past their age go, each cache is
+  trimmed oldest-first, anything a mounted consumer still uses (`keep`) stays. A NEW module-level cache ⇒ `sweepable(...)`, never a bare
+  `new Map()`. Agents hub paints ≤ once per `EMIT_MS` 400 ms (was 150).
+- 💵 TOP-UP COUNTS RESERVE SOL PARKED AS RENT (`fuse_wallet.free_for_topup`, `TOPUP_LIQUID_MIN` 0.006; top-up route + HQ `topupSol`):
+  2026-10-13 the owner sent 0.0156 SOL ($1.68) and could not top up $1 — 0.0135 of the 0.019 SOL reserve sat as refundable rent in 9 coin
+  accounts, so the deposit read as "refilling the reserve" and only $0.87 was "free". Parked rent now counts toward the reserve (the
+  `free_for_owed` rule); the wallet always keeps 0.006 SOL liquid outside the cards; the refusal names the numbers. "CAN'T TOP UP" ⇒
+  compare `reconciliation.outsideCardSol` with `keeper.rent.parkedSol` first.

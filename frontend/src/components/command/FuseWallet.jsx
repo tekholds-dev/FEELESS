@@ -108,7 +108,7 @@ export function FuseWallet({ call }) {
   // ➜ one tap: your unassigned SOL into the real card (or the first tier), never past the per-card cap
   const sweepTpl = Object.keys(d.books || {})[0];
   const sweepRoom = sweepTpl ? Math.max(0, Number(d.cfg?.maxCardUsd || 0) - Number(d.books[sweepTpl].valueUsd || 0)) : 0;
-  const sweepUsd = Math.floor(Math.min(freeSol * Number(d.solUsd || 0), sweepRoom) * 100) / 100;
+  const sweepUsd = Math.floor(Math.min(Math.max(freeSol, Number(d.topupSol || 0)) * Number(d.solUsd || 0), sweepRoom) * 100) / 100;   /* what a top-up may assign (counts reserve SOL parked as refundable rent) */
   const sweep = sweepTpl && sweepUsd >= 1 ? { tpl: sweepTpl, usd: sweepUsd, label: d.tiers?.[sweepTpl] || sweepTpl } : null;
   return <section className="m-card m-live fw" data-testid="fuse-wallet">
     <header className="m-row"><span className="m-label">👛 FUSE WALLET · REAL MONEY FOR TIER CARDS</span><small className="m-dim">owner only · every change audited</small></header>

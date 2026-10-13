@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { apiUrl } from './api';
+import { sweepable } from './cacheSweep';
 
 const ROTATE_MS = 15000;
 const MAX_BUBBLES = 5;
 const MAX_LOOKUPS = 6;
-const tapeCache = new Map();
+const tapeCache = sweepable('globeTape', new Map(), { ttl: 300000, max: 40 });
 
 async function getJson(path) {
   try {

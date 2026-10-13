@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../lib/api';
+import { sweepable } from '../lib/cacheSweep';
 
 // Every name on screen asks for its Rep; requests are pooled into one call per ~120ms and cached,
 // so a chat with 200 messages costs one request, not 200.
-const cache = new Map(); // address -> { v, at }
+const cache = sweepable('repMark', new Map(), { ttl: 900000, max: 500 }); // address -> { v, at }
 const waiters = new Map(); // address -> Set(setter)
 let queue = new Set(); let timer = null;
 function flush() {

@@ -12433,6 +12433,7 @@ async def fuse_wallet_view(request: Request):
     dep_rows = (dep_doc.get('rows') or []) if dep_doc.get('address') == cfg.get('address') else []
     return {'cfg': cfg, 'signer': _fw_signer_ready(), 'wallets': wallets, 'balances': bal, 'solUsd': sol_px, 'error': err,
             'freeSol': _fw.free_sol((bal or {}).get('sol'), d['books'], cfg['reserveSol']) if bal else None,
+            'topupSol': _fw.free_for_topup((bal or {}).get('sol'), d['books'], cfg['reserveSol'], _fuse._f((_fw_rent_parked or {}).get('sol'))) if bal else None,   # what a top-up may assign: free SOL + the part of the reserve parked as refundable rent
             # Unassigned SOL is fungible: it can include owner deposits and token-account rent returned after card sells.
             # Expose both audit totals so the UI never presents it as known-new owner funding or card profit.
             'solProvenance': {'cardFundedSol': funded_sol, 'rentReturnedSol': rent_returned,
@@ -13128,8 +13129,10 @@ async def fuse_wallet_topup(request: Request):
     now = time.time()
     async with _fw_tick_lock, _fw_lock:   # 🧷 waits for a keeper pass in flight: an owner write and a swap pass never interleave
         d = _fw_load()
-        if usd / sol_px > _fw.free_sol(bal['sol'], d['books'], cfg['reserveSol']):
-            raise HTTPException(400, f"Not enough free SOL in the Fuse wallet for ${usd:.2f} (network-fee reserve {cfg['reserveSol']} SOL is kept back).")
+        parked_ = _fuse._f((_fw_rent_parked or {}).get('sol'))   # rent parked in coin accounts = the reserve's own money, back on the next sweep
+        free0_ = _fw.free_for_topup(bal['sol'], d['books'], cfg['reserveSol'], parked_)
+        if usd / sol_px > free0_ + 1e-6:
+            raise HTTPException(400, f"Only ${free0_ * sol_px:.2f} of SOL in the Fuse wallet is free to assign right now (wallet {bal['sol']:.4f} SOL · cards hold {sum(_fuse._f(b_.get('sol')) + _fuse._f(b_.get('bankSol')) for b_ in d['books'].values()):.4f} · fee reserve {cfg['reserveSol']} of which {parked_:.4f} is parked as refundable rent).")
         cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
         card = cards.get(tid)
         px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in (card or {}).get('legs') or []]) if card else {}
@@ -13141,7 +13144,7 @@ async def fuse_wallet_topup(request: Request):
         if cur + usd > cfg['maxCardUsd']:
             raise HTTPException(400, f"Over the ${cfg['maxCardUsd']:g} per-card cap (card holds ${cur:.2f}).")
         if _FW_GAS.get('sol') is not None and sol_px > 0:   # 💵 a top-up only ASSIGNS SOL already in the wallet — never more than is unassigned
-            free = _fw.free_sol(_FW_GAS['sol'], d['books'], cfg['reserveSol'])
+            free = _fw.free_for_topup(_FW_GAS['sol'], d['books'], cfg['reserveSol'], parked_)
             if usd / sol_px > free + 1e-6:
                 raise HTTPException(400, f"Only ${free * sol_px:.2f} unassigned SOL in the Fuse wallet (fee reserve kept apart) — send SOL to it first.")
         if first:   # the SAME card goes real: same coins, phase, clock and config — scaled to the $, time + P&L start over
