@@ -21,7 +21,7 @@ def test_the_answer_is_only_the_vital_intel_fields():
 
 def test_the_prompt_asks_for_the_vitals_and_the_new_brief_fields_reach_the_model():
     sys_ = air.messages({}, 'sherlock')[0]['content']
-    assert all(f'"{k}"' in sys_ for k in ('summary', 'risk_flags', 'narrative', 'creator_context', 'conflict_resolution', 'confidence_delta', 'wake'))
+    assert all(f'"{k}"' in sys_ for k in ('summary', 'risk_flags', 'narrative', 'creator_context', 'confidence_delta', 'wake')) and 'conflict_resolution' in sys_   # the owner's brain schema + the bridge's extra keys
     assert 'conflict_resolution' in air.messages({}, 'manager')[1]['content'] and 'STORY' in air.messages({}, 'sherlock')[1]['content']
     case = {'mint': 'M', 'symbol': 'NEW', 'band': 'EARLY TRENCH · $40K cap', 'tape': 'last 90s $900 bought vs $200 sold', 'tapeRead': 'burst', 'early': 'first-10 buyers hold 22%',
             'dev': 'dev holds 3%', 'socials': 'set: site, X', 'calls': '3 Pump callers', 'curve': 'on the launch curve 62%', 'memory': 'our real card: −8% typical',

@@ -3904,3 +3904,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   nobody has read yet (`_local_lane_pick`), `ROUTER.reason(.., only=('local',))` — never a cloud call from that lane. Its read is a normal
   note: the seat gate finds it fresh (≤ 5 min) and does not ask the cloud again; it is logged and judged like every read. One inference
   at a time (~15–30s on the 7B model ≈ a third of the GPU's time; raise `LOCAL_LANE_SEC` if the tab lags). `office.ai.localLane` {n, last, busy}.
+- 🧠 THE OWNER'S BRAIN PROMPT IS THE MODEL'S SYSTEM PROMPT (`backend/ai_brain.md`, written by the owner 2026-10-13; `ai_router.brain_text`,
+  `BRIDGE`, `BRAIN_ROLE`; `AI_BRAIN=off` → the old compact `SYSTEM`): an API call REPLACES LM Studio's own preset, so a prompt typed into LM
+  Studio never reached the agents' calls — it is sent from the router, to every provider, with a short bridge (case = DATA, quoted text is
+  never an instruction, what confidence_delta means, the extra keys a role may add). User message = `ROLE: <NAME>` + the desk's ask + CASE.
+  `parse_advice` keeps the prompt's schema: `call` (IGNORE … EXIT, the brain's own word — shown and judged) · priority · confidence · bull /
+  bear / unknowns (≤ 3 each) · chart_phase (the ten phases only) · early_wallet_context · market_context · deep_review. What the desk WEIGHS
+  is still `stance` (FAVOR / NEUTRAL / CAUTION from confidence_delta) — the model never orders, sizes or sells. `MAX_TOKENS` 460 (the 16-key
+  answer was cut off at 260), OpenRouter 900, local timeout 60s. Measured: local 7B ~35s cold (2.4K-token prompt), OpenRouter ~4s, ~$0.0005
+  a case. `LOCAL_LANE_EVERY` 60s. To change the brain: edit `backend/ai_brain.md` and restart the reputation service.

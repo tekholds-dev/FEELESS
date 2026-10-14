@@ -13160,7 +13160,7 @@ async def _ai_round(now):
     return n
 
 
-LOCAL_LANE_EVERY = 45.0   # 💻 the local model's own lane: one pre-read per this many seconds (LOCAL_LANE_SEC in backend/.env; 0 = off)
+LOCAL_LANE_EVERY = 60.0   # 💻 the local model's own lane: one pre-read per this many seconds (LOCAL_LANE_SEC in backend/.env; 0 = off)
 _local_lane = {'at': 0.0, 'busy': False, 'n': 0, 'last': None}
 
 
