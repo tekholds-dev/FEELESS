@@ -723,7 +723,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         pos[m] = p
         out.append({**base, 'state': st, 'rule': rule, 'evidence': ev, 'action': act, 'exec': 'confirmed', 'entry': entry, 'px': px, 'pct': round(pct, 2), 'peak': round(p['peak'], 2),
                     'dd': round(p['peak'] - pct, 2), 'heldMin': round(held, 1), 'liq': lq1 or None, 'liqPct': round(lq1 / lq0 * 100) if lq0 > 0 and lq1 > 0 else None,
-                    'flow': fv_, 'drain': {'score': dr_['score'], 'state': dr_['state'], 'xl': dr_['xl'], 'why': [q[0] for q in dr_['parts']][:3]}, 'top10': top1, 'top10D': round(_f(top1) - _f(top0), 1) if top1 is not None and top0 is not None else None, 'lean': lean,
+                    'flow': fv_, 'drain': ({'score': dr_['score'], 'state': dr_['state'], 'why': [q[0] for q in dr_['parts']][:2]} if dr_['state'] != 'CLEAR' else None),   # CLEAR = nothing to say (payload cap) 'top10': top1, 'top10D': round(_f(top1) - _f(top0), 1) if top1 is not None and top0 is not None else None, 'lean': lean,
                     'trigger': None if not x else _opp.narrative(x)[0], 'devil': None, 'weather': (weather_ or {}).get('regime'),
                     'take': take, 'takeSource': tsrc, 'stop': -stop, 'hardStop': -_ci.CATASTROPHIC_STOP, 'decision': decision,
                     'armAt': round(arm, 2) if trail_on else None, 'trailAt': round(max(MIN_KEEP, trail_line), 2) if trail_on and p['peak'] >= arm else None, 'obeying': (f'{tsrc} take' if rule.startswith('R6') else OBEY.get(rule.split(' ')[0], 'thesis hold')),

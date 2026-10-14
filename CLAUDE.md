@@ -4154,5 +4154,5 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   token — `FEELESS_MCP_TOKEN` or `data/mcp_token` 0600 — LAN / loopback clients only). Tools: feeless_card · feeless_agents · feeless_trades
   (chat_evidence over archive + full ledger + Judge reviews + card events) · feeless_coin · token_search · trench_now · web_search
   (DuckDuckGo HTML, Brave if `BRAVE_API_KEY`) · web_fetch (public hosts only — DNS checked on every redirect hop) · x_search. It reads the
-  services' PUBLIC endpoints + the data files; never /admin, never a POST except DuckDuckGo's search form (test). `FEELESS_MCP_AUTOSTART=true`
+  services' PUBLIC endpoints + the data files (+ `feeless_diagnose` = LEVERS: facts → the real control with its direction and options, so a 7B model picks from a list instead of inventing one; `feeless_site` = any site section); never /admin, never a POST except DuckDuckGo's search form (test). `FEELESS_MCP_AUTOSTART=true`
   → keep-alive keeps it up. A new tool must READ — never sign, trade, top up or change a setting.

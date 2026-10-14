@@ -41,3 +41,17 @@ def test_search_parser_drops_ads_and_unwraps_links():
            '<a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fpump.fun%2Fx&rut=1">Pump <b>x</b></a>'
            '<a class="result__snippet" href="#">a <b>bonding</b> curve</a>')
     assert m.ddg_results(raw) == [{'title': 'Pump x', 'url': 'https://pump.fun/x', 'snippet': 'a bonding curve'}]
+
+
+def test_levers_name_real_controls_with_their_direction():
+    o = {'capital': {'record': {'n': 30, 'wonPct': 63, 'avgWin': 6.6, 'avgLoss': -34.2, 'expPct': -8.3},
+                     'leaks': [{'rule': 'R5x catastrophic stop', 'n': 3, 'avgPct': -76.3}]},
+         'policy': {'controls': [{'key': 'agentMinAgeH', 'value': 0.5, 'who': 'CREATOR OVERRIDE', 'options': [0, 0.5, 1, 2]},
+                                 {'key': 'agentPoolMin', 'value': 0, 'who': 'AGENTS CHOOSE', 'options': [0, 5000, 12000]},
+                                 {'key': 'agentMcMin', 'value': 20000, 'who': 'CREATOR OVERRIDE', 'options': [12000, 20000, 30000]}]},
+         'regret': {'record': {'taken': {'n': 50, 'med': -50}, 'ai:CAUTION': {'n': 20, 'med': 40}, 'gate:gap': {'n': 30, 'med': -80}}}}
+    L = m.levers(o)
+    assert any('Break-even needs 84% won' in x for x in L)
+    leak = next(x for x in L if x.startswith('BIGGEST LEAK'))
+    assert 'RAISE' in leak and 'agentMinAgeH now 0.5' in leak and "options [12000, 20000, 30000]" in leak
+    assert any('ai:CAUTION' in x and 'blocking WINNERS' in x for x in L) and any('gate:gap' in x and 'SAVING' in x for x in L)

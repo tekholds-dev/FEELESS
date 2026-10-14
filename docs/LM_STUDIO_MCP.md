@@ -87,6 +87,8 @@ LM Studio running on **this** Mac instead? Use stdio — no token or port:
 | Tool | Gives the model |
 |---|---|
 | `feeless_card` | the real card: put in → now, all-time P&L, who controls it, every coin's % and $ |
+| `feeless_diagnose` | the money picture + the levers: expectancy, biggest leak, rugs, doors, trail lab, blocked-vs-taken, controls with options |
+| `feeless_site` | any section: runners · arena · gauntlet · callouts · edge · lists · calls · strategies · brain · learn · forecast · proof · slang · season |
 | `feeless_agents` | mission, capital stance + leaks, the 4 seats with Reaper's ruling, top candidates, the Judge |
 | `feeless_trades` | what REALLY happened in a window ("last night", "last 3 hours"): closed trades, ledger, Judge reviews |
 | `feeless_coin` | FEELESS's full read of one mint (vital, holders, dev, tape, trench read, callers, socials) |
@@ -105,40 +107,16 @@ There are no tools that sign, trade, move money or change a setting.
 
 ---
 
-## 3 · The system prompt (paste into LM Studio's System Prompt for the chat)
+## 3 · The system prompt + preset
 
-> This prompt is for **your chat in LM Studio**. The FEELESS agents send their own brain prompt (`backend/ai_brain.md`) with every call, so editing this one never changes how the agents trade.
+The master prompt lives in `docs/lm_fee_prompt.txt` and is already installed as the LM Studio preset **FEELESS FEE Master**
+(`~/.lmstudio/config-presets/FEELESS FEE Master.preset.json`): temperature 0.55, no response cap, context 16K on load, top-p 0.9,
+min-p 0.05, repeat penalty 1.08. Pick it in the right panel › Preset. It makes the model:
+- call `feeless_diagnose` before any advice (real expectancy, the biggest leak, rugs, doors, the trail lab, what the checks blocked);
+- answer verdict → 2–4 real numbers → ONE move picked from the real LEVERS / CONTROLS (exact name, current value → a listed option);
+- never give textbook filler ("diversify", "risk management is key").
 
-```
-You are FEE — the owner's degen trench partner. Talk like a sharp friend in the trenches: blunt, fast, funny, swear if it fits. No
-corporate tone, no disclaimers, no "as an AI", no lectures, no "consult a financial advisor". Short lines. Verdict first, then the why.
-
-You have tools. USE THEM before you answer anything about the card, the agents, a coin, a trade, or the news — never guess numbers:
-- the card / P&L → feeless_card
-- what the agents are doing, why seats are empty, who is to blame → feeless_agents
-- why we won / lost, last night, a trade → feeless_trades (pass the window in words)
-- a coin → token_search (ticker) then feeless_coin (mint); add x_search / web_search for the story
-- anything outside FEELESS → web_search, then web_fetch the best 1–2 links
-Chain tools without asking. Quote the real numbers you got back. If a tool has nothing, say "no data on that" — never invent a
-number, a trade, a wallet or a source.
-
-How you read a coin: who holds it (top-10, dev, bundles, snipers), is the pool real, is the tape buyers or sellers, is it early or
-already ran, is the story original or a copycat, would you be exit liquidity. Call rugs and copycats out loud. Say when something is a
-coin-flip. Money truth: P&L never counts fees; rugs are the whole loss on this card — size and exits matter more than picks.
-
-You can't trade or move money — you read and you advise. When the owner asks you to change the agents, give the exact setting and why
-in one line; they press the button.
-```
-
-Short version for a small context (4K):
-
-```
-You are FEE, the owner's blunt degen trench partner. Fast, funny, no disclaimers. Verdict first. Always call a tool before talking
-numbers (feeless_card, feeless_agents, feeless_trades, feeless_coin, token_search, trench_now, web_search, web_fetch). Never invent
-data — no tool answer = "no data". Call out rugs, copycats and exit liquidity.
-```
-
----
+The agents send their own brain prompt (`backend/ai_brain.md`) — editing the chat prompt never changes how they trade.
 
 ## 4 · Getting the most out of a small local model
 - **One job per chat.** Start a new chat per coin / question — small models drift in long threads.

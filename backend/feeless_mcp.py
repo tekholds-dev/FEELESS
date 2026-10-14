@@ -226,6 +226,135 @@ def t_trench(a):
     return _cut('\n'.join(out))
 
 
+DROP = {'logo', 'avatar', 'pairAddress', 'baseAddress', 'img', 'image', 'icon', 'url', 'x', 'tg', 'site', 'links', 'sig', 'tx', 'bars', 'path',
+        'spark', 'hist', 'times', 'supplySrc', 'events'}
+
+
+def compact(v, depth=0, lst=6):
+    """Shrink any FEELESS answer for a small model: no logos / links / raw paths, floats rounded, lists cut to their first few."""
+    if isinstance(v, dict):
+        return {k: compact(x, depth + 1, lst) for k, x in v.items() if k not in DROP and x not in (None, '', [], {})}
+    if isinstance(v, list):
+        return [compact(x, depth + 1, max(3, lst - depth)) for x in v[:max(3, lst - depth)]]
+    if isinstance(v, float):
+        return round(v, 4) if abs(v) < 1 else round(v, 2)
+    if isinstance(v, str) and len(v) > 220:
+        return v[:220] + '…'
+    return v
+
+
+def _j(v, n=MAX_OUT):
+    return _cut(json.dumps(compact(v), default=str, separators=(',', ':'), ensure_ascii=False), n)
+
+
+def levers(o):
+    """Facts → the REAL control each one points at (key, value now, options). Deterministic, so a small model only has to choose.
+    Every line is a reading, never an order: the owner decides."""
+    cap, pol, rg, tr, seat = o.get('capital') or {}, o.get('policy') or {}, (o.get('regret') or {}).get('record') or {}, o.get('trail') or {}, o.get('seat') or {}
+    ctl = {c.get('key'): c for c in pol.get('controls') or []}
+    now = lambda k: f"{k} now {(ctl.get(k) or {}).get('value')} ({(ctl.get(k) or {}).get('who')}) · options {(ctl.get(k) or {}).get('options')}"
+    out = []
+    r = cap.get('record') or {}
+    if r.get('n'):
+        w, l = _f(r.get('avgWin')), abs(_f(r.get('avgLoss')))
+        be = round(l / (w + l) * 100) if w + l else None
+        out.append(f"EXPECTANCY: {r.get('wonPct')}% won, wins +{w}% vs losses −{l}% → {r.get('expPct')}% a bet. Break-even needs {be}% won at this payoff — "
+                   f"so the fix is SMALLER LOSSES (or bigger wins), not a higher win rate.")
+    lk = (cap.get('leaks') or [{}])[0]
+    if lk.get('rule'):
+        rugish = any(x in lk['rule'] for x in ('R5x', 'R1', 'R4', 'catastrophic', 'drain', 'rug'))
+        out.append(f"BIGGEST LEAK: {lk['rule']} — {lk.get('n')} exits at {lk.get('avgPct')}% each. " + (
+            "These are rugs / pulled pools that gap straight through any stop (the −45% catastrophic line is fixed and can't save a pulled pool). "
+            f"To keep rugs OFF the card RAISE one of these (higher = fewer, safer coins, fewer trades; lower = MORE rugs): {now('agentMinAgeH')} · "
+            f"{now('agentPoolMin')} · {now('agentMcMin')}." if rugish else
+            f"Stops fill past their line on fast coins. Levers: {now('agentSl')} · {now('agentMaxHold')}."))
+    rg_ = (cap.get('rug') or {})
+    if rg_.get('n'):
+        out.append(f"RUGS: {rg_.get('rugs')} of the last {rg_.get('n')} real exits ({rg_.get('ratePct')}%) averaged {rg_.get('avgPct')}% — the rug budget caps a seat at {rg_.get('capPct')}% of the card.")
+    d = {k: (v or {}).get('record') or {} for k, v in (cap.get('doors') or {}).items()}
+    if d.get('ready') and d.get('armed'):
+        out.append(f"DOORS: ⚡ ready {d['ready'].get('expPct')}%/bet (losses {d['ready'].get('avgLoss')}%) vs 🎯 armed {d['armed'].get('expPct')}%/bet (losses {d['armed'].get('avgLoss')}%) · {now('agentEntry')}.")
+    if tr.get('live') and tr.get('best'):
+        out.append(f"EXITS (trail lab, {tr.get('n')} whole moves): live trail arm +{tr['live'].get('arm')}% / give back {tr['live'].get('give')}% → typical {tr['live'].get('med')}%; "
+                   f"best pair arm +{tr['best'].get('arm')}% / {tr['best'].get('give')}% → {tr['best'].get('med')}% · proven: {bool(tr.get('pays'))} · {now('agentTrail')}.")
+    t_ = rg.get('taken') or {}
+    for k, v in rg.items():
+        if k == 'taken' or not v.get('n') or v['n'] < 8:
+            continue
+        better = _f(v.get('med')) - _f(t_.get('med'))
+        if abs(better) >= 10:
+            out.append(f"BLOCKED vs TAKEN: coins held back by {k} went {v.get('med')}% (n {v['n']}) vs the coins taken {t_.get('med')}% — "
+                       + ("the check is blocking WINNERS (loosening it could help — only after more coins are judged)." if better > 0 else "the check is SAVING money — keep it."))
+    if seat.get('want') and _f(seat.get('held')) < _f(seat.get('want')):
+        out.append(f"SEATS: {seat.get('held')} of {seat.get('want')} held — {seat.get('reason')} · chart gate (🎯 Chart says go) on: {pol.get('chartGo')}.")
+    return out
+
+
+def t_diagnose(_a):
+    """THE MONEY PICTURE for advice: real win/loss record + where the money leaks, exits vs what the trail lab says, missed coins the
+    checks blocked, the Judge's loss / win patterns, each desk's own vote record, live lab rules, execution health, and the CURRENT controls
+    (the levers the owner can pull in HQ › Agents › controls)."""
+    o = (_file('agents_view.json') or {}).get('office') or {}
+    if not o:
+        return 'No agents snapshot yet.'
+    cap, tr, rg, ct = o.get('capital') or {}, o.get('trail') or {}, o.get('regret') or {}, o.get('court') or {}
+    pol, ex, tape = o.get('policy') or {}, o.get('execution') or {}, o.get('tradeTape') or {}
+    parts = [
+        ('LEVERS — facts + the real control behind each (pick moves ONLY from here or CONTROLS)', levers(o)),
+        ('MISSION', {k: (o.get('mission') or {}).get(k) for k in ('putIn', 'value', 'needX', 'phase', 'lock')}),
+        ('CAPITAL (last 30 real exits · long = 150)', {k: cap.get(k) for k in ('state', 'mult', 'why', 'record', 'long', 'leaks', 'rug', 'brake')}),
+        ('BY DOOR', {k: (v or {}).get('record') for k, v in (cap.get('doors') or {}).items()}),
+        ('EXITS: trail lab (live trail vs best on whole moves, $ left on the table)', {k: tr.get(k) for k in ('n', 'live', 'best', 'pays', 'left', 'ruleWords', 'words')}),
+        ('MISSED: what the checks blocked vs what was taken (30 min later)', {k: rg.get(k) for k in ('record', 'tune')}),
+        ('JUDGE: loss + win patterns on real money', {k: ct.get(k) for k in ('lossPatterns', 'winPatterns', 'scores', 'promoted', 'launchShape')}),
+        ('DESKS: each desk graded on its OWN vote', {d: (v or {}).get('own') or (v or {}).get('word') for d, v in (o.get('deskStats') or {}).items()}),
+        ('REAL-MONEY MEMORY', o.get('memory')),
+        ('LIVE LAB RULES', [r for r in ((o.get('lab') or {}).get('rules') or []) if (r or {}).get('state') in ('live', 'LIVE')][:6]),
+        ('TRADE TAPE stats (call → fill speed, slippage)', {k: tape.get(k) for k in ('stats', 'line')}),
+        ('EXECUTION', {k: ex.get(k) for k in ('health', 'why', 'fills', 'failed', 'refused', 'refusedWhy', 'deltaMed', 'deltaWorst')}),
+        ('SEATS', {k: (o.get('seat') or {}).get(k) for k in ('want', 'held', 'blockers', 'reason')}),
+        ('UNIVERSE (who they may buy)', o.get('universe')),
+        ('CONTROLS IN FORCE (HQ › Agents › controls; "agents" = they choose)', {k: (v.get('eff') if isinstance(v, dict) and 'eff' in v else v) for k, v in pol.items()}),
+    ]
+    out = []
+    for title, v in parts:
+        if v in (None, {}, []):
+            continue
+        body = '\n'.join(f'- {x}' for x in v) if title.startswith('LEVERS') else _j(v, 1500 if title.startswith('CONTROLS') else 700)
+        piece = f"## {title}\n{body}"
+        out.append(piece)
+    return '\n'.join(out)
+
+
+SITE = {
+    'runners': ('/runners', lambda d: {k: d.get(k) for k in ('round', 'proof', 'widen', 'live', 'lanes', 'exits')}),
+    'arena': ('/fuses/arena', lambda d: {k: d.get(k) for k in ('outlook', 'bestStyle', 'board', 'bredScrapped', 'dials', 'engineDial')}),
+    'gauntlet': ('/fuses/contenders', lambda d: {'weather': d.get('weather'), 'nextUp': d.get('nextUp'),
+                                                  'divisions': [{'label': x.get('label'), 'rule': x.get('rule'), 'top': (x.get('rows') or [])[:3]} for x in d.get('divisions') or []]}),
+    'callouts': ('/fuses/pump-callouts', lambda d: {'top': d.get('top'), 'callers': d.get('callers'), 'source': d.get('source')}),
+    'edge': ('/fuses/edge', lambda d: {'up': d.get('up'), 'rows': [{k: r.get(k) for k in ('symbol', 'mint', 'edge', 'tv', 'vital')} for r in (d.get('rows') or [])[:12]]}),
+    'lists': ('/fuses/list-proof', None), 'calls': ('/fuses/call-proof', None),
+    'strategies': ('/fuses/strategies?hours=0.25', None), 'brain': ('/fuses/trench-brain', None), 'learn': ('/fuses/learn', None),
+    'forecast': ('/fuses/forecast', None), 'proof': ('/fuses/proof', lambda d: {k: d.get(k) for k in ('records', 'setups', 'duels', 'feed')}),
+    'slang': ('/meme-terms', lambda d: d.get('terms')), 'season': ('/fuses/season', None),
+}
+SITE_WORDS = {'runners': 'runner board + round proof', 'arena': 'paper strategies board', 'gauntlet': 'every pick list (divisions) + next up',
+              'callouts': "Pump's callouts + caller board", 'edge': 'the 🧬 edge ranking (Coming up)', 'lists': "each pick list's own 1h record",
+              'calls': "each trench read's record (SEND IT, BOND RUN…)", 'strategies': 'proven setups per clock', 'brain': 'the trench brain (learned plays + stops)',
+              'learn': 'what the real card taught the engine', 'forecast': 'market weather + entry setups now', 'proof': 'Fuse proof: records, live swaps, duels',
+              'slang': 'trench words learned today', 'season': 'Fuse season'}
+
+
+def t_site(a):
+    """Any section of the FEELESS site, compacted."""
+    sec = str(a.get('section') or '').strip().lower()
+    if sec not in SITE:
+        return 'Sections: ' + ' · '.join(f'{k} ({w})' for k, w in SITE_WORDS.items())
+    path, pick = SITE[sec]
+    d = _get(REP, path, 20)
+    return _j(pick(d) if pick else d)
+
+
 # ── the internet (fast, keyless) ─────────────────────────────────────────────────────────────────────────────────────────────────
 def public_ip(ip):
     a = ipaddress.ip_address(ip)
@@ -374,6 +503,11 @@ def t_x_search(a):
 TOOLS = {
     'feeless_card': (t_card, 'The REAL Fuse card right now: put in, value, all-time P&L, who controls it, every coin with % and $, paper cards.', {}),
     'feeless_agents': (t_agents, "The agents' desk: mission, capital stance + leaks, the 4 seats (P/L, velocity, Reaper's ruling), top candidates and why, the Judge.", {}),
+    'feeless_diagnose': (t_diagnose, 'THE MONEY PICTURE — use before ANY advice on fixing / scaling the agents: real win-loss record, avg win vs avg loss, where money leaks '
+                         '(which exit rules), trail lab ($ left on the table), coins the checks wrongly blocked, Judge loss/win patterns, each desk graded on its own vote, '
+                         'execution speed, and the CONTROLS in force (the levers the owner can change).', {}),
+    'feeless_site': (t_site, 'Read any part of the FEELESS site: ' + ' · '.join(f'{k} = {w}' for k, w in SITE_WORDS.items()) + '.',
+                     {'section': {'type': 'string', 'enum': list(SITE), 'description': 'which section'}}),
     'feeless_trades': (t_trades, 'Evidence of what REALLY happened in a window (closed real trades, buys/sells/refusals from the ledger, Judge loss reviews, card events). '
                        'Ask with words like "last night", "last 6 hours", "today", "why did we lose".',
                        {'question': {'type': 'string', 'description': 'the window / question, e.g. "last night" or "last 3 hours"'}}),
@@ -388,7 +522,8 @@ TOOLS = {
                   {'url': {'type': 'string'}, 'max_chars': {'type': 'integer', 'description': '500–6000 (default 4000)'}}),
     'x_search': (t_x_search, 'Recent X posts about a ticker / coin / CA (via web search).', {'query': {'type': 'string'}, 'limit': {'type': 'integer'}}),
 }
-REQUIRED = {'feeless_coin': ['mint'], 'token_search': ['query'], 'web_search': ['query'], 'web_fetch': ['url'], 'x_search': ['query']}
+REQUIRED = {'feeless_site': ['section'], 'feeless_coin': ['mint'], 'token_search': ['query'], 'web_search': ['query'], 'web_fetch': ['url'], 'x_search': ['query']}
+LIMIT = {'feeless_diagnose': 9000}   # the money picture is the one answer worth ~2.5K tokens
 FORBIDDEN_WORDS = ('sign', 'send', 'trade', 'swap', 'buy', 'sell', 'withdraw', 'topup', 'top_up', 'admin', 'wallet_key', 'transfer')
 
 
@@ -421,7 +556,7 @@ def handle(msg):
             return {'jsonrpc': '2.0', 'id': mid, 'error': {'code': -32602, 'message': f'unknown tool {name}'}}
         t0 = time.perf_counter()
         try:
-            text, err = _cut(TOOLS[name][0](args if isinstance(args, dict) else {})), False
+            text, err = _cut(TOOLS[name][0](args if isinstance(args, dict) else {}), LIMIT.get(name, MAX_OUT)), False
         except httpx.HTTPError as e:
             text, err = f'FEELESS service did not answer ({type(e).__name__}) — is the backend running?', True
         except Exception as e:
