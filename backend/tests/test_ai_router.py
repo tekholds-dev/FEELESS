@@ -447,3 +447,26 @@ def test_the_owners_brain_prompt_is_the_system_prompt_and_its_schema_is_kept():
     assert a['bull'] == ['buyers 64%', 'pool growing', 'early wallets holding'] and a['bear'] == ['dev unknown'] and a['unknowns'] == ['holder scan pending']
     assert a['chart_phase'] == 'FIRST PULLBACK' and a['early_wallet_context'].startswith('first 10') and 'market_context' not in a and a['deep_review'] is True and a['wake'] == ['trigger']
     assert 'chart_phase' not in air.parse_advice({'summary': 'x', 'chart_phase': 'MOONING', 'stance': 'BUY NOW'}) and air.MAX_TOKENS >= 400
+
+
+def test_a_local_call_fits_the_loaded_context_with_the_condensed_brain_and_a_trimmed_case():
+    """The full brain prompt + a real case overflowed LM Studio's 4,096-token context → HTTP 400 → the local model read OFFLINE."""
+    big = {**CASE, 'holders': 'h ' * 400, 'chart': 'c ' * 400, 'flow': 'f ' * 400, 'launch': 'l ' * 400, 'crowd': 'x ' * 400, 'twins': 't ' * 800, 'memory': 'm ' * 300, 'creator': 'k ' * 300}
+    full = air.messages(big, 'sherlock')
+    assert air.real_tokens(full) > air.LOCAL_CTX - air.MAX_TOKENS                                   # it would not fit…
+    loc = air.messages_local(big, 'sherlock')
+    assert air.real_tokens(loc) <= air.LOCAL_CTX - air.LOCAL_ANSWER - 60                              # …the condensed twin does
+    tight = air.messages_local(big, 'sherlock', 2484)                                                # what LM Studio had really loaded
+    assert air.real_tokens(tight) <= 2484 - air.LOCAL_ANSWER - 60 and tight[1]['content'].startswith('ROLE: SHERLOCK')
+    assert loc[0]['content'].startswith('You are the external reasoning brain for FEELESS') and 'UNKNOWN / PENDING, never REJECTED' in loc[0]['content'] and 'SUPPORT_ENTRY' in loc[0]['content']
+    assert loc[1]['content'].startswith('ROLE: SHERLOCK') and '"symbol"' in loc[1]['content']
+    assert air.messages_local(CASE, 'sherlock', 8192) == air.messages(CASE, 'sherlock')              # a bigger context loaded: the full prompt
+    assert air.parse_advice({'summary': 'x', 'chart_phase': 'EARLY_ACCELERATION'})['chart_phase'] == 'EARLY ACCELERATION'
+
+
+def test_the_small_local_model_can_clear_a_coin_but_never_hold_a_seat_by_itself():
+    n = lambda src, d, flags=('x',): {'at': 100.0, 'source': src, 'advice': {'stance': 'CAUTION' if d < 0 else 'NEUTRAL', 'confidence_delta': d, 'risk_flags': list(flags), 'summary': 's'}}
+    assert air.gate_verdict({'sherlock': n('local', -0.25)}, 110.0) == (None, None)                 # the 7B says EXIT on everything: ask the cloud instead
+    assert air.gate_verdict({'sherlock': n('local', 0.0, ())}, 110.0)[0] == 'go'                    # its "nothing wrong" does save a cloud call
+    assert air.gate_verdict({'sherlock': n('local', -0.25), 'devil': n('openrouter', -0.02)}, 110.0)[0] == 'go'    # the cloud's read decides
+    assert air.gate_verdict({'sherlock': n('local', 0.0, ()), 'devil': n('openrouter', -0.2)}, 110.0)[0] == 'wait'

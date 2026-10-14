@@ -94,17 +94,17 @@ GATE_FRESH = 300.0
 def gate_verdict(notes, now):
     """🛂 What the model's own reads say about a coin about to take a REAL seat → ('wait', why) | ('go', None) | (None, None) when no
     read is fresh. Only a strong, specific CAUTION waits; silence never does."""
-    best = None
-    for n in (notes or {}).values():
-        ad = (n or {}).get('advice') or {}
-        if not ad or now - _f((n or {}).get('at')) > GATE_FRESH:
-            continue
-        if best is None or _f(ad.get('confidence_delta')) < _f((best.get('advice') or {}).get('confidence_delta')):
-            best = n
-    if best is None:
+    fresh = [n for n in (notes or {}).values() if (n or {}).get('advice') and now - _f((n or {}).get('at')) <= GATE_FRESH]
+    cloud = [n for n in fresh if n.get('source') != 'local']
+    pool = cloud or fresh
+    if not pool:
         return None, None
+    best = min(pool, key=lambda n: _f(n['advice'].get('confidence_delta')))
     ad = best['advice']
-    if ad.get('stance') == 'CAUTION' and _f(ad.get('confidence_delta')) <= GATE_DELTA and (ad.get('risk_flags') or []):
+    strong = ad.get('stance') == 'CAUTION' and _f(ad.get('confidence_delta')) <= GATE_DELTA and bool(ad.get('risk_flags'))
+    if strong and not cloud:
+        return None, None   # 💻 only the small local model objects: it can never hold a seat by itself — the cloud is asked for the second read
+    if strong:
         return 'wait', f"{'; '.join(str(f) for f in ad['risk_flags'][:2])} — {str(ad.get('summary') or '')[:110]}"
     return 'go', None
 
@@ -237,7 +237,7 @@ def parse_advice(text):
         xs = [f for f in (_flag(x) for x in (j.get(src) or []) if isinstance(x, str)) if f][:3] if isinstance(j.get(src), list) else []
         if xs:
             out[dst] = xs
-    ph = str(j.get('chart_phase') or '').strip().upper()
+    ph = re.sub(r'[\s_\-]+', ' ', str(j.get('chart_phase') or '')).strip().upper()   # the 7B model writes EARLY_ACCELERATION
     if ph in PHASES:
         out['chart_phase'] = ph
     for k in ('early_wallet_context', 'market_context'):
@@ -383,6 +383,55 @@ def brain_text(env=None):
     return _brain['text'] or None
 
 
+# 💻 THE LOCAL MODEL'S CONTEXT IS SMALL (LM Studio loads 4,096 tokens by default): the full brain prompt (~2,300 tokens) + a real case
+# (~1,500) + the answer overflowed it → HTTP 400 "tokens … greater than the context length" → the local model read OFFLINE and stopped
+# working the same hour the prompt went in (2026-10-13). A local call that would not fit gets BRAIN_LITE (the same brain, condensed: same
+# philosophy, same schema, same words) and a trimmed case. Loaded with a bigger context? set LOCAL_LLM_CTX (e.g. 8192) → the full prompt.
+LOCAL_CTX = 4096
+LOCAL_ANSWER = 380   # the local model's answer cap when its context is tight
+BRAIN_LITE = (
+    "You are the external reasoning brain for FEELESS, a live Solana memecoin trench desk. You are NOT the execution engine and NOT the source of "
+    "market truth; you never place, size or route a trade and never override execution safety, Courier, Warden or wallet limits. Think like a veteran trench "
+    "analyst (newborn launches, buyer / volume velocity, liquidity, early wallets, creator behaviour, narrative, chart phase, distribution, dev dumping). "
+    "Aggressive in investigation, not reckless in execution. Complex in thought, loose in exploration, strict only at the execution boundary.\n"
+    "Missing data (holder scan, socials, site, early-wallet map, creator history) = UNKNOWN / PENDING, never REJECTED. Never invent facts; missing "
+    "evidence is not negative evidence. Current live evidence beats old reputation: newness, volume velocity, buyer velocity, usable liquidity, momentum "
+    "quality, chart structure, cap expansion, buy / sell pressure, early wallets, creator, narrative, regime. Think proportionally to age: a fresh chart "
+    "is not a bad chart. No hype bias (a funny name, a trend or a pump is not a reason); no fear bias (new, short chart, unknown dev is not a reason).\n"
+    "Chart phases: DISCOVERY, EARLY ACCELERATION, FIRST PULLBACK, RECLAIM, BREAKOUT, RUNNING, LATE FOMO, DISTRIBUTION, REVERSAL, COLLAPSE.\n"
+    "Roles: SHERLOCK = story, creator, first buyers, clusters, unknowns. DEVIL = what invalidates the thesis (fake strength, hidden concentration, "
+    "distribution, liquidity danger) — warnings, not automatic vetoes. JUDGE = causality and attribution, no hard rule from one outcome. OWNER_REVIEW = "
+    "the best compact whole-case synthesis. MANAGER = who should wake, where opinions conflict, what is missing.\n"
+    "Return valid JSON only, no markdown, no commentary: {\"stance\": \"IGNORE|WATCH|CONTEND|ARM|SUPPORT_ENTRY|HOLD|PROTECT|EXIT|DEEP_REVIEW\", "
+    "\"priority\": 0-100, \"confidence\": 0.0-1.0, \"confidence_delta\": -0.25..0.25, \"summary\": \"max 2 short sentences\", \"bull_case\": [], "
+    "\"bear_case\": [], \"risk_flags\": [], \"unknowns\": [], \"chart_phase\": \"\", \"narrative\": \"\", \"creator_context\": \"\", "
+    "\"early_wallet_context\": \"\", \"market_context\": \"\", \"wake\": [], \"deep_review\": false}. Arrays: short phrases. Confidence = confidence in "
+    "your interpretation, not in profit. Be fast and concise. Your purpose is not to make FEELESS more cautious — it is to make it more intelligent.")
+LOCAL_TRIM = ('twins', 'lessons', 'memory', 'record', 'signals', 'xinfo', 'site', 'story', 'shape', 'calls', 'crowd', 'launch')   # dropped last-to-first until the case fits
+
+
+def real_tokens(msgs):
+    """~3.2 chars a token for the fit check (prose runs ~4.5; JSON, tickers and numbers run denser — a fit check must err high)."""
+    return int(sum(len(str(m.get('content') or '')) for m in msgs or []) / 3.2)
+
+
+def messages_local(case, role, ctx=LOCAL_CTX):
+    """The messages a LOCAL call sends: the full brain when it fits the loaded context, else BRAIN_LITE + a case trimmed until it does."""
+    room = int(ctx) - min(MAX_TOKENS, LOCAL_ANSWER) - 60
+    full = messages(case, role)
+    if not brain_text() or real_tokens(full) <= room:
+        return full
+    c = {k: (v[:220] if isinstance(v, str) else v) for k, v in compact(case).items()}
+    for drop in (None,) + LOCAL_TRIM:
+        if drop:
+            c.pop(drop, None)
+        msgs = [{'role': 'system', 'content': BRAIN_LITE + BRIDGE},
+                {'role': 'user', 'content': f"ROLE: {BRAIN_ROLE.get(role, str(role).upper())}\n{ROLE_ASK.get(role, ROLE_ASK['manager'])}\nCASE: {json.dumps(c, separators=(',', ':'))}"}]
+        if real_tokens(msgs) <= room:
+            break
+    return msgs
+
+
 def messages(case, role):
     ask = f"{ROLE_ASK.get(role, ROLE_ASK['manager'])}\nCASE: {json.dumps(compact(case), separators=(',', ':'))}"
     brain = brain_text()
@@ -429,6 +478,7 @@ class Router:
         self.budget = {}   # provider → what it said is left of its tokens-per-minute budget
         self.spend = {}    # provider → {day, usd, calls}: the costs the provider itself reported today
         self.localBgAt = 0.0
+        self._ctx = None   # (read at, the local model's loaded context length)
 
     def busy(self, env, cfg):
         """Is the FIRST usable provider the local model and is it running an inference right now?"""
@@ -483,6 +533,23 @@ class Router:
         s = self.stats[key]
         s.update(ok=s['ok'] + 1, streak=0, lastMs=ms, lastOkAt=now, lastAt=now, state='ONLINE', coolUntil=0.0, lastErr=None)
 
+    async def local_ctx(self, http, p, env):
+        """The context length the local model is LOADED with — LM Studio's own `/api/v0/models` (`loaded_context_length`), re-read every 2 min;
+        else LOCAL_LLM_CTX, else LOCAL_CTX. 2026-10-13: it was loaded with 2,484 tokens — smaller than the brain prompt alone."""
+        now = time.time()
+        if self._ctx and now - self._ctx[0] < 120:
+            return self._ctx[1]
+        ctx = int(_f((env or {}).get('LOCAL_LLM_CTX'), LOCAL_CTX) or LOCAL_CTX)
+        try:
+            r = await asyncio.wait_for(http.get(re.sub(r'/v1/?$', '', p['base']) + '/api/v0/models'), timeout=3)
+            row = next((m for m in (r.json().get('data') or []) if m.get('id') == p['model']), None) if r.status_code == 200 else None
+            if row and _f(row.get('loaded_context_length')) >= 512:
+                ctx = int(row['loaded_context_length'])
+        except Exception:
+            pass
+        self._ctx = (now, ctx)
+        return ctx
+
     def _budget_note(self, key, headers, now):
         """What the provider says is left of its tokens-per-minute budget (OpenAI-style `x-ratelimit-*` headers) → remembered per provider."""
         h = headers or {}
@@ -520,6 +587,8 @@ class Router:
         if kvar and env.get(kvar):
             hdr['Authorization'] = f"Bearer {env.get(kvar)}"
         body = {'model': p['model'], 'messages': msgs, 'temperature': 0.1, 'max_tokens': MAX_TOKENS, 'stream': False, **EXTRA_BODY.get(p['key'], {})}
+        if p['key'] == 'local' and self._ctx and self._ctx[1] < 6000:
+            body['max_tokens'] = min(MAX_TOKENS, LOCAL_ANSWER)
         try:
             r = await asyncio.wait_for(http.post(f"{p['base']}/chat/completions", json=body, headers=hdr), timeout=p['timeout'])
         except asyncio.TimeoutError:
@@ -617,6 +686,8 @@ class Router:
                     queued = False
                     # ⏳ FIT THE PROVIDER'S MINUTE BUDGET instead of firing into a 429 (2026-10-13: Groq allows 8K tokens a minute; two ~3K-token
                     # cases a round → the second was refused, the provider "cooled" and 5 of 6 asks came back NONE — the model was barely in the game)
+                    if key == 'local':   # 💻 fit the context the model is LOADED with (asked from LM Studio itself): the full brain when it fits, else its condensed twin
+                        msgs = messages_local(case, role, await self.local_ctx(http, p, env))
                     need = est_tokens(msgs)
                     w = self.budget_wait(key, need, time.time())
                     if w and w <= BUDGET_WAIT_MAX:
@@ -625,6 +696,11 @@ class Router:
                     s['requests'] += 1
                     t0 = time.perf_counter()
                     text, err = await self._call(http, p, env, msgs, now)
+                    if err and key == 'local' and err[1] == 'HTTP 400':   # 💻 the prompt did not fit after all (the model was reloaded smaller, or the
+                        self._ctx = None                                   # estimate ran low): re-read the loaded context, fit to 70% of it, ONE more try
+                        ctx_ = await self.local_ctx(http, p, env)
+                        msgs = messages_local(case, role, int(ctx_ * 0.7))
+                        text, err = await self._call(http, p, env, msgs, now)
                     if err and err[0] == 'rate' and (err[2] or 0) <= BUDGET_WAIT_MAX and key != 'local':   # a short "try again in Ns": wait it out ONCE, then one more try
                         self.totals['paced'] = self.totals.get('paced', 0) + 1
                         await asyncio.sleep(_f(err[2], 2.0) + 0.1)

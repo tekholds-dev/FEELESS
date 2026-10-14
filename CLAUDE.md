@@ -3913,3 +3913,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   is still `stance` (FAVOR / NEUTRAL / CAUTION from confidence_delta) — the model never orders, sizes or sells. `MAX_TOKENS` 460 (the 16-key
   answer was cut off at 260), OpenRouter 900, local timeout 60s. Measured: local 7B ~35s cold (2.4K-token prompt), OpenRouter ~4s, ~$0.0005
   a case. `LOCAL_LANE_EVERY` 60s. To change the brain: edit `backend/ai_brain.md` and restart the reputation service.
+- 💻 WHY LM STUDIO "DISCONNECTED" FOR THE AGENTS (2026-10-13, the hour the brain prompt went in): the model was LOADED with a 2,484-token
+  context (`/api/v0/models` → `loaded_context_length`; max 32,768) and the brain prompt alone is ~2,300 tokens → every agent call got HTTP 400
+  "tokens … greater than the context length" → state OFFLINE + cool-down, the local lane never ran. Now `Router.local_ctx` asks LM Studio
+  what is loaded (2-min cache; `LOCAL_LLM_CTX` / `LOCAL_CTX` 4096 as fallbacks) and `messages_local` sends the FULL brain when it fits, else
+  `BRAIN_LITE` (the same brain condensed, ~1K tokens with the bridge) + a case trimmed field by field (`LOCAL_TRIM`) until it fits; a 400
+  re-reads the context and retries once at 70%. Measured: 14s an answer at 2,484. FOR THE FULL PROMPT: reload the model in LM Studio with
+  context 8192 — the router picks it up by itself. The 7B model answered "EXIT, −0.25" on a plain case: it CAN clear a coin (saves a cloud
+  call) but can never hold a seat by itself — `gate_verdict` asks the cloud for the second read when only the local model objects.
+  A chat typed INTO LM Studio uses its preset (the JSON schema for every question); the agents' calls never see that preset.
