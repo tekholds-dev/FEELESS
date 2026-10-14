@@ -25,7 +25,8 @@ test('💬 chat: three modes, a normal-language answer with provider · model ·
   expect(q(el, 'cch-log').textContent).toContain('Reaper banks winners at about +2%.'); expect(q(el, 'cch-log').textContent).not.toContain('"stance"');
   expect(q(el, 'cch-meta').textContent).toBe('OPENROUTER · gpt-x · 4.2s · 900→60 tok');
   expect(mockHub.hubApply).not.toHaveBeenCalled(); expect(mockHub.hubLoad).not.toHaveBeenCalled();   // no full-tab repaint: the answer lives in this panel
-  await act(async () => { q(el, 'cch-clear').click(); }); expect(q(el, 'cch-log').textContent).toContain('Ask it anything');
+  expect(q(el, 'cch-mood').dataset.mood).toBe('on'); expect(q(el, 'cch-mood').textContent).toContain('LOCKED IN');
+  await act(async () => { q(el, 'cch-clear').click(); }); expect(q(el, 'cch-log').textContent).toContain('It fixes agents only on your call');
   expect(metaLine({ provider: 'LOCAL AI' })).toBe('LOCAL AI'); expect(metaLine(null)).toBe('');
 });
 
@@ -46,4 +47,48 @@ test('🛠 a proposal shows agent · now → proposed · why · effect · rollba
   const el2 = await mount(<AiChat call={call} />);
   await act(async () => { q(el2, 'cch-reject-p1').click(); });
   expect(sent[1]).toEqual(['/admin/ai/proposals/decide', { id: 'p1', approve: false }]); expect(q(el2, 'cch-prop-p1').textContent).toContain('REJECTED');
+});
+
+test('🧠 the Brain learns on your tap, deletes one message, fires a one-tap prompt and pops out full-window', async () => {
+  const sent = [];
+  const H = [{ role: 'user', text: 'why small wins?' }, { role: 'assistant', text: 'The trail arms at +4% and banks near +2%.' }];
+  const call = jest.fn(async (path, opt) => {
+    if (!opt) return { history: H, proposals: { pending: [], decided: [] }, learned: 3, brain: { provider: 'OPENROUTER', model: 'gpt-x', ms: 4000 } };
+    sent.push([path, JSON.parse(opt.body)]);
+    if (path === '/admin/ai/chat/remember') return { ok: true, learned: 4 };
+    if (path === '/admin/ai/chat/clear') return { history: H.slice(1), learned: 4 };
+    return { ok: true, mode: 'improve', reply: 'ok', history: H, proposals: { pending: [], decided: [] } };
+  });
+  const el = await mount(<AiChat call={call} variant="mini" />);
+  expect(q(el, 'cch').className).toContain('is-mini'); expect(q(el, 'cch-learned').textContent).toContain('3'); expect(q(el, 'cch-mood').textContent).toContain('OPENROUTER · gpt-x · 4.0s');
+  expect(q(el, 'cch-rem-0')).toBeNull();                                                        // only the model's lines can be remembered
+  await act(async () => { q(el, 'cch-rem-1').click(); });
+  expect(sent[0]).toEqual(['/admin/ai/chat/remember', { text: 'The trail arms at +4% and banks near +2%.' }]); expect(q(el, 'cch-learned').textContent).toContain('4');
+  await act(async () => { q(el, 'cch-del-0').click(); });
+  expect(sent[1]).toEqual(['/admin/ai/chat/clear', { index: 0 }]); expect(q(el, 'cch-log').textContent).not.toContain('why small wins?');
+  await act(async () => { q(el, 'cch-mode-improve').click(); });
+  await act(async () => { q(el, 'cch-quick').querySelector('button').click(); });
+  expect(sent[2][0]).toBe('/admin/ai/chat'); expect(sent[2][1].mode).toBe('improve'); expect(sent[2][1].text).toMatch(/Propose the changes/);
+  await act(async () => { q(el, 'cch-pop').click(); });
+  expect(document.querySelector('[data-testid="cch-shade"] .cch.is-pop')).not.toBeNull(); expect(q(el, 'cch-popped')).not.toBeNull();
+  await act(async () => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
+  expect(document.querySelector('[data-testid="cch-shade"]')).toBeNull();
+  expect(mockHub.hubApply).not.toHaveBeenCalled();
+});
+
+test('🧠 no HQ session = the Brain says how to sign in and asks nothing; brainMood reads real state', async () => {
+  const { MiniBrain } = require('../MiniBrain'); const { brainMood } = require('./AiChat');
+  localStorage.removeItem('feeless:cc-session');
+  const el = await mount(<MiniBrain address="CREATOR" />);
+  expect(q(el, 'mini-brain-gate').textContent).toMatch(/Open HQ once/); expect(q(el, 'mini-brain')).toBeNull();
+  expect((await mount(<MiniBrain address={null} />)).textContent).toBe('');
+  expect(brainMood(true, null, null).key).toBe('work'); expect(brainMood(false, null, null).key).toBe('off'); expect(brainMood(false, { provider: 'LOCAL AI' }, null).line).toBe('LOCAL AI');
+});
+
+test('🛠 in the mini cat the fixes sit folded under one bar until you open them', async () => {
+  const call = jest.fn(async () => ({ history: [], proposals: { pending: [P], decided: [] } }));
+  const el = await mount(<AiChat call={call} variant="mini" />);
+  expect(q(el, 'cch-props-toggle').textContent).toContain('· 1'); expect(q(el, 'cch-props').querySelector('ul').hidden).toBe(true);
+  await act(async () => { q(el, 'cch-props-toggle').click(); });
+  expect(q(el, 'cch-props').querySelector('ul').hidden).toBe(false); expect(q(el, 'cch-approve-p1')).not.toBeNull();
 });

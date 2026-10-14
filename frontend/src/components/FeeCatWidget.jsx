@@ -7,7 +7,8 @@ import { parse, songTitle } from './command/ProfileMusic';
 import { MiniMine, MiniTop } from './MiniDeck';
 import MusicFind, { ytId } from './MusicFind';
 import { apiUrl } from '../lib/api';
-import HqPop from './HqPop';
+import HqPop, { useIsCreator } from './HqPop';
+import { MiniBrain } from './MiniBrain';
 
 const PLAYLIST_KEY = 'feeless:site-playlist';
 // ▶ Like YouTube: a refresh comes back to the same song at the same second, still playing (or still paused).
@@ -29,6 +30,7 @@ export function FeeCatWidget() {
   const loc = useLocation();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState('chat');
+  const creator = useIsCreator();   // 🧠 the Brain tab exists only for the creator's wallet (the server's yes / no)
   const [room, setRoom] = useState('feeless-general');
   const [songs, setSongs] = useState(readList);
   // Keeps playing across reloads and full-page links (like YouTube): song, play state and the exact second live in localStorage.
@@ -135,13 +137,14 @@ export function FeeCatWidget() {
   const MODES = [['all', Repeat, 'Repeat all'], ['one', Repeat1, 'Repeat one'], ['shuffle', Shuffle, 'Shuffle']];
 
   return <div className="feecat-widget" data-testid="feecat-widget">
-    {open && <div className="feecat-panel" data-testid="feecat-panel">
+    {open && <div className={`feecat-panel ${tab === 'brain' ? 'is-brain' : ''}`} data-testid="feecat-panel">
       <div className="feecat-panel-head">
         <div className="feecat-tabs">
           <button type="button" className={tab === 'chat' ? 'active' : ''} onClick={() => setTab('chat')}><MessageCircle size={13} />Chat</button>
           <button type="button" className={tab === 'music' ? 'active' : ''} onClick={() => setTab('music')}><Music2 size={13} />Music</button>
           <button type="button" className={tab === 'mine' ? 'active' : ''} onClick={() => setTab('mine')} data-testid="mini-tab-mine">💼 Mine</button>
           <button type="button" className={tab === 'top' ? 'active' : ''} onClick={() => setTab('top')} data-testid="mini-tab-top">🔥 Top 10</button>
+          {creator ? <button type="button" className={tab === 'brain' ? 'active' : ''} onClick={() => setTab('brain')} data-testid="mini-tab-brain" data-tip="Your AI brain: chat, teach it, fix the agents on your call">🧠 Brain</button> : null}
         </div>
         <button type="button" className="feecat-x" onClick={() => setOpen(false)} aria-label="Close"><X size={15} /></button>
       </div>
@@ -166,6 +169,7 @@ export function FeeCatWidget() {
       </div>}
       {tab === 'mine' && <MiniMine />}
       {tab === 'top' && <MiniTop />}
+      {tab === 'brain' && creator ? <MiniBrain address={creator} /> : null}
       {tab !== 'music' && songs.length > 0 && <div className="mini-bar" data-testid="mini-player">
         <button type="button" onClick={() => go(-1)} aria-label="Previous"><SkipBack size={12} /></button>
         <button type="button" className={playing ? 'is-play' : ''} onClick={() => setPlaying(p => !p)} aria-label={playing ? 'Pause' : 'Play'}>{playing ? <Pause size={13} /> : <Play size={13} />}</button>

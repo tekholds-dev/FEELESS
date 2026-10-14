@@ -26,3 +26,8 @@ body.fx-lite .md-list li { animation: none; }
 body.theme-day .md-list button:hover { background: #eaf7f0; border-color: #9fd3b6; } body.theme-day .md-fuse { background: #f1faf5; border-color: #9fd3b6; }
 body.theme-day .mini-bar { border-top-color: #cfe6da; } body.theme-day .mini-bar button { border-color: #9fd3b6; } body.theme-day .mini-bar .is-play { background: #0b7a4a; color: #fff; border-color: #0b7a4a; }
 @media (max-width: 640px) { .md { padding: 10px; } .md-list button { grid-template-columns: 14px auto minmax(0, 1fr) auto 50px; gap: 6px; } }
+
+/* 🧠 the creator's Brain tab: a wider panel + a tab row that scrolls instead of squeezing (five tabs) */
+.feecat-panel.is-brain { width: min(440px, 94vw); max-height: 78vh; }
+.feecat-panel-head .feecat-tabs { overflow-x: auto; scrollbar-width: none; min-width: 0; } .feecat-panel-head .feecat-tabs::-webkit-scrollbar { display: none; }
+.feecat-panel-head .feecat-tabs button { flex: none; white-space: nowrap; }

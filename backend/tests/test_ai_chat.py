@@ -97,9 +97,12 @@ def test_reject_changes_nothing_approve_hands_back_only_that_one_safe_proposal_o
 def test_the_service_applies_only_safe_kinds_through_owner_routes():
     import reputation_service as rs
     src = open(rs.__file__).read()
-    for route in ("'/api/reputation/admin/ai/chat'", "'/api/reputation/admin/ai/chat/clear'", "'/api/reputation/admin/ai/proposals/decide'"):
+    for route in ("'/api/reputation/admin/ai/chat'", "'/api/reputation/admin/ai/chat/clear'", "'/api/reputation/admin/ai/chat/remember'", "'/api/reputation/admin/ai/proposals/decide'"):
         i = src.index(route)
         assert '_require_owner(request)' in src[i:i + 900]
+    j = src.index('async def admin_ai_chat_remember(')
+    rem = src[j:src.index('\n\n\n', j)]
+    assert "'kind': 'note'" in rem and '_tch.add(' in rem and not any(bad in rem for bad in ('realCfg', '_fw_', 'clean_cfg', 'agent_seat('))   # remembering = a lesson for the model, never a setting
     i = src.index('async def _ai_proposal_apply(')
     body = src[i:src.index('\n\n\n', i)]
     assert all(k in body for k in ("'cfg'", "'lesson'", "'weight'", "'tune'", "'idea'")) and 'SAFE_CFG' in body

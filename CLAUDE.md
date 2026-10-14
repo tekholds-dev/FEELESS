@@ -3947,3 +3947,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🛂 The seat gate ignores the "organic / bots" flag when it is the model's ONLY named risk (`ai_router.GATE_SOFT`): Jupiter reads nearly
   every Pump coin 0–3% organic, so the model flagged it on everything and READY coins stopped being seated; with nothing taken the regret
   ledger had no baseline to switch the wait off. A specific risk (dev holds 79% · top-10 93% · site mismatch …) still holds the coin.
+- 🧠 THE BRAIN = the chat, rebuilt (owner, 2026-10-13: "not that little section — meta and degen, something that learns and can fix agents on my
+  call, in the mini cat for the creator"; `command/AiChat.jsx`, `styles/brainChat.css` `cch-*`, `components/MiniBrain.jsx`, `lib/hqCall.js`).
+  ONE component, three places: 🧠 AI tab in HQ › Agents (`variant="full"`) · the mini cat's 🧠 Brain tab (`FeeCatWidget`, CREATOR ONLY via
+  `useIsCreator`; `variant="mini"`, panel `is-brain` 440px, fixes folded under one bar) · ⤢ a full-window pop-out (portal `cch-shade`, chat |
+  fixes side by side, Esc closes). Header = spinning orb + a mood read from real state (`brainMood`: 🟢 LOCKED IN provider · model · latency ·
+  ⚡ COOKING · 💤 NO MODEL) + 🎓 LEARNED (lessons on file) + 🛠 YOUR CALL (pending fixes). One-tap prompts per mode (`QUICK`). LEARNS on the
+  owner's tap: 🧠 Remember on any model line → `POST /admin/ai/chat/remember` → a teach `note` every fitting model read sees (the owner's own
+  tap is the approval; never a setting). ✕ on a message → `chat/clear {index}`; 🗑 clears all. FIXES agents only through the proposal cards
+  (✅ / ✕). Outside HQ the calls use the HQ session the creator already signed (`hqCallFor` reads `feeless:cc-session`; no session = "open HQ
+  once", it never asks a wallet to sign). transform / opacity only (0 other animations, measured), fx-lite / reduced motion / day / 640px.

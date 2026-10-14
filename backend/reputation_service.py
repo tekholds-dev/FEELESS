@@ -13459,23 +13459,59 @@ async def admin_ai_chat(request: Request):
                 ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-proposals', f"{len(new)} proposed by {res.get('label')}: " + ' · '.join(f"{p_['kind']} {p_['key']}" for p_ in new)[:200]); _admin_save(ad_)
         _chat['hist'] = _aic.push(_aic.push(_chat['hist'], 'user', text), 'assistant', reply or 'no provider answered', {'mode': mode, 'ms': res.get('ms'), 'provider': res.get('label')})
         return {'ok': bool(reply), 'mode': mode, 'reply': reply, 'provider': res.get('label'), 'model': res.get('model'), 'ms': res.get('ms'), 'tokens': res.get('usage'), 'history': _chat['hist'],
-                'new': [p_['id'] for p_ in new], 'refused': refused, 'proposals': _aic.view(_chat_props()), 'why': res.get('why')}
+                'new': [p_['id'] for p_ in new], 'refused': refused, 'proposals': _aic.view(_chat_props()), 'why': res.get('why'), 'learned': _chat_learned()}
     finally:
         _chat['busy'] = False
 
 
+def _chat_learned():
+    """How much the owner has taught the desk through the chat and the Teach box (the lessons every fitting model case reads)."""
+    return len((_teach_state() or {}).get('items') or [])
+
+
 @app.post('/api/reputation/admin/ai/chat/clear')
 async def admin_ai_chat_clear(request: Request):
-    """💬 Owner only: forget the conversation (the proposals stay — they are the audit record)."""
+    """💬 Owner only: forget the conversation — or ONE message of it (`{index}`). The proposals stay: they are the audit record."""
     _require_owner(request)
-    _chat['hist'] = []
-    return {'ok': True, 'history': [], 'proposals': _aic.view(_chat_props())}
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    i = (body or {}).get('index')
+    if isinstance(i, int) and not isinstance(i, bool) and 0 <= i < len(_chat['hist']):
+        _chat['hist'] = _chat['hist'][:i] + _chat['hist'][i + 1:]
+    else:
+        _chat['hist'] = []
+    return {'ok': True, 'history': _chat['hist'], 'proposals': _aic.view(_chat_props()), 'learned': _chat_learned()}
+
+
+@app.post('/api/reputation/admin/ai/chat/remember')
+async def admin_ai_chat_remember(request: Request):
+    """🧠 Owner only: REMEMBER THIS — the owner taps a line of the chat and it becomes a lesson (teach.py `note`) that every fitting model
+    case reads from now on. The owner's own tap is the approval; a lesson is advice for the model, never an order, a size or a setting."""
+    _require_owner(request)
+    body = await request.json()
+    text = _aic.clean((body or {}).get('text'), 400)
+    if len(text) < 8:
+        raise HTTPException(400, 'Nothing to remember.')
+    try:
+        _teach['st'] = _tch.add(_teach_state(), {'kind': 'note', 'text': text}, time.time())
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    _json_save(TEACH_PATH, _teach['st'])
+    if _office.get('payload') is not None:
+        _office['payload']['teach'] = _tch.view(_teach['st'])
+    ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-remember', text[:160]); _admin_save(ad_)
+    return {'ok': True, 'learned': _chat_learned()}
 
 
 @app.get('/api/reputation/admin/ai/chat')
 async def admin_ai_chat_get(request: Request):
     _require_owner(request)
-    return {'history': _chat['hist'], 'proposals': _aic.view(_chat_props()), 'modes': list(_aic.MODES)}
+    v_ = _air.ROUTER.view(os.environ, _ai_cfg())
+    live_ = next((r_ for r_ in v_.get('providers') or [] if r_.get('state') == 'ONLINE'), None)
+    return {'history': _chat['hist'], 'proposals': _aic.view(_chat_props()), 'modes': list(_aic.MODES), 'learned': _chat_learned(),
+            'brain': {'provider': (live_ or {}).get('label'), 'model': (live_ or {}).get('model'), 'ms': (live_ or {}).get('lastMs')}}
 
 
 @app.post('/api/reputation/admin/ai/proposals/decide')
