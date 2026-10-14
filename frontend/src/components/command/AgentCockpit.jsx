@@ -125,11 +125,18 @@ export function Spark({ path, w = 64, h = 18 }) {
 }
 
 // ── 🪑 the seats ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-function SeatCard({ s, on, onPick, readyN }) {
+// 📡 an empty seat reads as a live radar: what it is hunting + the ONE thing holding it (head = the blocker, the rest = its numbers)
+export const huntSplit = why => { const w = String(why || '').trim(); const i = w.indexOf(':'); return i > 0 && i < 60 ? [w.slice(0, i), w.slice(i + 1).trim()] : [w || 'waiting for a coin that clears every check', '']; };
+function HuntLine({ why, ready, same }) {
+  const [head, rest] = same ? [`same blocker as seat ${same}`, ''] : huntSplit(why);   // one blocker is read once, not four times
+  return <div className={`ack-hunt ${ready ? 'is-ready' : ''}`} data-tip={why || ''}><span className="ack-radar" aria-hidden="true"><i /><b /></span>
+    <p><b>{ready ? `${ready} READY · ` : ''}{head}</b>{rest ? <small>{rest}</small> : null}</p></div>;
+}
+function SeatCard({ s, on, onPick, readyN, same }) {
   const st = seatState(s, readyN);
   if (s.open) return <div className={`ack-seat is-open ${on ? 'is-on' : ''}`} data-testid={`ack-seat-${s.seat}`}>
     <header><small>SEAT {s.seat}</small><i className={`ack-badge ${STATE_CLS[st]}`} data-testid={`ack-seat-state-${s.seat}`}>{st}</i></header>
-    <p className="ack-open"><b>No position</b><span>{s.why}</span></p>
+    <HuntLine why={s.why} ready={readyN} same={same} />
     {(s.refused || []).length ? <ul className="ack-refused" data-testid={`ack-seat-refused-${s.seat}`}>{s.refused.map(r => <li key={`${r.symbol}-${r.at}`} data-tip={`${r.by === 'keeper' ? "the keeper's own buy check" : 'the seat pre-check'} · ${ago(r.at)} ago`}><b>${r.symbol}</b><span>{r.why}</span></li>)}</ul> : null}
     {(s.tapeWait || []).length ? <ul className="ack-refused is-tape" data-testid={`ack-seat-tape-${s.seat}`}>{s.tapeWait.map(r => <li key={r.symbol} data-tip="🌊 the live tape held this READY coin back this tick — it is re-read on the next one"><b>🌊 ${r.symbol}</b><span>{r.why}</span></li>)}</ul> : null}</div>;
   const last = s.last; const [ic, nm] = TAPE_AGENT[last?.agent] || ['', ''];
@@ -458,13 +465,21 @@ export function AgentCockpit({ call, isOwner = true }) {
   const onPick = m => { setPick(m); setAgentS(null); };
   useEffect(() => { const on = e => { const m = e.detail?.mint; if (m) { setPick(m); setAgentS(null); } }; window.addEventListener('feeless:cockpit-coin', on); return () => window.removeEventListener('feeless:cockpit-coin', on); }, []);
   useEffect(() => { const on = () => setAiOpen(true); window.addEventListener('feeless:agents-ai', on); return () => window.removeEventListener('feeless:agents-ai', on); }, []);
+  // 🧠 the Brain's Coach / Teach panes change only when coaching, teaching or the HELD coins change — a 3s price tick or a hub paint
+  // never re-renders the Brain (it is memoized; a new extras array every paint made it redraw its whole log ~2.5×/s)
+  const heldKey = seats.filter(s => !s.open).map(s => `${s.mint}:${s.pair}:${s.buying ? 1 : 0}`).join('|'); const sym = model?.sym || model?.symbol;
+  const seatsRef = useRef(seats); seatsRef.current = seats;
+  const brainExtras = useMemo(() => [['coach', `👑 Coach${(o?.coach?.rules || []).length ? ` · ${o.coach.rules.length}` : ''}`, <CoachBox coach={o?.coach} seats={seatsRef.current} tpl={d?.card?.tpl} call={call} isOwner={isOwner} />],
+    ['teach', `🎓 Teach${(o?.teach?.items || []).length ? ` · ${o.teach.items.length}` : ''}`, <TeachBox o={{ teach: o?.teach, ai: o?.ai }} mint={mint} sym={sym} call={call} isOwner={isOwner} />]],
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [o?.coach, o?.teach, o?.ai, heldKey, d?.card?.tpl, mint, sym, call, isOwner]);
   if (!o || o.cold) return <section className="ack" data-testid="agent-cockpit"><MissionRibbon tiles={missionTiles(d, [])} cold /><p className="ack-nil">Waiting for the agents' first pass — the cockpit shows nothing it was not handed.</p></section>;
   const held = seats.filter(s => !s.open).length;
   return <section className="ack" data-testid="agent-cockpit">
     <MissionRibbon tiles={tiles} live={!!cc?.live} />
     <LivePulse o={o} onAi={() => setTab('ai')} />
     <section className="ack-seats" data-testid="ack-seats"><header><b>🪑 SEAT BOARD</b><OpenPnl seats={seats} onPick={onPick} /><small><b className="m-pos">{held}/{seats.length || '—'} active</b> · live prices every 3s · tap a seat = its chart + the agent handling it</small></header>
-      <div className="ack-seatrow">{seats.map(s => <SeatCard key={s.seat} s={s} on={!s.open && s.mint === mint} onPick={onPick} readyN={readyN} />)}</div></section>
+      <div className="ack-seatrow">{seats.map((s, i) => <SeatCard key={s.seat} s={s} on={!s.open && s.mint === mint} onPick={onPick} readyN={readyN} same={s.open ? seats.slice(0, i).find(x => x.open && x.why === s.why)?.seat : undefined} />)}</div></section>
     <div className="ack-main">
       <div className="ack-left"><CockpitChart m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); setTab('live'); }} />
         <IntakeBand o={o} mint={mint} onPick={onPick} call={call} isOwner={isOwner} />
@@ -473,9 +488,7 @@ export function AgentCockpit({ call, isOwner = true }) {
         pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} mcNow={model?.mc} onAi={() => setAiOpen(true)} /></div>
     <div className="ack-tapezone" data-testid="ack-tapezone">
       <Deck tabs={[['tape', '🎬 Trades', (o.tradeTape?.rows || []).length, <><LossMap court={o.court} capital={o.capital} /><TradeTape tape={o.tradeTape} mint={mint} onPick={onPick} /></>]]} />
-      <AiChat call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} variant="full"
-        extras={[['coach', `👑 Coach${(o.coach?.rules || []).length ? ` · ${o.coach.rules.length}` : ''}`, <CoachBox coach={o.coach} seats={seats} tpl={d?.card?.tpl} call={call} isOwner={isOwner} />],
-          ['teach', `🎓 Teach${(o.teach?.items || []).length ? ` · ${o.teach.items.length}` : ''}`, <TeachBox o={o} mint={mint} sym={model?.sym || model?.symbol} call={call} isOwner={isOwner} />]]} /></div>
+      <AiChat call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} variant="full" extras={brainExtras} /></div>
     <div className="ack-foot"><AgentMatrix o={o} gens={o?.generations || []} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); setTab('live'); }} rows={o.tape} pulse={pulse} />
       <ReviewQueue o={o} call={call} isOwner={isOwner} onPick={m => { onPick(m); if (m && !((o.kernel || {}).candidates || []).some(c => c.mint === m) && !(o.positions || []).some(p => p.mint === m) && !(o.ownerReview || []).some(r => r.mint === m)) openCoin({ mint: m }); }} sel={mint} /></div>
     <CockpitControls o={o} call={call} isOwner={isOwner} onAi={() => setAiOpen(true)} />

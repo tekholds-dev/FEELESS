@@ -28,7 +28,9 @@
 .cch-talk { display: grid; grid-template-rows: minmax(0, 1fr) auto auto auto; gap: 6px; min-height: 0; }
 .cch-log { list-style: none; margin: 0; padding: 2px; display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; }
 .cch-log::-webkit-scrollbar { width: 6px; } .cch-log::-webkit-scrollbar-thumb { background: var(--br); border-radius: 3px; }
-.cch-msg { position: relative; display: grid; gap: 2px; max-width: 92%; padding: 7px 10px 6px; border-radius: 12px; font: 600 11.5px/1.5 var(--m-mono); color: var(--m-text); animation: cchIn .18s var(--m-ease, ease-out); }
+.cch-msg { position: relative; display: grid; gap: 2px; max-width: 92%; padding: 7px 10px 6px; border-radius: 12px; font: 600 11.5px/1.5 var(--m-mono); color: var(--m-text); }
+.cch-msg.is-fresh { animation: cchIn .18s var(--m-ease, ease-out); }   /* only what you just sent + its answer — a mode / pane switch never replays the thread */
+.cch-talkpane { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; } .cch-talkpane[hidden] { display: none; } .cch-talkpane > .cch-main { flex: 1; }
 .cch-msg > small { font: 800 7.5px var(--m-mono); letter-spacing: .14em; color: var(--m-mute); } .cch-msg > span { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
 .cch-msg.is-user { align-self: flex-end; background: rgba(21, 209, 106, .12); border: 1px solid color-mix(in srgb, var(--br2) 40%, transparent); border-bottom-right-radius: 3px; }
 .cch-msg.is-assistant { align-self: flex-start; background: rgba(140, 110, 255, .13); border: 1px solid color-mix(in srgb, var(--br) 35%, transparent); border-bottom-left-radius: 3px; }
@@ -46,6 +48,7 @@
 .m-btn.cch-go { font: 800 10.5px var(--m-mono); letter-spacing: .1em; padding: 0 14px; border-radius: 10px; }
 .cch-props { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 5px; min-height: 0; max-height: 220px; } .cch.is-pop .cch-props { max-height: none; }
 .cch-props ul { list-style: none; margin: 0; padding: 0 2px 0 0; display: grid; gap: 6px; align-content: start; overflow-y: auto; min-height: 0; scrollbar-width: thin; scrollbar-color: var(--br) transparent; }
+.cch-props ul[hidden] { display: none; }   /* `display: grid` above beat the hidden attribute — a folded list never folded */
 .cch-props ul::-webkit-scrollbar { width: 6px; } .cch-props ul::-webkit-scrollbar-thumb { background: var(--br); border-radius: 3px; }
 .cch-ptitle { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 0; padding: 5px 8px; width: 100%; text-align: left; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--gold, #f5c451) 35%, transparent); background: rgba(245, 196, 81, .06); cursor: pointer; transition: transform .15s ease, background .15s ease; }
 .cch-ptitle:hover { background: rgba(245, 196, 81, .12); } .cch-ptitle:active { transform: scale(.995); } .cch-ptitle:focus-visible { outline: 2px solid var(--gold, #f5c451); outline-offset: 1px; } .cch-ptitle i { margin-left: auto; font-style: normal; color: var(--gold, #f5c451); }
@@ -90,9 +93,9 @@ body.theme-day .cch-bqlist li { color: #0f2419; }
 .cch-msg { max-width: 96%; } .cch-msg.is-assistant > span { font-size: 12px; line-height: 1.6; }
 .cch.is-pop .cch-msg { font-size: 13px; max-width: 88%; } .cch.is-pop .cch-msg.is-assistant > span { font-size: 13.5px; } .cch.is-pop .cch-props { max-height: none; } .cch.is-pop .cch-main { grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); }
 .cch.is-pop .cch-props, .cch.is-pop .cch-bqlist { align-self: start; } .cch-mact button:disabled { opacity: .4; cursor: default; }
-.cch-side { display: grid; gap: 8px; min-height: 0; align-content: start; } .cch:not(.is-pop) .cch-side { max-height: 210px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; } .cch:not(.is-pop) .cch-side .cch-props { max-height: none; } .cch-side:empty { display: none; } .cch.is-pop .cch-side { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; }
+.cch-side { display: grid; gap: 8px; min-height: 0; align-content: start; } .cch:not(.is-pop) .cch-side { max-height: 180px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; } .cch:not(.is-pop) .cch-side .cch-props { max-height: none; } .cch-side:empty { display: none; } .cch.is-pop .cch-side { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; }
 /* no sideways scroll, ever: every row may shrink */
-.cch, .cch * { min-width: 0; } .cch { overflow-x: hidden; grid-template-rows: none; grid-auto-rows: auto; align-content: start; } .cch > .cch-main { flex: 1; }
+.cch, .cch * { min-width: 0; } .cch { overflow-x: hidden; grid-template-rows: none; grid-auto-rows: auto; align-content: start; }
 .cch { display: flex; flex-direction: column; } .cch-modes > button span { overflow: hidden; text-overflow: ellipsis; } .cch-msg > span, .cch-why, .cch-diff span { overflow-wrap: anywhere; }
 .cch-saved { flex-basis: 150px; } .cch-ico.is-on { border-color: var(--br); color: var(--br); }
 .cch-sets { display: grid; gap: 5px; padding: 8px 10px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--br) 35%, transparent); background: rgba(0, 0, 0, .3); animation: cchIn .18s ease-out; }
@@ -112,8 +115,8 @@ body.fx-lite .cch-scan { animation: none; } @media (prefers-reduced-motion: redu
 body.theme-day .cch[data-mode='case'] { --br: #0b6fa8; } body.theme-day .cch[data-mode='improve'] { --br: #8a5a00; } body.theme-day .cch[data-mode='build'] { --br: #a81c7c; }
 @keyframes cchIn { from { transform: translateY(4px); opacity: .3; } } @keyframes cchDot { 50% { transform: translateY(-3px); opacity: .5; } } @keyframes cchSpin { to { transform: rotate(360deg); } }
 @keyframes cchDrift { to { transform: translate3d(8%, 14%, 0) scale(1.15); } } @keyframes cchBeat { 50% { transform: scale(1.06); } } @keyframes cchPop { from { transform: scale(.97); opacity: .4; } } @keyframes cchFade { from { opacity: 0; } }
-body.fx-lite .cch::before, body.fx-lite .cch-orb i, body.fx-lite .cch-msg, body.fx-lite .cch-prop, body.fx-lite .cch-kpis u.is-hot, body.fx-lite .cch-msg.is-wait > span i, body.fx-lite .cch.is-pop, body.fx-lite .cch-shade { animation: none; }
-@media (prefers-reduced-motion: reduce) { .cch::before, .cch-orb i, .cch-msg, .cch-prop, .cch-kpis u.is-hot, .cch-msg.is-wait > span i, .cch.is-pop, .cch-shade { animation: none; } .cch-mact { opacity: 1; } }
+body.fx-lite .cch::before, body.fx-lite .cch-orb i, body.fx-lite .cch-msg.is-fresh, body.fx-lite .cch-prop, body.fx-lite .cch-kpis u.is-hot, body.fx-lite .cch-msg.is-wait > span i, body.fx-lite .cch.is-pop, body.fx-lite .cch-shade { animation: none; }
+@media (prefers-reduced-motion: reduce) { .cch::before, .cch-orb i, .cch-msg.is-fresh, .cch-prop, .cch-kpis u.is-hot, .cch-msg.is-wait > span i, .cch.is-pop, .cch-shade { animation: none; } .cch-mact { opacity: 1; } }
 @media (hover: none) { .cch-mact { opacity: 1; } }
 @media (max-width: 640px) { .cch.is-pop { width: 100vw; height: 100dvh; border-radius: 0; } .cch.is-pop .cch-main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; } .cch-diff { grid-template-columns: minmax(0, 1fr); } .cch-diff i { display: none; } .cch-kpis small { display: none; } .cch-msg { max-width: 100%; } }
 body.theme-day .cch { background: linear-gradient(160deg, rgba(214, 200, 255, .7), rgba(238, 246, 241, .96) 46%, rgba(204, 240, 220, .8)); border-color: rgba(91, 63, 196, .35); --br: #5b3fc4; --br2: #0d7a41; }

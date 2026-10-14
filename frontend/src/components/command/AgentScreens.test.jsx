@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client';
 import { act } from 'react';
 import { AgentDesk } from './AgentDesk';
 import { heat, reasonsOf, scopeOf, docketOf, listFor, seatMoves, CardNow, CourtBand, Court, MissionBar } from './AgentScreens';
-jest.mock('../../lib/liveCandles', () => ({ useLiveCandles: () => null }));   // no network in tests
 jest.mock('../terminal/PriceChart', () => ({ PriceChart: () => <div data-testid="price-chart" /> }));   // the live chart needs a canvas
 
 // `k` = the KERNEL's decision on the row; trigger / devil / go are the practice desk's paper words (they decide nothing)

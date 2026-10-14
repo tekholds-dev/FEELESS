@@ -45,7 +45,6 @@ export function useCoinEdge(mint) {
   return mint ? edges.get(mint) || null : null;
 }
 
-export const edgeOf = mint => edges.get(mint) || null;           // non-hook read (null until a hook loaded it)
 export const dropEdge = mint => { edges.delete(mint); };
 
 // One coin's edge WITH forensics (runs the holder scan server-side if it isn't cached) — the tape's wallet tags.

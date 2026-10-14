@@ -15,32 +15,6 @@ function usePoll(path, ms) {
   return data;
 }
 
-export function TrenchHero({ ecosystemName }) {
-  const recent = usePoll('/api/reputation/calls/recent?limit=100', 15000);
-  const board = usePoll('/api/reputation/calls/leaderboard?days=1', 30000);
-  const calls = recent?.calls || [];
-  const lastHour = calls.filter(c => Date.now() / 1000 - c.at < 3600);
-  const callers = new Set(lastHour.map(c => c.caller)).size;
-  const best = calls.filter(c => Date.now() / 1000 - c.at < 86400).reduce((b, c) => (!b || (c.peakX || 0) > (b.peakX || 0) ? c : b), null);
-  const heat = Math.min(100, lastHour.length * 8 + callers * 10);
-  return <section className="trench-hero" data-testid="trench-hero">
-    <div className="trench-hero-copy">
-      <span className="eyebrow">{ecosystemName.toUpperCase()} · LIVE FLOOR</span>
-      <h1 className="trenches-font trench-title">The Trenches</h1>
-      <p>Every coin posted here is logged as a <b>call</b> — priced by the server the second it lands and tracked forever. Talk is cheap. The ledger isn't.</p>
-    </div>
-    <div className="trench-heat">
-      <div className="heat-gauge" style={{ '--heat': `${heat}%` }}><i /><span><AnimatedNumber value={heat} format={v => Math.round(v)} /><small>HEAT</small></span></div>
-      <div className="trench-stats">
-        <div><small>CALLS / HR</small><b><AnimatedNumber value={lastHour.length} format={v => Math.round(v)} /></b></div>
-        <div><small>ACTIVE CALLERS</small><b><AnimatedNumber value={callers} format={v => Math.round(v)} /></b></div>
-        <div><small>BEST CALL 24H</small><b className="positive">{best ? `${best.symbol} ${fmtX(best.peakX)}` : '—'}</b></div>
-        <div><small>TOP CALLER TODAY</small><b>{board?.rows?.[0]?.caller || '—'}</b></div>
-      </div>
-    </div>
-  </section>;
-}
-
 export function HotCalls({ onPick }) {
   const hot = usePoll('/api/reputation/calls/hot?minutes=180', 15000);
   const rows = hot?.rows || [];

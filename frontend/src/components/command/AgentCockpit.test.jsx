@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { AgentCockpit } from './AgentCockpit';
+import { AgentCockpit, huntSplit } from './AgentCockpit';
 import { AiKeyBox } from './AiKeyBox';
 import { AiProviders, aiChip } from './AiProviders';
 import { AgentHubProvider, selectors, hubReset } from '../../lib/agentHub';
@@ -178,7 +178,13 @@ test('🗂 trades beside the Brain; 👑 Coach and 🎓 Teach live INSIDE the Br
   expect(q('ack-deck-coach')).toBeNull(); expect(q('ack-deckpane-tape').hidden).toBe(false);
   expect(q('cch-extra-coach').hidden).toBe(true); expect(q('cch-extra-coach').children.length).toBeGreaterThan(0);
   await act(async () => { q('cch-pane-coach').click(); });
-  expect(q('cch-extra-coach').hidden).toBe(false); expect(q('cch-modes')).toBeNull();
+  expect(q('cch-extra-coach').hidden).toBe(false); expect(q('cch-modes').closest('.cch-talkpane').hidden).toBe(true);   // Talk stays mounted (hidden): no remount glitch
   await act(async () => { q('cch-pane-talk').click(); });
   expect(q('cch-extra-coach').hidden).toBe(true);
+});
+
+test('📡 an empty seat reads its blocker as a headline + its numbers', () => {
+  expect(huntSplit('cleared but on the rebuy cooldown: $BUPE · 0 of 14 case files clear')).toEqual(['cleared but on the rebuy cooldown', '$BUPE · 0 of 14 case files clear']);
+  expect(huntSplit('')).toEqual(['waiting for a coin that clears every check', '']);
+  expect(huntSplit('no colon here')).toEqual(['no colon here', '']);
 });

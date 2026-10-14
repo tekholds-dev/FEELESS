@@ -4007,3 +4007,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   in our upload store and lands in the thread (meta.img), counted in OpenRouter's daily spend cap, audited. 2026-10-13 the owner's OpenRouter account
   answered 402 "requires at least $1.00 in balance for image or video output" — the provider's own reason is shown as is. GIFs: no image model
   outputs animation; NOT built.
+- 🧵 BRAIN WITHOUT GLITCHES (2026-10-13; owner: "chat tabs not glitchy, no lag"): `AiChat` is `memo` and its log is its own memoized
+  `ChatLog`; the cockpit hands it `brainExtras` from a `useMemo` keyed on coach / teach / ai / the HELD coins (a new extras array every
+  hub paint re-rendered the whole log ~2.5×/s). Talk stays MOUNTED behind 👑 Coach / 🎓 Teach (`.cch-talkpane[hidden]`: switching panes
+  used to remount + re-scroll + replay every message). Only what you just sent + its answer animate (`.cch-msg.is-fresh`, `markFresh`);
+  a mode switch replays nothing. Fixes fold outside 🛠 / 🧱 (`sideOpen`) — and `.cch-props ul[hidden]` is needed: `display: grid` beat the
+  hidden attribute, so the "folded" list never folded and squeezed the log to ~100px (now ~260px). Any `hidden` on an element whose
+  class sets `display` needs its own `[hidden] { display: none }`.
+- 📡 Empty seats = `HuntLine` (radar sweep, rotate only; headline = the blocker before ":", numbers under it; seats 2–4 with the same
+  blocker say "same blocker as seat 1"). The seat's old `.ack-open` paragraph collided with OpenPnl's `.ack-open` pill (cockpitAi.css).
+- 🧹 Dead code 2026-10-13: TradeTabs, TrenchHero, WatchlistPage, hasSocials, edgeOf, announcedWallets, searchTokenByAddress,
+  lib/liveCandles.js (retired 3D room), FusePage's unused `fx` state (set on every pair move, never read), their CSS (brace-aware prune);
+  terminal.css budget 540.7 → 537.

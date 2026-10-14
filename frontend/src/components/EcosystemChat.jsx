@@ -212,7 +212,7 @@ function EcosystemChatInner({ ecosystem, room: roomProp, compact = false, onConn
       } catch (err) { setCmdCard({ title: 'Command failed', lines: [err.message || 'Try again.'] }); return; }
       finally { setSending(false); }
     }
-    setSending(true); setError(''); let tokens = null;
+    setSending(true); setError('');
     try {
       if (!wallet) throw Object.assign(new Error('Connect your wallet to post in the trenches.'), { code: 'WALLET_REQUIRED' });
       if (gate?.needsChain === 'solana' && wallet.chain !== 'solana') throw new Error(`${gate.symbol} lives on Solana — switch your wallet to Solana to chat here.`);

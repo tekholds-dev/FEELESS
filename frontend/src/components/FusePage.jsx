@@ -431,11 +431,10 @@ export function Battlefield({ b: b0, cards = [], onLoad }) {
   const br = b.bracket || { board: [], champions: [], season: 1 };
   const [cfgKey, setCfgKey] = useState(null); const [called, setCalled] = useState(null); const [audit, setAudit] = useState(null);
   // 🎬 the show: floating damage numbers when a fighter's live % moves, a shake on a hit, ⚡ LEAD CHANGE when the lead flips, 📣 cheers
-  const prevNow = useRef({}); const prevLead = useRef({}); const [fx, setFx] = useState({}); const [cheers, setCheers] = useState({}); const [flip, setFlip] = useState({});
-  useEffect(() => { const nfx = {}; const nflip = {};
-    (b.pairs || []).forEach((p, i) => { ['a', 'b'].forEach(k => { const x = p[k]; const was = prevNow.current[x.key]; if (was != null && Math.abs((x.now || 0) - was) >= 0.05) nfx[x.key] = { d: (x.now || 0) - was, t: Date.now() }; prevNow.current[x.key] = x.now || 0; });
-      const lead = Math.sign((p.a.now || 0) - (p.b.now || 0)); if (prevLead.current[i] != null && lead && prevLead.current[i] && lead !== prevLead.current[i]) nflip[i] = Date.now(); prevLead.current[i] = lead || prevLead.current[i]; });
-    if (Object.keys(nfx).length) setFx(f => ({ ...f, ...nfx })); if (Object.keys(nflip).length) setFlip(f => ({ ...f, ...nflip })); }, [b.pairs]);
+  const prevLead = useRef({}); const [cheers, setCheers] = useState({}); const [flip, setFlip] = useState({});
+  useEffect(() => { const nflip = {};
+    (b.pairs || []).forEach((p, i) => { const lead = Math.sign((p.a.now || 0) - (p.b.now || 0)); if (prevLead.current[i] != null && lead && prevLead.current[i] && lead !== prevLead.current[i]) nflip[i] = Date.now(); prevLead.current[i] = lead || prevLead.current[i]; });
+    if (Object.keys(nflip).length) setFlip(f => ({ ...f, ...nflip })); }, [b.pairs]);
   const cheer = key => setCheers(c => ({ ...c, [key]: { n: ((c[key] || {}).n || 0) + 1, t: Date.now() } }));
   const cardOf = key => cards.find(x => `${x.kind}:${x.id}` === key);
   // 🔮 call the bracket champion: free, one call per bracket — right = season XP

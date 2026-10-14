@@ -7,7 +7,6 @@ import '../styles/bsBar.css';
 // 🌊 BUYS vs SELLS bar (owner, 2026-10-08: "show the buys-vs-sells bar all the time, 5m / 1h — click the time to switch; clicking the bar is a
 // dropdown for the flow exit; on swap-in coins and every chart"). Data = the coin edge record's `bs` (Jupiter window stats + the live 90s
 // tape for held coins) — the ONE shared coin poller, no poller of its own. The 5m / 1h choice is one for the whole site (remembered).
-const TFS = ['5m', '1h'];
 const KEY = 'feeless.bsTf';
 const tfSubs = new Set();
 let tfNow = (() => { try { return localStorage.getItem(KEY) === '1h' ? '1h' : '5m'; } catch { return '5m'; } })();

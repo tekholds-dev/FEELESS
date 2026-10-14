@@ -379,12 +379,3 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
 }
 
 // Trade page: Swap | Fuse Lab as a segmented tab at the top, so the swap keeps its look and nothing stacks below it.
-export function TradeTabs({ children, fuse, runners }) {
-  const read = () => { const t = new URLSearchParams(window.location.search).get('tab'); return t === 'fuse' || t === 'runners' ? t : 'swap'; };
-  const [tab, setTab] = useState(read);
-  const go = t => { setTab(t); const u = new URL(window.location.href); if (t !== 'swap') u.searchParams.set('tab', t); else u.searchParams.delete('tab'); window.history.replaceState(null, '', u); };
-  return <>
-    <div className="m-seg trade-tabs" role="tablist" aria-label="Trade">{[['swap', '⇄ Swap'], ['fuse', '⚛️ Fuse Lab'], ...(runners ? [['runners', '🏃 Runners']] : [])].map(([k, l]) => <button type="button" key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => go(k)} data-testid={`trade-tab-${k}`}>{l}</button>)}</div>
-    <div className="trade-tab-body" key={tab}>{tab === 'fuse' ? fuse : tab === 'runners' ? runners : children}</div>
-  </>;
-}

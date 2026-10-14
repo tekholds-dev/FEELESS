@@ -1155,7 +1155,6 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
     const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) setLim(n => n + PICK_PAGE); }, { rootMargin: '300px' }); io.observe(el); return () => io.disconnect(); });
   useEffect(() => { if (!pop) return undefined; const k = e => { if (e.key === 'Escape' && !look) onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [pop, look, onClose]);
   const [why, setWhy] = useState('');
-  const [bproof, setBproof] = useState(null);   // 🟢 the Buy-bottom list's own 1-hour paper record
   const [lp, setLp] = useState({});   // 📏 every list's own 1-hour record (one fetch when the picker opens)
   useEffect(() => { let alive = true; fetch(apiUrl('/api/reputation/fuses/list-proof')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setLp(x.lists || {})).catch(() => {}); return () => { alive = false; }; }, []);
   // 🔄 every list refreshes every 20s while it is open (owner: "new coins flow and lists update every 20 secs") — in place, no blank flash
@@ -1169,7 +1168,7 @@ export function SwapPicker({ out, have = [], busy, onPick, onClose, minLiq = 0, 
     const get = s.length < 2 && lens === 'agents' && call ? hubSnapshot(call).then(v => ({ pools: (v?.table || []).map(agentPool) }))   // 🤖 creator / admin only
       : many ? Promise.all(many.map(k => fetch(apiUrl(`/api/reputation/fuses/discover?lens=${k}&chain=solana`)).then(r => (r.ok ? r.json() : null)).catch(() => null))).then(xs => ({ pools: xs.flatMap(x => (x && x.pools) || []) }))
       : fetch(apiUrl(url)).then(r => (r.ok ? r.json() : null));
-    const t = setTimeout(() => get.then(x => { if (!alive || !x) return; setWhy(x.why || ''); setBproof(x.proof || null);
+    const t = setTimeout(() => get.then(x => { if (!alive || !x) return; setWhy(x.why || '');
       if (x.checked) setTr({ floor: x.floor || 0, checked: x.checked.length, rules: x.rules, level: Number(x.level) || 0, brain: x.brain || null });
       const raw = x.pools || (x.checked ? x.rows || [] : x.all || (x.divisions || []).flatMap(dv => dv.rows));
       const seen = new Set(); setRows(raw.map(pickRow).filter(r => r.mint && r.pairAddress && !PICK_STABLES.has(String(r.symbol || '').toUpperCase()) && !seen.has(r.mint) && seen.add(r.mint)).slice(0, s.length < 2 ? 300 : 30)); }).catch(() => alive && setRows([])), s.length >= 2 ? 300 : 0);

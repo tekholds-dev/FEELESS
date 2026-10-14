@@ -20,7 +20,6 @@ export async function marketRequest(path, signal) {
   return data;
 }
 export const searchTokens = async q => (await marketRequest(`/search?q=${encodeURIComponent(q)}`)).pairs;
-export const searchTokenByAddress = searchTokens;
 export const pairKey = p => `${p.chainId}-${p.pairAddress}`;
 export const tokenKey = p => `${p.chainId}-${p.baseToken?.address}`;
 const roomPart = value => encodeURIComponent(String(value)).replace(/%[0-9a-f]{2}/gi, '_');

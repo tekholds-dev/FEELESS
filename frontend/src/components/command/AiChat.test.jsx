@@ -165,3 +165,23 @@ test('🎨 draw: the text in the box becomes a picture in this thread; the provi
   fail = true; await type(el, 'another'); await act(async () => { q(el, 'cch-draw').click(); });
   expect(q(el, 'cch-log').textContent).toContain('$1.00');
 });
+
+test('🧵 no glitch: a mode switch never replays the thread, Talk stays mounted behind Coach, fixes fold outside 🛠 / 🧱', async () => {
+  const hist = [{ role: 'user', text: 'one?' }, { role: 'assistant', text: 'answer one here' }];
+  const call = jest.fn(async (path, opt) => (!opt ? { threads: { chat: hist, improve: hist }, proposals: { pending: [P], decided: [] } }
+    : { ok: true, mode: 'chat', threads: { chat: [...hist, { role: 'user', text: 'two?' }, { role: 'assistant', text: 'answer two' }], improve: hist }, proposals: { pending: [P], decided: [] } }));
+  const extras = [['coach', '👑 Coach', <p key="c" data-testid="coach-node">coach</p>]];
+  const el = await mount(<AiChat call={call} extras={extras} />);
+  expect(el.querySelectorAll('.cch-msg.is-fresh').length).toBe(0);                      // loaded history is still
+  expect(q(el, 'cch-props-toggle').getAttribute('aria-expanded')).toBe('false');          // 💬 chat: fixes folded, the log keeps its room
+  expect(q(el, 'cch-props').querySelector('ul').hidden).toBe(true);
+  await act(async () => { q(el, 'cch-mode-improve').click(); });
+  expect(q(el, 'cch-props-toggle').getAttribute('aria-expanded')).toBe('true');           // 🛠 fix mode opens them
+  expect(el.querySelectorAll('.cch-msg.is-fresh').length).toBe(0);                      // switching modes replays nothing
+  await act(async () => { q(el, 'cch-mode-chat').click(); });
+  await type(el, 'two?'); await act(async () => { q(el, 'cch-send').click(); });
+  expect([...el.querySelectorAll('.cch-msg.is-fresh')].map(m => m.textContent)).toEqual([expect.stringContaining('two?'), expect.stringContaining('answer two')]);
+  await act(async () => { q(el, 'cch-pane-coach').click(); });
+  expect(el.querySelector('.cch-talkpane').hidden).toBe(true); expect(q(el, 'cch-log')).not.toBeNull();   // still mounted: no remount, scroll kept
+  await act(async () => { q(el, 'cch-pane-talk').click(); }); expect(el.querySelector('.cch-talkpane').hidden).toBe(false);
+});

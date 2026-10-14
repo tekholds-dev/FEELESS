@@ -27,7 +27,6 @@ const ICON_PATH = {
 };
 export const SocIcon = ({ k }) => <svg className="qp-svg" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">{ICON_PATH[k]}</svg>;
 const SOC_KEYS = [['site', 'Site', 'site'], ['x', 'X', 'x'], ['tg', 'Telegram', 'tg']];
-export const hasSocials = r => !!(r?.site || r?.x || r?.tg);
 // 🔗 the coin's socials as small clickable icons — FIRST on every list row (owner: "trench should show socials first and clickable").
 // A real link opens it; set-at-launch with no link on record = a dim icon that opens the coin's Pump page (which lists them). 🚫 = none set.
 // A row inside a clickable card: each link stops the click so it opens the site, not the card.

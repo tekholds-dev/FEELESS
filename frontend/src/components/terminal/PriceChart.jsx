@@ -78,7 +78,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   const bgOn = bgKind !== 'default' && !fxLite && !plain;   /* `plain` = a working chart (the Agents cockpit): candles + levels only, no scene */   /* lite mode / reduced motion = the plain chart, whatever was picked */
   const [dayMode, setDayMode] = useState(() => typeof document !== 'undefined' && document.body.classList.contains('theme-day'));
   // Candles come only from the FEELESS candle service (Jupiter/Alchemy/Helius behind a shared cache + our own ticks).
-  const { data, loading, error } = useMarket(null);
+  const { data, loading } = useMarket(null);
   const metricLabel = metric === 'marketCap' ? 'Market cap' : 'FDV';
   const metricValue = metric === 'marketCap' ? mcapOf(pair?.priceUsd, pair?.marketCap, pair?.baseToken?.address) : pair?.fdv;   // 📊 a launchpad coin with no cap yet: price × its fixed 1B supply
   const metricAvailable = metricValue !== null && metricValue !== undefined && metricValue !== '' && Number.isFinite(Number(metricValue));
@@ -363,8 +363,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       } catch { ws = null; }
     }
     tick();
-    let n = 0;
-    const timer = setInterval(() => { n += 1; if (!streaming) tick(); }, 1200);   // backup poll ONLY while the stream is down: one price feed per candle, never two
+    const timer = setInterval(() => { if (!streaming) tick(); }, 1200);   // backup poll ONLY while the stream is down: one price feed per candle, never two
     return () => { alive = false; clearInterval(timer); try { ws?.close(); } catch { /* ignore */ } };
   }, [charting, interval, pair?.baseToken?.address, pair?.chainId, pair?.pairAddress]);
   const [livePx, setLivePx] = useState(null);

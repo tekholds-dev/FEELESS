@@ -51,7 +51,19 @@
 .ack-now span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ack-now small { color: var(--m-mute); flex: none; }
 .ack-seat footer { display: flex; justify-content: space-between; gap: 6px; padding-top: 6px; border-top: 1px solid var(--m-line); font: 600 10px var(--m-mono); min-width: 0; }
 .ack-seat footer span { color: var(--ag, var(--m-text)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ack-seat footer small { color: var(--m-mute); flex: none; }
-.ack-open { display: grid; gap: 4px; margin: 0; font: 600 11px var(--m-mono); color: var(--m-mute); } .ack-open b { color: var(--m-text); }
+/* 📡 empty seat = a live radar + the one blocker (rotate only; the sweep stops in fx-lite / reduced motion) */
+.ack-hunt { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 10px; align-items: center; }
+.ack-hunt p { display: grid; gap: 3px; margin: 0; min-width: 0; } .ack-hunt p b { font: 800 10.5px var(--m-mono); letter-spacing: .04em; color: var(--m-warn); text-transform: uppercase; }
+.ack-hunt p small { font: 600 10px/1.45 var(--m-mono); color: var(--m-mute); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ack-hunt.is-ready p b { color: var(--m-accent); }
+.ack-radar { position: relative; width: 46px; height: 46px; border-radius: 50%; overflow: hidden; border: 1px solid color-mix(in srgb, var(--m-warn) 45%, transparent);
+  background: radial-gradient(circle, transparent 30%, color-mix(in srgb, var(--m-warn) 14%, transparent) 31%, transparent 33%, transparent 62%, color-mix(in srgb, var(--m-warn) 14%, transparent) 63%, transparent 65%); }
+.ack-radar i { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, color-mix(in srgb, var(--m-warn) 55%, transparent), transparent 70deg); animation: ackSweep 2.6s linear infinite; }
+.ack-radar b { position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px; border-radius: 50%; background: var(--m-warn); }
+.ack-hunt.is-ready .ack-radar { border-color: color-mix(in srgb, var(--m-accent) 55%, transparent); } .ack-hunt.is-ready .ack-radar i { background: conic-gradient(from 0deg, color-mix(in srgb, var(--m-accent) 60%, transparent), transparent 70deg); animation-duration: 1.2s; } .ack-hunt.is-ready .ack-radar b { background: var(--m-accent); }
+@keyframes ackSweep { to { transform: rotate(360deg); } }
+body.fx-lite .ack-radar i { animation: none; } @media (prefers-reduced-motion: reduce) { .ack-radar i { animation: none; } }
+body.theme-day .ack-hunt p b { color: #8a5a00; } body.theme-day .ack-hunt.is-ready p b { color: #0d7a41; }
 
 /* 📈 chart + ⚡ live decisions | 🧠 panel */
 .ack-main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--ack-gap); align-items: start; }

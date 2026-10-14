@@ -9,7 +9,6 @@ if (typeof window !== 'undefined') {
   window.addEventListener('eip6963:announceProvider', e => { const d = e?.detail; if (d?.info?.rdns && d.provider) announced.set(d.info.rdns, d); });
   try { window.dispatchEvent(new Event('eip6963:requestProvider')); } catch { /* old browser */ }
 }
-export const announcedWallets = () => [...announced.values()];
 const announcedFor = p => [...announced.values()].find(d => d.provider === p);
 const isCryptoCom = d => /crypto\.com|com\.crypto|defi ?wallet|onchain/i.test(`${d?.info?.rdns} ${d?.info?.name}`);
 // Same wallet, other chain: Trust Wallet 0x ↔ Trust Wallet Solana, Phantom ↔ Phantom, etc.

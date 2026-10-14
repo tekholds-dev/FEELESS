@@ -4,7 +4,6 @@ import { act } from 'react';
 import { AgentDesk, Generations, agentLine, rowState, rowWhy, pipsOf, rankFill, boardRows, boardCounts, passLeft, liCells } from './AgentDesk';
 import { devilOf, VERD } from '../../lib/agentRead';
 import office from './__fixtures__/office.json';
-jest.mock('../../lib/liveCandles', () => ({ useLiveCandles: () => null }));   // no network in tests
 jest.mock('../terminal/PriceChart', () => ({ PriceChart: () => <div data-testid="price-chart" /> }));   // the live chart needs a canvas
 
 // the KERNEL's decision rides on every row as `k` (backend `_paper_view`); `trigger` / `devil` / `go` / `why` are the practice desk's paper words
