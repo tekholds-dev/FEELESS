@@ -1,9 +1,9 @@
 import { CHART_BGS, getChartBg, setChartBg } from './chartBg';
 
-test('chart backgrounds: default + eight neon scenes, one remembered choice, retired / junk ids fall back to default', () => {
-  expect(CHART_BGS.map(([k]) => k)).toEqual(['default', 'neon', 'reactor', 'helix', 'city', 'warp', 'rain', 'tunnel', 'storm']);
+test('chart backgrounds: default + six scenes, one remembered choice, retired / junk ids fall back to default', () => {
+  expect(CHART_BGS.map(([k]) => k)).toEqual(['default', 'neon', 'rain', 'gutter', 'sonar', 'lava', 'vhs']);
   expect(getChartBg()).toBe('default');
-  setChartBg('helix'); expect(getChartBg()).toBe('helix'); expect(window.localStorage.getItem('feeless.chartBg')).toBe('helix');
+  setChartBg('sonar'); expect(getChartBg()).toBe('sonar'); expect(window.localStorage.getItem('feeless.chartBg')).toBe('sonar');
   setChartBg('nope'); expect(getChartBg()).toBe('default');
-  setChartBg('sunset'); expect(getChartBg()).toBe('default');   // a retired calm scene falls back to the plain chart
+  setChartBg('reactor'); expect(getChartBg()).toBe('default');   // a retired scene falls back to the plain chart
 });

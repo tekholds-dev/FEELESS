@@ -308,6 +308,7 @@ def t_diagnose(_a):
         ('MISSED: what the checks blocked vs what was taken (30 min later)', {k: rg.get(k) for k in ('record', 'tune')}),
         ('JUDGE: loss + win patterns on real money', {k: ct.get(k) for k in ('lossPatterns', 'winPatterns', 'scores', 'promoted', 'launchShape')}),
         ('DESKS: each desk graded on its OWN vote', {d: (v or {}).get('own') or (v or {}).get('word') for d, v in (o.get('deskStats') or {}).items()}),
+        ('YOUR HAND (coins whose TP/SL you dragged vs left to the agents)', o.get('ownerHand')),
         ('REAL-MONEY MEMORY', o.get('memory')),
         ('LIVE LAB RULES', [r for r in ((o.get('lab') or {}).get('rules') or []) if (r or {}).get('state') in ('live', 'LIVE')][:6]),
         ('TRADE TAPE stats (call → fill speed, slippage)', {k: tape.get(k) for k in ('stats', 'line')}),

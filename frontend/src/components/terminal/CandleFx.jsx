@@ -1,3 +1,4 @@
+import { addChartJob } from '../../lib/chartFrame';
 import React, { useEffect, useRef } from 'react';
 import '../../styles/candleFx.css';
 
@@ -13,16 +14,12 @@ export function CandleFx({ seriesRef, chartRef, lastBarRef, shownRef, container 
   const host = useRef(null);
   useEffect(() => {
     const root = host.current;
-    if (!root || typeof requestAnimationFrame === 'undefined') return undefined;
+    if (!root) return undefined;
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return undefined;
     const aura = root.querySelector('.cfk-aura'); const ring = root.querySelector('.cfk-ring'); const open = root.querySelector('.cfk-open'); const spark = root.querySelector('.cfk-spark');
     const area = root.parentElement;
-    let alive = true; let raf = 0; let last = 0; let tick = null; let barT = null; let ringAt = 0; let sparkAt = 0; let dir = 0; let hh = -1;
+    let tick = null; let barT = null; let ringAt = 0; let sparkAt = 0; let dir = 0; let hh = -1;
     const step = t => {
-      if (!alive) return;
-      raf = requestAnimationFrame(step);
-      if (t - last < 33) return;
-      last = t;
       if (document.hidden || document.body.classList.contains('fx-lite')) return;
       const s = seriesRef.current?.series; const c = chartRef?.current; const box = container?.current; const bar = lastBarRef.current;
       if (!s || !c || !box || !bar) return;
@@ -51,8 +48,8 @@ export function CandleFx({ seriesRef, chartRef, lastBarRef, shownRef, container 
       if (barT != null && bar.time !== barT) { open.style.transform = `translate3d(${(x + left).toFixed(1)}px, ${top}px, 0)`; kick(open, 'is-on'); }   // a new candle opened
       barT = bar.time;
     };
-    raf = requestAnimationFrame(step);
-    return () => { alive = false; cancelAnimationFrame(raf); area?.classList.remove('cfk-up', 'cfk-dn'); };
+    const stop = addChartJob(container, step);   // ⚡ the shared chart frame: runs only when this chart changed
+    return () => { stop(); area?.classList.remove('cfk-up', 'cfk-dn'); };
   }, [seriesRef, chartRef, lastBarRef, shownRef, container]);
   return <div className="cfk" ref={host} aria-hidden="true" data-testid="candle-fx">
     <span className="cfk-aura"><i /></span>

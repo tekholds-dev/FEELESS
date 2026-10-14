@@ -1,14 +1,30 @@
-// ⚛ THE FUSE REACTOR (Home): what FEELESS does in the background, drawn from its own public numbers. Real launch coins ORBIT the core
-// (tap = its drawer): ⚠ failed the safety scan = the outer ring, ❔ holders not read yet = the middle ring, ✅ passed = the inner ring,
-// next to the core. The core beats with the market (faster the more coins are green) and holds the runners live right now.
-// Three shared reads every 30s (first load always; repeats pause in a hidden tab). transform / opacity only.
+// 🧪 THE TRENCH SIEVE (Home; replaced the orbiting reactor — owner, 2026-10-14: "outdo the fuse reactor, it reminds people of ideas already
+// made"): what the safety scan really does, coin by coin. Real launch coins FALL down a column through four laser gates — 🔬 SCAN · 🐋 HOLDERS ·
+// 📦 BUNDLES · 👤 DEV. A coin that failed stops at the gate that caught it (its own fail reason), is zapped and drops into the ☠ rug pit; a
+// coin not read yet hovers at the scanner; a coin that passed every gate falls into the 🏦 vault, where the runners live right now glow.
+// Tap any coin → its drawer. Three shared reads every 30s (first load always; repeats pause in a hidden tab). transform / opacity only.
 import React, { useEffect, useState } from 'react';
 import { sharedJson } from '../lib/sharedJson';
 import { openCoin } from './CoinDrawer';
 import '../styles/homeEngine.css';
 
 const POLL = 30000;
-export const fateOf = r => (r?.safe === true ? 'safe' : (r?.safe === false || (r?.fails || []).length) ? 'fail' : 'wait');
+const UNREAD = /not scanned|holders unknown|never scanned/i;
+export const fateOf = r => (r?.safe === true ? 'safe' : (r?.fails || []).some(f => !UNREAD.test(String(f))) || (r?.safe === false && !(r?.fails || []).length) ? 'fail' : 'wait');   // "not scanned yet" is not a fail
+// pure: the gate that caught a failed coin (0 scan · 1 holders · 2 bundles · 3 dev / creator), from its own first real fail reason
+export const SIEVE_GATES = [['🔬', 'SCAN'], ['🐋', 'HOLDERS'], ['📦', 'BUNDLES'], ['👤', 'DEV']];
+export function gateOf(r) {
+  const f = String(((r?.fails || []).find(x => !UNREAD.test(String(x)))) || '');
+  return /top[ -]?10|holder|whale|concentrat/i.test(f) ? 1 : /sniper|bundl|insider/i.test(f) ? 2 : /dev|creator|mint|freeze|authorit|rug/i.test(f) ? 3 : 0;
+}
+// pure: the coins falling through the sieve — a mix of fates (busiest first), each with its gate, its lane and its place in the loop
+export function sieveDrops(rows, n = 12) {
+  const pods = enginePods(rows, 80); const by = { safe: [], fail: [], wait: [] };
+  pods.forEach(p => by[p.fate].push(p));
+  const pick = [...by.fail.slice(0, 5), ...by.safe.slice(0, 4), ...by.wait.slice(0, 3)].slice(0, n);
+  return pick.map((p, i) => { const r = (rows || []).find(x => x.mint === p.mint) || {};
+    return { ...p, gate: p.fate === 'fail' ? gateOf(r) : p.fate === 'wait' ? 0 : 4, lane: (i * 37) % 76 + 6, delay: -((i * 1.9) % 11.4).toFixed(2), why: p.fate === 'fail' ? String((r.fails || []).find(x => !UNREAD.test(String(x))) || 'failed a safety check').slice(0, 48) : null }; });
+}
 // pure: the pods on the belt — busiest coins first, a mix of fates so the belt shows what the scan really does
 export function enginePods(rows, n = 14) {
   const out = []; const seen = new Set();
@@ -21,12 +37,6 @@ export function engineVitals(open, fc, run) {
   const read = safe + fail;
   return { seen: open?.seen ?? (rows.length || null), listed: rows.length || null, read: rows.length ? read : null, safe: rows.length ? safe : null, safePct: read ? Math.round((safe / read) * 100) : null,
     runners: Array.isArray(run?.live) ? run.live.length : null, nextAt: run?.nextRoundAt || null, weather: fc?.level || null, trend: fc?.trend || null, green: fc?.breadthPct ?? null, buyers: fc?.buyersPct ?? null };
-}
-// pure: the three rings of the reactor — a few real coins per fate (outer = failed, middle = not read, inner = safe)
-export const RINGS = [['fail', 5, 38], ['wait', 4, 30], ['safe', 5, 22]];   // fate · seats · seconds per orbit
-export function reactorRings(rows) {
-  const pods = enginePods(rows, 60);
-  return RINGS.map(([fate, n, sec]) => ({ fate, sec, pods: pods.filter(p => p.fate === fate).slice(0, n) }));
 }
 // pure: the core's beat — 0.7s when the whole board is green, 2.4s when nothing is (no reading = a slow 2s)
 export const beatSec = green => (green == null ? 2 : Math.round((2.4 - 1.7 * Math.max(0, Math.min(100, green)) / 100) * 100) / 100);
@@ -75,26 +85,26 @@ export function HomeEngine({ onOpen }) {
         .then(([open, fc, run]) => { if (on && (open || fc || run)) setD(p => ({ open: open || p?.open, fc: fc || p?.fc, run: run || p?.run, at: Date.now() })); }); };
     load(true); const t = setInterval(load, POLL); return () => { on = false; clearInterval(t); }; }, []);
   if (!d) return null;
-  const v = engineVitals(d.open, d.fc, d.run); const rings = reactorRings(d.open?.rows); const top = Math.max(1, Number(v.seen) || 1);
+  const v = engineVitals(d.open, d.fc, d.run); const drops = sieveDrops(d.open?.rows); const top = Math.max(1, Number(v.seen) || 1);
   const gates = [['🛰', 'SEEN', v.seen, 'Launch coins the feed carries right now'], ['🔬', 'SCANNED', v.read, 'Coins whose holders we have read (top-10, dev, bundles, snipers)'],
     ['✅', 'SAFE', v.safe, 'Coins that passed every safety check'], ['🏃', 'RUNNERS', v.runners, 'Coins passing every runner gate on the live board']];
   return <section className={`hen m-card is-${v.weather || 'none'}`} data-testid="home-engine">
-    <div className="hen-reactor" data-testid="hen-belt" aria-label="Live coins orbiting the Fuse core" style={{ '--beat': `${beatSec(v.green)}s` }}>
-      <span className="hen-sweep" aria-hidden="true" />
-      {rings.map((r, ri) => <span key={r.fate} className={`hen-ring is-${r.fate}`} style={{ '--r': ri, animationDuration: `${r.sec * 0.6}s`, animationDirection: ri === 1 ? 'reverse' : 'normal' }} aria-hidden="true"><i /></span>)}
-      {rings.map((r, ri) => r.pods.map((p, i) => { const ang = Math.round((360 * i) / Math.max(1, r.pods.length)); const delay = `${-(r.sec * i) / Math.max(1, r.pods.length)}s`; const dir = ri === 1 ? 'reverse' : 'normal';
-        return <span key={p.mint} className={`hen-orb is-${r.fate}`} style={{ '--r': ri, transform: `rotate(${ang}deg)`, animationDuration: `${r.sec}s`, animationDelay: delay, animationDirection: dir }}>
-          <span className="hen-seat" style={{ transform: `rotate(${-ang}deg)`, animationDuration: `${r.sec}s`, animationDelay: delay, animationDirection: dir }}>
-            <button type="button" className={`hen-pod ${p.m5 >= 0 ? 'is-up' : 'is-dn'}`} onClick={() => openCoin({ mint: p.mint, symbol: p.sym, pairAddress: p.pair })} data-testid={`hen-pod-${p.sym}`}
-              data-tip={`$${p.sym} · ${FATE[p.fate]} · ${p.m5 >= 0 ? '+' : ''}${p.m5.toFixed(1)}% in 5 min`}>${p.sym}</button></span></span>; }))}
-      <span className="hen-core" data-tip="Runners live right now. The core beats faster the more launch coins are green on the hour."><i aria-hidden="true" /><i aria-hidden="true" /><em className="hen-rip" aria-hidden="true" /><em className="hen-rip is-2" aria-hidden="true" /><b key={v.runners}>{num(v.runners)}</b><small>RUNNERS</small></span>
+    <div className="hen-sieve" data-testid="hen-belt" aria-label="Live launch coins falling through the safety gates">
+      <span className="hen-scanline" aria-hidden="true" />
+      {SIEVE_GATES.map(([ico, l], g) => <span key={l} className="hen-laser" style={{ '--g': g }} aria-hidden="true"><i /><small>{ico} {l}</small></span>)}
+      {drops.map(p => <span key={p.mint} className={`hen-drop is-${p.fate}`} style={{ '--g': p.gate, '--lane': `${p.lane}%`, animationDelay: `${p.delay}s` }}>
+        <button type="button" className={`hen-pod ${p.m5 >= 0 ? 'is-up' : 'is-dn'}`} onClick={() => openCoin({ mint: p.mint, symbol: p.sym, pairAddress: p.pair })} data-testid={`hen-pod-${p.sym}`}
+          data-tip={`$${p.sym} · ${FATE[p.fate]}${p.why ? ` — caught at ${SIEVE_GATES[p.gate][1]}: ${p.why}` : ''} · ${p.m5 >= 0 ? '+' : ''}${p.m5.toFixed(1)}% in 5 min`}>${p.sym}</button></span>)}
+      <span className="hen-pit" data-tip="The rug pit: coins a safety gate caught"><b>☠</b><small>PIT</small></span>
+      <span className="hen-core" data-tip="The vault: coins that passed every gate fall in here. The number = runners live right now; it beats faster the more launch coins are green on the hour." style={{ '--beat': `${beatSec(v.green)}s` }}>
+        <i aria-hidden="true" /><b key={v.runners}>{num(v.runners)}</b><small>🏦 RUNNERS</small></span>
     </div>
     <div className="hen-side">
-      <header className="hen-head"><span className="hen-title"><b>⚛ THE FUSE REACTOR <i className="hen-live" aria-hidden="true">● LIVE</i></b><small>real coins orbit until they earn the core — tap one</small></span>
+      <header className="hen-head"><span className="hen-title"><b>🧪 THE TRENCH SIEVE <i className="hen-live" aria-hidden="true">● LIVE</i></b><small>every live launch coin falls through our safety gates — tap one</small></span>
         {v.weather ? <em className="hen-wx" data-testid="hen-weather" data-tip="Runner weather: how recent paper runs on real prices ended. A reading, never a promise.">{WX[v.weather] || String(v.weather).toUpperCase()}{v.trend ? ` · ${v.trend}` : ''}</em> : null}</header>
       <div className="hen-gates">{gates.map(([ico, l, n, tip], i) => <span key={l} className="hen-gate" style={{ '--i': i }} data-tip={tip} data-testid={`hen-gate-${l.toLowerCase()}`}><i aria-hidden="true">{ico}</i><small>{l}</small><b key={n}>{num(n)}</b>
         <u aria-hidden="true"><s style={{ transform: `scaleX(${n == null ? 0 : Math.max(0.03, Math.min(1, n / top))})` }} /></u></span>)}</div>
-      <div className="hen-legend" aria-hidden="true"><span className="is-safe">● inner · safe</span><span className="is-wait">● middle · not read</span><span className="is-fail">● outer · failed</span></div>
+      <div className="hen-legend" aria-hidden="true"><span className="is-safe">● falls to the vault · safe</span><span className="is-wait">● hovers · not read yet</span><span className="is-fail">● zapped to the pit · failed</span></div>
       <div className="hen-vitals"><Meter l="GREEN 1H" v={v.green} tone={v.green != null && v.green < 40 ? 'bad' : 'ok'} tip="Share of live launch coins up on the hour" />
         <Meter l="BUYERS" v={v.buyers} tone={v.buyers != null && v.buyers < 50 ? 'bad' : 'ok'} tip="Typical share of trades that are buys across the board" />
         <Meter l="SAFE RATE" v={v.safePct} tone="ice" tip="Of the coins we scanned, the share that passed every safety check" />

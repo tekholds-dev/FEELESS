@@ -4156,3 +4156,29 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (DuckDuckGo HTML, Brave if `BRAVE_API_KEY`) · web_fetch (public hosts only — DNS checked on every redirect hop) · x_search. It reads the
   services' PUBLIC endpoints + the data files (+ `feeless_diagnose` = LEVERS: facts → the real control with its direction and options, so a 7B model picks from a list instead of inventing one; `feeless_site` = any site section); never /admin, never a POST except DuckDuckGo's search form (test). `FEELESS_MCP_AUTOSTART=true`
   → keep-alive keeps it up. A new tool must READ — never sign, trade, top up or change a setting.
+- ⚡ CHART OVERLAYS = ONE EVENT-DRIVEN FRAME (`lib/chartFrame.js` `addChartJob` / `bumpChart`; owner, 2026-10-14: "site / agents tab lags
+  horribly"): ChartLive, ChartLevels and CandleFx each ran their own 30fps rAF on every chart (layout + scale reads 90×/s while nothing
+  moved). PriceChart now BUMPS its container on a real tick, new data, a scroll / zoom (onRange) and a resize (ResizeObserver); one shared
+  rAF runs an overlay only for a chart that changed, plus a 1s safety refresh, nothing in a hidden tab. A new chart overlay ⇒ `addChartJob`,
+  never its own rAF loop. The live P&L tag sits `GAP` 28px off the forming candle with a dotted leader (`clv2-lead`).
+- 🧾 Fuse wallet KV doc keeps only RECENT ledger rows (`fuse_wallet.recent_rows`: last 26h, 300–2000 rows) — 1.2 MB of a 1.4 MB doc was
+  parsed every keeper pass and rewritten every save. Every row stays in the SQLite ledger (`_fw_full_ledger`). `ARENA_KEEP` 300 paper runs in
+  fuse_hq.json (was 600 = 370 KB rewritten every card tick). THE MAC: 16.6 of 17.4 GB swap used with a 7B model + Chrome + 4 services —
+  a full swap is lag everywhere no code can fix; the real fix is the model on the LAN box (or a smaller one).
+- 💻 LOCAL MODEL ON THIS MAC PAUSES ITS BACKGROUND READS WHILE A BROWSER LAGS (`ai_chat.lane_every(.., shared_gpu=)`, `SHARED_LAG_EVERY` 900s;
+  `shared_gpu` = not `ai_router.local_remote`): the owner's own chat is never paused. LM Studio on another machine is never paused for this Mac.
+- 🏄 Reaper trail reset by the owner (`office.owner_tune`, `_trail_fix_1014`, lineage `owner: True`): protectAt 10 / giveBackPct 30 (was 4 / 35,
+  promoted by the old replay that ended where the agents sold — it could only favour a tighter trail). Full-move trail lab: typical +7.7% vs +4.4%.
+  The shadow → promote loop may move it again on new evidence. Stops / hard exits untouched.
+- ✋ YOUR LINES ON AGENT SEATS (`set_leg(.., now)` stamps `ownerLvAt`; `office.reap`: an agent coin with `ownerLvAt` uses its own `sl` (wider
+  or tighter, never past the −45% catastrophic line) and `tp`; the position carries `owner` → archive → `office.owner_hand` = "did your hand
+  help?" (yours vs agents: n, typical, average) in the payload (`ownerHand`) + the MCP diagnose). Cockpit chart: the seat's stop + take are
+  ChartGrab handles (`fuse.src: 'cockpit'`, the cockpit confirms + posts `{leg}`; HqRealCards ignores cockpit drags).
+- 🎨 Chart scenes = Default · ⚡ Neon trench · 🟩 Code rain (bull words ↔ bear words on the tick) · 🌧 Gutter (rainy street, flickering TRENCH 24/7
+  sign + puddle reflection, ripples) · 🐋 Whale sonar (radar arm, pings, a whale, bubbles) · 🫧 Lava lamp · 📼 Trench TV (VHS scanlines, REC, a
+  tracking tear on a red tick). Retired: reactor · helix · city · warp · tunnel · storm (stored ids fall back to Default).
+- 🧪 THE TRENCH SIEVE replaced the Home reactor (`HomeEngine`: `sieveDrops`, `gateOf`, `SIEVE_GATES` scan · holders · bundles · dev): real
+  launch coins fall through four laser gates — caught ones stop at the gate their own fail reason names, get zapped into the ☠ pit; safe ones
+  fall into the 🏦 vault (runners live); unread ones hover at the scanner. `fateOf`: "not scanned yet" is WAIT, never a fail.
+- 🔏 `FeeStamp` (Home heading): notary seal, serrated edge, turning word ring, $FEE live 24h on the arc, one ink-thump on arrival.
+- Brain chat bubbles hug the text (`.cch-msg` width fit-content, ≤ 78%, 10.5px).

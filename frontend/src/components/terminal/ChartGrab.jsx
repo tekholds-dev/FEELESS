@@ -17,7 +17,7 @@ export function ChartGrab({ seriesRef, container, fuse, ratio = 1 }) {
   const move = e => { const d = dragRef.current; if (!d) return; let px = null; try { px = seriesRef.current?.series.coordinateToPrice(e.clientY - d.top); } catch { px = null; }
     const s = px > 0 ? snapLevel(d.l.kind, px / ratio, d.l.from) : null; if (s) setDrag({ kind: d.l.kind, ...s }); };
   const up = () => { const d = dragRef.current; dragRef.current = null; const cur = drag; setDrag(null);
-    if (d && cur && cur.pct !== d.l.pct) window.dispatchEvent(new CustomEvent('feeless:fuse-level', { detail: { tpl: fuse.tpl, pairAddress: fuse.pairAddress, symbol: fuse.symbol, kind: cur.kind, pct: cur.pct } })); };
+    if (d && cur && cur.pct !== d.l.pct) window.dispatchEvent(new CustomEvent('feeless:fuse-level', { detail: { tpl: fuse.tpl, pairAddress: fuse.pairAddress, symbol: fuse.symbol, kind: cur.kind, pct: cur.pct, ...(fuse.src ? { src: fuse.src } : {}) } })); };
   return <div className="cgr" data-testid="chart-grab">{levels.map(l => { const on = drag?.kind === l.kind; const y = on ? yOf(drag.price) : ys[l.kind]; if (y == null) return null; const pct = on ? drag.pct : l.pct;
     return <div key={l.kind} className={`cgr-row is-${l.kind} ${on ? 'is-drag' : ''}`} style={{ transform: `translateY(${y}px)` }}>
       <button type="button" className="cgr-tab" onPointerDown={down(l)} onPointerMove={move} onPointerUp={up} onPointerCancel={up} data-testid={`grab-${l.kind}`} aria-label={`Drag to move the ${l.name}`}

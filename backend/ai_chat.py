@@ -364,11 +364,17 @@ def clean_settings(d, old=None):
 BOOST_SEC, BOOST_EVERY, NORMAL_EVERY, LAG_FPS, LAG_MS = 86400.0, 45.0, 180.0, 30, 400
 
 
-def lane_every(settings, now, perf_rows, last_ms=None, base=NORMAL_EVERY):
-    """→ (seconds until the next local read, why). `perf_rows` = the lag catcher's reports from the last 2 min."""
+SHARED_LAG_EVERY = 900.0   # a local model on THIS Mac while a browser lags: one background read per 15 min at most
+
+
+def lane_every(settings, now, perf_rows, last_ms=None, base=NORMAL_EVERY, shared_gpu=False):
+    """→ (seconds until the next local read, why). `perf_rows` = the lag catcher's reports from the last 2 min. `shared_gpu` = LM Studio
+    runs on this Mac (the GPU Chrome draws with): any lag report pauses the background reads — the owner's own chat is never paused."""
     st = settings or {}
     boost = _f(st.get('localBoostUntil')) > now
     lag = [r for r in perf_rows or [] if (r.get('fps') and _f(r['fps']) < LAG_FPS) or _f(r.get('longMs')) > LAG_MS]
+    if shared_gpu and lag:
+        return max(SHARED_LAG_EVERY, 2 * _f(last_ms) / 1000.0), f'paused — the model shares this Mac\'s GPU and {len(lag)} browser report{"s" if len(lag) != 1 else ""} of lag in 2 min'
     if boost and lag:
         e, why = base, f'boost paused — {len(lag)} browser report{"s" if len(lag) != 1 else ""} of lag in 2 min'
     elif boost:

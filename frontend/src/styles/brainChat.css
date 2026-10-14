@@ -29,7 +29,7 @@
 .cch-talk { display: grid; grid-template-rows: minmax(0, 1fr) auto auto auto; gap: 6px; min-height: 0; }
 .cch-log { list-style: none; margin: 0; padding: 2px; display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; }
 .cch-log::-webkit-scrollbar { width: 6px; } .cch-log::-webkit-scrollbar-thumb { background: var(--br); border-radius: 3px; }
-.cch-msg { position: relative; display: grid; gap: 2px; max-width: 92%; padding: 7px 10px 6px; border-radius: 12px; font: 600 11.5px/1.5 var(--m-mono); color: var(--m-text); }
+.cch-msg { position: relative; display: grid; gap: 1px; width: fit-content; max-width: 78%; padding: 4px 8px 3px; border-radius: 10px; font: 600 10.5px/1.42 var(--m-mono); color: var(--m-text); }   /* bubbles hug the text (owner, 2026-10-14: "chat bubbles need to be smaller") */
 .cch-msg.is-fresh { animation: cchIn .18s var(--m-ease, ease-out); }   /* only what you just sent + its answer — a mode / pane switch never replays the thread */
 .cch-data { display: inline-block; margin-top: 4px; font: 800 8.5px var(--m-mono); font-style: normal; letter-spacing: .08em; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; }
 .cch-data.is-live { color: #45e486; } .cch-data.is-part { color: var(--gold, #f5c451); } .cch-data.is-none { color: #ff8fa3; }
@@ -93,8 +93,8 @@ body.theme-day .cch-bqlist li { color: #0f2419; }
 .cch-diff { grid-template-columns: minmax(0, 1fr) !important; } .cch-diff > i { display: none; }
 .cch-more summary { font: 700 9px var(--m-mono); color: var(--m-mute); cursor: pointer; list-style: none; padding: 2px 0; } .cch-more summary::before { content: '▸ '; } .cch-more[open] summary::before { content: '▾ '; }
 .cch-more summary:hover { color: var(--m-text); } .cch-more summary:focus-visible { outline: 2px solid var(--br); outline-offset: 1px; } .cch-more { display: grid; gap: 3px; }
-.cch-msg { max-width: 96%; } .cch-msg.is-assistant > span { font-size: 12px; line-height: 1.6; }
-.cch.is-pop .cch-msg { font-size: 13px; max-width: 88%; } .cch.is-pop .cch-msg.is-assistant > span { font-size: 13.5px; } .cch.is-pop .cch-props { max-height: none; } .cch.is-pop .cch-main { grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); }
+.cch-msg { max-width: 82%; } .cch-msg.is-assistant > span { font-size: 11px; line-height: 1.5; }
+.cch.is-pop .cch-msg { font-size: 12px; max-width: 72%; } .cch.is-pop .cch-msg.is-assistant > span { font-size: 12.5px; } .cch.is-pop .cch-props { max-height: none; } .cch.is-pop .cch-main { grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); }
 .cch.is-pop .cch-props, .cch.is-pop .cch-bqlist { align-self: start; } .cch-mact button:disabled { opacity: .4; cursor: default; }
 .cch-side { display: grid; gap: 8px; min-height: 0; align-content: start; } .cch:not(.is-pop) .cch-side { max-height: 180px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; } .cch:not(.is-pop) .cch-side .cch-props { max-height: none; } .cch-side:empty { display: none; } .cch.is-pop .cch-side { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; }
 /* no sideways scroll, ever: every row may shrink */

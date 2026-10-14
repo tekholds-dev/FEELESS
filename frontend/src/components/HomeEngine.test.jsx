@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { HomeEngine, enginePods, engineVitals, fateOf, reactorRings, beatSec } from './HomeEngine';
+import { HomeEngine, enginePods, engineVitals, fateOf, sieveDrops, gateOf, beatSec } from './HomeEngine';
 
 jest.mock('./CoinDrawer', () => ({ openCoin: jest.fn() }));
 const rows = [{ mint: 'A', symbol: 'AAA', safe: true, chg5m: 2 }, { mint: 'B', symbol: 'BBB', safe: false, fails: ['top-10'], chg5m: -4 }, { mint: 'C', symbol: 'CCC', chg5m: 0 }, { mint: 'A', symbol: 'AAA', safe: true }];
@@ -11,7 +11,9 @@ test('pods are real coins once each with their fate; vitals come only from what 
   expect(enginePods(rows).map(p => [p.sym, p.fate])).toEqual([['AAA', 'safe'], ['BBB', 'fail'], ['CCC', 'wait']]);
   const v = engineVitals({ rows, seen: 9 }, { level: 'rain', breadthPct: 69, buyersPct: 56 }, { live: [1, 2], nextRoundAt: 5 });
   expect(v).toMatchObject({ seen: 9, read: 3, safe: 2, safePct: 67, runners: 2, weather: 'rain', green: 69, buyers: 56 });
-  expect(reactorRings(rows).map(r => [r.fate, r.pods.map(p => p.sym)])).toEqual([['fail', ['BBB']], ['wait', ['CCC']], ['safe', ['AAA']]]);
+  expect(sieveDrops(rows).map(p => [p.sym, p.fate, p.gate])).toEqual([['BBB', 'fail', 1], ['AAA', 'safe', 4], ['CCC', 'wait', 0]]);   // caught at HOLDERS (top-10)
+  expect(fateOf({ fails: ['not scanned yet — holders unknown'] })).toBe('wait');   // not read is not a fail
+  expect([gateOf({ fails: ['Snipers/bundlers under 8%'] }), gateOf({ fails: ['Dev holds under 4%'] }), gateOf({ fails: ['mystery'] })]).toEqual([2, 3, 0]);
   expect(beatSec(100)).toBe(0.7); expect(beatSec(0)).toBe(2.4); expect(beatSec(null)).toBe(2);
   expect(engineVitals(null, null, null)).toMatchObject({ seen: null, safe: null, safePct: null, runners: null, weather: null });
 });

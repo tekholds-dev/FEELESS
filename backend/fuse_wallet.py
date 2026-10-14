@@ -2094,3 +2094,17 @@ def exec_metrics(ledger, now, window=3600.0, dupes=0):
             'staleRefresh': sum(int(_f(r.get('quoteRefresh'))) for r in rows),
             'urgentSells': sum(1 for r in sent if urgent_order(r)), 'sells': sum(1 for r in sent if r.get('side') == 'sell'),
             'buys': sum(1 for r in sent if r.get('side') == 'buy'), 'dupesDropped': int(dupes)}
+
+
+LEDGER_KEEP_SEC, LEDGER_KEEP_MIN, LEDGER_KEEP_MAX = 26 * 3600, 300, 2000
+
+
+def recent_rows(rows, now):
+    """⚡ The Fuse wallet doc keeps only RECENT ledger rows (owner, 2026-10-14: "clogged code"): every keeper pass parsed and every save
+    rewrote 2,000 rows (1.2 MB of a 1.4 MB doc) that only a day of readers ever look at. Kept = the last 26h, never fewer than 300 or more
+    than 2,000 rows. Every row ever written stays in the append-only SQLite ledger (`_fw_full_ledger`) — totals read that."""
+    rows = list(rows or [])
+    cut = now - LEDGER_KEEP_SEC
+    i = next((k for k, r in enumerate(rows) if float(r.get('at') or 0) >= cut), len(rows))
+    keep = max(LEDGER_KEEP_MIN, len(rows) - i)
+    return rows[-min(LEDGER_KEEP_MAX, keep):]

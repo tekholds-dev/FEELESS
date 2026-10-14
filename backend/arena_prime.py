@@ -9,6 +9,7 @@ Each Prime card runs its dial (Safe / Balanced / Degen) with every automation ON
   • every action is an event with its reason, so the card's whole life is replayable.
 P&L never includes fees (same rule as real cards); a flat paper fee per trade is tracked SEPARATELY as `feesUsd`.
 """
+import time
 import math
 
 # Native/wrapped SOL mint used by real-card helpers. Kept local so arena_prime stays pure
@@ -3213,7 +3214,7 @@ def leg_sl(l, t):
     return _f(l.get('sl')) or t['sl']
 
 
-def set_leg(card, pair, frozen=None, sl_mode=None, tp=None, sl=None, flow=None):
+def set_leg(card, pair, frozen=None, sl_mode=None, tp=None, sl=None, flow=None, now=None):
     """HQ per-coin config on a tier card: ❄ frozen (engine never rotates or stops it — the floor still protects the card)
     and its own stop mode (replace / park / hold, or '' = follow the card). Pure; ValueError if the coin isn't on the card."""
     c = {**card, 'legs': [dict(l) for l in card.get('legs') or []]}
@@ -3242,6 +3243,7 @@ def set_leg(card, pair, frozen=None, sl_mode=None, tp=None, sl=None, flow=None):
                 leg[key] = _f(val)
             else:
                 leg.pop(key, None)
+            leg['ownerLvAt'] = _f(now) or time.time()   # ✋ the owner set this coin's line by hand — Reaper obeys it, the Judge grades it apart
     return c
 
 

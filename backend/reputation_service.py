@@ -5140,7 +5140,7 @@ async def _fuse_autopilot_tick(now=None):
                 d = _json_load(FUSE_HQ_PATH, {})
                 for st, c in champs:
                     if _hq.autopilot_due(d.get('arena') or [], st, now, retired=dead):
-                        d['arena'] = ((d.get('arena') or []) + [{**_hq.arena_entry(c, st, prices, now, uuid.uuid4().hex[:10]), 'auto': True}])[-600:]
+                        d['arena'] = ((d.get('arena') or []) + [{**_hq.arena_entry(c, st, prices, now, uuid.uuid4().hex[:10]), 'auto': True}])[-ARENA_KEEP:]   # ⚡ ~100h of runs: the doc is rewritten every card tick
                 _json_save(FUSE_HQ_PATH, d)
     await _shield_alerts()
 
@@ -5863,7 +5863,7 @@ async def fuse_hq_admin_save(request: Request):
         d = _json_load(FUSE_HQ_PATH, {})
         if body.get('action') == 'arena' and len(legs) >= 2:
             e = _hq.arena_entry({**champ, 'legs': legs}, str(body.get('style') or 'yield')[:12], await _hq_prices(legs), time.time(), uuid.uuid4().hex[:10])
-            d['arena'] = ((d.get('arena') or []) + [e])[-200:]
+            d['arena'] = ((d.get('arena') or []) + [e])[-ARENA_KEEP:]
         elif body.get('action') == 'bloodline' and len(legs) >= 2:
             pools = sorted(leg['pairAddress'] for leg in legs)
             if not any(b['pools'] == pools for b in d.get('bloodline') or []):
@@ -7149,6 +7149,9 @@ BRAIN_PATH = FUSE_HQ_PATH.parent / 'trench_brain.json'   # 🧠 every trench coi
 BRAIN_SEE = 120                                          # the open list's busiest coins noted each pass
 BRAIN_NEW, BRAIN_NEW_H = 80, 3.0                         # + the 80 newest launches (≤ 3h old) — the brain learns where the trench actually starts
 _brain: dict = {'at': 0.0, 'tbl': {}, 'sum': None}
+
+
+ARENA_KEEP = 300   # paper strategy runs kept in fuse_hq.json (was 600 = 370 KB rewritten on every card tick)
 
 
 async def _brain_track(now):
@@ -9340,6 +9343,20 @@ async def _agent_real_fix_1012(now):
     return True
 
 
+def _trail_fix_1014(now):
+    """🏄 Once (owner, 2026-10-14: "they TP 10% max most of the time — they need to be smarter degens"): Reaper's trail was promoted to
+    arm +4% / give back 35% by the OLD replay that ended where the agents sold. The full-move trail lab (168 real trades watched 30 min past
+    the sale) has arm +10% / give back 30% ahead on BOTH the typical trade (+7.7% vs +4.4%) and the average (−5.5% vs −6.3%). Set as an
+    owner correction (lineage); the shadow loop may move it again on new evidence. Stops and every hard safety exit are untouched."""
+    st = _office_state()
+    if st.get('trailFix1014'):
+        return False
+    st.update(_of.owner_tune(st, 'reaper', {'protectAt': 10.0, 'giveBackPct': 30.0},
+                             'owner: winners were banked at +5–10%; full-move trail lab: arm +10 / give 30 beats arm +4 / give 35 (typical +7.7% vs +4.4%)', now))
+    st['trailFix1014'] = now
+    return True
+
+
 async def _curve_fix_1011(now):
     """🎢 Once (owner, 2026-10-11: "seats not filled means they too strict" — 11 of 41 hard NOs were fresh Pump coins on their launch curve,
     which no agent seat could buy): agent seats may buy a curve coin (`agentCurve`), judged on the curve's own depth; every keeper check
@@ -9708,6 +9725,7 @@ async def _prime_tick_inner(now):
     await _keephalf_fix_1010(now)
     await _proof_gate_fix_1010(now)
     await _curve_fix_1011(now)
+    _trail_fix_1014(now)
     await _armed_fix_1013(now)
     await _proof_clean_1013(now)
     await _minage_fix_1014(now)
@@ -11097,7 +11115,7 @@ async def fuse_prime_admin(request: Request):
             if not cards.get(lg['tpl']):
                 raise HTTPException(404, 'No card for that tier yet.')
             try:
-                cards[lg['tpl']] = _prime.set_leg(cards[lg['tpl']], lg['pairAddress'], lg.get('frozen'), lg.get('slMode'), lg.get('tp'), lg.get('sl'), lg.get('flowExit'))
+                cards[lg['tpl']] = _prime.set_leg(cards[lg['tpl']], lg['pairAddress'], lg.get('frozen'), lg.get('slMode'), lg.get('tp'), lg.get('sl'), lg.get('flowExit'), now=time.time())
             except ValueError as e:
                 raise HTTPException(400, str(e))
             _json_save(FUSE_HQ_PATH, d)
@@ -11459,7 +11477,7 @@ def _fw_record(d, row):
         d['books'][row['card']] = {**d['books'][row['card']], 'slipAt': _fuse._f(row.get('at')) or time.time()}   # ⏳ the seat waits for the retry
     if row.get('id') and any(r.get('id') == row['id'] and r.get('status') == row.get('status') for r in (d.get('ledger') or [])[-50:]):
         return   # the same order outcome is booked once (two ticks resolving one tx can't double the trail)
-    d['ledger'] = (d.get('ledger') or [])[-1999:] + [row]   # recent 2000 for fast reads …
+    d['ledger'] = _fw.recent_rows((d.get('ledger') or []) + [row], _fuse._f(row.get('at')) or time.time())   # the recent rows for fast reads …
     try:
         _store.Ledger(FUSE_WALLET_PATH).append(row)          # … and the append-only audit table keeps EVERY row forever
     except Exception as e:
@@ -13315,8 +13333,8 @@ async def _local_lane_run(now):
     try:   # 💻 the owner's 24h boost: faster reads, paused by itself while a browser reports lag (the GPU is shared with Chrome)
         _brain_load()
         perf_ = [x_ for x_ in list(_perf_samples)[-200:] if now - x_['at'] <= 120]
-        every, why_ = _aic.lane_every(_chat['settings'], now, perf_, _local_lane.get('lastMs'), base=every)
-        if why_.startswith('boost paused') and now - _local_lane['pausedAt'] >= 600:   # the watch notes a pause once per 10 min
+        every, why_ = _aic.lane_every(_chat['settings'], now, perf_, _local_lane.get('lastMs'), base=every, shared_gpu=not _air.local_remote(os.environ))
+        if (why_.startswith('boost paused') or why_.startswith('paused')) and now - _local_lane['pausedAt'] >= 600:   # the watch notes a pause once per 10 min
             _local_lane['pausedAt'] = now; _lw_note(now, False, why='paused')
         _local_lane.update(every=round(every, 1), whyEvery=why_)
     except Exception as e:
@@ -16541,7 +16559,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         'office': {'chain': list(_of.CHAIN), 'priority': list(_of.PRIORITY), 'coins': perf.get('coins'), 'cases': len(cases), 'cleared': sum(1 for c_ in cases if c_['cleared'])},
         'agents': _of.agent_cards(cards, {'live': live, 'office': of}), 'currentCase': cur_case, 'pipeline': pipe,
         'queue': queue, 'positions': _office_positions(), 'exiting': [{'mint': p_['mint'], 'sym': p_.get('sym'), 'rule': p_.get('askRule'), 'state': (p_.get('exit') or {}).get('state'), 'since': p_.get('leftAt')} for p_ in _office['exiting']],
-        'execution': {**cour, 'metrics': _fw.exec_metrics(_fw_peek().get('ledger'), now, dupes=_FW_DUPES['n'])}, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': [{'agent': x_.get('role'), 'gen': x_.get('gen'), 'why': f"{x_.get('status') or 'replaced'} — {x_.get('why') or ''}" + (f" · next generation: {x_['changed']}" if x_.get('changed') else ''), 'at': x_.get('retiredAt')}
+        'execution': {**cour, 'metrics': _fw.exec_metrics(_fw_peek().get('ledger'), now, dupes=_FW_DUPES['n'])}, 'ownerHand': _of.owner_hand(arch.get('positions')), 'tid': tid, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': [{'agent': x_.get('role'), 'gen': x_.get('gen'), 'why': f"{x_.get('status') or 'replaced'} — {x_.get('why') or ''}" + (f" · next generation: {x_['changed']}" if x_.get('changed') else ''), 'at': x_.get('retiredAt')}
                                                          for x_ in reversed((_lc_book(now).get('lineage') or [])[-12:])], 'devil': dv_rec[:10], 'needShadow': _of.SHADOW_N, 'needPropose': _of.PROPOSE_N},
         'index': (_office.get('index') or [])[:80], 'rpc': {'lanes': _rpc_quota_state(), 'note': 'keyed lanes = keeper sends / balances first, then holder scans (budgeted); discovery comes from Pump\'s live stream + the launch boards — no RPC first-seen listener runs'},
         'court': _office.get('court'), 'opp': _office.get('opp'), 'coach': _coach_view(now), 'tradeTape': _trade_tape(now),   # 👑 the directives in force · 🎬 every real agent trade as one story

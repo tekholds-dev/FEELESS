@@ -538,3 +538,24 @@ def test_a_real_crowd_buying_keeps_a_green_seat_past_the_take_line_and_the_trail
     assert r2['action'] is None
     r3 = run(1.12, None, 3620)                                                              # gave back 60% of the peak → the wide trail banks it
     assert r3['action'] == 'pull'
+
+
+def test_owner_tune_is_bounded_and_recorded():
+    import office as of_
+    o = of_.owner_tune({'tune': {'reaper': {'protectAt': 4.0, 'giveBackPct': 35.0}}}, 'reaper', {'protectAt': 10.0, 'giveBackPct': 99.0}, 'owner said', 5.0)
+    assert of_.tune(o, 'reaper', 'protectAt') == 10.0 and of_.tune(o, 'reaper', 'giveBackPct') == 70.0      # clamped to its bounds
+    assert o['lineage'][-1]['owner'] is True and o['lineage'][-1]['old'] == {'protectAt': 4.0, 'giveBackPct': 35.0}
+
+
+def test_a_dragged_line_is_obeyed_on_an_agent_seat_and_graded_apart():
+    import office as of_
+    leg = {'mint': 'M', 'pairAddress': 'P', 'symbol': 'X', 'entry': 1.0, 'units': 10, 'real': True, 'at': 0, 'bought': {'tag': '🤖 agents · ready'},
+           'sl': 40.0, 'tp': 80.0, 'ownerLvAt': 5.0}
+    _pos, out, _g = of_.reap([leg], [{'mint': 'M'}], {'P': 0.7}, {}, {}, 100.0, control=True, real=True)   # −30%: past any normal stop, inside YOUR 40%
+    r = next(x for x in out if x.get('mint') == 'M')
+    assert _pos['M']['owner']['sl'] == 40.0 and _pos['M']['stopNow'] == 40.0
+    assert not str(r.get('rule') or '').startswith('R5 stop')
+    _pos, out, _g = of_.reap([leg], [{'mint': 'M'}], {'P': 1.85}, {}, {}, 100.0, control=True, real=True)  # +85%: past YOUR take line
+    assert any(str(x.get('rule') or '').startswith(('R6', 'R7', 'R10')) for x in out if x.get('mint') == 'M')
+    hand = of_.owner_hand([{'owner': {'sl': 40}, 'realPct': 12.0}, {'realPct': -5.0}, {'realPct': 3.0}])
+    assert hand['yours'] == {'n': 1, 'med': 12.0, 'avg': 12.0} and hand['agents']['n'] == 2

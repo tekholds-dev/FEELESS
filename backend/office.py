@@ -528,7 +528,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
     press = press or {}
     pos = {m: dict(v) for m, v in (pos or {}).items()}
     by = {x['mint']: x for x in table or []}
-    take = take_line(cfg, scalp)
+    take = take0 = take_line(cfg, scalp)
     tsrc = take_info(cfg, scalp)['source']
     runs = tsrc == 'base'   # AGENTS CHOOSE before a line is learned: at the take line they read the coin — Reaper keeps the trail on it above the line
     # 🎛 the creator's limits (office_edge.policy) + 🔌 `live`: until the office has refilled after a restart (and for RADAR_GRACE_SEC
@@ -602,6 +602,12 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             stop = min(stop, _opp.TIER_STOP[tier_])
         if fv_ and fv_.get('state') == 'SELLERS' and pct < 0:   # 🌊 sellers lead a red seat: the stop tightens (never wider, never under the floor)
             stop = min(stop, max(_ci.STOP_FLOOR, stop * FLOW_TIGHT))
+        own_ = l.get('ownerLvAt') and _uni.is_agent(l)   # ✋ YOUR line on this agent coin (dragged on the chart): obeyed as set — wider or tighter
+        if own_ and _f(l.get('sl')) > 0:
+            stop = min(_f(l["sl"]), _ci.CATASTROPHIC_STOP)   # the catastrophic −45% line stays under it
+        take = _f(l.get('tp')) if own_ and _f(l.get('tp')) > 0 else take0
+        if own_:
+            p['owner'] = {'sl': _f(l.get('sl')) or None, 'tp': _f(l.get('tp')) or None, 'at': _f(l.get('ownerLvAt'))}   # filed with the position: "did your hand help?"
         p['stopNow'] = stop   # ⚡ the 6-second guard stops an agent seat at THIS line between ticks (`fast_reap`)
         tr_ = pol.get('trail') or {}
         arm = _f(tr_.get('arm')) if tr_.get('mode') == 'custom' else T('protectAt')
@@ -880,7 +886,7 @@ def file_position(arch, p, now):
     rec = {'mint': p.get('mint'), 'sym': p.get('sym'), 'since': p.get('since'), 'closedAt': p.get('closedAt') or now, 'entry': p.get('entry'), 'peak': round(_f(p.get('peak')), 2),
            'low': round(_f(p.get('low')), 2), 'lastPct': p.get('pct'), 'path': list(p.get('path') or [])[-PATH_KEEP:], 'rule': p.get('askRule') or 'left the card by another rule',
            'byReaper': bool(p.get('askRule')), 'confirmed': bool(p.get('confirmed')), 'realPct': p.get('realPct'), 'exit': {k: v for k, v in (p.get('exit') or {}).items() if k in ('state', 'sig', 'at', 'usd', 'delta', 'realUsd', 'err')},
-           'wx': p.get('wx'), 'warden': p.get('warden'), 'launch': p.get('launch'), 'tag': p.get('tag'), 'take': p.get('take'), 'exitStructure': p.get('chartNow'), 'windows': p.get('lastWin'),
+           'wx': p.get('wx'), 'warden': p.get('warden'), 'launch': p.get('launch'), 'tag': p.get('tag'), 'owner': p.get('owner'), 'take': p.get('take'), 'exitStructure': p.get('chartNow'), 'windows': p.get('lastWin'),
            'liq': p.get('liq'), 'liqPct': p.get('liqPct'), 'top10': p.get('top10'), 'quality': p.get('quality'), 'dd': bool(p.get('dataDegraded') or p.get('dd')), 'vel': (p.get('vel') or {}).get('state') if isinstance(p.get('vel'), dict) else p.get('vel'),
            'thesis': None if not p.get('thesis') else {k: p['thesis'].get(k) for k in ('structure', 'call', 'triggerRule', 'support', 'invalidation', 'stopPct', 'expectedHoldWindows', 'at')},
            'li': p.get('li'), 'src': p.get('src'), 'gap': p.get('gap')}
@@ -1239,6 +1245,21 @@ def evaluate(c):
             'better': n >= SHADOW_N and ca >= la + SHADOW_MARGIN and _f(_med(cd)) >= _f(_med(lv))}
 
 
+def owner_tune(office, agent, values, why, now):
+    """✋ THE OWNER'S CORRECTION of a tunable (bounded like every tunable, recorded in the lineage with its reason). For a value a biased test
+    promoted: 2026-10-14 the trail was walked to arm +4% / give back 35% by a replay that ended where the agents SOLD (it could only ever
+    favour a tighter trail). The shadow → promote loop keeps running and may move it again on new evidence."""
+    o = dict(office or {})
+    t = {a: dict(v) for a, v in (o.get('tune') or {}).items()}
+    old = dict(t.get(agent) or {})
+    for k, v in (values or {}).items():
+        _d, lo, hi, _w = TUNABLE[agent][k]
+        t.setdefault(agent, {})[k] = _clamp(_f(v), lo, hi)
+    o['tune'] = t
+    o['lineage'] = (list(o.get('lineage') or []) + [{'agent': agent, 'at': now, 'owner': True, 'old': old, 'new': dict(t[agent]), 'why': str(why)[:300]}])[-60:]
+    return o
+
+
 def promote(office, cid, now):
     """Promotion: only a candidate whose shadow test is complete AND beat the live rule. The agent's next generation runs the new
     value; the old one goes to the lineage. Anything else raises — there is no other way to move a tunable."""
@@ -1498,3 +1519,17 @@ def fast_reap(legs, px_by_mint, pos, now, office=None, prev=None):
         if peak >= tune(office, 'reaper', 'protectAt') and dd <= peak * (1 - give / 100) and dd >= MIN_KEEP:
             out.append((l.get('pairAddress'), f"☠ Reaper R7 trailing protection (👁 live chart): peaked {peak:+.1f}%, now {dd:+.1f}% — banked"))
     return out
+
+
+def owner_hand(positions):
+    """✋ DID YOUR HAND HELP? Closed real positions where the owner dragged the coin's TP / SL vs the ones left to the agents —
+    each side's count, typical and average real result. Shown, never acted on."""
+    import statistics
+    side = {'yours': [], 'agents': []}
+    for p in positions or []:
+        r = (p.get('exit') or {}).get('realPct') if isinstance(p.get('exit'), dict) else None
+        r = p.get('realPct') if r is None else r
+        if r is None:
+            continue
+        side['yours' if p.get('owner') else 'agents'].append(_f(r))
+    return {k: {'n': len(v), 'med': round(statistics.median(v), 1) if v else None, 'avg': round(sum(v) / len(v), 1) if v else None} for k, v in side.items()}

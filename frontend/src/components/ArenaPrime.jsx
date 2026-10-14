@@ -713,7 +713,7 @@ export function HqRealCards({ addr, onCount }) {
   const [pickFor, setPickFor] = useState(null);   // which coin's 🎯 picker is open
   // ✋ a stop / take-profit / lock / trail line dragged on a coin's chart (ChartGrab → `feeless:fuse-level`): asked here, saved here
   const levelRef = React.useRef(null);
-  useEffect(() => { const on = e => levelRef.current?.(e.detail); window.addEventListener('feeless:fuse-level', on); return () => window.removeEventListener('feeless:fuse-level', on); }, []);
+  useEffect(() => { const on = e => { if (e.detail?.src !== 'cockpit') levelRef.current?.(e.detail); }; window.addEventListener('feeless:fuse-level', on); return () => window.removeEventListener('feeless:fuse-level', on); }, []);
   const [warn, setWarn] = useState(null);         // ⚠ a pick that failed a check, waiting for "pick it anyway": { text, body, ok, tag }
   const [trail, setTrail] = useState(null);       // 📜 full activity pop-up (card id)
   const d = usePrime(10000);   // 💵 live: the server's Jupiter value every 10s (real cards never show DexScreener-only numbers)

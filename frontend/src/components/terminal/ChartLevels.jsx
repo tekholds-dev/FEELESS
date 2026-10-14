@@ -1,3 +1,4 @@
+import { addChartJob } from '../../lib/chartFrame';
 import React, { useEffect, useMemo, useRef } from 'react';
 import { distWord, levelRead, spreadAround } from '../../lib/chartLevels';
 import '../../styles/chartLevels.css';
@@ -15,14 +16,10 @@ export function ChartLevels({ levels, seriesRef, chartRef, lastBarRef, shownRef,
   const key = rows.map(l => `${l.id}:${l.px}`).join('|');
   useEffect(() => {
     const root = host.current;
-    if (!root || !rows.length || typeof requestAnimationFrame === 'undefined') return undefined;
+    if (!root || !rows.length) return undefined;
     const els = rows.map(l => { const el = root.querySelector(`[data-lv="${l.id}"]`); return el ? { el, tag: el.querySelector('.clx-tag'), dist: el.querySelector('em'), y: '', ty: '', txt: '', near: null, off: null, side: null } : null; });
-    let alive = true; let raf = 0; let last = 0; let axis = -1; let axisAt = 0;
+    let axis = -1; let axisAt = 0;
     const step = t => {
-      if (!alive) return;
-      raf = requestAnimationFrame(step);
-      if (t - last < 33) return;
-      last = t;
       const s = seriesRef.current?.series; const box = container?.current; const bar = lastBarRef.current;
       if (!s || !box) return;
       const top = box.offsetTop || 0; const h = box.clientHeight || 0; const px = shownRef?.current ?? bar?.close ?? bar?.value;
@@ -50,8 +47,7 @@ export function ChartLevels({ levels, seriesRef, chartRef, lastBarRef, shownRef,
         o.side = r.above;
       });
     };
-    raf = requestAnimationFrame(step);
-    return () => { alive = false; cancelAnimationFrame(raf); };
+    return addChartJob(container, step);   // ⚡ the shared chart frame: runs only when this chart changed
   }, [key, seriesRef, chartRef, lastBarRef, shownRef, container]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!rows.length) return null;
   return <div className="clx" ref={host} data-testid="chart-levels" aria-hidden="true">

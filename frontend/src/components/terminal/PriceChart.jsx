@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChartBg } from './ChartBg';
+import { bumpChart } from '../../lib/chartFrame';
 import { useChartBg } from '../../lib/chartBg';
 import { ChartToolsMenu, useToolDraw } from './ChartTools';
 import { ChartPulse } from './ChartPulse';
@@ -241,7 +242,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     // Zoom/scroll out past the first bar → page in older real history.
     const onRange = range => {
       if (!range) return;
-      rangeRef.current = range;
+      rangeRef.current = range; bumpChart(container.current);   // ⚡ overlays redraw on a scroll / zoom
       const st = olderState.current;
       if (range.from > 8 || st.loading || st.exhausted || !displayCandles.length || !pair?.pairAddress) return;
       st.loading = true;
@@ -259,7 +260,11 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       }).catch(() => { st.exhausted = true; }).finally(() => { st.loading = false; });
     };
     ts.subscribeVisibleLogicalRangeChange(onRange);
-    return () => { ts.unsubscribeVisibleLogicalRangeChange(onRange); seriesRef.current = null; chartRef.current = null; markersRef.current = null; chart.remove(); };
+    const box_ = container.current;
+    const ro = typeof ResizeObserver === 'function' && box_ ? new ResizeObserver(() => bumpChart(box_)) : null;   // ⚡ … and on a resize
+    ro?.observe(box_);
+    bumpChart(box_);   // new data drawn
+    return () => { ro?.disconnect(); ts.unsubscribeVisibleLogicalRangeChange(onRange); seriesRef.current = null; chartRef.current = null; markersRef.current = null; chart.remove(); };
   }, [displayCandles, trail, hasChart, dayMode, showVolume, chartStyle, bgOn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Meta overlays (Trenches calls, Fee's trades) snapped to the candle they happened in.
@@ -349,10 +354,11 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
           const bar = lb.bar;
           ref.series.update(bar); shownRef.current = value;
           lastBarRef.current = bar; liveBarRef.current = { ...bar, iv: interval, pool: pairLive.current?.pairAddress };
+          bumpChart(container.current);   // ⚡ a real tick: the overlays follow it on the next frame
         } else {
           const point = { time: Math.max(t, last.time), value };
           ref.series.update(point);
-          lastBarRef.current = point; shownRef.current = value;
+          lastBarRef.current = point; shownRef.current = value; bumpChart(container.current);
         }
       } catch {
         // Keep the last real candle; never invent a tick.

@@ -152,3 +152,12 @@ def test_brain_settings_tune_the_chat_and_saved_convos_reopen():
     for i in range(30):
         sv = c.save_convo(sv, 'build', [{'role': 'user', 'text': f'q{i}'}], 200.0 + i)
     assert len(sv) == c.SAVED_KEEP
+
+
+def test_a_local_model_on_this_mac_pauses_its_background_reads_while_a_browser_lags():
+    import ai_chat as aic
+    lag = [{'fps': 20, 'longMs': 0}]
+    e, why = aic.lane_every({}, 1000, lag, base=180, shared_gpu=True)
+    assert e == aic.SHARED_LAG_EVERY and why.startswith('paused')
+    assert aic.lane_every({}, 1000, [], base=180, shared_gpu=True)[0] == 180      # no lag: normal pace
+    assert aic.lane_every({}, 1000, lag, base=60, shared_gpu=False)[0] == 60       # LM Studio on another machine: never paused for this Mac's lag

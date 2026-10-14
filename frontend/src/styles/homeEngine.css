@@ -1,22 +1,39 @@
-/* ⚛ THE FUSE REACTOR (HomeEngine.jsx) — m-* tokens, transform / opacity only, no blur, no blend. */
+/* 🧪 THE TRENCH SIEVE (HomeEngine.jsx) — m-* tokens, transform / opacity only, no blur, no blend. */
 .hen { --hx: var(--m-accent, #15d16a); position: relative; display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 16px; align-items: center; padding: 14px 16px; margin: 0 0 14px; overflow: hidden; isolation: isolate;
   background: radial-gradient(circle at 145px 50%, rgba(60, 34, 120, .42), transparent 46%), linear-gradient(135deg, rgba(8, 40, 26, .75), rgba(4, 12, 9, .95) 60%); border: 1px solid color-mix(in srgb, var(--hx) 30%, transparent); border-radius: 14px; }
 .hen.is-rain { --hx: #5fd0ff; } .hen.is-storm { --hx: #ff8fa3; }
-.hen-reactor { position: relative; width: 290px; height: 290px; }
-.hen-ring { position: absolute; inset: calc(var(--r) * 34px + 14px); border-radius: 50%; border: 1px dashed rgba(255, 255, 255, .13); pointer-events: none; }
-.hen-ring.is-fail { border-color: rgba(255, 143, 163, .32); } .hen-ring.is-wait { border-color: rgba(255, 255, 255, .2); } .hen-ring.is-safe { border-color: color-mix(in srgb, var(--m-accent, #15d16a) 55%, transparent); border-style: solid; }
-.hen-orb { position: absolute; inset: calc(var(--r) * 34px + 14px); border-radius: 50%; pointer-events: none; animation: henOrbit linear infinite; }
-.hen-seat { position: absolute; left: calc(50% - 1px); top: -1px; width: 2px; height: 2px; /* a real box: the FX governor pauses animations with no box, which tilted the pods */ animation: henCounter linear infinite; }
-.hen-pod { pointer-events: auto; position: absolute; left: 1px; top: 1px; transform: translate(-50%, -50%); max-width: 78px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 7px; border-radius: 999px; font: 800 9.5px 'JetBrains Mono', monospace; cursor: pointer;
-  color: #07130c; background: var(--m-accent, #15d16a); border: 0; transition: transform .12s ease; }
-.hen-orb.is-fail .hen-pod { background: #ff8fa3; opacity: .8; } .hen-orb.is-wait .hen-pod { background: rgba(255, 255, 255, .24); color: var(--m-text, #e9fff3); }
-.hen-pod:hover { transform: translate(-50%, -50%) scale(1.18); } .hen-pod:active { transform: translate(-50%, -50%) scale(.94); } .hen-pod:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
-.hen-reactor:hover .hen-orb, .hen-reactor:hover .hen-seat, .hen-reactor:focus-within .hen-orb, .hen-reactor:focus-within .hen-seat { animation-play-state: paused; }
-.hen-core { position: absolute; left: 50%; top: 50%; width: 84px; height: 84px; margin: -42px 0 0 -42px; border-radius: 50%; display: grid; place-content: center; justify-items: center; gap: 0;
-  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--hx) 55%, #fff 5%), color-mix(in srgb, var(--hx) 22%, #04100a) 70%); border: 1px solid color-mix(in srgb, var(--hx) 70%, transparent); animation: henBeat var(--beat, 2s) ease-in-out infinite; }
-.hen-core i { position: absolute; inset: -7px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--hx); border-left-color: color-mix(in srgb, var(--hx) 35%, transparent); animation: henOrbit 4s linear infinite; }
-.hen-core i:nth-child(2) { inset: -13px; border-top-color: #b79bff; border-left-color: transparent; animation-duration: 6.5s; animation-direction: reverse; }
-.hen-core b { font: 800 24px 'JetBrains Mono', monospace; line-height: 1; color: #04100a; } .hen-core small { font: 800 7px 'JetBrains Mono', monospace; letter-spacing: .14em; color: #04100a; opacity: .8; }
+.hen-sieve { position: relative; width: 290px; height: 300px; border-radius: 12px; overflow: hidden; background: linear-gradient(180deg, rgba(0, 0, 0, .35), rgba(0, 0, 0, .1) 60%, rgba(0, 0, 0, .45));
+  border: 1px solid rgba(255, 255, 255, .06); }
+.hen-scanline { position: absolute; left: 0; right: 0; top: 0; height: 26px; background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--hx) 16%, transparent), transparent); animation: henScan 3.6s linear infinite; pointer-events: none; }
+/* four laser gates: SCAN · HOLDERS · BUNDLES · DEV — a coin a gate caught stops right on its line */
+.hen-laser { position: absolute; left: 0; right: 0; top: calc(var(--g) * 54px + 52px); height: 1px; pointer-events: none; }
+.hen-laser i { position: absolute; left: 6px; right: 6px; top: 0; height: 1px; background: linear-gradient(90deg, transparent, #ff6b8a 12%, #ff6b8a 88%, transparent); opacity: .55; transform-origin: center; animation: henLaser 2.2s ease-in-out infinite; animation-delay: calc(var(--g) * -.55s); }
+.hen-laser small { position: absolute; right: 6px; top: -12px; font: 800 7.5px 'JetBrains Mono', monospace; letter-spacing: .12em; color: rgba(255, 170, 185, .7); }
+/* a falling coin: its own lane, its own fate, its own gate (`--g`); hover the sieve to stop the fall and tap one */
+.hen-drop { position: absolute; left: var(--lane); top: 0; transform: translate3d(0, -26px, 0); opacity: 0; animation: henSafe 11.4s linear infinite; }
+.hen-drop.is-fail { animation-name: henFail; } .hen-drop.is-wait { animation-name: henWait; }
+.hen-sieve:hover .hen-drop, .hen-sieve:focus-within .hen-drop { animation-play-state: paused; }
+.hen-pod { pointer-events: auto; display: block; max-width: 74px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 7px; border-radius: 999px; font: 800 9.5px 'JetBrains Mono', monospace; cursor: pointer;
+  color: #07130c; background: var(--m-accent, #15d16a); border: 0; box-shadow: 0 0 12px rgba(21, 209, 106, .45); transition: transform .12s ease; }
+.hen-drop.is-fail .hen-pod { background: #ff8fa3; box-shadow: 0 0 10px rgba(255, 143, 163, .45); } .hen-drop.is-wait .hen-pod { background: rgba(255, 255, 255, .22); color: var(--m-text, #e9fff3); box-shadow: none; }
+.hen-pod:hover { transform: scale(1.18); } .hen-pod:active { transform: scale(.94); } .hen-pod:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.hen-pit { position: absolute; left: 8px; bottom: 8px; display: grid; justify-items: center; padding: 3px 8px; border-radius: 8px; border: 1px dashed rgba(255, 143, 163, .4); color: #ff8fa3; }
+.hen-pit b { font-size: 15px; line-height: 1; } .hen-pit small { font: 800 7px 'JetBrains Mono', monospace; letter-spacing: .14em; }
+.hen-core { position: absolute; left: 50%; bottom: 8px; width: 92px; height: 50px; margin-left: -46px; border-radius: 12px 12px 18px 18px; display: grid; place-content: center; justify-items: center;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--hx) 45%, #04100a), color-mix(in srgb, var(--hx) 18%, #04100a)); border: 1px solid color-mix(in srgb, var(--hx) 70%, transparent); animation: henBeat var(--beat, 2s) ease-in-out infinite; }
+.hen-core i { position: absolute; left: 8px; right: 8px; top: -2px; height: 3px; border-radius: 2px; background: var(--hx); box-shadow: 0 0 12px 2px var(--hx); }
+.hen-core b { font: 800 20px 'JetBrains Mono', monospace; line-height: 1; color: #04100a; } .hen-core small { font: 800 7px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #04100a; opacity: .85; }
+.hen-live { font-style: normal; margin-left: 8px; padding: 1px 7px; border-radius: 999px; font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #04100a; background: var(--hx); vertical-align: middle; animation: henTick 1.6s ease-in-out infinite; }
+@keyframes henScan { from { transform: translate3d(0, -26px, 0); } to { transform: translate3d(0, 300px, 0); } }
+@keyframes henLaser { 0%, 100% { transform: scaleX(.7); opacity: .3; } 50% { transform: scaleX(1); opacity: .75; } }
+/* passed: through every gate, into the vault */
+@keyframes henSafe { 0% { transform: translate3d(0, -26px, 0); opacity: 0; } 6% { opacity: 1; } 66% { transform: translate3d(0, 232px, 0) scale(1); opacity: 1; } 74% { transform: translate3d(0, 262px, 0) scale(.4); opacity: 0; } 100% { opacity: 0; } }
+/* caught: falls to ITS gate, holds, gets zapped and drops into the pit */
+@keyframes henFail { 0% { transform: translate3d(0, -26px, 0); opacity: 0; } 6% { opacity: 1; } 32% { transform: translate3d(0, calc(var(--g) * 54px + 40px), 0) scale(1); opacity: 1; }
+  44% { transform: translate3d(0, calc(var(--g) * 54px + 40px), 0) scale(1.22); opacity: 1; } 47% { transform: translate3d(0, calc(var(--g) * 54px + 40px), 0) scale(.9); opacity: .55; }
+  66% { transform: translate3d(-60px, 266px, 0) scale(.45); opacity: 0; } 100% { opacity: 0; } }
+/* not read yet: hovers at the scanner, then fades back into the feed */
+@keyframes henWait { 0% { transform: translate3d(0, -26px, 0); opacity: 0; } 8% { opacity: .9; } 24% { transform: translate3d(0, 30px, 0); } 38% { transform: translate3d(0, 36px, 0); } 52% { transform: translate3d(0, 30px, 0); } 66% { transform: translate3d(0, 34px, 0); opacity: .9; } 76% { opacity: 0; } 100% { opacity: 0; } }
 .hen-side { display: grid; gap: 9px; min-width: 0; }
 .hen-head { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
 .hen-title { display: grid; gap: 1px; min-width: 0; flex: 1 1 200px; } .hen-title b { font: 800 14px var(--fz-font, 'JetBrains Mono', monospace); letter-spacing: .14em; color: var(--m-text, #e9fff3); }
@@ -38,27 +55,17 @@
 .hen-meter.is-bad u { background: #ff8fa3; } .hen-meter.is-bad b { color: #ff8fa3; } .hen-meter.is-ice u { background: #5fd0ff; } .hen-tick { background: var(--gold, #f5c451) !important; animation: henTick 1s steps(2) infinite; }
 .hen-go { justify-self: start; font: 700 10.5px 'JetBrains Mono', monospace; color: var(--hx); text-decoration: none; padding: 4px 10px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--hx) 35%, transparent); transition: transform .15s ease, border-color .15s ease; }
 .hen-go:hover { transform: translateX(2px); border-color: var(--hx); } .hen-go:active { transform: scale(.97); } .hen-go:focus-visible { outline: 2px solid var(--hx); outline-offset: 2px; }
-/* meta pass: a radar sweep over the rings, a comet riding each ring, ripples off the core on every beat, a LIVE tag */
-.hen-sweep { position: absolute; inset: 14px; border-radius: 50%; pointer-events: none; background: conic-gradient(from 0deg, transparent 0deg, color-mix(in srgb, var(--hx) 26%, transparent) 40deg, transparent 70deg); animation: henOrbit 5.5s linear infinite; opacity: .75; }
-.hen-ring { animation: henOrbit linear infinite; } .hen-ring i { position: absolute; left: 50%; top: -3px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--hx); box-shadow: 0 0 10px 2px var(--hx); }
-.hen-ring.is-fail i { background: #ff8fa3; box-shadow: 0 0 10px 2px #ff8fa3; } .hen-ring.is-wait i { background: #fff; box-shadow: 0 0 8px 1px rgba(255, 255, 255, .7); }
-.hen-rip { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--hx); opacity: 0; animation: henRip var(--beat, 2s) ease-out infinite; pointer-events: none; } .hen-rip.is-2 { animation-delay: calc(var(--beat, 2s) / 2); }
-.hen-live { font-style: normal; margin-left: 8px; padding: 1px 7px; border-radius: 999px; font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #04100a; background: var(--hx); vertical-align: middle; animation: henTick 1.6s ease-in-out infinite; }
-.hen-pod { box-shadow: 0 0 12px rgba(21, 209, 106, .45); } .hen-orb.is-fail .hen-pod { box-shadow: 0 0 10px rgba(255, 143, 163, .4); } .hen-orb.is-wait .hen-pod { box-shadow: none; }
-@keyframes henRip { 0% { transform: scale(1); opacity: .55; } 100% { transform: scale(2.6); opacity: 0; } }
-body.fx-lite .hen-sweep, body.fx-lite .hen-ring, body.fx-lite .hen-rip, body.fx-lite .hen-live { animation: none; } body.fx-lite .hen-rip { display: none; }
-@media (prefers-reduced-motion: reduce) { .hen-sweep, .hen-ring, .hen-rip, .hen-live { animation: none; } .hen-rip { display: none; } }
-@keyframes henOrbit { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } @keyframes henCounter { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
-@keyframes henBeat { 0%, 100% { transform: scale(1); } 12% { transform: scale(1.09); } 24% { transform: scale(.99); } 36% { transform: scale(1.05); } 50% { transform: scale(1); } }
+@keyframes henBeat { 0%, 100% { transform: scale(1); } 12% { transform: scale(1.07); } 24% { transform: scale(.99); } 36% { transform: scale(1.04); } 50% { transform: scale(1); } }
 @keyframes henPop { from { transform: translateY(-3px); opacity: .3; } } @keyframes henTick { 50% { opacity: .35; } } @keyframes henSheen { from { transform: translateX(-120%); } to { transform: translateX(460%); } }
-body.fx-lite .hen-orb, body.fx-lite .hen-seat, body.fx-lite .hen-core, body.fx-lite .hen-core i, body.fx-lite .hen-gate b, body.fx-lite .hen-meter b, body.fx-lite .hen-tick, body.fx-lite .hen-gate u::after { animation: none; }
-@media (prefers-reduced-motion: reduce) { .hen-orb, .hen-seat, .hen-core, .hen-core i, .hen-gate b, .hen-meter b, .hen-tick, .hen-gate u::after { animation: none; } }
+body.fx-lite .hen-drop, body.fx-lite .hen-scanline, body.fx-lite .hen-laser i, body.fx-lite .hen-live, body.fx-lite .hen-core, body.fx-lite .hen-gate b, body.fx-lite .hen-meter b, body.fx-lite .hen-tick, body.fx-lite .hen-gate u::after { animation: none; }
+body.fx-lite .hen-drop, body.fx-lite .hen-scanline { display: none; }
+@media (prefers-reduced-motion: reduce) { .hen-drop, .hen-scanline, .hen-laser i, .hen-live, .hen-core, .hen-gate b, .hen-meter b, .hen-tick, .hen-gate u::after { animation: none; } .hen-drop, .hen-scanline { display: none; } }
 @media (max-width: 860px) { .hen { grid-template-columns: minmax(0, 1fr); justify-items: center; } .hen-side { width: 100%; } }
 @media (max-width: 640px) { .hen-vitals { grid-template-columns: repeat(2, minmax(0, 1fr)); } .hen-gate { grid-template-columns: 20px 66px 48px minmax(0, 1fr); } }
 body.theme-day .hen { background: radial-gradient(circle at 145px 50%, rgba(214, 200, 255, .8), transparent 46%), linear-gradient(135deg, rgba(204, 240, 220, .85), rgba(238, 246, 241, .96) 60%); --hx: #0d7a41; }
 body.theme-day .hen.is-rain { --hx: #0b6fa8; } body.theme-day .hen.is-storm { --hx: #b3243f; } body.theme-day .hen-title b, body.theme-day .hen-gate b, body.theme-day .hen-meter b { color: #0f2419; }
-body.theme-day .hen-ring { border-color: rgba(10, 60, 35, .22); } body.theme-day .hen-orb.is-wait .hen-pod { background: rgba(10, 60, 35, .18); color: #0f2419; } body.theme-day .hen-meter { background: rgba(255, 255, 255, .55); } body.theme-day .hen-gate u { background: rgba(10, 60, 35, .1); }
-body.theme-day .hen-core b, body.theme-day .hen-core small { color: #fff; }
+body.theme-day .hen-sieve { background: linear-gradient(180deg, rgba(10, 60, 35, .08), rgba(255, 255, 255, .4)); } body.theme-day .hen-drop.is-wait .hen-pod { background: rgba(10, 60, 35, .18); color: #0f2419; } body.theme-day .hen-meter { background: rgba(255, 255, 255, .55); } body.theme-day .hen-gate u { background: rgba(10, 60, 35, .1); }
+body.theme-day .hen-core b, body.theme-day .hen-core small { color: #fff; } body.theme-day .hen-laser small { color: #b3243f; }
 /* 🫀 LIVE SCAN heartbeat (ScanPulse): one beat per real coin the scan judged, scrolling left (transform only) — up = passed, down = caught */
 .hen-ekg { display: grid; gap: 4px; min-width: 0; }
 .hen-ekg-l { font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .1em; color: var(--m-mute, #7f9a8c); }

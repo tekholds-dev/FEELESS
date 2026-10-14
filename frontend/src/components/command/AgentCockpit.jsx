@@ -2,7 +2,8 @@ import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'rea
 import { createPortal } from 'react-dom';
 import { CHART_BGS, setChartBg, useChartBg } from '../../lib/chartBg';
 import { toast } from 'sonner';
-import { useHub, hubApply, useAi } from '../../lib/agentHub';
+import { grabOrder } from '../../lib/chartGrab';
+import { useHub, hubApply, hubLoad, useAi } from '../../lib/agentHub';
 import { rankFill, READY_MIN, devilOf } from '../../lib/agentRead';
 import { seatCards, flowBar, focusMint, chartModel, decisionOf, tapeOf, tapeTone, TAPE_AGENT, AGE_BUCKETS, bucketCounts, reviewQueue, supplyWord,
   seatState, STATE_CLS, missionTiles, letterMarkers, inputsOf, traceOf, CHAIN, maxIdByAgent, newEvents, queueStatus, queueMc, openPnl, groupTape, lossMap, measureRead, recWord, voteSplit } from '../../lib/cockpit';
@@ -225,9 +226,21 @@ function TradeHud({ pos, m }) {
 
 // ── 📈 the chart: market cap, always ──────────────────────────────────────────────────────────────────────────────────────────────
 export const IVS = [['1m', '1m'], ['5m', '5m'], ['15m', '15m']];
-function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent }) {
+function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent, tid, call, isOwner }) {
   const pair = useMemo(() => (m?.pair ? { chainId: 'solana', pairAddress: m.pair, baseToken: { address: m.mint, symbol: m.symbol }, priceUsd: m.price, marketCap: m.mc } : null), [m?.pair, m?.mint, m?.symbol, m?.price, m?.mc]);
-  const fuse = useMemo(() => ({ lines: m?.lines || [] }), [m?.lines]);
+  // ✋ YOUR LINES on an agent seat: its stop + take are grabbable on the chart; a drop asks, saves that coin's own TP / SL, Reaper obeys it,
+  // and the position is filed as "your hand" so the record shows whether your adjustments helped
+  const grab = !!(pos && isOwner && tid && m?.pair && Number(pos.entry) > 0);
+  const fuse = useMemo(() => ({ lines: m?.lines || [], ...(grab ? { tpl: tid, src: 'cockpit', pairAddress: m.pair, symbol: m.symbol, entry: Number(pos.entry),
+    slPct: Math.round(Math.abs(Number(pos.stop) || 0)) || null, tpPct: Math.round(Number(pos.take) || 0) || null } : {}) }), [m?.lines, grab, tid, m?.pair, m?.symbol, pos?.entry, pos?.stop, pos?.take]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!grab) return undefined;
+    const on = e => { const dd = e.detail || {}; if (dd.src !== 'cockpit' || !['stop', 'tp'].includes(dd.kind)) return;
+      const o = grabOrder(dd); if (!o || !window.confirm(`${o.ask} The agents obey your line on this seat; your adjustments are graded apart ("did your hand help?").`)) return;
+      call('/admin/arena/prime', { method: 'POST', body: JSON.stringify(o.body) }).then(() => { toast.success(o.ok); window.dispatchEvent(new CustomEvent('feeless:fuse-level-done', { detail: dd })); hubLoad(); })
+        .catch(err => toast.error(err.message)); };
+    window.addEventListener('feeless:fuse-level', on); return () => window.removeEventListener('feeless:fuse-level', on);
+  }, [grab, call]);
   // ON the plot: only confirmed FILLS, as small arrows at the real fill price (no letters, no decision blocks over the candles);
   // every decision stays readable in the rail under the chart
   const chartMarkers = useMemo(() => markers.filter(k => k.text === 'B' || (k.text === 'X' && k.agent === 'courier')).map(({ id, agent, action, why, mc, at, text, ...k }) => ({ ...k, text: '' })), [markers]);
@@ -497,7 +510,7 @@ export function AgentCockpit({ call, isOwner = true }) {
     <section className="ack-seats" data-testid="ack-seats"><header><b>🪑 SEAT BOARD</b><OpenPnl seats={seats} onPick={onPick} /><small><b className="m-pos">{held}/{seats.length || '—'} active</b> · live prices every 3s · tap a seat = its chart + the agent handling it</small></header>
       <div className="ack-seatrow">{seats.map((s, i) => <SeatCard key={s.seat} s={s} on={!s.open && s.mint === mint} onPick={onPick} readyN={readyN} same={s.open ? seats.slice(0, i).find(x => x.open && x.why === s.why)?.seat : undefined} />)}</div></section>
     <div className="ack-main">
-      <div className="ack-left"><CockpitChart m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); setTab('live'); }} />
+      <div className="ack-left"><CockpitChart m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); setTab('live'); }} tid={o?.tid} call={call} isOwner={isOwner} />
         <IntakeBand o={o} mint={mint} onPick={onPick} call={call} isOwner={isOwner} />
         <DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { if (r.mint) setPick(r.mint); setAgentS(r.agent in AG ? r.agent : null); setTab('live'); }} /></div>
       <DecisionPanel o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
