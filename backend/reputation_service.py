@@ -13015,6 +13015,7 @@ def _ai_learn_note(role, c, res, now):
 
 
 async def _ai_learn_settle(now):
+    await _ai_exit_settle(now)
     due = sorted({c_['mint'] for c_ in (_ai_book().get('open') or []) if now - _fuse._f(c_.get('at')) >= _ail.JUDGE_SEC})[:40]
     if not due:
         return
@@ -13028,6 +13029,22 @@ async def _ai_learn_settle(now):
     _ai['book'] = _ail.settle(_ai_book(), px, now)
     if len(_ai['book'].get('done') or []) != n0 and not os.environ.get('PYTEST_CURRENT_TEST'):
         _json_save(AI_PROOF_PATH, _ai['book'])
+
+
+async def _ai_exit_settle(now):
+    """🧠☠ exit reads ≥ 15 min old get what the coin really did (the judging price source, never a rate-limited zero)."""
+    b_ = _ai_exit_book()
+    due = sorted({o_['mint'] for o_ in (b_.get('open') or []) if now - _fuse._f(o_.get('at')) >= _er.JUDGE_SEC})[:40]
+    if not due:
+        return
+    try:
+        px = await _jup_prices(due, judge=True)
+    except Exception:
+        return
+    n0 = len(b_.get('done') or [])
+    _ai['exitBook'] = _er.settle(b_, px or {}, now)
+    if len(_ai['exitBook'].get('done') or []) != n0 and not os.environ.get('PYTEST_CURRENT_TEST'):
+        _json_save(AI_EXIT_PATH, _ai['exitBook'])
 
 
 def _ai_weights(now):
@@ -13046,7 +13063,23 @@ def _ai_learn_on():
 
 
 AI_LOG_KEEP = 60            # 🧠 the model's own decisions, newest last (memory only): what it was asked, what it said, what the kernel said
-_ai = {'notes': {}, 'http': None, 'rounds': 0, 'lastAt': None, 'lastMs': None, 'log': [], 'fillQ': {}}   # fillQ {mint: at} = coins that just took a real seat
+_ai = {'notes': {}, 'http': None, 'rounds': 0, 'lastAt': None, 'lastMs': None, 'log': [], 'fillQ': {}, 'exit': {}, 'exitBook': None}   # exit {mint: {word, at, sym, why}} = the model's last exit read on a HELD coin (exit_read.py)
+AI_EXIT_PATH = DATA_DIR / 'ai_exit_proof.json'   # 🧠☠ every exit read, graded 15 min later — the record that decides whether Reaper may use it
+import exit_read as _er
+
+
+def _ai_exit_book():
+    if _ai['exitBook'] is None:
+        _ai['exitBook'] = _json_load(AI_EXIT_PATH, {}) or {}
+    return _ai['exitBook']
+
+
+def _ai_exit_effects(cfg_t, now):
+    """{mint: 'ride' | 'tight'} for Reaper — fresh reads of a word its own graded record PROVED; {} while it is in shadow or switched off."""
+    try:
+        return _er.effects(_ai['exit'], _er.record(_ai_exit_book()), now, on=(cfg_t or {}).get('agentAiExit', True) is not False)
+    except Exception:
+        return {}   # fillQ {mint: at} = coins that just took a real seat
 
 
 def _ai_log(role, case, res, asked=False):
@@ -13084,7 +13117,8 @@ def _ai_view(now=None, light=False):
                 'totals': v['totals'], 'notes': {m_: {ro_: {k_: n_.get(k_) for k_ in ('source', 'label', 'advice', 'at')} for ro_, n_ in notes[m_].items()} for m_ in keep},
                 'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY, 'localLane': {**{k_: _local_lane.get(k_) for k_ in ('n', 'last', 'busy', 'every', 'whyEvery')}, 'watch': _aic.watch_view(_local_lane.get('watch') if _local_lane.get('watch') is not None else (_json_load(LOCAL_WATCH_PATH, {}) or {}), _chat.get('settings') or {}, time.time(), _local_lane.get('every'), _local_lane.get('whyEvery'))}, 'log': _ai['log'][-20:], 'metrics': v.get('metrics'),
                 'model': next((r_.get('model') for r_ in v['providers'] if r_.get('key') == v['active']), None), 'learn': {**_ail.view(_ai_book()), 'on': _ai_learn_on()},
-                'slip': {'firstPct': _fw.BUY_SLIP_FIRST / 100, 'retryPct': _fw.BUY_SLIP_MAX / 100, 'retries': _fw.BUY_SLIP_RETRIES}}
+                'slip': {'firstPct': _fw.BUY_SLIP_FIRST / 100, 'retryPct': _fw.BUY_SLIP_MAX / 100, 'retries': _fw.BUY_SLIP_RETRIES},
+                'exit': _er.view(_ai_exit_book(), _ai['exit'], now, on=((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentAiExit', True) is not False)}
     return {**v, 'notes': notes, 'rounds': _ai['rounds'], 'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY}
 
 
@@ -13118,6 +13152,15 @@ def _ai_jobs(now):
         out.append((role_, c_, urg_, pr_)); asked_.add(c_.get('mint'))
     for c_ in [c_ for c_ in inband if _ai_conflict(c_)][:1]:
         add('manager', c_, 'high', P['manager'])
+    # 🧠☠ THE EXIT READ (owner, 2026-10-14: "AI should help Trigger and Reaper — smarter, cleaner exits"): each coin the agents HOLD gets one
+    # read about once a minute (fresh ≤ 60s = skipped). Reaper never waits on it: it uses the cached word, and only once its record proves it.
+    held_ = [r_ for r_ in (_office.get('reports') or []) if r_.get('mint') and not r_.get('action')]
+    for r_ in sorted(held_, key=lambda r_: -abs(_fuse._f(r_.get('pct'))))[:2]:
+        if now - _fuse._f((_ai['exit'].get(r_['mint']) or {}).get('at')) < 60:
+            continue
+        add('exit', {'mint': r_['mint'], 'symbol': r_.get('sym') or r_.get('symbol'), 'pct': r_.get('pct'), 'peak': r_.get('peak'), 'heldMin': r_.get('heldMin'),
+                     'structure': (r_.get('thesis') or {}).get('structure'), 'phase': (r_.get('phase') or {}).get('phase') if isinstance(r_.get('phase'), dict) else r_.get('phase'),
+                     'state': r_.get('state'), 'rule': r_.get('rule'), 'why': r_.get('evidence')}, 'high', P['exit'])
     for c_ in [c_ for c_ in inband if c_.get('status') == 'READY'][:2]:
         add('sherlock', c_, 'high', P['ready'])
     for c_ in [c_ for c_ in inband if _ai_ambiguous(c_)][:1]:
@@ -13183,7 +13226,7 @@ def _ai_case(c):
     return {**_ai_brief(c.get('mint')), 'signals': _ai_signals(c), 'lessons': (th_ + _tch.for_case(_teach_state(), c.get('symbol'), c.get('mint')))[:7] or None,
             'learned': lm_['learned'], 'chartRec': lm_['chart'],
             **{k_: c.get(k_) for k_ in ('mint', 'symbol', 'status', 'rank', 'ageMin', 'cap', 'liq', 'vol5m', 'move5m', 'buyShare', 'narrative', 'trigger', 'size', 'unknown',
-                                       'state', 'why', 'pending', 'result', 'cause', 'peak', 'heldMin', 'rule', 'structure', 'phase')},
+                                       'state', 'why', 'pending', 'result', 'cause', 'pct', 'peak', 'heldMin', 'rule', 'structure', 'phase')},
             'devil': [f"{d_[0]} {d_[1]}" for d_ in (c.get('devil') or []) if isinstance(d_, (list, tuple)) and len(d_) >= 2] if isinstance(c.get('devil'), list) else c.get('devil')}
 
 
@@ -13210,6 +13253,11 @@ async def _ai_round(now):
         if not m_:
             continue
         _ai['notes'].setdefault(m_, {})[role_] = {k_: r_.get(k_) for k_ in ('source', 'label', 'advice', 'ms', 'at', 'tried', 'why', 'cached')} | {'symbol': c_.get('symbol')}
+        if role_ == 'exit':
+            w_ = _er.word_of(r_.get('advice'))
+            _ai['exit'][m_] = {'word': w_, 'at': now, 'sym': c_.get('symbol'), 'why': ((r_.get('advice') or {}).get('summary') or '')[:120]}
+            px_ = (_jup_px_cache.get(m_) or (0, 0))[1]
+            _ai['exitBook'] = _er.note(_ai_exit_book(), m_, w_, px_, c_.get('pct'), now, c_.get('symbol'))
         _ai_log(role_, c_, r_)
         _ai_learn_note(role_, c_, r_, now)
         n += 1
@@ -16095,7 +16143,7 @@ def _office_reap(cur, px, cfg_t, ctl, now, dec, pol=None, live=True, vels=None, 
                     except Exception:
                         pass
         pos, rep, gone = _of.reap(cur.get('legs'), _agents.get('table'), px, cfg_t, _office['pos'], now, _agents.get('scalp'), ctl, _agents.get('weather'), tape, _office_state(), _office['sized'], _office.get('charts'), _office.get('theses'), pol=pol, live=live, real=bool(cur.get('real')),
-                                  vels=vels, margins=margins, rug=rug, press=press, flows=fv_)
+                                  vels=vels, margins=margins, rug=rug, press=press, flows=fv_, ai_exit=_ai_exit_effects(cfg_t, now))
         for g in gone:
             g['take'] = _of.take_line(cfg_t, _agents.get('scalp'))
         by_ = {x_.get('mint'): x_ for x_ in _agents.get('table') or []}
@@ -16682,7 +16730,7 @@ async def admin_agents_set(request: Request):
     ch = {}
     if 'feed' in body:
         ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital', 'agentAiGate', 'agentValve') + _oe.POLICY_KEYS:
+    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital', 'agentAiGate', 'agentValve', 'agentAiExit') + _oe.POLICY_KEYS:
         if k in (body.get('cfg') or {}):
             ch[k] = body['cfg'][k]
     if ch:

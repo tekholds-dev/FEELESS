@@ -119,6 +119,7 @@ def test_jobs_follow_the_priority_queue_owner_conflict_ready_ambiguous_contender
     monkeypatch.setattr(rs, '_office_state', lambda: {})
     monkeypatch.setattr(rs, '_ai_brief', lambda m: {})
     monkeypatch.setattr(rs, 'AI_JOBS', 6)
+    monkeypatch.setitem(rs._office, 'reports', [])   # no held seat here (another test may leave Reaper's reports behind)
     jobs = rs._ai_jobs(time.time())
     assert [(r, c['mint'], p) for r, c, _u, p in jobs] == [('owner', 'OWN', 0), ('manager', 'C1', 1), ('sherlock', 'R1', 2), ('devil', 'AMB', 3)]   # (2026-10-13) no call for a plain contender any more: only what can still stop a buy
     assert 'OUT' not in [c['mint'] for _r, c, _u, _p in jobs]                                         # outside the band: never asked
@@ -136,3 +137,17 @@ def test_the_local_model_is_kept_idle_at_least_half_the_time():
     assert rs._ai_pause(2) == rs.AI_EVERY                       # a fast cloud answer keeps the normal pace
     assert rs._ai_pause(60) == 60                               # a 60s round on the local model → 60s off (busy ≤ 50%)
     assert rs._ai_quote('see https://x.y/z and 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU "now"', 80) == '"see and and now"'.replace(' and and', ' and')
+
+
+def test_a_held_seat_gets_the_exit_read_job_and_a_fresh_read_is_not_asked_again(monkeypatch):
+    import reputation_service as rs
+    monkeypatch.setitem(rs._office, 'payload', {'kernel': {'candidates': []}})
+    monkeypatch.setitem(rs._office, 'reports', [{'mint': 'H', 'sym': 'HELD', 'pct': 9.0, 'peak': 14.0, 'heldMin': 6, 'state': 'PROTECT', 'rule': 'R7 trailing protection'},
+                                               {'mint': 'GONE', 'sym': 'X', 'pct': -3, 'action': 'pull'}])   # leaving the card: no read
+    monkeypatch.setattr(rs, '_ai_brief', lambda m: {})
+    monkeypatch.setitem(rs._ai, 'exit', {})
+    now = time.time()
+    jobs = rs._ai_jobs(now)
+    assert [(r, c['mint']) for r, c, _u, _p in jobs] == [('exit', 'H')] and jobs[0][1]['pct'] == 9.0 and jobs[0][3] == rs._air.PRIO['exit']
+    rs._ai['exit']['H'] = {'word': 'RIDE', 'at': now}
+    assert rs._ai_jobs(now + 30) == []

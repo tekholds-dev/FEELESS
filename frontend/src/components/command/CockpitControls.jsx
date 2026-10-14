@@ -37,6 +37,18 @@ export function BandTrack({ band, cands }) {
 
 // 🧠 the model card — its own AI-store subscriber, with the router's live counters (owner's spec: queue · active · calls/min · cache hit ·
 // average latency · provider · deferred / skipped)
+// ☠ the exit read's own record: per word graded / needed, its typical 15-min move, LIVE once proven (else shadow) + the newest reads
+export function exitLine(x) {
+  if (!x?.rec) return null;
+  return Object.entries(x.rec).map(([w, [n, med, ok]]) => `${w} ${n}/${x.min}${n ? ` · ${med > 0 ? '+' : ''}${med}% in 15m` : ''} · ${ok && x.on ? '✅ LIVE' : 'shadow'}`).join('  ·  ');
+}
+function ExitLine({ x }) {
+  const line = exitLine(x);
+  if (!line) return null;
+  return <p className="acx-cover is-exit" data-testid="acx-exit-read"><span><small>EXIT READ</small><b>{line}</b></span>
+    {(x.reads || []).map(([sym, w, ago]) => <span key={`${sym}${ago}`}><small>${sym || '?'} · {ago}s ago</small><b>{w || '—'}</b></span>)}</p>;
+}
+
 function ModelCard({ o, pend, disabled, onPick }) {
   const ai = useAi(o?.ai); const lr = ai?.learn || {};
   const intelN = Object.values(ai?.notes || {}).filter(n => Object.values(n || {}).some(x => hasIntel(x?.advice))).length;
@@ -47,6 +59,10 @@ function ModelCard({ o, pend, disabled, onPick }) {
     <ControlRow c={{ key: 'agentAiGate', label: '🛂 Read before a seat', who: (o?.policy || {}).aiGate === false ? 'CREATOR OVERRIDE' : 'AGENTS CHOOSE', value: (o?.policy || {}).aiGate === false ? 'off' : 'on', options: ['on', 'off'],
       means: 'ON: the model reads every coin BEFORE it takes a real seat (cloud, ≤ 7s). A strong, specific CAUTION holds that coin back this tick; silence or a slow answer never does. It can only make the agents buy less. The regret ledger grades the coins it held back and switches the wait off if they keep beating the ones taken.' }}
       pending={pend.agentAiGate} disabled={disabled} onPick={onPick} />
+    <ControlRow c={{ key: 'agentAiExit', label: '☠ Exit read for Reaper', who: (o?.policy || {}).aiExit === false ? 'CREATOR OVERRIDE' : 'AGENTS CHOOSE', value: (o?.policy || {}).aiExit === false ? 'off' : 'on', options: ['on', 'off'],
+      means: 'ON: the model reads every coin the agents HOLD about once a minute — RIDE (still being bought) or TIGHTEN (fading). Each read is graded 15 min later on what the coin did. A word moves Reaper only once its own record proves it (20+ graded, typical move 2%+ the right way): a proven RIDE gives a green seat the wide ride trail, a proven TIGHTEN banks a green seat sooner. Reaper never waits on it; stops and rug exits never change.' }}
+      pending={pend.agentAiExit} disabled={disabled} onPick={onPick} />
+    <ExitLine x={ai?.exit} />
     <p className={`acx-state is-${String(lr.state || 'off').toLowerCase().replace(/\s+/g, '-')}`} data-testid="acx-model-state"><em>{lr.state || 'NO MODEL'}</em><span>{lr.why || 'start LM Studio or add a key under ⚙ providers'}</span></p>
     {ai?.metrics ? <p className="acx-cover is-metrics" data-testid="acx-ai-metrics">{aiMetricsLine(ai.metrics).map(([l, v]) => <span key={l}><small>{l}</small><b>{v}</b></span>)}</p> : null}
     <p className="acx-cover"><span><small>COINS WITH INTEL</small><b data-testid="acx-intel-n">{intelN}</b></span><span><small>JUDGED</small><b>{lr.all?.n ?? 0}</b></span></p>

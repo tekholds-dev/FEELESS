@@ -84,3 +84,11 @@ test('🔥 volume limits read as short words on their buttons', () => {
   expect(optWord('agentPumpTrend', 'first')).toBe('🔥 FIRST'); expect(optWord('agentPumpTrend', 'off')).toBe('OFF');
   expect(optWord('agentMcMax', 5000000)).toBe('$5M');
 });
+
+test('exit read line: graded / needed, typical move, LIVE only when proven and switched on', () => {
+  const { exitLine } = require('../components/command/CockpitControls');
+  const x = { rec: { RIDE: [4, 1.2, 0], TIGHTEN: [22, -3.1, 1] }, min: 20, on: 1, reads: [] };
+  expect(exitLine(x)).toBe('RIDE 4/20 · +1.2% in 15m · shadow  ·  TIGHTEN 22/20 · -3.1% in 15m · ✅ LIVE');
+  expect(exitLine({ ...x, on: 0 })).toContain('TIGHTEN 22/20 · -3.1% in 15m · shadow');
+  expect(exitLine(null)).toBeNull();
+});

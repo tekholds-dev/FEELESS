@@ -520,6 +520,7 @@ def clean_cfg(p):
     out['chartWait'] = bool((p or {}).get('chartWait', True))   # 🎯 a real seat needs the chart's own ENTER NOW (off = the regret ledger / owner let WAIT charts in)
     out['agentValve'] = bool((p or {}).get('agentValve', True))   # 🪫 patience valve (office_edge.valve_fill): an empty seat never sits all morning
     out['agentCapital'] = bool((p or {}).get('agentCapital', True))   # 💰 capital desk (capital.py): agent seats sized by their own real record — smallest while it loses, half-Kelly once winning is proven
+    out['agentAiExit'] = bool((p or {}).get('agentAiExit', True))   # 🧠☠ the model's exit read may move Reaper's trail — only once its own graded record proves the word (exit_read.py)
     out['agentAiGate'] = bool((p or {}).get('agentAiGate', True))   # 🛂 the model reads a coin BEFORE it takes a real seat; a strong, specific CAUTION waits (graded by the regret ledger, which may switch it off)
     out['agentControl'] = bool((p or {}).get('agentControl', False))   # 🎮 the agents control EVERY seat of the real card (the engine's own doors are off)
     out['agentTrust'] = bool((p or {}).get('agentTrust', False))   # 🤝 a 2nd agent seat once the suggestions the owner took are proven (≥ 10 closed, typical > 0)
@@ -3439,12 +3440,14 @@ def agent_pull(card, pair, prices, liqs, now, why=''):
     return c
 
 
-URGENT_EXIT_WORDS = ('stop', 'rug', 'drain', 'dump', 'invalid', 'collapse', 'sellers', 'breakdown', 'pulled')
+URGENT_EXIT_WORDS = ('stop', 'rug', 'drain', 'dump', 'invalid', 'collapse', 'sellers', 'breakdown', 'pulled',
+                     'trail', 'protection', 'climax', 'reversing', 'structure turned')   # 🏃 a profit being given back is as urgent as a stop (2026-10-14:
+# 11 R7 trail exits decided at +4…+16% filled at −5…−89% — ZOOAGENCY +16.5 → −12, Engineers +4.3 → −89; the sale used to wait like a time exit)
 
 
 def urgent_exit(why):
-    """⚡ An agent exit that PROTECTS money (stop · rug · drain · dump · thesis invalidated · sellers took over · breakdown): the
-    keeper sends its sale as urgent (fresher quote, lands first). A take / time / dead-coin swap is not."""
+    """⚡ An agent exit that PROTECTS money (stop · rug · drain · dump · thesis invalidated · sellers took over · breakdown · the trail /
+    climax / reversing banking a gain): the keeper sends its sale as urgent (fresher quote, lands first). A plain take / time / dead-coin swap is not."""
     w = str(why or '').lower()
     return any(k in w for k in URGENT_EXIT_WORDS)
 

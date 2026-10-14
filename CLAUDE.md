@@ -4121,3 +4121,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`LOCAL_LLM_MODEL`) not loaded or loaded under `LM_CTX` 8192 → `lms unload` + `lms load … --context-length 8192 --gpu max -y`, at most once per
   30 min. `LOCAL_LLM_ENABLED=false` switches it off. After editing keep-alive.sh: `bash scripts/background.sh start` (the running loop keeps
   the old copy). Tested live: 5470 → 8192.
+- 🧠☠ THE MODEL'S EXIT READ (owner, 2026-10-14: "agents only take ~+8% — AI should help Trigger and Reaper make smarter, cleaner exits";
+  `backend/exit_read.py` pure + tested `tests/test_exit_read.py`, `data/ai_exit_proof.json`, realCfg `agentAiExit` on — 🧠 MODEL card "☠ Exit read
+  for Reaper" + `ExitLine`): role `exit` (advisory; Reaper stays in `FORBIDDEN_ROLES`) reads up to 2 HELD agent seats a round (fresh ≤ 60s skipped;
+  case = pct · peak · heldMin · structure · phase · Reaper's own state) → one word RIDE (HOLD, no named risk) · TIGHTEN (PROTECT / EXIT or delta ≤
+  −0.12) → `_ai['exit']`, noted at the price and graded 15 min later (`_ai_exit_settle` with the learn settle; RIDE right = rose, TIGHTEN right =
+  fell). A word reaches `office.reap(ai_exit=)` ONLY when proven (≥ 20 graded, typical move ≥ 2% the right way) and ≤ 3 min fresh: proven RIDE on
+  a green seat not seller-led = the ride trail (`rideAt` → also the 3s live guard); proven TIGHTEN on a green seat = the trail ×0.6. Never a stop,
+  the catastrophic line, an order or a size. The real record it answers (143 exits since the 3s guard): 69% won, average win +8.3%, 34 of 109
+  losers had been up ≥ +5% (median peak +14%).
+- 🏃 PROFIT-PROTECTING EXITS ARE URGENT (`arena_prime.URGENT_EXIT_WORDS` + trail · protection · climax · reversing · structure turned): 11 R7 trail
+  exits decided at +4…+16% filled at −5…−89% (ZOOAGENCY +16.5 → −12, Engineers +4.3 → −89) — the sale used to wait like a time exit. The
+  median R7 fill is fine (+2.7 pts over the last tracked price); this is for the tail.

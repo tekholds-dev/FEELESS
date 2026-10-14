@@ -35,7 +35,7 @@ PROVIDERS = {
     'custom': ('OPENAI-COMPATIBLE', 'AI_API_KEY', 'AI_MODEL', 'AI_BASE_URL', None, '', 10.0, 1),
 }
 DEFAULT_ORDER = ('local', 'groq', 'openrouter', 'openai', 'xai', 'custom')
-ADVISORY_ROLES = ('sherlock', 'devil', 'judge', 'owner', 'manager', 'coach', 'lab')
+ADVISORY_ROLES = ('sherlock', 'devil', 'judge', 'owner', 'manager', 'coach', 'lab', 'exit')   # 'exit' = the read on a HELD coin (exit_read.py) — Reaper only reads its cached word
 FORBIDDEN_ROLES = ('tally', 'trigger', 'reaper', 'courier', 'warden')        # hot loops + the money boundary: never a model
 # 🧠 THE VITAL AI RESULT (owner's lag-fix spec, 2026-10-13: "KEEP the vital AI-only intelligence"): the model answers ONLY what the
 # deterministic kernel cannot infer well — the story, who is behind it, what public sources say, which side a conflict falls on — as
@@ -48,7 +48,7 @@ AGENTS = ('tally', 'sherlock', 'weather', 'trigger', 'devil', 'warden', 'courier
 QUEUE_MAX = 2              # requests allowed to WAIT for a busy provider (local: 1 running + 2 waiting); more → next provider
 CACHE_SEC = 1800.0         # the same case (same coin, same material STATE — see case_key) inside 30 min = the cached answer (no second inference)
 DEFER_PRIO = 3             # a job at this priority or lower (bigger number) is DEFERRED when the local model is already busy — it never waits in line
-PRIO = {'owner': 0, 'manager': 1, 'ready': 2, 'devil': 3, 'contender': 4, 'judge': 5, 'coach': 2, 'lab': 3}   # owner review → a conflict → a READY coin → ambiguous → top contender → a closed trade
+PRIO = {'owner': 0, 'manager': 1, 'exit': 1, 'ready': 2, 'devil': 3, 'contender': 4, 'judge': 5, 'coach': 2, 'lab': 3}   # owner review → a conflict → a READY coin → ambiguous → top contender → a closed trade
 RATE_COOL = 60.0           # a 429 rests that provider this long (or its Retry-After, ≤ 5 min)
 FAIL_COOL = (0.0, 0.0, 15.0, 30.0, 60.0)   # cool-down by consecutive failures (2 free, then 15s … 60s)
 # per-provider request extras: OpenRouter's reasoning models spend the whole answer cap THINKING unless told not to (2026-10-13: 260 of 260
@@ -349,6 +349,7 @@ ROLE_ASK = {
     'sherlock': ("You're Sherlock in the trenches. From the case only: is the STORY real or a copycat farm, who is the DEV (their launches, "
                  "bags, selling), do the site / X / callers line up, any cabal smell (bundles, flagged deployer, same crew). risk_flags = what gets a buyer rugged."),
     'devil': "You're Devil. This setup is mid — give the single hardest reason it rugs or bleeds (bots, late chase, fake story, dev exit).",
+    'exit': __import__('exit_read').ASK,
     'manager': ("The desk is split on this coin (see `signals`). In conflict_resolution call which side the evidence backs and why, one line."),
     'judge': "A real trade just closed. What decided it and the one thing to do different next time (in summary).",
     'owner': "The boss wants the full read on this coin: story, dev, what kills it. Straight, no fluff.",

@@ -512,7 +512,7 @@ RIDE_GIVE = 50.0       # 🏄 while a real crowd is buying, the trail lets the c
 RIDE_HOLD_SEC = 90.0   # the ride outlives one quiet 90s window (the tape is read every 15s); past it the normal rules return
 
 
-def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_=None, tape=None, office=None, sized=None, charts=None, theses=None, pol=None, live=True, vels=None, margins=None, rug=None, press=None, real=False, flows=None):
+def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_=None, tape=None, office=None, sized=None, charts=None, theses=None, pol=None, live=True, vels=None, margins=None, rug=None, press=None, real=False, flows=None, ai_exit=None):
     """☠ One look at every position the agents hold on the real card (in control: every coin that is not frozen). It keeps each one's
     record (entry, peak, path, depth and top-10 at entry) and rules, in this order — the first that fires decides:
       R1 pool collapsed · R4 whale dump / R4r rug radar / R4e early wallets on the live tape · R5 stop* · (a holder scan or a rug score is evidence for the brain, never an exit) ·
@@ -580,6 +580,10 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         # real crowd buying (BUYERS + hot = ≥ 8 distinct buyers, buys ≥ 1.3× sells) is NOT banked by the take line, the normal trail or a
         # time window — it rides with a wide trail (RIDE_GIVE % of its peak). Stops, rug / drain / dump exits and "sellers took over" act as ever.
         ride_ = bool(fv_ and fv_.get('state') == 'BUYERS' and fv_.get('hot') and pct > 0)
+        ax_ = (ai_exit or {}).get(m)   # 🧠 the model's exit read — handed in ONLY when its own graded record proved the word (exit_read.effects)
+        if ax_ == 'ride' and pct > 0 and not (fv_ and fv_.get('state') == 'SELLERS'):
+            ride_ = True   # a proven RIDE = the same wide trail as a hot crowd buying (stops, rug / drain / dump exits act as ever)
+        p['aiExit'] = ax_
         if ride_:
             p['rideAt'] = now
         elif p.get('rideAt') and now - _f(p['rideAt']) > RIDE_HOLD_SEC:
@@ -611,7 +615,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             p.setdefault('deadSince', now)
         else:
             p.pop('deadSince', None)
-        tight = 0.6 if (vels or {}).get(m, {}).get('state') == 'REVERSING' or pr_ == 'WATCH' else 1.0   # 📉 P/L REVERSING: the trail banks sooner (tighter protection, never looser)
+        tight = 0.6 if (vels or {}).get(m, {}).get('state') == 'REVERSING' or pr_ == 'WATCH' or ((ai_exit or {}).get(m) == 'tight' and pct > 0) else 1.0   # 📉 P/L REVERSING: the trail banks sooner (tighter protection, never looser)
         trail_line = (p['peak'] - _f(tr_.get('pct')) * tight) if tr_.get('mode') == 'custom' else p['peak'] * (1 - T('giveBackPct') * tight / 100)
         trail_on = tr_.get('mode') != 'off'
         max_hold = _f(pol.get('maxHold')) or None
