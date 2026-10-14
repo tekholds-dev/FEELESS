@@ -13441,6 +13441,10 @@ async def admin_ai_chat(request: Request):
     now = time.time()
     try:
         env, cfg = os.environ, _ai_cfg()
+        try:
+            await _air.ROUTER.heartbeat(_ai_http(), env, cfg, now, every=0)   # 💓 a chat never waits on a stale OFFLINE: LM Studio is re-checked first (one cheap read)
+        except Exception:
+            pass
         if mode == 'case':   # 🔎 CASE REVIEW: the kernel's own case for the selected coin → the validated structured answer
             c = next((c_ for c_ in (((_office.get('payload') or {}).get('kernel') or {}).get('candidates') or []) if focus and focus in (c_.get('mint'), c_.get('pair'), c_.get('symbol'))), None)
             if not c:

@@ -3970,8 +3970,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
     (`BUILD_ASK`, `parse_improve(only=('idea',))`): the models propose what to build (a vital, a meter, a check, a test) — filed as ideas, nothing applied.
   · 💓 `ai_router.Router.heartbeat` (called from `_local_lane_run` every AI round): while LM Studio is not ONLINE, ONE cheap model-list GET per 45s (no
     inference) → ONLINE again, cool-down cleared. One slow answer used to leave it OFFLINE until the owner pressed Test.
-  · ⚙ `components/HomeEngine.jsx` + `styles/homeEngine.css` `hen-*` (Home, under the $FEE hero): gates 🛰 SEEN → 🔬 SCANNED → ✅ SAFE → 🏃 RUNNERS and a
-    belt of REAL coins from `/fuses/trench/open` (safe rides through, failed drops at the scan, unread waits; tap = coin drawer) + meters (green 1h ·
-    buyers · safe rate · next round) from `/fuses/forecast` + `/runners`. Three shared reads / 30s, transform + opacity only.
+  · ⚛ THE FUSE REACTOR = `components/HomeEngine.jsx` + `styles/homeEngine.css` `hen-*` (Home, under the $FEE hero; the first belt version read like
+    another product's — owner asked for a unique FEELESS idea): REAL coins from `/fuses/trench/open` ORBIT a core — outer ring ⚠ failed the scan, middle
+    ❔ not read, inner ✅ safe (`reactorRings`); the core holds the runners live and beats faster the greener the board (`beatSec`); gate bars 🛰 → 🔬 →
+    ✅ → 🏃 + meters from `/fuses/forecast` + `/runners`. Each pod = an orbit rotation + an equal counter-rotation; the counter element needs a REAL box
+    (2px) — the FX governor pauses animations on boxless elements and the pods tilted out of sync.
   · SEATS EMPTY that evening = the owner's own 🎯 Chart says go switch: all 5 contenders were ARMED then held by the chart call (seat reason "timing (5)").
     It was NOT loosened: since that gate the armed door reads 60% won / +7.9% a bet. Read `office.seat.blockers` before touching a fill rule.
+- 🧭 AGENTS TAB DOCK (`command/LensDock.jsx` + `styles/lensDock.css` `lnd-*`; owner: "tabs at the bottom more usable, every Agents tab needs live
+  visuals, no crazy reading"): the lens tabs moved from a sticky BOTTOM bar to a sticky TOP dock (icon + word + live badge, ← / → walk them), and every
+  lens opens on `LensVitals` = four live tubes from the payload (`lensVitals(lens, d, cnt)`, pure + tested; "—" + empty tube when a number is missing).
+  New lens ⇒ a `lensVitals` case. Brain chat clean-up: one-tap prompts fold once you are talking (⚡ in the form brings them back), the mini shows mode
+  icons only. 💓 LM Studio: heartbeat every 20s while not ONLINE + one forced re-check before every chat answer.

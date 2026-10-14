@@ -610,7 +610,7 @@ class Router:
         self._ctx = (now, ctx)
         return ctx
 
-    async def heartbeat(self, http, env, cfg, now=None, every=45.0):
+    async def heartbeat(self, http, env, cfg, now=None, every=20.0):
         """💓 THE LOCAL MODEL HEALS ITSELF (owner, 2026-10-13: "I keep having to click Test"): one slow / failed answer marked LM Studio
         OFFLINE and nothing called it again until the Test button did. While it is not ONLINE, every `every` seconds ONE cheap GET of its
         model list (no inference, no tokens): the server answers and the model is listed → ONLINE again, cool-down cleared. → True / False /

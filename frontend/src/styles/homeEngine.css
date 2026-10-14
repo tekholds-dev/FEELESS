@@ -1,45 +1,51 @@
-/* ⚙ THE ENGINE, LIVE (HomeEngine.jsx) — m-* tokens, transform / opacity only, no blur, no blend. */
-.hen { --hx: var(--m-accent, #15d16a); position: relative; display: grid; gap: 10px; padding: 12px 14px; margin: 0 0 14px; overflow: hidden; isolation: isolate;
-  background: linear-gradient(135deg, rgba(8, 40, 26, .75), rgba(4, 12, 9, .95) 55%, rgba(30, 20, 70, .5)); border: 1px solid color-mix(in srgb, var(--hx) 30%, transparent); border-radius: 14px; }
+/* ⚛ THE FUSE REACTOR (HomeEngine.jsx) — m-* tokens, transform / opacity only, no blur, no blend. */
+.hen { --hx: var(--m-accent, #15d16a); position: relative; display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 16px; align-items: center; padding: 14px 16px; margin: 0 0 14px; overflow: hidden; isolation: isolate;
+  background: radial-gradient(circle at 145px 50%, rgba(60, 34, 120, .42), transparent 46%), linear-gradient(135deg, rgba(8, 40, 26, .75), rgba(4, 12, 9, .95) 60%); border: 1px solid color-mix(in srgb, var(--hx) 30%, transparent); border-radius: 14px; }
 .hen.is-rain { --hx: #5fd0ff; } .hen.is-storm { --hx: #ff8fa3; }
-.hen-head { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
-.hen-core { position: relative; flex: none; width: 34px; height: 34px; display: grid; place-items: center; }
-.hen-core i { position: absolute; inset: 0; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--hx); border-left-color: color-mix(in srgb, var(--hx) 35%, transparent); animation: henSpin 4s linear infinite; }
-.hen-core i:nth-child(2) { inset: 6px; border-top-color: #b79bff; border-left-color: transparent; animation-duration: 2.6s; animation-direction: reverse; } .hen-core b { font-size: 14px; }
-.hen-title { display: grid; gap: 1px; min-width: 0; flex: 1 1 200px; } .hen-title b { font: 800 13px 'JetBrains Mono', monospace; letter-spacing: .16em; color: var(--m-text, #e9fff3); }
-.hen-title small { font: 600 10px 'JetBrains Mono', monospace; color: var(--m-mute, #7f9a8b); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hen-wx { font: 800 10px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .1em; padding: 4px 10px; border-radius: 999px; color: var(--hx); border: 1px solid color-mix(in srgb, var(--hx) 45%, transparent); background: color-mix(in srgb, var(--hx) 10%, transparent); text-transform: uppercase; }
-.hen-go { font: 700 10.5px 'JetBrains Mono', monospace; color: var(--hx); text-decoration: none; padding: 5px 10px; border-radius: 8px; border: 1px solid transparent; transition: transform .15s ease, border-color .15s ease; }
-.hen-go:hover { transform: translateX(2px); border-color: color-mix(in srgb, var(--hx) 50%, transparent); } .hen-go:active { transform: scale(.97); } .hen-go:focus-visible { outline: 2px solid var(--hx); outline-offset: 2px; }
-.hen-belt { position: relative; display: grid; gap: 6px; }
-.hen-gates { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
-.hen-gate { position: relative; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0 8px; padding: 7px 10px; border-radius: 10px; background: rgba(255, 255, 255, .04); border: 1px solid var(--m-line, rgba(255, 255, 255, .08)); }
-.hen-gate::after { content: ''; position: absolute; left: 8px; right: 8px; bottom: 0; height: 2px; border-radius: 2px; background: var(--hx); transform-origin: left; animation: henGate 2.4s ease-in-out infinite; animation-delay: calc(var(--i) * .6s); opacity: .7; }
-.hen-gate i { grid-row: 1 / 3; font-style: normal; font-size: 18px; } .hen-gate b { font: 800 17px 'JetBrains Mono', monospace; color: var(--m-text, #e9fff3); animation: henPop .35s ease-out; }
-.hen-gate small { font: 800 8px 'JetBrains Mono', monospace; letter-spacing: .14em; color: var(--m-mute, #7f9a8b); }
-.hen-track { position: relative; height: 112px; border-radius: 10px; overflow: hidden; background:
-  linear-gradient(90deg, transparent calc(33.3% - 1px), color-mix(in srgb, var(--hx) 35%, transparent) 33.3%, transparent calc(33.3% + 1px), transparent calc(66.6% - 1px), color-mix(in srgb, var(--hx) 35%, transparent) 66.6%, transparent calc(66.6% + 1px)), rgba(0, 0, 0, .28); border: 1px solid var(--m-line, rgba(255, 255, 255, .08)); }
-.hen-run { position: absolute; left: 0; width: 100%; top: calc(8px + var(--lane) * 25px); height: 22px; pointer-events: none; opacity: 0; animation: henSafe 12s linear infinite; animation-delay: calc(var(--i) * -.85s); }
-.hen-run.is-fail { animation-name: henFail; } .hen-run.is-wait { animation-name: henWait; }
-.hen-pod { pointer-events: auto; position: absolute; left: 0; top: 0; max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 8px; border-radius: 999px; font: 800 10px 'JetBrains Mono', monospace; cursor: pointer;
+.hen-reactor { position: relative; width: 290px; height: 290px; }
+.hen-ring { position: absolute; inset: calc(var(--r) * 34px + 14px); border-radius: 50%; border: 1px dashed rgba(255, 255, 255, .13); pointer-events: none; }
+.hen-ring.is-fail { border-color: rgba(255, 143, 163, .32); } .hen-ring.is-wait { border-color: rgba(255, 255, 255, .2); } .hen-ring.is-safe { border-color: color-mix(in srgb, var(--m-accent, #15d16a) 55%, transparent); border-style: solid; }
+.hen-orb { position: absolute; inset: calc(var(--r) * 34px + 14px); border-radius: 50%; pointer-events: none; animation: henOrbit linear infinite; }
+.hen-seat { position: absolute; left: calc(50% - 1px); top: -1px; width: 2px; height: 2px; /* a real box: the FX governor pauses animations with no box, which tilted the pods */ animation: henCounter linear infinite; }
+.hen-pod { pointer-events: auto; position: absolute; left: 1px; top: 1px; transform: translate(-50%, -50%); max-width: 78px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 7px; border-radius: 999px; font: 800 9.5px 'JetBrains Mono', monospace; cursor: pointer;
   color: #07130c; background: var(--m-accent, #15d16a); border: 0; transition: transform .12s ease; }
-.hen-run.is-fail .hen-pod { background: #ff8fa3; } .hen-run.is-wait .hen-pod { background: rgba(255, 255, 255, .22); color: var(--m-text, #e9fff3); }
-.hen-pod:hover { transform: scale(1.12); } .hen-pod:active { transform: scale(.95); } .hen-pod:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
-.hen-track:hover .hen-run, .hen-track:focus-within .hen-run { animation-play-state: paused; }
+.hen-orb.is-fail .hen-pod { background: #ff8fa3; opacity: .8; } .hen-orb.is-wait .hen-pod { background: rgba(255, 255, 255, .24); color: var(--m-text, #e9fff3); }
+.hen-pod:hover { transform: translate(-50%, -50%) scale(1.18); } .hen-pod:active { transform: translate(-50%, -50%) scale(.94); } .hen-pod:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.hen-reactor:hover .hen-orb, .hen-reactor:hover .hen-seat, .hen-reactor:focus-within .hen-orb, .hen-reactor:focus-within .hen-seat { animation-play-state: paused; }
+.hen-core { position: absolute; left: 50%; top: 50%; width: 84px; height: 84px; margin: -42px 0 0 -42px; border-radius: 50%; display: grid; place-content: center; justify-items: center; gap: 0;
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--hx) 55%, #fff 5%), color-mix(in srgb, var(--hx) 22%, #04100a) 70%); border: 1px solid color-mix(in srgb, var(--hx) 70%, transparent); animation: henBeat var(--beat, 2s) ease-in-out infinite; }
+.hen-core i { position: absolute; inset: -7px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--hx); border-left-color: color-mix(in srgb, var(--hx) 35%, transparent); animation: henOrbit 4s linear infinite; }
+.hen-core i:nth-child(2) { inset: -13px; border-top-color: #b79bff; border-left-color: transparent; animation-duration: 6.5s; animation-direction: reverse; }
+.hen-core b { font: 800 24px 'JetBrains Mono', monospace; line-height: 1; color: #04100a; } .hen-core small { font: 800 7px 'JetBrains Mono', monospace; letter-spacing: .14em; color: #04100a; opacity: .8; }
+.hen-side { display: grid; gap: 9px; min-width: 0; }
+.hen-head { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
+.hen-title { display: grid; gap: 1px; min-width: 0; flex: 1 1 200px; } .hen-title b { font: 800 14px var(--fz-font, 'JetBrains Mono', monospace); letter-spacing: .14em; color: var(--m-text, #e9fff3); }
+.hen-title small { font: 600 10px 'JetBrains Mono', monospace; color: var(--m-mute, #7f9a8b); }
+.hen-wx { font: 800 10px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .1em; padding: 4px 10px; border-radius: 999px; color: var(--hx); border: 1px solid color-mix(in srgb, var(--hx) 45%, transparent); background: color-mix(in srgb, var(--hx) 10%, transparent); text-transform: uppercase; }
+.hen-gates { display: grid; gap: 5px; }
+.hen-gate { display: grid; grid-template-columns: 22px 74px 56px minmax(0, 1fr); align-items: center; gap: 8px; }
+.hen-gate i { font-style: normal; font-size: 14px; } .hen-gate small { font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .14em; color: var(--m-mute, #7f9a8b); }
+.hen-gate b { font: 800 14px 'JetBrains Mono', monospace; color: var(--m-text, #e9fff3); text-align: right; animation: henPop .35s ease-out; }
+.hen-gate u { position: relative; display: block; height: 8px; border-radius: 5px; background: rgba(255, 255, 255, .07); overflow: hidden; text-decoration: none; }
+.hen-gate s { display: block; height: 100%; border-radius: 5px; background: linear-gradient(90deg, color-mix(in srgb, var(--hx) 45%, transparent), var(--hx)); transform-origin: left; transition: transform .7s cubic-bezier(.2, .8, .2, 1); text-decoration: none; }
+.hen-gate u::after { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 28%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .35), transparent); animation: henSheen 2.6s linear infinite; animation-delay: calc(var(--i) * .5s); }
+.hen-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font: 700 9px 'JetBrains Mono', monospace; color: var(--m-mute, #7f9a8b); } .hen-legend .is-safe { color: var(--m-accent, #15d16a); } .hen-legend .is-fail { color: #ff8fa3; }
 .hen-vitals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .hen-meter { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 2px 6px; padding: 6px 9px; border-radius: 9px; background: rgba(255, 255, 255, .035); }
 .hen-meter small { font: 800 8px 'JetBrains Mono', monospace; letter-spacing: .13em; color: var(--m-mute, #7f9a8b); } .hen-meter b { font: 800 13px 'JetBrains Mono', monospace; color: var(--m-text, #e9fff3); animation: henPop .35s ease-out; }
 .hen-meter > i { grid-column: 1 / -1; display: block; height: 4px; border-radius: 3px; background: rgba(255, 255, 255, .08); overflow: hidden; }
 .hen-meter u { display: block; height: 100%; border-radius: 3px; background: var(--m-accent, #15d16a); transform-origin: left; transition: transform .6s cubic-bezier(.2, .8, .2, 1); text-decoration: none; }
 .hen-meter.is-bad u { background: #ff8fa3; } .hen-meter.is-bad b { color: #ff8fa3; } .hen-meter.is-ice u { background: #5fd0ff; } .hen-tick { background: var(--gold, #f5c451) !important; animation: henTick 1s steps(2) infinite; }
-@keyframes henSpin { to { transform: rotate(360deg); } } @keyframes henPop { from { transform: translateY(-3px); opacity: .3; } } @keyframes henGate { 0%, 100% { transform: scaleX(.15); } 50% { transform: scaleX(1); } } @keyframes henTick { 50% { opacity: .35; } }
-@keyframes henSafe { 0% { transform: translateX(-4%); opacity: 0; } 6% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateX(96%); opacity: 0; } }
-@keyframes henFail { 0% { transform: translateX(-4%); opacity: 0; } 6% { opacity: 1; } 30% { transform: translate(31%, 0); opacity: 1; } 42%, 100% { transform: translate(34%, 46px); opacity: 0; } }
-@keyframes henWait { 0% { transform: translateX(-4%); opacity: 0; } 6% { opacity: 1; } 28% { transform: translateX(24%); opacity: 1; } 70% { transform: translateX(27%); opacity: .7; } 80%, 100% { transform: translateX(27%); opacity: 0; } }
-body.fx-lite .hen-core i, body.fx-lite .hen-gate::after, body.fx-lite .hen-gate b, body.fx-lite .hen-meter b, body.fx-lite .hen-tick { animation: none; }
-body.fx-lite .hen-run { animation: none; opacity: 1; position: static; display: inline-block; width: auto; height: auto; margin: 4px; } body.fx-lite .hen-pod { position: static; } body.fx-lite .hen-track { height: auto; padding: 4px; }
-@media (prefers-reduced-motion: reduce) { .hen-core i, .hen-gate::after, .hen-gate b, .hen-meter b, .hen-tick { animation: none; } .hen-run { animation: none; opacity: 1; position: static; display: inline-block; width: auto; height: auto; margin: 4px; } .hen-pod { position: static; } .hen-track { height: auto; padding: 4px; } }
-@media (max-width: 640px) { .hen-gates, .hen-vitals { grid-template-columns: repeat(2, minmax(0, 1fr)); } .hen-go { display: none; } .hen-track { height: 112px; } }
-body.theme-day .hen { background: linear-gradient(135deg, rgba(204, 240, 220, .85), rgba(238, 246, 241, .96) 55%, rgba(214, 200, 255, .6)); --hx: #0d7a41; }
+.hen-go { justify-self: start; font: 700 10.5px 'JetBrains Mono', monospace; color: var(--hx); text-decoration: none; padding: 4px 10px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--hx) 35%, transparent); transition: transform .15s ease, border-color .15s ease; }
+.hen-go:hover { transform: translateX(2px); border-color: var(--hx); } .hen-go:active { transform: scale(.97); } .hen-go:focus-visible { outline: 2px solid var(--hx); outline-offset: 2px; }
+@keyframes henOrbit { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } @keyframes henCounter { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
+@keyframes henBeat { 0%, 100% { transform: scale(1); } 12% { transform: scale(1.09); } 24% { transform: scale(.99); } 36% { transform: scale(1.05); } 50% { transform: scale(1); } }
+@keyframes henPop { from { transform: translateY(-3px); opacity: .3; } } @keyframes henTick { 50% { opacity: .35; } } @keyframes henSheen { from { transform: translateX(-120%); } to { transform: translateX(460%); } }
+body.fx-lite .hen-orb, body.fx-lite .hen-seat, body.fx-lite .hen-core, body.fx-lite .hen-core i, body.fx-lite .hen-gate b, body.fx-lite .hen-meter b, body.fx-lite .hen-tick, body.fx-lite .hen-gate u::after { animation: none; }
+@media (prefers-reduced-motion: reduce) { .hen-orb, .hen-seat, .hen-core, .hen-core i, .hen-gate b, .hen-meter b, .hen-tick, .hen-gate u::after { animation: none; } }
+@media (max-width: 860px) { .hen { grid-template-columns: minmax(0, 1fr); justify-items: center; } .hen-side { width: 100%; } }
+@media (max-width: 640px) { .hen-vitals { grid-template-columns: repeat(2, minmax(0, 1fr)); } .hen-gate { grid-template-columns: 20px 66px 48px minmax(0, 1fr); } }
+body.theme-day .hen { background: radial-gradient(circle at 145px 50%, rgba(214, 200, 255, .8), transparent 46%), linear-gradient(135deg, rgba(204, 240, 220, .85), rgba(238, 246, 241, .96) 60%); --hx: #0d7a41; }
 body.theme-day .hen.is-rain { --hx: #0b6fa8; } body.theme-day .hen.is-storm { --hx: #b3243f; } body.theme-day .hen-title b, body.theme-day .hen-gate b, body.theme-day .hen-meter b { color: #0f2419; }
-body.theme-day .hen-track { background-color: rgba(10, 60, 35, .06); } body.theme-day .hen-run.is-wait .hen-pod { background: rgba(10, 60, 35, .18); color: #0f2419; } body.theme-day .hen-gate, body.theme-day .hen-meter { background: rgba(255, 255, 255, .55); }
+body.theme-day .hen-ring { border-color: rgba(10, 60, 35, .22); } body.theme-day .hen-orb.is-wait .hen-pod { background: rgba(10, 60, 35, .18); color: #0f2419; } body.theme-day .hen-meter { background: rgba(255, 255, 255, .55); } body.theme-day .hen-gate u { background: rgba(10, 60, 35, .1); }
+body.theme-day .hen-core b, body.theme-day .hen-core small { color: #fff; }

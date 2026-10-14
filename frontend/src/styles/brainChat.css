@@ -61,6 +61,12 @@
 .cch-acts { display: flex; gap: 6px; margin: 2px 0 0; } .cch-acts .m-btn { font: 800 10px var(--m-mono); padding: 5px 14px; }
 .cch-gate { display: grid; gap: 6px; padding: 22px 14px; text-align: center; font: 600 10.5px/1.5 var(--m-mono); color: var(--m-mute); } .cch-gate b { font: 800 12px var(--m-mono); letter-spacing: .14em; color: #c9b8ff; }
 .mini-brain { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+/* clean: prompts fold once you are talking (⚡ brings them back), the meta line is one quiet row, the mini shows icons only */
+.cch:not(.is-q) .cch-quick { display: none; } .cch-form { grid-template-columns: minmax(0, 1fr) auto auto; } .cch-qt { width: 36px; height: auto; } .cch-qt[aria-pressed='true'] { border-color: var(--br); color: var(--br); }
+.cch-modes > button { display: flex; align-items: center; justify-content: center; gap: 5px; } .cch-modes > button i { font-style: normal; }
+.cch.is-mini .cch-modes > button span, .cch.is-mini .cch-kpis small, .cch.is-mini .cch-title small { display: none; } .cch.is-mini .cch-modes > button { font-size: 14px; padding: 5px 2px; }
+.cch.is-mini .cch-orb { width: 26px; height: 26px; } .cch.is-mini .cch-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cch-meta { opacity: .7; text-align: right; }
 /* every mode wears its own colour; the scan line runs only while the model is really answering */
 .cch[data-mode='case'] { --br: #5fd0ff; } .cch[data-mode='improve'] { --br: #f5c451; } .cch[data-mode='build'] { --br: #ff7ad9; }
 .cch-scan { display: block; height: 2px; margin: -4px 0; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--br), var(--br2), transparent); transform: scaleX(.12); transform-origin: left; opacity: .35; transition: opacity .2s ease; }

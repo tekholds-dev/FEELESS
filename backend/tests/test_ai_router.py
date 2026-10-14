@@ -566,7 +566,7 @@ def test_local_heartbeat_brings_an_offline_local_model_back_without_a_test_click
     down = Http(None)
     assert asyncio.run(ro.heartbeat(down, env, {}, now=2000.0)) is False and ro.stats['local']['state'] == 'OFFLINE'
     up = Http(Resp(200, [model]))
-    assert asyncio.run(ro.heartbeat(up, env, {}, now=2010.0)) is None and up.calls == 0   # not due yet: one probe per 45s
+    assert asyncio.run(ro.heartbeat(up, env, {}, now=2010.0)) is None and up.calls == 0   # not due yet: one probe per 20s
     assert asyncio.run(ro.heartbeat(up, env, {}, now=2100.0)) is True
     assert ro.stats['local']['state'] == 'ONLINE' and ro.stats['local']['coolUntil'] == 0.0 and ro.stats['local']['streak'] == 0
     assert asyncio.run(ro.heartbeat(up, env, {}, now=2200.0)) is None and up.calls == 1   # ONLINE: no probe at all

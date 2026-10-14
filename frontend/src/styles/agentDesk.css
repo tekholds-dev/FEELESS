@@ -64,9 +64,6 @@
 .agd-ms { font: 600 9.5px var(--m-mono); color: #7fd4ff; margin-left: auto; }
 
 /* lens bar */
-.agd-lens { display: flex; width: 100%; } .agd-lens > button { flex: 1; display: inline-flex; gap: 6px; justify-content: center; align-items: center; white-space: nowrap; }
-.agd-lens > button small { font: 700 9.5px var(--m-mono); padding: 1px 6px; border-radius: 999px; background: rgba(0, 0, 0, .35); color: var(--m-warn); }
-.agd-lens > button.active small { background: rgba(0, 0, 0, .25); color: var(--m-accent-ink); }
 
 /* shared boxes */
 .agd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 10px; animation: agdIn .2s ease-out both; } .agd-wide { grid-column: 1 / -1; } .agd-grid.is-ctl { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); }
@@ -217,14 +214,12 @@ body.theme-day .agd .is-trigger { --ag: #a87b12; } body.theme-day .agd .is-tally
 }
 @media (max-width: 640px) {
   .agd { padding: 10px; } .agd-kpis { grid-template-columns: 1fr 1fr; }  .agd-lane { grid-template-columns: 1fr; } .agd-road ol { grid-template-columns: 1fr 1fr; }
-  .agd-lens { overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap; } .agd-ms { margin-left: 0; } .agd-lens > button { flex: none; }
-  .agd-th { display: none; } .agd-trh { grid-template-columns: minmax(0, 1fr) auto auto 14px; } .agd-pips, .agd-lean { display: none; } .agd-whyline { grid-column: 1 / -1; grid-row: 2; white-space: normal; }
+  .agd-ms { margin-left: 0; }   .agd-th { display: none; } .agd-trh { grid-template-columns: minmax(0, 1fr) auto auto 14px; } .agd-pips, .agd-lean { display: none; } .agd-whyline { grid-column: 1 / -1; grid-row: 2; white-space: normal; }
   .agd-says { grid-template-columns: 1fr; } .agd-ideas li { grid-template-columns: 1fr; } .agd-bars li { grid-template-columns: minmax(0, 1fr) 60px 52px; } .agd-bars li small { display: none; }
   .agd-q { max-width: none; } .agd-ahead { grid-template-columns: 40px minmax(0, 1fr); } .agd-ahead em { grid-column: 2; font-size: 13px; }
 }
 /* v11: the mission header ticker · the lens bar docks at the bottom of the tab */
 .agd-ticker { display: block; max-width: 520px; font: 11px var(--m-mono); color: var(--m-dim); text-transform: none; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.agd-lens { position: sticky; bottom: 8px; z-index: 6; justify-self: center; background: #07140e; box-shadow: 0 8px 26px rgba(0, 0, 0, .55); } body.theme-day .agd-lens { background: #fff; }
 /* v12 (owner: "the office IS the Agents tab"): mission + ONE compact status strip, the old rows open in a drawer, the office fills the view */
 .agd { gap: 8px; padding: 10px 12px; }
 .agd-kpis { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 5px; }

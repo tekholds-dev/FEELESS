@@ -12,6 +12,7 @@ import { ReadyStrip, SeatState, SwitchEval, CreatorLimits, ReviewQueue, MissedWi
 import { KernelBoard } from './SeatOps';
 import { AgentCockpit } from './AgentCockpit';
 import { AiChipBtn } from './AiProviders';
+import { LensDock, LensVitals } from './LensDock';
 
 export { rowState, rowWhy, pipsOf, rankFill };
 
@@ -317,6 +318,9 @@ export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
       {open('kernel') ? <KernelBoard o={d.office} onCoin={sym => { setLens('live'); setJump({ sym, n: Date.now() }); }} /> : null}
       {open('judge') ? <JudgeCourt court={d.office?.court} /> : null}</div> : null}
     {zoom && <ZoomScreen d={d} agent={zoom} setAgent={k => { setZoom(k); setSel(k); }} close={() => setZoom(null)} />}
+    {lens !== 'all' && <><LensDock tabs={LENSES} lens={lens} setLens={setLens} badge={k => (k === 'live' && goN ? `${goN} READY` : k === 'learn' && newIdeas ? `${newIdeas} 💡` : k === 'life' && atRisk ? `${atRisk} ⚠`
+      : k === 'review' && reviewOpen ? `${reviewOpen}` : k === 'limits' && d.office?.policy?.manual ? '✋' : k === 'limits' && (d.office?.seat?.refused || []).length ? `${d.office.seat.refused.length} held` : null)} />
+      <LensVitals lens={lens} d={d} cnt={cnt} /></>}
     {show('limits') && <div className="agd-grid is-ctl" data-testid="lens-limits-pane"><div className="agd-wide"><CreatorLimits policy={d.office?.policy} mission={d.office?.mission} cfg={d.cfg} o={d.office} isOwner={isOwner} busy={busy} save={save} /></div>
       <ReadyStrip r={d.office?.ready} /><SeatState s={d.office?.seat} speed={d.office?.performance?.speed} /><div className="agd-wide"><SwitchEval e={d.office?.switchEval} /></div></div>}
     {show('review') && <div data-testid="lens-review-pane"><ReviewQueue review={d.office?.review} isOwner={isOwner} save={save} onCoin={it => it.mint && openCoin({ mint: it.mint, symbol: it.sym })} /></div>}
@@ -349,6 +353,5 @@ export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
         <span className="agd-road-bar" aria-hidden><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, Math.log10(Math.max(1, d.desk.x || 1))))})` }} /></span>
         <small className="m-dim">Control group (coins Trigger said WAIT): {d.control?.n ? `${pct(d.control.med)} typical` : 'not judged yet'} — the team must beat this to mean anything. Slippage on a 5-min scalp is not modelled.</small></div>
       <AgentControls cfg={d.cfg} decisions={d.decisions} proven={d.proven5} isOwner={isOwner} busy={busy} save={save} /></div>}
-    {lens !== 'all' && <div className="m-seg agd-lens" role="tablist" aria-label="Agent desk lens">{LENSES.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)} data-testid={`lens-${k}`}>{l}{k === 'live' && goN ? <small>{goN} READY</small> : k === 'learn' && newIdeas ? <small>{newIdeas} 💡</small> : k === 'life' && atRisk ? <small>{atRisk} ⚠</small> : k === 'review' && reviewOpen ? <small>{reviewOpen} 📝</small> : k === 'limits' && d.office?.policy?.manual ? <small>✋ manual</small> : k === 'limits' && (d.office?.seat?.refused || []).length ? <small>{d.office.seat.refused.length} held back</small> : null}</button>)}</div>}
   </> : null}</details></section></AgentHubProvider>;
 }

@@ -51,7 +51,7 @@ export function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full'
   const [mode, setMode] = useState('chat'); const [txt, setTxt] = useState(''); const [busy, setBusy] = useState(false); const [pop, setPop] = useState(false);
   const [hist, setHist] = useState([]); const [props, setProps] = useState({ pending: [], decided: [] }); const [last, setLast] = useState(null);
   const [brain, setBrain] = useState(null); const [learned, setLearned] = useState(null); const [err, setErr] = useState(null);
-  const [openP, setOpenP] = useState(variant !== 'mini');   // the mini cat keeps the fixes folded under one bar so the conversation keeps its room
+  const [openP, setOpenP] = useState(variant !== 'mini'); const [showQ, setShowQ] = useState(null);   // ⚡ one-tap prompts: open on an empty chat, folded once you are talking   // the mini cat keeps the fixes folded under one bar so the conversation keeps its room
   const end = useRef(null);
   const take = useCallback(r => { if (!r) return; if (r.history) setHist(r.history); if (r.proposals) setProps(r.proposals); if (r.learned != null) setLearned(r.learned); if (r.brain) setBrain(r.brain); }, []);
   useEffect(() => { let on = true; if (isOwner && typeof call === 'function') Promise.resolve().then(() => call('/admin/ai/chat')).then(r => { if (on) { take(r); setErr(null); } }).catch(x => { if (on) setErr(x.message); }); return () => { on = false; }; }, [call, isOwner, take]);
@@ -75,7 +75,7 @@ export function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full'
       toast.success(approve ? `✅ applied — ${r.applied || 'done'}` : '✕ rejected — nothing changed'); } catch (x) { toast.error(x.message); } finally { setBusy(false); }
   };
   const mood = brainMood(busy, brain, last); const pend = (props.pending || []).length;
-  const body = <section className={`cch is-${pop ? 'pop' : variant} is-${mood.key}`} data-testid="cch" data-mode={mode}>
+  const body = <section className={`cch is-${pop ? 'pop' : variant} is-${mood.key} ${(showQ ?? !hist.length) ? 'is-q' : ''}`} data-testid="cch" data-mode={mode}>
     <header className="cch-head">
       <span className="cch-orb" aria-hidden="true"><i /><i /><b>🧠</b></span>
       <span className="cch-title"><b>BRAIN</b><small data-testid="cch-mood" data-mood={mood.key}><em>{mood.word}</em>{mood.line}</small></span>
@@ -86,7 +86,7 @@ export function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full'
     </header>
     <i className="cch-scan" aria-hidden="true" />
     <div className="cch-modes" role="radiogroup" aria-label="Chat mode">{CHAT_MODES.map(([k, l, tip]) => <button key={k} type="button" role="radio" aria-checked={mode === k} className={mode === k ? 'active' : ''}
-      onClick={() => setMode(k)} data-tip={tip} data-testid={`cch-mode-${k}`}>{l}</button>)}</div>
+      onClick={() => setMode(k)} data-tip={tip} data-testid={`cch-mode-${k}`}><i aria-hidden="true">{l.split(' ')[0]}</i><span>{l.split(' ').slice(1).join(' ')}</span></button>)}</div>
     <div className="cch-main">
       <div className="cch-talk">
         <ol className="cch-log" data-testid="cch-log" aria-live="polite">
@@ -101,6 +101,7 @@ export function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full'
         <form className="cch-form" onSubmit={send} autoComplete="off">
           <input className="m-input" value={txt} onChange={e => setTxt(e.target.value)} disabled={!isOwner || busy} spellCheck={false} aria-label="Message to the model" data-testid="cch-input"
             placeholder={mode === 'case' ? `${focusSym ? `$${focusSym}` : 'the coin on the chart'} — ask about it (optional)` : mode === 'improve' ? 'what should the agents do better?' : mode === 'build' ? 'what should we build next?' : 'talk to the brain…'} />
+          <button type="button" className="cch-ico cch-qt" onClick={() => setShowQ(!(showQ ?? !hist.length))} aria-pressed={!!(showQ ?? !hist.length)} data-tip="One-tap prompts" aria-label="One-tap prompts" data-testid="cch-qt">⚡</button>
           <button type="submit" className="m-btn m-go cch-go" disabled={!isOwner || busy || (!String(txt).trim() && mode !== 'case')} data-testid="cch-send">{busy ? '…' : 'SEND IT'}</button></form>
       </div>
       {pend || (props.decided || []).length ? <div className={`cch-props ${openP || pop ? '' : 'is-shut'}`} data-testid="cch-props">
