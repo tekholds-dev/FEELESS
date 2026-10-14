@@ -3912,7 +3912,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   bear / unknowns (≤ 3 each) · chart_phase (the ten phases only) · early_wallet_context · market_context · deep_review. What the desk WEIGHS
   is still `stance` (FAVOR / NEUTRAL / CAUTION from confidence_delta) — the model never orders, sizes or sells. `MAX_TOKENS` 460 (the 16-key
   answer was cut off at 260), OpenRouter 900, local timeout 60s. Measured: local 7B ~35s cold (2.4K-token prompt), OpenRouter ~4s, ~$0.0005
-  a case. `LOCAL_LANE_EVERY` 60s. To change the brain: edit `backend/ai_brain.md` and restart the reputation service.
+  a case. `LOCAL_LANE_EVERY` 180s (a background local read always uses the condensed brain, `LOCAL_BG_CTX` 2600 — the full prompt every 60s kept the shared GPU busy and the tab lagged). To change the brain: edit `backend/ai_brain.md` and restart the reputation service.
 - 💻 WHY LM STUDIO "DISCONNECTED" FOR THE AGENTS (2026-10-13, the hour the brain prompt went in): the model was LOADED with a 2,484-token
   context (`/api/v0/models` → `loaded_context_length`; max 32,768) and the brain prompt alone is ~2,300 tokens → every agent call got HTTP 400
   "tokens … greater than the context length" → state OFFLINE + cool-down, the local lane never ran. Now `Router.local_ctx` asks LM Studio

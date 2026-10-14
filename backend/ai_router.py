@@ -443,6 +443,7 @@ def clean_answer(text, n=1600):
 # working the same hour the prompt went in (2026-10-13). A local call that would not fit gets BRAIN_LITE (the same brain, condensed: same
 # philosophy, same schema, same words) and a trimmed case. Loaded with a bigger context? set LOCAL_LLM_CTX (e.g. 8192) → the full prompt.
 LOCAL_CTX = 4096
+LOCAL_BG_CTX = 2600   # the context a background local read is fitted to, whatever is loaded
 LOCAL_ANSWER = 380   # the local model's answer cap when its context is tight
 BRAIN_LITE = (
     "You are the external reasoning brain for FEELESS, a live Solana memecoin trench desk. You are NOT the execution engine and NOT the source of "
@@ -768,7 +769,10 @@ class Router:
                     # cases a round → the second was refused, the provider "cooled" and 5 of 6 asks came back NONE — the model was barely in the game)
                     msgs = case_msgs
                     if key == 'local' and not general:   # 💻 fit the context the model is LOADED with (asked from LM Studio itself): the full brain when it fits, else its condensed twin
-                        msgs = messages_local(case, role, await self.local_ctx(http, p, env))
+                        ctx_ = await self.local_ctx(http, p, env)
+                        if role != 'owner' and urgency != 'force':   # 🧈 a BACKGROUND local read always uses the condensed brain (~1K tokens, ~10s) — the
+                            ctx_ = min(ctx_, LOCAL_BG_CTX)            # full 2.4K-token prompt kept the GPU the browser draws with busy ~30s a read ("horrible lag")
+                        msgs = messages_local(case, role, ctx_)
                     need = est_tokens(msgs)
                     w = self.budget_wait(key, need, time.time())
                     if w and w <= BUDGET_WAIT_MAX:
