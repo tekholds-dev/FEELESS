@@ -470,3 +470,68 @@ def test_the_small_local_model_can_clear_a_coin_but_never_hold_a_seat_by_itself(
     assert air.gate_verdict({'sherlock': n('local', 0.0, ())}, 110.0)[0] == 'go'                    # its "nothing wrong" does save a cloud call
     assert air.gate_verdict({'sherlock': n('local', -0.25), 'devil': n('openrouter', -0.02)}, 110.0)[0] == 'go'    # the cloud's read decides
     assert air.gate_verdict({'sherlock': n('local', 0.0, ()), 'devil': n('openrouter', -0.2)}, 110.0)[0] == 'wait'
+
+
+# ── 🧭 GENERAL vs CASE mode ─────────────────────────────────────────────────────────────────────────────────────────────────
+PLAIN = 'The cloud model does the real reading; the local 7B is a backup. Load it with a bigger context for the full prompt.'
+
+
+def test_mode_is_case_only_for_a_real_coin_position_or_desk_packet():
+    assert air.mode_of(CASE) == 'case' and air.mode_of({'symbol': 'ZYN', 'result': -12.0, 'heldMin': 4}) == 'case'      # a coin · a closed position
+    assert air.mode_of({'symbol': 'DESK', 'state': 'coach', 'losses': ['x']}) == 'case'                                    # the desk's own structured packet
+    assert air.mode_of({'question': 'which models are vital to being better?'}) == 'general'
+    assert air.mode_of({'symbol': 'ZYN'}) == 'general' and air.mode_of({}) == 'general' and air.mode_of('hello') == 'general'   # a ticker alone is not a case
+    assert air.mode_of({'question': 'x'}, 'case') == 'case' and air.mode_of(CASE, 'general') == 'general'                  # an explicit mode always wins
+    assert air.mode_of(CASE, 'banana') == 'case'                                                                           # an unknown word is not a mode
+
+
+def test_a_general_question_gets_normal_language_and_never_the_trench_schema():
+    r, h = air.Router(), Http({'127.0.0.1': [chat(PLAIN)]})
+    res = run(r.ask(h, env(), {}, 'which models are vital to being better?', context={'providers': 'OPENROUTER: ONLINE'}, role='owner'))
+    assert res['mode'] == 'general' and res['text'] == PLAIN and res['advice'] is None and res['source'] == 'local'
+    sys_, user_ = h.calls[0][1]['messages'][0]['content'], h.calls[0][1]['messages'][1]['content']
+    assert sys_ == air.GENERAL_SYSTEM and 'normal language' in sys_ and 'Do NOT answer in JSON' in sys_
+    assert 'SUPPORT_ENTRY' not in sys_ and 'risk_flags' not in sys_.replace('stance / priority / risk_flags', '') and 'ROLE:' not in user_ and 'CASE:' not in user_
+    assert user_.startswith('which models are vital') and 'CONTEXT' in user_ and 'OPENROUTER: ONLINE' in user_
+    assert not r.cache                                                                              # a chat answer is never cached as a coin read
+    # the same question sent through reason() with NO mode: still general — it is not a case packet
+    r2, h2 = air.Router(), Http({'127.0.0.1': [chat(PLAIN)]})
+    got = run(r2.reason(h2, env(), {}, {'question': 'how should the agents coordinate tonight?'}, 'manager'))
+    assert got['mode'] == 'general' and got['text'] == PLAIN and h2.calls[0][1]['messages'][0]['content'] == air.GENERAL_SYSTEM
+    # a model that answers a general question in the JSON schema anyway is shown as it answered — nothing is forced, nothing is parsed
+    r3 = air.Router()
+    odd = run(r3.ask(Http({'127.0.0.1': [chat('```json\n{"stance":"DEEP_REVIEW","summary":"x"}\n```')]}), env(), {}, 'hello?', role='owner'))
+    assert odd['mode'] == 'general' and odd['advice'] is None and odd['text'].startswith('{"stance"') and '```' not in odd['text']
+    assert run(air.Router().ask(Http({}), env(), {}, 'buy now?', role='trigger'))['why'].startswith('trigger never asks')   # deterministic desks still never ask
+    assert run(air.Router().ask(Http({}), env(), {}, '   ', role='owner'))['why'] == 'empty question'
+
+
+def test_a_case_packet_gets_the_brain_prompt_and_a_validated_json_answer():
+    r, h = air.Router(), Http({'127.0.0.1': [chat('```json\n' + GOOD + '\n```')]})
+    res = run(r.reason(h, env(), {}, CASE, 'sherlock', mode='case'))
+    assert res['mode'] == 'case' and 'text' not in res
+    assert res['advice'] == {'summary': 'Buyer velocity strong; wait for reclaim.', 'confidence_delta': -0.08, 'wake': ['sherlock', 'trigger'], 'stance': 'CAUTION',
+                             'risk_flags': ['no site / X'], 'narrative': 'AI agent meta, early', 'creator_context': 'fresh dev, 2 launches'}   # validated, clamped, whitelisted
+    sys_, user_ = h.calls[0][1]['messages'][0]['content'], h.calls[0][1]['messages'][1]['content']
+    assert sys_.startswith('You are the external reasoning brain for FEELESS') and user_.startswith('ROLE: SHERLOCK') and 'CASE: {' in user_
+    bad = run(air.Router().reason(Http({'127.0.0.1': [chat(PLAIN)], 'groq': [chat(PLAIN)], 'openai': [chat(PLAIN)]}), env(), {}, CASE, 'sherlock', mode='case'))
+    assert bad['source'] == 'NONE' and bad['advice'] is None                                         # plain prose is NOT accepted as a case answer
+    forced = run(air.Router().reason(Http({'127.0.0.1': [chat(GOOD)]}), env(), {}, {'question': 'judge this'}, 'manager', mode='case'))
+    assert forced['mode'] == 'case' and forced['advice']['stance'] == 'CAUTION'                      # an explicit mode=case is honoured
+
+
+def test_a_provider_health_check_is_a_general_ping_not_a_coin_case():
+    h = Http({'127.0.0.1': [chat('ONLINE')]})
+    ok = run(air.Router().test(h, env(), {}, 'local'))
+    assert ok['ok'] and ok['state'] == 'ONLINE' and ok['said'] == 'ONLINE'
+    sent = h.calls[0][1]['messages']
+    assert sent[0]['content'] == air.GENERAL_SYSTEM and 'JSON object only' not in json.dumps(sent) and 'single word ONLINE' in sent[1]['content']
+    assert run(air.Router().test(Http({'127.0.0.1': [chat('')]}), env(), {}, 'local'))['state'] == 'BAD ANSWER'
+
+
+def test_every_trading_call_in_the_service_says_mode_case_explicitly_and_the_ask_route_has_a_general_path():
+    src = open(rs.__file__).read()
+    calls = [src[i:i + 420] for i in range(len(src)) if src.startswith('_air.ROUTER.reason(', i)]
+    assert len(calls) >= 6 and all("mode='case'" in c.split('\n')[0] + c.split('\n')[1] if '\n' in c else "mode='case'" in c for c in calls)
+    i = src.index('async def admin_ai_ask(')
+    assert '_air.ROUTER.ask(' in src[i:i + 2600] and "'mode': 'general'" in src[i:i + 2600]

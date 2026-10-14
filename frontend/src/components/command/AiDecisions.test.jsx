@@ -100,3 +100,12 @@ test('🧪 the rule lab shows each rule with its unseen record and what each des
   ['RULE LAB', '41 real trades', '1 live', 'top tick', 'unseen 7: -11.2% vs -2.4%', 'TESTING', '2 recent real losses fit it'].forEach(x => expect(t).toContain(x));
   expect(q(el, 'cai-lessons').textContent).toContain('trigger');
 });
+
+test('🧭 a general question comes back in normal language — no stance chip, no trench schema', async () => {
+  const call = jest.fn(async () => ({ ok: true, mode: 'general', answer: { label: 'OPENROUTER', text: 'The cloud model does the reading; the local 7B is the backup.' }, ai: AI }));
+  const el = await mount(<AiPane ai={AI} call={call} focus="A" focusSym="AAA" onPick={() => {}} onProviders={() => {}} />);
+  await act(async () => { q(el, 'cai-ask-go').click(); });
+  expect(q(el, 'cai-general').textContent).toBe('The cloud model does the reading; the local 7B is the backup.');
+  expect(q(el, 'cai-answer').querySelector('.cai-stance')).toBeNull();
+  expect(q(el, 'cai-ask-input').placeholder).toMatch(/or any question/);
+});

@@ -3922,3 +3922,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   context 8192 — the router picks it up by itself. The 7B model answered "EXIT, −0.25" on a plain case: it CAN clear a coin (saves a cloud
   call) but can never hold a seat by itself — `gate_verdict` asks the cloud for the second read when only the local model objects.
   A chat typed INTO LM Studio uses its preset (the JSON schema for every question); the agents' calls never see that preset.
+- 🧭 AI ROUTER = TWO MODES (owner, 2026-10-13; `ai_router.MODES`, `mode_of`, `is_case_packet`, `Router.ask`, `messages_general`, `GENERAL_SYSTEM`,
+  `clean_answer`): CASE = a real coin / position / desk packet (a mint · a symbol with trading fields · the coach / lab packets) → the brain
+  prompt + `parse_advice` (validated JSON); every trading call in the service passes `mode='case'` EXPLICITLY (a test reads the source).
+  GENERAL = everything else — the provider health check (`Router.test`: "reply with the single word ONLINE", any non-empty text = ONLINE),
+  a model / owner question, agents coordinating — a plain-language system prompt, the answer returned as `text` (never parsed, cached or
+  noted on a coin). `reason()` with no mode = GENERAL unless the packet is unmistakably a case. `POST /admin/ai/ask`: a CA / link → CASE as
+  before; anything else → GENERAL with a few desk facts as context (`_ai_general_context`: card, capital line, trail, Reaper's settings,
+  providers) → `{mode: 'general', answer: {text}}`; the ASK box shows it as prose (`cai-general`). New model call ⇒ say its mode.

@@ -13134,7 +13134,7 @@ async def _ai_round(now):
     if not jobs:
         return 0
     t0 = time.perf_counter()
-    res = await asyncio.gather(*[_air.ROUTER.reason(_ai_http(), env, cfg, {**_ai_case(c_), **({'atFill': True} if c_.get('atFill') else {})}, role_, urg_, prio=pr_)
+    res = await asyncio.gather(*[_air.ROUTER.reason(_ai_http(), env, cfg, {**_ai_case(c_), **({'atFill': True} if c_.get('atFill') else {})}, role_, urg_, prio=pr_, mode='case')
                                  for role_, c_, urg_, pr_ in jobs], return_exceptions=True)
     n = 0
     for (role_, c_, _u, _p), r_ in zip(jobs, res):
@@ -13190,7 +13190,7 @@ async def _local_lane_run(now):
         return
     _local_lane.update(at=now, busy=True)
     try:
-        r_ = await _air.ROUTER.reason(_ai_http(), env, cfg, _ai_case(c_), 'sherlock', 'high', prio=_air.PRIO['ready'], only=('local',))
+        r_ = await _air.ROUTER.reason(_ai_http(), env, cfg, _ai_case(c_), 'sherlock', 'high', prio=_air.PRIO['ready'], only=('local',), mode='case')
         if _ai_keep('sherlock', c_, r_, time.time()) and (r_ or {}).get('advice'):
             _local_lane.update(n=_local_lane['n'] + 1, last={'at': round(time.time(), 1), 'symbol': c_.get('symbol'), 'ms': r_.get('ms'), 'stance': (r_.get('advice') or {}).get('stance')})
     except Exception as e:
@@ -13226,7 +13226,7 @@ async def _ai_gate(plan, need, cfg_t, now):
     if ask and _air.cloud_ready(_air.ROUTER, env, cfg, now):
         cs_ = [{**t_, 'cap': (t_.get('vitals') or {}).get('mcap'), 'liq': (t_.get('nums') or {}).get('liq'), 'vol5m': (t_.get('nums') or {}).get('v5'), 'move5m': (t_.get('nums') or {}).get('d5'),
                 'buyShare': (t_.get('nums') or {}).get('buy'), 'ageMin': None if (t_.get('vitals') or {}).get('ageH') is None else round(_fuse._f(t_['vitals']['ageH']) * 60, 1), 'state': 'about to take a real seat'} for t_ in ask]
-        tasks = [asyncio.ensure_future(_air.ROUTER.reason(_ai_http(), env, cfg, _ai_case(c_), 'devil', 'high', prio=_air.PRIO['ready'])) for c_ in cs_]
+        tasks = [asyncio.ensure_future(_air.ROUTER.reason(_ai_http(), env, cfg, _ai_case(c_), 'devil', 'high', prio=_air.PRIO['ready'], mode='case')) for c_ in cs_]
         for tk_, c_ in zip(tasks, cs_):   # an answer that lands after the wait is still kept (the next tick reads it)
             tk_.add_done_callback(lambda f_, c_=c_: (not f_.cancelled()) and f_.exception() is None and _ai_keep('devil', c_, f_.result(), time.time()))
         await asyncio.wait(tasks, timeout=AI_GATE_SEC)
@@ -13283,6 +13283,18 @@ async def admin_ai_providers_set(request: Request):
     return _ai_view()
 
 
+def _ai_general_context():
+    """A few desk facts a GENERAL owner question may lean on (numbers the desk already holds — no fetch, no secrets, no addresses)."""
+    try:
+        money, cap_, tr_ = _agents.get('money') or {}, _capital_view(), _office.get('trail') or {}
+        prov = [f"{r_.get('label')}: {r_.get('state')}" + (f" ({r_.get('model')})" if r_.get('model') else '') for r_ in (_air.ROUTER.view(os.environ, _ai_cfg()).get('providers') or []) if r_.get('state') not in ('KEY MISSING', 'NOT CONFIGURED')]
+        return {'card': f"real card worth ${_fuse._f(money.get('value')):.2f}, ${_fuse._f(money.get('putIn')):.2f} put in" if money.get('value') is not None else None,
+                'capital': _cap.lesson(cap_), 'trail': tr_.get('words'), 'reaperSettings': ' · '.join(f"{k_} {v_:g}" for k_, v_ in _of.tunes(_office_state(), 'reaper').items()),
+                'providers': ' · '.join(prov)[:300] or None, 'localModelContext': (_air.ROUTER._ctx or (0, None))[1]}
+    except Exception:
+        return {}
+
+
 @app.post('/api/reputation/admin/ai/ask')
 async def admin_ai_ask(request: Request):
     """🧠 Owner only: ASK THE MODEL about one coin now (`{input: CA | link | mint, role: sherlock | devil | owner}`). The case is the
@@ -13291,8 +13303,12 @@ async def admin_ai_ask(request: Request):
     _require_owner(request)
     body = await request.json()
     ref = _owr.parse(str((body or {}).get('input') or ''))
-    if not ref:
-        raise HTTPException(400, 'Paste a Solana mint (CA) or a pump.fun / dexscreener / birdeye link.')
+    if not ref:   # 🧭 not a coin: a GENERAL question — a normal answer in normal language, with a few desk facts as context (never the trench schema)
+        q_ = str((body or {}).get('question') or (body or {}).get('input') or '').strip()
+        if len(q_) < 3:
+            raise HTTPException(400, 'Paste a coin (CA / pump.fun · dexscreener link) or type a question.')
+        res = await _air.ROUTER.ask(_ai_http(), os.environ, _ai_cfg(), q_[:2000], context=_ai_general_context(), role='owner')
+        return {'ok': bool(res.get('text')), 'mode': 'general', 'answer': {k_: res.get(k_) for k_ in ('source', 'label', 'text', 'ms', 'why')}, 'ai': _ai_view(light=True)}
     role = str((body or {}).get('role') or 'owner').lower()
     if role not in ('sherlock', 'devil', 'owner'):
         raise HTTPException(400, 'Pick sherlock, devil or owner.')
@@ -13311,7 +13327,7 @@ async def admin_ai_ask(request: Request):
     if not c:
         raise HTTPException(400, 'That coin is not on the desk yet — 🔎 Review it first, the agents read it on their next pass and the model can then be asked.')
     case = _ai_case(c)
-    res = await _air.ROUTER.reason(_ai_http(), os.environ, _ai_cfg(), case, role, 'force')
+    res = await _air.ROUTER.reason(_ai_http(), os.environ, _ai_cfg(), case, role, 'force', mode='case')
     if res.get('advice'):
         _ai['notes'].setdefault(c['mint'], {})[role] = {k_: res.get(k_) for k_ in ('source', 'label', 'advice', 'ms', 'at', 'tried', 'why', 'cached')} | {'symbol': c.get('symbol')}
     _ai_log(role, case, res, asked=True)
@@ -14467,7 +14483,7 @@ async def _lab_tick(now, env, cfg):
             reviews = ((_office_state().get('judge') or {}).get('reviews')) or []
             case = _rlab.case(trades, _lab_state(), reviews)
             case['lessons'] = [f"owner {t['kind']}: {t['text']}" for t in (_teach_state().get('items') or [])[:6]] or None   # 🎓 the lab reads the owner's teachings too
-            res = await _air.ROUTER.reason(_ai_http(), env, cfg, case, 'lab', 'normal', prio=_air.PRIO['lab'])
+            res = await _air.ROUTER.reason(_ai_http(), env, cfg, case, 'lab', 'normal', prio=_air.PRIO['lab'], mode='case')
             ad = (res or {}).get('advice') or {}
             props = _rlab.clean(ad.get('rules'), _rlab.vocab(trades))
             _lab['said'] = {'at': now, 'summary': ad.get('summary'), 'proposed': len(props), 'source': (res or {}).get('label') or (res or {}).get('source')}
@@ -14516,7 +14532,7 @@ async def _coach_ai(now, env, cfg):
         case['capital'] = _cap.lesson(capv_)   # 💰 the desk's money record: win rate, payoff, Kelly, by door, the brake, where the losses come from
         case['trail'] = (str(tr_.get('words') or '') + (' · top: ' + ' | '.join(f"arm +{r_['arm']:g}% give {r_['give']:g}% → {r_['avg']:+.1f}% ({r_['won']}% won)" for r_ in (tr_.get('rows') or [])[:3]) if tr_.get('rows') else ''))[:360] or None
         case['tunes'] = ' · '.join(f"{k_} {v_:g}" for k_, v_ in _of.tunes(_office_state(), 'reaper').items())[:160]
-        res = await _air.ROUTER.reason(_ai_http(), env, cfg, case, 'coach', 'normal', prio=_air.PRIO['coach'])
+        res = await _air.ROUTER.reason(_ai_http(), env, cfg, case, 'coach', 'normal', prio=_air.PRIO['coach'], mode='case')
         ad = (res or {}).get('advice') or {}
         n = 0
         for key_, why_ in _co.from_ai(ad):

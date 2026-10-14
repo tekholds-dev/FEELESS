@@ -111,13 +111,13 @@ export function AiPane({ ai: aiProp, lab, call, isOwner = true, focus, focusSym,
         <u>{r.factor !== 1 ? `rank ×${r.factor}` : r.proven ? 'no edge' : 'learning'}</u></li>)}</ul> : null}</div> : null}
     <form className="cai-ask" onSubmit={ask} autoComplete="off" data-testid="cai-ask">
       <label className="cai-lab" htmlFor="cai-ask-in">🧠 ASK THE MODEL{focusSym && !typed ? <small> · ${focusSym} (the coin on the chart)</small> : null}</label>
-      <div className="cai-askrow"><input id="cai-ask-in" className="m-input" value={txt} onChange={e => { setTxt(e.target.value); setTyped(true); }} placeholder="coin on the desk — CA / mint or a pump.fun · dexscreener link" aria-label="Coin to ask the model about"
+      <div className="cai-askrow"><input id="cai-ask-in" className="m-input" value={txt} onChange={e => { setTxt(e.target.value); setTyped(true); }} placeholder="a coin (CA / pump.fun · dexscreener link) — or any question" aria-label="Coin or question for the model"
         disabled={!isOwner || busy} spellCheck={false} data-testid="cai-ask-input" />
         {typed && focus ? <button type="button" className="m-btn" onClick={() => { setTyped(false); setTxt(focus); }} data-tip="Back to the coin on the chart" data-testid="cai-ask-reset">↺</button> : null}
         <button type="submit" className="m-btn m-go" disabled={!isOwner || busy || !String(txt || '').trim()} data-testid="cai-ask-go">{busy ? 'Thinking…' : 'Ask'}</button></div>
       <div className="m-seg cai-roles" role="group" aria-label="Who asks">{ASK_ROLES.map(([k, l, tip]) => <button key={k} type="button" className={role === k ? 'active' : ''} onClick={() => setRole(k)} data-tip={tip} data-testid={`cai-role-${k}`}>{l}</button>)}</div>
-      {busy ? <p className="cai-think" role="status"><i /><i /><i />the model is reading the kernel's case…</p> : null}
-      {ans && !busy ? <p className={`cai-ans ${ans.ok ? '' : 'is-warn'}`} data-testid="cai-answer">{ans.ok ? <><em className={`cai-stance ${STANCE_TONE[ans.answer?.advice?.stance] || 'is-hold'}`}>{ans.answer?.advice?.stance}</em>{ans.symbol ? <b>${ans.symbol}</b> : null} {ans.answer?.advice?.summary}</> : (ans.answer?.why || 'no provider answered — deterministic only')}</p> : null}
+      {busy ? <p className="cai-think" role="status"><i /><i /><i />the model is reading…</p> : null}
+      {ans && !busy ? <p className={`cai-ans ${ans.ok ? '' : 'is-warn'}`} data-testid="cai-answer">{ans.ok && ans.mode === 'general' ? <span className="cai-general" data-testid="cai-general">{ans.answer?.text}</span> : ans.ok ? <><em className={`cai-stance ${STANCE_TONE[ans.answer?.advice?.stance] || 'is-hold'}`}>{ans.answer?.advice?.stance}</em>{ans.symbol ? <b>${ans.symbol}</b> : null} {ans.answer?.advice?.summary}</> : (ans.answer?.why || 'no provider answered — deterministic only')}</p> : null}
       <small className="cai-never">advisory only — the model never buys, sizes, blocks or sells; the kernel never waits on it</small></form>
     <div className="cai-loghead"><b>DECISIONS</b><span className="m-seg" role="group" aria-label="Which decisions">
       <button type="button" className={scope === 'all' ? 'active' : ''} onClick={() => setScope('all')} data-testid="cai-scope-all">All {(ai?.log || []).length}</button>
