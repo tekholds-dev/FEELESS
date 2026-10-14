@@ -83,6 +83,13 @@ export function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full'
   const attach = async f => { if (!f) return; setUpl(true); try { const u = await uploadImage(f); const url = typeof u === 'string' ? u : u?.url; if (url) setImg(url); } catch (x) { toast.error(x.message); } finally { setUpl(false); } };
   const openConvo = async id => { if (!id) return; try { const r = await call('/admin/ai/chat/open', { method: 'POST', body: JSON.stringify({ id }) }); take(r); if (r.mode) setMode(r.mode); } catch (x) { toast.error(x.message); } };
   const saveSet = async patch => { setSets(v => ({ ...(v || {}), ...patch })); try { take(await call('/admin/ai/chat/settings', { method: 'POST', body: JSON.stringify(patch) })); } catch (x) { toast.error(x.message); } };
+  // 🎨 the Brain DRAWS: the text in the box is the prompt → OpenRouter's image model → the picture lands in this thread (saved in our uploads)
+  const draw = async () => {
+    const v = String(txt || '').trim(); if (busy || v.length < 3) { if (v.length < 3) toast.error('Describe the picture in the box first'); return; }
+    setBusy(true); addMsg(mode, { role: 'user', text: `🎨 ${v}` }); setTxt('');
+    try { const r = await call('/admin/ai/image', { method: 'POST', body: JSON.stringify({ prompt: v, mode }) }); take(r); toast.success(`🎨 drawn${r.usd ? ` · $${Number(r.usd).toFixed(3)}` : ''}`); }
+    catch (x) { toast.error(x.message); addMsg(mode, { role: 'assistant', text: `⚠ ${x.message}` }); } finally { setBusy(false); }
+  };
   const queueBuild = async text => { try { const r = await call('/admin/ai/build', { method: 'POST', body: JSON.stringify({ text: String(text).slice(0, 600), title: String(text).replace(/\s+/g, ' ').slice(0, 60), src: `chat · ${mode}` }) }); setBuild(r.build); toast.success('📋 queued — say "build the queue" to Claude Code and it gets built'); } catch (x) { toast.error(x.message); } };
   const moveBuild = async (id, status) => { try { const r = await call('/admin/ai/build', { method: 'POST', body: JSON.stringify({ id, status }) }); setBuild(r.build); } catch (x) { toast.error(x.message); } };
   const decide = async (id, approve) => {
@@ -133,6 +140,7 @@ export function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full'
         <form className="cch-form" onSubmit={send} autoComplete="off">
           <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={e => { attach(e.target.files?.[0]); e.target.value = ''; }} data-testid="cch-file" />
           <button type="button" className="cch-ico cch-clip" onClick={() => fileRef.current?.click()} disabled={!isOwner || busy || upl || mode === 'case'} data-tip="Attach a picture (a chart, a screen): a cloud model that can see images reads it" aria-label="Attach a picture" data-testid="cch-attach">{upl ? '…' : '📎'}</button>
+          <button type="button" className="cch-ico cch-clip" onClick={draw} disabled={!isOwner || busy || mode === 'case'} data-tip="Draw it: the text in the box becomes a picture (OpenRouter image model, a few cents)" aria-label="Generate a picture" data-testid="cch-draw">🎨</button>
           <input className="m-input" value={txt} onChange={e => setTxt(e.target.value)} disabled={!isOwner || busy} spellCheck={false} aria-label="Message to the model" data-testid="cch-input"
             placeholder={mode === 'case' ? `${focusSym ? `$${focusSym}` : 'the coin on the chart'} — ask about it (optional)` : mode === 'improve' ? 'what should the agents do better?' : mode === 'build' ? 'what should we build next?' : 'talk to the brain…'} />
           <button type="button" className="cch-ico cch-qt" onClick={() => setShowQ(!(showQ ?? !hist.length))} aria-pressed={!!(showQ ?? !hist.length)} data-tip="One-tap prompts" aria-label="One-tap prompts" data-testid="cch-qt">⚡</button>

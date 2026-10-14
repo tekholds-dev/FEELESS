@@ -580,3 +580,27 @@ def test_an_attached_picture_rides_the_last_user_message_and_never_inflates_the_
     assert last[0] == {'type': 'text', 'text': msgs[-1]['content']} and last[1]['type'] == 'image_url' and out[1]['content'] == 'hi'
     assert r.est_tokens(out) < r.est_tokens(msgs) + 1200   # ~1K for the picture, never 100K for its base64
     assert r.with_images(msgs, []) == msgs
+
+
+def test_gen_image_returns_the_picture_or_the_providers_own_reason():
+    import asyncio
+    import ai_router as r
+
+    class Resp:
+        def __init__(self, code, j): self.status_code = code; self._j = j
+        def json(self): return self._j
+
+    class Http:
+        def __init__(self, resp): self.resp = resp; self.body = None
+        async def post(self, url, headers=None, json=None):
+            self.body = json; return self.resp
+
+    env = {'OPENROUTER_API_KEY': 'sk-test', 'OPENROUTER_MODEL': 'x/y'}
+    ok = Http(Resp(200, {'choices': [{'message': {'content': 'done', 'images': [{'type': 'image_url', 'image_url': {'url': 'data:image/png;base64,AAAA'}}]}}], 'usage': {'cost': 0.04}}))
+    x = asyncio.run(r.Router().gen_image(ok, env, {}, 'a neon atom'))
+    assert x['ok'] and x['url'].startswith('data:image/png') and x['usd'] == 0.04 and ok.body['modalities'] == ['image', 'text'] and ok.body['model'] == r.IMAGE_MODEL
+    broke = Http(Resp(402, {'error': {'message': 'This request requires at least $1.00 in balance for image or video output'}}))
+    y = asyncio.run(r.Router().gen_image(broke, env, {}, 'a neon atom'))
+    assert not y['ok'] and y['status'] == 402 and '$1.00' in y['why']
+    none = Http(Resp(200, {'choices': [{'message': {'content': 'I cannot draw'}}]}))
+    assert asyncio.run(r.Router().gen_image(none, env, {}, 'x'))['why'] == 'the model answered without a picture'

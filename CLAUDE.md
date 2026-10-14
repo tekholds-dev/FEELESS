@@ -4002,3 +4002,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`POST /admin/ai/chat/settings`, `ai_chat.clean_settings`): 🌡 temperature 0.1 / 0.3 / 0.6 / 0.9 + 📏 answer 250 / 600 / 1200 tokens → the OWNER's chat
   calls only (`ai_router.TUNE` contextvar; background agent reads keep 0.1) · 🤝 SMALL THINGS (off by default): the model's `lesson` + `idea` proposals
   apply at once, marked "🤝 auto"; switches, rank weights and exit notches still wait for ✅. No sideways scroll: every `.cch` child may shrink.
+- 🎨 THE BRAIN DRAWS (`ai_router.Router.gen_image`, `IMAGE_MODEL` google/gemini-3.1-flash-image, `OPENROUTER_IMAGE_MODEL` overrides; owner
+  `POST /admin/ai/image {prompt, mode}`; 🎨 button beside 📎): OpenRouter chat completions with `modalities: ['image', 'text']` → the data URL is saved
+  in our upload store and lands in the thread (meta.img), counted in OpenRouter's daily spend cap, audited. 2026-10-13 the owner's OpenRouter account
+  answered 402 "requires at least $1.00 in balance for image or video output" — the provider's own reason is shown as is. GIFs: no image model
+  outputs animation; NOT built.

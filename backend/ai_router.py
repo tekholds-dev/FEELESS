@@ -59,6 +59,7 @@ LOCAL_BG_EVERY = 45.0      # 💻 the local model's background lane: at most one
 LOCAL_BG_PRIO = 2          # … only owner review / a split desk / a READY coin / the coach, and only when NO cloud provider could answer
 BUDGET_WAIT_MAX = 20.0    # a call waits at most this long for the provider's minute budget / a short Retry-After
 import contextvars as _cv
+IMAGE_MODEL = 'google/gemini-3.1-flash-image'   # 🎨 OpenRouter image-output model (OPENROUTER_IMAGE_MODEL overrides)
 TUNE = _cv.ContextVar('ai_tune', default=None)   # 🎛 the owner's chat tuning {temp, maxTok} for THIS call only (never the agents' background reads)
 MAX_TOKENS = 460          # the brain prompt's schema (16 keys) needs room — at 260 the JSON was cut off and read "malformed"
 LABEL = {'local': 'LOCAL AI', 'groq': 'GROQ', 'openrouter': 'OPENROUTER', 'openai': 'OPENAI', 'xai': 'XAI', 'custom': 'CUSTOM AI', 'NONE': 'NONE'}
@@ -678,6 +679,39 @@ class Router:
         if b['limit'] and need > b['limit']:
             return None
         return max(0.0, b['resetAt'] - now)
+
+    async def gen_image(self, http, env, cfg, prompt, model=None):
+        """🎨 ONE generated picture from OpenRouter (an image-output model, `OPENROUTER_IMAGE_MODEL`, default IMAGE_MODEL) → {ok, url (data URL),
+        model, ms, usd} or {ok: False, why}. The owner's chat only; counted in the provider's daily spend cap. The key never leaves here."""
+        p = provider(env, 'openrouter', cfg)
+        if p['why'] or not p['enabled']:
+            return {'ok': False, 'why': f"OpenRouter is not set up ({p['why'] or 'off'})"}
+        if self.over_spend('openrouter', env, time.time()):
+            return {'ok': False, 'why': 'OpenRouter reached today\'s spend cap'}
+        kvar = PROVIDERS['openrouter'][1]
+        hdr = {'Content-Type': 'application/json', **({'Authorization': f"Bearer {env.get(kvar)}"} if kvar and env.get(kvar) else {})}
+        m = model or (env or {}).get('OPENROUTER_IMAGE_MODEL') or IMAGE_MODEL
+        body = {'model': m, 'modalities': ['image', 'text'], 'messages': [{'role': 'user', 'content': str(prompt)[:1200]}], 'usage': {'include': True}}
+        t0 = time.perf_counter()
+        try:
+            r = await asyncio.wait_for(http.post(str(p['base']).rstrip('/') + '/chat/completions', headers=hdr, json=body), timeout=90)
+            j = r.json() if r.status_code == 200 else None
+        except Exception as e:
+            return {'ok': False, 'why': type(e).__name__}
+        if not j:
+            try:
+                why = str(((r.json() or {}).get('error') or {}).get('message') or '')[:160]
+            except Exception:
+                why = ''
+            return {'ok': False, 'why': why or f"HTTP {r.status_code}", 'status': r.status_code}
+        msg = ((j.get('choices') or [{}])[0].get('message') or {})
+        url = next((((x.get('image_url') or {}).get('url')) for x in msg.get('images') or [] if isinstance(x, dict)), None)
+        usd = _f((j.get('usage') or {}).get('cost'))
+        if usd:
+            self._spend_note('openrouter', usd, time.time())
+        if not url or not str(url).startswith('data:image/'):
+            return {'ok': False, 'why': 'the model answered without a picture', 'text': clean_answer(msg.get('content') or '', 200)}
+        return {'ok': True, 'url': url, 'model': m, 'ms': round((time.perf_counter() - t0) * 1000), 'usd': usd, 'text': clean_answer(msg.get('content') or '', 200)}
 
     async def _call(self, http, p, env, msgs, now):
         """ONE chat completion → (text, None) or (None, (kind, err, cool)). The key is read here and never leaves this function."""

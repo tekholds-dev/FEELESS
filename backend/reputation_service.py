@@ -13539,6 +13539,39 @@ async def admin_ai_chat_clear(request: Request):
     return {'ok': True, 'mode': m_, 'history': _chat['th'][m_], **_chat_extra(), 'proposals': _aic.view(_chat_props()), 'learned': _chat_learned()}
 
 
+@app.post('/api/reputation/admin/ai/image')
+async def admin_ai_image(request: Request):
+    """🎨 Owner only: the Brain GENERATES a picture from {prompt} (OpenRouter image model, inside its daily spend cap). The picture is saved in
+    our upload store and lands in the {mode} thread as the Brain's answer. Never posted anywhere by itself."""
+    _require_owner(request); _brain_load()
+    body = await request.json() or {}
+    prompt = _aic.clean(body.get('prompt'), 1200); m_ = str(body.get('mode') or 'chat')
+    if len(prompt) < 3 or m_ not in _aic.MODES:
+        raise HTTPException(400, 'Describe the picture.')
+    if _chat['busy']:
+        raise HTTPException(429, 'The model is still answering.')
+    _chat['busy'] = True
+    try:
+        res = await _air.ROUTER.gen_image(_ai_http(), os.environ, _ai_cfg(), prompt)
+    finally:
+        _chat['busy'] = False
+    if not res.get('ok'):
+        raise HTTPException(402 if res.get('status') == 402 else 502, f"🎨 {res.get('why')}")
+    m2 = _re.match(r'^data:image/(png|jpeg|webp);base64,(.+)$', res['url'], _re.S)
+    if not m2:
+        raise HTTPException(502, 'The picture came back in a format we do not keep.')
+    raw = base64.b64decode(m2.group(2))
+    if len(raw) > 8_000_000:
+        raise HTTPException(502, 'The picture is too big to keep.')
+    name = f"{uuid.uuid4().hex}.{'jpg' if m2.group(1) == 'jpeg' else m2.group(1)}"
+    (UPLOAD_DIR / name).write_bytes(raw)
+    url = f'/api/reputation/uploads/{name}'
+    _chat['th'] = _aic.push_thread(_aic.push_thread(_chat['th'], m_, 'user', f"🎨 {prompt}"), m_, 'assistant', res.get('text') or '🎨 here it is', {'img': url, 'provider': 'OPENROUTER', 'ms': res.get('ms')})
+    _chat_persist()
+    ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-image', f"{res.get('model')} · ${res.get('usd') or 0:.3f} · {prompt[:80]}"); _admin_save(ad_)
+    return {'ok': True, 'url': url, 'mode': m_, 'model': res.get('model'), 'usd': res.get('usd'), 'ms': res.get('ms'), 'history': _chat['th'][m_], **_chat_extra()}
+
+
 @app.post('/api/reputation/admin/ai/chat/open')
 async def admin_ai_chat_open(request: Request):
     """🗂 Owner only: reopen a saved conversation into its mode's thread (the thread there now is saved first)."""

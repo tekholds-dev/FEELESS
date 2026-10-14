@@ -151,3 +151,17 @@ test('⚙ settings save listed values; 🗂 a saved conversation reopens into it
   expect(sent[1]).toEqual(['/admin/ai/chat/open', { id: 'c1' }]); expect(q(el, 'cch-log').textContent).toContain('the old build talk');
   expect(q(el, 'cch-mode-build').getAttribute('aria-checked')).toBe('true');
 });
+
+test('🎨 draw: the text in the box becomes a picture in this thread; the provider refusal is shown as it is', async () => {
+  const sent = []; let fail = false;
+  const call = jest.fn(async (path, opt) => {
+    if (opt) sent.push([path, JSON.parse(opt.body)]);
+    if (path === '/admin/ai/image') { if (fail) throw new Error('🎨 This request requires at least $1.00 in balance'); return { mode: 'chat', usd: 0.04, threads: { chat: [{ role: 'user', text: '🎨 neon atom' }, { role: 'assistant', text: 'here it is', meta: { img: '/api/reputation/uploads/a.png' } }] } }; }
+    return { threads: { chat: [] }, proposals: { pending: [], decided: [] } };
+  });
+  const el = await mount(<AiChat call={call} />);
+  await type(el, 'neon atom'); await act(async () => { q(el, 'cch-draw').click(); });
+  expect(sent[0]).toEqual(['/admin/ai/image', { prompt: 'neon atom', mode: 'chat' }]); expect(el.querySelector('.cch-img').getAttribute('src')).toBe('/api/reputation/uploads/a.png');
+  fail = true; await type(el, 'another'); await act(async () => { q(el, 'cch-draw').click(); });
+  expect(q(el, 'cch-log').textContent).toContain('$1.00');
+});
