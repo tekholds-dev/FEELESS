@@ -3984,7 +3984,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   icons only. 💓 LM Studio: heartbeat every 20s while not ONLINE + one forced re-check before every chat answer.
 - 📋 BUILD QUEUE — READ `backend/data/build_queue.json` AT THE START OF A SESSION (owner, 2026-10-13: "do me approving actually build?"): an approved 🧱
   build idea (`_ai_proposal_apply` kind idea) or any model line the owner taps 🧱 Build this on (`POST /admin/ai/build`) is QUEUED there with its text;
-  the owner's tap is the permission to build it. The model never writes code in the app. When you ship one, set it `shipped` (`ai_chat.build_set`, or
+  the owner's tap is the permission to build it. The model never writes code in the app. "build the queue" = build every queued item now. When you ship one, set it `shipped` (`ai_chat.build_set`, or
   edit the file while the service is stopped) and say so; `dropped` = the owner's ✕. 🧵 The Brain keeps ONE THREAD PER MODE (`_chat['th']`,
   `ai_chat.push_thread`, ≤ 6 exchanges each): chat · case · fix · build never mix. Decided fixes fold under "N decided". `CHAT_ASK` rule 5 = money
   first (capital / record lines outrank one coin; outcomes are CLOSED trades) — the live Qwen test answered from the capital line after it.

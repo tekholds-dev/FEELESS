@@ -170,3 +170,14 @@ test('the open book adds held seats on their live numbers and names the best one
   expect(p.n).toBe(2); expect(p.usd).toBeCloseTo(2); expect(p.pnl).toBeCloseTo(0); expect(p.best).toMatchObject({ symbol: 'A', pct: 10 });
   expect(openPnl([{ open: true }])).toBeNull();
 });
+
+test('built from the owner-approved queue: repeats fold, losses map by cause with the Judge record, unmeasured agents are named', () => {
+  const { groupTape, lossMap, measureRead } = require('./cockpit');
+  const g = groupTape([{ id: 3, agent: 'trigger', action: 'WAIT', symbol: 'SI' }, { id: 2, agent: 'trigger', action: 'WAIT', symbol: 'SCASH' }, { id: 1, agent: 'devil', action: 'WAIT', symbol: 'SI' }]);
+  expect(g).toHaveLength(2); expect(g[0]).toMatchObject({ id: 3, n: 2, syms: ['SI', 'SCASH'] }); expect(g[1].n).toBe(1);
+  const m = lossMap({ wins: 14, losses: 6, lossPatterns: [{ cause: 'gave_back', n: 1, desk: 'reaper' }, { cause: 'crowd_fomo', n: 3, desk: 'trigger' }], lastLoss: { sym: 'X', pct: -23, lesson: 'enter early' } }, { leaks: [{ rule: 'R5 stop', n: 4, avgPct: -30 }] });
+  expect(m.pct).toBe(70); expect(m.causes[0]).toMatchObject({ cause: 'crowd fomo', n: 3, fill: 1 }); expect(m.leaks[0].rule).toBe('R5 stop'); expect(m.last.lesson).toBe('enter early');
+  expect(lossMap(null, null)).toMatchObject({ pct: null, causes: [], leaks: [] });
+  const r = measureRead([{ key: 'tally' }, { key: 'trigger' }, { key: 'judge' }], { tally: { decisions: 80, accuracy: 62 }, trigger: { decisions: 80, accuracy: 62 }, judge: { decisions: 0 } });
+  expect(r.unmeasured).toEqual(['judge']); expect(r.sameN).toBe(2);
+});

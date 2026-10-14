@@ -80,7 +80,7 @@ export function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full'
   // ✏ edit = rewind this thread to the message and put its text back in the box · ＋ new = a fresh thread for this mode
   const edit = async (i, text) => { try { take(await call('/admin/ai/chat/clear', { method: 'POST', body: JSON.stringify({ mode, from: i }) })); setTxt(text.replace(/^\[case review\] \S+ ?/, '')); } catch (x) { toast.error(x.message); } };
   const attach = async f => { if (!f) return; setUpl(true); try { const u = await uploadImage(f); const url = typeof u === 'string' ? u : u?.url; if (url) setImg(url); } catch (x) { toast.error(x.message); } finally { setUpl(false); } };
-  const queueBuild = async text => { try { const r = await call('/admin/ai/build', { method: 'POST', body: JSON.stringify({ text: String(text).slice(0, 600), title: String(text).replace(/\s+/g, ' ').slice(0, 60), src: `chat · ${mode}` }) }); setBuild(r.build); toast.success('📋 queued for the build — the next build session ships it'); } catch (x) { toast.error(x.message); } };
+  const queueBuild = async text => { try { const r = await call('/admin/ai/build', { method: 'POST', body: JSON.stringify({ text: String(text).slice(0, 600), title: String(text).replace(/\s+/g, ' ').slice(0, 60), src: `chat · ${mode}` }) }); setBuild(r.build); toast.success('📋 queued — say "build the queue" to Claude Code and it gets built'); } catch (x) { toast.error(x.message); } };
   const moveBuild = async (id, status) => { try { const r = await call('/admin/ai/build', { method: 'POST', body: JSON.stringify({ id, status }) }); setBuild(r.build); } catch (x) { toast.error(x.message); } };
   const decide = async (id, approve) => {
     if (busy) return; setBusy(true);
@@ -94,7 +94,7 @@ export function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full'
       <span className="cch-title"><b>BRAIN</b><small data-testid="cch-mood" data-mood={mood.key}><em>{mood.word}</em>{mood.line}</small></span>
       <span className="cch-kpis"><u data-testid="cch-learned" data-tip="Lessons you taught the desk (🧠 Remember + 🎓 Teach): every fitting model read sees them">🎓 {learned ?? '—'}<small>LEARNED</small></u>
         <u className={pend ? 'is-hot' : ''} data-tip="Fixes the model proposed, waiting for your Approve / Reject">🛠 {pend}<small>YOUR CALL</small></u>
-        <u data-testid="cch-bq" data-tip="Approved to build: queued for the next build session (nothing is coded by the model in the app)">📋 {build?.open ?? 0}<small>TO BUILD</small></u></span>
+        <u data-testid="cch-bq" data-tip="Approved to build. The model in the app cannot write code: Claude Code builds these when you say: build the queue">📋 {build?.open ?? 0}<small>TO BUILD</small></u></span>
       <select className="cch-model" value={prov} onChange={e => setProv(e.target.value)} aria-label="Which model answers" data-testid="cch-model" data-tip="Which model answers: Auto = the normal order (local first for you, then the cloud)">
         <option value="auto">🤖 Auto</option>{provs.map(p => <option key={p.key} value={p.key}>{p.state === 'ONLINE' ? '🟢' : p.state === 'UNTESTED' ? '⚪' : '🔴'} {p.label}{p.model ? ` · ${String(p.model).split('/').pop()}` : ''}</option>)}</select>
       <button type="button" className="cch-ico cch-new" onClick={() => clear()} disabled={busy || !hist.length} data-testid="cch-clear" data-tip="New chat: a fresh thread for this mode" aria-label="New chat">＋</button>
@@ -126,7 +126,7 @@ export function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full'
           <button type="submit" className="m-btn m-go cch-go" disabled={!isOwner || busy || (!String(txt).trim() && mode !== 'case')} data-testid="cch-send">{busy ? '…' : 'SEND IT'}</button></form>
       </div>
       <div className="cch-side">
-      {mode === 'build' && (build?.items || []).length ? <div className="cch-bqlist" data-testid="cch-bqlist"><p className="cch-bqh"><b>📋 BUILD QUEUE · {build.open} open</b><small>your approval = permission · the next build session reads it first · the model never codes in the app</small></p>
+      {mode === 'build' && (build?.items || []).length ? <div className="cch-bqlist" data-testid="cch-bqlist"><p className="cch-bqh"><b>📋 BUILD QUEUE · {build.open} open</b><small>your ✅ = permission to build · Claude Code builds the queue when you open a session and say "build the queue" · ✅ SHIPPED when it is live</small></p>
         <ul>{build.items.slice(0, 6).map(b => <li key={b.id} className={`is-${b.status}`}><em>{b.status.toUpperCase()}</em><span data-tip={b.text}>{b.title}</span>
           {b.status === 'queued' ? <button type="button" className="cch-ico" onClick={() => moveBuild(b.id, 'dropped')} aria-label="Drop it" data-testid={`cch-bq-drop-${b.id}`}>✕</button> : null}</li>)}</ul></div> : null}
       {pend || (props.decided || []).length ? <div className={`cch-props ${openP || pop ? '' : 'is-shut'}`} data-testid="cch-props">

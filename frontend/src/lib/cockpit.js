@@ -39,6 +39,34 @@ export function tapeTone(r) {
 }
 // newest first, optionally one coin / one agent
 export const tapeOf = (rows, { mint = null, agent = null, n = 40 } = {}) => [...(rows || [])].filter(r => (!mint || r.mint === mint) && (!agent || r.agent === agent)).sort((a, b) => (b.id || 0) - (a.id || 0)).slice(0, n);
+// 🧹 consecutive lines from the SAME agent with the SAME action fold into one ("⏱ Trigger · WAIT ×5 · $SI $SCASH …") — built from the owner-approved
+// build item "Collapse repeated WAIT labels" (b4). The newest line of the run stays the row; `n` + `syms` say what it covers.
+export function groupTape(rows) {
+  const out = [];
+  for (const r of rows || []) {
+    const last = out[out.length - 1];
+    if (last && last.agent === r.agent && last.action === r.action) { last.n += 1; if (r.symbol && !last.syms.includes(r.symbol)) last.syms.push(r.symbol); continue; }
+    out.push({ ...r, n: 1, syms: r.symbol ? [r.symbol] : [] });
+  }
+  return out;
+}
+// 🩸 where the real losses come from (b2/b3/b6) + the Judge's real record (b1): the Judge's own reviews of confirmed exits, the capital desk's leaks
+export function lossMap(court, capital) {
+  const c = court || {}; const w = Number(c.wins) || 0; const l = Number(c.losses) || 0;
+  const causes = (c.lossPatterns || []).map(x => ({ cause: String(x.cause || '?').replace(/_/g, ' '), n: Number(x.n) || 0, desk: x.desk || '?' })).sort((a, b) => b.n - a.n);
+  const top = Math.max(1, ...causes.map(x => x.n));
+  return { w, l, pct: w + l ? Math.round((w / (w + l)) * 100) : null, causes: causes.map(x => ({ ...x, fill: x.n / top })),
+    leaks: (capital?.leaks || []).map(x => ({ rule: x.rule, n: x.n, avg: x.avgPct })), last: c.lastLoss ? { sym: c.lastLoss.sym, pct: c.lastLoss.pct, lesson: c.lastLoss.lesson || c.lastLoss.change } : null };
+}
+// 📏 agents with no real decision on record yet (b-unmeasured) · desks whose real record is identical (they are credited per TEAM decision)
+export function measureRead(agents, ds) {
+  const st = ds || {}; const keys = (agents || []).map(a => a.key);
+  const un = keys.filter(k => !(Number(st[k]?.decisions) > 0));
+  const sig = k => (st[k] ? `${st[k].decisions}|${st[k].accuracy}` : null); const same = {};
+  keys.forEach(k => { const g = sig(k); if (g) same[g] = (same[g] || 0) + 1; });
+  return { unmeasured: un, sameN: Math.max(0, ...Object.values(same)) };
+}
+
 // the newest tape line for each coin (a seat card's "last action")
 export function lastByMint(rows) {
   const out = {}; (rows || []).forEach(r => { if (r.mint && (!out[r.mint] || (r.id || 0) > (out[r.mint].id || 0))) out[r.mint] = r; }); return out;
