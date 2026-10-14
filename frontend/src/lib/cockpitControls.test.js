@@ -7,7 +7,7 @@ test('every control option reads as a short trader word on its segment', () => {
   expect([0, 12000].map(v => optWord('agentMcMin', v))).toEqual(['NONE', '$12K']); expect([300000, 1000000].map(v => optWord('agentMcMax', v))).toEqual(['$300K', '$1M']);
   expect(optWord('agentEntry', 'go')).toBe('GO ONLY'); expect(optWord('agentSwitch', 'aggressive')).toBe('AGGRESSIVE'); expect(optWord('agentTrail', 'auto')).toBe('AGENTS');
   expect([whoTone('CREATOR OVERRIDE'), whoTone('YOUR BAND'), whoTone('AGENTS CHOOSE')]).toEqual(['is-you', 'is-band', 'is-agents']);
-  expect(CTRL_GROUPS.map(g => g[0])).toEqual(['universe', 'exits', 'seats', 'gate']); expect(CTRL_GROUPS[3][3]).toEqual(['agentGapPct', 'agentBackPct', 'agentPoolMin']); expect(CTRL_GROUPS[0][3]).toContain('agentMcMax');
+  expect(CTRL_GROUPS.map(g => g[0])).toEqual(['universe', 'volume', 'exits', 'seats', 'gate']); expect(CTRL_GROUPS[4][3]).toEqual(['agentGapPct', 'agentBackPct', 'agentPoolMin']); expect(CTRL_GROUPS[0][3]).toContain('agentMcMax');
 });
 
 test('the MC band sits on a log track and every real candidate is a dot (lit inside the band, green when READY)', () => {
@@ -77,4 +77,10 @@ test('💰 doors + 🧯 brake + 👁 trail lab reads', () => {
   expect(t.line).toBe('a wider trail pays +4.2% a trade'); expect(t.best.word).toBe('arm +8% · give 50%'); expect(t.shadow).toMatch(/35 → 40 · 6\/20 exits · 🧠 asked by the model/);
   expect(trailRead({ n: 9, need: 30 }).line).toBe('9 of 30 whole moves on file');
   expect(trailRead({ n: 31, need: 30, asked: { key: 'stopPct', dir: 'down', refused: 'no notch left that way' } }).asked).toMatch(/refused: no notch/);
+});
+
+test('🔥 volume limits read as short words on their buttons', () => {
+  expect(optWord('agentMinVol1h', 50000)).toBe('$50K/h'); expect(optWord('agentMaxAgeH', 72)).toBe('3d'); expect(optWord('agentMaxAgeH', 6)).toBe('6h');
+  expect(optWord('agentPumpTrend', 'first')).toBe('🔥 FIRST'); expect(optWord('agentPumpTrend', 'off')).toBe('OFF');
+  expect(optWord('agentMcMax', 5000000)).toBe('$5M');
 });

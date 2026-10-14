@@ -124,3 +124,15 @@ body.theme-day .cch::before { opacity: .25; } body.theme-day .cch-title b { colo
 body.theme-day .cch-msg.is-user { background: rgba(13, 122, 65, .1); } body.theme-day .cch-msg.is-assistant { background: rgba(91, 63, 196, .1); } body.theme-day .cch-modes { background: rgba(10, 60, 35, .07); } body.theme-day .cch-modes > button.active { color: #fff; }
 body.theme-day .cch-quick button { color: #3a2a8a; background: rgba(91, 63, 196, .08); } body.theme-day .cch-ptitle b, body.theme-day .cch-phead em { color: #8a5a00; } body.theme-day .cch-diff span { background: rgba(10, 60, 35, .06); } body.theme-day .cch-shade { background: rgba(230, 240, 234, .92); }
 body.theme-day .cch-back { color: #5b3fc4; } body.theme-day .cch-gate b { color: #5b3fc4; } body.theme-day .cch-mact button { background: rgba(255, 255, 255, .7); color: #3f5a4a; }
+/* 💻 local boost: header chip + the 24h watch bars (scaleY set once per answer, never animated) */
+.cch-boostchip { margin-left: 8px; padding: 1px 7px; border-radius: 999px; font: 800 8px var(--m-mono); font-style: normal; letter-spacing: .1em; color: #07130c; background: linear-gradient(120deg, #5fd0ff, var(--br2)); vertical-align: middle; }
+.cch-watch { display: grid; gap: 4px; } .cch-watch p { margin: 0; font: 600 9px var(--m-mono); color: var(--m-mute); } .cch-watch b { color: var(--m-text); }
+.cch-wbars { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; height: 24px; align-items: end; }
+.cch-wbars i { display: block; height: 100%; border-radius: 2px 2px 0 0; background: #5fd0ff; transform-origin: bottom; } .cch-wbars i.is-fail { background: var(--m-danger); } .cch-wbars i.is-paused { background: var(--gold, #f5c451); }
+body.theme-day .cch-wbars i { background: #0b6fa8; }
+/* ⌨ the box, compact + meta everywhere the Brain lives (HQ, mini cat, pop-out): 30px, mono, a lit gradient edge on focus */
+.cch .cch-form .m-input { min-height: 30px; padding: 5px 10px; font: 600 11px var(--m-mono); border-radius: 8px; border: 1px solid transparent;
+  background: linear-gradient(rgba(0, 0, 0, .38), rgba(0, 0, 0, .38)) padding-box, linear-gradient(90deg, var(--m-line), var(--m-line)) border-box; }
+.cch .cch-form .m-input:focus { outline: none; background: linear-gradient(rgba(0, 0, 0, .45), rgba(0, 0, 0, .45)) padding-box, linear-gradient(90deg, var(--br), var(--br2)) border-box; }
+.cch .cch-form .m-input::placeholder { color: var(--m-mute); font-size: 10px; } .cch .cch-form .m-btn.cch-go { min-height: 30px; padding: 0 12px; } .cch .cch-form .cch-ico { height: 30px; }
+body.theme-day .cch .cch-form .m-input { background: linear-gradient(rgba(255, 255, 255, .7), rgba(255, 255, 255, .7)) padding-box, linear-gradient(90deg, #b9cfc0, #b9cfc0) border-box; color: #10261a; }

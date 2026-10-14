@@ -106,8 +106,18 @@ def context(office, focus=None, vocab=()):
     o = office or {}
     gens = {g.get('role'): g for g in o.get('generations') or [] if isinstance(g, dict)}
     stats = o.get('deskStats') or {}
-    agents = [f"{r}: gen {_u((gens.get(r) or {}).get('generation'))} {_u((gens.get(r) or {}).get('status'))} · {int(_f((stats.get(r) or {}).get('decisions')))} real decisions, "
-              f"{_u((stats.get(r) or {}).get('accuracy'), '%')} right" for r in AGENTS[:-1]]
+    def _rec(r):   # 🗳 a desk's OWN vote record when it has one (judge_review.desk_votes), else the team record it shares
+        st, own = stats.get(r) or {}, (stats.get(r) or {}).get('own') or {}
+        if own.get('n'):
+            g, b = own.get('go') or {}, own.get('doubt') or {}
+            return (f"own vote right {_u(own.get('rightPct'), '%')} of {own['n']} real trades · GO {g.get('n', 0)}× typical {_u(g.get('med'), '%')} · "
+                    f"DOUBT {b.get('n', 0)}× typical {_u(b.get('med'), '%')} · lone dissent {own.get('lone', 0)}× ({own.get('loneRight', 0)} right)")
+        if st.get('kind') == 'landed':
+            return f"{_u(st.get('accuracy'), '%')} of {int(_f(st.get('decisions')))} sends landed (last hour)"
+        if st.get('kind') == 'intact':
+            return f"{int(_f(st.get('decisions')))} records filed, chain {'intact' if st.get('accuracy') == 100 else 'REWRITTEN' if st.get('accuracy') == 0 else 'UNKNOWN'}"
+        return f"team record only: {int(_f(st.get('decisions')))} real decisions, {_u(st.get('accuracy'), '%')} right"
+    agents = [f"{r}: gen {_u((gens.get(r) or {}).get('generation'))} {_u((gens.get(r) or {}).get('status'))} · {_rec(r)}" for r in AGENTS[:-1]]
     cands = ((o.get('kernel') or {}).get('candidates') or [])
     dec = [f"{c.get('symbol')} {c.get('status')} · trigger {_u(c.get('trigger'))} · {str(c.get('why') or '')[:70]}" for c in cands[:6]]
     pos = [f"{p.get('symbol')} {_u(p.get('pct'), '%')} · {str(p.get('decision') or p.get('state') or '')[:40]}" for p in (o.get('positions') or [])[:4]]
@@ -198,11 +208,25 @@ def check(p, vocab=()):
     return {'agent': agent, 'kind': kind, 'key': key, 'value': val, 'reason': clean(p.get('reason'), 240), 'effect': clean(p.get('effect'), 200)}, None
 
 
+def salvage(text):
+    """A JSON answer the model CUT OFF mid-way (its token cap) never reaches the chat as raw `{"reply": …`: its "reply" / "summary" text
+    is pulled out, else the prose before the first brace. (Found 2026-10-13: a cut answer was shown AND queued to build as raw JSON.)"""
+    t = str(text or '')
+    m = re.search(r'"(?:reply|summary)"\s*:\s*"((?:[^"\\]|\\.)*)', t)
+    if m:
+        try:
+            return clean(json.loads('"' + m.group(1).rstrip('\\') + '"'))
+        except Exception:
+            return clean(m.group(1).replace('\\"', '"'))
+    i = t.find('{')
+    return clean(t if i < 0 else t[:i] or t)
+
+
 def parse_improve(text, vocab=(), only=None):
     """The model's AGENT IMPROVEMENT answer → (reply in normal language, [validated proposals], [refusals]). Prose with no JSON is just a reply."""
     j = _first_json(text)
     if not isinstance(j, dict):
-        return clean(text), [], []
+        return salvage(text), [], []
     ok, bad = [], []
     for p in (j.get('proposals') or [])[:8] if isinstance(j.get('proposals'), list) else []:
         if only and isinstance(p, dict) and p.get('kind') not in only:
@@ -314,7 +338,7 @@ def build_view(state, n=12):
 TEMPS = (0.1, 0.3, 0.6, 0.9)
 LENS = {'short': 250, 'normal': 600, 'long': 1200}
 SMALL_KINDS = ('lesson', 'idea')
-SETTINGS = {'temp': 0.3, 'len': 'normal', 'allowSmall': False}
+SETTINGS = {'temp': 0.3, 'len': 'normal', 'allowSmall': False, 'localBoostUntil': 0.0}
 
 
 def clean_settings(d, old=None):
@@ -326,7 +350,53 @@ def clean_settings(d, old=None):
         out['len'] = d['len']
     if isinstance(d.get('allowSmall'), bool):
         out['allowSmall'] = d['allowSmall']
+    if d.get('localBoostUntil') is not None and d.get('localBoost') is None:   # the saved state (a restart keeps the boost running)
+        out['localBoostUntil'] = max(0.0, _f(d['localBoostUntil']))
+    if isinstance(d.get('localBoost'), bool) and d.get('now') is not None:   # 💻 24h boost: switching it on (again) starts a fresh 24h
+        out['localBoostUntil'] = round(_f(d['now']) + BOOST_SEC, 1) if d['localBoost'] else 0.0
     return out
+
+
+# 💻 LOCAL BOOST (owner, 2026-10-13: "local be beefed over 24hrs maxed, watch"): for 24h the local model's own lane reads a case every
+# BOOST_EVERY s instead of every 180s. It backs off by itself — to the normal 180s — whenever a browser on the site reports lag (avg fps
+# under LAG_FPS or > LAG_MS blocked per report in the last 2 min: the local model shares the GPU Chrome draws with), and it never runs
+# more than half the time (the next read waits at least as long as the last one took). Every hour is logged for the watch.
+BOOST_SEC, BOOST_EVERY, NORMAL_EVERY, LAG_FPS, LAG_MS = 86400.0, 45.0, 180.0, 30, 400
+
+
+def lane_every(settings, now, perf_rows, last_ms=None, base=NORMAL_EVERY):
+    """→ (seconds until the next local read, why). `perf_rows` = the lag catcher's reports from the last 2 min."""
+    st = settings or {}
+    boost = _f(st.get('localBoostUntil')) > now
+    lag = [r for r in perf_rows or [] if (r.get('fps') and _f(r['fps']) < LAG_FPS) or _f(r.get('longMs')) > LAG_MS]
+    if boost and lag:
+        e, why = base, f'boost paused — {len(lag)} browser report{"s" if len(lag) != 1 else ""} of lag in 2 min'
+    elif boost:
+        e, why = BOOST_EVERY, 'boost on'
+    else:
+        e, why = base, 'normal'
+    return max(e, 2 * _f(last_ms) / 1000.0), why
+
+
+def watch_note(watch, now, ok, ms=None, why=None):
+    """The 24h watch: {hourStart: {n, ok, fail, msSum, paused}} — one row an hour, the last 24 kept."""
+    h = str(int(now // 3600 * 3600))
+    w = dict(watch or {})
+    r = dict(w.get(h) or {'n': 0, 'ok': 0, 'fail': 0, 'msSum': 0.0, 'paused': 0})
+    if why == 'paused':
+        r['paused'] += 1
+    else:
+        r['n'] += 1; r['ok' if ok else 'fail'] += 1; r['msSum'] += _f(ms)
+    w[h] = r
+    return dict(sorted(w.items())[-24:])
+
+
+def watch_view(watch, settings, now, every=None, why=None):
+    w = watch or {}
+    rows = [{'hour': int(k), 'n': v['n'], 'ok': v['ok'], 'fail': v['fail'], 'avgSec': round(v['msSum'] / v['ok'] / 1000, 1) if v['ok'] else None, 'paused': v['paused']} for k, v in sorted(w.items())]
+    until = _f((settings or {}).get('localBoostUntil'))
+    return {'boost': until > now, 'leftH': round(max(0.0, until - now) / 3600, 1), 'every': every, 'why': why, 'hours': rows,
+            'reads24h': sum(r['ok'] for r in rows), 'fails24h': sum(r['fail'] for r in rows), 'paused24h': sum(r['paused'] for r in rows)}
 
 
 def tune_of(st):

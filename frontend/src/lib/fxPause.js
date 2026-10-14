@@ -33,8 +33,8 @@ export function startFxPause(root = document.body) {
 // It only ever resumes an animation it paused itself. Reads first, then writes: one layout per pass.
 export const BIG_PX = 150000;
 const mine = new WeakSet();
-let pressure = 0;
-export const fxPressure = () => pressure;
+let pressure = 0; let holds = 0;   // `holds`: a surface doing heavy work for the user right now (the Brain while the model answers) asks the big layers to rest
+export const fxPressure = () => (pressure || holds ? 1 : 0);
 export const fxStats = { running: 0, paused: 0, shed: 0, at: 0 };
 
 export function govern(doc = document, win = window) {
@@ -46,7 +46,7 @@ export function govern(doc = document, win = window) {
   list.forEach((a, i) => {
     const r = rects[i];
     const off = hid || (r.width === 0 && r.height === 0) || r.bottom < -200 || r.top > vh + 200 || r.right < -200 || r.left > vw + 200;
-    const big = !off && pressure > 0 && r.width * r.height >= BIG_PX;
+    const big = !off && (pressure > 0 || holds > 0) && r.width * r.height >= BIG_PX;
     if (off || big) {
       if (a.playState === 'running') { a.pause(); mine.add(a); }
       if (mine.has(a)) { paused += 1; if (big) shed += 1; }
@@ -59,7 +59,10 @@ export function govern(doc = document, win = window) {
   return fxStats;
 }
 
-export function setFxPressure(n) { pressure = n > 0 ? 1 : 0; try { document.body.classList.toggle('fx-shed', pressure > 0); govern(); } catch { /* not in a page */ } }
+export function setFxPressure(n) { pressure = n > 0 ? 1 : 0; try { document.body.classList.toggle('fx-shed', pressure > 0 || holds > 0); govern(); } catch { /* not in a page */ } }
+// 🧠 holdFx(true) while a local model answers in the Brain (it shares the GPU Chrome draws with): big endless layers pause, then come back.
+// Counted, so two holders never release each other; independent of the lag catcher's own pressure.
+export function holdFx(on) { holds = Math.max(0, holds + (on ? 1 : -1)); try { document.body.classList.toggle('fx-shed', pressure > 0 || holds > 0); govern(); } catch { /* not in a page */ } }
 
 function startGovernor() {
   if (typeof document === 'undefined' || typeof document.getAnimations !== 'function') return () => {};

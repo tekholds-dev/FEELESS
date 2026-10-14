@@ -7,6 +7,8 @@
 .acx-head > small { flex: 1 1 220px; font: 600 10px var(--m-mono); color: var(--m-mute); min-width: 0; }
 .acx-auth > button { padding: 5px 10px; font-size: 10px; }
 .acx-auth > button.is-manual.active { background: var(--m-warn); color: #1a1200; }
+.acx-vol { margin: 0 0 6px; padding: 5px 8px; border-radius: 8px; border: 1px solid color-mix(in srgb, #ff7a3d 45%, transparent); background: rgba(255, 122, 61, .07); font: 600 10px var(--m-mono); color: var(--m-dim); } .acx-vol b { color: #ff9a5c; font-weight: 800; }
+body.theme-day .acx-vol b { color: #a8430c; }
 .acx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; }
 .acx-card { position: relative; display: grid; align-content: start; gap: 8px; padding: 9px 10px 10px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line);
   background: linear-gradient(180deg, rgba(21, 209, 106, .05), rgba(255, 255, 255, .01) 60%); min-width: 0; animation: acxIn .2s var(--m-ease) both; }

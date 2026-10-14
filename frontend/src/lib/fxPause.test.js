@@ -33,3 +33,9 @@ test('🩺 the governor pauses endless animations that are off-screen or in a hi
   doc.hidden = false; govern(doc, win); expect(onScreen.playState).toBe('running');
   expect(govern({}, win)).toBeNull();
 });
+
+test('🧠 holdFx: a busy Brain sheds the big layers and gives them back; two holders never release each other', () => {
+  const { holdFx, fxPressure } = require('./fxPause');
+  expect(fxPressure()).toBe(0); holdFx(true); holdFx(true); expect(fxPressure()).toBe(1); expect(document.body.classList.contains('fx-shed')).toBe(true);
+  holdFx(false); expect(fxPressure()).toBe(1); holdFx(false); expect(fxPressure()).toBe(0); expect(document.body.classList.contains('fx-shed')).toBe(false);
+});

@@ -4019,3 +4019,32 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🧹 Dead code 2026-10-13: TradeTabs, TrenchHero, WatchlistPage, hasSocials, edgeOf, announcedWallets, searchTokenByAddress,
   lib/liveCandles.js (retired 3D room), FusePage's unused `fx` state (set on every pair move, never read), their CSS (brace-aware prune);
   terminal.css budget 540.7 → 537.
+- 🗳 EACH DESK ON ITS OWN VOTE (build queue b5 + b10, 2026-10-13): `desk_stats` credited all six entry desks with the SAME team record
+  ("80 real decisions, 62% right" seven times). Now `_office_warden` stamps `thesis.votes` = `judge_review.votes_of(kernel opinions)`
+  (GO / DOUBT per desk: Tally 5m up · Sherlock factor ≥ 1 + holders known · Weather factor ≥ 1 · Trigger ENTER · Devil no strong warning ·
+  Warden size ≥ ×0.75) and `desk_votes(real trades)` scores each desk on its own vote (right %, GO vs DOUBT typical, lone dissents);
+  older trades read what the archive kept (`votes_from_pos`: wx, warden size, door tag). `_desk_stats_view` → payload `deskStats[d].own` +
+  Courier (sends landed, last hour) + Archivist (records filed, chain intact) → matrix `recWord` / `VoteBar`, Brain context `_rec`.
+  First read: Trigger's own GO trades −0.9% typical vs its doubted (armed) ones +4.3%.
+- 🎚 DIAL LAB (b7 + b9, `paper_desk.dial_replay`, payload `dialLab`, the dial's tip): leans spread ±100, the dial moves the bar ±0.5 — of 884
+  judged calls only 1 sat that close; the dial moves the PAPER desk only (the live kernel has none). Never "tune the dial" for real money.
+- 🟢 b8 `after_path.by_rule` → trail payload `byRule` / `ruleWords`: green exits by the rule that sold them vs the live trail replayed on the
+  same whole move. 2026-10-13: R7 +7.6% real → +10% replay — the gap is call → fill delay, not the rule.
+- 🔥 VOLUME LIMITS (owner: "fix limits so I can tune for more volume and wider tunes to get Pump trending in there"): realCfg
+  `agentMaxAgeH` (1h–30d, default 6h) · `agentMinVol1h` ($1K–$250K) · `agentPumpTrend` off | first (Pump-trending coins skip the age line,
+  count fresh, rank ×1.15) | only · MC top now up to $10M. ONE source `universe.clean_limits / limits / on_trend / max_age / min_vol`
+  (`set_trending` from the ptrend list each agents pass) read by `in_lane`, `opportunity.hard_fail / open_ok / open_score` and the intake's
+  `stale_old`. HQ › Agents › controls card 🔥 VOLUME. Every safety gate and keeper check is unchanged.
+- 📈 THE MODEL LEARNS CHART READING (owner: "learn snapshot chart reading, local mainly … all teachings wired live"): `ai_learn.note`
+  keeps the model's `chart_phase` + the engine's phase + local / cloud; buckets PHASE:EARLY/LATE · SPLIT:MODEL-LATE/EARLY (who was right when
+  they disagreed) · SRC:LOCAL/CLOUD. Every case carries `chartRec` (its own chart record) + `learned` (live lab rules, Judge / coach
+  causes, each desk's vote edge) — kept in local trims; the brain bridge + BRAIN_LITE tell the model to use them.
+- 💻 LOCAL BOOST 24h (Brain ⚙, `ai_chat.lane_every / watch_note / watch_view`, settings `localBoostUntil` set by the server only): the local
+  lane reads every 45s instead of 180s for 24h, falls back by itself while any browser reports lag (fps < 30 or > 400 ms blocked in 2 min),
+  never more than half the time. Hourly watch `data/local_watch.json` → Brain ⚙ bars + header chip.
+- ⌨ Brain send without stutter: `Composer` owns the text (a keystroke re-renders only the form); while the model answers `holdFx(true)`
+  (lib/fxPause, counted, separate from the lag catcher's pressure) rests the page's big endless layers — the local model shares the GPU.
+- `ai_chat.salvage`: a model answer cut off mid-JSON shows its reply text, never raw `{"reply": …` (it had been queued to build raw).
+- 🎨 The cockpit chart shows the owner's chart theme (no more `plain`; `ThemePick` in its header writes the ONE site choice) and every scene
+  has a LIVE TIDE (`.cbg-tide`, green swell from below / red from above, switched by CandleFx's cfk-up / cfk-dn on each real tick).
+  Decision panel = clamp(380px, 29vw, 460px). Agents-tab + Brain text boxes are compact (30px, mono, gradient edge on focus).

@@ -119,3 +119,10 @@ body.theme-day .cbg-neon .cbg-grid.is-dn { background-image: linear-gradient(rgb
 body.theme-day .cbg.cbg-aurora { background: linear-gradient(180deg, #e6ecf8 0%, #e3f3ee 100%); } body.theme-day .cbg-star { background: #6f86b3; } body.theme-day .cbg-ridge { background: #b9cbd2; }
 body.theme-day .chart-bg-pick { background: #fff; border-color: #aac7b3; color: #315b43; }
 @media (max-width: 640px) { .cbg-ion:nth-child(n + 7), .cbg-star:nth-child(n + 13), .cbg-petal:nth-of-type(n + 10), .cbg-bub:nth-of-type(n + 7) { display: none; } .cbg-rung { left: -60px; width: 120px; } }
+/* ⚡ LIVE TIDE on every scene: a green swell from below while the last real tick was up, a red one from above when it was down —
+   opacity only, switched by CandleFx's cfk-up / cfk-dn on each live price (nothing animates between ticks). */
+.cbg-tide { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .45s ease; z-index: 0; }
+.cbg-tide.is-up { background: radial-gradient(120% 60% at 50% 110%, rgba(21, 209, 106, .22), transparent 70%); }
+.cbg-tide.is-dn { background: radial-gradient(120% 60% at 50% -10%, rgba(255, 90, 120, .2), transparent 70%); }
+.cfk-up .cbg-tide.is-up, .cfk-dn .cbg-tide.is-dn { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .cbg-tide { transition: none; } }

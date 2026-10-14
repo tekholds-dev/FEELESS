@@ -62,12 +62,28 @@ export function lossMap(court, capital) {
 export function measureRead(agents, ds) {
   const st = ds || {}; const keys = (agents || []).map(a => a.key);
   const un = keys.filter(k => !(Number(st[k]?.decisions) > 0));
-  const sig = k => (st[k] ? `${st[k].decisions}|${st[k].accuracy}` : null); const same = {};
+  const sig = k => (st[k] && !st[k].own?.n ? `${st[k].decisions}|${st[k].accuracy}` : null); const same = {};   // a desk with its OWN vote record no longer "shares one record"
   keys.forEach(k => { const g = sig(k); if (g) same[g] = (same[g] || 0) + 1; });
   return { unmeasured: un, sameN: Math.max(0, ...Object.values(same)) };
 }
 
 // the newest tape line for each coin (a seat card's "last action")
+// 🗳 one desk's record as the card shows it: its OWN vote on real money first, else the team record it shares, else its own job's measure
+export function recWord(st) {
+  if (!st) return 'no real record yet';
+  const o = st.own;
+  if (o?.n) return `🗳 ${o.rightPct ?? '—'}% own · ${o.n} votes${o.lone ? ` · ${o.loneRight}/${o.lone} lone` : ''}`;
+  if (st.kind === 'landed') return `📮 ${st.accuracy ?? '—'}% landed · ${st.decisions ?? 0} sends`;
+  if (st.kind === 'intact') return `🗄 ${st.decisions ?? 0} filed · ${st.accuracy === 100 ? 'chain intact' : st.accuracy === 0 ? 'REWRITTEN' : '—'}`;
+  return `${st.accuracy ?? '—'}% · ${st.winResp ?? 0}W ${st.lossResp ?? 0}L`;
+}
+// 🗳 the go / doubt split of one desk's own votes: typical real % when it said GO vs when it doubted (the gap is what its vote is worth)
+export function voteSplit(st) {
+  const o = st?.own; if (!o?.n) return null;
+  return { go: o.go?.med ?? null, goN: o.go?.n || 0, doubt: o.doubt?.med ?? null, doubtN: o.doubt?.n || 0,
+    edge: o.go?.med != null && o.doubt?.med != null ? +(o.go.med - o.doubt.med).toFixed(1) : null };
+}
+
 export function lastByMint(rows) {
   const out = {}; (rows || []).forEach(r => { if (r.mint && (!out[r.mint] || (r.id || 0) > (out[r.mint].id || 0))) out[r.mint] = r; }); return out;
 }

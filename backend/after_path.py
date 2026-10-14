@@ -96,3 +96,31 @@ def words(g):
     if g['n'] < g['need']:
         return f"{head} · {g['n']} of {g['need']} before a wider trail is judged"
     return f"{head} · best (arm +{b['arm']:g}%, give back {b['give']:g}%) {b['avg']:+.1f}% → " + ('PAYS: sent to the shadow test' if g['pays'] else 'not enough better to change anything')
+
+
+def by_rule(positions, done, replay, live, take, min_n=3):
+    """🟢 GREEN EXITS BY RULE (owner-approved build b8, 2026-10-13: "Muse AI went +7.5% and still left the card by another rule — green
+    trade, goofy exit; let the trail manage it"): every confirmed exit that made money, grouped by the rule that sold it, beside what the
+    LIVE trail would have made on the same whole move (path + the 30 min after the sale). `left` > 0 = that rule sold winners the trail
+    would have kept longer. A measure only — no exit changes from here. → [{rule, n, real, trail, left}] (≥ min_n), most left first."""
+    by = {}
+    for p in positions or []:
+        if not p.get('confirmed') or p.get('realPct') is None or _f(p['realPct']) <= 0:
+            continue
+        f = full(p, done)
+        if not f:
+            continue
+        r = str(p.get('rule') or '?').split(' ')[0]
+        by.setdefault(r, []).append((_f(p['realPct']), replay(f, dict(live or {}), take)))
+    med = lambda v: sorted(v)[len(v) // 2] if len(v) % 2 else (sorted(v)[len(v) // 2 - 1] + sorted(v)[len(v) // 2]) / 2
+    rows = [{'rule': r, 'n': len(v), 'real': round(med([a for a, _b in v]), 2), 'trail': round(med([b for _a, b in v]), 2)} for r, v in by.items() if len(v) >= min_n]
+    for x in rows:
+        x['left'] = round(x['trail'] - x['real'], 2)
+    return sorted(rows, key=lambda x: -x['left'])
+
+
+def rule_words(rows):
+    if not rows:
+        return None
+    return 'green exits by rule (typical real → what the live trail would have made): ' + ' · '.join(
+        f"{x['rule']} {x['n']}× {x['real']:+.1f}% → {x['trail']:+.1f}%" for x in rows[:4])

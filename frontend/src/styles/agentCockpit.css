@@ -66,7 +66,7 @@ body.fx-lite .ack-radar i { animation: none; } @media (prefers-reduced-motion: r
 body.theme-day .ack-hunt p b { color: #8a5a00; } body.theme-day .ack-hunt.is-ready p b { color: #0d7a41; }
 
 /* 📈 chart + ⚡ live decisions | 🧠 panel */
-.ack-main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--ack-gap); align-items: start; }
+.ack-main { display: grid; grid-template-columns: minmax(0, 1fr) clamp(380px, 29vw, 460px); gap: var(--ack-gap); align-items: start; }
 .ack-left { display: grid; gap: var(--ack-gap); min-width: 0; }
 .ack-chead { flex-wrap: wrap; row-gap: 6px !important; }
 .ack-csym { font: 800 16px var(--m-mono); color: var(--m-text); }
@@ -243,3 +243,16 @@ body.theme-day .ack-tact.is-good, body.theme-day .ack-mode.is-track, body.theme-
 body.theme-day .ack-badge.is-pend, body.theme-day .ack-badge.is-open, body.theme-day .ack-nil.is-warn, body.theme-day .ack-ai-note.is-warn, body.theme-day .ack-rt .is-warn { color: #8a5a00; }
 body.theme-day .ack-now, body.theme-day .ack-badge.is-hunt { color: #0b5a8a; } body.theme-day .ack-queue th { background: #e8f3ec; } body.theme-day .ack-queue td { border-bottom-color: rgba(10, 60, 35, .08); }
 body.theme-day .aip { background: #eef6f1; } body.theme-day .aip-shade { background: rgba(10, 30, 20, .3); }
+/* 🗳 a desk's own vote: GO (left, green) vs DOUBT (right, amber) typical real % — scaleX-free widths set inline once per pass, no animation */
+.ack-vote { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; height: 4px; margin: 2px 0; }
+.ack-vote i { display: block; height: 100%; border-radius: 2px; background: var(--m-accent); justify-self: end; } .ack-vote i.is-doubt { background: var(--m-warn); justify-self: start; }
+.ack-vote i.is-neg { background: var(--m-danger); } .ack-vote.is-good { box-shadow: 0 0 0 1px color-mix(in srgb, var(--m-accent) 30%, transparent); border-radius: 2px; }
+/* 🎨 theme pick in the chart header */
+.ack-theme { height: 26px; max-width: 132px; padding: 0 6px; border-radius: 8px; border: 1px solid var(--m-line); background: rgba(0, 0, 0, .35); color: var(--m-text); font: 700 9.5px var(--m-mono); cursor: pointer; transition: border-color .15s ease; }
+.ack-theme:hover, .ack-theme:focus-visible { border-color: var(--m-accent); outline: none; } body.theme-day .ack-theme { background: rgba(255, 255, 255, .6); color: #10261a; }
+/* ⌨ compact meta text boxes across the Agents tab: 30px, mono, a lit underline on focus (no glow layer, no animation) */
+.ack .m-input, .ack textarea.m-input { min-height: 30px; padding: 5px 10px; font: 600 11px var(--m-mono); border-radius: 8px; letter-spacing: .02em;
+  background: linear-gradient(rgba(0, 0, 0, .38), rgba(0, 0, 0, .38)) padding-box, linear-gradient(90deg, var(--m-line), var(--m-line)) border-box; border: 1px solid transparent; transition: background .15s ease; }
+.ack .m-input:focus { outline: none; background: linear-gradient(rgba(0, 0, 0, .45), rgba(0, 0, 0, .45)) padding-box, linear-gradient(90deg, var(--m-accent), #5fd0ff) border-box; }
+.ack .m-input::placeholder { color: var(--m-mute); font-size: 10px; letter-spacing: .06em; }
+body.theme-day .ack .m-input { background: linear-gradient(rgba(255, 255, 255, .7), rgba(255, 255, 255, .7)) padding-box, linear-gradient(90deg, #b9cfc0, #b9cfc0) border-box; color: #10261a; }

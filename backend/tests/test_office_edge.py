@@ -33,7 +33,7 @@ def case(m, lean=2.0, cleared=True, checks=None):
 def test_unknown_or_wild_policy_values_fall_back_to_agents_choose_or_are_clamped_never_silently_wild():
     assert oe.clean_policy({}) == {'agentAuthority': 'agents', 'agentTp': 0.0, 'agentSl': 0.0, 'agentTrail': 'auto', 'agentTrailArm': 0.0, 'agentTrailPct': 0.0, 'agentMaxHold': 0.0,
                                    'agentSizePct': 0.0, 'agentSeatTarget': 0, 'agentSwitch': 'agents', 'agentEntry': 'agents', 'agentMinAgeH': 0.0,
-                                   'agentMcMin': 12_000.0, 'agentMcMax': 300_000.0, 'agentGapPct': 0, 'agentBackPct': 0, 'agentPoolMin': 0}   # 🎯 the owner's MC band default · 🛂 buy gate = the agents' defaults
+                                   'agentMcMin': 12_000.0, 'agentMcMax': 300_000.0, 'agentGapPct': 0, 'agentBackPct': 0, 'agentPoolMin': 0, 'agentMaxAgeH': 6.0, 'agentMinVol1h': 1000.0, 'agentPumpTrend': 'off'}   # 🎯 the owner's MC band default · 🛂 buy gate = the agents' defaults
     wild = oe.clean_policy({'agentAuthority': 'god', 'agentTp': 9999, 'agentSl': 0.5, 'agentMaxHold': -3, 'agentSizePct': 99, 'agentSeatTarget': 7, 'agentSwitch': 'yolo', 'agentEntry': 'x', 'agentTrail': 'z'})
     assert wild['agentAuthority'] == 'agents' and wild['agentTp'] == oe.BOUNDS['agentTp'][1] and wild['agentSl'] == oe.BOUNDS['agentSl'][0]   # clamped into the bounds
     assert wild['agentMaxHold'] == 0.0 and wild['agentSizePct'] == oe.BOUNDS['agentSizePct'][1] and wild['agentSeatTarget'] == 0 and (wild['agentSwitch'], wild['agentEntry'], wild['agentTrail']) == ('agents', 'agents', 'auto')

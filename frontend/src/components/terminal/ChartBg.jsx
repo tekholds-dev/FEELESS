@@ -15,6 +15,7 @@ const n = (len, f) => Array.from({ length: len }, (_, i) => f(i));
 export function ChartBg({ kind }) {
   if (!kind || kind === 'default') return null;
   return <div className={`cbg cbg-${kind}`} aria-hidden data-testid={`chart-bg-${kind}`}>
+    <i className="cbg-tide is-up" /><i className="cbg-tide is-dn" />{/* ⚡ every scene breathes with the REAL tick: CandleFx marks the chart cfk-up / cfk-dn on each live price */}
     {kind === 'reactor' && <div className="cbg-stage">{n(3, i => <i key={i} className="cbg-ring" style={{ '--i': i }} />)}{n(6, i => <b key={i} className="cbg-ion" style={{ '--i': i }} />)}<img className="cbg-mark" src={LOGO} alt="" /></div>}
     {kind === 'helix' && <div className="cbg-stage"><div className="cbg-spin">{n(14, i => <i key={i} className="cbg-rung" style={{ '--i': i }}><u /><u /></i>)}</div><img className="cbg-mark" src={LOGO} alt="" /></div>}
     {kind === 'sunset' && <div className="cbg-stage"><i className="cbg-sun" /><i className="cbg-haze" /><div className="cbg-sea">{n(7, i => <b key={i} className="cbg-glint" style={{ '--i': i }} />)}{n(3, i => <i key={i} className="cbg-swell" style={{ '--i': i }} />)}</div><img className="cbg-mark" src={LOGO} alt="" /></div>}

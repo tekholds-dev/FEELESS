@@ -124,6 +124,7 @@ export function CockpitControls({ o, call, isOwner, onAi }) {
       {CTRL_GROUPS.map(([g, title, blurb, keys]) => { const rows = keys.filter(k => ctl[k]); if (!rows.length) return null;
         return <div key={g} className={`acx-card is-${g}`} data-testid={`acx-${g}`}><p className="acx-ctitle"><b>{title}</b><small>{blurb}</small></p>
           {g === 'universe' ? <BandTrack band={pol.band} cands={cands} /> : null}
+          {g === 'volume' ? <p className="acx-vol" data-testid="acx-vol-live"><b>🔥 {o?.universe?.trendingN ?? '—'}</b> on Pump trending now · <b>{o?.universe?.inLane ?? '—'}</b> coins in your lane this pass</p> : null}
           {g === 'exits' ? <TrailLab trail={o?.trail} /> : null}
           {g === 'seats' ? <CapitalMeter cap={o?.capital} /> : null}
           {g === 'seats' ? <ControlRow c={{ key: 'agentCapital', label: '💰 Size by the record', who: o?.capital?.on === false ? 'CREATOR OVERRIDE' : 'AGENTS CHOOSE', value: o?.capital?.on === false ? 'off' : 'on', options: ['on', 'off'],

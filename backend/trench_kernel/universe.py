@@ -69,7 +69,7 @@ AGENT_MIN_MCAP = 12_000.0      # … and at least $12K live cap (under it the cu
 # 🎛 THE OWNER'S MC BAND (realCfg `agentMcMin` / `agentMcMax`, HQ › Agents › controls): every reader of the universe — the lane, the hard
 # wall, the open-mode wall, the ranking's band part — reads `band()`. The service sets it from the real card's config once a pass.
 BAND_MINS = (0.0, 5_000.0, 10_000.0, 12_000.0, 20_000.0, 30_000.0, 50_000.0)
-BAND_MAXS = (100_000.0, 150_000.0, 200_000.0, 300_000.0, 500_000.0, 1_000_000.0)
+BAND_MAXS = (100_000.0, 150_000.0, 200_000.0, 300_000.0, 500_000.0, 1_000_000.0, 2_000_000.0, 5_000_000.0, 10_000_000.0)   # 2M–10M: Pump trending runners (owner, 2026-10-13: "wider tunes … these coins run booty vol")
 _BAND = [AGENT_MIN_MCAP, AGENT_MAX_MCAP]
 
 
@@ -81,9 +81,53 @@ def clean_band(cfg):
     return (mn if mn < mx else min(AGENT_MIN_MCAP, mx / 2)), mx
 
 
+# 🔥 THE OWNER'S VOLUME LIMITS (owner, 2026-10-13: "fix limits so I can tune for more volume and wider tunes to get Pump trending in there,
+# moving real fast volume"): realCfg `agentMaxAgeH` (oldest coin a NEW entry may be; default 6h), `agentMinVol1h` (traded in the last hour;
+# default $1K) and `agentPumpTrend` — off · first (a coin on Pump's own Trending board skips the age line and ranks up) · only (new entries
+# come ONLY from Pump trending). Every safety gate, the MC band, the keeper's pool floor and the live checks still apply to every coin.
+MAX_AGES = (1.0, 3.0, 6.0, 12.0, 24.0, 72.0, 168.0, 720.0)
+MIN_VOLS = (1_000.0, 5_000.0, 10_000.0, 25_000.0, 50_000.0, 100_000.0, 250_000.0)
+TREND_MODES = ('off', 'first', 'only')
+TREND_RANK = 1.15        # a coin on Pump trending in `first` / `only` mode: ×1.15 rank and newness counted as fresh (it is running NOW)
+_LIM = {'maxAgeH': 6.0, 'minVol': 1_000.0, 'trend': 'off', 'trending': frozenset()}
+
+
+def clean_limits(cfg):
+    c = cfg or {}
+    a = _f(c.get('agentMaxAgeH')) if c.get('agentMaxAgeH') is not None and _f(c.get('agentMaxAgeH')) in MAX_AGES else 6.0
+    v = _f(c.get('agentMinVol1h')) if c.get('agentMinVol1h') is not None and _f(c.get('agentMinVol1h')) in MIN_VOLS else AGENT_MIN_VOL1H
+    t = c.get('agentPumpTrend') if c.get('agentPumpTrend') in TREND_MODES else 'off'
+    return {'maxAgeH': a, 'minVol': v, 'trend': t}
+
+
 def set_band(cfg):
     _BAND[:] = clean_band(cfg)
+    _LIM.update(clean_limits(cfg))
     return band()
+
+
+def set_trending(mints):
+    """The mints on Pump's own Trending board right now (set by the service each agents pass from the ptrend list)."""
+    _LIM['trending'] = frozenset(m for m in (mints or ()) if m)
+
+
+def limits():
+    return {k: v for k, v in _LIM.items() if k != 'trending'} | {'trendingN': len(_LIM['trending'])}
+
+
+def on_trend(row):
+    """Is this coin on Pump's Trending board AND the owner's trend mode on?"""
+    r = row or {}
+    return _LIM['trend'] != 'off' and (r.get('mint') in _LIM['trending'] or 'ptrend' in (r.get('src') or ()))
+
+
+def max_age(row=None):
+    """The oldest a coin may be for a NEW entry (hours): the owner's line; a Pump-trending coin in first / only mode has none."""
+    return float('inf') if on_trend(row) else _LIM['maxAgeH']
+
+
+def min_vol():
+    return _LIM['minVol']
 
 
 def band():
@@ -157,13 +201,16 @@ def agent_holder_pass(r):
 
 def in_lane(row, cap=None):
     """🗑 THE AGENTS' UNIVERSE for new entries: live market cap inside the owner's band (`band()`, default $12K–$300K; `cap` may only
-    LOWER the top), ≥ $1K traded in the hour, a known launch age ≤ 6h."""
+    LOWER the top), ≥ the owner's hourly volume (default $1K), a known launch age ≤ the owner's line (default 6h; none for a Pump-trending
+    coin in first / only mode); `only` mode = Pump trending coins only."""
     r = row or {}
     if r.get('mint') in _majors():   # 🪙 majors + xStocks are never a trench seat (MRNA / MU sat dead outside US market hours, 2026-10-11)
         return False
     top = min(band()[1], _f(cap)) if cap else band()[1]
-    return (under_cap(r, top) and _f(r.get('vol1h')) >= AGENT_MIN_VOL1H
-            and r.get('ageH') is not None and _f(r.get('ageH')) <= AGENT_MAX_AGE_H)
+    if _LIM['trend'] == 'only' and not on_trend(r):
+        return False
+    return (under_cap(r, top) and _f(r.get('vol1h')) >= min_vol()
+            and r.get('ageH') is not None and _f(r.get('ageH')) <= max_age(r))
 
 
 def _majors():

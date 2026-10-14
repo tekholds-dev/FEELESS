@@ -12974,7 +12974,7 @@ def _ai_learn_note(role, c, res, now):
     px = _fuse._f(c.get('price')) or _fuse._f((_jup_px_cache.get(c['mint']) or (0, 0))[1])
     ad_ = (res or {}).get('advice') or {}
     _ai['book'] = _ail.note(_ai_book(), role, c['mint'], st, px, now, c.get('symbol'), len(ad_.get('risk_flags') or []), ad_.get('scout'), bool(c.get('atFill')),
-                            bool(_tch.hits(_teach_state(), c.get('symbol'), c['mint'])))   # 🎓 a read on a coin the owner taught is graded on its own (TAUGHT)
+                            bool(_tch.hits(_teach_state(), c.get('symbol'), c['mint'])), phase=ad_.get('chart_phase'), ephase=c.get('phase'), src=(res or {}).get('source'))   # 🎓 a read on a coin the owner taught is graded on its own (TAUGHT)
 
 
 async def _ai_learn_settle(now):
@@ -13045,7 +13045,7 @@ def _ai_view(now=None, light=False):
         keep = sorted(notes, key=lambda k_: -max(_fuse._f(x_.get('at')) for x_ in notes[k_].values()))[:12]
         return {'providers': [{k_: r_.get(k_) for k_ in ('key', 'label', 'enabled', 'state', 'lastMs')} for r_ in v['providers']], 'active': v['active'],
                 'totals': v['totals'], 'notes': {m_: {ro_: {k_: n_.get(k_) for k_ in ('source', 'label', 'advice', 'at')} for ro_, n_ in notes[m_].items()} for m_ in keep},
-                'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY, 'localLane': {k_: _local_lane.get(k_) for k_ in ('n', 'last', 'busy')}, 'log': _ai['log'][-20:], 'metrics': v.get('metrics'),
+                'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY, 'localLane': {**{k_: _local_lane.get(k_) for k_ in ('n', 'last', 'busy', 'every', 'whyEvery')}, 'watch': _aic.watch_view(_local_lane.get('watch') if _local_lane.get('watch') is not None else (_json_load(LOCAL_WATCH_PATH, {}) or {}), _chat.get('settings') or {}, time.time(), _local_lane.get('every'), _local_lane.get('whyEvery'))}, 'log': _ai['log'][-20:], 'metrics': v.get('metrics'),
                 'model': next((r_.get('model') for r_ in v['providers'] if r_.get('key') == v['active']), None), 'learn': {**_ail.view(_ai_book()), 'on': _ai_learn_on()},
                 'slip': {'firstPct': _fw.BUY_SLIP_FIRST / 100, 'retryPct': _fw.BUY_SLIP_MAX / 100, 'retries': _fw.BUY_SLIP_RETRIES}}
     return {**v, 'notes': notes, 'rounds': _ai['rounds'], 'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY}
@@ -13113,9 +13113,37 @@ def _ai_ambiguous(c):
     return near or (c.get('status') == 'READY' and 'holders' in (c.get('unknown') or []))
 
 
+_learned_mem: dict = {'at': 0.0, 'chart': None, 'learned': None}
+
+
+def _ai_learned(now):
+    """🎓 EVERYTHING THE DESK LEARNED, live, for every model case (owner, 2026-10-13: "all teachings and learnings really need to be wired
+    live"): the rule lab's live rules · the Judge's + coach's live ranking causes · what each desk's own vote is worth on real money — and
+    📈 the model's own chart-reading record. Rebuilt at most every 30s from state the desk already holds (no fetch)."""
+    if now - _learned_mem['at'] < 30:
+        return _learned_mem
+    out = []
+    try:
+        for d_, names_ in (_rlab.lessons(_lab_state()) or {}).items():
+            out += [f"lab · {d_}: {n_}" for n_ in names_[:2]]
+        out += [f"rank down: {k_} ({p_:+.0f})" for k_, p_ in sorted((_coach_pens(now) or {}).items(), key=lambda kv: kv[1])[:3]]
+        ds_ = (_office.get('payload') or {}).get('deskStats') or {}
+        for d_ in _jr.VOTE_DESKS:
+            o_ = (ds_.get(d_) or {}).get('own') or {}
+            g_, b_ = o_.get('go') or {}, o_.get('doubt') or {}
+            if g_.get('med') is not None and b_.get('med') is not None and min(g_.get('n', 0), b_.get('n', 0)) >= 5:
+                out.append(f"{d_}'s own vote: GO typical {g_['med']:+.1f}% vs DOUBT {b_['med']:+.1f}% on real money")
+    except Exception as e:
+        print('ai learned:', str(e)[:80])
+    _learned_mem.update(at=now, learned=out[:8] or None, chart=_ail.chart_line(_ail.vital_record(_ai_book())))
+    return _learned_mem
+
+
 def _ai_case(c):
     """A kernel candidate → the compact case the router sends (it whitelists again) + 🎓 the owner's teachings that fit the coin."""
+    lm_ = _ai_learned(time.time())
     return {**_ai_brief(c.get('mint')), 'signals': _ai_signals(c), 'lessons': _tch.for_case(_teach_state(), c.get('symbol'), c.get('mint')) or None,
+            'learned': lm_['learned'], 'chartRec': lm_['chart'],
             **{k_: c.get(k_) for k_ in ('mint', 'symbol', 'status', 'rank', 'ageMin', 'cap', 'liq', 'vol5m', 'move5m', 'buyShare', 'narrative', 'trigger', 'size', 'unknown',
                                        'state', 'why', 'pending', 'result', 'cause', 'peak', 'heldMin', 'rule', 'structure', 'phase')},
             'devil': [f"{d_[0]} {d_[1]}" for d_ in (c.get('devil') or []) if isinstance(d_, (list, tuple)) and len(d_) >= 2] if isinstance(c.get('devil'), list) else c.get('devil')}
@@ -13161,7 +13189,15 @@ async def _ai_round(now):
 
 
 LOCAL_LANE_EVERY = 180.0   # 💻 the local model's own lane: one pre-read per this many seconds (LOCAL_LANE_SEC in backend/.env; 0 = off)
-_local_lane = {'at': 0.0, 'busy': False, 'n': 0, 'last': None}
+_local_lane = {'at': 0.0, 'busy': False, 'n': 0, 'last': None, 'watch': None, 'every': None, 'whyEvery': None, 'lastMs': None, 'pausedAt': 0.0}
+LOCAL_WATCH_PATH = DATA_DIR / 'local_watch.json'   # 💻 the local lane's 24h watch (24 hourly rows, tiny) — survives a backend restart
+
+
+def _lw_note(now, ok, ms=None, why=None):
+    if _local_lane['watch'] is None:
+        _local_lane['watch'] = _json_load(LOCAL_WATCH_PATH, {}) or {}
+    _local_lane['watch'] = _aic.watch_note(_local_lane['watch'], now, ok, ms, why)
+    _json_save(LOCAL_WATCH_PATH, _local_lane['watch'])
 
 
 def _local_lane_pick(now):
@@ -13183,7 +13219,18 @@ async def _local_lane_run(now):
     except Exception:
         pass
     every = _fuse._f(os.environ.get('LOCAL_LANE_SEC')) if os.environ.get('LOCAL_LANE_SEC') not in (None, '') else LOCAL_LANE_EVERY
-    if every <= 0 or _local_lane['busy'] or now - _local_lane['at'] < every:
+    if every <= 0:
+        return
+    try:   # 💻 the owner's 24h boost: faster reads, paused by itself while a browser reports lag (the GPU is shared with Chrome)
+        _brain_load()
+        perf_ = [x_ for x_ in list(_perf_samples)[-200:] if now - x_['at'] <= 120]
+        every, why_ = _aic.lane_every(_chat['settings'], now, perf_, _local_lane.get('lastMs'), base=every)
+        if why_.startswith('boost paused') and now - _local_lane['pausedAt'] >= 600:   # the watch notes a pause once per 10 min
+            _local_lane['pausedAt'] = now; _lw_note(now, False, why='paused')
+        _local_lane.update(every=round(every, 1), whyEvery=why_)
+    except Exception as e:
+        print('local boost:', str(e)[:80])
+    if _local_lane['busy'] or now - _local_lane['at'] < every:
         return
     env, cfg = os.environ, _ai_cfg()
     p_ = _air.provider(env, 'local', cfg)
@@ -13195,6 +13242,9 @@ async def _local_lane_run(now):
     _local_lane.update(at=now, busy=True)
     try:
         r_ = await _air.ROUTER.reason(_ai_http(), env, cfg, _ai_case(c_), 'sherlock', 'high', prio=_air.PRIO['ready'], only=('local',), mode='case')
+        ok_ = bool((r_ or {}).get('advice')) if isinstance(r_, dict) else False
+        _local_lane['lastMs'] = (r_ or {}).get('ms') if isinstance(r_, dict) else None
+        _lw_note(time.time(), ok_, _local_lane['lastMs'])
         if _ai_keep('sherlock', c_, r_, time.time()) and (r_ or {}).get('advice'):
             _local_lane.update(n=_local_lane['n'] + 1, last={'at': round(time.time(), 1), 'symbol': c_.get('symbol'), 'ms': r_.get('ms'), 'stance': (r_.get('advice') or {}).get('stance')})
     except Exception as e:
@@ -13378,7 +13428,8 @@ def _chat_persist():
 
 
 def _chat_extra():
-    return {'threads': _aic.threads_view(_chat['th']), 'saved': _aic.saved_view(_chat['saved']), 'settings': _chat['settings']}
+    return {'threads': _aic.threads_view(_chat['th']), 'saved': _aic.saved_view(_chat['saved']), 'settings': _chat['settings'],
+            'local': _aic.watch_view(_local_lane.get('watch') if _local_lane.get('watch') is not None else (_json_load(LOCAL_WATCH_PATH, {}) or {}), _chat['settings'], time.time(), _local_lane.get('every'), _local_lane.get('whyEvery'))}
 AI_CHAT_CTX_SEC = 20.0   # the compact agent-state context is rebuilt at most this often (and only its text changes the model's input)
 
 
@@ -13592,7 +13643,8 @@ async def admin_ai_chat_open(request: Request):
 async def admin_ai_chat_settings(request: Request):
     """⚙ Owner only: the Brain's chat tuning (temperature · answer length) + the small-things allowance. Listed values only; audited."""
     _require_owner(request); _brain_load()
-    _chat['settings'] = _aic.clean_settings(await request.json(), _chat['settings'])
+    body_ = {k_: v_ for k_, v_ in (await request.json() or {}).items() if k_ != 'localBoostUntil'}   # the boost's end is set by the server only (now + 24h)
+    _chat['settings'] = _aic.clean_settings({**body_, 'now': time.time()}, _chat['settings'])
     _chat_persist()
     ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-chat-settings', json.dumps(_chat['settings'])[:160]); _admin_save(ad_)
     return {'ok': True, **_chat_extra()}
@@ -14604,6 +14656,39 @@ def _shadow_flush(now=None):
 _real_tr: dict = {'at': 0.0, 'rows': []}
 
 
+_dial_mem: dict = {'at': 0.0, 'v': None}
+
+
+def _dial_lab(now):
+    """🎚 what each dial would have bought, replayed on the agents' own judged calls (paper_desk.dial_replay) — rebuilt once a minute."""
+    if now - _dial_mem['at'] >= 60:
+        try:
+            _dial_mem.update(at=now, v=_pd.dial_replay(_agents_mem.get().get('done') or []))
+        except Exception as e:
+            print('dial lab:', str(e)[:80]); _dial_mem['at'] = now
+    return _dial_mem['v']
+
+
+def _desk_stats_view(now):
+    """👨‍⚖️ the desks' records for the page + the model: the Judge's team record (`desk_stats`) + each entry desk's OWN vote on real money
+    (`own`, judge_review.desk_votes) + the three desks that never vote on an entry, on their own job: 📮 Courier = sends that landed in the
+    last hour · 🗄 Archivist = records filed with no rewrite in the chain. (Owner-approved build b5 / b10: no desk reads UNKNOWN for want of
+    a measure, and seven desks no longer share one number.)"""
+    out = _jr.desk_stats(((_office_state().get('judge') or {}).get('reviews')) or [])
+    try:
+        own = _jr.desk_votes(_real_trades())
+        for d_, r_ in own.items():
+            out.setdefault(d_, {})['own'] = r_
+        m_ = _fw.exec_metrics(_fw_peek().get('ledger'), now)
+        out['courier'] = {'decisions': m_['sends'], 'accuracy': round(m_['fills'] / m_['sends'] * 100) if m_['sends'] else None, 'kind': 'landed', 'window': 'last hour'}
+        arch_ = _json_load(ARCHIVE_PATH, {}) or {}
+        n_ = len(arch_.get('positions') or []) + len(arch_.get('cases') or [])
+        out['archivist'] = {'decisions': n_, 'accuracy': 100 if n_ and not _arch_verify(arch_) else (0 if n_ else None), 'kind': 'intact'}
+    except Exception as e:
+        print('desk stats:', e)
+    return out
+
+
 def _real_trades():
     """Our confirmed real exits (one per sale), re-read from the archive at most once a minute — for the model's "twins" line."""
     if time.time() - _real_tr['at'] > 60:
@@ -14634,6 +14719,11 @@ def _trail_view(of, arch, rcfg, scalp):
     except Exception as e:
         print('trail grid:', e)
         g = {'n': 0, 'need': _ap.MIN_N, 'pays': False}
+    try:   # 🟢 b8: green exits by the rule that sold them vs what the live trail would have made on the same whole move
+        g['byRule'] = _ap.by_rule((arch or {}).get('positions'), (_after_mem.get() or {}).get('done'), _of.reaper_replay, _of.tunes(of, 'reaper'), _of.take_line(rcfg, scalp))
+        g['ruleWords'] = _ap.rule_words(g['byRule'])
+    except Exception as e:
+        print('trail by rule:', e)
     sh = next((c for c in ((of or {}).get('candidates') or {}).values() if c.get('status') == 'shadow' and c.get('agent') == 'reaper'), None)
     return {**g, 'words': _ap.words(g), 'watching': len((_after_mem.get() or {}).get('open') or {}), 'asked': _coach.get('tuneSaid'), 'tunes': _of.tunes(of, 'reaper'),
             'shadow': None if not sh else {'key': sh['key'], 'value': sh['value'], 'live': sh.get('live'), 'from': (sh.get('evidence') or {}).get('from'), 'why': (sh.get('evidence') or {}).get('why'), **_of.evaluate(sh)}}
@@ -15000,6 +15090,7 @@ async def _agents_tick(now):
     await _regret_tick(now)   # 😴 grade the coins the checks blocked + tune the checks the owner left on AGENTS (once a minute)
     try:   # 🎯 the owner's MC band (realCfg agentMcMin / agentMcMax, default $12K–$300K) — every reader of the universe reads it from here
         _uni.set_band(_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}))
+        _uni.set_trending([r_.get('mint') for r_ in (_lens_rows or {}).get('ptrend') or []])   # 🔥 the coins on Pump's own Trending board right now
     except Exception as e:
         print('band:', e)
     try:
@@ -15810,7 +15901,8 @@ def _office_warden(cur, t_, requested, cfg_t, now, move):
                                                            _of.tune(st, 'reaper', 'stopPct'), _of.take_line(cfg_t, _agents.get('scalp')))
             fv_ = (_office.get('flow') or {}).get(t_.get('mint')) or t_.get('fv')
             _office['theses'][t_.get('mint')].update(flow={'state': fv_.get('state'), 'buyPct': fv_.get('buyPct'), 'buyers': fv_.get('buyers')} if fv_ else None,
-                                                     distHigh=t_.get('distHigh') if t_.get('distHigh') is not None else ((ch_.get('f') or {}).get('distHigh')))
+                                                     distHigh=t_.get('distHigh') if t_.get('distHigh') is not None else ((ch_.get('f') or {}).get('distHigh')),
+                                                     votes=_jr.votes_of((_tk.KERNEL.dec.get(t_.get('mint')) or {}).get('opinions')))   # 🗳 each entry desk's OWN vote (judge_review.desk_votes scores it on the real result)
         if move == 'fill':
             _tk.KERNEL.note('warden', f"SIZE ${_fuse._f(wd['allowed']):.2f}", (min(wd['rules'], key=lambda r: r['mult'])['why'] if wd['rules'] else 'no rule bit — full size'), now, mint=t_.get('mint'),
                             result={'usd': round(_fuse._f(wd['allowed']), 4), 'requested': round(_fuse._f(wd['requested']), 4)}, key=f"sized:{int(now)}")
@@ -16272,7 +16364,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
                                   lifecycle=_lifecycle(now),
                                   kernel=_kernel_view(now), rpcStats=_chain.rpc_metrics(now), enrich={**(_office.get('enrich') or {}), **_ENRICH.metrics(now)},
                                   generations=_tkl.generations(_lc_book(now), now, _lc_shadows()),
-                                  deskStats=_jr.desk_stats(((_office_state().get('judge') or {}).get('reviews')) or []),
+                                  deskStats=_desk_stats_view(now), dialLab=_dial_lab(now),
                                   rounds={**_tr.summary(_rounds_state(), now), 'roundSec': _tr.ROUND_SEC, 'desk': {'n': int(now // _tr.ROUND_SEC) % int(86400 // _tr.ROUND_SEC) + 1, 'left': round(_tr.ROUND_SEC - now % _tr.ROUND_SEC, 1)},
                                           'live': sorted([{'mint': m_, 'sym': e_.get('sym'), 'round': e_.get('round'), 'left': _tr.time_left(e_['first'], now),
                                                            'tier': ((e_.get('reads') or [{}])[-1]).get('tier'), 'score': ((e_.get('reads') or [{}])[-1]).get('score'),
@@ -16286,7 +16378,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
     _office['payload']['performance']['passMs'] = round(sum(_fuse._f(ms.get(a)) for a in _of.CHAIN), 2)
     _tape_ledger(now)
     _office['payload'].update(tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now), ai=_ai_view(now, light=True), net=_net_stats(now), armed=_office.get('armed'), lab=_lab_view(now), regret=_rg.view(_regret_book(), now), capital=_capital_view(), trail=_office.get('trail'), teach=_tch.view(_teach_state()),
-                              universe={'capUsd': _uni.band()[1], 'minCapUsd': _uni.band()[0], 'word': _uni.band_word(), 'maxAgeH': _uni.AGENT_MAX_AGE_H, 'inLane': len(_agents.get('table') or []),
+                              universe={'capUsd': _uni.band()[1], 'minCapUsd': _uni.band()[0], 'word': _uni.band_word(), 'maxAgeH': _uni.limits()['maxAgeH'], 'minVol1h': _uni.limits()['minVol'], 'pumpTrend': _uni.limits()['trend'], 'trendingN': _uni.limits()['trendingN'], 'inLane': len(_agents.get('table') or []),
                                         'board': (_office.get('intake') or {}).get('board'), 'mints': len(_tk.KERNEL.store.mints)})
     _hub_publish(now)   # 📡 this pass as DELTAS: only what changed since the last one
     try:   # a read-only snapshot of what the page was handed (like agents_duty.json) — for checking the office without signing in to HQ (≤ once a minute)

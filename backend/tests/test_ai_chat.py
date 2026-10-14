@@ -41,7 +41,7 @@ def test_the_context_is_compact_and_marks_missing_vitals_unknown():
               'kernel': {'candidates': [{'mint': 'M1', 'symbol': 'AAA', 'status': 'READY', 'trigger': 'ENTER', 'why': 'hot early move', 'cap': 60000, 'liq': None, 'buyShare': 61, 'unknown': ['holders', 'site / X']}]},
               'execution': {'health': 'HEALTHY', 'sends': 6, 'fills': 6, 'failed': 0}, 'seat': {'held': 1, 'empty': 3, 'state': 'FILLING'}, 'mission': {'value': 3.4, 'putIn': 37.0}}
     c = ch.context(office, 'M1', VOCAB)
-    assert 'reaper: gen 4 ACTIVE · 12 real decisions, 58% right' in c['agents'] and 'tally: gen UNKNOWN UNKNOWN' in c['agents'][0]
+    assert 'reaper: gen 4 ACTIVE · team record only: 12 real decisions, 58% right' in c['agents'] and 'tally: gen UNKNOWN UNKNOWN' in c['agents'][0]
     assert c['selected']['liq'] == 'UNKNOWN' and c['selected']['pending'] == ['holders', 'site / X'] and c['selected']['buyShare'] == '61%'
     assert c['card'] == 'worth $3.40, $37.00 put in' and c['execution'].startswith('HEALTHY · 6 of 6') and c['vocab'] == list(VOCAB)
     assert len(json.dumps(c)) < 4000 and ch.ctx_key(c) == ch.ctx_key(ch.context(office, 'M1', VOCAB)) != ch.ctx_key(ch.context(office, 'ZZ', VOCAB))
@@ -143,7 +143,7 @@ def test_each_mode_keeps_its_own_thread_and_approved_builds_join_a_queue():
 def test_brain_settings_tune_the_chat_and_saved_convos_reopen():
     import ai_chat as c
     st = c.clean_settings({'temp': 0.6, 'len': 'long', 'allowSmall': True})
-    assert st == {'temp': 0.6, 'len': 'long', 'allowSmall': True} and c.tune_of(st) == {'temp': 0.6, 'maxTok': 1200}
+    assert st == {'temp': 0.6, 'len': 'long', 'allowSmall': True, 'localBoostUntil': 0.0} and c.tune_of(st) == {'temp': 0.6, 'maxTok': 1200}
     assert c.clean_settings({'temp': 5, 'len': 'huge', 'allowSmall': 'yes'}) == c.SETTINGS   # only listed values
     assert set(c.SMALL_KINDS) == {'lesson', 'idea'}   # switches, weights and exit notches always wait for the owner
     sv = c.save_convo([], 'chat', [{'role': 'user', 'text': 'why are we bleeding?'}, {'role': 'assistant', 'text': 'stops'}], 100.0)

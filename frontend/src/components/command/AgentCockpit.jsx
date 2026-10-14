@@ -1,10 +1,11 @@
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { CHART_BGS, setChartBg, useChartBg } from '../../lib/chartBg';
 import { toast } from 'sonner';
 import { useHub, hubApply, useAi } from '../../lib/agentHub';
 import { rankFill, READY_MIN, devilOf } from '../../lib/agentRead';
 import { seatCards, flowBar, focusMint, chartModel, decisionOf, tapeOf, tapeTone, TAPE_AGENT, AGE_BUCKETS, bucketCounts, reviewQueue, supplyWord,
-  seatState, STATE_CLS, missionTiles, letterMarkers, inputsOf, traceOf, CHAIN, maxIdByAgent, newEvents, queueStatus, queueMc, openPnl, groupTape, lossMap, measureRead } from '../../lib/cockpit';
+  seatState, STATE_CLS, missionTiles, letterMarkers, inputsOf, traceOf, CHAIN, maxIdByAgent, newEvents, queueStatus, queueMc, openPnl, groupTape, lossMap, measureRead, recWord, voteSplit } from '../../lib/cockpit';
 import { useEasedNumber } from '../../lib/easedNumber';
 import { STANCE_TONE } from '../../lib/aiRead';
 import { usd as cash, pct as pc, price as priceFmt } from '../../lib/num';
@@ -132,6 +133,12 @@ function HuntLine({ why, ready, same }) {
   return <div className={`ack-hunt ${ready ? 'is-ready' : ''}`} data-tip={why || ''}><span className="ack-radar" aria-hidden="true"><i /><b /></span>
     <p><b>{ready ? `${ready} READY · ` : ''}{head}</b>{rest ? <small>{rest}</small> : null}</p></div>;
 }
+// 🎨 the chart's scene, picked right here (ONE choice for every chart on the site — lib/chartBg); every scene tints with the live tick
+function ThemePick() {
+  const v = useChartBg();
+  return <select className="ack-theme" value={v} onChange={e => setChartBg(e.target.value)} aria-label="Chart theme" data-testid="ack-theme" data-tip="Chart theme — every scene breathes green / red with each real tick">
+    {CHART_BGS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>;
+}
 function SeatCard({ s, on, onPick, readyN, same }) {
   const st = seatState(s, readyN);
   if (s.open) return <div className={`ack-seat is-open ${on ? 'is-on' : ''}`} data-testid={`ack-seat-${s.seat}`}>
@@ -239,11 +246,11 @@ function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent }) {
       <span className="ack-cstat" data-tip="Market cap = live price × the supply the kernel resolved (token supply → a launchpad's fixed 1B → live cap ÷ price). Unknown supply = no chart."><small>SUPPLY</small><em>{m.supply ? `${supplyWord(m.supply)}${m.supplySrc ? ` · ${m.supplySrc}` : ''}` : 'UNKNOWN'}</em></span>
       <span className="ack-ctools"><span className="m-seg ack-iv" role="group" aria-label="Candle size">{IVS.map(([k, l]) => <button key={k} type="button" className={iv === k ? 'active' : ''} onClick={() => setIv(k)} data-testid={`ack-iv-${k}`}>{l}</button>)}</span>
         <button type="button" className="m-btn ack-wr" onClick={() => pair && window.dispatchEvent(new CustomEvent('feeless:war-room', { detail: pair }))} data-testid="ack-warroom">⚔ war room</button>
-        <i className="ack-livechip">● MC chart</i></span></header>
+        <ThemePick /><i className="ack-livechip">● MC chart</i></span></header>
     {!m.pair ? <p className="ack-nil" data-testid="ack-nopool">No pool for this coin yet — nothing to chart.</p>
       : !m.mc ? <p className="ack-nil is-warn" data-testid="ack-mc-unavailable"><b>MC UNAVAILABLE</b> — no supply is known for this coin yet (no token supply, not a launchpad mint, no live cap). The raw price is never charted in its place.</p>
         : <div className="ack-plot">{pos ? <TradeHud pos={pos} m={m} /> : null}<Suspense fallback={<p className="ack-nil">loading the live chart…</p>}>
-          <PriceChartLazy key={`${m.pair}-${iv}`} pair={pair} interval={iv} metric="marketCap" showVolume markers={chartMarkers} fuse={fuse} pnl={seatPnl} plain /></Suspense></div>}
+          <PriceChartLazy key={`${m.pair}-${iv}`} pair={pair} interval={iv} metric="marketCap" showVolume markers={chartMarkers} fuse={fuse} pnl={seatPnl} /></Suspense></div>}
     <div className="ack-mrail" data-testid="ack-mrail"><span className="ack-mkey"><i className="ack-ml is-B">▲<small>real buy</small></i><i className="ack-ml is-X">▼<small>real sell</small></i><small>on the chart · decisions →</small></span>
       {markers.length ? <span className="ack-mlist">{markers.slice(-12).map(k => <button key={k.id} type="button" className={`ack-ml is-${k.text}`} onClick={() => onAgent(k.agent)}
         data-tip={`${new Date(k.at * 1000).toLocaleTimeString()} · ${TAPE_AGENT[k.agent]?.[1] || k.agent} · ${k.action}${k.why ? ` — ${k.why}` : ''}${k.mc ? ` · MC ${mcWord(k.mc)}` : ''} · ${ago(k.at)} ago`}
@@ -350,6 +357,13 @@ function DecisionPanel({ o, dec, pos, cand, mint, seats, readyN, agent, setAgent
 }
 
 // ── 🤖 the ten agents ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
+// 🗳 a desk's own vote, drawn: the typical real % of the trades it said GO to vs the ones it doubted — a desk worth its vote has GO above DOUBT
+function VoteBar({ st }) {
+  const v = voteSplit(st); if (!v) return null;
+  const w = x => `${Math.min(50, Math.abs(x || 0) * 2.5)}%`;
+  return <span className={`ack-vote ${v.edge == null ? '' : v.edge > 0 ? 'is-good' : 'is-bad'}`} data-testid="ack-vote" data-tip={`Own vote on real money: said GO ${v.goN}× (typical ${v.go ?? '—'}%) · doubted ${v.doubtN}× (typical ${v.doubt ?? '—'}%)${v.edge != null ? ` · its GO is worth ${v.edge > 0 ? '+' : ''}${v.edge} pts over its doubt` : ''}`}>
+    <i className={`is-go ${(v.go || 0) < 0 ? 'is-neg' : ''}`} style={{ width: w(v.go) }} /><i className={`is-doubt ${(v.doubt || 0) < 0 ? 'is-neg' : ''}`} style={{ width: w(v.doubt) }} /></span>;
+}
 function AgentMatrix({ o, gens, agent, setAgent, rows, pulse }) {
   const lastBy = useMemo(() => { const m = {}; (rows || []).forEach(r => { if (!m[r.agent] || r.id > m[r.agent].id) m[r.agent] = r; }); return m; }, [rows]);
   const ds = o?.deskStats || {}; const agents = o?.agents || []; const [filt, setFilt] = useState('all');
@@ -365,7 +379,7 @@ function AgentMatrix({ o, gens, agent, setAgent, rows, pulse }) {
         data-tip={`${a.job || ''} — ${why}${l ? ` · last line: ${l.action} ${l.symbol ? `$${l.symbol}` : ''} ${ago(l.at)} ago` : ''}`} data-testid={`ack-agent-${a.key}`}>
         <span className={`ack-aname ${pulse[a.key] ? 'is-pulse' : ''}`} key={pulse[a.key] || 'x'}>{a.icon} {a.name}</span>
         <small>{g ? `GEN ${g.generation} · ${g.status}` : '—'}</small>
-        <small className="ack-acc" data-testid={`ack-rec-${a.key}`}>{st ? `${st.accuracy ?? '—'}% · ${st.winResp ?? 0}W ${st.lossResp ?? 0}L` : 'no real record yet'}</small>
+        <small className="ack-acc" data-testid={`ack-rec-${a.key}`}>{recWord(st)}</small><VoteBar st={st} />
         <small className={`ack-anet ${tone(g?.netImpact)}`}>{g?.netImpact != null ? `net ${g.netImpact > 0 ? '+' : ''}${g.netImpact}%` : ''}</small>
         <em className="ack-aword">{word}</em><small className="ack-atgt">{l?.symbol ? `$${l.symbol}` : ''}</small><small className="ack-awhy">{why}</small></button>)}</div></section>;
 }

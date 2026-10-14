@@ -54,7 +54,7 @@ def review(p):
     th = p.get('thesis') or {}
     entry, call = th.get('structure'), th.get('call')
     path = [_f(x) for x in (p.get('path') or [])]
-    peak, low = _f(p.get('peak')), _f(p.get('low'))
+    peak = _f(p.get('peak'))
     held = max(0.0, (_f(p.get('closedAt')) - _f(p.get('since'))) / 60) if p.get('since') else None
     rule = str(p.get('rule') or '')
     tier = (str(p.get('tag') or '').split('· ')[-1].split('-tier')[0] if '-tier' in str(p.get('tag') or '') else None)
@@ -209,3 +209,92 @@ def desk_stats(reviews):
                   'accuracy': round(sum(1 for v in vals if v > 0) / len(vals) * 100) if vals else None,
                   'medNet': round(_st.median(vals), 2) if vals else None}
     return out
+
+
+# 🗳 EACH DESK ON ITS OWN VOTE (owner-approved build b5 + b10, 2026-10-13: "show agent decision overlap" — `desk_stats` credits every
+# entry desk with the SAME team record, so seven desks read "80 real decisions, 62% right" and nobody can tell them apart). At the moment
+# a real seat is allowed, each entry desk's own stance is stamped on the entry thesis as a VOTE: GO (it was for it) or DOUBT (it pushed
+# against it). A desk is RIGHT when its vote matches the real result (GO and the trade made money · DOUBT and it lost). A LONE dissent =
+# the only desk voting against the other five; it is the measure of what that desk alone would have changed. Pure.
+VOTE_DESKS = ('tally', 'sherlock', 'weather', 'trigger', 'devil', 'warden')
+
+
+def votes_of(op):
+    """The kernel's ten opinions for a coin (trench_kernel.brain.think → 'opinions') → {desk: 'go' | 'doubt'} for the six entry desks.
+    A desk with no opinion has no vote (never a guess)."""
+    o, out = op or {}, {}
+    t = o.get('tally')
+    if t:
+        out['tally'] = 'go' if _f(t.get('move5m')) > 0 and _f(t.get('vpm')) > 0 else 'doubt'
+    s = o.get('sherlock')
+    if s:
+        out['sherlock'] = 'go' if _f(s.get('factor')) >= 1.0 and 'holders' not in (s.get('unknown') or ()) else 'doubt'
+    w = o.get('weather')
+    if w:
+        out['weather'] = 'go' if _f(w.get('factor')) >= 1.0 else 'doubt'
+    g = o.get('trigger')
+    if g:
+        out['trigger'] = 'go' if g.get('state') == 'ENTER' else 'doubt'
+    d = o.get('devil')
+    if d:
+        out['devil'] = 'doubt' if any(sv in ('STRONG_WARNING', 'HARD_VETO') for _o, sv, _w in (d.get('objections') or [])) else 'go'
+    a = o.get('warden')
+    if a:
+        out['warden'] = 'go' if _f(a.get('size')) >= 0.75 else 'doubt'
+    return out
+
+
+def votes_from_pos(p):
+    """A position's votes: the stamped ones, else what the archive already kept for older trades (Weather's regime, the Warden's size,
+    the door Trigger let it in by). Desks that left nothing have no vote."""
+    p = p or {}
+    v = dict(((p.get('thesis') or {}).get('votes')) or {})
+    if 'weather' not in v and p.get('wx'):
+        v['weather'] = 'go' if p['wx'] in ('HOT', 'NORMAL') else 'doubt'
+    if 'warden' not in v and p.get('warden') is not None:
+        v['warden'] = 'go' if _f(p['warden']) >= 0.75 else 'doubt'
+    if 'trigger' not in v and p.get('tag'):
+        tag = str(p['tag'])
+        if 'ARMED' in tag or 'best available' in tag or 'seat floor' in tag:
+            v['trigger'] = 'doubt'
+        elif 'READY' in tag:
+            v['trigger'] = 'go'
+    return v
+
+
+def desk_votes(trades, min_n=5):
+    """Confirmed real exits (real_memory.trades) → {desk: {n, right, rightPct, go: {n, med}, doubt: {n, med}, lone, loneRight}}. `rightPct`
+    is None under `min_n` votes. A trade at exactly 0% counts as a loss (fees made it one)."""
+    import statistics as _st
+    out = {d: {'n': 0, 'right': 0, 'go': [], 'doubt': [], 'lone': 0, 'loneRight': 0} for d in VOTE_DESKS}
+    for p in trades or []:
+        pct = p.get('realPct')
+        if pct is None:
+            continue
+        won, v = _f(pct) > 0, votes_from_pos(p)
+        known = [d for d in VOTE_DESKS if v.get(d) in ('go', 'doubt')]
+        for d in known:
+            o = out[d]
+            o['n'] += 1
+            right = (v[d] == 'go') == won
+            o['right'] += int(right)
+            o[v[d]].append(_f(pct))
+            others = [v[x] for x in known if x != d]
+            if len(others) >= 3 and all(x != v[d] for x in others):   # the ONLY desk on its side
+                o['lone'] += 1; o['loneRight'] += int(right)
+    res = {}
+    for d, o in out.items():
+        res[d] = {'n': o['n'], 'right': o['right'], 'rightPct': round(o['right'] / o['n'] * 100) if o['n'] >= min_n else None,
+                  'go': {'n': len(o['go']), 'med': round(_st.median(o['go']), 1) if o['go'] else None},
+                  'doubt': {'n': len(o['doubt']), 'med': round(_st.median(o['doubt']), 1) if o['doubt'] else None},
+                  'lone': o['lone'], 'loneRight': o['loneRight']}
+    return res
+
+
+def vote_line(d, r):
+    """One line for the model / the page: what this desk's OWN vote has been worth on real money."""
+    if not r or not r.get('n'):
+        return f"{d}: no own vote on file yet"
+    g, b = r['go'], r['doubt']
+    return (f"{d}: own vote right {r['rightPct'] if r['rightPct'] is not None else 'UNKNOWN'}% of {r['n']} · said GO {g['n']}× (typical {g['med'] if g['med'] is not None else '—'}%) · "
+            f"DOUBTED {b['n']}× (typical {b['med'] if b['med'] is not None else '—'}%) · lone dissent {r['lone']}× ({r['loneRight']} right)")

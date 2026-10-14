@@ -118,8 +118,8 @@ def hard_fail(row, mcap_cap=None, min_liq=MIN_LIQ):
         return f"market cap ${_f(v['mcap']) / 1e3:.1f}K under your ${mn_ / 1e3:.0f}K floor"
     if v.get('ageH') is None:   # 🕐 unknown age never masquerades as fresh
         return 'launch age unknown'
-    if _f(v['ageH']) > MAX_AGE_H:
-        return f"{_f(v['ageH']):.1f}h old — no new entry past {MAX_AGE_H:g}h"
+    if _f(v['ageH']) > _uni.max_age(x):   # 🕐 the owner's age line (default 6h; a Pump-trending coin in first / only mode has none)
+        return f"{_f(v['ageH']):.1f}h old — no new entry past {_uni.max_age(x):g}h"
     liq = _f(n.get('liq') or v.get('liq'))
     if liq < min_liq:
         return f'pool ${liq / 1000:.0f}K under ${min_liq / 1000:.0f}K'
@@ -162,7 +162,6 @@ def score(row, lost=(), meta=None, pens=None):
     """0–100 with its parts [(name, points)]. Base 50; each part is a reading of THIS pass (never a promise)."""
     x = row or {}
     v, n, ch = x.get('vitals') or {}, x.get('nums') or {}, x.get('chart') or {}
-    f = ch.get('f') or {}
     parts = []
     add = lambda k, p: parts.append((k, round(p, 1))) if p else None
     d5, age, liq = _f(n.get('d5')), v.get('ageH'), _f(n.get('liq') or v.get('liq'))
@@ -320,6 +319,9 @@ def open_score(row, weights=None, devil_strong=None, ai_w=None):
     n, v, li = x.get('nums') or {}, x.get('vitals') or {}, x.get('li') or {}
     age = v.get('ageH')
     f_new = next((m for h, m in OPEN_FRESH if age is not None and _f(age) < h), 0.5)
+    f_trend = _uni.TREND_RANK if _uni.on_trend(x) else 1.0   # 🔥 owner's Pump-trending mode: it is running NOW — counted fresh and ranked up
+    if f_trend > 1.0:
+        f_new = max(f_new, 1.0)
     vpm, bpm = velocity(x)
     f_vol = max(0.3, min(2.0, 0.4 + (math.log10(max(_f(vpm), 1.0)) * 0.35)))          # $10/min ≈ 0.75 · $1K/min ≈ 1.45 · $10K/min = 1.8
     f_buy = max(0.4, min(1.6, 0.6 + _f(bpm) * 0.2)) if bpm is not None else 0.8
@@ -330,8 +332,8 @@ def open_score(row, weights=None, devil_strong=None, ai_w=None):
     f_devil, _objs = _crew.devil_factor(x, devil_strong)   # ⚖ Devil challenges: evidence lowers confidence, it never vetoes
     f_ai = max(0.85, min(1.0, _f((ai_w or {}).get(x.get('mint'), 1.0)) or 1.0))   # 🧠 the model's stance — ONLY a WARNING proven on its own judged record (ai_learn): −15% at most, never up
     parts = [('newness', round(f_new, 2)), ('volume velocity', round(f_vol, 2)), ('buyer velocity', round(f_buy, 2)), ('momentum', round(f_mom, 2)),
-             ('early wallets', round(f_ewp, 2)), ('judge weight', round(f_judge, 2)), ('devil', f_devil)] + ([('model (proven stance)', round(f_ai, 2))] if f_ai != 1.0 else [])
-    return round(100 * f_new * f_vol * f_buy * f_mom * f_ewp * f_judge * f_devil * f_ai, 1), parts
+             ('early wallets', round(f_ewp, 2)), ('judge weight', round(f_judge, 2)), ('devil', f_devil)] + ([('model (proven stance)', round(f_ai, 2))] if f_ai != 1.0 else []) + ([('🔥 pump trending', f_trend)] if f_trend > 1.0 else [])
+    return round(100 * f_new * f_vol * f_buy * f_mom * f_ewp * f_judge * f_devil * f_ai * f_trend, 1), parts
 
 
 def open_ok(row, min_liq=MIN_LIQ):
@@ -347,8 +349,10 @@ def open_ok(row, min_liq=MIN_LIQ):
         return d
     if not _uni.under_cap({'mcap': v.get('mcap')}):
         return f"outside your MC band ({_uni.band_word()})"
-    if v.get('ageH') is None or _f(v['ageH']) > MAX_AGE_H:
-        return 'not ≤ 6h old'
+    if v.get('ageH') is None or _f(v['ageH']) > _uni.max_age(x):
+        return f"not ≤ {_uni.max_age(x):g}h old" if v.get('ageH') is not None else 'launch age unknown'
+    if _uni.limits()['trend'] == 'only' and not _uni.on_trend(x):
+        return 'not on Pump trending (your 🔥 only mode)'
     if _f(n.get('liq') or v.get('liq')) < min_liq:
         return 'pool under the keeper floor (cannot get in and back out)'
     if ch.get('state') in HARD_CHART:

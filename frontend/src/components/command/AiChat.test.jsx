@@ -185,3 +185,14 @@ test('🧵 no glitch: a mode switch never replays the thread, Talk stays mounted
   expect(el.querySelector('.cch-talkpane').hidden).toBe(true); expect(q(el, 'cch-log')).not.toBeNull();   // still mounted: no remount, scroll kept
   await act(async () => { q(el, 'cch-pane-talk').click(); }); expect(el.querySelector('.cch-talkpane').hidden).toBe(false);
 });
+
+test('💻 local boost: the ⚙ switch posts localBoost, the header wears BOOST and the 24h watch draws one bar per hour', async () => {
+  const local = { boost: true, leftH: 23.5, every: 45, why: 'boost on', reads24h: 31, fails24h: 1, paused24h: 2, hours: [{ hour: 3600, n: 3, ok: 3, fail: 0, paused: 0 }, { hour: 7200, n: 1, ok: 0, fail: 1, paused: 1 }] };
+  const call = jest.fn(async (path, opt) => (!opt ? { threads: {}, local, settings: { temp: 0.3, len: 'normal' }, proposals: { pending: [], decided: [] } } : { local: { ...local, boost: false } }));
+  const el = await mount(<AiChat call={call} />);
+  expect(q(el, 'cch-boostchip')).not.toBeNull();
+  await act(async () => { q(el, 'cch-set').click(); });
+  expect(q(el, 'cch-watch').textContent).toContain('31 local reads in 24h'); expect(q(el, 'cch-watch').querySelectorAll('i').length).toBe(2);
+  await act(async () => { q(el, 'cch-boost').click(); });
+  expect(call).toHaveBeenCalledWith('/admin/ai/chat/settings', expect.objectContaining({ body: JSON.stringify({ localBoost: false }) }));
+});

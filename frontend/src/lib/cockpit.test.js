@@ -1,5 +1,5 @@
 import { seatCards, flowBar, focusMint, chartModel, chartMarkers, decisionOf, tapeOf, tapeTone, lastByMint, mcFrom, supplyFrom, reviewQueue, bucketCounts, inBucket, supplyWord,
-  seatState, pnlUsdOf, execWords, missionTiles, letterMarkers, freshWord, inputsOf, traceOf, newEvents, maxIdByAgent, queueStatus, queueMc } from './cockpit';
+  seatState, pnlUsdOf, execWords, missionTiles, letterMarkers, freshWord, inputsOf, traceOf, newEvents, maxIdByAgent, queueStatus, queueMc, recWord, voteSplit, measureRead } from './cockpit';
 import { easedAt, EASE_MS } from './easedNumber';
 import { applyDelta, TAPE_KEEP } from './agentHub';
 
@@ -180,4 +180,11 @@ test('built from the owner-approved queue: repeats fold, losses map by cause wit
   expect(lossMap(null, null)).toMatchObject({ pct: null, causes: [], leaks: [] });
   const r = measureRead([{ key: 'tally' }, { key: 'trigger' }, { key: 'judge' }], { tally: { decisions: 80, accuracy: 62 }, trigger: { decisions: 80, accuracy: 62 }, judge: { decisions: 0 } });
   expect(r.unmeasured).toEqual(['judge']); expect(r.sameN).toBe(2);
+});
+
+test('🗳 a desk with its own vote record shows it (not the shared team number) and its GO vs DOUBT edge', () => {
+  const st = { decisions: 80, accuracy: 62, own: { n: 20, rightPct: 70, lone: 3, loneRight: 2, go: { n: 12, med: 4.2 }, doubt: { n: 8, med: -9 } } };
+  expect(recWord(st)).toBe('🗳 70% own · 20 votes · 2/3 lone'); expect(voteSplit(st)).toEqual({ go: 4.2, goN: 12, doubt: -9, doubtN: 8, edge: 13.2 });
+  expect(recWord({ kind: 'landed', accuracy: 90, decisions: 10 })).toBe('📮 90% landed · 10 sends'); expect(recWord(null)).toBe('no real record yet');
+  expect(measureRead([{ key: 'a' }, { key: 'b' }, { key: 'c' }], { a: st, b: st, c: { decisions: 80, accuracy: 62 } }).sameN).toBe(1);
 });

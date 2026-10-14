@@ -5,6 +5,7 @@
 // the controls, grouped the way a trader thinks about them; a key the server does not send is simply not drawn
 export const CTRL_GROUPS = [
   ['universe', '🎯 UNIVERSE', 'Which coins a NEW seat may buy — held winners keep running past the band', ['agentMcMin', 'agentMcMax', 'agentMinAgeH']],
+  ['volume', '🔥 VOLUME', 'Tune for fast-volume runners: older coins still running, a volume floor, and Pump\'s own Trending board first', ['agentMinVol1h', 'agentMaxAgeH', 'agentPumpTrend']],
   ['exits', '💰 EXITS', 'How a seat leaves: your line, or the agents\' own read', ['agentTp', 'agentSl', 'agentTrail', 'agentMaxHold']],
   ['seats', '🪑 SEATS & ENTRY', 'How big a seat is, how fast an empty one fills, when a seat is given up', ['agentSizePct', 'agentSeatTarget', 'agentEntry', 'agentSwitch']],
   ['gate', '🛂 BUY GATE', 'What the keeper accepts on an agent buy — most empty seats are a coin refused right here', ['agentGapPct', 'agentBackPct', 'agentPoolMin']],
@@ -29,6 +30,9 @@ export function optWord(key, v) {
     case 'agentGapPct': return n ? `≤ ${n}%` : '2.5%';
     case 'agentBackPct': return n ? `≤ ${n}%` : '3.5%';
     case 'agentPoolMin': return n ? k$(n) : '$8K';
+    case 'agentMinVol1h': return `${k$(n)}/h`;
+    case 'agentMaxAgeH': return n >= 24 ? `${+(n / 24).toFixed(1)}d` : `${n}h`;
+    case 'agentPumpTrend': return v === 'first' ? '🔥 FIRST' : v === 'only' ? '🔥 ONLY' : 'OFF';
     case 'agentTrail': case 'agentSwitch': return v === 'agents' || v === 'auto' ? 'AGENTS' : String(v).toUpperCase();
     default: return String(v);
   }

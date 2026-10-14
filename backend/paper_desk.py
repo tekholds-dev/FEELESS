@@ -1252,3 +1252,29 @@ def rules(learned):
         'devil': ["objects to: busted reads · rug meter ≥ 50 · +150% on the hour · under 15 min old · never scanned", "bot swarms · botted launches · burned coins (6h)",
                   f"reasons losing lately · approved avoid-tactics · rug signs seen in ≥ {RUG_SIGN_N} rugs", "Trigger's own losing streak"],
     }
+
+
+def dial_replay(done, offsets=None):
+    """🎚 DIAL LAB (owner-approved builds b7 + b9, 2026-10-13: "shadow-test a chill dial" · "raise Trigger's early-move threshold"): replay
+    every judged call at each dial's bar shift — a call would have been ENTERED when its lean ≥ (its own bar at the time + the shift) —
+    and read the 5-minute results of what each dial would have taken. → {dial: {n, med, up}, near, calls, words}. `near` = calls whose
+    lean sat within the dial's reach of the bar (the only calls the dial can change). Uses the lean + bar every call already stores."""
+    import re as _re
+    import statistics as _st
+    offs = offsets or {k: v for k, v in DIALS.items()}
+    rows = []
+    for c in done or []:
+        m = _re.search(r'bar ([\d.]+)', str(c.get('tw') or ''))
+        if m and c.get('lean') is not None and c.get('p5') is not None:
+            rows.append((_f(c['lean']), float(m.group(1)), _f(c['p5'])))
+    out = {}
+    for k, off in offs.items():
+        e = [p for l, b, p in rows if l >= b + off]
+        out[k] = {'n': len(e), 'med': round(_st.median(e), 2) if e else None, 'up': round(100 * sum(1 for x in e if x > 0) / len(e)) if e else None}
+    reach = max([abs(v) for v in offs.values()] or [0.5])
+    near = sum(1 for l, b, _p in rows if abs(l - b) <= reach)
+    ns = sorted({v['n'] for v in out.values()})
+    words = (f"the dial moves Trigger's bar ±{reach:g} but leans spread far wider: of {len(rows)} judged calls only {near} sat that close to the bar — "
+             f"every dial would have entered {ns[0]}–{ns[-1]} of them (5-min typical {', '.join(f"{k} {v['med']:+.1f}%" for k, v in out.items() if v['med'] is not None) or '—'}). "
+             "The dial barely changes what the agents buy." if rows else 'no judged calls yet')
+    return {**out, 'near': near, 'calls': len(rows), 'words': words}

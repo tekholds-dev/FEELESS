@@ -33,7 +33,7 @@ def _median(xs):
     return None if not n else s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2
 
 
-def note(book, role, mint, stance, px, now, symbol=None, flags=None, scout=None, at_fill=False, taught=False):
+def note(book, role, mint, stance, px, now, symbol=None, flags=None, scout=None, at_fill=False, taught=False, phase=None, ephase=None, src=None):
     """One model stance → an open call (once per coin + stance per 30 min, only with a live price). How many risk flags it raised rides
     on the call, so "the model flagged 2+ risks" is judged on its own record too (`vital_record`). → new book"""
     b = {'open': list((book or {}).get('open') or []), 'done': list((book or {}).get('done') or [])}
@@ -51,6 +51,12 @@ def note(book, role, mint, stance, px, now, symbol=None, flags=None, scout=None,
         c['atFill'] = True
     if taught:
         c['taught'] = True
+    if phase:   # 📈 the model's own SNAPSHOT CHART READ (its chart_phase) beside the engine's read of the same chart (chart_intel market phase)
+        c['phase'] = str(phase).upper()[:24]
+    if ephase:
+        c['ephase'] = str(ephase).upper()[:24]
+    if src:
+        c['src'] = 'local' if src == 'local' else 'cloud'   # 💻 the local model and the cloud keep separate records
     b['open'] = (b['open'] + [c])[-KEEP_OPEN:]
     return b
 
@@ -94,7 +100,34 @@ BUCKETS = (('FLAGS:2+', '2+ risk flags', lambda c: isinstance(c.get('flags'), in
            ('SCOUT:MEME', 'scout: pure meme (≤ 20)', lambda c: 0 <= _f((c.get('scout') or {}).get('tech'), -1) <= 20),
            ('AT:FILL', 'asked at the fill', lambda c: bool(c.get('atFill'))),
            ('TAUGHT', 'a coin you taught', lambda c: bool(c.get('taught'))))   # 🎓 does the owner's teaching make the model's reads better?
+# 📈 CHART READING, learned live (owner, 2026-10-13: "model should learn snapshot chart reading, local mainly"): the model's chart phase
+# on each case is graded like every other read — early phases vs late ones, and where the model and the engine's own chart read DISAGREE,
+# whose read the result backed. Local and cloud are kept apart (SRC:*). A record, and a ±10% rank weight only once proven (advice_factor).
+EARLY_PH = {'DISCOVERY', 'BASE', 'EARLY MOVE', 'EARLY ACCELERATION', 'ACCELERATION', 'FIRST PULLBACK', 'RECLAIM', 'BREAKOUT'}
+LATE_PH = {'LATE FOMO', 'DISTRIBUTION', 'REVERSAL', 'COLLAPSE'}
+
+
+def ph_group(ph):
+    p = str(ph or '').upper().replace('_', ' ').strip()
+    return 'EARLY' if p in EARLY_PH else 'LATE' if p in LATE_PH else None
+
+
+BUCKETS = BUCKETS + (
+    ('PHASE:EARLY', 'model read the chart EARLY', lambda c: ph_group(c.get('phase')) == 'EARLY'),
+    ('PHASE:LATE', 'model read the chart LATE', lambda c: ph_group(c.get('phase')) == 'LATE'),
+    ('SPLIT:MODEL-LATE', 'model said LATE, the engine said EARLY', lambda c: ph_group(c.get('phase')) == 'LATE' and ph_group(c.get('ephase')) == 'EARLY'),
+    ('SPLIT:MODEL-EARLY', 'model said EARLY, the engine said LATE', lambda c: ph_group(c.get('phase')) == 'EARLY' and ph_group(c.get('ephase')) == 'LATE'),
+    ('SRC:LOCAL', 'the local model', lambda c: c.get('src') == 'local'),
+    ('SRC:CLOUD', 'a cloud model', lambda c: c.get('src') == 'cloud'))
 BUCKET_LABEL = {k: lab for k, lab, _t in BUCKETS}
+
+
+def chart_line(vrec):
+    """The model's chart-reading record in one line (fed back into every case it reads): early vs late reads, and the disagreements."""
+    v = vrec or {}
+    parts = [f"{lab} {v[k]['med']:+.0f}% ({v[k]['n']})" for k, lab in (('PHASE:EARLY', 'your EARLY reads'), ('PHASE:LATE', 'your LATE reads'),
+             ('SPLIT:MODEL-LATE', 'you LATE / engine EARLY'), ('SPLIT:MODEL-EARLY', 'you EARLY / engine LATE'), ('SRC:LOCAL', 'local'), ('SRC:CLOUD', 'cloud')) if v.get(k)]
+    return ' · '.join(parts) or None
 
 
 def buckets_of(c):
@@ -116,7 +149,8 @@ def advice_factor(rec, vrec, advice):
     """One model answer → ×0.9 … ×1.1 from its stance AND every vital bucket it falls in (proven ones only). Any proven warning wins
     (the most cautious factor); otherwise a proven spotter; otherwise ×1.0."""
     a = advice or {}
-    fs = [factor(rec, a.get('stance'))] + [factor(vrec, k) for k in buckets_of({'flags': len(a.get('risk_flags') or []), 'scout': a.get('scout')})]
+    fs = [factor(rec, a.get('stance'))] + [factor(vrec, k) for k in buckets_of({'flags': len(a.get('risk_flags') or []), 'scout': a.get('scout'), 'phase': a.get('chart_phase')})
+                                           if not k.startswith(('SRC:', 'SPLIT:'))]
     lo, hi = min(fs), max(fs)
     return lo if lo < 1.0 else hi
 
