@@ -535,3 +535,10 @@ def test_every_trading_call_in_the_service_says_mode_case_explicitly_and_the_ask
     assert len(calls) >= 6 and all("mode='case'" in c.split('\n')[0] + c.split('\n')[1] if '\n' in c else "mode='case'" in c for c in calls)
     i = src.index('async def admin_ai_ask(')
     assert '_air.ROUTER.ask(' in src[i:i + 2600] and "'mode': 'general'" in src[i:i + 2600]
+
+
+def test_the_seat_gate_does_not_hold_a_coin_on_the_organic_bots_flag_alone():
+    n = lambda flags: {'devil': {'at': 100.0, 'source': 'openrouter', 'advice': {'stance': 'CAUTION', 'confidence_delta': -0.2, 'risk_flags': flags, 'summary': 's'}}}
+    assert air.gate_verdict(n(['organic vol 0%', 'bots 35%']), 110.0)[0] == 'go'                      # on nearly every Pump coin: it would stop all trading
+    v, why = air.gate_verdict(n(['organic vol 0%', 'Dev holds 79.4%']), 110.0)
+    assert v == 'wait' and why.startswith('Dev holds 79.4%')                                          # a real, specific risk still holds it

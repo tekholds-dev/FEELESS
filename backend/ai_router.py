@@ -89,6 +89,7 @@ def local_ok(env, role=None, urgency='normal'):
 
 GATE_DELTA = -0.12   # 🛂 the model's read holds a coin back from a real seat only at CAUTION this strong, with a named risk, on a fresh read
 GATE_FRESH = 300.0
+GATE_SOFT = re.compile(r'organic|\bbot', re.I)
 
 
 def gate_verdict(notes, now):
@@ -101,11 +102,12 @@ def gate_verdict(notes, now):
         return None, None
     best = min(pool, key=lambda n: _f(n['advice'].get('confidence_delta')))
     ad = best['advice']
-    strong = ad.get('stance') == 'CAUTION' and _f(ad.get('confidence_delta')) <= GATE_DELTA and bool(ad.get('risk_flags'))
+    hard = [f for f in (ad.get('risk_flags') or []) if not GATE_SOFT.search(str(f))]   # "0% organic / bots" is on nearly every Pump coin (Jupiter reads them 0–3% organic): alone it holds nothing
+    strong = ad.get('stance') == 'CAUTION' and _f(ad.get('confidence_delta')) <= GATE_DELTA and bool(hard)
     if strong and not cloud:
         return None, None   # 💻 only the small local model objects: it can never hold a seat by itself — the cloud is asked for the second read
     if strong:
-        return 'wait', f"{'; '.join(str(f) for f in ad['risk_flags'][:2])} — {str(ad.get('summary') or '')[:110]}"
+        return 'wait', f"{'; '.join(str(f) for f in hard[:2])} — {str(ad.get('summary') or '')[:110]}"
     return 'go', None
 
 

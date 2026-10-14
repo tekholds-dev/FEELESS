@@ -3944,3 +3944,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   records (never a raw prompt / response). One chat answer at a time (`_chat['busy']` → 429). The panel keeps its own state: a reply never
   touches the agent hub (test). New proposable thing ⇒ a kind / a `SAFE_CFG` key + its branch in `_ai_proposal_apply` + a test — never a
   generic "set any config" path.
+- 🛂 The seat gate ignores the "organic / bots" flag when it is the model's ONLY named risk (`ai_router.GATE_SOFT`): Jupiter reads nearly
+  every Pump coin 0–3% organic, so the model flagged it on everything and READY coins stopped being seated; with nothing taken the regret
+  ledger had no baseline to switch the wait off. A specific risk (dev holds 79% · top-10 93% · site mismatch …) still holds the coin.
