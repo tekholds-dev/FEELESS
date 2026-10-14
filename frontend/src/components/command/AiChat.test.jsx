@@ -132,3 +132,22 @@ test('🎛 model switch rides the message; ✏ edit rewinds the thread and puts 
   expect(sent[1][1]).toMatchObject({ text: 'old question', provider: 'openrouter' });
   localStorage.removeItem('feeless.brainProv');
 });
+
+test('⚙ settings save listed values; 🗂 a saved conversation reopens into its mode', async () => {
+  const sent = [];
+  const call = jest.fn(async (path, opt) => {
+    if (opt) sent.push([path, JSON.parse(opt.body)]);
+    if (path === '/admin/ai/chat/open') return { mode: 'build', threads: { build: [{ role: 'user', text: 'the old build talk' }] }, saved: [] };
+    if (path === '/admin/ai/chat/settings') return { settings: { temp: 0.9, len: 'normal', allowSmall: false } };
+    return { threads: { chat: [] }, saved: [{ id: 'c1', mode: 'build', title: 'the old build talk', at: 1, n: 2 }], settings: { temp: 0.3, len: 'normal', allowSmall: false }, proposals: { pending: [], decided: [] } };
+  });
+  const el = await mount(<AiChat call={call} />);
+  await act(async () => { await Promise.resolve(); });
+  await act(async () => { q(el, 'cch-set').click(); });
+  await act(async () => { q(el, 'cch-temp-0.9').click(); });
+  expect(sent[0]).toEqual(['/admin/ai/chat/settings', { temp: 0.9 }]); expect(q(el, 'cch-temp-0.9').className).toContain('active');
+  const sel = q(el, 'cch-saved');
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(sel, 'c1'); sel.dispatchEvent(new Event('change', { bubbles: true })); });
+  expect(sent[1]).toEqual(['/admin/ai/chat/open', { id: 'c1' }]); expect(q(el, 'cch-log').textContent).toContain('the old build talk');
+  expect(q(el, 'cch-mode-build').getAttribute('aria-checked')).toBe('true');
+});

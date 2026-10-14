@@ -13362,7 +13362,23 @@ async def admin_ai_test(request: Request):
 import ai_chat as _aic
 BUILD_QUEUE_PATH = DATA_DIR / 'build_queue.json'   # 📋 owner-approved build items — the next engineering session reads this first
 AI_PROPOSALS_PATH = DATA_DIR / 'ai_proposals.json'   # compact proposal + audit records only (≤ 60; never a raw prompt or a raw response)
-_chat: dict = {'th': {}, 'ctx': (None, None, 0.0), 'busy': False, 'props': None, 'build': None}   # one short thread PER MODE, memory only   # the conversation lives in memory only (≤ 8 exchanges) and dies with the process
+_chat: dict = {'th': {}, 'ctx': (None, None, 0.0), 'busy': False, 'props': None, 'build': None, 'loaded': False, 'saved': [], 'settings': None}   # one short thread PER MODE
+AI_CHAT_PATH = DATA_DIR / 'ai_chat_state.json'   # 💾 the Brain's threads + saved conversations + settings (text only, small) — survive a restart
+
+
+def _brain_load():
+    if not _chat['loaded']:
+        d_ = _json_load(AI_CHAT_PATH, {}) or {}
+        _chat.update(th=d_.get('th') or {}, saved=d_.get('saved') or [], settings=_aic.clean_settings(d_.get('settings')), loaded=True)
+    return _chat
+
+
+def _chat_persist():
+    _json_save(AI_CHAT_PATH, {'th': _chat['th'], 'saved': _chat['saved'], 'settings': _chat['settings']})
+
+
+def _chat_extra():
+    return {'threads': _aic.threads_view(_chat['th']), 'saved': _aic.saved_view(_chat['saved']), 'settings': _chat['settings']}
 AI_CHAT_CTX_SEC = 20.0   # the compact agent-state context is rebuilt at most this often (and only its text changes the model's input)
 
 
@@ -13445,6 +13461,7 @@ async def admin_ai_chat(request: Request):
         raise HTTPException(429, 'The model is still answering your last message.')
     _chat['busy'] = True
     now = time.time()
+    _brain_load()
     try:
         env, cfg = os.environ, _ai_cfg()
         try:
@@ -13468,16 +13485,26 @@ async def admin_ai_chat(request: Request):
         only_ = (prov_,) if prov_ in _air.PROVIDERS else None
         img_ = _chat_image((body or {}).get('image'))
         res = await _air.ROUTER.ask(_ai_http(), env, cfg, text, context=ctx, role='owner', history=_aic.as_messages(_chat['th'].get(mode)), system=_aic.system_for(mode),
-                                    only=only_, images=[img_[1]] if img_ else None)
+                                    only=only_, images=[img_[1]] if img_ else None, tune=_aic.tune_of(_chat['settings']))
         reply, new, refused = res.get('text'), [], []
         if reply and mode in ('improve', 'build'):   # 🛠 the model's suggestions become PENDING records — nothing is applied until the owner approves each one
             reply, items, refused = _aic.parse_improve(reply, tuple(_co.CAUSES), only=('idea',) if mode == 'build' else None)
             if items:
                 _chat['props'], new = _aic.propose(_chat_props(), items, _chat_olds(), now, res.get('label'))
+                if _chat['settings'].get('allowSmall'):   # 🤝 the owner's allowance: lessons + build ideas apply at once (marked auto); everything else still waits for ✅
+                    for p_ in [x for x in new if x['kind'] in _aic.SMALL_KINDS]:
+                        try:
+                            _chat['props'], d_, er_ = _aic.decide(_chat['props'], p_['id'], True, now)
+                            if er_ or not d_:
+                                continue
+                            _chat['props'] = _aic.applied(_chat['props'], p_['id'], '🤝 auto (small thing allowed) · ' + await _ai_proposal_apply(d_, now))
+                        except Exception as e_:
+                            print('ai auto-small:', str(e_)[:80])
                 _json_save(AI_PROPOSALS_PATH, _chat['props'])
                 ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-proposals', f"{len(new)} proposed by {res.get('label')}: " + ' · '.join(f"{p_['kind']} {p_['key']}" for p_ in new)[:200]); _admin_save(ad_)
         _chat['th'] = _aic.push_thread(_aic.push_thread(_chat['th'], mode, 'user', text, {'img': img_[0]} if img_ else None), mode, 'assistant', reply or 'no provider answered', {'mode': mode, 'ms': res.get('ms'), 'provider': res.get('label')})
-        return {'ok': bool(reply), 'mode': mode, 'routed': mode != asked, 'reply': reply, 'provider': res.get('label'), 'model': res.get('model'), 'ms': res.get('ms'), 'tokens': res.get('usage'), 'history': _chat['th'].get(mode) or [], 'threads': _aic.threads_view(_chat['th']),
+        _chat_persist()
+        return {'ok': bool(reply), 'mode': mode, 'routed': mode != asked, 'reply': reply, 'provider': res.get('label'), 'model': res.get('model'), 'ms': res.get('ms'), 'tokens': res.get('usage'), 'history': _chat['th'].get(mode) or [], **_chat_extra(),
                 'new': [p_['id'] for p_ in new], 'refused': refused, 'proposals': _aic.view(_chat_props()), 'why': res.get('why'), 'learned': _chat_learned()}
     finally:
         _chat['busy'] = False
@@ -13496,16 +13523,46 @@ async def admin_ai_chat_clear(request: Request):
         body = await request.json()
     except Exception:
         body = {}
+    _brain_load()
     i = (body or {}).get('index'); m_ = str((body or {}).get('mode') or 'chat')
     if m_ not in _aic.MODES:
         raise HTTPException(400, 'Unknown mode.')
     h_ = list(_chat['th'].get(m_) or [])
+    if i is None and (body or {}).get('from') is None and h_:   # ＋ New chat: the current thread is SAVED first (🗂 reopens it)
+        _chat['saved'] = _aic.save_convo(_chat['saved'], m_, h_, time.time())
     f_ = (body or {}).get('from')   # ✏ edit = rewind the thread to this message (it and everything after it go; the page puts the text back in the box)
     if isinstance(f_, int) and not isinstance(f_, bool) and 0 <= f_ < len(h_):
         _chat['th'] = {**_chat['th'], m_: h_[:f_]}
     else:
         _chat['th'] = {**_chat['th'], m_: (h_[:i] + h_[i + 1:]) if isinstance(i, int) and not isinstance(i, bool) and 0 <= i < len(h_) else []}
-    return {'ok': True, 'mode': m_, 'history': _chat['th'][m_], 'threads': _aic.threads_view(_chat['th']), 'proposals': _aic.view(_chat_props()), 'learned': _chat_learned()}
+    _chat_persist()
+    return {'ok': True, 'mode': m_, 'history': _chat['th'][m_], **_chat_extra(), 'proposals': _aic.view(_chat_props()), 'learned': _chat_learned()}
+
+
+@app.post('/api/reputation/admin/ai/chat/open')
+async def admin_ai_chat_open(request: Request):
+    """🗂 Owner only: reopen a saved conversation into its mode's thread (the thread there now is saved first)."""
+    _require_owner(request); _brain_load()
+    cid = str((await request.json() or {}).get('id') or '')
+    hit = next((x for x in _chat['saved'] if x['id'] == cid), None)
+    if not hit:
+        raise HTTPException(404, 'No such conversation.')
+    now_ = time.time(); m_ = hit['mode'] if hit['mode'] in _aic.MODES else 'chat'
+    rest = [x for x in _chat['saved'] if x['id'] != cid]
+    _chat['saved'] = _aic.save_convo(rest, m_, _chat['th'].get(m_), now_)
+    _chat['th'] = {**_chat['th'], m_: list(hit.get('msgs') or [])}
+    _chat_persist()
+    return {'ok': True, 'mode': m_, 'history': _chat['th'][m_], **_chat_extra()}
+
+
+@app.post('/api/reputation/admin/ai/chat/settings')
+async def admin_ai_chat_settings(request: Request):
+    """⚙ Owner only: the Brain's chat tuning (temperature · answer length) + the small-things allowance. Listed values only; audited."""
+    _require_owner(request); _brain_load()
+    _chat['settings'] = _aic.clean_settings(await request.json(), _chat['settings'])
+    _chat_persist()
+    ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-chat-settings', json.dumps(_chat['settings'])[:160]); _admin_save(ad_)
+    return {'ok': True, **_chat_extra()}
 
 
 _CHAT_IMG = _re.compile(r'^/api/reputation/uploads/([0-9a-f]{32}\.(png|jpg|webp|gif))$')
@@ -13574,7 +13631,8 @@ async def admin_ai_chat_get(request: Request):
     _require_owner(request)
     v_ = _air.ROUTER.view(os.environ, _ai_cfg())
     live_ = next((r_ for r_ in v_.get('providers') or [] if r_.get('state') == 'ONLINE'), None)
-    return {'history': _chat['th'].get('chat') or [], 'threads': _aic.threads_view(_chat['th']), 'build': _aic.build_view(_build_state()), 'proposals': _aic.view(_chat_props()), 'modes': list(_aic.MODES), 'learned': _chat_learned(),
+    _brain_load()
+    return {'history': _chat['th'].get('chat') or [], **_chat_extra(), 'build': _aic.build_view(_build_state()), 'proposals': _aic.view(_chat_props()), 'modes': list(_aic.MODES), 'learned': _chat_learned(),
             'brain': {'provider': (live_ or {}).get('label'), 'model': (live_ or {}).get('model'), 'ms': (live_ or {}).get('lastMs')},
             'providers': [{'key': r_['key'], 'label': r_['label'], 'state': r_['state'], 'model': r_.get('model')} for r_ in v_.get('providers') or [] if r_.get('enabled') and not r_.get('why')]}
 

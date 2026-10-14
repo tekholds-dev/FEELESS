@@ -50,17 +50,18 @@ function Proposal({ p, busy, onDecide }) {
   </li>;
 }
 
-export function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full' }) {
+export function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full', extras = [] }) {
   const [mode, setMode] = useState('chat'); const [txt, setTxt] = useState(''); const [busy, setBusy] = useState(false); const [pop, setPop] = useState(false);
   const [threads, setThreads] = useState({}); const [build, setBuild] = useState(null); const [showDone, setShowDone] = useState(false);
   const [provs, setProvs] = useState([]); const [prov, setProvS] = useState(() => { try { return localStorage.getItem('feeless.brainProv') || 'auto'; } catch { return 'auto'; } });
   const setProv = v => { setProvS(v); try { localStorage.setItem('feeless.brainProv', v); } catch { /* private window */ } };
+  const [saved, setSaved] = useState([]); const [sets, setSets] = useState(null); const [showSet, setShowSet] = useState(false); const [pane, setPane] = useState('talk');
   const [img, setImg] = useState(null); const [upl, setUpl] = useState(false); const fileRef = useRef(null); const [props, setProps] = useState({ pending: [], decided: [] }); const [last, setLast] = useState(null);
   const [brain, setBrain] = useState(null); const [learned, setLearned] = useState(null); const [err, setErr] = useState(null);
   const [openP, setOpenP] = useState(variant !== 'mini'); const [showQ, setShowQ] = useState(null);   // ⚡ one-tap prompts: open on an empty chat, folded once you are talking   // the mini cat keeps the fixes folded under one bar so the conversation keeps its room
   const end = useRef(null); const hist = threads[mode] || [];   // 🧵 one thread per mode: chat · case · fix · build never mix
   const addMsg = (m, msg) => setThreads(t => ({ ...t, [m]: [...(t[m] || []), msg] }));
-  const take = useCallback(r => { if (!r) return; if (r.threads) setThreads(r.threads); else if (r.history) setThreads(t => ({ ...t, [r.mode || 'chat']: r.history })); if (r.build) setBuild(r.build); if (r.providers) setProvs(r.providers); if (r.proposals) setProps(r.proposals); if (r.learned != null) setLearned(r.learned); if (r.brain) setBrain(r.brain); }, []);
+  const take = useCallback(r => { if (!r) return; if (r.threads) setThreads(r.threads); else if (r.history) setThreads(t => ({ ...t, [r.mode || 'chat']: r.history })); if (r.build) setBuild(r.build); if (r.providers) setProvs(r.providers); if (r.saved) setSaved(r.saved); if (r.settings) setSets(r.settings); if (r.proposals) setProps(r.proposals); if (r.learned != null) setLearned(r.learned); if (r.brain) setBrain(r.brain); }, []);
   useEffect(() => { let on = true; if (isOwner && typeof call === 'function') Promise.resolve().then(() => call('/admin/ai/chat')).then(r => { if (on) { take(r); setErr(null); } }).catch(x => { if (on) setErr(x.message); }); return () => { on = false; }; }, [call, isOwner, take]);
   useEffect(() => { const el = end.current; if (el && el.parentNode) el.parentNode.scrollTop = el.parentNode.scrollHeight; }, [hist, busy, pop]);
   useEffect(() => { if (!pop) return undefined; const k = e => { if (e.key === 'Escape') setPop(false); }; document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k); }, [pop]);
@@ -80,6 +81,8 @@ export function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full'
   // ✏ edit = rewind this thread to the message and put its text back in the box · ＋ new = a fresh thread for this mode
   const edit = async (i, text) => { try { take(await call('/admin/ai/chat/clear', { method: 'POST', body: JSON.stringify({ mode, from: i }) })); setTxt(text.replace(/^\[case review\] \S+ ?/, '')); } catch (x) { toast.error(x.message); } };
   const attach = async f => { if (!f) return; setUpl(true); try { const u = await uploadImage(f); const url = typeof u === 'string' ? u : u?.url; if (url) setImg(url); } catch (x) { toast.error(x.message); } finally { setUpl(false); } };
+  const openConvo = async id => { if (!id) return; try { const r = await call('/admin/ai/chat/open', { method: 'POST', body: JSON.stringify({ id }) }); take(r); if (r.mode) setMode(r.mode); } catch (x) { toast.error(x.message); } };
+  const saveSet = async patch => { setSets(v => ({ ...(v || {}), ...patch })); try { take(await call('/admin/ai/chat/settings', { method: 'POST', body: JSON.stringify(patch) })); } catch (x) { toast.error(x.message); } };
   const queueBuild = async text => { try { const r = await call('/admin/ai/build', { method: 'POST', body: JSON.stringify({ text: String(text).slice(0, 600), title: String(text).replace(/\s+/g, ' ').slice(0, 60), src: `chat · ${mode}` }) }); setBuild(r.build); toast.success('📋 queued — say "build the queue" to Claude Code and it gets built'); } catch (x) { toast.error(x.message); } };
   const moveBuild = async (id, status) => { try { const r = await call('/admin/ai/build', { method: 'POST', body: JSON.stringify({ id, status }) }); setBuild(r.build); } catch (x) { toast.error(x.message); } };
   const decide = async (id, approve) => {
@@ -97,11 +100,21 @@ export function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full'
         <u data-testid="cch-bq" data-tip="Approved to build. The model in the app cannot write code: Claude Code builds these when you say: build the queue">📋 {build?.open ?? 0}<small>TO BUILD</small></u></span>
       <select className="cch-model" value={prov} onChange={e => setProv(e.target.value)} aria-label="Which model answers" data-testid="cch-model" data-tip="Which model answers: Auto = the normal order (local first for you, then the cloud)">
         <option value="auto">🤖 Auto</option>{provs.map(p => <option key={p.key} value={p.key}>{p.state === 'ONLINE' ? '🟢' : p.state === 'UNTESTED' ? '⚪' : '🔴'} {p.label}{p.model ? ` · ${String(p.model).split('/').pop()}` : ''}</option>)}</select>
+      {saved.length ? <select className="cch-model cch-saved" value="" onChange={e => openConvo(e.target.value)} aria-label="Saved conversations" data-testid="cch-saved" data-tip="Saved conversations: ＋ New files the current one here">
+        <option value="">🗂 {saved.length} saved</option>{saved.map(c => <option key={c.id} value={c.id}>{(CHAT_MODES.find(m => m[0] === c.mode)?.[1] || '').split(' ')[0]} {c.title}</option>)}</select> : null}
+      <button type="button" className={`cch-ico ${showSet ? 'is-on' : ''}`} onClick={() => setShowSet(v => !v)} aria-expanded={showSet} data-testid="cch-set" data-tip="Brain settings: how the model answers + what it may do on its own" aria-label="Brain settings">⚙</button>
       <button type="button" className="cch-ico cch-new" onClick={() => clear()} disabled={busy || !hist.length} data-testid="cch-clear" data-tip="New chat: a fresh thread for this mode" aria-label="New chat">＋</button>
       <button type="button" className="cch-ico" onClick={() => setPop(p => !p)} data-testid="cch-pop" data-tip={pop ? 'Close (Esc)' : 'Pop out — full window'} aria-label={pop ? 'Close the pop-out' : 'Pop out'}>{pop ? '✕' : '⤢'}</button>
     </header>
     <i className="cch-scan" aria-hidden="true" />
-    <div className="cch-modes" role="radiogroup" aria-label="Chat mode">{CHAT_MODES.map(([k, l, tip]) => <button key={k} type="button" role="radio" aria-checked={mode === k} className={mode === k ? 'active' : ''}
+    {showSet ? <div className="cch-sets" data-testid="cch-sets">
+      <p><small>🌡 HOW WILD</small>{[[0.1, 'exact'], [0.3, 'sharp'], [0.6, 'loose'], [0.9, 'wild']].map(([v, l]) => <button key={v} type="button" className={sets?.temp === v ? 'active' : ''} onClick={() => saveSet({ temp: v })} data-testid={`cch-temp-${v}`}>{l}</button>)}</p>
+      <p><small>📏 ANSWER</small>{['short', 'normal', 'long'].map(v => <button key={v} type="button" className={sets?.len === v ? 'active' : ''} onClick={() => saveSet({ len: v })} data-testid={`cch-len-${v}`}>{v}</button>)}</p>
+      <p><small>🤝 SMALL THINGS</small><button type="button" className={sets?.allowSmall ? 'active' : ''} onClick={() => saveSet({ allowSmall: !sets?.allowSmall })} aria-pressed={!!sets?.allowSmall} data-testid="cch-small">{sets?.allowSmall ? 'ON — lessons + build ideas apply by themselves' : 'OFF — every fix waits for your ✅'}</button></p>
+      <p className="cch-setnote">Switches, rank weights and exit notches always wait for your ✅. Execution, limits and the wallet are never reachable.</p></div> : null}
+    {extras.length ? <div className="cch-panes" role="tablist" aria-label="Brain sections">{[['talk', '💬 Talk'], ...extras.map(([k, l]) => [k, l])].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={pane === k} className={pane === k ? 'active' : ''} onClick={() => setPane(k)} data-testid={`cch-pane-${k}`}>{l}</button>)}</div> : null}
+    {extras.map(([k, , node]) => <div key={k} className="cch-extra" hidden={pane !== k} data-testid={`cch-extra-${k}`}>{node}</div>)}
+    {pane === 'talk' ? <><div className="cch-modes" data-testid="cch-modes" role="radiogroup" aria-label="Chat mode">{CHAT_MODES.map(([k, l, tip]) => <button key={k} type="button" role="radio" aria-checked={mode === k} className={mode === k ? 'active' : ''}
       onClick={() => setMode(k)} data-tip={tip} data-testid={`cch-mode-${k}`}><i aria-hidden="true">{l.split(' ')[0]}</i><span>{l.split(' ').slice(1).join(' ')}</span></button>)}</div>
     <div className="cch-main">
       <div className="cch-talk">
@@ -134,7 +147,7 @@ export function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full'
         <ul hidden={!(openP || pop)}>{(props.pending || []).map(p => <Proposal key={p.id} p={p} busy={busy} onDecide={decide} />)}
           {(props.decided || []).length ? <li><button type="button" className="cch-done" onClick={() => setShowDone(x => !x)} aria-expanded={showDone} data-testid="cch-done">{showDone ? '▾' : '▸'} {props.decided.length} decided</button></li> : null}
           {showDone ? (props.decided || []).slice(0, pop ? 8 : 4).map(p => <Proposal key={p.id} p={p} busy={busy} onDecide={decide} />) : null}</ul></div> : null}</div>
-    </div>
+    </div></> : null}
   </section>;
   return pop && typeof document !== 'undefined' ? <>{createPortal(<div className="cch-shade" data-testid="cch-shade" onMouseDown={e => { if (e.target === e.currentTarget) setPop(false); }}>{body}</div>, document.body)}
     <button type="button" className="cch-back" onClick={() => setPop(false)} data-testid="cch-popped">🧠 Brain is popped out — tap to bring it back</button></> : body;

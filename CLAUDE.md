@@ -3996,3 +3996,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`ai_router.with_images`; the local text model is skipped; `est_tokens` counts a picture as ~1K tokens). Image GENERATION is NOT built (no image
   model / key wired). Ideas show only BUILD (no "now: nothing" row); why · effect · rollback sit in a fold; the normal-size side is capped at 210px so the
   chat keeps its room.
+- 🧠 BRAIN v4 (owner, 2026-10-13): 👑 Coach + 🎓 Teach live INSIDE the Brain (`AiChat extras` → `cch-panes` 💬 Talk · 👑 Coach · 🎓 Teach; the cockpit
+  deck beside it is trades + loss map only). Threads, saved conversations and settings persist in `data/ai_chat_state.json` (`_brain_load` — NOT `_chat_load`, that name is the social chat loader; reusing it broke the rooms /
+  `_chat_persist`): ＋ New files the current thread (`ai_chat.save_convo`, ≤ 20), 🗂 reopens one (`POST /admin/ai/chat/open`). ⚙ settings
+  (`POST /admin/ai/chat/settings`, `ai_chat.clean_settings`): 🌡 temperature 0.1 / 0.3 / 0.6 / 0.9 + 📏 answer 250 / 600 / 1200 tokens → the OWNER's chat
+  calls only (`ai_router.TUNE` contextvar; background agent reads keep 0.1) · 🤝 SMALL THINGS (off by default): the model's `lesson` + `idea` proposals
+  apply at once, marked "🤝 auto"; switches, rank weights and exit notches still wait for ✅. No sideways scroll: every `.cch` child may shrink.

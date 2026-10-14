@@ -91,6 +91,18 @@ body.theme-day .cch-bqlist li { color: #0f2419; }
 .cch.is-pop .cch-msg { font-size: 13px; max-width: 88%; } .cch.is-pop .cch-msg.is-assistant > span { font-size: 13.5px; } .cch.is-pop .cch-props { max-height: none; } .cch.is-pop .cch-main { grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); }
 .cch.is-pop .cch-props, .cch.is-pop .cch-bqlist { align-self: start; } .cch-mact button:disabled { opacity: .4; cursor: default; }
 .cch-side { display: grid; gap: 8px; min-height: 0; align-content: start; } .cch:not(.is-pop) .cch-side { max-height: 210px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; } .cch:not(.is-pop) .cch-side .cch-props { max-height: none; } .cch-side:empty { display: none; } .cch.is-pop .cch-side { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; }
+/* no sideways scroll, ever: every row may shrink */
+.cch, .cch * { min-width: 0; } .cch { overflow-x: hidden; grid-template-rows: none; grid-auto-rows: auto; align-content: start; } .cch > .cch-main { flex: 1; }
+.cch { display: flex; flex-direction: column; } .cch-modes > button span { overflow: hidden; text-overflow: ellipsis; } .cch-msg > span, .cch-why, .cch-diff span { overflow-wrap: anywhere; }
+.cch-saved { flex-basis: 150px; } .cch-ico.is-on { border-color: var(--br); color: var(--br); }
+.cch-sets { display: grid; gap: 5px; padding: 8px 10px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--br) 35%, transparent); background: rgba(0, 0, 0, .3); animation: cchIn .18s ease-out; }
+.cch-sets p { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 0; } .cch-sets small { flex: 0 0 104px; font: 800 8.5px var(--m-mono); letter-spacing: .12em; color: var(--m-mute); }
+.cch-sets button, .cch-panes > button { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--m-line); background: transparent; color: var(--m-dim); font: 700 9.5px var(--m-mono); cursor: pointer; transition: transform .12s ease, color .12s ease, border-color .12s ease; }
+.cch-sets button:hover, .cch-panes > button:hover { color: var(--m-text); border-color: var(--br); } .cch-sets button:active, .cch-panes > button:active { transform: scale(.96); }
+.cch-sets button:focus-visible, .cch-panes > button:focus-visible { outline: 2px solid var(--br); outline-offset: 1px; } .cch-sets button.active, .cch-panes > button.active { color: #07130c; background: linear-gradient(120deg, var(--br), var(--br2)); border-color: transparent; }
+.cch-setnote { font: 600 9px var(--m-mono); color: var(--m-mute); }
+.cch-panes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; } .cch-panes > button { border-radius: 9px; padding: 6px 4px; }
+.cch-extra { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; } .cch-extra[hidden] { display: none; }
 /* every mode wears its own colour; the scan line runs only while the model is really answering */
 .cch[data-mode='case'] { --br: #5fd0ff; } .cch[data-mode='improve'] { --br: #f5c451; } .cch[data-mode='build'] { --br: #ff7ad9; }
 .cch-scan { display: block; height: 2px; margin: -4px 0; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--br), var(--br2), transparent); transform: scaleX(.12); transform-origin: left; opacity: .35; transition: opacity .2s ease; }

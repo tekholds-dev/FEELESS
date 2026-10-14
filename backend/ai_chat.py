@@ -309,6 +309,48 @@ def build_view(state, n=12):
     return {'open': len(live), 'items': (live + [x for x in items if x['status'] not in ('queued', 'building')])[:n]}
 
 
+# ⚙ the owner's Brain settings: chat tuning + the SMALL-THINGS allowance (lessons and build ideas apply without a tap; switches, weights and
+# exit notches still wait for ✅ — and execution / limits / the wallet are never reachable at all)
+TEMPS = (0.1, 0.3, 0.6, 0.9)
+LENS = {'short': 250, 'normal': 600, 'long': 1200}
+SMALL_KINDS = ('lesson', 'idea')
+SETTINGS = {'temp': 0.3, 'len': 'normal', 'allowSmall': False}
+
+
+def clean_settings(d, old=None):
+    out = {**SETTINGS, **(old or {})}
+    d = d or {}
+    if d.get('temp') is not None and _f(d.get('temp'), -1) in TEMPS:
+        out['temp'] = _f(d['temp'])
+    if d.get('len') in LENS:
+        out['len'] = d['len']
+    if isinstance(d.get('allowSmall'), bool):
+        out['allowSmall'] = d['allowSmall']
+    return out
+
+
+def tune_of(st):
+    st = clean_settings(st)
+    return {'temp': st['temp'], 'maxTok': LENS[st['len']]}
+
+
+# 🗂 SAVED CONVERSATIONS: "＋ New" files the current thread (≤ 20 kept, text only), "🗂" reopens one
+SAVED_KEEP = 20
+
+
+def save_convo(saved, mode, thread, now):
+    th = [t for t in thread or [] if t.get('text')]
+    if not th:
+        return list(saved or [])
+    first = next((t['text'] for t in th if t['role'] == 'user'), th[0]['text'])
+    item = {'id': f"c{int(now * 1000)}", 'mode': mode, 'title': clean(first, 60), 'at': round(now, 1), 'msgs': th[-THREAD_TURNS * 2:]}
+    return ([item] + list(saved or []))[:SAVED_KEEP]
+
+
+def saved_view(saved):
+    return [{k: x[k] for k in ('id', 'mode', 'title', 'at')} | {'n': len(x.get('msgs') or [])} for x in saved or []]
+
+
 def view(state, n=12):
     ps = list((state or {}).get('items') or [])
     return {'pending': [x for x in ps if x['status'] == 'pending'][:n], 'decided': [x for x in ps if x['status'] != 'pending'][:n]}

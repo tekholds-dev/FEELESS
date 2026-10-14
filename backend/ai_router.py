@@ -58,6 +58,8 @@ SPEND_USD_DAY = 1.5        # 💵 a paid provider stops for the UTC day once the
 LOCAL_BG_EVERY = 45.0      # 💻 the local model's background lane: at most one case per this many seconds…
 LOCAL_BG_PRIO = 2          # … only owner review / a split desk / a READY coin / the coach, and only when NO cloud provider could answer
 BUDGET_WAIT_MAX = 20.0    # a call waits at most this long for the provider's minute budget / a short Retry-After
+import contextvars as _cv
+TUNE = _cv.ContextVar('ai_tune', default=None)   # 🎛 the owner's chat tuning {temp, maxTok} for THIS call only (never the agents' background reads)
 MAX_TOKENS = 460          # the brain prompt's schema (16 keys) needs room — at 260 the JSON was cut off and read "malformed"
 LABEL = {'local': 'LOCAL AI', 'groq': 'GROQ', 'openrouter': 'OPENROUTER', 'openai': 'OPENAI', 'xai': 'XAI', 'custom': 'CUSTOM AI', 'NONE': 'NONE'}
 _KEYLIKE = re.compile(r'[A-Za-z0-9_\-]{20,}')
@@ -684,6 +686,9 @@ class Router:
         if kvar and env.get(kvar):
             hdr['Authorization'] = f"Bearer {env.get(kvar)}"
         body = {'model': p['model'], 'messages': msgs, 'temperature': 0.1, 'max_tokens': MAX_TOKENS, 'stream': False, **EXTRA_BODY.get(p['key'], {})}
+        tn = TUNE.get()
+        if tn:
+            body.update(temperature=float(tn.get('temp', 0.1)), max_tokens=int(tn.get('maxTok', MAX_TOKENS)))
         if p['key'] == 'local' and self._ctx and self._ctx[1] < 6000:
             body['max_tokens'] = min(MAX_TOKENS, LOCAL_ANSWER)
         try:
@@ -750,7 +755,7 @@ class Router:
         finally:
             self.inflight.pop(ck, None)
 
-    async def ask(self, http, env, cfg, question, context=None, role='manager', urgency='force', prio=None, only=None, history=None, system=None, images=None):
+    async def ask(self, http, env, cfg, question, context=None, role='manager', urgency='force', prio=None, only=None, history=None, system=None, images=None, tune=None):
         """🧭 GENERAL mode: a normal question → a plain-language answer {source, label, text, ms, tried, mode: 'general'}. Same providers,
         same pacing, same spend cap; never cached, never parsed as a case, never noted on a coin. Deterministic roles still never ask."""
         self.totals['asked'] += 1
@@ -765,7 +770,12 @@ class Router:
             if images:   # a picture goes to vision-capable cloud providers only (the local text model would refuse the call)
                 gm = with_images(gm, images)
                 only = tuple(k for k in (only or PROVIDERS) if k != 'local') or ('openrouter',)
-            res = await self._route(http, env, cfg, None, role, time.time(), urgency, prio, only, mode='general', gmsgs=gm)
+            tok = TUNE.set(tune) if tune else None
+            try:
+                res = await self._route(http, env, cfg, None, role, time.time(), urgency, prio, only, mode='general', gmsgs=gm)
+            finally:
+                if tok is not None:
+                    TUNE.reset(tok)
             if res.get('source') in PROVIDERS:
                 res = {**res, 'model': provider(env, res['source'], cfg)['model'], 'usage': self.lastUsage.get(res['source'])}
             return res

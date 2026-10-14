@@ -138,3 +138,17 @@ def test_each_mode_keeps_its_own_thread_and_approved_builds_join_a_queue():
     assert c.build_view(st)['open'] == 0 and c.build_view(st)['items'][0]['status'] == 'shipped'
     with pytest.raises(ValueError):
         c.build_set(st, 'b1', 'launched', 201.0)
+
+
+def test_brain_settings_tune_the_chat_and_saved_convos_reopen():
+    import ai_chat as c
+    st = c.clean_settings({'temp': 0.6, 'len': 'long', 'allowSmall': True})
+    assert st == {'temp': 0.6, 'len': 'long', 'allowSmall': True} and c.tune_of(st) == {'temp': 0.6, 'maxTok': 1200}
+    assert c.clean_settings({'temp': 5, 'len': 'huge', 'allowSmall': 'yes'}) == c.SETTINGS   # only listed values
+    assert set(c.SMALL_KINDS) == {'lesson', 'idea'}   # switches, weights and exit notches always wait for the owner
+    sv = c.save_convo([], 'chat', [{'role': 'user', 'text': 'why are we bleeding?'}, {'role': 'assistant', 'text': 'stops'}], 100.0)
+    assert c.saved_view(sv) == [{'id': 'c100000', 'mode': 'chat', 'title': 'why are we bleeding?', 'at': 100.0, 'n': 2}]
+    assert c.save_convo(sv, 'chat', [], 101.0) == sv
+    for i in range(30):
+        sv = c.save_convo(sv, 'build', [{'role': 'user', 'text': f'q{i}'}], 200.0 + i)
+    assert len(sv) == c.SAVED_KEEP

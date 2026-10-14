@@ -168,15 +168,17 @@ test('🔑 AI key box: tests and saves through the server, shows only set + the 
   await act(async () => { root.unmount(); });
 });
 
-test('🗂 one deck beside the Brain: trades · coach · teach share a tab row, every pane stays mounted, the pick is remembered', async () => {
+test('🗂 trades beside the Brain; 👑 Coach and 🎓 Teach live INSIDE the Brain as its own sections', async () => {
   const call = jest.fn(async () => ({ ok: true }));
   const hub = { d: data, livePx: new Map(), sel: selectors(data), load: jest.fn() };
   const { root, q } = mount();
   await act(async () => { root.render(<AgentHubProvider value={hub}><AgentCockpit call={call} /></AgentHubProvider>); });
   await flush();
   expect([...q('ack-tapezone').children].map(c => c.getAttribute('data-testid'))).toEqual(['ack-deck', 'cch']);
-  expect(q('ack-deckpane-tape').hidden).toBe(false); expect(q('ack-deckpane-coach').hidden).toBe(true); expect(q('ack-deckpane-teach').hidden).toBe(true);
-  await act(async () => { q('ack-deck-coach').click(); });
-  expect(q('ack-deckpane-coach').hidden).toBe(false); expect(q('ack-deckpane-tape').hidden).toBe(true); expect(q('ack-deckpane-tape').children.length).toBeGreaterThan(0);
-  expect(localStorage.getItem('feeless.agentDeck')).toBe('coach'); localStorage.removeItem('feeless.agentDeck');
+  expect(q('ack-deck-coach')).toBeNull(); expect(q('ack-deckpane-tape').hidden).toBe(false);
+  expect(q('cch-extra-coach').hidden).toBe(true); expect(q('cch-extra-coach').children.length).toBeGreaterThan(0);
+  await act(async () => { q('cch-pane-coach').click(); });
+  expect(q('cch-extra-coach').hidden).toBe(false); expect(q('cch-modes')).toBeNull();
+  await act(async () => { q('cch-pane-talk').click(); });
+  expect(q('cch-extra-coach').hidden).toBe(true);
 });

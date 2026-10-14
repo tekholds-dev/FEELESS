@@ -55,16 +55,17 @@ export function HomeEngine({ onOpen }) {
     ['✅', 'SAFE', v.safe, 'Coins that passed every safety check'], ['🏃', 'RUNNERS', v.runners, 'Coins passing every runner gate on the live board']];
   return <section className={`hen m-card is-${v.weather || 'none'}`} data-testid="home-engine">
     <div className="hen-reactor" data-testid="hen-belt" aria-label="Live coins orbiting the Fuse core" style={{ '--beat': `${beatSec(v.green)}s` }}>
-      {rings.map((r, ri) => <span key={r.fate} className={`hen-ring is-${r.fate}`} style={{ '--r': ri }} aria-hidden="true" />)}
+      <span className="hen-sweep" aria-hidden="true" />
+      {rings.map((r, ri) => <span key={r.fate} className={`hen-ring is-${r.fate}`} style={{ '--r': ri, animationDuration: `${r.sec * 0.6}s`, animationDirection: ri === 1 ? 'reverse' : 'normal' }} aria-hidden="true"><i /></span>)}
       {rings.map((r, ri) => r.pods.map((p, i) => { const ang = Math.round((360 * i) / Math.max(1, r.pods.length)); const delay = `${-(r.sec * i) / Math.max(1, r.pods.length)}s`; const dir = ri === 1 ? 'reverse' : 'normal';
         return <span key={p.mint} className={`hen-orb is-${r.fate}`} style={{ '--r': ri, transform: `rotate(${ang}deg)`, animationDuration: `${r.sec}s`, animationDelay: delay, animationDirection: dir }}>
           <span className="hen-seat" style={{ transform: `rotate(${-ang}deg)`, animationDuration: `${r.sec}s`, animationDelay: delay, animationDirection: dir }}>
             <button type="button" className={`hen-pod ${p.m5 >= 0 ? 'is-up' : 'is-dn'}`} onClick={() => openCoin({ mint: p.mint, symbol: p.sym, pairAddress: p.pair })} data-testid={`hen-pod-${p.sym}`}
               data-tip={`$${p.sym} · ${FATE[p.fate]} · ${p.m5 >= 0 ? '+' : ''}${p.m5.toFixed(1)}% in 5 min`}>${p.sym}</button></span></span>; }))}
-      <span className="hen-core" data-tip="Runners live right now. The core beats faster the more launch coins are green on the hour."><i aria-hidden="true" /><i aria-hidden="true" /><b key={v.runners}>{num(v.runners)}</b><small>RUNNERS</small></span>
+      <span className="hen-core" data-tip="Runners live right now. The core beats faster the more launch coins are green on the hour."><i aria-hidden="true" /><i aria-hidden="true" /><em className="hen-rip" aria-hidden="true" /><em className="hen-rip is-2" aria-hidden="true" /><b key={v.runners}>{num(v.runners)}</b><small>RUNNERS</small></span>
     </div>
     <div className="hen-side">
-      <header className="hen-head"><span className="hen-title"><b>⚛ THE FUSE REACTOR</b><small>real coins orbit until they earn the core — tap one</small></span>
+      <header className="hen-head"><span className="hen-title"><b>⚛ THE FUSE REACTOR <i className="hen-live" aria-hidden="true">● LIVE</i></b><small>real coins orbit until they earn the core — tap one</small></span>
         {v.weather ? <em className="hen-wx" data-testid="hen-weather" data-tip="Runner weather: how recent paper runs on real prices ended. A reading, never a promise.">{WX[v.weather] || String(v.weather).toUpperCase()}{v.trend ? ` · ${v.trend}` : ''}</em> : null}</header>
       <div className="hen-gates">{gates.map(([ico, l, n, tip], i) => <span key={l} className="hen-gate" style={{ '--i': i }} data-tip={tip} data-testid={`hen-gate-${l.toLowerCase()}`}><i aria-hidden="true">{ico}</i><small>{l}</small><b key={n}>{num(n)}</b>
         <u aria-hidden="true"><s style={{ transform: `scaleX(${n == null ? 0 : Math.max(0.03, Math.min(1, n / top))})` }} /></u></span>)}</div>

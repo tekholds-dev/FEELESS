@@ -65,7 +65,7 @@ function Deck({ tabs }) {
   const [on, setOn] = useState(() => { try { const v = localStorage.getItem(DECK_KEY); return tabs.some(t => t[0] === v) ? v : tabs[0][0]; } catch { return tabs[0][0]; } });
   const pick = k => { setOn(k); try { localStorage.setItem(DECK_KEY, k); } catch { /* private window */ } };
   return <section className="ack-deck" data-testid="ack-deck" data-on={on}>
-    <div className="ack-decktabs m-seg" role="tablist" aria-label="Trades, coach and teach">{tabs.map(([k, l, n]) => <button key={k} type="button" role="tab" aria-selected={on === k} className={on === k ? 'active' : ''} onClick={() => pick(k)} data-testid={`ack-deck-${k}`}>{l}{n ? <i>{n}</i> : null}</button>)}</div>
+    {tabs.length > 1 ? <div className="ack-decktabs m-seg" role="tablist" aria-label="Trades, coach and teach">{tabs.map(([k, l, n]) => <button key={k} type="button" role="tab" aria-selected={on === k} className={on === k ? 'active' : ''} onClick={() => pick(k)} data-testid={`ack-deck-${k}`}>{l}{n ? <i>{n}</i> : null}</button>)}</div> : <p className="ack-deckh"><b>{tabs[0][1]}</b>{tabs[0][2] ? <i>{tabs[0][2]}</i> : null}</p>}
     {tabs.map(([k, , , node]) => <div key={k} role="tabpanel" className="ack-deckpane" hidden={on !== k} data-testid={`ack-deckpane-${k}`}>{node}</div>)}
   </section>;
 }
@@ -472,10 +472,10 @@ export function AgentCockpit({ call, isOwner = true }) {
       <DecisionPanel o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
         pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} mcNow={model?.mc} onAi={() => setAiOpen(true)} /></div>
     <div className="ack-tapezone" data-testid="ack-tapezone">
-      <Deck tabs={[['tape', '🎬 Trades', (o.tradeTape?.rows || []).length, <><LossMap court={o.court} capital={o.capital} /><TradeTape tape={o.tradeTape} mint={mint} onPick={onPick} /></>],
-        ['coach', '👑 Coach', (o.coach?.rules || []).length, <CoachBox coach={o.coach} seats={seats} tpl={d?.card?.tpl} call={call} isOwner={isOwner} />],
-        ['teach', '🎓 Teach', (o.teach?.items || []).length, <TeachBox o={o} mint={mint} sym={model?.sym || model?.symbol} call={call} isOwner={isOwner} />]]} />
-      <AiChat call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} variant="full" /></div>
+      <Deck tabs={[['tape', '🎬 Trades', (o.tradeTape?.rows || []).length, <><LossMap court={o.court} capital={o.capital} /><TradeTape tape={o.tradeTape} mint={mint} onPick={onPick} /></>]]} />
+      <AiChat call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} variant="full"
+        extras={[['coach', `👑 Coach${(o.coach?.rules || []).length ? ` · ${o.coach.rules.length}` : ''}`, <CoachBox coach={o.coach} seats={seats} tpl={d?.card?.tpl} call={call} isOwner={isOwner} />],
+          ['teach', `🎓 Teach${(o.teach?.items || []).length ? ` · ${o.teach.items.length}` : ''}`, <TeachBox o={o} mint={mint} sym={model?.sym || model?.symbol} call={call} isOwner={isOwner} />]]} /></div>
     <div className="ack-foot"><AgentMatrix o={o} gens={o?.generations || []} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); setTab('live'); }} rows={o.tape} pulse={pulse} />
       <ReviewQueue o={o} call={call} isOwner={isOwner} onPick={m => { onPick(m); if (m && !((o.kernel || {}).candidates || []).some(c => c.mint === m) && !(o.positions || []).some(p => p.mint === m) && !(o.ownerReview || []).some(r => r.mint === m)) openCoin({ mint: m }); }} sel={mint} /></div>
     <CockpitControls o={o} call={call} isOwner={isOwner} onAi={() => setAiOpen(true)} />

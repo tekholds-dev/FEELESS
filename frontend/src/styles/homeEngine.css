@@ -38,6 +38,16 @@
 .hen-meter.is-bad u { background: #ff8fa3; } .hen-meter.is-bad b { color: #ff8fa3; } .hen-meter.is-ice u { background: #5fd0ff; } .hen-tick { background: var(--gold, #f5c451) !important; animation: henTick 1s steps(2) infinite; }
 .hen-go { justify-self: start; font: 700 10.5px 'JetBrains Mono', monospace; color: var(--hx); text-decoration: none; padding: 4px 10px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--hx) 35%, transparent); transition: transform .15s ease, border-color .15s ease; }
 .hen-go:hover { transform: translateX(2px); border-color: var(--hx); } .hen-go:active { transform: scale(.97); } .hen-go:focus-visible { outline: 2px solid var(--hx); outline-offset: 2px; }
+/* meta pass: a radar sweep over the rings, a comet riding each ring, ripples off the core on every beat, a LIVE tag */
+.hen-sweep { position: absolute; inset: 14px; border-radius: 50%; pointer-events: none; background: conic-gradient(from 0deg, transparent 0deg, color-mix(in srgb, var(--hx) 26%, transparent) 40deg, transparent 70deg); animation: henOrbit 5.5s linear infinite; opacity: .75; }
+.hen-ring { animation: henOrbit linear infinite; } .hen-ring i { position: absolute; left: 50%; top: -3px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--hx); box-shadow: 0 0 10px 2px var(--hx); }
+.hen-ring.is-fail i { background: #ff8fa3; box-shadow: 0 0 10px 2px #ff8fa3; } .hen-ring.is-wait i { background: #fff; box-shadow: 0 0 8px 1px rgba(255, 255, 255, .7); }
+.hen-rip { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--hx); opacity: 0; animation: henRip var(--beat, 2s) ease-out infinite; pointer-events: none; } .hen-rip.is-2 { animation-delay: calc(var(--beat, 2s) / 2); }
+.hen-live { font-style: normal; margin-left: 8px; padding: 1px 7px; border-radius: 999px; font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #04100a; background: var(--hx); vertical-align: middle; animation: henTick 1.6s ease-in-out infinite; }
+.hen-pod { box-shadow: 0 0 12px rgba(21, 209, 106, .45); } .hen-orb.is-fail .hen-pod { box-shadow: 0 0 10px rgba(255, 143, 163, .4); } .hen-orb.is-wait .hen-pod { box-shadow: none; }
+@keyframes henRip { 0% { transform: scale(1); opacity: .55; } 100% { transform: scale(2.6); opacity: 0; } }
+body.fx-lite .hen-sweep, body.fx-lite .hen-ring, body.fx-lite .hen-rip, body.fx-lite .hen-live { animation: none; } body.fx-lite .hen-rip { display: none; }
+@media (prefers-reduced-motion: reduce) { .hen-sweep, .hen-ring, .hen-rip, .hen-live { animation: none; } .hen-rip { display: none; } }
 @keyframes henOrbit { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } @keyframes henCounter { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
 @keyframes henBeat { 0%, 100% { transform: scale(1); } 12% { transform: scale(1.09); } 24% { transform: scale(.99); } 36% { transform: scale(1.05); } 50% { transform: scale(1); } }
 @keyframes henPop { from { transform: translateY(-3px); opacity: .3; } } @keyframes henTick { 50% { opacity: .35; } } @keyframes henSheen { from { transform: translateX(-120%); } to { transform: translateX(460%); } }
