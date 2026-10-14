@@ -203,7 +203,7 @@ class Kernel:
                 'candidates': out, 'metrics': self.metrics(now)}
 
 
-VIT_TOP = 12
+VIT_TOP = 10
 
 
 def _f0(v):
