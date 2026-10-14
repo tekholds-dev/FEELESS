@@ -3957,3 +3957,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   tap is the approval; never a setting). ✕ on a message → `chat/clear {index}`; 🗑 clears all. FIXES agents only through the proposal cards
   (✅ / ✕). Outside HQ the calls use the HQ session the creator already signed (`hqCallFor` reads `feeless:cc-session`; no session = "open HQ
   once", it never asks a wallet to sign). transform / opacity only (0 other animations, measured), fx-lite / reduced motion / day / 640px.
+- 🧠 The Brain's place in HQ › Agents = the cockpit's tape zone, under the 🎬 trade tape (`ack-tapecol`, `variant="full"`) — NOT inside the
+  small 🧠 AI panel tab (owner, 2026-10-13: "AI / LM chat in the Agents tab here"). The AI tab keeps the decision log, the ASK box and the
+  rule lab. The Brain reads its own chat state once (`GET /admin/ai/chat`) — the desk itself is still fed by ONE request.

@@ -92,7 +92,7 @@ test('the desk is interactive: one lens at a time, KPI tiles open ONE drawer, th
   expect(q('ags-mission')).not.toBeNull(); expect(q('agd-drawer').querySelector('[data-testid="kernel-board"]')).toBeNull();   // ONE at a time
   await act(async () => { q('kpi-mission').click(); });
   expect(q('agd-drawer')).toBeNull();
-  expect(call.mock.calls.filter(c => !c[1]).map(c => c[0])).toEqual(['/admin/agents']);                              // ONE request feeds the desk AND the office
+  expect(call.mock.calls.filter(c => !c[1] && c[0] !== '/admin/ai/chat').map(c => c[0])).toEqual(['/admin/agents']); expect(call.mock.calls.filter(c => c[0] === '/admin/ai/chat' && !c[1]).length).toBeLessThanOrEqual(1);   /* the Brain reads its own chat state once */                              // ONE request feeds the desk AND the office
   await act(async () => { q('lens-live').click(); });
   expect(q('lens-live-pane')).not.toBeNull(); expect(q('lens-learn-pane')).toBeNull();
   expect(q('kpi-go').textContent).toContain('1'); expect(q('kpi-go').textContent).toContain('1 contending');
@@ -167,7 +167,7 @@ test('⚡ the ▸ MORE fold mounts nothing while closed — no hidden lenses, bo
   const q = id => el.querySelector(`[data-testid="${id}"]`);
   expect(q('agent-cockpit')).not.toBeNull(); expect(q('agd-more')).not.toBeNull();
   expect(q('agd-kpis')).toBeNull(); expect(q('lens-live-pane')).toBeNull(); expect(el.querySelectorAll('.ags-mini')).toHaveLength(0);
-  expect(call.mock.calls.filter(c => !c[1]).map(c => c[0])).toEqual(['/admin/agents']);                              // still ONE request
+  expect(call.mock.calls.filter(c => !c[1] && c[0] !== '/admin/ai/chat').map(c => c[0])).toEqual(['/admin/agents']); expect(call.mock.calls.filter(c => c[0] === '/admin/ai/chat' && !c[1]).length).toBeLessThanOrEqual(1);   /* the Brain reads its own chat state once */                              // still ONE request
   await act(async () => { root.unmount(); });
   try { localStorage.removeItem('feeless.agentMore'); } catch (e) { /* none */ }
 });
