@@ -13360,8 +13360,9 @@ async def admin_ai_test(request: Request):
 
 # ── 💬 DIRECT LM CHAT + OWNER-APPROVED AGENT UPDATES (ai_chat.py) ────────────────────────────────────────────────────────────────────
 import ai_chat as _aic
+BUILD_QUEUE_PATH = DATA_DIR / 'build_queue.json'   # 📋 owner-approved build items — the next engineering session reads this first
 AI_PROPOSALS_PATH = DATA_DIR / 'ai_proposals.json'   # compact proposal + audit records only (≤ 60; never a raw prompt or a raw response)
-_chat: dict = {'hist': [], 'ctx': (None, None, 0.0), 'busy': False, 'props': None}   # the conversation lives in memory only (≤ 8 exchanges) and dies with the process
+_chat: dict = {'th': {}, 'ctx': (None, None, 0.0), 'busy': False, 'props': None, 'build': None}   # one short thread PER MODE, memory only   # the conversation lives in memory only (≤ 8 exchanges) and dies with the process
 AI_CHAT_CTX_SEC = 20.0   # the compact agent-state context is rebuilt at most this often (and only its text changes the model's input)
 
 
@@ -13416,8 +13417,13 @@ async def _ai_proposal_apply(p, now):
     if kind == 'tune':
         _coach['tuneAsk'] = {'key': key, 'dir': val, 'why': str(p.get('reason') or '')[:90], 'at': now}   # the office pass puts it in SHADOW (office.model_candidate) — never live
         return f"Reaper {key} {val}: queued for a 20-exit shadow test"
-    if kind == 'idea':
-        return 'idea filed — it changes no setting'
+    if kind == 'idea':   # 📋 approving an idea = permission to BUILD it: it joins the build queue the next engineering session works through
+        try:
+            _chat['build'], it_ = _aic.build_add(_build_state(), key, f"{val}" + (f" — why: {p.get('reason')}" if p.get('reason') else ''), f"approved · {p.get('agent') or 'desk'}", now)
+            _json_save(BUILD_QUEUE_PATH, _chat['build'])
+            return f"queued for the build ({it_['id']}) — it changes no setting until it is built and shipped"
+        except ValueError as e:
+            return f"idea filed — {e}"
     raise ValueError('unknown kind')
 
 
@@ -13454,11 +13460,11 @@ async def admin_ai_chat(request: Request):
             if ad:
                 _ai_keep('owner', c, res, now)
             reply = (f"{ad.get('call') or ad.get('stance')} · {ad.get('summary')}" + (f" · risks: {'; '.join(ad.get('risk_flags') or [])}" if ad.get('risk_flags') else '')) if ad else None
-            _chat['hist'] = _aic.push(_aic.push(_chat['hist'], 'user', f"[case review] ${c.get('symbol')} {text}".strip()), 'assistant', reply or 'no provider answered', {'mode': 'case'})
+            _chat['th'] = _aic.push_thread(_aic.push_thread(_chat['th'], 'case', 'user', f"[case review] ${c.get('symbol')} {text}".strip()), 'case', 'assistant', reply or 'no provider answered', {'mode': 'case'})
             return {'ok': bool(ad), 'mode': 'case', 'reply': reply, 'advice': ad or None, 'symbol': c.get('symbol'), 'provider': res.get('label'), 'model': _air.provider(env, res['source'], cfg)['model'] if res.get('source') in _air.PROVIDERS else None,
-                    'ms': res.get('ms'), 'tokens': _air.ROUTER.lastUsage.get(res.get('source')), 'history': _chat['hist'], 'proposals': _aic.view(_chat_props()), 'why': res.get('why')}
+                    'ms': res.get('ms'), 'tokens': _air.ROUTER.lastUsage.get(res.get('source')), 'history': _chat['th'].get('case') or [], 'threads': _aic.threads_view(_chat['th']), 'proposals': _aic.view(_chat_props()), 'why': res.get('why')}
         ctx = _chat_context(focus, now)
-        res = await _air.ROUTER.ask(_ai_http(), env, cfg, text, context=ctx, role='owner', history=_aic.as_messages(_chat['hist']), system=_aic.system_for(mode))
+        res = await _air.ROUTER.ask(_ai_http(), env, cfg, text, context=ctx, role='owner', history=_aic.as_messages(_chat['th'].get(mode)), system=_aic.system_for(mode))
         reply, new, refused = res.get('text'), [], []
         if reply and mode in ('improve', 'build'):   # 🛠 the model's suggestions become PENDING records — nothing is applied until the owner approves each one
             reply, items, refused = _aic.parse_improve(reply, tuple(_co.CAUSES), only=('idea',) if mode == 'build' else None)
@@ -13466,8 +13472,8 @@ async def admin_ai_chat(request: Request):
                 _chat['props'], new = _aic.propose(_chat_props(), items, _chat_olds(), now, res.get('label'))
                 _json_save(AI_PROPOSALS_PATH, _chat['props'])
                 ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-proposals', f"{len(new)} proposed by {res.get('label')}: " + ' · '.join(f"{p_['kind']} {p_['key']}" for p_ in new)[:200]); _admin_save(ad_)
-        _chat['hist'] = _aic.push(_aic.push(_chat['hist'], 'user', text), 'assistant', reply or 'no provider answered', {'mode': mode, 'ms': res.get('ms'), 'provider': res.get('label')})
-        return {'ok': bool(reply), 'mode': mode, 'routed': mode != asked, 'reply': reply, 'provider': res.get('label'), 'model': res.get('model'), 'ms': res.get('ms'), 'tokens': res.get('usage'), 'history': _chat['hist'],
+        _chat['th'] = _aic.push_thread(_aic.push_thread(_chat['th'], mode, 'user', text), mode, 'assistant', reply or 'no provider answered', {'mode': mode, 'ms': res.get('ms'), 'provider': res.get('label')})
+        return {'ok': bool(reply), 'mode': mode, 'routed': mode != asked, 'reply': reply, 'provider': res.get('label'), 'model': res.get('model'), 'ms': res.get('ms'), 'tokens': res.get('usage'), 'history': _chat['th'].get(mode) or [], 'threads': _aic.threads_view(_chat['th']),
                 'new': [p_['id'] for p_ in new], 'refused': refused, 'proposals': _aic.view(_chat_props()), 'why': res.get('why'), 'learned': _chat_learned()}
     finally:
         _chat['busy'] = False
@@ -13486,12 +13492,37 @@ async def admin_ai_chat_clear(request: Request):
         body = await request.json()
     except Exception:
         body = {}
-    i = (body or {}).get('index')
-    if isinstance(i, int) and not isinstance(i, bool) and 0 <= i < len(_chat['hist']):
-        _chat['hist'] = _chat['hist'][:i] + _chat['hist'][i + 1:]
-    else:
-        _chat['hist'] = []
-    return {'ok': True, 'history': _chat['hist'], 'proposals': _aic.view(_chat_props()), 'learned': _chat_learned()}
+    i = (body or {}).get('index'); m_ = str((body or {}).get('mode') or 'chat')
+    if m_ not in _aic.MODES:
+        raise HTTPException(400, 'Unknown mode.')
+    h_ = list(_chat['th'].get(m_) or [])
+    _chat['th'] = {**_chat['th'], m_: (h_[:i] + h_[i + 1:]) if isinstance(i, int) and not isinstance(i, bool) and 0 <= i < len(h_) else []}
+    return {'ok': True, 'mode': m_, 'history': _chat['th'][m_], 'threads': _aic.threads_view(_chat['th']), 'proposals': _aic.view(_chat_props()), 'learned': _chat_learned()}
+
+
+def _build_state():
+    if _chat.get('build') is None:
+        _chat['build'] = _json_load(BUILD_QUEUE_PATH, {}) or {}
+    return _chat['build']
+
+
+@app.post('/api/reputation/admin/ai/build')
+async def admin_ai_build(request: Request):
+    """📋 Owner only: {text, title?} → QUEUE it for the build (the owner's tap is the permission) · {id, status} → move it (queued / building /
+    shipped / dropped). The model never writes code in the app: the next engineering session reads data/build_queue.json first."""
+    _require_owner(request)
+    body = await request.json() or {}
+    now = time.time()
+    try:
+        if body.get('id'):
+            _chat['build'] = _aic.build_set(_build_state(), str(body['id']), str(body.get('status') or ''), now); what = f"{body['id']} → {body.get('status')}"
+        else:
+            _chat['build'], it_ = _aic.build_add(_build_state(), body.get('title'), body.get('text'), body.get('src') or 'chat', now); what = f"queued {it_['id']}: {it_['title']}"
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    _json_save(BUILD_QUEUE_PATH, _chat['build'])
+    ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-build', what[:160]); _admin_save(ad_)
+    return {'ok': True, 'build': _aic.build_view(_chat['build'])}
 
 
 @app.post('/api/reputation/admin/ai/chat/remember')
@@ -13519,7 +13550,7 @@ async def admin_ai_chat_get(request: Request):
     _require_owner(request)
     v_ = _air.ROUTER.view(os.environ, _ai_cfg())
     live_ = next((r_ for r_ in v_.get('providers') or [] if r_.get('state') == 'ONLINE'), None)
-    return {'history': _chat['hist'], 'proposals': _aic.view(_chat_props()), 'modes': list(_aic.MODES), 'learned': _chat_learned(),
+    return {'history': _chat['th'].get('chat') or [], 'threads': _aic.threads_view(_chat['th']), 'build': _aic.build_view(_build_state()), 'proposals': _aic.view(_chat_props()), 'modes': list(_aic.MODES), 'learned': _chat_learned(),
             'brain': {'provider': (live_ or {}).get('label'), 'model': (live_ or {}).get('model'), 'ms': (live_ or {}).get('lastMs')}}
 
 

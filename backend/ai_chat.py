@@ -46,7 +46,8 @@ CHAT_ASK = (
     "CHAT mode — you are the desk's sharpest trencher talking to the owner. Rules: (1) verdict in the FIRST sentence; (2) every claim carries a number, "
     "an agent name or a coin taken from CONTEXT (money / capital / trail / outcomes / seats / agents) — if it is not in CONTEXT you do not say it; "
     "(3) max 5 short lines, no headings, no numbered plans, no bold; (4) name the ONE thing costing the most money and the ONE lever that moves it; "
-    "(5) you cannot change anything from chat: when the owner asks you to fix / change / tune something, say which lever you would pull in one line and "
+    "(5) money first: the capital / record / trail lines outrank any single coin; recent outcomes are trades that already CLOSED, seats are what is held now; "
+    "(6) you cannot change anything from chat: when the owner asks you to fix / change / tune something, say which lever you would pull in one line and "
     "tell them to tap 🛠 Fix agents so it becomes a proposal they approve. Trench words are fine; filler is not.")
 # 🧱 BUILD: the models help keep the product strong — ideas only, filed for the owner / the engineer, nothing applied
 BUILD_ASK = (
@@ -255,6 +256,57 @@ def applied(state, pid, note):
         if x.get('id') == pid:
             x['applied'] = clean(note, 200)
     return {'items': ps}
+
+
+# 🧵 ONE THREAD PER MODE (owner: "each chat convo is different"): chat · case · fix · build keep their own short history
+THREAD_TURNS = 6
+
+
+def threads_view(threads):
+    return {m: list((threads or {}).get(m) or []) for m in MODES}
+
+
+def push_thread(threads, mode, role, text, meta=None):
+    t = dict(threads or {})
+    t[mode] = push(t.get(mode) or [], role, text, meta)[-THREAD_TURNS * 2:]
+    return t
+
+
+# 📋 THE BUILD QUEUE (owner: "do me approving actually build?"): an approved build idea — or any model line the owner taps 🧱 Build this on — is
+# QUEUED for the engineer (the next Claude Code session reads data/build_queue.json first). The model never writes code in the app; approval = permission.
+BUILD_KEEP = 40
+BUILD_STATUS = ('queued', 'building', 'shipped', 'dropped')
+
+
+def build_add(state, title, text, src, now):
+    st = dict(state or {}); items = list(st.get('items') or [])
+    title_, text_ = clean(title, 80) or clean(text, 80), clean(text, 600)
+    if len(text_) < 8:
+        raise ValueError('Nothing to build.')
+    if any(x['text'] == text_ and x['status'] in ('queued', 'building') for x in items):
+        raise ValueError('Already in the build queue.')
+    n = int(st.get('n') or 0) + 1
+    item = {'id': f'b{n}', 'title': title_, 'text': text_, 'src': clean(src, 40) or 'owner', 'status': 'queued', 'at': round(now, 1)}
+    st.update(n=n, items=([item] + items)[:BUILD_KEEP])
+    return st, item
+
+
+def build_set(state, bid, status, now):
+    if status not in BUILD_STATUS:
+        raise ValueError('Unknown status.')
+    st = dict(state or {}); items = [dict(x) for x in st.get('items') or []]
+    hit = next((x for x in items if x['id'] == bid), None)
+    if not hit:
+        raise ValueError('No such build item.')
+    hit.update(status=status, doneAt=round(now, 1))
+    st['items'] = items
+    return st
+
+
+def build_view(state, n=12):
+    items = list((state or {}).get('items') or [])
+    live = [x for x in items if x['status'] in ('queued', 'building')]
+    return {'open': len(live), 'items': (live + [x for x in items if x['status'] not in ('queued', 'building')])[:n]}
 
 
 def view(state, n=12):

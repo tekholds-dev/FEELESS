@@ -118,3 +118,23 @@ def test_chat_that_asks_for_a_change_runs_as_proposals_and_build_mode_files_idea
     txt = '{"reply": "two ideas", "proposals": [{"agent": "desk", "kind": "idea", "key": "rug meter on seats", "value": "draw it", "reason": "r", "effect": "e"}, {"agent": "desk", "kind": "cfg", "key": "agentDial", "value": "crazy"}]}'
     reply, ok, bad = c.parse_improve(txt, (), only=('idea',))
     assert reply == 'two ideas' and [p['kind'] for p in ok] == ['idea'] and len(bad) == 1 and 'only idea' in bad[0]
+
+
+def test_each_mode_keeps_its_own_thread_and_approved_builds_join_a_queue():
+    import ai_chat as c
+    t = c.push_thread({}, 'chat', 'user', 'why are we bleeding?')
+    t = c.push_thread(t, 'build', 'user', 'what should we build next?')
+    v = c.threads_view(t)
+    assert [x['text'] for x in v['chat']] == ['why are we bleeding?'] and [x['text'] for x in v['build']] == ['what should we build next?'] and v['case'] == []
+    for i in range(20):
+        t = c.push_thread(t, 'chat', 'user', f'msg {i}')
+    assert len(t['chat']) == c.THREAD_TURNS * 2
+    st, it = c.build_add({}, 'Judge meter', 'a live meter of the judge accuracy', 'approved', 100.0)
+    assert it['id'] == 'b1' and it['status'] == 'queued' and c.build_view(st)['open'] == 1
+    import pytest
+    with pytest.raises(ValueError):
+        c.build_add(st, 'again', 'a live meter of the judge accuracy', 'chat', 101.0)   # the same open item is never queued twice
+    st = c.build_set(st, 'b1', 'shipped', 200.0)
+    assert c.build_view(st)['open'] == 0 and c.build_view(st)['items'][0]['status'] == 'shipped'
+    with pytest.raises(ValueError):
+        c.build_set(st, 'b1', 'launched', 201.0)

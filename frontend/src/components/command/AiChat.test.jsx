@@ -43,10 +43,11 @@ test('🛠 a proposal shows agent · now → proposed · why · effect · rollba
   expect(sent).toHaveLength(0);                                                                // showing a proposal applies nothing
   await act(async () => { q(el, 'cch-approve-p1').click(); });
   expect(sent).toEqual([['/admin/ai/proposals/decide', { id: 'p1', approve: true }]]);
+  expect(q(el, 'cch-prop-p1')).toBeNull(); await act(async () => { q(el, 'cch-done').click(); });   // decided fixes fold under one line
   expect(q(el, 'cch-prop-p1').textContent).toContain('APPROVED'); expect(q(el, 'cch-prop-p1').textContent).toContain('chartWait: False → True'); expect(q(el, 'cch-approve-p1')).toBeNull();
   const el2 = await mount(<AiChat call={call} />);
   await act(async () => { q(el2, 'cch-reject-p1').click(); });
-  expect(sent[1]).toEqual(['/admin/ai/proposals/decide', { id: 'p1', approve: false }]); expect(q(el2, 'cch-prop-p1').textContent).toContain('REJECTED');
+  expect(sent[1]).toEqual(['/admin/ai/proposals/decide', { id: 'p1', approve: false }]); await act(async () => { q(el2, 'cch-done').click(); }); expect(q(el2, 'cch-prop-p1').textContent).toContain('REJECTED');
 });
 
 test('🧠 the Brain learns on your tap, deletes one message, fires a one-tap prompt and pops out full-window', async () => {
@@ -65,7 +66,7 @@ test('🧠 the Brain learns on your tap, deletes one message, fires a one-tap pr
   await act(async () => { q(el, 'cch-rem-1').click(); });
   expect(sent[0]).toEqual(['/admin/ai/chat/remember', { text: 'The trail arms at +4% and banks near +2%.' }]); expect(q(el, 'cch-learned').textContent).toContain('4');
   await act(async () => { q(el, 'cch-del-0').click(); });
-  expect(sent[1]).toEqual(['/admin/ai/chat/clear', { index: 0 }]); expect(q(el, 'cch-log').textContent).not.toContain('why small wins?');
+  expect(sent[1]).toEqual(['/admin/ai/chat/clear', { index: 0, mode: 'chat' }]); expect(q(el, 'cch-log').textContent).not.toContain('why small wins?');
   await act(async () => { q(el, 'cch-mode-improve').click(); });
   await act(async () => { q(el, 'cch-quick').querySelector('button').click(); });
   expect(sent[2][0]).toBe('/admin/ai/chat'); expect(sent[2][1].mode).toBe('improve'); expect(sent[2][1].text).toMatch(/Propose the changes/);
@@ -91,4 +92,24 @@ test('🛠 in the mini cat the fixes sit folded under one bar until you open the
   expect(q(el, 'cch-props-toggle').textContent).toContain('· 1'); expect(q(el, 'cch-props').querySelector('ul').hidden).toBe(true);
   await act(async () => { q(el, 'cch-props-toggle').click(); });
   expect(q(el, 'cch-props').querySelector('ul').hidden).toBe(false); expect(q(el, 'cch-approve-p1')).not.toBeNull();
+});
+
+test('🧵 each mode has its own thread; 🧱 Build this queues a line (the tap is the permission) and the build queue shows in Build mode', async () => {
+  const sent = [];
+  const B = { open: 1, items: [{ id: 'b1', title: 'Judge meter', text: 'a live meter', status: 'queued' }] };
+  const call = jest.fn(async (path, opt) => {
+    if (opt) sent.push([path, JSON.parse(opt.body)]);
+    if (path === '/admin/ai/build') return { ok: true, build: { open: 2, items: [{ id: 'b2', title: 'Rug meter', text: 'x', status: 'queued' }, ...B.items] } };
+    return { threads: { chat: [{ role: 'user', text: 'chat thread q' }, { role: 'assistant', text: 'chat thread answer' }], case: [], improve: [], build: [{ role: 'assistant', text: 'build a rug meter on seats' }] },
+      build: B, proposals: { pending: [], decided: [] } };
+  });
+  const el = await mount(<AiChat call={call} />);
+  await act(async () => { await Promise.resolve(); });
+  expect(q(el, 'cch-log').textContent).toContain('chat thread answer'); expect(q(el, 'cch-bq').textContent).toContain('1');
+  await act(async () => { q(el, 'cch-mode-build').click(); });
+  expect(q(el, 'cch-log').textContent).toContain('build a rug meter'); expect(q(el, 'cch-log').textContent).not.toContain('chat thread answer');
+  expect(q(el, 'cch-bqlist').textContent).toContain('Judge meter');
+  await act(async () => { q(el, 'cch-build-0').click(); });
+  expect(sent[0][0]).toBe('/admin/ai/build'); expect(sent[0][1].text).toBe('build a rug meter on seats');
+  expect(q(el, 'cch-bq').textContent).toContain('2'); expect(q(el, 'cch-bqlist').textContent).toContain('Rug meter');
 });

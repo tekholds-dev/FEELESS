@@ -67,6 +67,16 @@
 .cch.is-mini .cch-modes > button span, .cch.is-mini .cch-kpis small, .cch.is-mini .cch-title small { display: none; } .cch.is-mini .cch-modes > button { font-size: 14px; padding: 5px 2px; }
 .cch.is-mini .cch-orb { width: 26px; height: 26px; } .cch.is-mini .cch-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cch-meta { opacity: .7; text-align: right; }
+/* 📋 build queue + the decided fold */
+.cch-bqlist { display: grid; gap: 4px; padding: 7px 9px; border-radius: 9px; border: 1px solid color-mix(in srgb, var(--br) 40%, transparent); background: rgba(255, 122, 217, .05); }
+.cch-bqh { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; margin: 0; } .cch-bqh b { font: 800 9.5px var(--m-mono); letter-spacing: .1em; color: var(--br); } .cch-bqh small { font: 600 8.5px var(--m-mono); color: var(--m-mute); }
+.cch-bqlist ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; max-height: 120px; overflow-y: auto; scrollbar-width: thin; }
+.cch-bqlist li { display: grid; grid-template-columns: 70px minmax(0, 1fr) auto; gap: 6px; align-items: center; font: 600 10px var(--m-mono); color: var(--m-text); animation: cchIn .18s ease-out; }
+.cch-bqlist li span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .cch-bqlist li em { font: 800 8px var(--m-mono); font-style: normal; letter-spacing: .1em; color: var(--gold, #f5c451); }
+.cch-bqlist li.is-shipped em { color: var(--br2); } .cch-bqlist li.is-dropped { opacity: .45; } .cch-bqlist .cch-ico { width: 22px; height: 22px; font-size: 10px; }
+.cch-done { width: 100%; text-align: left; padding: 4px 8px; border-radius: 7px; border: 1px dashed var(--m-line); background: transparent; color: var(--m-mute); font: 700 9.5px var(--m-mono); cursor: pointer; transition: color .15s ease, border-color .15s ease; }
+.cch-done:hover { color: var(--m-text); border-color: var(--br); } .cch-done:focus-visible { outline: 2px solid var(--br); outline-offset: 1px; }
+body.theme-day .cch-bqlist li { color: #0f2419; }
 /* every mode wears its own colour; the scan line runs only while the model is really answering */
 .cch[data-mode='case'] { --br: #5fd0ff; } .cch[data-mode='improve'] { --br: #f5c451; } .cch[data-mode='build'] { --br: #ff7ad9; }
 .cch-scan { display: block; height: 2px; margin: -4px 0; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--br), var(--br2), transparent); transform: scaleX(.12); transform-origin: left; opacity: .35; transition: opacity .2s ease; }
