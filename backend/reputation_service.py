@@ -7067,6 +7067,7 @@ async def _procall_track(now):
 
 
 import trench_brain as _tb
+import drain as _drn
 LI_PATH = FUSE_HQ_PATH.parent / 'launch_intel.json'   # 🕵 launches noted with their early-buyer map → settled 1h later → wallet memory
 _li_st: dict = {'st': None}
 
@@ -7171,6 +7172,7 @@ async def _brain_track(now):
         _json_save(BRAIN_PATH, st)
         cl_ = _brain_clean(st)
         _brain.update(at=now, tbl=_tb.table(cl_['done']), sum=_tb.summary(cl_))
+        _drn.set_table(_drn.odds_table(cl_['done']))   # 🔮 drain odds: the rug share per feature, from the same judged coins
     except Exception as e:
         print('trench brain:', e)
 
@@ -7185,6 +7187,7 @@ def _brain_state():
     if _brain['sum'] is None:
         st = _brain_clean(_json_load(BRAIN_PATH, {}))
         _brain.update(tbl=_tb.table(st.get('done') or []), sum=_tb.summary(st))
+        _drn.set_table(_drn.odds_table(st.get('done') or []))
     return _brain
 
 
@@ -13305,6 +13308,8 @@ async def _local_lane_run(now):
     except Exception:
         pass
     every = _fuse._f(os.environ.get('LOCAL_LANE_SEC')) if os.environ.get('LOCAL_LANE_SEC') not in (None, '') else LOCAL_LANE_EVERY
+    if every > 0 and _air.local_remote(os.environ):   # 🖥 LM Studio on another machine: no shared GPU here, so it pre-reads 3× as often
+        every = min(every, LOCAL_LANE_EVERY / 3)
     if every <= 0:
         return
     try:   # 💻 the owner's 24h boost: faster reads, paused by itself while a browser reports lag (the GPU is shared with Chrome)

@@ -127,9 +127,9 @@ def test_hot_loops_and_the_money_boundary_never_ask_a_model():
 
 
 def test_the_local_base_must_be_this_machine_and_the_case_is_whitelisted():
-    for bad in ('http://192.168.1.5:1234/v1', 'https://evil.example/v1', 'http://10.0.0.2/v1', 'http://localhost.evil.com/v1'):
+    for bad in ('http://evil.example/v1', 'http://8.8.8.8:1234/v1', 'http://localhost.evil.com/v1', 'http://169.254.169.254/v1'):
         assert air.provider(env(LOCAL_LLM_BASE_URL=bad), 'local')['why']
-    for ok in ('http://127.0.0.1:1234/v1', 'http://localhost:1234/v1', 'http://[::1]:1234/v1'):
+    for ok in ('http://127.0.0.1:1234/v1', 'http://localhost:1234/v1', 'http://[::1]:1234/v1', 'http://192.168.1.5:1234/v1', 'http://10.0.0.249:1236/v1'):
         assert air.provider(env(LOCAL_LLM_BASE_URL=ok), 'local')['why'] is None
     msgs = air.messages(CASE, 'sherlock')
     blob = msgs[0]['content'] + msgs[1]['content']

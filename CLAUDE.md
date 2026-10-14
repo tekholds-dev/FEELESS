@@ -4133,3 +4133,26 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🏃 PROFIT-PROTECTING EXITS ARE URGENT (`arena_prime.URGENT_EXIT_WORDS` + trail · protection · climax · reversing · structure turned): 11 R7 trail
   exits decided at +4…+16% filled at −5…−89% (ZOOAGENCY +16.5 → −12, Engineers +4.3 → −89) — the sale used to wait like a time exit. The
   median R7 fill is fine (+2.7 pts over the last tracked price); this is for the tail.
+- 🩸 DRAIN VITALS (`backend/drain.py` pure + tested; owner, 2026-10-14: "buy/sell bar should be a vital to getting out if holders are gone or
+  big holders are about to drain the chart"): `read` = 🐋 exit liquidity (top-10 $ bag ÷ pool) · 👥 holders leaving · 💧 pool draining · 🌊 the
+  90s tape · 🤖 same-size bots · a big wallet dumping → score + CLEAR / WATCH / DRAIN. Reaper `R4d drain` sells an agent seat on DRAIN only
+  with a MOVING part (a heavy bag alone never sells). 🔮 `odds_table` / `odds`: the share of the trench brain's judged coins with this coin's
+  strongest feature that fell 50%+ within the hour, with its n (`_drn.set_table` wherever the brain table is rebuilt) — a record, not the
+  "80% prediction" the owner asked for: the best buckets read 73–79%, which is a measured rate on past coins, never a promise. Brain
+  features `xl:` / `hd:`. Kernel `vit` carries them COMPACT (`drain` {s, st, xl, hd, lq, w} · `tape` [state, $buy, $sell] · `odds` [rug %,
+  n, base %, feature]) — the office payload is capped at 100 KB. Vital board: 🩸 EXIT RISK group first with meters (DRAIN · EXIT LIQ ·
+  HOLDERS Δ · POOL Δ · TAPE 90s split bar · RUG ODDS); tiles removed: organic, holder count, DATA, socials grade (the socials strip's grade
+  button `vital-soc` opens the report).
+- 🖧 AI PROVIDER URLS (`ai_keys.base_check` = THE rule for local + custom): `http://` ONLY for localhost / 127.0.0.1 / [::1] / private LAN
+  IPv4 (10/8 · 172.16/12 · 192.168/16); every public host `https://` with a real name; never 169.254 / 0.0.0.0 / a query / user@. LM Studio on
+  the LAN box: `LOCAL_LLM_BASE_URL=http://10.0.0.249:1236/v1` + `LOCAL_LLM_API_KEY` (its "require API token", sent as Bearer, never shown) +
+  `LOCAL_LLM_MODEL=google/gemma-4-e4b` + `LOCAL_LLM_FALLBACK_MODEL` (tried once when the primary is refused / unloaded / unreachable — never
+  on a timeout). A NON-loopback local base (`ai_router.local_remote`) = no shared GPU: the agents may use it in the background and the local
+  lane reads 3× as often; keep-alive's `lm_watch` leaves a remote base alone. Setup + the chat system prompt: `docs/LM_STUDIO_MCP.md`.
+- ⚡ FEELESS MCP (`backend/feeless_mcp.py`, `scripts/feeless-mcp.sh start|stop|status|url|token`, test `tests/test_feeless_mcp.py`): a
+  READ-ONLY MCP server for the owner's LM Studio chat, no SDK (JSON-RPC 2.0 over stdio, or Streamable HTTP POST /mcp on :8765 with a Bearer
+  token — `FEELESS_MCP_TOKEN` or `data/mcp_token` 0600 — LAN / loopback clients only). Tools: feeless_card · feeless_agents · feeless_trades
+  (chat_evidence over archive + full ledger + Judge reviews + card events) · feeless_coin · token_search · trench_now · web_search
+  (DuckDuckGo HTML, Brave if `BRAVE_API_KEY`) · web_fetch (public hosts only — DNS checked on every redirect hop) · x_search. It reads the
+  services' PUBLIC endpoints + the data files; never /admin, never a POST except DuckDuckGo's search form (test). `FEELESS_MCP_AUTOSTART=true`
+  → keep-alive keeps it up. A new tool must READ — never sign, trade, top up or change a setting.

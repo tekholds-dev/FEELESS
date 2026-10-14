@@ -25,6 +25,8 @@ lm_model() { grep -m1 '^LOCAL_LLM_MODEL=' "$root/backend/.env" 2>/dev/null | cut
 lm_watch() {
   [[ -x "$LMS" ]] || return 0
   grep -qi '^LOCAL_LLM_ENABLED=false' "$root/backend/.env" 2>/dev/null && return 0
+  # LM Studio on ANOTHER machine (LAN base URL): that machine runs its own server + model — nothing to start or load here
+  grep -E '^LOCAL_LLM_BASE_URL=' "$root/backend/.env" 2>/dev/null | head -1 | grep -qvE '//(127\.0\.0\.1|localhost)(:|/|$)' && return 0
   local model; model="$(lm_model)"; model="${model:-qwen2.5-7b-instruct-mlx}"
   if ! curl -s -m 5 -o /dev/null http://127.0.0.1:1234/v1/models; then
     "$LMS" server start >/dev/null 2>&1 && echo "$(date '+%F %T') LM Studio server started"
@@ -53,6 +55,10 @@ while true; do
   up 5099 /docs                  || { sleep 5; up 5099 /docs || start 5099 "$root/backend/.venv" candles_service:app candles; }
   if [[ -d "$root/circle/node_modules" ]] && ! lsof -tiTCP:5111 -sTCP:LISTEN >/dev/null 2>&1; then
     (cd "$root/circle" && nohup node server.mjs >> /tmp/feeless-circle.log 2>&1 &); echo "$(date '+%F %T') restarted circle :5111"
+  fi
+  # ⚡ FEELESS MCP for LM Studio (FEELESS_MCP_AUTOSTART=true in backend/.env): keep it up on :8765
+  if grep -qi '^FEELESS_MCP_AUTOSTART=true' "$root/backend/.env" 2>/dev/null && ! lsof -tiTCP:8765 -sTCP:LISTEN >/dev/null 2>&1; then
+    bash "$root/scripts/feeless-mcp.sh" start >/dev/null 2>&1; echo "$(date '+%F %T') started FEELESS MCP :8765"
   fi
   sleep 20
 done

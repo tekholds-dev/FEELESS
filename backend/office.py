@@ -28,6 +28,7 @@ import market_data as _md
 import office_edge as _oe
 import seat_ops as _so
 import trench_rounds as _tr
+import drain as _drn
 
 _f, _med = _sn._f, _sn._med
 
@@ -481,7 +482,7 @@ def take_info(cfg, scalp=None):
             'needN': _pd.SCALP_N, 'promoted': None}
 
 
-OBEY = {'R4f': 'flow exit (sellers took over)', 'R4c': 'flow exit (buying climax)', 'R11x': 'dead coin exit', 'R7b': 'trailing protection', 'R11': 'dead coin swap', 'R4e': 'hard safety exit', 'R5c': 'creator stop-loss', 'R9c': 'creator max hold', 'R1': 'hard safety exit', 'R2': 'hard safety exit', 'R3': 'hard safety exit', 'R5x': 'hard safety exit', 'R4': 'invalidation exit', 'R5t': 'invalidation exit', 'R5': 'structure-aware stop',
+OBEY = {'R4d': 'drain exit (holders / pool / sellers)', 'R4f': 'flow exit (sellers took over)', 'R4c': 'flow exit (buying climax)', 'R11x': 'dead coin exit', 'R7b': 'trailing protection', 'R11': 'dead coin swap', 'R4e': 'hard safety exit', 'R5c': 'creator stop-loss', 'R9c': 'creator max hold', 'R1': 'hard safety exit', 'R2': 'hard safety exit', 'R3': 'hard safety exit', 'R5x': 'hard safety exit', 'R4': 'invalidation exit', 'R5t': 'invalidation exit', 'R5': 'structure-aware stop',
         'R6': 'take line', 'R7': 'trailing protection', 'R7s': 'trailing protection', 'R8': 'thesis review', 'R9': 'thesis review', 'R10': 'thesis hold', 'R10r': 'riding the volume', 'R0': 'waiting'}
 
 
@@ -641,10 +642,15 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             granted = max(1, min(granted, int(max_hold // _ci.WINDOW_MIN) or 1))
         mine = _uni.is_agent(l)   # R5 / R8 / R9 act only on coins the agents put there (their read is the reason it is held); every coin gets R1–R4 + R7
         st, rule, ev, act = 'HOLD', 'R10 hold', f"{pct:+.1f}% · peak {p['peak']:+.1f}% · take line +{take:g}%", None
+        dr_ = _drn.read((x or {}).get('vitals'), (x or {}).get('nums'), fv_, None, (rug or {}).get(l.get('pairAddress')))   # 🩸 the drain read of this seat (no fetch)
+        p['drain'] = {'score': dr_['score'], 'state': dr_['state'], 'xl': dr_['xl']}
+        drw_ = _drn.exit_why(dr_) if mine and live else None
         if lq0 > 0 and 0 < lq1 < lq0 * _uni.DRAIN_PULL:
             st, rule, ev, act = 'EXIT INVALIDATED', 'R1 liquidity collapse', f'pool ${lq1 / 1000:.1f}K = {round(lq1 / lq0 * 100)}% of its ${lq0 / 1000:.1f}K entry depth', 'pull'
         elif (rug or {}).get(l.get('pairAddress')):   # 🚨 the rug radar on the live tape: the creator / a top-holder wallet is dumping — a hard safety exit
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R4r rug radar', f"{rug[l.get('pairAddress')]} at {pct:+.1f}%", 'pull'
+        elif drw_:   # 🩸 R4d DRAIN: holders leaving / the pool draining / sellers under a heavy top-10 bag — out before the chart is drained
+            st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R4d drain', f"{drw_} at {pct:+.1f}%", 'pull'
         elif pr_ == 'HIGH' and live:   # 🕵 the launch's early buyers are unloading into us (creator / a dump-record wallet / a cluster): out before the timeout
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R4e early wallets unloading', f"{prwhy_} at {pct:+.1f}%", 'pull'
         elif tp == 'dump' and (pct > 0 or (n.get('buy') is not None and _f(n['buy']) < 45)):
@@ -717,7 +723,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         pos[m] = p
         out.append({**base, 'state': st, 'rule': rule, 'evidence': ev, 'action': act, 'exec': 'confirmed', 'entry': entry, 'px': px, 'pct': round(pct, 2), 'peak': round(p['peak'], 2),
                     'dd': round(p['peak'] - pct, 2), 'heldMin': round(held, 1), 'liq': lq1 or None, 'liqPct': round(lq1 / lq0 * 100) if lq0 > 0 and lq1 > 0 else None,
-                    'flow': fv_, 'top10': top1, 'top10D': round(_f(top1) - _f(top0), 1) if top1 is not None and top0 is not None else None, 'lean': lean,
+                    'flow': fv_, 'drain': {'score': dr_['score'], 'state': dr_['state'], 'xl': dr_['xl'], 'why': [q[0] for q in dr_['parts']][:3]}, 'top10': top1, 'top10D': round(_f(top1) - _f(top0), 1) if top1 is not None and top0 is not None else None, 'lean': lean,
                     'trigger': None if not x else _opp.narrative(x)[0], 'devil': None, 'weather': (weather_ or {}).get('regime'),
                     'take': take, 'takeSource': tsrc, 'stop': -stop, 'hardStop': -_ci.CATASTROPHIC_STOP, 'decision': decision,
                     'armAt': round(arm, 2) if trail_on else None, 'trailAt': round(max(MIN_KEEP, trail_line), 2) if trail_on and p['peak'] >= arm else None, 'obeying': (f'{tsrc} take' if rule.startswith('R6') else OBEY.get(rule.split(' ')[0], 'thesis hold')),

@@ -1,0 +1,559 @@
+"""⚡ FEELESS MCP — a READ-ONLY tool server for the owner's LM Studio model (owner, 2026-10-14: "a degen meta MCP server for my lm model …
+smart, degen talking, pull from the internet easy and fast").
+
+Speaks the Model Context Protocol (JSON-RPC 2.0) two ways, no SDK needed:
+  stdio : backend/.venv/bin/python backend/feeless_mcp.py                (LM Studio on THIS Mac: "command" in mcp.json)
+  http  : backend/.venv/bin/python backend/feeless_mcp.py --http         (LM Studio on another machine: "url" + a Bearer token)
+          POST /mcp (Streamable HTTP, JSON answers). Every request needs `Authorization: Bearer <token>`; only loopback + private LAN
+          clients are served. Token = FEELESS_MCP_TOKEN in backend/.env, else generated once into backend/data/mcp_token (0600).
+
+THE WALL (hard-coded, tested in tests/test_feeless_mcp.py): every tool READS. Nothing here can sign, send, trade, top up, withdraw,
+change a setting or reach an /admin route. The card / agents / evidence come from the local services' PUBLIC endpoints and the data files
+the desk already writes. web_fetch refuses private / loopback / link-local / metadata addresses (checked on every redirect hop).
+Tool answers are compact text (a small model's context is small)."""
+import html
+import ipaddress
+import json
+import os
+import re
+import secrets
+import socket
+import sys
+import time
+from html.parser import HTMLParser
+from pathlib import Path
+from urllib.parse import parse_qs, quote_plus, urljoin, urlparse
+
+import httpx
+
+ROOT = Path(__file__).resolve().parent
+DATA = ROOT / 'data'
+REP = os.environ.get('FEELESS_REP_URL', 'http://127.0.0.1:5077/api/reputation')
+MKT = os.environ.get('FEELESS_MKT_URL', 'http://127.0.0.1:5001/api/market')
+NAME, VERSION, PROTO = 'feeless', '1.0.0', '2025-06-18'
+MAX_OUT = 6000          # chars per tool answer
+FETCH_MAX = 2_000_000   # bytes read from one web page
+UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36'
+_cache = {}
+
+
+def _http():
+    if 'c' not in _cache:
+        _cache['c'] = httpx.Client(timeout=12.0, headers={'User-Agent': UA}, follow_redirects=False)
+    return _cache['c']
+
+
+def _memo(key, ttl, fn):
+    hit = _cache.get(('m', key))
+    if hit and time.time() - hit[0] < ttl:
+        return hit[1]
+    v = fn()
+    _cache[('m', key)] = (time.time(), v)
+    return v
+
+
+def _f(v, d=0.0):
+    try:
+        x = float(v)
+        return x if x == x else d
+    except (TypeError, ValueError):
+        return d
+
+
+def _usd(v):
+    v = _f(v)
+    a = abs(v)
+    s = f"{a / 1e9:.2f}B" if a >= 1e9 else f"{a / 1e6:.2f}M" if a >= 1e6 else f"{a / 1e3:.1f}K" if a >= 1e3 else f"{a:.2f}"
+    return ('-' if v < 0 else '') + '$' + s
+
+
+def _cut(text, n=MAX_OUT):
+    t = str(text or '')
+    return t if len(t) <= n else t[:n - 40] + f"\n… (cut, {len(t) - n + 40} more chars)"
+
+
+def _get(base, path, ttl=10):
+    def go():
+        r = _http().get(base + path, timeout=20)
+        r.raise_for_status()
+        return r.json()
+    return _memo(base + path, ttl, go)
+
+
+def _file(name):
+    p = DATA / name
+    try:
+        st = p.stat()
+    except OSError:
+        return {}
+    hit = _cache.get(('f', name))
+    if hit and hit[0] == st.st_mtime:
+        return hit[1]
+    try:
+        v = json.loads(p.read_text())
+    except Exception:
+        v = {}
+    _cache[('f', name)] = (st.st_mtime, v)
+    return v
+
+
+# ── FEELESS tools (read only) ────────────────────────────────────────────────────────────────────────────────────────────────────
+def t_card(_a):
+    """The real Fuse card: put in → now, P&L, who holds the controls, every coin with its % and $."""
+    d = _get(REP, '/fuses/prime', 8)
+    cs = d.get('cards') or []
+    cs = cs if isinstance(cs, list) else list(cs.values())
+    real = [c for c in cs if c.get('real')]
+    if not real:
+        return 'No real card is running.'
+    out = []
+    for c in real:
+        m = c.get('math') or {}
+        out.append(f"REAL CARD {c.get('tpl')} ({c.get('tier')}) — put in {_usd(m.get('putIn'))} · now {_usd(m.get('nowUsd') or c.get('valueUsd'))} · "
+                   f"all-time P&L {_usd(m.get('pnlUsd'))} · fees apart {_usd(m.get('feesUsd'))} · this run {_f(c.get('pnlPct')):+.1f}% · "
+                   f"held by {c.get('holdBy') or 'engine'}")
+        for l in c.get('legs') or []:
+            if l.get('placeholder'):
+                out.append('  ○ seat open')
+                continue
+            flags = ' '.join(w for w, on in (('❄', l.get('frozen')), ('🏠', l.get('house')), ('⏳buying', l.get('buying')), ('🎟', l.get('ticket'))) if on)
+            out.append(f"  ${l.get('symbol')} {_f(l.get('pnlPct')):+.1f}% · {_usd(l.get('usd'))} · pool {_usd(l.get('liq'))} · held "
+                       f"{(time.time() - _f(l.get('at'), time.time())) / 60:.0f}m {flags}".rstrip())
+    paper = [c for c in cs if not c.get('real') and _f(c.get('startUsd')) > 0]
+    if paper:
+        out.append('PAPER: ' + ' · '.join(f"{c.get('tier')} {_usd(c.get('startUsd'))}→{_usd(c.get('valueUsd'))}" for c in paper))
+    return '\n'.join(out)
+
+
+def t_agents(_a):
+    """The agents' desk right now: mission, capital stance, seats, top candidates and what holds them back, the Judge."""
+    v = _file('agents_view.json')
+    o = v.get('office') or {}
+    if not o:
+        return 'The agents have not written a snapshot yet (backend/data/agents_view.json).'
+    mi, cap = o.get('mission') or {}, o.get('capital') or {}
+    lines = [f"MISSION {mi.get('phase')} · put in {_usd(mi.get('putIn'))} · value {_usd(mi.get('value'))} · needs {mi.get('needX')}× to breakeven · "
+             f"stage {mi.get('lock')}",
+             f"CAPITAL {cap.get('state')} ×{cap.get('mult')} — {cap.get('why')}"]
+    if cap.get('leaks'):
+        lines.append('LEAKS ' + ' · '.join(f"{x['rule']} n{x['n']} avg {x['avgPct']:+.1f}%" for x in cap['leaks'][:3]))
+    if (cap.get('brake') or {}).get('on'):
+        lines.append('BRAKE ON — ' + str(cap['brake'].get('why')))
+    for s in o.get('seatBoard') or []:
+        if s.get('empty'):
+            lines.append(f"SEAT {s.get('seat')} open — {s.get('why') or s.get('blocker') or ''}"[:200])
+        else:
+            lines.append(f"SEAT {s.get('seat')} ${s.get('symbol')} {_f(s.get('pct')):+.1f}% · {s.get('vel')} · {s.get('structure')} · held "
+                         f"{_f(s.get('heldMin')):.0f}m · {s.get('result')} ({s.get('rule')}): {s.get('why')}"[:260])
+    cands = ((o.get('kernel') or {}).get('candidates') or [])[:10]
+    if cands:
+        lines.append('TOP CANDIDATES (status · rank · cap · age · 5m · buyers · why):')
+        for c in cands:
+            lines.append(f"  ${c.get('symbol')} {c.get('status')} · {_f(c.get('rank')):.0f} · {_usd(c.get('cap'))} · {_f(c.get('ageMin')):.0f}m · "
+                         f"{_f(c.get('move5m')):+.1f}% · {_f(c.get('buyShare')):.0f}% buys · {c.get('why')} · devil: {c.get('devil')}"[:240])
+    j = o.get('judge') or {}
+    if j:
+        lines.append('JUDGE ' + json.dumps({k: j.get(k) for k in ('trial', 'crown', 'last') if j.get(k)}, default=str)[:400])
+    return '\n'.join(lines)
+
+
+def t_trades(a):
+    """What really happened: closed real trades, the ledger (buys, sells, refusals), the Judge's loss reviews, card events — for a window."""
+    import chat_evidence as cev
+    q = str(a.get('question') or a.get('window') or 'last 12 hours')[:200]
+    now = time.time()
+    w = cev.window(q, now)
+    arch = _file('agent_archive.json') or {}
+    office = _file('agent_office.json') or {}
+    hq = _file('fuse_hq.json') or {}
+    cards = ((hq.get('prime') or {}).get('cards') or {})
+    tid = next((k for k, c in cards.items() if (c or {}).get('real')), 'degen')
+    try:
+        import store
+        ledger, _last = store.Ledger(DATA / 'fuse_wallet.json').since(0)
+    except Exception:
+        ledger = []
+    pk, _st = cev.packet(q, w, arch.get('positions'), ledger, ((office.get('judge') or {}).get('reviews')) or [],
+                         (cards.get(tid) or {}).get('events') or [], [], now, tid)
+    return _cut(json.dumps(cev.shrink(pk, MAX_OUT - 200), default=str, separators=(',', ':')))
+
+
+def t_coin(a):
+    """Everything FEELESS reads about one coin (by mint): vital, holders, dev, tape, trench read, Pump callers, socials."""
+    mint = str(a.get('mint') or '').strip()
+    if not re.fullmatch(r'[1-9A-HJ-NP-Za-km-z]{32,44}', mint):
+        return 'Give a Solana mint address (32–44 base58 characters). Use token_search to find one from a ticker.'
+    d = _get(REP, f'/coin-read/{mint}', 10)
+    return _cut(json.dumps(d, default=str, separators=(',', ':')))
+
+
+def t_token_search(a):
+    """Find coins by ticker / name / CA (FEELESS market search: DexScreener → Jupiter)."""
+    q = str(a.get('query') or '').strip()[:60]
+    if not q:
+        return 'Give a ticker, name or mint.'
+    d = _get(MKT, f'/search?q={quote_plus(q)}', 20)
+    rows = d.get('pairs') if isinstance(d, dict) else d
+    act = lambda p: (_f((p.get('volume') or {}).get('h24')), _f((p.get('liquidity') or {}).get('usd')))
+    best = {}
+    for p in rows or []:   # one row per coin: its most-traded pool (a dead pool can carry a nonsense cap / move)
+        m_ = (p.get('baseToken') or {}).get('address')
+        if m_ and (m_ not in best or act(p) > act(best[m_])):
+            best[m_] = p
+    out = []
+    for p in sorted(best.values(), key=act, reverse=True)[:10]:
+        b = p.get('baseToken') or {}
+        out.append(f"${b.get('symbol')} {b.get('name')} · mint {b.get('address')} · {p.get('chainId')} · cap {_usd(p.get('marketCap') or p.get('fdv'))} · "
+                   f"pool {_usd((p.get('liquidity') or {}).get('usd'))} · 1h {_f((p.get('priceChange') or {}).get('h1')):+.1f}% · "
+                   f"vol 24h {_usd((p.get('volume') or {}).get('h24'))}")
+    return '\n'.join(out) or 'Nothing found.'
+
+
+def t_trench(a):
+    """The trench right now: market weather + the open launch list (every coin the feed sees, busiest first, with its safety mark)."""
+    n = max(5, min(40, int(_f(a.get('limit'), 20))))
+    out = []
+    try:
+        fc = _get(REP, '/fuses/forecast', 30)
+        out.append('WEATHER ' + json.dumps({k: fc.get(k) for k in ('weather', 'trend', 'green', 'buys') if fc.get(k) is not None}, default=str)[:400])
+    except Exception:
+        pass
+    d = _get(REP, '/fuses/trench/open', 15)
+    for r in (d.get('rows') or [])[:n]:
+        out.append(f"${r.get('symbol')} {r.get('mint')} · {_f(r.get('ageH')) * 60:.0f}m old · cap {_usd(r.get('mcap'))} · vol1h {_usd(r.get('vol1h'))} · "
+                   f"5m {_f(r.get('chg5m')):+.1f}% · 1h {_f(r.get('chg1h')):+.1f}% · buys {_f(r.get('buyShare')):.0f}% · "
+                   f"{'✅ safe' if r.get('safe') is True else '⚠ failed: ' + ', '.join(map(str, r.get('fails') or []))[:60] if r.get('safe') is False else '❔ unscanned'}")
+    return _cut('\n'.join(out))
+
+
+# ── the internet (fast, keyless) ─────────────────────────────────────────────────────────────────────────────────────────────────
+def public_ip(ip):
+    a = ipaddress.ip_address(ip)
+    return not (a.is_private or a.is_loopback or a.is_link_local or a.is_multicast or a.is_reserved or a.is_unspecified
+                or (a.version == 4 and a in ipaddress.ip_network('100.64.0.0/10')))
+
+
+def safe_url(url):
+    """A public http(s) URL whose host resolves ONLY to public addresses → None, else the reason."""
+    u = urlparse(str(url or ''))
+    if u.scheme not in ('http', 'https') or not u.hostname or u.username or u.password:
+        return 'only plain public http(s) URLs'
+    try:
+        ips = {x[4][0] for x in socket.getaddrinfo(u.hostname, u.port or (443 if u.scheme == 'https' else 80), proto=socket.IPPROTO_TCP)}
+    except OSError:
+        return 'that host does not resolve'
+    if not ips or not all(public_ip(i) for i in ips):
+        return 'that host is on a private / local network — refused'
+    return None
+
+
+class _Text(HTMLParser):
+    SKIP = {'script', 'style', 'noscript', 'svg', 'head', 'nav', 'footer', 'form', 'iframe'}
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.out, self.skip, self.title, self._t, self.links = [], 0, '', False, []
+
+    def handle_starttag(self, tag, attrs):
+        if tag in self.SKIP:
+            self.skip += 1
+        if tag == 'title':
+            self._t = True
+        if tag == 'a' and len(self.links) < 40:
+            h = dict(attrs).get('href')
+            if h and h.startswith('http'):
+                self.links.append(h)
+        if tag in ('p', 'br', 'li', 'h1', 'h2', 'h3', 'h4', 'tr', 'div'):
+            self.out.append('\n')
+
+    def handle_endtag(self, tag):
+        if tag in self.SKIP and self.skip:
+            self.skip -= 1
+        if tag == 'title':
+            self._t = False
+
+    def handle_data(self, d):
+        if self._t:
+            self.title += d
+        elif not self.skip:
+            self.out.append(d)
+
+
+def page_text(raw):
+    p = _Text()
+    try:
+        p.feed(raw)
+    except Exception:
+        pass
+    t = re.sub(r'[ \t\r\f\v]+', ' ', ''.join(p.out))
+    t = re.sub(r'\n\s*\n+', '\n', t).strip()
+    return p.title.strip(), t, p.links
+
+
+def _fetch(url, hops=4):
+    for _ in range(hops):
+        why = safe_url(url)
+        if why:
+            raise ValueError(why)
+        with _http().stream('GET', url, timeout=10) as r:
+            if r.status_code in (301, 302, 303, 307, 308) and r.headers.get('location'):
+                url = urljoin(url, r.headers['location'])
+                continue
+            buf = b''
+            for ch in r.iter_bytes():
+                buf += ch
+                if len(buf) >= FETCH_MAX:
+                    break
+            return url, r.status_code, r.headers.get('content-type', ''), buf.decode(r.encoding or 'utf-8', 'replace')
+    raise ValueError('too many redirects')
+
+
+def t_web_fetch(a):
+    """Read a public web page as plain text (title, text, links). JSON is returned as is."""
+    url = str(a.get('url') or '').strip()
+    n = max(500, min(MAX_OUT, int(_f(a.get('max_chars'), 4000))))
+    try:
+        final, code, ctype, body = _memo('fetch:' + url, 120, lambda: _fetch(url))
+    except Exception as e:
+        return f'Could not read it: {e}'
+    if 'json' in ctype:
+        return _cut(f'{code} {final}\n{body}', n)
+    title, text, links = page_text(body)
+    return _cut(f"{code} {final}\nTITLE {title}\n{text}\nLINKS {' '.join(links[:12])}", n)
+
+
+def ddg_results(raw, n=8):
+    """DuckDuckGo's HTML results → [{title, url, snippet}] (ads dropped)."""
+    strip = lambda s: re.sub(r'\s+', ' ', html.unescape(re.sub(r'<[^>]+>', '', s or ''))).strip()
+    out = []
+    for blk in re.split(r'(?=<a[^>]+class="result__a")', raw)[1:]:
+        m = re.match(r'<a[^>]+href="([^"]+)"[^>]*>(.*?)</a>', blk, re.S)
+        if not m:
+            continue
+        href = html.unescape(m.group(1))
+        if 'uddg=' in href:
+            href = parse_qs(urlparse(href).query).get('uddg', [href])[0]
+        if 'duckduckgo.com/y.js' in href or not href.startswith('http'):   # an ad
+            continue
+        sn = re.search(r'class="result__snippet"[^>]*>(.*?)</(?:a|div|td)>', blk, re.S)
+        out.append({'title': strip(m.group(2)), 'url': href, 'snippet': strip(sn.group(1) if sn else '')[:300]})
+        if len(out) >= n:
+            break
+    return out
+
+
+def t_web_search(a):
+    """Search the web (DuckDuckGo, no key; Brave Search when BRAVE_API_KEY is set). Add 'site:x.com' etc. to narrow it."""
+    q = str(a.get('query') or '').strip()[:200]
+    n = max(1, min(10, int(_f(a.get('limit'), 6))))
+    if not q:
+        return 'Give a query.'
+    key = os.environ.get('BRAVE_API_KEY')
+
+    def go():
+        if key:
+            r = _http().get('https://api.search.brave.com/res/v1/web/search', params={'q': q, 'count': n},
+                            headers={'X-Subscription-Token': key, 'Accept': 'application/json'}, timeout=10)
+            if r.status_code == 200:
+                return [{'title': x.get('title'), 'url': x.get('url'), 'snippet': re.sub(r'<[^>]+>', '', x.get('description') or '')}
+                        for x in ((r.json().get('web') or {}).get('results') or [])[:n]]
+        r = _http().post('https://html.duckduckgo.com/html/', data={'q': q}, timeout=10)
+        return ddg_results(r.text, n)
+    try:
+        res = _memo('search:' + q + str(n), 300, go)
+    except Exception as e:
+        return f'Search failed: {type(e).__name__}'
+    return '\n'.join(f"{i + 1}. {x['title']}\n   {x['url']}\n   {x['snippet']}" for i, x in enumerate(res)) or 'No results (try other words).'
+
+
+def t_x_search(a):
+    """Find recent posts about a coin / ticker / CA on X (through the web search — X itself needs a login)."""
+    return t_web_search({'query': f"site:x.com {a.get('query') or ''}", 'limit': a.get('limit') or 8})
+
+
+TOOLS = {
+    'feeless_card': (t_card, 'The REAL Fuse card right now: put in, value, all-time P&L, who controls it, every coin with % and $, paper cards.', {}),
+    'feeless_agents': (t_agents, "The agents' desk: mission, capital stance + leaks, the 4 seats (P/L, velocity, Reaper's ruling), top candidates and why, the Judge.", {}),
+    'feeless_trades': (t_trades, 'Evidence of what REALLY happened in a window (closed real trades, buys/sells/refusals from the ledger, Judge loss reviews, card events). '
+                       'Ask with words like "last night", "last 6 hours", "today", "why did we lose".',
+                       {'question': {'type': 'string', 'description': 'the window / question, e.g. "last night" or "last 3 hours"'}}),
+    'feeless_coin': (t_coin, "FEELESS's full read of one Solana coin: vital grade, holders, dev, tape (buys vs sells), trench read, Pump callers, socials.",
+                     {'mint': {'type': 'string', 'description': 'the coin mint address'}}),
+    'token_search': (t_token_search, 'Find a coin by ticker, name or CA → mint, cap, pool, 1h move, 1h volume.', {'query': {'type': 'string'}}),
+    'trench_now': (t_trench, 'The trench right now: weather + the live launch list (busiest first, age, cap, volume, moves, buyers, ✅ / ⚠ safety).',
+                   {'limit': {'type': 'integer', 'description': '5–40 coins (default 20)'}}),
+    'web_search': (t_web_search, 'Search the internet. Fast, cached 5 min. Add site:x.com / site:dexscreener.com / site:pump.fun to narrow.',
+                   {'query': {'type': 'string'}, 'limit': {'type': 'integer', 'description': '1–10 (default 6)'}}),
+    'web_fetch': (t_web_fetch, 'Read any public web page or JSON API as plain text (title, text, links). Cached 2 min.',
+                  {'url': {'type': 'string'}, 'max_chars': {'type': 'integer', 'description': '500–6000 (default 4000)'}}),
+    'x_search': (t_x_search, 'Recent X posts about a ticker / coin / CA (via web search).', {'query': {'type': 'string'}, 'limit': {'type': 'integer'}}),
+}
+REQUIRED = {'feeless_coin': ['mint'], 'token_search': ['query'], 'web_search': ['query'], 'web_fetch': ['url'], 'x_search': ['query']}
+FORBIDDEN_WORDS = ('sign', 'send', 'trade', 'swap', 'buy', 'sell', 'withdraw', 'topup', 'top_up', 'admin', 'wallet_key', 'transfer')
+
+
+def tool_list():
+    return [{'name': k, 'description': d, 'inputSchema': {'type': 'object', 'properties': p, 'required': REQUIRED.get(k, [])},
+             'annotations': {'readOnlyHint': True, 'destructiveHint': False, 'openWorldHint': k.startswith(('web', 'x_'))}}
+            for k, (_fn, d, p) in TOOLS.items()]
+
+
+def handle(msg):
+    """One JSON-RPC message → its answer (None for a notification)."""
+    if not isinstance(msg, dict):
+        return {'jsonrpc': '2.0', 'id': None, 'error': {'code': -32600, 'message': 'invalid request'}}
+    mid, method, params = msg.get('id'), msg.get('method'), msg.get('params') or {}
+    if mid is None:
+        return None
+    ok = lambda r: {'jsonrpc': '2.0', 'id': mid, 'result': r}
+    if method == 'initialize':
+        return ok({'protocolVersion': params.get('protocolVersion') or PROTO, 'capabilities': {'tools': {'listChanged': False}},
+                   'serverInfo': {'name': NAME, 'version': VERSION},
+                   'instructions': 'FEELESS read-only desk + web. Call feeless_card / feeless_agents for the live state, feeless_trades for what happened, '
+                                   'feeless_coin / token_search for a coin, web_search + web_fetch for anything outside.'})
+    if method == 'ping':
+        return ok({})
+    if method == 'tools/list':
+        return ok({'tools': tool_list()})
+    if method == 'tools/call':
+        name, args = params.get('name'), params.get('arguments') or {}
+        if name not in TOOLS:
+            return {'jsonrpc': '2.0', 'id': mid, 'error': {'code': -32602, 'message': f'unknown tool {name}'}}
+        t0 = time.perf_counter()
+        try:
+            text, err = _cut(TOOLS[name][0](args if isinstance(args, dict) else {})), False
+        except httpx.HTTPError as e:
+            text, err = f'FEELESS service did not answer ({type(e).__name__}) — is the backend running?', True
+        except Exception as e:
+            text, err = f'{name} failed: {type(e).__name__}: {str(e)[:160]}', True
+        _log(f"{name} {round((time.perf_counter() - t0) * 1000)}ms{' ERR' if err else ''}")
+        return ok({'content': [{'type': 'text', 'text': text}], 'isError': err})
+    if method in ('resources/list', 'prompts/list'):
+        return ok({method.split('/')[0]: []})
+    return {'jsonrpc': '2.0', 'id': mid, 'error': {'code': -32601, 'message': f'method not found: {method}'}}
+
+
+def _log(s):
+    print(time.strftime('%H:%M:%S'), s, file=sys.stderr, flush=True)
+
+
+def token():
+    t = os.environ.get('FEELESS_MCP_TOKEN')
+    if not t:
+        try:
+            for ln in (ROOT / '.env').read_text().splitlines():
+                if ln.startswith('FEELESS_MCP_TOKEN='):
+                    t = ln.split('=', 1)[1].strip().strip('"\'')
+                    break
+        except OSError:
+            pass
+    if t:
+        return t
+    p = DATA / 'mcp_token'
+    if not p.exists():
+        DATA.mkdir(parents=True, exist_ok=True)
+        p.write_text(secrets.token_urlsafe(32))
+        os.chmod(p, 0o600)
+    return p.read_text().strip()
+
+
+def client_ok(ip):
+    try:
+        a = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    return a.is_loopback or (a.version == 4 and any(a in ipaddress.ip_network(n) for n in ('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16')))
+
+
+def serve_http(host, port):
+    import hmac
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    tok = token()
+
+    class H(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def _send(self, code, obj=None, extra=None):
+            body = b'' if obj is None else json.dumps(obj).encode()
+            self.send_response(code)
+            for k, v in (extra or {}).items():
+                self.send_header(k, v)
+            if obj is not None:
+                self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _gate(self):
+            if not client_ok(self.client_address[0]):
+                self._send(403, {'error': 'LAN only'})
+                return False
+            got = self.headers.get('Authorization', '')
+            if not hmac.compare_digest(got.encode(), f'Bearer {tok}'.encode()):
+                self._send(401, {'error': 'missing or wrong Bearer token'})
+                return False
+            return True
+
+        def do_GET(self):
+            if self.path.rstrip('/') == '/health':
+                return self._send(200, {'ok': True, 'name': NAME, 'tools': len(TOOLS)})
+            if not self._gate():
+                return
+            self._send(405, {'error': 'POST JSON-RPC to /mcp'}, {'Allow': 'POST'})
+
+        def do_DELETE(self):
+            if self._gate():
+                self._send(204)
+
+        def do_POST(self):
+            if not self._gate():
+                return
+            if self.path.split('?')[0].rstrip('/') not in ('/mcp', ''):
+                return self._send(404, {'error': 'POST to /mcp'})
+            n = int(self.headers.get('Content-Length') or 0)
+            if n > 1_000_000:
+                return self._send(413, {'error': 'too big'})
+            try:
+                msg = json.loads(self.rfile.read(n) or b'null')
+            except ValueError:
+                return self._send(400, {'jsonrpc': '2.0', 'id': None, 'error': {'code': -32700, 'message': 'parse error'}})
+            sid = self.headers.get('Mcp-Session-Id') or secrets.token_hex(8)
+            if isinstance(msg, list):
+                res = [r for r in (handle(m) for m in msg) if r is not None]
+                return self._send(200, res, {'Mcp-Session-Id': sid}) if res else self._send(202)
+            res = handle(msg)
+            if res is None:
+                return self._send(202)
+            self._send(200, res, {'Mcp-Session-Id': sid})
+
+    srv = ThreadingHTTPServer((host, port), H)
+    _log(f'FEELESS MCP on http://{host}:{port}/mcp · {len(TOOLS)} read-only tools · Bearer token required · LAN clients only')
+    srv.serve_forever()
+
+
+def serve_stdio():
+    _log(f'FEELESS MCP (stdio) · {len(TOOLS)} read-only tools')
+    for line in sys.stdin:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            msg = json.loads(line)
+        except ValueError:
+            res = {'jsonrpc': '2.0', 'id': None, 'error': {'code': -32700, 'message': 'parse error'}}
+        else:
+            res = [r for r in (handle(m) for m in msg) if r] if isinstance(msg, list) else handle(msg)
+        if res:
+            sys.stdout.write(json.dumps(res) + '\n')
+            sys.stdout.flush()
+
+
+if __name__ == '__main__':
+    sys.path.insert(0, str(ROOT))
+    if '--http' in sys.argv:
+        host = os.environ.get('FEELESS_MCP_HOST', '0.0.0.0')
+        port = int(os.environ.get('FEELESS_MCP_PORT', '8765'))
+        serve_http(host, port)
+    else:
+        serve_stdio()

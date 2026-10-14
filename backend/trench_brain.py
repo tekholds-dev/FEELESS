@@ -71,6 +71,10 @@ def feats(r):
         out.append('safe:' + ('yes' if r['safe'] else 'no'))
     if _f(r.get('top10')) > 0:
         out.append('top10:' + _band(_f(r['top10']), (15, 25, 35), ('<15', '15-25', '25-35', '35+')))
+    if _f(r.get('top10')) > 0 and _f(r.get('mcap')) > 0 and _f(r.get('liq')) > 0:   # 🐋 exit liquidity (drain.exit_liq): the top-10 bag ÷ the pool
+        out.append('xl:' + _band(_f(r['top10']) / 100 * _f(r['mcap']) / _f(r['liq']), (1, 3), ('<1', '1-3', '3+')))
+    if r.get('holdD') is not None:
+        out.append('hd:' + _band(_f(r['holdD']), (-5, -2, 2), ('-5+', '-2..-5', 'flat', 'growing')))
     if r.get('site') is not None or r.get('x') is not None:
         out.append('soc:' + {2: 'site+x', 1: 'one'}.get(bool(r.get('site')) + bool(r.get('x')), 'none'))
     # 🕵 the bad guys' footprint (our holder scan): bundles · snipers · insiders · dev — the brain learns which footprints pay and which rug

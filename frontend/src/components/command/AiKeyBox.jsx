@@ -30,7 +30,7 @@ export function AiKeyBox({ call, isOwner = true }) {
       <div className="ack-ai-row">
         <input className="m-input" type="password" value={key} onChange={e => setKey(e.target.value)} placeholder={`${AI_PROVIDERS.find(p => p[0] === prov)?.[2]} API key`} aria-label="API key" disabled={!isOwner || busy} autoComplete="new-password" spellCheck={false} data-testid="ai-key-input" />
         <input className="m-input" value={model} onChange={e => setModel(e.target.value)} placeholder="model (optional)" aria-label="Model" disabled={!isOwner || busy} spellCheck={false} data-testid="ai-key-model" />
-        {prov === 'custom' ? <input className="m-input" value={base} onChange={e => setBase(e.target.value)} placeholder="https://api.provider.com/v1" aria-label="API base URL" disabled={!isOwner || busy} spellCheck={false} data-testid="ai-key-base" /> : null}
+        {prov === 'custom' ? <input className="m-input" value={base} onChange={e => setBase(e.target.value)} placeholder="https://api.provider.com/v1 · or http://192.168.x.x:1234/v1 (LAN)" aria-label="API base URL" disabled={!isOwner || busy} spellCheck={false} data-testid="ai-key-base" /> : null}
         <button type="submit" className="m-btn m-go" disabled={!isOwner || busy || !key.trim() || (prov === 'custom' && !base.trim())} data-testid="ai-key-save">{busy ? 'Testing…' : 'Test & save'}</button></div></form>
     {err ? <p className="ack-ai-note is-warn" data-testid="ai-key-err">{err}</p> : null}
     {models.length ? <p className="ack-ai-note" data-testid="ai-key-models">The key answered — models it can use include: {models.join(' · ')}</p> : null}

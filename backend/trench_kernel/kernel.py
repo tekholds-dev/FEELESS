@@ -206,6 +206,13 @@ class Kernel:
 VIT_TOP = 12
 
 
+def _f0(v):
+    try:
+        return float(v or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def vit(r):
     """🫀 The vitals the decision panel draws as clickables (one compact dict from the sensed row — no fetch): holders, flow, launch,
     chart, narrative, the owner's lesson-rules this coin hits and the socials report. Unknown = absent, never 0."""
@@ -220,6 +227,20 @@ def vit(r):
            'mp': r.get('mp'), 'narr': mi.get('narr'), 'wave': r.get('waveRole'), 'callers': mi.get('callers'), 'swarm': mi.get('swarm'),
            'taught': r.get('taught') or None, 'soc': _sr.report(r['social']) if r.get('social') else None,
            'links': {k: r[k] for k in ('site', 'x', 'tg') if isinstance(r.get(k), str) and r[k].startswith(('http://', 'https://'))} or None}
+    import drain as _drn
+    import trench_brain as _tb
+    dr_ = _drn.read(v, n, r.get('fv'))   # 🩸 the drain read (exit liquidity · holders leaving · pool draining · the tape) — no fetch
+    if dr_['score'] or dr_['xl'] is not None:   # compact: the office payload is capped at 100 KB
+        out['drain'] = {k: x for k, x in (('s', dr_['score']), ('st', dr_['state']), ('xl', dr_['xl']), ('hd', dr_['hd']), ('lq', dr_['lq']),
+                                          ('w', [q[0] for q in dr_['parts']][:2] or None)) if x is not None}
+    flat = {**v, 'chg5m': n.get('d5'), 'vol5m': n.get('v5'), 'holdD': n.get('holdD'), 'tv': r.get('tv'),
+            'chg1h': (r.get('li') or {}).get('chg1h')}
+    od_ = _drn.odds(_tb.feats(flat), _drn.TABLE)   # 🔮 the measured rug share of coins like this one (the trench brain's judged coins)
+    if od_:
+        out['odds'] = [od_['rug'], od_['n'], od_['base'], od_['feature']]   # [rug %, coins, base %, feature] — the page writes the sentence
+    fv_ = r.get('fv') or {}
+    if fv_.get('state'):
+        out['tape'] = [fv_.get('state'), round(_f0(fv_.get('buyUsd'))), round(_f0(fv_.get('sellUsd')))]   # [state, $ bought, $ sold] (90s)
     return {k: x for k, x in out.items() if x is not None and x is not False}
 
 

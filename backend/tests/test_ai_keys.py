@@ -19,9 +19,10 @@ def test_keys_providers_and_bases_are_checked():
     with pytest.raises(ValueError):
         aik.clean('nope', KEY)                                                              # only the listed providers
     assert aik.clean('custom', KEY, 'https://api.together.xyz/v1/')['base'] == 'https://api.together.xyz/v1'
-    for bad in ('http://api.x.com/v1', 'https://127.0.0.1/v1', 'https://localhost:8000', 'https://intranet.local/v1', 'https://api.x.com/v1?k=1', 'ftp://a.b'):
+    for bad in ('http://api.x.com/v1', 'http://8.8.8.8/v1', 'http://169.254.169.254/v1', 'https://intranet.local/v1', 'https://api.x.com/v1?k=1', 'ftp://a.b'):
         with pytest.raises(ValueError):
-            aik.clean('custom', KEY, bad)                                                   # never a private / plain-http / query URL
+            aik.clean('custom', KEY, bad)                                                   # never plain http to a public host, a metadata IP or a query URL
+    assert aik.clean('custom', KEY, 'http://10.0.0.249:1236/v1')['base'] == 'http://10.0.0.249:1236/v1'   # LM Studio on the LAN
     with pytest.raises(ValueError):
         aik.clean('openai', KEY, model='gpt 4; rm -rf')
 
@@ -80,6 +81,6 @@ def test_the_owner_routes_test_then_store_and_never_echo_the_key(monkeypatch):
     assert e.value.status_code == 400 and 'Not saved' in e.value.detail and KEY[::-1] not in e.value.detail
     assert rs.os.environ['OPENAI_API_KEY'] == KEY                                                     # a refused key changes nothing
     with pytest.raises(rs.HTTPException):
-        asyncio.run(rs.admin_ai_key_set(_Req({'provider': 'custom', 'key': KEY, 'base': 'https://10.0.0.5/v1'})))
+        asyncio.run(rs.admin_ai_key_set(_Req({'provider': 'custom', 'key': KEY, 'base': 'http://api.x.com/v1'})))
     gone = asyncio.run(rs.admin_ai_key_set(_Req({'provider': 'openai', 'clear': True})))
     assert 'OPENAI_API_KEY' not in rs.os.environ and gone['active'] is None and audits[-1] == ('ai-key', 'openai cleared')

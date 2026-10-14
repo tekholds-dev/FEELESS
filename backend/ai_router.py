@@ -64,7 +64,6 @@ TUNE = _cv.ContextVar('ai_tune', default=None)   # 🎛 the owner's chat tuning 
 MAX_TOKENS = 460          # the brain prompt's schema (16 keys) needs room — at 260 the JSON was cut off and read "malformed"
 LABEL = {'local': 'LOCAL AI', 'groq': 'GROQ', 'openrouter': 'OPENROUTER', 'openai': 'OPENAI', 'xai': 'XAI', 'custom': 'CUSTOM AI', 'NONE': 'NONE'}
 _KEYLIKE = re.compile(r'[A-Za-z0-9_\-]{20,}')
-_LOOP = re.compile(r'^http://(127\.0\.0\.1|localhost|\[::1\])(:\d{2,5})?(/[A-Za-z0-9._~/-]*)?$')
 
 
 def _f(v, d=0.0):
@@ -87,7 +86,14 @@ def local_ok(env, role=None, urgency='normal'):
     on this Mac took ~13s an answer and ran about half the time on the SAME GPU + memory the browser draws the page with. Background jobs
     (READY coins, conflicts, contenders, Judge reviews) go to the cloud fallbacks or are not asked at all; the local model answers only
     what the owner asks for by hand (role 'owner' / urgency 'force'). LOCAL_LLM_BACKGROUND=true puts it back in the background."""
-    return role == 'owner' or urgency == 'force' or _truthy((env or {}).get('LOCAL_LLM_BACKGROUND'), default=False)
+    return role == 'owner' or urgency == 'force' or _truthy((env or {}).get('LOCAL_LLM_BACKGROUND'), default=False) or local_remote(env)
+
+
+def local_remote(env):
+    """🖥 LM Studio on ANOTHER machine (LOCAL_LLM_BASE_URL host is not this Mac's loopback): its inference never touches the GPU the browser
+    draws with, so the agents may use it like any provider — the owner-only rule was about sharing THIS Mac's GPU."""
+    h = (re.match(r'^https?://(\[[^\]]+\]|[^/:]+)', str((env or {}).get('LOCAL_LLM_BASE_URL') or '')) or [None, ''])[1].lower()
+    return bool(h) and h not in ('127.0.0.1', 'localhost', '[::1]')
 
 
 GATE_DELTA = -0.12   # 🛂 the model's read holds a coin back from a real seat only at CAUTION this strong, with a named risk, on a fresh read
@@ -147,6 +153,12 @@ def clean_cfg(body, prev=None):
     return out
 
 
+def _lm_auth(env):
+    """LM Studio with "require API token" on (a server on another machine): LOCAL_LLM_API_KEY → `Authorization: Bearer …`. Never logged."""
+    k = str((env or {}).get('LOCAL_LLM_API_KEY') or '').strip()
+    return {'headers': {'Authorization': f'Bearer {k}'}} if k else {}
+
+
 def provider(env, key, cfg=None):
     """One provider's effective settings: base, model, key PRESENCE (the key itself only inside `_call`), enabled, why it can't run."""
     lab, kvar, mvar, bvar, base0, model0, tout, conc = PROVIDERS[key]
@@ -158,20 +170,22 @@ def provider(env, key, cfg=None):
     if key == 'local':
         if not _truthy(env.get('LOCAL_LLM_ENABLED'), default=False):
             on, why = False, 'LOCAL_LLM_ENABLED is not true'
-        elif not _LOOP.match(base):
-            why = 'LOCAL_LLM_BASE_URL must be http://127.0.0.1 / localhost (this machine only)'
+        else:
+            base, bad = _aik.base_check(base)   # localhost / private LAN over http, or a public https host
+            if bad:
+                base, why = '', 'LOCAL_LLM_BASE_URL: ' + bad
     else:
         if not env.get(kvar):
             why = 'KEY MISSING'
         elif key == 'custom':
             try:
                 base = _aik.clean_base(base)
-            except ValueError:
-                why = 'AI_BASE_URL is not a public https API'
+            except ValueError as e:
+                why = f'AI_BASE_URL: {e}'
     if not model and not why:
         why = 'MODEL MISSING'
     return {'key': key, 'label': lab, 'base': base, 'model': model, 'enabled': on, 'why': why, 'timeout': tout, 'conc': conc,
-            'keySet': bool(env.get(kvar)) if kvar else None, 'hint': _aik.hint(env.get(kvar)) if kvar else None}
+            'keySet': bool(env.get(kvar)) if kvar else (bool(env.get('LOCAL_LLM_API_KEY')) or None), 'hint': _aik.hint(env.get(kvar)) if kvar else None}
 
 
 # ── the answer ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -568,6 +582,7 @@ class Router:
         self._ctx = None   # (read at, the local model's loaded context length)
         self._beat = 0.0   # 💓 last local heartbeat
         self.lastUsage = {}   # provider → {in, out} tokens of its last answer
+        self.lastModel = {}   # local → the model that really answered (primary or LOCAL_LLM_FALLBACK_MODEL)
 
     def busy(self, env, cfg):
         """Is the FIRST usable provider the local model and is it running an inference right now?"""
@@ -630,7 +645,7 @@ class Router:
             return self._ctx[1]
         ctx = int(_f((env or {}).get('LOCAL_LLM_CTX'), LOCAL_CTX) or LOCAL_CTX)
         try:
-            r = await asyncio.wait_for(http.get(re.sub(r'/v1/?$', '', p['base']) + '/api/v0/models'), timeout=3)
+            r = await asyncio.wait_for(http.get(re.sub(r'/v1/?$', '', p['base']) + '/api/v0/models', **_lm_auth(env)), timeout=3)
             row = next((m for m in (r.json().get('data') or []) if m.get('id') == p['model']), None) if r.status_code == 200 else None
             if row and _f(row.get('loaded_context_length')) >= 512:
                 ctx = int(row['loaded_context_length'])
@@ -653,11 +668,12 @@ class Router:
         if not p['enabled'] or p['why']:
             return None
         try:
-            r = await asyncio.wait_for(http.get(str(p['base']).rstrip('/') + '/models'), timeout=3)
+            r = await asyncio.wait_for(http.get(str(p['base']).rstrip('/') + '/models', **_lm_auth(env)), timeout=3)
             ids = [m.get('id') for m in (r.json().get('data') or [])] if r.status_code == 200 else []
         except Exception:
             ids = []
-        up = bool(ids) and (not p['model'] or p['model'] in ids)
+        fb = str((env or {}).get('LOCAL_LLM_FALLBACK_MODEL') or '').strip()
+        up = bool(ids) and (not p['model'] or p['model'] in ids or (fb and fb in ids))
         if up:
             s.update(state='ONLINE', streak=0, coolUntil=0.0, lastErr=None, lastAt=now)
         elif s['state'] == 'UNTESTED':
@@ -728,11 +744,27 @@ class Router:
         return {'ok': True, 'url': url, 'model': m, 'ms': round((time.perf_counter() - t0) * 1000), 'usd': usd, 'text': clean_answer(msg.get('content') or '', 200)}
 
     async def _call(self, http, p, env, msgs, now):
+        """🔁 LOCAL FALLBACK MODEL (LOCAL_LLM_FALLBACK_MODEL, e.g. gemma first, qwen second): when the local primary is refused / not loaded /
+        unreachable (never on a timeout — that would double the wait) the same messages go once to the fallback model on the same server."""
+        text, err = await self._call1(http, p, env, msgs, now)
+        fb = str((env or {}).get('LOCAL_LLM_FALLBACK_MODEL') or '').strip()
+        if err and p['key'] == 'local' and fb and fb != p['model'] and err[0] in ('fail', 'malformed'):
+            text, err2 = await self._call1(http, {**p, 'model': fb}, env, msgs, now)
+            if not err2:
+                self.lastModel['local'] = fb
+                return text, None
+        elif not err and p['key'] == 'local':
+            self.lastModel['local'] = p['model']
+        return text, err
+
+    async def _call1(self, http, p, env, msgs, now):
         """ONE chat completion → (text, None) or (None, (kind, err, cool)). The key is read here and never leaves this function."""
         kvar = PROVIDERS[p['key']][1]
         hdr = {'Content-Type': 'application/json'}
         if kvar and env.get(kvar):
             hdr['Authorization'] = f"Bearer {env.get(kvar)}"
+        elif p['key'] == 'local':
+            hdr.update(_lm_auth(env).get('headers') or {})
         body = {'model': p['model'], 'messages': msgs, 'temperature': 0.1, 'max_tokens': MAX_TOKENS, 'stream': False, **EXTRA_BODY.get(p['key'], {})}
         tn = TUNE.get()
         if tn:
@@ -951,7 +983,7 @@ class Router:
             self._bad(key, time.time(), 'empty answer', 'malformed')
             return {'ok': False, 'ms': ms, 'state': 'BAD ANSWER', 'err': 'reached, but it answered nothing'}
         self._good(key, time.time(), ms)
-        return {'ok': True, 'ms': ms, 'state': 'ONLINE', 'model': p['model'], 'said': clean_answer(text, 60)}
+        return {'ok': True, 'ms': ms, 'state': 'ONLINE', 'model': (self.lastModel.get(key) if key == 'local' else None) or p['model'], 'said': clean_answer(text, 60)}
 
     def view(self, env, cfg, now=None):
         """What the page may see: one row per provider in order (state, model, latency, failures) + totals. Never a key."""

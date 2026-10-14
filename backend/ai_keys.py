@@ -5,7 +5,7 @@ backend/.env as the one active line of its variable and set in this process — 
 
   · the key is NEVER returned to the page, logged, audited or put in an error message — the page sees only the provider, "set" and the
     last 4 characters (`hint`), like the provider's own dashboard
-  · a custom endpoint must be an https:// PUBLIC host (never an IP, localhost or a private name) — the server will not call your network
+  · a custom endpoint must be an https:// PUBLIC host — or http(s) on localhost / a private LAN IPv4 (10/8 · 172.16/12 · 192.168/16), e.g. LM Studio on another Mac
   · owner only (`_require_owner` on both routes)
 
 WHAT A KEY IS USED FOR: the AI router (ai_router.py) may ask that provider for ADVISORY notes (Sherlock's read, Devil's second opinion,
@@ -38,15 +38,47 @@ def clean_key(key):
     return k
 
 
-def clean_base(url):
-    """A custom endpoint: https, a public host name, ≤ 200 chars, no query → the base without a trailing slash."""
+_PRIVATE_NETS = ('127.0.0.0/8', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16')   # loopback + private LAN (RFC 1918) — nothing else
+
+
+def _private_host(host):
+    """localhost / [::1] / an IPv4 literal inside loopback or a private LAN range. Never link-local (169.254 = cloud metadata), never 0.0.0.0."""
+    import ipaddress
+    h = str(host or '').lower().strip('[]')
+    if h in ('localhost', '::1'):
+        return True
+    try:
+        ip = ipaddress.ip_address(h)
+    except ValueError:
+        return False
+    return ip.version == 4 and any(ip in ipaddress.ip_network(n) for n in _PRIVATE_NETS)
+
+
+def base_check(url):
+    """An OpenAI-compatible base URL → (clean base, None) or (None, why).
+    http:// ONLY for localhost / 127.0.0.1 / private LAN IPv4 (10/8 · 172.16/12 · 192.168/16) — a model server on this machine or the LAN.
+    Every public host must be https:// with a real host name (no raw public IP, no .local / .internal names)."""
     u = str(url or '').strip().rstrip('/')
-    m = re.match(r'^https://([A-Za-z0-9.-]+)(:\d+)?(/[A-Za-z0-9._~/-]*)?$', u)
+    m = re.match(r'^(https?)://(\[::1\]|[A-Za-z0-9.-]+)(:\d{1,5})?(/[A-Za-z0-9._~/-]*)?$', u)
     if not m or len(u) > 200:
-        raise ValueError('Paste the https:// base URL of the API (for example https://api.together.xyz/v1).')
-    host = m.group(1).lower()
+        return None, 'Paste the base URL of the API (for example https://api.together.xyz/v1 or http://192.168.1.20:1234/v1).'
+    scheme, host = m.group(1), m.group(2).lower()
+    if m.group(3) and not (0 < int(m.group(3)[1:]) < 65536):
+        return None, 'That port is not valid.'
+    if _private_host(host):
+        return u, None                       # this machine / the LAN: http or https
+    if scheme != 'https':
+        return None, 'A public API must use https:// — plain http:// is allowed only for localhost and private LAN addresses (10.x, 172.16–31.x, 192.168.x).'
     if '.' not in host or re.match(r'^[\d.]+$', host) or host.endswith(('.local', '.internal', '.localhost', '.lan')) or host.startswith('localhost'):
-        raise ValueError('That is not a public API host.')
+        return None, 'That is not a public API host.'
+    return u, None
+
+
+def clean_base(url):
+    """A custom endpoint (see `base_check`) → the base without a trailing slash, or ValueError with the reason."""
+    u, why = base_check(url)
+    if why:
+        raise ValueError(why)
     return u
 
 

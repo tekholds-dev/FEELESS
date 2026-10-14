@@ -55,11 +55,12 @@ export function SocialReport({ s }) {
 }
 
 // 🔗 the coin's socials, always on top: clickable icons (its own links, else its Pump page) + the report's grade and ages in one line
-function SocStrip({ c, pos }) {
+function SocStrip({ c, pos, open, onOpen }) {
   const v = mergedVit(c, pos); const s = v.soc || {}; const ln = { ...(v.links || {}), ...(s.links || {}) };
   const ages = (s.ch || []).filter(ch => ch.age).map(ch => [ch.k, ch.age, ch.young]);
   return <div className="vbd-socs" data-testid="vital-socials"><b>📣</b><SocialIcons r={{ mint: c?.mint, ...ln }} />
-    {s.grade && s.grade !== 'UNREAD' ? <em className={`vbd-sgrade is-${s.grade}`}>{s.grade}</em> : <em className="vbd-sgrade is-UNREAD">not researched yet</em>}
+    <button type="button" className={`vbd-sgrade is-${s.grade || 'UNREAD'} ${open ? 'is-open' : ''}`} aria-expanded={open} onClick={onOpen} data-testid="vital-soc"
+      data-tip="the socials report: each channel with its proof">{s.grade && s.grade !== 'UNREAD' ? s.grade : 'not researched yet'} ▾</button>
     {ages.map(([k, a, y]) => <i key={k} className={`vbd-age ${y ? 'is-young' : ''}`}>{k === 'site' ? '🌐' : '𝕏'} {a}</i>)}</div>;
 }
 
@@ -67,18 +68,22 @@ function SocStrip({ c, pos }) {
 export function VitalBoard({ c, pos, rules, call, isOwner }) {
   const [open, setOpen] = useState(null);
   const tiles = vitalTiles(c, pos); const sc = vitalScore(tiles);
-  const sel = tiles.find(t => t.key === open);
+  const v = mergedVit(c, pos);
+  const sel = open === 'soc' ? { key: 'soc', icon: '📣', label: 'SOCIALS', value: v.soc?.grade || 'UNREAD', tone: 'unk', line: v.soc?.line || 'not researched yet',
+    who: '🔍 Sherlock · ⚖ Devil', effect: 'a CA mismatch / a different X = Devil warning; never a veto by itself', soc: v.soc || null } : tiles.find(t => t.key === open);
   const rule = sel?.rule ? (rules?.rules || []).find(r => r.key === sel.rule) : null;
   return <section className="vbd" data-testid="vital-board">
     <header><b>🫀 VITALS</b><em className={`vbd-word is-${sc.word.replace(/\W+/g, '-').toLowerCase()}`}>{sc.word}</em>
       <span className="vbd-tally"><i className="is-good">{sc.good}</i><i className="is-watch">{sc.watch}</i><i className="is-bad">{sc.bad}</i>{sc.unk ? <i className="is-unk">{sc.unk} unread</i> : null}</span>
       <small>tap a vital</small></header>
-    <SocStrip c={c} pos={pos} />
+    <SocStrip c={c} pos={pos} open={open === 'soc'} onOpen={() => setOpen(open === 'soc' ? null : 'soc')} />
     {VITAL_GROUPS.map(([g, label]) => { const ts = tiles.filter(t => t.group === g); if (!ts.length) return null;
       return <div key={g} className="vbd-group"><small>{label}</small><div className="vbd-tiles">{ts.map((t, i) =>
         <button key={t.key} type="button" className={`vbd-tile is-${t.tone} ${open === t.key ? 'is-open' : ''}`} style={{ '--i': i }} aria-expanded={open === t.key}
           onClick={() => setOpen(open === t.key ? null : t.key)} data-testid={`vital-${t.key.replace(/\W+/g, '-')}`}>
-          <i>{t.icon}</i><span><small>{t.label}</small><b>{t.value}</b></span></button>)}</div></div>; })}
+          <i>{t.icon}</i><span><small>{t.label}</small><b>{t.value}</b></span>
+          {t.meter != null ? <u className={`vbd-meter ${t.bad ? 'is-risk' : ''}`} aria-hidden="true"><s style={{ transform: `scaleX(${t.meter})` }} /></u> : null}
+          {t.split != null ? <u className="vbd-split" aria-hidden="true" data-tip="green = $ bought · red = $ sold"><s style={{ transform: `scaleX(${t.split})` }} /></u> : null}</button>)}</div></div>; })}
     {sel ? <div className={`vbd-detail is-${sel.tone}`} data-testid="vital-detail">
       <p><b>{sel.icon} {sel.label}: {sel.value}</b><button type="button" className="vbd-x" aria-label="close" onClick={() => setOpen(null)}>✕</button></p>
       <dl><dt>LINE</dt><dd>{sel.line}</dd><dt>READ BY</dt><dd>{sel.who}</dd><dt>WHAT IT DOES</dt><dd>{sel.effect}</dd></dl>
