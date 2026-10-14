@@ -275,7 +275,19 @@ def parse_advice(text):
 
 def est_tokens(msgs):
     """A safe over-estimate of what one call costs the provider's minute budget: ~3 chars a token for the prompt + the answer cap."""
-    return int(sum(len(str(m.get('content') or '')) for m in msgs or []) / 3) + MAX_TOKENS
+    def size(c):   # an attached image counts ~1K tokens, never its base64 length
+        return sum(len(str(x.get('text') or '')) if x.get('type') == 'text' else 3000 for x in c if isinstance(x, dict)) if isinstance(c, list) else len(str(c or ''))
+    return int(sum(size(m.get('content')) for m in msgs or []) / 3) + MAX_TOKENS
+
+
+def with_images(msgs, images):
+    """🖼 the last user message carries the owner's picture(s) (OpenAI-style content parts — OpenRouter / OpenAI / xAI read them)."""
+    out = [dict(m) for m in msgs or []]
+    i = max((n for n, m in enumerate(out) if m.get('role') == 'user'), default=None)
+    if i is None or not images:
+        return out
+    out[i]['content'] = [{'type': 'text', 'text': str(out[i].get('content') or '')}] + [{'type': 'image_url', 'image_url': {'url': u}} for u in images[:2]]
+    return out
 
 
 def reset_sec(v):
@@ -738,7 +750,7 @@ class Router:
         finally:
             self.inflight.pop(ck, None)
 
-    async def ask(self, http, env, cfg, question, context=None, role='manager', urgency='force', prio=None, only=None, history=None, system=None):
+    async def ask(self, http, env, cfg, question, context=None, role='manager', urgency='force', prio=None, only=None, history=None, system=None, images=None):
         """🧭 GENERAL mode: a normal question → a plain-language answer {source, label, text, ms, tried, mode: 'general'}. Same providers,
         same pacing, same spend cap; never cached, never parsed as a case, never noted on a coin. Deterministic roles still never ask."""
         self.totals['asked'] += 1
@@ -749,7 +761,11 @@ class Router:
         if not str(question or '').strip():
             return {'source': 'NONE', 'text': None, 'advice': None, 'ms': 0, 'tried': [], 'mode': 'general', 'why': 'empty question'}
         try:
-            res = await self._route(http, env, cfg, None, role, time.time(), urgency, prio, only, mode='general', gmsgs=messages_general(question, context, history, system))
+            gm = messages_general(question, context, history, system)
+            if images:   # a picture goes to vision-capable cloud providers only (the local text model would refuse the call)
+                gm = with_images(gm, images)
+                only = tuple(k for k in (only or PROVIDERS) if k != 'local') or ('openrouter',)
+            res = await self._route(http, env, cfg, None, role, time.time(), urgency, prio, only, mode='general', gmsgs=gm)
             if res.get('source') in PROVIDERS:
                 res = {**res, 'model': provider(env, res['source'], cfg)['model'], 'usage': self.lastUsage.get(res['source'])}
             return res

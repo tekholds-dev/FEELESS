@@ -570,3 +570,13 @@ def test_local_heartbeat_brings_an_offline_local_model_back_without_a_test_click
     assert asyncio.run(ro.heartbeat(up, env, {}, now=2100.0)) is True
     assert ro.stats['local']['state'] == 'ONLINE' and ro.stats['local']['coolUntil'] == 0.0 and ro.stats['local']['streak'] == 0
     assert asyncio.run(ro.heartbeat(up, env, {}, now=2200.0)) is None and up.calls == 1   # ONLINE: no probe at all
+
+
+def test_an_attached_picture_rides_the_last_user_message_and_never_inflates_the_token_estimate():
+    import ai_router as r
+    msgs = r.messages_general('what is on this chart?', None, [{'role': 'user', 'content': 'hi'}, {'role': 'assistant', 'content': 'yo'}])
+    out = r.with_images(msgs, ['data:image/png;base64,' + 'A' * 300000])
+    last = out[-1]['content']
+    assert last[0] == {'type': 'text', 'text': msgs[-1]['content']} and last[1]['type'] == 'image_url' and out[1]['content'] == 'hi'
+    assert r.est_tokens(out) < r.est_tokens(msgs) + 1200   # ~1K for the picture, never 100K for its base64
+    assert r.with_images(msgs, []) == msgs

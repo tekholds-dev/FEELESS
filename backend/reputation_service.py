@@ -13464,7 +13464,11 @@ async def admin_ai_chat(request: Request):
             return {'ok': bool(ad), 'mode': 'case', 'reply': reply, 'advice': ad or None, 'symbol': c.get('symbol'), 'provider': res.get('label'), 'model': _air.provider(env, res['source'], cfg)['model'] if res.get('source') in _air.PROVIDERS else None,
                     'ms': res.get('ms'), 'tokens': _air.ROUTER.lastUsage.get(res.get('source')), 'history': _chat['th'].get('case') or [], 'threads': _aic.threads_view(_chat['th']), 'proposals': _aic.view(_chat_props()), 'why': res.get('why')}
         ctx = _chat_context(focus, now)
-        res = await _air.ROUTER.ask(_ai_http(), env, cfg, text, context=ctx, role='owner', history=_aic.as_messages(_chat['th'].get(mode)), system=_aic.system_for(mode))
+        prov_ = str((body or {}).get('provider') or 'auto')   # 🎛 the owner's model switch: auto = the normal order, else that one provider only
+        only_ = (prov_,) if prov_ in _air.PROVIDERS else None
+        img_ = _chat_image((body or {}).get('image'))
+        res = await _air.ROUTER.ask(_ai_http(), env, cfg, text, context=ctx, role='owner', history=_aic.as_messages(_chat['th'].get(mode)), system=_aic.system_for(mode),
+                                    only=only_, images=[img_[1]] if img_ else None)
         reply, new, refused = res.get('text'), [], []
         if reply and mode in ('improve', 'build'):   # 🛠 the model's suggestions become PENDING records — nothing is applied until the owner approves each one
             reply, items, refused = _aic.parse_improve(reply, tuple(_co.CAUSES), only=('idea',) if mode == 'build' else None)
@@ -13472,7 +13476,7 @@ async def admin_ai_chat(request: Request):
                 _chat['props'], new = _aic.propose(_chat_props(), items, _chat_olds(), now, res.get('label'))
                 _json_save(AI_PROPOSALS_PATH, _chat['props'])
                 ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-proposals', f"{len(new)} proposed by {res.get('label')}: " + ' · '.join(f"{p_['kind']} {p_['key']}" for p_ in new)[:200]); _admin_save(ad_)
-        _chat['th'] = _aic.push_thread(_aic.push_thread(_chat['th'], mode, 'user', text), mode, 'assistant', reply or 'no provider answered', {'mode': mode, 'ms': res.get('ms'), 'provider': res.get('label')})
+        _chat['th'] = _aic.push_thread(_aic.push_thread(_chat['th'], mode, 'user', text, {'img': img_[0]} if img_ else None), mode, 'assistant', reply or 'no provider answered', {'mode': mode, 'ms': res.get('ms'), 'provider': res.get('label')})
         return {'ok': bool(reply), 'mode': mode, 'routed': mode != asked, 'reply': reply, 'provider': res.get('label'), 'model': res.get('model'), 'ms': res.get('ms'), 'tokens': res.get('usage'), 'history': _chat['th'].get(mode) or [], 'threads': _aic.threads_view(_chat['th']),
                 'new': [p_['id'] for p_ in new], 'refused': refused, 'proposals': _aic.view(_chat_props()), 'why': res.get('why'), 'learned': _chat_learned()}
     finally:
@@ -13496,8 +13500,28 @@ async def admin_ai_chat_clear(request: Request):
     if m_ not in _aic.MODES:
         raise HTTPException(400, 'Unknown mode.')
     h_ = list(_chat['th'].get(m_) or [])
-    _chat['th'] = {**_chat['th'], m_: (h_[:i] + h_[i + 1:]) if isinstance(i, int) and not isinstance(i, bool) and 0 <= i < len(h_) else []}
+    f_ = (body or {}).get('from')   # ✏ edit = rewind the thread to this message (it and everything after it go; the page puts the text back in the box)
+    if isinstance(f_, int) and not isinstance(f_, bool) and 0 <= f_ < len(h_):
+        _chat['th'] = {**_chat['th'], m_: h_[:f_]}
+    else:
+        _chat['th'] = {**_chat['th'], m_: (h_[:i] + h_[i + 1:]) if isinstance(i, int) and not isinstance(i, bool) and 0 <= i < len(h_) else []}
     return {'ok': True, 'mode': m_, 'history': _chat['th'][m_], 'threads': _aic.threads_view(_chat['th']), 'proposals': _aic.view(_chat_props()), 'learned': _chat_learned()}
+
+
+_CHAT_IMG = _re.compile(r'^/api/reputation/uploads/([0-9a-f]{32}\.(png|jpg|webp|gif))$')
+
+
+def _chat_image(url):
+    """🖼 An image the owner attached to the Brain: ONLY a file from our own upload store (never a remote URL), ≤ 4 MB → (url, data URL) — the
+    provider gets the bytes, so a localhost link never has to be reachable from the cloud."""
+    m_ = _CHAT_IMG.match(str(url or ''))
+    if not m_:
+        return None
+    f_ = UPLOAD_DIR / m_.group(1)
+    if not f_.is_file() or f_.stat().st_size > 4_000_000:
+        return None
+    mime_ = {'png': 'image/png', 'jpg': 'image/jpeg', 'webp': 'image/webp', 'gif': 'image/gif'}[m_.group(2)]
+    return url, f"data:{mime_};base64,{base64.b64encode(f_.read_bytes()).decode()}"
 
 
 def _build_state():
@@ -13551,7 +13575,8 @@ async def admin_ai_chat_get(request: Request):
     v_ = _air.ROUTER.view(os.environ, _ai_cfg())
     live_ = next((r_ for r_ in v_.get('providers') or [] if r_.get('state') == 'ONLINE'), None)
     return {'history': _chat['th'].get('chat') or [], 'threads': _aic.threads_view(_chat['th']), 'build': _aic.build_view(_build_state()), 'proposals': _aic.view(_chat_props()), 'modes': list(_aic.MODES), 'learned': _chat_learned(),
-            'brain': {'provider': (live_ or {}).get('label'), 'model': (live_ or {}).get('model'), 'ms': (live_ or {}).get('lastMs')}}
+            'brain': {'provider': (live_ or {}).get('label'), 'model': (live_ or {}).get('model'), 'ms': (live_ or {}).get('lastMs')},
+            'providers': [{'key': r_['key'], 'label': r_['label'], 'state': r_['state'], 'model': r_.get('model')} for r_ in v_.get('providers') or [] if r_.get('enabled') and not r_.get('why')]}
 
 
 @app.post('/api/reputation/admin/ai/proposals/decide')

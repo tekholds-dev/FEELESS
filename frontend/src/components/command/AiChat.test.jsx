@@ -21,7 +21,7 @@ test('💬 chat: three modes, a normal-language answer with provider · model ·
   const el = await mount(<AiChat call={call} focus="M1" focusSym="AAA" />);
   expect(CHAT_MODES.map(m => m[0])).toEqual(['chat', 'case', 'improve', 'build']); expect(q(el, 'cch-send').disabled).toBe(true);
   await type(el, 'why small wins?'); await act(async () => { q(el, 'cch-send').click(); });
-  expect(call).toHaveBeenCalledWith('/admin/ai/chat', expect.objectContaining({ method: 'POST', body: JSON.stringify({ text: 'why small wins?', mode: 'chat', focus: 'M1' }) }));
+  expect(call).toHaveBeenCalledWith('/admin/ai/chat', expect.objectContaining({ method: 'POST', body: JSON.stringify({ text: 'why small wins?', mode: 'chat', focus: 'M1', provider: 'auto' }) }));
   expect(q(el, 'cch-log').textContent).toContain('Reaper banks winners at about +2%.'); expect(q(el, 'cch-log').textContent).not.toContain('"stance"');
   expect(q(el, 'cch-meta').textContent).toBe('OPENROUTER · gpt-x · 4.2s · 900→60 tok');
   expect(mockHub.hubApply).not.toHaveBeenCalled(); expect(mockHub.hubLoad).not.toHaveBeenCalled();   // no full-tab repaint: the answer lives in this panel
@@ -112,4 +112,23 @@ test('🧵 each mode has its own thread; 🧱 Build this queues a line (the tap 
   await act(async () => { q(el, 'cch-build-0').click(); });
   expect(sent[0][0]).toBe('/admin/ai/build'); expect(sent[0][1].text).toBe('build a rug meter on seats');
   expect(q(el, 'cch-bq').textContent).toContain('2'); expect(q(el, 'cch-bqlist').textContent).toContain('Rug meter');
+});
+
+test('🎛 model switch rides the message; ✏ edit rewinds the thread and puts the words back; the pop-out sits above HQ', async () => {
+  const sent = [];
+  const call = jest.fn(async (path, opt) => {
+    if (opt) sent.push([path, JSON.parse(opt.body)]);
+    if (path === '/admin/ai/chat/clear') return { threads: { chat: [] } };
+    if (opt) return { ok: true, mode: 'chat', reply: 'ok', threads: { chat: [{ role: 'user', text: 'q' }, { role: 'assistant', text: 'ok' }] } };
+    return { threads: { chat: [{ role: 'user', text: 'old question' }, { role: 'assistant', text: 'old answer' }] }, providers: [{ key: 'openrouter', label: 'OPENROUTER', state: 'ONLINE', model: 'openai/gpt-x' }], proposals: { pending: [], decided: [] } };
+  });
+  const el = await mount(<AiChat call={call} />);
+  await act(async () => { await Promise.resolve(); });
+  const sel = q(el, 'cch-model'); expect(sel.textContent).toContain('OPENROUTER');
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(sel, 'openrouter'); sel.dispatchEvent(new Event('change', { bubbles: true })); });
+  await act(async () => { q(el, 'cch-edit-0').click(); });
+  expect(sent[0]).toEqual(['/admin/ai/chat/clear', { mode: 'chat', from: 0 }]); expect(q(el, 'cch-input').value).toBe('old question');
+  await act(async () => { q(el, 'cch-send').click(); });
+  expect(sent[1][1]).toMatchObject({ text: 'old question', provider: 'openrouter' });
+  localStorage.removeItem('feeless.brainProv');
 });

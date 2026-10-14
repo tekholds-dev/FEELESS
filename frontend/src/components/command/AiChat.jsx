@@ -5,6 +5,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
+import { uploadImage } from '../../lib/adminCall';
 import '../../styles/brainChat.css';
 
 export const CHAT_MODES = [['chat', '💬 Chat', 'Talk to the model in normal language — it sees the desk\'s current state'],
@@ -37,10 +38,12 @@ export function brainMood(busy, brain, last) {
 function Proposal({ p, busy, onDecide }) {
   return <li className={`cch-prop is-${p.status}`} data-testid={`cch-prop-${p.id}`}>
     <p className="cch-phead"><b>{String(p.agent).toUpperCase()}</b><em>{KIND[p.kind] || p.kind}</em><span>{p.key}</span>{p.status !== 'pending' ? <u>{p.status.toUpperCase()}</u> : null}</p>
-    <p className="cch-diff"><span className="is-old"><small>NOW</small>{show(p.old)}</span><i aria-hidden>→</i><span className="is-new"><small>PROPOSED</small>{show(p.new)}</span></p>
-    {p.reason ? <p className="cch-why"><small>WHY</small>{p.reason}</p> : null}
-    {p.effect ? <p className="cch-why"><small>EFFECT</small>{p.effect}</p> : null}
-    <p className="cch-why"><small>ROLLBACK</small>{p.rollback}</p>
+    {p.kind === 'idea' ? <p className="cch-diff"><span className="is-new"><small>BUILD</small>{show(p.new)}</span></p>   /* an idea has no "now" value — only what would be built */
+      : <p className="cch-diff"><span className="is-old"><small>NOW</small>{show(p.old)}</span><i aria-hidden>→</i><span className="is-new"><small>PROPOSED</small>{show(p.new)}</span></p>}
+    <details className="cch-more"><summary>why · effect · rollback</summary>
+      {p.reason ? <p className="cch-why"><small>WHY</small>{p.reason}</p> : null}
+      {p.effect ? <p className="cch-why"><small>EFFECT</small>{p.effect}</p> : null}
+      <p className="cch-why"><small>ROLLBACK</small>{p.rollback}</p></details>
     {p.applied ? <p className="cch-why is-applied"><small>APPLIED</small>{p.applied}</p> : null}
     {p.status === 'pending' ? <p className="cch-acts"><button type="button" className="m-btn m-go" disabled={busy} onClick={() => onDecide(p.id, true)} data-testid={`cch-approve-${p.id}`}>✅ Approve</button>
       <button type="button" className="m-btn" disabled={busy} onClick={() => onDecide(p.id, false)} data-testid={`cch-reject-${p.id}`}>✕ Reject</button></p> : null}
@@ -49,19 +52,23 @@ function Proposal({ p, busy, onDecide }) {
 
 export function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full' }) {
   const [mode, setMode] = useState('chat'); const [txt, setTxt] = useState(''); const [busy, setBusy] = useState(false); const [pop, setPop] = useState(false);
-  const [threads, setThreads] = useState({}); const [build, setBuild] = useState(null); const [showDone, setShowDone] = useState(false); const [props, setProps] = useState({ pending: [], decided: [] }); const [last, setLast] = useState(null);
+  const [threads, setThreads] = useState({}); const [build, setBuild] = useState(null); const [showDone, setShowDone] = useState(false);
+  const [provs, setProvs] = useState([]); const [prov, setProvS] = useState(() => { try { return localStorage.getItem('feeless.brainProv') || 'auto'; } catch { return 'auto'; } });
+  const setProv = v => { setProvS(v); try { localStorage.setItem('feeless.brainProv', v); } catch { /* private window */ } };
+  const [img, setImg] = useState(null); const [upl, setUpl] = useState(false); const fileRef = useRef(null); const [props, setProps] = useState({ pending: [], decided: [] }); const [last, setLast] = useState(null);
   const [brain, setBrain] = useState(null); const [learned, setLearned] = useState(null); const [err, setErr] = useState(null);
   const [openP, setOpenP] = useState(variant !== 'mini'); const [showQ, setShowQ] = useState(null);   // ⚡ one-tap prompts: open on an empty chat, folded once you are talking   // the mini cat keeps the fixes folded under one bar so the conversation keeps its room
   const end = useRef(null); const hist = threads[mode] || [];   // 🧵 one thread per mode: chat · case · fix · build never mix
   const addMsg = (m, msg) => setThreads(t => ({ ...t, [m]: [...(t[m] || []), msg] }));
-  const take = useCallback(r => { if (!r) return; if (r.threads) setThreads(r.threads); else if (r.history) setThreads(t => ({ ...t, [r.mode || 'chat']: r.history })); if (r.build) setBuild(r.build); if (r.proposals) setProps(r.proposals); if (r.learned != null) setLearned(r.learned); if (r.brain) setBrain(r.brain); }, []);
+  const take = useCallback(r => { if (!r) return; if (r.threads) setThreads(r.threads); else if (r.history) setThreads(t => ({ ...t, [r.mode || 'chat']: r.history })); if (r.build) setBuild(r.build); if (r.providers) setProvs(r.providers); if (r.proposals) setProps(r.proposals); if (r.learned != null) setLearned(r.learned); if (r.brain) setBrain(r.brain); }, []);
   useEffect(() => { let on = true; if (isOwner && typeof call === 'function') Promise.resolve().then(() => call('/admin/ai/chat')).then(r => { if (on) { take(r); setErr(null); } }).catch(x => { if (on) setErr(x.message); }); return () => { on = false; }; }, [call, isOwner, take]);
   useEffect(() => { const el = end.current; if (el && el.parentNode) el.parentNode.scrollTop = el.parentNode.scrollHeight; }, [hist, busy, pop]);
   useEffect(() => { if (!pop) return undefined; const k = e => { if (e.key === 'Escape') setPop(false); }; document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k); }, [pop]);
   const say = async (text, m = mode) => {
     const v = String(text || '').trim(); if (busy || (!v && m !== 'case')) return;
-    setBusy(true); addMsg(m, { role: 'user', text: m === 'case' ? `[case review] $${focusSym || focus || '?'} ${v}`.trim() : v }); setTxt('');
-    try { const r = await call('/admin/ai/chat', { method: 'POST', body: JSON.stringify({ text: v, mode: m, focus: focus || null }) });
+    const pic = m === 'case' ? null : img; setImg(null);
+    setBusy(true); addMsg(m, { role: 'user', ...(pic ? { meta: { img: pic } } : {}), text: m === 'case' ? `[case review] $${focusSym || focus || '?'} ${v}`.trim() : v }); setTxt('');
+    try { const r = await call('/admin/ai/chat', { method: 'POST', body: JSON.stringify({ text: v, mode: m, focus: focus || null, provider: prov, ...(pic ? { image: pic } : {}) }) });
       take(r); setLast(r); setErr(null);
       if (r.routed) setMode(r.mode);   /* a chat message that asked for a change ran as 🛠 Fix agents */
       if (!r.ok) toast.error(r.why || 'no provider answered'); else if ((r.new || []).length) { setOpenP(true); toast.success(`🛠 ${r.new.length} fix${r.new.length === 1 ? '' : 'es'} waiting for your call`); }
@@ -70,6 +77,9 @@ export function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full'
   const send = e => { e?.preventDefault(); say(txt); };
   const clear = async index => { try { take(await call('/admin/ai/chat/clear', { method: 'POST', body: JSON.stringify(index == null ? { mode } : { index, mode }) })); if (index == null) setLast(null); } catch (x) { toast.error(x.message); } };
   const remember = async text => { try { const r = await call('/admin/ai/chat/remember', { method: 'POST', body: JSON.stringify({ text: String(text).slice(0, 400) }) }); if (r.learned != null) setLearned(r.learned); toast.success('🧠 remembered — every fitting model read sees it now'); } catch (x) { toast.error(x.message); } };
+  // ✏ edit = rewind this thread to the message and put its text back in the box · ＋ new = a fresh thread for this mode
+  const edit = async (i, text) => { try { take(await call('/admin/ai/chat/clear', { method: 'POST', body: JSON.stringify({ mode, from: i }) })); setTxt(text.replace(/^\[case review\] \S+ ?/, '')); } catch (x) { toast.error(x.message); } };
+  const attach = async f => { if (!f) return; setUpl(true); try { const u = await uploadImage(f); const url = typeof u === 'string' ? u : u?.url; if (url) setImg(url); } catch (x) { toast.error(x.message); } finally { setUpl(false); } };
   const queueBuild = async text => { try { const r = await call('/admin/ai/build', { method: 'POST', body: JSON.stringify({ text: String(text).slice(0, 600), title: String(text).replace(/\s+/g, ' ').slice(0, 60), src: `chat · ${mode}` }) }); setBuild(r.build); toast.success('📋 queued for the build — the next build session ships it'); } catch (x) { toast.error(x.message); } };
   const moveBuild = async (id, status) => { try { const r = await call('/admin/ai/build', { method: 'POST', body: JSON.stringify({ id, status }) }); setBuild(r.build); } catch (x) { toast.error(x.message); } };
   const decide = async (id, approve) => {
@@ -85,7 +95,9 @@ export function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full'
       <span className="cch-kpis"><u data-testid="cch-learned" data-tip="Lessons you taught the desk (🧠 Remember + 🎓 Teach): every fitting model read sees them">🎓 {learned ?? '—'}<small>LEARNED</small></u>
         <u className={pend ? 'is-hot' : ''} data-tip="Fixes the model proposed, waiting for your Approve / Reject">🛠 {pend}<small>YOUR CALL</small></u>
         <u data-testid="cch-bq" data-tip="Approved to build: queued for the next build session (nothing is coded by the model in the app)">📋 {build?.open ?? 0}<small>TO BUILD</small></u></span>
-      <button type="button" className="cch-ico" onClick={() => clear()} disabled={busy || !hist.length} data-testid="cch-clear" data-tip="Delete the whole chat" aria-label="Clear chat">🗑</button>
+      <select className="cch-model" value={prov} onChange={e => setProv(e.target.value)} aria-label="Which model answers" data-testid="cch-model" data-tip="Which model answers: Auto = the normal order (local first for you, then the cloud)">
+        <option value="auto">🤖 Auto</option>{provs.map(p => <option key={p.key} value={p.key}>{p.state === 'ONLINE' ? '🟢' : p.state === 'UNTESTED' ? '⚪' : '🔴'} {p.label}{p.model ? ` · ${String(p.model).split('/').pop()}` : ''}</option>)}</select>
+      <button type="button" className="cch-ico cch-new" onClick={() => clear()} disabled={busy || !hist.length} data-testid="cch-clear" data-tip="New chat: a fresh thread for this mode" aria-label="New chat">＋</button>
       <button type="button" className="cch-ico" onClick={() => setPop(p => !p)} data-testid="cch-pop" data-tip={pop ? 'Close (Esc)' : 'Pop out — full window'} aria-label={pop ? 'Close the pop-out' : 'Pop out'}>{pop ? '✕' : '⤢'}</button>
     </header>
     <i className="cch-scan" aria-hidden="true" />
@@ -95,20 +107,25 @@ export function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full'
       <div className="cch-talk">
         <ol className="cch-log" data-testid="cch-log" aria-live="polite">
           {err && !hist.length ? <li className="cch-nil is-warn" data-testid="cch-err">⚠ {err}</li> : null}
-          {hist.length ? hist.map((t, i) => <li key={`${i}-${t.text.slice(0, 12)}`} className={`cch-msg is-${t.role}`}><small>{t.role === 'user' ? 'YOU' : 'BRAIN'}</small><span>{t.text}</span>
+          {hist.length ? hist.map((t, i) => <li key={`${i}-${t.text.slice(0, 12)}`} className={`cch-msg is-${t.role}`}><small>{t.role === 'user' ? 'YOU' : 'BRAIN'}</small>{t.meta?.img ? <img className="cch-img" src={t.meta.img} alt="attached" loading="lazy" /> : null}<span>{t.text}</span>
             <i className="cch-mact">{t.role !== 'user' && t.text.length >= 8 && !t.text.startsWith('⚠') ? <><button type="button" onClick={() => remember(t.text)} data-tip="Remember this: it becomes a lesson every fitting model read sees" data-testid={`cch-rem-${i}`}>🧠 Remember</button>
                 <button type="button" onClick={() => queueBuild(t.text)} data-tip="Build this: your tap is the permission — it joins the build queue the next build session ships" data-testid={`cch-build-${i}`}>🧱 Build this</button></> : null}
+              {t.role === 'user' ? <button type="button" onClick={() => edit(i, t.text)} disabled={busy} data-tip="Edit: rewinds the chat to here and puts your words back in the box" data-testid={`cch-edit-${i}`}>✏ Edit</button> : null}
               <button type="button" onClick={() => clear(i)} data-tip="Delete this message" aria-label="Delete this message" data-testid={`cch-del-${i}`}>✕</button></i></li>)
             : !err ? <li className="cch-nil">Sees the desk. Learns what you 🧠 remember. Fixes only on your ✅.</li> : null}
           {busy ? <li className="cch-msg is-assistant is-wait" role="status"><small>BRAIN</small><span><i /><i /><i /></span></li> : null}<li ref={end} aria-hidden className="cch-end" /></ol>
         <div className="cch-quick" data-testid="cch-quick">{(QUICK[mode] || []).map(([l, q]) => <button key={l} type="button" disabled={!isOwner || busy} onClick={() => say(q)} data-testid={`cch-chip-${l.split(' ')[1] || l}`}>{l}</button>)}</div>
         {last && metaLine(last) ? <p className="cch-meta" data-testid="cch-meta">{metaLine(last)}{(last.refused || []).length ? ` · ${last.refused.length} suggestion${last.refused.length === 1 ? '' : 's'} refused (execution / money is out of reach)` : ''}</p> : null}
+        {img ? <p className="cch-att" data-testid="cch-att"><img src={img} alt="to send" /><span>picture attached · goes to a cloud model that can see images</span><button type="button" className="cch-ico" onClick={() => setImg(null)} aria-label="Remove the picture">✕</button></p> : null}
         <form className="cch-form" onSubmit={send} autoComplete="off">
+          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={e => { attach(e.target.files?.[0]); e.target.value = ''; }} data-testid="cch-file" />
+          <button type="button" className="cch-ico cch-clip" onClick={() => fileRef.current?.click()} disabled={!isOwner || busy || upl || mode === 'case'} data-tip="Attach a picture (a chart, a screen): a cloud model that can see images reads it" aria-label="Attach a picture" data-testid="cch-attach">{upl ? '…' : '📎'}</button>
           <input className="m-input" value={txt} onChange={e => setTxt(e.target.value)} disabled={!isOwner || busy} spellCheck={false} aria-label="Message to the model" data-testid="cch-input"
             placeholder={mode === 'case' ? `${focusSym ? `$${focusSym}` : 'the coin on the chart'} — ask about it (optional)` : mode === 'improve' ? 'what should the agents do better?' : mode === 'build' ? 'what should we build next?' : 'talk to the brain…'} />
           <button type="button" className="cch-ico cch-qt" onClick={() => setShowQ(!(showQ ?? !hist.length))} aria-pressed={!!(showQ ?? !hist.length)} data-tip="One-tap prompts" aria-label="One-tap prompts" data-testid="cch-qt">⚡</button>
           <button type="submit" className="m-btn m-go cch-go" disabled={!isOwner || busy || (!String(txt).trim() && mode !== 'case')} data-testid="cch-send">{busy ? '…' : 'SEND IT'}</button></form>
       </div>
+      <div className="cch-side">
       {mode === 'build' && (build?.items || []).length ? <div className="cch-bqlist" data-testid="cch-bqlist"><p className="cch-bqh"><b>📋 BUILD QUEUE · {build.open} open</b><small>your approval = permission · the next build session reads it first · the model never codes in the app</small></p>
         <ul>{build.items.slice(0, 6).map(b => <li key={b.id} className={`is-${b.status}`}><em>{b.status.toUpperCase()}</em><span data-tip={b.text}>{b.title}</span>
           {b.status === 'queued' ? <button type="button" className="cch-ico" onClick={() => moveBuild(b.id, 'dropped')} aria-label="Drop it" data-testid={`cch-bq-drop-${b.id}`}>✕</button> : null}</li>)}</ul></div> : null}
@@ -116,7 +133,7 @@ export function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full'
         <button type="button" className="cch-ptitle" onClick={() => setOpenP(o => !o)} aria-expanded={openP || pop} data-testid="cch-props-toggle"><b>🛠 FIXES — YOUR CALL{pend ? ` · ${pend}` : ''}</b><small>nothing changes until you approve · execution, limits and the wallet are out of reach</small><i aria-hidden>{openP || pop ? '▾' : '▸'}</i></button>
         <ul hidden={!(openP || pop)}>{(props.pending || []).map(p => <Proposal key={p.id} p={p} busy={busy} onDecide={decide} />)}
           {(props.decided || []).length ? <li><button type="button" className="cch-done" onClick={() => setShowDone(x => !x)} aria-expanded={showDone} data-testid="cch-done">{showDone ? '▾' : '▸'} {props.decided.length} decided</button></li> : null}
-          {showDone ? (props.decided || []).slice(0, pop ? 8 : 4).map(p => <Proposal key={p.id} p={p} busy={busy} onDecide={decide} />) : null}</ul></div> : null}
+          {showDone ? (props.decided || []).slice(0, pop ? 8 : 4).map(p => <Proposal key={p.id} p={p} busy={busy} onDecide={decide} />) : null}</ul></div> : null}</div>
     </div>
   </section>;
   return pop && typeof document !== 'undefined' ? <>{createPortal(<div className="cch-shade" data-testid="cch-shade" onMouseDown={e => { if (e.target === e.currentTarget) setPop(false); }}>{body}</div>, document.body)}

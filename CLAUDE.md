@@ -3988,3 +3988,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   edit the file while the service is stopped) and say so; `dropped` = the owner's ✕. 🧵 The Brain keeps ONE THREAD PER MODE (`_chat['th']`,
   `ai_chat.push_thread`, ≤ 6 exchanges each): chat · case · fix · build never mix. Decided fixes fold under "N decided". `CHAT_ASK` rule 5 = money
   first (capital / record lines outrank one coin; outcomes are CLOSED trades) — the live Qwen test answered from the capital line after it.
+- 🧠 BRAIN v3 (owner, 2026-10-13: "pop-out must work over everything, real edit, new chat, add image, switch models, readable"): the pop-out shade is
+  z-index 6000 (above the HQ pop-out's 4000 — it opened BEHIND it), 96vw × 92vh, chat | side (build queue + fixes) columns. Header: 🤖 model switch
+  (`cch-model`, remembered `feeless.brainProv`; the chat POST sends `provider` → `ROUTER.ask(only=(key,))`) + ＋ New chat (clears this mode's thread).
+  ✏ Edit on your own message = `chat/clear {mode, from: i}` (rewinds the thread) + the words back in the box. 📎 picture: our own upload store only
+  (`_chat_image`: `/api/reputation/uploads/<hex>.<ext>`, ≤ 4 MB) → sent as a data URL to a CLOUD model that can see images
+  (`ai_router.with_images`; the local text model is skipped; `est_tokens` counts a picture as ~1K tokens). Image GENERATION is NOT built (no image
+  model / key wired). Ideas show only BUILD (no "now: nothing" row); why · effect · rollback sit in a fold; the normal-size side is capped at 210px so the
+  chat keeps its room.

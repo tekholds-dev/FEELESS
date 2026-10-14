@@ -4,8 +4,8 @@
 .cch::before { content: ''; position: absolute; inset: -40% -20% auto -20%; height: 90%; z-index: -1; pointer-events: none; opacity: .5;
   background: radial-gradient(closest-side, rgba(150, 110, 255, .35), transparent 70%); animation: cchDrift 14s ease-in-out infinite alternate; }
 .cch.is-full { height: clamp(420px, 62vh, 640px); } .cch.is-mini { height: min(62vh, 520px); border-radius: 0; border-width: 0; padding: 8px; }
-.cch.is-pop { width: min(1180px, 94vw); height: min(86vh, 860px); box-shadow: 0 30px 90px rgba(0, 0, 0, .7); animation: cchPop .18s var(--m-ease, ease-out); }
-.cch-shade { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; background: rgba(2, 6, 4, .86); animation: cchFade .16s ease-out; }
+.cch.is-pop { width: min(1500px, 96vw); height: 92vh; box-shadow: 0 30px 90px rgba(0, 0, 0, .7); animation: cchPop .18s var(--m-ease, ease-out); }
+.cch-shade { position: fixed; inset: 0; z-index: 6000; display: grid; place-items: center; background: rgba(2, 6, 4, .86); animation: cchFade .16s ease-out; }
 .cch-back { width: 100%; padding: 14px 10px; border-radius: 10px; border: 1px dashed color-mix(in srgb, #b79bff 50%, transparent); background: rgba(140, 110, 255, .07); color: #c9b8ff; font: 700 10.5px var(--m-mono); cursor: pointer; transition: transform .15s ease, background .15s ease; }
 .cch-back:hover { transform: translateY(-1px); background: rgba(140, 110, 255, .13); } .cch-back:focus-visible { outline: 2px solid #b79bff; outline-offset: 2px; }
 .cch-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -62,7 +62,7 @@
 .cch-gate { display: grid; gap: 6px; padding: 22px 14px; text-align: center; font: 600 10.5px/1.5 var(--m-mono); color: var(--m-mute); } .cch-gate b { font: 800 12px var(--m-mono); letter-spacing: .14em; color: #c9b8ff; }
 .mini-brain { display: flex; flex-direction: column; min-height: 0; flex: 1; }
 /* clean: prompts fold once you are talking (⚡ brings them back), the meta line is one quiet row, the mini shows icons only */
-.cch:not(.is-q) .cch-quick { display: none; } .cch-form { grid-template-columns: minmax(0, 1fr) auto auto; } .cch-qt { width: 36px; height: auto; } .cch-qt[aria-pressed='true'] { border-color: var(--br); color: var(--br); }
+.cch:not(.is-q) .cch-quick { display: none; } .cch-form { grid-template-columns: auto minmax(0, 1fr) auto auto; } .cch-qt { width: 36px; height: auto; } .cch-qt[aria-pressed='true'] { border-color: var(--br); color: var(--br); }
 .cch-modes > button { display: flex; align-items: center; justify-content: center; gap: 5px; } .cch-modes > button i { font-style: normal; }
 .cch.is-mini .cch-modes > button span, .cch.is-mini .cch-kpis small, .cch.is-mini .cch-title small { display: none; } .cch.is-mini .cch-modes > button { font-size: 14px; padding: 5px 2px; }
 .cch.is-mini .cch-orb { width: 26px; height: 26px; } .cch.is-mini .cch-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -77,6 +77,20 @@
 .cch-done { width: 100%; text-align: left; padding: 4px 8px; border-radius: 7px; border: 1px dashed var(--m-line); background: transparent; color: var(--m-mute); font: 700 9.5px var(--m-mono); cursor: pointer; transition: color .15s ease, border-color .15s ease; }
 .cch-done:hover { color: var(--m-text); border-color: var(--br); } .cch-done:focus-visible { outline: 2px solid var(--br); outline-offset: 1px; }
 body.theme-day .cch-bqlist li { color: #0f2419; }
+/* pop-out + edit / new / model / picture, readable first */
+.cch-head { flex-wrap: wrap; row-gap: 6px; }
+.cch-model { flex: 0 1 190px; min-width: 0; height: 28px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--m-line); background: rgba(0, 0, 0, .35); color: var(--m-text); font: 700 10px var(--m-mono); cursor: pointer; transition: border-color .15s ease; }
+.cch-model:hover { border-color: var(--br); } .cch-model:focus-visible { outline: 2px solid var(--br); outline-offset: 1px; } .cch-new { font-size: 16px; font-weight: 800; color: var(--br2); }
+.cch-clip { width: 36px; height: auto; } .cch-img { display: block; max-width: min(260px, 100%); max-height: 180px; border-radius: 8px; margin: 2px 0 4px; object-fit: contain; background: rgba(0, 0, 0, .3); }
+.cch-att { display: flex; align-items: center; gap: 8px; margin: 0; padding: 5px 8px; border-radius: 9px; border: 1px dashed color-mix(in srgb, var(--br) 50%, transparent); font: 600 9.5px var(--m-mono); color: var(--m-dim); }
+.cch-att img { width: 38px; height: 38px; border-radius: 6px; object-fit: cover; } .cch-att span { flex: 1; min-width: 0; } .cch-att .cch-ico { width: 24px; height: 24px; font-size: 10px; }
+.cch-diff { grid-template-columns: minmax(0, 1fr) !important; } .cch-diff > i { display: none; }
+.cch-more summary { font: 700 9px var(--m-mono); color: var(--m-mute); cursor: pointer; list-style: none; padding: 2px 0; } .cch-more summary::before { content: '▸ '; } .cch-more[open] summary::before { content: '▾ '; }
+.cch-more summary:hover { color: var(--m-text); } .cch-more summary:focus-visible { outline: 2px solid var(--br); outline-offset: 1px; } .cch-more { display: grid; gap: 3px; }
+.cch-msg { max-width: 96%; } .cch-msg.is-assistant > span { font-size: 12px; line-height: 1.6; }
+.cch.is-pop .cch-msg { font-size: 13px; max-width: 88%; } .cch.is-pop .cch-msg.is-assistant > span { font-size: 13.5px; } .cch.is-pop .cch-props { max-height: none; } .cch.is-pop .cch-main { grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); }
+.cch.is-pop .cch-props, .cch.is-pop .cch-bqlist { align-self: start; } .cch-mact button:disabled { opacity: .4; cursor: default; }
+.cch-side { display: grid; gap: 8px; min-height: 0; align-content: start; } .cch:not(.is-pop) .cch-side { max-height: 210px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; } .cch:not(.is-pop) .cch-side .cch-props { max-height: none; } .cch-side:empty { display: none; } .cch.is-pop .cch-side { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; }
 /* every mode wears its own colour; the scan line runs only while the model is really answering */
 .cch[data-mode='case'] { --br: #5fd0ff; } .cch[data-mode='improve'] { --br: #f5c451; } .cch[data-mode='build'] { --br: #ff7ad9; }
 .cch-scan { display: block; height: 2px; margin: -4px 0; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--br), var(--br2), transparent); transform: scaleX(.12); transform-origin: left; opacity: .35; transition: opacity .2s ease; }
