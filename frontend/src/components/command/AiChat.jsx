@@ -63,12 +63,20 @@ function Proposal({ p, busy, onDecide }) {
 
 // 🧵 the log is its own memoized piece: a hub tick, a seat price or a settings tap never re-renders (or re-animates) the messages.
 // Only messages added in THIS mode since the last send animate in (`from`); switching modes / panes shows a thread still.
+// 📚 what an answer was built from: FEELESS's own records for the asked window (LIVE FEELESS · PARTIAL · NO HISTORY) + what was missing
+export const DATA_TONE = { 'LIVE FEELESS': 'is-live', PARTIAL: 'is-part', 'NO HISTORY': 'is-none' };
+export function DataChip({ d }) {
+  return <em className={`cch-data ${DATA_TONE[d.state] || 'is-none'}`} data-testid="cch-data" data-tip={(d.gaps || []).length ? `missing: ${d.gaps.join(' · ')}` : 'every source answered for this window'}>
+    DATA: {d.state}{d.window ? ` · ${d.window}` : ''}{d.exits ? ` · ${d.exits} real exits` : ''}</em>;
+}
+
 const ChatLog = memo(function ChatLog({ hist, err, busy, from, onRemember, onBuild, onEdit, onDelete }) {
   const end = useRef(null);
   useEffect(() => { const el = end.current; if (el && el.parentNode) el.parentNode.scrollTop = el.parentNode.scrollHeight; }, [hist, busy]);
   return <ol className="cch-log" data-testid="cch-log" aria-live="polite">
     {err && !hist.length ? <li className="cch-nil is-warn" data-testid="cch-err">⚠ {err}</li> : null}
     {hist.length ? hist.map((t, i) => <li key={`${i}-${t.text.slice(0, 12)}`} className={`cch-msg is-${t.role} ${i >= from ? 'is-fresh' : ''}`}><small>{t.role === 'user' ? 'YOU' : 'BRAIN'}</small>{t.meta?.img ? <img className="cch-img" src={t.meta.img} alt="attached" loading="lazy" /> : null}<span>{t.text}</span>
+      {t.meta?.data ? <DataChip d={t.meta.data} /> : null}
       <i className="cch-mact">{t.role !== 'user' && t.text.length >= 8 && !t.text.startsWith('⚠') ? <><button type="button" onClick={() => onRemember(t.text)} data-tip="Remember this: it becomes a lesson every fitting model read sees" data-testid={`cch-rem-${i}`}>🧠 Remember</button>
           <button type="button" onClick={() => onBuild(t.text)} data-tip="Build this: your tap is the permission — it joins the build queue the next build session ships" data-testid={`cch-build-${i}`}>🧱 Build this</button></> : null}
         {t.role === 'user' ? <button type="button" onClick={() => onEdit(i, t.text)} disabled={busy} data-tip="Edit: rewinds the chat to here and puts your words back in the box" data-testid={`cch-edit-${i}`}>✏ Edit</button> : null}

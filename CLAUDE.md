@@ -4096,3 +4096,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
     𝕏 account age (Joined month) + latest post, ⚖️ registry / legal level. 🕯 one bad print never draws a candle (`lib/tickGuard`) and never
     stops a seat (`office.spike_held`, the fast guard's previous read). Chart scenes all redone in the neon-trench language (`CHART_BGS`).
   RESTART THE BACKEND after a backend push, or none of it runs: on 10-14 the 22:31 copy was still serving at 11:17.
+- 🧾 THE CHAT SEES REAL FEELESS DATA (owner, 2026-10-14: "no provider answer, local lm should be always running" + the evidence spec; `backend/chat_evidence.py`
+  pure + tested): a 💬 chat question about what HAPPENED (why we failed last night, which trades hurt, who was wrong, what Reaper missed, why a coin was
+  bought / sold) resolves its window (`window`: last N h · last night 20:00 → 09:00 · yesterday · today · default 12h) and builds ONE compact packet
+  in a worker thread (`_chat_evidence`, 60s cache): confirmed real exits (archive) + summary by exit rule / door · the ledger (buys, sells, refusals,
+  land time, write-offs, halts) · Judge loss causes + blamed desk · card events + the kernel tape (in memory: since the last restart only) →
+  `known_gaps` names every source that has nothing. The model gets it as an EVIDENCE PACKET with `RULES` ("answer only from it, never invent");
+  NO HISTORY + no answer = "Insufficient evidence". The reply carries `data` → `DataChip` "DATA: LIVE FEELESS / PARTIAL / NO HISTORY" (missing
+  sources in the tip). Read only — changes still go through proposals. The local model: per-request timeout (the shared 20s httpx client cut it
+  off → "no provider answered · 20.0s"), the owner's chat waits up to `OWNER_LOCAL_SEC` 120s, the background local lane pauses while the chat answers.
+- 🧬 "SAME COIN AGAIN" WAS NEVER RPC (2026-10-14, the owner: "keep buying gta 6, fomo, coca cola, pedo — what's wrong with RPC?"): the ledger had
+  22 FOMO buys on 18 DIFFERENT mints, 8 CocaCola on 7, 5 GTA6 — every one a new launch wearing a trending ticker. The 🧬 clone rule (✋ skip, 24h of
+  the card's own filled buys, prefix ≥ 4 letters) went live at the 11:32 restart that day; the test pins the exact tickers. "SAME COINS" ⇒ count
+  mints per ticker in the ledger before blaming the feed.

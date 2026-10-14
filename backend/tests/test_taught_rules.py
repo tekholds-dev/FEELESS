@@ -119,3 +119,14 @@ def test_socials_report_reads_domain_age_x_age_latest_post_and_the_registry():
     assert legal['k'] == 'legal' and 'WEAK' in legal['word'] and legal['url'] == 'https://a.fun/terms'
     assert r['links'] == {'site': 'https://a.fun', 'x': 'https://x.com/a'}
     assert sr.x_read('<meta property="og:title" content="A"><div>Joined March 2025</div>', 'https://x.com/a', 'M')['joined'] > 0
+
+
+def test_the_overnight_repeat_tickers_are_all_clones_of_what_the_card_traded():
+    # ledger 2026-10-13/14: 18 different FOMO mints, 7 CocaCola, 5 GTA6 — every one a NEW launch wearing a ticker the card had just traded
+    import taught_rules as trl
+    traded = [('FOMO', 'm1'), ('CocaCola', 'm2'), ('GTA6', 'm3'), ('PEDO', 'm4'), ('MrBeast', 'm5')]
+    for sym in ('FOMO', 'fomoney', 'Coca Cola', 'COCACOLA', 'GTA6 Coin', 'gta6', 'PEDO', 'MrBeast'):
+        assert trl.clone({'symbol': sym, 'mint': 'new'}, traded), sym
+    assert trl.clone({'symbol': 'FOMO', 'mint': 'm1'}, traded) is None        # the same coin is not its own clone
+    assert trl.clone({'symbol': 'BONKERS', 'mint': 'x'}, traded) is None
+    assert trl.skips(None, {'new': {'clone': 'same ticker'}}) == {'new'}      # default mode = ✋ skip

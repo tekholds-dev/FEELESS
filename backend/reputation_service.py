@@ -13248,7 +13248,7 @@ async def _local_lane_run(now):
         _local_lane.update(every=round(every, 1), whyEvery=why_)
     except Exception as e:
         print('local boost:', str(e)[:80])
-    if _local_lane['busy'] or now - _local_lane['at'] < every:
+    if _local_lane['busy'] or now - _local_lane['at'] < every or _chat.get('busy'):   # 💬 the owner's chat goes first: the background read waits while you talk
         return
     env, cfg = os.environ, _ai_cfg()
     p_ = _air.provider(env, 'local', cfg)
@@ -13549,7 +13549,15 @@ async def admin_ai_chat(request: Request):
             _chat['th'] = _aic.push_thread(_aic.push_thread(_chat['th'], 'case', 'user', f"[case review] ${c.get('symbol')} {text}".strip()), 'case', 'assistant', reply or 'no provider answered', {'mode': 'case'})
             return {'ok': bool(ad), 'mode': 'case', 'reply': reply, 'advice': ad or None, 'symbol': c.get('symbol'), 'provider': res.get('label'), 'model': _air.provider(env, res['source'], cfg)['model'] if res.get('source') in _air.PROVIDERS else None,
                     'ms': res.get('ms'), 'tokens': _air.ROUTER.lastUsage.get(res.get('source')), 'history': _chat['th'].get('case') or [], 'threads': _aic.threads_view(_chat['th']), 'proposals': _aic.view(_chat_props()), 'why': res.get('why')}
-        ctx = _chat_context(focus, now)
+        ctx, data_ = _chat_context(focus, now), None
+        if mode == 'chat' and _cev.wants(text):   # 📚 a question about what HAPPENED: the model reads FEELESS's own records for the window, not a guess
+            try:
+                pk_, st_ = await asyncio.to_thread(_chat_evidence, text, now)
+                ctx = {'evidence': pk_, 'rules': _cev.RULES}
+                data_ = {'state': st_, 'window': (pk_.get('time_window') or {}).get('label'), 'exits': (pk_.get('summary') or {}).get('exits', 0), 'gaps': pk_.get('known_gaps') or []}
+            except Exception as e_:
+                print('chat evidence:', str(e_)[:120])
+                data_ = {'state': 'NO HISTORY', 'window': None, 'exits': 0, 'gaps': ['the evidence reader failed — answered without records']}
         prov_ = str((body or {}).get('provider') or 'auto')   # 🎛 the owner's model switch: auto = the normal order, else that one provider only
         only_ = (prov_,) if prov_ in _air.PROVIDERS else None
         img_ = _chat_image((body or {}).get('image'))
@@ -13571,12 +13579,39 @@ async def admin_ai_chat(request: Request):
                             print('ai auto-small:', str(e_)[:80])
                 _json_save(AI_PROPOSALS_PATH, _chat['props'])
                 ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-proposals', f"{len(new)} proposed by {res.get('label')}: " + ' · '.join(f"{p_['kind']} {p_['key']}" for p_ in new)[:200]); _admin_save(ad_)
-        _chat['th'] = _aic.push_thread(_aic.push_thread(_chat['th'], mode, 'user', text, {'img': img_[0]} if img_ else None), mode, 'assistant', reply or 'no provider answered', {'mode': mode, 'ms': res.get('ms'), 'provider': res.get('label')})
+        if not reply and data_ and data_['state'] == 'NO HISTORY':
+            reply = f"Insufficient evidence: FEELESS has no records for {data_.get('window') or 'that window'} — " + '; '.join(data_['gaps'][:3])
+        _chat['th'] = _aic.push_thread(_aic.push_thread(_chat['th'], mode, 'user', text, {'img': img_[0]} if img_ else None), mode, 'assistant', reply or 'no provider answered', {'mode': mode, 'ms': res.get('ms'), 'provider': res.get('label'), **({'data': data_} if data_ else {})})
         _chat_persist()
-        return {'ok': bool(reply), 'mode': mode, 'routed': mode != asked, 'reply': reply, 'provider': res.get('label'), 'model': res.get('model'), 'ms': res.get('ms'), 'tokens': res.get('usage'), 'history': _chat['th'].get(mode) or [], **_chat_extra(),
+        return {'ok': bool(reply), 'mode': mode, 'routed': mode != asked, 'reply': reply, 'data': data_, 'provider': res.get('label'), 'model': res.get('model'), 'ms': res.get('ms'), 'tokens': res.get('usage'), 'history': _chat['th'].get(mode) or [], **_chat_extra(),
                 'new': [p_['id'] for p_ in new], 'refused': refused, 'proposals': _aic.view(_chat_props()), 'why': res.get('why'), 'learned': _chat_learned()}
     finally:
         _chat['busy'] = False
+
+
+import chat_evidence as _cev
+_cev_cache: dict = {}
+
+
+def _chat_evidence(question, now):
+    """📚 The evidence packet for one chat question (chat_evidence.packet over the archive, the full ledger, the Judge's reviews, the real
+    card's events and the live decision tape) — cached 60s per window, run in a worker thread so the chat and the desk never wait on it."""
+    w = _cev.window(question, now)
+    key = (w['label'], int(w['from'] // 60), int(w['to'] // 60))
+    hit = _cev_cache.get(key)
+    if hit and now - hit[0] < 60:
+        pk, st = hit[1]
+        return {**pk, 'question': str(question)[:300]}, st
+    tid = _office.get('tid') or 'degen'
+    card = (((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(tid) or {})
+    rows = list(_tk.KERNEL.tape.rows)
+    pk, st = _cev.packet(question, w, (_json_load(ARCHIVE_PATH, {}) or {}).get('positions'), _fw_full_ledger(), ((_office_state().get('judge') or {}).get('reviews')) or [],
+                         card.get('events') or [], rows, min((_fuse._f(r.get('at')) for r in rows), default=now), tid)
+    pk = _cev.shrink(pk, _air.EVIDENCE_MAX - 200)
+    if len(_cev_cache) > 20:
+        _cev_cache.clear()
+    _cev_cache[key] = (now, (pk, st))
+    return pk, st
 
 
 def _chat_learned():

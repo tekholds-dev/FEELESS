@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AiChat, metaLine, CHAT_MODES } from './AiChat';
+import { AiChat, metaLine, CHAT_MODES, DataChip } from './AiChat';
 
 jest.mock('sonner', () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
 const mockHub = { hubApply: jest.fn(), hubLoad: jest.fn() };
@@ -195,4 +195,13 @@ test('💻 local boost: the ⚙ switch posts localBoost, the header wears BOOST 
   expect(q(el, 'cch-watch').textContent).toContain('31 local reads in 24h'); expect(q(el, 'cch-watch').querySelectorAll('i').length).toBe(2);
   await act(async () => { q(el, 'cch-boost').click(); });
   expect(call).toHaveBeenCalledWith('/admin/ai/chat/settings', expect.objectContaining({ body: JSON.stringify({ localBoost: false }) }));
+});
+
+test('DATA chip says where the answer came from and what is missing', async () => {
+  const el = await mount(<div><DataChip d={{ state: 'LIVE FEELESS', window: 'last night', exits: 41, gaps: [] }} /><DataChip d={{ state: 'NO HISTORY', gaps: ['no real exits in this window', 'no Judge reviews'] }} /></div>);
+  const [a, b] = el.querySelectorAll('[data-testid="cch-data"]');
+  expect(a.textContent).toBe('DATA: LIVE FEELESS · last night · 41 real exits');
+  expect(a.className).toContain('is-live');
+  expect(b.className).toContain('is-none');
+  expect(b.getAttribute('data-tip')).toContain('no Judge reviews');
 });

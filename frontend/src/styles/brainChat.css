@@ -31,6 +31,8 @@
 .cch-log::-webkit-scrollbar { width: 6px; } .cch-log::-webkit-scrollbar-thumb { background: var(--br); border-radius: 3px; }
 .cch-msg { position: relative; display: grid; gap: 2px; max-width: 92%; padding: 7px 10px 6px; border-radius: 12px; font: 600 11.5px/1.5 var(--m-mono); color: var(--m-text); }
 .cch-msg.is-fresh { animation: cchIn .18s var(--m-ease, ease-out); }   /* only what you just sent + its answer — a mode / pane switch never replays the thread */
+.cch-data { display: inline-block; margin-top: 4px; font: 800 8.5px var(--m-mono); font-style: normal; letter-spacing: .08em; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; }
+.cch-data.is-live { color: #45e486; } .cch-data.is-part { color: var(--gold, #f5c451); } .cch-data.is-none { color: #ff8fa3; }
 .cch-talkpane { display: flex; flex-direction: column; gap: 8px; min-height: 0; } .cch-talkpane[hidden] { display: none; } .cch-talkpane > .cch-main { flex: 1; }
 .cch-msg > small { font: 800 7.5px var(--m-mono); letter-spacing: .14em; color: var(--m-mute); } .cch-msg > span { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
 .cch-msg.is-user { align-self: flex-end; background: rgba(21, 209, 106, .12); border: 1px solid color-mix(in srgb, var(--br2) 40%, transparent); border-bottom-right-radius: 3px; }
