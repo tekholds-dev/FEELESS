@@ -8711,7 +8711,8 @@ async def _real_guard_loop():
                             for tid_, c_ in list(cs_.items()):
                                 if not (c_ and c_.get('real')):
                                     continue
-                                hits_ = _of.fast_reap(c_.get('legs'), px, _office.get('pos') or {}, now, _office_state())
+                                hits_ = _of.fast_reap(c_.get('legs'), px, _office.get('pos') or {}, now, _office_state(), prev=_reap_prev)
+                                _reap_prev.update({m_: (now, _fuse._f(v_)) for m_, v_ in (px or {}).items() if _fuse._f(v_) > 0})   # 🕯 the last live read per coin (spike confirm)
                                 nw_ = c_
                                 for pair_, why_ in hits_:
                                     try:
@@ -10318,6 +10319,22 @@ async def _prime_tick_inner(now):
                     _office['armed'] = {'at': now, 'n': len(arm_), 'syms': [c_.get('symbol') for c_ in arm_]}
                 except Exception as e:
                     print('armed fill:', str(e)[:120])
+            if not plan_ and empty_n and not pol_['manual'] and rd_['live'] and not seat_ctx_['halt'] and seat_ctx_['courier'] != 'BAD' and used_ < _uni.FILL_MOVES_HR and cfg_t.get('agentValve', True):
+                # 🪫 THE PATIENCE VALVE: an empty seat never sits all morning — after 10 min with nothing READY or armed, ONE chart-held coin
+                # (wait for confirmation / breakout only) at the smallest seat, once per 15 min; it closes itself when its own record loses
+                try:
+                    vrec_ = _oe.valve_record(_real_trades())
+                    v_ = _oe.valve_fill([c_ for c_ in (_tk.KERNEL.candidate(x_['mint']) for x_ in cases_ if x_['status'] == 'CONTENDING') if c_ and not _fw.dollar_named(c_.get('symbol'))],
+                                        cur.get('agentEmptyAt'), now, cur.get('agentValveAt'), blk_, vrec_)
+                    for c_ in v_:
+                        c_.update(tier='C', opp=c_['rank'], armed=True, valve=True, size=min(_fuse._f(c_.get('size')) or 1, _oe.VALVE_SIZE),
+                                  nearReady=f"🪫 VALVE · seat empty {int((now - _fuse._f(cur.get('agentEmptyAt'))) // 60)} min · the chart said {c_.get('chartCall', '').lower()} · smallest seat")
+                    if v_:
+                        cur['agentValveAt'] = now
+                    plan_ = plan_ + v_
+                    _office['valve'] = {'at': now, 'n': len(v_), 'syms': [c_.get('symbol') for c_ in v_], 'record': vrec_}
+                except Exception as e:
+                    print('valve fill:', str(e)[:120])
             if plan_:   # 🌊 THE TAPE DECIDES THE MOMENT: each coin about to take a seat is read on its last 90s of real swaps — never into sellers, never at the top of a spike; a crowd buying goes first
                 try:
                     fl_ = await _flow_fetch([t_.get('pair') for t_ in plan_ if t_.get('pair')])
@@ -10377,8 +10394,8 @@ async def _prime_tick_inner(now):
                         continue
                     cur = _prime.agent_seat(cur, {'mint': t_['mint'], 'symbol': t_['symbol'], 'pairAddress': t_['pair'], 'price': t_['px'], 'liquidityUsd': (t_.get('nums') or {}).get('liq'), 'trench': t_['trench'], 'curve': bool((t_.get('vitals') or {}).get('curve') and cfg_t.get('agentCurve')),
                                                   'ageH': (t_.get('vitals') or {}).get('ageH'), 'vol1h': (t_.get('vitals') or {}).get('vol1h'), 'buyShare': (t_.get('nums') or {}).get('buy'),
-                                                  'tag': '🤖 agents · ⚡ READY (kernel)' if not t_.get('armed') else '🤖 agents · 🎯 ARMED (seat target)', 'why': t_['nearReady']}, px, cfg_s, now,
-                                          max_usd=wd_['allowed'] * (_cap.armed_size(_capital_view()) if t_.get('armed') else 1.0))   # 🎯 an armed fill: half — the full size once the ARMED door's own real record proves it
+                                                  'tag': '🤖 agents · ⚡ READY (kernel)' if not t_.get('armed') else '🤖 agents · 🪫 VALVE (empty seat)' if t_.get('valve') else '🤖 agents · 🎯 ARMED (seat target)', 'why': t_['nearReady']}, px, cfg_s, now,
+                                          max_usd=wd_['allowed'] * (_oe.VALVE_SIZE if t_.get('valve') else _cap.armed_size(_capital_view()) if t_.get('armed') else 1.0))   # 🎯 an armed fill: half — the full size once the ARMED door's own real record proves it
                     used_ += 1; cur['agentDutyAt'] = now; cur['agentFillAt'] = now
                     _ai.setdefault('fillQ', {})[t_['mint']] = now
                     _regret_note(t_['mint'], 'taken', _fuse._f(t_.get('px')), t_.get('symbol'))   # 😴 the baseline every blocked coin is graded against   # 📍 the model reads this coin once more AT the fill (record only — it never undoes a buy)
@@ -13668,8 +13685,9 @@ def _chat_image(url):
 
 
 def _build_state():
-    if _chat.get('build') is None:
-        _chat['build'] = _json_load(BUILD_QUEUE_PATH, {}) or {}
+    """The build queue as it is ON DISK (parsed once per file version): the next engineering session marks items shipped in the file, and a
+    copy kept in memory used to be saved back over that (b7–b10 came back 'queued')."""
+    _chat['build'] = _json_load(BUILD_QUEUE_PATH, {}) or {}
     return _chat['build']
 
 
@@ -14737,7 +14755,7 @@ def _capital_view():
     rc = _prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
     try:
         money = _agents.get('money') or {}
-        hrs = {int(k): _fuse._f(x) for k, x in (_office_state().get('peaks') or {}).items() if time.time() - int(k) * 3600 <= 86400}
+        hrs = {int(k): _fuse._f(x) for k, x in (_office_state().get('peaks') or {}).items() if time.time() - int(k) * 3600 <= _cap.BRAKE_HOURS * 3600}
         return _cap.view(_real_trades(), int(_fuse._f(rc.get('agentSeats') or rc.get('coins') or 4)) or 4, rc.get('agentCapital'), money.get('value'), max(hrs.values()) if hrs else None)
     except Exception as e:
         print('capital:', e)
@@ -14858,13 +14876,29 @@ def _taught_stamp(table, now):
                  for l in legs_ if l.get('mint') and not l.get('placeholder')]
         held_m = {h['mint'] for h in held_}
         seen_ = _trl.recent(held_, (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or [], now, hrs)
+        chrs_ = (rules.get('clone') or {}).get('hours', 24)
+        traded_ = [(h['symbol'], h['mint']) for h in held_ if h.get('symbol')] + [(r_.get('symbol'), r_.get('mint')) for r_ in _fw_full_ledger()[-1500:]
+                   if r_.get('card') == _office.get('tid') and r_.get('side') == 'buy' and r_.get('status') == 'filled' and r_.get('symbol') and now - _fuse._f(r_.get('at')) <= chrs_ * 3600]
         out, cnt, ex = {}, {}, {}
+        miss_ = []
+        for r_ in table or []:   # 🔗 the creator's own links from Pump's record ride on the row (the panel's socials icons read them)
+            pl_ = (_PUMP_LINKS.get(r_.get('mint')) or (0, None))[1]
+            if pl_ is None and str(r_.get('mint') or '').endswith('pump'):
+                miss_.append(r_['mint'])
+            for k_, u_ in (pl_ or {}).items():
+                if not (isinstance(r_.get(k_), str) and r_[k_].startswith('http')):
+                    r_[k_] = u_
+        if miss_:
+            try:
+                asyncio.get_running_loop().create_task(_pump_links_warm(miss_[:PUMP_LINKS_PER_PASS]))
+            except RuntimeError:
+                pass
         for r_ in table or []:
             if not r_.get('mint') or r_['mint'] in held_m:
                 r_.pop('taught', None)
                 continue
             full_ = (_office.get('charts') or {}).get(r_['mint'])   # the row carries a compact chart; the candle features live in the shared snapshot
-            h_ = _trl.hits({**r_, 'chart': full_} if full_ else r_, rules, seen_)
+            h_ = _trl.hits({**r_, 'chart': full_} if full_ else r_, rules, seen_, traded_, table)
             if h_:
                 r_['taught'] = h_
                 out[r_['mint']] = h_
@@ -15030,6 +15064,9 @@ async def _coach_ai(now, env, cfg):
     except Exception as e:
         print('coach ai:', str(e)[:120])
         return 0
+
+
+_reap_prev: dict = {}   # mint → (at, px): the fast stop guard's previous live read (office.spike_held)
 
 
 def _agent_blocked(card, now):
@@ -15912,7 +15949,7 @@ def _office_ctx(cur, t_, now):
     """What the Warden is shown: the card's own money, the candidate's measured numbers, the weather and the courier's health."""
     v, n = t_.get('vitals') or {}, t_.get('nums') or {}
     st = _office_state()
-    hrs = {int(k): _fuse._f(x) for k, x in (st.get('peaks') or {}).items() if now - int(k) * 3600 <= 86400}
+    hrs = {int(k): _fuse._f(x) for k, x in (st.get('peaks') or {}).items() if now - int(k) * 3600 <= _cap.BRAKE_HOURS * 3600}
     money = _agents.get('money') or {}
     return {'value': money.get('value'), 'putIn': money.get('putIn'), 'peak': max(hrs.values()) if hrs else None, 'cash': max(0.0, _fuse._f(cur.get('cash')) - _fuse._f(cur.get('holdCashUsd'))),
             'seats': len(cur.get('legs') or []), 'liq': n.get('liq') or v.get('liq'), 'ageH': v.get('ageH'), 'd5': n.get('d5'), 'top10': v.get('top10'),
@@ -16437,7 +16474,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         print('fresh:', e)
     _office['payload']['performance']['passMs'] = round(sum(_fuse._f(ms.get(a)) for a in _of.CHAIN), 2)
     _tape_ledger(now)
-    _office['payload'].update(tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now), ai=_ai_view(now, light=True), net=_net_stats(now), armed=_office.get('armed'), lab=_lab_view(now), regret=_rg.view(_regret_book(), now), capital=_capital_view(), trail=_office.get('trail'), teach={**_tch.view(_teach_state()), 'rules': _taught_view()},
+    _office['payload'].update(tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now), ai=_ai_view(now, light=True), net=_net_stats(now), armed=_office.get('armed'), valve=_office.get('valve'), lab=_lab_view(now), regret=_rg.view(_regret_book(), now), capital=_capital_view(), trail=_office.get('trail'), teach={**_tch.view(_teach_state()), 'rules': _taught_view()},
                               universe={'capUsd': _uni.band()[1], 'minCapUsd': _uni.band()[0], 'word': _uni.band_word(), 'maxAgeH': _uni.limits()['maxAgeH'], 'minVol1h': _uni.limits()['minVol'], 'pumpTrend': _uni.limits()['trend'], 'trendingN': _uni.limits()['trendingN'], 'inLane': len(_agents.get('table') or []),
                                         'board': (_office.get('intake') or {}).get('board'), 'mints': len(_tk.KERNEL.store.mints)})
     _hub_publish(now)   # 📡 this pass as DELTAS: only what changed since the last one
@@ -16584,7 +16621,7 @@ async def admin_agents_set(request: Request):
     ch = {}
     if 'feed' in body:
         ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital', 'agentAiGate') + _oe.POLICY_KEYS:
+    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital', 'agentAiGate', 'agentValve') + _oe.POLICY_KEYS:
         if k in (body.get('cfg') or {}):
             ch[k] = body['cfg'][k]
     if ch:

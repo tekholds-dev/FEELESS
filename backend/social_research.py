@@ -239,7 +239,14 @@ def x_read(html, url, mint, now=None):
     web = next((h for h in links_in(html)['hrefs'] if h.startswith('http') and not X_RE.match(h) and 't.co/' not in h), None)
     last = max([p['at'] for p in posts if p['at']] or [_iso(t) for t in times if _iso(t)] or [None]) if (posts or times) else None
     st = next((h for h in links_in(html)['hrefs'] if re.search(r'/status/\d+', h)), None)   # the direct link of the newest visible post (proof of activity)
-    return {'url': url, 'available': bool(name or bio or posts), 'name': name, 'bio': (bio or '')[:280] or None, 'followers': _count(fol.group(1)) if fol else None,
+    jm = re.search(r'Joined\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})', _text(html))
+    joined = None
+    if jm:
+        try:
+            joined = time.mktime(time.strptime(f"1 {jm.group(1)} {jm.group(2)}", '%d %B %Y'))   # 𝕏 account age: the month it joined
+        except Exception:
+            joined = None
+    return {'joined': joined, 'url': url, 'available': bool(name or bio or posts), 'name': name, 'bio': (bio or '')[:280] or None, 'followers': _count(fol.group(1)) if fol else None,
             'following': _count(fng.group(1)) if fng else None, 'posts': posts, 'lastPostAt': last, 'mintMentioned': bool(mint and mint in (html or '')), 'website': web,
             'postUrl': None if not st else ('https://x.com' + st if st.startswith('/') else st)}
 
@@ -445,8 +452,8 @@ def packet(row, site, x, now, tg=None, search=None, legal=None):
     ev = evidence(r, site, x, legal, now, tg)
     return {'at': now, 'mint': r.get('mint'), 'symbol': r.get('symbol'), 'identity': {'name': r.get('name'), 'symbol': r.get('symbol'), 'mint': r.get('mint'),
             'launchpad': (r.get('launch') or {}).get('pad'), 'stage': (r.get('launch') or {}).get('type')},
-            'website': None if not site else {k: site.get(k) for k in ('url', 'reachable', 'title', 'description', 'mintShown', 'mintMatch', 'mints', 'mintExcerpt', 'x', 'tg', 'docs')},
-            'x': None if not x else {k: x.get(k) for k in ('url', 'available', 'name', 'bio', 'followers', 'following', 'lastPostAt', 'mintMentioned', 'website', 'postUrl')} | {'posts': (x.get('posts') or [])[:3]},
+            'website': None if not site else {k: site.get(k) for k in ('url', 'reachable', 'title', 'description', 'mintShown', 'mintMatch', 'mints', 'mintExcerpt', 'x', 'tg', 'docs', 'domain')},
+            'x': None if not x else {k: x.get(k) for k in ('url', 'available', 'name', 'bio', 'followers', 'following', 'lastPostAt', 'mintMentioned', 'website', 'postUrl', 'joined')} | {'posts': (x.get('posts') or [])[:3]},
             'tg': tg, 'search': (search or [])[:5], 'cross': {**cc, 'launchMint': r.get('mint'), 'sourceMint': (site or {}).get('mints', [None])[0] if (site or {}).get('mints') else None,
                                                                'sourceUrl': (site or {}).get('url')},
             'narrative': {'class': cls, 'confidence': conf, 'keywords': kw, 'sources': narrative_sources(cls, srcs)},
@@ -563,7 +570,58 @@ def search_url(q):
     return 'https://html.duckduckgo.com/html/?q=' + quote_plus(q)
 
 
-async def research(row, fetch=fetch_dom, now=None, cache_search=None):
+FREE_HOSTS = ('vercel.app', 'netlify.app', 'github.io', 'linktr.ee', 'carrd.co', 'pages.dev', 'web.app', 'firebaseapp.com', 'wixsite.com', 'framer.website',
+              'notion.site', 'gitbook.io', 'webflow.io', 'replit.app', 'onrender.com', 'pump.fun', 'x.com', 'twitter.com', 't.me', 'medium.com', 'beehiiv.com')
+_RDAP: dict = {}   # registered domain → (at, read): a domain's age does not change, one read a day
+
+
+def reg_domain(url):
+    """https://www.app.coin.xyz/x → 'coin.xyz' (the registered name RDAP knows); a free host → None (its age says nothing about the coin)."""
+    h = _host(url)
+    if not h or any(h == f or h.endswith('.' + f) for f in FREE_HOSTS):
+        return None
+    parts = h.split('.')
+    return '.'.join(parts[-3:]) if len(parts) >= 3 and len(parts[-2]) <= 3 and len(parts[-1]) == 2 else '.'.join(parts[-2:])
+
+
+def domain_read(rdap, now=None):
+    """An RDAP answer → {created (epoch), ageDays, registrar}; nothing readable → None."""
+    now = time.time() if now is None else now
+    d = rdap if isinstance(rdap, dict) else {}
+    reg = next((e.get('eventDate') for e in d.get('events') or [] if str(e.get('eventAction') or '').lower() == 'registration'), None)
+    at = _iso(reg) if reg else None
+    if not at:
+        return None
+    rr = next((x for x in d.get('entities') or [] if 'registrar' in (x.get('roles') or [])), {})
+    name = next((v[3] for v in ((rr.get('vcardArray') or [None, []])[1] or []) if isinstance(v, list) and len(v) > 3 and v[0] == 'fn'), None)
+    return {'created': at, 'ageDays': round(max(0.0, now - at) / 86400, 1), 'registrar': str(name)[:60] if name else None}
+
+
+async def domain_age(url, now=None):
+    """🌐 How old the coin's website DOMAIN is (public RDAP, one bounded read, cached a day). A free host → {'free': host}."""
+    dom = reg_domain(url)
+    if not dom:
+        return {'free': _host(url)} if _host(url) else None
+    hit = _RDAP.get(dom)
+    if hit and time.time() - hit[0] < 86400:
+        return hit[1]
+    out = None
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=6, follow_redirects=True, headers={'Accept': 'application/rdap+json'}) as http:
+            r = await http.get(f'https://rdap.org/domain/{dom}')
+            out = domain_read(r.json(), now) if r.status_code == 200 else None
+    except Exception:
+        out = None
+    if out:
+        out['domain'] = dom
+    if len(_RDAP) > 2000:
+        _RDAP.clear()
+    _RDAP[dom] = (time.time(), out)
+    return out
+
+
+async def research(row, fetch=fetch_dom, now=None, cache_search=None, rdap=domain_age):
     """One coin: its own links first (website · X), ONE search only when it carries no link. → (packet, requests made). `fetch` is
     injected (tests hand in fixtures)."""
     now = now or time.time()
@@ -592,10 +650,20 @@ async def research(row, fetch=fetch_dom, now=None, cache_search=None):
     if lk:   # ⚖️ ONE bounded read: the legal / terms page the project itself links (never a registry, never a crawl)
         h = await fetch(lk); n += 1
         legal = legal_read(h, lk, r.get('mint'))
+    if site and site.get('reachable') and rdap:
+        try:
+            site['domain'] = await rdap(site.get('url'), now)   # 🌐 how old the website's domain is (a 5-day-old domain is a launch-week site)
+        except Exception:
+            site['domain'] = None
     p = packet(r, site, x, now, tg=r.get('tg'), search=search, legal=legal)
     p['failed'] = bool((r.get('site') or r.get('x')) and not ((site or {}).get('reachable') or (x or {}).get('available')))
     p['requests'] = n
     return p, n
+
+
+def ago_word(days):
+    d = _f(days)
+    return f"{max(1, round(d * 24))}h" if d < 1 else f"{round(d)}d" if d < 60 else f"{round(d / 30)}mo" if d < 730 else f"{round(d / 365)}y"
 
 
 def report(p, now=None):
@@ -615,7 +683,11 @@ def report(p, now=None):
     else:
         mm = s.get('mintMatch')
         st, w = ('MATCH', 'shows THIS exact CA') if mm == 'yes' else ('MISMATCH', f"shows ANOTHER CA ({(s.get('mints') or ['?'])[0][:6]}…)") if mm == 'no' else ('FOUND', 'loads · no CA on the page')
-        ch.append({'k': 'site', 'icon': '🌐', 'state': st, 'word': w, 'url': s['url'], 'detail': ' — '.join(x for x in (s.get('title'), s.get('description')) if x)[:160] or None})
+        dm = s.get('domain') or {}
+        age = ago_word(dm.get('ageDays')) if dm.get('ageDays') is not None else None
+        ch.append({'k': 'site', 'icon': '🌐', 'state': st, 'word': w, 'url': s['url'], 'detail': ' — '.join(x for x in (s.get('title'), s.get('description')) if x)[:160] or None,
+                   'age': (f"domain {age} old" if age else f"free host ({dm['free']}) — no domain age" if dm.get('free') else None), 'young': bool(dm.get('ageDays') is not None and dm['ageDays'] < 14),
+                   'ageDays': dm.get('ageDays'), 'registrar': dm.get('registrar')})
     if not xx.get('url'):
         ch.append({'k': 'x', 'icon': '𝕏', 'state': 'NONE', 'word': 'no X set'})
     elif not xx.get('available'):
@@ -628,15 +700,27 @@ def report(p, now=None):
             h = max(0.0, (now - _f(xx['lastPostAt'])) / 3600)
             bits.append(f"last post {int(h * 60)}m ago" if h < 1 else f"last post {h:.0f}h ago")
         bits.append('mentions this CA' if xx.get('mintMentioned') else 'CA not mentioned')
-        ch.append({'k': 'x', 'icon': '𝕏', 'state': 'MATCH' if xx.get('mintMentioned') else 'FOUND', 'word': ' · '.join(bits), 'url': xx.get('postUrl') or xx['url'],
-                   'detail': (xx.get('bio') or '')[:140] or None})
+        jd = (now - _f(xx['joined'])) / 86400 if xx.get('joined') else None
+        post = next((q.get('text') for q in xx.get('posts') or [] if q.get('text')), None)
+        ch.append({'k': 'x', 'icon': '𝕏', 'state': 'MATCH' if xx.get('mintMentioned') else 'FOUND', 'word': ' · '.join(bits), 'url': xx['url'], 'postUrl': xx.get('postUrl'),
+                   'detail': (xx.get('bio') or '')[:140] or None, 'post': (post or '')[:160] or None,
+                   'age': f"account {ago_word(jd)} old" if jd is not None else None, 'young': bool(jd is not None and jd < 31), 'ageDays': round(jd, 1) if jd is not None else None})
     tg = (p.get('tg') or {}).get('url') if isinstance(p.get('tg'), dict) else None
     tg = tg or next((f'https://t.me/{h}' for h in s.get('tg') or []), None)
     ch.append({'k': 'tg', 'icon': '💬', 'state': 'FOUND', 'word': 'Telegram linked', 'url': tg} if tg else {'k': 'tg', 'icon': '💬', 'state': 'NONE', 'word': 'no Telegram'})
+    lg = p.get('legal') or {}
+    if lg.get('level'):
+        ch.append({'k': 'legal', 'icon': '⚖️', 'state': {'NONE': 'NONE', 'WEAK': 'FOUND', 'PARTIAL': 'MATCH'}.get(lg['level'], 'FOUND'),
+                   'word': f"registry / legal: {lg['level']}" + (f" — {', '.join(lg.get('labels') or [])[:90]}" if lg.get('labels') else ''),
+                   'url': next((x.get('url') for x in lg.get('sources') or [] if isinstance(x, dict) and x.get('url')), None),
+                   'detail': ' · '.join(x for x in (lg.get('entity'), lg.get('jurisdiction'), lg.get('regRef')) if x) or None})
     flags = list(cr.get('flags') or [])
+    young = [c for c in ch if c.get('young')]
+    for c in young:
+        flags.insert(0, f"⚠ {'website domain' if c['k'] == 'site' else 'X account'} is only {c['age'].split(' ', 1)[1].replace(' old', '')} old")
     if cr.get('siteLinksX') is True:
         flags.insert(0, '✓ the site links this same X')
-    st = {c['k']: c['state'] for c in ch}
+    st = {c['k']: c['state'] for c in ch if c['k'] in ('site', 'x', 'tg')}
     if cr.get('conflict') or cr.get('copycat') or st['site'] == 'MISMATCH':
         grade = 'CONFLICT'
     elif st['site'] == 'MATCH' and st['x'] in ('MATCH', 'FOUND', 'HIDDEN'):
@@ -650,5 +734,6 @@ def report(p, now=None):
     words = {'CONFLICT': '⚠ the links point at another coin / account', 'STRONG': '✅ site shows this exact CA + an X is set',
              'OK': '🟡 real links, partial proof', 'THIN': '🟠 links only, nothing proves they are this coin', 'NONE': '🚫 no site, X or Telegram'}
     narr = (p.get('narrative') or {}).get('class')
-    return {'grade': grade, 'line': words[grade], 'ch': ch, 'flags': flags[:4], 'narr': narr if narr and narr != 'UNKNOWN' else None,
+    links = {c['k']: c['url'] for c in ch if c['k'] in ('site', 'x', 'tg') and c.get('url')}
+    return {'grade': grade, 'line': words[grade] + (' · a launch-week site / account' if young and grade != 'CONFLICT' else ''), 'ch': ch, 'flags': flags[:5], 'links': links, 'young': bool(young), 'narr': narr if narr and narr != 'UNKNOWN' else None,
             'conf': cr.get('confidence'), 'ageMin': round(max(0.0, now - _f(p.get('at'))) / 60) if p.get('at') else None}

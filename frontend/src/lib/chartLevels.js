@@ -91,3 +91,12 @@ export function spreadTags(ys, h, gap = TAG_GAP) {
   }
   return out;
 }
+
+/** 📐 The prices the chart's own scale must keep on screen (owner, 2026-10-14: "chart entry etc needs fix" — the BUY at $34.71K sat above a
+ *  $34.16–34.60K scale, so its line was gone and its chip floated over the vitals badge): your entry + your stop, each only when it is within
+ *  `span` of the live price (a level 3× away would flatten the candles into a line). Pure. */
+export function scaleKeep(levels, last, span = 0.35) {
+  const l = Number(last);
+  if (!(l > 0)) return [];
+  return (levels || []).filter(r => r && r.px > 0 && (/^(entry|you|stop)$/.test(r.id) || /entry|stop/i.test(r.title || '')) && Math.abs(r.px / l - 1) <= span).map(r => r.px);
+}

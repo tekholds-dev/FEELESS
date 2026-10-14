@@ -518,6 +518,7 @@ def clean_cfg(p):
     out['agentPaper'] = bool((p or {}).get('agentPaper', True))
     out['agentOpen'] = bool((p or {}).get('agentOpen', False))   # ⚡ owner's switch: volume + newness only, every empty seat filled
     out['chartWait'] = bool((p or {}).get('chartWait', True))   # 🎯 a real seat needs the chart's own ENTER NOW (off = the regret ledger / owner let WAIT charts in)
+    out['agentValve'] = bool((p or {}).get('agentValve', True))   # 🪫 patience valve (office_edge.valve_fill): an empty seat never sits all morning
     out['agentCapital'] = bool((p or {}).get('agentCapital', True))   # 💰 capital desk (capital.py): agent seats sized by their own real record — smallest while it loses, half-Kelly once winning is proven
     out['agentAiGate'] = bool((p or {}).get('agentAiGate', True))   # 🛂 the model reads a coin BEFORE it takes a real seat; a strong, specific CAUTION waits (graded by the regret ledger, which may switch it off)
     out['agentControl'] = bool((p or {}).get('agentControl', False))   # 🎮 the agents control EVERY seat of the real card (the engine's own doors are off)

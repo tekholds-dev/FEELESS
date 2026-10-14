@@ -329,7 +329,7 @@ function DecisionPanel({ o, dec, pos, cand, mint, seats, readyN, agent, setAgent
         <b data-testid="ack-kernel-verdict">{dec.verdict || '—'}</b>{dec.rule ? <span className="ack-rule">{dec.rule}{dec.obeying ? ` · obeying ${dec.obeying}` : ''}</span> : null}</div>
       {dec.kernel ? <div className="ack-rank" data-tip={`READY needs Trigger ENTER + inside the hard wall + execution healthy + rank ≥ ${READY_MIN}`}><small>SCORE vs THE BUY LINE ({READY_MIN}) — over it + every check passed = the agents buy</small>
         <span className="ack-bar"><i style={{ transform: `scaleX(${rankFill(dec.kernel.rank)})` }} /><u /></span><em>{dec.kernel.rank ?? '—'}</em></div> : null}
-      {cand ? <VitalBoard c={cand} rules={o?.teach?.rules} call={call} isOwner={isOwner} /> : null}
+      {cand || pos ? <VitalBoard c={cand || { mint, symbol: dec?.symbol }} pos={pos} rules={o?.teach?.rules} call={call} isOwner={isOwner} /> : null}
       {(dec.reasons || []).length ? <><b className="ack-sub">WHY</b><ul className="ack-why" data-testid="ack-why">{dec.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul></> : null}
       <div className="ack-ptiles">
         <Tile l="CHART DATA" v={pos?.quality || pos?.data?.state || dec.chart?.quality || '—'} sub={pos?.data?.conf != null ? `${pos.data.conf}% data conf` : pos?.structure || null} />

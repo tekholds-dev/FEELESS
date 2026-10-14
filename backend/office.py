@@ -482,7 +482,7 @@ def take_info(cfg, scalp=None):
 
 
 OBEY = {'R4f': 'flow exit (sellers took over)', 'R4c': 'flow exit (buying climax)', 'R11x': 'dead coin exit', 'R7b': 'trailing protection', 'R11': 'dead coin swap', 'R4e': 'hard safety exit', 'R5c': 'creator stop-loss', 'R9c': 'creator max hold', 'R1': 'hard safety exit', 'R2': 'hard safety exit', 'R3': 'hard safety exit', 'R5x': 'hard safety exit', 'R4': 'invalidation exit', 'R5t': 'invalidation exit', 'R5': 'structure-aware stop',
-        'R6': 'take line', 'R7': 'trailing protection', 'R7s': 'trailing protection', 'R8': 'thesis review', 'R9': 'thesis review', 'R10': 'thesis hold', 'R0': 'waiting'}
+        'R6': 'take line', 'R7': 'trailing protection', 'R7s': 'trailing protection', 'R8': 'thesis review', 'R9': 'thesis review', 'R10': 'thesis hold', 'R10r': 'riding the volume', 'R0': 'waiting'}
 
 
 def reaper_replay(path, p, take):
@@ -506,6 +506,10 @@ def _li_snap(li, v=None):
     if not li:
         return None
     return {k: li.get(k) for k in ('phase', 'healthy', 'cls', 'first10', 'first25', 'early', 'trend', 'press', 'danger', 'rank', 'ageH', 'mcap', 'pump', 'ewp', 'vpm', 'bpm', 'fresh')}
+
+
+RIDE_GIVE = 50.0       # 🏄 while a real crowd is buying, the trail lets the coin give back this % of its peak (the normal trail ~35%)
+RIDE_HOLD_SEC = 90.0   # the ride outlives one quiet 90s window (the tape is read every 15s); past it the normal rules return
 
 
 def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_=None, tape=None, office=None, sized=None, charts=None, theses=None, pol=None, live=True, vels=None, margins=None, rug=None, press=None, real=False, flows=None):
@@ -572,6 +576,15 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             broke = _pos.broken_read(x)
         tp = (tape or {}).get(l.get('pairAddress'))
         fv_ = (flows or {}).get(l.get('pairAddress'))   # 🌊 the buy / sell vital (flow.vital) of this seat's last 90s — None = no fresh tape
+        # 🏄 RIDE THE VOLUME (owner, 2026-10-14: "we scalp fine but they don't know how to hold on real volume"): a green seat whose last 90s are a
+        # real crowd buying (BUYERS + hot = ≥ 8 distinct buyers, buys ≥ 1.3× sells) is NOT banked by the take line, the normal trail or a
+        # time window — it rides with a wide trail (RIDE_GIVE % of its peak). Stops, rug / drain / dump exits and "sellers took over" act as ever.
+        ride_ = bool(fv_ and fv_.get('state') == 'BUYERS' and fv_.get('hot') and pct > 0)
+        if ride_:
+            p['rideAt'] = now
+        elif p.get('rideAt') and now - _f(p['rideAt']) > RIDE_HOLD_SEC:
+            p.pop('rideAt', None)
+        riding_ = bool(p.get('rideAt')) and pct > 0
         ch = (charts or {}).get(m)
         if not p.get('thesis') and (theses or {}).get(m):
             p['thesis'] = dict((theses or {})[m])    # 🧾 the entry thesis: saved ONCE with the position (its own copy), never rewritten
@@ -652,19 +665,19 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev, act = 'EXIT INVALIDATED', 'R5 stop', f"{pct:+.1f}% ≤ −{stop:g}%" + (f" ({'; '.join((th.get('stopParts') or [])[:2])})" if th else ' (no thesis on file: the ceiling)'), 'pull'
         elif mine and live and dead_ and held >= DEAD_CASH_MIN and now - _f(p.get('deadSince') or now) >= DEAD_CASH_MIN * 60 and pct < take:   # 💀 dead 15 min: CASH beats a coin nobody trades — no replacement needed
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R11x dead coin → cash', f"{pct:+.1f}% — {dead_} for {round((now - _f(p.get('deadSince'))) / 60)} min; the seat refills from the live bench", 'pull'
-        elif pct >= take and not runs:
+        elif pct >= take and not runs and not riding_:
             st, rule, ev = 'TAKE', 'R6 take line', f"{pct:+.1f}% ≥ +{take:g}% ({tsrc} take) — the card's own take rule banks it"
         elif mine and rv and rv['verdict'] == 'invalid' and held >= 2:   # the reason it was bought is gone: out, green or red — P&L does not decide this
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R5t thesis invalidated', f"{pct:+.1f}% — entered on {th.get('structure')}; now {rv['why'][0]}", 'pull'
-        elif trail_on and p['peak'] >= arm and pct <= trail_line and pct >= MIN_KEEP:
+        elif trail_on and p['peak'] >= arm and pct <= trail_line and pct >= MIN_KEEP and not (riding_ and pct > p['peak'] * (1 - RIDE_GIVE / 100)):
             st, rule, ev, act = 'TAKE', ('R7v trail tightened' if tight < 1 else 'R7 trailing protection'), f"peaked {p['peak']:+.1f}%, now {pct:+.1f}% — " + (f"{_f(tr_.get('pct')) * tight:g} points off the peak (your trail" + (', tightened: P/L reversing)' if tight < 1 else ')') if tr_.get('mode') == 'custom' else f"gave back over {T('giveBackPct') * tight:g}% of it" + (' (tightened: P/L reversing)' if tight < 1 else '')), 'pull'
         elif mine and rs_ == 'BREAKING DOWN' and pct >= MIN_KEEP:   # ⚡ a green coin that just lost its invalidation line: banked now, not at the next window
             st, rule, ev, act = 'TAKE', 'R7b breakdown', f"{pct:+.1f}% and the price lost its invalidation line {inval_:.10g} — banked on the live chart", 'pull'
-        elif mine and rv and rv['verdict'] == 'weak' and 'lower high' in rv['why'][0] and pct >= MIN_KEEP and vl.get('state') != 'ACCELERATING':   # green is not a reason to keep holding — unless its P/L is still accelerating (the trail protects it: let a winner work)
+        elif mine and rv and rv['verdict'] == 'weak' and 'lower high' in rv['why'][0] and pct >= MIN_KEEP and vl.get('state') != 'ACCELERATING' and not riding_:   # green is not a reason to keep holding — unless its P/L is still accelerating (the trail protects it: let a winner work)
             st, rule, ev, act = 'TAKE', 'R7s structure turned', f"{pct:+.1f}% and {rv['why'][0]} — banked before it is given back", 'pull'
-        elif mine and live and not (runner_ and not (mg_ is not None and _f(mg_) >= _f(need_))) and rv and rv['window'] >= granted and rv['verdict'] == 'valid' and rv['window'] >= base_w and pct < take:   # a runner keeps its seat on time — only a clearly better challenger takes it   # ⏳ past its base hold a seat is EARNED, never kept by default
+        elif mine and live and not riding_ and not (runner_ and not (mg_ is not None and _f(mg_) >= _f(need_))) and rv and rv['window'] >= granted and rv['verdict'] == 'valid' and rv['window'] >= base_w and pct < take:   # a runner keeps its seat on time — only a clearly better challenger takes it   # ⏳ past its base hold a seat is EARNED, never kept by default
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R9e no extension earned', f"{rv['window']} of {granted} windows used, {pct:+.1f}% — {p.get('extWhy') or 'a winner earns extra time, this seat did not'}", 'pull'
-        elif mine and live and not runner_ and rv and rv['window'] >= granted and rv['verdict'] == 'weak' and pct < take:   # its windows are used up and the chart earned no more (time: LIVE only)
+        elif mine and live and not runner_ and not riding_ and rv and rv['window'] >= granted and rv['verdict'] == 'weak' and pct < take:   # its windows are used up and the chart earned no more (time: LIVE only)
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R9 windows used', f"{rv['window']} of {granted} five-minute windows used, {pct:+.1f}%, {rv['why'][0]}", 'pull'
         elif mine and live and held >= DEAD_HOLD_MIN and pct < take and dead_:   # 💀 nobody trades it / they can't read it any more: the seat goes to a coin people ARE trading (swap only — merge_reaper)
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R11 dead coin', f"{pct:+.1f}% after {held:.0f} min — {dead_} (swapped as soon as a replacement clears; cash after {DEAD_CASH_MIN:g} min dead)", 'pull'
@@ -672,6 +685,8 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev, act = 'TAKE', 'R8 momentum failed', f'{pct:+.1f}% and {broke} after {held:.0f} min — banked while it is still a gain', 'pull'
         elif mine and live and not runner_ and not th and held >= T('timeMaxMin') and broke and pct < take / 2:
             st, rule, ev, act = 'EXIT INVALIDATED', 'R9 time', f"{held:.0f} min held, {pct:+.1f}%, {broke} — no read left to wait on", 'pull'
+        elif riding_:
+            st, rule, ev = 'PROTECT', 'R10r riding the volume', f"{pct:+.1f}% · a real crowd is buying ({(fv_ or {}).get('why') or 'buyers lead the tape'}) — held past the take line; banks only {RIDE_GIVE:g}% off its peak {p['peak']:+.1f}% or when sellers take over"
         elif runs and pct >= take:   # AGENTS CHOOSE: past the base line the coin runs only while their read stays clean — the trail above banks it
             st, rule, ev = 'PROTECT', 'R6 take line', f"{pct:+.1f}% ≥ +{take:g}% (base take, AGENTS CHOOSE): they read it every pass — it runs while clean, the trail banks it under {max(MIN_KEEP, trail_line):+.1f}%" if trail_on and p['peak'] >= arm else f"{pct:+.1f}% ≥ +{take:g}% (base take, AGENTS CHOOSE): they read it every pass — it runs while clean"
         elif tp == 'dump':
@@ -1428,7 +1443,18 @@ def agent_cards(cards, ctx):
 FAST_GAP_PCT, FAST_GAP_SEC = 50.0, 90.0   # a > 50% "loss" in a coin's first 90s is a feed gap, never sold (same rule as arena_prime.fast_stop)
 
 
-def fast_reap(legs, px_by_mint, pos, now, office=None):
+SPIKE_PCT = 20.0      # a stop read that fell this far in ONE step from the previous read (≤ SPIKE_SEC old) waits one read to confirm
+SPIKE_SEC = 15.0
+
+
+def spike_held(mint, px, line_px, prev, now):
+    """🕯 One bad print never sells a seat (owner, 2026-10-14: "don't SL someone due to a glitchy chart"): the previous read was above the
+    stop line and ≤ 15s old, and this one is ≥ 20% under it → hold this read; the NEXT read (3s later) confirms a real dump."""
+    at, p0 = (prev or {}).get(mint) or (0.0, 0.0)
+    return bool(p0 > 0 and now - _f(at) <= SPIKE_SEC and px < p0 * (1 - SPIKE_PCT / 100) and p0 > line_px)
+
+
+def fast_reap(legs, px_by_mint, pos, now, office=None, prev=None):
     """→ [(pairAddress, why)] for agent coins the wallet holds that are AT Reaper's stop for them (`stopNow`, set on the position each
     tick) or the catastrophic −45%. Why (2026-10-11, 173 exits): agent seats carry no card stop and the card is held by the agents
     (`holdAll`), so `arena_prime.fast_stop` never ran for them — R5 stops set at −12…−25% filled at −18…−52% (sum −485% of −370%)."""
@@ -1445,6 +1471,8 @@ def fast_reap(legs, px_by_mint, pos, now, office=None):
         if dd <= -FAST_GAP_PCT and now - _f(l.get('at')) < FAST_GAP_SEC:
             continue
         line = min(stop, _ci.CATASTROPHIC_STOP)
+        if dd <= -line and spike_held(l.get('mint'), px, entry * (1 - line / 100), prev, now):
+            continue   # 🕯 a one-read cliff: confirmed (or not) by the next live read
         if dd <= -line:
             out.append((l.get('pairAddress'), f"☠ Reaper R5 stop (⚡ 6-second guard): {dd:+.1f}% ≤ −{line:g}%"))
             continue
@@ -1456,6 +1484,7 @@ def fast_reap(legs, px_by_mint, pos, now, office=None):
             out.append((l.get('pairAddress'), f"☠ Reaper R5t thesis invalidated (👁 live chart): {dd:+.1f}% — price under its invalidation line"))
             continue
         peak = max(_f(p.get('peak')), dd)
-        if peak >= tune(office, 'reaper', 'protectAt') and dd <= peak * (1 - tune(office, 'reaper', 'giveBackPct') / 100) and dd >= MIN_KEEP:
+        give = RIDE_GIVE if p.get('rideAt') and now - _f(p['rideAt']) <= RIDE_HOLD_SEC else tune(office, 'reaper', 'giveBackPct')   # 🏄 riding the volume: the wide trail
+        if peak >= tune(office, 'reaper', 'protectAt') and dd <= peak * (1 - give / 100) and dd >= MIN_KEEP:
             out.append((l.get('pairAddress'), f"☠ Reaper R7 trailing protection (👁 live chart): peaked {peak:+.1f}%, now {dd:+.1f}% — banked"))
     return out

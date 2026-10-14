@@ -1,86 +1,16 @@
-/* 🎨 Chart backgrounds (ChartBg.jsx): four live scenes behind the candles (2 Fuse, 2 calm). transform / opacity only. */
-.cbg { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; perspective: 900px; background: radial-gradient(ellipse at 50% 45%, #0b1a13 0%, #060b0a 70%); }
+/* 🎨 Chart backgrounds (ChartBg.jsx), all in the NEON TRENCH language (owner, 2026-10-14: "I like neon trench — all the others need to be redone"):
+   a dark stage, one neon accent `--c` that flips green ↔ pink on every REAL tick (CandleFx puts cfk-up / cfk-dn on the chart area; the value
+   SWITCHES, it is never animated), marks ≤ 28% opacity so the candles stay readable. transform / opacity only, hidden in fx-lite / reduced motion. */
+.cbg { --c: #45e486; --c2: #8fd3ff; --c3: #b388ff; position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; perspective: 900px;
+  background: radial-gradient(ellipse at 50% 100%, rgba(21, 209, 106, .08), transparent 60%), linear-gradient(180deg, #04070a 0%, #030806 100%); }
+.cfk-dn .cbg { --c: #ff8fa3; --c2: #ffb36b; }
 .chart-area.has-bg .candle-canvas { position: relative; z-index: 1; }
 .cbg-stage { position: absolute; inset: 0; transform-style: preserve-3d; }
-.cbg-mark { position: absolute; left: 50%; top: 46%; width: clamp(90px, 22%, 190px); aspect-ratio: 1; margin: 0; object-fit: contain; opacity: .2; transform: translate(-50%, -50%); filter: none; }
+.cbg-mark { position: absolute; left: 50%; top: 46%; width: clamp(90px, 22%, 190px); aspect-ratio: 1; margin: 0; object-fit: contain; opacity: .14; transform: translate(-50%, -50%); filter: none; }
 .cbg i, .cbg b, .cbg em, .cbg u { position: absolute; display: block; will-change: transform, opacity; font-style: normal; text-decoration: none; }
+/* a shared neon floor glow under the newer scenes */
+.cbg-glow { left: -10%; right: -10%; bottom: -20%; height: 50%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 22%, transparent), transparent); animation: cbgHorizon 4.2s ease-in-out infinite alternate; }
 
-/* 1 · ⚛ Fuse reactor: three gyroscope rings tumbling around the mark, ions orbiting */
-.cbg-reactor .cbg-stage { animation: cbgTilt 16s ease-in-out infinite alternate; }
-.cbg-ring { left: 50%; top: 46%; width: clamp(200px, 44%, 420px); aspect-ratio: 1; margin: calc(clamp(200px, 44%, 420px) / -2) 0 0 calc(clamp(200px, 44%, 420px) / -2); border-radius: 50%; border: 2px solid rgba(21, 209, 106, .34); box-shadow: 0 0 22px rgba(21, 209, 106, .16), inset 0 0 22px rgba(21, 209, 106, .1); animation: cbgGyro calc(9s + var(--i) * 4s) linear infinite; }
-.cbg-ring:nth-child(2) { border-color: rgba(69, 228, 134, .26); animation-name: cbgGyro2; } .cbg-ring:nth-child(3) { border-color: rgba(245, 196, 81, .22); animation-name: cbgGyro3; }
-.cbg-ion { left: 50%; top: 46%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: #45e486; box-shadow: 0 0 10px #15d16a; animation: cbgIon calc(5s + var(--i) * 1.1s) linear infinite; animation-delay: calc(var(--i) * -.9s); }
-.cbg-reactor .cbg-mark { animation: cbgBeat 3.2s ease-in-out infinite; }
-
-/* 3 · 🧬 Fuse helix: a double strand turning in true 3D */
-.cbg-spin { position: absolute; left: 50%; top: 4%; bottom: 4%; width: 0; transform-style: preserve-3d; animation: cbgTurn 11s linear infinite; }
-.cbg-rung { left: -90px; top: calc(var(--i) * 7.14%); width: 180px; height: 2px; background: linear-gradient(90deg, rgba(21, 209, 106, .5), rgba(21, 209, 106, .06) 50%, rgba(160, 110, 255, .5)); transform: rotateY(calc(var(--i) * 26deg)); transform-style: preserve-3d; }
-.cbg-rung u { top: -5px; width: 12px; height: 12px; border-radius: 50%; } .cbg-rung u:first-child { left: -6px; background: #15d16a; box-shadow: 0 0 12px #15d16a; } .cbg-rung u:last-child { right: -6px; background: #a06eff; box-shadow: 0 0 12px #a06eff; }
-.cbg-helix .cbg-mark { left: 82%; top: 24%; width: clamp(60px, 12%, 110px); opacity: .22; animation: cbgFloat 7s ease-in-out infinite alternate; }
-
-/* 3 · 🌅 Sunset ocean: a slow sun over the water, light dancing on its path, long swells drifting by */
-.cbg.cbg-sunset { background: linear-gradient(180deg, #120c26 0%, #3a1c44 26%, #8a3a4a 46%, #d9743c 58%, #0b1c2a 58.2%, #06101a 100%); }
-.cbg-sun { left: 50%; top: 58%; width: clamp(110px, 24%, 230px); aspect-ratio: 1; margin: calc(clamp(110px, 24%, 230px) * -.62) 0 0 calc(clamp(110px, 24%, 230px) / -2); border-radius: 50%; background: radial-gradient(circle at 50% 40%, #ffe9a8 0%, #ffb65c 45%, #f0703a 100%); opacity: .5; animation: cbgSun 18s ease-in-out infinite alternate; }
-.cbg-haze { left: 0; right: 0; top: 30%; height: 30%; background: radial-gradient(ellipse at 50% 100%, rgba(255, 170, 90, .34) 0%, transparent 62%); animation: cbgBreath 9s ease-in-out infinite alternate; }
-.cbg-sea { position: absolute; left: 0; right: 0; top: 58%; bottom: 0; overflow: hidden; background: linear-gradient(180deg, #14283a 0%, #0a1826 40%, #060e17 100%); }
-.cbg-glint { left: 50%; top: calc(6% + var(--i) * 12%); width: calc(8% + var(--i) * 5%); height: 2px; margin-left: calc((8% + var(--i) * 5%) / -2); border-radius: 2px; background: linear-gradient(90deg, transparent, #ffc878, transparent); opacity: .5; animation: cbgGlint calc(3.4s + var(--i) * .5s) ease-in-out infinite alternate; animation-delay: calc(var(--i) * -.7s); }
-.cbg-swell { left: -50%; top: calc(18% + var(--i) * 28%); width: 200%; height: 1px; background: repeating-linear-gradient(90deg, rgba(160, 205, 235, .22) 0 70px, transparent 70px 190px); animation: cbgSwell calc(26s + var(--i) * 9s) linear infinite; }
-.cbg-swell:nth-of-type(even) { animation-direction: reverse; }
-.cbg-sunset .cbg-mark { left: 84%; top: 18%; width: clamp(44px, 9%, 84px); opacity: .16; animation: cbgDrift 12s ease-in-out infinite alternate; }
-
-/* 4 · 🌌 Aurora night: quiet stars, three veils of light swaying over a dark ridge */
-.cbg.cbg-aurora { background: linear-gradient(180deg, #050915 0%, #081426 55%, #0a1c22 100%); }
-.cbg-star { width: 2px; height: 2px; border-radius: 50%; background: #dff3ff; opacity: .5; animation: cbgTwinkle calc(3s + var(--i) * .37s) ease-in-out infinite alternate; animation-delay: calc(var(--i) * -.6s); }
-.cbg-veil { left: calc(-10% + var(--i) * 26%); top: 4%; width: 62%; height: 70%; border-radius: 50%; background: radial-gradient(ellipse at 50% 60%, rgba(21, 209, 106, .46) 0%, rgba(21, 209, 106, .16) 38%, transparent 68%); transform-origin: 50% 100%; animation: cbgVeil calc(15s + var(--i) * 6s) ease-in-out infinite alternate; animation-delay: calc(var(--i) * -5s); }
-.cbg-veil:nth-of-type(2) { background: radial-gradient(ellipse at 50% 60%, rgba(120, 110, 255, .4) 0%, rgba(120, 110, 255, .13) 40%, transparent 68%); } .cbg-veil:nth-of-type(3) { background: radial-gradient(ellipse at 50% 60%, rgba(60, 220, 255, .34) 0%, rgba(60, 220, 255, .11) 40%, transparent 68%); }
-.cbg-ridge { left: 0; right: 0; bottom: 0; height: 26%; background: #04080d; clip-path: polygon(0 62%, 9% 40%, 17% 58%, 28% 18%, 37% 50%, 46% 30%, 55% 62%, 66% 24%, 76% 54%, 86% 34%, 94% 56%, 100% 42%, 100% 100%, 0 100%); }
-.cbg-aurora .cbg-mark { left: 82%; top: 20%; width: clamp(44px, 9%, 84px); opacity: .18; animation: cbgDrift 14s ease-in-out infinite alternate; }
-
-/* 5 · 🏔 Misty peaks: dawn behind three ridges that drift at different speeds, fog rolling through the valleys */
-.cbg.cbg-peaks { background: linear-gradient(180deg, #1b1836 0%, #4a3560 30%, #b06a78 56%, #f0b48a 74%, #2a2540 100%); }
-.cbg-dawn { left: 62%; top: 34%; width: clamp(90px, 20%, 190px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, #fff1cf 0%, #ffd29a 40%, rgba(255, 190, 130, 0) 72%); opacity: .7; animation: cbgBreath 11s ease-in-out infinite alternate; }
-.cbg-peak { left: -12%; bottom: 0; width: 124%; height: calc(66% - var(--i) * 15%); background: linear-gradient(180deg, #5d4a78 0%, #3c3358 100%); opacity: .9; animation: cbgParallax calc(46s - var(--i) * 9s) ease-in-out infinite alternate; }
-.cbg-peak:nth-of-type(3) { background: linear-gradient(180deg, #3a3156 0%, #25213c 100%); } .cbg-peak:nth-of-type(4) { background: linear-gradient(180deg, #1c1a30 0%, #0d0c18 100%); opacity: 1; }
-.cbg-fog { left: -40%; top: calc(46% + var(--i) * 15%); width: 110%; height: 20%; border-radius: 50%; background: radial-gradient(ellipse at 50% 50%, rgba(255, 236, 226, .3) 0%, rgba(255, 236, 226, .1) 42%, transparent 70%); animation: cbgFog calc(52s + var(--i) * 17s) ease-in-out infinite alternate; animation-delay: calc(var(--i) * -19s); }
-.cbg-peaks .cbg-mark { left: 16%; top: 20%; width: clamp(44px, 9%, 84px); opacity: .14; animation: cbgDrift 15s ease-in-out infinite alternate; }
-
-/* 6 · 🌸 Sakura drift: a warm moon over still water, petals falling on a slow breeze */
-.cbg.cbg-sakura { background: linear-gradient(180deg, #0c0a20 0%, #1e1436 46%, #3b1f48 79%, #140e24 79.2%, #090612 100%); }
-.cbg-moon { left: 70%; top: 14%; width: clamp(70px, 15%, 150px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 42% 40%, #fffaf0 0%, #ffe6b8 55%, #f3c98c 100%); box-shadow: 0 0 60px 18px rgba(255, 220, 170, .18); opacity: .62; animation: cbgBreath 13s ease-in-out infinite alternate; }
-.cbg-pond { left: 0; right: 0; bottom: 0; height: 20.8%; background: repeating-linear-gradient(180deg, rgba(255, 190, 215, .12) 0 1px, transparent 1px 13px); animation: cbgShimmer 7s ease-in-out infinite alternate; }
-.cbg-petal { top: -14px; width: 10px; height: 8px; border-radius: 90% 12% 90% 12%; background: linear-gradient(135deg, #ffe0ea 0%, #ff9fbe 100%); opacity: 0; animation: cbgPetal calc(13s + var(--i) * .8s) linear infinite; animation-delay: calc(var(--i) * -1.9s); }
-.cbg-petal:nth-of-type(3n) { width: 7px; height: 6px; } .cbg-petal:nth-of-type(4n) { background: linear-gradient(135deg, #fff 0%, #ffc4d8 100%); }
-.cbg-sakura .cbg-mark { left: 15%; top: 22%; width: clamp(44px, 9%, 84px); opacity: .14; animation: cbgDrift 14s ease-in-out infinite alternate; }
-
-/* 7 · 🪼 Deep sea: sun shafts swaying from the surface, jellyfish rising, slow bubbles */
-.cbg.cbg-deep { background: linear-gradient(180deg, #0d4a5c 0%, #07293a 40%, #041420 72%, #02080f 100%); }
-.cbg-ray { left: calc(8% + var(--i) * 23%); top: -12%; width: 13%; height: 96%; background: linear-gradient(180deg, rgba(150, 235, 255, .26) 0%, rgba(150, 235, 255, .07) 55%, transparent 100%); transform-origin: 50% 0; animation: cbgRay calc(12s + var(--i) * 3s) ease-in-out infinite alternate; animation-delay: calc(var(--i) * -4s); }
-.cbg-jelly { left: calc(16% + var(--i) * 31%); bottom: -90px; width: 44px; height: 30px; border-radius: 50% 50% 42% 42% / 78% 78% 22% 22%; background: radial-gradient(ellipse at 50% 96%, rgba(200, 170, 255, .14) 0%, rgba(150, 215, 255, .52) 100%); box-shadow: inset 0 -5px 10px rgba(255, 255, 255, .16); opacity: .7; animation: cbgRise calc(44s + var(--i) * 13s) linear infinite; animation-delay: calc(var(--i) * -17s); }
-.cbg-jelly u { top: 92%; left: calc(18% + 26% * var(--n, 0)); width: 2px; height: 36px; border-radius: 2px; background: linear-gradient(180deg, rgba(170, 220, 255, .6), transparent); transform-origin: 50% 0; animation: cbgTent 3.6s ease-in-out infinite alternate; }
-.cbg-jelly u:nth-child(2) { --n: 1; height: 46px; animation-delay: -1.2s; } .cbg-jelly u:nth-child(3) { --n: 2; animation-delay: -2.4s; }
-.cbg-bub { bottom: -10px; width: 6px; height: 6px; border-radius: 50%; border: 1px solid rgba(190, 240, 255, .5); opacity: 0; animation: cbgBub calc(15s + var(--i) * 1.3s) linear infinite; animation-delay: calc(var(--i) * -2.3s); }
-.cbg-deep .cbg-mark { left: 84%; top: 22%; width: clamp(44px, 9%, 84px); opacity: .13; animation: cbgDrift 16s ease-in-out infinite alternate; }
-
-@keyframes cbgTilt { from { transform: rotateX(8deg) rotateY(-10deg); } to { transform: rotateX(-6deg) rotateY(12deg); } }
-@keyframes cbgGyro2 { from { transform: rotateY(68deg) rotateZ(0); } to { transform: rotateY(68deg) rotateZ(-360deg); } }
-@keyframes cbgGyro3 { from { transform: rotateX(35deg) rotateY(45deg) rotateZ(0); } to { transform: rotateX(35deg) rotateY(45deg) rotateZ(360deg); } }
-@keyframes cbgIon { from { transform: rotateZ(calc(var(--i) * 60deg)) rotateX(64deg) rotateZ(0) translateX(150px); } to { transform: rotateZ(calc(var(--i) * 60deg)) rotateX(64deg) rotateZ(360deg) translateX(150px); } }
-@keyframes cbgBeat { 0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: .16; } 50% { transform: translate(-50%, -50%) scale(1.08); opacity: .28; } }
-@keyframes cbgSun { from { transform: translateY(-6px) scale(1); } to { transform: translateY(12px) scale(1.04); } }
-@keyframes cbgBreath { from { opacity: .55; transform: scaleX(1); } to { opacity: 1; transform: scaleX(1.12); } }
-@keyframes cbgGlint { from { transform: scaleX(.45); opacity: .15; } to { transform: scaleX(1.15); opacity: .6; } }
-@keyframes cbgSwell { to { transform: translateX(190px); } }
-@keyframes cbgDrift { from { transform: translate(-50%, -50%); } to { transform: translate(-50%, -62%); } }
-@keyframes cbgTwinkle { from { opacity: .12; transform: scale(.8); } to { opacity: .75; transform: scale(1.3); } }
-@keyframes cbgVeil { from { transform: translateX(-7%) skewX(-10deg) scaleY(.9); opacity: .55; } to { transform: translateX(9%) skewX(12deg) scaleY(1.08); opacity: 1; } }
-@keyframes cbgParallax { from { transform: translateX(-2.5%); } to { transform: translateX(2.5%); } }
-@keyframes cbgFog { from { transform: translateX(0) scaleX(1); opacity: .6; } to { transform: translateX(60%) scaleX(1.25); opacity: 1; } }
-@keyframes cbgShimmer { from { opacity: .35; transform: translateY(0); } to { opacity: 1; transform: translateY(3px); } }
-@keyframes cbgPetal { 0% { transform: translate3d(0, 0, 0) rotate(0); opacity: 0; } 8% { opacity: .8; } 50% { transform: translate3d(-70px, 320px, 0) rotate(260deg); } 88% { opacity: .6; } 100% { transform: translate3d(-40px, 660px, 0) rotate(520deg); opacity: 0; } }
-@keyframes cbgRay { from { transform: skewX(-16deg) scaleX(.85); opacity: .45; } to { transform: skewX(-7deg) scaleX(1.2); opacity: 1; } }
-@keyframes cbgRise { 0% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(26px, -380px, 0); } 100% { transform: translate3d(-10px, -780px, 0); } }
-@keyframes cbgTent { from { transform: scaleY(.72) skewX(-7deg); } to { transform: scaleY(1.12) skewX(7deg); } }
-@keyframes cbgBub { 0% { transform: translate3d(0, 0, 0) scale(.6); opacity: 0; } 10% { opacity: .7; } 100% { transform: translate3d(14px, -640px, 0) scale(1.3); opacity: 0; } }
 /* ⚡ Neon trench: a neon grid floor rolling toward you, a horizon and slow light beams — the floor + horizon follow the LIVE candle
    (CandleFx puts cfk-up / cfk-dn on the chart area: the pink grid fades in on a red candle). transform / opacity only. */
 .cbg.cbg-neon { background: radial-gradient(ellipse at 50% 100%, rgba(21, 209, 106, .1), transparent 60%), linear-gradient(180deg, #04070a 0%, #030806 100%); }
@@ -98,8 +28,69 @@
 @keyframes cbgRoll { to { transform: translate3d(0, 46px, 0); } }
 @keyframes cbgHorizon { from { opacity: .3; transform: scaleX(.85); } to { opacity: .7; transform: scaleX(1.05); } }
 @keyframes cbgBeam { from { transform: translateX(-30%) skewX(-8deg); } to { transform: translateX(30%) skewX(8deg); } }
+
+/* ⚛ Fuse reactor: three neon gyroscope rings tumbling in 3D over the mark, a scanning sweep, ions on the rings */
+.cbg-reactor .cbg-stage { animation: cbgTilt 16s ease-in-out infinite alternate; }
+.cbg-ring { left: 50%; top: 46%; width: clamp(200px, 44%, 420px); aspect-ratio: 1; margin: calc(clamp(200px, 44%, 420px) / -2) 0 0 calc(clamp(200px, 44%, 420px) / -2); border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--c) 45%, transparent); animation: cbgGyro calc(9s + var(--i) * 4s) linear infinite; }
+.cbg-ring:nth-child(2) { border-color: color-mix(in srgb, var(--c2) 35%, transparent); animation-name: cbgGyro2; } .cbg-ring:nth-child(3) { border-color: color-mix(in srgb, var(--c3) 35%, transparent); animation-name: cbgGyro3; }
+.cbg-sweep { left: 50%; top: 46%; width: clamp(200px, 44%, 420px); aspect-ratio: 1; margin: calc(clamp(200px, 44%, 420px) / -2) 0 0 calc(clamp(200px, 44%, 420px) / -2); border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0deg, color-mix(in srgb, var(--c) 20%, transparent) 30deg, transparent 60deg); animation: cbgSpinZ 4.5s linear infinite; }
+.cbg-ion { left: 50%; top: 46%; width: 5px; height: 5px; margin: -2.5px; border-radius: 50%; background: var(--c); animation: cbgIon calc(5s + var(--i) * 1.1s) linear infinite; animation-delay: calc(var(--i) * -.9s); }
+.cbg-reactor .cbg-mark { animation: cbgBeat 3.2s ease-in-out infinite; }
+
+/* 🧬 Fuse helix: a neon double strand turning in true 3D */
+.cbg-spin { position: absolute; left: 50%; top: 4%; bottom: 4%; width: 0; transform-style: preserve-3d; animation: cbgTurn 11s linear infinite; }
+.cbg-rung { left: -90px; top: calc(var(--i) * 7.14%); width: 180px; height: 1px; background: linear-gradient(90deg, color-mix(in srgb, var(--c) 55%, transparent), transparent 50%, color-mix(in srgb, var(--c3) 55%, transparent)); transform: rotateY(calc(var(--i) * 26deg)); transform-style: preserve-3d; }
+.cbg-rung u { top: -4px; width: 9px; height: 9px; border-radius: 50%; } .cbg-rung u:first-child { left: -5px; background: var(--c); } .cbg-rung u:last-child { right: -5px; background: var(--c3); }
+.cbg-helix .cbg-mark { left: 82%; top: 24%; width: clamp(60px, 12%, 110px); animation: cbgFloat 7s ease-in-out infinite alternate; }
+
+/* 🌃 Neon city: two skylines drifting at different speeds, windows blinking, a neon sign line, rain streaks */
+.cbg-sky { left: -8%; right: -8%; bottom: 0; height: 46%; background: #050a0c; clip-path: polygon(0 60%, 6% 60%, 6% 30%, 12% 30%, 12% 48%, 18% 48%, 18% 18%, 24% 18%, 24% 52%, 31% 52%, 31% 36%, 37% 36%, 37% 8%, 41% 8%, 41% 44%, 48% 44%, 48% 26%, 55% 26%, 55% 56%, 61% 56%, 61% 14%, 67% 14%, 67% 40%, 74% 40%, 74% 22%, 80% 22%, 80% 50%, 86% 50%, 86% 30%, 93% 30%, 93% 58%, 100% 58%, 100% 100%, 0 100%); animation: cbgPan calc(40s + var(--i) * 30s) ease-in-out infinite alternate; }
+.cbg-sky.is-far { height: 58%; opacity: .55; background: #08131a; clip-path: polygon(0 50%, 9% 50%, 9% 22%, 15% 22%, 15% 40%, 23% 40%, 23% 12%, 29% 12%, 29% 46%, 39% 46%, 39% 28%, 46% 28%, 46% 6%, 50% 6%, 50% 38%, 59% 38%, 59% 20%, 66% 20%, 66% 44%, 75% 44%, 75% 16%, 83% 16%, 83% 36%, 92% 36%, 92% 24%, 100% 24%, 100% 100%, 0 100%); }
+.cbg-sky::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, color-mix(in srgb, var(--c) 18%, transparent), transparent 18%); }
+.cbg-win { width: 3px; height: 4px; background: var(--c2); opacity: .15; animation: cbgBlink calc(2.6s + var(--i) * .37s) steps(2) infinite; animation-delay: calc(var(--i) * -.53s); }
+.cbg-sign { left: 0; right: 0; bottom: 46%; height: 1px; background: linear-gradient(90deg, transparent, var(--c) 20%, var(--c3) 80%, transparent); opacity: .5; animation: cbgHorizon 2.4s ease-in-out infinite alternate; }
+.cbg-drop { top: -20%; width: 1px; height: 18%; background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--c2) 45%, transparent)); animation: cbgRain calc(1.1s + var(--i) * .13s) linear infinite; animation-delay: calc(var(--i) * -.29s); }
+
+/* 🚀 Hyperwarp: star streaks flying out of the vanishing point */
+.cbg-warp .cbg-stage { perspective: none; }
+.cbg-streak { left: 50%; top: 46%; width: 34%; height: 1px; transform-origin: 0 50%; background: linear-gradient(90deg, transparent, var(--c) 70%, #fff); opacity: 0; animation: cbgWarp calc(1.6s + (var(--i) % 5) * .3s) cubic-bezier(.55, 0, .9, .5) infinite; animation-delay: calc(var(--i) * -.21s); }
+.cbg-core { left: 50%; top: 46%; width: 90px; height: 90px; margin: -45px; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 30%, transparent), transparent); animation: cbgBeatC 2s ease-in-out infinite; }
+
+/* 🟩 Code rain: columns of trench words falling, brighter heads */
+.cbg-col { top: -100%; width: 14px; font: 700 11px/1.15 'JetBrains Mono', monospace; color: var(--c); opacity: .22; writing-mode: vertical-rl; text-orientation: upright; white-space: nowrap; letter-spacing: 1px;
+  animation: cbgFall calc(7s + (var(--i) % 4) * 2.3s) linear infinite; animation-delay: calc(var(--i) * -1.37s); }
+.cbg-col:nth-of-type(3n) { opacity: .34; } .cbg-col:nth-of-type(4n) { color: var(--c2); }
+
+/* 🕳 Neon tunnel: frames rushing toward you */
+.cbg-frame { left: 50%; top: 46%; width: 60%; height: 64%; margin: -32% 0 0 -30%; border: 1.5px solid var(--c); border-radius: 14px; opacity: 0; animation: cbgZoom 4.8s ease-in infinite; animation-delay: calc(var(--i) * -.8s); }
+.cbg-frame:nth-child(even) { border-color: var(--c3); border-radius: 50%; }
+
+/* ⛈ Trench storm: low clouds, slanted rain, lightning that flashes the whole sky */
+.cbg-cloud { left: -20%; width: 70%; top: calc(-8% + var(--i) * 6%); height: 26%; border-radius: 50%; background: radial-gradient(closest-side, rgba(70, 90, 110, .35), transparent); animation: cbgPan calc(30s + var(--i) * 12s) ease-in-out infinite alternate; }
+.cbg-cloud:nth-child(2) { left: 40%; } .cbg-cloud:nth-child(3) { left: 10%; top: 6%; }
+.cbg-flash { inset: 0; background: radial-gradient(ellipse at 60% 10%, color-mix(in srgb, var(--c2) 30%, transparent), transparent 60%); opacity: 0; animation: cbgFlash 7s steps(1) infinite; }
+.cbg-bolt { left: 62%; top: 0; width: 2px; height: 46%; background: linear-gradient(180deg, #fff, var(--c2)); transform: skewX(-18deg); opacity: 0; animation: cbgFlash 7s steps(1) infinite; }
+.cbg-slash { top: -20%; width: 1px; height: 22%; background: linear-gradient(180deg, transparent, rgba(160, 200, 230, .4)); transform: skewX(-20deg); animation: cbgRain calc(.8s + var(--i) * .07s) linear infinite; animation-delay: calc(var(--i) * -.17s); }
+
+@keyframes cbgTilt { from { transform: rotateX(8deg) rotateY(-10deg); } to { transform: rotateX(-6deg) rotateY(12deg); } }
+@keyframes cbgGyro { from { transform: rotateX(70deg) rotateZ(0); } to { transform: rotateX(70deg) rotateZ(360deg); } }
+@keyframes cbgGyro2 { from { transform: rotateY(68deg) rotateZ(0); } to { transform: rotateY(68deg) rotateZ(-360deg); } }
+@keyframes cbgGyro3 { from { transform: rotateX(35deg) rotateY(45deg) rotateZ(0); } to { transform: rotateX(35deg) rotateY(45deg) rotateZ(360deg); } }
+@keyframes cbgIon { from { transform: rotateZ(calc(var(--i) * 60deg)) rotateX(64deg) rotateZ(0) translateX(150px); } to { transform: rotateZ(calc(var(--i) * 60deg)) rotateX(64deg) rotateZ(360deg) translateX(150px); } }
+@keyframes cbgBeat { 0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: .12; } 50% { transform: translate(-50%, -50%) scale(1.08); opacity: .24; } }
+@keyframes cbgBeatC { 0%, 100% { transform: scale(1); opacity: .6; } 50% { transform: scale(1.25); opacity: 1; } }
+@keyframes cbgSpinZ { to { transform: rotateX(70deg) rotateZ(360deg); } }
 @keyframes cbgTurn { to { transform: rotateY(360deg); } }
 @keyframes cbgFloat { from { transform: translate(-50%, -50%) rotateY(-25deg); } to { transform: translate(-50%, -40%) rotateY(25deg); } }
+@keyframes cbgPan { from { transform: translateX(-3%); } to { transform: translateX(3%); } }
+@keyframes cbgBlink { 0% { opacity: .1; } 50% { opacity: .55; } }
+@keyframes cbgRain { to { transform: translate3d(0, 680px, 0); } }
+@keyframes cbgWarp { 0% { transform: rotate(calc(var(--i) * 23deg)) translateX(0) scaleX(.05); opacity: 0; } 30% { opacity: .7; } 100% { transform: rotate(calc(var(--i) * 23deg)) translateX(60%) scaleX(1); opacity: 0; } }
+@keyframes cbgFall { to { transform: translate3d(0, 200%, 0); } }
+@keyframes cbgZoom { 0% { transform: scale(.08); opacity: 0; } 25% { opacity: .5; } 100% { transform: scale(1.9); opacity: 0; } }
+@keyframes cbgFlash { 0%, 61%, 63.5%, 100% { opacity: 0; } 62%, 64% { opacity: .85; } }
 
 /* compact on purpose: a wide picker pushed the toolbar's other buttons onto two lines (the Alert icon sat above its label) — it shows the scene's icon, the list shows the names */
 .chart-bg-pick { height: 26px; width: 40px; flex: none; padding: 0 4px; text-overflow: clip; border-radius: 6px; border: 1px solid #203129; background: #0a1210; color: #b9cdc2; font: 10px "JetBrains Mono", monospace; cursor: pointer; transition: border-color .15s ease, color .15s ease; }
@@ -107,18 +98,13 @@
 
 body.fx-lite .cbg { display: none; }
 @media (prefers-reduced-motion: reduce) { .cbg { display: none; } }
-body.theme-day .cbg { background: radial-gradient(ellipse at 50% 45%, #f4faf6 0%, #e6f1ea 75%); }
-body.theme-day .cbg-ring { border-color: rgba(11, 122, 74, .3); box-shadow: none; }
-body.theme-day .cbg.cbg-sunset { background: linear-gradient(180deg, #dfe6f6 0%, #f6dccb 34%, #ffd1a6 58%, #cfe3ee 58.2%, #e4f0f4 100%); } body.theme-day .cbg-sea { background: linear-gradient(180deg, #c4dcea 0%, #dcebf1 100%); } body.theme-day .cbg-sun { opacity: .6; }
-body.theme-day .cbg-glint { background: linear-gradient(90deg, transparent, #f08a3c, transparent); } body.theme-day .cbg-swell { background: repeating-linear-gradient(90deg, rgba(40, 100, 140, .2) 0 70px, transparent 70px 190px); }
-body.theme-day .cbg.cbg-peaks { background: linear-gradient(180deg, #dfe4f6 0%, #f3d9dc 46%, #ffe2c4 74%, #d9dcea 100%); } body.theme-day .cbg-peak { background: linear-gradient(180deg, #b9bcd8 0%, #cfd2e6 100%); opacity: .8; } body.theme-day .cbg-peak:nth-of-type(3) { background: #a9adcc; } body.theme-day .cbg-peak:nth-of-type(4) { background: #9498bb; opacity: .8; }
-body.theme-day .cbg.cbg-sakura { background: linear-gradient(180deg, #f1e9f6 0%, #fbe3ec 79%, #e9e2f2 79.2%, #f2eef8 100%); } body.theme-day .cbg-petal { background: linear-gradient(135deg, #ffb3cc 0%, #f0709c 100%); } body.theme-day .cbg-pond { background: repeating-linear-gradient(180deg, rgba(200, 90, 140, .16) 0 1px, transparent 1px 13px); }
-body.theme-day .cbg.cbg-deep { background: linear-gradient(180deg, #d6f1f6 0%, #c3e2ee 55%, #b3d3e4 100%); } body.theme-day .cbg-ray { background: linear-gradient(180deg, rgba(255, 255, 255, .7) 0%, transparent 100%); } body.theme-day .cbg-jelly { background: radial-gradient(ellipse at 50% 96%, rgba(150, 110, 220, .2) 0%, rgba(70, 140, 200, .5) 100%); } body.theme-day .cbg-bub { border-color: rgba(40, 110, 150, .5); }
-body.theme-day .cbg.cbg-neon { background: linear-gradient(180deg, #eef5f1 0%, #dfeee6 100%); } body.theme-day .cbg-neon .cbg-grid { background-image: linear-gradient(rgba(13, 122, 65, .2) 1px, transparent 1px), linear-gradient(90deg, rgba(13, 122, 65, .14) 1px, transparent 1px); }
+body.theme-day .cbg { --c: #0d7a41; --c2: #1f5fa8; --c3: #6a3fc8; background: linear-gradient(180deg, #eef5f1 0%, #dfeee6 100%); }
+body.theme-day .cfk-dn .cbg { --c: #b42346; --c2: #b8620f; }
+body.theme-day .cbg-neon .cbg-grid { background-image: linear-gradient(rgba(13, 122, 65, .2) 1px, transparent 1px), linear-gradient(90deg, rgba(13, 122, 65, .14) 1px, transparent 1px); }
 body.theme-day .cbg-neon .cbg-grid.is-dn { background-image: linear-gradient(rgba(180, 35, 70, .18) 1px, transparent 1px), linear-gradient(90deg, rgba(180, 35, 70, .12) 1px, transparent 1px); } body.theme-day .cbg-neon .cbg-beam { background: linear-gradient(180deg, rgba(31, 95, 168, .08), transparent); }
-body.theme-day .cbg.cbg-aurora { background: linear-gradient(180deg, #e6ecf8 0%, #e3f3ee 100%); } body.theme-day .cbg-star { background: #6f86b3; } body.theme-day .cbg-ridge { background: #b9cbd2; }
+body.theme-day .cbg-sky { background: #b9cbd2; } body.theme-day .cbg-sky.is-far { background: #d2dfe4; } body.theme-day .cbg-cloud { background: radial-gradient(closest-side, rgba(110, 130, 150, .3), transparent); }
 body.theme-day .chart-bg-pick { background: #fff; border-color: #aac7b3; color: #315b43; }
-@media (max-width: 640px) { .cbg-ion:nth-child(n + 7), .cbg-star:nth-child(n + 13), .cbg-petal:nth-of-type(n + 10), .cbg-bub:nth-of-type(n + 7) { display: none; } .cbg-rung { left: -60px; width: 120px; } }
+@media (max-width: 640px) { .cbg-ion:nth-child(n + 5), .cbg-win:nth-of-type(n + 15), .cbg-drop:nth-of-type(n + 9), .cbg-streak:nth-of-type(n + 11), .cbg-col:nth-of-type(n + 9), .cbg-slash:nth-of-type(n + 11) { display: none; } .cbg-rung { left: -60px; width: 120px; } }
 /* ⚡ LIVE TIDE on every scene: a green swell from below while the last real tick was up, a red one from above when it was down —
    opacity only, switched by CandleFx's cfk-up / cfk-dn on each live price (nothing animates between ticks). */
 .cbg-tide { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .45s ease; z-index: 0; }

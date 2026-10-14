@@ -218,7 +218,8 @@ def vit(r):
            'phase': li.get('phase'), 'cls': li.get('cls'), 'press': li.get('press'), 'first10': li.get('first10'),
            'chart': ch.get('state'), 'entry': en[0], 'entryWhy': en[2] if len(en) > 2 else None, 'dq': (ch.get('q') or {}).get('state'),
            'mp': r.get('mp'), 'narr': mi.get('narr'), 'wave': r.get('waveRole'), 'callers': mi.get('callers'), 'swarm': mi.get('swarm'),
-           'taught': r.get('taught') or None, 'soc': _sr.report(r['social']) if r.get('social') else None}
+           'taught': r.get('taught') or None, 'soc': _sr.report(r['social']) if r.get('social') else None,
+           'links': {k: r[k] for k in ('site', 'x', 'tg') if isinstance(r.get(k), str) and r[k].startswith(('http://', 'https://'))} or None}
     return {k: x for k, x in out.items() if x is not None and x is not False}
 
 

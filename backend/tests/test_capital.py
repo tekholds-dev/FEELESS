@@ -69,7 +69,7 @@ def test_a_door_sizes_down_on_its_own_record_never_up_past_the_desk_and_the_brak
     assert cap.armed_size(cap.view([], 4, True)) == 0.5 and 'by door' in cap.lesson(v)
     b = cap.view(inter, 4, True, value=4.0, peak=5.0)                                           # −20% off the 24h high
     fd = cap.for_door(b, 'armed')
-    assert b['brake']['on'] and b['brake']['downPct'] == 20.0 and (fd['state'], fd['mult'], fd['floor']) == ('PROTECT', 0.25, 0.25) and fd['why'].startswith('🧯') and cap.armed_size(b) == 1.0
+    assert b['brake']['on'] and b['brake']['downPct'] == 20.0 and (fd['state'], fd['mult'], fd['floor']) == ('PROTECT', cap.BRAKE_MULT, cap.BRAKE_MULT) and fd['why'].startswith('🧯') and cap.armed_size(b) == 1.0
     assert cap.brake(None, 5.0)['on'] is False and cap.brake(5.0, None)['on'] is False and cap.brake(6.0, 5.0)['on'] is False
 
 

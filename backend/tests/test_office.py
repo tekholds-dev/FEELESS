@@ -522,3 +522,19 @@ def test_one_sale_closes_one_position_and_the_older_record_of_that_coin_is_a_dup
     # a sale already filed is never a second result
     still, closed = of.confirm_exits([new], [], led, 1001.0, 'degen', used={'S1'})
     assert closed[0]['confirmed'] is False and closed[0]['exit']['state'] == 'duplicate'
+
+
+def test_a_real_crowd_buying_keeps_a_green_seat_past_the_take_line_and_the_trail():
+    cfg = {'agentTakePct': 10, 'agentScalp': False}
+    hot = {'state': 'BUYERS', 'why': 'buyers lead: 14 buyers', 'hot': True}
+    st = {'pos': {}}
+    def run(px, fv, t):
+        out = of.reap([leg('A')], [trow('A')], {'PA': px}, cfg, st['pos'], t, control=True, flows={'PA': fv} if fv else None)
+        st['pos'] = out[0]
+        return out[1][0]
+    r = run(1.30, hot, 3600)
+    assert r['rule'] == 'R10r riding the volume' and r['action'] is None                   # +30% past a +10% take line: held while the crowd buys
+    r2 = run(1.22, None, 3610)                                                              # the tape went quiet, still inside the ride window: gave back 27% of the peak → still riding
+    assert r2['action'] is None
+    r3 = run(1.12, None, 3620)                                                              # gave back 60% of the peak → the wide trail banks it
+    assert r3['action'] == 'pull'

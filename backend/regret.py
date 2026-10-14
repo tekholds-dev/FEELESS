@@ -57,8 +57,8 @@ def why_class(text):
 
 def note(book, mint, why, px, now, symbol=None):
     """One blocked (or taken: why='taken') coin at its price — once per coin + check per RENOTE_SEC, only with a live price."""
-    b = {'open': list((book or {}).get('open') or []), 'done': list((book or {}).get('done') or []), 'tune': dict((book or {}).get('tune') or {}),
-         'log': list((book or {}).get('log') or [])}
+    b = {**(book or {}), 'open': list((book or {}).get('open') or []), 'done': list((book or {}).get('done') or []), 'tune': dict((book or {}).get('tune') or {}),
+         'log': list((book or {}).get('log') or [])}   # every other key (the 'hold' rest list) is kept: dropping it let a rolled-back tweak come back 74s later
     if not mint or not why or _f(px) <= 0:
         return b
     if any(c['mint'] == mint and c['why'] == why and now - _f(c['at']) < RENOTE_SEC for c in b['open'][-200:] + b['done'][-200:]):

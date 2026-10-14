@@ -29,6 +29,7 @@ CAUSES = {
     'fake candles': 'a straight run of green candles, no red (painted)',
     'same narrative': 'the same theme / name the card already holds or just traded',
     'copycat': 'a copycat of a ticker wave, not the original',
+    'clone': 'the same ticker as a coin already traded / a bigger original',
 }
 OWNER_PTS, OWNER_MAX, AI_PTS = -8.0, -12.0, -4.0
 OWNER_TTL, AI_TTL = 24 * 3600.0, 6 * 3600.0

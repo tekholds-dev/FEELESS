@@ -16,13 +16,16 @@ RULES = {
     'same narrative': {'icon': '🔁', 'label': 'Same narrative again', 'what': 'its theme / name is already on the card or was traded in the last few hours',
                        'knob': ('hours', (1, 3, 6, 12, 24), 6, 'hours back')},
     'copycat': {'icon': '🪞', 'label': 'Copycat', 'what': 'a copy of a ticker wave running today, not the original', 'knob': None},
+    'clone': {'icon': '🧬', 'label': 'Clone ticker', 'what': 'the SAME ticker as a coin the card traded lately, or a copy of a bigger coin with that ticker on the board (5 different $MrBeast in one day)',
+              'knob': ('hours', (6, 12, 24, 48), 24, 'hours back')},
 }
 MODES = ('off', 'flag', 'rank', 'skip')
 MODE_WORDS = {'off': 'off', 'flag': '👀 flag only', 'rank': '⬇ rank down', 'skip': '✋ skip'}
 STRENGTH = {'soft': -6.0, 'normal': -12.0, 'hard': -20.0}
 DEFAULT = {'fake candles': {'mode': 'rank', 'strength': 'normal', 'run': 8},
            'same narrative': {'mode': 'rank', 'strength': 'normal', 'hours': 6},
-           'copycat': {'mode': 'flag', 'strength': 'normal'}}
+           'copycat': {'mode': 'flag', 'strength': 'normal'},
+           'clone': {'mode': 'skip', 'strength': 'hard', 'hours': 24}}
 STOP = {'the', 'and', 'coin', 'token', 'official', 'sol', 'solana', 'pump', 'fun', 'inu', 'new', 'real', 'meme', 'of', 'on', 'in', 'a', 'to', 'for'}
 
 
@@ -129,7 +132,27 @@ def same_narrative(row, seen, mint_self=None):
     return None
 
 
-def hits(row, rules, seen=None):
+def tick(sym):
+    return re.sub(r'[^a-z0-9]', '', str(sym or '').lower())
+
+
+def clone(row, traded=None, board=None):
+    """Same ticker as a coin the card traded (different mint), or another coin on the board with this ticker and a bigger cap."""
+    t = tick(row.get('symbol'))
+    if len(t) < 2:
+        return None
+    same = lambda a: a == t or (min(len(a), len(t)) >= 4 and (a.startswith(t) or t.startswith(a)))   # "SPACEXAI" is a clone of "SPACEX", "COCACOLA" of "COCA COLA"
+    for sym, mint in traded or []:
+        if same(tick(sym)) and mint != row.get('mint'):
+            return f"same ticker as a ${sym} the card already traded (a different coin)"
+    cap = _f(row.get('cap') or (row.get('vitals') or {}).get('mcap'))
+    for o in board or []:
+        if o.get('mint') != row.get('mint') and same(tick(o.get('symbol'))) and _f(o.get('cap') or (o.get('vitals') or {}).get('mcap')) > cap:
+            return f"a copy — a bigger ${o.get('symbol')} with this ticker is on the board"
+    return None
+
+
+def hits(row, rules, seen=None, traded=None, board=None):
     """{rule: reason} for every rule that is NOT off and matches this coin."""
     r = row or {}
     out = {}
@@ -143,6 +166,8 @@ def hits(row, rules, seen=None):
             why = same_narrative(r, seen)
         elif k == 'copycat' and r.get('waveRole') == 'copy':
             why = 'copy of a ticker wave running today'
+        elif k == 'clone':
+            why = clone(r, traded, board)
         if why:
             out[k] = why
     return out
@@ -150,6 +175,7 @@ def hits(row, rules, seen=None):
 
 WIRE = {'fake candles': r'fake\s*candle|painted|green candles|all green|no red|botted chart',
         'same narrative': r'same\s*(name|narr|narrative|theme|meta)|keep buying the same',
+        'clone': r'(\d+(st|nd|rd|th)?\s*time|again and again|same (coin|ticker)|clone)',
         'copycat': r'(stop|avoid|no|skip|never)\b[\w\s]{0,12}(copy\s*cats?|clones?|knock\s*offs?)'}   # "copycats are in-and-out trades" is not an avoid
 
 

@@ -156,7 +156,7 @@ def judge_hits(row, pens):
             'early selling': lambda: (x.get('li') or {}).get('press') in ('WATCH', 'HIGH'), 'crowd fomo': lambda: (x.get('li') or {}).get('phase') == 'CROWD FOMO',
             'bundled': lambda: (x.get('li') or {}).get('cls') in ('BUNDLED', 'INSIDER-LIKE CLUSTER')}
     taught = x.get('taught') or {}   # 🎓 the owner's lessons as rules (taught_rules): the service stamps each row with the ones it hits
-    for k in ('fake candles', 'same narrative', 'copycat'):
+    for k in ('fake candles', 'same narrative', 'copycat', 'clone'):
         test[k] = (lambda k=k: k in taught)
     return [(f"{'lesson' if k in taught else 'judge'}: {k}", _f(p)) for k, p in (pens or {}).items() if k in test and test[k]()]
 

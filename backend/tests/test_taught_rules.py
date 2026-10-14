@@ -80,3 +80,42 @@ def test_kernel_candidate_carries_the_vitals_the_panel_draws():
              'taught': {'copycat': 'copy of a wave'}, 'waveRole': 'copy'})
     assert v['top10'] == 33 and v['entry'] == 'SKIP' and v['entryWhy'].startswith('CHOP') and v['taught'] == {'copycat': 'copy of a wave'} and v['wave'] == 'copy'
     assert 'organic' not in v and 'soc' not in v                                             # unknown stays absent, never 0
+
+
+def test_clone_ticker_blocks_the_fifth_mrbeast():
+    rules = tr.clean(None)
+    assert rules['clone']['mode'] == 'skip'                                                   # on by default: a clone is never an agent buy
+    row = {'mint': 'NEW', 'symbol': 'MrBeast', 'cap': 40_000}
+    assert 'already traded' in tr.hits(row, rules, traded=[('MRBEAST', 'OLD')])['clone']
+    assert tr.hits(row, rules, traded=[('MrBeast', 'NEW')]) == {}                             # the same coin is not its own clone
+    assert 'bigger $mr beast' in tr.clone(row, board=[{'mint': 'BIG', 'symbol': 'mr beast', 'cap': 900_000}])
+    assert tr.clone(row, board=[{'mint': 'SMALL', 'symbol': 'MrBeast', 'cap': 1_000}]) is None    # it IS the original
+    assert tr.skips(rules, {'NEW': {'clone': 'x'}}) == {'NEW'}
+    assert tr.from_text('no way it bought mrbeast for the 8th time') == ['clone']
+
+
+def test_one_bad_print_never_stops_a_seat_the_next_read_confirms():
+    import office as of
+    legs = [{'mint': 'A', 'pairAddress': 'PA', 'real': True, 'units': 5, 'entry': 1.0, 'at': 0, 'bought': {'tag': '🤖 agents'}}]
+    pos = {'A': {'stopNow': 15}}
+    prev = {'A': (997.0, 1.02)}
+    assert of.fast_reap(legs, {'A': 0.5}, pos, 1000.0, prev=prev) == []                  # +2% → −50% in one read: held
+    assert of.fast_reap(legs, {'A': 0.5}, pos, 1003.0, prev={'A': (1000.0, 0.5)})        # still there 3s later: a real dump, out
+    assert of.fast_reap(legs, {'A': 0.8}, pos, 1000.0, prev={'A': (997.0, 0.88)})        # an ordinary step through the stop: out at once
+
+
+def test_socials_report_reads_domain_age_x_age_latest_post_and_the_registry():
+    import social_research as sr
+    assert sr.reg_domain('https://www.app.playrex.fun/x') == 'playrex.fun' and sr.reg_domain('https://coin.co.uk') == 'coin.co.uk' and sr.reg_domain('https://x.vercel.app') is None
+    d = sr.domain_read({'events': [{'eventAction': 'registration', 'eventDate': '2026-10-09T03:28:18Z'}], 'entities': [{'roles': ['registrar'], 'vcardArray': ['vcard', [['fn', {}, 'text', 'NameCheap']]]}]},
+                       now=sr._iso('2026-10-14T03:28:18Z'))
+    assert d == {'created': sr._iso('2026-10-09T03:28:18Z'), 'ageDays': 5.0, 'registrar': 'NameCheap'}
+    p = {'website': {'url': 'https://a.fun', 'reachable': True, 'mintMatch': 'yes', 'domain': d}, 'x': {'url': 'https://x.com/a', 'available': True, 'joined': 1000 - 86400 * 400,
+         'posts': [{'text': 'we are live, CA below'}], 'postUrl': 'https://x.com/a/status/1'}, 'cross': {}, 'legal': {'level': 'WEAK', 'labels': ['TERMS FOUND'], 'sources': [{'url': 'https://a.fun/terms'}]}}
+    r = sr.report(p, now=1000)
+    site, x, legal = r['ch'][0], r['ch'][1], r['ch'][3]
+    assert site['age'] == 'domain 5d old' and site['young'] and r['flags'][0] == '⚠ website domain is only 5d old' and 'launch-week' in r['line']
+    assert x['age'] == 'account 13mo old' and not x['young'] and x['post'] == 'we are live, CA below' and x['postUrl'].endswith('/1')
+    assert legal['k'] == 'legal' and 'WEAK' in legal['word'] and legal['url'] == 'https://a.fun/terms'
+    assert r['links'] == {'site': 'https://a.fun', 'x': 'https://x.com/a'}
+    assert sr.x_read('<meta property="og:title" content="A"><div>Joined March 2025</div>', 'https://x.com/a', 'M')['joined'] > 0

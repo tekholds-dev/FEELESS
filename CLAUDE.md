@@ -4070,3 +4070,29 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   Pump's coin record first (`_pump_links_warm`) and fills site / x / tg from it.
 - 🫀 Home reactor LIVE SCAN (`HomeEngine` `ScanPulse` / `scanBeats` / `beatPath`, `hen-ekg*` in homeEngine.css): one heartbeat per real launch coin the
   scan judged (up = passed, down = caught, blip = not read), scrolling (transform only, pauses on hover), + "🛡 caught $X · failed “<gate>”".
+- 🌙 THE AGENTS SURVIVE THE NIGHT (owner, 2026-10-14: "every time I go to sleep and wake up they get lazy … survive on their own"). Night of
+  10-13 → 10-14 (from the ledger + archive): ~200 swaps, 145 exits in 16h, 69% won, median +4.5% — and the average −0.1%: 9 rugs (R5x, −72%
+  avg, coins 2–3 min old) ate every gain. Rugs hit ~7% of EVERY kind of entry (age, door, class, brand name — no selection rule separates
+  them); no trail setting helps (143-exit trail lab). By morning the card sat in cash: brake on (×0.25, 24h high incl. top-ups) + every READY
+  coin held by "chart says go" + 1 READY on cooldown. Fixed:
+  · 🧯 brake (`capital.brake`): `BRAKE_HOURS` 6h high (was 24h), `BRAKE_MULT` ×0.5 (was 0.25 — a quarter seat sat under the cost floor, so
+    braked = no trading = never climbs back), RELEASES itself after `BRAKE_RELEASE` 3 straight winning real exits.
+  · 🪫 PATIENCE VALVE (`office_edge.valve_fill/valve_record`, realCfg `agentValve` on, 🪑 SEATS card): a seat empty ≥ 10 min with nothing
+    READY or armed takes ONE coin the chart only held at WAIT FOR CONFIRMATION / BREAKOUT (never SKIP / PULLBACK / DATA / a hard veto) at a
+    quarter seat, ≤ 1 per 15 min, tag "🪫 VALVE (empty seat)"; it closes itself when its own ≥ 12 real exits have a losing median.
+  · 🏄 RIDE THE VOLUME (`office.reap` `ride_` / `RIDE_GIVE` 50 / `RIDE_HOLD_SEC` 90, rule `R10r`; owner: "they don't know how to hold on real
+    volume"): a green seat whose last 90s are a real crowd buying (flow vital BUYERS + hot) is not banked by the take line, the normal trail,
+    R7s or a time window; it rides on a 50% give-back trail (also in the 3s live guard). Stops, rug / drain / dump and R4f still act.
+  · 🧬 CLONE TICKER rule (taught_rules `clone`, default ✋ skip, 24h): the same ticker as a coin the card traded (5 different $MrBeast in a
+    day, FOMO ×9) or a copy of a bigger coin with that ticker on the board; near tickers count ("SpaceX AI" ↔ "SPACEX", "Chat GPT" ↔ "ChatGPT",
+    ≥ 4 letters). Owner words naming it ("8th time", "clone", "same coin") switch it on.
+  · 😴 regret ledger flip-flop: `regret.note` rebuilt the book without `hold`, so a rolled-back tweak came back 74s later (aiWait / pool floor
+    flipped all night). It keeps every key now. 📋 build queue: `_build_state` reads the FILE every time (the service's memory copy had saved
+    b7–b10 back to 'queued'); all 14 items closed with notes.
+  · 📐 chart scale keeps your entry + stop on screen (`lib/chartLevels.scaleKeep`, PriceChart `autoscaleInfoProvider`) — the BUY sat above the
+    scale and its chip floated over the vitals badge. 🫀 vital board never blank: `mergedVit` fills from the candidate's own numbers + the
+    held position when the server's `vit` is missing; 📣 socials strip on top (the coin's own links → `SocialIcons`, Pump links ride on every
+    desk row via `_taught_stamp`), report adds 🌐 domain age (public RDAP, `social_research.domain_age`, a day cached, free hosts named),
+    𝕏 account age (Joined month) + latest post, ⚖️ registry / legal level. 🕯 one bad print never draws a candle (`lib/tickGuard`) and never
+    stops a seat (`office.spike_held`, the fast guard's previous read). Chart scenes all redone in the neon-trench language (`CHART_BGS`).
+  RESTART THE BACKEND after a backend push, or none of it runs: on 10-14 the 22:31 copy was still serving at 11:17.

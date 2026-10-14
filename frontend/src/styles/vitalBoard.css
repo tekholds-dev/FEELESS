@@ -41,6 +41,13 @@
 .vbd-soc li.is-MATCH { color: #45e486; } .vbd-soc li.is-MISMATCH, .vbd-soc li.is-DOWN { color: #ff8fa3; } .vbd-soc li.is-FOUND, .vbd-soc li.is-HIDDEN { color: var(--m-text); } .vbd-soc li.is-NONE { color: var(--m-mute); }
 .vbd-soc-flags { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; } .vbd-soc-flags span { font: 600 9px var(--m-mono); padding: 1px 6px; border-radius: 4px; background: rgba(245, 196, 81, .1); color: #f5c451; }
 .vbd-soc-none { margin: 0; font: 600 10px var(--m-mono); color: var(--m-mute); }
+/* 🔗 socials strip + ages */
+.vbd-socs { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 3px 0; border-bottom: 1px dashed rgba(69, 228, 134, .15); }
+.vbd-socs > b { font-size: 11px; } .vbd-socs .qp-ico { display: inline-flex; gap: 6px; }
+.vbd-sgrade { font: 800 8.5px var(--m-mono); font-style: normal; letter-spacing: .08em; padding: 0 6px; border-radius: 4px; background: rgba(255, 255, 255, .06); color: var(--m-dim); }
+.vbd-sgrade.is-STRONG, .vbd-sgrade.is-OK { color: #45e486; } .vbd-sgrade.is-CONFLICT { color: #ff8fa3; } .vbd-sgrade.is-THIN, .vbd-sgrade.is-NONE { color: #f5c451; }
+.vbd-age { font: 700 8.5px var(--m-mono); font-style: normal; color: var(--m-dim); } .vbd-age.is-young { color: #ff8fa3; }
+.vbd-soc li > em.vbd-age { grid-column: 2; } .vbd-post { font-style: italic; } .vbd-post a { color: #8fd3ff; }
 /* 🎓 lesson-rule card */
 .trl { display: grid; gap: 4px; padding: 7px 8px; border-radius: 8px; border: 1px solid rgba(201, 184, 255, .22); background: rgba(140, 110, 255, .05); min-width: 0; transition: border-color .15s ease; }
 .trl.is-off { opacity: .7; } .trl.is-rank { border-color: rgba(245, 196, 81, .35); } .trl.is-skip { border-color: rgba(255, 143, 163, .45); } .trl[aria-busy='true'] { opacity: .6; }

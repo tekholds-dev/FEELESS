@@ -7,7 +7,7 @@ import '../../styles/chartLevels.css';
 // distance from the LIVE price (the same eased close the forming candle is drawn with), a `near` heat inside 2.5% and a one-shot
 // flash when the price crosses the level. A key level off the visible scale waits at the edge with an arrow. Transforms + text only:
 // no React render per frame, no layout property animated, nothing invented between ticks.
-const PIN_TOP = 46;   // a key level above the scale waits here — under the vitals ring in the top corner
+const PIN_TOP = 12;   // a key level above the scale waits at the top edge (the vitals badge sits top-LEFT now)
 
 export function ChartLevels({ levels, seriesRef, chartRef, lastBarRef, shownRef, container, fmt }) {
   const rows = useMemo(() => { const seen = new Set(); return (levels || []).filter(l => l && l.px > 0 && !seen.has(l.id) && seen.add(l.id)); }, [levels]);

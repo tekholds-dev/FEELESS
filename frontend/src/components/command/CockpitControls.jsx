@@ -130,6 +130,9 @@ export function CockpitControls({ o, call, isOwner, onAi }) {
           {g === 'seats' ? <ControlRow c={{ key: 'agentCapital', label: '💰 Size by the record', who: o?.capital?.on === false ? 'CREATOR OVERRIDE' : 'AGENTS CHOOSE', value: o?.capital?.on === false ? 'off' : 'on', options: ['on', 'off'],
             means: 'ON: a seat is sized by the agents\' own last 30 REAL exits — smallest seats (×0.25) while the average bet loses, ×0.5 while the edge is thin, half-Kelly (up to the full seat) once 20+ exits prove it wins. It can never give more than the card\'s own seat. OFF = seats as before; the record is still shown and taught.' }}
             pending={pend.agentCapital} disabled={!isOwner || busy} onPick={(kk, v) => save({ agentCapital: v === 'on' }, kk, v)} /> : null}
+          {g === 'seats' ? <ControlRow c={{ key: 'agentValve', label: '🪫 Patience valve', who: o?.policy?.valve === false ? 'CREATOR OVERRIDE' : 'AGENTS CHOOSE', value: o?.policy?.valve === false ? 'off' : 'on', options: ['on', 'off'],
+            means: `ON: a seat empty 10+ min with nothing READY or armed takes ONE coin the chart only asked to wait for confirmation, at a quarter seat, once per 15 min — it closes itself when its own real record loses (${o?.valve?.record?.n ?? 0} valve trades so far${o?.valve?.record?.med != null ? `, typical ${o.valve.record.med}%` : ''}). OFF = empty seats wait for READY / armed coins only.` }}
+            pending={pend.agentValve} disabled={!isOwner || busy} onPick={(kk, v) => save({ agentValve: v === 'on' }, kk, v)} /> : null}
           {g === 'gate' ? <GateLine refused={o?.seat?.refused} armed={o?.armed} /> : null}
           {g === 'gate' ? <RegretLine rg={o?.regret} /> : null}
           {g === 'gate' ? <ControlRow c={{ key: 'chartWait', label: '🎯 Chart says go', who: pol.chartGo === false ? 'CREATOR OVERRIDE' : 'AGENTS CHOOSE', value: pol.chartGo === false ? 'off' : 'on', options: ['on', 'off'],

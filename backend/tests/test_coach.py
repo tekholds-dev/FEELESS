@@ -13,7 +13,7 @@ def test_an_owner_directive_is_a_bounded_ranking_weight_from_a_fixed_vocabulary(
     assert co.add(s, 'buy everything', 'owner', 'x', NOW)[1] is None and co.add(s, 'bundled', 'hacker', 'x', NOW)[1] is None   # unknown cause / writer: nothing
     s, r2 = co.add(s, 'crowd fomo', 'owner', 'again', NOW + 5)
     assert len(s['rules']) == 1 and r2['n'] == 2                                               # the same cause is refreshed, never stacked
-    assert set(co.CAUSES) <= {'thin pool', 'falling now', 'chart says wait', 'weak holders', 'thin data', 'early selling', 'crowd fomo', 'bundled', 'fake candles', 'same narrative', 'copycat'}
+    assert set(co.CAUSES) <= {'thin pool', 'falling now', 'chart says wait', 'weak holders', 'thin data', 'early selling', 'crowd fomo', 'bundled', 'fake candles', 'same narrative', 'copycat', 'clone'}
     row = {'mint': 'M', 'li': {'phase': 'CROWD FOMO'}}
     assert opp.judge_hits(row, co.pens(s, NOW)) == [('judge: crowd fomo', -8.0)]              # the kernel reads it exactly like a Judge rule
     assert co.pens(s, NOW + co.OWNER_TTL + 10) == {} and co.prune(s, NOW + co.OWNER_TTL + 10)['rules'] == []   # it expires by itself

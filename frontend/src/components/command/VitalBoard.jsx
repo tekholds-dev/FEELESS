@@ -3,6 +3,8 @@ import { toast } from 'sonner';
 import { hubLoad } from '../../lib/agentHub';
 import { VITAL_GROUPS, vitalTiles, vitalScore } from '../../lib/vitalBoard';
 import { openCoin } from '../CoinDrawer';
+import { SocialIcons } from '../QuickPulse';
+import { mergedVit } from '../../lib/vitalBoard';
 import '../../styles/vitalBoard.css';
 
 const MODE_WORD = { off: 'off', flag: '👀 flag only', rank: '⬇ rank down', skip: '✋ skip' };
@@ -40,26 +42,38 @@ export function RuleCard({ r, call, isOwner, compact }) {
 
 // 📣 the socials report: one line per channel with its proof
 export function SocialReport({ s }) {
-  if (!s || s.grade === 'UNREAD') return <p className="vbd-soc-none">📣 {s?.line || 'not researched yet'}</p>;
+  if (!s || s.grade === 'UNREAD') return <p className="vbd-soc-none">📣 {s?.line || 'not researched yet — the research worker reads the strongest coins first; the links above are the coin\'s own'}</p>;
   return <div className={`vbd-soc is-${s.grade}`} data-testid="soc-report">
     <p className="vbd-soc-head"><b>{s.grade}</b>{s.line}{s.ageMin != null ? <small> · read {s.ageMin}m ago</small> : null}{s.narr ? <small> · story: {s.narr}</small> : null}</p>
     <ul>{(s.ch || []).map(ch => <li key={ch.k} className={`is-${ch.state}`}><i>{ch.icon}</i>
-      {ch.url ? <a href={ch.url} target="_blank" rel="noreferrer noopener">{ch.word}</a> : <span>{ch.word}</span>}
-      {ch.detail ? <small>{ch.detail}</small> : null}</li>)}</ul>
+      {ch.url ? <a href={ch.url} target="_blank" rel="noreferrer noopener nofollow">{ch.word}</a> : <span>{ch.word}</span>}
+      {ch.age ? <em className={`vbd-age ${ch.young ? 'is-young' : ''}`} data-tip={ch.registrar ? `registrar ${ch.registrar}` : 'how old the account / domain is'}>{ch.young ? '⚠ ' : ''}{ch.age}</em> : null}
+      {ch.detail ? <small>{ch.detail}</small> : null}
+      {ch.post ? <small className="vbd-post">💬 latest post: “{ch.post}”{ch.postUrl ? <> · <a href={ch.postUrl} target="_blank" rel="noreferrer noopener nofollow">open</a></> : null}</small> : null}</li>)}</ul>
     {(s.flags || []).length ? <p className="vbd-soc-flags">{s.flags.map(f => <span key={f}>{f}</span>)}</p> : null}
   </div>;
 }
 
+// 🔗 the coin's socials, always on top: clickable icons (its own links, else its Pump page) + the report's grade and ages in one line
+function SocStrip({ c, pos }) {
+  const v = mergedVit(c, pos); const s = v.soc || {}; const ln = { ...(v.links || {}), ...(s.links || {}) };
+  const ages = (s.ch || []).filter(ch => ch.age).map(ch => [ch.k, ch.age, ch.young]);
+  return <div className="vbd-socs" data-testid="vital-socials"><b>📣</b><SocialIcons r={{ mint: c?.mint, ...ln }} />
+    {s.grade && s.grade !== 'UNREAD' ? <em className={`vbd-sgrade is-${s.grade}`}>{s.grade}</em> : <em className="vbd-sgrade is-UNREAD">not researched yet</em>}
+    {ages.map(([k, a, y]) => <i key={k} className={`vbd-age ${y ? 'is-young' : ''}`}>{k === 'site' ? '🌐' : '𝕏'} {a}</i>)}</div>;
+}
+
 // 🫀 every vital the agents read on THIS coin — tap one: what it is, the line it is judged against, who reads it, what it does
-export function VitalBoard({ c, rules, call, isOwner }) {
+export function VitalBoard({ c, pos, rules, call, isOwner }) {
   const [open, setOpen] = useState(null);
-  const tiles = vitalTiles(c); const sc = vitalScore(tiles);
+  const tiles = vitalTiles(c, pos); const sc = vitalScore(tiles);
   const sel = tiles.find(t => t.key === open);
   const rule = sel?.rule ? (rules?.rules || []).find(r => r.key === sel.rule) : null;
   return <section className="vbd" data-testid="vital-board">
     <header><b>🫀 VITALS</b><em className={`vbd-word is-${sc.word.replace(/\W+/g, '-').toLowerCase()}`}>{sc.word}</em>
       <span className="vbd-tally"><i className="is-good">{sc.good}</i><i className="is-watch">{sc.watch}</i><i className="is-bad">{sc.bad}</i>{sc.unk ? <i className="is-unk">{sc.unk} unread</i> : null}</span>
       <small>tap a vital</small></header>
+    <SocStrip c={c} pos={pos} />
     {VITAL_GROUPS.map(([g, label]) => { const ts = tiles.filter(t => t.group === g); if (!ts.length) return null;
       return <div key={g} className="vbd-group"><small>{label}</small><div className="vbd-tiles">{ts.map((t, i) =>
         <button key={t.key} type="button" className={`vbd-tile is-${t.tone} ${open === t.key ? 'is-open' : ''}`} style={{ '--i': i }} aria-expanded={open === t.key}

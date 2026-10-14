@@ -88,7 +88,7 @@ def policy(cfg):
             'trail': {'mode': trail, 'arm': c['agentTrailArm'] or None, 'pct': c['agentTrailPct'] or None}, 'maxHold': c['agentMaxHold'] or None, 'sizePct': c['agentSizePct'] or None,
             'seats': max(1, min(seats, want)), 'seatTarget': c['agentSeatTarget'] or SEAT_TARGET_AUTO,
             'switch': {'mode': c['agentSwitch'], 'on': sw is not None, 'edge': None if sw is None else max(SWITCH_FLOOR[0], sw[0]), 'holdMin': None if sw is None else max(SWITCH_FLOOR[1], sw[1])},
-            'entry': c['agentEntry'], 'exit': mode, 'chartGo': (cfg or {}).get('chartWait', True) is not False, 'aiGate': (cfg or {}).get('agentAiGate', True) is not False, 'gapPct': c['agentGapPct'] or None, 'backPct': c['agentBackPct'] or None, 'poolMin': c['agentPoolMin'] or None,
+            'entry': c['agentEntry'], 'exit': mode, 'chartGo': (cfg or {}).get('chartWait', True) is not False, 'aiGate': (cfg or {}).get('agentAiGate', True) is not False, 'valve': (cfg or {}).get('agentValve', True) is not False, 'gapPct': c['agentGapPct'] or None, 'backPct': c['agentBackPct'] or None, 'poolMin': c['agentPoolMin'] or None,
             'who': {'takeProfit': who(c['agentTp']), 'stopLoss': who(c['agentSl']), 'trailing': who(trail != 'auto'), 'maxHold': who(c['agentMaxHold']), 'positionSize': who(c['agentSizePct']),
                     'seatCount': 'CREATOR OVERRIDE', 'entryStyle': who(c['agentEntry'] != 'agents'), 'exitStyle': who(mode != 'auto'), 'switching': who(c['agentSwitch'] != 'agents'),
                     'emptySeat': who(c['agentSeatTarget']), 'minAge': who(c['agentMinAgeH']), 'priceGap': who(c['agentGapPct']), 'sellBack': who(c['agentBackPct']), 'poolMin': who(c['agentPoolMin']),
@@ -950,6 +950,30 @@ def active_index(table, seen=None, now=0.0, cap=None):
                     'chartQuality': _so.chart_quality(ch)[0] if ch else None, 'marketPhase': _mw.market_phase(ch, x.get('li')), 'social': bool(x.get('social') or v.get('site') or v.get('x')),
                     'lastMaterialChange': e.get('changed'), 'lastReview': e.get('review'), 'cooldownLeft': cool, 'eligible': why is None, 'why': why})
     return sorted(out, key=lambda r: (not r['eligible'], fresh_key({'ageH': None if r['launchAgeMin'] is None else r['launchAgeMin'] / 60}), -_f(r['volVelocity'])))
+
+
+VALVE_SEC = 600.0       # 🪫 THE PATIENCE VALVE (owner, 2026-10-14: "every time I go to sleep and wake up they get lazy … make sure they survive on their own"):
+VALVE_EVERY = 900.0     # a seat empty ≥ 10 min with NOTHING ready or armed takes ONE coin the chart only asked to wait for confirmation, at the
+VALVE_CALLS = ('WAIT FOR CONFIRMATION', 'WAIT FOR BREAKOUT')   # smallest seat, at most one every 15 min — and the valve judges itself:
+VALVE_MIN_N, VALVE_SIZE = 12, 0.25                              # its own real exits (tag VALVE) with a losing median over ≥ 12 close it.
+
+
+def valve_record(trades):
+    """{n, med, open} — the valve's own confirmed real exits (tag carries VALVE). `open` False once ≥ VALVE_MIN_N have a median < 0."""
+    r = sorted(_f(t.get('realPct')) for t in trades or [] if 'VALVE' in str(t.get('tag') or '') and t.get('realPct') is not None)
+    med = (r[len(r) // 2] if len(r) % 2 else (r[len(r) // 2 - 1] + r[len(r) // 2]) / 2) if r else None
+    return {'n': len(r), 'med': None if med is None else round(med, 1), 'open': not (len(r) >= VALVE_MIN_N and med is not None and med < 0)}
+
+
+def valve_fill(cands, empty_since, now, last_at=None, blocked=(), rec=None):
+    """→ [≤ 1 row]: the best CONTENDING coin held back ONLY by the chart's wait-for-confirmation / breakout call (never SKIP, PULLBACK, DATA,
+    a hard veto, a 0 size or a blocked coin), once the seat has been empty VALVE_SEC and the last valve fill is VALVE_EVERY old. Pure."""
+    if not empty_since or now - _f(empty_since) < VALVE_SEC or (last_at and now - _f(last_at) < VALVE_EVERY) or not (rec or {'open': True}).get('open', True):
+        return []
+    bl = set(blocked or ())
+    ok = [c for c in cands or [] if c.get('status') == 'CONTENDING' and c.get('chartWait') and c.get('chartCall') in VALVE_CALLS
+          and _f(c.get('size')) > 0 and c.get('mint') not in bl]
+    return sorted(ok, key=lambda c: -_f(c.get('rank')))[:1]
 
 
 def armed_fill(cands, empty_since, target, now, have=0, need=0, blocked=()):

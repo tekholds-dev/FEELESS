@@ -3,7 +3,7 @@
 .clv2 { position: absolute; inset: 0; z-index: 5; pointer-events: none; overflow: hidden; }
 .clv2-tag, .clv2-buy, .clv2-line { position: absolute; top: 0; opacity: 0; will-change: transform; }
 /* compact (owner, 2026-10-13: "pnl can be smaller, not blocking stuff to see"): one slim line hugging the price axis, translucent, no glow */
-.clv2-tag { right: 70px; margin-top: -8px; display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; border-radius: 5px; font-family: var(--m-mono);
+.clv2-tag { left: 0; margin-top: -8px; display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; border-radius: 5px; font-family: var(--m-mono);
   background: rgba(3, 12, 8, .62); border: 1px solid color-mix(in srgb, var(--m-accent) 70%, transparent); color: var(--m-accent); transition: transform 60ms linear; }
 .clv2-tag.is-dn { border-color: color-mix(in srgb, var(--m-danger) 70%, transparent); color: var(--m-danger); }
 .clv2-tag small { font-size: 7px; font-weight: 800; letter-spacing: .1em; color: var(--m-mute); }
@@ -14,10 +14,10 @@
   background: color-mix(in srgb, var(--m-accent) 78%, transparent); color: var(--m-accent-ink); }
 .clv2-buy.is-pinned { left: 54px; } .clv2-buy.is-off { opacity: .7 !important; }
 .clv2-buy b { font-size: 8px; font-weight: 800; letter-spacing: .08em; } .clv2-buy span { font-size: 8.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.clv2-line { right: 66px; width: 2px; height: 1px; transform-origin: top; border-radius: 1px; opacity: .55; background: var(--m-accent); } .clv2-line.is-dn { background: var(--m-danger); }
+.clv2-line { left: 0; width: 2px; height: 1px; transform-origin: top; border-radius: 1px; opacity: .55; background: var(--m-accent); } .clv2-line.is-dn { background: var(--m-danger); }
 @keyframes clv2Beat { 50% { transform: scale(1.7); opacity: .4; } }
 body.fx-lite .clv2-dot { animation: none; } body.fx-lite .clv2-tag { transition: none; }
 @media (prefers-reduced-motion: reduce) { .clv2-dot { animation: none; } .clv2-tag { transition: none; } }
 body.theme-day .clv2-tag { background: rgba(255, 255, 255, .8); border-color: #0d7a41; color: #0d7a41; } body.theme-day .clv2-tag.is-dn { border-color: #b42346; color: #b42346; }
 body.theme-day .clv2-tag span { color: #3f5a4a; } body.theme-day .clv2-buy { background: #0d7a41; color: #fff; } body.theme-day .clv2-line { background: #0d7a41; } body.theme-day .clv2-line.is-dn { background: #b42346; }
-@media (max-width: 640px) { .clv2-tag { right: 58px; } .clv2-tag span { display: none; } .clv2-buy span { display: none; } }
+@media (max-width: 640px) { .clv2-tag span { display: none; } .clv2-buy span { display: none; } }

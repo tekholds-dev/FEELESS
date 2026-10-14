@@ -9,6 +9,8 @@ import { CandleFx } from './CandleFx';
 import { ChartLevels } from './ChartLevels';
 import { feeLevels, ownLevels, toolLevels } from '../../lib/chartLevels';
 import { mergeLiveBar, liveBar } from '../../lib/tween';
+import { scaleKeep } from '../../lib/chartLevels';
+import { tickGuard } from '../../lib/tickGuard';
 import { mcapOf } from '../../lib/mcap';
 import { toolRead, useChartTools } from '../../lib/chartTools';
 import { ChartGrab } from './ChartGrab';
@@ -64,6 +66,9 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   // Chart style: 'auto' (line when data is sparse, candles otherwise), or forced 'line' / 'candle'.
   const sparseRef = useRef(false);
   const [chartStyle, setChartStyle] = useState(() => { try { return localStorage.getItem('feeless:chart-style') || 'auto'; } catch { return 'auto'; } });
+  const keepRef = useRef([]);   // 📐 entry + stop the scale must keep on screen (set from the levels below, read by every series it builds)
+  const keepScale = base => { const r = base(); if (!r || !r.priceRange) return r; const keep = scaleKeep(keepRef.current, lastBarRef.current?.close ?? lastBarRef.current?.value);
+    return keep.length ? { ...r, priceRange: { minValue: Math.min(r.priceRange.minValue, ...keep), maxValue: Math.max(r.priceRange.maxValue, ...keep) } } : r; };
   const toggleStyle = () => setChartStyle(cur => { const next = sparseRef.current ? 'candle' : 'line'; try { localStorage.setItem('feeless:chart-style', next); } catch { /* private mode */ } return next; });
   const [olderCandles, setOlderCandles] = useState([]);
   const olderState = useRef({ loading: false, exhausted: false });
@@ -194,7 +199,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
         wickUpColor: dayMode ? '#08764e' : '#00e7a0',
         wickDownColor: '#b42346',
         borderVisible: false,
-        priceFormat: { type: 'custom', formatter: axisFormat, minMove },
+        priceFormat: { type: 'custom', formatter: axisFormat, minMove }, autoscaleInfoProvider: keepScale,
       });
       const bars = displayCandles.map(([time, open, high, low, close]) => ({ time, open, high, low, close }));
       series.setData(mergeLiveBar(bars, liveBarRef.current, interval, pair?.pairAddress));   // 🕯 a history reload never overwrites the LIVE forming candle
@@ -215,7 +220,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     } else {
       const line = chart.addSeries(LineSeries, {
         color: dayMode ? '#08764e' : '#00e7a0', lineWidth: 2,
-        priceFormat: { type: 'custom', formatter: axisFormat, minMove },
+        priceFormat: { type: 'custom', formatter: axisFormat, minMove }, autoscaleInfoProvider: keepScale,
       });
       line.setData(lineData);
       seriesRef.current = { kind: 'line', series: line };
@@ -304,6 +309,10 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   const toolsRead = useMemo(() => (charting && toolsOn.length ? toolRead(displayCandles, toolsOn) : null), [charting, toolsOn, displayCandles]);
   useToolDraw(seriesRef, chartRef, container, toolsRead, [dayMode, showVolume, chartStyle, bgOn, hasChart]);
   const levels = useMemo(() => [...ownLv, ...feeLv, ...toolLevels(toolsRead)], [ownLv, feeLv, toolsRead]);
+  // 📐 the scale always keeps your entry + stop on screen (a seat's own entry too), never a level far away
+  const seatEntry = pnl && typeof pnl === 'object' ? (Number(pnl.pos?.fillPrice) || Number(pnl.pos?.avgEntry) || 0) * (ratio || 1) : 0;
+  const keepKey = useMemo(() => [...ownLv.map(r => ({ id: r.id, title: r.title, px: r.px })), ...(seatEntry > 0 ? [{ id: 'entry', px: seatEntry }] : [])], [ownLv, seatEntry]);
+  keepRef.current = keepKey;
 
   // Live ticks: every 3s pull the pair's current price straight from DexScreener and
   // update the forming candle in place (no redraw, zoom preserved).
@@ -316,19 +325,21 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     if (!charting || !pair?.pairAddress || !pair?.chainId) return undefined;
     const bucket = LIVE_INTERVAL_SECONDS[interval] || 3600;
     let alive = true;
+    const guard = tickGuard();   // 🕯 one bad print never draws a candle (held until the next tick confirms or drops it)
     // 🕯 REAL TICKS ONLY (owner, 2026-10-13: "current candle morphing before it becomes its true shape — can't have that"): the forming
     // candle is redrawn ONLY when a real price tick lands (the stream re-reads the price right after each on-chain swap), at exactly that
     // price — no eased in-between frames. It used to glide ~350ms through prices nobody traded at.
     const apply = (usd, live) => {
       try {
         if (!alive || !(usd > 0)) return;
-        setLivePrice({ usd, change: live?.change24h, at: Date.now(), source: live?.source });
         const value = usd * ratioLive.current;
         const ref = seriesRef.current;
         const last = lastBarRef.current;
-        if (!ref || !last) return;
-        const ref0 = last.close ?? last.value;
+        const ref0 = last ? last.close ?? last.value : 0;
         if (ref0 > 0 && !(value > ref0 / 20 && value < ref0 * 20)) return; // bad read, not a real 1s move
+        if (guard(ref0, value) == null) return;   // the header price never shows a print the candle would not draw either
+        setLivePrice({ usd, change: live?.change24h, at: Date.now(), source: live?.source });
+        if (!ref || !last) return;
         const t = Math.floor(Date.now() / 1000 / bucket) * bucket;
         if (ref.kind === 'candle') {
           // 🕯 true data only (`liveBar`): a 1–2 bucket gap continues from the last close; a stale history (a coin indexed late) opens the new

@@ -10,8 +10,18 @@ const BAD_CHART = /BOT LADDER|DOWNTREND|LIQUIDITY FAILURE|COLLAPS|DISTRIBUTION|D
 const GOOD_CHART = /UPTREND|BREAKOUT|PULLBACK|RECLAIM|BASE|COMPRESSION|EARLY/;
 const SOC_TONE = { STRONG: 'good', OK: 'good', THIN: 'watch', NONE: 'watch', CONFLICT: 'bad', UNREAD: 'unk' };
 
-export function vitalTiles(c) {
-  const v = c?.vit || {}; const out = [];
+// 🫀 every reading the panel already has, so the board is never blank (owner, 2026-10-14: "agent decision don't show shit"): the kernel
+// candidate's own numbers + the held position, overlaid by the server's `vit` when it sends one. Pure.
+export function mergedVit(c, pos) {
+  const p = pos || {}; const th = p.thesis || {};
+  const base = { d5: c?.move5m, buy: c?.buyShare, liqUsd: c?.liq ?? p.liq, top10: p.top10, chart: p.structure || th.structure, entry: th.call, entryWhy: th.why,
+    dq: p.data?.state, phase: p.li?.phase, cls: p.li?.cls, press: p.li?.press };
+  const out = { ...Object.fromEntries(Object.entries(base).filter(([, x]) => x != null)), ...(c?.vit || {}) };
+  return out;
+}
+
+export function vitalTiles(c, pos) {
+  const v = mergedVit(c, pos); const out = [];
   const add = (group, key, icon, label, value, tone, line, who, effect, extra) => out.push({ group, key, icon, label, value, tone, line, who, effect, ...extra });
   add('holders', 'top10', '🐋', 'TOP-10', pctW(v.top10), tone3(v.top10, 20, 30), 'under 20% good · 30%+ heavy', '🔍 Sherlock · ⚖ Devil', 'ranks +6 under 20% · −8 at 30%+ · over 40% the agents never buy');
   add('holders', 'bundled', '📦', 'BUNDLED', v.bundled == null ? '—' : `${v.bundled}`, tone3(v.bundled, 1, 3), '0 clean · 3+ = bundled launch', '⚖ Devil', '3+ bundles count as botted; a bundle wallet dumping = rug radar exit');
@@ -20,6 +30,7 @@ export function vitalTiles(c) {
   add('holders', 'holders', '👥', 'HOLDERS', v.holders == null ? '—' : Math.round(v.holders).toLocaleString(), tone3(v.holders, 300, 100, false), '300+ crowd · under 100 thin', '📊 Tally', 'context — a growing crowd ranks up');
   add('flow', 'd5', '⚡', '5 MIN', pctW(v.d5, 1), n(v.d5) == null ? 'unk' : n(v.d5) <= -8 ? 'bad' : n(v.d5) > 15 ? 'watch' : n(v.d5) > 0 ? 'good' : 'watch', '−8% = hard no · +15% = chasing', '⏱ Trigger', 'falling 8% in 5 min = never bought · a +40% candle (young) / +15% (older) = skipped');
   add('flow', 'buy', '🟢', 'BUYERS', pctW(v.buy), tone3(v.buy, 55, 50, false), '55%+ buyers lead · under 50% sellers', '⏱ Trigger · ☠ Reaper', 'sellers taking over banks a green seat (R4f)');
+  if (v.vol1h == null && v.liqUsd != null) add('flow', 'pool', '💧', 'POOL', money(v.liqUsd), tone3(v.liqUsd, 20000, 8000, false), '$20K+ deep · under $8K = the keeper refuses', '🛡 Warden · 📮 Courier', 'a pool under half its entry depth = Reaper sells (R1)');
   add('flow', 'vol1h', '💧', '1H VOLUME', money(v.vol1h), tone3(v.vol1h, 20000, 5000, false), `${v.tx1h ? `${Math.round(v.tx1h)} trades · ` : ''}$20K+ busy`, '📊 Tally', 'volume velocity is a rank part; no trades in 5 min = dead (hard no)');
   add('flow', 'organic', '🌱', 'ORGANIC', pctW(v.organic), tone3(v.organic, 10, 5, false), '10%+ real buyers · under 5% bots', '🔍 Sherlock', 'shown + judged — Jupiter reads most Pump coins 2–3%, so it never blocks');
   add('launch', 'rug', '☠', 'RUG METER', v.rug == null ? '—' : `${v.rug}`, tone3(v.rug, 35, 50), 'under 35 · 50+ = hard no', '⚖ Devil', 'rug ≥ 50 is never bought; ≥ 65 on a held coin = out');

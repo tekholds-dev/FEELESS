@@ -1,5 +1,5 @@
 /* 🧠 THE BRAIN (AiChat.jsx): chat + owner-approved fixes. m-* tokens, transform / opacity only, no backdrop-filter. */
-.cch { --br: #b79bff; --br2: var(--m-accent, #15d16a); position: relative; display: grid; grid-template-rows: auto auto auto minmax(0, 1fr); gap: 8px; padding: 10px; border-radius: 12px; min-height: 0;
+.cch { --br: #b79bff; --br2: var(--m-accent, #15d16a); position: relative; display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; min-height: 0;
   border: 1px solid color-mix(in srgb, var(--br) 38%, transparent); background: linear-gradient(160deg, rgba(60, 34, 120, .34), rgba(6, 18, 12, .92) 46%, rgba(8, 40, 26, .6)); overflow: hidden; isolation: isolate; }
 .cch::before { content: ''; position: absolute; inset: -40% -20% auto -20%; height: 90%; z-index: -1; pointer-events: none; opacity: .5;
   background: radial-gradient(closest-side, rgba(150, 110, 255, .35), transparent 70%); animation: cchDrift 14s ease-in-out infinite alternate; }
@@ -9,6 +9,7 @@
 .cch-back { width: 100%; padding: 14px 10px; border-radius: 10px; border: 1px dashed color-mix(in srgb, #b79bff 50%, transparent); background: rgba(140, 110, 255, .07); color: #c9b8ff; font: 700 10.5px var(--m-mono); cursor: pointer; transition: transform .15s ease, background .15s ease; }
 .cch-back:hover { transform: translateY(-1px); background: rgba(140, 110, 255, .13); } .cch-back:focus-visible { outline: 2px solid #b79bff; outline-offset: 2px; }
 .cch-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cch > * { flex: none; min-width: 0; } .cch > .cch-talkpane, .cch > .cch-extra { flex: 1 1 0; min-height: 0; }   /* only the chat / open pane grows — a grid row count once let the tab row eat the chat's space */
 .cch-orb { position: relative; flex: none; width: 34px; height: 34px; display: grid; place-items: center; }
 .cch-orb i { position: absolute; inset: 0; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--br); border-right-color: color-mix(in srgb, var(--br) 30%, transparent); animation: cchSpin 5s linear infinite; }
 .cch-orb i:nth-child(2) { inset: 5px; border-top-color: var(--br2); border-right-color: transparent; animation-duration: 3.2s; animation-direction: reverse; }
@@ -30,7 +31,7 @@
 .cch-log::-webkit-scrollbar { width: 6px; } .cch-log::-webkit-scrollbar-thumb { background: var(--br); border-radius: 3px; }
 .cch-msg { position: relative; display: grid; gap: 2px; max-width: 92%; padding: 7px 10px 6px; border-radius: 12px; font: 600 11.5px/1.5 var(--m-mono); color: var(--m-text); }
 .cch-msg.is-fresh { animation: cchIn .18s var(--m-ease, ease-out); }   /* only what you just sent + its answer — a mode / pane switch never replays the thread */
-.cch-talkpane { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; } .cch-talkpane[hidden] { display: none; } .cch-talkpane > .cch-main { flex: 1; }
+.cch-talkpane { display: flex; flex-direction: column; gap: 8px; min-height: 0; } .cch-talkpane[hidden] { display: none; } .cch-talkpane > .cch-main { flex: 1; }
 .cch-msg > small { font: 800 7.5px var(--m-mono); letter-spacing: .14em; color: var(--m-mute); } .cch-msg > span { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
 .cch-msg.is-user { align-self: flex-end; background: rgba(21, 209, 106, .12); border: 1px solid color-mix(in srgb, var(--br2) 40%, transparent); border-bottom-right-radius: 3px; }
 .cch-msg.is-assistant { align-self: flex-start; background: rgba(140, 110, 255, .13); border: 1px solid color-mix(in srgb, var(--br) 35%, transparent); border-bottom-left-radius: 3px; }
@@ -105,7 +106,7 @@ body.theme-day .cch-bqlist li { color: #0f2419; }
 .cch-sets button:focus-visible, .cch-panes > button:focus-visible { outline: 2px solid var(--br); outline-offset: 1px; } .cch-sets button.active, .cch-panes > button.active { color: #07130c; background: linear-gradient(120deg, var(--br), var(--br2)); border-color: transparent; }
 .cch-setnote { font: 600 9px var(--m-mono); color: var(--m-mute); }
 .cch-panes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; } .cch-panes > button { border-radius: 9px; padding: 6px 4px; }
-.cch-extra { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; } .cch-extra[hidden] { display: none; }
+.cch-extra { min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; } .cch-extra[hidden] { display: none; }
 /* every mode wears its own colour; the scan line runs only while the model is really answering */
 .cch[data-mode='case'] { --br: #5fd0ff; } .cch[data-mode='improve'] { --br: #f5c451; } .cch[data-mode='build'] { --br: #ff7ad9; }
 .cch-scan { display: block; height: 2px; margin: -4px 0; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--br), var(--br2), transparent); transform: scaleX(.12); transform-origin: left; opacity: .35; transition: opacity .2s ease; }

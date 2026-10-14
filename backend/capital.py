@@ -106,13 +106,22 @@ def armed_size(v):
     return 1.0 if d.get('state') == 'GROW' and v.get('state') == 'GROW' else ARMED_BASE
 
 
-def brake(value, peak, pct=BRAKE_PCT):
-    """🧯 DRAWDOWN BRAKE → {on, downPct, why}: the card is worth ≥ `pct` % less than its 24h high."""
+BRAKE_HOURS = 6        # 🧯 the high the brake measures from = the last 6h (24h held a whole morning after one bad night — owner: "they get lazy")
+BRAKE_MULT = 0.5       # half seats while braked (a quarter seat sat under the cost floor: braked = no trading = it could never climb back)
+BRAKE_RELEASE = 3      # the brake lets go by itself once the agents' last N confirmed real exits all won
+
+
+def brake(value, peak, pct=BRAKE_PCT, recent=None):
+    """🧯 DRAWDOWN BRAKE → {on, downPct, why, released}: the card is worth ≥ `pct` % less than its BRAKE_HOURS high — unless the last
+    BRAKE_RELEASE real exits (newest last) all won, which releases it (it has to be able to climb back by trading)."""
     v, p = _f(value), _f(peak)
     if v <= 0 or p <= 0 or v >= p:
         return {'on': False, 'downPct': 0.0, 'why': None}
     down = (1 - v / p) * 100
-    return {'on': down >= pct, 'downPct': round(down, 1), 'why': f"card ${v:.2f} is {down:.0f}% off its 24h high ${p:.2f}" + (f" (brake at {pct:g}%): smallest seats until it climbs back" if down >= pct else '')}
+    rec = [x for x in (recent or []) if x is not None][-BRAKE_RELEASE:]
+    if down >= pct and len(rec) >= BRAKE_RELEASE and all(_f(x) > 0 for x in rec):
+        return {'on': False, 'downPct': round(down, 1), 'released': True, 'why': f"card {down:.0f}% off its {BRAKE_HOURS}h high, but its last {BRAKE_RELEASE} real exits all won — brake released"}
+    return {'on': down >= pct, 'downPct': round(down, 1), 'why': f"card ${v:.2f} is {down:.0f}% off its {BRAKE_HOURS}h high ${p:.2f}" + (f" (brake at {pct:g}%): half seats until {BRAKE_RELEASE} straight real wins or it climbs back" if down >= pct else '')}
 
 
 def for_door(v, tag_or_door):
@@ -120,7 +129,7 @@ def for_door(v, tag_or_door):
     v = v or {}
     cap_ = (v.get('rug') or {}).get('capPct')
     if (v.get('brake') or {}).get('on'):
-        return {'state': 'PROTECT', 'mult': PROTECT_MULT, 'floor': PROTECT_MULT, 'why': '🧯 ' + str(v['brake'].get('why')), 'rugCapPct': cap_}
+        return {'state': 'PROTECT', 'mult': BRAKE_MULT, 'floor': BRAKE_MULT, 'why': '🧯 ' + str(v['brake'].get('why')), 'rugCapPct': cap_}
     if ORDER.get(v.get('state'), 1) == 0:   # the desk itself is in PROTECT (long record): no door lifts it
         return {**{k_: v.get(k_) for k_ in ('state', 'mult', 'floor', 'why')}, 'rugCapPct': cap_}
     k = tag_or_door if tag_or_door in ('armed', 'ready', 'other') else door(tag_or_door)
@@ -160,7 +169,7 @@ def view(trades, seats=4, on=True, value=None, peak=None):
         if ORDER.get(lst['state'], 1) < ORDER.get(st['state'], 1):
             st = {**lst, 'why': f"the last {rec['n']} exits read {st['state']}, but the last {lrec['n']} (rugs included) read {lst['state']} — {lst['why']}"}
     rg = rugs(trades)
-    return {'on': bool(on), 'record': rec, **st, 'leaks': leaks(trades), 'window': WINDOW, 'needN': PROVE_N, 'doors': doors(trades, seats), 'brake': brake(value, peak),
+    return {'on': bool(on), 'record': rec, **st, 'leaks': leaks(trades), 'window': WINDOW, 'needN': PROVE_N, 'doors': doors(trades, seats), 'brake': brake(value, peak, recent=_pcts(trades, BRAKE_RELEASE)),
             'long': lrec, 'rug': rg}
 
 
