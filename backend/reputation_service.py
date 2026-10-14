@@ -13178,6 +13178,10 @@ async def _local_lane_run(now):
     """💻 THE LOCAL MODEL WORKS FOR THE AGENTS (owner, 2026-10-13: "local LM needs to be stronger for them" · "it stopped running"): its own
     lane, beside the cloud — every LOCAL_LANE_EVERY it PRE-READS the best candidate nobody has read yet, so the seat gate finds a fresh
     read waiting (and the cloud is asked less). One inference at a time, in its own task: it never delays a pass, a tick or the cloud round."""
+    try:
+        await _air.ROUTER.heartbeat(_ai_http(), os.environ, _ai_cfg(), now)   # 💓 not ONLINE → one cheap model-list read brings it back (no Test click)
+    except Exception:
+        pass
     every = _fuse._f(os.environ.get('LOCAL_LANE_SEC')) if os.environ.get('LOCAL_LANE_SEC') not in (None, '') else LOCAL_LANE_EVERY
     if every <= 0 or _local_lane['busy'] or now - _local_lane['at'] < every:
         return
@@ -13427,7 +13431,8 @@ async def admin_ai_chat(request: Request):
     mode = str((body or {}).get('mode') or 'chat').lower()
     focus = str((body or {}).get('focus') or '')[:60] or None
     if mode not in _aic.MODES:
-        raise HTTPException(400, 'Pick chat, case or improve.')
+        raise HTTPException(400, 'Pick chat, case, improve or build.')
+    asked, mode = mode, _aic.route_mode(mode, text)   # a chat message that asks for a change becomes proposals the owner approves
     if len(text) < 2 and mode != 'case':
         raise HTTPException(400, 'Type a message.')
     if _chat['busy']:
@@ -13449,16 +13454,16 @@ async def admin_ai_chat(request: Request):
             return {'ok': bool(ad), 'mode': 'case', 'reply': reply, 'advice': ad or None, 'symbol': c.get('symbol'), 'provider': res.get('label'), 'model': _air.provider(env, res['source'], cfg)['model'] if res.get('source') in _air.PROVIDERS else None,
                     'ms': res.get('ms'), 'tokens': _air.ROUTER.lastUsage.get(res.get('source')), 'history': _chat['hist'], 'proposals': _aic.view(_chat_props()), 'why': res.get('why')}
         ctx = _chat_context(focus, now)
-        res = await _air.ROUTER.ask(_ai_http(), env, cfg, text, context=ctx, role='owner', history=_aic.as_messages(_chat['hist']), system=_aic.IMPROVE_ASK if mode == 'improve' else None)
+        res = await _air.ROUTER.ask(_ai_http(), env, cfg, text, context=ctx, role='owner', history=_aic.as_messages(_chat['hist']), system=_aic.system_for(mode))
         reply, new, refused = res.get('text'), [], []
-        if reply and mode == 'improve':   # 🛠 the model's suggestions become PENDING records — nothing is applied until the owner approves each one
-            reply, items, refused = _aic.parse_improve(reply, tuple(_co.CAUSES))
+        if reply and mode in ('improve', 'build'):   # 🛠 the model's suggestions become PENDING records — nothing is applied until the owner approves each one
+            reply, items, refused = _aic.parse_improve(reply, tuple(_co.CAUSES), only=('idea',) if mode == 'build' else None)
             if items:
                 _chat['props'], new = _aic.propose(_chat_props(), items, _chat_olds(), now, res.get('label'))
                 _json_save(AI_PROPOSALS_PATH, _chat['props'])
                 ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-proposals', f"{len(new)} proposed by {res.get('label')}: " + ' · '.join(f"{p_['kind']} {p_['key']}" for p_ in new)[:200]); _admin_save(ad_)
         _chat['hist'] = _aic.push(_aic.push(_chat['hist'], 'user', text), 'assistant', reply or 'no provider answered', {'mode': mode, 'ms': res.get('ms'), 'provider': res.get('label')})
-        return {'ok': bool(reply), 'mode': mode, 'reply': reply, 'provider': res.get('label'), 'model': res.get('model'), 'ms': res.get('ms'), 'tokens': res.get('usage'), 'history': _chat['hist'],
+        return {'ok': bool(reply), 'mode': mode, 'routed': mode != asked, 'reply': reply, 'provider': res.get('label'), 'model': res.get('model'), 'ms': res.get('ms'), 'tokens': res.get('usage'), 'history': _chat['hist'],
                 'new': [p_['id'] for p_ in new], 'refused': refused, 'proposals': _aic.view(_chat_props()), 'why': res.get('why'), 'learned': _chat_learned()}
     finally:
         _chat['busy'] = False

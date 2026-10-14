@@ -9,7 +9,8 @@ import '../../styles/brainChat.css';
 
 export const CHAT_MODES = [['chat', '💬 Chat', 'Talk to the model in normal language — it sees the desk\'s current state'],
   ['case', '🔎 Case', 'The structured read of the coin on the chart (validated JSON → shown as a verdict)'],
-  ['improve', '🛠 Fix agents', 'The model may PROPOSE agent changes. Nothing changes until you approve each one.']];
+  ['improve', '🛠 Fix agents', 'The model may PROPOSE agent changes. Nothing changes until you approve each one.'],
+  ['build', '🧱 Build', 'The model proposes things to BUILD (a vital, a meter, a check, a test). Ideas only — filed for you, nothing is applied.']];
 // one-tap prompts, per mode (trench words; each is just a message — nothing is pre-approved)
 export const QUICK = {
   chat: [['🩸 Why are we bleeding?', 'Why did the last real trades lose? Use the outcomes and the money record. Be blunt.'], ['👀 Best seat right now?', 'Which coin on the desk right now is the cleanest setup, and what kills it?'],
@@ -17,6 +18,8 @@ export const QUICK = {
   case: [['🔎 Full read', ''], ['☠ What rugs it?', 'What is the single most likely way this rugs or bleeds?'], ['🚪 Where is the exit?', 'If we are in this, what is the sign to leave?']],
   improve: [['🛠 Fix what is losing', 'Look at the outcomes, the money record and the trail. Propose the changes that fix what is losing.'], ['🎓 Teach from the last loss', 'Turn the last real loss into ONE lesson the model should read on every fitting case.'],
     ['⚖ Rank down the leak', 'Which cause from the vocabulary keeps showing up in the losses? Propose a rank weight for it.'], ['🎚 Tune the exits', 'Winners are banked small and rugs cost a seat. Propose ONE exit notch for a shadow test.']],
+  build: [['🫀 Missing vital', 'Which vital is UNKNOWN or PENDING most often in CONTEXT and would have changed a recent decision? Propose how to collect and draw it.'], ['📊 New live meter', 'Propose ONE new live visual for the desk that shows a number the owner cannot see today.'],
+    ['🧪 Test for the last loss', 'Which check or test would have caught the last real loss? Propose it.'], ['🧹 What is clutter?', 'What on the desk is duplicate or never changes a decision? Propose what to cut.']],
 };
 const KIND = { cfg: '⚙ switch', lesson: '🎓 lesson', weight: '⚖ rank weight', tune: '🎚 exit notch → shadow', idea: '💡 idea' };
 const show = v => (v === true ? 'ON' : v === false ? 'OFF' : v == null ? '—' : String(v));
@@ -59,6 +62,7 @@ export function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full'
     setBusy(true); setHist(h => [...h, { role: 'user', text: m === 'case' ? `[case review] $${focusSym || focus || '?'} ${v}`.trim() : v }]); setTxt('');
     try { const r = await call('/admin/ai/chat', { method: 'POST', body: JSON.stringify({ text: v, mode: m, focus: focus || null }) });
       take(r); setLast(r); setErr(null);
+      if (r.routed) setMode(r.mode);   /* a chat message that asked for a change ran as 🛠 Fix agents */
       if (!r.ok) toast.error(r.why || 'no provider answered'); else if ((r.new || []).length) { setOpenP(true); toast.success(`🛠 ${r.new.length} fix${r.new.length === 1 ? '' : 'es'} waiting for your call`); }
     } catch (x) { toast.error(x.message); setHist(h => [...h, { role: 'assistant', text: `⚠ ${x.message}` }]); } finally { setBusy(false); }
   };
@@ -80,6 +84,7 @@ export function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full'
       <button type="button" className="cch-ico" onClick={() => clear()} disabled={busy || !hist.length} data-testid="cch-clear" data-tip="Delete the whole chat" aria-label="Clear chat">🗑</button>
       <button type="button" className="cch-ico" onClick={() => setPop(p => !p)} data-testid="cch-pop" data-tip={pop ? 'Close (Esc)' : 'Pop out — full window'} aria-label={pop ? 'Close the pop-out' : 'Pop out'}>{pop ? '✕' : '⤢'}</button>
     </header>
+    <i className="cch-scan" aria-hidden="true" />
     <div className="cch-modes" role="radiogroup" aria-label="Chat mode">{CHAT_MODES.map(([k, l, tip]) => <button key={k} type="button" role="radio" aria-checked={mode === k} className={mode === k ? 'active' : ''}
       onClick={() => setMode(k)} data-tip={tip} data-testid={`cch-mode-${k}`}>{l}</button>)}</div>
     <div className="cch-main">
@@ -89,13 +94,13 @@ export function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full'
           {hist.length ? hist.map((t, i) => <li key={`${i}-${t.text.slice(0, 12)}`} className={`cch-msg is-${t.role}`}><small>{t.role === 'user' ? 'YOU' : 'BRAIN'}</small><span>{t.text}</span>
             <i className="cch-mact">{t.role !== 'user' && t.text.length >= 8 && !t.text.startsWith('⚠') ? <button type="button" onClick={() => remember(t.text)} data-tip="Remember this: it becomes a lesson every fitting model read sees" data-testid={`cch-rem-${i}`}>🧠 Remember</button> : null}
               <button type="button" onClick={() => clear(i)} data-tip="Delete this message" aria-label="Delete this message" data-testid={`cch-del-${i}`}>✕</button></i></li>)
-            : !err ? <li className="cch-nil">It sees the ten agents, the seats, the coin on the chart, execution health and the last real results. It learns what you tell it to remember. It fixes agents only on your call.</li> : null}
+            : !err ? <li className="cch-nil">Sees the desk. Learns what you 🧠 remember. Fixes only on your ✅.</li> : null}
           {busy ? <li className="cch-msg is-assistant is-wait" role="status"><small>BRAIN</small><span><i /><i /><i /></span></li> : null}<li ref={end} aria-hidden className="cch-end" /></ol>
         <div className="cch-quick" data-testid="cch-quick">{(QUICK[mode] || []).map(([l, q]) => <button key={l} type="button" disabled={!isOwner || busy} onClick={() => say(q)} data-testid={`cch-chip-${l.split(' ')[1] || l}`}>{l}</button>)}</div>
         {last && metaLine(last) ? <p className="cch-meta" data-testid="cch-meta">{metaLine(last)}{(last.refused || []).length ? ` · ${last.refused.length} suggestion${last.refused.length === 1 ? '' : 's'} refused (execution / money is out of reach)` : ''}</p> : null}
         <form className="cch-form" onSubmit={send} autoComplete="off">
           <input className="m-input" value={txt} onChange={e => setTxt(e.target.value)} disabled={!isOwner || busy} spellCheck={false} aria-label="Message to the model" data-testid="cch-input"
-            placeholder={mode === 'case' ? `${focusSym ? `$${focusSym}` : 'the coin on the chart'} — ask about it (optional)` : mode === 'improve' ? 'what should the agents do better?' : 'talk to the brain…'} />
+            placeholder={mode === 'case' ? `${focusSym ? `$${focusSym}` : 'the coin on the chart'} — ask about it (optional)` : mode === 'improve' ? 'what should the agents do better?' : mode === 'build' ? 'what should we build next?' : 'talk to the brain…'} />
           <button type="submit" className="m-btn m-go cch-go" disabled={!isOwner || busy || (!String(txt).trim() && mode !== 'case')} data-testid="cch-send">{busy ? '…' : 'SEND IT'}</button></form>
       </div>
       {pend || (props.decided || []).length ? <div className={`cch-props ${openP || pop ? '' : 'is-shut'}`} data-testid="cch-props">

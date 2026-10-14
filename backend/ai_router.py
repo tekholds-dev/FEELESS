@@ -396,7 +396,9 @@ GENERAL_SYSTEM = ("You are the assistant brain of FEELESS, a live Solana memecoi
                   "advise, you never place, size or route a trade). This is a GENERAL question, not a coin case: answer in normal language — short, direct, "
                   "concrete, a few sentences or a short list. Do NOT answer in JSON and do NOT use the trench case schema (stance / priority / risk_flags …) "
                   "unless the user explicitly asks for JSON. Use only what you know or what `CONTEXT` gives you; say plainly when you do not know. Never "
-                  "invent market data, prices, results or history. No disclaimers, no 'as an AI'.")
+                  "invent market data, prices, results or history. No disclaimers, no 'as an AI'. Lead with the answer. Quote the exact numbers, agent names and "
+                  "coins from CONTEXT that back it. Banned: generic advice ('improve accuracy', 'monitor and adjust', 'optimize resources'), numbered consultant "
+                  "plans, restating the question. If CONTEXT cannot answer it, say what is missing in one line.")
 CASE_KEYS_HINT = ('status', 'rank', 'cap', 'liq', 'result', 'trigger', 'heldMin', 'structure', 'phase')
 DESK_STATES = ('coach', 'lab')   # the desk's own packets (our real trades → directives / rules / tune): structured JSON answers, so CASE mode
 
@@ -535,6 +537,7 @@ class Router:
         self.spend = {}    # provider → {day, usd, calls}: the costs the provider itself reported today
         self.localBgAt = 0.0
         self._ctx = None   # (read at, the local model's loaded context length)
+        self._beat = 0.0   # 💓 last local heartbeat
         self.lastUsage = {}   # provider → {in, out} tokens of its last answer
 
     def busy(self, env, cfg):
@@ -606,6 +609,31 @@ class Router:
             pass
         self._ctx = (now, ctx)
         return ctx
+
+    async def heartbeat(self, http, env, cfg, now=None, every=45.0):
+        """💓 THE LOCAL MODEL HEALS ITSELF (owner, 2026-10-13: "I keep having to click Test"): one slow / failed answer marked LM Studio
+        OFFLINE and nothing called it again until the Test button did. While it is not ONLINE, every `every` seconds ONE cheap GET of its
+        model list (no inference, no tokens): the server answers and the model is listed → ONLINE again, cool-down cleared. → True / False /
+        None (not due, already online, or switched off)."""
+        now = now or time.time()
+        s = self.stats['local']
+        if s['state'] == 'ONLINE' or now - self._beat < every:
+            return None
+        self._beat = now
+        p = provider(env, 'local', cfg)
+        if not p['enabled'] or p['why']:
+            return None
+        try:
+            r = await asyncio.wait_for(http.get(str(p['base']).rstrip('/') + '/models'), timeout=3)
+            ids = [m.get('id') for m in (r.json().get('data') or [])] if r.status_code == 200 else []
+        except Exception:
+            ids = []
+        up = bool(ids) and (not p['model'] or p['model'] in ids)
+        if up:
+            s.update(state='ONLINE', streak=0, coolUntil=0.0, lastErr=None, lastAt=now)
+        elif s['state'] == 'UNTESTED':
+            s.update(state='OFFLINE', lastErr='LM Studio server not reachable, or the model is not loaded', lastAt=now)
+        return up
 
     def _budget_note(self, key, headers, now):
         """What the provider says is left of its tokens-per-minute budget (OpenAI-style `x-ratelimit-*` headers) → remembered per provider."""

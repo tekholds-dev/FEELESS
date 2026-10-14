@@ -167,3 +167,16 @@ test('🔑 AI key box: tests and saves through the server, shows only set + the 
   expect(call).toHaveBeenLastCalledWith('/admin/ai-key', { method: 'POST', body: JSON.stringify({ provider: 'openai', clear: true }) });
   await act(async () => { root.unmount(); });
 });
+
+test('🗂 one deck beside the Brain: trades · coach · teach share a tab row, every pane stays mounted, the pick is remembered', async () => {
+  const call = jest.fn(async () => ({ ok: true }));
+  const hub = { d: data, livePx: new Map(), sel: selectors(data), load: jest.fn() };
+  const { root, q } = mount();
+  await act(async () => { root.render(<AgentHubProvider value={hub}><AgentCockpit call={call} /></AgentHubProvider>); });
+  await flush();
+  expect([...q('ack-tapezone').children].map(c => c.getAttribute('data-testid'))).toEqual(['ack-deck', 'cch']);
+  expect(q('ack-deckpane-tape').hidden).toBe(false); expect(q('ack-deckpane-coach').hidden).toBe(true); expect(q('ack-deckpane-teach').hidden).toBe(true);
+  await act(async () => { q('ack-deck-coach').click(); });
+  expect(q('ack-deckpane-coach').hidden).toBe(false); expect(q('ack-deckpane-tape').hidden).toBe(true); expect(q('ack-deckpane-tape').children.length).toBeGreaterThan(0);
+  expect(localStorage.getItem('feeless.agentDeck')).toBe('coach'); localStorage.removeItem('feeless.agentDeck');
+});

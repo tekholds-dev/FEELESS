@@ -19,14 +19,14 @@ test('💬 chat: three modes, a normal-language answer with provider · model ·
       history: [{ role: 'user', text: 'why small wins?' }, { role: 'assistant', text: 'Reaper banks winners at about +2%.' }], proposals: { pending: [], decided: [] } };
   });
   const el = await mount(<AiChat call={call} focus="M1" focusSym="AAA" />);
-  expect(CHAT_MODES.map(m => m[0])).toEqual(['chat', 'case', 'improve']); expect(q(el, 'cch-send').disabled).toBe(true);
+  expect(CHAT_MODES.map(m => m[0])).toEqual(['chat', 'case', 'improve', 'build']); expect(q(el, 'cch-send').disabled).toBe(true);
   await type(el, 'why small wins?'); await act(async () => { q(el, 'cch-send').click(); });
   expect(call).toHaveBeenCalledWith('/admin/ai/chat', expect.objectContaining({ method: 'POST', body: JSON.stringify({ text: 'why small wins?', mode: 'chat', focus: 'M1' }) }));
   expect(q(el, 'cch-log').textContent).toContain('Reaper banks winners at about +2%.'); expect(q(el, 'cch-log').textContent).not.toContain('"stance"');
   expect(q(el, 'cch-meta').textContent).toBe('OPENROUTER · gpt-x · 4.2s · 900→60 tok');
   expect(mockHub.hubApply).not.toHaveBeenCalled(); expect(mockHub.hubLoad).not.toHaveBeenCalled();   // no full-tab repaint: the answer lives in this panel
   expect(q(el, 'cch-mood').dataset.mood).toBe('on'); expect(q(el, 'cch-mood').textContent).toContain('LOCKED IN');
-  await act(async () => { q(el, 'cch-clear').click(); }); expect(q(el, 'cch-log').textContent).toContain('It fixes agents only on your call');
+  await act(async () => { q(el, 'cch-clear').click(); }); expect(q(el, 'cch-log').textContent).toContain('Fixes only on your');
   expect(metaLine({ provider: 'LOCAL AI' })).toBe('LOCAL AI'); expect(metaLine(null)).toBe('');
 });
 

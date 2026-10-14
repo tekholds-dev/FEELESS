@@ -1,5 +1,4 @@
 /* 🎓 TEACH THE DESK (TeachBox.jsx `tch-*`): the creator's notes, narratives and chart lessons for the model; rows stagger in (--i × 50ms). */
-.ack-coachcol { display: grid; gap: var(--ack-gap, 10px); align-content: start; min-width: 0; }
 .tch { display: grid; gap: 7px; padding: 9px 10px; border-radius: var(--m-r-sm, 10px); border: 1px solid color-mix(in srgb, #c9b8ff 30%, transparent);
   background: linear-gradient(160deg, rgba(140, 110, 255, .07), rgba(4, 14, 9, .65)); min-width: 0; }
 .tch-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin: 0; }

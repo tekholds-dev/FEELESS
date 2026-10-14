@@ -47,6 +47,17 @@ export function LiveNum({ v, fmt, cls, testid }) {
 // ── ⚡ the live pulse: the desk working, second by second ──────────────────────────────────────────────────────────────────────────
 // ONE 1-second clock for the whole strip. Every figure is the kernel's own (coins tracked, re-judged, events / s, the ten-agent brain's
 // latency) or an age counted from a real timestamp (the last pass, the last decision line, the model's last answer) — nothing invented.
+// 🗂 ONE deck instead of three stacked boxes: the trade tape · the coach · teach share a tab row beside the Brain (less scroll). Every pane stays
+// mounted (hidden) so a half-typed lesson or an open trade story survives a tab switch; the count on each tab is the payload's own.
+const DECK_KEY = 'feeless.agentDeck';
+function Deck({ tabs }) {
+  const [on, setOn] = useState(() => { try { const v = localStorage.getItem(DECK_KEY); return tabs.some(t => t[0] === v) ? v : tabs[0][0]; } catch { return tabs[0][0]; } });
+  const pick = k => { setOn(k); try { localStorage.setItem(DECK_KEY, k); } catch { /* private window */ } };
+  return <section className="ack-deck" data-testid="ack-deck" data-on={on}>
+    <div className="ack-decktabs m-seg" role="tablist" aria-label="Trades, coach and teach">{tabs.map(([k, l, n]) => <button key={k} type="button" role="tab" aria-selected={on === k} className={on === k ? 'active' : ''} onClick={() => pick(k)} data-testid={`ack-deck-${k}`}>{l}{n ? <i>{n}</i> : null}</button>)}</div>
+    {tabs.map(([k, , , node]) => <div key={k} role="tabpanel" className="ack-deckpane" hidden={on !== k} data-testid={`ack-deckpane-${k}`}>{node}</div>)}
+  </section>;
+}
 function useTick(ms = 1000) { const [n, setN] = useState(() => Date.now()); useEffect(() => { const t = setInterval(() => setN(Date.now()), ms); return () => clearInterval(t); }, [ms]); return n; }
 export function pulseOf(o, nowMs = Date.now()) {
   const now = nowMs / 1000; const k = (o?.kernel || {}).metrics || {}; const cy = o?.cycle || {}; const every = Number(cy.nextIn) > 0 ? Number(cy.nextIn) : Number(cy.every) || 18;
@@ -445,8 +456,11 @@ export function AgentCockpit({ call, isOwner = true }) {
         <DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { if (r.mint) setPick(r.mint); setAgentS(r.agent in AG ? r.agent : null); setTab('live'); }} /></div>
       <DecisionPanel o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
         pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} mcNow={model?.mc} onAi={() => setAiOpen(true)} /></div>
-    <div className="ack-tapezone" data-testid="ack-tapezone"><div className="ack-tapecol"><TradeTape tape={o.tradeTape} mint={mint} onPick={onPick} />
-      <AiChat call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} variant="full" /></div><div className="ack-coachcol"><CoachBox coach={o.coach} seats={seats} tpl={d?.card?.tpl} call={call} isOwner={isOwner} /><TeachBox o={o} mint={mint} sym={model?.sym || model?.symbol} call={call} isOwner={isOwner} /></div></div>
+    <div className="ack-tapezone" data-testid="ack-tapezone">
+      <Deck tabs={[['tape', '🎬 Trades', (o.tradeTape?.rows || []).length, <TradeTape tape={o.tradeTape} mint={mint} onPick={onPick} />],
+        ['coach', '👑 Coach', (o.coach?.rules || []).length, <CoachBox coach={o.coach} seats={seats} tpl={d?.card?.tpl} call={call} isOwner={isOwner} />],
+        ['teach', '🎓 Teach', (o.teach?.items || []).length, <TeachBox o={o} mint={mint} sym={model?.sym || model?.symbol} call={call} isOwner={isOwner} />]]} />
+      <AiChat call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} variant="full" /></div>
     <div className="ack-foot"><AgentMatrix o={o} gens={o?.generations || []} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); setTab('live'); }} rows={o.tape} pulse={pulse} />
       <ReviewQueue o={o} call={call} isOwner={isOwner} onPick={m => { onPick(m); if (m && !((o.kernel || {}).candidates || []).some(c => c.mint === m) && !(o.positions || []).some(p => p.mint === m) && !(o.ownerReview || []).some(r => r.mint === m)) openCoin({ mint: m }); }} sel={mint} /></div>
     <CockpitControls o={o} call={call} isOwner={isOwner} onAi={() => setAiOpen(true)} />

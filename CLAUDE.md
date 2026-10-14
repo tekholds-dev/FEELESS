@@ -3960,3 +3960,18 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🧠 The Brain's place in HQ › Agents = the cockpit's tape zone, under the 🎬 trade tape (`ack-tapecol`, `variant="full"`) — NOT inside the
   small 🧠 AI panel tab (owner, 2026-10-13: "AI / LM chat in the Agents tab here"). The AI tab keeps the decision log, the ASK box and the
   rule lab. The Brain reads its own chat state once (`GET /admin/ai/chat`) — the desk itself is still fed by ONE request.
+- 🗂 COCKPIT DECK + 🧱 BUILD MODE + 💓 LOCAL HEARTBEAT + ⚙ HOME ENGINE (owner, 2026-10-13: "alive layout, less scroll, less reading unless it's decisions and AI"):
+  · HQ › Agents tape zone = `Deck` (AgentCockpit.jsx, `ack-deck*` in coachTape.css): 🎬 Trades · 👑 Coach · 🎓 Teach share ONE tab row (counts from the
+    payload, pick remembered `feeless.agentDeck`, every pane stays mounted + hidden) with the Brain always beside it. A new secondary box ⇒ a deck tab,
+    never another stacked block.
+  · Brain = FOUR modes (`ai_chat.MODES` + `build`; each wears its own colour, `cch-scan` runs only while the model answers). `ai_chat.CHAT_ASK` = the chat
+    voice (verdict first, every claim a number / agent / coin from CONTEXT, ≤ 5 lines, no consultant lists — the 7B model had answered "improve decision
+    accuracy · monitor and adjust"); `route_mode`: a chat message that asks for a change ("can you fix?") runs as 🛠 Fix agents → proposals. 🧱 BUILD
+    (`BUILD_ASK`, `parse_improve(only=('idea',))`): the models propose what to build (a vital, a meter, a check, a test) — filed as ideas, nothing applied.
+  · 💓 `ai_router.Router.heartbeat` (called from `_local_lane_run` every AI round): while LM Studio is not ONLINE, ONE cheap model-list GET per 45s (no
+    inference) → ONLINE again, cool-down cleared. One slow answer used to leave it OFFLINE until the owner pressed Test.
+  · ⚙ `components/HomeEngine.jsx` + `styles/homeEngine.css` `hen-*` (Home, under the $FEE hero): gates 🛰 SEEN → 🔬 SCANNED → ✅ SAFE → 🏃 RUNNERS and a
+    belt of REAL coins from `/fuses/trench/open` (safe rides through, failed drops at the scan, unread waits; tap = coin drawer) + meters (green 1h ·
+    buyers · safe rate · next round) from `/fuses/forecast` + `/runners`. Three shared reads / 30s, transform + opacity only.
+  · SEATS EMPTY that evening = the owner's own 🎯 Chart says go switch: all 5 contenders were ARMED then held by the chart call (seat reason "timing (5)").
+    It was NOT loosened: since that gate the armed door reads 60% won / +7.9% a bet. Read `office.seat.blockers` before touching a fill rule.

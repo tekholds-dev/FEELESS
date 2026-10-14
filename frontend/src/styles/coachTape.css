@@ -1,6 +1,14 @@
 /* 🎬 real trade tape + 👑 coach (Agents cockpit). m-* tokens; transform / opacity only. */
-.ack-tapecol { display: grid; gap: var(--ack-gap, 10px); min-width: 0; align-content: start; }
-.ack-tapezone { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); gap: var(--ack-gap, 10px); align-items: start; }
+.ack-tapezone { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr); gap: var(--ack-gap, 10px); align-items: stretch; }
+.ack-deck { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; min-width: 0; height: clamp(420px, 62vh, 640px); }
+.ack-decktabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); } .ack-decktabs > button { display: flex; align-items: center; justify-content: center; gap: 6px; transition: transform .15s ease; }
+.ack-decktabs > button:active { transform: scale(.97); } .ack-decktabs > button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; }
+.ack-decktabs i { font: 800 9px var(--m-mono); font-style: normal; padding: 1px 6px; border-radius: 999px; background: rgba(21, 209, 106, .16); color: var(--m-accent); } .ack-decktabs .active i { background: rgba(0, 0, 0, .25); color: inherit; }
+.ack-deckpane { min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; display: grid; gap: var(--ack-gap, 10px); align-content: start; animation: ackDeckIn .18s ease-out; }
+.ack-deckpane[hidden] { display: none; } .ack-deckpane::-webkit-scrollbar { width: 6px; } .ack-deckpane::-webkit-scrollbar-thumb { background: var(--m-accent); border-radius: 3px; }
+@keyframes ackDeckIn { from { transform: translateY(5px); opacity: .4; } } body.fx-lite .ack-deckpane { animation: none; } @media (prefers-reduced-motion: reduce) { .ack-deckpane { animation: none; } }
+body.theme-day .ack-decktabs i { background: rgba(13, 122, 65, .14); color: #0d7a41; }
+@media (max-width: 1180px) { .ack-deck { height: auto; max-height: 70vh; } }
 .ctp, .ctp-coach { display: grid; gap: 8px; min-width: 0; }
 .ctp-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
 .ctp-line { font: 600 10px var(--m-mono); color: var(--m-mute); flex: 1 1 200px; min-width: 0; }

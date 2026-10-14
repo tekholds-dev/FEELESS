@@ -17,7 +17,7 @@ stored proposal record is compact (no raw prompt, no raw response) and capped.""
 import json
 import re
 
-MODES = ('chat', 'case', 'improve')
+MODES = ('chat', 'case', 'improve', 'build')
 HIST_TURNS = 8          # the last N exchanges go back to the model (and stay on screen)
 MSG_LEN = 1400
 PROPOSALS_KEEP = 60
@@ -40,6 +40,33 @@ IMPROVE_ASK = (
     f"- tune: key one of {', '.join(TUNE_KEYS)}; value up|down (one notch, into a shadow test)\n"
     "- idea: anything else (a vital to collect, which provider for which task, a prompt change) — key = a short title, value = the idea\n"
     "Never propose anything about execution: slippage, price gap, sell-back, pool floor, wallet or limits, sizes, seats, stops, orders, keys.")
+
+# 💬 CHAT: the desk voice (the 7B local model answered "improve decision accuracy · monitor and adjust" to "why don't we capitalize faster?")
+CHAT_ASK = (
+    "CHAT mode — you are the desk's sharpest trencher talking to the owner. Rules: (1) verdict in the FIRST sentence; (2) every claim carries a number, "
+    "an agent name or a coin taken from CONTEXT (money / capital / trail / outcomes / seats / agents) — if it is not in CONTEXT you do not say it; "
+    "(3) max 5 short lines, no headings, no numbered plans, no bold; (4) name the ONE thing costing the most money and the ONE lever that moves it; "
+    "(5) you cannot change anything from chat: when the owner asks you to fix / change / tune something, say which lever you would pull in one line and "
+    "tell them to tap 🛠 Fix agents so it becomes a proposal they approve. Trench words are fine; filler is not.")
+# 🧱 BUILD: the models help keep the product strong — ideas only, filed for the owner / the engineer, nothing applied
+BUILD_ASK = (
+    "BUILD mode. You help the owner and their engineer keep FEELESS strong: code, UI and vitals. Read CONTEXT and the owner's message, then answer with ONE JSON "
+    'object and nothing else: {"reply": "2-5 blunt sentences", "proposals": [{"agent": "desk", "kind": "idea", "key": "short title", "value": "what to build: the '
+    'surface or agent it lives on, the exact data it reads, how it is drawn or computed", "reason": "the evidence in CONTEXT, with numbers", "effect": "what the owner '
+    'sees or what gets measured"}]}\n'
+    "At most 3 proposals, each buildable in a day and specific (a vital that is UNKNOWN / PENDING in CONTEXT to collect, a live meter, a check an agent lacks, a "
+    "test that would have caught a loss). Only kind idea: an idea changes no setting. Never anything about execution, the wallet, limits, sizes, stops or keys.")
+FIX_WORDS = re.compile(r"\b(fix|change|tune|tweak|adjust|improve|make (it|them)|turn (on|off)|switch (on|off)|teach)\b", re.I)
+
+
+def route_mode(mode, text):
+    """A chat message that ASKS FOR A CHANGE runs as 🛠 agent improvement (proposals the owner approves) — the model can change nothing from chat,
+    so "can you fix?" used to get a paragraph of advice. Everything else keeps its mode."""
+    return 'improve' if mode == 'chat' and FIX_WORDS.search(str(text or '')) and len(str(text or '')) <= 400 else mode
+
+
+def system_for(mode):
+    return {'chat': CHAT_ASK, 'improve': IMPROVE_ASK, 'build': BUILD_ASK}.get(mode)
 
 
 def _f(v, d=0.0):
@@ -170,13 +197,15 @@ def check(p, vocab=()):
     return {'agent': agent, 'kind': kind, 'key': key, 'value': val, 'reason': clean(p.get('reason'), 240), 'effect': clean(p.get('effect'), 200)}, None
 
 
-def parse_improve(text, vocab=()):
+def parse_improve(text, vocab=(), only=None):
     """The model's AGENT IMPROVEMENT answer → (reply in normal language, [validated proposals], [refusals]). Prose with no JSON is just a reply."""
     j = _first_json(text)
     if not isinstance(j, dict):
         return clean(text), [], []
     ok, bad = [], []
     for p in (j.get('proposals') or [])[:8] if isinstance(j.get('proposals'), list) else []:
+        if only and isinstance(p, dict) and p.get('kind') not in only:
+            bad.append(f"{p.get('kind')}: only {' / '.join(only)} in this mode"); continue
         v, why = check(p, vocab)
         (ok if v else bad).append(v or why)
     return clean(j.get('reply') or j.get('summary') or ''), ok[:PROPOSALS_PER_REPLY], bad[:6]

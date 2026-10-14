@@ -542,3 +542,31 @@ def test_the_seat_gate_does_not_hold_a_coin_on_the_organic_bots_flag_alone():
     assert air.gate_verdict(n(['organic vol 0%', 'bots 35%']), 110.0)[0] == 'go'                      # on nearly every Pump coin: it would stop all trading
     v, why = air.gate_verdict(n(['organic vol 0%', 'Dev holds 79.4%']), 110.0)
     assert v == 'wait' and why.startswith('Dev holds 79.4%')                                          # a real, specific risk still holds it
+
+
+def test_local_heartbeat_brings_an_offline_local_model_back_without_a_test_click():
+    import asyncio
+    import ai_router as r
+
+    class Resp:
+        def __init__(self, code, ids): self.status_code = code; self._ids = ids
+        def json(self): return {'data': [{'id': i} for i in self._ids]}
+
+    class Http:
+        def __init__(self, resp): self.resp = resp; self.calls = 0
+        async def get(self, url):
+            self.calls += 1; assert url.endswith('/models')
+            if self.resp is None: raise OSError('down')
+            return self.resp
+
+    env = {'LOCAL_LLM_ENABLED': 'true', 'LOCAL_LLM_BASE_URL': 'http://127.0.0.1:1234/v1', 'LOCAL_LLM_MODEL': 'qwen'}
+    ro = r.Router(); model = r.provider(env, 'local', {})['model']
+    ro._bad('local', 1000.0, 'timed out', 'timeout'); ro._bad('local', 1000.0, 'timed out', 'timeout'); ro._bad('local', 1000.0, 'timed out', 'timeout')
+    assert ro.stats['local']['state'] == 'OFFLINE' and ro.stats['local']['coolUntil'] > 1000
+    down = Http(None)
+    assert asyncio.run(ro.heartbeat(down, env, {}, now=2000.0)) is False and ro.stats['local']['state'] == 'OFFLINE'
+    up = Http(Resp(200, [model]))
+    assert asyncio.run(ro.heartbeat(up, env, {}, now=2010.0)) is None and up.calls == 0   # not due yet: one probe per 45s
+    assert asyncio.run(ro.heartbeat(up, env, {}, now=2100.0)) is True
+    assert ro.stats['local']['state'] == 'ONLINE' and ro.stats['local']['coolUntil'] == 0.0 and ro.stats['local']['streak'] == 0
+    assert asyncio.run(ro.heartbeat(up, env, {}, now=2200.0)) is None and up.calls == 1   # ONLINE: no probe at all

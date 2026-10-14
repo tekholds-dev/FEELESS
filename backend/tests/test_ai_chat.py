@@ -107,3 +107,14 @@ def test_the_service_applies_only_safe_kinds_through_owner_routes():
     body = src[i:src.index('\n\n\n', i)]
     assert all(k in body for k in ("'cfg'", "'lesson'", "'weight'", "'tune'", "'idea'")) and 'SAFE_CFG' in body
     assert not any(bad in body for bad in ('agentGapPct', 'maxSwapUsd', '_fw_', 'manualSell', 'agent_seat(', 'replace_leg('))                # no path from an approval to execution
+
+
+def test_chat_that_asks_for_a_change_runs_as_proposals_and_build_mode_files_ideas_only():
+    import ai_chat as c
+    assert c.route_mode('chat', 'can you fix?') == 'improve' and c.route_mode('chat', 'why are we bleeding?') == 'chat'
+    assert c.route_mode('case', 'fix it') == 'case' and c.route_mode('build', 'fix the ui') == 'build'
+    assert 'build' in c.MODES and c.system_for('chat') == c.CHAT_ASK and c.system_for('build') == c.BUILD_ASK and c.system_for('case') is None
+    assert 'number' in c.CHAT_ASK and 'Fix agents' in c.CHAT_ASK
+    txt = '{"reply": "two ideas", "proposals": [{"agent": "desk", "kind": "idea", "key": "rug meter on seats", "value": "draw it", "reason": "r", "effect": "e"}, {"agent": "desk", "kind": "cfg", "key": "agentDial", "value": "crazy"}]}'
+    reply, ok, bad = c.parse_improve(txt, (), only=('idea',))
+    assert reply == 'two ideas' and [p['kind'] for p in ok] == ['idea'] and len(bad) == 1 and 'only idea' in bad[0]
