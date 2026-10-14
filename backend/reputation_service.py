@@ -9356,6 +9356,25 @@ async def _curve_fix_1011(now):
     return True
 
 
+async def _minage_fix_1014(now):
+    """🐣 Once (2026-10-14): the agents' youngest-coin control (`agentMinAgeH`) was shown but enforced nowhere after the 2026-10-12 refactor —
+    the card held 0.5 h on screen while every trade it made was any age. Now that it IS enforced, a 0.5 h line would block 209 of the 273
+    real trades on record, and those are the BEST bucket for a minutes-long scalp (0–5 min old: 72% won, median +5%; 1–6 h: 32% won,
+    −5.4% avg; rugs ~8–11% in every bucket). So the card is set to what it really ran on — any age — and the owner chooses from here.
+    Old value: data/realcfg_before_minage1014.json. Change: HQ › Agents › 🎛 controls › 🎯 UNIVERSE › Youngest coin."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('minAgeFix1014') or not rc:
+            return False
+        ch = {'agentMinAgeH': 0}
+        _json_save(DATA_DIR / 'realcfg_before_minage1014.json', {k: rc.get(k) for k in ch})
+        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
+        pr['minAgeFix1014'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _armed_fix_1013(now):
     """🎯 Once (owner, 2026-10-13: "seat filling is the problem … keep seats full"): entry mode ARMED on the real card — a seat empty past the
     seat target takes the best ARMED coin at half a seat, and the empty-seat target drops to 15s. Old values: data/realcfg_before_armed1013.json.
@@ -9688,6 +9707,7 @@ async def _prime_tick_inner(now):
     await _curve_fix_1011(now)
     await _armed_fix_1013(now)
     await _proof_clean_1013(now)
+    await _minage_fix_1014(now)
     await _agent_real_fix_1012(now)
     await _agent_open_fix_1012(now)
     await _agent_control_fix_1010(now)
@@ -15174,6 +15194,12 @@ async def _seat_precheck(plan, cfg_t, now, seat_usd=0.0, need=1):
             # 🎯 the owner's band is judged on the LIVE cap too: the desk's row can be minutes old, and a launch that ran to $18K and died back
             # to its $3K floor was seated again and again on its old reading (Lynk / JEANPAD / TIMUR / SAVELLS, 2026-10-13)
             ok_, why_ = False, f"live cap ${cap_:,.0f} is outside your {_uni.band_word()} band (the desk's reading was old)"
+        if ok_ and _uni.min_age() > 0:   # 🐣 the owner's youngest-coin line, judged on the live pool's own birth (the desk row can be wrong)
+            born_ = _fuse._f((live.get(t_.get('pair')) or {}).get('pairCreatedAt')) / 1000.0
+            age_ = (time.time() - born_) / 3600.0 if born_ > 0 else (t_.get('vitals') or {}).get('ageH')
+            yw_ = _uni.too_young({'ageH': age_}) if age_ is not None else 'launch age unknown (your youngest-coin line is on)'
+            if yw_:
+                ok_, why_ = False, yw_
         if ok_ and sol_px > 0 and seat_usd > 0 and time.time() - _FW_JUP_BUSY['at'] <= JUP_BUSY_SEC:
             continue   # Jupiter is rate-limiting us: the keeper's own buy would fail the same way → no seat this tick, the coin is NOT marked refused
         if ok_ and sol_px > 0 and seat_usd > 0:

@@ -4109,3 +4109,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   22 FOMO buys on 18 DIFFERENT mints, 8 CocaCola on 7, 5 GTA6 — every one a new launch wearing a trending ticker. The 🧬 clone rule (✋ skip, 24h of
   the card's own filled buys, prefix ≥ 4 letters) went live at the 11:32 restart that day; the test pins the exact tickers. "SAME COINS" ⇒ count
   mints per ticker in the ledger before blaming the feed.
+- 🐣 THE YOUNGEST-COIN CONTROL IS ENFORCED AGAIN (`universe.min_age/too_young`, carried by `clean_limits` → `set_band`; read by `in_lane`,
+  `opportunity.hard_fail`, `opportunity.open_ok` and the seat pre-check on the LIVE pool's birth; options `AGENT_MIN_AGES` 0 · 3m · 15m · 30m ·
+  1h · 2h · 3h; Pump trending does not waive it): the 2026-10-12 refactor dropped the check, so `agentMinAgeH` only showed on screen (the card
+  read 30 min while it bought 2-minute coins). `_minage_fix_1014` set the real card to ANY AGE = what it really ran on, because its own record
+  says young coins are the best scalp bucket: 273 real exits — 0–5 min old 72% won / median +5% · 5–15 min 47% · 1–6h 32% won / −5.4% avg ·
+  rugs 8–11% in EVERY bucket. THE EDGE AUDIT'S "<15 min −68%" IS A 1-HOUR HOLD, NOT A MINUTES SCALP — never quote it as a reason to stop
+  scalping young coins. Without the 26 rugs (≤ −45%) the real trades average +5.3%; with them −2.6%: the rug rate × ~−72% is the whole loss.
+  Rugs by door: ⚡ ready 20 of 156 (13%, −4.6% avg) · 🎯 armed 6 of 113 (5%, +0.5% avg).
+- 💻 LM STUDIO WATCHDOG (`scripts/keep-alive.sh` `lm_watch`, about once a minute): server down → `lms server start`; the agents' model
+  (`LOCAL_LLM_MODEL`) not loaded or loaded under `LM_CTX` 8192 → `lms unload` + `lms load … --context-length 8192 --gpu max -y`, at most once per
+  30 min. `LOCAL_LLM_ENABLED=false` switches it off. After editing keep-alive.sh: `bash scripts/background.sh start` (the running loop keeps
+  the old copy). Tested live: 5470 → 8192.

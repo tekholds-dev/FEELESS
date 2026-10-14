@@ -120,6 +120,8 @@ def hard_fail(row, mcap_cap=None, min_liq=MIN_LIQ):
         return 'launch age unknown'
     if _f(v['ageH']) > _uni.max_age(x):   # 🕐 the owner's age line (default 6h; a Pump-trending coin in first / only mode has none)
         return f"{_f(v['ageH']):.1f}h old — no new entry past {_uni.max_age(x):g}h"
+    if _uni.too_young(v):   # 🐣 the owner's youngest-coin line (rugs live under 15 min: −68% typical an hour)
+        return _uni.too_young(v)
     liq = _f(n.get('liq') or v.get('liq'))
     if liq < min_liq:
         return f'pool ${liq / 1000:.0f}K under ${min_liq / 1000:.0f}K'
@@ -354,6 +356,8 @@ def open_ok(row, min_liq=MIN_LIQ):
         return f"outside your MC band ({_uni.band_word()})"
     if v.get('ageH') is None or _f(v['ageH']) > _uni.max_age(x):
         return f"not ≤ {_uni.max_age(x):g}h old" if v.get('ageH') is not None else 'launch age unknown'
+    if _uni.too_young(v):
+        return _uni.too_young(v)
     if _uni.limits()['trend'] == 'only' and not _uni.on_trend(x):
         return 'not on Pump trending (your 🔥 only mode)'
     if _f(n.get('liq') or v.get('liq')) < min_liq:

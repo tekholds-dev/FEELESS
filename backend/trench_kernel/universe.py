@@ -43,7 +43,7 @@ FILL_MOVES_HR = 36         # 🪑 filling an EMPTY seat has its own runaway guar
 CONTROL_MIN_LIQ = 8_000.0    # 🗑 = the keeper's own trench floor ($8K): no lower is buyable at all (owner, 2026-10-11: "no min starting thresholds"); was $20K → $10K
 
 
-AGENT_MIN_AGES = (0, 0.05, 0.25, 0.5, 1)   # 🐣 cfg `agentMinAgeH` (hours) — the agents' OWN youngest-coin line (creator limit); 0 = any age, stage-aware evidence decides
+AGENT_MIN_AGES = (0, 0.05, 0.25, 0.5, 1, 2, 3)   # 🐣 cfg `agentMinAgeH` (hours) — the agents' OWN youngest-coin line (creator limit); 0 = any age, stage-aware evidence decides
 
 
 AGE_STAGES = (('NEWBORN', 0.25), ('EARLY', 1.0), ('DEVELOPING', 24.0), ('MATURE', float('inf')))
@@ -89,7 +89,7 @@ MAX_AGES = (1.0, 3.0, 6.0, 12.0, 24.0, 72.0, 168.0, 720.0)
 MIN_VOLS = (1_000.0, 5_000.0, 10_000.0, 25_000.0, 50_000.0, 100_000.0, 250_000.0)
 TREND_MODES = ('off', 'first', 'only')
 TREND_RANK = 1.15        # a coin on Pump trending in `first` / `only` mode: ×1.15 rank and newness counted as fresh (it is running NOW)
-_LIM = {'maxAgeH': 6.0, 'minVol': 1_000.0, 'trend': 'off', 'trending': frozenset()}
+_LIM = {'maxAgeH': 6.0, 'minVol': 1_000.0, 'trend': 'off', 'minAgeH': 0.0, 'trending': frozenset()}
 
 
 def clean_limits(cfg):
@@ -97,7 +97,7 @@ def clean_limits(cfg):
     a = _f(c.get('agentMaxAgeH')) if c.get('agentMaxAgeH') is not None and _f(c.get('agentMaxAgeH')) in MAX_AGES else 6.0
     v = _f(c.get('agentMinVol1h')) if c.get('agentMinVol1h') is not None and _f(c.get('agentMinVol1h')) in MIN_VOLS else AGENT_MIN_VOL1H
     t = c.get('agentPumpTrend') if c.get('agentPumpTrend') in TREND_MODES else 'off'
-    return {'maxAgeH': a, 'minVol': v, 'trend': t}
+    return {'maxAgeH': a, 'minVol': v, 'trend': t, 'minAgeH': min_age_of(c)}
 
 
 def set_band(cfg):
@@ -124,6 +124,20 @@ def on_trend(row):
 def max_age(row=None):
     """The oldest a coin may be for a NEW entry (hours): the owner's line; a Pump-trending coin in first / only mode has none."""
     return float('inf') if on_trend(row) else _LIM['maxAgeH']
+
+
+def min_age():
+    """🐣 The youngest a coin may be for a NEW entry (hours) — the owner's `agentMinAgeH`. It was shown on screen but enforced nowhere after the
+    2026-10-12 refactor (the owner had 30 min set while 2–3-minute coins were bought and rugged). Pump trending does NOT waive it."""
+    return _LIM['minAgeH']
+
+
+def too_young(row):
+    """→ reason or None. Unknown age is handled by the callers (it is never eligible)."""
+    a, mn = (row or {}).get('ageH'), _LIM['minAgeH']
+    if a is not None and mn > 0 and _f(a) < mn:
+        return f"{_f(a) * 60:.0f} min old — your youngest-coin line is {mn * 60:g} min" if mn < 1 else f"{_f(a):.1f}h old — your youngest-coin line is {mn:g}h"
+    return None
 
 
 def min_vol():
@@ -210,7 +224,7 @@ def in_lane(row, cap=None):
     if _LIM['trend'] == 'only' and not on_trend(r):
         return False
     return (under_cap(r, top) and _f(r.get('vol1h')) >= min_vol()
-            and r.get('ageH') is not None and _f(r.get('ageH')) <= max_age(r))
+            and r.get('ageH') is not None and _f(r.get('ageH')) <= max_age(r) and not too_young(r))
 
 
 def _majors():

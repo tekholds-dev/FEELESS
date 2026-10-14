@@ -17,7 +17,35 @@ start() {
   eval "born_$port=$(date +%s)"
   echo "$(date '+%F %T') restarted $name :$port"
 }
+# 💻 LM STUDIO WATCHDOG (owner, 2026-10-14: "local lm should be always running"): about once a minute — server down → `lms server start`;
+# the agents' model not loaded, or loaded with a context too small for the brain prompt → reload it at LM_CTX (8192). A reload at most once
+# every 30 min (a bad load never loops). Model name = LOCAL_LLM_MODEL in backend/.env (first value, like env_loader); nothing is printed but its name.
+LMS="$HOME/.lmstudio/bin/lms"; LM_CTX="${LM_CTX:-8192}"; lm_tick=0; lm_reload=0
+lm_model() { grep -m1 '^LOCAL_LLM_MODEL=' "$root/backend/.env" 2>/dev/null | cut -d= -f2- | tr -d '"'"'"' ' ; }
+lm_watch() {
+  [[ -x "$LMS" ]] || return 0
+  grep -qi '^LOCAL_LLM_ENABLED=false' "$root/backend/.env" 2>/dev/null && return 0
+  local model; model="$(lm_model)"; model="${model:-qwen2.5-7b-instruct-mlx}"
+  if ! curl -s -m 5 -o /dev/null http://127.0.0.1:1234/v1/models; then
+    "$LMS" server start >/dev/null 2>&1 && echo "$(date '+%F %T') LM Studio server started"
+    return 0
+  fi
+  local ctx; ctx="$(curl -s -m 5 http://127.0.0.1:1234/api/v0/models | python3 -c "import json,sys
+d=json.load(sys.stdin); m=[x for x in d.get('data',[]) if x.get('id')=='$model' and x.get('state')=='loaded']
+print(m[0].get('loaded_context_length') or 0 if m else 0)" 2>/dev/null)"
+  ctx="${ctx:-0}"
+  if (( ctx < LM_CTX )) && (( $(date +%s) - lm_reload > 1800 )); then
+    lm_reload=$(date +%s)
+    (( ctx > 0 )) && "$LMS" unload "$model" >/dev/null 2>&1
+    if "$LMS" load "$model" --context-length "$LM_CTX" --gpu max -y >/dev/null 2>&1; then
+      echo "$(date '+%F %T') LM Studio: $model loaded at context $LM_CTX (was ${ctx})"
+    else
+      echo "$(date '+%F %T') LM Studio: could not load $model — next try in 30 min"
+    fi
+  fi
+}
 while true; do
+  lm_tick=$(( (lm_tick + 1) % 3 )); (( lm_tick == 1 )) && lm_watch
   up 5001 /api/health            || { sleep 5; up 5001 /api/health || start 5001 "$root/.venv" server:app api; }
   # 5077 is probed on a CHEAP route: /fuses/prime rebuilds for 12–13s at times and the old probe restarted a healthy keeper every ~75s (2026-10-12)
   fresh 5077 || up 5077 /api/reputation/perf/config || { sleep 5; up 5077 /api/reputation/perf/config || start 5077 "$root/backend/.venv" reputation_service:app reputation; }
