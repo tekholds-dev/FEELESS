@@ -4,6 +4,7 @@
 .tch-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin: 0; }
 .tch-head b { font: 800 10px var(--m-mono); letter-spacing: .12em; color: var(--m-text); } .tch-head small { flex: 1 1 180px; font: 600 8.5px var(--m-mono); color: var(--m-mute); }
 .tch-head em { font: 800 8.5px var(--m-mono); font-style: normal; letter-spacing: .06em; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; color: #c9b8ff; }
+.tch-rules { display: grid; gap: 5px; } .tch-sub { font: 800 8.5px var(--m-mono); letter-spacing: .12em; color: #c9b8ff; } .tch-sub small { margin-left: 6px; letter-spacing: 0; font-weight: 600; color: var(--m-mute); }
 .tch-head em.is-up { color: var(--m-accent); } .tch-head em.is-dn { color: var(--m-danger); }
 .m-seg.tch-kinds button small { margin-left: 5px; font-size: 8px; opacity: .7; }
 .tch-write { display: grid; gap: 5px; }

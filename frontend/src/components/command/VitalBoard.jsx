@@ -1,0 +1,77 @@
+import React, { useState } from 'react';
+import { toast } from 'sonner';
+import { hubLoad } from '../../lib/agentHub';
+import { VITAL_GROUPS, vitalTiles, vitalScore } from '../../lib/vitalBoard';
+import { openCoin } from '../CoinDrawer';
+import '../../styles/vitalBoard.css';
+
+const MODE_WORD = { off: 'off', flag: '👀 flag only', rank: '⬇ rank down', skip: '✋ skip' };
+const VERDICT = { right: ['✅ RIGHT', 'the coins it hit typically fell — the lesson holds'], wrong: ['❌ WRONG', 'the coins it hit typically ROSE — it ranks winners down'], open: ['⏳ PROVING', 'under 10 coins judged yet'] };
+
+// 🎓 ONE lesson-rule, tunable in place: what it catches (plain words) · what it does (off · flag · rank down · skip) · how hard · its knob ·
+// the coins it hits right now · its own record (coins it hit, graded 30 min later). Used by the Teach box and the vital board.
+export function RuleCard({ r, call, isOwner, compact }) {
+  const [busy, setBusy] = useState(false);
+  if (!r) return null;
+  const set = async change => {
+    if (!isOwner || busy) return;
+    setBusy(true);
+    try { await call('/admin/agents', { method: 'POST', body: JSON.stringify({ taughtRule: { key: r.key, ...change } }) }); await hubLoad(); toast.success(`${r.label}: saved — the agents use it on the next pass`); }
+    catch (e) { toast.error(e.message); } finally { setBusy(false); }
+  };
+  const rec = r.record || {}; const [vw, vtip] = VERDICT[rec.verdict] || VERDICT.open;
+  return <div className={`trl is-${r.mode} ${compact ? 'is-compact' : ''}`} aria-busy={busy} data-testid={`rule-${r.key.replace(/\W+/g, '-')}`}>
+    <header><b>{r.icon} {r.label}</b><em className={`trl-mode is-${r.mode}`}>{MODE_WORD[r.mode] || r.mode}</em>
+      {r.now ? <i className="trl-now" data-tip="coins on the desk this rule hits right now">{r.now} hit now</i> : null}</header>
+    <p className="trl-what">Catches: {r.what}.</p>
+    <div className="trl-row"><small>DOES</small><div className="m-seg trl-seg" role="group" aria-label="What this rule does">
+      {[['off', 'Off', 'ignored'], ['flag', '👀 Flag', 'shown on the coin + graded — changes nothing'], ['rank', '⬇ Rank down', 'the agents rank the coin lower (still buyable)'], ['skip', '✋ Skip', 'the agents never buy it — your own picks still can']].map(([k, l, tip]) =>
+        <button key={k} type="button" className={r.mode === k ? 'active' : ''} disabled={!isOwner} onClick={() => set({ mode: k })} data-tip={tip} data-testid={`rule-${r.key.replace(/\W+/g, '-')}-${k}`}>{l}</button>)}</div></div>
+    {r.mode === 'rank' || r.mode === 'skip' ? <div className="trl-row"><small>HOW HARD</small><div className="m-seg trl-seg">
+      {[['soft', 'Soft −6'], ['normal', 'Normal −12'], ['hard', 'Hard −20']].map(([k, l]) => <button key={k} type="button" className={r.strength === k ? 'active' : ''} disabled={!isOwner} onClick={() => set({ strength: k })}
+        data-tip="points off the coin's rank (together with other rules never below ×0.75)">{l}</button>)}</div></div> : null}
+    {r.knob ? <div className="trl-row"><small>{r.knob.word.toUpperCase()}</small><div className="m-seg trl-seg">
+      {r.knob.options.map(o => <button key={o} type="button" className={r.knob.value === o ? 'active' : ''} disabled={!isOwner} onClick={() => set({ [r.knob.key]: o })}>{o}</button>)}</div></div> : null}
+    <p className="trl-rec" data-tip={vtip}><b className={`is-${rec.verdict || 'open'}`}>{vw}</b>
+      {rec.n ? <span>{rec.n} coins judged · typical {rec.med > 0 ? '+' : ''}{rec.med}% 30 min later · {rec.up} went up</span> : <span>no coin judged yet — every coin it hits is graded 30 min later</span>}</p>
+    {!compact && (r.examples || []).length ? <p className="trl-ex">{r.examples.map(x => <button key={x.mint} type="button" onClick={() => openCoin({ mint: x.mint, symbol: x.sym })} data-tip={x.why}>${x.sym || x.mint.slice(0, 4)}</button>)}</p> : null}
+  </div>;
+}
+
+// 📣 the socials report: one line per channel with its proof
+export function SocialReport({ s }) {
+  if (!s || s.grade === 'UNREAD') return <p className="vbd-soc-none">📣 {s?.line || 'not researched yet'}</p>;
+  return <div className={`vbd-soc is-${s.grade}`} data-testid="soc-report">
+    <p className="vbd-soc-head"><b>{s.grade}</b>{s.line}{s.ageMin != null ? <small> · read {s.ageMin}m ago</small> : null}{s.narr ? <small> · story: {s.narr}</small> : null}</p>
+    <ul>{(s.ch || []).map(ch => <li key={ch.k} className={`is-${ch.state}`}><i>{ch.icon}</i>
+      {ch.url ? <a href={ch.url} target="_blank" rel="noreferrer noopener">{ch.word}</a> : <span>{ch.word}</span>}
+      {ch.detail ? <small>{ch.detail}</small> : null}</li>)}</ul>
+    {(s.flags || []).length ? <p className="vbd-soc-flags">{s.flags.map(f => <span key={f}>{f}</span>)}</p> : null}
+  </div>;
+}
+
+// 🫀 every vital the agents read on THIS coin — tap one: what it is, the line it is judged against, who reads it, what it does
+export function VitalBoard({ c, rules, call, isOwner }) {
+  const [open, setOpen] = useState(null);
+  const tiles = vitalTiles(c); const sc = vitalScore(tiles);
+  const sel = tiles.find(t => t.key === open);
+  const rule = sel?.rule ? (rules?.rules || []).find(r => r.key === sel.rule) : null;
+  return <section className="vbd" data-testid="vital-board">
+    <header><b>🫀 VITALS</b><em className={`vbd-word is-${sc.word.replace(/\W+/g, '-').toLowerCase()}`}>{sc.word}</em>
+      <span className="vbd-tally"><i className="is-good">{sc.good}</i><i className="is-watch">{sc.watch}</i><i className="is-bad">{sc.bad}</i>{sc.unk ? <i className="is-unk">{sc.unk} unread</i> : null}</span>
+      <small>tap a vital</small></header>
+    {VITAL_GROUPS.map(([g, label]) => { const ts = tiles.filter(t => t.group === g); if (!ts.length) return null;
+      return <div key={g} className="vbd-group"><small>{label}</small><div className="vbd-tiles">{ts.map((t, i) =>
+        <button key={t.key} type="button" className={`vbd-tile is-${t.tone} ${open === t.key ? 'is-open' : ''}`} style={{ '--i': i }} aria-expanded={open === t.key}
+          onClick={() => setOpen(open === t.key ? null : t.key)} data-testid={`vital-${t.key.replace(/\W+/g, '-')}`}>
+          <i>{t.icon}</i><span><small>{t.label}</small><b>{t.value}</b></span></button>)}</div></div>; })}
+    {sel ? <div className={`vbd-detail is-${sel.tone}`} data-testid="vital-detail">
+      <p><b>{sel.icon} {sel.label}: {sel.value}</b><button type="button" className="vbd-x" aria-label="close" onClick={() => setOpen(null)}>✕</button></p>
+      <dl><dt>LINE</dt><dd>{sel.line}</dd><dt>READ BY</dt><dd>{sel.who}</dd><dt>WHAT IT DOES</dt><dd>{sel.effect}</dd></dl>
+      {rule ? <RuleCard r={rule} call={call} isOwner={isOwner} compact /> : null}
+      {sel.key === 'soc' ? <SocialReport s={sel.soc} /> : null}
+      {c?.mint ? <p className="vbd-acts"><button type="button" className="m-btn" onClick={() => openCoin({ mint: c.mint, symbol: c.symbol, pairAddress: c.pair })}>🪙 Open coin</button>
+        <button type="button" className="m-btn" onClick={() => { navigator.clipboard?.writeText(c.mint); toast.success('CA copied'); }}>📋 Copy CA</button></p> : null}
+    </div> : null}
+  </section>;
+}

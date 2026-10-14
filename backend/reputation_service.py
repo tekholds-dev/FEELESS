@@ -13142,7 +13142,8 @@ def _ai_learned(now):
 def _ai_case(c):
     """A kernel candidate → the compact case the router sends (it whitelists again) + 🎓 the owner's teachings that fit the coin."""
     lm_ = _ai_learned(time.time())
-    return {**_ai_brief(c.get('mint')), 'signals': _ai_signals(c), 'lessons': _tch.for_case(_teach_state(), c.get('symbol'), c.get('mint')) or None,
+    th_ = [f"your rule {k_} HITS this coin: {w_}" for k_, w_ in ((_office.get('taught') or {}).get(c.get('mint')) or {}).items()]
+    return {**_ai_brief(c.get('mint')), 'signals': _ai_signals(c), 'lessons': (th_ + _tch.for_case(_teach_state(), c.get('symbol'), c.get('mint')))[:7] or None,
             'learned': lm_['learned'], 'chartRec': lm_['chart'],
             **{k_: c.get(k_) for k_ in ('mint', 'symbol', 'status', 'rank', 'ageMin', 'cap', 'liq', 'vol5m', 'move5m', 'buyShare', 'narrative', 'trigger', 'size', 'unknown',
                                        'state', 'why', 'pending', 'result', 'cause', 'peak', 'heldMin', 'rule', 'structure', 'phase')},
@@ -13474,7 +13475,7 @@ async def _ai_proposal_apply(p, now):
         _teach['st'] = _tch.add(_teach_state(), {'kind': key, 'text': str(val)}, now)
         _json_save(TEACH_PATH, _teach['st'])
         if _office.get('payload') is not None:
-            _office['payload']['teach'] = _tch.view(_teach['st'])
+            _office['payload']['teach'] = {**_tch.view(_teach['st']), 'rules': _taught_view()}
         return f"lesson filed ({key}) — every fitting model case reads it"
     if kind == 'weight':
         st_, rule_ = _co.add(_coach_state(), key, 'owner', str(val), now)
@@ -13706,7 +13707,7 @@ async def admin_ai_chat_remember(request: Request):
         raise HTTPException(400, str(e))
     _json_save(TEACH_PATH, _teach['st'])
     if _office.get('payload') is not None:
-        _office['payload']['teach'] = _tch.view(_teach['st'])
+        _office['payload']['teach'] = {**_tch.view(_teach['st']), 'rules': _taught_view()}
     ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-remember', text[:160]); _admin_save(ad_)
     return {'ok': True, 'learned': _chat_learned()}
 
@@ -14482,6 +14483,7 @@ def _kernel_pass(table, now):
     contenders, then fast new movers — nothing else is asked for here, and no agent fetches for itself. A coin whose scan is pending,
     rate-limited or unavailable stays exactly where its rank puts it."""
     _tk.KERNEL.owner = _owr.modes(_owner_book(now), now)
+    _taught_stamp(table, now)
     for r_ in table or []:   # 📊 a reliable token supply (our own holder scan read it from the chain) rides on the row → the MintState's supply
         if r_.get('mint') and not r_.get('supply'):
             s_ = _fuse._f((_intel_cache.get(r_['mint']) or (0, {}))[1].get('supply')) if isinstance(_intel_cache.get(r_['mint']), (tuple, list)) else 0
@@ -14773,7 +14775,10 @@ def _coach_put(state):
 
 def _coach_pens(now):
     """👨‍⚖️ + 👑 every ranking weight the kernel reads this pass: the Judge's repeat-loss causes merged with the coach's live directives."""
-    return _co.pens(_coach_state(), now, _jr.penalties((_office.get('court') or {}).get('promoted')))
+    out = _co.pens(_coach_state(), now, _jr.penalties((_office.get('court') or {}).get('promoted')))
+    for k_, p_ in _trl.pens(_taught_rules()).items():   # 🎓 your lessons in ⬇ rank / ✋ skip mode rank a matching coin down (the stronger of the two per cause)
+        out[k_] = min(out.get(k_, 0.0), p_)
+    return out
 
 
 def _coach_view(now):
@@ -14798,7 +14803,7 @@ def _coach_grade(now):
     30 min later from the desk's price again (no fetch). A MODEL directive its own record proves wrong ends itself; an owner's is shown."""
     try:
         st_ = _coach_state()
-        keys = set(_coach_pens(now))
+        keys = set(_coach_pens(now)) | set(_trl.flagged(_taught_rules()))   # 🎓 a 👀 flag-only lesson is graded too
         table = _agents.get('table') or []
         hits = {}
         for x_ in table if keys else []:
@@ -14831,6 +14836,52 @@ def _teach_state():
     if _teach['st'] is None:
         _teach['st'] = _json_load(TEACH_PATH, {}) or {}
     return _teach['st']
+
+
+import taught_rules as _trl
+
+
+def _taught_rules():
+    """🎓 Your lessons as rules (taught_rules.py): mode · strength · knob per rule, kept beside the teachings."""
+    return _trl.clean(_teach_state().get('rules'))
+
+
+def _taught_stamp(table, now):
+    """Each sensed row gets `taught` = {rule: reason} for every lesson it hits (the kernel ranks by it, ✋ skip blocks it, the model
+    reads it); `_office['taught']` = the same by mint, `_office['taughtSeen']` = counts + 3 examples per rule for the page."""
+    try:
+        rules = _taught_rules()
+        hrs = (rules.get('same narrative') or {}).get('hours', 6)
+        legs_ = ((((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '') or {}).get('legs') or [])
+        by_m = {r_.get('mint'): r_ for r_ in table or []}
+        held_ = [{'symbol': l.get('symbol') or (by_m.get(l.get('mint')) or {}).get('symbol'), 'name': (by_m.get(l.get('mint')) or {}).get('name'), 'mint': l.get('mint')}
+                 for l in legs_ if l.get('mint') and not l.get('placeholder')]
+        held_m = {h['mint'] for h in held_}
+        seen_ = _trl.recent(held_, (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or [], now, hrs)
+        out, cnt, ex = {}, {}, {}
+        for r_ in table or []:
+            if not r_.get('mint') or r_['mint'] in held_m:
+                r_.pop('taught', None)
+                continue
+            full_ = (_office.get('charts') or {}).get(r_['mint'])   # the row carries a compact chart; the candle features live in the shared snapshot
+            h_ = _trl.hits({**r_, 'chart': full_} if full_ else r_, rules, seen_)
+            if h_:
+                r_['taught'] = h_
+                out[r_['mint']] = h_
+                for k_, w_ in h_.items():
+                    cnt[k_] = cnt.get(k_, 0) + 1
+                    if len(ex.setdefault(k_, [])) < 3:
+                        ex[k_].append({'mint': r_['mint'], 'sym': r_.get('symbol'), 'why': w_})
+            else:
+                r_.pop('taught', None)
+        _office['taught'], _office['taughtSeen'] = out, {'counts': cnt, 'examples': ex}
+    except Exception as e:
+        print('taught rules:', str(e)[:120])
+
+
+def _taught_view():
+    ts_ = _office.get('taughtSeen') or {}
+    return _trl.view(_taught_rules(), _co.grades(_coach_state()), ts_.get('counts'), ts_.get('examples'))
 import regret as _rg
 import capital as _cap
 import after_path as _ap
@@ -14988,7 +15039,7 @@ def _agent_blocked(card, now):
     books = (_fw_peek().get('books') or {}).values()
     for m_ in [m_ for m_, v_ in _agent_refused.items() if v_[0] <= now]:
         _agent_refused.pop(m_, None)
-    return _prime.agent_out(card, now) | set(_agent_refused) | _co.blocked(_coach_state(), now) | set().union(set(), *[_fw.agent_no_buy(b, now) for b in books])   # + coins the creator pulled with a reason (6h)
+    return _prime.agent_out(card, now) | set(_agent_refused) | _co.blocked(_coach_state(), now) | set().union(set(), *[_fw.agent_no_buy(b, now) for b in books]) | _trl.skips(_taught_rules(), _office.get('taught') or {})   # + coins the creator pulled with a reason (6h) + 🎓 your lessons in ✋ skip mode
 
 
 def _seat_refusals(tid, now, window=900.0, keep=5):
@@ -15769,8 +15820,17 @@ async def _research_tick(cases, rows_by, now):
         _office['load']['orphansKilled'] = int(_office['load'].get('orphansKilled') or 0) + _sr.reap_orphans()   # a browser left by a restart mid-fetch never keeps running
         cache = _social_cache()
         done_ = []
-        for c_ in _sr.pick(cases, cache, now):
+        picks_ = _sr.pick(cases, cache, now)
+        try:   # 🔗 the creator's own links from Pump's coin record FIRST: the desk row often carries none, so coins WITH an X / site were filed "no socials" (2 of 4 checked, 2026-10-13)
+            await _pump_links_warm([c_['mint'] for c_ in picks_ if str(c_.get('mint') or '').endswith('pump')])
+        except Exception:
+            pass
+        for c_ in picks_:
             row = {**(rows_by.get(c_['mint']) or {}), 'mint': c_['mint'], 'symbol': c_.get('symbol'), 'launch': (c_.get('row') or {}).get('launch')}
+            pl_ = (_PUMP_LINKS.get(c_['mint']) or (0, {}))[1]
+            for k_ in ('site', 'x', 'tg'):
+                if not (isinstance(row.get(k_), str) and row[k_].startswith('http')):
+                    row[k_] = pl_.get(k_)   # a real link or nothing (the board's True = "set" is not a URL to read)
             try:
                 pk, k = await _sr.research(row, now=time.time(), cache_search=_social['searched'])
             except Exception as e:
@@ -16377,7 +16437,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         print('fresh:', e)
     _office['payload']['performance']['passMs'] = round(sum(_fuse._f(ms.get(a)) for a in _of.CHAIN), 2)
     _tape_ledger(now)
-    _office['payload'].update(tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now), ai=_ai_view(now, light=True), net=_net_stats(now), armed=_office.get('armed'), lab=_lab_view(now), regret=_rg.view(_regret_book(), now), capital=_capital_view(), trail=_office.get('trail'), teach=_tch.view(_teach_state()),
+    _office['payload'].update(tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now), ai=_ai_view(now, light=True), net=_net_stats(now), armed=_office.get('armed'), lab=_lab_view(now), regret=_rg.view(_regret_book(), now), capital=_capital_view(), trail=_office.get('trail'), teach={**_tch.view(_teach_state()), 'rules': _taught_view()},
                               universe={'capUsd': _uni.band()[1], 'minCapUsd': _uni.band()[0], 'word': _uni.band_word(), 'maxAgeH': _uni.limits()['maxAgeH'], 'minVol1h': _uni.limits()['minVol'], 'pumpTrend': _uni.limits()['trend'], 'trendingN': _uni.limits()['trendingN'], 'inLane': len(_agents.get('table') or []),
                                         'board': (_office.get('intake') or {}).get('board'), 'mints': len(_tk.KERNEL.store.mints)})
     _hub_publish(now)   # 📡 this pass as DELTAS: only what changed since the last one
@@ -16563,6 +16623,18 @@ async def admin_agents_set(request: Request):
             raise HTTPException(400, str(e))
         if _office.get('payload') is not None:
             _office['payload']['ownerReview'] = _owner_view(time.time())
+    tr_ = body.get('taughtRule') or {}
+    if tr_.get('key'):   # 🎓 the creator tunes one lesson-rule: mode (off · flag · rank · skip), strength, its knob
+        try:
+            _teach['st'] = {**_teach_state(), 'rules': _trl.patch(_teach_state().get('rules'), str(tr_['key']), {k_: tr_[k_] for k_ in ('mode', 'strength', 'run', 'hours') if k_ in tr_})}
+            _json_save(TEACH_PATH, _teach['st'])
+            _taught_stamp(_agents.get('table') or [], time.time())
+            if _office.get('payload') is not None:
+                _office['payload']['teach'] = {**_tch.view(_teach['st']), 'rules': _taught_view()}
+            ad_ = _admin_load(); _audit(ad_, 'owner', 'agent-rule', f"{tr_['key']} → {_taught_rules()[str(tr_['key'])]}"); _admin_save(ad_)
+            _agents['wake'] = time.time()
+        except ValueError as e:
+            raise HTTPException(400, str(e))
     tc = body.get('teach') or {}
     taught = None
     if tc:   # 🎓 the creator teaches the desk: a note, a narrative or a chart lesson (with a FEELESS-uploaded image) — read by every fitting model case
@@ -16571,9 +16643,20 @@ async def admin_agents_set(request: Request):
             _json_save(TEACH_PATH, _teach['st'])
             taught = (_teach['st'].get('items') or [None])[0]
             if _office.get('payload') is not None:
-                _office['payload']['teach'] = _tch.view(_teach['st'])
+                _office['payload']['teach'] = {**_tch.view(_teach['st']), 'rules': _taught_view()}
             if not tc.get('remove') and taught:
                 _tk.KERNEL.note('owner', 'TEACH', f"🎓 {taught['kind']}: {taught['text'][:120]}", time.time(), mint=taught.get('mint'), key=f"teach:{taught['id']}")
+                wired_ = _trl.from_text(taught['text'])   # 🎓 a lesson that names a rule switches that rule ON (rank down) — your words now act, not only the model's prompt
+                if wired_:
+                    rl_ = _teach_state().get('rules')
+                    for k_ in wired_:
+                        if _trl.clean(rl_)[k_]['mode'] in ('off', 'flag'):
+                            rl_ = _trl.patch(rl_, k_, {'mode': 'rank'})
+                    _teach['st'] = {**_teach_state(), 'rules': _trl.clean(rl_)}
+                    _json_save(TEACH_PATH, _teach['st'])
+                    if _office.get('payload') is not None:
+                        _office['payload']['teach'] = {**_tch.view(_teach['st']), 'rules': _taught_view()}
+                    _tk.KERNEL.note('owner', 'TEACH', f"🎓 wired to rule: {', '.join(wired_)}", time.time(), key=f"teachwire:{taught['id']}")
         except ValueError as e:
             raise HTTPException(400, str(e))
     idea = body.get('idea') or {}

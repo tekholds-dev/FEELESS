@@ -4048,3 +4048,25 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🎨 The cockpit chart shows the owner's chart theme (no more `plain`; `ThemePick` in its header writes the ONE site choice) and every scene
   has a LIVE TIDE (`.cbg-tide`, green swell from below / red from above, switched by CandleFx's cfk-up / cfk-dn on each real tick).
   Decision panel = clamp(380px, 29vw, 460px). Agents-tab + Brain text boxes are compact (30px, mono, gradient edge on focus).
+- 🎓 YOUR LESSONS ARE RULES NOW (owner, 2026-10-13: "teaching AI and agents about fake candles / narratives — not wired so it can be used or tweaked";
+  `backend/taught_rules.py` pure + tested `tests/test_taught_rules.py`): a teaching only ever reached the MODEL's prompt — "stop buying fake candles" was even
+  split into ticker words (fake, stop, buying) and matched nothing. Three rules the agents run on every coin, stored as `agent_teach.json.rules`
+  (teach.add / remove keep them): 🕯 FAKE CANDLES (N green candles in a row, no red, on REAL candles from the shared chart snapshot `_office['charts']` —
+  a tape is never judged; knob 5–15, default 8) · 🔁 SAME NARRATIVE (theme / name word / ticker stem shared with a coin on the card or traded in the
+  last N h, from archive positions) · 🪞 COPYCAT (`waveRole == 'copy'`). Each: off · 👀 flag (graded only) · ⬇ rank (Soft −6 / Normal −12 / Hard −20
+  through `_coach_pens` → `opportunity.judge_hits` "lesson: …") · ✋ skip (`_agent_blocked`). `_taught_stamp` (start of `_kernel_pass`) puts
+  `row['taught']` = {rule: reason}; the model's case gets "your rule X HITS this coin"; graded 30 min later like every directive (`coach.CAUSES`
+  has the three). A taught note naming a rule (`taught_rules.from_text`) switches it to rank. POST /admin/agents `{taughtRule: {key, mode?, strength?,
+  run? | hours?}}` (creator). UI: `RuleCard` (VitalBoard.jsx) in 🎓 Teach (🧷 RULES THE AGENTS RUN above ✍ NOTES FOR THE AI) and in the vital board.
+  Narrative NOTES now ignore instruction words (teach.STOP) and match whole words.
+- 🫀 DECISION PANEL VITAL BOARD (`lib/vitalBoard.js` pure + `components/command/VitalBoard.jsx`, `styles/vitalBoard.css` `vbd-*` / `trl-*`): every kernel
+  candidate carries `vit` (`trench_kernel.kernel.vit`, the top `VIT_TOP` 12 non-TRACKING rows: holders · flow · launch · chart · story · your rule hits ·
+  socials report) → tiles grouped 🧩 🌊 🚀 📈 📖 🎓 📣, toned good / watch / bad / unread; tap = the line it is judged on, WHO reads it, WHAT it does
+  (+ the rule card to tune it, the socials channels with links, open coin / copy CA). Panel labels in plain words (SCORE vs THE BUY LINE, DEVIL SAYS,
+  NEXT CHECK …). Kernel view no longer sends relative `ages` / `decidedAgo` (the page computes from `times` / `decidedAt`; the office payload was at its 100 KB cap).
+- 📣 SOCIALS REPORT (`social_research.report(packet)`): per channel (🌐 site · 𝕏 · 💬 TG) a state (MATCH · FOUND · HIDDEN login wall · DOWN · MISMATCH ·
+  NONE) + proof (url, followers, last post, CA mentioned) and one grade CONFLICT · STRONG · OK · THIN · NONE · UNREAD. BUG FIXED: the research worker read
+  only the desk row's links, so coins WITH a Pump-set X / site / Telegram were filed "no socials" (2 of 4 checked) — `_research_tick` now warms
+  Pump's coin record first (`_pump_links_warm`) and fills site / x / tg from it.
+- 🫀 Home reactor LIVE SCAN (`HomeEngine` `ScanPulse` / `scanBeats` / `beatPath`, `hen-ekg*` in homeEngine.css): one heartbeat per real launch coin the
+  scan judged (up = passed, down = caught, blip = not read), scrolling (transform only, pauses on hover), + "🛡 caught $X · failed “<gate>”".

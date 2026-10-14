@@ -2,10 +2,12 @@ import React, { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { hubLoad, useAi } from '../../lib/agentHub';
 import { uploadImage } from '../../lib/adminCall';
+import { RuleCard } from './VitalBoard';
 import '../../styles/teachBox.css';
 
-export const TEACH_KINDS = [['note', '💬 NOTE', 'how you trench — the model reads it with every coin'], ['narrative', '📖 NARRATIVE', 'what is hot and why — coins whose ticker / name carry its words get it'],
-  ['chart', '📈 CHART', 'a chart lesson: the caption (+ a picture of the chart) — the model reads the caption']];
+export const TEACH_KINDS = [['note', '💬 NOTE', 'how you trench, in your words — the AI reads it with every coin (it does not change a buy by itself; a RULE above does)'],
+  ['narrative', '📖 NARRATIVE', 'a theme that is hot — coins whose name / ticker carry its words get your note in the AI\'s case'],
+  ['chart', '📈 CHART', 'a chart lesson: a caption (+ a picture) — the AI reads the caption']];
 const ago = at => { const s = Math.max(0, Date.now() / 1000 - Number(at || 0)); return s < 60 ? `${Math.round(s)}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
 
 // 🎓 TEACH THE DESK: the creator's notes, narratives and chart lessons go into every fitting model read (the model teaches the agents
@@ -22,7 +24,7 @@ export function TeachBox({ o, mint, sym, call, isOwner }) {
   };
   const teach = async () => {
     if (text.trim().length < 3 || busy) return;
-    if (await send({ kind, text, img: img || undefined, ...(onCoin && mint ? { mint, sym } : {}) }, 'taught — every fitting model read carries it from the next round')) { setText(''); setImg(null); }
+    if (await send({ kind, text, img: img || undefined, ...(onCoin && mint ? { mint, sym } : {}) }, 'taught — the AI reads it from the next round (a lesson that names a rule switched that rule on)')) { setText(''); setImg(null); }
   };
   const attach = async e => {
     const f = e.target.files?.[0]; e.target.value = '';
@@ -31,8 +33,11 @@ export function TeachBox({ o, mint, sym, call, isOwner }) {
     try { setImg(await uploadImage(f)); setKind('chart'); } catch (er) { toast.error(er.message); } finally { setBusy(false); }
   };
   return <section className="tch" data-testid="teach-box">
-    <header className="tch-head"><b>🎓 TEACH THE DESK</b><small>your words reach every fitting model read — the record says if it helps</small>
+    <header className="tch-head"><b>🎓 TEACH THE DESK</b><small>RULES act on every coin the agents read · NOTES are words the AI reads — each has its own record</small>
       {rec?.n ? <em className={rec.med > 0 ? 'is-up' : 'is-dn'} data-testid="teach-record">🎓 {rec.n} judged · {rec.med > 0 ? '+' : ''}{rec.med}%</em> : <em data-testid="teach-record">🎓 learning</em>}</header>
+    {(t.rules?.rules || []).length ? <div className="tch-rules" data-testid="teach-rules"><b className="tch-sub">🧷 RULES THE AGENTS RUN <small>a lesson that names one (e.g. “stop buying fake candles”) switches it on</small></b>
+      {t.rules.rules.map(r => <RuleCard key={r.key} r={r} call={call} isOwner={isOwner} />)}</div> : null}
+    <b className="tch-sub">✍ NOTES FOR THE AI</b>
     <div className="m-seg tch-kinds" role="tablist" aria-label="What you are teaching">{TEACH_KINDS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={kind === k} className={kind === k ? 'active' : ''}
       onClick={() => setKind(k)} data-tip={tip} data-testid={`teach-kind-${k}`}>{l}<small>{(t.counts || {})[k] || 0}</small></button>)}</div>
     <div className="tch-write">

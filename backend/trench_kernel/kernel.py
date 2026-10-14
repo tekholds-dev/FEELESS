@@ -186,7 +186,7 @@ class Kernel:
         rows += sorted([(m, d) for m, d in self.dec.items() if m in self.store.mints and d['status'] == 'TRACKING' and not d.get('stale')],   # 👀 the review queue's TRACKING rows (bounded)
                        key=lambda kv: -kv[1]['rank'])[:TRACK_VIEW]
         out = []
-        for m, d in rows:
+        for i, (m, d) in enumerate(rows):
             ms, op = self.store.mints[m], d['opinions']
             mk = ms['market']
             out.append({'mint': m, 'symbol': ms['identity']['symbol'], 'pair': ms['identity']['pair'], 'status': d['status'], 'rank': d['rank'], 'why': d['why'],
@@ -194,13 +194,32 @@ class Kernel:
                         'fresh': op['tally']['fresh'], 'cap': op['tally']['cap'], 'narrative': op['trigger']['narrative'], 'trigger': op['trigger']['state'],
                         'devil': [[o, s, str(w)[:80]] for o, s, w in op['devil']['objections']][:4], 'devilConf': op['devil']['confidence'],
                         'size': op['warden']['size'], 'sizeWhy': op['warden']['why'], 'courier': op['courier']['ok'], 'reaper': op['reaper'],
-                        'unknown': op['sherlock']['unknown'], 'ages': _s.ages(ms, now), 'decidedAgo': round(max(0.0, now - self.decAt.get(m, now)), 1),
+                        'unknown': op['sherlock']['unknown'],   # relative ages are not sent: the page computes every age from `times` / `decidedAt` (the stream never sent them either)
                         'times': _s.times(ms), 'decidedAt': round(self.decAt.get(m, now), 2),   # absolute, per section: what the delta stream sends (the page computes each age itself)
-                        'sources': ms['identity']['sources'][:6]})
+                        'sources': ms['identity']['sources'][:6], **({'vit': vit(ms.get('row') or {})} if d['status'] != 'TRACKING' and i < VIT_TOP else {})})   # the vital board: seats + the top of the queue (TRACKING rows draw none)
         held = [m for m, d in self.dec.items() if d['status'] in ('HELD', 'EXIT_PENDING') and m in self.store.mints]   # the lanes from the CURRENT decisions (a price event may be newer than the pass)
         self.lanes = _b.lanes({m: d for m, d in self.dec.items() if m in self.store.mints}, held)
         return {'lanes': [{**l, 'symbol': (self.store.mints.get(l.get('mint')) or {}).get('identity', {}).get('symbol') if l.get('mint') else None} for l in self.lanes],
                 'candidates': out, 'metrics': self.metrics(now)}
+
+
+VIT_TOP = 12
+
+
+def vit(r):
+    """🫀 The vitals the decision panel draws as clickables (one compact dict from the sensed row — no fetch): holders, flow, launch,
+    chart, narrative, the owner's lesson-rules this coin hits and the socials report. Unknown = absent, never 0."""
+    import social_research as _sr
+    v, n, li, ch, mi = r.get('vitals') or {}, r.get('nums') or {}, r.get('li') or {}, r.get('chart') or {}, r.get('mind') or {}
+    en = ch.get('entry') or [None, None, None]
+    out = {'top10': v.get('top10'), 'bundled': v.get('bundledN'), 'snipers': v.get('snipersN'), 'dev': v.get('dev'), 'holders': v.get('holders'),
+           'organic': v.get('organic'), 'rug': v.get('rug'), 'read': v.get('read'), 'vol1h': v.get('vol1h'), 'tx1h': v.get('txns1h'),
+           'buy': n.get('buy') if n.get('buy') is not None else v.get('buyShare'), 'd5': n.get('d5'), 'pace': n.get('pace'), 'liqD': n.get('liqD'),
+           'phase': li.get('phase'), 'cls': li.get('cls'), 'press': li.get('press'), 'first10': li.get('first10'),
+           'chart': ch.get('state'), 'entry': en[0], 'entryWhy': en[2] if len(en) > 2 else None, 'dq': (ch.get('q') or {}).get('state'),
+           'mp': r.get('mp'), 'narr': mi.get('narr'), 'wave': r.get('waveRole'), 'callers': mi.get('callers'), 'swarm': mi.get('swarm'),
+           'taught': r.get('taught') or None, 'soc': _sr.report(r['social']) if r.get('social') else None}
+    return {k: x for k, x in out.items() if x is not None and x is not False}
 
 
 KERNEL = Kernel()

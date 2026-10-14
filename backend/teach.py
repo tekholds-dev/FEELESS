@@ -14,7 +14,11 @@ import time
 KINDS = ('note', 'narrative', 'chart')
 MAX_TEXT, KEEP = 280, 200
 STOP = {'the', 'and', 'for', 'are', 'with', 'this', 'that', 'coin', 'coins', 'meta', 'narrative', 'hot', 'new', 'all', 'any', 'you', 'our', 'its', 'not',
-        'but', 'has', 'have', 'from', 'they', 'them', 'just', 'like', 'will', 'more', 'than', 'into', 'about', 'pump', 'sol', 'solana', 'buy', 'sell'}
+        'but', 'has', 'have', 'from', 'they', 'them', 'just', 'like', 'will', 'more', 'than', 'into', 'about', 'pump', 'sol', 'solana', 'buy', 'sell',
+        # instruction words: "stop buying fake candles" is a RULE (taught_rules), never a ticker to match
+        'stop', 'buying', 'bought', 'selling', 'sold', 'keep', 'cant', 'dont', 'never', 'same', 'fake', 'candle', 'candles', 'narra', 'narratives',
+        'need', 'needs', 'trade', 'trades', 'within', 'minutes', 'chart', 'charts', 'showing', 'consistent', 'green', 'red', 'ones', 'first',
+        'example', 'released', 'newly', 'copycat', 'copycats', 'name', 'out', 'should', 'when', 'what', 'avoid', 'only', 'always'}
 _B58 = re.compile(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$')
 _IMG = re.compile(r'^/api/reputation/uploads/[A-Za-z0-9._-]{4,80}$|^https://[A-Za-z0-9.-]+/api/reputation/uploads/[A-Za-z0-9._-]{4,80}$')
 
@@ -54,13 +58,13 @@ def add(state, item, now=None):
     if not t:
         raise ValueError('write at least a few words, and pick NOTE · NARRATIVE · CHART')
     now = time.time() if now is None else now
-    st = {'items': list((state or {}).get('items') or [])}
+    st = {**(state or {}), 'items': list((state or {}).get('items') or [])}   # keeps the lesson-rules (taught_rules) beside the teachings
     st['items'] = ([{**t, 'id': f"t{int(now * 1000)}", 'at': round(now, 1)}] + st['items'])[:KEEP]
     return st
 
 
 def remove(state, tid):
-    return {'items': [t for t in (state or {}).get('items') or [] if t.get('id') != tid]}
+    return {**(state or {}), 'items': [t for t in (state or {}).get('items') or [] if t.get('id') != tid]}
 
 
 def hits(state, symbol=None, mint=None, name=None):
@@ -70,7 +74,7 @@ def hits(state, symbol=None, mint=None, name=None):
     for t in (state or {}).get('items') or []:
         if mint and t.get('mint') == mint:
             out.append(t)
-        elif t.get('kind') == 'narrative' and hay.strip() and any(w in hay for w in t.get('words') or []):
+        elif t.get('kind') == 'narrative' and hay.strip() and any(re.search(rf'\b{re.escape(w)}', hay) for w in words(t.get('text'))):
             out.append(t)
     return out
 
@@ -88,4 +92,4 @@ def for_case(state, symbol=None, mint=None, name=None, n=6):
 def view(state, n=24):
     items = (state or {}).get('items') or []
     return {'items': items[:n], 'counts': {k: sum(1 for t in items if t['kind'] == k) for k in KINDS},
-            'narratives': sorted({w for t in items if t['kind'] == 'narrative' for w in t.get('words') or []})[:24]}
+            'narratives': sorted({w for t in items if t['kind'] == 'narrative' for w in words(t.get('text'))})[:24]}

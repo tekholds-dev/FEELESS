@@ -596,3 +596,59 @@ async def research(row, fetch=fetch_dom, now=None, cache_search=None):
     p['failed'] = bool((r.get('site') or r.get('x')) and not ((site or {}).get('reachable') or (x or {}).get('available')))
     p['requests'] = n
     return p, n
+
+
+def report(p, now=None):
+    """📣 THE SOCIALS REPORT in plain words (owner, 2026-10-13: "better socials reporting") — from a research packet, no new fetch:
+    one line per channel (🌐 site · 𝕏 · 💬 Telegram) with a state word + the proof (url, what it showed), the cross-check flags, and ONE
+    grade: CONFLICT (another CA / a different X) · STRONG (site shows THIS CA + an X) · OK · THIN (links only) · NONE (nothing set) ·
+    UNREAD (not researched yet). Facts about the links, never a verdict on the coin. → dict, or {'grade': 'UNREAD'} with no packet."""
+    if not isinstance(p, dict) or not p:
+        return {'grade': 'UNREAD', 'line': 'not researched yet — the research worker reads the strongest candidates first', 'ch': [], 'flags': []}
+    now = time.time() if now is None else now
+    s, xx, cr = p.get('website') or {}, p.get('x') or {}, p.get('cross') or {}
+    ch = []
+    if not s.get('url'):
+        ch.append({'k': 'site', 'icon': '🌐', 'state': 'NONE', 'word': 'no website set'})
+    elif s.get('reachable') is False:
+        ch.append({'k': 'site', 'icon': '🌐', 'state': 'DOWN', 'word': "site doesn't load", 'url': s['url']})
+    else:
+        mm = s.get('mintMatch')
+        st, w = ('MATCH', 'shows THIS exact CA') if mm == 'yes' else ('MISMATCH', f"shows ANOTHER CA ({(s.get('mints') or ['?'])[0][:6]}…)") if mm == 'no' else ('FOUND', 'loads · no CA on the page')
+        ch.append({'k': 'site', 'icon': '🌐', 'state': st, 'word': w, 'url': s['url'], 'detail': ' — '.join(x for x in (s.get('title'), s.get('description')) if x)[:160] or None})
+    if not xx.get('url'):
+        ch.append({'k': 'x', 'icon': '𝕏', 'state': 'NONE', 'word': 'no X set'})
+    elif not xx.get('available'):
+        ch.append({'k': 'x', 'icon': '𝕏', 'state': 'HIDDEN', 'word': 'set · X shows a login wall (unread, not a bad sign)', 'url': xx['url']})
+    else:
+        bits = []
+        if xx.get('followers') is not None:
+            bits.append(f"{xx['followers']:,} followers")
+        if xx.get('lastPostAt'):
+            h = max(0.0, (now - _f(xx['lastPostAt'])) / 3600)
+            bits.append(f"last post {int(h * 60)}m ago" if h < 1 else f"last post {h:.0f}h ago")
+        bits.append('mentions this CA' if xx.get('mintMentioned') else 'CA not mentioned')
+        ch.append({'k': 'x', 'icon': '𝕏', 'state': 'MATCH' if xx.get('mintMentioned') else 'FOUND', 'word': ' · '.join(bits), 'url': xx.get('postUrl') or xx['url'],
+                   'detail': (xx.get('bio') or '')[:140] or None})
+    tg = (p.get('tg') or {}).get('url') if isinstance(p.get('tg'), dict) else None
+    tg = tg or next((f'https://t.me/{h}' for h in s.get('tg') or []), None)
+    ch.append({'k': 'tg', 'icon': '💬', 'state': 'FOUND', 'word': 'Telegram linked', 'url': tg} if tg else {'k': 'tg', 'icon': '💬', 'state': 'NONE', 'word': 'no Telegram'})
+    flags = list(cr.get('flags') or [])
+    if cr.get('siteLinksX') is True:
+        flags.insert(0, '✓ the site links this same X')
+    st = {c['k']: c['state'] for c in ch}
+    if cr.get('conflict') or cr.get('copycat') or st['site'] == 'MISMATCH':
+        grade = 'CONFLICT'
+    elif st['site'] == 'MATCH' and st['x'] in ('MATCH', 'FOUND', 'HIDDEN'):
+        grade = 'STRONG'
+    elif st['site'] == 'MATCH' or (st['site'] == 'FOUND' and st['x'] != 'NONE'):
+        grade = 'OK'
+    elif any(v not in ('NONE',) for v in st.values()):
+        grade = 'THIN'
+    else:
+        grade = 'NONE'
+    words = {'CONFLICT': '⚠ the links point at another coin / account', 'STRONG': '✅ site shows this exact CA + an X is set',
+             'OK': '🟡 real links, partial proof', 'THIN': '🟠 links only, nothing proves they are this coin', 'NONE': '🚫 no site, X or Telegram'}
+    narr = (p.get('narrative') or {}).get('class')
+    return {'grade': grade, 'line': words[grade], 'ch': ch, 'flags': flags[:4], 'narr': narr if narr and narr != 'UNKNOWN' else None,
+            'conf': cr.get('confidence'), 'ageMin': round(max(0.0, now - _f(p.get('at'))) / 60) if p.get('at') else None}

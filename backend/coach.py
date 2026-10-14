@@ -26,6 +26,9 @@ CAUSES = {
     'weak holders': 'top-10 wallets held 30%+',
     'chart says wait': 'the chart did not say ENTER NOW',
     'thin data': 'the chart data was sparse / stale',
+    'fake candles': 'a straight run of green candles, no red (painted)',
+    'same narrative': 'the same theme / name the card already holds or just traded',
+    'copycat': 'a copycat of a ticker wave, not the original',
 }
 OWNER_PTS, OWNER_MAX, AI_PTS = -8.0, -12.0, -4.0
 OWNER_TTL, AI_TTL = 24 * 3600.0, 6 * 3600.0
@@ -160,7 +163,7 @@ def coach_case(reviews, mem=None, rules=None, grades_=None, exits=None, speed=No
             # what the desk has MEASURED since the last coaching (so the model instructs from evidence, not from a vibe)
             'exits': ' · '.join(f"{k} {_f(v.get('med')):+.0f}% (n {v.get('n')})" for k, v in sorted((exits or {}).items(), key=lambda kv: _f(kv[1].get('med')))[:6] if v.get('n', 0) >= 3)[:230] or None,
             'speed': (f"call→sent {_f(speed.get('medWaitSec')):.0f}s · sent→landed {_f(speed.get('medLandSec')):.0f}s · fills {_f(speed.get('medSlipPct')):+.1f}% vs the call" if speed and speed.get('medWaitSec') is not None else None),
-            'vocab': list(CAUSES)[:8]}
+            'vocab': list(CAUSES)}
 
 
 # ── 📏 every directive is GRADED on what the coins it ranked down did next (a bad lesson expires on evidence) ─────────────────────

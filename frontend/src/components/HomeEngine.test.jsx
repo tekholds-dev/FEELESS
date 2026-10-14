@@ -28,3 +28,17 @@ test('the home engine draws the gates, the live pods and opens a coin on tap', a
   await act(async () => { q('hen-pod-BBB').click(); });
   expect(openCoin).toHaveBeenCalledWith(expect.objectContaining({ mint: 'B' }));
 });
+
+test('the live scan heartbeat: one beat per real coin, up = passed, down = caught with its reason', async () => {
+  const { scanBeats, beatPath } = require('./HomeEngine');
+  const many = [...rows.slice(0, 3), { mint: 'D', symbol: 'DDD', safe: true }, { mint: 'E', symbol: 'EEE', safe: false, fails: ['dev holds 40%'] }];
+  const b = scanBeats(many);
+  expect(b.map(x => [x.sym, x.fate, x.why])).toEqual([['AAA', 'safe', null], ['BBB', 'fail', 'failed “top-10”'], ['CCC', 'wait', null], ['DDD', 'safe', null], ['EEE', 'fail', 'failed “dev holds 40%”']]);
+  expect(beatPath(b.slice(0, 1))).toMatch(/^M0 30 .* L64 30$/);
+  global.fetch = jest.fn(url => Promise.resolve({ ok: true, json: () => Promise.resolve(String(url).includes('trench/open') ? { rows: many } : {}) }));
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<HomeEngine />); });
+  await act(async () => { await Promise.resolve(); });
+  expect(el.querySelector('[data-testid="hen-ekg"]')).toBeTruthy();
+  expect(el.querySelector('[data-testid="hen-caught"]').textContent).toContain('caught $BBB · failed “top-10”');
+});

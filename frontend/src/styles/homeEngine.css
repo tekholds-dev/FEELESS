@@ -59,3 +59,25 @@ body.theme-day .hen { background: radial-gradient(circle at 145px 50%, rgba(214,
 body.theme-day .hen.is-rain { --hx: #0b6fa8; } body.theme-day .hen.is-storm { --hx: #b3243f; } body.theme-day .hen-title b, body.theme-day .hen-gate b, body.theme-day .hen-meter b { color: #0f2419; }
 body.theme-day .hen-ring { border-color: rgba(10, 60, 35, .22); } body.theme-day .hen-orb.is-wait .hen-pod { background: rgba(10, 60, 35, .18); color: #0f2419; } body.theme-day .hen-meter { background: rgba(255, 255, 255, .55); } body.theme-day .hen-gate u { background: rgba(10, 60, 35, .1); }
 body.theme-day .hen-core b, body.theme-day .hen-core small { color: #fff; }
+/* 🫀 LIVE SCAN heartbeat (ScanPulse): one beat per real coin the scan judged, scrolling left (transform only) — up = passed, down = caught */
+.hen-ekg { display: grid; gap: 4px; min-width: 0; }
+.hen-ekg-l { font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .1em; color: var(--m-mute, #7f9a8c); }
+.hen-ekg-view { position: relative; height: 60px; overflow: hidden; border-radius: 8px; background: linear-gradient(90deg, rgba(0, 0, 0, .5), rgba(0, 0, 0, .2) 18%, rgba(0, 0, 0, .2) 82%, rgba(0, 0, 0, .5)),
+  repeating-linear-gradient(90deg, rgba(21, 209, 106, .06) 0 1px, transparent 1px 16px); }
+.hen-ekg-run { display: flex; width: max-content; animation: henEkg var(--ekg-sec, 30s) linear infinite; }
+.hen-ekg-view:hover .hen-ekg-run { animation-play-state: paused; }
+.hen-ekg-strip { position: relative; flex: none; height: 60px; }
+.hen-ekg-strip svg { position: absolute; inset: 0; }
+.hen-ekg-line { fill: none; stroke: var(--hx); stroke-width: 1.6; stroke-linejoin: round; }
+.hen-beat { position: absolute; top: 2px; transform: translateX(-50%); border: 0; padding: 0 4px; border-radius: 4px; background: rgba(0, 0, 0, .55); color: var(--hx); cursor: pointer;
+  font: 700 8.5px 'JetBrains Mono', monospace; white-space: nowrap; transition: background .15s ease; }
+.hen-beat.is-fail { top: auto; bottom: 2px; color: #ff8fa3; } .hen-beat.is-wait { color: var(--m-mute, #7f9a8c); }
+.hen-beat:hover { background: rgba(255, 255, 255, .14); } .hen-beat:focus-visible { outline: 1px solid var(--hx); }
+.hen-caught { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; }
+.hen-caught button { border: 1px solid rgba(255, 143, 163, .3); background: rgba(255, 143, 163, .07); color: #ffc2cd; border-radius: 999px; padding: 1px 8px; cursor: pointer;
+  font: 600 9px 'JetBrains Mono', monospace; transition: border-color .15s ease; animation: henPop .4s ease-out both; }
+.hen-caught button:hover { border-color: #ff8fa3; } .hen-caught b { color: #ff8fa3; }
+@keyframes henEkg { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+body.fx-lite .hen-ekg-run, body.fx-lite .hen-caught button { animation: none; }
+@media (prefers-reduced-motion: reduce) { .hen-ekg-run, .hen-caught button { animation: none; } }
+body.theme-day .hen-ekg-view { background: rgba(10, 60, 35, .06); } body.theme-day .hen-beat { background: rgba(255, 255, 255, .8); } body.theme-day .hen-caught button { color: #b3243f; }

@@ -16,6 +16,7 @@ import { AiPane, AiIntel, AiCell } from './AiDecisions';
 import { CockpitControls } from './CockpitControls';
 import { IntakeBand } from './IntakeBand';
 import { TeachBox } from './TeachBox';
+import { VitalBoard } from './VitalBoard';
 import { TradeTape, CoachBox } from './CoachTape';
 import { tradeBar, tickDir, aiOf } from '../../lib/cockpitControls';
 import '../../styles/agentCockpit.css';
@@ -316,7 +317,7 @@ function DecisionPanel({ o, dec, pos, cand, mint, seats, readyN, agent, setAgent
   const live = o?.livePx?.[mint];
   const verdictWord = line?.word || word;
   return <aside className="ack-panel" data-testid="ack-panel">
-    <header><b>🧠 AGENT DECISION PANEL</b><i className="ack-livechip">● {dec?.symbol ? `$${dec.symbol}` : 'no coin'}</i>
+    <header><b>🧠 DECISION</b><i className="ack-livechip">● {dec?.symbol ? `$${dec.symbol}` : 'no coin'}</i>
       <select className="m-input ack-agsel" value={agent} onChange={e => setAgent(e.target.value)} aria-label="Agent" data-testid="ack-agent-sel">
         {CHAIN.map(a => <option key={a} value={a}>{names[a] || a}</option>)}</select></header>
     <div className="m-seg ack-ptabs" role="tablist" aria-label="Decision panel">{PANEL_TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`ack-ptab-${k}`}>{l}</button>)}</div>
@@ -324,19 +325,20 @@ function DecisionPanel({ o, dec, pos, cand, mint, seats, readyN, agent, setAgent
       <div className="ack-verdict"><small>{(names[agent] || agent).toUpperCase()} · {line?.word ? 'ON THIS COIN' : 'THIS PASS'}</small>
         <em className={`ack-badge ${badgeOf(verdictWord)}`} data-testid="ack-verdict">{verdictWord}</em>
         <span className="ack-rule">{line?.why || why}{line?.at ? ` · ${ago(line.at)} ago` : ''}</span></div>
-      <div className="ack-verdict is-kernel"><small>{dec.kind === 'position' ? "REAPER'S RULING" : dec.kind === 'review' ? 'YOUR REVIEW' : "THE KERNEL'S STATUS"}</small>
+      <div className="ack-verdict is-kernel"><small>{dec.kind === 'position' ? "REAPER'S RULING" : dec.kind === 'review' ? 'YOUR REVIEW' : 'WHERE IT STANDS'}</small>
         <b data-testid="ack-kernel-verdict">{dec.verdict || '—'}</b>{dec.rule ? <span className="ack-rule">{dec.rule}{dec.obeying ? ` · obeying ${dec.obeying}` : ''}</span> : null}</div>
-      {dec.kernel ? <div className="ack-rank" data-tip={`READY needs Trigger ENTER + inside the hard wall + execution healthy + rank ≥ ${READY_MIN}`}><small>RANK vs THE READY LINE ({READY_MIN})</small>
+      {dec.kernel ? <div className="ack-rank" data-tip={`READY needs Trigger ENTER + inside the hard wall + execution healthy + rank ≥ ${READY_MIN}`}><small>SCORE vs THE BUY LINE ({READY_MIN}) — over it + every check passed = the agents buy</small>
         <span className="ack-bar"><i style={{ transform: `scaleX(${rankFill(dec.kernel.rank)})` }} /><u /></span><em>{dec.kernel.rank ?? '—'}</em></div> : null}
-      {(dec.reasons || []).length ? <><b className="ack-sub">REASONING</b><ul className="ack-why" data-testid="ack-why">{dec.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul></> : null}
+      {cand ? <VitalBoard c={cand} rules={o?.teach?.rules} call={call} isOwner={isOwner} /> : null}
+      {(dec.reasons || []).length ? <><b className="ack-sub">WHY</b><ul className="ack-why" data-testid="ack-why">{dec.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul></> : null}
       <div className="ack-ptiles">
-        <Tile l="CHART QUALITY" v={pos?.quality || pos?.data?.state || dec.chart?.quality || '—'} sub={pos?.data?.conf != null ? `${pos.data.conf}% data conf` : pos?.structure || null} />
-        <Tile l="CYCLE AGE" v={o?.cycle?.at ? ago(o.cycle.at) : '—'} sub={o?.cycle?.every ? `every ${Math.round(o.cycle.every)}s` : null} />
-        <Tile l="RISK" v={dec.kernel ? devilOf(cand || {}).word : pos?.run || '—'} sub={dec.kernel ? 'Devil on this coin' : pos ? `stop ${pos.stop ?? '—'}%` : null}
+        <Tile l="CHART DATA" v={pos?.quality || pos?.data?.state || dec.chart?.quality || '—'} sub={pos?.data?.conf != null ? `${pos.data.conf}% data conf` : pos?.structure || null} />
+        <Tile l="LAST READ" v={o?.cycle?.at ? ago(o.cycle.at) : '—'} sub={o?.cycle?.every ? `every ${Math.round(o.cycle.every)}s` : null} />
+        <Tile l="DEVIL SAYS" v={dec.kernel ? devilOf(cand || {}).word : pos?.run || '—'} sub={dec.kernel ? 'Devil on this coin' : pos ? `stop ${pos.stop ?? '—'}%` : null}
           cls={dec.kernel?.devil?.verdict === 'veto' ? 'm-neg' : dec.kernel?.devil?.verdict === 'warn' ? 'ack-warn' : ''} />
-        <Tile l="POSITION SIZE" v={pos ? money(pos.usd) : cand?.size != null ? `×${cand.size}` : '—'} sub={pos ? `Warden ×${pos.warden ?? '—'}` : cand?.sizeWhy || null} />
-        <Tile l="NEXT ACTION" v={pos ? (pos.roundAction || pos.decision || '—') : dec.verdict === 'READY' ? 'TAKE A SEAT' : cand?.trigger === 'ENTER' ? 'CLEAR THE WALL' : 'KEEP READING'} sub={pos?.obeying || null} />
-        <Tile l="NEXT WAKE" v={pos ? secs(pos.nextReview) : secs(o?.cycle?.nextIn)} sub={pos ? "Reaper's review (the live chart acts sooner)" : 'next agent pass'} /></div>
+        <Tile l="SEAT SIZE" v={pos ? money(pos.usd) : cand?.size != null ? `×${cand.size}` : '—'} sub={pos ? `Warden ×${pos.warden ?? '—'}` : cand?.sizeWhy || null} />
+        <Tile l="NEXT STEP" v={pos ? (pos.roundAction || pos.decision || '—') : dec.verdict === 'READY' ? 'TAKE A SEAT' : cand?.trigger === 'ENTER' ? 'CLEAR THE WALL' : 'KEEP READING'} sub={pos?.obeying || null} />
+        <Tile l="NEXT CHECK" v={pos ? secs(pos.nextReview) : secs(o?.cycle?.nextIn)} sub={pos ? "Reaper's review (the live chart acts sooner)" : 'next agent pass'} /></div>
       {agent === 'devil' && cand?.devilConf != null ? <p className="ack-fresh">Devil confidence ×{cand.devilConf} (a weight on the rank, never a block)</p> : null}
       <AiNote o={o} mint={mint} agent={agent} onOpen={() => setTab('ai')} />
     </div>) : null}

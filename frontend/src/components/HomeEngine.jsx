@@ -30,6 +30,31 @@ export function reactorRings(rows) {
 }
 // pure: the core's beat — 0.7s when the whole board is green, 2.4s when nothing is (no reading = a slow 2s)
 export const beatSec = green => (green == null ? 2 : Math.round((2.4 - 1.7 * Math.max(0, Math.min(100, green)) / 100) * 100) / 100);
+// pure: the live scan heartbeat — one beat per real coin the scan judged (up = passed, down = caught, a blip = not read yet) + what it caught
+export function scanBeats(rows, n = 22) {
+  return enginePods(rows, n).map(p => { const r = (rows || []).find(x => x.mint === p.mint) || {};
+    return { ...p, why: p.fate === 'fail' ? ((r.fails || [])[0] ? `failed “${String(r.fails[0]).replace(/\s+/g, ' ').slice(0, 40)}”` : 'failed a safety check') : null }; });
+}
+const BEAT_W = 64;
+export function beatPath(beats, h = 26, mid = 30) {
+  let d = `M0 ${mid}`;
+  beats.forEach((b, i) => { const x = i * BEAT_W + BEAT_W / 2; const k = b.fate === 'safe' ? -h : b.fate === 'fail' ? h : -h * 0.25;
+    d += ` L${x - 12} ${mid} L${x - 6} ${mid - k * 0.25} L${x - 2} ${mid + k} L${x + 3} ${mid - k * 0.45} L${x + 8} ${mid} `; });
+  return `${d} L${beats.length * BEAT_W} ${mid}`;
+}
+function ScanPulse({ rows }) {
+  const beats = scanBeats(rows); if (beats.length < 4) return null;
+  const caught = beats.filter(b => b.fate === 'fail').slice(0, 3); const w = beats.length * BEAT_W; const path = beatPath(beats);
+  const strip = k => <div className="hen-ekg-strip" key={k} style={{ width: w }} aria-hidden={k ? 'true' : undefined}>
+    <svg width={w} height="60" viewBox={`0 0 ${w} 60`} preserveAspectRatio="none"><path d={path} className="hen-ekg-line" /></svg>
+    {beats.map((b, i) => <button key={b.mint} type="button" tabIndex={k ? -1 : 0} className={`hen-beat is-${b.fate}`} style={{ left: i * BEAT_W + BEAT_W / 2 }} onClick={() => openCoin({ mint: b.mint, symbol: b.sym, pairAddress: b.pair })}
+      data-tip={`$${b.sym} · ${FATE[b.fate]}${b.why ? ` — ${b.why}` : ''}`}>${b.sym}</button>)}</div>;
+  return <div className="hen-ekg" data-testid="hen-ekg" style={{ '--ekg-sec': `${Math.max(18, beats.length * 1.6)}s` }}>
+    <small className="hen-ekg-l">🫀 LIVE SCAN · every beat is a real launch coin read · up = passed · down = caught</small>
+    <div className="hen-ekg-view"><div className="hen-ekg-run">{strip(0)}{strip(1)}</div></div>
+    {caught.length ? <p className="hen-caught" data-testid="hen-caught">{caught.map(b => <button key={b.mint} type="button" onClick={() => openCoin({ mint: b.mint, symbol: b.sym, pairAddress: b.pair })}>🛡 caught <b>${b.sym}</b> · {b.why}</button>)}</p> : null}
+  </div>;
+}
 const WX = { clear: '☀ CLEAR', rain: '🌧 RAIN', storm: '⛈ STORM' };
 const FATE = { safe: 'passed the safety scan', fail: 'failed the safety scan', wait: 'holders not read yet' };
 const num = v => (v == null ? '—' : Number(v).toLocaleString('en-US'));
@@ -74,6 +99,7 @@ export function HomeEngine({ onOpen }) {
         <Meter l="BUYERS" v={v.buyers} tone={v.buyers != null && v.buyers < 50 ? 'bad' : 'ok'} tip="Typical share of trades that are buys across the board" />
         <Meter l="SAFE RATE" v={v.safePct} tone="ice" tip="Of the coins we scanned, the share that passed every safety check" />
         <span className="hen-meter is-clock" data-tip="Time to the runner board's next round"><small>NEXT ROUND</small><Clock at={v.nextAt} /><i><u className="hen-tick" /></i></span></div>
+      <ScanPulse rows={d.open?.rows} />
       <a className="hen-go" href="/terminal/fuse?tab=runners" onClick={e => { if (onOpen) { e.preventDefault(); onOpen('/terminal/fuse?tab=runners'); } }}>Open the lists →</a>
     </div>
   </section>;
