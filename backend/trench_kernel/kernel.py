@@ -203,7 +203,7 @@ class Kernel:
                 'candidates': out, 'metrics': self.metrics(now)}
 
 
-VIT_TOP = 10
+VIT_TOP = 8
 
 
 def _f0(v):
@@ -232,7 +232,7 @@ def vit(r):
     dr_ = _drn.read(v, n, r.get('fv'))   # 🩸 the drain read (exit liquidity · holders leaving · pool draining · the tape) — no fetch
     if dr_['score'] or dr_['xl'] is not None:   # compact: the office payload is capped at 100 KB
         out['drain'] = {k: x for k, x in (('s', dr_['score']), ('st', dr_['state']), ('xl', dr_['xl']), ('hd', dr_['hd']), ('lq', dr_['lq']),
-                                          ('w', [q[0] for q in dr_['parts']][:2] or None)) if x is not None}
+                                          ('w', [q[0] for q in dr_['parts']][:1] if dr_['state'] != 'CLEAR' else None)) if x is not None}
     flat = {**v, 'chg5m': n.get('d5'), 'vol5m': n.get('v5'), 'holdD': n.get('holdD'), 'tv': r.get('tv'),
             'chg1h': (r.get('li') or {}).get('chg1h')}
     od_ = _drn.odds(_tb.feats(flat), _drn.TABLE)   # 🔮 the measured rug share of coins like this one (the trench brain's judged coins)
