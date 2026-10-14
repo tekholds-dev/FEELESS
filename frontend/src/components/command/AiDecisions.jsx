@@ -6,6 +6,7 @@ import { STANCE_TONE, agreeOf, aiRows, deltaFill, agreeStats, aiMetricsLine } fr
 import { AG } from './agentWords';
 import { hasIntel, intelRows, scoutChips, labLine } from '../../lib/cockpitControls';
 import '../../styles/cockpitAi.css';
+import { AiChat } from './AiChat';
 import '../../styles/agentControls.css';
 
 // 🧠 THE MODEL'S DECISIONS (HQ › Agents › decision panel › 🧠 AI; owner, 2026-10-12: "I wanna see the LM model's decisions as well — fix
@@ -109,6 +110,7 @@ export function AiPane({ ai: aiProp, lab, call, isOwner = true, focus, focusSym,
         <em className="avt-bucket">{r.label}</em><span className="cai-meter"><i style={{ transform: `scaleX(${Math.min(1, r.n / ai.learn.minN)})` }} /></span>
         <small>{r.n} judged · typical <b className={r.med > 0 ? 'm-pos' : r.med < 0 ? 'm-neg' : ''}>{r.med > 0 ? '+' : ''}{r.med}%</b> · {r.up}% up</small>
         <u>{r.factor !== 1 ? `rank ×${r.factor}` : r.proven ? 'no edge' : 'learning'}</u></li>)}</ul> : null}</div> : null}
+    <AiChat call={call} isOwner={isOwner} focus={focus} focusSym={focusSym} />
     <form className="cai-ask" onSubmit={ask} autoComplete="off" data-testid="cai-ask">
       <label className="cai-lab" htmlFor="cai-ask-in">🧠 ASK THE MODEL{focusSym && !typed ? <small> · ${focusSym} (the coin on the chart)</small> : null}</label>
       <div className="cai-askrow"><input id="cai-ask-in" className="m-input" value={txt} onChange={e => { setTxt(e.target.value); setTyped(true); }} placeholder="a coin (CA / pump.fun · dexscreener link) — or any question" aria-label="Coin or question for the model"

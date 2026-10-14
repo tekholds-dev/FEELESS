@@ -13354,6 +13354,154 @@ async def admin_ai_test(request: Request):
     return {**res, **_ai_view()}
 
 
+# ── 💬 DIRECT LM CHAT + OWNER-APPROVED AGENT UPDATES (ai_chat.py) ────────────────────────────────────────────────────────────────────
+import ai_chat as _aic
+AI_PROPOSALS_PATH = DATA_DIR / 'ai_proposals.json'   # compact proposal + audit records only (≤ 60; never a raw prompt or a raw response)
+_chat: dict = {'hist': [], 'ctx': (None, None, 0.0), 'busy': False, 'props': None}   # the conversation lives in memory only (≤ 8 exchanges) and dies with the process
+AI_CHAT_CTX_SEC = 20.0   # the compact agent-state context is rebuilt at most this often (and only its text changes the model's input)
+
+
+def _chat_props():
+    if _chat['props'] is None:
+        _chat['props'] = _json_load(AI_PROPOSALS_PATH, {}) or {}
+    return _chat['props']
+
+
+def _chat_context(focus, now):
+    """The desk's current truth for the chat, compact + cached: one build per AI_CHAT_CTX_SEC and per selected coin (no fetch, no scan)."""
+    k_, c_, at_ = _chat['ctx']
+    if c_ is None or k_ != focus or now - at_ >= AI_CHAT_CTX_SEC:
+        c_ = _aic.context({**(_office.get('payload') or {}), 'capital': _capital_view(), 'trail': _office.get('trail')}, focus, tuple(_co.CAUSES))
+        _chat['ctx'] = (focus, c_, now)
+    return c_
+
+
+def _chat_olds():
+    """What each proposable thing is RIGHT NOW (shown as the proposal's old value)."""
+    rc = _prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
+    tn = _of.tunes(_office_state(), 'reaper')
+    return {**{('cfg', k_): rc.get(k_) for k_ in _aic.SAFE_CFG}, **{('tune', k_): tn.get(k_) for k_ in _aic.TUNE_KEYS}}
+
+
+async def _ai_proposal_apply(p, now):
+    """✅ THE ONLY PLACE AN APPROVED PROPOSAL TOUCHES THE DESK — one branch per safe kind, each through the desk's own existing path.
+    Nothing here can reach an order, a size, a seat, a stop, a limit, a wallet or a key. → the audit line."""
+    kind, key, val = p.get('kind'), p.get('key'), p.get('new')
+    if kind == 'cfg':
+        if key not in _aic.SAFE_CFG or val not in _aic.SAFE_CFG[key]:
+            raise ValueError('not an advisory switch')
+        async with _admin_lock:
+            d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+            old = _prime.clean_cfg(pr.get('realCfg') or {}).get(key)
+            pr['realCfg'] = _prime.clean_cfg({**(pr.get('realCfg') or {}), key: val})
+            pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {key})
+            pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | {key})
+            _json_save(FUSE_HQ_PATH, d)
+        return f"{key}: {old} → {val}"
+    if kind == 'lesson':
+        _teach['st'] = _tch.add(_teach_state(), {'kind': key, 'text': str(val)}, now)
+        _json_save(TEACH_PATH, _teach['st'])
+        if _office.get('payload') is not None:
+            _office['payload']['teach'] = _tch.view(_teach['st'])
+        return f"lesson filed ({key}) — every fitting model case reads it"
+    if kind == 'weight':
+        st_, rule_ = _co.add(_coach_state(), key, 'owner', str(val), now)
+        if rule_:
+            _coach_put(st_)
+        return f"rank weight on '{key}' {rule_['points']:+.0f} for 24h" if rule_ else f"a rule for '{key}' is already live"
+    if kind == 'tune':
+        _coach['tuneAsk'] = {'key': key, 'dir': val, 'why': str(p.get('reason') or '')[:90], 'at': now}   # the office pass puts it in SHADOW (office.model_candidate) — never live
+        return f"Reaper {key} {val}: queued for a 20-exit shadow test"
+    if kind == 'idea':
+        return 'idea filed — it changes no setting'
+    raise ValueError('unknown kind')
+
+
+@app.post('/api/reputation/admin/ai/chat')
+async def admin_ai_chat(request: Request):
+    """💬 Owner only: talk to the current model. `mode` chat (normal language) · case (the structured coin read of `focus`) · improve (the model
+    may PROPOSE agent changes — nothing is applied here). One chat inference at a time; the history is short and in memory."""
+    _require_owner(request)
+    body = await request.json()
+    text = _aic.clean((body or {}).get('text'), 2000)
+    mode = str((body or {}).get('mode') or 'chat').lower()
+    focus = str((body or {}).get('focus') or '')[:60] or None
+    if mode not in _aic.MODES:
+        raise HTTPException(400, 'Pick chat, case or improve.')
+    if len(text) < 2 and mode != 'case':
+        raise HTTPException(400, 'Type a message.')
+    if _chat['busy']:
+        raise HTTPException(429, 'The model is still answering your last message.')
+    _chat['busy'] = True
+    now = time.time()
+    try:
+        env, cfg = os.environ, _ai_cfg()
+        if mode == 'case':   # 🔎 CASE REVIEW: the kernel's own case for the selected coin → the validated structured answer
+            c = next((c_ for c_ in (((_office.get('payload') or {}).get('kernel') or {}).get('candidates') or []) if focus and focus in (c_.get('mint'), c_.get('pair'), c_.get('symbol'))), None)
+            if not c:
+                raise HTTPException(400, 'Pick a coin that is on the desk (the one on the chart) for a case review.')
+            res = await _air.ROUTER.reason(_ai_http(), env, cfg, _ai_case(c), 'owner', 'force', mode='case')
+            ad = res.get('advice') or {}
+            if ad:
+                _ai_keep('owner', c, res, now)
+            reply = (f"{ad.get('call') or ad.get('stance')} · {ad.get('summary')}" + (f" · risks: {'; '.join(ad.get('risk_flags') or [])}" if ad.get('risk_flags') else '')) if ad else None
+            _chat['hist'] = _aic.push(_aic.push(_chat['hist'], 'user', f"[case review] ${c.get('symbol')} {text}".strip()), 'assistant', reply or 'no provider answered', {'mode': 'case'})
+            return {'ok': bool(ad), 'mode': 'case', 'reply': reply, 'advice': ad or None, 'symbol': c.get('symbol'), 'provider': res.get('label'), 'model': _air.provider(env, res['source'], cfg)['model'] if res.get('source') in _air.PROVIDERS else None,
+                    'ms': res.get('ms'), 'tokens': _air.ROUTER.lastUsage.get(res.get('source')), 'history': _chat['hist'], 'proposals': _aic.view(_chat_props()), 'why': res.get('why')}
+        ctx = _chat_context(focus, now)
+        res = await _air.ROUTER.ask(_ai_http(), env, cfg, text, context=ctx, role='owner', history=_aic.as_messages(_chat['hist']), system=_aic.IMPROVE_ASK if mode == 'improve' else None)
+        reply, new, refused = res.get('text'), [], []
+        if reply and mode == 'improve':   # 🛠 the model's suggestions become PENDING records — nothing is applied until the owner approves each one
+            reply, items, refused = _aic.parse_improve(reply, tuple(_co.CAUSES))
+            if items:
+                _chat['props'], new = _aic.propose(_chat_props(), items, _chat_olds(), now, res.get('label'))
+                _json_save(AI_PROPOSALS_PATH, _chat['props'])
+                ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-proposals', f"{len(new)} proposed by {res.get('label')}: " + ' · '.join(f"{p_['kind']} {p_['key']}" for p_ in new)[:200]); _admin_save(ad_)
+        _chat['hist'] = _aic.push(_aic.push(_chat['hist'], 'user', text), 'assistant', reply or 'no provider answered', {'mode': mode, 'ms': res.get('ms'), 'provider': res.get('label')})
+        return {'ok': bool(reply), 'mode': mode, 'reply': reply, 'provider': res.get('label'), 'model': res.get('model'), 'ms': res.get('ms'), 'tokens': res.get('usage'), 'history': _chat['hist'],
+                'new': [p_['id'] for p_ in new], 'refused': refused, 'proposals': _aic.view(_chat_props()), 'why': res.get('why')}
+    finally:
+        _chat['busy'] = False
+
+
+@app.post('/api/reputation/admin/ai/chat/clear')
+async def admin_ai_chat_clear(request: Request):
+    """💬 Owner only: forget the conversation (the proposals stay — they are the audit record)."""
+    _require_owner(request)
+    _chat['hist'] = []
+    return {'ok': True, 'history': [], 'proposals': _aic.view(_chat_props())}
+
+
+@app.get('/api/reputation/admin/ai/chat')
+async def admin_ai_chat_get(request: Request):
+    _require_owner(request)
+    return {'history': _chat['hist'], 'proposals': _aic.view(_chat_props()), 'modes': list(_aic.MODES)}
+
+
+@app.post('/api/reputation/admin/ai/proposals/decide')
+async def admin_ai_proposal_decide(request: Request):
+    """✅ / ✕ Owner only: APPROVE or REJECT one pending proposal. Approve is the ONLY call that applies anything (`_ai_proposal_apply`,
+    safe kinds only); reject changes nothing. Decided once, audited."""
+    _require_owner(request)
+    body = await request.json()
+    now = time.time()
+    st, todo, err = _aic.decide(_chat_props(), str((body or {}).get('id') or ''), bool((body or {}).get('approve')), now)
+    if err:
+        _chat['props'] = st; _json_save(AI_PROPOSALS_PATH, st)
+        raise HTTPException(400, err)
+    note = None
+    if todo:
+        try:
+            note = await _ai_proposal_apply(todo, now)
+        except (ValueError, KeyError) as e:
+            note = f'not applied: {str(e)[:120]}'
+        st = _aic.applied(st, todo['id'], note)
+        _tk.KERNEL.note('owner', 'AI PROPOSAL ✅', f"{todo['agent']} · {todo['kind']} {todo['key']} — {note}", now, key=f"aiprop:{todo['id']}")
+    _chat['props'] = st; _json_save(AI_PROPOSALS_PATH, st)
+    ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-proposal-decide', f"{'approved' if todo else 'rejected'} {(body or {}).get('id')}" + (f": {note}" if note else '')); _admin_save(ad_)
+    return {'ok': True, 'applied': note, 'proposals': _aic.view(st)}
+
+
 _rpc_warned = {'day': ''}
 
 

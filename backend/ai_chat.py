@@ -1,0 +1,233 @@
+"""💬 DIRECT LM CHAT + OWNER-APPROVED AGENT UPDATES (pure, tested `tests/test_ai_chat.py`; owner's spec, 2026-10-13).
+
+Three modes: CHAT (normal language — never the case schema) · CASE REVIEW (the structured coin read, the router's CASE mode) ·
+AGENT IMPROVEMENT (the model may PROPOSE changes; it can apply nothing). A proposal is a validated record:
+
+    LM SUGGESTION → {agent, kind, key, old, new, reason, effect, rollback} → OWNER REVIEW → [APPROVE] [REJECT]
+
+Only `decide(.., approve=True)` hands a proposal to the service's `apply` step, and only for the kinds in `SAFE`:
+  cfg     one of a few advisory switches (`SAFE_CFG`) — the same values the owner's own control row offers
+  lesson  a note / narrative the model reads with every fitting case (teach.py)
+  weight  a ranking weight on one cause from the coach's fixed vocabulary (coach.py)
+  tune    ONE Reaper setting, ONE notch → a SHADOW test only (office.model_candidate) — never live by approval alone
+  idea    a suggestion with no setting behind it (which vitals to collect, which provider for which task): approved = filed, applies nothing
+Everything about execution is out of reach: any key matching `PROTECTED` (slippage, price gap, sell-back, pool floor, wallet, limits, keeper,
+signing, funding, sizes, stops, seats …) is refused at parse time AND again at approval. The chat history is short and in memory; the
+stored proposal record is compact (no raw prompt, no raw response) and capped."""
+import json
+import re
+
+MODES = ('chat', 'case', 'improve')
+HIST_TURNS = 8          # the last N exchanges go back to the model (and stay on screen)
+MSG_LEN = 1400
+PROPOSALS_KEEP = 60
+PROPOSALS_PER_REPLY = 4
+AGENTS = ('tally', 'sherlock', 'weather', 'trigger', 'devil', 'warden', 'courier', 'reaper', 'archivist', 'judge', 'desk')
+SAFE_CFG = {'agentAiGate': (True, False), 'agentAiLearn': (True, False), 'chartWait': (True, False), 'agentCapital': (True, False), 'agentDial': ('chill', 'normal', 'crazy')}
+TUNE_KEYS = ('giveBackPct', 'protectAt', 'stopPct')
+KINDS = ('cfg', 'lesson', 'weight', 'tune', 'idea')
+PROTECTED = re.compile(r'slip|gap|sell.?back|pool|liq|wallet|keeper|courier.?(health|block)|sign|fund|top.?up|withdraw|deposit|limit|max.?swap|daily|impact|'
+                       r'size|seat|armed|paused|halt|rpc|api.?key|secret|private|order|route|quote|agent(tp|sl|trail|maxhold|control|paper|open|curve|authority|entry|switch|mc|back|feed|learnpct|seats|take|mode)', re.I)
+
+IMPROVE_ASK = (
+    "AGENT IMPROVEMENT mode. Read CONTEXT (the desk's current truth) and the owner's message, then answer with ONE JSON object and nothing else:\n"
+    '{"reply": "your answer in normal language, 2-6 sentences", "proposals": [{"agent": "tally|sherlock|weather|trigger|devil|warden|courier|reaper|archivist|judge|desk", '
+    '"kind": "cfg|lesson|weight|tune|idea", "key": "...", "value": "...", "reason": "the evidence in CONTEXT, with numbers", "effect": "what should change"}]}\n'
+    "You only PROPOSE: nothing is applied until the owner approves each one. At most 4 proposals; none is fine. Allowed:\n"
+    f"- cfg: key one of {', '.join(SAFE_CFG)}; value true|false (agentDial: chill|normal|crazy)\n"
+    "- lesson: key note|narrative; value = the lesson text the model should read with every fitting case (narrative: \"keywords: text\")\n"
+    "- weight: key = one cause from CONTEXT.vocab exactly; value = why it should rank a matching coin down\n"
+    f"- tune: key one of {', '.join(TUNE_KEYS)}; value up|down (one notch, into a shadow test)\n"
+    "- idea: anything else (a vital to collect, which provider for which task, a prompt change) — key = a short title, value = the idea\n"
+    "Never propose anything about execution: slippage, price gap, sell-back, pool floor, wallet or limits, sizes, seats, stops, orders, keys.")
+
+
+def _f(v, d=0.0):
+    try:
+        x = float(v)
+        return x if x == x else d
+    except (TypeError, ValueError):
+        return d
+
+
+def clean(text, n=MSG_LEN):
+    return re.sub(r'[\x00-\x08\x0b-\x1f\x7f]+', ' ', str(text or '')).strip()[:n]
+
+
+# ── the conversation (short, bounded, in memory) ─────────────────────────────────────────────────────────────────────────
+def push(history, role, text, meta=None):
+    """Append one turn; only the newest HIST_TURNS exchanges are kept (each turn bounded)."""
+    h = list(history or []) + [{'role': 'user' if role == 'user' else 'assistant', 'text': clean(text), **({'meta': meta} if meta else {})}]
+    return h[-HIST_TURNS * 2:]
+
+
+def as_messages(history):
+    """The history as chat messages for the model (text only — never the meta)."""
+    return [{'role': t['role'], 'content': t['text']} for t in history or [] if t.get('text')]
+
+
+# ── the compact agent truth the model is shown ───────────────────────────────────────────────────────────────────────────
+def _u(v, unit=''):
+    return 'UNKNOWN' if v in (None, '') else f'{v}{unit}'
+
+
+def context(office, focus=None, vocab=()):
+    """The desk's CURRENT truth, compact (≈ 1–1.5K tokens): the ten agents (generation · status · record), the newest decisions, seats,
+    the selected coin, execution health, recent real outcomes, the money record. A vital nobody has read is the WORD UNKNOWN / PENDING —
+    never a zero, never left out."""
+    o = office or {}
+    gens = {g.get('role'): g for g in o.get('generations') or [] if isinstance(g, dict)}
+    stats = o.get('deskStats') or {}
+    agents = [f"{r}: gen {_u((gens.get(r) or {}).get('generation'))} {_u((gens.get(r) or {}).get('status'))} · {int(_f((stats.get(r) or {}).get('decisions')))} real decisions, "
+              f"{_u((stats.get(r) or {}).get('accuracy'), '%')} right" for r in AGENTS[:-1]]
+    cands = ((o.get('kernel') or {}).get('candidates') or [])
+    dec = [f"{c.get('symbol')} {c.get('status')} · trigger {_u(c.get('trigger'))} · {str(c.get('why') or '')[:70]}" for c in cands[:6]]
+    pos = [f"{p.get('symbol')} {_u(p.get('pct'), '%')} · {str(p.get('decision') or p.get('state') or '')[:40]}" for p in (o.get('positions') or [])[:4]]
+    seat = o.get('seat') or {}
+    ex = o.get('execution') or {}
+    cap, tr, ms = o.get('capital') or {}, o.get('trail') or {}, o.get('mission') or {}
+    sel = next((c for c in cands if focus and focus in (c.get('mint'), c.get('pair'), c.get('symbol'))), None)
+    out = {'agents': agents, 'decisions': dec or ['none this pass'], 'positions': pos or ['no seat held'],
+           'seats': f"{_u(seat.get('held'))} held · {_u(seat.get('empty'))} empty · {str(seat.get('state') or 'UNKNOWN')}",
+           'execution': f"{_u(ex.get('health'))} · {int(_f(ex.get('fills')))} of {int(_f(ex.get('sends')))} sends landed · {int(_f(ex.get('failed')))} failed",
+           'card': f"worth ${_f(ms.get('value')):.2f}, ${_f(ms.get('putIn')):.2f} put in" if ms.get('value') is not None else 'UNKNOWN',
+           'money': f"{_u(cap.get('state'))}: {str(cap.get('why') or '')[:200]}", 'trail': str(tr.get('words') or 'UNKNOWN')[:200],
+           'outcomes': [f"{r.get('sym')} {_f((r.get('result') or {}).get('pct')):+.1f}% · {str((r.get('result') or {}).get('rule') or '')[:40]}" for r in ((o.get('tradeTape') or {}).get('rows') or [])[:6]
+                        if (r.get('result') or {}).get('pct') is not None] or ['none on file'],
+           'vocab': list(vocab)[:10]}
+    if sel:
+        out['selected'] = {'symbol': sel.get('symbol'), 'status': sel.get('status'), 'cap': _u(sel.get('cap')), 'liq': _u(sel.get('liq')), 'vol5m': _u(sel.get('vol5m')),
+                           'move5m': _u(sel.get('move5m'), '%'), 'buyShare': _u(sel.get('buyShare'), '%'), 'ageMin': _u(sel.get('ageMin')),
+                           'pending': list(sel.get('unknown') or []) or 'nothing pending', 'devil': [str(d[2] if len(d) > 2 else d)[:70] for d in (sel.get('devil') or [])[:3]] or 'no objection'}
+    elif focus:
+        out['selected'] = f'{focus}: not on the desk right now (UNKNOWN)'
+    return out
+
+
+def ctx_key(ctx):
+    """A key that changes only when the compact context does (the service keeps one built context per key)."""
+    return str(hash(json.dumps(ctx, sort_keys=True, default=str)))
+
+
+# ── proposals: validated, never applied here ─────────────────────────────────────────────────────────────────────────────
+def _first_json(text):
+    t = re.sub(r'```(?:json)?', '', str(text or ''))
+    i = t.find('{')
+    while i >= 0:
+        depth = 0
+        for j in range(i, len(t)):
+            depth += t[j] == '{'
+            depth -= t[j] == '}'
+            if depth == 0:
+                try:
+                    return json.loads(t[i:j + 1])
+                except ValueError:
+                    break
+        i = t.find('{', i + 1)
+    return None
+
+
+def protected(key, value=''):
+    """True = this touches execution / money and is out of reach of the chat, whatever the model or anyone typing into it says."""
+    return bool(PROTECTED.search(str(key or ''))) or (isinstance(value, str) and bool(re.search(r'slippage|wallet limit|max swap|private key|seed phrase', value, re.I)))
+
+
+def check(p, vocab=()):
+    """One raw proposal → the validated one {agent, kind, key, value, reason, effect}, or (None, why it was refused)."""
+    if not isinstance(p, dict):
+        return None, 'not an object'
+    kind, key = str(p.get('kind') or '').strip().lower(), clean(p.get('key'), 60)
+    agent = str(p.get('agent') or 'desk').strip().lower()
+    agent = agent if agent in AGENTS else 'desk'
+    val = p.get('value')
+    if kind not in KINDS:
+        return None, f'unknown kind {kind[:20]!r}'
+    if kind != 'lesson' and kind != 'idea' and protected(key):
+        return None, f'{key}: execution / money settings cannot be changed from the chat'
+    if kind == 'cfg':
+        if key not in SAFE_CFG:
+            return None, f'{key}: not one of the advisory switches the chat may propose'
+        v = {'true': True, 'on': True, 'false': False, 'off': False}.get(str(val).strip().lower(), val) if SAFE_CFG[key] == (True, False) else str(val).strip().lower()
+        if v not in SAFE_CFG[key]:
+            return None, f'{key}: {val!r} is not one of its options'
+        val = v
+    elif kind == 'lesson':
+        if key not in ('note', 'narrative') or len(clean(val)) < 8:
+            return None, 'a lesson needs key note|narrative and a few words'
+        val = clean(val, 400)
+    elif kind == 'weight':
+        if key not in set(vocab or ()):
+            return None, f'{key}: not a cause in the desk\'s vocabulary'
+        val = clean(val, 120)
+    elif kind == 'tune':
+        if key not in TUNE_KEYS or str(val).strip().lower() not in ('up', 'down'):
+            return None, 'a tune is one of giveBackPct | protectAt | stopPct, up | down'
+        val = str(val).strip().lower()
+    else:
+        if protected(key, clean(val, 300)) and re.search(r'\b(set|change|raise|lower|increase|remove|disable|turn off)\b', clean(val, 300), re.I):
+            return None, 'an idea that changes execution / money settings is not filed'
+        key, val = key or 'idea', clean(val, 300)
+    return {'agent': agent, 'kind': kind, 'key': key, 'value': val, 'reason': clean(p.get('reason'), 240), 'effect': clean(p.get('effect'), 200)}, None
+
+
+def parse_improve(text, vocab=()):
+    """The model's AGENT IMPROVEMENT answer → (reply in normal language, [validated proposals], [refusals]). Prose with no JSON is just a reply."""
+    j = _first_json(text)
+    if not isinstance(j, dict):
+        return clean(text), [], []
+    ok, bad = [], []
+    for p in (j.get('proposals') or [])[:8] if isinstance(j.get('proposals'), list) else []:
+        v, why = check(p, vocab)
+        (ok if v else bad).append(v or why)
+    return clean(j.get('reply') or j.get('summary') or ''), ok[:PROPOSALS_PER_REPLY], bad[:6]
+
+
+OLD_WORD = {'lesson': 'no such lesson', 'weight': 'no rule for this cause', 'idea': 'nothing — an idea changes no setting'}
+ROLLBACK = {'cfg': 'flip the same switch back in ⚙ operator controls (or approve the opposite proposal) — old value kept on this record',
+            'lesson': 'remove it in 🎓 Teach the desk (✕ on the lesson)', 'weight': 'kill the rule in 👑 Coach (✕) — it also expires by itself in 24h',
+            'tune': 'nothing to roll back: it only enters a 20-exit shadow test; a test that does not beat the live rule is rejected by itself',
+            'idea': 'nothing to roll back: filing an idea changes no setting'}
+
+
+def propose(state, items, olds, now, source=None):
+    """Validated proposals → PENDING records {id, agent, kind, key, old, new, reason, effect, rollback, status}. Nothing is applied.
+    `olds` = {(kind, key): the current value / behaviour} read by the service."""
+    ps = list((state or {}).get('items') or [])
+    new = []
+    for i, p in enumerate(items or []):
+        if any(x['status'] == 'pending' and (x['kind'], x['key'], x['new']) == (p['kind'], p['key'], p['value']) for x in ps):
+            continue   # the same suggestion is already waiting for the owner
+        rec = {'id': f"p{int(now * 1000)}{i}", 'at': round(now, 1), 'agent': p['agent'], 'kind': p['kind'], 'key': p['key'], 'old': (olds or {}).get((p['kind'], p['key']), OLD_WORD.get(p['kind'], 'UNKNOWN')),
+               'new': p['value'], 'reason': p['reason'], 'effect': p['effect'], 'rollback': ROLLBACK[p['kind']], 'status': 'pending', 'source': source}
+        new.append(rec)
+    return {'items': (new + ps)[:PROPOSALS_KEEP]}, new
+
+
+def decide(state, pid, approve, now):
+    """The owner's APPROVE / REJECT → (state, the proposal to apply | None, error | None). A proposal is decided ONCE; a rejected one is
+    never handed back; one whose key is protected is refused even now (defence in depth)."""
+    ps = [dict(x) for x in (state or {}).get('items') or []]
+    p = next((x for x in ps if x.get('id') == pid), None)
+    if not p:
+        return state, None, 'no such proposal'
+    if p['status'] != 'pending':
+        return state, None, f"already {p['status']}"
+    if approve and p['kind'] not in ('lesson', 'idea') and protected(p['key']):
+        p.update(status='rejected', decidedAt=round(now, 1), note='refused: execution / money setting')
+        return {'items': ps}, None, 'execution / money settings cannot be changed from the chat'
+    p.update(status='approved' if approve else 'rejected', decidedAt=round(now, 1))
+    return {'items': ps}, (dict(p) if approve else None), None
+
+
+def applied(state, pid, note):
+    """What the service's apply step did with an approved proposal (kept on the record: the audit line)."""
+    ps = [dict(x) for x in (state or {}).get('items') or []]
+    for x in ps:
+        if x.get('id') == pid:
+            x['applied'] = clean(note, 200)
+    return {'items': ps}
+
+
+def view(state, n=12):
+    ps = list((state or {}).get('items') or [])
+    return {'pending': [x for x in ps if x['status'] == 'pending'][:n], 'decided': [x for x in ps if x['status'] != 'pending'][:n]}

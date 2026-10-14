@@ -3930,3 +3930,17 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   noted on a coin). `reason()` with no mode = GENERAL unless the packet is unmistakably a case. `POST /admin/ai/ask`: a CA / link → CASE as
   before; anything else → GENERAL with a few desk facts as context (`_ai_general_context`: card, capital line, trail, Reaper's settings,
   providers) → `{mode: 'general', answer: {text}}`; the ASK box shows it as prose (`cai-general`). New model call ⇒ say its mode.
+- 💬 AI / LM CHAT + OWNER-APPROVED AGENT UPDATES (owner's spec, 2026-10-13; `backend/ai_chat.py` pure + tested `tests/test_ai_chat.py`;
+  `command/AiChat.jsx` on top of the 🧠 AI tab, `cch-*` in cockpitAi.css; owner routes `GET|POST /admin/ai/chat`, `POST /admin/ai/chat/clear`,
+  `POST /admin/ai/proposals/decide`). Three modes: 💬 CHAT (router GENERAL mode: normal language + the short conversation) · 🔎 CASE REVIEW
+  (router CASE mode on the coin on the chart) · 🛠 AGENT IMPROVEMENT (GENERAL + `IMPROVE_ASK` → `parse_improve` → PENDING proposals).
+  The model sees `ai_chat.context` only: the ten agents (gen · status · record), newest decisions, seats, the selected coin (missing
+  vitals = the WORD UNKNOWN / PENDING), execution health, recent real results, capital + trail — ~2K chars, cached 20s. History = the last
+  8 exchanges, in memory, gone on Clear / restart. A PROPOSAL changes nothing: {agent, kind, key, old, new, reason, effect, rollback} waits
+  for ✅ / ✕. `_ai_proposal_apply` is the ONLY apply step and only for `ai_chat.KINDS`: `cfg` (`SAFE_CFG`: agentAiGate · agentAiLearn ·
+  chartWait · agentCapital · agentDial) · `lesson` (teach.py) · `weight` (a coach rule on a vocabulary cause) · `tune` (one Reaper notch →
+  SHADOW only) · `idea` (filed, applies nothing). Any key matching `ai_chat.PROTECTED` (slippage · gap · sell-back · pool · wallet · limits ·
+  sizes · seats · stops · orders · keys …) is refused at parse AND at approval; decided once; `data/ai_proposals.json` keeps ≤ 60 compact
+  records (never a raw prompt / response). One chat answer at a time (`_chat['busy']` → 429). The panel keeps its own state: a reply never
+  touches the agent hub (test). New proposable thing ⇒ a kind / a `SAFE_CFG` key + its branch in `_ai_proposal_apply` + a test — never a
+  generic "set any config" path.
