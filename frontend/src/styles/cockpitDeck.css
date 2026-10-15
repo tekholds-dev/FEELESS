@@ -144,3 +144,14 @@ body.theme-day .cai-record { border-color: rgba(10, 60, 35, .18); } body.theme-d
   .ack-decktabs { grid-template-columns: repeat(3, minmax(0, 1fr)); } .ack-decktabs > button { font-size: 9.5px; min-height: 30px; }
   .ack-vpair { grid-template-columns: 1fr; } .ack-tw { display: none; } .ack .ack-decktabs .active .ack-tw { display: inline; } .ack-ain { display: none; } .ack-trade.thd { grid-template-columns: 1fr; } .ack-trade .thd-kv { flex-wrap: wrap; }
 }
+
+/* ⧉ copy CA (CopyCa.jsx) */
+.cca { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-left: 4px; border-radius: 5px; border: 1px solid rgba(21, 209, 106, .35);
+  color: #45e486; font: 700 10px var(--m-mono, 'JetBrains Mono', monospace); cursor: pointer; vertical-align: middle; transition: transform .12s, background .12s; }
+.cca:hover { background: rgba(21, 209, 106, .16); transform: translateY(-1px); }
+.cca:active { transform: scale(.92); }
+.cca:focus-visible { outline: 2px solid #15d16a; outline-offset: 1px; }
+.cca.is-done { background: #15d16a; color: #04110a; }
+body.theme-day .cca { color: #0d7a41; border-color: rgba(13, 122, 65, .4); }
+body.theme-day .cca.is-done { background: #0d7a41; color: #fff; }
+@media (prefers-reduced-motion: reduce) { .cca { transition: none; } }

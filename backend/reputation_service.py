@@ -13290,7 +13290,7 @@ def _ai_view(now=None, light=False):
     notes = {m_: n_ for m_, n_ in _ai['notes'].items()}
     if light:
         keep = sorted(notes, key=lambda k_: -max(_fuse._f(x_.get('at')) for x_ in notes[k_].values()))[:12]
-        return {'providers': [{k_: r_.get(k_) for k_ in ('key', 'label', 'enabled', 'state', 'lastMs')} for r_ in v['providers']], 'active': v['active'],
+        return {'providers': [{k_: r_.get(k_) for k_ in ('key', 'label', 'enabled', 'state', 'lastMs', 'lastErr', 'fail', 'timeouts')} for r_ in v['providers']], 'active': v['active'],
                 'totals': v['totals'], 'notes': {m_: {ro_: {k_: n_.get(k_) for k_ in ('source', 'label', 'advice', 'at')} for ro_, n_ in notes[m_].items()} for m_ in keep},
                 'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY, 'localLane': {**{k_: _local_lane.get(k_) for k_ in ('n', 'last', 'busy', 'every', 'whyEvery')}, 'watch': _aic.watch_view(_local_lane.get('watch') if _local_lane.get('watch') is not None else (_json_load(LOCAL_WATCH_PATH, {}) or {}), _chat.get('settings') or {}, time.time(), _local_lane.get('every'), _local_lane.get('whyEvery'))}, 'log': _ai['log'][-20:], 'metrics': v.get('metrics'),
                 'model': next((r_.get('model') for r_ in v['providers'] if r_.get('key') == v['active']), None), 'learn': {**_ail.view(_ai_book()), 'on': _ai_learn_on()}, 'predict': {k_: _ail.predict_record(_ai_book(), None if k_ == 'all' else k_) for k_ in ('all', 'lan', 'local', 'openrouter', 'groq')},

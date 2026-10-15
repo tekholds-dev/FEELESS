@@ -21,6 +21,7 @@ import { IntakeBand } from './IntakeBand';
 import { TeachBox } from './TeachBox';
 import { VitalBoard } from './VitalBoard';
 import { TradeTape, CoachBox } from './CoachTape';
+import { CopyCa } from './CopyCa';
 import { tradeBar, tickDir, aiOf } from '../../lib/cockpitControls';
 import '../../styles/agentCockpit.css';
 import { AiChat } from './AiChat';
@@ -230,7 +231,7 @@ function SeatCard({ s, on, onPick, readyN, same }) {
   return <button type="button" className={`ack-seat ${on ? 'is-on' : ''} ${s.pct > 0 ? 'is-up' : s.pct < 0 ? 'is-dn' : ''}`} onClick={() => onPick(s.mint)} aria-pressed={on} data-testid={`ack-seat-${s.seat}`}
     data-tip={`${s.tag || s.kind}${s.rule ? ` · Reaper ${s.rule}` : ''}${s.why ? ` — ${s.why}` : ''}`}>
     <header><small>SEAT {s.seat}</small><i className={`ack-badge ${STATE_CLS[st]}`} data-testid={`ack-seat-state-${s.seat}`}>{st}</i></header>
-    <p className="ack-coin"><b>${s.symbol}</b><span className="ack-pnl"><LiveNum v={s.pct} fmt={x => pc(x)} testid={`ack-seat-pct-${s.seat}`} /><LiveNum v={s.pnlUsd} fmt={signed} cls={`ack-usd ${tone(s.pnlUsd)}`} testid={`ack-seat-usd-${s.seat}`} /></span></p>
+    <p className="ack-coin"><b>${s.symbol}<CopyCa mint={s.mint} sym={s.symbol} testid={`ack-seat-ca-${s.seat}`} /></b><span className="ack-pnl"><LiveNum v={s.pct} fmt={x => pc(x)} testid={`ack-seat-pct-${s.seat}`} /><LiveNum v={s.pnlUsd} fmt={signed} cls={`ack-usd ${tone(s.pnlUsd)}`} testid={`ack-seat-usd-${s.seat}`} /></span></p>
     <div className="ack-seatmid"><dl className="ack-kv">
       <dt>ENTRY MC</dt><dd>{mcWord(s.entryMc)}</dd><dt>AGE</dt><dd>{mins(s.ageMin)}</dd>
       <dt>NOW MC</dt><dd><LiveNum v={s.mc} fmt={mcWord} cls="" testid={`ack-seat-mc-${s.seat}`} /></dd><dt>HELD</dt><dd>{mins(s.heldMin)}</dd>
@@ -405,7 +406,7 @@ function DecisionPanel({ o, dec, pos, cand, mint, seats, readyN, agent, setAgent
   const live = o?.livePx?.[mint];
   const verdictWord = line?.word || word;
   return <aside className="ack-panel" data-testid="ack-panel">
-    <header><b>🧠 DECISION</b><i className="ack-livechip">● {dec?.symbol ? `$${dec.symbol}` : 'no coin'}</i>
+    <header><b>🧠 DECISION</b><i className="ack-livechip">● {dec?.symbol ? `$${dec.symbol}` : 'no coin'}</i><CopyCa mint={mint} sym={dec?.symbol} testid="ack-dec-ca" />
       <select className="m-input ack-agsel" value={agent} onChange={e => setAgent(e.target.value)} aria-label="Agent" data-testid="ack-agent-sel">
         {CHAIN.map(a => <option key={a} value={a}>{names[a] || a}</option>)}</select></header>
     <div className="m-seg ack-ptabs" role="tablist" aria-label="Decision panel">{PANEL_TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`ack-ptab-${k}`}><TabChip label={l} n={k === 'seats' && (seats || []).length ? `${(seats || []).filter(z => !z.open).length}/${seats.length}` : k === 'trace' ? (tr?.lines || []).length || null : null}

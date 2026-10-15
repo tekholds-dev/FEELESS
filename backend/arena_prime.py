@@ -2572,7 +2572,11 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             continue
         dd = (px / l['entry'] - 1) * 100
         l['peak'] = max(_f(l.get('peak')), dd)
-        trail = cfg.get('trail', True) and _f(l['peak']) >= TRAIL_AT and dd <= TRAIL_KEEP   # 🔒 ran +50%, now giving it back
+        # ✋ YOUR COIN IS YOURS (owner, 2026-10-15): a coin you picked is stopped only at a stop YOU set (dragged / ⚙ = `ownerLvAt`) —
+        # never the card's tier stop, never this trail. Pulled pools (rug shield) and the −45% line are handled elsewhere and still act.
+        if l.get('picked') and not l.get('ownerLvAt'):
+            continue
+        trail = cfg.get('trail', True) and not l.get('picked') and _f(l['peak']) >= TRAIL_AT and dd <= TRAIL_KEEP   # 🔒 ran +50%, now giving it back
         # early cut: half the stop + fading — never on the owner's own pick, never in a coin's first 15 min (its "1h down" was
         # read BEFORE the buy: a 🟢 buy-bottom pick is down on the hour by definition — $LOOT was cut at −3% 4 min after the owner
         # picked it with a −6% stop). The owner's full stop still applies to every coin.
@@ -2790,6 +2794,12 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
           if q_: c['seatQueue'] = q_
           else: c.pop('seatQueue', None)
       seated_pick = False; seated_any = False
+      # 🪑 YOUR pick beats a reserved seat (2026-10-15): a placeholder counts as a used seat, and the agents leave a seat alone while you
+      # have a pick queued — so a card full of reserved seats never seated $Macca. The emptiest reserved seat makes way for it.
+      if c.get('seatPick') and want_n and seats_used(c) >= want_n:
+          ph_ = [x for x in c['legs'] if x.get('placeholder') and _f(x.get('units')) <= 0]
+          if ph_:
+              c['legs'].remove(ph_[0])
       # 👤 a hold (yours, the proof gate or the agents in control) stops the ENGINE choosing a coin — never YOUR queued pick: it still takes its seat
       owner_only = bool(c.get('holdAll'))
       if want_n and seats_used(c) < want_n and not c.get('flooredAt') and (not owner_only or c.get('seatPick')) and not c.get('rebuy'):   # 🔄 a rebuy's seat is spoken for
@@ -2801,7 +2811,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
           if not nxt and not owner_only and now - _f(c.get('seatEmptyAt')) >= SEAT_FALLBACK_SEC:
               nxt = fallback_coin(); role_s, fb_seat = ('runner', True) if nxt else (None, False)
           sp_ = c.get('seatPick')   # 🪑 the owner's own pick for this seat comes first
-          if sp_ and sp_.get('mint') not in {x['mint'] for x in c['legs']} and (_f(prices.get(sp_['pairAddress'])) or _f(sp_.get('price'))) > 0:
+          if sp_ and sp_.get('mint') not in held_mints(c) and (_f(prices.get(sp_['pairAddress'])) or _f(sp_.get('price'))) > 0:
               role_s, nxt = 'runner', {**sp_, 'price': _f(prices.get(sp_['pairAddress'])) or _f(sp_.get('price')), 'liq': sp_.get('liquidityUsd')}
           elif sp_:
               c.pop('seatPick', None); sp_ = None
@@ -3339,6 +3349,12 @@ def merge_tick(snap, ticked, fresh):
     return out
 
 
+def held_mints(c):
+    """Coins really ON the card: a reserved seat (placeholder) or a sold-out leg still carries the old coin's mint — that is not "on the
+    card" (2026-10-15: the owner could not add $Macca back after it was sold: its reserved seat still said Macca)."""
+    return {x.get('mint') for x in c.get('legs') or [] if x.get('mint') and not x.get('placeholder') and ('units' not in x or _f(x.get('units')) > 0 or x.get('buying') or x.get('wantUnits'))}
+
+
 def queue_swap(card, pair, cand):
     """🎯 The owner's PICK: at the next round, this coin leaves and `cand` (a coin they chose from the live lists) takes its seat and
     its money. cand=None cancels. Pure; ValueError if the coin isn't on the card or the pick already is."""
@@ -3351,7 +3367,7 @@ def queue_swap(card, pair, cand):
         return c
     if not cand.get('mint') or not cand.get('pairAddress') or _f(cand.get('price')) <= 0:
         raise ValueError('That pick has no live price right now.')
-    if cand['mint'] in {x['mint'] for x in c['legs']}:
+    if cand['mint'] in held_mints(c):
         raise ValueError('That coin is already on this card.')
     if any((x.get('swapTo') or {}).get('mint') == cand['mint'] for x in c['legs'] if x is not l):
         raise ValueError('That coin is already queued for another seat.')
@@ -3677,7 +3693,7 @@ def queue_seat(card, cand, more=False):
         return c
     if not cand.get('mint') or not cand.get('pairAddress') or _f(cand.get('price')) <= 0:
         raise ValueError('That pick has no live price right now.')
-    if cand['mint'] in {x['mint'] for x in c['legs']} or any((x.get('swapTo') or {}).get('mint') == cand['mint'] for x in c['legs']):
+    if cand['mint'] in held_mints(c) or any((x.get('swapTo') or {}).get('mint') == cand['mint'] for x in c['legs']):
         raise ValueError('That coin is already on this card.')
     pick = {k: cand.get(k) for k in ('mint', 'pairAddress', 'symbol', 'price', 'liquidityUsd', 'division', 'trenchOnly', 'ack', 'ageH') if cand.get(k) is not None}
     cur = c.get('seatPick')

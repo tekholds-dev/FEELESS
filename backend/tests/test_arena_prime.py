@@ -2877,3 +2877,46 @@ def test_agents_fill_an_empty_seat_from_free_cash_only_and_bank_a_coin_to_free_c
     with pytest.raises(ValueError):
         ap.agent_pull(banked, 'Pgo', {}, {}, 300)
     assert ap.clean_cfg({})['agentControl'] is False and ap.clean_cfg({'agentControl': 1})['agentControl'] is True
+
+
+def test_your_pick_is_never_stopped_by_the_cards_tier_stop_only_by_your_own_line():
+    """2026-10-15: the owner picks a coin to TEACH the bots — the engine's tier stop and its 'ran +50%, back to +5%' trail may not sell it.
+    Only a stop the owner set on that coin (dragged / ⚙ → ownerLvAt) does."""
+    import arena_prime as ap
+    now = 1_000_000.0
+    leg = lambda m, units, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'units': units, 'entry': 1.0, 'costUsd': units, 'at': now - 9999, 'liq': 5e6, 'real': True, **k}
+    base = {'tpl': 'degen', 'id': 'x', 'label': 'B', 'at': now - 9999, 'lastRotateAt': now, 'cash': 0.0, 'startUsd': 3.0, 'roundStartUsd': 3.0, 'compoundedUsd': 0.0, 'takenUsd': 0.0,
+            'feesUsd': 0.0, 'events': [], 'rounds': 3}
+    cfg = ap.clean_cfg({'rotateHours': 0.08, 'floorPct': 0, 'rescuePct': 0, 'compound': False, 'sl': 15})
+    px = {'PMINE': 0.7, 'PLINED': 0.7, 'PBOT': 0.7}                                                    # all −30%, under the card's −15% stop
+    c = ap.tick({**base, 'legs': [leg('MINE', 1, picked=True), leg('LINED', 1, picked=True, ownerLvAt=now - 60, sl=20), leg('BOT', 1)]}, px, [], [], cfg, now + 30, [], {}, {})
+    held = {l['mint']: l for l in c['legs'] if not l.get('placeholder')}
+    assert 'MINE' in held and held['MINE']['units'] == 1                                                # your pick, no line of yours → kept
+    assert 'LINED' not in held and 'BOT' not in held                                                   # your own −20% line → sold · the engine's coin → its stop
+
+
+def test_a_reserved_seat_with_a_sold_coins_mint_does_not_block_adding_that_coin_back():
+    """2026-10-15: $Macca sold, its seat reserved (placeholder still carrying Macca's mint) → 'That coin is already on this card.'"""
+    import arena_prime as ap
+    card = {'legs': [{'mint': 'MAC', 'pairAddress': 'PM', 'symbol': 'Macca', 'units': 0.0, 'placeholder': True},
+                     {'mint': 'STR', 'pairAddress': 'PS', 'symbol': 'STREAM', 'units': 5.0}]}
+    cand = {'mint': 'MAC', 'pairAddress': 'PM', 'symbol': 'Macca', 'price': 1.0}
+    assert ap.queue_seat(card, cand)['seatPick']['mint'] == 'MAC'
+    assert ap.queue_swap(card, 'PS', cand)['legs'][1]['swapTo']['mint'] == 'MAC'
+    import pytest
+    with pytest.raises(ValueError):
+        ap.queue_seat(card, {**cand, 'mint': 'STR'})                 # a coin really held still can't be added twice
+
+
+def test_your_seat_pick_takes_a_reserved_seat_on_a_full_card():
+    import arena_prime as ap
+    now = 1_000_000.0
+    leg = lambda m, units, **k: {'mint': m, 'pairAddress': 'P' + m, 'symbol': m, 'role': 'runner', 'units': units, 'entry': 1.0, 'costUsd': units, 'at': now - 9999, 'liq': 5e6, **k}
+    base = {'tpl': 'degen', 'id': 'x', 'label': 'B', 'at': now - 9999, 'lastRotateAt': now, 'cash': 1.0, 'startUsd': 3.0, 'roundStartUsd': 3.0, 'compoundedUsd': 0.0,
+            'takenUsd': 0.0, 'feesUsd': 0.0, 'events': [], 'rounds': 3, 'holdAll': True, 'holdBy': 'agents'}
+    cfg = ap.clean_cfg({'rotateHours': 0.08, 'floorPct': 0, 'rescuePct': 0, 'compound': False, 'coins': 2})
+    card = {**base, 'legs': [leg('A', 1), leg('MAC', 0, placeholder=True, reserveUsd=1.0)],
+            'seatPick': {'mint': 'MAC', 'pairAddress': 'PMAC', 'symbol': 'MAC', 'price': 1.0, 'liquidityUsd': 5e6, 'ack': True}}
+    c = ap.tick(card, {'PA': 1.0, 'PMAC': 1.0}, [], [], cfg, now + 30, [], {}, {})
+    mac = [l for l in c['legs'] if l['mint'] == 'MAC' and not l.get('placeholder')]
+    assert mac and mac[0].get('picked') and not c.get('seatPick')

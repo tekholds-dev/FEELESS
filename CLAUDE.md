@@ -4429,3 +4429,24 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   Cockpit tab 👤 You (`OwnerStudy.jsx`, `ost-*`). Market-price orders are what the keeper already sends (Jupiter swaps = market); OPTIONS are
   NOT built — on-chain Solana options need a venue + counterparty collateral; FEELESS would be writing or buying contracts with real backing.
 - 🎬 THE TRADE TAPE SHOWS YOUR PICKS + HELD / SOLD (owner, 2026-10-15: "where my coins Macca and STREAM?"): `coach.trade_tape` keeps every confirmed buy the agents OR the owner made (`who` agents | you → 👤 YOURS chip); `state` held · part (a sale landed, position still open) · sold → head '🟢 STILL HELD' / '◐ PART SOLD' / 'SOLD +x%'; a sold pick with no archive record takes its result from the ledger's own fills (rule = the sell's why). Engine-only buys stay off it. Macca / STREAM sold 17:21 / 17:31 by the old R4 rule, 15 min BEFORE the your-coins guard went live (17:36).
+- 🖥 DESKTOP MODEL "NOT CONNECTING" = macOS LOCAL NETWORK PRIVACY (2026-10-15): curl / a shell under Claude.app reached 10.0.0.249:1236 fine, the
+  backend got `ConnectError` — Python started by launchd or a launcher without Local Network permission gets errno 65 "No route to host" for every
+  LAN address (proved with `launchctl submit`). Fix = start the watcher from an app that has the permission: `bash scripts/background.sh start` from
+  Terminal / a Claude shell, then let it restart the services. The LAN provider's lastErr now says exactly that (`ai_router.LAN_BLOCKED`) and the
+  office payload carries each provider's lastErr / fail / timeouts. "LAN OFFLINE BUT CURL WORKS" ⇒ this first.
+- ✋ The ENGINE's own stop pass (`arena_prime.tick` step 2) skips a coin you picked unless YOU set its stop (`ownerLvAt`): the card's tier stop and
+  the "ran +50%, back to +5%" trail no longer sell your pick (test `test_your_pick_is_never_stopped_by_the_cards_tier_stop_only_by_your_own_line`).
+  Rug shield and the −45% line still act. Since the 17:36 fix no owner pick has been sold by an agent rule.
+- 🥊 TRENCH PULSE replaced the Tape River on every TradeTape (`components/terminal/TrenchPulse.jsx`, `styles/trenchPulse.css` `tpl-*`; owner: "the
+  trade river is ass in trench trading"): one word (🚀 SEND · BUYERS STACKING · CHOP · SELLERS LEAD · DUMPING · 🚨 RUG WATCH when flagged wallets sell
+  ≥ $50 and ≥ 25% of the sells · QUIET) + why, 12 five-second buy/sell pressure bars, wallets ▲▼ · fresh buyers · top buy / sell · flagged $ sold,
+  and the 2-minute WALLET RACE by net $ (tap = case file). Same stream, no new request.
+- ⧉ `components/command/CopyCa.jsx` = the one copy-CA chip (a span, stops the parent click): seat cards, the decision panel, trade tape rows.
+- Limit orders / options: NOT built. Limit = a resting order the keeper fills when the price crosses (needs our own watcher + a stale-quote rule;
+  Jupiter's trigger API exists but holds the funds in its program). Options on xStocks: no Solana venue lists them with depth; writing them = posting
+  full collateral per contract. Say this before building either.
+- 🪑 YOUR ADD IS NEVER BLOCKED (owner, 2026-10-15: "not allowing me to add coin to seat — should be no restrictions on my selections"; REPLACES
+  the warn + "add it anyway" step for ⚡ Add my coin): `AddMyCoin` sends `ack` up front. The real bug: a sold coin's RESERVED SEAT (placeholder) still
+  carries its mint, so `queue_seat` / `queue_swap` said "That coin is already on this card" and the refill dropped the pick — now
+  `arena_prime.held_mints` (no placeholders, no empty legs) is THE "on the card" test, and a queued owner pick on a full card replaces a reserved seat.
+

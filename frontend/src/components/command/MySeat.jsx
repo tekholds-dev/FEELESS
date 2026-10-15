@@ -28,6 +28,8 @@ export function AddMyCoin({ call, tpl, seats, reload }) {
   const target = targets.some(t => t.k === to) ? to : targets[0]?.k;
   const mint = caOf(text);
   if (!tpl || !call) return null;
+  // ✋ YOUR SELECTION, NO GATE (owner, 2026-10-15: "should be no restrictions on my selections"): ⚡ Add sends the acknowledgement up front —
+  // the checks still run and their words are filed on the seat, but nothing stops your coin.
   const go = async ack => {
     if (!mint || !target) return;
     setBusy(true); setMsg(null);
@@ -44,10 +46,10 @@ export function AddMyCoin({ call, tpl, seats, reload }) {
   return <div className="mys" data-testid="my-seat-add">
     <b className="mys-h">👤 ADD MY COIN</b>
     <input className="m-input mys-in" value={text} placeholder="paste a contract address or a pump.fun / dex link" onChange={e => { setText(e.target.value); setWarn(null); setMsg(null); }}
-      onKeyDown={e => { if (e.key === 'Enter') go(false); }} data-testid="my-seat-ca" aria-label="Coin contract address" />
+      onKeyDown={e => { if (e.key === 'Enter') go(true); }} data-testid="my-seat-ca" aria-label="Coin contract address" />
     <select className="m-input mys-to" value={target || ''} onChange={e => setTo(e.target.value)} data-testid="my-seat-to" aria-label="Which seat">
       {targets.map(t => <option key={t.k} value={t.k}>{t.label}</option>)}</select>
-    <button type="button" className="m-btn m-go" disabled={busy || !mint || !target} onClick={() => go(false)} data-testid="my-seat-go">{busy ? 'Adding…' : '⚡ Add'}</button>
+    <button type="button" className="m-btn m-go" disabled={busy || !mint || !target} onClick={() => go(true)} data-testid="my-seat-go">{busy ? 'Adding…' : '⚡ Add'}</button>
     {text && !mint ? <small className="mys-note is-bad">That is not a Solana address yet.</small> : null}
     {warn ? <span className="mys-warn" data-testid="my-seat-warn">{warn}<button type="button" className="m-btn" disabled={busy} onClick={() => go(true)} data-testid="my-seat-ack">I understand — add it anyway</button></span> : null}
     {msg ? <small className={`mys-note ${msg.ok ? 'is-ok' : 'is-bad'}`} data-testid="my-seat-msg">{msg.t}</small> : null}

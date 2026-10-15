@@ -15,16 +15,15 @@ test('targets = the empty seat first, then each held seat (never a frozen one)',
   expect(addBody('degen', 'M', 'open')).toEqual({ fillSeat: { tpl: 'degen', to: 'M', more: true } });
   expect(addBody('degen', 'M', 'P1', true)).toEqual({ pickSwap: { tpl: 'degen', pairAddress: 'P1', to: 'M', now: true, ack: true } });
 });
-test('a warning comes back as "add it anyway", which re-sends with ack', async () => {
+test('⚡ Add goes straight in — your selection needs no "add it anyway" (it sends the acknowledgement up front)', async () => {
   const call = jest.fn(async (p, o) => { if (!JSON.parse(o.body).fillSeat.ack) throw new Error('⚠ $X did not pass: under 1h'); return { ok: true }; });
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<AddMyCoin call={call} tpl="degen" seats={[{ open: true }]} />); });
   const inp = el.querySelector('[data-testid="my-seat-ca"]');
   await act(async () => { const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(inp, MINT); inp.dispatchEvent(new Event('input', { bubbles: true })); });
   await act(async () => { el.querySelector('[data-testid="my-seat-go"]').click(); });
-  expect(el.querySelector('[data-testid="my-seat-warn"]').textContent).toContain('under 1h');
-  await act(async () => { el.querySelector('[data-testid="my-seat-ack"]').click(); });
-  expect(JSON.parse(call.mock.calls[1][1].body).fillSeat).toMatchObject({ to: MINT, ack: true });
+  expect(call).toHaveBeenCalledTimes(1); expect(JSON.parse(call.mock.calls[0][1].body).fillSeat).toMatchObject({ to: MINT, ack: true });
+  expect(el.querySelector('[data-testid="my-seat-warn"]')).toBeNull();
   expect(el.querySelector('[data-testid="my-seat-msg"]').textContent).toContain('queued');
 });
 test('your seat shows what the agents would do and its record', () => {

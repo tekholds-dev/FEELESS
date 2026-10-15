@@ -35,6 +35,7 @@ PROVIDERS = {
     'xai': ('XAI / GROK', 'XAI_API_KEY', 'XAI_MODEL', None, 'https://api.x.ai/v1', 'grok-3-mini', 10.0, 2),
     'custom': ('OPENAI-COMPATIBLE', 'AI_API_KEY', 'AI_MODEL', 'AI_BASE_URL', None, '', 10.0, 1),
 }
+LAN_BLOCKED = 'this Mac blocked the local network for the backend — run: bash scripts/background.sh start (from Terminal / Claude), then restart'
 LM = ('lan', 'local')   # LM Studio servers: no key needed, an optional token, a loaded context the prompt is fitted to
 DEFAULT_ORDER = ('local', 'groq', 'openrouter', 'openai', 'xai', 'custom')
 ADVISORY_ROLES = ('sherlock', 'devil', 'judge', 'owner', 'manager', 'coach', 'lab', 'exit')   # 'exit' = the read on a HELD coin (exit_read.py) — Reaper only reads its cached word
@@ -685,6 +686,8 @@ class Router:
         s['fail'] += 1
         s['streak'] += 1
         s['lastErr'] = _KEYLIKE.sub('•••', _clean_text(err, 120))   # never a key-shaped run in what the page sees
+        if key == 'lan' and re.search(r'ConnectError|No route|Errno 65', str(err or '')):   # 🖥 macOS Local Network privacy (2026-10-15): a backend started by
+            s['lastErr'] = LAN_BLOCKED                                                     # launchd / an app without permission can't reach the LAN
         s['lastAt'] = now
         if kind == 'timeout':
             s['timeouts'] += 1
