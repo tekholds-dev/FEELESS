@@ -431,3 +431,34 @@ def saved_view(saved):
 def view(state, n=12):
     ps = list((state or {}).get('items') or [])
     return {'pending': [x for x in ps if x['status'] == 'pending'][:n], 'decided': [x for x in ps if x['status'] != 'pending'][:n]}
+
+
+# ── 📜 ACTIVITY: everything the models did, one timeline ──────────────────────────────────────────────────────────────────────
+ACT_ROLE = {'sherlock': '🔍', 'devil': '😈', 'judge': '👨‍⚖️', 'owner': '👤', 'manager': '⚖', 'coach': '👑', 'lab': '🧪', 'exit': '☠'}
+
+
+def activity(log=None, props=None, play=None, lane=None, n=60):
+    """The Brain's 📜 Activity pane (owner, 2026-10-14: "show log for all activity"): every model READ (role, coin, stance, which model,
+    how long), every PROPOSAL (made / approved / rejected / applied), every PLAYGROUND creation, newest first. Display only — built from
+    records the service already keeps; nothing here is read back by an agent. → [{at, kind, icon, who, title, sub, tone, mint}]"""
+    out = []
+    for r in log or []:
+        st = r.get('stance')
+        out.append({'at': r.get('at'), 'kind': 'read', 'icon': ACT_ROLE.get(r.get('role'), '🧠'), 'who': r.get('label') or r.get('source'),
+                    'title': f"{(r.get('role') or 'model').upper()} read ${r.get('symbol') or '?'}" + (f" → {st}" if st else ' → no answer'),
+                    'sub': str(r.get('summary') or r.get('why') or '')[:140], 'tone': 'bad' if st == 'CAUTION' else 'ok' if st == 'FAVOR' else 'mute',
+                    'mint': r.get('mint'), 'ms': r.get('ms')})
+    for p in ((props or {}).get('items') or []):
+        out.append({'at': p.get('at'), 'kind': 'proposal', 'icon': '🛠', 'who': p.get('source'), 'title': f"proposed: {p.get('agent')} · {p.get('kind')} {p.get('key')}",
+                    'sub': str(p.get('reason') or '')[:140], 'tone': 'gold'})
+        if p.get('decidedAt'):
+            ok = p.get('status') == 'approved'
+            out.append({'at': p.get('decidedAt'), 'kind': 'decision', 'icon': '✅' if ok else '✕', 'who': 'you', 'title': f"{'approved' if ok else 'rejected'}: {p.get('kind')} {p.get('key')}",
+                        'sub': str(p.get('applied') or '')[:140], 'tone': 'ok' if ok else 'mute'})
+    for x in play or []:
+        out.append({'at': x.get('at'), 'kind': 'play', 'icon': '🧪', 'who': x.get('by'), 'title': f"made: {str(x.get('prompt') or '')[:70]}", 'sub': 'Playground', 'tone': 'ice'})
+    if (lane or {}).get('last'):
+        l = lane['last']
+        out.append({'at': l.get('at'), 'kind': 'lane', 'icon': '🖥', 'who': l.get('via'), 'title': f"background read ${l.get('symbol')} → {l.get('stance') or '—'}",
+                    'sub': f"{lane.get('n', 0)} background reads so far", 'tone': 'ice'})
+    return sorted([x for x in out if x.get('at')], key=lambda x: -float(x['at']))[:n]

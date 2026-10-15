@@ -161,3 +161,12 @@ def test_a_local_model_on_this_mac_pauses_its_background_reads_while_a_browser_l
     assert e == aic.SHARED_LAG_EVERY and why.startswith('paused')
     assert aic.lane_every({}, 1000, [], base=180, shared_gpu=True)[0] == 180      # no lag: normal pace
     assert aic.lane_every({}, 1000, lag, base=60, shared_gpu=False)[0] == 60       # LM Studio on another machine: never paused for this Mac's lag
+
+
+def test_activity_is_one_timeline_of_reads_proposals_decisions_and_creations():
+    import ai_chat
+    a = ai_chat.activity([{'at': 10, 'role': 'devil', 'symbol': 'X', 'stance': 'CAUTION', 'label': 'DESKTOP AI', 'summary': 'dev bag'}],
+                         {'items': [{'at': 5, 'agent': 'reaper', 'kind': 'tune', 'key': 'protectAt', 'status': 'approved', 'decidedAt': 20, 'applied': 'shadow'}]},
+                         [{'at': 30, 'prompt': 'neon card', 'by': 'LOCAL AI'}], {'last': {'at': 15, 'symbol': 'Y', 'stance': 'FAVOR', 'via': 'lan'}, 'n': 3})
+    assert [x['kind'] for x in a] == ['play', 'decision', 'lane', 'read', 'proposal']   # newest first
+    assert a[3]['title'] == 'DEVIL read $X → CAUTION' and a[3]['tone'] == 'bad' and a[1]['title'] == 'approved: tune protectAt'

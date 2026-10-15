@@ -9,7 +9,7 @@
 .cch-back { width: 100%; padding: 14px 10px; border-radius: 10px; border: 1px dashed color-mix(in srgb, #b79bff 50%, transparent); background: rgba(140, 110, 255, .07); color: #c9b8ff; font: 700 10.5px var(--m-mono); cursor: pointer; transition: transform .15s ease, background .15s ease; }
 .cch-back:hover { transform: translateY(-1px); background: rgba(140, 110, 255, .13); } .cch-back:focus-visible { outline: 2px solid #b79bff; outline-offset: 2px; }
 .cch-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.cch > * { flex: none; min-width: 0; } .cch > .cch-talkpane, .cch > .cch-extra { flex: 1 1 0; min-height: 0; }   /* only the chat / open pane grows — a grid row count once let the tab row eat the chat's space */
+.cch > * { flex: none; min-width: 0; } .cch > .cch-shell { flex: 1 1 0; min-height: 0; }   /* only the chat / open pane grows — a grid row count once let the tab row eat the chat's space */
 .cch-orb { position: relative; flex: none; width: 34px; height: 34px; display: grid; place-items: center; }
 .cch-orb i { position: absolute; inset: 0; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--br); border-right-color: color-mix(in srgb, var(--br) 30%, transparent); animation: cchSpin 5s linear infinite; }
 .cch-orb i:nth-child(2) { inset: 5px; border-top-color: var(--br2); border-right-color: transparent; animation-duration: 3.2s; animation-direction: reverse; }
@@ -107,7 +107,7 @@ body.theme-day .cch-bqlist li { color: #0f2419; }
 .cch-sets button:hover, .cch-panes > button:hover { color: var(--m-text); border-color: var(--br); } .cch-sets button:active, .cch-panes > button:active { transform: scale(.96); }
 .cch-sets button:focus-visible, .cch-panes > button:focus-visible { outline: 2px solid var(--br); outline-offset: 1px; } .cch-sets button.active, .cch-panes > button.active { color: #07130c; background: linear-gradient(120deg, var(--br), var(--br2)); border-color: transparent; }
 .cch-setnote { font: 600 9px var(--m-mono); color: var(--m-mute); }
-.cch-panes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; } .cch-panes > button { border-radius: 9px; padding: 6px 4px; }
+.cch-panes { display: grid; grid-template-columns: repeat(auto-fit, minmax(68px, 1fr)); gap: 4px; } .cch-panes > button { border-radius: 9px; padding: 6px 4px; }
 .cch-extra { min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; } .cch-extra[hidden] { display: none; }
 /* every mode wears its own colour; the scan line runs only while the model is really answering */
 .cch[data-mode='case'] { --br: #5fd0ff; } .cch[data-mode='improve'] { --br: #f5c451; } .cch[data-mode='build'] { --br: #ff7ad9; }
@@ -139,3 +139,14 @@ body.theme-day .cch-wbars i { background: #0b6fa8; }
 .cch .cch-form .m-input:focus { outline: none; background: linear-gradient(rgba(0, 0, 0, .45), rgba(0, 0, 0, .45)) padding-box, linear-gradient(90deg, var(--br), var(--br2)) border-box; }
 .cch .cch-form .m-input::placeholder { color: var(--m-mute); font-size: 10px; } .cch .cch-form .m-btn.cch-go { min-height: 30px; padding: 0 12px; } .cch .cch-form .cch-ico { height: 30px; }
 body.theme-day .cch .cch-form .m-input { background: linear-gradient(rgba(255, 255, 255, .7), rgba(255, 255, 255, .7)) padding-box, linear-gradient(90deg, #b9cfc0, #b9cfc0) border-box; color: #10261a; }
+
+/* 🧭 SHELL (2026-10-14, "clean chat UI to more senior meta"): one column on the mini; a left SECTION RAIL + the open section beside it on the
+   full Brain and the pop-out. Only the open section grows; the rail never scrolls the chat away. */
+.cch-shell { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.cch-shell > .cch-talkpane, .cch-shell > .cch-extra { flex: 1 1 0; min-height: 0; }
+.cch.is-full .cch-shell, .cch.is-pop .cch-shell { display: grid; grid-template-columns: 96px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 10px; }
+.cch.is-full .cch-shell > :not(.cch-panes), .cch.is-pop .cch-shell > :not(.cch-panes) { grid-column: 2; grid-row: 1; }
+.cch.is-full .cch-panes, .cch.is-pop .cch-panes { grid-column: 1; grid-row: 1; grid-template-columns: 1fr; align-content: start; gap: 5px; padding-right: 10px; border-right: 1px solid var(--m-line); }
+.cch.is-full .cch-panes > button, .cch.is-pop .cch-panes > button { display: grid; justify-items: center; gap: 2px; padding: 9px 4px; font-size: 8.5px; letter-spacing: .06em; text-align: center; white-space: normal; line-height: 1.25; }
+.cch.is-full .cch-panes > button.active, .cch.is-pop .cch-panes > button.active { transform: translateX(3px); }
+@media (max-width: 640px) { .cch.is-full .cch-shell { display: flex; } .cch.is-full .cch-panes { border-right: 0; padding-right: 0; grid-template-columns: repeat(auto-fit, minmax(68px, 1fr)); } }

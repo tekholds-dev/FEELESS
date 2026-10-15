@@ -13638,6 +13638,13 @@ import ai_play as _play
 AI_PLAY_PATH = DATA_DIR / 'ai_playground.json'
 
 
+@app.get('/api/reputation/admin/ai/activity')
+async def admin_ai_activity(request: Request):
+    """📜 Owner: one timeline of everything the models did — reads, proposals + your decisions, playground creations, background reads."""
+    _require_owner(request)
+    return {'items': _aic.activity(_ai['log'], _chat_props(), (_json_load(AI_PLAY_PATH, {}) or {}).get('items'), _local_lane), 'at': round(time.time(), 1)}
+
+
 @app.get('/api/reputation/admin/ai/playground')
 async def admin_ai_playground(request: Request):
     """🧪 Owner: the playground's creations (newest first)."""

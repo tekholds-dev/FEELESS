@@ -4195,10 +4195,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (one coin: FEELESS read + its own site — does it name the mint? — its X link + web results for the CA). Public hosts only, every hop checked.
   FEE prompt (`docs/lm_fee_prompt.txt`, pushed into the LM Studio preset) = the owner's FEE voice + FACT / INFERENCE / UNKNOWN + the levers rule.
   Portable pack for a bigger model: `docs/FEE_BRAIN.md`. Handoff map: `docs/HANDOFF.md`.
-- 🎮 HOME = TRENCH HUD (`HomeEngine.jsx`, `homeEngine.css` `hud-*`; replaced the Sieve, the short-lived Stack and the deleted `FeeStamp`): rolling
-  counters (coins live · rugs blocked · runners · real swaps 24h), a HEAT FIELD (every launch coin: x = log cap $5K–$5M, y = 5m move, size = 1h vol,
-  colour = scan fate, dots glide each poll, container-query units) and a KILL FEED woven from real swaps / blocks / runners (a runner is never also
-  shown blocked; fail reasons read "missed: <gate>"). Missing data = "—".
+- 🔬 HOME = WATCH FEELESS WORK (`HomeEngine.jsx`, `homeEngine.css` `wfw-*`; replaced the HUD / Stack / Sieve and the deleted `FeeStamp`): ONE real
+  launch coin at a time (caught · cleared · runner woven, 6s each, hover holds) runs the real checks as bars that fill to its own number
+  (top-10 · dev · bundles + snipers · pool · buyers, ✓ / ✗ against the line, unread = "—"), then the verdict STAMPS in; beside it the real cards'
+  confirmed swaps. Entrance keyframes are transform-only.
 - 🪪 MODEL NAMES: in the owner's chat each LM Studio model speaks as itself (`ai_router.IDENTITY` set by `Router.ask(role='owner')`, `identity_line`):
   Gemma = **Vega** (lead), Qwen = **Kai** (second); `LAN_LLM_NAME` / `LOCAL_LLM_NAME` override. `GENERAL_SYSTEM` answers the LATEST message only
   and greets back on slang ("yurrr") instead of resuming the old topic.
@@ -4226,3 +4226,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (entry → now + Reaper's rule in tips); chart header = MC · 5m vol · liq (price + supply in the MC tip); decision chips = 6 newest, one row.
   🧠 AI pane: the newest `LOG_SHORT` 6 decisions first (rows clamp to 2 lines, intel on the newest only), ask box, then `details.cai-record`
   (agree bar, metrics, rule lab, report, duet, learning). Layout CSS = `styles/cockpitDeck.css` (imported last). New cockpit block ⇒ a deck pane.
+- 🖥 DESKTOP MAC ONE-PASTE: `bash scripts/lan-bundle.sh` (this Mac) prints `curl -fsS -H "Authorization: Bearer …" http://<ip>:8765/lan-install | bash`;
+  the MCP serves `install_script` (FEE preset → ~/.lmstudio/config-presets, a `feeless` entry merged into ~/.lmstudio/mcp.json, other servers kept,
+  `$HOME` respected). Also writes `lan_bundle/install.sh` (AirDrop + `bash install.sh`, or `bash scripts/lan-bundle.sh install`). This Mac's own
+  LM Studio uses the stdio entry (no token, no port).
+- 🧠 BRAIN SHELL + 📜 ACTIVITY: full Brain / pop-out = a left section rail (Talk · Coach · Teach · Playground · Activity) + the open section;
+  `GET /admin/ai/activity` (`ai_chat.activity`) = one timeline of model reads, proposals + your decisions, playground creations, the background
+  lane → `AiActivity.jsx` (`aiActivity.css` `cac-*`: last-hour pulse bars, kind filters), polled every 10s while open.
+

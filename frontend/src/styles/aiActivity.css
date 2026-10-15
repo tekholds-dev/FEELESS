@@ -1,0 +1,24 @@
+/* 📜 Brain › Activity (AiActivity.jsx) — m-* tokens, transform / opacity only */
+.cac { display: grid; gap: 8px; min-width: 0; }
+.cac-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cac-pulse { display: flex; align-items: flex-end; gap: 2px; height: 22px; padding: 2px 4px; border-radius: 6px; background: rgba(255, 255, 255, .03); }
+.cac-pulse i { width: 6px; height: 100%; border-radius: 2px; background: linear-gradient(180deg, #b79bff, var(--m-accent, #15d16a)); transform-origin: bottom; transition: transform .5s ease; }
+.cac-kinds { display: flex; gap: 4px; flex-wrap: wrap; }
+.cac-kinds button { padding: 3px 8px; border-radius: 999px; border: 1px solid var(--m-line); background: transparent; color: var(--m-dim, #9fb8aa); font: 700 9px var(--m-mono); cursor: pointer; transition: transform .12s ease, border-color .12s ease; }
+.cac-kinds button:hover { border-color: #b79bff; color: var(--m-text); } .cac-kinds button:active { transform: scale(.96); } .cac-kinds button:focus-visible { outline: 2px solid #b79bff; outline-offset: 1px; }
+.cac-kinds button.active { background: linear-gradient(120deg, #b79bff, var(--m-accent, #15d16a)); color: #07130c; border-color: transparent; }
+.cac-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.cac-list li { --t: var(--m-mute, #8fb3a0); display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 6px 8px; border-radius: 8px;
+  background: rgba(255, 255, 255, .025); border-left: 2px solid var(--t); animation: cacIn .35s ease both; animation-delay: calc(var(--i) * 35ms); }
+.cac-list li.is-ok { --t: var(--m-accent, #15d16a); } .cac-list li.is-bad { --t: #ff8fa3; } .cac-list li.is-gold { --t: var(--gold, #f5c95b); } .cac-list li.is-ice { --t: #9fe3ff; }
+.cac-ico { font-size: 14px; line-height: 1.2; }
+.cac-txt { display: grid; gap: 2px; min-width: 0; } .cac-txt b, .cac-txt b button { font: 800 10px var(--m-mono); color: var(--m-text, #e9fff3); background: none; border: 0; padding: 0; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+.cac-txt b button:hover, .cac-txt b button:focus-visible { color: var(--t); outline: none; }
+.cac-txt small { font: 600 9px/1.35 var(--m-mono); color: var(--m-mute, #8fb3a0); overflow-wrap: anywhere; }
+.cac-meta { display: grid; justify-items: end; gap: 1px; } .cac-meta em { font: 800 7.5px var(--m-mono); font-style: normal; letter-spacing: .1em; color: var(--t); white-space: nowrap; } .cac-meta small { font: 600 8.5px var(--m-mono); color: var(--m-mute); white-space: nowrap; }
+.cac-err { font: 600 9px var(--m-mono); color: #ff8fa3; }
+@keyframes cacIn { from { transform: translate3d(10px, 0, 0); } to { transform: none; } }
+body.fx-lite .cac-list li { animation: none; }
+@media (prefers-reduced-motion: reduce) { .cac-list li { animation: none; } .cac-pulse i, .cac-kinds button { transition: none; } }
+body.theme-day .cac-list li { background: rgba(255, 255, 255, .6); } body.theme-day .cac-txt b, body.theme-day .cac-txt b button { color: #10261a; } body.theme-day .cac-txt small, body.theme-day .cac-meta small { color: #3f5a4b; }
+@media (max-width: 640px) { .cac-list li { grid-template-columns: 20px minmax(0, 1fr); } .cac-meta { grid-column: 2; justify-items: start; grid-auto-flow: column; gap: 6px; } }
