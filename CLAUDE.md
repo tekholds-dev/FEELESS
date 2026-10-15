@@ -4233,4 +4233,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🧠 BRAIN SHELL + 📜 ACTIVITY: full Brain / pop-out = a left section rail (Talk · Coach · Teach · Playground · Activity) + the open section;
   `GET /admin/ai/activity` (`ai_chat.activity`) = one timeline of model reads, proposals + your decisions, playground creations, the background
   lane → `AiActivity.jsx` (`aiActivity.css` `cac-*`: last-hour pulse bars, kind filters), polled every 10s while open.
+- 📸 SNAPSHOT EXITS (owner, 2026-10-14: "we're exiting too fast — listen to the AIs, 2–3 snapshot decisions on TP / SL"; `office.soft_confirm/soft_exit`,
+  `SOFT_EXITS` R6 · R7 · R7s · R7b · R7v · R8 · R9 · R9e · R4f · R4c): a profit-side / soft exit sells only after `SNAP_N` 2 reads ≥ `SNAP_GAP` 8s
+  apart (an older one is forgotten after 90s); the model's FRESH exit read (`exit_read.fresh_words`, proven or not) sets 3 (RIDE) or 1
+  (TIGHTEN). Reaper's tick AND the 3s fast guard's R7 both use it. Stops, −45%, rug / drain / dump, scan fails, R5t stay INSTANT.
+  Older Reaper tests pin `SNAP_N` 1 (monkeypatch). Judge the change on real exits: R7 / R6 results before vs after.
+- 🧩 CODE LAB (replaced the HTML playground; `ai_play.py`, `AiPlayground.jsx`, owner `GET|POST /admin/ai/playground` + `/playground/decide`): pick a
+  target (`ai_play.TARGETS`: Reaper · agents · kernel · ranking · capital · AI router · MCP · cockpit · Home), the model gets that file's real
+  OUTLINE and proposes ONE change {title, file, kind, why, risk, code}; ✅ files it to the build queue ("code lab cN … code in
+  data/ai_playground.json") — BUILDING ONE = read its code there, apply it yourself with tests. No model writes a repo file.
+- Home spotlight adds a score ring (checks passed / read), a scan beam, UP NEXT chips and a this-visit tally.
 

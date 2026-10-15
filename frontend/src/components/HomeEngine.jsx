@@ -40,6 +40,8 @@ export function spotlight(rows, run, n = 12) {
   for (let i = 0; out.length < n && i < n; i++) [by.fail[i], by.safe[i], by.runner[i]].forEach(x => { if (x && out.length < n) out.push(x); });
   return out;
 }
+// pure: the ring — checks passed of checks READ (an unread check counts in neither)
+export function scoreOf(checks) { const read = (checks || []).filter(c => c.ok != null); const pass = read.filter(c => c.ok).length; return { pass, read: read.length, pct: read.length ? Math.round((pass / read.length) * 100) : 0 }; }
 export const verdictOf = r => (r.verdict === 'runner' ? ['🏃', 'RUNNER', 'passed every gate and it is running'] : r.verdict === 'safe' ? ['✅', 'CLEARED', 'passed the safety scan']
   : ['🛡', 'BLOCKED', `missed: ${String((r.fails || []).find(x => !UNREAD.test(String(x))) || 'a safety check').replace(/\s+/g, ' ').slice(0, 46).replace(/^./, c => c.toLowerCase())}`]);
 // pure: the real cards' confirmed swaps
@@ -50,17 +52,19 @@ export const counters = (open, run, proof) => ({ live: open?.seen ?? (open?.rows
 const ago = at => { const s = Math.max(0, Math.round(Date.now() / 1000 - at)); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
 
 export function HomeEngine({ onOpen }) {
-  const [d, setD] = useState(null); const [i, setI] = useState(0); const [hold, setHold] = useState(false);
+  const [d, setD] = useState(null); const [i, setI] = useState(0); const [hold, setHold] = useState(false); const [seen, setSeen] = useState({ fail: 0, safe: 0, runner: 0, ids: [] });
   useEffect(() => { let on = true;
     const load = first => { if (!first && typeof document !== 'undefined' && document.hidden) return;
       Promise.all(['fuses/trench/open', 'runners', 'fuses/proof'].map(u => sharedJson(`/api/reputation/${u}`, { maxAge: POLL - 2000 }).catch(() => null)))
         .then(([open, run, proof]) => { if (on && (open || run || proof)) setD(p => ({ open: open || p?.open, run: run || p?.run, proof: proof || p?.proof })); }); };
     load(true); const t = setInterval(load, POLL); return () => { on = false; clearInterval(t); }; }, []);
   const spots = useMemo(() => spotlight(d?.open?.rows, d?.run), [d?.open, d?.run]);
+  useEffect(() => { const c_ = spots.length ? spots[i % spots.length] : null; if (!c_) return; setSeen(p => (p.ids.includes(c_.mint) ? p : { ...p, [c_.verdict]: p[c_.verdict] + 1, ids: [...p.ids, c_.mint].slice(-200) })); }, [i, spots]);
   useEffect(() => { if (hold || spots.length < 2) return undefined; const t = setInterval(() => setI(x => x + 1), SPOT_MS); return () => clearInterval(t); }, [hold, spots.length]);
   if (!d) return null;
   const c = counters(d.open, d.run, d.proof); const trades = realTrades(d.proof);
   const cur = spots.length ? spots[i % spots.length] : null; const v = cur ? verdictOf(cur) : null;
+  const score = scoreOf(cur ? checksOf(cur) : []); const next = spots.length > 1 ? [1, 2, 3, 4].map(k => spots[(i + k) % spots.length]).filter((x, k, a) => x && a.indexOf(x) === k && x !== cur) : [];
   const go = (e, url) => { if (onOpen) { e.preventDefault(); onOpen(url); } };
   const open = x => openCoin({ mint: x.mint, symbol: x.symbol || x.sym, pairAddress: x.pairAddress || x.pair });
   return <section className="wfw" data-testid="home-engine">
@@ -69,12 +73,17 @@ export function HomeEngine({ onOpen }) {
     <div className="wfw-body">
       {cur ? <div className={`wfw-spot is-${cur.verdict}`} key={cur.mint + i} onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)} data-testid="wfw-spot">
         <button type="button" className="wfw-coin" onClick={() => open(cur)} data-testid={`wfw-coin-${cur.symbol}`}>
+          <span className="wfw-ring" data-testid="wfw-ring" data-tip={`${score.pass} of ${score.read} checks passed`}><svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="36" className="wfw-ring-bg" />
+            <circle cx="40" cy="40" r="36" className="wfw-ring-fg" pathLength="100" strokeDasharray={`${score.pct} 100`} /></svg>
           {cur.logo ? <img src={cur.logo} alt="" loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; }} /> : <i aria-hidden="true">{String(cur.symbol).slice(0, 1)}</i>}
+          <em>{score.pass}/{score.read || 5}</em></span>
           <b>${String(cur.symbol).slice(0, 12)}</b><small>{cur.ageH != null ? `${ageWord(cur.ageH)} old · ` : ''}cap {usd(num(cur.mcap))}</small></button>
-        <ul className="wfw-checks">{checksOf(cur).map((k, j) => <li key={k.k} className={k.ok == null ? 'is-unread' : k.ok ? 'is-ok' : 'is-bad'} style={{ '--j': j }} data-tip={`${k.l}: ${k.v} — the line is ${k.line}`}>
+        <ul className="wfw-checks"><i className="wfw-beam" aria-hidden="true" />{checksOf(cur).map((k, j) => <li key={k.k} className={k.ok == null ? 'is-unread' : k.ok ? 'is-ok' : 'is-bad'} style={{ '--j': j }} data-tip={`${k.l}: ${k.v} — the line is ${k.line}`}>
           <span className="wfw-ck"><i aria-hidden="true">{k.ico}</i>{k.l}</span><span className="wfw-bar"><u style={{ '--f': k.fill }} /></span><b>{k.v}</b><em aria-hidden="true">{k.ok == null ? '·' : k.ok ? '✓' : '✗'}</em></li>)}</ul>
         <div className="wfw-stamp" data-testid="wfw-verdict"><b>{v[0]} {v[1]}</b><small>{v[2]}</small></div>
-        <span className="wfw-dots" aria-hidden="true">{spots.map((_, j) => <i key={j} className={j === i % spots.length ? 'on' : ''} />)}</span>
+        <span className="wfw-next" data-testid="wfw-next"><small>UP NEXT</small>{next.map(n => <button key={n.mint} type="button" className={`is-${n.verdict}`} onClick={e => { e.stopPropagation(); setI(spots.indexOf(n)); }} data-tip={`$${n.symbol}`}>
+          {n.logo ? <img src={n.logo} alt="" loading="lazy" onError={e => { e.currentTarget.style.visibility = 'hidden'; }} /> : <i>{String(n.symbol).slice(0, 1)}</i>}</button>)}</span>
+        <span className="wfw-tally"><b className="is-bad">{seen.fail}</b> blocked · <b>{seen.safe}</b> cleared · <b className="is-gold">{seen.runner}</b> runners <small>this visit</small></span>
       </div> : <div className="wfw-spot is-wait"><small>the scan is reading the first coins…</small></div>}
       <div className="wfw-trades" data-testid="wfw-trades"><small className="wfw-h">💵 REAL MONEY · CONFIRMED SWAPS</small>
         <ol>{trades.map((t, j) => <li key={t.id} className={`is-${t.side}`} style={{ '--j': j }}><button type="button" onClick={() => open(t)}>
