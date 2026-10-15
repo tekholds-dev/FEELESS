@@ -30,8 +30,9 @@ test('screen helpers: heat, reasons (who carries them), the scope (bar at the mi
 
 test('tap a mini screen → the zoom: tap a mark or step ‹ › through the coins, switch agent, filter by a reason, Esc closes', async () => {
   const call = jest.fn(async () => view); const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
-  await act(async () => { root.render(<AgentDesk call={call} lens="live" />); });
+  await act(async () => { root.render(<AgentDesk call={call} />); });
   const q = id => document.querySelector(`[data-testid="${id}"]`);
+  await act(async () => { q('ack-deck-dlive').click(); });   // the agents' live lens = a pane in the cockpit nav
   expect(q('screen-tally').textContent).toContain('3'); expect(q('screen-devil').textContent).toContain('1 ⚠ · 0 ✕'); expect(q('ags-zoom')).toBeNull();
   await act(async () => { q('screen-tally').click(); });
   expect(q('ags-zoom')).not.toBeNull(); expect(q('tile-GOOD')).not.toBeNull(); expect(q('ags-dossier').textContent).toContain('$GOOD'); expect(q('ags-dossier').textContent).toContain('1 / 3');
@@ -51,9 +52,7 @@ test('tap a mini screen → the zoom: tap a mark or step ‹ › through the coi
   expect(q('dot-GOOD')).not.toBeNull();
   await act(async () => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
   expect(q('ags-zoom')).toBeNull();
-  expect(q('ags-card')).toBeNull(); expect(q('kpi-seats').textContent).toContain('IN CONTROL');                      // the seats are one tap away on the status strip
-  await act(async () => { q('kpi-seats').click(); });
-  expect(q('ags-card').textContent).toContain('$BOT'); expect(q('ags-pow').textContent).toContain('1 / 3 seats');
+  expect(q('kpi-seats')).toBeNull();   // the seats live on the cockpit's own seat board now (CardNow keeps its own test below)
   await act(async () => { root.unmount(); });
 });
 

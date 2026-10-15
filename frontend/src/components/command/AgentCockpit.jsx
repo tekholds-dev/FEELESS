@@ -12,7 +12,7 @@ import { STANCE_TONE } from '../../lib/aiRead';
 import { usd as cash, pct as pc, price as priceFmt } from '../../lib/num';
 import { AG, activityOf } from './agentWords';
 import { openCoin } from '../CoinDrawer';
-import { AiProviders } from './AiProviders';
+import { AiProviders, AiChipBtn } from './AiProviders';
 import { AiPane, AiIntel, AiCell } from './AiDecisions';
 import { CockpitControls } from './CockpitControls';
 import { IntakeBand } from './IntakeBand';
@@ -80,7 +80,7 @@ export function deckMeters(o, tabs, nowS = Date.now() / 1000) {
   const last = Math.max(0, ...(o?.tape || []).map(r => Number(r.at) || 0)); const age = last ? nowS - last : null;
   const m = { tape: closed.length ? won / closed.length : null, agents: gens.length ? act / gens.length : null, live: age == null ? null : Math.max(0, 1 - Math.max(0, age - 60) / 540) };
   const tips = { tape: closed.length ? `${won} of ${closed.length} closed real trades won` : 'real trade tape', agents: gens.length ? `${act} of ${gens.length} agents active` : 'the agents', live: 'the live decision feed' };
-  return tabs.map(([k, l, n, node, meter, tip]) => [k, l, n, node, meter != null ? meter : m[k] ?? null, tip || tips[k] || null]);
+  return tabs.map(([k, l, n, node, meter, tip, lazy]) => [k, l, n, node, meter != null ? meter : m[k] ?? null, tip || tips[k] || null, lazy]);
 }
 function Deck({ tabs, testid = 'ack-deck', on: onC, setOn: setOnC, bare }) {
   const [onS, setOnS] = useState(() => { try { const v = localStorage.getItem(DECK_KEY); return tabs.some(t => t[0] === v) ? v : tabs[0][0]; } catch { return tabs[0][0]; } });
@@ -88,7 +88,8 @@ function Deck({ tabs, testid = 'ack-deck', on: onC, setOn: setOnC, bare }) {
   const pick = k => { (setOnC || setOnS)(k); try { localStorage.setItem(DECK_KEY, k); } catch { /* private window */ } };
   return <section className="ack-deck" data-testid={testid} data-on={on}>
     {!bare && tabs.length > 1 ? <div className="ack-decktabs m-seg" role="tablist" aria-label="Cockpit deck">{tabs.map(([k, l, n, , meter, tip]) => <button key={k} type="button" role="tab" aria-selected={on === k} className={on === k ? 'active' : ''} onClick={() => pick(k)} data-testid={`ack-deck-${k}`} data-tip={tip || undefined}><TabChip label={l} n={n} meter={meter} /></button>)}</div> : null}
-    {tabs.map(([k, , , node]) => <div key={k} role="tabpanel" className="ack-deckpane" hidden={on !== k} data-testid={`ack-deckpane-${k}`}>{node}</div>)}
+    {/* a `lazy` pane (7th field: the old desk's heavy lenses) is mounted ONLY while it is open — hidden it would still re-render on every hub paint */}
+    {tabs.map(([k, , , node, , , lazy]) => <div key={k} role="tabpanel" className="ack-deckpane" hidden={on !== k} data-testid={`ack-deckpane-${k}`}>{lazy && on !== k ? null : node}</div>)}
   </section>;
 }
 function useTick(ms = 1000) { const [n, setN] = useState(() => Date.now()); useEffect(() => { const t = setInterval(() => setN(Date.now()), ms); return () => clearInterval(t); }, [ms]); return n; }
@@ -138,7 +139,7 @@ export function ExitChips({ s, mini }) {
   return <span className={`ack-xchips ${mini ? 'is-mini' : ''}`}>{t.map(x => <i key={x.k} className={`ack-xchip is-${x.k}`} data-tip={x.tip} data-testid={`ack-xchip-${x.k}`}>{x.ic}{mini ? null : <b>{x.word}</b>}</i>)}</span>;
 }
 const sgn = v => (v == null ? '—' : `${v >= 0 ? '+' : '−'}$${Math.abs(v).toFixed(2)}`);
-function MoneyStrip({ d, seats, mint, onPick, nav, go, navTabs }) {
+function MoneyStrip({ d, seats, mint, onPick, nav, go, navTabs, ai = null }) {
   const now = useTick(5000); const m = moneyOf(d, seats, now);
   const tTone = m.today.usd == null ? '' : m.today.usd >= 0 ? 'm-pos' : 'm-neg';
   return <header className={`ack-money is-${m.night.state}`} data-testid="ack-money">
@@ -153,6 +154,7 @@ function MoneyStrip({ d, seats, mint, onPick, nav, go, navTabs }) {
           <b>${x.sym || '—'}</b><LiveNum v={x.pct} fmt={v => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`} cls="" /><ExitChips s={(seats || []).find(z => z.seat === x.seat)} mini />
           <span className="ack-mbar" aria-hidden><i style={{ transform: `scaleX(${Math.min(1, Math.abs(x.pct || 0) / 20).toFixed(3)})` }} /></span></button>) : <em className="m-dim">cash — no coin held</em>}</span></span>
       <span className={`ack-mcell is-night is-${m.night.state}`} data-tip={m.night.tip} data-testid="ack-money-night"><small>{m.late ? '⚠ DESK BEHIND' : 'SHIFT'}</small><b key={m.night.word} className="ack-vpop">{m.night.word}</b></span>
+      {ai}
     </div>
     <nav className="ack-nav m-seg" role="tablist" aria-label="Agents tab">
       <button type="button" role="tab" aria-selected={nav === 'chart'} className={nav === 'chart' ? 'active' : ''} onClick={() => go('chart')} data-testid="ack-nav-chart" data-tip="the chart + the decision panel (top of the page)"><TabChip label="📈 Chart" /></button>
@@ -528,7 +530,8 @@ function OpenPnl({ seats, onPick }) {
     {p.best && p.n > 1 ? <button type="button" onClick={() => onPick(p.best.mint)} data-testid="ack-open-best">🔥 ${p.best.symbol} {p.best.pct >= 0 ? '+' : ''}{p.best.pct.toFixed(1)}%</button> : null}</span>;
 }
 
-export function AgentCockpit({ call, isOwner = true, head = null }) {
+export const LENS_TAB = { live: 'dlive', review: 'office', limits: 'office', board: 'office', missed: 'missed', learn: 'paper', ctl: 'paper', life: 'gens' };
+export function AgentCockpit({ call, isOwner = true, head = null, extra = [] }) {
   const cc = useHub(); const d = cc?.d; const o = d?.office || null;
   const [pick, setPick] = useState(null); const [iv, setIv] = useState('1m'); const [agent, setAgentS] = useState(null); const [tapeAgent, setTapeAgent] = useState(null);
   const [tab, setTab] = useState('live'); const [aiOpen, setAiOpen] = useState(false);
@@ -556,6 +559,7 @@ export function AgentCockpit({ call, isOwner = true, head = null }) {
   const agentNow = agent || leadAgent(dec);
   const onPick = m => { setPick(m); setAgentS(null); };
   useEffect(() => { const on = e => { const m = e.detail?.mint; if (m) { setPick(m); setAgentS(null); } }; window.addEventListener('feeless:cockpit-coin', on); return () => window.removeEventListener('feeless:cockpit-coin', on); }, []);
+  useEffect(() => { const on = e => go(LENS_TAB[e.detail] || e.detail); window.addEventListener('feeless:agents-lens', on); return () => window.removeEventListener('feeless:agents-lens', on); });   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const on = () => setAiOpen(true); window.addEventListener('feeless:agents-ai', on); return () => window.removeEventListener('feeless:agents-ai', on); }, []);
   // 🧠 the Brain's Coach / Teach panes change only when coaching, teaching or the HELD coins change — a 3s price tick or a hub paint
   // never re-renders the Brain (it is memoized; a new extras array every paint made it redraw its whole log ~2.5×/s)
@@ -565,7 +569,8 @@ export function AgentCockpit({ call, isOwner = true, head = null }) {
     ['teach', `🎓 Teach${(o?.teach?.items || []).length ? ` · ${o.teach.items.length}` : ''}`, <TeachBox o={{ teach: o?.teach, ai: o?.ai }} mint={mint} sym={sym} call={call} isOwner={isOwner} />]],
   // eslint-disable-next-line react-hooks/exhaustive-deps
   [o?.coach, o?.teach, o?.ai, heldKey, d?.card?.tpl, mint, sym, call, isOwner]);
-  if (!o || o.cold) return <section className="ack" data-testid="agent-cockpit"><MissionRibbon tiles={missionTiles(d, [])} cold /><p className="ack-nil">Waiting for the agents' first pass — the cockpit shows nothing it was not handed.</p></section>;
+  if (!o || o.cold) return <section className="ack" data-testid="agent-cockpit"><MissionRibbon tiles={missionTiles(d, [])} cold /><p className="ack-nil">Waiting for the agents' first pass — the cockpit shows nothing it was not handed.</p>
+    {extra.length ? <Deck tabs={extra} testid="ack-tapezone" /> : null}</section>;   /* the paper desk + generations still open before the office's first pass */
   const held = seats.filter(s => !s.open).length;
   const navTabs = deckMeters(o, [
       ['seats', '🪑 Seats', seats.length ? `${held}/${seats.length}` : null, <section className="ack-seats" data-testid="ack-seats"><header><b>🪑 SEAT BOARD</b><OpenPnl seats={seats} onPick={onPick} /><small><b className="m-pos">{held}/{seats.length || '—'} active</b> · live prices every 3s · tap a seat = its chart + the agent handling it</small></header>
@@ -577,10 +582,11 @@ export function AgentCockpit({ call, isOwner = true, head = null }) {
       ['review', '📋 Queue', (o.ownerReview || []).length || null, <ReviewQueue o={o} call={call} isOwner={isOwner} onPick={m => { onPick(m); if (m && !((o.kernel || {}).candidates || []).some(c => c.mint === m) && !(o.positions || []).some(p => p.mint === m) && !(o.ownerReview || []).some(r => r.mint === m)) openCoin({ mint: m }); }} sel={mint} />],
       ['controls', '🎛 Limits', null, <CockpitControls o={o} call={call} isOwner={isOwner} onAi={() => setAiOpen(true)} />, null, 'operator controls: universe, exits, seats, buy gate, model'],
       ['stats', '📊 Stats', null, <>{head}<MissionRibbon tiles={tiles} live={!!cc?.live} /><LivePulse o={o} onAi={() => setTab('ai')} /></>, null, 'mission numbers, the desk pulse, stage + dial'],
+      ...extra,
     ]);
   return <section className="ack" data-testid="agent-cockpit">
     {/* 💵 ONE sticky strip: the money at a glance + the icon nav; nothing else above the chart. Every other section is a pane behind the nav */}
-    <MoneyStrip d={d} seats={seats} mint={mint} onPick={onPick} nav={nav} go={go} navTabs={navTabs} />
+    <MoneyStrip d={d} seats={seats} mint={mint} onPick={onPick} nav={nav} go={go} navTabs={navTabs} ai={<AiChipBtn o={o} onClick={() => setAiOpen(true)} testid="ack-money-ai" />} />
     <div className="ack-main">
       <div className="ack-left"><CockpitChart m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); setTab('live'); }} tid={o?.tid} call={call} isOwner={isOwner} />
         <IntakeBand o={o} mint={mint} onPick={onPick} call={call} isOwner={isOwner} /></div>

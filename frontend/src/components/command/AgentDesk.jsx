@@ -5,14 +5,13 @@ import { openWarRoom } from '../WarRoomHost';
 import '../../styles/agentDesk.css';
 import { useAgentHub, AgentHubProvider } from '../../lib/agentHub';
 import { pct, tone, VERD, rowState, rowWhy, pipsOf, rankFill, devilOf, kOf, practiceOf, READY_MIN } from '../../lib/agentRead';
-import { MiniScreen, ZoomScreen, CardNow, CourtBand, JudgeCourt, MissionBar } from './AgentScreens';
+import { MiniScreen, ZoomScreen, CourtBand, JudgeCourt, MissionBar } from './AgentScreens';
 import { OfficeBoard } from './OfficeBoard';
 import { ticker } from './agentWords';
 import { ReadyStrip, SeatState, SwitchEval, CreatorLimits, ReviewQueue, MissedWinners, LaunchRecord } from './OfficeEdge';
 import { KernelBoard } from './SeatOps';
 import { AgentCockpit } from './AgentCockpit';
 import { AiChipBtn } from './AiProviders';
-import { LensDock, LensVitals } from './LensDock';
 
 export { rowState, rowWhy, pipsOf, rankFill };
 
@@ -21,7 +20,7 @@ export { rowState, rowWhy, pipsOf, rankFill };
 // GET /admin/agents (served from memory) every 20s + the moment the next pass is due. LAYOUT (owner, 2026-10-10: "cleaner, more interactive,
 // meta all throughout"): hero (pass clock · stage) → KPI tiles (each jumps to its lens) → the office → the four agents as ONE picker (drives
 // the office, the feed and the highlighted column) → ONE lens at a time: 🟢 Live (work floor · filterable coin board, a row opens every
-// agent's word · thought feed) · 🧠 Learning · ⚔ Survival · ⚙ Control. `lens="all"` stacks every lens (tests). A record, never a promise.
+// agent's word · thought feed) · 🧠 Learning · ⚔ Survival · ⚙ Control. A record, never a promise.
 const WHO = { tally: ['📊', 'Tally'], sherlock: ['🔍', 'Sherlock'], trigger: ['⏱', 'Trigger'], devil: ['⚖', 'Devil'], desk: ['🧾', 'Desk'], judge: ['👨‍⚖️', 'Judge'] };
 const ago = t => { const s = Math.max(0, Math.round(Date.now() / 1000 - t)); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
 // 🛣 ROAD TO REAL MONEY (owner: "how close it is to real money"): 📜 the 5-min trench desk 10× in one run (≥ 30 GO calls) → 💵 the real
@@ -258,68 +257,25 @@ export function LiveLens({ d, sel, who, setWho, jump }) {
 export const DIAL = [['chill', '🧊'], ['normal', '⚡'], ['crazy', '🔥 CRAZY']];
 // the bottom bar: the VITAL lenses first (what is happening · what to review · what we missed · the board), then the limits (owner, 2026-10-13)
 export const LENSES = [['live', '🟢 Live'], ['review', '📝 Review'], ['missed', '🔎 Missed'], ['board', '📋 Board'], ['limits', '🎛 Limits'], ['learn', '📝 Paper'], ['life', '🧬 Gens'], ['ctl', '⚙ Control']];
-const mem = { get: (k, dflt) => { try { return localStorage.getItem(k) || dflt; } catch (e) { return dflt; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* private window */ } } };
-const Kpi = ({ id, label, val, sub, cls, on, onClick, tip }) => <button type="button" className={`agd-kpi ${on ? 'active' : ''}`} onClick={onClick} data-tip={tip} data-testid={`kpi-${id}`}><small>{label}</small><b className={cls || ''} key={String(val)}>{val}</b><i>{sub}</i></button>;
 // the ring on each agent = its share of right calls this life (Trigger: % of its ENTERs that won); empty until it has a judged call
 const Ring = ({ v, icon }) => <span className="agd-ring" aria-hidden><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" /><circle cx="20" cy="20" r="16" className={v == null ? 'is-none' : v >= 55 ? 'is-up' : v >= 45 ? 'is-mid' : 'is-dn'} strokeDasharray={`${Math.max(0, Math.min(100, v || 0))} 100`} pathLength="100" /></svg><b>{icon}</b></span>;
 
-export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
+export function AgentDesk({ call, isOwner = true }) {
   const cc = useAgentHub(call); const d = cc.d;   // 🛰 ONE agent hub store: the snapshot + the shared live prices (positions + seats move every 3s)
   const [busy, setBusy] = useState(false); const [sel, setSel] = useState('tally'); const [who, setWho] = useState('all'); const [zoom, setZoom] = useState(null); const [jump, setJump] = useState(null);
-  const [lens, setLensS] = useState(() => lens0 || (l => (LENSES.some(x => x[0] === l) ? l : 'live'))(mem.get('feeless.agentLens', 'live'))); const [drawer, setDrawer] = useState(null);
-  const setLens = k => { setLensS(k); mem.set('feeless.agentLens', k); };
-  const [more, setMore] = useState(() => !!lens0 || mem.get('feeless.agentMore', 'closed') === 'open');   // ▸ MORE: everything under the cockpit, one fold
-  useEffect(() => { mem.set('feeless.agentMore', more ? 'open' : 'closed'); }, [more]);
-  useEffect(() => { const on = e => { const k = e.detail; setMore(true); if (LENSES.some(x => x[0] === k)) setLens(k); setTimeout(() => document.querySelector('[data-testid="agd-more"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60); };
-    window.addEventListener('feeless:agents-lens', on); return () => window.removeEventListener('feeless:agents-lens', on); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  const setLens = k => window.dispatchEvent(new CustomEvent('feeless:agents-lens', { detail: k }));   // a lens = a pane in the cockpit's ONE nav
   const load = cc.load;
   useEffect(() => { if (cc.err) toast.error(cc.err.message); }, [cc.err]);
   if (!d) return <p className="cc-empty">Waking the agents…</p>;
-  const st = d.stage || {}; const t = d.table || []; const p = d.perf || {}; const rg = p.regime; const cnt = cc.sel.getCounts(); const goN = cnt.ready; const contN = cnt.contending; const gens = cc.sel.getGenerations(); const readyRows = t.filter(x => rowState(x) === 'go');
+  const st = d.stage || {}; const p = d.perf || {}; const cnt = cc.sel.getCounts(); const goN = cnt.ready; const gens = cc.sel.getGenerations();
   const newIdeas = (d.ideas || []).filter(i => i.status === 'new').length; const reviewOpen = Object.values(d.office?.review?.open || {}).reduce((a, b) => a + b, 0); const atRisk = cnt.probation.length;
   const pickAgent = k => { setSel(k); setWho(w => (w === k ? 'all' : k)); };
-  const show = k => lens === 'all' || lens === k;
-  const open = k => lens === 'all' || drawer === k; const tog = k => setDrawer(x => (x === k ? null : k));   // the old rows live in ONE drawer under the status strip
-  const om = d.office?.mission || {}; const seats = d.card?.seats || []; const jd = d.office?.judge || {}; const genOf = k => gens.find(g => g.role === k) || null;
+  const genOf = k => gens.find(g => g.role === k) || null;
   const warLog = async () => { try { const r = await call('/admin/agents/log?hours=24'); const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([r.md], { type: 'text/markdown' })); a.download = `agent-war-log-${new Date().toISOString().slice(0, 10)}.md`; a.click(); URL.revokeObjectURL(a.href); } catch (e) { toast.error(e.message); } };
   const save = async body => { setBusy(true); try { await call('/admin/agents', { method: 'POST', body: JSON.stringify(body) }); toast.success(body.idea ? `💡 idea ${body.idea.action === 'approve' ? 'approved' : 'rejected'}` : body.review ? (body.review.mark === 'clear' ? '📝 mark cleared' : `📝 marked ${body.review.mark}`) : Object.keys(body.cfg || {}).some(k => /^agent(Tp|Sl|Trail|MaxHold|SizePct|SeatTarget|Switch|Entry|Authority)/.test(k)) ? '🎛 limit saved' : '🤖 agent control saved'); load(); } catch (e) { toast.error(e.message); } finally { setBusy(false); } };
   const dial = d.cfg?.agentDial || 'normal';
-  return <AgentHubProvider value={cc}><section className={`agd m-live is-dial-${dial}`} data-testid="agent-desk">
-    <AgentCockpit call={call} isOwner={isOwner} head={<header className="agd-head"><div className="agd-title"><b data-tip="The ten-agent kernel on the real Fuse card: every number below is the card's own. Every call is checked 5 minutes later.">🤖 AGENTS</b><PassClock at={p.at} onDue={load} /><small className="agd-ticker" data-testid="agd-stream" data-tip="The page loads the office once, then applies the kernel's live deltas (candidates · hunters · positions · agents · generations · execution · metrics). Without a stream it re-reads the snapshot every 20s.">{cc.live ? '📡 live deltas' : 'snapshot · 20s'}</small>{d.office && !d.office.cold ? <small className="agd-ticker" data-testid="agd-ticker">{ticker(d.office)}</small> : null}
-</div>
-      <div className="agd-stage" data-testid="agd-stage" data-tip={st.team?.n ? `team ${st.team.n}/${st.needN} judged · ${pct(st.team.med)} · ${st.team.won}% won (needs ${st.needWin}%)` : `needs ${st.needN} judged GO calls, a positive median and ${st.needWin}% won`}>{[5, 15, 60].map(h => <span key={h} className={(st.conquered || []).includes(h) ? 'is-done' : st.h === h ? 'is-now' : ''}>{(st.conquered || []).includes(h) ? '✓' : st.h === h ? '⚔' : '🔒'} {h}m</span>)}
-</div>
-      <div className="m-seg agd-dial" role="group" aria-label="How hard the agents trade" data-tip={`${d.office?.dialLab?.words ? `🎚 DIAL LAB: ${d.office.dialLab.words} — ` : ''}📝 The PRACTICE desk's bar (now ${Number(d.barNow || d.bar || 1.5).toFixed(1)}): 🧊 pickier · 🔥 more paper entries. It moves graded paper calls only — the live kernel has no dial: READY = Trigger ENTER + inside the hard wall + execution healthy + rank ≥ ${READY_MIN}.`}>
-        {DIAL.map(([k, l]) => <button key={k} type="button" disabled={busy || !isOwner} className={dial === k ? 'active' : ''} onClick={() => save({ cfg: { agentDial: k } })} data-testid={`dial-${k}`}>{l}</button>)}</div>
-      <div className="agd-headacts"><AiChipBtn o={d.office} onClick={() => window.dispatchEvent(new CustomEvent('feeless:agents-ai'))} testid="agd-aikey" />
-        <button type="button" className="m-btn" onClick={load} data-tip="Re-read the desk now (it is served from memory — no rate limit)" data-testid="agd-refresh">↻</button>
-        <button type="button" className="m-btn agd-log" onClick={warLog} data-testid="agd-log">⬇ War log</button></div></header>} />
-    <details className="agd-more" open={more} onToggle={e => setMore(e.currentTarget.open)} data-testid="agd-more">
-    <summary data-testid="agd-more-sum"><b>▸ MORE</b><small>paper desk · kernel board · judge court · limits · lenses</small></summary>
-    {more ? <>
-    <div className="agd-kpis" data-testid="agd-kpis">
-      <Kpi id="mission" label={om.phase === 'GROWTH' ? '🎓 TO 2× PUT-IN' : om.phase === 'GRADUATED' ? '🎓 2× REACHED' : '🎯 BREAKEVEN'} val={om.value != null ? `$${Number(om.value).toFixed(2)}` : '—'} cls={om.locked ? 'agd-warn' : 'm-pos'} sub={om.putIn != null ? (om.phase === 'GROWTH' ? `of $${Number(om.doubleTarget).toFixed(2)} · next stage locked` : `of $${Number(om.putIn).toFixed(2)}${om.needX ? ` · needs ${om.needX}×` : ''} · then 2× = $${Number(om.doubleTarget ?? om.putIn * 2).toFixed(2)}`) : 'no real card numbers yet'} on={open('mission') && lens !== 'all'} onClick={() => tog('mission')} tip="Phase 1: back to breakeven. Phase 2: the real card to 2× the put-in — only then can the next stage unlock. Opens the goal bars." />
-      <Kpi id="seats" label="🎮 IN CONTROL" val={`${seats.filter(x => x.mint).length} / ${seats.length || '—'}`} sub={d.cfg?.agentControl ? 'seats on your card' : 'control is off'} on={open('seats') && lens !== 'all'} onClick={() => tog('seats')} tip="The real card as seats. Opens the seats with their controls (fill, swap, pull)." />
-      <Kpi id="kernel" label="⚙ KERNEL" val={`${goN} READY`} cls={goN ? 'm-pos' : ''} sub={`${contN} contending · ${cnt.TRACKING ?? 0} tracking · ${cnt.HELD ?? 0} held`} on={open('kernel') && lens !== 'all'} onClick={() => tog('kernel')} tip="The ten-agent kernel: four hunter lanes and the candidates it ranks. Opens the kernel board." />
-      <Kpi id="judge" label="👨‍⚖️ JUDGE" val={`${jd.rulings ?? 0} reviews`} cls={atRisk ? 'agd-warn' : ''} sub={atRisk ? `${cnt.probation.join(', ')} on probation` : 'nobody on probation'} on={open('judge') && lens !== 'all'} onClick={() => tog('judge')} tip="The Judge's reviews of REAL exits (root cause · desk · lesson). They are the only evidence a generation is judged on." />
-      <Kpi id="go" label="🟢 READY NOW" val={goN} cls={goN ? 'm-pos' : ''} sub={`${contN} contending · ${p.coins ?? t.length} coins read`} on={show('live') && lens !== 'all'} onClick={() => setLens('live')} tip="Candidates the kernel has READY this pass. Opens the live board." />
-      <Kpi id="desk" label="📜 PAPER DESK" val={`$${d.desk.now.toFixed(2)}`} cls={tone(d.desk.now - d.desk.start)} sub={`${d.desk.x}× · ${d.desk.heat === 'heater' ? '🔥' : d.desk.heat === 'cold' ? '🧊' : ''} stake ${d.desk.stake ?? 25}%`} on={lens === 'ctl'} onClick={() => setLens('ctl')} tip="The team's $20 paper desk: 25% a GO, out at 5 minutes." />
-      <Kpi id="road" label="🛣 ROAD TO REAL" val={`${d.road?.pct ?? 0}%`} sub={d.proven5 ? 'live on your card' : 'paper until the 10×'} on={lens === 'ctl'} onClick={() => setLens('ctl')} tip="How close the desk is to real money on your card." />
-      <Kpi id="market" label="🌡 TRENCH" val={rg?.green != null ? `${rg.green}%` : '—'} sub={`green 5m · ${rg?.word || 'unknown'}`} on={lens === 'learn'} onClick={() => setLens('learn')} tip="Share of coins green over 5 minutes this pass." />
-      <Kpi id="ideas" label="💡 IDEAS" val={newIdeas} cls={newIdeas ? 'agd-warn' : ''} sub={newIdeas ? 'waiting for your review' : 'nothing to review'} on={lens === 'learn'} onClick={() => setLens('learn')} tip="Tactics the desk found in its own record." />
-      <Kpi id="gens" label="🧬 GENERATIONS" val={atRisk ? `${atRisk} ⚠` : `${gens.length || 10} 🟢`} cls={atRisk ? 'agd-warn' : ''} sub={atRisk ? 'on probation' : `${gens.reduce((n, g) => n + (g.lineage || []).length, 0)} replaced so far`} on={lens === 'life'} onClick={() => setLens('life')} tip="ONE lifecycle for all ten roles, judged on real exits: probation at 2 net losses pinned, replaced at 3." />
-    </div>
-    {(open('mission') || open('seats') || open('kernel') || open('judge') || open('edge')) ? <div className="agd-drawer" data-testid="agd-drawer">
-      {open('edge') ? <div className="oed-drawer" data-testid="agd-edge-pane"><ReadyStrip r={d.office?.ready} /><SeatState s={d.office?.seat} speed={d.office?.performance?.speed} /><SwitchEval e={d.office?.switchEval} /></div> : null}
-      {open('mission') ? <MissionBar mission={d.mission} scalp={d.scalp} desk={d.desk} /> : null}
-      {open('seats') ? <CardNow card={d.card} cfg={d.cfg} gos={readyRows} call={call} isOwner={isOwner} onDone={load} onMore={() => setLens('life')} /> : null}
-      {open('kernel') ? <KernelBoard o={d.office} onCoin={sym => { setLens('live'); setJump({ sym, n: Date.now() }); }} /> : null}
-      {open('judge') ? <JudgeCourt court={d.office?.court} /> : null}</div> : null}
-    {zoom && <ZoomScreen d={d} agent={zoom} setAgent={k => { setZoom(k); setSel(k); }} close={() => setZoom(null)} />}
-    {lens !== 'all' && <><LensDock tabs={LENSES} lens={lens} setLens={setLens} badge={k => (k === 'live' && goN ? `${goN} READY` : k === 'learn' && newIdeas ? `${newIdeas} 💡` : k === 'life' && atRisk ? `${atRisk} ⚠`
-      : k === 'review' && reviewOpen ? `${reviewOpen}` : k === 'limits' && d.office?.policy?.manual ? '✋' : k === 'limits' && (d.office?.seat?.refused || []).length ? `${d.office.seat.refused.length} held` : null)} />
-      <LensVitals lens={lens} d={d} cnt={cnt} /></>}
+  const lensBody = L => { const show = k => L === k; return <>
     {show('limits') && <div className="agd-grid is-ctl" data-testid="lens-limits-pane"><div className="agd-wide"><CreatorLimits policy={d.office?.policy} mission={d.office?.mission} cfg={d.cfg} o={d.office} isOwner={isOwner} busy={busy} save={save} /></div>
       <ReadyStrip r={d.office?.ready} /><SeatState s={d.office?.seat} speed={d.office?.performance?.speed} /><div className="agd-wide"><SwitchEval e={d.office?.switchEval} /></div></div>}
     {show('review') && <div data-testid="lens-review-pane"><ReviewQueue review={d.office?.review} isOwner={isOwner} save={save} onCoin={it => it.mint && openCoin({ mint: it.mint, symbol: it.sym })} /></div>}
@@ -352,5 +308,24 @@ export function AgentDesk({ call, isOwner = true, lens: lens0 }) {
         <span className="agd-road-bar" aria-hidden><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, Math.log10(Math.max(1, d.desk.x || 1))))})` }} /></span>
         <small className="m-dim">Control group (coins Trigger said WAIT): {d.control?.n ? `${pct(d.control.med)} typical` : 'not judged yet'} — the team must beat this to mean anything. Slippage on a 5-min scalp is not modelled.</small></div>
       <AgentControls cfg={d.cfg} decisions={d.decisions} proven={d.proven5} isOwner={isOwner} busy={busy} save={save} /></div>}
-  </> : null}</details></section></AgentHubProvider>;
+  </>; };
+  const extra = [
+    ['dlive', '🤖 Agents', goN ? `${goN}` : null, lensBody('live'), null, 'the ten agents: live board, each agent\'s screen and the coins it read', true],
+    ['office', '🗂 Office', reviewOpen || null, <>{lensBody('limits')}{lensBody('review')}<KernelBoard o={d.office} onCoin={sym => setJump({ sym, n: Date.now() })} /><JudgeCourt court={d.office?.court} />{lensBody('board')}</>, null, 'your limits, the review marks, the kernel board, the Judge and the office records', true],
+    ['missed', '🔎 Missed', null, lensBody('missed'), null, 'coins that ran without us + the launch record', true],
+    ['paper', '📝 Paper', newIdeas || null, <><MissionBar mission={d.mission} scalp={d.scalp} desk={d.desk} />{lensBody('learn')}{lensBody('ctl')}</>, null, 'the practice desk, what Sherlock learned, ideas, road to real money', true],
+    ['gens', '🧬 Gens', atRisk || null, lensBody('life'), null, 'generations, autopsies, the creed', true],
+  ];
+  return <AgentHubProvider value={cc}><section className={`agd m-live is-dial-${dial}`} data-testid="agent-desk">
+    <AgentCockpit call={call} isOwner={isOwner} extra={extra} head={<header className="agd-head"><div className="agd-title"><b data-tip="The ten-agent kernel on the real Fuse card: every number below is the card's own. Every call is checked 5 minutes later.">🤖 AGENTS</b><PassClock at={p.at} onDue={load} /><small className="agd-ticker" data-testid="agd-stream" data-tip="The page loads the office once, then applies the kernel's live deltas (candidates · hunters · positions · agents · generations · execution · metrics). Without a stream it re-reads the snapshot every 20s.">{cc.live ? '📡 live deltas' : 'snapshot · 20s'}</small>{d.office && !d.office.cold ? <small className="agd-ticker" data-testid="agd-ticker">{ticker(d.office)}</small> : null}
+</div>
+      <div className="agd-stage" data-testid="agd-stage" data-tip={st.team?.n ? `team ${st.team.n}/${st.needN} judged · ${pct(st.team.med)} · ${st.team.won}% won (needs ${st.needWin}%)` : `needs ${st.needN} judged GO calls, a positive median and ${st.needWin}% won`}>{[5, 15, 60].map(h => <span key={h} className={(st.conquered || []).includes(h) ? 'is-done' : st.h === h ? 'is-now' : ''}>{(st.conquered || []).includes(h) ? '✓' : st.h === h ? '⚔' : '🔒'} {h}m</span>)}
+</div>
+      <div className="m-seg agd-dial" role="group" aria-label="How hard the agents trade" data-tip={`${d.office?.dialLab?.words ? `🎚 DIAL LAB: ${d.office.dialLab.words} — ` : ''}📝 The PRACTICE desk's bar (now ${Number(d.barNow || d.bar || 1.5).toFixed(1)}): 🧊 pickier · 🔥 more paper entries. It moves graded paper calls only — the live kernel has no dial: READY = Trigger ENTER + inside the hard wall + execution healthy + rank ≥ ${READY_MIN}.`}>
+        {DIAL.map(([k, l]) => <button key={k} type="button" disabled={busy || !isOwner} className={dial === k ? 'active' : ''} onClick={() => save({ cfg: { agentDial: k } })} data-testid={`dial-${k}`}>{l}</button>)}</div>
+      <div className="agd-headacts"><AiChipBtn o={d.office} onClick={() => window.dispatchEvent(new CustomEvent('feeless:agents-ai'))} testid="agd-aikey" />
+        <button type="button" className="m-btn" onClick={load} data-tip="Re-read the desk now (it is served from memory — no rate limit)" data-testid="agd-refresh">↻</button>
+        <button type="button" className="m-btn agd-log" onClick={warLog} data-testid="agd-log">⬇ War log</button></div></header>} />
+    {zoom && <ZoomScreen d={d} agent={zoom} setAgent={k => { setZoom(k); setSel(k); }} close={() => setZoom(null)} />}
+  </section></AgentHubProvider>;
 }

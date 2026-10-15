@@ -186,11 +186,6 @@ button.ack-ml { cursor: pointer; transition: transform .12s var(--m-ease), borde
 .agd-headacts .ack-aichip { margin-left: 0; }
 
 /* ▸ MORE (everything that used to stack under the old desk) */
-.agd-more { border: 1px solid var(--m-line); border-radius: var(--m-r); padding: 0 10px; }
-.agd-more > summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 9px 2px; font: 700 10.5px var(--m-mono); color: var(--m-mute); }
-.agd-more > summary::-webkit-details-marker { display: none; } .agd-more > summary b { font: 800 11px var(--m-mono); letter-spacing: .12em; color: var(--m-text); }
-.agd-more > summary:hover b { color: var(--m-accent); } .agd-more > summary:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
-.agd-more[open] { display: grid; gap: 10px; padding-bottom: 10px; }
 
 /* 🧠 AI providers side sheet + 🔑 key box */
 .aip-shade { position: fixed; inset: 0; z-index: 9000; background: rgba(2, 8, 5, .55); display: flex; justify-content: flex-end; animation: ackFade .16s ease-out both; }
@@ -235,7 +230,7 @@ button.ack-ml { cursor: pointer; transition: transform .12s var(--m-ease), borde
 }
 body.fx-lite .ack-seat, body.fx-lite .ack-tcard, body.fx-lite .is-pulse, body.fx-lite .aip, body.fx-lite .aip-shade, body.fx-lite .ack-pbody { animation: none; } body.fx-lite .ack-bar i { transition: none; }
 @media (prefers-reduced-motion: reduce) { .ack-seat, .ack-tcard, .is-pulse, .aip, .aip-shade, .ack-pbody { animation: none; } .ack-seat, .ack-tcard, .ack-agent, .ack-bar i, .ack-aichip, .ack-ml { transition: none; } }
-body.theme-day .ack-ribbon, body.theme-day .ack-seats, body.theme-day .ack-chart, body.theme-day .ack-tape, body.theme-day .ack-panel, body.theme-day .ack-matrix, body.theme-day .ack-review, body.theme-day .ack-ops, body.theme-day .ack-ai, body.theme-day .agd-more { background: rgba(236, 246, 240, .86); border-color: rgba(10, 60, 35, .14); }
+body.theme-day .ack-ribbon, body.theme-day .ack-seats, body.theme-day .ack-chart, body.theme-day .ack-tape, body.theme-day .ack-panel, body.theme-day .ack-matrix, body.theme-day .ack-review, body.theme-day .ack-ops, body.theme-day .ack-ai { background: rgba(236, 246, 240, .86); border-color: rgba(10, 60, 35, .14); }
 body.theme-day .ack-seat, body.theme-day .ack-tcard, body.theme-day .ack-agent, body.theme-day .ack-ptile, body.theme-day .ack-verdict { background: rgba(255, 255, 255, .5); border-color: rgba(10, 60, 35, .14); }
 body.theme-day .ack-seat.is-on { border-color: #0d7a41; } body.theme-day .ack-badge.is-good, body.theme-day .ack-st.is-ready, body.theme-day .aip-state.is-on { background: #0d7a41; border-color: #0d7a41; color: #fff; }
 body.theme-day .ack-tact.is-good, body.theme-day .ack-mode.is-track, body.theme-day .ack-ai-list li.is-set, body.theme-day .ack-rhead b, body.theme-day .ack-livechip, body.theme-day .ack-fw.is-live, body.theme-day .ack-fw.is-fresh, body.theme-day .ack-aichip .is-on { color: #0d7a41; }

@@ -37,16 +37,18 @@ const view = {
 test('the Agents tab shows the KERNEL\'s decision on every coin; the practice desk\'s paper words are labelled and decide nothing', async () => {
   const call = jest.fn(async (path, opts) => (opts ? { ok: true } : view));
   const el = document.createElement('div'); document.body.appendChild(el);
-  await act(async () => { createRoot(el).render(<AgentDesk call={call} lens="all" />); });   // lens="all" stacks every lens
+  await act(async () => { createRoot(el).render(<AgentDesk call={call} />); });
   const q = id => el.querySelector(`[data-testid="${id}"]`);
+  const tab = async k => { await act(async () => { q(`ack-deck-${k}`).click(); }); };   // the old desk's lenses = panes in the cockpit's ONE nav
+  await tab('dlive');
   expect(['tally', 'sherlock', 'trigger', 'devil'].every(k => q(`agent-${k}`))).toBe(true);
   expect(q('agd-stage').textContent).toContain('⚔ 5m'); expect(q('agd-stage').textContent).toContain('🔒 15m');
   // $GOOD: the paper desk said WAIT, the kernel has it READY → the board says READY. $RUN: paper GO, kernel CONTENDING with a Devil warning.
   expect(q('verdict-GOOD').textContent).toBe('🟢 READY'); expect(q('verdict-RUN').textContent).toBe('⚠ DEVIL WARNS'); expect(q('verdict-DUMP').textContent).toBe('✕ BLOCKED');
   expect(q('agd-row-RUN').textContent).toContain('BOND RUN'); expect(el.textContent).not.toMatch(/OBJECTED|objected|Devil objects/);   // a warning is never worded as a veto
-  expect(q('agd-desk').textContent).toContain('$20.60'); expect(q('agd-road').textContent).toContain('1.03× of 10×');
+  await tab('paper'); expect(q('agd-desk').textContent).toContain('$20.60'); expect(q('agd-road').textContent).toContain('1.03× of 10×');
   expect(q('agd-mind').textContent).toContain('600 Pump callouts');
-  expect(q('vit-GOOD')).toBeNull();   // a row is ONE line until it is opened
+  await tab('dlive'); expect(q('vit-GOOD')).toBeNull();   // a row is ONE line until it is opened
   await act(async () => { q('agd-open-GOOD').click(); });
   expect(q('agd-row-GOOD').textContent).toContain('RUNNING'); expect(q('devil-GOOD').textContent).toContain('NO OBJECTION');
   expect(q('practice-GOOD').textContent).toContain('practice desk (paper, graded — no live authority)'); expect(q('practice-GOOD').textContent).toContain('WAIT');
@@ -56,13 +58,13 @@ test('the Agents tab shows the KERNEL\'s decision on every coin; the practice de
   expect(q('devil-RUN').textContent).toContain('⚠ DEVIL WARNS'); expect(q('devil-RUN').textContent).toContain('Warden would size ×0.75'); expect(q('agd-row-RUN').textContent).toContain('researching holders');
   expect(q('agd-floor').querySelectorAll('.agd-dot').length).toBe(3); expect(q('agd-floor').textContent).toContain('⌖ $GOOD'); expect(q('ms-sherlock').textContent).toContain('3.4 ms');
   // 🧬 ONE lifecycle for all ten roles
-  expect(q('agd-gens').querySelectorAll('li').length).toBe(10); expect(q('gen-status-sherlock').textContent).toContain('PROBATION'); expect(q('gen-status-reaper').textContent).toContain('ACTIVE');
+  await tab('gens'); expect(q('agd-gens').querySelectorAll('li').length).toBe(10); expect(q('gen-status-sherlock').textContent).toContain('PROBATION'); expect(q('gen-status-reaper').textContent).toContain('ACTIVE');
   expect(q('gen-sherlock').textContent).toContain('gen 2'); expect(q('gen-sherlock').textContent).toContain('walletTrust 1.5'); expect(q('gen-sherlock').textContent).toContain('gen 1 SHADOW');
-  expect(q('life-sherlock').textContent).toContain('PROBATION'); expect(q('life-tally').textContent).toContain('ACTIVE'); expect(q('tank-tally')).toBeNull();   // the old tanks / lives / duty are gone
-  expect(q('kpi-gens').textContent).toContain('1 ⚠'); expect(q('kpi-kernel').textContent).toContain('1 READY'); expect(q('kpi-lives')).toBeNull(); expect(q('kpi-duty')).toBeNull();
-  expect(q('practice-note').textContent).toContain('no fill, switch, exit, size or generation reads it');
-  expect(q('agd-creed').textContent).toContain('never sign');
-  expect(q('idea-ok-young1').disabled).toBe(true);
+  expect(q('tank-tally')).toBeNull();   // the old tanks / lives / duty are gone
+  expect(q('ack-deck-gens').textContent).toContain('1'); expect(q('agd-kpis')).toBeNull();   // the KPI strip is gone: each pane's tab carries its count
+  await tab('dlive'); expect(q('life-sherlock').textContent).toContain('PROBATION'); expect(q('life-tally').textContent).toContain('ACTIVE'); await tab('paper'); expect(q('practice-note').textContent).toContain('no fill, switch, exit, size or generation reads it');
+  await tab('gens'); expect(q('agd-creed').textContent).toContain('never sign');
+  await tab('paper'); expect(q('idea-ok-young1').disabled).toBe(true);
   await act(async () => { q('idea-ok-abc123').click(); });
   expect(call).toHaveBeenCalledWith('/admin/agents', expect.objectContaining({ method: 'POST', body: JSON.stringify({ idea: { id: 'abc123', action: 'approve' } }) }));
   await act(async () => { q('agc-agentMode-swap').click(); });
@@ -72,29 +74,21 @@ test('the Agents tab shows the KERNEL\'s decision on every coin; the practice de
   expect(agentLine({ n: 4, med: -2, right: 50 })).toBe('4 judged · -2.0% typical at 5 min · 50% right');
 });
 
-test('the desk is interactive: one lens at a time, KPI tiles open ONE drawer, the board filters by the kernel\'s state', async () => {
-  try { localStorage.removeItem('feeless.agentLens'); localStorage.removeItem('feeless.agentRoom'); localStorage.setItem('feeless.agentMore', 'open'); } catch (e) { /* none */ }
+test('the desk is interactive: the old lenses are panes in the cockpit nav, mounted only while open; the board filters by the kernel\'s state', async () => {
+  try { localStorage.removeItem('feeless.agentLens'); localStorage.removeItem('feeless.agentDeck'); localStorage.removeItem('feeless.agentNav'); } catch (e) { /* none */ }
   const call = jest.fn(async (path, opts) => (opts ? { ok: true } : view));
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<AgentDesk call={call} />); });
-  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  const q = id => el.querySelector(`[data-testid="${id}"]`); const tab = async k => { await act(async () => { q(`ack-deck-${k}`).click(); }); };
   expect(q('agent-desk').textContent).toContain('REAL MONEY MISSION'); expect(q('office-board')).toBeNull();
-  expect(q('agent-cockpit')).not.toBeNull(); expect(q('office-hq')).toBeNull(); expect(q('agd-office')).toBeNull();    // 🎛 the cockpit IS the tab; the 3D office is retired
-  expect(q('agent-desk').firstElementChild.getAttribute('data-testid')).toBe('agent-cockpit');   // header → the cockpit (its own mission ribbon first)
-  expect(q('agent-cockpit').firstElementChild.getAttribute('data-testid')).toBe('ack-money'); expect(q('agd-more')).not.toBeNull();   // everything older sits in ONE ▸ MORE fold
-  expect(q('agd-stream').textContent).toContain('snapshot');                                                           // no stream in a test: the snapshot poll is said, never "live"
-  for (const k of ['mission', 'seats', 'kernel', 'judge', 'go', 'desk', 'road', 'market', 'ideas', 'gens']) expect(q(`kpi-${k}`)).not.toBeNull();
-  expect(q('agd-drawer')).toBeNull();
-  await act(async () => { q('kpi-kernel').click(); });
-  expect(q('agd-drawer')).not.toBeNull(); expect(q('agd-drawer').querySelector('[data-testid="kernel-board"]')).not.toBeNull(); expect(q('ags-mission')).toBeNull();
-  await act(async () => { q('kpi-mission').click(); });
-  expect(q('ags-mission')).not.toBeNull(); expect(q('agd-drawer').querySelector('[data-testid="kernel-board"]')).toBeNull();   // ONE at a time
-  await act(async () => { q('kpi-mission').click(); });
-  expect(q('agd-drawer')).toBeNull();
-  expect(call.mock.calls.filter(c => !c[1] && c[0] !== '/admin/ai/chat').map(c => c[0])).toEqual(['/admin/agents']); expect(call.mock.calls.filter(c => c[0] === '/admin/ai/chat' && !c[1]).length).toBeLessThanOrEqual(1);   /* the Brain reads its own chat state once */                              // ONE request feeds the desk AND the office
-  await act(async () => { q('lens-live').click(); });
-  expect(q('lens-live-pane')).not.toBeNull(); expect(q('lens-learn-pane')).toBeNull();
-  expect(q('kpi-go').textContent).toContain('1'); expect(q('kpi-go').textContent).toContain('1 contending');
+  expect(q('agent-desk').firstElementChild.getAttribute('data-testid')).toBe('agent-cockpit');
+  expect(q('agent-cockpit').firstElementChild.getAttribute('data-testid')).toBe('ack-money'); expect(q('agd-more')).toBeNull();   // no ▸ MORE fold any more
+  expect(q('agd-stream').textContent).toContain('snapshot');
+  for (const k of ['dlive', 'office', 'missed', 'paper', 'gens']) expect(q(`ack-deck-${k}`)).not.toBeNull();
+  expect(q('lens-live-pane')).toBeNull(); expect(el.querySelectorAll('.ags-mini')).toHaveLength(0);   // closed panes mount nothing
+  expect(call.mock.calls.filter(c => !c[1] && c[0] !== '/admin/ai/chat').map(c => c[0])).toEqual(['/admin/agents']);   // ONE request feeds the desk AND the office
+  await tab('dlive');
+  expect(q('lens-live-pane')).not.toBeNull(); expect(q('lens-learn-pane')).toBeNull(); expect(q('ack-deck-dlive').textContent).toContain('1');
   await act(async () => { q('board-go').click(); });
   expect(q('agd-row-GOOD')).not.toBeNull(); expect(q('agd-row-RUN')).toBeNull();
   await act(async () => { q('board-warn').click(); });   // ⚖ an ordinary concern is a WARNING, never a block
@@ -103,19 +97,18 @@ test('the desk is interactive: one lens at a time, KPI tiles open ONE drawer, th
   expect(q('agd-row-DUMP')).not.toBeNull(); expect(q('agd-row-RUN')).toBeNull();
   await act(async () => { el.querySelector('.agd-fl').click(); });   // a feed line about $RUN → the board resets and opens that coin
   expect(q('agd-open-RUN').getAttribute('aria-expanded')).toBe('true'); expect(q('agd-row-GOOD')).not.toBeNull();
-  await act(async () => { q('kpi-ideas').click(); });
-  expect(q('lens-learn-pane')).not.toBeNull(); expect(q('lens-live-pane')).toBeNull(); expect(q('agd-ideas')).not.toBeNull(); expect(q('ags-court')).not.toBeNull();   // the paper court lives in the practice lens
-  await act(async () => { q('lens-life').click(); });
-  expect(q('agd-gens')).not.toBeNull();
-  await act(async () => { q('lens-ctl').click(); });
+  await tab('paper');
+  expect(q('lens-learn-pane')).not.toBeNull(); expect(q('lens-live-pane')).toBeNull(); expect(q('agd-ideas')).not.toBeNull(); expect(q('ags-court')).not.toBeNull(); expect(q('ags-mission')).not.toBeNull();
   expect(q('agd-controls')).not.toBeNull(); expect(q('agd-road')).not.toBeNull();
+  await tab('gens'); expect(q('agd-gens')).not.toBeNull();
+  await tab('office'); expect(q('kernel-board')).not.toBeNull(); expect(q('office-board')).not.toBeNull();
+  await act(async () => { window.dispatchEvent(new CustomEvent('feeless:agents-lens', { detail: 'live' })); });   // an old lens name still lands on its pane
+  expect(q('lens-live-pane')).not.toBeNull();
   await act(async () => { q('dial-crazy').click(); });
   expect(call).toHaveBeenCalledWith('/admin/agents', expect.objectContaining({ body: JSON.stringify({ cfg: { agentDial: 'crazy' } }) }));
   expect(q('dial-crazy').parentElement.getAttribute('data-tip')).toContain('the live kernel has no dial');
-  await act(async () => { q('lens-board').click(); });
-  expect(q('office-board')).not.toBeNull();
   await act(async () => { root.unmount(); });
-  try { localStorage.removeItem('feeless.agentLens'); localStorage.removeItem('feeless.agentRoom'); localStorage.setItem('feeless.agentMore', 'open'); } catch (e) { /* none */ }
+  try { localStorage.removeItem('feeless.agentDeck'); localStorage.removeItem('feeless.agentNav'); } catch (e) { /* none */ }
 });
 
 test('ONE meaning of a decision: the state, the fact that decided it, the pips, Devil\'s word, filter / search / sort, the pass clock', () => {
@@ -156,17 +149,4 @@ test('🕵 launch intel cells: every field with its tone and evidence', () => {
   expect(c['early supply']).toMatchObject({ v: '22% held · worsening', t: 'bad' }); expect(c['early supply'].tip).toContain('3 exit');
   expect(c['FOMO phase']).toMatchObject({ v: 'ACCELERATING', t: 'good' }); expect(c['exit pressure']).toMatchObject({ v: 'WATCH', t: 'warn' });
   expect(c['dev / cluster'].t).toBe('bad'); expect(c.confidence.v).toBe('80%');
-});
-
-test('⚡ the ▸ MORE fold mounts nothing while closed — no hidden lenses, boards or mini screens rendering behind the cockpit', async () => {
-  try { localStorage.setItem('feeless.agentMore', 'closed'); localStorage.removeItem('feeless.agentLens'); } catch (e) { /* none */ }
-  const call = jest.fn(async (path, opts) => (opts ? { ok: true } : view));
-  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
-  await act(async () => { root.render(<AgentDesk call={call} />); });
-  const q = id => el.querySelector(`[data-testid="${id}"]`);
-  expect(q('agent-cockpit')).not.toBeNull(); expect(q('agd-more')).not.toBeNull();
-  expect(q('agd-kpis')).toBeNull(); expect(q('lens-live-pane')).toBeNull(); expect(el.querySelectorAll('.ags-mini')).toHaveLength(0);
-  expect(call.mock.calls.filter(c => !c[1] && c[0] !== '/admin/ai/chat').map(c => c[0])).toEqual(['/admin/agents']); expect(call.mock.calls.filter(c => c[0] === '/admin/ai/chat' && !c[1]).length).toBeLessThanOrEqual(1);   /* the Brain reads its own chat state once */                              // still ONE request
-  await act(async () => { root.unmount(); });
-  try { localStorage.removeItem('feeless.agentMore'); } catch (e) { /* none */ }
 });
