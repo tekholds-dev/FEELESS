@@ -1223,11 +1223,16 @@ def autopsy(state, now):
     done_ids = {a['id'] for a in st.get('autopsies') or []}
     aut = list(st.get('autopsies') or [])
     oldest = min((_f(a.get('calledAt')) for a in aut), default=0.0) if len(aut) >= 60 else 0.0   # only 60 are kept: a rug older than the oldest kept one was already done
-    for d in list((st.get('open') or {}).values()) + list(st.get('done') or []):
+    by_key = {f"{a.get('sym')}:{int(_f(a.get('calledAt')))}": a for a in aut}   # ONE autopsy per call: an open call (no mint on it) and its judged copy are the same rug
+    for m_, d in [(k, v) for k, v in (st.get('open') or {}).items()] + [(None, v) for v in st.get('done') or []]:
         p5, p60 = d.get('p5'), d.get('p60')
         rug = (p5 is not None and _f(p5) <= RUG_P5) or (p60 is not None and _f(p60) <= -100)
-        did = f"{d.get('mint')}:{int(_f(d.get('at')))}"
-        if not rug or did in done_ids or _f(d.get('at')) < oldest:
+        did = f"{d.get('mint') or m_}:{int(_f(d.get('at')))}"
+        same = by_key.get(f"{d.get('sym')}:{int(_f(d.get('at')))}")
+        if rug and same is not None and same.get('p60') is None and p60 is not None:   # the 60-min result lands on the SAME autopsy
+            same.update(p60=p60, text=same['text'].replace(f"{_f(p5):+.0f}% in 5 min)", f"{_f(p5):+.0f}% in 5 min, {_f(p60):+.0f}% in 60)", 1))
+            continue
+        if not rug or did in done_ids or same is not None or _f(d.get('at')) < oldest:
             continue
         drv = list(d.get('drivers') or [])
         aut.append({'id': did, 'sym': d.get('sym'), 'at': now, 'calledAt': d.get('at'), 'kind': d.get('kind'), 'go': bool(d.get('go')),
@@ -1235,6 +1240,12 @@ def autopsy(state, now):
                     'text': f"${d.get('sym')} rugged ({_f(p5):+.0f}% in 5 min{'' if p60 is None else f', {_f(p60):+.0f}% in 60'})"
                             + (" after a GO" if d.get('go') else '') + (f" — we read it as: {', '.join(word(x) for x in drv[:3])}" if drv else '')})
     aut.sort(key=lambda a: _f(a.get('calledAt')))
+    seen_ = {}
+    for a in aut:   # old duplicates (written before the fix): keep the one that knows the 60-min result
+        k_ = f"{a.get('sym')}:{int(_f(a.get('calledAt')))}"
+        if k_ not in seen_ or (seen_[k_].get('p60') is None and a.get('p60') is not None):
+            seen_[k_] = a
+    aut = sorted(seen_.values(), key=lambda a: _f(a.get('calledAt')))
     st['autopsies'], st['rugSigns'] = aut[-60:], rug_lift(_judged(st, 5))
     return st
 

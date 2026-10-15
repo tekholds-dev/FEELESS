@@ -12,6 +12,7 @@ import { ReadyStrip, SeatState, SwitchEval, CreatorLimits, ReviewQueue, MissedWi
 import { KernelBoard } from './SeatOps';
 import { AgentCockpit } from './AgentCockpit';
 import { AiChipBtn } from './AiProviders';
+import { GenPods, RugWall, CreedFold } from './LifeLens';
 
 export { rowState, rowWhy, pipsOf, rankFill };
 
@@ -119,25 +120,6 @@ export function IdeaBox({ ideas, isOwner, busy, save, need = 15 }) {
       : <small className="m-dim">No new tactic yet — two reasons must show up together on 10+ judged calls with a clear result (≥ +3% typical and 55% up, or ≤ −5%).</small>}
     {past.length > 0 && <small className="m-dim">Reviewed: {past.map(i => `${i.status === 'approved' ? '✅' : '✕'} ${i.kind} (${i.n} calls ${i.med >= 0 ? '+' : ''}${i.med}%)`).join(' · ')}</small>}</div>;
 }
-// 📜 THE CREED
-export function CreedBox({ creed }) {
-  return <details open className="agd-box agd-creed" data-testid="agd-creed"><summary><b>📜 THE CREED · engraved in their code</b></summary>
-    <ol>{(creed || []).map((c, i) => <li key={i}>{c}</li>)}</ol></details>;
-}
-// 🧬 GENERATIONS — ONE lifecycle for all ten roles (backend trench_kernel/lifecycle.py). The generation in control is ACTIVE or on
-// PROBATION; a replaced one is SHADOW for 24h (on the record, no live authority) and then RETIRED. Judged on REAL exits only.
-const GEN_CLS = { ACTIVE: 'is-alive', PROBATION: 'is-probation', SHADOW: 'is-scrap', RETIRED: 'is-scrap' };
-export function Generations({ gens, agents }) {
-  const meta = Object.fromEntries((agents || []).map(a => [a.key, a]));
-  if (!(gens || []).length) return <div className="agd-box" data-testid="agd-gens"><b>🧬 GENERATIONS</b><small className="m-dim">the lifecycle book arrives with the first office pass</small></div>;
-  return <div className="agd-box agd-gens" data-testid="agd-gens"><b>🧬 GENERATIONS · one lifecycle for all ten roles · judged on real exits only</b>
-    <ul className="agd-bars">{gens.map(g => { const a = meta[g.role] || {}; const lesson = Object.entries(g.lessonVector || {});
-      return <li key={g.role} data-testid={`gen-${g.role}`} data-tip={g.why || undefined}><span>{a.icon} {a.name || g.role} · gen {g.generation}</span>
-        <em className={`agd-life ${GEN_CLS[g.status] || ''}`} data-testid={`gen-status-${g.role}`}>{g.status === 'ACTIVE' ? '🟢 ACTIVE' : g.status === 'PROBATION' ? '⚠ PROBATION' : g.status}</em>
-        <small>{g.decisions ?? 0} real exits · {g.winsAttributed ?? 0} wins credited · {g.lossesAttributed ?? 0} losses pinned · net {g.net ?? 0} (probation at {g.probationAt}, replaced at {g.replaceAt}){g.netImpact != null ? ` · typical trade ${pct(g.netImpact)}` : ''}
-          {lesson.length ? ` · lesson: ${lesson.map(([k, v]) => `${k} ${v}`).join(', ')}` : ' · lesson: defaults'}
-          {(g.lineage || []).length ? ` · replaced: ${g.lineage.slice(0, 2).map(p => `gen ${p.gen} ${p.status}${p.changed ? ` (${p.changed})` : ''}`).join(' · ')}` : ''}</small></li>; })}</ul></div>;
-}
 // 🏭 THE WORK FLOOR — every mark is a real thing from the last pass (nothing decorative): Tally's dots = the coins it read (green up / pink
 // down over 5 min), Sherlock's tags = the reasons it weighed most this pass, Trigger's crosshairs = its real ENTER calls, Devil's marks = its
 // real verdicts on them. Re-keyed per pass, so each new pass plays in. Real ms per agent beside each lane.
@@ -162,12 +144,6 @@ export function Edge({ d }) {
   return <div className="agd-box agd-edge" data-testid="agd-edge"><b>🎯 CALIBRATION · does a stronger read win more?</b>
     {Object.keys(cal).length ? <ul className="agd-bars">{Object.entries(cal).map(([b, v]) => <li key={b}><span>lean {b}</span><DivBar v={v.med} /><em className={tone(v.med)}>{pct(v.med)}</em><small>{v.won}% up · n {v.n}</small></li>)}</ul> : <small className="m-dim">no ENTER judged yet</small>}
     <small className="m-dim">🌡 trench {rg ? `${rg.word}${rg.green != null ? ` (${rg.green}% green over 5 min)` : ''} → Trigger's bar ${rg.adj > 0 ? '+' : ''}${rg.adj}` : '—'} · 🔥 {d?.burned || 0} coin{d?.burned === 1 ? '' : 's'} burned (6h) · 🕸 {Object.keys(d?.cut || {}).length ? `budget cut: ${Object.keys(d.cut).join(', ')}` : 'no source cut yet'}</small></div>;
-}
-// 🔬 every rug the desk was on: what it read, what it missed — and the reasons that keep showing up in rugs (Devil objects to 2+ of them)
-export function AutopsyBox({ list, signs }) {
-  return <div className="agd-box agd-autopsy" data-testid="agd-autopsy"><b>🔬 RUG AUTOPSY · what we missed</b>
-    {(list || []).length ? <ul>{list.map(a => <li key={a.id}>{a.text}{(a.missed || []).length ? <small> · missed: {a.missed.join(', ')}</small> : null}</li>)}</ul> : <small className="m-dim">no rug on the desk yet</small>}
-    {(signs || []).length > 0 && <span className="agd-tags">{signs.map(x => <i key={x.key} className={x.n >= 3 ? 'is-bad' : ''}>☠ {x.words} ×{x.n}</i>)}</span>}</div>;
 }
 export const agentLine = a => (a.n ? `${a.n} judged · ${pct(a.med)} typical at 5 min${a.right != null ? ` · ${a.right}% right` : ''}` : 'no judged calls yet — every call is checked 5 minutes later');
 
@@ -300,8 +276,8 @@ export function AgentDesk({ call, isOwner = true }) {
       <Edge d={d} /><MindBox m={d.mind} />
       <div className="agd-wide"><IdeaBox ideas={d.ideas} isOwner={isOwner} busy={busy} save={save} need={d.approveN || 15} /></div></div>}
     {show('life') && <div className="agd-grid" data-testid="lens-life-pane">
-      <div className="agd-wide"><Generations gens={gens} agents={d.office?.agents} /></div>
-      <AutopsyBox list={d.autopsies} signs={d.rugSigns} /><CreedBox creed={d.creed} /></div>}
+      <div className="agd-wide"><GenPods gens={gens} agents={d.office?.agents} /></div>
+      <div className="agd-wide"><RugWall list={d.autopsies} signs={d.rugSigns} /></div><div className="agd-wide"><CreedFold creed={d.creed} /></div></div>}
     {show('ctl') && <div className="agd-grid is-ctl" data-testid="lens-ctl-pane">
       <div className="agd-wide"><RoadMeter road={d.road} /></div>
       <div className="agd-box" data-testid="agd-desk"><b>📜 TRENCH DESK · 25% a GO, out at 5 min · goal 10×</b><p className={`agd-big ${tone(d.desk.now - d.desk.start)}`}>${d.desk.now.toFixed(2)} <small>{d.desk.x}× of ${d.desk.start} · best run {d.desk.best}× · {d.desk.busts} bust{d.desk.busts === 1 ? '' : 's'} · {d.desk.trades} trades</small></p>

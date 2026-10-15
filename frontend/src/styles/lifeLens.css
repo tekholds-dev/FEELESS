@@ -1,0 +1,52 @@
+/* 🧬 The Life lens (LifeLens.jsx): generation pods, rug wall, creed. m-* tokens, transform / opacity only. */
+.lfl-box { padding: 10px 12px; border-radius: 12px; min-width: 0; }
+.lfl-box h4 { margin: 0 0 8px; font: 800 11px var(--m-mono); letter-spacing: .1em; color: var(--m-text); display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.lfl-box h4 small { font: 600 9.5px var(--m-mono); letter-spacing: .02em; color: var(--m-dim); }
+.lfl-pods { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.lfl-pod { position: relative; display: grid; gap: 6px; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--m-line); background: rgba(0, 0, 0, .28);
+  font: 600 10px var(--m-mono); animation: lflIn .35s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 50ms); transition: transform .15s, border-color .15s; }
+.lfl-pod:hover { transform: translateY(-2px); border-color: var(--m-line-hi); }
+.lfl-pod.is-good { box-shadow: inset 2px 0 0 #15d16a; } .lfl-pod.is-warn { box-shadow: inset 2px 0 0 var(--gold); } .lfl-pod.is-bad { box-shadow: inset 2px 0 0 #ff8fa3; }
+.lfl-pod.is-hot::after { content: ''; position: absolute; inset: -1px; border-radius: 10px; border: 1px solid #ff8fa3; pointer-events: none; animation: lflBeat 1.4s ease-in-out infinite; }
+.lfl-pod header { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.lfl-pod header b { font-size: 11px; color: var(--m-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lfl-ico { font-size: 14px; }
+.lfl-gen { padding: 1px 5px; border-radius: 6px; background: rgba(21, 209, 106, .14); color: #45e486; font-weight: 800; text-transform: uppercase; animation: lflFlip .5s cubic-bezier(.2, .8, .2, 1) both; }
+.lfl-st { margin-left: auto; font-style: normal; font-weight: 800; letter-spacing: .06em; font-size: 9px; }
+.lfl-st.is-good, .is-good > .lfl-life em { color: #45e486; } .lfl-st.is-warn, .is-warn > .lfl-life em { color: var(--gold); } .is-bad > .lfl-life em { color: #ff8fa3; } .lfl-st.is-dim { color: var(--m-mute); }
+.lfl-life, .lfl-tug { display: grid; grid-template-columns: auto 1fr auto; gap: 6px; align-items: center; }
+.lfl-tug { grid-template-columns: 1fr; gap: 3px; }
+.lfl-life small, .lfl-chips > small, .lfl-drops small { color: var(--m-mute); font-size: 8.5px; letter-spacing: .1em; }
+.lfl-life em, .lfl-drops em { font-style: normal; font-weight: 800; font-size: 9px; }
+.lfl-track { display: block; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, .07); overflow: hidden; }
+.lfl-track > i { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, #0e8a4a, #45e486); transition: transform .6s cubic-bezier(.2, .8, .2, 1); }
+.is-warn .lfl-life .lfl-track > i { background: linear-gradient(90deg, #8a6a12, var(--gold)); } .is-bad .lfl-life .lfl-track > i { background: linear-gradient(90deg, #8a2a3a, #ff8fa3); }
+.lfl-track.is-drop > i { background: linear-gradient(90deg, #ff8fa3, #8a2a3a); }
+.lfl-split { display: flex; height: 5px; border-radius: 3px; overflow: hidden; background: rgba(255, 255, 255, .07); }
+.lfl-split > i { flex: 1 1 0; min-width: 0; }
+.lfl-split > .is-w { background: #15d16a; } .lfl-split > .is-l { background: #ff8fa3; }
+.lfl-tug small { color: var(--m-dim); }
+.lfl-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; min-width: 0; }
+.lfl-chip { font-style: normal; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--m-line); color: var(--m-dim); font: 600 9px var(--m-mono); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lfl-chip.is-bad { border-color: rgba(255, 143, 163, .45); color: #ff8fa3; } .lfl-chip.is-lesson { border-color: rgba(21, 209, 106, .35); color: #45e486; }
+.lfl-tombs { display: flex; flex-wrap: wrap; gap: 3px; }
+.lfl-tomb { font-style: normal; font: 700 8.5px var(--m-mono); color: var(--m-mute); padding: 0 4px; border-radius: 4px; background: rgba(255, 255, 255, .04); animation: lflIn .3s both; animation-delay: calc(var(--j, 0) * 40ms); }
+.lfl-rugs { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.lfl-rug { display: grid; gap: 6px; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255, 143, 163, .22); background: linear-gradient(160deg, rgba(255, 143, 163, .07), rgba(0, 0, 0, .3) 60%);
+  font: 600 10px var(--m-mono); animation: lflIn .35s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 50ms); transition: transform .15s; }
+.lfl-rug:hover { transform: translateY(-2px); }
+.lfl-rug.is-go { border-color: rgba(255, 143, 163, .6); }
+.lfl-rug header { display: flex; gap: 6px; align-items: center; } .lfl-rug header b { color: var(--m-text); font-size: 11px; } .lfl-rug header small { margin-left: auto; color: var(--m-mute); }
+.lfl-drops { display: grid; gap: 4px; } .lfl-drops > span { display: grid; grid-template-columns: 42px 1fr 52px; gap: 6px; align-items: center; } .lfl-drops em { color: #ff8fa3; text-align: right; }
+.lfl-more { margin-top: 8px; }
+.lfl-creed summary { cursor: pointer; list-style: none; } .lfl-creed summary::-webkit-details-marker { display: none; } .lfl-creed summary h4 { margin: 0; }
+.lfl-creed summary:focus-visible { outline: 1px solid #45e486; outline-offset: 3px; border-radius: 6px; }
+.lfl-creed ol { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; font: 600 10px/1.45 var(--m-mono); color: var(--m-dim); }
+.lfl-creed ol li { animation: lflIn .3s both; animation-delay: calc(var(--i, 0) * 30ms); }
+@keyframes lflIn { from { transform: translateY(6px) scale(.98); } to { transform: none; } }
+@keyframes lflFlip { from { transform: scale(1.35); } to { transform: none; } }
+@keyframes lflBeat { 0%, 100% { opacity: .25; transform: scale(1); } 50% { opacity: 1; transform: scale(1.01); } }
+body.fx-lite .lfl-pod, body.fx-lite .lfl-rug, body.fx-lite .lfl-tomb, body.fx-lite .lfl-gen, body.fx-lite .lfl-creed ol li, body.fx-lite .lfl-pod.is-hot::after { animation: none; }
+@media (prefers-reduced-motion: reduce) { .lfl-pod, .lfl-rug, .lfl-tomb, .lfl-gen, .lfl-creed ol li, .lfl-pod.is-hot::after { animation: none; } .lfl-track > i { transition: none; } }
+body.theme-day .lfl-pod, body.theme-day .lfl-rug { background: rgba(236, 246, 240, .85); } body.theme-day .lfl-gen { color: #0e8a4a; } body.theme-day .lfl-chip.is-lesson { color: #0e8a4a; }
+@media (max-width: 640px) { .lfl-pods, .lfl-rugs { grid-template-columns: 1fr; } }

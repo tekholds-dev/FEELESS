@@ -1,7 +1,8 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { AgentDesk, Generations, agentLine, rowState, rowWhy, pipsOf, rankFill, boardRows, boardCounts, passLeft, liCells } from './AgentDesk';
+import { GenPods } from './LifeLens';
+import { AgentDesk, agentLine, rowState, rowWhy, pipsOf, rankFill, boardRows, boardCounts, passLeft, liCells } from './AgentDesk';
 import { devilOf, VERD } from '../../lib/agentRead';
 import office from './__fixtures__/office.json';
 jest.mock('../terminal/PriceChart', () => ({ PriceChart: () => <div data-testid="price-chart" /> }));   // the live chart needs a canvas
@@ -133,7 +134,7 @@ test('ONE meaning of a decision: the state, the fact that decided it, the pips, 
 
 test('the generations lens says when the book has not arrived', async () => {
   const el = document.createElement('div'); document.body.appendChild(el);
-  await act(async () => { createRoot(el).render(<Generations gens={[]} agents={[]} />); });
+  await act(async () => { createRoot(el).render(<GenPods gens={[]} agents={[]} />); });
   expect(el.textContent).toContain('arrives with the first office pass');
 });
 

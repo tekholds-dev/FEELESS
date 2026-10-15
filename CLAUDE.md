@@ -4383,3 +4383,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `germ` word lost · floor (≤ 8% above) · near (≤ 25%) · far + `germDist` / `germRun`; thesis keeps it; rule lab token `germ:<word>` (proposed
   and judged walk-forward like every token); `germ_floor` paper strategy (record only); the model's chart line names it. It weighs only once its
   own record proves it — never by belief.
+- 🧬 THE LIFE LENS (owner, 2026-10-15, screenshot of the Gens tab as a wall of unstyled text: "a cool way to show stuff like this in live realtime
+  meta degen animation"; `command/LifeLens.jsx` + `lib/lifeLens.js` (pure, tested) + `styles/lifeLens.css` `lfl-*`, Agents › 🧬 Gens): the
+  Generations / Rug autopsy / Creed boxes had LOST ALL THEIR CSS (the rules were pruned, the JSX stayed). Now one pod per role (gen badge that
+  pops on a new generation, LIFE bar = how far from replacement (`genRisk`: net = losses pinned − wins credited vs `replaceAt`), wins vs losses
+  split bar, lesson chips, replaced generations as ☠ tombstones, a pulsing edge near replacement) · a wall of rug cards (5 / 60-min drop bars,
+  READ AS / MISSED chips, "after a GO") · the creed folded. Entrance keyframes transform-only. 🐛 Every rug showed TWICE: an open call has no
+  mint on its own record, so its autopsy id read "None:<t>" and the judged copy got a second one — `paper_desk.autopsy` now keys one autopsy
+  per (coin, call time), lands the 60-min result on it, and folds old duplicates. A NEW BOX ON A PAGE ⇒ check its classes exist in a stylesheet.

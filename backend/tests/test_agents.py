@@ -418,3 +418,14 @@ def test_the_degen_ideas_are_paper_first_strategies_with_no_starting_belief():
     rows = [{'mint': 'A', 'symbol': 'PEPE', 'mcap': 90000, 'ageH': 5}, {'mint': 'B', 'symbol': 'PEPE2', 'name': 'baby pepe', 'mcap': 20000, 'ageH': 1},
             {'mint': 'C', 'symbol': 'DOG', 'mcap': 5000}, {'mint': 'D', 'symbol': 'TINY', 'mcap': 1}, {'mint': 'E', 'symbol': 'TINY', 'mcap': 2}]
     assert mt.wave_roles(trend, rows) == {'A': 'lead', 'B': 'copy'}                               # a 3-coin "wave" is not a wave
+
+
+def test_one_rug_one_autopsy_and_the_60_min_result_lands_on_it():
+    import paper_desk as pd
+    call = {'sym': 'Hugo', 'at': 1000.0, 'p5': -53.0, 'p60': None, 'drivers': ['fresh']}
+    st = pd.autopsy({'open': {'MINTH': dict(call)}}, 1300)                          # open call: no mint on the record itself
+    st = pd.autopsy({**st, 'open': {}, 'done': [{**call, 'mint': 'MINTH', 'p60': -68.0}]}, 4600)
+    assert len(st['autopsies']) == 1 and st['autopsies'][0]['p60'] == -68.0 and '-68% in 60' in st['autopsies'][0]['text']
+    old = {'autopsies': [{'id': 'None:1000', 'sym': 'X', 'calledAt': 1000, 'p5': -60, 'p60': None, 'text': 'a'},
+                         {'id': 'M:1000', 'sym': 'X', 'calledAt': 1000, 'p5': -60, 'p60': -80, 'text': 'b'}]}
+    assert [a['text'] for a in pd.autopsy(old, 5000)['autopsies']] == ['b']        # duplicates written before the fix fold to the fuller one
