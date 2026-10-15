@@ -24,6 +24,7 @@ import os  # noqa: E402
 NODES = [u for u in (os.environ.get('HELIUS_RPC_URL', '').strip(), 'https://api.mainnet-beta.solana.com') if u]
 WSOL = 'So11111111111111111111111111111111111111112'
 MAX_TX = int(sys.argv[1]) if len(sys.argv) > 1 else 220
+ONLY = sys.argv[2] if len(sys.argv) > 2 else None   # 'rug' | 'win' — one group only (writes data/rug_replay_<kind>.json)
 _http = httpx.Client(timeout=20)
 _last = [0.0]
 
@@ -99,6 +100,8 @@ def main():
     ctrl = sorted([p for p in pos if young(p) and p['realPct'] > 0], key=lambda p: -p['since'])[:20]
     out = []
     for kind, group in (('rug', rugs), ('win', ctrl)):
+        if ONLY and kind != ONLY:
+            continue
         for p in group:
             b = next((x for x in buys.get(p['mint'], []) if abs(x['at'] - p['since']) < 600), None)
             if not b or not b.get('pair'):
@@ -118,7 +121,7 @@ def main():
             out.append({'kind': kind, 'sym': p['sym'], 'mint': p['mint'], 'pair': b['pair'], 'realPct': p['realPct'], 'buyAt': b.get('confirmedAt') or p['since'],
                         'exitAt': p['closedAt'], 'liqBuy': b.get('liq'), 'nSigs': len(ss), 'rows': rows})
             print(kind, p['sym'], len(ss), 'txs', len(rows), 'read', flush=True)
-            (DATA / 'rug_replay.json').write_text(json.dumps(out))
+            (DATA / (f'rug_replay_{ONLY}.json' if ONLY else 'rug_replay.json')).write_text(json.dumps(out))
     print('written', len(out))
 
 

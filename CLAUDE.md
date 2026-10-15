@@ -4347,3 +4347,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   owner's `trenchSlPct` 100 — so $HTR's −15 / −19 / −20% all read "−100% → …"). `arena_prime.ticket_stops(c, cfg)` (the tick's pass, now
   its own function) never touches a leg with `ownerLvAt`, heals a wiped line from the owner's latest `level` event, and `set_leg(sl=)` clears
   ride-or-rug on that coin. "MY LINE DIDN'T STICK" ⇒ read the card's `level` events: a "before" of −100% means something reset it.
+- ☠ RUG EARLY-WARNING RESULT (2026-10-15, `scripts/rug-replay.py` + `scripts/rug-signal-test.py`, 14 real rugs + 5 young winners so far):
+  "sells ≥ 3× buys from ≥ 4 wallets in 30s" caught 4/14 rugs (median 33s early) but would have sold 1/5 winners → NOT shipped (rule set in
+  advance: ≤ 1 in 10 winners). "pool SOL −15% in 30s" caught 3/14 (median 27s early), 0/5 winners — a candidate ONLY once the full winner
+  set (≈ 20) is replayed: `backend/.venv/bin/python scripts/rug-replay.py 90 win` → re-run the test. Most rugs give no pool-level warning
+  before the pull (X pulled 2s after our buy) — the rug budget (seat size) stays the main defence.

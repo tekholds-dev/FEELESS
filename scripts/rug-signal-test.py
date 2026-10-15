@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """☠ Rug early-warning test (read-only): reads data/rug_replay.json (scripts/rug-replay.py) and, per signal, counts rugs it caught ≥ 6s before the pull vs young WINNERS it would have sold. Ship a signal only if it catches rugs without selling winners.  python3 scripts/rug-signal-test.py"""
 import json, sys, statistics as S
+import os
 D = json.load(open(sys.argv[1] if len(sys.argv) > 1 else 'backend/data/rug_replay.json'))
+for extra in ('backend/data/rug_replay_win.json', 'backend/data/rug_replay_rug.json'):   # a split run (one group per file) joins in
+    if len(sys.argv) <= 1 and os.path.exists(extra):
+        have = {(d['kind'], d['mint'], round(d['buyAt'])) for d in D}
+        D += [d for d in json.load(open(extra)) if (d['kind'], d['mint'], round(d['buyAt'])) not in have]
 
 
 def pull_time(rows):
