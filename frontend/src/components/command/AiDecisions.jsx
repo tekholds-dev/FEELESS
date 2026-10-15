@@ -91,11 +91,13 @@ export function ModelReport({ rows }) {
 export function DuetLine({ d }) {
   if (!d) return null;
   const pct = x => (x == null ? 0 : Math.max(0, Math.min(100, x)) / 100);
-  return <div className="cai-duet" data-testid="cai-duet" data-tip={d.why}>
-    <span className="cai-lhead"><b>🤝 DUET · GEMMA + QWEN</b><em>{d.trustedName ? `listens to ${d.trustedName}` : 'LEARNING'}</em></span>
-    <div className="cai-duet-row"><small>AGREE</small><span className="cai-meter"><i style={{ transform: `scaleX(${pct(d.agreePct)})` }} /></span><b>{d.agreePct == null ? '—' : `${d.agreePct}%`}</b><small>{d.pairs} pairs</small></div>
+  const who = { lan: '🖥 GEMMA', local: '💻 QWEN' }[d.trusted];
+  const why = who ? `${who} wins splits on its own record — a split goes its way` : `${d.splits || 0} of ${d.need || 10} called splits judged — a split stays neutral until one model proves it wins them`;
+  return <div className="cai-duet" data-testid="cai-duet" data-tip={why}>
+    <span className="cai-lhead"><b>🤝 DUET · GEMMA + QWEN</b><em>{who ? `listens to ${who}` : 'LEARNING'}</em></span>
+    <div className="cai-duet-row"><small>AGREE</small><span className="cai-meter"><i style={{ transform: `scaleX(${pct(d.agreePct)})` }} /></span><b>{d.agreePct == null ? '—' : `${d.agreePct}%`}</b><small>{d.pairs || 0} pairs</small></div>
     <div className="cai-duet-row"><small>🖥 WINS SPLITS</small><span className="cai-meter"><i style={{ transform: `scaleX(${pct(d.leadPct)})` }} /></span><b>{d.leadPct == null ? '—' : `${d.leadPct}%`}</b>
-      <small>💻 {d.secondPct == null ? '—' : `${d.secondPct}%`} · {d.splits} splits</small></div>
+      <small>💻 {d.secondPct == null ? '—' : `${d.secondPct}%`} · {d.splits || 0} splits</small></div>
     {d.bothCaution?.n ? <small className="cai-duet-note">both CAUTION: {d.bothCaution.right}% fell · typical {d.bothCaution.med > 0 ? '+' : ''}{d.bothCaution.med}% ({d.bothCaution.n})</small> : null}
   </div>;
 }

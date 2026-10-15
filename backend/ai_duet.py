@@ -147,7 +147,7 @@ def combine(lead_text, second_text):
 
 def view(rec):
     """What the page shows: the record + who the pair listens to on a split."""
-    t = trusted(rec)
-    return {**(rec or {}), 'trusted': t, 'trustedName': NAME.get(t), 'lead': NAME[LEAD], 'second': NAME[SECOND],
-            'why': (f"{NAME[t]} wins splits on its own record — a split goes its way" if t else
-                    f"{(rec or {}).get('splits', 0)} of {TRUST_N} called splits judged — a split stays neutral until one model proves it")}
+    r = rec or {}
+    if not r.get('pairs'):   # nothing paired yet: one tiny line (the office payload is capped at 100 KB)
+        return {'pairs': 0, 'need': TRUST_N}
+    return {**{k: v for k, v in r.items() if v not in (None, 0) or k == 'pairs'}, 'trusted': trusted(r), 'need': TRUST_N}
