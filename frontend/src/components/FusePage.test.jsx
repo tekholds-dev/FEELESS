@@ -11,7 +11,7 @@ jest.mock('./EcosystemChat', () => ({ __esModule: true, default: ({ room }) => <
 jest.mock('./FuseCard', () => ({ LiveFuseCard: ({ r }) => <div data-testid={`live-${r.id}`} />, FuseCard: ({ c, aura }) => <div className="fcd-mock" data-aura={aura} data-n={c.legs.length} /> }));
 jest.mock('./FuseGo', () => ({ FuseGo: p => <div data-testid="fusego" data-side={p.side} data-n={(p.orders || []).length} /> }));
 // eslint-disable-next-line import/first
-import { FusePage, togglePick, collectSplit, filterBySource } from './FusePage';
+import { FusePage, togglePick, filterBySource } from './FusePage';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const tick = () => act(async () => { await new Promise(r => setTimeout(r, 0)); });
@@ -51,7 +51,6 @@ test('runner picks cap at 3 and toggle off', () => {
   let p = []; [1, 2, 3, 4].forEach(i => { p = togglePick(p, r(i)); });
   expect(p.map(x => x.mint)).toEqual(['R1', 'R2', 'R3']);
   expect(togglePick(p, r(2)).map(x => x.mint)).toEqual(['R1', 'R3']);
-  expect(collectSplit(33.3, ROW.legs).every(l => l.pct === 33.3)).toBe(true);
 });
 
 test('Fuse 🧬: tabs, runners carry into the Lab, My cards shows every action', async () => {

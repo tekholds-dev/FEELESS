@@ -735,6 +735,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         elif not act and mine and live and pct >= (NOISE_TP if noise_ else SCALE_AT) and not p.get('scaled') and not degraded_pre(ch, rv):   # 💰 SCALE-OUT: half banked at +10%, the rest rides the trail
             st, rule, ev, act = 'TAKE', 'R6h half banked', f"{pct:+.1f}% ≥ +{SCALE_AT:g}%: {SCALE_PCT:g}% sold now, the rest rides the trail (replay: +6.5% avg vs +4.3% real)", 'trim'
             p['scaled'] = now
+        act, st, ev = owner_ask(p, l, act, st, rule, ev, pct, px, now)   # ✋ your SL / TP is set: a soft exit asks you first (hard safety exits never wait)
         if act and pct >= RUNWAY_KEEP and (str(rule).split(' ')[0] in RUNWAY_RULES) and (held_s < RUNWAY_SEC or str(rule).startswith('R5t')):
             ev += (f" · 🛫 runway: a green coin is not banked in its first {RUNWAY_SEC / 60:.0f} min ({round(RUNWAY_SEC - held_s)}s left) — the trail still sells it under +{RUNWAY_KEEP:g}%"
                    if not str(rule).startswith('R5t') else ' · 🛫 a broken thesis never sells a GREEN coin — the trail protects it')
@@ -764,7 +765,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
                     'nextReview': (rv or {}).get('next') if rv else round((int(held // _ci.WINDOW_MIN) + 1) * _ci.WINDOW_MIN * 60 - held * 60),
                     'chart': None if not ch else {k: ch.get(k) for k in ('trend', 'chop', 'mom', 'ext')} | {k: (ch.get('f') or {}).get(k) for k in ('hh', 'hl', 'lh', 'll', 'lastHigh', 'lastLow', 'accel', 'decay', 'upWick', 'liqD')},
                     **{'posRound': _tr.position_round(_f(p.get('since')) or now, now), 'roundAction': _tr.action_word(st), 'mfe': round(_f(p.get('peak')), 2), 'mae': round(_f(p.get('low')), 2), 'src': p.get('src')},   # ⏱ the position's own 5-minute round
-                    'tape': tp, 'usd': round(_f(l.get('units')) * px, 4), 'warden': p.get('warden'), 'dataDegraded': degraded, 'data': _md.compact((ch or {}).get('q')),
+                    'ask': p.get('ask'), 'tape': tp, 'usd': round(_f(l.get('units')) * px, 4), 'warden': p.get('warden'), 'dataDegraded': degraded, 'data': _md.compact((ch or {}).get('q')),
                     'vel': vl.get('state'), 'velWhy': vl.get('why'), 'run': 'DEAD' if dead_ else ('HEALTHY' if rs_ == 'STALLING' and pct >= 0 and (rv or {}).get('verdict') == 'valid' else rs_), 'runner': runner_, 'deadMin': None if not p.get('deadSince') else round((now - _f(p['deadSince'])) / 60, 1), 'quality': quality, 'ext': len(p.get('ext') or []), 'extWhy': p.get('extWhy'), 'baseWindows': base_w if th else None,
                     'launch': p.get('launch'), 'onTable': bool(x), 'offRadarSec': None if x or not p.get('offSince') else round(now - _f(p.get('offSince'))), 'live': bool(live), 'limits': {'tp': pol.get('tp'), 'sl': pol.get('sl'), 'maxHold': max_hold, 'trail': tr_.get('mode'), 'manual': manual}})
     gone = []
@@ -780,6 +781,52 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
 # Selection bias: only coins that reached +10% — the live twin (after_path.scale_twin) keeps judging it on new exits. Once per position.
 SCALE_AT = 10.0
 SCALE_PCT = 75.0   # 2026-10-15: 50% left too much on the table for rugs after the take (honest replay: half +3.1% avg · 75% +6.5% · real +4.3%)
+
+
+# ✋ YOUR LINE IS RESPECTED (owner, 2026-10-15: "if I adjust the SL and / or TP they need to respect it or give me a reason to approve their
+# decision"): on a coin whose SL / TP you dragged, every discretionary exit (trail, thesis, time, flow banks, scale-out, dead coin …) becomes a
+# QUESTION with its reason — the seat is held until you ✅ approve (the next tick sells) or ✋ keep your line (that rule is quiet 10 min).
+# Hard safety exits never wait: pool collapse, scan / rug / drain / early-wallet dumps, the −45% line, your own stop and the creator overrides.
+ASK_HARD = ('R1', 'R2', 'R3', 'R4', 'R4r', 'R4d', 'R4e', 'R5', 'R5x', 'R5c', 'R9c')
+ASK_OK_SEC = 180.0     # an approval lets that rule sell for this long
+ASK_KEEP_SEC = 600.0   # "keep my line" quiets that rule this long
+
+
+def owner_ask(p, l, act, st, rule, ev, pct, px, now):
+    """→ (act, st, ev). Only for coins with YOUR line (leg ownerLvAt); hard rules pass through."""
+    if not l.get('ownerLvAt') or not act:
+        if not act:
+            p.pop('ask', None)
+        return act, st, ev
+    key = str(rule).split(' ')[0]
+    if key in ASK_HARD:
+        p.pop('ask', None)
+        return act, st, ev
+    ok_, no_ = p.get('askOk') or {}, p.get('askNo') or {}
+    if ok_.get('rule') == key and now - _f(ok_.get('at')) <= ASK_OK_SEC:
+        p.pop('ask', None)
+        return act, st, ev + ' · ✅ you approved'
+    if no_.get('rule') == key and now - _f(no_.get('at')) <= ASK_KEEP_SEC:
+        return None, 'PROTECT', ev + ' · ✋ you kept your line — this rule is quiet for 10 min'
+    old = p.get('ask') or {}
+    p['ask'] = {'rule': key, 'name': rule, 'why': str(ev)[:220], 'pct': round(pct, 2), 'px': px, 'at': old.get('at') if old.get('rule') == key else now}
+    return None, 'PROTECT', ev + ' · ✋ your SL / TP is set — Reaper ASKS you first (approve or keep your line)'
+
+
+def ask_grade(log, price_of, now, after=900.0):
+    """Your answers to Reaper's questions, judged 15 min later: KEEP was right when the coin is at / above where it was asked, APPROVE was
+    right when it is below. → (log, {kept: [n, right], approved: [n, right]})."""
+    rows, rec = [dict(r) for r in log or []], {'kept': [0, 0], 'approved': [0, 0]}
+    for r in rows:
+        if r.get('res') is None and now - _f(r.get('at')) >= after:
+            q = _f(price_of(r.get('mint')))
+            if q > 0 and _f(r.get('px')) > 0:
+                r['res'] = round((q / _f(r['px']) - 1) * 100, 2)
+        if r.get('res') is not None:
+            k = 'kept' if r.get('choice') == 'keep' else 'approved'
+            rec[k][0] += 1
+            rec[k][1] += int((r['res'] >= 0) if k == 'kept' else (r['res'] < 0))
+    return rows[-200:], rec
 
 
 # 🍼 YOUNG COINS BANK WHOLE (2026-10-15, 292 confirmed real agent exits): 141 coins < 5 min old at entry won 72% (median +5%) but held 12 of the

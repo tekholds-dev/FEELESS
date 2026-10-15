@@ -12,18 +12,6 @@ export async function lifiFeeConfig() {
 export const lifiFeeParams = cfg => (cfg?.integrator && cfg.fee > 0
   ? `&integrator=${encodeURIComponent(cfg.integrator)}&fee=${cfg.fee}` : '');
 
-// A mis-set integrator must never block a user's bridge: re-quote without the fee.
-export async function lifiQuote(baseUrl) {
-  const cfg = await lifiFeeConfig();
-  const withFee = lifiFeeParams(cfg);
-  const first = await (await fetch(baseUrl + withFee)).json();
-  if (withFee && !first?.estimate && /integrator|fee/i.test(String(first?.message || ''))) {
-    const plain = await (await fetch(baseUrl)).json();
-    return { ...plain, feelessFeeSkipped: true };
-  }
-  return first;
-}
-
 // FEELESS's share of a LI.FI quote, as LI.FI itemises it in estimate.feeCosts.
 export const lifiFeelessFee = quote => {
   const bps = Number(quote?.feeless?.feeBps || 0);

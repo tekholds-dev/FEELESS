@@ -198,6 +198,25 @@ function ThemePick() {
   return <select className="ack-theme" value={v} onChange={e => setChartBg(e.target.value)} aria-label="Chart theme" data-testid="ack-theme" data-tip="Chart theme — every scene breathes green / red with each real tick">
     {CHART_BGS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>;
 }
+// ✋ REAPER ASKS (owner, 2026-10-15: "if I adjust SL / TP they respect it or give me a reason to approve"): on a coin with YOUR line, a soft
+// exit waits here with its reason — ✅ approve = it sells on the next tick · ✋ keep my line = that rule is quiet 10 min. Your answers are graded.
+export function asksOf(o) { return (o?.positions || []).filter(p => p.ask).map(p => ({ mint: p.mint, symbol: p.symbol || p.sym, ...p.ask })); }
+export function askRecWord(r) {
+  if (!r) return null; const [kn, kr] = r.kept || [0, 0]; const [an, ar] = r.approved || [0, 0];
+  return kn || an ? `your answers: kept your line ${kn}× (${kr} right) · approved ${an}× (${ar} right) — judged 15 min later` : null;
+}
+function ReaperAsks({ o, call, isOwner, reload }) {
+  const [busy, setBusy] = useState(null); const asks = asksOf(o); const rec = askRecWord(o?.askRec);
+  if (!asks.length && !rec) return null;
+  const answer = async (a, ok) => { setBusy(a.mint); try { await call('/admin/agents', { method: 'POST', body: JSON.stringify({ reaperAsk: { mint: a.mint, ok } }) }); reload?.(); } catch (e) { reload?.(); /* the question had closed */ } finally { setBusy(null); } };
+  return <div className="ack-asks" data-testid="ack-asks">
+    {asks.map(a => <div key={a.mint} className="ack-ask" data-testid={`ack-ask-${a.mint}`}>
+      <span><b>☠ Reaper asks · ${a.symbol}</b><small>{a.name} at {pc(a.pct)} — {a.why}</small></span>
+      <button type="button" className="m-btn" disabled={!isOwner || busy === a.mint} onClick={() => answer(a, true)} data-testid={`ack-ask-ok-${a.mint}`}>✅ Approve</button>
+      <button type="button" className="m-btn m-go" disabled={!isOwner || busy === a.mint} onClick={() => answer(a, false)} data-testid={`ack-ask-keep-${a.mint}`}>✋ Keep my line</button></div>)}
+    {rec ? <small className="ack-askrec" data-testid="ack-ask-rec">{rec}</small> : null}</div>;
+}
+
 function SeatCard({ s, on, onPick, readyN, same }) {
   const st = seatState(s, readyN);
   if (s.open) return <div className={`ack-seat is-open ${on ? 'is-on' : ''}`} data-testid={`ack-seat-${s.seat}`}>
@@ -574,6 +593,7 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [] }) 
   const held = seats.filter(s => !s.open).length;
   const navTabs = deckMeters(o, [
       ['seats', '🪑 Seats', seats.length ? `${held}/${seats.length}` : null, <section className="ack-seats" data-testid="ack-seats"><header><b>🪑 SEAT BOARD</b><OpenPnl seats={seats} onPick={onPick} /><small><b className="m-pos">{held}/{seats.length || '—'} active</b> · live prices every 3s · tap a seat = its chart + the agent handling it</small></header>
+      <ReaperAsks o={o} call={call} isOwner={isOwner} reload={cc?.load} />
       <div className="ack-seatrow">{seats.map((s, i) => <SeatCard key={s.seat} s={s} on={!s.open && s.mint === mint} onPick={onPick} readyN={readyN} same={s.open ? seats.slice(0, i).find(x => x.open && x.why === s.why)?.seat : undefined} />)}</div></section>, seats.length ? held / seats.length : null, 'the seats: live P&L, Reaper\'s word, tap = its chart'],
       ['live', '⚡ Feed', (o.tape || []).length || null, <><DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { if (r.mint) setPick(r.mint); setAgentS(r.agent in AG ? r.agent : null); setTab('live'); }} /></>],
       ['tape', '🎬 Trades', (o.tradeTape?.rows || []).length, <><LossMap court={o.court} capital={o.capital} /><TradeTape tape={o.tradeTape} mint={mint} onPick={onPick} /></>],

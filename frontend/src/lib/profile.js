@@ -25,12 +25,6 @@ export async function walletProof(wallet, signMessage) {
   return { address: wallet.address, chain: wallet.chain, message: challenge.message, signature };
 }
 
-export async function fetchPublicProfile(address, chain) {
-  const response = await fetch(`${API}/profile/${encodeURIComponent(address)}?chain=${encodeURIComponent(chain)}`);
-  return readResponse(response);
-}
-
-
 export function displayAddress(address) {
   const value = String(address || '');
   return value.length > 13 ? `${value.slice(0, 6)}…${value.slice(-4)}` : value;

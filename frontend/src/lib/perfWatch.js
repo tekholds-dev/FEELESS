@@ -14,11 +14,6 @@ export const liteMode = () => { try { return localStorage.getItem(LITE_KEY) || '
 // switch it back off. A lite mode the user picked ('on') is never touched.
 const AUTO_LITE_MS = 6 * 3600 * 1000;
 export const isAutoLite = m => String(m || '').startsWith('auto');
-export function autoLiteExpired(mode, now = Date.now()) {
-  if (!isAutoLite(mode)) return false;
-  const at = Number(String(mode).split('@')[1]);
-  return !at || now - at > AUTO_LITE_MS;
-}
 export function setLite(mode) {
   try { if (mode) localStorage.setItem(LITE_KEY, mode); else localStorage.removeItem(LITE_KEY); } catch { /* private mode */ }
   document.body.classList.toggle('fx-lite', !!mode);

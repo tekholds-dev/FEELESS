@@ -5,8 +5,6 @@ export function apiUrl(path) {
   return `${configuredOrigin}${normalized}`;
 }
 
-export const API_ORIGIN = configuredOrigin;
-
 // Server error body -> readable text. FastAPI validation errors arrive as a list of {loc, msg}.
 export function errorText(body, status) {
   const d = body?.detail;

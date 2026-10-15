@@ -143,7 +143,6 @@ jest.mock('../components/command/FeeBack', () => ({
 jest.mock('../components/command/DiscoveryViews', () => ({
   RadarView: () => null,
   SignalMovers: () => null,
-  LivingWatchlist: () => null,
   ParticipationBoard: () => null,
   PumpRadarView: () => null,
   MetaDetector: () => null,

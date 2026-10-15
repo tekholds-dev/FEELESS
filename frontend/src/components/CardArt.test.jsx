@@ -21,7 +21,8 @@ test('top-tier cards: real-time % is measured from what the card STARTED with (+
 });
 
 test('card pricing math reads per coin: flat $/coin, capped % on small coins, normal % on big ones', () => {
-  const { legFee, cardFee } = require('./FuseLab');
+  const { legFee } = require('./FuseLab');
+  const cardFee = (legs, p_) => legs.reduce((a, l) => a + legFee(Number(l.usd) || 0, p_).fee, 0);
   const pr = { swapBps: 100, bundle: { on: true, perLegUsd: 0.5, maxPct: 20, maxLegUsd: 50 } };
   expect(legFee(0.39, pr)).toEqual({ fee: 0.39 * 0.2, why: '20% cap (small coin)' });     // $0.50 would be 128% of it
   expect(legFee(10, pr).fee).toBe(0.5); expect(legFee(100, pr).fee).toBe(1);               // flat · 1% over $50

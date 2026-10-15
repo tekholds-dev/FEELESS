@@ -43,7 +43,7 @@ export function exitLine(x) {
   return Object.entries(x.rec).map(([w, [n, med, ok]]) => `${w} ${n}/${x.min}${n ? ` · ${med > 0 ? '+' : ''}${med}% in 15m` : ''} · ${ok && x.on ? '✅ LIVE' : 'shadow'}`).join('  ·  ');
 }
 // 🤝 each model's own exit record (both read every held seat; a split never moves Reaper)
-const MODEL_NAME = { lan: '🖥 GEMMA', local: '💻 QWEN' };
+const MODEL_NAME = { lan: '🖥 GEMMA', local: '💻 QWEN', chart: '🪜 CHART' };
 export function modelsLine(x) {
   return Object.entries(x?.models || {}).map(([p, rec]) => `${MODEL_NAME[p] || p}: ` + Object.entries(rec).filter(([, [n]]) => n).map(([w, [n, med]]) => `${w} ${n} · ${med > 0 ? '+' : ''}${med}%`).join(' · ')).join('   ');
 }

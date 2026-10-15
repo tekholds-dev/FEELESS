@@ -41,7 +41,6 @@ export const legFee = (u, pr) => { const b = pr.bundle;
   if (!b.on || u > b.maxLegUsd) return { fee: u * pr.swapBps / 10000, why: `${(pr.swapBps / 100).toFixed(2)}% (coin over $${b.maxLegUsd})` };
   const cap = u * b.maxPct / 100;
   return cap < b.perLegUsd ? { fee: cap, why: `${b.maxPct}% cap (small coin)` } : { fee: b.perLegUsd, why: `flat $${b.perLegUsd.toFixed(2)}` }; };
-export const cardFee = (legs, pr) => legs.reduce((a, l) => a + legFee(Number(l.usd) || 0, pr).fee, 0);
 export function CardPricing({ legs, admin }) {
   const [pr, setPr] = useState(null);
   useEffect(() => { let alive = true; pricingP = pricingP || fetch(apiUrl('/api/reputation/fees/pricing')).then(r => r.json()).catch(() => { pricingP = null; return null; });

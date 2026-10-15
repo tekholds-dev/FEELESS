@@ -1,4 +1,6 @@
-import { legCaps, cardFee } from './FuseLab';
+import { legCaps, legFee } from './FuseLab';
+
+const cardFee = (legs, pr) => legs.reduce((a, l) => a + legFee(Number(l.usd) || 0, pr).fee, 0);   // a card's fee = its coins' fees
 import { bundleExample } from './command/FuseAdminSettings';
 import { vaultStatus } from './command/HqDeck';
 import { TIER_FX, stageTier, runnerLegs } from './FusePage';

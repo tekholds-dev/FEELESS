@@ -169,7 +169,5 @@ def test_arena_build_takes_best_coins_and_pools_with_honest_entries():
     assert len([l for l in rn.auto_card(passing, pools, 1, {'autoCoins': 2, 'autoPools': 1})['legs']]) == 3
 
 
-def test_battles_pair_by_heat_and_settle_on_the_move_since_the_bell():
-    cards = [{'id': i, 'activity': {'score': s}} for i, s in ((1, 10), (2, 90), (3, 50), (4, 70), (5, 5))]
-    assert [(a['id'], b['id']) for a, b in rn.pair_battles(cards)] == [(2, 4), (3, 1)]
+def test_battles_settle_on_the_move_since_the_bell():
     assert rn.settle_battle(0, 5, 10, 12) == 'a' and rn.settle_battle(0, 1, 0, 4) == 'b' and rn.settle_battle(0, 1, 5, 6.02) == 'draw'

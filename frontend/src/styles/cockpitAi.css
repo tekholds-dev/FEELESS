@@ -82,6 +82,16 @@ body.theme-day .cai-snap svg path { stroke: #0e8a4a; } body.theme-day .cai-snap.
 
 /* 🪑 an open seat says why READY coins did not become positions (the keeper's own words) */
 .ack-refused { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.ack-asks { display: grid; gap: 5px; margin: 0 0 6px; }
+.ack-ask { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; align-items: center; padding: 6px 9px; border-radius: 9px; border: 1px solid rgba(245, 196, 81, .45); background: rgba(245, 196, 81, .07); animation: ackAsk 1.8s ease-in-out infinite; }
+.ack-ask span { display: grid; gap: 1px; min-width: 0; } .ack-ask b { font: 800 10.5px var(--m-mono); color: var(--gold, #f5c451); letter-spacing: .04em; }
+.ack-ask small { font: 600 9.5px/1.35 var(--m-mono); color: var(--m-dim); overflow-wrap: anywhere; }
+.ack-askrec { font: 600 9.5px var(--m-mono); color: var(--m-mute); }
+@keyframes ackAsk { 50% { transform: translateY(-1px); } }
+@media (prefers-reduced-motion: reduce) { .ack-ask { animation: none; } }
+body.fx-lite .ack-ask { animation: none; }
+body.theme-day .ack-ask { background: rgba(245, 196, 81, .14); } body.theme-day .ack-ask b { color: #8a5a00; }
+@media (max-width: 640px) { .ack-ask { grid-template-columns: 1fr 1fr; } .ack-ask span { grid-column: 1 / -1; } }
 .ack-refused li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px; align-items: baseline; padding: 3px 6px; border-radius: 5px; background: rgba(255, 85, 119, .06); font: 600 9.5px/1.35 var(--m-mono); color: var(--m-dim); }
 .ack-refused b { color: var(--m-danger); font-weight: 800; } .ack-refused span { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 

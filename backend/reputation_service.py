@@ -10385,6 +10385,12 @@ async def _prime_tick_inner(now):
                     _office['valve'] = {'at': now, 'n': len(v_), 'syms': [c_.get('symbol') for c_ in v_], 'record': vrec_}
                 except Exception as e:
                     print('valve fill:', str(e)[:120])
+            cw_ = _ccl.wait_why(now, {'candleClock': cfg_t.get('candleClock', True) is not False and _rg.effective(cfg_t, _regret_book()).get('candleClock', True) is not False})
+            if plan_ and cw_:   # ⏱ THE CANDLE CLOCK: no new buy in the first 100s of a 5-minute candle (record: worse in both halves, rugs left out)
+                _office['flowWait'] = {'at': now, 'rows': [{'symbol': t_.get('symbol'), 'why': cw_} for t_ in plan_[:6]]}
+                for t_ in plan_[:3]:
+                    _regret_note(t_['mint'], 'clock:EARLY', _fuse._f(t_.get('px')), t_.get('symbol'))
+                plan_ = []
             if plan_:   # 🌊 THE TAPE DECIDES THE MOMENT: each coin about to take a seat is read on its last 90s of real swaps — never into sellers, never at the top of a spike; a crowd buying goes first
                 try:
                     fl_ = await _flow_fetch([t_.get('pair') for t_ in plan_ if t_.get('pair')])
@@ -13097,6 +13103,7 @@ _ai = {'notes': {}, 'http': None, 'rounds': 0, 'lastAt': None, 'lastMs': None, '
 AI_EXIT_PATH = DATA_DIR / 'ai_exit_proof.json'   # 🧠☠ every exit read, graded 15 min later — the record that decides whether Reaper may use it
 import exit_read as _er
 import ai_snapshot as _snp
+import candle_clock as _ccl
 
 
 def _ai_exit_book():
@@ -13106,11 +13113,38 @@ def _ai_exit_book():
 
 
 def _ai_exit_effects(cfg_t, now):
-    """{mint: 'ride' | 'tight'} for Reaper — fresh reads of a word its own graded record PROVED; {} while it is in shadow or switched off."""
+    """{mint: 'ride' | 'tight' | 'widen'} for Reaper — fresh reads of a word its own graded record PROVED; {} while it is in shadow or switched off.
+    + 🪜 the chart's own WIDEN (higher lows over the floor on a red seat), graded on ITS record (prov 'chart'), never pooled with the models'."""
     try:
-        return _er.effects(_ai['exit'], _er.record(_ai_exit_book()), now, on=(cfg_t or {}).get('agentAiExit', True) is not False)
+        on_ = (cfg_t or {}).get('agentAiExit', True) is not False
+        out_ = _er.effects(_ai['exit'], _er.record(_ai_exit_book()), now, on=on_)
+        for m_, w_ in _er.effects(_chart_widen, _er.record(_ai_exit_book(), 'chart'), now, on=on_).items():
+            out_.setdefault(m_, w_)
+        return out_
     except Exception:
-        return {}   # fillQ {mint: at} = coins that just took a real seat
+        return {}
+
+
+_chart_widen: dict = {}   # {mint: {word: 'WIDEN', at}} — the chart's own read of each red seat this pass
+
+
+def _chart_widen_note(rep, now):
+    """🪜 EVIDENCE TO WIDEN (owner, 2026-10-15: "adjusting SL when down and seeing higher lows"): a RED agent seat whose live chart shows 2+ higher
+    lows, no lower low, and a tape that is not seller-led is a chart WIDEN read — noted at its price and graded 15 min later like the models'
+    words (exit_read, prov 'chart'). It moves Reaper's stop only once ITS record proves it (≥ 20 graded, typical +2% after)."""
+    try:
+        for r_ in rep or []:
+            ch_, m_ = r_.get('chart') or {}, r_.get('mint')
+            fl_ = (r_.get('flow') or {}).get('state')
+            if not m_ or _fuse._f(r_.get('pct')) >= 0 or r_.get('action'):
+                _chart_widen.pop(m_, None); continue
+            if int(_fuse._f(ch_.get('hl'))) >= 2 and int(_fuse._f(ch_.get('ll'))) == 0 and fl_ != 'SELLERS':
+                _chart_widen[m_] = {'word': 'WIDEN', 'at': now}
+                _ai['exitBook'] = _er.note(_ai_exit_book(), m_, 'WIDEN', _fuse._f(r_.get('px')), r_.get('pct'), now, r_.get('symbol'), prov='chart')
+            else:
+                _chart_widen.pop(m_, None)
+    except Exception as e:
+        print('chart widen:', str(e)[:80])   # fillQ {mint: at} = coins that just took a real seat
 
 
 def _ai_exit_words(cfg_t, now):
@@ -13313,7 +13347,7 @@ def _ai_case(c):
     sn_ = _ai_snap(c.get('mint'), c.get('pair'))
     th_ = [f"your rule {k_} HITS this coin: {w_}" for k_, w_ in ((_office.get('taught') or {}).get(c.get('mint')) or {}).items()]
     return {**_ai_brief(c.get('mint')), 'signals': _ai_signals(c), 'lessons': (th_ + _tch.for_case(_teach_state(), c.get('symbol'), c.get('mint')))[:7] or None,
-            'learned': lm_['learned'], 'chartRec': lm_['chart'], 'candles': (sn_ or {}).get('line'), 'owner': _ai_owner(time.time()), '_snap': sn_,
+            'learned': lm_['learned'], 'chartRec': lm_['chart'], 'candles': '; '.join(x_ for x_ in ((sn_ or {}).get('line'), _ccl.line(time.time())) if x_), 'owner': _ai_owner(time.time()), '_snap': sn_,
             **{k_: c.get(k_) for k_ in ('mint', 'symbol', 'status', 'rank', 'ageMin', 'cap', 'liq', 'vol5m', 'move5m', 'buyShare', 'narrative', 'trigger', 'size', 'unknown',
                                        'state', 'why', 'pending', 'result', 'cause', 'pct', 'peak', 'heldMin', 'rule', 'structure', 'phase')},
             'devil': [f"{d_[0]} {d_[1]}" for d_ in (c.get('devil') or []) if isinstance(d_, (list, tuple)) and len(d_) >= 2] if isinstance(c.get('devil'), list) else c.get('devil')}
@@ -16452,6 +16486,7 @@ def _office_reap(cur, px, cfg_t, ctl, now, dec, pol=None, live=True, vels=None, 
                                    (by_.get(m_) or {}).get('chartAt') or _agents.get('passAt'), now)
             r_['phase'] = _mw.market_phase((_office.get('charts') or {}).get(m_), (by_.get(m_) or {}).get('li'))
         _office.update(pos=pos, reports=rep, gone=list(_office.get('gone') or []) + gone)
+        _chart_widen_note(rep, time.time())   # 🪜 a red seat holding higher lows over its floor: noted as a chart WIDEN read and graded like the models' words
         _tape_reaper(rep, now)
         _office_lat('reaper', (time.perf_counter() - t0) * 1000)
         return _of.merge_reaper(dec, rep, buys_left, edge)
@@ -16830,12 +16865,16 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
     for c_ in _office['charts'].values():
         k_ = ((c_.get('q') or {}).get('state')) or 'NOT READ'
         dq_[k_] = dq_.get(k_, 0) + 1
+    try:   # ✋ your answers to Reaper's questions, graded 15 min later (kept your line → right if the coin held · approved → right if it fell)
+        st['askLog'], ask_rec_ = _of.ask_grade(st.get('askLog'), lambda m_: (_jup_px_cache.get(m_) or (0, 0))[1], now)
+    except Exception:
+        ask_rec_ = None
     _office['payload'] = {
         'at': now, 'mission': _of.mission(money, view.get('stage'), now, _office.get('last'), view.get('underwater')) | {'control': bool(rcfg.get('agentControl')), 'probation': [r_ for r_, g_ in gens_.items() if g_['status'] == 'PROBATION']},
         'office': {'chain': list(_of.CHAIN), 'priority': list(_of.PRIORITY), 'coins': perf.get('coins'), 'cases': len(cases), 'cleared': sum(1 for c_ in cases if c_['cleared'])},
         'agents': _of.agent_cards(cards, {'live': live, 'office': of}), 'currentCase': cur_case, 'pipeline': pipe,
         'queue': queue, 'positions': _office_positions(), 'exiting': [{'mint': p_['mint'], 'sym': p_.get('sym'), 'rule': p_.get('askRule'), 'state': (p_.get('exit') or {}).get('state'), 'since': p_.get('leftAt')} for p_ in _office['exiting']],
-        'execution': {**cour, 'metrics': _fw.exec_metrics(_fw_peek().get('ledger'), now, dupes=_FW_DUPES['n'])}, 'ownerHand': _of.owner_hand(arch.get('positions')), 'tid': tid, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': [{'agent': x_.get('role'), 'gen': x_.get('gen'), 'why': f"{x_.get('status') or 'replaced'} — {x_.get('why') or ''}" + (f" · next generation: {x_['changed']}" if x_.get('changed') else ''), 'at': x_.get('retiredAt')}
+        'execution': {**cour, 'metrics': _fw.exec_metrics(_fw_peek().get('ledger'), now, dupes=_FW_DUPES['n'])}, 'ownerHand': _of.owner_hand(arch.get('positions')), 'askRec': ask_rec_, 'tid': tid, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': [{'agent': x_.get('role'), 'gen': x_.get('gen'), 'why': f"{x_.get('status') or 'replaced'} — {x_.get('why') or ''}" + (f" · next generation: {x_['changed']}" if x_.get('changed') else ''), 'at': x_.get('retiredAt')}
                                                          for x_ in reversed((_lc_book(now).get('lineage') or [])[-12:])], 'devil': dv_rec[:10], 'needShadow': _of.SHADOW_N, 'needPropose': _of.PROPOSE_N},
         'index': (_office.get('index') or [])[:80], 'rpc': {'lanes': _rpc_quota_state(), 'note': 'keyed lanes = keeper sends / balances first, then holder scans (budgeted); discovery comes from Pump\'s live stream + the launch boards — no RPC first-seen listener runs'},
         'court': _office.get('court'), 'opp': _office.get('opp'), 'coach': _coach_view(now), 'tradeTape': _trade_tape(now),   # 👑 the directives in force · 🎬 every real agent trade as one story
@@ -17029,7 +17068,7 @@ async def admin_agents_set(request: Request):
     ch = {}
     if 'feed' in body:
         ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital', 'agentAiGate', 'agentValve', 'agentAiExit', 'nightGuard', 'nightShift') + _oe.POLICY_KEYS:
+    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital', 'agentAiGate', 'agentValve', 'agentAiExit', 'nightGuard', 'nightShift', 'candleClock') + _oe.POLICY_KEYS:
         if k in (body.get('cfg') or {}):
             ch[k] = body['cfg'][k]
     if ch:
@@ -17059,6 +17098,21 @@ async def admin_agents_set(request: Request):
                 p_['open'] = {k: sum(1 for it in v if not it.get('mark')) for k, v in (p_.get('items') or {}).items()}
         except ValueError as e:
             raise HTTPException(400, str(e))
+    ra_ = body.get('reaperAsk') or {}
+    if ra_.get('mint'):   # ✋ your answer to Reaper's question on a coin with YOUR line: approve (it sells next tick) or keep your line (quiet 10 min)
+        p_ = (_office.get('pos') or {}).get(str(ra_['mint']))
+        q_ = (p_ or {}).get('ask')
+        if not q_:
+            raise HTTPException(409, 'Reaper has no question open on that coin any more.')
+        now_ = time.time(); ok_ = bool(ra_.get('ok'))
+        p_['askOk' if ok_ else 'askNo'] = {'rule': q_['rule'], 'at': now_}
+        p_.pop('ask', None)
+        of_ = _office_state()
+        of_['askLog'] = (list(of_.get('askLog') or []) + [{'mint': str(ra_['mint']), 'sym': p_.get('sym'), 'rule': q_['rule'], 'choice': 'approve' if ok_ else 'keep',
+                                                         'pct': q_.get('pct'), 'px': q_.get('px'), 'at': now_}])[-200:]
+        _json_save(OFFICE_PATH, of_)
+        ad_ = _admin_load(); _audit(ad_, 'owner', 'reaper-ask', f"{'approved' if ok_ else 'kept your line on'} ${p_.get('sym')} ({q_['rule']})"); _admin_save(ad_)
+        _agents['wake'] = now_
     ow = body.get('owner') or {}
     owned = None
     if ow.get('input') or ow.get('mint'):   # 👤 owner coin review: REVIEW · TRACK · ARM · IGNORE — it edits the owner's list only (no order, no quote, no wallet call)

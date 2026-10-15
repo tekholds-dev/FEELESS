@@ -31,7 +31,7 @@ CHECKS = (('gate:gap', re.compile(r'above market', re.I)), ('gate:back', re.comp
 GATES = {'gate:gap': ('agentGapPct', (0, 4, 6, 8), 'buy price over market'),
          'gate:back': ('agentBackPct', (0, 5, 7, 10), 'sell-back loss'),
          'gate:pool': ('agentPoolMin', (0, 5000, 3000), 'smallest pool')}
-WAITS = {'flow:PEAK': 'peakWait', 'flow:SELLERS': 'sellersWait', 'chart:WAIT': 'chartWait', 'ai:CAUTION': 'aiWait'}   # Trigger's tape / chart waits that can switch off / on
+WAITS = {'flow:PEAK': 'peakWait', 'flow:SELLERS': 'sellersWait', 'chart:WAIT': 'chartWait', 'ai:CAUTION': 'aiWait', 'clock:EARLY': 'candleClock'}   # Trigger's tape / chart waits that can switch off / on
 
 
 def _f(v, d=0.0):

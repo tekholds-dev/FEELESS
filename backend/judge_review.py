@@ -291,10 +291,3 @@ def desk_votes(trades, min_n=5):
     return res
 
 
-def vote_line(d, r):
-    """One line for the model / the page: what this desk's OWN vote has been worth on real money."""
-    if not r or not r.get('n'):
-        return f"{d}: no own vote on file yet"
-    g, b = r['go'], r['doubt']
-    return (f"{d}: own vote right {r['rightPct'] if r['rightPct'] is not None else 'UNKNOWN'}% of {r['n']} · said GO {g['n']}× (typical {g['med'] if g['med'] is not None else '—'}%) · "
-            f"DOUBTED {b['n']}× (typical {b['med'] if b['med'] is not None else '—'}%) · lone dissent {r['lone']}× ({r['loneRight']} right)")

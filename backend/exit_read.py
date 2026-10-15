@@ -139,7 +139,7 @@ def pair_word(first, second):
     return first or second
 
 
-def models(book, provs=('lan', 'local')):
+def models(book, provs=('lan', 'local', 'chart')):
     """Each model's own exit record → {prov: {word: [n, med, proven]}} (the page shows who reads exits better)."""
     out = {}
     for p_ in provs:

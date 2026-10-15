@@ -4322,3 +4322,24 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🌐 BRAIN CHAT SEARCHES (`ai_chat.wants_web/web_query/WEB_RULE`; chat route → `feeless_mcp._search_rows`, 5 results, ≤ 8s): a world question
   (not a greeting, not a FEELESS-record question) gets web results in their own WEB block (`messages_general`), the model cites the url,
   sources shown under the reply (`WebSrc`, http(s) links only). `web: false` in the body skips it.
+- ✋ YOUR SL / TP IS RESPECTED (`office.owner_ask`, `ASK_HARD`; owner, 2026-10-15): on a coin whose line you dragged (leg `ownerLvAt`), every
+  discretionary exit (trail, thesis, time, flow banks, scale-out, dead coin …) becomes a QUESTION with its reason → `ReaperAsks` on the
+  cockpit seat board: ✅ Approve (that rule may sell for 3 min) · ✋ Keep my line (that rule quiet 10 min), POST /admin/agents `{reaperAsk:
+  {mint, ok}}`. Hard exits never wait: R1 pool collapse · R2/R3 scan · R4 / R4r / R4d / R4e dumps · R5 (your own stop) · R5x · R5c · R9c.
+  Your answers are graded 15 min later (`office.ask_grade`, office `askLog` → payload `askRec`: kept right = the coin held · approved right
+  = it fell).
+- ⏱ CANDLE CLOCK (`candle_clock.py`, realCfg `candleClock` on, regret wait `clock:EARLY`): no NEW agent buy in the first 100s of a 5-minute
+  candle — 292 real trades, both halves, rugs left out: first 100s +2.6% / −2.8% avg (60% / 40% won) vs the rest +6.6% / +1.0% (69% / 51%).
+  The 1-minute candle showed no stable edge. Every model case carries `candle_clock.line` (seconds into / until the close of the 1m + 5m candle).
+- 🪜 CHART WIDEN (`_chart_widen_note` after each Reaper tick → exit_read prov 'chart'): a red agent seat with 2+ higher lows, no lower low,
+  tape not seller-led is noted as a WIDEN read and graded like the models' words; Reaper widens only once ITS record proves it.
+- ❌ TESTED AND NOT BUILT (2026-10-15, say so before re-proposing): RE-ENTRY after a red exit once the coin dips under our exit, makes a higher
+  low and reclaims (12 variants on 69 after-paths: none positive in both halves, most −2…−6% net) · a "3 bad entries → tighten" punishment
+  (trades right after 3 bad entries in an hour averaged +11.9%, n 15) · punishing the ARMED door (no consistent gap vs READY across halves).
+  Bad entries (≤ −8% inside 2 min) are 18 of 292 trades, avg −7%.
+- 🌊 TAPE RIVER (`components/terminal/TapeRiver.jsx`, `styles/tapeRiver.css` `trv-*`, on top of every `TradeTape`): the same streamed swaps as
+  bubbles drifting right → left over 45s (green buys above the line, red sells below, size = log $, 🐋 whales ringed, your trades dashed, DEV /
+  SNIPER / BUNDLE / TOP wallets outlined), a 60s buy / sell tug bar + word (BUYERS / SELLERS IN CHARGE · TUG OF WAR · QUIET); tap a bubble →
+  wallet, $, its flags, 🔎 case file. One finite drift animation per bubble (transform only); still in fx-lite / reduced motion.
+- ☠ `scripts/rug-replay.py` (read-only; HELIUS_RPC_URL data key, then the public mainnet node — publicnode keeps no history; tx version 1
+  needs `maxSupportedTransactionVersion: 1`): each real rug's / young winner's pool swaps over the whole hold (sampled) → data/rug_replay.json.

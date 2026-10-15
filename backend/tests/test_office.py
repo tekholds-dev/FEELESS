@@ -643,3 +643,19 @@ def test_a_coin_under_five_minutes_old_is_banked_whole_at_ten_percent(monkeypatc
     pos, rep, _ = of.reap([LEG_], [{**ROW_, 'launch': {'ageH': 2.0}}], {'PA': 1.11}, cfg, None, 100)
     assert rep[0]['action'] == 'trim'                                         # an older coin keeps the scale-out
     assert of.is_young({'launch': {}}) is None and of.is_young({'li': {'ageH': 0.05}}) == 0.05 and of.is_young({'launch': {'ageH': None}, 'li': {'ageH': 0.01}}) == 0.01
+
+
+def test_with_your_line_set_a_soft_exit_asks_you_and_a_hard_one_never_waits():
+    import office as of
+    l = {'ownerLvAt': 50}
+    p = {}
+    act, st, ev = of.owner_ask(p, l, 'pull', 'TAKE', 'R7 trailing protection', 'peaked +12', 4.0, 1.04, 100)
+    assert act is None and p['ask']['rule'] == 'R7' and 'ASKS' in ev
+    p['askOk'] = {'rule': 'R7', 'at': 110}
+    assert of.owner_ask(p, l, 'pull', 'TAKE', 'R7 trailing protection', 'x', 4.0, 1.04, 120)[0] == 'pull' and 'ask' not in p
+    q = {'askNo': {'rule': 'R5t', 'at': 100}}
+    assert of.owner_ask(q, l, 'pull', 'EXIT', 'R5t thesis invalidated', 'x', -3.0, 0.97, 200)[0] is None
+    assert of.owner_ask({}, l, 'pull', 'EXIT', 'R1 liquidity collapse', 'x', -20.0, 0.8, 200)[0] == 'pull'     # hard: never waits
+    assert of.owner_ask({}, {}, 'pull', 'TAKE', 'R7 trailing protection', 'x', 4.0, 1.04, 200)[0] == 'pull'   # no line of yours: as before
+    log, rec = of.ask_grade([{'mint': 'M', 'choice': 'keep', 'px': 1.0, 'at': 0}, {'mint': 'M', 'choice': 'approve', 'px': 1.0, 'at': 0}], lambda m: 1.1, 1000)
+    assert rec == {'kept': [1, 1], 'approved': [1, 0]}

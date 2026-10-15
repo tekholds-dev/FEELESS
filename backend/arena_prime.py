@@ -522,6 +522,7 @@ def clean_cfg(p):
     out['agentValve'] = bool((p or {}).get('agentValve', True))   # 🪫 patience valve (office_edge.valve_fill): an empty seat never sits all morning
     out['agentCapital'] = bool((p or {}).get('agentCapital', True))   # 💰 capital desk (capital.py): agent seats sized by their own real record — smallest while it loses, half-Kelly once winning is proven
     out['nightGuard'] = bool((p or {}).get('nightGuard', True))
+    out['candleClock'] = bool((p or {}).get('candleClock', True))   # ⏱ new agent buys wait out the first 100s of a 5-minute candle (candle_clock.py)
     out['nightShift'] = bool((p or {}).get('nightShift', True))   # 🌙 00:00–09:00 tighter profile (night_guard.night_cfg)   # 🌙 circuit breaker on new real buys (night_guard.py): drawdown · losing streak · rug burst
     out['agentAiExit'] = bool((p or {}).get('agentAiExit', True))   # 🧠☠ the model's exit read may move Reaper's trail — only once its own graded record proves the word (exit_read.py)
     out['agentAiGate'] = bool((p or {}).get('agentAiGate', True))   # 🛂 the model reads a coin BEFORE it takes a real seat; a strong, specific CAUTION waits (graded by the regret ledger, which may switch it off)

@@ -743,12 +743,6 @@ def auto_card(passing, pools, now, cfg=None):
     return {'id': f"auto{int(now)}", 'at': now, 'legs': legs}
 
 
-def pair_battles(cards):
-    """⚔ Battles: stage cards paired by activity (1 v 2, 3 v 4…) — hot fights hot, calm fights calm. Odd one out sits."""
-    s = sorted(cards, key=lambda c: -_f((c.get('activity') or {}).get('score')))
-    return [(s[i], s[i + 1]) for i in range(0, len(s) - 1, 2)]
-
-
 def settle_battle(a_start, a_now, b_start, b_now):
     """The card whose % moved more since the bell wins; a dead heat (< 0.05 pts) is a draw."""
     da, db = _f(a_now) - _f(a_start), _f(b_now) - _f(b_start)

@@ -5,6 +5,7 @@ import { formatUSD } from '../../lib/dexscreener';
 import { formatLivePrice } from '../../lib/livePrice';
 import { investigate } from '../CaseFile';
 import { useWalletTags } from '../../lib/coinIntel';
+import { TapeRiver } from './TapeRiver';
 
 const TX_EXPLORER = { solana: 'https://solscan.io/tx/', ethereum: 'https://etherscan.io/tx/', base: 'https://basescan.org/tx/', bsc: 'https://bscscan.com/tx/', arbitrum: 'https://arbiscan.io/tx/', avalanche: 'https://snowtrace.io/tx/', polygon: 'https://polygonscan.com/tx/', sui: 'https://suiscan.xyz/mainnet/tx/' };
 
@@ -29,6 +30,7 @@ export function TradeTape({ pair, rows = 12 }) {
   return <div className="trade-tape" data-testid="trade-tape">
     <div className="trade-tape-head"><span><i />LIVE TRADE TAPE</span>
       <small>{list.length ? `${allUsd ? `${Math.round((buyUsd / allUsd) * 100)}% buys · ` : ''}last ${Math.max(0, Math.round((Date.now() - Date.parse(list[0].ts)) / 1000))}s ago` : 'waiting for trades…'}</small></div>
+    <TapeRiver trades={trades} cut={cut} tags={tags} me={me} />
     <div className="trade-tape-list custom-scroll">{list.map(t => {
       const mine = t.mine || (me && t.wallet === me);
       return <div key={t.tx} className={`tape-row ${t.kind} ${mine ? 'is-mine' : ''} ${(Number(t.usd) || 0) >= cut ? 'is-whale' : ''}`} data-testid="tape-row">
