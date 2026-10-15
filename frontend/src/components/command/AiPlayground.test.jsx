@@ -26,3 +26,16 @@ test('items left by the old HTML playground never crash the code lab', () => {
   const { codeOnly } = require('./AiPlayground');
   expect(codeOnly([{ id: 'p1', prompt: 'neon', html: '<html></html>' }, { id: 'c1', code: 'def f(): pass' }])).toEqual([{ id: 'c1', code: 'def f(): pass', status: 'proposed', title: 'code change', file: '' }]);
 });
+
+
+test('a Python proposal shows its test run: each call, what it returned, ✓ / ✗', async () => {
+  const item = { id: 'c2', title: 't', file: 'backend/office.py', kind: 'new', why: 'w', code: 'def f(x):\n    return x * 2', status: 'proposed', target: 'reaper',
+    run: { ran: true, results: [{ call: 'f(2)', got: '4', expect: 4, ok: true }, { call: 'f(3)', got: '6', expect: 7, ok: false }] } };
+  const call = jest.fn(() => Promise.resolve({ items: [item], targets: [] }));
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<AiPlayground call={call} />); });
+  await act(async () => { await Promise.resolve(); });
+  await act(async () => { el.querySelector('[data-testid="apg-v-run"]').click(); });
+  const r = el.querySelector('[data-testid="apg-run"]');
+  expect(r.querySelector('.is-ok').textContent).toContain('✓ as expected'); expect(r.querySelector('.is-bad').textContent).toContain('expected 7');
+});

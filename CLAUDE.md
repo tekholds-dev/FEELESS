@@ -4272,4 +4272,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   answer). 🔍 PREVIEW BEFORE ANY CHANGE (`ai_play.preview_diff/current_of`): each function the proposal writes vs its current version in the
   real file (unified diff, NEW for names the file lacks) + for UI targets a `preview` mock-up (sandboxed, CSP-locked) → tabs 🔍 Before → after ·
   🖼 How it looks · 📄 Full code. ✅ Approve still only queues it; Claude applies it with tests.
+- 🌙 NIGHT SHIFT 00:00–09:00 local (`night_guard.night_cfg/is_night`, realCfg `nightShift` on; merged in `_prime_real_cfg` + the agents' `set_band`):
+  seats ≤ 15% of the card (a smaller owner ceiling stays), no coin under 30 min, chart must say ENTER NOW, no valve fills; the night guard trips at
+  8% drawdown · 3 losses in a row · ONE rug-level exit. 09:00 = the owner's own settings again. Only ever tightens.
+- ▶ CODE LAB TEST RUN (`ai_play.safe_code/safe_call/test_run`): a Python proposal's `examples` are RUN — only after an AST check (no imports outside
+  SAFE_MODULES, no open/exec/eval/getattr/dunder, examples = its own function with literal args) in `python -I`, env {}, temp cwd, CPU 2s / no
+  file writes / 16 fds, 4s timeout, macOS `sandbox-exec` deny network + file-write. Tab ▶ Test run (call → got, ✓ / ✗). UI proposals: 🖼 See it working.
 

@@ -64,7 +64,8 @@ def parse(text):
     pv = str(d.get('preview') or '').strip()
     return {'title': str(d.get('title') or 'code change')[:80], 'file': str(d.get('file') or '')[:120], 'kind': 'new' if d.get('kind') == 'new' else 'change',
             'why': str(d.get('why') or '')[:700], 'risk': str(d.get('risk') or '')[:240], 'code': code[:MAX_CODE],
-            **({'preview': lock_html(pv)} if re.search(r'<(html|body|div|svg|style)', pv, re.I) else {})}
+            **({'preview': lock_html(pv)} if re.search(r'<(html|body|div|svg|style)', pv, re.I) else {}),
+            **({'examples': [{'call': str(e.get('call') or '')[:200], 'expect': e.get('expect')} for e in d['examples'][:4] if isinstance(e, dict) and e.get('call')]} if isinstance(d.get('examples'), list) else {})}
 
 
 def prompt(ask, target_key, outline_text, prev=None):
@@ -137,3 +138,104 @@ def preview_diff(src, code, path):
         changed.append(n)
         out += list(difflib.unified_diff(old_t.split('\n'), new_t.split('\n'), f'{path} · {n} (now)', f'{path} · {n} (proposed)', lineterm='', n=2))
     return {'diff': '\n'.join(out)[:MAX_CODE], 'changed': changed, 'new': new}
+
+
+# ▶ THE TEST RUN (owner, 2026-10-15: "the code lab should show a preview of the code WORKING, not just code"). A Python proposal's examples are
+# RUN — but only after an AST check proves the code is a pure function (no imports outside SAFE_MODULES, no file / network / process / eval /
+# dunder access) and every example is `name(literal, …)` of a function it defines. Then it runs in a separate `python -I` with no env, a temp
+# cwd, CPU / memory / file limits, a 4s timeout and (on macOS) a sandbox profile that denies the network and file writes. A proposal that
+# leans on the file's own helpers says so instead of running.
+SAFE_MODULES = {'math', 'statistics', 're', 'json', 'time', 'datetime', 'random', 'itertools', 'functools', 'collections', 'bisect', 'heapq'}
+BAD_NAMES = {'open', 'exec', 'eval', 'compile', '__import__', 'globals', 'locals', 'getattr', 'setattr', 'delattr', 'input', 'breakpoint', 'vars', 'dir',
+             'memoryview', 'exit', 'quit', 'help', 'print'}
+SANDBOX = '(version 1)(allow default)(deny network*)(deny file-write*)'
+
+
+def safe_code(code):
+    """→ None when the code is a pure function set we may run, else why not (plain words)."""
+    import ast
+    try:
+        tree = ast.parse(code)
+    except SyntaxError as e:
+        return f'it does not parse: {e.msg} (line {e.lineno})'
+    for n in ast.walk(tree):
+        if isinstance(n, (ast.Import, ast.ImportFrom)):
+            mods = [a.name.split('.')[0] for a in n.names] if isinstance(n, ast.Import) else [str(n.module or '').split('.')[0]]
+            if any(m not in SAFE_MODULES for m in mods):
+                return f"it imports {', '.join(mods)} — only pure-math modules run in the test"
+        elif isinstance(n, ast.Name) and n.id in BAD_NAMES:
+            return f'it calls {n.id}() — not allowed in the test run'
+        elif isinstance(n, ast.Attribute) and n.attr.startswith('__'):
+            return 'it touches a dunder attribute — not allowed in the test run'
+        elif isinstance(n, (ast.Global, ast.Nonlocal, ast.AsyncFunctionDef, ast.Await)):
+            return 'async / global code does not run in the test'
+    return None
+
+
+def safe_call(call, names):
+    """`fn(1, 'a', [2])` of a function the code defines, literal args only → (fn, args, kwargs) or None."""
+    import ast
+    try:
+        node = ast.parse(str(call or ''), mode='eval').body
+    except SyntaxError:
+        return None
+    if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name) or node.func.id not in names:
+        return None
+    try:
+        return node.func.id, [ast.literal_eval(a) for a in node.args], {k.arg: ast.literal_eval(k.value) for k in node.keywords if k.arg}
+    except (ValueError, SyntaxError):
+        return None
+
+
+def test_run(code, examples, timeout=4.0):
+    """▶ Run the proposal's examples → {ran, why, results: [{call, got, expect, ok, err}]}. Never runs code that fails `safe_code`."""
+    import json as _json
+    import os
+    import subprocess
+    import sys
+    import tempfile
+    why = safe_code(code)
+    if why:
+        return {'ran': False, 'why': why, 'results': []}
+    names = set(_names(code, True))
+    calls = [(e, safe_call(e.get('call'), names)) for e in (examples or [])[:4]]
+    calls = [(e, c) for e, c in calls if c]
+    if not calls:
+        return {'ran': False, 'why': 'no runnable example (each must call a function it defines, with plain values)', 'results': []}
+    prog = (code + '\n\nimport json as _j\n_out = []\n'
+            + ''.join(f"try:\n    _out.append({{'got': repr({fn}(*{args!r}, **{kw!r}))[:300]}})\nexcept Exception as _e:\n    _out.append({{'err': type(_e).__name__ + ': ' + str(_e)[:200]}})\n"
+                      for _e_, (fn, args, kw) in calls)
+            + "print('@@RESULT@@' + _j.dumps(_out))\n")
+
+    def limits():
+        try:
+            import resource
+            resource.setrlimit(resource.RLIMIT_CPU, (2, 2))
+            resource.setrlimit(resource.RLIMIT_NOFILE, (16, 16))
+            resource.setrlimit(resource.RLIMIT_FSIZE, (0, 0))
+        except Exception:
+            pass
+    cmd = [sys.executable, '-I', '-c', prog]
+    if os.path.exists('/usr/bin/sandbox-exec'):
+        cmd = ['/usr/bin/sandbox-exec', '-p', SANDBOX] + cmd
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=tmp, env={}, preexec_fn=limits)
+        except subprocess.TimeoutExpired:
+            return {'ran': False, 'why': f'it did not finish in {timeout:g}s', 'results': []}
+    line = next((l for l in r.stdout.split('\n') if l.startswith('@@RESULT@@')), None)
+    if not line:
+        err = (r.stderr or '').strip().split('\n')[-1][:200] or 'no output'
+        return {'ran': False, 'why': ('it uses something the file defines elsewhere — ' if 'NameError' in err else '') + err, 'results': []}
+    outs = _json.loads(line[len('@@RESULT@@'):])
+    res = []
+    for (e, _c), o in zip(calls, outs):
+        got = o.get('got')
+        exp = e.get('expect')
+        ok = None if exp is None or got is None else (got == repr(exp) or str(got).strip("'\"") == str(exp))
+        err = o.get('err')
+        m = re.match(r"NameError: name '(\w+)' is not defined", str(err or ''))
+        if m:
+            err = f"uses {m.group(1)}() from the file — it only runs inside FEELESS"
+        res.append({'call': e.get('call'), 'got': got, 'expect': exp, 'ok': ok, 'err': err})
+    return {'ran': True, 'why': None, 'results': res}

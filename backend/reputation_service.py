@@ -13707,6 +13707,8 @@ async def admin_ai_playground_make(request: Request):
     if not prop:
         raise HTTPException(502, "No model returned a code proposal — " + ' · '.join(tried_ or ['no provider answered']))
     prop = {**prop, **_play.preview_diff(src_, prop['code'], _play.TARGETS[target][0])}   # 🔍 before → after against the real file
+    if _play.TARGETS[target][0].endswith('.py') and prop.get('examples'):   # ▶ the proposal WORKING: its own examples, run in a locked-down sandbox
+        prop['run'] = await asyncio.to_thread(_play.test_run, prop['code'], prop['examples'])
     d_['items'], it = _play.add(d_.get('items'), ask, prop, target, res.get('label'))
     _json_save(AI_PLAY_PATH, d_)
     return {'item': it, 'items': d_['items'], 'ms': res.get('ms')}

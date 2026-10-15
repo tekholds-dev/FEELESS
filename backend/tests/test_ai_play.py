@@ -32,3 +32,14 @@ def test_the_preview_diffs_the_real_function_and_marks_new_ones():
     assert '-    return 1' in pv['diff'] and '+    return 2' in pv['diff'] and '+++ NEW brand_new' in pv['diff']
     got = p.parse('{"title": "t", "file": "f", "code": "def a():\\n    pass", "preview": "<div>hi</div>"}')
     assert "default-src 'none'" in got['preview'] and '<div>hi</div>' in got['preview']
+
+
+def test_the_test_run_runs_pure_code_and_refuses_anything_else():
+    code = 'def double_take(pct, seen):\n    return pct * 2 if seen >= 2 else 0\n'
+    r = p.test_run(code, [{'call': 'double_take(5, 2)', 'expect': 10}, {'call': 'double_take(5, 1)', 'expect': 0}])
+    assert r['ran'] and [x['ok'] for x in r['results']] == [True, True]
+    assert p.test_run('import os\ndef f():\n    return os.listdir("/")', [{'call': 'f()'}])['ran'] is False
+    assert 'open' in p.test_run('def f():\n    return open("/etc/passwd").read()', [{'call': 'f()'}])['why']
+    assert p.test_run(code, [{'call': '__import__("os").system("x")'}])['ran'] is False      # an example must call the code's own function
+    assert 'did not finish' in p.test_run('def f():\n    while True:\n        pass', [{'call': 'f()'}], timeout=2)['why']
+    assert 'from the file' in p.test_run('def f():\n    return tune(1)', [{'call': 'f()'}])['results'][0]['err']

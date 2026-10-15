@@ -40,3 +40,13 @@ body.theme-day .apg-prop { background: rgba(255, 255, 255, .6); } body.theme-day
 .apg-look { width: 100%; height: clamp(240px, 40vh, 420px); border: 1px solid var(--m-line); border-radius: 8px; background: #05100b; display: block; }
 body.theme-day .apg-code .is-add { background: rgba(21, 140, 70, .14); color: #0b5a2f; } body.theme-day .apg-code .is-del { background: rgba(192, 52, 79, .1); color: #8a1f35; }
 @media (prefers-reduced-motion: reduce) { .apg-views button { transition: none; } }
+
+/* ▶ the test run: each example call → what it returned, ✓ / ✗ against what was expected */
+.apg-run { display: grid; gap: 6px; } .apg-run ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.apg-run li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 6px 8px; border-radius: 7px; background: rgba(255, 255, 255, .03); border-left: 2px solid var(--m-line);
+  font: 600 10px var(--m-mono); color: var(--m-text); }
+.apg-run li.is-ok { border-left-color: var(--m-accent); } .apg-run li.is-bad, .apg-run li.is-err { border-left-color: #ff8fa3; }
+.apg-run code { color: #9fe3ff; overflow-wrap: anywhere; } .apg-run span { overflow-wrap: anywhere; } .apg-run small { color: var(--m-mute); white-space: nowrap; }
+.apg-run li.is-ok small { color: var(--m-accent); } .apg-run li.is-bad small, .apg-run li.is-err span { color: #ff8fa3; } .apg-run p { margin: 0; font: 600 10px var(--m-mono); color: var(--m-mute); }
+body.theme-day .apg-run li { background: rgba(255, 255, 255, .6); } body.theme-day .apg-run code { color: #1f5fa8; }
+@media (max-width: 640px) { .apg-run li { grid-template-columns: 1fr; } }
