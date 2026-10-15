@@ -1,6 +1,7 @@
 # FEELESS — working rules
 
 > 🧨 Working on Fuse / the real card? Read `docs/DEGEN_PLAYBOOK.md` first — the owner, the money, what the records say, the mindset.
+> 🧭 New session / new Claude account? Read `docs/HANDOFF.md` first (the map, the commands, the current state) — then grep this file.
 
 Degen trading terminal (Solana-first). Every feature ships **one and done**: styled, fast, tested, pushed.
 
@@ -4182,3 +4183,19 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   fall into the 🏦 vault (runners live); unread ones hover at the scanner. `fateOf`: "not scanned yet" is WAIT, never a fail.
 - 🔏 `FeeStamp` (Home heading): notary seal, serrated edge, turning word ring, $FEE live 24h on the arc, one ink-thump on arrival.
 - Brain chat bubbles hug the text (`.cch-msg` width fit-content, ≤ 78%, 10.5px).
+- 🤝 THE DUET (`backend/ai_duet.py` pure + tested; owner, 2026-10-14: "gemma primary, qwen secondary, learn / grow together"): 🖥 Gemma on the
+  desktop Mac = provider `lan` (`LAN_LLM_BASE_URL/MODEL/API_KEY`, first in `AI_PROVIDER_ORDER`, `reasoning_effort: none` or it answers empty) leads
+  the background lane; when it makes a real call (CAUTION / FAVOR) 💻 Qwen (`local`) re-reads the same case (≤ 1 / 150s, never while a browser
+  lags) → note slot `sherlock2` + a merged `duet` note. `ai_learn.note` dedups PER PROVIDER (two models, two calls). `record` = pairs within
+  10 min: agree %, both-CAUTION / both-FAVOR results, who was right on splits; a split is NEUTRAL until one model wins ≥ 10 called splits at
+  ≥ 60% (`trusted`). `gate_verdict`: an AGREED (or trusted) duet CAUTION may hold a coin back; a lone small model still never can. Chat: Brain
+  model switch `🤝 Duet` → Gemma answers, Qwen reads that answer and agrees / pushes back, both shown. UI: 🧠 AI tab `ModelReport` + `DuetLine`.
+  The 401 in HQ's provider list = the running service had an older LM Studio token: restart after any `.env` key change.
+- 🕸 MCP `deep_research` (several searches incl. scam / team / news angles, best pages READ in parallel, each with its URL) + `investigate`
+  (one coin: FEELESS read + its own site — does it name the mint? — its X link + web results for the CA). Public hosts only, every hop checked.
+  FEE prompt (`docs/lm_fee_prompt.txt`, pushed into the LM Studio preset) = the owner's FEE voice + FACT / INFERENCE / UNKNOWN + the levers rule.
+  Portable pack for a bigger model: `docs/FEE_BRAIN.md`. Handoff map: `docs/HANDOFF.md`.
+- ⚡ HOME = THE FEELESS STACK (`HomeEngine.jsx`, `homeEngine.css` `hen-*`; replaced the Trench Sieve AND the `FeeStamp`, both deleted): six live
+  chips on one circuit — 🛰 SEES · 🛡 CATCHES · 🌦 READS · 🏃 HUNTS · ⚛ FUSES · 🧾 PROVES — from `/fuses/trench/open` · `/forecast` · `/runners` ·
+  `/fuses/prime` · `/fuses/proof` (missing = "—"), packets on the bus, numbers flip on change, a 🛡 JUST CAUGHT ticker of real scan fails.
+

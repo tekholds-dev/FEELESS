@@ -501,6 +501,94 @@ def t_x_search(a):
     return t_web_search({'query': f"site:x.com {a.get('query') or ''}", 'limit': a.get('limit') or 8})
 
 
+def _search_rows(q, n):
+    """The search behind web_search, as rows (Brave when keyed, else DuckDuckGo) — cached 5 min."""
+    key = os.environ.get('BRAVE_API_KEY')
+
+    def go():
+        if key:
+            r = _http().get('https://api.search.brave.com/res/v1/web/search', params={'q': q, 'count': n},
+                            headers={'X-Subscription-Token': key, 'Accept': 'application/json'}, timeout=10)
+            if r.status_code == 200:
+                return [{'title': x.get('title'), 'url': x.get('url'), 'snippet': re.sub(r'<[^>]+>', '', x.get('description') or '')}
+                        for x in ((r.json().get('web') or {}).get('results') or [])[:n]]
+        r = _http().post('https://html.duckduckgo.com/html/', data={'q': q}, timeout=10)
+        return ddg_results(r.text, n)
+    return _memo('search:' + q + str(n), 300, go)
+
+
+def _read_many(urls, each=1400):
+    """Fetch up to 6 public pages in parallel (the same safe_url check on every hop) → [(url, title, text excerpt | error)]."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    def one(u):
+        try:
+            final, code, ctype, body = _memo('fetch:' + u, 120, lambda: _fetch(u))
+            if 'json' in ctype:
+                return u, f'{code} json', body[:each]
+            title, text, _links = page_text(body)
+            return final, title or str(code), text[:each]
+        except Exception as e:
+            return u, 'unreadable', str(e)[:120]
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        return list(ex.map(one, [u for u in urls if u][:6]))
+
+
+def t_deep_research(a):
+    """🕸 DEEP RESEARCH: several searches (the query + angles), the best distinct pages READ in parallel, every excerpt with its source.
+    Read only, public hosts only (private / loopback / metadata addresses are refused on every redirect hop)."""
+    q = str(a.get('query') or '').strip()[:300]
+    if len(q) < 2:
+        return 'Give a query.'
+    depth = max(1, min(3, int(_f(a.get('depth'), 2))))
+    angles = [q] + [f'{q} {w}' for w in ('scam OR rug OR exploit', 'team OR founder OR dev', 'news')][:depth]
+    seen, rows = set(), []
+    for ang in angles:
+        try:
+            for x in _search_rows(ang, 6):
+                host = (urlparse(x.get('url') or '').hostname or '').lower()
+                if x.get('url') and host not in seen:
+                    seen.add(host); rows.append(x)
+        except Exception:
+            continue
+    if not rows:
+        return 'No results (try other words).'
+    reads = _read_many([x['url'] for x in rows[:2 + 2 * depth]])
+    out = [f'DEEP RESEARCH · "{q}" · {len(angles)} searches · {len(reads)} pages read (FACT = quoted page text; anything else is your inference)']
+    for u, t, txt in reads:
+        out.append(f"\n■ {t}\n  {u}\n  " + re.sub(r'\s+', ' ', txt))
+    out.append('\nOTHER RESULTS: ' + ' | '.join(f"{x['title']} {x['url']}" for x in rows[len(reads):len(reads) + 6]))
+    return _cut('\n'.join(out), MAX_OUT)
+
+
+def t_investigate(a):
+    """🔎 COIN INVESTIGATION: FEELESS's own read of the coin (holders, dev, tape, callers, socials) + its website and X read from the
+    links the coin itself set + web results for the ticker and the CA. Everything labelled with its source."""
+    mint = str(a.get('mint') or '').strip()
+    if not re.fullmatch(r'[1-9A-HJ-NP-Za-km-z]{32,44}', mint):
+        return 'Give a Solana mint address. Use token_search first to turn a ticker into one.'
+    d = _get(REP, f'/coin-read/{mint}', 10) or {}
+    flat = json.dumps(d, default=str)
+    links = list(dict.fromkeys(re.findall(r'https?://[^\s"\\]+', flat)))
+    site = [u for u in links if not re.search(r'(x\.com|twitter\.com|t\.me|pump\.fun|dexscreener|jup\.ag|ipfs|arweave|solscan)', u)][:2]
+    xs = [u for u in links if re.search(r'(x\.com|twitter\.com)/', u)][:2]
+    sym = str(d.get('symbol') or (d.get('row') or {}).get('symbol') or '').strip()
+    out = ['INVESTIGATION · ' + (f'${sym} · ' if sym else '') + mint, '\n== FEELESS READ ==', _cut(flat, 2500)]
+    if site:
+        out.append('\n== ITS WEBSITE (the link the coin set) ==')
+        for u, t, txt in _read_many(site, 900):
+            out.append(f'■ {t} · {u}\n  ' + re.sub(r'\s+', ' ', txt) + ('\n  ✓ the page names this mint' if mint in txt else '\n  ✗ the page does not name this mint'))
+    if xs:
+        out.append('\n== ITS X (the link the coin set; X shows little without a login) ==\n' + ' '.join(xs))
+    for q in [f'"{mint}"'] + ([f'${sym} solana'] if sym else []):
+        try:
+            rs = _search_rows(q, 5)
+            out.append(f'\n== WEB: {q} ==\n' + ('\n'.join(f"- {x['title']} · {x['url']} · {x['snippet'][:160]}" for x in rs) or 'nothing found'))
+        except Exception as e:
+            out.append(f'\n== WEB: {q} == search failed: {type(e).__name__}')
+    return _cut('\n'.join(out), MAX_OUT)
+
+
 TOOLS = {
     'feeless_card': (t_card, 'The REAL Fuse card right now: put in, value, all-time P&L, who controls it, every coin with % and $, paper cards.', {}),
     'feeless_agents': (t_agents, "The agents' desk: mission, capital stance + leaks, the 4 seats (P/L, velocity, Reaper's ruling), top candidates and why, the Judge.", {}),
@@ -522,15 +610,20 @@ TOOLS = {
     'web_fetch': (t_web_fetch, 'Read any public web page or JSON API as plain text (title, text, links). Cached 2 min.',
                   {'url': {'type': 'string'}, 'max_chars': {'type': 'integer', 'description': '500–6000 (default 4000)'}}),
     'x_search': (t_x_search, 'Recent X posts about a ticker / coin / CA (via web search).', {'query': {'type': 'string'}, 'limit': {'type': 'integer'}}),
+    'deep_research': (t_deep_research, 'DEEP research on anything: several searches (the query + scam / team / news angles), the best pages READ in parallel, '
+                      'every excerpt with its URL. Use for projects, people, narratives, "is this legit".',
+                      {'query': {'type': 'string'}, 'depth': {'type': 'integer', 'description': '1–3 (default 2): more angles + more pages'}}),
+    'investigate': (t_investigate, 'Full investigation of ONE coin: FEELESS read + its own website (does it name the mint?) + its X link + web results for the CA and ticker.',
+                    {'mint': {'type': 'string'}}),
 }
-REQUIRED = {'feeless_site': ['section'], 'feeless_coin': ['mint'], 'token_search': ['query'], 'web_search': ['query'], 'web_fetch': ['url'], 'x_search': ['query']}
+REQUIRED = {'deep_research': ['query'], 'investigate': ['mint'], 'feeless_site': ['section'], 'feeless_coin': ['mint'], 'token_search': ['query'], 'web_search': ['query'], 'web_fetch': ['url'], 'x_search': ['query']}
 LIMIT = {'feeless_diagnose': 9000}   # the money picture is the one answer worth ~2.5K tokens
 FORBIDDEN_WORDS = ('sign', 'send', 'trade', 'swap', 'buy', 'sell', 'withdraw', 'topup', 'top_up', 'admin', 'wallet_key', 'transfer')
 
 
 def tool_list():
     return [{'name': k, 'description': d, 'inputSchema': {'type': 'object', 'properties': p, 'required': REQUIRED.get(k, [])},
-             'annotations': {'readOnlyHint': True, 'destructiveHint': False, 'openWorldHint': k.startswith(('web', 'x_'))}}
+             'annotations': {'readOnlyHint': True, 'destructiveHint': False, 'openWorldHint': k.startswith(('web', 'x_', 'deep', 'invest'))}}
             for k, (_fn, d, p) in TOOLS.items()]
 
 

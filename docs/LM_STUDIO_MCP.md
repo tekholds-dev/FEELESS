@@ -97,6 +97,8 @@ LM Studio running on **this** Mac instead? Use stdio — no token or port:
 | `web_search` | DuckDuckGo (no key), cached 5 min; Brave if `BRAVE_API_KEY` is set |
 | `web_fetch` | any public page / JSON API as text (private network refused) |
 | `x_search` | recent X posts about a coin (via search) |
+| `deep_research` | several searches (query + scam / team / news angles) and the best pages READ in parallel, each with its URL |
+| `investigate` | one coin: FEELESS read + its own website (does it name the mint?) + its X link + web results for the CA |
 
 There are no tools that sign, trade, move money or change a setting.
 

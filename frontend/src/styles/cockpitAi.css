@@ -175,3 +175,9 @@ body.theme-day .ack-open button { color: #10261a; border-color: rgba(16, 38, 26,
 .cai-mrep li > span i { font-style: normal; font: 800 7px var(--m-mono); letter-spacing: .1em; color: var(--m-mute); margin-right: 4px; }
 body.theme-day .cai-mrep li > b { color: #5b3fc4; }
 @media (max-width: 640px) { .cai-mrep li { grid-template-columns: minmax(0, 1fr) auto; } .cai-mrep li > small { display: none; } }
+/* 🤝 duet: two meters */
+.cai-duet { display: grid; gap: 4px; padding: 8px 10px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); background: rgba(21, 209, 106, .04); }
+.cai-duet-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto auto; gap: 8px; align-items: center; font: 600 9.5px var(--m-mono); color: var(--m-text); }
+.cai-duet-row small, .cai-duet-note { color: var(--m-mute); font: 700 8px var(--m-mono); letter-spacing: .06em; }
+body.theme-day .cai-duet { background: rgba(21, 120, 70, .05); }
+@media (max-width: 640px) { .cai-duet-row { grid-template-columns: 80px minmax(0, 1fr) auto; } .cai-duet-row small:last-child { display: none; } }

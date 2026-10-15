@@ -13138,6 +13138,7 @@ def _ai_view(now=None, light=False):
                 'totals': v['totals'], 'notes': {m_: {ro_: {k_: n_.get(k_) for k_ in ('source', 'label', 'advice', 'at')} for ro_, n_ in notes[m_].items()} for m_ in keep},
                 'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY, 'localLane': {**{k_: _local_lane.get(k_) for k_ in ('n', 'last', 'busy', 'every', 'whyEvery')}, 'watch': _aic.watch_view(_local_lane.get('watch') if _local_lane.get('watch') is not None else (_json_load(LOCAL_WATCH_PATH, {}) or {}), _chat.get('settings') or {}, time.time(), _local_lane.get('every'), _local_lane.get('whyEvery'))}, 'log': _ai['log'][-20:], 'metrics': v.get('metrics'),
                 'model': next((r_.get('model') for r_ in v['providers'] if r_.get('key') == v['active']), None), 'learn': {**_ail.view(_ai_book()), 'on': _ai_learn_on()},
+                'duet': _duet.view(_duet.record(_ai_book().get('done'))),   # 🤝 Gemma + Qwen on one record: agree %, who wins splits
                 'report': _ail.model_report(_ai_book(), {k_: dict(_air.ROUTER.stats.get(k_) or {}) for k_ in _air.PROVIDERS}, {r_.get('key'): r_.get('model') for r_ in v['providers']}),   # 🧠 every model on one yardstick
                 'slip': {'firstPct': _fw.BUY_SLIP_FIRST / 100, 'retryPct': _fw.BUY_SLIP_MAX / 100, 'retries': _fw.BUY_SLIP_RETRIES},
                 'exit': _er.view(_ai_exit_book(), _ai['exit'], now, on=((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentAiExit', True) is not False)}
@@ -13318,6 +13319,30 @@ def _local_lane_pick(now):
     return None
 
 
+import ai_duet as _duet
+_duet_at = {'second': 0.0}
+
+
+async def _duet_second(c_, r_, env, cfg, lagging=False):
+    """💻 Qwen's second read of the case Gemma just read → its own note (slot 'sherlock2', graded on its own) + the merged 'duet' note
+    the seat gate reads (an AGREED CAUTION may hold a coin back; a split is neutral until one model proves it wins splits)."""
+    now = time.time()
+    p_ = _air.provider(env, _duet.SECOND, cfg)
+    if not _duet.second_due((r_ or {}).get('advice'), _duet_at['second'], now, lagging) or not p_['enabled'] or p_['why'] or _air.ROUTER.stats[_duet.SECOND]['coolUntil'] > now:
+        return
+    _duet_at['second'] = now
+    try:
+        r2 = await _air.ROUTER.reason(_ai_http(), env, cfg, _ai_case(c_), 'sherlock', 'force', prio=_air.PRIO['ready'], only=(_duet.SECOND,), mode='case')
+    except Exception as e:
+        print('duet second:', str(e)[:100]); return
+    if not (r2 or {}).get('advice') or r2.get('source') != _duet.SECOND:
+        return
+    _ai_keep('sherlock', c_, r2, time.time(), slot='sherlock2')
+    m_ = _duet.merge(r_.get('advice'), r2.get('advice'), _duet.record(_ai_book().get('done')))
+    _ai['notes'].setdefault(c_['mint'], {})['duet'] = {'source': 'duet', 'label': '🤝 DUET', 'at': time.time(), 'symbol': c_.get('symbol'),
+                                                        'advice': {**m_, 'risk_flags': m_['flags'], 'summary': m_['why']}}
+
+
 async def _local_lane_run(now):
     """💻 THE LOCAL MODEL WORKS FOR THE AGENTS (owner, 2026-10-13: "local LM needs to be stronger for them" · "it stopped running"): its own
     lane, beside the cloud — every LOCAL_LANE_EVERY it PRE-READS the best candidate nobody has read yet, so the seat gate finds a fresh
@@ -13333,6 +13358,7 @@ async def _local_lane_run(now):
         every = min(every, LOCAL_LANE_EVERY / 3)
     if every <= 0:
         return
+    why_ = ''
     try:   # 💻 the owner's 24h boost: faster reads, paused by itself while a browser reports lag (the GPU is shared with Chrome)
         _brain_load()
         perf_ = [x_ for x_ in list(_perf_samples)[-200:] if now - x_['at'] <= 120]
@@ -13359,6 +13385,8 @@ async def _local_lane_run(now):
         _lw_note(time.time(), ok_, _local_lane['lastMs'])
         if _ai_keep('sherlock', c_, r_, time.time()) and (r_ or {}).get('advice'):
             _local_lane.update(n=_local_lane['n'] + 1, last={'at': round(time.time(), 1), 'symbol': c_.get('symbol'), 'ms': r_.get('ms'), 'stance': (r_.get('advice') or {}).get('stance'), 'via': r_.get('source')})
+            if lane_ == _duet.LEAD:   # 🤝 THE DUET: Qwen re-reads what Gemma flagged — the pair is graded together and learns whose split call to follow
+                await _duet_second(c_, r_, env, cfg, lagging=why_.startswith('boost paused') or why_.startswith('paused'))
     except Exception as e:
         print('local lane:', str(e)[:100])
     finally:
@@ -13368,11 +13396,11 @@ async def _local_lane_run(now):
 AI_GATE_SEC = 7.0   # 🛂 a seat waits at most this long for the model's read of the coin (a cloud answer takes ~5s); no answer in time = the coin goes
 
 
-def _ai_keep(role_, c_, r_, now):
-    """One model answer → the notes by coin + role, the log and the judged record (the same bookkeeping the advisory round does)."""
+def _ai_keep(role_, c_, r_, now, slot=None):
+    """One model answer → the notes by coin + role (or `slot`: the duet's second read keeps its own), the log and the judged record."""
     if isinstance(r_, Exception) or not isinstance(r_, dict) or r_.get('deferred') or not c_.get('mint'):
         return False
-    _ai['notes'].setdefault(c_['mint'], {})[role_] = {k_: r_.get(k_) for k_ in ('source', 'label', 'advice', 'ms', 'at', 'tried', 'why', 'cached')} | {'symbol': c_.get('symbol')}
+    _ai['notes'].setdefault(c_['mint'], {})[slot or role_] = {k_: r_.get(k_) for k_ in ('source', 'label', 'advice', 'ms', 'at', 'tried', 'why', 'cached')} | {'symbol': c_.get('symbol')}
     _ai_log(role_, c_, r_)
     _ai_learn_note(role_, c_, r_, now)
     return True
@@ -13652,11 +13680,19 @@ async def admin_ai_chat(request: Request):
             except Exception as e_:
                 print('chat evidence:', str(e_)[:120])
                 data_ = {'state': 'NO HISTORY', 'window': None, 'exits': 0, 'gaps': ['the evidence reader failed — answered without records']}
-        prov_ = str((body or {}).get('provider') or 'auto')   # 🎛 the owner's model switch: auto = the normal order, else that one provider only
-        only_ = (prov_,) if prov_ in _air.PROVIDERS else None
+        prov_ = str((body or {}).get('provider') or 'auto')   # 🎛 the owner's model switch: auto = the normal order · duet = Gemma then Qwen · else that one provider only
+        only_ = (prov_,) if prov_ in _air.PROVIDERS else (_duet.LEAD,) if prov_ == 'duet' else None
         img_ = _chat_image((body or {}).get('image'))
-        res = await _air.ROUTER.ask(_ai_http(), env, cfg, text, context=ctx, role='owner', history=_aic.as_messages(_chat['th'].get(mode)), system=_aic.system_for(mode),
+        hist_ = _aic.as_messages(_chat['th'].get(mode))
+        res = await _air.ROUTER.ask(_ai_http(), env, cfg, text, context=ctx, role='owner', history=hist_, system=_aic.system_for(mode),
                                     only=only_, images=[img_[1]] if img_ else None, tune=_aic.tune_of(_chat['settings']))
+        if prov_ == 'duet' and not img_:   # 🤝 THE DUET IN CHAT: Gemma answers, Qwen reads Gemma's answer and agrees or pushes back — both shown
+            lead_t = res.get('text')
+            r2 = await _air.ROUTER.ask(_ai_http(), env, cfg, _duet.second_prompt(text, lead_t) if lead_t else text, context=ctx, role='owner', history=hist_,
+                                       system=_aic.system_for(mode), only=(_duet.SECOND,), tune=_aic.tune_of(_chat['settings']))
+            both_ = _duet.combine(lead_t, r2.get('text'))
+            res = {**res, 'text': both_, 'label': ' + '.join(x for x in (res.get('label') if lead_t else None, r2.get('label') if r2.get('text') else None) if x) or res.get('label'),
+                   'ms': (res.get('ms') or 0) + (r2.get('ms') or 0), 'model': ' + '.join(x for x in (res.get('model'), r2.get('model')) if x)}
         reply, new, refused = res.get('text'), [], []
         if reply and mode in ('improve', 'build'):   # 🛠 the model's suggestions become PENDING records — nothing is applied until the owner approves each one
             reply, items, refused = _aic.parse_improve(reply, tuple(_co.CAUSES), only=('idea',) if mode == 'build' else None)

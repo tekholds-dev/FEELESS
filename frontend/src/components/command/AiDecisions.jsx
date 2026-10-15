@@ -87,6 +87,19 @@ export function ModelReport({ rows }) {
       <span><i>ANSWERS</i>{r.answers}{r.ms ? ` · ${(r.ms / 1000).toFixed(1)}s` : ''}</span></li>)}</ul></div>;
 }
 
+// 🤝 THE DUET: Gemma (lead) + Qwen (second) on one record — how often they agree and who was right when they split
+export function DuetLine({ d }) {
+  if (!d) return null;
+  const pct = x => (x == null ? 0 : Math.max(0, Math.min(100, x)) / 100);
+  return <div className="cai-duet" data-testid="cai-duet" data-tip={d.why}>
+    <span className="cai-lhead"><b>🤝 DUET · GEMMA + QWEN</b><em>{d.trustedName ? `listens to ${d.trustedName}` : 'LEARNING'}</em></span>
+    <div className="cai-duet-row"><small>AGREE</small><span className="cai-meter"><i style={{ transform: `scaleX(${pct(d.agreePct)})` }} /></span><b>{d.agreePct == null ? '—' : `${d.agreePct}%`}</b><small>{d.pairs} pairs</small></div>
+    <div className="cai-duet-row"><small>🖥 WINS SPLITS</small><span className="cai-meter"><i style={{ transform: `scaleX(${pct(d.leadPct)})` }} /></span><b>{d.leadPct == null ? '—' : `${d.leadPct}%`}</b>
+      <small>💻 {d.secondPct == null ? '—' : `${d.secondPct}%`} · {d.splits} splits</small></div>
+    {d.bothCaution?.n ? <small className="cai-duet-note">both CAUTION: {d.bothCaution.right}% fell · typical {d.bothCaution.med > 0 ? '+' : ''}{d.bothCaution.med}% ({d.bothCaution.n})</small> : null}
+  </div>;
+}
+
 export function AiPane({ ai: aiProp, lab, call, isOwner = true, focus, focusSym, onPick, onProviders }) {
   const ai = useAi(aiProp);   // 🧠 the AI store: this pane re-renders when the model answers — the rest of the tab does not
   const [txt, setTxt] = useState(focus || ''); const [role, setRole] = useState('owner'); const [busy, setBusy] = useState(false); const [scope, setScope] = useState('all'); const [ans, setAns] = useState(null);
@@ -112,6 +125,7 @@ export function AiPane({ ai: aiProp, lab, call, isOwner = true, focus, focusSym,
       <span className="cai-meter"><i style={{ transform: `scaleX(${(st.pct || 0) / 100})` }} /></span><b>{st.pct}% agree</b><small>{st.agree} of {st.n}</small></div> : null}
     <RuleLab lab={lab} />
     <ModelReport rows={ai?.report} />
+    <DuetLine d={ai?.duet} />
     {ai?.learn ? <div className={`cai-learn is-${String(ai.learn.state).toLowerCase().replace(/\s+/g, '-')}`} data-testid="cai-learn"
       data-tip={`Every stance the model gives is noted at that price and judged ${ai.learn.judgeMin} min later. A stance moves the agents' ranking (±10% at most) only once ${ai.learn.minN} of its calls are judged AND its coins really did better / worse than the model's other calls.`}>
       <span className="cai-lhead"><b>🎓 AGENTS LEARNING FROM THE MODEL</b><em>{ai.learn.state}</em></span><small>{ai.learn.why}{ai.learn.open ? ` · ${ai.learn.open} call${ai.learn.open === 1 ? '' : 's'} waiting for their ${ai.learn.judgeMin} min` : ''}</small>

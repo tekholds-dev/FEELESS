@@ -40,7 +40,7 @@ def note(book, role, mint, stance, px, now, symbol=None, flags=None, scout=None,
     if not mint or not stance or _f(px) <= 0:
         return b
     st = str(stance).upper()
-    if any(c['mint'] == mint and c['stance'] == st and bool(c.get('atFill')) == bool(at_fill) and now - _f(c['at']) < RENOTE_SEC for c in b['open'] + b['done'][-80:]):   # a read AT the fill is its own record
+    if any(c['mint'] == mint and c['stance'] == st and bool(c.get('atFill')) == bool(at_fill) and c.get('prov') == (str(src)[:16] if src else None) and now - _f(c['at']) < RENOTE_SEC for c in b['open'] + b['done'][-80:]):   # per provider: the duet's two models each keep their own call   # a read AT the fill is its own record
         return b
     c = {'mint': mint, 'symbol': symbol, 'role': role, 'stance': st, 'px': _f(px), 'at': round(now, 1)}
     if isinstance(flags, int):

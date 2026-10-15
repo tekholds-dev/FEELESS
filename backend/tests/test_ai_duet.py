@@ -1,0 +1,49 @@
+import ai_duet as d
+import ai_learn
+import ai_router
+
+
+def _c(prov, mint, stance, pct, at):
+    return {'prov': prov, 'mint': mint, 'stance': stance, 'pct': pct, 'at': at}
+
+
+def test_agreed_stance_stands_and_a_split_is_neutral_until_one_model_proves_it_wins_splits():
+    m = d.merge({'stance': 'CAUTION', 'risk_flags': ['dev 40%']}, {'stance': 'CAUTION', 'risk_flags': ['top10 80%']})
+    assert m['agree'] is True and m['stance'] == 'CAUTION' and m['flags'] == ['dev 40%', 'top10 80%']
+    assert d.merge({'stance': 'CAUTION'}, {'stance': 'FAVOR'})['stance'] == 'NEUTRAL'
+    # Gemma right on 12 of 12 called splits, Qwen on none → the pair listens to Gemma
+    done = []
+    for i in range(12):
+        done += [_c('lan', f'm{i}', 'CAUTION', -20, 100 * i), _c('local', f'm{i}', 'FAVOR', -20, 100 * i + 30)]
+    rec = d.record(done)
+    assert rec['pairs'] == 12 and rec['agreePct'] == 0 and rec['leadPct'] == 100 and rec['secondPct'] == 0
+    assert d.trusted(rec) == 'lan'
+    assert d.merge({'stance': 'CAUTION'}, {'stance': 'FAVOR'}, rec)['stance'] == 'CAUTION'
+
+
+def test_reads_far_apart_are_not_a_pair_and_the_second_only_rereads_real_calls():
+    assert d.pairs([_c('lan', 'x', 'FAVOR', 5, 0), _c('local', 'x', 'FAVOR', 5, 5000)]) == []
+    assert d.second_due({'stance': 'NEUTRAL'}, 0, 1000) is False
+    assert d.second_due({'stance': 'CAUTION'}, 0, 1000) is True
+    assert d.second_due({'stance': 'CAUTION'}, 0, 1000, lagging=True) is False
+    assert d.second_due({'stance': 'CAUTION'}, 950, 1000) is False
+
+
+def test_both_models_keep_their_own_call_on_the_same_coin():
+    b = ai_learn.note({}, 'sherlock', 'M', 'CAUTION', 1.0, 100, src='lan')
+    b = ai_learn.note(b, 'sherlock', 'M', 'CAUTION', 1.0, 110, src='local')
+    assert [c['prov'] for c in b['open']] == ['lan', 'local']
+
+
+def test_an_agreed_duet_caution_may_hold_a_seat_a_lone_small_model_may_not():
+    adv = {'stance': 'CAUTION', 'confidence_delta': -0.3, 'risk_flags': ['dev holds 60%'], 'summary': 'dev bag'}
+    lone = {'sherlock': {'source': 'lan', 'advice': adv, 'at': 100}}
+    assert ai_router.gate_verdict(lone, 110) == (None, None)
+    duet = {**lone, 'duet': {'source': 'duet', 'at': 100, 'advice': {**adv, 'agree': True}}}
+    assert ai_router.gate_verdict(duet, 110)[0] == 'wait'
+
+
+def test_chat_reply_shows_both_models():
+    assert d.combine('a', 'b').startswith('🖥 GEMMA') and '💻 QWEN' in d.combine('a', 'b')
+    assert d.combine('a', None) == 'a'
+    assert 'PUSH BACK' in d.second_prompt('why?', 'because')

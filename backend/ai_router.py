@@ -114,7 +114,7 @@ def gate_verdict(notes, now):
     """🛂 What the model's own reads say about a coin about to take a REAL seat → ('wait', why) | ('go', None) | (None, None) when no
     read is fresh. Only a strong, specific CAUTION waits; silence never does."""
     fresh = [n for n in (notes or {}).values() if (n or {}).get('advice') and now - _f((n or {}).get('at')) <= GATE_FRESH]
-    cloud = [n for n in fresh if n.get('source') not in LM]   # the small LM Studio models (this Mac, the desktop Mac) never hold a seat alone
+    cloud = [n for n in fresh if n.get('source') not in LM]   # the small LM Studio models never hold a seat ALONE — 🤝 unless BOTH read it the same way (the 'duet' note, ai_duet.py)
     pool = cloud or fresh
     if not pool:
         return None, None
@@ -122,7 +122,8 @@ def gate_verdict(notes, now):
     ad = best['advice']
     hard = [f for f in (ad.get('risk_flags') or []) if not GATE_SOFT.search(str(f))]   # "0% organic / bots" is on nearly every Pump coin (Jupiter reads them 0–3% organic): alone it holds nothing
     strong = ad.get('stance') == 'CAUTION' and _f(ad.get('confidence_delta')) <= GATE_DELTA and bool(hard)
-    if strong and not cloud:
+    duet = (notes or {}).get('duet') or {}
+    if strong and not cloud and not (duet.get('advice') and now - _f(duet.get('at')) <= GATE_FRESH and (duet['advice'].get('agree') or duet['advice'].get('trusted'))):
         return None, None   # 💻 only the small local model objects: it can never hold a seat by itself — the cloud is asked for the second read
     if strong:
         return 'wait', f"{'; '.join(str(f) for f in hard[:2])} — {str(ad.get('summary') or '')[:110]}"
@@ -874,7 +875,7 @@ class Router:
             gm = messages_general(question, context, history, system)
             if images:   # a picture goes to vision-capable cloud providers only (the local text model would refuse the call)
                 gm = with_images(gm, images)
-                only = tuple(k for k in (only or PROVIDERS) if k != 'local') or ('openrouter',)
+                only = tuple(k for k in (only or PROVIDERS) if k not in LM) or ('openrouter',)
             tok = TUNE.set(tune) if tune else None
             try:
                 res = await self._route(http, env, cfg, None, role, time.time(), urgency, prio, only, mode='general', gmsgs=gm)
