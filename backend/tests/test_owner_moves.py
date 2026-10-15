@@ -59,3 +59,26 @@ def test_your_sl_tp_drags_are_graded_room_vs_protect():
     assert om.classify(c2['events'][-1]) == ('tight', 'A')
     assert om.verdict('room', 12) == 'good' and om.verdict('tight', -12) == 'good' and om.verdict('tight', 15) == 'bad'
     assert ap.set_leg(card, 'P', frozen=True, now=100).get('events') in (None, [])   # no line moved = no event
+
+
+def test_your_ticket_stop_sticks_through_the_engine_tick():
+    import arena_prime as ap
+    leg = {'pairAddress': 'P', 'mint': 'M', 'symbol': 'HTR', 'ticket': True, 'slMode': 'hold', 'rideOrRug': True, 'units': 1.0, 'entry': 1.0, 'costUsd': 1.0, 'role': 'runner'}
+    c = ap.set_leg({'legs': [leg], 'events': []}, 'P', sl=20, now=100)
+    l = c['legs'][0]
+    assert l['sl'] == 20 and 'rideOrRug' not in l and l.get('slMode') is None
+    # the tick's REAL ticket-stop pass (trench ticket stops OFF = 100, or the learned stop) leaves YOUR line alone
+    other = {'pairAddress': 'Q', 'ticket': True, 'sl': 25}
+    c['legs'].append(other)
+    ap.ticket_stops(c, {'trenchSlPct': 100})
+    assert c['legs'][0]['sl'] == 20 and c['legs'][1]['sl'] == 100.0
+    ap.ticket_stops(c, {'trenchSlPct': 25, 'ticketSl': 30})
+    assert c['legs'][0]['sl'] == 20
+
+
+def test_a_wiped_hand_line_heals_from_your_own_level_event():
+    import arena_prime as ap
+    c = {'legs': [{'pairAddress': 'P', 'symbol': 'HTR', 'ticket': True, 'sl': 100.0, 'ownerLvAt': 50, 'rideOrRug': True}],
+         'events': [{'kind': 'level', 'symbol': 'HTR', 'why': '✋ your line on $HTR: stop −100% → −15%'}, {'kind': 'level', 'symbol': 'HTR', 'why': '✋ your line on $HTR: stop −100% → −20%'}]}
+    ap.ticket_stops(c, {'trenchSlPct': 100})
+    assert c['legs'][0]['sl'] == 20.0 and 'rideOrRug' not in c['legs'][0]

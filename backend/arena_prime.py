@@ -9,6 +9,7 @@ Each Prime card runs its dial (Safe / Balanced / Degen) with every automation ON
   • every action is an event with its reason, so the card's whole life is replayable.
 P&L never includes fees (same rule as real cards); a flat paper fee per trade is tracked SEPARATELY as `feesUsd`.
 """
+import re
 import time
 import math
 
@@ -2219,21 +2220,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     # no rescue. Found live: two picks mid-swap read −40% on a card that had lost nothing → the floor sold every coin.
     blind = bool(blind) and not (true_usd is not None and _f(true_usd) > 0)
     ev = lambda **e: c['events'].append({'at': now, **e})
-    c['ticketSlOwner'] = _f((cfg or {}).get('trenchSlPct')) or None
-    if _f((cfg or {}).get('trenchSlPct')) >= 100:   # 🛑 the owner switched ticket stops OFF: every ticket (new and held) rides, rug shield only
-        for l in c.get('legs') or []:
-            if l.get('ticket'):
-                l['sl'] = 100.0
-    if (cfg or {}).get('ticketSl') is not None and _f((cfg or {}).get('trenchSlPct')) < 100:   # 🧠 the trench brain's learned ticket stop (service-set per tick, real card, switch on)
-        c['ticketSlLearned'] = _f(cfg['ticketSl'])
-        for l in c.get('legs') or []:   # tickets already held move to the learned stop too (a −25% stop shook $Break out in 1.8 min)
-            if l.get('ticket') and not l.get('rideOrRug') and not l.get('frozen'):
-                if c['ticketSlLearned'] > 0:
-                    l['sl'] = c['ticketSlLearned']
-                else:
-                    l.update(slMode='hold', rideOrRug=True); l.pop('sl', None)
-    else:
-        c.pop('ticketSlLearned', None)
+    ticket_stops(c, cfg)
     fee = cfg['paperFeeUsd']
 
     def best(role, trench=False):
@@ -3217,6 +3204,34 @@ def leg_sl(l, t):
     return _f(l.get('sl')) or t['sl']
 
 
+def ticket_stops(c, cfg):
+    """🛑 The ticket-stop pass of every tick: trench tickets follow the owner's ticket setting (OFF = ride or rug) or the trench brain's learned
+    stop — EXCEPT a coin whose line the owner dragged by hand (leg ownerLvAt): that line is never overwritten. Mutates `c`."""
+    c['ticketSlOwner'] = _f((cfg or {}).get('trenchSlPct')) or None
+    for l in c.get('legs') or []:   # 🩹 heal: a hand-set line the old pass wiped (sl back to OFF) gets the owner's last dragged stop from his own level event
+        if l.get('ownerLvAt') and _f(l.get('sl')) >= 100:
+            m = next((re.search(r'stop −[\d.]+% → −([\d.]+)%', str(e.get('why') or '')) for e in reversed(c.get('events') or [])
+                      if e.get('kind') == 'level' and e.get('symbol') == l.get('symbol') and 'stop' in str(e.get('why') or '')), None)
+            if m:
+                l['sl'] = float(m.group(1)); l.pop('rideOrRug', None)
+                if l.get('slMode') == 'hold':
+                    l.pop('slMode', None)
+    if _f((cfg or {}).get('trenchSlPct')) >= 100:   # 🛑 the owner switched ticket stops OFF: every ticket (new and held) rides, rug shield only
+        for l in c.get('legs') or []:
+            if l.get('ticket') and not l.get('ownerLvAt'):   # ✋ a line YOU dragged on this coin is never overwritten by the ticket setting
+                l['sl'] = 100.0
+    if (cfg or {}).get('ticketSl') is not None and _f((cfg or {}).get('trenchSlPct')) < 100:   # 🧠 the trench brain's learned ticket stop (service-set per tick, real card, switch on)
+        c['ticketSlLearned'] = _f(cfg['ticketSl'])
+        for l in c.get('legs') or []:   # tickets already held move to the learned stop too (a −25% stop shook $Break out in 1.8 min)
+            if l.get('ticket') and not l.get('rideOrRug') and not l.get('frozen') and not l.get('ownerLvAt'):
+                if c['ticketSlLearned'] > 0:
+                    l['sl'] = c['ticketSlLearned']
+                else:
+                    l.update(slMode='hold', rideOrRug=True); l.pop('sl', None)
+    else:
+        c.pop('ticketSlLearned', None)
+
+
 def set_leg(card, pair, frozen=None, sl_mode=None, tp=None, sl=None, flow=None, now=None):
     """HQ per-coin config on a tier card: ❄ frozen (engine never rotates or stops it — the floor still protects the card)
     and its own stop mode (replace / park / hold, or '' = follow the card). Pure; ValueError if the coin isn't on the card."""
@@ -3248,6 +3263,10 @@ def set_leg(card, pair, frozen=None, sl_mode=None, tp=None, sl=None, flow=None, 
             else:
                 leg.pop(key, None)
             leg['ownerLvAt'] = _f(now) or time.time()   # ✋ the owner set this coin's line by hand — Reaper obeys it, the Judge grades it apart
+            if key == 'sl' and _f(val):   # YOUR stop is a stop: a ride-or-rug ticket stops riding past it
+                leg.pop('rideOrRug', None)
+                if leg.get('slMode') == 'hold':
+                    leg.pop('slMode', None)
     moved = {k: (before[k], _f(leg.get(k))) for k in ('tp', 'sl') if before[k] != _f(leg.get(k))}
     if moved:   # 🎓 a card event the owner_moves record grades: more room (wider stop / higher take) vs protecting (tighter)
         room = any((b == 0 or a > b) for k, (b, a) in moved.items() if a) and not any(0 < a < b for k, (b, a) in moved.items())

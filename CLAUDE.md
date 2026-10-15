@@ -4343,3 +4343,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   wallet, $, its flags, 🔎 case file. One finite drift animation per bubble (transform only); still in fx-lite / reduced motion.
 - ☠ `scripts/rug-replay.py` (read-only; HELIUS_RPC_URL data key, then the public mainnet node — publicnode keeps no history; tx version 1
   needs `maxSupportedTransactionVersion: 1`): each real rug's / young winner's pool swaps over the whole hold (sampled) → data/rug_replay.json.
+- ✋ YOUR SL STICKS (2026-10-15 bug: every drag on a ticket seat was saved, then the next tick's ticket-stop pass reset it to OFF — the
+  owner's `trenchSlPct` 100 — so $HTR's −15 / −19 / −20% all read "−100% → …"). `arena_prime.ticket_stops(c, cfg)` (the tick's pass, now
+  its own function) never touches a leg with `ownerLvAt`, heals a wiped line from the owner's latest `level` event, and `set_leg(sl=)` clears
+  ride-or-rug on that coin. "MY LINE DIDN'T STICK" ⇒ read the card's `level` events: a "before" of −100% means something reset it.
