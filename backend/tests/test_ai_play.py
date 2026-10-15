@@ -17,3 +17,9 @@ def test_a_proposal_is_only_marked_approved_or_dropped_once():
     assert hit['status'] == 'approved'
     assert p.decide(items, it['id'], False, now=3)[1] is None    # decided once
     assert 'OUTLINE of backend/office.py' in p.prompt('x', 'reaper', 'reap()')
+
+
+def test_the_code_lab_sends_only_its_own_prompt_not_the_chat_rules():
+    import ai_router as r
+    m = r.messages_general('make it', system=p.ASK, only_system=True)
+    assert m[0]['content'] == p.ASK and 'Do NOT answer in JSON' not in m[0]['content']   # the chat prompt forbade JSON + said "greet back": Gemma answered "Yo, I'm Vega"

@@ -13690,15 +13690,21 @@ async def admin_ai_playground_make(request: Request):
     only_ = (prov_,) if prov_ in _air.PROVIDERS else (_duet.LEAD,) if prov_ == 'duet' else None
     _chat['busy'] = True
     raw_ = _air.RAW.set(True)
+    q_ = _play.prompt(ask, target, _play.outline(src_, _play.TARGETS[target][0]), prev)
+    tried_ = []
     try:
-        res = await _air.ROUTER.ask(_ai_http(), os.environ, _ai_cfg(), _play.prompt(ask, target, _play.outline(src_, _play.TARGETS[target][0]), prev), role='owner',
-                                    system=_play.ASK, only=only_, tune={'temp': 0.3, 'maxTok': 2500})
+        prop, res = None, {}
+        for o_ in ([only_] if only_ and prov_ != 'duet' else [only_, (_duet.SECOND,)]):   # 🧩 no code from the first model → the other one gets a try
+            res = await _air.ROUTER.ask(_ai_http(), os.environ, _ai_cfg(), q_, role='owner', system=_play.ASK, only=o_, tune={'temp': 0.3, 'maxTok': 2500}, only_system=True)
+            prop = _play.parse(res.get('raw') or res.get('text'))
+            tried_.append(f"{res.get('label') or res.get('source')}: {'code' if prop else (str(res.get('text') or res.get('why') or 'no answer')[:60])}")
+            if prop:
+                break
     finally:
         _air.RAW.reset(raw_)
         _chat['busy'] = False
-    prop = _play.parse(res.get('raw') or res.get('text'))
     if not prop:
-        raise HTTPException(502, f"The model did not return a code proposal ({res.get('label') or res.get('why') or 'no provider answered'}).")
+        raise HTTPException(502, "No model returned a code proposal — " + ' · '.join(tried_ or ['no provider answered']))
     d_['items'], it = _play.add(d_.get('items'), ask, prop, target, res.get('label'))
     _json_save(AI_PLAY_PATH, d_)
     return {'item': it, 'items': d_['items'], 'ms': res.get('ms')}
