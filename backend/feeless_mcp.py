@@ -106,7 +106,7 @@ def t_card(_a):
     real = [c for c in cs if c.get('real')]
     if not real:
         return 'No real card is running.'
-    out = []
+    out = [truth_line((_file('agents_view.json') or {}).get('office') or {})]
     for c in real:
         m = c.get('math') or {}
         out.append(f"REAL CARD {c.get('tpl')} ({c.get('tier')}) — put in {_usd(m.get('putIn'))} · now {_usd(m.get('nowUsd') or c.get('valueUsd'))} · "
@@ -329,6 +329,18 @@ def levers(o):
     return out
 
 
+def truth_line(o):
+    """🧾 ONE plain line of the numbers that matter, first in every money answer — a small model copies this instead of inventing
+    (2026-10-15: Qwen 4B wrote "70% won, avg win $1.2K, size $80K" on a $2 card where the record said 33% won, +11.2% vs −9.6%)."""
+    m = (o or {}).get('mission') or {}
+    lv = levers(o)
+    exp = next((x for x in (lv if isinstance(lv, list) else []) if str(x).startswith('EXPECTANCY')), '')
+    v, put = m.get('value'), m.get('putIn')
+    head = f"card ${_f(v):.2f} now, ${_f(put):.2f} put in" if v is not None and put is not None else 'card value unknown'
+    return (f"TRUTH — copy these exactly, they are the ONLY real numbers; every $ amount is in DOLLARS AND CENTS (the card is ${_f(v):.2f}, never thousands): "
+            f"{head} · {str(exp).replace('EXPECTANCY: ', '').split('. ')[0].rstrip('.…') or 'no exit record yet'}")
+
+
 def t_diagnose(_a):
     """THE MONEY PICTURE for advice: real win/loss record + where the money leaks, exits vs what the trail lab says, missed coins the
     checks blocked, the Judge's loss / win patterns, each desk's own vote record, live lab rules, execution health, and the CURRENT controls
@@ -339,6 +351,7 @@ def t_diagnose(_a):
     cap, tr, rg, ct = o.get('capital') or {}, o.get('trail') or {}, o.get('regret') or {}, o.get('court') or {}
     pol, ex, tape = o.get('policy') or {}, o.get('execution') or {}, o.get('tradeTape') or {}
     parts = [
+        ('TRUTH', truth_line(o)),
         ('LEVERS — facts + the real control behind each (pick moves ONLY from here or CONTROLS)', levers(o)),
         ('MISSION', {k: (o.get('mission') or {}).get(k) for k in ('putIn', 'value', 'needX', 'phase', 'lock')}),
         ('CAPITAL (last 30 real exits · long = 150)', {k: cap.get(k) for k in ('state', 'mult', 'why', 'record', 'long', 'leaks', 'rug', 'brake')}),

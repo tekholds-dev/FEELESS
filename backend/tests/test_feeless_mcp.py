@@ -69,3 +69,12 @@ def test_the_installer_always_carries_the_fee_prompt_from_the_repo():
     import feeless_mcp as m
     s = m.install_script('http://x/mcp', 't', preset_json='{"operation": {"fields": [{"key": "llm.prediction.systemPrompt", "value": "You are the external reasoning brain"}]}}')
     assert 'You are FEE' in s and 'external reasoning brain' not in s
+
+
+def test_truth_line_leads_money_answers_with_the_real_numbers(monkeypatch):
+    import feeless_mcp as m
+    o = {'mission': {'value': 1.94, 'putIn': 39.24}}
+    monkeypatch.setattr(m, 'levers', lambda _o: ['EXPECTANCY: 33% won, wins +11.2% vs losses −9.6% → -2.7% a bet. Break-even needs 46%.', 'other'])
+    t = m.truth_line(o)
+    assert t.startswith('TRUTH') and '$1.94 now, $39.24 put in' in t and '33% won' in t and 'Break-even' not in t
+    assert 'never thousands' in t
