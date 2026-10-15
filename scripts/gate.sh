@@ -11,7 +11,8 @@ PYTHONPATH=backend:. .venv/bin/python -m pytest backend/tests -q > "$out/pytest.
 tail -1 "$out/pytest.txt"
 
 step "2/3 frontend tests"
-( cd frontend && CI=true yarn test --watchAll=false > "$out/jest.txt" 2>&1 ) || { grep -E "FAIL|●|Tests:" "$out/jest.txt" | head -40; echo "✋ GATE RED: frontend tests"; exit 1; }
+( cd frontend && CI=true yarn test --watchAll=false > "$out/jest.txt" 2>&1 ) || { grep -E "^FAIL |✕|^Tests:" "$out/jest.txt" | head -40;   # failures first — "● Console" noise used to fill all 40 lines and hide the real FAIL
+ echo "✋ GATE RED: frontend tests"; exit 1; }
 grep -E "^Tests:" "$out/jest.txt" || true
 
 step "3/3 frontend build"

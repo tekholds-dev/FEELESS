@@ -3,6 +3,13 @@
 Read this first (2 min), then only the parts of `CLAUDE.md` your task touches (`grep -n "<topic>" CLAUDE.md`). CLAUDE.md is the
 full rulebook (~2K lines of "why"); this page is the map.
 
+> ⚡ EVERY SESSION, EVERY HANDOFF (owner, 2026-10-15 — repeat these three lines in any handoff you write):
+> 1. **Conserve usage.** grep first, read only the lines you need, batch commands, no essays, no re-reading files you just edited.
+> 2. **Finish everything, in priority order.** When a new request lands mid-task, finish or hand off the current one — never leave a
+>    surface half-organized or half-styled. All requests get done; the most important first.
+> 3. **Never dead-style.** Before deleting CSS, confirm no component renders the class; every new box needs its rules in a sheet and a
+>    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
+
 ## 1 · What this is
 FEELESS = a Solana degen trading terminal. One owner, one REAL money card run by ten agents, plus a big site (trade, Fuse, Arena,
 chats, FeeCat). Money rules are strict and tested — read `CLAUDE.md › Money rules` before touching anything that buys or sells.
@@ -39,6 +46,7 @@ server — attach, never start a second). Push to `main`; the owner's Mac auto-p
 
 ## 5 · How to work here (the owner's rules, short)
 - Brief with the owner. Verdict, what changed, what was tested, what wasn't.
+- Conserve usage · finish every request in priority order (never half-done) · never dead-style (see the box at the top).
 - Every money change ships with a test that fakes the network. Never hit mainnet or move funds.
 - UI = m-* presets, transform / opacity only, day theme + fx-lite + reduced motion + 640px blocks.
 - When you ship something, add ONE line to the right section of `CLAUDE.md` and, if it changes the map, this page.

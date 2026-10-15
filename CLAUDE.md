@@ -9,6 +9,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - Be brief with the owner. Report what changed, what was tested, what wasn't. No essays.
 - Stay on the task asked. No side quests; note unrelated issues in one line.
 - Read only what you need (grep first, then targeted reads). Batch independent commands.
+- Every request gets FINISHED, in priority order — never a half-organized or half-styled surface when a new request lands. Every
+  handoff you write repeats: conserve usage · finish everything by priority · never dead-style (`docs/HANDOFF.md` top box).
+- NEVER DEAD STYLE: deleting CSS ⇒ first prove no component renders the class (`styles/cssCoverage.test.js` fails on a rendered class with
+  no rule; it caught the 2026-10-15 wipe of agentDesk.css). A new panel = styled + a live visual of its real numbers, never bare text.
 - Push every finished change to **both** `main` and the session branch. The owner's machine runs
   `scripts/auto-pull.sh` on `main`, so Chrome updates on its own.
 
@@ -4391,3 +4395,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   READ AS / MISSED chips, "after a GO") · the creed folded. Entrance keyframes transform-only. 🐛 Every rug showed TWICE: an open call has no
   mint on its own record, so its autopsy id read "None:<t>" and the judged copy got a second one — `paper_desk.autopsy` now keys one autopsy
   per (coin, call time), lands the 60-min result on it, and folds old duplicates. A NEW BOX ON A PAGE ⇒ check its classes exist in a stylesheet.
+- 🎨 CHART SCENES v3 = CALM META (owner, 2026-10-15: "neon trench over designed"): ▫ Default · 🌌 Royal aurora (three slow royal-green veils + a dot
+  lattice) · 🧬 Pulse grid (lattice + one slow scan + rings breathing from the bottom) · ⚡ Neon trench CUT BACK to a grid floor + one horizon (no
+  sun, ridge, stars, beams, streaks, logo) · 🟩 Code rain, 14 quieter columns (its fall distance is % of the COLUMN: from −120% to 720%, or it
+  never enters the box). Every scene: one accent that SWITCHES green ↔ pink on each real tick, a vignette, marks ≤ 25%. Hyperspace + Degen casino
+  retired (fall back to Default). 🧹 agentDesk.css RESTORED (c9ef48e's "dead CSS removed" had deleted 197 lines the Agents panes still used —
+  that was the owner's "every tab looks like text" screenshot); `styles/cssCoverage.test.js` now fails on any rendered class with no rule.
