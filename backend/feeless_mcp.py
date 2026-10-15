@@ -757,6 +757,28 @@ def install_script(url, tok, preset_json=None, prompt=None):
             preset_json = PRESET.read_text()
         except OSError:
             preset_json = json.dumps({'name': 'FEELESS FEE Master', 'operation': {'fields': [{'key': 'llm.prediction.systemPrompt', 'value': prompt or ''}]}}, indent=2)
+    if prompt is None:
+        try:
+            prompt = (Path(__file__).resolve().parent.parent / 'docs' / 'lm_fee_prompt.txt').read_text()
+        except OSError:
+            prompt = None
+    if prompt:   # the FEE prompt from the repo ALWAYS wins: LM Studio once saved the agents' JSON brain prompt over the local preset (2026-10-15)
+        try:
+            pj = json.loads(preset_json)
+
+            def _set(o):
+                if isinstance(o, dict):
+                    if o.get('key') == 'llm.prediction.systemPrompt':
+                        o['value'] = prompt
+                    for v in o.values():
+                        _set(v)
+                elif isinstance(o, list):
+                    for v in o:
+                        _set(v)
+            _set(pj)
+            preset_json = json.dumps(pj, indent=2)
+        except ValueError:
+            pass
     entry = json.dumps({'url': url, 'headers': {'Authorization': f'Bearer {tok}'}})
     return f"""#!/bin/bash
 # FEELESS → this Mac's LM Studio: the FEE preset + the FEELESS MCP (read-only tools). Re-run any time; it only replaces its own entries.
