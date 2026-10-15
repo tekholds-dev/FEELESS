@@ -86,3 +86,11 @@ def test_shrinking_is_never_a_veto():
     w = of.warden(1.0, hostile)
     assert not w['veto'] and w['allowed'] > 0                                # HOSTILE × C-tier used to snap to 0 = a veto (bitdog)
     assert of.warden(1.0, {**hostile, 'courier': 'BAD'})['veto']             # a real ×0 rule (execution BAD) still vetoes
+
+
+def test_a_collapsed_coin_waits_for_a_higher_low_and_stolen_links_are_a_no():
+    import opportunity as op
+    assert op.knife({'chart': {'distHigh': 45, 'hl': 0, 'll': 2}}).startswith('🔪')
+    assert op.knife({'chart': {'distHigh': 45, 'hl': 2, 'll': 0}}) is None      # a higher low printed: allowed
+    assert op.knife({'chart': {'distHigh': 10}}) is None and op.knife({}) is None
+    assert op.links_conflict({}) is None

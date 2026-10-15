@@ -93,6 +93,20 @@ def dead_now(row):
     return None
 
 
+KNIFE_PCT = 30.0   # 🔪 (build queue b15–b20: R5x catastrophic stops came from buying the collapse) a coin this far under its high on the chart …
+
+
+def knife(row):
+    """… is not bought until it has printed a HIGHER LOW (and no lower low after it). No chart features = not judged."""
+    ch = (row or {}).get('chart') or {}
+    d = ch.get('distHigh')
+    if d is None or _f(d) < KNIFE_PCT:
+        return None
+    if _f(ch.get('hl')) >= 1 and _f(ch.get('ll')) == 0:
+        return None
+    return f"🔪 falling knife: {_f(d):.0f}% under its high and no higher low yet"
+
+
 def links_conflict(row):
     """🔗 (owner's idea #3, 2026-10-15): the coin's OWN site / X point at ANOTHER coin — a copycat wearing stolen links or a site that names a
     different mint. Read from the research worker's packet (social_research.report grade CONFLICT); not researched yet = not judged."""
@@ -115,8 +129,8 @@ def hard_fail(row, mcap_cap=None, min_liq=MIN_LIQ):
     v, n, ch = x.get('vitals') or {}, x.get('nums') or {}, x.get('chart') or {}
     if _f(x.get('px')) <= 0:
         return 'no live price'
-    if links_conflict(x):
-        return links_conflict(x)
+    if links_conflict(x) or knife(x):
+        return links_conflict(x) or knife(x)
     dead = dead_now(x)
     if dead:
         return dead
@@ -365,7 +379,7 @@ def open_ok(row, min_liq=MIN_LIQ):
     v, n, ch = x.get('vitals') or {}, x.get('nums') or {}, x.get('chart') or {}
     if _f(x.get('px')) <= 0:
         return 'no live price'
-    lc = links_conflict(x)
+    lc = links_conflict(x) or knife(x)
     if lc:
         return lc
     d = dead_now(x)

@@ -493,4 +493,8 @@ def read(rows, now=0.0, ohlc=True, src='candles', meta=None, **k):
 
 def compact(chart):
     """The few fields a table row carries (the full features stay in the office's shared snapshot)."""
-    return None if not chart else {k: chart.get(k) for k in ('state', 'src', 'n', 'conf', 'entry', 'trend', 'chop', 'mom', 'ext', 'risk')} | {'q': _md.compact(chart.get('q'))}
+    if not chart:
+        return None
+    f = chart.get('f') or {}
+    return {k: chart.get(k) for k in ('state', 'src', 'n', 'conf', 'entry', 'trend', 'chop', 'mom', 'ext', 'risk')} | {'q': _md.compact(chart.get('q'))} | \
+        {k: f.get(k) for k in ('hl', 'll', 'distHigh') if f.get(k) is not None}   # 🔪 the knife check reads these (opportunity.knife)
