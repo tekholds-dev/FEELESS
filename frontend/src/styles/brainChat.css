@@ -150,3 +150,8 @@ body.theme-day .cch .cch-form .m-input { background: linear-gradient(rgba(255, 2
 .cch.is-full .cch-panes > button, .cch.is-pop .cch-panes > button { display: grid; justify-items: center; gap: 2px; padding: 9px 4px; font-size: 8.5px; letter-spacing: .06em; text-align: center; white-space: normal; line-height: 1.25; }
 .cch.is-full .cch-panes > button.active, .cch.is-pop .cch-panes > button.active { transform: translateX(3px); }
 @media (max-width: 640px) { .cch.is-full .cch-shell { display: flex; } .cch.is-full .cch-panes { border-right: 0; padding-right: 0; grid-template-columns: repeat(auto-fit, minmax(68px, 1fr)); } }
+/* 📏 not too wide (owner, 2026-10-14): the conversation reads in a column, the whole Brain is capped and centred in a wide pane */
+.cch.is-full { max-width: 1180px; width: 100%; margin-inline: auto; }
+.cch.is-full .cch-talk, .cch.is-pop .cch-talk { max-width: 820px; width: 100%; justify-self: center; }
+.cch.is-full .cch-main { grid-template-columns: minmax(0, 820px) minmax(0, 1fr); justify-content: center; } .cch.is-full .cch-main > .cch-side:empty { display: none; }
+@media (max-width: 1100px) { .cch.is-full .cch-main { grid-template-columns: minmax(0, 1fr); } }

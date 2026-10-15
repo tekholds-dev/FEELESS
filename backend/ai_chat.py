@@ -456,7 +456,8 @@ def activity(log=None, props=None, play=None, lane=None, n=60):
             out.append({'at': p.get('decidedAt'), 'kind': 'decision', 'icon': '✅' if ok else '✕', 'who': 'you', 'title': f"{'approved' if ok else 'rejected'}: {p.get('kind')} {p.get('key')}",
                         'sub': str(p.get('applied') or '')[:140], 'tone': 'ok' if ok else 'mute'})
     for x in play or []:
-        out.append({'at': x.get('at'), 'kind': 'play', 'icon': '🧪', 'who': x.get('by'), 'title': f"made: {str(x.get('prompt') or '')[:70]}", 'sub': 'Playground', 'tone': 'ice'})
+        out.append({'at': x.get('at'), 'kind': 'play', 'icon': '🧩', 'who': x.get('by'), 'title': f"code: {str(x.get('title') or x.get('prompt') or '')[:70]}",
+                    'sub': f"{x.get('file') or 'Code lab'} · {x.get('status') or 'proposed'}", 'tone': 'ok' if x.get('status') == 'approved' else 'ice'})
     if (lane or {}).get('last'):
         l = lane['last']
         out.append({'at': l.get('at'), 'kind': 'lane', 'icon': '🖥', 'who': l.get('via'), 'title': f"background read ${l.get('symbol')} → {l.get('stance') or '—'}",

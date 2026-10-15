@@ -65,11 +65,27 @@ function LossMap({ court, capital }) {
 // 🗂 ONE deck instead of three stacked boxes: the trade tape · the coach · teach share a tab row beside the Brain (less scroll). Every pane stays
 // mounted (hidden) so a half-typed lesson or an open trade story survives a tab switch; the count on each tab is the payload's own.
 const DECK_KEY = 'feeless.agentDeck';
+// 🏷 a tab = icon first, one short word, a live badge, a mini meter that fills with the tab's own number (transform only)
+export function TabChip({ label, n, meter }) {
+  const sp = String(label || '').indexOf(' '); const ic = sp > 0 ? label.slice(0, sp) : ''; const w = sp > 0 ? label.slice(sp + 1) : label;
+  return <span className="ack-tchip"><span className="ack-tic" aria-hidden>{ic}</span><span className="ack-tw">{w}</span>{n != null && n !== 0 ? <i key={n} className="ack-tbadge">{n}</i> : null}
+    {meter != null ? <span className="ack-tmeter" aria-hidden><b style={{ transform: `scaleX(${Math.max(0, Math.min(1, meter)).toFixed(3)})` }} /></span> : null}</span>;
+}
+// each deck tab's mini meter, from numbers the payload already carries: trades = share of closed real trades that won · desk = share of
+// the ten agents ACTIVE · feed = how fresh the tape is (full = a line in the last minute, empty = 10 min quiet)
+export function deckMeters(o, tabs, nowS = Date.now() / 1000) {
+  const rows = o?.tradeTape?.rows || []; const closed = rows.filter(r => r.result != null || r.pct != null); const won = closed.filter(r => Number(r.result ?? r.pct) > 0).length;
+  const gens = o?.generations || []; const act = gens.filter(g => g.status === 'ACTIVE').length;
+  const last = Math.max(0, ...(o?.tape || []).map(r => Number(r.at) || 0)); const age = last ? nowS - last : null;
+  const m = { tape: closed.length ? won / closed.length : null, agents: gens.length ? act / gens.length : null, live: age == null ? null : Math.max(0, 1 - Math.max(0, age - 60) / 540) };
+  const tips = { tape: closed.length ? `${won} of ${closed.length} closed real trades won` : 'real trade tape', agents: gens.length ? `${act} of ${gens.length} agents active` : 'the agents', live: 'the live decision feed' };
+  return tabs.map(([k, l, n, node, meter, tip]) => [k, l, n, node, meter != null ? meter : m[k] ?? null, tip || tips[k] || null]);
+}
 function Deck({ tabs, testid = 'ack-deck' }) {
   const [on, setOn] = useState(() => { try { const v = localStorage.getItem(DECK_KEY); return tabs.some(t => t[0] === v) ? v : tabs[0][0]; } catch { return tabs[0][0]; } });
   const pick = k => { setOn(k); try { localStorage.setItem(DECK_KEY, k); } catch { /* private window */ } };
   return <section className="ack-deck" data-testid={testid} data-on={on}>
-    {tabs.length > 1 ? <div className="ack-decktabs m-seg" role="tablist" aria-label="Cockpit deck">{tabs.map(([k, l, n]) => <button key={k} type="button" role="tab" aria-selected={on === k} className={on === k ? 'active' : ''} onClick={() => pick(k)} data-testid={`ack-deck-${k}`}>{l}{n ? <i>{n}</i> : null}</button>)}</div> : <p className="ack-deckh"><b>{tabs[0][1]}</b>{tabs[0][2] ? <i>{tabs[0][2]}</i> : null}</p>}
+    {tabs.length > 1 ? <div className="ack-decktabs m-seg" role="tablist" aria-label="Cockpit deck">{tabs.map(([k, l, n, , meter, tip]) => <button key={k} type="button" role="tab" aria-selected={on === k} className={on === k ? 'active' : ''} onClick={() => pick(k)} data-testid={`ack-deck-${k}`} data-tip={tip || undefined}><TabChip label={l} n={n} meter={meter} /></button>)}</div> : <p className="ack-deckh"><b>{tabs[0][1]}</b>{tabs[0][2] ? <i>{tabs[0][2]}</i> : null}</p>}
     {tabs.map(([k, , , node]) => <div key={k} role="tabpanel" className="ack-deckpane" hidden={on !== k} data-testid={`ack-deckpane-${k}`}>{node}</div>)}
   </section>;
 }
@@ -300,7 +316,7 @@ function DecisionTape({ rows, agent, setAgent, onPick, fresh }) {
 }
 
 // ── 🧠 the agent decision panel ──────────────────────────────────────────────────────────────────────────────────────────────────
-export const PANEL_TABS = [['live', 'Live'], ['ai', '🧠 AI'], ['inputs', 'Inputs'], ['seats', 'Seats'], ['review', 'Review'], ['trace', 'Trace']];
+export const PANEL_TABS = [['live', '⚡ Live'], ['ai', '🧠 AI'], ['inputs', '🧾 In'], ['seats', '🪑 Seats'], ['review', '📝 Rev'], ['trace', '🧵 Trace']];
 // the agent that answers for this coin right now: Reaper for a held coin, else the first desk standing in its way, else Trigger / Sherlock
 export function leadAgent(dec) {
   if (!dec) return 'tally';
@@ -337,7 +353,8 @@ function DecisionPanel({ o, dec, pos, cand, mint, seats, readyN, agent, setAgent
     <header><b>🧠 DECISION</b><i className="ack-livechip">● {dec?.symbol ? `$${dec.symbol}` : 'no coin'}</i>
       <select className="m-input ack-agsel" value={agent} onChange={e => setAgent(e.target.value)} aria-label="Agent" data-testid="ack-agent-sel">
         {CHAIN.map(a => <option key={a} value={a}>{names[a] || a}</option>)}</select></header>
-    <div className="m-seg ack-ptabs" role="tablist" aria-label="Decision panel">{PANEL_TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`ack-ptab-${k}`}>{l}</button>)}</div>
+    <div className="m-seg ack-ptabs" role="tablist" aria-label="Decision panel">{PANEL_TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`ack-ptab-${k}`}><TabChip label={l} n={k === 'seats' && (seats || []).length ? `${(seats || []).filter(z => !z.open).length}/${seats.length}` : k === 'trace' ? (tr?.lines || []).length || null : null}
+      meter={k === 'seats' && (seats || []).length ? (seats || []).filter(z => !z.open).length / seats.length : null} /></button>)}</div>
     {tab === 'live' ? (!dec ? <p className="ack-nil">Pick a seat, a decision or a coin in the queue.</p> : <div className="ack-pbody" data-testid="ack-pane-live">
       <div className="ack-vpair">
         <span className={`ack-verdict ack-vcell ${badgeOf(verdictWord)}`} data-tip={`${line?.why || why || ''}${line?.at ? ` · ${ago(line.at)} ago` : ''}`}><small>{(names[agent] || agent).toUpperCase()}</small>
@@ -387,18 +404,20 @@ function VoteBar({ st }) {
 }
 function AgentMatrix({ o, gens, agent, setAgent, rows, pulse }) {
   const lastBy = useMemo(() => { const m = {}; (rows || []).forEach(r => { if (!m[r.agent] || r.id > m[r.agent].id) m[r.agent] = r; }); return m; }, [rows]);
-  const ds = o?.deskStats || {}; const agents = o?.agents || []; const [filt, setFilt] = useState('all');
+  const ds = o?.deskStats || {}; const agents = o?.agents || []; const [filt, setFilt] = useState('all'); const perf = o?.performance?.agents || {};
   const cards = agents.map(a => { const g = gens.find(x => x.role === a.key); const [word, why] = activityOf(a.key, o); return { a, g, word, why, l: lastBy[a.key], st: ds[a.key] }; });
   const active = cards.filter(c => c.word !== 'WAIT'); const idle = cards.filter(c => c.word === 'WAIT');
   const shown = filt === 'active' ? active : filt === 'idle' ? idle : cards;
   const mr = measureRead(agents, ds);
-  return <section className="ack-matrix" data-testid="ack-matrix"><header><b>🤖 AGENT MATRIX</b><small>{agents.length} agents · live status · tap = focus the panel</small>
+  return <section className="ack-matrix" data-testid="ack-matrix"><header data-tip="the ten agents in chain order · live status · a packet runs into a desk when it acts · tap = focus the panel"><b>🤖 AGENT MATRIX</b><small>{agents.length} agents · live status · tap = focus the panel</small>
     {mr.unmeasured.length ? <span className="ack-unm" data-testid="ack-unmeasured" data-tip={`No real decision on record yet: ${mr.unmeasured.join(' · ')}`}>📏 {mr.unmeasured.length} unmeasured</span> : null}
     {mr.sameN > 2 ? <span className="ack-unm is-same" data-tip="These desks share one record: they are credited per TEAM decision, not for what each one changed">🔁 {mr.sameN} share one record</span> : null}
     <span className="m-seg ack-mfilt" role="group" aria-label="Agents">{[['all', 'ALL'], ['active', `ACTIVE ${active.length}`], ['idle', `IDLE ${idle.length}`]].map(([k, l]) => <button key={k} type="button" className={filt === k ? 'active' : ''} onClick={() => setFilt(k)} data-testid={`ack-mf-${k}`}>{l}</button>)}</span></header>
-    <div className="ack-agents">{shown.map(({ a, g, word, why, l, st }) => <button key={a.key} type="button" className={`ack-agent ${agent === a.key ? 'is-on' : ''} ${g?.status === 'PROBATION' ? 'is-prob' : ''}`} style={{ '--ag': AG[a.key] }} onClick={() => setAgent(a.key)} aria-pressed={agent === a.key}
+    <div className={`ack-agents ${filt === 'all' ? 'is-flow' : ''}`}>{shown.map(({ a, g, word, why, l, st }, i) => <button key={a.key} type="button" className={`ack-agent ${agent === a.key ? 'is-on' : ''} ${g?.status === 'PROBATION' ? 'is-prob' : ''}`} style={{ '--ag': AG[a.key] }} onClick={() => setAgent(a.key)} aria-pressed={agent === a.key}
         data-tip={`${a.job || ''} — ${why}${l ? ` · last line: ${l.action} ${l.symbol ? `$${l.symbol}` : ''} ${ago(l.at)} ago` : ''}`} data-testid={`ack-agent-${a.key}`}>
+        {filt === 'all' && i > 0 ? <span className="ack-ain" key={`in-${pulse[a.key] || 'x'}`} aria-hidden><i /></span> : null}
         <span className={`ack-aname ${pulse[a.key] ? 'is-pulse' : ''}`} key={pulse[a.key] || 'x'}>{a.icon} {a.name}</span>
+        {(perf[a.key]?.series || []).length > 1 ? <span className="ack-awork" data-tip={`work per pass: ${perf[a.key].last ?? '—'} ms now · ${perf[a.key].p50 ?? '—'} ms typical`}><Spark path={perf[a.key].series} w={72} h={14} /></span> : null}
         <small>{g ? `GEN ${g.generation} · ${g.status}` : '—'}</small>
         <small className="ack-acc" data-testid={`ack-rec-${a.key}`}>{recWord(st)}</small><VoteBar st={st} />
         <small className={`ack-anet ${tone(g?.netImpact)}`}>{g?.netImpact != null ? `net ${g.netImpact > 0 ? '+' : ''}${g.netImpact}%` : ''}</small>
@@ -521,14 +540,14 @@ export function AgentCockpit({ call, isOwner = true }) {
       <DecisionPanel o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
         pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} mcNow={model?.mc} onAi={() => setAiOpen(true)} /></div>
     {/* 🗂 ONE DECK under the chart: one pane on screen at a time (the tab was ~10 stacked blocks, 4,200px tall) */}
-    <Deck testid="ack-tapezone" tabs={[
-      ['live', '⚡ Decisions', (o.tape || []).length || null, <><DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { if (r.mint) setPick(r.mint); setAgentS(r.agent in AG ? r.agent : null); setTab('live'); }} /></>],
+    <Deck testid="ack-tapezone" tabs={deckMeters(o, [
+      ['live', '⚡ Feed', (o.tape || []).length || null, <><DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { if (r.mint) setPick(r.mint); setAgentS(r.agent in AG ? r.agent : null); setTab('live'); }} /></>],
       ['tape', '🎬 Trades', (o.tradeTape?.rows || []).length, <><LossMap court={o.court} capital={o.capital} /><TradeTape tape={o.tradeTape} mint={mint} onPick={onPick} /></>],
       ['brain', '🧠 Brain', null, <AiChat call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} variant="full" extras={brainExtras} />],
-      ['agents', '🧩 Agents', (o.agents || []).length || null, <AgentMatrix o={o} gens={o?.generations || []} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); setTab('live'); }} rows={o.tape} pulse={pulse} />],
-      ['review', '📋 Review', (o.ownerReview || []).length || null, <ReviewQueue o={o} call={call} isOwner={isOwner} onPick={m => { onPick(m); if (m && !((o.kernel || {}).candidates || []).some(c => c.mint === m) && !(o.positions || []).some(p => p.mint === m) && !(o.ownerReview || []).some(r => r.mint === m)) openCoin({ mint: m }); }} sel={mint} />],
-      ['controls', '🎛 Controls', null, <CockpitControls o={o} call={call} isOwner={isOwner} onAi={() => setAiOpen(true)} />],
-    ]} />
+      ['agents', '🧩 Desk', (o.agents || []).length || null, <AgentMatrix o={o} gens={o?.generations || []} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); setTab('live'); }} rows={o.tape} pulse={pulse} />],
+      ['review', '📋 Queue', (o.ownerReview || []).length || null, <ReviewQueue o={o} call={call} isOwner={isOwner} onPick={m => { onPick(m); if (m && !((o.kernel || {}).candidates || []).some(c => c.mint === m) && !(o.positions || []).some(p => p.mint === m) && !(o.ownerReview || []).some(r => r.mint === m)) openCoin({ mint: m }); }} sel={mint} />],
+      ['controls', '🎛 Limits', null, <CockpitControls o={o} call={call} isOwner={isOwner} onAi={() => setAiOpen(true)} />, null, 'operator controls: universe, exits, seats, buy gate, model'],
+    ])} />
     {aiOpen ? createPortal(<AiProvidersLive o={o} call={call} isOwner={isOwner} close={() => setAiOpen(false)} />, document.body) : null}
   </section>;
 }

@@ -68,13 +68,36 @@
 .ack-whyfold > summary:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; border-radius: 4px; }
 .ack-tcard .ack-tact { font-size: 13px; }
 
+/* ── tab chips: icon first, one short word, a badge that pops on change, a mini meter (transform only) ── */
+.ack-tchip { position: relative; display: inline-flex; align-items: center; gap: 5px; min-width: 0; padding-bottom: 3px; }
+.ack-tic { font-size: 14px; line-height: 1; } .ack-tw { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ack-tbadge { font: 800 9px var(--m-mono); font-style: normal; padding: 1px 6px; border-radius: 999px; background: rgba(21, 209, 106, .16); color: var(--m-accent); animation: cdkPop .3s cubic-bezier(.2, 1.4, .4, 1); }
+.active > .ack-tchip .ack-tbadge { background: rgba(0, 0, 0, .25); color: inherit; }
+.ack-tmeter { position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; border-radius: 2px; overflow: hidden; background: rgba(255, 255, 255, .08); }
+.ack-tmeter > b { position: absolute; inset: 0; transform-origin: left center; background: var(--m-accent); transition: transform .5s var(--m-ease, ease-out); }
+.active > .ack-tchip .ack-tmeter { background: rgba(0, 0, 0, .2); } .active > .ack-tchip .ack-tmeter > b { background: currentColor; }
+.ack .ack-panel .ack-ptabs .ack-tic { font-size: 12px; } .ack .ack-panel .ack-ptabs .ack-tchip { gap: 4px; }
+
+/* ── the desk matrix as a chain: an arrow into each desk; a packet runs in when that desk acts; a sparkline of its real work per pass ── */
+.ack-agents.is-flow { gap: 6px 14px; }
+.ack-agent { position: relative; overflow: visible; }
+.ack-ain { position: absolute; left: -13px; top: 50%; width: 12px; height: 2px; margin-top: -1px; background: color-mix(in srgb, var(--ag) 45%, transparent); pointer-events: none; }
+.ack-ain::after { content: ''; position: absolute; right: -1px; top: -3px; border: 4px solid transparent; border-left: 5px solid color-mix(in srgb, var(--ag) 70%, transparent); border-right: 0; }
+.ack-ain > i { position: absolute; left: 0; top: -2px; width: 6px; height: 6px; border-radius: 50%; background: var(--ag); opacity: 0; animation: cdkPacket .7s ease-out; }
+@keyframes cdkPacket { from { transform: translateX(-4px); opacity: 1; } to { transform: translateX(12px); opacity: 0; } }
+.ack-agents.is-flow > .ack-agent:nth-child(5n+1) .ack-ain { display: none; }
+.ack .ack-agent .ack-awhy, .ack .ack-matrix > header > small { display: none; }
+.ack-awork { display: block; height: 14px; opacity: .85; } .ack-awork .ack-spark polyline { stroke: var(--ag); }
+
+body.fx-lite .ack-tbadge, body.fx-lite .ack-ain > i { animation: none; } body.fx-lite .ack-tmeter > b { transition: none; }
 body.fx-lite .ack-vpop, body.fx-lite .ack-vwave { animation: none; } body.fx-lite .ack-rtm > i, body.fx-lite .ack-fbars > i { transition: none; }
 body.fx-lite .cai-record[open] > :not(summary), body.fx-lite .cai-record > summary::before { animation: none; transition: none; }
-@media (prefers-reduced-motion: reduce) { .ack-vpop, .ack-vwave { animation: none; } .ack-rtm > i, .ack-fbars > i { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .ack-vpop, .ack-vwave, .ack-tbadge, .ack-ain > i { animation: none; } .ack-tmeter > b { transition: none; } .ack-rtm > i, .ack-fbars > i { transition: none; } }
 @media (prefers-reduced-motion: reduce) { .cai-record[open] > :not(summary), .cai-record > summary::before, .ack-decktabs > button { animation: none; transition: none; } }
+body.theme-day .ack-tbadge { background: rgba(13, 122, 65, .14); color: #0d7a41; } body.theme-day .ack-tmeter { background: rgba(10, 60, 35, .12); } body.theme-day .ack-tmeter > b { background: #0d7a41; }
 body.theme-day .ack-rtm { background: rgba(10, 60, 35, .1); } body.theme-day .ack-rtm > i, body.theme-day .ack-fbars .is-r { background: #0d7a41; }
 body.theme-day .cai-record { border-color: rgba(10, 60, 35, .18); } body.theme-day .cai-record > summary { color: #0d7a41; } body.theme-day .cai-record > summary small { color: #3f5a4a; }
 @media (max-width: 640px) {
   .ack-decktabs { grid-template-columns: repeat(3, minmax(0, 1fr)); } .ack-decktabs > button { font-size: 9.5px; min-height: 30px; }
-  .ack-vpair { grid-template-columns: 1fr; } .ack-trade.thd { grid-template-columns: 1fr; } .ack-trade .thd-kv { flex-wrap: wrap; }
+  .ack-vpair { grid-template-columns: 1fr; } .ack-tw { display: none; } .ack .ack-decktabs .active .ack-tw { display: inline; } .ack-ain { display: none; } .ack-trade.thd { grid-template-columns: 1fr; } .ack-trade .thd-kv { flex-wrap: wrap; }
 }

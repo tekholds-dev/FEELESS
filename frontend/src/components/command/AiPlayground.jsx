@@ -1,35 +1,50 @@
-// 🧪 THE AI PLAYGROUND (Brain pane): ask a model to MAKE something — a card design, a chart theme, an animation, a mock-up — and see it
-// live. The model writes one self-contained HTML document (ai_play.py); it runs in a sandboxed frame with NO same-origin (no cookies, no HQ
-// session, no site storage) and the server injects a CSP that blocks all network. ✏ Change it = the model edits its own document.
+// 🧩 THE CODE LAB (Brain pane; owner, 2026-10-14: "playground should preview code and new code I can approve to FEELESS or agents").
+// Pick a part of FEELESS, say what to change; a model proposes ONE change (it is shown that file's real outline) → you see the code with
+// line numbers, why and the risk → ✅ Approve files it to the build queue (Claude Code applies it with tests) · ✕ Drop · ✏ Change it.
+// Nothing here writes a file; no model touches the repo.
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import '../../styles/aiPlay.css';
 
-const IDEAS = ['a neon trench chart background: grid floor rolling toward you, green swell on a buy', 'a holographic Fuse card that tilts and shimmers',
-  'a rug-pull alarm animation for a dumping coin', 'a live "agents thinking" visual: ten nodes passing a coin down a chain'];
+const IDEAS = { reaper: 'hold a winner one more read when buyers still lead the tape', agents: 'Devil should object to a coin whose dev sold in the last 5 min',
+  ranking: 'rank coins with a site AND X a little higher', cockpit: 'show each seat’s snapshot count (📸 1/2) on its card', home: 'add the coin’s 5-minute sparkline to the spotlight' };
 
 export function AiPlayground({ call, prov = 'auto' }) {
-  const [items, setItems] = useState([]); const [sel, setSel] = useState(null); const [txt, setTxt] = useState(''); const [busy, setBusy] = useState(false);
-  useEffect(() => { let on = true; Promise.resolve().then(() => call('/admin/ai/playground')).then(r => { if (on) { setItems(r.items || []); setSel(s => s || r.items?.[0]?.id || null); } }).catch(() => {}); return () => { on = false; }; }, [call]);
+  const [items, setItems] = useState([]); const [targets, setTargets] = useState([]); const [target, setTarget] = useState('reaper');
+  const [sel, setSel] = useState(null); const [txt, setTxt] = useState(''); const [busy, setBusy] = useState(false);
+  useEffect(() => { let on = true; Promise.resolve().then(() => call('/admin/ai/playground')).then(r => { if (on) { setItems(r.items || []); setTargets(r.targets || []); setSel(s => s || r.items?.[0]?.id || null); } }).catch(() => {}); return () => { on = false; }; }, [call]);
   const cur = items.find(x => x.id === sel) || null;
-  const make = useCallback(async (from) => {
+  const make = useCallback(async from => {
     const v = txt.trim(); if (v.length < 3 || busy) return;
     setBusy(true);
-    try { const r = await call('/admin/ai/playground', { method: 'POST', body: JSON.stringify({ prompt: v, provider: prov, ...(from ? { from } : {}) }) });
+    try { const r = await call('/admin/ai/playground', { method: 'POST', body: JSON.stringify({ prompt: v, target: from ? cur?.target || target : target, provider: prov, ...(from ? { from } : {}) }) });
       setItems(r.items || []); setSel(r.item?.id || null); setTxt(''); }
     catch (x) { toast.error(x.message); } finally { setBusy(false); }
-  }, [txt, busy, call, prov]);
+  }, [txt, busy, call, prov, target, cur]);
+  const decide = async approve => {
+    if (!cur || busy) return; setBusy(true);
+    try { const r = await call('/admin/ai/playground/decide', { method: 'POST', body: JSON.stringify({ id: cur.id, approve }) }); setItems(r.items || []);
+      toast.success(approve ? `✅ approved → build queue ${r.item?.build || ''} — say "build the queue" to Claude` : '✕ dropped'); }
+    catch (x) { toast.error(x.message); } finally { setBusy(false); }
+  };
+  const lines = String(cur?.code || '').split('\n');
   return <div className="apg" data-testid="ai-playground">
-    <div className="apg-stage">{cur ? <iframe key={cur.id} title={cur.prompt} className="apg-frame" sandbox="allow-scripts" srcDoc={cur.html} data-testid="apg-frame" />
-      : <div className="apg-empty">{busy ? '⚙ the model is building it…' : 'Nothing made yet — ask for something below.'}</div>}
-      {busy ? <i className="apg-scan" aria-hidden="true" /> : null}</div>
+    <div className="apg-targets" role="radiogroup" aria-label="Part of FEELESS">{targets.map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={target === k}
+      className={target === k ? 'active' : ''} onClick={() => setTarget(k)} data-testid={`apg-t-${k}`} data-tip={l}>{l.split(' — ')[0]}</button>)}</div>
     <form className="apg-ask" onSubmit={e => { e.preventDefault(); make(null); }}>
-      <input className="m-input" value={txt} onChange={e => setTxt(e.target.value)} placeholder="make me… (a chart theme, a card, an animation)" maxLength={800} data-testid="apg-input" />
-      <button type="submit" className="m-btn m-go" disabled={busy || txt.trim().length < 3} data-testid="apg-make">{busy ? '…' : '🧪 Make'}</button>
-      {cur ? <button type="button" className="m-btn" disabled={busy || txt.trim().length < 3} onClick={() => make(cur.id)} data-testid="apg-change" data-tip="The model edits THIS creation with your words">✏ Change it</button> : null}
+      <input className="m-input" value={txt} onChange={e => setTxt(e.target.value)} placeholder={IDEAS[target] || 'what should change?'} maxLength={900} data-testid="apg-input" />
+      <button type="submit" className="m-btn m-go" disabled={busy || txt.trim().length < 3} data-testid="apg-make">{busy ? '⚙ writing…' : '🧩 Propose'}</button>
+      {cur && cur.status === 'proposed' ? <button type="button" className="m-btn" disabled={busy || txt.trim().length < 3} onClick={() => make(cur.id)} data-testid="apg-change" data-tip="The model rewrites THIS proposal with your words">✏ Change it</button> : null}
     </form>
-    {!items.length ? <div className="apg-ideas">{IDEAS.map(i => <button key={i} type="button" className="m-chip" onClick={() => setTxt(i)}>{i}</button>)}</div> : null}
-    {items.length ? <ul className="apg-list">{items.map(x => <li key={x.id}><button type="button" className={x.id === sel ? 'active' : ''} onClick={() => setSel(x.id)} data-tip={`${x.by} · ${new Date(x.at * 1000).toLocaleString()}`}>{x.prompt}</button></li>)}</ul> : null}
-    <small className="apg-note">Sandboxed: no network, no site access. Like one? Tell the Brain “🧱 build this” to queue it.</small>
+    {cur ? <div className={`apg-prop is-${cur.status}`} data-testid="apg-prop">
+      <div className="apg-phead"><b>{cur.title}</b><em>{cur.kind === 'new' ? 'NEW' : 'CHANGE'} · {cur.file}</em><span className={`apg-st is-${cur.status}`}>{cur.status.toUpperCase()}</span></div>
+      <p className="apg-why"><b>WHY</b> {cur.why}</p>{cur.risk ? <p className="apg-why is-risk"><b>RISK</b> {cur.risk}</p> : null}
+      <pre className="apg-code" data-testid="apg-code">{lines.map((l, i) => <span key={i}><i>{i + 1}</i>{l || ' '}{'\n'}</span>)}</pre>
+      {cur.status === 'proposed' ? <div className="apg-act"><button type="button" className="m-btn m-go" disabled={busy} onClick={() => decide(true)} data-testid="apg-approve">✅ Approve → build queue</button>
+        <button type="button" className="m-btn" disabled={busy} onClick={() => decide(false)} data-testid="apg-drop">✕ Drop</button>
+        <small>approving writes nothing yet — Claude Code applies it with tests when you say “build the queue”</small></div>
+        : <small className="apg-note">{cur.status === 'approved' ? `✅ in the build queue${cur.build ? ` (${cur.build})` : ''}` : '✕ dropped'}</small>}
+    </div> : <div className="apg-empty">{busy ? '⚙ the model is writing it…' : 'Pick a part of FEELESS, say what to change — the model proposes the code, you approve it.'}</div>}
+    {items.length ? <ul className="apg-list">{items.map(x => <li key={x.id}><button type="button" className={`${x.id === sel ? 'active' : ''} is-${x.status}`} onClick={() => setSel(x.id)} data-tip={`${x.file} · ${x.by}`}>{x.status === 'approved' ? '✅ ' : x.status === 'dropped' ? '✕ ' : ''}{x.title}</button></li>)}</ul> : null}
   </div>;
 }

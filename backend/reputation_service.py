@@ -13655,40 +13655,68 @@ async def admin_ai_activity(request: Request):
 
 @app.get('/api/reputation/admin/ai/playground')
 async def admin_ai_playground(request: Request):
-    """🧪 Owner: the playground's creations (newest first)."""
+    """🧩 Owner: the code lab's proposals (newest first) + the parts of FEELESS a proposal may target."""
     _require_owner(request)
-    return {'items': (_json_load(AI_PLAY_PATH, {}) or {}).get('items') or []}
+    return {'items': (_json_load(AI_PLAY_PATH, {}) or {}).get('items') or [], 'targets': [[k, v[1], v[0]] for k, v in _play.TARGETS.items()]}
 
 
 @app.post('/api/reputation/admin/ai/playground')
 async def admin_ai_playground_make(request: Request):
-    """🧪 Owner: a model makes ONE self-contained HTML document (SVG / CSS / canvas) — shown in a sandboxed, network-blocked frame.
-    `from` = the id of an earlier creation to change. `provider` = which model (auto / duet's lead / any provider key)."""
+    """🧩 Owner: a model proposes ONE code change for a real part of FEELESS (it is shown that file's real outline). Nothing is written to
+    the repo: ✅ files it to the build queue, Claude Code applies it with tests. `from` = an earlier proposal to change."""
     _require_owner(request)
     body = await request.json() or {}
-    prompt = _aic.clean(body.get('prompt'), 800)
-    if len(prompt) < 3:
-        raise HTTPException(400, 'Say what to make.')
+    ask = _aic.clean(body.get('prompt'), 900)
+    target = str(body.get('target') or 'agents')
+    if len(ask) < 3:
+        raise HTTPException(400, 'Say what to change.')
+    if target not in _play.TARGETS:
+        raise HTTPException(400, 'Pick a part of FEELESS.')
     if _chat['busy']:
         raise HTTPException(429, 'The model is still answering.')
     d_ = _json_load(AI_PLAY_PATH, {}) or {}
     prev = next((x for x in (d_.get('items') or []) if x.get('id') == body.get('from')), None)
+    try:
+        src_ = (Path(__file__).resolve().parent.parent / _play.TARGETS[target][0]).read_text()
+    except OSError:
+        src_ = ''
     prov_ = str(body.get('provider') or 'auto')
     only_ = (prov_,) if prov_ in _air.PROVIDERS else (_duet.LEAD,) if prov_ == 'duet' else None
     _chat['busy'] = True
     raw_ = _air.RAW.set(True)
     try:
-        res = await _air.ROUTER.ask(_ai_http(), os.environ, _ai_cfg(), _play.iterate_prompt(prompt, prev['html']) if prev else prompt, role='owner', system=_play.ASK,
-                                    only=only_, tune={'temp': 0.6, 'maxTok': 3500})
+        res = await _air.ROUTER.ask(_ai_http(), os.environ, _ai_cfg(), _play.prompt(ask, target, _play.outline(src_, _play.TARGETS[target][0]), prev), role='owner',
+                                    system=_play.ASK, only=only_, tune={'temp': 0.3, 'maxTok': 2500})
     finally:
         _air.RAW.reset(raw_)
         _chat['busy'] = False
-    html = _play.extract(res.get('raw') or res.get('text'))
-    if not html:
-        raise HTTPException(502, f"The model did not return a document ({res.get('label') or res.get('why') or 'no provider answered'}).")
-    d_['items'], it = _play.add(d_.get('items'), prompt, html, res.get('label'))
+    prop = _play.parse(res.get('raw') or res.get('text'))
+    if not prop:
+        raise HTTPException(502, f"The model did not return a code proposal ({res.get('label') or res.get('why') or 'no provider answered'}).")
+    d_['items'], it = _play.add(d_.get('items'), ask, prop, target, res.get('label'))
     _json_save(AI_PLAY_PATH, d_)
     return {'item': it, 'items': d_['items'], 'ms': res.get('ms')}
+
+
+@app.post('/api/reputation/admin/ai/playground/decide')
+async def admin_ai_playground_decide(request: Request):
+    """🧩 Owner: ✅ approve (→ the build queue, pointing back at the proposal's code) or ✕ drop a code proposal. Writes no code."""
+    _require_owner(request)
+    body = await request.json() or {}
+    now = time.time()
+    d_ = _json_load(AI_PLAY_PATH, {}) or {}
+    d_['items'], it = _play.decide(d_.get('items'), str(body.get('id') or ''), bool(body.get('approve')), now)
+    if not it:
+        raise HTTPException(404, 'No open proposal with that id.')
+    if it['status'] == 'approved':
+        try:
+            _chat['build'], b_ = _aic.build_add(_build_state(), it['title'], f"code lab {it['id']} → {it['file']}: {it['why']} (code in data/ai_playground.json)", 'code lab · approved', now)
+            _json_save(BUILD_QUEUE_PATH, _chat['build']); it['build'] = b_['id']
+        except ValueError as e:
+            it['build'] = str(e)
+    _json_save(AI_PLAY_PATH, d_)
+    ad_ = _admin_load(); _audit(ad_, 'owner', 'code-lab', f"{it['status']} {it['id']} {it['file']}"[:200]); _admin_save(ad_)
+    return {'item': it, 'items': d_['items']}
 
 
 @app.post('/api/reputation/admin/ai/chat')
