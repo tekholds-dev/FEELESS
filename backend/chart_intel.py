@@ -497,4 +497,4 @@ def compact(chart):
         return None
     f = chart.get('f') or {}
     return {k: chart.get(k) for k in ('state', 'src', 'n', 'conf', 'entry', 'trend', 'chop', 'mom', 'ext', 'risk')} | {'q': _md.compact(chart.get('q'))} | \
-        {k: f.get(k) for k in ('hl', 'll', 'distHigh') if f.get(k) is not None}   # 🔪 the knife check reads these (opportunity.knife)
+        {k: f.get(k) for k in ('hl', 'll', 'distHigh', 'distLow') if f.get(k) is not None}   # 🔪 the knife / dip check reads these (opportunity.knife)

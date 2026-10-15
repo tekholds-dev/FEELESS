@@ -94,3 +94,9 @@ def test_a_collapsed_coin_waits_for_a_higher_low_and_stolen_links_are_a_no():
     assert op.knife({'chart': {'distHigh': 45, 'hl': 2, 'll': 0}}) is None      # a higher low printed: allowed
     assert op.knife({'chart': {'distHigh': 10}}) is None and op.knife({}) is None
     assert op.links_conflict({}) is None
+
+
+def test_the_owners_dip_needs_a_ten_percent_bounce_off_the_floor():
+    import opportunity as op
+    assert op.knife({'chart': {'distHigh': 45, 'distLow': 4}}).startswith('🔪')         # still on the floor
+    assert op.knife({'chart': {'distHigh': 45, 'distLow': 14}}) is None                 # rose 14% off the floor: a dip

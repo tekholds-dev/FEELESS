@@ -145,7 +145,7 @@ ROMAN = {'ii': '2', 'iii': '3', 'iv': '4', 'v': '5', 'vi': '6', 'vii': '7', 'vii
 def sequel(sym):
     """A ticker that is letters + a number / roman numeral ("GTA 6", "GT IV", "PEPE2") → (letters, number) else None."""
     raw = re.sub(r'[^a-z0-9 ]', '', str(sym or '').lower()).strip()
-    m = re.match(r'^([a-z]{2,})\s*(\d{1,3}|[ivx]{1,4})$', raw) or re.match(r'^([a-z]{2,}?)(\d{1,3})$', raw.replace(' ', ''))
+    m = re.match(r'^([a-z]{2,})\s+([ivx]{1,4})$', raw) or re.match(r'^([a-z]{2,}?)\s*(\d{1,3})$', raw)   # a roman numeral needs a space ("GT IV"): "AIX" is not "AI 10"
     if not m:
         return None
     n = ROMAN.get(m.group(2), m.group(2))
@@ -161,7 +161,11 @@ def family(a, b):
     if ta == tb or (min(len(ta), len(tb)) >= 4 and (ta.startswith(tb) or tb.startswith(ta))):
         return True
     sa, sb = sequel(a), sequel(b)
-    return bool(sa and sb and (sa[0].startswith(sb[0]) or sb[0].startswith(sa[0])))
+    if sa and sb:
+        return sa[0].startswith(sb[0]) or sb[0].startswith(sa[0])
+    base = lambda t: re.sub(r'[^a-z]', '', t)
+    s_, plain = (sa, tb) if sa else (sb, ta) if sb else (None, None)   # "GTA" ↔ "GTA6": a plain ticker vs its numbered sequel (it bought $GTA after $GTA6)
+    return bool(s_ and len(base(plain)) >= 2 and plain == base(plain) and (s_[0].startswith(plain) or plain.startswith(s_[0])))
 
 
 def clone(row, traded=None, board=None):

@@ -602,7 +602,11 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             stop = min(stop, _opp.TIER_STOP[tier_])
         if fv_ and fv_.get('state') == 'SELLERS' and pct < 0:   # 🌊 sellers lead a red seat: the stop tightens (never wider, never under the floor)
             stop = min(stop, max(_ci.STOP_FLOOR, stop * FLOW_TIGHT))
-        own_ = l.get('ownerLvAt') and _uni.is_agent(l)   # ✋ YOUR line on this agent coin (dragged on the chart): obeyed as set — wider or tighter
+        noise_ = is_noise(x)   # 🔊 a coin with MASSIVE volume swings 20–30% on noise: wide stop + a later take (owner, 2026-10-15)
+        if noise_ and not l.get('ownerLvAt'):
+            stop = max(stop, NOISE_SL) if stop < _ci.CATASTROPHIC_STOP else stop
+            stop = min(stop, _ci.CATASTROPHIC_STOP - 5)
+        own_ = l.get('ownerLvAt')   # ✋ YOUR line on ANY coin of the card (dragged on the chart): obeyed as set — wider or tighter (it was agent coins only: your GTA 10% read −30%)
         if own_ and _f(l.get('sl')) > 0:
             stop = min(_f(l["sl"]), _ci.CATASTROPHIC_STOP)   # the catastrophic −45% line stays under it
         take = _f(l.get('tp')) if own_ and _f(l.get('tp')) > 0 else take0
@@ -721,7 +725,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         if st == 'HOLD' and rv and rv['verdict'] == 'valid':
             ev = f"{pct:+.1f}% · {'; '.join(rv['why'][:4])} · window {rv['window'] + 1} of {granted}"
         held_s = held * 60
-        if not act and mine and live and pct >= SCALE_AT and not p.get('scaled') and not degraded_pre(ch, rv):   # 💰 SCALE-OUT: half banked at +10%, the rest rides the trail
+        if not act and mine and live and pct >= (NOISE_TP if noise_ else SCALE_AT) and not p.get('scaled') and not degraded_pre(ch, rv):   # 💰 SCALE-OUT: half banked at +10%, the rest rides the trail
             st, rule, ev, act = 'TAKE', 'R6h half banked', f"{pct:+.1f}% ≥ +{SCALE_AT:g}%: {SCALE_PCT:g}% sold now, the rest rides the trail (replay: +6.5% avg vs +4.3% real)", 'trim'
             p['scaled'] = now
         if act and pct >= RUNWAY_KEEP and (str(rule).split(' ')[0] in RUNWAY_RULES) and (held_s < RUNWAY_SEC or str(rule).startswith('R5t')):
@@ -773,6 +777,19 @@ SCALE_PCT = 75.0   # 2026-10-15: 50% left too much on the table for rugs after t
 
 def degraded_pre(ch, rv):
     return bool((rv or {}).get('degraded')) or bool(ch and ch.get('q') and not ch['q'].get('structOk'))
+
+
+# 🔊 NOISE STOPS (owner, 2026-10-15: "pump-trending coins with massive volume get noise SL and TP, like 30–40% SL"): a coin trading ≥ NOISE_VOL an
+# hour or on Pump's trending board gets a NOISE_SL stop (never past −40, the −45% catastrophic line stays under it) and its scale-out waits
+# for NOISE_TP. The owner's own dragged line always wins. Owner's rule, not yet proven on our record — judge it on the R5 exits of big coins.
+NOISE_VOL = 150_000.0
+NOISE_SL = 35.0
+NOISE_TP = 30.0
+
+
+def is_noise(row):
+    x = row or {}
+    return _f((x.get('vitals') or {}).get('vol1h')) >= NOISE_VOL or _uni.on_trend(x)
 
 
 # 🛫 THE RUNWAY (owner, 2026-10-15: "Reaper keeps exiting too fast, he scary"). 291 confirmed real exits: median hold 2–3 min on every rule, and

@@ -96,12 +96,19 @@ def dead_now(row):
 KNIFE_PCT = 30.0   # 🔪 (build queue b15–b20: R5x catastrophic stops came from buying the collapse) a coin this far under its high on the chart …
 
 
+DIP_BOUNCE = 10.0   # 🧲 the owner's dip (2026-10-15): "drops over 30%, then rises from the ground strong, keeping 10–20% off the floor"
+
+
 def knife(row):
-    """… is not bought until it has printed a HIGHER LOW (and no lower low after it). No chart features = not judged."""
+    """… is not bought until it has BOUNCED ≥ DIP_BOUNCE% off its new floor (the chart's low; `distLow`) — or, with no floor reading, printed a
+    HIGHER LOW (and no lower low after it). Still within 10% of the floor = still falling. No chart features = not judged."""
     ch = (row or {}).get('chart') or {}
     d = ch.get('distHigh')
     if d is None or _f(d) < KNIFE_PCT:
         return None
+    if ch.get('distLow') is not None:
+        b = _f(ch['distLow'])
+        return None if b >= DIP_BOUNCE else f"🔪 falling knife: {_f(d):.0f}% under its high and only {b:.0f}% off its floor (a dip needs a {DIP_BOUNCE:g}%+ bounce)"
     if _f(ch.get('hl')) >= 1 and _f(ch.get('ll')) == 0:
         return None
     return f"🔪 falling knife: {_f(d):.0f}% under its high and no higher low yet"

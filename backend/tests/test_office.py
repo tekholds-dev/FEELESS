@@ -615,3 +615,15 @@ def test_scale_out_in_reap_fires_once_at_ten_percent(monkeypatch):
     assert rep[0]['action'] == 'trim' and rep[0]['rule'] == 'R6h half banked'
     pos, rep, _ = of.reap([LEG_], [ROW_], {'PA': 1.12}, cfg, pos, 110)
     assert rep[0]['action'] != 'trim'                                          # once per position
+
+
+def test_massive_volume_coins_get_a_noise_stop_and_your_line_wins_on_any_coin():
+    import office as of
+    LEG_ = {'mint': 'A', 'symbol': 'A', 'pairAddress': 'PA', 'entry': 1.0, 'units': 1.0, 'at': 1, 'liq': 60_000, 'liqNow': 60_000, 'bought': {'tag': '🤖 agents GO'}}
+    ROW_ = {'mint': 'A', 'symbol': 'A', 'pair': 'PA', 'px': 0.97, 'why': {'lean': 1.0, 'drivers': []}, 'trigger': ['wait', ''], 'devil': ['—', ''], 'nums': {'d5': -1, 'buy': 55, 'liq': 60_000},
+            'vitals': {'safe': True, 'rug': 5, 'vol1h': 400_000}}
+    r = of.reap([LEG_], [ROW_], {'PA': 0.97}, {}, None, 100)[1][0]
+    assert r['stop'] == -of.NOISE_SL
+    own = {**LEG_, 'symbol': 'B', 'bought': {'tag': '➖ ranging'}, 'ownerLvAt': 5, 'sl': 10}       # an engine coin with YOUR dragged 10%
+    r2 = of.reap([own], [{**ROW_, 'symbol': 'B'}], {'PA': 0.97}, {}, None, 100, control=True)[1][0]   # in control Reaper rules every coin
+    assert r2['stop'] == -10

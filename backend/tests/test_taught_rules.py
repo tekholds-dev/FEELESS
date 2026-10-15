@@ -138,3 +138,10 @@ def test_copycats_are_blocked_period_sequels_and_long_memory():
     assert tr.clone({'symbol': 'GT IV', 'mint': 'B'}, [('GTA 6', 'A')]) is not None
     r = tr.clean({'clone': {'mode': 'off', 'hours': 24}, 'copycat': {'mode': 'flag'}})
     assert r['clone']['mode'] == 'skip' and r['clone']['hours'] == 720 and r['copycat']['mode'] == 'skip'   # locked on, a month of memory
+
+
+def test_a_plain_ticker_and_its_sequel_are_one_family():
+    import taught_rules as tr
+    assert tr.family('GTA', 'GTA6') and tr.family('GTA6 Coin'.split()[0], 'GTA') and tr.family('GT', 'GT IV')
+    assert tr.clone({'symbol': 'GTA', 'mint': 'B'}, [('GTA6', 'A')]) is not None      # 2026-10-15: $GTA bought after $GTA6
+    assert not tr.family('AI', 'AIX') and not tr.family('DOG', 'DOGE')

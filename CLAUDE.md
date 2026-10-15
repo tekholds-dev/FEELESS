@@ -4293,3 +4293,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   that runs ≥ +5% past our exit price is let back in inside the 10-min sit-out; every entry check still decides.
 - 🧯 REPLAY HONESTY: a rug AFTER a take costs the REST −100%; a stop / breakeven sale fills at the price SEEN (a gap to −60% is −60%, never 0).
   Two replays this session were wrong on exactly these points before being caught.
+- ✋ YOUR DRAGGED SL / TP COUNTS ON EVERY COIN (`office.reap` `own_ = l.ownerLvAt`; it was agent coins only — the owner's GTA 10% read Reaper's −30%).
+- 🧬 `taught_rules.family`: a plain ticker vs its numbered sequel is one family ("GTA" ↔ "GTA6" — $GTA was bought after $GTA6); a roman numeral
+  needs a space ("GT IV"), so "AIX" is not "AI 10".
+- 🔊 NOISE STOPS (`office.is_noise`: vol1h ≥ $150K or Pump trending): stop 35% (under the −45% line), scale-out waits for +30%; the owner's line
+  wins. Owner's rule — judge it on big coins' R5 exits. 🧲 DIP (`opportunity.knife` + `DIP_BOUNCE` 10, `distLow` in the compact chart): 30%+ off
+  its high is bought only after a 10%+ bounce off its new floor (no floor reading → the higher-low rule).
+
