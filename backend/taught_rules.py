@@ -17,7 +17,7 @@ RULES = {
                        'knob': ('hours', (1, 3, 6, 12, 24), 6, 'hours back')},
     'copycat': {'icon': '🪞', 'label': 'Copycat', 'what': 'a copy of a ticker wave running today, not the original', 'knob': None},
     'clone': {'icon': '🧬', 'label': 'Clone ticker', 'what': 'the SAME ticker as a coin the card traded lately, or a copy of a bigger coin with that ticker on the board (5 different $MrBeast in one day)',
-              'knob': ('hours', (6, 12, 24, 48), 24, 'hours back')},
+              'knob': ('hours', (168, 336, 720), 720, 'hours back')},
 }
 MODES = ('off', 'flag', 'rank', 'skip')
 MODE_WORDS = {'off': 'off', 'flag': '👀 flag only', 'rank': '⬇ rank down', 'skip': '✋ skip'}
@@ -25,7 +25,8 @@ STRENGTH = {'soft': -6.0, 'normal': -12.0, 'hard': -20.0}
 DEFAULT = {'fake candles': {'mode': 'rank', 'strength': 'normal', 'run': 8},
            'same narrative': {'mode': 'rank', 'strength': 'normal', 'hours': 6},
            'copycat': {'mode': 'flag', 'strength': 'normal'},
-           'clone': {'mode': 'skip', 'strength': 'hard', 'hours': 24}}
+           'clone': {'mode': 'skip', 'strength': 'hard', 'hours': 720}}
+LOCKED = {'clone': 'skip', 'copycat': 'skip'}   # 🧬 owner, 2026-10-15: "STOP AGENTS FROM BUYING COPYCATS PERIOD" — these two can't be switched below ✋ skip
 STOP = {'the', 'and', 'coin', 'token', 'official', 'sol', 'solana', 'pump', 'fun', 'inu', 'new', 'real', 'meme', 'of', 'on', 'in', 'a', 'to', 'for'}
 
 
@@ -51,6 +52,8 @@ def clean(cfg):
         kn = RULES[k]['knob']
         if kn and x.get(kn[0]) is not None and int(_f(x.get(kn[0]), -1)) in kn[1]:
             r[kn[0]] = int(_f(x[kn[0]]))
+        if k in LOCKED:
+            r['mode'] = LOCKED[k]
         out[k] = r
     return out
 
@@ -136,18 +139,43 @@ def tick(sym):
     return re.sub(r'[^a-z0-9]', '', str(sym or '').lower())
 
 
+ROMAN = {'ii': '2', 'iii': '3', 'iv': '4', 'v': '5', 'vi': '6', 'vii': '7', 'viii': '8', 'ix': '9', 'x': '10'}
+
+
+def sequel(sym):
+    """A ticker that is letters + a number / roman numeral ("GTA 6", "GT IV", "PEPE2") → (letters, number) else None."""
+    raw = re.sub(r'[^a-z0-9 ]', '', str(sym or '').lower()).strip()
+    m = re.match(r'^([a-z]{2,})\s*(\d{1,3}|[ivx]{1,4})$', raw) or re.match(r'^([a-z]{2,}?)(\d{1,3})$', raw.replace(' ', ''))
+    if not m:
+        return None
+    n = ROMAN.get(m.group(2), m.group(2))
+    return (m.group(1), n) if n.isdigit() else None
+
+
+def family(a, b):
+    """Two tickers of one family: the same, one the start of the other (≥ 4 letters: SPACEXAI ↔ SPACEX), or two SEQUELS whose letters start
+    alike (GTA 6 ↔ GT IV ↔ GTA5: 'gt' / 'gta'). Plain 2–3 letter tickers never match each other by prefix."""
+    ta, tb = tick(a), tick(b)
+    if not ta or not tb:
+        return False
+    if ta == tb or (min(len(ta), len(tb)) >= 4 and (ta.startswith(tb) or tb.startswith(ta))):
+        return True
+    sa, sb = sequel(a), sequel(b)
+    return bool(sa and sb and (sa[0].startswith(sb[0]) or sb[0].startswith(sa[0])))
+
+
 def clone(row, traded=None, board=None):
-    """Same ticker as a coin the card traded (different mint), or another coin on the board with this ticker and a bigger cap."""
+    """Same ticker FAMILY as a coin the card traded (different mint), or another coin on the board of this family with a bigger cap."""
     t = tick(row.get('symbol'))
     if len(t) < 2:
         return None
-    same = lambda a: a == t or (min(len(a), len(t)) >= 4 and (a.startswith(t) or t.startswith(a)))   # "SPACEXAI" is a clone of "SPACEX", "COCACOLA" of "COCA COLA"
+    same = lambda a: family(a, row.get('symbol'))   # "SPACEXAI" is a clone of "SPACEX", "COCACOLA" of "COCA COLA", "GT IV" of "GTA 6"
     for sym, mint in traded or []:
-        if same(tick(sym)) and mint != row.get('mint'):
+        if same(sym) and mint != row.get('mint'):
             return f"same ticker as a ${sym} the card already traded (a different coin)"
     cap = _f(row.get('cap') or (row.get('vitals') or {}).get('mcap'))
     for o in board or []:
-        if o.get('mint') != row.get('mint') and same(tick(o.get('symbol'))) and _f(o.get('cap') or (o.get('vitals') or {}).get('mcap')) > cap:
+        if o.get('mint') != row.get('mint') and same(o.get('symbol')) and _f(o.get('cap') or (o.get('vitals') or {}).get('mcap')) > cap:
             return f"a copy — a bigger ${o.get('symbol')} with this ticker is on the board"
     return None
 

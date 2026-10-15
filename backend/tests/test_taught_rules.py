@@ -32,8 +32,7 @@ def test_modes_drive_rank_skip_and_grading():
     row = {'mint': 'M', 'symbol': 'X', 'chart': chart(11, 'GGGGGGGG')}
     h = tr.hits(row, rules)
     assert list(h) == ['fake candles'] and tr.skips(rules, {'M': h}) == {'M'}
-    assert tr.pens(rules)['fake candles'] == -20.0 and 'copycat' not in tr.pens(rules)    # copycat is flag-only by default
-    assert 'copycat' in tr.flagged(rules)
+    assert tr.pens(rules)['fake candles'] == -20.0 and 'copycat' in tr.pens(rules)    # copycat is LOCKED to ✋ skip (owner, 2026-10-15)
     off = tr.patch(rules, 'fake candles', {'mode': 'off'})
     assert tr.hits(row, off) == {} and tr.skips(off, {'M': h}) == set()
 
@@ -130,3 +129,12 @@ def test_the_overnight_repeat_tickers_are_all_clones_of_what_the_card_traded():
     assert trl.clone({'symbol': 'FOMO', 'mint': 'm1'}, traded) is None        # the same coin is not its own clone
     assert trl.clone({'symbol': 'BONKERS', 'mint': 'x'}, traded) is None
     assert trl.skips(None, {'new': {'clone': 'same ticker'}}) == {'new'}      # default mode = ✋ skip
+
+
+def test_copycats_are_blocked_period_sequels_and_long_memory():
+    import taught_rules as tr
+    assert tr.family('GTA 6', 'GT IV') and tr.family('GTA6', 'GTA5') and tr.family('FOMO', 'FOMO') and tr.family('SPACEXAI', 'SPACEX')
+    assert not tr.family('AI', 'AIM') and not tr.family('DOG', 'DOGE') and not tr.family('PEPE', 'WIF')
+    assert tr.clone({'symbol': 'GT IV', 'mint': 'B'}, [('GTA 6', 'A')]) is not None
+    r = tr.clean({'clone': {'mode': 'off', 'hours': 24}, 'copycat': {'mode': 'flag'}})
+    assert r['clone']['mode'] == 'skip' and r['clone']['hours'] == 720 and r['copycat']['mode'] == 'skip'   # locked on, a month of memory
