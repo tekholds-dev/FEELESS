@@ -93,6 +93,20 @@ def dead_now(row):
     return None
 
 
+def links_conflict(row):
+    """🔗 (owner's idea #3, 2026-10-15): the coin's OWN site / X point at ANOTHER coin — a copycat wearing stolen links or a site that names a
+    different mint. Read from the research worker's packet (social_research.report grade CONFLICT); not researched yet = not judged."""
+    pk = (row or {}).get('social')
+    if not pk:
+        return None
+    try:
+        import social_research as _sr
+        rp = _sr.report(pk)
+    except Exception:
+        return None
+    return f"its site / X point at another coin ({rp.get('line') or 'CONFLICT'})"[:140] if rp.get('grade') == 'CONFLICT' else None
+
+
 def hard_fail(row, mcap_cap=None, min_liq=MIN_LIQ):
     """The ONLY reasons a coin is a NO: holder scan failed / never read (no holder safety at all) · a pool under the floor (a pull or no
     exit) · market cap ≥ the cap · rug meter ≥ 50 · a hard Devil rule (rug signs, burned us, an approved avoid, bad data, a bot ladder) ·
@@ -101,6 +115,8 @@ def hard_fail(row, mcap_cap=None, min_liq=MIN_LIQ):
     v, n, ch = x.get('vitals') or {}, x.get('nums') or {}, x.get('chart') or {}
     if _f(x.get('px')) <= 0:
         return 'no live price'
+    if links_conflict(x):
+        return links_conflict(x)
     dead = dead_now(x)
     if dead:
         return dead
@@ -349,6 +365,9 @@ def open_ok(row, min_liq=MIN_LIQ):
     v, n, ch = x.get('vitals') or {}, x.get('nums') or {}, x.get('chart') or {}
     if _f(x.get('px')) <= 0:
         return 'no live price'
+    lc = links_conflict(x)
+    if lc:
+        return lc
     d = dead_now(x)
     if d:
         return d

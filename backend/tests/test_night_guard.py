@@ -21,3 +21,10 @@ def test_a_losing_streak_and_a_rug_burst_pause_too():
     st, v = ng.step({}, 10, [{'at': 100, 'pct': -60}, {'at': 200, 'pct': 4}, {'at': 300, 'pct': -70}], 400)
     assert v['kind'] == 'rug'
     assert ng.view(st, v, 400)['paused'] is True
+
+
+def test_the_morning_report_is_plain_numbers_from_real_exits():
+    ex = [{'at': 10, 'pct': 12, 'sym': 'A'}, {'at': 20, 'pct': -30, 'sym': 'B', 'rule': 'R5'}, {'at': 30, 'pct': -5, 'sym': 'C', 'rule': 'R5'}]
+    t = ng.morning(ex, {'tripAts': [50], 'why': '🧊 streak'}, 0, 100)
+    assert '3 real exits, 1 won (33%)' in t and 'worst $B -30%' in t and 'R5 (2×)' in t and 'Night guard paused buying 1×' in t
+    assert ng.morning([], {}, 0, 100) is None

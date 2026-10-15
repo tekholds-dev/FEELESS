@@ -51,7 +51,7 @@ def step(state, value, exits, now):
             trip = ('rug', f"☠ {len(rugs)} exits at {RUG_PCT:.0f}% or worse inside {RUG_WINDOW / 60:.0f} min", RUG_PAUSE)
     if trip:
         kind, why, pause = trip
-        st.update(until=now + pause, why=why, kind=kind, released=False, trips=int(_f(st.get('trips'))) + 1, at=now)
+        st.update(until=now + pause, why=why, kind=kind, released=False, trips=int(_f(st.get('trips'))) + 1, at=now, tripAts=(list(st.get('tripAts') or []) + [round(now, 1)])[-50:])
         if kind == 'streak':
             st['streakFrom'] = now
         if kind == 'rug':
@@ -64,3 +64,29 @@ def view(state, verdict, now):
     v = verdict or {}
     return {'paused': bool(v.get('paused')), 'why': v.get('why'), 'leftMin': round(max(0, _f(v.get('until')) - now) / 60) if v.get('paused') else None,
             'drawPct': v.get('drawPct'), 'trips': int(_f((state or {}).get('trips'))), 'lines': {'draw': DRAW_PCT, 'streak': STREAK_N, 'rug': RUG_PCT}}
+
+
+def morning(exits, state, since, now):
+    """☀ The overnight report (owner's idea #2): what the agents' real exits did since `since` (last night 20:00), plain words, no promises.
+    → text or None when nothing happened."""
+    xs = [e for e in exits or [] if _f(e.get('at')) >= since and e.get('pct') is not None]
+    trips = sum(1 for t in (state or {}).get('tripAts') or [] if _f(t) >= since)
+    if not xs and not trips:
+        return None
+    won = [e for e in xs if _f(e.get('pct')) > 0]
+    avg = sum(_f(e.get('pct')) for e in xs) / len(xs) if xs else 0.0
+    worst = min(xs, key=lambda e: _f(e.get('pct'))) if xs else None
+    best = max(xs, key=lambda e: _f(e.get('pct'))) if xs else None
+    rules = {}
+    for e in xs:
+        if _f(e.get('pct')) < 0 and e.get('rule'):
+            rules[e['rule']] = rules.get(e['rule'], 0) + 1
+    out = f"☀ Overnight: {len(xs)} real exits, {len(won)} won ({round(100 * len(won) / len(xs)) if xs else 0}%), average {avg:+.1f}% a trade."
+    if best and worst:
+        out += f" Best ${best.get('sym') or '?'} {_f(best.get('pct')):+.0f}% · worst ${worst.get('sym') or '?'} {_f(worst.get('pct')):+.0f}%."
+    if rules:
+        k = max(rules, key=rules.get)
+        out += f" Most losses left by {k} ({rules[k]}×)."
+    if trips:
+        out += f" 🌙 Night guard paused buying {trips}× ({(state or {}).get('why') or ''})."
+    return out

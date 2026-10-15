@@ -125,6 +125,7 @@ def local_remote(env):
 GATE_DELTA = -0.12   # 🛂 the model's read holds a coin back from a real seat only at CAUTION this strong, with a named risk, on a fresh read
 GATE_FRESH = 300.0
 GATE_SOFT = re.compile(r'organic|\bbot', re.I)
+TOP_PHASES = ('LATE FOMO', 'DISTRIBUTION', 'COLLAPSE', 'REVERSAL')   # 🏔 a read at the top: never the moment to buy
 
 
 def gate_verdict(notes, now):
@@ -140,7 +141,13 @@ def gate_verdict(notes, now):
     hard = [f for f in (ad.get('risk_flags') or []) if not GATE_SOFT.search(str(f))]   # "0% organic / bots" is on nearly every Pump coin (Jupiter reads them 0–3% organic): alone it holds nothing
     strong = ad.get('stance') == 'CAUTION' and _f(ad.get('confidence_delta')) <= GATE_DELTA and bool(hard)
     duet = (notes or {}).get('duet') or {}
-    if strong and not cloud and not (duet.get('advice') and now - _f(duet.get('at')) <= GATE_FRESH and (duet['advice'].get('agree') or duet['advice'].get('trusted'))):
+    duet_ok = bool(duet.get('advice') and now - _f(duet.get('at')) <= GATE_FRESH and (duet['advice'].get('agree') or duet['advice'].get('trusted')))
+    # 🏔 (owner's idea #1, 2026-10-15) the read right before the buy says it is the TOP of a spike: late FOMO / distribution / a chase → wait
+    top = [n for n in (cloud or (fresh if duet_ok else [])) if str(n['advice'].get('chart_phase') or '').upper() in TOP_PHASES or str(n['advice'].get('timing') or '').upper() in ('LATE', 'CHASE')]
+    if top:
+        a_ = top[0]['advice']
+        return 'wait', f"🏔 the model reads the top of a spike ({a_.get('chart_phase') or a_.get('timing')}) — {str(a_.get('summary') or '')[:100]}"
+    if strong and not cloud and not duet_ok:
         return None, None   # 💻 only the small local model objects: it can never hold a seat by itself — the cloud is asked for the second read
     if strong:
         return 'wait', f"{'; '.join(str(f) for f in hard[:2])} — {str(ad.get('summary') or '')[:110]}"

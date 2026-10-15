@@ -14985,6 +14985,17 @@ def _night_check(now):
                    push=True, once=f"night-{int(now)}", meta={'claim': 'Night guard', 'source': 'real card value + confirmed exits'})
     elif int(now) % 300 < 8:
         _json_save(NIGHT_PATH, st)
+    lt_ = time.localtime(now)
+    day_ = time.strftime('%Y-%m-%d', lt_)
+    if 8 <= lt_.tm_hour < 12 and st.get('morning') != day_:   # ☀ the overnight report, once a morning (owner's idea #2)
+        since_ = time.mktime((lt_.tm_year, lt_.tm_mon, lt_.tm_mday, 20, 0, 0, 0, 0, -1)) - 86400
+        ex2 = [{'at': _fuse._f(t.get('leftAt') or (t.get('exit') or {}).get('at')), 'pct': t.get('realPct'), 'sym': t.get('sym') or t.get('symbol'),
+                'rule': str((t.get('exit') or {}).get('rule') or t.get('rule') or '').split(' ')[0] or None} for t in (_real_trades() or [])[-200:]]
+        txt_ = _ng.morning(ex2, st, since_, now)
+        st['morning'] = day_; _night['st'] = st; _json_save(NIGHT_PATH, st)
+        if txt_:
+            for w in _owner_wallets():
+                notify(w, 'fuse-card', txt_, url='/terminal/hq?tab=agents', push=True, once=f"morning-{day_}", meta={'claim': 'Overnight report', 'source': 'confirmed real exits'})
     return bool(v.get('paused'))
 
 

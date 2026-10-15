@@ -55,3 +55,12 @@ def test_each_local_model_has_its_own_name_in_the_owners_chat():
     assert ai_router.identity_line(env, 'groq') == ''
     assert 'LATEST message' in ai_router.GENERAL_SYSTEM and 'yurrr' in ai_router.GENERAL_SYSTEM
     assert d.combine('a', 'b', {'lan': 'Vega', 'local': 'Kai'}).startswith('🖥 VEGA · Gemma')
+
+
+def test_a_read_at_the_top_of_a_spike_holds_the_buy():
+    top = {'groq': {'source': 'groq', 'at': 100, 'advice': {'stance': 'NEUTRAL', 'confidence_delta': 0, 'chart_phase': 'LATE FOMO', 'summary': 'up 300% in 10 min'}}}
+    assert ai_router.gate_verdict(top, 110)[0] == 'wait'
+    lone = {'sherlock': {'source': 'lan', 'at': 100, 'advice': {'stance': 'NEUTRAL', 'timing': 'CHASE'}}}
+    assert ai_router.gate_verdict(lone, 110)[0] != 'wait'          # a lone small model still never holds a seat
+    ok = {'groq': {'source': 'groq', 'at': 100, 'advice': {'stance': 'FAVOR', 'confidence_delta': 0.1, 'chart_phase': 'EARLY ACCELERATION'}}}
+    assert ai_router.gate_verdict(ok, 110) == ('go', None)
