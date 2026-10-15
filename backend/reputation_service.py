@@ -10272,6 +10272,12 @@ async def _prime_tick_inner(now):
                     print('switch eval:', e)
             _agents['decisions'] = [{k: v for k, v in x.items() if k != 'to'} | ({'toSym': x['to']['symbol']} if x.get('to') else {}) for x in dec_]
             _agents['card'] = _pos.card_seats(cur, _agents['decisions'], px, cfg_t, take=_of.take_line(cfg_t, _agents.get('scalp')))
+            if real_t and cfg_t.get('nightGuard', True) is not False:   # 🌙 the circuit breaker: a paused card buys NOTHING real (exits keep running)
+                try:
+                    if _night_check(now):
+                        cfg_t = {**cfg_t, 'agentPaper': True}
+                except Exception as e:
+                    print('night guard:', str(e)[:120])
             paper_ = bool(cfg_t.get('agentPaper'))
             for x in dec_:
                 try:
@@ -14959,6 +14965,29 @@ def _desk_stats_view(now):
     return out
 
 
+import night_guard as _ng
+NIGHT_PATH = DATA_DIR / 'night_guard.json'
+_night: dict = {'st': None, 'v': None}
+
+
+def _night_check(now):
+    """🌙 One look of the night guard (night_guard.py) on the real card's value + its confirmed real exits → True while new buys are paused.
+    The owner's inbox hears about each trip once."""
+    if _night['st'] is None:
+        _night['st'] = _json_load(NIGHT_PATH, {}) or {}
+    ex = [{'at': _fuse._f(t.get('leftAt') or (t.get('exit') or {}).get('at')), 'pct': t.get('realPct')} for t in (_real_trades() or [])[-40:]]
+    st, v = _ng.step(_night['st'], (_agents.get('money') or {}).get('value'), ex, now)
+    _night.update(st=st, v=v)
+    if v.get('new'):
+        _json_save(NIGHT_PATH, st)
+        for w in _owner_wallets():
+            notify(w, 'fuse-card', f"🌙 Night guard: new real buys paused {round((v['until'] - now) / 60)} min — {v['why']}. Exits keep running.", url='/terminal/hq?tab=agents',
+                   push=True, once=f"night-{int(now)}", meta={'claim': 'Night guard', 'source': 'real card value + confirmed exits'})
+    elif int(now) % 300 < 8:
+        _json_save(NIGHT_PATH, st)
+    return bool(v.get('paused'))
+
+
 def _real_trades():
     """Our confirmed real exits (one per sale), re-read from the archive at most once a minute — for the model's "twins" line."""
     if time.time() - _real_tr['at'] > 60:
@@ -16730,7 +16759,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         print('fresh:', e)
     _office['payload']['performance']['passMs'] = round(sum(_fuse._f(ms.get(a)) for a in _of.CHAIN), 2)
     _tape_ledger(now)
-    _office['payload'].update(tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now), ai=_ai_view(now, light=True), net=_net_stats(now), armed=_office.get('armed'), valve=_office.get('valve'), lab=_lab_view(now), regret=_rg.view(_regret_book(), now), capital=_capital_view(), trail=_office.get('trail'), teach={**_tch.view(_teach_state()), 'rules': _taught_view()},
+    _office['payload'].update(nightGuard=_ng.view(_night['st'], _night['v'], now) if _night.get('v') else None, tape=_tk.KERNEL.tape.view(), ownerReview=_owner_view(now), ai=_ai_view(now, light=True), net=_net_stats(now), armed=_office.get('armed'), valve=_office.get('valve'), lab=_lab_view(now), regret=_rg.view(_regret_book(), now), capital=_capital_view(), trail=_office.get('trail'), teach={**_tch.view(_teach_state()), 'rules': _taught_view()},
                               universe={'capUsd': _uni.band()[1], 'minCapUsd': _uni.band()[0], 'word': _uni.band_word(), 'maxAgeH': _uni.limits()['maxAgeH'], 'minVol1h': _uni.limits()['minVol'], 'pumpTrend': _uni.limits()['trend'], 'trendingN': _uni.limits()['trendingN'], 'inLane': len(_agents.get('table') or []),
                                         'board': (_office.get('intake') or {}).get('board'), 'mints': len(_tk.KERNEL.store.mints)})
     _hub_publish(now)   # 📡 this pass as DELTAS: only what changed since the last one
@@ -16877,7 +16906,7 @@ async def admin_agents_set(request: Request):
     ch = {}
     if 'feed' in body:
         ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital', 'agentAiGate', 'agentValve', 'agentAiExit') + _oe.POLICY_KEYS:
+    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital', 'agentAiGate', 'agentValve', 'agentAiExit', 'nightGuard') + _oe.POLICY_KEYS:
         if k in (body.get('cfg') or {}):
             ch[k] = body['cfg'][k]
     if ch:
