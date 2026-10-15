@@ -13663,7 +13663,7 @@ async def admin_ai_activity(request: Request):
 async def admin_ai_playground(request: Request):
     """🧩 Owner: the code lab's proposals (newest first) + the parts of FEELESS a proposal may target."""
     _require_owner(request)
-    return {'items': (_json_load(AI_PLAY_PATH, {}) or {}).get('items') or [], 'targets': [[k, v[1], v[0]] for k, v in _play.TARGETS.items()]}
+    return {'items': [x for x in (_json_load(AI_PLAY_PATH, {}) or {}).get('items') or [] if x.get('code')], 'targets': [[k, v[1], v[0]] for k, v in _play.TARGETS.items()]}   # the retired HTML playground's items have no code
 
 
 @app.post('/api/reputation/admin/ai/playground')

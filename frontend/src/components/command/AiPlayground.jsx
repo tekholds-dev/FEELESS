@@ -9,21 +9,24 @@ import '../../styles/aiPlay.css';
 const IDEAS = { reaper: 'hold a winner one more read when buyers still lead the tape', agents: 'Devil should object to a coin whose dev sold in the last 5 min',
   ranking: 'rank coins with a site AND X a little higher', cockpit: 'show each seat’s snapshot count (📸 1/2) on its card', home: 'add the coin’s 5-minute sparkline to the spotlight' };
 
+// only code proposals (the retired HTML playground left items with no code / status in the same file) — each with a status
+export const codeOnly = items => (items || []).filter(x => x && x.code).map(x => ({ ...x, status: x.status || 'proposed', title: x.title || 'code change', file: x.file || '' }));
+
 export function AiPlayground({ call, prov = 'auto' }) {
   const [items, setItems] = useState([]); const [targets, setTargets] = useState([]); const [target, setTarget] = useState('reaper');
   const [sel, setSel] = useState(null); const [txt, setTxt] = useState(''); const [busy, setBusy] = useState(false); const [view, setView] = useState('diff');
-  useEffect(() => { let on = true; Promise.resolve().then(() => call('/admin/ai/playground')).then(r => { if (on) { setItems(r.items || []); setTargets(r.targets || []); setSel(s => s || r.items?.[0]?.id || null); } }).catch(() => {}); return () => { on = false; }; }, [call]);
+  useEffect(() => { let on = true; Promise.resolve().then(() => call('/admin/ai/playground')).then(r => { if (on) { setItems(codeOnly(r.items)); setTargets(r.targets || []); setSel(s => s || r.items?.[0]?.id || null); } }).catch(() => {}); return () => { on = false; }; }, [call]);
   const cur = items.find(x => x.id === sel) || null;
   const make = useCallback(async from => {
     const v = txt.trim(); if (v.length < 3 || busy) return;
     setBusy(true);
     try { const r = await call('/admin/ai/playground', { method: 'POST', body: JSON.stringify({ prompt: v, target: from ? cur?.target || target : target, provider: prov, ...(from ? { from } : {}) }) });
-      setItems(r.items || []); setSel(r.item?.id || null); setTxt(''); setView(r.item?.preview ? 'look' : 'diff'); }
+      setItems(codeOnly(r.items)); setSel(r.item?.id || null); setTxt(''); setView(r.item?.preview ? 'look' : 'diff'); }
     catch (x) { toast.error(x.message); } finally { setBusy(false); }
   }, [txt, busy, call, prov, target, cur]);
   const decide = async approve => {
     if (!cur || busy) return; setBusy(true);
-    try { const r = await call('/admin/ai/playground/decide', { method: 'POST', body: JSON.stringify({ id: cur.id, approve }) }); setItems(r.items || []);
+    try { const r = await call('/admin/ai/playground/decide', { method: 'POST', body: JSON.stringify({ id: cur.id, approve }) }); setItems(codeOnly(r.items));
       toast.success(approve ? `✅ approved → build queue ${r.item?.build || ''} — say "build the queue" to Claude` : '✕ dropped'); }
     catch (x) { toast.error(x.message); } finally { setBusy(false); }
   };

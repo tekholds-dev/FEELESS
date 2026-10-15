@@ -20,3 +20,9 @@ test('the code lab shows a proposal with line numbers and files it to the build 
   expect(call).toHaveBeenLastCalledWith('/admin/ai/playground/decide', expect.objectContaining({ method: 'POST' }));
   expect(q('apg-prop').className).toContain('is-approved');
 });
+
+
+test('items left by the old HTML playground never crash the code lab', () => {
+  const { codeOnly } = require('./AiPlayground');
+  expect(codeOnly([{ id: 'p1', prompt: 'neon', html: '<html></html>' }, { id: 'c1', code: 'def f(): pass' }])).toEqual([{ id: 'c1', code: 'def f(): pass', status: 'proposed', title: 'code change', file: '' }]);
+});
