@@ -4263,4 +4263,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (Courier = buy, Reaper = sale, with Reaper's own rule), it flares, the stamp + reason + tx land; score = decisions · exits won · card value.
 - 🧬 The clone rule reads the WHOLE ledger by time (a 1,500-row slice covered ~2h on a busy card: a 2nd $FOMO got through at 02:08).
 - FEE prompt: "YOUR MEMORY IS OLD — THE TOOLS ARE RIGHT" (Qwen found Trump, then 'corrected' it with 2023 memory).
+- ⚛ HOME = FUSE FORGE (HomeEngine.jsx `forgeCards/pctWord`, `frg-*`; replaced the relay — owner: "show a crazy cool FEELESS feature"): the live
+  coins of a real tier card (`/fuses/prime` legs, placeholders skipped, real card first) orbit the forge, spiral into the core, flash + shards,
+  and the holographic Fuse card is forged (rotateY in, then an endless tilt + sheen), every coin with its own live %. One 8s cycle per card,
+  tier chips pick one, hover holds. Keys are `${mint}-${index}` (a card can hold two legs of one coin). The forged card stays dark in day.
 

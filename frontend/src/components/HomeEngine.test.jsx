@@ -1,31 +1,30 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { HomeEngine, relayOf, relays, board, DESKS } from './HomeEngine';
+import { HomeEngine, forgeCards, pctWord } from './HomeEngine';
 
 jest.mock('./CoinDrawer', () => ({ openCoin: jest.fn() }));
-const feed = [{ sig: 's1', at: 100, side: 'sell', symbol: 'FOMO', mint: 'M1', pct: 4.1, why: '🤖 agents banked $FOMO: ☠ Reaper R4f sellers took over: +5.7%' },
-  { sig: 's2', at: 90, side: 'buy', symbol: 'SLOP', mint: 'M2', usd: 0.25, why: 'card buys its coin' }, { sig: 's3', at: 80, side: 'sell', symbol: 'DODO', mint: 'M3', pct: -19 }];
+jest.mock('./terminal/MarketPrimitives', () => ({ TokenAvatar: () => null }));
+const prime = { cards: [{ id: 'g', tpl: 'balanced', label: '🥇 Prime Gold', legs: [{ symbol: 'SOL', mint: 'S', pnlPct: 1.2 }, { symbol: 'WIF', mint: 'W', pnlPct: -3 }, { placeholder: true, symbol: 'X' }] },
+  { id: 'd', tpl: 'degen', label: '🔥 Prime Blaze', real: true, legs: [{ symbol: 'FOMO', mint: 'F', pnlPct: null }] }, { id: 'e', tpl: 'ever', label: 'Empty', legs: [] }] };
 
-test('each real decision becomes a relay step from the public proof feed; the board counts real exits only', () => {
-  expect(DESKS).toHaveLength(10);
-  expect(relayOf(feed[0])).toMatchObject({ desk: 'reaper', stamp: 'SOLD +4.1%', why: 'Reaper: sellers took over' });
-  expect(relayOf(feed[1])).toMatchObject({ desk: 'courier', stamp: 'BOUGHT $0.25' });
-  expect(relayOf(feed[2]).why).toBe('Reaper closed it');
-  expect(board(relays({ feed }))).toEqual({ decisions: 3, sells: 2, won: 1, rate: 50 });
-  expect(relays(null)).toEqual([]);
+test('the forge cycles real cards first, only coins that hold money, each with its own live %', () => {
+  const c = forgeCards(prime);
+  expect(c.map(x => x.tpl)).toEqual(['degen', 'balanced']);             // real first; an empty card is not forged
+  expect(c[1].coins.map(x => x.sym)).toEqual(['SOL', 'WIF']);           // a reserved seat is not a coin
+  expect([pctWord(1.2), pctWord(-3), pctWord(null), pctWord(2400)]).toEqual(['+1.2%', '-3.0%', '—', '+25.0x']);
 });
 
-test('the relay draws the ten desks, lights the one that decided and stamps the call', async () => {
+test('the forge draws the coins, forges the card and opens a coin on tap', async () => {
   const { openCoin } = require('./CoinDrawer');
-  global.fetch = jest.fn(url => Promise.resolve({ ok: true, json: () => Promise.resolve(String(url).includes('proof') ? { feed } : { cards: [{ real: true, valueUsd: 2.22 }] }) }));
+  global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(prime) }));
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<HomeEngine />); });
   await act(async () => { await Promise.resolve(); });
   const q = id => el.querySelector(`[data-testid="${id}"]`);
-  expect(q('arl-chain').querySelectorAll('.arl-desk')).toHaveLength(10);
-  expect(q('arl-reaper').className).toContain('is-on'); expect(q('arl-call').textContent).toContain('SOLD +4.1%');
-  expect(q('arl-score').textContent).toContain('$2.22');
-  await act(async () => { q('arl-call').querySelector('.arl-coin').click(); });
-  expect(openCoin).toHaveBeenCalledWith(expect.objectContaining({ mint: 'M1' }));
+  expect(q('frg-card').textContent).toContain('REAL MONEY'); expect(q('frg-stage').querySelectorAll('.frg-coin')).toHaveLength(1);
+  await act(async () => { q('frg-t-balanced').click(); });
+  expect(q('frg-stage').querySelectorAll('.frg-coin')).toHaveLength(2); expect(q('frg-card').textContent).toContain('-3.0%');
+  await act(async () => { el.querySelector('.frg-legs button').click(); });
+  expect(openCoin).toHaveBeenCalledWith(expect.objectContaining({ mint: 'S' }));
 });
