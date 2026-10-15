@@ -4267,4 +4267,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   coins of a real tier card (`/fuses/prime` legs, placeholders skipped, real card first) orbit the forge, spiral into the core, flash + shards,
   and the holographic Fuse card is forged (rotateY in, then an endless tilt + sheen), every coin with its own live %. One 8s cycle per card,
   tier chips pick one, hover holds. Keys are `${mint}-${index}` (a card can hold two legs of one coin). The forged card stays dark in day.
+- 🧩 CODE LAB fixes: it sends ONLY its own prompt (`Router.ask(only_system=True)`, no persona line) — under the chat prompt ("no JSON", "greet
+  back") Gemma answered "Yo, I'm Vega" and the lab errored; auto / duet tries the other model when one returns no code (the error names each
+  answer). 🔍 PREVIEW BEFORE ANY CHANGE (`ai_play.preview_diff/current_of`): each function the proposal writes vs its current version in the
+  real file (unified diff, NEW for names the file lacks) + for UI targets a `preview` mock-up (sandboxed, CSP-locked) → tabs 🔍 Before → after ·
+  🖼 How it looks · 📄 Full code. ✅ Approve still only queues it; Claude applies it with tests.
 

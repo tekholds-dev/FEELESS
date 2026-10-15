@@ -23,3 +23,12 @@ def test_the_code_lab_sends_only_its_own_prompt_not_the_chat_rules():
     import ai_router as r
     m = r.messages_general('make it', system=p.ASK, only_system=True)
     assert m[0]['content'] == p.ASK and 'Do NOT answer in JSON' not in m[0]['content']   # the chat prompt forbade JSON + said "greet back": Gemma answered "Yo, I'm Vega"
+
+
+def test_the_preview_diffs_the_real_function_and_marks_new_ones():
+    src = 'def keep(x):\n    return 1\n\n\ndef other():\n    pass\n'
+    pv = p.preview_diff(src, 'def keep(x):\n    return 2\n\n\ndef brand_new():\n    return 3\n', 'backend/office.py')
+    assert pv['changed'] == ['keep'] and pv['new'] == ['brand_new']
+    assert '-    return 1' in pv['diff'] and '+    return 2' in pv['diff'] and '+++ NEW brand_new' in pv['diff']
+    got = p.parse('{"title": "t", "file": "f", "code": "def a():\\n    pass", "preview": "<div>hi</div>"}')
+    assert "default-src 'none'" in got['preview'] and '<div>hi</div>' in got['preview']

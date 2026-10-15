@@ -61,8 +61,10 @@ def parse(text):
     code = str(d.get('code') or '').strip()
     if len(code) < 10:
         return None
+    pv = str(d.get('preview') or '').strip()
     return {'title': str(d.get('title') or 'code change')[:80], 'file': str(d.get('file') or '')[:120], 'kind': 'new' if d.get('kind') == 'new' else 'change',
-            'why': str(d.get('why') or '')[:700], 'risk': str(d.get('risk') or '')[:240], 'code': code[:MAX_CODE]}
+            'why': str(d.get('why') or '')[:700], 'risk': str(d.get('risk') or '')[:240], 'code': code[:MAX_CODE],
+            **({'preview': lock_html(pv)} if re.search(r'<(html|body|div|svg|style)', pv, re.I) else {})}
 
 
 def prompt(ask, target_key, outline_text, prev=None):
@@ -89,3 +91,49 @@ def decide(items, pid, approve, now=None):
             hit = x
         out.append(x)
     return out, hit
+
+
+UI_TARGETS = ('cockpit', 'home')
+CSP = ("<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; "
+       "script-src 'unsafe-inline'; font-src data:\">")
+
+
+def lock_html(html):
+    """A preview document with a network-blocking CSP first in <head> (whatever the model wrote) — shown in a no-same-origin sandbox."""
+    h = re.sub(r'<meta[^>]+http-equiv=["\']?content-security-policy[^>]*>', '', str(html or '')[:60_000], flags=re.I)
+    if not re.search(r'<html', h, re.I):
+        h = f'<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;background:#05100b;color:#e9fff3">{h}</body></html>'
+    return re.sub(r'(<head[^>]*>)', lambda m: m.group(1) + CSP, h, count=1, flags=re.I) if re.search(r'<head[^>]*>', h, re.I) else CSP + h
+
+
+def _names(code, py):
+    pat = r'^(?:async )?def (\w+)\(|^class (\w+)' if py else r'^export (?:const|function) (\w+)|^(?:const|function) (\w+)'
+    return [a or b for a, b in re.findall(pat, code, re.M)]
+
+
+def current_of(src, name, py):
+    """The CURRENT text of `name` in the file (to the next top-level definition), or None when it does not exist yet."""
+    lines = str(src or '').split('\n')
+    start = next((i for i, l in enumerate(lines) if re.match(rf'^(?:async )?def {name}\(|^class {name}\b' if py else rf'^(?:export )?(?:const|function) {name}\b', l)), None)
+    if start is None:
+        return None
+    end = next((j for j in range(start + 1, len(lines)) if lines[j] and not lines[j][0].isspace() and not lines[j].startswith((')', ']', '}'))), len(lines))
+    return '\n'.join(lines[start:end]).rstrip()
+
+
+def preview_diff(src, code, path):
+    """🔍 THE PREVIEW BEFORE ANY CHANGE: for each function / component the proposal writes, the file's current version vs the proposed one
+    as a unified diff (a name the file does not have = NEW). → {diff, changed: [names], new: [names]}"""
+    import difflib
+    py = str(path).endswith('.py')
+    out, changed, new = [], [], []
+    for n in _names(code, py)[:6]:
+        new_t = current_of(code, n, py) or ''
+        old_t = current_of(src, n, py)
+        if old_t is None:
+            new.append(n)
+            out += [f'+++ NEW {n}'] + ['+' + l for l in new_t.split('\n')]
+            continue
+        changed.append(n)
+        out += list(difflib.unified_diff(old_t.split('\n'), new_t.split('\n'), f'{path} · {n} (now)', f'{path} · {n} (proposed)', lineterm='', n=2))
+    return {'diff': '\n'.join(out)[:MAX_CODE], 'changed': changed, 'new': new}
