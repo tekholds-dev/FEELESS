@@ -4401,3 +4401,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   never enters the box). Every scene: one accent that SWITCHES green ↔ pink on each real tick, a vignette, marks ≤ 25%. Hyperspace + Degen casino
   retired (fall back to Default). 🧹 agentDesk.css RESTORED (c9ef48e's "dead CSS removed" had deleted 197 lines the Agents panes still used —
   that was the owner's "every tab looks like text" screenshot); `styles/cssCoverage.test.js` now fails on any rendered class with no rule.
+- ✋ YOUR COIN IS YOURS (owner, 2026-10-15: "they keep selling in profit … sold one of my entries — I'm trying to teach them"): the card's events
+  showed $Macca (the owner's pick) sold by "R4 whale dump" at +4.0% with buyers 61%, and $Starman / $Dip at +3.6 / +4.6% with buyers 81 / 53%.
+  (1) `office.yours(l)` = leg `picked` or `ownerLvAt`; on it only `OWNER_HARD` (R1 pool pulled · R5x −45% · R5c / R9c creator limits) and
+  your OWN stop / take (R5 / R6 when the line is yours, `owner_hard`) sell without asking — every other rule (dump, rug radar, drain, scans,
+  trail, thesis, scale-out) becomes a ReaperAsks question; `fast_reap` acts only on your stop for your coins. (2) R4 whale dump fires only
+  when sellers really lead (`DUMP_BUY_MAX` 50; buyers unknown → only a red coin) — it used to sell ANY green coin on a "dump" read.
+- 🖥 DESKTOP LM STUDIO STAYS UP (owner, same day: "not sure what's wrong with LAN … stays running when sleep and updates are in it"): measured
+  from here the desktop answered fine — but a full agent case ran past the 60s LAN timeout, so EVERY background read timed out and the
+  provider sat OFFLINE (never one good answer since the restart). LAN timeout 150s. The one-paste installer (`feeless_mcp.install_script`)
+  now also writes two LaunchAgents on the desktop: `com.feeless.awake` (caffeinate -dimsu, KeepAlive) and `com.feeless.lankeep` (every 60s:
+  `lms server start --port 1236` if down, `lms load <model> --context-length 10658` if not loaded; hourly: re-pulls /lan-install with
+  FEELESS_NO_RELOAD=1 so updates land without reloading itself). A sleeping / lid-closed / powered-off Mac still can't answer — the
+  installer prints the Energy + "Serve on local network" settings to switch on. Its LM Studio adds ~1.7K tokens of its own prompt to every call.

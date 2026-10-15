@@ -128,7 +128,8 @@ def test_reaper_rules_in_order_with_evidence_and_never_rules_on_a_missing_price(
     assert one(leg('A'), 1.0, [trow('A', safe=False)])['action'] is None and one(leg('A'), 1.0, [trow('A', rug=70)])['action'] is None   # a holder scan / a rug score is evidence, never an exit
     pos, rep, _ = run(leg('A'), 1.0, [trow('A', top10=15)])
     assert run(leg('A'), 1.0, [trow('A', top10=40)], pos)[1][0]['action'] is None                                # … nor is the top-10 share moving
-    assert one(leg('A'), 1.04, tape={'PA': 'dump'})['state'] == 'TAKE' and one(leg('A'), 0.97, tape={'PA': 'dump'})['state'] == 'PROTECT'
+    assert one(leg('A'), 1.04, [trow('A', buy=40)], tape={'PA': 'dump'})['state'] == 'TAKE'                          # a REAL dump: sellers lead
+    assert one(leg('A'), 1.04, tape={'PA': 'dump'})['action'] is None and one(leg('A'), 0.97, tape={'PA': 'dump'})['state'] == 'PROTECT'   # buyers at 60%: a green coin is NOT sold on a 'dump' read
     assert one(leg('A'), 0.69)['rule'] == 'R5 stop' and one(leg('A'), 0.72)['state'] == 'HOLD'                   # default stop −30
     t = one(leg('A'), 1.12)
     assert (t['state'], t['rule'], t['action']) == ('PROTECT', 'R6 take line', None) and 'AGENTS CHOOSE' in t['evidence']   # the base line: the agents read it — Reaper keeps the trail on it
@@ -667,3 +668,20 @@ def test_the_agents_predictions_are_graded_on_real_exits():
     r = of.pred_record([P(5, 8), P(4, 2), P(-3, -10), P(-6, -2), {'confirmed': True, 'realPct': 1}])
     assert r['n'] == 4 and r['hit'] == 100 and r['better'] == {'n': 2, 'med': 5.0} and r['worse']['med'] == -6.0
     assert of.pred_record([]) == {'n': 0}
+
+
+def test_your_coin_is_yours_only_a_pulled_pool_minus_45_or_your_own_line_sells_it(monkeypatch):
+    """2026-10-15: the owner's pick $Macca was sold by R4 'whale dump' at +4% with buyers 61%. On a coin YOU picked or put your lines on,
+    every agent rule asks — only R1 pool collapse, R5x −45%, the creator limits and your OWN stop / take sell without asking."""
+    monkeypatch.setattr(of, 'SNAP_N', 1)
+    cfg = {'agentTakePct': 10, 'agentScalp': False}
+    mine = leg('A', picked=True)
+    r = of.reap([mine], [trow('A', buy=30)], {'PA': 1.04}, cfg, None, 3600, control=True, tape={'PA': 'dump'})[1][0]
+    assert r['action'] is None and r['ask']['rule'] == 'R4'                                                        # a real dump on YOUR coin = a question
+    assert of.owner_hard(mine, 'R1') and of.owner_hard(mine, 'R5x') and not of.owner_hard(mine, 'R4r') and not of.owner_hard(mine, 'R5')
+    lined = leg('A', ownerLvAt=1, sl=12, tp=40)
+    assert of.owner_hard(lined, 'R5') and of.owner_hard(lined, 'R6')                                               # your own stop / take: obeyed
+    agent = leg('B', bought={'tag': '🤖 agents'}, ownerLvAt=1, sl=20)
+    pos = {'B': {'entry': 1.0, 'stopNow': 20, 'peak': 30, 'thesis': {'invalidation': 1.5}}}
+    assert of.fast_reap([{**agent, 'real': True}], {'B': 1.2}, pos, 9999) == []                                    # the 6s guard never banks your-lined coin on its trail / thesis
+    assert of.fast_reap([{**agent, 'real': True}], {'B': 0.78}, pos, 9999)[0][1].startswith('☠ Reaper R5 stop')     # … your stop still fires

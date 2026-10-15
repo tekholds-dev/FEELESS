@@ -665,7 +665,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R4d drain', f"{drw_} at {pct:+.1f}%", 'pull'
         elif pr_ == 'HIGH' and live:   # 🕵 the launch's early buyers are unloading into us (creator / a dump-record wallet / a cluster): out before the timeout
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R4e early wallets unloading', f"{prwhy_} at {pct:+.1f}%", 'pull'
-        elif tp == 'dump' and (pct > 0 or (n.get('buy') is not None and _f(n['buy']) < 45)):
+        elif tp == 'dump' and ((n.get('buy') is not None and _f(n['buy']) < DUMP_BUY_MAX) or (n.get('buy') is None and pct < 0)):   # 🩸 a REAL dump: sellers lead (buyers < 50%) — it used to sell ANY green coin on a 'dump' read with buyers at 61–81% (Macca +4%, Starman +3.6%, Dip +4.6%)
             st, rule, ev, act = ('TAKE' if pct > 0 else 'EXIT INVALIDATED'), 'R4 whale dump', f"the tape reads a dump at {pct:+.1f}%" + (f", buyers {_f(n['buy']):.0f}%" if n.get('buy') is not None else ''), 'pull'
         elif mine and live and fv_ and fv_.get('state') == 'SELLERS' and pct >= FLOW_BANK_PCT:   # 🌊 the buy / sell vital flipped to sellers on a green seat: bank it into the last buyers
             st, rule, ev, act = 'TAKE', 'R4f sellers took over', f"{pct:+.1f}% and {fv_.get('why')} — banked into the last buyers", 'pull'
@@ -788,6 +788,24 @@ SCALE_PCT = 75.0   # 2026-10-15: 50% left too much on the table for rugs after t
 # QUESTION with its reason — the seat is held until you ✅ approve (the next tick sells) or ✋ keep your line (that rule is quiet 10 min).
 # Hard safety exits never wait: pool collapse, scan / rug / drain / early-wallet dumps, the −45% line, your own stop and the creator overrides.
 ASK_HARD = ('R1', 'R2', 'R3', 'R4', 'R4r', 'R4d', 'R4e', 'R5', 'R5x', 'R5c', 'R9c')
+# ✋ YOUR COIN IS YOURS (owner, 2026-10-15: "they sold one of my entries … im tryna teach them"): on a coin YOU picked or put your lines on,
+# ONLY these may sell without asking — a pulled pool (R1), the catastrophic −45% (R5x), your creator limits (R5c / R9c) and your OWN stop /
+# take (R5 / R6, only when the line is yours). Every other rule — dump reads, rug radar, drain, scans, trails, thesis — becomes a question.
+OWNER_HARD = ('R1', 'R5x', 'R5c', 'R9c')
+DUMP_BUY_MAX = 50.0
+
+
+def yours(l):
+    """A coin the owner picked (leg `picked`) or put their own stop / take on (`ownerLvAt`)."""
+    return bool((l or {}).get('picked') or (l or {}).get('ownerLvAt'))
+
+
+def owner_hard(l, key):
+    """May this rule sell the owner's coin without asking?"""
+    if key in OWNER_HARD:
+        return True
+    own = bool((l or {}).get('ownerLvAt'))
+    return (key == 'R5' and own and _f((l or {}).get('sl')) > 0) or (key == 'R6' and own and _f((l or {}).get('tp')) > 0)
 ASK_OK_SEC = 180.0     # an approval lets that rule sell for this long
 ASK_KEEP_SEC = 600.0   # "keep my line" quiets that rule this long
 
@@ -832,12 +850,12 @@ def owner_seats(positions):
 
 def owner_ask(p, l, act, st, rule, ev, pct, px, now):
     """→ (act, st, ev). Only for coins with YOUR line (leg ownerLvAt); hard rules pass through."""
-    if not (l.get('ownerLvAt') or l.get('picked')) or not act:   # 👤 a coin YOU picked is yours too: soft exits ask first
+    if not yours(l) or not act:   # 👤 a coin YOU picked is yours too: soft exits ask first
         if not act:
             p.pop('ask', None)
         return act, st, ev
     key = str(rule).split(' ')[0]
-    if key in ASK_HARD:
+    if owner_hard(l, key):
         p.pop('ask', None)
         return act, st, ev
     ok_, no_ = p.get('askOk') or {}, p.get('askNo') or {}
@@ -1717,6 +1735,8 @@ def fast_reap(legs, px_by_mint, pos, now, office=None, prev=None, ai_words=None)
         # 👁 REAPER READS THE LIVE CHART (owner, 2026-10-12: "reaper reviews live chart, not every 5 mins"): the same exits the tick makes
         # from the chart — a thesis invalidated (live price under the invalidation line, losing) and the trailing protection (a peak that
         # armed it given back) — are applied on every 6-second live read, not only when the tick comes round.
+        if yours(l):   # ✋ your coin: only your own stop (stopNow is your line) and −45% act here — no thesis / trail bank by the agents
+            continue
         inv = _f((p.get('thesis') or {}).get('invalidation'))
         if inv > 0 and px < inv and dd < 0:
             out.append((l.get('pairAddress'), f"☠ Reaper R5t thesis invalidated (👁 live chart): {dd:+.1f}% — price under its invalidation line"))

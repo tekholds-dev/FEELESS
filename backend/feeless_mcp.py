@@ -762,7 +762,7 @@ def client_ok(ip):
 PRESET = Path.home() / '.lmstudio' / 'config-presets' / 'FEELESS FEE Master.preset.json'
 
 
-def install_script(url, tok, preset_json=None, prompt=None):
+def install_script(url, tok, preset_json=None, prompt=None, install_url=None):
     """🖥 The ONE script the desktop Mac runs (`curl … /lan-install | bash`): writes the FEE preset into its LM Studio and merges a
     `feeless` entry (this Mac's MCP url + token) into ~/.lmstudio/mcp.json without touching any other server there. Pure text."""
     if preset_json is None:
@@ -793,6 +793,7 @@ def install_script(url, tok, preset_json=None, prompt=None):
         except ValueError:
             pass
     entry = json.dumps({'url': url, 'headers': {'Authorization': f'Bearer {tok}'}})
+    install_url = install_url or re.sub(r'/mcp/?$', '', url) + '/lan-install'   # the keep-alive re-pulls THIS script hourly
     return f"""#!/bin/bash
 # FEELESS → this Mac's LM Studio: the FEE preset + the FEELESS MCP (read-only tools). Re-run any time; it only replaces its own entries.
 set -e
@@ -809,7 +810,35 @@ cur.mcpServers = cur.mcpServers || {{}};
 cur.mcpServers.feeless = {entry};
 $(JSON.stringify(cur, null, 2)).writeToFileAtomicallyEncodingError(p, true, $.NSUTF8StringEncoding, null);
 FEELESS_JS_EOF
+# 🖥 KEEP IT RUNNING (owner, 2026-10-15: "ensure it stays running when sleep etc and updates are in it"): two LaunchAgents on THIS Mac —
+#  · com.feeless.awake  = caffeinate (no idle / system sleep while logged in; a closed laptop lid or a power-off still stops it)
+#  · com.feeless.lankeep = every 60s: LM Studio's server up on port $PORT + the model loaded; every hour: re-run this installer from
+#    FEELESS so the preset / prompt / these helpers update by themselves. Re-running this script replaces only its own files.
+PORT="${{FEELESS_LM_PORT:-1236}}"; MODEL="${{FEELESS_LM_MODEL:-google/gemma-4-e2b}}"; CTX="${{FEELESS_LM_CTX:-10658}}"
+mkdir -p "$HOME/.feeless" "$HOME/Library/LaunchAgents"
+cat > "$HOME/.feeless/lan-keep.sh" <<FEELESS_KEEP_EOF
+#!/bin/bash
+LMS="\\$HOME/.lmstudio/bin/lms"; [ -x "\\$LMS" ] || LMS="\\$(command -v lms)"; [ -n "\\$LMS" ] || exit 0
+"\\$LMS" server status 2>&1 | grep -qi "running" || "\\$LMS" server start --port $PORT >/dev/null 2>&1
+"\\$LMS" ps 2>/dev/null | grep -q "$MODEL" || "\\$LMS" load "$MODEL" --context-length $CTX --gpu max -y >/dev/null 2>&1
+st="\\$HOME/.feeless/last-update"; now=\\$(date +%s); last=\\$(cat "\\$st" 2>/dev/null || echo 0)
+if [ \\$((now - last)) -ge 3600 ]; then echo \\$now > "\\$st"; curl -fsS -m 20 -H "Authorization: Bearer {tok}" "{install_url}" | FEELESS_LM_PORT=$PORT FEELESS_LM_MODEL="$MODEL" FEELESS_LM_CTX=$CTX FEELESS_NO_RELOAD=1 bash >/dev/null 2>&1; fi
+FEELESS_KEEP_EOF
+chmod +x "$HOME/.feeless/lan-keep.sh"
+plist() {{ cat > "$HOME/Library/LaunchAgents/$1.plist" <<FEELESS_PLIST_EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict><key>Label</key><string>$1</string><key>ProgramArguments</key><array>$2</array>$3<key>RunAtLoad</key><true/></dict></plist>
+FEELESS_PLIST_EOF
+}}
+plist com.feeless.awake "<string>/usr/bin/caffeinate</string><string>-dimsu</string>" "<key>KeepAlive</key><true/>"
+plist com.feeless.lankeep "<string>/bin/bash</string><string>$HOME/.feeless/lan-keep.sh</string>" "<key>StartInterval</key><integer>60</integer>"
+if [ -z "$FEELESS_NO_RELOAD" ]; then   # the hourly self-update re-writes the files only: the agents pick up the new script on their next run
+  for a in com.feeless.awake com.feeless.lankeep; do launchctl bootout "gui/$(id -u)/$a" 2>/dev/null || true; launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/$a.plist" 2>/dev/null || true; done
+fi
 echo "✅ FEELESS loaded into LM Studio: preset 'FEELESS FEE Master' + MCP 'feeless' ({url})"
+echo "🖥 Keep-alive on: this Mac stays awake while logged in, LM Studio's server (port $PORT) + $MODEL are checked every minute, updates pull hourly."
+echo "   Also set: System Settings › Energy › 'Prevent automatic sleeping' + 'Wake for network access' ON; LM Studio › Developer › 'Serve on local network' ON."
 echo "   In LM Studio: right panel › Preset › FEELESS FEE Master · Program › turn the 'feeless' MCP on · load the model with context 8192+."
 """
 

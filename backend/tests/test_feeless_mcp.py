@@ -78,3 +78,12 @@ def test_truth_line_leads_money_answers_with_the_real_numbers(monkeypatch):
     t = m.truth_line(o)
     assert t.startswith('TRUTH') and '$1.94 now, $39.24 put in' in t and '33% won' in t and 'Break-even' not in t
     assert 'never thousands' in t
+
+
+def test_the_desktop_installer_keeps_lm_studio_up_and_pulls_updates_hourly():
+    import feeless_mcp as m
+    s = m.install_script('http://10.0.0.104:8765/mcp', 'tok123', preset_json='{}', prompt='')
+    assert 'com.feeless.awake' in s and '/usr/bin/caffeinate' in s                               # no idle / system sleep while logged in
+    assert 'com.feeless.lankeep' in s and '<key>StartInterval</key><integer>60</integer>' in s   # LM Studio server + model checked every minute
+    assert 'server start --port $PORT' in s and 'load "$MODEL"' in s
+    assert 'http://10.0.0.104:8765/lan-install' in s and 'FEELESS_NO_RELOAD=1' in s            # hourly self-update re-writes files without reloading itself

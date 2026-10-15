@@ -78,9 +78,9 @@ def _log_event(store, cat, kind, detail, pnl=None, pair=None, price=None, market
 
 
 FEE_PER_SIDE = 0.01
-ENGINE_VERSION = 'live-v2'  # v3 logic below is additive; keeps the existing track record
+ENGINE_VERSION = 'arena-v1'   # 2026-10-15: arena / agent coins only — the paper trail restarted (old store archived once)
 LEADER_ID = 'leader'
-MARKET_FEED = 'http://127.0.0.1:5001/api/market/feed?kind={kind}&chain=solana&page={page}'
+POOL_URL = 'http://127.0.0.1:5077/api/reputation/fuses/feecat-pool'   # 🐱 arena + agent coins only (2026-10-15)
 RULES = {'minLiquidity': 40_000, 'minVolume24h': 100_000, 'minMarketCap': 150_000, 'maxMarketCap': 50_000_000,
          'minAgeHours': 3, 'coreMinAgeHours': 72, 'h1Min': 3, 'h1Max': 40, 'h6Max': 120, 'h24Max': 400, 'minBuySellRatio': 1.2,
          'maxPositions': 5, 'cooldownHours': 2,
@@ -155,24 +155,20 @@ def _num(v, d=0.0):
 
 
 async def _market_candidates(http):
-    pairs = {}
-    for kind in ('trending', 'new'):
-        for page in (1, 2):
-            try:
-                r = await http.get(MARKET_FEED.format(kind=kind, page=page))
-                for p in (r.json() or {}).get('pairs') or []:
-                    pairs[p.get('pairAddress')] = p
-            except Exception:
-                pass
-        # Include the launchpad-native Pump index on page one; safety and liquidity gates still
-        # decide whether Fee may enter. This prevents the engine from watching only older DEX lists.
-        try:
-            r = await http.get(MARKET_FEED.format(kind=kind, page=1) + '&scope=pump')
-            for p in (r.json() or {}).get('pairs') or []:
-                pairs[p.get('pairAddress')] = p
-        except Exception:
-            pass
-    return list(pairs.values())
+    """🐱 FEE TAKES ONLY ARENA / AGENT COINS (owner, 2026-10-15): her pool is what the ten agents judged READY / CONTENDING and what the Arena
+    ranks — `GET /fuses/feecat-pool` on the reputation service — never the raw market feed. Each coin's live pair is read so her own safety
+    gates still decide; the pool being empty means she waits."""
+    try:
+        rows = ((await http.get(POOL_URL, timeout=6)).json() or {}).get('rows') or []
+    except Exception:
+        rows = []
+    src = {r['pairAddress']: r for r in rows if r.get('pairAddress')}
+    pairs = await _pair_prices(http, list(src))
+    out = []
+    for pa, p in pairs.items():
+        r = src.get(pa) or {}
+        out.append({**p, '_src': r.get('src'), '_srcWhy': r.get('why')})
+    return out
 
 
 async def _pair_prices(http, pair_addresses):
@@ -731,8 +727,12 @@ def _migrate(store):
             if isinstance(c.get('learn'), dict):
                 c['learn']['params'] = {}
         store['rulesVersion'] = 'trench-lord-v3'
+    if any(c.get('engine') != ENGINE_VERSION for c in store['cats'].values()) and not (DATA_DIR / 'feecats_before_arena1015.json').exists():
+        (DATA_DIR / 'feecats_before_arena1015.json').write_text(json.dumps(store))   # the old paper trail, kept once before the restart
+        store['events'] = []
     for cat in store['cats'].values():
         if cat.get('engine') != ENGINE_VERSION:
+            cat['exits'] = []   # 🐱 a fresh paper trail: no exit memory from the old market-wide engine
             # Earlier numbers came from a random-walk simulator — reset so every figure shown is real.
             cat['balanceSol'] = float(cat.get('startingBalanceSol') or 10)
             cat.update({'positions': [], 'realizedPnlSol': 0, 'totalPnlSol': 0, 'volumeSol': 0, 'wins': 0, 'losses': 0,

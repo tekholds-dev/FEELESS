@@ -7413,6 +7413,33 @@ async def fuses_learn():
     return {'n': len(st.get('pieces') or []), **_rl.lessons(_real_table())}
 
 
+def feecat_pool_rows(kernel_rows, arena_rows, limit=40):
+    """🐱 FEECAT EATS ONLY WHAT THE ARENA AND THE AGENTS FOUND (owner, 2026-10-15: "have fee only taking arena / agent coins"): the agents'
+    READY / CONTENDING coins first (their own order), then every coin the Arena ranks, one row per pool, dollar tickers dropped. Pure."""
+    out, seen = [], set()
+    for src, rows in (('agents', kernel_rows), ('arena', arena_rows)):
+        for r in rows or []:
+            pa = r.get('pairAddress') or r.get('pair')
+            if not pa or pa in seen or _fw.dollar_named(r.get('symbol')):
+                continue
+            seen.add(pa)
+            out.append({'pairAddress': pa, 'mint': r.get('mint'), 'symbol': r.get('symbol'), 'src': src, 'why': r.get('tag') or r.get('divisionLabel') or src})
+            if len(out) >= limit:
+                return out
+    return out
+
+
+@app.get('/api/reputation/fuses/feecat-pool')
+async def fuses_feecat_pool():
+    """🐱 FeeCat's candidate pool (public, cache-only: the kernel's last pass + the Arena's last league — no fetch here)."""
+    try:
+        kr = _agent_inherit_rows(limit=25)
+    except Exception:
+        kr = []
+    ar_ = ((_contenders_cache.get('data') or {}).get('all') or []) if isinstance(_contenders_cache.get('data'), dict) else []
+    return {'at': time.time(), 'rows': feecat_pool_rows(kr, ar_)}
+
+
 @app.get('/api/reputation/fuses/edge')
 async def fuses_edge():
     """🧬 The swap-in lists ranked by evidence + Coming up's own record + the learned combos that have settled. A ranking, never a promise."""
