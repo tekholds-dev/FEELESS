@@ -1,19 +1,21 @@
 // ⚛ FUSE FORGE (Home; owner, 2026-10-15: "that home look is still ass — a dope animation that shows a crazy cool FEELESS feature"). The feature
 // nobody else has: MANY COINS → ONE FUSE CARD. The live coins of a real tier card orbit the forge, spiral into its core, flash, and the card
-// is forged — a holographic card that tilts in 3D, every coin on it with its live %. Every 8s the next tier card is forged (Blaze carries
+// is forged — the REAL live Fuse card (its tier design, aura and live effects), every coin on it with its live %. Every 8s the next tier card is forged (Blaze carries
 // the 💵 REAL MONEY badge). Data = the public `/fuses/prime` cards; a coin's % is its own leg reading, "—" when unknown. Hover holds.
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { sharedJson } from '../lib/sharedJson';
 import { openCoin } from './CoinDrawer';
 import { TokenAvatar } from './terminal/MarketPrimitives';
 import '../styles/homeEngine.css';
+
+const HomeForgeCard = lazy(() => import('./HomeForgeCard'));   // the real live Fuse card (tier look + aura + live FX), its own chunk
 
 const POLL = 30000;
 const FORGE_MS = 8000;
 const TIER_LOOK = { degen: 'blaze', next: 'plasma', balanced: 'gold', safe: 'prism', ever: 'nebula' };
 // pure: the cards the forge cycles through — real first, coins that really hold money, each coin with its live %
 export function forgeCards(prime) {
-  const cards = (prime?.cards || []).map(c => ({ id: c.id || c.tpl, tpl: c.tpl, label: String(c.label || c.tpl || 'Fuse'), real: !!c.real, look: TIER_LOOK[c.tpl] || 'blaze',
+  const cards = (prime?.cards || []).map(c => ({ id: c.id || c.tpl, tpl: c.tpl, label: String(c.label || c.tpl || 'Fuse'), real: !!c.real, look: TIER_LOOK[c.tpl] || 'blaze', raw: c,
     coins: (c.legs || []).filter(l => l?.symbol && !l.placeholder).slice(0, 6).map(l => ({ mint: l.mint, sym: String(l.symbol).slice(0, 10), pair: l.pairAddress, pct: l.pnlPct == null ? null : Number(l.pnlPct), usd: Number(l.usd) || 0 })) }))
     .filter(c => c.coins.length);
   return cards.sort((a, b) => (b.real - a.real) || (b.coins.length - a.coins.length));
@@ -38,12 +40,12 @@ export function HomeEngine({ onOpen }) {
       <div className="frg-orbit" aria-hidden="true">{cur.coins.map((c, j) => <span key={`${c.mint}-${j}`} className="frg-coin" style={{ '--a': `${(360 / n) * j}deg`, '--j': j }}>
         <span className="frg-coin-in"><TokenAvatar pair={pairOf(c)} size={34} /></span></span>)}</div>
       <i className="frg-burst" aria-hidden="true" />{[0, 1, 2, 3, 4, 5, 6, 7].map(s => <i key={s} className="frg-shard" aria-hidden="true" style={{ '--s': `${s * 45}deg` }} />)}
-      <div className="frg-card" data-testid="frg-card"><div className="frg-tilt">
+      <div className="frg-card is-live" data-testid="frg-card"><Suspense fallback={<div className="frg-tilt">
         <i className="frg-holo" aria-hidden="true" /><i className="frg-sheen" aria-hidden="true" />
         <header><b>{cur.label}</b>{cur.real ? <em className="frg-real">💵 REAL MONEY</em> : <em>📄 PAPER</em>}</header>
         <ul>{cur.coins.map((c, j) => <li key={`${c.mint}-${j}`}><TokenAvatar pair={pairOf(c)} size={18} /><span>${c.sym}</span><b className={c.pct == null ? '' : c.pct >= 0 ? 'up' : 'dn'}>{pctWord(c.pct)}</b></li>)}</ul>
         <footer><span>{n} COIN{n === 1 ? '' : 'S'}</span><i>⚛</i><span>ONE FUSE</span></footer>
-      </div></div>
+      </div>}><HomeForgeCard card={cur.raw} /></Suspense></div>
     </div>
     <div className="frg-side">
       <span className="frg-kick">⚛ FUSE FORGE <i className="frg-live" aria-hidden="true">● LIVE</i></span>
