@@ -74,7 +74,8 @@ export function TabChip({ label, n, meter }) {
 // each deck tab's mini meter, from numbers the payload already carries: trades = share of closed real trades that won · desk = share of
 // the ten agents ACTIVE · feed = how fresh the tape is (full = a line in the last minute, empty = 10 min quiet)
 export function deckMeters(o, tabs, nowS = Date.now() / 1000) {
-  const rows = o?.tradeTape?.rows || []; const closed = rows.filter(r => r.result != null || r.pct != null); const won = closed.filter(r => Number(r.result ?? r.pct) > 0).length;
+  const rows = o?.tradeTape?.rows || []; const resOf = r => (r.result && typeof r.result === 'object' ? r.result.pct : r.result) ?? r.pct;   // the tape's result is {pct, usd, rule…}
+  const closed = rows.filter(r => resOf(r) != null); const won = closed.filter(r => Number(resOf(r)) > 0).length;
   const gens = o?.generations || []; const act = gens.filter(g => g.status === 'ACTIVE').length;
   const last = Math.max(0, ...(o?.tape || []).map(r => Number(r.at) || 0)); const age = last ? nowS - last : null;
   const m = { tape: closed.length ? won / closed.length : null, agents: gens.length ? act / gens.length : null, live: age == null ? null : Math.max(0, 1 - Math.max(0, age - 60) / 540) };

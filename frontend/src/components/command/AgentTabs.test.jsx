@@ -9,3 +9,9 @@ test('deck tab meters come from the payload: trades won share, agents active sha
   expect(by.agents[4]).toBe(0.75); expect(by.live[4]).toBe(1); expect(by.brain[4]).toBeNull(); expect(by.brain[5]).toBeNull();
   expect(deckMeters({ tape: [{ at: 1 }] }, [['live', '⚡ Feed', 1, null]], 1 + 600)[0][4]).toBe(0);   // ten quiet minutes = an empty meter
 });
+
+
+test('the trades meter reads the tape result object ({pct}) — it once read every trade as lost', () => {
+  const out = deckMeters({ tradeTape: { rows: [{ result: { pct: 2.9 } }, { result: { pct: -10.6 } }, { open: true }] } }, [['tape', '🎬 Trades', 2, null]], 0);
+  expect(out[0][4]).toBe(0.5); expect(out[0][5]).toBe('1 of 2 closed real trades won');
+});
