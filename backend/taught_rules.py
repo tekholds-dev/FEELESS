@@ -8,6 +8,7 @@ buying). These are the same lessons as RULES the agents run on every coin, each 
 Every coin a rule hits is graded 30 min later on the desk's own price (coach.grade_note), so the screen says whether the lesson is right.
 A rule is never an order, a size or a sell.
 """
+from functools import lru_cache
 import re
 
 RULES = {
@@ -92,6 +93,7 @@ def fake_candles(chart, run=8):
     return None
 
 
+@lru_cache(maxsize=65536)   # 🧈 pure + hot: the clone rule compares every candidate with 30 days of trades each pass (41% of the loop, 2026-10-15)
 def themes(symbol, name=None):
     """What a coin is 'about': its narrative class (🤖 AI, 🐕 dog …), its name words (≥ 4 letters) and its ticker stem (first 4)."""
     out = set()
@@ -108,7 +110,7 @@ def themes(symbol, name=None):
     for w in re.findall(r'[a-z]{4,}', f"{name or ''} {symbol or ''}".lower()):
         if w not in STOP:
             out.add(w)
-    return out
+    return frozenset(out)
 
 
 def recent(held, closed, now, hours):
@@ -135,6 +137,7 @@ def same_narrative(row, seen, mint_self=None):
     return None
 
 
+@lru_cache(maxsize=65536)   # 🧈 pure + hot: the clone rule compares every candidate with 30 days of trades each pass (41% of the loop, 2026-10-15)
 def tick(sym):
     return re.sub(r'[^a-z0-9]', '', str(sym or '').lower())
 
@@ -142,6 +145,7 @@ def tick(sym):
 ROMAN = {'ii': '2', 'iii': '3', 'iv': '4', 'v': '5', 'vi': '6', 'vii': '7', 'viii': '8', 'ix': '9', 'x': '10'}
 
 
+@lru_cache(maxsize=65536)   # 🧈 pure + hot: the clone rule compares every candidate with 30 days of trades each pass (41% of the loop, 2026-10-15)
 def sequel(sym):
     """A ticker that is letters + a number / roman numeral ("GTA 6", "GT IV", "PEPE2") → (letters, number) else None."""
     raw = re.sub(r'[^a-z0-9 ]', '', str(sym or '').lower()).strip()
@@ -152,6 +156,7 @@ def sequel(sym):
     return (m.group(1), n) if n.isdigit() else None
 
 
+@lru_cache(maxsize=65536)   # 🧈 pure + hot: the clone rule compares every candidate with 30 days of trades each pass (41% of the loop, 2026-10-15)
 def family(a, b):
     """Two tickers of one family: the same, one the start of the other (≥ 4 letters: SPACEXAI ↔ SPACEX), or two SEQUELS whose letters start
     alike (GTA 6 ↔ GT IV ↔ GTA5: 'gt' / 'gta'). Plain 2–3 letter tickers never match each other by prefix."""
@@ -175,11 +180,13 @@ def clone(row, traded=None, board=None):
         return None
     same = lambda a: family(a, row.get('symbol'))   # "SPACEXAI" is a clone of "SPACEX", "COCACOLA" of "COCA COLA", "GT IV" of "GTA 6"
     for sym, mint in traded or []:
+        if tick(sym)[:2] != t[:2]:   # 🧈 every family match shares its first two letters — skip the rest cheaply
+            continue
         if same(sym) and mint != row.get('mint'):
             return f"same ticker as a ${sym} the card already traded (a different coin)"
     cap = _f(row.get('cap') or (row.get('vitals') or {}).get('mcap'))
     for o in board or []:
-        if o.get('mint') != row.get('mint') and same(o.get('symbol')) and _f(o.get('cap') or (o.get('vitals') or {}).get('mcap')) > cap:
+        if o.get('mint') != row.get('mint') and tick(o.get('symbol'))[:2] == t[:2] and same(o.get('symbol')) and _f(o.get('cap') or (o.get('vitals') or {}).get('mcap')) > cap:
             return f"a copy — a bigger ${o.get('symbol')} with this ticker is on the board"
     return None
 

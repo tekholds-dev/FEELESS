@@ -15436,6 +15436,7 @@ def _taught_stamp(table, now):
         chrs_ = (rules.get('clone') or {}).get('hours', 720)
         traded_ = [(h['symbol'], h['mint']) for h in held_ if h.get('symbol')] + [(r_.get('symbol'), r_.get('mint')) for r_ in _fw_full_ledger()   # 🧬 by TIME, not row count: 1,500 busy rows once covered only ~2h and a second $FOMO got through
                    if r_.get('card') == _office.get('tid') and r_.get('side') == 'buy' and r_.get('status') == 'filled' and r_.get('symbol') and now - _fuse._f(r_.get('at')) <= chrs_ * 3600]
+        traded_ = list(dict.fromkeys(traded_))   # 🧈 one row per (ticker, coin): 30 days of buys repeated the same tickers thousands of times
         out, cnt, ex = {}, {}, {}
         miss_ = []
         for r_ in table or []:   # 🔗 the creator's own links from Pump's record ride on the row (the panel's socials icons read them)

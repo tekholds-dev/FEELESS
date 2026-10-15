@@ -4449,4 +4449,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   the warn + "add it anyway" step for ⚡ Add my coin): `AddMyCoin` sends `ack` up front. The real bug: a sold coin's RESERVED SEAT (placeholder) still
   carries its mint, so `queue_seat` / `queue_swap` said "That coin is already on this card" and the refill dropped the pick — now
   `arena_prime.held_mints` (no placeholders, no empty legs) is THE "on the card" test, and a queued owner pick on a full card replaces a reserved seat.
+- 🧹 AGENTS TAB = THE COCKPIT ONLY (owner, 2026-10-15: "not the current layout, code not clean"): the old 🤖 Agents desk lens (four agent cards with
+  mini screens, rings, chain) is gone — `MiniScreen`, `Ring`, the `dlive` pane and their CSS. Its coin board + thought feed (`LiveLens`) live in the
+  🗂 Office pane; an old 'live' lens event lands there. A cold cockpit (right after a restart) shows ONE warm-up line, never the old desk.
+- 🧈 Clone-rule lag (the loop was blocked 41%, `taught_rules.family/sequel` on top): the pure ticker matchers are `lru_cache`d, `themes` returns a
+  frozenset, `clone` skips tickers whose first two letters differ, and `_taught_stamp` de-dupes 30 days of buys to one (ticker, coin) each.
 

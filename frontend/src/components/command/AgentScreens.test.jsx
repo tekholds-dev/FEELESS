@@ -28,34 +28,6 @@ test('screen helpers: heat, reasons (who carries them), the scope (bar at the mi
   expect(listFor('sherlock', table, 'swarm')).toEqual(['B']); expect(listFor('devil', [table[2]])).toEqual(['C']);   // no ENTER → the whole pass
 });
 
-test('tap a mini screen → the zoom: tap a mark or step ‹ › through the coins, switch agent, filter by a reason, Esc closes', async () => {
-  const call = jest.fn(async () => view); const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
-  await act(async () => { root.render(<AgentDesk call={call} />); });
-  const q = id => document.querySelector(`[data-testid="${id}"]`);
-  await act(async () => { q('ack-deck-dlive').click(); });   // the agents' live lens = a pane in the cockpit nav
-  expect(q('screen-tally').textContent).toContain('3'); expect(q('screen-devil').textContent).toContain('1 ⚠ · 0 ✕'); expect(q('ags-zoom')).toBeNull();
-  await act(async () => { q('screen-tally').click(); });
-  expect(q('ags-zoom')).not.toBeNull(); expect(q('tile-GOOD')).not.toBeNull(); expect(q('ags-dossier').textContent).toContain('$GOOD'); expect(q('ags-dossier').textContent).toContain('1 / 3');
-  await act(async () => { q('tile-RUN').click(); });
-  expect(q('ags-dossier').textContent).toContain('$RUN'); expect(q('ags-dossier').textContent).toContain('DEVIL WARNS'); expect(q('ags-dossier').textContent).toContain('BOND RUN');
-  await act(async () => { q('ags-next').click(); });
-  expect(q('ags-dossier').textContent).toContain('$MEH');
-  await act(async () => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' })); });
-  expect(q('ags-dossier').textContent).toContain('$GOOD');   // wraps
-  await act(async () => { q('zoom-sherlock').click(); });
-  expect(q('reason-surge').textContent).toContain('×2'); expect(q('chip-MEH')).not.toBeNull();
-  await act(async () => { q('reason-swarm').click(); });
-  expect(q('chip-MEH')).toBeNull(); expect(q('chip-GOOD')).toBeNull(); expect(q('ags-dossier').textContent).toContain('$RUN');   // only the coins with that reason
-  await act(async () => { q('zoom-devil').click(); });
-  expect(q('ticket-GOOD').textContent).toContain('READY'); expect(q('ticket-RUN').textContent).toContain('⚠'); expect(q('ticket-RUN').textContent).not.toContain('✕');
-  await act(async () => { q('zoom-trigger').click(); });
-  expect(q('dot-GOOD')).not.toBeNull();
-  await act(async () => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
-  expect(q('ags-zoom')).toBeNull();
-  expect(q('kpi-seats')).toBeNull();   // the seats live on the cockpit's own seat board now (CardNow keeps its own test below)
-  await act(async () => { root.unmount(); });
-});
-
 test('the real card as seats: who holds each one, no price = "—", and an unset card says paper only', async () => {
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<CardNow card={view.card} cfg={view.cfg} />); });

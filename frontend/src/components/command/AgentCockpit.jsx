@@ -553,7 +553,7 @@ function OpenPnl({ seats, onPick }) {
     {p.best && p.n > 1 ? <button type="button" onClick={() => onPick(p.best.mint)} data-testid="ack-open-best">🔥 ${p.best.symbol} {p.best.pct >= 0 ? '+' : ''}{p.best.pct.toFixed(1)}%</button> : null}</span>;
 }
 
-export const LENS_TAB = { live: 'dlive', review: 'office', limits: 'office', board: 'office', missed: 'missed', learn: 'paper', ctl: 'paper', life: 'gens' };
+export const LENS_TAB = { live: 'office', review: 'office', limits: 'office', board: 'office', missed: 'missed', learn: 'paper', ctl: 'paper', life: 'gens' };
 export function AgentCockpit({ call, isOwner = true, head = null, extra = [], limits = null }) {
   const cc = useHub(); const d = cc?.d; const o = d?.office || null;
   const [pick, setPick] = useState(null); const [iv, setIv] = useState('1m'); const [agent, setAgentS] = useState(null); const [tapeAgent, setTapeAgent] = useState(null);
@@ -592,8 +592,7 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
     ['teach', `🎓 Teach${(o?.teach?.items || []).length ? ` · ${o.teach.items.length}` : ''}`, <TeachBox o={{ teach: o?.teach, ai: o?.ai }} mint={mint} sym={sym} call={call} isOwner={isOwner} />]],
   // eslint-disable-next-line react-hooks/exhaustive-deps
   [o?.coach, o?.teach, o?.ai, heldKey, d?.card?.tpl, mint, sym, call, isOwner]);
-  if (!o || o.cold) return <section className="ack" data-testid="agent-cockpit"><MissionRibbon tiles={missionTiles(d, [])} cold /><p className="ack-nil">Waiting for the agents' first pass — the cockpit shows nothing it was not handed.</p>
-    {extra.length ? <Deck tabs={extra} testid="ack-tapezone" /> : null}</section>;   /* the paper desk + generations still open before the office's first pass */
+  if (!o || o.cold) return <section className="ack" data-testid="agent-cockpit">{head}<MissionRibbon tiles={missionTiles(d, [])} cold /><p className="ack-warm" data-testid="ack-warm"><i aria-hidden />warming up — the cockpit opens with the agents' first pass (≈ 1 min after a restart)</p></section>;   /* 🧹 no old desk while cold (owner, 2026-10-15: "not the current layout") */
   const held = seats.filter(s => !s.open).length;
   const navTabs = deckMeters(o, [
       ['seats', '🪑 Seats', seats.length ? `${held}/${seats.length}` : null, <section className="ack-seats" data-testid="ack-seats"><header><b>🪑 SEAT BOARD</b><OpenPnl seats={seats} onPick={onPick} /><small><b className="m-pos">{held}/{seats.length || '—'} active</b> · live prices every 3s · tap a seat = its chart + the agent handling it</small></header>

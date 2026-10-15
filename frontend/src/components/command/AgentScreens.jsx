@@ -71,13 +71,6 @@ const stat = (k, d) => { const t = d?.table || []; const dk = docketOf(t);
   if (k === 'judge') return [d?.office?.judge?.rulings ?? 0, 'real exits reviewed'];
   return k === 'tally' ? [d?.perf?.coins ?? t.length, 'read'] : k === 'sherlock' ? [t.filter(x => (kOf(x)?.unknown || []).length).length, 'researching']
     : k === 'trigger' ? [t.filter(x => kOf(x)?.status === 'READY').length, 'READY'] : [`${dk.filter(x => x.verdict === 'warn').length} ⚠ · ${dk.filter(x => x.verdict === 'veto').length} ✕`, 'of ' + dk.length]; };
-export function MiniScreen({ k, d }) {
-  const t = d?.table || []; const [n, l] = stat(k, d);
-  return <span className={`ags-screen is-${k}`}><span className="ags-face" aria-hidden>
-    {k === 'tally' ? <Heat t={t} /> : k === 'sherlock' ? <Reasons t={t} /> : k === 'trigger' ? <Scope t={t} /> : <Docket t={t} />}<span className="ags-sweep" /></span>
-    <span className="ags-stat"><b>{n}</b>{l}</span></span>;
-}
-
 // ── a coin's dossier: meters, not sentences ──
 const Meter = ({ label, val, fill, cls = '', mark, split }) => <div className={`ags-meter ${cls}`}><small>{label}</small>
   <u className={split ? 'is-split' : ''}><i style={{ transform: `scaleX(${clamp(fill, 0, 1)})` }} />{mark != null && <s style={{ left: `${clamp(mark, 0, 1) * 100}%` }} />}</u><em>{val}</em></div>;
