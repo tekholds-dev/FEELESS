@@ -4214,3 +4214,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   sweep) · 🚀 Hyperspace (stars stream out; reverse + pink on a red tick) · 🎰 Degen casino (THE HOUSE ALWAYS RUGS, slot reels lock on a red tick,
   chips). Gutter / sonar / lava / Trench TV retired (fall back to Default).
 
+- ⚡ AGENTS TAB LAG = ONE GIANT LAYER (2026-10-14, measured in the scratch harness with CDP LayerTree + tracing): React was cheap (commits ~1 ms,
+  < 1% main thread while streaming) — the cost was COMPOSITING. `.agd` (the whole 4,200px tab) carried `m-live`, whose `inset: -35%` aurora
+  became a 2392×7160 rotating layer and forced the content above it onto its own 1384×4192 layer: 39.6 Mpx of layers, every frame. Now
+  `m-live::before` is capped (`top: max(-35%, -260px)`, `height: min(170%, 1200px)`) and `.agd.m-live::before` is still (2D transform, no
+  will-change; the ribbon's m-live still drifts): 16.7 Mpx, per-frame compositing ≈ halved. Test `styles/liveLayers.test.js`. "A TAB LAGS" ⇒
+  count layer Mpx (CDP `LayerTree.layerTreeDidChange`, drawsContent) before touching React. Never put an animated m-live on a page-tall element.
