@@ -28,3 +28,16 @@ def test_the_morning_report_is_plain_numbers_from_real_exits():
     t = ng.morning(ex, {'tripAts': [50], 'why': '🧊 streak'}, 0, 100)
     assert '3 real exits, 1 won (33%)' in t and 'worst $B -30%' in t and 'R5 (2×)' in t and 'Night guard paused buying 1×' in t
     assert ng.morning([], {}, 0, 100) is None
+
+
+def test_night_shift_tightens_only_between_midnight_and_nine():
+    day = {'agentSizePct': 0, 'agentMinAgeH': 0.25, 'chartWait': False, 'agentValve': True}
+    assert ng.night_cfg(day, 14) == day                                         # regular programming by day
+    n = ng.night_cfg(day, 3)
+    assert n['agentSizePct'] == 15 and n['agentMinAgeH'] == 0.5 and n['chartWait'] is True and n['agentValve'] is False and n['nightShift']
+    assert ng.night_cfg({**day, 'agentSizePct': 10}, 3)['agentSizePct'] == 10    # a smaller owner ceiling stays
+    assert ng.night_cfg(day, 3, on=False) == day and ng.is_night(0) and not ng.is_night(9)
+    st, v = ng.step({}, 10.0, [], 0, night=True)
+    st, v = ng.step(st, 9.1, [], 60, night=True)                                # −9%: trips at night (8%), not by day (12%)
+    assert v['paused'] and v['kind'] == 'draw'
+    assert ng.step({}, 10, [{'at': 1, 'pct': -50}], 10, night=True)[1]['kind'] == 'rug'   # one rug-level exit at night

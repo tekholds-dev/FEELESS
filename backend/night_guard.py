@@ -23,7 +23,7 @@ def _f(x, d=0.0):
         return d
 
 
-def step(state, value, exits, now):
+def step(state, value, exits, now, night=False):
     """One look → (new state, verdict {paused, why, until, peak, drawPct}). `exits` = confirmed real exits [{at, pct}] oldest first."""
     st = dict(state or {})
     hist = [h for h in (st.get('hist') or []) if now - _f(h[0]) <= DRAW_WINDOW and _f(h[0]) >= _f(st.get('resetAt'))]
@@ -37,17 +37,18 @@ def step(state, value, exits, now):
     if until and until <= now and not st.get('released'):   # a pause just ended: the drawdown window restarts from here
         st.update(released=True, resetAt=now, hist=[[round(now, 1), round(v, 4)]] if v > 0 else [])
         hist = st['hist']
+    dp, sn, rn = (NIGHT_LINES['draw'], NIGHT_LINES['streak'], NIGHT_LINES['rugN']) if night else (DRAW_PCT, STREAK_N, RUG_N)
     peak = max((_f(h[1]) for h in hist), default=0.0)
     draw = (1 - v / peak) * 100 if peak > 0 and v > 0 else 0.0
     last = [e for e in (exits or []) if _f(e.get('at')) > _f(st.get('streakFrom'))]
     trip = None
-    if peak > 0 and draw >= DRAW_PCT:
+    if peak > 0 and draw >= dp:
         trip = ('draw', f"📉 card {draw:.0f}% under its {DRAW_WINDOW / 3600:.0f}h high (${peak:.2f} → ${v:.2f})", DRAW_PAUSE)
-    elif len(last) >= STREAK_N and all(_f(e.get('pct')) < 0 for e in last[-STREAK_N:]):
-        trip = ('streak', f"🧊 the last {STREAK_N} real exits all lost ({', '.join(f'{_f(e.get('pct')):+.0f}%' for e in last[-STREAK_N:])})", STREAK_PAUSE)
+    elif len(last) >= sn and all(_f(e.get('pct')) < 0 for e in last[-sn:]):
+        trip = ('streak', f"🧊 the last {sn} real exits all lost ({', '.join(f'{_f(e.get('pct')):+.0f}%' for e in last[-sn:])})", STREAK_PAUSE)
     else:
         rugs = [e for e in (exits or []) if _f(e.get('pct')) <= RUG_PCT and now - _f(e.get('at')) <= RUG_WINDOW and _f(e.get('at')) > _f(st.get('rugFrom'))]
-        if len(rugs) >= RUG_N:
+        if len(rugs) >= rn:
             trip = ('rug', f"☠ {len(rugs)} exits at {RUG_PCT:.0f}% or worse inside {RUG_WINDOW / 60:.0f} min", RUG_PAUSE)
     if trip:
         kind, why, pause = trip
@@ -62,7 +63,7 @@ def step(state, value, exits, now):
 
 def view(state, verdict, now):
     v = verdict or {}
-    return {'paused': bool(v.get('paused')), 'why': v.get('why'), 'leftMin': round(max(0, _f(v.get('until')) - now) / 60) if v.get('paused') else None,
+    return {'night': is_night(__import__('time').localtime(now).tm_hour), 'paused': bool(v.get('paused')), 'why': v.get('why'), 'leftMin': round(max(0, _f(v.get('until')) - now) / 60) if v.get('paused') else None,
             'drawPct': v.get('drawPct'), 'trips': int(_f((state or {}).get('trips'))), 'lines': {'draw': DRAW_PCT, 'streak': STREAK_N, 'rug': RUG_PCT}}
 
 
@@ -90,3 +91,30 @@ def morning(exits, state, since, now):
     if trips:
         out += f" 🌙 Night guard paused buying {trips}× ({(state or {}).get('why') or ''})."
     return out
+
+
+# 🌙 NIGHT SHIFT (owner, 2026-10-15: "agents should be in night shift from 12–9am, then back to regular programming"): while the owner sleeps
+# the real card runs a TIGHTER profile on top of the owner's own settings — it can only make the agents buy less / smaller, never more.
+NIGHT_FROM, NIGHT_TO = 0, 9           # local hours [from, to)
+NIGHT = {'agentSizePct': 15.0,        # seats at most 15% of the card (a ceiling: a smaller owner value stays)
+         'agentMinAgeH': 0.5,         # no coin younger than 30 min (the newborn rugs happen while nobody watches)
+         'chartWait': True,           # the chart must say ENTER NOW
+         'agentValve': False}         # no 🪫 patience-valve fills on a weak read
+NIGHT_LINES = {'draw': 8.0, 'streak': 3, 'rugN': 1}   # the night guard trips sooner: 8% drawdown · 3 losses in a row · ONE rug-level exit
+
+
+def is_night(local_hour):
+    return NIGHT_FROM <= int(local_hour) < NIGHT_TO
+
+
+def night_cfg(cfg, local_hour, on=True):
+    """The owner's real-card config → the one that runs NOW (night profile merged during the night shift). Ceilings only tighten."""
+    c = dict(cfg or {})
+    if not on or not is_night(local_hour):
+        return c
+    size = _f(c.get('agentSizePct'))
+    c['agentSizePct'] = min(size, NIGHT['agentSizePct']) if size > 0 else NIGHT['agentSizePct']
+    c['agentMinAgeH'] = max(_f(c.get('agentMinAgeH')), NIGHT['agentMinAgeH'])
+    c['chartWait'], c['agentValve'] = True, False
+    c['nightShift'] = True
+    return c

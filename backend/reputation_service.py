@@ -6491,6 +6491,7 @@ def _prime_real_cfg(pr=None):
             out['ladder'] = True
             if 'instantSwapPct' not in rc:
                 out['instantSwapPct'] = out['rotateMinDrop']
+        out = _ng.night_cfg(out, time.localtime().tm_hour, on=rc.get('nightShift', True) is not False)   # 🌙 00:00–09:00 the tighter night profile (ceilings only)
         return {**_prime.real_guard(out, pr.get('realOwnerSet') or ())[0], 'paperFeeUsd': paper['paperFeeUsd']}   # 💵 hard floors (owner's OFF hold wins)
 
     return _prime.real_guard({**paper, 'instantSwapPct': paper.get('rotateMinDrop', 0)})[0]
@@ -14983,7 +14984,7 @@ def _night_check(now):
     if _night['st'] is None:
         _night['st'] = _json_load(NIGHT_PATH, {}) or {}
     ex = [{'at': _fuse._f(t.get('leftAt') or (t.get('exit') or {}).get('at')), 'pct': t.get('realPct')} for t in (_real_trades() or [])[-40:]]
-    st, v = _ng.step(_night['st'], (_agents.get('money') or {}).get('value'), ex, now)
+    st, v = _ng.step(_night['st'], (_agents.get('money') or {}).get('value'), ex, now, night=_ng.is_night(time.localtime(now).tm_hour))
     _night.update(st=st, v=v)
     if v.get('new'):
         _json_save(NIGHT_PATH, st)
@@ -15480,7 +15481,8 @@ async def _agents_tick(now):
     wake_at_ = _fuse._f(_agents.get('wake')) if woke else 0.0
     await _regret_tick(now)   # 😴 grade the coins the checks blocked + tune the checks the owner left on AGENTS (once a minute)
     try:   # 🎯 the owner's MC band (realCfg agentMcMin / agentMcMax, default $12K–$300K) — every reader of the universe reads it from here
-        _uni.set_band(_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}))
+        _rc_ = _prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
+        _uni.set_band(_ng.night_cfg(_rc_, time.localtime().tm_hour, on=_rc_.get('nightShift', True) is not False))   # 🌙 the night profile's min age reaches the universe too
         _uni.set_trending([r_.get('mint') for r_ in (_lens_rows or {}).get('ptrend') or []])   # 🔥 the coins on Pump's own Trending board right now
     except Exception as e:
         print('band:', e)
@@ -16924,7 +16926,7 @@ async def admin_agents_set(request: Request):
     ch = {}
     if 'feed' in body:
         ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital', 'agentAiGate', 'agentValve', 'agentAiExit', 'nightGuard') + _oe.POLICY_KEYS:
+    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital', 'agentAiGate', 'agentValve', 'agentAiExit', 'nightGuard', 'nightShift') + _oe.POLICY_KEYS:
         if k in (body.get('cfg') or {}):
             ch[k] = body['cfg'][k]
     if ch:
