@@ -4258,4 +4258,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   carries hl / ll / distHigh).
 - FEE prompt v3 (`docs/lm_fee_prompt.txt`): no code sandbox (call tools, never fake code), A/B/C routing, research first, `now` MCP tool for the
   date. In-app Brain: same no-sandbox line + `today` in its context.
+- 🤖 HOME = AGENT RELAY (HomeEngine.jsx `relayOf/relays/board/DESKS`, `arl-*`; replaced the rug radar — owner: "no radar or scans"): the ten desks
+  as one lit chain; each REAL decision from the public `/fuses/proof` feed replays every 5s — the coin rides the wire to the desk that decided
+  (Courier = buy, Reaper = sale, with Reaper's own rule), it flares, the stamp + reason + tx land; score = decisions · exits won · card value.
+- 🧬 The clone rule reads the WHOLE ledger by time (a 1,500-row slice covered ~2h on a busy card: a 2nd $FOMO got through at 02:08).
+- FEE prompt: "YOUR MEMORY IS OLD — THE TOOLS ARE RIGHT" (Qwen found Trump, then 'corrected' it with 2023 memory).
 

@@ -15167,7 +15167,7 @@ def _taught_stamp(table, now):
         held_m = {h['mint'] for h in held_}
         seen_ = _trl.recent(held_, (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or [], now, hrs)
         chrs_ = (rules.get('clone') or {}).get('hours', 720)
-        traded_ = [(h['symbol'], h['mint']) for h in held_ if h.get('symbol')] + [(r_.get('symbol'), r_.get('mint')) for r_ in _fw_full_ledger()[-8000:]
+        traded_ = [(h['symbol'], h['mint']) for h in held_ if h.get('symbol')] + [(r_.get('symbol'), r_.get('mint')) for r_ in _fw_full_ledger()   # 🧬 by TIME, not row count: 1,500 busy rows once covered only ~2h and a second $FOMO got through
                    if r_.get('card') == _office.get('tid') and r_.get('side') == 'buy' and r_.get('status') == 'filled' and r_.get('symbol') and now - _fuse._f(r_.get('at')) <= chrs_ * 3600]
         out, cnt, ex = {}, {}, {}
         miss_ = []

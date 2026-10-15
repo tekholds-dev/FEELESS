@@ -1,35 +1,31 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { HomeEngine, ageWord, scoreOf, radarBlips, fateOf, checksOf, spotlight, verdictOf, realTrades, counters } from './HomeEngine';
+import { HomeEngine, relayOf, relays, board, DESKS } from './HomeEngine';
 
 jest.mock('./CoinDrawer', () => ({ openCoin: jest.fn() }));
-const rows = [{ mint: 'A', symbol: 'AAA', safe: true, top10: 18, dev: 2, bundledN: 0, snipersN: 1, liq: 25000, buyShare: 61 }, { mint: 'B', symbol: 'BBB', safe: false, fails: ['Top 10 under 22%'], top10: 61 },
-  { mint: 'C', symbol: 'CCC' }, { mint: 'R', symbol: 'RUN', safe: true }];
+const feed = [{ sig: 's1', at: 100, side: 'sell', symbol: 'FOMO', mint: 'M1', pct: 4.1, why: '🤖 agents banked $FOMO: ☠ Reaper R4f sellers took over: +5.7%' },
+  { sig: 's2', at: 90, side: 'buy', symbol: 'SLOP', mint: 'M2', usd: 0.25, why: 'card buys its coin' }, { sig: 's3', at: 80, side: 'sell', symbol: 'DODO', mint: 'M3', pct: -19 }];
 
-test('checks come from the coin only; unread is "—"; the spotlight weaves caught, cleared and runners', () => {
-  expect(rows.map(fateOf)).toEqual(['safe', 'fail', 'wait', 'safe']);
-  const ck = checksOf(rows[0]); expect(ck.map(c => c.ok)).toEqual([true, true, true, true, true]); expect(ck[0].v).toBe('18%');
-  expect(checksOf(rows[1])[0].ok).toBe(false); expect(checksOf(rows[1])[1]).toMatchObject({ v: '—', ok: null, fill: 0 });
-  const s = spotlight(rows, { live: [{ symbol: 'RUN' }] });
-  expect(s.map(x => [x.symbol, x.verdict])).toEqual([['BBB', 'fail'], ['AAA', 'safe'], ['RUN', 'runner']]);   // the unread coin is skipped
-  expect(verdictOf(s[0])).toEqual(['🛡', 'BLOCKED', 'missed: top 10 under 22%']);
-  expect(realTrades({ feed: [{ sig: 'x', side: 'sell', symbol: 'Q', pct: 4.2, usd: 0.3, at: 1 }] })[0]).toMatchObject({ side: 'sell', pct: 4.2 });
-  expect([ageWord(0.5), ageWord(5), ageWord(1528)]).toEqual(['30m', '5h', '64d']);
-  expect(scoreOf(checksOf(rows[0]))).toEqual({ pass: 5, read: 5, pct: 100 }); expect(scoreOf(checksOf(rows[1]))).toEqual({ pass: 0, read: 1, pct: 0 });
-  const bl = radarBlips(rows); expect(bl.map(b => b.fate)).toEqual(['safe', 'fail', 'wait', 'safe']); expect(radarBlips(rows)[0].ang).toBe(bl[0].ang);   // stable angle
-  expect(counters(null, null, null)).toEqual({ live: null, blocked: null, runners: null, swaps: null });
+test('each real decision becomes a relay step from the public proof feed; the board counts real exits only', () => {
+  expect(DESKS).toHaveLength(10);
+  expect(relayOf(feed[0])).toMatchObject({ desk: 'reaper', stamp: 'SOLD +4.1%', why: 'Reaper: sellers took over' });
+  expect(relayOf(feed[1])).toMatchObject({ desk: 'courier', stamp: 'BOUGHT $0.25' });
+  expect(relayOf(feed[2]).why).toBe('Reaper closed it');
+  expect(board(relays({ feed }))).toEqual({ decisions: 3, sells: 2, won: 1, rate: 50 });
+  expect(relays(null)).toEqual([]);
 });
 
-test('the panel shows a coin with its verdict and the real swaps, and opens the coin on tap', async () => {
+test('the relay draws the ten desks, lights the one that decided and stamps the call', async () => {
   const { openCoin } = require('./CoinDrawer');
-  global.fetch = jest.fn(url => Promise.resolve({ ok: true, json: () => Promise.resolve(String(url).includes('trench/open') ? { rows, seen: 9 } : String(url).includes('proof') ? { feed: [{ sig: 's', side: 'buy', symbol: 'Q', usd: 0.25, at: Date.now() / 1000 }] } : { live: [] }) }));
+  global.fetch = jest.fn(url => Promise.resolve({ ok: true, json: () => Promise.resolve(String(url).includes('proof') ? { feed } : { cards: [{ real: true, valueUsd: 2.22 }] }) }));
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<HomeEngine />); });
   await act(async () => { await Promise.resolve(); });
   const q = id => el.querySelector(`[data-testid="${id}"]`);
-  expect(q('wfw-count').textContent).toContain('9 coins live'); expect(q('wfw-verdict').textContent).toContain('BLOCKED');
-  expect(q('wfw-trades').textContent).toContain('$Q'); expect(q('wfw-ring').textContent).toContain('0/1'); expect(q('wfw-next').querySelectorAll('button').length).toBe(2); expect(q('rug-radar').querySelectorAll('.rr-b').length).toBe(4);   // the other two coins in the queue
-  await act(async () => { q('wfw-coin-BBB').click(); });
-  expect(openCoin).toHaveBeenCalledWith(expect.objectContaining({ mint: 'B' }));
+  expect(q('arl-chain').querySelectorAll('.arl-desk')).toHaveLength(10);
+  expect(q('arl-reaper').className).toContain('is-on'); expect(q('arl-call').textContent).toContain('SOLD +4.1%');
+  expect(q('arl-score').textContent).toContain('$2.22');
+  await act(async () => { q('arl-call').querySelector('.arl-coin').click(); });
+  expect(openCoin).toHaveBeenCalledWith(expect.objectContaining({ mint: 'M1' }));
 });

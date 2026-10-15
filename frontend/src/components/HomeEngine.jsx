@@ -1,120 +1,71 @@
-// 📡 RUG RADAR (Home; owner, 2026-10-15: "try a better design than watch FEELESS work"): a sweeping radar — every live launch coin is a blip
-// (newer = nearer the centre, its angle fixed by its mint), it PINGS as the arm passes: green = passed the scan, red ✕ = caught, grey = not read.
-// Beside it the selected coin's checks (below) and the real trades. Earlier: 🔬 WATCH FEELESS WORK (owner, 2026-10-14: "show what FEELESS is best at").
-// One real launch coin at a time goes through the checks FEELESS really runs, animated: 🐋 top-10 · 👤 dev · 📦 bundles + snipers ·
-// 💧 pool · 🌊 buyers — each a bar that fills to the coin's own number, ✓ or ✗ against the line — then the verdict STAMPS in
-// (🛡 BLOCKED + the check it missed · ✅ CLEARED · 🏃 RUNNER). Every 6s the next coin (caught, cleared and runners mixed). Beside it: the
-// real cards' confirmed swaps. One slim counter line. Every number from a public endpoint; an unread number shows "—" with an empty bar.
+// 🤖 AGENT RELAY (Home; owner, 2026-10-15: "no radar or scans — a cool realtime animation of the background vital work we do that other big
+// sites don't"). What nobody else shows: ten AI agents running a REAL-money card, in public. The ten desks are one lit chain; every real
+// decision the card made (the public proof feed: confirmed swaps with the engine's own reason + tx) REPLAYS across it — the coin rides the
+// chain from Tally to the desk that decided (Courier for a buy, Reaper for a sale), that desk flares, and the verdict stamps in with its
+// real reason and result. One decision every 5s, newest first; tap a coin → its drawer, the tx → Solscan. A missing number reads "—".
 import React, { useEffect, useMemo, useState } from 'react';
 import { sharedJson } from '../lib/sharedJson';
 import { openCoin } from './CoinDrawer';
 import '../styles/homeEngine.css';
 
 const POLL = 30000;
-const SPOT_MS = 6000;
-const UNREAD = /not scanned|holders unknown|never scanned/i;
-export const fateOf = r => (r?.safe === true ? 'safe' : (r?.fails || []).some(f => !UNREAD.test(String(f))) || (r?.safe === false && !(r?.fails || []).length) ? 'fail' : 'wait');
-const usd = v => (v == null ? '—' : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Math.round(v)}`);
-const num = v => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
-export const ageWord = h => { const m = Number(h) * 60; return !(m >= 0) ? '' : m < 60 ? `${Math.round(m)}m` : m < 2880 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`; };
+const STEP_MS = 5000;
+export const DESKS = [['tally', '📊', 'Tally', 'reads the market'], ['sherlock', '🔍', 'Sherlock', 'why it moves'], ['weather', '🌦', 'Weather', 'the regime'],
+  ['trigger', '⏱', 'Trigger', 'entry timing'], ['devil', '😈', 'Devil', 'argues against'], ['warden', '🛡', 'Warden', 'sizes it'], ['courier', '📮', 'Courier', 'signs + sends'],
+  ['reaper', '☠', 'Reaper', 'manages the exit'], ['archivist', '🗄', 'Archivist', 'files the record'], ['judge', '👨‍⚖️', 'Judge', 'grades who was right']];
 
-// pure: the checks shown for one coin — value, how full its bar is, pass / fail against the line (null = not read)
-export function checksOf(r) {
-  const t10 = num(r?.top10); const dev = num(r?.dev); const bun = num(r?.bundledN); const sn = num(r?.snipersN); const liq = num(r?.liq); const buy = num(r?.buyShare);
-  return [
-    { k: 'top10', ico: '🐋', l: 'TOP-10 HOLD', v: t10 == null ? '—' : `${t10.toFixed(0)}%`, fill: t10 == null ? 0 : Math.min(1, t10 / 100), ok: t10 == null ? null : t10 < 30, line: 'under 30%' },
-    { k: 'dev', ico: '👤', l: 'DEV BAG', v: dev == null ? '—' : `${dev.toFixed(1)}%`, fill: dev == null ? 0 : Math.min(1, dev / 20), ok: dev == null ? null : dev < 10, line: 'under 10%' },
-    { k: 'bundles', ico: '📦', l: 'BUNDLES · SNIPERS', v: bun == null && sn == null ? '—' : `${bun ?? '?'} · ${sn ?? '?'}`, fill: bun == null && sn == null ? 0 : Math.min(1, ((bun || 0) + (sn || 0)) / 12), ok: bun == null && sn == null ? null : (bun || 0) <= 3 && (sn || 0) <= 8, line: '≤ 3 bundled' },
-    { k: 'pool', ico: '💧', l: 'POOL', v: usd(liq), fill: liq == null ? 0 : Math.min(1, Math.log10(Math.max(1, liq)) / 6), ok: liq == null ? null : liq >= 8000, line: '≥ $8K' },
-    { k: 'buyers', ico: '🌊', l: 'BUYERS', v: buy == null ? '—' : `${buy.toFixed(0)}%`, fill: buy == null ? 0 : buy / 100, ok: buy == null ? null : buy >= 50, line: '≥ 50%' },
-  ];
+// pure: one public proof row → the relay step it plays (which desk decided, the stamp, the reason in plain words)
+export function relayOf(f) {
+  if (!f || !f.symbol) return null;
+  const sell = f.side === 'sell';
+  const why = String(f.why || '');
+  const rule = (why.match(/Reaper\s+R\d+\w*\s+([^:]+)/) || [])[1] || null;
+  return { id: f.sig || `${f.symbol}-${f.at}`, sym: String(f.symbol).slice(0, 12), mint: f.mint, pair: f.pair, sig: f.sig, at: Number(f.at) || 0,
+    desk: sell ? 'reaper' : 'courier', side: sell ? 'sell' : 'buy', pct: f.pct == null ? null : Number(f.pct), usd: Number(f.usd) || 0,
+    stamp: sell ? (f.pct == null ? 'SOLD' : `SOLD ${Number(f.pct) > 0 ? '+' : ''}${Number(f.pct).toFixed(1)}%`) : `BOUGHT $${(Number(f.usd) || 0).toFixed(2)}`,
+    why: sell ? (rule ? `Reaper: ${rule.trim()}` : 'Reaper closed it') : 'Trigger cleared it · Devil let it through · Warden sized it · Courier signed it' };
 }
-// pure: the coins the spotlight walks through — caught, cleared, runners woven, one per ticker; coins not read yet are skipped
-export function spotlight(rows, run, n = 12) {
-  const runSet = new Set((run?.live || []).map(r => String(r.symbol || '').toUpperCase()));
-  const seen = new Set(); const by = { fail: [], safe: [], runner: [] };
-  for (const r of rows || []) {
-    const sy = String(r?.symbol || '').toUpperCase(); if (!r?.mint || !sy || seen.has(sy)) continue;
-    const f = runSet.has(sy) ? 'runner' : fateOf(r); if (f === 'wait') continue;
-    seen.add(sy); by[f].push({ ...r, verdict: f });
-  }
-  const out = [];
-  for (let i = 0; out.length < n && i < n; i++) [by.fail[i], by.safe[i], by.runner[i]].forEach(x => { if (x && out.length < n) out.push(x); });
-  return out;
+export const relays = (proof, n = 12) => (proof?.feed || []).map(relayOf).filter(Boolean).slice(0, n);
+// pure: the scoreboard of the shown decisions (real results only)
+export function board(steps) {
+  const sells = (steps || []).filter(s => s.side === 'sell' && s.pct != null);
+  const won = sells.filter(s => s.pct > 0).length;
+  return { decisions: (steps || []).length, sells: sells.length, won, rate: sells.length ? Math.round((won / sells.length) * 100) : null };
 }
-// pure: the ring — checks passed of checks READ (an unread check counts in neither)
-export function scoreOf(checks) { const read = (checks || []).filter(c => c.ok != null); const pass = read.filter(c => c.ok).length; return { pass, read: read.length, pct: read.length ? Math.round((pass / read.length) * 100) : 0 }; }
-export const verdictOf = r => (r.verdict === 'runner' ? ['🏃', 'RUNNER', 'passed every gate and it is running'] : r.verdict === 'safe' ? ['✅', 'CLEARED', 'passed the safety scan']
-  : ['🛡', 'BLOCKED', `missed: ${String((r.fails || []).find(x => !UNREAD.test(String(x))) || 'a safety check').replace(/\s+/g, ' ').slice(0, 46).replace(/^./, c => c.toLowerCase())}`]);
-// pure: the real cards' confirmed swaps
-export const realTrades = (proof, n = 7) => (proof?.feed || []).slice(0, n).map(f => ({ id: f.sig || f.at, side: f.side === 'sell' ? 'sell' : 'buy', sym: f.symbol, mint: f.mint, pair: f.pair,
-  pct: f.pct == null ? null : Number(f.pct), usd: Number(f.usd) || 0, at: Number(f.at) || 0 }));
-export const counters = (open, run, proof) => ({ live: open?.seen ?? (open?.rows?.length || null), blocked: open?.rows ? open.rows.filter(r => fateOf(r) === 'fail').length : null,
-  runners: Array.isArray(run?.live) ? run.live.length : null, swaps: Array.isArray(proof?.feed) ? proof.feed.length : null });
-// pure: radar blips — angle from the mint (stable between polls), radius from launch age (newer = centre), one per ticker
-const SWEEP_S = 6;
-export function radarBlips(rows, n = 48) {
-  const out = []; const seen = new Set();
-  for (const r of rows || []) {
-    const sy = String(r?.symbol || '').toUpperCase(); if (!r?.mint || !sy || seen.has(sy)) continue; seen.add(sy);
-    let h = 0; for (const ch of String(r.mint)) h = (h * 31 + ch.charCodeAt(0)) % 360;
-    const age = Math.max(0.02, Number(r.ageH) || 6); const rad = Math.round(Math.min(0.94, 0.14 + Math.log10(1 + age * 4) * 0.42) * 100) / 100;
-    out.push({ mint: r.mint, sym: String(r.symbol).slice(0, 10), fate: fateOf(r), ang: h, rad, row: r, delay: Math.round((h / 360) * SWEEP_S * 100) / 100 });
-    if (out.length >= n) break;
-  }
-  return out;
-}
-const ago = at => { const s = Math.max(0, Math.round(Date.now() / 1000 - at)); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
+const ago = at => { const s = Math.max(0, Math.round(Date.now() / 1000 - at)); return s < 60 ? `${s}s ago` : s < 3600 ? `${Math.round(s / 60)}m ago` : `${Math.round(s / 3600)}h ago`; };
 
 export function HomeEngine({ onOpen }) {
-  const [d, setD] = useState(null); const [i, setI] = useState(0); const [hold, setHold] = useState(false); const [seen, setSeen] = useState({ fail: 0, safe: 0, runner: 0, ids: [] });
+  const [d, setD] = useState(null); const [i, setI] = useState(0); const [hold, setHold] = useState(false);
   useEffect(() => { let on = true;
     const load = first => { if (!first && typeof document !== 'undefined' && document.hidden) return;
-      Promise.all(['fuses/trench/open', 'runners', 'fuses/proof'].map(u => sharedJson(`/api/reputation/${u}`, { maxAge: POLL - 2000 }).catch(() => null)))
-        .then(([open, run, proof]) => { if (on && (open || run || proof)) setD(p => ({ open: open || p?.open, run: run || p?.run, proof: proof || p?.proof })); }); };
+      Promise.all(['fuses/proof', 'fuses/prime'].map(u => sharedJson(`/api/reputation/${u}`, { maxAge: POLL - 2000 }).catch(() => null)))
+        .then(([proof, prime]) => { if (on && (proof || prime)) setD(p => ({ proof: proof || p?.proof, prime: prime || p?.prime })); }); };
     load(true); const t = setInterval(load, POLL); return () => { on = false; clearInterval(t); }; }, []);
-  const spots = useMemo(() => spotlight(d?.open?.rows, d?.run), [d?.open, d?.run]);
-  const blips = useMemo(() => radarBlips(d?.open?.rows), [d?.open]);
-  useEffect(() => { const c_ = spots.length ? spots[i % spots.length] : null; if (!c_) return; setSeen(p => (p.ids.includes(c_.mint) ? p : { ...p, [c_.verdict]: p[c_.verdict] + 1, ids: [...p.ids, c_.mint].slice(-200) })); }, [i, spots]);
-  useEffect(() => { if (hold || spots.length < 2) return undefined; const t = setInterval(() => setI(x => x + 1), SPOT_MS); return () => clearInterval(t); }, [hold, spots.length]);
+  const steps = useMemo(() => relays(d?.proof), [d?.proof]);
+  useEffect(() => { if (hold || steps.length < 2) return undefined; const t = setInterval(() => setI(x => x + 1), STEP_MS); return () => clearInterval(t); }, [hold, steps.length]);
   if (!d) return null;
-  const c = counters(d.open, d.run, d.proof); const trades = realTrades(d.proof);
-  const cur = spots.length ? spots[i % spots.length] : null; const v = cur ? verdictOf(cur) : null;
-  const score = scoreOf(cur ? checksOf(cur) : []); const next = spots.length > 1 ? [1, 2, 3, 4].map(k => spots[(i + k) % spots.length]).filter((x, k, a) => x && a.indexOf(x) === k && x !== cur) : [];
+  const cur = steps.length ? steps[i % steps.length] : null; const sc = board(steps);
+  const deskAt = cur ? DESKS.findIndex(x => x[0] === cur.desk) : -1;
+  const real = (d.prime?.cards || []).find(c => c?.real);
   const go = (e, url) => { if (onOpen) { e.preventDefault(); onOpen(url); } };
-  const open = x => openCoin({ mint: x.mint, symbol: x.symbol || x.sym, pairAddress: x.pairAddress || x.pair });
-  return <section className="wfw" data-testid="home-engine">
-    <header className="wfw-top"><span className="wfw-title"><b>RUG RADAR</b><i className="wfw-live" aria-hidden="true">● LIVE</i></span>
-      <span className="wfw-count" data-testid="wfw-count"><span><b>{c.live ?? '—'}</b> coins live</span><span className="is-bad"><b>{c.blocked ?? '—'}</b> blocked</span><span><b>{c.runners ?? '—'}</b> runners</span><span className="is-gold"><b>{c.swaps ?? '—'}</b> real swaps 24h</span></span></header>
-    <div className="wfw-body is-radar">
-      <div className="rr" data-testid="rug-radar" aria-label="Every live launch coin as a radar blip">
-        <span className="rr-rings" aria-hidden="true"><i /><i /><i /></span><span className="rr-arm" aria-hidden="true" style={{ animationDuration: `${SWEEP_S}s` }} />
-        <small className="rr-lab">newer ← centre</small>
-        {blips.map(b => <button key={b.mint} type="button" className={`rr-b is-${b.fate}${cur && cur.mint === b.mint ? ' is-sel' : ''}`} data-testid={`rr-${b.sym}`}
-          style={{ transform: `rotate(${b.ang}deg) translate3d(${b.rad * 46}cqmin, 0, 0) rotate(${-b.ang}deg)`, '--d': `${b.delay}s`, '--sweep': `${SWEEP_S}s` }}
-          onClick={() => { const k = spots.findIndex(x => x.mint === b.mint); if (k >= 0) setI(k); else open(b.row); }} data-tip={`$${b.sym} · ${b.fate === 'safe' ? 'passed the scan' : b.fate === 'fail' ? 'caught by the scan' : 'not read yet'}`}>
-          <i />{cur && cur.mint === b.mint ? <b>${b.sym}</b> : null}</button>)}
-        <span className="rr-core" aria-hidden="true"><b>{c.blocked ?? '—'}</b><small>CAUGHT</small></span>
-      </div>
-      {cur ? <div className={`wfw-spot is-${cur.verdict}`} key={cur.mint + i} onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)} data-testid="wfw-spot">
-        <button type="button" className="wfw-coin" onClick={() => open(cur)} data-testid={`wfw-coin-${cur.symbol}`}>
-          <span className="wfw-ring" data-testid="wfw-ring" data-tip={`${score.pass} of ${score.read} checks passed`}><svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="36" className="wfw-ring-bg" />
-            <circle cx="40" cy="40" r="36" className="wfw-ring-fg" pathLength="100" strokeDasharray={`${score.pct} 100`} /></svg>
-          {cur.logo ? <img src={cur.logo} alt="" loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; }} /> : <i aria-hidden="true">{String(cur.symbol).slice(0, 1)}</i>}
-          <em>{score.pass}/{score.read || 5}</em></span>
-          <b>${String(cur.symbol).slice(0, 12)}</b><small>{cur.ageH != null ? `${ageWord(cur.ageH)} old · ` : ''}cap {usd(num(cur.mcap))}</small></button>
-        <ul className="wfw-checks"><i className="wfw-beam" aria-hidden="true" />{checksOf(cur).map((k, j) => <li key={k.k} className={k.ok == null ? 'is-unread' : k.ok ? 'is-ok' : 'is-bad'} style={{ '--j': j }} data-tip={`${k.l}: ${k.v} — the line is ${k.line}`}>
-          <span className="wfw-ck"><i aria-hidden="true">{k.ico}</i>{k.l}</span><span className="wfw-bar"><u style={{ '--f': k.fill }} /></span><b>{k.v}</b><em aria-hidden="true">{k.ok == null ? '·' : k.ok ? '✓' : '✗'}</em></li>)}</ul>
-        <div className="wfw-stamp" data-testid="wfw-verdict"><b>{v[0]} {v[1]}</b><small>{v[2]}</small></div>
-        <span className="wfw-next" data-testid="wfw-next"><small>UP NEXT</small>{next.map(n => <button key={n.mint} type="button" className={`is-${n.verdict}`} onClick={e => { e.stopPropagation(); setI(spots.indexOf(n)); }} data-tip={`$${n.symbol}`}>
-          {n.logo ? <img src={n.logo} alt="" loading="lazy" onError={e => { e.currentTarget.style.visibility = 'hidden'; }} /> : <i>{String(n.symbol).slice(0, 1)}</i>}</button>)}</span>
-        <span className="wfw-tally"><b className="is-bad">{seen.fail}</b> blocked · <b>{seen.safe}</b> cleared · <b className="is-gold">{seen.runner}</b> runners <small>this visit</small></span>
-      </div> : <div className="wfw-spot is-wait"><small>the scan is reading the first coins…</small></div>}
-      <div className="wfw-trades" data-testid="wfw-trades"><small className="wfw-h">💵 REAL MONEY · CONFIRMED SWAPS</small>
-        <ol>{trades.map((t, j) => <li key={t.id} className={`is-${t.side}`} style={{ '--j': j }}><button type="button" onClick={() => open(t)}>
-          <span className="wfw-side">{t.side === 'sell' ? 'SELL' : 'BUY'}</span><b>${t.sym}</b><span className={t.pct == null ? '' : t.pct >= 0 ? 'up' : 'dn'}>{t.side === 'sell' && t.pct != null ? `${t.pct > 0 ? '+' : ''}${t.pct.toFixed(1)}%` : `$${t.usd.toFixed(2)}`}</span><small>{ago(t.at)}</small></button></li>)}
-          {!trades.length ? <li className="is-empty"><small>no real swaps in the last 24h</small></li> : null}</ol></div>
+  return <section className="arl" data-testid="home-engine" onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)}>
+    <header className="arl-top"><span className="arl-title"><b>AGENT RELAY<i className="arl-live" aria-hidden="true">● LIVE</i></b>
+      <small>10 AI agents run a real-money card — every decision replayed here, with its reason and its tx</small></span>
+      <span className="arl-score" data-testid="arl-score"><span><b>{sc.decisions}</b> real decisions</span><span><b>{sc.rate == null ? '—' : `${sc.rate}%`}</b> exits won</span>
+        <span><b>{real?.valueUsd == null ? '—' : `$${Number(real.valueUsd).toFixed(2)}`}</b> in the card now</span></span></header>
+    <div className="arl-chain" data-testid="arl-chain" style={{ '--n': DESKS.length }}>
+      <i className="arl-wire" aria-hidden="true"><u /></i>
+      {cur ? <i key={cur.id + i} className={`arl-pkt is-${cur.side}`} aria-hidden="true" style={{ '--to': deskAt / (DESKS.length - 1) }}><b>${cur.sym}</b></i> : null}
+      {DESKS.map(([k, ico, name, job], j) => <span key={k} className={`arl-desk${j === deskAt ? ' is-on' : ''}${j < deskAt ? ' is-passed' : ''}`} data-testid={`arl-${k}`} data-tip={`${name}: ${job}`}>
+        <i className="arl-node" aria-hidden="true">{ico}</i><b>{name}</b><small>{job}</small></span>)}
     </div>
-    <a className="wfw-go" href="/terminal/fuse?tab=runners" onClick={e => go(e, '/terminal/fuse?tab=runners')}>See every coin it's reading →</a>
+    {cur ? <div className={`arl-call is-${cur.side} ${cur.pct != null && cur.pct < 0 ? 'is-loss' : ''}`} key={cur.id + 'c' + i} data-testid="arl-call">
+      <button type="button" className="arl-coin" onClick={() => openCoin({ mint: cur.mint, symbol: cur.sym, pairAddress: cur.pair })}>${cur.sym}</button>
+      <span className="arl-stamp">{cur.stamp}</span><span className="arl-why">{cur.why}</span>
+      <small>{ago(cur.at)}{cur.sig ? <> · <a href={`https://solscan.io/tx/${cur.sig}`} target="_blank" rel="noreferrer">tx ↗</a></> : null}</small>
+    </div> : <div className="arl-call is-wait"><small>no real decisions in the last 24h — the agents are waiting for a coin worth it</small></div>}
+    <ol className="arl-log" aria-label="Latest real decisions">{steps.slice(0, 8).map((s, j) => <li key={s.id} className={`is-${s.side}${s.pct != null && s.pct < 0 ? ' is-loss' : ''}${j === i % Math.max(1, steps.length) ? ' is-on' : ''}`}>
+      <button type="button" onClick={() => setI(j)}><b>{s.side === 'sell' ? '☠' : '📮'} ${s.sym}</b><span>{s.stamp}</span></button></li>)}</ol>
+    <a className="arl-go" href="/terminal/fuse" onClick={e => go(e, '/terminal/fuse')}>See the cards they run →</a>
   </section>;
 }
