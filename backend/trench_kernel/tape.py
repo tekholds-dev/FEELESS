@@ -7,7 +7,7 @@ unchanged opinion writes nothing (so a quiet market is a quiet tape, and the pag
 with monotonic ids; the service forwards new rows to the hub as `decision` deltas. It is a view of what the kernel just did — the
 Archivist's hash-chained archive remains the record."""
 KEEP = 400
-SNAP = 40          # rows in the page's snapshot (the stream carries the rest as they happen)
+SNAP = 30          # rows in the page's snapshot (the stream carries the rest as they happen)   # 2026-10-14: 40 → 30 for office-payload headroom (the live stream still sends every row)
 INSIDE = ('READY', 'CONTENDING', 'ORDER_PENDING', 'HELD', 'EXIT_PENDING')
 SEV_WORD = {'HARD_VETO': 'HARD VETO', 'STRONG_WARNING': 'STRONG WARNING', 'WARNING': 'WARNING', 'INFO': 'INFO'}
 SEV_RANK = {'HARD_VETO': 3, 'STRONG_WARNING': 2, 'WARNING': 1, 'INFO': 0}
