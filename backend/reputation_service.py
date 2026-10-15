@@ -13127,6 +13127,8 @@ def _ai_log(role, case, res, asked=False):
     ad = (res or {}).get('advice') or None
     if not asked and (not ad or res.get('cached')):
         return
+    sn_ = case.get('_snap') or (_ai_snap(case.get('mint'), case.get('pair')) if case.get('mint') else None)   # 📸 the jobs hand in the raw case: rebuild its snapshot (memory only)
+    case = {**case, '_snap': sn_}
     row = {'at': round(_fuse._f(res.get('at')) or time.time(), 1), 'role': role, 'mint': case.get('mint'), 'symbol': case.get('symbol'), 'source': res.get('source'), 'label': res.get('label'),
            'ms': res.get('ms'), 'stance': (ad or {}).get('stance'), 'delta': (ad or {}).get('confidence_delta'), 'summary': (ad or {}).get('summary'),
            **{k_: (ad or {}).get(k_) for k_ in ('risk_flags', 'narrative', 'creator_context', 'conflict_resolution')}, 'kernel': case.get('status') or case.get('state') or (f"closed {case.get('result'):+.1f}%" if isinstance(case.get('result'), (int, float)) else None),
