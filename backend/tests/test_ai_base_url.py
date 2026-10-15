@@ -94,3 +94,18 @@ def test_a_remote_lm_studio_may_serve_the_agents_a_local_one_stays_the_owners():
         assert ai_router.local_remote({'LOCAL_LLM_BASE_URL': u}) is False
     assert ai_router.local_ok({'LOCAL_LLM_BASE_URL': 'http://10.0.0.249:1236/v1'}, 'sherlock') is True
     assert ai_router.local_ok({'LOCAL_LLM_BASE_URL': 'http://127.0.0.1:1234/v1'}, 'sherlock') is False
+
+
+def test_the_desktop_mac_is_asked_first_with_its_own_token_and_both_get_a_report_card():
+    env = {'LAN_LLM_BASE_URL': 'http://10.0.0.249:1236/v1', 'LAN_LLM_MODEL': 'google/gemma-4-e2b', 'LAN_LLM_API_KEY': 'sk-lm-gemma',
+           'LOCAL_LLM_ENABLED': 'true', 'LOCAL_LLM_BASE_URL': 'http://127.0.0.1:1234/v1', 'LOCAL_LLM_API_KEY': 'sk-lm-mac'}
+    assert ai_router.order_of(env)[:2] == ['lan', 'local']
+    assert ai_router.order_of(env, {'order': ['local', 'groq']})[:2] == ['lan', 'local']   # an order saved before the desktop existed
+    assert ai_router._lm_auth(env, 'lan')['headers']['Authorization'] == 'Bearer sk-lm-gemma'
+    assert ai_router._lm_auth(env, 'local')['headers']['Authorization'] == 'Bearer sk-lm-mac'
+    assert ai_router.provider({}, 'lan')['enabled'] is False                                   # no desktop configured: quietly off
+    import ai_learn
+    book = {'done': [{'prov': 'lan', 'stance': 'CAUTION', 'pct': -12}, {'prov': 'lan', 'stance': 'CAUTION', 'pct': 4}, {'prov': 'local', 'stance': 'FAVOR', 'pct': 9}]}
+    rep = {r['prov']: r for r in ai_learn.model_report(book, {'lan': {'ok': 5, 'lastMs': 9000}}, {'lan': 'google/gemma-4-e2b'})}
+    assert rep['lan']['caution'] == {'n': 2, 'right': 50} and rep['lan']['answers'] == 5 and rep['lan']['model'] == 'google/gemma-4-e2b'
+    assert rep['local']['favor'] == {'n': 1, 'right': 100}

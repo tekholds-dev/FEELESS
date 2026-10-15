@@ -209,6 +209,7 @@ class _Req:
 
 
 def test_owner_routes_save_order_test_and_never_echo_a_key(monkeypatch):
+    monkeypatch.delenv('LAN_LLM_BASE_URL', raising=False)   # the live .env may configure the desktop Mac (it would be put first)
     monkeypatch.setattr(rs, '_require_owner', lambda r: 'Owner')
     monkeypatch.setattr(rs, '_admin_load', lambda: {}); monkeypatch.setattr(rs, '_admin_save', lambda d: None)
     monkeypatch.setattr(rs, '_audit', lambda *a: None)

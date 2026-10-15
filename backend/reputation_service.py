@@ -13138,6 +13138,7 @@ def _ai_view(now=None, light=False):
                 'totals': v['totals'], 'notes': {m_: {ro_: {k_: n_.get(k_) for k_ in ('source', 'label', 'advice', 'at')} for ro_, n_ in notes[m_].items()} for m_ in keep},
                 'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY, 'localLane': {**{k_: _local_lane.get(k_) for k_ in ('n', 'last', 'busy', 'every', 'whyEvery')}, 'watch': _aic.watch_view(_local_lane.get('watch') if _local_lane.get('watch') is not None else (_json_load(LOCAL_WATCH_PATH, {}) or {}), _chat.get('settings') or {}, time.time(), _local_lane.get('every'), _local_lane.get('whyEvery'))}, 'log': _ai['log'][-20:], 'metrics': v.get('metrics'),
                 'model': next((r_.get('model') for r_ in v['providers'] if r_.get('key') == v['active']), None), 'learn': {**_ail.view(_ai_book()), 'on': _ai_learn_on()},
+                'report': _ail.model_report(_ai_book(), {k_: dict(_air.ROUTER.stats.get(k_) or {}) for k_ in _air.PROVIDERS}, {r_.get('key'): r_.get('model') for r_ in v['providers']}),   # 🧠 every model on one yardstick
                 'slip': {'firstPct': _fw.BUY_SLIP_FIRST / 100, 'retryPct': _fw.BUY_SLIP_MAX / 100, 'retries': _fw.BUY_SLIP_RETRIES},
                 'exit': _er.view(_ai_exit_book(), _ai['exit'], now, on=((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('agentAiExit', True) is not False)}
     return {**v, 'notes': notes, 'rounds': _ai['rounds'], 'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY}
@@ -13326,14 +13327,16 @@ async def _local_lane_run(now):
     except Exception:
         pass
     every = _fuse._f(os.environ.get('LOCAL_LANE_SEC')) if os.environ.get('LOCAL_LANE_SEC') not in (None, '') else LOCAL_LANE_EVERY
-    if every > 0 and _air.local_remote(os.environ):   # 🖥 LM Studio on another machine: no shared GPU here, so it pre-reads 3× as often
+    lane_ = 'lan' if _air.lan_ready(os.environ, _ai_cfg()) else 'local'   # 🖥 the desktop Mac's gemma takes the lane when it is set up: this Mac's GPU stays the browser's
+    remote_ = lane_ == 'lan' or _air.local_remote(os.environ)
+    if every > 0 and remote_:   # 🖥 LM Studio on another machine: no shared GPU here, so it pre-reads 3× as often
         every = min(every, LOCAL_LANE_EVERY / 3)
     if every <= 0:
         return
     try:   # 💻 the owner's 24h boost: faster reads, paused by itself while a browser reports lag (the GPU is shared with Chrome)
         _brain_load()
         perf_ = [x_ for x_ in list(_perf_samples)[-200:] if now - x_['at'] <= 120]
-        every, why_ = _aic.lane_every(_chat['settings'], now, perf_, _local_lane.get('lastMs'), base=every, shared_gpu=not _air.local_remote(os.environ))
+        every, why_ = _aic.lane_every(_chat['settings'], now, perf_, _local_lane.get('lastMs'), base=every, shared_gpu=not remote_)
         if (why_.startswith('boost paused') or why_.startswith('paused')) and now - _local_lane['pausedAt'] >= 600:   # the watch notes a pause once per 10 min
             _local_lane['pausedAt'] = now; _lw_note(now, False, why='paused')
         _local_lane.update(every=round(every, 1), whyEvery=why_)
@@ -13342,20 +13345,20 @@ async def _local_lane_run(now):
     if _local_lane['busy'] or now - _local_lane['at'] < every or _chat.get('busy'):   # 💬 the owner's chat goes first: the background read waits while you talk
         return
     env, cfg = os.environ, _ai_cfg()
-    p_ = _air.provider(env, 'local', cfg)
-    if not p_['enabled'] or p_['why'] or _air.ROUTER.stats['local']['coolUntil'] > now:
+    p_ = _air.provider(env, lane_, cfg)
+    if not p_['enabled'] or p_['why'] or _air.ROUTER.stats[lane_]['coolUntil'] > now:
         return
     c_ = _local_lane_pick(now)
     if not c_:
         return
     _local_lane.update(at=now, busy=True)
     try:
-        r_ = await _air.ROUTER.reason(_ai_http(), env, cfg, _ai_case(c_), 'sherlock', 'high', prio=_air.PRIO['ready'], only=('local',), mode='case')
+        r_ = await _air.ROUTER.reason(_ai_http(), env, cfg, _ai_case(c_), 'sherlock', 'high', prio=_air.PRIO['ready'], only=(lane_,), mode='case')
         ok_ = bool((r_ or {}).get('advice')) if isinstance(r_, dict) else False
         _local_lane['lastMs'] = (r_ or {}).get('ms') if isinstance(r_, dict) else None
         _lw_note(time.time(), ok_, _local_lane['lastMs'])
         if _ai_keep('sherlock', c_, r_, time.time()) and (r_ or {}).get('advice'):
-            _local_lane.update(n=_local_lane['n'] + 1, last={'at': round(time.time(), 1), 'symbol': c_.get('symbol'), 'ms': r_.get('ms'), 'stance': (r_.get('advice') or {}).get('stance')})
+            _local_lane.update(n=_local_lane['n'] + 1, last={'at': round(time.time(), 1), 'symbol': c_.get('symbol'), 'ms': r_.get('ms'), 'stance': (r_.get('advice') or {}).get('stance'), 'via': r_.get('source')})
     except Exception as e:
         print('local lane:', str(e)[:100])
     finally:

@@ -73,6 +73,20 @@ export function AiRow({ r, onPick }) {
     </button></li>;
 }
 
+const PROV_WORD = { lan: '🖥 DESKTOP MAC', local: '💻 THIS MAC', groq: '☁ GROQ', openrouter: '☁ OPENROUTER', openai: '☁ OPENAI', xai: '☁ XAI', custom: '☁ CUSTOM', cloud: '☁ CLOUD' };
+const pctRight = x => (x?.n ? `${x.right}% of ${x.n}` : '—');
+// 🧠 THE MODEL REPORT CARD: every model that answered, on the same yardstick (its CAUTION calls fell? its FAVOR calls rose?) — the record a
+// bigger model will be compared against. Shown only; the pooled record decides any weight.
+export function ModelReport({ rows }) {
+  if (!(rows || []).length) return null;
+  return <div className="cai-mrep" data-testid="cai-model-report"><span className="cai-lhead"><b>🧠 MODEL REPORT CARD</b><em>same yardstick for every model</em></span>
+    <ul>{rows.map(r => <li key={r.prov} data-testid={`cai-model-${r.prov}`}><b>{PROV_WORD[r.prov] || r.prov}</b><small>{r.model || ''}</small>
+      <span data-tip="Its CAUTION calls where the coin really fell 15 min later"><i>CAUTION</i>{pctRight(r.caution)}</span>
+      <span data-tip="Its FAVOR calls where the coin really rose 15 min later"><i>FAVOR</i>{pctRight(r.favor)}</span>
+      <span><i>TYPICAL</i>{r.med == null ? '—' : `${r.med > 0 ? '+' : ''}${r.med}%`}</span>
+      <span><i>ANSWERS</i>{r.answers}{r.ms ? ` · ${(r.ms / 1000).toFixed(1)}s` : ''}</span></li>)}</ul></div>;
+}
+
 export function AiPane({ ai: aiProp, lab, call, isOwner = true, focus, focusSym, onPick, onProviders }) {
   const ai = useAi(aiProp);   // 🧠 the AI store: this pane re-renders when the model answers — the rest of the tab does not
   const [txt, setTxt] = useState(focus || ''); const [role, setRole] = useState('owner'); const [busy, setBusy] = useState(false); const [scope, setScope] = useState('all'); const [ans, setAns] = useState(null);
@@ -97,6 +111,7 @@ export function AiPane({ ai: aiProp, lab, call, isOwner = true, focus, focusSym,
     {st.n ? <div className="cai-agreebar" data-tip="How often the model's stance matched what the kernel itself decided (the kernel never reads the model)"><small>MODEL vs KERNEL</small>
       <span className="cai-meter"><i style={{ transform: `scaleX(${(st.pct || 0) / 100})` }} /></span><b>{st.pct}% agree</b><small>{st.agree} of {st.n}</small></div> : null}
     <RuleLab lab={lab} />
+    <ModelReport rows={ai?.report} />
     {ai?.learn ? <div className={`cai-learn is-${String(ai.learn.state).toLowerCase().replace(/\s+/g, '-')}`} data-testid="cai-learn"
       data-tip={`Every stance the model gives is noted at that price and judged ${ai.learn.judgeMin} min later. A stance moves the agents' ranking (±10% at most) only once ${ai.learn.minN} of its calls are judged AND its coins really did better / worse than the model's other calls.`}>
       <span className="cai-lhead"><b>🎓 AGENTS LEARNING FROM THE MODEL</b><em>{ai.learn.state}</em></span><small>{ai.learn.why}{ai.learn.open ? ` · ${ai.learn.open} call${ai.learn.open === 1 ? '' : 's'} waiting for their ${ai.learn.judgeMin} min` : ''}</small>

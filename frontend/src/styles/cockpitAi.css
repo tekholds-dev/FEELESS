@@ -167,3 +167,11 @@ body.theme-day .ack-open button { color: #10261a; border-color: rgba(16, 38, 26,
 @media (max-width: 640px) { .ack-open i { display: none; } }
 
 .cai-general { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* 🧠 model report card: one row per model, the same yardstick */
+.cai-mrep { display: grid; gap: 5px; padding: 8px 10px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); background: rgba(140, 110, 255, .04); }
+.cai-mrep ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.cai-mrep li { display: grid; grid-template-columns: 112px minmax(0, 1fr) repeat(4, auto); gap: 8px; align-items: baseline; font: 600 9.5px var(--m-mono); color: var(--m-text); padding: 3px 0; border-top: 1px dashed var(--m-line); }
+.cai-mrep li > b { font: 800 9px var(--m-mono); letter-spacing: .08em; color: #c9b8ff; } .cai-mrep li > small { color: var(--m-mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cai-mrep li > span i { font-style: normal; font: 800 7px var(--m-mono); letter-spacing: .1em; color: var(--m-mute); margin-right: 4px; }
+body.theme-day .cai-mrep li > b { color: #5b3fc4; }
+@media (max-width: 640px) { .cai-mrep li { grid-template-columns: minmax(0, 1fr) auto; } .cai-mrep li > small { display: none; } }

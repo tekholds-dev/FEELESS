@@ -56,7 +56,8 @@ def note(book, role, mint, stance, px, now, symbol=None, flags=None, scout=None,
     if ephase:
         c['ephase'] = str(ephase).upper()[:24]
     if src:
-        c['src'] = 'local' if src == 'local' else 'cloud'   # 💻 the local model and the cloud keep separate records
+        c['src'] = 'local' if src == 'local' else 'lan' if src == 'lan' else 'cloud'   # 💻 the local models and the cloud keep separate records
+        c['prov'] = str(src)[:16]   # the exact provider (lan · local · groq …) for the model report card
     b['open'] = (b['open'] + [c])[-KEEP_OPEN:]
     return b
 
@@ -195,3 +196,25 @@ def view(book, rec=None):
             'state': 'IN USE' if used else 'LEARNING' if n < MIN_N else 'NO EDGE YET',
             'why': (f"{len(used)} proven stance{'s' if len(used) != 1 else ''} rank{'' if len(used) != 1 else 's'} a coin DOWN by up to 15% — the model never ranks one up" if used
                     else f"{n} of {MIN_N} judged calls — the model is shown, not used" if n < MIN_N else 'judged, but no stance or vital separates winners from losers yet — the model is shown, not used')}
+
+
+def model_report(book, stats=None, models=None):
+    """🧠 THE MODEL REPORT CARD (owner, 2026-10-14: "both learn and build a report for if we ever get a bigger model"): every provider that
+    answered, graded on the SAME yardstick — its CAUTION calls (did the coin fall 15 min later?), its FAVOR calls (did it rise?), its typical
+    move after a call, plus answers and speed from the router. A record only: nothing here changes a weight by itself (`advice_factor` does
+    that for the pooled record). → [{prov, model, n, caution: {n, right}, favor: {n, right}, med, answers, ms}] best-graded first."""
+    by = {}
+    for c in (book or {}).get('done') or []:
+        k = c.get('prov') or c.get('src') or 'cloud'
+        by.setdefault(k, []).append(c)
+    st, md = stats or {}, models or {}
+    out = []
+    for k in set(by) | {x for x, v in st.items() if (v or {}).get('ok')}:
+        cs = by.get(k) or []
+        cau = [_f(c.get('pct')) for c in cs if c.get('stance') == 'CAUTION']
+        fav = [_f(c.get('pct')) for c in cs if c.get('stance') == 'FAVOR']
+        right = lambda xs, up: (round(100 * sum(1 for x in xs if (x > 0 if up else x < 0)) / len(xs)) if xs else None)
+        s_ = st.get(k) or {}
+        out.append({'prov': k, 'model': md.get(k), 'n': len(cs), 'caution': {'n': len(cau), 'right': right(cau, False)}, 'favor': {'n': len(fav), 'right': right(fav, True)},
+                    'med': round(_median([_f(c.get('pct')) for c in cs]), 1) if cs else None, 'answers': int(_f(s_.get('ok'))), 'ms': int(_f(s_.get('lastMs'))) or None})
+    return sorted(out, key=lambda r: (-r['n'], r['prov']))
