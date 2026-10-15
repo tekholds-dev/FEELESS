@@ -64,7 +64,8 @@ BUDGET_WAIT_MAX = 20.0    # a call waits at most this long for the provider's mi
 import contextvars as _cv
 IMAGE_MODEL = 'google/gemini-3.1-flash-image'   # 🎨 OpenRouter image-output model (OPENROUTER_IMAGE_MODEL overrides)
 TUNE = _cv.ContextVar('ai_tune', default=None)
-IDENTITY = _cv.ContextVar('ai_identity', default=False)   # 🪪 the owner's chat: each LM Studio model speaks as itself (its own name, its partner's name)
+IDENTITY = _cv.ContextVar('ai_identity', default=False)
+RAW = _cv.ContextVar('ai_raw', default=False)   # 🧪 return the model's whole text too (playground documents)   # 🪪 the owner's chat: each LM Studio model speaks as itself (its own name, its partner's name)
 NAME_DEFAULT = {'lan': 'Vega', 'local': 'Kai'}   # LAN_LLM_NAME / LOCAL_LLM_NAME override — the names the owner's two models answer to
 
 
@@ -994,7 +995,8 @@ class Router:
                 tried.append([key, 'ok'])
                 self.totals['answered'] += 1
                 self.recent = (self.recent + [(t_now, ms, key)])[-60:]
-                return {'source': key, 'label': LABEL[key], 'text': ans, 'advice': None, 'mode': 'general', 'ms': ms, 'tried': tried, 'role': role, 'at': round(t_now, 1)}
+                return {'source': key, 'label': LABEL[key], 'text': ans, 'advice': None, 'mode': 'general', 'ms': ms, 'tried': tried, 'role': role, 'at': round(t_now, 1),
+                        **({'raw': str(text)[:80_000]} if RAW.get() else {})}   # 🧪 the playground needs the whole document (the chat text is cut at 1,600)
             adv = parse_advice(text)
             if not adv:
                 self._bad(key, t_now, 'malformed answer', 'malformed')

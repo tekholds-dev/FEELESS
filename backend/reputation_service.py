@@ -13634,6 +13634,48 @@ async def _ai_proposal_apply(p, now):
     raise ValueError('unknown kind')
 
 
+import ai_play as _play
+AI_PLAY_PATH = DATA_DIR / 'ai_playground.json'
+
+
+@app.get('/api/reputation/admin/ai/playground')
+async def admin_ai_playground(request: Request):
+    """🧪 Owner: the playground's creations (newest first)."""
+    _require_owner(request)
+    return {'items': (_json_load(AI_PLAY_PATH, {}) or {}).get('items') or []}
+
+
+@app.post('/api/reputation/admin/ai/playground')
+async def admin_ai_playground_make(request: Request):
+    """🧪 Owner: a model makes ONE self-contained HTML document (SVG / CSS / canvas) — shown in a sandboxed, network-blocked frame.
+    `from` = the id of an earlier creation to change. `provider` = which model (auto / duet's lead / any provider key)."""
+    _require_owner(request)
+    body = await request.json() or {}
+    prompt = _aic.clean(body.get('prompt'), 800)
+    if len(prompt) < 3:
+        raise HTTPException(400, 'Say what to make.')
+    if _chat['busy']:
+        raise HTTPException(429, 'The model is still answering.')
+    d_ = _json_load(AI_PLAY_PATH, {}) or {}
+    prev = next((x for x in (d_.get('items') or []) if x.get('id') == body.get('from')), None)
+    prov_ = str(body.get('provider') or 'auto')
+    only_ = (prov_,) if prov_ in _air.PROVIDERS else (_duet.LEAD,) if prov_ == 'duet' else None
+    _chat['busy'] = True
+    raw_ = _air.RAW.set(True)
+    try:
+        res = await _air.ROUTER.ask(_ai_http(), os.environ, _ai_cfg(), _play.iterate_prompt(prompt, prev['html']) if prev else prompt, role='owner', system=_play.ASK,
+                                    only=only_, tune={'temp': 0.6, 'maxTok': 3500})
+    finally:
+        _air.RAW.reset(raw_)
+        _chat['busy'] = False
+    html = _play.extract(res.get('raw') or res.get('text'))
+    if not html:
+        raise HTTPException(502, f"The model did not return a document ({res.get('label') or res.get('why') or 'no provider answered'}).")
+    d_['items'], it = _play.add(d_.get('items'), prompt, html, res.get('label'))
+    _json_save(AI_PLAY_PATH, d_)
+    return {'item': it, 'items': d_['items'], 'ms': res.get('ms')}
+
+
 @app.post('/api/reputation/admin/ai/chat')
 async def admin_ai_chat(request: Request):
     """💬 Owner only: talk to the current model. `mode` chat (normal language) · case (the structured coin read of `focus`) · improve (the model

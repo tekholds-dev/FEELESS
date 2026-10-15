@@ -1,0 +1,19 @@
+/* 🧪 AI playground (AiPlayground.jsx) — m-* tokens */
+.apg { display: grid; gap: 8px; min-width: 0; }
+.apg-stage { position: relative; height: clamp(240px, 42vh, 460px); border-radius: var(--m-r-sm, 10px); overflow: hidden; border: 1px solid var(--m-line); background: #05100b; }
+.apg-frame { width: 100%; height: 100%; border: 0; display: block; background: #05100b; }
+.apg-empty { height: 100%; display: grid; place-items: center; font: 600 10px var(--m-mono); color: var(--m-mute); }
+.apg-scan { position: absolute; left: 0; right: 0; top: 0; height: 40px; pointer-events: none; background: linear-gradient(180deg, transparent, rgba(21, 209, 106, .2), transparent); animation: apgScan 1.6s linear infinite; }
+.apg-ask { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }
+.apg-ideas { display: flex; flex-wrap: wrap; gap: 5px; } .apg-ideas .m-chip { font-size: 9px; text-align: left; }
+.apg-list { list-style: none; margin: 0; padding: 0; display: flex; gap: 5px; overflow-x: auto; scrollbar-width: thin; }
+.apg-list button { white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; font: 700 9px var(--m-mono); padding: 4px 8px; border-radius: 999px; cursor: pointer;
+  color: var(--m-text); background: rgba(255, 255, 255, .04); border: 1px solid var(--m-line); transition: transform .12s ease, border-color .12s ease; }
+.apg-list button:hover { transform: translateY(-1px); border-color: var(--m-accent); } .apg-list button:active { transform: none; }
+.apg-list button.active { background: var(--m-accent); color: #04100a; border-color: var(--m-accent); } .apg-list button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; }
+.apg-note { font: 600 8.5px var(--m-mono); color: var(--m-mute); }
+@keyframes apgScan { from { transform: translate3d(0, -40px, 0); } to { transform: translate3d(0, 460px, 0); } }
+body.fx-lite .apg-scan { animation: none; }
+@media (prefers-reduced-motion: reduce) { .apg-scan { animation: none; } .apg-list button { transition: none; } }
+body.theme-day .apg-list button { background: rgba(255, 255, 255, .6); color: #10261a; } body.theme-day .apg-list button.active { color: #fff; background: #0e7a43; }
+@media (max-width: 640px) { .apg-ask { grid-template-columns: minmax(0, 1fr) auto; } .apg-ask .m-btn:last-child:not(:nth-child(2)) { grid-column: 1 / -1; } }
