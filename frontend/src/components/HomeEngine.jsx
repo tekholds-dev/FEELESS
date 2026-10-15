@@ -1,4 +1,6 @@
-// 🔬 WATCH FEELESS WORK (Home; owner, 2026-10-14: "the HUD is confusing — the buys and sells are cool, show what FEELESS is best at").
+// 📡 RUG RADAR (Home; owner, 2026-10-15: "try a better design than watch FEELESS work"): a sweeping radar — every live launch coin is a blip
+// (newer = nearer the centre, its angle fixed by its mint), it PINGS as the arm passes: green = passed the scan, red ✕ = caught, grey = not read.
+// Beside it the selected coin's checks (below) and the real trades. Earlier: 🔬 WATCH FEELESS WORK (owner, 2026-10-14: "show what FEELESS is best at").
 // One real launch coin at a time goes through the checks FEELESS really runs, animated: 🐋 top-10 · 👤 dev · 📦 bundles + snipers ·
 // 💧 pool · 🌊 buyers — each a bar that fills to the coin's own number, ✓ or ✗ against the line — then the verdict STAMPS in
 // (🛡 BLOCKED + the check it missed · ✅ CLEARED · 🏃 RUNNER). Every 6s the next coin (caught, cleared and runners mixed). Beside it: the
@@ -49,6 +51,19 @@ export const realTrades = (proof, n = 7) => (proof?.feed || []).slice(0, n).map(
   pct: f.pct == null ? null : Number(f.pct), usd: Number(f.usd) || 0, at: Number(f.at) || 0 }));
 export const counters = (open, run, proof) => ({ live: open?.seen ?? (open?.rows?.length || null), blocked: open?.rows ? open.rows.filter(r => fateOf(r) === 'fail').length : null,
   runners: Array.isArray(run?.live) ? run.live.length : null, swaps: Array.isArray(proof?.feed) ? proof.feed.length : null });
+// pure: radar blips — angle from the mint (stable between polls), radius from launch age (newer = centre), one per ticker
+const SWEEP_S = 6;
+export function radarBlips(rows, n = 48) {
+  const out = []; const seen = new Set();
+  for (const r of rows || []) {
+    const sy = String(r?.symbol || '').toUpperCase(); if (!r?.mint || !sy || seen.has(sy)) continue; seen.add(sy);
+    let h = 0; for (const ch of String(r.mint)) h = (h * 31 + ch.charCodeAt(0)) % 360;
+    const age = Math.max(0.02, Number(r.ageH) || 6); const rad = Math.round(Math.min(0.94, 0.14 + Math.log10(1 + age * 4) * 0.42) * 100) / 100;
+    out.push({ mint: r.mint, sym: String(r.symbol).slice(0, 10), fate: fateOf(r), ang: h, rad, row: r, delay: Math.round((h / 360) * SWEEP_S * 100) / 100 });
+    if (out.length >= n) break;
+  }
+  return out;
+}
 const ago = at => { const s = Math.max(0, Math.round(Date.now() / 1000 - at)); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
 
 export function HomeEngine({ onOpen }) {
@@ -59,6 +74,7 @@ export function HomeEngine({ onOpen }) {
         .then(([open, run, proof]) => { if (on && (open || run || proof)) setD(p => ({ open: open || p?.open, run: run || p?.run, proof: proof || p?.proof })); }); };
     load(true); const t = setInterval(load, POLL); return () => { on = false; clearInterval(t); }; }, []);
   const spots = useMemo(() => spotlight(d?.open?.rows, d?.run), [d?.open, d?.run]);
+  const blips = useMemo(() => radarBlips(d?.open?.rows), [d?.open]);
   useEffect(() => { const c_ = spots.length ? spots[i % spots.length] : null; if (!c_) return; setSeen(p => (p.ids.includes(c_.mint) ? p : { ...p, [c_.verdict]: p[c_.verdict] + 1, ids: [...p.ids, c_.mint].slice(-200) })); }, [i, spots]);
   useEffect(() => { if (hold || spots.length < 2) return undefined; const t = setInterval(() => setI(x => x + 1), SPOT_MS); return () => clearInterval(t); }, [hold, spots.length]);
   if (!d) return null;
@@ -68,9 +84,18 @@ export function HomeEngine({ onOpen }) {
   const go = (e, url) => { if (onOpen) { e.preventDefault(); onOpen(url); } };
   const open = x => openCoin({ mint: x.mint, symbol: x.symbol || x.sym, pairAddress: x.pairAddress || x.pair });
   return <section className="wfw" data-testid="home-engine">
-    <header className="wfw-top"><span className="wfw-title"><b>WATCH FEELESS WORK</b><i className="wfw-live" aria-hidden="true">● LIVE</i></span>
+    <header className="wfw-top"><span className="wfw-title"><b>RUG RADAR</b><i className="wfw-live" aria-hidden="true">● LIVE</i></span>
       <span className="wfw-count" data-testid="wfw-count"><span><b>{c.live ?? '—'}</b> coins live</span><span className="is-bad"><b>{c.blocked ?? '—'}</b> blocked</span><span><b>{c.runners ?? '—'}</b> runners</span><span className="is-gold"><b>{c.swaps ?? '—'}</b> real swaps 24h</span></span></header>
-    <div className="wfw-body">
+    <div className="wfw-body is-radar">
+      <div className="rr" data-testid="rug-radar" aria-label="Every live launch coin as a radar blip">
+        <span className="rr-rings" aria-hidden="true"><i /><i /><i /></span><span className="rr-arm" aria-hidden="true" style={{ animationDuration: `${SWEEP_S}s` }} />
+        <small className="rr-lab">newer ← centre</small>
+        {blips.map(b => <button key={b.mint} type="button" className={`rr-b is-${b.fate}${cur && cur.mint === b.mint ? ' is-sel' : ''}`} data-testid={`rr-${b.sym}`}
+          style={{ transform: `rotate(${b.ang}deg) translate3d(${b.rad * 46}cqmin, 0, 0) rotate(${-b.ang}deg)`, '--d': `${b.delay}s`, '--sweep': `${SWEEP_S}s` }}
+          onClick={() => { const k = spots.findIndex(x => x.mint === b.mint); if (k >= 0) setI(k); else open(b.row); }} data-tip={`$${b.sym} · ${b.fate === 'safe' ? 'passed the scan' : b.fate === 'fail' ? 'caught by the scan' : 'not read yet'}`}>
+          <i />{cur && cur.mint === b.mint ? <b>${b.sym}</b> : null}</button>)}
+        <span className="rr-core" aria-hidden="true"><b>{c.blocked ?? '—'}</b><small>CAUGHT</small></span>
+      </div>
       {cur ? <div className={`wfw-spot is-${cur.verdict}`} key={cur.mint + i} onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)} data-testid="wfw-spot">
         <button type="button" className="wfw-coin" onClick={() => open(cur)} data-testid={`wfw-coin-${cur.symbol}`}>
           <span className="wfw-ring" data-testid="wfw-ring" data-tip={`${score.pass} of ${score.read} checks passed`}><svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="36" className="wfw-ring-bg" />

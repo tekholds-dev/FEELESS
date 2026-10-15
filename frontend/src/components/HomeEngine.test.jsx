@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { HomeEngine, ageWord, scoreOf, fateOf, checksOf, spotlight, verdictOf, realTrades, counters } from './HomeEngine';
+import { HomeEngine, ageWord, scoreOf, radarBlips, fateOf, checksOf, spotlight, verdictOf, realTrades, counters } from './HomeEngine';
 
 jest.mock('./CoinDrawer', () => ({ openCoin: jest.fn() }));
 const rows = [{ mint: 'A', symbol: 'AAA', safe: true, top10: 18, dev: 2, bundledN: 0, snipersN: 1, liq: 25000, buyShare: 61 }, { mint: 'B', symbol: 'BBB', safe: false, fails: ['Top 10 under 22%'], top10: 61 },
@@ -17,6 +17,7 @@ test('checks come from the coin only; unread is "—"; the spotlight weaves caug
   expect(realTrades({ feed: [{ sig: 'x', side: 'sell', symbol: 'Q', pct: 4.2, usd: 0.3, at: 1 }] })[0]).toMatchObject({ side: 'sell', pct: 4.2 });
   expect([ageWord(0.5), ageWord(5), ageWord(1528)]).toEqual(['30m', '5h', '64d']);
   expect(scoreOf(checksOf(rows[0]))).toEqual({ pass: 5, read: 5, pct: 100 }); expect(scoreOf(checksOf(rows[1]))).toEqual({ pass: 0, read: 1, pct: 0 });
+  const bl = radarBlips(rows); expect(bl.map(b => b.fate)).toEqual(['safe', 'fail', 'wait', 'safe']); expect(radarBlips(rows)[0].ang).toBe(bl[0].ang);   // stable angle
   expect(counters(null, null, null)).toEqual({ live: null, blocked: null, runners: null, swaps: null });
 });
 
@@ -28,7 +29,7 @@ test('the panel shows a coin with its verdict and the real swaps, and opens the 
   await act(async () => { await Promise.resolve(); });
   const q = id => el.querySelector(`[data-testid="${id}"]`);
   expect(q('wfw-count').textContent).toContain('9 coins live'); expect(q('wfw-verdict').textContent).toContain('BLOCKED');
-  expect(q('wfw-trades').textContent).toContain('$Q'); expect(q('wfw-ring').textContent).toContain('0/1'); expect(q('wfw-next').querySelectorAll('button').length).toBe(2);   // the other two coins in the queue
+  expect(q('wfw-trades').textContent).toContain('$Q'); expect(q('wfw-ring').textContent).toContain('0/1'); expect(q('wfw-next').querySelectorAll('button').length).toBe(2); expect(q('rug-radar').querySelectorAll('.rr-b').length).toBe(4);   // the other two coins in the queue
   await act(async () => { q('wfw-coin-BBB').click(); });
   expect(openCoin).toHaveBeenCalledWith(expect.objectContaining({ mint: 'B' }));
 });

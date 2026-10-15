@@ -4243,4 +4243,19 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   OUTLINE and proposes ONE change {title, file, kind, why, risk, code}; ✅ files it to the build queue ("code lab cN … code in
   data/ai_playground.json") — BUILDING ONE = read its code there, apply it yourself with tests. No model writes a repo file.
 - Home spotlight adds a score ring (checks passed / read), a scan beam, UP NEXT chips and a this-visit tally.
+- 📡 HOME = RUG RADAR (HomeEngine.jsx `radarBlips`, `rr-*` in homeEngine.css): every live launch coin is a blip (angle from its mint, radius from
+  launch age: newer = centre), pinging as the sweep passes (each blip's delay = its angle; green passed · red ✕ caught · grey unread; the
+  centre = caught count); beside it the selected coin's checks (ring, bars, verdict stamp, up next) and the real trades. Tap a blip = select.
+- 🌙 NIGHT GUARD (`night_guard.py`, realCfg `nightGuard` on, `_night_check` in the tier tick before the agents' fills, `data/night_guard.json`,
+  payload `nightGuard`): card 12% under its 6h high → 2h pause on NEW real buys; 4 losing real exits in a row → 45 min; 2 exits ≤ −45% in an hour
+  → 90 min. A pause = `agentPaper` for that tick (switch-ins too); exits keep running. Owner inbox on each trip + ☀ an overnight report each
+  morning (8–12 local, `night_guard.morning`).
+- 🧬 COPYCATS BLOCKED PERIOD: `taught_rules.LOCKED` keeps clone + copycat at ✋ skip (not switchable lower); clone memory 30 days (knob 168 /
+  336 / 720 h); `family` matches sequels (GTA 6 ↔ GT IV ↔ GTA5) + 4-letter prefixes; 8,000 ledger rows read.
+- Owner's ideas 1–3: 🏔 the seat gate holds a coin the model reads at the TOP (chart_phase LATE FOMO / DISTRIBUTION / COLLAPSE / REVERSAL or
+  timing LATE / CHASE; cloud or an agreed duet only); ☀ morning report; `opportunity.links_conflict` = its own site / X point at another coin
+  → hard no. 🔪 `opportunity.knife` (build queue b15–b20): 30%+ under its chart high → no buy until a higher low (`chart_intel.compact` now
+  carries hl / ll / distHigh).
+- FEE prompt v3 (`docs/lm_fee_prompt.txt`): no code sandbox (call tools, never fake code), A/B/C routing, research first, `now` MCP tool for the
+  date. In-app Brain: same no-sandbox line + `today` in its context.
 
