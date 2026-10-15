@@ -15044,6 +15044,7 @@ def _trail_view(of, arch, rcfg, scalp):
     try:   # 🟢 b8: green exits by the rule that sold them vs what the live trail would have made on the same whole move
         g['byRule'] = _ap.by_rule((arch or {}).get('positions'), (_after_mem.get() or {}).get('done'), _of.reaper_replay, _of.tunes(of, 'reaper'), _of.take_line(rcfg, scalp))
         g['ruleWords'] = _ap.rule_words(g['byRule'])
+        g['twin'] = _ap.scale_twin((arch or {}).get('positions'), (_after_mem.get() or {}).get('done'), _of.SCALE_AT, _of.tunes(of, 'reaper').get('giveBackPct', 30), frac=_of.SCALE_PCT / 100)   # 💰 the scale-out's paper twin
     except Exception as e:
         print('trail by rule:', e)
     sh = next((c for c in ((of or {}).get('candidates') or {}).values() if c.get('status') == 'shadow' and c.get('agent') == 'reaper'), None)

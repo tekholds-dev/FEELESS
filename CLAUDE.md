@@ -4285,10 +4285,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   +34%), green R5t sales 94% (median peak +70%); R5 stops were mostly right (median end −13%). So a GREEN coin is not banked in its first 6 min
   (tick + 3s guard), R5t never sells a green coin, under +2% the trail still sells; stops / −45% / rug / drain / dump instant. Re-measure with
   the same after_path split before touching it again.
-- 💰 SCALE-OUT (`office.SCALE_AT` 10 · `SCALE_PCT` 50, rule `R6h half banked`, action `trim` → `arena_prime.agent_trim`): an agent coin at +10% sells half once
+- 💰 SCALE-OUT (`office.SCALE_AT` 10 · `SCALE_PCT` 75 — was 50: the first replay credited the rest 0% when it rugged; honest = 50% +3.1% avg, 75% +6.5%, real +4.3%; rule `R6h half banked`, action `trim` → `arena_prime.agent_trim`): an agent coin at +10% sells half once
   (`p.scaled`), proceeds = free card cash, the rest rides the trail; the leg is `scaled` → never topped back up (spread / compound / balance / keeper idle
-  sweep). After-path replay on 154 real exits that reached +10%: avg +8.6% / med +7.7% vs real +4.3% / +5.2% (better 88, worse 66). Old Reaper tests pin
+  sweep). Live paper twin `after_path.scale_twin` → payload `trail.twin` (selection bias: coins that reached +10% only). Old Reaper tests pin
   `SCALE_AT` 1e9 (conftest). A position's archived realPct counts only the LAST sale — the half's profit is in the ledger, not in that number.
 - 🔁 COMEBACK DOOR (`arena_prime.agent_out(card, now, px_of)`, `COMEBACK_PCT` 5; agent_pull stores exit `px` + `green`): a coin sold GREEN (never a danger exit)
   that runs ≥ +5% past our exit price is let back in inside the 10-min sit-out; every entry check still decides.
-
+- 🧯 REPLAY HONESTY: a rug AFTER a take costs the REST −100%; a stop / breakeven sale fills at the price SEEN (a gap to −60% is −60%, never 0).
+  Two replays this session were wrong on exactly these points before being caught.

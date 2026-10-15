@@ -60,3 +60,13 @@ def test_the_shadow_test_runs_on_whole_moves_and_the_model_can_only_ask_for_one_
     assert of.model_candidate(o4, 'protectAt', 'up', 12, 'x', 101.0)[1]                                        # one candidate at a time
     assert of.model_candidate(base, 'giveBackPct', 'up', 3, 'x', 100.0)[1] and of.model_candidate(base, 'stopLine', 'up', 12, 'x', 100.0)[1]
     assert of.model_candidate({'tune': {'reaper': {'giveBackPct': 70.0}}}, 'giveBackPct', 'up', 12, 'x', 100.0)[1] == 'no notch left that way'
+
+
+def test_the_scale_out_twin_compares_half_at_ten_with_what_we_really_got():
+    import after_path as ap
+    pos = [{'confirmed': True, 'realPct': 5.0, 'mint': 'A', 'closedAt': 100, 'path': [2, 6, 11]}, {'confirmed': True, 'realPct': -10.0, 'mint': 'B', 'closedAt': 100, 'path': [-3, -10]}]
+    done = {ap.key_of(pos[0]): [20, 30, 15], ap.key_of(pos[1]): [-20]}
+    t = ap.scale_twin(pos, done, frac=0.5)
+    assert t['n'] == 1 and t['twin']['avg'] == 12.5 and t['real']['avg'] == 5.0 and t['better'] == 1   # half at +10 = 5, rest trailed out at +15 (peak 30, give 30%) = 7.5
+    rug = ap.scale_twin([{**pos[0], 'mint': 'R'}], {ap.key_of({**pos[0], 'mint': 'R'}): [20, -99.5]}, frac=0.75)
+    assert rug['twin']['avg'] == -17.5                                      # a rug after the take costs the rest −100%

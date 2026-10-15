@@ -124,3 +124,40 @@ def rule_words(rows):
         return None
     return 'green exits by rule (typical real → what the live trail would have made): ' + ' · '.join(
         f"{x['rule']} {x['n']}× {x['real']:+.1f}% → {x['trail']:+.1f}%" for x in rows[:4])
+
+
+def scale_twin(positions, done, at=10.0, give=30.0, min_n=20, frac=0.75):
+    """💰 THE SCALE-OUT TWIN (paper, always on): on every confirmed real exit whose WHOLE move touched +`at`%, what "half at +at, the rest on
+    the trail (give-back `give`%)" made vs what we REALLY got. A rug (≤ −99) after the half = −100% on the rest. Recomputed with every new exit,
+    so the owner sees whether the scale-out keeps paying. → {n, real: {avg, med}, twin: {avg, med}, better, worse, pays}"""
+    med = lambda v: sorted(v)[len(v) // 2] if len(v) % 2 else (sorted(v)[len(v) // 2 - 1] + sorted(v)[len(v) // 2]) / 2
+    rows = []
+    for p in positions or []:
+        if not p.get('confirmed') or p.get('realPct') is None:
+            continue
+        ser = full(p, done)
+        if not ser:
+            continue
+        half, peak, out = None, -1e9, None
+        for x in ser:
+            if x <= -99:
+                out = (frac * at - (1 - frac) * 100.0) if half else None
+                break
+            if half is None and x >= at:
+                half = at
+            if half is not None:
+                peak = max(peak, x)
+                if peak >= at and x <= peak * (1 - give / 100):
+                    out = frac * half + (1 - frac) * x
+                    break
+        if out is None and half is not None and ser and ser[-1] > -99:
+            out = frac * half + (1 - frac) * ser[-1]
+        if out is not None:
+            rows.append((_f(p['realPct']), out))
+    if not rows:
+        return {'n': 0, 'pays': False}
+    r, t = [a for a, _ in rows], [b for _, b in rows]
+    rn = lambda v: round(v, 1)
+    return {'n': len(rows), 'real': {'avg': rn(sum(r) / len(r)), 'med': rn(med(r))}, 'twin': {'avg': rn(sum(t) / len(t)), 'med': rn(med(t))},
+            'better': sum(1 for a, b in rows if b > a), 'worse': sum(1 for a, b in rows if b < a),
+            'pays': len(rows) >= min_n and sum(t) > sum(r) and med(t) >= med(r)}

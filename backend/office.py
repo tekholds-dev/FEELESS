@@ -722,7 +722,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             ev = f"{pct:+.1f}% · {'; '.join(rv['why'][:4])} · window {rv['window'] + 1} of {granted}"
         held_s = held * 60
         if not act and mine and live and pct >= SCALE_AT and not p.get('scaled') and not degraded_pre(ch, rv):   # 💰 SCALE-OUT: half banked at +10%, the rest rides the trail
-            st, rule, ev, act = 'TAKE', 'R6h half banked', f"{pct:+.1f}% ≥ +{SCALE_AT:g}%: {SCALE_PCT:g}% sold now, the rest rides the trail (replay: +8.6% avg vs +4.3% real)", 'trim'
+            st, rule, ev, act = 'TAKE', 'R6h half banked', f"{pct:+.1f}% ≥ +{SCALE_AT:g}%: {SCALE_PCT:g}% sold now, the rest rides the trail (replay: +6.5% avg vs +4.3% real)", 'trim'
             p['scaled'] = now
         if act and pct >= RUNWAY_KEEP and (str(rule).split(' ')[0] in RUNWAY_RULES) and (held_s < RUNWAY_SEC or str(rule).startswith('R5t')):
             ev += (f" · 🛫 runway: a green coin is not banked in its first {RUNWAY_SEC / 60:.0f} min ({round(RUNWAY_SEC - held_s)}s left) — the trail still sells it under +{RUNWAY_KEEP:g}%"
@@ -764,10 +764,11 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
 
 
 # 💰 SCALE-OUT (owner, 2026-10-15: "sell half at +10%, trail the rest"). After-path replay on 154 real exits whose coin reached +10% (held or
-# within 30 min after our sale): half at +10 + the rest on the 30% trail = avg +8.6% / median +7.7% vs what we really got +4.3% / +5.2%
-# (better 88, worse 66; a rug after the half counts −100% on the rest). Once per position; the half's leg is never topped back up (`scaled`).
+# within 30 min after our sale), fills at the price SEEN and a rug after the take = −100% on the rest: 75% at +10 → avg +6.5% / median
+# +8.9% vs what we really got +4.3% / +5.2% (better 87, worse 67); 50% only +3.1% avg (an earlier replay overstated it as +8.6%).
+# Selection bias: only coins that reached +10% — the live twin (after_path.scale_twin) keeps judging it on new exits. Once per position.
 SCALE_AT = 10.0
-SCALE_PCT = 50.0
+SCALE_PCT = 75.0   # 2026-10-15: 50% left too much on the table for rugs after the take (honest replay: half +3.1% avg · 75% +6.5% · real +4.3%)
 
 
 def degraded_pre(ch, rv):
