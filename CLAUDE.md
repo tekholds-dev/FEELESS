@@ -4278,4 +4278,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - ▶ CODE LAB TEST RUN (`ai_play.safe_code/safe_call/test_run`): a Python proposal's `examples` are RUN — only after an AST check (no imports outside
   SAFE_MODULES, no open/exec/eval/getattr/dunder, examples = its own function with literal args) in `python -I`, env {}, temp cwd, CPU 2s / no
   file writes / 16 fds, 4s timeout, macOS `sandbox-exec` deny network + file-write. Tab ▶ Test run (call → got, ✓ / ✗). UI proposals: 🖼 See it working.
+- 💻 THIS MAC'S LOCAL MODEL = `qwen/qwen3-4b-2507` (MLX, `LOCAL_LLM_MODEL`; 7B Qwen 2.5 is `LOCAL_LLM_FALLBACK_MODEL`) — lighter on the M3 Air and better at
+  tool calls (chat ~6s, a coin case ~37s). FEE prompt: "NUMBERS: COPY, NEVER COMPOSE" — it once quoted "$20K lost on PUMP-7" on a $2 card.
 
