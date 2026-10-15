@@ -34,7 +34,8 @@ test('the cockpit, laid out like the reference: ribbon → 4 seats → MC chart 
   await act(async () => { root.render(<AgentHubProvider value={hub}><AgentCockpit call={call} /></AgentHubProvider>); });
   await flush();
   const order = [...q('agent-cockpit').children].map(c => c.getAttribute('data-testid') || c.className);
-  expect(order.slice(0, 3)).toEqual(['ack-ribbon', 'ack-pulse', 'ack-seats']); expect(order).toContain('ack-ops');
+  expect(order).toEqual(['ack-ribbon', 'ack-pulse', 'ack-seats', 'ack-main', 'ack-tapezone']); expect(q('ack-ops')).not.toBeNull();   // one deck under the chart (one pane at a time)
+  expect([...q('ack-tapezone').querySelectorAll(':scope > .ack-decktabs > [role=tab]')].map(b => b.getAttribute('data-testid'))).toEqual(['ack-deck-live', 'ack-deck-tape', 'ack-deck-brain', 'ack-deck-agents', 'ack-deck-review', 'ack-deck-controls']);
   // 💵 the ribbon: the card's own numbers
   for (const k of ['putin', 'equity', 'net', 'phase', 'be', 'lives', 'occ', 'cycle', 'last', 'cash', 'keeper', 'exec']) expect(q(`ack-rt-${k}`)).not.toBeNull();
   expect(q('ack-rt-putin').textContent).toContain('$32.50'); expect(q('ack-rt-phase').textContent).toContain('RECOVERY'); expect(q('ack-rt-keeper').textContent).toContain('1 ACTIVE');
@@ -168,14 +169,14 @@ test('🔑 AI key box: tests and saves through the server, shows only set + the 
   await act(async () => { root.unmount(); });
 });
 
-test('🗂 trades beside the Brain; 👑 Coach and 🎓 Teach live INSIDE the Brain as its own sections', async () => {
+test('🗂 one deck: ⚡ Live open by default, the Brain its own pane; 👑 Coach and 🎓 Teach live INSIDE the Brain', async () => {
   const call = jest.fn(async () => ({ ok: true }));
   const hub = { d: data, livePx: new Map(), sel: selectors(data), load: jest.fn() };
   const { root, q } = mount();
   await act(async () => { root.render(<AgentHubProvider value={hub}><AgentCockpit call={call} /></AgentHubProvider>); });
   await flush();
-  expect([...q('ack-tapezone').children].map(c => c.getAttribute('data-testid'))).toEqual(['ack-deck', 'cch']);
-  expect(q('ack-deck-coach')).toBeNull(); expect(q('ack-deckpane-tape').hidden).toBe(false);
+  expect(q('ack-deck-coach')).toBeNull(); expect(q('ack-deckpane-live').hidden).toBe(false); expect(q('ack-deckpane-brain').hidden).toBe(true);
+  await act(async () => { q('ack-deck-brain').click(); }); expect(q('ack-deckpane-brain').hidden).toBe(false); expect(q('ack-deckpane-live').hidden).toBe(true);
   expect(q('cch-extra-coach').hidden).toBe(true); expect(q('cch-extra-coach').children.length).toBeGreaterThan(0);
   await act(async () => { q('cch-pane-coach').click(); });
   expect(q('cch-extra-coach').hidden).toBe(false); expect(q('cch-modes').closest('.cch-talkpane').hidden).toBe(true);   // Talk stays mounted (hidden): no remount glitch

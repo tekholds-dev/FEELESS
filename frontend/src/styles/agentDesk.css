@@ -1,6 +1,6 @@
 /* 🤖 HQ › Agents (AgentDesk.jsx) — m-* tokens throughout. One keyframe set (agd*), transform / opacity only.
    Layout: hero → KPI tiles → office → agent picker → ONE lens. Agent colour = --ag (set per .is-<agent>). */
-.agd { --ag: var(--m-accent); --agd-up: #45e486; display: grid; gap: 12px; padding: 14px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--m-accent) 30%, transparent);
+.agd { --ag: var(--m-accent); --agd-up: #45e486; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 14px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--m-accent) 30%, transparent);
   background: linear-gradient(160deg, #06120d, #0b0a18); color: var(--m-text); min-width: 0; }
 .agd .is-tally { --ag: #1fd178; } .agd .is-sherlock { --ag: #a07bff; } .agd .is-trigger { --ag: #f5c451; } .agd .is-devil { --ag: #ff6b86; } .agd .is-desk { --ag: var(--m-accent); }
 /* ⚡ the tab-wide aurora stays STILL (measured 2026-10-14: drifting, it was the biggest per-frame cost of the tab — the whole 4,200px page
@@ -9,7 +9,7 @@
 .agd-warn { color: var(--m-warn); }
 
 /* hero */
-.agd-head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; } .agd-title { flex: 1 1 260px; }
+.agd-head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; } .agd-title { flex: 1 1 260px; min-width: 0; }
 .agd-dial > button { padding: 5px 10px; font-size: 12px; white-space: nowrap; }
 .agd.is-dial-crazy { border-color: #ff7a3d; } .agd.is-dial-crazy .agd-dial > button.active { background: linear-gradient(135deg, #ff4d2e, #ffb02e); color: #1a0700; }
 .agd.is-dial-crazy .agd-wire u { background: linear-gradient(90deg, transparent 35%, #ff7a3d 50%, transparent 65%); animation-duration: 1.4s; } .agd.is-dial-crazy .agd-live { background: #ff7a3d; animation-duration: .7s; }
@@ -222,7 +222,7 @@ body.theme-day .agd .is-trigger { --ag: #a87b12; } body.theme-day .agd .is-tally
   .agd-q { max-width: none; } .agd-ahead { grid-template-columns: 40px minmax(0, 1fr); } .agd-ahead em { grid-column: 2; font-size: 13px; }
 }
 /* v11: the mission header ticker · the lens bar docks at the bottom of the tab */
-.agd-ticker { display: block; max-width: 520px; font: 11px var(--m-mono); color: var(--m-dim); text-transform: none; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.agd-ticker { display: block; max-width: min(520px, 100%); font: 11px var(--m-mono); color: var(--m-dim); text-transform: none; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* v12 (owner: "the office IS the Agents tab"): mission + ONE compact status strip, the old rows open in a drawer, the office fills the view */
 .agd { gap: 8px; padding: 10px 12px; }
 .agd-kpis { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 5px; }

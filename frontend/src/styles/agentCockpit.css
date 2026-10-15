@@ -141,7 +141,6 @@ button.ack-ml { cursor: pointer; transition: transform .12s var(--m-ease), borde
 .is-pulse { display: inline-block; animation: ackPulse .9s ease-out both; }
 
 /* 🤖 matrix · 📋 review queue */
-.ack-foot { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--ack-gap); align-items: start; }
 .ack-mfilt { margin-left: auto; }
 .ack-agents { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
 .ack-agent { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 2px; align-content: start; padding: 7px 8px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); border-top: 2px solid var(--ag); min-width: 0;
@@ -227,7 +226,7 @@ button.ack-ml { cursor: pointer; transition: transform .12s var(--m-ease), borde
 
 @media (max-width: 1360px) { .ack-ribbon { grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); } .ack-rhead { grid-column: 1 / -1; border-right: 0; border-bottom: 1px solid var(--m-line); grid-template-columns: auto auto; justify-content: start; gap: 10px; }
   .ack-tcards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 1180px) { .ack-main, .ack-foot { grid-template-columns: minmax(0, 1fr); } .ack-panel { position: static; } .ack-seatrow { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ack-pbody { max-height: none; } }
+@media (max-width: 1180px) { .ack-main { grid-template-columns: minmax(0, 1fr); } .ack-panel { position: static; } .ack-seatrow { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ack-pbody { max-height: none; } }
 @media (max-width: 640px) {
   .ack-seatrow, .ack-tcards { grid-template-columns: minmax(0, 1fr); } .ack-ctools { margin-left: 0; } .ack-agents { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ack-trow button { grid-template-columns: 38px 80px minmax(0, 1fr); } .ack-trow .ack-tsym { display: none; } .ack-trow .ack-twhy { grid-column: 1 / -1; }

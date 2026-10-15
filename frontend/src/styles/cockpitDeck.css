@@ -1,0 +1,49 @@
+/* 🗂 HQ › Agents — the one-screen cockpit (2026-10-14). Imported LAST by AgentCockpit: it only tightens what the cockpit sheets draw.
+   The deck under the chart shows one pane at a time; the P&L strip over the chart is one line; the 🧠 AI log reads short. m-* tokens only. */
+
+/* ── the deck tabs: solid neon when picked, a live count on each ── */
+.ack .ack-deck { height: auto; }   /* the pane sets the height: a short pane leaves no empty box */
+.ack .ack-deckpane { max-height: clamp(460px, 72vh, 780px); }
+.ack-decktabs > button { min-height: 32px; font: 800 10.5px var(--m-mono); letter-spacing: .06em; }
+.ack-decktabs > button:hover { transform: translateY(-1px); }
+
+/* ── the decision panel's tabs: one row, never wrapping ── */
+.ack .ack-panel .ack-ptabs { flex-wrap: nowrap; }
+.ack .ack-panel .ack-ptabs button { padding: 6px 7px; font-size: 10px; flex: 1 1 auto; }
+
+/* ── the P&L strip over the chart: one line (P&L · rail · held / Reaper), details on hover ── */
+.ack-trade.thd { padding: 6px 10px; gap: 4px 14px; grid-template-columns: auto minmax(180px, 1fr) auto; }
+.ack-trade .thd-pnl > .ack-num { font-size: 17px; }
+.ack-trade .thd-legend { flex-wrap: nowrap; overflow: hidden; white-space: nowrap; font-size: 8px; }
+.ack-trade .thd-legend > small { overflow: hidden; text-overflow: ellipsis; }
+.ack-trade .thd-kv { flex-wrap: nowrap; gap: 12px; }
+
+/* ── the chart header: MC · 5m vol · liq + tools; the decision chips: the six newest, one row ── */
+.ack-chead { row-gap: 4px !important; }
+.ack-mrail { flex-wrap: nowrap; overflow: hidden; margin-top: 4px; }
+.ack-mrail .ack-mlist { flex-wrap: nowrap; overflow: hidden; mask-image: linear-gradient(90deg, #000 85%, transparent); }
+.ack-mrail .ack-ml { white-space: nowrap; flex: none; } .ack-mrail .ack-mkey { flex-wrap: nowrap; flex: none; }
+
+/* ── the 🧠 AI log: short rows (one line said, the full read on the newest), the record in one drawer ── */
+.cai-row .cai-say { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cai-row:not(:first-child) .avt.is-mini { display: none; }
+.cai-row .cai-foot { flex-wrap: nowrap; overflow: hidden; white-space: nowrap; }
+.cai-logmore { justify-self: start; margin-top: 4px; }
+.cai-record { border: 1px solid var(--m-line); border-radius: var(--m-r-sm); padding: 6px 9px; display: grid; gap: 8px; }
+.cai-record > summary { cursor: pointer; display: flex; align-items: baseline; gap: 8px; list-style: none; font: 800 10px var(--m-mono); letter-spacing: .1em; color: var(--m-accent); }
+.cai-record > summary::-webkit-details-marker { display: none; }
+.cai-record > summary::before { content: '▸'; display: inline-block; transition: transform .15s ease; }
+.cai-record[open] > summary::before { transform: rotate(90deg); }
+.cai-record > summary small { font: 600 9px var(--m-mono); letter-spacing: 0; color: var(--m-mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cai-record > summary:hover small { color: var(--m-dim); }
+.cai-record > summary:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; border-radius: 4px; }
+.cai-record[open] > :not(summary) { animation: cdkIn .18s ease-out; }
+@keyframes cdkIn { from { transform: translateY(4px); opacity: .5; } }
+
+body.fx-lite .cai-record[open] > :not(summary), body.fx-lite .cai-record > summary::before { animation: none; transition: none; }
+@media (prefers-reduced-motion: reduce) { .cai-record[open] > :not(summary), .cai-record > summary::before, .ack-decktabs > button { animation: none; transition: none; } }
+body.theme-day .cai-record { border-color: rgba(10, 60, 35, .18); } body.theme-day .cai-record > summary { color: #0d7a41; } body.theme-day .cai-record > summary small { color: #3f5a4a; }
+@media (max-width: 640px) {
+  .ack-decktabs { grid-template-columns: repeat(3, minmax(0, 1fr)); } .ack-decktabs > button { font-size: 9.5px; min-height: 30px; }
+  .ack-trade.thd { grid-template-columns: 1fr; } .ack-trade .thd-kv { flex-wrap: wrap; }
+}

@@ -4220,3 +4220,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `m-live::before` is capped (`top: max(-35%, -260px)`, `height: min(170%, 1200px)`) and `.agd.m-live::before` is still (2D transform, no
   will-change; the ribbon's m-live still drifts): 16.7 Mpx, per-frame compositing ≈ halved. Test `styles/liveLayers.test.js`. "A TAB LAGS" ⇒
   count layer Mpx (CDP `LayerTree.layerTreeDidChange`, drawsContent) before touching React. Never put an animated m-live on a page-tall element.
+- 🗂 AGENTS COCKPIT = ONE SCREEN (2026-10-14, owner: "less scroll, fewer stacked boxes"): under ribbon · pulse · seats · chart | decision panel sits
+  ONE `Deck` (testid `ack-tapezone`, `feeless.agentDeck`): ⚡ Live (intake band + live decisions, default) · 🎬 Trades · 🧠 Brain · 🧩 Agents
+  (matrix) · 📋 Review · 🎛 Controls — every pane mounted, only the picked one shown. Page 4,214 → 1,601px. P&L strip over the chart = one line
+  (entry → now + Reaper's rule in tips); chart header = MC · 5m vol · liq (price + supply in the MC tip); decision chips = 6 newest, one row.
+  🧠 AI pane: the newest `LOG_SHORT` 6 decisions first (rows clamp to 2 lines, intel on the newest only), ask box, then `details.cai-record`
+  (agree bar, metrics, rule lab, report, duet, learning). Layout CSS = `styles/cockpitDeck.css` (imported last). New cockpit block ⇒ a deck pane.

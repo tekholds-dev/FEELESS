@@ -23,6 +23,7 @@ import { tradeBar, tickDir, aiOf } from '../../lib/cockpitControls';
 import '../../styles/agentCockpit.css';
 import { AiChat } from './AiChat';
 import '../../styles/cockpitAi.css';   // after the cockpit sheet: it owns the plot's height + the meta pass
+import '../../styles/cockpitDeck.css';   // last: the one-screen layout (deck, tight chart strip, short AI log)
 
 // 🎛 THE AGENTS COCKPIT (HQ › Agents, the whole top of the tab — built to the owner's reference, 2026-10-12): REAL MONEY MISSION ribbon ·
 // the four SEATS · ONE chart in MARKET CAP with the agents' real events lettered on it (T D W B R X) · the LIVE DECISIONS strip · the
@@ -64,11 +65,11 @@ function LossMap({ court, capital }) {
 // 🗂 ONE deck instead of three stacked boxes: the trade tape · the coach · teach share a tab row beside the Brain (less scroll). Every pane stays
 // mounted (hidden) so a half-typed lesson or an open trade story survives a tab switch; the count on each tab is the payload's own.
 const DECK_KEY = 'feeless.agentDeck';
-function Deck({ tabs }) {
+function Deck({ tabs, testid = 'ack-deck' }) {
   const [on, setOn] = useState(() => { try { const v = localStorage.getItem(DECK_KEY); return tabs.some(t => t[0] === v) ? v : tabs[0][0]; } catch { return tabs[0][0]; } });
   const pick = k => { setOn(k); try { localStorage.setItem(DECK_KEY, k); } catch { /* private window */ } };
-  return <section className="ack-deck" data-testid="ack-deck" data-on={on}>
-    {tabs.length > 1 ? <div className="ack-decktabs m-seg" role="tablist" aria-label="Trades, coach and teach">{tabs.map(([k, l, n]) => <button key={k} type="button" role="tab" aria-selected={on === k} className={on === k ? 'active' : ''} onClick={() => pick(k)} data-testid={`ack-deck-${k}`}>{l}{n ? <i>{n}</i> : null}</button>)}</div> : <p className="ack-deckh"><b>{tabs[0][1]}</b>{tabs[0][2] ? <i>{tabs[0][2]}</i> : null}</p>}
+  return <section className="ack-deck" data-testid={testid} data-on={on}>
+    {tabs.length > 1 ? <div className="ack-decktabs m-seg" role="tablist" aria-label="Cockpit deck">{tabs.map(([k, l, n]) => <button key={k} type="button" role="tab" aria-selected={on === k} className={on === k ? 'active' : ''} onClick={() => pick(k)} data-testid={`ack-deck-${k}`}>{l}{n ? <i>{n}</i> : null}</button>)}</div> : <p className="ack-deckh"><b>{tabs[0][1]}</b>{tabs[0][2] ? <i>{tabs[0][2]}</i> : null}</p>}
     {tabs.map(([k, , , node]) => <div key={k} role="tabpanel" className="ack-deckpane" hidden={on !== k} data-testid={`ack-deckpane-${k}`}>{node}</div>)}
   </section>;
 }
@@ -218,10 +219,8 @@ function TradeHud({ pos, m }) {
         <small className="is-peak" data-testid="ack-trade-peak">PEAK {pctW(b.peak)}{b.giveBack > 0.5 ? ` · gave back ${b.giveBack.toFixed(1)}` : ''}</small>
         {b.trail != null ? <small className="is-trail">TRAIL {pctW(b.trail)}</small> : null}
         <small className="is-take">{b.hasTake ? `TAKE ${pctW(b.take)}${b.toTake > 0 ? ` · ${b.toTake.toFixed(1)} to go` : ''}` : 'NO TAKE'}</small></span></span>
-    <span className="thd-kv"><span><small>ENTRY → NOW</small><b>{k ? mcWord(Number(pos.entry) * k) : priceFmt(pos.entry)} → <LiveNum v={k ? m.mc : m?.price} fmt={k ? mcWord : priceFmt} cls="" /></b></span>
-      <span><small>HELD</small><b data-testid="ack-trade-held">{heldW}</b></span>
-      <span><small>☠ REAPER</small><b className={`thd-dec ${/EXIT|TAKE/.test(pos.decision || '') ? 'is-bad' : /PROTECT/.test(pos.decision || '') ? 'is-good' : ''}`}>{pos.decision || pos.state || 'HOLD'}</b>
-        <u>{pos.rule || ''}{pos.nextReview != null ? ` · review ${secs(pos.nextReview)}` : ''}</u></span></span></div>;
+    <span className="thd-kv" data-tip={`entry → now: ${k ? mcWord(Number(pos.entry) * k) : priceFmt(pos.entry)} → ${k ? mcWord(m.mc) : priceFmt(m?.price)}`}><span><small>HELD</small><b data-testid="ack-trade-held">{heldW}</b></span>
+      <span data-tip={`☠ Reaper ${pos.decision || pos.state || 'HOLD'}${pos.rule ? ` · ${pos.rule}` : ''}${pos.nextReview != null ? ` · next review ${secs(pos.nextReview)}` : ''}`}><small>☠ REAPER</small><b className={`thd-dec ${/EXIT|TAKE/.test(pos.decision || '') ? 'is-bad' : /PROTECT/.test(pos.decision || '') ? 'is-good' : ''}`}>{pos.decision || pos.state || 'HOLD'}</b></span></span></div>;
 }
 
 // ── 📈 the chart: market cap, always ──────────────────────────────────────────────────────────────────────────────────────────────
@@ -253,22 +252,20 @@ function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent, tid, call, is
   return <div className="ack-chart" data-testid="ack-chart">
     <header className="ack-chead"><b className="ack-csym">${m.symbol || '—'}</b>
       {pos ? <LiveNum v={pos.pct} fmt={x => pc(x)} testid="ack-chart-pct" /> : null}
-      <span className="ack-cstat ack-cmc"><small>MC</small><LiveNum v={m.mc} fmt={mcWord} cls="" testid="ack-chart-mc" /></span>
+      <span className="ack-cstat ack-cmc" data-tip={`Market cap = live price × the supply the kernel resolved · price ${priceFmt(m.price)} · supply ${m.supply ? `${supplyWord(m.supply)}${m.supplySrc ? ` (${m.supplySrc})` : ''}` : 'UNKNOWN'}`}><small>MC</small><LiveNum v={m.mc} fmt={mcWord} cls="" testid="ack-chart-mc" /></span>
       <span className="ack-cstat"><small>5M VOL</small><em>{mcWord(vol)}</em></span>
       <span className="ack-cstat"><small>LIQ</small><em>{mcWord(liq)}</em></span>
-      <span className="ack-cstat ack-cpx" data-tip="Price is secondary: the chart speaks market cap"><small>PRICE</small><em>{priceFmt(m.price)}</em></span>
-      <span className="ack-cstat" data-tip="Market cap = live price × the supply the kernel resolved (token supply → a launchpad's fixed 1B → live cap ÷ price). Unknown supply = no chart."><small>SUPPLY</small><em>{m.supply ? `${supplyWord(m.supply)}${m.supplySrc ? ` · ${m.supplySrc}` : ''}` : 'UNKNOWN'}</em></span>
       <span className="ack-ctools"><span className="m-seg ack-iv" role="group" aria-label="Candle size">{IVS.map(([k, l]) => <button key={k} type="button" className={iv === k ? 'active' : ''} onClick={() => setIv(k)} data-testid={`ack-iv-${k}`}>{l}</button>)}</span>
         <button type="button" className="m-btn ack-wr" onClick={() => pair && window.dispatchEvent(new CustomEvent('feeless:war-room', { detail: pair }))} data-testid="ack-warroom">⚔ war room</button>
-        <ThemePick /><i className="ack-livechip">● MC chart</i></span></header>
+        <ThemePick /></span></header>
     {!m.pair ? <p className="ack-nil" data-testid="ack-nopool">No pool for this coin yet — nothing to chart.</p>
       : !m.mc ? <p className="ack-nil is-warn" data-testid="ack-mc-unavailable"><b>MC UNAVAILABLE</b> — no supply is known for this coin yet (no token supply, not a launchpad mint, no live cap). The raw price is never charted in its place.</p>
         : <div className="ack-plot">{pos ? <TradeHud pos={pos} m={m} /> : null}<Suspense fallback={<p className="ack-nil">loading the live chart…</p>}>
           <PriceChartLazy key={`${m.pair}-${iv}`} pair={pair} interval={iv} metric="marketCap" showVolume markers={chartMarkers} fuse={fuse} pnl={seatPnl} /></Suspense></div>}
-    <div className="ack-mrail" data-testid="ack-mrail"><span className="ack-mkey"><i className="ack-ml is-B">▲<small>real buy</small></i><i className="ack-ml is-X">▼<small>real sell</small></i><small>on the chart · decisions →</small></span>
-      {markers.length ? <span className="ack-mlist">{markers.slice(-12).map(k => <button key={k.id} type="button" className={`ack-ml is-${k.text}`} onClick={() => onAgent(k.agent)}
+    <div className="ack-mrail" data-testid="ack-mrail"><span className="ack-mkey" data-tip="▲ real buy · ▼ real sell on the chart; the chips are the newest decisions on this coin"><i className="ack-ml is-B">▲</i><i className="ack-ml is-X">▼</i></span>
+      {markers.length ? <span className="ack-mlist">{markers.slice(-6).reverse().map(k => <button key={k.id} type="button" className={`ack-ml is-${k.text}`} onClick={() => onAgent(k.agent)}
         data-tip={`${new Date(k.at * 1000).toLocaleTimeString()} · ${TAPE_AGENT[k.agent]?.[1] || k.agent} · ${k.action}${k.why ? ` — ${k.why}` : ''}${k.mc ? ` · MC ${mcWord(k.mc)}` : ''} · ${ago(k.at)} ago`}
-        data-testid={`ack-mk-${k.id}`}>{TAPE_AGENT[k.agent]?.[1] || k.agent} {String(k.action || '').toLowerCase()}<small>{ago(k.at)}</small></button>)}</span> : <small className="ack-mnone">no real event on this coin yet — markers appear only for decisions and fills that happened</small>}</div>
+        data-testid={`ack-mk-${k.id}`}>{TAPE_AGENT[k.agent]?.[1] || k.agent} {String(k.action || '').toLowerCase()}<small>{ago(k.at)}</small></button>)}</span> : <small className="ack-mnone">no real event on this coin yet</small>}</div>
   </div>;
 }
 
@@ -510,17 +507,19 @@ export function AgentCockpit({ call, isOwner = true }) {
     <section className="ack-seats" data-testid="ack-seats"><header><b>🪑 SEAT BOARD</b><OpenPnl seats={seats} onPick={onPick} /><small><b className="m-pos">{held}/{seats.length || '—'} active</b> · live prices every 3s · tap a seat = its chart + the agent handling it</small></header>
       <div className="ack-seatrow">{seats.map((s, i) => <SeatCard key={s.seat} s={s} on={!s.open && s.mint === mint} onPick={onPick} readyN={readyN} same={s.open ? seats.slice(0, i).find(x => x.open && x.why === s.why)?.seat : undefined} />)}</div></section>
     <div className="ack-main">
-      <div className="ack-left"><CockpitChart m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); setTab('live'); }} tid={o?.tid} call={call} isOwner={isOwner} />
-        <IntakeBand o={o} mint={mint} onPick={onPick} call={call} isOwner={isOwner} />
-        <DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { if (r.mint) setPick(r.mint); setAgentS(r.agent in AG ? r.agent : null); setTab('live'); }} /></div>
+      <div className="ack-left"><CockpitChart m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); setTab('live'); }} tid={o?.tid} call={call} isOwner={isOwner} /></div>
       <DecisionPanel o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
         pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} mcNow={model?.mc} onAi={() => setAiOpen(true)} /></div>
-    <div className="ack-tapezone" data-testid="ack-tapezone">
-      <Deck tabs={[['tape', '🎬 Trades', (o.tradeTape?.rows || []).length, <><LossMap court={o.court} capital={o.capital} /><TradeTape tape={o.tradeTape} mint={mint} onPick={onPick} /></>]]} />
-      <AiChat call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} variant="full" extras={brainExtras} /></div>
-    <div className="ack-foot"><AgentMatrix o={o} gens={o?.generations || []} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); setTab('live'); }} rows={o.tape} pulse={pulse} />
-      <ReviewQueue o={o} call={call} isOwner={isOwner} onPick={m => { onPick(m); if (m && !((o.kernel || {}).candidates || []).some(c => c.mint === m) && !(o.positions || []).some(p => p.mint === m) && !(o.ownerReview || []).some(r => r.mint === m)) openCoin({ mint: m }); }} sel={mint} /></div>
-    <CockpitControls o={o} call={call} isOwner={isOwner} onAi={() => setAiOpen(true)} />
+    {/* 🗂 ONE DECK under the chart: one pane on screen at a time (the tab was ~10 stacked blocks, 4,200px tall) */}
+    <Deck testid="ack-tapezone" tabs={[
+      ['live', '⚡ Live', ((o.kernel || {}).candidates || []).length, <><IntakeBand o={o} mint={mint} onPick={onPick} call={call} isOwner={isOwner} />
+        <DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { if (r.mint) setPick(r.mint); setAgentS(r.agent in AG ? r.agent : null); setTab('live'); }} /></>],
+      ['tape', '🎬 Trades', (o.tradeTape?.rows || []).length, <><LossMap court={o.court} capital={o.capital} /><TradeTape tape={o.tradeTape} mint={mint} onPick={onPick} /></>],
+      ['brain', '🧠 Brain', null, <AiChat call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} variant="full" extras={brainExtras} />],
+      ['agents', '🧩 Agents', (o.agents || []).length || null, <AgentMatrix o={o} gens={o?.generations || []} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); setTab('live'); }} rows={o.tape} pulse={pulse} />],
+      ['review', '📋 Review', (o.ownerReview || []).length || null, <ReviewQueue o={o} call={call} isOwner={isOwner} onPick={m => { onPick(m); if (m && !((o.kernel || {}).candidates || []).some(c => c.mint === m) && !(o.positions || []).some(p => p.mint === m) && !(o.ownerReview || []).some(r => r.mint === m)) openCoin({ mint: m }); }} sel={mint} />],
+      ['controls', '🎛 Controls', null, <CockpitControls o={o} call={call} isOwner={isOwner} onAi={() => setAiOpen(true)} />],
+    ]} />
     {aiOpen ? createPortal(<AiProvidersLive o={o} call={call} isOwner={isOwner} close={() => setAiOpen(false)} />, document.body) : null}
   </section>;
 }

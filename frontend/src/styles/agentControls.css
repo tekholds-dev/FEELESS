@@ -137,7 +137,6 @@ body.theme-day .acx-vol b { color: #a8430c; }
 .thd-kv { display: flex; flex-wrap: wrap; gap: 4px 12px; }
 .thd-kv > span { display: grid; gap: 1px; min-width: 0; } .thd-kv small { font: 700 8px var(--m-mono); letter-spacing: .1em; color: var(--m-mute); }
 .thd-kv b, .thd-kv .ack-num { font: 800 11.5px var(--m-mono); color: var(--m-text); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.thd-kv u { text-decoration: none; font: 600 8.5px var(--m-mono); color: var(--m-dim); white-space: nowrap; }
 .thd-dec.is-good { color: var(--m-accent) !important; } .thd-dec.is-bad { color: var(--m-danger) !important; }
 .thd-seat { display: block; padding: 3px 0 2px; }
 .thd-flow { display: grid; grid-template-columns: auto minmax(40px, 1fr) auto; align-items: center; gap: 6px; padding: 2px 0; font: 700 8.5px var(--m-mono); letter-spacing: .06em; color: var(--m-mute); }
