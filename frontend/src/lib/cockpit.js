@@ -395,7 +395,7 @@ export function moneyOf(d, seats, nowMs = Date.now()) {
 export function exitTags(s) {
   const t = [s?.why, s?.rule, s?.reaper, s?.tag, s?.evidence, s?.decision].filter(Boolean).join(' '); const out = [];
   if (/runway/i.test(t)) out.push({ k: 'runway', ic: '🛫', word: 'RUNWAY', tip: 'a green coin is not banked in its first 6 min — the trail still sells it if it gives the gain back' });
-  if (/\bR6h\b|half banked/i.test(t) || s?.action === 'trim') out.push({ k: 'half', ic: '💰', word: 'HALF BANKED', tip: 'R6h scale-out: half sold at +10%, the rest rides the trail' });
+  if (/\bR6h\b|half banked/i.test(t) || s?.action === 'trim') out.push({ k: 'half', ic: '💰', word: 'BANKED', tip: `R6h scale-out: most of the coin sold at the take line, the rest rides the trail${/(\d+)% sold/.test(t) ? ` (${t.match(/(\d+)% sold/)[1]}% sold)` : ''}` });
   if (/comeback/i.test(t)) out.push({ k: 'comeback', ic: '🔁', word: 'COMEBACK', tip: 'sold green, ran past our exit, bought back inside the sit-out' });
   return out;
 }
