@@ -70,9 +70,11 @@ export function TrenchPulse({ trades, tags = new Map(), me }) {
     <div className="tpl-top">
       <b className={`tpl-word is-${tone}`} key={p.word} data-testid="tpl-word">{p.word === 'RUG WATCH' ? '🚨 ' : p.word === 'SEND' ? '🚀 ' : ''}{p.word}</b>
       <small className="tpl-why">{p.why}{p.turn === 'up' ? ' ↗' : p.turn === 'down' ? ' ↘' : ''}</small>
+      <span className="tpl-share" data-tip="share of the last 60s $ that was buying"><b className={p.share >= 0.5 ? 'm-pos' : 'm-neg'}>{Math.round(p.share * 100)}%</b><small>BUYS</small></span>
     </div>
+    <div className="tpl-tug" aria-hidden><i style={{ transform: `scaleX(${p.share.toFixed(3)})` }} /><u style={{ left: `${(p.share * 100).toFixed(1)}%` }} /></div>
     <div className="tpl-bars" aria-label="Buy and sell pressure, last 60 seconds in 5-second steps" data-tip="Last 60s in 5-second steps — green up = $ bought, red down = $ sold. Right = now.">
-      {bars.map((b, i) => <span key={i} className="tpl-col"><i className="is-b" style={{ transform: `scaleY(${(b.buy / peak).toFixed(3)})` }} /><i className="is-s" style={{ transform: `scaleY(${(b.sell / peak).toFixed(3)})` }} /></span>)}
+      {bars.map((b, i) => <span key={i} className={`tpl-col ${i === bars.length - 1 ? 'is-now' : ''}`}><i className="is-b" style={{ transform: `scaleY(${(b.buy / peak).toFixed(3)})` }} /><i className="is-s" style={{ transform: `scaleY(${(b.sell / peak).toFixed(3)})` }} /></span>)}
     </div>
     <div className="tpl-kpis">
       <span data-tip="unique wallets buying vs selling in the last 60s"><em>WALLETS</em><b><i className="m-pos">{p.buyers}▲</i> <i className="m-neg">{p.sellers}▼</i></b></span>
@@ -84,7 +86,7 @@ export function TrenchPulse({ trades, tags = new Map(), me }) {
     {rows.length ? <ol className="tpl-race" aria-label="Wallets pushing hardest, last 2 minutes">
       {rows.map(r => { const mine = r.mine || (me && r.wallet === me); const bad = isBad(r.tags);
         return <li key={r.wallet}><button type="button" className={`tpl-row ${r.net >= 0 ? 'is-b' : 'is-s'} ${bad ? 'is-bad' : ''}`} onClick={() => investigate(r.wallet)} data-tip={`${r.n} trades · net ${formatUSD(r.net)} in 2 min${r.tags.length ? ` · ${r.tags.map(g => g.label).join(', ')}` : ''} — tap for the case file`}>
-          <code>{mine ? '✓ YOU' : short(r.wallet)}</code>{r.tags.slice(0, 2).map(g => <em key={g.id || g.label} className={`tpl-tag is-${g.tone}`}>{g.label}</em>)}
+          <code>{mine ? '✓ YOU' : short(r.wallet)}</code><span className="tpl-tags">{r.tags.slice(0, 2).map(g => <em key={g.id || g.label} className={`tpl-tag is-${g.tone}`}>{g.label}</em>)}</span>
           <span className="tpl-net"><i style={{ transform: `scaleX(${r.w.toFixed(3)})` }} /></span><b>{r.net >= 0 ? '+' : '−'}{formatUSD(Math.abs(r.net))}</b></button></li>; })}
     </ol> : null}
   </div>;
