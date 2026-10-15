@@ -93,6 +93,11 @@ function PulseAi({ o, now, onAi, sec }) {
     <b>{last ? `${last.stance || '—'}${last.symbol ? ` $${last.symbol}` : ''}` : 'no answer yet'}</b>
     <u>{[last ? `${sec(age)} ago` : null, m.queue ? `queue ${m.queue}` : null, m.avgMs ? `${(m.avgMs / 1000).toFixed(1)}s avg` : null].filter(Boolean).join(' · ')}</u></button>;
 }
+// the funnel as four live bars (each scaled to the biggest stage; transform only)
+function FunnelBars({ p }) {
+  const v = [p.tracking, p.contending, p.ready, p.held].map(x => Number(x) || 0); const mx = Math.max(1, ...v);
+  return <span className="ack-fbars" aria-hidden>{['t', 'c', 'r', 'h'].map((k, i) => <i key={k} className={`is-${k}`} style={{ transform: `scaleY(${Math.max(0.06, v[i] / mx).toFixed(3)})` }} />)}</span>;
+}
 function LivePulse({ o, onAi }) {
   const now = useTick(1000); const p = pulseOf(o, now); const [ic, nm] = TAPE_AGENT[p.last?.agent] || ['•', p.last?.agent || ''];
   const sec = v => (v == null ? '—' : v < 60 ? `${Math.floor(v)}s` : `${Math.floor(v / 60)}m ${Math.floor(v % 60)}s`);
@@ -101,7 +106,8 @@ function LivePulse({ o, onAi }) {
       <span className="ack-pzbar"><i style={{ transform: `scaleX(${p.fill})` }} /></span></span>
     <span className="ack-pz"><small>COINS TRACKED</small><LiveNum v={p.mints} fmt={x => String(Math.round(x))} cls="" testid="ack-pulse-mints" /><u>{p.newPerMin != null ? `${Math.round(p.newPerMin)} new / min` : ''}</u></span>
     <span className="ack-pz"><small>RE-JUDGED</small><LiveNum v={p.rejudged} fmt={x => String(Math.round(x))} cls="" /><u>{p.eps != null ? `${p.eps.toFixed(1)} events / s` : ''}</u></span>
-    <span className="ack-pz"><small>FUNNEL</small><b><i className="ack-fz is-t">{p.tracking}</i>›<i className="ack-fz is-c">{p.contending}</i>›<i className="ack-fz is-r">{p.ready}</i>›<i className="ack-fz is-h">{p.held}</i></b><u>tracking › contending › ready › held</u></span>
+    <span className="ack-pz" data-tip="tracking › contending › ready › held"><small>FUNNEL</small><b><i className="ack-fz is-t">{p.tracking}</i>›<i className="ack-fz is-c">{p.contending}</i>›<i className="ack-fz is-r">{p.ready}</i>›<i className="ack-fz is-h">{p.held}</i></b><u>tracking › contending › ready › held</u>
+      <FunnelBars p={p} /></span>
     <span className="ack-pz"><small>BRAIN</small><b>{p.brainMs != null ? `${p.brainMs < 10 ? p.brainMs.toFixed(1) : Math.round(p.brainMs)}ms` : '—'}</b><u>{p.wakeMs != null ? `price → Reaper ${Math.round(p.wakeMs)}ms` : 'per coin, ten agents'}</u></span>
     <span className="ack-pz is-wide"><small>LAST DECISION</small><b key={p.last ? `${p.last.agent}-${p.last.action}-${p.last.symbol}` : 'x'} className="ack-pzlast">{p.last ? <>{ic} {nm} · {p.last.action}{p.last.symbol ? ` $${p.last.symbol}` : ''}</> : '—'}</b><u>{p.last ? `${sec(p.last.age)} ago` : 'a quiet tape is a quiet market'}</u></span>
     <PulseAi o={o} now={now} onAi={onAi} sec={sec} />
@@ -112,9 +118,10 @@ function LivePulse({ o, onAi }) {
 export function MissionRibbon({ tiles, live, cold }) {
   return <section className="ack-ribbon m-live" data-testid="ack-ribbon">
     <span className="ack-rhead"><b>💵 REAL MONEY MISSION</b><i className={live ? 'is-live' : ''}>{cold ? 'waiting' : live ? '● live' : '● snapshot'}</i></span>
-    {tiles.map(t => <span key={t.k} className="ack-rt" data-testid={`ack-rt-${t.k}`} data-tip={t.tip || undefined}><small>{t.label}</small>
+    {tiles.map(t => <span key={t.k} className={`ack-rt ${t.meter != null ? 'has-meter' : ''}`} data-testid={`ack-rt-${t.k}`} data-tip={[t.sub, t.tip].filter(Boolean).join(' · ') || undefined}><small>{t.label}</small>
       {t.fmt ? (t.live ? <LiveNum v={t.val} fmt={FMT[t.fmt]} cls={t.cls || ''} /> : <b className={`ack-num ${t.cls || ''}`}>{FMT[t.fmt](t.val)}</b>) : <b className={`ack-num ack-word ${t.cls || ''}`}>{t.text}</b>}
-      {t.sub ? <u className={t.subCls || ''}>{t.sub}</u> : null}</span>)}
+      {t.sub ? <u className={t.subCls || ''}>{t.sub}</u> : null}
+      {t.meter != null ? <span className={`ack-rtm ${t.meterCls || ''}`} aria-hidden><i style={{ transform: `scaleX(${Math.max(0, Math.min(1, t.meter)).toFixed(3)})` }} /></span> : null}</span>)}
   </section>;
 }
 
@@ -276,14 +283,14 @@ function TapeRow({ r, onPick, card, pulse }) {
   const body = <><small className="ack-tage">{ago(r.at)} ago</small><b style={{ '--ag': AG[r.agent] || 'var(--m-accent)' }}>{ic} {nm}</b><em className={`ack-tact ${tapeTone(r)}`}>{r.action}</em>
     {r.n > 1 ? <span className="ack-tsym ack-tgrp" data-testid={`ack-tgrp-${r.id}`}>×{r.n} · {r.syms.slice(0, 5).map(x => `$${x}`).join(' ')}{r.syms.length > 5 ? ' …' : ''}</span>
       : r.symbol ? <span className="ack-tsym">${r.symbol}{r.mc ? <small> · {mcWord(r.mc)} MC</small> : null}</span> : null}<span className="ack-twhy">{r.why}</span></>;
-  return card ? <Tag type="button" className={`ack-tcard ${tapeTone(r)} ${pulse ? 'is-new' : ''}`} onClick={() => onPick(r)} style={{ '--ag': AG[r.agent] || 'var(--m-accent)' }} data-testid={`ack-tape-${r.id}`}>{body}</Tag>
+  return card ? <Tag type="button" className={`ack-tcard ${tapeTone(r)} ${pulse ? 'is-new' : ''}`} onClick={() => onPick(r)} data-tip={r.why || undefined} style={{ '--ag': AG[r.agent] || 'var(--m-accent)' }} data-testid={`ack-tape-${r.id}`}>{body}</Tag>
     : <li className={`ack-trow ${tapeTone(r)}`}><button type="button" onClick={() => onPick(r)} data-testid={`ack-tline-${r.id}`}>{body}</button></li>;
 }
 function DecisionTape({ rows, agent, setAgent, onPick, fresh }) {
   const [all, setAll] = useState(false);
   const list = groupTape(tapeOf(rows, { agent, n: all ? 120 : 24 })).slice(0, all ? 120 : 6);   // repeats fold into one line
   return <section className="ack-tape" data-testid="ack-tape">
-    <header><b>⚡ LIVE DECISIONS</b><small>{agent ? `${TAPE_AGENT[agent]?.[1] || agent} only · ` : ''}latest real agent actions across all seats — a line exists only when something real changed</small>
+    <header data-tip="the latest real agent actions across all seats — a line exists only when something real changed"><b>⚡ LIVE DECISIONS</b><small>{agent ? `${TAPE_AGENT[agent]?.[1] || agent} only · ` : ''}latest real agent actions across all seats — a line exists only when something real changed</small>
       {agent ? <button type="button" className="m-btn" onClick={() => setAgent(null)} data-testid="ack-tape-all-agents">✕ all agents</button> : null}
       <button type="button" className="m-btn ack-more" onClick={() => setAll(!all)} aria-expanded={all} data-testid="ack-tape-more">{all ? 'Show newest' : `View all decisions (${tapeOf(rows, { agent, n: 120 }).length}) →`}</button></header>
     {!list.length ? <p className="ack-nil" data-testid="ack-tape-empty">No decision lines yet — the tape writes only when an opinion, an order or a ruling really changes (a quiet market is a quiet tape).</p>
@@ -306,7 +313,7 @@ export function leadAgent(dec) {
   return 'trigger';
 }
 const FRESH_CLS = { LIVE: 'is-live', FRESH: 'is-fresh', PARTIAL: 'is-part', STALE: 'is-stale', PENDING: 'is-pend', UNAVAILABLE: 'is-na' };
-function Tile({ l, v, sub, cls }) { return <span className="ack-ptile"><small>{l}</small><b className={cls || ''}>{v}</b>{sub ? <u>{sub}</u> : null}</span>; }
+function Tile({ l, v, sub, cls }) { return <span className="ack-ptile" data-tip={sub || undefined}><small>{l}</small><b className={cls || ''}>{v}</b>{sub ? <u>{sub}</u> : null}</span>; }
 const badgeOf = w => (/VETO|EXIT|BLOCK/.test(w) ? 'is-bad' : /WARN/.test(w) ? 'is-warn' : /ENTER|READY|PROTECT|PASS|FILLED|SIZE|SCAN|CONFIRMED/.test(w) ? 'is-good' : 'is-hold');
 
 // 🧠 the model's vital intel on THIS coin — its own AI-store subscriber: an AI answer repaints this card only
@@ -332,15 +339,17 @@ function DecisionPanel({ o, dec, pos, cand, mint, seats, readyN, agent, setAgent
         {CHAIN.map(a => <option key={a} value={a}>{names[a] || a}</option>)}</select></header>
     <div className="m-seg ack-ptabs" role="tablist" aria-label="Decision panel">{PANEL_TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`ack-ptab-${k}`}>{l}</button>)}</div>
     {tab === 'live' ? (!dec ? <p className="ack-nil">Pick a seat, a decision or a coin in the queue.</p> : <div className="ack-pbody" data-testid="ack-pane-live">
-      <div className="ack-verdict"><small>{(names[agent] || agent).toUpperCase()} · {line?.word ? 'ON THIS COIN' : 'THIS PASS'}</small>
-        <em className={`ack-badge ${badgeOf(verdictWord)}`} data-testid="ack-verdict">{verdictWord}</em>
-        <span className="ack-rule">{line?.why || why}{line?.at ? ` · ${ago(line.at)} ago` : ''}</span></div>
-      <div className="ack-verdict is-kernel"><small>{dec.kind === 'position' ? "REAPER'S RULING" : dec.kind === 'review' ? 'YOUR REVIEW' : 'WHERE IT STANDS'}</small>
-        <b data-testid="ack-kernel-verdict">{dec.verdict || '—'}</b>{dec.rule ? <span className="ack-rule">{dec.rule}{dec.obeying ? ` · obeying ${dec.obeying}` : ''}</span> : null}</div>
-      {dec.kernel ? <div className="ack-rank" data-tip={`READY needs Trigger ENTER + inside the hard wall + execution healthy + rank ≥ ${READY_MIN}`}><small>SCORE vs THE BUY LINE ({READY_MIN}) — over it + every check passed = the agents buy</small>
+      <div className="ack-vpair">
+        <span className={`ack-verdict ack-vcell ${badgeOf(verdictWord)}`} data-tip={`${line?.why || why || ''}${line?.at ? ` · ${ago(line.at)} ago` : ''}`}><small>{(names[agent] || agent).toUpperCase()}</small>
+          <em key={verdictWord} className={`ack-badge ack-vpop ${badgeOf(verdictWord)}`} data-testid="ack-verdict">{verdictWord}</em><i key={`w-${verdictWord}`} className="ack-vwave" aria-hidden />
+          <span className="ack-rule">{line?.why || why}{line?.at ? ` · ${ago(line.at)} ago` : ''}</span></span>
+        <span className={`ack-verdict is-kernel ack-vcell ${badgeOf(String(dec.verdict || ''))}`} data-tip={dec.rule ? `${dec.rule}${dec.obeying ? ` · obeying ${dec.obeying}` : ''}` : undefined}><small>{dec.kind === 'position' ? 'RULING' : dec.kind === 'review' ? 'YOUR REVIEW' : 'STANDS'}</small>
+          <b key={dec.verdict} className="ack-vpop" data-testid="ack-kernel-verdict">{dec.verdict || '—'}</b><i key={`w-${dec.verdict}`} className="ack-vwave" aria-hidden />
+          {dec.rule ? <span className="ack-rule">{dec.rule}{dec.obeying ? ` · obeying ${dec.obeying}` : ''}</span> : null}</span></div>
+      {dec.kernel ? <div className="ack-rank" data-tip={`Over the buy line + every check passed = the agents buy. READY needs Trigger ENTER + inside the hard wall + execution healthy + rank ≥ ${READY_MIN}`}><small>SCORE · BUY LINE {READY_MIN}</small>
         <span className="ack-bar"><i style={{ transform: `scaleX(${rankFill(dec.kernel.rank)})` }} /><u /></span><em>{dec.kernel.rank ?? '—'}</em></div> : null}
       {cand || pos ? <VitalBoard c={cand || { mint, symbol: dec?.symbol }} pos={pos} rules={o?.teach?.rules} call={call} isOwner={isOwner} /> : null}
-      {(dec.reasons || []).length ? <><b className="ack-sub">WHY</b><ul className="ack-why" data-testid="ack-why">{dec.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul></> : null}
+      {(dec.reasons || []).length ? <details className="ack-whyfold"><summary><b className="ack-sub">WHY · {dec.reasons.length}</b></summary><ul className="ack-why" data-testid="ack-why">{dec.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul></details> : null}
       <div className="ack-ptiles">
         <Tile l="CHART DATA" v={pos?.quality || pos?.data?.state || dec.chart?.quality || '—'} sub={pos?.data?.conf != null ? `${pos.data.conf}% data conf` : pos?.structure || null} />
         <Tile l="LAST READ" v={o?.cycle?.at ? ago(o.cycle.at) : '—'} sub={o?.cycle?.every ? `every ${Math.round(o.cycle.every)}s` : null} />
@@ -507,13 +516,13 @@ export function AgentCockpit({ call, isOwner = true }) {
     <section className="ack-seats" data-testid="ack-seats"><header><b>🪑 SEAT BOARD</b><OpenPnl seats={seats} onPick={onPick} /><small><b className="m-pos">{held}/{seats.length || '—'} active</b> · live prices every 3s · tap a seat = its chart + the agent handling it</small></header>
       <div className="ack-seatrow">{seats.map((s, i) => <SeatCard key={s.seat} s={s} on={!s.open && s.mint === mint} onPick={onPick} readyN={readyN} same={s.open ? seats.slice(0, i).find(x => x.open && x.why === s.why)?.seat : undefined} />)}</div></section>
     <div className="ack-main">
-      <div className="ack-left"><CockpitChart m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); setTab('live'); }} tid={o?.tid} call={call} isOwner={isOwner} /></div>
+      <div className="ack-left"><CockpitChart m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); setTab('live'); }} tid={o?.tid} call={call} isOwner={isOwner} />
+        <IntakeBand o={o} mint={mint} onPick={onPick} call={call} isOwner={isOwner} /></div>
       <DecisionPanel o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
         pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} mcNow={model?.mc} onAi={() => setAiOpen(true)} /></div>
     {/* 🗂 ONE DECK under the chart: one pane on screen at a time (the tab was ~10 stacked blocks, 4,200px tall) */}
     <Deck testid="ack-tapezone" tabs={[
-      ['live', '⚡ Live', ((o.kernel || {}).candidates || []).length, <><IntakeBand o={o} mint={mint} onPick={onPick} call={call} isOwner={isOwner} />
-        <DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { if (r.mint) setPick(r.mint); setAgentS(r.agent in AG ? r.agent : null); setTab('live'); }} /></>],
+      ['live', '⚡ Decisions', (o.tape || []).length || null, <><DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { if (r.mint) setPick(r.mint); setAgentS(r.agent in AG ? r.agent : null); setTab('live'); }} /></>],
       ['tape', '🎬 Trades', (o.tradeTape?.rows || []).length, <><LossMap court={o.court} capital={o.capital} /><TradeTape tape={o.tradeTape} mint={mint} onPick={onPick} /></>],
       ['brain', '🧠 Brain', null, <AiChat call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} variant="full" extras={brainExtras} />],
       ['agents', '🧩 Agents', (o.agents || []).length || null, <AgentMatrix o={o} gens={o?.generations || []} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); setTab('live'); }} rows={o.tape} pulse={pulse} />],

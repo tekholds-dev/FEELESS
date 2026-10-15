@@ -39,7 +39,7 @@ export function IntakeBand({ o, mint, onPick, call, isOwner }) {
   const lo = band.min > 0 ? capX(band.min) : 0; const hi = capX(band.max || 3e5) ?? 1;
   const m = (o?.kernel || {}).metrics || {};
   return <section className="ib" ref={host} data-testid="intake-band">
-    <header className="ib-head"><b>🛰 INTAKE</b><small>everything the feeds bring in · across = live MC · up = how far the agents took it · tap a coin</small>
+    <header className="ib-head" data-tip="everything the feeds bring in · across = live MC · up = how far the agents took it · tap a coin"><b>🛰 INTAKE</b><small>everything the feeds bring in · across = live MC · up = how far the agents took it · tap a coin</small>
       <span className="ib-rate">{m.uniqueMintsPerMin != null ? <><b>+{m.uniqueMintsPerMin}</b>/min</> : null}</span></header>
     <div className="ib-body">
       <div className="ib-field">
