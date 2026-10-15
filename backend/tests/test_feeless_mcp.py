@@ -55,3 +55,11 @@ def test_levers_name_real_controls_with_their_direction():
     leak = next(x for x in L if x.startswith('BIGGEST LEAK'))
     assert 'RAISE' in leak and 'agentMinAgeH now 0.5' in leak and "options [12000, 20000, 30000]" in leak
     assert any('ai:CAUTION' in x and 'blocking WINNERS' in x for x in L) and any('gate:gap' in x and 'SAVING' in x for x in L)
+
+
+def test_the_desktop_installer_writes_the_preset_and_merges_only_its_own_mcp_entry():
+    import feeless_mcp as m
+    s = m.install_script('http://10.0.0.104:8765/mcp', 'tok123', preset_json='{"name": "X {braces}"}')
+    assert s.startswith('#!/bin/bash') and '{"name": "X {braces}"}' in s
+    assert 'cur.mcpServers.feeless = {"url": "http://10.0.0.104:8765/mcp", "headers": {"Authorization": "Bearer tok123"}}' in s
+    assert "environment.objectForKey('HOME')" in s and 'cur.mcpServers = cur.mcpServers || {}' in s   # other servers stay; $HOME respected

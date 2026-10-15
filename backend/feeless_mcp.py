@@ -737,6 +737,39 @@ def client_ok(ip):
     return a.is_loopback or (a.version == 4 and any(a in ipaddress.ip_network(n) for n in ('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16')))
 
 
+PRESET = Path.home() / '.lmstudio' / 'config-presets' / 'FEELESS FEE Master.preset.json'
+
+
+def install_script(url, tok, preset_json=None, prompt=None):
+    """🖥 The ONE script the desktop Mac runs (`curl … /lan-install | bash`): writes the FEE preset into its LM Studio and merges a
+    `feeless` entry (this Mac's MCP url + token) into ~/.lmstudio/mcp.json without touching any other server there. Pure text."""
+    if preset_json is None:
+        try:
+            preset_json = PRESET.read_text()
+        except OSError:
+            preset_json = json.dumps({'name': 'FEELESS FEE Master', 'operation': {'fields': [{'key': 'llm.prediction.systemPrompt', 'value': prompt or ''}]}}, indent=2)
+    entry = json.dumps({'url': url, 'headers': {'Authorization': f'Bearer {tok}'}})
+    return f"""#!/bin/bash
+# FEELESS → this Mac's LM Studio: the FEE preset + the FEELESS MCP (read-only tools). Re-run any time; it only replaces its own entries.
+set -e
+d="$HOME/.lmstudio"; mkdir -p "$d/config-presets"
+cat > "$d/config-presets/FEELESS FEE Master.preset.json" <<'FEELESS_PRESET_EOF'
+{preset_json}
+FEELESS_PRESET_EOF
+/usr/bin/osascript -l JavaScript <<'FEELESS_JS_EOF'
+ObjC.import('Foundation');
+var p = $.NSProcessInfo.processInfo.environment.objectForKey('HOME').js + '/.lmstudio/mcp.json';
+var cur = {{}};
+if ($.NSFileManager.defaultManager.fileExistsAtPath(p)) {{ try {{ cur = JSON.parse($.NSString.stringWithContentsOfFileEncodingError(p, $.NSUTF8StringEncoding, null).js) || {{}}; }} catch (e) {{ cur = {{}}; }} }}
+cur.mcpServers = cur.mcpServers || {{}};
+cur.mcpServers.feeless = {entry};
+$(JSON.stringify(cur, null, 2)).writeToFileAtomicallyEncodingError(p, true, $.NSUTF8StringEncoding, null);
+FEELESS_JS_EOF
+echo "✅ FEELESS loaded into LM Studio: preset 'FEELESS FEE Master' + MCP 'feeless' ({url})"
+echo "   In LM Studio: right panel › Preset › FEELESS FEE Master · Program › turn the 'feeless' MCP on · load the model with context 8192+."
+"""
+
+
 def serve_http(host, port):
     import hmac
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -772,6 +805,11 @@ def serve_http(host, port):
                 return self._send(200, {'ok': True, 'name': NAME, 'tools': len(TOOLS)})
             if not self._gate():
                 return
+            if self.path.split('?')[0].rstrip('/') == '/lan-install':   # 🖥 the desktop Mac's one-paste installer (same LAN + token gate as the tools)
+                host_ = re.sub(r'[^A-Za-z0-9.:\-\[\]]', '', self.headers.get('Host') or f'127.0.0.1:{port}')
+                body = install_script(f'http://{host_}/mcp', tok).encode()
+                self.send_response(200); self.send_header('Content-Type', 'text/x-shellscript; charset=utf-8'); self.send_header('Content-Length', str(len(body))); self.end_headers()
+                return self.wfile.write(body)
             self._send(405, {'error': 'POST JSON-RPC to /mcp'}, {'Allow': 'POST'})
 
         def do_DELETE(self):
