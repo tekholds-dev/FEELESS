@@ -87,6 +87,18 @@ export function trailRead(t) {
     asked: ask ? `🧠 ${ask.key} ${ask.dir}${ask.refused ? ` — refused: ${ask.refused}` : ' — in shadow'}` : null };
 }
 
+// 💰 the scale-out's PAPER TWIN (after_path.scale_twin → trail.twin): the real exits vs the same coins had the scale-out sold its share at
+// the take line. Bars scaled to the biggest |avg|; the twin bar is green only when it beats the real result. n 0 = nothing to show yet.
+export function twinRead(tw) {
+  if (!tw || !tw.n) return { n: 0, line: 'no whole moves yet' };
+  const r = tw.real || {}; const t = tw.twin || {}; const mx = Math.max(1, ...[r.avg, t.avg].map(v => Math.abs(Number(v) || 0)));
+  const sg = v => (v == null ? '—' : `${v > 0 ? '+' : ''}${v}%`);
+  return { n: tw.n, pays: !!tw.pays, word: tw.pays ? 'PAYS' : 'NOT YET', up: (Number(t.avg) || 0) > (Number(r.avg) || 0),
+    real: { avg: sg(r.avg), med: sg(r.med), fill: Math.min(1, Math.abs(Number(r.avg) || 0) / mx), neg: (Number(r.avg) || 0) < 0 },
+    twin: { avg: sg(t.avg), med: sg(t.med), fill: Math.min(1, Math.abs(Number(t.avg) || 0) / mx), neg: (Number(t.avg) || 0) < 0 },
+    better: tw.better ?? 0, worse: tw.worse ?? 0, line: `${tw.n} exit${tw.n === 1 ? '' : 's'}` };
+}
+
 // who decides a control right now → its tone class
 export const whoTone = w => (w === 'CREATOR OVERRIDE' ? 'is-you' : w === 'YOUR BAND' ? 'is-band' : 'is-agents');
 export const WHO_WORD = { 'CREATOR OVERRIDE': 'YOURS', 'YOUR BAND': 'YOUR BAND', 'AGENTS CHOOSE': 'AGENTS' };

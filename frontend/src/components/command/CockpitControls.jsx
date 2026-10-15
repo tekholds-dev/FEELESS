@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { hubLoad, useAi } from '../../lib/agentHub';
-import { CTRL_GROUPS, optWord, whoTone, WHO_WORD, bandTrack, hasIntel, gateCounts, GATE_WORDS, regretRows, capitalRead, trailRead } from '../../lib/cockpitControls';
+import { CTRL_GROUPS, optWord, whoTone, WHO_WORD, bandTrack, hasIntel, gateCounts, GATE_WORDS, regretRows, capitalRead, trailRead, twinRead } from '../../lib/cockpitControls';
 import { aiMetricsLine } from '../../lib/aiRead';
 import { AiChipBtn } from './AiProviders';
 import '../../styles/agentControls.css';
@@ -116,6 +116,17 @@ function TrailLab({ trail }) {
       {t.best ? <span className="is-best"><small>BEST</small>{t.best.word}<b>{t.best.avg > 0 ? '+' : ''}{t.best.avg}%</b></span> : null}</p> : null}
     {t.shadow ? <p className="acx-capfacts"><span>{t.shadow}</span></p> : null}
     {t.asked && !t.shadow ? <p className="acx-capfacts"><span>{t.asked}</span></p> : null}
+    <TwinRow tw={trail?.twin} />
+  </div>;
+}
+// 💰 SCALE-OUT TWIN: the real exits vs their paper twin (the scale-out's share sold at the take line, the rest on the trail)
+function TwinRow({ tw }) {
+  const w = twinRead(tw);
+  return <div className={`acx-twin ${w.n ? (w.up ? 'is-up' : 'is-dn') : 'is-none'}`} data-testid="acx-twin" data-tip="coins that reached +10% only — flatters any take rule; a rug after the take counts −100% on the rest">
+    <p className="acx-twinhead"><b>💰 SCALE-OUT TWIN</b><span>{w.line}</span>{w.n ? <em className={w.pays ? 'is-pays' : ''} data-testid="acx-twin-word">{w.word}</em> : null}</p>
+    {w.n ? <><p className="acx-twinbar"><small>TWIN</small><span><i className={w.twin.neg ? 'is-neg' : 'is-twin'} style={{ transform: `scaleX(${w.twin.fill.toFixed(3)})` }} /></span><b>{w.twin.avg}</b><u>med {w.twin.med}</u></p>
+      <p className="acx-twinbar"><small>REAL</small><span><i className={w.real.neg ? 'is-neg' : ''} style={{ transform: `scaleX(${w.real.fill.toFixed(3)})` }} /></span><b>{w.real.avg}</b><u>med {w.real.med}</u></p>
+      <p className="acx-twinwl"><span className="m-pos">▲ {w.better} better</span><span className="m-neg">▼ {w.worse} worse</span></p></> : null}
   </div>;
 }
 

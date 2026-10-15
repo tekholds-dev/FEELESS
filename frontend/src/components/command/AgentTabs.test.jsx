@@ -38,3 +38,12 @@ test('🛫 💰 🔁 exit chips come from Reaper\'s own words only', () => {
   expect(exitTags({ tag: '🤖 agents · 🔁 comeback' }).map(t => t.k)).toEqual(['comeback']);
   expect(exitTags({ rule: 'R10 hold', why: 'thesis still good' })).toEqual([]);
 });
+
+import { twinRead } from '../../lib/cockpitControls';
+
+test('💰 scale-out twin row: twin vs real bars, better / worse, PAYS / NOT YET; nothing on file = "no whole moves yet"', () => {
+  expect(twinRead(null)).toEqual({ n: 0, line: 'no whole moves yet' }); expect(twinRead({ n: 0, pays: false }).line).toBe('no whole moves yet');
+  const w = twinRead({ n: 12, real: { avg: 4.3, med: 2 }, twin: { avg: 6.5, med: 3.1 }, better: 7, worse: 3, pays: true });
+  expect(w.word).toBe('PAYS'); expect(w.up).toBe(true); expect(w.twin.fill).toBe(1); expect(w.real.fill).toBeCloseTo(4.3 / 6.5); expect(w.twin.avg).toBe('+6.5%'); expect(w.better).toBe(7);
+  expect(twinRead({ n: 3, real: { avg: 2, med: 1 }, twin: { avg: -1, med: 0 }, better: 1, worse: 2, pays: false })).toMatchObject({ word: 'NOT YET', up: false });
+});
