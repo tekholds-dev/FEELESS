@@ -627,3 +627,19 @@ def test_massive_volume_coins_get_a_noise_stop_and_your_line_wins_on_any_coin():
     own = {**LEG_, 'symbol': 'B', 'bought': {'tag': '➖ ranging'}, 'ownerLvAt': 5, 'sl': 10}       # an engine coin with YOUR dragged 10%
     r2 = of.reap([own], [{**ROW_, 'symbol': 'B'}], {'PA': 0.97}, {}, None, 100, control=True)[1][0]   # in control Reaper rules every coin
     assert r2['stop'] == -10
+
+
+def test_a_coin_under_five_minutes_old_is_banked_whole_at_ten_percent(monkeypatch):
+    # 🍼 292 real exits: rugs live in the first minutes, so a young seat sells ALL at +10% (older coins keep the 75% scale-out)
+    import office as of
+    monkeypatch.setattr(of, 'SCALE_AT', 10.0)
+    LEG_ = {'mint': 'A', 'symbol': 'A', 'pairAddress': 'PA', 'entry': 1.0, 'units': 1.0, 'at': 1, 'liq': 60_000, 'liqNow': 60_000, 'bought': {'tag': '🤖 agents GO'}}
+    ROW_ = {'mint': 'A', 'symbol': 'A', 'pair': 'PA', 'px': 1.11, 'why': {'lean': 2.0, 'drivers': []}, 'trigger': ['wait', ''], 'devil': ['—', ''], 'nums': {'d5': 4, 'buy': 60, 'liq': 60_000},
+            'vitals': {'safe': True, 'rug': 5}, 'launch': {'ageH': 0.03}}
+    cfg = {'agentTakePct': 50, 'agentScalp': False}
+    pos, rep, _ = of.reap([LEG_], [ROW_], {'PA': 1.11}, cfg, None, 100)
+    assert rep[0]['action'] == 'pull' and rep[0]['rule'] == 'R6y young coin banked' and 'min old at entry' in rep[0]['evidence']
+    assert of.merge_reaper([], rep)[0]['action'] == 'pull'
+    pos, rep, _ = of.reap([LEG_], [{**ROW_, 'launch': {'ageH': 2.0}}], {'PA': 1.11}, cfg, None, 100)
+    assert rep[0]['action'] == 'trim'                                         # an older coin keeps the scale-out
+    assert of.is_young({'launch': {}}) is None and of.is_young({'li': {'ageH': 0.05}}) == 0.05 and of.is_young({'launch': {'ageH': None}, 'li': {'ageH': 0.01}}) == 0.01

@@ -13096,6 +13096,7 @@ AI_LOG_KEEP = 60            # 🧠 the model's own decisions, newest last (memor
 _ai = {'notes': {}, 'http': None, 'rounds': 0, 'lastAt': None, 'lastMs': None, 'log': [], 'fillQ': {}, 'exit': {}, 'exitBook': None}   # exit {mint: {word, at, sym, why}} = the model's last exit read on a HELD coin (exit_read.py)
 AI_EXIT_PATH = DATA_DIR / 'ai_exit_proof.json'   # 🧠☠ every exit read, graded 15 min later — the record that decides whether Reaper may use it
 import exit_read as _er
+import ai_snapshot as _snp
 
 
 def _ai_exit_book():
@@ -13129,7 +13130,8 @@ def _ai_log(role, case, res, asked=False):
     row = {'at': round(_fuse._f(res.get('at')) or time.time(), 1), 'role': role, 'mint': case.get('mint'), 'symbol': case.get('symbol'), 'source': res.get('source'), 'label': res.get('label'),
            'ms': res.get('ms'), 'stance': (ad or {}).get('stance'), 'delta': (ad or {}).get('confidence_delta'), 'summary': (ad or {}).get('summary'),
            **{k_: (ad or {}).get(k_) for k_ in ('risk_flags', 'narrative', 'creator_context', 'conflict_resolution')}, 'kernel': case.get('status') or case.get('state') or (f"closed {case.get('result'):+.1f}%" if isinstance(case.get('result'), (int, float)) else None),
-           'trigger': case.get('trigger') if isinstance(case.get('trigger'), str) else None, 'asked': bool(asked), 'why': None if ad else str(res.get('why') or 'no provider answered')[:120]}
+           'trigger': case.get('trigger') if isinstance(case.get('trigger'), str) else None, 'asked': bool(asked), 'why': None if ad else str(res.get('why') or 'no provider answered')[:120],
+           'snap': (case.get('_snap') or {}).get('pts'), 'snapSrc': (case.get('_snap') or {}).get('src'), 'word': case.get('_word')}   # 📸 the chart the model judged (the page draws it beside the answer)
     _ai['log'] = (_ai['log'] + [row])[-AI_LOG_KEEP:]
 
 
@@ -13198,7 +13200,7 @@ def _ai_jobs(now):
     for r_ in sorted(held_, key=lambda r_: -abs(_fuse._f(r_.get('pct'))))[:2]:
         if now - _fuse._f((_ai['exit'].get(r_['mint']) or {}).get('at')) < 60:
             continue
-        add('exit', {'mint': r_['mint'], 'symbol': r_.get('sym') or r_.get('symbol'), 'pct': r_.get('pct'), 'peak': r_.get('peak'), 'heldMin': r_.get('heldMin'),
+        add('exit', {'mint': r_['mint'], 'pair': r_.get('pair'), 'symbol': r_.get('sym') or r_.get('symbol'), 'pct': r_.get('pct'), 'peak': r_.get('peak'), 'heldMin': r_.get('heldMin'),
                      'structure': (r_.get('thesis') or {}).get('structure'), 'phase': (r_.get('phase') or {}).get('phase') if isinstance(r_.get('phase'), dict) else r_.get('phase'),
                      'state': r_.get('state'), 'rule': r_.get('rule'), 'why': r_.get('evidence')}, 'high', P['exit'])
     for c_ in [c_ for c_ in inband if c_.get('status') == 'READY'][:2]:
@@ -13259,12 +13261,57 @@ def _ai_learned(now):
     return _learned_mem
 
 
+_owner_line = {'at': 0.0, 'v': None}
+
+
+def _ai_owner(now):
+    """👤 HOW THE OWNER TRADES, for every model case (owner, 2026-10-15: "agents and AI study why and when I enter, how I adjust SL / TP — I
+    show them how to trench"): his hand moves graded 30 min later (owner_moves), the coins he picks (pick_style bands), and whether his own
+    dragged lines did better than the agents' on closed real trades (office.owner_hand). One line, rebuilt every minute, no fetch."""
+    if now - _owner_line['at'] < 60:
+        return _owner_line['v']
+    out = []
+    try:
+        log_ = next((v for k_, v in _json_load(OWNER_MOVES_PATH, {}).items() if isinstance(v, dict)), {})
+        sm_ = _om.summary(log_)
+        out += [f"{x_['label']} n{x_['n']}: {x_['good']} good / {x_['bad']} bad, coin typ {x_['medPct']:+.0f}% after" for x_ in sm_.values()][:4]
+        pl_ = (_json_load(PICK_STYLE_PATH, {}) or {}).get('log') or []
+        pw_ = _ps.words(_ps.profile(pl_))
+        if pw_:
+            out.append('his picks: ' + '; '.join(pw_[:4]))
+        oh_ = _of.owner_hand((_json_load(ARCHIVE_PATH, {}) or {}).get('positions'))
+        y_, a_ = oh_.get('yours') or {}, oh_.get('agents') or {}
+        if y_.get('n'):
+            out.append(f"his dragged SL/TP: n{y_['n']} typ {y_['med']:+.1f}% vs agents' own lines n{a_.get('n')} typ {a_.get('med') if a_.get('med') is not None else 0:+.1f}%")
+    except Exception as e:
+        print('ai owner:', str(e)[:80])
+    _owner_line.update(at=now, v=' · '.join(out) or None)
+    return _owner_line['v']
+
+
+def _ai_snap(mint, pair=None):
+    """📸 The chart snapshot the model reads: the agents' own 1-minute rows (ai_snapshot), % vs the entry when the agents hold the coin."""
+    if not mint:
+        return None
+    try:
+        if not pair:
+            pair = next((r_.get('pair') for r_ in (_agents.get('table') or []) if r_.get('mint') == mint), None)
+        if not pair:
+            return None
+        ent_ = _fuse._f(((_office.get('pos') or {}).get(mint) or {}).get('entry'))
+        return _snp.snapshot(_office_bars(pair, mint, _snp.PTS), entry=ent_ if ent_ > 0 else None)
+    except Exception as e:
+        print('ai snap:', str(e)[:80])
+        return None
+
+
 def _ai_case(c):
     """A kernel candidate → the compact case the router sends (it whitelists again) + 🎓 the owner's teachings that fit the coin."""
     lm_ = _ai_learned(time.time())
+    sn_ = _ai_snap(c.get('mint'), c.get('pair'))
     th_ = [f"your rule {k_} HITS this coin: {w_}" for k_, w_ in ((_office.get('taught') or {}).get(c.get('mint')) or {}).items()]
     return {**_ai_brief(c.get('mint')), 'signals': _ai_signals(c), 'lessons': (th_ + _tch.for_case(_teach_state(), c.get('symbol'), c.get('mint')))[:7] or None,
-            'learned': lm_['learned'], 'chartRec': lm_['chart'],
+            'learned': lm_['learned'], 'chartRec': lm_['chart'], 'candles': (sn_ or {}).get('line'), 'owner': _ai_owner(time.time()), '_snap': sn_,
             **{k_: c.get(k_) for k_ in ('mint', 'symbol', 'status', 'rank', 'ageMin', 'cap', 'liq', 'vol5m', 'move5m', 'buyShare', 'narrative', 'trigger', 'size', 'unknown',
                                        'state', 'why', 'pending', 'result', 'cause', 'pct', 'peak', 'heldMin', 'rule', 'structure', 'phase')},
             'devil': [f"{d_[0]} {d_[1]}" for d_ in (c.get('devil') or []) if isinstance(d_, (list, tuple)) and len(d_) >= 2] if isinstance(c.get('devil'), list) else c.get('devil')}
@@ -13294,10 +13341,13 @@ async def _ai_round(now):
             continue
         _ai['notes'].setdefault(m_, {})[role_] = {k_: r_.get(k_) for k_ in ('source', 'label', 'advice', 'ms', 'at', 'tried', 'why', 'cached')} | {'symbol': c_.get('symbol')}
         if role_ == 'exit':
-            w_ = _er.word_of(r_.get('advice'))
-            _ai['exit'][m_] = {'word': w_, 'at': now, 'sym': c_.get('symbol'), 'why': ((r_.get('advice') or {}).get('summary') or '')[:120]}
+            w_ = _er.word_of(r_.get('advice'), c_.get('pct'))
+            _ai['exit'][m_] = {'word': w_, 'at': now, 'sym': c_.get('symbol'), 'why': ((r_.get('advice') or {}).get('summary') or '')[:120], 'w1': w_, 'p1': r_.get('source')}
             px_ = (_jup_px_cache.get(m_) or (0, 0))[1]
-            _ai['exitBook'] = _er.note(_ai_exit_book(), m_, w_, px_, c_.get('pct'), now, c_.get('symbol'))
+            _ai['exitBook'] = _er.note(_ai_exit_book(), m_, w_, px_, c_.get('pct'), now, c_.get('symbol'), prov=r_.get('source'))
+            c_['_word'] = w_
+            if r_.get('source') in (_duet.LEAD, _duet.SECOND):
+                asyncio.ensure_future(_exit_second(c_, r_.get('source'), px_))
         _ai_log(role_, c_, r_)
         _ai_learn_note(role_, c_, r_, now)
         n += 1
@@ -13358,6 +13408,42 @@ async def _duet_second(c_, r_, env, cfg, lagging=False):
     m_ = _duet.merge(r_.get('advice'), r2.get('advice'), _duet.record(_ai_book().get('done')))
     _ai['notes'].setdefault(c_['mint'], {})['duet'] = {'source': 'duet', 'label': '🤝 DUET', 'at': time.time(), 'symbol': c_.get('symbol'),
                                                         'advice': {**m_, 'risk_flags': m_['flags'], 'summary': m_['why']}}
+
+
+_exit2 = {'at': 0.0, 'busy': False}
+EXIT2_EVERY = 75.0   # 🤝 the second model re-reads a held seat at most this often (it may share this Mac's GPU)
+
+
+async def _exit_second(c_, first_src, px_):
+    """🤝 THE DUET ON EXITS (owner, 2026-10-15: "let both AI models decide on the vitals before, during and after a trade"): the other
+    LM Studio model reads the SAME held seat. Agree → the word stands · split → no word (Reaper ignores a split). Each model's read is graded
+    on its own (exit_read prov), so the page shows who reads exits better. Never while a browser reports lag on a shared GPU."""
+    now = time.time()
+    other = _duet.SECOND if first_src == _duet.LEAD else _duet.LEAD
+    if _exit2['busy'] or now - _exit2['at'] < EXIT2_EVERY:
+        return
+    env, cfg = os.environ, _ai_cfg()
+    pv = _air.provider(env, other, cfg)
+    if not pv['enabled'] or pv['why'] or _air.ROUTER.stats[other]['coolUntil'] > now:
+        return
+    if other == 'local' and not _air.local_remote(env) and any(now - x_['at'] <= 120 and (_fuse._f(x_.get('fps')) and _fuse._f(x_.get('fps')) < 30) for x_ in list(_perf_samples)[-60:]):
+        return   # the shared GPU is busy drawing a lagging page
+    _exit2.update(at=now, busy=True)
+    try:
+        r2 = await _air.ROUTER.reason(_ai_http(), env, cfg, _ai_case(c_), 'exit', 'force', prio=_air.PRIO['exit'], only=(other,), mode='case')
+        if not (r2 or {}).get('advice') or r2.get('source') != other:
+            return
+        m_ = c_['mint']
+        w2 = _er.word_of(r2.get('advice'), c_.get('pct'))
+        _ai['exitBook'] = _er.note(_ai_exit_book(), m_, w2, px_, c_.get('pct'), time.time(), c_.get('symbol'), prov=other)
+        e_ = _ai['exit'].get(m_) or {}
+        if e_:
+            e_.update(word=_er.pair_word(e_.get('w1'), w2), w2=w2, p2=other, at=time.time())
+        _ai_keep('exit', {**c_, '_word': w2}, r2, time.time(), slot='exit2')
+    except Exception as e:
+        print('exit second:', str(e)[:100])
+    finally:
+        _exit2['busy'] = False
 
 
 async def _local_lane_run(now):
@@ -13783,6 +13869,16 @@ async def admin_ai_chat(request: Request):
             except Exception as e_:
                 print('chat evidence:', str(e_)[:120])
                 data_ = {'state': 'NO HISTORY', 'window': None, 'exits': 0, 'gaps': ['the evidence reader failed — answered without records']}
+        web_ = None
+        if mode == 'chat' and data_ is None and (body or {}).get('web', True) is not False and _aic.wants_web(text):   # 🌐 a world question: 5 results first
+            try:
+                import feeless_mcp as _mcp
+                rows_ = await asyncio.wait_for(asyncio.to_thread(_mcp._search_rows, _aic.web_query(text), 5), timeout=8)
+                web_ = [{'title': str(x_.get('title') or '')[:120], 'url': str(x_.get('url') or '')[:300], 'snippet': str(x_.get('snippet') or '')[:240]} for x_ in rows_ or [] if x_.get('url')][:5]
+                if web_:
+                    ctx = {**(ctx or {}), 'web': web_, 'webRule': _aic.WEB_RULE}
+            except Exception as e_:
+                print('chat web:', str(e_)[:100])
         prov_ = str((body or {}).get('provider') or 'auto')   # 🎛 the owner's model switch: auto = the normal order · duet = Gemma then Qwen · else that one provider only
         only_ = (prov_,) if prov_ in _air.PROVIDERS else (_duet.LEAD,) if prov_ == 'duet' else None
         img_ = _chat_image((body or {}).get('image'))
@@ -13814,9 +13910,9 @@ async def admin_ai_chat(request: Request):
                 ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-proposals', f"{len(new)} proposed by {res.get('label')}: " + ' · '.join(f"{p_['kind']} {p_['key']}" for p_ in new)[:200]); _admin_save(ad_)
         if not reply and data_ and data_['state'] == 'NO HISTORY':
             reply = f"Insufficient evidence: FEELESS has no records for {data_.get('window') or 'that window'} — " + '; '.join(data_['gaps'][:3])
-        _chat['th'] = _aic.push_thread(_aic.push_thread(_chat['th'], mode, 'user', text, {'img': img_[0]} if img_ else None), mode, 'assistant', reply or 'no provider answered', {'mode': mode, 'ms': res.get('ms'), 'provider': res.get('label'), **({'data': data_} if data_ else {})})
+        _chat['th'] = _aic.push_thread(_aic.push_thread(_chat['th'], mode, 'user', text, {'img': img_[0]} if img_ else None), mode, 'assistant', reply or 'no provider answered', {'mode': mode, 'ms': res.get('ms'), 'provider': res.get('label'), **({'data': data_} if data_ else {}), **({'web': [{'title': x_['title'], 'url': x_['url']} for x_ in web_]} if web_ else {})})
         _chat_persist()
-        return {'ok': bool(reply), 'mode': mode, 'routed': mode != asked, 'reply': reply, 'data': data_, 'provider': res.get('label'), 'model': res.get('model'), 'ms': res.get('ms'), 'tokens': res.get('usage'), 'history': _chat['th'].get(mode) or [], **_chat_extra(),
+        return {'ok': bool(reply), 'mode': mode, 'routed': mode != asked, 'reply': reply, 'data': data_, 'web': web_, 'provider': res.get('label'), 'model': res.get('model'), 'ms': res.get('ms'), 'tokens': res.get('usage'), 'history': _chat['th'].get(mode) or [], **_chat_extra(),
                 'new': [p_['id'] for p_ in new], 'refused': refused, 'proposals': _aic.view(_chat_props()), 'why': res.get('why'), 'learned': _chat_learned()}
     finally:
         _chat['busy'] = False

@@ -8,8 +8,8 @@ and the card's own locks into short chat lines. Coin moves in %, never the card'
 import re
 
 SETTLE_SEC, GOOD_PCT, KEEP = 1800, 10.0, 400
-IN_KINDS, OUT_KINDS = ('pick', 'swap', 'rebuy'), ('skim', 'house', 'cut')
-LABEL = {'pick': '🎯 pick', 'swap': '⇄ hand swap', 'rebuy': '🔄 rebuy', 'skim': '💰 profit take', 'house': '🏠 initial out', 'cut': '✂ cut', 'lock': '❄ lock'}
+IN_KINDS, OUT_KINDS = ('pick', 'swap', 'rebuy', 'room'), ('skim', 'house', 'cut', 'tight')
+LABEL = {'pick': '🎯 pick', 'swap': '⇄ hand swap', 'rebuy': '🔄 rebuy', 'skim': '💰 profit take', 'house': '🏠 initial out', 'cut': '✂ cut', 'lock': '❄ lock', 'room': '✋ gave it room (SL/TP)', 'tight': '✋ tightened (SL/TP)'}
 
 
 def _f(v):
@@ -33,6 +33,8 @@ def classify(e):
         return ('house' if e.get('house') or '🏠' in why else 'skim', e.get('symbol'))
     if kind in ('cut', 'manual') or (kind == 'rotate' and why.startswith('✂')):
         return ('cut', e.get('symbol'))
+    if kind == 'level':   # ✋ the owner dragged a coin's SL / TP: more room is judged like a buy (up = right), tighter like a sale (down = right)
+        return ('room' if e.get('room') else 'tight', e.get('symbol'))
     if kind == 'ride' and 'frozen' in why:
         return ('lock', e.get('symbol'))
     return None

@@ -72,6 +72,14 @@ export function DataChip({ d }) {
     DATA: {d.state}{d.window ? ` · ${d.window}` : ''}{d.exits ? ` · ${d.exits} real exits` : ''}</em>;
 }
 
+// 🌐 the web results the answer was built from — each a real link the owner can open
+export function WebSrc({ w }) {
+  return <span className="cch-web" data-testid="cch-web"><small>🌐 SOURCES</small>{w.slice(0, 5).map((x, i) => {
+    let host = ''; try { host = new URL(x.url).hostname.replace(/^www\./, ''); } catch { host = 'link'; }
+    return /^https?:\/\//.test(x.url || '') ? <a key={x.url} href={x.url} target="_blank" rel="noopener noreferrer" data-tip={x.title}>{i + 1} · {host}</a> : null;
+  })}</span>;
+}
+
 const ChatLog = memo(function ChatLog({ hist, err, busy, from, onRemember, onBuild, onEdit, onDelete }) {
   const end = useRef(null);
   useEffect(() => { const el = end.current; if (el && el.parentNode) el.parentNode.scrollTop = el.parentNode.scrollHeight; }, [hist, busy]);
@@ -79,6 +87,7 @@ const ChatLog = memo(function ChatLog({ hist, err, busy, from, onRemember, onBui
     {err && !hist.length ? <li className="cch-nil is-warn" data-testid="cch-err">⚠ {err}</li> : null}
     {hist.length ? hist.map((t, i) => <li key={`${i}-${t.text.slice(0, 12)}`} className={`cch-msg is-${t.role} ${i >= from ? 'is-fresh' : ''}`}><small>{t.role === 'user' ? 'YOU' : 'BRAIN'}</small>{t.meta?.img ? <img className="cch-img" src={t.meta.img} alt="attached" loading="lazy" /> : null}<span>{t.text}</span>
       {t.meta?.data ? <DataChip d={t.meta.data} /> : null}
+      {t.meta?.web?.length ? <WebSrc w={t.meta.web} /> : null}
       <i className="cch-mact">{t.role !== 'user' && t.text.length >= 8 && !t.text.startsWith('⚠') ? <><button type="button" onClick={() => onRemember(t.text)} data-tip="Remember this: it becomes a lesson every fitting model read sees" data-testid={`cch-rem-${i}`}>🧠 Remember</button>
           <button type="button" onClick={() => onBuild(t.text)} data-tip="Build this: your tap is the permission — it joins the build queue the next build session ships" data-testid={`cch-build-${i}`}>🧱 Build this</button></> : null}
         {t.role === 'user' ? <button type="button" onClick={() => onEdit(i, t.text)} disabled={busy} data-tip="Edit: rewinds the chat to here and puts your words back in the box" data-testid={`cch-edit-${i}`}>✏ Edit</button> : null}

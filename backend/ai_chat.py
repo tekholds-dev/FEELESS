@@ -67,6 +67,27 @@ def route_mode(mode, text):
     return 'improve' if mode == 'chat' and FIX_WORDS.search(str(text or '')) and len(str(text or '')) <= 400 else mode
 
 
+# 🌐 BACK IT WITH A SEARCH (owner, 2026-10-15: "they need true convos like you and GPT about anything and always a quick web search to back it"):
+# a 💬 chat question about the world (not a FEELESS record question, not a greeting) gets 5 web results first; the model answers from them
+# and names its sources. FEELESS's own numbers still come only from CONTEXT / the evidence packet.
+GREETING = re.compile(r'^\s*(yo+|yurr+|gm|gn|hey+|hi+|hello|sup|wassup|what\'?s up|thanks?|thank you|ty|ok(ay)?|lol|lmao|bet|cool|nice)\b[\s!.?]*$', re.I)
+WEB_WORDS = re.compile(r'\?|\b(who|what|when|where|why|how|which|news|latest|today|price|search|look ?up|google|find|explain|meaning|is it|are they|did|does|vs\.?)\b', re.I)
+WEB_RULE = ("WEB = fresh search results for the owner's question (title · url · snippet). Use them for anything about the outside world and cite the "
+            "url you used in brackets. If they do not answer it, say so — never invent a source. FEELESS numbers come only from CONTEXT, never the web.")
+
+
+def wants_web(text):
+    t = str(text or '').strip()
+    return len(t) >= 6 and not GREETING.match(t) and bool(WEB_WORDS.search(t))
+
+
+def web_query(text):
+    """The search words: the question without filler, ≤ 120 characters."""
+    t = re.sub(r'\s+', ' ', str(text or '')).strip()
+    t = re.sub(r'^((hey|yo|fee|vega|kai|bro|can you|could you|please|pls)[,\s]+)+', '', t, flags=re.I)
+    return t[:120]
+
+
 def system_for(mode):
     return {'chat': CHAT_ASK, 'improve': IMPROVE_ASK, 'build': BUILD_ASK}.get(mode)
 

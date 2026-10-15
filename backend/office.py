@@ -24,6 +24,7 @@ import trench_kernel.positions as _pos
 import opportunity as _opp
 import market_wake as _mw
 import chart_intel as _ci
+import exit_read as _er
 import market_data as _md
 import office_edge as _oe
 import seat_ops as _so
@@ -606,6 +607,9 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         if noise_ and not l.get('ownerLvAt'):
             stop = max(stop, NOISE_SL) if stop < _ci.CATASTROPHIC_STOP else stop
             stop = min(stop, _ci.CATASTROPHIC_STOP - 5)
+        if ax_ == 'widen' and pct < 0 and not l.get('ownerLvAt') and not (fv_ and fv_.get('state') == 'SELLERS'):   # 🧠 a PROVEN model WIDEN: a red seat still bought gets room
+            stop = min(max(stop, stop * _er.WIDEN), _er.WIDEN_MAX, _ci.CATASTROPHIC_STOP - 5)
+            p['widened'] = round(stop, 1)
         own_ = l.get('ownerLvAt')   # ✋ YOUR line on ANY coin of the card (dragged on the chart): obeyed as set — wider or tighter (it was agent coins only: your GTA 10% read −30%)
         if own_ and _f(l.get('sl')) > 0:
             stop = min(_f(l["sl"]), _ci.CATASTROPHIC_STOP)   # the catastrophic −45% line stays under it
@@ -725,7 +729,10 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         if st == 'HOLD' and rv and rv['verdict'] == 'valid':
             ev = f"{pct:+.1f}% · {'; '.join(rv['why'][:4])} · window {rv['window'] + 1} of {granted}"
         held_s = held * 60
-        if not act and mine and live and pct >= (NOISE_TP if noise_ else SCALE_AT) and not p.get('scaled') and not degraded_pre(ch, rv):   # 💰 SCALE-OUT: half banked at +10%, the rest rides the trail
+        young_ = is_young(p)
+        if not act and mine and live and young_ and pct >= SCALE_AT and not degraded_pre(ch, rv):   # 🍼 a coin < 5 min old at entry: ALL of it banked at +10% (rugs land in its first minutes)
+            st, rule, ev, act = 'TAKE', 'R6y young coin banked', f"{pct:+.1f}% ≥ +{SCALE_AT:g}% on a coin {_f(young_) * 60:.0f} min old at entry: all of it sold now — {YOUNG_WHY}", 'pull'
+        elif not act and mine and live and pct >= (NOISE_TP if noise_ else SCALE_AT) and not p.get('scaled') and not degraded_pre(ch, rv):   # 💰 SCALE-OUT: half banked at +10%, the rest rides the trail
             st, rule, ev, act = 'TAKE', 'R6h half banked', f"{pct:+.1f}% ≥ +{SCALE_AT:g}%: {SCALE_PCT:g}% sold now, the rest rides the trail (replay: +6.5% avg vs +4.3% real)", 'trim'
             p['scaled'] = now
         if act and pct >= RUNWAY_KEEP and (str(rule).split(' ')[0] in RUNWAY_RULES) and (held_s < RUNWAY_SEC or str(rule).startswith('R5t')):
@@ -773,6 +780,24 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
 # Selection bias: only coins that reached +10% — the live twin (after_path.scale_twin) keeps judging it on new exits. Once per position.
 SCALE_AT = 10.0
 SCALE_PCT = 75.0   # 2026-10-15: 50% left too much on the table for rugs after the take (honest replay: half +3.1% avg · 75% +6.5% · real +4.3%)
+
+
+# 🍼 YOUNG COINS BANK WHOLE (2026-10-15, 292 confirmed real agent exits): 141 coins < 5 min old at entry won 72% (median +5%) but held 12 of the
+# 16 rugs (−75% avg) — a rug lands in the first minutes, mostly while the seat is UP (median peak +3.8%). Replay, oldest 60% / newest 40%,
+# fills at the line − 1.5%: selling ALL at +10% → +1.4% / +1.8% avg vs real +0.0% / −2.2% (passes both halves); 75% at +10 (today) +1.0 / +0.8;
+# banking at +3 or +5 LOSES in both halves (it cuts the winners). Coins 5 min+ gained nothing from any early take, so they keep the scale-out.
+YOUNG_MAX_H = 5 / 60
+YOUNG_WHY = 'replay on our own real exits: whole at +10% beat 75% in both halves (rugs come in the first minutes)'
+
+
+def is_young(p):
+    """The coin's launch age at entry (hours) when it is under YOUNG_MAX_H, else None. Unknown age = not young (the normal scale-out)."""
+    for src in ((p or {}).get('launch') or {}, (p or {}).get('li') or {}):
+        a = src.get('ageH')
+        if a is not None:
+            a = _f(a)
+            return a if 0 <= a < YOUNG_MAX_H else None
+    return None
 
 
 def degraded_pre(ch, rv):

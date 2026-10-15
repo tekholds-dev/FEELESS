@@ -4300,3 +4300,25 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   wins. Owner's rule — judge it on big coins' R5 exits. 🧲 DIP (`opportunity.knife` + `DIP_BOUNCE` 10, `distLow` in the compact chart): 30%+ off
   its high is bought only after a 10%+ bounce off its new floor (no floor reading → the higher-low rule).
 
+- 🧪 THE FIVE PROFIT IDEAS, MEASURED (2026-10-15, 292 confirmed real agent exits + the ledger) — say these before re-proposing any:
+  (1) FASTER STOPS = nothing to win: sells fill at market (fill vs mid +0.1%) and land in ~5s; R5 stops are decided at ≈ −15% (their line);
+  R5x rugs are already −79% when the order is made (a pool pull is one tx). (2) BANK AT +5% LOSES in both halves (cuts the winners).
+  (3) COPY "SMART" WALLETS does not repeat: wallets good on their first half did −1…−5% typical on their next buys (only 7 buys at the
+  strictest line). (4) FRESH-MIGRATED coins are the rug factory (12 of 16 rugs: < 5 min old, mostly just-migrated at ~$380K) — not a door.
+  (5) Evidence sizing already runs (real_memory half seat). THE ONE THAT PASSED: 🍼 `office.is_young` / `R6y young coin banked` — a coin
+  < 5 min old at entry sells ALL at +10% (oldest 60% +1.4% / newest 40% +1.8% avg vs real +0.0 / −2.2); 5 min+ coins keep the 75% scale-out.
+- 📸 THE MODELS SEE THE CHART (`ai_snapshot.py`, case key `candles`, `TEXT_LEN` 520; `_ai_snap` = the agents' own 1m rows from `_office_bars`,
+  % vs the entry when held): every model case carries it, every decision-log row carries its points (`snap`) → `Snap` sparkline + exit word in
+  the 🧠 AI log. `candles` / `owner` are in `_KEY_SKIP` (the cache key stays the coarse state — no extra calls).
+- 🤝 BOTH MODELS READ HELD SEATS (`_exit_second`, `EXIT2_EVERY` 75s): Gemma (lan) and Qwen (local) each read the same seat; agree → the word,
+  split → none (`exit_read.pair_word`); each graded on its own (`note(prov=)`, `models` → `acx-exit-models`). 🧠 `WIDEN` = a RED seat read as
+  still bought: once PROVEN on its own record (≥ 20 graded, typical +2% after) Reaper gives the stop ×1.4 (≤ 35, under the −45% line), never
+  over your dragged line, never while sellers lead. Unproven = shown only. RIDE / TIGHTEN unchanged.
+- 🪜 `floor_hold` paper strategy (`paper_desk.floor_hold`): 15%+ under its high, 2+ higher lows and no lower low, 3–25% above the floor, buyers
+  ≥ 55%, pace ≥ 0.8, holders not leaving, 5m −3…+4. Like every strategy: no belief, weighs only its own judged record.
+- 👤 THE MODELS LEARN THE OWNER (`_ai_owner`, case key `owner`): his moves graded 30 min later (owner_moves: picks, swaps, takes, ✂, and NOW
+  his SL/TP drags — `set_leg` writes a `level` event: more room = judged like a buy, tighter = like a sale), his pick bands (pick_style) and
+  his dragged lines vs the agents' (office.owner_hand).
+- 🌐 BRAIN CHAT SEARCHES (`ai_chat.wants_web/web_query/WEB_RULE`; chat route → `feeless_mcp._search_rows`, 5 results, ≤ 8s): a world question
+  (not a greeting, not a FEELESS-record question) gets web results in their own WEB block (`messages_general`), the model cites the url,
+  sources shown under the reply (`WebSrc`, http(s) links only). `web: false` in the body skips it.

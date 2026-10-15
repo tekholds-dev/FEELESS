@@ -42,10 +42,16 @@ export function exitLine(x) {
   if (!x?.rec) return null;
   return Object.entries(x.rec).map(([w, [n, med, ok]]) => `${w} ${n}/${x.min}${n ? ` · ${med > 0 ? '+' : ''}${med}% in 15m` : ''} · ${ok && x.on ? '✅ LIVE' : 'shadow'}`).join('  ·  ');
 }
+// 🤝 each model's own exit record (both read every held seat; a split never moves Reaper)
+const MODEL_NAME = { lan: '🖥 GEMMA', local: '💻 QWEN' };
+export function modelsLine(x) {
+  return Object.entries(x?.models || {}).map(([p, rec]) => `${MODEL_NAME[p] || p}: ` + Object.entries(rec).filter(([, [n]]) => n).map(([w, [n, med]]) => `${w} ${n} · ${med > 0 ? '+' : ''}${med}%`).join(' · ')).join('   ');
+}
 function ExitLine({ x }) {
   const line = exitLine(x);
   if (!line) return null;
-  return <p className="acx-cover is-exit" data-testid="acx-exit-read"><span><small>EXIT READ</small><b>{line}</b></span>
+  const ml = modelsLine(x);
+  return <p className="acx-cover is-exit" data-testid="acx-exit-read"><span><small>EXIT READ</small><b>{line}</b>{ml ? <small data-testid="acx-exit-models">{ml}</small> : null}</span>
     {(x.reads || []).map(([sym, w, ago]) => <span key={`${sym}${ago}`}><small>${sym || '?'} · {ago}s ago</small><b>{w || '—'}</b></span>)}</p>;
 }
 

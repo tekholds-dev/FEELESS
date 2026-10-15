@@ -58,6 +58,15 @@
 .cai-delta i { position: absolute; top: 0; bottom: 0; width: 50%; } .cai-delta i.is-up { left: 50%; background: var(--m-accent); transform-origin: left; } .cai-delta i.is-dn { right: 50%; background: var(--m-danger); transform-origin: right; }
 .cai-delta u { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--m-mute); }
 .cai-say { font: 600 11px/1.45 var(--m-mono); color: var(--m-text); overflow-wrap: anywhere; }
+.cai-snap { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.cai-snap svg { width: 120px; height: 26px; flex: none; overflow: visible; }
+.cai-snap svg line { stroke: var(--m-line-hi); stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
+.cai-snap svg path { fill: none; stroke: #45e486; stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+.cai-snap.is-dn svg path { stroke: #ff8fa3; }
+.cai-snap small { font: 700 9.5px var(--m-mono); color: var(--m-mute); }
+.cai-word { font: 800 8.5px var(--m-mono); font-style: normal; letter-spacing: .08em; padding: 1px 6px; border-radius: 999px; border: 1px solid currentColor; color: var(--m-mute); }
+.cai-word.is-ride { color: #45e486; } .cai-word.is-widen { color: #7fd6ff; } .cai-word.is-tighten { color: var(--gold, #f5c451); }
+body.theme-day .cai-snap svg path { stroke: #0e8a4a; } body.theme-day .cai-snap.is-dn svg path { stroke: #c2334f; }
 .cai-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 8px; font: 600 9.5px var(--m-mono); color: var(--m-mute); } .cai-foot b { color: var(--m-dim); font-weight: 800; }
 .cai-src { font: 800 8.5px var(--m-mono); font-style: normal; letter-spacing: .08em; padding: 1px 5px; border-radius: 4px; color: #c9b8ff; border: 1px solid color-mix(in srgb, #c9b8ff 50%, transparent); }
 .cai-agree { margin-left: auto; font: 800 8.5px var(--m-mono); font-style: normal; letter-spacing: .1em; } .cai-agree.is-good { color: var(--m-accent); } .cai-agree.is-bad { color: var(--m-danger); } .cai-agree.is-warn { color: var(--m-warn); }

@@ -58,6 +58,18 @@ export function AiCell({ a }) {
     <em className={`cai-stance ${STANCE_TONE[a.stance] || 'is-hold'}`}>{a.stance}</em>{n ? <small className="avt-rugs">🚩{n}</small> : null}</span>;
 }
 
+// 📸 the chart the model judged: the SAME 1-minute closes it read (% vs entry or the first close) as a small line + its exit word
+export function snapPath(pts, w = 120, h = 26) {
+  const lo = Math.min(...pts, 0), hi = Math.max(...pts, 0), span = hi - lo || 1;
+  return pts.map((p, i) => `${i ? 'L' : 'M'}${((i / (pts.length - 1)) * w).toFixed(1)},${(h - ((p - lo) / span) * h).toFixed(1)}`).join(' ');
+}
+export function Snap({ pts, src, word }) {
+  const last = pts[pts.length - 1]; const lo = Math.min(...pts, 0), hi = Math.max(...pts, 0), zy = 26 - ((0 - lo) / (hi - lo || 1)) * 26;
+  return <span className={`cai-snap ${last >= 0 ? 'is-up' : 'is-dn'}`} data-testid="cai-snap" data-tip={`the chart the model read: ${pts.length} × 1m ${src === 'tape' ? 'tape closes' : 'candles'}, ${last >= 0 ? '+' : ''}${last}% at the read`}>
+    <svg viewBox="0 0 120 26" preserveAspectRatio="none" aria-hidden><line x1="0" x2="120" y1={zy.toFixed(1)} y2={zy.toFixed(1)} /><path d={snapPath(pts)} /></svg>
+    <small>📸 {last >= 0 ? '+' : ''}{last}%</small>{word ? <em className={`cai-word is-${String(word).toLowerCase()}`}>{word}</em> : null}</span>;
+}
+
 export function AiRow({ r, onPick }) {
   const [ic, nm] = TAPE_AGENT[r.role] || (r.role === 'owner' ? ['👤', 'You asked'] : ['🧠', r.role]); const ag = agreeOf(r);
   return <li className={`cai-row ${r.asked ? 'is-asked' : ''}`} style={{ '--ag': AG[r.role] || '#c9b8ff' }} data-testid={`cai-row-${r.at}`}>
@@ -66,6 +78,7 @@ export function AiRow({ r, onPick }) {
         {r.stance ? <em className={`cai-stance ${STANCE_TONE[r.stance] || 'is-hold'}`}>{r.stance}</em> : <em className="cai-stance is-off">NO ANSWER</em>}
         {r.stance ? <Delta d={r.delta} /> : null}<small className="cai-age">{ago(r.at)} ago</small></span>
       <span className="cai-say">{r.summary || r.why || '—'}</span>
+      {r.snap?.length > 2 ? <Snap pts={r.snap} src={r.snapSrc} word={r.word} /> : null}
       {hasIntel(r) ? <AiIntel a={r} mini /> : null}
       <span className="cai-foot"><i className="cai-src">{r.label || r.source || 'AI'}</i>{r.ms != null ? <small>{r.ms >= 1000 ? `${(r.ms / 1000).toFixed(1)}s` : `${r.ms}ms`}</small> : null}
         {r.kernel ? <small>kernel: <b>{String(r.kernel).replace('_', ' ')}</b>{r.trigger ? ` · ⏱ ${r.trigger}` : ''}</small> : null}

@@ -49,3 +49,29 @@ def test_reaper_reads_the_cache_only_and_the_model_is_still_advisory():
     assert 'exit' in air.ADVISORY_ROLES and 'reaper' in air.FORBIDDEN_ROLES
     src = open(__import__('office').__file__).read()
     assert 'ai_exit' in src and 'ai_router' not in src   # Reaper takes the read handed to it, never a model call
+
+
+def test_widen_is_a_red_seat_the_model_reads_as_held_and_it_needs_its_own_record():
+    import exit_read as er
+    hold = {'call': 'HOLD', 'confidence_delta': 0.05, 'risk_flags': []}
+    assert er.word_of(hold, -4.0) == 'WIDEN' and er.word_of(hold, 3.0) == 'RIDE' and er.word_of(hold) == 'RIDE'
+    assert er.word_of({'call': 'HOLD', 'confidence_delta': 0.0, 'risk_flags': ['dev selling']}, -4.0) is None
+    book = {'done': [{'word': 'WIDEN', 'move': 4.0} for _ in range(er.MIN_N)]}
+    rec = er.record(book)
+    assert rec['WIDEN']['proven'] and rec['WIDEN']['right'] == 100
+    assert er.effects({'M': {'word': 'WIDEN', 'at': 100}}, rec, 150) == {'M': 'widen'}
+    assert er.effects({'M': {'word': 'WIDEN', 'at': 100}}, er.record({'done': []}), 150) == {}   # unproven = nothing
+    assert er.fresh_words({'M': {'word': 'WIDEN', 'at': 100}}, 150) == {}                      # WIDEN never sets snapshot counts
+
+
+def test_a_proven_widen_gives_a_red_seat_room_but_never_past_the_cap_or_your_line():
+    import office as of
+    import exit_read as er
+    LEG_ = {'mint': 'A', 'symbol': 'A', 'pairAddress': 'PA', 'entry': 1.0, 'units': 1.0, 'at': 1, 'liq': 60_000, 'liqNow': 60_000, 'bought': {'tag': '🤖 agents GO'}}
+    ROW_ = {'mint': 'A', 'symbol': 'A', 'pair': 'PA', 'px': 0.95, 'why': {'lean': 1.0, 'drivers': []}, 'trigger': ['wait', ''], 'devil': ['—', ''], 'nums': {'d5': -1, 'buy': 55, 'liq': 60_000},
+            'vitals': {'safe': True, 'rug': 5}}
+    base = of.reap([LEG_], [ROW_], {'PA': 0.95}, {}, None, 100)[1][0]['stop']
+    w = of.reap([LEG_], [ROW_], {'PA': 0.95}, {}, None, 100, ai_exit={'A': 'widen'})[1][0]['stop']
+    assert w < base and -w <= er.WIDEN_MAX
+    own = of.reap([{**LEG_, 'ownerLvAt': 50, 'sl': 8}], [ROW_], {'PA': 0.95}, {}, None, 100, ai_exit={'A': 'widen'})[1][0]['stop']
+    assert own == -8   # your dragged line wins

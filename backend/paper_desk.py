@@ -280,7 +280,21 @@ STRATS = (
     ('pro_first_call', "a proven caller's first call", lambda r, n, m: int(r.get('pros') or 0) >= 1 and (m.get('crowd') or {}).get('callers', 0) <= 2),
     ('wave_original', 'the original of a ticker wave', lambda r, n, m: r.get('waveRole') == 'lead'),
     ('wave_copycat', 'copycat of a running ticker wave', lambda r, n, m: r.get('waveRole') == 'copy'),
+    # 🪜 FLOOR HOLD (owner, 2026-10-15: "when a strong coin dips and stays steady over its floor with strong holders / volume, buy — the higher
+    # lows method"): 15%+ under its high, 2+ higher lows and no lower low since, 3–25% above the new floor, buyers ≥ 55%, volume still coming
+    # (pace ≥ 0.8), holders not leaving, the last 5 min neither falling nor spiking. Paper first: it weighs only what its own record says.
+    ('floor_hold', 'dip holding its floor (higher lows)', lambda r, n, m: floor_hold(r, n)),
 )
+
+
+def floor_hold(r, n):
+    c = (r or {}).get('chart') or {}
+    if c.get('distHigh') is None or c.get('hl') is None or c.get('distLow') is None:
+        return False   # no chart read = not judged
+    hd = (n or {}).get('holdD')
+    return (_f(c['distHigh']) >= 15 and int(_f(c['hl'])) >= 2 and int(_f(c.get('ll'))) == 0 and 3 <= _f(c['distLow']) <= 25
+            and _f((n or {}).get('buy') or 0) >= 55 and _f((n or {}).get('pace') or 0) >= 0.8 and (hd is None or _f(hd) >= 0)
+            and -3 <= _f((n or {}).get('d5')) <= 4)
 STRAT_NAME = {k: name for k, name, _ in STRATS}
 
 

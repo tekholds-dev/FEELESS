@@ -170,3 +170,13 @@ def test_activity_is_one_timeline_of_reads_proposals_decisions_and_creations():
                          [{'at': 30, 'prompt': 'neon card', 'by': 'LOCAL AI'}], {'last': {'at': 15, 'symbol': 'Y', 'stance': 'FAVOR', 'via': 'lan'}, 'n': 3})
     assert [x['kind'] for x in a] == ['play', 'decision', 'lane', 'read', 'proposal']   # newest first
     assert a[3]['title'] == 'DEVIL read $X → CAUTION' and a[3]['tone'] == 'bad' and a[1]['title'] == 'approved: tune protectAt'
+
+
+def test_world_questions_get_a_web_search_and_greetings_do_not():
+    import ai_chat as ac
+    import ai_router as ar
+    assert ac.wants_web('who is the dev of pump.fun?') and ac.wants_web('latest news on solana etf')
+    assert not ac.wants_web('yurrr') and not ac.wants_web('gm') and not ac.wants_web('ok')
+    assert ac.web_query('hey can you who runs bonk') == 'who runs bonk'
+    m = ar.messages_general('who runs bonk?', {'card': 'x', 'web': [{'title': 'T', 'url': 'https://a.b', 'snippet': 's'}], 'webRule': ac.WEB_RULE})
+    assert 'WEB (search results' in m[-1]['content'] and 'https://a.b' in m[-1]['content'] and 'CONTEXT' in m[-1]['content'] and 'cite' in m[0]['content']

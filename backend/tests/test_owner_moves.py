@@ -46,3 +46,16 @@ def test_a_move_is_judged_half_an_hour_later_and_good_ones_become_chat_lines():
     assert '✅ Good call: 🎯 pick $UP onto 🔥 Prime Blaze 32m ago — +34% since.' == lines['move:pick:a:1']
     assert 'Good exit' in lines['move:skim:b:1'] and '-20% since' in lines['move:skim:b:1'] and 'move:cut:d:1' not in lines
     assert om.verdict('pick', 3) == 'flat' and om.verdict('house', -40) == 'good'
+
+
+def test_your_sl_tp_drags_are_graded_room_vs_protect():
+    import owner_moves as om
+    import arena_prime as ap
+    card = {'legs': [{'pairAddress': 'P', 'mint': 'M', 'symbol': 'A', 'sl': 20.0}], 'events': []}
+    c = ap.set_leg(card, 'P', sl=30, now=100)
+    e = c['events'][-1]
+    assert e['kind'] == 'level' and e['room'] is True and '−20% → −30%' in e['why'] and om.classify(e) == ('room', 'A')
+    c2 = ap.set_leg(c, 'P', sl=10, now=200)
+    assert om.classify(c2['events'][-1]) == ('tight', 'A')
+    assert om.verdict('room', 12) == 'good' and om.verdict('tight', -12) == 'good' and om.verdict('tight', 15) == 'bad'
+    assert ap.set_leg(card, 'P', frozen=True, now=100).get('events') in (None, [])   # no line moved = no event

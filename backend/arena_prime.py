@@ -3236,6 +3236,7 @@ def set_leg(card, pair, frozen=None, sl_mode=None, tp=None, sl=None, flow=None, 
             leg['flowExit'] = flow
         else:
             leg.pop('flowExit', None)
+    before = {k: _f(leg.get(k)) for k in ('tp', 'sl')}
     for key, val, allowed in (('tp', tp, LEG_TPS), ('sl', sl, LEG_SLS)):   # 🎯 this coin's own TP / SL; 0 clears it back to the tier's
         if val is not None:
             if _f(val) and _f(val) not in allowed and not step_ok(key, val):
@@ -3246,6 +3247,12 @@ def set_leg(card, pair, frozen=None, sl_mode=None, tp=None, sl=None, flow=None, 
             else:
                 leg.pop(key, None)
             leg['ownerLvAt'] = _f(now) or time.time()   # ✋ the owner set this coin's line by hand — Reaper obeys it, the Judge grades it apart
+    moved = {k: (before[k], _f(leg.get(k))) for k in ('tp', 'sl') if before[k] != _f(leg.get(k))}
+    if moved:   # 🎓 a card event the owner_moves record grades: more room (wider stop / higher take) vs protecting (tighter)
+        room = any((b == 0 or a > b) for k, (b, a) in moved.items() if a) and not any(0 < a < b for k, (b, a) in moved.items())
+        words = ' · '.join(f"{'stop' if k == 'sl' else 'take'} {('−' if k == 'sl' else '+')}{b:g}% → {('−' if k == 'sl' else '+')}{a:g}%" if a else f"{'stop' if k == 'sl' else 'take'} back to the tier's" for k, (b, a) in moved.items())
+        c['events'] = list(card.get('events') or []) + [{'at': _f(now) or time.time(), 'kind': 'level', 'symbol': leg.get('symbol'), 'room': room,
+                                                          'why': f"✋ your line on ${leg.get('symbol')}: {words}"}]
     return c
 
 
