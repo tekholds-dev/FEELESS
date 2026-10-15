@@ -9,7 +9,7 @@ const rows = [{ mint: 'A', symbol: 'AAA', safe: true, chg5m: 2 }, { mint: 'B', s
 test('every number comes only from what was answered; caught coins are real fails once each', () => {
   expect(rows.map(fateOf)).toEqual(['safe', 'fail', 'wait', 'fail']);
   expect(fateOf({ fails: ['not scanned yet — holders unknown'] })).toBe('wait');
-  expect(caughtCoins(rows)).toEqual([{ mint: 'B', sym: 'BBB', pair: undefined, why: 'top-10 holds 61%' }]);
+  expect(caughtCoins(rows)).toEqual([{ mint: 'B', sym: 'BBB', pair: undefined, why: 'missed: top-10 holds 61%' }]);
   const v = stackVitals({ rows, seen: 9 }, { level: 'rain', breadthPct: 69 }, { live: [1, 2] }, { cards: [{ real: true }, {}] }, { feed: [1, 2, 3] });
   expect(v).toMatchObject({ seen: 9, read: 3, caught: 2, safePct: 33, runners: 2, weather: 'rain', cards: 2, real: 1, swaps: 3 });
   const empty = stackChips(stackVitals(null, null, null, null, null));

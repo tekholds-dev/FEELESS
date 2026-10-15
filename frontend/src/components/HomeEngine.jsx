@@ -19,7 +19,7 @@ export function caughtCoins(rows, n = 12) {
     const sy = String(r?.symbol || '').toUpperCase();
     if (!r?.mint || !sy || seen.has(sy) || fateOf(r) !== 'fail') continue;
     seen.add(sy);
-    out.push({ mint: r.mint, sym: String(r.symbol).slice(0, 10), pair: r.pairAddress, why: String((r.fails || []).find(x => !UNREAD.test(String(x))) || 'failed a safety check').replace(/\s+/g, ' ').slice(0, 44) });
+    out.push({ mint: r.mint, sym: String(r.symbol).slice(0, 10), pair: r.pairAddress, why: (r.fails || []).some(x => !UNREAD.test(String(x))) ? `missed: ${String((r.fails || []).find(x => !UNREAD.test(String(x)))).replace(/\s+/g, ' ').slice(0, 40)}` : 'failed a safety check' });
     if (out.length >= n) break;
   }
   return out;
