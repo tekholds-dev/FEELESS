@@ -250,6 +250,25 @@ def t_pump_trending(a):
     return _cut('\n'.join(out))
 
 
+def t_memory(a):
+    """🗄 The AI's filed memory (ai_memory.py): the notes that fit the question — how the owner trades, his lessons, live rules, desk coins,
+    how the site works. Read-only."""
+    import ai_memory as aim
+    mem = _file('ai_memory.json') or {}
+    q = str((a or {}).get('query') or '')
+    lines = aim.recall(aim.seed_site(mem, time.time()), q, 12) if q else [f"[{d}] {x.get('t')}" for d in aim.DRAWERS for x in (mem.get(d) or [])[-4:]]
+    return _cut('\n'.join(lines) or 'Memory is empty so far — it fills every 10 minutes from the desk.')
+
+
+def t_owner(_a):
+    """👤 The owner study: how the owner's own moves graded, his seats vs where the agents would have sold, his dragged lines vs theirs."""
+    v = (_file('agents_view.json') or {}).get('office', {}).get('ownerStudy') or {}
+    if not v:
+        return 'No owner study yet — it is built every 10 minutes from graded moves.'
+    out = [f"score {v.get('score')}% good over {v.get('graded')} graded moves"] + list(v.get('findings') or []) + [f"suggests: {x.get('value')}" for x in v.get('suggestions') or []]
+    return _cut('\n'.join(out))
+
+
 def t_notes(_a):
     """What the owner taught the desk (notes, narratives, chart lessons, the rules the agents run), the approved build queue and the
     Brain's saved settings — the shared memory every model should read before advising."""
@@ -674,6 +693,8 @@ TOOLS = {
     'pump_trending': (t_pump_trending, "Pump.fun's OWN trending list (or list=movers / volume / dips / callers / narrative / best) with FEELESS's vitals on every coin. "
                       'Use to shortlist, then investigate the best 2–3 and deep_research the narrative.',
                       {'list': {'type': 'string', 'enum': list(LENSES)}, 'limit': {'type': 'integer', 'description': '3–30 (default 8)'}}),
+    'feeless_memory': (t_memory, "The AI's filed memory: notes that fit a question (owner habits, lessons, live rules, desk coins, how FEELESS works).", {'query': {'type': 'string', 'description': 'what you are about to answer'}}),
+    'owner_report': (t_owner, "The owner study: his graded moves, his seats vs the agents' exit calls, his SL / TP lines vs theirs, and what it suggests.", {}),
     'feeless_notes': (t_notes, "The owner's teachings, the rules the agents run, and the approved build queue — read before advising.", {}),
     'deep_research': (t_deep_research, 'DEEP research on anything: several searches (the query + scam / team / news angles), the best pages READ in parallel, '
                       'every excerpt with its URL. Use for projects, people, narratives, "is this legit".',

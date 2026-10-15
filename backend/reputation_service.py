@@ -6943,6 +6943,7 @@ async def _trench_build(now):
     await _edge_track(now)
     await _flow_settle(now)
     await _owner_moves_tick(now)
+    await _study_tick(now)   # 👤 the owner study → 🗄 the AI memory + proposals (2026-10-15)
     return _trench_cache
 
 
@@ -6950,6 +6951,56 @@ TRENCH_META_PATH = FUSE_HQ_PATH.parent / 'trench_meta.json'
 ENTRY_PROOF_PATH = FUSE_HQ_PATH.parent / 'entry_proof.json'
 OWNER_MOVES_PATH = FUSE_HQ_PATH.parent / 'owner_moves.json'   # 🧾 the owner's hand moves on each real card, scored 30 min later (owner_moves.py)
 CALL_RUN_PCT = 25.0   # 📣 a callout that is up this much since the call is worth a chat line
+
+
+import owner_study as _ost
+import ai_memory as _aim
+import mem_store as _ms0
+AI_MEMORY_PATH = DATA_DIR / 'ai_memory.json'   # 🗄 the model's filed memory (ai_memory.py: 5 capped drawers, never the whole site)
+_aim_mem = _ms0.MemStore(lambda: AI_MEMORY_PATH, 120.0, lambda p_, d_: _json_load(p_, d_), lambda p_, o_: _json_save(p_, o_))
+_study = {'at': 0.0, 'v': None}
+STUDY_EVERY = 600
+
+
+def _owner_study(now):
+    """👤 The owner study (owner_study.report) from the records FEELESS already keeps. Cached STUDY_EVERY."""
+    if _study['v'] is not None and now - _study['at'] < STUDY_EVERY:
+        return _study['v']
+    log_ = next((v for k_, v in _json_load(OWNER_MOVES_PATH, {}).items() if isinstance(v, dict)), {})
+    arch_ = (_json_load(ARCHIVE_PATH, {}) or {}).get('positions')
+    words_ = _ps.words(_ps.profile((_json_load(PICK_STYLE_PATH, {}) or {}).get('log') or []))
+    rep_ = _ost.report(_om.summary(log_), _of.owner_seats(arch_), _of.owner_hand(arch_), words_)
+    _study.update(at=now, v=rep_)
+    return rep_
+
+
+async def _study_tick(now):
+    """Every STUDY_EVERY: rebuild the owner study, file its findings + the owner's lessons + live rules + the desk's closest coins into the
+    AI memory (capped drawers), and file the study's suggestions as PENDING proposals in the Brain (the owner ✅ / ✕ each one)."""
+    if now - _study['at'] < STUDY_EVERY and _study['v'] is not None:
+        return
+    try:
+        rep_ = await asyncio.to_thread(_owner_study, now)
+        mem_ = _aim.seed_site(_aim_mem.get() or {}, now)
+        for i_, f_ in enumerate(rep_.get('findings') or []):
+            mem_ = _aim.file(mem_, 'owner', f'study{i_}', f_, now)
+        for it_ in (_teach_state().get('items') or [])[-40:]:
+            mem_ = _aim.file(mem_, 'lessons', f"{it_.get('kind')}:{str(it_.get('text'))[:40]}", f"{it_.get('kind')}: {it_.get('text')}" + (f" (${it_.get('sym')})" if it_.get('sym') else ''), _fuse._f(it_.get('at')) or now)
+        for r_ in [x_ for x_ in (_json_load(LAB_PATH, {}) or {}).get('rules') or [] if x_.get('status') == 'live'][:12]:
+            mem_ = _aim.file(mem_, 'rules', f"lab:{r_.get('id')}", f"{r_.get('name')} ({r_.get('desk')}): {r_.get('why') or ''}", now)
+        for m_, d_ in list(_tk.KERNEL.dec.items())[:400]:
+            if d_.get('status') in ('READY', 'CONTENDING'):
+                x_ = _tk.KERNEL.candidate(m_, d_) or {}
+                mem_ = _aim.file(mem_, 'coins', m_, f"${x_.get('symbol')} {d_.get('status')} rank {_fuse._f(d_.get('rank')):.0f} · {str((d_.get('why') or [''])[0] if isinstance(d_.get('why'), list) else d_.get('why') or '')[:120]}", now)
+        _aim_mem.put(_aim.prune(mem_, now), now)
+        if rep_.get('suggestions'):
+            items_ = [it_ for it_ in (_aic.check(x_)[0] for x_ in rep_['suggestions']) if it_]
+            if items_:
+                _chat['props'], new_ = _aic.propose(_chat_props(), items_, _chat_olds(), now, '👤 owner study')
+                if new_:
+                    _json_save(AI_PROPOSALS_PATH, _chat['props'])
+    except Exception as e:
+        print('study tick:', str(e)[:120])
 
 
 async def _owner_moves_tick(now):
@@ -8447,7 +8498,7 @@ async def _keeper_stop():
     _keeper_state['stopping'] = True   # loops still running during shutdown must not trade
     _single.release(KEEPER_LOCK)
     for flush in (lambda: _block_flush() if _block_dirty['on'] else None, _hygiene_flush,   # debounced stores: nothing learned is lost on a stop
-                  _agents_mem.flush, _lingo_mem.flush, _shadow_flush, _social_flush, _after_mem.flush):
+                  _agents_mem.flush, _lingo_mem.flush, _shadow_flush, _social_flush, _after_mem.flush, _aim_mem.flush):
         try:
             flush()
         except Exception:
@@ -13970,8 +14021,14 @@ async def admin_ai_chat(request: Request):
             except Exception as e_:
                 print('chat evidence:', str(e_)[:120])
                 data_ = {'state': 'NO HISTORY', 'window': None, 'exits': 0, 'gaps': ['the evidence reader failed — answered without records']}
+        try:   # 🗄 the filed memory that fits this question (owner notes first, then lessons / rules / coins / site) — never the whole store
+            mm_ = _aim.recall(_aim.seed_site(_aim_mem.get() or {}, now), text, 8)
+            if mm_:
+                ctx = {**(ctx or {}), 'memory': mm_}
+        except Exception as e_:
+            print('chat memory:', str(e_)[:80])
         web_ = None
-        if mode == 'chat' and data_ is None and (body or {}).get('web', True) is not False and _aic.wants_web(text):   # 🌐 a world question: 5 results first
+        if mode == 'chat' and data_ is None and (body or {}).get('web', True) is not False and _aic.should_search(text):   # 🌐 a quick search before EVERY real question (model memory may be out of date)
             try:
                 import feeless_mcp as _mcp
                 rows_ = await asyncio.wait_for(asyncio.to_thread(_mcp._search_rows, _aic.web_query(text), 5), timeout=8)
@@ -16945,7 +17002,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         'office': {'chain': list(_of.CHAIN), 'priority': list(_of.PRIORITY), 'coins': perf.get('coins'), 'cases': len(cases), 'cleared': sum(1 for c_ in cases if c_['cleared'])},
         'agents': _of.agent_cards(cards, {'live': live, 'office': of}), 'currentCase': cur_case, 'pipeline': pipe,
         'queue': queue, 'positions': _office_positions(), 'exiting': [{'mint': p_['mint'], 'sym': p_.get('sym'), 'rule': p_.get('askRule'), 'state': (p_.get('exit') or {}).get('state'), 'since': p_.get('leftAt')} for p_ in _office['exiting']],
-        'execution': {**cour, 'metrics': _fw.exec_metrics(_fw_peek().get('ledger'), now, dupes=_FW_DUPES['n'])}, 'ownerHand': _of.owner_hand(arch.get('positions')), 'ownerSeats': _of.owner_seats(arch.get('positions')), 'askRec': ask_rec_, 'agentPredict': _of.pred_record(arch.get('positions')), 'tid': tid, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': [{'agent': x_.get('role'), 'gen': x_.get('gen'), 'why': f"{x_.get('status') or 'replaced'} — {x_.get('why') or ''}" + (f" · next generation: {x_['changed']}" if x_.get('changed') else ''), 'at': x_.get('retiredAt')}
+        'execution': {**cour, 'metrics': _fw.exec_metrics(_fw_peek().get('ledger'), now, dupes=_FW_DUPES['n'])}, 'ownerHand': _of.owner_hand(arch.get('positions')), 'ownerSeats': _of.owner_seats(arch.get('positions')), 'ownerStudy': _study['v'], 'aiMemory': _aim.size(_aim_mem.get() or {}), 'askRec': ask_rec_, 'agentPredict': _of.pred_record(arch.get('positions')), 'tid': tid, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': [{'agent': x_.get('role'), 'gen': x_.get('gen'), 'why': f"{x_.get('status') or 'replaced'} — {x_.get('why') or ''}" + (f" · next generation: {x_['changed']}" if x_.get('changed') else ''), 'at': x_.get('retiredAt')}
                                                          for x_ in reversed((_lc_book(now).get('lineage') or [])[-12:])], 'devil': dv_rec[:10], 'needShadow': _of.SHADOW_N, 'needPropose': _of.PROPOSE_N},
         'index': (_office.get('index') or [])[:80], 'rpc': {'lanes': _rpc_quota_state(), 'note': 'keyed lanes = keeper sends / balances first, then holder scans (budgeted); discovery comes from Pump\'s live stream + the launch boards — no RPC first-seen listener runs'},
         'court': _office.get('court'), 'opp': _office.get('opp'), 'coach': _coach_view(now), 'tradeTape': _trade_tape(now),   # 👑 the directives in force · 🎬 every real agent trade as one story

@@ -251,7 +251,9 @@ def trade_tape(ledger, positions, reviews=None, ai_log=None, card=None, n=30):
       why  = the agents' door / tag + the entry thesis (archive) · ai = the model's read of that coin nearest the buy (its log)
       sell = the confirmed exit fills · result = real % (archive) · judge = the Judge's ruling (cause · desk · words)
     An open position has no sell / result yet. Nothing is estimated: a missing piece is absent."""
-    buys = [r for r in ledger or [] if r.get('side') == 'buy' and r.get('status') == 'filled' and r.get('agent') and r.get('sig') and (card is None or r.get('card') == card)]
+    # every confirmed buy on the card — the agents' AND the owner's own picks (2026-10-15: "where my coins Macca and STREAM?" — they were left out)
+    buys = [r for r in ledger or [] if r.get('side') == 'buy' and r.get('status') == 'filled' and r.get('sig') and (card is None or r.get('card') == card)
+            and (r.get('agent') or r.get('picked'))]
     sells = [r for r in ledger or [] if r.get('side') == 'sell' and r.get('status') == 'filled' and r.get('sig') and (card is None or r.get('card') == card)]
     pos_by = {}
     for p in positions or []:
@@ -270,7 +272,7 @@ def trade_tape(ledger, positions, reviews=None, ai_log=None, card=None, n=30):
         ai = next((a for a in sorted(ai_log or [], key=lambda a: abs(_f(a.get('at')) - t)) if a.get('mint') == m and abs(_f(a.get('at')) - t) <= 1800), None)
         mid, px = _f(b.get('midPx')), _f(b.get('px'))
         th = (p or {}).get('thesis') or {}
-        row = {'mint': m, 'sym': b.get('symbol'), 'at': t,
+        row = {'mint': m, 'sym': b.get('symbol'), 'at': t, 'who': 'agents' if b.get('agent') else 'you',
                'buy': {'usd': _f(b.get('usd')) or None, 'px': px or None, 'mid': mid or None, 'slipPct': round((px / mid - 1) * 100, 2) if px > 0 and mid > 0 else None,
                        'landSec': b.get('landSec'), 'impactPct': b.get('impactPct'), 'sig': b.get('sig'), 'why': b.get('why'),
                        # decided → sent: the thesis is written the moment the fill was allowed; the keeper's send is stamped on the row
@@ -279,7 +281,16 @@ def trade_tape(ledger, positions, reviews=None, ai_log=None, card=None, n=30):
                        'phase': ((p or {}).get('li') or {}).get('phase'), 'size': (p or {}).get('warden')},
                'ai': {k: ai.get(k) for k in ('stance', 'summary', 'risk_flags', 'label', 'role')} if ai else None,
                'sells': [{'at': _f(s.get('confirmedAt') or s.get('at')), 'usd': _f(s.get('usd')) or None, 'why': s.get('why'), 'sig': s.get('sig'), 'landSec': s.get('landSec')} for s in sorted(ss, key=lambda s: _f(s.get('confirmedAt') or s.get('at')))][:4],
-               'open': not (p and p.get('closedAt')) and not ss}
+               'open': not (p and p.get('closedAt')) and not ss,
+               # still held · part sold (a sale landed, the position is still open) · sold — the tape says which (owner, 2026-10-15)
+               'state': 'held' if not ss and not (p and p.get('closedAt')) else 'part' if ss and p and not p.get('closedAt') else 'sold'}
+        if row['state'] == 'part':
+            row['open'] = True
+        if row['state'] == 'sold' and ss and not (p and p.get('realPct') is not None) and _f(b.get('usd')) > 0:
+            # no archive record (your own picks have none): the result from the ledger's own fills
+            usd, out_ = _f(b.get('usd')), sum(_f(s.get('usd')) for s in ss)
+            row['result'] = {'pct': round((out_ / usd - 1) * 100, 2), 'usd': round(out_ - usd, 3), 'peak': None,
+                             'heldMin': round((_f(ss[-1].get('confirmedAt') or ss[-1].get('at')) - t) / 60, 1), 'rule': (ss[-1].get('why') or None), 'src': 'ledger'}
         if p and p.get('closedAt') and p.get('realPct') is not None:
             usd = _f(b.get('usd'))
             row['result'] = {'pct': round(_f(p['realPct']), 2), 'usd': round(sum(_f(s.get('usd')) for s in ss) - usd, 3) if ss and usd else None, 'peak': p.get('peak'),

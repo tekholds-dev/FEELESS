@@ -14,7 +14,7 @@ function Trade({ r, now, on, onPick }) {
   const c = tradeCard(r, now);
   return <li className={`ctp-trade ${c.tone} ${on ? 'is-on' : ''}`} data-testid={`ctp-trade-${c.sym}`}>
     <button type="button" className="ctp-head" onClick={() => c.mint && onPick?.(c.mint)} data-tip="Put this coin on the chart">
-      <b>${c.sym}</b><small>{c.ago} ago</small><em className="ctp-res" data-testid={`ctp-res-${c.sym}`}>{c.head}{c.usd ? <i>{c.usd}</i> : null}</em></button>
+      <b>${c.sym}</b>{c.yours ? <i className="ctp-yours" data-tip="your own pick — the agents only suggest on it">👤 YOURS</i> : null}<small>{c.ago} ago</small><em className="ctp-res" data-testid={`ctp-res-${c.sym}`}>{c.head}{c.usd ? <i>{c.usd}</i> : null}</em></button>
     <ol className="ctp-steps">
       <li className="is-buy"><span>⬇ FILL</span><p>{c.buy.join(' · ') || '—'}{c.slipBad ? <i className="ctp-warn" data-tip="This fill landed more than 2.5% above the market price of the decision"> ⚠</i> : null}{c.slow ? <i className="ctp-warn" data-tip="More than a minute passed between the call and the fill"> ⏱</i> : null}
         {c.buySig ? <a href={tx(c.buySig)} target="_blank" rel="noreferrer" aria-label="Buy transaction">tx ↗</a> : null}</p></li>

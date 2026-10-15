@@ -11,7 +11,7 @@ const css = walk(SRC).filter(f => f.endsWith('.css')).map(f => fs.readFileSync(f
 const defined = new Set([...css.matchAll(/\.(-?[A-Za-z_][\w-]*)/g)].map(m => m[1]));
 
 const FILES = ['AgentDesk', 'AgentCockpit', 'AgentScreens', 'LifeLens', 'OfficeBoard', 'OfficeEdge', 'CockpitControls', 'SeatOps', 'CoachTape',
-  'IntakeBand', 'VitalBoard', 'AiChat', 'AiDecisions', 'TeachBox', 'MySeat', 'KernelBoard'].map(n => path.join(SRC, 'components', 'command', `${n}.jsx`)).filter(f => fs.existsSync(f));
+  'IntakeBand', 'VitalBoard', 'AiChat', 'AiDecisions', 'TeachBox', 'MySeat', 'KernelBoard', 'OwnerStudy'].map(n => path.join(SRC, 'components', 'command', `${n}.jsx`)).filter(f => fs.existsSync(f));
 const WRAPPERS = new Set(['agd-ctl', 'agd-log', 'oed-launch', 'oed-missed', 'oed-review', 'tch-k']);   // hooks for tests / children-styled wrappers
 
 const classesOf = src => {

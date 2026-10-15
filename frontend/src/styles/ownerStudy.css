@@ -1,0 +1,28 @@
+/* 👤 The owner study pane (OwnerStudy.jsx). m-* tokens, transform / opacity only. */
+.ost { display: grid; gap: 10px; padding: 12px; border-radius: 12px; font: 600 10px var(--m-mono); }
+.ost header { display: flex; align-items: center; gap: 12px; }
+.ost h4 { margin: 0; flex: 1; font: 800 11px var(--m-mono); letter-spacing: .1em; color: var(--m-text); }
+.ost h4 small, .ost-dim { font: 600 9.5px var(--m-mono); letter-spacing: 0; color: var(--m-dim); }
+.ost-ring { position: relative; width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center; align-content: center;
+  background: conic-gradient(#15d16a calc(var(--p) * 360deg), rgba(255, 255, 255, .07) 0); }
+.ost-ring::before { content: ''; position: absolute; inset: 5px; border-radius: 50%; background: #071009; }
+.ost-ring > * { position: relative; } .ost-ring b { font-size: 13px; color: #45e486; } .ost-ring small { font-size: 8px; color: var(--m-mute); }
+.ost-kinds { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.ost-kinds li { display: grid; grid-template-columns: minmax(130px, 1.2fr) 2fr 42px 44px; gap: 8px; align-items: center; animation: ostIn .3s both; animation-delay: calc(var(--i, 0) * 45ms); }
+.ost-kinds li > span:first-child { color: var(--m-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ost-bar { height: 6px; border-radius: 3px; background: rgba(255, 143, 163, .25); overflow: hidden; }
+.ost-bar > i { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, #0e8a4a, #45e486); transition: transform .6s cubic-bezier(.2, .8, .2, 1); }
+.ost-kinds em { font-style: normal; font-weight: 800; color: var(--m-text); text-align: right; } .ost-kinds small { color: var(--m-mute); }
+.ost-vs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ost-vs > span { display: grid; gap: 2px; padding: 8px; border-radius: 9px; border: 1px solid var(--m-line); background: rgba(0, 0, 0, .25); min-width: 0; }
+.ost-vs small { color: var(--m-mute); letter-spacing: .1em; font-size: 8.5px; } .ost-vs b { font-size: 15px; color: var(--m-text); }
+.ost-vs b.is-up { color: #45e486; } .ost-vs b.is-dn { color: #ff8fa3; } .ost-vs em { font-style: normal; color: var(--m-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ost-find { margin: 0; padding-left: 16px; display: grid; gap: 3px; color: var(--m-dim); line-height: 1.45; }
+.ost-find li { animation: ostIn .3s both; animation-delay: calc(var(--i, 0) * 40ms); }
+.ost-sugg { display: grid; gap: 4px; padding: 8px 10px; border-radius: 9px; border: 1px dashed rgba(21, 209, 106, .45); }
+.ost-sugg small { color: #45e486; letter-spacing: .08em; } .ost-sugg p { margin: 0; color: var(--m-text); line-height: 1.4; } .ost-sugg b { color: var(--gold); text-transform: uppercase; margin-right: 4px; }
+@keyframes ostIn { from { transform: translateY(5px); } to { transform: none; } }
+body.fx-lite .ost-kinds li, body.fx-lite .ost-find li { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ost-kinds li, .ost-find li { animation: none; } .ost-bar > i { transition: none; } }
+body.theme-day .ost-ring::before { background: #eef6f1; } body.theme-day .ost-vs > span { background: rgba(236, 246, 240, .85); } body.theme-day .ost-ring b, body.theme-day .ost-vs b.is-up, body.theme-day .ost-sugg small { color: #0e8a4a; }
+@media (max-width: 640px) { .ost-vs { grid-template-columns: 1fr; } .ost-kinds li { grid-template-columns: 1fr 1.4fr 38px; } .ost-kinds small { display: none; } }

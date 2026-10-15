@@ -90,3 +90,6 @@ body.fx-lite .ctp-meter .ctp-bar > i { transition: none; }
 body.theme-day .ctp-meter { background: rgba(13, 122, 65, .06); border-color: rgba(13, 122, 65, .2); --ctp-m: #0d7a41; } body.theme-day .ctp-meter.is-mid { --ctp-m: #9a6a00; } body.theme-day .ctp-meter.is-bad { --ctp-m: #b42346; }
 body.theme-day .ctp-meter .ctp-bar { background: rgba(16, 38, 26, .1); } body.theme-day .ctp-replay { background: rgba(16, 38, 26, .04); color: #3f5a4a; } body.theme-day .ctp-replay b { color: #10261a; }
 body.theme-day .ctp-rgrade.is-up { color: #0d7a41; } body.theme-day .ctp-rgrade.is-dn { color: #b42346; }
+
+.ctp-yours { font-style: normal; padding: 0 5px; border-radius: 999px; border: 1px solid var(--gold); color: var(--gold); font: 800 8.5px var(--m-mono); letter-spacing: .06em; }
+body.theme-day .ctp-yours { color: #8a6a12; border-color: #8a6a12; }

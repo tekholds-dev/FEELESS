@@ -138,3 +138,26 @@ def test_the_model_coach_is_shown_what_the_desk_measured():
     assert 'its record: right' in case['rules'][0] and case['exits'].startswith('R5 -31% (n 14)') and 'R8' not in case['exits']
     assert case['speed'] == 'call→sent 89s · sent→landed 24s · fills +1.4% vs the call'
     assert co.coach_case([])['speed'] is None
+
+
+def test_the_trade_tape_shows_your_own_picks_marked_yours():
+    import coach as co
+    led = [{'side': 'buy', 'status': 'filled', 'sig': 's1', 'mint': 'M1', 'symbol': 'Macca', 'picked': True, 'card': 'degen', 'at': 100, 'usd': 0.3},
+           {'side': 'buy', 'status': 'filled', 'sig': 's2', 'mint': 'M2', 'symbol': 'BOT', 'agent': True, 'card': 'degen', 'at': 90, 'usd': 0.2},
+           {'side': 'buy', 'status': 'filled', 'sig': 's3', 'mint': 'M3', 'symbol': 'ENG', 'card': 'degen', 'at': 80, 'usd': 0.2}]
+    rows = co.trade_tape(led, [], [], [], n=10)
+    assert {r['sym']: r['who'] for r in rows} == {'Macca': 'you', 'BOT': 'agents'}   # engine-only buys stay off the agents' tape
+
+
+def test_the_trade_tape_says_held_part_sold_or_sold():
+    import coach as co
+    led = [{'side': 'buy', 'status': 'filled', 'sig': 'b1', 'mint': 'M1', 'symbol': 'STREAM', 'picked': True, 'card': 'c', 'at': 100, 'usd': 1.0},
+           {'side': 'sell', 'status': 'filled', 'sig': 's1', 'mint': 'M1', 'card': 'c', 'at': 400, 'usd': 1.2, 'why': 'R4 whale dump'},
+           {'side': 'buy', 'status': 'filled', 'sig': 'b2', 'mint': 'M2', 'symbol': 'Macca', 'picked': True, 'card': 'c', 'at': 500, 'usd': 0.5},
+           {'side': 'buy', 'status': 'filled', 'sig': 'b3', 'mint': 'M3', 'symbol': 'HALF', 'agent': True, 'card': 'c', 'at': 600, 'usd': 1.0},
+           {'side': 'sell', 'status': 'filled', 'sig': 's3', 'mint': 'M3', 'card': 'c', 'at': 700, 'usd': 0.55}]
+    pos = [{'mint': 'M3', 'since': 600}]
+    rows = {r['sym']: r for r in co.trade_tape(led, pos, [], [], n=10)}
+    assert rows['STREAM']['state'] == 'sold' and rows['STREAM']['result']['pct'] == 20.0 and rows['STREAM']['result']['rule'] == 'R4 whale dump'
+    assert rows['Macca']['state'] == 'held' and rows['Macca']['open']
+    assert rows['HALF']['state'] == 'part' and rows['HALF']['open'] and 'result' not in rows['HALF']

@@ -13,8 +13,8 @@ export function tradeCard(r, now = Date.now() / 1000) {
   const w = r?.why || {};
   const why = [w.tag ? String(w.tag).replace('🤖 agents · ', '') : null, w.structure, w.rule, w.phase ? `phase ${w.phase}` : null, w.size != null ? `size ×${w.size}` : null].filter(Boolean);
   const b = r?.buy || {};
-  return { key: `${r?.mint}-${r?.at}`, mint: r?.mint, sym: r?.sym || '?', tone, ago: agoWord(r?.at, now),
-    head: r?.open ? 'OPEN' : pct == null ? 'CLOSED' : signedPct(pct), usd: res?.usd != null ? money2(res.usd) : null,
+  return { key: `${r?.mint}-${r?.at}`, mint: r?.mint, sym: r?.sym || '?', tone, ago: agoWord(r?.at, now), yours: r?.who === 'you',
+    head: r?.state === 'part' ? '◐ PART SOLD' : r?.open ? '🟢 STILL HELD' : pct == null ? 'SOLD' : `SOLD ${signedPct(pct)}`, state: r?.state || (r?.open ? 'held' : 'sold'), usd: res?.usd != null ? money2(res.usd) : null,
     buy: [b.usd != null ? `${money2(b.usd)} in` : null, num(b.slipPct) != null ? `filled ${signedPct(b.slipPct)} vs market` : null, num(b.waitSec) != null ? `sent ${secWord(b.waitSec)} after the call` : null, num(b.landSec) != null ? `landed ${num(b.landSec).toFixed(0)}s` : null].filter(Boolean),
     slow: num(b.waitSec) != null && num(b.waitSec) + (num(b.landSec) || 0) > 60,
     buySig: b.sig || null, slipBad: num(b.slipPct) != null && num(b.slipPct) > 2.5,

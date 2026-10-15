@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AddMyCoin, SeatStudy, MySeatsRecord } from './MySeat';
+import { OwnerStudy } from './OwnerStudy';
 import { CHART_BGS, setChartBg, useChartBg } from '../../lib/chartBg';
 import { toast } from 'sonner';
 import { grabOrder } from '../../lib/chartGrab';
@@ -598,6 +599,7 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
       <ReaperAsks o={o} call={call} isOwner={isOwner} reload={cc?.load} />
       {isOwner ? <><AddMyCoin call={call} tpl={d?.card?.tpl} seats={seats} reload={cc?.load} /><MySeatsRecord rec={o.ownerSeats} /></> : null}
       <div className="ack-seatrow">{seats.map((s, i) => <SeatCard key={s.seat} s={s} on={!s.open && s.mint === mint} onPick={onPick} readyN={readyN} same={s.open ? seats.slice(0, i).find(x => x.open && x.why === s.why)?.seat : undefined} />)}</div></section>, seats.length ? held / seats.length : null, 'the seats: live P&L, Reaper\'s word, tap = its chart'],
+      ['you', '👤 You', o.ownerStudy?.score != null ? `${o.ownerStudy.score}%` : null, <OwnerStudy study={o.ownerStudy} memory={o.aiMemory} />, null, 'your own moves graded, your seats vs the agents, what the study suggests'],
       ['live', '⚡ Feed', (o.tape || []).length || null, <><DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { if (r.mint) setPick(r.mint); setAgentS(r.agent in AG ? r.agent : null); setTab('live'); }} /></>],
       ['tape', '🎬 Trades', (o.tradeTape?.rows || []).length, <><LossMap court={o.court} capital={o.capital} /><TradeTape tape={o.tradeTape} mint={mint} onPick={onPick} /></>],
       ['brain', '🧠 Brain', null, <AiChat call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} variant="full" extras={brainExtras} />],

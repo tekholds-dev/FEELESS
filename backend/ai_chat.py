@@ -81,6 +81,14 @@ def wants_web(text):
     return len(t) >= 6 and not GREETING.match(t) and bool(WEB_WORDS.search(t))
 
 
+def should_search(text):
+    """🌐 SEARCH BEFORE THOUGHTS (owner, 2026-10-15: "always doing a simple and deep quick search before giving thoughts, knowing model memory
+    may be off"): every real question gets a quick web search first — only a greeting / slang line, a one-word poke or a pure FEELESS
+    record question (that one reads our own evidence packet instead) skips it."""
+    t = str(text or '').strip()
+    return len(t) >= 8 and len(t.split()) >= 2 and not GREETING.match(t)
+
+
 def web_query(text):
     """The search words: the question without filler, ≤ 120 characters."""
     t = re.sub(r'\s+', ' ', str(text or '')).strip()

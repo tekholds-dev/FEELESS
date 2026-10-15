@@ -4414,3 +4414,18 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `lms server start --port 1236` if down, `lms load <model> --context-length 10658` if not loaded; hourly: re-pulls /lan-install with
   FEELESS_NO_RELOAD=1 so updates land without reloading itself). A sleeping / lid-closed / powered-off Mac still can't answer — the
   installer prints the Energy + "Serve on local network" settings to switch on. Its LM Studio adds ~1.7K tokens of its own prompt to every call.
+- 🐱 FEECAT = ARENA / AGENT COINS ONLY (owner, 2026-10-15): her `_market_candidates` reads `GET /fuses/feecat-pool` (reputation service, cache-only:
+  the kernel's READY / CONTENDING coins first via `_agent_inherit_rows`, then the Arena league's `all`, `feecat_pool_rows`) and her own safety
+  gates still decide; empty pool = she waits. `ENGINE_VERSION` 'arena-v1' restarted every cat's paper trail once (positions, exits, events,
+  balance); the old store is in data/feecats_before_arena1015.json.
+- 👤 OWNER STUDY + 🗄 AI MEMORY + 🌐 SEARCH FIRST (owner, same day: "AI and agents build a report and study my trades … memory + cache, specific
+  filing for AI to pull … always a quick search before thoughts, knowing model memory may be off … no fluff"): `owner_study.report` (pure,
+  tested) = your graded moves by kind · your seats vs the agents' first exit call · your dragged lines vs theirs · pick bands → findings + ≤ 4
+  suggestions as Brain proposals (lessons only, ✅ / ✕ — nothing applies itself; MIN_N 6). `ai_memory` (pure, tested) = five capped drawers
+  (owner 24 / 7d · lessons 80 · rules 40 / 2d · coins 120 / 24h · site map) in data/ai_memory.json (MemStore, flushed on stop); `_study_tick`
+  every 10 min files the study, your lessons, live lab rules and the kernel's coins; `recall(text)` hands the chat ONLY the notes that fit
+  (yours first). The chat now runs a quick web search before every real question (`ai_chat.should_search`; greetings skip) and its system
+  prompt says trust fresh web over training memory, cite the url, use the filed memory, no fluff. MCP tools `feeless_memory` + `owner_report`.
+  Cockpit tab 👤 You (`OwnerStudy.jsx`, `ost-*`). Market-price orders are what the keeper already sends (Jupiter swaps = market); OPTIONS are
+  NOT built — on-chain Solana options need a venue + counterparty collateral; FEELESS would be writing or buying contracts with real backing.
+- 🎬 THE TRADE TAPE SHOWS YOUR PICKS + HELD / SOLD (owner, 2026-10-15: "where my coins Macca and STREAM?"): `coach.trade_tape` keeps every confirmed buy the agents OR the owner made (`who` agents | you → 👤 YOURS chip); `state` held · part (a sale landed, position still open) · sold → head '🟢 STILL HELD' / '◐ PART SOLD' / 'SOLD +x%'; a sold pick with no archive record takes its result from the ledger's own fills (rule = the sell's why). Engine-only buys stay off it. Macca / STREAM sold 17:21 / 17:31 by the old R4 rule, 15 min BEFORE the your-coins guard went live (17:36).
