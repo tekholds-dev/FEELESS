@@ -59,7 +59,13 @@ def test_levers_name_real_controls_with_their_direction():
 
 def test_the_desktop_installer_writes_the_preset_and_merges_only_its_own_mcp_entry():
     import feeless_mcp as m
-    s = m.install_script('http://10.0.0.104:8765/mcp', 'tok123', preset_json='{"name": "X {braces}"}')
+    s = m.install_script('http://10.0.0.104:8765/mcp', 'tok123', preset_json='{"name": "X {braces}"}', prompt='')
     assert s.startswith('#!/bin/bash') and '{"name": "X {braces}"}' in s
     assert 'cur.mcpServers.feeless = {"url": "http://10.0.0.104:8765/mcp", "headers": {"Authorization": "Bearer tok123"}}' in s
     assert "environment.objectForKey('HOME')" in s and 'cur.mcpServers = cur.mcpServers || {}' in s   # other servers stay; $HOME respected
+
+
+def test_the_installer_always_carries_the_fee_prompt_from_the_repo():
+    import feeless_mcp as m
+    s = m.install_script('http://x/mcp', 't', preset_json='{"operation": {"fields": [{"key": "llm.prediction.systemPrompt", "value": "You are the external reasoning brain"}]}}')
+    assert 'You are FEE' in s and 'external reasoning brain' not in s
