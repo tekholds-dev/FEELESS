@@ -513,7 +513,7 @@ RIDE_GIVE = 50.0       # 🏄 while a real crowd is buying, the trail lets the c
 RIDE_HOLD_SEC = 90.0   # the ride outlives one quiet 90s window (the tape is read every 15s); past it the normal rules return
 
 
-def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_=None, tape=None, office=None, sized=None, charts=None, theses=None, pol=None, live=True, vels=None, margins=None, rug=None, press=None, real=False, flows=None, ai_exit=None):
+def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_=None, tape=None, office=None, sized=None, charts=None, theses=None, pol=None, live=True, vels=None, margins=None, rug=None, press=None, real=False, flows=None, ai_exit=None, ai_words=None):
     """☠ One look at every position the agents hold on the real card (in control: every coin that is not frozen). It keeps each one's
     record (entry, peak, path, depth and top-10 at entry) and rules, in this order — the first that fires decides:
       R1 pool collapsed · R4 whale dump / R4r rug radar / R4e early wallets on the live tape · R5 stop* · (a holder scan or a rug score is evidence for the brain, never an exit) ·
@@ -720,6 +720,13 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             ev += f" · DATA DEGRADED ({ch['q']['state'] if ch and ch.get('q') else 'no data'}) — held on the hard risk / liquidity / execution rules only"
         if st == 'HOLD' and rv and rv['verdict'] == 'valid':
             ev = f"{pct:+.1f}% · {'; '.join(rv['why'][:4])} · window {rv['window'] + 1} of {granted}"
+        if act and soft_exit(rule):   # 📸 a profit-side exit needs its snapshots (the model's fresh read sets how many)
+            ok_, seen_, need_ = soft_confirm(p, rule, now, (ai_words or {}).get(m))
+            if not ok_:
+                ev += f" · 📸 snapshot {seen_}/{need_} — sells only if the next read still says so" + (' (AI: RIDE)' if (ai_words or {}).get(m) == 'ride' else '')
+                act, st = None, 'PROTECT'
+        elif not act:
+            p.pop('snap', None)
         p['decPx'], p['decAt'] = px, now   # ⚡ the price this decision stood on: the fast guard wakes Reaper when the live price moves materially from it
         if act:
             p.setdefault('askAt', now); p['askRule'] = rule
@@ -746,6 +753,34 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         p = pos.pop(m)
         gone.append({**p, 'mint': m, 'leftAt': now})
     return pos, out, gone
+
+
+# 📸 SNAPSHOT CONFIRMATION (owner, 2026-10-14: "we are still exiting trades too fast — listen to the AIs and take 2–3 snapshot decisions on
+# whether to TP or SL"): a PROFIT-side / soft exit (take line, trails, structure turned, momentum failed, time, sellers took over, climax)
+# fires only once it has been the ruling on SNAP_N consecutive reads at least SNAP_GAP apart — one red candle or a single soft read no
+# longer sells a winner. The model's fresh exit read sets N: RIDE → 3, TIGHTEN → 1, none → 2. STOPS, the −45% line, rug / drain / dump,
+# scan failures and a broken thesis on a loser stay INSTANT: waiting on a falling coin is how stops filled at −35%.
+SOFT_EXITS = ('R6', 'R7', 'R7s', 'R7b', 'R7v', 'R8', 'R9', 'R9e', 'R4f', 'R4c')
+SNAP_N, SNAP_RIDE_N, SNAP_TIGHT_N = 2, 3, 1
+SNAP_GAP = 8.0       # seconds between two counted snapshots
+SNAP_FORGET = 90.0   # a snapshot older than this no longer counts (the exit reading went away and came back)
+
+
+def soft_exit(rule):
+    return str(rule or '').split(' ')[0] in SOFT_EXITS
+
+
+def soft_confirm(p, rule, now, word=None):
+    """One more read says `rule` should sell → (confirmed, seen, need). Mutates the position's `snap` {rule, n, at}."""
+    need = SNAP_RIDE_N if word == 'ride' else SNAP_TIGHT_N if word == 'tight' else SNAP_N
+    key = str(rule or '').split(' ')[0]
+    sn = p.get('snap') or {}
+    if sn.get('rule') != key or now - _f(sn.get('at')) > SNAP_FORGET:
+        sn = {'rule': key, 'n': 0, 'at': 0.0}
+    if now - _f(sn.get('at')) >= SNAP_GAP or sn['n'] == 0:
+        sn = {'rule': key, 'n': sn['n'] + 1, 'at': now}
+    p['snap'] = sn
+    return sn['n'] >= need, sn['n'], need
 
 
 TIME_EXITS = ('R9', 'R9e')   # thesis-review TIME exits (windows used / no extension earned / time) — never R9c, the creator's own max hold
@@ -1485,7 +1520,7 @@ def spike_held(mint, px, line_px, prev, now):
     return bool(p0 > 0 and now - _f(at) <= SPIKE_SEC and px < p0 * (1 - SPIKE_PCT / 100) and p0 > line_px)
 
 
-def fast_reap(legs, px_by_mint, pos, now, office=None, prev=None):
+def fast_reap(legs, px_by_mint, pos, now, office=None, prev=None, ai_words=None):
     """→ [(pairAddress, why)] for agent coins the wallet holds that are AT Reaper's stop for them (`stopNow`, set on the position each
     tick) or the catastrophic −45%. Why (2026-10-11, 173 exits): agent seats carry no card stop and the card is held by the agents
     (`holdAll`), so `arena_prime.fast_stop` never ran for them — R5 stops set at −12…−25% filled at −18…−52% (sum −485% of −370%)."""
@@ -1517,7 +1552,11 @@ def fast_reap(legs, px_by_mint, pos, now, office=None, prev=None):
         peak = max(_f(p.get('peak')), dd)
         give = RIDE_GIVE if p.get('rideAt') and now - _f(p['rideAt']) <= RIDE_HOLD_SEC else tune(office, 'reaper', 'giveBackPct')   # 🏄 riding the volume: the wide trail
         if peak >= tune(office, 'reaper', 'protectAt') and dd <= peak * (1 - give / 100) and dd >= MIN_KEEP:
-            out.append((l.get('pairAddress'), f"☠ Reaper R7 trailing protection (👁 live chart): peaked {peak:+.1f}%, now {dd:+.1f}% — banked"))
+            ok_, seen_, need_ = soft_confirm(p, 'R7', now, (ai_words or {}).get(l.get('mint')))   # 📸 the trail banks on its 2nd (RIDE: 3rd) read, not the first dip
+            if ok_:
+                out.append((l.get('pairAddress'), f"☠ Reaper R7 trailing protection (👁 live chart, 📸 {seen_}/{need_} reads): peaked {peak:+.1f}%, now {dd:+.1f}% — banked"))
+        elif (p.get('snap') or {}).get('rule') == 'R7':
+            p.pop('snap', None)
     return out
 
 

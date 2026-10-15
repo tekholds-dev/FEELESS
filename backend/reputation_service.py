@@ -8717,7 +8717,7 @@ async def _real_guard_loop():
                             for tid_, c_ in list(cs_.items()):
                                 if not (c_ and c_.get('real')):
                                     continue
-                                hits_ = _of.fast_reap(c_.get('legs'), px, _office.get('pos') or {}, now, _office_state(), prev=_reap_prev)
+                                hits_ = _of.fast_reap(c_.get('legs'), px, _office.get('pos') or {}, now, _office_state(), prev=_reap_prev, ai_words=_ai_exit_words(None, now))
                                 _reap_prev.update({m_: (now, _fuse._f(v_)) for m_, v_ in (px or {}).items() if _fuse._f(v_) > 0})   # 🕯 the last live read per coin (spike confirm)
                                 nw_ = c_
                                 for pair_, why_ in hits_:
@@ -13103,6 +13103,14 @@ def _ai_exit_effects(cfg_t, now):
         return {}   # fillQ {mint: at} = coins that just took a real seat
 
 
+def _ai_exit_words(cfg_t, now):
+    """{mint: 'ride' | 'tight'} — the model's FRESH exit reads (proven or not): they only set how many 📸 snapshots a profit-side exit needs."""
+    try:
+        return _er.fresh_words(_ai['exit'], now, on=(cfg_t or {}).get('agentAiExit', True) is not False)
+    except Exception:
+        return {}
+
+
 def _ai_log(role, case, res, asked=False):
     """One model answer → the decision log the page shows (role · coin · stance · confidence · the model's sentence · what the kernel
     itself said at that moment). A cached answer is the SAME decision — not logged twice. Display only: nothing reads this back."""
@@ -16254,7 +16262,7 @@ def _office_reap(cur, px, cfg_t, ctl, now, dec, pol=None, live=True, vels=None, 
                     except Exception:
                         pass
         pos, rep, gone = _of.reap(cur.get('legs'), _agents.get('table'), px, cfg_t, _office['pos'], now, _agents.get('scalp'), ctl, _agents.get('weather'), tape, _office_state(), _office['sized'], _office.get('charts'), _office.get('theses'), pol=pol, live=live, real=bool(cur.get('real')),
-                                  vels=vels, margins=margins, rug=rug, press=press, flows=fv_, ai_exit=_ai_exit_effects(cfg_t, now))
+                                  vels=vels, margins=margins, rug=rug, press=press, flows=fv_, ai_exit=_ai_exit_effects(cfg_t, now), ai_words=_ai_exit_words(cfg_t, now))
         for g in gone:
             g['take'] = _of.take_line(cfg_t, _agents.get('scalp'))
         by_ = {x_.get('mint'): x_ for x_ in _agents.get('table') or []}

@@ -115,7 +115,8 @@ def test_courier_never_calls_an_unconfirmed_fill_confirmed_and_grades_execution_
 
 
 # ── ☠ Reaper ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-def test_reaper_rules_in_order_with_evidence_and_never_rules_on_a_missing_price():
+def test_reaper_rules_in_order_with_evidence_and_never_rules_on_a_missing_price(monkeypatch):
+    monkeypatch.setattr(of, 'SNAP_N', 1)   # the one-read ruling; the 📸 snapshot rule has its own test
     cfg = {'agentTakePct': 10, 'agentScalp': False}
     run = lambda l, px, table=None, pos=None, now=3600, **k: of.reap([l], table if table is not None else [trow(l['mint'])], {'P' + l['mint']: px}, cfg, pos, now, **k)
     one = lambda *a, **k: run(*a, **k)[1][0]
@@ -494,7 +495,8 @@ def test_a_quote_that_was_never_signed_is_not_a_failed_send_for_the_courier():
     assert of.courier(real, {}, now, 'degen')['health'] == 'BAD'                                  # signed, sent and lost: that IS an execution problem
 
 
-def test_reaper_reads_the_buy_sell_vital_banks_green_seats_and_only_tightens_red_ones():
+def test_reaper_reads_the_buy_sell_vital_banks_green_seats_and_only_tightens_red_ones(monkeypatch):
+    monkeypatch.setattr(of, 'SNAP_N', 1)   # the one-read ruling; the 📸 snapshot rule has its own test
     cfg = {'agentTakePct': 50, 'agentScalp': False}
     one = lambda px, fv, **k: of.reap([leg('A')], [trow('A')], {'PA': px}, cfg, None, 3600, control=True, flows={'PA': fv} if fv else None, **k)[1][0]
     sellers = {'state': 'SELLERS', 'why': 'sellers lead: $40 bought by 2 vs $300 sold by 6 in 90s, price -2.0%', 'tape': None}
@@ -524,7 +526,8 @@ def test_one_sale_closes_one_position_and_the_older_record_of_that_coin_is_a_dup
     assert closed[0]['confirmed'] is False and closed[0]['exit']['state'] == 'duplicate'
 
 
-def test_a_real_crowd_buying_keeps_a_green_seat_past_the_take_line_and_the_trail():
+def test_a_real_crowd_buying_keeps_a_green_seat_past_the_take_line_and_the_trail(monkeypatch):
+    monkeypatch.setattr(of, 'SNAP_N', 1)   # the one-read ruling; the 📸 snapshot rule has its own test
     cfg = {'agentTakePct': 10, 'agentScalp': False}
     hot = {'state': 'BUYERS', 'why': 'buyers lead: 14 buyers', 'hot': True}
     st = {'pos': {}}
@@ -559,3 +562,17 @@ def test_a_dragged_line_is_obeyed_on_an_agent_seat_and_graded_apart():
     assert any(str(x.get('rule') or '').startswith(('R6', 'R7', 'R10')) for x in out if x.get('mint') == 'M')
     hand = of_.owner_hand([{'owner': {'sl': 40}, 'realPct': 12.0}, {'realPct': -5.0}, {'realPct': 3.0}])
     assert hand['yours'] == {'n': 1, 'med': 12.0, 'avg': 12.0} and hand['agents']['n'] == 2
+
+
+def test_a_profit_exit_needs_its_snapshots_and_the_ai_sets_how_many():
+    import office as of
+    p = {}
+    assert of.soft_confirm(p, 'R7 trailing protection', 100) == (False, 1, 2)
+    assert of.soft_confirm(p, 'R7 trailing protection', 104)[0] is False          # too soon: still one snapshot
+    assert of.soft_confirm(p, 'R7 trailing protection', 110) == (True, 2, 2)      # the 2nd read 8s+ later confirms
+    q = {}
+    assert of.soft_confirm(q, 'R7', 0, 'ride')[0] is False and of.soft_confirm(q, 'R7', 10, 'ride')[0] is False and of.soft_confirm(q, 'R7', 20, 'ride')[0] is True   # RIDE = 3
+    assert of.soft_confirm({}, 'R7', 0, 'tight')[0] is True                       # TIGHTEN = the first read
+    r = {'snap': {'rule': 'R7', 'n': 1, 'at': 0}}
+    assert of.soft_confirm(r, 'R7', 500)[1] == 1                                  # an old snapshot no longer counts
+    assert of.soft_exit('R7 trailing protection') and of.soft_exit('R9 time') and not of.soft_exit('R5 stop') and not of.soft_exit('R4r rug radar')

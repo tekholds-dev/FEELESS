@@ -96,6 +96,14 @@ def record(book):
     return out
 
 
+def fresh_words(reads, now, on=True):
+    """{mint: 'ride' | 'tight'} from the model's FRESH exit reads, proven or not — used only to set how many 📸 snapshots a PROFIT-side
+    exit needs (office.soft_confirm: RIDE → 3, TIGHTEN → 1, none → 2). It never starts or blocks an exit by itself."""
+    if not on:
+        return {}
+    return {m: ('ride' if r.get('word') == 'RIDE' else 'tight') for m, r in (reads or {}).items() if (r or {}).get('word') in CALLS and now - _f(r.get('at')) <= FRESH_SEC}
+
+
 def effects(reads, rec, now, on=True):
     """{mint: 'ride' | 'tight'} for Reaper — fresh reads of a PROVEN word only. `reads` {mint: {word, at}}."""
     if not on:

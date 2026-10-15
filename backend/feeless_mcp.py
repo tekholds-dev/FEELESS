@@ -236,7 +236,7 @@ def t_pump_trending(a):
     top-10, bundles, organic share, socials — so a model can shortlist, then `investigate` the best 2–3."""
     key = str(a.get('list') or 'pump').lower()
     lens, label = LENSES.get(key, LENSES['pump'])
-    n = max(5, min(30, int(_f(a.get('limit'), 15))))
+    n = max(3, min(30, int(_f(a.get('limit'), 8))))   # 8 by default: a small local model (gemma e2b) lost the thread on a 15-coin answer
     d = _get(REP, f'/fuses/discover?lens={lens}', 20) or {}
     out = [f"{label} · {len(d.get('pools') or [])} coins · FACT = FEELESS's live read (Jupiter / DexScreener / our scan). Next: investigate(mint) the best 2–3."]
     for r in (d.get('pools') or d.get('rows') or [])[:n]:
@@ -651,7 +651,7 @@ TOOLS = {
     'x_search': (t_x_search, 'Recent X posts about a ticker / coin / CA (via web search).', {'query': {'type': 'string'}, 'limit': {'type': 'integer'}}),
     'pump_trending': (t_pump_trending, "Pump.fun's OWN trending list (or list=movers / volume / dips / callers / narrative / best) with FEELESS's vitals on every coin. "
                       'Use to shortlist, then investigate the best 2–3 and deep_research the narrative.',
-                      {'list': {'type': 'string', 'enum': list(LENSES)}, 'limit': {'type': 'integer', 'description': '5–30 (default 15)'}}),
+                      {'list': {'type': 'string', 'enum': list(LENSES)}, 'limit': {'type': 'integer', 'description': '3–30 (default 8)'}}),
     'feeless_notes': (t_notes, "The owner's teachings, the rules the agents run, and the approved build queue — read before advising.", {}),
     'deep_research': (t_deep_research, 'DEEP research on anything: several searches (the query + scam / team / news angles), the best pages READ in parallel, '
                       'every excerpt with its URL. Use for projects, people, narratives, "is this legit".',
