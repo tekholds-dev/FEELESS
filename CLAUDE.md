@@ -4280,4 +4280,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   file writes / 16 fds, 4s timeout, macOS `sandbox-exec` deny network + file-write. Tab ▶ Test run (call → got, ✓ / ✗). UI proposals: 🖼 See it working.
 - 💻 THIS MAC'S LOCAL MODEL = `qwen/qwen3-4b-2507` (MLX, `LOCAL_LLM_MODEL`; 7B Qwen 2.5 is `LOCAL_LLM_FALLBACK_MODEL`) — lighter on the M3 Air and better at
   tool calls (chat ~6s, a coin case ~37s). FEE prompt: "NUMBERS: COPY, NEVER COMPOSE" — it once quoted "$20K lost on PUMP-7" on a $2 card.
+- 🛫 REAPER RUNWAY (`office.RUNWAY_SEC` 360 · `RUNWAY_KEEP` +2 · `RUNWAY_RULES` R6 R7 R7v R7s R7b R5t R8 R9 R9e R4f; owner: "Reaper keeps exiting too fast"):
+  291 real exits held a median 2–3 min; 30 min AFTER our sale (after_path, vs entry) R7-trailed coins reached +10% 87% of the time (median peak
+  +34%), green R5t sales 94% (median peak +70%); R5 stops were mostly right (median end −13%). So a GREEN coin is not banked in its first 6 min
+  (tick + 3s guard), R5t never sells a green coin, under +2% the trail still sells; stops / −45% / rug / drain / dump instant. Re-measure with
+  the same after_path split before touching it again.
 

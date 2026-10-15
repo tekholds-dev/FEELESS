@@ -577,3 +577,12 @@ def test_a_profit_exit_needs_its_snapshots_and_the_ai_sets_how_many(monkeypatch)
     r = {'snap': {'rule': 'R7', 'n': 1, 'at': 0}}
     assert of.soft_confirm(r, 'R7', 500)[1] == 1                                  # an old snapshot no longer counts
     assert of.soft_exit('R7 trailing protection') and of.soft_exit('R9 time') and not of.soft_exit('R5 stop') and not of.soft_exit('R4r rug radar')
+
+
+def test_the_runway_keeps_a_green_coin_for_six_minutes_and_r5t_never_sells_a_green_coin():
+    import office as of
+    # a green coin 2 min in, at a trail line: the fast guard leaves it alone; under +2% it still sells
+    leg = {'tag': '🤖 agents · ⚡ READY', 'mint': 'M', 'pairAddress': 'P', 'real': True, 'units': 1, 'entry': 1.0, 'at': 1000}
+    pos = {'M': {'peak': 12.0, 'stopNow': 20, 'thesis': {}}}
+    assert of.fast_reap([leg], {'M': 1.06}, pos, 1120, office=None) == []                 # +6%, peak +12, 2 min in → runway
+    assert of.RUNWAY_SEC == 360 and 'R5t' in of.RUNWAY_RULES and 'R5' not in of.RUNWAY_RULES   # stops are never on the runway

@@ -720,6 +720,11 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             ev += f" · DATA DEGRADED ({ch['q']['state'] if ch and ch.get('q') else 'no data'}) — held on the hard risk / liquidity / execution rules only"
         if st == 'HOLD' and rv and rv['verdict'] == 'valid':
             ev = f"{pct:+.1f}% · {'; '.join(rv['why'][:4])} · window {rv['window'] + 1} of {granted}"
+        held_s = held * 60
+        if act and pct >= RUNWAY_KEEP and (str(rule).split(' ')[0] in RUNWAY_RULES) and (held_s < RUNWAY_SEC or str(rule).startswith('R5t')):
+            ev += (f" · 🛫 runway: a green coin is not banked in its first {RUNWAY_SEC / 60:.0f} min ({round(RUNWAY_SEC - held_s)}s left) — the trail still sells it under +{RUNWAY_KEEP:g}%"
+                   if not str(rule).startswith('R5t') else ' · 🛫 a broken thesis never sells a GREEN coin — the trail protects it')
+            act, st = None, 'PROTECT'
         if act and soft_exit(rule):   # 📸 a profit-side exit needs its snapshots (the model's fresh read sets how many)
             ok_, seen_, need_ = soft_confirm(p, rule, now, (ai_words or {}).get(m))
             if not ok_:
@@ -753,6 +758,16 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         p = pos.pop(m)
         gone.append({**p, 'mint': m, 'leftAt': now})
     return pos, out, gone
+
+
+# 🛫 THE RUNWAY (owner, 2026-10-15: "Reaper keeps exiting too fast, he scary"). 291 confirmed real exits: median hold 2–3 min on every rule, and
+# what the coin did in the 30 min AFTER we sold (after_path, vs our entry): R7 trails banked +6% then 87% reached +10% (median peak +34%) ·
+# R5t on green coins banked +10% then 94% ran on (median peak +70%) · R5 stops at −11% were mostly right (median end −13%). So a GREEN
+# coin (≥ RUNWAY_KEEP) gets RUNWAY_SEC before any profit-side rule may bank it, and R5t never sells a green coin; under +2% the trail still
+# sells, and stops / −45% / rug / drain / dump stay instant.
+RUNWAY_SEC = 6 * 60.0
+RUNWAY_KEEP = 2.0
+RUNWAY_RULES = ('R6', 'R7', 'R7v', 'R7s', 'R7b', 'R5t', 'R8', 'R9', 'R9e', 'R4f')
 
 
 # 📸 SNAPSHOT CONFIRMATION (owner, 2026-10-14: "we are still exiting trades too fast — listen to the AIs and take 2–3 snapshot decisions on
@@ -1552,6 +1567,8 @@ def fast_reap(legs, px_by_mint, pos, now, office=None, prev=None, ai_words=None)
         peak = max(_f(p.get('peak')), dd)
         give = RIDE_GIVE if p.get('rideAt') and now - _f(p['rideAt']) <= RIDE_HOLD_SEC else tune(office, 'reaper', 'giveBackPct')   # 🏄 riding the volume: the wide trail
         if peak >= tune(office, 'reaper', 'protectAt') and dd <= peak * (1 - give / 100) and dd >= MIN_KEEP:
+            if dd >= RUNWAY_KEEP and now - _f(l.get('at')) < RUNWAY_SEC:   # 🛫 green and still on its runway: not banked yet
+                continue
             ok_, seen_, need_ = soft_confirm(p, 'R7', now, (ai_words or {}).get(l.get('mint')))   # 📸 the trail banks on its 2nd (RIDE: 3rd) read, not the first dip
             if ok_:
                 out.append((l.get('pairAddress'), f"☠ Reaper R7 trailing protection (👁 live chart, 📸 {seen_}/{need_} reads): peaked {peak:+.1f}%, now {dd:+.1f}% — banked"))

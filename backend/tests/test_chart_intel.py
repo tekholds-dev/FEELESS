@@ -198,9 +198,10 @@ def test_reaper_holds_past_one_window_while_the_saved_thesis_stands_and_leaves_w
     r = of.reap([LEG], [ROW], {'PA': 0.97}, {}, None, 180, charts={'A': dn}, theses={'A': low_th})[1][0]
     assert (r['rule'], r['state'], r['action'], r['obeying'], r['verdict']) == ('R5t thesis invalidated', 'EXIT INVALIDATED', 'pull', 'invalidation exit', 'invalid') and r['pct'] == -3.0
     assert 'entered on' in r['evidence'] and r['stop'] <= -8 and r['pct'] > r['stop']                             # the thesis, not the stop, took it out
-    # … and a GREEN position with a broken thesis is banked BEFORE the take line (profit is not a reason to hold)
+    # … and a GREEN position with a broken thesis is NOT sold by the thesis any more (🛫 2026-10-15: 94% of those ran on, median peak +70%) —
+    # the trail protects it instead
     g = of.reap([LEG], [ROW], {'PA': 1.06}, {'agentTakePct': 10, 'agentScalp': False}, None, 180, charts={'A': dn}, theses={'A': low_th})[1][0]
-    assert (g['rule'], g['state'], g['action'], g['decision']) == ('R5t thesis invalidated', 'TAKE', 'pull', 'TAKE PROFIT') and g['pct'] < g['take']
+    assert (g['rule'], g['state'], g['action']) == ('R5t thesis invalidated', 'PROTECT', None) and 'never sells a GREEN coin' in g['evidence']
     fb = ci.read(bars([1.0 + 0.004 * (i % 2) for i in range(18)] + [1.004, 1.02, 0.992]))
     assert fb['state'] == 'FAILED BREAKOUT'
     assert ci.review({**th, 'invalidation': 0.9}, fb, -0.2, 3)['verdict'] == 'weak'                               # one candle back under the old high is NOT an exit …

@@ -36,7 +36,9 @@ def test_profitable_new_high_holds_then_a_sharp_drop_wakes_reaper_and_it_exits()
     assert any('since the last decision' in w for w in why) and any('below' in w for w in why)       # the fast guard sees it NOW — no rediscovery, no 60s wait
     dn = ci.read(_bars(closes + [drop]))                                                            # the refreshed live chart shows the same candle
     _, rep2, _ = of.reap([leg], [row], {'PA': drop}, cfg, pos, 130, charts={'A': dn}, theses={'A': th})
-    assert rep2[0]['action'] == 'pull' and rep2[0]['run'] == 'BREAKING DOWN' and rep2[0]['rule'] in ('R7b breakdown', 'R5t thesis invalidated')
+    assert rep2[0]['action'] is None and 'runway' in rep2[0]['evidence']                           # 🛫 still green, 10s in: not banked on its runway
+    _, rep3, _ = of.reap([leg], [row], {'PA': drop}, cfg, pos, 120 + of.RUNWAY_SEC + 1, charts={'A': dn}, theses={'A': th})
+    assert rep3[0]['action'] == 'pull' and rep3[0]['run'] == 'BREAKING DOWN' and rep3[0]['rule'] in ('R7b breakdown', 'R5t thesis invalidated')
 
 
 def test_nothing_material_is_not_a_wake():
