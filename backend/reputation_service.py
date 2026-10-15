@@ -13599,7 +13599,7 @@ def _chat_context(focus, now):
     if c_ is None or k_ != focus or now - at_ >= AI_CHAT_CTX_SEC:
         c_ = _aic.context({**(_office.get('payload') or {}), 'capital': _capital_view(), 'trail': _office.get('trail')}, focus, tuple(_co.CAUSES))
         _chat['ctx'] = (focus, c_, now)
-    return c_
+    return {**c_, 'today': time.strftime('%A %Y-%m-%d %H:%M %Z', time.localtime(now))} if isinstance(c_, dict) else c_   # 🕐 the models have no clock
 
 
 def _chat_olds():

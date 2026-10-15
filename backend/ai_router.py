@@ -472,7 +472,10 @@ GENERAL_SYSTEM = ("You are the assistant brain of FEELESS, a live Solana memecoi
                   "coins from CONTEXT that back it. Banned: generic advice ('improve accuracy', 'monitor and adjust', 'optimize resources'), numbered consultant "
                   "plans, restating the question. If CONTEXT cannot answer it, say what is missing in one line. "
                   "Answer ONLY the owner's LATEST message — earlier turns are background. If the latest message is a greeting or slang ('yo', 'yurrr', 'gm', "
-                  "'wsg'), greet back in one short line in your own voice and ask what they want to hit — never pick the old topic back up by yourself.")
+                  "'wsg'), greet back in one short line in your own voice and ask what they want to hit — never pick the old topic back up by yourself. "
+                  "You have NO code interpreter and NO internet here: never write code to fetch something and never print fake output. Today's date is "
+                  "in CONTEXT when it matters; a fact about the outside world that CONTEXT does not hold = say you can't verify it here (the owner's "
+                  "LM Studio chat has the research tools).")
 CASE_KEYS_HINT = ('status', 'rank', 'cap', 'liq', 'result', 'trigger', 'heldMin', 'structure', 'phase')
 DESK_STATES = ('coach', 'lab')   # the desk's own packets (our real trades → directives / rules / tune): structured JSON answers, so CASE mode
 
