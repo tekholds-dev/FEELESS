@@ -1,6 +1,5 @@
 /* 🎬 real trade tape + 👑 coach (Agents cockpit). m-* tokens; transform / opacity only. */
 .ack-deck { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; min-width: 0; height: clamp(460px, 72vh, 780px); }
-.ack-deckh { display: flex; align-items: center; gap: 8px; margin: 0; font: 800 10px var(--m-mono); letter-spacing: .12em; } .ack-deckh i { font-style: normal; font: 800 9px var(--m-mono); padding: 1px 7px; border-radius: 999px; background: rgba(21, 209, 106, .16); color: var(--m-accent); }
 .ack-decktabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); } .ack-decktabs > button { display: flex; align-items: center; justify-content: center; gap: 6px; transition: transform .15s ease; }
 .ack-decktabs > button:active { transform: scale(.97); } .ack-decktabs > button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; }
 .ack-decktabs i { font: 800 9px var(--m-mono); font-style: normal; padding: 1px 6px; border-radius: 999px; background: rgba(21, 209, 106, .16); color: var(--m-accent); } .ack-decktabs .active i { background: rgba(0, 0, 0, .25); color: inherit; }

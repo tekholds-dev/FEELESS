@@ -121,7 +121,7 @@ export function seatCards(d, livePx) {
       usd, pnlUsd: pnlUsdOf(usd, pct), heldMin: num(p.heldMin ?? b.heldMin), rule: p.rule || b.rule || null, why: p.evidence || b.why || x.why || null,
       take: num(p.take ?? x.take), stop: num(p.stop), peak: num(p.mfe ?? p.peak), trailAt: num(p.trailAt), armAt: num(p.armAt), last: last[x.mint] || null, ageMin: ageH != null ? ageH * 60 : num(c.ageMin),
       nextReview: num(p.nextReview), realized: num(p.realizedUsd), path: Array.isArray(p.path) ? p.path.map(num).filter(v => v != null) : [],
-      flow: p.flow?.state ? p.flow : null, rotate: !!b.switch, reaper: p.decision || p.state || b.result || null, state: null };
+      flow: p.flow?.state ? p.flow : null, rotate: !!b.switch, reaper: p.decision || p.state || b.result || null, action: p.action || x.action || null, state: null };
   });
 }
 
@@ -365,3 +365,37 @@ export function openPnl(seats) {
   return { n: held.length, usd, pnl, pct: cost > 0 ? pnl / cost * 100 : null, best: best ? { symbol: best.symbol, pct: num(best.pct), mint: best.mint } : null };
 }
 
+
+// 💵 THE MONEY STRIP (owner, 2026-10-15: "is it making or losing money, what is it holding, why — at a glance"). Pure; every number from the
+// payload: the card's value + put in (mission), today's REAL result = closed trades on the trade tape whose last sell landed since local
+// midnight (+ the open seats' live P&L apart), the held seats with their live %, the night shift / night guard state (`nightGuard`).
+export function moneyOf(d, seats, nowMs = Date.now()) {
+  const o = d?.office || {}; const m = o.mission || {}; const v = num(m.value); const pin = num(m.putIn);
+  const mid = new Date(nowMs); mid.setHours(0, 0, 0, 0); const since = mid.getTime() / 1000;
+  const rows = o.tradeTape?.rows || [];
+  const closed = rows.filter(r => !r.open && r.result && (r.sells || []).length && Math.max(...r.sells.map(s => num(s.at) || 0)) >= since);
+  const usd = closed.reduce((a, r) => a + (num(r.result.usd) || 0), 0); const won = closed.filter(r => num(r.result.pct) > 0).length;
+  const oldest = rows.length ? Math.min(...rows.map(r => num(r.at) || Infinity)) : null;
+  const held = (seats || []).filter(s => !s.open);
+  const openUsd = held.reduce((a, s) => a + (num(s.pnlUsd) || 0), 0);
+  const ng = o.nightGuard || null;
+  const night = !ng ? { state: 'day', word: '☀ DAY', tip: 'your own settings (the night shift runs 00:00–09:00)' }
+    : ng.paused ? { state: 'paused', word: `🛡 GUARD PAUSED${ng.leftMin != null ? ` · ${ng.leftMin}m` : ''}`, tip: `night guard paused real buys: ${ng.why || 'a line was crossed'} — exits keep running` }
+      : ng.night ? { state: 'night', word: '🌙 NIGHT SHIFT', tip: `seats ≤ 15% of the card, chart must say ENTER NOW · guard trips at ${ng.lines?.draw ?? '—'}% down / ${ng.lines?.streak ?? '—'} losses / one rug${ng.drawPct != null ? ` · now ${ng.drawPct}% down` : ''}` }
+        : { state: 'day', word: '☀ DAY', tip: `your own settings · the night guard tripped ${ng.trips || 0}× so far` };
+  const cy = o.cycle || {}; const passAge = cy.at ? Math.max(0, nowMs / 1000 - cy.at) : null; const every = num(cy.every) || 18;
+  return { value: v, putIn: pin, netPct: v != null && pin ? (v / pin - 1) * 100 : null,
+    today: { usd: closed.length ? usd : null, n: closed.length, won, partial: oldest != null && oldest > since },
+    open: held.map(s => ({ seat: s.seat, sym: s.symbol, mint: s.mint, pct: num(s.pct), usd: num(s.pnlUsd), tags: exitTags(s) })), openUsd: held.length ? openUsd : null,
+    seats: (seats || []).length, night, late: passAge != null && passAge > every * 3, passAge };
+}
+
+// 🛫 💰 🔁 the new exit rules, as chips wherever Reaper's word is shown: runway (a green coin is not banked in its first minutes), half
+// banked (R6h scale-out, action 'trim'), comeback (a coin sold green bought back when it ran past our exit). From Reaper's own words only.
+export function exitTags(s) {
+  const t = [s?.why, s?.rule, s?.reaper, s?.tag, s?.evidence, s?.decision].filter(Boolean).join(' '); const out = [];
+  if (/runway/i.test(t)) out.push({ k: 'runway', ic: '🛫', word: 'RUNWAY', tip: 'a green coin is not banked in its first 6 min — the trail still sells it if it gives the gain back' });
+  if (/\bR6h\b|half banked/i.test(t) || s?.action === 'trim') out.push({ k: 'half', ic: '💰', word: 'HALF BANKED', tip: 'R6h scale-out: half sold at +10%, the rest rides the trail' });
+  if (/comeback/i.test(t)) out.push({ k: 'comeback', ic: '🔁', word: 'COMEBACK', tip: 'sold green, ran past our exit, bought back inside the sit-out' });
+  return out;
+}
