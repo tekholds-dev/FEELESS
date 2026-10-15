@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { TapeRiver, bubbleOf, tug } from './TapeRiver';
+import { TapeRiver, bubbleOf, tug, priceScale } from './TapeRiver';
 
 const now = Date.now();
 const T = (tx, kind, usd, ageS, wallet = 'W' + tx) => ({ tx, kind, usd, ts: new Date(now - ageS * 1000).toISOString(), wallet });
@@ -12,6 +12,9 @@ test('bubbles: size by $, side by kind, whales, flags; the tug reads who is in c
   expect(tug([T('a', 'buy', 900, 5), T('b', 'sell', 100, 5)], now).word).toBe('BUYERS IN CHARGE');
   expect(tug([T('a', 'buy', 100, 5), T('b', 'sell', 900, 5)], now).word).toBe('SELLERS IN CHARGE');
   expect(tug([T('a', 'buy', 100, 120)], now).word).toBe('QUIET');
+  const g = tug([T('a', 'buy', 50, 40, 'W1'), T('b', 'sell', 300, 40, 'W2'), T('c', 'buy', 300, 3, 'W3'), T('d', 'buy', 10, 4, 'W1')], now);
+  expect(g.buyers).toBe(2); expect(g.sellers).toBe(1); expect(g.turn).toBe('up');
+  const ys = priceScale([1, 2, 3]); expect(ys(1)).toBe(0); expect(ys(3)).toBe(1); expect(priceScale([2, 2])(2)).toBe(0.5);
 });
 
 test('tap a bubble → who, the $, and the good / bad flags', async () => {

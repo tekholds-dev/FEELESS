@@ -1012,7 +1012,7 @@ async def _rpc_trades(pool, base, price_usd, sol_usd, limit=40):
                 ok = [x['signature'] for x in sigs if not x.get('err')]
                 new = [x for x in ok if x not in _tape_rows][:TAPE_NEW]
                 if new:
-                    batch = [{'jsonrpc': '2.0', 'id': i, 'method': 'getTransaction', 'params': [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}]}
+                    batch = [{'jsonrpc': '2.0', 'id': i, 'method': 'getTransaction', 'params': [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1}]}
                              for i, x in enumerate(new)]
                     rr = await http.post(url, json=batch)
                     txs = rr.json() if rr.status_code == 200 else None

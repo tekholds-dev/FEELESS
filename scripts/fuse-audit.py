@@ -61,7 +61,7 @@ async def main(only=None):
                 tx = None
                 for _ in range(3):
                     try:
-                        tx = await rpc('getTransaction', [r['sig'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+                        tx = await rpc('getTransaction', [r['sig'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1, 'commitment': 'confirmed'}])
                     except Exception:
                         tx = None
                     if tx:
@@ -119,7 +119,7 @@ async def wallet(http_timeout=25):
             tx = None
             for attempt in range(8):   # a free RPC rate-limits: wait longer each time rather than leave a hole in the audit
                 try:
-                    tx = await rpc('getTransaction', [x['signature'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'finalized'}])
+                    tx = await rpc('getTransaction', [x['signature'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1, 'commitment': 'finalized'}])
                 except Exception:
                     tx = None
                 if tx:

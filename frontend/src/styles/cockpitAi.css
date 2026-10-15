@@ -59,6 +59,14 @@
 .cai-delta u { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--m-mute); }
 .cai-say { font: 600 11px/1.45 var(--m-mono); color: var(--m-text); overflow-wrap: anywhere; }
 .cai-snap { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.cai-pred { font: 800 9px var(--m-mono); font-style: normal; letter-spacing: .06em; justify-self: start; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; }
+.cai-pred.is-up { color: #45e486; } .cai-pred.is-dn { color: #ff8fa3; }
+.cai-predbox { display: grid; gap: 3px; padding: 7px 9px; border-radius: 9px; border: 1px solid var(--m-line); font: 600 9.5px/1.4 var(--m-mono); color: var(--m-dim); margin: 0 0 6px; }
+.cai-predbox b { font: 800 9.5px var(--m-mono); letter-spacing: .1em; color: var(--m-text); }
+.cai-predbox span { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 6px; } .cai-predbox small { font-weight: 800; color: var(--m-mute); }
+.cai-predbox .is-proven { color: #45e486; }
+body.theme-day .cai-pred.is-up { color: #0e8a4a; } body.theme-day .cai-pred.is-dn { color: #c2334f; }
+@media (max-width: 640px) { .cai-predbox span { grid-template-columns: 1fr; } }
 .cai-snap svg { width: 120px; height: 26px; flex: none; overflow: visible; }
 .cai-snap svg line { stroke: var(--m-line-hi); stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
 .cai-snap svg path { fill: none; stroke: #45e486; stroke-width: 1.6; vector-effect: non-scaling-stroke; }

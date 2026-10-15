@@ -33,7 +33,7 @@ def _median(xs):
     return None if not n else s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2
 
 
-def note(book, role, mint, stance, px, now, symbol=None, flags=None, scout=None, at_fill=False, taught=False, phase=None, ephase=None, src=None):
+def note(book, role, mint, stance, px, now, symbol=None, flags=None, scout=None, at_fill=False, taught=False, phase=None, ephase=None, src=None, predict=None):
     """One model stance → an open call (once per coin + stance per 30 min, only with a live price). How many risk flags it raised rides
     on the call, so "the model flagged 2+ risks" is judged on its own record too (`vital_record`). → new book"""
     b = {'open': list((book or {}).get('open') or []), 'done': list((book or {}).get('done') or [])}
@@ -55,6 +55,8 @@ def note(book, role, mint, stance, px, now, symbol=None, flags=None, scout=None,
         c['phase'] = str(phase).upper()[:24]
     if ephase:
         c['ephase'] = str(ephase).upper()[:24]
+    if predict is not None:   # 🔮 the model's own 15-minute number, graded on the real move (predict_record)
+        c['pred'] = round(_f(predict), 1)
     if src:
         c['src'] = 'local' if src == 'local' else 'lan' if src == 'lan' else 'cloud'   # 💻 the local models and the cloud keep separate records
         c['prov'] = str(src)[:16]   # the exact provider (lan · local · groq …) for the model report card
@@ -218,3 +220,35 @@ def model_report(book, stats=None, models=None):
         out.append({'prov': k, 'model': md.get(k), 'n': len(cs), 'caution': {'n': len(cau), 'right': right(cau, False)}, 'favor': {'n': len(fav), 'right': right(fav, True)},
                     'med': round(_median([_f(c.get('pct')) for c in cs]), 1) if cs else None, 'answers': int(_f(s_.get('ok'))), 'ms': int(_f(s_.get('lastMs'))) or None})
     return sorted(out, key=lambda r: (-r['n'], r['prov']))
+
+
+# 🔮 PREDICTIONS (owner, 2026-10-15: "add predictions for AI and agents to get better"): every read carries the model's own 15-minute number
+# (`predict_pct`); 15 min later the real move grades it. Per provider: direction hit rate, typical error, and the TRADE TEST = what the coins
+# it called ≥ +5% really did vs the coins it called ≤ −5%. A prediction steers nothing until that test separates on enough calls (shown first).
+PRED_MIN = 20
+
+
+def predict_record(book, prov=None):
+    """→ {n, hit (% right direction), err (median |predicted − real|), up {n, med}, down {n, med}, edge (up.med − down.med) | None, proven}."""
+    rows = [c for c in (book or {}).get('done') or [] if c.get('pred') is not None and not c.get('gone') and (prov is None or c.get('prov') == prov)]
+    if not rows:
+        return {'n': 0, 'proven': False}
+    real = lambda c: _f(c.get('pct'))
+    hit = sum(1 for c in rows if (c['pred'] > 0) == (real(c) > 0) and c['pred'] != 0) / len(rows) * 100
+    err = _median([abs(c['pred'] - real(c)) for c in rows])
+    up = [real(c) for c in rows if c['pred'] >= 5]
+    dn = [real(c) for c in rows if c['pred'] <= -5]
+    out = {'n': len(rows), 'hit': round(hit), 'err': round(err, 1), 'up': {'n': len(up), 'med': round(_median(up), 1) if up else None},
+           'down': {'n': len(dn), 'med': round(_median(dn), 1) if dn else None}}
+    out['edge'] = round(out['up']['med'] - out['down']['med'], 1) if up and dn else None
+    out['proven'] = bool(len(up) >= PRED_MIN and len(dn) >= PRED_MIN and out['edge'] is not None and out['edge'] >= 3 and out['up']['med'] > 0)
+    return out
+
+
+def predict_line(rec):
+    """The model's own prediction record in one line (it reads this in every case)."""
+    if not rec or not rec.get('n'):
+        return 'no graded predictions yet'
+    u, d = rec.get('up') or {}, rec.get('down') or {}
+    return (f"{rec['n']} graded: direction right {rec['hit']}%, typical error {rec['err']} pts; coins you called ≥ +5% did {u.get('med')}% (n{u.get('n')}), "
+            f"called ≤ −5% did {d.get('med')}% (n{d.get('n')})" + (' — PROVEN' if rec.get('proven') else ''))

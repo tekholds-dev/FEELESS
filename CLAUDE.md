@@ -4352,3 +4352,21 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   advance: ≤ 1 in 10 winners). "pool SOL −15% in 30s" caught 3/14 (median 27s early), 0/5 winners — a candidate ONLY once the full winner
   set (≈ 20) is replayed: `backend/.venv/bin/python scripts/rug-replay.py 90 win` → re-run the test. Most rugs give no pool-level warning
   before the pull (X pulled 2s after our buy) — the rug budget (seat size) stays the main defence.
+- 🩸 POOL DRAINING FAST = a hard exit (`flow.pool_drain`, inside the rug radar → Reaper R4r, `DRAIN_FAST_SEC` 30 / `DRAIN_FAST_PCT` 15): net $ sold in
+  the last 30s ≥ 15% of the pool's SOL side (liquidity ÷ 2). Replay (14 real rugs + 10 young winners): caught 3/14 rugs a median 27s before
+  the pull, sold 0/10 winners → shipped under the ≤ 1-in-10 rule. "Sells 3× buys + 4 sellers" sold 4/10 winners → NOT shipped.
+- ⚠ TX VERSION 1 (2026-10-15): every `getTransaction` with `maxSupportedTransactionVersion: 0` failed on Solana's new version-1 transactions
+  (−32015) — the trade tape read "provider unavailable" on EVERY coin, blinding the flow vital, rug radar, pool drain, smart-wallet radar and
+  the Tape River; launch reads (creator / bundles / snipers) and payment checks too. All readers now ask for 1 (reads v0 / legacy too);
+  `tests/test_tx_version.py` fails on any 0. "TAPE EMPTY ON A BUSY COIN" ⇒ curl `/api/candles/trades/solana/<pool>` first.
+- 🎯 ENTRIES (2026-10-15 real record, both halves): buying into a RUNNING trend lost (−4.5 / −1.0%, ≈40% won) → rank −6; EARLY ACCELERATION
+  also lost (−6.4 / −20%, small n) → its +8 belief removed. "Getting ahead of the trend" is NOT proven on our record yet — the predictions
+  below are how it gets proven or dropped.
+- 🔮 PREDICTIONS: every model read carries `predict_pct` (its 15-minute number, −90…+300), graded on the real price (`ai_learn.predict_record`:
+  direction %, typical error, what its "up ≥ +5" vs "down ≤ −5" calls really did; PROVEN at 20+ each side, gap ≥ 3, up > 0) → each case gets
+  `predictRec` (its own record), the log row shows 🔮, the AI pane `PredictBox` per model. The agents predict too: each real buy's thesis
+  carries `pred` = the real-money memory's estimate, graded at the exit (`office.pred_record` → payload `agentPredict`). Steers nothing yet.
+- 🌊 TAPE RIVER v2: bubbles placed at the PRICE they traded (up = higher) × how long ago, on a live price line; $ labels on whales / the 3
+  biggest; a ripple on each new trade; buyers / sellers counted + the momentum arrow (last 10s vs the minute). Re-laid out once a second
+  (transform with a 1s linear glide).
+- 🎛 ONE PLACE FOR CONTROLS: the cockpit's 🎛 Limits tab = CockpitControls + your creator limits (they used to sit in the Office pane).

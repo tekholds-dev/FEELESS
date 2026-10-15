@@ -659,3 +659,11 @@ def test_with_your_line_set_a_soft_exit_asks_you_and_a_hard_one_never_waits():
     assert of.owner_ask({}, {}, 'pull', 'TAKE', 'R7 trailing protection', 'x', 4.0, 1.04, 200)[0] == 'pull'   # no line of yours: as before
     log, rec = of.ask_grade([{'mint': 'M', 'choice': 'keep', 'px': 1.0, 'at': 0}, {'mint': 'M', 'choice': 'approve', 'px': 1.0, 'at': 0}], lambda m: 1.1, 1000)
     assert rec == {'kept': [1, 1], 'approved': [1, 0]}
+
+
+def test_the_agents_predictions_are_graded_on_real_exits():
+    import office as of
+    P = lambda pred, real: {'confirmed': True, 'realPct': real, 'thesis': {'pred': {'pct': pred}}}
+    r = of.pred_record([P(5, 8), P(4, 2), P(-3, -10), P(-6, -2), {'confirmed': True, 'realPct': 1}])
+    assert r['n'] == 4 and r['hit'] == 100 and r['better'] == {'n': 2, 'med': 5.0} and r['worse']['med'] == -6.0
+    assert of.pred_record([]) == {'n': 0}

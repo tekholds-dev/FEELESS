@@ -70,6 +70,27 @@ def exit_why(win, mode='normal'):
     return f"🌊 sellers took over: ${s:,.0f} sold vs ${b:,.0f} bought in {FLOW_SEC}s, price {_f(win['pxChg']):+.1f}%"
 
 
+# 🩸 POOL DRAINING FAST (2026-10-15, scripts/rug-replay.py + rug-signal-test.py on 14 real rugs + 10 young winners): the pool's SOL down
+# ≥ DRAIN_FAST_PCT in DRAIN_FAST_SEC caught 3/14 rugs a median 27s before the pull and would have sold 0/10 winners (shipped: ≤ 1 in 10).
+# Live it is read from the tape: SOL out of the pool in 30s ≈ $ sold − $ bought, against the pool's SOL side (liquidity ÷ 2).
+DRAIN_FAST_SEC = 30
+DRAIN_FAST_PCT = 15.0
+
+
+def pool_drain(trades, now, liq_usd, sec=DRAIN_FAST_SEC, pct=DRAIN_FAST_PCT):
+    """→ the reason when the last `sec` of real swaps took ≥ `pct`% of the pool's SOL side out, else None (unknown depth = not judged)."""
+    side = _f(liq_usd) / 2
+    if side <= 0:
+        return None
+    w = window(trades, now, sec)
+    if not w:
+        return None
+    net = _f(w.get('sellUsd')) - _f(w.get('buyUsd'))
+    if net >= side * pct / 100:
+        return f"🩸 pool draining fast: ${net:,.0f} net sold in {sec}s = {net / side * 100:.0f}% of the pool's SOL side"
+    return None
+
+
 def rug_why(win, creator=None, watch=(), liq=None):
     """🚨 a dump from a wallet that matters → the reason, else None. `watch` = top-10 / bundle / sniper wallets of this coin."""
     if not win:

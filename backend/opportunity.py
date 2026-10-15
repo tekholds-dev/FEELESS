@@ -257,10 +257,10 @@ def score(row, lost=(), meta=None, pens=None):
     li = x.get('li') or {}
     pp = li.get('pump')
     if pp:   # 🎢 the Pump entry phase: early acceleration / first pullback / reclaim / healthy breakout preferred; late FOMO avoided
-        add(f'pump {pp.lower()}', {'EARLY ACCELERATION': 8, 'FIRST PULLBACK': 8, 'RECLAIM': 7, 'BREAKOUT': 5, 'DISCOVERY': 2, 'RUNNING': 0, 'LATE FOMO': -12}.get(pp, 0))
+        add(f'pump {pp.lower()}', {'EARLY ACCELERATION': 0, 'FIRST PULLBACK': 8, 'RECLAIM': 7, 'BREAKOUT': 5, 'DISCOVERY': 2, 'RUNNING': -6, 'LATE FOMO': -12}.get(pp, 0))   # 2026-10-15 real record (292 trades, both halves): RUNNING −4.5 / −1.0 (≈40% won) = don't ride the trend; EARLY ACCELERATION −6.4 / −20 (small n) = its +8 was belief
     mp = x.get('mp')   # 📈 the live chart's TRENCH PHASE (market_wake.PHASES): prefer the early ones, avoid the late ones
     if mp:
-        add(f'chart {mp.lower()}', {'EARLY ACCELERATION': 6, 'FIRST PULLBACK': 6, 'RECLAIM': 6, 'BREAKOUT': 4, 'DISCOVERY': 0, 'RUNNING': 0, 'LATE FOMO': -15, 'REVERSAL': -10}.get(mp, 0))
+        add(f'chart {mp.lower()}', {'EARLY ACCELERATION': 0, 'FIRST PULLBACK': 6, 'RECLAIM': 6, 'BREAKOUT': 4, 'DISCOVERY': 0, 'RUNNING': -6, 'LATE FOMO': -15, 'REVERSAL': -10}.get(mp, 0))
     ewp = li.get('ewp')
     if ewp:
         add(f'early wallets {ewp.lower()}', {'POSITIVE': 5, 'NEUTRAL': 0, 'WARNING': -6, 'DUMPING': -14}.get(ewp, 0))

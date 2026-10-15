@@ -813,6 +813,21 @@ def owner_ask(p, l, act, st, rule, ev, pct, px, now):
     return None, 'PROTECT', ev + ' · ✋ your SL / TP is set — Reaper ASKS you first (approve or keep your line)'
 
 
+def pred_record(positions):
+    """🔮 The agents' predictions (thesis `pred`, the real-money memory's estimate at the buy) vs the REAL result of each closed trade:
+    → {n, hit (% same side of 0), err (median |pred − real|), better: {n, med} for trades it predicted ≥ the median prediction, worse: …}."""
+    import statistics
+    rows = [(_f((p.get('thesis') or {}).get('pred', {}).get('pct')), _f(p.get('realPct'))) for p in positions or []
+            if p.get('confirmed') and p.get('realPct') is not None and isinstance((p.get('thesis') or {}).get('pred'), dict)]
+    if not rows:
+        return {'n': 0}
+    cut = statistics.median([a for a, _ in rows])
+    hi = [b for a, b in rows if a >= cut]
+    lo = [b for a, b in rows if a < cut]
+    return {'n': len(rows), 'hit': round(sum(1 for a, b in rows if (a > 0) == (b > 0)) / len(rows) * 100), 'err': round(statistics.median([abs(a - b) for a, b in rows]), 1),
+            'better': {'n': len(hi), 'med': round(statistics.median(hi), 1) if hi else None}, 'worse': {'n': len(lo), 'med': round(statistics.median(lo), 1) if lo else None}}
+
+
 def ask_grade(log, price_of, now, after=900.0):
     """Your answers to Reaper's questions, judged 15 min later: KEEP was right when the coin is at / above where it was asked, APPROVE was
     right when it is below. → (log, {kept: [n, right], approved: [n, right]})."""
@@ -1042,7 +1057,7 @@ def file_position(arch, p, now):
            'byReaper': bool(p.get('askRule')), 'confirmed': bool(p.get('confirmed')), 'realPct': p.get('realPct'), 'exit': {k: v for k, v in (p.get('exit') or {}).items() if k in ('state', 'sig', 'at', 'usd', 'delta', 'realUsd', 'err')},
            'wx': p.get('wx'), 'warden': p.get('warden'), 'launch': p.get('launch'), 'tag': p.get('tag'), 'owner': p.get('owner'), 'take': p.get('take'), 'exitStructure': p.get('chartNow'), 'windows': p.get('lastWin'),
            'liq': p.get('liq'), 'liqPct': p.get('liqPct'), 'top10': p.get('top10'), 'quality': p.get('quality'), 'dd': bool(p.get('dataDegraded') or p.get('dd')), 'vel': (p.get('vel') or {}).get('state') if isinstance(p.get('vel'), dict) else p.get('vel'),
-           'thesis': None if not p.get('thesis') else {k: p['thesis'].get(k) for k in ('structure', 'call', 'triggerRule', 'support', 'invalidation', 'stopPct', 'expectedHoldWindows', 'at')},
+           'thesis': None if not p.get('thesis') else {k: p['thesis'].get(k) for k in ('structure', 'call', 'triggerRule', 'support', 'invalidation', 'stopPct', 'expectedHoldWindows', 'at', 'pred', 'votes', 'flow', 'distHigh')},
            'li': p.get('li'), 'src': p.get('src'), 'gap': p.get('gap')}
     prev = ps[-1]['h'] if ps else a.get('posAnchor', '')
     rec['h'] = _hash(prev, {k: v for k, v in rec.items() if k != 'h'})

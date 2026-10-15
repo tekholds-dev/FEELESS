@@ -125,7 +125,7 @@ async def resolve_creator(chain: str, mint_address: str) -> Optional[str]:
                 # coin the 1,000th-newest tx is some random trader, not the creator.
                 if signatures and len(signatures) < 1000:
                     oldest = signatures[-1].get('signature')
-                    tx = await _rpc(http, 'getTransaction', [oldest, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}])
+                    tx = await _rpc(http, 'getTransaction', [oldest, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1}])
                     keys = (((tx or {}).get('transaction') or {}).get('message') or {}).get('accountKeys', [])
                     if keys:
                         identity = keys[0].get('pubkey') if isinstance(keys[0], dict) else keys[0]
@@ -155,7 +155,7 @@ async def resolve_funding_source(chain: str, wallet_address: str) -> Optional[st
             if not signatures:
                 return None
             oldest = signatures[-1].get('signature')
-            tx = await _rpc(http, 'getTransaction', [oldest, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}])
+            tx = await _rpc(http, 'getTransaction', [oldest, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1}])
             keys = (((tx or {}).get('transaction') or {}).get('message') or {}).get('accountKeys', [])
             if not keys:
                 return None
@@ -1032,7 +1032,7 @@ async def token_intel(chain: str, mint: str):
                 async def fetch(sig):
                     async with sem:
                         try:
-                            return await _rpc(http, 'getTransaction', [sig['signature'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}])
+                            return await _rpc(http, 'getTransaction', [sig['signature'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1}])
                         except Exception:
                             return None
                 txs = await asyncio.gather(*(fetch(x) for x in early))
@@ -1279,7 +1279,7 @@ async def register_feeless_launch(payload: FeelessLaunchPayload):
     if payload.signature and _re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', payload.signature):
         # Proof from the launch transaction: it succeeded, this wallet signed it, and the new mint signed it.
         async with httpx.AsyncClient(timeout=15) as http:
-            tx = await _rpc(http, 'getTransaction', [payload.signature, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+            tx = await _rpc(http, 'getTransaction', [payload.signature, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1, 'commitment': 'confirmed'}])
         if tx and not (tx.get('meta') or {}).get('err'):
             signers = [k['pubkey'] for k in tx['transaction']['message']['accountKeys'] if k.get('signer')]
             if payload.wallet in signers and payload.mint in signers:
@@ -3721,7 +3721,7 @@ async def fuse_position(p: FusePositionIn):
         if to:
             async with httpx.AsyncClient(timeout=20) as http:
                 for _ in range(4):
-                    tx = await _rpc(http, 'getTransaction', [p.prepaySig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+                    tx = await _rpc(http, 'getTransaction', [p.prepaySig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1, 'commitment': 'confirmed'}])
                     if tx:
                         break
                     await asyncio.sleep(2)
@@ -4175,7 +4175,7 @@ async def admin_fuse_payout_paid(request: Request, p: FusePaidIn):
     if used & set(sigs):
         raise HTTPException(409, 'Those transactions were already recorded.')
     async with httpx.AsyncClient(timeout=20) as http:
-        txs = await asyncio.gather(*(_rpc(http, 'getTransaction', [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}]) for x in sigs))
+        txs = await asyncio.gather(*(_rpc(http, 'getTransaction', [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1}]) for x in sigs))
     paid_sol: dict = {}
     for sig, tx in zip(sigs, txs):
         if not tx or (tx.get('meta') or {}).get('err'):
@@ -7910,7 +7910,7 @@ async def _verify_sol_payment(sig, mine, min_usd, st):
     tx = None
     async with httpx.AsyncClient(timeout=20) as http:
         for _ in range(5):
-            tx = await _rpc(http, 'getTransaction', [sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+            tx = await _rpc(http, 'getTransaction', [sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1, 'commitment': 'confirmed'}])
             if tx:
                 break
             await asyncio.sleep(2)
@@ -11787,7 +11787,7 @@ async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
     async with httpx.AsyncClient(timeout=15) as http:
         for _ in range(max(1, int(wait / 2))):
             try:
-                tx = await _krpc(http, 'getTransaction', [p['sig'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+                tx = await _krpc(http, 'getTransaction', [p['sig'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1, 'commitment': 'confirmed'}])
             except Exception:
                 tx = None
             if tx:
@@ -12021,7 +12021,7 @@ async def _fw_deposit_scan(cfg, now):
             sig = srow.get('signature')
             if not sig or srow.get('err') or sig in ours or sig in have:
                 continue
-            tx = await _krpc(http, 'getTransaction', [sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+            tx = await _krpc(http, 'getTransaction', [sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1, 'commitment': 'confirmed'}])
             dep = _fw.deposit_from_tx(tx, cfg['address'])
             if dep:
                 dd['rows'].append({'sig': sig, 'at': (tx or {}).get('blockTime') or now, **dep}); added += 1
@@ -12204,7 +12204,7 @@ async def _fw_rent_credit(cfg):
                 raise RuntimeError('no SOL price')
             async with httpx.AsyncClient(timeout=20) as http:
                 for r in _fw.route_fix_rows(d['ledger'], time.time() - 3 * 86400)[-40:]:
-                    tx = await _krpc(http, 'getTransaction', [r['sig'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+                    tx = await _krpc(http, 'getTransaction', [r['sig'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1, 'commitment': 'confirmed'}])
                     if not tx:
                         raise RuntimeError('tx not readable yet')
                     checked[r['sig']] = _fw.opened_sol(tx, cfg['address'])
@@ -13047,7 +13047,7 @@ def _ai_learn_note(role, c, res, now):
     px = _fuse._f(c.get('price')) or _fuse._f((_jup_px_cache.get(c['mint']) or (0, 0))[1])
     ad_ = (res or {}).get('advice') or {}
     _ai['book'] = _ail.note(_ai_book(), role, c['mint'], st, px, now, c.get('symbol'), len(ad_.get('risk_flags') or []), ad_.get('scout'), bool(c.get('atFill')),
-                            bool(_tch.hits(_teach_state(), c.get('symbol'), c['mint'])), phase=ad_.get('chart_phase'), ephase=c.get('phase'), src=(res or {}).get('source'))   # 🎓 a read on a coin the owner taught is graded on its own (TAUGHT)
+                            bool(_tch.hits(_teach_state(), c.get('symbol'), c['mint'])), phase=ad_.get('chart_phase'), ephase=c.get('phase'), src=(res or {}).get('source'), predict=ad_.get('predict_pct'))   # 🎓 a read on a coin the owner taught is graded on its own (TAUGHT)
 
 
 async def _ai_learn_settle(now):
@@ -13167,7 +13167,7 @@ def _ai_log(role, case, res, asked=False):
            'ms': res.get('ms'), 'stance': (ad or {}).get('stance'), 'delta': (ad or {}).get('confidence_delta'), 'summary': (ad or {}).get('summary'),
            **{k_: (ad or {}).get(k_) for k_ in ('risk_flags', 'narrative', 'creator_context', 'conflict_resolution')}, 'kernel': case.get('status') or case.get('state') or (f"closed {case.get('result'):+.1f}%" if isinstance(case.get('result'), (int, float)) else None),
            'trigger': case.get('trigger') if isinstance(case.get('trigger'), str) else None, 'asked': bool(asked), 'why': None if ad else str(res.get('why') or 'no provider answered')[:120],
-           'snap': (case.get('_snap') or {}).get('pts'), 'snapSrc': (case.get('_snap') or {}).get('src'), 'word': case.get('_word')}   # 📸 the chart the model judged (the page draws it beside the answer)
+           'predict': (ad or {}).get('predict_pct'), 'snap': (case.get('_snap') or {}).get('pts'), 'snapSrc': (case.get('_snap') or {}).get('src'), 'word': case.get('_word')}   # 📸 the chart the model judged (the page draws it beside the answer)
     _ai['log'] = (_ai['log'] + [row])[-AI_LOG_KEEP:]
 
 
@@ -13192,7 +13192,7 @@ def _ai_view(now=None, light=False):
         return {'providers': [{k_: r_.get(k_) for k_ in ('key', 'label', 'enabled', 'state', 'lastMs')} for r_ in v['providers']], 'active': v['active'],
                 'totals': v['totals'], 'notes': {m_: {ro_: {k_: n_.get(k_) for k_ in ('source', 'label', 'advice', 'at')} for ro_, n_ in notes[m_].items()} for m_ in keep},
                 'lastAt': _ai['lastAt'], 'lastMs': _ai['lastMs'], 'every': AI_EVERY, 'localLane': {**{k_: _local_lane.get(k_) for k_ in ('n', 'last', 'busy', 'every', 'whyEvery')}, 'watch': _aic.watch_view(_local_lane.get('watch') if _local_lane.get('watch') is not None else (_json_load(LOCAL_WATCH_PATH, {}) or {}), _chat.get('settings') or {}, time.time(), _local_lane.get('every'), _local_lane.get('whyEvery'))}, 'log': _ai['log'][-20:], 'metrics': v.get('metrics'),
-                'model': next((r_.get('model') for r_ in v['providers'] if r_.get('key') == v['active']), None), 'learn': {**_ail.view(_ai_book()), 'on': _ai_learn_on()},
+                'model': next((r_.get('model') for r_ in v['providers'] if r_.get('key') == v['active']), None), 'learn': {**_ail.view(_ai_book()), 'on': _ai_learn_on()}, 'predict': {k_: _ail.predict_record(_ai_book(), None if k_ == 'all' else k_) for k_ in ('all', 'lan', 'local', 'openrouter', 'groq')},
                 'duet': _duet.view(_duet.record(_ai_book().get('done'))),   # 🤝 Gemma + Qwen on one record: agree %, who wins splits
                 'report': _ail.model_report(_ai_book(), {k_: dict(_air.ROUTER.stats.get(k_) or {}) for k_ in _air.PROVIDERS}, {r_.get('key'): r_.get('model') for r_ in v['providers']}),   # 🧠 every model on one yardstick
                 'slip': {'firstPct': _fw.BUY_SLIP_FIRST / 100, 'retryPct': _fw.BUY_SLIP_MAX / 100, 'retries': _fw.BUY_SLIP_RETRIES},
@@ -13325,6 +13325,21 @@ def _ai_owner(now):
     return _owner_line['v']
 
 
+def _agent_pred(t_, ch_, now):
+    """🔮 THE AGENTS' PREDICTION for a real buy: what our own real trades that looked like this one made (real_memory.estimate over the entry's
+    structure · door · launch phase · class · age) — written into the thesis, graded against the real exit (office.pred_record)."""
+    try:
+        mem_ = _real_mem(now) or {}
+        if not mem_.get('cells'):
+            return None
+        li_ = t_.get('li') or {}
+        est_, cell_ = _rm.estimate(mem_, _rm.feats((ch_ or {}).get('state'), ((ch_ or {}).get('entry') or [None, None])[1] if len((ch_ or {}).get('entry') or []) > 1 else None,
+                                                  (t_.get('bought') or {}).get('tag') or t_.get('tag') or '', li_.get('phase'), li_.get('cls'), (t_.get('vitals') or {}).get('ageH')))
+        return {'pct': round(_fuse._f(est_), 1), 'why': cell_}
+    except Exception:
+        return None
+
+
 def _ai_snap(mint, pair=None):
     """📸 The chart snapshot the model reads: the agents' own 1-minute rows (ai_snapshot), % vs the entry when the agents hold the coin."""
     if not mint:
@@ -13347,7 +13362,7 @@ def _ai_case(c):
     sn_ = _ai_snap(c.get('mint'), c.get('pair'))
     th_ = [f"your rule {k_} HITS this coin: {w_}" for k_, w_ in ((_office.get('taught') or {}).get(c.get('mint')) or {}).items()]
     return {**_ai_brief(c.get('mint')), 'signals': _ai_signals(c), 'lessons': (th_ + _tch.for_case(_teach_state(), c.get('symbol'), c.get('mint')))[:7] or None,
-            'learned': lm_['learned'], 'chartRec': lm_['chart'], 'candles': '; '.join(x_ for x_ in ((sn_ or {}).get('line'), _ccl.line(time.time())) if x_), 'owner': _ai_owner(time.time()), '_snap': sn_,
+            'learned': lm_['learned'], 'chartRec': lm_['chart'], 'predictRec': _ail.predict_line(_ail.predict_record(_ai_book())), 'candles': '; '.join(x_ for x_ in ((sn_ or {}).get('line'), _ccl.line(time.time())) if x_), 'owner': _ai_owner(time.time()), '_snap': sn_,
             **{k_: c.get(k_) for k_ in ('mint', 'symbol', 'status', 'rank', 'ageMin', 'cap', 'liq', 'vol5m', 'move5m', 'buyShare', 'narrative', 'trigger', 'size', 'unknown',
                                        'state', 'why', 'pending', 'result', 'cause', 'pct', 'peak', 'heldMin', 'rule', 'structure', 'phase')},
             'devil': [f"{d_[0]} {d_[1]}" for d_ in (c.get('devil') or []) if isinstance(d_, (list, tuple)) and len(d_) >= 2] if isinstance(c.get('devil'), list) else c.get('devil')}
@@ -16441,6 +16456,7 @@ def _office_warden(cur, t_, requested, cfg_t, now, move):
             fv_ = (_office.get('flow') or {}).get(t_.get('mint')) or t_.get('fv')
             _office['theses'][t_.get('mint')].update(flow={'state': fv_.get('state'), 'buyPct': fv_.get('buyPct'), 'buyers': fv_.get('buyers')} if fv_ else None,
                                                      distHigh=t_.get('distHigh') if t_.get('distHigh') is not None else ((ch_.get('f') or {}).get('distHigh')),
+                                                     pred=_agent_pred(t_, ch_, now),   # 🔮 the agents' own prediction for this trade (real-money memory), graded at the exit
                                                      votes=_jr.votes_of((_tk.KERNEL.dec.get(t_.get('mint')) or {}).get('opinions')))   # 🗳 each entry desk's OWN vote (judge_review.desk_votes scores it on the real result)
         if move == 'fill':
             _tk.KERNEL.note('warden', f"SIZE ${_fuse._f(wd['allowed']):.2f}", (min(wd['rules'], key=lambda r: r['mult'])['why'] if wd['rules'] else 'no rule bit — full size'), now, mint=t_.get('mint'),
@@ -16468,6 +16484,10 @@ def _office_reap(cur, px, cfg_t, ctl, now, dec, pol=None, live=True, vels=None, 
                 if ctl and l.get('mint'):   # 🚨 the rug radar on the SAME tape for the agents' seats (creator / top-holder / bundle wallets dumping)
                     it_ = _flow_intel(l.get('mint'))
                     why_ = _flow.rug_why(w_, it_.get('creator'), it_.get('watch'), _fuse._f(l.get('liqNow')) or _fuse._f(l.get('liq')) or None)
+                    if not why_:   # 🩸 the pool's SOL leaving fast (replay-proven: 3/14 rugs caught ~27s early, 0/10 winners sold)
+                        tr_at_, tr_ = _flow_trades.get(l.get('pairAddress')) or (0, None)
+                        if tr_ and now - _fuse._f(tr_at_) <= 60:
+                            why_ = _flow.pool_drain(tr_, now, _fuse._f(l.get('liqNow')) or _fuse._f(l.get('liq')))
                     if why_:
                         rug[l.get('pairAddress')] = why_
                     try:   # 🕵 the launch's early buyers selling on the same tape → exit pressure (Reaper R4e / a tighter trail)
@@ -16874,7 +16894,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         'office': {'chain': list(_of.CHAIN), 'priority': list(_of.PRIORITY), 'coins': perf.get('coins'), 'cases': len(cases), 'cleared': sum(1 for c_ in cases if c_['cleared'])},
         'agents': _of.agent_cards(cards, {'live': live, 'office': of}), 'currentCase': cur_case, 'pipeline': pipe,
         'queue': queue, 'positions': _office_positions(), 'exiting': [{'mint': p_['mint'], 'sym': p_.get('sym'), 'rule': p_.get('askRule'), 'state': (p_.get('exit') or {}).get('state'), 'since': p_.get('leftAt')} for p_ in _office['exiting']],
-        'execution': {**cour, 'metrics': _fw.exec_metrics(_fw_peek().get('ledger'), now, dupes=_FW_DUPES['n'])}, 'ownerHand': _of.owner_hand(arch.get('positions')), 'askRec': ask_rec_, 'tid': tid, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': [{'agent': x_.get('role'), 'gen': x_.get('gen'), 'why': f"{x_.get('status') or 'replaced'} — {x_.get('why') or ''}" + (f" · next generation: {x_['changed']}" if x_.get('changed') else ''), 'at': x_.get('retiredAt')}
+        'execution': {**cour, 'metrics': _fw.exec_metrics(_fw_peek().get('ledger'), now, dupes=_FW_DUPES['n'])}, 'ownerHand': _of.owner_hand(arch.get('positions')), 'askRec': ask_rec_, 'agentPredict': _of.pred_record(arch.get('positions')), 'tid': tid, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': [{'agent': x_.get('role'), 'gen': x_.get('gen'), 'why': f"{x_.get('status') or 'replaced'} — {x_.get('why') or ''}" + (f" · next generation: {x_['changed']}" if x_.get('changed') else ''), 'at': x_.get('retiredAt')}
                                                          for x_ in reversed((_lc_book(now).get('lineage') or [])[-12:])], 'devil': dv_rec[:10], 'needShadow': _of.SHADOW_N, 'needPropose': _of.PROPOSE_N},
         'index': (_office.get('index') or [])[:80], 'rpc': {'lanes': _rpc_quota_state(), 'note': 'keyed lanes = keeper sends / balances first, then holder scans (budgeted); discovery comes from Pump\'s live stream + the launch boards — no RPC first-seen listener runs'},
         'court': _office.get('court'), 'opp': _office.get('opp'), 'coach': _coach_view(now), 'tradeTape': _trade_tape(now),   # 👑 the directives in force · 🎬 every real agent trade as one story
@@ -19252,7 +19272,7 @@ async def admin_airdrop_status(request: Request, drop_id: str, payload: AirdropS
         if not payload.txSig or not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', payload.txSig):
             raise HTTPException(400, 'Paste the on-chain transaction signature to mark an airdrop sent.')
         async with httpx.AsyncClient(timeout=20) as http:
-            tx = await _rpc(http, 'getTransaction', [payload.txSig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}])
+            tx = await _rpc(http, 'getTransaction', [payload.txSig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1}])
         if not tx:
             raise HTTPException(404, 'That transaction is not on-chain (yet).')
         if (tx.get('meta') or {}).get('err'):
@@ -19512,7 +19532,7 @@ async def store_receipt(payload: ReceiptIn, request: Request):
     tx = None
     async with httpx.AsyncClient(timeout=20) as http:
         for _ in range(6):  # freshly-sent txs can take a few seconds to be queryable
-            tx = await _rpc(http, 'getTransaction', [payload.sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+            tx = await _rpc(http, 'getTransaction', [payload.sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1, 'commitment': 'confirmed'}])
             if tx:
                 break
             await asyncio.sleep(2)
@@ -20187,7 +20207,7 @@ async def fuse_rounds(p: RoundsIn):
         tx = None
         async with httpx.AsyncClient(timeout=20) as http:
             for _ in range(5):
-                tx = await _rpc(http, 'getTransaction', [p.signature, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+                tx = await _rpc(http, 'getTransaction', [p.signature, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1, 'commitment': 'confirmed'}])
                 if tx:
                     break
                 await asyncio.sleep(2)
@@ -24224,7 +24244,7 @@ async def pools_register(request: Request, p: PoolRegIn):
     """Record a pool created from the HQ. Verified on-chain: succeeded, signed by this admin."""
     admin = _require_admin(request)
     async with httpx.AsyncClient(timeout=20) as http:
-        tx = await _rpc(http, 'getTransaction', [p.signature, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}])
+        tx = await _rpc(http, 'getTransaction', [p.signature, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1}])
     if not tx or (tx.get('meta') or {}).get('err'):
         raise HTTPException(409, 'Transaction not confirmed yet.')
     keys = tx['transaction']['message']['accountKeys']
@@ -24620,7 +24640,7 @@ async def admin_reserve_paid(request: Request, sid: str, p: ReservePaid):
         raise HTTPException(400, 'Bad transaction signature.')
     plan = await _reserve_plan(s, d)
     async with httpx.AsyncClient(timeout=20) as http:
-        txs = await asyncio.gather(*(_rpc(http, 'getTransaction', [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}]) for x in p.sigs))
+        txs = await asyncio.gather(*(_rpc(http, 'getTransaction', [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1}]) for x in p.sigs))
     for sig, tx in zip(p.sigs, txs):
         if not tx or (tx.get('meta') or {}).get('err'):
             raise HTTPException(400, f'Transaction {sig[:8]}… is not on-chain or failed.')
@@ -24926,7 +24946,7 @@ async def admin_badge_pool_paid(request: Request, pid: str, p: ReservePaid):
     if not all(_re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', x) for x in p.sigs):
         raise HTTPException(400, 'Bad transaction signature.')
     async with httpx.AsyncClient(timeout=20) as http:
-        txs = await asyncio.gather(*(_rpc(http, 'getTransaction', [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}]) for x in p.sigs))
+        txs = await asyncio.gather(*(_rpc(http, 'getTransaction', [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1}]) for x in p.sigs))
     paid = {}
     for sig, tx in zip(p.sigs, txs):
         if not tx or (tx.get('meta') or {}).get('err'):
@@ -25497,7 +25517,7 @@ async def treasury_split_record(request: Request, p: SplitRecord):
     if {s for sp in ad.get('splits') or [] for s in sp['sigs']} & set(p.sigs):
         raise HTTPException(409, 'Already recorded.')
     async with httpx.AsyncClient(timeout=20) as http:
-        txs = await asyncio.gather(*(_rpc(http, 'getTransaction', [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}]) for x in p.sigs))
+        txs = await asyncio.gather(*(_rpc(http, 'getTransaction', [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1}]) for x in p.sigs))
     moved, signer = [], None
     allowed = set(_owner_wallets()) | set(_admin_wallets())
     for sig, tx in zip(p.sigs, txs):
@@ -25799,7 +25819,7 @@ class NftOnchainIn(BaseModel):
 
 async def _nft_verify(sig: str, signer: str, must_touch: list):
     async with httpx.AsyncClient(timeout=20) as http:
-        tx = await _rpc(http, 'getTransaction', [sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+        tx = await _rpc(http, 'getTransaction', [sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1, 'commitment': 'confirmed'}])
     if not tx or (tx.get('meta') or {}).get('err'):
         raise HTTPException(400, 'That transaction is not confirmed on-chain (or it failed).')
     keys = tx['transaction']['message']['accountKeys']

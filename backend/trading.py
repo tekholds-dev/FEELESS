@@ -531,7 +531,7 @@ class TradingService:
         wallet, sig = order['wallet'], order['signature']
         for i in range(tries):
             try:
-                tx = await self.rpc('getTransaction', [sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+                tx = await self.rpc('getTransaction', [sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1, 'commitment': 'confirmed'}])
                 if tx:
                     prev = (await self._stored_fills(wallet, coin)).get(sig)
                     doc = await self._fill_doc(wallet, coin, sig, tx, order, 0.0, prev)
@@ -624,7 +624,7 @@ class TradingService:
         orders = await self._orders_by_sig(fresh + [d['tx'] for d in retry])
         for n in range(0, len(fresh), 10):   # gentle on the RPC: 10 transactions at a time
             chunk = fresh[n:n + 10]
-            txs = await asyncio.gather(*(self.rpc('getTransaction', [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}]) for x in chunk),
+            txs = await asyncio.gather(*(self.rpc('getTransaction', [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1, 'commitment': 'confirmed'}]) for x in chunk),
                                        return_exceptions=True)
             for x, tx in zip(chunk, txs):
                 if isinstance(tx, dict):   # not served right now: simply read again on the next scan

@@ -70,6 +70,19 @@ export function Snap({ pts, src, word }) {
     <small>📸 {last >= 0 ? '+' : ''}{last}%</small>{word ? <em className={`cai-word is-${String(word).toLowerCase()}`}>{word}</em> : null}</span>;
 }
 
+// 🔮 each model's PREDICTION record: its 15-minute numbers graded on the real price — direction right %, typical error, and what the coins it
+// called up (≥ +5%) vs down (≤ −5%) really did. PROVEN only when that gap holds on 20+ calls each side.
+const PRED_NAME = { all: 'ALL MODELS', lan: '🖥 GEMMA', local: '💻 QWEN', openrouter: '☁ OPENROUTER', groq: '☁ GROQ' };
+export function predictWord(r) {
+  if (!r?.n) return null;
+  return `${r.n} graded · direction ${r.hit}% right · error ${r.err} pts · called up → ${r.up?.med ?? '—'}% · called down → ${r.down?.med ?? '—'}%${r.proven ? ' · ✅ PROVEN' : ''}`;
+}
+export function PredictBox({ p }) {
+  const rows = Object.entries(p || {}).filter(([, r]) => r?.n);
+  if (!rows.length) return <p className="cai-predbox m-dim" data-testid="cai-predbox">🔮 PREDICTIONS · every read now carries a 15-minute number — graded once they are 15 min old</p>;
+  return <div className="cai-predbox" data-testid="cai-predbox"><b>🔮 PREDICTIONS</b>{rows.map(([k, r]) => <span key={k} className={r.proven ? 'is-proven' : ''}><small>{PRED_NAME[k] || k}</small>{predictWord(r)}</span>)}</div>;
+}
+
 export function AiRow({ r, onPick }) {
   const [ic, nm] = TAPE_AGENT[r.role] || (r.role === 'owner' ? ['👤', 'You asked'] : ['🧠', r.role]); const ag = agreeOf(r);
   return <li className={`cai-row ${r.asked ? 'is-asked' : ''}`} style={{ '--ag': AG[r.role] || '#c9b8ff' }} data-testid={`cai-row-${r.at}`}>
@@ -79,6 +92,7 @@ export function AiRow({ r, onPick }) {
         {r.stance ? <Delta d={r.delta} /> : null}<small className="cai-age">{ago(r.at)} ago</small></span>
       <span className="cai-say">{r.summary || r.why || '—'}</span>
       {r.snap?.length > 2 ? <Snap pts={r.snap} src={r.snapSrc} word={r.word} /> : null}
+      {r.predict != null ? <em className={`cai-pred ${r.predict >= 0 ? 'is-up' : 'is-dn'}`} data-testid="cai-pred" data-tip="the model's own number for the next 15 minutes — graded on the real price">🔮 {r.predict >= 0 ? '+' : ''}{r.predict}% in 15m</em> : null}
       {hasIntel(r) ? <AiIntel a={r} mini /> : null}
       <span className="cai-foot"><i className="cai-src">{r.label || r.source || 'AI'}</i>{r.ms != null ? <small>{r.ms >= 1000 ? `${(r.ms / 1000).toFixed(1)}s` : `${r.ms}ms`}</small> : null}
         {r.kernel ? <small>kernel: <b>{String(r.kernel).replace('_', ' ')}</b>{r.trigger ? ` · ⏱ ${r.trigger}` : ''}</small> : null}
@@ -159,6 +173,7 @@ export function AiPane({ ai: aiProp, lab, call, isOwner = true, focus, focusSym,
     <RuleLab lab={lab} />
     <ModelReport rows={ai?.report} />
     <DuetLine d={ai?.duet} />
+    <PredictBox p={ai?.predict} />
     {ai?.learn ? <div className={`cai-learn is-${String(ai.learn.state).toLowerCase().replace(/\s+/g, '-')}`} data-testid="cai-learn"
       data-tip={`Every stance the model gives is noted at that price and judged ${ai.learn.judgeMin} min later. A stance moves the agents' ranking (±10% at most) only once ${ai.learn.minN} of its calls are judged AND its coins really did better / worse than the model's other calls.`}>
       <span className="cai-lhead"><b>🎓 AGENTS LEARNING FROM THE MODEL</b><em>{ai.learn.state}</em></span><small>{ai.learn.why}{ai.learn.open ? ` · ${ai.learn.open} call${ai.learn.open === 1 ? '' : 's'} waiting for their ${ai.learn.judgeMin} min` : ''}</small>

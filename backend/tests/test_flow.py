@@ -106,3 +106,13 @@ def test_the_buy_sell_vital_names_one_state_every_desk_reads_the_same_way():
     spike = fl.vital(fl.window(buys(5, px=lambda i: 1.0 + i * 0.02), NOW))
     assert spike['state'] == 'PEAK' and 'top of the spike' in fl.vital_block(spike)                            # +8% inside 90s: the top, not an entry
     assert set(fl.VITAL_STATES) >= {v['state'], thin['state'], sell['state'], spike['state'], one['state']}
+
+
+def test_pool_draining_fast_is_net_selling_against_the_pool_sol_side():
+    import flow
+    T = lambda k, usd, ago: {'kind': k, 'usd': usd, 'ts': 1000 - ago, 'price': 1.0}
+    liq = 20_000   # SOL side ≈ $10K → 15% = $1.5K net out in 30s
+    assert flow.pool_drain([T('sell', 1200, 5), T('sell', 500, 10), T('buy', 100, 12)], 1000, liq).startswith('🩸 pool draining fast')
+    assert flow.pool_drain([T('sell', 1200, 5), T('buy', 400, 10)], 1000, liq) is None          # $800 net = 8%
+    assert flow.pool_drain([T('sell', 3000, 50)], 1000, liq) is None                             # older than 30s
+    assert flow.pool_drain([T('sell', 3000, 5)], 1000, 0) is None                                # unknown depth = not judged

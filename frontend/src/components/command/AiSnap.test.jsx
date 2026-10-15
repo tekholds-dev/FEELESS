@@ -20,3 +20,12 @@ test('🌐 web sources are real links; 🤝 each model shows its own exit record
   expect(a.length).toBe(1); expect(a[0].textContent).toContain('example.com'); expect(a[0].getAttribute('rel')).toContain('noopener');
   expect(modelsLine({ models: { lan: { RIDE: [4, 2.5, 0], TIGHTEN: [0, null, 0] }, local: { WIDEN: [3, -1, 0] } } })).toBe('🖥 GEMMA: RIDE 4 · +2.5%   💻 QWEN: WIDEN 3 · -1%');
 });
+
+test('🔮 predictions: a 15-minute number on each read and each model\'s graded record', async () => {
+  const { PredictBox, predictWord } = require('./AiDecisions');
+  expect(predictWord({ n: 30, hit: 61, err: 7.5, up: { med: 3.1 }, down: { med: -4 }, proven: true })).toContain('✅ PROVEN');
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<><PredictBox p={{ lan: { n: 4, hit: 50, err: 9, up: { n: 2, med: 1 }, down: { n: 2, med: -3 } } }} /><ol><AiRow r={{ at: 2, role: 'sherlock', symbol: 'B', stance: 'NEUTRAL', predict: -12 }} /></ol></>); });
+  expect(el.querySelector('[data-testid="cai-predbox"]').textContent).toContain('GEMMA');
+  expect(el.querySelector('[data-testid="cai-pred"]').textContent).toContain('-12% in 15m');
+});

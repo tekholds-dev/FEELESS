@@ -49,3 +49,17 @@ def test_the_kernel_rank_takes_the_models_factor_inside_its_bounds_only():
     assert opp.open_score(row, ai_w={'M': 0.85})[0] < plain == opp.open_score(row, ai_w={'M': 1.1})[0]   # veto-only: the model never ranks a coin up
     assert opp.open_score(row, ai_w={'M': 0.1})[0] == opp.open_score(row, ai_w={'M': 0.85})[0]     # clamped: never more than 15% down
     assert opp.open_score(row, ai_w={'OTHER': 0.9})[0] == plain
+
+
+def test_predictions_are_graded_on_the_real_15_minute_move():
+    import ai_learn as al
+    b = {'open': [], 'done': []}
+    for i in range(25):
+        b = al.note(b, 'sherlock', f'U{i}', 'FAVOR', 1.0, i * 2000, predict=10, src='lan')
+        b = al.note(b, 'sherlock', f'D{i}', 'CAUTION', 1.0, i * 2000, predict=-10, src='lan')
+    b = al.settle(b, {**{f'U{i}': 1.08 for i in range(25)}, **{f'D{i}': 0.95 for i in range(25)}}, 10 ** 6)
+    r = al.predict_record(b, 'lan')
+    assert r['n'] == 50 and r['hit'] == 100 and r['up']['med'] == 8.0 and r['down']['med'] == -5.0 and r['edge'] == 13.0 and r['proven']
+    assert al.predict_record(b, 'local') == {'n': 0, 'proven': False} and 'PROVEN' in al.predict_line(r)
+    import ai_router as ar
+    assert ar.parse_advice('{"summary": "x", "predict_pct": 450}')['predict_pct'] == 300.0
