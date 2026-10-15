@@ -628,7 +628,16 @@ def t_investigate(a):
     return _cut('\n'.join(out), MAX_OUT)
 
 
+def t_now(_a):
+    """Today's date and time — the model has no clock of its own (2026-10-15: Qwen "ran Python" and answered 2023)."""
+    import datetime as _dt
+    u = _dt.datetime.now(_dt.timezone.utc)
+    loc = _dt.datetime.now().astimezone()
+    return f"NOW · UTC {u.strftime('%A %Y-%m-%d %H:%M')} · owner local {loc.strftime('%A %Y-%m-%d %H:%M %Z')} · unix {int(u.timestamp())}"
+
+
 TOOLS = {
+    'now': (t_now, "Today's date and time (UTC + the owner's local). Call it whenever the date matters — you have no clock.", {}),
     'feeless_card': (t_card, 'The REAL Fuse card right now: put in, value, all-time P&L, who controls it, every coin with % and $, paper cards.', {}),
     'feeless_agents': (t_agents, "The agents' desk: mission, capital stance + leaks, the 4 seats (P/L, velocity, Reaper's ruling), top candidates and why, the Judge.", {}),
     'feeless_diagnose': (t_diagnose, 'THE MONEY PICTURE — use before ANY advice on fixing / scaling the agents: real win-loss record, avg win vs avg loss, where money leaks '
