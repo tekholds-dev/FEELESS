@@ -3,6 +3,9 @@
 .agd { --ag: var(--m-accent); --agd-up: #45e486; display: grid; gap: 12px; padding: 14px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--m-accent) 30%, transparent);
   background: linear-gradient(160deg, #06120d, #0b0a18); color: var(--m-text); min-width: 0; }
 .agd .is-tally { --ag: #1fd178; } .agd .is-sherlock { --ag: #a07bff; } .agd .is-trigger { --ag: #f5c451; } .agd .is-devil { --ag: #ff6b86; } .agd .is-desk { --ag: var(--m-accent); }
+/* ⚡ the tab-wide aurora stays STILL (measured 2026-10-14: drifting, it was the biggest per-frame cost of the tab — the whole 4,200px page
+   re-composited every frame and the content above it needed its own 5.8 Mpx layer). The ribbon's own m-live keeps drifting on top. */
+.agd.m-live::before { animation: none; will-change: auto; transform: translate(-2%, -1%) rotate(3deg); }
 .agd-warn { color: var(--m-warn); }
 
 /* hero */

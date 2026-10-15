@@ -29,64 +29,59 @@
 @keyframes cbgHorizon { from { opacity: .3; transform: scaleX(.85); } to { opacity: .7; transform: scaleX(1.05); } }
 @keyframes cbgBeam { from { transform: translateX(-30%) skewX(-8deg); } to { transform: translateX(30%) skewX(8deg); } }
 
-/* 🟩 Code rain: columns of trench words falling — the BULL words show while the last real tick was green, the BEAR words fade in on a red one */
-.cbg-col { top: -100%; width: 14px; font: 700 11px/1.15 'JetBrains Mono', monospace; color: var(--c); opacity: .22; writing-mode: vertical-rl; text-orientation: upright; white-space: nowrap; letter-spacing: 1px;
-  animation: cbgFall calc(7s + (var(--i) % 4) * 2.3s) linear infinite; animation-delay: calc(var(--i) * -1.37s); }
-.cbg-col:nth-of-type(3n) { opacity: .34; } .cbg-col:nth-of-type(4n) { color: var(--c2); }
+/* 🟩 Code rain v2: THREE depths of trench-word columns (far = small, faint, slow · near = big, bright, fast), each with a white-hot head;
+   the BULL words fall while the last real tick was green, the BEAR words take over on a red one; a soft scan sweeps down the stage. */
+.cbg-col { top: -110%; width: 14px; font: 700 11px/1.15 'JetBrains Mono', monospace; color: var(--c); opacity: .24; writing-mode: vertical-rl; text-orientation: upright; white-space: nowrap; letter-spacing: 1px;
+  animation: cbgFall calc(8s + (var(--i) % 4) * 2.1s) linear infinite; animation-delay: calc(var(--i) * -1.13s); }
+.cbg-col.is-z0 { font-size: 8px; opacity: .13; animation-duration: calc(13s + (var(--i) % 3) * 2s); }
+.cbg-col.is-z2 { font-size: 13px; opacity: .36; animation-duration: calc(5.5s + (var(--i) % 3) * 1.2s); }
+.cbg-col:nth-of-type(5n) { color: var(--c2); }
 .cbg-col > span { display: block; transition: opacity .5s ease; } .cbg-col > .is-bear { position: absolute; inset: 0; opacity: 0; }
 .cfk-dn .cbg-col > .is-bull { opacity: 0; } .cfk-dn .cbg-col > .is-bear { opacity: 1; }
+.cbg-head { left: 2px; bottom: -4px; width: 10px; height: 10px; border-radius: 2px; background: #eafff3; box-shadow: 0 0 10px 3px var(--c); opacity: .9; }
+.cbg-col.is-z0 .cbg-head { width: 6px; height: 6px; opacity: .5; }
+.cbg-sweep { left: 0; right: 0; top: -20%; height: 16%; background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--c) 10%, transparent), transparent); animation: cbgSweep 7s linear infinite; }
 
-/* 🌧 Gutter: a rainy street at night, a flickering neon sign and its reflection wobbling in the puddle; every real tick throws ripples */
-.cbg-gsky { inset: 0 0 42% 0; background: linear-gradient(180deg, #05080b, #0a0f14); }
-.cbg-gsign { left: 50%; top: 14%; transform: translateX(-50%); font: 800 clamp(14px, 3.4vw, 30px) 'JetBrains Mono', monospace; letter-spacing: .3em; color: var(--c); opacity: .3; white-space: nowrap; animation: cbgFlicker 6s steps(1) infinite; }
-.cbg-street { left: 0; right: 0; bottom: 0; height: 42%; background: linear-gradient(180deg, #0b1218, #05080a); }
-.cbg-grefl { left: 50%; bottom: 20%; font: 800 clamp(14px, 3.4vw, 30px) 'JetBrains Mono', monospace; letter-spacing: .3em; color: var(--c); opacity: .12; white-space: nowrap; animation: cbgWobble 3.2s ease-in-out infinite alternate; }
-.cbg-ripple { bottom: 10%; width: 70px; height: 14px; margin-left: -35px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--c2) 55%, transparent); opacity: 0;
-  animation: cbgRipple calc(3.4s + var(--i) * .7s) ease-out infinite; animation-delay: calc(var(--i) * -1.1s); }
-.cfk-dn .cbg-ripple { border-color: color-mix(in srgb, var(--c) 60%, transparent); }
-.cbg-gdrop { top: -20%; width: 1px; height: 16%; background: linear-gradient(180deg, transparent, rgba(160, 200, 230, .35)); animation: cbgRain calc(1s + var(--i) * .09s) linear infinite; animation-delay: calc(var(--i) * -.23s); }
+/* ⚡ Neon trench v2 extras: a striped synth sun sinking behind a ridge, faint stars, and speed streaks racing down the grid on a green tick */
+.cbg-neon .cbg-stars { inset: 0 0 50% 0; background-image: radial-gradient(1px 1px at 12% 22%, #cfe 50%, transparent 51%), radial-gradient(1px 1px at 33% 12%, #cfe 50%, transparent 51%),
+  radial-gradient(1px 1px at 58% 30%, #cfe 50%, transparent 51%), radial-gradient(1px 1px at 76% 16%, #cfe 50%, transparent 51%), radial-gradient(1px 1px at 90% 34%, #cfe 50%, transparent 51%); opacity: .35; animation: cbgTwinkle 5s ease-in-out infinite alternate; }
+.cbg-neon .cbg-sun { left: 50%; top: 18%; width: clamp(110px, 24%, 230px); aspect-ratio: 1; margin-left: calc(clamp(110px, 24%, 230px) / -2); border-radius: 50%; opacity: .28;
+  background: linear-gradient(180deg, var(--c2), var(--c) 55%, var(--c3)); -webkit-mask: repeating-linear-gradient(180deg, #000 0 9px, transparent 9px 12px); mask: repeating-linear-gradient(180deg, #000 0 9px, transparent 9px 12px);
+  animation: cbgSun 9s ease-in-out infinite alternate; }
+.cbg-neon .cbg-ridge { left: -5%; right: -5%; top: 34%; height: 10%; background: #030806; clip-path: polygon(0 100%, 8% 40%, 16% 70%, 27% 20%, 38% 65%, 47% 35%, 58% 75%, 69% 25%, 80% 60%, 90% 30%, 100% 70%, 100% 100%); opacity: .95; }
+.cbg-neon .cbg-streak { top: 0; width: 2px; height: 34%; background: linear-gradient(180deg, transparent, var(--c)); opacity: 0; animation: cbgStreak calc(1.6s + var(--i) * .35s) linear infinite; animation-delay: calc(var(--i) * -.5s); }
+.cfk-up .cbg-neon .cbg-streak { opacity: .55; } .cfk-dn .cbg-neon .cbg-streak { opacity: 0; }
 
-/* 🐋 Whale sonar: deep water, a radar arm sweeping from the sea floor, ping rings, a whale drifting through, bubbles rising */
-.cbg-deep { inset: 0; background: radial-gradient(ellipse at 50% 110%, rgba(30, 90, 140, .25), transparent 70%), linear-gradient(180deg, #02060c, #031018); }
-.cbg-arm { left: 50%; bottom: -4%; width: 70%; height: 2px; margin-left: 0; transform-origin: 0 50%; background: linear-gradient(90deg, color-mix(in srgb, var(--c2) 60%, transparent), transparent); opacity: .5; animation: cbgArm 7s linear infinite; }
-.cbg-ping { left: 50%; bottom: -12%; width: 46%; aspect-ratio: 1; margin-left: -23%; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--c2) 50%, transparent); opacity: 0;
-  animation: cbgPing 5.4s ease-out infinite; animation-delay: calc(var(--i) * -1.8s); }
-.cfk-dn .cbg-ping { border-color: color-mix(in srgb, var(--c) 55%, transparent); }
-.cbg-whale { left: -30%; top: 34%; width: 24%; height: 9%; border-radius: 50% 40% 45% 55%; background: rgba(120, 170, 210, .09); clip-path: polygon(0 50%, 10% 20%, 55% 0, 85% 25%, 100% 0, 96% 50%, 100% 100%, 85% 75%, 55% 100%, 10% 80%); animation: cbgSwim 46s linear infinite; }
-.cbg-bub { bottom: -6%; width: 5px; height: 5px; border-radius: 50%; border: 1px solid rgba(143, 211, 255, .35); animation: cbgBub calc(8s + var(--i) * 1.3s) linear infinite; animation-delay: calc(var(--i) * -2.1s); }
+/* 🚀 Hyperspace: stars streak OUT of the vanishing point (send it) — on a red tick they run back IN, pink. Pure transform / opacity. */
+.cbg-hyper { background: radial-gradient(ellipse at 50% 48%, #0b1622, #02040a 70%); }
+.cbg-core { left: 50%; top: 48%; width: 22%; aspect-ratio: 1; margin: -11% 0 0 -11%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 30%, transparent), transparent); animation: cbgHorizon 2.4s ease-in-out infinite alternate; }
+.cbg-star { left: 50%; top: 48%; width: 32%; height: 2px; transform-origin: 0 50%; transform: rotate(var(--a)); }
+.cbg-star::after { content: ''; position: absolute; left: 0; top: 0; width: 40%; height: 100%; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--c2) 60%, #fff);
+  animation: cbgWarp calc(1.4s + (var(--i) % 5) * .32s) linear infinite; animation-delay: calc(var(--i) * -.21s); }
+.cfk-dn .cbg-star::after { background: linear-gradient(90deg, #fff, var(--c) 40%, transparent); animation-direction: reverse; }
+.cbg-hyper .cbg-mark { opacity: .1; }
 
-/* 🫧 Lava lamp: big soft blobs rising and sinking — soothing; they turn pink on a red tick */
-.cbg-lava { background: linear-gradient(180deg, #06040b, #0b0612); }
-.cbg-blob { bottom: -30%; width: clamp(120px, 26%, 260px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 30%, transparent), transparent); opacity: .7;
-  animation: cbgLava calc(18s + var(--i) * 5s) ease-in-out infinite alternate; animation-delay: calc(var(--i) * -4s); }
-.cbg-blob:nth-child(even) { background: radial-gradient(closest-side, color-mix(in srgb, var(--c3) 30%, transparent), transparent); }
-.cbg-lava .cbg-mark { opacity: .08; }
+/* 🎰 Degen casino: green felt, a neon sign that flickers, three slot reels of trench words spinning (they LOCK on a red tick), chips falling */
+.cbg-casino { background: radial-gradient(ellipse at 50% 120%, rgba(21, 209, 106, .16), transparent 60%), linear-gradient(180deg, #050a07, #03150c); }
+.cbg-felt { left: -10%; right: -10%; bottom: -30%; height: 60%; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--gold, #f5c542) 30%, transparent); opacity: .5; }
+.cbg-sign { left: 50%; top: 10%; transform: translateX(-50%); white-space: nowrap; font: 800 clamp(11px, 2.4vw, 22px) 'JetBrains Mono', monospace; letter-spacing: .24em; color: var(--gold, #f5c542);
+  opacity: .32; animation: cbgNeonSign 7s steps(1) infinite; }
+.cbg-reels { position: absolute; left: 50%; top: 34%; transform: translateX(-50%); display: flex; gap: 10px; opacity: .22; }
+.cbg-reel { position: relative !important; width: clamp(64px, 10vw, 110px); height: 30px; overflow: hidden; border-radius: 6px; border: 1px solid color-mix(in srgb, var(--c) 60%, transparent); }
+.cbg-reel > span { display: flex; flex-direction: column; animation: cbgReel calc(1.1s + var(--i) * .25s) linear infinite; }
+.cbg-reel u { display: block; height: 30px; line-height: 30px; text-align: center; text-decoration: none; font: 800 11px 'JetBrains Mono', monospace; color: var(--c); }
+.cfk-dn .cbg-reel > span { animation-play-state: paused; } .cfk-dn .cbg-reels { opacity: .3; }
+.cbg-chip { top: -8%; width: 16px; height: 16px; border-radius: 50%; border: 3px dashed color-mix(in srgb, var(--gold, #f5c542) 70%, transparent); opacity: .3; animation: cbgChip calc(6s + var(--i) * .9s) linear infinite; animation-delay: calc(var(--i) * -1.4s); }
 
-/* 📼 Trench TV: a VHS feed — scanlines, a rolling bright band, REC dot, channel tag; a tracking glitch tears across on a red tick */
-.cbg-vhs { background: radial-gradient(ellipse at 50% 50%, #0c1210, #040606 75%); }
-.cbg-lines { inset: 0; background: repeating-linear-gradient(180deg, rgba(255, 255, 255, .035) 0 1px, transparent 1px 3px); }
-.cbg-band { left: 0; right: 0; top: -20%; height: 18%; background: linear-gradient(180deg, transparent, rgba(255, 255, 255, .05), transparent); animation: cbgBand 6s linear infinite; }
-.cbg-track { left: 0; right: 0; top: 52%; height: 7%; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--c) 30%, transparent) 20%, transparent 40%, color-mix(in srgb, var(--c2) 25%, transparent) 70%, transparent); opacity: 0; transition: opacity .3s ease; }
-.cfk-dn .cbg-track { opacity: .8; animation: cbgTear .45s steps(3) infinite; }
-.cbg-rec { right: 70px; top: 12px; font: 800 10px 'JetBrains Mono', monospace; letter-spacing: .14em; color: #ff8fa3; opacity: .6; display: flex; align-items: center; gap: 5px; }
-.cbg-rec i { position: static; width: 7px; height: 7px; border-radius: 50%; background: #ff4f6d; animation: cbgBlink 1.2s steps(2) infinite; }
-.cbg-ch { left: 14px; bottom: 30px; font: 700 10px 'JetBrains Mono', monospace; letter-spacing: .16em; color: var(--c); opacity: .35; }
-.cbg-vhs .cbg-mark { opacity: .07; }
-
-@keyframes cbgPan { from { transform: translateX(-3%); } to { transform: translateX(3%); } }
-@keyframes cbgBlink { 0% { opacity: .1; } 50% { opacity: .55; } }
-@keyframes cbgRain { to { transform: translate3d(0, 680px, 0); } }
+@keyframes cbgSweep { to { transform: translate3d(0, 800%, 0); } }
+@keyframes cbgTwinkle { from { opacity: .2; } to { opacity: .45; } }
+@keyframes cbgSun { from { transform: translateY(0); } to { transform: translateY(8%); } }
+@keyframes cbgStreak { from { transform: translate3d(0, -40%, 0); } to { transform: translate3d(0, 260%, 0); } }
+@keyframes cbgWarp { from { transform: translateX(0) scaleX(.2); opacity: 0; } 20% { opacity: 1; } to { transform: translateX(260%) scaleX(1.4); opacity: 0; } }
+@keyframes cbgReel { to { transform: translate3d(0, -50%, 0); } }
+@keyframes cbgNeonSign { 0%, 100% { opacity: .32; } 33% { opacity: .1; } 34% { opacity: .34; } 70% { opacity: .18; } 71% { opacity: .32; } }
+@keyframes cbgChip { from { transform: translate3d(0, 0, 0) rotate(0); } to { transform: translate3d(0, 115vh, 0) rotate(540deg); } }
 @keyframes cbgFall { to { transform: translate3d(0, 200%, 0); } }
-@keyframes cbgFlicker { 0%, 100% { opacity: .3; } 41% { opacity: .08; } 42% { opacity: .32; } 77% { opacity: .14; } 78% { opacity: .3; } }
-@keyframes cbgWobble { from { transform: translateX(-50%) scale(1, -1) skewX(-2deg); } to { transform: translateX(-50%) scale(1.02, -.94) skewX(2deg); } }
-@keyframes cbgRipple { 0% { transform: scale(.2); opacity: 0; } 15% { opacity: .7; } 100% { transform: scale(2.4); opacity: 0; } }
-@keyframes cbgArm { from { transform: rotate(-180deg); } to { transform: rotate(0deg); } }
-@keyframes cbgPing { 0% { transform: scale(.1); opacity: .7; } 100% { transform: scale(2.2); opacity: 0; } }
-@keyframes cbgSwim { from { transform: translateX(0) translateY(0); } 50% { transform: translateX(260%) translateY(20%); } to { transform: translateX(560%) translateY(0); } }
-@keyframes cbgBub { from { transform: translate3d(0, 0, 0); opacity: 0; } 15% { opacity: .8; } to { transform: translate3d(12px, -110vh, 0); opacity: 0; } }
-@keyframes cbgLava { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(8%, -150%, 0) scale(1.25); } }
-@keyframes cbgBand { to { transform: translate3d(0, 700%, 0); } }
-@keyframes cbgTear { 0% { transform: translateX(-4%); } 50% { transform: translateX(3%) scaleY(1.4); } 100% { transform: translateX(-1%); } }
 
 /* compact on purpose: a wide picker pushed the toolbar's other buttons onto two lines (the Alert icon sat above its label) — it shows the scene's icon, the list shows the names */
 .chart-bg-pick { height: 26px; width: 40px; flex: none; padding: 0 4px; text-overflow: clip; border-radius: 6px; border: 1px solid #203129; background: #0a1210; color: #b9cdc2; font: 10px "JetBrains Mono", monospace; cursor: pointer; transition: border-color .15s ease, color .15s ease; }
@@ -98,9 +93,10 @@ body.theme-day .cbg { --c: #0d7a41; --c2: #1f5fa8; --c3: #6a3fc8; background: li
 body.theme-day .cfk-dn .cbg { --c: #b42346; --c2: #b8620f; }
 body.theme-day .cbg-neon .cbg-grid { background-image: linear-gradient(rgba(13, 122, 65, .2) 1px, transparent 1px), linear-gradient(90deg, rgba(13, 122, 65, .14) 1px, transparent 1px); }
 body.theme-day .cbg-neon .cbg-grid.is-dn { background-image: linear-gradient(rgba(180, 35, 70, .18) 1px, transparent 1px), linear-gradient(90deg, rgba(180, 35, 70, .12) 1px, transparent 1px); } body.theme-day .cbg-neon .cbg-beam { background: linear-gradient(180deg, rgba(31, 95, 168, .08), transparent); }
-body.theme-day .cbg-gsky, body.theme-day .cbg-street { background: linear-gradient(180deg, #d9e4ea, #c3d3dc); } body.theme-day .cbg-deep { background: linear-gradient(180deg, #dbe9f3, #c4dcec); } body.theme-day .cbg-lava, body.theme-day .cbg-vhs { background: linear-gradient(180deg, #eef1f6, #e2e6ee); } body.theme-day .cbg-lines { background: repeating-linear-gradient(180deg, rgba(0, 0, 0, .04) 0 1px, transparent 1px 3px); }
+body.theme-day .cbg-neon .cbg-ridge { background: #dfeee6; } body.theme-day .cbg-hyper, body.theme-day .cbg-casino { background: linear-gradient(180deg, #eef5f1, #dfeee6); }
+body.theme-day .cbg-head { background: #0d7a41; }
 body.theme-day .chart-bg-pick { background: #fff; border-color: #aac7b3; color: #315b43; }
-@media (max-width: 640px) { .cbg-col:nth-of-type(n + 9), .cbg-gdrop:nth-of-type(n + 9), .cbg-bub:nth-of-type(n + 6), .cbg-blob:nth-child(n + 4) { display: none; } .cbg-gsign, .cbg-grefl { letter-spacing: .16em; } }
+@media (max-width: 640px) { .cbg-col:nth-of-type(n + 13), .cbg-star:nth-of-type(n + 16), .cbg-chip:nth-of-type(n + 4) { display: none; } .cbg-sign { letter-spacing: .12em; } }
 /* ⚡ LIVE TIDE on every scene: a green swell from below while the last real tick was up, a red one from above when it was down —
    opacity only, switched by CandleFx's cfk-up / cfk-dn on each live price (nothing animates between ticks). */
 .cbg-tide { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .45s ease; z-index: 0; }

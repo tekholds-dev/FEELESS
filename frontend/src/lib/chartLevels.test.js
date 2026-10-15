@@ -45,3 +45,15 @@ test('🧹 level tags stay off the live price row (the P&L tag + the axis price 
   expect(out[3]).toBeNull();
   expect(spreadAround([40, 200], 300, [null])).toEqual([40, 200]);   // no live row → plain spread
 });
+
+test('declutter: one tag per price, money levels first, at most five tags', () => {
+  const { declutter } = require('./chartLevels');
+  const rows = [{ id: 'gun', px: 190, title: '🔫 gun line', tone: 'gold', key: true }, { id: 'entry', px: 188.87, title: '⚛ entry', tone: 'up', key: true },
+    { id: 'x0', px: 188.9, title: 'entry', tone: 'up' }, { id: 'stop', px: 170, title: '🛑 stop −10%', tone: 'dn', key: true }, { id: 'x1', px: 220, title: 'take +50%', tone: 'up' },
+    { id: 'x2', px: 160, title: 'invalid', tone: 'dn' }, { id: 'germ', px: 155, title: '🦠 germ', tone: 'violet', key: true }, { id: 'g0', px: 200, title: '🪜 gap', tone: 'up' }];
+  const d = declutter(rows);
+  expect(d.filter(r => /entry/.test(r.title))).toHaveLength(1);             // the two entries at the same price are one tag
+  expect(d.map(r => r.id).slice(0, 3)).toEqual(['entry', 'stop', 'x1']);     // entry · stop · take first
+  expect(d.filter(r => !r.quiet)).toHaveLength(5);                           // the rest are faint lines
+  expect(d.find(r => r.id === 'g0').quiet).toBe(true);
+});

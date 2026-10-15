@@ -9,24 +9,25 @@ const BULL = ['SENDIT', 'LFG', 'APED', 'BONDED', 'PUMPED', 'MOON', 'WAGMI', 'ALP
 const BEAR = ['JEET', 'RUGGED', 'DUMPED', 'NGMI', 'PAPER', 'EXIT', 'REKT', 'COPE', 'SELLWALL', 'DEVSOLD', 'BAGS', 'WICKED'];
 
 // 🎨 The live scene BEHIND the candles (PriceChart makes its own background see-through while one is picked). Every scene follows the
-// REAL tick: CandleFx puts cfk-up / cfk-dn on the chart area and the accent (`--c`) switches green ↔ pink; the 🌧 gutter ripples, the
-// 🐋 sonar pings, 📼 Trench TV glitches on a red tick. transform / opacity only, hidden in fx-lite / reduced motion, paused off-screen
+// REAL tick: CandleFx puts cfk-up / cfk-dn on the chart area and the accent (`--c`) switches green ↔ pink; neon streaks race on a green
+// tick, the code rain flips to bear words, hyperspace runs in reverse and the casino reels lock on a red one. transform / opacity only, hidden in fx-lite / reduced motion, paused off-screen
 // (`.cbg` is an fxPause surface). Never interactive.
 export function ChartBg({ kind }) {
   if (!kind || kind === 'default' || !CHART_BGS.some(([k]) => k === kind)) return null;
   return <div className={`cbg cbg-${kind}`} aria-hidden data-testid={`chart-bg-${kind}`}>
     <i className="cbg-tide is-up" /><i className="cbg-tide is-dn" />{/* ⚡ every scene breathes with the REAL tick */}
-    {kind === 'neon' && <div className="cbg-stage"><div className="cbg-floor"><div className="cbg-plane"><i className="cbg-grid" /><i className="cbg-grid is-dn" /></div></div><i className="cbg-horizon" />{n(3, i => <b key={i} className="cbg-beam" style={{ '--i': i }} />)}<img className="cbg-mark" src={LOGO} alt="" /></div>}
+    {kind === 'neon' && <div className="cbg-stage"><i className="cbg-stars" /><i className="cbg-sun" /><i className="cbg-ridge" />
+      <div className="cbg-floor"><div className="cbg-plane"><i className="cbg-grid" /><i className="cbg-grid is-dn" />{n(4, i => <b key={i} className="cbg-streak" style={{ '--i': i, left: `${16 + i * 22}%` }} />)}</div></div>
+      <i className="cbg-horizon" />{n(3, i => <b key={i} className="cbg-beam" style={{ '--i': i }} />)}<img className="cbg-mark" src={LOGO} alt="" /></div>}
     {kind === 'rain' && <div className="cbg-stage"><i className="cbg-glow" />
-      {n(14, i => <b key={i} className="cbg-col" style={{ '--i': i, left: `${(i * 7.1 + 1.5).toFixed(2)}%` }}><span className="is-bull">{BULL[i % BULL.length]}</span><span className="is-bear">{BEAR[i % BEAR.length]}</span></b>)}</div>}
-    {kind === 'gutter' && <div className="cbg-stage"><i className="cbg-gsky" /><b className="cbg-gsign">TRENCH 24/7</b><i className="cbg-street" />
-      <b className="cbg-grefl">TRENCH 24/7</b>{n(4, i => <i key={i} className="cbg-ripple" style={{ '--i': i, left: `${18 + i * 19}%` }} />)}
-      {n(14, i => <em key={i} className="cbg-gdrop" style={{ '--i': i, left: `${(i * 43 + 5) % 98}%` }} />)}</div>}
-    {kind === 'sonar' && <div className="cbg-stage"><i className="cbg-deep" /><i className="cbg-arm" />{n(3, i => <i key={i} className="cbg-ping" style={{ '--i': i }} />)}
-      <i className="cbg-whale" />{n(9, i => <em key={i} className="cbg-bub" style={{ '--i': i, left: `${(i * 37 + 8) % 92}%` }} />)}</div>}
-    {kind === 'lava' && <div className="cbg-stage">{n(5, i => <i key={i} className="cbg-blob" style={{ '--i': i, left: `${(i * 21 + 6) % 86}%` }} />)}<img className="cbg-mark" src={LOGO} alt="" /></div>}
-    {kind === 'vhs' && <div className="cbg-stage"><i className="cbg-lines" /><i className="cbg-band" /><i className="cbg-track" />
-      <b className="cbg-rec"><i />REC</b><b className="cbg-ch">CH 03 · TRENCH TV</b><img className="cbg-mark" src={LOGO} alt="" /></div>}
+      {n(22, i => { const z = i % 3; return <b key={i} className={`cbg-col is-z${z}`} style={{ '--i': i, left: `${((i * 4.53) % 97 + 1).toFixed(2)}%` }}>
+        <span className="is-bull">{BULL[i % BULL.length]}</span><span className="is-bear">{BEAR[i % BEAR.length]}</span><u className="cbg-head" /></b>; })}
+      <i className="cbg-sweep" /></div>}
+    {kind === 'hyper' && <div className="cbg-stage"><i className="cbg-core" />
+      {n(28, i => <b key={i} className="cbg-star" style={{ '--i': i, '--a': `${(i * 137.5) % 360}deg` }} />)}<img className="cbg-mark" src={LOGO} alt="" /></div>}
+    {kind === 'casino' && <div className="cbg-stage"><i className="cbg-felt" /><b className="cbg-sign">THE HOUSE ALWAYS RUGS</b>
+      <div className="cbg-reels">{n(3, i => <b key={i} className="cbg-reel" style={{ '--i': i }}><span>{[...BULL.slice(i * 3, i * 3 + 4), '💎', '🚀', ...BULL.slice(i * 3, i * 3 + 4), '💎', '🚀'].map((w, j) => <u key={j}>{w}</u>)}</span></b>)}</div>
+      {n(7, i => <em key={i} className="cbg-chip" style={{ '--i': i, left: `${(i * 13 + 6) % 92}%` }} />)}</div>}
   </div>;
 }
 
@@ -34,6 +35,6 @@ export function ChartBg({ kind }) {
 export function ChartBgPicker() {
   const v = useChartBg();
   return <select className="chart-bg-pick" value={v} onChange={e => setChartBg(e.target.value)} aria-label="Chart background" data-testid="chart-bg-pick"
-    data-tip="Chart background: the plain chart, or a live scene behind the candles — every scene follows each real tick (green / pink, ripples, pings, glitches). Applies to every chart; off in lite mode.">
+    data-tip="Chart background: the plain chart, or a live scene behind the candles — every scene follows each real tick (green / pink, streaks, bull ↔ bear rain, hyperspace, casino reels). Applies to every chart; off in lite mode.">
     {CHART_BGS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>;
 }

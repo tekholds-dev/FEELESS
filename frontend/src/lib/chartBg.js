@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 
 // 🎨 Chart backgrounds: ONE choice for every chart on the site (TrenchChart → PriceChart), kept in this browser.
 // 'default' = the plain chart. Every scene is in the neon-trench language (owner, 2026-10-14), drawn by components/terminal/ChartBg.jsx.
-// A retired id (sunset · aurora · peaks · sakura · deep · warp · cat · reactor · helix · city · tunnel · storm) falls back to Default.
-export const CHART_BGS = [['default', '▫ Default'], ['neon', '⚡ Neon trench'], ['rain', '🟩 Code rain'], ['gutter', '🌧 Gutter'], ['sonar', '🐋 Whale sonar'],
-  ['lava', '🫧 Lava lamp'], ['vhs', '📼 Trench TV']];
+// A retired id (sunset · aurora · peaks · sakura · deep · warp · cat · reactor · helix · city · tunnel · storm · gutter · sonar · lava · vhs)
+// falls back to Default. Owner, 2026-10-14: "neon trench and code rain are the only good ones" → those two upgraded + two new degen scenes.
+export const CHART_BGS = [['default', '▫ Default'], ['neon', '⚡ Neon trench'], ['rain', '🟩 Code rain'], ['hyper', '🚀 Hyperspace'], ['casino', '🎰 Degen casino']];
 const KEY = 'feeless.chartBg';
 const ok = v => CHART_BGS.some(([k]) => k === v);
 const subs = new Set();

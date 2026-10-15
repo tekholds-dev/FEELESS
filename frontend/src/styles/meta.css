@@ -436,10 +436,11 @@ body.theme-day .my-pnl{background:#ffffffee!important}
 .lr-cost{display:grid;gap:4px}.lr-cost>span{font-family:var(--m-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--m-mute)}
 
 /* Live royal-green card (m-live): a slow aurora drifts behind the content and a scan-light runs the top edge.
-   Two composited pseudo-layers per card, transform/opacity only — use on big panels, not on list rows. */
+   Two composited pseudo-layers per card, transform/opacity only — use on big panels, not on list rows. The aurora layer is capped at
+   1200px tall: on a page-tall panel (HQ › Agents, 4,200px) `inset: -35%` made a 2392×7160 rotating GPU layer that dragged a second 5.8 Mpx one. */
 .m-live { position: relative; isolation: isolate; overflow: hidden; border-color: color-mix(in srgb, var(--m-accent) 40%, transparent) !important;
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--m-accent) 10%, transparent) inset, 0 24px 60px -34px color-mix(in srgb, var(--m-accent) 60%, transparent); }
-.m-live::before { content: ''; position: absolute; inset: -35%; z-index: -1; pointer-events: none; will-change: transform;
+.m-live::before { content: ''; position: absolute; inset: max(-35%, -260px) -35% auto; height: min(170%, 1200px); z-index: -1; pointer-events: none; will-change: transform;
   background: radial-gradient(38% 32% at 28% 30%, rgba(21, 209, 106, .15), transparent 70%), radial-gradient(34% 30% at 72% 68%, rgba(0, 196, 120, .12), transparent 70%), radial-gradient(22% 22% at 58% 18%, rgba(140, 255, 205, .08), transparent 70%);
   animation: mLiveDrift 16s ease-in-out infinite alternate; }
 .m-live::after { content: ''; position: absolute; top: 0; left: 0; width: 38%; height: 1px; pointer-events: none; will-change: transform, opacity;

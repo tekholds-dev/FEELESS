@@ -1,6 +1,6 @@
 import { addChartJob } from '../../lib/chartFrame';
 import React, { useEffect, useMemo, useRef } from 'react';
-import { distWord, levelRead, spreadAround } from '../../lib/chartLevels';
+import { declutter, distWord, levelRead, spreadAround } from '../../lib/chartLevels';
 import '../../styles/chartLevels.css';
 
 // 📏 LIVE LEVELS over the candles (owner, 2026-10-13: "all on-chart stuff needs to be advanced, live styled, no dead lines"). Every row
@@ -11,7 +11,7 @@ import '../../styles/chartLevels.css';
 const PIN_TOP = 12;   // a key level above the scale waits at the top edge (the vitals badge sits top-LEFT now)
 
 export function ChartLevels({ levels, seriesRef, chartRef, lastBarRef, shownRef, container, fmt }) {
-  const rows = useMemo(() => { const seen = new Set(); return (levels || []).filter(l => l && l.px > 0 && !seen.has(l.id) && seen.add(l.id)); }, [levels]);
+  const rows = useMemo(() => { const seen = new Set(); return declutter((levels || []).filter(l => l && l.px > 0 && !seen.has(l.id) && seen.add(l.id))); }, [levels]);
   const host = useRef(null);
   const key = rows.map(l => `${l.id}:${l.px}`).join('|');
   useEffect(() => {
@@ -28,14 +28,14 @@ export function ChartLevels({ levels, seriesRef, chartRef, lastBarRef, shownRef,
       const lim = Math.max(12, h - 30);
       const shown = ys.map((y, i) => (y == null ? null : y < 6 || y > lim ? (rows[i].key ? Math.max(PIN_TOP, Math.min(lim, y)) : null) : y));
       let pyLive = null; try { pyLive = px > 0 ? s.priceToCoordinate(px) : null; } catch { pyLive = null; }
-      const tags = spreadAround(shown, lim, [pyLive]);   // 🧹 never under the live P&L tag / the axis's live price label
+      const tags = spreadAround(shown.map((y, i) => (rows[i].quiet ? null : y)), lim, [pyLive]);   // a quiet line has no tag to place   // 🧹 never under the live P&L tag / the axis's live price label
       rows.forEach((l, i) => {
         const o = els[i]; if (!o) return;
         const y = shown[i];
         if (y == null) { if (o.y !== 'x') { o.y = 'x'; o.el.style.opacity = '0'; } return; }
         const ys_ = (y + top).toFixed(1);
         if (o.y !== ys_) { o.y = ys_; o.el.style.opacity = '1'; o.el.style.transform = `translate3d(0, ${ys_}px, 0)`; }
-        const ty = (tags[i] - y).toFixed(0);
+        const ty = rows[i].quiet ? '0' : (tags[i] - y).toFixed(0);
         if (o.ty !== ty && o.tag) { o.ty = ty; o.tag.style.transform = `translate3d(0, ${ty}px, 0)`; o.tag.classList.toggle('is-moved', Math.abs(Number(ty)) > 3); }   // a tag moved off its own line says so
         const off = ys[i] < 6 || ys[i] > lim;
         if (o.off !== off) { o.off = off; o.el.classList.toggle('is-off', off); }
@@ -51,9 +51,9 @@ export function ChartLevels({ levels, seriesRef, chartRef, lastBarRef, shownRef,
   }, [key, seriesRef, chartRef, lastBarRef, shownRef, container]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!rows.length) return null;
   return <div className="clx" ref={host} data-testid="chart-levels" aria-hidden="true">
-    {rows.map(l => <div key={l.id} className={`clx-row tone-${l.tone} ${l.key ? 'is-key' : ''}`} data-lv={l.id} data-testid={`chart-level-${l.id}`}>
+    {rows.map(l => <div key={l.id} className={`clx-row tone-${l.tone} ${l.key ? 'is-key' : ''} ${l.quiet ? 'is-quiet' : ''}`} data-lv={l.id} data-testid={`chart-level-${l.id}`}>
       <i className="clx-line"><i className="clx-run" /></i>
-      <span className="clx-tag"><b>{l.title}</b>{fmt ? <small>{fmt(l.px)}</small> : null}<em /></span>
+      {l.quiet ? null : <span className="clx-tag"><b>{l.title}</b>{fmt && l.key ? <small>{fmt(l.px)}</small> : null}<em /></span>}
     </div>)}
   </div>;
 }

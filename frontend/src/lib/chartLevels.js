@@ -100,3 +100,26 @@ export function scaleKeep(levels, last, span = 0.35) {
   if (!(l > 0)) return [];
   return (levels || []).filter(r => r && r.px > 0 && (/^(entry|you|stop)$/.test(r.id) || /entry|stop/i.test(r.title || '')) && Math.abs(r.px / l - 1) <= span).map(r => r.px);
 }
+
+// 🧹 DECLUTTER (owner, 2026-10-14: "on-chart vitals almost clean but still cluttered"): levels within MERGE_PCT of each other are ONE tag
+// ("⚛ entry · entry" twice at the same price read as two); at most MAX_TAGS tags, money levels first (entry · stop · take · your entry ·
+// trail · lock, then invalidation / support, then the tools); the rest stay as faint lines with no tag (`quiet`).
+export const MERGE_PCT = 0.4;
+export const MAX_TAGS = 5;
+const RANK = [[/entry|your entry/i, 0], [/stop/i, 1], [/take|target|tp/i, 2], [/trail|lock/i, 3], [/invalid|support|resist/i, 4], [/gun|germ|gap|magnet|fib|fair/i, 6]];
+export const levelRank = l => { const t = String(l?.title || ''); const hit = RANK.find(([re]) => re.test(t)); return (hit ? hit[1] : 5) - (l?.key ? 0.5 : 0); };
+const shortTitle = t => String(t || '').replace(/^[^\w$◆⚛🛑❄🏔🐱🪜🧲🔫🦠🎯]*/u, '').trim();
+export function declutter(rows, max = MAX_TAGS) {
+  const out = [];
+  [...(rows || [])].filter(Boolean).sort((a, b) => levelRank(a) - levelRank(b)).forEach(l => {
+    const twin = out.find(o => Math.abs(o.px / l.px - 1) * 100 <= MERGE_PCT);
+    if (twin) {   // same price: one tag carries both names (the best-ranked first), no second line
+      const a = shortTitle(twin.title).toLowerCase(); const b = shortTitle(l.title).toLowerCase();
+      if (!a.includes(b) && !b.includes(a)) twin.title = `${twin.title} · ${shortTitle(l.title)}`;
+      twin.key = twin.key || l.key;
+      return;
+    }
+    out.push({ ...l });
+  });
+  return out.map((l, i) => ({ ...l, quiet: i >= max }));
+}
