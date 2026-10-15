@@ -105,3 +105,14 @@ def _fresh_kernel(monkeypatch):
     rs = sys.modules.get('reputation_service')
     if rs is not None and hasattr(rs, '_lc_mem'):
         monkeypatch.setitem(rs._lc_mem, 'book', None)
+
+
+@pytest.fixture(autouse=True)
+def _one_read_soft_exits(monkeypatch):
+    """📸 Reaper's snapshot confirmation (office.SNAP_N 2) is tested on its own (test_office: snapshots); every older Reaper test keeps the
+    one-read ruling it was written for."""
+    import sys
+    of = sys.modules.get('office')
+    if of is not None and hasattr(of, 'SNAP_N'):
+        monkeypatch.setattr(of, 'SNAP_N', 1)
+    yield

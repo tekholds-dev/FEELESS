@@ -564,8 +564,9 @@ def test_a_dragged_line_is_obeyed_on_an_agent_seat_and_graded_apart():
     assert hand['yours'] == {'n': 1, 'med': 12.0, 'avg': 12.0} and hand['agents']['n'] == 2
 
 
-def test_a_profit_exit_needs_its_snapshots_and_the_ai_sets_how_many():
+def test_a_profit_exit_needs_its_snapshots_and_the_ai_sets_how_many(monkeypatch):
     import office as of
+    monkeypatch.setattr(of, 'SNAP_N', 2)   # the live value (conftest pins 1 for the older one-read tests)
     p = {}
     assert of.soft_confirm(p, 'R7 trailing protection', 100) == (False, 1, 2)
     assert of.soft_confirm(p, 'R7 trailing protection', 104)[0] is False          # too soon: still one snapshot
