@@ -4195,7 +4195,22 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (one coin: FEELESS read + its own site — does it name the mint? — its X link + web results for the CA). Public hosts only, every hop checked.
   FEE prompt (`docs/lm_fee_prompt.txt`, pushed into the LM Studio preset) = the owner's FEE voice + FACT / INFERENCE / UNKNOWN + the levers rule.
   Portable pack for a bigger model: `docs/FEE_BRAIN.md`. Handoff map: `docs/HANDOFF.md`.
-- ⚡ HOME = THE FEELESS STACK (`HomeEngine.jsx`, `homeEngine.css` `hen-*`; replaced the Trench Sieve AND the `FeeStamp`, both deleted): six live
-  chips on one circuit — 🛰 SEES · 🛡 CATCHES · 🌦 READS · 🏃 HUNTS · ⚛ FUSES · 🧾 PROVES — from `/fuses/trench/open` · `/forecast` · `/runners` ·
-  `/fuses/prime` · `/fuses/proof` (missing = "—"), packets on the bus, numbers flip on change, a 🛡 JUST CAUGHT ticker of real scan fails.
+- 🎮 HOME = TRENCH HUD (`HomeEngine.jsx`, `homeEngine.css` `hud-*`; replaced the Sieve, the short-lived Stack and the deleted `FeeStamp`): rolling
+  counters (coins live · rugs blocked · runners · real swaps 24h), a HEAT FIELD (every launch coin: x = log cap $5K–$5M, y = 5m move, size = 1h vol,
+  colour = scan fate, dots glide each poll, container-query units) and a KILL FEED woven from real swaps / blocks / runners (a runner is never also
+  shown blocked; fail reasons read "missed: <gate>"). Missing data = "—".
+- 🪪 MODEL NAMES: in the owner's chat each LM Studio model speaks as itself (`ai_router.IDENTITY` set by `Router.ask(role='owner')`, `identity_line`):
+  Gemma = **Vega** (lead), Qwen = **Kai** (second); `LAN_LLM_NAME` / `LOCAL_LLM_NAME` override. `GENERAL_SYSTEM` answers the LATEST message only
+  and greets back on slang ("yurrr") instead of resuming the old topic.
+- 🧪 BRAIN › PLAYGROUND (`backend/ai_play.py`, owner `GET|POST /admin/ai/playground`, `AiPlayground.jsx`, `aiPlay.css` `apg-*`): a model writes ONE
+  self-contained HTML document (`ai_router.RAW` returns the whole text); shown in `<iframe sandbox="allow-scripts">` (no same-origin) with a CSP that
+  blocks ALL network injected server-side (`lock`); ✏ Change it iterates; ≤ 30 kept. AI code edits are NOT a feature: ideas → 🧱 build queue → Claude.
+- 🕸 MCP adds `pump_trending` (Pump's own trending tab or another pick list, every FEELESS vital per coin) + `feeless_notes` (teachings, rules, build
+  queue). `scripts/lan-bundle.sh` → `lan_bundle/` (git-ignored, holds the MCP token): preset + mcp.json pointing the DESKTOP Mac's LM Studio at this
+  Mac's MCP over the LAN + README.
+- 🧹 CHART TAGS DECLUTTER (`lib/chartLevels.declutter`, `MERGE_PCT` 0.4, `MAX_TAGS` 5): levels at the same price = one tag, money levels first
+  (entry · stop · take · trail / lock · invalid / support · tools), the rest `quiet` faint lines with no tag; prices only on key tags.
+- 🎨 CHART SCENES = Default · ⚡ Neon trench v2 (striped synth sun, ridge, stars, speed streaks on a green tick) · 🟩 Code rain v2 (3 depths, hot heads,
+  sweep) · 🚀 Hyperspace (stars stream out; reverse + pink on a red tick) · 🎰 Degen casino (THE HOUSE ALWAYS RUGS, slot reels lock on a red tick,
+  chips). Gutter / sonar / lava / Trench TV retired (fall back to Default).
 

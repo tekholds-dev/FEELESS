@@ -1,82 +1,109 @@
-// ⚡ THE FEELESS STACK (Home; replaced the Trench Sieve + the $FEE stamp — owner, 2026-10-14: "the sieve was supposed to show what FEELESS
-// is capable of, in a cool way"). Six live engines on one circuit — 🛰 SEES · 🛡 CATCHES · 🌦 READS · 🏃 HUNTS · ⚛ FUSES · 🧾 PROVES — each
-// a chip with its REAL number from a public endpoint (a missing number reads "—", never a made-up one), data packets running the bus
-// between them, a chip flashing when its number changes, and a ticker of the rugs the scan really caught. Tap a chip → that page.
-// Four shared reads every 30s (first load always; repeats pause in a hidden tab). transform / opacity only.
-import React, { useEffect, useState } from 'react';
+// 🎮 TRENCH HUD (Home; owner, 2026-10-14: "the stack isn't a better design — try meta degen senior design"). A game HUD for the live
+// trench, every pixel from real data:
+//  · COUNTERS — four big rolling numbers (coins live · rugs blocked · runners · real swaps 24h), digits roll on change
+//  · HEAT FIELD — every launch coin the feed carries as a dot: across = market cap (log $5K → $5M), up = its 5-min move, size = 1h
+//    volume, colour = its safety scan (green safe · pink caught · grey not read). Dots GLIDE to their new place each poll (transform
+//    transition); a caught coin wears an ✕. Tap a dot → its drawer.
+//  · KILL FEED — real events, newest on top: 🛡 BLOCKED (a coin the scan caught + why), 🏃 RUNNER (passed every gate, up on the hour),
+//    🧾 REAL BUY / SELL (the real cards' confirmed swaps with their %). Slides in, fades as it ages.
+// Five shared reads every 30s (first load always; repeats pause in a hidden tab). transform / opacity only; a missing number reads "—".
+import React, { useEffect, useMemo, useState } from 'react';
 import { sharedJson } from '../lib/sharedJson';
 import { openCoin } from './CoinDrawer';
 import '../styles/homeEngine.css';
 
 const POLL = 30000;
 const UNREAD = /not scanned|holders unknown|never scanned/i;
-// pure: a coin's fate on the safety scan — "not scanned yet" is waiting, never a fail
 export const fateOf = r => (r?.safe === true ? 'safe' : (r?.fails || []).some(f => !UNREAD.test(String(f))) || (r?.safe === false && !(r?.fails || []).length) ? 'fail' : 'wait');
-// pure: the coins the scan CAUGHT (busiest first, one per ticker) with the reason it gave
-export function caughtCoins(rows, n = 12) {
+const failWhy = r => String((r?.fails || []).find(x => !UNREAD.test(String(x))) || 'failed a safety check').replace(/\s+/g, ' ').slice(0, 40);
+
+// pure: the four counters, only from what the endpoints answered (null → "—")
+export function hudCounters(open, run, proof) {
+  const rows = open?.rows || [];
+  return [
+    { k: 'live', l: 'COINS LIVE', v: open?.seen ?? (rows.length || null), tip: 'Launch coins the feed carries right now' },
+    { k: 'blocked', l: 'RUGS BLOCKED', v: rows.length ? rows.filter(r => fateOf(r) === 'fail').length : null, tip: 'Coins our holder scan caught on this list: whale bags, bundles, snipers, dev wallets, live authorities', tone: 'bad' },
+    { k: 'runners', l: 'RUNNERS', v: Array.isArray(run?.live) ? run.live.length : null, tip: 'Coins passing every runner gate on the live board' },
+    { k: 'swaps', l: 'REAL SWAPS 24H', v: Array.isArray(proof?.feed) ? proof.feed.length : null, tip: 'Confirmed on-chain swaps of the real cards in the last 24h', tone: 'gold' },
+  ];
+}
+// pure: the heat field — each coin's place (x, y in %), size and fate; one dot per ticker, busiest first
+const LO = Math.log10(5e3); const HI = Math.log10(5e6);
+export function heatDots(rows, n = 70) {
   const out = []; const seen = new Set();
   for (const r of rows || []) {
-    const sy = String(r?.symbol || '').toUpperCase();
-    if (!r?.mint || !sy || seen.has(sy) || fateOf(r) !== 'fail') continue;
+    const sy = String(r?.symbol || '').toUpperCase(); const mc = Number(r?.mcap);
+    if (!r?.mint || !sy || seen.has(sy) || !(mc > 0)) continue;
     seen.add(sy);
-    out.push({ mint: r.mint, sym: String(r.symbol).slice(0, 10), pair: r.pairAddress, why: (r.fails || []).some(x => !UNREAD.test(String(x))) ? `missed: ${String((r.fails || []).find(x => !UNREAD.test(String(x)))).replace(/\s+/g, ' ').slice(0, 40)}` : 'failed a safety check' });
+    const m5 = Math.max(-30, Math.min(30, Number(r.chg5m) || 0));
+    out.push({ mint: r.mint, sym: String(r.symbol).slice(0, 10), pair: r.pairAddress, fate: fateOf(r), m5: Number(r.chg5m) || 0, mc,
+      x: Math.round(Math.max(2, Math.min(98, ((Math.log10(mc) - LO) / (HI - LO)) * 100)) * 10) / 10,
+      y: Math.round((50 - (m5 / 30) * 44) * 10) / 10,
+      s: Math.round(Math.max(6, Math.min(26, 4 + Math.sqrt(Math.max(0, Number(r.vol1h) || 0)) / 22))) });
     if (out.length >= n) break;
   }
   return out;
 }
-// pure: every number on the stack, only from what the endpoints answered (null → "—")
-export function stackVitals(open, fc, run, prime, proof) {
-  const rows = open?.rows || []; const safe = rows.filter(r => fateOf(r) === 'safe').length; const fail = rows.filter(r => fateOf(r) === 'fail').length; const read = safe + fail;
-  const cards = Array.isArray(prime?.cards) ? prime.cards : null;
-  const feed = Array.isArray(proof?.feed) ? proof.feed : null;
-  return { seen: open?.seen ?? (rows.length || null), read: rows.length ? read : null, safe: rows.length ? safe : null, caught: rows.length ? fail : null,
-    safePct: read ? Math.round((safe / read) * 100) : null, runners: Array.isArray(run?.live) ? run.live.length : null, nextAt: run?.nextRoundAt || null,
-    weather: fc?.level || null, green: fc?.breadthPct ?? null, buyers: fc?.buyersPct ?? null,
-    cards: cards ? cards.length : null, real: cards ? cards.filter(c => c?.real).length : null, swaps: feed ? feed.length : null };
+// pure: the kill feed — real events only, WOVEN (a real swap · a block · a runner …) in each list's own order: no invented times.
+// A coin on the runner board is never also shown as blocked (the two checklists differ; the runner board is the stricter live read).
+export function killFeed(rows, run, proof, n = 9) {
+  const runs = (run?.live || []).slice(0, 4);
+  const onBoard = new Set(runs.map(r => String(r.symbol || '').toUpperCase()));
+  const swaps = (proof?.feed || []).slice(0, 4).map(f => ({ id: `p${f.sig || f.at}`, kind: f.side === 'sell' ? 'sell' : 'buy', sym: f.symbol, mint: f.mint, pair: f.pair,
+    txt: f.side === 'sell' ? `${f.pct == null ? '' : `${f.pct > 0 ? '+' : ''}${Number(f.pct).toFixed(1)}% · `}real sell` : `real buy · $${Number(f.usd || 0).toFixed(2)}` }));
+  const seen = new Set();
+  const blocks = (rows || []).filter(r => { const k = String(r.symbol || '').toUpperCase(); if (fateOf(r) !== 'fail' || onBoard.has(k) || seen.has(k)) return false; seen.add(k); return true; })
+    .slice(0, 4).map(r => ({ id: `b${r.mint}`, kind: 'block', sym: r.symbol, mint: r.mint, pair: r.pairAddress, txt: `missed: ${failWhy(r).replace(/^./, c => c.toLowerCase())}` }));
+  const runners = runs.map((r, i) => ({ id: `r${r.mint || r.pairAddress || i}`, kind: 'runner', sym: r.symbol, mint: r.mint || r.baseAddress, pair: r.pairAddress,
+    txt: `passed every gate${r.chg1h != null ? ` · ${Number(r.chg1h) > 0 ? '+' : ''}${Number(r.chg1h).toFixed(0)}% 1h` : ''}` }));
+  const out = [];
+  for (let i = 0; out.length < n && i < 4; i++) [swaps[i], blocks[i], runners[i]].forEach(e => { if (e?.sym && out.length < n) out.push(e); });
+  return out;
 }
-const WX = { clear: '☀ CLEAR', rain: '🌧 RAIN', storm: '⛈ STORM' };
-const num = v => (v == null ? '—' : Number(v).toLocaleString('en-US'));
-// pure: the six engines, in the order a coin travels through FEELESS
-export function stackChips(v) {
-  return [
-    { k: 'sees', ico: '🛰', verb: 'SEES', n: num(v.seen), sub: 'launch coins live', go: '/terminal/fuse?tab=runners', tip: 'Every launch coin the feed carries right now — Pump, LetsBONK, LaunchLab, Jupiter rankings' },
-    { k: 'catches', ico: '🛡', verb: 'CATCHES', n: num(v.caught), sub: v.read ? `of ${num(v.read)} scanned` : 'scans holders', go: '/terminal/fuse?tab=runners', tip: 'Coins our holder scan caught: top-10 bags, bundles, snipers, dev wallets, live authorities — before a cent goes in', tone: 'bad' },
-    { k: 'reads', ico: '🌦', verb: 'READS', n: v.weather ? WX[v.weather] || String(v.weather).toUpperCase() : '—', sub: v.green == null ? 'the market' : `${Math.round(v.green)}% green 1h`, go: '/terminal/fuse?tab=cards', tip: 'Runner weather from paper runs on real prices + the share of launch coins up on the hour. A reading, never a promise.' },
-    { k: 'hunts', ico: '🏃', verb: 'HUNTS', n: num(v.runners), sub: 'runners passing every gate', go: '/terminal/fuse?tab=runners', tip: 'Coins passing every runner gate on the live board', clock: v.nextAt },
-    { k: 'fuses', ico: '⚛', verb: 'FUSES', n: num(v.cards), sub: v.real ? `${v.real} on real money` : 'cards live', go: '/terminal/fuse?tab=arena', tip: 'Fuse cards trading right now — many coins in one card, exits run by the engine' },
-    { k: 'proves', ico: '🧾', verb: 'PROVES', n: num(v.swaps), sub: 'real swaps signed 24h', go: '/terminal/fuse', tip: 'Confirmed on-chain swaps of the real cards in the last 24h, each with its tx and the engine’s reason', tone: 'gold' },
-  ];
-}
-function Clock({ at }) {
-  const [n, setN] = useState(() => Date.now()); useEffect(() => { const t = setInterval(() => setN(Date.now()), 1000); return () => clearInterval(t); }, []);
-  if (!at) return null; const s = Math.max(0, Math.round(at - n / 1000)); return <em className="hen-clock">next round {Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}</em>;
+const KIND = { block: ['🛡', 'BLOCKED'], runner: ['🏃', 'RUNNER'], buy: ['🧾', 'REAL BUY'], sell: ['🧾', 'REAL SELL'] };
+
+// a number whose digits roll when it changes (each digit is a column of 0-9 moved with transform)
+function Roll({ v }) {
+  if (v == null) return <b className="hud-roll">—</b>;
+  const s = Number(v).toLocaleString('en-US');
+  return <b className="hud-roll" aria-label={s}>{[...s].map((c, i) => /\d/.test(c)
+    ? <span key={`${s.length - i}`} className="hud-dg" aria-hidden="true"><span style={{ transform: `translate3d(0, ${-Number(c) * 10}%, 0)` }}>{'0123456789'.split('').map(d => <i key={d}>{d}</i>)}</span></span>
+    : <span key={`${s.length - i}c`} className="hud-sep" aria-hidden="true">{c}</span>)}</b>;
 }
 
 export function HomeEngine({ onOpen }) {
   const [d, setD] = useState(null);
   useEffect(() => { let on = true;
     const load = first => { if (!first && typeof document !== 'undefined' && document.hidden) return;
-      Promise.all(['fuses/trench/open', 'fuses/forecast', 'runners', 'fuses/prime', 'fuses/proof'].map(u => sharedJson(`/api/reputation/${u}`, { maxAge: POLL - 2000 }).catch(() => null)))
-        .then(([open, fc, run, prime, proof]) => { if (on && (open || fc || run || prime || proof)) setD(p => ({ open: open || p?.open, fc: fc || p?.fc, run: run || p?.run, prime: prime || p?.prime, proof: proof || p?.proof })); }); };
+      Promise.all(['fuses/trench/open', 'runners', 'fuses/proof', 'fuses/forecast'].map(u => sharedJson(`/api/reputation/${u}`, { maxAge: POLL - 2000 }).catch(() => null)))
+        .then(([open, run, proof, fc]) => { if (on && (open || run || proof || fc)) setD(p => ({ open: open || p?.open, run: run || p?.run, proof: proof || p?.proof, fc: fc || p?.fc })); }); };
     load(true); const t = setInterval(load, POLL); return () => { on = false; clearInterval(t); }; }, []);
+  const dots = useMemo(() => heatDots(d?.open?.rows), [d?.open]);
+  const feed = useMemo(() => killFeed(d?.open?.rows, d?.run, d?.proof), [d?.open, d?.run, d?.proof]);
   if (!d) return null;
-  const v = stackVitals(d.open, d.fc, d.run, d.prime, d.proof); const chips = stackChips(v); const caught = caughtCoins(d.open?.rows);
+  const counters = hudCounters(d.open, d.run, d.proof); const wx = d.fc?.level;
   const go = (e, url) => { if (onOpen) { e.preventDefault(); onOpen(url); } };
-  return <section className={`hen m-card m-live is-${v.weather || 'none'}`} data-testid="home-engine">
-    <header className="hen-head"><span className="hen-title"><b>⚡ THE FEELESS STACK <i className="hen-live" aria-hidden="true">● LIVE</i></b>
-      <small>six engines, one circuit — every number is live right now</small></span>
-      {v.safePct != null ? <em className="hen-wx" data-tip="Of the coins we scanned, the share that passed every safety check">{v.safePct}% pass the scan</em> : null}</header>
-    <div className="hen-board">
-      <span className="hen-bus" aria-hidden="true">{[0, 1, 2, 3, 4].map(i => <i key={i} style={{ '--i': i }} />)}</span>
-      {chips.map((c, i) => <a key={c.k} href={c.go} className={`hen-chip is-${c.k}${c.tone ? ` is-${c.tone}` : ''}`} style={{ '--i': i }} onClick={e => go(e, c.go)} data-tip={c.tip} data-testid={`hen-chip-${c.k}`}>
-        <span className="hen-ico" aria-hidden="true">{c.ico}</span><small className="hen-verb">{c.verb}</small>
-        <b key={c.n} className="hen-n">{c.n}</b><small className="hen-sub">{c.sub}</small>{c.clock ? <Clock at={c.clock} /> : null}</a>)}
+  const open = x => openCoin({ mint: x.mint, symbol: x.sym, pairAddress: x.pair });
+  return <section className={`hud is-${wx || 'none'}`} data-testid="home-engine">
+    <header className="hud-top">
+      <span className="hud-brand"><b>TRENCH HUD</b><i className="hud-live" aria-hidden="true">● LIVE</i>{wx ? <em data-tip="Runner weather from paper runs on real prices — a reading, never a promise">{wx === 'clear' ? '☀ CLEAR' : wx === 'rain' ? '🌧 RAIN' : wx === 'storm' ? '⛈ STORM' : String(wx).toUpperCase()}</em> : null}</span>
+      <div className="hud-counters">{counters.map(c => <span key={c.k} className={`hud-ct${c.tone ? ` is-${c.tone}` : ''}`} data-tip={c.tip} data-testid={`hud-${c.k}`}><Roll v={c.v} /><small>{c.l}</small></span>)}</div>
+    </header>
+    <div className="hud-body">
+      <div className="hud-field" data-testid="hud-field" aria-label="Every live launch coin by market cap and 5-minute move">
+        <i className="hud-axis is-zero" aria-hidden="true" /><small className="hud-lab is-up">▲ 5m pumping</small><small className="hud-lab is-dn">▼ dumping</small>
+        <small className="hud-lab is-lo">$5K cap</small><small className="hud-lab is-hi">$5M</small><i className="hud-sweep" aria-hidden="true" />
+        {dots.map(p => <button key={p.mint} type="button" className={`hud-dot is-${p.fate}`} onClick={() => open(p)} data-testid={`hud-dot-${p.sym}`}
+          style={{ transform: `translate3d(${p.x}cqw, ${p.y}cqh, 0)`, '--s': `${p.s}px` }}
+          data-tip={`$${p.sym} · ${p.fate === 'safe' ? 'passed the scan' : p.fate === 'fail' ? 'caught by the scan' : 'not read yet'} · ${p.m5 >= 0 ? '+' : ''}${p.m5.toFixed(1)}% 5m`}>
+          <i />{p.s >= 14 ? <b>${p.sym}</b> : null}</button>)}
+      </div>
+      <ol className="hud-feed" data-testid="hud-feed" aria-label="Live events">
+        {feed.map((e, i) => <li key={e.id} className={`is-${e.kind}`} style={{ '--i': i }}><button type="button" onClick={() => open(e)}>
+          <span className="hud-k">{KIND[e.kind][0]} {KIND[e.kind][1]}</span><b>${e.sym}</b><small>{e.txt}</small></button></li>)}
+        {!feed.length ? <li className="is-empty"><small>waiting for the first events…</small></li> : null}
+      </ol>
     </div>
-    {caught.length ? <div className="hen-tick" data-testid="hen-caught" aria-label="Coins the scan caught">
-      <small>🛡 JUST CAUGHT</small>
-      <div className="hen-tick-view"><div className="hen-tick-run" style={{ '--tick-sec': `${Math.max(20, caught.length * 4)}s` }}>
-        {[0, 1].map(k => <span key={k} className="hen-tick-row" aria-hidden={k ? 'true' : undefined}>
-          {caught.map(b => <button key={b.mint} type="button" tabIndex={k ? -1 : 0} onClick={() => openCoin({ mint: b.mint, symbol: b.sym, pairAddress: b.pair })}><b>${b.sym}</b> · {b.why}</button>)}</span>)}
-      </div></div></div> : null}
+    <a className="hud-go" href="/terminal/fuse?tab=runners" onClick={e => go(e, '/terminal/fuse?tab=runners')}>Open the trench lists →</a>
   </section>;
 }
