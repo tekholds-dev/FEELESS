@@ -102,9 +102,14 @@ def test_circle_wallet_list_uses_confirmed_chain_sol_when_circle_balance_is_empt
     async def rpc(http, method, params):
         assert method == 'getMultipleAccounts' and params[0] == [addr]
         return {'value': [{'lamports': 1_234_000_000}]}
+    async def sol_px():
+        return 100.0
+    async def jup(mints, *a, **k):
+        return {}
     monkeypatch.setattr(rs, '_circle', circle); monkeypatch.setattr(rs, '_rpc', rpc)
+    monkeypatch.setattr(rs, '_sol_usd_live', sol_px); monkeypatch.setattr(rs, '_jup_prices', jup)   # never the live price in a test
     rows = asyncio.run(rs._circle_wallets_live())
-    assert rows[0]['balances'][0] == {'symbol': 'SOL', 'amount': '1.234', 'tokenId': None, 'source': 'chain'}
+    assert rows[0]['balances'][0] == {'symbol': 'SOL', 'amount': '1.234', 'tokenId': None, 'source': 'chain', 'usd': 123.4}   # 💲 each coin's $ value
     assert rows[0]['balanceSource'] == 'confirmed-chain' and rows[0]['balanceError'] == 'provider busy'
 
 

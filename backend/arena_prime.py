@@ -2790,19 +2790,23 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
           if q_: c['seatQueue'] = q_
           else: c.pop('seatQueue', None)
       seated_pick = False; seated_any = False
-      if want_n and seats_used(c) < want_n and not c.get('flooredAt') and not c.get('holdAll') and not c.get('rebuy'):   # 🔄 a rebuy's seat is spoken for
+      # 👤 a hold (yours, the proof gate or the agents in control) stops the ENGINE choosing a coin — never YOUR queued pick: it still takes its seat
+      owner_only = bool(c.get('holdAll'))
+      if want_n and seats_used(c) < want_n and not c.get('flooredAt') and (not owner_only or c.get('seatPick')) and not c.get('rebuy'):   # 🔄 a rebuy's seat is spoken for
           _val = lambda x: (_f(x['units']) or (_f(x.get('wantUnits')) if x.get('buying') else 0.0)) * (_f(prices.get(x['pairAddress'])) or _f(x.get('entry')))
           share = (sum(_val(x) for x in c['legs']) + free_cash) / want_n
-          role_s, nxt = next(((r, x) for r in ('runner', 'pool') for x in [best(r)] if x), (None, None))
+          role_s, nxt = (None, None) if owner_only else next(((r, x) for r in ('runner', 'pool') for x in [best(r)] if x), (None, None))
           c.setdefault('seatEmptyAt', now)
           fb_seat = False
-          if not nxt and now - _f(c.get('seatEmptyAt')) >= SEAT_FALLBACK_SEC:
+          if not nxt and not owner_only and now - _f(c.get('seatEmptyAt')) >= SEAT_FALLBACK_SEC:
               nxt = fallback_coin(); role_s, fb_seat = ('runner', True) if nxt else (None, False)
           sp_ = c.get('seatPick')   # 🪑 the owner's own pick for this seat comes first
           if sp_ and sp_.get('mint') not in {x['mint'] for x in c['legs']} and (_f(prices.get(sp_['pairAddress'])) or _f(sp_.get('price'))) > 0:
               role_s, nxt = 'runner', {**sp_, 'price': _f(prices.get(sp_['pairAddress'])) or _f(sp_.get('price')), 'liq': sp_.get('liquidityUsd')}
           elif sp_:
               c.pop('seatPick', None); sp_ = None
+          if owner_only and not (sp_ and nxt and sp_.get('mint') == nxt.get('mint')):
+              nxt = None   # under a hold only your pick may take a seat
           # no cash for the seat (a rugged coin leaves nothing behind) → the coins sitting ABOVE the new equal share give up their
           # extra (never a locked / riding coin, never one still being bought): 3 coins × $1.03 become 4 × $0.77
           if nxt and free_cash < min(share, max(seat_min, share * 0.6)):
@@ -3419,6 +3423,14 @@ def agent_seat_usd(card, prices, cfg):
     return min(free, total / want) if want else 0.0
 
 
+def owner_picks_waiting(card):
+    """👤 How many empty seats the owner has a coin queued for (seatPick + seatQueue, coins not on the card yet)."""
+    c = card or {}
+    on = {l.get('mint') for l in c.get('legs') or [] if not l.get('placeholder')}
+    picks = ([c['seatPick']] if c.get('seatPick') else []) + list(c.get('seatQueue') or [])
+    return len({p_.get('mint') for p_ in picks if p_.get('mint') and p_.get('mint') not in on})
+
+
 def agent_seat(card, row, prices, cfg, now, min_usd=0.05, max_usd=None):
     """🎮 The agents fill ONE empty seat with their GO coin (cfg `agentControl`): an equal share of the card, paid ONLY from free card cash
     — never a trim of another coin, never the owner's held / parked cash. A reserved seat (a stop that found no replacement) counts as
@@ -3431,6 +3443,8 @@ def agent_seat(card, row, prices, cfg, now, min_usd=0.05, max_usd=None):
         raise ValueError('already on the card')
     if not want or len(c['legs']) >= want:
         raise ValueError('no empty seat')
+    if len(c['legs']) + owner_picks_waiting(c) >= want:   # 👤 a seat you queued a coin for is YOURS — the agents never take it first
+        raise ValueError('seat reserved for your pick')
     if _f(row.get('price')) <= 0:
         raise ValueError('no price')
     free = max(0.0, _f(c.get('cash')) - _f(c.get('holdCashUsd')))

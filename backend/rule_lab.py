@@ -68,6 +68,8 @@ def trade_feats(p):
     hb = high_band(th.get('distHigh'))
     if hb:
         out.append(f'high:{hb}')
+    if th.get('germ'):
+        out.append(f"germ:{th['germ']}")   # 🦠 where the price sat vs its germ floor at the buy
     la, li = (p or {}).get('launch') or {}, (p or {}).get('li') or {}
     fb = fresh_band(la.get('ageH') if la.get('ageH') is not None else li.get('ageH'))
     if fb:
@@ -88,6 +90,8 @@ def row_feats(x):
     hb = high_band(x.get('distHigh') if x.get('distHigh') is not None else (ch.get('f') or {}).get('distHigh'))
     if hb:
         out.append(f'high:{hb}')
+    if ch.get('germ'):
+        out.append(f"germ:{ch['germ']}")
     fb = fresh_band(v.get('ageH'))
     if fb:
         out.append(f'fresh:{fb}')

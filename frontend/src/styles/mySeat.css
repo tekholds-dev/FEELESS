@@ -1,0 +1,19 @@
+/* 👤 Your coin in a seat (MySeat.jsx). m-* tokens, transform / opacity only. */
+.mys { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; padding: 7px 9px; margin: 6px 0; border-radius: 10px; border: 1px solid var(--m-line-hi);
+  background: linear-gradient(90deg, rgba(21, 209, 106, .08), transparent 60%); font: 600 10px var(--m-mono); }
+.mys-h { color: #45e486; letter-spacing: .08em; }
+.mys-in { flex: 1 1 260px; min-width: 0; height: 28px; font: 600 10.5px var(--m-mono); }
+.mys-to { flex: 0 1 210px; min-width: 0; height: 28px; font: 600 10px var(--m-mono); }
+.mys-note { flex-basis: 100%; color: var(--m-dim); } .mys-note.is-ok { color: #45e486; } .mys-note.is-bad { color: #ff8fa3; }
+.mys-warn { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; color: var(--gold); animation: mysIn .16s ease-out both; }
+.mys-study { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--m-line); font: 600 9.5px/1.35 var(--m-mono); min-width: 0; }
+.mys-tag { color: var(--gold); letter-spacing: .06em; }
+.mys-would { color: var(--m-text); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.mys-would.is-calm { color: var(--m-dim); }
+.mys-log { color: var(--m-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mys-rec { display: block; margin: 2px 0 4px; color: var(--m-dim); font: 600 10px var(--m-mono); }
+@keyframes mysIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .mys-warn { animation: none; } }
+body.fx-lite .mys-warn { animation: none; }
+body.theme-day .mys { background: linear-gradient(90deg, rgba(14, 138, 74, .1), transparent 60%); } body.theme-day .mys-h { color: #0e8a4a; }
+@media (max-width: 640px) { .mys-to { flex-basis: 100%; } }

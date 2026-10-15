@@ -131,6 +131,22 @@ def manage(legs, table, prices, cfg, scalp=None, control=False, now=0.0, moves_l
             out.append({**base, 'action': 'swap', 'to': best, 'why': f"{pnl:+.1f}%, {bad} → banked into ${best['symbol']}"}); ch = ch[1:]
         else:
             out.append({**base, 'action': 'pull', 'why': f"{pnl:+.1f}%, {bad} → profit to card cash, seat left open"})
+    return mine_held(out, legs)
+
+
+def mine_held(decisions, legs):
+    """👤 YOUR SEAT: a coin you picked (leg `picked`) is never swapped or pulled by the agents — their move becomes a SUGGESTION
+    (`would`) on a hold, so you see what they would do and the study can grade it. Your own ✂ / ⇄ / stops still act."""
+    picked = {l.get('pairAddress') for l in legs or [] if l.get('picked')}
+    out = []
+    for d in decisions or []:
+        if d.get('pair') in picked and d.get('action') in ('swap', 'pull'):
+            to_ = (d.get('to') or {}).get('symbol')
+            out.append({'pair': d['pair'], 'symbol': d.get('symbol'), 'action': 'hold', 'mine': True,
+                        'would': {'action': d['action'], 'to': to_, 'why': d.get('why')},
+                        'why': f"👤 your seat — the agents would {'swap it for $' + to_ if d['action'] == 'swap' and to_ else 'bank it'}: {d.get('why')}"})
+        else:
+            out.append({**d, 'mine': True} if d.get('pair') in picked else d)
     return out
 
 
@@ -182,7 +198,8 @@ def card_seats(card, decisions=None, prices=None, cfg=None, take=None):
         d = by.get(l.get('pairAddress')) or {}
         seats.append({'symbol': l.get('symbol'), 'pair': l.get('pairAddress'), 'mint': l.get('mint'), 'kind': kind, 'tag': tag, 'buying': bool(l.get('buying')),
                       'pct': round((px / en - 1) * 100, 1) if px > 0 and en > 0 and kind != 'open' else None,
-                      'state': 'ride' if l.get('riding') else 'frozen' if l.get('frozen') else '', **({'take': take, 'action': d.get('action') or 'hold', 'why': d.get('why') or '', 'toSym': d.get('toSym')} if kind == 'agent' else {})})
+                      'state': 'ride' if l.get('riding') else 'frozen' if l.get('frozen') else '', **({'take': take, 'action': d.get('action') or 'hold', 'why': d.get('why') or '', 'toSym': d.get('toSym')} if kind == 'agent' else {}),
+                      **({'would': d.get('would'), 'why': d.get('why') or ''} if kind in ('yours', 'suggested') and d else {})})   # 👤 your seat: what the agents WOULD do (they never do it)
     for _ in range(max(0, min(6, int(_f(c.get('coins')))) - len(seats))):
         seats.append({'kind': 'open', 'symbol': None, 'pct': None})
     return {'tpl': (card or {}).get('tpl'), 'seats': seats, 'dutyAt': _f((card or {}).get('agentDutyAt'))}

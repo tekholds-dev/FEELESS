@@ -4370,3 +4370,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   biggest; a ripple on each new trade; buyers / sellers counted + the momentum arrow (last 10s vs the minute). Re-laid out once a second
   (transform with a 1s linear glide).
 - 🎛 ONE PLACE FOR CONTROLS: the cockpit's 🎛 Limits tab = CockpitControls + your creator limits (they used to sit in the Office pane).
+- 👤 YOUR COIN IN A SEAT (owner, 2026-10-15: "still no way to add my own coins into seats — they track my every move and study during that seat, AI
+  suggests"). ROOT CAUSE: the tick's seat refill was skipped under ANY `holdAll`, and agent control holds the card — a queued `seatPick` waited
+  forever. Now a hold stops only the ENGINE's own choice; the owner's pick still seats (`owner_only` in the refill). `arena_prime.agent_seat`
+  refuses a seat the owner queued a coin for (`owner_picks_waiting`). On a `picked` leg the agents only SUGGEST (`positions.mine_held`: their
+  swap / pull becomes `would` on a hold), Reaper's soft exits ASK (`owner_ask` covers `picked`), every ruling change is filed (`office.study_note`
+  → position `study` + first exit call `would`), and `office.owner_seats` (payload `ownerSeats`) compares your real result with where they
+  would have sold. Your seats get the model's exit read first. Cockpit › 🪑 Seats: `AddMyCoin` (MySeat.jsx, `mys-*`): paste a CA or a link →
+  empty seat (fillSeat) or swap a seat (pickSwap now); a 409 warning = "add it anyway" (ack). A CA alone is resolved by `jup_lookup`.
+- 🦠 THE GERM FLOOR IS A LEARNED FEATURE (owner: "the germ line is where they should study for best entries and moon"): `chart_intel.germ` (the
+  SAME rule as the chart's 🧰 Germ tool, `lib/chartTools.js` germ span 12 / min run 15 — change both) on every real-candle snapshot → compact
+  `germ` word lost · floor (≤ 8% above) · near (≤ 25%) · far + `germDist` / `germRun`; thesis keeps it; rule lab token `germ:<word>` (proposed
+  and judged walk-forward like every token); `germ_floor` paper strategy (record only); the model's chart line names it. It weighs only once its
+  own record proves it — never by belief.

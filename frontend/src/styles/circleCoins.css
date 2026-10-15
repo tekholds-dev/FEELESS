@@ -1,0 +1,18 @@
+/* 🪙 Circle wallet coins with real logos + the Fuse wallet clean bar (CircleWallets.jsx). m-* tokens, transform / opacity only. */
+.cwc { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; min-width: 0; flex: 1; }
+.cwc-c { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px 2px 3px; border-radius: 999px; border: 1px solid var(--m-line); background: rgba(0, 0, 0, .25);
+  font: 700 10px var(--m-mono); transition: transform .15s, border-color .15s; }
+.cwc-c:hover { transform: translateY(-1px); border-color: var(--m-line-hi); }
+.cwc-c b { color: var(--m-text); } .cwc-c small { color: #45e486; font-weight: 700; }
+.cwc-c.is-dust { opacity: .6; } .cwc-c.is-dust small { color: var(--m-mute); }
+.cwc-sol { font-style: normal; width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(135deg, #9945ff, #14f195); color: #000; font-size: 11px; }
+.cwc-total { font: 800 10px var(--m-mono); font-style: normal; color: var(--m-text); }
+.cwc-none { font: 600 10px var(--m-mono); color: var(--m-mute); }
+.cwc-clean { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-top: 6px; padding: 6px 9px; border-radius: 9px; border: 1px dashed var(--m-line-hi);
+  font: 600 10px/1.4 var(--m-mono); color: var(--m-dim); animation: cwcIn .18s ease-out both; }
+.cwc-clean span { flex: 1; min-width: 200px; }
+@keyframes cwcIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .cwc-clean { animation: none; } .cwc-c { transition: none; } }
+body.fx-lite .cwc-clean { animation: none; }
+body.theme-day .cwc-c { background: rgba(236, 246, 240, .8); } body.theme-day .cwc-c small { color: #0e8a4a; }
+@media (max-width: 640px) { .cwc-clean span { min-width: 0; } }

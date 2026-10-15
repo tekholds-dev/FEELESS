@@ -543,7 +543,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         if not m or l.get('placeholder') or l.get('frozen') or not (control or _uni.is_agent(l)):
             continue
         on.add(m)
-        base = {'mint': m, 'pair': l.get('pairAddress'), 'symbol': l.get('symbol'), 'owner': 'agents' if _uni.is_agent(l) else 'card', 'action': None}
+        base = {'mint': m, 'pair': l.get('pairAddress'), 'symbol': l.get('symbol'), 'owner': 'agents' if _uni.is_agent(l) else 'you' if l.get('picked') else 'card', 'action': None}
         px, entry = _f((prices or {}).get(l.get('pairAddress'))), _f(l.get('entry'))
         if l.get('buying') or _f(l.get('units')) <= 0 or entry <= 0 or (real and not l.get('real')):   # `real` card: the wallet must HOLD it (sync_card) — a seat is not a position until its buy lands
             out.append({**base, 'state': 'HOLD', 'rule': 'R0 waiting for the fill', 'evidence': 'the buy is not confirmed on the ledger yet', 'exec': 'unconfirmed'}); continue
@@ -564,8 +564,6 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         held = (now - _f(p['since'])) / 60
         lq1 = _f(l.get('liqNow')) or _f((x or {}).get('nums', {}).get('liq'))
         lq0 = _f(p.get('liq0'))
-        top1, top0 = v.get('top10'), p.get('top0')
-        lean = None   # (the old practice lean is not a Reaper input any more — its read-broke test is the kernel's: positions.broken_read)
         n = (x or {}).get('nums') or {}
         broke = None
         if x or not live:   # 🔌 the off-radar clock starts only while the office is LIVE: a stamp from before a restart (or from the refill) never counts
@@ -735,6 +733,8 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         elif not act and mine and live and pct >= (NOISE_TP if noise_ else SCALE_AT) and not p.get('scaled') and not degraded_pre(ch, rv):   # 💰 SCALE-OUT: half banked at +10%, the rest rides the trail
             st, rule, ev, act = 'TAKE', 'R6h half banked', f"{pct:+.1f}% ≥ +{SCALE_AT:g}%: {SCALE_PCT:g}% sold now, the rest rides the trail (replay: +6.5% avg vs +4.3% real)", 'trim'
             p['scaled'] = now
+        if l.get('picked'):
+            study_note(p, rule, act, st, pct, px, now)   # 👤 your seat: every ruling change is filed — what the agents would have done, and when
         act, st, ev = owner_ask(p, l, act, st, rule, ev, pct, px, now)   # ✋ your SL / TP is set: a soft exit asks you first (hard safety exits never wait)
         if act and pct >= RUNWAY_KEEP and (str(rule).split(' ')[0] in RUNWAY_RULES) and (held_s < RUNWAY_SEC or str(rule).startswith('R5t')):
             ev += (f" · 🛫 runway: a green coin is not banked in its first {RUNWAY_SEC / 60:.0f} min ({round(RUNWAY_SEC - held_s)}s left) — the trail still sells it under +{RUNWAY_KEEP:g}%"
@@ -756,7 +756,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         pos[m] = p
         out.append({**base, 'state': st, 'rule': rule, 'evidence': ev, 'action': act, 'exec': 'confirmed', 'entry': entry, 'px': px, 'pct': round(pct, 2), 'peak': round(p['peak'], 2),
                     'dd': round(p['peak'] - pct, 2), 'heldMin': round(held, 1), 'liq': lq1 or None, 'liqPct': round(lq1 / lq0 * 100) if lq0 > 0 and lq1 > 0 else None,
-                    'flow': fv_, 'drain': ({'score': dr_['score'], 'state': dr_['state'], 'why': [q[0] for q in dr_['parts']][:2]} if dr_['state'] != 'CLEAR' else None),   # CLEAR = nothing to say (payload cap) 'top10': top1, 'top10D': round(_f(top1) - _f(top0), 1) if top1 is not None and top0 is not None else None, 'lean': lean,
+                    'flow': fv_, 'drain': ({'score': dr_['score'], 'state': dr_['state'], 'why': [q[0] for q in dr_['parts']][:2]} if dr_['state'] != 'CLEAR' else None),   # CLEAR = nothing to say (payload cap)
                     'trigger': None if not x else _opp.narrative(x)[0], 'devil': None, 'weather': (weather_ or {}).get('regime'),
                     'take': take, 'takeSource': tsrc, 'stop': -stop, 'hardStop': -_ci.CATASTROPHIC_STOP, 'decision': decision,
                     'armAt': round(arm, 2) if trail_on else None, 'trailAt': round(max(MIN_KEEP, trail_line), 2) if trail_on and p['peak'] >= arm else None, 'obeying': (f'{tsrc} take' if rule.startswith('R6') else OBEY.get(rule.split(' ')[0], 'thesis hold')),
@@ -765,7 +765,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
                     'nextReview': (rv or {}).get('next') if rv else round((int(held // _ci.WINDOW_MIN) + 1) * _ci.WINDOW_MIN * 60 - held * 60),
                     'chart': None if not ch else {k: ch.get(k) for k in ('trend', 'chop', 'mom', 'ext')} | {k: (ch.get('f') or {}).get(k) for k in ('hh', 'hl', 'lh', 'll', 'lastHigh', 'lastLow', 'accel', 'decay', 'upWick', 'liqD')},
                     **{'posRound': _tr.position_round(_f(p.get('since')) or now, now), 'roundAction': _tr.action_word(st), 'mfe': round(_f(p.get('peak')), 2), 'mae': round(_f(p.get('low')), 2), 'src': p.get('src')},   # ⏱ the position's own 5-minute round
-                    'ask': p.get('ask'), 'tape': tp, 'usd': round(_f(l.get('units')) * px, 4), 'warden': p.get('warden'), 'dataDegraded': degraded, 'data': _md.compact((ch or {}).get('q')),
+                    'ask': p.get('ask'), 'would': p.get('would') if l.get('picked') else None, 'study': list(p.get('study') or [])[-4:] if l.get('picked') else None, 'tape': tp, 'usd': round(_f(l.get('units')) * px, 4), 'warden': p.get('warden'), 'dataDegraded': degraded, 'data': _md.compact((ch or {}).get('q')),
                     'vel': vl.get('state'), 'velWhy': vl.get('why'), 'run': 'DEAD' if dead_ else ('HEALTHY' if rs_ == 'STALLING' and pct >= 0 and (rv or {}).get('verdict') == 'valid' else rs_), 'runner': runner_, 'deadMin': None if not p.get('deadSince') else round((now - _f(p['deadSince'])) / 60, 1), 'quality': quality, 'ext': len(p.get('ext') or []), 'extWhy': p.get('extWhy'), 'baseWindows': base_w if th else None,
                     'launch': p.get('launch'), 'onTable': bool(x), 'offRadarSec': None if x or not p.get('offSince') else round(now - _f(p.get('offSince'))), 'live': bool(live), 'limits': {'tp': pol.get('tp'), 'sl': pol.get('sl'), 'maxHold': max_hold, 'trail': tr_.get('mode'), 'manual': manual}})
     gone = []
@@ -792,9 +792,47 @@ ASK_OK_SEC = 180.0     # an approval lets that rule sell for this long
 ASK_KEEP_SEC = 600.0   # "keep my line" quiets that rule this long
 
 
+# 👤 YOUR SEAT IS STUDIED (owner, 2026-10-15: "add my own coins into seats — they track my every move and study during that seat, AI suggests"):
+# on a coin you picked the agents never move by themselves; every time Reaper's ruling on it changes it is filed (`study`), and the FIRST
+# time they would have sold is kept (`would`: rule, % and price). When the seat closes, `owner_seats` compares your real result with
+# where the agents would have got out — measured, never a promise.
+STUDY_KEEP = 14
+
+
+def study_note(p, rule, act, st, pct, px, now):
+    p['pick'] = True
+    st_ = list(p.get('study') or [])
+    key = f"{str(rule).split(' ')[0]}:{st}:{bool(act)}"
+    if not st_ or st_[-1].get('k') != key:
+        st_.append({'k': key, 'at': round(now), 'rule': str(rule)[:60], 'state': st, 'sell': bool(act), 'pct': round(pct, 2)})
+        p['study'] = st_[-STUDY_KEEP:]
+    if act and not p.get('would'):
+        p['would'] = {'at': round(now), 'rule': str(rule)[:60], 'pct': round(pct, 2), 'px': px}
+
+
+def owner_seats(positions):
+    """👤 Your picked seats, closed: your real result vs the % the agents would have sold at (their first exit call on it).
+    → {n, med, avg, cmp: {n, you, agents, youBetter}, last: [...]}"""
+    import statistics
+    rows = []
+    for p in positions or []:
+        if not p.get('pick'):
+            continue
+        r = p.get('realPct')
+        rows.append({'sym': p.get('sym'), 'real': None if r is None else round(_f(r), 1), 'would': (p.get('would') or {}).get('pct'),
+                     'rule': (p.get('would') or {}).get('rule'), 'at': p.get('closedAt'), 'peak': p.get('peak')})
+    real = [x['real'] for x in rows if x['real'] is not None]
+    both = [x for x in rows if x['real'] is not None and x['would'] is not None]
+    return {'n': len(real), 'med': round(statistics.median(real), 1) if real else None, 'avg': round(sum(real) / len(real), 1) if real else None,
+            'cmp': {'n': len(both), 'you': round(statistics.median([x['real'] for x in both]), 1) if both else None,
+                    'agents': round(statistics.median([_f(x['would']) for x in both]), 1) if both else None,
+                    'youBetter': sum(1 for x in both if x['real'] > _f(x['would']))},
+            'last': rows[-6:][::-1]}
+
+
 def owner_ask(p, l, act, st, rule, ev, pct, px, now):
     """→ (act, st, ev). Only for coins with YOUR line (leg ownerLvAt); hard rules pass through."""
-    if not l.get('ownerLvAt') or not act:
+    if not (l.get('ownerLvAt') or l.get('picked')) or not act:   # 👤 a coin YOU picked is yours too: soft exits ask first
         if not act:
             p.pop('ask', None)
         return act, st, ev
@@ -1057,8 +1095,8 @@ def file_position(arch, p, now):
            'byReaper': bool(p.get('askRule')), 'confirmed': bool(p.get('confirmed')), 'realPct': p.get('realPct'), 'exit': {k: v for k, v in (p.get('exit') or {}).items() if k in ('state', 'sig', 'at', 'usd', 'delta', 'realUsd', 'err')},
            'wx': p.get('wx'), 'warden': p.get('warden'), 'launch': p.get('launch'), 'tag': p.get('tag'), 'owner': p.get('owner'), 'take': p.get('take'), 'exitStructure': p.get('chartNow'), 'windows': p.get('lastWin'),
            'liq': p.get('liq'), 'liqPct': p.get('liqPct'), 'top10': p.get('top10'), 'quality': p.get('quality'), 'dd': bool(p.get('dataDegraded') or p.get('dd')), 'vel': (p.get('vel') or {}).get('state') if isinstance(p.get('vel'), dict) else p.get('vel'),
-           'thesis': None if not p.get('thesis') else {k: p['thesis'].get(k) for k in ('structure', 'call', 'triggerRule', 'support', 'invalidation', 'stopPct', 'expectedHoldWindows', 'at', 'pred', 'votes', 'flow', 'distHigh')},
-           'li': p.get('li'), 'src': p.get('src'), 'gap': p.get('gap')}
+           'thesis': None if not p.get('thesis') else {k: p['thesis'].get(k) for k in ('structure', 'call', 'triggerRule', 'support', 'invalidation', 'stopPct', 'expectedHoldWindows', 'at', 'pred', 'votes', 'flow', 'distHigh', 'germ', 'germDist')},
+           'li': p.get('li'), 'src': p.get('src'), 'gap': p.get('gap'), 'pick': bool(p.get('pick')), 'would': p.get('would'), 'study': list(p.get('study') or [])[-STUDY_KEEP:]}
     prev = ps[-1]['h'] if ps else a.get('posAnchor', '')
     rec['h'] = _hash(prev, {k: v for k, v in rec.items() if k != 'h'})
     ps.append(rec)

@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import NumInput from '../NumInput';
 import { toast } from 'sonner';
 import { CopyBtn } from '../CopyBtn';
+import { TokenAvatar } from '../terminal/MarketPrimitives';
+import '../../styles/circleCoins.css';
 
 // Circle ties networks to the key: TEST keys only reach testnets, LIVE keys only mainnets.
 const CHAINS = { test: [['SOL-DEVNET', 'Solana devnet'], ['BASE-SEPOLIA', 'Base Sepolia'], ['ETH-SEPOLIA', 'Ethereum Sepolia'], ['ARB-SEPOLIA', 'Arbitrum Sepolia']], live: [['SOL', 'Solana mainnet'], ['BASE', 'Base mainnet'], ['ETH', 'Ethereum mainnet'], ['ARB', 'Arbitrum mainnet'], ['MATIC', 'Polygon mainnet']] };
@@ -16,6 +18,8 @@ export function CircleWallets({ call }) {
   const chains = CHAINS[status?.testnet ? 'test' : 'live'];
   const blockchain = chains.some(([k]) => k === f.blockchain) ? f.blockchain : chains[0][0];
   const [busy, setBusy] = useState(false);
+  const [fuseAddr, setFuseAddr] = useState(null);
+  useEffect(() => { call('/admin/fuse-wallet').then(d => setFuseAddr(d?.cfg?.address || null)).catch(() => {}); }, [call]);   // which Circle wallet the keeper trades from
   const load = useCallback(() => {
     call('/admin/circle/status').then(setStatus).catch(e => setStatus({ configured: false, reason: e.message }));
     call('/admin/circle/wallets').then(d => setWallets(d.wallets || [])).catch(() => {});
@@ -36,25 +40,72 @@ export function CircleWallets({ call }) {
       <ol><li>Get an API key at <code>console.circle.com</code> (API &amp; Client Keys; a <code>TEST_</code> key = testnet) and add <code>CIRCLE_API_KEY=…</code> to <code>backend/.env</code>.</li><li>In the project folder run <code>cd circle &amp;&amp; npm install &amp;&amp; node setup.mjs</code> (once). It saves the secret to <code>backend/.env</code> for you.</li><li>Back up the recovery file in <code>~/.circle</code> (password manager). Without it a lost secret can't be recovered.</li><li>Run <code>bash scripts/start-backend.sh</code> (starts the wallet service too), then Re-check.</li></ol>
       <button type="button" className="btn-outline" onClick={load}>Re-check</button></div> : <>
       <div className="cc-toolbar"><select value={blockchain} onChange={e => setF(x => ({ ...x, blockchain: e.target.value }))}>{chains.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select><input placeholder="Wallet name (e.g. Treasury ops)" value={f.name} maxLength={40} onChange={e => setF(x => ({ ...x, name: e.target.value }))} /><button type="button" className="btn-primary" disabled={busy} onClick={create}>{busy ? 'Creating…' : 'Create wallet'}</button></div>
-      <div className="cw-list">{!wallets.length ? <small className="cc-empty">No wallets yet.</small> : wallets.map(w => <CircleRow key={w.id} w={w} meta={meta[w.id]} call={call} onSaved={load} dests={dests} />)}</div>
+      <div className="cw-list">{!wallets.length ? <small className="cc-empty">No wallets yet.</small> : wallets.map(w => <CircleRow key={w.id} w={w} meta={meta[w.id]} call={call} onSaved={load} dests={dests} fuse={!!fuseAddr && w.address === fuseAddr} />)}</div>
       <small className="cc-empty">Keys are held by Circle and never touch FEELESS. Recovery lives in your ~/.circle recovery file. Check the estimated network fee and native-token balance before every outbound transaction.</small>
     </>}
   </div>;
 }
 
 // One Circle wallet: rename + describe it, and open its mini HQ to move funds.
-function CircleRow({ w, meta, call, onSaved, dests }) {
+function CircleRow({ w, meta, call, onSaved, dests, fuse }) {
   const [mode, setMode] = useState('');
   const [m, setM] = useState({ name: meta?.name || w.name || '', description: meta?.description || '' });
   const [busy, setBusy] = useState(false);
   const save = async () => { setBusy(true); try { await call(`/admin/circle/wallets/${w.id}`, { method: 'PUT', body: JSON.stringify(m) }); toast.success('Saved.'); setMode(''); onSaved?.(); } catch (e) { toast.error(e.message); } finally { setBusy(false); } };
   return <div className={`cw-row cw-row-x ${mode === 'move' ? 'is-open' : ''}`}>
-    <div className="cw-top"><b>{meta?.name || w.name || 'Wallet'}</b><span className="chain-tag">{w.blockchain}</span><code>{w.address?.slice(0, 6)}…{w.address?.slice(-4)}</code><CopyBtn value={w.address} /><em>{(w.balances || []).map(b => `${Number(b.amount).toLocaleString()} ${b.symbol}`).join(' · ') || (w.balanceError ? 'balance unavailable' : 'empty')}</em>
+    <div className="cw-top"><b>{meta?.name || w.name || 'Wallet'}</b><span className="chain-tag">{w.blockchain}</span><code>{w.address?.slice(0, 6)}…{w.address?.slice(-4)}</code><CopyBtn value={w.address} /><CoinChips w={w} />
       <button type="button" className="m-btn" onClick={() => setMode(mode === 'edit' ? '' : 'edit')}>✎ Edit</button>
       <button type="button" className={`m-btn ${mode === 'move' ? 'primary' : ''}`} aria-expanded={mode === 'move'} onClick={() => setMode(mode === 'move' ? '' : 'move')} data-testid={`circle-move-${w.id}`}>⇄ Move {mode === 'move' ? '▴' : '▾'}</button></div>
     {meta?.description && mode !== 'edit' && <small className="cw-desc">{meta.description}</small>}
     {mode === 'edit' && <div className="m-row m-pop"><input className="m-input" style={{ flex: 1 }} maxLength={40} placeholder="Name" value={m.name} onChange={e => setM(x => ({ ...x, name: e.target.value }))} /><input className="m-input" style={{ flex: 2 }} maxLength={200} placeholder="What this wallet is for" value={m.description} onChange={e => setM(x => ({ ...x, description: e.target.value }))} /><button type="button" className="m-btn primary" disabled={busy || m.name.length < 2} onClick={save}>{busy ? 'Saving…' : 'Save'}</button></div>}
+    {fuse ? <FuseClean call={call} onDone={onSaved} /> : null}
     {mode === 'move' && <CircleMove w={w} call={call} dests={dests} onDone={() => { setMode(''); onSaved?.(); }} />}
+  </div>;
+}
+
+// 🪙 every coin in the wallet with its REAL logo (DexScreener → CDN → FEELESS cache, TokenAvatar) and what it is worth now
+const money = v => (v == null ? '—' : v >= 1 ? `$${v.toFixed(2)}` : v >= 0.01 ? `$${v.toFixed(3)}` : '<$0.01');
+export function CoinChips({ w }) {
+  const bs = (w.balances || []).filter(b => Number(b.amount) > 0);
+  if (!bs.length) return <em className="cwc-none">{w.balanceError ? 'balance unavailable' : 'empty'}</em>;
+  const total = bs.reduce((a, b) => a + (Number(b.usd) || 0), 0);
+  return <span className="cwc" data-testid="circle-coins">{bs.map(b => <span key={`${b.mint || b.symbol}`} className={`cwc-c ${b.usd != null && b.usd < 0.05 ? 'is-dust' : ''}`} data-tip={`${Number(b.amount).toLocaleString()} ${b.symbol}${b.usd != null ? ` · ${money(b.usd)}` : ' · no price'}${b.mint ? ` · ${b.mint}` : ''}`}>
+    {b.mint ? <TokenAvatar pair={{ chainId: 'solana', baseToken: { address: b.mint, symbol: b.symbol } }} size={18} /> : <i className="cwc-sol" aria-hidden>◎</i>}
+    <b>{b.symbol}</b><small>{money(b.usd)}</small></span>)}
+    {total > 0 ? <em className="cwc-total">≈ {money(total)}</em> : null}</span>;
+}
+
+// 🧹 ONE CLICK FOR THE FUSE WALLET'S LEFTOVERS (owner, 2026-10-15: "a way to burn / sell dead tokens"): 🔍 Check reads both lists — coins worth
+// under 5¢ (or written off) = BURN + CLOSE (rent back, one transaction) and coins the cards no longer hold = SELL back to SOL (the keeper
+// sells them into card cash). 🧹 Clean runs the burn first, then queues the sales. Nothing a card holds is ever touched; nothing moves before you click.
+export function FuseClean({ call, onDone }) {
+  const [plan, setPlan] = useState(null); const [busy, setBusy] = useState(false);
+  const check = async () => {
+    setBusy(true);
+    try {
+      const [dust, fw] = await Promise.all([call('/admin/fuse-wallet/close-dust', { method: 'POST', body: JSON.stringify({ confirm: false }) }), call('/admin/fuse-wallet')]);
+      const burn = new Set((dust?.accounts || []).map(a => a.mint));
+      setPlan({ dust, sell: (fw?.recoverable || []).filter(r => !burn.has(r.mint)) });
+    } catch (e) { toast.error(e.message); } finally { setBusy(false); }
+  };
+  const clean = async () => {
+    setBusy(true); const done = [];
+    try {
+      if (plan.dust?.accounts?.length) { const r = await call('/admin/fuse-wallet/close-dust', { method: 'POST', body: JSON.stringify({ confirm: true }) }); done.push(`🔥 ${r.accounts.length} burned + closed (${money(r.rentUsd)} rent back)`); }
+      for (const tpl of [...new Set(plan.sell.map(r => r.card))]) {
+        try { const r = await call('/admin/fuse-wallet/recover-sell-all', { method: 'POST', body: JSON.stringify({ tpl }) }); done.push(`↩ ${r.queued} queued to sell`); }
+        catch (e) { done.push(`↩ ${e.message}`); }
+      }
+      toast.success(done.join(' · ') || 'Nothing to clean.'); setPlan(null); onDone?.();
+    } catch (e) { toast.error(e.message); } finally { setBusy(false); }
+  };
+  const nb = plan?.dust?.accounts?.length || 0; const ns = plan?.sell?.length || 0;
+  return <div className="cwc-clean" data-testid="fuse-clean">
+    {!plan ? <><span>🧹 Leftover coins in the keeper wallet — sell what is worth something, burn + close the dust for its rent.</span>
+      <button type="button" className="m-btn" disabled={busy} onClick={check} data-testid="fuse-clean-check">{busy ? 'Checking…' : '🔍 Check'}</button></>
+      : <><span data-testid="fuse-clean-plan">{ns ? `↩ sell ${ns}: ${plan.sell.map(r => `$${r.symbol}`).join(' ')}` : 'nothing to sell'} · {nb ? `🔥 burn + close ${nb} (${money(plan.dust.dustUsd)} of dust → ${money(plan.dust.rentUsd)} rent back)` : 'no dust to burn'}</span>
+        {ns || nb ? <button type="button" className="m-btn m-go" disabled={busy} onClick={clean} data-testid="fuse-clean-go">{busy ? 'Cleaning…' : '🧹 Clean'}</button> : null}
+        <button type="button" className="m-btn" disabled={busy} onClick={() => setPlan(null)}>✕</button></>}
   </div>;
 }
 

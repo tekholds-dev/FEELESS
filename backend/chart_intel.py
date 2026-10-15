@@ -88,6 +88,43 @@ def _ret(c, k):
     return round((c[-1] / c[-1 - k] - 1) * 100, 2) if len(c) > k and c[-1 - k] > 0 else None
 
 
+# 🦠 THE GERM (owner, 2026-10-15: "the germ line is a perfect example of where agents should study to get best entries and moon — find the coin
+# floor"): the base candle of the biggest low → high run inside `GERM_SPAN` candles (≥ `GERM_MIN_RUN` %), the SAME rule the chart's 🧰 Germ
+# tool draws (lib/chartTools.js germ — change both). Its low is the floor the run was born on: back near it and holding = the cheapest place
+# the move can restart; under it = the run is dead. A READING the agents and models learn on (rule lab `germ:` token, real-money memory,
+# the `germ_floor` paper strategy) — it weighs only once its own record proves it, never by belief.
+GERM_SPAN, GERM_MIN_RUN = 12, 15.0
+GERM_FLOOR, GERM_NEAR = 8.0, 25.0
+
+
+def germ(rows, span=GERM_SPAN, min_run=GERM_MIN_RUN):
+    """→ {px (the base candle's low), top, runPct, at, lost, dist (% the price sits above the germ low)} or None (no run that big)."""
+    cs = [r for r in rows or [] if r and _f(r[4]) > 0 and _f(r[3]) > 0]
+    best = None
+    for i in range(len(cs) - 1):
+        lo = _f(cs[i][3])
+        for j in range(i + 1, min(len(cs) - 1, i + span) + 1):
+            run_ = (_f(cs[j][2]) / lo - 1) * 100
+            if best is None or run_ > best[1]:
+                best = (i, run_)
+    if not best or best[1] < min_run:
+        return None
+    c = cs[best[0]]
+    last = _f(cs[-1][4])
+    return {'px': _f(c[3]), 'top': max(_f(c[1]), _f(c[4])), 'runPct': round(best[1], 1), 'at': c[0], 'lost': last < _f(c[3]),
+            'dist': round((last / _f(c[3]) - 1) * 100, 2)}
+
+
+def germ_word(g):
+    """The germ as one learning word: lost (under it) · floor (≤ 8% above) · near (≤ 25%) · far · None (no run read)."""
+    if not g:
+        return None
+    if g.get('lost'):
+        return 'lost'
+    d = _f(g.get('dist'))
+    return 'floor' if d <= GERM_FLOOR else 'near' if d <= GERM_NEAR else 'far'
+
+
 def snapshot(rows, now=0.0, ohlc=True, buy=None, liq=None, liq_d=None, flow=None, seat_usd=None):
     """The measured features of one coin from its last LOOK 1-minute candles (`rows` = [t, o, h, l, c, v]). `ohlc` False = built from
     closes only (wick features are None, not zero). `buy` = buy share %, `liq` / `liq_d` = pool $ and its % change on our tape,
@@ -177,6 +214,7 @@ def snapshot(rows, now=0.0, ohlc=True, buy=None, liq=None, liq_d=None, flow=None
         hh=hh, hl=hl, lh=lh, ll=ll, lastHigh='lower' if len(ph) >= 2 and ph[-1][1] < ph[-2][1] else 'higher' if len(ph) >= 2 else None,
         lastLow='lower' if len(pl) >= 2 and pl[-1][1] < pl[-2][1] else 'higher' if len(pl) >= 2 else None,
         slope=round(slope * 100, 3), fit=round(r2, 2), dir='up' if slope > 0 else 'down',
+        germ=germ(rs) if ohlc else None,
         distHigh=round((hi - px) / hi * 100, 2), distLow=round((px - lo) / lo * 100, 2) if lo > 0 else None, rangePct=round((hi - lo) / lo * 100, 2) if lo > 0 else None,
         pos=round((px - lo) / (hi - lo), 2) if hi > lo else 0.5, vol=round(vol, 2), atr=round(atr, 2),
         body=round(sum(abs(c[i] - o[i]) / o[i] * 100 for i in range(n) if o[i] > 0) / n, 2),
@@ -215,7 +253,7 @@ def classify(f):
     n = int(_f((f or {}).get('n')))
     if n < MIN_BARS and (f or {}).get('early'):
         e = f['early']
-        return 'EARLY', [f"{e['n']} real candles so far: {e['move']:+.1f}% since its first open, {e['green']} green"], ([f"broke under its own lows"] if e['broke'] else []), 0.2
+        return 'EARLY', [f"{e['n']} real candles so far: {e['move']:+.1f}% since its first open, {e['green']} green"], (["broke under its own lows"] if e['broke'] else []), 0.2
     if n < MIN_BARS or f.get('trend') is None:
         return 'UNKNOWN', [f'{n} one-minute candles — {MIN_BARS} are needed'], [], 0.0
     ev, con = [], []
@@ -497,4 +535,5 @@ def compact(chart):
         return None
     f = chart.get('f') or {}
     return {k: chart.get(k) for k in ('state', 'src', 'n', 'conf', 'entry', 'trend', 'chop', 'mom', 'ext', 'risk')} | {'q': _md.compact(chart.get('q'))} | \
-        {k: f.get(k) for k in ('hl', 'll', 'distHigh', 'distLow') if f.get(k) is not None}   # 🔪 the knife / dip check reads these (opportunity.knife)
+        {k: f.get(k) for k in ('hl', 'll', 'distHigh', 'distLow') if f.get(k) is not None} | \
+        ({'germ': germ_word(f['germ']), 'germDist': f['germ']['dist'], 'germRun': f['germ']['runPct']} if f.get('germ') else {})   # 🔪 the knife / dip check reads these (opportunity.knife) · 🦠 the floor

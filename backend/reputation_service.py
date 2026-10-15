@@ -10931,6 +10931,17 @@ async def fuse_prime_admin(request: Request):
             row = next((r for dv in (ct_.get('divisions') or []) for r in dv.get('rows') or [] if r.get('mint') == pk['to']), None)
             row = row or next((r for r in ct_.get('all') or [] if r.get('mint') == pk['to']), None)   # 🏁 any coin the Gauntlet ranks (Arena lens)
             row = row or next((r for r in _trench_cache.get('rows') or [] if r.get('mint') == pk['to']), None)   # 🗑 a passing trench coin
+            if not row and not pk.get('toPair'):   # 📋 a pasted contract address alone: its deepest live pool is looked up (Jupiter search knows every pool)
+                try:
+                    async with httpx.AsyncClient(timeout=8) as http_:
+                        jp_ = await _launchpad_board.jup_lookup(http_, pk['to'])
+                    if jp_ and jp_.get('pairAddress'):
+                        pk['toPair'] = jp_['pairAddress']
+                except Exception as e:
+                    print('pick lookup:', str(e)[:80])
+                if not pk.get('toPair'):
+                    raw_ = next((p_ for p_ in _open_pairs if (p_.get('baseToken') or {}).get('address') == pk['to']), None)
+                    pk['toPair'] = (raw_ or {}).get('pairAddress')
             if not row and pk.get('toPair'):   # 🔎 any coin from the Lab lenses / search: verified LIVE on its own pool right now
                 lp = (await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pk['toPair'], 'mint': pk.get('to')}])).get(pk['toPair']) or {}
                 lp = _fuse.with_curve(lp)   # 🆕 the owner may pick a coin still on Pump's curve (the keeper's quote checks still decide)
@@ -10995,7 +11006,7 @@ async def fuse_prime_admin(request: Request):
             except ValueError as e:
                 raise HTTPException(400, str(e))
             _json_save(FUSE_HQ_PATH, d)
-        if cand and cand.get('now'):   # ⚡ swap in NOW: run the engine pass at once (it is locked — never two at a time)
+        if cand and (cand.get('now') or pk['pairAddress'] == '__seat__'):   # ⚡ swap in NOW / 🪑 your seat pick: run the engine pass at once (it is locked — never two at a time)
             asyncio.create_task(_prime_tick(time.time()))
         if cand:   # 👤 the pick is in: note what the coin looked like (teaches the paper cards that pick like the owner)
             await _pick_style_note(cand['mint'], cand.get('symbol'), cand.get('pairAddress'))
@@ -12567,6 +12578,16 @@ async def _circle_wallets_live():
             elif lamports[w['address']] > 0:
                 rows.insert(0, {'symbol': 'SOL', 'amount': amount, 'tokenId': None, 'source': 'chain'})
             out.append({**w, 'balances': rows, 'balanceSource': 'confirmed-chain'})
+        try:   # 💲 each coin's $ value (Jupiter, public lane) so the row reads what the leftovers are worth — SOL by its own price
+            mints = list({b.get('mint') for w in out for b in w.get('balances') or [] if b.get('mint')})
+            px = await _jup_prices(mints) if mints else {}
+            sol_px = await _sol_usd_live()
+            for w in out:
+                for b in w.get('balances') or []:
+                    p_ = sol_px if str(b.get('symbol') or '').upper() == 'SOL' and not b.get('mint') else _fuse._f(px.get(b.get('mint')))
+                    b['usd'] = round(_fuse._f(b.get('amount')) * p_, 4) if p_ else None
+        except Exception as e:
+            print('circle usd:', str(e)[:80])
         return out
     except Exception:
         return wallets
@@ -13026,6 +13047,8 @@ def _ai_brief(mint):
                    f"{cf.get('hh', 0)} higher highs / {cf.get('hl', 0)} higher lows / {cf.get('lh', 0)} lower highs / {cf.get('ll', 0)} lower lows" if cf.get('n') and 'hh' in cf else None,
                    f"at {_fuse._f(cf.get('pos')) * 100:.0f}% of its range, {_fuse._f(cf.get('distHigh')):.0f}% under the high" if cf.get('pos') is not None and cf.get('distHigh') is not None else None,
                    f"pulled back {_fuse._f(cf.get('pullback')):.0f}%" if _fuse._f(cf.get('pullback')) > 0 else None,
+                   (('LOST its germ floor (the base its biggest run was born on) — the run is dead until back above' if (cf.get('germ') or {}).get('lost')
+                     else f"germ floor (base of its +{_fuse._f(cf['germ'].get('runPct')):.0f}% run) {_fuse._f(cf['germ'].get('dist')):.0f}% below") if isinstance(cf.get('germ'), dict) else None),
                    ('breakout FAILED' if cf.get('breakFailed') else f"base, breakout held {cf.get('breakHeld')}×" if cf.get('base') and cf.get('breakHeld') else 'basing' if cf.get('base') else None),
                    f"support {(1 - sup_ / px_c) * 100:.0f}% below" if 0 < sup_ < px_c else None, f"resistance {(res_ / px_c - 1) * 100:.0f}% above" if res_ > 0 and px_c > 0 and res_ > px_c else None,
                    g('volume trend', cf.get('volTrend'), '×'), g('squeeze', cf.get('squeeze'), '×'), 'momentum decaying' if cf.get('decay') else None,
@@ -13233,7 +13256,7 @@ def _ai_jobs(now):
     # 🧠☠ THE EXIT READ (owner, 2026-10-14: "AI should help Trigger and Reaper — smarter, cleaner exits"): each coin the agents HOLD gets one
     # read about once a minute (fresh ≤ 60s = skipped). Reaper never waits on it: it uses the cached word, and only once its record proves it.
     held_ = [r_ for r_ in (_office.get('reports') or []) if r_.get('mint') and not r_.get('action')]
-    for r_ in sorted(held_, key=lambda r_: -abs(_fuse._f(r_.get('pct'))))[:2]:
+    for r_ in sorted(held_, key=lambda r_: (r_.get('owner') != 'you', -abs(_fuse._f(r_.get('pct')))))[:2]:   # 👤 your seats are read first — the AI's suggestion on YOUR coin
         if now - _fuse._f((_ai['exit'].get(r_['mint']) or {}).get('at')) < 60:
             continue
         add('exit', {'mint': r_['mint'], 'pair': r_.get('pair'), 'symbol': r_.get('sym') or r_.get('symbol'), 'pct': r_.get('pct'), 'peak': r_.get('peak'), 'heldMin': r_.get('heldMin'),
@@ -16456,6 +16479,7 @@ def _office_warden(cur, t_, requested, cfg_t, now, move):
             fv_ = (_office.get('flow') or {}).get(t_.get('mint')) or t_.get('fv')
             _office['theses'][t_.get('mint')].update(flow={'state': fv_.get('state'), 'buyPct': fv_.get('buyPct'), 'buyers': fv_.get('buyers')} if fv_ else None,
                                                      distHigh=t_.get('distHigh') if t_.get('distHigh') is not None else ((ch_.get('f') or {}).get('distHigh')),
+                                                     germ=_ci.germ_word((ch_.get('f') or {}).get('germ')), germDist=((ch_.get('f') or {}).get('germ') or {}).get('dist'),   # 🦠 the floor at the buy (rule lab learns it)
                                                      pred=_agent_pred(t_, ch_, now),   # 🔮 the agents' own prediction for this trade (real-money memory), graded at the exit
                                                      votes=_jr.votes_of((_tk.KERNEL.dec.get(t_.get('mint')) or {}).get('opinions')))   # 🗳 each entry desk's OWN vote (judge_review.desk_votes scores it on the real result)
         if move == 'fill':
@@ -16521,7 +16545,7 @@ def _office_chart_view(ch, row=None):
     if not ch:
         return None
     f = ch.get('f') or {}
-    keep = ('px', 'r1', 'r5', 'r10', 'r15', 'r30', 'hh', 'hl', 'lh', 'll', 'lastHigh', 'lastLow', 'slope', 'fit', 'distHigh', 'distLow', 'rangePct', 'pos', 'vol', 'atr', 'body', 'wick', 'upWick', 'loWick', 'seq', 'up', 'down',
+    keep = ('px', 'r1', 'r5', 'r10', 'r15', 'r30', 'hh', 'hl', 'lh', 'll', 'lastHigh', 'lastLow', 'slope', 'fit', 'distHigh', 'distLow', 'germ', 'rangePct', 'pos', 'vol', 'atr', 'body', 'wick', 'upWick', 'loWick', 'seq', 'up', 'down',
             'pullback', 'recovery', 'breakTries', 'breakHeld', 'breakFailed', 'supTests', 'resTests', 'squeeze', 'accel', 'decay', 'extPct', 'volTrend', 'buy', 'imbalance', 'trades', 'liq', 'liqD', 'impact', 'support', 'resistance')
     stop, parts = _ci.stop_for(f, ch.get('state'), {'liq': f.get('liq'), 'ageH': ((row or {}).get('vitals') or {}).get('ageH'), 'courier': (_office.get('courier') or {}).get('health')}, _of.tune(_office_state(), 'reaper', 'stopPct'))
     return {'state': ch.get('state'), 'src': ch.get('src'), 'n': ch.get('n'), 'conf': ch.get('conf'), 'ev': ch.get('ev'), 'con': ch.get('con'), 'trend': ch.get('trend'), 'chop': ch.get('chop'), 'mom': ch.get('mom'), 'ext': ch.get('ext'),
@@ -16894,7 +16918,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         'office': {'chain': list(_of.CHAIN), 'priority': list(_of.PRIORITY), 'coins': perf.get('coins'), 'cases': len(cases), 'cleared': sum(1 for c_ in cases if c_['cleared'])},
         'agents': _of.agent_cards(cards, {'live': live, 'office': of}), 'currentCase': cur_case, 'pipeline': pipe,
         'queue': queue, 'positions': _office_positions(), 'exiting': [{'mint': p_['mint'], 'sym': p_.get('sym'), 'rule': p_.get('askRule'), 'state': (p_.get('exit') or {}).get('state'), 'since': p_.get('leftAt')} for p_ in _office['exiting']],
-        'execution': {**cour, 'metrics': _fw.exec_metrics(_fw_peek().get('ledger'), now, dupes=_FW_DUPES['n'])}, 'ownerHand': _of.owner_hand(arch.get('positions')), 'askRec': ask_rec_, 'agentPredict': _of.pred_record(arch.get('positions')), 'tid': tid, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': [{'agent': x_.get('role'), 'gen': x_.get('gen'), 'why': f"{x_.get('status') or 'replaced'} — {x_.get('why') or ''}" + (f" · next generation: {x_['changed']}" if x_.get('changed') else ''), 'at': x_.get('retiredAt')}
+        'execution': {**cour, 'metrics': _fw.exec_metrics(_fw_peek().get('ledger'), now, dupes=_FW_DUPES['n'])}, 'ownerHand': _of.owner_hand(arch.get('positions')), 'ownerSeats': _of.owner_seats(arch.get('positions')), 'askRec': ask_rec_, 'agentPredict': _of.pred_record(arch.get('positions')), 'tid': tid, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': [{'agent': x_.get('role'), 'gen': x_.get('gen'), 'why': f"{x_.get('status') or 'replaced'} — {x_.get('why') or ''}" + (f" · next generation: {x_['changed']}" if x_.get('changed') else ''), 'at': x_.get('retiredAt')}
                                                          for x_ in reversed((_lc_book(now).get('lineage') or [])[-12:])], 'devil': dv_rec[:10], 'needShadow': _of.SHADOW_N, 'needPropose': _of.PROPOSE_N},
         'index': (_office.get('index') or [])[:80], 'rpc': {'lanes': _rpc_quota_state(), 'note': 'keyed lanes = keeper sends / balances first, then holder scans (budgeted); discovery comes from Pump\'s live stream + the launch boards — no RPC first-seen listener runs'},
         'court': _office.get('court'), 'opp': _office.get('opp'), 'coach': _coach_view(now), 'tradeTape': _trade_tape(now),   # 👑 the directives in force · 🎬 every real agent trade as one story

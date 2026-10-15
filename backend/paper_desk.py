@@ -30,7 +30,6 @@ positive median and ≥ PROVE_WIN % won — then the 15-minute stage opens. A re
 
 import trench_mind as _tm
 import chart_intel as _ci
-import opportunity as _opp
 import trench_kernel.senses as _sn
 from trench_kernel.universe import GRADUATE_X, real_phase, underwater   # noqa: F401 (the real-money phase rule is the kernel's)
 from trench_kernel.positions import TRUST_N, card_seats, trusted   # noqa: F401 (seat display + the trust rule are the kernel's)
@@ -284,7 +283,17 @@ STRATS = (
     # lows method"): 15%+ under its high, 2+ higher lows and no lower low since, 3–25% above the new floor, buyers ≥ 55%, volume still coming
     # (pace ≥ 0.8), holders not leaving, the last 5 min neither falling nor spiking. Paper first: it weighs only what its own record says.
     ('floor_hold', 'dip holding its floor (higher lows)', lambda r, n, m: floor_hold(r, n)),
+    # 🦠 GERM FLOOR (owner, 2026-10-15: "the germ line is where they should study to get best entries and moon"): back within 8% of the
+    # base candle its biggest run was born on, not under it, buyers ≥ 52%, the last 5 min not falling. Paper first: its record decides.
+    ('germ_floor', 'back on its germ floor', lambda r, n, m: germ_floor(r, n)),
 )
+
+
+def germ_floor(r, n):
+    c = (r or {}).get('chart') or {}
+    if c.get('germ') != 'floor':
+        return False   # no germ read / not at it = not judged
+    return _f((n or {}).get('buy') or 0) >= 52 and _f((n or {}).get('d5')) >= -2
 
 
 def floor_hold(r, n):
