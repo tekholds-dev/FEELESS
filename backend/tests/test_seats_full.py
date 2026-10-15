@@ -207,7 +207,7 @@ def test_a_coin_the_keeper_refused_is_off_the_agents_list():
     assert fw.no_buy(book, 1050.0) == {'NR', 'BN'}            # safety refusals + bench; a transient miss is retried
     assert fw.no_buy(book, 1000.0 + fw.REFUSED_SEC + 1) == {'BN'}
     src = open(__import__('reputation_service').__file__).read()
-    assert '_fw.agent_no_buy(b, now)' in src and '_prime.agent_out(card, now)' in src
+    assert '_fw.agent_no_buy(b, now)' in src and '_prime.agent_out(card, now, ' in src
 
 
 def test_a_coin_falling_eight_percent_in_five_minutes_is_a_hard_no():

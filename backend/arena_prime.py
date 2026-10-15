@@ -2873,8 +2873,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         # every coin") poured a real card's cash into its one FROZEN coin on paper — the keeper never buys a frozen coin, so the
         # engine then read AUTON as $6.26 (real: $0.49), the full-stack skim "took" $5.76 that was never in it and parked it
         # (2026-10-07). Unlocked coins skipped only for a 10-min cut / ticket / scout are still the fallback.
-        targets = [l for l in c['legs'] if not l.get('placeholder') and not l.get('scout') and not l.get('ticket') and not l.get('house') and not l.get('ride') and not l.get('frozen') and not (l.get('trimAt') and now - _f(l.get('trimAt')) <= 600 and not (round_now and _f(l.get('trimAt')) < now))] \
-            or [l for l in c['legs'] if not l.get('placeholder') and not l.get('ride') and not l.get('frozen') and not l.get('ticket') and not l.get('house') and not l.get('scout')]
+        targets = [l for l in c['legs'] if not l.get('placeholder') and not l.get('scout') and not l.get('ticket') and not l.get('house') and not l.get('scaled') and not l.get('ride') and not l.get('frozen') and not (l.get('trimAt') and now - _f(l.get('trimAt')) <= 600 and not (round_now and _f(l.get('trimAt')) < now))] \
+            or [l for l in c['legs'] if not l.get('placeholder') and not l.get('ride') and not l.get('frozen') and not l.get('ticket') and not l.get('house') and not l.get('scaled') and not l.get('scout')]
         if targets:
             # ⚖ NO COIN GETS THE WHOLE POT. Idle cash fills the seats that are furthest under an equal share and never lifts a coin
             # above it. It used to go entirely to whichever coin was waiting on a buy: $1.15 of freed cash went into ONE coin, which
@@ -3026,7 +3026,7 @@ def balance_small(c, prices, liqs, now, fee, ev):
     # a coin is "small" only when it WENT IN small. A coin whose profit was taken (💰 skim, 🏦 bank, ✂ cut → `skimPx` / `bankedAt` /
     # fresh `trimAt`) or that is locked / riding is small ON PURPOSE: topping it up would buy back what was just sold
     # ($1.93 was skimmed off $SpaceXSI and this rule put $1.13 of it straight back in four seconds later).
-    taken = lambda l: l.get('scout') or l.get('ticket') or l.get('house') or l.get('skimPx') or l.get('bankedAt') or l.get('ride') or l.get('frozen') or (l.get('trimAt') and now - _f(l.get('trimAt')) < 600)
+    taken = lambda l: l.get('scout') or l.get('ticket') or l.get('house') or l.get('scaled') or l.get('skimPx') or l.get('bankedAt') or l.get('ride') or l.get('frozen') or (l.get('trimAt') and now - _f(l.get('trimAt')) < 600)
     small = [l for l in legs if not taken(l) and _f(l.get('costUsd')) < SMALL_SHARE * share and val(l) < SMALL_SHARE * share]
     for l in small:
         need = share - val(l)
@@ -3426,6 +3426,24 @@ def agent_seat(card, row, prices, cfg, now, min_usd=0.05, max_usd=None):
     return c
 
 
+def agent_trim(card, pair, prices, liqs, now, pct=50.0, why=''):
+    """💰 The agents' SCALE-OUT: `pct` of a coin is sold, the proceeds become FREE card cash, the rest stays on its seat and rides the trail.
+    The leg is marked `scaled` (+ `trimAt`): never topped back up (spread / balance / the keeper's idle sweep skip it). → new card."""
+    c = {**card, 'legs': [dict(l) for l in card.get('legs') or []], 'events': list(card.get('events') or [])}
+    l = next((x for x in c['legs'] if x.get('pairAddress') == pair and not x.get('placeholder')), None)
+    if not l or _f(l.get('units')) <= 0:
+        raise ValueError('not on the card')
+    part = max(0.05, min(0.95, _f(pct) / 100.0))
+    px = _f((prices or {}).get(pair)) or _f(l.get('entry'))
+    got = sell_usd(_f(l['units']) * part, px, (liqs or {}).get(pair) or l.get('liq'))
+    l['units'] = _f(l['units']) * (1 - part)
+    l['costUsd'] = _f(l.get('costUsd')) * (1 - part)
+    l['scaled'], l['trimAt'] = now, now
+    c['cash'] = round(_f(c.get('cash')) + got, 6)
+    c['events'].append({'at': now, 'kind': 'agent', 'move': 'trim', 'symbol': l.get('symbol'), 'usd': round(got, 4), 'why': f"🤖 agents banked {pct:g}% of ${l.get('symbol')} (${got:.2f} to card cash): {why}"})
+    return c
+
+
 def agent_pull(card, pair, prices, liqs, now, why=''):
     """🎮 In control, the agents BANK a coin: it leaves the card whole and what selling pays becomes FREE card cash — the seat is open for
     their next coin (unlike the owner's ✂, which holds the cash for the owner and keeps the slot). → new card. ValueError = not on the card."""
@@ -3440,7 +3458,8 @@ def agent_pull(card, pair, prices, liqs, now, why=''):
     c['events'].append({'at': now, 'kind': 'agent', 'move': 'pull', 'symbol': l.get('symbol'), 'usd': round(got, 4), 'why': f"🤖 agents banked ${l.get('symbol')} (${got:.2f} to card cash): {why}"})
     if l.get('mint'):   # 🚫 the agents never buy back what they just left (2026-10-11: $Rupshld bought 3× in a minute between rug-radar exits, then rugged)
         c['agentOut'] = {**{m: v for m, v in (c.get('agentOut') or {}).items() if now - _f((v or {}).get('at')) < AGENT_OUT_DANGER_SEC},
-                         l['mint']: {'at': now, 'danger': agent_out_danger(why), **({'urgent': True} if urgent_exit(why) else {})}}
+                         l['mint']: {'at': now, 'danger': agent_out_danger(why), **({'urgent': True} if urgent_exit(why) else {}),
+                                     'px': px, 'green': bool(_f(l.get('entry')) > 0 and px > _f(l['entry']))}}
     return c
 
 
@@ -3467,10 +3486,22 @@ def agent_out_danger(why):
     return bool((m and m.group(1) in AGENT_OUT_RULES) or re.search(r'rug|drain|pulled', str(why or ''), re.I))
 
 
-def agent_out(card, now):
-    """Mints the agents may not buy right now: left in the last 10 min, or left on a danger rule in the last 6h."""
-    return {m for m, v in ((card or {}).get('agentOut') or {}).items()
-            if now - _f((v or {}).get('at')) < (AGENT_OUT_DANGER_SEC if (v or {}).get('danger') else AGENT_OUT_SEC)}
+COMEBACK_PCT = 5.0   # 🔁 a coin we sold IN PROFIT that runs this far past our exit price may be bought again inside the 10-min sit-out
+
+
+def agent_out(card, now, px_of=None):
+    """Mints the agents may not buy right now: left in the last 10 min, or left on a danger rule in the last 6h. 🔁 COMEBACK: a coin we sold
+    GREEN (never a danger exit) that is now ≥ COMEBACK_PCT above our exit price is let back in early — 87% of trailed coins ran on after we
+    sold (2026-10-15). Every normal entry check still decides; this only lifts the sit-out."""
+    out = set()
+    for m, v in ((card or {}).get('agentOut') or {}).items():
+        v = v or {}
+        if now - _f(v.get('at')) >= (AGENT_OUT_DANGER_SEC if v.get('danger') else AGENT_OUT_SEC):
+            continue
+        if px_of and v.get('green') and not v.get('danger') and _f(v.get('px')) > 0 and _f(px_of(m)) >= _f(v['px']) * (1 + COMEBACK_PCT / 100):
+            continue
+        out.add(m)
+    return out
 
 
 def seats_used(c):

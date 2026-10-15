@@ -586,3 +586,32 @@ def test_the_runway_keeps_a_green_coin_for_six_minutes_and_r5t_never_sells_a_gre
     pos = {'M': {'peak': 12.0, 'stopNow': 20, 'thesis': {}}}
     assert of.fast_reap([leg], {'M': 1.06}, pos, 1120, office=None) == []                 # +6%, peak +12, 2 min in → runway
     assert of.RUNWAY_SEC == 360 and 'R5t' in of.RUNWAY_RULES and 'R5' not in of.RUNWAY_RULES   # stops are never on the runway
+
+
+def test_scale_out_banks_half_once_and_the_comeback_door_lets_a_running_winner_back():
+    import office as of
+    import arena_prime as ap
+    rep = [{'pair': 'PA', 'symbol': 'A', 'action': 'trim', 'rule': 'R6h half banked', 'evidence': 'x', 'pct': 11}]
+    assert of.merge_reaper([], rep)[0]['action'] == 'trim'
+    card = {'legs': [{'pairAddress': 'PA', 'mint': 'M', 'symbol': 'A', 'units': 100.0, 'entry': 1.0, 'costUsd': 100.0}], 'cash': 0.0, 'events': []}
+    c2 = ap.agent_trim(card, 'PA', {'PA': 1.1}, {'PA': 1e9}, 50, 50, 'half')
+    l = c2['legs'][0]
+    assert l['units'] == 50.0 and l['costUsd'] == 50.0 and l['scaled'] == 50 and c2['cash'] > 50 and len(c2['legs']) == 1
+    # a GREEN exit: back in early only once the coin runs +5% past our exit price; a danger exit never
+    c3 = ap.agent_pull(card, 'PA', {'PA': 1.2}, {'PA': 1e9}, 100, 'R7 trailing protection')
+    assert ap.agent_out(c3, 150, lambda m: 1.21) == {'M'}
+    assert ap.agent_out(c3, 150, lambda m: 1.27) == set()
+    c4 = ap.agent_pull(card, 'PA', {'PA': 0.8}, {'PA': 1e9}, 100, 'Reaper R5x catastrophic stop')
+    assert ap.agent_out(c4, 150, lambda m: 5.0) == {'M'}
+
+
+def test_scale_out_in_reap_fires_once_at_ten_percent(monkeypatch):
+    import office as of
+    monkeypatch.setattr(of, 'SCALE_AT', 10.0)
+    LEG_ = {'mint': 'A', 'symbol': 'A', 'pairAddress': 'PA', 'entry': 1.0, 'units': 1.0, 'at': 1, 'liq': 60_000, 'liqNow': 60_000, 'bought': {'tag': '🤖 agents GO'}}
+    ROW_ = {'mint': 'A', 'symbol': 'A', 'pair': 'PA', 'px': 1.11, 'why': {'lean': 2.0, 'drivers': []}, 'trigger': ['wait', ''], 'devil': ['—', ''], 'nums': {'d5': 4, 'buy': 60, 'liq': 60_000}, 'vitals': {'safe': True, 'rug': 5}}
+    cfg = {'agentTakePct': 50, 'agentScalp': False}
+    pos, rep, _ = of.reap([LEG_], [ROW_], {'PA': 1.11}, cfg, None, 100)
+    assert rep[0]['action'] == 'trim' and rep[0]['rule'] == 'R6h half banked'
+    pos, rep, _ = of.reap([LEG_], [ROW_], {'PA': 1.12}, cfg, pos, 110)
+    assert rep[0]['action'] != 'trim'                                          # once per position

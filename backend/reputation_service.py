@@ -10294,6 +10294,8 @@ async def _prime_tick_inner(now):
                         cur['agentExitAt'] = now
                         cur = _prime.agent_pull(cur, x['pair'], px, liqs, now, x['why'])   # in control: banked to FREE card cash, the seat opens for their next coin
                         cur = _prime.note_dropped(was_, cur, now, cfg_t['rotateHours'], px)
+                    elif x['action'] == 'trim' and ctl_:   # 💰 scale-out: half banked, the rest rides the trail
+                        cur = _prime.agent_trim(cur, x['pair'], px, liqs, now, _of.SCALE_PCT, x['why'])
                     elif x['action'] == 'pull':
                         cur = _prime.sell_leg_to_cash(cur, x['pair'], px, now, 100.0)
                         cur['events'].append({'at': now, 'kind': 'agent', 'symbol': x['symbol'], 'why': f"🤖 agents pulled ${x['symbol']}: {x['why']}"})
@@ -15376,7 +15378,7 @@ def _agent_blocked(card, now):
     books = (_fw_peek().get('books') or {}).values()
     for m_ in [m_ for m_, v_ in _agent_refused.items() if v_[0] <= now]:
         _agent_refused.pop(m_, None)
-    return _prime.agent_out(card, now) | set(_agent_refused) | _co.blocked(_coach_state(), now) | set().union(set(), *[_fw.agent_no_buy(b, now) for b in books]) | _trl.skips(_taught_rules(), _office.get('taught') or {})   # + coins the creator pulled with a reason (6h) + 🎓 your lessons in ✋ skip mode
+    return _prime.agent_out(card, now, lambda m_: _fuse._f((_jup_px_cache.get(m_) or (0, 0))[1])) | set(_agent_refused) | _co.blocked(_coach_state(), now) | set().union(set(), *[_fw.agent_no_buy(b, now) for b in books]) | _trl.skips(_taught_rules(), _office.get('taught') or {})   # + coins the creator pulled with a reason (6h) + 🎓 your lessons in ✋ skip mode
 
 
 def _seat_refusals(tid, now, window=900.0, keep=5):

@@ -115,4 +115,6 @@ def _one_read_soft_exits(monkeypatch):
     of = sys.modules.get('office')
     if of is not None and hasattr(of, 'SNAP_N'):
         monkeypatch.setattr(of, 'SNAP_N', 1)
+    if of is not None and hasattr(of, 'SCALE_AT'):
+        monkeypatch.setattr(of, 'SCALE_AT', 1e9)   # 💰 the scale-out has its own test (test_office: scale_out_in_reap) at its live value
     yield

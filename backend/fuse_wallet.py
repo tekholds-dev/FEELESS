@@ -93,7 +93,7 @@ def target(card, prices):
         px = _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
         t = out.setdefault(l['mint'], {'units': 0.0, 'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'px': px, 'role': l.get('role'), 'arena': bool(l.get('arena')), 'trench': bool(l.get('trench')), 'picked': bool(l.get('picked')), 'curve': bool(l.get('curve')), 'agent': agent_seat(l),
                                        'trim': bool(l.get('trimAt')) and _f(l.get('trimAt')) > 0, 'trimAt': _f(l.get('trimAt')),
-                                       'manualCash': bool(l.get('manualCash')), 'locked': bool(l.get('ride') or l.get('frozen') or (l.get('ticket') and not agent_seat(l)) or l.get('scout') or l.get('house'))})   # 🎟 a small ticket (scout / trench drop / young hand pick) is never topped up to a full seat
+                                       'manualCash': bool(l.get('manualCash')), 'locked': bool(l.get('ride') or l.get('frozen') or (l.get('ticket') and not agent_seat(l)) or l.get('scout') or l.get('house') or l.get('scaled'))})   # 🎟 a small ticket (scout / trench drop / young hand pick) is never topped up to a full seat
         t['units'] += _f(l.get('units')) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)   # a coin whose buy hasn't landed is still WANTED
     return out
 
@@ -1286,7 +1286,7 @@ def topup_card(card, usd, prices, now, first=False, current_usd=None):
         # current weight: a card with one held coin and three seats still waiting on their buys put the WHOLE top-up into that one
         # coin, and 7 seconds later 75% of it was sold back to fund the others ($2.00 in, $1.49 straight back out).
         # 🎟 a small ticket (young pick · trench drop · scout · house-money coin) is never lifted to a full seat by a top-up either
-        seats = [l for l in c['legs'] if px(l) > 0 and not (l.get('ride') or l.get('frozen') or l.get('ticket') or l.get('scout') or l.get('house'))] or [l for l in c['legs'] if px(l) > 0]
+        seats = [l for l in c['legs'] if px(l) > 0 and not (l.get('ride') or l.get('frozen') or l.get('ticket') or l.get('scout') or l.get('house') or l.get('scaled'))] or [l for l in c['legs'] if px(l) > 0]
         if seats:
             val = lambda l: (_f(l.get('units')) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)) * px(l)
             share = (sum(val(l) for l in seats) + usd) / len(seats)
