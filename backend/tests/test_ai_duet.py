@@ -47,3 +47,11 @@ def test_chat_reply_shows_both_models():
     assert d.combine('a', 'b').startswith('🖥 GEMMA') and '💻 QWEN' in d.combine('a', 'b')
     assert d.combine('a', None) == 'a'
     assert 'PUSH BACK' in d.second_prompt('why?', 'because')
+
+
+def test_each_local_model_has_its_own_name_in_the_owners_chat():
+    env = {'LAN_LLM_NAME': 'Vega'}
+    assert 'Your name is Vega' in ai_router.identity_line(env, 'lan') and 'partner model is Kai' in ai_router.identity_line(env, 'lan')
+    assert ai_router.identity_line(env, 'groq') == ''
+    assert 'LATEST message' in ai_router.GENERAL_SYSTEM and 'yurrr' in ai_router.GENERAL_SYSTEM
+    assert d.combine('a', 'b', {'lan': 'Vega', 'local': 'Kai'}).startswith('🖥 VEGA · Gemma')

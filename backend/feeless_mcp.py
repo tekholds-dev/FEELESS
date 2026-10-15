@@ -226,6 +226,45 @@ def t_trench(a):
     return _cut('\n'.join(out))
 
 
+LENSES = {'pump': ('ptrend', "🔥 Pump.fun's OWN trending tab, in Pump's order"), 'movers': ('live', '🚀 live movers (5-min $ × move)'),
+          'volume': ('volume', '🌊 busiest by 1h volume'), 'dips': ('bottom', '🟢 dips & bottoms'), 'callers': ('procall', '🎯 proven Pump callers'),
+          'narrative': ('wave', '🌊 narrative leaders (the original of a ticker wave)'), 'best': ('best', "🏆 the agents' best now")}
+
+
+def t_pump_trending(a):
+    """Pump.fun's own trending list (or another FEELESS pick list) with every vital FEELESS has on each coin — read, vital grade, holders,
+    top-10, bundles, organic share, socials — so a model can shortlist, then `investigate` the best 2–3."""
+    key = str(a.get('list') or 'pump').lower()
+    lens, label = LENSES.get(key, LENSES['pump'])
+    n = max(5, min(30, int(_f(a.get('limit'), 15))))
+    d = _get(REP, f'/fuses/discover?lens={lens}', 20) or {}
+    out = [f"{label} · {len(d.get('pools') or [])} coins · FACT = FEELESS's live read (Jupiter / DexScreener / our scan). Next: investigate(mint) the best 2–3."]
+    for r in (d.get('pools') or d.get('rows') or [])[:n]:
+        v, tv = r.get('vital') or {}, r.get('tv') or {}
+        call = (tv.get('call') or [None, None])[1]
+        soc = ' '.join(x for x, k in (('site', 'site'), ('X', 'x'), ('tg', 'tg')) if r.get(k)) or 'no socials'
+        out.append(f"${r.get('symbol')} {r.get('baseAddress') or r.get('mint')} · {_f(r.get('ageH')) * 60:.0f}m · cap {_usd(r.get('mcap'))} · pool {_usd(r.get('liquidityUsd'))} · "
+                   f"vol1h {_usd(r.get('vol1h'))} · 1h {_f(r.get('change1h')):+.0f}% · 5m {_f(r.get('change5m')):+.0f}% · buys {_f(r.get('buyShare')):.0f}% · "
+                   f"vital {v.get('grade') or '?'} · read {call or '—'} · top10 {r.get('top10') if r.get('top10') is not None else '?'}% · "
+                   f"organic {v.get('organicPct') if v.get('organicPct') is not None else '?'}% · bundled {r.get('bundledN') if r.get('bundledN') is not None else '?'} · {soc}")
+    return _cut('\n'.join(out))
+
+
+def t_notes(_a):
+    """What the owner taught the desk (notes, narratives, chart lessons, the rules the agents run), the approved build queue and the
+    Brain's saved settings — the shared memory every model should read before advising."""
+    out = []
+    t = _file('agent_teach.json') or {}
+    for x in (t.get('items') or t.get('lessons') or [])[-25:]:
+        out.append(f"🎓 {x.get('kind', 'note')}: {str(x.get('text') or '')[:200]}")
+    for k, r in ((t.get('rules') or {}).items() if isinstance(t.get('rules'), dict) else []):
+        out.append(f"🧷 rule {k}: mode {r.get('mode')} · strength {r.get('strength')}")
+    b = _file('build_queue.json') or {}
+    for x in (b.get('items') or [])[-12:]:
+        out.append(f"📋 build [{x.get('status')}] {str(x.get('title') or x.get('key') or '')[:80]} — {str(x.get('text') or x.get('value') or '')[:140]}")
+    return _cut('\n'.join(out) or 'No notes on file yet.')
+
+
 DROP = {'logo', 'avatar', 'pairAddress', 'baseAddress', 'img', 'image', 'icon', 'url', 'x', 'tg', 'site', 'links', 'sig', 'tx', 'bars', 'path',
         'spark', 'hist', 'times', 'supplySrc', 'events'}
 
@@ -610,6 +649,10 @@ TOOLS = {
     'web_fetch': (t_web_fetch, 'Read any public web page or JSON API as plain text (title, text, links). Cached 2 min.',
                   {'url': {'type': 'string'}, 'max_chars': {'type': 'integer', 'description': '500–6000 (default 4000)'}}),
     'x_search': (t_x_search, 'Recent X posts about a ticker / coin / CA (via web search).', {'query': {'type': 'string'}, 'limit': {'type': 'integer'}}),
+    'pump_trending': (t_pump_trending, "Pump.fun's OWN trending list (or list=movers / volume / dips / callers / narrative / best) with FEELESS's vitals on every coin. "
+                      'Use to shortlist, then investigate the best 2–3 and deep_research the narrative.',
+                      {'list': {'type': 'string', 'enum': list(LENSES)}, 'limit': {'type': 'integer', 'description': '5–30 (default 15)'}}),
+    'feeless_notes': (t_notes, "The owner's teachings, the rules the agents run, and the approved build queue — read before advising.", {}),
     'deep_research': (t_deep_research, 'DEEP research on anything: several searches (the query + scam / team / news angles), the best pages READ in parallel, '
                       'every excerpt with its URL. Use for projects, people, narratives, "is this legit".',
                       {'query': {'type': 'string'}, 'depth': {'type': 'integer', 'description': '1–3 (default 2): more angles + more pages'}}),

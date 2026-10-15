@@ -132,16 +132,17 @@ def trusted(rec):
 # ── the owner's chat: both models on one question ─────────────────────────────────────────────────────────────────────────────
 def second_prompt(question, lead_text):
     """💻 What Qwen is asked after Gemma answered: agree or push back, add what is missing — never repeat."""
-    return (f"The owner asked: {str(question)[:1500]}\n\n🖥 Gemma (the lead model) answered:\n{str(lead_text)[:2500]}\n\n"
-            "You are the SECOND model. In ≤ 5 lines: say AGREE or PUSH BACK first, then only what Gemma got wrong or left out, "
+    return (f"The owner asked: {str(question)[:1500]}\n\nThe lead model answered:\n{str(lead_text)[:2500]}\n\n"
+            "You are the SECOND read. In ≤ 5 lines: say AGREE or PUSH BACK first, then only what Gemma got wrong or left out, "
             "with the numbers from the context. Do not repeat what is already right.")
 
 
-def combine(lead_text, second_text):
-    """The chat reply when both answered (or which one did)."""
+def combine(lead_text, second_text, names=None):
+    """The chat reply when both answered (or which one did). `names` = {lan, local} → the models' own names on the headers."""
     a, b = str(lead_text or '').strip(), str(second_text or '').strip()
+    n = names or {}
     if a and b:
-        return f"🖥 GEMMA\n{a}\n\n💻 QWEN — second read\n{b}"
+        return f"🖥 {str(n.get(LEAD) or 'GEMMA').upper()} · Gemma\n{a}\n\n💻 {str(n.get(SECOND) or 'QWEN').upper()} · Qwen — second read\n{b}"
     return a or b or None
 
 

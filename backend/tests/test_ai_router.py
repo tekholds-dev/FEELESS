@@ -491,14 +491,14 @@ def test_a_general_question_gets_normal_language_and_never_the_trench_schema():
     res = run(r.ask(h, env(), {}, 'which models are vital to being better?', context={'providers': 'OPENROUTER: ONLINE'}, role='owner'))
     assert res['mode'] == 'general' and res['text'] == PLAIN and res['advice'] is None and res['source'] == 'local'
     sys_, user_ = h.calls[0][1]['messages'][0]['content'], h.calls[0][1]['messages'][1]['content']
-    assert sys_ == air.GENERAL_SYSTEM and 'normal language' in sys_ and 'Do NOT answer in JSON' in sys_
+    assert sys_.endswith(air.GENERAL_SYSTEM) and sys_.startswith('Your name is Kai') and 'normal language' in sys_ and 'Do NOT answer in JSON' in sys_
     assert 'SUPPORT_ENTRY' not in sys_ and 'risk_flags' not in sys_.replace('stance / priority / risk_flags', '') and 'ROLE:' not in user_ and 'CASE:' not in user_
     assert user_.startswith('which models are vital') and 'CONTEXT' in user_ and 'OPENROUTER: ONLINE' in user_
     assert not r.cache                                                                              # a chat answer is never cached as a coin read
     # the same question sent through reason() with NO mode: still general — it is not a case packet
     r2, h2 = air.Router(), Http({'127.0.0.1': [chat(PLAIN)]})
     got = run(r2.reason(h2, env(), {}, {'question': 'how should the agents coordinate tonight?'}, 'manager'))
-    assert got['mode'] == 'general' and got['text'] == PLAIN and h2.calls[0][1]['messages'][0]['content'] == air.GENERAL_SYSTEM
+    assert got['mode'] == 'general' and got['text'] == PLAIN and h2.calls[0][1]['messages'][0]['content'].endswith(air.GENERAL_SYSTEM)
     # a model that answers a general question in the JSON schema anyway is shown as it answered — nothing is forced, nothing is parsed
     r3 = air.Router()
     odd = run(r3.ask(Http({'127.0.0.1': [chat('```json\n{"stance":"DEEP_REVIEW","summary":"x"}\n```')]}), env(), {}, 'hello?', role='owner'))

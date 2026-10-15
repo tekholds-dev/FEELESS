@@ -13690,7 +13690,7 @@ async def admin_ai_chat(request: Request):
             lead_t = res.get('text')
             r2 = await _air.ROUTER.ask(_ai_http(), env, cfg, _duet.second_prompt(text, lead_t) if lead_t else text, context=ctx, role='owner', history=hist_,
                                        system=_aic.system_for(mode), only=(_duet.SECOND,), tune=_aic.tune_of(_chat['settings']))
-            both_ = _duet.combine(lead_t, r2.get('text'))
+            both_ = _duet.combine(lead_t, r2.get('text'), {k_: _air.model_name(env, k_) for k_ in (_duet.LEAD, _duet.SECOND)})
             res = {**res, 'text': both_, 'label': ' + '.join(x for x in (res.get('label') if lead_t else None, r2.get('label') if r2.get('text') else None) if x) or res.get('label'),
                    'ms': (res.get('ms') or 0) + (r2.get('ms') or 0), 'model': ' + '.join(x for x in (res.get('model'), r2.get('model')) if x)}
         reply, new, refused = res.get('text'), [], []

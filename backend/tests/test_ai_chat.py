@@ -16,7 +16,7 @@ def test_direct_chat_works_in_normal_language_keeps_a_short_history_and_never_fo
     res = run(r.ask(h, env(), {}, 'why are the wins so small?', context={'trail': 'live trail arm +4%'}, role='owner', history=ch.as_messages(hist[:-1])))
     assert res['mode'] == 'general' and res['text'].startswith('Reaper banks winners') and res['advice'] is None
     sent = h.calls[0][1]['messages']
-    assert sent[0]['content'] == air.GENERAL_SYSTEM and 'SUPPORT_ENTRY' not in json.dumps(sent) and 'ROLE:' not in sent[-1]['content']      # no trench schema, no case packet
+    assert sent[0]['content'].endswith(air.GENERAL_SYSTEM) and 'SUPPORT_ENTRY' not in json.dumps(sent) and 'ROLE:' not in sent[-1]['content']      # no trench schema, no case packet
     hist = ch.push(hist, 'assistant', res['text'], {'ms': res['ms']})
     r2, h2 = air.Router(), Http({'127.0.0.1': [chat('Yes.')]})
     run(r2.ask(h2, env(), {}, 'and the stops?', role='owner', history=ch.as_messages(hist)))

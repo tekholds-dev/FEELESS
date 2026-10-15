@@ -63,7 +63,23 @@ LOCAL_BG_PRIO = 2          # … only owner review / a split desk / a READY coin
 BUDGET_WAIT_MAX = 20.0    # a call waits at most this long for the provider's minute budget / a short Retry-After
 import contextvars as _cv
 IMAGE_MODEL = 'google/gemini-3.1-flash-image'   # 🎨 OpenRouter image-output model (OPENROUTER_IMAGE_MODEL overrides)
-TUNE = _cv.ContextVar('ai_tune', default=None)   # 🎛 the owner's chat tuning {temp, maxTok} for THIS call only (never the agents' background reads)
+TUNE = _cv.ContextVar('ai_tune', default=None)
+IDENTITY = _cv.ContextVar('ai_identity', default=False)   # 🪪 the owner's chat: each LM Studio model speaks as itself (its own name, its partner's name)
+NAME_DEFAULT = {'lan': 'Vega', 'local': 'Kai'}   # LAN_LLM_NAME / LOCAL_LLM_NAME override — the names the owner's two models answer to
+
+
+def model_name(env, key):
+    return str((env or {}).get('LAN_LLM_NAME' if key == 'lan' else 'LOCAL_LLM_NAME') or '').strip()[:24] or NAME_DEFAULT.get(key)
+
+
+def identity_line(env, key):
+    """Who THIS model is in the owner's chat: a human name, its partner, its job — so 'who are you / pick a name' never stalls."""
+    if key not in NAME_DEFAULT:
+        return ''
+    other = 'local' if key == 'lan' else 'lan'
+    role = 'the lead trench analyst (you read first)' if key == 'lan' else 'the second read (you check the lead and push back when it is wrong)'
+    return (f"Your name is {model_name(env, key)} — {role} on the FEELESS desk. Your partner model is {model_name(env, other)}. You have a personality: "
+            "a sharp, funny degen operator who swears when it fits. Asked who you are, answer as yourself in one line.")   # 🎛 the owner's chat tuning {temp, maxTok} for THIS call only (never the agents' background reads)
 MAX_TOKENS = 460          # the brain prompt's schema (16 keys) needs room — at 260 the JSON was cut off and read "malformed"
 LABEL = {'lan': 'DESKTOP AI', 'local': 'LOCAL AI', 'groq': 'GROQ', 'openrouter': 'OPENROUTER', 'openai': 'OPENAI', 'xai': 'XAI', 'custom': 'CUSTOM AI', 'NONE': 'NONE'}
 _KEYLIKE = re.compile(r'[A-Za-z0-9_\-]{20,}')
@@ -446,7 +462,9 @@ GENERAL_SYSTEM = ("You are the assistant brain of FEELESS, a live Solana memecoi
                   "unless the user explicitly asks for JSON. Use only what you know or what `CONTEXT` gives you; say plainly when you do not know. Never "
                   "invent market data, prices, results or history. No disclaimers, no 'as an AI'. Lead with the answer. Quote the exact numbers, agent names and "
                   "coins from CONTEXT that back it. Banned: generic advice ('improve accuracy', 'monitor and adjust', 'optimize resources'), numbered consultant "
-                  "plans, restating the question. If CONTEXT cannot answer it, say what is missing in one line.")
+                  "plans, restating the question. If CONTEXT cannot answer it, say what is missing in one line. "
+                  "Answer ONLY the owner's LATEST message — earlier turns are background. If the latest message is a greeting or slang ('yo', 'yurrr', 'gm', "
+                  "'wsg'), greet back in one short line in your own voice and ask what they want to hit — never pick the old topic back up by yourself.")
 CASE_KEYS_HINT = ('status', 'rank', 'cap', 'liq', 'result', 'trigger', 'heldMin', 'structure', 'phase')
 DESK_STATES = ('coach', 'lab')   # the desk's own packets (our real trades → directives / rules / tune): structured JSON answers, so CASE mode
 
@@ -790,6 +808,8 @@ class Router:
             hdr['Authorization'] = f"Bearer {env.get(kvar)}"
         elif p['key'] in LM:
             hdr.update(_lm_auth(env, p['key']).get('headers') or {})
+        if IDENTITY.get() and msgs and msgs[0].get('role') == 'system' and identity_line(env, p['key']):
+            msgs = [{'role': 'system', 'content': identity_line(env, p['key']) + '\n\n' + str(msgs[0].get('content') or '')}] + list(msgs[1:])
         body = {'model': p['model'], 'messages': msgs, 'temperature': 0.1, 'max_tokens': MAX_TOKENS, 'stream': False, **EXTRA_BODY.get(p['key'], {})}
         tn = TUNE.get()
         if tn:
@@ -877,9 +897,11 @@ class Router:
                 gm = with_images(gm, images)
                 only = tuple(k for k in (only or PROVIDERS) if k not in LM) or ('openrouter',)
             tok = TUNE.set(tune) if tune else None
+            idt = IDENTITY.set(role == 'owner')
             try:
                 res = await self._route(http, env, cfg, None, role, time.time(), urgency, prio, only, mode='general', gmsgs=gm)
             finally:
+                IDENTITY.reset(idt)
                 if tok is not None:
                     TUNE.reset(tok)
             if res.get('source') in PROVIDERS:
