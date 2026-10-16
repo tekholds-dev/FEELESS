@@ -124,7 +124,7 @@ test('⚡ an agent pulses ONLY when a new real tape event of its own arrives —
   await act(async () => { root.render(<AgentHubProvider value={{ ...hub, d: d2, sel: selectors(d2) }}><AgentCockpit call={call} /></AgentHubProvider>); });
   expect(q('ack-agent-warden').querySelector('.is-pulse')).not.toBeNull(); expect(q('ack-agent-devil').querySelector('.is-pulse')).toBeNull();
   expect(q('ack-tape-9').className).toContain('is-new');
-  expect(fetchSpy).not.toHaveBeenCalled(); global.fetch = realFetch;
+  expect(fetchSpy.mock.calls.filter(([u]) => !String(u).includes('/api/reputation/edge'))).toHaveLength(0); global.fetch = realFetch;   // only the shared coin-edge poller (🦠 germ chips) may ask
   await act(async () => { root.unmount(); });
 });
 
