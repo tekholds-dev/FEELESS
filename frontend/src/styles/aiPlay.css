@@ -50,3 +50,21 @@ body.theme-day .apg-code .is-add { background: rgba(21, 140, 70, .14); color: #0
 .apg-run li.is-ok small { color: var(--m-accent); } .apg-run li.is-bad small, .apg-run li.is-err span { color: #ff8fa3; } .apg-run p { margin: 0; font: 600 10px var(--m-mono); color: var(--m-mute); }
 body.theme-day .apg-run li { background: rgba(255, 255, 255, .6); } body.theme-day .apg-run code { color: #1f5fa8; }
 @media (max-width: 640px) { .apg-run li { grid-template-columns: 1fr; } }
+/* 🪞 side by side: the change as it will read in the file */
+.apg-side { max-height: 420px; overflow: auto; border: 1px solid rgba(21, 209, 106, .22); border-radius: 10px; background: #050d09; font: 10.5px/1.45 'JetBrains Mono', monospace; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
+.apg-side::-webkit-scrollbar { width: 6px; height: 6px; } .apg-side::-webkit-scrollbar-thumb { background: #15d16a; border-radius: 3px; }
+.apg-sh, .apg-sr { display: grid; grid-template-columns: 1fr 1fr; min-width: 560px; }
+.apg-sh { position: sticky; top: 0; z-index: 1; background: #0a1a12; }
+.apg-sh b { padding: 5px 8px; font-size: 9px; letter-spacing: .1em; color: #ff8fa3; } .apg-sh b + b { color: #45e486; border-left: 1px solid rgba(21, 209, 106, .2); }
+.apg-sr code { white-space: pre; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; color: rgba(220, 240, 228, .7); }
+.apg-sr code + code { border-left: 1px solid rgba(21, 209, 106, .12); }
+.apg-sr { animation: apgRow .16s ease-out both; animation-delay: calc(var(--i, 0) * 12ms); }
+.apg-sr.is-del code:first-child, .apg-sr.is-chg code:first-child { background: rgba(255, 143, 163, .12); color: #ffc2cd; }
+.apg-sr.is-add code + code, .apg-sr.is-chg code + code { background: rgba(21, 209, 106, .14); color: #b6f5d0; }
+.apg-sr.is-at code { color: #7fb6ff; background: rgba(127, 182, 255, .06); }
+@keyframes apgRow { from { transform: translateX(-4px); } to { transform: none; } }
+body.fx-lite .apg-sr { animation: none; }
+@media (prefers-reduced-motion: reduce) { .apg-sr { animation: none; } }
+body.theme-day .apg-side { background: #f3faf6; } body.theme-day .apg-sh { background: #e3f2ea; } body.theme-day .apg-sr code { color: #263a2f; }
+body.theme-day .apg-sr.is-del code:first-child, body.theme-day .apg-sr.is-chg code:first-child { color: #9b1c33; }
+body.theme-day .apg-sr.is-add code + code, body.theme-day .apg-sr.is-chg code + code { color: #0b6b37; }

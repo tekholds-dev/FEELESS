@@ -79,3 +79,9 @@ body.theme-day .vbd { background: rgba(236, 246, 240, .85); border-color: rgba(1
 body.theme-day .vbd > header b, body.theme-day .trl > header b, body.theme-day .vbd-detail dd, body.theme-day .vbd-tile { color: #0f2419; }
 body.theme-day .vbd-tile.is-good { --t: #0c8a45; } body.theme-day .vbd-tile.is-watch { --t: #9a6a00; } body.theme-day .vbd-tile.is-bad { --t: #c2264a; }
 @media (max-width: 640px) { .vbd-tiles { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); } .trl-row > small { flex-basis: 100%; } }
+/* 🦠 a coin sitting in the germ buy zone breathes green (transform / opacity only) */
+.vbd-tile.is-germzone { position: relative; }
+.vbd-tile.is-germzone::after { content: ''; position: absolute; inset: -2px; border-radius: 8px; border: 1px solid #45e486; opacity: 0; pointer-events: none; animation: vbdGerm 1.8s ease-in-out infinite; }
+@keyframes vbdGerm { 0%, 100% { opacity: 0; transform: scale(.97); } 50% { opacity: .9; transform: scale(1.02); } }
+body.fx-lite .vbd-tile.is-germzone::after { animation: none; opacity: .6; }
+@media (prefers-reduced-motion: reduce) { .vbd-tile.is-germzone::after { animation: none; opacity: .6; } }

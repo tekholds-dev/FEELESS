@@ -4655,3 +4655,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   discipline, ▶/⏸ + ⚡ run) · 🔎 WHY SHE TRADES OR NOT (her own scan: read → passed → holding, the rules that stopped the rest as bars,
   the three lanes, next up, brain / safety refusals) · 🤝 duo AI read · 📂 open trades with live % bars · 🧾 latest moves · 🧠 brain fold
   (presets, rules, FeeBrain). `GET /admin/feecat` adds `scan`, `duo`, `discipline`, `strength`, `exits`, richer `cat`; re-read every 15s.
+- 🎓 BRAIN › LEARNED (owner, 2026-10-16: "tell me agents / AI are learning — chat log shows learnings, proposals"; `GET /admin/ai/learned`, owner,
+  read only → `command/BrainLearned.jsx`, `styles/brainLearned.css` `bln-*`, a Brain pane mounted only while open): your standing words filed from
+  the chat log · hold lessons · live rules · the germ entry's real record (agents by thesis germEntry, yours by entry snapshot) · fixes waiting for ✅.
+  🦠 Vital board group GERM vs GUN (`germ` / `gun` tiles from kernel `vit.germ/germD/germ5/germ5D/hiD`; in the buy zone the tile breathes). 🧩 Code lab
+  opens on 🪞 Side by side (`sideBySide(diff)`: before | after as it will read in the file) when no mock-up exists.

@@ -223,7 +223,7 @@ def vit(r):
            'organic': v.get('organic'), 'rug': v.get('rug'), 'read': v.get('read'), 'vol1h': v.get('vol1h'), 'tx1h': v.get('txns1h'),
            'buy': n.get('buy') if n.get('buy') is not None else v.get('buyShare'), 'd5': n.get('d5'), 'pace': n.get('pace'), 'liqD': n.get('liqD'),
            'phase': li.get('phase'), 'cls': li.get('cls'), 'press': li.get('press'), 'first10': li.get('first10'),
-           'chart': ch.get('state'), 'entry': en[0], 'entryWhy': en[2] if len(en) > 2 else None, 'dq': (ch.get('q') or {}).get('state'),
+           'chart': ch.get('state'), 'germ': ch.get('germ'), 'germD': ch.get('germDist'), 'germ5': ch.get('germ5'), 'germ5D': ch.get('germ5Dist'), 'hiD': ch.get('distHigh'), 'entry': en[0], 'entryWhy': en[2] if len(en) > 2 else None, 'dq': (ch.get('q') or {}).get('state'),
            'mp': r.get('mp'), 'narr': mi.get('narr'), 'wave': r.get('waveRole'), 'callers': mi.get('callers'), 'swarm': mi.get('swarm'),
            'taught': r.get('taught') or None, 'soc': _sr.report(r['social']) if r.get('social') else None,
            'links': {k: r[k] for k in ('site', 'x', 'tg') if isinstance(r.get(k), str) and r[k].startswith(('http://', 'https://'))} or None}

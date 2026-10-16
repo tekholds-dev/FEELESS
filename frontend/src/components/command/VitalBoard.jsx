@@ -79,7 +79,7 @@ export function VitalBoard({ c, pos, rules, call, isOwner }) {
     <SocStrip c={c} pos={pos} open={open === 'soc'} onOpen={() => setOpen(open === 'soc' ? null : 'soc')} />
     {VITAL_GROUPS.map(([g, label]) => { const ts = tiles.filter(t => t.group === g); if (!ts.length) return null;
       return <div key={g} className="vbd-group"><small>{label}</small><div className="vbd-tiles">{ts.map((t, i) =>
-        <button key={t.key} type="button" className={`vbd-tile is-${t.tone} ${open === t.key ? 'is-open' : ''}`} style={{ '--i': i }} aria-expanded={open === t.key}
+        <button key={t.key} type="button" className={`vbd-tile is-${t.tone} ${open === t.key ? 'is-open' : ''}${t.germ && t.tone === 'good' ? ' is-germzone' : ''}`} style={{ '--i': i }} aria-expanded={open === t.key}
           onClick={() => setOpen(open === t.key ? null : t.key)} data-testid={`vital-${t.key.replace(/\W+/g, '-')}`}>
           <i>{t.icon}</i><span><small>{t.label}</small><b>{t.value}</b></span>
           {t.meter != null ? <u className={`vbd-meter ${t.bad ? 'is-risk' : ''}`} aria-hidden="true"><s style={{ transform: `scaleX(${t.meter})` }} /></u> : null}

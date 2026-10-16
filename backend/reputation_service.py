@@ -14136,6 +14136,23 @@ async def admin_ai_activity(request: Request):
     return {'items': _aic.activity(_ai['log'], _chat_props(), (_json_load(AI_PLAY_PATH, {}) or {}).get('items'), _local_lane), 'at': round(time.time(), 1)}
 
 
+@app.get('/api/reputation/admin/ai/learned')
+async def admin_ai_learned(request: Request):
+    """🎓 Owner: what the desk has LEARNED, in one read — your standing words from the chat log, hold lessons + taught notes, live rules /
+    repeat causes, the germ entry's own real record (agents) + your entries vs the germ, and the fixes waiting for your ✅. Read only."""
+    _require_owner(request)
+    now = time.time(); mem_ = _aim.prune(_aim_mem.get() or {}, now)
+    pick_ = lambda d_, n_: [{'t': x.get('t'), 'at': x.get('at')} for x in reversed(mem_.get(d_) or [])][:n_]
+    pos_ = (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or []
+    try:
+        yours_ = _co.germ_record(pos_)
+    except Exception:
+        yours_ = {}
+    pend_ = [{k_: x.get(k_) for k_ in ('id', 'agent', 'kind', 'key', 'new', 'reason')} for x in (_chat_props().get('items') or []) if x.get('status') == 'pending'][:8]
+    return {'owner': pick_('owner', 12), 'lessons': pick_('lessons', 12), 'rules': pick_('rules', 10), 'germAgents': _aic.germ_record(_real_trades()),
+            'germYours': yours_, 'pending': pend_, 'size': _aim.size(mem_), 'at': round(now, 1)}
+
+
 @app.get('/api/reputation/admin/ai/playground')
 async def admin_ai_playground(request: Request):
     """🧩 Owner: the code lab's proposals (newest first) + the parts of FEELESS a proposal may target."""

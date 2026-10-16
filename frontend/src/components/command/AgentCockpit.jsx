@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'rea
 import { createPortal } from 'react-dom';
 import { AddMyCoin, SeatStudy, MySeatsRecord, SeatControls } from './MySeat';
 import { OwnerStudy } from './OwnerStudy';
+import { BrainLearned } from './BrainLearned';
 import { CHART_BGS, setChartBg, useChartBg } from '../../lib/chartBg';
 import { toast } from 'sonner';
 import { grabOrder } from '../../lib/chartGrab';
@@ -598,7 +599,8 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
   const brainExtras = useMemo(() => [['coach', `👑 Coach${(o?.coach?.rules || []).length ? ` · ${o.coach.rules.length}` : ''}`, <CoachBox coach={o?.coach} seats={seatsRef.current} tpl={d?.card?.tpl} call={call} isOwner={isOwner} />],
     ['teach', `🎓 Teach${(o?.teach?.items || []).length ? ` · ${o.teach.items.length}` : ''}`, <TeachBox o={{ teach: o?.teach, ai: o?.ai }} mint={mint} sym={sym} call={call} isOwner={isOwner} />],
     // 👤 everything the desk learned from YOUR trades, inside the Brain (owner, 2026-10-15: "chat log show all learnings from my trades")
-    ['you', `👤 Your trades${(o?.ownerStudy?.findings || []).length ? ` · ${o.ownerStudy.findings.length}` : ''}`, <OwnerStudy study={o?.ownerStudy} memory={o?.aiMemory} />]],
+    ['you', `👤 Your trades${(o?.ownerStudy?.findings || []).length ? ` · ${o.ownerStudy.findings.length}` : ''}`, <OwnerStudy study={o?.ownerStudy} memory={o?.aiMemory} />],
+    ['learned', '🎓 Learned', <BrainLearned call={call} />]],
   // eslint-disable-next-line react-hooks/exhaustive-deps
   [o?.coach, o?.teach, o?.ai, o?.ownerStudy, o?.aiMemory, heldKey, d?.card?.tpl, mint, sym, call, isOwner]);
   if (!o || o.cold) return <section className="ack" data-testid="agent-cockpit">{head}<MissionRibbon tiles={missionTiles(d, [])} cold /><p className="ack-warm" data-testid="ack-warm"><i aria-hidden />warming up — the cockpit opens with the agents' first pass (≈ 1 min after a restart)</p></section>;   /* 🧹 no old desk while cold (owner, 2026-10-15: "not the current layout") */

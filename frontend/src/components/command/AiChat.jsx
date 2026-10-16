@@ -196,7 +196,7 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
       <p className="cch-setnote">Switches, rank weights and exit notches always wait for your ✅. Execution, limits and the wallet are never reachable.</p></div> : null}
     <div className="cch-shell">
     {isOwner ? <div className="cch-panes" role="tablist" aria-label="Brain sections">{[['talk', '💬 Talk'], ...extras.map(([k, l]) => [k, l]), ['play', '🧩 Code lab'], ['log', '📜 Activity']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={pane === k} className={pane === k ? 'active' : ''} onClick={() => setPane(k)} data-testid={`cch-pane-${k}`}>{l}</button>)}</div> : null}
-    {extras.map(([k, , node]) => <div key={k} className="cch-extra" hidden={pane !== k} data-testid={`cch-extra-${k}`}>{node}</div>)}
+    {extras.map(([k, , node]) => <div key={k} className="cch-extra" hidden={pane !== k} data-testid={`cch-extra-${k}`}>{k === 'learned' && pane !== k ? null : node}</div>)}
     {isOwner && pane === 'play' ? <div className="cch-extra" data-testid="cch-extra-play"><AiPlayground call={call} prov={prov} /></div> : null}
     {isOwner && pane === 'log' ? <div className="cch-extra" data-testid="cch-extra-log"><AiActivity call={call} /></div> : null}
     <div className="cch-talkpane" hidden={pane !== 'talk'}><div className="cch-modes" data-testid="cch-modes" role="radiogroup" aria-label="Chat mode">{CHAT_MODES.map(([k, l, tip]) => <button key={k} type="button" role="radio" aria-checked={mode === k} className={mode === k ? 'active' : ''}

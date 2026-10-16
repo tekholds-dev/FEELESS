@@ -5,7 +5,7 @@ const pctW = (v, d = 0) => (n(v) == null ? '—' : `${n(v) > 0 && d ? '+' : ''}$
 const money = v => (n(v) == null ? '—' : n(v) >= 1e6 ? `$${(n(v) / 1e6).toFixed(1)}M` : n(v) >= 1e3 ? `$${(n(v) / 1e3).toFixed(1)}K` : `$${Math.round(n(v))}`);
 const tone3 = (v, ok, mid, low = true) => (n(v) == null ? 'unk' : low ? (n(v) < ok ? 'good' : n(v) < mid ? 'watch' : 'bad') : (n(v) >= ok ? 'good' : n(v) >= mid ? 'watch' : 'bad'));
 
-export const VITAL_GROUPS = [['drain', '🩸 EXIT RISK'], ['holders', '🧩 HOLDERS'], ['flow', '🌊 FLOW'], ['launch', '🚀 LAUNCH'], ['chart', '📈 CHART'], ['story', '📖 STORY'], ['rules', '🎓 YOUR RULES']];
+export const VITAL_GROUPS = [['drain', '🩸 EXIT RISK'], ['holders', '🧩 HOLDERS'], ['flow', '🌊 FLOW'], ['launch', '🚀 LAUNCH'], ['germ', '🦠 GERM vs 🔫 GUN'], ['chart', '📈 CHART'], ['story', '📖 STORY'], ['rules', '🎓 YOUR RULES']];
 const clamp01 = x => Math.max(0, Math.min(1, x));
 const DRAIN_TONE = { CLEAR: 'good', WATCH: 'watch', DRAIN: 'bad' };
 const TAPE_TONE = { BUYERS: 'good', BALANCED: 'watch', PEAK: 'watch', SELLERS: 'bad', THIN: 'unk' };
@@ -51,6 +51,12 @@ export function vitalTiles(c, pos) {
   add('launch', 'phase', '🌀', 'PHASE', v.phase || '—', !v.phase ? 'unk' : /DISTRIBUTION|COLLAPSE|CROWD FOMO/.test(v.phase) ? 'bad' : /PRE-FOMO|EARLY/.test(v.phase) ? 'good' : 'watch', 'PRE-FOMO / EARLY good · CROWD FOMO late', '🔍 Sherlock', 'DISTRIBUTION / COLLAPSE = hard no · early ranks up · crowd ranks down');
   add('launch', 'cls', '🕵', 'LAUNCH', v.cls || '—', !v.cls ? 'unk' : v.cls === 'NORMAL' ? 'good' : 'bad', 'NORMAL · or bundled / insider / snipers', '⚖ Devil · 🛡 Warden', 'a cluster holding 20%+ halves the seat');
   add('launch', 'press', '🩸', 'EARLY SELLING', v.press || '—', !v.press ? 'unk' : v.press === 'HIGH' ? 'bad' : v.press === 'WATCH' ? 'watch' : 'good', 'NONE · WATCH · HIGH', '☠ Reaper', 'HIGH = never bought, held coin sold (R4e)');
+  // 🦠 the owner's germ method: buy near the germ floor (the base of the coin's biggest run), never at the gun line (the high it must break)
+  const gd = n(v.germD) ?? n(v.germ5D); const hd = n(v.hiD);
+  add('germ', 'germ', '🦠', 'GERM FLOOR', gd == null ? (v.germ || '—') : `${gd.toFixed(1)}% above`, gd == null ? 'unk' : gd < 0 ? 'bad' : gd <= 15 ? 'good' : gd <= 25 ? 'watch' : 'bad',
+    `1m ${v.germ || '—'} · 5m ${v.germ5 || '—'} · within 15% of the floor = the buy zone`, '⏱ Trigger · 🛡 Warden', 'on the germ ranks up (1m + 5m = confirmed ×1.25) · past the line = half seat or wait · lost = no buy', { meter: gd == null ? null : clamp01(1 - Math.max(0, gd) / 30), germ: true });
+  add('germ', 'gun', '🔫', 'GUN LINE', hd == null ? '—' : `${hd.toFixed(1)}% under`, hd == null ? 'unk' : hd <= 4 ? 'bad' : hd <= 10 ? 'watch' : 'good',
+    'how far under its high — within 4% = buying the gun line', '⏱ Trigger', 'at the gun line with a hot 5 min = WAIT (never READY on a breakout chase)', { meter: hd == null ? null : clamp01(1 - hd / 30), bad: true });
   add('chart', 'chart', '📈', 'STRUCTURE', v.chart || '—', !v.chart || v.chart === 'UNKNOWN' ? 'unk' : BAD_CHART.test(v.chart) ? 'bad' : GOOD_CHART.test(v.chart) ? 'good' : 'watch', 'read from the real 1-minute candles', '⏱ Trigger', 'bot ladder / downtrend / liquidity failure = no buy');
   add('chart', 'entry', '🎯', 'ENTRY CALL', v.entry || '—', !v.entry ? 'unk' : v.entry === 'ENTER NOW' ? 'good' : v.entry === 'SKIP' ? 'bad' : 'watch', v.entryWhy || 'ENTER NOW · WAIT · SKIP', '⏱ Trigger', '🎯 Chart says go: anything but ENTER NOW waits');
   if (v.narr || v.wave || v.callers || v.swarm) {
