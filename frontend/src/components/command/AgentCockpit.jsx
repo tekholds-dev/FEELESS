@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AddMyCoin, SeatStudy, MySeatsRecord } from './MySeat';
+import { AddMyCoin, SeatStudy, MySeatsRecord, SeatControls } from './MySeat';
 import { OwnerStudy } from './OwnerStudy';
 import { CHART_BGS, setChartBg, useChartBg } from '../../lib/chartBg';
 import { toast } from 'sonner';
@@ -589,15 +589,17 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
   const heldKey = seats.filter(s => !s.open).map(s => `${s.mint}:${s.pair}:${s.buying ? 1 : 0}`).join('|'); const sym = model?.sym || model?.symbol;
   const seatsRef = useRef(seats); seatsRef.current = seats;
   const brainExtras = useMemo(() => [['coach', `👑 Coach${(o?.coach?.rules || []).length ? ` · ${o.coach.rules.length}` : ''}`, <CoachBox coach={o?.coach} seats={seatsRef.current} tpl={d?.card?.tpl} call={call} isOwner={isOwner} />],
-    ['teach', `🎓 Teach${(o?.teach?.items || []).length ? ` · ${o.teach.items.length}` : ''}`, <TeachBox o={{ teach: o?.teach, ai: o?.ai }} mint={mint} sym={sym} call={call} isOwner={isOwner} />]],
+    ['teach', `🎓 Teach${(o?.teach?.items || []).length ? ` · ${o.teach.items.length}` : ''}`, <TeachBox o={{ teach: o?.teach, ai: o?.ai }} mint={mint} sym={sym} call={call} isOwner={isOwner} />],
+    // 👤 everything the desk learned from YOUR trades, inside the Brain (owner, 2026-10-15: "chat log show all learnings from my trades")
+    ['you', `👤 Your trades${(o?.ownerStudy?.findings || []).length ? ` · ${o.ownerStudy.findings.length}` : ''}`, <OwnerStudy study={o?.ownerStudy} memory={o?.aiMemory} />]],
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  [o?.coach, o?.teach, o?.ai, heldKey, d?.card?.tpl, mint, sym, call, isOwner]);
+  [o?.coach, o?.teach, o?.ai, o?.ownerStudy, o?.aiMemory, heldKey, d?.card?.tpl, mint, sym, call, isOwner]);
   if (!o || o.cold) return <section className="ack" data-testid="agent-cockpit">{head}<MissionRibbon tiles={missionTiles(d, [])} cold /><p className="ack-warm" data-testid="ack-warm"><i aria-hidden />warming up — the cockpit opens with the agents' first pass (≈ 1 min after a restart)</p></section>;   /* 🧹 no old desk while cold (owner, 2026-10-15: "not the current layout") */
   const held = seats.filter(s => !s.open).length;
   const navTabs = deckMeters(o, [
       ['seats', '🪑 Seats', seats.length ? `${held}/${seats.length}` : null, <section className="ack-seats" data-testid="ack-seats"><header><b>🪑 SEAT BOARD</b><OpenPnl seats={seats} onPick={onPick} /><small><b className="m-pos">{held}/{seats.length || '—'} active</b> · live prices every 3s · tap a seat = its chart + the agent handling it</small></header>
       <ReaperAsks o={o} call={call} isOwner={isOwner} reload={cc?.load} />
-      {isOwner ? <><AddMyCoin call={call} tpl={d?.card?.tpl} seats={seats} reload={cc?.load} /><MySeatsRecord rec={o.ownerSeats} /></> : null}
+      {isOwner ? <><AddMyCoin call={call} tpl={d?.card?.tpl} seats={seats} reload={cc?.load} /><SeatControls call={call} tpl={d?.card?.tpl} seats={seats} reload={cc?.load} /><MySeatsRecord rec={o.ownerSeats} /></> : null}
       <div className="ack-seatrow">{seats.map((s, i) => <SeatCard key={s.seat} s={s} on={!s.open && s.mint === mint} onPick={onPick} readyN={readyN} same={s.open ? seats.slice(0, i).find(x => x.open && x.why === s.why)?.seat : undefined} />)}</div></section>, seats.length ? held / seats.length : null, 'the seats: live P&L, Reaper\'s word, tap = its chart'],
       ['you', '👤 You', o.ownerStudy?.score != null ? `${o.ownerStudy.score}%` : null, <OwnerStudy study={o.ownerStudy} memory={o.aiMemory} />, null, 'your own moves graded, your seats vs the agents, what the study suggests'],
       ['live', '⚡ Feed', (o.tape || []).length || null, <><DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { if (r.mint) setPick(r.mint); setAgentS(r.agent in AG ? r.agent : null); setTab('live'); }} /></>],

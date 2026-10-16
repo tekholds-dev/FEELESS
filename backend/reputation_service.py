@@ -3681,6 +3681,7 @@ async def fuses_evolve(request: Request, p: FuseEvolveIn):
 import fuse_hq as _hq
 import crowd as _crowd
 FUSE_HQ_PATH = DATA_DIR / 'fuse_hq.json'   # {'positions': [], 'arena': [], 'bloodline': []}
+FUSE_CHAT_POSTED_PATH = DATA_DIR / 'fuse_chat_posted.json'   # 🧈 _fuse_chat's once-per-key memory (was inside fuse_hq.json)
 _fuse_lite_cache: dict = {}
 
 
@@ -5229,14 +5230,15 @@ FUSE_ARENA_NAME = '⚔ Fuse Arena'
 
 def _fuse_chat(room, text, key, tokens=None):
     """Fuse moments into chat — battle results, bond runs, FeeCat's book, season crowns. Once per key (kept 2 days)."""
-    d = _json_load(FUSE_HQ_PATH, {})
-    posted = d.get('chatPosted') or {}
+    # 🧈 own small file (2026-10-15): 1,385 keys (97 KB) lived in fuse_hq.json — every post re-wrote the whole Fuse file, unlocked, beside the card tick
+    posted = _json_load(FUSE_CHAT_POSTED_PATH, None)
+    if posted is None:
+        posted = dict((_json_load(FUSE_HQ_PATH, {}) or {}).get('chatPosted') or {})
     if key in posted:
         return None
     msg = chat_system_post(room, FUSE_ARENA_NAME, FEE_ADDRESS, text[:600], tokens=tokens)
     now = time.time()
-    d['chatPosted'] = {k: v for k, v in {**posted, key: now}.items() if now - v < 2 * 86400}
-    _json_save(FUSE_HQ_PATH, d)
+    _json_save(FUSE_CHAT_POSTED_PATH, {k: v for k, v in {**posted, key: now}.items() if now - v < 2 * 86400})
     return msg
 
 
@@ -6954,6 +6956,7 @@ CALL_RUN_PCT = 25.0   # 📣 a callout that is up this much since the call is wo
 
 
 import owner_study as _ost
+import limit_orders as _lim
 import ai_memory as _aim
 import mem_store as _ms0
 AI_MEMORY_PATH = DATA_DIR / 'ai_memory.json'   # 🗄 the model's filed memory (ai_memory.py: 5 capped drawers, never the whole site)
@@ -8730,6 +8733,43 @@ AGENT_GUARD_SEC = 3   # ⚡ while the agents hold a real seat the guard looks ev
 _guard_agents = {'held': False}
 
 
+async def _limit_check(now):
+    """🎯 LIMIT ORDERS: every guard pass, ONE batched live-price read for the real cards' limits; a crossed line hands the order to the card's
+    NORMAL path (buy → your seat pick / pick swap now · sell → ✂ to card cash) and the keeper is kicked. It never signs anything itself."""
+    cards_ = [c for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if c.get('real') and c.get('limits')]
+    ms_ = sorted({x.get('mint') for c in cards_ for x in c.get('limits') or [] if x.get('mint')})
+    if not ms_:
+        return
+    px_ = await _live_px(ms_)
+    fired = False
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
+        for tpl_, c in list(cards.items()):
+            if not (c.get('real') and c.get('limits')):
+                continue
+            hit, keep, gone = _lim.due(c, px_, now)
+            if not hit and not gone:
+                continue
+            c = {**c, 'limits': keep, 'events': list(c.get('events') or [])}
+            for x in hit:
+                try:
+                    if x['side'] == 'buy':
+                        cand = {**x['cand'], 'price': x['firedPx']}
+                        c = _prime.queue_seat(c, cand, more=True) if x['target'] == '__seat__' else _prime.queue_swap(c, x['target'], {**cand, 'now': True})
+                    else:
+                        c = _prime.sell_leg_to_cash(c, x['pair'], {x['pair']: x['firedPx']}, now, x.get('pct') or 100)
+                    c['events'].append({'at': now, 'kind': 'limit', 'symbol': x.get('symbol'), 'why': f"{_lim.word(x)} — hit at {x['firedPx']:.6g}"})
+                    fired = True
+                except Exception as e:
+                    c['events'].append({'at': now, 'kind': 'limit', 'symbol': x.get('symbol'), 'why': f"{_lim.word(x)} — hit, but could not be placed: {str(e)[:80]}"})
+            for x in gone:
+                c['events'].append({'at': now, 'kind': 'limit', 'symbol': x.get('symbol'), 'why': f"{_lim.word(x)} — expired"})
+            cards[tpl_] = c
+        _json_save(FUSE_HQ_PATH, d)
+    if fired:
+        _fw_kick_now(); asyncio.ensure_future(_prime_tick(time.time()))
+
+
 async def _real_guard_loop():
     """⚡ FAST GUARD for real-money cards: every ~10s ONE batched Jupiter price read for the coins a real card holds; a coin at
     its stop / instant-swap line (or a rider off its trail) wakes the tier tick at once instead of waiting for the next
@@ -8743,6 +8783,10 @@ async def _real_guard_loop():
                 cards_all = [c for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if c.get('real') and not c.get('flooredAt') and (not c.get('holdAll') or c.get('holdBy') == 'agents')]
                 cards = [c for c in cards_all if not c.get('holdAll')]
                 agents_c = [c for c in cards_all if c.get('holdAll')]
+                try:
+                    await _limit_check(time.time())
+                except Exception as e:
+                    print('limit check:', str(e)[:100])
                 _guard_agents['held'] = any(not l.get('placeholder') and l.get('mint') for c in agents_c for l in c.get('legs') or [])
                 mints = [l.get('mint') for c in cards_all for l in c.get('legs') or [] if l.get('mint') and not _prime.safe_anchor(l)]
                 try:   # 🪑 EMPTY-SEAT HEARTBEAT (owner: "no seat should be empty, 30 secs to choose"): while an agent seat is empty the tier tick runs at
@@ -10818,7 +10862,7 @@ async def _prime_view():
                 'pendingPayoutUsd': round(max(0.0, _fuse._f(c.get('walletUsd')) - _fuse._f(b.get('bankUsd'))), 4),
                 'math': {**sm.get('math', {}), 'putIn': round(_fuse._f(b.get('fundedUsd')) or start, 4), 'runStartUsd': round(start, 4), 'heldUsd': round(held, 4), 'paidOutUsd': round(paid, 4),
                          'nowUsd': v, 'feesUsd': card_fees, 'pnlUsd': round(v + card_fees - (_fuse._f(b.get('fundedUsd')) or start), 4)}}   # P&L = price result; fees apart
-    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'seatPick': c.get('seatPick'), 'holdBy': c.get('holdBy'), 'proofWords': (_json_load(EDGE_AUDIT_PATH, {}).get('words') if c.get('real') else None), 'rebuying': (c.get('rebuy') or {}).get('mint'), 'seatQueue': c.get('seatQueue') or [], 'pipeline': c.get('pipeline'), 'parkedUsd': round(sum(_fuse._f(x.get('usd')) for x in c.get('skimPark') or []), 4), 'parkedN': len(c.get('skimPark') or []), 'heldUsd': round(max(0.0, _fuse._f(c.get('holdCashUsd')) - sum(_fuse._f(x.get('usd')) for x in c.get('skimPark') or [])), 4), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'pickStyle': None if c.get('real') else _eff(c).get('pickStyle'), 'holdAll': bool(c.get('holdAll')), 'pickCool': {}, 'handsOffUntil': c.get('handsOffUntil') if _prime.hands_off_left(c, time.time()) else None, 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl'], sm.get('valueUsd'), sol_now, px) if c.get('real') else None,
+    return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'seatPick': c.get('seatPick'), 'holdBy': c.get('holdBy'), 'proofWords': (_json_load(EDGE_AUDIT_PATH, {}).get('words') if c.get('real') else None), 'rebuying': (c.get('rebuy') or {}).get('mint'), 'seatQueue': c.get('seatQueue') or [], 'limits': [{**x_, 'word': _lim.word(x_)} for x_ in c.get('limits') or []], 'pipeline': c.get('pipeline'), 'parkedUsd': round(sum(_fuse._f(x.get('usd')) for x in c.get('skimPark') or []), 4), 'parkedN': len(c.get('skimPark') or []), 'heldUsd': round(max(0.0, _fuse._f(c.get('holdCashUsd')) - sum(_fuse._f(x.get('usd')) for x in c.get('skimPark') or [])), 4), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'pickStyle': None if c.get('real') else _eff(c).get('pickStyle'), 'holdAll': bool(c.get('holdAll')), 'pickCool': {}, 'handsOffUntil': c.get('handsOffUntil') if _prime.hands_off_left(c, time.time()) else None, 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl'], sm.get('valueUsd'), sol_now, px) if c.get('real') else None,
              'audit': [{k: e.get(k) for k in ('at', 'kind', 'symbol', 'usd', 'why', 'to', 'mode')} for e in (c.get('events') or [])[-40:][::-1]]} for c in cards.values()]
 
 
@@ -11079,6 +11123,14 @@ async def fuse_prime_admin(request: Request):
             # only — the owner sells off a peak and buys the same coin back at its new level whenever they choose
             if cand and pk['pairAddress'] != '__seat__':
                 _cook_warn(card, pk['pairAddress'], pk.get('ack'))   # ⏳ swapping out a coin you bought minutes ago asks first
+            if cand and _fuse._f(pk.get('limitPx')) > 0:   # 🎯 BUY LIMIT: every check above already ran — it waits for the price, then takes this same path
+                try:
+                    cards[pk['tpl']] = _lim.add(card, _lim.make('buy', pk['limitPx'], time.time(), pk.get('hours') or 24, mint=cand['mint'], pair=cand['pairAddress'],
+                                                                symbol=cand.get('symbol'), target=pk['pairAddress'], cand={k_: v_ for k_, v_ in cand.items() if k_ != 'now'}))
+                except ValueError as e:
+                    raise HTTPException(400, str(e))
+                _json_save(FUSE_HQ_PATH, d)
+                return {'ok': True, 'limit': _lim.word(cards[pk['tpl']]['limits'][-1])}
             try:
                 cards[pk['tpl']] = _prime.queue_seat(card, cand, more=bool(pk.get('more'))) if pk['pairAddress'] == '__seat__' else _prime.queue_swap(card, pk['pairAddress'], cand)
             except ValueError as e:
@@ -11088,6 +11140,26 @@ async def fuse_prime_admin(request: Request):
             asyncio.create_task(_prime_tick(time.time()))
         if cand:   # 👤 the pick is in: note what the coin looked like (teaches the paper cards that pick like the owner)
             await _pick_style_note(cand['mint'], cand.get('symbol'), cand.get('pairAddress'))
+    ls_ = body.get('limitSell') or {}; lc_ = body.get('limitCancel') or {}
+    if ls_.get('tpl') in _prime.TEMPLATES or lc_.get('tpl') in _prime.TEMPLATES:   # 🎯 SELL LIMIT (take ≥ / stop ≤) on a coin of the card · cancel any limit
+        async with _admin_lock:
+            d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
+            tpl_ = ls_.get('tpl') or lc_.get('tpl'); card = cards.get(tpl_)
+            if not card:
+                raise HTTPException(404, 'No card for that tier yet.')
+            try:
+                if lc_:
+                    cards[tpl_] = _lim.cancel(card, lc_.get('id'))
+                else:
+                    l_ = next((x for x in card.get('legs') or [] if x.get('pairAddress') == ls_.get('pairAddress') and not x.get('placeholder')), None)
+                    if not l_:
+                        raise ValueError('That coin is not on this card.')
+                    cards[tpl_] = _lim.add(card, _lim.make('sell', ls_.get('px'), time.time(), ls_.get('hours') or 24, mint=l_.get('mint'), pair=l_['pairAddress'],
+                                                           symbol=l_.get('symbol'), pct=ls_.get('pct'), stop=ls_.get('stop')))
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            _json_save(FUSE_HQ_PATH, d)
+        return {'ok': True, 'limits': [_lim.word(x) for x in cards[tpl_].get('limits') or []]}
     hm = body.get('human') or {}
     if hm.get('tpl') in _prime.TEMPLATES:   # 👤 switch a PAPER card to / from the owner's pick style
         async with _admin_lock:

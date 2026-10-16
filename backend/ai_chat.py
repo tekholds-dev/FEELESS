@@ -169,6 +169,9 @@ def context(office, focus=None, vocab=()):
                            'pending': list(sel.get('unknown') or []) or 'nothing pending', 'devil': [str(d[2] if len(d) > 2 else d)[:70] for d in (sel.get('devil') or [])[:3]] or 'no objection'}
     elif focus:
         out['selected'] = f'{focus}: not on the desk right now (UNKNOWN)'
+    st_ = o.get('ownerStudy') or {}
+    if st_.get('findings') or st_.get('suggestions'):   # 👤 what the desk learned from the OWNER's own graded trades — the chat always sees it
+        out['yourTrades'] = {'learned': [str(x)[:160] for x in (st_.get('findings') or [])[:8]], 'suggest': [str(x.get('text') if isinstance(x, dict) else x)[:160] for x in (st_.get('suggestions') or [])[:4]]}
     return out
 
 

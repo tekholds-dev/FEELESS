@@ -33,3 +33,22 @@ test('your seat shows what the agents would do and its record', () => {
   expect(el.textContent).toContain('would swap for $BOT');
   expect(el.textContent).toContain('you did better 1/2');
 });
+
+test('limits: a price makes a buy limit, a held seat gets take / stop limits from now, and ⏏ Pull sells it to card cash', async () => {
+  const { addBody, sellLimitBody, SeatControls } = require('./MySeat');
+  expect(addBody('degen', 'M', 'open', true, '0.002').fillSeat).toMatchObject({ limitPx: 0.002, hours: 24, ack: true });
+  expect(addBody('degen', 'M', 'open', true, '').fillSeat.limitPx).toBeUndefined();
+  const seat = { pair: 'P1', symbol: 'AAA', px: 2, pct: 5 };
+  expect(sellLimitBody('degen', seat, 50, 50).limitSell).toMatchObject({ pairAddress: 'P1', px: 3, pct: 50, stop: false });
+  expect(sellLimitBody('degen', seat, -15).limitSell).toMatchObject({ stop: true, pct: 100 }); expect(sellLimitBody('degen', seat, -15).limitSell.px).toBeCloseTo(1.7);
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ cards: [{ tpl: 'degen', limits: [{ id: 'L1', word: '🎯 BUY $X into an empty seat at ≤ 0.001' }] }] }) }));
+  const call = jest.fn(async () => ({ ok: true }));
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<SeatControls call={call} tpl="degen" seats={[{ open: true }, seat]} />); });
+  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  expect(el.querySelector('[data-testid="seat-limits"]').textContent).toContain('BUY $X');
+  await act(async () => { el.querySelector('[data-testid="seat-pull-AAA"]').click(); });
+  expect(JSON.parse(call.mock.calls[0][1].body)).toEqual({ manualSell: { tpl: 'degen', pairAddress: 'P1', pct: 100, ack: true } });
+  await act(async () => { el.querySelector('[data-testid="seat-lim-x-L1"]').click(); });
+  expect(JSON.parse(call.mock.calls[1][1].body)).toEqual({ limitCancel: { tpl: 'degen', id: 'L1' } });
+});

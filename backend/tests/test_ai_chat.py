@@ -180,3 +180,10 @@ def test_world_questions_get_a_web_search_and_greetings_do_not():
     assert ac.web_query('hey can you who runs bonk') == 'who runs bonk'
     m = ar.messages_general('who runs bonk?', {'card': 'x', 'web': [{'title': 'T', 'url': 'https://a.b', 'snippet': 's'}], 'webRule': ac.WEB_RULE})
     assert 'WEB (search results' in m[-1]['content'] and 'https://a.b' in m[-1]['content'] and 'CONTEXT' in m[-1]['content'] and 'cite' in m[0]['content']
+
+
+def test_the_chat_context_carries_what_was_learned_from_the_owners_trades():
+    import ai_chat as ac
+    c = ac.context({'ownerStudy': {'findings': ['🎯 pick: 231 graded · 18% good'], 'suggestions': [{'text': 'hold picks 30 min'}]}})
+    assert c['yourTrades']['learned'] == ['🎯 pick: 231 graded · 18% good'] and c['yourTrades']['suggest'] == ['hold picks 30 min']
+    assert 'yourTrades' not in ac.context({})

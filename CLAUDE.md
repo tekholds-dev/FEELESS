@@ -4454,4 +4454,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   🗂 Office pane; an old 'live' lens event lands there. A cold cockpit (right after a restart) shows ONE warm-up line, never the old desk.
 - 🧈 Clone-rule lag (the loop was blocked 41%, `taught_rules.family/sequel` on top): the pure ticker matchers are `lru_cache`d, `themes` returns a
   frozenset, `clone` skips tickers whose first two letters differ, and `_taught_stamp` de-dupes 30 days of buys to one (ticker, coin) each.
+- 🎯 LIMIT ORDERS (owner, 2026-10-15; `backend/limit_orders.py` pure + tested, card `limits`, `_limit_check` in the fast guard, view `limits` + `word`):
+  BUY = ⚡ Add my coin with a price (`fillSeat`/`pickSwap` + `limitPx`): every pick check runs when it is SET, then it waits; when the live chart
+  price is ≤ the line it is queued like your pick (seat pick / swap now, acknowledged). SELL = `limitSell {tpl, pairAddress, px, pct, stop}`
+  (take ≥ / stop ≤) → ✂ `sell_leg_to_cash`. Fires once, 24h default, ≤ 12 a card, `limitCancel {tpl, id}`. Never signs: the keeper does the trade.
+  UI `SeatControls` (MySeat.jsx) under Add my coin: per held seat 💰 +25/+50/+100% · 🛑 −15/−30% from now + ⏏ Pull (manualSell 100), open limits ✕.
+- 👤 The Brain has a "👤 Your trades" pane (`OwnerStudy`) and every chat answer gets `yourTrades` (the owner study's findings + suggestions) in
+  its context (`ai_chat.context`). `_fuse_chat` keys moved out of fuse_hq.json to `data/fuse_chat_posted.json` (97 KB rewritten per post, unlocked).
 

@@ -17,3 +17,25 @@
 body.fx-lite .mys-warn { animation: none; }
 body.theme-day .mys { background: linear-gradient(90deg, rgba(14, 138, 74, .1), transparent 60%); } body.theme-day .mys-h { color: #0e8a4a; }
 @media (max-width: 640px) { .mys-to { flex-basis: 100%; } }
+
+/* 🎯 limits + ⏏ pull (SeatControls) */
+.mys-lim { flex: 0 1 150px; min-width: 0; height: 28px; font: 600 10px var(--m-mono); }
+.mys-ctl { display: grid; gap: 4px; margin: 6px 0; }
+.mys-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 8px; background: rgba(21, 209, 106, .04); border: 1px solid rgba(21, 209, 106, .12); }
+.mys-row > b { font: 800 11px var(--m-mono); min-width: 70px; }
+.mys-row > small { font: 700 10px var(--m-mono); min-width: 52px; }
+.mys-lims { display: inline-flex; flex-wrap: wrap; gap: 3px; }
+.mys-chip { height: 22px; padding: 0 7px; font: 700 9.5px var(--m-mono); transition: transform .12s, background .12s; }
+.mys-chip:hover { transform: translateY(-1px); background: rgba(21, 209, 106, .16); }
+.mys-chip:active { transform: scale(.95); }
+.mys-chip.is-stop { color: #ff8fa3; border-color: rgba(255, 143, 163, .4); }
+.mys-chip.is-stop:hover { background: rgba(255, 92, 122, .14); }
+.mys-pull { margin-left: auto; height: 22px; padding: 0 10px; font: 800 9.5px var(--m-mono); color: #f5c451; border-color: rgba(245, 196, 81, .45); }
+.mys-pull:hover { background: rgba(245, 196, 81, .14); }
+.mys-open { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.mys-open li { display: flex; align-items: center; gap: 6px; font: 600 10px var(--m-mono); padding: 2px 6px; border-left: 2px solid #15d16a; }
+.mys-open li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mys-x { height: 18px; width: 22px; padding: 0; font-size: 10px; }
+body.theme-day .mys-row { background: rgba(13, 122, 65, .05); border-color: rgba(13, 122, 65, .18); }
+body.theme-day .mys-chip.is-stop { color: #b42346; } body.theme-day .mys-pull { color: #8a6a12; }
+@media (prefers-reduced-motion: reduce) { .mys-chip { transition: none; } }
