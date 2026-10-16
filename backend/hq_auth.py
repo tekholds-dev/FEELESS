@@ -5,6 +5,7 @@ reputation_service.py keeps thin wrappers with the old names (`_require_admin`, 
 Tested through the routes (tests/test_guard.py signs a real Ed25519 HQ session) and tests/test_hq_auth.py.
 """
 import base64
+import functools
 import re
 
 from fastapi import HTTPException
@@ -100,6 +101,13 @@ def verify_evm(address, message, signature_hex):
 
 
 def verify_solana(address, message, signature_b64):
+    """Memoized: the same (address, message, signature) always verifies the same way, and every HQ request re-checks its session signature —
+    the loop-lag catcher charged 3.7s of blocked event loop to this check (2026-10-16)."""
+    return _verify_solana_once(str(address or ''), str(message or ''), str(signature_b64 or ''))
+
+
+@functools.lru_cache(maxsize=1024)
+def _verify_solana_once(address, message, signature_b64):
     """Ed25519 check. Wallets encode the 64-byte signature differently (base64 from our client,
     base58 or hex from some wallets), so try each decoding that yields exactly 64 bytes."""
     try:

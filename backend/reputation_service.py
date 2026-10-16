@@ -16367,8 +16367,11 @@ async def _agents_tick(now):
             wr_ = {}
         rows = [{**r, 'mind': _tm.read(r, by_m.get(r.get('mint')), hot_), 'waveRole': wr_.get(r.get('mint')), 'pros': int((_pump_calls['map'].get(r.get('mint')) or {}).get('pro') or 0),
                  **({'social': soc_[r['mint']]} if r.get('mint') in soc_ else {})} for r in rows if not _fw.dollar_named(r.get('symbol'))]
-        lingo = _tm.learn_lingo(_lingo_mem.get(), [c_.get('thesis') for c_ in calls_ if c_.get('thesis')], now)
-        _lingo_mem.put(lingo, now)
+        lingo = _lingo_mem.get() or {}
+        if now - _fuse._f(_agents.get('lingoAt')) >= 600:   # 🗣 slang is learned from Pump callers' text every 10 min, not every 18s pass (2.7s of blocked loop)
+            _agents['lingoAt'] = now
+            lingo = _tm.learn_lingo(lingo, [c_.get('thesis') for c_ in calls_ if c_.get('thesis')], now)
+            _lingo_mem.put(lingo, now)
         _agents['mind'] = {'hot': [{'key': k, **v} for k, v in list(hot_.items())[:6]], 'dictionary': len(_tm.SLANG),
                            'learned': sorted(({'word': w, **v} for w, v in (lingo.get('learned') or {}).items()), key=lambda x: -_fuse._f(x.get('first')))[:16],
                            'callsRead': len(calls_), 'swarms': sum(1 for r in rows if ((r.get('mind') or {}).get('crowd') or {}).get('swarm'))}
