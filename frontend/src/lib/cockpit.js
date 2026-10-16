@@ -121,7 +121,7 @@ export function seatCards(d, livePx) {
       usd, pnlUsd: pnlUsdOf(usd, pct), heldMin: num(p.heldMin ?? b.heldMin), rule: p.rule || b.rule || null, why: p.evidence || b.why || x.why || null,
       take: num(p.take ?? x.take), stop: num(p.stop), peak: num(p.mfe ?? p.peak), trailAt: num(p.trailAt), armAt: num(p.armAt), last: last[x.mint] || null, ageMin: ageH != null ? ageH * 60 : num(c.ageMin),
       nextReview: num(p.nextReview), realized: num(p.realizedUsd), path: Array.isArray(p.path) ? p.path.map(num).filter(v => v != null) : [],
-      flow: p.flow?.state ? p.flow : null, rotate: !!b.switch, reaper: p.decision || p.state || b.result || null, action: p.action || x.action || null, state: null,
+      flow: p.flow?.state ? p.flow : null, drain: p.drain || null, liqPct: num(p.liqPct), rotate: !!b.switch, reaper: p.decision || p.state || b.result || null, action: p.action || x.action || null, state: null,
       mine: x.kind === 'yours' || x.kind === 'suggested' || p.owner === 'you', would: x.would || null, agentsWould: p.would || null, study: Array.isArray(p.study) ? p.study : [] };
   });
 }

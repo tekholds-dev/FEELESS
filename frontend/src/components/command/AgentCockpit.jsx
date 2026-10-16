@@ -32,6 +32,10 @@ import '../../styles/cockpitDeck.css';   // last: the one-screen layout (deck, t
 import '../../styles/agentFx.css';   // ⚡ hover sheen · press ring · winner glow · paint containment for scrolling
 import { GermChip } from '../GermBadge';
 import { useRemembered } from '../../lib/remember';
+import { ghostMarkers, rugMark, diamondOf, leagueOf, rideCard } from '../../lib/cockpitPlus';
+import { recentResults } from '../../lib/coachTape';
+import { ShareGifButton } from '../ShareGif';
+import '../../styles/cockpitPlus.css';
 
 // 🎛 THE AGENTS COCKPIT (HQ › Agents, the whole top of the tab — built to the owner's reference, 2026-10-12): REAL MONEY MISSION ribbon ·
 // the four SEATS · ONE chart in MARKET CAP with the agents' real events lettered on it (T D W B R X) · the LIVE DECISIONS strip · the
@@ -152,8 +156,9 @@ export function ExitChips({ s, mini }) {
   return <span className={`ack-xchips ${mini ? 'is-mini' : ''}`}>{t.map(x => <i key={x.k} className={`ack-xchip is-${x.k}`} data-tip={x.tip} data-testid={`ack-xchip-${x.k}`}>{x.ic}{mini ? null : <b>{x.word}</b>}</i>)}</span>;
 }
 const sgn = v => (v == null ? '—' : `${v >= 0 ? '+' : '−'}$${Math.abs(v).toFixed(2)}`);
-function MoneyStrip({ d, seats, mint, onPick, nav, go, navTabs, ai = null }) {
+function MoneyStrip({ d, seats, mint, onPick, nav, go, navTabs, ai = null, brain = null }) {
   const now = useTick(5000); const m = moneyOf(d, seats, now);
+  const rows = d?.office?.tradeTape?.rows; const rr = useMemo(() => recentResults(rows), [rows]); const dia = useMemo(() => diamondOf(rows), [rows]); const lg = leagueOf(d?.duo);
   const tTone = m.today.usd == null ? '' : m.today.usd >= 0 ? 'm-pos' : 'm-neg';
   return <header className={`ack-money is-${m.night.state}`} data-testid="ack-money">
     <div className="ack-mrow">
@@ -162,12 +167,18 @@ function MoneyStrip({ d, seats, mint, onPick, nav, go, navTabs, ai = null }) {
       <span className="ack-mcell" data-tip={m.today.n ? `real trades closed since midnight: ${m.today.won} of ${m.today.n} won${m.today.partial ? ' (the tape holds only its newest trades)' : ''}` : 'no real trade closed since midnight'}>
         <small>📅 TODAY</small><LiveNum v={m.today.usd} fmt={sgn} cls={tTone} testid="ack-money-today" />
         <span className="ack-mwin" aria-hidden>{m.today.n ? <i style={{ transform: `scaleX(${(m.today.won / m.today.n).toFixed(3)})` }} /> : null}</span></span>
+      <span className="ack-mcell is-split" data-tip="realized in the last 24h — your own trades apart from the agents' (fees apart)" data-testid="ack-money-split">
+        <small>👤 YOU · 🤖 AGENTS</small><b><em className={tone(rr.you.usd)}>{rr.you.usd == null ? '—' : sgn(rr.you.usd)}</em><i>·</i><em className={tone(rr.agents.usd)}>{rr.agents.usd == null ? '—' : sgn(rr.agents.usd)}</em></b></span>
+      <span className="ack-mcell is-dia" data-tip={dia.n ? `on ${dia.n} of your closed trades, holding past the agents' first sell call made ${dia.avg >= 0 ? '+' : ''}${dia.avg.toFixed(1)} pts a trade · best $${dia.best.sym} ${dia.best.gain >= 0 ? '+' : ''}${dia.best.gain.toFixed(0)} pts · worst $${dia.worst.sym} ${dia.worst.gain.toFixed(0)} pts` : 'no closed trade of yours with an agent sell call yet'} data-testid="ack-money-diamond">
+        <small>💎 DIAMOND HANDS</small><b className={dia.n ? tone(dia.avg) : 'm-dim'}>{dia.n ? `${dia.avg >= 0 ? '+' : ''}${dia.avg.toFixed(1)} pts` : '—'}</b></span>
+      <span className="ack-mcell is-league" data-tip={`G4 ${lg.a.n ? `${lg.a.n} · ${lg.a.won}% won · typical ${lg.a.med}%` : 'no trades'} vs OSSY ${lg.b.n ? `${lg.b.n} · ${lg.b.won}% won · typical ${lg.b.med}%` : 'no trades'} (paper seat)`} data-testid="ack-money-league">
+        <small>🔁 G4 vs OSSY</small><b className={lg.lead ? 'm-pos' : 'm-dim'}>{lg.word}</b></span>
       <span className="ack-mcell is-open" data-tip={m.openUsd != null ? `open seats right now: ${sgn(m.openUsd)} (live)` : 'no seat held'}><small>🪑 HOLDING {m.open.length}/{m.seats || '—'}</small>
         <span className="ack-mseats">{m.open.length ? m.open.map(x => <button key={x.seat} type="button" className={`ack-mseat ${x.pct == null ? '' : x.pct >= 0 ? 'is-up' : 'is-dn'} ${x.mint === mint ? 'is-on' : ''}`} onClick={() => { onPick(x.mint); go('chart'); }} data-testid={`ack-money-seat-${x.seat}`}>
           <b>${x.sym || '—'}</b><LiveNum v={x.pct} fmt={v => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`} cls="" /><ExitChips s={(seats || []).find(z => z.seat === x.seat)} mini />
           <span className="ack-mbar" aria-hidden><i style={{ transform: `scaleX(${Math.min(1, Math.abs(x.pct || 0) / 20).toFixed(3)})` }} /></span></button>) : <em className="m-dim">cash — no coin held</em>}</span></span>
       <span className={`ack-mcell is-night is-${m.night.state}`} data-tip={m.night.tip} data-testid="ack-money-night"><small>{m.late ? '⚠ DESK BEHIND' : 'SHIFT'}</small><b key={m.night.word} className="ack-vpop">{m.night.word}</b></span>
-      {ai}
+      {brain}{ai}
     </div>
     <nav className="ack-nav m-seg" role="tablist" aria-label="Agents tab">
       <button type="button" role="tab" aria-selected={nav === 'chart'} className={nav === 'chart' ? 'active' : ''} onClick={() => go('chart')} data-testid="ack-nav-chart" data-tip="the chart + the decision panel (top of the page)"><TabChip label="📈 Chart" /></button>
@@ -237,10 +248,10 @@ function SeatCard({ s, on, onPick, readyN, same }) {
     <HuntLine why={s.why} ready={readyN} same={same} />
     {(s.refused || []).length ? <ul className="ack-refused" data-testid={`ack-seat-refused-${s.seat}`}>{s.refused.map(r => <li key={`${r.symbol}-${r.at}`} data-tip={`${r.by === 'keeper' ? "the keeper's own buy check" : 'the seat pre-check'} · ${ago(r.at)} ago`}><b>${r.symbol}</b><span>{r.why}</span></li>)}</ul> : null}
     {(s.tapeWait || []).length ? <ul className="ack-refused is-tape" data-testid={`ack-seat-tape-${s.seat}`}>{s.tapeWait.map(r => <li key={r.symbol} data-tip="🌊 the live tape held this READY coin back this tick — it is re-read on the next one"><b>🌊 ${r.symbol}</b><span>{r.why}</span></li>)}</ul> : null}</div>;
-  const last = s.last; const [ic, nm] = TAPE_AGENT[last?.agent] || ['', ''];
+  const last = s.last; const [ic, nm] = TAPE_AGENT[last?.agent] || ['', '']; const rug = rugMark(s);
   return <button type="button" className={`ack-seat ${on ? 'is-on' : ''} ${s.kind === 'g4' ? 'is-g4' : ''} ${s.pct > 0 ? 'is-up' : s.pct < 0 ? 'is-dn' : ''}`} onClick={() => onPick(s.mint)} aria-pressed={on} data-testid={`ack-seat-${s.seat}`}
     data-tip={`${s.tag || s.kind}${s.rule ? ` · Reaper ${s.rule}` : ''}${s.why ? ` — ${s.why}` : ''}`}>
-    <header><small>SEAT {s.seat}</small><i className={`ack-badge ${STATE_CLS[st]}`} data-testid={`ack-seat-state-${s.seat}`}>{st}</i></header>
+    <header><small>SEAT {s.seat}{s.kind === 'g4' ? <i className="ack-g4tag">🧠 G4</i> : null}{rug ? <i className={`ack-rug is-${rug.level}`} data-tip={`🩸 rug marker — ${rug.why}`} data-testid={`ack-seat-rug-${s.seat}`}>🩸</i> : null}</small><i className={`ack-badge ${STATE_CLS[st]}`} data-testid={`ack-seat-state-${s.seat}`}>{st}</i></header>
     <p className="ack-coin"><b>${s.symbol}<CopyCa mint={s.mint} sym={s.symbol} testid={`ack-seat-ca-${s.seat}`} /><GermChip mint={s.mint} compact /></b><span className="ack-pnl"><LiveNum v={s.pct} fmt={x => pc(x)} testid={`ack-seat-pct-${s.seat}`} /><LiveNum v={s.pnlUsd} fmt={signed} cls={`ack-usd ${tone(s.pnlUsd)}`} testid={`ack-seat-usd-${s.seat}`} /></span></p>
     <div className="ack-seatmid"><dl className="ack-kv">
       <dt>ENTRY MC</dt><dd>{mcWord(s.entryMc)}</dd><dt>AGE</dt><dd>{mins(s.ageMin)}</dd>
@@ -553,6 +564,21 @@ function ReviewQueue({ o, call, isOwner, onPick, sel }) {
 function AiProvidersLive({ o, ...rest }) { const ai = useAi(o?.ai); return <AiProviders {...rest} ai={ai} />; }
 
 // 💹 the open book in one glance: every held seat's live P&L together ($ and % glide to each real tick) + the seat doing best
+// 🧠 the Brain as a slide-out drawer on the right (owner, 2026-10-16) — Esc or ✕ closes; the page stays usable beside it
+function BrainDrawer({ close, children }) {
+  useEffect(() => { const on = e => { if (e.key === 'Escape') close(); }; window.addEventListener('keydown', on); return () => window.removeEventListener('keydown', on); }, [close]);
+  return <aside className="ack-drawer" data-testid="ack-brain-drawer" aria-label="Brain"><header><b>🧠 BRAIN · G4 × OSSY</b><button type="button" onClick={close} aria-label="Close the Brain" data-testid="ack-brain-close">✕</button></header><div className="ack-drawerbody">{children}</div></aside>;
+}
+
+// 🎞 the selected seat's ride (share card) + its rug marker, under the chart
+function RideBar({ s, pos }) {
+  const card = useMemo(() => rideCard(s, pos), [s, pos]); const rug = rugMark(s);
+  if (!card) return null;
+  return <div className="ack-ride" data-testid="ack-ride"><span>🎞 ${s.symbol} · {s.pct == null ? '—' : pc(s.pct)}{(pos?.ghosts || []).length ? ` · ✂ ${(pos.ghosts || []).length} would-sell${pos.ghosts.length > 1 ? 's' : ''} on the chart` : ''}</span>
+    {rug ? <em className={`ack-rug is-${rug.level}`} data-testid="ack-ride-rug">🩸 {rug.why}</em> : null}
+    <ShareGifButton card={card} label="🎞 Share the ride" className="ack-ridebtn" /></div>;
+}
+
 function OpenPnl({ seats, onPick }) {
   const p = useMemo(() => openPnl(seats), [seats]);
   if (!p) return null;
@@ -567,7 +593,7 @@ export const LENS_TAB = { live: 'office', review: 'office', limits: 'office', bo
 export function AgentCockpit({ call, isOwner = true, head = null, extra = [], limits = null }) {
   const cc = useHub(); const d = cc?.d; const o = d?.office || null;
   const [pick, setPick] = useRemembered('feeless.ack.pick', null); const [iv, setIv] = useRemembered('feeless.ack.iv', '1m'); const [agent, setAgentS] = useState(null); const [tapeAgent, setTapeAgent] = useState(null);
-  const [tab, setTab] = useRemembered('feeless.ack.tab', 'live'); const [aiOpen, setAiOpen] = useState(false);   // 🔁 a refresh comes back to the same coin, timeframe and panel tab
+  const [tab, setTab] = useRemembered('feeless.ack.tab', 'live'); const [aiOpen, setAiOpen] = useState(false); const [brainOpen, setBrainOpen] = useRemembered('feeless.ack.brain', false); const [side, setSide] = useRemembered('feeless.ack.side', 'decision');   // 🔁 a refresh comes back to the same coin, timeframe and panel tab
   // 🧭 the nav: 📈 chart = the top of the page; any other tab opens its pane under the chart and brings it into view (no hunting)
   const [nav, setNav] = useState(() => { try { return localStorage.getItem(NAV_KEY) || 'chart'; } catch { return 'chart'; } });
   const [navPane, setNavPane] = useState(() => { try { const v = localStorage.getItem(DECK_KEY); return v && v !== 'chart' ? v : 'live'; } catch { return 'live'; } });
@@ -580,7 +606,7 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
   const model = useMemo(() => chartModel(d, mint, cc?.livePx), [d, mint, cc?.livePx]);
   const dec = useMemo(() => decisionOf(d, mint), [d, mint]);
   const pos = (o?.positions || []).find(p => p.mint === mint) || null; const cand = ((o?.kernel || {}).candidates || []).find(c => c.mint === mint) || null;
-  const markers = useMemo(() => letterMarkers(tapeOf(o?.tape, { mint, n: 120 }), pos?.fills), [o?.tape, mint, pos?.fills]);
+  const markers = useMemo(() => [...letterMarkers(tapeOf(o?.tape, { mint, n: 120 }), pos?.fills), ...ghostMarkers(pos)].sort((a, b) => a.time - b.time), [o?.tape, mint, pos?.fills, pos?.ghosts, pos?.entry]);   // ✂ where the agents would have sold
   const readyN = ((o?.kernel || {}).candidates || []).filter(c => c.status === 'READY').length;
   const tiles = useMemo(() => missionTiles(d, seats), [d, seats]);
   // ⚡ real-event pulses: an agent lights only when ITS newest tape id moves (never on a timer, never on first paint)
@@ -592,6 +618,10 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
   const agentNow = agent || leadAgent(dec);
   const onPick = m => { setPick(m); setAgentS(null); };
   useEffect(() => { const on = e => { const m = e.detail?.mint; if (m) { setPick(m); setAgentS(null); } }; window.addEventListener('feeless:cockpit-coin', on); return () => window.removeEventListener('feeless:cockpit-coin', on); }, []);
+  // 🧠 a $COIN chip in a Brain answer → that coin on the chart (a held seat first, then the desk's candidates)
+  useEffect(() => { const on = e => { const y = String(e.detail?.sym || '').toUpperCase(); const hit = seatsRef.current.find(x => !x.open && String(x.symbol || '').toUpperCase() === y)
+    || (((d?.office?.kernel || {}).candidates) || []).find(c => String(c.symbol || '').toUpperCase() === y); if (hit?.mint) { setPick(hit.mint); setAgentS(null); } };
+    window.addEventListener('feeless:cockpit-coin-sym', on); return () => window.removeEventListener('feeless:cockpit-coin-sym', on); });   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const on = e => go(LENS_TAB[e.detail] || e.detail); window.addEventListener('feeless:agents-lens', on); return () => window.removeEventListener('feeless:agents-lens', on); });   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const on = () => setAiOpen(true); window.addEventListener('feeless:agents-ai', on); return () => window.removeEventListener('feeless:agents-ai', on); }, []);
   // 🧠 the Brain's Coach / Teach panes change only when coaching, teaching or the HELD coins change — a 3s price tick or a hub paint
@@ -611,11 +641,10 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
       ['seats', '🪑 Seats', seats.length ? `${held}/${seats.length}` : null, <section className="ack-seats" data-testid="ack-seats"><header><b>🪑 SEAT BOARD</b><OpenPnl seats={seats} onPick={onPick} /><small><b className="m-pos">{held}/{seats.length || '—'} active</b> · live prices every 3s · tap a seat = its chart + the agent handling it</small></header>
       <ReaperAsks o={o} call={call} isOwner={isOwner} reload={cc?.load} />
       {isOwner ? <><AddMyCoin call={call} tpl={d?.card?.tpl} seats={seats} reload={cc?.load} /><SeatControls call={call} tpl={d?.card?.tpl} seats={seats} reload={cc?.load} /><MySeatsRecord rec={o.ownerSeats} /></> : null}
-      <div className="ack-seatrow">{seats.map((s, i) => <SeatCard key={s.seat} s={s} on={!s.open && s.mint === mint} onPick={onPick} readyN={readyN} same={s.open ? seats.slice(0, i).find(x => x.open && x.why === s.why)?.seat : undefined} />)}</div></section>, seats.length ? held / seats.length : null, 'the seats: live P&L, Reaper\'s word, tap = its chart'],
+</section>, seats.length ? held / seats.length : null, 'the seats: live P&L, Reaper\'s word, tap = its chart'],
       ['you', '👤 You', o.ownerStudy?.score != null ? `${o.ownerStudy.score}%` : null, <OwnerStudy study={o.ownerStudy} memory={o.aiMemory} />, null, 'your own moves graded, your seats vs the agents, what the study suggests'],
       ['live', '⚡ Live desk', (o.tape || []).length || null, <div className="ack-livedesk"><DuoSeat duo={d?.duo} /><AgentMatrix o={o} gens={o?.generations || []} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} rows={o.tape} pulse={pulse} /><DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { if (r.mint) setPick(r.mint); setAgentS(r.agent in AG ? r.agent : null); setTab('live'); }} /></div>, null, 'G4 × OSSY on their seat, the ten agents and every live decision — one place'],
       ['tape', '🎬 Trades', (o.tradeTape?.rows || []).length, <><LossMap court={o.court} capital={o.capital} /><TradeTape tape={o.tradeTape} mint={mint} onPick={onPick} /></>],
-      ['brain', '🧠 Brain', null, <AiChat call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} variant="full" extras={brainExtras} />],
       ['review', '📋 Queue', (o.ownerReview || []).length || null, <ReviewQueue o={o} call={call} isOwner={isOwner} onPick={m => { onPick(m); if (m && !((o.kernel || {}).candidates || []).some(c => c.mint === m) && !(o.positions || []).some(p => p.mint === m) && !(o.ownerReview || []).some(r => r.mint === m)) openCoin({ mint: m }); }} sel={mint} />],
       ['controls', '🎛 Limits', null, <><CockpitControls o={o} call={call} isOwner={isOwner} onAi={() => setAiOpen(true)} />{limits}</>, null, 'EVERY control in one place: universe, exits, seats, buy gate, model + your creator limits (TP / SL / trail / hold / size / switching)'],
       ['stats', '📊 Stats', null, <>{head}<MissionRibbon tiles={tiles} live={!!cc?.live} /><LivePulse o={o} onAi={() => setTab('ai')} /></>, null, 'mission numbers, the desk pulse, stage + dial'],
@@ -623,13 +652,19 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
     ]);
   return <section className="ack" data-testid="agent-cockpit">
     {/* 💵 ONE sticky strip: the money at a glance + the icon nav; nothing else above the chart. Every other section is a pane behind the nav */}
-    <MoneyStrip d={d} seats={seats} mint={mint} onPick={onPick} nav={nav} go={go} navTabs={navTabs} ai={<AiChipBtn o={o} onClick={() => setAiOpen(true)} testid="ack-money-ai" />} />
+    <MoneyStrip d={d} seats={seats} mint={mint} onPick={onPick} nav={nav} go={go} navTabs={navTabs} ai={<AiChipBtn o={o} onClick={() => setAiOpen(true)} testid="ack-money-ai" />}
+      brain={<button type="button" className={`ack-brainbtn ${brainOpen ? 'is-on' : ''}`} onClick={() => setBrainOpen(!brainOpen)} aria-pressed={brainOpen} data-testid="ack-brain-open" data-tip="the Brain — talk to G4 / OSSY, coach, teach, code lab (slides out on the right)">🧠 BRAIN</button>} />
+    <div className="ack-topseats" data-testid="ack-topseats">
+      <div className="ack-seatrow">{seats.map((s, i) => <SeatCard key={s.seat} s={s} on={!s.open && s.mint === mint} onPick={onPick} readyN={readyN} same={s.open ? seats.slice(0, i).find(x => x.open && x.why === s.why)?.seat : undefined} />)}</div></div>
     <div className="ack-main">
       <div className="ack-left"><CockpitChart m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); setTab('live'); }} tid={o?.tid} call={call} isOwner={isOwner} />
+        <RideBar s={seats.find(x => !x.open && x.mint === mint)} pos={pos} />
         <IntakeBand o={o} mint={mint} onPick={onPick} call={call} isOwner={isOwner} imp={d?.impostors} /></div>
-      <DecisionPanel o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
-        pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} mcNow={model?.mc} onAi={() => setAiOpen(true)} /></div>
+      <div className="ack-right"><div className="ack-sidetabs m-seg" role="tablist" aria-label="Right column">{[['decision', '🧠 Decision'], ['desk', '⚡ Live desk']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={side === k} className={side === k ? 'active' : ''} onClick={() => setSide(k)} data-testid={`ack-side-${k}`}>{l}</button>)}</div>
+      {side === 'desk' ? <div className="ack-sidedesk" data-testid="ack-sidedesk"><DuoSeat duo={d?.duo} /><DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { if (r.mint) setPick(r.mint); setSide('decision'); }} /></div> : <DecisionPanel o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
+        pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} mcNow={model?.mc} onAi={() => setAiOpen(true)} />}</div></div>
     <div ref={deckRef} className="ack-deckwrap"><Deck testid="ack-tapezone" bare on={nav === 'chart' ? navPane : nav} setOn={go} tabs={navTabs} /></div>
+    {brainOpen ? createPortal(<BrainDrawer close={() => setBrainOpen(false)}><AiChat call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} variant="full" extras={brainExtras} /></BrainDrawer>, document.body) : null}
     {aiOpen ? createPortal(<AiProvidersLive o={o} call={call} isOwner={isOwner} close={() => setAiOpen(false)} />, document.body) : null}
   </section>;
 }

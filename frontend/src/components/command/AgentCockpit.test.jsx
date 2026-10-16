@@ -34,8 +34,8 @@ test('the cockpit, laid out like the reference: ribbon → 4 seats → MC chart 
   await act(async () => { root.render(<AgentHubProvider value={hub}><AgentCockpit call={call} /></AgentHubProvider>); });
   await flush();
   const order = [...q('agent-cockpit').children].map(c => c.getAttribute('data-testid') || c.className);
-  expect(order).toEqual(['ack-money', 'ack-main', 'ack-deckwrap']);   // 💵 one sticky strip, the chart, then ONE pane behind the nav expect(q('ack-ops')).not.toBeNull();   // one deck under the chart (one pane at a time)
-  expect([...q('ack-money').querySelectorAll('.ack-nav > [role=tab]')].map(b => b.getAttribute('data-testid'))).toEqual(['ack-nav-chart', 'ack-deck-seats', 'ack-deck-you', 'ack-deck-live', 'ack-deck-tape', 'ack-deck-brain', 'ack-deck-review', 'ack-deck-controls', 'ack-deck-stats']);
+  expect(order).toEqual(['ack-money', 'ack-topseats', 'ack-main', 'ack-deckwrap']);   // 🪑 the seats across the top   // 💵 one sticky strip, the chart, then ONE pane behind the nav expect(q('ack-ops')).not.toBeNull();   // one deck under the chart (one pane at a time)
+  expect([...q('ack-money').querySelectorAll('.ack-nav > [role=tab]')].map(b => b.getAttribute('data-testid'))).toEqual(['ack-nav-chart', 'ack-deck-seats', 'ack-deck-you', 'ack-deck-live', 'ack-deck-tape', 'ack-deck-review', 'ack-deck-controls', 'ack-deck-stats']);
   // 💵 the ribbon: the card's own numbers
   for (const k of ['putin', 'equity', 'net', 'phase', 'be', 'lives', 'occ', 'cycle', 'last', 'cash', 'keeper', 'exec']) expect(q(`ack-rt-${k}`)).not.toBeNull();
   expect(q('ack-rt-putin').textContent).toContain('$32.50'); expect(q('ack-rt-phase').textContent).toContain('RECOVERY'); expect(q('ack-rt-keeper').textContent).toContain('1 ACTIVE');
@@ -182,8 +182,8 @@ test('🗂 one deck: ⚡ Live open by default, the Brain its own pane; 👑 Coac
   const { root, q } = mount();
   await act(async () => { root.render(<AgentHubProvider value={hub}><AgentCockpit call={call} /></AgentHubProvider>); });
   await flush();
-  expect(q('ack-deck-coach')).toBeNull(); expect(q('ack-deckpane-live').hidden).toBe(false); expect(q('ack-deckpane-brain').hidden).toBe(true);
-  await act(async () => { q('ack-deck-brain').click(); }); expect(q('ack-deckpane-brain').hidden).toBe(false); expect(q('ack-deckpane-live').hidden).toBe(true);
+  expect(q('ack-deck-coach')).toBeNull(); expect(q('ack-deckpane-live').hidden).toBe(false); expect(q('ack-brain-drawer')).toBeNull();
+  await act(async () => { q('ack-brain-open').click(); }); expect(q('ack-brain-drawer')).not.toBeNull(); expect(q('ack-deckpane-live').hidden).toBe(false);   // 🧠 the Brain slides out; the page stays
   expect(q('cch-extra-coach').hidden).toBe(true); expect(q('cch-extra-coach').children.length).toBeGreaterThan(0);
   await act(async () => { q('cch-pane-coach').click(); });
   expect(q('cch-extra-coach').hidden).toBe(false); expect(q('cch-modes').closest('.cch-talkpane').hidden).toBe(true);   // Talk stays mounted (hidden): no remount glitch

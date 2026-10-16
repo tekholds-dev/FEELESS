@@ -4,7 +4,8 @@
 // agents only on the owner's call (🛠 proposals → ✅ Approve). Modes: 💬 Chat · 🔎 Case review · 🛠 Fix agents.
 import { AiPlayground } from './AiPlayground';
 import { AiActivity } from './AiActivity';
-import React, { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { answerCard } from '../../lib/cockpitPlus';
+import React, { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 import { uploadImage } from '../../lib/adminCall';
@@ -80,12 +81,23 @@ export function WebSrc({ w }) {
   })}</span>;
 }
 
+// 🧠 an answer as a CARD (owner, 2026-10-16): the headline with its number, ≤ 3 bullets, a chip per $COIN it names (opens the coin); the full
+// text stays one tap away. A short reply stays a plain line.
+function AnswerCard({ text }) {
+  const [all, setAll] = useState(false); const c = useMemo(() => answerCard(text), [text]);
+  if (!c || all) return <span>{text}{c ? <button type="button" className="cch-acmore" onClick={() => setAll(false)}>▴ card</button> : null}</span>;
+  return <span className="cch-ac" data-testid="cch-answer-card"><b className="cch-achead">{c.head}</b>
+    {c.bullets.length ? <ul>{c.bullets.map((b, i) => <li key={i}>{b}</li>)}</ul> : null}
+    <span className="cch-acfoot">{c.coins.map(x => <button key={x} type="button" className="cch-accoin" onClick={() => window.dispatchEvent(new CustomEvent('feeless:cockpit-coin-sym', { detail: { sym: x } }))}>${x}</button>)}
+      <button type="button" className="cch-acmore" onClick={() => setAll(true)}>full answer{c.more ? ` · +${c.more}` : ''}</button></span></span>;
+}
+
 const ChatLog = memo(function ChatLog({ hist, err, busy, from, onRemember, onBuild, onEdit, onDelete }) {
   const end = useRef(null);
   useEffect(() => { const el = end.current; if (el && el.parentNode) el.parentNode.scrollTop = el.parentNode.scrollHeight; }, [hist, busy]);
   return <ol className="cch-log" data-testid="cch-log" aria-live="polite">
     {err && !hist.length ? <li className="cch-nil is-warn" data-testid="cch-err">⚠ {err}</li> : null}
-    {hist.length ? hist.map((t, i) => <li key={`${i}-${t.text.slice(0, 12)}`} className={`cch-msg is-${t.role} ${i >= from ? 'is-fresh' : ''}`}><small>{t.role === 'user' ? 'YOU' : 'BRAIN'}</small>{t.meta?.img ? <img className="cch-img" src={t.meta.img} alt="attached" loading="lazy" /> : null}<span>{t.text}</span>
+    {hist.length ? hist.map((t, i) => <li key={`${i}-${t.text.slice(0, 12)}`} className={`cch-msg is-${t.role} ${i >= from ? 'is-fresh' : ''}`}><small>{t.role === 'user' ? 'YOU' : 'BRAIN'}</small>{t.meta?.img ? <img className="cch-img" src={t.meta.img} alt="attached" loading="lazy" /> : null}{t.role === 'assistant' ? <AnswerCard text={t.text} /> : <span>{t.text}</span>}
       {t.meta?.data ? <DataChip d={t.meta.data} /> : null}
       {t.meta?.web?.length ? <WebSrc w={t.meta.web} /> : null}
       <i className="cch-mact">{t.role !== 'user' && t.text.length >= 8 && !t.text.startsWith('⚠') ? <><button type="button" onClick={() => onRemember(t.text)} data-tip="Remember this: it becomes a lesson every fitting model read sees" data-testid={`cch-rem-${i}`}>🧠 Remember</button>

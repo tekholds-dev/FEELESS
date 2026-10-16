@@ -195,3 +195,15 @@ body.theme-day .cch-svopen { background: rgba(16, 38, 26, .04); } body.theme-day
 body.theme-day .cch-msg.is-assistant { background: linear-gradient(100deg, rgba(13, 122, 65, .08), transparent); border-left-color: #0d7a41; }
 body.theme-day .cch-msg.is-user { border-color: rgba(30, 110, 170, .35); background: rgba(30, 110, 170, .06); }
 @media (max-width: 640px) { .cch-svpop { width: min(300px, 86vw); } }
+/* 🧠 answers as cards: headline · ≤ 3 bullets · $COIN chips · full answer one tap away */
+.cch-ac { display: grid; gap: 5px; min-width: 0; }
+.cch-achead { font: 800 11.5px/1.45 var(--m-mono); color: #e9fff3; }
+.cch-ac ul { margin: 0; padding-left: 14px; display: grid; gap: 3px; } .cch-ac li { font: 500 10.5px/1.45 var(--m-mono); color: rgba(233, 255, 243, .82); }
+.cch-ac li::marker { color: #15d16a; }
+.cch-acfoot { display: flex; flex-wrap: wrap; gap: 5px; }
+.cch-accoin, .cch-acmore { padding: 2px 7px; border-radius: 6px; border: 1px solid rgba(21, 209, 106, .4); background: rgba(21, 209, 106, .1); color: #e9fff3; font: 700 9px var(--m-mono); cursor: pointer; transition: transform .12s ease; }
+.cch-acmore { border-color: rgba(255, 255, 255, .14); background: transparent; color: rgba(233, 255, 243, .65); margin-left: 6px; }
+.cch-accoin:hover, .cch-acmore:hover { transform: translateY(-1px); } .cch-accoin:active, .cch-acmore:active { transform: scale(.96); }
+.cch-accoin:focus-visible, .cch-acmore:focus-visible { outline: 2px solid #15d16a; outline-offset: 1px; }
+@media (prefers-reduced-motion: reduce) { .cch-accoin, .cch-acmore { transition: none; } }
+body.theme-day .cch-achead { color: #10261a; } body.theme-day .cch-ac li, body.theme-day .cch-accoin, body.theme-day .cch-acmore { color: #10261a; }

@@ -17225,7 +17225,8 @@ def _office_positions():
         ent_ = _fuse._f(r.get('entry'))
         out.append({**r, 'path': list(p_.get('path') or [])[-40:], 'bars': _office_bars(r.get('pair'), r.get('mint')),
                     'supply': sup_, 'supplySrc': mk_.get('supplySrc'), 'mc': _tks.mc(r.get('px'), sup_), 'entryMc': _tks.mc(ent_, sup_),   # 📊 the chart language: price × supply (None = unavailable)
-                    'peakMc': _tks.mc(ent_ * (1 + _fuse._f(r.get('peak')) / 100), sup_) if r.get('peak') is not None else None, 'fills': fills_})
+                    'peakMc': _tks.mc(ent_ * (1 + _fuse._f(r.get('peak')) / 100), sup_) if r.get('peak') is not None else None, 'fills': fills_,
+                    'ghosts': [{'at': g_.get('at'), 'pct': g_.get('pct'), 'rule': str(g_.get('rule') or '').split(' ')[0]} for g_ in (p_.get('study') or []) if isinstance(g_, dict) and g_.get('sell')][-6:]})   # ✂ where the agents WOULD have sold (your picks)
     return out
 
 

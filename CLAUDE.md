@@ -4687,5 +4687,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🪙 CHAT READS THE NAMED COIN (`_chat_coin`, ctx `coin`): a message naming a coin ($SYM, or a symbol on the card / recent tape) gets that coin's
   seat (who picked it, entry, peak, your lines), every moment the agents WOULD have sold it, your moves on it, its past exits. Search gate:
   "trade / you guys / learn / pick / a named coin" = FEELESS (no web); "don't need a web search" (`NO_WEB`) never forces one.
+- 🧩 COCKPIT v-next (owner, 2026-10-16, "do all"): the seat cards sit across the TOP (`ack-topseats`; the 🪑 Seats pane keeps only controls) ·
+  right column = 🧠 Decision | ⚡ Live desk (`ack-side-*`: DuoSeat + DecisionTape) · the Brain is a slide-out drawer (`ack-brain-open`,
+  `BrainDrawer`, no deck tab) · ✂ ghosts on the chart = where the agents WOULD have sold your pick (positions `ghosts` ← study `sell`) ·
+  🩸 rug marker (`rugMark`: Reaper drain WATCH / DRAIN or pool ≤ 85% of entry depth) on the seat + under the chart · 🎞 Share the ride
+  (`rideCard` → ShareGifButton) · money strip adds 👤 YOU · 🤖 AGENTS 24h $, 💎 DIAMOND HANDS (`diamondOf`: your result − the agents' first
+  would-sell, per closed trade), 🔁 G4 vs OSSY (`leagueOf`) · Brain answers render as cards (`answerCard`: headline with its number, ≤ 3
+  bullets, $COIN chips → `feeless:cockpit-coin-sym`). All pure in `lib/cockpitPlus.js`.
 - FEE prompt opening = "tools first, `now` at most once, never the same tool twice, then answer" — "a tool call EVERY turn, `now` at least" made
   the 4B Qwen call `now` 14 times without answering.
