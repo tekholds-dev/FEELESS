@@ -15368,6 +15368,8 @@ def _trail_view(of, arch, rcfg, scalp):
         print('trail grid:', e)
         g = {'n': 0, 'need': _ap.MIN_N, 'pays': False}
     try:   # 🟢 b8: green exits by the rule that sold them vs what the live trail would have made on the same whole move
+        g['bench'] = _ap.rule_bench((arch or {}).get('positions'), (_after_mem.get() or {}).get('done'), set(_of.SOFT_EXITS) - {'R7'})   # 🪑 R7 (the trail) is what protects the rest — never benched
+        _of.BENCHED = {r_ for r_, v_ in g['bench'].items() if v_.get('benched')}
         g['byRule'] = _ap.by_rule((arch or {}).get('positions'), (_after_mem.get() or {}).get('done'), _of.reaper_replay, _of.tunes(of, 'reaper'), _of.take_line(rcfg, scalp))
         g['ruleWords'] = _ap.rule_words(g['byRule'])
         g['twin'] = _ap.scale_twin((arch or {}).get('positions'), (_after_mem.get() or {}).get('done'), _of.SCALE_AT, _of.tunes(of, 'reaper').get('giveBackPct', 30), frac=_of.SCALE_PCT / 100)   # 💰 the scale-out's paper twin

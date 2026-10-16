@@ -740,6 +740,9 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             ev += (f" · 🛫 runway: a green coin is not banked in its first {RUNWAY_SEC / 60:.0f} min ({round(RUNWAY_SEC - held_s)}s left) — the trail still sells it under +{RUNWAY_KEEP:g}%"
                    if not str(rule).startswith('R5t') else ' · 🛫 a broken thesis never sells a GREEN coin — the trail protects it')
             act, st = None, 'PROTECT'
+        if act and soft_exit(rule) and str(rule).split(' ')[0] in BENCHED:   # 🪑 this rule's own record: holding beat its sales → it sells nothing
+            ev += f" · 🪑 {str(rule).split(' ')[0]} is BENCHED — its sales typically lost to holding 30 min (its own record); the trail / stops still act"
+            act, st = None, 'PROTECT'
         if act and soft_exit(rule):   # 📸 a profit-side exit needs its snapshots (the model's fresh read sets how many)
             ok_, seen_, need_ = soft_confirm(p, rule, now, (ai_words or {}).get(m))
             if not ok_:
@@ -951,6 +954,7 @@ RUNWAY_RULES = ('R6', 'R7', 'R7v', 'R7s', 'R7b', 'R5t', 'R8', 'R9', 'R9e', 'R4f'
 # longer sells a winner. The model's fresh exit read sets N: RIDE → 3, TIGHTEN → 1, none → 2. STOPS, the −45% line, rug / drain / dump,
 # scan failures and a broken thesis on a loser stay INSTANT: waiting on a falling coin is how stops filled at −35%.
 SOFT_EXITS = ('R6', 'R7', 'R7s', 'R7b', 'R7v', 'R8', 'R9', 'R9e', 'R4f', 'R4c')
+BENCHED = set()   # 🪑 soft exit rules whose own after-sale record says holding beat selling (after_path.rule_bench; set by the service each pass)
 SNAP_N, SNAP_RIDE_N, SNAP_TIGHT_N = 2, 3, 1
 SNAP_GAP = 8.0       # seconds between two counted snapshots
 SNAP_FORGET = 90.0   # a snapshot older than this no longer counts (the exit reading went away and came back)

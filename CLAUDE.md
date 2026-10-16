@@ -4461,4 +4461,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   UI `SeatControls` (MySeat.jsx) under Add my coin: per held seat 💰 +25/+50/+100% · 🛑 −15/−30% from now + ⏏ Pull (manualSell 100), open limits ✕.
 - 👤 The Brain has a "👤 Your trades" pane (`OwnerStudy`) and every chat answer gets `yourTrades` (the owner study's findings + suggestions) in
   its context (`ai_chat.context`). `_fuse_chat` keys moved out of fuse_hq.json to `data/fuse_chat_posted.json` (97 KB rewritten per post, unlocked).
+- 🪑 EXIT RULES EARN THEIR PLACE (owner, 2026-10-15: "no bs SL or TP"; `after_path.rule_bench`, `office.BENCHED`, payload `trail.bench` → 🪑 line in
+  the Trail lab): every SOFT exit rule (SOFT_EXITS minus R7, the trail that protects the rest) is graded on the coin's price 30 min after each
+  sale. Over ≥ 30 exits, typical sale ≥ 3 pts worse than holding AND holding won ≥ 55% → BENCHED: Reaper's ruling under it becomes PROTECT.
+  It comes back by itself when its record turns. Stops, R5x −45%, rug / drain / dump, scan failures are never benched.
+  The other four ideas already run: rug budget sizing (W24), the model is veto-only on its own proven record, owner-study suggestions as
+  Brain proposals, and losing lists / lab rules / model reads are paused / failed / weightless by their own records.
 

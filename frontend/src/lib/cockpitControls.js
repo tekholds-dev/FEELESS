@@ -76,6 +76,14 @@ export function capitalRead(cap) {
 }
 
 // 👁 the trail replay on WHOLE moves (path + 30 min past the sale): live vs best, what is in shadow, what the model asked for
+// 🪑 soft exit rules graded on the 30 min after each sale (after_path.rule_bench): benched = holding beat that rule's sales
+export function benchWord(b) {
+  const rows = Object.entries(b || {}).filter(([, v]) => v && v.n);
+  if (!rows.length) return null;
+  const on = rows.filter(([, v]) => v.benched).map(([k]) => k);
+  return `🪑 exit rules vs holding 30 min: ${rows.slice(0, 5).map(([k, v]) => `${k} ${v.held >= 0 ? '+' : ''}${v.held}% (n ${v.n})`).join(' · ')}${on.length ? ` — BENCHED: ${on.join(', ')}` : ' — none benched'}`;
+}
+
 export function trailRead(t) {
   if (!t || !t.n) return { n: 0, line: t?.watching ? `watching ${t.watching} exit${t.watching === 1 ? '' : 's'} to the end of the move` : 'no exit watched to the end of its move yet', rows: [] };
   const f = r => `arm +${r.arm}% · give ${r.give}%`;

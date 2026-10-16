@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { hubLoad, useAi } from '../../lib/agentHub';
-import { CTRL_GROUPS, optWord, whoTone, WHO_WORD, bandTrack, hasIntel, gateCounts, GATE_WORDS, regretRows, capitalRead, trailRead, twinRead } from '../../lib/cockpitControls';
+import { CTRL_GROUPS, optWord, whoTone, WHO_WORD, bandTrack, hasIntel, gateCounts, GATE_WORDS, regretRows, capitalRead, trailRead, benchWord, twinRead } from '../../lib/cockpitControls';
 import { aiMetricsLine } from '../../lib/aiRead';
 import { AiChipBtn } from './AiProviders';
 import '../../styles/agentControls.css';
@@ -121,6 +121,7 @@ function TrailLab({ trail }) {
     {t.live ? <p className="acx-trailrows"><span><small>LIVE</small>{t.live.word}<b>{t.live.avg > 0 ? '+' : ''}{t.live.avg}%</b></span>
       {t.best ? <span className="is-best"><small>BEST</small>{t.best.word}<b>{t.best.avg > 0 ? '+' : ''}{t.best.avg}%</b></span> : null}</p> : null}
     {t.shadow ? <p className="acx-capfacts"><span>{t.shadow}</span></p> : null}
+    {benchWord(trail?.bench) ? <p className="acx-capfacts" data-testid="acx-bench" data-tip="Each soft exit is graded on what the coin did 30 min after our sale. A rule whose sales typically lost 3+ pts to holding (30+ exits) is benched: it sells nothing. Stops, rug / drain and the −45% line never are."><span>{benchWord(trail.bench)}</span></p> : null}
     {t.asked && !t.shadow ? <p className="acx-capfacts"><span>{t.asked}</span></p> : null}
     <TwinRow tw={trail?.twin} />
   </div>;

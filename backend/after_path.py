@@ -161,3 +161,28 @@ def scale_twin(positions, done, at=10.0, give=30.0, min_n=20, frac=0.75):
     return {'n': len(rows), 'real': {'avg': rn(sum(r) / len(r)), 'med': rn(med(r))}, 'twin': {'avg': rn(sum(t) / len(t)), 'med': rn(med(t))},
             'better': sum(1 for a, b in rows if b > a), 'worse': sum(1 for a, b in rows if b < a),
             'pays': len(rows) >= min_n and sum(t) > sum(r) and med(t) >= med(r)}
+
+
+BENCH_N, BENCH_HELD, BENCH_SHARE = 30, 3.0, 0.55
+
+
+def rule_bench(positions, done, rules, min_n=BENCH_N):
+    """🪑 EVERY SOFT EXIT EARNS ITS PLACE (owner, 2026-10-15: "no bs SL or TP"): per rule, every confirmed exit it made with a 30-min after-path
+    on file — `held` = what the coin was 30 min later minus what we sold at (+ = holding beat the sale). A rule is BENCHED when, over ≥ min_n
+    exits, the typical sale lost ≥ BENCH_HELD pts to holding AND holding won ≥ BENCH_SHARE of the time (a rug after the sale counts −100).
+    → {rule: {n, held, share, benched}}. Hard exits (stops, rug / drain, −45%) are never passed in."""
+    by = {}
+    for p in positions or []:
+        r = str(p.get('rule') or '').split(' ')[0]
+        if r not in rules or not p.get('confirmed') or p.get('realPct') is None:
+            continue
+        a = (done or {}).get(key_of(p))
+        if not a:
+            continue
+        by.setdefault(r, []).append(_f(a[-1]) - _f(p['realPct']))
+    out = {}
+    for r, v in by.items():
+        v = sorted(v); med = v[len(v) // 2] if len(v) % 2 else (v[len(v) // 2 - 1] + v[len(v) // 2]) / 2
+        share = sum(1 for x in v if x > 1.0) / len(v)
+        out[r] = {'n': len(v), 'held': round(med, 2), 'share': round(share * 100), 'benched': len(v) >= min_n and med >= BENCH_HELD and share >= BENCH_SHARE}
+    return out
