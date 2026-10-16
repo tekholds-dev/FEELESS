@@ -147,3 +147,10 @@ def test_after_a_spike_nothing_is_ready_and_ready_lives_only_inside_the_germ_lin
     assert 'top of the spike' in op.spike_chase({'chart': {'germDist': 40.0, 'distHigh': 6.0}, 'nums': {'d5': 2.0}})
     assert op.spike_chase({'chart': {'germDist': 8.0, 'distHigh': 3.0}, 'nums': {'d5': 2.0}}) is None   # on its germ: fine
     assert op.spike_chase({'chart': {'germDist': 40.0, 'distHigh': 30.0}, 'nums': {'d5': -2.0}}) is None  # pulled back far off the top
+
+
+def test_a_spike_that_came_back_to_its_germ_is_the_entry():
+    import opportunity as op
+    from trench_kernel import universe as uni
+    uni.set_band({})
+    assert op.spike_chase({'chart': {'germDist': 5.0}, 'nums': {'d5': 20.0}}) is None
