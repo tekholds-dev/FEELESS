@@ -7031,10 +7031,13 @@ async def _owner_moves_tick(now):
             sym = {r['symbol']: {'mint': r['mint'], 'pair': r.get('pair')} for r in led[-800:] if r.get('card') == tid and r.get('symbol') and r.get('mint')}
             sym.update({l.get('symbol'): {'mint': l.get('mint'), 'pair': l.get('pairAddress')} for l in c.get('legs') or [] if l.get('mint')})
             fresh = {h_[1] for e in c.get('events') or [] if _fuse._f(e.get('at')) > _fuse._f(log.get('seenAt')) for h_ in [_om.classify(e)] if h_ and h_[1]}
-            due = [r['mint'] for r in log.get('rows') or [] if r.get('pct') is None and now - _fuse._f(r.get('at')) >= _om.SETTLE_SEC]
+            due = [r['mint'] for r in log.get('rows') or [] if (r.get('pct') is None and now - _fuse._f(r.get('at')) >= _om.SETTLE_SEC)
+                   or (r.get('pct2h') is None and now - _fuse._f(r.get('at')) >= _om.LATE_SEC)]
+            ob_ctx = {r_['mint']: r_ for r_ in (_open_board() if _open_pairs else (_open_cache.get('rows') or [])) if r_.get('mint')}   # 📸 the market at the move
+            mine_ = {l.get('symbol') for l in c.get('legs') or [] if l.get('picked') or l.get('ownerLvAt')}
             mints = list(dict.fromkeys([sym[x]['mint'] for x in fresh if x in sym] + due))
             jp = (await _jup_prices(mints, judge=True)) if mints else {}
-            log, added = _om.collect(log, c, lambda x: ({**sym[x], 'px': (jp or {}).get(sym[x]['mint'])} if x in sym else None), now)
+            log, added = _om.collect(log, c, lambda x: ({**sym[x], 'px': (jp or {}).get(sym[x]['mint']), 'ctx': ob_ctx.get(sym[x]['mint'])} if x in sym else None), now, mine=mine_)
             log, done = _om.settle(log, lambda m: (jp or {}).get(m), now)
             st[tid] = log
             posts += _om.calls(added, done)
@@ -13490,7 +13493,13 @@ def _ai_owner(now):
     try:
         log_ = next((v for k_, v in _json_load(OWNER_MOVES_PATH, {}).items() if isinstance(v, dict)), {})
         sm_ = _om.summary(log_)
-        out += [f"{x_['label']} n{x_['n']}: {x_['good']} good / {x_['bad']} bad, coin typ {x_['medPct']:+.0f}% after" for x_ in sm_.values()][:4]
+        out += [f"{x_['label']} n{x_['n']}: {x_['good']} good / {x_['bad']} bad, coin typ {x_['medPct']:+.0f}% after" for x_ in sm_.values()][:5]
+        so_ = _om.shakeouts(log_)
+        if so_.get('n'):   # 🛑 the owner's lesson: his tight stops that sold a coin right before it ran
+            out.append(f"his stops: {so_['shaken']} of {so_['n']} sold a coin that then ran 20%+ within 2h" + (f" ({', '.join(so_['coins'][:3])})" if so_['coins'] else ''))
+        last_ = [r_ for r_ in (log_.get('rows') or []) if r_.get('pct') is not None and not r_.get('engine')][-3:]
+        if last_:
+            out.append('his latest: ' + ' | '.join(_om.why_line(r_) for r_ in last_))
         pl_ = (_json_load(PICK_STYLE_PATH, {}) or {}).get('log') or []
         pw_ = _ps.words(_ps.profile(pl_))
         if pw_:
@@ -14185,13 +14194,16 @@ def _owner_brief():
     the agents' first exit call, the owner's dragged lines vs the agents', and the coins the owner has on the card right now."""
     p_ = _office.get('payload') or {}
     st_ = p_.get('ownerStudy') or {}
+    lg_ = (_json_load(OWNER_MOVES_PATH, {}) or {}).get(_office.get('tid') or '', {}) or {}
     card_ = next((c for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if c.get('real')), {}) or {}
     picks_ = [{'coin': l.get('symbol'), 'heldMin': round((time.time() - _fuse._f(l.get('at'))) / 60) if l.get('at') else None,
                'yourStop': l.get('sl') if l.get('ownerLvAt') else None, 'yourTake': l.get('tp') if l.get('ownerLvAt') else None}
               for l in card_.get('legs') or [] if l.get('picked') and not l.get('placeholder')]
     out = {'yourMovesGraded': st_.get('kinds') or st_.get('graded'), 'learnedFromYou': (st_.get('findings') or [])[:8],
            'suggestionsForYou': [str(x.get('text') if isinstance(x, dict) else x)[:160] for x in (st_.get('suggestions') or [])[:4]],
-           'yourSeatsVsAgents': p_.get('ownerSeats'), 'yourLinesVsAgents': p_.get('ownerHand'), 'yourOpenPicks': picks_ or 'none right now'}
+           'yourSeatsVsAgents': p_.get('ownerSeats'), 'yourLinesVsAgents': p_.get('ownerHand'), 'yourOpenPicks': picks_ or 'none right now',
+           'yourRecentMoves': [_om.why_line(r_) for r_ in (lg_.get('rows') or [])[-10:] if not r_.get('engine')],
+           'yourStops': _om.shakeouts(lg_)}
     return {k: v for k, v in out.items() if v not in (None, [], {})}
 
 

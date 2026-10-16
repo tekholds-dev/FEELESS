@@ -82,3 +82,20 @@ def test_a_wiped_hand_line_heals_from_your_own_level_event():
          'events': [{'kind': 'level', 'symbol': 'HTR', 'why': '✋ your line on $HTR: stop −100% → −15%'}, {'kind': 'level', 'symbol': 'HTR', 'why': '✋ your line on $HTR: stop −100% → −20%'}]}
     ap.ticket_stops(c, {'trenchSlPct': 100})
     assert c['legs'][0]['sl'] == 20.0 and 'rideOrRug' not in c['legs'][0]
+
+
+def test_your_stops_are_moves_with_the_market_at_that_moment_and_a_2h_second_look():
+    import owner_moves as om
+    card = {'events': [{'at': 100, 'kind': 'sl', 'symbol': 'STREAM', 'why': '-6% ≤ −5%'},
+                       {'at': 101, 'kind': 'sl', 'symbol': 'BOTCOIN', 'why': '-15% ≤ −15%'}]}
+    coin = lambda s: {'mint': 'M' + s, 'pair': 'P' + s, 'px': 1.0, 'ctx': {'chg5m': -4.0, 'buyShare': 62.0, 'vol1h': 80000, 'ageH': 30.0, 'junk': 1}}
+    log, added = om.collect({'seenAt': 50}, card, coin, 200, mine={'STREAM'})
+    assert [m['symbol'] for m in added] == ['STREAM'] and added[0]['kind'] == 'stopped'      # an agent coin's stop is not yours
+    assert added[0]['ctx'] == {'chg5m': -4.0, 'buyShare': 62.0, 'vol1h': 80000, 'ageH': 30.0}
+    log, done = om.settle(log, lambda m: 0.97, 100 + om.SETTLE_SEC)
+    assert done[0]['result'] == 'flat'
+    log, _ = om.settle(log, lambda m: 1.6, 100 + om.LATE_SEC)
+    r = log['rows'][0]
+    assert r['pct2h'] == 60.0 and r['result2h'] == 'bad'                                    # sold, then it ran: shaken out
+    assert om.shakeouts(log) == {'n': 1, 'shaken': 1, 'coins': ['$STREAM +60%']}
+    assert 'when 5m -4% · buyers 62%' in om.why_line(r) and '+60% at 2h' in om.why_line(r)

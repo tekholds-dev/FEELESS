@@ -8,8 +8,10 @@ and the card's own locks into short chat lines. Coin moves in %, never the card'
 import re
 
 SETTLE_SEC, GOOD_PCT, KEEP = 1800, 10.0, 400
-IN_KINDS, OUT_KINDS = ('pick', 'swap', 'rebuy', 'room'), ('skim', 'house', 'cut', 'tight')
-LABEL = {'pick': '🎯 pick', 'swap': '⇄ hand swap', 'rebuy': '🔄 rebuy', 'skim': '💰 profit take', 'house': '🏠 initial out', 'cut': '✂ cut', 'lock': '❄ lock', 'room': '✋ gave it room (SL/TP)', 'tight': '✋ tightened (SL/TP)'}
+IN_KINDS, OUT_KINDS = ('pick', 'swap', 'rebuy', 'room'), ('skim', 'house', 'cut', 'tight', 'stopped')
+LATE_SEC = 7200   # 🕰 a second look 2h after the move: a stop that was 'right' at 30 min can be a shake-out by then ($STREAM ran after the owner's stop)
+CTX_KEYS = ('chg5m', 'chg1h', 'buyShare', 'vol5m', 'vol1h', 'liq', 'mcap', 'ageH', 'holders', 'top10', 'call')
+LABEL = {'pick': '🎯 pick', 'swap': '⇄ hand swap', 'rebuy': '🔄 rebuy', 'skim': '💰 profit take', 'house': '🏠 initial out', 'cut': '✂ cut', 'lock': '❄ lock', 'room': '✋ gave it room (SL/TP)', 'tight': '✋ tightened (SL/TP)', 'stopped': '🛑 your stop hit'}
 
 
 def _f(v):
@@ -35,16 +37,21 @@ def classify(e):
         return ('cut', e.get('symbol'))
     if kind == 'level':   # ✋ the owner dragged a coin's SL / TP: more room is judged like a buy (up = right), tighter like a sale (down = right)
         return ('room' if e.get('room') else 'tight', e.get('symbol'))
+    if kind == 'sl':   # 🛑 a stop on the card — on a coin the owner picked / lined it is the OWNER's stop (collect checks whose coin it is)
+        return ('stopped', e.get('symbol'))
+    if kind == 'agent' and 'R5 stop' in why:
+        return ('stopped', e.get('symbol'))
     if kind == 'ride' and 'frozen' in why:
         return ('lock', e.get('symbol'))
     return None
 
 
-def collect(log, card, coin_of, now, card_label=None):
+def collect(log, card, coin_of, now, card_label=None, mine=None):
     """New events of this card since the log's last look → noted moves. `coin_of(symbol)` → {'mint', 'pair', 'px'} or None (a move
     whose coin can't be priced is skipped). → (new log, [moves added])."""
     log = dict(log or {})
     seen_at, rows, added = _f(log.get('seenAt')), list(log.get('rows') or []), []
+    mine_ = set(mine or ()) | {r.get('symbol') for r in rows if r.get('kind') in IN_KINDS and now - _f(r.get('at')) < 12 * 3600}
     newest = seen_at
     for e in (card or {}).get('events') or []:
         at = _f(e.get('at'))
@@ -55,11 +62,14 @@ def collect(log, card, coin_of, now, card_label=None):
         if not hit or not hit[1]:
             continue
         kind, sym = hit
+        if kind == 'stopped' and sym not in mine_:   # only the OWNER's coins: an agent coin's stop is the agents' lesson, not yours
+            continue
         c = coin_of(sym) or {}
         if not c.get('mint') or _f(c.get('px')) <= 0:
             continue
         m = {'id': f"{kind}:{c['mint'][:8]}:{int(at)}", 'at': at, 'kind': kind, 'symbol': sym, 'mint': c['mint'], 'pair': c.get('pair'), 'px0': _f(c['px']),
-             'card': card_label or (card or {}).get('label') or '', 'engine': kind == 'lock'}
+             'card': card_label or (card or {}).get('label') or '', 'engine': kind == 'lock',
+             'ctx': {k: c['ctx'][k] for k in CTX_KEYS if (c.get('ctx') or {}).get(k) is not None} or None}   # 📸 the market AT the move: why you did it, read later
         if not any(r.get('id') == m['id'] for r in rows):
             rows.append(m); added.append(m)
     log['seenAt'] = newest
@@ -86,8 +96,31 @@ def settle(log, price_of, now):
         r['pct'] = round((px / _f(r['px0']) - 1) * 100, 1) if px > 0 and _f(r.get('px0')) > 0 else -100.0
         r['result'] = verdict(r['kind'], r['pct']); r['settledAt'] = now
         done.append(r)
+    for r in rows:   # 🕰 the 2h second look (a stop / sale that looked right at 30 min may have been a shake-out)
+        if r.get('pct') is not None and r.get('pct2h') is None and now - _f(r.get('at')) >= LATE_SEC:
+            px = _f(price_of(r.get('mint')))
+            if px > 0 and _f(r.get('px0')) > 0:
+                r['pct2h'] = round((px / _f(r['px0']) - 1) * 100, 1)
+                r['result2h'] = verdict(r['kind'], r['pct2h'])
     log['rows'] = rows
     return log, done
+
+
+def shakeouts(log, run=20.0):
+    """🛑 Your stops that sold a coin which then ran ≥ `run`% within 2h — the owner's own lesson ("STREAM mooned after my stop")."""
+    rows = [r for r in (log or {}).get('rows') or [] if r.get('kind') == 'stopped' and r.get('pct2h') is not None]
+    hit = [r for r in rows if r['pct2h'] >= run]
+    return {'n': len(rows), 'shaken': len(hit), 'coins': [f"${r.get('symbol')} +{r['pct2h']:.0f}%" for r in hit[-5:]]}
+
+
+def why_line(r):
+    """One line: what the owner did, the market at that moment, and how it turned out."""
+    c = r.get('ctx') or {}
+    mk = ' · '.join(x for x in (f"5m {c['chg5m']:+.0f}%" if c.get('chg5m') is not None else None, f"buyers {c['buyShare']:.0f}%" if c.get('buyShare') is not None else None,
+                               f"1h vol ${c['vol1h'] / 1e3:.0f}K" if c.get('vol1h') else None, f"{c['ageH']:.1f}h old" if c.get('ageH') is not None else None) if x)
+    res = f"{r['pct']:+.0f}% at 30m" + (f", {r['pct2h']:+.0f}% at 2h" if r.get('pct2h') is not None else '') if r.get('pct') is not None else 'not judged yet'
+    return f"{LABEL.get(r.get('kind'), r.get('kind'))} ${r.get('symbol')}" + (f" when {mk}" if mk else '') + f" → {res}"
+
 
 
 def summary(log):

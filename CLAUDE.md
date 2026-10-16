@@ -4508,4 +4508,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   trade, 30% won, NO rugs) was mostly the OWNER's own picks hitting the OWNER's own stop lines (Macca, TOAST, PDOOM, DacityCoin, TM, HTR), several
   filling far past the line — `office.fast_reap` guarded agent coins only, so an owner line ran on the engine tick. Now an owner line (`ownerLvAt`
   + `sl`) on a pick is guarded every few seconds too. The seat check reads the YOUNGEST age any source reports (Gemini went in at 17 min).
+- 📸 THE AGENTS STUDY WHY YOU MOVED, AT THAT MOMENT (owner, 2026-10-15: "they do their own thing but study why I do what I do at the time of market
+  … STREAM mooned 4M+ after hitting my SL — that's my teaching"): every owner move in `owner_moves` carries `ctx` = the coin's market AT the move
+  (5m / 1h move, buyers, 5m / 1h volume, pool, cap, age, holders, top-10, the read) from the open board; the OWNER's stops are moves too (kind
+  `stopped`: an `sl` event, or a 6-second-guard R5 stop, on a coin he picked / lined — an agent coin's stop is not his); every move gets a 2h
+  second look (`pct2h`, `result2h`: a stop that looked right at 30 min can be a shake-out); `shakeouts` / `why_line` → the Brain's `owner` block
+  (`yourRecentMoves`, `yourStops`) and every model case (`_ai_owner`: "his stops: N of M sold a coin that then ran 20%+"). The agents still trade
+  on their own rules — this is what they read, never an order.
 
