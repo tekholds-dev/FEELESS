@@ -4628,3 +4628,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`feeless.profile.hq`), the cockpit's coin / timeframe / decision-panel tab (`feeless.ack.pick|iv|tab`); the HQ pop-out and the deck
   panes already kept theirs. New "where was I" state ⇒ `useRemembered`, never a bare useState. 🔗 SOCIALS ON EVERY CHART: `ChartPulse`
   (the vital badge every PriceChart draws) shows the coin's own site / X / Telegram (`SocialIcons`, `socOf` = coin-read facts then the row).
+- ✋ ONLY YOU TP / BANK YOUR TRADES — EVERY CARD-ENGINE PATH (owner, 2026-10-16: "ONLY I SET MY TP AND BANK, NOT YOU OR AGENTS — I'M TRYING TO
+  TEACH"; $BAGSPAY lost half at +63% to `lock_bank`, which sold without `_skim`'s guard): a `picked` leg never rides the card's freeze (no
+  ride flag → no lock-bank, peak sell, moon rungs, ride-end sale / swap), `lock_bank` returns 0, never a rotation loser, never a trench /
+  rush victim (rush included), never a `balance_small` donor or top-up, `locked` for the keeper's idle sweep. Plus the earlier ones (skims,
+  take-stake, cap_trim, house_dust, tier TP, Reaper soft exits). What acts on your pick: YOUR tp / sl / Gstop / opt-in half-lock / limits /
+  taps, a pulled pool (R1), −45% (R5x). New code that sells or resizes a leg ⇒ `if l.get('picked')` first, and a test.

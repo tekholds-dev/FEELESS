@@ -1560,6 +1560,8 @@ def lock_bank(c, l, px, liqs, now, cfg, fee=0.0, gain=None):
     """🏦 BANK ON THE LOCK: `lockBankPct` of a winner is sold when it locks, so a round-tripped run still paid. Once per ride
     (`bankedAt`). In place → $ banked."""
     bank = _f((cfg or {}).get('lockBankPct', LOCK_BANK)) / 100
+    if l.get('picked'):   # ✋ YOUR pick is never banked by the card (2026-10-16: $BAGSPAY lost half to this at +63% — lock_bank sold without _skim's guard)
+        return 0.0
     if bank <= 0 or l.get('bankedAt') or _f(l.get('units')) <= 0 or px <= 0:
         return 0.0
     room = tp_room(l, cfg, px)
@@ -2330,7 +2332,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 px = _f(prices.get(l['pairAddress'])); return _f(l.get('units')) * (px - _f(l.get('entry'))) if px > 0 else 0.0
             rush = bool(cfg.get('trenchRush'))   # ⚡ rush: the owner gave the engine the keys — a losing pick of theirs that is NOT frozen may give its seat
             victims = [l for l in c['legs'] if (l.get('role') == 'runner' or rush) and not l.get('frozen') and not l.get('ride') and not l.get('house') and not agent_leg(l)
-                       and (rush or not l.get('picked')) and not l.get('placeholder') and l.get('mint') != SOL_MINT
+                       and not l.get('picked') and not l.get('placeholder') and l.get('mint') != SOL_MINT   # ✋ never YOUR pick, rush or not (2026-10-16)
                        and gain(l) <= TRENCH_VICTIM_PCT   # a coin in profit keeps its seat — on a $1.50 card a +17% coin makes only 6c ($OMNI was sold for a trench coin) and (_f(l.get('units')) > 0 or l.get('buying')) and leg_profit(l) <= TRENCH_VICTIM_USD
                        and (first_fill or l.get('buying') or now - _f(l.get('at')) >= hold_s)]
             if not nxt or not victims:
@@ -2453,6 +2455,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         floor_g = min(HOLD_MIN, (_f(l.get('rideAtPct')) or ra) / 2)   # a +25% freeze can't demand +80%; a frozen coin keeps the line it froze at
         if cfg.get('trailStep') and l.get('ride'):   # 🪜 the more it is up, the more room it gets (see trail_for)
             rt = trail_for(rt, (max(_f(l.get('high')), px) / l['entry'] - 1) * 100)
+        if l.get('picked') and l.get('ride'):   # ✋ YOUR pick never rides the card's freeze (no lock-bank, no peak sell, no ride-end swap / sale)
+            l['ride'] = False
         if l.get('ride'):
             l['high'] = max(_f(l.get('high')), px)
             if is_moon(l, cfg):
@@ -2498,7 +2502,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
                 ev(kind='ride-end', symbol=l['symbol'], usd=round(usd, 4), why=f"{why_end} — swapped", to=[nxt.get('symbol')])
                 continue
             mode, frac, why = 'ride-end', 1.0, f"{why_end} — sold" 
-        elif _f(cfg.get('rideAt', RIDE_AT)) > 0 and g >= ra and l.get('role') != 'anchor' and _f(l.get('units')) > 0:   # never 'ride' a coin you don't hold
+        elif _f(cfg.get('rideAt', RIDE_AT)) > 0 and g >= ra and l.get('role') != 'anchor' and _f(l.get('units')) > 0 and not l.get('picked'):   # never 'ride' a coin you don't hold · ✋ never YOUR pick
             l.update(ride=True, high=px, rideFrom=l['entry'], rideAt=now, rideAtPct=ra)
             ps_ = _f(cfg.get('peakSellPct', PEAK_SELL)); end_ = cfg.get('rideEnd') if cfg.get('rideEnd') in RIDE_ENDS else 'swap'
             then_ = ('keeps riding' if ps_ <= 0 else f'{ps_:g}% of its profit is sold' if ps_ < 100 else 'it is sold') + f" when it falls {rt:g}% from its peak; under +{min(HOLD_MIN, ra / 2):g}% the ride ends → " + {'swap': 'swapped', 'keep': 'kept on the card', 'cash': 'sold to card cash', 'bank': 'its profit banked, the coin stays'}[end_]
@@ -2644,7 +2648,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             l['loseRounds'] = int(l.get('loseRounds') or 0) + 1 if down else 0
         patient = lambda l: int(l.get('loseRounds') or 0) >= int(cfg.get('rotateConfirm', ROTATE_CONFIRM)) and now - _f(l.get('at')) >= _f(cfg.get('minHoldMins', MIN_HOLD_MINS)) * 60
         locked_round = int(c.get('lockRounds') or 0) > 0 or bool(c.get('holdAll'))   # ✋ hold all: no rotation (stops + rug shield still run)
-        ranked = [] if locked_round else sorted((l for l in c['legs'] if l.get('role') != 'anchor' and not l.get('frozen') and not l.get('ride') and not agent_leg(l) and int(l.get('freezeRounds') or 0) <= 0 and l['entry'] > 0
+        ranked = [] if locked_round else sorted((l for l in c['legs'] if l.get('role') != 'anchor' and not l.get('frozen') and not l.get('ride') and not agent_leg(l) and not l.get('picked') and int(l.get('freezeRounds') or 0) <= 0 and l['entry'] > 0
                                                  and at_or_below_loss(_f(prices.get(l['pairAddress'])) or l['entry'], l['entry'], cfg.get('rotateMinDrop', ROTATE_MIN_DROP)) and patient(l) and (t['sl'] or l.get('role') == 'pool')), key=lambda l: (_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] if l['entry'] else 1)
         swapped = 0
         cap = swap_cap(cfg, V(), len(c['legs']))
@@ -3037,13 +3041,13 @@ def balance_small(c, prices, liqs, now, fee, ev):
     # fresh `trimAt`) or that is locked / riding is small ON PURPOSE: topping it up would buy back what was just sold
     # ($1.93 was skimmed off $SpaceXSI and this rule put $1.13 of it straight back in four seconds later).
     taken = lambda l: l.get('scout') or l.get('ticket') or l.get('house') or l.get('scaled') or l.get('skimPx') or l.get('bankedAt') or l.get('ride') or l.get('frozen') or (l.get('trimAt') and now - _f(l.get('trimAt')) < 600)
-    small = [l for l in legs if not taken(l) and _f(l.get('costUsd')) < SMALL_SHARE * share and val(l) < SMALL_SHARE * share]
+    small = [l for l in legs if not taken(l) and not l.get('picked') and _f(l.get('costUsd')) < SMALL_SHARE * share and val(l) < SMALL_SHARE * share]
     for l in small:
         need = share - val(l)
         take = min(max(0.0, _f(c.get('cash'))), need)
         c['cash'] = _f(c.get('cash')) - take
         rest = need - take
-        for d in sorted((x for x in legs if x not in small and not x.get('frozen') and not x.get('ride') and not (x.get('ownerAddAt') and now - _f(x['ownerAddAt']) < OWNER_ADD_SEC)
+        for d in sorted((x for x in legs if x not in small and not x.get('frozen') and not x.get('ride') and not x.get('picked') and not (x.get('ownerAddAt') and now - _f(x['ownerAddAt']) < OWNER_ADD_SEC)
                          and val(x) > OVER_SHARE * share), key=val, reverse=True):
             if rest < 0.01:
                 break

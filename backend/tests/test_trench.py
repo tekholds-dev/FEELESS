@@ -417,7 +417,7 @@ def test_every_picker_list_shows_its_own_record_or_says_whose_it_borrows():
     assert out['bottom']['medPct'] == -5.8 and out['trench']['src'] == 'trench meta baby'
 
 
-def test_rush_mode_drops_every_10_min_into_a_losing_unfrozen_pick_and_never_a_frozen_one():
+def test_rush_mode_never_drops_into_your_picks_only_the_engines_coins():
     anchors, pools, runners = _cands()
     base = {'trenchCoins': 1, 'rotateHours': 0.25, 'minHoldMins': 10, 'cycles': {**{t: 'off' for t in ap.DEFAULT_CYCLES}, 'degen': 'trench'}, 'rescuePct': 0, 'cycleEvery': 0,
             'rideAt': 0, 'tp': 0, 'lockBankPct': 0, 'tpStakeUsd': 0, 'skimAt': 0}
@@ -434,7 +434,7 @@ def test_rush_mode_drops_every_10_min_into_a_losing_unfrozen_pick_and_never_a_fr
     t0 = 10_000.0
     card['at'] = 0.0
     out = ap.tick({**card, 'trenchFillAt': t0 - 601}, px, pools, runners, cfg, t0, anchors, {}, {})
-    assert drops(out) == 1 and frozen['mint'] in {l['mint'] for l in out['legs']}   # a losing pick gave its seat; ❄ frozen never
+    assert drops(out) == 0 and {l['mint'] for l in card['legs']} <= {l['mint'] for l in out['legs']}   # ✋ owner, 2026-10-16: "ONLY I set my TP and bank" — rush never takes your pick
     plain = ap.tick({**card, 'trenchFillAt': t0 - 601}, px, pools, runners, ap.clean_cfg(base), t0, anchors, {}, {})
     assert drops(plain) == 0                                                  # no rush: your picks are never the engine's to swap, and 30 min
 

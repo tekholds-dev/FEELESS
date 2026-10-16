@@ -154,3 +154,13 @@ def test_a_spike_that_came_back_to_its_germ_is_the_entry():
     from trench_kernel import universe as uni
     uni.set_band({})
     assert op.spike_chase({'chart': {'germDist': 5.0}, 'nums': {'d5': 20.0}}) is None
+
+
+def test_the_card_engine_never_banks_rides_rotates_or_trims_your_pick():
+    pick = {'pairAddress': 'P', 'symbol': 'BAGSPAY', 'picked': True, 'units': 100.0, 'costUsd': 1.0, 'entry': 0.01}
+    c = {'legs': [pick], 'cash': 0.0}
+    assert ap.lock_bank(c, pick, 0.0163, {}, 100, {'lockBankPct': 50}) == 0.0 and pick['units'] == 100.0   # $BAGSPAY lost half to this
+    import inspect
+    src = inspect.getsource(ap.tick)
+    assert "and not l.get('picked')" in src and "if l.get('picked') and l.get('ride')" in src
+    assert "not x.get('picked')" in inspect.getsource(ap.balance_small)
