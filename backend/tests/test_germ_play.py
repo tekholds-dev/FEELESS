@@ -33,4 +33,13 @@ def test_the_moon_bag_is_a_soft_exit_with_a_word():
 
 def test_your_pick_locks_half_its_peak_once_it_has_been_up_10():
     assert office.pick_lock(9.9) is None and office.pick_lock(10) == 5.0 and office.pick_lock(30) == 15.0
-    assert 'R5b' in office.OWNER_HARD   # your own rule: it sells without asking
+    assert 'R5b' in office.OWNER_HARD and office.PICK_LOCK_SELL == 50.0   # your own rule: ONE half trim without asking, the rest rides your stop
+
+
+def test_a_coin_on_its_germ_is_armed_through_a_waiting_chart_but_never_a_skip():
+    from trench_kernel import brain, universe as uni
+    uni.set_band({})
+    on = {'row': {'chart': {'germDist': 6.0, 'entry': ['WAIT FOR CONFIRMATION', 'E5', '']}}}
+    assert brain.germ_entry_ok(on, 'WAIT FOR CONFIRMATION') == '6% above it'
+    assert brain.germ_entry_ok(on, 'SKIP') is None and brain.germ_entry_ok(on, 'WAIT FOR DATA') is None
+    assert brain.germ_entry_ok({'row': {'chart': {'germDist': 22.0}}}, 'WAIT FOR PULLBACK') is None

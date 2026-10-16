@@ -28,6 +28,20 @@ CHART_GO = 'ENTER NOW'   # 🎯 the chart's own call a real seat needs (real car
 NO_CHART_SIZE = 0.5      # no chart read yet = half a seat (the 16 such trades: about break-even)
 
 
+GERM_ARM_CALLS = ('WAIT FOR CONFIRMATION', 'WAIT FOR PULLBACK', 'WAIT FOR BREAKOUT')   # chart calls a coin ON its germ may be armed through (never SKIP / WAIT FOR DATA)
+
+
+def germ_entry_ok(ms, call):
+    """🦠 The coin sits inside the owner's germ line (0 … germ_max % above its 1m germ floor) and the chart only waits (not a SKIP, not bad
+    data) → the distance word, else None. A floor buy needs no breakout: the gun line is what we stopped buying."""
+    from . import universe as _u
+    ch = (((ms or {}).get('row') or {}).get('chart') or {})
+    d, mx = ch.get('germDist'), _u.germ_max()
+    if not mx or d is None or call not in GERM_ARM_CALLS or not (0 <= _f(d) <= mx):
+        return None
+    return f"{_f(d):.0f}% above it"
+
+
 def chart_call(ms):
     """(call, rule) of the coin's chart this pass, or (None, None) when there is no chart read."""
     e = (((ms or {}).get('row') or {}).get('chart') or {}).get('entry') or []
@@ -86,7 +100,10 @@ def trigger(ms, lessons=None, lab=None, waits=None):
     elif st == 'ENTER' and fv.get('state') == 'PEAK' and w.get('peakWait', True):
         st, why = 'ARM', f"{why} — {fv.get('why')} (armed for the dip, not bought at the top)"
     call, rule = chart_call(ms)
-    if st in ('ENTER', 'ARM') and call and call != CHART_GO and w.get('chartWait', True):   # 🎯 THE CHART SAYS GO: no real seat on a WAIT / SKIP chart (not even an armed half)
+    on_germ = germ_entry_ok(ms, call)
+    if st in ('ENTER', 'ARM') and call and call != CHART_GO and w.get('chartWait', True) and on_germ:   # 🦠 ON ITS GERM FLOOR = the entry (owner, 2026-10-16: "agents barely get in")
+        st, why = 'ARM', f"{why} — 🦠 on its germ floor ({on_germ}): the germ is the entry, not the breakout — armed"
+    elif st in ('ENTER', 'ARM') and call and call != CHART_GO and w.get('chartWait', True):   # 🎯 THE CHART SAYS GO: no real seat on a WAIT / SKIP chart (not even an armed half)
         st, why = 'WAIT', f"{why} — the chart says {call.lower()} ({rule or '?'}): waits for ENTER NOW"
     if st == 'ENTER' and lab:   # 🧪 Trigger's lessons from the rule lab: a live AVOID rule on the entry moment, proven on our real fills, arms the coin
         fs = set(_lab.row_feats(ms['row']))

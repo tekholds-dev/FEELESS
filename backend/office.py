@@ -686,8 +686,9 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev, act = 'TAKE', 'R7 trailing protection', f"peaked {p['peak']:+.1f}%, now {pct:+.1f}% — {_f(tr_.get('pct')):g} points off the peak (your trail, creator manual)", 'pull'
         elif manual:   # 🎛 CREATOR MANUAL: only the hard safety exits above + your own overrides act — every discretionary call below is yours
             st, rule, ev = 'HOLD', 'R10 creator manual', f"{pct:+.1f}% · you hold the decisions — only the hard safety exits and your own limits act"
-        elif yours(l) and pick_lock(p.get('peak')) is not None and pct <= pick_lock(p['peak']):   # 🔒 your pick gave back half its peak: sold, without asking (your rule)
-            st, rule, ev, act = 'TAKE', 'R5b your pick locked', f"peaked {p['peak']:+.1f}%, now {pct:+.1f}% — under half its peak (+{pick_lock(p['peak']):g}%): your lock sells it", 'pull'
+        elif yours(l) and not p.get('locked') and pick_lock(p.get('peak')) is not None and pct <= pick_lock(p['peak']):   # 🔒 your pick gave back half its peak: a portion banked once, the rest rides your own stop
+            st, rule, ev, act = 'TAKE', 'R5b your pick banked a portion', f"peaked {p['peak']:+.1f}%, now {pct:+.1f}% — under half its peak (+{pick_lock(p['peak']):g}%): {PICK_LOCK_SELL:g}% banked, the rest rides your own stop", 'trim'
+            p['locked'] = now
         elif mine and pct <= -stop:   # their own coins carry no card stop (ride-or-rug seats) — this is it; other coins keep the card's own stop
             st, rule, ev, act = 'EXIT INVALIDATED', 'R5 stop', f"{pct:+.1f}% ≤ −{stop:g}%" + (f" ({'; '.join((th.get('stopParts') or [])[:2])})" if th else ' (no thesis on file: the ceiling)'), 'pull'
         elif mine and live and dead_ and held >= DEAD_CASH_MIN and now - _f(p.get('deadSince') or now) >= DEAD_CASH_MIN * 60 and pct < take:   # 💀 dead 15 min: CASH beats a coin nobody trades — no replacement needed
@@ -807,7 +808,7 @@ OWNER_HARD = ('R1', 'R5x', 'R5c', 'R9c', 'R5b')
 # 🔒 YOUR PICK LOCKS ITS GAIN (owner, 2026-10-16: "once a pick has been +10%, its stop moves to my entry, then tightens as the peak grows"):
 # a coin you picked / lined that has peaked ≥ +PICK_LOCK_AT keeps at least PICK_LOCK_KEEP of its peak (+10 → +5, +30 → +15).
 # Replay on your 20 graded picks (their own price paths): −4.1% avg / −1.7% median vs −9.8% / −7.7% real (only 5 of 20 ever reached +10 — thin).
-PICK_LOCK_AT, PICK_LOCK_KEEP = 10.0, 0.5
+PICK_LOCK_AT, PICK_LOCK_KEEP, PICK_LOCK_SELL = 10.0, 0.5, 50.0   # … then ONE trim of PICK_LOCK_SELL % (owner: "sell a portion from its peak, see if it keeps riding — I'll set my own breakeven")
 
 
 def pick_lock(peak):
@@ -1741,19 +1742,11 @@ def fast_reap(legs, px_by_mint, pos, now, office=None, prev=None, ai_words=None)
         # ✋ YOUR stop line on YOUR pick is guarded every few seconds too (2026-10-15: it only ran on the engine tick — TOAST's −12% line
         # filled at −20%, PDOOM's −19% at −24%). Only a line YOU set (`ownerLvAt` + `sl`); a pick with no line of yours has no stop here.
         mine_ = (not _uni.is_agent(l)) and yours(l) and l.get('ownerLvAt') and 0 < _f(l.get('sl')) < 100
-        locked_ = (not _uni.is_agent(l)) and yours(l) and pick_lock(((pos or {}).get(l.get('mint')) or {}).get('peak')) is not None   # 🔒 your pick past +10: its lock is guarded here too
-        if not (_uni.is_agent(l) or mine_ or locked_) or l.get('placeholder') or l.get('buying') or l.get('frozen') or not l.get('real') or _f(l.get('units')) <= 0:
+        if not (_uni.is_agent(l) or mine_) or l.get('placeholder') or l.get('buying') or l.get('frozen') or not l.get('real') or _f(l.get('units')) <= 0:
             continue
         px, entry = _f((px_by_mint or {}).get(l.get('mint'))), _f(l.get('entry'))
         p = (pos or {}).get(l.get('mint')) or {}
         stop = _f(l.get('sl')) if mine_ else _f(p.get('stopNow'))
-        if locked_ and px > 0 and entry > 0:
-            dd = (px / entry - 1) * 100; lk_ = pick_lock(max(_f(p.get('peak')), dd))
-            if dd <= lk_ and not spike_held(l.get('mint'), px, entry * (1 + lk_ / 100), prev, now):
-                out.append((l.get('pairAddress'), f"☠ Reaper R5b your pick locked (⚡ guard): peaked {max(_f(p.get('peak')), dd):+.1f}%, now {dd:+.1f}% — under half its peak"))
-                continue
-            if not mine_:
-                continue
         if px <= 0 or entry <= 0 or stop <= 0:
             continue
         dd = (px / entry - 1) * 100
@@ -1768,10 +1761,7 @@ def fast_reap(legs, px_by_mint, pos, now, office=None, prev=None, ai_words=None)
         # 👁 REAPER READS THE LIVE CHART (owner, 2026-10-12: "reaper reviews live chart, not every 5 mins"): the same exits the tick makes
         # from the chart — a thesis invalidated (live price under the invalidation line, losing) and the trailing protection (a peak that
         # armed it given back) — are applied on every 6-second live read, not only when the tick comes round.
-        if yours(l):   # ✋ your coin: only your own stop (stopNow is your line), your 🔒 pick lock and −45% act here — no thesis / trail bank by the agents
-            lk_ = pick_lock(max(_f(p.get('peak')), dd))
-            if lk_ is not None and dd <= lk_:
-                out.append((l.get('pairAddress'), f"☠ Reaper R5b your pick locked (👁 live chart): peaked {max(_f(p.get('peak')), dd):+.1f}%, now {dd:+.1f}% — under half its peak"))
+        if yours(l):   # ✋ your coin: only your own stop (stopNow is your line) and −45% act here — no thesis / trail bank by the agents (your 🔒 portion is the tick's trim)
             continue
         inv = _f((p.get('thesis') or {}).get('invalidation'))
         if inv > 0 and px < inv and dd < 0:

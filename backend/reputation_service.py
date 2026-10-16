@@ -10472,7 +10472,7 @@ async def _prime_tick_inner(now):
                         cur = _prime.agent_pull(cur, x['pair'], px, liqs, now, x['why'])   # in control: banked to FREE card cash, the seat opens for their next coin
                         cur = _prime.note_dropped(was_, cur, now, cfg_t['rotateHours'], px)
                     elif x['action'] == 'trim' and ctl_:   # 💰 scale-out: half banked, the rest rides the trail
-                        cur = _prime.agent_trim(cur, x['pair'], px, liqs, now, _of.SCALE_PCT, x['why'])
+                        cur = _prime.agent_trim(cur, x['pair'], px, liqs, now, _of.PICK_LOCK_SELL if 'R5b' in str(x['why']) else _of.SCALE_PCT, x['why'])   # 🔒 your pick: a portion, the rest rides your stop
                     elif x['action'] == 'pull':
                         cur = _prime.sell_leg_to_cash(cur, x['pair'], px, now, 100.0)
                         cur['events'].append({'at': now, 'kind': 'agent', 'symbol': x['symbol'], 'why': f"🤖 agents pulled ${x['symbol']}: {x['why']}"})
