@@ -4603,3 +4603,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   tape as a 30-point % path + every would-sell % + the germ at entry (`row.replay`) → Trades tab 🎬 REPLAY sparkline (path draws in, gold
   dashed line per would-sell, exit dot) and a 🦠 tag on the row (lit when ≤ 15% from the germ). `coach.germ_record` → tape `germ` =
   YOUR ENTRIES vs THE GERM (at the germ ≤ 15% · off it · not read: n, typical, won) + `holds.early` = rules that sold you early.
+- ✋ THE JUDGE NEVER BLAMES AN AGENT FOR YOUR TRADE (2026-10-16 screenshot: "BAD EXIT · on reaper" on STARMAN / Macca / BUBBLE — the owner's
+  own picks): `judge_review.review` files a `pick` position as kind `yours` (desk None, resp 0, cause kept as a note) → out of the court,
+  the losses map, trials and promoted rules; `mark_yours` converted the old ones once (`judgeYoursFix`). Tape shows "📝 your trade — notes
+  only · <cause>". 🦠 Past entries' germ: `coach.germ_at(ticks, since)` rebuilds 1m bars from the recorded ticks of the hour before
+  (`data/candle_ticks.json`, pair from the ledger buy) → `arch.germFill` {"mint:since": %} kept BESIDE the hash-chained records (editing a
+  filed record reads as a rewrite) → `coach.germ_fill` overlays it when the tape is built. Replay sparkline scales to its card (viewBox,
+  `vector-effect: non-scaling-stroke`), its text wraps.

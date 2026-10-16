@@ -48,7 +48,28 @@ def _f(v):
 
 
 def review(p):
-    """One closed position (the archive's record) → the Judge's review. Losses get a root cause + desk blame; wins get why it worked."""
+    """One closed position (the archive's record) → the Judge's review. Losses get a root cause + desk blame; wins get why it worked.
+    ✋ YOUR trade (`pick`) is never pinned on an agent desk: it is filed as kind `yours` (the cause kept as a note for your own study)."""
+    p = p or {}
+    if p.get('pick'):
+        return yours(_review(p))
+    return _review(p)
+
+
+def yours(r):
+    """✋ A review of the OWNER's trade: no desk is blamed, nothing counts in the court, the losses map, trials or rules."""
+    return {**r, 'kind': 'yours', 'won': r.get('kind') == 'win', 'desk': None, 'resp': {d: 0 for d in DESKS}, 'oversized': False,
+            'decision': 'your call', 'lesson': 'your trade — the agents only take notes'}
+
+
+def mark_yours(state, keys):
+    """Once: reviews already filed on the owner's trades (`keys` = {(mint, round(closedAt))}) are turned into `yours`."""
+    st = dict(state or {})
+    st['reviews'] = [yours(r) if r.get('kind') in ('loss', 'win') and (r.get('mint'), round(_f(r.get('at')))) in keys else r for r in st.get('reviews') or []]
+    return st
+
+
+def _review(p):
     p = p or {}
     pct = _f(p.get('realPct') if p.get('realPct') is not None else p.get('lastPct'))
     th = p.get('thesis') or {}

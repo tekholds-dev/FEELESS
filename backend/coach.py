@@ -317,6 +317,37 @@ def replay_of(p, keep=30):
     return {'path': path, 'would': would, 'germ': (sn.get('entry') or {}).get('germ'), 'end': p.get('realPct'), 'peak': p.get('peak')}
 
 
+def germ_at(ticks, since, look=3600):
+    """🦠 The germ distance at a moment in the past, rebuilt from recorded price ticks [{t, p}] of the hour before it: 1-minute bars (a
+    minute with no trade carries the last close) → chart_intel.germ → % above the floor (None when no run ≥ 15% or too few ticks)."""
+    import chart_intel as _ci
+    tk = sorted((_f(x.get('t')), _f(x.get('p'))) for x in ticks or [] if since - look <= _f(x.get('t')) <= since and _f(x.get('p')) > 0)
+    if len(tk) < 5:
+        return None
+    bars, cur, b = [], None, None
+    for t, p in tk:
+        m = int(t // 60) * 60
+        if cur is None:
+            cur, b = m, [m, p, p, p, p, 0]
+        while m > cur:
+            bars.append(b); cur += 60; pc = b[4]; b = [cur, pc, pc, pc, pc, 0]
+        b[2], b[3], b[4] = max(b[2], p), min(b[3], p), p
+    bars.append(b)
+    g = _ci.germ(bars[-60:])
+    return None if not g else round(_f(g['dist']), 1)
+
+
+def germ_fill(positions, fill):
+    """Overlay the backfilled germ-at-entry (`arch.germFill` {"mint:since": %}) on copies of the positions that have none."""
+    out = []
+    for p in positions or []:
+        g = (fill or {}).get(f"{p.get('mint')}:{round(_f(p.get('since')))}")
+        if g is not None and ((p.get('snaps') or {}).get('entry') or {}).get('germ') is None:
+            p = {**p, 'snaps': {**(p.get('snaps') or {}), 'entry': {**((p.get('snaps') or {}).get('entry') or {}), 'germ': g}}}
+        out.append(p)
+    return out
+
+
 GERM_ENTRY_PCT = 15.0   # your entry counts as "at the germ" this close above the germ floor
 
 

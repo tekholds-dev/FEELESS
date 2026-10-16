@@ -15650,8 +15650,9 @@ def _trade_tape(now):
     """🎬 The real trade tape for the page (rebuilt at most every 20s): ledger fills + the archive + the Judge's reviews + the model's log."""
     if _coach['tape'] is None or now - _coach['tapeAt'] >= 20:
         try:
-            rows = _co.trade_tape(_fw_full_ledger()[-900:], (_json_load(ARCHIVE_PATH, {}) or {}).get('positions'), ((_office_state().get('judge') or {}).get('reviews')) or [], _ai.get('log') or [], n=24)
-            pos_ = (_json_load(ARCHIVE_PATH, {}) or {}).get('positions')
+            ar_ = _json_load(ARCHIVE_PATH, {}) or {}
+            pos_ = _co.germ_fill(ar_.get('positions'), ar_.get('germFill'))   # 🦠 your past entries' germ, backfilled beside the hash chain
+            rows = _co.trade_tape(_fw_full_ledger()[-900:], pos_, ((_office_state().get('judge') or {}).get('reviews')) or [], _ai.get('log') or [], n=24)
             _coach.update(tape={'rows': rows, 'stats': _co.tape_stats(rows), 'sources': _co.source_record(pos_), 'rules': _co.rule_record(pos_), 'line': _co.line_replay(pos_), 'germ': _co.germ_record(pos_),
                                  'holds': {k_: v_ for k_, v_ in (_study.get('holds') or {}).items() if k_ in ('early', 'n')}}, tapeAt=now)   # 🦠 your entries vs the germ · 🎓 rules that sold you early
             _coach_grade(now)
@@ -17174,6 +17175,21 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
             print('lost / learn:', e)
     if closed:   # 👁 every confirmed exit is watched 30 more minutes: what the coin did AFTER we left is what a wider trail would have kept
         _after_mem.put(_ap.watch(_after_mem.get(), [{**p_, 'closedAt': p_.get('closedAt') or now} for p_ in closed], now), now)
+    if not of.get('judgeYoursFix'):   # ✋ once: the Judge's old reviews of YOUR trades stop blaming agent desks
+        of['judge'] = _jr.mark_yours(of.get('judge'), {(p_.get('mint'), round(_fuse._f(p_.get('closedAt')))) for p_ in arch.get('positions') or [] if p_.get('pick')})
+        of['judgeYoursFix'] = now
+    if not of.get('germBackfill1016'):   # 🦠 once: YOUR past trades get their germ-at-entry from the recorded price ticks of the hour before
+        of['germBackfill1016'] = now
+        try:
+            tk_ = _json_load(DATA_DIR / 'candle_ticks.json', {}) or {}
+            pair_ = {r_.get('mint'): r_.get('pair') for r_ in _fw_full_ledger() if r_.get('side') == 'buy' and r_.get('mint') and r_.get('pair')}
+            for p_ in arch.get('positions') or []:
+                if p_.get('pick') and ((p_.get('snaps') or {}).get('entry') or {}).get('germ') is None and pair_.get(p_.get('mint')) and p_.get('since'):
+                    g_ = _co.germ_at(tk_.get(f"solana:{pair_[p_['mint']]}"), _fuse._f(p_['since']))
+                    if g_ is not None:   # kept BESIDE the hash-chained records (editing a filed record would read as a rewrite)
+                        arch.setdefault('germFill', {})[f"{p_['mint']}:{round(_fuse._f(p_['since']))}"] = g_
+        except Exception as e_:
+            print('germ backfill:', str(e_)[:100])
     for p_ in closed:
         arch = _of.file_position(arch, {**p_, 'closedAt': p_.get('closedAt') or now}, now)
         _tk.KERNEL.note('archivist', 'FILED', f"{'confirmed' if p_.get('confirmed') else 'UNCONFIRMED'} exit" + (f" {_fuse._f(p_.get('pct')):+.1f}%" if p_.get('pct') is not None else '') + (f" · {p_.get('askRule')}" if p_.get('askRule') else ''),

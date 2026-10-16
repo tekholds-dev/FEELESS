@@ -108,3 +108,21 @@ def test_your_trade_replays_and_your_germ_entries_have_their_own_record():
     rec = coach.germ_record([p, {'pick': True, 'realPct': -10.0, 'snaps': {'entry': {'germ': 40.0}}}, {'pick': True, 'realPct': 2.0}])
     assert rec['at the germ'] == {'n': 1, 'med': 40.0, 'won': 100} and rec['off the germ']['n'] == 1 and rec['no read']['n'] == 1
     assert office.hold_ask({'R7': 3, 'R9': 9}) == ('R7', 3) and office.hold_ask({'R7': 2}) is None
+
+
+def test_the_judge_never_blames_an_agent_desk_for_your_trade():
+    import judge_review as jr
+    r = jr.review({'pick': True, 'realPct': -20.0, 'peak': 12.0, 'path': [5, 12, -20], 'closedAt': 100, 'mint': 'M'})
+    assert r['kind'] == 'yours' and r['desk'] is None and not any(r['resp'].values()) and r['cause'] == 'gave_back'
+    st = jr.mark_yours({'reviews': [{'kind': 'loss', 'mint': 'M', 'at': 100, 'desk': 'reaper', 'resp': {'reaper': 60}}]}, {('M', 100)})
+    assert st['reviews'][0]['kind'] == 'yours' and st['reviews'][0]['desk'] is None
+    assert jr.court(st, 200)['losses'] == 0
+
+
+def test_past_entries_get_their_germ_from_the_price_record_beside_the_hash_chain():
+    import coach
+    ticks = [{'t': 1000 + i * 60, 'p': 1.0 if i < 20 else 1.0 + (i - 19) * 0.03} for i in range(40)]
+    g = coach.germ_at(ticks, 1000 + 39 * 60)
+    assert g is not None and g > 0
+    pos = coach.germ_fill([{'mint': 'M', 'since': 50, 'pick': True}], {'M:50': 7.5})
+    assert pos[0]['snaps']['entry']['germ'] == 7.5

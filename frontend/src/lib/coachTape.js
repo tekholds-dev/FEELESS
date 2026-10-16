@@ -22,7 +22,8 @@ export function tradeCard(r, now = Date.now() / 1000) {
     ai: r?.ai ? { stance: r.ai.stance || 'NEUTRAL', text: r.ai.summary || '', label: r.ai.label || 'AI', flags: (r.ai.risk_flags || []).slice(0, 3) } : null,
     sells: (r?.sells || []).map(s => ({ sig: s.sig, text: [s.usd != null ? `${money2(s.usd)} out` : null, s.why].filter(Boolean).join(' · ') })),
     exit: res ? [res.rule, num(res.heldMin) != null ? `held ${num(res.heldMin) < 60 ? `${num(res.heldMin).toFixed(0)}m` : `${(num(res.heldMin) / 60).toFixed(1)}h`}` : null, num(res.peak) != null ? `peak ${signedPct(res.peak)}` : null].filter(Boolean) : [],
-    judge: r?.judge ? [r.judge.kind === 'win' ? '✅ win' : r.judge.lossClass || r.judge.cause || 'loss', r.judge.desk ? `on ${r.judge.desk}` : null, r.judge.change || r.judge.why].filter(Boolean).join(' · ') : null };
+    judge: r?.judge ? (r.judge.kind === 'yours' ? `📝 your trade — notes only${r.judge.cause && r.judge.cause !== 'variance' ? ` · ${String(r.judge.cause).replace(/_/g, ' ')}` : ''}`
+    : [r.judge.kind === 'win' ? '✅ win' : r.judge.lossClass || r.judge.cause || 'loss', r.judge.desk ? `on ${r.judge.desk}` : null, r.judge.change || r.judge.why].filter(Boolean).join(' · ')) : null };
 }
 
 export const tapeLine = st => (st ? [`${st.n} closed`, st.n ? `${st.won} won` : null, st.medPct != null ? `typical ${signedPct(st.medPct)}` : null, st.open ? `${st.open} open` : null,

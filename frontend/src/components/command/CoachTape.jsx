@@ -39,11 +39,11 @@ export function replayGeom(rp, w = 220, h = 46) {
 }
 function Replay({ rp, sym }) {
   const g = replayGeom(rp); if (!g) return null;
-  return <p className="ctp-replay" data-testid={`ctp-replay-${sym}`}><svg viewBox={`0 0 ${g.w} ${g.h}`} width={g.w} height={g.h} aria-label="Your trade replayed">
+  return <p className="ctp-replay" data-testid={`ctp-replay-${sym}`}><svg viewBox={`0 0 ${g.w} ${g.h}`} preserveAspectRatio="none" aria-label="Your trade replayed">
     <line x1="0" x2={g.w} y1={g.zero} y2={g.zero} className="ctp-rp-zero" />
     {g.marks.map((m, i) => <line key={i} x1="0" x2={g.w} y1={m.y} y2={m.y} className="ctp-rp-would"><title>{`${m.rule} would have sold at ${m.pct >= 0 ? '+' : ''}${m.pct}%`}</title></line>)}
     <path d={g.d} className={`ctp-rp-path ${g.end >= 0 ? 'is-up' : 'is-dn'}`} /><circle cx={g.w} cy={g.endY} r="3" className={`ctp-rp-end ${g.end >= 0 ? 'is-up' : 'is-dn'}`} /></svg>
-    <small>{g.marks.length ? `agents would have sold at ${g.marks.map(m => `${m.pct >= 0 ? '+' : ''}${m.pct}% (${m.rule})`).join(', ')} · ` : ''}you ended {g.end >= 0 ? '+' : ''}{Number(g.end).toFixed(1)}%</small></p>;
+    <small>{g.marks.length ? <span>agents would sell: {g.marks.map(m => `${m.pct >= 0 ? '+' : ''}${Number(m.pct).toFixed(1)}% (${m.rule})`).join(', ')}</span> : null}<span>you ended <b className={g.end >= 0 ? 'm-pos' : 'm-neg'}>{g.end >= 0 ? '+' : ''}{Number(g.end).toFixed(1)}%</b></span></small></p>;
 }
 
 function GermRecord({ rec, holds }) {
