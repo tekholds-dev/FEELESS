@@ -17274,7 +17274,7 @@ def _agents_snapshot():
         st = _agents_mem.get()
         rcfg_ = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
         _agents['view'] = _paper_view(st, _agents.get('paper') or [], rcfg_, time.time())
-    v_ = _agents['view']
+    v_ = {**_agents['view'], 'impostors': _agents.get('impostors') or []}   # 🎭 fakes of real coins dropped at intake (Tally's guard)
     if _agents.get('card') and (v_.get('card') or {}) != _agents['card']:   # the card moves every tier tick; the view is rebuilt once a minute
         v_ = {**v_, 'card': _agents['card']}
     return {**v_, 'office': _office.get('payload')}   # 🏢 the office rides on the SAME response: the Agents page makes one request

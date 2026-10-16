@@ -13,7 +13,7 @@ const ACTIONS = [['arm', '⚡ ARM', 'owner priority: the agents take it the mome
 
 // 🛰 THE INTAKE BAND: every coin the intake brings in as a dot (across = live MC, up = how far the agents took it). New coins pop in,
 // a promoted coin glides up its lane (transform only), READY breathes, PICKED wears a ring. Tap a dot → its vitals + one-tap orders.
-export function IntakeBand({ o, mint, onPick, call, isOwner }) {
+export function IntakeBand({ o, mint, onPick, call, isOwner, imp }) {
   const cands = (o?.kernel || {}).candidates || [];
   const held = useMemo(() => (o?.positions || []).map(p => p.mint), [o?.positions]);
   const band = (o?.policy || {}).band || {};
@@ -40,6 +40,7 @@ export function IntakeBand({ o, mint, onPick, call, isOwner }) {
   const m = (o?.kernel || {}).metrics || {};
   return <section className="ib" ref={host} data-testid="intake-band">
     <header className="ib-head" data-tip="everything the feeds bring in · across = live MC · up = how far the agents took it · tap a coin"><b>🛰 INTAKE</b><small>everything the feeds bring in · across = live MC · up = how far the agents took it · tap a coin</small>
+      {(imp || []).length ? <span className="ib-imp" data-testid="ib-imp" data-tip={`🎭 dropped before the agents read them — a launch wearing a real coin's ticker:\n${imp.slice(0, 8).map(x => `$${x.symbol}: ${x.why}`).join('\n')}`}>🎭 {imp.length} fake{imp.length === 1 ? '' : 's'} dropped</span> : null}
       <span className="ib-rate">{m.uniqueMintsPerMin != null ? <><b>+{m.uniqueMintsPerMin}</b>/min</> : null}</span></header>
     <div className="ib-body">
       <div className="ib-field">

@@ -55,3 +55,5 @@ body.theme-day .ib-dot.is-contending i { background: #1f5fa8; } body.theme-day .
 body.theme-day .ib-splash { background: #f4faf6; border-color: rgba(13, 122, 65, .4); } body.theme-day .ib-sh b, body.theme-day .ib-facts b, body.theme-day .ib-funnel b, body.theme-day .ib-head > b { color: #0f2419; }
 body.theme-day .ib-facts li, body.theme-day .ib-funnel li { background: rgba(10, 60, 35, .05); }
 @media (max-width: 640px) { .ib-body { grid-template-columns: 1fr; } .ib-funnel { grid-template-columns: repeat(4, minmax(0, 1fr)); } .ib-splash { left: 8px; right: 8px; width: auto; } }
+.ib-imp { font: 800 8.5px var(--m-mono); letter-spacing: .06em; padding: 1px 7px; border-radius: 999px; color: #f5c451; border: 1px solid rgba(245, 196, 81, .45); background: rgba(245, 196, 81, .08); white-space: nowrap; }
+body.theme-day .ib-imp { color: #8a6a12; border-color: rgba(138, 106, 18, .45); }

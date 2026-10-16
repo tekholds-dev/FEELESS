@@ -616,7 +616,7 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
     <MoneyStrip d={d} seats={seats} mint={mint} onPick={onPick} nav={nav} go={go} navTabs={navTabs} ai={<AiChipBtn o={o} onClick={() => setAiOpen(true)} testid="ack-money-ai" />} />
     <div className="ack-main">
       <div className="ack-left"><CockpitChart m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); setTab('live'); }} tid={o?.tid} call={call} isOwner={isOwner} />
-        <IntakeBand o={o} mint={mint} onPick={onPick} call={call} isOwner={isOwner} /></div>
+        <IntakeBand o={o} mint={mint} onPick={onPick} call={call} isOwner={isOwner} imp={d?.impostors} /></div>
       <DecisionPanel o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
         pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} mcNow={model?.mc} onAi={() => setAiOpen(true)} /></div>
     <div ref={deckRef} className="ack-deckwrap"><Deck testid="ack-tapezone" bare on={nav === 'chart' ? navPane : nav} setOn={go} tabs={navTabs} /></div>
