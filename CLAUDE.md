@@ -4524,3 +4524,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   case says when 1m AND 5m sit on the germ; each real buy's thesis keeps `germEntry` so the real record judges it. Script: `backend/.venv/bin/python scripts/germ-backtest.py`
   (re-run on `data/candle_ticks.json` to re-check).
 
+- 🏠 A FEELESS QUESTION NEVER SEARCHES THE WEB (owner, 2026-10-15: asked whether the agents now enter on the germ, the chat searched "germ icon"
+  and cited a bacteria page): `ai_chat.about_feeless` (agents · seats · card · desk names · germ / gun line · entry / exit / stops · our / we …)
+  → `should_search` false; "search / google / look up / news" still forces one. Every chat context carries `live` = `ai_chat.LIVE_MECHANICS`
+  (the engine rules running now, germ entry first — UPDATE IT when a rule ships, or the models can't know) + `germRecord` (`germ_record`: real
+  exits by the thesis' germEntry). The LM Studio FEE prompt says the same (FEELESS = tools, never the web).

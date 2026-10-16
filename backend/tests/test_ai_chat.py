@@ -201,3 +201,21 @@ def test_chat_settings_research_voice_memory_only_take_listed_values():
     assert (s['search'], s['voice'], s['memory']) == ('quick', 'unhinged', 'off')
     assert ac.clean_settings({'search': 'nuke', 'voice': 'x'})['search'] == 'deep' and ac.clean_settings({})['voice'] == 'degen'
     assert 'no profanity' in ac.VOICE_LINE['clean'] and ac.VOICE_LINE['degen'] == ''
+
+
+def test_feeless_questions_never_search_the_web_but_world_questions_do():
+    from ai_chat import should_search, about_feeless
+    assert not should_search('do you see that agents can now enter on the germ icon on chart?')
+    assert not should_search('why did reaper sell my seat so early')
+    assert about_feeless('how is our card doing')
+    assert should_search('who won the broncos game last night')
+    assert should_search('search the news on the germ icon agents')   # a named search still searches
+
+
+def test_chat_context_carries_the_live_rules_and_the_germ_record():
+    from ai_chat import context, germ_record, LIVE_MECHANICS
+    assert any('GERM' in x for x in context({})['live'])
+    assert 'no real trade' in germ_record([])
+    t = [{'thesis': {'germEntry': 'confirmed'}, 'realPct': 12.0}, {'thesis': {'germEntry': 'confirmed'}, 'realPct': -4.0}, {'thesis': {}, 'realPct': 3}]
+    assert 'confirmed 2 trades, typical +4.0%, 50% won' in germ_record(t)
+    assert LIVE_MECHANICS[0].startswith('🦠')

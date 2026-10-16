@@ -49,7 +49,7 @@ CHAT_ASK = (
     "(5) money first: the capital / record / trail lines outrank any single coin; recent outcomes are trades that already CLOSED, seats are what is held now; "
     "(6) you cannot change anything from chat: when the owner asks you to fix / change / tune something, say which lever you would pull in one line and "
     "tell them to tap 🛠 Fix agents so it becomes a proposal they approve. (7) voice = FEE: a blunt degen operator, swearing is fine when it is natural, "
-    "challenge a bad assumption instead of agreeing, mark what is FACT (in CONTEXT) vs INFERENCE vs UNKNOWN. Trench words are fine; filler is not. (8) when the owner says I / my / me it is about THEIR OWN trades — answer from the `owner` block, never the agents' records. (9) tag each number with its source in brackets: [your record] [agents] [web]; when the WEB / sources disagree with your memory, they win; an outside-world answer ends with 'sources: <outlet> <url> · <outlet> <url>' from `sources`. (10) you are FEE — the genius of FEELESS and Fuse; any topic is fair game, humor is dry and profane when it lands, never forced.")
+    "challenge a bad assumption instead of agreeing, mark what is FACT (in CONTEXT) vs INFERENCE vs UNKNOWN. Trench words are fine; filler is not. (8) when the owner says I / my / me it is about THEIR OWN trades — answer from the `owner` block, never the agents' records. (9) tag each number with its source in brackets: [your record] [agents] [web]; when the WEB / sources disagree with your memory, they win; an outside-world answer ends with 'sources: <outlet> <url> · <outlet> <url>' from `sources`. (10) you are FEE — the genius of FEELESS and Fuse; any topic is fair game, humor is dry and profane when it lands, never forced. (11) `live` = the engine rules running RIGHT NOW (newest first) and `germRecord` = the germ entry's own real record: a question about how the agents enter / exit / size is answered from those — say the rule, then its record; a FEELESS question never gets web sources.")
 # 🧱 BUILD: the models help keep the product strong — ideas only, filed for the owner / the engineer, nothing applied
 BUILD_ASK = (
     "BUILD mode. You help the owner and their engineer keep FEELESS strong: code, UI and vitals. Read CONTEXT and the owner's message, then answer with ONE JSON "
@@ -86,12 +86,57 @@ OWNER_RULE = ('"I", "my", "me", "mine" in the owner\'s message = THE OWNER\'s OW
               'when a number is missing. Agent records (deskStats, evidence of agent exits) are a different thing — never pass them off as the owner\'s.')
 
 
+# 🏠 A FEELESS QUESTION READS FEELESS, NEVER THE WEB (owner, 2026-10-15: "they shouldn't be pulling internet info for FEELESS questions" — asked
+# whether the agents now enter on the germ, the chat searched "germ icon" and cited a bacteria page). Named search words still force a search.
+FEELESS_WORDS = re.compile(r"\b(feeless|fuse|agents?|seats?|card|reaper|trigger|sherlock|devil|warden|tally|courier|archivist|judge|kernel|cockpit|"
+                           r"brain|keeper|germ|gun ?line|entry|entries|exits?|stops?|trail(ing)?|scale.?out|ready|contending|armed|desk|hq|vega|kai|"
+                           r"our|we|my (trades?|seats?|picks?|coins?|card)|rug ?(budget|radar|shield)|band|lane|intake|regret|capital|playbook)\b", re.I)
+FORCE_WEB = re.compile(r"\b(search|google|look ?up|on the web|online|news)\b", re.I)
+
+
+def about_feeless(text):
+    """True when the question is about FEELESS itself (its agents, card, rules, charts) — answered from CONTEXT, no web search."""
+    t = str(text or '')
+    return bool(FEELESS_WORDS.search(t)) and not FORCE_WEB.search(t)
+
+
+# 🧠 WHAT IS LIVE RIGHT NOW in the engine — the chat model has no other way to know a rule shipped today. Short, one line each; update with the
+# rule (CLAUDE.md is the long version). Numbers here are rules, never results — results come from the record lines next to them.
+LIVE_MECHANICS = (
+    "🦠 GERM ENTRY (shipped 2026-10-16): the agents read the germ floor (base candle of the biggest run — the chart's 🧰 Germ tool) on 1m AND 5m. "
+    "confirmed = on the 1m floor + 5m floor/near → rank ×1.25 · floor ×1.1 · far above it ×0.85 · lost ×0.9. A WEIGHT on the rank, never a gate. "
+    "Replaces buying the gun line (breakout over the nearest swing high): replay said +10% within 30 min 27% vs 9%, but deeper dips (−15% first 20% vs 8%).",
+    "🎯 chart says go: Trigger enters only on the chart call ENTER NOW; other calls wait.",
+    "📸 snapshot exits: soft exits (trail, thesis, time, flow banks) need 2 reads 8s apart; stops / −45% / rug / drain are instant.",
+    "🛫 runway: a green coin is not banked in its first 6 min; 💰 scale-out sells 75% at +10% (coins < 5 min old sell all at +10%).",
+    "✋ your coin is yours: on a pick or a dragged line only your own stop / take, pool pulled and −45% sell without asking — the rest asks you.",
+    "⏱ candle clock: no new agent buy in the first 100s of a 5-min candle.",
+    "🌙 night shift 00:00–09:00: smaller seats, coins ≥ 30 min, ENTER NOW only.",
+    "🎭 official-coin + 🧬 clone guards: same-ticker copies of a bigger coin or a coin we traded are skipped.",
+)
+
+
+def germ_record(trades):
+    """🦠 The germ entry's OWN real record: confirmed real exits grouped by the germ read at the buy (thesis germEntry). Typical = median."""
+    by = {}
+    for p in trades or []:
+        w = (p.get('thesis') or {}).get('germEntry')
+        if w and p.get('realPct') is not None:
+            by.setdefault(str(w), []).append(_f(p.get('realPct')))
+    if not by:
+        return 'no real trade carries a germ read yet — the record starts with the next agent buy'
+    def med(v):
+        v = sorted(v)
+        return v[len(v) // 2] if len(v) % 2 else (v[len(v) // 2 - 1] + v[len(v) // 2]) / 2
+    return ' · '.join(f"{k} {len(v)} trades, typical {med(v):+.1f}%, {round(100 * sum(x > 0 for x in v) / len(v))}% won" for k, v in sorted(by.items()))
+
+
 def should_search(text):
     """🌐 SEARCH BEFORE THOUGHTS (owner, 2026-10-15: "always doing a simple and deep quick search before giving thoughts, knowing model memory
     may be off"): every real question gets a quick web search first — only a greeting / slang line, a one-word poke or a pure FEELESS
     record question (that one reads our own evidence packet instead) skips it."""
     t = str(text or '').strip()
-    return len(t) >= 8 and len(t.split()) >= 2 and not GREETING.match(t)
+    return len(t) >= 8 and len(t.split()) >= 2 and not GREETING.match(t) and not about_feeless(t)
 
 
 def web_query(text):
@@ -167,7 +212,7 @@ def context(office, focus=None, vocab=()):
            'money': f"{_u(cap.get('state'))}: {str(cap.get('why') or '')[:200]}", 'trail': str(tr.get('words') or 'UNKNOWN')[:200],
            'outcomes': [f"{r.get('sym')} {_f((r.get('result') or {}).get('pct')):+.1f}% · {str((r.get('result') or {}).get('rule') or '')[:40]}" for r in ((o.get('tradeTape') or {}).get('rows') or [])[:6]
                         if (r.get('result') or {}).get('pct') is not None] or ['none on file'],
-           'vocab': list(vocab)[:10]}
+           'vocab': list(vocab)[:10], 'live': list(LIVE_MECHANICS)}
     if sel:
         out['selected'] = {'symbol': sel.get('symbol'), 'status': sel.get('status'), 'cap': _u(sel.get('cap')), 'liq': _u(sel.get('liq')), 'vol5m': _u(sel.get('vol5m')),
                            'move5m': _u(sel.get('move5m'), '%'), 'buyShare': _u(sel.get('buyShare'), '%'), 'ageMin': _u(sel.get('ageMin')),

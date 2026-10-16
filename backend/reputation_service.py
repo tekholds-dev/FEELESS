@@ -13930,6 +13930,11 @@ def _chat_context(focus, now):
     if c_ is None or k_ != focus or now - at_ >= AI_CHAT_CTX_SEC:
         c_ = _aic.context({**(_office.get('payload') or {}), 'capital': _capital_view(), 'trail': _office.get('trail')}, focus, tuple(_co.CAUSES))
         _chat['ctx'] = (focus, c_, now)
+    if isinstance(c_, dict):
+        try:   # 🦠 the germ entry's own real record (thesis germEntry on confirmed exits)
+            c_ = {**c_, 'germRecord': _aic.germ_record(_real_trades())}
+        except Exception as e_:
+            print('chat germ record:', str(e_)[:80])
     return {**c_, 'today': time.strftime('%A %Y-%m-%d %H:%M %Z', time.localtime(now))} if isinstance(c_, dict) else c_   # 🕐 the models have no clock
 
 
@@ -14106,7 +14111,7 @@ async def admin_ai_chat(request: Request):
         if mode == 'chat' and _cev.wants(text):   # 📚 a question about what HAPPENED: the model reads FEELESS's own records for the window, not a guess
             try:
                 pk_, st_ = await asyncio.to_thread(_chat_evidence, text, now)
-                ctx = {'evidence': pk_, 'rules': _cev.RULES}
+                ctx = {'evidence': pk_, 'rules': _cev.RULES, 'live': (ctx or {}).get('live'), 'germRecord': (ctx or {}).get('germRecord')}   # 🧠 what is live keeps riding along
                 data_ = {'state': st_, 'window': (pk_.get('time_window') or {}).get('label'), 'exits': (pk_.get('summary') or {}).get('exits', 0), 'gaps': pk_.get('known_gaps') or []}
             except Exception as e_:
                 print('chat evidence:', str(e_)[:120])
