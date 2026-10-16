@@ -685,3 +685,12 @@ def test_your_coin_is_yours_only_a_pulled_pool_minus_45_or_your_own_line_sells_i
     pos = {'B': {'entry': 1.0, 'stopNow': 20, 'peak': 30, 'thesis': {'invalidation': 1.5}}}
     assert of.fast_reap([{**agent, 'real': True}], {'B': 1.2}, pos, 9999) == []                                    # the 6s guard never banks your-lined coin on its trail / thesis
     assert of.fast_reap([{**agent, 'real': True}], {'B': 0.78}, pos, 9999)[0][1].startswith('☠ Reaper R5 stop')     # … your stop still fires
+
+
+def test_your_own_stop_line_on_your_pick_is_guarded_every_few_seconds():
+    """2026-10-15: the fast guard watched agent coins only — the owner's −12% line on $TOAST filled at −20% on the slower engine tick."""
+    leg = {'mint': 'T', 'pairAddress': 'PT', 'symbol': 'TOAST', 'units': 10, 'entry': 1.0, 'real': True, 'picked': True, 'ownerLvAt': 1, 'sl': 12, 'at': 0}
+    out = of.fast_reap([leg], {'T': 0.87}, {}, 10_000)
+    assert out and out[0][0] == 'PT' and '−12' in out[0][1]
+    assert of.fast_reap([leg], {'T': 0.9}, {}, 10_000) == []                                     # above the line: nothing
+    assert of.fast_reap([{**leg, 'ownerLvAt': None}], {'T': 0.5}, {}, 10_000) == []                  # a pick with no line of yours: no stop here

@@ -4502,4 +4502,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   second — FEELESS can't raise that, it spends inside it: `feeless_mcp.BRAVE_MONTH_CAP` 1,900 per key per UTC month (`data/brave_usage.json`,
   shared by the Brain + the MCP), `BRAVE_GAP` 1.05s per key, the same question cached 6h, then key 2, then DuckDuckGo — search never stops.
   The LM prompt's FIRST line: a tool call before any text, every turn (`now` at least).
+- 🩸 "BLEEDING FROM R5x + BAD ENTRIES" — WHAT THE RECORD SAID (2026-10-15, read before re-fixing): 48h = 240 exits, −2.7% a trade; WITHOUT the 11
+  R5x rugs +0.7%. Every R5x rug in 3 days was a coin MINUTES old wearing a famous name (FOMO, X, ChatGPT, GitHub, SpaceX AI, Coca Cola,
+  Anthropic) — already covered by the 🎭 official coin guard + the clone rule + the owner's 1h min age (one R5x since). The last 14h (−4.2% a
+  trade, 30% won, NO rugs) was mostly the OWNER's own picks hitting the OWNER's own stop lines (Macca, TOAST, PDOOM, DacityCoin, TM, HTR), several
+  filling far past the line — `office.fast_reap` guarded agent coins only, so an owner line ran on the engine tick. Now an owner line (`ownerLvAt`
+  + `sl`) on a pick is guarded every few seconds too. The seat check reads the YOUNGEST age any source reports (Gemini went in at 17 min).
 

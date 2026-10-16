@@ -1720,11 +1720,14 @@ def fast_reap(legs, px_by_mint, pos, now, office=None, prev=None, ai_words=None)
     (`holdAll`), so `arena_prime.fast_stop` never ran for them — R5 stops set at −12…−25% filled at −18…−52% (sum −485% of −370%)."""
     out = []
     for l in legs or []:
-        if not _uni.is_agent(l) or l.get('placeholder') or l.get('buying') or l.get('frozen') or not l.get('real') or _f(l.get('units')) <= 0:
+        # ✋ YOUR stop line on YOUR pick is guarded every few seconds too (2026-10-15: it only ran on the engine tick — TOAST's −12% line
+        # filled at −20%, PDOOM's −19% at −24%). Only a line YOU set (`ownerLvAt` + `sl`); a pick with no line of yours has no stop here.
+        mine_ = (not _uni.is_agent(l)) and yours(l) and l.get('ownerLvAt') and 0 < _f(l.get('sl')) < 100
+        if not (_uni.is_agent(l) or mine_) or l.get('placeholder') or l.get('buying') or l.get('frozen') or not l.get('real') or _f(l.get('units')) <= 0:
             continue
         px, entry = _f((px_by_mint or {}).get(l.get('mint'))), _f(l.get('entry'))
         p = (pos or {}).get(l.get('mint')) or {}
-        stop = _f(p.get('stopNow'))
+        stop = _f(l.get('sl')) if mine_ else _f(p.get('stopNow'))
         if px <= 0 or entry <= 0 or stop <= 0:
             continue
         dd = (px / entry - 1) * 100

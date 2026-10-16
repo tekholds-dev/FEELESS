@@ -15838,7 +15838,9 @@ async def _seat_precheck(plan, cfg_t, now, seat_usd=0.0, need=1):
             ok_, why_ = False, f"live cap ${cap_:,.0f} is outside your {_uni.band_word()} band (the desk's reading was old)"
         if ok_ and _uni.min_age() > 0:   # 🐣 the owner's youngest-coin line, judged on the live pool's own birth (the desk row can be wrong)
             born_ = _fuse._f((live.get(t_.get('pair')) or {}).get('pairCreatedAt')) / 1000.0
-            age_ = (time.time() - born_) / 3600.0 if born_ > 0 else (t_.get('vitals') or {}).get('ageH')
+            ages_ = [a_ for a_ in ((time.time() - born_) / 3600.0 if born_ > 0 else None, (t_.get('vitals') or {}).get('ageH'), (t_.get('li') or {}).get('ageH'), t_.get('ageH'))
+                     if a_ is not None and _fuse._f(a_) >= 0]
+            age_ = min(_fuse._f(a_) for a_ in ages_) if ages_ else None   # 🐣 the YOUNGEST age any source reports (Gemini went in at 17 min: the pool read older than the coin)
             yw_ = _uni.too_young({'ageH': age_}) if age_ is not None else 'launch age unknown (your youngest-coin line is on)'
             if yw_:
                 ok_, why_ = False, yw_
