@@ -113,3 +113,11 @@ def test_the_code_lab_asks_for_a_live_preview_and_pulls_html_out_of_any_answer()
 def test_each_machine_gets_its_own_name_in_the_fee_prompt():
     import feeless_mcp as f
     assert f.fee_prompt().startswith('You are OSSY') and f.fee_prompt('G4').startswith('You are G4') and '{NAME}' not in f.fee_prompt()
+
+
+def test_a_question_about_our_trades_or_a_named_coin_never_searches_the_web():
+    import ai_chat as a
+    assert not a.should_search('currently running over 100% with elon what have you guys learn from this trade specifically?', ['ELON'])
+    assert not a.should_search("no what moves did you learn from my trade, we dont need a web search lol")
+    assert a.should_search('who won the broncos game last night') and a.should_search('search the news on solana today')
+    assert a.named_syms('elon and $bubble', ['ELON']) == ['BUBBLE', 'ELON'] and a.named_syms('hello there', ['ELON']) == []

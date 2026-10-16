@@ -94,10 +94,26 @@ FEELESS_WORDS = re.compile(r"\b(feeless|fuse|agents?|seats?|card|reaper|trigger|
 FORCE_WEB = re.compile(r"\b(search|google|look ?up|on the web|online|news)\b", re.I)
 
 
-def about_feeless(text):
-    """True when the question is about FEELESS itself (its agents, card, rules, charts) — answered from CONTEXT, no web search."""
+TRADE_WORDS = re.compile(r"\b(trades?|traded|you guys|learn(ed|t|ing)?|picks?|picked|held|holding|pnl|p&l|profit|position|bag|ossy|g4|this coin|that coin)\b", re.I)
+NO_WEB = re.compile(r"\b(no|don'?t|dont|do not|without|stop|skip|never)\b[^.?!]{0,30}\b(web|search|google|internet)", re.I)   # "we don't need a web search" is NOT a request for one
+
+
+def named_syms(text, syms=()):
+    """The FEELESS coins a message names: any $TICKER, or a word that is a symbol on the card / the recent tape (case-insensitive)."""
     t = str(text or '')
-    return bool(FEELESS_WORDS.search(t)) and not FORCE_WEB.search(t)
+    out = [m.upper() for m in re.findall(r'\$([A-Za-z0-9]{2,12})', t)]
+    known = {str(s).upper(): s for s in syms or () if s and len(str(s)) >= 3}
+    out += [w.upper() for w in re.findall(r'[A-Za-z0-9]{3,12}', t) if w.upper() in known]
+    return list(dict.fromkeys(out))
+
+
+def about_feeless(text, syms=()):
+    """True when the question is about FEELESS itself (its agents, card, rules, charts, our trades, a coin we hold or traded) — answered from
+    CONTEXT, no web search."""
+    t = str(text or '')
+    if NO_WEB.search(t):
+        return True
+    return bool(FEELESS_WORDS.search(t) or TRADE_WORDS.search(t) or named_syms(t, syms)) and not FORCE_WEB.search(t)
 
 
 # 🧠 WHAT IS LIVE RIGHT NOW in the engine — the chat model has no other way to know a rule shipped today. Short, one line each; update with the
@@ -134,12 +150,12 @@ def germ_record(trades):
     return ' · '.join(f"{k} {len(v)} trades, typical {med(v):+.1f}%, {round(100 * sum(x > 0 for x in v) / len(v))}% won" for k, v in sorted(by.items()))
 
 
-def should_search(text):
+def should_search(text, syms=()):
     """🌐 SEARCH BEFORE THOUGHTS (owner, 2026-10-15: "always doing a simple and deep quick search before giving thoughts, knowing model memory
     may be off"): every real question gets a quick web search first — only a greeting / slang line, a one-word poke or a pure FEELESS
     record question (that one reads our own evidence packet instead) skips it."""
     t = str(text or '').strip()
-    return len(t) >= 8 and len(t.split()) >= 2 and not GREETING.match(t) and not about_feeless(t)
+    return len(t) >= 8 and len(t.split()) >= 2 and not GREETING.match(t) and not about_feeless(t, syms) and not NO_WEB.search(t)
 
 
 def web_query(text):

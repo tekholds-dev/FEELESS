@@ -14409,8 +14409,15 @@ async def admin_ai_chat(request: Request):
                 ctx = {**(ctx or {}), 'memory': mm_}
         except Exception as e_:
             print('chat memory:', str(e_)[:80])
+        try:   # 🪙 a coin the owner NAMES ("ELON", "$BUBBLE"): its own trade record — seat, what the agents would have done, his moves, past exits
+            cr_ = _chat_coin(text)
+            if cr_:
+                ctx = {**(ctx or {}), 'coin': cr_, 'coinRule': 'The owner named this coin: answer from `coin` FIRST, with its numbers — entry, now, peak, '
+                       'every moment the agents would have sold and what the coin did after, his own moves on it. No web, no generic lessons.'}
+        except Exception as e_:
+            print('chat coin:', str(e_)[:80])
         web_ = None
-        if mode == 'chat' and (body or {}).get('web', True) is not False and set_.get('search', 'deep') != 'off' and _aic.should_search(text):   # (records AND the web — owner: "always research before responding")   # 🌐 a quick search before EVERY real question (model memory may be out of date)
+        if mode == 'chat' and (body or {}).get('web', True) is not False and set_.get('search', 'deep') != 'off' and _aic.should_search(text, _chat_syms()):   # (records AND the web — owner: "always research before responding")   # 🌐 a quick search before EVERY real question (model memory may be out of date)
             try:
                 import feeless_mcp as _mcp
                 rows_ = await asyncio.wait_for(asyncio.to_thread(_mcp._search_rows, _aic.web_query(text), 5), timeout=8)
@@ -14481,6 +14488,55 @@ async def admin_ai_chat(request: Request):
 
 import chat_evidence as _cev
 _cev_cache: dict = {}
+
+
+def _chat_syms():
+    """Symbols on the real card + the recent decision tape (what a chat message may name without a $)."""
+    try:
+        card_ = next((c for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if c.get('real')), {}) or {}
+        out = [l.get('symbol') for l in card_.get('legs') or [] if l.get('symbol')]
+        out += [r.get('symbol') for r in list(_tk.KERNEL.tape.rows)[-200:] if isinstance(r, dict) and r.get('symbol')]
+        return list(dict.fromkeys(out))
+    except Exception:
+        return []
+
+
+def _chat_coin(text):
+    """🪙 The named coin's own record for the chat: the live seat (entry, % now, peak, held, who picked it, your lines), Reaper's word and every
+    moment the agents WOULD have sold it (with the % then), the owner's own graded moves on it, and its last closed trades."""
+    syms = _aic.named_syms(text, _chat_syms())[:2]
+    if not syms:
+        return None
+    card_ = next((c for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if c.get('real')), {}) or {}
+    pos_ = _office_state().get('pos') or {}
+    reps_ = {r_.get('mint'): r_ for r_ in (_office.get('reports') or []) if isinstance(r_, dict)}
+    moves_ = (_json_load(OWNER_MOVES_PATH, {}) or {}).get(_office.get('tid') or '', {}) or {}
+    arch_ = (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or []
+    out = []
+    for sy in syms:
+        leg = next((l for l in card_.get('legs') or [] if str(l.get('symbol') or '').upper() == sy and not l.get('placeholder')), None)
+        mint = (leg or {}).get('mint') or next((p_.get('mint') for p_ in reversed(arch_) if str(p_.get('symbol') or '').upper() == sy), None)
+        p_ = pos_.get(mint) or {}
+        r_ = reps_.get(mint) or {}
+        row = {'coin': sy, 'mint': mint}
+        if leg:
+            row['seat'] = {'who': 'yours (your pick)' if leg.get('picked') else 'agents', 'entry': leg.get('entry'), 'pctNow': r_.get('pct'), 'peak': p_.get('peak'),
+                           'heldMin': round((time.time() - _fuse._f(leg.get('at'))) / 60) if leg.get('at') else None, 'yourStop': leg.get('sl') if leg.get('ownerLvAt') else None,
+                           'yourTake': leg.get('tp') if leg.get('ownerLvAt') else None, 'certified': bool(leg.get('certified')), 'reaper': f"{r_.get('state')} · {r_.get('rule')}" if r_ else None}
+        wd_ = [f"{w_.get('rule')} at {_fuse._f(w_.get('pct')):+.1f}%" for w_ in (p_.get('study') or [])[-6:] if isinstance(w_, dict)]
+        if p_.get('would'):
+            wd_ = [f"first would-sell: {(p_['would'] or {}).get('rule')} at {_fuse._f((p_['would'] or {}).get('pct')):+.1f}%"] + wd_
+        if wd_:
+            row['agentsWouldHaveSold'] = wd_
+        mv_ = [_om.why_line(x_) for x_ in (moves_.get('rows') or []) if x_.get('mint') == mint][-5:]
+        if mv_:
+            row['yourMovesOnIt'] = mv_
+        past_ = [{'pct': x_.get('realPct'), 'rule': (x_.get('exit') or {}).get('rule'), 'heldMin': x_.get('heldMin'), 'pick': bool(x_.get('pick'))}
+                 for x_ in arch_ if x_.get('mint') == mint and x_.get('realPct') is not None][-3:]
+        if past_:
+            row['closedBefore'] = past_
+        out.append({k: v for k, v in row.items() if v not in (None, [], {})})
+    return out or None
 
 
 def _owner_brief():
