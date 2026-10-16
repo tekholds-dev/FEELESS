@@ -22,6 +22,7 @@ export function G4Card({ g }) {
   return <div className={`cac-g4 is-${g.mode}`} data-testid="g4-seat">
     <div className="cac-g4h"><b><i className="cac-g4dot" aria-hidden="true" />🧠 G4 SEAT · {String(g.mode).toUpperCase()}</b>
       <span data-tip="paper = at live prices, after a 1.5% swap cost both ways">📄 {recWord(g.paper)}</span><span data-tip="real closed trades from the card's archive">💵 {recWord(g.real)}</span></div>
+    {Object.keys(g.byModel || {}).length ? <p className="cac-g4o" data-testid="g4-by-model">🔁 tag team · {Object.entries(g.byModel).map(([k, r]) => `${k === 'lan' ? 'G4' : k === 'local' ? 'Mac' : k}: ${recWord(r)}`).join(' · ')}</p> : null}
     {g.open ? <p className="cac-g4o">holding ${g.open.symbol} (paper) since {ago(g.open.at)} ago · peak {Number(g.open.peak || 0).toFixed(1)}%</p> : null}
     {last ? <p className="cac-g4l"><em className={`is-${String(last.action).toLowerCase()}`}>{last.action}</em>{last.symbol ? ` $${last.symbol}` : ''} — {last.why}
       {last.watch ? <small> · sells if: {last.watch}</small> : null}</p> : <p className="cac-g4l"><small>G4 thinks once a minute — the first thought lands here</small></p>}

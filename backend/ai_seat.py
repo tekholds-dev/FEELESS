@@ -24,7 +24,7 @@ PAPER_COST_PCT = 1.5      # the measured cost of one swap on the real card — p
 CAND_N = 8
 ACTIONS = ('BUY', 'HOLD', 'SELL', 'WAIT')
 
-SYSTEM = """You are G4. You run ONE seat of a small real-money Solana trench card yourself. Ten rule-based agents (Tally, Sherlock, Trigger,
+SYSTEM = """You and one partner model take TURNS running ONE seat of a small real-money Solana trench card — this minute it is your call. PARTNER = what your partner decided last minute: build on it or overrule it, and own the result (each of you has your own record). Ten rule-based agents (Tally, Sherlock, Trigger,
 Devil, Warden, Reaper …) and a second model, Qwen, also read these coins — their words are in the packet. You may follow them or overrule them.
 Every minute you get a fresh snapshot. Decide ONE action for YOUR seat:
 - BUY: only when your seat is empty, and only a coin from CANDIDATES (copy its mint exactly)
@@ -74,9 +74,33 @@ def held_row(leg, px, now, pressure=None, qwen=None):
     return {k: x for k, x in out.items() if x not in (None, '', [])}
 
 
-def packet(cands, held, record=None):
-    """The ONE thing G4 reads each minute."""
-    return {'yourSeat': held or 'EMPTY', 'candidates': cands[:CAND_N] or 'none right now', 'yourRecord': record or 'no closed trades yet'}
+def packet(cands, held, record=None, partner=None):
+    """The ONE thing the deciding model reads each minute (+ its partner's last call)."""
+    out = {'yourSeat': held or 'EMPTY', 'candidates': cands[:CAND_N] or 'none right now', 'yourRecord': record or 'no closed trades yet'}
+    if partner:
+        out['partner'] = partner
+    return out
+
+
+def turn(log, a, b):
+    """🔁 TAG TEAM: the model that did NOT decide the last answered minute decides this one; it falls back to the other when it can't answer.
+    → (first, second) provider keys for the router."""
+    last = next((r.get('by') for r in reversed(log or []) if r.get('by') in (a, b) and r.get('action') not in (None, 'NO ANSWER')), None)
+    return (b, a) if last == a else (a, b)
+
+
+def partner_of(log, by):
+    """The other model's newest call, as the deciding model reads it."""
+    r = next((r for r in reversed(log or []) if r.get('by') and r.get('by') != by and r.get('action') not in (None, 'NO ANSWER')), None)
+    return None if not r else {'model': r.get('model') or r['by'], 'action': r.get('action'), 'symbol': r.get('symbol'), 'why': str(r.get('why') or '')[:140]}
+
+
+def by_model(closed):
+    """Each model's own record: a trade belongs to the model that OPENED it."""
+    out = {}
+    for x in closed or []:
+        out.setdefault(x.get('by') or '?', []).append(x)
+    return {k: record(v) for k, v in out.items()}
 
 
 def _first_json(text):
@@ -114,7 +138,7 @@ def parse(text, cand_mints, holding):
     return {'action': a, 'mint': mint if a == 'BUY' else '', 'why': why, 'conf': conf, 'watch': watch}
 
 
-def paper_step(book, dec, cand_by_mint, px_of, now):
+def paper_step(book, dec, cand_by_mint, px_of, now, by=None):
     """The paper seat: BUY opens at the live price, SELL closes it (the measured swap cost both ways). → (book, event | None)."""
     b = {'open': (book or {}).get('open'), 'closed': list((book or {}).get('closed') or [])}
     if not dec:
@@ -124,7 +148,7 @@ def paper_step(book, dec, cand_by_mint, px_of, now):
         c = (cand_by_mint or {}).get(dec['mint']) or {}
         p = _f(px_of(dec['mint']) if px_of else c.get('px'))
         if p > 0:
-            b['open'] = {'mint': dec['mint'], 'symbol': c.get('symbol'), 'entry': p, 'at': now, 'why': dec['why'], 'peak': 0.0}
+            b['open'] = {'mint': dec['mint'], 'symbol': c.get('symbol'), 'entry': p, 'at': now, 'why': dec['why'], 'peak': 0.0, 'by': by}
             return b, {'kind': 'buy', 'symbol': c.get('symbol'), 'px': p}
     if o:
         p = _f(px_of(o['mint']) if px_of else 0)
@@ -133,7 +157,7 @@ def paper_step(book, dec, cand_by_mint, px_of, now):
         if dec['action'] == 'SELL' and p > 0:
             gross = (p / _f(o['entry']) - 1) * 100
             net = round(gross - 2 * PAPER_COST_PCT, 2)
-            b['closed'] = (b['closed'] + [{**o, 'exit': p, 'closedAt': now, 'pct': net, 'gross': round(gross, 2), 'heldMin': round((now - _f(o['at'])) / 60, 1), 'exitWhy': dec['why']}])[-200:]
+            b['closed'] = (b['closed'] + [{**o, 'exit': p, 'closedAt': now, 'pct': net, 'gross': round(gross, 2), 'heldMin': round((now - _f(o['at'])) / 60, 1), 'exitWhy': dec['why'], 'exitBy': by}])[-200:]
             b['open'] = None
             return b, {'kind': 'sell', 'symbol': o.get('symbol'), 'pct': net}
     return b, None

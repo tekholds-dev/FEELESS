@@ -56,8 +56,22 @@ RATE_COOL = 60.0           # a 429 rests that provider this long (or its Retry-A
 FAIL_COOL = (0.0, 0.0, 15.0, 30.0, 60.0)   # cool-down by consecutive failures (2 free, then 15s … 60s)
 # per-provider request extras: OpenRouter's reasoning models spend the whole answer cap THINKING unless told not to (2026-10-13: 260 of 260
 # completion tokens were reasoning, the content came back empty → every answer read "malformed"); with minimal reasoning + room it answers in ~5s
+def harmony_clean(text):
+    """💻 gpt-oss (OpenAI's harmony format) can leak its channel tags into the text through LM Studio:
+    '<|channel|>analysis …<|channel|>final <|constrain|>JSON<|message|>{…}'. Keep only the final message; other models pass through."""
+    t = str(text or '')
+    if '<|' not in t:
+        return t
+    if '<|channel|>final' in t:
+        t = t.rsplit('<|channel|>final', 1)[1]
+    if '<|message|>' in t:
+        t = t.split('<|message|>', 1)[1]
+    return re.sub(r'<\|[a-z_]+\|>', '', t).strip()
+
+
 EXTRA_BODY = {'openrouter': {'reasoning': {'effort': 'minimal'}, 'usage': {'include': True}, 'max_tokens': 900},
-              'lan': {'reasoning_effort': 'none'}}   # 🖥 gemma-4 THINKS by default: 457 of 460 tokens went to reasoning, the answer was empty → 'none' = a valid read in ~10s
+              'lan': {'reasoning_effort': 'none'},
+              'local': {'reasoning_effort': 'low'}}   # 💻 gpt-oss-20b on the Mac: low = short thinking, a real answer (Qwen ignores it)   # 🖥 gemma-4 THINKS by default: 457 of 460 tokens went to reasoning, the answer was empty → 'none' = a valid read in ~10s
 SPEND_USD_DAY = 1.5        # 💵 a paid provider stops for the UTC day once the costs it REPORTED pass this (AI_DAILY_USD overrides; ≈ $0.0002 a case)
 LOCAL_BG_EVERY = 45.0      # 💻 the local model's background lane: at most one case per this many seconds…
 LOCAL_BG_PRIO = 2          # … only owner review / a split desk / a READY coin / the coach, and only when NO cloud provider could answer
@@ -877,7 +891,7 @@ class Router:
             self._spend_note(p['key'], _f((j.get('usage') or {}).get('cost')), time.time())
             u_ = j.get('usage') or {}
             self.lastUsage[p['key']] = {'in': int(_f(u_.get('prompt_tokens'))), 'out': int(_f(u_.get('completion_tokens')))}   # token counts only (shown beside a chat answer)
-            return str(((j.get('choices') or [{}])[0].get('message') or {}).get('content') or ''), None
+            return harmony_clean(((j.get('choices') or [{}])[0].get('message') or {}).get('content')), None
         except Exception:
             return None, ('malformed', 'not a chat-completions answer', None)
 

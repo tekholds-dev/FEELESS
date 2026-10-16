@@ -4669,5 +4669,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   R1 pulled pool · R5x −45% · R5c / R9c sell it (`office.G4_HARD`, fast_reap −45% only). The Judge files its trades as kind `g4`. Its minute
   thoughts (action · why · vitals · pressure · Qwen) show in Brain › Activity (`G4Card` + kind filter 🧠 G4 seat). Unproven — its record decides.
 - 💰 Scale-out is the owner's (`agentScale` 10/75 · 20/50 · 30/50 · off; `office.scale_of`: '10/75' = the module's SCALE_AT / SCALE_PCT).
+- 🔁 G4 SEAT = TAG TEAM: `ai_seat.turn` — G4 (`lan`, desktop) and the Mac model (`local`) alternate deciding the seat each minute (falls back to
+  the other when one can't answer); the decider sees its partner's last call (`partner_of`); each trade belongs to the model that opened it
+  (`by_model`, card line 🔁). THIS MAC'S MODEL = `openai/gpt-oss-20b` (MLX 12.1 GB, loaded at 8192; `LOCAL_LLM_FALLBACK_MODEL` qwen/qwen3-4b-2507,
+  `LOCAL_LLM_NAME` Oss); router sends it `reasoning_effort: low` and strips its harmony tags (`ai_router.harmony_clean`). LM Studio's
+  guardrail refused it while Qwen was loaded and swap was 15.2 / 16 GB: unload the old model first (`lms unload …`).
 - FEE prompt opening = "tools first, `now` at most once, never the same tool twice, then answer" — "a tool call EVERY turn, `now` at least" made
   the 4B Qwen call `now` 14 times without answering.

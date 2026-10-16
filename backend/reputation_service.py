@@ -13777,19 +13777,23 @@ async def _g4_tick(now, env, cfg):
         else:
             held_ = None
         rec_ = _g4_real_record() if mode_ == 'real' else _seat.record(book_.get('closed'))
-        pk_ = _seat.packet([_seat.cand_row(c_, _g4_qwen(c_['mint'])) for c_ in cands_], held_, _seat.record_words(rec_))
+        first_, second_ = _seat.turn(st_['log'], _duet.LEAD, _duet.SECOND)   # 🔁 tag team: G4 (desktop) and the Mac's model take turns deciding the seat
+        if mode_ == 'paper':
+            rec_ = _seat.by_model(book_.get('closed')).get(first_) or {'n': 0}
+        pk_ = _seat.packet([_seat.cand_row(c_, _g4_qwen(c_['mint'])) for c_ in cands_], held_, _seat.record_words(rec_), _seat.partner_of(st_['log'], first_))
         t0_ = time.perf_counter()
-        r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Your minute snapshot. Decide.', context=pk_, role='exit', urgency='force', only=(_duet.LEAD,), system=_seat.SYSTEM, only_system=True)
+        r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Your minute snapshot. Decide.', context=pk_, role='exit', urgency='force', only=(first_, second_), system=_seat.SYSTEM, only_system=True)
+        by_m = r_.get('source') if r_.get('source') in (first_, second_) else first_
         dec_ = _seat.parse(r_.get('text'), [c_['mint'] for c_ in cands_], bool(held_))
         ms_ = round((time.perf_counter() - t0_) * 1000)
         by_ = {c_['mint']: c_ for c_ in cands_}
         ev_ = None
         if dec_ and mode_ == 'paper':
-            book_, ev_ = _seat.paper_step(book_, dec_, by_, px_of, now)
+            book_, ev_ = _seat.paper_step(book_, dec_, by_, px_of, now, by_m)
         elif dec_ and mode_ == 'real' and dec_['action'] in ('BUY', 'SELL'):
             _g4['want'] = {**dec_, 'at': now, 'pair': (by_.get(dec_['mint']) or {}).get('pair') if dec_['action'] == 'BUY' else (leg_ or {}).get('pairAddress')}
         focus_ = by_.get((dec_ or {}).get('mint')) if (dec_ or {}).get('action') == 'BUY' else None
-        row_ = {'at': round(now), 'mode': mode_, 'model': r_.get('label') or r_.get('source'), 'ms': ms_,
+        row_ = {'at': round(now), 'mode': mode_, 'model': r_.get('label') or r_.get('source'), 'by': by_m if dec_ else None, 'ms': ms_,
                 'action': (dec_ or {}).get('action') or 'NO ANSWER', 'why': (dec_ or {}).get('why') or str(r_.get('why') or 'the model did not answer')[:160],
                 'conf': (dec_ or {}).get('conf'), 'watch': (dec_ or {}).get('watch'), 'symbol': (focus_ or {}).get('symbol') or (held_ or {}).get('symbol'),
                 'mint': (focus_ or {}).get('mint') or (held_ or {}).get('mint'), 'pct': (held_ or {}).get('pct'), 'heldMin': (held_ or {}).get('heldMin'),
@@ -13807,7 +13811,7 @@ def _g4_view():
     """🧠 G4's seat for the page: mode, record (paper + real), the open paper seat, the newest minute thoughts."""
     st_ = _g4_state()
     mode_ = _oe.clean_policy(_prime_real_cfg())['agentAiSeat']
-    return {'mode': mode_, 'paper': _seat.record((st_['book'] or {}).get('closed')), 'real': _g4_real_record(), 'open': (st_['book'] or {}).get('open'),
+    return {'mode': mode_, 'paper': _seat.record((st_['book'] or {}).get('closed')), 'byModel': _seat.by_model((st_['book'] or {}).get('closed')), 'real': _g4_real_record(), 'open': (st_['book'] or {}).get('open'),
             'want': _g4.get('want'), 'busy': _g4['busy'], 'log': st_['log'][-60:][::-1]}
 
 

@@ -63,3 +63,23 @@ def test_g4_minute_thoughts_reach_the_activity_pane():
                              'vitals': {'cap': 40000, 'buyers': 70}, 'pressure': ['R7 at +5%'], 'qwen': 'CAUTION'}])
     g = [r for r in rows if r['kind'] == 'g4'][0]
     assert g['title'].startswith('G4 BUY $A') and g['tone'] == 'ok' and 'cap 40000' in g['vitals'] and g['qwen'] == 'CAUTION'
+
+
+def test_g4_and_the_mac_model_take_turns_and_each_has_its_own_record():
+    assert seat.turn([], 'lan', 'local') == ('lan', 'local')
+    log = [{'by': 'lan', 'action': 'BUY', 'symbol': 'A', 'why': 'buyers 70%', 'model': 'Vega'}]
+    assert seat.turn(log, 'lan', 'local') == ('local', 'lan')                       # the other model decides next
+    assert seat.turn(log + [{'by': None, 'action': 'NO ANSWER'}], 'lan', 'local') == ('local', 'lan')   # a missed minute does not count as a turn
+    assert seat.partner_of(log, 'local') == {'model': 'Vega', 'action': 'BUY', 'symbol': 'A', 'why': 'buyers 70%'} and seat.partner_of(log, 'lan') is None
+    assert seat.packet([], None, None, {'action': 'BUY'})['partner'] == {'action': 'BUY'}
+    px = {'A': 1.0}
+    b, _ = seat.paper_step({}, {'action': 'BUY', 'mint': 'A', 'why': ''}, {'A': {'symbol': 'A'}}, px.get, 0, 'lan')
+    px['A'] = 0.9
+    b, _ = seat.paper_step(b, {'action': 'SELL', 'why': ''}, {}, px.get, 60, 'local')
+    assert set(seat.by_model(b['closed'])) == {'lan'}                                  # the trade is the opener's
+
+
+def test_gpt_oss_channel_tags_never_reach_the_parser_or_the_chat():
+    import ai_router as ar
+    raw = '<|channel|>analysis thinking<|end|><|start|>assistant<|channel|>final <|constrain|>JSON<|message|>{"action":"WAIT"}'
+    assert ar.harmony_clean(raw) == '{"action":"WAIT"}' and ar.harmony_clean('hi there') == 'hi there' and ar.harmony_clean(None) == ''
