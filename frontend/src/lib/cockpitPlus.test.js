@@ -28,6 +28,8 @@ test('a long answer becomes a card with its number first and the coins it names'
 });
 test('a held seat becomes a ride share card', () => {
   const c = rideCard({ symbol: 'ELON', pct: 116, pnlUsd: 0.16, peak: 128, kind: 'yours', entryMc: 203600, mc: 440400, heldMin: 170 }, { ghosts: [{ pct: 3.4, rule: 'R4r' }] });
-  expect(c.title).toBe('$ELON ride'); expect(c.lines[1]).toContain('+3.4%'); expect(c.theme).toBe('gold');
+  expect(c.title).toBe('$ELON ride'); expect(c.lines[1]).toContain('+3.4%'); expect(c.theme).toBe('gold'); expect(c.bigSub).toBeUndefined();
+  expect(rideCard({ symbol: 'A', pct: 40, pnlUsd: 0.06, usd: 0.19, path: [0, 50, 128, 40] }, { ghosts: [{ pct: 36 }] })).toMatchObject({ spark: [0, 50, 128, 40], marks: [36] });
+  expect(rideCard({ symbol: 'A', pct: 40, pnlUsd: 0.06, usd: 0.19 }).lines[0]).toBe('$0.13 in → $0.19 now (+$0.06)');
   expect(rideCard({ open: true })).toBeNull();
 });

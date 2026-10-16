@@ -187,6 +187,11 @@ def local_last_resort(prio, last_at, now, cloud_answered):
     return (not cloud_answered) and prio is not None and prio <= LOCAL_BG_PRIO and now - _f(last_at) >= LOCAL_BG_EVERY
 
 
+def route_order(only, base):
+    """`only` is an ORDER too (the tag-team seat and the chat's first pick depend on it): its providers in its order, each one configured."""
+    return [k for k in only if k in base] if only else list(base)
+
+
 def order_of(env, cfg=None):
     """The provider order: the saved one, else AI_PROVIDER_ORDER, else the default — unknown names dropped, every provider listed once."""
     raw = (cfg or {}).get('order') or str(env.get('AI_PROVIDER_ORDER') or '').split(',')
@@ -971,7 +976,7 @@ class Router:
         case_msgs = msgs
         tried = []
         t_all = time.perf_counter()
-        order = [k for k in order_of(env, cfg) if not only or k in only]
+        order = route_order(only, order_of(env, cfg))
         own = local_ok(env, role, urgency) or bool(only and 'local' in only)   # `only=('local',)` = the local model's OWN lane (the service paces it)
         if not own and 'local' in order:   # a background case asks the cloud FIRST; the local model is its last resort (see local_last_resort)
             order = [k for k in order if k != 'local'] + ['local']

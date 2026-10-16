@@ -4694,5 +4694,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`rideCard` → ShareGifButton) · money strip adds 👤 YOU · 🤖 AGENTS 24h $, 💎 DIAMOND HANDS (`diamondOf`: your result − the agents' first
   would-sell, per closed trade), 🔁 G4 vs OSSY (`leagueOf`) · Brain answers render as cards (`answerCard`: headline with its number, ≤ 3
   bullets, $COIN chips → `feeless:cockpit-coin-sym`). All pure in `lib/cockpitPlus.js`.
+- 🧭 `ai_router.route_order`: `only` is an ORDER (it used to be a filter over the env order, so the G4/OSSY tag team always tried the desktop
+  first and the chat's "auto" always hit G4's 2B model). Chat "auto" asks `CHAT_FIRST` (default `local` = OSSY gpt-oss-20b) first.
+  🩸 Rug alert = a blinking light (`ack-rugdot`, red DRAIN / amber thinning, the why in the tip). 🎞 Ride card draws the ride (`card.spark` +
+  ✂ `card.marks` in shareGif) and no `bigSub` (it collided with the stats). Brain drawer = AiChat `variant="drawer"` + `onClose` (one header).
 - FEE prompt opening = "tools first, `now` at most once, never the same tool twice, then answer" — "a tool call EVERY turn, `now` at least" made
   the 4B Qwen call `now` 14 times without answering.

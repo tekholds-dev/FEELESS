@@ -136,6 +136,18 @@ function frame(g, card, logo, coin, t, seed, s = 1) {
     g.fillStyle = 'rgba(255,255,255,0.55)'; g.font = '600 9px "Space Grotesk", sans-serif'; g.fillText(String(v.label).toUpperCase().slice(0, 14), x + 8, y + 14);
     g.fillStyle = v.tone === 'bad' ? '#ff8fa3' : v.tone === 'ok' ? '#45e486' : '#ffffff'; g.font = '700 15px "JetBrains Mono", monospace'; g.fillText(String(v.value).slice(0, 9), x + 8, y + 32); });
   // Stats panel (case files): up to 6 labelled pills, 2 columns, coloured by verdict (ok = mint, bad = red).
+  // 📈 a ride's % path since entry (ride shares): drawn left → right as the loop plays, the entry line, the peak, the agents' would-sells as ✂ ticks
+  if (Array.isArray(card.spark) && card.spark.length > 1) {
+    const xs = card.spark.map(Number).filter(v => Number.isFinite(v)); const lo = Math.min(0, ...xs, ...(card.marks || [])), hi = Math.max(0, ...xs, ...(card.marks || []));
+    const X0 = 392, X1 = 684, Y0 = 250, Y1 = 342; const yv = v => Y1 - ((v - lo) / ((hi - lo) || 1)) * (Y1 - Y0); const xv = i => X0 + (i / (xs.length - 1)) * (X1 - X0);
+    g.fillStyle = 'rgba(255,255,255,0.05)'; g.beginPath(); g.roundRect(X0 - 8, Y0 - 14, X1 - X0 + 16, Y1 - Y0 + 24, 10); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,0.25)'; g.setLineDash([4, 4]); g.lineWidth = 1; g.beginPath(); g.moveTo(X0, yv(0)); g.lineTo(X1, yv(0)); g.stroke(); g.setLineDash([]);
+    (card.marks || []).forEach(m => { g.strokeStyle = 'rgba(183,155,255,0.8)'; g.beginPath(); g.moveTo(X0, yv(m)); g.lineTo(X0 + 12, yv(m)); g.stroke(); g.fillStyle = '#b79bff'; g.font = '700 10px "JetBrains Mono", monospace'; g.fillText('✂', X0 + 14, yv(m) + 4); });
+    const n = Math.max(2, Math.ceil(xs.length * Math.min(1, t * 1.6))); g.strokeStyle = P.big; g.lineWidth = 2.5; g.shadowColor = P.big; g.shadowBlur = 8; g.beginPath();
+    xs.slice(0, n).forEach((v, i) => (i ? g.lineTo(xv(i), yv(v)) : g.moveTo(xv(i), yv(v)))); g.stroke(); g.shadowBlur = 0;
+    const pk = xs.indexOf(Math.max(...xs)); if (pk < n) { g.fillStyle = '#ffffff'; g.beginPath(); g.arc(xv(pk), yv(xs[pk]), 3.5, 0, Math.PI * 2); g.fill(); }
+    g.fillStyle = 'rgba(255,255,255,0.55)'; g.font = '600 10px "Space Grotesk", sans-serif'; g.fillText('THE RIDE · % SINCE ENTRY', X0, Y0 - 3);
+  }
   (card.stats || []).slice(0, 6).forEach((s, i) => {
     const x = 392 + (i % 2) * 150, y = 136 + Math.floor(i / 2) * 50;
     g.fillStyle = 'rgba(255,255,255,0.07)'; g.beginPath(); g.roundRect(x, y, 142, 42, 10); g.fill();

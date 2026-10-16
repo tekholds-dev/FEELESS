@@ -121,3 +121,9 @@ def test_a_question_about_our_trades_or_a_named_coin_never_searches_the_web():
     assert not a.should_search("no what moves did you learn from my trade, we dont need a web search lol")
     assert a.should_search('who won the broncos game last night') and a.should_search('search the news on solana today')
     assert a.named_syms('elon and $bubble', ['ELON']) == ['BUBBLE', 'ELON'] and a.named_syms('hello there', ['ELON']) == []
+
+
+def test_the_router_tries_models_in_the_order_it_is_given():
+    import ai_router as ar
+    assert ar.route_order(('local', 'lan'), ['lan', 'local', 'groq']) == ['local', 'lan']
+    assert ar.route_order(None, ['lan', 'local']) == ['lan', 'local'] and ar.route_order(('xai',), ['lan']) == []

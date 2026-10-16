@@ -14441,6 +14441,8 @@ async def admin_ai_chat(request: Request):
                 print('chat web:', str(e_)[:100])
         prov_ = str((body or {}).get('provider') or 'auto')   # 🎛 the owner's model switch: auto = the normal order · duet = Gemma then Qwen · else that one provider only
         only_ = (prov_,) if prov_ in _air.PROVIDERS else (_duet.LEAD,) if prov_ == 'duet' else None
+        if prov_ == 'auto':   # 💬 your chat asks the STRONGER local model first (OSSY = gpt-oss-20b; G4 is a 2B model on the desktop today) — CHAT_FIRST overrides
+            only_ = tuple(dict.fromkeys([str(env.get('CHAT_FIRST') or 'local')] + list(_air.order_of(env, cfg))))
         img_ = _chat_image((body or {}).get('image'))
         hist_ = _aic.as_messages(_chat['th'].get(mode))
         vl_ = _aic.VOICE_LINE.get(set_.get('voice', 'degen')) or ''

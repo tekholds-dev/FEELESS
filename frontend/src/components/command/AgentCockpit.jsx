@@ -251,7 +251,7 @@ function SeatCard({ s, on, onPick, readyN, same }) {
   const last = s.last; const [ic, nm] = TAPE_AGENT[last?.agent] || ['', '']; const rug = rugMark(s);
   return <button type="button" className={`ack-seat ${on ? 'is-on' : ''} ${s.kind === 'g4' ? 'is-g4' : ''} ${s.pct > 0 ? 'is-up' : s.pct < 0 ? 'is-dn' : ''}`} onClick={() => onPick(s.mint)} aria-pressed={on} data-testid={`ack-seat-${s.seat}`}
     data-tip={`${s.tag || s.kind}${s.rule ? ` · Reaper ${s.rule}` : ''}${s.why ? ` — ${s.why}` : ''}`}>
-    <header><small>SEAT {s.seat}{s.kind === 'g4' ? <i className="ack-g4tag">🧠 G4</i> : null}{rug ? <i className={`ack-rug is-${rug.level}`} data-tip={`🩸 rug marker — ${rug.why}`} data-testid={`ack-seat-rug-${s.seat}`}>🩸</i> : null}</small><i className={`ack-badge ${STATE_CLS[st]}`} data-testid={`ack-seat-state-${s.seat}`}>{st}</i></header>
+    <header><small>SEAT {s.seat}{s.kind === 'g4' ? <i className="ack-g4tag">🧠 G4</i> : null}{rug ? <i className={`ack-rugdot is-${rug.level}`} data-tip={`${rug.level === 'bad' ? '🔴 RUG RISK' : '🟡 POOL THINNING'} — ${rug.why}`} aria-label={rug.level === 'bad' ? 'rug risk' : 'pool thinning'} data-testid={`ack-seat-rug-${s.seat}`} /> : null}</small><i className={`ack-badge ${STATE_CLS[st]}`} data-testid={`ack-seat-state-${s.seat}`}>{st}</i></header>
     <p className="ack-coin"><b>${s.symbol}<CopyCa mint={s.mint} sym={s.symbol} testid={`ack-seat-ca-${s.seat}`} /><GermChip mint={s.mint} compact /></b><span className="ack-pnl"><LiveNum v={s.pct} fmt={x => pc(x)} testid={`ack-seat-pct-${s.seat}`} /><LiveNum v={s.pnlUsd} fmt={signed} cls={`ack-usd ${tone(s.pnlUsd)}`} testid={`ack-seat-usd-${s.seat}`} /></span></p>
     <div className="ack-seatmid"><dl className="ack-kv">
       <dt>ENTRY MC</dt><dd>{mcWord(s.entryMc)}</dd><dt>AGE</dt><dd>{mins(s.ageMin)}</dd>
@@ -567,7 +567,7 @@ function AiProvidersLive({ o, ...rest }) { const ai = useAi(o?.ai); return <AiPr
 // 🧠 the Brain as a slide-out drawer on the right (owner, 2026-10-16) — Esc or ✕ closes; the page stays usable beside it
 function BrainDrawer({ close, children }) {
   useEffect(() => { const on = e => { if (e.key === 'Escape') close(); }; window.addEventListener('keydown', on); return () => window.removeEventListener('keydown', on); }, [close]);
-  return <aside className="ack-drawer" data-testid="ack-brain-drawer" aria-label="Brain"><header><b>🧠 BRAIN · G4 × OSSY</b><button type="button" onClick={close} aria-label="Close the Brain" data-testid="ack-brain-close">✕</button></header><div className="ack-drawerbody">{children}</div></aside>;
+  return <aside className="ack-drawer" data-testid="ack-brain-drawer" aria-label="Brain"><div className="ack-drawerbody">{children}</div></aside>;
 }
 
 // 🎞 the selected seat's ride (share card) + its rug marker, under the chart
@@ -575,7 +575,7 @@ function RideBar({ s, pos }) {
   const card = useMemo(() => rideCard(s, pos), [s, pos]); const rug = rugMark(s);
   if (!card) return null;
   return <div className="ack-ride" data-testid="ack-ride"><span>🎞 ${s.symbol} · {s.pct == null ? '—' : pc(s.pct)}{(pos?.ghosts || []).length ? ` · ✂ ${(pos.ghosts || []).length} would-sell${pos.ghosts.length > 1 ? 's' : ''} on the chart` : ''}</span>
-    {rug ? <em className={`ack-rug is-${rug.level}`} data-testid="ack-ride-rug">🩸 {rug.why}</em> : null}
+    {rug ? <em className={`ack-rugtag is-${rug.level}`} data-tip={rug.why} data-testid="ack-ride-rug"><i className={`ack-rugdot is-${rug.level}`} />{rug.level === 'bad' ? 'RUG RISK' : 'POOL THINNING'}</em> : null}
     <ShareGifButton card={card} label="🎞 Share the ride" className="ack-ridebtn" /></div>;
 }
 
@@ -664,7 +664,7 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
       {side === 'desk' ? <div className="ack-sidedesk" data-testid="ack-sidedesk"><DuoSeat duo={d?.duo} /><DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { if (r.mint) setPick(r.mint); setSide('decision'); }} /></div> : <DecisionPanel o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
         pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} mcNow={model?.mc} onAi={() => setAiOpen(true)} />}</div></div>
     <div ref={deckRef} className="ack-deckwrap"><Deck testid="ack-tapezone" bare on={nav === 'chart' ? navPane : nav} setOn={go} tabs={navTabs} /></div>
-    {brainOpen ? createPortal(<BrainDrawer close={() => setBrainOpen(false)}><AiChat call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} variant="full" extras={brainExtras} /></BrainDrawer>, document.body) : null}
+    {brainOpen ? createPortal(<BrainDrawer close={() => setBrainOpen(false)}><AiChat call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} variant="drawer" extras={brainExtras} onClose={() => setBrainOpen(false)} /></BrainDrawer>, document.body) : null}
     {aiOpen ? createPortal(<AiProvidersLive o={o} call={call} isOwner={isOwner} close={() => setAiOpen(false)} />, document.body) : null}
   </section>;
 }

@@ -10,21 +10,18 @@
   color: #e9fff3; font: 800 10px var(--m-mono); letter-spacing: .12em; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; }
 .ack-brainbtn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px -8px #b79bff; } .ack-brainbtn:active { transform: scale(.97); }
 .ack-brainbtn:focus-visible { outline: 2px solid #b79bff; outline-offset: 2px; } .ack-brainbtn.is-on { background: #b79bff; color: #12081f; }
-.ack-drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 5200; width: min(620px, 96vw); display: grid; grid-template-rows: auto minmax(0, 1fr);
+.ack-drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 5200; width: min(620px, 96vw); display: grid; grid-template-rows: minmax(0, 1fr);
   background: #06100b; border-left: 1px solid rgba(183, 155, 255, .35); box-shadow: -18px 0 40px -18px rgba(0, 0, 0, .8); animation: ackDrawerIn .2s ease both; }
-.ack-drawer header { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid rgba(255, 255, 255, .06); }
-.ack-drawer header b { font: 800 10px var(--m-mono); letter-spacing: .14em; color: #b79bff; }
-.ack-drawer header button { width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .12); background: transparent; color: #e9fff3; cursor: pointer; transition: transform .15s ease; }
-.ack-drawer header button:hover { transform: scale(1.08); } .ack-drawer header button:focus-visible { outline: 2px solid #b79bff; }
-.ack-drawerbody { min-height: 0; overflow: auto; padding: 8px; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
+.ack-drawerbody { min-height: 0; overflow: hidden; padding: 0; display: flex; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
 .ack-drawerbody::-webkit-scrollbar { width: 6px; } .ack-drawerbody::-webkit-scrollbar-thumb { background: #15d16a; border-radius: 3px; }
 @keyframes ackDrawerIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
 
-/* 🩸 rug marker */
-.ack-rug { display: inline-block; margin-left: 6px; font-style: normal; font-size: 11px; transform-origin: center; }
-.ack-rug.is-bad { animation: ackRug 1.1s ease-in-out infinite; } .ack-rug.is-warn { opacity: .75; }
-em.ack-rug { font: 700 9.5px var(--m-mono); color: #ff8fa3; } em.ack-rug.is-warn { color: var(--gold, #f5c451); }
-@keyframes ackRug { 0%, 100% { transform: scale(1); opacity: .7; } 50% { transform: scale(1.25); opacity: 1; } }
+/* 🩸 rug light: a blinking dot (red = draining, amber = thinning) — the why lives in the tip; it re-reads with every live update */
+.ack-rugdot { display: inline-block; width: 8px; height: 8px; margin-left: 7px; border-radius: 50%; vertical-align: middle; background: #ff4d6d; box-shadow: 0 0 6px 1px rgba(255, 77, 109, .7); animation: ackRugBlink 0.9s steps(2, jump-none) infinite; }
+.ack-rugdot.is-warn { background: #f5c451; box-shadow: 0 0 6px 1px rgba(245, 196, 81, .6); animation-duration: 1.8s; }
+.ack-rugtag { display: inline-flex; align-items: center; gap: 6px; font: 800 9px var(--m-mono); letter-spacing: .1em; font-style: normal; color: #ff8fa3; }
+.ack-rugtag.is-warn { color: var(--gold, #f5c451); } .ack-rugtag .ack-rugdot { margin-left: 0; }
+@keyframes ackRugBlink { 0% { opacity: 1; } 100% { opacity: .2; } }
 
 /* 🎞 ride bar */
 .ack-ride { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 6px 10px; border-radius: 10px; background: rgba(255, 255, 255, .03); border: 1px solid rgba(255, 255, 255, .06); font: 700 10px var(--m-mono); color: #e9fff3; }
@@ -36,7 +33,7 @@ em.ack-rug { font: 700 9.5px var(--m-mono); color: #ff8fa3; } em.ack-rug.is-warn
 .ack-mcell.is-split b { display: inline-flex; gap: 5px; align-items: baseline; } .ack-mcell.is-split b i { font-style: normal; opacity: .4; }
 .ack-mcell.is-split em { font-style: normal; } .ack-mcell.is-dia b, .ack-mcell.is-league b { font: 800 12px var(--m-mono); }
 
-body.fx-lite .ack-rug.is-bad, body.fx-lite .ack-drawer { animation: none; }
-@media (prefers-reduced-motion: reduce) { .ack-rug.is-bad, .ack-drawer { animation: none; } .ack-brainbtn, .ack-ridebtn, .ack-drawer header button { transition: none; } }
-body.theme-day .ack-drawer { background: #eef6f1; } body.theme-day .ack-drawer header button, body.theme-day .ack-ride, body.theme-day .ack-ridebtn, body.theme-day .ack-brainbtn { color: #10261a; }
+body.fx-lite .ack-drawer { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ack-rugdot, .ack-drawer { animation: none; } .ack-brainbtn, .ack-ridebtn, .ack-drawer header button { transition: none; } }
+body.theme-day .ack-drawer { background: #eef6f1; } body.theme-day .ack-ride, body.theme-day .ack-ridebtn, body.theme-day .ack-brainbtn { color: #10261a; }
 @media (max-width: 640px) { .ack-drawer { width: 100vw; } .ack-ride { font-size: 9px; } .ack-sidedesk { max-height: none; } }

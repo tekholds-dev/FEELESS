@@ -59,9 +59,13 @@ export function answerCard(text) {
 export function rideCard(s, pos) {
   if (!s || s.open) return null;
   const pct = num(s.pct); const peak = num(s.peak); const g = (pos?.ghosts || [])[0];
-  return { title: `$${s.symbol} ride`, bigValue: pct ?? 0, bigPrefix: pct >= 0 ? '+' : '', bigSuffix: '%', bigDigits: 1, bigSub: s.pnlUsd != null ? `${s.pnlUsd >= 0 ? '+' : '−'}$${Math.abs(s.pnlUsd).toFixed(2)}` : '',
+  const usd = num(s.usd); const pnl = num(s.pnlUsd); const inUsd = usd != null && pnl != null ? usd - pnl : null;
+  return { title: `$${s.symbol} ride`, bigValue: pct ?? 0, bigPrefix: pct >= 0 ? '+' : '', bigSuffix: '%', bigDigits: 1,
     tone: pct >= 0 ? 'up' : 'down', theme: pct >= 50 ? 'gold' : 'royal',
-    lines: [s.kind === 'yours' ? 'your pick — held through the noise' : 'held by the FEELESS agents', g ? `agents would have sold at ${sgn(g.pct)} (${g.rule})` : 'no early exit call', ''],
+    lines: [inUsd != null ? `$${inUsd.toFixed(2)} in → $${usd.toFixed(2)} now (${pnl >= 0 ? '+' : '−'}$${Math.abs(pnl).toFixed(2)})` : (s.kind === 'yours' ? 'your pick' : 'an agent seat'),
+      g ? `agents would have sold at ${sgn(g.pct)} (${g.rule})` : 'no early exit call from the agents',
+      s.kind === 'yours' ? 'your pick — held through the noise' : 'held by the FEELESS agents'],
+    spark: (s.path || []).length > 1 ? s.path : null, marks: (pos?.ghosts || []).map(x => num(x.pct)).filter(v => v != null).slice(0, 4),
     stats: [{ label: 'entry mc', value: s.entryMc ? `$${Math.round(s.entryMc / 1000)}K` : '—' }, { label: 'now mc', value: s.mc ? `$${Math.round(s.mc / 1000)}K` : '—' },
       { label: 'peak', value: peak != null ? sgn(peak) : '—', tone: 'ok' }, { label: 'held', value: s.heldMin != null ? `${Math.round(s.heldMin)} min` : '—' }],
     footer: 'feeless · fuse agents' };

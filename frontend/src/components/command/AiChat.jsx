@@ -123,7 +123,7 @@ const Composer = memo(forwardRef(function Composer({ mode, busy, upl, isOwner, f
     <button type="submit" className="m-btn m-go cch-go" disabled={!isOwner || busy || (!String(txt).trim() && mode !== 'case')} data-testid="cch-send">{busy ? '…' : 'SEND IT'}</button></form>;
 }));
 
-export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full', extras = [] }) {
+export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full', extras = [], onClose = null }) {
   const [mode, setMode] = useState('chat'); const comp = useRef(null); const [busy, setBusyS] = useState(false); const [pop, setPop] = useState(false);
   const [threads, setThreads] = useState({}); const [build, setBuild] = useState(null); const [showDone, setShowDone] = useState(false);
   const [provs, setProvs] = useState([]); const [prov, setProvS] = useState(() => { try { return localStorage.getItem('feeless.brainProv') || 'auto'; } catch { return 'auto'; } });
@@ -175,7 +175,7 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
       toast.success(approve ? `✅ applied — ${r.applied || 'done'}` : '✕ rejected — nothing changed'); } catch (x) { toast.error(x.message); } finally { setBusy(false); }
   };
   const mood = brainMood(busy, brain, last); const pend = (props.pending || []).length;
-  const sideOpen = pop || (openP ?? (variant !== 'mini' && (mode === 'improve' || mode === 'build')));   // fixes fold outside 🛠 / 🧱 so the conversation keeps its room
+  const sideOpen = pop || (openP ?? (variant !== 'mini' && variant !== 'drawer' && (mode === 'improve' || mode === 'build')));   // fixes fold outside 🛠 / 🧱 so the conversation keeps its room
   const body = <section className={`cch is-${pop ? 'pop' : variant} is-${mood.key} ${(showQ ?? !hist.length) ? 'is-q' : ''}`} data-testid="cch" data-mode={mode}>
     <header className="cch-head">
       <span className="cch-orb" aria-hidden="true"><i /><i /><b>🧠</b></span>
@@ -193,7 +193,8 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
           <button type="button" className="cch-svclear" onClick={() => { if (window.confirm(`Delete all ${saved.length} saved chats?`)) savedDo({ clearAll: true }); }} data-testid="cch-sv-clear">🗑 clear all saved</button></div> : null}</span> : null}
       <button type="button" className={`cch-ico ${showSet ? 'is-on' : ''}`} onClick={() => setShowSet(v => !v)} aria-expanded={showSet} data-testid="cch-set" data-tip="Brain settings: how the model answers + what it may do on its own" aria-label="Brain settings">⚙</button>
       <button type="button" className="cch-ico cch-new" onClick={() => clear()} disabled={busy || !hist.length} data-testid="cch-clear" data-tip="New chat: a fresh thread for this mode" aria-label="New chat">＋</button>
-      <button type="button" className="cch-ico" onClick={() => setPop(p => !p)} data-testid="cch-pop" data-tip={pop ? 'Close (Esc)' : 'Pop out — full window'} aria-label={pop ? 'Close the pop-out' : 'Pop out'}>{pop ? '✕' : '⤢'}</button>
+      {onClose ? <button type="button" className="cch-ico" onClick={onClose} data-testid="ack-brain-close" data-tip="Close the Brain (Esc)" aria-label="Close the Brain">✕</button>
+        : <button type="button" className="cch-ico" onClick={() => setPop(p => !p)} data-testid="cch-pop" data-tip={pop ? 'Close (Esc)' : 'Pop out — full window'} aria-label={pop ? 'Close the pop-out' : 'Pop out'}>{pop ? '✕' : '⤢'}</button>}
     </header>
     <i className="cch-scan" aria-hidden="true" />
     {showSet ? <div className="cch-sets" data-testid="cch-sets">

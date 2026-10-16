@@ -207,3 +207,12 @@ body.theme-day .cch-msg.is-user { border-color: rgba(30, 110, 170, .35); backgro
 .cch-accoin:focus-visible, .cch-acmore:focus-visible { outline: 2px solid #15d16a; outline-offset: 1px; }
 @media (prefers-reduced-motion: reduce) { .cch-accoin, .cch-acmore { transition: none; } }
 body.theme-day .cch-achead { color: #10261a; } body.theme-day .cch-ac li, body.theme-day .cch-accoin, body.theme-day .cch-acmore { color: #10261a; }
+
+/* 🧠 THE DRAWER (Agents tab, slides in on the right): one header, sections as a scrollable pill row, the chat takes the whole height,
+   fixes fold under the chat */
+.cch.is-drawer { flex: 1 1 auto; height: 100%; border-radius: 0; border-width: 0 0 0 1px; padding: 10px 12px; }
+.cch.is-drawer .cch-panes { display: flex; gap: 5px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; } .cch.is-drawer .cch-panes::-webkit-scrollbar { display: none; }
+.cch.is-drawer .cch-panes > button { flex: none; padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
+.cch.is-drawer .cch-kpis small { display: none; } .cch.is-drawer .cch-kpis u { padding: 3px 7px; }
+.cch.is-drawer .cch-msg { max-width: 92%; } .cch.is-drawer .cch-main { grid-template-rows: minmax(0, 1fr) auto; }
+.cch.is-drawer .cch-props.is-shut { max-height: 34px; }
