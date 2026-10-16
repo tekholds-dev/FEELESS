@@ -83,3 +83,13 @@ def test_gpt_oss_channel_tags_never_reach_the_parser_or_the_chat():
     import ai_router as ar
     raw = '<|channel|>analysis thinking<|end|><|start|>assistant<|channel|>final <|constrain|>JSON<|message|>{"action":"WAIT"}'
     assert ar.harmony_clean(raw) == '{"action":"WAIT"}' and ar.harmony_clean('hi there') == 'hi there' and ar.harmony_clean(None) == ''
+
+
+def test_the_owner_s_one_time_switch_puts_the_seat_on_paper_once(monkeypatch):
+    import asyncio
+    import reputation_service as rs
+    rs._json_save(rs.FUSE_HQ_PATH, {'prime': {'realCfg': {'agentAiSeat': 'off'}}})
+    assert asyncio.run(rs._g4seat_fix_1016(100)) is True
+    pr = rs._json_load(rs.FUSE_HQ_PATH, {})['prime']
+    assert pr['realCfg']['agentAiSeat'] == 'paper' and 'agentAiSeat' in pr['realOwnerSet']
+    assert asyncio.run(rs._g4seat_fix_1016(200)) is False                     # once only: the owner's later change stands

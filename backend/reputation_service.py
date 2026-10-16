@@ -9540,6 +9540,24 @@ async def _curve_fix_1011(now):
     return True
 
 
+async def _g4seat_fix_1016(now):
+    """🔁 Once (owner, 2026-10-16: "turn the G4 seat on in paper mode for the real card"): `agentAiSeat` = paper — G4 and the Mac model take
+    turns on a PAPER seat (no money). Old value: data/realcfg_before_g4seat1016.json. Change it: HQ › Agents › 🎛 Limits › 🧠 G4 SEAT."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('g4seatFix1016') or not rc:
+            return False
+        ch = {'agentAiSeat': 'paper'}
+        _json_save(DATA_DIR / 'realcfg_before_g4seat1016.json', {k: rc.get(k) for k in ch})
+        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
+        pr['g4seatFix1016'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _germline_fix_1016(now):
     """🦠 Once (owner, 2026-10-16: "raise my germ line to 15%"): the real card's germ line 10% → 15% (`agentGermMax`; the replay's best of
     8 / 15 / 25). Old value: data/realcfg_before_germline1016.json. Change it again: HQ › Agents › 🎛 Limits › 🦠 GERM PLAY."""
@@ -9933,6 +9951,7 @@ async def _prime_tick_inner(now):
     await _minage_fix_1014(now)
     await _mcfloor_fix_1016(now)
     await _germline_fix_1016(now)
+    await _g4seat_fix_1016(now)
     await _agent_real_fix_1012(now)
     await _agent_open_fix_1012(now)
     await _agent_control_fix_1010(now)
