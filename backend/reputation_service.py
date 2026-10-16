@@ -56,6 +56,7 @@ STORE_PATH = DATA_DIR / 'reputation.json'
 # Solana RPC pool + retrying client live in chain_rpc.py (one module per job); imported here so every caller is unchanged.
 import loop_lag as _loop_lag
 import chain_rpc as _chain
+import hq_auth as _hq_auth
 from chain_rpc import quota_state as _rpc_quota_state, RPC_POOL, _alchemy, _dedicated, _rpc_cooldown_until, _next_rpc_endpoint, _rpc, broadcast as _rpc_broadcast, rpc_priority as _krpc  # noqa: F401
 
 RUG_LIQUIDITY_DROP_PCT = 80          # % drop from peak liquidity counted as a rug signal
@@ -1936,43 +1937,14 @@ class ProfileSave(BaseModel):
     target: Optional[str] = None
 
 
-def _verify_evm(address: str, message: str, signature_hex: str) -> bool:
-    try:
-        from eth_account import Account
-        from eth_account.messages import encode_defunct
-        return Account.recover_message(encode_defunct(text=message), signature=signature_hex).lower() == address.lower()
-    except Exception:
-        return False
+_verify_evm = _hq_auth.verify_evm            # 🔐 wallet signatures live in hq_auth.py (pure); the old names stay for callers + tests
+_verify_solana = _hq_auth.verify_solana
 
 
 def _verify_wallet(address: str, message: str, signature: str) -> bool:
     if _re.match(r'^0x[0-9a-fA-F]{40}$', address or ''):
         return _verify_evm(address, message, signature)
     return _verify_solana(address, message, signature)
-
-
-def _verify_solana(address: str, message: str, signature_b64: str) -> bool:
-    """Ed25519 check. Wallets encode the 64-byte signature differently (base64 from our client,
-    base58 or hex from some wallets), so try each decoding that yields exactly 64 bytes."""
-    try:
-        import base58
-        from nacl.signing import VerifyKey
-        key = VerifyKey(base58.b58decode(address))
-    except Exception:
-        return False
-    sig = (signature_b64 or '').strip()
-    hexsig = sig[2:] if sig.lower().startswith('0x') else sig
-    decoders = (lambda: base64.b64decode(sig, validate=True), lambda: base58.b58decode(sig), lambda: bytes.fromhex(hexsig))
-    for decode in decoders:
-        try:
-            raw = decode()
-            if len(raw) != 64:
-                continue
-            key.verify(message.encode(), raw)
-            return True
-        except Exception:
-            continue
-    return False
 
 
 class FeaturedBadgesIn(BaseModel):
@@ -2515,10 +2487,7 @@ async def _fee_usd(address: str) -> float:
 def _is_staff(address: str) -> bool:
     """FEELESS HQ = the admin/creator wallets (any linked wallet of theirs). Staff get every unlock: all badges and
     their perks, every chat background, colors, Fee Reserve rooms, top perk tier."""
-    if not address:
-        return False
-    admins = _admin_wallets()
-    return address in admins or primary_of(address) in {primary_of(w) for w in admins}
+    return _hq_auth.is_staff(address, _admin_wallets() if address else [], primary_of)
 
 
 async def _alpha_allowed(room: str, address: str) -> bool:
@@ -19565,7 +19534,7 @@ async def health():
 # ---- FEELESS HQ: creator-wallet admin tools ------------------------------
 # $FEE's creator wallet (fee payer of the mint's first transaction on-chain) is the default
 # admin; FEELESS_ADMIN_WALLETS in backend/.env (comma separated) overrides it.
-FEE_CREATOR_WALLET = 'ANwSewb5AaKv4DarsDQ4NSEQ9APNtTGVxygPzn9u5K8P'
+FEE_CREATOR_WALLET = _hq_auth.FEE_CREATOR_WALLET
 ADMIN_PATH = DATA_DIR / 'admin.json'
 BUGS_PATH = ADMIN_PATH.parent / 'bugs.json'
 _admin_lock = asyncio.Lock()
@@ -19575,13 +19544,11 @@ _bug_ip_hits = {}
 
 
 def _admin_wallets():
-    env = [a.strip() for a in os.environ.get('FEELESS_ADMIN_WALLETS', '').split(',') if a.strip()]
-    owners = env or [FEE_CREATOR_WALLET]
     try:
-        granted = [a for a, g in _json_load(DATA_DIR / 'roles.json', {'grants': {}})['grants'].items() if g.get('role') in ('admin', 'moderator', 'marketing')]
+        granted = _hq_auth.granted_wallets(_json_load(DATA_DIR / 'roles.json', {'grants': {}})['grants'])
     except Exception:
         granted = []
-    return owners + granted
+    return _hq_auth.owner_wallets(os.environ.get('FEELESS_ADMIN_WALLETS', '')) + granted
 
 
 def _admin_load():
@@ -19703,49 +19670,23 @@ async def _record_status(request: Request, call_next):
 
 
 def _require_admin(request: Request) -> str:
-    """Session proof: the admin wallet signs `FEELESS HQ\\naddress:{a}\\nts:{ts}` (valid 1h)."""
-    addr = request.headers.get('x-admin-address', '')
-    ts = request.headers.get('x-admin-ts', '')
-    sig = request.headers.get('x-admin-sig', '')
-    if addr not in _admin_wallets():
-        raise HTTPException(403, 'This wallet is not a FEELESS HQ wallet.')
-    try:
-        ts_i = int(ts)
-    except ValueError:
-        raise HTTPException(401, 'Missing HQ signature.')
-    if abs(time.time() - ts_i) > 86400:
-        raise HTTPException(401, 'HQ session expired — sign in again.')
-    if not _verify_wallet(addr, f'FEELESS HQ\naddress:{addr}\nts:{ts_i}', sig):
-        raise HTTPException(401, 'HQ signature does not match.')
+    """Session proof: the admin wallet signs `FEELESS HQ\\naddress:{a}\\nts:{ts}` (valid a day) — rules in hq_auth.py."""
+    addr = _hq_auth.check_session(request.headers.get('x-admin-address', ''), request.headers.get('x-admin-ts', ''),
+                                  request.headers.get('x-admin-sig', ''), _admin_wallets(), _verify_wallet, time.time())
     _role_gate(addr, request)
     return addr
 
 
-# Granted roles are SCOPED (hard-coded): a moderator / marketing wallet only reaches its own HQ sections; 'admin'
-# grants reach everything except owner-only money (Circle, referrals, NFTs… via _require_owner). Owners reach everything.
-ROLE_SCOPES = {
-    'moderator': {'moderate', 'bugs', 'shield', 'chat-guard', 'chat-feed', 'verify', 'coin-verify', 'intel-desk', 'latency', 'perf'},
-    'marketing': {'marketing', 'broadcast', 'kols', 'ads', 'ideas', 'traffic', 'numbers'},
-}
-ROLE_READ = {'security', 'roles', 'whoami', 'is-admin'}      # every role may read these (its own access + health)
+ROLE_SCOPES, ROLE_READ = _hq_auth.ROLE_SCOPES, _hq_auth.ROLE_READ   # 🔐 scoped roles (hq_auth.py)
 
 
 def _role_of(addr):
-    if addr in _owner_wallets():
-        return 'owner'
-    return ((_json_load(DATA_DIR / 'roles.json', {'grants': {}})['grants'].get(addr)) or {}).get('role') or 'none'
+    return _hq_auth.role_of(addr, _owner_wallets(), _json_load(DATA_DIR / 'roles.json', {'grants': {}})['grants'])
 
 
 def _role_gate(addr, request):
     role = _role_of(addr)
-    if role not in ROLE_SCOPES:
-        return
-    path = str(getattr(getattr(request, 'url', None), 'path', '') or '')
-    sec = path.split('/admin/', 1)[1].split('/', 1)[0] if '/admin/' in path else ''
-    method = getattr(request, 'method', 'GET')
-    if sec in ROLE_SCOPES[role] or (sec in ROLE_READ and method == 'GET'):
-        return
-    raise HTTPException(403, f'Your {role} access does not include this section.')
+    _hq_auth.check_role(role, getattr(getattr(request, 'url', None), 'path', ''), getattr(request, 'method', 'GET'))
 
 
 def _audit(d, admin, action, detail):
@@ -23841,12 +23782,11 @@ async def admin_seasons(request: Request):
 # HQ ROLES + IDEAS
 # ================================================================================================
 ROLES_PATH = DATA_DIR / 'roles.json'
-ROLE_NAMES = ('admin', 'moderator', 'marketing')
+ROLE_NAMES = _hq_auth.ROLE_NAMES
 
 
 def _owner_wallets():
-    env = [a.strip() for a in os.environ.get('FEELESS_ADMIN_WALLETS', '').split(',') if a.strip()]
-    return env or [FEE_CREATOR_WALLET]
+    return _hq_auth.owner_wallets(os.environ.get('FEELESS_ADMIN_WALLETS', ''))
 
 
 def _granted():
@@ -23860,8 +23800,7 @@ class RolePayload(BaseModel):
     sig: str = ''
 
 
-def grant_message(address, role, ts):
-    return f'FEELESS grant HQ access\nwallet:{address}\nrole:{role}\nts:{int(ts)}'
+grant_message = _hq_auth.grant_message
 
 
 @app.get('/api/reputation/admin/roles')
