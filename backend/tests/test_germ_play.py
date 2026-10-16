@@ -171,3 +171,12 @@ def test_every_trade_card_gets_an_entry_snapshot_yours_and_the_agents():
     assert coach.snap_of_pos({'thesis': {'structure': 'UPTREND', 'germDist': 6.04, 'flow': {'buyPct': 61}, 'distHigh': 4}}) == {'chart': 'UPTREND', 'germ': 6.0, 'buyers': 61, 'offHigh': 4}
     assert coach.snap_of_pos({'snaps': {'entry': {'chart': 'CHOP', 'germ': 22.1, 'buyers': 55}}})['germ'] == 22.1
     assert coach.snap_of_pos({}) is None
+
+
+def test_a_trade_cards_dollars_match_its_percent():
+    import coach
+    led = [{'side': 'buy', 'status': 'filled', 'sig': 'B', 'mint': 'M', 'symbol': 'X', 'usd': 0.15, 'at': 100, 'agent': True},
+           {'side': 'sell', 'status': 'filled', 'sig': 'S1', 'mint': 'M', 'usd': 0.20, 'at': 200}, {'side': 'sell', 'status': 'filled', 'sig': 'S2', 'mint': 'M', 'usd': 0.09, 'at': 210}]
+    pos = [{'mint': 'M', 'since': 100, 'closedAt': 220, 'realPct': 0.64, 'confirmed': True}]
+    r = coach.trade_tape(led, pos)[0]
+    assert r['result']['pct'] == 0.64 and r['result']['usd'] == round(0.15 * 0.0064, 3)

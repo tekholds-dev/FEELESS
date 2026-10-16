@@ -293,7 +293,7 @@ def trade_tape(ledger, positions, reviews=None, ai_log=None, card=None, n=30):
                              'heldMin': round((_f(ss[-1].get('confirmedAt') or ss[-1].get('at')) - t) / 60, 1), 'rule': (ss[-1].get('why') or None), 'src': 'ledger'}
         if p and p.get('closedAt') and p.get('realPct') is not None:
             usd = _f(b.get('usd'))
-            row['result'] = {'pct': round(_f(p['realPct']), 2), 'usd': round(sum(_f(s.get('usd')) for s in ss) - usd, 3) if ss and usd else None, 'peak': p.get('peak'),
+            row['result'] = {'pct': round(_f(p['realPct']), 2), 'usd': round(usd * _f(p['realPct']) / 100, 3) if usd else None, 'peak': p.get('peak'),   # $ = what went in × the real % (summing sells counted top-ups / later sells: illusion +0.6% read +$0.13)
                              'heldMin': round((_f(p['closedAt']) - _f(p.get('since'))) / 60, 1) if p.get('since') else None, 'rule': p.get('rule')}
         if rv:
             row['judge'] = {k: rv.get(k) for k in ('kind', 'cause', 'lossClass', 'desk', 'why', 'change') if rv.get(k) is not None}
