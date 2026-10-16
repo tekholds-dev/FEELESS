@@ -29,3 +29,8 @@ def test_a_coin_sold_green_comes_back_early_on_a_new_germ_floor_above_our_exit()
 
 def test_the_moon_bag_is_a_soft_exit_with_a_word():
     assert 'R7m' in office.SOFT_EXITS
+
+
+def test_your_pick_locks_half_its_peak_once_it_has_been_up_10():
+    assert office.pick_lock(9.9) is None and office.pick_lock(10) == 5.0 and office.pick_lock(30) == 15.0
+    assert 'R5b' in office.OWNER_HARD   # your own rule: it sells without asking

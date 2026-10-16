@@ -4553,3 +4553,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   🎛 Limits = ONE section: the CockpitControls cards hold every control; `CreatorLimits extrasOnly` adds only who-decides, seats held, a custom
   trail and the in-force table + hard limits. ⚡ `styles/agentFx.css` (cockpit): hover sheen + press ring on seats / vital tiles, a held winner's
   P&L breathes, `.ack-deckpane` / `.agd-grid` paint-contained (`content-visibility` on lens grids) so scrolling redraws only what is on screen.
+- 🔒 YOUR PICK LOCKS ITS GAIN (owner, 2026-10-16; `office.pick_lock`, rule `R5b` in OWNER_HARD — sells without asking, in Reaper's tick AND the
+  fast guard): a coin you picked / lined that peaked ≥ +10% keeps at least half its peak (+10 → +5, +30 → +15). Replay on the owner's 20 graded
+  picks (archive position paths): −4.1% avg / −1.7% median vs −9.8% / −7.7% real; "entry at +10 then tighten" −5.1%; only 5 of 20 reached +10.
+  Study that day: the owner's picks peaked +6.1% and exited −6.6% (10.9 pts given back) vs the agents' 5.7.
