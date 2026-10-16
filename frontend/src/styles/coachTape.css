@@ -31,11 +31,31 @@ body.theme-day .ack-decktabs i { background: rgba(13, 122, 65, .14); color: #0d7
 .ctp-trade.is-up { border-left-color: var(--m-accent); } .ctp-trade.is-dn { border-left-color: var(--m-danger); } .ctp-trade.is-open { border-left-color: var(--gold); }
 .ctp-trade.is-on { box-shadow: 0 0 0 1px var(--m-accent) inset; }
 .ctp-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 2px 8px; padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
-.ctp-head b { font: 800 13px var(--m-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ctp-head small { grid-row: 2; font: 600 9.5px var(--m-mono); color: var(--m-mute); }
-.ctp-head:hover b { color: var(--m-accent); } .ctp-head:active { transform: scale(.99); } .ctp-head:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; border-radius: 6px; }
-.ctp-res { grid-row: 1 / span 2; grid-column: 2; font: 800 15px var(--m-mono); font-style: normal; font-variant-numeric: tabular-nums; text-align: right; display: grid; }
-.ctp-res i { font: 700 10px var(--m-mono); font-style: normal; color: var(--m-mute); }
-.ctp-trade.is-up .ctp-res { color: var(--m-accent); } .ctp-trade.is-dn .ctp-res { color: var(--m-danger); } .ctp-trade.is-open .ctp-res { color: var(--gold); animation: ctpBlink 1.4s ease-in-out infinite alternate; }
+.ctp-id { display: grid; gap: 3px; min-width: 0; } .ctp-id b { font: 800 14px var(--m-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctp-id small { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font: 600 9.5px var(--m-mono); color: var(--m-mute); }
+.ctp-bot { font: 800 8.5px var(--m-mono); font-style: normal; padding: 1px 6px; border-radius: 999px; border: 1px solid rgba(94, 200, 255, .4); color: #9fe3ff; }
+.ctp-head:hover .ctp-id b { color: var(--m-accent); } .ctp-head:active { transform: scale(.99); } .ctp-head:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; border-radius: 6px; }
+.ctp-verdict { display: grid; justify-items: end; gap: 1px; font-style: normal; font-variant-numeric: tabular-nums; }
+.ctp-verdict u { text-decoration: none; font: 900 10px var(--m-mono); letter-spacing: .14em; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; }
+.ctp-verdict b { font: 900 20px/1 var(--m-mono); } .ctp-verdict i { font: 700 10px var(--m-mono); font-style: normal; opacity: .8; }
+.ctp-verdict.is-win { color: #45e486; } .ctp-verdict.is-win u { background: rgba(69, 228, 134, .14); box-shadow: 0 0 12px rgba(69, 228, 134, .25); }
+.ctp-verdict.is-loss { color: #ff8fa3; } .ctp-verdict.is-loss u { background: rgba(255, 92, 122, .12); }
+.ctp-verdict.is-held, .ctp-verdict.is-part { color: var(--gold, #f5c451); } .ctp-verdict.is-held u { animation: ctpBlink 1.4s ease-in-out infinite alternate; }
+.ctp-verdict.is-flat, .ctp-verdict.is-sold { color: var(--m-mute); }
+.ctp-facts { margin: 0; display: flex; flex-wrap: wrap; gap: 4px; } .ctp-facts span { font: 700 9.5px var(--m-mono); padding: 2px 7px; border-radius: 6px; background: rgba(255, 255, 255, .04); color: var(--m-ink, inherit); }
+.ctp-snap { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; } .ctp-snap small { font: 800 8px var(--m-mono); letter-spacing: .12em; color: #b388ff; }
+.ctp-snap span { font: 700 9px var(--m-mono); padding: 1px 6px; border-radius: 999px; border: 1px solid var(--m-line); color: var(--m-mute); }
+.ctp-snap .is-good { color: #45e486; border-color: rgba(69, 228, 134, .4); } .ctp-snap .is-warn { color: var(--gold, #f5c451); border-color: rgba(245, 196, 81, .4); } .ctp-snap .is-bad { color: #ff8fa3; border-color: rgba(255, 143, 163, .4); }
+.ctp-more { justify-self: start; padding: 2px 0; border: 0; background: none; font: 700 9.5px var(--m-mono); color: var(--m-mute); cursor: pointer; } .ctp-more:hover { color: var(--m-accent); } .ctp-more:focus-visible { outline: 1px solid var(--m-accent); }
+.ctp-recent { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px 8px; border-radius: 10px; background: rgba(255, 255, 255, .025); border: 1px solid var(--m-line); }
+.ctp-pills { display: flex; gap: 5px; overflow-x: auto; scrollbar-width: none; min-width: 0; } .ctp-pills::-webkit-scrollbar { display: none; }
+.ctp-pill { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--m-line); background: rgba(255, 255, 255, .03); color: var(--m-ink, inherit);
+  font: 700 10px var(--m-mono); cursor: pointer; animation: ctpPillIn .25s ease-out both; animation-delay: calc(var(--i, 0) * 40ms); transition: transform .14s ease; }
+.ctp-pill b { font-weight: 900; } .ctp-pill i { font-style: normal; font-size: 9px; }
+.ctp-pill.is-up { border-color: rgba(69, 228, 134, .5); background: rgba(69, 228, 134, .1); } .ctp-pill.is-up b { color: #45e486; }
+.ctp-pill.is-dn { border-color: rgba(255, 143, 163, .45); background: rgba(255, 92, 122, .08); } .ctp-pill.is-dn b { color: #ff8fa3; }
+.ctp-pill:hover { transform: translateY(-1px); } .ctp-pill:active { transform: scale(.96); } .ctp-pill:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; }
+@keyframes ctpPillIn { from { transform: translateY(4px); } }
 @keyframes ctpBlink { from { opacity: 1; } to { opacity: .55; } }
 .ctp-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .ctp-steps > li { display: grid; grid-template-columns: 66px minmax(0, 1fr); gap: 6px; align-items: start; }
@@ -67,10 +87,11 @@ body.theme-day .ack-decktabs i { background: rgba(13, 122, 65, .14); color: #0d7
 .ctp-causes > button.active { background: var(--m-accent); border-color: var(--m-accent); color: var(--m-accent-ink, #03110a); }
 .ctp-acts { display: grid; grid-template-columns: auto minmax(110px, 1fr) auto; gap: 6px; align-items: center; } .ctp-acts .m-input { min-width: 0; }
 
-body.fx-lite .ctp-trade, body.fx-lite .ctp-rules > li, body.fx-lite .ctp-trade.is-open .ctp-res { animation: none; } body.fx-lite .ctp-bar > i { transition: none; }
-@media (prefers-reduced-motion: reduce) { .ctp-trade, .ctp-rules > li, .ctp-trade.is-open .ctp-res { animation: none; } .ctp-bar > i, .ctp-causes > button { transition: none; } }
-body.theme-day .ctp-trade { background: rgba(255, 255, 255, .6); } body.theme-day .ctp-steps .is-judge p, body.theme-day .ctp-trade.is-open .ctp-res, body.theme-day .ctp-warn { color: #8a5a00; }
-body.theme-day .ctp-trade.is-up .ctp-res, body.theme-day .ctp-grade li.is-up em, body.theme-day .ctp-steps a { color: #0d7a41; } body.theme-day .ctp-trade.is-dn .ctp-res, body.theme-day .ctp-grade li.is-dn em, body.theme-day .ctp-rules em { color: #b3261e; }
+body.fx-lite .ctp-trade, body.fx-lite .ctp-rules > li, body.fx-lite .ctp-verdict.is-held u, body.fx-lite .ctp-pill { animation: none; } body.fx-lite .ctp-bar > i { transition: none; }
+@media (prefers-reduced-motion: reduce) { .ctp-trade, .ctp-rules > li, .ctp-verdict.is-held u, .ctp-pill { animation: none; } .ctp-bar > i, .ctp-causes > button { transition: none; } }
+body.theme-day .ctp-trade { background: rgba(255, 255, 255, .6); } body.theme-day .ctp-steps .is-judge p, body.theme-day .ctp-verdict.is-held, body.theme-day .ctp-warn { color: #8a5a00; }
+body.theme-day .ctp-verdict.is-win, body.theme-day .ctp-pill.is-up b { color: #0d7a41; } body.theme-day .ctp-verdict.is-loss, body.theme-day .ctp-pill.is-dn b { color: #b42346; }
+body.theme-day .ctp-grade li.is-up em, body.theme-day .ctp-steps a { color: #0d7a41; } body.theme-day .ctp-grade li.is-dn em, body.theme-day .ctp-rules em { color: #b3261e; }
 body.theme-day .ctp-bar { background: rgba(10, 60, 35, .1); } body.theme-day .ctp-causes > button.active { background: #0d7a41; border-color: #0d7a41; color: #fff; }
 @media (max-width: 640px) { .ctp-list { grid-auto-columns: minmax(230px, 86vw); } .ctp-acts { grid-template-columns: minmax(0, 1fr); } .ctp-grade li { grid-template-columns: 70px minmax(20px, 1fr) 38px 52px; } }
 
@@ -112,3 +133,8 @@ body.theme-day .ctp-yours { color: #8a6a12; border-color: #8a6a12; }
 body.fx-lite .ctp-rp-path { animation: none; stroke-dashoffset: 0; }
 @media (prefers-reduced-motion: reduce) { .ctp-rp-path { animation: none; stroke-dashoffset: 0; } }
 body.theme-day .ctp-germ { color: #6a3fc0; } body.theme-day .ctp-germrec b { color: #6a3fc0; } body.theme-day .ctp-rp-zero { stroke: rgba(16, 38, 26, .25); }
+
+/* 💵 your earnings vs the agents' — last 24h, realized $ */
+.ctp-earn { flex: none; display: grid; gap: 1px; padding: 3px 10px; border-radius: 8px; border: 1px solid var(--m-line); background: rgba(255, 255, 255, .03); }
+.ctp-earn small { font: 800 8px var(--m-mono); letter-spacing: .12em; color: var(--m-mute); } .ctp-earn b { font: 900 16px/1.1 var(--m-mono); } .ctp-earn i { font: 700 9px var(--m-mono); font-style: normal; color: var(--m-mute); }
+.ctp-earn.is-you { border-color: rgba(245, 196, 81, .45); background: rgba(245, 196, 81, .07); } .ctp-earn.is-agents { border-color: rgba(94, 200, 255, .35); }

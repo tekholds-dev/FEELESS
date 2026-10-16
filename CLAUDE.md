@@ -4634,3 +4634,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   rush victim (rush included), never a `balance_small` donor or top-up, `locked` for the keeper's idle sweep. Plus the earlier ones (skims,
   take-stake, cap_trim, house_dust, tier TP, Reaper soft exits). What acts on your pick: YOUR tp / sl / Gstop / opt-in half-lock / limits /
   taps, a pulled pool (R1), −45% (R5x). New code that sells or resizes a leg ⇒ `if l.get('picked')` first, and a test.
+- 🏁 TRADES TAB v2 (owner, 2026-10-16: "show recent wins / losses — did I catch Macca on a win? snapshot on the card, cleaner degen design ·
+  I don't see my earnings"): `Recent` strip on top = 💵 YOUR earnings and the AGENTS' apart (last 24h, realized $, W / L — `recentResults`
+  `you` / `agents`) + one pill per closed trade (✓ / ✕, %, 👤 yours; tap = its chart). Each card: a WIN / LOSS / HELD verdict pill with the
+  % big, chips ($ in · held · exit rule), 📸 ENTRY snapshot chips (`row.snap` = `coach.snap_of_pos`: your `snaps.entry` or an agent's thesis —
+  chart · germ · buyers · under high · 5m), the replay on EVERY trade with a path, and the full story folded behind "▸ the story".

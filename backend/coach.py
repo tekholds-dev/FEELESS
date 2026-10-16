@@ -297,10 +297,25 @@ def trade_tape(ledger, positions, reviews=None, ai_log=None, card=None, n=30):
                              'heldMin': round((_f(p['closedAt']) - _f(p.get('since'))) / 60, 1) if p.get('since') else None, 'rule': p.get('rule')}
         if rv:
             row['judge'] = {k: rv.get(k) for k in ('kind', 'cause', 'lossClass', 'desk', 'why', 'change') if rv.get(k) is not None}
-        if p and p.get('pick'):   # 🎬 YOUR trade's replay: the % path, every moment the agents would have sold, the germ at your entry
+        if p and len(p.get('path') or []) > 1:   # 🎬 every trade's replay: the % path (+ for yours, every moment the agents would have sold)
             row['replay'] = replay_of(p)
+        sn_ = snap_of_pos(p) if p else None
+        if sn_:
+            row['snap'] = sn_   # 📸 the market at the entry
         out.append(row)
     return out
+
+
+def snap_of_pos(p):
+    """📸 The entry snapshot for a trade card: your trades keep `snaps.entry` (chart · germ · buyers · pool …); an agent trade has its
+    entry thesis (structure · germ distance · buyers on the tape · % under its high). Only what was read — None when nothing was."""
+    e = (p.get('snaps') or {}).get('entry') or {}
+    th = p.get('thesis') or {}
+    out = {'chart': e.get('chart') or th.get('structure'), 'germ': e.get('germ') if e.get('germ') is not None else th.get('germDist'),
+           'buyers': e.get('buyers') if e.get('buyers') is not None else (th.get('flow') or {}).get('buyPct'),
+           'offHigh': e.get('offHigh') if e.get('offHigh') is not None else th.get('distHigh'), 'd5': e.get('d5'), 'pool': e.get('pool'), 'cap': e.get('cap')}
+    out = {k: (round(_f(v), 1) if isinstance(v, (int, float)) else v) for k, v in out.items() if v is not None}
+    return out or None
 
 
 def replay_of(p, keep=30):

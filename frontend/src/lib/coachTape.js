@@ -14,7 +14,10 @@ export function tradeCard(r, now = Date.now() / 1000) {
   const why = [w.tag ? String(w.tag).replace('🤖 agents · ', '') : null, w.structure, w.rule, w.phase ? `phase ${w.phase}` : null, w.size != null ? `size ×${w.size}` : null].filter(Boolean);
   const b = r?.buy || {};
   return { key: `${r?.mint}-${r?.at}`, mint: r?.mint, sym: r?.sym || '?', tone, ago: agoWord(r?.at, now), yours: r?.who === 'you',
-    head: r?.state === 'part' ? '◐ PART SOLD' : r?.open ? '🟢 STILL HELD' : pct == null ? 'SOLD' : `SOLD ${signedPct(pct)}`, state: r?.state || (r?.open ? 'held' : 'sold'), usd: res?.usd != null ? money2(res.usd) : null,
+    head: r?.state === 'part' ? '◐ PART SOLD' : r?.open ? '🟢 STILL HELD' : pct == null ? 'SOLD' : `SOLD ${signedPct(pct)}`,
+    verdict: r?.open ? (r?.state === 'part' ? 'PART' : 'HELD') : pct == null ? 'SOLD' : pct > 0.5 ? 'WIN' : pct < -0.5 ? 'LOSS' : 'FLAT', pct: pct == null ? null : signedPct(pct),
+    held: num(res?.heldMin) == null ? null : num(res.heldMin) < 60 ? `${num(res.heldMin).toFixed(0)}m` : `${(num(res.heldMin) / 60).toFixed(1)}h`,
+    inUsd: num(b.usd) != null ? money2(b.usd) : null, rule: res?.rule ? String(res.rule).split(' · ')[0].slice(0, 34) : null, state: r?.state || (r?.open ? 'held' : 'sold'), usd: res?.usd != null ? money2(res.usd) : null,
     buy: [b.usd != null ? `${money2(b.usd)} in` : null, num(b.slipPct) != null ? `filled ${signedPct(b.slipPct)} vs market` : null, num(b.waitSec) != null ? `sent ${secWord(b.waitSec)} after the call` : null, num(b.landSec) != null ? `landed ${num(b.landSec).toFixed(0)}s` : null].filter(Boolean),
     slow: num(b.waitSec) != null && num(b.waitSec) + (num(b.landSec) || 0) > 60,
     buySig: b.sig || null, slipBad: num(b.slipPct) != null && num(b.slipPct) > 2.5,
@@ -24,6 +27,32 @@ export function tradeCard(r, now = Date.now() / 1000) {
     exit: res ? [res.rule, num(res.heldMin) != null ? `held ${num(res.heldMin) < 60 ? `${num(res.heldMin).toFixed(0)}m` : `${(num(res.heldMin) / 60).toFixed(1)}h`}` : null, num(res.peak) != null ? `peak ${signedPct(res.peak)}` : null].filter(Boolean) : [],
     judge: r?.judge ? (r.judge.kind === 'yours' ? `📝 your trade — notes only${r.judge.cause && r.judge.cause !== 'variance' ? ` · ${String(r.judge.cause).replace(/_/g, ' ')}` : ''}`
     : [r.judge.kind === 'win' ? '✅ win' : r.judge.lossClass || r.judge.cause || 'loss', r.judge.desk ? `on ${r.judge.desk}` : null, r.judge.change || r.judge.why].filter(Boolean).join(' · ')) : null };
+}
+
+// 🏁 the recent results, newest first: one pill per CLOSED trade (win / loss / flat) + the tally (owner, 2026-10-16: "needs to show recent
+// wins / losses — I don't know if I caught Macca on a win")
+export function recentResults(rows, n = 12) {
+  const done = (rows || []).filter(r => !r.open && num(r?.result?.pct) != null).slice(0, n)
+    .map(r => { const pct = num(r.result.pct); return { key: `${r.mint}-${r.at}`, mint: r.mint, sym: r.sym || '?', pct, usd: num(r.result.usd), yours: r.who === 'you', tone: pct > 0.5 ? 'is-up' : pct < -0.5 ? 'is-dn' : 'is-flat' }; });
+  const won = done.filter(x => x.tone === 'is-up').length; const lost = done.filter(x => x.tone === 'is-dn').length;
+  const usd = done.reduce((a, x) => a + (x.usd || 0), 0);
+  // 💵 EARNINGS by who traded: every closed trade on the tape in the last 24h, yours apart from the agents' (realized $, fees apart)
+  const day = (rows || []).filter(r => !r.open && num(r?.result?.pct) != null && (!r.at || Date.now() / 1000 - r.at <= 86400));
+  const side = mine => { const xs = day.filter(r => (r.who === 'you') === mine); const u = xs.filter(r => num(r.result.usd) != null);
+    return { n: xs.length, won: xs.filter(r => num(r.result.pct) > 0.5).length, lost: xs.filter(r => num(r.result.pct) < -0.5).length, usd: u.length ? u.reduce((a, r) => a + num(r.result.usd), 0) : null }; };
+  return { list: done, won, lost, usd: done.some(x => x.usd != null) ? usd : null, you: side(true), agents: side(false) };
+}
+
+// 📸 the entry snapshot as short chips (only what was read)
+export function snapChips(sn) {
+  if (!sn) return [];
+  const c = [];
+  if (sn.chart) c.push(['📈', String(sn.chart).toLowerCase(), '']);
+  if (num(sn.germ) != null) c.push(['🦠', `${num(sn.germ) >= 0 ? '+' : ''}${num(sn.germ).toFixed(0)}% off germ`, num(sn.germ) >= 0 && num(sn.germ) <= 15 ? 'is-good' : 'is-warn']);
+  if (num(sn.buyers) != null) c.push(['🌊', `${num(sn.buyers).toFixed(0)}% buyers`, num(sn.buyers) >= 55 ? 'is-good' : num(sn.buyers) < 45 ? 'is-bad' : '']);
+  if (num(sn.offHigh) != null) c.push(['🔫', `${num(sn.offHigh).toFixed(0)}% under high`, num(sn.offHigh) <= 4 ? 'is-warn' : '']);
+  if (num(sn.d5) != null) c.push(['⚡', `${signedPct(sn.d5)} 5m`, num(sn.d5) >= 12 ? 'is-warn' : '']);
+  return c;
 }
 
 export const tapeLine = st => (st ? [`${st.n} closed`, st.n ? `${st.won} won` : null, st.medPct != null ? `typical ${signedPct(st.medPct)}` : null, st.open ? `${st.open} open` : null,

@@ -164,3 +164,10 @@ def test_the_card_engine_never_banks_rides_rotates_or_trims_your_pick():
     src = inspect.getsource(ap.tick)
     assert "and not l.get('picked')" in src and "if l.get('picked') and l.get('ride')" in src
     assert "not x.get('picked')" in inspect.getsource(ap.balance_small)
+
+
+def test_every_trade_card_gets_an_entry_snapshot_yours_and_the_agents():
+    import coach
+    assert coach.snap_of_pos({'thesis': {'structure': 'UPTREND', 'germDist': 6.04, 'flow': {'buyPct': 61}, 'distHigh': 4}}) == {'chart': 'UPTREND', 'germ': 6.0, 'buyers': 61, 'offHigh': 4}
+    assert coach.snap_of_pos({'snaps': {'entry': {'chart': 'CHOP', 'germ': 22.1, 'buyers': 55}}})['germ'] == 22.1
+    assert coach.snap_of_pos({}) is None

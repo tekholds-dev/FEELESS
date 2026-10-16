@@ -16,7 +16,8 @@ test('🎬 the tape shows each real trade as one story, filters, and picks a coi
   const onPick = jest.fn();
   await mount(<TradeTape tape={TAPE} mint="A" onPick={onPick} />);
   expect(q('ctp-stats').textContent).toContain('1 closed · 1 won · typical +20.0%');
-  expect(q('ctp-res-AAA').textContent).toContain('+20.0%'); expect(q('ctp-res-OPN').textContent).toBe('🟢 STILL HELD');
+  expect(q('ctp-res-AAA').textContent).toContain('WIN'); expect(q('ctp-res-AAA').textContent).toContain('+20.0%'); expect(q('ctp-res-OPN').textContent).toBe('HELD');
+  act(() => { q('ctp-more-AAA').click(); });   // ▸ the story (folded by default)
   expect(q('ctp-trade-AAA').textContent).toContain('dev unloading'); expect(q('ctp-trade-AAA').textContent).toContain('✅ win');
   expect(q('ctp-trade-AAA').querySelector('a').getAttribute('href')).toBe('https://solscan.io/tx/B1');
   expect(q('ctp-sources').textContent).toContain('movers'); expect(q('ctp-rules').textContent).toContain('R5');
@@ -52,4 +53,13 @@ test('🎬 your trade replays: the path, a line at every would-sell %, your exit
   const g = replayGeom({ path: [0, 5, 12, 30, 40], would: [{ rule: 'R7', pct: 12 }], end: 40 });
   expect(g.marks).toHaveLength(1); expect(g.d.startsWith('M0.0,')).toBe(true); expect(g.end).toBe(40);
   expect(replayGeom({ path: [1] })).toBeNull();
+});
+
+
+test('🏁 recent results: a pill per closed trade (win / loss), the tally, yours marked', () => {
+  const { recentResults, snapChips } = require('../../lib/coachTape');
+  const r = recentResults([{ mint: 'M', sym: 'Macca', who: 'you', result: { pct: 154, usd: 0.23 } }, { mint: 'N', sym: 'Nih', result: { pct: -16.1, usd: -0.02 } }, { mint: 'O', sym: 'Open', open: true }]);
+  expect(r.you.won).toBe(1); expect(r.you.usd).toBeCloseTo(0.23); expect(r.agents.lost).toBe(1);
+  expect(r.won).toBe(1); expect(r.lost).toBe(1); expect(r.list.map(x => x.sym)).toEqual(['Macca', 'Nih']); expect(r.list[0].yours).toBe(true); expect(r.usd).toBeCloseTo(0.21);
+  expect(snapChips({ chart: 'UPTREND', germ: 6, buyers: 61 }).map(c => c[2])).toEqual(['', 'is-good', 'is-good']);
 });
