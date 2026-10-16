@@ -245,7 +245,7 @@ function SeatCard({ s, on, onPick, readyN, same }) {
     <div className="ack-seatmid"><dl className="ack-kv">
       <dt>ENTRY MC</dt><dd>{mcWord(s.entryMc)}</dd><dt>AGE</dt><dd>{mins(s.ageMin)}</dd>
       <dt>NOW MC</dt><dd><LiveNum v={s.mc} fmt={mcWord} cls="" testid={`ack-seat-mc-${s.seat}`} /></dd><dt>HELD</dt><dd>{mins(s.heldMin)}</dd>
-      <dt>IN SEAT</dt><dd>{money(s.usd)}</dd><dt>REALIZED</dt><dd>{s.realized == null ? '—' : signed(s.realized)}</dd></dl>
+      <dt>PUT IN</dt><dd data-tip={`worth now ${money(s.usd)}`}>{s.usd != null && s.pnlUsd != null ? money(s.usd - s.pnlUsd) : money(s.usd)}</dd><dt>REALIZED</dt><dd>{s.realized == null ? '—' : signed(s.realized)}</dd></dl>
       <Spark path={s.path} /></div>
     <SeatBar s={s} />
     <SeatFlow s={s} />
