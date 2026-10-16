@@ -46,3 +46,10 @@ test('👑 the creator teaches a cause, backs the model, and pulls a seat with a
   document.body.innerHTML = ''; await mount(<CoachBox coach={coach} seats={seats} tpl="degen" call={call} isOwner={false} />);
   expect(q('ctp-teach')).toBeNull(); expect(q('ctp-back-7')).toBeNull();                                                              // a non-creator sees the rules, never the controls
 });
+
+test('🎬 your trade replays: the path, a line at every would-sell %, your exit', () => {
+  const { replayGeom } = require('./CoachTape');
+  const g = replayGeom({ path: [0, 5, 12, 30, 40], would: [{ rule: 'R7', pct: 12 }], end: 40 });
+  expect(g.marks).toHaveLength(1); expect(g.d.startsWith('M0.0,')).toBe(true); expect(g.end).toBe(40);
+  expect(replayGeom({ path: [1] })).toBeNull();
+});

@@ -297,8 +297,41 @@ def trade_tape(ledger, positions, reviews=None, ai_log=None, card=None, n=30):
                              'heldMin': round((_f(p['closedAt']) - _f(p.get('since'))) / 60, 1) if p.get('since') else None, 'rule': p.get('rule')}
         if rv:
             row['judge'] = {k: rv.get(k) for k in ('kind', 'cause', 'lossClass', 'desk', 'why', 'change') if rv.get(k) is not None}
+        if p and p.get('pick'):   # 🎬 YOUR trade's replay: the % path, every moment the agents would have sold, the germ at your entry
+            row['replay'] = replay_of(p)
         out.append(row)
     return out
+
+
+def replay_of(p, keep=30):
+    """🎬 One of YOUR trades as a small replay: the % path (≤ `keep` points, evenly picked), the would-sell moments (rule + % from its
+    snapshots), the germ distance at entry and the real result. Small on purpose — it rides in the one Agents payload."""
+    path = [round(_f(x), 1) for x in (p.get('path') or [])]
+    if len(path) > keep:
+        step = (len(path) - 1) / (keep - 1)
+        path = [path[round(i * step)] for i in range(keep)]
+    sn = p.get('snaps') or {}
+    would = [{'rule': w.get('rule'), 'pct': w.get('pct')} for w in (sn.get('would') or [])][:6]
+    if not would and (p.get('would') or {}).get('pct') is not None:
+        would = [{'rule': str(p['would'].get('rule') or '').split(' ')[0], 'pct': p['would']['pct']}]
+    return {'path': path, 'would': would, 'germ': (sn.get('entry') or {}).get('germ'), 'end': p.get('realPct'), 'peak': p.get('peak')}
+
+
+GERM_ENTRY_PCT = 15.0   # your entry counts as "at the germ" this close above the germ floor
+
+
+def germ_record(positions):
+    """🦠 YOUR entries by where they sat against the germ floor at the first look (snaps.entry.germ): at the germ (0 … 15%) · off it ·
+    not read → {bucket: {n, med, won}} on closed real results. A record, never a rule."""
+    out = {}
+    for p in positions or []:
+        if not p.get('pick') or p.get('realPct') is None:
+            continue
+        g = ((p.get('snaps') or {}).get('entry') or {}).get('germ')
+        k = 'no read' if g is None else 'at the germ' if 0 <= _f(g) <= GERM_ENTRY_PCT else 'off the germ'
+        out.setdefault(k, []).append(_f(p['realPct']))
+    med = lambda v: sorted(v)[len(v) // 2] if len(v) % 2 else (sorted(v)[len(v) // 2 - 1] + sorted(v)[len(v) // 2]) / 2
+    return {k: {'n': len(v), 'med': round(med(v), 1), 'won': round(100 * sum(x > 0 for x in v) / len(v))} for k, v in out.items()}
 
 
 def tape_stats(rows):

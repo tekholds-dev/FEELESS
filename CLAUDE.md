@@ -4597,3 +4597,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - ✋ YOUR TAKE LINE SELLS THE WHOLE COIN (2026-10-16, $STARMAN: your +68% fired but the card's TP sold only the GAIN — "cost keeps riding"
   — and poured it into other coins): on a `picked` leg with your own `tp`, the tier TP branch sells 100% (mode `yours`) and the money stays
   card cash (compound off). "WHY DIDN'T MY COIN SELL" ⇒ read the card events for that symbol first (kind `tp` with mode / why).
+- 🎓🦠🎬 HOLD SCORE · GERM RECORD · REPLAY (owner, 2026-10-16): `office.hold_ask(early)` — a trail rule (R7 / R7v / R7s / R7b) that would
+  have sold your picks early ≥ `HOLD_ASK_N` 3 times (hold_lessons) asks Reaper for ONE notch more `giveBackPct` via `model_candidate`, at
+  most every 6h — SHADOW only, the next 20 exits decide (kernel note `HOLD TUNE`). `coach.replay_of` puts each of YOUR closed trades on the
+  tape as a 30-point % path + every would-sell % + the germ at entry (`row.replay`) → Trades tab 🎬 REPLAY sparkline (path draws in, gold
+  dashed line per would-sell, exit dot) and a 🦠 tag on the row (lit when ≤ 15% from the germ). `coach.germ_record` → tape `germ` =
+  YOUR ENTRIES vs THE GERM (at the germ ≤ 15% · off it · not read: n, typical, won) + `holds.early` = rules that sold you early.

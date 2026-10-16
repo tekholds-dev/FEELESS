@@ -15652,7 +15652,8 @@ def _trade_tape(now):
         try:
             rows = _co.trade_tape(_fw_full_ledger()[-900:], (_json_load(ARCHIVE_PATH, {}) or {}).get('positions'), ((_office_state().get('judge') or {}).get('reviews')) or [], _ai.get('log') or [], n=24)
             pos_ = (_json_load(ARCHIVE_PATH, {}) or {}).get('positions')
-            _coach.update(tape={'rows': rows, 'stats': _co.tape_stats(rows), 'sources': _co.source_record(pos_), 'rules': _co.rule_record(pos_), 'line': _co.line_replay(pos_)}, tapeAt=now)
+            _coach.update(tape={'rows': rows, 'stats': _co.tape_stats(rows), 'sources': _co.source_record(pos_), 'rules': _co.rule_record(pos_), 'line': _co.line_replay(pos_), 'germ': _co.germ_record(pos_),
+                                 'holds': {k_: v_ for k_, v_ in (_study.get('holds') or {}).items() if k_ in ('early', 'n')}}, tapeAt=now)   # 🦠 your entries vs the germ · 🎓 rules that sold you early
             _coach_grade(now)
         except Exception as e:
             print('trade tape:', str(e)[:120])
@@ -17221,6 +17222,12 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         of, no_ = _of.model_candidate(of, ask_.get('key'), ask_.get('dir'), n_full_, ask_.get('why'), now)
         _tk.KERNEL.note('judge', 'AI TUNE', f"🧠 asks Reaper {ask_.get('key')} {ask_.get('dir')}: {ask_.get('why') or ''} → " + (f'refused ({no_})' if no_ else 'in shadow — the next 20 exits decide'), now, key=f"aitune:{int(now // 600)}")
         _coach['tuneSaid'] = {'at': now, **{k_: ask_.get(k_) for k_ in ('key', 'dir', 'why')}, 'refused': no_}
+    ha_ = _of.hold_ask((_study.get('holds') or {}).get('early'))
+    if ha_ and now - _fuse._f(of.get('holdAskAt')) > 6 * 3600:   # 🎓 your holds: a trail rule that kept selling you early asks for one notch more room (shadow only)
+        of['holdAskAt'] = now
+        n_full_h = sum(1 for p_ in arch.get('positions') or [] if p_.get('confirmed') and _ap.full(p_, (_after_mem.get() or {}).get('done')))
+        of, no_h = _of.model_candidate(of, 'giveBackPct', 'up', n_full_h, f"the owner held past {ha_[0]} {ha_[1]}× and ended ≥ 5 pts higher", now)
+        _tk.KERNEL.note('judge', 'HOLD TUNE', f"🎓 {ha_[0]} sold the owner early {ha_[1]}× → " + (f'refused ({no_h})' if no_h else 'one notch more give-back in shadow — the next 20 exits decide'), now, key=f"holdtune:{int(now // 3600)}")
     of = _of.judge_candidates(of, arch, rcfg, st.get('scalp'), now, after=(_after_mem.get() or {}).get('done') or {})   # 👁 on WHOLE moves: a path ending at our own sale can only favour a tighter trail
     _office['trail'] = _trail_view(of, arch, rcfg, st.get('scalp'))
     ser = st.get('series') or {}

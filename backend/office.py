@@ -1619,6 +1619,17 @@ def model_candidate(office, key, direction, n_full, why, now):
         return office, str(e)
 
 
+HOLD_ASK_N = 3                                   # your holds past the same trail rule this many times → it asks for more room
+HOLD_TRAIL_RULES = ('R7', 'R7v', 'R7s', 'R7b')   # rules a wider give-back would have kept you in
+
+
+def hold_ask(early):
+    """🎓 HOLD SCORE (owner, 2026-10-16): the trail rules that would have sold the owner early (hold_lessons `early`) → (rule, n) of the worst
+    one with ≥ HOLD_ASK_N, else None. Its answer is ONE notch more give-back as a SHADOW candidate — the next exits decide, nothing live moves."""
+    best = max(((r, n) for r, n in (early or {}).items() if r in HOLD_TRAIL_RULES and n >= HOLD_ASK_N), key=lambda x: x[1], default=None)
+    return best
+
+
 def judge_candidates(office, arch, cfg, scalp, now, after=None):
     """👨‍⚖️ Once a pass: (1) every position closed since a shadow candidate was proposed is replayed under the live rule AND the candidate;
     (2) a finished shadow test promotes or rejects; (3) with no candidate open, the archive is searched for ONE Reaper setting that

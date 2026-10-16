@@ -98,3 +98,13 @@ def test_your_take_line_on_your_pick_sells_the_whole_coin_to_cash():
     import inspect
     src = inspect.getsource(ap.tick)
     assert "mode, frac, why = 'yours', 1.0" in src and "'off' if mode == 'yours'" in src
+
+
+def test_your_trade_replays_and_your_germ_entries_have_their_own_record():
+    import coach
+    p = {'pick': True, 'path': list(range(100)), 'realPct': 40.0, 'peak': 60.0, 'snaps': {'entry': {'germ': 6.0}, 'would': [{'rule': 'R7', 'pct': 12.0}]}}
+    r = coach.replay_of(p)
+    assert len(r['path']) == 30 and r['path'][0] == 0 and r['path'][-1] == 99 and r['would'] == [{'rule': 'R7', 'pct': 12.0}] and r['germ'] == 6.0
+    rec = coach.germ_record([p, {'pick': True, 'realPct': -10.0, 'snaps': {'entry': {'germ': 40.0}}}, {'pick': True, 'realPct': 2.0}])
+    assert rec['at the germ'] == {'n': 1, 'med': 40.0, 'won': 100} and rec['off the germ']['n'] == 1 and rec['no read']['n'] == 1
+    assert office.hold_ask({'R7': 3, 'R9': 9}) == ('R7', 3) and office.hold_ask({'R7': 2}) is None

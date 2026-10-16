@@ -15,7 +15,7 @@ function Trade({ r, now, on, onPick }) {
   const c = tradeCard(r, now);
   return <li className={`ctp-trade ${c.tone} ${on ? 'is-on' : ''}`} data-testid={`ctp-trade-${c.sym}`}>
     <button type="button" className="ctp-head" onClick={() => c.mint && onPick?.(c.mint)} data-tip="Put this coin on the chart">
-      <b>${c.sym}<CopyCa mint={c.mint} sym={c.sym} testid={`ctp-ca-${c.sym}`} /></b>{c.yours ? <i className="ctp-yours" data-tip="your own pick — the agents only suggest on it">👤 YOURS</i> : null}<small>{c.ago} ago</small><em className="ctp-res" data-testid={`ctp-res-${c.sym}`}>{c.head}{c.usd ? <i>{c.usd}</i> : null}</em></button>
+      <b>${c.sym}<CopyCa mint={c.mint} sym={c.sym} testid={`ctp-ca-${c.sym}`} /></b>{c.yours ? <i className="ctp-yours" data-tip="your own pick — the agents only take notes on it">👤 YOURS</i> : null}{r.replay?.germ != null ? <i className={`ctp-germ ${r.replay.germ >= 0 && r.replay.germ <= 15 ? 'is-on' : ''}`} data-tip={`🦠 at your entry the price sat ${r.replay.germ}% from its germ floor${r.replay.germ >= 0 && r.replay.germ <= 15 ? ' — a germ entry' : ''}`} data-testid={`ctp-germ-${c.sym}`}>🦠 {r.replay.germ >= 0 ? '+' : ''}{r.replay.germ}%</i> : null}<small>{c.ago} ago</small><em className="ctp-res" data-testid={`ctp-res-${c.sym}`}>{c.head}{c.usd ? <i>{c.usd}</i> : null}</em></button>
     <ol className="ctp-steps">
       <li className="is-buy"><span>⬇ FILL</span><p>{c.buy.join(' · ') || '—'}{c.slipBad ? <i className="ctp-warn" data-tip="This fill landed more than 2.5% above the market price of the decision"> ⚠</i> : null}{c.slow ? <i className="ctp-warn" data-tip="More than a minute passed between the call and the fill"> ⏱</i> : null}
         {c.buySig ? <a href={tx(c.buySig)} target="_blank" rel="noreferrer" aria-label="Buy transaction">tx ↗</a> : null}</p></li>
@@ -24,7 +24,35 @@ function Trade({ r, now, on, onPick }) {
       {c.sells.map(s => <li key={s.sig} className="is-sell"><span>⬆ EXIT</span><p>{s.text || '—'} <a href={tx(s.sig)} target="_blank" rel="noreferrer" aria-label="Sell transaction">tx ↗</a></p></li>)}
       {c.exit.length ? <li className="is-end"><span>☠ REAPER</span><p>{c.exit.join(' · ')}</p></li> : null}
       {c.judge ? <li className="is-judge"><span>👨‍⚖️ JUDGE</span><p>{c.judge}</p></li> : null}
+      {r.replay?.path?.length > 1 ? <li className="is-replay"><span>🎬 REPLAY</span><Replay rp={r.replay} sym={c.sym} /></li> : null}
     </ol></li>;
+}
+
+// 🎬 YOUR trade, replayed: the % path from entry, a dashed line at every % the agents would have sold at, your exit dot. SVG, drawn once.
+export function replayGeom(rp, w = 220, h = 46) {
+  const path = (rp?.path || []).map(Number).filter(Number.isFinite); if (path.length < 2) return null;
+  const marks = (rp.would || []).map(x => Number(x.pct)).filter(Number.isFinite);
+  const end = Number.isFinite(Number(rp.end)) ? Number(rp.end) : path[path.length - 1];
+  const lo = Math.min(0, ...path, ...marks, end); const hi = Math.max(0, ...path, ...marks, end); const span = hi - lo || 1;
+  const y = v => (h - 3) - ((v - lo) / span) * (h - 6); const x = i => (i / (path.length - 1)) * w;
+  return { d: path.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' '), zero: y(0), marks: (rp.would || []).filter(m => Number.isFinite(Number(m.pct))).map(m => ({ y: y(Number(m.pct)), ...m })), endY: y(end), end, w, h };
+}
+function Replay({ rp, sym }) {
+  const g = replayGeom(rp); if (!g) return null;
+  return <p className="ctp-replay" data-testid={`ctp-replay-${sym}`}><svg viewBox={`0 0 ${g.w} ${g.h}`} width={g.w} height={g.h} aria-label="Your trade replayed">
+    <line x1="0" x2={g.w} y1={g.zero} y2={g.zero} className="ctp-rp-zero" />
+    {g.marks.map((m, i) => <line key={i} x1="0" x2={g.w} y1={m.y} y2={m.y} className="ctp-rp-would"><title>{`${m.rule} would have sold at ${m.pct >= 0 ? '+' : ''}${m.pct}%`}</title></line>)}
+    <path d={g.d} className={`ctp-rp-path ${g.end >= 0 ? 'is-up' : 'is-dn'}`} /><circle cx={g.w} cy={g.endY} r="3" className={`ctp-rp-end ${g.end >= 0 ? 'is-up' : 'is-dn'}`} /></svg>
+    <small>{g.marks.length ? `agents would have sold at ${g.marks.map(m => `${m.pct >= 0 ? '+' : ''}${m.pct}% (${m.rule})`).join(', ')} · ` : ''}you ended {g.end >= 0 ? '+' : ''}{Number(g.end).toFixed(1)}%</small></p>;
+}
+
+function GermRecord({ rec, holds }) {
+  const b = Object.entries(rec || {}); const early = Object.entries(holds?.early || {});
+  if (!b.length && !early.length) return null;
+  return <div className="ctp-germrec" data-testid="ctp-germrec">
+    {b.length ? <p><b>🦠 YOUR ENTRIES vs THE GERM</b>{b.map(([k, v]) => <span key={k} className={k === 'at the germ' ? 'is-germ' : ''}>{k}: {v.n} · typical <i className={v.med >= 0 ? 'm-pos' : 'm-neg'}>{v.med >= 0 ? '+' : ''}{v.med}%</i> · {v.won}% won</span>)}</p> : null}
+    {early.length ? <p><b>🎓 RULES THAT SOLD YOU EARLY</b>{early.map(([k, n]) => <span key={k}>{k} ×{n}</span>)}<small>3+ on a trail rule asks Reaper for more give-back — in shadow, the next exits decide</small></p> : null}
+  </div>;
 }
 
 function Graded({ title, rec, tip, testid }) {
@@ -59,6 +87,7 @@ export function TradeTape({ tape, mint, onPick }) {
       <span className="m-seg ctp-filter" role="group" aria-label="Trades">{[['all', 'ALL'], ['open', 'OPEN'], ['won', 'WON'], ['lost', 'LOST']].map(([k, l]) =>
         <button key={k} type="button" className={show === k ? 'active' : ''} onClick={() => setShow(k)} data-testid={`ctp-show-${k}`}>{l}</button>)}</span></header>
     <Speed st={tape?.stats} />
+    <GermRecord rec={tape?.germ} holds={tape?.holds} />
     {rows.length ? <ul className="ctp-list">{rows.map(r => <Trade key={`${r.mint}-${r.at}`} r={r} now={now} on={r.mint === mint} onPick={onPick} />)}</ul>
       : <p className="ctp-nil">{(tape?.rows || []).length ? 'Nothing in this view.' : 'No confirmed agent buy on the ledger yet — a trade shows here the moment its fill is signed.'}</p>}
     <div className="ctp-grades"><Graded title="📏 SOURCES · REAL FILLS" rec={tape?.sources} testid="ctp-sources" tip="Each list a coin came from, graded only on confirmed real exits (typical result, capped at ±100%). A coin whose every source is a proven loser ranks down 10%." />
