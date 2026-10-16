@@ -51,9 +51,9 @@ export function ChartLevels({ levels, seriesRef, chartRef, lastBarRef, shownRef,
   }, [key, seriesRef, chartRef, lastBarRef, shownRef, container]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!rows.length) return null;
   return <div className="clx" ref={host} data-testid="chart-levels" aria-hidden="true">
-    {rows.map(l => <div key={l.id} className={`clx-row tone-${l.tone} ${l.key ? 'is-key' : ''} ${l.quiet ? 'is-quiet' : ''}`} data-lv={l.id} data-testid={`chart-level-${l.id}`}>
+    {rows.map(l => <div key={l.id} className={`clx-row tone-${l.tone} ${l.key ? 'is-key' : ''} ${l.quiet ? 'is-quiet' : ''} ${l.tip ? 'has-tip' : ''} ${/germ/.test(l.id) ? 'is-germ' : ''}`} data-lv={l.id} data-testid={`chart-level-${l.id}`}>
       <i className="clx-line"><i className="clx-run" /></i>
-      {l.quiet ? null : <span className="clx-tag"><b>{l.title}</b>{fmt && l.key ? <small>{fmt(l.px)}</small> : null}<em /></span>}
+      {l.quiet ? null : <span className="clx-tag" data-tip={l.tip || undefined}><b>{l.title}</b>{fmt && l.key ? <small>{fmt(l.px)}</small> : null}<em /></span>}
     </div>)}
   </div>;
 }

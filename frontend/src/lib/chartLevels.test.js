@@ -57,3 +57,17 @@ test('declutter: one tag per price, money levels first, at most five tags', () =
   expect(d.filter(r => !r.quiet)).toHaveLength(5);                           // the rest are faint lines
   expect(d.find(r => r.id === 'g0').quiet).toBe(true);
 });
+
+test('🦠 germ levels: the timeframe on screen, the 5m germ on a 1m chart, the agents\' 1m germ elsewhere — each with a hover read', () => {
+  const { germLevels, to5m } = require('./chartLevels');
+  const { germ } = require('./chartTools');
+  const cs = Array.from({ length: 30 }, (_, i) => { const p = i < 10 ? 1 : 1 + (i - 9) * 0.05; return [i * 60, p, p * 1.01, p * 0.99, p, 1]; });
+  expect(to5m(cs)).toHaveLength(6);
+  const one = germLevels({ candles: cs, interval: '1m', germFn: germ });
+  expect(one.map(r => r.id)).toContain('germ-tf');
+  expect(one[0].tip).toMatch(/🦠 1m germ/);
+  const five = germLevels({ candles: to5m(cs), interval: '5m', agent: { px: 1, d: 8, line: 15, ok: true }, ratio: 1000, germFn: germ });
+  const ag = five.find(r => r.id === 'germ-ag');
+  expect(ag.px).toBe(1000);
+  expect(ag.tip).toMatch(/inside your 15% line/);
+});

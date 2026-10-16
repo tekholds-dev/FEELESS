@@ -8,12 +8,13 @@ import { ChartPnl } from './ChartPnl';
 import { ChartLive } from './ChartLive';
 import { CandleFx } from './CandleFx';
 import { ChartLevels } from './ChartLevels';
-import { feeLevels, ownLevels, toolLevels } from '../../lib/chartLevels';
+import { feeLevels, ownLevels, toolLevels, germLevels } from '../../lib/chartLevels';
+import { useGerm } from '../../lib/germ';
 import { mergeLiveBar, liveBar } from '../../lib/tween';
 import { scaleKeep } from '../../lib/chartLevels';
 import { tickGuard } from '../../lib/tickGuard';
 import { mcapOf } from '../../lib/mcap';
-import { toolRead, useChartTools } from '../../lib/chartTools';
+import { toolRead, useChartTools, germ as germOf } from '../../lib/chartTools';
 import { ChartGrab } from './ChartGrab';
 import { withGrab } from '../../lib/chartGrab';
 import { createChart, createSeriesMarkers, CandlestickSeries, HistogramSeries, LineSeries, ColorType } from 'lightweight-charts';
@@ -313,7 +314,9 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   const toolsOn = useChartTools();
   const toolsRead = useMemo(() => (charting && toolsOn.length ? toolRead(displayCandles, toolsOn) : null), [charting, toolsOn, displayCandles]);
   useToolDraw(seriesRef, chartRef, container, toolsRead, [dayMode, showVolume, chartStyle, bgOn, hasChart]);
-  const levels = useMemo(() => [...ownLv, ...feeLv, ...toolLevels(toolsRead)], [ownLv, feeLv, toolsRead]);
+  const agentGerm = useGerm(plain ? null : pair?.baseToken?.address);
+  const germLv = useMemo(() => (charting && !plain ? germLevels({ candles: displayCandles, interval, agent: agentGerm, ratio, germFn: toolsRead?.germ ? null : germOf }) : []), [charting, plain, displayCandles, interval, agentGerm, ratio, toolsRead]);   // 🦠 the germ on every chart, every timeframe
+  const levels = useMemo(() => [...ownLv, ...feeLv, ...toolLevels(toolsRead), ...germLv], [ownLv, feeLv, toolsRead, germLv]);
   // 📐 the scale always keeps your entry + stop on screen (a seat's own entry too), never a level far away
   const seatEntry = pnl && typeof pnl === 'object' ? (Number(pnl.pos?.fillPrice) || Number(pnl.pos?.avgEntry) || 0) * (ratio || 1) : 0;
   const keepKey = useMemo(() => [...ownLv.map(r => ({ id: r.id, title: r.title, px: r.px })), ...(seatEntry > 0 ? [{ id: 'entry', px: seatEntry }] : [])], [ownLv, seatEntry]);

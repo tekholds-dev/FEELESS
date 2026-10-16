@@ -27,6 +27,7 @@ import '../../styles/agentCockpit.css';
 import { AiChat } from './AiChat';
 import '../../styles/cockpitAi.css';   // after the cockpit sheet: it owns the plot's height + the meta pass
 import '../../styles/cockpitDeck.css';   // last: the one-screen layout (deck, tight chart strip, short AI log)
+import '../../styles/agentFx.css';   // ⚡ hover sheen · press ring · winner glow · paint containment for scrolling
 import { GermChip } from '../GermBadge';
 
 // 🎛 THE AGENTS COCKPIT (HQ › Agents, the whole top of the tab — built to the owner's reference, 2026-10-12): REAL MONEY MISSION ribbon ·

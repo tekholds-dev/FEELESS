@@ -4262,7 +4262,7 @@ def _germ_rec(mint, now):
     if g1:
         w1, w5 = _ci.germ_word(g1), _ci.germ_word(g5)
         mx_ = _uni.germ_max()
-        rec = {'d': g1.get('dist'), 'w': w1, 'd5': (g5 or {}).get('dist'), 'w5': w5, 'run': g1.get('runPct'), 'e': _ci.germ_entry({'germ': w1, 'germ5': w5}),
+        rec = {'px': g1.get('px'), 'd': g1.get('dist'), 'w': w1, 'd5': (g5 or {}).get('dist'), 'w5': w5, 'run': g1.get('runPct'), 'e': _ci.germ_entry({'germ': w1, 'germ5': w5}),
                'line': mx_, 'ok': (not mx_) or abs(_fuse._f(g1.get('dist'))) <= mx_, 'at': round(now)}
         _germ_seen[mint] = (now, rec)
         if len(_germ_seen) > 4000:

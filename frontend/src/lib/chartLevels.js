@@ -10,7 +10,7 @@ export const TAG_GAP = 15;     // px two tags keep between them
 
 const TONE_OF = c => ({ '#15d16a': 'up', '#45e486': 'up', '#7df9d0': 'up', '#ff8fa3': 'dn', '#fa708c': 'dn', '#ff5d73': 'dn', '#f5c542': 'gold', '#f5c451': 'gold', '#e9bd65': 'gold', '#ff9a3c': 'gold',
   '#9fe3ff': 'ice', '#5ec8ff': 'ice', '#b388ff': 'violet', '#9e8cff': 'violet', '#8a79ff': 'violet' }[String(c || '').toLowerCase().slice(0, 7)] || 'mute');
-const row = (id, px, title, tone, key = false) => (Number(px) > 0 && Number.isFinite(Number(px)) ? { id, px: Number(px), title, tone, key } : null);
+const row = (id, px, title, tone, key = false, tip = null) => (Number(px) > 0 && Number.isFinite(Number(px)) ? { id, px: Number(px), title, tone, key, ...(tip ? { tip } : {}) } : null);
 
 /** Your own fills + your entry + a Fuse card's / the agents' levels for this coin. `ratio` turns a price into the chart's unit (market cap). */
 export function ownLevels({ userTrades, userEntry, fuse, ratio = 1 } = {}) {
@@ -48,7 +48,34 @@ export function toolLevels(read) {
   (read.fvg || []).forEach((g, i) => out.push(row(`g${i}`, g.mid, g.dir === 'up' ? '🪜 gap' : '🪜 gap ↓', g.dir === 'up' ? 'up' : 'dn')));
   (read.magnets || []).forEach((m, i) => out.push(row(`m${i}`, m.price, `🧲 ${m.hits > 1 ? `×${m.hits} ` : ''}${m.side === 'above' ? 'highs' : 'lows'}`, 'gold')));
   if (read.gun) out.push(row('gun', read.gun.price, read.gun.fired ? '🔫 fired' : '🔫 gun line', read.gun.fired ? 'up' : 'gold', true));
-  if (read.germ) out.push(row('germ', read.germ.bot, read.germ.lost ? '🦠 germ lost' : '🦠 germ', 'violet', true));
+  if (read.germ) out.push(row('germ', read.germ.bot, read.germ.lost ? '🦠 germ lost' : '🦠 germ', 'violet', true, `🦠 germ · base of a +${Math.round(read.germ.runPct)}% run${read.germ.lost ? ' · LOST' : ''}`));
+  return out.filter(Boolean);
+}
+
+/** 1-minute candles → 5-minute bars (the agents' second lens). */
+export function to5m(candles) {
+  const out = []; let cur = null;
+  (candles || []).forEach(([t, o, h, l, c, v]) => { const b = Math.floor(t / 300) * 300;
+    if (!cur || cur[0] !== b) { if (cur) out.push(cur); cur = [b, o, h, l, c, v || 0]; } else { cur[2] = Math.max(cur[2], h); cur[3] = Math.min(cur[3], l); cur[4] = c; cur[5] += v || 0; } });
+  if (cur) out.push(cur); return out;
+}
+
+/** 🦠 THE GERM ON EVERY CHART (owner, 2026-10-16: "germ needs to show in 5m with hover live vitals"): the germ of the candles on screen (its
+ * own timeframe), the 5-minute germ when the chart is on 1m, and the AGENTS' 1-minute germ (coin edge `germ.px`, what they trade on) —
+ * each a key level with a hover tip of its live read. `germFn` = lib/chartTools germ (passed in: no import cycle). */
+export function germLevels({ candles, interval, agent, ratio = 1, germFn }) {
+  const out = []; const last = (candles || []).length ? candles[candles.length - 1][4] : 0;
+  const tip = (g, lens) => { const d = last > 0 ? (last / g.bot - 1) * 100 : null;
+    return `🦠 ${lens} germ · base of a +${Math.round(g.runPct)}% run${d != null ? ` · price ${d >= 0 ? `${d.toFixed(1)}% above` : `${Math.abs(d).toFixed(1)}% under`} it` : ''}${g.lost ? ' · LOST — the run is dead until it is back above' : d != null && d <= 15 ? ' · inside the 15% germ line: the agents buy here' : ' · past the germ line: the move already ran'}`; };
+  const tf = interval || '1m';
+  const g = germFn ? germFn(candles) : null;
+  if (g) out.push(row('germ-tf', g.bot, `🦠 germ ${tf}`, 'violet', true, tip(g, tf)));
+  if (tf === '1m' && germFn) { const g5 = germFn(to5m(candles)); if (g5) out.push(row('germ-5m', g5.bot, '🦠 germ 5m', 'violet', true, tip(g5, '5m'))); }
+  if (agent && Number(agent.px) > 0 && tf !== '1m') {
+    const d = Number(agent.d);
+    out.push(row('germ-ag', Number(agent.px) * ratio, "🦠 agents' germ 1m", 'violet', true,
+      `🦠 the agents' 1-minute germ (what they trade on) · ${Number.isFinite(d) ? `${d >= 0 ? `${d.toFixed(1)}% above` : `${Math.abs(d).toFixed(1)}% under`} it` : ''}${agent.line ? ` · ${agent.ok ? 'inside' : 'outside'} your ${agent.line}% line` : ''}`));
+  }
   return out.filter(Boolean);
 }
 

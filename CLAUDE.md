@@ -4547,3 +4547,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   it = no · a Pump-trending coin in 🔥 first / only mode is never walled by the germ (half seat). 🎯 Your own picks: price impact ≤ 8%, price gap
   ≤ 10%, sell-back ≤ 10% (`fuse_wallet.PICK_*`; a pick took 5 tries on 3.5% / 5% / 6%). "PUMP TRENDING DOES NOTHING" ⇒ count `src` ptrend
   on the desk table (26 of 33 that day) and read the candidates' walls before touching the intake.
+- 🦠 GERM ON EVERY CHART + ONE LIMITS SECTION (owner, 2026-10-16): `lib/chartLevels.germLevels` (PriceChart, every chart but `plain`) = the germ
+  of the timeframe on screen + the 5m germ on a 1m chart (`to5m`) + the agents' 1m germ (coin edge `germ.px` × ratio) on other timeframes;
+  each tag is hoverable (`row.tip` → `data-tip`, `.clx-row.has-tip`), germ rows breathe a violet band (`.clx-row.is-germ::before`).
+  🎛 Limits = ONE section: the CockpitControls cards hold every control; `CreatorLimits extrasOnly` adds only who-decides, seats held, a custom
+  trail and the in-force table + hard limits. ⚡ `styles/agentFx.css` (cockpit): hover sheen + press ring on seats / vital tiles, a held winner's
+  P&L breathes, `.ack-deckpane` / `.agd-grid` paint-contained (`content-visibility` on lens grids) so scrolling redraws only what is on screen.

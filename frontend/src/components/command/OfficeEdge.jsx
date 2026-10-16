@@ -70,7 +70,7 @@ export function positionPolicy(o) {
   return (o?.positions || []).map(p => ({ symbol: p.symbol, owner: p.owner, take: p.take, takeWho: pol.tp ? 'you' : p.takeSource === 'learned' ? 'agents (learned)' : 'agents (base read)', stop: p.stop, stopWho: p.limits?.sl && Math.abs(p.stop) >= p.limits.sl - 1e-9 ? 'you' : 'agents',
     hold: p.granted != null ? p.granted * 5 : p.limits?.maxHold || null, holdWho: p.limits?.maxHold && p.granted != null && p.granted * 5 >= p.limits.maxHold ? 'you' : 'agents', trail: p.limits?.trail || 'auto', decision: p.decision, rule: p.rule, pct: p.pct }));
 }
-export function CreatorLimits({ policy, mission, cfg, positions, isOwner = true, busy, save, o }) {
+export function CreatorLimits({ policy, mission, cfg, positions, isOwner = true, busy, save, o, extrasOnly = false }) {
   const pol = policy || {}; const ctl = Object.fromEntries((pol.controls || []).map(c => [c.key, c])); const hard = pol.hard || {}; const [open, setOpen] = useState(null);
   const set = (k, v) => save && save({ cfg: { [k]: v } }); const c0 = cfg || {};
   const cur = k => (ctl[k] || {}).value;
@@ -91,7 +91,7 @@ export function CreatorLimits({ policy, mission, cfg, positions, isOwner = true,
       <button type="button" disabled={busy || !isOwner} className={!pol.manual ? 'active' : ''} onClick={() => set('agentAuthority', 'agents')} data-testid="oed-auth-agents">🤖 Agents decide inside my limits</button>
       <button type="button" disabled={busy || !isOwner} className={pol.manual ? 'active is-manual' : ''} onClick={() => set('agentAuthority', 'manual')} data-testid="oed-auth-manual">✋ Creator manual</button></span></header>
     <p className="oed-why">{pol.manual ? 'MANUAL: the agents make no discretionary move — no fill, no switch, no bank on a read. Only the hard safety exits and the limits YOU set below act.' : 'Blue = 🤖 the agents decide it from their own record and the chart. Gold = ✋ your number — a boundary they stay inside, never a target.'}</p>
-    <div className="oed-groups">{LIMIT_GROUPS.map(([g, sub, keys]) => <section key={g} className="oed-group"><h4>{g}<small>{sub}</small></h4>
+    <div className="oed-groups">{(extrasOnly ? [['SEATS', 'how many seats the agents hold', ['agentSeats']], ...(pol.trail?.mode === 'custom' ? [['YOUR TRAIL', 'arm and give-back', ['agentTrail']]] : [])] : LIMIT_GROUPS).map(([g, sub, keys]) => <section key={g} className="oed-group"><h4>{g}<small>{sub}</small></h4>
       <ul className="oed-ctl">{keys.map(k => (k === 'agentSeats' ? seats : ctl[k] ? row(ctl[k]) : null))}</ul></section>)}</div>
     <div className="oed-sub-box" data-testid="oed-inforce"><small>IN FORCE ON EACH OPEN POSITION · what Reaper obeys right now</small>
       {pp.length ? <table className="oed-cf is-wide"><thead><tr><th>coin</th><th>take</th><th>stop</th><th>hold</th><th>trail</th><th>now</th></tr></thead>
