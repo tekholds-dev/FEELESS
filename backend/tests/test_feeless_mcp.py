@@ -68,7 +68,7 @@ def test_the_desktop_installer_writes_the_preset_and_merges_only_its_own_mcp_ent
 def test_the_installer_always_carries_the_fee_prompt_from_the_repo():
     import feeless_mcp as m
     s = m.install_script('http://x/mcp', 't', preset_json='{"operation": {"fields": [{"key": "llm.prediction.systemPrompt", "value": "You are the external reasoning brain"}]}}')
-    assert 'You are FEE' in s and 'external reasoning brain' not in s
+    assert 'You are G4' in s and 'external reasoning brain' not in s
 
 
 def test_truth_line_leads_money_answers_with_the_real_numbers(monkeypatch):

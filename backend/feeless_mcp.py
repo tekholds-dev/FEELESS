@@ -821,11 +821,11 @@ def client_ok(ip):
 PRESET = Path.home() / '.lmstudio' / 'config-presets' / 'FEELESS FEE Master.preset.json'
 
 
-def fee_prompt():
+def fee_prompt(name='OSSY'):
     """🎙 The FEE prompt as served: docs/lm_fee_prompt.txt + "WHAT FEELESS KNOWS RIGHT NOW" rebuilt from the AI memory + the owner study
     (fee_voice.living) — every install / hourly re-pull / local rewrite carries what FEELESS learned since the last one."""
     try:
-        base = (ROOT.parent / 'docs' / 'lm_fee_prompt.txt').read_text()
+        base = (ROOT.parent / 'docs' / 'lm_fee_prompt.txt').read_text().replace('{NAME}', name)
     except OSError:
         return None
     try:
@@ -874,7 +874,7 @@ def install_script(url, tok, preset_json=None, prompt=None, install_url=None):
         except OSError:
             preset_json = json.dumps({'name': 'FEELESS FEE Master', 'operation': {'fields': [{'key': 'llm.prediction.systemPrompt', 'value': prompt or ''}]}}, indent=2)
     if prompt is None:
-        prompt = fee_prompt()
+        prompt = fee_prompt('G4')
     if prompt:   # the FEE prompt from the repo ALWAYS wins: LM Studio once saved the agents' JSON brain prompt over the local preset (2026-10-15)
         try:
             pj = json.loads(preset_json)

@@ -37,7 +37,7 @@ body.theme-day .apg-prop { background: rgba(255, 255, 255, .6); } body.theme-day
 .apg-views button.active { background: var(--m-accent); color: #04100a; border-color: var(--m-accent); }
 .apg-code.is-diff span { display: block; } .apg-code .is-add { background: rgba(21, 209, 106, .14); color: #9ff5c4; } .apg-code .is-del { background: rgba(255, 143, 163, .12); color: #ffb3c0; }
 .apg-code .is-h { color: #9fe3ff; font-weight: 800; } .apg-code .is-at { color: #b79bff; }
-.apg-look { width: 100%; height: clamp(240px, 40vh, 420px); border: 1px solid var(--m-line); border-radius: 8px; background: #05100b; display: block; }
+.apg-look { width: 100%; height: clamp(320px, 55vh, 620px); border: 1px solid var(--m-line); border-radius: 8px; background: #05100b; display: block; }
 body.theme-day .apg-code .is-add { background: rgba(21, 140, 70, .14); color: #0b5a2f; } body.theme-day .apg-code .is-del { background: rgba(192, 52, 79, .1); color: #8a1f35; }
 @media (prefers-reduced-motion: reduce) { .apg-views button { transition: none; } }
 

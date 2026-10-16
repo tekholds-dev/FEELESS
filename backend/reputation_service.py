@@ -14338,11 +14338,17 @@ async def admin_ai_playground_make(request: Request):
     try:
         prop, res = None, {}
         for o_ in ([only_] if only_ and prov_ != 'duet' else [only_, (_duet.SECOND,)]):   # 🧩 no code from the first model → the other one gets a try
-            res = await _air.ROUTER.ask(_ai_http(), os.environ, _ai_cfg(), q_, role='owner', system=_play.ASK, only=o_, tune={'temp': 0.3, 'maxTok': 2500}, only_system=True)
+            res = await _air.ROUTER.ask(_ai_http(), os.environ, _ai_cfg(), q_, role='owner', system=_play.ASK, only=o_, tune={'temp': 0.3, 'maxTok': 4000}, only_system=True)
             prop = _play.parse(res.get('raw') or res.get('text'))
             tried_.append(f"{res.get('label') or res.get('source')}: {'code' if prop else (str(res.get('text') or res.get('why') or 'no answer')[:60])}")
             if prop:
                 break
+        if prop and not prop.get('preview'):   # 🖼 no mock-up in the answer -> one more call that only builds the live, clickable preview
+            pq_ = f"THE CHANGE: {prop['title']} — {prop['why'][:400]}\nWHAT THE OWNER ASKED: {ask[:400]}\nTHE CODE:\n{prop['code'][:3500]}"
+            pr_ = await _air.ROUTER.ask(_ai_http(), os.environ, _ai_cfg(), pq_, role='owner', system=_play.PREVIEW_ASK, only=only_ if only_ and prov_ != 'duet' else None, tune={'temp': 0.4, 'maxTok': 3500}, only_system=True)
+            pv_ = _play.html_of(pr_.get('raw') or pr_.get('text'))
+            if pv_:
+                prop['preview'] = pv_
     finally:
         _air.RAW.reset(raw_)
         _chat['busy'] = False

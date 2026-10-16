@@ -29,8 +29,24 @@ ASK = ("CODE LAB mode. The owner wants a change to FEELESS. Answer with ONE JSON
        '{"title": "≤ 8 words", "file": "the repo path you change", "kind": "new" | "change", "why": "2-4 sentences: what it fixes, the evidence", '
        '"risk": "what could break, in one line", "code": "the complete new function(s) / component, ready to paste — real code, no placeholders"}. '
        "Use ONLY functions and names that exist in the OUTLINE you are given (or define new ones). Money rules are fixed: no change may make "
-       "an order bigger, skip a safety check, remove a stop, sign, send or move funds. Keep it small: one function or one component.")
+       "an order bigger, skip a safety check, remove a stop, sign, send or move funds. Keep it small: one function or one component. "
+       'ALSO add "preview": ONE complete standalone HTML document (inline <style> + vanilla <script>, no imports, no network) that SHOWS and RUNS '
+       "the thing so the owner can see and click it: a button looks and animates exactly as it will and does its action on fake data; a panel "
+       "renders with realistic fake numbers that move; backend logic gets a small interactive panel (inputs -> the result it would give). "
+       'FEELESS degen look, finished-product quality: near-black green background, deep-green-to-#15d16a gradients with a soft glow, #ff8fa3 for danger, monospace numbers, rounded 10px corners, hover lift + press squash (transform only), a ripple or burst on click, a small toast with the result, fake live numbers ticking every second. Center it on the page with a little context around it.')
 
+
+PREVIEW_ASK = ("Write ONE complete standalone HTML document (inline <style> + vanilla <script>, no imports, no network, no markdown fences) that SHOWS "
+               "and RUNS the change below so the owner can see and click it: a button looks and animates as it will and does its action on fake "
+               "data; a panel renders with realistic fake numbers that move; backend logic gets a small interactive panel (inputs -> result). "
+               'FEELESS degen look, finished-product quality: near-black green background, deep-green-to-#15d16a gradients with a soft glow, #ff8fa3 for danger, monospace numbers, rounded 10px corners, hover lift + press squash (transform only), a ripple or burst on click, a small toast with the result, fake live numbers ticking every second. Center it on the page with a little context around it. Answer with the HTML only.')
+
+
+def html_of(text):
+    """A raw model answer -> the HTML document inside it (fences / prose dropped), locked; None when it holds no markup."""
+    t = re.sub(r'```(?:html)?', '', str(text or ''))
+    m = re.search(r'(<!doctype html.*|<html.*|<(?:div|style|body|svg|button)\b.*)', t, re.I | re.S)
+    return lock_html(m.group(1).strip()) if m else None
 
 def outline(text, path=''):
     """A file → its outline: `def name(args)` / `class` / `export function name` lines + the first line of each docstring (Python) — capped."""

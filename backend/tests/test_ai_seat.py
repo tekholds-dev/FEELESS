@@ -100,3 +100,16 @@ def test_a_buy_by_symbol_or_mint_prefix_maps_to_the_listed_coin_only():
     assert seat.parse('{"action":"BUY","mint":"$pepe"}', mints, False, syms)['mint'] == 'AAAmintXYZ123456'
     assert seat.parse('{"action":"BUY","mint":"AAAmintXYZ"}', mints, False, syms)['mint'] == 'AAAmintXYZ123456'
     assert seat.parse('{"action":"BUY","mint":"SHIB"}', mints, False, syms)['action'] == 'WAIT'   # not on the list: never bought
+
+
+def test_the_code_lab_asks_for_a_live_preview_and_pulls_html_out_of_any_answer():
+    import ai_play as p
+    assert '"preview"' in p.ASK and 'RUNS' in p.PREVIEW_ASK
+    h = p.html_of('sure:\n```html\n<button id=b>BUY</button><script>b.onclick=()=>1</script>\n```')
+    assert h.startswith('<!doctype html>') and 'Content-Security-Policy' in h and '<button id=b>BUY</button>' in h
+    assert p.html_of('just words') is None
+
+
+def test_each_machine_gets_its_own_name_in_the_fee_prompt():
+    import feeless_mcp as f
+    assert f.fee_prompt().startswith('You are OSSY') and f.fee_prompt('G4').startswith('You are G4') and '{NAME}' not in f.fee_prompt()

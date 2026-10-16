@@ -4678,5 +4678,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   ⚡ Live desk = the merged Feed + Desk tab (`DuoSeat` on top from the page payload's `duo` = `_duo_view`, then AgentMatrix, then DecisionTape;
   an old saved 'agents' deck opens 'live' via `DECK_ALIAS`). Seat BUYs may name the coin by symbol (`ai_seat.parse(.., syms)`) — both small
   models mangled 44-char mints, so every first BUY was refused. Desktop LM Studio had Gemma 4 E2B (2B) loaded.
+- 🖼 CODE LAB = A LIVE PREVIEW, NOT A STRIP OF CODE (owner, "for the 10th time"): `ai_play.ASK` makes the model ship a `preview` = one
+  standalone HTML doc that SHOWS and RUNS the change (a button looks, animates and acts on fake data); when the answer has none, ONE more call
+  with `PREVIEW_ASK` builds it (`html_of` pulls the HTML out of any answer). The 🖼 LIVE PREVIEW tab opens first (sandboxed, CSP blocks network).
+  Measured: OSSY (gpt-oss-20b) builds a working gradient buy button in ~40–80s.
+- 🎙 FEE prompt v5 = a PERSONA (`docs/lm_fee_prompt.txt`, `{NAME}` = OSSY on this Mac / G4 via /lan-install): talks about anything, tools
+  only for facts that move or for FEELESS, a greeting gets a greeting (v4's "tool first, every turn" made OSSY call `now` on "wazzup").
 - FEE prompt opening = "tools first, `now` at most once, never the same tool twice, then answer" — "a tool call EVERY turn, `now` at least" made
   the 4B Qwen call `now` 14 times without answering.
