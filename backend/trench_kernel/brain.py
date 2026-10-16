@@ -85,6 +85,11 @@ def weather(ms, ctx):
     return {'regime': reg, 'factor': WEATHER_F.get(reg, 1.0)}
 
 
+def _u_germ_max():
+    from . import universe as _u
+    return _u.germ_max()
+
+
 def trigger(ms, lessons=None, lab=None, waits=None):
     """WHEN, from the live narrative of this pass. `lateMove` (the live Trigger generation's lesson, 0 = off): a coin already up that much
     in 5 minutes is ARMED, not entered."""
@@ -100,7 +105,7 @@ def trigger(ms, lessons=None, lab=None, waits=None):
     elif st == 'ENTER' and fv.get('state') == 'PEAK' and w.get('peakWait', True):
         st, why = 'ARM', f"{why} — {fv.get('why')} (armed for the dip, not bought at the top)"
     call, rule = chart_call(ms)
-    gun = _opp.gun_chase(ms.get('row'))
+    gun = _opp.gun_chase(ms.get('row')) or _opp.spike_chase(ms.get('row'))
     if st in ('ENTER', 'ARM') and gun:   # 🔫 pressed against its gun line after a push: never READY, never armed — it waits for the pullback
         st, why = 'WAIT', f"{why} — {gun}"
     on_germ = germ_entry_ok(ms, call) if st in ('ENTER', 'ARM') else None
@@ -108,6 +113,9 @@ def trigger(ms, lessons=None, lab=None, waits=None):
         st, why = 'ARM', f"{why} — 🦠 on its germ floor ({on_germ}): the germ is the entry, not the breakout — armed"
     elif st in ('ENTER', 'ARM') and call and call != CHART_GO and w.get('chartWait', True):   # 🎯 THE CHART SAYS GO: no real seat on a WAIT / SKIP chart (not even an armed half)
         st, why = 'WAIT', f"{why} — the chart says {call.lower()} ({rule or '?'}): waits for ENTER NOW"
+    gd_ = _opp.germ_d((ms.get('row') or {}).get('chart'))[0]
+    if st == 'ENTER' and gd_ is not None and _u_germ_max() and gd_ > _u_germ_max():   # 🦠 READY only INSIDE your germ line: a stretched coin is armed (half seat), never READY
+        st, why = 'ARM', f"{why} — {gd_:.0f}% above its germ (your line {_u_germ_max()}%): armed, not READY"
     if st == 'ENTER' and lab:   # 🧪 Trigger's lessons from the rule lab: a live AVOID rule on the entry moment, proven on our real fills, arms the coin
         fs = set(_lab.row_feats(ms['row']))
         hit = next((r for r in lab if set(r.get('when') or ()) <= fs), None)

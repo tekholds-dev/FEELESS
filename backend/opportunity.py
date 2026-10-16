@@ -134,6 +134,25 @@ def gun_chase(row):
     return None
 
 
+SPIKE_5M = 12.0          # 🚀 a 5-minute move this big = a spike: no entry until it pulls back toward its germ
+SPIKE_TOP = 10.0         # … and a coin still within this % of its high while sitting past the germ line is the same spike, still up there
+
+
+def spike_chase(row):
+    """🚀 AFTER A SPIKE (owner, 2026-10-16: "intake showing READY after a spike — entry should be perfect, after the germ"): a coin up ≥ SPIKE_5M
+    in 5 minutes, or one still within SPIKE_TOP % of its high while sitting past the owner's germ line, waits for the pullback to its germ.
+    → reason or None. Missing readings are not judged."""
+    ch, n = (row or {}).get('chart') or {}, (row or {}).get('nums') or {}
+    d5 = n.get('d5')
+    if d5 is not None and _f(d5) >= SPIKE_5M:
+        return f"🚀 spiked {_f(d5):+.0f}% in 5 min — waits for the pullback toward its germ"
+    d, _l = germ_d(ch)
+    mx = _uni.germ_max()
+    if mx and d is not None and d > mx and ch.get('distHigh') is not None and _f(ch['distHigh']) <= SPIKE_TOP:
+        return f"🚀 {d:.0f}% above its germ and only {_f(ch['distHigh']):.0f}% under its high — still at the top of the spike; waits for the germ"
+    return None
+
+
 def germ_d(ch):
     """🦠 The germ distance a decision reads: the 1-minute germ, else the 5-minute one (a coin whose 1m chart has no 15% run yet still has a
     5m floor — $Normie went READY at its gun line with only a 5m germ on file). → (dist %, lens) or (None, None)."""

@@ -137,3 +137,13 @@ def test_normie_at_its_gun_line_after_a_push_is_never_ready_and_a_5m_germ_counts
     assert op.gun_chase({'chart': {'distHigh': 2.1}, 'nums': {'d5': 1.0}}) is None and op.gun_chase({'nums': {'d5': 9}}) is None
     assert op.germ_d(normie['chart']) == (14.0, '5m') and op.germ_d({'germDist': 3.0, 'germ5Dist': 9.0}) == (3.0, '1m')
     assert '35% above' in op.germ_line({'chart': {'germ5Dist': 35.0}})
+
+
+def test_after_a_spike_nothing_is_ready_and_ready_lives_only_inside_the_germ_line():
+    import opportunity as op
+    from trench_kernel import universe as uni
+    uni.set_band({})
+    assert 'spiked' in op.spike_chase({'nums': {'d5': 18.0}})
+    assert 'top of the spike' in op.spike_chase({'chart': {'germDist': 40.0, 'distHigh': 6.0}, 'nums': {'d5': 2.0}})
+    assert op.spike_chase({'chart': {'germDist': 8.0, 'distHigh': 3.0}, 'nums': {'d5': 2.0}}) is None   # on its germ: fine
+    assert op.spike_chase({'chart': {'germDist': 40.0, 'distHigh': 30.0}, 'nums': {'d5': -2.0}}) is None  # pulled back far off the top

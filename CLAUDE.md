@@ -4619,3 +4619,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   tp (None until set), `stop` = YOUR sl (only when you set it), no agent trail (`armAt` / `trailAt`), `takeSource: 'yours'`. The cockpit
   chart then shows dim dashed "set take" (+50) / "set stop" (−20) grab handles (`chartGrab` `ghost`, GHOST_TP / GHOST_SL) — dropping one
   asks and saves your own line, the same path as any drag. "MY TP DIDN'T FIRE" ⇒ read the leg's own `tp` before anything else.
+- 🚀 NO READY AFTER A SPIKE + READY ONLY INSIDE THE GERM LINE (owner, 2026-10-16: "intake showing READY after a spike — entry should be
+  perfect, after the germ"): `opportunity.spike_chase` (5-min move ≥ `SPIKE_5M` 12%, or past the germ line while within `SPIKE_TOP` 10% of
+  its high) joins `gun_chase` in `brain.trigger` → WAIT for the pullback toward the germ. A coin past the owner's germ line can no longer be
+  READY (ENTER → ARM, half seat through the armed door). The intake band's READY lane reads the kernel status, so it follows.

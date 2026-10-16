@@ -88,16 +88,18 @@ def test_a_retired_or_shadow_generation_has_no_live_authority():
 
 
 def test_the_brain_plays_the_live_generations_lesson():
-    ms_row = row('L', d5=30.0, age=0.05)                                                  # +30% in 5 min, HOT EARLY MOVE
+    ms_row = row('L', d5=10.0, age=0.05)                                                  # +10% in 5 min, HOT EARLY MOVE (≥ +12% is a spike: it waits)
     import trench_kernel.kernel as tk
     k = tk.Kernel(); k.run([ms_row], 100.0, {})
     assert k.dec['L']['opinions']['trigger']['state'] == 'ENTER'
-    k = tk.Kernel(); k.run([ms_row], 100.0, {'lessons': {'trigger': {'lateMove': 25.0}}})
+    k = tk.Kernel(); k.run([ms_row], 100.0, {'lessons': {'trigger': {'lateMove': 8.0}}})
     assert k.dec['L']['opinions']['trigger']['state'] == 'ARM' and k.dec['L']['status'] != 'READY'   # the new Trigger generation arms it instead of chasing
     ev = row('E', ev=[['rug_meter', 'rug meter 60']])
     a = tk.Kernel(); a.run([ev], 100.0, {})
     b_ = tk.Kernel(); b_.run([ev], 100.0, {'lessons': {'devil': {'strong': 0.8}}})
     assert b_.dec['E']['rank'] < a.dec['E']['rank']
+    k = tk.Kernel(); k.run([row('S', d5=30.0, age=0.05)], 100.0, {})
+    assert k.dec['S']['opinions']['trigger']['state'] == 'WAIT'   # 🚀 a +30% spike is never entered: it waits for the germ pullback
 
 
 def test_a_shadow_retires_after_a_day_and_only_one_shadow_per_role():
