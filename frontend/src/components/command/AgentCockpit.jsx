@@ -312,7 +312,7 @@ function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent, tid, call, is
   // and the position is filed as "your hand" so the record shows whether your adjustments helped
   const grab = !!(pos && isOwner && tid && m?.pair && Number(pos.entry) > 0);
   const fuse = useMemo(() => ({ lines: m?.lines || [], ...(grab ? { tpl: tid, src: 'cockpit', pairAddress: m.pair, symbol: m.symbol, entry: Number(pos.entry),
-    slPct: Math.round(Math.abs(Number(pos.stop) || 0)) || null, tpPct: Math.round(Number(pos.take) || 0) || null } : {}) }), [m?.lines, grab, tid, m?.pair, m?.symbol, pos?.entry, pos?.stop, pos?.take]);   // eslint-disable-line react-hooks/exhaustive-deps
+    slPct: Math.round(Math.abs(Number(pos.stop) || 0)) || null, tpPct: Math.round(Number(pos.take) || 0) || null, ghost: pos.takeSource === 'yours' } : {}) }), [m?.lines, grab, tid, m?.pair, m?.symbol, pos?.entry, pos?.stop, pos?.take, pos?.takeSource]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!grab) return undefined;
     const on = e => { const dd = e.detail || {}; if (dd.src !== 'cockpit' || !['stop', 'tp'].includes(dd.kind)) return;

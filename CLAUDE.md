@@ -4614,3 +4614,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   file): `opportunity.gun_chase` (chart `distHigh` ≤ `GUN_NEAR` 4% AND 5-min move ≥ `GUN_PUSH` 4%) → `brain.trigger` WAIT (never READY,
   never armed) "waits for the pullback toward its germ". `opportunity.germ_d` = the 1m germ distance, else the 5m one — the germ line /
   half-seat stretch / rank / germ arming all read it (a coin with only a 5m germ used to be "not judged"); "confirmed" still needs the 1m.
+- ✋ YOUR TRADE SHOWS ONLY YOUR LINES (2026-10-16, "why my TP not taken?" — $1 at +54.9% under a "take +50%" line: that was the AGENTS'
+  take; $1 had no TP of the owner's, and the agents only take notes on his trades): Reaper's report for a `picked` leg carries `take` = YOUR
+  tp (None until set), `stop` = YOUR sl (only when you set it), no agent trail (`armAt` / `trailAt`), `takeSource: 'yours'`. The cockpit
+  chart then shows dim dashed "set take" (+50) / "set stop" (−20) grab handles (`chartGrab` `ghost`, GHOST_TP / GHOST_SL) — dropping one
+  asks and saves your own line, the same path as any drag. "MY TP DIDN'T FIRE" ⇒ read the leg's own `tp` before anything else.

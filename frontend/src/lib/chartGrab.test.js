@@ -28,3 +28,10 @@ test('a confirmed drag moves the line; the order says whether it is this coin or
   expect(grabOrder({ ...f, kind: 'stop', pct: 17 }).body.leg.sl).toBe(17);    // any whole % in range
   expect(grabOrder({ ...f, kind: 'stop', pct: 4 })).toBeNull(); expect(grabOrder({ ...f, kind: 'stop', pct: 17.5 })).toBeNull();
 });
+
+test('✋ your trade with no line yet shows dim handles to SET one; a line you set replaces it', () => {
+  const { grabLevels } = require('./chartGrab');
+  const g = grabLevels({ tpl: 'degen', entry: 1, ghost: true });
+  expect(g.map(r => [r.kind, r.ghost])).toEqual([['stop', true], ['tp', true]]);
+  expect(grabLevels({ tpl: 'degen', entry: 1, ghost: true, tpPct: 60, slPct: 15 }).some(r => r.ghost)).toBe(false);
+});

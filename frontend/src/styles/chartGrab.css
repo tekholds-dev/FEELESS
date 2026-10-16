@@ -13,3 +13,4 @@ body.theme-day .cgr-row.is-drag .cgr-tab { -webkit-text-fill-color: #fff; }
 @media (prefers-reduced-motion: reduce) { .cgr-tab { transition: none; } }
 body.fx-lite .cgr-tab { transition: none; }
 @media (max-width: 640px) { .cgr-tab { height: 26px; top: -13px; font-size: 11px; } }
+.cgr-row.is-ghost .cgr-tab { opacity: .55; border-style: dashed; } .cgr-row.is-ghost .cgr-line { opacity: .12; } .cgr-row.is-ghost .cgr-tab:hover { opacity: 1; }

@@ -19,8 +19,8 @@ export function ChartGrab({ seriesRef, container, fuse, ratio = 1 }) {
   const up = () => { const d = dragRef.current; dragRef.current = null; const cur = drag; setDrag(null);
     if (d && cur && cur.pct !== d.l.pct) window.dispatchEvent(new CustomEvent('feeless:fuse-level', { detail: { tpl: fuse.tpl, pairAddress: fuse.pairAddress, symbol: fuse.symbol, kind: cur.kind, pct: cur.pct, ...(fuse.src ? { src: fuse.src } : {}) } })); };
   return <div className="cgr" data-testid="chart-grab">{levels.map(l => { const on = drag?.kind === l.kind; const y = on ? yOf(drag.price) : ys[l.kind]; if (y == null) return null; const pct = on ? drag.pct : l.pct;
-    return <div key={l.kind} className={`cgr-row is-${l.kind} ${on ? 'is-drag' : ''}`} style={{ transform: `translateY(${y}px)` }}>
+    return <div key={l.kind} className={`cgr-row is-${l.kind} ${on ? 'is-drag' : ''} ${l.ghost && !on ? 'is-ghost' : ''}`} style={{ transform: `translateY(${y}px)` }}>
       <button type="button" className="cgr-tab" onPointerDown={down(l)} onPointerMove={move} onPointerUp={up} onPointerCancel={up} data-testid={`grab-${l.kind}`} aria-label={`Drag to move the ${l.name}`}
         data-tip={`Grab and drag: ${l.name} ${l.sign > 0 ? '+' : '−'}${l.pct}% ${l.base === 'peak' ? 'off its peak' : 'from entry'} — ${l.scope === 'coin' ? 'this coin only' : 'the card\'s setting (every coin)'}. Moves 1% at a time (${l.min}–${l.max}%). Asks before saving.`}>
-        <i aria-hidden>⠿</i>{l.ic} {l.sign > 0 ? '+' : '−'}{pct}%</button><i className="cgr-line" aria-hidden /></div>; })}</div>;
+        <i aria-hidden>⠿</i>{l.ic} {l.ghost && !on ? `set ${l.kind === 'tp' ? 'take' : 'stop'}` : `${l.sign > 0 ? '+' : '−'}${pct}%`}</button><i className="cgr-line" aria-hidden /></div>; })}</div>;
 }

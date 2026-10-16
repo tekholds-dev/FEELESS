@@ -17,6 +17,8 @@ export function snapLevel(kind, price, base) {
 }
 
 // which lines of this Fuse coin can be grabbed right now: riding → its trail; else its stop + lock (or take-profit when the card has no lock)
+export const GHOST_TP = 50; export const GHOST_SL = 20;   // where a not-yet-set handle waits
+
 export function grabLevels(f) {
   if (!f?.tpl || !(f.entry > 0)) return [];
   const row = (kind, pct, from) => ({ ...GRAB[kind], kind, pct, from, price: priceAt(GRAB[kind], from, pct) });   /* `from` = the price the % counts from (entry, or the peak for a trail) */
@@ -24,6 +26,10 @@ export function grabLevels(f) {
   const out = [];
   if (f.slPct > 0) out.push(row('stop', f.slPct, f.entry));
   if (f.lockPct > 0) out.push(row('lock', f.lockPct, f.entry)); else if (f.tpPct > 0) out.push(row('tp', f.tpPct, f.entry));
+  if (f.ghost) {   // ✋ YOUR trade with no line of yours yet: a dim handle to SET one (nothing acts until you drop it and confirm)
+    if (!(f.slPct > 0)) out.push({ ...row('stop', GHOST_SL, f.entry), ghost: true });
+    if (!(f.tpPct > 0) && !(f.lockPct > 0)) out.push({ ...row('tp', GHOST_TP, f.entry), ghost: true });
+  }
   return out;
 }
 
