@@ -87,3 +87,14 @@ def test_the_desktop_installer_keeps_lm_studio_up_and_pulls_updates_hourly():
     assert 'com.feeless.lankeep' in s and '<key>StartInterval</key><integer>60</integer>' in s   # LM Studio server + model checked every minute
     assert 'server start --port $PORT' in s and 'load "$MODEL"' in s
     assert 'http://10.0.0.104:8765/lan-install' in s and 'FEELESS_NO_RELOAD=1' in s            # hourly self-update re-writes files without reloading itself
+
+
+def test_brave_budget_counts_per_key_per_month_and_resets(tmp_path):
+    import feeless_mcp as m
+    p = tmp_path / 'b.json'
+    for _ in range(3):
+        m.brave_note(0, p, now=0)
+    m.brave_note(1, p, now=0)
+    assert m.brave_budget(p, now=0)['n'] == {'0': 3, '1': 1}
+    assert m.brave_budget(p, now=40 * 86400)['n'] == {}                 # a new month starts at 0
+    assert m.BRAVE_MONTH_CAP < 2000

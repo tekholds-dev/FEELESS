@@ -571,6 +571,31 @@ def brave_keys(env=None):
 
 
 _BRAVE_REST = {}   # key index → resting until (a 429 / quota answer rests that key; the next one takes over)
+BRAVE_MONTH_CAP = 1900   # Brave's free plan ≈ 2,000 searches / month / key: stop at 1,900 so a key never hits the wall mid-month (then the next key, then DuckDuckGo)
+BRAVE_GAP = 1.05         # … and ≤ 1 request a second per key (the free plan's rate)
+_BRAVE_LAST = {}
+
+
+def brave_budget(path=None, now=None):
+    """{'month': 'YYYY-MM', 'n': {key index: searches this month}} — one small file shared by every process that searches (Brain + MCP)."""
+    p = path or (DATA / 'brave_usage.json')
+    m = time.strftime('%Y-%m', time.gmtime(now or time.time()))
+    try:
+        d = json.loads(p.read_text())
+    except (OSError, ValueError):
+        d = {}
+    return d if d.get('month') == m else {'month': m, 'n': {}}
+
+
+def brave_note(i, path=None, now=None):
+    p = path or (DATA / 'brave_usage.json')
+    d = brave_budget(p, now)
+    d['n'][str(i)] = int(d['n'].get(str(i), 0)) + 1
+    try:
+        p.write_text(json.dumps(d))
+    except OSError:
+        pass
+    return d
 
 
 def _search_rows(q, n):
@@ -578,9 +603,14 @@ def _search_rows(q, n):
     Cached 5 min. Rows carry `via` (brave1 / brave2 / ddg)."""
     def go():
         now = time.time()
+        used = brave_budget(now=now)['n']
         for i, key in enumerate(brave_keys()):
-            if _BRAVE_REST.get(i, 0) > now:
+            if _BRAVE_REST.get(i, 0) > now or int(used.get(str(i), 0)) >= BRAVE_MONTH_CAP:
                 continue
+            wait = BRAVE_GAP - (time.time() - _BRAVE_LAST.get(i, 0))
+            if wait > 0:
+                time.sleep(min(wait, BRAVE_GAP))
+            _BRAVE_LAST[i] = time.time(); brave_note(i, now=now)
             try:
                 r = _http().get('https://api.search.brave.com/res/v1/web/search', params={'q': q, 'count': n},
                                 headers={'X-Subscription-Token': key, 'Accept': 'application/json'}, timeout=10)
@@ -593,7 +623,7 @@ def _search_rows(q, n):
             _BRAVE_REST[i] = now + (60 if r.status_code == 429 else 600)
         r = _http().post('https://html.duckduckgo.com/html/', data={'q': q}, timeout=10)
         return [{**x, 'via': 'ddg'} for x in ddg_results(r.text, n)]
-    return _memo('search:' + q + str(n), 300, go)
+    return _memo('search:' + q.lower().strip() + str(n), 21600, go)   # 6h: the same question never spends a second search
 
 
 def _read_many(urls, each=1400):

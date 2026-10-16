@@ -4498,4 +4498,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   directly and it never saw backend/.env (env_loader prints nothing: stdout is the MCP wire).
 - ⚙ Brain chat settings + 🔎 RESEARCH off / quick / deep (2 sources read) · 🎭 VOICE clean / degen / unhinged (`ai_chat.VOICE_LINE` appended to the
   chat system prompt) · 🗄 MEMORY on / cold (owner record + filed memory) — `clean_settings` takes listed values only.
+- 🔎 BRAVE BUDGET (owner: "keys set to not limit per month with Brave's free membership"): the free plan is ≈ 2,000 searches / month / key at 1 a
+  second — FEELESS can't raise that, it spends inside it: `feeless_mcp.BRAVE_MONTH_CAP` 1,900 per key per UTC month (`data/brave_usage.json`,
+  shared by the Brain + the MCP), `BRAVE_GAP` 1.05s per key, the same question cached 6h, then key 2, then DuckDuckGo — search never stops.
+  The LM prompt's FIRST line: a tool call before any text, every turn (`now` at least).
 
