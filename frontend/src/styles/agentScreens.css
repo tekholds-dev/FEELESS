@@ -190,7 +190,6 @@
   
  
 
-@keyframes agsSweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
 @keyframes agsPop { from { opacity: .2; transform: scale(.7); } to { opacity: 1; transform: none; } }
 @keyframes agsStamp { from { opacity: 0; transform: rotate(-8deg) scale(1.8); } to { opacity: 1; transform: rotate(-8deg) scale(1); } }
 @keyframes agsIn { from { opacity: .4; transform: translateY(6px); } to { opacity: 1; transform: none; } }

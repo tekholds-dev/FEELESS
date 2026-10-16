@@ -192,8 +192,6 @@ def verdict(f, scan=None):
 
 
 # 🎛 THE OWNER'S VITAL FILTER (real card cfg `vitalMin` · `organicMin` · `noSerial`; Coming up + every engine door obeys it). Unknown = not judged.
-VITAL_MINS = (0, 35, 50, 65)      # any · D+ · C+ · B+
-ORGANIC_MINS = (0, 5, 10, 20, 30)
 
 
 def filter_why(f, scan=None, cfg=None):

@@ -32,7 +32,6 @@ DATA_DIR.mkdir(exist_ok=True)
 STORE_PATH = DATA_DIR / 'feecats.json'
 
 TICK_SECONDS = 20
-SIGNAL_SYMBOLS = ['BRAIN', 'HOLDSWEET', 'UPTOBER', 'CHUBBY', 'TEXTIT', 'POLAR', 'INU', 'GOONER']
 BRAIN_CATALOG = [
     {'id': 'claude-opus', 'provider': 'Anthropic', 'label': 'Claude Opus 5.5'},
     {'id': 'claude-fable', 'provider': 'Anthropic', 'label': 'Claude Fable 5.1'},

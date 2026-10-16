@@ -10,9 +10,7 @@ let origFetch = null;
 const state = { api: {}, longTasks: 0, longMs: 0, fps: [], errors: 0, slowStreak: 0 };
 
 export const liteMode = () => { try { return localStorage.getItem(LITE_KEY) || ''; } catch { return ''; } };
-// Auto lite is temporary: it is stamped ('auto@<ms>') and expires after AUTO_LITE_MS, and 3 healthy minutes in a row
-// switch it back off. A lite mode the user picked ('on') is never touched.
-const AUTO_LITE_MS = 6 * 3600 * 1000;
+// An old auto lite stamp ('auto@<ms>') may still sit in storage; a lite mode the user picked ('on') is never touched.
 export const isAutoLite = m => String(m || '').startsWith('auto');
 export function setLite(mode) {
   try { if (mode) localStorage.setItem(LITE_KEY, mode); else localStorage.removeItem(LITE_KEY); } catch { /* private mode */ }

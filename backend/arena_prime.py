@@ -103,7 +103,6 @@ def step_ok(key, v):
         return False
 KEEP_WINS = (0, 5, 10, 20)   # 🛡 a coin up ≥ this % (or ❄ frozen) is CARRIED into the next shape — a re-shape never sells a winner (0 = off)   # ⚙ Edit Fuse: ❄ freeze a coin running +X% · ⇄ swap it −Y% from its peak   # 🏇 ride a runner from +150%, sell only when it falls 30% from its new high
 HOLD_MIN = 80.0      # 🏇 a held coin must stay ≥ +80% (a whole round ≥ +80% also earns a hold); under it → swapped
-MIN_CYCLE_COINS = 3  # every cycle shape holds at least 3 coins (else the card keeps its current coins)
 STREAK = 3
 STREAK_PCT = 3.0   # only a REAL round counts toward a streak: ±0.04% noise on 5-min rounds used to trip the safe fix every 15 min
 ADAPT_RED = 3.0   # adaptive: only a round at or below −3% rests in majors (−0.04% noise used to park the card in majors)

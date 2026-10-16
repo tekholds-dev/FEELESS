@@ -1,9 +1,8 @@
 """🧬 The SHADOW record of a replaced generation (Reaper's price rules replayed with the old and the new lesson on the same real exits).
 
-The lifecycle itself — ONE book, ONE rule for all ten roles — lives in trench_kernel/lifecycle.py; `improve`, `failure_causes` and
-`CAUSE_PATCH` are re-exported from it here for older callers. Pure + tested (`tests/test_generations.py`).
+The lifecycle itself — ONE book, ONE rule for all ten roles — lives in trench_kernel/lifecycle.py; `improve` is used from it here. Pure + tested (`tests/test_generations.py`).
 """
-from trench_kernel.lifecycle import CAUSE_PATCH, SHADOW_SEC, STATUSES, improve as _improve   # noqa: F401
+from trench_kernel.lifecycle import improve as _improve
 
 SHADOW_MIN_N = 5              # real closed positions after the switch before the shadow record says anything
 

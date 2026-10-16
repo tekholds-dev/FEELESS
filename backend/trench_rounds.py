@@ -18,7 +18,6 @@ REJECT_SEC = 1800.0       # … a REJECT 30 min, unless something material chang
 ENTER_TTL = ROUND_SEC     # an ENTER not seated within one round lapses to COOLDOWN
 WAKE_PX = 5.0             # a ≥ 5% price move since the last read, a tier upgrade or a scan landing wakes a cooled coin into a new round 1
 AVOID = ('LATE FOMO', 'DISTRIBUTION', 'COLLAPSE')
-PREFER = ('EARLY ACCELERATION', 'FIRST PULLBACK', 'RECLAIM', 'BREAKOUT')
 HIST_KEEP = 400
 PENDING = ('holders not read yet', 'no live price')   # not a NO yet: a newborn's holder scan / price is still coming — it keeps its rounds
 TIER_RANK = {'A': 3, 'B': 2, 'C': 1}

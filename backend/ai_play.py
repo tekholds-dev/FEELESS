@@ -110,7 +110,6 @@ def decide(items, pid, approve, now=None):
     return out, hit
 
 
-UI_TARGETS = ('cockpit', 'home')
 CSP = ("<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; "
        "script-src 'unsafe-inline'; font-src data:\">")
 

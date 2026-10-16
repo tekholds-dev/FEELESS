@@ -448,9 +448,6 @@ def near_bond(c, cfg=None):
     return bond_tier(c, cfg) == 'run'
 
 
-BOND_PTS = DEFAULT_CFG['bondPts']
-
-
 def score(c, cfg=None):
     """0–100 with the reason for every part (shown on the board)."""
     mom = max(0.0, min(30.0, c['chg1h'] / 10))                                   # +300%/h → 30

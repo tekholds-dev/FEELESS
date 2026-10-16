@@ -188,10 +188,6 @@ body.reduced-motion-setting .ambient-background * {
 .custom-scroll::-webkit-scrollbar-thumb { background: rgba(20,241,149,0.2); border-radius: 3px; }
 .custom-scroll::-webkit-scrollbar-thumb:hover { background: rgba(20,241,149,0.4); }
 
-@keyframes slideIn {
-  from { transform: translateX(20px); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
-}
 
 button, a { transition: background-color .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease, transform .2s ease; }
 

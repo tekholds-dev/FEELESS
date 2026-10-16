@@ -942,9 +942,6 @@ def collect_pct(r, y):
     return round(min(100.0, max(0.0, (held - base) / held * 100)), 1) if held > 0 and held > base else 0.0
 
 
-ROTATE_EVERY = 24 * 3600   # a trader card may switch ONE pool/coin per 24h (top-ups / rebalances don't count); staff exempt
-
-
 ROTATE_OPTIONS = (5 / 60, 0.25, 1, 6, 12, 24)   # hours between switch-ins: 5m · 15m · 1h · 6h · 12h · 24h (owner's pick per card; default 24)
 
 

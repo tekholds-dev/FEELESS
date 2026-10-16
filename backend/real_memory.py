@@ -17,7 +17,6 @@ MIN_N = 4            # a bucket needs this many real trades before it says anyth
 SHRINK_K = 6         # shrink each bucket toward the typical trade by this many pseudo-trades
 VETO_BELOW = 3.0     # estimate ≥ 3 points WORSE than the card's typical real trade = not bought (a bucket every coin falls into carries the typical result: never a veto)
 CAP = 100.0          # a result is capped at ±100% (a drained-pool valuation once read +68,986,873%)
-PROOF_SPLIT = 0.6
 PROOF_TAKE = 10
 PROOF_EDGE = 2.0
 

@@ -32,10 +32,10 @@ import trench_mind as _tm
 import chart_intel as _ci
 import trench_kernel.senses as _sn
 from trench_kernel.universe import GRADUATE_X, real_phase, underwater   # noqa: F401 (the real-money phase rule is the kernel's)
-from trench_kernel.positions import TRUST_N, card_seats, trusted   # noqa: F401 (seat display + the trust rule are the kernel's)
+from trench_kernel.positions import trusted   # noqa: F401 (seat display + the trust rule are the kernel's)
 from trench_kernel.senses import SOURCES, SERIES_N, SERIES_COINS, FIRST_KEEP, _f, _med, tally, first_seen   # noqa: F401 (the tape is the kernel's; re-exported for the paper record + old tests)
 from trench_kernel.universe import (   # noqa: F401 (the universe is the kernel's; re-exported for the paper record + old tests)
-    AGENT_TAKES, DRAIN_PULL, AGENT_MODES, AGENT_SEATS, is_agent, CONTROL_HOLD_MIN, CONTROL_MOVES_HR, FILL_MOVES_HR, CONTROL_MIN_LIQ, AGENT_MIN_AGES, AGE_STAGES, min_age_of, stage_of, AGENT_MAX_MCAP, MC_BANDS, under_cap, trench_band, AGENT_MIN_MCAP, AGENT_MAX_AGE_H, AGENT_MIN_VOL1H, AGENT_TOP10, AGENT_INSIDERS, AGENT_BUNDLED, AGENT_DEV, CONC_GATES, agent_holder_pass, in_lane, _majors, LANE_CAPS, LANE_NEED, lane_cap, lane_step, ESTABLISHED_H, ESTABLISHED_LIQ, CONCENTRATION_FAILS, established)
+    AGENT_TAKES, AGENT_MODES, AGENT_SEATS, CONTROL_HOLD_MIN, CONTROL_MOVES_HR, FILL_MOVES_HR, CONTROL_MIN_LIQ, stage_of, AGENT_MAX_MCAP, trench_band, AGENT_MIN_MCAP, agent_holder_pass, in_lane, LANE_CAPS, lane_cap, lane_step, ESTABLISHED_H, ESTABLISHED_LIQ, established)
 
 
 # 📜 THE CREED — engraved: the service, the engine and the HQ tab all read these lines; the hard ones are enforced in code, not trusted.
@@ -64,14 +64,6 @@ def regime(nums):
         return {'green': None, 'word': 'unknown', 'adj': 0.0}
     g = round(sum(1 for x in ds if x > 0) / len(ds) * 100)
     return {'green': g, 'word': 'cold' if g < 35 else 'hot' if g > 65 else 'normal', 'adj': 0.5 if g < 35 else -0.25 if g > 65 else 0.0}   # probation from 30 judged calls of a life, scrapped at 60 if still under 45% right
-
-
-
-
-
-
-
-
 
 
 def burn(state, now):
@@ -157,16 +149,6 @@ def word(k):
         return f'the {lab} narrative'
     return WORDS.get(k, k)
 BUSTED = {'BOND RUN', 'EARLY RUSH', 'RUG BAIT', 'DUMPING', 'SLOW CURVE', 'BREAKOUT', 'FALLING KNIFE', 'WASH TRADED', 'BLOW-OFF TOP', 'DEAD DIP', 'TREND DOWN'}
-
-
-
-
-
-
-
-
-
-
 
 
 # ── 🔍 SHERLOCK ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -711,16 +693,6 @@ def learn(state, h=5):
             'avoid': {i: v['pair'] for i, v in ideas_.items() if v.get('status') == 'approved' and v.get('kind') == 'avoid'}}
 
 
-
-
-
-
-
-
-
-
-
-
 def stage(state):
     """The timeframe the desk is on: 5 until it is conquered (team GO ≥ PROVE_N judged, median > 0, ≥ PROVE_WIN % won), then 15, then 60."""
     for h in STAGES:
@@ -1015,8 +987,6 @@ def objections(state, hours=24, now=0.0):
     return sorted(out, key=lambda x: -x['n'])
 
 
-
-
 def proof(state, real=None):
     """🏆 PROVE IT — wins and losses, not words: every GO the team made on paper (5-min result) and every coin that left a real seat the
     creator allowed (the card's own ledger). `last` = newest first, for the win / loss pips."""
@@ -1026,18 +996,6 @@ def proof(state, real=None):
                          'best': round(max(pcts), 1) if pcts else None, 'worst': round(min(pcts), 1) if pcts else None, 'last': [round(x, 1) for x in pcts[-16:]][::-1]}
     r = real or {}
     return {'paper': {**side(ps), 'syms': [d.get('sym') for d in gos[-16:]][::-1]}, 'card': side(list(r.get('last') or [])), 'suggested': side(list((r.get('suggested') or {}).get('last') or []))}
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # ── 💡 IDEAS — the desk proposes tactics from its own record; the creator approves or rejects ──────────────────────────────────────
@@ -1096,45 +1054,6 @@ def review(state, iid, action):
     return st
 
 
-
-
-
-
-
-
-DUTY_SEC = 600             # 🕙 in control they put their best CLEARED coin on the card every 10 minutes (owner, 2026-10-10)
-DUTY_ROTATE_MIN = 30       # … a coin that is not winning may give its seat to a stronger read only after 30 min
-DUTY_EDGE = 1.0            # … and only when the new coin's lean beats its own by this much
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def view_rows(table, top=24, young=24, young_h=6.0):
     """The board the tab shows: the top `top` by verdict + lean, then the `young` NEWEST launches (≤ young_h) the desk read this pass
     that are not already in it — every new coin the agents looked at is on screen, not only the strongest reads."""
@@ -1143,16 +1062,6 @@ def view_rows(table, top=24, young=24, young_h=6.0):
     kids = [x for x in table or [] if x.get('mint') not in seen and ((x.get('vitals') or {}).get('ageH') is not None) and _f(x['vitals']['ageH']) <= young_h]
     kids.sort(key=lambda x: _f((x.get('vitals') or {}).get('ageH')))
     return head + kids[:young]
-
-
-
-
-
-
-
-
-
-
 
 
 def tasks(state, table, now):

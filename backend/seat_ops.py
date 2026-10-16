@@ -11,7 +11,6 @@ function here ranks, labels or explains something the existing path (Trigger →
   seat_board      what each seat is doing THIS cycle: result · decided-at · market-input-at · velocity · score · best challenger · margin
   summary         OCCUPANCY x/4 · TARGET · BENCH · BUYS USED / LEFT · CASH
 """
-import paper_desk as _pd   # 📝 the OFFLINE practice record (graded paper calls) — it has no live authority
 import trench_kernel.universe as _uni
 import trench_kernel.senses as _sn
 

@@ -824,7 +824,6 @@ def reinvest_bank(book):
     return b, round(amt, 9)
 
 
-MIN_REBUY_USD = 0.5
 LEFTOVER_MIN_USD = 0.15   # a coin waiting on the card's last SOL may buy down to this
 
 

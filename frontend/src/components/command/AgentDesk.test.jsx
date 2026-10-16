@@ -2,7 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
 import { GenPods } from './LifeLens';
-import { AgentDesk, agentLine, rowState, rowWhy, pipsOf, rankFill, boardRows, boardCounts, passLeft, liCells } from './AgentDesk';
+import { AgentDesk, rowState, rowWhy, pipsOf, rankFill, boardRows, boardCounts, passLeft, liCells } from './AgentDesk';
 import { devilOf, VERD } from '../../lib/agentRead';
 import office from './__fixtures__/office.json';
 jest.mock('../terminal/PriceChart', () => ({ PriceChart: () => <div data-testid="price-chart" /> }));   // the live chart needs a canvas
@@ -71,7 +71,6 @@ test('the Agents tab shows the KERNEL\'s decision on every coin; the practice de
   expect(call).toHaveBeenCalledWith('/admin/agents', expect.objectContaining({ body: JSON.stringify({ cfg: { agentMode: 'swap' } }) }));
   await act(async () => { q('agc-control-on').click(); });
   expect(call).toHaveBeenCalledWith('/admin/agents', expect.objectContaining({ body: JSON.stringify({ cfg: { agentControl: true } }) }));
-  expect(agentLine({ n: 4, med: -2, right: 50 })).toBe('4 judged · -2.0% typical at 5 min · 50% right');
 });
 
 test('the desk is interactive: the old lenses are panes in the cockpit nav, mounted only while open; the board filters by the kernel\'s state', async () => {

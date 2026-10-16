@@ -280,10 +280,6 @@ def seat_state(ctx):
     return out('NO VALID ENTRY', rest[0], rest[1])
 
 
-
-
-
-
 # ── 🧮 THE HOURLY BUY BUDGET COUNTS REAL BUYS ──────────────────────────────────────────────────────────────────────────────────────
 BUY_LAND_SEC = 180     # a seat filled this recently may still be landing its buy: it counts until the ledger says otherwise
 
@@ -324,11 +320,6 @@ def real_buys(events, ledger, card, now, window=3600.0, moves=('fill', 'swap')):
 
 
 NEAR_PATIENCE_SEC = 10       # a seat empty this long with NOTHING cleared takes the best near-ready coin (owner: "30 secs to choose") …
-NEAR_MIN_ENTRY = 50.0        # 🎯 … AND an entry score (opportunity.score) of at least B-tier — never 'the least bad coin'
-NEAR_MIN_SCORE = 15.0        # … scoring at least this (seat_ops.score WITHOUT its phase tilt — the tilt orders coins, it never keeps a seat empty) …
-NEAR_SOFT = ('chart', 'data')   # … whose ONLY open checks are the entry moment / ENTER-grade data — every safety check passed
-
-
 
 
 def cycle_due(pol, last_at, now):
@@ -336,8 +327,6 @@ def cycle_due(pol, last_at, now):
     look for a fill, held seats are compared with the best cleared challenger (`switch_test`). A due cycle is a DECISION (keep · protect ·
     take · exit · switch · fill · cash), never a forced trade: the superiority test, the Warden and the hourly buy budget still decide."""
     return _f(now) - _f(last_at) >= max(30.0, _f((pol or {}).get('seatTarget') or SEAT_TARGET_AUTO))
-
-
 
 
 # ── 🚀 LAUNCH CONTEXT: only what is measurable ───────────────────────────────────────────────────────────────────────────────────
@@ -735,13 +724,6 @@ def intake(rows, recheck=(), listed=None, cap=INTAKE_MAX, cool=(), fresh=None, o
     return [{**r, 'intake': tags[r['mint']]} for r in out]
 
 
-SCAN_TIERS = ('near entry, only the holder scan missing', 'blocked only on holder data', 'fresh launch with strong tape + pool', 'challenger near the switch line', 'expired scan recheck', 'positive read')
-
-
-
-
-
-
 SEAT_ACTIONS = ('HOLD', 'REVIEW', 'CHALLENGER FOUND', 'SWITCHING', 'TAKE / EXIT', 'FILLING', 'CASH — NO VALID ENTRY')
 
 
@@ -800,11 +782,6 @@ def cycle_view(intake_, table, cases, charts, first, now, last_at, every, n_cycl
 
 # ── ⚡ LIVE CHECK: a case file keeps its thesis; the decision reads the NEWEST shared market state ──────────────────────────────────
 LIVE_CHASE, LIVE_FALL = 15.0, -8.0   # since the case was read: up more than this = chasing, down more than this = falling (Trigger's own hard lines)
-# 🚫 entries the chart itself refused, bought anyway by the best-available / ranked doors — the real card's record (2026-10-11, 173 agent exits):
-# E2 "no chasing" n10 median −16.8% · E3 "too violent, no stop fits" n16 median −13.2% = 11 of the 26 stop-outs; ENTER NOW entries ≈ flat
-LOSING_ENTRIES = ('E2', 'E3')
-
-
 
 
 def freshness(now, price_at=(), tape_at=(), candle_at=(), liq_at=None, input_at=None, decision_at=None):
@@ -936,7 +913,6 @@ def candle_order(rows, deep=None, held=None):
             out[m] = pa
     out.update(hd)
     return out
-
 
 
 INDEX_FIELDS = ('mint', 'symbol', 'firstSeen', 'lastSeen', 'launchAgeMin', 'fresh', 'liveMC', 'liquidity', 'vol5m', 'volVelocity', 'buyerVelocity', 'sources', 'launchpad',

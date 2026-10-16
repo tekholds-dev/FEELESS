@@ -122,7 +122,6 @@ BUCKETS = BUCKETS + (
     ('SPLIT:MODEL-EARLY', 'model said EARLY, the engine said LATE', lambda c: ph_group(c.get('phase')) == 'EARLY' and ph_group(c.get('ephase')) == 'LATE'),
     ('SRC:LOCAL', 'the local model', lambda c: c.get('src') == 'local'),
     ('SRC:CLOUD', 'a cloud model', lambda c: c.get('src') == 'cloud'))
-BUCKET_LABEL = {k: lab for k, lab, _t in BUCKETS}
 
 
 def chart_line(vrec):

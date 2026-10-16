@@ -8648,7 +8648,6 @@ def _smart_on(mint):
     return hits if time.time() - at < 600 else []
 
 
-
 import real_learn as _rl
 REAL_LEARN_PATH = FUSE_HQ_PATH.parent / 'real_learn.json'   # 🧠 every coin that left the real card: its buy snapshot → how it ended
 _rl_cache = {'at': 0.0, 'tbl': {}}
@@ -11541,7 +11540,6 @@ JUP_LANE_REST = 8.0          # a lane that answered 429 rests this long (or its 
 _FW_JUP_PACE = {'lock': None, 'next': {}, 'rest': {}}
 
 
-JUP_KEY_ENVS = ('JUPITER_API_KEY', 'JUPITER_API_KEY_2', 'JUPITER_API_KEY_3', 'JUPITER_API_KEY_4', 'JUPITER_API_KEY_5', 'JUPITER_API_KEY_6')
 _JUP_KEY_N: dict = {}   # key → its lane number (1 = the first key: its pacing slot keeps the plain base name)
 
 
@@ -16656,8 +16654,6 @@ def _office_vels(cur, px, now):
     return out
 
 
-
-
 _wake: dict = {'pos': {}, 'candAt': 0.0, 'log': [], 'n': 0, 'candN': 0}
 
 
@@ -16856,7 +16852,6 @@ def _intake_view(now):
             'note': 'every outlet is an existing FEELESS stream; a source\'s record is context — every coin still earns its own decision'}
 
 
-
 def _office_seat_payload():
     """🪑 The four-seat model for the page (memory only): every seat this cycle, the ranked bench, the summary line, each held / benched
     coin's score parts, every held seat's switch test, the newest cycle lines and the research packets' last job."""
@@ -16988,8 +16983,6 @@ async def _research_tick(cases, rows_by, now):
     finally:
         _social['busy'] = False
     return n
-
-
 
 
 def _seat_wake_maybe(now, why=''):

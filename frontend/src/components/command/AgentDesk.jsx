@@ -135,7 +135,6 @@ export function Edge({ d }) {
     {Object.keys(cal).length ? <ul className="agd-bars">{Object.entries(cal).map(([b, v]) => <li key={b}><span>lean {b}</span><DivBar v={v.med} /><em className={tone(v.med)}>{pct(v.med)}</em><small>{v.won}% up · n {v.n}</small></li>)}</ul> : <small className="m-dim">no ENTER judged yet</small>}
     <small className="m-dim">🌡 trench {rg ? `${rg.word}${rg.green != null ? ` (${rg.green}% green over 5 min)` : ''} → Trigger's bar ${rg.adj > 0 ? '+' : ''}${rg.adj}` : '—'} · 🔥 {d?.burned || 0} coin{d?.burned === 1 ? '' : 's'} burned (6h) · 🕸 {Object.keys(d?.cut || {}).length ? `budget cut: ${Object.keys(d.cut).join(', ')}` : 'no source cut yet'}</small></div>;
 }
-export const agentLine = a => (a.n ? `${a.n} judged · ${pct(a.med)} typical at 5 min${a.right != null ? ` · ${a.right}% right` : ''}` : 'no judged calls yet — every call is checked 5 minutes later');
 
 // ⏱ THE PASS CLOCK — one pass a minute: how old the last one is, a bar filling to the next, and a re-read the moment it is due.
 export const passLeft = (at, now, every = 60) => { if (!at) return null; const a = Math.max(0, now - at); return { age: Math.round(a), left: Math.max(0, Math.round(every - a)), frac: Math.min(1, a / every) }; };

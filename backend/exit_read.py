@@ -29,7 +29,6 @@ KEEP = 400
 CALLS = ('RIDE', 'TIGHTEN', 'WIDEN')
 WIDEN = 1.4          # a proven WIDEN: the stop gets 40% more room …
 WIDEN_MAX = 35.0     # … never past this (the −45% catastrophic line stays under it)
-TIGHT = 0.6            # a proven TIGHTEN: the trail gives back 60% of what it would (the same factor as a reversing P/L)
 ASK = ("This coin is HELD by the desk (`pct` now, `peak` = best % since entry, `heldMin`). Read the tape, flow and chart: is this run still "
        "being bought, or is it fading / distributing? Put HOLD in `call` when buyers still carry it, PROTECT or EXIT when it is fading "
        "(confidence_delta −0.25 = clearly fading). Never advise buying more. summary = the one sign you read.")

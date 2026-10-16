@@ -336,7 +336,6 @@ def courier(ledger, book, now, card=None, office=None):
 NEAR_SIZE = 1.0   # 🪑 W19: a best-available / seat-floor fill takes a FULL equal seat (owner, 2026-10-11: "use all card cash") — was 0.5
 
 
-OPEN_RULES = ('W1', 'W3', 'W17')   # ⚡ open mode: execution health · pool share · each open seat its share of the cash
 COST_MAX_PCT = 5.0   # 💸 W22: a seat whose measured round-trip drag (sell-back loss + 2× network fee ÷ size) is over this is not bought
 
 
@@ -820,7 +819,6 @@ SCALE_PCT = 75.0   # 2026-10-15: 50% left too much on the table for rugs after t
 # decision"): on a coin whose SL / TP you dragged, every discretionary exit (trail, thesis, time, flow banks, scale-out, dead coin …) becomes a
 # QUESTION with its reason — the seat is held until you ✅ approve (the next tick sells) or ✋ keep your line (that rule is quiet 10 min).
 # Hard safety exits never wait: pool collapse, scan / rug / drain / early-wallet dumps, the −45% line, your own stop and the creator overrides.
-ASK_HARD = ('R1', 'R2', 'R3', 'R4', 'R4r', 'R4d', 'R4e', 'R5', 'R5x', 'R5c', 'R9c')
 # ✋ YOUR COIN IS YOURS (owner, 2026-10-15: "they sold one of my entries … im tryna teach them"): on a coin YOU picked or put your lines on,
 # ONLY these may sell without asking — a pulled pool (R1), the catastrophic −45% (R5x), your creator limits (R5c / R9c) and your OWN stop /
 # take (R5 / R6, only when the line is yours). Every other rule — dump reads, rug radar, drain, scans, trails, thesis — becomes a question.
@@ -1402,10 +1400,6 @@ def scan_status(safe, inflight=False, failed_at=0.0, scanned_at=0.0, now=0.0, tt
     return 'REQUESTED'
 
 
-
-
-
-
 def devil_record(state, hours=72, now=0.0):
     """⚖ Every objection TYPE with its own history: how often it was raised and what those coins did 5 minutes later (saved = flat or
     down). Old calls without a stored rule id are read from their text. → [{rule, hard, n, med, saved}]"""
@@ -1701,12 +1695,6 @@ def judge_candidates(office, arch, cfg, scalp, now, after=None):
     return o
 
 
-
-
-
-
-
-
 # ── the live pipeline + the one payload the page reads ─────────────────────────────────────────────────────────────────────────────
 # 🎯 ONE mission, ten different jobs: each desk answers ONLY its own question (they may disagree — nobody is folded into one score).
 TEAM_GOAL = ('SURVIVE', 'PROTECT REAL CAPITAL', 'GET TO BREAKEVEN', 'BUILD TO 2× PUT-IN', 'THEN UNLOCK THE NEXT STAGE')
@@ -1727,12 +1715,6 @@ JOBS = _frozen({
 STAGE_STATES = ('WAITING', 'WORKING', 'PASS', 'OBJECT', 'VETO', 'DONE', 'ERROR', 'STALE')
 
 
-
-
-
-
-
-
 def evidence_refs(packet):
     """🧾 The proof a decision stood on, kept WITH the decision (never only a prose summary): the research packet's time, the mint match with
     the exact launch mint, the address the source showed and its URL, the narrative with the sources that support it, identity confidence,
@@ -1744,8 +1726,6 @@ def evidence_refs(packet):
     return {'at': p.get('at'), 'mintMatch': cc.get('mintMatch'), 'launchMint': cc.get('launchMint') or p.get('mint'), 'sourceMint': cc.get('sourceMint'), 'sourceUrl': cc.get('sourceUrl'),
             'conflict': bool(cc.get('conflict')), 'identity': cc.get('confidence'), 'narrative': nar.get('class'), 'narrativeSources': [s_.get('url') or s_.get('source') for s_ in nar.get('sources') or []][:4],
             'legal': lg.get('level'), 'items': [[e.get('kind'), e.get('status'), e.get('url')] for e in p.get('evidence') or []]}
-
-
 
 
 def contribution(state, arch, office, courier_=None, real=None, money=None):

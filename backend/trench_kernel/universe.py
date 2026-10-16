@@ -187,11 +187,6 @@ def trench_band(mc):
     return None
 
 
-
-
-AGENT_MAX_AGE_H = 6.0          # 🕐 a KNOWN launch age ≤ 6h for a new entry (unknown age is not eligible; held coins keep running)
-
-
 AGENT_MIN_VOL1H = 1_000.0      # … with real volume (≥ $1K traded in the last hour); no other starting minimum
 
 
