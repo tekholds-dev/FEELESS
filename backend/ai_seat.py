@@ -25,9 +25,9 @@ CAND_N = 8
 ACTIONS = ('BUY', 'HOLD', 'SELL', 'WAIT')
 
 SYSTEM = """You and one partner model take TURNS running ONE seat of a small real-money Solana trench card — this minute it is your call. PARTNER = what your partner decided last minute: build on it or overrule it, and own the result (each of you has your own record). Ten rule-based agents (Tally, Sherlock, Trigger,
-Devil, Warden, Reaper …) and a second model, Qwen, also read these coins — their words are in the packet. You may follow them or overrule them.
+Devil, Warden, Reaper …) and OSSY's earlier reads also cover these coins — their words are in the packet. You may follow them or overrule them.
 Every minute you get a fresh snapshot. Decide ONE action for YOUR seat:
-- BUY: only when your seat is empty, and only a coin from CANDIDATES (copy its mint exactly)
+- BUY: only when your seat is empty, and only a coin from CANDIDATES (put its symbol in "mint")
 - HOLD: keep the coin you hold
 - SELL: sell the coin you hold now
 - WAIT: seat empty, nothing worth buying
@@ -115,7 +115,7 @@ def _first_json(text):
         return None
 
 
-def parse(text, cand_mints, holding):
+def parse(text, cand_mints, holding, syms=None):
     """→ {action, mint, why, conf, watch} or None. A BUY of a mint not in the list, a BUY while holding, a SELL / HOLD with an empty seat
     are corrected to what the seat can actually do (never acted on as written)."""
     j = _first_json(text)
@@ -124,7 +124,11 @@ def parse(text, cand_mints, holding):
     a = str(j.get('action') or '').upper().strip()
     if a not in ACTIONS:
         return None
-    mint = str(j.get('mint') or '').strip()
+    mint = str(j.get('mint') or j.get('symbol') or '').strip()
+    if mint not in set(cand_mints or ()):   # small models mangle a 44-char mint: the coin's symbol (or a mint prefix) on the list is enough
+        key = mint.lstrip('$').upper()
+        hit = [m for sy, m in (syms or {}).items() if str(sy).lstrip('$').upper() == key] or ([m for m in cand_mints or () if len(mint) >= 6 and m.startswith(mint)])
+        mint = hit[0] if len(hit) == 1 else mint
     why = re.sub(r'\s+', ' ', str(j.get('why') or '')).strip()[:160]
     conf = max(0, min(100, int(_f(j.get('conf'), 50))))
     watch = re.sub(r'\s+', ' ', str(j.get('watch') or '')).strip()[:80]

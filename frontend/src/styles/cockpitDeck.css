@@ -162,3 +162,6 @@ body.theme-day .cca.is-done { background: #0d7a41; color: #fff; }
 @keyframes ackWarm { 0%, 100% { opacity: .35; transform: scale(.8); } 50% { opacity: 1; transform: none; } }
 body.fx-lite .ack-warm i { animation: none; } @media (prefers-reduced-motion: reduce) { .ack-warm i { animation: none; } }
 body.theme-day .ack-warm { border-color: rgba(13, 122, 65, .3); }
+
+/* ⚡ Live desk = G4 × OSSY + the ten agents + the decision feed in one pane */
+.ack-livedesk { display: grid; gap: 10px; min-width: 0; }

@@ -13803,7 +13803,7 @@ async def _g4_tick(now, env, cfg):
         t0_ = time.perf_counter()
         r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Your minute snapshot. Decide.', context=pk_, role='exit', urgency='force', only=(first_, second_), system=_seat.SYSTEM, only_system=True)
         by_m = r_.get('source') if r_.get('source') in (first_, second_) else first_
-        dec_ = _seat.parse(r_.get('text'), [c_['mint'] for c_ in cands_], bool(held_))
+        dec_ = _seat.parse(r_.get('text'), [c_['mint'] for c_ in cands_], bool(held_), {c_.get('symbol'): c_['mint'] for c_ in cands_ if c_.get('symbol')})
         ms_ = round((time.perf_counter() - t0_) * 1000)
         by_ = {c_['mint']: c_ for c_ in cands_}
         ev_ = None
@@ -13812,7 +13812,7 @@ async def _g4_tick(now, env, cfg):
         elif dec_ and mode_ == 'real' and dec_['action'] in ('BUY', 'SELL'):
             _g4['want'] = {**dec_, 'at': now, 'pair': (by_.get(dec_['mint']) or {}).get('pair') if dec_['action'] == 'BUY' else (leg_ or {}).get('pairAddress')}
         focus_ = by_.get((dec_ or {}).get('mint')) if (dec_ or {}).get('action') == 'BUY' else None
-        row_ = {'at': round(now), 'mode': mode_, 'model': r_.get('label') or r_.get('source'), 'by': by_m if dec_ else None, 'ms': ms_,
+        row_ = {'at': round(now), 'mode': mode_, 'model': _air.model_name(env, by_m), 'by': by_m if dec_ else None, 'ms': ms_,
                 'action': (dec_ or {}).get('action') or 'NO ANSWER', 'why': (dec_ or {}).get('why') or str(r_.get('why') or 'the model did not answer')[:160],
                 'conf': (dec_ or {}).get('conf'), 'watch': (dec_ or {}).get('watch'), 'symbol': (focus_ or {}).get('symbol') or (held_ or {}).get('symbol'),
                 'mint': (focus_ or {}).get('mint') or (held_ or {}).get('mint'), 'pct': (held_ or {}).get('pct'), 'heldMin': (held_ or {}).get('heldMin'),
@@ -17707,9 +17707,24 @@ AGENTS_PAGE_SEC = 2
 _agents_page: dict = {'key': None, 'body': b'{}'}
 
 
+def _duo_view(env=None):
+    """🔁 The G4 × OSSY seat for the Agents tab (small: mode, whose turn, each model's record, the open paper seat, the last 8 calls)."""
+    try:
+        st_ = _g4_state()
+        env = env or os.environ
+        nm = lambda k: _air.model_name(env, k)
+        first_, _s = _seat.turn(st_['log'], _duet.LEAD, _duet.SECOND)
+        return {'mode': _oe.clean_policy(_prime_real_cfg())['agentAiSeat'], 'next': nm(first_), 'at': st_['at'], 'busy': _g4['busy'],
+                'rec': {nm(k): v for k, v in _seat.by_model((st_['book'] or {}).get('closed')).items() if k in (_duet.LEAD, _duet.SECOND)},
+                'open': (st_['book'] or {}).get('open'),
+                'log': [{k: r.get(k) for k in ('at', 'model', 'action', 'symbol', 'why', 'conf', 'pct', 'ms')} for r in st_['log'][-8:][::-1]]}
+    except Exception as e:
+        return {'mode': 'off', 'err': str(e)[:80]}
+
+
 def _agents_page_dict(snap):
     off = snap.get('office')
-    return {**snap, 'table': [{k: v for k, v in r.items() if k not in AGENTS_ROW_DROP} if isinstance(r, dict) else r for r in snap.get('table') or []],
+    return {**snap, 'duo': _duo_view(), 'table': [{k: v for k, v in r.items() if k not in AGENTS_ROW_DROP} if isinstance(r, dict) else r for r in snap.get('table') or []],
             'office': {k: v for k, v in off.items() if k not in AGENTS_PAGE_DROP} if isinstance(off, dict) else off}
 
 

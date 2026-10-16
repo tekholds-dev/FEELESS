@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { openCoin } from '../CoinDrawer';
 import '../../styles/aiActivity.css';
 
-const KINDS = [['all', 'All'], ['g4', '🧠 G4 seat'], ['read', '🔍 Reads'], ['proposal', '🛠 Fixes'], ['decision', '✅ Your calls'], ['play', '🧪 Made'], ['lane', '🖥 Lane']];
+const KINDS = [['all', 'All'], ['g4', '🔁 G4 × OSSY'], ['read', '🔍 Reads'], ['proposal', '🛠 Fixes'], ['decision', '✅ Your calls'], ['play', '🧪 Made'], ['lane', '🖥 Lane']];
 const ago = at => { const s = Math.max(0, Math.round(Date.now() / 1000 - at)); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
 // pure: how many things happened in each 5-minute slot of the last hour (the pulse bar)
 export function pulse(items, now = Date.now() / 1000) {
@@ -20,9 +20,9 @@ export function G4Card({ g }) {
   if (!g || g.mode === 'off') return null;
   const last = (g.log || [])[0];
   return <div className={`cac-g4 is-${g.mode}`} data-testid="g4-seat">
-    <div className="cac-g4h"><b><i className="cac-g4dot" aria-hidden="true" />🧠 G4 SEAT · {String(g.mode).toUpperCase()}</b>
+    <div className="cac-g4h"><b><i className="cac-g4dot" aria-hidden="true" />🔁 G4 × OSSY SEAT · {String(g.mode).toUpperCase()}</b>
       <span data-tip="paper = at live prices, after a 1.5% swap cost both ways">📄 {recWord(g.paper)}</span><span data-tip="real closed trades from the card's archive">💵 {recWord(g.real)}</span></div>
-    {Object.keys(g.byModel || {}).length ? <p className="cac-g4o" data-testid="g4-by-model">🔁 tag team · {Object.entries(g.byModel).map(([k, r]) => `${k === 'lan' ? 'G4' : k === 'local' ? 'Mac' : k}: ${recWord(r)}`).join(' · ')}</p> : null}
+    {Object.keys(g.byModel || {}).length ? <p className="cac-g4o" data-testid="g4-by-model">🔁 tag team · {Object.entries(g.byModel).map(([k, r]) => `${k === 'lan' ? 'G4' : k === 'local' ? 'OSSY' : k}: ${recWord(r)}`).join(' · ')}</p> : null}
     {g.open ? <p className="cac-g4o">holding ${g.open.symbol} (paper) since {ago(g.open.at)} ago · peak {Number(g.open.peak || 0).toFixed(1)}%</p> : null}
     {last ? <p className="cac-g4l"><em className={`is-${String(last.action).toLowerCase()}`}>{last.action}</em>{last.symbol ? ` $${last.symbol}` : ''} — {last.why}
       {last.watch ? <small> · sells if: {last.watch}</small> : null}</p> : <p className="cac-g4l"><small>G4 thinks once a minute — the first thought lands here</small></p>}
@@ -45,7 +45,7 @@ export function AiActivity({ call }) {
       <span className="cac-ico" aria-hidden="true">{x.icon}</span>
       <span className="cac-txt"><b>{x.mint ? <button type="button" onClick={() => openCoin({ mint: x.mint })}>{x.title}</button> : x.title}</b>{x.sub ? <small>{x.sub}</small> : null}
         {x.kind === 'g4' && (x.vitals || x.qwen || (x.pressure || []).length) ? <span className="cac-g4v">{x.vitals ? <i>🫀 {x.vitals}</i> : null}
-          {(x.pressure || []).map((p, j) => <i key={j} className="is-push">☠ agents: {p}</i>)}{x.qwen ? <i className="is-qwen">💻 Qwen: {x.qwen}</i> : null}</span> : null}</span>
+          {(x.pressure || []).map((p, j) => <i key={j} className="is-push">☠ agents: {p}</i>)}{x.qwen ? <i className="is-qwen">💻 OSSY: {x.qwen}</i> : null}</span> : null}</span>
       <span className="cac-meta"><em>{x.who || ''}</em><small>{ago(x.at)}{x.ms ? ` · ${(x.ms / 1000).toFixed(1)}s` : ''}</small></span></li>)}
       {!shown.length ? <li className="is-empty"><small>nothing yet — the models' reads, fixes and creations show up here as they happen</small></li> : null}</ol>
   </div>;

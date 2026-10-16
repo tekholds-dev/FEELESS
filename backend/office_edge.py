@@ -140,7 +140,7 @@ CONTROLS = (('agentTp', 'takeProfit', 'Take profit', '%', 'AT your line the coin
             ('agentGermStop', 'germStop', '🦠 Germ stop', None, 'Stop just under the germ floor (−3%).'),
             ('agentMoonBag', 'moonBag', '🌙 Moon bag', None, 'After the scale-out the rest rides its germ, not the peak. Unproven.'),
             ('agentScale', 'scale', '💰 Scale-out', None, 'At +A% sell P% once, the rest rides the trail. off = none.'),
-            ('agentAiSeat', 'aiSeat', '🧠 G4 seat', None, 'G4 runs one seat itself, a call a minute; agents only argue. paper = no money. Unproven.'))
+            ('agentAiSeat', 'aiSeat', '🧠 G4 seat', None, 'G4 + OSSY take turns on one seat, a call a minute; agents only argue. paper = no money.'))
 
 
 def controls(cfg, now=None):

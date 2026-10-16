@@ -23,7 +23,7 @@ test("G4's seat card shows its mode, both records and its newest minute thought"
   act(() => root.render(<G4Card g={{ mode: 'off' }} />));
   expect(el.querySelector('[data-testid="g4-seat"]')).toBeNull();
   act(() => root.render(<G4Card g={{ mode: 'paper', paper: { n: 3, won: 67, med: 4.2 }, real: { n: 0 }, byModel: { lan: { n: 2, won: 50, med: 1 } }, log: [{ action: 'BUY', symbol: 'A', why: 'buyers 70%', watch: 'germ lost' }] }} />));
-  expect(el.textContent).toContain('G4 SEAT · PAPER'); expect(el.textContent).toContain('3 closed · 67% won · typical +4.2%');
+  expect(el.textContent).toContain('G4 × OSSY SEAT · PAPER'); expect(el.textContent).toContain('3 closed · 67% won · typical +4.2%');
   expect(el.textContent).toContain('G4: 2 closed'); expect(el.textContent).toContain('BUY $A — buyers 70%'); expect(el.textContent).toContain('sells if: germ lost');
   act(() => root.unmount());
 });

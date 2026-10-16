@@ -44,17 +44,17 @@ def test_an_agreed_duet_caution_may_hold_a_seat_a_lone_small_model_may_not():
 
 
 def test_chat_reply_shows_both_models():
-    assert d.combine('a', 'b').startswith('🖥 GEMMA') and '💻 QWEN' in d.combine('a', 'b')
+    assert d.combine('a', 'b').startswith('🖥 G4') and '💻 OSSY' in d.combine('a', 'b')
     assert d.combine('a', None) == 'a'
     assert 'PUSH BACK' in d.second_prompt('why?', 'because')
 
 
 def test_each_local_model_has_its_own_name_in_the_owners_chat():
     env = {'LAN_LLM_NAME': 'Vega'}
-    assert 'Your name is Vega' in ai_router.identity_line(env, 'lan') and 'partner model is Kai' in ai_router.identity_line(env, 'lan')
+    assert 'Your name is Vega' in ai_router.identity_line(env, 'lan') and 'partner model is OSSY' in ai_router.identity_line(env, 'lan')
     assert ai_router.identity_line(env, 'groq') == ''
     assert 'LATEST message' in ai_router.GENERAL_SYSTEM and 'yurrr' in ai_router.GENERAL_SYSTEM
-    assert d.combine('a', 'b', {'lan': 'Vega', 'local': 'Kai'}).startswith('🖥 VEGA · Gemma')
+    assert d.combine('a', 'b', {'lan': 'Vega', 'local': 'Kai'}).startswith('🖥 VEGA\n')
 
 
 def test_a_read_at_the_top_of_a_spike_holds_the_buy():

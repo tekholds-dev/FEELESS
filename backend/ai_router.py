@@ -81,7 +81,7 @@ IMAGE_MODEL = 'google/gemini-3.1-flash-image'   # 🎨 OpenRouter image-output m
 TUNE = _cv.ContextVar('ai_tune', default=None)
 IDENTITY = _cv.ContextVar('ai_identity', default=False)
 RAW = _cv.ContextVar('ai_raw', default=False)   # 🧪 return the model's whole text too (playground documents)   # 🪪 the owner's chat: each LM Studio model speaks as itself (its own name, its partner's name)
-NAME_DEFAULT = {'lan': 'Vega', 'local': 'Kai'}   # LAN_LLM_NAME / LOCAL_LLM_NAME override — the names the owner's two models answer to
+NAME_DEFAULT = {'lan': 'G4', 'local': 'OSSY'}   # LAN_LLM_NAME / LOCAL_LLM_NAME override — the names the owner's two models answer to
 
 
 def model_name(env, key):

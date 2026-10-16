@@ -35,7 +35,7 @@ test('the cockpit, laid out like the reference: ribbon → 4 seats → MC chart 
   await flush();
   const order = [...q('agent-cockpit').children].map(c => c.getAttribute('data-testid') || c.className);
   expect(order).toEqual(['ack-money', 'ack-main', 'ack-deckwrap']);   // 💵 one sticky strip, the chart, then ONE pane behind the nav expect(q('ack-ops')).not.toBeNull();   // one deck under the chart (one pane at a time)
-  expect([...q('ack-money').querySelectorAll('.ack-nav > [role=tab]')].map(b => b.getAttribute('data-testid'))).toEqual(['ack-nav-chart', 'ack-deck-seats', 'ack-deck-you', 'ack-deck-live', 'ack-deck-tape', 'ack-deck-brain', 'ack-deck-agents', 'ack-deck-review', 'ack-deck-controls', 'ack-deck-stats']);
+  expect([...q('ack-money').querySelectorAll('.ack-nav > [role=tab]')].map(b => b.getAttribute('data-testid'))).toEqual(['ack-nav-chart', 'ack-deck-seats', 'ack-deck-you', 'ack-deck-live', 'ack-deck-tape', 'ack-deck-brain', 'ack-deck-review', 'ack-deck-controls', 'ack-deck-stats']);
   // 💵 the ribbon: the card's own numbers
   for (const k of ['putin', 'equity', 'net', 'phase', 'be', 'lives', 'occ', 'cycle', 'last', 'cash', 'keeper', 'exec']) expect(q(`ack-rt-${k}`)).not.toBeNull();
   expect(q('ack-rt-putin').textContent).toContain('$32.50'); expect(q('ack-rt-phase').textContent).toContain('RECOVERY'); expect(q('ack-rt-keeper').textContent).toContain('1 ACTIVE');
@@ -115,7 +115,7 @@ test('the cockpit, laid out like the reference: ribbon → 4 seats → MC chart 
 });
 
 test('⚡ an agent pulses ONLY when a new real tape event of its own arrives — never on first paint, never on a timer', async () => {
-  localStorage.setItem('feeless.agentDeck', 'agents');   // the desk pane is open (a hidden pane is frozen: it skips live updates until opened)
+  localStorage.setItem('feeless.agentDeck', 'agents');   // an old saved Desk tab opens ⚡ Live desk (the desk lives there now) (a hidden pane is frozen: it skips live updates until opened)
   const hub = { d: data, livePx: new Map(), sel: selectors(data), load: jest.fn() };
   const { root, q } = mount(); const call = jest.fn(async () => ({}));
   const fetchSpy = jest.fn(); const realFetch = global.fetch; global.fetch = fetchSpy;                                              // the 30fps glide is display only: no market / RPC request of its own

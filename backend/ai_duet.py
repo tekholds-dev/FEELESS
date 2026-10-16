@@ -18,7 +18,7 @@ LEAD, SECOND = 'lan', 'local'
 PAIR_SEC = 600.0          # two reads of the same coin this close together are one pair
 SECOND_EVERY = 150.0      # 💻 the second model re-reads at most this often (it shares this Mac's GPU)
 TRUST_N, TRUST_PCT = 10, 60
-NAME = {LEAD: '🖥 GEMMA', SECOND: '💻 QWEN'}
+NAME = {LEAD: '🖥 G4', SECOND: '💻 OSSY'}
 
 
 def _f(x, d=0.0):
@@ -59,7 +59,7 @@ def merge(lead, second, rec=None):
     pick = a if t == LEAD else b if t == SECOND else 'NEUTRAL'
     return {'stance': pick, 'agree': False, 'lead': a, 'second': b, 'flags': flags,
             'confidence_delta': _f((lead if t == LEAD else second if t == SECOND else {}).get('confidence_delta')),
-            'why': f"split: Gemma {a} vs Qwen {b}" + (f" → {NAME[t]} wins splits on its record" if t else ' → neutral until one proves it wins splits'),
+            'why': f"split: G4 {a} vs OSSY {b}" + (f" → {NAME[t]} wins splits on its record" if t else ' → neutral until one proves it wins splits'),
             'trusted': t}
 
 
@@ -133,7 +133,7 @@ def trusted(rec):
 def second_prompt(question, lead_text):
     """💻 What Qwen is asked after Gemma answered: agree or push back, add what is missing — never repeat."""
     return (f"The owner asked: {str(question)[:1500]}\n\nThe lead model answered:\n{str(lead_text)[:2500]}\n\n"
-            "You are the SECOND read. In ≤ 5 lines: say AGREE or PUSH BACK first, then only what Gemma got wrong or left out, "
+            "You are the SECOND read. In ≤ 5 lines: say AGREE or PUSH BACK first, then only what G4 got wrong or left out, "
             "with the numbers from the context. Do not repeat what is already right.")
 
 
@@ -142,7 +142,7 @@ def combine(lead_text, second_text, names=None):
     a, b = str(lead_text or '').strip(), str(second_text or '').strip()
     n = names or {}
     if a and b:
-        return f"🖥 {str(n.get(LEAD) or 'GEMMA').upper()} · Gemma\n{a}\n\n💻 {str(n.get(SECOND) or 'QWEN').upper()} · Qwen — second read\n{b}"
+        return f"🖥 {str(n.get(LEAD) or 'G4').upper()}\n{a}\n\n💻 {str(n.get(SECOND) or 'OSSY').upper()} — second read\n{b}"
     return a or b or None
 
 

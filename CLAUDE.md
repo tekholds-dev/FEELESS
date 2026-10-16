@@ -4674,5 +4674,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`by_model`, card line 🔁). THIS MAC'S MODEL = `openai/gpt-oss-20b` (MLX 12.1 GB, loaded at 8192; `LOCAL_LLM_FALLBACK_MODEL` qwen/qwen3-4b-2507,
   `LOCAL_LLM_NAME` Oss); router sends it `reasoning_effort: low` and strips its harmony tags (`ai_router.harmony_clean`). LM Studio's
   guardrail refused it while Qwen was loaded and swap was 15.2 / 16 GB: unload the old model first (`lms unload …`).
+- 🔁 Names: the two models are ONLY "G4" (desktop, `lan`) and "OSSY" (this Mac, `local`) — `ai_router.NAME_DEFAULT`, `.env` LOCAL_LLM_NAME=OSSY.
+  ⚡ Live desk = the merged Feed + Desk tab (`DuoSeat` on top from the page payload's `duo` = `_duo_view`, then AgentMatrix, then DecisionTape;
+  an old saved 'agents' deck opens 'live' via `DECK_ALIAS`). Seat BUYs may name the coin by symbol (`ai_seat.parse(.., syms)`) — both small
+  models mangled 44-char mints, so every first BUY was refused. Desktop LM Studio had Gemma 4 E2B (2B) loaded.
 - FEE prompt opening = "tools first, `now` at most once, never the same tool twice, then answer" — "a tool call EVERY turn, `now` at least" made
   the 4B Qwen call `now` 14 times without answering.

@@ -93,3 +93,10 @@ def test_the_owner_s_one_time_switch_puts_the_seat_on_paper_once(monkeypatch):
     pr = rs._json_load(rs.FUSE_HQ_PATH, {})['prime']
     assert pr['realCfg']['agentAiSeat'] == 'paper' and 'agentAiSeat' in pr['realOwnerSet']
     assert asyncio.run(rs._g4seat_fix_1016(200)) is False                     # once only: the owner's later change stands
+
+
+def test_a_buy_by_symbol_or_mint_prefix_maps_to_the_listed_coin_only():
+    mints, syms = ['AAAmintXYZ123456', 'BBBmint'], {'PEPE': 'AAAmintXYZ123456', 'DOG': 'BBBmint'}
+    assert seat.parse('{"action":"BUY","mint":"$pepe"}', mints, False, syms)['mint'] == 'AAAmintXYZ123456'
+    assert seat.parse('{"action":"BUY","mint":"AAAmintXYZ"}', mints, False, syms)['mint'] == 'AAAmintXYZ123456'
+    assert seat.parse('{"action":"BUY","mint":"SHIB"}', mints, False, syms)['action'] == 'WAIT'   # not on the list: never bought
