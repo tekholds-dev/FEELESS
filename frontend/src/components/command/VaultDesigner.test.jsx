@@ -1,6 +1,12 @@
 import React, { act } from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot as mkRoot } from 'react-dom/client';
 import { VaultDesigner } from './VaultDesigner';
+
+// Every root is unmounted after its test: a still-mounted designer's 300 ms debounced load used to fire after Jest reset the
+// `call` mock (resetMocks) and threw "reading 'then' of undefined" into whichever test ran next (a load-only flake).
+const roots = [];
+const createRoot = el => { const r = mkRoot(el); roots.push(r); return r; };
+afterEach(() => { act(() => { roots.splice(0).forEach(r => r.unmount()); }); document.body.innerHTML = ''; });
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 jest.mock('../../lib/solPrice', () => ({ useSolPrice: () => 150 }));
