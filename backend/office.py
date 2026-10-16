@@ -602,6 +602,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         if fv_ and fv_.get('state') == 'SELLERS' and pct < 0:   # 🌊 sellers lead a red seat: the stop tightens (never wider, never under the floor)
             stop = min(stop, max(_ci.STOP_FLOOR, stop * FLOW_TIGHT))
         noise_ = is_noise(x)   # 🔊 a coin with MASSIVE volume swings 20–30% on noise: wide stop + a later take (owner, 2026-10-15)
+        sc_ = scale_of(pol)   # 💰 None = the owner switched the scale-out off
         if noise_ and not l.get('ownerLvAt'):
             stop = max(stop, NOISE_SL) if stop < _ci.CATASTROPHIC_STOP else stop
             stop = min(stop, _ci.CATASTROPHIC_STOP - 5)
@@ -742,11 +743,23 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         young_ = is_young(p)
         if not act and mine and live and young_ and pct >= SCALE_AT and not degraded_pre(ch, rv):   # 🍼 a coin < 5 min old at entry: ALL of it banked at +10% (rugs land in its first minutes)
             st, rule, ev, act = 'TAKE', 'R6y young coin banked', f"{pct:+.1f}% ≥ +{SCALE_AT:g}% on a coin {_f(young_) * 60:.0f} min old at entry: all of it sold now — {YOUNG_WHY}", 'pull'
-        elif not act and mine and live and pct >= (NOISE_TP if noise_ else SCALE_AT) and not p.get('scaled') and not degraded_pre(ch, rv):   # 💰 SCALE-OUT: half banked at +10%, the rest rides the trail
-            st, rule, ev, act = 'TAKE', 'R6h half banked', f"{pct:+.1f}% ≥ +{SCALE_AT:g}%: {SCALE_PCT:g}% sold now, the rest rides the trail (replay: +6.5% avg vs +4.3% real)", 'trim'
+        elif not act and mine and live and sc_ and pct >= (max(NOISE_TP, sc_[0]) if noise_ else sc_[0]) and not p.get('scaled') and not degraded_pre(ch, rv):   # 💰 SCALE-OUT: at +A% P% banked once, the rest rides the trail (the owner's 💰 Scale-out control)
+            st, rule, ev, act = 'TAKE', 'R6h half banked', f"{pct:+.1f}% ≥ +{sc_[0]:g}%: {sc_[1]:g}% sold now, the rest rides the trail", 'trim'
             p['scaled'] = now
         if l.get('picked'):
             study_note(p, rule, act, st, pct, px, now, snap_of(ch, x, pct))   # 👤 your seat: every ruling change is filed — what the agents would have done, and when
+        if l.get('aiSeat'):   # 🧠 G4's OWN seat: the agents only argue — every soft exit is filed as pressure, only a pulled pool / −45% / your creator limits sell
+            p['g4'] = True
+            if act and str(rule).split(' ')[0] not in G4_HARD:
+                pr_ = list(p.get('pressure') or [])
+                k_ = str(rule).split(' ')[0]
+                if not pr_ or pr_[-1].get('rule') != k_:
+                    pr_.append({'at': round(now), 'rule': k_, 'name': str(rule)[:60], 'pct': round(pct, 2), 'why': str(ev)[:160]})
+                p['pressure'] = pr_[-12:]
+                if act == 'trim':
+                    p.pop('scaled', None)
+                ev += f" · 🧠 G4's seat — the agents only argue (they would have: {rule})"
+                act, st = None, 'HOLD'
         if act and l.get('certified') and str(rule).split(' ')[0] not in ('R1', 'R5x', 'R5c', 'R5g') and not owner_hard(l, str(rule).split(' ')[0]):   # 🛡 certified: you hold it
             ev += ' · 🛡 CERTIFIED — you hold it: only your stop, your Gstop, a pulled pool and −45% act'
             act, st = None, 'HOLD'
@@ -848,6 +861,13 @@ def owner_hard(l, key):
         return True
     own = bool((l or {}).get('ownerLvAt'))
     return (key == 'R5' and own and _f((l or {}).get('sl')) > 0) or (key == 'R6' and own and _f((l or {}).get('tp')) > 0)
+def scale_of(pol):
+    """💰 The scale-out in force: the owner's (+A%, P%) · None = off · not set / '10/75' = this module's own SCALE_AT / SCALE_PCT."""
+    v = (pol or {}).get('scale', 'default')
+    return (SCALE_AT, SCALE_PCT) if v == 'default' else v
+
+
+G4_HARD = ('R1', 'R5x', 'R5c', 'R9c')   # 🧠 what may still sell G4's seat without it: a pulled pool, −45%, the creator's own limits
 ASK_OK_SEC = 180.0     # an approval lets that rule sell for this long
 ASK_KEEP_SEC = 600.0   # "keep my line" quiets that rule this long
 
@@ -1208,7 +1228,7 @@ def file_position(arch, p, now):
            'wx': p.get('wx'), 'warden': p.get('warden'), 'launch': p.get('launch'), 'tag': p.get('tag'), 'owner': p.get('owner'), 'take': p.get('take'), 'exitStructure': p.get('chartNow'), 'windows': p.get('lastWin'),
            'liq': p.get('liq'), 'liqPct': p.get('liqPct'), 'top10': p.get('top10'), 'quality': p.get('quality'), 'dd': bool(p.get('dataDegraded') or p.get('dd')), 'vel': (p.get('vel') or {}).get('state') if isinstance(p.get('vel'), dict) else p.get('vel'),
            'thesis': None if not p.get('thesis') else {k: p['thesis'].get(k) for k in ('structure', 'call', 'triggerRule', 'support', 'invalidation', 'stopPct', 'expectedHoldWindows', 'at', 'pred', 'votes', 'flow', 'distHigh', 'germ', 'germDist')},
-           'li': p.get('li'), 'src': p.get('src'), 'gap': p.get('gap'), 'pick': bool(p.get('pick')), 'would': p.get('would'), 'study': list(p.get('study') or [])[-STUDY_KEEP:],
+           'li': p.get('li'), 'src': p.get('src'), 'gap': p.get('gap'), 'pick': bool(p.get('pick')), 'g4': bool(p.get('g4')), 'pressure': list(p.get('pressure') or [])[-12:], 'would': p.get('would'), 'study': list(p.get('study') or [])[-STUDY_KEEP:],
            **({'snaps': {'entry': p.get('entrySnap'), 'would': list(p.get('wouldSnaps') or []), 'exit': p.get('lastSnap')}} if p.get('pick') else {})}   # 📸 your trade: entry · every would-sell moment · the last look before it left
     prev = ps[-1]['h'] if ps else a.get('posAnchor', '')
     rec['h'] = _hash(prev, {k: v for k, v in rec.items() if k != 'h'})
@@ -1829,7 +1849,7 @@ def fast_reap(legs, px_by_mint, pos, now, office=None, prev=None, ai_words=None)
             continue
         px, entry = _f((px_by_mint or {}).get(l.get('mint'))), _f(l.get('entry'))
         p = (pos or {}).get(l.get('mint')) or {}
-        stop = _f(l.get('sl')) if mine_ else _f(p.get('stopNow'))
+        stop = _f(l.get('sl')) if mine_ else _ci.CATASTROPHIC_STOP if l.get('aiSeat') else _f(p.get('stopNow'))   # 🧠 G4's seat: only −45% here
         if px <= 0 or entry <= 0 or stop <= 0:
             continue
         dd = (px / entry - 1) * 100
@@ -1844,7 +1864,7 @@ def fast_reap(legs, px_by_mint, pos, now, office=None, prev=None, ai_words=None)
         # 👁 REAPER READS THE LIVE CHART (owner, 2026-10-12: "reaper reviews live chart, not every 5 mins"): the same exits the tick makes
         # from the chart — a thesis invalidated (live price under the invalidation line, losing) and the trailing protection (a peak that
         # armed it given back) — are applied on every 6-second live read, not only when the tick comes round.
-        if yours(l):   # ✋ your coin: only your own stop (stopNow is your line) and −45% act here — no thesis / trail bank by the agents (your 🔒 portion is the tick's trim)
+        if yours(l) or l.get('aiSeat'):   # ✋ your coin / 🧠 G4's seat: only the stop above and −45% act here — your coin: only your own stop (stopNow is your line) and −45% act here — no thesis / trail bank by the agents (your 🔒 portion is the tick's trim)
             continue
         inv = _f((p.get('thesis') or {}).get('invalidation'))
         if inv > 0 and px < inv and dd < 0:

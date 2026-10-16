@@ -231,12 +231,12 @@ function ReaperAsks({ o, call, isOwner, reload }) {
 function SeatCard({ s, on, onPick, readyN, same }) {
   const st = seatState(s, readyN);
   if (s.open) return <div className={`ack-seat is-open ${on ? 'is-on' : ''}`} data-testid={`ack-seat-${s.seat}`}>
-    <header><small>SEAT {s.seat}</small><i className={`ack-badge ${STATE_CLS[st]}`} data-testid={`ack-seat-state-${s.seat}`}>{st}</i></header>
+    <header><small>SEAT {s.seat}{s.kind === 'g4' ? <i className="ack-g4tag" data-tip="G4's own seat: it decides — the agents only argue">🧠 G4</i> : null}</small><i className={`ack-badge ${STATE_CLS[st]}`} data-testid={`ack-seat-state-${s.seat}`}>{st}</i></header>
     <HuntLine why={s.why} ready={readyN} same={same} />
     {(s.refused || []).length ? <ul className="ack-refused" data-testid={`ack-seat-refused-${s.seat}`}>{s.refused.map(r => <li key={`${r.symbol}-${r.at}`} data-tip={`${r.by === 'keeper' ? "the keeper's own buy check" : 'the seat pre-check'} · ${ago(r.at)} ago`}><b>${r.symbol}</b><span>{r.why}</span></li>)}</ul> : null}
     {(s.tapeWait || []).length ? <ul className="ack-refused is-tape" data-testid={`ack-seat-tape-${s.seat}`}>{s.tapeWait.map(r => <li key={r.symbol} data-tip="🌊 the live tape held this READY coin back this tick — it is re-read on the next one"><b>🌊 ${r.symbol}</b><span>{r.why}</span></li>)}</ul> : null}</div>;
   const last = s.last; const [ic, nm] = TAPE_AGENT[last?.agent] || ['', ''];
-  return <button type="button" className={`ack-seat ${on ? 'is-on' : ''} ${s.pct > 0 ? 'is-up' : s.pct < 0 ? 'is-dn' : ''}`} onClick={() => onPick(s.mint)} aria-pressed={on} data-testid={`ack-seat-${s.seat}`}
+  return <button type="button" className={`ack-seat ${on ? 'is-on' : ''} ${s.kind === 'g4' ? 'is-g4' : ''} ${s.pct > 0 ? 'is-up' : s.pct < 0 ? 'is-dn' : ''}`} onClick={() => onPick(s.mint)} aria-pressed={on} data-testid={`ack-seat-${s.seat}`}
     data-tip={`${s.tag || s.kind}${s.rule ? ` · Reaper ${s.rule}` : ''}${s.why ? ` — ${s.why}` : ''}`}>
     <header><small>SEAT {s.seat}</small><i className={`ack-badge ${STATE_CLS[st]}`} data-testid={`ack-seat-state-${s.seat}`}>{st}</i></header>
     <p className="ack-coin"><b>${s.symbol}<CopyCa mint={s.mint} sym={s.symbol} testid={`ack-seat-ca-${s.seat}`} /><GermChip mint={s.mint} compact /></b><span className="ack-pnl"><LiveNum v={s.pct} fmt={x => pc(x)} testid={`ack-seat-pct-${s.seat}`} /><LiveNum v={s.pnlUsd} fmt={signed} cls={`ack-usd ${tone(s.pnlUsd)}`} testid={`ack-seat-usd-${s.seat}`} /></span></p>

@@ -530,7 +530,7 @@ def view(state, n=12):
 ACT_ROLE = {'sherlock': '🔍', 'devil': '😈', 'judge': '👨‍⚖️', 'owner': '👤', 'manager': '⚖', 'coach': '👑', 'lab': '🧪', 'exit': '☠'}
 
 
-def activity(log=None, props=None, play=None, lane=None, n=60):
+def activity(log=None, props=None, play=None, lane=None, n=60, g4=None):
     """The Brain's 📜 Activity pane (owner, 2026-10-14: "show log for all activity"): every model READ (role, coin, stance, which model,
     how long), every PROPOSAL (made / approved / rejected / applied), every PLAYGROUND creation, newest first. Display only — built from
     records the service already keeps; nothing here is read back by an agent. → [{at, kind, icon, who, title, sub, tone, mint}]"""
@@ -551,6 +551,14 @@ def activity(log=None, props=None, play=None, lane=None, n=60):
     for x in play or []:
         out.append({'at': x.get('at'), 'kind': 'play', 'icon': '🧩', 'who': x.get('by'), 'title': f"code: {str(x.get('title') or x.get('prompt') or '')[:70]}",
                     'sub': f"{x.get('file') or 'Code lab'} · {x.get('status') or 'proposed'}", 'tone': 'ok' if x.get('status') == 'approved' else 'ice'})
+    for r in g4 or []:   # 🧠 G4's own seat: one snapshot thought a minute — its action, why, the vitals it saw, the agents' pressure, Qwen's word
+        a = r.get('action') or '—'
+        v = r.get('vitals') or {}
+        bits = [f"{k} {v[k]}" for k in ('cap', 'move5m', 'buyers', 'pool', 'germ') if v.get(k) is not None]
+        out.append({'at': r.get('at'), 'kind': 'g4', 'icon': '🧠', 'who': f"G4 · {r.get('mode')}", 'mint': r.get('mint'), 'ms': r.get('ms'),
+                    'title': f"G4 {a}" + (f" ${r['symbol']}" if r.get('symbol') else '') + (f" · {r['pct']:+.1f}%" if r.get('pct') is not None else '') + (f" · conf {r['conf']}" if r.get('conf') is not None else ''),
+                    'sub': str(r.get('why') or '')[:160], 'tone': 'ok' if a == 'BUY' else 'bad' if a == 'SELL' else 'ice' if a == 'HOLD' else 'mute',
+                    'vitals': ' · '.join(bits) or None, 'pressure': (r.get('pressure') or [])[-2:], 'qwen': r.get('qwen'), 'watch': r.get('watch')})
     if (lane or {}).get('last'):
         l = lane['last']
         out.append({'at': l.get('at'), 'kind': 'lane', 'icon': '🖥', 'who': l.get('via'), 'title': f"background read ${l.get('symbol')} → {l.get('stance') or '—'}",

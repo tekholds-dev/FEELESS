@@ -53,6 +53,8 @@ def review(p):
     p = p or {}
     if p.get('pick'):
         return yours(_review(p))
+    if p.get('g4'):   # 🧠 G4's own seat: G4's call, never an agent desk's — kept apart like your trades
+        return {**yours(_review(p)), 'kind': 'g4', 'decision': "G4's call", 'lesson': "G4's seat — the agents only argued"}
     return _review(p)
 
 

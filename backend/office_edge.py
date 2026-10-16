@@ -37,10 +37,12 @@ SWITCH_FLOOR = (0.5, _uni.CONTROL_HOLD_MIN)
 GAP_OPTS, BACK_OPTS, POOL_OPTS = (4, 6, 8), (5, 7, 10), (3000, 5000, 12000, 20000)   # the owner's own limits for an AGENT buy (0 = the agents' defaults: 2.5% over market · sells back ≤ 3.5% lower · the keeper's $8K trench pool floor)
 GERM_STOP = ('on', 'off')   # 🦠 an agent coin bought near its germ stops just under the germ (replay, 837 germ entries: −2.7% vs −3.4% avg for a flat −20%, better in both halves)
 MOON_BAG = ('off', 'on')    # 🌙 after the scale-out the rest rides on the germ instead of the peak trail — NOT proven on the replay (newer half −4.3% vs −3.9%): off by default
+SCALE = ('10/75', '20/50', '30/50', 'off')   # 💰 the scale-out: at +A% sell P% once (owner, 2026-10-16: "they still quick to sell" — GLITCH 75% banked at +12.4%). 10/75 = the replay's pick
+AI_SEAT = ('off', 'paper', 'real')   # 🧠 G4's OWN seat: the lead model reads every agent + Qwen decision and buys / holds / sells one seat itself — paper first, real on the owner's switch
 ARMED_SIZE = 0.5                                 # 🎯 an ARMED coin (Trigger: building, not yet) takes HALF a seat — it fills the seat, it does not bet it
 ENTRY = ('agents', 'go', 'armed')                         # agents = a full GO at once, the duty's cleared case on the seat target · go = a full GO only
 POLICY_KEYS = ('agentMinAgeH', 'agentAuthority', 'agentTp', 'agentSl', 'agentTrail', 'agentTrailArm', 'agentTrailPct', 'agentMaxHold', 'agentSizePct', 'agentSeatTarget', 'agentSwitch', 'agentEntry',
-               'agentMcMin', 'agentMcMax', 'agentGapPct', 'agentBackPct', 'agentPoolMin', 'agentMaxAgeH', 'agentMinVol1h', 'agentPumpTrend', 'agentGermMax', 'agentGermStop', 'agentMoonBag')   # 🦠 germ line / stop / moon bag · 🔥 volume limits (universe.clean_limits) · 🎯 the owner's MC band (universe.clean_band — default $12K–$300K)
+               'agentMcMin', 'agentMcMax', 'agentGapPct', 'agentBackPct', 'agentPoolMin', 'agentMaxAgeH', 'agentMinVol1h', 'agentPumpTrend', 'agentGermMax', 'agentGermStop', 'agentMoonBag', 'agentScale', 'agentAiSeat')   # 🦠 germ line / stop / moon bag · 🔥 volume limits (universe.clean_limits) · 🎯 the owner's MC band (universe.clean_band — default $12K–$300K)
 
 
 def _num(p, k):
@@ -64,7 +66,9 @@ def clean_policy(p):
             'agentMinAgeH': _uni.min_age_of(p), **dict(zip(('agentMcMin', 'agentMcMax'), _uni.clean_band(p))),
             **dict(zip(('agentMaxAgeH', 'agentMinVol1h', 'agentPumpTrend'), _uni.clean_limits(p).values())),
             'agentGermMax': _uni.clean_limits(p)['germMax'], 'agentGermStop': p.get('agentGermStop') if p.get('agentGermStop') in GERM_STOP else 'on',
-            'agentMoonBag': p.get('agentMoonBag') if p.get('agentMoonBag') in MOON_BAG else 'off'}
+            'agentMoonBag': p.get('agentMoonBag') if p.get('agentMoonBag') in MOON_BAG else 'off',
+            'agentScale': p.get('agentScale') if p.get('agentScale') in SCALE else '10/75',
+            'agentAiSeat': p.get('agentAiSeat') if p.get('agentAiSeat') in AI_SEAT else 'off'}
 
 
 def policy(cfg):
@@ -99,7 +103,9 @@ def policy(cfg):
                     'mcMin': 'CREATOR OVERRIDE' if c['agentMcMin'] != _uni.AGENT_MIN_MCAP else 'YOUR BAND', 'mcMax': 'CREATOR OVERRIDE' if c['agentMcMax'] != _uni.AGENT_MAX_MCAP else 'YOUR BAND',
                     'maxAge': 'CREATOR OVERRIDE' if c['agentMaxAgeH'] != 6.0 else 'YOUR BAND', 'minVol': 'CREATOR OVERRIDE' if c['agentMinVol1h'] != _uni.AGENT_MIN_VOL1H else 'YOUR BAND',
                     'pumpTrend': 'CREATOR OVERRIDE' if c['agentPumpTrend'] != 'off' else 'YOUR BAND',
-                    'germMax': 'CREATOR OVERRIDE' if c['agentGermMax'] != _uni.GERM_MAX_DEFAULT else 'YOUR BAND', 'germStop': who(c['agentGermStop'] != 'on'), 'moonBag': who(c['agentMoonBag'] != 'off')},
+                    'germMax': 'CREATOR OVERRIDE' if c['agentGermMax'] != _uni.GERM_MAX_DEFAULT else 'YOUR BAND', 'germStop': who(c['agentGermStop'] != 'on'), 'moonBag': who(c['agentMoonBag'] != 'off'),
+                    'scale': who(c['agentScale'] != '10/75'), 'aiSeat': 'CREATOR OVERRIDE' if c['agentAiSeat'] != 'off' else 'AGENTS CHOOSE'},
+            'scale': None if c['agentScale'] == 'off' else 'default' if c['agentScale'] == '10/75' else tuple(float(x) for x in c['agentScale'].split('/')), 'aiSeat': c['agentAiSeat'],
             'germMax': c['agentGermMax'], 'germStop': c['agentGermStop'] == 'on', 'moonBag': c['agentMoonBag'] == 'on',
             'minAgeH': c['agentMinAgeH'], 'band': {'min': c['agentMcMin'], 'max': c['agentMcMax'], 'word': _uni.band_word((c['agentMcMin'], c['agentMcMax']))},
             'hard': {'catastrophicStop': _ci.CATASTROPHIC_STOP, 'movesPerHour': _uni.CONTROL_MOVES_HR, 'minPool': _uni.CONTROL_MIN_LIQ}}
@@ -112,27 +118,29 @@ OPTIONS = {'agentAuthority': list(AUTHORITY), 'agentTp': [0, *TP_OPTS], 'agentSl
            'agentSwitch': ['agents', 'off', 'conservative', 'normal', 'aggressive'], 'agentEntry': list(ENTRY), 'agentMinAgeH': list(_uni.AGENT_MIN_AGES),
            'agentMcMin': list(_uni.BAND_MINS), 'agentMcMax': list(_uni.BAND_MAXS), 'agentGapPct': [0, *GAP_OPTS], 'agentBackPct': [0, *BACK_OPTS], 'agentPoolMin': [0, *POOL_OPTS],
            'agentMaxAgeH': list(_uni.MAX_AGES), 'agentMinVol1h': list(_uni.MIN_VOLS), 'agentPumpTrend': list(_uni.TREND_MODES),
-           'agentGermMax': list(_uni.GERM_MAXES), 'agentGermStop': list(GERM_STOP), 'agentMoonBag': list(MOON_BAG)}
+           'agentGermMax': list(_uni.GERM_MAXES), 'agentGermStop': list(GERM_STOP), 'agentMoonBag': list(MOON_BAG), 'agentScale': list(SCALE), 'agentAiSeat': list(AI_SEAT)}
 CONTROLS = (('agentTp', 'takeProfit', 'Take profit', '%', 'AT your line the coin is banked. They may still leave earlier on a broken thesis or the trail.'),
             ('agentSl', 'stopLoss', 'Stop-loss', '%', 'Your most tolerated loss. Their own structure stop may be tighter, never wider.'),
             ('agentTrail', 'trailing', 'Trailing protection', None, 'off = no give-back protection · custom = arm at +A%, bank P points under the peak.'),
             ('agentMaxHold', 'maxHold', 'Max hold', 'min', 'The longest a coin is held. Their thesis windows may end it sooner, never later.'),
             ('agentSizePct', 'positionSize', 'Seat size cap', '% of card', 'The most of the card one seat may be. The Warden may size smaller, never larger.'),
-            ('agentSwitch', 'switching', 'Switching', None, 'How much stronger a challenger must read, and how long a coin is held, before its seat is given up. A winner is never surrendered.'),
-            ('agentEntry', 'entryStyle', 'Entry', None, 'agents = a READY coin · go = a full GO only · armed = KEEP SEATS FULL: a seat empty past your target takes the best ARMED coin (Trigger says "building, not yet") — never one it says WAIT / NO on, never past a hard veto.'),
+            ('agentSwitch', 'switching', 'Switching', None, 'How much stronger a challenger must read before a seat is given up. A winner is never surrendered.'),
+            ('agentEntry', 'entryStyle', 'Entry', None, 'agents = a READY coin · go = full GO only · armed = an empty seat past your target takes the best ARMED coin (never WAIT / NO, never a hard veto).'),
             ('agentSeatTarget', 'emptySeat', 'Empty-seat target', 's', 'How soon a cleared case may fill an empty seat (a full GO never waits).'),
-            ('agentMinAgeH', 'minAge', 'Youngest coin', 'h', '0 = any age: a newborn is judged on the evidence it CAN have (real candles so far, tape, pool, holder scan). A number = no coin younger than that.'),
-            ('agentGapPct', 'priceGap', 'Buy price vs market', '%', 'The most an agent buy may cost above the market reading. Tight = fewer, cleaner fills; loose = a running coin still gets bought (most refused buys are this check).'),
+            ('agentMinAgeH', 'minAge', 'Youngest coin', 'h', '0 = any age (judged on what it has: candles, tape, pool, scan). A number = nothing younger.'),
+            ('agentGapPct', 'priceGap', 'Buy price vs market', '%', 'Most an agent buy may cost above market. Tight = cleaner fills; loose = runners still get bought.'),
             ('agentBackPct', 'sellBack', 'Sell-back loss', '%', 'The most an agent buy may lose if sold straight back (tax, thin pool). The no-route / honeypot check never moves.'),
-            ('agentPoolMin', 'poolMin', 'Smallest pool', '$', 'The thinnest live pool an agent buy may enter (0 = the keeper\'s $8K trench floor; never under $3K). Thinner = more launches buyable and more rug + slippage risk; the impact and sell-back checks still run.'),
-            ('agentMcMin', 'mcMin', 'MC band · floor', '$', 'No NEW entry at or under this live market cap (held coins keep running). Default $12K: under it the curve is still being sniped.'),
-            ('agentMcMax', 'mcMax', 'MC band · top', '$', 'No NEW entry at or over this live market cap — a winner already held keeps running past it. Default $300K; up to $10M for Pump trending runners.'),
-            ('agentMaxAgeH', 'maxAge', 'Oldest coin', 'h', 'No NEW entry on a coin older than this. Default 6h (the trench). Wider = older coins that are still running; a Pump-trending coin in 🔥 first / only mode has no age line.'),
-            ('agentMinVol1h', 'minVol', 'Min volume / hour', '$', 'No NEW entry on a coin that traded less than this in the last hour. Higher = only coins moving real volume. Default $1K.'),
-            ('agentPumpTrend', 'pumpTrend', '🔥 Pump trending', None, "off · first = coins on Pump's own Trending board skip the age line, count as fresh and rank ×1.15 · only = new entries come ONLY from Pump trending. Every safety check, the MC band and the keeper's checks still apply."),
+            ('agentPoolMin', 'poolMin', 'Smallest pool', '$', 'Thinnest pool an agent buy may enter (0 = $8K floor, never under $3K). Thinner = more launches, more rug risk.'),
+            ('agentMcMin', 'mcMin', 'MC band · floor', '$', 'No NEW entry at or under this cap (held coins keep running). Default $12K.'),
+            ('agentMcMax', 'mcMax', 'MC band · top', '$', 'No NEW entry at or over this cap; held winners keep running. Up to $10M for Pump trending.'),
+            ('agentMaxAgeH', 'maxAge', 'Oldest coin', 'h', 'No NEW entry on a coin older than this (default 6h). Pump-trending in 🔥 first / only has no age line.'),
+            ('agentMinVol1h', 'minVol', 'Min volume / hour', '$', 'No NEW entry on a coin that traded less than this in the hour. Default $1K.'),
+            ('agentPumpTrend', 'pumpTrend', '🔥 Pump trending', None, "first = Pump-trending coins skip the age line, rank ×1.15 · only = nothing else. Safety checks still apply."),
             ('agentGermMax', 'germMax', '🦠 Germ line', '%', 'Max % a new entry sits from its germ floor; closer ranks higher. 0 = off.'),
             ('agentGermStop', 'germStop', '🦠 Germ stop', None, 'Stop just under the germ floor (−3%).'),
-            ('agentMoonBag', 'moonBag', '🌙 Moon bag', None, 'After the scale-out the rest rides its germ, not the peak. Unproven.'))
+            ('agentMoonBag', 'moonBag', '🌙 Moon bag', None, 'After the scale-out the rest rides its germ, not the peak. Unproven.'),
+            ('agentScale', 'scale', '💰 Scale-out', None, 'At +A% sell P% once, the rest rides the trail. off = none.'),
+            ('agentAiSeat', 'aiSeat', '🧠 G4 seat', None, 'G4 runs one seat itself, a call a minute; agents only argue. paper = no money. Unproven.'))
 
 
 def controls(cfg, now=None):
@@ -161,7 +169,7 @@ def agents_now(take, tunables, thesis=None):
             'agentMcMin': f'the band floor {_uni.band_word()}', 'agentMcMax': f'the band top {_uni.band_word()}',
             'agentMaxAgeH': f"≤ {_uni.limits()['maxAgeH']:g}h old", 'agentMinVol1h': f"≥ ${_uni.limits()['minVol']:,.0f} traded in the hour",
             'agentPumpTrend': f"{_uni.limits()['trend']} · {_uni.limits()['trendingN']} coins on Pump trending now",
-            'agentGermMax': f"≤ {_uni.germ_max()}%" if _uni.germ_max() else 'off', 'agentGermStop': 'germ −3%', 'agentMoonBag': 'peak trail'}
+            'agentGermMax': f"≤ {_uni.germ_max()}%" if _uni.germ_max() else 'off', 'agentGermStop': 'germ −3%', 'agentMoonBag': 'peak trail', 'agentScale': '+10% → 75% sold', 'agentAiSeat': 'off'}
 
 
 # ── 🔌 RESTART / REFILL: a gap in OUR data is never evidence about a coin ───────────────────────────────────────────────────────────

@@ -18,3 +18,7 @@ body.fx-lite .ack-seat::after, body.fx-lite .vbd-tile::after, body.fx-lite .ack-
 @media (prefers-reduced-motion: reduce) { .ack-seat::after, .vbd-tile::after, .ack-seat.is-up .ack-pnl { animation: none !important; } }
 body.theme-day .ack-seat::after, body.theme-day .vbd-tile::after { background: linear-gradient(110deg, transparent 35%, rgba(13, 122, 65, .10) 50%, transparent 65%); }
 @media (max-width: 640px) { .ack-seat.is-up .ack-pnl { animation: none; } }
+/* 🧠 G4's own seat */
+.ack-seat.is-g4 { box-shadow: inset 0 0 0 1px rgba(183, 155, 255, .55); }
+.ack-g4tag { margin-left: 6px; padding: 0 5px; border-radius: 4px; font: 800 8px var(--m-mono); font-style: normal; letter-spacing: .08em; color: #07130c; background: linear-gradient(120deg, #b79bff, #15d16a); }
+body.theme-day .ack-seat.is-g4 { box-shadow: inset 0 0 0 1px rgba(110, 80, 200, .5); }

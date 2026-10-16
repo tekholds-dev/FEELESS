@@ -7,7 +7,7 @@ test('every control option reads as a short trader word on its segment', () => {
   expect([0, 12000].map(v => optWord('agentMcMin', v))).toEqual(['NONE', '$12K']); expect([300000, 1000000].map(v => optWord('agentMcMax', v))).toEqual(['$300K', '$1M']);
   expect(optWord('agentEntry', 'go')).toBe('GO ONLY'); expect(optWord('agentSwitch', 'aggressive')).toBe('AGGRESSIVE'); expect(optWord('agentTrail', 'auto')).toBe('AGENTS');
   expect([whoTone('CREATOR OVERRIDE'), whoTone('YOUR BAND'), whoTone('AGENTS CHOOSE')]).toEqual(['is-you', 'is-band', 'is-agents']);
-  expect(CTRL_GROUPS.map(g => g[0])).toEqual(['universe', 'volume', 'germ', 'exits', 'seats', 'gate']); expect(optWord('agentGermMax', 15)).toBe('≤ 15%'); expect(CTRL_GROUPS[5][3]).toEqual(['agentGapPct', 'agentBackPct', 'agentPoolMin']); expect(CTRL_GROUPS[0][3]).toContain('agentMcMax');
+  expect(CTRL_GROUPS.map(g => g[0])).toEqual(['universe', 'volume', 'germ', 'exits', 'g4', 'seats', 'gate']); expect(optWord('agentGermMax', 15)).toBe('≤ 15%'); expect(optWord('agentScale', '20/50')).toBe('+20% · 50%'); expect(CTRL_GROUPS[6][3]).toEqual(['agentGapPct', 'agentBackPct', 'agentPoolMin']); expect(CTRL_GROUPS[0][3]).toContain('agentMcMax');
 });
 
 test('the MC band sits on a log track and every real candidate is a dot (lit inside the band, green when READY)', () => {

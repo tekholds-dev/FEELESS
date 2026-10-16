@@ -193,7 +193,7 @@ def card_seats(card, decisions=None, prices=None, cfg=None, take=None):
     seats = []
     for l in (card or {}).get('legs') or []:
         tag = str((l.get('bought') or {}).get('tag') or '')
-        kind = 'open' if l.get('placeholder') else 'agent' if tag.startswith('🤖') else 'suggested' if tag.startswith('🤝') else 'yours' if l.get('picked') else 'engine'
+        kind = 'open' if l.get('placeholder') else 'g4' if l.get('aiSeat') else 'agent' if tag.startswith('🤖') else 'suggested' if tag.startswith('🤝') else 'yours' if l.get('picked') else 'engine'
         px, en = _f((prices or {}).get(l.get('pairAddress'))), _f(l.get('entry'))
         d = by.get(l.get('pairAddress')) or {}
         seats.append({'symbol': l.get('symbol'), 'pair': l.get('pairAddress'), 'mint': l.get('mint'), 'kind': kind, 'tag': tag, 'buying': bool(l.get('buying')),

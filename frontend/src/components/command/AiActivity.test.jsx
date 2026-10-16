@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { AiActivity, pulse } from './AiActivity';
+import { AiActivity, G4Card, pulse } from './AiActivity';
 
 jest.mock('../CoinDrawer', () => ({ openCoin: jest.fn() }));
 test('the activity pane lists every model event and filters by kind', async () => {
@@ -16,4 +16,14 @@ test('the activity pane lists every model event and filters by kind', async () =
   await act(async () => { el.querySelector('[data-testid="cac-k-play"]').click(); });
   expect(el.querySelectorAll('.cac-list li')).toHaveLength(1);
   expect(call).toHaveBeenCalledWith('/admin/ai/activity');
+});
+
+test("G4's seat card shows its mode, both records and its newest minute thought", () => {
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  act(() => root.render(<G4Card g={{ mode: 'off' }} />));
+  expect(el.querySelector('[data-testid="g4-seat"]')).toBeNull();
+  act(() => root.render(<G4Card g={{ mode: 'paper', paper: { n: 3, won: 67, med: 4.2 }, real: { n: 0 }, log: [{ action: 'BUY', symbol: 'A', why: 'buyers 70%', watch: 'germ lost' }] }} />));
+  expect(el.textContent).toContain('G4 SEAT · PAPER'); expect(el.textContent).toContain('3 closed · 67% won · typical +4.2%');
+  expect(el.textContent).toContain('BUY $A — buyers 70%'); expect(el.textContent).toContain('sells if: germ lost');
+  act(() => root.unmount());
 });

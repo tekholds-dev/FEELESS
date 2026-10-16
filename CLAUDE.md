@@ -4660,3 +4660,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   the chat log · hold lessons · live rules · the germ entry's real record (agents by thesis germEntry, yours by entry snapshot) · fixes waiting for ✅.
   🦠 Vital board group GERM vs GUN (`germ` / `gun` tiles from kernel `vit.germ/germD/germ5/germ5D/hiD`; in the buy zone the tile breathes). 🧩 Code lab
   opens on 🪞 Side by side (`sideBySide(diff)`: before | after as it will read in the file) when no mock-up exists.
+- 🧠 G4'S OWN SEAT (owner, 2026-10-16; `backend/ai_seat.py` pure + tested, `_g4_tick` once a minute in the AI round, `data/ai_seat.json`, owner
+  `GET /admin/ai/seat`; HQ › Agents › 🎛 Limits › 🧠 G4 SEAT `agentAiSeat` off | paper | real, default off): the lead model (Gemma, provider
+  `lan`) reads ONE packet a minute — the kernel's READY / CONTENDING coins with every desk's word + Qwen's last read, and its own seat with the
+  agents' PRESSURE — and answers BUY (a listed mint only) · HOLD · SELL · WAIT (`parse` corrects anything impossible). paper = its own book at
+  live prices, 1.5% cost each way. real = one empty seat reserved for it; its BUY joins the SAME fill path (prepended to `plan_`: pre-check,
+  Warden, keeper checks; leg `aiSeat`, tag '🤖 🧠 G4 seat'); on its leg every agent / Reaper rule only ARGUES (filed as `pressure`), only
+  R1 pulled pool · R5x −45% · R5c / R9c sell it (`office.G4_HARD`, fast_reap −45% only). The Judge files its trades as kind `g4`. Its minute
+  thoughts (action · why · vitals · pressure · Qwen) show in Brain › Activity (`G4Card` + kind filter 🧠 G4 seat). Unproven — its record decides.
+- 💰 Scale-out is the owner's (`agentScale` 10/75 · 20/50 · 30/50 · off; `office.scale_of`: '10/75' = the module's SCALE_AT / SCALE_PCT).
+- FEE prompt opening = "tools first, `now` at most once, never the same tool twice, then answer" — "a tool call EVERY turn, `now` at least" made
+  the 4B Qwen call `now` 14 times without answering.
