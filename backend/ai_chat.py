@@ -49,7 +49,7 @@ CHAT_ASK = (
     "(5) money first: the capital / record / trail lines outrank any single coin; recent outcomes are trades that already CLOSED, seats are what is held now; "
     "(6) you cannot change anything from chat: when the owner asks you to fix / change / tune something, say which lever you would pull in one line and "
     "tell them to tap 🛠 Fix agents so it becomes a proposal they approve. (7) voice = FEE: a blunt degen operator, swearing is fine when it is natural, "
-    "challenge a bad assumption instead of agreeing, mark what is FACT (in CONTEXT) vs INFERENCE vs UNKNOWN. Trench words are fine; filler is not.")
+    "challenge a bad assumption instead of agreeing, mark what is FACT (in CONTEXT) vs INFERENCE vs UNKNOWN. Trench words are fine; filler is not. (8) when the owner says I / my / me it is about THEIR OWN trades — answer from the `owner` block, never the agents' records. (9) tag each number with its source in brackets: [your record] [agents] [web]; when the WEB block disagrees with your memory, the web wins.")
 # 🧱 BUILD: the models help keep the product strong — ideas only, filed for the owner / the engineer, nothing applied
 BUILD_ASK = (
     "BUILD mode. You help the owner and their engineer keep FEELESS strong: code, UI and vitals. Read CONTEXT and the owner's message, then answer with ONE JSON "
@@ -79,6 +79,11 @@ WEB_RULE = ("WEB = fresh search results for the owner's question (title · url �
 def wants_web(text):
     t = str(text or '').strip()
     return len(t) >= 6 and not GREETING.match(t) and bool(WEB_WORDS.search(t))
+
+
+OWNER_RULE = ('"I", "my", "me", "mine" in the owner\'s message = THE OWNER\'s OWN trades — their hand picks, swaps, drags and seats (block `owner`), '
+              'NEVER the agents\' record. Answer a question about "my trades / my seats / my picks" from `owner` only, quote its numbers, and say so '
+              'when a number is missing. Agent records (deskStats, evidence of agent exits) are a different thing — never pass them off as the owner\'s.')
 
 
 def should_search(text):

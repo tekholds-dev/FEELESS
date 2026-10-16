@@ -187,3 +187,9 @@ def test_the_chat_context_carries_what_was_learned_from_the_owners_trades():
     c = ac.context({'ownerStudy': {'findings': ['🎯 pick: 231 graded · 18% good'], 'suggestions': [{'text': 'hold picks 30 min'}]}})
     assert c['yourTrades']['learned'] == ['🎯 pick: 231 graded · 18% good'] and c['yourTrades']['suggest'] == ['hold picks 30 min']
     assert 'yourTrades' not in ac.context({})
+
+
+def test_owner_rule_and_markdown_free_answers():
+    import ai_chat as ac, ai_router as ar
+    assert 'OWNER' in ac.OWNER_RULE and 'my' in ac.OWNER_RULE and 'owner' in ac.CHAT_ASK
+    assert ar.clean_answer('**PUSH BACK.** the **vital** thing') == 'PUSH BACK. the vital thing'

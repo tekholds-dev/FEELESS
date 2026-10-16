@@ -54,7 +54,7 @@ body.theme-day .cch-web a { color: #0b6b9a; border-color: rgba(11, 107, 154, .35
 .cch-meta { margin: 0; font: 700 8.5px var(--m-mono); letter-spacing: .05em; color: var(--m-mute); overflow-wrap: anywhere; }
 .cch-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; } .cch-form .m-input { font: 600 12px var(--m-mono); padding: 9px 11px; border-radius: 10px; }
 .m-btn.cch-go { font: 800 10.5px var(--m-mono); letter-spacing: .1em; padding: 0 14px; border-radius: 10px; }
-.cch-props { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 5px; min-height: 0; max-height: 220px; } .cch.is-pop .cch-props { max-height: none; }
+.cch-props { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 5px; min-height: 0; max-height: min(58vh, 520px); } .cch.is-pop .cch-props { max-height: none; }
 .cch-props ul { list-style: none; margin: 0; padding: 0 2px 0 0; display: grid; gap: 6px; align-content: start; overflow-y: auto; min-height: 0; scrollbar-width: thin; scrollbar-color: var(--br) transparent; }
 .cch-props ul[hidden] { display: none; }   /* `display: grid` above beat the hidden attribute — a folded list never folded */
 .cch-props ul::-webkit-scrollbar { width: 6px; } .cch-props ul::-webkit-scrollbar-thumb { background: var(--br); border-radius: 3px; }
@@ -101,7 +101,7 @@ body.theme-day .cch-bqlist li { color: #0f2419; }
 .cch-msg { max-width: 82%; } .cch-msg.is-assistant > span { font-size: 11px; line-height: 1.5; }
 .cch.is-pop .cch-msg { font-size: 12px; max-width: 72%; } .cch.is-pop .cch-msg.is-assistant > span { font-size: 12.5px; } .cch.is-pop .cch-props { max-height: none; } .cch.is-pop .cch-main { grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); }
 .cch.is-pop .cch-props, .cch.is-pop .cch-bqlist { align-self: start; } .cch-mact button:disabled { opacity: .4; cursor: default; }
-.cch-side { display: grid; gap: 8px; min-height: 0; align-content: start; } .cch:not(.is-pop) .cch-side { max-height: 180px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; } .cch:not(.is-pop) .cch-side .cch-props { max-height: none; } .cch-side:empty { display: none; } .cch.is-pop .cch-side { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; }
+.cch-side { display: grid; gap: 8px; min-height: 0; align-content: start; } .cch:not(.is-pop) .cch-side { max-height: min(62vh, 560px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; } .cch:not(.is-pop) .cch-side .cch-props { max-height: none; } .cch-side:empty { display: none; } .cch.is-pop .cch-side { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; }
 /* no sideways scroll, ever: every row may shrink */
 .cch, .cch * { min-width: 0; } .cch { overflow-x: hidden; grid-template-rows: none; grid-auto-rows: auto; align-content: start; }
 .cch { display: flex; flex-direction: column; } .cch-modes > button span { overflow: hidden; text-overflow: ellipsis; } .cch-msg > span, .cch-why, .cch-diff span { overflow-wrap: anywhere; }

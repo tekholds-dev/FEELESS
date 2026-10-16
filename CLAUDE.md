@@ -4467,4 +4467,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   It comes back by itself when its record turns. Stops, R5x −45%, rug / drain / dump, scan failures are never benched.
   The other four ideas already run: rug budget sizing (W24), the model is veto-only on its own proven record, owner-study suggestions as
   Brain proposals, and losing lists / lab rules / model reads are paused / failed / weightless by their own records.
+- 👤 THE CHAT KNOWS WHOSE TRADES ARE WHOSE (owner, 2026-10-15: "they think it's all the agents"): every Brain chat answer carries `owner`
+  (`_owner_brief`: the owner study's graded moves + findings + suggestions, your seats vs the agents' first exit call, your dragged lines vs
+  theirs, your open picks) + `ai_chat.OWNER_RULE` ("I / my = the owner's own trades"); CHAT_ASK rules 8–9 (answer "my" questions from `owner`,
+  tag every number [your record] / [agents] / [web], the web beats memory). The web search now runs on EVERY real question, records too.
+  `ai_router.clean_answer` strips markdown (**, __, #). Brain side panel (fixes) up to min(62vh, 560px) — it was a 180px slot.
 

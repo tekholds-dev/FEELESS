@@ -14093,6 +14093,12 @@ async def admin_ai_chat(request: Request):
             except Exception as e_:
                 print('chat evidence:', str(e_)[:120])
                 data_ = {'state': 'NO HISTORY', 'window': None, 'exits': 0, 'gaps': ['the evidence reader failed — answered without records']}
+        try:   # 👤 THE OWNER'S OWN RECORD rides on EVERY chat answer (owner, 2026-10-15: "they aren't learning from my moves, they think it's all the agents")
+            ob_ = _owner_brief()
+            if ob_:
+                ctx = {**(ctx or {}), 'owner': ob_, 'ownerRule': _aic.OWNER_RULE}
+        except Exception as e_:
+            print('chat owner brief:', str(e_)[:80])
         try:   # 🗄 the filed memory that fits this question (owner notes first, then lessons / rules / coins / site) — never the whole store
             mm_ = _aim.recall(_aim.seed_site(_aim_mem.get() or {}, now), text, 8)
             if mm_:
@@ -14100,7 +14106,7 @@ async def admin_ai_chat(request: Request):
         except Exception as e_:
             print('chat memory:', str(e_)[:80])
         web_ = None
-        if mode == 'chat' and data_ is None and (body or {}).get('web', True) is not False and _aic.should_search(text):   # 🌐 a quick search before EVERY real question (model memory may be out of date)
+        if mode == 'chat' and (body or {}).get('web', True) is not False and _aic.should_search(text):   # (records AND the web — owner: "always research before responding")   # 🌐 a quick search before EVERY real question (model memory may be out of date)
             try:
                 import feeless_mcp as _mcp
                 rows_ = await asyncio.wait_for(asyncio.to_thread(_mcp._search_rows, _aic.web_query(text), 5), timeout=8)
@@ -14150,6 +14156,21 @@ async def admin_ai_chat(request: Request):
 
 import chat_evidence as _cev
 _cev_cache: dict = {}
+
+
+def _owner_brief():
+    """👤 What the desk learned from the OWNER's own trades (never the agents'): the owner study's graded moves + findings, the owner's seats vs
+    the agents' first exit call, the owner's dragged lines vs the agents', and the coins the owner has on the card right now."""
+    p_ = _office.get('payload') or {}
+    st_ = p_.get('ownerStudy') or {}
+    card_ = next((c for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if c.get('real')), {}) or {}
+    picks_ = [{'coin': l.get('symbol'), 'heldMin': round((time.time() - _fuse._f(l.get('at'))) / 60) if l.get('at') else None,
+               'yourStop': l.get('sl') if l.get('ownerLvAt') else None, 'yourTake': l.get('tp') if l.get('ownerLvAt') else None}
+              for l in card_.get('legs') or [] if l.get('picked') and not l.get('placeholder')]
+    out = {'yourMovesGraded': st_.get('kinds') or st_.get('graded'), 'learnedFromYou': (st_.get('findings') or [])[:8],
+           'suggestionsForYou': [str(x.get('text') if isinstance(x, dict) else x)[:160] for x in (st_.get('suggestions') or [])[:4]],
+           'yourSeatsVsAgents': p_.get('ownerSeats'), 'yourLinesVsAgents': p_.get('ownerHand'), 'yourOpenPicks': picks_ or 'none right now'}
+    return {k: v for k, v in out.items() if v not in (None, [], {})}
 
 
 def _chat_evidence(question, now):

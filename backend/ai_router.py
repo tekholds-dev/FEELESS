@@ -543,6 +543,7 @@ EVIDENCE_MAX = 3400   # characters of evidence the model reads (chat_evidence.sh
 def clean_answer(text, n=1600):
     """A GENERAL answer for the page: plain text, code fences and control characters dropped, key-shaped runs masked, bounded."""
     t = re.sub(r'```[a-zA-Z]*', '', str(text or '')).replace('```', '')
+    t = re.sub(r'\*\*|__|^#{1,6}\s*', '', t, flags=re.M)   # no markdown symbols on the page (the owner saw raw **)
     t = re.sub(r'[\x00-\x08\x0b-\x1f\x7f]+', ' ', t).strip()
     return _KEYLIKE.sub('•••', t)[:n]
 
