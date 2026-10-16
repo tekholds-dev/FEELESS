@@ -7508,11 +7508,11 @@ async def fuses_learn():
     return {'n': len(st.get('pieces') or []), **_rl.lessons(_real_table())}
 
 
-def feecat_pool_rows(kernel_rows, arena_rows, limit=40):
+def feecat_pool_rows(kernel_rows, arena_rows, limit=60, agents_max=20):
     """🐱 FEECAT EATS ONLY WHAT THE ARENA AND THE AGENTS FOUND (owner, 2026-10-15: "have fee only taking arena / agent coins"): the agents'
     READY / CONTENDING coins first (their own order), then every coin the Arena ranks, one row per pool, dollar tickers dropped. Pure."""
     out, seen = [], set()
-    for src, rows in (('agents', kernel_rows), ('arena', arena_rows)):
+    for src, rows in (('agents', (kernel_rows or [])[:agents_max]), ('arena', arena_rows)):   # 🐱 the agents' fresh coins AND the Arena's established ones — her core lane only buys 3-day+ coins (her own record)
         for r in rows or []:
             pa = r.get('pairAddress') or r.get('pair')
             if not pa or pa in seen or _fw.dollar_named(r.get('symbol')):

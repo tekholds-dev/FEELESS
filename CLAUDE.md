@@ -4639,3 +4639,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `you` / `agents`) + one pill per closed trade (✓ / ✕, %, 👤 yours; tap = its chart). Each card: a WIN / LOSS / HELD verdict pill with the
   % big, chips ($ in · held · exit rule), 📸 ENTRY snapshot chips (`row.snap` = `coach.snap_of_pos`: your `snaps.entry` or an agent's thesis —
   chart · germ · buyers · under high · 5m), the replay on EVERY trade with a path, and the full story folded behind "▸ the story".
+- 🐱 WHY FEECAT DIDN'T TRADE (2026-10-16: 0 trades since the 10-15 pool switch): (1) the pool handed her each coin's pool by ADDRESS — 15 of
+  39 were TRUMP / ZEC / USDC / xStock-quoted ("not SOL-quoted"); now `_sol_pairs` reads each MINT's deepest SOL pool (one /tokens/v1 call per
+  30). (2) her lanes (core ≥ 3 days + $40K pool via your HQ override; fresh < 3h with X + site) skipped the agents' 3h–3-day coins: the pool now
+  carries ≤ 20 agent coins + the Arena's established ones (`feecat_pool_rows(.., limit 60, agents_max 20)`) and a 🎓 LEARNING LANE
+  (`_learn_qualifies`: 3h – core age, SOL pool ≥ $15K, buys ≥ 1.3× sells, 5m −2 … her chase cap, 1h volume ≥ ⅓ pool) trades at
+  `LEARN_SIZE` 0.25 — paper; her safety scan / discipline / proof gate / setup memory still decide. Your HQ rule override was not touched.

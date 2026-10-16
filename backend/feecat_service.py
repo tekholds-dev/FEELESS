@@ -162,12 +162,31 @@ async def _market_candidates(http):
         rows = ((await http.get(POOL_URL, timeout=6)).json() or {}).get('rows') or []
     except Exception:
         rows = []
-    src = {r['pairAddress']: r for r in rows if r.get('pairAddress')}
-    pairs = await _pair_prices(http, list(src))
+    # 🔗 each coin's deepest SOL pool (2026-10-16: 15 of 39 pool coins came with a TRUMP / ZEC / USDC / stock pool and failed "not SOL-quoted")
+    by_mint = {r['mint']: r for r in rows if r.get('mint')}
+    pairs = await _sol_pairs(http, list(by_mint))
     out = []
-    for pa, p in pairs.items():
-        r = src.get(pa) or {}
+    for m, p in pairs.items():
+        r = by_mint.get(m) or {}
         out.append({**p, '_src': r.get('src'), '_srcWhy': r.get('why')})
+    return out
+
+
+async def _sol_pairs(http, mints):
+    """{mint: its deepest SOL / WSOL-quoted live pair} — ONE DexScreener /tokens/v1 call per 30 coins."""
+    out = {}
+    for i in range(0, len(mints), 30):
+        try:
+            r = await http.get(f"https://api.dexscreener.com/tokens/v1/solana/{','.join(mints[i:i + 30])}")
+            rows = r.json() if r.status_code == 200 else []
+        except Exception:
+            rows = []
+        for p in rows if isinstance(rows, list) else []:
+            m = (p.get('baseToken') or {}).get('address')
+            if m not in mints or ((p.get('quoteToken') or {}).get('symbol') or '').upper() not in ('SOL', 'WSOL'):
+                continue
+            if m not in out or _num((p.get('liquidity') or {}).get('usd')) > _num((out[m].get('liquidity') or {}).get('usd')):
+                out[m] = p
     return out
 
 
@@ -418,6 +437,30 @@ def _fresh_qualifies(p, now):
     return vh1 / max(liq, 1) * min(buys / max(sells, 1), 3), f"fresh launch {age_min:.0f}m old: X + site, {buys:.0f}/{sells:.0f} buys/sells, 1h vol {vh1 / max(liq, 1):.1f}× liquidity"
 
 
+LEARN_SIZE = 0.25        # 🎓 learning-lane trades are a quarter of a normal size (paper)
+LEARN_MIN_LIQ = 15_000
+
+
+def _learn_qualifies(p, now):
+    """🎓 LEARNING LANE (owner, 2026-10-16: "the cat isn't trading"): her core lane only buys coins 3+ days old and her fresh lane only < 3h
+    launches with X + site — her pool (the agents' + the Arena's coins) is mostly 3h–3 days old, so she sat out every coin. This lane takes
+    that gap at LEARN_SIZE: a SOL pool ≥ $15K, buyers ahead (≥ 1.3× sells in the hour), not dumping (5m ≥ −2%), not a spike (5m ≤ her
+    chase cap), 1h volume ≥ a third of the pool. Her safety scan, discipline, proof gate and setup memory still decide after this."""
+    if ((p.get('quoteToken') or {}).get('symbol') or '').upper() not in ('SOL', 'WSOL'):
+        return None, 'not SOL-quoted'
+    R = {**RULES, **_ENTRY_TUNE}
+    age_h = (now * 1000 - _num(p.get('pairCreatedAt'), now * 1000)) / 3_600_000
+    liq = _num((p.get('liquidity') or {}).get('usd')); vh1 = _num((p.get('volume') or {}).get('h1'))
+    t1 = (p.get('txns') or {}).get('h1') or {}; buys, sells = _num(t1.get('buys')), _num(t1.get('sells'))
+    m5, h1 = _num((p.get('priceChange') or {}).get('m5')), _num((p.get('priceChange') or {}).get('h1'))
+    checks = [(R['minAgeHours'] <= age_h < max(R['minAgeHours'], R.get('coreMinAgeHours', 0)), 'not in the learning window'), (liq >= LEARN_MIN_LIQ, 'thin liquidity'),
+              (buys >= 1.3 * max(sells, 1), 'buyers not ahead'), (-2 <= m5 <= R['maxM5Chase'], '5m momentum'), (vh1 >= liq / 3, 'volume not moving'), (h1 <= R['h1Max'], '1h move')]
+    for ok, why in checks:
+        if not ok:
+            return None, why
+    return vh1 / max(liq, 1) * min(buys / max(sells, 1), 3) * 0.5, f"🎓 learning lane: {age_h:.0f}h old, {buys:.0f}/{sells:.0f} buys/sells, 1h vol {vh1 / max(liq, 1):.1f}× pool — quarter size"
+
+
 async def _fvg(http, pair_address, price_usd):
     """Bullish fair value gap on 5m candles: a bar whose low sits above the high two bars earlier leaves
     an unfilled gap. Price trading back inside the most recent such gap is a retest entry."""
@@ -529,6 +572,11 @@ async def run_engine(store, cats):
             if fscore is not None:
                 p['_fresh'] = True
                 score, reason = fscore, freason
+            else:
+                lscore, lreason = _learn_qualifies(p, now)
+                if lscore is not None:   # 🎓 the gap her two lanes skip (3h – 3 days): a quarter-size paper trade she learns from
+                    p['_learn'] = True
+                    score, reason = lscore, lreason
         if score is not None:
             ranked.append((score, reason, p))
         else:
@@ -700,7 +748,7 @@ async def run_engine(store, cats):
                 reason = f"{reason}; learned from users: {ce['why']} ×{ce['mult']}"
             reason = f'{reason}; holders: {safe_why}; conviction {conviction}×'
             px = _num(p.get('priceNative'))
-            planned = round(min(float(cat['risk']['maxPositionSol']), cat['balanceSol'] * 0.1 * conviction) * (R['freshSize'] if p.get('_fresh') else 1), 4)
+            planned = round(min(float(cat['risk']['maxPositionSol']), cat['balanceSol'] * 0.1 * conviction) * (R['freshSize'] if p.get('_fresh') else LEARN_SIZE if p.get('_learn') else 1), 4)
             size = round(planned * R['starterFraction'], 4)
             invested = sum(x['costSol'] for x in cat['positions'])
             if invested + planned > R['maxExposure'] * (cat['balanceSol'] + invested):
