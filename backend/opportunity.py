@@ -114,20 +114,34 @@ def knife(row):
     return f"🔪 falling knife: {_f(d):.0f}% under its high and no higher low yet"
 
 
+GERM_STRETCH = 2.0   # 🦠 a coin up to 2× the germ line off its floor still buys, at HALF a seat (the full line alone walled 6 of 9 desk coins: runners sit 20–100% up)
+GERM_STRETCH_SIZE = 0.5
+
+
 def germ_line(row):
-    """🦠 THE GERM LINE (owner, 2026-10-16: "buying the floor is 15% max from floor — take what's close to germ"): a NEW entry sits within
-    `universe.germ_max()`% of its 1-minute germ floor (above it, or under it after a shake). Further = the move already ran (or died) —
-    that is the gun line we stopped buying. No germ read (no 15% run on the chart yet) or the line set off = not judged. → reason or None."""
+    """🦠 THE GERM LINE (owner, 2026-10-16: "buying the floor is 15% max from floor — take what's close to germ"): inside `universe.germ_max()`%
+    of the 1m germ floor = a full seat (ranked up by closeness); up to GERM_STRETCH × the line = HALF a seat (`germ_size`); further = the move
+    already ran — that is the gun line we stopped buying. Under the floor by more than the line = the run is dead. No germ read (no 15% run
+    on the chart yet) or the line set off = not judged. → reason or None."""
     ch = (row or {}).get('chart') or {}
     mx = _uni.germ_max()
     if not mx or ch.get('germDist') is None:
         return None
     d = _f(ch['germDist'])
-    if d > mx:
-        return f"🦠 {d:.0f}% above its germ floor — your germ line is {mx}%"
+    if d > mx * GERM_STRETCH and not _uni.on_trend(row):   # 🔥 your Pump-trending mode: a trending runner is never walled by the germ — it buys at half a seat (germ_size)
+        return f"🦠 {d:.0f}% above its germ floor — past {mx * GERM_STRETCH:g}% (your {mx}% line, half seats up to 2×)"
     if d < -mx:
         return f"🦠 {-d:.0f}% under its germ floor — the run it was born on is dead"
     return None
+
+
+def germ_size(row):
+    """🦠 1.0 inside the germ line (or no read / line off) · GERM_STRETCH_SIZE between the line and its stretch."""
+    ch = (row or {}).get('chart') or {}
+    mx = _uni.germ_max()
+    if not mx or ch.get('germDist') is None:
+        return 1.0
+    return GERM_STRETCH_SIZE if _f(ch['germDist']) > mx else 1.0
 
 
 def germ_rank(row):
@@ -140,7 +154,7 @@ def germ_rank(row):
     if d < 0:
         return 0.95, 'lost'
     if d > mx:
-        return 0.85, 'far'
+        return (0.9, f'stretched {d:.0f}%') if d <= mx * GERM_STRETCH else (0.85, 'far')
     f = 1.0 + 0.30 * (1 - d / mx)
     conf = ch.get('germ5') in ('floor', 'near')
     return round(f * (1.08 if conf else 1.0), 3), ('confirmed' if conf else 'floor') + f' {d:.0f}%'

@@ -119,9 +119,13 @@ def test_the_germ_line_is_15_pct_from_the_floor_and_the_owner_can_move_or_switch
     try:
         uni.set_band({})
         assert uni.germ_max() == 15 and op.germ_line(row(12.0)) is None and op.germ_line({'chart': {}}) is None
-        assert '17% above its germ floor' in op.germ_line(row(17.0)) and 'dead' in op.germ_line(row(-20.0))
+        assert op.germ_line(row(17.0)) is None and op.germ_size(row(17.0)) == 0.5 and op.germ_size(row(12.0)) == 1.0   # stretched: half a seat
+        assert '35% above its germ floor' in op.germ_line(row(35.0)) and 'dead' in op.germ_line(row(-20.0))
+        uni.set_band({'agentPumpTrend': 'first'}); uni.set_trending(['T'])
+        assert op.germ_line({**row(80.0), 'mint': 'T'}) is None and op.germ_size({**row(80.0), 'mint': 'T'}) == 0.5   # 🔥 a trending runner: half seat, never walled
+        uni.set_trending([])
         uni.set_band({'agentGermMax': 25})
-        assert op.germ_line(row(17.0)) is None
+        assert op.germ_line(row(35.0)) is None
         uni.set_band({'agentGermMax': 0})
         assert op.germ_line(row(80.0)) is None
     finally:

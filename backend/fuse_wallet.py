@@ -401,6 +401,7 @@ def spent_24h(ledger, now):
     return round(max(0.0, sum(_f(o.get('usd')) for o in day if o.get('side') == 'buy') - sum(_f(o.get('usd')) for o in day if o.get('side') == 'sell')), 4)
 
 
+PICK_IMPACT_MAX, PICK_GAP_MAX, PICK_BACK_MAX = 8.0, 10.0, 10.0   # 🎯 the OWNER's own pick (owner, 2026-10-16: "took 5 tries for my entry to pass"): wider limits; the no-route / honeypot / crashed checks never move
 SELL_IMPACT_MAX = 15.0   # a sell's own price impact is refused only above this (a rug / empty route), never at the buy cap
 
 
@@ -423,7 +424,7 @@ def check(order, cfg, ledger, now, quote_impact_pct=None):
     # 🚪 AN EXIT IS NEVER REFUSED FOR ITS PRICE IMPACT (2026-10-08: two sells were refused at 4.4% / 4.9% against the 3.5% cap, leaving stopped coins
     # on the card): selling takes risk OFF, and on a $1–5 coin the whole difference is cents. Buys keep the owner's cap; a sell is refused only
     # when the route itself is absurd (> SELL_IMPACT_MAX).
-    cap = max(cfg['maxImpactPct'], SELL_IMPACT_MAX) if order.get('side') == 'sell' else cfg['maxImpactPct']
+    cap = max(cfg['maxImpactPct'], SELL_IMPACT_MAX) if order.get('side') == 'sell' else max(cfg['maxImpactPct'], PICK_IMPACT_MAX) if order.get('picked') else cfg['maxImpactPct']
     if quote_impact_pct is not None and _f(quote_impact_pct) > cap:
         return False, f"price impact {_f(quote_impact_pct):.2f}% > {cap:g}%"
     return True, ''
@@ -1394,7 +1395,7 @@ def buy_safety(order, quote_out_atoms, decimals, sell_back_lamports):
     px = _f(order.get('usd')) / out
     mid = _f(order.get('midPx'))
     # 🎛 an AGENT buy uses the owner's own limit when they set one (card `agentGapPct` 4 / 6 / 8 → order `gapPct`), never past 8%
-    gap_cap = (max(AGENT_PRICE_GAP_PCT, min(8.0, _f(order.get('gapPct')))) if _f(order.get('gapPct')) > 0 else AGENT_PRICE_GAP_PCT) if order.get('agent') else MAX_PRICE_GAP_PCT
+    gap_cap = (max(AGENT_PRICE_GAP_PCT, min(8.0, _f(order.get('gapPct')))) if _f(order.get('gapPct')) > 0 else AGENT_PRICE_GAP_PCT) if order.get('agent') else PICK_GAP_MAX if order.get('picked') else MAX_PRICE_GAP_PCT
     if decimals is not None and mid > 0 and (px / mid - 1) * 100 > gap_cap:   # unknown decimals → only the sell-back check
         return False, f"buy price {((px / mid - 1) * 100):.1f}% above market (> {gap_cap:g}%)"
     if decimals is not None and mid > 0 and (1 - px / mid) * 100 >= MAX_BELOW_PCT:
@@ -1403,7 +1404,7 @@ def buy_safety(order, quote_out_atoms, decimals, sell_back_lamports):
         return False, "can't sell it back to SOL (no route) — skipped"
     loss = (1 - _f(sell_back_lamports) / max(1, _f(order.get('lamports')))) * 100
     # 🎯 the owner's own pick may use their own limit (6–10%, cfg `pickSellBackPct`); the engine's coins always use 6%
-    cap = max(MAX_ROUNDTRIP_PCT, min(10.0, _f(order.get('maxRoundtripPct')))) if order.get('picked') else (max(AGENT_ROUNDTRIP_PCT, min(10.0, _f(order.get('backPct')))) if _f(order.get('backPct')) > 0 else AGENT_ROUNDTRIP_PCT) if order.get('agent') else MAX_ROUNDTRIP_PCT
+    cap = PICK_BACK_MAX if order.get('picked') else (max(AGENT_ROUNDTRIP_PCT, min(10.0, _f(order.get('backPct')))) if _f(order.get('backPct')) > 0 else AGENT_ROUNDTRIP_PCT) if order.get('agent') else MAX_ROUNDTRIP_PCT
     if loss > cap:
         return False, f"sells back for {loss:.1f}% less (> {cap:g}%) — tax / thin / one-way"
     return True, ''

@@ -4542,3 +4542,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   leaves the desk) → coin edge `germ` {d, w, d5, w5, run, e, line, ok} → `lib/germ.js` `useGerm` / `germView` → `components/GermBadge.jsx`:
   `GermDot` on every `TokenAvatar` (bottom-left, spinning cilia) + `GermChip` on cockpit seats, the decision panel, Best 3 and the real card's
   coin rows (`styles/germ.css` `gm-*`, tones hot · floor · near · far · lost). Controls card 🦠 GERM PLAY. Coins the desk never read show none.
+- 🦠 GERM LINE v2 (same day — the 15% wall left the agents sitting: 6 of 9 desk coins walled, runners sit 20–100% off their germ): inside the
+  line = full seat · up to `GERM_STRETCH` 2× the line = HALF a seat (`opportunity.germ_size` → `brain.think` "stretched off its germ") · past
+  it = no · a Pump-trending coin in 🔥 first / only mode is never walled by the germ (half seat). 🎯 Your own picks: price impact ≤ 8%, price gap
+  ≤ 10%, sell-back ≤ 10% (`fuse_wallet.PICK_*`; a pick took 5 tries on 3.5% / 5% / 6%). "PUMP TRENDING DOES NOTHING" ⇒ count `src` ptrend
+  on the desk table (26 of 33 that day) and read the candidates' walls before touching the intake.

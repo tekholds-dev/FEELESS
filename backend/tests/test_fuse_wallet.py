@@ -1067,7 +1067,7 @@ def test_the_owners_pick_may_use_their_own_sell_back_limit_but_never_over_10():
     assert not fw.buy_safety({**o, 'maxRoundtripPct': 8}, 1_000_000, None, back(6.8))[0]                # the setting only counts for a pick
     assert fw.buy_safety({**o, 'picked': True, 'maxRoundtripPct': 8}, 1_000_000, None, back(6.8))[0]
     assert not fw.buy_safety({**o, 'picked': True, 'maxRoundtripPct': 50}, 1_000_000, None, back(10.5))[0]   # capped at 10%
-    assert not fw.buy_safety({**o, 'picked': True}, 1_000_000, None, back(6.8))[0] and fw.clean_cfg({})['pickSellBackPct'] == 6
+    assert fw.buy_safety({**o, 'picked': True}, 1_000_000, None, back(9.5))[0]                              # 🎯 a pick always gets 10% now (owner: 5 tries to get in)
 
 
 def test_idle_card_cash_is_swept_into_the_coin_furthest_under_its_share_when_nothing_else_is_due():

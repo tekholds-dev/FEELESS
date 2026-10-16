@@ -168,6 +168,9 @@ def think(ms, ctx=None):
     mw = (c.get('weights') or {}).get(ms['identity']['mint'])
     if mw is not None and _f(mw) < 1.0 and wa['size'] > 0:   # 🧠 the real-money memory puts this coin in the WORSE half of what the card has bought: it still takes the seat, at half size
         wa = {'size': round(max(_crew.SHRINK_FLOOR, wa['size'] * MEM_SIZE), 2), 'why': (wa['why'] + ', ' if wa['why'] != 'full size' else '') + 'worse half of our real trades'}
+    gz = _opp.germ_size(ms['row'])
+    if gz < 1.0 and wa['size'] > 0:   # 🦠 past the germ line but inside the stretch: it still takes the seat, at half size
+        wa = {'size': round(max(_crew.SHRINK_FLOOR, wa['size'] * gz), 2), 'why': (wa['why'] + ', ' if wa['why'] != 'full size' else '') + 'stretched off its germ'}
     base, parts = _opp.open_score(ms['row'], c.get('weights'), _lc.lesson_value(ls, 'devil', 'strong'), c.get('aiw'))
     fv = ms['market'].get('flow') or {}
     crowd = CROWD_F if fv.get('state') == 'BUYERS' and fv.get('hot') else 1.0   # 🌊 a crowd buying on the live tape ranks a little higher (never past a gate)
