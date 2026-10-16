@@ -134,6 +134,44 @@ def gun_chase(row):
     return None
 
 
+GUN_WALL = 3.0           # 🧱 this close under its gun line (the high) = buying under resistance — no entry of any kind, push or not (owner, 2026-10-16: $SAINDRA bought 0.9% under its gun line, dumped 90s later)
+GUN_WALL_GERM = 5.0      # … unless the coin is also ON its germ floor (a tight range: the floor is the entry)
+GERM_ROOM = 6.0          # a germ entry needs this much room up to the gun line, else the "floor" is the ceiling too
+RUSH_C1, RUSH_VOL1H = 30.0, 50_000.0   # 🧲 a RUSH coin: up ≥ 30% on the hour, $50K+ traded in the hour, or on Pump's trending board
+DIP_LO, DIP_HI = 12.0, 45.0            # … that pulled back 12–45% from its high
+DIP_5M_MIN, DIP_5M_MAX, DIP_BUY = -2.0, 4.0, 50.0   # … stopped falling (5 min −2 … +4) with buyers ≥ 50% = the dip buy (not the knife, not the chase)
+RUSH_DIP_RANK = 1.20
+
+
+def gun_wall(row):
+    """🧱 Pressed under its gun line (≤ GUN_WALL % under the high) — never READY, never armed, whatever the push. A coin also on its germ
+    floor (≤ GUN_WALL_GERM) is exempt: in a tight range the floor is the entry. No high reading = not judged. → reason or None."""
+    ch = (row or {}).get('chart') or {}
+    dh = ch.get('distHigh')
+    if dh is None or _f(dh) > GUN_WALL:
+        return None
+    gd = germ_d(ch)[0]
+    if gd is not None and 0 <= gd <= GUN_WALL_GERM:
+        return None
+    return f"🧱 {_f(dh):.1f}% under its gun line — buying under resistance; waits for a dip toward its germ"
+
+
+def rush_dip(row):
+    """🧲 THE RUSH DIP (owner, 2026-10-16: "finding dips in rush coins"): a coin that RAN (≥ 30% on the hour, $50K+ an hour, or Pump
+    trending) pulled back 12–45% from its high, has stopped falling (5 min −2 … +4%) with buyers ≥ 50%, and still holds its germ.
+    → reason or None. Missing readings = not judged."""
+    r = row or {}
+    ch, n, v = r.get('chart') or {}, r.get('nums') or {}, r.get('vitals') or {}
+    dh, d5, buy = ch.get('distHigh'), n.get('d5'), n.get('buy')
+    if dh is None or d5 is None or buy is None:
+        return None
+    rush = _f(n.get('c1')) >= RUSH_C1 or _f(v.get('vol1h')) >= RUSH_VOL1H or _uni.on_trend(r)
+    gd = germ_d(ch)[0]
+    if not rush or not (DIP_LO <= _f(dh) <= DIP_HI) or not (DIP_5M_MIN <= _f(d5) <= DIP_5M_MAX) or _f(buy) < DIP_BUY or (gd is not None and gd < 0):
+        return None
+    return f"🧲 rush dip: {_f(dh):.0f}% off its high, steadying ({_f(d5):+.1f}% 5m), buyers {_f(buy):.0f}%"
+
+
 SPIKE_5M = 12.0          # 🚀 a 5-minute move this big = a spike: no entry until it pulls back toward its germ
 SPIKE_TOP = 10.0         # … and a coin still within this % of its high while sitting past the germ line is the same spike, still up there
 
@@ -207,7 +245,8 @@ def germ_rank(row):
         return (0.9, f'stretched {d:.0f}%') if d <= mx * GERM_STRETCH else (0.85, 'far')
     f = 1.0 + 0.30 * (1 - d / mx)
     conf = lens == '1m' and ch.get('germ5') in ('floor', 'near')
-    return round(f * (1.08 if conf else 1.0), 3), ('confirmed' if conf else 'floor' if lens == '1m' else '5m floor') + f' {d:.0f}%'
+    dip = RUSH_DIP_RANK if rush_dip(row) else 1.0   # 🧲 a dip on a rush coin ranks up
+    return round(f * (1.08 if conf else 1.0) * dip, 3), ('confirmed' if conf else 'floor' if lens == '1m' else '5m floor') + f' {d:.0f}%' + (' · rush dip' if dip > 1 else '')
 
 
 def links_conflict(row):

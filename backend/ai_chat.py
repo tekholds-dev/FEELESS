@@ -132,6 +132,9 @@ LIVE_MECHANICS = (
     "⏱ candle clock: no new agent buy in the first 100s of a 5-min candle.",
     "🌙 night shift 00:00–09:00: smaller seats, coins ≥ 30 min, ENTER NOW only.",
     "🎭 official-coin + 🧬 clone guards: same-ticker copies of a bigger coin or a coin we traded are skipped.",
+    "🎯 ENTRY QUALITY (2026-10-16): 🧱 no buy within 3% under the gun line (unless also on the germ) · a germ entry needs 6%+ room up to the gun "
+    "line · 🧲 RUSH DIP = a coin that ran (≥ +30% 1h, $50K+/h or Pump trending), pulled back 12–45% from its high, steadied (5m −2…+4%), "
+    "buyers ≥ 50%, germ held → armed (half seat) and ranks ×1.2.",
 )
 
 

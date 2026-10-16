@@ -39,6 +39,8 @@ def germ_entry_ok(ms, call):
     d, mx = _opp.germ_d(ch)[0], _u.germ_max()
     if not mx or d is None or call not in GERM_ARM_CALLS or not (0 <= _f(d) <= mx):
         return None
+    if ch.get('distHigh') is not None and _f(ch['distHigh']) < _opp.GERM_ROOM:   # the floor is the ceiling too: no room above
+        return None
     return f"{_f(d):.0f}% above it"
 
 
@@ -105,7 +107,7 @@ def trigger(ms, lessons=None, lab=None, waits=None):
     elif st == 'ENTER' and fv.get('state') == 'PEAK' and w.get('peakWait', True):
         st, why = 'ARM', f"{why} — {fv.get('why')} (armed for the dip, not bought at the top)"
     call, rule = chart_call(ms)
-    gun = _opp.gun_chase(ms.get('row')) or _opp.spike_chase(ms.get('row'))
+    gun = _opp.gun_chase(ms.get('row')) or _opp.spike_chase(ms.get('row')) or _opp.gun_wall(ms.get('row'))
     if st in ('ENTER', 'ARM') and gun:   # 🔫 pressed against its gun line after a push: never READY, never armed — it waits for the pullback
         st, why = 'WAIT', f"{why} — {gun}"
     on_germ = germ_entry_ok(ms, call) if st in ('ENTER', 'ARM') else None
@@ -113,6 +115,10 @@ def trigger(ms, lessons=None, lab=None, waits=None):
         st, why = 'ARM', f"{why} — 🦠 on its germ floor ({on_germ}): the germ is the entry, not the breakout — armed"
     elif st in ('ENTER', 'ARM') and call and call != CHART_GO and w.get('chartWait', True):   # 🎯 THE CHART SAYS GO: no real seat on a WAIT / SKIP chart (not even an armed half)
         st, why = 'WAIT', f"{why} — the chart says {call.lower()} ({rule or '?'}): waits for ENTER NOW"
+    dip_ = _opp.rush_dip(ms.get('row'))
+    if (st == 'WAIT' and dip_ and nar not in ('DISTRIBUTING', 'COLLAPSING') and fv.get('state') != 'SELLERS' and not gun
+            and (call is None or call == CHART_GO or call in GERM_ARM_CALLS)):   # 🧲 a dip on a rush coin is an entry the breakout read misses: armed (half seat)
+        st, why = 'ARM', f"{why} — {dip_}: armed"
     gd_ = _opp.germ_d((ms.get('row') or {}).get('chart'))[0]
     if st == 'ENTER' and gd_ is not None and _u_germ_max() and gd_ > _u_germ_max():   # 🦠 READY only INSIDE your germ line: a stretched coin is armed (half seat), never READY
         st, why = 'ARM', f"{why} — {gd_:.0f}% above its germ (your line {_u_germ_max()}%): armed, not READY"

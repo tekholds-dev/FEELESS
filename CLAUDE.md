@@ -4698,5 +4698,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   first and the chat's "auto" always hit G4's 2B model). Chat "auto" asks `CHAT_FIRST` (default `local` = OSSY gpt-oss-20b) first.
   🩸 Rug alert = a blinking light (`ack-rugdot`, red DRAIN / amber thinning, the why in the tip). 🎞 Ride card draws the ride (`card.spark` +
   ✂ `card.marks` in shareGif) and no `bigSub` (it collided with the stats). Brain drawer = AiChat `variant="drawer"` + `onClose` (one header).
+- 🎯 ENTRY QUALITY (owner, 2026-10-16: "stop poor entries — more near germ, dips in rush coins"; `opportunity.gun_wall / rush_dip`, tests
+  `test_entry_quality.py`): $SAINDRA came in through the ARMED door on a BREAKOUT read 0.9% under its gun line and was dumped 90s later.
+  🧱 `gun_wall` = no ENTER / ARM ≤ 3% under the gun line (push or not) unless the coin is also ≤ 5% above its germ · a germ arm needs
+  `GERM_ROOM` 6% up to the gun line · 🧲 `rush_dip` (ran ≥ +30% 1h / $50K+/h / Pump trending, 12–45% off its high, 5m −2…+4, buyers ≥ 50,
+  germ held) ARMS a WAIT coin (never on SKIP / DATA / sellers / distributing) and ranks ×1.2 in `germ_rank`. Hand-set — judge on real exits.
 - FEE prompt opening = "tools first, `now` at most once, never the same tool twice, then answer" — "a tool call EVERY turn, `now` at least" made
   the 4B Qwen call `now` 14 times without answering.
