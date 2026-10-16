@@ -9534,6 +9534,25 @@ async def _curve_fix_1011(now):
     return True
 
 
+async def _mcfloor_fix_1016(now):
+    """🎯 Once (owner, 2026-10-16: "lower my MC band floor to $10K so newer launches reach the agents"): the real card's band floor
+    $20K → $10K (`agentMcMin`). Old value: data/realcfg_before_mcfloor1016.json. Change it again: HQ › Agents › 🎛 Limits › 🎯 UNIVERSE."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('mcFloorFix1016') or not rc:
+            return False
+        ch = {'agentMcMin': 10_000.0}
+        _json_save(DATA_DIR / 'realcfg_before_mcfloor1016.json', {k: rc.get(k) for k in ch})
+        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
+        pr['mcFloorFix1016'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    _uni.set_band(pr['realCfg'])
+    return True
+
+
 async def _minage_fix_1014(now):
     """🐣 Once (2026-10-14): the agents' youngest-coin control (`agentMinAgeH`) was shown but enforced nowhere after the 2026-10-12 refactor —
     the card held 0.5 h on screen while every trade it made was any age. Now that it IS enforced, a 0.5 h line would block 209 of the 273
@@ -9887,6 +9906,7 @@ async def _prime_tick_inner(now):
     await _armed_fix_1013(now)
     await _proof_clean_1013(now)
     await _minage_fix_1014(now)
+    await _mcfloor_fix_1016(now)
     await _agent_real_fix_1012(now)
     await _agent_open_fix_1012(now)
     await _agent_control_fix_1010(now)
