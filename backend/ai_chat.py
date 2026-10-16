@@ -103,9 +103,12 @@ def about_feeless(text):
 # 🧠 WHAT IS LIVE RIGHT NOW in the engine — the chat model has no other way to know a rule shipped today. Short, one line each; update with the
 # rule (CLAUDE.md is the long version). Numbers here are rules, never results — results come from the record lines next to them.
 LIVE_MECHANICS = (
-    "🦠 GERM ENTRY (shipped 2026-10-16): the agents read the germ floor (base candle of the biggest run — the chart's 🧰 Germ tool) on 1m AND 5m. "
-    "confirmed = on the 1m floor + 5m floor/near → rank ×1.25 · floor ×1.1 · far above it ×0.85 · lost ×0.9. A WEIGHT on the rank, never a gate. "
-    "Replaces buying the gun line (breakout over the nearest swing high): replay said +10% within 30 min 27% vs 9%, but deeper dips (−15% first 20% vs 8%).",
+    "🦠 GERM PLAY (2026-10-16): a new agent entry must sit within the owner's germ line (agentGermMax, default 15%) of its 1m germ floor (the base "
+    "candle of the coin's biggest run — the chart's 🦠); closer ranks higher (×1.30 on the floor → ×1.00 at the line, ×1.08 when the 5m germ agrees). "
+    "The stop sits just under the germ (germ −3%, 8–35%; switch agentGermStop). A coin sold green may come back early when it builds a NEW germ "
+    "floor above our exit and sits on it. 🌙 Moon bag (agentMoonBag, OFF): after the scale-out the rest rides the germ instead of the peak trail. "
+    "Replay (837 germ entries, after a 3% round trip): 15% lost least of 8/15/25 (−3.4% vs −4.4/−4.5); the germ stop −2.7% vs −3.4% flat −20%; "
+    "the moon bag did NOT prove out. Every coin's logo carries a 🦠 badge with its germ distance.",
     "🎯 chart says go: Trigger enters only on the chart call ENTER NOW; other calls wait.",
     "📸 snapshot exits: soft exits (trail, thesis, time, flow banks) need 2 reads 8s apart; stops / −45% / rug / drain are instant.",
     "🛫 runway: a green coin is not banked in its first 6 min; 💰 scale-out sells 75% at +10% (coins < 5 min old sell all at +10%).",

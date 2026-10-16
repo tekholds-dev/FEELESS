@@ -479,18 +479,37 @@ def stop_for(f, state, ctx=None, ceiling=30.0):
 EXPECT = {'STRONG UPTREND': 4, 'UPTREND': 3, 'PULLBACK IN UPTREND': 3, 'CONFIRMED BREAKOUT': 3}
 
 
-def thesis(chart, now, ctx=None, ceiling=30.0, take=None):
+GERM_STOP_PAD, GERM_STOP_MAX = 3.0, 35.0
+
+
+def germ_stop(f, ceiling=30.0):
+    """🦠 THE GERM STOP (owner, 2026-10-16): an entry near its germ floor stops just UNDER the floor — losing the germ means the run that
+    floor was born on is dead. % = distance to the germ + 3, inside [STOP_FLOOR, min(ceiling, 35)]. Replay on 837 germ entries
+    (scripts/germ-exits.py): −2.7% avg vs −3.4% for a flat −20% stop, better in both halves (more small stop-outs, fewer big ones).
+    No germ read / germ lost / further than 35% = None (the structure stop stands). → (stop %, germ px) or None."""
+    g = (f or {}).get('germ')
+    if not g or g.get('lost') or _f(g.get('dist')) > GERM_STOP_MAX or _f(g.get('px')) <= 0:
+        return None
+    top = min(_clamp(_f(ceiling), STOP_FLOOR, CATASTROPHIC_STOP - 5), GERM_STOP_MAX)
+    return round(_clamp(max(_f(g['dist']), 0.0) + GERM_STOP_PAD, STOP_FLOOR, top), 1), _f(g['px'])
+
+
+def thesis(chart, now, ctx=None, ceiling=30.0, take=None, germ_stop_on=False):
     """🧾 The entry thesis saved with a REAL position (never rewritten): what the structure was, the rule Trigger entered on, the support
     it stands on, the price that invalidates it, the stop, how many 5-minute windows it is expected / allowed to take, the reasons
     and the risks known at that moment."""
     f, state = (chart or {}).get('f') or {}, (chart or {}).get('state') or 'UNKNOWN'
     stop, parts = stop_for(f, state, ctx, ceiling)
+    gs = germ_stop(f, ceiling) if germ_stop_on else None
+    if gs:
+        stop, parts = gs[0], [f"🦠 germ stop: just under the germ floor ({_f((f.get('germ') or {}).get('dist')):.1f}% below the entry + {GERM_STOP_PAD:g})"]
     sup = _f(f.get('support')) or _f(f.get('low'))
     exp = max(MIN_WINDOWS, EXPECT.get(state, MIN_WINDOWS))
     ent = (chart or {}).get('entry') or ['', '', '']
     return {'structure': state, 'at': now, 'px': f.get('px'), 'call': ent[0], 'triggerRule': ent[1], 'why': ent[2], 'support': sup or None,
             'invalidation': round(sup * (1 - max(_f(f.get('atr')), 0.3) / 100), 12) if sup else None, 'stopPct': stop, 'stopParts': parts,
             'expectedHoldWindows': exp, 'maxHoldWindows': MAX_WINDOWS, 'trend': f.get('trend'), 'chop': f.get('chop'), 'mom': f.get('mom'),
+            'germPx': (f.get('germ') or {}).get('px'), 'germStop': bool(gs),
             'reasons': list((chart or {}).get('ev') or [])[:6], 'risks': list((chart or {}).get('con') or [])[:6], 'src': (chart or {}).get('src'), 'take': take,
             'data': (lambda q: None if not q else {'state': q['state'], 'conf': q['conf'], 'why': q['why'], 'label': (q.get('prov') or {}).get('label')})((chart or {}).get('q'))}
 

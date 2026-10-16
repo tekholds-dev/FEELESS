@@ -27,7 +27,7 @@ def test_volume_limits_widen_the_lane_and_pump_trending_skips_the_age_line():
 
 
 def test_unknown_limit_values_fall_back_and_the_controls_list_them():
-    assert uni.clean_limits({'agentMaxAgeH': 5, 'agentMinVol1h': 7, 'agentPumpTrend': 'yolo'}) == {'maxAgeH': 6.0, 'minVol': 1000.0, 'trend': 'off', 'minAgeH': 0.0}
+    assert uni.clean_limits({'agentMaxAgeH': 5, 'agentMinVol1h': 7, 'agentPumpTrend': 'yolo'}) == {'maxAgeH': 6.0, 'minVol': 1000.0, 'trend': 'off', 'minAgeH': 0.0, 'germMax': 15}
     keys = [c['key'] for c in oe.controls({})]
     assert {'agentMaxAgeH', 'agentMinVol1h', 'agentPumpTrend'} <= set(keys) and 10_000_000.0 in oe.OPTIONS['agentMcMax']
     assert oe.clean_policy({'agentPumpTrend': 'first'})['agentPumpTrend'] == 'first'

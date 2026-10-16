@@ -106,6 +106,23 @@ def test_open_score_ranks_a_coin_on_its_germ_up_and_one_far_above_it_down():
     import opportunity as op
     base = {'mint': 'M', 'vitals': {'ageH': 2.0}, 'nums': {'d5': 2.0}}
     s0, _ = op.open_score(base)
-    s1, parts = op.open_score({**base, 'chart': {'germ': 'floor', 'germ5': 'floor'}})
-    s2, _ = op.open_score({**base, 'chart': {'germ': 'far'}})
-    assert s1 > s0 > s2 and ('🦠 germ confirmed', 1.25) in parts
+    s1, parts = op.open_score({**base, 'chart': {'germ': 'floor', 'germDist': 0.0, 'germ5': 'floor'}})
+    s3, _ = op.open_score({**base, 'chart': {'germ': 'near', 'germDist': 12.0}})
+    s2, _ = op.open_score({**base, 'chart': {'germ': 'lost', 'germDist': -4.0}})
+    assert s1 > s3 > s0 > s2 and ('🦠 germ confirmed 0%', 1.404) in parts
+
+
+def test_the_germ_line_is_15_pct_from_the_floor_and_the_owner_can_move_or_switch_it_off():
+    import opportunity as op
+    from trench_kernel import universe as uni
+    row = lambda d: {'chart': {'germ': 'far', 'germDist': d}}
+    try:
+        uni.set_band({})
+        assert uni.germ_max() == 15 and op.germ_line(row(12.0)) is None and op.germ_line({'chart': {}}) is None
+        assert '17% above its germ floor' in op.germ_line(row(17.0)) and 'dead' in op.germ_line(row(-20.0))
+        uni.set_band({'agentGermMax': 25})
+        assert op.germ_line(row(17.0)) is None
+        uni.set_band({'agentGermMax': 0})
+        assert op.germ_line(row(80.0)) is None
+    finally:
+        uni.set_band({})

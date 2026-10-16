@@ -5,6 +5,7 @@ import { formatPct, formatUSD, formatTime, shortAddress } from '../../lib/dexscr
 import { useVerified } from '../../lib/verifyBatch';
 import { useReputation, cachedReputation } from '../../lib/reputation';
 import { usePumpPulse, pulseSummary } from '../../lib/pumpPulse';
+import { GermDot } from '../GermBadge';
 import '../../styles/pulseBolt.css';
 
 const isImageSource = value => typeof value === 'string' && (/^https?:\/\//i.test(value) || /^data:image\//i.test(value) || value.startsWith('/assets/'));
@@ -128,6 +129,7 @@ export const TokenAvatar = ({ pair, size = 34, onExhausted, maxAttempts }) => {
   return <span className="token-avatar" style={{ width: size, height: size }} aria-label={`${symbol} token logo`}>
     {mint && size >= 18 && <VerifiedTick mint={mint} size={size} />}
     {mint && size >= 18 && <PulseDot mint={mint} pairAddress={pair?.pairAddress} size={size} />}
+    {mint && size >= 18 && <GermDot mint={mint} size={size} />}
     {(!imageUrl || exhausted) && <span className="token-avatar-fallback" aria-hidden="true"><Coins size={Math.round(size * 0.42)} /></span>}
     {imageUrl && !exhausted && <img data-fb-skip="1"
       key={`${imageUrl}-${attempts}`}

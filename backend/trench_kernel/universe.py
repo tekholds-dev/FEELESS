@@ -89,7 +89,10 @@ MAX_AGES = (1.0, 3.0, 6.0, 12.0, 24.0, 72.0, 168.0, 720.0)
 MIN_VOLS = (1_000.0, 5_000.0, 10_000.0, 25_000.0, 50_000.0, 100_000.0, 250_000.0)
 TREND_MODES = ('off', 'first', 'only')
 TREND_RANK = 1.15        # a coin on Pump trending in `first` / `only` mode: ×1.15 rank and newness counted as fresh (it is running NOW)
-_LIM = {'maxAgeH': 6.0, 'minVol': 1_000.0, 'trend': 'off', 'minAgeH': 0.0, 'trending': frozenset()}
+GERM_MAXES = (0, 10, 15, 25)   # 🦠 cfg `agentGermMax`: a NEW entry sits at most this % from its germ floor (owner, 2026-10-16: "buying the floor is 15%
+                               # max from floor"; replay on the 1m candles: 15% lost least of 8 / 15 / 25 — −3.4% vs −4.4% / −4.5% after costs). 0 = off.
+GERM_MAX_DEFAULT = 15
+_LIM = {'maxAgeH': 6.0, 'minVol': 1_000.0, 'trend': 'off', 'minAgeH': 0.0, 'germMax': GERM_MAX_DEFAULT, 'trending': frozenset()}
 
 
 def clean_limits(cfg):
@@ -97,7 +100,8 @@ def clean_limits(cfg):
     a = _f(c.get('agentMaxAgeH')) if c.get('agentMaxAgeH') is not None and _f(c.get('agentMaxAgeH')) in MAX_AGES else 6.0
     v = _f(c.get('agentMinVol1h')) if c.get('agentMinVol1h') is not None and _f(c.get('agentMinVol1h')) in MIN_VOLS else AGENT_MIN_VOL1H
     t = c.get('agentPumpTrend') if c.get('agentPumpTrend') in TREND_MODES else 'off'
-    return {'maxAgeH': a, 'minVol': v, 'trend': t, 'minAgeH': min_age_of(c)}
+    g = int(_f(c.get('agentGermMax'))) if c.get('agentGermMax') is not None and int(_f(c.get('agentGermMax'))) in GERM_MAXES else GERM_MAX_DEFAULT
+    return {'maxAgeH': a, 'minVol': v, 'trend': t, 'minAgeH': min_age_of(c), 'germMax': g}
 
 
 def set_band(cfg):
@@ -138,6 +142,11 @@ def too_young(row):
     if a is not None and mn > 0 and _f(a) < mn:
         return f"{_f(a) * 60:.0f} min old — your youngest-coin line is {mn * 60:g} min" if mn < 1 else f"{_f(a):.1f}h old — your youngest-coin line is {mn:g}h"
     return None
+
+
+def germ_max():
+    """🦠 The most % a NEW entry may sit above (or under) its germ floor — 0 = the line is off."""
+    return _LIM['germMax']
 
 
 def min_vol():

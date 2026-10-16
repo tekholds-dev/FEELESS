@@ -3543,10 +3543,11 @@ def agent_out_danger(why):
     return bool((m and m.group(1) in AGENT_OUT_RULES) or re.search(r'rug|drain|pulled', str(why or ''), re.I))
 
 
+GERM_REENTRY_PCT = 15.0   # 🦠 a coin sold green that printed a NEW germ floor above our exit price and sits ≤ this % above it may come back early
 COMEBACK_PCT = 5.0   # 🔁 a coin we sold IN PROFIT that runs this far past our exit price may be bought again inside the 10-min sit-out
 
 
-def agent_out(card, now, px_of=None):
+def agent_out(card, now, px_of=None, germ_of=None):
     """Mints the agents may not buy right now: left in the last 10 min, or left on a danger rule in the last 6h. 🔁 COMEBACK: a coin we sold
     GREEN (never a danger exit) that is now ≥ COMEBACK_PCT above our exit price is let back in early — 87% of trailed coins ran on after we
     sold (2026-10-15). Every normal entry check still decides; this only lifts the sit-out."""
@@ -3556,6 +3557,9 @@ def agent_out(card, now, px_of=None):
         if now - _f(v.get('at')) >= (AGENT_OUT_DANGER_SEC if v.get('danger') else AGENT_OUT_SEC):
             continue
         if px_of and v.get('green') and not v.get('danger') and _f(v.get('px')) > 0 and _f(px_of(m)) >= _f(v['px']) * (1 + COMEBACK_PCT / 100):
+            continue
+        g_ = germ_of(m) if germ_of and v.get('green') and not v.get('danger') and _f(v.get('px')) > 0 else None
+        if g_ and _f(g_[0]) > _f(v['px']) and 0 <= _f(g_[1]) <= GERM_REENTRY_PCT:   # 🦠 SECOND ENTRY: the runner built a NEW germ floor above where we sold, and sits on it
             continue
         out.add(m)
     return out

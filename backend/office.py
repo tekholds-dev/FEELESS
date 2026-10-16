@@ -484,7 +484,7 @@ def take_info(cfg, scalp=None):
 
 
 OBEY = {'R4d': 'drain exit (holders / pool / sellers)', 'R4f': 'flow exit (sellers took over)', 'R4c': 'flow exit (buying climax)', 'R11x': 'dead coin exit', 'R7b': 'trailing protection', 'R11': 'dead coin swap', 'R4e': 'hard safety exit', 'R5c': 'creator stop-loss', 'R9c': 'creator max hold', 'R1': 'hard safety exit', 'R2': 'hard safety exit', 'R3': 'hard safety exit', 'R5x': 'hard safety exit', 'R4': 'invalidation exit', 'R5t': 'invalidation exit', 'R5': 'structure-aware stop',
-        'R6': 'take line', 'R7': 'trailing protection', 'R7s': 'trailing protection', 'R8': 'thesis review', 'R9': 'thesis review', 'R10': 'thesis hold', 'R10r': 'riding the volume', 'R0': 'waiting'}
+        'R6': 'take line', 'R7': 'trailing protection', 'R7s': 'trailing protection', 'R7m': 'moon bag', 'R8': 'thesis review', 'R9': 'thesis review', 'R10': 'thesis hold', 'R10r': 'riding the volume', 'R0': 'waiting'}
 
 
 def reaper_replay(path, p, take):
@@ -631,6 +631,9 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         tight = 0.6 if (vels or {}).get(m, {}).get('state') == 'REVERSING' or pr_ == 'WATCH' or ((ai_exit or {}).get(m) == 'tight' and pct > 0) else 1.0   # 📉 P/L REVERSING: the trail banks sooner (tighter protection, never looser)
         trail_line = (p['peak'] - _f(tr_.get('pct')) * tight) if tr_.get('mode') == 'custom' else p['peak'] * (1 - T('giveBackPct') * tight / 100)
         trail_on = tr_.get('mode') != 'off'
+        g_moon = ((ch or {}).get('f') or {}).get('germ') if ch else None
+        moon_ = bool(pol.get('moonBag') and p.get('scaled') and _uni.is_agent(l) and g_moon and _f(g_moon.get('px')) > 0)   # 🌙 MOON BAG: after the scale-out the rest rides its rising germ, not the peak trail
+        p['moon'] = moon_
         max_hold = _f(pol.get('maxHold')) or None
         vl = (vels or {}).get(m) or {'state': 'UNKNOWN'}
         quality = _so.chart_quality(ch)[0] if ch else None
@@ -691,7 +694,11 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev = 'TAKE', 'R6 take line', f"{pct:+.1f}% ≥ +{take:g}% ({tsrc} take) — the card's own take rule banks it"
         elif mine and rv and rv['verdict'] == 'invalid' and held >= 2:   # the reason it was bought is gone: out, green or red — P&L does not decide this
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R5t thesis invalidated', f"{pct:+.1f}% — entered on {th.get('structure')}; now {rv['why'][0]}", 'pull'
-        elif trail_on and p['peak'] >= arm and pct <= trail_line and pct >= MIN_KEEP and not (riding_ and pct > p['peak'] * (1 - RIDE_GIVE / 100)):
+        elif moon_ and live and pct >= MIN_KEEP and g_moon.get('lost'):   # 🌙 the moon bag closes only when the price loses its germ floor
+            st, rule, ev, act = 'TAKE', 'R7m moon bag lost its germ', f"{pct:+.1f}% — the rest rode its germ floor {_f(g_moon['px']):.10g} and the price lost it", 'pull'
+        elif moon_:
+            st, rule, ev = 'PROTECT', 'R7m moon bag', f"{pct:+.1f}% · the rest rides its germ floor {_f(g_moon['px']):.10g} ({_f(g_moon.get('dist')):+.0f}% above it) — no peak trail"
+        elif not moon_ and trail_on and p['peak'] >= arm and pct <= trail_line and pct >= MIN_KEEP and not (riding_ and pct > p['peak'] * (1 - RIDE_GIVE / 100)):
             st, rule, ev, act = 'TAKE', ('R7v trail tightened' if tight < 1 else 'R7 trailing protection'), f"peaked {p['peak']:+.1f}%, now {pct:+.1f}% — " + (f"{_f(tr_.get('pct')) * tight:g} points off the peak (your trail" + (', tightened: P/L reversing)' if tight < 1 else ')') if tr_.get('mode') == 'custom' else f"gave back over {T('giveBackPct') * tight:g}% of it" + (' (tightened: P/L reversing)' if tight < 1 else '')), 'pull'
         elif mine and rs_ == 'BREAKING DOWN' and pct >= MIN_KEEP:   # ⚡ a green coin that just lost its invalidation line: banked now, not at the next window
             st, rule, ev, act = 'TAKE', 'R7b breakdown', f"{pct:+.1f}% and the price lost its invalidation line {inval_:.10g} — banked on the live chart", 'pull'
@@ -953,7 +960,7 @@ RUNWAY_RULES = ('R6', 'R7', 'R7v', 'R7s', 'R7b', 'R5t', 'R8', 'R9', 'R9e', 'R4f'
 # fires only once it has been the ruling on SNAP_N consecutive reads at least SNAP_GAP apart — one red candle or a single soft read no
 # longer sells a winner. The model's fresh exit read sets N: RIDE → 3, TIGHTEN → 1, none → 2. STOPS, the −45% line, rug / drain / dump,
 # scan failures and a broken thesis on a loser stay INSTANT: waiting on a falling coin is how stops filled at −35%.
-SOFT_EXITS = ('R6', 'R7', 'R7s', 'R7b', 'R7v', 'R8', 'R9', 'R9e', 'R4f', 'R4c')
+SOFT_EXITS = ('R6', 'R7', 'R7s', 'R7b', 'R7v', 'R7m', 'R8', 'R9', 'R9e', 'R4f', 'R4c')
 BENCHED = set()   # 🪑 soft exit rules whose own after-sale record says holding beat selling (after_path.rule_bench; set by the service each pass)
 SNAP_N, SNAP_RIDE_N, SNAP_TIGHT_N = 2, 3, 1
 SNAP_GAP = 8.0       # seconds between two counted snapshots
@@ -1750,7 +1757,7 @@ def fast_reap(legs, px_by_mint, pos, now, office=None, prev=None, ai_words=None)
             continue
         peak = max(_f(p.get('peak')), dd)
         give = RIDE_GIVE if p.get('rideAt') and now - _f(p['rideAt']) <= RIDE_HOLD_SEC else tune(office, 'reaper', 'giveBackPct')   # 🏄 riding the volume: the wide trail
-        if peak >= tune(office, 'reaper', 'protectAt') and dd <= peak * (1 - give / 100) and dd >= MIN_KEEP:
+        if not p.get('moon') and peak >= tune(office, 'reaper', 'protectAt') and dd <= peak * (1 - give / 100) and dd >= MIN_KEEP:   # 🌙 a moon bag rides its germ (the tick rules it), not this trail
             if dd >= RUNWAY_KEEP and now - _f(l.get('at')) < RUNWAY_SEC:   # 🛫 green and still on its runway: not banked yet
                 continue
             ok_, seen_, need_ = soft_confirm(p, 'R7', now, (ai_words or {}).get(l.get('mint')))   # 📸 the trail banks on its 2nd (RIDE: 3rd) read, not the first dip

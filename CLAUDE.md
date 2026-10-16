@@ -4529,3 +4529,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   → `should_search` false; "search / google / look up / news" still forces one. Every chat context carries `live` = `ai_chat.LIVE_MECHANICS`
   (the engine rules running now, germ entry first — UPDATE IT when a rule ships, or the models can't know) + `germRecord` (`germ_record`: real
   exits by the thesis' germEntry). The LM Studio FEE prompt says the same (FEELESS = tools, never the web).
+- 🦠 THE GERM PLAY (owner, 2026-10-16: "do all ideas — buying the floor is 15% max from floor, take what's close to germ, germ symbol on all coins
+  site wide"; replay `scripts/germ-exits.py [max%]` on the 1m candle record, all after a 3% round trip): (1) 🦠 GERM LINE `opportunity.germ_line`
+  (in `open_ok` + `hard_fail`) = a NEW entry ≤ `universe.germ_max()` % above (or under) its 1m germ floor, realCfg `agentGermMax` 0/10/15/25
+  (default 15; 15 lost least: −3.4% vs 8% −4.4% / 25% −4.5%); no germ read = not judged. `germ_rank` replaces GERM_RANK: ×1.30 on the floor →
+  ×1.00 at the line, ×1.08 when the 5m germ agrees, lost ×0.95. (2) 🦠 GERM STOP `chart_intel.germ_stop` → `thesis(.., germ_stop_on)` (realCfg
+  `agentGermStop`, on): stop = germ dist + 3, inside [8, min(ceiling, 35)]; replay −2.7% vs −3.4% for a flat −20%, better in both halves, median
+  worse (more small stop-outs). (3) 🌙 MOON BAG (realCfg `agentMoonBag`, OFF — newer half −4.3% vs −3.9%: NOT proven): after the scale-out an
+  agent coin rides until its live germ is LOST (`R7m`, soft exit) instead of the peak trail; `p['moon']` keeps the 3s guard's R7 off it.
+  (4) 🦠 SECOND ENTRY `arena_prime.agent_out(.., germ_of)` / `_germ_of`: a coin sold green that printed a NEW germ floor above our exit and sits
+  ≤ `GERM_REENTRY_PCT` 15% above it is let back in early. (5) 🦠 ON EVERY COIN: `_germ_rec` (from `_office['charts']`, kept 15 min after a coin
+  leaves the desk) → coin edge `germ` {d, w, d5, w5, run, e, line, ok} → `lib/germ.js` `useGerm` / `germView` → `components/GermBadge.jsx`:
+  `GermDot` on every `TokenAvatar` (bottom-left, spinning cilia) + `GermChip` on cockpit seats, the decision panel, Best 3 and the real card's
+  coin rows (`styles/germ.css` `gm-*`, tones hot · floor · near · far · lost). Controls card 🦠 GERM PLAY. Coins the desk never read show none.

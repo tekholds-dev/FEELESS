@@ -114,6 +114,38 @@ def knife(row):
     return f"🔪 falling knife: {_f(d):.0f}% under its high and no higher low yet"
 
 
+def germ_line(row):
+    """🦠 THE GERM LINE (owner, 2026-10-16: "buying the floor is 15% max from floor — take what's close to germ"): a NEW entry sits within
+    `universe.germ_max()`% of its 1-minute germ floor (above it, or under it after a shake). Further = the move already ran (or died) —
+    that is the gun line we stopped buying. No germ read (no 15% run on the chart yet) or the line set off = not judged. → reason or None."""
+    ch = (row or {}).get('chart') or {}
+    mx = _uni.germ_max()
+    if not mx or ch.get('germDist') is None:
+        return None
+    d = _f(ch['germDist'])
+    if d > mx:
+        return f"🦠 {d:.0f}% above its germ floor — your germ line is {mx}%"
+    if d < -mx:
+        return f"🦠 {-d:.0f}% under its germ floor — the run it was born on is dead"
+    return None
+
+
+def germ_rank(row):
+    """🦠 Closer to the germ = higher: 1.30 on the floor → 1.00 at the germ line, ×1.08 more when the 5-minute germ agrees (confirmed);
+    lost (under the floor) ×0.95 · far (only when the line is off) ×0.85 · no read 1.0. → (factor, word or None)."""
+    ch = (row or {}).get('chart') or {}
+    if ch.get('germDist') is None:
+        return 1.0, None
+    d, mx = _f(ch['germDist']), (_uni.germ_max() or 25)
+    if d < 0:
+        return 0.95, 'lost'
+    if d > mx:
+        return 0.85, 'far'
+    f = 1.0 + 0.30 * (1 - d / mx)
+    conf = ch.get('germ5') in ('floor', 'near')
+    return round(f * (1.08 if conf else 1.0), 3), ('confirmed' if conf else 'floor') + f' {d:.0f}%'
+
+
 def links_conflict(row):
     """🔗 (owner's idea #3, 2026-10-15): the coin's OWN site / X point at ANOTHER coin — a copycat wearing stolen links or a site that names a
     different mint. Read from the research worker's packet (social_research.report grade CONFLICT); not researched yet = not judged."""
@@ -136,8 +168,8 @@ def hard_fail(row, mcap_cap=None, min_liq=MIN_LIQ):
     v, n, ch = x.get('vitals') or {}, x.get('nums') or {}, x.get('chart') or {}
     if _f(x.get('px')) <= 0:
         return 'no live price'
-    if links_conflict(x) or knife(x):
-        return links_conflict(x) or knife(x)
+    if links_conflict(x) or knife(x) or germ_line(x):
+        return links_conflict(x) or knife(x) or germ_line(x)
     dead = dead_now(x)
     if dead:
         return dead
@@ -353,14 +385,6 @@ def narrative(row):
     return 'BUILDING', f"{d5:+.1f}% in 5 min, volume pace {pace:.1f}×"
 
 
-GERM_RANK = {'confirmed': 1.25, 'floor': 1.1, 'far': 0.85, 'lost': 0.9}
-
-
-def _ci_germ_entry(ch):
-    import chart_intel as _ci_
-    return _ci_.germ_entry(ch)
-
-
 def open_score(row, weights=None, devil_strong=None, ai_w=None):
     """NEWNESS × VOLUME VELOCITY × BUYER VELOCITY × LIVE MOMENTUM × early wallets (× the Judge's evidence weight when it has one).
     No holder, rug, creator, source or history part. → (score 0–~250, parts)."""
@@ -380,8 +404,7 @@ def open_score(row, weights=None, devil_strong=None, ai_w=None):
     f_judge = max(0.7, min(1.3, _f((weights or {}).get(x.get('mint'), 1.0)) or 1.0))
     import trench_crew as _crew
     f_devil, _objs = _crew.devil_factor(x, devil_strong)   # ⚖ Devil challenges: evidence lowers confidence, it never vetoes
-    ge_ = _ci_germ_entry(x.get('chart'))
-    f_germ = GERM_RANK.get(ge_, 1.0)   # 🦠 at the germ (1m + 5m) ranks up, far above it / at the gun line ranks down — a weight, never a gate
+    f_germ, ge_ = germ_rank(x)   # 🦠 closer to the germ floor ranks higher (1m, ×1.08 when 5m agrees); past the germ line is a NO in open_ok
     f_ai = max(0.85, min(1.0, _f((ai_w or {}).get(x.get('mint'), 1.0)) or 1.0))   # 🧠 the model's stance — ONLY a WARNING proven on its own judged record (ai_learn): −15% at most, never up
     parts = [('newness', round(f_new, 2)), ('volume velocity', round(f_vol, 2)), ('buyer velocity', round(f_buy, 2)), ('momentum', round(f_mom, 2)),
              ('early wallets', round(f_ewp, 2)), ('judge weight', round(f_judge, 2)), ('devil', f_devil)] + ([('model (proven stance)', round(f_ai, 2))] if f_ai != 1.0 else []) + ([('🔥 pump trending', f_trend)] if f_trend > 1.0 else [])
@@ -398,7 +421,7 @@ def open_ok(row, min_liq=MIN_LIQ):
     v, n, ch = x.get('vitals') or {}, x.get('nums') or {}, x.get('chart') or {}
     if _f(x.get('px')) <= 0:
         return 'no live price'
-    lc = links_conflict(x) or knife(x)
+    lc = links_conflict(x) or knife(x) or germ_line(x)
     if lc:
         return lc
     d = dead_now(x)

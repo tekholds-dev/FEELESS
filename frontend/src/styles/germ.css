@@ -1,0 +1,42 @@
+/* 🦠 Germ mark (components/GermBadge.jsx): the microbe on every coin logo + the inline germ chip. Built from the m-* palette:
+   hot = royal green (on the germ, 5m agrees) · floor = bright green · near = gold · far = dim grey (the gun line) · lost = danger pink.
+   Motion: cilia spin + a breathing body — transform / opacity only; still in fx-lite / reduced motion. */
+.germ-dot { position: absolute; left: -3px; bottom: -3px; z-index: 2; display: grid; place-items: center; border-radius: 50%;
+  background: #04140b; border: 1.5px solid var(--gm, #15d16a); box-shadow: 0 0 8px color-mix(in srgb, var(--gm, #15d16a) 45%, transparent);
+  animation: gmIn .2s ease-out; cursor: help; }
+.germ-dot .gm-svg { width: 82%; height: 82%; }
+.gm-svg { overflow: visible; }
+.gm-svg .gm-cilia { stroke: var(--gm, #15d16a); stroke-width: 1.6; stroke-linecap: round; transform-origin: 12px 12px; transform-box: view-box; }
+.gm-svg .gm-body { fill: color-mix(in srgb, var(--gm, #15d16a) 30%, #04140b); stroke: var(--gm, #15d16a); stroke-width: 1.4; transform-origin: 12px 12px; transform-box: view-box; }
+.gm-svg .gm-nuc { fill: var(--gm, #15d16a); }
+.gm-hot { --gm: #45e486; } .gm-floor { --gm: #15d16a; } .gm-near { --gm: var(--gold, #f5c542); } .gm-far { --gm: #7d8a83; } .gm-lost { --gm: #ff8fa3; }
+.gm-hot .gm-cilia, .gm-floor .gm-cilia { animation: gmSpin 6s linear infinite; }
+.gm-hot .gm-body { animation: gmBreath 1.4s ease-in-out infinite; }
+.germ-dot.gm-hot { box-shadow: 0 0 12px #45e48699, 0 0 0 1px #45e48655; }
+.germ-dot.gm-far { opacity: .75; }
+
+.germ-chip { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 7px 0 3px; border-radius: 999px; vertical-align: middle;
+  border: 1px solid color-mix(in srgb, var(--gm) 55%, transparent); background: color-mix(in srgb, var(--gm) 12%, #050b08);
+  font: 600 9.5px/1 'JetBrains Mono', monospace; letter-spacing: .06em; color: var(--gm); white-space: nowrap; cursor: help;
+  transition: transform .15s ease, border-color .15s ease; }
+.germ-chip:hover, .germ-chip:focus-visible { transform: translateY(-1px); border-color: var(--gm); outline: none; }
+.germ-chip:active { transform: scale(.97); }
+.germ-chip .gm-ico { width: 15px; height: 15px; display: grid; place-items: center; }
+.germ-chip .gm-ico .gm-svg { width: 15px; height: 15px; }
+.germ-chip .gm-word { font-weight: 700; }
+.germ-chip .gm-num { font-style: normal; opacity: .9; }
+.germ-chip .gm-meter { width: 26px; height: 4px; border-radius: 3px; background: color-mix(in srgb, var(--gm) 18%, transparent); overflow: hidden; }
+.germ-chip .gm-meter > span { display: block; height: 100%; background: var(--gm); transform-origin: left; transition: transform .4s ease; }
+.germ-chip.is-compact { padding: 0 6px 0 2px; gap: 3px; height: 18px; }
+.germ-chip.gm-hot { box-shadow: 0 0 10px #45e48633; }
+
+@keyframes gmIn { from { opacity: 0; transform: scale(.4); } }
+@keyframes gmSpin { to { transform: rotate(360deg); } }
+@keyframes gmBreath { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.14); } }
+
+body.fx-lite .gm-svg .gm-cilia, body.fx-lite .gm-svg .gm-body, body.fx-lite .germ-dot { animation: none; }
+@media (prefers-reduced-motion: reduce) { .gm-svg .gm-cilia, .gm-svg .gm-body, .germ-dot { animation: none; } .germ-chip { transition: none; } }
+body.theme-day .germ-dot { background: #fff; }
+body.theme-day .germ-chip { background: color-mix(in srgb, var(--gm) 14%, #fff); }
+body.theme-day .gm-hot { --gm: #0d8f47; } body.theme-day .gm-floor { --gm: #0f7a3f; } body.theme-day .gm-near { --gm: #a87900; } body.theme-day .gm-far { --gm: #5e6b64; } body.theme-day .gm-lost { --gm: #c43a55; }
+@media (max-width: 640px) { .germ-chip .gm-meter { display: none; } }

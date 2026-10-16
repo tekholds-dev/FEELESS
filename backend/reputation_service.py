@@ -4248,6 +4248,31 @@ EDGE_COLD_BUDGET = 3.0     # a coin with NO record waits at most this long for p
 _edge_inflight: set = set()
 
 
+_germ_seen: dict = {}    # mint -> (at, germ record): the last germ the agents read, kept 15 min after a coin leaves the desk
+GERM_KEEP_SEC = 900.0
+
+
+def _germ_rec(mint, now):
+    """🦠 THE GERM ON EVERY COIN (owner, 2026-10-16: "put the germ symbol on all coins site wide"): the agents' own chart read (1m + 5m real
+    candles) as a compact record for the coin edge — {d: % above the 1m germ floor, w: floor | near | far | lost, d5, w5, run, e: the
+    entry word (confirmed / floor / far / lost), line: the owner's germ line, ok: inside it, at}. None = no read (no 15% run yet / not on
+    the desk). Read from the shared snapshot — no fetch."""
+    f_ = (((_office.get('charts') or {}).get(mint) or {}).get('f') or {})
+    g1, g5 = f_.get('germ'), f_.get('germ5')
+    if g1:
+        w1, w5 = _ci.germ_word(g1), _ci.germ_word(g5)
+        mx_ = _uni.germ_max()
+        rec = {'d': g1.get('dist'), 'w': w1, 'd5': (g5 or {}).get('dist'), 'w5': w5, 'run': g1.get('runPct'), 'e': _ci.germ_entry({'germ': w1, 'germ5': w5}),
+               'line': mx_, 'ok': (not mx_) or abs(_fuse._f(g1.get('dist'))) <= mx_, 'at': round(now)}
+        _germ_seen[mint] = (now, rec)
+        if len(_germ_seen) > 4000:
+            for k_ in sorted(_germ_seen, key=lambda k_: _germ_seen[k_][0])[:800]:
+                _germ_seen.pop(k_, None)
+        return rec
+    at_, rec = _germ_seen.get(mint, (0, None))
+    return rec if rec and now - at_ <= GERM_KEEP_SEC else None
+
+
 async def _edge_build(todo, now, budget=None):
     """Build edge records for `todo` (pulse · verification · snipers · runner gates · sources · elite flow · buys vs sells). With a
     `budget` the slow reads are cut off and the incomplete record is cached for only ~3s, so the next poll fills it in."""
@@ -4274,7 +4299,7 @@ async def _edge_build(todo, now, budget=None):
     flow = ((_crowd_cache.get('data') or {}).get('flow')) or {}
     out = {}
     for m in todo:
-        rec = {**_edge.compose(m, pulses.get(m), snip.get(m), ver.get(m), (_intel_cache.get(m) or (0, None))[1], runner.get(m), disc.get(m), flow.get(m)), 'bs': bs_.get(m)}
+        rec = {**_edge.compose(m, pulses.get(m), snip.get(m), ver.get(m), (_intel_cache.get(m) or (0, None))[1], runner.get(m), disc.get(m), flow.get(m)), 'bs': bs_.get(m), 'germ': _germ_rec(m, now)}
         _edge_cache[m] = (now - 12 if partial else now, rec); out[m] = rec
     if len(_edge_cache) > 5000:
         _edge_cache.clear()
@@ -15785,6 +15810,12 @@ async def _coach_ai(now, env, cfg):
 _reap_prev: dict = {}   # mint → (at, px): the fast stop guard's previous live read (office.spike_held)
 
 
+def _germ_of(mint):
+    """🦠 (germ floor px, % the price sits above it) from the agents' shared chart snapshot — None when not read."""
+    g_ = (((_office.get('charts') or {}).get(mint) or {}).get('f') or {}).get('germ')
+    return (_fuse._f(g_.get('px')), _fuse._f(g_.get('dist'))) if g_ and not g_.get('lost') else None
+
+
 def _agent_blocked(card, now):
     """🚫 ONE list of coins the agents may not buy right now: what they just left (`arena_prime.agent_out`: 10 min, a rug / danger exit 6h)
     + what the keeper benched or refused on a safety check (no route back, sell-back tax, price gap) for ANY book. 2026-10-12: $TikTok and
@@ -15792,7 +15823,7 @@ def _agent_blocked(card, now):
     books = (_fw_peek().get('books') or {}).values()
     for m_ in [m_ for m_, v_ in _agent_refused.items() if v_[0] <= now]:
         _agent_refused.pop(m_, None)
-    return _prime.agent_out(card, now, lambda m_: _fuse._f((_jup_px_cache.get(m_) or (0, 0))[1])) | set(_agent_refused) | _co.blocked(_coach_state(), now) | set().union(set(), *[_fw.agent_no_buy(b, now) for b in books]) | _trl.skips(_taught_rules(), _office.get('taught') or {}) | {d_.get('mint') for d_ in _agents.get('impostors') or []}   # 🎭 impostors of a real coin + coins the creator pulled with a reason (6h) + 🎓 your lessons in ✋ skip mode
+    return _prime.agent_out(card, now, lambda m_: _fuse._f((_jup_px_cache.get(m_) or (0, 0))[1]), _germ_of) | set(_agent_refused) | _co.blocked(_coach_state(), now) | set().union(set(), *[_fw.agent_no_buy(b, now) for b in books]) | _trl.skips(_taught_rules(), _office.get('taught') or {}) | {d_.get('mint') for d_ in _agents.get('impostors') or []}   # 🎭 impostors of a real coin + coins the creator pulled with a reason (6h) + 🎓 your lessons in ✋ skip mode
 
 
 def _seat_refusals(tid, now, window=900.0, keep=5):
@@ -16732,7 +16763,8 @@ def _office_warden(cur, t_, requested, cfg_t, now, move):
         if ch_:   # 🧾 the entry thesis is written the moment the move is allowed — what the structure was and what would prove it wrong
             v_, n_ = t_.get('vitals') or {}, t_.get('nums') or {}
             _office['theses'][t_.get('mint')] = _ci.thesis(ch_, now, {'liq': n_.get('liq') or v_.get('liq'), 'ageH': v_.get('ageH'), 'courier': (_office.get('courier') or {}).get('health')},
-                                                           _of.tune(st, 'reaper', 'stopPct'), _of.take_line(cfg_t, _agents.get('scalp')))
+                                                           _of.tune(st, 'reaper', 'stopPct'), _of.take_line(cfg_t, _agents.get('scalp')),
+                                                           germ_stop_on=_oe.clean_policy(cfg_t)['agentGermStop'] == 'on')   # 🦠 the germ stop (owner's switch, on by default)
             fv_ = (_office.get('flow') or {}).get(t_.get('mint')) or t_.get('fv')
             _office['theses'][t_.get('mint')].update(flow={'state': fv_.get('state'), 'buyPct': fv_.get('buyPct'), 'buyers': fv_.get('buyers')} if fv_ else None,
                                                      distHigh=t_.get('distHigh') if t_.get('distHigh') is not None else ((ch_.get('f') or {}).get('distHigh')),

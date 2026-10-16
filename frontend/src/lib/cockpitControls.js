@@ -6,6 +6,7 @@
 export const CTRL_GROUPS = [
   ['universe', '🎯 UNIVERSE', 'Which coins a NEW seat may buy — held winners keep running past the band', ['agentMcMin', 'agentMcMax', 'agentMinAgeH']],
   ['volume', '🔥 VOLUME', 'Tune for fast-volume runners: older coins still running, a volume floor, and Pump\'s own Trending board first', ['agentMinVol1h', 'agentMaxAgeH', 'agentPumpTrend']],
+  ['germ', '🦠 GERM PLAY', 'Buy close to the germ floor (the base candle of the coin\'s biggest run), stop just under it, and let a moon bag ride it', ['agentGermMax', 'agentGermStop', 'agentMoonBag']],
   ['exits', '💰 EXITS', 'How a seat leaves: your line, or the agents\' own read', ['agentTp', 'agentSl', 'agentTrail', 'agentMaxHold']],
   ['seats', '🪑 SEATS & ENTRY', 'How big a seat is, how fast an empty one fills, when a seat is given up', ['agentSizePct', 'agentSeatTarget', 'agentEntry', 'agentSwitch']],
   ['gate', '🛂 BUY GATE', 'What the keeper accepts on an agent buy — most empty seats are a coin refused right here', ['agentGapPct', 'agentBackPct', 'agentPoolMin']],
@@ -32,6 +33,8 @@ export function optWord(key, v) {
     case 'agentPoolMin': return n ? k$(n) : '$8K';
     case 'agentMinVol1h': return `${k$(n)}/h`;
     case 'agentMaxAgeH': return n >= 24 ? `${+(n / 24).toFixed(1)}d` : `${n}h`;
+    case 'agentGermMax': return n ? `≤ ${n}%` : 'OFF';
+    case 'agentGermStop': case 'agentMoonBag': return String(v).toUpperCase();
     case 'agentPumpTrend': return v === 'first' ? '🔥 FIRST' : v === 'only' ? '🔥 ONLY' : 'OFF';
     case 'agentTrail': case 'agentSwitch': return v === 'agents' || v === 'auto' ? 'AGENTS' : String(v).toUpperCase();
     default: return String(v);
