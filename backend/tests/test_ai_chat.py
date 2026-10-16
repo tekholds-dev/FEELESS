@@ -143,7 +143,7 @@ def test_each_mode_keeps_its_own_thread_and_approved_builds_join_a_queue():
 def test_brain_settings_tune_the_chat_and_saved_convos_reopen():
     import ai_chat as c
     st = c.clean_settings({'temp': 0.6, 'len': 'long', 'allowSmall': True})
-    assert st == {'temp': 0.6, 'len': 'long', 'allowSmall': True, 'localBoostUntil': 0.0} and c.tune_of(st) == {'temp': 0.6, 'maxTok': 1200}
+    assert st == {'temp': 0.6, 'len': 'long', 'allowSmall': True, 'localBoostUntil': 0.0, 'search': 'deep', 'voice': 'degen', 'memory': 'on'} and c.tune_of(st) == {'temp': 0.6, 'maxTok': 1200}
     assert c.clean_settings({'temp': 5, 'len': 'huge', 'allowSmall': 'yes'}) == c.SETTINGS   # only listed values
     assert set(c.SMALL_KINDS) == {'lesson', 'idea'}   # switches, weights and exit notches always wait for the owner
     sv = c.save_convo([], 'chat', [{'role': 'user', 'text': 'why are we bleeding?'}, {'role': 'assistant', 'text': 'stops'}], 100.0)
@@ -193,3 +193,11 @@ def test_owner_rule_and_markdown_free_answers():
     import ai_chat as ac, ai_router as ar
     assert 'OWNER' in ac.OWNER_RULE and 'my' in ac.OWNER_RULE and 'owner' in ac.CHAT_ASK
     assert ar.clean_answer('**PUSH BACK.** the **vital** thing') == 'PUSH BACK. the vital thing'
+
+
+def test_chat_settings_research_voice_memory_only_take_listed_values():
+    import ai_chat as ac
+    s = ac.clean_settings({'search': 'quick', 'voice': 'unhinged', 'memory': 'off'})
+    assert (s['search'], s['voice'], s['memory']) == ('quick', 'unhinged', 'off')
+    assert ac.clean_settings({'search': 'nuke', 'voice': 'x'})['search'] == 'deep' and ac.clean_settings({})['voice'] == 'degen'
+    assert 'no profanity' in ac.VOICE_LINE['clean'] and ac.VOICE_LINE['degen'] == ''

@@ -220,3 +220,14 @@ test('saved chats: rename and delete from the 🗂 list', async () => {
   await act(async () => { el.querySelector('[data-testid="cch-sv-del-c1"]').click(); });
   expect(el.querySelector('[data-testid="cch-saved"]')).toBeNull();
 });
+
+test('⚙ research / voice / memory settings save their listed values', async () => {
+  const { AiChat } = require('./AiChat');
+  const sent = [];
+  const call = jest.fn(async (p, o) => { if (o?.body) sent.push([p, JSON.parse(o.body)]); return { ok: true, settings: { temp: 0.3, len: 'normal', search: 'deep', voice: 'degen', memory: 'on' } }; });
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<AiChat call={call} isOwner />); });
+  await act(async () => { el.querySelector('[data-testid="cch-set"]').click(); });
+  for (const id of ['cch-search-quick', 'cch-voice-unhinged', 'cch-mem-off']) await act(async () => { el.querySelector(`[data-testid="${id}"]`).click(); });
+  expect(sent.map(x => x[1])).toEqual([{ search: 'quick' }, { voice: 'unhinged' }, { memory: 'off' }]);
+});

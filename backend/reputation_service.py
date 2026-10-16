@@ -14100,33 +14100,38 @@ async def admin_ai_chat(request: Request):
             except Exception as e_:
                 print('chat evidence:', str(e_)[:120])
                 data_ = {'state': 'NO HISTORY', 'window': None, 'exits': 0, 'gaps': ['the evidence reader failed — answered without records']}
+        set_ = _chat.get('settings') or {}
         try:   # 👤 THE OWNER'S OWN RECORD rides on EVERY chat answer (owner, 2026-10-15: "they aren't learning from my moves, they think it's all the agents")
-            ob_ = _owner_brief()
+            ob_ = _owner_brief() if set_.get('memory', 'on') == 'on' else None
             if ob_:
                 ctx = {**(ctx or {}), 'owner': ob_, 'ownerRule': _aic.OWNER_RULE}
         except Exception as e_:
             print('chat owner brief:', str(e_)[:80])
         try:   # 🗄 the filed memory that fits this question (owner notes first, then lessons / rules / coins / site) — never the whole store
-            mm_ = _aim.recall(_aim.seed_site(_aim_mem.get() or {}, now), text, 8)
+            mm_ = _aim.recall(_aim.seed_site(_aim_mem.get() or {}, now), text, 8) if set_.get('memory', 'on') == 'on' else None
             if mm_:
                 ctx = {**(ctx or {}), 'memory': mm_}
         except Exception as e_:
             print('chat memory:', str(e_)[:80])
         web_ = None
-        if mode == 'chat' and (body or {}).get('web', True) is not False and _aic.should_search(text):   # (records AND the web — owner: "always research before responding")   # 🌐 a quick search before EVERY real question (model memory may be out of date)
+        if mode == 'chat' and (body or {}).get('web', True) is not False and set_.get('search', 'deep') != 'off' and _aic.should_search(text):   # (records AND the web — owner: "always research before responding")   # 🌐 a quick search before EVERY real question (model memory may be out of date)
             try:
                 import feeless_mcp as _mcp
                 rows_ = await asyncio.wait_for(asyncio.to_thread(_mcp._search_rows, _aic.web_query(text), 5), timeout=8)
                 web_ = [{'title': str(x_.get('title') or '')[:120], 'url': str(x_.get('url') or '')[:300], 'snippet': str(x_.get('snippet') or '')[:240]} for x_ in rows_ or [] if x_.get('url')][:5]
                 if web_:
                     ctx = {**(ctx or {}), 'web': web_, 'webRule': _aic.WEB_RULE}
-                    try:   # 📚 READ the 2 most solid results (owner: "back every answer — Google + 2 prominent sources"), in parallel, ≤ 8s
+                    try:   # 📚 READ the 2 most solid results (owner: "back every answer — Google + 2 prominent sources"), in parallel, ≤ 8s — research setting 'deep'
+                        if set_.get('search', 'deep') != 'deep':
+                            raise StopIteration
                         import fee_voice as _fv_
                         pick_ = _fv_.pick_sources(web_, 2)
                         txt_ = await asyncio.wait_for(asyncio.gather(*[asyncio.to_thread(_mcp.t_web_fetch, {'url': x_['url'], 'max_chars': 1800}) for x_ in pick_], return_exceptions=True), timeout=8)
                         src_ = [{'title': x_.get('title'), 'url': x_['url'], 'text': str(t_)[:1800]} for x_, t_ in zip(pick_, txt_) if isinstance(t_, str) and not t_.startswith('Could not read')]
                         if src_:
                             ctx['sources'] = src_
+                    except StopIteration:
+                        pass
                     except Exception as e2_:
                         print('chat sources:', str(e2_)[:80])
             except Exception as e_:
@@ -14135,7 +14140,8 @@ async def admin_ai_chat(request: Request):
         only_ = (prov_,) if prov_ in _air.PROVIDERS else (_duet.LEAD,) if prov_ == 'duet' else None
         img_ = _chat_image((body or {}).get('image'))
         hist_ = _aic.as_messages(_chat['th'].get(mode))
-        res = await _air.ROUTER.ask(_ai_http(), env, cfg, text, context=ctx, role='owner', history=hist_, system=_aic.system_for(mode),
+        vl_ = _aic.VOICE_LINE.get(set_.get('voice', 'degen')) or ''
+        res = await _air.ROUTER.ask(_ai_http(), env, cfg, text, context=ctx, role='owner', history=hist_, system=((_aic.system_for(mode) or '') + ('\n' + vl_ if vl_ else '')) or None,
                                     only=only_, images=[img_[1]] if img_ else None, tune=_aic.tune_of(_chat['settings']))
         if prov_ == 'duet' and not img_:   # 🤝 THE DUET IN CHAT: Gemma answers, Qwen reads Gemma's answer and agrees or pushes back — both shown
             lead_t = res.get('text')

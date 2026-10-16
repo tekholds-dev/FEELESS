@@ -15,6 +15,9 @@ import html
 import ipaddress
 import json
 import os
+import sys as _sys
+_sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import env_loader  # noqa: F401  — backend/.env (Brave keys, LM base) when LM Studio launches this file directly; prints nothing (stdout is the MCP wire)
 import re
 import secrets
 import socket
@@ -549,19 +552,8 @@ def t_web_search(a):
     n = max(1, min(10, int(_f(a.get('limit'), 6))))
     if not q:
         return 'Give a query.'
-    key = os.environ.get('BRAVE_API_KEY')
-
-    def go():
-        if key:
-            r = _http().get('https://api.search.brave.com/res/v1/web/search', params={'q': q, 'count': n},
-                            headers={'X-Subscription-Token': key, 'Accept': 'application/json'}, timeout=10)
-            if r.status_code == 200:
-                return [{'title': x.get('title'), 'url': x.get('url'), 'snippet': re.sub(r'<[^>]+>', '', x.get('description') or '')}
-                        for x in ((r.json().get('web') or {}).get('results') or [])[:n]]
-        r = _http().post('https://html.duckduckgo.com/html/', data={'q': q}, timeout=10)
-        return ddg_results(r.text, n)
     try:
-        res = _memo('search:' + q + str(n), 300, go)
+        res = _search_rows(q, n)
     except Exception as e:
         return f'Search failed: {type(e).__name__}'
     return '\n'.join(f"{i + 1}. {x['title']}\n   {x['url']}\n   {x['snippet']}" for i, x in enumerate(res)) or 'No results (try other words).'
@@ -572,19 +564,35 @@ def t_x_search(a):
     return t_web_search({'query': f"site:x.com {a.get('query') or ''}", 'limit': a.get('limit') or 8})
 
 
-def _search_rows(q, n):
-    """The search behind web_search, as rows (Brave when keyed, else DuckDuckGo) — cached 5 min."""
-    key = os.environ.get('BRAVE_API_KEY')
+def brave_keys(env=None):
+    """Every Brave Search key in the env, in order (BRAVE_API_KEY, BRAVE_API_KEY_2 … _4)."""
+    e = env if env is not None else os.environ
+    return [k for k in (str(e.get(n_) or '').strip() for n_ in ('BRAVE_API_KEY', 'BRAVE_API_KEY_2', 'BRAVE_API_KEY_3', 'BRAVE_API_KEY_4')) if k]
 
+
+_BRAVE_REST = {}   # key index → resting until (a 429 / quota answer rests that key; the next one takes over)
+
+
+def _search_rows(q, n):
+    """The search behind web_search and the Brain's chat, as rows: Brave key 1 → key 2 (a refused / rate-limited key rests 60s) → DuckDuckGo.
+    Cached 5 min. Rows carry `via` (brave1 / brave2 / ddg)."""
     def go():
-        if key:
-            r = _http().get('https://api.search.brave.com/res/v1/web/search', params={'q': q, 'count': n},
-                            headers={'X-Subscription-Token': key, 'Accept': 'application/json'}, timeout=10)
+        now = time.time()
+        for i, key in enumerate(brave_keys()):
+            if _BRAVE_REST.get(i, 0) > now:
+                continue
+            try:
+                r = _http().get('https://api.search.brave.com/res/v1/web/search', params={'q': q, 'count': n},
+                                headers={'X-Subscription-Token': key, 'Accept': 'application/json'}, timeout=10)
+            except Exception:
+                _BRAVE_REST[i] = now + 30
+                continue
             if r.status_code == 200:
-                return [{'title': x.get('title'), 'url': x.get('url'), 'snippet': re.sub(r'<[^>]+>', '', x.get('description') or '')}
+                return [{'title': x.get('title'), 'url': x.get('url'), 'snippet': re.sub(r'<[^>]+>', '', x.get('description') or ''), 'via': f'brave{i + 1}'}
                         for x in ((r.json().get('web') or {}).get('results') or [])[:n]]
+            _BRAVE_REST[i] = now + (60 if r.status_code == 429 else 600)
         r = _http().post('https://html.duckduckgo.com/html/', data={'q': q}, timeout=10)
-        return ddg_results(r.text, n)
+        return [{**x, 'via': 'ddg'} for x in ddg_results(r.text, n)]
     return _memo('search:' + q + str(n), 300, go)
 
 

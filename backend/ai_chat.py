@@ -376,7 +376,12 @@ def build_view(state, n=12):
 TEMPS = (0.1, 0.3, 0.6, 0.9)
 LENS = {'short': 250, 'normal': 600, 'long': 1200}
 SMALL_KINDS = ('lesson', 'idea')
-SETTINGS = {'temp': 0.3, 'len': 'normal', 'allowSmall': False, 'localBoostUntil': 0.0}
+SEARCHES = ('off', 'quick', 'deep')        # 🔎 off = no web · quick = search snippets · deep = + read the 2 most solid pages (default)
+VOICES = ('clean', 'degen', 'unhinged')    # 🎭 clean = no swearing · degen = profane when it lands (default) · unhinged = full trench mouth, still true
+MEMORIES = ('on', 'off')                   # 🗄 use the filed memory + your record (default on) or answer cold
+SETTINGS = {'temp': 0.3, 'len': 'normal', 'allowSmall': False, 'localBoostUntil': 0.0, 'search': 'deep', 'voice': 'degen', 'memory': 'on'}
+VOICE_LINE = {'clean': 'VOICE: clean — no profanity at all, still blunt.', 'degen': '',
+              'unhinged': 'VOICE: unhinged trench mouth — swear freely, roast hard, meme it up; every fact still sourced and true.'}
 
 
 def clean_settings(d, old=None):
@@ -388,6 +393,9 @@ def clean_settings(d, old=None):
         out['len'] = d['len']
     if isinstance(d.get('allowSmall'), bool):
         out['allowSmall'] = d['allowSmall']
+    for k_, opts_ in (('search', SEARCHES), ('voice', VOICES), ('memory', MEMORIES)):
+        if d.get(k_) in opts_:
+            out[k_] = d[k_]
     if d.get('localBoostUntil') is not None and d.get('localBoost') is None:   # the saved state (a restart keeps the boost running)
         out['localBoostUntil'] = max(0.0, _f(d['localBoostUntil']))
     if isinstance(d.get('localBoost'), bool) and d.get('now') is not None:   # 💻 24h boost: switching it on (again) starts a fresh 24h

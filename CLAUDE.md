@@ -4492,4 +4492,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   STAY CURRENT (look-first reflex, 2 solid sources, page beats memory, "couldn't verify" over a guess) · FUSE WALLET (buckets, expectancy, size by
   the rug, liquidity, churn tax, press only on an earned record) · HOW YOU PITCH A MOVE (3 lines: play · size + exit · kill switch) · YOUR LINE.
   `fee_voice.PERSONA` carries the same wallet sense + 3-line pitch for the in-app Brain. Keep both short; never re-grow a rule list.
+- 🔎 BRAVE SEARCH (owner added 2 keys, 2026-10-15): `.env` `BRAVE_API_KEY` + `BRAVE_API_KEY_2` (the owner pasted them as "1:KEY" lines — the loader
+  can't read that; always write NAME=value). `feeless_mcp.brave_keys/_search_rows`: key 1 → key 2 (a 429 rests a key 60s, other errors 10 min) →
+  DuckDuckGo; rows carry `via`. `t_web_search` uses the same function. `feeless_mcp` now imports `env_loader` itself — LM Studio launches it
+  directly and it never saw backend/.env (env_loader prints nothing: stdout is the MCP wire).
+- ⚙ Brain chat settings + 🔎 RESEARCH off / quick / deep (2 sources read) · 🎭 VOICE clean / degen / unhinged (`ai_chat.VOICE_LINE` appended to the
+  chat system prompt) · 🗄 MEMORY on / cold (owner record + filed memory) — `clean_settings` takes listed values only.
 
