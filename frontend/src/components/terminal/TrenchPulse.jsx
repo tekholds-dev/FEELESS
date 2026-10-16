@@ -11,7 +11,7 @@ import '../../styles/trenchPulse.css';
 //   · COUNTERS: buyers vs sellers (unique wallets), fresh wallets buying, biggest buy / sell, flagged $ sold.
 //   · WALLET RACE: the 5 wallets pushing hardest over 2 min by NET $ (green = net buyer, red = net seller), flags shown, tap = case file.
 // A read of the tape, never a promise. Re-read once a second; bars move by transform only.
-export const PULSE_SEC = 60; export const BUCKET = 5; export const RACE_SEC = 120;
+export const PULSE_SEC = 60; export const BUCKET = 5; export const RACE_SEC = 120; export const WHALE = 500;   // a single trade ≥ $500 = a whale on a trench coin
 const ageOf = (t, now) => (now - Date.parse(t.ts)) / 1000;
 const isBad = tags => (tags || []).some(g => g.tone === 'bad');
 
@@ -22,11 +22,13 @@ export function buckets(trades, now, sec = PULSE_SEC, step = BUCKET) {
 }
 
 export function pulse(trades, now, tags = new Map(), seenBefore = new Set()) {
-  let buy = 0; let sell = 0; let badSell = 0; let topB = null; let topS = null; let b20 = 0; let s20 = 0;
+  let buy = 0; let sell = 0; let badSell = 0; let topB = null; let topS = null; let b20 = 0; let s20 = 0; let nb = 0; let ns = 0; let wb = 0; let ws = 0; let px0 = null; let px1 = null; let t0 = Infinity; let t1 = -Infinity;
   const bw = new Set(); const sw = new Set(); const fresh = new Set(); const badWho = new Set();
   for (const t of trades || []) {
     const a = ageOf(t, now); if (a < 0 || a > PULSE_SEC) continue;
-    const u = Number(t.usd) || 0; const w = t.wallet;
+    const u = Number(t.usd) || 0; const w = t.wallet; const px = Number(t.price) || 0; const at = Date.parse(t.ts);
+    if (px > 0 && at < t0) { t0 = at; px0 = px; } if (px > 0 && at > t1) { t1 = at; px1 = px; }
+    if (t.kind === 'buy') { nb += 1; if (u >= WHALE) wb += 1; } else { ns += 1; if (u >= WHALE) ws += 1; }
     if (t.kind === 'buy') { buy += u; if (w) { bw.add(w); if (!seenBefore.has(w)) fresh.add(w); } if (!topB || u > topB.usd) topB = { usd: u, wallet: w }; if (a <= 20) b20 += u; }
     else { sell += u; if (w) sw.add(w); if (!topS || u > topS.usd) topS = { usd: u, wallet: w }; if (a <= 20) s20 += u; if (w && isBad(tags.get(w))) { badSell += u; badWho.add(w); } }
   }
@@ -40,7 +42,9 @@ export function pulse(trades, now, tags = new Map(), seenBefore = new Set()) {
   else if (share <= 0.3 && sw.size >= 3) { word = 'DUMPING'; why = `${sw.size} wallets sold ${formatUSD(sell)} vs ${formatUSD(buy)} bought`; }
   else if (share <= 0.42) { word = 'SELLERS LEAD'; why = `${Math.round((1 - share) * 100)}% of the $ is selling${rising ? ', buyers stepping in' : ''}`; }
   else { word = 'CHOP'; why = `even fight — ${bw.size} buyers vs ${sw.size} sellers`; }
-  return { word, why, buy, sell, share, buyers: bw.size, sellers: sw.size, fresh: fresh.size, topB, topS, badSell, turn: rising ? 'up' : fading ? 'down' : 'flat' };
+  return { word, why, buy, sell, share, buyers: bw.size, sellers: sw.size, fresh: fresh.size, topB, topS, badSell, turn: rising ? 'up' : fading ? 'down' : 'flat',
+    net: buy - sell, tpm: nb + ns, avgB: nb ? buy / nb : null, avgS: ns ? sell / ns : null, whalesB: wb, whalesS: ws, share20,
+    pxMove: px0 > 0 && px1 > 0 && t1 > t0 ? (px1 / px0 - 1) * 100 : null };
 }
 
 export function race(trades, now, tags = new Map(), n = 5) {
@@ -66,6 +70,7 @@ export function TrenchPulse({ trades, tags = new Map(), me }) {
   const bars = buckets(trades, now); const peak = Math.max(1, ...bars.map(b => Math.max(b.buy, b.sell)));
   const rows = race(trades, now, tags);
   const tone = WORD_TONE[p.word] || 'mid';
+  const lastId = (trades || [])[0]?.tx || (trades || [])[0]?.ts || 0;   // a new trade re-keys the live column: it flashes once
   return <div className={`tpl is-${tone}`} data-testid="trench-pulse">
     <div className="tpl-top">
       <b className={`tpl-word is-${tone}`} key={p.word} data-testid="tpl-word">{p.word === 'RUG WATCH' ? '🚨 ' : p.word === 'SEND' ? '🚀 ' : ''}{p.word}</b>
@@ -74,7 +79,7 @@ export function TrenchPulse({ trades, tags = new Map(), me }) {
     </div>
     <div className="tpl-tug" aria-hidden><i style={{ transform: `scaleX(${p.share.toFixed(3)})` }} /><u style={{ left: `${(p.share * 100).toFixed(1)}%` }} /></div>
     <div className="tpl-bars" aria-label="Buy and sell pressure, last 60 seconds in 5-second steps" data-tip="Last 60s in 5-second steps — green up = $ bought, red down = $ sold. Right = now.">
-      {bars.map((b, i) => <span key={i} className={`tpl-col ${i === bars.length - 1 ? 'is-now' : ''}`}><i className="is-b" style={{ transform: `scaleY(${(b.buy / peak).toFixed(3)})` }} /><i className="is-s" style={{ transform: `scaleY(${(b.sell / peak).toFixed(3)})` }} /></span>)}
+      {bars.map((b, i) => <span key={i === bars.length - 1 ? `now-${lastId}` : i} className={`tpl-col ${i === bars.length - 1 ? 'is-now' : ''}`}><i className="is-b" style={{ transform: `scaleY(${(b.buy / peak).toFixed(3)})` }} /><i className="is-s" style={{ transform: `scaleY(${(b.sell / peak).toFixed(3)})` }} /></span>)}
     </div>
     <div className="tpl-kpis">
       <span data-tip="unique wallets buying vs selling in the last 60s"><em>WALLETS</em><b><i className="m-pos">{p.buyers}▲</i> <i className="m-neg">{p.sellers}▼</i></b></span>
@@ -83,6 +88,14 @@ export function TrenchPulse({ trades, tags = new Map(), me }) {
       <span data-tip={p.topS?.wallet ? `biggest sell · ${p.topS.wallet}` : 'no sell'}><em>TOP SELL</em><b className="m-neg">{p.topS ? formatUSD(p.topS.usd) : '—'}</b></span>
       <span className={p.badSell > 0 ? 'is-alarm' : ''} data-tip="$ sold in the last 60s by wallets flagged on this coin (dev · sniper · bundle · top holder)"><em>FLAGGED SOLD</em><b>{p.badSell > 0 ? formatUSD(p.badSell) : '0'}</b></span>
     </div>
+    <div className="tpl-kpis is-2">
+      <span data-tip="$ bought minus $ sold in the last 60s"><em>NET FLOW</em><b key={`n${Math.round(p.net)}`} className={`tpl-pop ${p.net >= 0 ? 'm-pos' : 'm-neg'}`}>{p.net >= 0 ? '+' : '−'}{formatUSD(Math.abs(p.net))}</b></span>
+      <span data-tip="average buy vs average sell size — big sells into small buys = exits"><em>AVG BUY / SELL</em><b><i className="m-pos">{p.avgB != null ? formatUSD(p.avgB) : '—'}</i> / <i className="m-neg">{p.avgS != null ? formatUSD(p.avgS) : '—'}</i></b></span>
+      <span data-tip="trades in the last 60s"><em>TRADES / MIN</em><b key={`t${p.tpm}`} className="tpl-pop">{p.tpm}</b></span>
+      <span data-tip={`single trades ≥ $${WHALE} in the last 60s: buys / sells`}><em>WHALES</em><b><i className="m-pos">{p.whalesB}🐋</i> <i className="m-neg">{p.whalesS}🐋</i></b></span>
+      <span data-tip="the price move from the first to the last trade of the minute"><em>PRICE 60s</em><b key={`p${p.pxMove == null ? 'x' : p.pxMove.toFixed(1)}`} className={`tpl-pop ${p.pxMove == null ? '' : p.pxMove >= 0 ? 'm-pos' : 'm-neg'}`}>{p.pxMove == null ? '—' : `${p.pxMove >= 0 ? '+' : ''}${p.pxMove.toFixed(1)}%`}</b></span>
+    </div>
+    <div className="tpl-mom" data-tip="buy share in the last 20s vs the whole minute — where the fight is heading" data-testid="tpl-mom"><em>MOMENTUM</em><span className="tpl-mom-bar"><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, p.share20)).toFixed(3)})` }} /></span><b className={p.turn === 'up' ? 'm-pos' : p.turn === 'down' ? 'm-neg' : ''}>{p.turn === 'up' ? '↗ buyers stepping in' : p.turn === 'down' ? '↘ fading' : '→ steady'} · {Math.round(p.share20 * 100)}% last 20s</b></div>
     {rows.length ? <ol className="tpl-race" aria-label="Wallets pushing hardest, last 2 minutes">
       {rows.map(r => { const mine = r.mine || (me && r.wallet === me); const bad = isBad(r.tags);
         return <li key={r.wallet}><button type="button" className={`tpl-row ${r.net >= 0 ? 'is-b' : 'is-s'} ${bad ? 'is-bad' : ''}`} onClick={() => investigate(r.wallet)} data-tip={`${r.n} trades · net ${formatUSD(r.net)} in 2 min${r.tags.length ? ` · ${r.tags.map(g => g.label).join(', ')}` : ''} — tap for the case file`}>

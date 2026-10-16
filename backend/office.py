@@ -686,7 +686,9 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev, act = 'TAKE', 'R7 trailing protection', f"peaked {p['peak']:+.1f}%, now {pct:+.1f}% — {_f(tr_.get('pct')):g} points off the peak (your trail, creator manual)", 'pull'
         elif manual:   # 🎛 CREATOR MANUAL: only the hard safety exits above + your own overrides act — every discretionary call below is yours
             st, rule, ev = 'HOLD', 'R10 creator manual', f"{pct:+.1f}% · you hold the decisions — only the hard safety exits and your own limits act"
-        elif yours(l) and not p.get('locked') and pick_lock(p.get('peak')) is not None and pct <= pick_lock(p['peak']):   # 🔒 your pick gave back half its peak: a portion banked once, the rest rides your own stop
+        elif gstop_lost(l, ch) and live:   # 🦠 your Gstop: the coin lost its germ floor — sold, then bought back when a NEW germ floor is confirmed (germ re-buy)
+            st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R5g germ stop', f"{pct:+.1f}% — lost its {gstop_lost(l, ch)} germ floor (your Gstop): sold, re-bought on a new germ floor", 'pull'
+        elif yours(l) and not l.get('certified') and not p.get('locked') and pick_lock(p.get('peak')) is not None and pct <= pick_lock(p['peak']):   # 🔒 your pick gave back half its peak: a portion banked once, the rest rides your own stop
             st, rule, ev, act = 'TAKE', 'R5b your pick banked a portion', f"peaked {p['peak']:+.1f}%, now {pct:+.1f}% — under half its peak (+{pick_lock(p['peak']):g}%): {PICK_LOCK_SELL:g}% banked, the rest rides your own stop", 'trim'
             p['locked'] = now
         elif mine and pct <= -stop:   # their own coins carry no card stop (ride-or-rug seats) — this is it; other coins keep the card's own stop
@@ -745,6 +747,9 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             p['scaled'] = now
         if l.get('picked'):
             study_note(p, rule, act, st, pct, px, now)   # 👤 your seat: every ruling change is filed — what the agents would have done, and when
+        if act and l.get('certified') and str(rule).split(' ')[0] not in ('R1', 'R5x', 'R5c', 'R5g') and not owner_hard(l, str(rule).split(' ')[0]):   # 🛡 certified: you hold it
+            ev += ' · 🛡 CERTIFIED — you hold it: only your stop, your Gstop, a pulled pool and −45% act'
+            act, st = None, 'HOLD'
         act, st, ev = owner_ask(p, l, act, st, rule, ev, pct, px, now)   # ✋ your SL / TP is set: a soft exit asks you first (hard safety exits never wait)
         if act and pct >= RUNWAY_KEEP and (str(rule).split(' ')[0] in RUNWAY_RULES) and (held_s < RUNWAY_SEC or str(rule).startswith('R5t')):
             ev += (f" · 🛫 runway: a green coin is not banked in its first {RUNWAY_SEC / 60:.0f} min ({round(RUNWAY_SEC - held_s)}s left) — the trail still sells it under +{RUNWAY_KEEP:g}%"
@@ -804,11 +809,24 @@ ASK_HARD = ('R1', 'R2', 'R3', 'R4', 'R4r', 'R4d', 'R4e', 'R5', 'R5x', 'R5c', 'R9
 # ✋ YOUR COIN IS YOURS (owner, 2026-10-15: "they sold one of my entries … im tryna teach them"): on a coin YOU picked or put your lines on,
 # ONLY these may sell without asking — a pulled pool (R1), the catastrophic −45% (R5x), your creator limits (R5c / R9c) and your OWN stop /
 # take (R5 / R6, only when the line is yours). Every other rule — dump reads, rug radar, drain, scans, trails, thesis — becomes a question.
-OWNER_HARD = ('R1', 'R5x', 'R5c', 'R9c', 'R5b')
+OWNER_HARD = ('R1', 'R5x', 'R5c', 'R9c', 'R5b', 'R5g')
 # 🔒 YOUR PICK LOCKS ITS GAIN (owner, 2026-10-16: "once a pick has been +10%, its stop moves to my entry, then tightens as the peak grows"):
 # a coin you picked / lined that has peaked ≥ +PICK_LOCK_AT keeps at least PICK_LOCK_KEEP of its peak (+10 → +5, +30 → +15).
 # Replay on your 20 graded picks (their own price paths): −4.1% avg / −1.7% median vs −9.8% / −7.7% real (only 5 of 20 ever reached +10 — thin).
 PICK_LOCK_AT, PICK_LOCK_KEEP, PICK_LOCK_SELL = 10.0, 0.5, 50.0   # … then ONE trim of PICK_LOCK_SELL % (owner: "sell a portion from its peak, see if it keeps riding — I'll set my own breakeven")
+
+
+def gstop_lost(l, ch):
+    """🦠 GSTOP (owner, 2026-10-16): the coin's own germ stop — `l.gstop` 1m / 5m / both. → the lens that LOST its germ floor (the price closed
+    under the base of the run it was born on), or None. No germ read on that lens = not judged."""
+    m = (l or {}).get('gstop')
+    f = ((ch or {}).get('f') or {})
+    if m not in ('1m', '5m', 'both'):
+        return None
+    for lens, g in (('1m', f.get('germ')), ('5m', f.get('germ5'))):
+        if (m == lens or m == 'both') and g and g.get('lost'):
+            return lens
+    return None
 
 
 def pick_lock(peak):

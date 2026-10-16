@@ -43,3 +43,18 @@ def test_a_coin_on_its_germ_is_armed_through_a_waiting_chart_but_never_a_skip():
     assert brain.germ_entry_ok(on, 'WAIT FOR CONFIRMATION') == '6% above it'
     assert brain.germ_entry_ok(on, 'SKIP') is None and brain.germ_entry_ok(on, 'WAIT FOR DATA') is None
     assert brain.germ_entry_ok({'row': {'chart': {'germDist': 22.0}}}, 'WAIT FOR PULLBACK') is None
+
+
+def test_gstop_sells_on_the_lens_you_picked_and_certify_and_gstop_live_on_the_leg():
+    ch = {'f': {'germ': {'lost': True}, 'germ5': {'lost': False}}}
+    assert office.gstop_lost({'gstop': '1m'}, ch) == '1m' and office.gstop_lost({'gstop': '5m'}, ch) is None
+    assert office.gstop_lost({'gstop': 'both'}, ch) == '1m' and office.gstop_lost({}, ch) is None and office.gstop_lost({'gstop': '1m'}, {}) is None
+    card = {'legs': [{'pairAddress': 'P', 'symbol': 'X'}]}
+    c2 = ap.set_leg(card, 'P', certified=True, gstop='5m', now=10)
+    assert c2['legs'][0]['certified'] == 10 and c2['legs'][0]['gstop'] == '5m'
+    c3 = ap.set_leg(c2, 'P', certified=False, gstop='off')
+    assert 'certified' not in c3['legs'][0] and 'gstop' not in c3['legs'][0]
+    import pytest
+    with pytest.raises(ValueError):
+        ap.set_leg(card, 'P', gstop='3m')
+    assert 'R5g' in office.OWNER_HARD

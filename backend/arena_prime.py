@@ -3101,13 +3101,13 @@ def summary(card, prices, cfg=None):
     paid = round(_f(card.get('walletUsd')), 4)
     legs = [{**{k: l[k] for k in ('mint', 'pairAddress', 'symbol', 'role', 'entry', 'units', 'costUsd')}, 'stars': l.get('stars') or 3,
              'house': bool(l.get('house')), 'ticket': bool(l.get('ticket')), 'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'), 'tp': l.get('tp'), 'sl': l.get('sl'), 'division': l.get('division'), 'swapTo': (l.get('swapTo') or {}).get('symbol'), 'ride': bool(l.get('ride')), 'high': l.get('high'), 'rideFrom': l.get('rideFrom'), 'bought': l.get('bought'), 'picked': bool(l.get('picked')), 'buying': bool(l.get('buying')), 'placeholder': bool(l.get('placeholder')),   # a reserved seat: the screen shows it OPEN, never "buying…"
-             'loseRounds': int(l.get('loseRounds') or 0),
+             'loseRounds': int(l.get('loseRounds') or 0), 'certified': bool(l.get('certified')), 'gstop': l.get('gstop'),
              'firstEntry': l.get('firstEntry') or l['entry'], 'at': l.get('at'), 'now': _f(prices.get(l['pairAddress'])) or l['entry'],
              'pnlPct': round(((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100, 2) if l['entry'] else 0.0,
              'liq': _f(l.get('liqNow')) or _f(l.get('liq')),
              'usd': round(value({'legs': [l], 'cash': 0.0}, prices), 4)} for l in card['legs']]
     return {**{k: card[k] for k in ('id', 'tpl', 'label', 'at', 'lastRotateAt', 'compoundedUsd', 'takenUsd', 'feesUsd', 'startUsd')}, 'cash': round(card['cash'], 4), 'walletUsd': round(_f(card.get('walletUsd')), 4),
-            'flooredAt': card.get('flooredAt'), 'phase': card.get('phase'), 'cycleFix': card.get('cycleFix'), 'cycle': list(CYCLE) if card['tpl'] in CYCLE_TIERS else None, 'rounds': int(card.get('rounds') or 0), 'lastRoundPct': card.get('lastRoundPct'),
+            'flooredAt': card.get('flooredAt'), 'phase': card.get('phase'), 'cycleFix': card.get('cycleFix'), 'cycle': list(CYCLE) if card['tpl'] in CYCLE_TIERS else None, 'germRebuy': [{'symbol': v.get('symbol'), 'lens': v.get('lens'), 'at': v.get('at')} for v in (card.get('germRebuy') or {}).values()], 'rounds': int(card.get('rounds') or 0), 'lastRoundPct': card.get('lastRoundPct'),
             'roundPct': round((v / (_f(card.get('roundStartUsd')) or start) - 1) * 100, 2), 'roundWins': int(card.get('roundWins') or 0),
             'stack': stack(card, prices, cfg),
             'swapCap': {**swap_cap(cfg or {}, v, len(card['legs'])), 'used': swaps_last_hour(card, _f((cfg or {}).get('_now')) or __import__('time').time())},
@@ -3246,7 +3246,10 @@ def ticket_stops(c, cfg):
         c.pop('ticketSlLearned', None)
 
 
-def set_leg(card, pair, frozen=None, sl_mode=None, tp=None, sl=None, flow=None, now=None):
+GSTOP_MODES = ('off', '1m', '5m', 'both')   # 🦠 Gstop: sell when the coin LOSES its germ floor on that lens (both = either 1m or 5m), then buy back on a NEW germ
+
+
+def set_leg(card, pair, frozen=None, sl_mode=None, tp=None, sl=None, flow=None, now=None, certified=None, gstop=None):
     """HQ per-coin config on a tier card: ❄ frozen (engine never rotates or stops it — the floor still protects the card)
     and its own stop mode (replace / park / hold, or '' = follow the card). Pure; ValueError if the coin isn't on the card."""
     c = {**card, 'legs': [dict(l) for l in card.get('legs') or []]}
@@ -3259,6 +3262,18 @@ def set_leg(card, pair, frozen=None, sl_mode=None, tp=None, sl=None, flow=None, 
         if sl_mode and sl_mode not in SL_MODES:
             raise ValueError('stop mode must be replace, park or hold')
         leg['slMode'] = sl_mode or None
+    if certified is not None:   # 🛡 CERTIFIED (owner, 2026-10-16: "I hold once my position is certified"): no agent advice, no soft exit — only your stop, a pulled pool and −45%
+        if certified:
+            leg['certified'] = _f(now) or time.time()
+        else:
+            leg.pop('certified', None)
+    if gstop is not None:   # 🦠 Gstop on this coin: off / 1m / 5m / both
+        if gstop not in GSTOP_MODES:
+            raise ValueError('Gstop must be off, 1m, 5m or both')
+        if gstop == 'off':
+            leg.pop('gstop', None)
+        else:
+            leg['gstop'] = gstop
     if flow is not None:   # 🌊 this coin's own flow exit: off / normal / tight, '' = follow the card
         if flow and flow not in ('off', 'normal', 'tight'):
             raise ValueError('flow exit must be off, normal or tight')

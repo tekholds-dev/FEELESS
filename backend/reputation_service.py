@@ -10448,6 +10448,10 @@ async def _prime_tick_inner(now):
                     _agents['switchEval'] = None if not tests_ else {**min(tests_, key=lambda t_: (not t_['switch'], t_['current']['pnl'])), 'at': now, 'dueIn': max(0, round(_fuse._f(cur.get('agentCycleAt')) + max(30.0, _fuse._f(pol_['seatTarget'])) - now)), 'full': full_}
                 except Exception as e:
                     print('switch eval:', e)
+            try:
+                cur = _germ_rebuy_step(cur, px, now)   # 🦠 a coin your Gstop sold printed a NEW germ floor: it is queued back as your seat pick
+            except Exception as e:
+                print('germ rebuy:', e)
             _agents['decisions'] = [{k: v for k, v in x.items() if k != 'to'} | ({'toSym': x['to']['symbol']} if x.get('to') else {}) for x in dec_]
             _agents['card'] = _pos.card_seats(cur, _agents['decisions'], px, cfg_t, take=_of.take_line(cfg_t, _agents.get('scalp')))
             if real_t and cfg_t.get('nightGuard', True) is not False:   # 🌙 the circuit breaker: a paused card buys NOTHING real (exits keep running)
@@ -10463,6 +10467,11 @@ async def _prime_tick_inner(now):
                         _shadow_note(x.get('to'), 'switch', now, cur); continue
                     if x['action'] == 'swap' and ctl_ and _office_warden(cur, x['to'], _fuse._f(next((_fuse._f(l.get('units')) * (_fuse._f(px.get(l.get('pairAddress'))) or _fuse._f(l.get('entry'))) for l in cur.get('legs') or [] if l.get('pairAddress') == x['pair']), 0.0)), cfg_t, now, 'swap')['veto']:
                         continue   # 🛡 a switch carries the old seat's money as it is: the Warden may only veto it
+                    if x['action'] == 'pull' and 'R5g' in str(x.get('why')):   # 🦠 a Gstop sale: watch the coin for a NEW germ floor to buy it back
+                        lg_g = next((l for l in cur.get('legs') or [] if l.get('pairAddress') == x['pair']), None)
+                        if lg_g:
+                            cur['germRebuy'] = {**{m_: v_ for m_, v_ in (cur.get('germRebuy') or {}).items() if now - _fuse._f(v_.get('at')) < GERM_REBUY_SEC},
+                                                lg_g.get('mint'): {'pair': x['pair'], 'symbol': lg_g.get('symbol'), 'lens': lg_g.get('gstop') or 'both', 'at': now, 'px': _fuse._f(px.get(x['pair']))}}
                     if x['action'] == 'pull' and ctl_:
                         was_ = cur
                         lg_ = next((l for l in cur.get('legs') or [] if l.get('pairAddress') == x['pair']), None)
@@ -11346,7 +11355,7 @@ async def fuse_prime_admin(request: Request):
             if not cards.get(lg['tpl']):
                 raise HTTPException(404, 'No card for that tier yet.')
             try:
-                cards[lg['tpl']] = _prime.set_leg(cards[lg['tpl']], lg['pairAddress'], lg.get('frozen'), lg.get('slMode'), lg.get('tp'), lg.get('sl'), lg.get('flowExit'), now=time.time())
+                cards[lg['tpl']] = _prime.set_leg(cards[lg['tpl']], lg['pairAddress'], lg.get('frozen'), lg.get('slMode'), lg.get('tp'), lg.get('sl'), lg.get('flowExit'), now=time.time(), certified=lg.get('certified'), gstop=lg.get('gstop'))
             except ValueError as e:
                 raise HTTPException(400, str(e))
             _json_save(FUSE_HQ_PATH, d)
@@ -15828,6 +15837,38 @@ async def _coach_ai(now, env, cfg):
 
 
 _reap_prev: dict = {}   # mint → (at, px): the fast stop guard's previous live read (office.spike_held)
+
+
+GERM_REBUY_SEC = 7200.0   # 🦠 a Gstop sale is watched this long for a new germ floor
+
+
+def _germ_rebuy_step(cur, px, now):
+    """🦠 GERM RE-BUY (owner, 2026-10-16: "when a new germ floor is confirmed on 1–5 min it auto sells and rebuys"): a coin your Gstop sold is
+    queued back as YOUR seat pick (acknowledged, every keeper check still runs) once its chart prints a NEW germ floor — born after the sale,
+    not lost, the price inside your germ line — on the lens you picked (both = 1m AND 5m). Watched GERM_REBUY_SEC, then dropped."""
+    rb = {m_: v_ for m_, v_ in (cur.get('germRebuy') or {}).items() if now - _fuse._f(v_.get('at')) < GERM_REBUY_SEC}
+    if not rb:
+        cur.pop('germRebuy', None)
+        return cur
+    mx_ = _uni.germ_max() or 15
+    for m_, v_ in list(rb.items()):
+        if m_ in _prime.held_mints(cur):
+            rb.pop(m_); continue
+        f_ = (((_office.get('charts') or {}).get(m_) or {}).get('f') or {})
+        new_ = lambda g_: bool(g_) and not g_.get('lost') and _fuse._f(g_.get('at')) >= _fuse._f(v_['at']) - 60 and 0 <= _fuse._f(g_.get('dist')) <= mx_
+        lens_ = v_.get('lens') or 'both'
+        ok_ = (new_(f_.get('germ')) and new_(f_.get('germ5'))) if lens_ == 'both' else new_(f_.get('germ' if lens_ == '1m' else 'germ5'))
+        p_ = _fuse._f(px.get(v_['pair'])) or _fuse._f((_jup_px_cache.get(m_) or (0, 0))[1])
+        if not ok_ or p_ <= 0:
+            continue
+        try:
+            cur = _prime.queue_seat(cur, {'mint': m_, 'pairAddress': v_['pair'], 'symbol': v_.get('symbol'), 'price': p_, 'ack': True}, more=True)
+            cur.setdefault('events', []).append({'at': now, 'kind': 'agent', 'symbol': v_.get('symbol'), 'why': f"🦠 germ re-buy: ${v_.get('symbol')} printed a new {lens_} germ floor — queued back on your seat"})
+            rb.pop(m_)
+        except ValueError:
+            rb.pop(m_)
+    cur['germRebuy'] = rb
+    return cur
 
 
 def _germ_of(mint):

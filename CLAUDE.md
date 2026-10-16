@@ -4560,3 +4560,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   DATA) — "chart says go" held every contender at WAIT; a floor buy needs no breakout. Replay on the owner's 20 graded
   picks (archive position paths): −4.1% avg / −1.7% median vs −9.8% / −7.7% real; "entry at +10 then tighten" −5.1%; only 5 of 20 reached +10.
   Study that day: the owner's picks peaked +6.1% and exited −6.6% (10.9 pts given back) vs the agents' 5.7.
+- 🛡 CERTIFY + 🦠 GSTOP + GERM RE-BUY (owner, 2026-10-16: "I hold once my position is certified" · "for my picks I set my Gstops"):
+  per coin on the real card (`arena_prime.set_leg(certified=, gstop=)`, admin prime `{leg: {tpl, pairAddress, certified | gstop}}`, cockpit
+  ⚡ Add my coin › `SeatControls`: 🛡 Certify + 🦠 off · 1m · 5m · 1–5m). CERTIFIED = no agent advice / soft exit on it — only your own stop,
+  your Gstop, R1 pool pulled, R5x −45%, R5c (`office.reap`). GSTOP `office.gstop_lost` → `R5g germ stop` (OWNER_HARD): the price LOST its
+  germ floor on the lens you picked (both = either) → sold, and the card's `germRebuy` watches it 2h (`_germ_rebuy_step`, each tier tick):
+  a NEW germ floor (born after the sale, not lost, inside the germ line; both = 1m AND 5m) queues it back as YOUR seat pick (acknowledged,
+  keeper checks still run). It reads the agents' chart snapshot: a coin off the desk is not watched. Seat controls show "watching for a new
+  germ floor". 🥊 Trench Pulse v2: NET FLOW · AVG BUY / SELL · TRADES / MIN · WHALES (≥ $500) · PRICE 60s + a MOMENTUM bar (last 20s vs
+  the minute), bars + race full width, word ring, live-column flash on each new trade, number pop, rug siren sweep.

@@ -30,6 +30,13 @@ body.theme-day .mys { background: linear-gradient(90deg, rgba(14, 138, 74, .1), 
 .mys-chip:active { transform: scale(.95); }
 .mys-chip.is-stop { color: #ff8fa3; border-color: rgba(255, 143, 163, .4); }
 .mys-chip.is-stop:hover { background: rgba(255, 92, 122, .14); }
+.mys-cert { height: 22px; padding: 0 9px; font: 800 9.5px var(--m-mono); color: #9fe3ff; border-color: rgba(159, 227, 255, .4); transition: transform .14s ease, background .14s; }
+.mys-cert:hover { background: rgba(159, 227, 255, .12); transform: translateY(-1px); } .mys-cert:active { transform: scale(.96); }
+.mys-cert.is-on { background: #9fe3ff; color: #04121a; border-color: #9fe3ff; box-shadow: 0 0 12px rgba(159, 227, 255, .45); }
+.mys-gstop > button { height: 22px; padding: 0 7px; font: 800 9px var(--m-mono); }
+.mys-gstop > button.active { background: #b388ff; color: #12061f; box-shadow: 0 0 10px rgba(179, 136, 255, .5); }
+.mys-rebuy { margin: 4px 0 0; font: 700 9.5px var(--m-mono); color: #b388ff; animation: mysRebuy 1.8s ease-in-out infinite; }
+@keyframes mysRebuy { 0%, 100% { opacity: .65; } 50% { opacity: 1; } }
 .mys-pull { margin-left: auto; height: 22px; padding: 0 10px; font: 800 9.5px var(--m-mono); color: #f5c451; border-color: rgba(245, 196, 81, .45); }
 .mys-pull:hover { background: rgba(245, 196, 81, .14); }
 .mys-open { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
@@ -39,3 +46,7 @@ body.theme-day .mys { background: linear-gradient(90deg, rgba(14, 138, 74, .1), 
 body.theme-day .mys-row { background: rgba(13, 122, 65, .05); border-color: rgba(13, 122, 65, .18); }
 body.theme-day .mys-chip.is-stop { color: #b42346; } body.theme-day .mys-pull { color: #8a6a12; }
 @media (prefers-reduced-motion: reduce) { .mys-chip { transition: none; } }
+
+body.fx-lite .mys-rebuy { animation: none; }
+@media (prefers-reduced-motion: reduce) { .mys-rebuy { animation: none; } .mys-cert { transition: none; } }
+body.theme-day .mys-cert { color: #0b6a8f; } body.theme-day .mys-cert.is-on { background: #0b6a8f; color: #fff; } body.theme-day .mys-rebuy { color: #6a3fc0; }

@@ -88,9 +88,12 @@ export function MySeatsRecord({ rec }) {
 }
 
 // ⏏ PULL + 🎯 SELL LIMITS on every held seat, and your open limits (owner, 2026-10-15: "a way to pull seat", "do limit orders")
+export const GSTOPS = [['off', 'off'], ['1m', '1m'], ['5m', '5m'], ['both', '1–5m']];   // 🦠 Gstop lenses (arena_prime.GSTOP_MODES)
+
 export function SeatControls({ call, tpl, seats, reload }) {
-  const [busy, setBusy] = useState(null); const [msg, setMsg] = useState(null); const [lims, setLims] = useState([]);
-  const load = () => sharedJson('/api/reputation/fuses/prime', { maxAge: 4000 }).then(d => setLims(((d?.cards || []).find(c => c.tpl === tpl) || {}).limits || [])).catch(() => {});
+  const [busy, setBusy] = useState(null); const [msg, setMsg] = useState(null); const [lims, setLims] = useState([]); const [legs, setLegs] = useState({}); const [rebuy, setRebuy] = useState([]);
+  const load = () => sharedJson('/api/reputation/fuses/prime', { maxAge: 4000 }).then(d => { const c = (d?.cards || []).find(x => x.tpl === tpl) || {};
+    setLims(c.limits || []); setLegs(Object.fromEntries((c.legs || []).map(l => [l.pairAddress, l]))); setRebuy(c.germRebuy || []); }).catch(() => {});
   useEffect(() => { if (!tpl) return undefined; load(); const t = setInterval(() => { if (!document.hidden) load(); }, 10000); return () => clearInterval(t); }, [tpl]);   // eslint-disable-line react-hooks/exhaustive-deps
   if (!tpl || !call) return null;
   const send = async (key, body, ok) => {
@@ -105,8 +108,15 @@ export function SeatControls({ call, tpl, seats, reload }) {
       <span className="mys-lims" role="group" aria-label={`Sell limit for $${s.symbol}`}>{LIMIT_MOVES.map(m => <button key={m} type="button" className={`m-btn mys-chip ${m < 0 ? 'is-stop' : ''}`} disabled={!!busy || !(s.px > 0)}
         onClick={() => send(`${s.pair}${m}`, sellLimitBody(tpl, s, m, m > 0 && m < 100 ? 50 : 100), `🎯 ${m > 0 ? 'take' : 'stop'} limit set on $${s.symbol}: ${m > 0 ? '+' : ''}${m}% from now`)}
         data-testid={`seat-lim-${s.symbol}-${m}`} data-tip={m > 0 ? `Sell ${m < 100 ? 50 : 100}% when the live price is ${m}% above now` : `Sell all if it falls ${-m}% from now`}>{m > 0 ? `💰 +${m}%` : `🛑 ${m}%`}</button>)}</span>
+      <button type="button" className={`m-btn mys-cert ${legs[s.pair]?.certified ? 'is-on' : ''}`} disabled={!!busy} aria-pressed={!!legs[s.pair]?.certified}
+        onClick={() => send(`cert-${s.pair}`, { leg: { tpl, pairAddress: s.pair, certified: !legs[s.pair]?.certified } }, legs[s.pair]?.certified ? `🛡 $${s.symbol} un-certified — the agents may advise again` : `🛡 $${s.symbol} certified — you hold it: only your stop, your Gstop, a pulled pool and −45% act`)}
+        data-testid={`seat-cert-${s.symbol}`} data-tip="Certified = you hold it. No agent advice, no soft exit; only your own stop, your Gstop, a pulled pool and the −45% floor act.">🛡 {legs[s.pair]?.certified ? 'Certified' : 'Certify'}</button>
+      <span className="m-seg mys-gstop" role="group" aria-label={`Germ stop for $${s.symbol}`}>{GSTOPS.map(([v, w]) => <button key={v} type="button" disabled={!!busy} className={(legs[s.pair]?.gstop || 'off') === v ? 'active' : ''}
+        onClick={() => send(`g-${s.pair}-${v}`, { leg: { tpl, pairAddress: s.pair, gstop: v } }, v === 'off' ? `🦠 Gstop off on $${s.symbol}` : `🦠 Gstop ${w} on $${s.symbol}: sold when it loses its germ floor, bought back on a new one`)}
+        data-testid={`seat-gstop-${s.symbol}-${v}`} data-tip={v === 'off' ? 'No germ stop' : `Sell when the price loses its ${w} germ floor; bought back when a NEW germ floor is confirmed (inside your germ line)`}>{v === 'off' ? '🦠 off' : w}</button>)}</span>
       <button type="button" className="m-btn mys-pull" disabled={!!busy} onClick={() => send(`pull-${s.pair}`, { manualSell: { tpl, pairAddress: s.pair, pct: 100, ack: true } }, `⏏ $${s.symbol} pulled — sold to card cash, the seat opens`)} data-testid={`seat-pull-${s.symbol}`} data-tip="Sell this whole coin to card cash now — the seat opens">⏏ Pull</button>
     </div>)}
+    {rebuy.length ? <p className="mys-rebuy" data-testid="seat-germ-rebuy">🦠 watching for a new germ floor: {rebuy.map(r => `$${r.symbol} (${r.lens})`).join(' · ')}</p> : null}
     {lims.length ? <ul className="mys-open" data-testid="seat-limits">{lims.map(x => <li key={x.id}><span>{x.word}</span>
       <button type="button" className="m-btn mys-x" disabled={!!busy} onClick={() => send(`x-${x.id}`, { limitCancel: { tpl, id: x.id } }, 'limit cancelled')} aria-label="Cancel limit" data-testid={`seat-lim-x-${x.id}`}>✕</button></li>)}</ul> : null}
     {msg ? <small className={`mys-note ${msg.ok ? 'is-ok' : 'is-bad'}`} data-testid="seat-ctl-msg">{msg.t}</small> : null}
