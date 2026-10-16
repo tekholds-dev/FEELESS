@@ -144,7 +144,7 @@ def spike_chase(row):
     → reason or None. Missing readings are not judged."""
     ch, n = (row or {}).get('chart') or {}, (row or {}).get('nums') or {}
     d5 = n.get('d5')
-    d, _l = germ_d(ch)
+    d = germ_d(ch)[0]
     mx = _uni.germ_max()
     if mx and d is not None and 0 <= d <= mx:   # it already came back to its germ: that IS the entry (the 5-min window still remembers the spike)
         return None
@@ -173,7 +173,7 @@ def germ_line(row):
     on the chart yet) or the line set off = not judged. → reason or None."""
     ch = (row or {}).get('chart') or {}
     mx = _uni.germ_max()
-    d, lens = germ_d(ch)
+    d = germ_d(ch)[0]
     if not mx or d is None:
         return None
     if d > mx * GERM_STRETCH and not _uni.on_trend(row):   # 🔥 your Pump-trending mode: a trending runner is never walled by the germ — it buys at half a seat (germ_size)
@@ -187,7 +187,7 @@ def germ_size(row):
     """🦠 1.0 inside the germ line (or no read / line off) · GERM_STRETCH_SIZE between the line and its stretch."""
     ch = (row or {}).get('chart') or {}
     mx = _uni.germ_max()
-    d, lens = germ_d(ch)
+    d = germ_d(ch)[0]
     if not mx or d is None:
         return 1.0
     return GERM_STRETCH_SIZE if d > mx else 1.0

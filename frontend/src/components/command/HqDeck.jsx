@@ -49,6 +49,7 @@ import { FeeBook } from './FeeBook';
 import { useMoneyPulse, refreshPulse } from '../../lib/moneyPulse';
 import { tiny } from '../../lib/num';
 import { hqWrite, useHqBusy } from '../../lib/hqBusy';
+import { useRemembered } from '../../lib/remember';
 const NftStudio = lazy(() => import('../nft/NftStudio').then(m => ({ default: m.NftStudio })));
 
 const SESSION_KEY = 'feeless:cc-session';
@@ -72,7 +73,7 @@ function HqBusyBar() {
 
 export function HqDeck({ address, signMessage, onClose, startTab }) {
   const [session, setSession] = useState(() => readSession(address));
-  const [tab, setTab] = useState(startTab || 'numbers');
+  const [tab, setTab] = useRemembered('feeless.hq.tab', startTab || 'numbers');   // 🔁 a refresh comes back to the same HQ tab
   // the creator's pop-out (HqPop) jumps between sections from its own header: feeless:hq-go {tab, view, panel}
   useEffect(() => { const on = e => { const j = e.detail || {}; setGrp(null); if (j.view) { setMoneyView(j.view); setTab('money'); } else if (j.tab) setTab(j.tab);
     if (j.panel) [80, 500].forEach(ms => setTimeout(() => window.dispatchEvent(new CustomEvent('feeless:fuse-deck-go', { detail: { panel: j.panel } })), ms)); };

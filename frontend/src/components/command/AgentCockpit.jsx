@@ -29,6 +29,7 @@ import '../../styles/cockpitAi.css';   // after the cockpit sheet: it owns the p
 import '../../styles/cockpitDeck.css';   // last: the one-screen layout (deck, tight chart strip, short AI log)
 import '../../styles/agentFx.css';   // ⚡ hover sheen · press ring · winner glow · paint containment for scrolling
 import { GermChip } from '../GermBadge';
+import { useRemembered } from '../../lib/remember';
 
 // 🎛 THE AGENTS COCKPIT (HQ › Agents, the whole top of the tab — built to the owner's reference, 2026-10-12): REAL MONEY MISSION ribbon ·
 // the four SEATS · ONE chart in MARKET CAP with the agents' real events lettered on it (T D W B R X) · the LIVE DECISIONS strip · the
@@ -558,8 +559,8 @@ function OpenPnl({ seats, onPick }) {
 export const LENS_TAB = { live: 'office', review: 'office', limits: 'office', board: 'office', missed: 'missed', learn: 'paper', ctl: 'paper', life: 'gens' };
 export function AgentCockpit({ call, isOwner = true, head = null, extra = [], limits = null }) {
   const cc = useHub(); const d = cc?.d; const o = d?.office || null;
-  const [pick, setPick] = useState(null); const [iv, setIv] = useState('1m'); const [agent, setAgentS] = useState(null); const [tapeAgent, setTapeAgent] = useState(null);
-  const [tab, setTab] = useState('live'); const [aiOpen, setAiOpen] = useState(false);
+  const [pick, setPick] = useRemembered('feeless.ack.pick', null); const [iv, setIv] = useRemembered('feeless.ack.iv', '1m'); const [agent, setAgentS] = useState(null); const [tapeAgent, setTapeAgent] = useState(null);
+  const [tab, setTab] = useRemembered('feeless.ack.tab', 'live'); const [aiOpen, setAiOpen] = useState(false);   // 🔁 a refresh comes back to the same coin, timeframe and panel tab
   // 🧭 the nav: 📈 chart = the top of the page; any other tab opens its pane under the chart and brings it into view (no hunting)
   const [nav, setNav] = useState(() => { try { return localStorage.getItem(NAV_KEY) || 'chart'; } catch { return 'chart'; } });
   const [navPane, setNavPane] = useState(() => { try { const v = localStorage.getItem(DECK_KEY); return v && v !== 'chart' ? v : 'live'; } catch { return 'live'; } });

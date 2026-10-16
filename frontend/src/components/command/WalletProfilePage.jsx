@@ -42,6 +42,7 @@ import { ProfileDM, RewardsCard } from '../Social';
 import { VerifiedMark } from '../terminal/VerifiedMark';
 import { PointsShop, PnlTracker } from '../MetaExtras';
 import { OnchainStrip, PerksCard, PortfolioCard, SetupCallout, SocialStrip, TradeCards, usePerks } from './ProfileExtras';
+import { useRemembered } from '../../lib/remember';
 
 const WIDE_Q = '(min-width: 1480px)';
 function useWide() {
@@ -183,7 +184,7 @@ export function WalletProfilePage({ address }) {
   const perks = usePerks(address);
   const earned = useBadges(address);
   const tier = perks?.tier || 0;
-  const [ccOpen, setCcOpen] = useState(false);
+  const [ccOpen, setCcOpen] = useRemembered('feeless.profile.hq', false);   // 🔁 HQ opened from the profile stays open across a refresh
   // HQ always runs as the CONNECTED wallet (a granted wallet viewing a linked profile signs for itself, never for the profile's address)
   const hqAddr = wallet?.chain === 'solana' || !wallet?.chain ? wallet?.address : null;
   useEffect(() => { if (!mine || !hqAddr) { setIsAdmin(false); return; } fetch(apiUrl(`/api/reputation/admin/whoami?address=${hqAddr}`)).then(r => r.json()).then(d => setIsAdmin(Boolean(d.isAdmin))).catch(() => {}); }, [mine, hqAddr]);

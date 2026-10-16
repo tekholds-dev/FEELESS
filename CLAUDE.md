@@ -4623,3 +4623,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   perfect, after the germ"): `opportunity.spike_chase` (5-min move ≥ `SPIKE_5M` 12%, or past the germ line while within `SPIKE_TOP` 10% of
   its high) joins `gun_chase` in `brain.trigger` → WAIT for the pullback toward the germ. A coin past the owner's germ line can no longer be
   READY (ENTER → ARM, half seat through the armed door). The intake band's READY lane reads the kernel status, so it follows.
+- 🔁 A REFRESH COMES BACK TO WHERE YOU WERE (owner, 2026-10-16): `lib/remember.js` `useRemembered(key, init)` = state kept in THIS tab's
+  sessionStorage (a refresh restores it, a new tab starts fresh) — HQ tab (`feeless.hq.tab`), HQ opened from the profile
+  (`feeless.profile.hq`), the cockpit's coin / timeframe / decision-panel tab (`feeless.ack.pick|iv|tab`); the HQ pop-out and the deck
+  panes already kept theirs. New "where was I" state ⇒ `useRemembered`, never a bare useState. 🔗 SOCIALS ON EVERY CHART: `ChartPulse`
+  (the vital badge every PriceChart draws) shows the coin's own site / X / Telegram (`SocialIcons`, `socOf` = coin-read facts then the row).

@@ -20,3 +20,6 @@ body.fx-lite .cpl-beat { animation: none; }
 @media (prefers-reduced-motion: reduce) { .cpl-beat { animation: none; } }
 body.theme-day .cpl { background: rgba(236, 246, 240, .94); color: #0b1a14; border-color: #b8d4c4; } body.theme-day .cpl-ring::after { background: #eef6f1; }
 @media (max-width: 640px) { .cpl { top: 38px; left: 6px; } }
+.cpl-soc { display: inline-flex; align-items: center; padding-left: 4px; border-left: 1px solid rgba(255, 255, 255, .12); }
+.cpl-soc .qp-ico a, .cpl-soc .qp-ico i { transition: transform .15s ease; } .cpl-soc .qp-ico a:hover { transform: translateY(-1px) scale(1.12); }
+body.theme-day .cpl-soc { border-left-color: rgba(16, 38, 26, .15); }

@@ -16,3 +16,8 @@ test('the FEELESS vital on a chart: grade ring, score, the read, a beat per real
   const none = await mount(<ChartPulse mint="X" beat={1} />);
   expect(none.querySelector('[data-testid="chart-pulse"]')).toBeNull();
 });
+
+test('🔗 every chart carries the coin\'s own links: the read\'s facts first, the board row after', () => {
+  const { socOf } = require('./ChartPulse');
+  expect(socOf('M', { facts: { x: 'https://x.com/a' }, row: { site: 'https://a.io', x: 'https://x.com/old' } })).toEqual({ mint: 'M', site: 'https://a.io', x: 'https://x.com/a', tg: undefined });
+});
