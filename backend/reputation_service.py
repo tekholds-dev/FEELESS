@@ -21933,7 +21933,12 @@ async def admin_feecat_get(request: Request):
         r = await http.get('http://127.0.0.1:5088/api/cats/internal/rules', headers={'x-feeless-internal': _internal_key()})
         prof = (await http.get('http://127.0.0.1:5088/api/cats/leader/profile')).json()
         activity = (await http.get('http://127.0.0.1:5088/api/cats/activity?catId=leader')).json()
-    return {**r.json(), 'learning': prof.get('learning'), 'stats': prof.get('stats'), 'events': (activity.get('events') or [])[:8], 'cat': {k: (prof.get('cat') or {}).get(k) for k in ('balanceSol', 'realizedPnlSol', 'winRate', 'status', 'lastTick', 'positions')}}
+    sc_ = (_json_load(DATA_DIR / 'feecats.json', {}) or {}).get('scan') or {}   # 🔎 why she is / isn't trading: her own last scan (scanned → passed → rejections)
+    return {**r.json(), 'learning': prof.get('learning'), 'stats': prof.get('stats'), 'events': (activity.get('events') or [])[:12],
+            'discipline': prof.get('discipline'), 'strength': prof.get('strength'), 'exits': (prof.get('exits') or [])[-12:],
+            'scan': {k: sc_.get(k) for k in ('at', 'scanned', 'passed', 'rejections', 'top', 'brainRejects', 'safetyRejects')},
+            'duo': {k: _feecat_ai.get(k) for k in ('read', 'avoid', 'exit', 'split', 'why', 'models')},   # 🤝 her one duo AI read per 10 min
+            'cat': {k: (prof.get('cat') or {}).get(k) for k in ('balanceSol', 'startingBalanceSol', 'realizedPnlSol', 'winRate', 'wins', 'losses', 'status', 'lastTick', 'positions', 'pnlHistory', 'level', 'xp')}}
 
 
 @app.post('/api/reputation/admin/feecat')

@@ -40,7 +40,7 @@ import { TreasuryHub } from './TreasuryHub';
 import { CoinVerifyPanel } from './CoinVerifyPanel';
 import { TreasuryPulse } from './TreasuryPulse';
 import { TAB_INFO } from './ccTabInfo';
-import { FeeBrain } from './FeeBrain';
+import { FeeCatDesk } from './FeeCatDesk';
 import { MoneyFlows } from './MoneyFlows';
 import { CirclePay, useCircleWallet } from './CirclePay';
 import { CardStudio } from '../cards/CardStudio';
@@ -216,7 +216,7 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
       ['engine', '⚡ Engine', <><EngineFunnel call={call} /><EngineDial call={call} /><EngineSuggest call={call} /><details className="m-card adv-cfg"><summary>⚛️ Fuse builder (manual basket: name, tagline, creator cut, any pools)</summary><FuseBuilder call={call} /></details><details className="m-card adv-cfg"><summary>⚙ Advanced engine config (FeeCat tune keeps these at the sweet spot)</summary><RunnerSettings call={call} /></details></>, 'Runner engine settings: gates, flow, bond boxes, lanes, battles, auto card. ⚡ shows anything weaker than recommended — one click applies it.', 'SYSTEM'],
       ['contract', '⛓ Contract', <ContractStatus call={call} />, 'FUSE Vault + FUSE Card programs: what\'s built, what\'s blocked, how to test. Localnet only — never deployed or funded without you.', 'SYSTEM'],
       ['vault', '🏦 Vault', <><VaultMath /><VaultDesigner call={call} /></>, 'Design only: a future on-chain vault (SOL in → shares, fees in SOL). Localnet v0.1 — never deployed or funded without you.', 'SYSTEM']]} />}{tab === 'badges' && <><QuestEngineAdmin call={call} /><AwardBadges call={call} initial={[...selected]} /></>}
-    {tab === 'feecat' && <><FeeCatTune call={call} /><FeeCatPanel call={call} /></>}
+    {tab === 'feecat' && <><FeeCatDesk call={call} /><FeeCatTune call={call} /></>}
     {tab === 'pools' && <PoolsPanel call={call} />}
     {tab === 'fees' && <><MoneyFlows /><FeesPanel call={call} /><FeeBook call={call} /></>}
     {tab === 'ads' && <AdsPanel call={call} />}
@@ -640,67 +640,6 @@ function BroadcastPanel({ call }) {
       <label className="cc-check"><input type="checkbox" checked={f.push} onChange={e => set('push', e.target.checked)} />Also send as a push notification</label>
       <button type="button" className="btn-primary" disabled={busy || f.title.length < 2 || f.body.length < 2} onClick={send}>📢 Broadcast</button>
     </div>
-  </section>;
-}
-
-const FEE_LABELS = {
-  minLiquidity: ['Min liquidity ($)', 'Pool must hold at least this much, so she can always get out.'],
-  minVolume24h: ['Min 24h volume ($)', 'Skip coins nobody is trading.'],
-  minMarketCap: ['Min market cap ($)', 'Smallest coin she will touch.'],
-  maxMarketCap: ['Max market cap ($)', 'Biggest coin she will touch.'],
-  minAgeHours: ['Min pool age (h)', 'Let a coin prove itself for this long first (fresh-launch lane is separate, at half size).'],
-  maxPositions: ['Max open coins', 'How many coins she can hold at once.'],
-  maxTop10Pct: ['Max top-10 holders (%)', 'Skip coins where 10 wallets own more than this.'],
-  maxSnipers: ['Max snipers', 'Skip coins sniped by more wallets than this at launch.'],
-  maxBundled: ['Max bundled wallets', 'Skip coins with more bundled launch wallets than this.'],
-  maxM5Chase: ['No chasing above (5m %)', 'Never buy a coin already up more than this in 5 minutes.'],
-  add1At: ['First dip buy (%)', 'If price falls this far below her first buy and the thesis holds, she adds and lowers her average.'],
-  add2At: ['Second dip buy (%)', 'Deeper dip, smaller add. Only if liquidity, volume and buyers still hold.'],
-  hardStop: ['Hard stop (%)', 'Emergency exit this far below her average entry, no matter what.'],
-  takeProfit1: ['First profit at (+%)', 'She sells part of the position here to lock in gains.'],
-  takeProfit2: ['Second profit at (+%)', 'She sells more here; the rest keeps running.'],
-  runnerTrail: ['Runner trailing stop (%)', 'After taking profit, sell the rest if it falls this far from its peak. It never sells below break-even.'],
-  maxHoldHours: ['Max hold (h)', 'Give up on a coin that never reached a profit target after this long.'],
-  maxExposure: ['Max capital at work (0–1)', 'Share of her balance allowed in open trades. 0.4 = 40%.'],
-};
-const FEE_PRESETS = {
-  feecat: ['Trench Lord', 'Balanced: patient holds, two dip buys', { minLiquidity: 40000, minVolume24h: 100000, minMarketCap: 150000, minAgeHours: 3, maxPositions: 5, maxM5Chase: 8, add1At: -18, add2At: -32, hardStop: -45, takeProfit1: 50, takeProfit2: 120, runnerTrail: 35, maxHoldHours: 72, maxExposure: 0.4 }],
-  trench: ['Trench', 'Earlier, smaller coins; wider dips', { minLiquidity: 25000, minVolume24h: 75000, minMarketCap: 75000, minAgeHours: 1, maxPositions: 5, maxM5Chase: 10, add1At: -22, add2At: -38, hardStop: -55, takeProfit1: 60, takeProfit2: 150, runnerTrail: 40, maxHoldHours: 48, maxExposure: 0.35 }],
-  meme: ['Meme', 'Fresh narratives, let runners run', { minLiquidity: 15000, minVolume24h: 50000, minMarketCap: 50000, minAgeHours: 0.5, maxPositions: 4, maxM5Chase: 12, add1At: -25, add2At: -40, hardStop: -55, takeProfit1: 80, takeProfit2: 200, runnerTrail: 45, maxHoldHours: 48, maxExposure: 0.3 }],
-  scalper: ['Trader / Scalper', 'Liquid coins, quick profits', { minLiquidity: 150000, minVolume24h: 500000, minMarketCap: 500000, minAgeHours: 1, maxPositions: 3, maxM5Chase: 6, add1At: -10, add2At: -18, hardStop: -25, takeProfit1: 20, takeProfit2: 50, runnerTrail: 15, maxHoldHours: 12, maxExposure: 0.5 }],
-};
-function FeeCatPanel({ call }) {
-  const [d, setD] = useState(null);
-  const [draft, setDraft] = useState({});
-  const [size, setSize] = useState('');
-  const [preset, setPreset] = useState('feecat');
-  const [loadErr, setLoadErr] = useState('');
-  const load = useCallback(() => { setLoadErr(''); return call('/admin/feecat').then(x => { setD(x); setDraft(x.rules); setSize(x.leader?.risk?.maxPositionSol ?? ''); setPreset(x.strategyPreset || 'feecat'); }).catch(e => { setLoadErr(e.message || 'Fee service did not answer.'); }); }, [call]);
-  useEffect(() => { load(); }, [load]);
-  if (!d) return <p className="cc-empty">{loadErr ? <>Couldn't load Fee: {loadErr} <button type="button" className="btn-outline" onClick={load}>Retry</button></> : 'Waking Fee up…'}</p>;
-  const save = extra => call('/admin/feecat', { method: 'POST', body: JSON.stringify({ rules: draft, maxPositionSol: Number(size) || undefined, ...extra }) }).then(() => { toast.success(extra.action === 'run' ? 'Fee completed an intelligence cycle.' : 'Fee updated — applies on the next tick.'); load(); }).catch(e => toast.error(e.message));
-  const running = d.leader?.status === 'running';
-  const choosePreset = id => { setPreset(id); setDraft(current => ({ ...current, ...FEE_PRESETS[id][2] })); };
-  const lastCycle = d.cat.lastTick ? Math.max(0, Math.round(Date.now() / 1000 - d.cat.lastTick)) : null;
-  return <section className="cc-panel">
-    <div className="cc-kpis cc-kpis-5"><span><small>Engine</small><b className={running && lastCycle != null && lastCycle < 90 ? 'positive' : 'negative'}>{running ? (lastCycle == null ? 'Starting' : `${lastCycle}s ago`) : 'Paused'}</b></span><span><small>Open</small><b>{d.cat.positions?.length || 0}</b></span><span><small>Balance</small><b>{Number(d.cat.balanceSol || 0).toFixed(2)} SOL</b></span><span><small>Realized</small><b>{Number(d.cat.realizedPnlSol || 0).toFixed(3)}</b></span><span><small>Win rate</small><b>{d.cat.winRate ?? '—'}%</b></span></div>
-    <div className="cc-toolbar"><button type="button" className="btn-primary" onClick={() => save({ status: running ? 'paused' : 'running' })}>{running ? '⏸ Pause Fee' : '▶ Resume Fee'}</button><button type="button" disabled={!running} onClick={() => save({ action: 'run' })}>⚡ Run intelligence cycle</button><button type="button" onClick={() => window.confirm('Reset what Fee has learned? Exits go back to defaults.') && save({ resetLearning: true })}>Reset learning</button><a href="/terminal/feecat" target="_blank" rel="noopener noreferrer">Open Fee's profile ↗</a></div>
-    <p className="cc-note">Tune Fee's brain. Every value is clamped to a safe range on the server — Fee can get more aggressive, never reckless. Changes are logged in the audit trail.</p>
-    <FeeBrain />
-    <div className="cc-block"><h4>How Fee trades <Explain>Fee is a paper agent: her balance and P/L are simulated, but every price, liquidity and market-cap number is read live. She cannot sign, spend or move real SOL. Every entry and exit pays a 1% fee each way so the results are honest.</Explain></h4>
-      <ol className="fee-howto">
-        <li><b>Pick.</b> Only coins that pass the entry and safety rules below: enough liquidity and volume, buyers in control, clean holders, not already vertical.</li>
-        <li><b>Start small.</b> She buys a {Math.round((d.rules?.starterFraction ?? 0.5) * 100)}% starter of her planned size, and keeps at most {Math.round((draft.maxExposure ?? 0.4) * 100)}% of her balance in open trades.</li>
-        <li><b>Buy the dip, with a plan.</b> If price drops {draft.add1At ?? -18}% (then {draft.add2At ?? -32}%) below her first buy <i>and</i> liquidity, volume and buyers still hold, she adds and lowers her average entry. Example: bought at $100K MC, adds at $80K, average entry ≈ $90K.</li>
-        <li><b>Hold while the reason holds.</b> No knee-jerk stop. She exits early only if the thesis breaks: liquidity pulled, sellers dumping, or volume dying while she's red. Emergency stop at {draft.hardStop ?? -45}% from her average.</li>
-        <li><b>Take profit in pieces.</b> Sells part at +{draft.takeProfit1 ?? 50}% and more at +{draft.takeProfit2 ?? 120}%. The rest rides with a {draft.runnerTrail ?? 35}% trailing stop that never sells below break-even.</li>
-      </ol></div>
-    <div className="cc-block"><h4>Trading style</h4><div className="fee-presets">{Object.entries(FEE_PRESETS).map(([id, [name, note]]) => <button type="button" key={id} className={preset === id ? 'active' : ''} onClick={() => choosePreset(id)}><b>{name}</b><small>{note}</small></button>)}</div><p className="cc-note">Picking a style fills the rules below. Nothing changes until you press Save.</p></div>
-    <div className="cc-block"><h4>Rules</h4><div className="fee-rules">{Object.keys(d.bounds).map(k => { const [lo, hi] = d.bounds[k]; return <label key={k}><span>{FEE_LABELS[k]?.[0] || k}<em>{lo}–{hi}</em></span>{FEE_LABELS[k]?.[1] && <small className="fee-rule-help">{FEE_LABELS[k][1]}</small>}<NumInput type="number" step="any" min={lo} max={hi} value={draft[k] ?? ''} onChange={e => setDraft(x => ({ ...x, [k]: e.target.value }))} /></label>; })}
-      <label><span>Max SOL per trade<em>0.1–10</em></span><NumInput type="number" step="0.1" value={size} onChange={e => setSize(e.target.value)} /></label></div>
-      <button type="button" className="btn-primary" onClick={() => save({ strategyPreset: preset })}>Save {FEE_PRESETS[preset][0]} brain</button></div>
-    {d.learning && <div className="cc-block"><h4>What Fee has learned <Explain>After every exit Fee watches the coin for 6 hours. If it kept running, she gives winners more room next time; if her exit was right, she drifts back to the defaults. Always within safe limits.</Explain></h4>{Object.entries(d.learning.params || {}).map(([key, v]) => <div key={key} className="cc-sig"><span>{({ runnerTrail: 'Runner trailing stop', takeProfit1: 'First profit target' })[key] || key}</span><b>{v}% <small className="cc-empty">(default {d.learning.defaults?.[key]}%)</small></b></div>)}</div>}
-    <div className="cc-block"><h4>Recent paper audit</h4>{d.events?.length ? d.events.map(e => <div key={e.id} className="cc-sig"><span>{e.type} · {e.catName}</span><b>{e.type === 'SELL' ? `entry MC ${e.entryMarketCapUsd ? formatUSD(e.entryMarketCapUsd) : '—'} → exit ${e.marketCapUsd ? formatUSD(e.marketCapUsd) : '—'}` : e.marketCapUsd ? `entry MC ${formatUSD(e.marketCapUsd)}` : 'snapshot unavailable'}</b></div>) : <p className="cc-empty">No paper trade receipts yet.</p>}</div>
   </section>;
 }
 

@@ -88,14 +88,18 @@ export function deckMeters(o, tabs, nowS = Date.now() / 1000) {
   const tips = { tape: closed.length ? `${won} of ${closed.length} closed real trades won` : 'real trade tape', agents: gens.length ? `${act} of ${gens.length} agents active` : 'the agents', live: 'the live decision feed' };
   return tabs.map(([k, l, n, node, meter, tip, lazy]) => [k, l, n, node, meter != null ? meter : m[k] ?? null, tip || tips[k] || null, lazy]);
 }
+// a deck pane: re-renders while it is open (or the moment it opens / closes) — a hidden one keeps its last render and skips live updates
+const Pane = React.memo(function Pane({ node }) { return node; }, (a, b) => !a.on && !b.on);
+
 function Deck({ tabs, testid = 'ack-deck', on: onC, setOn: setOnC, bare }) {
   const [onS, setOnS] = useState(() => { try { const v = localStorage.getItem(DECK_KEY); return tabs.some(t => t[0] === v) ? v : tabs[0][0]; } catch { return tabs[0][0]; } });
   const on = onC && tabs.some(t => t[0] === onC) ? onC : onS;
   const pick = k => { (setOnC || setOnS)(k); try { localStorage.setItem(DECK_KEY, k); } catch { /* private window */ } };
   return <section className="ack-deck" data-testid={testid} data-on={on}>
     {!bare && tabs.length > 1 ? <div className="ack-decktabs m-seg" role="tablist" aria-label="Cockpit deck">{tabs.map(([k, l, n, , meter, tip]) => <button key={k} type="button" role="tab" aria-selected={on === k} className={on === k ? 'active' : ''} onClick={() => pick(k)} data-testid={`ack-deck-${k}`} data-tip={tip || undefined}><TabChip label={l} n={n} meter={meter} /></button>)}</div> : null}
-    {/* a `lazy` pane (7th field: the old desk's heavy lenses) is mounted ONLY while it is open — hidden it would still re-render on every hub paint */}
-    {tabs.map(([k, , , node, , , lazy]) => <div key={k} role="tabpanel" className="ack-deckpane" hidden={on !== k} data-testid={`ack-deckpane-${k}`}>{lazy && on !== k ? null : node}</div>)}
+    {/* ⚡ HIDDEN PANES ARE FROZEN (2026-10-16 lag fix): they stay mounted (state kept) but skip every live update until opened — each
+        hidden pane used to re-render on every paint (22.6 → 5 ms per update on the real payload). A `lazy` pane mounts only while open. */}
+    {tabs.map(([k, , , node, , , lazy]) => <div key={k} role="tabpanel" className="ack-deckpane" hidden={on !== k} data-testid={`ack-deckpane-${k}`}>{lazy && on !== k ? null : <Pane on={on === k} node={node} />}</div>)}
   </section>;
 }
 function useTick(ms = 1000) { const [n, setN] = useState(() => Date.now()); useEffect(() => { const t = setInterval(() => setN(Date.now()), ms); return () => clearInterval(t); }, [ms]); return n; }

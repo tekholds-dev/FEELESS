@@ -4645,3 +4645,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   carries ≤ 20 agent coins + the Arena's established ones (`feecat_pool_rows(.., limit 60, agents_max 20)`) and a 🎓 LEARNING LANE
   (`_learn_qualifies`: 3h – core age, SOL pool ≥ $15K, buys ≥ 1.3× sells, 5m −2 … her chase cap, 1h volume ≥ ⅓ pool) trades at
   `LEARN_SIZE` 0.25 — paper; her safety scan / discipline / proof gate / setup memory still decide. Your HQ rule override was not touched.
+- ⚡ AGENTS TAB LAG, MEASURED (2026-10-16, React Profiler on the REAL `agents_view.json` payload, 10 stream deltas): every deck pane was
+  mounted AND re-rendered on each live update (~3K DOM nodes, 22.6 ms of render per update). Now `Pane` (memo, AgentCockpit `Deck`) = a
+  hidden pane keeps its last render and skips updates until opened (state kept); per update 7–8 ms (the Office pane open: ~16 ms, it is
+  the heaviest). A pane that must update while hidden doesn't exist — open it. To re-measure: a throwaway jest test rendering
+  `<AgentDesk call={() => view}/>` inside `<Profiler>`, firing `streamApply` deltas (never commit it — it holds live data).
+- 🐱 FEE'S HQ DESK (`components/command/FeeCatDesk.jsx`, `styles/feecatDesk.css` `fch-*`, replaces the old text `FeeCatPanel` in HqDeck;
+  `FeeCatHQ.jsx` is a DIFFERENT component — her home strip): hero (live / paused, cycle age, equity vs start, realized, win ring, open,
+  discipline, ▶/⏸ + ⚡ run) · 🔎 WHY SHE TRADES OR NOT (her own scan: read → passed → holding, the rules that stopped the rest as bars,
+  the three lanes, next up, brain / safety refusals) · 🤝 duo AI read · 📂 open trades with live % bars · 🧾 latest moves · 🧠 brain fold
+  (presets, rules, FeeBrain). `GET /admin/feecat` adds `scan`, `duo`, `discipline`, `strength`, `exits`, richer `cat`; re-read every 15s.

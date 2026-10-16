@@ -115,6 +115,7 @@ test('the cockpit, laid out like the reference: ribbon → 4 seats → MC chart 
 });
 
 test('⚡ an agent pulses ONLY when a new real tape event of its own arrives — never on first paint, never on a timer', async () => {
+  localStorage.setItem('feeless.agentDeck', 'agents');   // the desk pane is open (a hidden pane is frozen: it skips live updates until opened)
   const hub = { d: data, livePx: new Map(), sel: selectors(data), load: jest.fn() };
   const { root, q } = mount(); const call = jest.fn(async () => ({}));
   const fetchSpy = jest.fn(); const realFetch = global.fetch; global.fetch = fetchSpy;                                              // the 30fps glide is display only: no market / RPC request of its own
@@ -123,9 +124,15 @@ test('⚡ an agent pulses ONLY when a new real tape event of its own arrives —
   const d2 = { ...data, office: { ...data.office, tape: [...data.office.tape, { id: 9, at: 1100, agent: 'warden', action: 'SIZE $0.20', why: 'tier B', mint: 'MINTZYN', symbol: 'ZYN' }] } };
   await act(async () => { root.render(<AgentHubProvider value={{ ...hub, d: d2, sel: selectors(d2) }}><AgentCockpit call={call} /></AgentHubProvider>); });
   expect(q('ack-agent-warden').querySelector('.is-pulse')).not.toBeNull(); expect(q('ack-agent-devil').querySelector('.is-pulse')).toBeNull();
-  expect(q('ack-tape-9').className).toContain('is-new');
   expect(fetchSpy.mock.calls.filter(([u]) => !String(u).includes('/api/reputation/edge'))).toHaveLength(0); global.fetch = realFetch;   // only the shared coin-edge poller (🦠 germ chips) may ask
   await act(async () => { root.unmount(); });
+  localStorage.setItem('feeless.agentDeck', 'live');   // ⚡ the feed open: the new tape line is marked new
+  const b = mount();
+  await act(async () => { b.root.render(<AgentHubProvider value={hub}><AgentCockpit call={call} /></AgentHubProvider>); });
+  await act(async () => { b.root.render(<AgentHubProvider value={{ ...hub, d: d2, sel: selectors(d2) }}><AgentCockpit call={call} /></AgentHubProvider>); });
+  expect(b.q('ack-tape-9').className).toContain('is-new');
+  await act(async () => { b.root.unmount(); });
+  localStorage.removeItem('feeless.agentDeck');
 });
 
 test('🧠 AI providers: order / on-off / test go to the server; the page never holds a key', async () => {
