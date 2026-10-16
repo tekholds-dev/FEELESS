@@ -13631,8 +13631,11 @@ def _feecat_packet():
     cand_ = []
     for r_ in _agent_inherit_rows(limit=6):
         x_ = _tk.KERNEL.candidate(r_['mint']) or {}
-        cand_.append({'symbol': r_['symbol'], 'pairAddress': r_['pairAddress'], 'status': x_.get('status'), 'cap': x_.get('cap'), 'ageMin': x_.get('ageMin'),
-                      'move5m': x_.get('move5m'), 'buyers': x_.get('buyShare'), 'pool': x_.get('liq'), 'read': str(x_.get('why') or '')[:80]})
+        n_, v_, d_ = x_.get('nums') or {}, x_.get('vitals') or {}, _tk.KERNEL.dec.get(r_['mint']) or {}
+        r1_ = lambda v, k=1: None if v is None else round(_fuse._f(v), k)
+        cand_.append({'symbol': r_['symbol'], 'pairAddress': r_['pairAddress'], 'status': d_.get('status'), 'cap': r1_(v_.get('mcap'), 0), 'ageMin': r1_(_fuse._f(v_['ageH']) * 60, 0) if v_.get('ageH') is not None else None,
+                      'move5m': r1_(n_.get('d5')), 'buyers': r1_(n_.get('buy'), 0), 'pool': r1_(n_.get('liq') or v_.get('liq'), 0), 'top10': r1_(v_.get('top10'), 0),
+                      'germ': ((x_.get('chart') or {}).get('germ')), 'read': str(d_.get('why') or '')[:80]})
     return {'openTrades': pos_ or 'none', 'nextCoins': cand_ or 'none'}
 
 
