@@ -688,7 +688,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev = 'HOLD', 'R10 creator manual', f"{pct:+.1f}% · you hold the decisions — only the hard safety exits and your own limits act"
         elif gstop_lost(l, ch) and live:   # 🦠 your Gstop: the coin lost its germ floor — sold, then bought back when a NEW germ floor is confirmed (germ re-buy)
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R5g germ stop', f"{pct:+.1f}% — lost its {gstop_lost(l, ch)} germ floor (your Gstop): sold, re-bought on a new germ floor", 'pull'
-        elif yours(l) and not l.get('certified') and not p.get('locked') and pick_lock(p.get('peak')) is not None and pct <= pick_lock(p['peak']):   # 🔒 your pick gave back half its peak: a portion banked once, the rest rides your own stop
+        elif yours(l) and l.get('pickLock') and not l.get('certified') and not p.get('locked') and pick_lock(p.get('peak')) is not None and pct <= pick_lock(p['peak']):   # 🔒 your pick gave back half its peak: a portion banked once, the rest rides your own stop
             st, rule, ev, act = 'TAKE', 'R5b your pick banked a portion', f"peaked {p['peak']:+.1f}%, now {pct:+.1f}% — under half its peak (+{pick_lock(p['peak']):g}%): {PICK_LOCK_SELL:g}% banked, the rest rides your own stop", 'trim'
             p['locked'] = now
         elif mine and pct <= -stop:   # their own coins carry no card stop (ride-or-rug seats) — this is it; other coins keep the card's own stop
@@ -750,7 +750,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         if act and l.get('certified') and str(rule).split(' ')[0] not in ('R1', 'R5x', 'R5c', 'R5g') and not owner_hard(l, str(rule).split(' ')[0]):   # 🛡 certified: you hold it
             ev += ' · 🛡 CERTIFIED — you hold it: only your stop, your Gstop, a pulled pool and −45% act'
             act, st = None, 'HOLD'
-        act, st, ev = owner_ask(p, l, act, st, rule, ev, pct, px, now)   # ✋ your SL / TP is set: a soft exit asks you first (hard safety exits never wait)
+        act, st, ev = owner_ask(p, l, act, st, rule, ev, pct, px, now, (ai_words or {}).get(m))   # ✋ your SL / TP is set: a soft exit asks you first (hard safety exits never wait)
         if act and pct >= RUNWAY_KEEP and (str(rule).split(' ')[0] in RUNWAY_RULES) and (held_s < RUNWAY_SEC or str(rule).startswith('R5t')):
             ev += (f" · 🛫 runway: a green coin is not banked in its first {RUNWAY_SEC / 60:.0f} min ({round(RUNWAY_SEC - held_s)}s left) — the trail still sells it under +{RUNWAY_KEEP:g}%"
                    if not str(rule).startswith('R5t') else ' · 🛫 a broken thesis never sells a GREEN coin — the trail protects it')
@@ -888,8 +888,10 @@ def owner_seats(positions):
             'last': rows[-6:][::-1]}
 
 
-def owner_ask(p, l, act, st, rule, ev, pct, px, now):
-    """→ (act, st, ev). Only for coins with YOUR line (leg ownerLvAt); hard rules pass through."""
+def owner_ask(p, l, act, st, rule, ev, pct, px, now, ai_word=None):
+    """→ (act, st, ev). Only for coins with YOUR line (leg ownerLvAt); hard rules pass through.
+    🤝 An AGENT's own coin you adjusted: they may overrule your line on THEIR trade only when the model's fresh exit read says the same
+    (TIGHTEN — the agents and the AI on the same page); otherwise it asks you like any coin of yours. Your own picks always ask."""
     if not yours(l) or not act:   # 👤 a coin YOU picked is yours too: soft exits ask first
         if not act:
             p.pop('ask', None)
@@ -898,6 +900,9 @@ def owner_ask(p, l, act, st, rule, ev, pct, px, now):
     if owner_hard(l, key):
         p.pop('ask', None)
         return act, st, ev
+    if _uni.is_agent(l) and not l.get('picked') and ai_word == 'tight':
+        p.pop('ask', None)
+        return act, st, ev + ' · 🤝 their own trade and the AI agrees (TIGHTEN) — they overrule your line'
     ok_, no_ = p.get('askOk') or {}, p.get('askNo') or {}
     if ok_.get('rule') == key and now - _f(ok_.get('at')) <= ASK_OK_SEC:
         p.pop('ask', None)

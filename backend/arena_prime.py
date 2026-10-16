@@ -3101,7 +3101,7 @@ def summary(card, prices, cfg=None):
     paid = round(_f(card.get('walletUsd')), 4)
     legs = [{**{k: l[k] for k in ('mint', 'pairAddress', 'symbol', 'role', 'entry', 'units', 'costUsd')}, 'stars': l.get('stars') or 3,
              'house': bool(l.get('house')), 'ticket': bool(l.get('ticket')), 'frozen': bool(l.get('frozen')), 'slMode': l.get('slMode'), 'tp': l.get('tp'), 'sl': l.get('sl'), 'division': l.get('division'), 'swapTo': (l.get('swapTo') or {}).get('symbol'), 'ride': bool(l.get('ride')), 'high': l.get('high'), 'rideFrom': l.get('rideFrom'), 'bought': l.get('bought'), 'picked': bool(l.get('picked')), 'buying': bool(l.get('buying')), 'placeholder': bool(l.get('placeholder')),   # a reserved seat: the screen shows it OPEN, never "buying…"
-             'loseRounds': int(l.get('loseRounds') or 0), 'certified': bool(l.get('certified')), 'gstop': l.get('gstop'),
+             'loseRounds': int(l.get('loseRounds') or 0), 'certified': bool(l.get('certified')), 'gstop': l.get('gstop'), 'pickLock': bool(l.get('pickLock')),
              'firstEntry': l.get('firstEntry') or l['entry'], 'at': l.get('at'), 'now': _f(prices.get(l['pairAddress'])) or l['entry'],
              'pnlPct': round(((_f(prices.get(l['pairAddress'])) or l['entry']) / l['entry'] - 1) * 100, 2) if l['entry'] else 0.0,
              'liq': _f(l.get('liqNow')) or _f(l.get('liq')),
@@ -3249,7 +3249,7 @@ def ticket_stops(c, cfg):
 GSTOP_MODES = ('off', '1m', '5m', 'both')   # 🦠 Gstop: sell when the coin LOSES its germ floor on that lens (both = either 1m or 5m), then buy back on a NEW germ
 
 
-def set_leg(card, pair, frozen=None, sl_mode=None, tp=None, sl=None, flow=None, now=None, certified=None, gstop=None):
+def set_leg(card, pair, frozen=None, sl_mode=None, tp=None, sl=None, flow=None, now=None, certified=None, gstop=None, pick_lock=None):
     """HQ per-coin config on a tier card: ❄ frozen (engine never rotates or stops it — the floor still protects the card)
     and its own stop mode (replace / park / hold, or '' = follow the card). Pure; ValueError if the coin isn't on the card."""
     c = {**card, 'legs': [dict(l) for l in card.get('legs') or []]}
@@ -3267,6 +3267,11 @@ def set_leg(card, pair, frozen=None, sl_mode=None, tp=None, sl=None, flow=None, 
             leg['certified'] = _f(now) or time.time()
         else:
             leg.pop('certified', None)
+    if pick_lock is not None:   # 🔒 OPT-IN per seat (owner, 2026-10-16: "I set my own germ stops and skims — don't mess my style up"): half banked once it gives back half a +10% peak
+        if pick_lock:
+            leg['pickLock'] = True
+        else:
+            leg.pop('pickLock', None)
     if gstop is not None:   # 🦠 Gstop on this coin: off / 1m / 5m / both
         if gstop not in GSTOP_MODES:
             raise ValueError('Gstop must be off, 1m, 5m or both')

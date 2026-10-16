@@ -50,3 +50,5 @@ body.theme-day .mys-chip.is-stop { color: #b42346; } body.theme-day .mys-pull { 
 body.fx-lite .mys-rebuy { animation: none; }
 @media (prefers-reduced-motion: reduce) { .mys-rebuy { animation: none; } .mys-cert { transition: none; } }
 body.theme-day .mys-cert { color: #0b6a8f; } body.theme-day .mys-cert.is-on { background: #0b6a8f; color: #fff; } body.theme-day .mys-rebuy { color: #6a3fc0; }
+.mys-lock { color: var(--gold, #f5c451); border-color: rgba(245, 196, 81, .4); } .mys-lock.is-on { background: var(--gold, #f5c451); color: #1a1204; border-color: var(--gold, #f5c451); box-shadow: 0 0 12px rgba(245, 196, 81, .4); }
+body.theme-day .mys-lock { color: #8a6a12; } body.theme-day .mys-lock.is-on { background: #8a6a12; color: #fff; }

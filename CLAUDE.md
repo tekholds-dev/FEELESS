@@ -4569,3 +4569,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   keeper checks still run). It reads the agents' chart snapshot: a coin off the desk is not watched. Seat controls show "watching for a new
   germ floor". 🥊 Trench Pulse v2: NET FLOW · AVG BUY / SELL · TRADES / MIN · WHALES (≥ $500) · PRICE 60s + a MOMENTUM bar (last 20s vs
   the minute), bars + race full width, word ring, live-column flash on each new trade, number pop, rug siren sweep.
+- ✋ YOUR STYLE STAYS YOURS (owner, 2026-10-16: "I set my own germ stops and skims from peak — don't mess my style up"): the 🔒 half-lock
+  (R5b) is OPT-IN per seat (leg `pickLock`, `set_leg(pick_lock=)`, seat button 🔒 Half-lock; off by default). On an AGENT's own coin you
+  adjusted, they overrule your line only when the model's fresh exit read says TIGHTEN (`office.owner_ask(.., ai_word)` — agents + AI on
+  the same page); otherwise it asks you. Your own picks always ask.
+- 🐱🤝 FEECAT DUO (owner, same day): `_feecat_duo` in the AI round, ONE read per `FEECAT_DUO_SEC` 600s — Gemma (lead) then Qwen (second, sees
+  the lead's answer) read her open trades + the top 6 of her pool with vitals (`_feecat_packet`); `GET /api/reputation/cats-ai` = only what
+  BOTH named. feecat_service `_duo_read`: an agreed `avoid` coin is not bought (brainRejects "🤝 both AI models: skip it now"), an agreed
+  `exit` trade at ≥ +2% is banked. A split is shown, never acted on; a read older than 15 min is ignored. It can only make her trade less
+  or bank sooner — "winning" is not something a model can promise.

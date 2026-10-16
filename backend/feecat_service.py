@@ -467,6 +467,16 @@ async def _crowd_feed(http):
         return {}
 
 
+async def _duo_read(http):
+    """🐱🤝 Her one duo AI read (every 10 min, reputation service `/cats-ai`): pairs BOTH models said to skip / bank. {} when unread or stale."""
+    try:
+        r = await http.get('http://127.0.0.1:5077/api/reputation/cats-ai', timeout=3)
+        d = r.json() if r.status_code == 200 else {}
+        return d if time.time() - float(d.get('read') or 0) <= 900 else {}
+    except Exception:
+        return {}
+
+
 async def _fuse_discover(http):
     """The Fuse runner engine's view (gated runners + sources + coins that failed a gate). Served from its warm cache."""
     try:
@@ -509,7 +519,8 @@ async def run_engine(store, cats):
         held = sorted({p['pairAddress'] for c in cats for p in c['positions'] if p.get('pairAddress')}
                       | {e['pairAddress'] for c in cats for e in c.get('exits', []) if now - e['exitAt'] < 24 * 3600})
         prices = await _pair_prices(http, held) if held else {}
-        candidates, fuse_view, crowd_feed = await asyncio.gather(_market_candidates(http), _fuse_discover(http), _crowd_feed(http))
+        candidates, fuse_view, crowd_feed, duo = await asyncio.gather(_market_candidates(http), _fuse_discover(http), _crowd_feed(http), _duo_read(http))
+    duo_avoid, duo_exit = set(duo.get('avoid') or []), set(duo.get('exit') or [])   # 🐱🤝 only what BOTH AI models agreed on
     ranked, rejections = [], {}
     for p in candidates:
         score, reason = _qualifies(p, now)
@@ -561,6 +572,8 @@ async def run_engine(store, cats):
                 why = f'thesis broken: {broken}'
             elif change <= hard:
                 why = f'hard stop {hard}% from my average entry'
+            elif pos.get('pairAddress') in duo_exit and change >= 2:
+                why = f'🤝 both AI models agree: bank it at {change:+.1f}%'
             elif pos['profitTaken'] and change <= 0:
                 why = 'runner fell back to break-even after taking profit'
             elif pos['peakChange'] >= R['protectAt'] and change <= 2:
@@ -624,6 +637,10 @@ async def run_engine(store, cats):
             if sym.upper() in block or (allow and sym.upper() not in allow):
                 continue
             if any(x['pairAddress'] == pa for x in cat['positions']):
+                continue
+            if pa in duo_avoid:   # 🐱🤝 both AI models said skip it: she only ever trades LESS on their word
+                store.setdefault('scan', {}).setdefault('brainRejects', []).append({'symbol': sym, 'why': '🤝 both AI models: skip it now', 'at': now})
+                store['scan']['brainRejects'] = store['scan']['brainRejects'][-10:]
                 continue
             if now - cat.get('cooldowns', {}).get(pa, 0) < R['cooldownHours'] * 3600:
                 last = next((e for e in reversed(cat.get('exits', [])) if e['pairAddress'] == pa), None)

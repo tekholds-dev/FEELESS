@@ -58,3 +58,20 @@ def test_gstop_sells_on_the_lens_you_picked_and_certify_and_gstop_live_on_the_le
     with pytest.raises(ValueError):
         ap.set_leg(card, 'P', gstop='3m')
     assert 'R5g' in office.OWNER_HARD
+
+
+def test_your_line_on_an_agent_coin_is_overruled_only_when_the_ai_agrees_and_your_picks_always_ask():
+    agent_leg = {'bought': {'tag': '🤖 agents'}, 'ownerLvAt': 1, 'sl': 20}
+    p = {}
+    act, st, ev = office.owner_ask(p, agent_leg, 'pull', 'TAKE', 'R7 trailing protection', 'x', 5, 1, 100, 'tight')
+    assert act == 'pull' and 'AI agrees' in ev
+    act, st, ev = office.owner_ask({}, agent_leg, 'pull', 'TAKE', 'R7 trailing protection', 'x', 5, 1, 100, None)
+    assert act is None and st == 'PROTECT'
+    act, st, ev = office.owner_ask({}, {**agent_leg, 'picked': True}, 'pull', 'TAKE', 'R7 trailing protection', 'x', 5, 1, 100, 'tight')
+    assert act is None   # your own pick: always asks
+
+
+def test_the_half_lock_is_opt_in_per_seat():
+    card = {'legs': [{'pairAddress': 'P', 'symbol': 'X'}]}
+    assert ap.set_leg(card, 'P', pick_lock=True)['legs'][0]['pickLock'] is True
+    assert 'pickLock' not in ap.set_leg(card, 'P', pick_lock=False)['legs'][0]

@@ -11355,7 +11355,7 @@ async def fuse_prime_admin(request: Request):
             if not cards.get(lg['tpl']):
                 raise HTTPException(404, 'No card for that tier yet.')
             try:
-                cards[lg['tpl']] = _prime.set_leg(cards[lg['tpl']], lg['pairAddress'], lg.get('frozen'), lg.get('slMode'), lg.get('tp'), lg.get('sl'), lg.get('flowExit'), now=time.time(), certified=lg.get('certified'), gstop=lg.get('gstop'))
+                cards[lg['tpl']] = _prime.set_leg(cards[lg['tpl']], lg['pairAddress'], lg.get('frozen'), lg.get('slMode'), lg.get('tp'), lg.get('sl'), lg.get('flowExit'), now=time.time(), certified=lg.get('certified'), gstop=lg.get('gstop'), pick_lock=lg.get('pickLock'))
             except ValueError as e:
                 raise HTTPException(400, str(e))
             _json_save(FUSE_HQ_PATH, d)
@@ -13613,6 +13613,63 @@ def _ai_case(c):
             'devil': [f"{d_[0]} {d_[1]}" for d_ in (c.get('devil') or []) if isinstance(d_, (list, tuple)) and len(d_) >= 2] if isinstance(c.get('devil'), list) else c.get('devil')}
 
 
+FEECAT_DUO_SEC = 600.0   # 🐱🤝 FeeCat gets ONE duo read every 10 min (owner, 2026-10-16: "1 duo AI call per 10 min on trades and vital info")
+FEECAT_DUO_ASK = ("You are FeeCat's trade desk: two models read the SAME packet — her open trades and the coins she may buy next, each with its vitals "
+                  "(cap · age · 5-min move · buyers % · pool · status · the agents' read). Answer with ONE JSON object and nothing else: "
+                  '{"avoid": [pairAddress …], "exit": [pairAddress …], "why": "one line per coin you named, numbers from the packet"}. '
+                  "avoid = a candidate she should NOT buy now (falling, sellers leading, thin pool, rug signs). exit = an OPEN trade to bank now. "
+                  "Name only pairAddresses that are in the packet. Name nothing when nothing is clearly wrong — an empty list is a fine answer.")
+_feecat_ai: dict = {'at': 0.0, 'avoid': [], 'exit': [], 'why': '', 'models': [], 'split': []}
+
+
+def _feecat_packet():
+    """🐱 Her open trades + the coins at the top of her pool (the agents' READY / CONTENDING), each with the vitals the desk already holds."""
+    st_ = _json_load(DATA_DIR / 'feecats.json', {}) or {}
+    pos_ = [{'symbol': p_.get('symbol'), 'pairAddress': p_.get('pairAddress'), 'costSol': p_.get('costSol'), 'peakPct': p_.get('peakChange'),
+             'heldMin': round((time.time() - _fuse._f(p_.get('openedAt') or p_.get('at'))) / 60) if (p_.get('openedAt') or p_.get('at')) else None}
+            for c_ in (st_.get('cats') or {}).values() for p_ in c_.get('positions') or []][:6]
+    cand_ = []
+    for r_ in _agent_inherit_rows(limit=6):
+        x_ = _tk.KERNEL.candidate(r_['mint']) or {}
+        cand_.append({'symbol': r_['symbol'], 'pairAddress': r_['pairAddress'], 'status': x_.get('status'), 'cap': x_.get('cap'), 'ageMin': x_.get('ageMin'),
+                      'move5m': x_.get('move5m'), 'buyers': x_.get('buyShare'), 'pool': x_.get('liq'), 'read': str(x_.get('why') or '')[:80]})
+    return {'openTrades': pos_ or 'none', 'nextCoins': cand_ or 'none'}
+
+
+async def _feecat_duo(now, env, cfg):
+    """🐱🤝 ONE duo read per FEECAT_DUO_SEC: the lead model (Gemma) answers, the second (Qwen) reads the same packet + that answer and gives
+    its own list. FeeCat acts ONLY on what BOTH named (`GET /cats-ai`): an `avoid` coin is not bought (she may only ever trade LESS by it),
+    an `exit` trade in profit is banked. A split is shown, never acted on."""
+    if now - _feecat_ai['at'] < FEECAT_DUO_SEC:
+        return
+    _feecat_ai['at'] = now
+    pk_ = _feecat_packet()
+    if pk_['openTrades'] == 'none' and pk_['nextCoins'] == 'none':
+        return
+    pairs_ = {x_.get('pairAddress') for k_ in ('openTrades', 'nextCoins') if isinstance(pk_[k_], list) for x_ in pk_[k_]}
+    def _lists(txt):
+        j_ = _aic._first_json(txt or '') or {}
+        return ({p_ for p_ in (j_.get('avoid') or []) if p_ in pairs_}, {p_ for p_ in (j_.get('exit') or []) if p_ in pairs_}, str(j_.get('why') or '')[:400]) if isinstance(j_, dict) else (set(), set(), '')
+    try:
+        r1 = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Read the packet.', context=pk_, role='exit', urgency='force', only=(_duet.LEAD,), system=FEECAT_DUO_ASK, only_system=True)
+        a1, e1, w1 = _lists(r1.get('text'))
+        r2 = await _air.ROUTER.ask(_ai_http(), env, cfg, f"The lead model answered: {str(r1.get('text') or 'nothing')[:600]}. Read the packet yourself and give YOUR list.",
+                                   context=pk_, role='exit', urgency='force', only=(_duet.SECOND,), system=FEECAT_DUO_ASK, only_system=True)
+        a2, e2, w2 = _lists(r2.get('text'))
+    except Exception as e_:
+        print('feecat duo:', str(e_)[:100]); return
+    if not r1.get('text') and not r2.get('text'):
+        return
+    _feecat_ai.update(avoid=sorted(a1 & a2), exit=sorted(e1 & e2), split=sorted((a1 ^ a2) | (e1 ^ e2)), why=(w1 or w2)[:400],
+                      models=[x_ for x_ in (r1.get('label') if r1.get('text') else None, r2.get('label') if r2.get('text') else None) if x_], read=now)
+
+
+@app.get('/api/reputation/cats-ai')
+async def cats_ai():
+    """🐱🤝 FeeCat's last duo read: what BOTH models agreed she should skip (`avoid`) or bank (`exit`), by pairAddress. Read-only, memory."""
+    return {k_: _feecat_ai.get(k_) for k_ in ('read', 'avoid', 'exit', 'split', 'why', 'models')}
+
+
 async def _ai_round(now):
     """One advisory round. Every answer is DISPLAYED (notes by coin + role, with its source); nothing it says reaches a decision."""
     env, cfg = os.environ, _ai_cfg()
@@ -13621,6 +13678,7 @@ async def _ai_round(now):
     asyncio.ensure_future(_local_lane_run(now))   # 💻 the local model's own lane (its own task: a 15–30s inference never holds this round)
     await _ai_learn_settle(now)   # 🧠 the model's earlier stances are judged against what the coin did (no model call)
     await _lab_tick(now, env, cfg)   # 🧪 the rule lab: the record re-judges every rule; at most once an hour the model proposes new ones
+    await _feecat_duo(now, env, cfg)   # 🐱🤝 FeeCat's one duo read per 10 min (both models must agree before she acts on it)
     await _coach_ai(now, env, cfg)   # 👑 at most every 15 min: the model reads the last real trades and may instruct the agents (bounded, coach.py)
     jobs = _ai_jobs(now)
     if not jobs:
