@@ -6983,6 +6983,12 @@ async def _study_tick(now):
     AI memory (capped drawers), and file the study's suggestions as PENDING proposals in the Brain (the owner ✅ / ✕ each one)."""
     if now - _study['at'] < STUDY_EVERY and _study['v'] is not None:
         return
+    try:   # 🎙 this Mac's LM Studio preset re-reads what FEELESS learned (the desktop re-pulls /lan-install hourly)
+        import feeless_mcp as _mcp_
+        if await asyncio.to_thread(_mcp_.write_local_preset):
+            print('fee preset: updated from memory')
+    except Exception as e_:
+        print('fee preset:', str(e_)[:80])
     try:
         rep_ = await asyncio.to_thread(_owner_study, now)
         mem_ = _aim.seed_site(_aim_mem.get() or {}, now)
@@ -14114,6 +14120,15 @@ async def admin_ai_chat(request: Request):
                 web_ = [{'title': str(x_.get('title') or '')[:120], 'url': str(x_.get('url') or '')[:300], 'snippet': str(x_.get('snippet') or '')[:240]} for x_ in rows_ or [] if x_.get('url')][:5]
                 if web_:
                     ctx = {**(ctx or {}), 'web': web_, 'webRule': _aic.WEB_RULE}
+                    try:   # 📚 READ the 2 most solid results (owner: "back every answer — Google + 2 prominent sources"), in parallel, ≤ 8s
+                        import fee_voice as _fv_
+                        pick_ = _fv_.pick_sources(web_, 2)
+                        txt_ = await asyncio.wait_for(asyncio.gather(*[asyncio.to_thread(_mcp.t_web_fetch, {'url': x_['url'], 'max_chars': 1800}) for x_ in pick_], return_exceptions=True), timeout=8)
+                        src_ = [{'title': x_.get('title'), 'url': x_['url'], 'text': str(t_)[:1800]} for x_, t_ in zip(pick_, txt_) if isinstance(t_, str) and not t_.startswith('Could not read')]
+                        if src_:
+                            ctx['sources'] = src_
+                    except Exception as e2_:
+                        print('chat sources:', str(e2_)[:80])
             except Exception as e_:
                 print('chat web:', str(e_)[:100])
         prov_ = str((body or {}).get('provider') or 'auto')   # 🎛 the owner's model switch: auto = the normal order · duet = Gemma then Qwen · else that one provider only

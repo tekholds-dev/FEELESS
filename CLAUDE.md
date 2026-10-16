@@ -4479,4 +4479,17 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `_agent_blocked`). The owner's own picks and held coins are never dropped.
 - 🗂 Saved Brain chats: open · ✏ rename · 🗑 delete · clear all (`POST /admin/ai/chat/saved`, popover `cch-svpop`). Chat bubbles: neon edge on the
   brain's answers (the moving edge only on the newest — `is-fresh`), user lines in ice.
+- 🎙 ONE FEE VOICE (owner, 2026-10-15: "FEELESS / Fuse geniuses that talk about anything, backed by Google + 2 prominent sources, profane humor when it
+  fits; auto-update from memory"; `backend/fee_voice.py` pure + tested): `PERSONA` ends the in-app GENERAL_SYSTEM; CHAT_ASK rules 9–10. The chat
+  READS the 2 most prominent results (`pick_sources`: known outlets / official / Wikipedia first, one per domain, no junk) via the MCP's
+  `t_web_fetch` (≤ 8s) → CONTEXT `sources`; answers end "sources: <outlet> <url> · …". The evidence branch now carries owner + sources too.
+  LM Studio: `docs/lm_fee_prompt.txt` = SEARCH FIRST on every non-greeting message (the 4B model called the Broncos QB question "normal
+  conversation" and invented one). `feeless_mcp.fee_prompt()` = that file + `fee_voice.living(...)` ("WHAT FEELESS KNOWS RIGHT NOW" from
+  ai_memory + the owner study) — served by /lan-install (desktop re-pulls hourly) and written into THIS Mac's preset every 10 min by
+  `_study_tick` (`write_local_preset`, only when changed). The search is DuckDuckGo (Brave if BRAVE_API_KEY) — there is no Google API key.
+- 🎙 FEE PROMPT v4 = AN IDENTITY, NOT A RULEBOOK (owner, 2026-10-15: "elite — not telling the model what to do, but how to stay up to date easily, a
+  personality, a genius at Fuse wallet management and plans to capitalize without long reports"): `docs/lm_fee_prompt.txt` = who FEE is · HOW YOU
+  STAY CURRENT (look-first reflex, 2 solid sources, page beats memory, "couldn't verify" over a guess) · FUSE WALLET (buckets, expectancy, size by
+  the rug, liquidity, churn tax, press only on an earned record) · HOW YOU PITCH A MOVE (3 lines: play · size + exit · kill switch) · YOUR LINE.
+  `fee_voice.PERSONA` carries the same wallet sense + 3-line pitch for the in-app Brain. Keep both short; never re-grow a rule list.
 

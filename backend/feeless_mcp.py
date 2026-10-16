@@ -783,6 +783,50 @@ def client_ok(ip):
 PRESET = Path.home() / '.lmstudio' / 'config-presets' / 'FEELESS FEE Master.preset.json'
 
 
+def fee_prompt():
+    """🎙 The FEE prompt as served: docs/lm_fee_prompt.txt + "WHAT FEELESS KNOWS RIGHT NOW" rebuilt from the AI memory + the owner study
+    (fee_voice.living) — every install / hourly re-pull / local rewrite carries what FEELESS learned since the last one."""
+    try:
+        base = (ROOT.parent / 'docs' / 'lm_fee_prompt.txt').read_text()
+    except OSError:
+        return None
+    try:
+        import fee_voice as _fv
+        mem = _file('ai_memory.json') or {}
+        study = ((_file('agents_view.json') or {}).get('office') or {}).get('ownerStudy') or {}
+        live = _fv.living(mem, study)
+    except Exception:
+        live = ''
+    return base.rstrip() + ('\n\n' + live if live else '')
+
+
+def write_local_preset():
+    """This Mac's LM Studio preset ← fee_prompt() (only when it changed). → True when it was written."""
+    p = fee_prompt()
+    if not p or not PRESET.exists():
+        return False
+    try:
+        pj = json.loads(PRESET.read_text())
+    except (OSError, ValueError):
+        return False
+    hit = []
+
+    def _set(o):
+        if isinstance(o, dict):
+            if o.get('key') == 'llm.prediction.systemPrompt':
+                hit.append(o.get('value') != p); o['value'] = p
+            for v in o.values():
+                _set(v)
+        elif isinstance(o, list):
+            for v in o:
+                _set(v)
+    _set(pj)
+    if not any(hit):
+        return False
+    PRESET.write_text(json.dumps(pj, indent=2))
+    return True
+
+
 def install_script(url, tok, preset_json=None, prompt=None, install_url=None):
     """🖥 The ONE script the desktop Mac runs (`curl … /lan-install | bash`): writes the FEE preset into its LM Studio and merges a
     `feeless` entry (this Mac's MCP url + token) into ~/.lmstudio/mcp.json without touching any other server there. Pure text."""
@@ -792,10 +836,7 @@ def install_script(url, tok, preset_json=None, prompt=None, install_url=None):
         except OSError:
             preset_json = json.dumps({'name': 'FEELESS FEE Master', 'operation': {'fields': [{'key': 'llm.prediction.systemPrompt', 'value': prompt or ''}]}}, indent=2)
     if prompt is None:
-        try:
-            prompt = (Path(__file__).resolve().parent.parent / 'docs' / 'lm_fee_prompt.txt').read_text()
-        except OSError:
-            prompt = None
+        prompt = fee_prompt()
     if prompt:   # the FEE prompt from the repo ALWAYS wins: LM Studio once saved the agents' JSON brain prompt over the local preset (2026-10-15)
         try:
             pj = json.loads(preset_json)
