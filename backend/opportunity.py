@@ -118,6 +118,33 @@ GERM_STRETCH = 2.0   # 🦠 a coin up to 2× the germ line off its floor still b
 GERM_STRETCH_SIZE = 0.5
 
 
+GUN_NEAR, GUN_PUSH = 4.0, 4.0   # 🔫 within this % under its high after a ≥ this % 5-minute push = pressed against the gun line
+
+
+def gun_chase(row):
+    """🔫 A coin pressed against its gun line right after a push (chart `distHigh` ≤ GUN_NEAR and the 5-min move ≥ GUN_PUSH) is a breakout
+    CHASE — the entry we stopped buying (owner, 2026-10-16: "$Normie not ready" — READY 2% under its gun line after +7.7% in 5 min).
+    → reason or None. No high reading = not judged."""
+    ch, n = (row or {}).get('chart') or {}, (row or {}).get('nums') or {}
+    dh, d5 = ch.get('distHigh'), n.get('d5')
+    if dh is None or d5 is None:
+        return None
+    if _f(dh) <= GUN_NEAR and _f(d5) >= GUN_PUSH:
+        return f"🔫 {_f(dh):.1f}% under its gun line after {_f(d5):+.1f}% in 5 min — a breakout chase; waits for the pullback toward its germ"
+    return None
+
+
+def germ_d(ch):
+    """🦠 The germ distance a decision reads: the 1-minute germ, else the 5-minute one (a coin whose 1m chart has no 15% run yet still has a
+    5m floor — $Normie went READY at its gun line with only a 5m germ on file). → (dist %, lens) or (None, None)."""
+    c = ch or {}
+    if c.get('germDist') is not None:
+        return _f(c['germDist']), '1m'
+    if c.get('germ5Dist') is not None:
+        return _f(c['germ5Dist']), '5m'
+    return None, None
+
+
 def germ_line(row):
     """🦠 THE GERM LINE (owner, 2026-10-16: "buying the floor is 15% max from floor — take what's close to germ"): inside `universe.germ_max()`%
     of the 1m germ floor = a full seat (ranked up by closeness); up to GERM_STRETCH × the line = HALF a seat (`germ_size`); further = the move
@@ -125,9 +152,9 @@ def germ_line(row):
     on the chart yet) or the line set off = not judged. → reason or None."""
     ch = (row or {}).get('chart') or {}
     mx = _uni.germ_max()
-    if not mx or ch.get('germDist') is None:
+    d, lens = germ_d(ch)
+    if not mx or d is None:
         return None
-    d = _f(ch['germDist'])
     if d > mx * GERM_STRETCH and not _uni.on_trend(row):   # 🔥 your Pump-trending mode: a trending runner is never walled by the germ — it buys at half a seat (germ_size)
         return f"🦠 {d:.0f}% above its germ floor — past {mx * GERM_STRETCH:g}% (your {mx}% line, half seats up to 2×)"
     if d < -mx:
@@ -139,25 +166,27 @@ def germ_size(row):
     """🦠 1.0 inside the germ line (or no read / line off) · GERM_STRETCH_SIZE between the line and its stretch."""
     ch = (row or {}).get('chart') or {}
     mx = _uni.germ_max()
-    if not mx or ch.get('germDist') is None:
+    d, lens = germ_d(ch)
+    if not mx or d is None:
         return 1.0
-    return GERM_STRETCH_SIZE if _f(ch['germDist']) > mx else 1.0
+    return GERM_STRETCH_SIZE if d > mx else 1.0
 
 
 def germ_rank(row):
     """🦠 Closer to the germ = higher: 1.30 on the floor → 1.00 at the germ line, ×1.08 more when the 5-minute germ agrees (confirmed);
     lost (under the floor) ×0.95 · far (only when the line is off) ×0.85 · no read 1.0. → (factor, word or None)."""
     ch = (row or {}).get('chart') or {}
-    if ch.get('germDist') is None:
+    d, lens = germ_d(ch)
+    if d is None:
         return 1.0, None
-    d, mx = _f(ch['germDist']), (_uni.germ_max() or 25)
+    mx = _uni.germ_max() or 25
     if d < 0:
         return 0.95, 'lost'
     if d > mx:
         return (0.9, f'stretched {d:.0f}%') if d <= mx * GERM_STRETCH else (0.85, 'far')
     f = 1.0 + 0.30 * (1 - d / mx)
-    conf = ch.get('germ5') in ('floor', 'near')
-    return round(f * (1.08 if conf else 1.0), 3), ('confirmed' if conf else 'floor') + f' {d:.0f}%'
+    conf = lens == '1m' and ch.get('germ5') in ('floor', 'near')
+    return round(f * (1.08 if conf else 1.0), 3), ('confirmed' if conf else 'floor' if lens == '1m' else '5m floor') + f' {d:.0f}%'
 
 
 def links_conflict(row):

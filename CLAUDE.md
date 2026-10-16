@@ -4610,3 +4610,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`data/candle_ticks.json`, pair from the ledger buy) → `arch.germFill` {"mint:since": %} kept BESIDE the hash-chained records (editing a
   filed record reads as a rewrite) → `coach.germ_fill` overlays it when the tape is built. Replay sparkline scales to its card (viewBox,
   `vector-effect: non-scaling-stroke`), its text wraps.
+- 🔫 NO GUN-LINE CHASE (2026-10-16, "$Normie not ready": READY 2% under its gun line right after +7.7% in 5 min, with only a 5m germ on
+  file): `opportunity.gun_chase` (chart `distHigh` ≤ `GUN_NEAR` 4% AND 5-min move ≥ `GUN_PUSH` 4%) → `brain.trigger` WAIT (never READY,
+  never armed) "waits for the pullback toward its germ". `opportunity.germ_d` = the 1m germ distance, else the 5m one — the germ line /
+  half-seat stretch / rank / germ arming all read it (a coin with only a 5m germ used to be "not judged"); "confirmed" still needs the 1m.

@@ -36,7 +36,7 @@ def germ_entry_ok(ms, call):
     data) → the distance word, else None. A floor buy needs no breakout: the gun line is what we stopped buying."""
     from . import universe as _u
     ch = (((ms or {}).get('row') or {}).get('chart') or {})
-    d, mx = ch.get('germDist'), _u.germ_max()
+    d, mx = _opp.germ_d(ch)[0], _u.germ_max()
     if not mx or d is None or call not in GERM_ARM_CALLS or not (0 <= _f(d) <= mx):
         return None
     return f"{_f(d):.0f}% above it"
@@ -100,7 +100,10 @@ def trigger(ms, lessons=None, lab=None, waits=None):
     elif st == 'ENTER' and fv.get('state') == 'PEAK' and w.get('peakWait', True):
         st, why = 'ARM', f"{why} — {fv.get('why')} (armed for the dip, not bought at the top)"
     call, rule = chart_call(ms)
-    on_germ = germ_entry_ok(ms, call)
+    gun = _opp.gun_chase(ms.get('row'))
+    if st in ('ENTER', 'ARM') and gun:   # 🔫 pressed against its gun line after a push: never READY, never armed — it waits for the pullback
+        st, why = 'WAIT', f"{why} — {gun}"
+    on_germ = germ_entry_ok(ms, call) if st in ('ENTER', 'ARM') else None
     if st in ('ENTER', 'ARM') and call and call != CHART_GO and w.get('chartWait', True) and on_germ:   # 🦠 ON ITS GERM FLOOR = the entry (owner, 2026-10-16: "agents barely get in")
         st, why = 'ARM', f"{why} — 🦠 on its germ floor ({on_germ}): the germ is the entry, not the breakout — armed"
     elif st in ('ENTER', 'ARM') and call and call != CHART_GO and w.get('chartWait', True):   # 🎯 THE CHART SAYS GO: no real seat on a WAIT / SKIP chart (not even an armed half)

@@ -126,3 +126,14 @@ def test_past_entries_get_their_germ_from_the_price_record_beside_the_hash_chain
     assert g is not None and g > 0
     pos = coach.germ_fill([{'mint': 'M', 'since': 50, 'pick': True}], {'M:50': 7.5})
     assert pos[0]['snaps']['entry']['germ'] == 7.5
+
+
+def test_normie_at_its_gun_line_after_a_push_is_never_ready_and_a_5m_germ_counts():
+    import opportunity as op
+    from trench_kernel import universe as uni
+    uni.set_band({})
+    normie = {'chart': {'distHigh': 2.1, 'germ5Dist': 14.0}, 'nums': {'d5': 7.7}}
+    assert 'gun line' in op.gun_chase(normie)
+    assert op.gun_chase({'chart': {'distHigh': 2.1}, 'nums': {'d5': 1.0}}) is None and op.gun_chase({'nums': {'d5': 9}}) is None
+    assert op.germ_d(normie['chart']) == (14.0, '5m') and op.germ_d({'germDist': 3.0, 'germ5Dist': 9.0}) == (3.0, '1m')
+    assert '35% above' in op.germ_line({'chart': {'germ5Dist': 35.0}})
