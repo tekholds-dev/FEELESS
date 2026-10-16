@@ -100,3 +100,12 @@ def test_the_owners_dip_needs_a_ten_percent_bounce_off_the_floor():
     import opportunity as op
     assert op.knife({'chart': {'distHigh': 45, 'distLow': 4}}).startswith('🔪')         # still on the floor
     assert op.knife({'chart': {'distHigh': 45, 'distLow': 14}}) is None                 # rose 14% off the floor: a dip
+
+
+def test_open_score_ranks_a_coin_on_its_germ_up_and_one_far_above_it_down():
+    import opportunity as op
+    base = {'mint': 'M', 'vitals': {'ageH': 2.0}, 'nums': {'d5': 2.0}}
+    s0, _ = op.open_score(base)
+    s1, parts = op.open_score({**base, 'chart': {'germ': 'floor', 'germ5': 'floor'}})
+    s2, _ = op.open_score({**base, 'chart': {'germ': 'far'}})
+    assert s1 > s0 > s2 and ('🦠 germ confirmed', 1.25) in parts

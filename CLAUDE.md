@@ -4515,4 +4515,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   second look (`pct2h`, `result2h`: a stop that looked right at 30 min can be a shake-out); `shakeouts` / `why_line` → the Brain's `owner` block
   (`yourRecentMoves`, `yourStops`) and every model case (`_ai_owner`: "his stops: N of M sold a coin that then ran 20%+"). The agents still trade
   on their own rules — this is what they read, never an order.
+- 🦠 BUY AT THE GERM, NOT THE GUN LINE (owner, 2026-10-16: "if bots get in on the germ instead of the gun line they'd make mad profit — check 1 and 5
+  min, use both to confirm"). Replay on the recorded 1-min candles (233 pools, after a 3% round trip): germ entries (≤ 8% above the germ, 5 bars
+  holding it, 5m not falling > 3%) reached +10% within 30 min 27% of the time vs 9% for gun-line breakouts, +20% 15% vs 4%; they also dip harder
+  (−15% first 20% vs 8%), and both average negative held 30 min flat — the edge is the UPSIDE for a trail to bank, not a hold. Built:
+  `chart_intel.bars5` + `germ5` (the same candles on 5 min), `germ_entry` = confirmed (1m floor + 5m floor/near) · floor · far · lost; compact chart
+  carries `germ5`; `opportunity.open_score` × `GERM_RANK` (confirmed 1.25 · floor 1.1 · far 0.85 · lost 0.9) — a weight, never a gate; the model
+  case says when 1m AND 5m sit on the germ; each real buy's thesis keeps `germEntry` so the real record judges it. Script: `backend/.venv/bin/python scripts/germ-backtest.py`
+  (re-run on `data/candle_ticks.json` to re-check).
 

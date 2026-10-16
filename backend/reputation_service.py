@@ -13209,6 +13209,8 @@ def _ai_brief(mint):
                    f"pulled back {_fuse._f(cf.get('pullback')):.0f}%" if _fuse._f(cf.get('pullback')) > 0 else None,
                    (('LOST its germ floor (the base its biggest run was born on) — the run is dead until back above' if (cf.get('germ') or {}).get('lost')
                      else f"germ floor (base of its +{_fuse._f(cf['germ'].get('runPct')):.0f}% run) {_fuse._f(cf['germ'].get('dist')):.0f}% below") if isinstance(cf.get('germ'), dict) else None),
+                    (f"5-min germ {_fuse._f(cf['germ5'].get('dist')):.0f}% below" + (' — 1m AND 5m both sit on the germ: the cheap entry the run restarts from' if _fuse._f(cf['germ5'].get('dist')) <= 25 and isinstance(cf.get('germ'), dict) and _fuse._f(cf['germ'].get('dist')) <= 8 else ''))
+                    if isinstance(cf.get('germ5'), dict) else None,
                    ('breakout FAILED' if cf.get('breakFailed') else f"base, breakout held {cf.get('breakHeld')}×" if cf.get('base') and cf.get('breakHeld') else 'basing' if cf.get('base') else None),
                    f"support {(1 - sup_ / px_c) * 100:.0f}% below" if 0 < sup_ < px_c else None, f"resistance {(res_ / px_c - 1) * 100:.0f}% above" if res_ > 0 and px_c > 0 and res_ > px_c else None,
                    g('volume trend', cf.get('volTrend'), '×'), g('squeeze', cf.get('squeeze'), '×'), 'momentum decaying' if cf.get('decay') else None,
@@ -16729,7 +16731,8 @@ def _office_warden(cur, t_, requested, cfg_t, now, move):
             fv_ = (_office.get('flow') or {}).get(t_.get('mint')) or t_.get('fv')
             _office['theses'][t_.get('mint')].update(flow={'state': fv_.get('state'), 'buyPct': fv_.get('buyPct'), 'buyers': fv_.get('buyers')} if fv_ else None,
                                                      distHigh=t_.get('distHigh') if t_.get('distHigh') is not None else ((ch_.get('f') or {}).get('distHigh')),
-                                                     germ=_ci.germ_word((ch_.get('f') or {}).get('germ')), germDist=((ch_.get('f') or {}).get('germ') or {}).get('dist'),   # 🦠 the floor at the buy (rule lab learns it)
+                                                     germ=_ci.germ_word((ch_.get('f') or {}).get('germ')), germDist=((ch_.get('f') or {}).get('germ') or {}).get('dist'),
+                                                     germEntry=_ci.germ_entry({'germ': _ci.germ_word((ch_.get('f') or {}).get('germ')), 'germ5': _ci.germ_word((ch_.get('f') or {}).get('germ5'))}),   # 🦠 1m + 5m at the buy   # 🦠 the floor at the buy (rule lab learns it)
                                                      pred=_agent_pred(t_, ch_, now),   # 🔮 the agents' own prediction for this trade (real-money memory), graded at the exit
                                                      votes=_jr.votes_of((_tk.KERNEL.dec.get(t_.get('mint')) or {}).get('opinions')))   # 🗳 each entry desk's OWN vote (judge_review.desk_votes scores it on the real result)
         if move == 'fill':
@@ -16795,7 +16798,7 @@ def _office_chart_view(ch, row=None):
     if not ch:
         return None
     f = ch.get('f') or {}
-    keep = ('px', 'r1', 'r5', 'r10', 'r15', 'r30', 'hh', 'hl', 'lh', 'll', 'lastHigh', 'lastLow', 'slope', 'fit', 'distHigh', 'distLow', 'germ', 'rangePct', 'pos', 'vol', 'atr', 'body', 'wick', 'upWick', 'loWick', 'seq', 'up', 'down',
+    keep = ('px', 'r1', 'r5', 'r10', 'r15', 'r30', 'hh', 'hl', 'lh', 'll', 'lastHigh', 'lastLow', 'slope', 'fit', 'distHigh', 'distLow', 'germ', 'germ5', 'rangePct', 'pos', 'vol', 'atr', 'body', 'wick', 'upWick', 'loWick', 'seq', 'up', 'down',
             'pullback', 'recovery', 'breakTries', 'breakHeld', 'breakFailed', 'supTests', 'resTests', 'squeeze', 'accel', 'decay', 'extPct', 'volTrend', 'buy', 'imbalance', 'trades', 'liq', 'liqD', 'impact', 'support', 'resistance')
     stop, parts = _ci.stop_for(f, ch.get('state'), {'liq': f.get('liq'), 'ageH': ((row or {}).get('vitals') or {}).get('ageH'), 'courier': (_office.get('courier') or {}).get('health')}, _of.tune(_office_state(), 'reaper', 'stopPct'))
     return {'state': ch.get('state'), 'src': ch.get('src'), 'n': ch.get('n'), 'conf': ch.get('conf'), 'ev': ch.get('ev'), 'con': ch.get('con'), 'trend': ch.get('trend'), 'chop': ch.get('chop'), 'mom': ch.get('mom'), 'ext': ch.get('ext'),

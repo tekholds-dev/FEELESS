@@ -115,6 +115,33 @@ def germ(rows, span=GERM_SPAN, min_run=GERM_MIN_RUN):
             'dist': round((last / _f(c[3]) - 1) * 100, 2)}
 
 
+def bars5(rows):
+    """1-minute rows → 5-minute bars (t, o, h, l, c, v) — the same candles, a slower lens."""
+    rs = [r for r in rows or [] if r and _f(r[4]) > 0]
+    out = []
+    for i in range(0, len(rs) - len(rs) % 5, 5):
+        g = rs[i:i + 5]
+        out.append([g[0][0], _f(g[0][1]) or _f(g[0][4]), max(_f(r[2]) for r in g), min(_f(r[3]) for r in g if _f(r[3]) > 0) if any(_f(r[3]) > 0 for r in g) else _f(g[-1][4]),
+                    _f(g[-1][4]), sum(_f(r[5]) if len(r) > 5 else 0 for r in g)])
+    return out
+
+
+def germ_entry(ch):
+    """🦠 ENTRY AT THE GERM, confirmed on 1m AND 5m (owner, 2026-10-16: "if bots get in on the germ instead of the gun line they'd make mad
+    profit — check 1 and 5 min, use both to confirm"). Replay of 400 germ vs 5,086 gun-line entries on the recorded 1-min candles: within 30 min
+    the germ entry reached +10% 27% of the time (gun line 9%) and +20% 15% (4%); it also dips harder (−15% first 20% vs 8%) — a trail-managed
+    entry, never a promise. → 'confirmed' (1m floor ≤ 8% + 5m floor / near) · 'floor' (1m only) · 'far' (> 25% above) · 'lost' · None."""
+    c = ch or {}
+    g1, g5 = c.get('germ'), c.get('germ5')
+    if not g1:
+        return None
+    if g1 == 'lost':
+        return 'lost'
+    if g1 == 'floor':
+        return 'confirmed' if g5 in ('floor', 'near') else 'floor'
+    return 'far' if g1 == 'far' else None
+
+
 def germ_word(g):
     """The germ as one learning word: lost (under it) · floor (≤ 8% above) · near (≤ 25%) · far · None (no run read)."""
     if not g:
@@ -214,7 +241,7 @@ def snapshot(rows, now=0.0, ohlc=True, buy=None, liq=None, liq_d=None, flow=None
         hh=hh, hl=hl, lh=lh, ll=ll, lastHigh='lower' if len(ph) >= 2 and ph[-1][1] < ph[-2][1] else 'higher' if len(ph) >= 2 else None,
         lastLow='lower' if len(pl) >= 2 and pl[-1][1] < pl[-2][1] else 'higher' if len(pl) >= 2 else None,
         slope=round(slope * 100, 3), fit=round(r2, 2), dir='up' if slope > 0 else 'down',
-        germ=germ(rs) if ohlc else None,
+        germ=germ(rs) if ohlc else None, germ5=germ(bars5(rs), 12) if ohlc and n >= 30 else None,
         distHigh=round((hi - px) / hi * 100, 2), distLow=round((px - lo) / lo * 100, 2) if lo > 0 else None, rangePct=round((hi - lo) / lo * 100, 2) if lo > 0 else None,
         pos=round((px - lo) / (hi - lo), 2) if hi > lo else 0.5, vol=round(vol, 2), atr=round(atr, 2),
         body=round(sum(abs(c[i] - o[i]) / o[i] * 100 for i in range(n) if o[i] > 0) / n, 2),
@@ -536,4 +563,5 @@ def compact(chart):
     f = chart.get('f') or {}
     return {k: chart.get(k) for k in ('state', 'src', 'n', 'conf', 'entry', 'trend', 'chop', 'mom', 'ext', 'risk')} | {'q': _md.compact(chart.get('q'))} | \
         {k: f.get(k) for k in ('hl', 'll', 'distHigh', 'distLow') if f.get(k) is not None} | \
-        ({'germ': germ_word(f['germ']), 'germDist': f['germ']['dist'], 'germRun': f['germ']['runPct']} if f.get('germ') else {})   # 🔪 the knife / dip check reads these (opportunity.knife) · 🦠 the floor
+        ({'germ': germ_word(f['germ']), 'germDist': f['germ']['dist'], 'germRun': f['germ']['runPct']} if f.get('germ') else {}) | \
+        ({'germ5': germ_word(f['germ5']), 'germ5Dist': f['germ5']['dist']} if f.get('germ5') else {})   # 🔪 the knife / dip check reads these (opportunity.knife) · 🦠 the floor

@@ -353,6 +353,14 @@ def narrative(row):
     return 'BUILDING', f"{d5:+.1f}% in 5 min, volume pace {pace:.1f}×"
 
 
+GERM_RANK = {'confirmed': 1.25, 'floor': 1.1, 'far': 0.85, 'lost': 0.9}
+
+
+def _ci_germ_entry(ch):
+    import chart_intel as _ci_
+    return _ci_.germ_entry(ch)
+
+
 def open_score(row, weights=None, devil_strong=None, ai_w=None):
     """NEWNESS × VOLUME VELOCITY × BUYER VELOCITY × LIVE MOMENTUM × early wallets (× the Judge's evidence weight when it has one).
     No holder, rug, creator, source or history part. → (score 0–~250, parts)."""
@@ -372,10 +380,14 @@ def open_score(row, weights=None, devil_strong=None, ai_w=None):
     f_judge = max(0.7, min(1.3, _f((weights or {}).get(x.get('mint'), 1.0)) or 1.0))
     import trench_crew as _crew
     f_devil, _objs = _crew.devil_factor(x, devil_strong)   # ⚖ Devil challenges: evidence lowers confidence, it never vetoes
+    ge_ = _ci_germ_entry(x.get('chart'))
+    f_germ = GERM_RANK.get(ge_, 1.0)   # 🦠 at the germ (1m + 5m) ranks up, far above it / at the gun line ranks down — a weight, never a gate
     f_ai = max(0.85, min(1.0, _f((ai_w or {}).get(x.get('mint'), 1.0)) or 1.0))   # 🧠 the model's stance — ONLY a WARNING proven on its own judged record (ai_learn): −15% at most, never up
     parts = [('newness', round(f_new, 2)), ('volume velocity', round(f_vol, 2)), ('buyer velocity', round(f_buy, 2)), ('momentum', round(f_mom, 2)),
              ('early wallets', round(f_ewp, 2)), ('judge weight', round(f_judge, 2)), ('devil', f_devil)] + ([('model (proven stance)', round(f_ai, 2))] if f_ai != 1.0 else []) + ([('🔥 pump trending', f_trend)] if f_trend > 1.0 else [])
-    return round(100 * f_new * f_vol * f_buy * f_mom * f_ewp * f_judge * f_devil * f_ai * f_trend, 1), parts
+    if f_germ != 1.0:
+        parts.append((f'🦠 germ {ge_}', f_germ))
+    return round(100 * f_new * f_vol * f_buy * f_mom * f_ewp * f_judge * f_devil * f_ai * f_trend * f_germ, 1), parts
 
 
 def open_ok(row, min_liq=MIN_LIQ):

@@ -328,3 +328,13 @@ def test_the_service_saves_the_thesis_at_the_fill_and_the_stage_lock_is_untouche
     for money, locked in (({'value': 1.2, 'putIn': 29.5}, True), ({'value': 59.0, 'putIn': 29.5}, False)):
         s = {'money': money, 'done': [{'at': i * 400, 'kind': 'enter', 'go': True, 'devil': 'agree', 'p5': 60.0, 'p15': 60.0, 'p60': 60.0, 'mint': f'm{i}', 'lean': 3, 'cs': 'STRONG UPTREND', 'ce': 'ENTER NOW'} for i in range(40)]}
         assert (5 not in ag.stage(s)['conquered']) is locked                       # chart calls change nothing about the lock: real value vs real put-in
+
+
+def test_germ_entry_needs_1m_and_5m_to_confirm_and_the_5m_lens_is_the_same_candles():
+    import chart_intel as ci
+    assert ci.germ_entry({'germ': 'floor', 'germ5': 'near'}) == 'confirmed'
+    assert ci.germ_entry({'germ': 'floor', 'germ5': 'far'}) == 'floor' and ci.germ_entry({'germ': 'floor'}) == 'floor'
+    assert ci.germ_entry({'germ': 'far'}) == 'far' and ci.germ_entry({'germ': 'lost'}) == 'lost' and ci.germ_entry({}) is None
+    rows = [[i * 60, 1 + i, 2 + i, 0.5 + i, 1.5 + i, 10] for i in range(10)]
+    b = ci.bars5(rows)
+    assert len(b) == 2 and b[0][1] == 1 and b[0][2] == 6 and b[0][3] == 0.5 and b[0][4] == 5.5 and b[0][5] == 50
