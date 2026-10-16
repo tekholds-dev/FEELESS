@@ -4578,3 +4578,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   BOTH named. feecat_service `_duo_read`: an agreed `avoid` coin is not bought (brainRejects "🤝 both AI models: skip it now"), an agreed
   `exit` trade at ≥ +2% is banked. A split is shown, never acted on; a read older than 15 min is ignored. It can only make her trade less
   or bank sooner — "winning" is not something a model can promise.
+- ✋ YOUR TRADES = NOTES ONLY (owner, 2026-10-16: "agents only override my adjustments ON THEIR TRADES — never mess with my trades, only take
+  notes, no auto skim"; REPLACES "a soft exit on your pick asks you"): on a leg you `picked`, Reaper's soft exits become a study note
+  (`office.owner_ask` → HOLD "the agents only take notes (they would have: …)"), no ReaperAsks question; the engine never skims / banks /
+  takes the initial out of it (`arena_prime._skim` / `_take_stake` return 0 unless `owner=True` — your own 💰 / 🏠 taps), never trims it
+  (`cap_trim`, `house_dust`), and the tier's TP never sells it (only a TP you set). What still acts: your own stop / TP / Gstop / opt-in
+  half-lock / limits, a pulled pool (R1) and −45% (R5x). The study (`owner_moves`, position `study` + `would`) keeps learning from it.

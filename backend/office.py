@@ -892,6 +892,9 @@ def owner_ask(p, l, act, st, rule, ev, pct, px, now, ai_word=None):
     """→ (act, st, ev). Only for coins with YOUR line (leg ownerLvAt); hard rules pass through.
     🤝 An AGENT's own coin you adjusted: they may overrule your line on THEIR trade only when the model's fresh exit read says the same
     (TIGHTEN — the agents and the AI on the same page); otherwise it asks you like any coin of yours. Your own picks always ask."""
+    if act and l.get('picked') and not owner_hard(l, str(rule).split(' ')[0]):   # ✋ YOUR TRADE: the agents never act on it — they only take notes
+        p.pop('ask', None)
+        return None, 'HOLD', ev + ' · ✋ your trade — the agents only take notes (they would have: ' + str(rule) + ')'
     if not yours(l) or not act:   # 👤 a coin YOU picked is yours too: soft exits ask first
         if not act:
             p.pop('ask', None)

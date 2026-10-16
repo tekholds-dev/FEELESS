@@ -45,7 +45,7 @@ def test_your_seat_is_studied_and_compared_with_where_the_agents_would_have_sold
     of.study_note(p, 'R7 trailing protection', 'pull', 'TAKE', 11.0, 1.11, 170)   # same ruling = not filed twice
     assert p['pick'] and len(p['study']) == 2 and p['would'] == {'at': 160, 'rule': 'R7 trailing protection', 'pct': 12.0, 'px': 1.12}
     act, st, ev = of.owner_ask(p, {'picked': True}, 'pull', 'TAKE', 'R7 trailing protection', 'trail', 12.0, 1.12, 170)
-    assert act is None and p['ask']['rule'] == 'R7'                                      # a soft exit on your coin is a QUESTION
+    assert act is None and not p.get('ask') and 'only take notes' in ev   # ✋ your trade: the agents only take notes
     rec = of.owner_seats([{'pick': True, 'sym': 'A', 'realPct': 30.0, 'would': {'pct': 12.0}}, {'pick': True, 'sym': 'B', 'realPct': -10.0, 'would': {'pct': -4.0}}, {'sym': 'C', 'realPct': 5.0}])
     assert rec['n'] == 2 and rec['cmp']['n'] == 2 and rec['cmp']['youBetter'] == 1
 

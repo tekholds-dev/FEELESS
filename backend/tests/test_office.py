@@ -677,7 +677,7 @@ def test_your_coin_is_yours_only_a_pulled_pool_minus_45_or_your_own_line_sells_i
     cfg = {'agentTakePct': 10, 'agentScalp': False}
     mine = leg('A', picked=True)
     r = of.reap([mine], [trow('A', buy=30)], {'PA': 1.04}, cfg, None, 3600, control=True, tape={'PA': 'dump'})[1][0]
-    assert r['action'] is None and r['ask']['rule'] == 'R4'                                                        # a real dump on YOUR coin = a question
+    assert r['action'] is None and not r.get('ask')                                                        # a real dump on YOUR coin = a question
     assert of.owner_hard(mine, 'R1') and of.owner_hard(mine, 'R5x') and not of.owner_hard(mine, 'R4r') and not of.owner_hard(mine, 'R5')
     lined = leg('A', ownerLvAt=1, sl=12, tp=40)
     assert of.owner_hard(lined, 'R5') and of.owner_hard(lined, 'R6')                                               # your own stop / take: obeyed

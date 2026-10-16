@@ -1581,9 +1581,11 @@ def lock_bank(c, l, px, liqs, now, cfg, fee=0.0, gain=None):
     return got
 
 
-def _skim(c, l, px, liqs, now, to='card', fee=0.0, auto=None, frac=1.0, why=None, room=None, hold=None):
+def _skim(c, l, px, liqs, now, to='card', fee=0.0, auto=None, frac=1.0, why=None, room=None, hold=None, owner=False):
     """Sell the PROFIT of one coin (or `frac` of it), in place. → $ taken (0 = nothing to take). With frac 1 the part that stays is
-    worth what the coin cost."""
+    worth what the coin cost. ✋ YOUR pick is never skimmed by the engine — only by your own tap (`owner=True`)."""
+    if l.get('picked') and not owner:
+        return 0.0
     units, cost = _f(l.get('units')), _f(l.get('costUsd'))
     value = units * px
     gain = (value - cost) * max(0.0, min(1.0, _f(frac)))
@@ -1715,10 +1717,12 @@ def pick_lock(card, pair, cfg, now):
     return int(-(-left // 60)) if left > 0 else 0
 
 
-def _take_stake(c, l, px, liqs, now, to='cash', fee=0.0, auto=None):
+def _take_stake(c, l, px, liqs, now, to='cash', fee=0.0, auto=None, owner=False):
     """🏠 TAKE THE INITIAL, LEAVE THE PROFIT (in place). Sells as much of a winning coin as it COST; what stays cost nothing —
     house money — and keeps riding with its stop / trail. Only when the coin is worth more than it cost (and both parts are worth
     sending). `to`: 'cash' held for the owner · 'round' parked a few rounds · 'card' back into the other coins. → $ taken."""
+    if l.get('picked') and not owner:   # ✋ your pick: only your own tap takes the initial out
+        return 0.0
     units, cost = _f(l.get('units')), _f(l.get('costUsd'))
     value = units * px
     if units <= 0 or px <= 0 or cost < SKIM_MIN_USD or value - cost < SKIM_MIN_USD or l.get('house'):
@@ -1781,7 +1785,7 @@ def stake_leg(card, pair, prices, liqs, now, to='cash'):
         raise ValueError('That coin is still being bought.')
     if l.get('house'):
         raise ValueError(f"${l.get('symbol')}'s initial is already out — what is left is profit.")
-    if not _take_stake(c, l, _f((prices or {}).get(pair)) or _f(l.get('entry')), liqs, now, to if to in SKIM_TOS else 'cash'):
+    if not _take_stake(c, l, _f((prices or {}).get(pair)) or _f(l.get('entry')), liqs, now, to if to in SKIM_TOS else 'cash', owner=True):
         raise ValueError(f"${l.get('symbol')} is not worth more than it cost yet — there is no initial to take out and still leave profit.")
     return c
 
@@ -1872,7 +1876,7 @@ def skim_leg(card, pair, prices, liqs, now, to='card', hold=None):
         raise ValueError('That coin is not on this card.')
     if l.get('buying') or l.get('placeholder'):
         raise ValueError('That coin is still being bought.')
-    if not _skim(c, l, _f((prices or {}).get(pair)) or _f(l.get('entry')), liqs, now, to if to in SKIM_TOS else 'card', hold=hold):
+    if not _skim(c, l, _f((prices or {}).get(pair)) or _f(l.get('entry')), liqs, now, to if to in SKIM_TOS else 'card', hold=hold, owner=True):
         raise ValueError(f"${l.get('symbol')} has no profit to take right now.")
     return c
 
@@ -2504,6 +2508,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             continue
         elif l.get('house') and not l.get('ride'):
             continue   # 🏠 initial already out: what is left is house money — it rides (stops, trail, rug shield still apply), no TP whittling it to dust
+        elif l.get('picked') and not _f(l.get('tp')):
+            continue   # ✋ YOUR pick: only a take-profit YOU set sells it — the tier's TP never touches it
         elif (px / max(_f(l['entry']), _f(l.get('tpPx'))) - 1) * 100 >= leg_tp(l, t):
             # measured from the LAST take (`tpPx`): on a real card `sync_card` puts the book's ORIGINAL entry back every tick, so a coin at +100%
             # read +100% again 20s after its take and sold half of what was left, again and again ($TikTok, 2026-10-08: 7 takes in 8 min → dust)
@@ -3623,7 +3629,7 @@ def cap_trim(c, prices, liqs, now, cfg, fee=0.0):
     out = []
     for l in c.get('legs') or []:
         v, px = val(l), _f((prices or {}).get(l.get('pairAddress')))
-        if (l.get('ride') or l.get('frozen') or l.get('house') or l.get('buying') or l.get('placeholder') or l.get('mint') == SOL_MINT
+        if (l.get('ride') or l.get('frozen') or l.get('house') or l.get('picked') or l.get('buying') or l.get('placeholder') or l.get('mint') == SOL_MINT
                 or px <= 0 or v - cap < mo):
             continue
         part = (v - cap) / v
@@ -3664,7 +3670,7 @@ def house_dust(c, prices, liqs, now, want_n, fee=0.0):
     out = []
     for l in list(c.get('legs') or []):
         px = _f((prices or {}).get(l.get('pairAddress')))
-        if not l.get('house') or l.get('frozen') or l.get('buying') or px <= 0 or _f(l.get('units')) <= 0 or len(c['legs']) <= 1 or (l.get('ride') and l.get('rungs') is not None):
+        if not l.get('house') or l.get('frozen') or l.get('picked') or l.get('buying') or px <= 0 or _f(l.get('units')) <= 0 or len(c['legs']) <= 1 or (l.get('ride') and l.get('rungs') is not None):
             continue
         if val(l) >= share * HOUSE_DUST_SHARE:
             continue
