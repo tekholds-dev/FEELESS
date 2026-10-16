@@ -146,8 +146,8 @@ test('⚙ settings save listed values; 🗂 a saved conversation reopens into it
   await act(async () => { q(el, 'cch-set').click(); });
   await act(async () => { q(el, 'cch-temp-0.9').click(); });
   expect(sent[0]).toEqual(['/admin/ai/chat/settings', { temp: 0.9 }]); expect(q(el, 'cch-temp-0.9').className).toContain('active');
-  const sel = q(el, 'cch-saved');
-  await act(async () => { Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(sel, 'c1'); sel.dispatchEvent(new Event('change', { bubbles: true })); });
+  await act(async () => { q(el, 'cch-saved').click(); });
+  await act(async () => { q(el, 'cch-sv-open-c1').click(); });
   expect(sent[1]).toEqual(['/admin/ai/chat/open', { id: 'c1' }]); expect(q(el, 'cch-log').textContent).toContain('the old build talk');
   expect(q(el, 'cch-mode-build').getAttribute('aria-checked')).toBe('true');
 });
@@ -204,4 +204,19 @@ test('DATA chip says where the answer came from and what is missing', async () =
   expect(a.className).toContain('is-live');
   expect(b.className).toContain('is-none');
   expect(b.getAttribute('data-tip')).toContain('no Judge reviews');
+});
+
+test('saved chats: rename and delete from the 🗂 list', async () => {
+  const { AiChat } = require('./AiChat');
+  const saved = [{ id: 'c1', mode: 'chat', title: 'old talk', n: 4, at: 1 }];
+  const call = jest.fn(async (p, o) => (p === '/admin/ai/chat/saved' ? { ok: true, saved: JSON.parse(o.body).delete ? [] : [{ ...saved[0], title: 'renamed' }] } : { ok: true, saved, threads: {} }));
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<AiChat call={call} isOwner />); });
+  await act(async () => { el.querySelector('[data-testid="cch-saved"]').click(); });
+  window.prompt = jest.fn(() => 'renamed');
+  await act(async () => { el.querySelector('[data-testid="cch-sv-ren-c1"]').click(); });
+  expect(JSON.parse(call.mock.calls.find(c => c[0] === '/admin/ai/chat/saved')[1].body)).toEqual({ id: 'c1', title: 'renamed' });
+  expect(el.querySelector('[data-testid="cch-saved-list"]').textContent).toContain('renamed');
+  await act(async () => { el.querySelector('[data-testid="cch-sv-del-c1"]').click(); });
+  expect(el.querySelector('[data-testid="cch-saved"]')).toBeNull();
 });

@@ -4472,4 +4472,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   theirs, your open picks) + `ai_chat.OWNER_RULE` ("I / my = the owner's own trades"); CHAT_ASK rules 8–9 (answer "my" questions from `owner`,
   tag every number [your record] / [agents] / [web], the web beats memory). The web search now runs on EVERY real question, records too.
   `ai_router.clean_answer` strips markdown (**, __, #). Brain side panel (fixes) up to min(62vh, 560px) — it was a 180px slot.
+- 🎭 OFFICIAL COIN GUARD (owner, 2026-10-15: "a dup STREAM in intake, the real STREAM is at 20mil mc"; `backend/impostor.py` pure + tested): the
+  clone rule only compared coins ON the desk, and the real coin (above the owner's band) never is. Now, before the band filter in
+  `_agents_tick`, `impostor.established` = protected majors / xStocks + coins on the card + any feed coin ≥ $1M cap (biggest per ticker), and a
+  lane coin of the same ticker FAMILY with a different mint and < 1/5 of that cap is dropped (`_agents['impostors']`, ≤ 20, and in
+  `_agent_blocked`). The owner's own picks and held coins are never dropped.
+- 🗂 Saved Brain chats: open · ✏ rename · 🗑 delete · clear all (`POST /admin/ai/chat/saved`, popover `cch-svpop`). Chat bubbles: neon edge on the
+  brain's answers (the moving edge only on the newest — `is-fresh`), user lines in ice.
 

@@ -6957,6 +6957,7 @@ CALL_RUN_PCT = 25.0   # 📣 a callout that is up this much since the call is wo
 
 import owner_study as _ost
 import limit_orders as _lim
+import impostor as _imp
 import ai_memory as _aim
 import mem_store as _ms0
 AI_MEMORY_PATH = DATA_DIR / 'ai_memory.json'   # 🗄 the model's filed memory (ai_memory.py: 5 capped drawers, never the whole site)
@@ -14272,6 +14273,28 @@ async def admin_ai_chat_open(request: Request):
     return {'ok': True, 'mode': m_, 'history': _chat['th'][m_], **_chat_extra()}
 
 
+@app.post('/api/reputation/admin/ai/chat/saved')
+async def admin_ai_chat_saved(request: Request):
+    """🗂 Owner only: rename a saved conversation ({id, title}), delete one ({id, delete: true}) or clear them all ({clearAll: true})."""
+    _require_owner(request); _brain_load()
+    b = await request.json() or {}
+    if b.get('clearAll'):
+        _chat['saved'] = []
+    else:
+        cid = str(b.get('id') or '')
+        if not any(x['id'] == cid for x in _chat['saved']):
+            raise HTTPException(404, 'No such conversation.')
+        if b.get('delete'):
+            _chat['saved'] = [x for x in _chat['saved'] if x['id'] != cid]
+        else:
+            t_ = _aic.clean(str(b.get('title') or ''), 60)
+            if not t_:
+                raise HTTPException(400, 'Give it a name.')
+            _chat['saved'] = [({**x, 'title': t_} if x['id'] == cid else x) for x in _chat['saved']]
+    _chat_persist()
+    return {'ok': True, **_chat_extra()}
+
+
 @app.post('/api/reputation/admin/ai/chat/settings')
 async def admin_ai_chat_settings(request: Request):
     """⚙ Owner only: the Brain's chat tuning (temperature · answer length) + the small-things allowance. Listed values only; audited."""
@@ -15729,7 +15752,7 @@ def _agent_blocked(card, now):
     books = (_fw_peek().get('books') or {}).values()
     for m_ in [m_ for m_, v_ in _agent_refused.items() if v_[0] <= now]:
         _agent_refused.pop(m_, None)
-    return _prime.agent_out(card, now, lambda m_: _fuse._f((_jup_px_cache.get(m_) or (0, 0))[1])) | set(_agent_refused) | _co.blocked(_coach_state(), now) | set().union(set(), *[_fw.agent_no_buy(b, now) for b in books]) | _trl.skips(_taught_rules(), _office.get('taught') or {})   # + coins the creator pulled with a reason (6h) + 🎓 your lessons in ✋ skip mode
+    return _prime.agent_out(card, now, lambda m_: _fuse._f((_jup_px_cache.get(m_) or (0, 0))[1])) | set(_agent_refused) | _co.blocked(_coach_state(), now) | set().union(set(), *[_fw.agent_no_buy(b, now) for b in books]) | _trl.skips(_taught_rules(), _office.get('taught') or {}) | {d_.get('mint') for d_ in _agents.get('impostors') or []}   # 🎭 impostors of a real coin + coins the creator pulled with a reason (6h) + 🎓 your lessons in ✋ skip mode
 
 
 def _seat_refusals(tid, now, window=900.0, keep=5):
@@ -15858,6 +15881,18 @@ async def _agents_tick(now):
         held_l = {l.get('mint') for l in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '', {}).get('legs') or [] if l.get('mint')}
         cap_ = max(_uni.lane_cap(ob_), _agents.get('laneStep') or _uni.LANE_CAPS[0]); _agents['laneCap'] = cap_   # 🪜 the smallest cap that can fill the seats ($200K first) — or wider, when last pass's ranking came up short
         _owner['only'] = {m_ for m_ in own_ if m_ not in held_l and not (m_ in board_m or m_ in fresh_ or m_ in outl_)} | {x.get('mint') for x in ob_ if x.get('mint') in own_ and x.get('mint') not in held_l and not _uni.in_lane(x, cap_)}
+        try:   # 🎭 OFFICIAL COIN GUARD: a launch wearing the ticker of a real, bigger coin (the $20M STREAM vs a $40K "STREAM") never reaches the desk
+            legs_h = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '', {}).get('legs') or []
+            seen_ = list(ob_) + [{'symbol': (p_.get('baseToken') or {}).get('symbol'), 'mint': (p_.get('baseToken') or {}).get('address'),
+                                  'mcap': p_.get('marketCap') or p_.get('fdv')} for p_ in (_open_pairs or [])]
+            est_ = _imp.established(seen_, _fuse.ALL_MAJORS, [l for l in legs_h if not l.get('placeholder')])
+            keep_, drop_ = _imp.filter_rows([x for x in ob_ if x.get('mint') not in held_l and x.get('mint') not in own_], est_)
+            if drop_:
+                gone_ = {d_['mint'] for d_ in drop_}
+                ob_ = [x for x in ob_ if x.get('mint') not in gone_]
+            _agents['impostors'] = drop_[:20]
+        except Exception as e_:
+            print('impostor guard:', str(e_)[:100])
         ob_ = [x for x in ob_ if x.get('mint') in held_l or x.get('mint') in own_ or _uni.in_lane(x, cap_)]   # 🎯 the universe FIRST: intake slots go to coins under the cap (they were spent on $200K+ coins, then dropped — 26 safe sub-$200K pools never reached the desk)
         src_ = {}
         for k_, lst_ in (_lens_rows or {}).items():
