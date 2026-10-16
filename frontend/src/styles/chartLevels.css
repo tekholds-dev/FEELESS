@@ -37,9 +37,19 @@ body.theme-day .clx-row.tone-up { --clx-c: #0d7a41; } body.theme-day .clx-row.to
 body.theme-day .clx-row.tone-ice { --clx-c: #0b6f9c; } body.theme-day .clx-row.tone-violet { --clx-c: #6a3fd0; } body.theme-day .clx-run { background: linear-gradient(90deg, transparent, #10261a 60%, transparent); }
 body.theme-day .clx-row.is-near .clx-tag { color: #fff; }
 @media (max-width: 640px) { .clx-tag small { display: none; } .clx-row:not(.is-key) .clx-tag b { display: none; } }
+/* 🦠 GERM = ALIVE on every chart: a violet runner crawls the line, the tag's microbe spins and its edge pulses like a cell membrane,
+   and on hover the tag scales up. Price near the germ = everything beats twice as fast. */
+.clx-row.is-germ .clx-run { background: linear-gradient(90deg, transparent, #b388ff, #e3d4ff, transparent); opacity: .9; animation: clxRun 2.6s linear infinite; }
+.clx-row.is-germ.is-near .clx-run { animation-duration: 1s; }
+.clx-row.is-germ .clx-tag { border-color: #b388ff; isolation: isolate; }
+.clx-row.is-germ .clx-tag::before { content: ''; position: absolute; inset: -3px; z-index: -1; border-radius: 6px; box-shadow: 0 0 12px 2px #b388ff88; animation: clxCell 2.2s ease-in-out infinite; pointer-events: none; }
+.clx-row.is-germ.is-near .clx-tag::before { animation-duration: 1.1s; }
+@keyframes clxCell { 0%, 100% { opacity: .25; transform: scale(.96); } 50% { opacity: 1; transform: scale(1.08); } }
+body.fx-lite .clx-row.is-germ .clx-tag::before, body.fx-lite .clx-row.is-germ .clx-run { animation: none; }
+@media (prefers-reduced-motion: reduce) { .clx-row.is-germ .clx-tag::before, .clx-row.is-germ .clx-run { animation: none; } }
 /* 🦠 germ levels: the tag is hoverable (its live read in the tip), the line breathes a soft violet band — transform / opacity only */
-.clx-row.has-tip .clx-tag { pointer-events: auto; cursor: help; transition: transform .15s ease; }
-.clx-row.has-tip .clx-tag:hover { transform: translateX(-2px) scale(1.06); }
+.clx-row.has-tip .clx-tag { pointer-events: auto; cursor: help; transition: scale .15s ease; }
+.clx-row.has-tip .clx-tag:hover { scale: 1.08; }
 .clx-row.is-germ::before { content: ''; position: absolute; left: 0; right: 0; top: -5px; height: 10px; background: linear-gradient(180deg, transparent, #b388ff33, transparent);
   animation: clxGerm 2.6s ease-in-out infinite; pointer-events: none; }
 @keyframes clxGerm { 0%, 100% { opacity: .25; transform: scaleY(.6); } 50% { opacity: .9; transform: scaleY(1.2); } }
