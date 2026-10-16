@@ -4584,3 +4584,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   takes the initial out of it (`arena_prime._skim` / `_take_stake` return 0 unless `owner=True` — your own 💰 / 🏠 taps), never trims it
   (`cap_trim`, `house_dust`), and the tier's TP never sells it (only a TP you set). What still acts: your own stop / TP / Gstop / opt-in
   half-lock / limits, a pulled pool (R1) and −45% (R5x). The study (`owner_moves`, position `study` + `would`) keeps learning from it.
+- 📸 YOUR TRADES ARE SNAPSHOTTED (owner, 2026-10-16: "snapshot the entry and exit, plus the moment they would sell — to learn to hold"):
+  `office.snap_of` (chart structure · germ 1m / 5m distance · % off the high · 5-min move · buyers · pool · cap) at the first look (`entrySnap`),
+  every moment a rule would have sold your pick (`would.snap`, `wouldSnaps` ≤ 6) and the last look (`lastSnap`) → archived `snaps`.
+  🎓 `office.hold_lessons`: each closed pick you held ≥ 5 pts past their sell = one "HOLD LESSON" line (with the market at that moment) +
+  per-rule counts → `_study_tick` files them in the AI memory (`lessons`, `owner/holdEarly`), recalled by every fitting chat / model case.
+- 💬 THE CHAT LOG BUILDS THE MEMORY: `ai_memory.chat_notes` — a line you type that STATES how you trade (always · never · don't · I hold ·
+  my style · should · must · only …; not a plain question) is filed in the `owner` drawer ("💬 owner said: …") on every chat message.
+- ⚡ `/portfolio/{wallet}` was 2 DexScreener calls PER coin, paced (72s cold on a 60-coin wallet; browsers' p95 6.5s): now ONE
+  `/tokens/v1/solana` call per 30 coins + batched Jupiter `_jup_tokens` for the rest, and stale-while-revalidate (`PF_STALE_SEC` 900,
+  `_portfolio_build`). Browsers' own report = `data/perf_view.json` (routes by p95, pages by long tasks) — read it before guessing at lag.

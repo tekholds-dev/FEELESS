@@ -7019,6 +7019,12 @@ async def _study_tick(now):
         mem_ = _aim.seed_site(_aim_mem.get() or {}, now)
         for i_, f_ in enumerate(rep_.get('findings') or []):
             mem_ = _aim.file(mem_, 'owner', f'study{i_}', f_, now)
+        hl_ = _of.hold_lessons((_json_load(ARCHIVE_PATH, {}) or {}).get('positions'))   # 🎓 your held trades: where the agents would have sold you early
+        for i_, l_ in enumerate(hl_['lines']):
+            mem_ = _aim.file(mem_, 'lessons', f'hold{i_}', '🎓 HOLD LESSON — ' + l_, now)
+        if hl_['early']:
+            mem_ = _aim.file(mem_, 'owner', 'holdEarly', 'Rules that would have sold the owner early (held ≥ 5 pts more): ' + ', '.join(f'{k} ×{v}' for k, v in sorted(hl_['early'].items(), key=lambda kv: -kv[1])), now)
+        _study['holds'] = hl_
         for it_ in (_teach_state().get('items') or [])[-40:]:
             mem_ = _aim.file(mem_, 'lessons', f"{it_.get('kind')}:{str(it_.get('text'))[:40]}", f"{it_.get('kind')}: {it_.get('text')}" + (f" (${it_.get('sym')})" if it_.get('sym') else ''), _fuse._f(it_.get('at')) or now)
         for r_ in [x_ for x_ in (_json_load(LAB_PATH, {}) or {}).get('rules') or [] if x_.get('status') == 'live'][:12]:
@@ -14299,6 +14305,13 @@ async def admin_ai_chat(request: Request):
                 ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-proposals', f"{len(new)} proposed by {res.get('label')}: " + ' · '.join(f"{p_['kind']} {p_['key']}" for p_ in new)[:200]); _admin_save(ad_)
         if not reply and data_ and data_['state'] == 'NO HISTORY':
             reply = f"Insufficient evidence: FEELESS has no records for {data_.get('window') or 'that window'} — " + '; '.join(data_['gaps'][:3])
+        try:   # 💬 what you STATE in chat (how you trade, what you want) becomes a standing owner note every later answer recalls
+            mem_c = _aim_mem.get() or {}
+            for n_ in _aim.chat_notes(text):
+                mem_c = _aim.file(mem_c, 'owner', 'chat:' + hashlib.sha1(n_.lower().encode()).hexdigest()[:10], '💬 owner said: ' + n_, now)
+            _aim_mem.put(mem_c, now)
+        except Exception as e_:
+            print('chat memory note:', str(e_)[:80])
         _chat['th'] = _aic.push_thread(_aic.push_thread(_chat['th'], mode, 'user', text, {'img': img_[0]} if img_ else None), mode, 'assistant', reply or 'no provider answered', {'mode': mode, 'ms': res.get('ms'), 'provider': res.get('label'), **({'data': data_} if data_ else {}), **({'web': [{'title': x_['title'], 'url': x_['url']} for x_ in web_]} if web_ else {})})
         _chat_persist()
         return {'ok': bool(reply), 'mode': mode, 'routed': mode != asked, 'reply': reply, 'data': data_, 'web': web_, 'provider': res.get('label'), 'model': res.get('model'), 'ms': res.get('ms'), 'tokens': res.get('usage'), 'history': _chat['th'].get(mode) or [], **_chat_extra(),
@@ -22451,6 +22464,24 @@ async def portfolio(address: str, fresh: int = 0):
     hit = _pf_cache.get(a)
     if hit and time.time() - hit[0] < (8 if fresh else 90):   # fresh=1 right after a trade (still shielded from hammering)
         return hit[1]
+    if hit and not fresh and time.time() - hit[0] < PF_STALE_SEC:   # ⚡ answer the last copy now, refresh behind it (one at a time per wallet)
+        if a not in _pf_busy:
+            _pf_busy.add(a)
+            async def _bg():
+                try:
+                    await _portfolio_build(a)
+                finally:
+                    _pf_busy.discard(a)
+            asyncio.create_task(_bg())
+        return hit[1]
+    return await _portfolio_build(a)
+
+
+PF_STALE_SEC = 900.0
+_pf_busy: set = set()
+
+
+async def _portfolio_build(a):
     held = {}
     sol = 0.0
     async with httpx.AsyncClient(timeout=25) as http:
@@ -22470,30 +22501,27 @@ async def portfolio(address: str, fresh: int = 0):
                     held[info['mint']] = held.get(info['mint'], 0) + amt
         mints = list(held)[:60]
         market = {}
-        sem = asyncio.Semaphore(8)
-
-        async def one(m):
-            async with sem:
-                p = None
-                for url in (f'https://api.dexscreener.com/latest/dex/tokens/{m}', f'https://api.dexscreener.com/latest/dex/search?q={m}'):
-                    try:
-                        pairs = ((await http.get(url)).json() or {}).get('pairs') or []
-                    except Exception:
-                        pairs = []
-                    mine = [x for x in pairs if (x.get('baseToken') or {}).get('address') == m]
-                    if mine:
-                        p = max(mine, key=lambda x: float((x.get('liquidity') or {}).get('usd') or 0)); break
-                if not p:  # Jupiter covers pump.fun curve tokens DexScreener hasn't indexed
-                    try:
-                        j = ((await http.get(f'https://lite-api.jup.ag/tokens/v2/search?query={m}')).json() or [None])[0]
-                    except Exception:
-                        j = None
-                    if j and j.get('usdPrice'):
-                        p = {'baseToken': {'address': m, 'symbol': j.get('symbol'), 'name': j.get('name')}, 'priceUsd': j.get('usdPrice'),
-                             'info': {'imageUrl': j.get('icon')}, 'priceChange': {'h24': (j.get('stats24h') or {}).get('priceChange')}, 'chainId': 'solana'}
-                if p:
-                    market[m] = p
-        await asyncio.gather(*(one(m) for m in mints))
+        async def ds_batch(chunk):   # ⚡ ONE DexScreener call per 30 coins (it was 2 calls per coin, paced: a 60-coin wallet waited > 1 min)
+            try:
+                rows_ = (await http.get(f"https://api.dexscreener.com/tokens/v1/solana/{','.join(chunk)}", timeout=8)).json() or []
+            except Exception:
+                rows_ = []
+            for x in rows_ if isinstance(rows_, list) else []:
+                m = (x.get('baseToken') or {}).get('address')
+                if m in held and (m not in market or float((x.get('liquidity') or {}).get('usd') or 0) > float((market[m].get('liquidity') or {}).get('usd') or 0)):
+                    market[m] = x
+        await asyncio.gather(*(ds_batch(mints[i:i + 30]) for i in range(0, len(mints), 30)))
+        miss = [m for m in mints if m not in market]
+        if miss:   # Jupiter covers pump.fun curve tokens DexScreener hasn't indexed — batched, cached
+            try:
+                jt = await _jup_tokens(miss)
+            except Exception:
+                jt = {}
+            for m in miss:
+                j = (jt or {}).get(m)
+                if j and j.get('usdPrice'):
+                    market[m] = {'baseToken': {'address': m, 'symbol': j.get('symbol'), 'name': j.get('name')}, 'priceUsd': j.get('usdPrice'),
+                                 'info': {'imageUrl': j.get('icon')}, 'priceChange': {'h24': (j.get('stats24h') or {}).get('priceChange')}, 'chainId': 'solana'}
         sol_px = 0.0
         try:
             sol_px = float(((await http.get('https://lite-api.jup.ag/price/v3?ids=So11111111111111111111111111111111111111112')).json().get('So11111111111111111111111111111111111111112') or {}).get('usdPrice') or 0)

@@ -75,3 +75,20 @@ def test_the_half_lock_is_opt_in_per_seat():
     card = {'legs': [{'pairAddress': 'P', 'symbol': 'X'}]}
     assert ap.set_leg(card, 'P', pick_lock=True)['legs'][0]['pickLock'] is True
     assert 'pickLock' not in ap.set_leg(card, 'P', pick_lock=False)['legs'][0]
+
+
+def test_your_trade_is_snapshotted_and_a_hold_past_their_sell_becomes_a_lesson():
+    p = {}
+    snap = office.snap_of({'state': 'UPTREND', 'f': {'germ': {'dist': 6.0}}}, {'nums': {'d5': 3.0, 'buy': 61}}, 12.0)
+    assert snap == {'pct': 12.0, 'chart': 'UPTREND', 'germ': 6.0, 'd5': 3.0, 'buyers': 61}
+    office.study_note(p, 'R7 trailing protection', 'pull', 'TAKE', 12.0, 1.12, 100, snap)
+    assert p['entrySnap']['chart'] == 'UPTREND' and p['would']['snap'] == snap and p['wouldSnaps'][0]['rule'] == 'R7'
+    hl = office.hold_lessons([{'pick': True, 'sym': 'A', 'realPct': 60.0, 'would': p['would']}, {'pick': True, 'sym': 'B', 'realPct': 1.0, 'would': {'pct': 2.0, 'rule': 'R6'}}])
+    assert hl['n'] == 2 and hl['early'] == {'R7': 1} and 'held to +60.0%' in hl['lines'][0] and 'germ 6.0' in hl['lines'][0]
+
+
+def test_what_you_state_in_chat_becomes_a_memory_note_and_questions_do_not():
+    import ai_memory as aim
+    n = aim.chat_notes("agents only override my adjustments on their trades, they should never mess with my trades. how is the card?")
+    assert n and all('?' not in x for x in n) and any('never mess with my trades' in x for x in n)
+    assert aim.chat_notes('yo whats good') == [] and aim.chat_notes('what did we make today?') == []

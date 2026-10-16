@@ -74,3 +74,21 @@ def recall(mem, text, n=8):
 
 def size(mem):
     return {d: len((mem or {}).get(d) or []) for d in DRAWERS}
+
+
+# 💬 THE CHAT LOG BUILDS THE MEMORY (owner, 2026-10-16: "some smart way to build agent / AI memory from the chat log"): a line the owner types
+# that STATES how they trade or what they want (always · never · don't · I hold · I set · my style · should · must · want …) is filed in the
+# `owner` drawer by its own words, so every later chat answer and model case that fits recalls it. Questions and small talk are not filed.
+import re as _re
+RULE_WORDS = _re.compile(r"\b(always|never|don'?t|do not|i hold|i set|i buy|i sell|i want|my style|my trades?|should|must|only|stop|keep|make sure|learn)\b", _re.I)
+
+
+def chat_notes(text):
+    """→ the owner's standing statements in one message (≤ 3, each ≤ NOTE_LEN), or []. A line that is only a question is not a statement."""
+    out = []
+    for part in _re.split(r'(?<=[.!?\n,;])\s+|\s+(?:plus|and also|also)\s+', str(text or '')):
+        t = part.strip(' ,;')
+        if len(t) < 12 or not RULE_WORDS.search(t) or (t.endswith('?') and not _re.search(r"\b(always|never|don'?t|must)\b", t, _re.I)):
+            continue
+        out.append(t[:NOTE_LEN])
+    return out[:3]

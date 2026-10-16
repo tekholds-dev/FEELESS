@@ -746,7 +746,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev, act = 'TAKE', 'R6h half banked', f"{pct:+.1f}% ≥ +{SCALE_AT:g}%: {SCALE_PCT:g}% sold now, the rest rides the trail (replay: +6.5% avg vs +4.3% real)", 'trim'
             p['scaled'] = now
         if l.get('picked'):
-            study_note(p, rule, act, st, pct, px, now)   # 👤 your seat: every ruling change is filed — what the agents would have done, and when
+            study_note(p, rule, act, st, pct, px, now, snap_of(ch, x, pct))   # 👤 your seat: every ruling change is filed — what the agents would have done, and when
         if act and l.get('certified') and str(rule).split(' ')[0] not in ('R1', 'R5x', 'R5c', 'R5g') and not owner_hard(l, str(rule).split(' ')[0]):   # 🛡 certified: you hold it
             ev += ' · 🛡 CERTIFIED — you hold it: only your stop, your Gstop, a pulled pool and −45% act'
             act, st = None, 'HOLD'
@@ -857,7 +857,20 @@ ASK_KEEP_SEC = 600.0   # "keep my line" quiets that rule this long
 STUDY_KEEP = 14
 
 
-def study_note(p, rule, act, st, pct, px, now):
+def snap_of(ch, x, pct):
+    """📸 The market at one moment of your trade, small: chart structure · germ distance (1m / 5m) · % under the high · 5-min move · buyers ·
+    pool · cap. None fields are simply not read."""
+    f, n, v = (ch or {}).get('f') or {}, (x or {}).get('nums') or {}, (x or {}).get('vitals') or {}
+    r = lambda a, k=1: None if a is None else round(_f(a), k)
+    return {k: val for k, val in {'pct': r(pct), 'chart': (ch or {}).get('state'), 'germ': r((f.get('germ') or {}).get('dist')), 'germ5': r((f.get('germ5') or {}).get('dist')),
+                                  'offHigh': r(f.get('distHigh')), 'd5': r(n.get('d5')), 'buyers': r(n.get('buy'), 0), 'pool': r(n.get('liq') or v.get('liq'), 0), 'cap': r(v.get('mcap'), 0)}.items() if val is not None}
+
+
+def study_note(p, rule, act, st, pct, px, now, snap=None):
+    if not p.get('pick') and snap:
+        p['entrySnap'] = {**snap, 'at': round(now)}   # 📸 the first look at your pick
+    if snap:
+        p['lastSnap'] = {**snap, 'at': round(now)}
     p['pick'] = True
     st_ = list(p.get('study') or [])
     key = f"{str(rule).split(' ')[0]}:{st}:{bool(act)}"
@@ -865,7 +878,37 @@ def study_note(p, rule, act, st, pct, px, now):
         st_.append({'k': key, 'at': round(now), 'rule': str(rule)[:60], 'state': st, 'sell': bool(act), 'pct': round(pct, 2)})
         p['study'] = st_[-STUDY_KEEP:]
     if act and not p.get('would'):
-        p['would'] = {'at': round(now), 'rule': str(rule)[:60], 'pct': round(pct, 2), 'px': px}
+        p['would'] = {'at': round(now), 'rule': str(rule)[:60], 'pct': round(pct, 2), 'px': px, **({'snap': snap} if snap else {})}   # 📸 the moment they would have sold
+    if act and snap:
+        ws = list(p.get('wouldSnaps') or [])
+        if not ws or ws[-1].get('rule') != str(rule).split(' ')[0] or now - _f(ws[-1].get('at')) > 300:
+            ws.append({'at': round(now), 'rule': str(rule).split(' ')[0], **snap})
+            p['wouldSnaps'] = ws[-6:]
+
+
+HOLD_EDGE = 5.0   # you held at least this many points past where they would have sold → a hold lesson
+
+
+def hold_lessons(positions, n=8):
+    """🎓 What your held trades teach the agents (owner, 2026-10-16: "they need to snapshot the entry and exit, plus the moment they would
+    sell — to learn to hold"): every closed pick of yours that ended ≥ HOLD_EDGE points above where they would have sold, as one line with
+    the market at THAT moment, newest first, + per rule how often it would have sold you early. → {lines, early: {rule: n}, n}"""
+    lines, early, seen = [], {}, 0
+    for p in reversed(positions or []):
+        w = p.get('would') or {}
+        if not p.get('pick') or p.get('realPct') is None or not w:
+            continue
+        seen += 1
+        gain = _f(p['realPct']) - _f(w.get('pct'))
+        if gain < HOLD_EDGE:
+            continue
+        rk = str(w.get('rule') or '').split(' ')[0]
+        early[rk] = early.get(rk, 0) + 1
+        sn = w.get('snap') or {}
+        at_ = ' · '.join(f'{k} {v}' for k, v in sn.items() if k != 'pct')
+        if len(lines) < n:
+            lines.append(f"${p.get('sym')}: {rk} would have sold at {_f(w.get('pct')):+.1f}% — the owner held to {_f(p['realPct']):+.1f}% (+{gain:.1f} pts)" + (f" · market then: {at_}" if at_ else ''))
+    return {'lines': lines, 'early': early, 'n': seen}
 
 
 def owner_seats(positions):
@@ -1163,7 +1206,8 @@ def file_position(arch, p, now):
            'wx': p.get('wx'), 'warden': p.get('warden'), 'launch': p.get('launch'), 'tag': p.get('tag'), 'owner': p.get('owner'), 'take': p.get('take'), 'exitStructure': p.get('chartNow'), 'windows': p.get('lastWin'),
            'liq': p.get('liq'), 'liqPct': p.get('liqPct'), 'top10': p.get('top10'), 'quality': p.get('quality'), 'dd': bool(p.get('dataDegraded') or p.get('dd')), 'vel': (p.get('vel') or {}).get('state') if isinstance(p.get('vel'), dict) else p.get('vel'),
            'thesis': None if not p.get('thesis') else {k: p['thesis'].get(k) for k in ('structure', 'call', 'triggerRule', 'support', 'invalidation', 'stopPct', 'expectedHoldWindows', 'at', 'pred', 'votes', 'flow', 'distHigh', 'germ', 'germDist')},
-           'li': p.get('li'), 'src': p.get('src'), 'gap': p.get('gap'), 'pick': bool(p.get('pick')), 'would': p.get('would'), 'study': list(p.get('study') or [])[-STUDY_KEEP:]}
+           'li': p.get('li'), 'src': p.get('src'), 'gap': p.get('gap'), 'pick': bool(p.get('pick')), 'would': p.get('would'), 'study': list(p.get('study') or [])[-STUDY_KEEP:],
+           **({'snaps': {'entry': p.get('entrySnap'), 'would': list(p.get('wouldSnaps') or []), 'exit': p.get('lastSnap')}} if p.get('pick') else {})}   # 📸 your trade: entry · every would-sell moment · the last look before it left
     prev = ps[-1]['h'] if ps else a.get('posAnchor', '')
     rec['h'] = _hash(prev, {k: v for k, v in rec.items() if k != 'h'})
     ps.append(rec)
