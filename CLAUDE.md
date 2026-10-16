@@ -4594,3 +4594,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - ⚡ `/portfolio/{wallet}` was 2 DexScreener calls PER coin, paced (72s cold on a 60-coin wallet; browsers' p95 6.5s): now ONE
   `/tokens/v1/solana` call per 30 coins + batched Jupiter `_jup_tokens` for the rest, and stale-while-revalidate (`PF_STALE_SEC` 900,
   `_portfolio_build`). Browsers' own report = `data/perf_view.json` (routes by p95, pages by long tasks) — read it before guessing at lag.
+- ✋ YOUR TAKE LINE SELLS THE WHOLE COIN (2026-10-16, $STARMAN: your +68% fired but the card's TP sold only the GAIN — "cost keeps riding"
+  — and poured it into other coins): on a `picked` leg with your own `tp`, the tier TP branch sells 100% (mode `yours`) and the money stays
+  card cash (compound off). "WHY DIDN'T MY COIN SELL" ⇒ read the card events for that symbol first (kind `tp` with mode / why).

@@ -92,3 +92,9 @@ def test_what_you_state_in_chat_becomes_a_memory_note_and_questions_do_not():
     n = aim.chat_notes("agents only override my adjustments on their trades, they should never mess with my trades. how is the card?")
     assert n and all('?' not in x for x in n) and any('never mess with my trades' in x for x in n)
     assert aim.chat_notes('yo whats good') == [] and aim.chat_notes('what did we make today?') == []
+
+
+def test_your_take_line_on_your_pick_sells_the_whole_coin_to_cash():
+    import inspect
+    src = inspect.getsource(ap.tick)
+    assert "mode, frac, why = 'yours', 1.0" in src and "'off' if mode == 'yours'" in src

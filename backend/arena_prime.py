@@ -2514,6 +2514,8 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             # measured from the LAST take (`tpPx`): on a real card `sync_card` puts the book's ORIGINAL entry back every tick, so a coin at +100%
             # read +100% again 20s after its take and sold half of what was left, again and again ($TikTok, 2026-10-08: 7 takes in 8 min → dust)
             mode, frac, why = exit_plan(g, mom.get(l['pairAddress']))
+            if l.get('picked') and _f(l.get('tp')):   # ✋ YOUR take line on YOUR pick sells the WHOLE coin to card cash (owner, 2026-10-16: "why STARMAN didn't sell" — the card's TP sold only the gain)
+                mode, frac, why = 'yours', 1.0, 'your take-profit — sold, the money waits as card cash'
         else:
             continue
         if True:
@@ -2532,7 +2534,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
             others = [o for o in c['legs'] if o is not l and _f(prices.get(o['pairAddress'])) > 0 and (_f(o.get('units')) > 0 or o.get('buying')) and not o.get('placeholder')]   # never into an empty / reserved seat
             label = why if mode == 'ride-end' else f"+{g:.0f}% ≥ +{leg_tp(l, t):g}% · {why}"   # a held runner's exit explains itself
             # 🧬 payoutPct applies to realized PROFIT, never principal. Principal + retained profit stay available to compound/rebuy.
-            dna = {'payoutPct': (cfg.get('payouts') or DEFAULT_PAYOUTS).get(card['tpl'], 0), 'compound': cfg.get('compoundStyle', 'smart') if cfg['compound'] else 'off'}
+            dna = {'payoutPct': (cfg.get('payouts') or DEFAULT_PAYOUTS).get(card['tpl'], 0), 'compound': 'off' if mode == 'yours' else cfg.get('compoundStyle', 'smart') if cfg['compound'] else 'off'}   # your sale is never poured into other coins
             out_usd, retained_profit = _dna.split_profit(profit, dna)
             # 💰 PROFIT ONLY: a card pays out only while the WHOLE card is above what it started with. One coin's win on a card that
             # is still down is not profit yet — it stays in the card (paper used to pay out $2.88 from a card that was −70%).
