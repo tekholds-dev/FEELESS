@@ -4804,3 +4804,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🔁 TURNS ARE STRICT: a held AI trade is asked ONLY of its holder (`only=(first_,)`) — the partner used to stand in for a missed minute and posted
   HOLDs on the other model's trade. The partner advises every 2 min; BETWEEN trades the model not hunting reads the card every `IDLE_EVERY`
   (`_g4_idle(.., who=second_)`) and that talk + your no-trade lines show in the room as "💬 between trades" (`duo.between`).
+- 💬 COIN ROOMS (`_duo_coin_rooms` → `duo.coinRooms`, tabs `duo-coin-<SYM>`): every coin on the real card that is NOT the models' trade gets its own
+  chat — the models' idle reads of it, partner advice that names it (routed by `_sym_in` over the card's symbols, never into the holder's chat:
+  $ELON advice had landed in the $Kimchi room) and your chime-ins there (POST comment + `mint`, `coinTalk`). The models read your coin-room
+  lines (`ownerSays` in the idle packet).

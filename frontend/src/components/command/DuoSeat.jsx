@@ -143,24 +143,27 @@ function Bubble({ r, onVote, busy }) {
   </li>;
 }
 function TradeRoom({ duo, call }) {
-  const [txt, setTxt] = useState(''); const [busy, setBusy] = useState(false); const [roomM, setRoomM] = useState(null);
+  const [txt, setTxt] = useState(''); const [busy, setBusy] = useState(false); const [roomM, setRoomM] = useState(null); const [roomC, setRoomC] = useState(null);
   const rooms = duo?.rooms || [];
   const past = roomM ? rooms.find(r => r.mint === roomM) : (!duo?.holding ? rooms[0] || null : null);   // 👍👎 no live trade → the newest trade's room is open (its chat + votes never hide behind a tab)
-  const between = !duo?.holding && !roomM && (duo?.between || []).length ? duo.between : null;   // 💬 no trade open: the talk between trades
-  const h = between ? { symbol: 'between trades' } : past ? { symbol: past.symbol } : duo?.holding; const rows = between || (past ? past.rows : duo?.trade || []);
-  if (!h && !rooms.length) return null;
+  const coins = duo?.coinRooms || []; const coin = roomC ? coins.find(c => c.mint === roomC) || null : null;   // 💬 one chat per coin on the card ($ELON's talk lives in $ELON's room)
+  const pick = (m, c) => { setRoomM(m); setRoomC(c); };
+  const between = !coin && !duo?.holding && !roomM && (duo?.between || []).length ? duo.between : null;   // 💬 no trade open: the talk between trades
+  const h = coin ? { symbol: coin.symbol } : between ? { symbol: 'between trades' } : past ? { symbol: past.symbol } : duo?.holding; const rows = coin ? coin.rows : between || (past ? past.rows : duo?.trade || []);
+  if (!h && !rooms.length && !coins.length) return null;
   const post = async body => { if (!call) return; setBusy(true); try { await call('/admin/ai/seat', { method: 'POST', body: JSON.stringify(body) }); } catch (e) { window.dispatchEvent(new CustomEvent('feeless:toast', { detail: String(e?.message || e) })); } finally { setBusy(false); } };
   const conf = duo.conf || {};
   return <div className="dso-room" data-testid="duo-room">
-    {rooms.length ? <p className="dso-rooms" role="tablist" aria-label="Trade rooms">{duo?.holding ? <button type="button" role="tab" aria-selected={!past} className={!past ? 'active' : ''} onClick={() => setRoomM(null)}>🟢 live ${duo.holding.symbol}</button> : null}
-      {rooms.filter(r => r.mint !== duo?.holding?.mint).map(r => <button key={r.mint} type="button" role="tab" aria-selected={past?.mint === r.mint} className={`${past?.mint === r.mint ? 'active' : ''} ${r.pct > 0 ? 'is-up' : r.pct < 0 ? 'is-dn' : ''}`} onClick={() => setRoomM(r.mint)} data-testid={`duo-room-${r.symbol}`}>
-        {r.model} ${r.symbol}{r.pct != null ? ` ${r.pct >= 0 ? '+' : ''}${Number(r.pct).toFixed(1)}%` : r.closed ? '' : ' …'}</button>)}</p> : null}
-    {!h ? null : <><p className="dso-roomhd"><b>💬 {between ? `between trades · ${duo.next || '—'} hunts next` : <>${h.symbol} · {past ? `${past.model}'s trade${past.pct != null ? ` · closed ${past.pct >= 0 ? '+' : ''}${Number(past.pct).toFixed(1)}%` : ''}` : `${duo.holder || '—'} runs it`}</>}</b>
-    {past || between ? null : <span>{h.tp ? `TP +${h.tp}%` : 'TP —'} · {h.sl ? `SL −${h.sl}%` : 'SL −45 floor'}</span>}
+    {rooms.length || coins.length ? <p className="dso-rooms" role="tablist" aria-label="Trade rooms">{duo?.holding ? <button type="button" role="tab" aria-selected={!past && !coin} className={!past && !coin ? 'active' : ''} onClick={() => pick(null, null)}>🟢 live ${duo.holding.symbol}</button> : null}
+      {rooms.filter(r => r.mint !== duo?.holding?.mint).map(r => <button key={r.mint} type="button" role="tab" aria-selected={!coin && past?.mint === r.mint} className={`${!coin && past?.mint === r.mint ? 'active' : ''} ${r.pct > 0 ? 'is-up' : r.pct < 0 ? 'is-dn' : ''}`} onClick={() => pick(r.mint, null)} data-testid={`duo-room-${r.symbol}`}>
+        {r.model} ${r.symbol}{r.pct != null ? ` ${r.pct >= 0 ? '+' : ''}${Number(r.pct).toFixed(1)}%` : r.closed ? '' : ' …'}</button>)}
+      {coins.map(c => <button key={`c-${c.mint}`} type="button" role="tab" aria-selected={coin?.mint === c.mint} className={`is-coin ${coin?.mint === c.mint ? 'active' : ''}`} onClick={() => pick(null, c.mint)} data-testid={`duo-coin-${c.symbol}`}>💬 ${c.symbol} <small>{c.who === 'you' ? '👤' : '🤖'} {c.rows.length}</small></button>)}</p> : null}
+    {!h ? null : <><p className="dso-roomhd"><b>💬 {coin ? `$${coin.symbol} · ${coin.who === 'you' ? 'your coin' : "the agents' coin"} · G4 & OSSY talk it here` : between ? `between trades · ${duo.next || '—'} hunts next` : <>${h.symbol} · {past ? `${past.model}'s trade${past.pct != null ? ` · closed ${past.pct >= 0 ? '+' : ''}${Number(past.pct).toFixed(1)}%` : ''}` : `${duo.holder || '—'} runs it`}</>}</b>
+    {past || between || coin ? null : <span>{h.tp ? `TP +${h.tp}%` : 'TP —'} · {h.sl ? `SL −${h.sl}%` : 'SL −45 floor'}</span>}
     {['G4', 'OSSY'].map(k => conf[k] ? <em key={k} className={conf[k].boost > 0 ? 'm-pos' : conf[k].boost < 0 ? 'm-neg' : ''} data-tip={conf[k].words}>{k} conf {conf[k].boost > 0 ? '+' : ''}{conf[k].boost}</em> : null)}</p>
     <ol>{rows.map((r, i) => <Bubble key={`${r.at}-${i}`} r={r} busy={busy || !call} onVote={(key, v) => post({ vote: { key, v } })} />)}</ol>
-    {call && !roomM ? <form className="dso-say" onSubmit={e => { e.preventDefault(); if (txt.trim()) { post({ comment: txt.trim() }); setTxt(''); } }}>
-      <input className="m-input" value={txt} onChange={e => setTxt(e.target.value)} maxLength={240} placeholder={duo?.holding ? `chime in — ${duo.holder || 'the holder'} reads it next minute (say hold / sell and the market grades you too)` : `chime in — ${duo?.next || 'the next model'} reads it on its turn`} data-testid="duo-say" />
+    {call && !roomM ? <form className="dso-say" onSubmit={e => { e.preventDefault(); if (txt.trim()) { post({ comment: txt.trim(), ...(coin ? { mint: coin.mint } : {}) }); setTxt(''); } }}>
+      <input className="m-input" value={txt} onChange={e => setTxt(e.target.value)} maxLength={240} placeholder={coin ? `chime in on $${coin.symbol} — both models read it` : duo?.holding ? `chime in — ${duo.holder || 'the holder'} reads it next minute (say hold / sell and the market grades you too)` : `chime in — ${duo?.next || 'the next model'} reads it on its turn`} data-testid="duo-say" />
       <button type="submit" className="m-btn" disabled={busy || !txt.trim()}>Send</button></form> : null}</>}</div>;
 }
 

@@ -13996,6 +13996,14 @@ async def _g4_tick(now, env, cfg):
                 t0b = time.perf_counter()
                 ra_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Advise on your partner\'s open trade.', context={**pk_, 'holder': _air.model_name(env, first_)}, role='exit', urgency='force', only=(second_,), system=_seat.ADVISE, only_system=True)
                 da_ = _seat.parse(ra_.get('text'), [], True)
+                oth_ = _seat._sym_in((da_ or {}).get('why'), {l_.get('symbol'): l_.get('mint') for l_ in _duo_card_legs() if l_.get('symbol')}) if da_ else None
+                if da_ and oth_ and oth_ != held_m:   # 💬 the advice is about ANOTHER coin on the card ($ELON on the $Kimchi trade) → it goes to that coin's own room, never the holder's chat
+                    lo_ = next((l_ for l_ in _duo_card_legs() if l_.get('mint') == oth_), {})
+                    crow_ = {'at': round(now), 'mode': mode_, 'model': _air.model_name(env, second_), 'by': second_, 'talk': True, 'coinTalk': True, 'action': 'TALK', 'view': da_['action'],
+                             'why': str(da_.get('why') or '')[:180], 'conf': da_.get('conf'), 'symbol': lo_.get('symbol'), 'mint': oth_}
+                    log_ = _seat.note(log_, crow_)
+                    _dv_note(crow_, _fuse._f((await _live_px([oth_])).get(oth_)), now)
+                    da_ = None
                 if da_:
                     trow_ = {'at': round(now), 'mode': mode_, 'model': _air.model_name(env, second_), 'by': second_, 'talk': True, 'ms': round((time.perf_counter() - t0b) * 1000),
                                              'action': 'TALK', 'view': da_['action'], 'why': f"to {_air.model_name(env, first_)}: {da_['action']} — {da_.get('why') or ''}"[:180], 'conf': da_.get('conf'),
@@ -14046,7 +14054,7 @@ async def _g4_idle(now, env, cfg, st_, legs_, mode_, who=None):
         if not rows_:
             return
         t0_ = time.perf_counter()
-        r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Seats are full. Comment on one trade.', context={'CARD': rows_, 'learn': {'confidence': _dv.words(_dv_mem.get() or {}, who_)}},
+        r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Seats are full. Comment on one trade.', context={'CARD': rows_, 'learn': {'confidence': _dv.words(_dv_mem.get() or {}, who_)}, 'ownerSays': [f"${r_.get('symbol')}: {str(r_.get('why') or '')[:140]}" for r_ in (st_.get('log') or [])[-60:] if r_.get('by') == 'owner' and r_.get('coinTalk') and now - _fuse._f(r_.get('at')) < 1800][-3:]},   # 👤 your lines in a coin's room
                                    role='exit', urgency='force', only=(who_,), system=_seat.IDLE, only_system=True)
         d_ = _seat.idle_parse(r_.get('text'), syms_)
         if not d_:
@@ -14096,10 +14104,11 @@ async def admin_ai_seat_post(request: Request):
     if txt_:
         st_ = _g4_state()
         legs_ = [l for c_ in (((_json_load(FUSE_HQ_PATH, {}) or {}).get('prime') or {}).get('cards') or {}).values() if (c_ or {}).get('real') for l in c_.get('legs') or [] if l.get('aiSeat') and not l.get('placeholder')]
-        m_ = (legs_[0].get('mint') if legs_ else None) or str(body.get('mint') or '') or None
+        m_ = str(body.get('mint') or '') or (legs_[0].get('mint') if legs_ else None) or None   # 💬 a coin room's chime-in is about THAT coin
+        lc_ = next((l_ for l_ in _duo_card_legs() if l_.get('mint') == m_), None) if body.get('mint') else None
         act_ = 'SELL' if _re.search(r'\b(sell|dump|exit|out)\b', txt_, _re.I) else 'HOLD' if _re.search(r'\b(hold|moon|send|buy|ride)\b', txt_, _re.I) else 'NOTE'
         row_ = {'at': round(now), 'mode': 'real', 'model': 'YOU', 'by': 'owner', 'talk': True, 'action': 'TALK', 'view': act_ if act_ != 'NOTE' else None, 'why': txt_, 'mint': m_,
-                'symbol': legs_[0].get('symbol') if legs_ else None}
+                'symbol': (lc_ or {}).get('symbol') or (legs_[0].get('symbol') if legs_ else None), **({'coinTalk': True} if lc_ and not (legs_ and legs_[0].get('mint') == m_) else {})}
         _g4_mem.put({**(_g4_mem.get() or {}), 'log': _seat.note(st_['log'], row_)}, now)
         if m_ and act_ != 'NOTE':
             pm_ = await _live_px([m_])
@@ -18104,6 +18113,27 @@ def _duo_holding(l):
             'peak': pos_.get('peak'), 'heldMin': round((time.time() - _fuse._f(l.get('at'))) / 60, 1) if l.get('at') else None}
 
 
+def _duo_card_legs():
+    """The real card's coins right now (no reserved seats, no SOL)."""
+    return [l for c_ in (((_json_load(FUSE_HQ_PATH, {}) or {}).get('prime') or {}).get('cards') or {}).values() if (c_ or {}).get('real')
+            for l in c_.get('legs') or [] if not l.get('placeholder') and l.get('mint') and l.get('mint') != _fw.SOL_MINT]
+
+
+def _duo_coin_rooms(log, ai_mint):
+    """💬 One chat room per coin on the card that is NOT the models' trade: their idle reads, off-topic advice and your chime-ins on it."""
+    on_ = {l.get('mint'): l for l in _duo_card_legs()}
+    out = {}
+    for r_ in log or []:
+        m_ = r_.get('mint')
+        if not m_ or m_ == ai_mint or m_ not in on_ or not (r_.get('idle') or r_.get('coinTalk')):
+            continue
+        out.setdefault(m_, []).append(r_)
+    return [{'mint': m_, 'symbol': on_[m_].get('symbol'), 'who': 'you' if on_[m_].get('picked') else 'agents',
+             'rows': [{**{k_: x_.get(k_) for k_ in ('at', 'model', 'action', 'view', 'why', 'conf', 'pct', 'talk')}, 'key': _dv_key(x_), 'mine': x_.get('by') == 'owner',
+                       'votes': _dv.view(_dv_mem.get() or {}, _dv_key(x_))} for x_ in rows_[-14:]][::-1]}
+            for m_, rows_ in sorted(out.items(), key=lambda kv: -max(_fuse._f(x.get('at')) for x in kv[1]))]
+
+
 def _duo_view(env=None):
     """🔁 The G4 × OSSY seat for the Agents tab (small: mode, whose turn, each model's record, the open paper seat, the last 8 calls)."""
     try:
@@ -18121,8 +18151,9 @@ def _duo_view(env=None):
                 'conf': {nm(k_): {'boost': _dv.confidence(_dv_mem.get() or {}, k_), 'words': _dv.words(_dv_mem.get() or {}, k_)} for k_ in (_duet.LEAD, _duet.SECOND, 'owner')},
                 'trade': [{**{k_: r_.get(k_) for k_ in ('at', 'model', 'action', 'view', 'why', 'conf', 'pct', 'talk')}, 'key': _dv_key(r_), 'mine': r_.get('by') == 'owner', 'votes': _dv.view(_dv_mem.get() or {}, _dv_key(r_))} for r_ in st_['log']
                           if held_l and r_.get('mint') == held_l.get('mint') and (r_.get('at') or 0) >= _fuse._f(held_l.get('at')) - 180][-14:][::-1],   # 💬 the conversation on THIS trade
+                'coinRooms': _duo_coin_rooms(st_['log'], held_l.get('mint') if held_l else None),   # 💬 $ELON's own chat: what they say about YOUR coins / the agents' coins
                 'between': [{**{k_: r_.get(k_) for k_ in ('at', 'model', 'action', 'view', 'why', 'conf', 'pct', 'talk', 'symbol')}, 'key': _dv_key(r_), 'mine': r_.get('by') == 'owner', 'votes': _dv.view(_dv_mem.get() or {}, _dv_key(r_))}
-                            for r_ in st_['log'] if r_.get('idle') or (r_.get('by') == 'owner' and not r_.get('mint'))][-14:][::-1],   # 💬 what they said BETWEEN trades (+ your lines then)
+                            for r_ in st_['log'] if (r_.get('idle') or r_.get('by') == 'owner') and not r_.get('mint')][-14:][::-1],   # 💬 what they said BETWEEN trades (+ your lines then)
                 'rec': {nm(k): v for k, v in _seat.by_model((st_['book'] or {}).get('closed')).items() if k in (_duet.LEAD, _duet.SECOND)},
                 'open': (st_['book'] or {}).get('open'),
                 'agents': _seat.by_model((st_['book'] or {}).get('closed')).get('agents'), 'fate': _g4.get('fate'), 'live': _g4.get('live'),

@@ -94,3 +94,20 @@ test('💬 between trades the talk shows in the room', () => {
   expect(el.querySelector('[data-testid="duo-say"]')).toBeTruthy();
   act(() => root.unmount());
 });
+
+test('💬 a coin on the card has its own room, and its chime-in names that coin', () => {
+  global.IS_REACT_ACT_ENVIRONMENT = true;
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  const sent = [];
+  const call = (_p, o) => { sent.push(JSON.parse(o.body)); return Promise.resolve({}); };
+  act(() => root.render(<DuoSeat duo={{ mode: 'real', next: 'OSSY', log: [], rooms: [], holding: { symbol: 'Kimchi' }, trade: [],
+    coinRooms: [{ mint: 'eM', symbol: 'ELON', who: 'you', rows: [{ at: now(), model: 'G4', action: 'TALK', view: 'HOLD', talk: true, why: 'ELON buyers strong', key: 'e1' }] }] }} call={call} />));
+  act(() => { el.querySelector('[data-testid="duo-coin-ELON"]').click(); });
+  expect(el.textContent).toMatch(/ELON buyers strong/);
+  const inp = el.querySelector('[data-testid="duo-say"]');
+  const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+  act(() => { set.call(inp, 'hold elon'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
+  act(() => { el.querySelector('.dso-say').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+  expect(sent[0]).toEqual({ comment: 'hold elon', mint: 'eM' });
+  act(() => root.unmount());
+});

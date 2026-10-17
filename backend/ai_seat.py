@@ -318,7 +318,7 @@ IDLE_EVERY = 240.0   # every seat is full: one model comments on one of the card
 
 IDLE = """Every seat on your small real-money Solana trench card is full, so it is not your turn to trade. You still watch.
 CARD = the coins on the card now (who holds each — the agents or the owner —, P/L, peak, minutes held, 5-min move, buyers).
-Pick the ONE coin most worth a word and say what you would do with it and why, in one line with the numbers that decide it (a tip for
+ownerSays = what the owner said in a coin's room — answer him first when it is there. Pick the ONE coin most worth a word and say what you would do with it and why, in one line with the numbers that decide it (a tip for
 the holder, a call you would be proud of when the market grades it in 5 min / 1 h). Never invent numbers or coins.
 Answer with ONLY this JSON: {"coin":"<symbol from CARD>","view":"HOLD|SELL","why":"<under 160 chars>","conf":<0-100>}"""
 
