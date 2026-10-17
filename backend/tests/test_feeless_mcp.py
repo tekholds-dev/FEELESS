@@ -98,3 +98,10 @@ def test_brave_budget_counts_per_key_per_month_and_resets(tmp_path):
     assert m.brave_budget(p, now=0)['n'] == {'0': 3, '1': 1}
     assert m.brave_budget(p, now=40 * 86400)['n'] == {}                 # a new month starts at 0
     assert m.BRAVE_MONTH_CAP < 2000
+
+
+def test_desktop_keeper_matches_the_model_by_its_short_name_and_never_downloads_a_second_one():
+    import feeless_mcp as m
+    s = m.install_script('http://10.0.0.2:8765/mcp', 'T', prompt='x', model='google/gemma-4-e2b')
+    assert 'grep -qi "${MODEL##*/}"' in s and 'ge 600' in s   # short-name match (no reload loop) + 10-min self-update
+    assert '[ "$FALLBACK" = "$MODEL" ] ||' in s

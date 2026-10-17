@@ -4940,3 +4940,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   a run of one word = one pin "×N", pins folded on a candle are listed in its card (`thinPins` `folded`).
 - 🧹 Pump caller record: callers with < 3 judged calls unseen for 2 days are dropped (`THIN_DAYS`), ≤ `CALLERS_MAX` 12,000 kept by judged calls
   then recency (the file was 52 MB, 50K callers, mostly one-offs).
+- 🖥 DESKTOP = Gemma 4 E2B ONLY (owner, 2026-10-17: "delete 2507, it keeps downloading back"): `.env` LAN_LLM_MODEL + LAN_LLM_FALLBACK_MODEL =
+  google/gemma-4-e2b (MLX 4-bit, the smallest Gemma 4). The desktop keeper (`feeless_mcp.install_script` lan-keep) downloads ONLY the server's
+  pick, matches it by its short name (`${MODEL##*/}` — the full id never matched `lms ps`, so it unloaded + reloaded every minute), loads no
+  fallback when the fallback IS the model, and re-pulls the installer every 10 min (was hourly). Changing the desktop model = the two .env
+  lines + restart the backend and `bash scripts/feeless-mcp.sh stop && … start` — the desktop follows within 10 min, no paste needed.

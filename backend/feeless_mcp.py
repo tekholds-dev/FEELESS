@@ -861,8 +861,8 @@ def write_local_preset():
     return True
 
 
-DESKTOP_MODEL = os.environ.get('LAN_LLM_MODEL') or 'qwen/qwen3-4b-2507'   # 🖥 desktop = M1 · 8 GB: Qwen3-4B Instruct 2507 (MLX ≈ 2.3 GB, text only). Gemma 4 E4B GGUF (vision build) swapped the 8 GB Mac: 'say hi' took > 150s (2026-10-17)
-DESKTOP_FALLBACK = 'google/gemma-4-e2b'   # what it ran before — loaded when the new one can't be
+DESKTOP_MODEL = os.environ.get('LAN_LLM_MODEL') or 'google/gemma-4-e2b'   # 🖥 desktop = M1 · 8 GB: Qwen3-4B Instruct 2507 (MLX ≈ 2.3 GB, text only). Gemma 4 E4B GGUF (vision build) swapped the 8 GB Mac: 'say hi' took > 150s (2026-10-17)
+DESKTOP_FALLBACK = os.environ.get('LAN_LLM_FALLBACK_MODEL') or DESKTOP_MODEL   # 2026-10-17: the owner runs Gemma 4 E2B only — no second model is ever downloaded
 
 
 def install_script(url, tok, preset_json=None, prompt=None, install_url=None, model=None):
@@ -912,7 +912,7 @@ $(JSON.stringify(cur, null, 2)).writeToFileAtomicallyEncodingError(p, true, $.NS
 FEELESS_JS_EOF
 # 🖥 KEEP IT RUNNING (owner, 2026-10-15: "ensure it stays running when sleep etc and updates are in it"): two LaunchAgents on THIS Mac —
 #  · com.feeless.awake  = caffeinate (no idle / system sleep while logged in; a closed laptop lid or a power-off still stops it)
-#  · com.feeless.lankeep = every 60s: LM Studio's server up on port $PORT + the model loaded; every hour: re-run this installer from
+#  · com.feeless.lankeep = every 60s: LM Studio's server up on port $PORT + the model loaded; every 10 min: re-run this installer from
 #    FEELESS so the preset / prompt / these helpers update by themselves. Re-running this script replaces only its own files.
 PORT="${{FEELESS_LM_PORT:-1236}}"; MODEL="${{FEELESS_LM_MODEL:-{model or DESKTOP_MODEL}}}"; FALLBACK="{DESKTOP_FALLBACK}"; CTX="${{FEELESS_LM_CTX:-8704}}"; PAR="${{FEELESS_LM_PAR:-2}}"
 mkdir -p "$HOME/.feeless" "$HOME/Library/LaunchAgents"
@@ -921,16 +921,17 @@ cat > "$HOME/.feeless/lan-keep.sh" <<FEELESS_KEEP_EOF
 LMS="\\$HOME/.lmstudio/bin/lms"; [ -x "\\$LMS" ] || LMS="\\$(command -v lms)"; [ -n "\\$LMS" ] || exit 0
 "\\$LMS" server status 2>&1 | grep -qi "running" || "\\$LMS" server start --port $PORT >/dev/null 2>&1
 FAILED="\\$HOME/.feeless/model-failed"
-if ! "\\$LMS" ps 2>/dev/null | grep -q "$MODEL"; then
-  "\\$LMS" ls 2>/dev/null | grep -q "$MODEL" || "\\$LMS" get "$MODEL" -y >/dev/null 2>&1   # ⬇ FEELESS picks the desktop model: downloaded once, by itself
-  if "\\$LMS" ls 2>/dev/null | grep -q "$MODEL" && [ "\\$(cat "\\$FAILED" 2>/dev/null)" != "$MODEL" ]; then
+# KEY = "${{MODEL##*/}}" (filled in when this file is written): lms ps / ls show the model by its own name, not always with the "google/" part — matching the full id failed every minute and the model was unloaded + reloaded for good
+if ! "\\$LMS" ps 2>/dev/null | grep -qi "${{MODEL##*/}}"; then
+  "\\$LMS" ls 2>/dev/null | grep -qi "${{MODEL##*/}}" || "\\$LMS" get "$MODEL" -y >/dev/null 2>&1   # ⬇ ONLY the model FEELESS picked, once — never a second one
+  if "\\$LMS" ls 2>/dev/null | grep -qi "${{MODEL##*/}}" && [ "\\$(cat "\\$FAILED" 2>/dev/null)" != "$MODEL" ]; then
     "\\$LMS" unload --all >/dev/null 2>&1   # 8 GB Mac: ONE model in memory
     "\\$LMS" load "$MODEL" --context-length $CTX --parallel $PAR --gpu max -y >/dev/null 2>&1 || echo "$MODEL" > "\\$FAILED"   # a model that won't load is not retried every minute
   fi
-  "\\$LMS" ps 2>/dev/null | grep -q . || "\\$LMS" load "$FALLBACK" --context-length $CTX --gpu max -y >/dev/null 2>&1   # nothing loaded → the old model
+  [ "$FALLBACK" = "$MODEL" ] || "\\$LMS" ps 2>/dev/null | grep -q . || "\\$LMS" load "$FALLBACK" --context-length $CTX --gpu max -y >/dev/null 2>&1   # nothing loaded → the fallback (only when it is a different model)
 fi
 st="\\$HOME/.feeless/last-update"; now=\\$(date +%s); last=\\$(cat "\\$st" 2>/dev/null || echo 0)
-if [ \\$((now - last)) -ge 3600 ]; then echo \\$now > "\\$st"; curl -fsS -m 20 -H "Authorization: Bearer {tok}" "{install_url}" | FEELESS_LM_PORT=$PORT FEELESS_LM_CTX=$CTX FEELESS_NO_RELOAD=1 bash >/dev/null 2>&1; fi
+if [ \\$((now - last)) -ge 600 ]; then echo \\$now > "\\$st"; curl -fsS -m 20 -H "Authorization: Bearer {tok}" "{install_url}" | FEELESS_LM_PORT=$PORT FEELESS_LM_CTX=$CTX FEELESS_NO_RELOAD=1 bash >/dev/null 2>&1; fi
 FEELESS_KEEP_EOF
 chmod +x "$HOME/.feeless/lan-keep.sh"
 plist() {{ cat > "$HOME/Library/LaunchAgents/$1.plist" <<FEELESS_PLIST_EOF
