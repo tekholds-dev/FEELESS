@@ -4891,3 +4891,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 📣 Chart comments per coin (`_duo_chart_rows`: newest 8 per mint, incl. TRIM / LINES; a line with no cap pins at the live cap) — the global
   24 left most coins bare. Pins sit 30px over the candle high, stacks 26px apart. 🧩 `coach.merge_topups`: a buy of a coin still held (no sale
   since) is a top-up folded into the first buy — the tape showed $1 three times. Duel side stats = 3 columns (6 overlapped).
+- 📏 EVERY LINE MOVE IS GRADED (`ai_seat.lines_view`): a model's or your TP / SL / trail change = a call the market grades at 5m / 1h / 24h (more room
+  = HOLD, tighter = SELL; a first line is no call) → each model's confidence. ✋ Your graded holds that ran ≥ `HOLD_WIN_PCT` +10% more become
+  `_study.holdWins` → `learn.ownerHoldWins` (read while holding) + the AI memory lessons drawer.
+- 📣 Agents-tab chart comments = ONLY Reaper / OSSY / G4 lines on that coin (`chartCalls`, newest `CHART_PINS` 6, a repeated word = one pin);
+  `agentPins` (kernel markers) is gone.
+- 🖥 DESKTOP (M1 · 8 GB, keep the model ≤ ~4.5 GB): G4 runs `qwen/qwen3-4b-2507` (MLX 4-bit ≈ 2.3 GB, 8K context), `LAN_LLM_FALLBACK_MODEL`
+  google/gemma-4-e2b answers while it is missing (router falls back for `lan` too). The installer's lan-keep downloads the server's model
+  (`lms get`), unloads others, marks a model that won't load (`~/.feeless/model-failed`) and never pins the model on its hourly re-pull — the
+  server's `LAN_LLM_MODEL` decides. An 8B model (4.6 GB) on 8 GB swaps: answers slow → missed turns. Don't.
+- 🔁 Turns verified 2026-10-17: OSSY 索拉纳 → G4 $SEXCOIN (sold) → OSSY $blocus; a refused BUY uses no turn.

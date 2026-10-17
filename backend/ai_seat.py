@@ -87,7 +87,7 @@ def held_row(leg, px, now, pressure=None, qwen=None):
     return {k: x for k, x in out.items() if x not in (None, '', [])}
 
 
-HELD_LEARN = ('confidence', 'holdLessons', 'ownerHints')   # what a model managing its trade still reads
+HELD_LEARN = ('confidence', 'holdLessons', 'ownerHints', 'ownerHoldWins')   # what a model managing its trade still reads
 
 
 def packet(cands, held, record=None, partner=None, pick=None, says=None, learn=None):
@@ -250,6 +250,17 @@ def parse(text, cand_mints, holding, syms=None):
 
 
 LINE_RANGES = (('tp', TP_MIN, 500.0), ('sl', 3.0, 44.0), ('trail', 15.0, 70.0))   # 🎯 take · stop · trail give-back the model may set (−45% stays the floor)
+
+
+def lines_view(ch, before=None):
+    """📏 A line move as a CALL the market grades: more room (higher TP, wider stop / trail) = 'HOLD' (it stays up), tighter = 'SELL'."""
+    b, sc = before or {}, 0
+    for k, lk in (('tp', 'aiTp'), ('sl', 'aiSl'), ('trail', 'aiTrail')):
+        if k in (ch or {}):
+            old = _f(b.get(lk) or b.get(k))
+            if old:
+                sc += 1 if _f(ch[k]) > old else -1 if _f(ch[k]) < old else 0
+    return 'HOLD' if sc > 0 else 'SELL' if sc < 0 else None
 
 
 def owner_lines(text):

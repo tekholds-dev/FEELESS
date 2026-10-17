@@ -197,18 +197,21 @@ test('📡 an empty seat reads its blocker as a headline + its numbers', () => {
   expect(huntSplit('no colon here')).toEqual(['no colon here', '']);
 });
 
-test('📣 chart callouts: only the models\' calls on THIS coin, newest 3 first', () => {
-  const { chartCalls } = require('./AgentCockpit');
-  const rows = [{ mint: 'A', at: 1, cap: 10 }, { mint: 'B', at: 2, cap: 10 }, { mint: 'A', at: 3, cap: 0 }, { mint: 'A', at: 4, cap: 9, model: 'OSSY', action: 'BUY' }, { mint: 'A', at: 5, cap: 9, talk: true, view: 'SELL' }];
-  expect(chartCalls(rows, 'A').map(r => r.at)).toEqual([1, 4, 5]); expect(chartCalls(rows, 'A')[1]).toMatchObject({ icon: 'OS', action: 'BUY', kind: 'ai' });
-  expect(chartCalls(rows, 'A')[2]).toMatchObject({ action: 'TALK', kind: 'talk' }); expect(chartCalls(null, 'A')).toEqual([]);
+test('📣 chart comments: only Reaper / OSSY / G4 on THIS coin, a repeated word = one pin, capped', () => {
+  const { chartCalls, CHART_PINS } = require('./AgentCockpit'); const { avatarOf } = require('../../lib/aiAvatars');
+  const rows = [{ mint: 'A', at: 1, cap: 10, model: 'YOU', why: 'me' }, { mint: 'B', at: 2, cap: 10, model: 'G4' }, { mint: 'A', at: 3, cap: 0, model: 'G4' },
+    { mint: 'A', at: 4, cap: 9, model: 'OSSY', action: 'BUY' }, { mint: 'A', at: 5, cap: 9, model: 'G4', talk: true, view: 'SELL' },
+    { mint: 'A', at: 6, cap: 9, model: 'REAPER', talk: true, view: 'PROTECT', why: 'R7' }, { mint: 'A', at: 7, cap: 9, model: 'REAPER', talk: true, view: 'PROTECT' }];
+  const c = chartCalls(rows, 'A');
+  expect(c.map(r => r.at)).toEqual([4, 5, 6]); expect(c[0]).toMatchObject({ icon: 'OS', action: 'BUY', kind: 'ai' }); expect(c[1]).toMatchObject({ action: 'TALK', kind: 'talk' });
+  expect(c[2]).toMatchObject({ who: 'Reaper', action: 'PROTECT', kind: 'agent', img: avatarOf('reaper') }); expect(chartCalls(null, 'A')).toEqual([]);
+  const many = Array.from({ length: 20 }, (_, i) => ({ mint: 'A', at: i, cap: 9, model: i % 2 ? 'G4' : 'OSSY', action: 'HOLD' }));
+  expect(chartCalls(many, 'A')).toHaveLength(CHART_PINS);
 });
 
-test('🖼 avatars: OSSY / G4 use the owner\'s pictures, each agent its own GIF, agent pins need a cap', () => {
-  const { avatarOf } = require('../../lib/aiAvatars'); const { agentPins } = require('./AgentCockpit');
+test('🖼 avatars: OSSY / G4 use the owner\'s pictures, each agent its own GIF', () => {
+  const { avatarOf } = require('../../lib/aiAvatars');
   expect(avatarOf('OSSY')).toMatch(/ossy\.webp$/); expect(avatarOf('lan')).toMatch(/g4\.webp$/); expect(avatarOf('reaper')).toMatch(/reaper\.gif$/); expect(avatarOf('bob')).toBe(null);
-  const p = agentPins([{ id: 1, agent: 'reaper', action: 'hold', mc: 90000, at: 5, why: 'w' }, { id: 2, agent: 'reaper', mc: null, at: 6 }]);
-  expect(p).toHaveLength(1); expect(p[0]).toMatchObject({ who: 'Reaper', cap: 90000, action: 'HOLD', kind: 'agent' });
 });
 
 test('✋ / 👍 one click on a seat posts the hint', async () => {

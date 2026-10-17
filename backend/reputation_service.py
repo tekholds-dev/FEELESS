@@ -6984,6 +6984,9 @@ def _owner_study(now):
     return rep_
 
 
+HOLD_WIN_PCT = 10.0   # a graded hold whose coin ran ≥ +10% more = a lesson for the models
+
+
 async def _hint_grade(now):
     """✋ / 👍 your seat hints, graded 30 min later on the live price (right = the coin did not fall after you said hold / good entry).
     → the record the models read (`learn.ownerHints`) and the AI memory files."""
@@ -6998,6 +7001,10 @@ async def _hint_grade(now):
         of_['hintLog'] = hl_
         _json_save(OFFICE_PATH, of_)
     g_ = [h for h in hl_ if h.get('res') is not None]
+    wins_ = [h for h in g_ if h['res'] >= HOLD_WIN_PCT][-3:]
+    if wins_:   # ✋ your HOLD that paid = a lesson both models read: what the chart showed, what Reaper wanted, how far it ran after
+        _study['holdWins'] = [f"✋ the owner held ${h.get('sym')} at {_fuse._f(h.get('pct')):+.1f}%" + (f" while Reaper wanted {h['reaper']}" if h.get('reaper') else '')
+                              + (f" ({h['base']})" if h.get('base') else '') + f" — 30 min later it was {h['res']:+.1f}% higher" for h in wins_]
     if g_:
         ok_ = sum(1 for h in g_ if h['res'] >= 0)
         _study['hints'] = {'n': len(g_), 'right': round(100 * ok_ / len(g_)), 'typical': sorted(h['res'] for h in g_)[len(g_) // 2],
@@ -7040,6 +7047,8 @@ async def _study_tick(now):
             mem_ = _aim.file(mem_, 'lessons', f'hold{i_}', '🎓 HOLD LESSON — ' + l_, now)
         if hl_['early']:
             mem_ = _aim.file(mem_, 'owner', 'holdEarly', 'Rules that would have sold the owner early (held ≥ 5 pts more): ' + ', '.join(f'{k} ×{v}' for k, v in sorted(hl_['early'].items(), key=lambda kv: -kv[1])), now)
+        for k_, w_ in enumerate(_study.get('holdWins') or []):   # ✋ the owner's holds that ran → the lessons drawer every model case recalls
+            mem_ = _aim.file(mem_, 'lessons', f'holdWin{k_}', w_, now)
         _study['holds'] = hl_
         for it_ in (_teach_state().get('items') or [])[-40:]:
             mem_ = _aim.file(mem_, 'lessons', f"{it_.get('kind')}:{str(it_.get('text'))[:40]}", f"{it_.get('kind')}: {it_.get('text')}" + (f" (${it_.get('sym')})" if it_.get('sym') else ''), _fuse._f(it_.get('at')) or now)
@@ -14012,6 +14021,8 @@ async def _g4_tick(now, env, cfg):
         sv_ = _study.get('v') or {}   # 👤 the owner study: how HE trades (graded moves, where the agents sold him early) — the best tools from his day
         if sv_.get('findings'):
             learn_['ownerStudy'] = [str(x)[:160] for x in sv_['findings'][:4]]
+        if _study.get('holdWins'):
+            learn_['ownerHoldWins'] = _study['holdWins']   # ✋ the owner's holds that ran — hold like that
         if (_study.get('hints') or {}).get('line'):
             learn_['ownerHints'] = _study['hints']['line']   # ✋ how often the owner's one-click holds were right — weigh his calls by it
         hl_ = (_study.get('holds') or {}).get('lines') or []
@@ -14086,9 +14097,12 @@ async def _g4_tick(now, env, cfg):
         if lv_:
             _g4_mem.put({**(_g4_mem.get() or {}), 'lvAt': max(_fuse._f(e_.get('at')) for e_ in lv_)}, now)
         ch_l = _seat.lines_word(leg_, dec_) if (mode_ == 'real' and held_ and leg_ and dec_ and by_m != 'agents') else {}
-        if ch_l:   # 🎯 the holder moved its own TP / SL → its own line in the trade room
-            log_ = _seat.note(log_, {'at': round(now), 'mode': mode_, 'model': row_['model'], 'by': by_m, 'action': 'LINES', 'lines': ch_l, 'why': _seat.lines_why(ch_l, leg_),
-                                     'symbol': (held_ or {}).get('symbol'), 'mint': (held_ or {}).get('mint'), 'pct': (held_ or {}).get('pct')})
+        if ch_l:   # 🎯 the holder moved its own TP / SL / trail → its own line in the trade room, graded by the market like a call
+            lr_ = {'at': round(now) + 1, 'mode': mode_, 'model': row_['model'], 'by': by_m, 'action': 'LINES', 'view': _seat.lines_view(ch_l, leg_), 'lines': ch_l, 'why': _seat.lines_why(ch_l, leg_),
+                   'symbol': (held_ or {}).get('symbol'), 'mint': (held_ or {}).get('mint'), 'pct': (held_ or {}).get('pct')}
+            log_ = _seat.note(log_, lr_)
+            if lr_['view'] and lr_['mint']:
+                _dv_note(lr_, px_of(lr_['mint']), now)
         if row_.get('mint') and dec_ and by_m in (first_, second_):
             _dv_note(row_, px_of(row_['mint']), now)
         talk_at = st_.get('talkAt') or 0.0
@@ -14229,11 +14243,12 @@ async def admin_ai_seat_post(request: Request):
                         cs_[tp_] = _prime.set_leg(cs_[tp_], lg_['pairAddress'], tp=ln_.get('tp'), sl=ln_.get('sl'), trail=ln_.get('trail'), now=now)
                         _json_save(FUSE_HQ_PATH, d_)
                         row_['why'] = f"{txt_} · ✅ set " + ' · '.join(f"{ {'tp': 'TP +', 'sl': 'SL −', 'trail': 'trail ↩'}[k_]}{v_:g}%" for k_, v_ in ln_.items())
+                        row_['lineView'] = _seat.lines_view(ln_, lg_)   # 📏 your line move is graded too
                     except ValueError as e_:
                         row_['why'] = f"{txt_} · ⚠ not set: {e_}"
-            row_['view'] = 'LINES'
+            row_['view'] = row_.pop('lineView', None) or 'LINES'
         _g4_mem.put({**(_g4_mem.get() or {}), 'log': _seat.note(st_['log'], row_)}, now)
-        if m_ and act_ != 'NOTE' and not ln_:
+        if m_ and ((act_ != 'NOTE' and not ln_) or (ln_ and row_['view'] in ('HOLD', 'SELL'))):
             pm_ = await _live_px([m_])
             _dv_note(row_, _fuse._f(pm_.get(m_)), now)
     _audit_ad = _admin_load(); _audit(_audit_ad, admin, 'duo-room', json.dumps({k_: body.get(k_) for k_ in ('vote',)} | ({'comment': txt_[:60]} if txt_ else {}))[:160]); _admin_save(_audit_ad)
@@ -18391,7 +18406,8 @@ async def admin_agents_set(request: Request):
             px_ = _fuse._f((await _live_px([m_])).get(m_)) or _fuse._f((_jup_px_cache.get(m_) or (0, 0))[1])
             p_['hint'] = {'kind': sh_['kind'], 'at': now_, 'until': now_ + _of.HINT_SEC}
             of_ = _office_state()
-            of_['hintLog'] = (list(of_.get('hintLog') or []) + [{'mint': m_, 'sym': p_.get('sym'), 'kind': sh_['kind'], 'px': px_, 'at': now_}])[-200:]
+            of_['hintLog'] = (list(of_.get('hintLog') or []) + [{'mint': m_, 'sym': p_.get('sym'), 'kind': sh_['kind'], 'px': px_, 'at': now_, 'pct': p_.get('pct'), 'peak': p_.get('peak'),
+                                                                    'reaper': next((r_.get('rule') for r_ in _office.get('reports') or [] if r_.get('mint') == m_), None), 'base': _of.base_of((_office.get('charts') or {}).get(m_))}])[-200:]
             _json_save(OFFICE_PATH, of_)
             ai_l = next((l_ for l_ in _duo_card_legs() if l_.get('mint') == m_), {})   # 💬 it lands in the duo chat too: the models read it (ownerSays) and the market grades it
             hrow_ = {'at': round(now_), 'mode': 'real', 'model': 'YOU', 'by': 'owner', 'talk': True, 'action': 'TALK', 'view': 'HOLD', 'mint': m_, 'symbol': p_.get('sym'),

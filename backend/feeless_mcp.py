@@ -865,7 +865,11 @@ def write_local_preset():
     return True
 
 
-def install_script(url, tok, preset_json=None, prompt=None, install_url=None):
+DESKTOP_MODEL = os.environ.get('LAN_LLM_MODEL') or 'qwen/qwen3-4b-2507'   # 🖥 desktop = M1 · 8 GB: Qwen3-4B Instruct 2507 (MLX 4-bit ≈ 2.3 GB) — best JSON / instruction model that leaves room for an 8K context
+DESKTOP_FALLBACK = 'google/gemma-4-e2b'   # what it ran before — loaded when the new one can't be
+
+
+def install_script(url, tok, preset_json=None, prompt=None, install_url=None, model=None):
     """🖥 The ONE script the desktop Mac runs (`curl … /lan-install | bash`): writes the FEE preset into its LM Studio and merges a
     `feeless` entry (this Mac's MCP url + token) into ~/.lmstudio/mcp.json without touching any other server there. Pure text."""
     if preset_json is None:
@@ -914,15 +918,23 @@ FEELESS_JS_EOF
 #  · com.feeless.awake  = caffeinate (no idle / system sleep while logged in; a closed laptop lid or a power-off still stops it)
 #  · com.feeless.lankeep = every 60s: LM Studio's server up on port $PORT + the model loaded; every hour: re-run this installer from
 #    FEELESS so the preset / prompt / these helpers update by themselves. Re-running this script replaces only its own files.
-PORT="${{FEELESS_LM_PORT:-1236}}"; MODEL="${{FEELESS_LM_MODEL:-google/gemma-4-e2b}}"; CTX="${{FEELESS_LM_CTX:-10658}}"
+PORT="${{FEELESS_LM_PORT:-1236}}"; MODEL="${{FEELESS_LM_MODEL:-{model or DESKTOP_MODEL}}}"; FALLBACK="{DESKTOP_FALLBACK}"; CTX="${{FEELESS_LM_CTX:-8192}}"
 mkdir -p "$HOME/.feeless" "$HOME/Library/LaunchAgents"
 cat > "$HOME/.feeless/lan-keep.sh" <<FEELESS_KEEP_EOF
 #!/bin/bash
 LMS="\\$HOME/.lmstudio/bin/lms"; [ -x "\\$LMS" ] || LMS="\\$(command -v lms)"; [ -n "\\$LMS" ] || exit 0
 "\\$LMS" server status 2>&1 | grep -qi "running" || "\\$LMS" server start --port $PORT >/dev/null 2>&1
-"\\$LMS" ps 2>/dev/null | grep -q "$MODEL" || "\\$LMS" load "$MODEL" --context-length $CTX --gpu max -y >/dev/null 2>&1
+FAILED="\\$HOME/.feeless/model-failed"
+if ! "\\$LMS" ps 2>/dev/null | grep -q "$MODEL"; then
+  "\\$LMS" ls 2>/dev/null | grep -q "$MODEL" || "\\$LMS" get "$MODEL" -y >/dev/null 2>&1   # ⬇ FEELESS picks the desktop model: downloaded once, by itself
+  if "\\$LMS" ls 2>/dev/null | grep -q "$MODEL" && [ "\\$(cat "\\$FAILED" 2>/dev/null)" != "$MODEL" ]; then
+    "\\$LMS" unload --all >/dev/null 2>&1   # 8 GB Mac: ONE model in memory
+    "\\$LMS" load "$MODEL" --context-length $CTX --gpu max -y >/dev/null 2>&1 || echo "$MODEL" > "\\$FAILED"   # a model that won't load is not retried every minute
+  fi
+  "\\$LMS" ps 2>/dev/null | grep -q . || "\\$LMS" load "$FALLBACK" --context-length $CTX --gpu max -y >/dev/null 2>&1   # nothing loaded → the old model
+fi
 st="\\$HOME/.feeless/last-update"; now=\\$(date +%s); last=\\$(cat "\\$st" 2>/dev/null || echo 0)
-if [ \\$((now - last)) -ge 3600 ]; then echo \\$now > "\\$st"; curl -fsS -m 20 -H "Authorization: Bearer {tok}" "{install_url}" | FEELESS_LM_PORT=$PORT FEELESS_LM_MODEL="$MODEL" FEELESS_LM_CTX=$CTX FEELESS_NO_RELOAD=1 bash >/dev/null 2>&1; fi
+if [ \\$((now - last)) -ge 3600 ]; then echo \\$now > "\\$st"; curl -fsS -m 20 -H "Authorization: Bearer {tok}" "{install_url}" | FEELESS_LM_PORT=$PORT FEELESS_LM_CTX=$CTX FEELESS_NO_RELOAD=1 bash >/dev/null 2>&1; fi
 FEELESS_KEEP_EOF
 chmod +x "$HOME/.feeless/lan-keep.sh"
 plist() {{ cat > "$HOME/Library/LaunchAgents/$1.plist" <<FEELESS_PLIST_EOF

@@ -353,19 +353,20 @@ function LiveDesk({ duo, matrix, tape, tapeN }) {
 }
 
 // 📍 OSSY / G4 ON THE CHART (owner, 2026-10-16: Pump-style pins + cards, not a box): their calls on THIS coin → pins at the call's candle + cap
+// 📣 the Agents chart's comments (owner, 2026-10-17): ONLY Reaper, OSSY and G4 on THIS coin — a run of the same word = one pin, newest CHART_PINS
+const PIN_WHO = new Set(['REAPER', 'OSSY', 'G4']);
+export const CHART_PINS = 6;
 export function chartCalls(rows, mint) {
-  const keep = (rows || []).filter(r => r.mint && r.mint === mint && Number(r.cap) > 0).filter((r, i, a) => !i || r.talk || a[i - 1].model !== r.model || a[i - 1].action !== r.action || r.action !== 'HOLD');   // a run of the same HOLD = one pin
-  return keep.slice(-8).map((r, i) => ({ id: `${r.at}-${i}`, at: r.at, cap: r.cap, who: r.model, kind: r.talk ? 'talk' : 'ai',
-    action: r.talk ? 'TALK' : r.action, text: r.talk ? `${r.view || ''} — ${r.why || ''}` : r.why, pct: r.pct, icon: r.model === 'OSSY' ? 'OS' : r.model === 'G4' ? 'G4' : undefined, img: avatarOf(r.model) || undefined }));
-}
-// 🤖 the ten agents' REAL decisions on this coin (the marker rail) as their own small avatar pins — Agents chart only
-const VITAL_PIN = new Set(['trigger', 'courier', 'reaper']);   // the trade's own story: entered · filled · ruled out — not every desk's note
-export function agentPins(markers) {
-  return (markers || []).filter(k => Number(k.mc) > 0 && VITAL_PIN.has(k.agent) && avatarOf(k.agent)).slice(-10).map(k => ({ id: `ag-${k.id}`, at: k.at, cap: k.mc, who: k.agent[0].toUpperCase() + k.agent.slice(1), kind: 'agent', action: String(k.action || '').toUpperCase(), text: k.why, img: avatarOf(k.agent) }));
+  const keep = (rows || []).filter(r => r.mint && r.mint === mint && Number(r.cap) > 0 && PIN_WHO.has(String(r.model || '').toUpperCase()))
+    .filter((r, i, a) => !i || a[i - 1].model !== r.model || (a[i - 1].view || a[i - 1].action) !== (r.view || r.action));
+  return keep.slice(-CHART_PINS).map((r, i) => { const who = String(r.model).toUpperCase(); const reaper = who === 'REAPER';
+    return { id: `${r.at}-${i}`, at: r.at, cap: r.cap, who: reaper ? 'Reaper' : who, kind: reaper ? 'agent' : r.talk ? 'talk' : 'ai',
+      action: reaper ? String(r.view || 'NOTE').toUpperCase() : r.talk ? 'TALK' : r.action, text: r.talk && !reaper ? `${r.view || ''} — ${r.why || ''}` : r.why, pct: r.pct,
+      icon: who === 'OSSY' ? 'OS' : who === 'G4' ? 'G4' : undefined, img: avatarOf(who) || undefined }; });
 }
 
 function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent, tid, call, isOwner, duo }) {
-  const calls = useMemo(() => [...agentPins(markers), ...chartCalls(duo?.chart, m?.mint)], [duo?.chart, m?.mint, markers]);
+  const calls = useMemo(() => chartCalls(duo?.chart, m?.mint), [duo?.chart, m?.mint]);
   const pair = useMemo(() => (m?.pair ? { chainId: 'solana', pairAddress: m.pair, baseToken: { address: m.mint, symbol: m.symbol }, priceUsd: m.price, marketCap: m.mc } : null), [m?.pair, m?.mint, m?.symbol, m?.price, m?.mc]);
   // ✋ YOUR LINES on an agent seat: its stop + take are grabbable on the chart; a drop asks, saves that coin's own TP / SL, Reaper obeys it,
   // and the position is filed as "your hand" so the record shows whether your adjustments helped

@@ -77,3 +77,17 @@ def test_top_ups_are_one_trade_on_the_tape():
     sells = [{'side': 'sell', 'status': 'filled', 'sig': 'x', 'mint': 'M', 'usd': 1, 'at': 50}]
     rows = coach.trade_tape([b(10, 0.5), b(15, 0.2), b(60, 0.3)] + sells, [])
     assert len(rows) == 2 and rows[-1]['buy']['usd'] == 0.7                                # 10 + its 15s top-up = one trade; 60 (after a sale) = a new one
+
+
+def test_a_line_move_is_graded_like_a_call():
+    assert seat.lines_view({'tp': 80}, {'aiTp': 40}) == 'HOLD'                          # more room = "it stays up"
+    assert seat.lines_view({'trail': 20}, {'aiTrail': 40}) == 'SELL'                     # tighter = "get out"
+    assert seat.lines_view({'tp': 80}, {}) is None                                       # a first line is not a call
+    assert 'ownerHoldWins' in seat.HELD_LEARN
+
+
+def test_desktop_installer_picks_the_server_model_and_falls_back():
+    import feeless_mcp as f
+    t = f.install_script('http://x/mcp', 'T', model='qwen/qwen3-4b-2507')
+    assert 'qwen/qwen3-4b-2507' in t and 'get "$MODEL" -y' in t and 'FALLBACK="google/gemma-4-e2b"' in t and 'model-failed' in t
+    assert 'FEELESS_LM_MODEL="$MODEL"' not in t                                         # the hourly re-pull no longer pins the old model

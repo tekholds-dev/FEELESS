@@ -784,7 +784,7 @@ class Router:
             ids = [m.get('id') for m in (r.json().get('data') or [])] if r.status_code == 200 else []
         except Exception:
             ids = []
-        fb = str((env or {}).get('LOCAL_LLM_FALLBACK_MODEL') or '').strip() if key == 'local' else ''
+        fb = str((env or {}).get('LOCAL_LLM_FALLBACK_MODEL' if key == 'local' else 'LAN_LLM_FALLBACK_MODEL') or '').strip() if key in ('local', 'lan') else ''
         up = bool(ids) and (not p['model'] or p['model'] in ids or (fb and fb in ids))
         if up:
             s.update(state='ONLINE', streak=0, coolUntil=0.0, lastErr=None, lastAt=now)
@@ -859,11 +859,11 @@ class Router:
         """🔁 LOCAL FALLBACK MODEL (LOCAL_LLM_FALLBACK_MODEL, e.g. gemma first, qwen second): when the local primary is refused / not loaded /
         unreachable (never on a timeout — that would double the wait) the same messages go once to the fallback model on the same server."""
         text, err = await self._call1(http, p, env, msgs, now)
-        fb = str((env or {}).get('LOCAL_LLM_FALLBACK_MODEL') or '').strip()
-        if err and p['key'] == 'local' and fb and fb != p['model'] and err[0] in ('fail', 'malformed'):   # (the desktop Mac has its own provider row: 'lan')
+        fb = str((env or {}).get('LOCAL_LLM_FALLBACK_MODEL' if p['key'] == 'local' else 'LAN_LLM_FALLBACK_MODEL') or '').strip()
+        if err and p['key'] in ('local', 'lan') and fb and fb != p['model'] and err[0] in ('fail', 'malformed'):   # 🖥 the desktop too: its old model answers while the new one downloads
             text, err2 = await self._call1(http, {**p, 'model': fb}, env, msgs, now)
             if not err2:
-                self.lastModel['local'] = fb
+                self.lastModel[p['key']] = fb
                 return text, None
         elif not err and p['key'] in LM:
             self.lastModel[p['key']] = p['model']
