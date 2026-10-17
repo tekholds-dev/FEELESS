@@ -165,3 +165,6 @@ body.theme-day .dso-room { background: rgba(240, 234, 252, .8); } body.theme-day
 .dso-rooms button { flex: none; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--m-line, #1f3d2a); background: rgba(4, 12, 8, .6); color: var(--m-mute, #a8c9b6); font: 700 9.5px var(--m-mono, monospace); cursor: pointer; }
 .dso-rooms button:hover { border-color: #45e486; } .dso-rooms button.active { background: #15d16a; color: #04140a; border-color: #15d16a; }
 .dso-rooms button.is-up:not(.active) { color: #45e486; } .dso-rooms button.is-dn:not(.active) { color: #ff8fa3; }
+.dso-total { display: grid; gap: 1px; margin: 4px 0 0; } .dso-total small { font: 700 8px var(--m-mono, monospace); letter-spacing: .12em; color: var(--m-mute, #8fb3a0); }
+.dso-total strong { font: 900 18px var(--m-mono, monospace); animation: dsoPop .5s ease-out; } .dso-total.is-up strong { color: #45e486; } .dso-total.is-dn strong { color: #ff8fa3; }
+.dso-total span { font: 600 9.5px var(--m-mono, monospace); color: var(--m-mute, #a8c9b6); }

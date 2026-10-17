@@ -17981,6 +17981,20 @@ AGENTS_PAGE_SEC = 2
 _agents_page: dict = {'key': None, 'body': b'{}'}
 
 
+def _duo_totals():
+    """💰 OSSY / G4 all-time REAL result: closed AI-seat trades by who opened them; $ = the confirmed buy's $ × the real % (ledger)."""
+    pos_ = [p_ for p_ in (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or [] if p_.get('g4') and p_.get('realPct') is not None]
+    buys_ = [r_ for r_ in (_fw_full_ledger() or []) if r_.get('side') == 'buy' and r_.get('status') == 'filled']
+    out = {}
+    for p_ in pos_:
+        k_ = _air.model_name(os.environ, p_.get('aiBy')) if p_.get('aiBy') else '?'
+        b_ = next((r_ for r_ in reversed(buys_) if r_.get('mint') == p_.get('mint') and _fuse._f(r_.get('at')) <= _fuse._f(p_.get('since')) + 600), None)
+        usd_ = _fuse._f((b_ or {}).get('usd')) * _fuse._f(p_['realPct']) / 100
+        t_ = out.setdefault(k_, {'n': 0, 'won': 0, 'usd': 0.0, 'pct': 0.0})
+        t_['n'] += 1; t_['won'] += 1 if _fuse._f(p_['realPct']) > 0 else 0; t_['usd'] = round(t_['usd'] + usd_, 3); t_['pct'] = round(t_['pct'] + _fuse._f(p_['realPct']), 1)
+    return out
+
+
 def _duo_rooms(log, keep=8):
     """🗂 The rooms of the last model trades (newest first): coin, who bought, the real result when it closed, and that trade's own talk."""
     res_ = {p_.get('mint'): p_ for p_ in (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or [] if p_.get('g4')}
@@ -18027,6 +18041,7 @@ def _duo_view(env=None):
         return {'mode': _oe.clean_policy(_prime_real_cfg())['agentAiSeat'], 'next': nm(first_), 'at': st_['at'], 'busy': _g4['busy'],
                 'phase': _g4.get('phase') or ('HOLDING' if held_l else 'HUNTING'), 'holder': nm(held_l.get('aiBy')) if held_l and held_l.get('aiBy') else None,
                 'holding': _duo_holding(held_l) if held_l else None,
+                'totals': _duo_totals(),   # 💰 each model's REAL closed-trade total: trades, won, $ and % (all time)
                 'rooms': _duo_rooms(st_['log']),   # 🗂 every past model trade's own room: its convo + result, reopenable
                 'conf': {nm(k_): {'boost': _dv.confidence(_dv_mem.get() or {}, k_), 'words': _dv.words(_dv_mem.get() or {}, k_)} for k_ in (_duet.LEAD, _duet.SECOND, 'owner')},
                 'trade': [{**{k_: r_.get(k_) for k_ in ('at', 'model', 'action', 'view', 'why', 'conf', 'pct', 'talk')}, 'key': _dv_key(r_), 'mine': r_.get('by') == 'owner', 'votes': _dv.view(_dv_mem.get() or {}, _dv_key(r_))} for r_ in st_['log']

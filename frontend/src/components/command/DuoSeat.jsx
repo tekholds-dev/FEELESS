@@ -49,7 +49,7 @@ function SeatPnl({ h }) {
   return <span className={`dso-pnl is-${w.tone}`} data-testid="duo-pnl"><strong key={w.pct}>{w.pct}</strong><small>{w.money}</small><small>{w.meta}</small></span>;
 }
 
-function Side({ s, pod, turn, busy, side }) {
+function Side({ s, pod, turn, busy, side, tot }) {
   return <section className={`dso-side ${side} ${turn ? 'is-turn' : ''} ${turn && busy ? 'is-busy' : ''}`} data-testid={`duo-pod-${s.name}`}>
     <i className="dso-scan" aria-hidden="true" />
     <header><b>{s.name}</b><em className="dso-state">{turn ? (busy ? 'THINKING' : 'ON TURN') : 'STANDBY'}<i /></em></header>
@@ -66,7 +66,9 @@ function Side({ s, pod, turn, busy, side }) {
         : <small className="dso-none">no calls yet</small>}
     </div>
     <span className="dso-rec"><i style={{ transform: `scaleX(${pod.fill})` }} /></span>
-    <small className="dso-recw">{pod.n ? `${pod.n} closed · ${pod.won}% won · ${sgn(pod.med)}` : 'no closed trades yet'}</small>
+    {tot?.n ? <p className={`dso-total ${tot.usd >= 0 ? 'is-up' : 'is-dn'}`} data-testid={`duo-total-${s.name}`}><small>TOTAL P&L · REAL</small><strong key={tot.usd}>{tot.usd >= 0 ? '+' : '−'}${Math.abs(tot.usd).toFixed(3)}</strong>
+      <span>{tot.n} closed · {Math.round((tot.won / tot.n) * 100)}% won · {tot.pct >= 0 ? '+' : ''}{tot.pct}% summed</span></p>
+      : <small className="dso-recw">{pod.n ? `${pod.n} closed · ${pod.won}% won · ${sgn(pod.med)}` : 'no closed trades yet'}</small>}
     <p className="dso-last">{s.last ? <><b className={`a-${actKey(s.last.action)}`}>{s.last.action}{s.last.symbol ? ` $${s.last.symbol}` : ''}</b> {s.last.why} <small>· {ago(s.last.at)}</small></> : '—'}</p>
   </section>;
 }
@@ -173,7 +175,7 @@ function DuoSeatBody({ duo, call }) {
     <TurnBar duo={duo} />
     <TradeRoom duo={duo} call={call} />
     <div className="dso-arena">
-      <Side s={g4} pod={podOf('G4', duo.rec)} turn={duo.next === 'G4'} busy={duo.busy} side="l" />
+      <Side tot={duo.totals?.G4} s={g4} pod={podOf('G4', duo.rec)} turn={duo.next === 'G4'} busy={duo.busy} side="l" />
       <div className="dso-core" data-testid="duo-open">
         {last ? <i key={`${last.at}-${from}`} className={`dso-beam from-${from} a-${actKey(last.action)}`} aria-hidden="true" /> : null}
         <div className="dso-hex"><i className="dso-ring" aria-hidden="true" />
@@ -184,7 +186,7 @@ function DuoSeatBody({ duo, call }) {
           🧾 {duo.fate.symbol ? `$${duo.fate.symbol}` : 'buy'}: {duo.fate.why} · {ago(duo.fate.at)}</small> : null}
         <small className="dso-agents" title="Minutes neither model answered, so the agents decided the seat">🤝 agents backed up {agentsN}{duo.agents?.n ? ` · ${duo.agents.n} closed, ${duo.agents.won}% won` : ''}</small>
       </div>
-      <Side s={os} pod={podOf('OSSY', duo.rec)} turn={duo.next === 'OSSY'} busy={duo.busy} side="r" />
+      <Side tot={duo.totals?.OSSY} s={os} pod={podOf('OSSY', duo.rec)} turn={duo.next === 'OSSY'} busy={duo.busy} side="r" />
     </div>
     <Think duo={duo} sides={[g4, os]} />
     <ol className="dso-log">{log.slice(0, 8).map((r, i) => <li key={`${r.at}-${i}`} className={`a-${actKey(r.action)} ${r.model === 'OSSY' ? 'by-ossy' : r.model === 'AGENTS' ? 'by-agents' : 'by-g4'}`} style={{ '--i': i }}>
