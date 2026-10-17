@@ -3,6 +3,7 @@
 // from their real calls: answered vs missed, buys, latency, confidence, the open seat, each one's own closed-trade record.
 import React, { useEffect, useState } from 'react';
 import '../../styles/duoSeat.css';
+import { avatarOf } from '../../lib/aiAvatars';
 
 const ago = at => { const s = Math.max(0, Math.round(Date.now() / 1000 - (Number(at) || 0))); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
 const sgn = v => `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`;
@@ -116,7 +117,7 @@ const who = k => (k === 'lan' ? 'G4' : k === 'local' ? 'OSSY' : k);
 function Bubble({ r, onVote, busy }) {
   const v = r.votes; const side = r.mine ? 'is-you' : r.talk ? 'is-partner' : 'is-holder';
   return <li className={`dsb ${side}`}>
-    <span className="dsb-msg"><em>{r.mine ? 'You' : r.model}</em>{!r.mine ? <b className={`a-${String(r.talk ? r.view || '' : r.action).toLowerCase()}`}>{r.talk ? r.view || 'note' : r.action}</b> : null}
+    <span className="dsb-msg">{avatarOf(r.model) && !r.mine ? <img className="dsb-av" src={avatarOf(r.model)} alt="" loading="lazy" /> : null}<em>{r.mine ? 'You' : r.model}</em>{!r.mine ? <b className={`a-${String(r.talk ? r.view || '' : r.action).toLowerCase()}`}>{r.talk ? r.view || 'note' : r.action}</b> : null}
       {r.pct != null ? <i className={r.pct >= 0 ? 'm-pos' : 'm-neg'}>{r.pct >= 0 ? '+' : ''}{Number(r.pct).toFixed(1)}%</i> : null}<span>{String(r.why || '').replace(/^to (G4|OSSY): (HOLD|SELL) — /, '')}</span></span>
     <span className="dsb-meta"><small>{ago(r.at)}</small>
       {v ? <>{!r.mine ? <><button type="button" className={`dsb-v ${v.mine > 0 ? 'on' : ''}`} disabled={busy} onClick={() => onVote(r.key, v.mine > 0 ? 0 : 1)} aria-label="Like this call" data-testid={`dsb-up-${r.key}`}>👍{v.up || ''}</button>

@@ -32,6 +32,7 @@ import '../../styles/cockpitDeck.css';   // last: the one-screen layout (deck, t
 import '../../styles/agentFx.css';   // ⚡ hover sheen · press ring · winner glow · paint containment for scrolling
 import { GermChip } from '../GermBadge';
 import { useRemembered } from '../../lib/remember';
+import { avatarOf } from '../../lib/aiAvatars';
 import { ghostMarkers, rugMark, diamondOf, leagueOf, rideCard } from '../../lib/cockpitPlus';
 import { recentResults } from '../../lib/coachTape';
 import { ShareGifButton } from '../ShareGif';
@@ -339,11 +340,15 @@ function LiveDesk({ duo, matrix, tape, tapeN }) {
 export function chartCalls(rows, mint) {
   const keep = (rows || []).filter(r => r.mint && r.mint === mint && Number(r.cap) > 0).filter((r, i, a) => !i || r.talk || a[i - 1].model !== r.model || a[i - 1].action !== r.action || r.action !== 'HOLD');   // a run of the same HOLD = one pin
   return keep.slice(-8).map((r, i) => ({ id: `${r.at}-${i}`, at: r.at, cap: r.cap, who: r.model, kind: r.talk ? 'talk' : 'ai',
-    action: r.talk ? 'TALK' : r.action, text: r.talk ? `${r.view || ''} — ${r.why || ''}` : r.why, pct: r.pct, icon: r.model === 'OSSY' ? 'OS' : r.model === 'G4' ? 'G4' : undefined }));
+    action: r.talk ? 'TALK' : r.action, text: r.talk ? `${r.view || ''} — ${r.why || ''}` : r.why, pct: r.pct, icon: r.model === 'OSSY' ? 'OS' : r.model === 'G4' ? 'G4' : undefined, img: avatarOf(r.model) || undefined }));
+}
+// 🤖 the ten agents' REAL decisions on this coin (the marker rail) as their own small avatar pins — Agents chart only
+export function agentPins(markers) {
+  return (markers || []).filter(k => Number(k.mc) > 0 && avatarOf(k.agent)).slice(-10).map(k => ({ id: `ag-${k.id}`, at: k.at, cap: k.mc, who: k.agent[0].toUpperCase() + k.agent.slice(1), kind: 'agent', action: String(k.action || '').toUpperCase(), text: k.why, img: avatarOf(k.agent) }));
 }
 
 function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent, tid, call, isOwner, duo }) {
-  const calls = useMemo(() => chartCalls(duo?.chart, m?.mint), [duo?.chart, m?.mint]);
+  const calls = useMemo(() => [...agentPins(markers), ...chartCalls(duo?.chart, m?.mint)], [duo?.chart, m?.mint, markers]);
   const pair = useMemo(() => (m?.pair ? { chainId: 'solana', pairAddress: m.pair, baseToken: { address: m.mint, symbol: m.symbol }, priceUsd: m.price, marketCap: m.mc } : null), [m?.pair, m?.mint, m?.symbol, m?.price, m?.mc]);
   // ✋ YOUR LINES on an agent seat: its stop + take are grabbable on the chart; a drop asks, saves that coin's own TP / SL, Reaper obeys it,
   // and the position is filed as "your hand" so the record shows whether your adjustments helped

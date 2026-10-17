@@ -203,3 +203,10 @@ test('📣 chart callouts: only the models\' calls on THIS coin, newest 3 first'
   expect(chartCalls(rows, 'A').map(r => r.at)).toEqual([1, 4, 5]); expect(chartCalls(rows, 'A')[1]).toMatchObject({ icon: 'OS', action: 'BUY', kind: 'ai' });
   expect(chartCalls(rows, 'A')[2]).toMatchObject({ action: 'TALK', kind: 'talk' }); expect(chartCalls(null, 'A')).toEqual([]);
 });
+
+test('🖼 avatars: OSSY / G4 use the owner\'s pictures, each agent its own GIF, agent pins need a cap', () => {
+  const { avatarOf } = require('../../lib/aiAvatars'); const { agentPins } = require('./AgentCockpit');
+  expect(avatarOf('OSSY')).toMatch(/ossy\.webp$/); expect(avatarOf('lan')).toMatch(/g4\.webp$/); expect(avatarOf('reaper')).toMatch(/reaper\.gif$/); expect(avatarOf('bob')).toBe(null);
+  const p = agentPins([{ id: 1, agent: 'reaper', action: 'hold', mc: 90000, at: 5, why: 'w' }, { id: 2, agent: 'reaper', mc: null, at: 6 }]);
+  expect(p).toHaveLength(1); expect(p[0]).toMatchObject({ who: 'Reaper', cap: 90000, action: 'HOLD', kind: 'agent' });
+});

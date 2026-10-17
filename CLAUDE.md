@@ -4773,3 +4773,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   next minute (`learn.ownerSays`); one that says hold / sell is graded too. Trade room = compact messenger bubbles (`Bubble`, `dsb-*`).
   The holder may also TRIM 25 / 50 / 75% mid-trade (→ the agents' existing scale-out path `agent_trim`), and the AI seat's Reaper report shows
   ONLY its own TP / SL (`aiTp` / `aiSl`, takeSource 'model') — the chart drew the agents' −35% while G4 had set −44%.
+- 🖼 AVATARS (owner, 2026-10-16): `frontend/public/assets/ai-pfp/` — ossy.webp + g4.webp (the owner's own pictures, 96px) and one 64px looping GIF
+  per agent (tally mech · sherlock owl · weather jelly · trigger frog · devil cyber cat · warden shark · courier ghost · reaper reaper-bot ·
+  archivist orb · judge alien; masters in git-ignored ai_pfp_picks/). `lib/aiAvatars.avatarOf(who)` is THE lookup: duo chat bubbles, chart pins
+  (`c.img`). The ten agents' REAL decisions on a coin pin onto the Agents-tab chart only (`agentPins(markers)`, kind 'agent', 18px).

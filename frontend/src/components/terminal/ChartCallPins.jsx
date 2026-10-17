@@ -40,7 +40,7 @@ export function ChartCallPins({ calls, seriesRef, chartRef, container, ratio = 1
     {list.map(c => <button key={c.id} type="button" className={`ccp-pin is-${c.kind || 'user'} ${c.action ? `a-${String(c.action).toLowerCase()}` : ''} ${open === c.id ? 'is-open' : ''}`} data-pin={c.id}
       onMouseEnter={() => setOpen(c.id)} onMouseLeave={() => setOpen(o => (o === c.id ? null : o))} onFocus={() => setOpen(c.id)} onBlur={() => setOpen(o => (o === c.id ? null : o))}
       onClick={() => setOpen(o => (o === c.id ? null : c.id))} aria-label={`${c.who} ${c.action || 'call'}${c.text ? `: ${c.text}` : ''}`} data-testid={`chart-pin-${c.id}`}>
-      <i className="ccp-ico">{c.icon || initials(c.who)}</i>
+      {c.img ? <img className="ccp-img" src={c.img} alt="" loading="lazy" decoding="async" /> : <i className="ccp-ico">{c.icon || initials(c.who)}</i>}
       {open === c.id && card ? <CallCard c={card} nowMc={nowMc} /> : null}
     </button>)}
   </div>;
@@ -50,7 +50,7 @@ function CallCard({ c, nowMc }) {
   const l = calloutLive(c.cap, nowMc);
   const ago = Math.max(0, Math.round((Date.now() / 1000 - Number(c.at)) / 60));
   return <span className={`ccp-card is-${l.tone}`} role="tooltip">
-    <span className="ccp-head"><i>{c.icon || initials(c.who)}</i><b>{c.who}</b><small>{ago < 60 ? `${ago}m` : `${Math.round(ago / 60)}h`}</small>{c.action ? <em className={`ccp-act a-${String(c.action).toLowerCase()}`}>{c.action}</em> : null}</span>
+    <span className="ccp-head">{c.img ? <img className="ccp-himg" src={c.img} alt="" /> : <i>{c.icon || initials(c.who)}</i>}<b>{c.who}</b><small>{ago < 60 ? `${ago}m` : `${Math.round(ago / 60)}h`}</small>{c.action ? <em className={`ccp-act a-${String(c.action).toLowerCase()}`}>{c.action}</em> : null}</span>
     {c.text ? <span className="ccp-text">{c.text}</span> : null}
     <span className="ccp-row"><small>called at</small><b>{capWord(c.cap)} MC</b></span>
     {l.x != null ? <span className="ccp-row"><small>since</small><b className="ccp-x">{xWord(l.x)} · {l.pct >= 0 ? '+' : ''}{l.pct.toFixed(1)}%</b></span> : null}

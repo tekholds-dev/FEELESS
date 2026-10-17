@@ -21,3 +21,6 @@
 @media (prefers-reduced-motion: reduce) { .ccp-card { animation: none; } .ccp-pin { transition: none; } }
 body.theme-day .ccp-card { background: #fff; color: #10301d; border-color: rgba(10, 60, 35, .15); } body.theme-day .ccp-text { color: #10301d; }
 .ccp-pin.is-r .ccp-card { left: auto; right: 26px; } .ccp-pin.is-b .ccp-card { top: auto; bottom: -12px; }
+.ccp-img { display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.ccp-himg { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255, 255, 255, .2); }
+.ccp-pin.is-agent { width: 18px; height: 18px; margin: -9px 0 0 -9px; border-width: 1.5px; }

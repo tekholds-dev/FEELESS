@@ -151,3 +151,4 @@ body.theme-day .dso-turn li { background: rgba(236, 246, 240, .8); } body.theme-
 @media (prefers-reduced-motion: reduce) { .dsb { animation: none; } } body.fx-lite .dsb { animation: none; }
 body.theme-day .dso-room { background: rgba(240, 234, 252, .8); } body.theme-day .dsb-msg { color: #10301d; }
 @media (max-width: 640px) { .dsb { max-width: 92%; } }
+.dsb-av { width: 16px; height: 16px; border-radius: 50%; object-fit: cover; vertical-align: -3px; margin-right: 5px; border: 1px solid rgba(255, 255, 255, .2); }
