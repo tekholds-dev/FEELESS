@@ -13,7 +13,7 @@ export function tradeCard(r, now = Date.now() / 1000) {
   const w = r?.why || {};
   const why = [w.tag ? String(w.tag).replace('🤖 agents · ', '') : null, w.structure, w.rule, w.phase ? `phase ${w.phase}` : null, w.size != null ? `size ×${w.size}` : null].filter(Boolean);
   const b = r?.buy || {};
-  return { key: `${r?.mint}-${r?.at}`, mint: r?.mint, sym: r?.sym || '?', tone, ago: agoWord(r?.at, now), yours: r?.who === 'you',
+  return { key: `${r?.mint}-${r?.at}`, mint: r?.mint, sym: r?.sym || '?', tone, ago: agoWord(r?.at, now), yours: r?.who === 'you', models: r?.who === 'models',
     head: r?.state === 'part' ? '◐ PART SOLD' : r?.open ? '🟢 STILL HELD' : pct == null ? 'SOLD' : `SOLD ${signedPct(pct)}`,
     verdict: r?.open ? (r?.state === 'part' ? 'PART' : 'HELD') : pct == null ? 'SOLD' : pct > 0.5 ? 'WIN' : pct < -0.5 ? 'LOSS' : 'FLAT', pct: pct == null ? null : signedPct(pct),
     held: num(res?.heldMin) == null ? null : num(res.heldMin) < 60 ? `${num(res.heldMin).toFixed(0)}m` : `${(num(res.heldMin) / 60).toFixed(1)}h`,
@@ -33,14 +33,14 @@ export function tradeCard(r, now = Date.now() / 1000) {
 // wins / losses — I don't know if I caught Macca on a win")
 export function recentResults(rows, n = 12) {
   const done = (rows || []).filter(r => !r.open && num(r?.result?.pct) != null).slice(0, n)
-    .map(r => { const pct = num(r.result.pct); return { key: `${r.mint}-${r.at}`, mint: r.mint, sym: r.sym || '?', pct, usd: num(r.result.usd), yours: r.who === 'you', tone: pct > 0.5 ? 'is-up' : pct < -0.5 ? 'is-dn' : 'is-flat' }; });
+    .map(r => { const pct = num(r.result.pct); return { key: `${r.mint}-${r.at}`, mint: r.mint, sym: r.sym || '?', pct, usd: num(r.result.usd), yours: r.who === 'you', models: r.who === 'models', tone: pct > 0.5 ? 'is-up' : pct < -0.5 ? 'is-dn' : 'is-flat' }; });
   const won = done.filter(x => x.tone === 'is-up').length; const lost = done.filter(x => x.tone === 'is-dn').length;
   const usd = done.reduce((a, x) => a + (x.usd || 0), 0);
   // 💵 EARNINGS by who traded: every closed trade on the tape in the last 24h, yours apart from the agents' (realized $, fees apart)
   const day = (rows || []).filter(r => !r.open && num(r?.result?.pct) != null && (!r.at || Date.now() / 1000 - r.at <= 86400));
-  const side = mine => { const xs = day.filter(r => (r.who === 'you') === mine); const u = xs.filter(r => num(r.result.usd) != null);
+  const side = who => { const xs = day.filter(r => (r.who || 'agents') === who); const u = xs.filter(r => num(r.result.usd) != null);
     return { n: xs.length, won: xs.filter(r => num(r.result.pct) > 0.5).length, lost: xs.filter(r => num(r.result.pct) < -0.5).length, usd: u.length ? u.reduce((a, r) => a + num(r.result.usd), 0) : null }; };
-  return { list: done, won, lost, usd: done.some(x => x.usd != null) ? usd : null, you: side(true), agents: side(false) };
+  return { list: done, won, lost, usd: done.some(x => x.usd != null) ? usd : null, you: side('you'), agents: side('agents'), models: side('models') };
 }
 
 // 📸 the entry snapshot as short chips (only what was read)

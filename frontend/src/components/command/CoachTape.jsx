@@ -17,7 +17,7 @@ function Trade({ r, now, on, onPick }) {
   return <li className={`ctp-trade ${c.tone} ${on ? 'is-on' : ''}`} data-testid={`ctp-trade-${c.sym}`}>
     <button type="button" className="ctp-head" onClick={() => c.mint && onPick?.(c.mint)} data-tip="Put this coin on the chart">
       <span className="ctp-id"><b>${c.sym}<CopyCa mint={c.mint} sym={c.sym} testid={`ctp-ca-${c.sym}`} /></b>
-        <small>{c.yours ? <i className="ctp-yours" data-tip="your own pick — the agents only take notes on it">👤 YOURS</i> : <i className="ctp-bot">🤖 AGENTS</i>}{r.replay?.germ != null ? <i className={`ctp-germ ${r.replay.germ >= 0 && r.replay.germ <= 15 ? 'is-on' : ''}`} data-tip={`🦠 at your entry the price sat ${r.replay.germ}% from its germ floor`} data-testid={`ctp-germ-${c.sym}`}>🦠 {r.replay.germ >= 0 ? '+' : ''}{r.replay.germ}%</i> : null}{c.ago} ago</small></span>
+        <small>{c.yours ? <i className="ctp-yours" data-tip="your own pick — the agents only take notes on it">👤 YOURS</i> : c.models ? <i className="ctp-bot is-models" data-tip="OSSY / G4's seat — the model on turn bought it">🔁 OSSY · G4</i> : <i className="ctp-bot">🤖 AGENTS</i>}{r.replay?.germ != null ? <i className={`ctp-germ ${r.replay.germ >= 0 && r.replay.germ <= 15 ? 'is-on' : ''}`} data-tip={`🦠 at your entry the price sat ${r.replay.germ}% from its germ floor`} data-testid={`ctp-germ-${c.sym}`}>🦠 {r.replay.germ >= 0 ? '+' : ''}{r.replay.germ}%</i> : null}{c.ago} ago</small></span>
       <em className={`ctp-verdict is-${c.verdict.toLowerCase()}`} data-testid={`ctp-res-${c.sym}`}><u>{c.verdict}</u>{c.pct ? <b>{c.pct}</b> : null}{c.usd ? <i>{c.usd}</i> : null}</em></button>
     <p className="ctp-facts">{[c.inUsd ? `${c.inUsd} in` : null, c.held ? `held ${c.held}` : null, c.rule].filter(Boolean).map(x => <span key={x}>{x}</span>)}</p>
     {chips.length ? <p className="ctp-snap" data-testid={`ctp-snap-${c.sym}`} data-tip="📸 the market at the entry"><small>📸 ENTRY</small>{chips.map(([ic, t, tone]) => <span key={t} className={tone}>{ic} {t}</span>)}</p> : null}
@@ -39,9 +39,9 @@ function Recent({ rows, onPick }) {
   if (!r.list.length) return null;
   const earn = (k, ic, w) => { const x = r[k]; return x.n ? <span className={`ctp-earn is-${k}`} data-testid={`ctp-earn-${k}`} data-tip={`${w}: ${x.n} closed trades in the last 24h · ${x.won} won · ${x.lost} lost · realized $, fees apart`}>
     <small>{ic} {w.toUpperCase()} · 24H</small><b className={x.usd == null ? '' : x.usd >= 0 ? 'm-pos' : 'm-neg'}>{x.usd == null ? '—' : `${x.usd >= 0 ? '+' : ''}${money2(x.usd)}`}</b><i>{x.won}W {x.lost}L</i></span> : null; };
-  return <div className="ctp-recent" data-testid="ctp-recent">{earn('you', '👤', 'You')}{earn('agents', '🤖', 'Agents')}
-    <span className="ctp-pills">{r.list.map((x, i) => <button key={x.key} type="button" className={`ctp-pill ${x.tone}`} style={{ '--i': i }} onClick={() => onPick?.(x.mint)} data-testid={`ctp-pill-${x.sym}`} data-tip={`${x.yours ? 'your trade' : 'agent trade'} · ${signedPct(x.pct)}${x.usd != null ? ` · ${money2(x.usd)}` : ''} — tap for its chart`}>
-      {x.tone === 'is-up' ? '✓' : x.tone === 'is-dn' ? '✕' : '·'} ${x.sym} <b>{signedPct(x.pct)}</b>{x.yours ? <i>👤</i> : null}</button>)}</span></div>;
+  return <div className="ctp-recent" data-testid="ctp-recent">{earn('you', '👤', 'You')}{earn('agents', '🤖', 'Agents')}{earn('models', '🔁', 'OSSY · G4')}
+    <span className="ctp-pills">{r.list.map((x, i) => <button key={x.key} type="button" className={`ctp-pill ${x.tone}`} style={{ '--i': i }} onClick={() => onPick?.(x.mint)} data-testid={`ctp-pill-${x.sym}`} data-tip={`${x.yours ? 'your trade' : x.models ? 'OSSY / G4 trade' : 'agent trade'} · ${signedPct(x.pct)}${x.usd != null ? ` · ${money2(x.usd)}` : ''} — tap for its chart`}>
+      {x.tone === 'is-up' ? '✓' : x.tone === 'is-dn' ? '✕' : '·'} ${x.sym} <b>{signedPct(x.pct)}</b>{x.yours ? <i>👤</i> : x.models ? <i>🔁</i> : null}</button>)}</span></div>;
 }
 
 // 🎬 YOUR trade, replayed: the % path from entry, a dashed line at every % the agents would have sold at, your exit dot. SVG, drawn once.

@@ -272,7 +272,7 @@ def trade_tape(ledger, positions, reviews=None, ai_log=None, card=None, n=60):
         ai = next((a for a in sorted(ai_log or [], key=lambda a: abs(_f(a.get('at')) - t)) if a.get('mint') == m and abs(_f(a.get('at')) - t) <= 1800), None)
         mid, px = _f(b.get('midPx')), _f(b.get('px'))
         th = (p or {}).get('thesis') or {}
-        row = {'mint': m, 'sym': b.get('symbol'), 'at': t, 'who': 'agents' if b.get('agent') else 'you',
+        row = {'mint': m, 'sym': b.get('symbol'), 'at': t, 'who': 'models' if (b.get('aiSeat') or (p or {}).get('g4')) else 'agents' if b.get('agent') else 'you',   # 🔁 an OSSY / G4 buy is flagged `picked` (your pick limits) — never call it yours
                'buy': {'usd': _f(b.get('usd')) or None, 'px': px or None, 'mid': mid or None, 'slipPct': round((px / mid - 1) * 100, 2) if px > 0 and mid > 0 else None,
                        'landSec': b.get('landSec'), 'impactPct': b.get('impactPct'), 'sig': b.get('sig'), 'why': b.get('why'),
                        # decided → sent: the thesis is written the moment the fill was allowed; the keeper's send is stamped on the row

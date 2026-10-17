@@ -35,3 +35,11 @@ test('call → fill meters, a rule grade chip and the exit-line replay read from
   const c = tc({ mint: 'm', sym: 'A', at: 1, buy: { usd: 1, waitSec: 70, landSec: 20 }, open: true }, 100);
   expect(c.buy).toContain('sent 70s after the call'); expect(c.slow).toBe(true);
 });
+
+test('OSSY / G4 trades are never counted as yours', () => {
+  const { recentResults } = require('./coachTape');
+  const now = Date.now() / 1000;
+  const r = recentResults([{ mint: 'a', who: 'models', at: now, result: { pct: 6, usd: 0.01 } }, { mint: 'b', who: 'you', at: now, result: { pct: -2, usd: -0.01 } }]);
+  expect(r.models.n).toBe(1); expect(r.you.n).toBe(1); expect(r.agents.n).toBe(0);
+  expect(r.list.find(x => x.mint === 'a').yours).toBe(false);
+});

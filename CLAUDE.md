@@ -4857,3 +4857,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🚀 RUNNERS RIDE (owner, 2026-10-17, $SEXCOIN banked at the model's +15% after he said HOLD, then "up 39% OSSY sold"): `ai_seat.TP_MIN` 25 (a model
   take under +25% is raised); your ✋ Hold now also holds the take lines (R6 / R6m out of `HINT_HARD`); `line_hold`: a model SELL at +20%+ with the
   chart unbroken becomes TRIM 33% (skim), the rest rides — a lower low / germ lost / downtrend still lets it sell whole.
+- 🔁 OSSY / G4 TRADES ARE NEVER "YOURS" (owner, 2026-10-17: "sex and chinese coin aren't mine"): a model's seat buys on YOUR pick limits, so its order
+  carried `picked` and the trade tape (`coach.trade_tape` who) read it as yours. Orders now carry `aiSeat` → ledger; tape `who` = models (also
+  for old rows via the archive's `g4`); Trades tab chip 🔁 OSSY · G4 + its own earnings tile; `recentResults` splits you · agents · models.
+  The owner study / germ record already read the archive's `pick` (model legs are never picked) — unaffected.

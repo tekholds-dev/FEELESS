@@ -138,3 +138,4 @@ body.theme-day .ctp-germ { color: #6a3fc0; } body.theme-day .ctp-germrec b { col
 .ctp-earn { flex: none; display: grid; gap: 1px; padding: 3px 10px; border-radius: 8px; border: 1px solid var(--m-line); background: rgba(255, 255, 255, .03); }
 .ctp-earn small { font: 800 8px var(--m-mono); letter-spacing: .12em; color: var(--m-mute); } .ctp-earn b { font: 900 16px/1.1 var(--m-mono); } .ctp-earn i { font: 700 9px var(--m-mono); font-style: normal; color: var(--m-mute); }
 .ctp-earn.is-you { border-color: rgba(245, 196, 81, .45); background: rgba(245, 196, 81, .07); } .ctp-earn.is-agents { border-color: rgba(94, 200, 255, .35); }
+.ctp-bot.is-models { border-color: rgba(180, 140, 255, .5); color: #d8c2ff; } .ctp-earn.is-models { border-color: rgba(180, 140, 255, .4); }

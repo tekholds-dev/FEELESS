@@ -91,7 +91,7 @@ def target(card, prices):
     out = {}
     for l in card.get('legs') or []:
         px = _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
-        t = out.setdefault(l['mint'], {'units': 0.0, 'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'px': px, 'role': l.get('role'), 'arena': bool(l.get('arena')), 'trench': bool(l.get('trench')), 'picked': bool(l.get('picked') or l.get('aiSeat')), 'curve': bool(l.get('curve')), 'agent': agent_seat(l) and not l.get('aiSeat'),   # 🔁 OSSY / G4's seat is bought on YOUR pick limits (their call), not the agents' tighter ones
+        t = out.setdefault(l['mint'], {'units': 0.0, 'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'px': px, 'role': l.get('role'), 'arena': bool(l.get('arena')), 'trench': bool(l.get('trench')), 'picked': bool(l.get('picked') or l.get('aiSeat')), 'curve': bool(l.get('curve')), 'agent': agent_seat(l) and not l.get('aiSeat'), 'aiSeat': bool(l.get('aiSeat')),   # 🔁 OSSY / G4's seat is bought on YOUR pick limits (their call), not the agents' tighter ones
                                        'trim': bool(l.get('trimAt')) and _f(l.get('trimAt')) > 0, 'trimAt': _f(l.get('trimAt')),
                                        'manualCash': bool(l.get('manualCash')), 'locked': bool(l.get('ride') or l.get('frozen') or (l.get('ticket') and not agent_seat(l)) or l.get('scout') or l.get('house') or l.get('scaled') or l.get('picked'))})   # ✋ your pick is never topped up by the sweep   # 🎟 a small ticket (scout / trench drop / young hand pick) is never topped up to a full seat
         t['units'] += _f(l.get('units')) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)   # a coin whose buy hasn't landed is still WANTED
@@ -311,7 +311,7 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
         buys.append({'id': f"{card_id}:{now:.0f}:b:{mint[:6]}", 'card': card_id, 'side': 'buy', 'mint': mint, 'pair': t['pair'], 'symbol': t['symbol'],
                      'lamports': int(usd / sol_px * 1e9), 'usd': round(usd, 4), 'midPx': t['px'], 'at': now, 'why': 'card buys its coin',
                      **({'rentDeposit': rent} if rent else {}),
-                     **({'arena': True} if t.get('arena') else {}), **({'trench': True} if t.get('trench') else {}), **({'picked': True} if t.get('picked') else {}), **({'curve': True} if t.get('curve') else {}), **({'agent': True} if t.get('agent') else {})})
+                     **({'arena': True} if t.get('arena') else {}), **({'trench': True} if t.get('trench') else {}), **({'picked': True} if t.get('picked') else {}), **({'curve': True} if t.get('curve') else {}), **({'agent': True} if t.get('agent') else {}), **({'aiSeat': True} if t.get('aiSeat') else {})})
     if card.get('holdBy') == 'proof':   # 🧪 proof-gate hold: sells (stops, rug shield, profit takes) go out — no buy does
         buys = []
     sweep = idle_sweep(card_id, card, book, tgt, sol_free, sol_px, cfg, now) if not sells and not buys else None
@@ -399,7 +399,7 @@ def idle_sweep(card_id, card, book, tgt, sol_free, sol_px, cfg, now):
         return None
     return {'id': f"{card_id}:{now:.0f}:b:{mint[:6]}", 'card': card_id, 'side': 'buy', 'mint': mint, 'pair': t['pair'], 'symbol': t['symbol'],
             'lamports': int(usd / sol_px * 1e9), 'usd': round(usd, 4), 'midPx': t['px'], 'at': now, 'why': 'idle card cash back into its coin',
-            **({'arena': True} if t.get('arena') else {}), **({'trench': True} if t.get('trench') else {}), **({'picked': True} if t.get('picked') else {}), **({'curve': True} if t.get('curve') else {}), **({'agent': True} if t.get('agent') else {})}
+            **({'arena': True} if t.get('arena') else {}), **({'trench': True} if t.get('trench') else {}), **({'picked': True} if t.get('picked') else {}), **({'curve': True} if t.get('curve') else {}), **({'agent': True} if t.get('agent') else {}), **({'aiSeat': True} if t.get('aiSeat') else {})}
 
 
 def spent_24h(ledger, now):
