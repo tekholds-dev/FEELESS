@@ -820,7 +820,8 @@ def fee_prompt(name='OSSY'):
     """🎙 The FEE prompt as served: docs/lm_fee_prompt.txt + "WHAT FEELESS KNOWS RIGHT NOW" rebuilt from the AI memory + the owner study
     (fee_voice.living) — every install / hourly re-pull / local rewrite carries what FEELESS learned since the last one."""
     try:
-        base = (ROOT.parent / 'docs' / 'lm_fee_prompt.txt').read_text().replace('{NAME}', name)
+        import fee_voice as _fv0
+        base = (ROOT.parent / 'docs' / 'lm_fee_prompt.txt').read_text().replace('{PERSONA}', _fv0.persona(name)).replace('{NAME}', name)   # 🎭 OSSY laid back · G4 Corleone · the owner is the Godfather
     except OSError:
         return None
     try:

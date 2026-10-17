@@ -56,7 +56,7 @@ def test_owner_chat_words_become_lines():
 
 def test_holding_packet_is_slim_and_owner_first():
     pk = seat.packet([{'mint': 'X', 'symbol': 'X'}] * 5, {'symbol': 'H'}, learn={'ownerSays': 'tp 80', 'confidence': 'c', 'ownerStudy': ['long'], 'byModel': {}})
-    assert list(pk)[0] == 'OWNER' and 'candidates' not in pk and set(pk['learn']) == {'confidence'}
+    assert list(pk)[0] == 'OWNER' and 'candidates' not in pk and set(pk['pastLessons']) == {'confidence'}
     assert 'candidates' in seat.packet([{'mint': 'X'}], None)
 
 
@@ -113,16 +113,16 @@ def test_desktop_runs_two_parallel_slots():
 
 def test_both_models_get_the_voice_and_respect_the_boss():
     for n in ('SYSTEM', 'ADVISE', 'IDLE'):
-        assert 'THE BOSS' in getattr(seat, n) and 'witty' in getattr(seat, n)
+        assert 'THE GODFATHER' in getattr(seat, n) and 'witty' in getattr(seat, n)
     import fee_voice
-    assert 'THE BOSS' in fee_voice.PERSONA
+    assert 'THE GODFATHER' in fee_voice.PERSONA
 
 
 def test_snapshot_and_final_review():
     line = seat.snapshot_line({'pct': 12.3, 'peak': 20, 'heldMin': 14, 'yourTp': 40}, {'state': 'UPTREND', 'germDist': 4.2, 'hl': 3, 'll': 0}, 'PROTECT · R7', 'BUYERS')
     assert line.startswith('📸 5-min snapshot · +12.3%') and '3 HL / 0 LL' in line and 'Reaper PROTECT' in line
     assert seat.review_parse('{"grade":"b","why":"held the base","lesson":"trail wider on HH/HL"}') == {'grade': 'B', 'why': 'held the base', 'lesson': 'trail wider on HH/HL'}
-    assert seat.review_parse('{"grade":"great"}') is None and 'THE BOSS' in seat.REVIEW and seat.SNAP_EVERY == 300
+    assert seat.review_parse('{"grade":"great"}') is None and 'THE GODFATHER' in seat.REVIEW and seat.SNAP_EVERY == 300
 
 
 def test_every_card_coin_has_a_room_with_the_agents_and_reaper(monkeypatch):

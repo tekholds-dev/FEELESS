@@ -16,13 +16,15 @@ export function thinPins(calls, ivSec) {
   (calls || []).forEach(c => { const t = pinPlace(c, ivSec); if (t == null) return; const g = by.get(t) || []; if (!g.some(x => x.who === c.who)) g.push(c); by.set(t, g); });
   const out = [];
   by.forEach(g => { const pri = c => (c.kind === 'agent' ? 1 : 0); const keep = [...g].sort((a, b) => pri(a) - pri(b) || Number(b.at) - Number(a.at)).slice(0, PER_CANDLE);
-    const more = g.length - keep.length; keep.forEach((c, i) => out.push(i === keep.length - 1 && more > 0 ? { ...c, more } : c)); });
+    const rest = g.filter(c => !keep.includes(c)); const more = rest.length;
+    keep.forEach((c, i) => out.push(i === keep.length - 1 && more > 0 ? { ...c, more, folded: rest.sort((a, b) => Number(b.at) - Number(a.at)).slice(0, 6) } : c)); });   // 📜 the folded comments stay readable in the card
   return out.sort((a, b) => Number(a.at) - Number(b.at));
 }
 
+export const MAX_PINS = 60;   // 📜 the whole comment history the chart was handed (≤ 60, folded per candle) — owner: "full comment bubble history"
 export function ChartCallPins({ calls, seriesRef, chartRef, container, ratio = 1, mcChart = true, ivSec = 60, nowMc }) {
   const host = useRef(null); const [open, setOpen] = useState(null);
-  const list = thinPins((calls || []).filter(c => c && Number(c.cap) > 0 && Number(c.at) > 0), ivSec).slice(-12);
+  const list = thinPins((calls || []).filter(c => c && Number(c.cap) > 0 && Number(c.at) > 0), ivSec).slice(-MAX_PINS);
   const key = list.map(c => `${c.id}:${c.cap}`).join('|');
   useEffect(() => {
     const root = host.current; if (!root || !list.length) return undefined;
@@ -76,6 +78,8 @@ function CallCard({ c, nowMc }) {
     {c.text ? <span className="ccp-text">{c.text}</span> : null}
     <span className="ccp-row"><small>called at</small><b>{capWord(c.cap)} MC</b></span>
     {l.x != null ? <span className="ccp-row"><small>since</small><b className="ccp-x">{xWord(l.x)} · {l.pct >= 0 ? '+' : ''}{l.pct.toFixed(1)}%</b></span> : null}
+    {c.rep > 1 ? <span className="ccp-row"><small>said it</small><b>×{c.rep} in a row</b></span> : null}
+    {(c.folded || []).map(f => <span key={f.id} className="ccp-fold"><b>{f.who}</b>{f.action ? <em className={`ccp-act a-${String(f.action).toLowerCase()}`}>{f.action}</em> : null}<small>{String(f.text || '').slice(0, 90)}</small></span>)}
     {c.pct != null ? <span className="ccp-row"><small>their seat</small><b className={c.pct >= 0 ? 'm-pos' : 'm-neg'}>{c.pct >= 0 ? '+' : ''}{Number(c.pct).toFixed(1)}%</b></span> : null}
   </span>;
 }

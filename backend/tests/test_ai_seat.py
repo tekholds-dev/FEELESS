@@ -195,3 +195,13 @@ def test_the_holder_can_trim_part_of_its_trade():
     d = seat.parse('{"action":"TRIM","pct":40,"why":"bank some","sl":20}', [], True)
     assert d['action'] == 'TRIM' and d['trim'] == 50 and d['sl'] == 20.0
     assert seat.parse('{"action":"TRIM","pct":80}', [], False)['action'] == 'WAIT'   # nothing held = nothing to trim
+
+
+def test_each_model_talks_in_its_own_voice_and_only_about_the_trade_it_holds():
+    import ai_seat as seat
+    assert 'OSSY' in seat.sys_for(seat.SYSTEM, 'local') and 'laid back' in seat.sys_for(seat.SYSTEM, 'local')
+    assert 'Corleone' in seat.sys_for(seat.ADVISE, 'lan') and 'GODFATHER' in seat.sys_for(seat.ADVISE, 'lan')
+    pk = seat.packet([], {'symbol': 'MAKERS', 'pct': 20}, partner={'model': 'G4', 'action': 'SELL', 'symbol': 'QUID', 'why': 'QUID ran'},
+                     learn={'ownerHoldWins': 'boss held $QUID +15%'})
+    assert '$MAKERS' in pk['NOW'] and 'pastLessons' in pk and 'learn' not in pk
+    assert 'why' not in pk['partner']   # the partner's words on ANOTHER coin never sit beside this trade

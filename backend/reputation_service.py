@@ -6456,6 +6456,7 @@ async def _runner_start():
         asyncio.create_task(_fuse_warm_loop())
         asyncio.create_task(_agents_loop())
         asyncio.create_task(_ai_loop())
+        asyncio.create_task(_g4_loop())
         asyncio.create_task(_prime_warm())
         asyncio.create_task(_prime_bell_loop())
         asyncio.create_task(_real_guard_loop())
@@ -13982,7 +13983,7 @@ async def _g4_review(now, env, cfg, st_, lv_, mode_):
         trade_ = {'coin': lv_.get('sym'), 'result': res_, 'resultSource': 'confirmed sale' if pos_ and pos_.get('realPct') is not None else 'last price seen', 'peak': lv_.get('peak'),
                   'heldMin': lv_.get('heldMin'), 'exitRule': (pos_ or {}).get('rule'), 'calls': calls_}
         who_ = lv_.get('by') if lv_.get('by') in (_duet.LEAD, _duet.SECOND) else _duet.LEAD
-        r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Review your closed trade.', context={'TRADE': trade_}, role='exit', urgency='force', only=(who_,), system=_seat.REVIEW, only_system=True)
+        r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Review your closed trade.', context={'TRADE': trade_}, role='exit', urgency='force', only=(who_,), system=_seat.sys_for(_seat.REVIEW, who_), only_system=True)
         rv_ = _seat.review_parse(r_.get('text'))
         if not rv_:
             return
@@ -14132,7 +14133,7 @@ async def _g4_tick(now, env, cfg):
         _g4['live'] = {'by': _air.model_name(env, first_), 'at': now, 'pick': (pick_ or {}).get('symbol'), 'held': held_,
                        'cands': [{k_: r_c.get(k_) for k_ in ('symbol', 'status', 'trigger', 'move5m', 'buyers', 'germ', 'pool', 'cap', 'ageMin', 'rank')} for r_c in rows_[:6]]}   # 👁 what the deciding model is reading, live
         t0_ = time.perf_counter()
-        r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Your minute snapshot. Decide.', context=pk_, role='exit', urgency='seat', only=(first_,), system=_seat.SYSTEM, only_system=True)   # 🔁 a held trade is ONLY its holder's call (the partner standing in made OSSY post HOLDs on G4's $MOMO); hunting, the partner may answer for a missed minute   # 🔁 the holder runs its trade; when it misses a minute (call cap / timeout) the partner stands in — the trade stays the holder's (leg aiBy)
+        r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Your minute snapshot. Decide.', context=pk_, role='exit', urgency='seat', only=(first_,), system=_seat.sys_for(_seat.SYSTEM, first_), only_system=True)   # 🔁 a held trade is ONLY its holder's call (the partner standing in made OSSY post HOLDs on G4's $MOMO); hunting, the partner may answer for a missed minute   # 🔁 the holder runs its trade; when it misses a minute (call cap / timeout) the partner stands in — the trade stays the holder's (leg aiBy)
         by_m = r_.get('source') if r_.get('source') in (first_, second_) else first_
         dec_ = _seat.parse(r_.get('text'), [c_['mint'] for c_ in cands_], bool(held_), {c_.get('symbol'): c_['mint'] for c_ in cands_ if c_.get('symbol')})
         dec_ = _seat.cook(dec_, {**(held_ or {}), 'sl': (leg_ or {}).get('aiSl')}) if held_ else dec_
@@ -14145,13 +14146,14 @@ async def _g4_tick(now, env, cfg):
             miss_ = str(r_.get('why') or '; '.join(f'{a_} {b_}' for a_, b_ in (r_.get('tried') or [])) or ('unreadable: ' + str(r_.get('text') or '')[:60]) or 'no answer')[:120]
             dec_, by_m = _seat.backup(rows_, bool(held_)), 'agents'
         by_ = {c_['mint']: c_ for c_ in cands_}
-        ev_ = None
+        ev_, want_ = None, None
         if dec_ and mode_ == 'paper':
             book_, ev_ = _seat.paper_step(book_, dec_, by_, px_of, now, by_m)
         if dec_ and mode_ == 'real' and held_ and leg_ and (dec_.get('tp') or dec_.get('sl') or dec_.get('trail')) and by_m != 'agents':   # 🎯 the holder sets its own lines on its own trade
             _g4['set'] = {'pair': leg_.get('pairAddress'), 'tp': dec_.get('tp'), 'sl': dec_.get('sl'), 'trail': dec_.get('trail'), 'at': time.time(), 'by': _air.model_name(env, by_m)}
         elif dec_ and mode_ == 'real' and dec_['action'] in ('BUY', 'SELL', 'TRIM'):
-            _g4['want'] = {**dec_, 'by': by_m, 'model': 'AGENTS' if by_m == 'agents' else _air.model_name(env, by_m), 'thinkAt': now, 'symbol': (by_.get(dec_['mint']) or {}).get('symbol') if dec_['action'] == 'BUY' else (leg_ or {}).get('symbol'), 'at': time.time(), 'pair': (by_.get(dec_['mint']) or {}).get('pair') if dec_['action'] == 'BUY' else (leg_ or {}).get('pairAddress')}   # ⏱ fresh from the ANSWER (a 30–90s think read as stale)
+            want_ = {**dec_, 'by': by_m, 'model': 'AGENTS' if by_m == 'agents' else _air.model_name(env, by_m), 'thinkAt': now, 'symbol': (by_.get(dec_['mint']) or {}).get('symbol') if dec_['action'] == 'BUY' else (leg_ or {}).get('symbol'), 'at': time.time(), 'pair': (by_.get(dec_['mint']) or {}).get('pair') if dec_['action'] == 'BUY' else (leg_ or {}).get('pairAddress')}   # ⏱ fresh from the ANSWER (a 30–90s think read as stale)
+        propose_ = f"{dec_['action']}{(' ' + str(dec_.get('pct') or '') + '%') if dec_['action'] == 'TRIM' else ''} ${(held_ or {}).get('symbol')} — {str(dec_.get('why') or '')[:120]}" if (mode_ == 'real' and held_ and want_ and want_['action'] in ('SELL', 'TRIM') and by_m != 'agents') else None   # 🤝 a real move waits for the partner's word (line moves never wait)
         focus_ = by_.get((dec_ or {}).get('mint')) if (dec_ or {}).get('action') == 'BUY' else None
         row_ = {'at': round(now), 'mode': mode_, 'model': 'AGENTS' if by_m == 'agents' else _air.model_name(env, by_m), 'by': by_m if dec_ else None, 'ms': ms_, 'miss': miss_,
                 'action': (dec_ or {}).get('action') or 'NO ANSWER', 'why': (dec_ or {}).get('why') or str(r_.get('why') or 'the model did not answer')[:160],
@@ -14185,11 +14187,11 @@ async def _g4_tick(now, env, cfg):
         if row_.get('mint') and dec_ and by_m in (first_, second_):
             _dv_note(row_, px_of(row_['mint']), now)
         talk_at = st_.get('talkAt') or 0.0
-        if held_ and now - talk_at >= _seat.TALK_EVERY:   # 💬 the partner reads the SAME trade and advises; the holder sees it next minute (it never decides)
+        if propose_ or (held_ and now - talk_at >= _seat.TALK_EVERY):   # 🤝 a SELL / TRIM of the held trade waits for the partner's word (≤ ADVISE_SEC); otherwise   # 💬 the partner reads the SAME trade and advises; the holder sees it next minute (it never decides)
             talk_at = now
             try:
                 t0b = time.perf_counter()
-                ra_ = await asyncio.wait_for(_air.ROUTER.ask(_ai_http(), env, cfg, 'Advise on your partner\'s open trade.', context={**pk_, 'holder': _air.model_name(env, first_)}, role='exit', urgency='force', only=(second_,), system=_seat.ADVISE, only_system=True), timeout=ADVISE_SEC)
+                ra_ = await asyncio.wait_for(_air.ROUTER.ask(_ai_http(), env, cfg, 'Advise on your partner\'s open trade.', context={**pk_, 'holder': _air.model_name(env, first_), **({'HOLDERPROPOSES': propose_} if propose_ else {})}, role='exit', urgency='seat' if propose_ else 'force', only=(second_,), system=_seat.sys_for(_seat.ADVISE, second_), only_system=True), timeout=ADVISE_SEC)
                 da_ = _seat.parse(ra_.get('text'), [], True)
                 oth_ = _seat._sym_in((da_ or {}).get('why'), {l_.get('symbol'): l_.get('mint') for l_ in _duo_card_legs() if l_.get('symbol')}) if da_ else None
                 if da_ and oth_ and oth_ != held_m:   # 💬 the advice is about ANOTHER coin on the card ($ELON on the $Kimchi trade) → it goes to that coin's own room, never the holder's chat
@@ -14212,6 +14214,8 @@ async def _g4_tick(now, env, cfg):
                         _dv_mem.put(sv_, now)
             except Exception as e_t:
                 print('g4 talk:', str(e_t)[:100])
+        if want_:   # the move goes out AFTER the partner spoke (its word is in the chat; the holder still decides)
+            _g4['want'] = {**want_, 'at': time.time()}
         if not held_ and mode_ == 'real' and now - _fuse._f(st_.get('idleAt')) >= _seat.IDLE_EVERY:   # 💬 between trades the two still talk: the waiting model reads the card's coins and says what it would do
             _g4_mem.put({**(_g4_mem.get() or {}), 'log': _seat.merge_log(log_, (_g4_mem.get() or {}).get('log'))}, now)
             await _g4_idle(now, env, cfg, {**st_, 'log': log_}, [l for l in card_.get('legs') or [] if not l.get('placeholder') and _fuse._f(l.get('units')) > 0 and l.get('mint') != _fw.SOL_MINT], mode_, who=second_)   # the one NOT hunting talks
@@ -14254,7 +14258,7 @@ async def _g4_idle(now, env, cfg, st_, legs_, mode_, who=None):
             return
         t0_ = time.perf_counter()
         r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Seats are full. Comment on one trade.', context={'CARD': rows_, 'learn': {'confidence': _dv.words(_dv_mem.get() or {}, who_)}, 'ownerSays': [f"${r_.get('symbol')}: {str(r_.get('why') or '')[:140]}" for r_ in (st_.get('log') or [])[-60:] if r_.get('by') == 'owner' and r_.get('coinTalk') and now - _fuse._f(r_.get('at')) < 1800][-3:]},   # 👤 your lines in a coin's room
-                                   role='exit', urgency='force', only=(who_,), system=_seat.IDLE, only_system=True)
+                                   role='exit', urgency='force', only=(who_,), system=_seat.sys_for(_seat.IDLE, who_), only_system=True)
         d_ = _seat.idle_parse(r_.get('text'), syms_)
         if not d_:
             return
@@ -14358,7 +14362,6 @@ async def _ai_round(now):
     asyncio.ensure_future(_local_lane_run(now))   # 💻 the local model's own lane (its own task: a 15–30s inference never holds this round)
     await _ai_learn_settle(now)   # 🧠 the model's earlier stances are judged against what the coin did (no model call)
     await _lab_tick(now, env, cfg)   # 🧪 the rule lab: the record re-judges every rule; at most once an hour the model proposes new ones
-    asyncio.ensure_future(_g4_tick(now, env, cfg))   # 🧠 G4's own seat: one snapshot thought a minute (its own task — a slow answer never holds this round)
     asyncio.ensure_future(_feecat_duo_safe(now, env, cfg))   # 🐱🤝 its own task: a stuck desktop model never holds the round (OSSY's minute waited behind it)   # FeeCat's one duo read per 10 min (both models must agree before she acts on it)
     await _coach_ai(now, env, cfg)   # 👑 at most every 15 min: the model reads the last real trades and may instruct the agents (bounded, coach.py)
     jobs = _ai_jobs(now)
@@ -14581,6 +14584,25 @@ def _ai_pause(round_sec):
     """Seconds to wait before the next advisory round: AI_EVERY, or longer when the last round kept the model busy (a 60s round on
     a loaded Mac → 60s off). A cloud provider answering in a second keeps the normal pace."""
     return max(AI_EVERY, _fuse._f(round_sec) * (1 - AI_DUTY) / AI_DUTY)
+
+
+G4_LOOP_SEC = 5.0   # 🔁 the duo's own clock: checked every 5s, one decision a minute (_seat.EVERY_SEC)
+
+
+async def _g4_loop():
+    """🔁 OSSY × G4 on THEIR OWN clock (2026-10-17: the minute only ran when the whole advisory round looped — rounds of 2+ min with
+    the background reads, so OSSY went quiet for minutes). The trade chat comes first; the advisory round never holds it."""
+    await asyncio.sleep(25)
+    while True:
+        try:
+            now = time.time()
+            if (not _g4['busy'] or now - _fuse._f(_g4.get('at')) >= G4_STUCK_SEC) and _seat.due(_g4['at'], now):
+                env, cfg = os.environ, _ai_cfg()
+                if any(not r_['why'] and r_['enabled'] for r_ in (_air.provider(env, k_, cfg) for k_ in (_duet.LEAD, _duet.SECOND))):
+                    asyncio.ensure_future(_g4_tick(now, env, cfg))   # its own task: the 5s clock keeps running (a stuck tick is let go inside after 4 min)
+        except Exception as e:
+            print('g4 loop:', type(e).__name__, str(e)[:80])
+        await asyncio.sleep(G4_LOOP_SEC)
 
 
 async def _ai_loop():
@@ -18369,12 +18391,30 @@ def _duo_coin_rooms(log, ai_mint):
     return sorted(out, key=lambda r: -r['last'])
 
 
-def _duo_chart_rows(log, per=8):
-    """📣 the newest `per` model / owner / Reaper lines PER COIN (the chart of any coin shows its own talk; one global 24 left most coins bare)."""
-    out, n = [], {}
+DUO_PIN_PER, DUO_PIN_CARD = 8, 60   # 📣 chart comments kept per coin: 8 for coins off the card, the WHOLE history (≤ 60) for coins on it
+_duo_cap_seen: dict = {}            # a line written without a cap keeps the cap of the moment it was first shown (never today's cap on an old pin)
+
+
+def _duo_pin_cap(r):
+    c = (r.get('vitals') or {}).get('cap') or r.get('cap')
+    if c or not r.get('mint'):
+        return c
+    k = f"{r.get('at')}|{r.get('model')}|{r.get('mint')}"
+    if k not in _duo_cap_seen:
+        if len(_duo_cap_seen) > 4000:
+            for k0 in list(_duo_cap_seen)[:1000]:
+                _duo_cap_seen.pop(k0, None)
+        _duo_cap_seen[k] = _duo_cap(r.get('mint'))
+    return _duo_cap_seen[k]
+
+
+def _duo_chart_rows(log, per=DUO_PIN_PER, card=None):
+    """📣 model / owner / Reaper lines PER COIN (the chart of any coin shows its own talk): every line kept in the log for a coin on the card
+    (owner, 2026-10-17: "full comment bubble history should show on chart"), the newest `per` for the rest."""
+    out, n, card = [], {}, set(card or ())
     for r in reversed((log or [])[-400:]):
         m = r.get('mint')
-        if m and r.get('action') in ('BUY', 'SELL', 'TALK', 'HOLD', 'TRIM', 'LINES') and n.get(m, 0) < per:
+        if m and r.get('action') in ('BUY', 'SELL', 'TALK', 'HOLD', 'TRIM', 'LINES') and n.get(m, 0) < (DUO_PIN_CARD if m in card else per):
             n[m] = n.get(m, 0) + 1
             out.append(r)
     return out[::-1]
@@ -18412,8 +18452,8 @@ def _duo_view(env=None):
                 'open': (st_['book'] or {}).get('open'),
                 'agents': _seat.by_model((st_['book'] or {}).get('closed')).get('agents'), 'fate': _g4.get('fate'), 'live': _g4.get('live'),
                 'log': [{k: r.get(k) for k in ('at', 'model', 'action', 'symbol', 'why', 'conf', 'pct', 'ms', 'miss')} for r in st_['log'][-30:][::-1]],
-                'chart': [{'at': r.get('at'), 'model': r.get('model'), 'mint': r.get('mint'), 'sym': r.get('symbol'), 'action': r.get('action'), 'view': r.get('view'), 'talk': bool(r.get('talk')), 'why': str(r.get('why') or '')[:120],
-                           'pct': r.get('pct'), 'cap': (r.get('vitals') or {}).get('cap') or r.get('cap') or _duo_cap(r.get('mint'))} for r in _duo_chart_rows(st_['log'])]}   # 📣 what the models said about each coin → bubbles on the Agents chart
+                'chart': [{'at': r.get('at'), 'model': r.get('model'), 'mint': r.get('mint'), 'sym': r.get('symbol'), 'action': r.get('action'), 'view': r.get('view'), 'talk': bool(r.get('talk')), 'why': str(r.get('why') or '')[:110],
+                           'pct': r.get('pct'), 'cap': _duo_pin_cap(r)} for r in _duo_chart_rows(st_['log'], card={l_.get('mint') for l_ in _duo_card_legs()})]}   # 📣 what the models said about each coin → bubbles on the Agents chart
     except Exception as e:
         return {'mode': 'off', 'err': str(e)[:80]}
 

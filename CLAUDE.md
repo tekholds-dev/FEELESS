@@ -4927,3 +4927,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🧯 A stuck desktop model never stops OSSY: FeeCat's duo read runs as its own task (`_feecat_duo_safe`, ≤ 200s), the partner's advice waits
   ≤ `ADVISE_SEC` 45s, and a `_g4_tick` busy > `G4_STUCK_SEC` 4 min is let go. 2026-10-17: G4's hung desktop (150s timeouts) held the whole AI
   round inside `_feecat_duo` → OSSY's minute never ran for 13 min. "A MODEL WENT QUIET" ⇒ check the other model is not holding the round.
+- 🔁 OSSY × G4 ON THEIR OWN CLOCK (`_g4_loop`, `G4_LOOP_SEC` 5, one decision a minute): the duo minute used to fire only when the whole advisory
+  round looped (2+ min rounds) — that was "OSSY went quiet". 🤝 A SELL / TRIM of the held trade WAITS for the partner's word first
+  (`HOLDERPROPOSES` in the advice context, urgency 'seat', ≤ `ADVISE_SEC` 45s; the holder still decides); line moves (tp / sl / trail) and
+  BUYs never wait. 🎯 One trade at a time: while holding, the packet carries `NOW` ("you hold $X — every word is about $X"), lessons move to
+  `pastLessons`, and the partner's last words on ANOTHER coin are dropped (G4 kept quoting $QUID on the $MAKERS trade).
+- 🎭 VOICES (`fee_voice.PERSONAS` / `persona(name)` / `GODFATHER`; `ai_seat.sys_for(base, key)` on every seat / advice / idle / review prompt;
+  `ai_router.identity_line` in the owner's chat; `{PERSONA}` in docs/lm_fee_prompt.txt): OSSY = laid back, witty with it · G4 = Michael Corleone
+  · the owner = THE GODFATHER. LM Studio presets update themselves (this Mac every 10 min via `_study_tick`, the desktop's hourly /lan-install pull).
+- 📜 Chart comment history: `_duo_chart_rows(card=)` keeps every line in the log (≤ `DUO_PIN_CARD` 60) for coins on the card, 8 for the rest;
+  a line with no cap keeps the cap of the moment it was first shown (`_duo_pin_cap`); client `CHART_PINS` / `MAX_PINS` 60, your lines pin too,
+  a run of one word = one pin "×N", pins folded on a candle are listed in its card (`thinPins` `folded`).
+- 🧹 Pump caller record: callers with < 3 judged calls unseen for 2 days are dropped (`THIN_DAYS`), ≤ `CALLERS_MAX` 12,000 kept by judged calls
+  then recency (the file was 52 MB, 50K callers, mostly one-offs).

@@ -160,6 +160,8 @@ JUDGE_MIN = 60          # minutes after the call before it is judged
 PRO_MIN, PRO_MED = 3, 1.2
 CALLER_KEEP = 30        # judged calls kept per caller
 CALLER_DAYS = 7         # a caller not seen for a week is dropped
+THIN_DAYS = 2           # 🧹 a caller with < PRO_MIN judged calls not seen for 2 days can't be proven soon — dropped (52 MB → a few MB, 2026-10-17)
+CALLERS_MAX = 12000     # 🧹 hard cap: the most-judged, most recent callers stay (the proven ones always rank first)
 
 
 def caller_track(state, calls, now_ms):
@@ -184,8 +186,13 @@ def caller_track(state, calls, now_ms):
                 c['res'] = c.get('mult')
         done = sorted((kv for kv in rec['calls'].items() if kv[1].get('res') is not None), key=lambda kv: -_f(kv[1].get('at')))[:CALLER_KEEP]
         rec['calls'] = {**dict(done), **{k: v for k, v in rec['calls'].items() if v.get('res') is None}}
-        if now_ms - _f(rec.get('seen')) > CALLER_DAYS * 86400000 or not rec['calls']:
+        judged = sum(1 for c in rec['calls'].values() if c.get('res') is not None)
+        age = now_ms - _f(rec.get('seen'))
+        if age > CALLER_DAYS * 86400000 or not rec['calls'] or (judged < PRO_MIN and age > THIN_DAYS * 86400000):
             st.pop(u)
+    if len(st) > CALLERS_MAX:   # keep what teaches: most judged calls, then the most recently seen
+        keep = sorted(st, key=lambda u: (-sum(1 for c in st[u]['calls'].values() if c.get('res') is not None), -_f(st[u].get('seen'))))[:CALLERS_MAX]
+        st = {u: st[u] for u in keep}
     return st
 
 

@@ -354,16 +354,20 @@ function LiveDesk({ duo, matrix, tape, tapeN }) {
 
 // 📍 OSSY / G4 ON THE CHART (owner, 2026-10-16: Pump-style pins + cards, not a box): their calls on THIS coin → pins at the call's candle + cap
 // 📣 the Agents chart's comments (owner, 2026-10-17): ONLY Reaper, OSSY and G4 on THIS coin — a run of the same word = one pin, newest CHART_PINS
-const PIN_WHO = new Set(['REAPER', 'OSSY', 'G4']);
-export const CHART_PINS = 6;
+const PIN_WHO = new Set(['REAPER', 'OSSY', 'G4', 'YOU']);
+export const CHART_PINS = 60;   // 📜 the coin's WHOLE comment history the server kept (owner, 2026-10-17) — a run of the same word folds into one pin "×N"
 export function chartCalls(rows, mint, liveCap) {
   const capOf = r => (Number(r.cap) > 0 ? Number(r.cap) : Number(liveCap) > 0 ? Number(liveCap) : 0);   // a line with no cap of its own pins at the coin's live cap (history was hidden)
-  const keep = (rows || []).filter(r => r.mint && r.mint === mint && capOf(r) > 0 && PIN_WHO.has(String(r.model || '').toUpperCase()))
-    .filter((r, i, a) => !i || a[i - 1].model !== r.model || (a[i - 1].view || a[i - 1].action) !== (r.view || r.action));
-  return keep.slice(-CHART_PINS).map((r, i) => { const who = String(r.model).toUpperCase(); const reaper = who === 'REAPER';
-    return { id: `${r.at}-${i}`, at: r.at, cap: capOf(r), who: reaper ? 'Reaper' : who, kind: reaper ? 'agent' : r.talk ? 'talk' : 'ai',
-      action: reaper ? String(r.view || 'NOTE').toUpperCase() : r.talk ? 'TALK' : r.action, text: r.talk && !reaper ? `${r.view || ''} — ${r.why || ''}` : r.why, pct: r.pct,
-      icon: who === 'OSSY' ? 'OS' : who === 'G4' ? 'G4' : undefined, img: avatarOf(who) || undefined }; });
+  const keep = [];
+  (rows || []).filter(r => r.mint && r.mint === mint && capOf(r) > 0 && PIN_WHO.has(String(r.model || '').toUpperCase())).forEach(r => {
+    const p = keep[keep.length - 1];
+    if (p && p.model === r.model && (p.view || p.action) === (r.view || r.action)) { p.rep = (p.rep || 1) + 1; return; }
+    keep.push({ ...r });
+  });
+  return keep.slice(-CHART_PINS).map((r, i) => { const who = String(r.model).toUpperCase(); const reaper = who === 'REAPER'; const you = who === 'YOU';
+    return { id: `${r.at}-${i}`, at: r.at, cap: capOf(r), who: reaper ? 'Reaper' : you ? 'You' : who, kind: reaper ? 'agent' : you ? 'user' : r.talk ? 'talk' : 'ai', rep: r.rep,
+      action: reaper ? String(r.view || 'NOTE').toUpperCase() : r.talk ? (r.view ? String(r.view).toUpperCase() : 'TALK') : r.action, text: r.talk && !reaper && !you ? `${r.view || ''} — ${r.why || ''}` : r.why, pct: r.pct,
+      icon: who === 'OSSY' ? 'OS' : who === 'G4' ? 'G4' : you ? 'YOU' : undefined, img: avatarOf(who) || undefined }; });
 }
 
 // 🤖 the agents' REAL moves on this coin (the marker rail: Trigger entered · Courier filled · Reaper ruled) as small avatar pins — owner, 2026-10-17:

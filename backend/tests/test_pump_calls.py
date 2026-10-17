@@ -80,3 +80,18 @@ def test_a_call_rush_needs_three_different_callers_in_ten_minutes_under_the_owne
     assert pc.rush(calls, NOW, 50000) == [{'mint': M1, 'symbol': 'L', 'callers': 3, 'mcap': 20000, 'firstMc': 10000}]
     assert pc.rush(calls, NOW, 15000) == [] and pc.rush(calls, NOW, 0) == []   # over the cap · alert off
     assert pc.RUSH_CAPS_K[0] == 0
+
+
+def test_caller_record_keeps_what_teaches_and_drops_one_off_callers():
+    import pump_calls as pc
+    day = 86400000
+    now = 30 * day
+    st = {'old_thin': {'seen': now - 3 * day, 'calls': {'a': {'at': now - 3 * day, 'res': 1.1}}},
+          'new_thin': {'seen': now - day, 'calls': {'b': {'at': now - day, 'res': 1.1}}},
+          'proven': {'seen': now - 5 * day, 'calls': {str(i): {'at': now - 5 * day, 'res': 1.5} for i in range(4)}}}
+    out = pc.caller_track(st, [], now)
+    assert set(out) == {'new_thin', 'proven'}
+    many = {f'u{i}': {'seen': now - i, 'calls': {'x': {'at': now - day, 'res': 1.0}}} for i in range(pc.CALLERS_MAX + 50)}
+    many['proven'] = st['proven']
+    out = pc.caller_track(many, [], now)
+    assert len(out) == pc.CALLERS_MAX and 'proven' in out

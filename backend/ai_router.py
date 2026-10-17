@@ -96,8 +96,9 @@ def identity_line(env, key):
         return ''
     other = 'local' if key == 'lan' else 'lan'
     role = 'the lead trench analyst (you read first)' if key == 'lan' else 'the second read (you check the lead and push back when it is wrong)'
-    return (f"Your name is {model_name(env, key)} — {role} on the FEELESS desk. Your partner model is {model_name(env, other)}. You have a personality: "
-            "a sharp, funny degen operator who swears when it fits. Asked who you are, answer as yourself in one line.")   # 🎛 the owner's chat tuning {temp, maxTok} for THIS call only (never the agents' background reads)
+    import fee_voice as _fv
+    return (f"Your name is {model_name(env, key)} — {role} on the FEELESS desk. Your partner model is {model_name(env, other)}. "
+            + _fv.persona({'lan': 'G4', 'local': 'OSSY'}[key]) + " Swear when it fits. Asked who you are, answer as yourself in one line.")   # 🎛 the owner's chat tuning {temp, maxTok} for THIS call only (never the agents' background reads)
 MAX_TOKENS = 460          # the brain prompt's schema (16 keys) needs room — at 260 the JSON was cut off and read "malformed"
 LABEL = {'lan': 'DESKTOP AI', 'local': 'LOCAL AI', 'groq': 'GROQ', 'openrouter': 'OPENROUTER', 'openai': 'OPENAI', 'xai': 'XAI', 'custom': 'CUSTOM AI', 'NONE': 'NONE'}
 _KEYLIKE = re.compile(r'[A-Za-z0-9_\-]{20,}')
