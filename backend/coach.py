@@ -245,7 +245,7 @@ def view(state, now, judge_pens=None):
 
 
 # ── 🎬 the real trade tape ───────────────────────────────────────────────────────────────────────────────────────────────────────
-def trade_tape(ledger, positions, reviews=None, ai_log=None, card=None, n=30):
+def trade_tape(ledger, positions, reviews=None, ai_log=None, card=None, n=60):
     """Every REAL agent trade, newest first, as one story built from records that already exist:
       buy  = the confirmed fill (ledger): $ in, fill price vs the market price of the decision (`slipPct`), seconds to land, tx
       why  = the agents' door / tag + the entry thesis (archive) · ai = the model's read of that coin nearest the buy (its log)
