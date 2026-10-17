@@ -161,3 +161,7 @@ body.theme-day .dso-room { background: rgba(240, 234, 252, .8); } body.theme-day
 @media (prefers-reduced-motion: reduce) { .dso-pnl strong { animation: none; } } body.fx-lite .dso-pnl strong { animation: none; }
 .dso-hex .dso-pnl { max-width: 104px; } .dso-hex .dso-pnl small { font-size: 7.5px; line-height: 1.25; text-align: center; overflow-wrap: anywhere; white-space: normal; }
 .dso-hex .dso-pnl strong { font-size: 17px; } .dso-hex .dso-coin { display: inline-block; max-width: 104px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.dso-rooms { display: flex; gap: 4px; margin: 0; overflow-x: auto; scrollbar-width: thin; }
+.dso-rooms button { flex: none; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--m-line, #1f3d2a); background: rgba(4, 12, 8, .6); color: var(--m-mute, #a8c9b6); font: 700 9.5px var(--m-mono, monospace); cursor: pointer; }
+.dso-rooms button:hover { border-color: #45e486; } .dso-rooms button.active { background: #15d16a; color: #04140a; border-color: #15d16a; }
+.dso-rooms button.is-up:not(.active) { color: #45e486; } .dso-rooms button.is-dn:not(.active) { color: #ff8fa3; }

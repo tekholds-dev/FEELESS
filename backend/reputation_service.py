@@ -17981,6 +17981,27 @@ AGENTS_PAGE_SEC = 2
 _agents_page: dict = {'key': None, 'body': b'{}'}
 
 
+def _duo_rooms(log, keep=8):
+    """🗂 The rooms of the last model trades (newest first): coin, who bought, the real result when it closed, and that trade's own talk."""
+    res_ = {p_.get('mint'): p_ for p_ in (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or [] if p_.get('g4')}
+    out, seen = [], set()
+    for r_ in reversed(log or []):
+        m_ = r_.get('mint')
+        if r_.get('action') != 'BUY' or not m_ or m_ in seen or r_.get('by') not in (_duet.LEAD, _duet.SECOND):
+            continue
+        p_ = res_.get(m_)
+        if not p_ and not any(x_.get('mint') == m_ and (x_.get('action') in ('HOLD', 'TRIM', 'SELL') or x_.get('talk')) for x_ in log):
+            continue   # a BUY that never became a trade has no room
+        seen.add(m_)
+        rows_ = [r2_ for r2_ in log if r2_.get('mint') == m_ and (r2_.get('at') or 0) >= (r_.get('at') or 0) - 5][-16:][::-1]
+        out.append({'mint': m_, 'symbol': r_.get('symbol'), 'model': r_.get('model'), 'at': r_.get('at'), 'pct': (p_ or {}).get('realPct'), 'closed': bool((p_ or {}).get('closedAt')),
+                    'rows': [{**{k_: x_.get(k_) for k_ in ('at', 'model', 'action', 'view', 'why', 'conf', 'pct', 'talk')}, 'key': _dv_key(x_), 'mine': x_.get('by') == 'owner',
+                              'votes': _dv.view(_dv_mem.get() or {}, _dv_key(x_))} for x_ in rows_]})
+        if len(out) >= keep:
+            break
+    return out
+
+
 def _duo_holding(l):
     """💹 the AI seat's live trade: coin, $ in, $ now, P&L % and $, peak, held minutes, its own TP / SL (live price from the shared cache)."""
     px_ = _fuse._f((_jup_px_cache.get(l.get('mint')) or (0, 0))[1]) or _fuse._f(l.get('px'))
@@ -18006,6 +18027,7 @@ def _duo_view(env=None):
         return {'mode': _oe.clean_policy(_prime_real_cfg())['agentAiSeat'], 'next': nm(first_), 'at': st_['at'], 'busy': _g4['busy'],
                 'phase': _g4.get('phase') or ('HOLDING' if held_l else 'HUNTING'), 'holder': nm(held_l.get('aiBy')) if held_l and held_l.get('aiBy') else None,
                 'holding': _duo_holding(held_l) if held_l else None,
+                'rooms': _duo_rooms(st_['log']),   # 🗂 every past model trade's own room: its convo + result, reopenable
                 'conf': {nm(k_): {'boost': _dv.confidence(_dv_mem.get() or {}, k_), 'words': _dv.words(_dv_mem.get() or {}, k_)} for k_ in (_duet.LEAD, _duet.SECOND, 'owner')},
                 'trade': [{**{k_: r_.get(k_) for k_ in ('at', 'model', 'action', 'view', 'why', 'conf', 'pct', 'talk')}, 'key': _dv_key(r_), 'mine': r_.get('by') == 'owner', 'votes': _dv.view(_dv_mem.get() or {}, _dv_key(r_))} for r_ in st_['log']
                           if held_l and r_.get('mint') == held_l.get('mint') and (r_.get('at') or 0) >= _fuse._f(held_l.get('at')) - 180][-14:][::-1],   # 💬 the conversation on THIS trade

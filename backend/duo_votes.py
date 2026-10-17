@@ -108,4 +108,5 @@ def view(state, key, me='owner'):
         return None
     vv = it.get('votes') or {}
     return {'up': sum(1 for v in vv.values() if v > 0), 'down': sum(1 for v in vv.values() if v < 0), 'mine': vv.get(me, 0),
-            'by': {k: v for k, v in vv.items() if k != me}, 'res': [[c, (it['res'].get(str(c)) or {}).get('ok'), (it['res'].get(str(c)) or {}).get('move')] for c in CHECKS]}
+            'by': {k: v for k, v in vv.items() if k != me}, 'res': [[c, (it['res'].get(str(c)) or {}).get('ok'), (it['res'].get(str(c)) or {}).get('move'),
+                     (None if not vv.get(me) or (it['res'].get(str(c)) or {}).get('ok') in (None, 0) else (vv.get(me) > 0) == ((it['res'].get(str(c)) or {}).get('ok') > 0))] for c in CHECKS]}   # 4th = was MY vote right

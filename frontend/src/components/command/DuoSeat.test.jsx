@@ -58,7 +58,7 @@ test('🔁 the turn stepper reads the server phase', () => {
 
 test('👍👎 verdict dots read the 5m / 1h / 24h settlements', () => {
   const { verdictDots } = require('./DuoSeat');
-  expect(verdictDots([[300, 1, 12.5], [3600, null, null]])).toEqual([{ w: '5m', ok: 1, move: 12.5 }, { w: '1h', ok: null, move: null }, { w: '24h', ok: null, move: null }]);
+  expect(verdictDots([[300, 1, 12.5, true], [3600, null, null, null]])).toEqual([{ w: '5m', ok: 1, move: 12.5, mine: true }, { w: '1h', ok: null, move: null, mine: null }, { w: '24h', ok: null, move: null, mine: null }]);
 });
 
 test('💹 seat core words: P&L %, $ in → $ now, peak + held', () => {

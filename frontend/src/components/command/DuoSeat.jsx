@@ -125,7 +125,8 @@ function TurnBar({ duo }) {
 // 💬 THE TRADE ROOM — compact chat (owner: "like any other site or messenger"): the holder's calls left, the partner + you right, each bubble with
 // 👍 / 👎 (yours) + the models' own votes, and three market verdicts (5m · 1h · 24h) that settle into each model's confidence.
 const CK = [[300, '5m'], [3600, '1h'], [86400, '24h']];
-export function verdictDots(res) { return CK.map(([c, w]) => { const r = (res || []).find(x => x[0] === c); return { w, ok: r ? r[1] : null, move: r ? r[2] : null }; }); }
+export function verdictDots(res) { return CK.map(([c, w]) => { const r = (res || []).find(x => x[0] === c); return { w, ok: r ? r[1] : null, move: r ? r[2] : null, mine: r && r[3] != null ? r[3] : null }; }); }
+const dotWord = d => (d.ok == null ? d.w : `${d.w} ${d.move > 0 ? '+' : ''}${Math.round(d.move)}%${d.mine === true ? ' ✓' : d.mine === false ? ' ✗' : ''}`);
 const who = k => (k === 'lan' ? 'G4' : k === 'local' ? 'OSSY' : k);
 function Bubble({ r, onVote, busy }) {
   const v = r.votes; const side = r.mine ? 'is-you' : r.talk ? 'is-partner' : 'is-holder';
@@ -136,22 +137,27 @@ function Bubble({ r, onVote, busy }) {
       {v ? <>{!r.mine ? <><button type="button" className={`dsb-v ${v.mine > 0 ? 'on' : ''}`} disabled={busy} onClick={() => onVote(r.key, v.mine > 0 ? 0 : 1)} aria-label="Like this call" data-testid={`dsb-up-${r.key}`}>👍{v.up || ''}</button>
         <button type="button" className={`dsb-v is-dn ${v.mine < 0 ? 'on' : ''}`} disabled={busy} onClick={() => onVote(r.key, v.mine < 0 ? 0 : -1)} aria-label="Dislike this call" data-testid={`dsb-dn-${r.key}`}>👎{v.down || ''}</button></> : null}
         {Object.entries(v.by || {}).map(([k, x]) => <i key={k} className="dsb-by" data-tip={`${who(k)} ${x > 0 ? 'liked' : 'disliked'} it`}>{who(k)}{x > 0 ? '👍' : '👎'}</i>)}
-        {verdictDots(v.res).map(d => <i key={d.w} className={`dsb-ck ${d.ok == null ? '' : d.ok > 0 ? 'is-ok' : d.ok < 0 ? 'is-bad' : 'is-draw'}`} data-tip={d.ok == null ? `${d.w}: the market hasn't decided yet` : `${d.w}: ${d.move > 0 ? '+' : ''}${d.move}% → ${d.ok > 0 ? 'right' : d.ok < 0 ? 'wrong' : 'draw'}`}>{d.w}</i>)}</> : null}</span>
+        {verdictDots(v.res).map(d => <i key={d.w} className={`dsb-ck ${d.ok == null ? '' : d.ok > 0 ? 'is-ok' : d.ok < 0 ? 'is-bad' : 'is-draw'}`} data-tip={d.ok == null ? `${d.w}: the market hasn't decided yet` : `${d.w}: the coin moved ${d.move > 0 ? '+' : ''}${d.move}% → the call was ${d.ok > 0 ? 'RIGHT' : d.ok < 0 ? 'WRONG' : 'a draw'}${d.mine === true ? ' · your vote was RIGHT' : d.mine === false ? ' · your vote was WRONG' : ''}`}>{dotWord(d)}</i>)}</> : null}</span>
   </li>;
 }
 function TradeRoom({ duo, call }) {
-  const rows = duo?.trade || []; const h = duo?.holding;
-  const [txt, setTxt] = useState(''); const [busy, setBusy] = useState(false);
-  if (!h) return null;
+  const [txt, setTxt] = useState(''); const [busy, setBusy] = useState(false); const [roomM, setRoomM] = useState(null);
+  const rooms = duo?.rooms || []; const past = roomM ? rooms.find(r => r.mint === roomM) : null;
+  const h = past ? { symbol: past.symbol } : duo?.holding; const rows = past ? past.rows : duo?.trade || [];
+  if (!h && !rooms.length) return null;
   const post = async body => { if (!call) return; setBusy(true); try { await call('/admin/ai/seat', { method: 'POST', body: JSON.stringify(body) }); } catch (e) { window.dispatchEvent(new CustomEvent('feeless:toast', { detail: String(e?.message || e) })); } finally { setBusy(false); } };
   const conf = duo.conf || {};
-  return <div className="dso-room" data-testid="duo-room"><p className="dso-roomhd"><b>💬 ${h.symbol} · {duo.holder || '—'} runs it</b>
-    <span>{h.tp ? `TP +${h.tp}%` : 'TP —'} · {h.sl ? `SL −${h.sl}%` : 'SL −45 floor'}</span>
+  return <div className="dso-room" data-testid="duo-room">
+    {rooms.length ? <p className="dso-rooms" role="tablist" aria-label="Trade rooms">{duo?.holding ? <button type="button" role="tab" aria-selected={!past} className={!past ? 'active' : ''} onClick={() => setRoomM(null)}>🟢 live ${duo.holding.symbol}</button> : null}
+      {rooms.filter(r => r.mint !== duo?.holding?.mint).map(r => <button key={r.mint} type="button" role="tab" aria-selected={roomM === r.mint} className={`${roomM === r.mint ? 'active' : ''} ${r.pct > 0 ? 'is-up' : r.pct < 0 ? 'is-dn' : ''}`} onClick={() => setRoomM(r.mint)} data-testid={`duo-room-${r.symbol}`}>
+        {r.model} ${r.symbol}{r.pct != null ? ` ${r.pct >= 0 ? '+' : ''}${Number(r.pct).toFixed(1)}%` : r.closed ? '' : ' …'}</button>)}</p> : null}
+    {!h ? null : <><p className="dso-roomhd"><b>💬 ${h.symbol} · {past ? `${past.model}'s trade${past.pct != null ? ` · closed ${past.pct >= 0 ? '+' : ''}${Number(past.pct).toFixed(1)}%` : ''}` : `${duo.holder || '—'} runs it`}</b>
+    {past ? null : <span>{h.tp ? `TP +${h.tp}%` : 'TP —'} · {h.sl ? `SL −${h.sl}%` : 'SL −45 floor'}</span>}
     {['G4', 'OSSY'].map(k => conf[k] ? <em key={k} className={conf[k].boost > 0 ? 'm-pos' : conf[k].boost < 0 ? 'm-neg' : ''} data-tip={conf[k].words}>{k} conf {conf[k].boost > 0 ? '+' : ''}{conf[k].boost}</em> : null)}</p>
     <ol>{rows.map((r, i) => <Bubble key={`${r.at}-${i}`} r={r} busy={busy || !call} onVote={(key, v) => post({ vote: { key, v } })} />)}</ol>
-    {call ? <form className="dso-say" onSubmit={e => { e.preventDefault(); if (txt.trim()) { post({ comment: txt.trim() }); setTxt(''); } }}>
+    {call && !past ? <form className="dso-say" onSubmit={e => { e.preventDefault(); if (txt.trim()) { post({ comment: txt.trim() }); setTxt(''); } }}>
       <input className="m-input" value={txt} onChange={e => setTxt(e.target.value)} maxLength={240} placeholder={`chime in — ${duo.holder || 'the holder'} reads it next minute (say hold / sell and the market grades you too)`} data-testid="duo-say" />
-      <button type="submit" className="m-btn" disabled={busy || !txt.trim()}>Send</button></form> : null}</div>;
+      <button type="submit" className="m-btn" disabled={busy || !txt.trim()}>Send</button></form> : null}</>}</div>;
 }
 
 function DuoSeatBody({ duo, call }) {
