@@ -4816,3 +4816,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 💬 YOUR CHIME-IN IS NEVER LOST: the minute save rewrote the duo log with the copy it loaded BEFORE the model thought (30–90s), wiping any
   comment posted meanwhile — so the model never read it either. Every `_g4_mem` log save goes through `ai_seat.merge_log` (union by at · by ·
   action · why). SYSTEM + ADVISE tell the models to answer `learn.ownerSays` FIRST in their why.
+- 🌙 NIGHT GUARD + NIGHT SHIFT OFF on the real card (owner, 2026-10-17 ~02:00: "disable night guard and let them trench again";
+  `_night_off_fix_1017`, once, flag `nightOffFix1017`, old values data/realcfg_before_nightoff1017.json; both keys in realOwnerSet + ladderKeep).
+  Tonight before it (18:00 → 02:00): 134 swaps, 30 coins closed, net −$1.22; the worst three ($dev/null −31%, $1 −9%, $ELON −11%) were half of it.

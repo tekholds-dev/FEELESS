@@ -9721,6 +9721,25 @@ async def _floor_off_fix_1009(now):
     return True
 
 
+async def _night_off_fix_1017(now):
+    """🌙 Once (owner, 2026-10-17 ~02:00: "disable night guard and let them trench again"): night guard (drawdown / streak pauses) and the
+    night shift (00:00–09:00: 15% seats, 30-min min age, chart must say ENTER NOW, no valve) OFF on the real card. Rug-level exits, stops and
+    every keeper check are unchanged. Old values: data/realcfg_before_nightoff1017.json. Back on = the 🌙 switches in 🎛 Limits."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('nightOffFix1017') or not rc:
+            return False
+        ch = {'nightGuard': False, 'nightShift': False}
+        _json_save(DATA_DIR / 'realcfg_before_nightoff1017.json', {k: rc.get(k) for k in ch})
+        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
+        pr['nightOffFix1017'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _rush_fix_1009(now):
     """⚡ Once (owner, 2026-10-09: "upgrade engine to rush me — I'm trenching and giving the keys, open the door"): the real card RUSHES —
     the trench drop takes the Rush board's coin every 10 min (was 30, SEND IT only — usually nothing), and may take the seat of any of the
@@ -9943,6 +9962,7 @@ async def _prime_tick_inner(now):
     await _floor_fix_1009(now)
     await _flow_fix_1009(now)
     await _floor_off_fix_1009(now)
+    await _night_off_fix_1017(now)
     await _keephalf_fix_1010(now)
     await _proof_gate_fix_1010(now)
     await _curve_fix_1011(now)
