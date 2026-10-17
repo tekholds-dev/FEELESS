@@ -2971,6 +2971,9 @@ def _read_for(r, cmap=None, lens=None):
 _coin_read_cache: dict = {}   # mint → (at, read) — 15s
 
 
+COIN_READ_JUP_SEC = 1.5   # coin-read p95 was 6.5s (perf_view 2026-10-17): Jupiter's public lane rate-limited, the header waited for it
+
+
 @app.get('/api/reputation/coin-read/{mint}')
 async def coin_read(mint: str):
     """🫀 + 🔥/🎢/🧲 THE FEELESS EDGE for one coin (war room / chart header): its vital (grade, five bars, the three deciding facts, crew) and the
@@ -2984,12 +2987,15 @@ async def coin_read(mint: str):
         return hit[1]
     if time.time() - _jup_facts.get(mint, (0.0, None))[0] > pace_['jupSec'] and not os.environ.get('PYTEST_CURRENT_TEST'):   # a WATCHED coin's pulse is re-read at its own pace (hot 12s · busy 25s · quiet 45s)
         try:
-            t_ = (await _jup_tokens([mint])).get(mint)
+            t_ = (await asyncio.wait_for(_jup_tokens([mint]), timeout=COIN_READ_JUP_SEC)).get(mint)   # ⚡ a busy Jupiter never holds the chart header: the last reading answers
             if t_:
                 _jup_facts[mint] = (time.time(), _ja.facts(t_))
         except Exception:
             pass
-    await _jup_lite([mint])
+    try:
+        await asyncio.wait_for(_jup_lite([mint]), timeout=COIN_READ_JUP_SEC)
+    except Exception:
+        pass
     jf = (_jup_facts.get(mint) or (0, None))[1]
     c = _cand_map().get(mint) or {}
     row = {'mint': mint, 'symbol': c.get('symbol'), **{k: c.get(k) for k in ('ageH', 'vol1h', 'vol5m', 'chg5m', 'chg1h', 'buyShare', 'txns1h', 'mcap', 'liq', 'site', 'x', 'tg') if c.get(k) is not None}}
@@ -14069,6 +14075,13 @@ async def _g4_tick(now, env, cfg):
                                      'why': f"{rp_.get('rule')} · peak {_fuse._f(rp_.get('peak')):+.1f}% · {str(rp_.get('evidence') or '')[:110]}", 'mint': held_m,
                                      'symbol': (held_ or {}).get('symbol'), 'pct': (held_ or {}).get('pct')})
             _g4_mem.put({**(_g4_mem.get() or {}), 'reapKey': rk_}, now)
+        lv_at = _fuse._f((_g4_mem.get() or {}).get('lvAt'))
+        lv_ = [e_ for e_ in (card_.get('events') or []) if e_.get('kind') == 'level' and held_ and e_.get('symbol') == (held_ or {}).get('symbol') and _fuse._f(e_.get('at')) > max(lv_at, _fuse._f((leg_ or {}).get('at')))] if held_ else []
+        for e_ in lv_[-2:]:   # ✋ your own TP / SL drag on this trade → a YOU line in the chat (the models read it next minute)
+            log_ = _seat.note(log_, {'at': round(_fuse._f(e_.get('at'))), 'mode': mode_, 'model': 'YOU', 'by': 'owner', 'talk': True, 'action': 'TALK', 'view': 'LINES',
+                                     'why': str(e_.get('why') or '')[:160], 'mint': held_m, 'symbol': (held_ or {}).get('symbol'), 'pct': (held_ or {}).get('pct')})
+        if lv_:
+            _g4_mem.put({**(_g4_mem.get() or {}), 'lvAt': max(_fuse._f(e_.get('at')) for e_ in lv_)}, now)
         ch_l = _seat.lines_word(leg_, dec_) if (mode_ == 'real' and held_ and leg_ and dec_ and by_m != 'agents') else {}
         if ch_l:   # 🎯 the holder moved its own TP / SL → its own line in the trade room
             log_ = _seat.note(log_, {'at': round(now), 'mode': mode_, 'model': row_['model'], 'by': by_m, 'action': 'LINES', 'lines': ch_l, 'why': _seat.lines_why(ch_l, leg_),
@@ -14111,7 +14124,7 @@ async def _g4_tick(now, env, cfg):
         if (m1_.get('statsFrom') or 0) > (st_.get('statsFrom') or 0):
             log_ = [r_ for r_ in log_ if (r_.get('at') or 0) >= m1_['statsFrom']]
         log_ = _seat.merge_log(log_, m1_.get('log'))   # 💬 keep your chime-in (and any line) written while the model thought
-        _g4_mem.put({'log': log_, 'book': book_, 'at': now, 'opener': m1_.get('opener') or st_.get('opener'), 'talkAt': talk_at, 'statsFrom': m1_.get('statsFrom'), 'idleAt': m1_.get('idleAt') or st_.get('idleAt'), 'opened': m1_.get('opened') or {}, 'huntBy': m1_.get('huntBy'), 'huntSince': m1_.get('huntSince'), 'reapKey': m1_.get('reapKey')}, now)   # 🚫 keep the bought-coins list (it was dropped every minute → $1 bought 3×)
+        _g4_mem.put({'log': log_, 'book': book_, 'at': now, 'opener': m1_.get('opener') or st_.get('opener'), 'talkAt': talk_at, 'statsFrom': m1_.get('statsFrom'), 'idleAt': m1_.get('idleAt') or st_.get('idleAt'), 'opened': m1_.get('opened') or {}, 'huntBy': m1_.get('huntBy'), 'huntSince': m1_.get('huntSince'), 'reapKey': m1_.get('reapKey'), 'lvAt': m1_.get('lvAt')}, now)   # 🚫 keep the bought-coins list (it was dropped every minute → $1 bought 3×)
     except Exception as e_:
         print('g4 seat:', str(e_)[:140])
     finally:

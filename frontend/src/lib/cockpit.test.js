@@ -32,7 +32,7 @@ test('market cap = price × the resolved supply; nothing known → null (the cha
 
 test('the chart: the position\'s levels + REAL markers (ledger fills at their fill price, decisions on their candle)', () => {
   const m = chartModel(D, PUMP);
-  expect(m.lines.map(l => l.title)).toEqual(['entry', 'take +50%', 'stop -15%']);
+  expect(m.lines.map(l => l.title)).toEqual(['entry', 'take +50%', 'stop -15%', 'peak +20.1%']);
   expect(m.lines[1].px).toBeCloseTo(0.000857 * 1.5); expect(m.lines[2].px).toBeCloseTo(0.000857 * 0.85);
   expect(m.markers.map(x => x.text)).toEqual(['⏱ ENTER', 'BUY $0.36', '☠ PROTECT']);
   expect(m.markers[1]).toMatchObject({ time: 1000, position: 'atPriceBottom', price: 0.000857, shape: 'arrowUp' });
@@ -187,4 +187,11 @@ test('🗳 a desk with its own vote record shows it (not the shared team number)
   expect(recWord(st)).toBe('🗳 70% own · 20 votes · 2/3 lone'); expect(voteSplit(st)).toEqual({ go: 4.2, goN: 12, doubt: -9, doubtN: 8, edge: 13.2 });
   expect(recWord({ kind: 'landed', accuracy: 90, decisions: 10 })).toBe('📮 90% landed · 10 sends'); expect(recWord(null)).toBe('no real record yet');
   expect(measureRead([{ key: 'a' }, { key: 'b' }, { key: 'c' }], { a: st, b: st, c: { decisions: 80, accuracy: 62 } }).sameN).toBe(1);
+});
+
+test('the chart draws the live trail Reaper holds to, and no thesis line on your / the models\' trades', () => {
+  const d = { office: { positions: [{ mint: 'M1', pair: 'P1', symbol: 'A', entry: 1, take: 40, stop: -20, trailAt: 8, peak: 30, takeSource: 'model', thesis: { invalidation: 0.9 } }] } };
+  const m = chartModel(d, 'M1');
+  expect(m.lines.map(l => l.title)).toEqual(['entry', 'take +40%', 'stop -20%', 'trail +8%', 'peak +30.0%']);
+  expect(m.lines[3].px).toBeCloseTo(1.08);
 });

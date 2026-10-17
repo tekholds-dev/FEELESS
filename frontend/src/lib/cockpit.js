@@ -170,7 +170,9 @@ export function chartModel(d, mint, livePx) {
     lines.push({ px: e, title: 'entry', color: '#15d16a' });
     if (num(p.take)) lines.push({ px: e * (1 + p.take / 100), title: `take +${p.take}%`, color: '#9fe3ff' });
     if (num(p.stop)) lines.push({ px: e * (1 + p.stop / 100), title: `stop ${p.stop}%`, color: '#ff8fa3' });
-    if (num(p.thesis?.invalidation)) lines.push({ px: p.thesis.invalidation, title: 'invalid', color: '#ff8fa3' });
+    if (num(p.trailAt)) lines.push({ px: e * (1 + p.trailAt / 100), title: `trail +${p.trailAt}%`, color: '#e8c46a' });   // 🏔 the live trailing exit Reaper is holding to
+    if (num(p.peak) > 0) lines.push({ px: e * (1 + p.peak / 100), title: `peak +${(+p.peak).toFixed(1)}%`, color: '#45e486' });
+    if (num(p.thesis?.invalidation) && !['yours', 'model'].includes(p.takeSource)) lines.push({ px: p.thesis.invalidation, title: 'invalid', color: '#ff8fa3' });   // Reaper never sells your / the models' trade on the thesis — don't draw it there
   }
   const own = num(p?.supply ?? c?.supply ?? rv?.supply) > 0;
   const supplySrc = p?.supplySrc || c?.supplySrc || rv?.supplySrc || (!supply ? null : own ? 'kernel' : num(lp?.mc) > 0 ? 'live cap ÷ price' : isLaunchpadMint(mint) ? 'launchpad' : null);

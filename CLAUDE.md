@@ -4865,3 +4865,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   coin's own average 1-min candle %), ≤ `TAKE_MAX` 200 — a coin moving 3% a candle gets +36% of room, a slow one keeps the card's take. Your own TP
   is never changed. The stop was already per coin (`chart_intel.stop_for`: support + 2 of its own candles, cut for thin pool / young / unproven).
 - ☠ REAPER TALKS IN THE DUO CHAT: each time Reaper's rule / state on the models' seat changes (trailing, protect, skim, take, hold), a REAPER line with the rule, peak and evidence is posted (`_g4_mem.reapKey`). NEXT (owner asked, not done): the chart "not showing true info" — check the cockpit chart levels vs the Reaper report; page lag / fast load.
+- 💬 YOUR LINE MOVES IN THE MODELS' CHAT: each `level` card event (your TP / SL drag) on the models' held coin since its buy posts ONE "YOU · LINES" line
+  (`_g4_mem.lvAt`); Reaper's lines are their own centred pink bubble (`.dsb.is-reaper`). Cockpit chart = Reaper's real levels: entry · take · stop ·
+  🏔 trail (when armed) · peak; "invalid" only on agent coins (Reaper never sells your / the models' trade on the thesis). `/coin-read` waits ≤ 1.5s on
+  Jupiter (`COIN_READ_JUP_SEC`; p95 was 6.5s). Other slow routes (`/fuses/record/*` ~4s) are 5 ms on their own = time queued behind the blocked loop.
