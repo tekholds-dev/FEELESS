@@ -13,6 +13,7 @@ import time
 from pathlib import Path
 
 _locks: dict = {}
+_made: set = set()   # (db, table) already created in this process
 
 
 def _conn(db):
@@ -73,10 +74,14 @@ class Ledger:
         self.db = Path(json_path).with_suffix('.db')
         self.table = table
         self.lock = _locks.setdefault(str(self.db), threading.Lock())
+        key = (str(self.db), table)
+        if key in _made and self.db.exists():   # ⚡ the table exists already: no connection + CREATE on every construction
+            return
         with self.lock:
             c = _conn(self.db)
             c.execute(f'CREATE TABLE IF NOT EXISTS {table} (id INTEGER PRIMARY KEY AUTOINCREMENT, at REAL NOT NULL, card TEXT, row TEXT NOT NULL)')
             c.close()
+        _made.add(key)
 
     def append(self, row):
         with self.lock:
@@ -100,6 +105,14 @@ class Ledger:
             got = c.execute(f'SELECT id, row FROM {self.table} WHERE id > ? ORDER BY id ASC', (int(after_id or 0),)).fetchall()
             c.close()
         return [json.loads(r[1]) for r in got], (got[-1][0] if got else int(after_id or 0))
+
+    def last_id(self):
+        """The newest row's id (0 = empty) — O(1) on the primary key, unlike COUNT(*) which walks the whole table."""
+        with self.lock:
+            c = _conn(self.db)
+            n = c.execute(f'SELECT MAX(id) FROM {self.table}').fetchone()[0]
+            c.close()
+        return int(n or 0)
 
     def count(self):
         with self.lock:

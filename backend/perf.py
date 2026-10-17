@@ -26,11 +26,14 @@ def summarize(samples: list) -> dict:
         pg = pages.setdefault(str(s.get('page') or '/')[:60], {'reports': 0, 'longTasks': 0, 'longMs': 0, 'fps': [], 'lite': 0, 'errors': 0})
         pg['reports'] += 1; pg['longTasks'] += int(s.get('longTasks') or 0); pg['longMs'] += int(s.get('longMs') or 0)
         pg['lite'] += 1 if s.get('lite') else 0; pg['errors'] += int(s.get('errors') or 0)
+        for k, n in (s.get('errRoutes') or {}).items():
+            pg.setdefault('errRoutes', {})[str(k)[:110]] = pg.get('errRoutes', {}).get(str(k)[:110], 0) + int(n or 0)
         if s.get('fps'):
             pg['fps'].append(float(s['fps']))
     routes = sorted(({'route': r, 'calls': len(ms), 'p50': _pct(ms, .5), 'p95': _pct(ms, .95)} for r, ms in api.items() if ms), key=lambda r: -r['p95'])
     page_rows = sorted(({'page': p, 'reports': v['reports'], 'longTasks': v['longTasks'], 'jankMsPerReport': round(v['longMs'] / v['reports']),
-                         'fps': round(sum(v['fps']) / len(v['fps'])) if v['fps'] else None, 'autoLite': v['lite'], 'errors': v['errors']}
+                         'fps': round(sum(v['fps']) / len(v['fps'])) if v['fps'] else None, 'autoLite': v['lite'], 'errors': v['errors'],
+                         'errRoutes': dict(sorted((v.get('errRoutes') or {}).items(), key=lambda kv: -kv[1])[:8])}
                         for p, v in pages.items()), key=lambda r: -r['jankMsPerReport'])
     fixes = []
     for r in routes[:8]:

@@ -85,7 +85,11 @@ def _load() -> dict:
 
 
 def _save(store: dict):
-    STORE_PATH.write_text(json.dumps(store, indent=2))
+    t0 = time.perf_counter()
+    STORE_PATH.write_text(json.dumps(store))   # ⚡ no indent: an indented dump runs the pure-Python encoder (6.7s stalls on 2.2 MB)
+    st = STORE_PATH.stat()
+    _parse_cache[str(STORE_PATH)] = ((st.st_mtime_ns, st.st_size), store)   # what was written IS the current version: no re-parse
+    _json_cost_note('save', STORE_PATH, t0)
 
 
 async def resolve_creator(chain: str, mint_address: str) -> Optional[str]:
@@ -2073,7 +2077,7 @@ def _block_load():
     return out
 
 
-BLOCK_SAVE_SEC = 60
+BLOCK_SAVE_SEC = 300   # scanner strikes only (a person's report + shutdown write at once): a 15 MB dump every minute was ~0.5s of blocked loop each
 _block_dirty = {'on': False, 'at': 0.0}
 
 
@@ -8448,7 +8452,7 @@ def _owner_edge_rec():
     now = time.time()
     if _myedge_cache['data'] and now - _myedge_cache['at'] < 300:
         return _myedge_cache['data']
-    ledger = _store.Ledger(FUSE_WALLET_PATH).rows(limit=100000) or _fw_load().get('ledger') or []
+    ledger = list(reversed(_fw_full_ledger()))   # newest first, from the in-memory copy (re-parsing 100K rows blocked the loop)
     log = _json_load(PICK_STYLE_PATH, {}).get('log') or []
     rec = _oe.records(log, _pm.pieces(ledger, 'degen'))
     rec['thresholds'] = {'chase5m': _oe.CHASE_5M, 'thinVol': _oe.THIN_VOL, 'setupDip': _oe.SETUP_DIP, 'setupVol': _oe.SETUP_VOL}
@@ -8474,7 +8478,7 @@ async def fuses_pay_map():
     now = time.time()
     if _paymap_cache['data'] and now - _paymap_cache['at'] < 60:
         return _paymap_cache['data']
-    ledger = _store.Ledger(FUSE_WALLET_PATH).rows(limit=100000) or _fw_load().get('ledger') or []   # the append-only table keeps every row; the KV copy is trimmed
+    ledger = list(reversed(_fw_full_ledger()))   # every row, newest first, from the in-memory copy of the append-only table (no 100K-row re-parse)
     cards = sorted({r.get('card') for r in ledger if r.get('card') and r.get('card') != 'wallet'})
     out = {'cards': {c: _pm.pay_map(ledger, c, now) for c in cards}, 'at': now}
     _paymap_cache.update(at=now, data=out)
@@ -12699,7 +12703,7 @@ def _fw_full_ledger():
     2,000 rows, and card totals read from it undercounted once the card passed that: fees showed $1.33 of $2.18, top-ups $15.50 of
     $22.50, and realized / you-vs-engine lost their oldest fills. Re-read only when the table grew (one COUNT per call)."""
     lg = _store.Ledger(FUSE_WALLET_PATH)
-    n = lg.count()
+    n = lg.last_id()   # ⚡ MAX(id), not COUNT(*): the table only grows, so the newest id says the same thing for free
     if n != _fw_full_cache['n'] or _fw_full_cache.get('db') != str(lg.db):
         fresh = _fw_full_cache.get('db') != str(lg.db) or n < _fw_full_cache['n'] or _fw_full_cache['n'] < 0
         new, last = lg.since(0 if fresh else _fw_full_cache.get('last') or 0)   # ⚡ only the rows appended since the last read
@@ -13766,12 +13770,18 @@ async def _g4_tick(now, env, cfg):
         first_, second_ = _seat.turn(st_['log'], _duet.LEAD, _duet.SECOND)   # 🔁 tag team: G4 (desktop) and the Mac's model take turns deciding the seat
         if mode_ == 'paper':
             rec_ = _seat.by_model(book_.get('closed')).get(first_) or {'n': 0}
-        pk_ = _seat.packet([_seat.cand_row(c_, _g4_qwen(c_['mint'])) for c_ in cands_], held_, _seat.record_words(rec_), _seat.partner_of(st_['log'], first_))
+        rows_ = [_seat.cand_row(c_, _g4_qwen(c_['mint'])) for c_ in cands_]
+        pick_ = _seat.agents_pick(rows_)
+        pk_ = _seat.packet(rows_, held_, _seat.record_words(rec_), _seat.partner_of(st_['log'], first_), (pick_ or {}).get('symbol'))
         t0_ = time.perf_counter()
         r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Your minute snapshot. Decide.', context=pk_, role='exit', urgency='force', only=(first_, second_), system=_seat.SYSTEM, only_system=True)
         by_m = r_.get('source') if r_.get('source') in (first_, second_) else first_
         dec_ = _seat.parse(r_.get('text'), [c_['mint'] for c_ in cands_], bool(held_), {c_.get('symbol'): c_['mint'] for c_ in cands_ if c_.get('symbol')})
         ms_ = round((time.perf_counter() - t0_) * 1000)
+        miss_ = None
+        if not dec_:   # 🤝 no model answered (busy / timed out / unreadable): the agents decide the seat this minute instead of a dead minute
+            miss_ = str(r_.get('why') or '; '.join(f'{a_} {b_}' for a_, b_ in (r_.get('tried') or [])) or ('unreadable: ' + str(r_.get('text') or '')[:60]) or 'no answer')[:120]
+            dec_, by_m = _seat.backup(rows_, bool(held_)), 'agents'
         by_ = {c_['mint']: c_ for c_ in cands_}
         ev_ = None
         if dec_ and mode_ == 'paper':
@@ -13779,7 +13789,7 @@ async def _g4_tick(now, env, cfg):
         elif dec_ and mode_ == 'real' and dec_['action'] in ('BUY', 'SELL'):
             _g4['want'] = {**dec_, 'at': now, 'pair': (by_.get(dec_['mint']) or {}).get('pair') if dec_['action'] == 'BUY' else (leg_ or {}).get('pairAddress')}
         focus_ = by_.get((dec_ or {}).get('mint')) if (dec_ or {}).get('action') == 'BUY' else None
-        row_ = {'at': round(now), 'mode': mode_, 'model': _air.model_name(env, by_m), 'by': by_m if dec_ else None, 'ms': ms_,
+        row_ = {'at': round(now), 'mode': mode_, 'model': 'AGENTS' if by_m == 'agents' else _air.model_name(env, by_m), 'by': by_m if dec_ else None, 'ms': ms_, 'miss': miss_,
                 'action': (dec_ or {}).get('action') or 'NO ANSWER', 'why': (dec_ or {}).get('why') or str(r_.get('why') or 'the model did not answer')[:160],
                 'conf': (dec_ or {}).get('conf'), 'watch': (dec_ or {}).get('watch'), 'symbol': (focus_ or {}).get('symbol') or (held_ or {}).get('symbol'),
                 'mint': (focus_ or {}).get('mint') or (held_ or {}).get('mint'), 'pct': (held_ or {}).get('pct'), 'heldMin': (held_ or {}).get('heldMin'),
@@ -17747,7 +17757,9 @@ def _duo_view(env=None):
         return {'mode': _oe.clean_policy(_prime_real_cfg())['agentAiSeat'], 'next': nm(first_), 'at': st_['at'], 'busy': _g4['busy'],
                 'rec': {nm(k): v for k, v in _seat.by_model((st_['book'] or {}).get('closed')).items() if k in (_duet.LEAD, _duet.SECOND)},
                 'open': (st_['book'] or {}).get('open'),
-                'log': [{k: r.get(k) for k in ('at', 'model', 'action', 'symbol', 'why', 'conf', 'pct', 'ms')} for r in st_['log'][-8:][::-1]]}
+                'agents': _seat.by_model((st_['book'] or {}).get('closed')).get('agents'),
+                'water': _seat.water((st_['book'] or {}).get('closed')),
+                'log': [{k: r.get(k) for k in ('at', 'model', 'action', 'symbol', 'why', 'conf', 'pct', 'ms', 'miss')} for r in st_['log'][-8:][::-1]]}
     except Exception as e:
         return {'mode': 'off', 'err': str(e)[:80]}
 
@@ -19670,6 +19682,8 @@ def _json_save(path, d):
     t0 = time.perf_counter()
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix('.tmp'); tmp.write_text(json.dumps(d)); tmp.replace(path)
+    if isinstance(d, dict):   # ⚡ what was written IS the current version: the next load reads it, never re-parses it (fuse_hq.json: 178 re-parses in 7 min)
+        st = path.stat(); _parse_cache[str(path)] = ((st.st_mtime_ns, st.st_size), d)
     _json_cost_note('save', path, t0)
 
 
@@ -25690,6 +25704,7 @@ class PerfIn(BaseModel):
     fps: Optional[float] = Field(default=None, ge=0, le=240)
     lite: bool = False
     errors: int = Field(default=0, ge=0, le=1000)
+    errRoutes: dict = Field(default_factory=dict)   # 'route · ErrorName' → count (which request failed, never a body)
     fx: dict = Field(default_factory=dict)   # the FX governor's counts: {running, paused, shed, pressure}
 
 
@@ -25697,7 +25712,8 @@ class PerfIn(BaseModel):
 async def perf_report(p: PerfIn):
     api = {str(k)[:160]: [float(x) for x in v[:50] if isinstance(x, (int, float))] for k, v in list(p.api.items())[:40] if isinstance(v, list)}
     fx = {k: float(v) for k, v in list(p.fx.items())[:6] if k in ('running', 'paused', 'shed', 'pressure') and isinstance(v, (int, float))}
-    _perf_samples.append({**p.dict(), 'api': api, 'fx': fx, 'at': time.time()})
+    er = {str(k)[:110]: int(v) for k, v in list(p.errRoutes.items())[:20] if isinstance(v, (int, float)) and 0 < v < 1000}
+    _perf_samples.append({**p.dict(), 'api': api, 'fx': fx, 'errRoutes': er, 'at': time.time()})
     return {'ok': True}
 
 

@@ -7,7 +7,7 @@ import { fxPressure, setFxPressure, fxStats } from './fxPause';
 const LITE_KEY = 'feeless:fx-lite';
 let started = false;
 let origFetch = null;
-const state = { api: {}, longTasks: 0, longMs: 0, fps: [], errors: 0, slowStreak: 0 };
+const state = { api: {}, longTasks: 0, longMs: 0, fps: [], errors: 0, errRoutes: {}, slowStreak: 0 };
 
 export const liteMode = () => { try { return localStorage.getItem(LITE_KEY) || ''; } catch { return ''; } };
 // An old auto lite stamp ('auto@<ms>') may still sit in storage; a lite mode the user picked ('on') is never touched.
@@ -33,7 +33,7 @@ function sampleFps() {
 
 function flush() {
   const fps = state.fps.length ? Math.round(state.fps.reduce((a, b) => a + b, 0) / state.fps.length) : null;
-  const report = { page: window.location.pathname.replace(/\/[1-9A-HJ-NP-Za-km-z]{32,44}|\/0x[0-9a-fA-F]{40}/g, '/:id'), api: state.api, longTasks: state.longTasks, longMs: state.longMs, fps, lite: document.body.classList.contains('fx-lite'), errors: state.errors };
+  const report = { page: window.location.pathname.replace(/\/[1-9A-HJ-NP-Za-km-z]{32,44}|\/0x[0-9a-fA-F]{40}/g, '/:id'), api: state.api, longTasks: state.longTasks, longMs: state.longMs, fps, lite: document.body.classList.contains('fx-lite'), errors: state.errors, errRoutes: state.errRoutes };
   // 🩺 A FIX, NOT A LITE MODE (owner, 2026-10-13): two bad minutes → the FX governor pauses only the BIG animated layers (the ones that
   // cost frames); every small effect, colour and layout stays. Three healthy minutes → they come back. The whole-site lite look is
   // only ever the user's own switch now.
@@ -44,7 +44,7 @@ function flush() {
   }
   report.fx = { ...fxStats, pressure: fxPressure() };
   const has = Object.keys(report.api).length || report.longTasks || fps != null;
-  Object.assign(state, { api: {}, longTasks: 0, longMs: 0, fps: [], errors: 0 });
+  Object.assign(state, { api: {}, longTasks: 0, longMs: 0, fps: [], errors: 0, errRoutes: {} });
   if (!has) return;
   // keepalive fetch, not sendBeacon: Chrome refuses beacons with a JSON content type, so reports never arrived.
   try { (origFetch || fetch)(apiUrl('/api/reputation/perf'), { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(report) }).catch(() => {}); } catch { /* best effort */ }
@@ -62,8 +62,15 @@ export function startPerfWatch() {
     const url = typeof input === 'string' ? input : input?.url || '';
     if (!url.includes('/api/') || url.includes('/api/reputation/perf')) return orig(input, init);
     const t0 = performance.now();
-    try { return await orig(input, init); } catch (e) { state.errors += 1; throw e; } finally {
-      const key = url.replace(/^https?:\/\/[^/]+/, '').split('?')[0];
+    const key = url.replace(/^https?:\/\/[^/]+/, '').split('?')[0];
+    try { return await orig(input, init); } catch (e) {
+      if (e?.name !== 'AbortError') {   // a deliberate abort (unmount / timeout we set) is not an error; anything else names its route + kind
+        state.errors += 1;
+        const k = `${key.replace(/[1-9A-HJ-NP-Za-km-z]{32,44}/g, ':id').slice(0, 80)} · ${String(e?.name || 'Error').slice(0, 20)}`;
+        if (Object.keys(state.errRoutes).length < 20 || state.errRoutes[k]) state.errRoutes[k] = (state.errRoutes[k] || 0) + 1;
+      }
+      throw e;
+    } finally {
       const list = state.api[key] || (state.api[key] = []);
       if (list.length < 50) list.push(Math.round(performance.now() - t0));
     }

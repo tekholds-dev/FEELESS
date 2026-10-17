@@ -27,14 +27,14 @@ ACTIONS = ('BUY', 'HOLD', 'SELL', 'WAIT')
 SYSTEM = """You and one partner model take TURNS running ONE seat of a small real-money Solana trench card — this minute it is your call. PARTNER = what your partner decided last minute: build on it or overrule it, and own the result (each of you has your own record). Ten rule-based agents (Tally, Sherlock, Trigger,
 Devil, Warden, Reaper …) and OSSY's earlier reads also cover these coins — their words are in the packet. You may follow them or overrule them.
 Every minute you get a fresh snapshot. Decide ONE action for YOUR seat:
-- BUY: only when your seat is empty, and only a coin from CANDIDATES (put its symbol in "mint")
+- BUY: only when your seat is empty, and only a coin from CANDIDATES (put its SYMBOL in "coin" — never the long address)
 - HOLD: keep the coin you hold
 - SELL: sell the coin you hold now
 - WAIT: seat empty, nothing worth buying
-Rules you cannot break: never invent a mint; numbers come only from the packet; a coin you hold can still be sold under you if its pool is
+AGENTS_PICK = the coin the agents would take right now (empty = they would wait). Rules you cannot break: never invent a coin; numbers come only from the packet; a coin you hold can still be sold under you if its pool is
 pulled or it falls 45%. PRESSURE = times the agents wanted your coin out — weigh it, you decide.
 Answer with ONLY this JSON, nothing else:
-{"action":"BUY|HOLD|SELL|WAIT","mint":"<mint when BUY, else empty>","why":"<one line, under 160 chars, the numbers that decided it>","conf":<0-100>,"watch":"<what would make you sell, under 80 chars>"}"""
+{"action":"BUY|HOLD|SELL|WAIT","coin":"<SYMBOL when BUY, else empty>","why":"<one line, under 160 chars, the numbers that decided it>","conf":<0-100>,"watch":"<what would make you sell, under 80 chars>"}"""
 
 
 def _f(v, d=0.0):
@@ -74,9 +74,10 @@ def held_row(leg, px, now, pressure=None, qwen=None):
     return {k: x for k, x in out.items() if x not in (None, '', [])}
 
 
-def packet(cands, held, record=None, partner=None):
-    """The ONE thing the deciding model reads each minute (+ its partner's last call)."""
-    out = {'yourSeat': held or 'EMPTY', 'candidates': cands[:CAND_N] or 'none right now', 'yourRecord': record or 'no closed trades yet'}
+def packet(cands, held, record=None, partner=None, pick=None):
+    """The ONE thing the deciding model reads each minute (+ its partner's last call + the agents' own pick)."""
+    out = {'yourSeat': held or 'EMPTY', 'candidates': [{k: v for k, v in c.items() if k != 'mint'} for c in cands[:CAND_N]] or 'none right now',
+           'agentsPick': pick or '', 'yourRecord': record or 'no closed trades yet'}
     if partner:
         out['partner'] = partner
     return out
@@ -115,31 +116,65 @@ def _first_json(text):
         return None
 
 
+def _sym_in(text, syms):
+    """The ONE candidate symbol a free-text line names (None when it names none or several)."""
+    t = str(text or '').upper()
+    hit = {m for sy, m in (syms or {}).items() if sy and re.search(r'(?<![A-Z0-9])\$?' + re.escape(str(sy).lstrip('$').upper()) + r'(?![A-Z0-9])', t)}
+    return next(iter(hit)) if len(hit) == 1 else None
+
+
 def parse(text, cand_mints, holding, syms=None):
-    """→ {action, mint, why, conf, watch} or None. A BUY of a mint not in the list, a BUY while holding, a SELL / HOLD with an empty seat
-    are corrected to what the seat can actually do (never acted on as written)."""
+    """→ {action, mint, why, conf, watch} or None. A BUY of a coin not in the list, a BUY while holding, a SELL / HOLD with an empty seat
+    are corrected to what the seat can actually do (never acted on as written).
+    The coin is read from "coin" / "symbol" / "mint" — and when that field is unusable (small models mangle a 44-char mint; the router masks
+    any long address as •••), from the ONE candidate symbol its own "why" names. A reply with no JSON is read for its first action word."""
     j = _first_json(text)
     if not j:
-        return None
+        t = str(text or '')
+        m = re.search(r'\b(BUY|HOLD|SELL|WAIT)\b', t.upper())
+        if not m:
+            return None
+        j = {'action': m.group(1), 'why': t[:160]}
     a = str(j.get('action') or '').upper().strip()
     if a not in ACTIONS:
         return None
-    mint = str(j.get('mint') or j.get('symbol') or '').strip()
-    if mint not in set(cand_mints or ()):   # small models mangle a 44-char mint: the coin's symbol (or a mint prefix) on the list is enough
-        key = mint.lstrip('$').upper()
-        hit = [m for sy, m in (syms or {}).items() if str(sy).lstrip('$').upper() == key] or ([m for m in cand_mints or () if len(mint) >= 6 and m.startswith(mint)])
-        mint = hit[0] if len(hit) == 1 else mint
+    cset = set(cand_mints or ())
+    raw = str(j.get('coin') or j.get('symbol') or j.get('mint') or '').strip()
+    mint = raw if raw in cset else None
+    if not mint:
+        key = raw.lstrip('$').upper()
+        hit = [m for sy, m in (syms or {}).items() if key and str(sy).lstrip('$').upper() == key] or [m for m in cset if len(raw) >= 6 and m.startswith(raw)]
+        mint = hit[0] if len(hit) == 1 else None
+    if not mint and a == 'BUY':
+        mint = _sym_in(j.get('why'), syms)
+    mint = mint or ''
     why = re.sub(r'\s+', ' ', str(j.get('why') or '')).strip()[:160]
     conf = max(0, min(100, int(_f(j.get('conf'), 50))))
     watch = re.sub(r'\s+', ' ', str(j.get('watch') or '')).strip()[:80]
-    if a == 'BUY' and (holding or mint not in set(cand_mints or ())):
-        a, why = ('HOLD' if holding else 'WAIT'), (why + ' · (BUY refused: ' + ('seat already holds a coin' if holding else 'mint not on the list') + ')')[:200]
+    if a == 'BUY' and (holding or mint not in cset):
+        a, why = ('HOLD' if holding else 'WAIT'), (why + ' · (BUY refused: ' + ('seat already holds a coin' if holding else 'coin not on the list') + ')')[:200]
         mint = ''
     if a in ('HOLD', 'SELL') and not holding:
         a = 'WAIT'
     if a == 'WAIT' and holding:
         a = 'HOLD'
     return {'action': a, 'mint': mint if a == 'BUY' else '', 'why': why, 'conf': conf, 'watch': watch}
+
+
+def agents_pick(cands):
+    """The coin the ten agents would take right now: the kernel's first READY coin Trigger says ENTER on (None = they would wait)."""
+    return next((c for c in cands or [] if c.get('status') == 'READY' and str(c.get('trigger') or '').upper() in ('ENTER', 'GO')), None)
+
+
+def backup(cands, holding):
+    """🤝 AGENTS AS BACKUP: when no model answered, the seat still decides — the agents' own call. Holding → HOLD (Reaper's exits keep
+    running on it); empty → BUY the agents' pick, else WAIT. Never a coin the kernel does not list."""
+    if holding:
+        return {'action': 'HOLD', 'mint': '', 'why': 'no model answered — the agents hold it (Reaper keeps watching)', 'conf': 50, 'watch': ''}
+    p = agents_pick(cands)
+    if not p:
+        return {'action': 'WAIT', 'mint': '', 'why': 'no model answered — nothing READY with an ENTER from Trigger', 'conf': 50, 'watch': ''}
+    return {'action': 'BUY', 'mint': p['mint'], 'why': f"no model answered — the agents' pick {p.get('symbol') or ''}: READY, Trigger ENTER"[:160], 'conf': 50, 'watch': ''}
 
 
 def paper_step(book, dec, cand_by_mint, px_of, now, by=None):
@@ -174,6 +209,19 @@ def record(closed):
         return {'n': 0}
     return {'n': len(xs), 'won': round(100 * sum(1 for x in xs if x > 0) / len(xs)), 'avg': round(sum(xs) / len(xs), 2),
             'med': round(statistics.median(xs), 2), 'best': round(max(xs), 1), 'worst': round(min(xs), 1)}
+
+
+def water(closed, n=16):
+    """🌊 The seat's tank for the page: the last `n` closed trades as drops (green = won, red = lost, size = |%|) and the level = the
+    share of the summed result that was won (50 = break-even water). Display only — the record above is the proof."""
+    xs = [x for x in closed or [] if x.get('pct') is not None][-n:]
+    if not xs:
+        return {'n': 0, 'level': 50, 'drops': []}
+    up = sum(_f(x['pct']) for x in xs if _f(x['pct']) > 0)
+    dn = -sum(_f(x['pct']) for x in xs if _f(x['pct']) < 0)
+    lvl = 50 if up + dn <= 0 else round(100 * up / (up + dn))
+    return {'n': len(xs), 'level': lvl, 'net': round(up - dn, 2),
+            'drops': [{'pct': round(_f(x['pct']), 1), 'sym': x.get('symbol'), 'by': x.get('by')} for x in xs]}
 
 
 def record_words(rec):

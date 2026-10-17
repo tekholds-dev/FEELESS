@@ -20,7 +20,7 @@ export function BrainLearned({ call }) {
   const [d, setD] = useState(null); const [err, setErr] = useState('');
   useEffect(() => {
     let alive = true;
-    const load = () => Promise.resolve(call('/api/reputation/admin/ai/learned')).then(x => { if (alive && x) { setD(x); setErr(''); } }).catch(e => alive && setErr(String(e?.message || e)));
+    const load = () => Promise.resolve(call('/admin/ai/learned')).then(x => { if (alive && x) { setD(x); setErr(''); } }).catch(e => alive && setErr(String(e?.message || e)));
     load(); const t = setInterval(() => !document.hidden && load(), 30000);
     return () => { alive = false; clearInterval(t); };
   }, [call]);

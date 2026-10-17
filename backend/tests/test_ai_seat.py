@@ -127,3 +127,29 @@ def test_the_router_tries_models_in_the_order_it_is_given():
     import ai_router as ar
     assert ar.route_order(('local', 'lan'), ['lan', 'local', 'groq']) == ['local', 'lan']
     assert ar.route_order(None, ['lan', 'local']) == ['lan', 'local'] and ar.route_order(('xai',), ['lan']) == []
+
+
+def test_a_masked_or_missing_mint_still_buys_the_one_coin_its_own_why_names():
+    syms = {'RUNE': 'RUNEMINT111', 'DOGX': 'DOGXMINT222'}
+    # OSSY copied the address; the router masks long runs as ••• — its why names RUNE (live 2026-10-16: every OSSY buy was refused)
+    d = seat.parse('{"action":"BUY","mint":"•••","why":"RUNE rank104, +3.2% 5m, 58 buyers"}', list(syms.values()), False, syms)
+    assert d['action'] == 'BUY' and d['mint'] == 'RUNEMINT111'
+    assert seat.parse('{"action":"BUY","coin":"$dogx","why":"x"}', list(syms.values()), False, syms)['mint'] == 'DOGXMINT222'
+    two = seat.parse('{"action":"BUY","mint":"","why":"RUNE or DOGX"}', list(syms.values()), False, syms)
+    assert two['action'] == 'WAIT'                                                      # names two coins: never guessed
+    assert seat.parse('I would WAIT here, nothing clean', [], False)['action'] == 'WAIT'  # no JSON, a plain action word
+    assert 'mint' not in seat.packet([{'symbol': 'RUNE', 'mint': 'RUNEMINT111'}], None)['candidates'][0]   # the model is shown symbols only
+
+
+def test_when_no_model_answers_the_agents_decide_the_seat():
+    c = [{'symbol': 'A', 'mint': 'AAA', 'status': 'CONTENDING', 'trigger': 'ARM'}, {'symbol': 'B', 'mint': 'BBB', 'status': 'READY', 'trigger': 'ENTER'}]
+    assert seat.agents_pick(c)['mint'] == 'BBB'
+    assert seat.backup(c, False) == {**seat.backup(c, False), 'action': 'BUY', 'mint': 'BBB'}
+    assert seat.backup(c[:1], False)['action'] == 'WAIT' and seat.backup(c, True)['action'] == 'HOLD'
+    assert seat.turn([{'by': 'agents', 'action': 'BUY'}], 'lan', 'local') == ('lan', 'local')   # a backup minute is nobody's turn
+
+
+def test_the_water_tank_level_is_the_share_of_the_result_that_won():
+    assert seat.water([])['level'] == 50
+    w = seat.water([{'pct': 9.0, 'symbol': 'A'}, {'pct': -3.0, 'symbol': 'B'}])
+    assert w['level'] == 75 and w['net'] == 6.0 and [x['pct'] for x in w['drops']] == [9.0, -3.0]
