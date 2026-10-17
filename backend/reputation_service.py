@@ -13941,7 +13941,7 @@ async def _g4_tick(now, env, cfg):
         hl_ = (_study.get('holds') or {}).get('lines') or []
         if hl_:
             learn_['holdLessons'] = [str(x)[:140] for x in hl_[:3]]   # 👍👎 what the market's verdicts on its calls + votes earned it
-        on_ = next((r_ for r_ in reversed(st_['log']) if r_.get('by') == 'owner' and held_ and r_.get('mint') == (held_ or {}).get('mint')), None)
+        on_ = next((r_ for r_ in reversed(st_['log']) if r_.get('by') == 'owner' and ((held_ and r_.get('mint') == held_.get('mint')) or (not held_ and not r_.get('mint') and now - _fuse._f(r_.get('at')) < 600))), None)   # 👤 with no trade open your chime-in reaches the model hunting next (10 min)
         if on_:
             learn_['ownerSays'] = str(on_.get('why') or '')[:200]   # 👤 the owner chimed in on this trade
         await _dv_settle(now)

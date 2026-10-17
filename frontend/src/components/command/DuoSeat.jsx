@@ -158,8 +158,8 @@ function TradeRoom({ duo, call }) {
     {past ? null : <span>{h.tp ? `TP +${h.tp}%` : 'TP —'} · {h.sl ? `SL −${h.sl}%` : 'SL −45 floor'}</span>}
     {['G4', 'OSSY'].map(k => conf[k] ? <em key={k} className={conf[k].boost > 0 ? 'm-pos' : conf[k].boost < 0 ? 'm-neg' : ''} data-tip={conf[k].words}>{k} conf {conf[k].boost > 0 ? '+' : ''}{conf[k].boost}</em> : null)}</p>
     <ol>{rows.map((r, i) => <Bubble key={`${r.at}-${i}`} r={r} busy={busy || !call} onVote={(key, v) => post({ vote: { key, v } })} />)}</ol>
-    {call && !past ? <form className="dso-say" onSubmit={e => { e.preventDefault(); if (txt.trim()) { post({ comment: txt.trim() }); setTxt(''); } }}>
-      <input className="m-input" value={txt} onChange={e => setTxt(e.target.value)} maxLength={240} placeholder={`chime in — ${duo.holder || 'the holder'} reads it next minute (say hold / sell and the market grades you too)`} data-testid="duo-say" />
+    {call && !roomM ? <form className="dso-say" onSubmit={e => { e.preventDefault(); if (txt.trim()) { post({ comment: txt.trim() }); setTxt(''); } }}>
+      <input className="m-input" value={txt} onChange={e => setTxt(e.target.value)} maxLength={240} placeholder={duo?.holding ? `chime in — ${duo.holder || 'the holder'} reads it next minute (say hold / sell and the market grades you too)` : `chime in — ${duo?.next || 'the next model'} reads it on its turn`} data-testid="duo-say" />
       <button type="submit" className="m-btn" disabled={busy || !txt.trim()}>Send</button></form> : null}</>}</div>;
 }
 

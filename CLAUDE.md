@@ -4799,3 +4799,5 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 👍👎 With no live model trade the trade room OPENS the newest trade's room by itself (`TradeRoom` default `rooms[0]`) — the chat + votes had
   hidden behind the room tabs, which read as "likes removed". 🦠 The models' list = a 3× wider pool → gun-line / rotation / look-alike filters
   (`ai_seat.recent_ai_syms` + `taught_rules.family`: no clone of a coin either model traded in 6h) → germ-floor coins first (`ai_seat.germ_rank`).
+- 💬 The duo trade room's chime-in box is ALWAYS there (only hidden when YOU opened an old room tab); with no trade open your line reaches the model
+  hunting next (`ownerSays`, ≤ 10 min). Chat sides are per VOICE: G4 left, OSSY right, you gold right, advice dashed (`is-g4` / `is-ossy` / `is-talk`).

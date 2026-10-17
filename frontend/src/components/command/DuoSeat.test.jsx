@@ -76,3 +76,11 @@ test('👍👎 stay on screen with no live trade: the newest trade room opens by
   expect(el.querySelector('[data-testid="dsb-up-k1"]')).toBeTruthy();
   act(() => root.unmount());
 });
+
+test('💬 the chime-in box shows with no live trade too', () => {
+  global.IS_REACT_ACT_ENVIRONMENT = true;
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  act(() => root.render(<DuoSeat duo={{ mode: 'real', next: 'OSSY', log: [], rooms: [{ mint: 'm1', symbol: 'MOMO', model: 'G4', closed: true, pct: -2.2, rows: [] }] }} call={() => Promise.resolve({})} />));
+  expect(el.querySelector('[data-testid="duo-say"]')).toBeTruthy();
+  act(() => root.unmount());
+});
