@@ -10,7 +10,7 @@ import { readChatSession } from '../lib/chatSession';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FuseChatCard } from './FuseChatCard';
 import { FUSE_TAG } from '../lib/fuseFeed';
-import { CALLOUT_TAG, readCallout } from '../lib/callout';
+import { CALLOUT_TAG, readCallout, publishCallouts } from '../lib/callout';
 import { CalloutBubble } from './CalloutBubble';
 import { ExternalLink, Flag, Heart, Link2, MessageCircle, Reply, Send, Trash2, UserRound, X } from 'lucide-react';
 import { formatTime, formatUSD } from '../lib/dexscreener';
@@ -126,6 +126,7 @@ function EcosystemChatInner({ ecosystem, room: roomProp, compact = false, onConn
     return () => { alive = false; };
   }, [room, wallet?.address]);
   const [messages, setMessages] = useState([]);
+  useEffect(() => { publishCallouts(messages, m => (m.profile?.hidden ? 'anon' : m.username)); }, [messages]);   // 📍 the room's /callouts → pins on this coin's chart
   const [pinned, setPinned] = useState(null);
   const [fx, setFx] = useState({});
   const [storedPrefs, setPrefs] = useChatPrefs();

@@ -4759,3 +4759,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   styles/callout.css): caller · called at cap · × since + % P&L bar · cap now, live from the shared `useLivePrices` record (`mc`), ticks flash, 2×+ glows.
   Agents tab chart: `ChartCallouts` (AgentCockpit) = OSSY / G4's BUY as an ai callout bubble + HOLD / SELL / partner talk as speech bubbles for THIS
   coin (duo payload `chart`, newest 3). ⚡ Live desk = three views (🔁 duo · 🧩 ten agents · 🎬 decisions, `LiveDesk`, remembered) instead of a stack.
+- 📍 CALL PINS ON THE CHART (owner, 2026-10-16, Pump's chart as the reference — REPLACES the big callout box over the Agents chart): `PriceChart`
+  prop `callouts` [{id, at, cap, who, kind ai|talk|user, action, text, pct, icon}] → `components/terminal/ChartCallPins.jsx` (`ccp-*`): a 22px avatar
+  pin at the call's candle (`pinPlace`: bucket of the interval) + cap (MC chart; price chart = cap ÷ ratio), placed by the shared chart frame;
+  hover / focus / tap = a card (who · when · what they said · called at · × since · their seat %). Agents chart = OSSY / G4 rows (`chartCalls`);
+  war-room charts = the coin room's chat `/callout`s (`publishCallouts` in EcosystemChat → window `feeless:callouts` → `useChatCallouts`).
+  In the chat itself a callout still renders as `CalloutBubble`.

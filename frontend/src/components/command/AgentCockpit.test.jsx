@@ -199,6 +199,7 @@ test('📡 an empty seat reads its blocker as a headline + its numbers', () => {
 
 test('📣 chart callouts: only the models\' calls on THIS coin, newest 3 first', () => {
   const { chartCalls } = require('./AgentCockpit');
-  const rows = [{ mint: 'A', at: 1 }, { mint: 'B', at: 2 }, { mint: 'A', at: 3 }, { mint: 'A', at: 4 }, { mint: 'A', at: 5 }];
-  expect(chartCalls(rows, 'A').map(r => r.at)).toEqual([5, 4, 3]); expect(chartCalls(rows, 'C')).toEqual([]); expect(chartCalls(null, 'A')).toEqual([]);
+  const rows = [{ mint: 'A', at: 1, cap: 10 }, { mint: 'B', at: 2, cap: 10 }, { mint: 'A', at: 3, cap: 0 }, { mint: 'A', at: 4, cap: 9, model: 'OSSY', action: 'BUY' }, { mint: 'A', at: 5, cap: 9, talk: true, view: 'SELL' }];
+  expect(chartCalls(rows, 'A').map(r => r.at)).toEqual([1, 4, 5]); expect(chartCalls(rows, 'A')[1]).toMatchObject({ icon: 'OS', action: 'BUY', kind: 'ai' });
+  expect(chartCalls(rows, 'A')[2]).toMatchObject({ action: 'TALK', kind: 'talk' }); expect(chartCalls(null, 'A')).toEqual([]);
 });

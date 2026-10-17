@@ -13931,7 +13931,8 @@ async def _g4_tick(now, env, cfg):
                 if da_:
                     log_ = _seat.note(log_, {'at': round(now), 'mode': mode_, 'model': _air.model_name(env, second_), 'by': second_, 'talk': True, 'ms': round((time.perf_counter() - t0b) * 1000),
                                              'action': 'TALK', 'view': da_['action'], 'why': f"to {_air.model_name(env, first_)}: {da_['action']} — {da_.get('why') or ''}"[:180], 'conf': da_.get('conf'),
-                                             'watch': da_.get('watch'), 'symbol': (held_ or {}).get('symbol'), 'mint': (held_ or {}).get('mint'), 'pct': (held_ or {}).get('pct')})
+                                             'watch': da_.get('watch'), 'symbol': (held_ or {}).get('symbol'), 'mint': (held_ or {}).get('mint'), 'pct': (held_ or {}).get('pct'),
+                                             'cap': (_seat.cand_row(_tk.KERNEL.candidate(held_m) or {'mint': held_m}) or {}).get('cap')})   # 📍 its pin on the chart sits at the cap it spoke at
             except Exception as e_t:
                 print('g4 talk:', str(e_t)[:100])
         m1_ = _g4_mem.get() or {}   # the seat may have opened (and the stats restarted) while this model was thinking
@@ -17919,7 +17920,7 @@ def _duo_view(env=None):
                 'agents': _seat.by_model((st_['book'] or {}).get('closed')).get('agents'), 'fate': _g4.get('fate'), 'live': _g4.get('live'),
                 'log': [{k: r.get(k) for k in ('at', 'model', 'action', 'symbol', 'why', 'conf', 'pct', 'ms', 'miss')} for r in st_['log'][-30:][::-1]],
                 'chart': [{'at': r.get('at'), 'model': r.get('model'), 'mint': r.get('mint'), 'sym': r.get('symbol'), 'action': r.get('action'), 'view': r.get('view'), 'talk': bool(r.get('talk')), 'why': str(r.get('why') or '')[:120],
-                           'pct': r.get('pct'), 'cap': (r.get('vitals') or {}).get('cap')} for r in st_['log'][-80:] if r.get('mint') and r.get('action') in ('BUY', 'SELL', 'TALK', 'HOLD')][-24:]}   # 📣 what the models said about each coin → bubbles on the Agents chart
+                           'pct': r.get('pct'), 'cap': (r.get('vitals') or {}).get('cap') or r.get('cap')} for r in st_['log'][-80:] if r.get('mint') and r.get('action') in ('BUY', 'SELL', 'TALK', 'HOLD')][-24:]}   # 📣 what the models said about each coin → bubbles on the Agents chart
     except Exception as e:
         return {'mode': 'off', 'err': str(e)[:80]}
 

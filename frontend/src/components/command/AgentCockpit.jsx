@@ -1,5 +1,4 @@
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
-import { CalloutBubble } from '../CalloutBubble';
 import { DuoSeat } from './DuoSeat';
 import { createPortal } from 'react-dom';
 import { AddMyCoin, SeatStudy, MySeatsRecord, SeatControls } from './MySeat';
@@ -336,19 +335,14 @@ function LiveDesk({ duo, matrix, tape, tapeN }) {
     {LIVE_VIEWS.map(([k]) => <div key={k} className="ack-lvpane" hidden={v !== k}>{views[k]}</div>)}</div>;
 }
 
-// 📣 OSSY / G4 ON THE CHART (owner, 2026-10-16: "only when AI is discussing and making trades make it show on chart as callouts"): their BUY is a
-// live callout bubble (the cap they bought at → × now, from the shared poller); HOLD / SELL / partner talk are small speech bubbles; newest 3
-// for THIS coin only, nothing at all when they never spoke about it.
-export function chartCalls(rows, mint) { return (rows || []).filter(r => r.mint && r.mint === mint).slice(-3).reverse(); }
-function ChartCallouts({ rows, mint, pair }) {
-  const list = useMemo(() => chartCalls(rows, mint), [rows, mint]);
-  if (!list.length) return null;
-  return <div className="ack-ccall" data-testid="ack-chart-callouts">{list.map((r, i) => r.action === 'BUY'
-    ? <CalloutBubble key={`${r.at}-${i}`} kind="ai" compact who={r.model} sym={'' + (r.sym || 'coin')} pair={pair} calledMc={r.cap} at={r.at} />
-    : <p key={`${r.at}-${i}`} className={`ack-cspeech ${r.talk ? 'is-talk' : `is-${String(r.action).toLowerCase()}`}`} style={{ '--i': i }}><b>{r.model} {r.talk ? `💬 ${r.view || ''}` : r.action}{r.pct != null ? ` ${r.pct >= 0 ? '+' : ''}${Number(r.pct).toFixed(1)}%` : ''}</b><span>{r.why}</span></p>)}</div>;
+// 📍 OSSY / G4 ON THE CHART (owner, 2026-10-16: Pump-style pins + cards, not a box): their calls on THIS coin → pins at the call's candle + cap
+export function chartCalls(rows, mint) {
+  return (rows || []).filter(r => r.mint && r.mint === mint && Number(r.cap) > 0).slice(-12).map((r, i) => ({ id: `${r.at}-${i}`, at: r.at, cap: r.cap, who: r.model, kind: r.talk ? 'talk' : 'ai',
+    action: r.talk ? 'TALK' : r.action, text: r.talk ? `${r.view || ''} — ${r.why || ''}` : r.why, pct: r.pct, icon: r.model === 'OSSY' ? 'OS' : r.model === 'G4' ? 'G4' : undefined }));
 }
 
 function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent, tid, call, isOwner, duo }) {
+  const calls = useMemo(() => chartCalls(duo?.chart, m?.mint), [duo?.chart, m?.mint]);
   const pair = useMemo(() => (m?.pair ? { chainId: 'solana', pairAddress: m.pair, baseToken: { address: m.mint, symbol: m.symbol }, priceUsd: m.price, marketCap: m.mc } : null), [m?.pair, m?.mint, m?.symbol, m?.price, m?.mc]);
   // ✋ YOUR LINES on an agent seat: its stop + take are grabbable on the chart; a drop asks, saves that coin's own TP / SL, Reaper obeys it,
   // and the position is filed as "your hand" so the record shows whether your adjustments helped
@@ -384,8 +378,7 @@ function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent, tid, call, is
     {!m.pair ? <p className="ack-nil" data-testid="ack-nopool">No pool for this coin yet — nothing to chart.</p>
       : !m.mc ? <p className="ack-nil is-warn" data-testid="ack-mc-unavailable"><b>MC UNAVAILABLE</b> — no supply is known for this coin yet (no token supply, not a launchpad mint, no live cap). The raw price is never charted in its place.</p>
         : <div className="ack-plot">{pos ? <TradeHud pos={pos} m={m} /> : null}<Suspense fallback={<p className="ack-nil">loading the live chart…</p>}>
-          <PriceChartLazy key={`${m.pair}-${iv}`} pair={pair} interval={iv} metric="marketCap" showVolume markers={chartMarkers} fuse={fuse} pnl={seatPnl} /></Suspense>
-          <ChartCallouts rows={duo?.chart} mint={m.mint} pair={m.pair} /></div>}
+          <PriceChartLazy key={`${m.pair}-${iv}`} pair={pair} interval={iv} metric="marketCap" showVolume markers={chartMarkers} fuse={fuse} pnl={seatPnl} callouts={calls} /></Suspense></div>}
     <div className="ack-mrail" data-testid="ack-mrail"><span className="ack-mkey" data-tip="▲ real buy · ▼ real sell on the chart; the chips are the newest decisions on this coin"><i className="ack-ml is-B">▲</i><i className="ack-ml is-X">▼</i></span>
       {markers.length ? <span className="ack-mlist">{markers.slice(-6).reverse().map(k => <button key={k.id} type="button" className={`ack-ml is-${k.text}`} onClick={() => onAgent(k.agent)}
         data-tip={`${new Date(k.at * 1000).toLocaleTimeString()} · ${TAPE_AGENT[k.agent]?.[1] || k.agent} · ${k.action}${k.why ? ` — ${k.why}` : ''}${k.mc ? ` · MC ${mcWord(k.mc)}` : ''} · ${ago(k.at)} ago`}

@@ -21,12 +21,14 @@ import { useAdmin } from '../../lib/adminCall';
 import { toast } from 'sonner';
 
 import { tiny } from '../../lib/num';
+import { useChatCallouts } from '../../lib/useChatCallouts';
 const METRIC_LABEL = { price: 'Price', marketCap: 'Market cap', fdv: 'FDV' };
 
 // aside: something to sit beside the chart (the war room puts the coin chat there); the trade tools then go below
 // the chart in a row instead of a scrolling side column.
 export function TrenchChart({ pair: current, defaultInterval = '1m', onExpand, expanded, className = '', aside = null }) {
   const [interval, setInterval] = useState(defaultInterval);
+  const chatCalls = useChatCallouts(current?.pairAddress);   // 📍 the coin room's /callouts as pins on this chart
   const [metric, setMetric] = useState('marketCap');
   useTabTitle(chartTitle(current));   // 🏷 the browser tab reads this coin's market cap + price while its chart is open
   const [volume, setVolume] = useState(true);
@@ -69,7 +71,7 @@ export function TrenchChart({ pair: current, defaultInterval = '1m', onExpand, e
         onClick={rebuy}>{lf.state === 'rebuying' ? '🔄 sold — buying back…' : lf.state === 'buying' ? '🔄 buying back…' : rebuyBusy ? '🔄 selling…' : "🔄 Rebuy at today's price"}</button>}
       {lf.state === 'gone' && <span className="down" data-testid="chart-fuse-gone">no longer on the card</span>}
       {fz.riding ? <span>❄ riding{fz.trail ? <> · out under <em>${tiny(Number(fz.trail), 4)}</em></> : null}</span> : <>{fz.stop ? <span>🛑 stop <em>${tiny(Number(fz.stop), 4)}</em></span> : null}{fz.lock ? <span>❄ locks <em>${tiny(Number(fz.lock), 4)}</em></span> : null}</>}</div>}
-    <div className="chart-with-trade"><div className="chart-fullscreen-wrap" ref={chartWrap}><PnlBadge mcPerPrice={Number(current.marketCap) > 0 && Number(current.priceUsd) > 0 ? Number(current.marketCap) / Number(current.priceUsd) : null} pos={myPos} pair={current} price={Number(current.priceUsd)} flash={tradeFlash} symbol={current.baseToken?.symbol} imageUrl={current.info?.imageUrl} /><ChartBoundary key={`${current.chainId}-${current.pairAddress}-${interval}-${metric}`} pair={current}><PriceChart userEntry={myPos?.tokensHeld > 0 ? (myPos?.fillPrice || myPos?.avgEntry) : null} userTrades={myPos?.trades} pair={current} interval={interval} metric={metric} showVolume={volume} markers={markers} feeLive={showFee} fuse={fz || null} pnl={myPos?.tokensHeld > 0 ? { pos: myPos, tagOnly: true } : false} /></ChartBoundary></div>{aside ? <div className="chart-aside">{aside}</div> : tools}</div>{aside && tools}
+    <div className="chart-with-trade"><div className="chart-fullscreen-wrap" ref={chartWrap}><PnlBadge mcPerPrice={Number(current.marketCap) > 0 && Number(current.priceUsd) > 0 ? Number(current.marketCap) / Number(current.priceUsd) : null} pos={myPos} pair={current} price={Number(current.priceUsd)} flash={tradeFlash} symbol={current.baseToken?.symbol} imageUrl={current.info?.imageUrl} /><ChartBoundary key={`${current.chainId}-${current.pairAddress}-${interval}-${metric}`} pair={current}><PriceChart userEntry={myPos?.tokensHeld > 0 ? (myPos?.fillPrice || myPos?.avgEntry) : null} userTrades={myPos?.trades} pair={current} interval={interval} metric={metric} showVolume={volume} markers={markers} feeLive={showFee} fuse={fz || null} pnl={myPos?.tokensHeld > 0 ? { pos: myPos, tagOnly: true } : false} callouts={chatCalls} /></ChartBoundary></div>{aside ? <div className="chart-aside">{aside}</div> : tools}</div>{aside && tools}
     <TradeTape pair={current} />
   </div>;
 }

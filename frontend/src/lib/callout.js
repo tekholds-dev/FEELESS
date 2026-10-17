@@ -24,3 +24,15 @@ export function calloutLive(calledMc, nowMc) {
 }
 export const xWord = x => (x == null ? '—' : x >= 10 ? `${x.toFixed(0)}×` : x >= 2 ? `${x.toFixed(1)}×` : `${x.toFixed(2)}×`);
 export const capWord = v => (!(v > 0) ? '—' : v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Math.round(v)}`);
+
+// 📍 chat → chart: the open chat publishes its room's callouts; any chart of that pool shows them as pins (no fetch, one window event)
+const roomCalls = new Map();   // pair -> calls
+export function publishCallouts(messages, nameOf) {
+  const by = new Map();
+  (messages || []).forEach(m => { const c = readCallout(m.text); if (!c) return; const at = m.ts ? new Date(m.ts).getTime() / 1000 : 0;
+    const row = { id: `chat-${m.id}`, at, cap: c.mc, who: nameOf ? nameOf(m) : (m.username || 'anon'), kind: 'user', action: 'CALL', text: c.why };
+    by.set(c.pair, [...(by.get(c.pair) || []), row]); });
+  by.forEach((rows, pair) => { const key = rows.map(r => r.id).join(','); if ((roomCalls.get(pair) || {}).key === key) return;
+    roomCalls.set(pair, { key, rows }); window.dispatchEvent(new CustomEvent('feeless:callouts', { detail: { pair, rows } })); });
+}
+export function callsFor(pair) { return (roomCalls.get(pair) || {}).rows || []; }
