@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { sharedJson, markFresh } from '../../lib/sharedJson';
+import NumInput from '../NumInput';
 import '../../styles/mySeat.css';
 
 // 👤 YOUR COIN IN A SEAT (owner, 2026-10-15: "still no way to add my own coins into seats — they track my every move and study during that seat,
@@ -129,6 +130,30 @@ export function MySeatsRecord({ rec }) {
     {c.n ? <> · vs the agents' exit on the same coins: you {s(c.you)} · them {s(c.agents)} · you did better {c.youBetter}/{c.n}</> : null}</small>;
 }
 
+// ✂ SELL AN AMOUNT (owner, 2026-10-16: "need more access to sell my x amount or enter amount to sell"): a % of the coin, or a $ amount turned into
+// that coin's % at its live value (capped 100). Pure; the sell itself is the card's own ✂ manualSell path (proceeds held as card cash for you).
+export function sellPct(mode, n, valueUsd) {
+  const v = Number(n);
+  if (!(v > 0)) return null;
+  if (mode === '$') return Number(valueUsd) > 0 ? Math.max(1, Math.min(100, Math.round((v / Number(valueUsd)) * 1000) / 10)) : null;
+  return Math.max(1, Math.min(100, Math.round(v * 10) / 10));
+}
+
+function SellBox({ s, valueUsd, busy, onSell }) {
+  const [mode, setMode] = useState('%'); const [n, setN] = useState('');
+  const pct = sellPct(mode, n, valueUsd);
+  const go = p => { if (p) { onSell(p); setN(''); } };
+  return <span className="mys-sell" role="group" aria-label={`Sell part of $${s.symbol}`}>
+    {[25, 50].map(p => <button key={p} type="button" className="m-btn mys-chip is-cut" disabled={!!busy} onClick={() => go(p)} data-testid={`seat-cut-${s.symbol}-${p}`} data-tip={`Sell ${p}% of $${s.symbol} now — the rest stays on its seat`}>✂ {p}%</button>)}
+    <NumInput className="m-input mys-sellin" value={n} onChange={e => setN(e.target.value)} placeholder={mode === '$' ? '$ amt' : '% amt'} aria-label={`Amount of $${s.symbol} to sell`}
+      onKeyDown={e => { if (e.key === 'Enter') go(pct); }} data-testid={`seat-sell-in-${s.symbol}`} />
+    <button type="button" className="m-btn mys-chip mys-unit" onClick={() => setMode(m => (m === '%' ? '$' : '%'))} data-testid={`seat-sell-unit-${s.symbol}`}
+      data-tip={valueUsd > 0 ? `Switch % ⇄ $ — this coin is worth $${valueUsd.toFixed(2)} now` : 'Switch % ⇄ $'}>{mode}</button>
+    <button type="button" className="m-btn mys-chip is-cut" disabled={!!busy || !pct} onClick={() => go(pct)} data-testid={`seat-sell-go-${s.symbol}`}
+      data-tip={pct ? `Sell ${pct}% of $${s.symbol}${valueUsd > 0 ? ` (≈ $${(valueUsd * pct / 100).toFixed(2)})` : ''} — the agents study it as your move` : 'Type an amount'}>✂ Sell{pct ? ` ${pct}%` : ''}</button>
+  </span>;
+}
+
 // ⏏ PULL + 🎯 SELL LIMITS on every held seat, and your open limits (owner, 2026-10-15: "a way to pull seat", "do limit orders")
 export const GSTOPS = [['off', 'off'], ['1m', '1m'], ['5m', '5m'], ['both', '1–5m']];   // 🦠 Gstop lenses (arena_prime.GSTOP_MODES)
 
@@ -159,6 +184,8 @@ export function SeatControls({ call, tpl, seats, reload }) {
       <span className="m-seg mys-gstop" role="group" aria-label={`Germ stop for $${s.symbol}`}>{GSTOPS.map(([v, w]) => <button key={v} type="button" disabled={!!busy} className={(legs[s.pair]?.gstop || 'off') === v ? 'active' : ''}
         onClick={() => send(`g-${s.pair}-${v}`, { leg: { tpl, pairAddress: s.pair, gstop: v } }, v === 'off' ? `🦠 Gstop off on $${s.symbol}` : `🦠 Gstop ${w} on $${s.symbol}: sold when it loses its germ floor, bought back on a new one`)}
         data-testid={`seat-gstop-${s.symbol}-${v}`} data-tip={v === 'off' ? 'No germ stop' : `Sell when the price loses its ${w} germ floor; bought back when a NEW germ floor is confirmed (inside your germ line)`}>{v === 'off' ? '🦠 off' : w}</button>)}</span>
+      <SellBox s={s} busy={busy} valueUsd={Number(legs[s.pair]?.units) * Number(s.px) || 0}
+        onSell={p => send(`cut-${s.pair}`, { manualSell: { tpl, pairAddress: s.pair, pct: p, ack: true } }, `✂ sold ${p}% of $${s.symbol} — held as card cash for you; the agents file it as your move`)} />
       <button type="button" className="m-btn mys-pull" disabled={!!busy} onClick={() => send(`pull-${s.pair}`, { manualSell: { tpl, pairAddress: s.pair, pct: 100, ack: true } }, `⏏ $${s.symbol} pulled — sold to card cash, the seat opens`)} data-testid={`seat-pull-${s.symbol}`} data-tip="Sell this whole coin to card cash now — the seat opens">⏏ Pull</button>
     </div>)}
     {rebuy.length ? <p className="mys-rebuy" data-testid="seat-germ-rebuy">🦠 watching for a new germ floor: {rebuy.map(r => `$${r.symbol} (${r.lens})`).join(' · ')}</p> : null}

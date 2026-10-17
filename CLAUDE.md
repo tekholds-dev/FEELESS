@@ -4731,3 +4731,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   no longer checks `agentPaper` (it read "paper mode" on every buy); the 🌙 night guard still stops it (`night_`). Duel board 🧠 THINK panel
   (duo `live` = what the deciding model is reading: up to 6 coins with 5m / buyers / germ, the agents' own pick, its seat) with elapsed vs its typical
   think time and four steps; sides add CONF + MISSED.
+- 🔁 G4 / OSSY = REAL TURNS (owner, 2026-10-16: "REALLY take turns choosing a coin for a REAL seat … both think and discuss during trades"):
+  `ai_seat.turn(log, a, b, holding, opener, holder)` — the turn moves ONLY when a model's BUY really took the seat (leg `aiBy` + `_g4_mem`
+  `opener`, stamped at "seated"); a refused / vetoed / paused BUY is not a turn. The holder alone runs its trade (asked with `only=(holder,)`);
+  every `TALK_EVERY` 120s the partner reads the SAME trade with `ADVISE` → a `talk` row (action TALK, `view` HOLD / SELL) → the holder's next
+  packet `partnerSays`. Advice never decides. 🌙 A night-guard drawdown / streak pause stops the agents' fills, NOT the one AI seat
+  (`night_g4_` = rug-level trip only). Found that evening: 18 drawdown trips on a $0.79 card kept every model BUY at "night guard pause".
+- 🎛 CONTROLS v2 (`CockpitControls`, `acx-shell` / `acx-rail` / `acx-pane` / `acx-live`): a section rail (live values + "N YOURS") and ONE pane
+  (controls | LIVE READ); panes stay mounted (`[hidden]`). After every save the hub reloads and the tapped row says ✓ IN FORCE (server value =
+  your pick) or ⚠ NOT APPLIED. `test_every_control_option_saved_reads_back_as_that_value_on_the_panel` pins the round trip for every option.
+- ✂ SELL AN AMOUNT on every held seat (cockpit › Add my coin › SeatControls `SellBox`, `sellPct`): ✂ 25% / 50% + a box for any % or a $ amount ($ → the coin's % at its live value, capped 100) → the card's own ✂ manualSell (proceeds held as card cash for you; owner_moves files it as your move).

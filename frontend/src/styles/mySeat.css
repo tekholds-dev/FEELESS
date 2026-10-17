@@ -63,3 +63,11 @@ body.fx-lite .mys-rebuy { animation: none; }
 body.theme-day .mys-cert { color: #0b6a8f; } body.theme-day .mys-cert.is-on { background: #0b6a8f; color: #fff; } body.theme-day .mys-rebuy { color: #6a3fc0; }
 .mys-lock { color: var(--gold, #f5c451); border-color: rgba(245, 196, 81, .4); } .mys-lock.is-on { background: var(--gold, #f5c451); color: #1a1204; border-color: var(--gold, #f5c451); box-shadow: 0 0 12px rgba(245, 196, 81, .4); }
 body.theme-day .mys-lock { color: #8a6a12; } body.theme-day .mys-lock.is-on { background: #8a6a12; color: #fff; }
+
+/* ✂ sell an amount: 25 / 50 chips + a % or $ box */
+.mys-sell { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.mys-sellin { width: 64px; min-height: 26px; padding: 3px 6px; font: 600 10.5px var(--m-mono, 'JetBrains Mono', monospace); }
+.mys-chip.is-cut { color: #ffd6a0; border-color: rgba(232, 196, 106, .45); }
+.mys-chip.is-cut:hover:not(:disabled) { background: rgba(232, 196, 106, .14); }
+.mys-unit { min-width: 26px; font-weight: 800; }
+body.theme-day .mys-chip.is-cut { color: #7a4d00; }

@@ -71,3 +71,9 @@ test('limits: a price makes a buy limit, a held seat gets take / stop limits fro
   await act(async () => { el.querySelector('[data-testid="seat-lim-x-L1"]').click(); });
   expect(JSON.parse(call.mock.calls[1][1].body)).toEqual({ limitCancel: { tpl: 'degen', id: 'L1' } });
 });
+
+test('✂ sell an amount: a % of the coin, or $ turned into the coin\'s %, capped at 100', () => {
+  const { sellPct } = require('./MySeat');
+  expect(sellPct('%', 30, 4)).toBe(30); expect(sellPct('%', 250, 4)).toBe(100); expect(sellPct('%', '', 4)).toBe(null);
+  expect(sellPct('$', 1, 4)).toBe(25); expect(sellPct('$', 9, 4)).toBe(100); expect(sellPct('$', 1, 0)).toBe(null);
+});
