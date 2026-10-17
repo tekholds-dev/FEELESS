@@ -13883,7 +13883,8 @@ async def _g4_tick(now, env, cfg):
         on_ = {l.get('mint') for l in card_.get('legs') or []}
         cands_ = [c_ for c_ in (_tk.KERNEL.candidate(m_, d_) for m_, d_ in _tk.KERNEL.ready(exclude=on_))][:_seat.CAND_N]
         cands_ += [c_ for c_ in (_tk.KERNEL.candidate(x_['mint']) for x_ in _tk.KERNEL.cases(exclude=on_) if x_['status'] == 'CONTENDING') if c_][:_seat.CAND_N - len(cands_)]
-        op_ = {k_ for k_, v_ in ((_g4_mem.get() or {}).get('opened') or {}).items() if now - _fuse._f(v_) < 3600}   # 🚫 a coin either model bought in the last hour is off their list
+        op_ = {k_ for k_, v_ in ((_g4_mem.get() or {}).get('opened') or {}).items() if now - _fuse._f(v_) < 3600}
+        op_ |= {r_.get('mint') for r_ in st_['log'][-120:] if r_.get('action') == 'BUY' and r_.get('mint') and now - _fuse._f(r_.get('at')) < 1800}   # 🚫 no coin either model already called a BUY on in the last 30 min   # 🚫 a coin either model bought in the last hour is off their list
         cands_ = [c_ for c_ in cands_ if c_ and c_.get('mint') and not _fw.dollar_named(c_.get('symbol')) and c_['mint'] not in _g4_blocked(card_, now) and c_['mint'] not in op_]
         pxm_ = await _live_px([c_['mint'] for c_ in cands_] + ([held_m] if held_m else []))
         px_of = lambda m_: _fuse._f(pxm_.get(m_)) or _fuse._f((_jup_px_cache.get(m_) or (0, 0))[1])
