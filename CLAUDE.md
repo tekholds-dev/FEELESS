@@ -4924,3 +4924,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   chat · 1 = forced calls (partner advice, idle card reads, final reviews, FeeCat duo, exit reads) · 2 = background reads. A lower tier waiting
   on a model makes higher tiers yield ('YIELD (its trade first)'); background reads start only within 30s after that model's last trade call
   (or when it has no trade running for 2 min), so its slot is free when the next minute's trade call comes. Trade calls are never minute-capped.
+- 🧯 A stuck desktop model never stops OSSY: FeeCat's duo read runs as its own task (`_feecat_duo_safe`, ≤ 200s), the partner's advice waits
+  ≤ `ADVISE_SEC` 45s, and a `_g4_tick` busy > `G4_STUCK_SEC` 4 min is let go. 2026-10-17: G4's hung desktop (150s timeouts) held the whole AI
+  round inside `_feecat_duo` → OSSY's minute never ran for 13 min. "A MODEL WENT QUIET" ⇒ check the other model is not holding the round.

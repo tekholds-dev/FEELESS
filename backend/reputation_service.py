@@ -13999,9 +13999,19 @@ async def _g4_review(now, env, cfg, st_, lv_, mode_):
         _duo_push()
 
 
+ADVISE_SEC, G4_STUCK_SEC = 45.0, 240.0   # the partner's advice never holds the holder's minute; a stuck tick is let go
+
+
+async def _feecat_duo_safe(now, env, cfg):
+    try:
+        await asyncio.wait_for(_feecat_duo(now, env, cfg), timeout=200)
+    except Exception as e:
+        print('feecat duo:', str(e)[:80])
+
+
 async def _g4_tick(now, env, cfg):
     """🧠 G4's minute: one snapshot packet → one action for ITS seat (paper book here; real = `_g4['want']`, applied by the tier tick)."""
-    if _g4['busy'] or not _seat.due(_g4['at'], now):
+    if (_g4['busy'] and now - _fuse._f(_g4.get('at')) < G4_STUCK_SEC) or not _seat.due(_g4['at'], now):   # a tick stuck > 4 min is let go
         return
     pr_ = (_json_load(FUSE_HQ_PATH, {}) or {}).get('prime') or {}
     mode_ = _oe.clean_policy(_prime_real_cfg(pr_))['agentAiSeat']
@@ -14179,7 +14189,7 @@ async def _g4_tick(now, env, cfg):
             talk_at = now
             try:
                 t0b = time.perf_counter()
-                ra_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Advise on your partner\'s open trade.', context={**pk_, 'holder': _air.model_name(env, first_)}, role='exit', urgency='force', only=(second_,), system=_seat.ADVISE, only_system=True)
+                ra_ = await asyncio.wait_for(_air.ROUTER.ask(_ai_http(), env, cfg, 'Advise on your partner\'s open trade.', context={**pk_, 'holder': _air.model_name(env, first_)}, role='exit', urgency='force', only=(second_,), system=_seat.ADVISE, only_system=True), timeout=ADVISE_SEC)
                 da_ = _seat.parse(ra_.get('text'), [], True)
                 oth_ = _seat._sym_in((da_ or {}).get('why'), {l_.get('symbol'): l_.get('mint') for l_ in _duo_card_legs() if l_.get('symbol')}) if da_ else None
                 if da_ and oth_ and oth_ != held_m:   # 💬 the advice is about ANOTHER coin on the card ($ELON on the $Kimchi trade) → it goes to that coin's own room, never the holder's chat
@@ -14349,7 +14359,7 @@ async def _ai_round(now):
     await _ai_learn_settle(now)   # 🧠 the model's earlier stances are judged against what the coin did (no model call)
     await _lab_tick(now, env, cfg)   # 🧪 the rule lab: the record re-judges every rule; at most once an hour the model proposes new ones
     asyncio.ensure_future(_g4_tick(now, env, cfg))   # 🧠 G4's own seat: one snapshot thought a minute (its own task — a slow answer never holds this round)
-    await _feecat_duo(now, env, cfg)   # 🐱🤝 FeeCat's one duo read per 10 min (both models must agree before she acts on it)
+    asyncio.ensure_future(_feecat_duo_safe(now, env, cfg))   # 🐱🤝 its own task: a stuck desktop model never holds the round (OSSY's minute waited behind it)   # FeeCat's one duo read per 10 min (both models must agree before she acts on it)
     await _coach_ai(now, env, cfg)   # 👑 at most every 15 min: the model reads the last real trades and may instruct the agents (bounded, coach.py)
     jobs = _ai_jobs(now)
     if not jobs:
