@@ -782,6 +782,10 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
                    if not str(rule).startswith('R5t') else ' · 🛫 a broken thesis never sells a GREEN coin — the trail protects it')
             act, st = None, 'PROTECT'
         rk_ = str(rule).split(' ')[0]
+        hn_ = p.get('hint') or {}
+        if act and hn_.get('kind') in ('hold', 'good') and now < _f(hn_.get('until')) and rk_ not in HINT_HARD:   # ✋ YOU said hold / good entry: soft exits wait, it plays to its stop / take
+            ev += f" · {'✋ you said HOLD' if hn_['kind'] == 'hold' else '👍 you called it a GOOD ENTRY'} ({round((_f(hn_['until']) - now) / 60)} min left) — only stops / rug / −45% / the take act"
+            act, st = None, 'PROTECT'
         bo_ = base_of(ch) if (act and rk_ in BREAKOUT_RULES and (held_s < BREAKOUT_SEC or rk_ in BASE_TIME_RULES) and pct > -stop * 0.8) else None   # ⏱ a TIME rule never sells a coin whose base still holds — it plays out to its stop / take
         if bo_:   # 🚀 a good entry still on its base gets its breakout window: soft exits wait (stops / rug / −45% never do)
             ev += (f" · 🎯 {bo_} — a time rule never sells a base: it plays out to its stop / take" if rk_ in BASE_TIME_RULES and held_s >= BREAKOUT_SEC else f" · 🚀 breakout window: {bo_} — {round((BREAKOUT_SEC - held_s) / 60)} min left to show it, soft exits wait (stops still act)")
@@ -833,6 +837,8 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
 # +8.9% vs what we really got +4.3% / +5.2% (better 87, worse 67); 50% only +3.1% avg (an earlier replay overstated it as +8.6%).
 # Selection bias: only coins that reached +10% — the live twin (after_path.scale_twin) keeps judging it on new exits. Once per position.
 SCALE_AT = 10.0
+HINT_SEC = 30 * 60.0   # ✋ your one-click HOLD / 👍 GOOD ENTRY on a seat holds its soft exits this long
+HINT_HARD = ('R1', 'R2', 'R3', 'R4', 'R4r', 'R4d', 'R4e', 'R5', 'R5x', 'R5c', 'R5m', 'R9c', 'R6', 'R6m', 'R5g')   # … these still act
 SKIM_STRONG_PCT = 33.0   # 🚀 a breakout still accelerating / running: bank a third (skim) and let the rest run; a weak one banks the owner's scale-out share
 SCALE_PCT = 75.0   # 2026-10-15: 50% left too much on the table for rugs after the take (honest replay: half +3.1% avg · 75% +6.5% · real +4.3%)
 

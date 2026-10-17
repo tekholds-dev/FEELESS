@@ -242,7 +242,22 @@ function ReaperAsks({ o, call, isOwner, reload }) {
     {rec ? <small className="ack-askrec" data-testid="ack-ask-rec">{rec}</small> : null}</div>;
 }
 
-function SeatCard({ s, on, onPick, readyN, same }) {
+// ✋ / 👍 ONE CLICK ON A SEAT (owner, 2026-10-17: "suggest to the agents and they learn — one-click hold or good entry"): Reaper holds the coin's
+// soft exits 30 min (stops, rug, −45%, the take still act), it lands in the OSSY × G4 chat, and it is graded 30 min later into the record the
+// agents and the models read. Spans with role=button: the seat card itself is a button.
+export function SeatHints({ s, call }) {
+  const [on, setOn] = useState(null); const [busy, setBusy] = useState(false);
+  if (!call || !s?.mint) return null;
+  const send = async (kind, e) => { e.stopPropagation(); e.preventDefault(); if (busy) return; setBusy(true);
+    try { await call('/admin/agents', { method: 'POST', body: JSON.stringify({ seatHint: { mint: s.mint, kind } }) }); setOn(kind === 'clear' ? null : kind); }
+    catch (er) { window.dispatchEvent(new CustomEvent('feeless:toast', { detail: String(er?.message || er) })); } finally { setBusy(false); } };
+  const btn = (kind, label, tip) => <span role="button" tabIndex={0} className={`ack-hint ${on === kind ? 'is-on' : ''}`} aria-pressed={on === kind} data-tip={tip} data-testid={`ack-hint-${kind}-${s.seat}`}
+    onClick={e => send(on === kind ? 'clear' : kind, e)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') send(on === kind ? 'clear' : kind, e); }}>{label}</span>;
+  return <span className="ack-hints" data-testid={`ack-hints-${s.seat}`}>{btn('hold', '✋ Hold', 'Reaper holds its soft exits 30 min — only stops, a rug, −45% or the take sell it. Graded 30 min later.')}
+    {btn('good', '👍 Good entry', 'Tell the agents + OSSY / G4 this is a good entry: held 30 min like Hold, filed as a lesson, graded 30 min later.')}</span>;
+}
+
+function SeatCard({ s, on, onPick, readyN, same, call }) {
   const st = seatState(s, readyN);
   if (s.open) return <div className={`ack-seat is-open ${on ? 'is-on' : ''}`} data-testid={`ack-seat-${s.seat}`}>
     <header><small>SEAT {s.seat}{s.kind === 'g4' ? <i className="ack-g4tag" data-tip="G4's own seat: it decides — the agents only argue">🧠 G4</i> : null}</small><i className={`ack-badge ${STATE_CLS[st]}`} data-testid={`ack-seat-state-${s.seat}`}>{st}</i></header>
@@ -263,6 +278,7 @@ function SeatCard({ s, on, onPick, readyN, same }) {
     <SeatFlow s={s} />
     <p className="ack-now" data-testid={`ack-seat-now-${s.seat}`}><span>☠ Reaper · {s.reaper || '—'}{s.rule ? ` · ${s.rule}` : ''}<ExitChips s={s} /></span><small>next review {secs(s.nextReview)}</small></p>
     <SeatStudy s={s} />
+    <SeatHints s={s} call={call} />
     <footer data-testid={`ack-seat-last-${s.seat}`}>{last ? <><span style={{ '--ag': AG[last.agent] || 'var(--m-accent)' }}>{ic} {nm} · {last.action}</span><small>{ago(last.at)} ago</small></> : <span className="m-dim">no decision line yet</span>}</footer>
   </button>;
 }
@@ -680,7 +696,7 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
     <MoneyStrip d={d} seats={seats} mint={mint} onPick={onPick} nav={nav} go={go} navTabs={navTabs} ai={<AiChipBtn o={o} onClick={() => setAiOpen(true)} testid="ack-money-ai" />}
       brain={<button type="button" className={`ack-brainbtn ${brainOpen ? 'is-on' : ''}`} onClick={() => setBrainOpen(!brainOpen)} aria-pressed={brainOpen} data-testid="ack-brain-open" data-tip="the Brain — talk to G4 / OSSY, coach, teach, code lab (slides out on the right)">🧠 BRAIN</button>} />
     <div className="ack-topseats" data-testid="ack-topseats">
-      <div className="ack-seatrow">{seats.map((s, i) => <SeatCard key={s.seat} s={s} on={!s.open && s.mint === mint} onPick={onPick} readyN={readyN} same={s.open ? seats.slice(0, i).find(x => x.open && x.why === s.why)?.seat : undefined} />)}</div></div>
+      <div className="ack-seatrow">{seats.map((s, i) => <SeatCard key={s.seat} s={s} call={call} on={!s.open && s.mint === mint} onPick={onPick} readyN={readyN} same={s.open ? seats.slice(0, i).find(x => x.open && x.why === s.why)?.seat : undefined} />)}</div></div>
     <div className="ack-main">
       <div className="ack-left"><CockpitChart duo={d?.duo} m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); setTab('live'); }} tid={o?.tid} call={call} isOwner={isOwner} />
         <RideBar s={seats.find(x => !x.open && x.mint === mint)} pos={pos} />

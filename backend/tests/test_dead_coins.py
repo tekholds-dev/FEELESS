@@ -77,3 +77,10 @@ def test_a_coin_left_at_a_loss_sits_out_an_hour():
 def test_time_rules_never_sell_a_base():
     import office as of
     assert set(of.BASE_TIME_RULES) <= set(of.BREAKOUT_RULES) and 'R9' in of.BASE_TIME_RULES and 'R5' not in of.BASE_TIME_RULES
+
+
+def test_your_hold_hint_never_blocks_a_stop_or_a_rug():
+    import office as of
+    for hard in ('R1', 'R4r', 'R5', 'R5x', 'R6', 'R5m', 'R6m'):
+        assert hard in of.HINT_HARD
+    assert 'R9' not in of.HINT_HARD and of.HINT_SEC == 1800

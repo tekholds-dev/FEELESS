@@ -210,3 +210,16 @@ test('🖼 avatars: OSSY / G4 use the owner\'s pictures, each agent its own GIF,
   const p = agentPins([{ id: 1, agent: 'reaper', action: 'hold', mc: 90000, at: 5, why: 'w' }, { id: 2, agent: 'reaper', mc: null, at: 6 }]);
   expect(p).toHaveLength(1); expect(p[0]).toMatchObject({ who: 'Reaper', cap: 90000, action: 'HOLD', kind: 'agent' });
 });
+
+test('✋ / 👍 one click on a seat posts the hint', async () => {
+  const { SeatHints } = require('./AgentCockpit');
+  const { createRoot } = require('react-dom/client'); const { act } = require('react');
+  global.IS_REACT_ACT_ENVIRONMENT = true;
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  const sent = []; const call = (_p, o) => { sent.push(JSON.parse(o.body)); return Promise.resolve({}); };
+  act(() => root.render(<SeatHints s={{ seat: 2, mint: 'M' }} call={call} />));
+  await act(async () => { el.querySelector('[data-testid="ack-hint-hold-2"]').click(); });
+  expect(sent[0]).toEqual({ seatHint: { mint: 'M', kind: 'hold' } });
+  expect(el.querySelector('[data-testid="ack-hint-hold-2"]').getAttribute('aria-pressed')).toBe('true');
+  act(() => root.unmount());
+});

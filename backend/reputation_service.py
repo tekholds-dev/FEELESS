@@ -6976,9 +6976,34 @@ def _owner_study(now):
     return rep_
 
 
+async def _hint_grade(now):
+    """✋ / 👍 your seat hints, graded 30 min later on the live price (right = the coin did not fall after you said hold / good entry).
+    → the record the models read (`learn.ownerHints`) and the AI memory files."""
+    of_ = _office_state(); hl_ = list(of_.get('hintLog') or [])
+    due_ = [h for h in hl_ if h.get('res') is None and now - _fuse._f(h.get('at')) >= _of.HINT_SEC and _fuse._f(h.get('px')) > 0]
+    if due_:
+        pm_ = await _live_px(list({h['mint'] for h in due_}))
+        for h in due_:
+            p_ = _fuse._f(pm_.get(h['mint'])) or _fuse._f((_jup_px_cache.get(h['mint']) or (0, 0))[1])
+            if p_ > 0:
+                h['res'] = round((p_ / _fuse._f(h['px']) - 1) * 100, 2)
+        of_['hintLog'] = hl_
+        _json_save(OFFICE_PATH, of_)
+    g_ = [h for h in hl_ if h.get('res') is not None]
+    if g_:
+        ok_ = sum(1 for h in g_ if h['res'] >= 0)
+        _study['hints'] = {'n': len(g_), 'right': round(100 * ok_ / len(g_)), 'typical': sorted(h['res'] for h in g_)[len(g_) // 2],
+                           'line': f"the owner's one-click HOLD / GOOD ENTRY calls: {len(g_)} graded, {round(100 * ok_ / len(g_))}% right (the coin held or rose 30 min later), typical {sorted(h['res'] for h in g_)[len(g_) // 2]:+.1f}%"}
+    return _study.get('hints')
+
+
 async def _study_tick(now):
     """Every STUDY_EVERY: rebuild the owner study, file its findings + the owner's lessons + live rules + the desk's closest coins into the
     AI memory (capped drawers), and file the study's suggestions as PENDING proposals in the Brain (the owner ✅ / ✕ each one)."""
+    try:
+        await _hint_grade(now)
+    except Exception as e:
+        print('hint grade:', str(e)[:80])
     if now - _study['at'] < STUDY_EVERY and _study['v'] is not None:
         return
     try:   # 🎙 this Mac's LM Studio preset re-reads what FEELESS learned (the desktop re-pulls /lan-install hourly)
@@ -13978,6 +14003,8 @@ async def _g4_tick(now, env, cfg):
         sv_ = _study.get('v') or {}   # 👤 the owner study: how HE trades (graded moves, where the agents sold him early) — the best tools from his day
         if sv_.get('findings'):
             learn_['ownerStudy'] = [str(x)[:160] for x in sv_['findings'][:4]]
+        if (_study.get('hints') or {}).get('line'):
+            learn_['ownerHints'] = _study['hints']['line']   # ✋ how often the owner's one-click holds were right — weigh his calls by it
         hl_ = (_study.get('holds') or {}).get('lines') or []
         if hl_:
             learn_['holdLessons'] = [str(x)[:140] for x in hl_[:3]]   # 👍👎 what the market's verdicts on its calls + votes earned it
@@ -18286,6 +18313,29 @@ async def admin_agents_set(request: Request):
                 p_['open'] = {k: sum(1 for it in v if not it.get('mark')) for k, v in (p_.get('items') or {}).items()}
         except ValueError as e:
             raise HTTPException(400, str(e))
+    sh_ = body.get('seatHint') or {}
+    if sh_.get('mint') and sh_.get('kind') in ('hold', 'good', 'clear'):   # ✋ / 👍 your one click on a seat: Reaper holds its soft exits 30 min; graded 30 min later, the agents + models learn it
+        now_ = time.time(); m_ = str(sh_['mint'])
+        p_ = (_office.get('pos') or {}).get(m_)
+        if not p_:
+            raise HTTPException(409, 'That coin is not on a seat any more.')
+        if sh_['kind'] == 'clear':
+            p_.pop('hint', None)
+        else:
+            px_ = _fuse._f((await _live_px([m_])).get(m_)) or _fuse._f((_jup_px_cache.get(m_) or (0, 0))[1])
+            p_['hint'] = {'kind': sh_['kind'], 'at': now_, 'until': now_ + _of.HINT_SEC}
+            of_ = _office_state()
+            of_['hintLog'] = (list(of_.get('hintLog') or []) + [{'mint': m_, 'sym': p_.get('sym'), 'kind': sh_['kind'], 'px': px_, 'at': now_}])[-200:]
+            _json_save(OFFICE_PATH, of_)
+            ai_l = next((l_ for l_ in _duo_card_legs() if l_.get('mint') == m_), {})   # 💬 it lands in the duo chat too: the models read it (ownerSays) and the market grades it
+            hrow_ = {'at': round(now_), 'mode': 'real', 'model': 'YOU', 'by': 'owner', 'talk': True, 'action': 'TALK', 'view': 'HOLD', 'mint': m_, 'symbol': p_.get('sym'),
+                     'why': '✋ HOLD this — let it play to its stop / take' if sh_['kind'] == 'hold' else '👍 good entry — hold it, let it break out',
+                     **({} if ai_l.get('aiSeat') else {'coinTalk': True})}
+            _g4_mem.put({**(_g4_mem.get() or {}), 'log': _seat.note((_g4_mem.get() or {}).get('log') or [], hrow_)}, now_)
+            _dv_note(hrow_, px_, now_)
+        ad_ = _admin_load(); _audit(ad_, 'owner', 'seat-hint', f"{sh_['kind']} ${p_.get('sym')}"); _admin_save(ad_)
+        _agents['wake'] = now_
+        return {'ok': True, 'hint': p_.get('hint')}
     ra_ = body.get('reaperAsk') or {}
     if ra_.get('mint'):   # ✋ your answer to Reaper's question on a coin with YOUR line: approve (it sells next tick) or keep your line (quiet 10 min)
         p_ = (_office.get('pos') or {}).get(str(ra_['mint']))

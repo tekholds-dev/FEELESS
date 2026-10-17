@@ -169,3 +169,13 @@ body.theme-day .ack-warm { border-color: rgba(13, 122, 65, .3); }
 .ack-lvseg { margin: 0 0 8px; } .ack-lvseg small { opacity: .7; } .ack-lvpane[hidden] { display: none; } .ack-lvpane { animation: ackLv .18s ease-out; }
 @keyframes ackLv { from { transform: translateY(4px); } to { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .ack-lvpane { animation: none; } }
+
+/* ✋ / 👍 one-click hints on a held seat */
+.ack-hints { display: flex; gap: 6px; margin: 4px 0 0; }
+.ack-hint { padding: 2px 8px; border-radius: 10px; border: 1px solid var(--m-line, #1f3d2a); background: rgba(4, 12, 8, .6); color: var(--m-mute, #a8c9b6);
+  font: 700 9.5px var(--m-mono, 'JetBrains Mono', monospace); letter-spacing: .04em; cursor: pointer; transition: transform .12s ease, border-color .12s ease; }
+.ack-hint:hover, .ack-hint:focus-visible { border-color: #45e486; color: #e9fff3; outline: none; transform: translateY(-1px); }
+.ack-hint:active { transform: scale(.96); }
+.ack-hint.is-on { background: #15d16a; border-color: #15d16a; color: #04140a; }
+body.theme-day .ack-hint { background: rgba(236, 246, 240, .9); color: #123a26; } body.theme-day .ack-hint.is-on { background: #0f8f4a; color: #fff; }
+@media (prefers-reduced-motion: reduce) { .ack-hint { transition: none; } }

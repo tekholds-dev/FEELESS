@@ -4840,3 +4840,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `merge_reaper` hands it to `agent_trim`.
 - 🤝 AGENTS WEIGH OSSY / G4 (owner: "agents need to strongly consider OSSY and G4"): in the agents' fill plan a coin a model called BUY in the last
   10 min goes FIRST ("🤝 the models picked it"), a coin a model said SELL on in the last 15 min is skipped. Every check still runs.
+- ✋👍 SEAT HINTS (owner, 2026-10-17: "one-click hold or tell them good entry and they learn"): `SeatHints` on every held cockpit seat →
+  POST /admin/agents `{seatHint: {mint, kind: hold | good | clear}}` → position `hint` → Reaper's soft exits PROTECT for `office.HINT_SEC` 30 min
+  (`HINT_HARD` stops / rug / dump / −45% / take / the model's own lines still act); filed in office `hintLog`, graded 30 min later by
+  `_hint_grade` (in `_study_tick`) → `_study.hints.line` → the models' `learn.ownerHints`; it also lands in the OSSY × G4 chat as your line
+  (models answer it, the market grades it).
