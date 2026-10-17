@@ -4801,3 +4801,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`ai_seat.recent_ai_syms` + `taught_rules.family`: no clone of a coin either model traded in 6h) → germ-floor coins first (`ai_seat.germ_rank`).
 - 💬 The duo trade room's chime-in box is ALWAYS there (only hidden when YOU opened an old room tab); with no trade open your line reaches the model
   hunting next (`ownerSays`, ≤ 10 min). Chat sides are per VOICE: G4 left, OSSY right, you gold right, advice dashed (`is-g4` / `is-ossy` / `is-talk`).
+- 🔁 TURNS ARE STRICT: a held AI trade is asked ONLY of its holder (`only=(first_,)`) — the partner used to stand in for a missed minute and posted
+  HOLDs on the other model's trade. The partner advises every 2 min; BETWEEN trades the model not hunting reads the card every `IDLE_EVERY`
+  (`_g4_idle(.., who=second_)`) and that talk + your no-trade lines show in the room as "💬 between trades" (`duo.between`).

@@ -13957,7 +13957,7 @@ async def _g4_tick(now, env, cfg):
         _g4['live'] = {'by': _air.model_name(env, first_), 'at': now, 'pick': (pick_ or {}).get('symbol'), 'held': held_,
                        'cands': [{k_: r_c.get(k_) for k_ in ('symbol', 'status', 'trigger', 'move5m', 'buyers', 'germ', 'pool', 'cap', 'ageMin', 'rank')} for r_c in rows_[:6]]}   # 👁 what the deciding model is reading, live
         t0_ = time.perf_counter()
-        r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Your minute snapshot. Decide.', context=pk_, role='exit', urgency='force', only=(first_, second_), system=_seat.SYSTEM, only_system=True)   # 🔁 the holder runs its trade; when it misses a minute (call cap / timeout) the partner stands in — the trade stays the holder's (leg aiBy)
+        r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Your minute snapshot. Decide.', context=pk_, role='exit', urgency='force', only=(first_,) if held_ else (first_, second_), system=_seat.SYSTEM, only_system=True)   # 🔁 a held trade is ONLY its holder's call (the partner standing in made OSSY post HOLDs on G4's $MOMO); hunting, the partner may answer for a missed minute   # 🔁 the holder runs its trade; when it misses a minute (call cap / timeout) the partner stands in — the trade stays the holder's (leg aiBy)
         by_m = r_.get('source') if r_.get('source') in (first_, second_) else first_
         dec_ = _seat.parse(r_.get('text'), [c_['mint'] for c_ in cands_], bool(held_), {c_.get('symbol'): c_['mint'] for c_ in cands_ if c_.get('symbol')})
         dec_ = _seat.cook(dec_, {**(held_ or {}), 'sl': (leg_ or {}).get('aiSl')}) if held_ else dec_   # 🍳 no model sells its coin in its first 4 min unless it is really losing
@@ -14009,6 +14009,10 @@ async def _g4_tick(now, env, cfg):
                         _dv_mem.put(sv_, now)
             except Exception as e_t:
                 print('g4 talk:', str(e_t)[:100])
+        if not held_ and mode_ == 'real' and now - _fuse._f(st_.get('idleAt')) >= _seat.IDLE_EVERY:   # 💬 between trades the two still talk: the waiting model reads the card's coins and says what it would do
+            _g4_mem.put({**(_g4_mem.get() or {}), 'log': log_}, now)
+            await _g4_idle(now, env, cfg, {**st_, 'log': log_}, [l for l in card_.get('legs') or [] if not l.get('placeholder') and _fuse._f(l.get('units')) > 0 and l.get('mint') != _fw.SOL_MINT], mode_, who=second_)   # the one NOT hunting talks
+            log_ = (_g4_mem.get() or {}).get('log') or log_
         m1_ = _g4_mem.get() or {}   # the seat may have opened (and the stats restarted) while this model was thinking
         if (m1_.get('statsFrom') or 0) > (st_.get('statsFrom') or 0):
             log_ = [r_ for r_ in log_ if (r_.get('at') or 0) >= m1_['statsFrom']]
@@ -14019,12 +14023,12 @@ async def _g4_tick(now, env, cfg):
         _g4['busy'] = False
 
 
-async def _g4_idle(now, env, cfg, st_, legs_, mode_):
+async def _g4_idle(now, env, cfg, st_, legs_, mode_, who=None):
     """💬 Every seat is full: the model whose idle turn it is reads the card's trades and comments on ONE (HOLD / SELL + why). It never trades —
     the row is a TALK the market grades (5 min / 1 h / 24 h) like every call, so idle minutes still build each model's record."""
     m0 = _g4_mem.get() or {}
     _g4_mem.put({**m0, 'idleAt': now}, now)
-    who_ = _seat.idle_turn(st_['log'], _duet.LEAD, _duet.SECOND)
+    who_ = who or _seat.idle_turn(st_['log'], _duet.LEAD, _duet.SECOND)
     try:
         pxm_ = await _live_px([l.get('mint') for l in legs_])
         pos_all = _office_state().get('pos') or {}
@@ -18117,6 +18121,8 @@ def _duo_view(env=None):
                 'conf': {nm(k_): {'boost': _dv.confidence(_dv_mem.get() or {}, k_), 'words': _dv.words(_dv_mem.get() or {}, k_)} for k_ in (_duet.LEAD, _duet.SECOND, 'owner')},
                 'trade': [{**{k_: r_.get(k_) for k_ in ('at', 'model', 'action', 'view', 'why', 'conf', 'pct', 'talk')}, 'key': _dv_key(r_), 'mine': r_.get('by') == 'owner', 'votes': _dv.view(_dv_mem.get() or {}, _dv_key(r_))} for r_ in st_['log']
                           if held_l and r_.get('mint') == held_l.get('mint') and (r_.get('at') or 0) >= _fuse._f(held_l.get('at')) - 180][-14:][::-1],   # 💬 the conversation on THIS trade
+                'between': [{**{k_: r_.get(k_) for k_ in ('at', 'model', 'action', 'view', 'why', 'conf', 'pct', 'talk', 'symbol')}, 'key': _dv_key(r_), 'mine': r_.get('by') == 'owner', 'votes': _dv.view(_dv_mem.get() or {}, _dv_key(r_))}
+                            for r_ in st_['log'] if r_.get('idle') or (r_.get('by') == 'owner' and not r_.get('mint'))][-14:][::-1],   # 💬 what they said BETWEEN trades (+ your lines then)
                 'rec': {nm(k): v for k, v in _seat.by_model((st_['book'] or {}).get('closed')).items() if k in (_duet.LEAD, _duet.SECOND)},
                 'open': (st_['book'] or {}).get('open'),
                 'agents': _seat.by_model((st_['book'] or {}).get('closed')).get('agents'), 'fate': _g4.get('fate'), 'live': _g4.get('live'),

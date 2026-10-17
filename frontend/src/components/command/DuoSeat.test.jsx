@@ -84,3 +84,13 @@ test('💬 the chime-in box shows with no live trade too', () => {
   expect(el.querySelector('[data-testid="duo-say"]')).toBeTruthy();
   act(() => root.unmount());
 });
+
+test('💬 between trades the talk shows in the room', () => {
+  global.IS_REACT_ACT_ENVIRONMENT = true;
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  act(() => root.render(<DuoSeat duo={{ mode: 'real', next: 'OSSY', log: [], rooms: [], between: [{ at: now(), model: 'G4', action: 'TALK', view: 'HOLD', talk: true, why: 'on $X: HOLD — buyers 70%', key: 'b1' }] }} call={() => Promise.resolve({})} />));
+  expect(el.textContent).toMatch(/between trades/);
+  expect(el.textContent).toMatch(/buyers 70%/);
+  expect(el.querySelector('[data-testid="duo-say"]')).toBeTruthy();
+  act(() => root.unmount());
+});
