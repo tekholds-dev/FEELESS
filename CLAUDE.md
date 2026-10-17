@@ -4746,3 +4746,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   keeper money refusals · impostors · YOUR pulls / ✋ lessons only). Still decide: the keeper's own checks (route, honeypot, price gap, pool),
   your MC band / min age in the pre-check, a halted keeper, Courier BAD, a rug-level night trip. Seat rows (cockpit SeatControls) now carry
   💰→coins · 🅿 park · 🏦 cash · 🏠 initial out · ❄ freeze (the same routes as My cards' ⋯ tray) beside ✂ sell-an-amount.
+- 🔁 THE TURN, END TO END (owner, 2026-10-16): one model picks → it is bought → the holder RUNS it (its own `tp` / `sl` in every HOLD answer →
+  `_g4['set']` → leg `aiTp` / `aiSl`; Reaper rules `R5m model stop` / `R6m model take` in `G4_HARD`; −45% stays the floor; the fast guard reads
+  `aiSl`) while the partner advises → sold → the other model's turn. Every seat full → the models WAIT (`phase` SEATS FULL, no call). Duel board
+  `TurnBar` (🔎 picks → 🛒 bought → 💬 trading + talking → 🏁 sold). A model's buy uses YOUR pick limits (order `picked`, sell-back ≤ 10%), not
+  the agents' 3.5% (BUBBLE was refused at 4.2%). Packets carry `learn` (each model's own real trades, the partner's, yours, the agents') and the
+  prompt makes them brag on a better record. /health shows RPC provider names only (it printed full keyed URLs).
+- ⚡ FeeCat = ONE DIAL: `FastDial` (HQ › Fee) applies `fastTrench` (server `_feecat_fast_trench` from the agents' realCfg, clamped to her
+  bounds — her pool floor can't go under 40K), tuning grouped ENTRY / EXITS / ADDS & SEATS / SIZE. The four old presets are gone.

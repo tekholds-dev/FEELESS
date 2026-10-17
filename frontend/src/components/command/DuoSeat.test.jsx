@@ -47,3 +47,11 @@ test('live thinking: elapsed vs its typical think time, the step it is on, the c
   expect(el.querySelector('.dso-cand.is-pick').textContent).toContain('$ABC'); expect(el.querySelector('.dso-steps li.now')).toBeTruthy();
   act(() => root.unmount());
 });
+
+test('🔁 the turn stepper reads the server phase', () => {
+  const { turnStep } = require('./DuoSeat');
+  expect(turnStep({ phase: 'SEATS FULL' }).i).toBe(-1);
+  expect(turnStep({ phase: 'HOLDING', holder: 'OSSY', holding: { symbol: 'A' } })).toMatchObject({ i: 2 });
+  expect(turnStep({ phase: 'HUNTING', next: 'G4', fate: { why: 'seated — the keeper buys it next pass', symbol: 'B' } }).i).toBe(1);
+  expect(turnStep({ phase: 'HUNTING', next: 'G4' }).word).toMatch(/G4's turn/);
+});

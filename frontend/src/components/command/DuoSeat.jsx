@@ -92,6 +92,22 @@ function Think({ duo, sides }) {
   </div>;
 }
 
+// 🔁 one turn, step by step (owner, 2026-10-16: "one decides, it gets bought, they discuss until it's sold, then the other chooses; no seat open → they wait")
+export const TURN_STEPS = [['HUNTING', '🔎 picks a coin'], ['BOUGHT', '🛒 bought'], ['HOLDING', '💬 trading + talking'], ['SOLD', '🏁 sold → other\'s turn']];
+export function turnStep(duo) {
+  const ph = String(duo?.phase || '').toUpperCase();
+  if (ph === 'SEATS FULL') return { i: -1, word: '🪑 every seat full — waiting for one to open' };
+  if (ph === 'HOLDING') return { i: 2, word: `${duo.holder || duo.next} is running $${duo.holding?.symbol || '?'} — the partner advises every 2 min` };
+  if (/seated/.test(duo?.fate?.why || '')) return { i: 1, word: `$${duo.fate.symbol} took the seat — the keeper buys it` };
+  return { i: 0, word: `${duo?.next || '—'}'s turn to pick a coin` };
+}
+function TurnBar({ duo }) {
+  const t = turnStep(duo);
+  return <div className={`dso-turn ${t.i < 0 ? 'is-wait' : ''}`} data-testid="duo-turn" data-step={t.i}>
+    <ol>{TURN_STEPS.map(([k, w], i) => <li key={k} className={i === t.i ? 'is-now' : i < t.i ? 'is-done' : ''}><i aria-hidden="true" /><span>{w}</span></li>)}</ol>
+    <p key={t.word}>{t.word}</p></div>;
+}
+
 export function DuoSeat({ duo }) {
   if (!duo || duo.mode === 'off') return <div className="dso is-off" data-testid="duo-seat"><b>🔁 OSSY ⚔ G4</b><small>seat off — turn it on in 🎛 Limits › 🧠 G4 SEAT</small></div>;
   const log = duo.log || [];
@@ -102,6 +118,7 @@ export function DuoSeat({ duo }) {
   return <div className={`dso is-${duo.mode}`} data-testid="duo-seat">
     <header className="dso-head"><b>🔁 OSSY ⚔ G4 · {String(duo.mode).toUpperCase()}</b>
       <small>{duo.busy ? `${duo.next} is thinking…` : last ? `last call ${ago(last.at)} ago · ${duo.next} next` : 'first call within a minute'}</small></header>
+    <TurnBar duo={duo} />
     <div className="dso-arena">
       <Side s={g4} pod={podOf('G4', duo.rec)} turn={duo.next === 'G4'} busy={duo.busy} side="l" />
       <div className="dso-core" data-testid="duo-open">

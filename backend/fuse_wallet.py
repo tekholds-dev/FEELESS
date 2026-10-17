@@ -91,7 +91,7 @@ def target(card, prices):
     out = {}
     for l in card.get('legs') or []:
         px = _f(prices.get(l['pairAddress'])) or _f(l.get('entry'))
-        t = out.setdefault(l['mint'], {'units': 0.0, 'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'px': px, 'role': l.get('role'), 'arena': bool(l.get('arena')), 'trench': bool(l.get('trench')), 'picked': bool(l.get('picked')), 'curve': bool(l.get('curve')), 'agent': agent_seat(l),
+        t = out.setdefault(l['mint'], {'units': 0.0, 'pair': l['pairAddress'], 'symbol': l.get('symbol'), 'px': px, 'role': l.get('role'), 'arena': bool(l.get('arena')), 'trench': bool(l.get('trench')), 'picked': bool(l.get('picked') or l.get('aiSeat')), 'curve': bool(l.get('curve')), 'agent': agent_seat(l) and not l.get('aiSeat'),   # 🔁 OSSY / G4's seat is bought on YOUR pick limits (their call), not the agents' tighter ones
                                        'trim': bool(l.get('trimAt')) and _f(l.get('trimAt')) > 0, 'trimAt': _f(l.get('trimAt')),
                                        'manualCash': bool(l.get('manualCash')), 'locked': bool(l.get('ride') or l.get('frozen') or (l.get('ticket') and not agent_seat(l)) or l.get('scout') or l.get('house') or l.get('scaled') or l.get('picked'))})   # ✋ your pick is never topped up by the sweep   # 🎟 a small ticket (scout / trench drop / young hand pick) is never topped up to a full seat
         t['units'] += _f(l.get('units')) or (_f(l.get('wantUnits')) if l.get('buying') else 0.0)   # a coin whose buy hasn't landed is still WANTED

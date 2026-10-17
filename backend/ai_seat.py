@@ -32,9 +32,13 @@ Every minute you get a fresh snapshot. Decide ONE action for YOUR seat:
 - SELL: sell the coin you hold now
 - WAIT: seat empty, nothing worth buying
 AGENTS_PICK = the coin the agents would take right now (empty = they would wait). Rules you cannot break: never invent a coin; numbers come only from the packet; a coin you hold can still be sold under you if its pool is
-pulled or it falls 45%. PRESSURE = times the agents wanted your coin out — weigh it, you decide. PARTNERSAYS = your partner's advice on the coin you hold: answer it in your why when you disagree.
+pulled or it falls 45%. PRESSURE = times the agents wanted your coin out — weigh it, you decide. PARTNERSAYS = your partner's advice on the coin you hold: answer it in your why when you disagree. LEARN = REAL results — yours, your partner's,
+the owner's and the agents': copy what won, skip what lost, and say in your why what you learned. When your record beats your partner's, BRAG about it
+in your why (short, cocky, true numbers only); when it doesn't, say how you'll take the lead.
 Answer with ONLY this JSON, nothing else:
-{"action":"BUY|HOLD|SELL|WAIT","coin":"<SYMBOL when BUY, else empty>","why":"<one line, under 160 chars, the numbers that decided it>","conf":<0-100>,"watch":"<what would make you sell, under 80 chars>"}"""
+{"action":"BUY|HOLD|SELL|WAIT","coin":"<SYMBOL when BUY, else empty>","why":"<one line, under 160 chars, the numbers that decided it>","conf":<0-100>,"watch":"<what would make you sell, under 80 chars>","tp":<take-profit %, e.g. 40>,"sl":<stop %, e.g. 15>}
+The trade you bought is YOURS to run: tp / sl are your own take-profit and stop lines, applied at once (change them any minute you HOLD;
+−45% is the floor nobody can move). The agents only advise."""
 
 
 def _f(v, d=0.0):
@@ -68,18 +72,20 @@ def held_row(leg, px, now, pressure=None, qwen=None):
     en, p = _f(leg.get('entry')), _f(px)
     pct = round((p / en - 1) * 100, 2) if en > 0 and p > 0 else None
     out = {'symbol': leg.get('symbol'), 'mint': leg.get('mint'), 'pct': pct, 'heldMin': round((now - _f(leg.get('at'))) / 60, 1) if leg.get('at') is not None else None,
-           'peak': _r(leg.get('peakPct')), 'pressure': [f"{x.get('rule')} at {x.get('pct'):+.1f}%: {x.get('why', '')[:70]}" for x in (pressure or [])[-4:]]}
+           'peak': _r(leg.get('peakPct')), 'yourTp': _r(leg.get('aiTp')), 'yourSl': _r(leg.get('aiSl')), 'pressure': [f"{x.get('rule')} at {x.get('pct'):+.1f}%: {x.get('why', '')[:70]}" for x in (pressure or [])[-4:]]}
     if qwen:
         out['qwen'] = str(qwen)[:120]
     return {k: x for k, x in out.items() if x not in (None, '', [])}
 
 
-def packet(cands, held, record=None, partner=None, pick=None, says=None):
+def packet(cands, held, record=None, partner=None, pick=None, says=None, learn=None):
     """The ONE thing the deciding model reads each minute (+ its partner's last call + the agents' own pick)."""
     out = {'yourSeat': held or 'EMPTY', 'candidates': [{k: v for k, v in c.items() if k != 'mint'} for c in cands[:CAND_N]] or 'none right now',
            'agentsPick': pick or '', 'yourRecord': record or 'no closed trades yet'}
     if partner:
         out['partner'] = partner
+    if learn:
+        out['learn'] = learn   # 🎓 real trades: yours, your partner's, the owner's, the agents' — copy what won, avoid what lost
     if says:
         out['partnerSays'] = says   # 💬 your partner's advice on the trade you hold — weigh it, you still decide
     return out
@@ -100,8 +106,9 @@ def turn(log, a, b, holding=False, opener=None, holder=None):
 
 
 ADVISE = """You are the PARTNER on a shared real-money Solana trench seat. Your partner model holds the coin in YOURSEAT and decides; you only ADVISE.
-Read the snapshot (its P/L, peak, held minutes, pressure from the rule agents, the candidates) and say what you would do with THAT coin and why,
-in one line with the numbers that decide it. Be blunt; disagree when the numbers say so. Never invent numbers.
+Read the snapshot (its P/L, peak, held minutes, pressure from the rule agents, the candidates, LEARN = everyone's real results) and say what you would
+do with THAT coin and why, in one line with the numbers that decide it. Be blunt, trash-talk a little when your record is better; disagree when the
+numbers say so. Never invent numbers.
 Answer with ONLY this JSON: {"action":"HOLD|SELL","coin":"","why":"<under 160 chars>","conf":<0-100>,"watch":"<what would change your mind, under 80 chars>"}"""
 
 TALK_EVERY = 120.0   # the partner speaks at most every 2 min while a trade runs (each LM model has a 4-calls-a-minute cap)
@@ -119,6 +126,28 @@ def partner_of(log, by):
     return None if not r else {'model': r.get('model') or r['by'], 'action': r.get('action'), 'symbol': r.get('symbol'), 'why': str(r.get('why') or '')[:140]}
 
 
+def lessons(positions, owner_line=None, agents_line=None, keep=3):
+    """🎓 What each model learns from on its turn: its own and its partner's REAL trades (coin, %, how it ended), the owner's record line and
+    the agents' record line. positions = archive rows {aiBy, sym, realPct, rule}. → {by: {'rec', 'last'}} + 'owner' + 'agents'."""
+    out = {}
+    for p in positions or []:
+        b = p.get('aiBy')
+        if not b or p.get('realPct') is None:
+            continue
+        out.setdefault(b, []).append(p)
+    res = {b: {'rec': record([{'pct': x['realPct']} for x in v]),
+               'last': [f"${x.get('sym') or '?'} {_f(x['realPct']):+.1f}%" + (f" ({x['rule']})" if x.get('rule') else '') for x in v[-keep:]][::-1]} for b, v in out.items()}
+    res['owner'], res['agents'] = owner_line, agents_line
+    return res
+
+
+def learn_block(les, me, partner, name_of=lambda k: k):
+    """The packet's LEARN section for model `me`: your real trades, your partner's (beat them), the owner's, the agents'."""
+    les = les or {}
+    w = lambda b: (lambda r: (f"{r['rec'].get('n', 0)} trades, {r['rec'].get('won', 0)}% won, typical {r['rec'].get('med', 0)}%" if r and (r.get('rec') or {}).get('n') else 'no real trades yet') + (' · last: ' + ', '.join(r['last']) if r and r.get('last') else ''))(les.get(b))
+    return {'you': w(me), 'partner': f"{name_of(partner)}: " + w(partner), 'owner': les.get('owner') or 'no owner record yet', 'agents': les.get('agents') or 'no agents record yet'}
+
+
 def by_model(closed):
     """Each model's own record: a trade belongs to the model that OPENED it."""
     out = {}
@@ -132,11 +161,14 @@ def _first_json(text):
     m = re.search(r'\{.*\}', t, re.S)
     if not m:
         return None
-    try:
-        j = json.loads(m.group(0))
-        return j if isinstance(j, dict) else None
-    except ValueError:
-        return None
+    raw = m.group(0)
+    for cand in (raw, re.sub(r':\s*(empty|none|null|n/a)\s*([,}])', r': ""\2', raw, flags=re.I)):   # small models write "coin":empty
+        try:
+            j = json.loads(cand)
+            return j if isinstance(j, dict) else None
+        except ValueError:
+            continue
+    return None
 
 
 def _sym_in(text, syms):
@@ -181,7 +213,12 @@ def parse(text, cand_mints, holding, syms=None):
         a = 'WAIT'
     if a == 'WAIT' and holding:
         a = 'HOLD'
-    return {'action': a, 'mint': mint if a == 'BUY' else '', 'why': why, 'conf': conf, 'watch': watch}
+    out = {'action': a, 'mint': mint if a == 'BUY' else '', 'why': why, 'conf': conf, 'watch': watch}
+    for k, lo, hi in (('tp', 3.0, 500.0), ('sl', 3.0, 44.0)):   # 🎯 the holder runs its whole trade: its own take / stop (−45% stays the floor)
+        v = abs(_f(j.get(k), 0.0))
+        if v > 0 and a in ('BUY', 'HOLD'):
+            out[k] = round(max(lo, min(hi, v)), 1)
+    return out
 
 
 def agents_pick(cands):

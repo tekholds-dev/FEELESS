@@ -171,3 +171,21 @@ def test_activity_is_never_dead_card_moves_your_studied_moves_and_the_judges_les
     assert kinds == ['card', 'you', 'you', 'learn', 'g4']
     assert rows[0]['who'] == 'agents' and rows[1]['title'] == 'your pick $X → +12.0% since' and rows[1]['tone'] == 'ok'
     assert 'being watched' in rows[2]['title'] and 'pullback' in rows[3]['sub'] and rows[4]['title'].startswith('AGENTS WAIT')
+
+
+def test_each_model_learns_from_its_own_its_partners_the_owners_and_the_agents_real_trades():
+    les = seat.lessons([{'aiBy': 'lan', 'sym': 'A', 'realPct': 12.0, 'rule': 'R7'}, {'aiBy': 'local', 'sym': 'B', 'realPct': -5.0}], 'owner 3 trades', 'agents 9 trades')
+    b = seat.learn_block(les, 'local', 'lan', {'lan': 'G4', 'local': 'OSSY'}.get)
+    assert '1 trades, 0% won' in b['you'] and '$B -5.0%' in b['you'] and b['partner'].startswith('G4: 1 trades, 100% won') and '$A +12.0% (R7)' in b['partner']
+    assert b['owner'] == 'owner 3 trades' and b['agents'] == 'agents 9 trades'
+    assert seat.packet([], None, learn=b)['learn'] == b and 'BRAG' in seat.SYSTEM
+    assert seat.learn_block({}, 'lan', 'local')['you'] == 'no real trades yet'
+
+
+def test_the_holding_model_sets_its_own_take_and_stop_and_reaper_obeys_them():
+    d = seat.parse('{"action":"HOLD","why":"x","tp":40,"sl":90}', [], True)
+    assert d['tp'] == 40.0 and d['sl'] == 44.0                       # the −45% floor stays under any stop it sets
+    assert 'tp' not in seat.parse('{"action":"WAIT","why":"x","tp":40}', [], False)
+    import office as of
+    assert 'R5m' in of.G4_HARD and 'R6m' in of.G4_HARD
+    assert seat.held_row({'symbol': 'A', 'entry': 1.0, 'aiTp': 40, 'aiSl': 15}, 1.1, 0)['yourTp'] == 40

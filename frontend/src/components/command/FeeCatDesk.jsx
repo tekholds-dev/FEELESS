@@ -29,12 +29,28 @@ export const FEE_LABELS = {
   maxHoldHours: ['Max hold (h)', 'Give up on a coin that never reached a profit target after this long.'],
   maxExposure: ['Max capital at work (0–1)', 'Share of her balance allowed in open trades. 0.4 = 40%.'],
 };
-export const FEE_PRESETS = {
-  feecat: ['Trench Lord', 'Balanced: patient holds, two dip buys', { minLiquidity: 40000, minVolume24h: 100000, minMarketCap: 150000, minAgeHours: 3, maxPositions: 5, maxM5Chase: 8, add1At: -18, add2At: -32, hardStop: -45, takeProfit1: 50, takeProfit2: 120, runnerTrail: 35, maxHoldHours: 72, maxExposure: 0.4 }],
-  trench: ['Trench', 'Earlier, smaller coins; wider dips', { minLiquidity: 25000, minVolume24h: 75000, minMarketCap: 75000, minAgeHours: 1, maxPositions: 5, maxM5Chase: 10, add1At: -22, add2At: -38, hardStop: -55, takeProfit1: 60, takeProfit2: 150, runnerTrail: 40, maxHoldHours: 48, maxExposure: 0.4 }],
-  meme: ['Meme', 'Fresh narratives, let runners run', { minLiquidity: 15000, minVolume24h: 50000, minMarketCap: 50000, minAgeHours: 0.5, maxPositions: 4, maxM5Chase: 12, add1At: -25, add2At: -40, hardStop: -55, takeProfit1: 80, takeProfit2: 200, runnerTrail: 45, maxHoldHours: 48, maxExposure: 0.35 }],
-  scalper: ['Trader / Scalper', 'Liquid coins, quick profits', { minLiquidity: 150000, minVolume24h: 500000, minMarketCap: 500000, minAgeHours: 1, maxPositions: 3, maxM5Chase: 6, add1At: -10, add2At: -18, hardStop: -25, takeProfit1: 20, takeProfit2: 50, runnerTrail: 15, maxHoldHours: 24, maxExposure: 0.3 }],
-};
+// ⚡ ONE DIAL (owner, 2026-10-16): FAST TRENCH, seeded from the agents' own live configs (server `fastTrench`), each value clamped to her bounds
+export const RULE_GROUPS = [['🎯 ENTRY', ['minMarketCap', 'minAgeHours', 'minLiquidity', 'minVolume24h', 'maxM5Chase', 'maxSnipers', 'maxTop10Pct']],
+  ['💰 EXITS', ['takeProfit1', 'takeProfit2', 'runnerTrail', 'hardStop', 'maxHoldHours']], ['🪜 ADDS & SEATS', ['add1At', 'add2At', 'maxPositions', 'maxExposure']]];
+export function fastValues(fast, bounds) {
+  const out = {};
+  for (const [k, v] of Object.entries(fast || {})) {
+    if (k === 'from' || !Number.isFinite(Number(v))) continue;
+    const b = (bounds || {})[k]; out[k] = b ? Math.min(b[1], Math.max(b[0], Number(v))) : Number(v);
+  }
+  return out;
+}
+function FastDial({ d, busy, onApply }) {
+  const vals = fastValues(d.fastTrench, d.bounds); const from = d.fastTrench?.from || {}; const on = d.strategyPreset === 'fast';
+  const chips = [['MC ≥', from.agentMcMin ? `$${Math.round(from.agentMcMin / 1000)}K` : '—'], ['age ≥', from.agentMinAgeH ? `${Math.round(from.agentMinAgeH * 60)}m` : 'any'], ['pool ≥', `$${Math.round((vals.minLiquidity || 0) / 1000)}K`],
+    ['TP', vals.takeProfit1 ? `+${vals.takeProfit1}%` : '—'], ['SL', vals.hardStop ? `${vals.hardStop}%` : '—'], ['seats', vals.maxPositions || '—']];
+  return <div className={`fch-dial ${on ? 'is-on' : ''}`} data-testid="fch-dial">
+    <button type="button" className="fch-dialbtn" disabled={busy || !d.fastTrench} onClick={() => onApply(vals)} data-testid="fch-fast" aria-pressed={on}
+      data-tip="One tap: her rules = the agents' own live limits (MC band floor, youngest age, pool floor, 1h volume, take / stop, 4 seats), clamped to her safety bounds. Tune below after.">
+      <i aria-hidden="true" /><b>⚡ FAST TRENCH</b><small>{on ? 'ON — copied from the agents' : 'tap: copy the agents\' configs'}</small></button>
+    <p className="fch-dialchips">{chips.map(([l, v]) => <span key={l}><small>{l}</small><b>{v}</b></span>)}</p>
+  </div>;
+}
 const LANES = [['core', '🏛 CORE', 'coins 3+ days old, deep pools — her own record says these pay'], ['fresh', '🚀 FRESH', 'launches under 3h with X + site, buyers in control'],
   ['learn', '🎓 LEARNING', '3h – 3 days old, quarter size — the gap the other two skip']];
 
@@ -52,8 +68,8 @@ export function feeFunnel(scan) {
 
 export function FeeCatDesk({ call }) {
   const [d, setD] = useState(null); const [err, setErr] = useState('');
-  const [draft, setDraft] = useState({}); const [size, setSize] = useState(''); const [preset, setPreset] = useState('feecat'); const [busy, setBusy] = useState(false);
-  const load = useCallback((first) => call('/admin/feecat').then(x => { setD(x); setErr(''); if (first) { setDraft(x.rules || {}); setSize(x.leader?.risk?.maxPositionSol ?? ''); setPreset(x.strategyPreset || 'feecat'); } })
+  const [draft, setDraft] = useState({}); const [size, setSize] = useState(''); const [busy, setBusy] = useState(false);
+  const load = useCallback((first) => call('/admin/feecat').then(x => { setD(x); setErr(''); if (first) { setDraft(x.rules || {}); setSize(x.leader?.risk?.maxPositionSol ?? ''); } })
     .catch(e => setErr(e.message || 'Fee service did not answer')), [call]);
   useEffect(() => { load(true); const t = setInterval(() => { if (!document.hidden) load(false); }, 15000); return () => clearInterval(t); }, [load]);
   if (!d) return <section className="fch" data-testid="feecat-desk"><p className="fch-wait">{err ? <>Couldn't reach Fee: {err} <button type="button" className="m-btn" onClick={() => load(true)}>Retry</button></> : '🐱 waking Fee up…'}</p></section>;
@@ -107,11 +123,14 @@ export function FeeCatDesk({ call }) {
 
     <details className="fch-fold"><summary>🧠 Her brain — style, rules, what she learned</summary>
       <FeeBrain />
-      <p className="fch-presets m-seg" role="group" aria-label="Trading style">{Object.entries(FEE_PRESETS).map(([id, [name, note]]) => <button key={id} type="button" className={preset === id ? 'active' : ''} onClick={() => { setPreset(id); setDraft(cur => ({ ...cur, ...FEE_PRESETS[id][2] })); }} data-tip={note}>{name}</button>)}</p>
-      <div className="fch-rules">{Object.keys(d.bounds || {}).map(k => { const [lo, hi] = d.bounds[k]; return <label key={k} data-tip={FEE_LABELS[k]?.[1] || ''}><span>{FEE_LABELS[k]?.[0] || k}<em>{lo}–{hi}</em></span>
-        <NumInput value={draft[k] ?? ''} onChange={e => setDraft(x => ({ ...x, [k]: Number(e.target.value) }))} /></label>; })}
-        <label><span>Max SOL per trade<em>0.1–10</em></span><NumInput value={size} onChange={e => setSize(e.target.value)} /></label></div>
-      <button type="button" className="m-btn m-go" disabled={busy} onClick={() => save({ strategyPreset: preset })} data-testid="fch-save">Save {FEE_PRESETS[preset]?.[0]} brain</button>
+      <FastDial d={d} busy={busy} onApply={vals => { setDraft(cur => ({ ...cur, ...vals })); save({ rules: { ...draft, ...vals }, strategyPreset: 'fast' }); }} />
+      <div className="fch-groups">{RULE_GROUPS.map(([g, keys]) => { const ks = keys.filter(k => (d.bounds || {})[k]); if (!ks.length) return null;
+        return <fieldset key={g} className="fch-group"><legend>{g}</legend>{ks.map(k => { const [lo, hi] = d.bounds[k]; return <label key={k} data-tip={FEE_LABELS[k]?.[1] || ''}><span>{FEE_LABELS[k]?.[0] || k}<em>{lo}–{hi}</em></span>
+          <NumInput value={draft[k] ?? ''} onChange={e => setDraft(x => ({ ...x, [k]: Number(e.target.value) }))} /></label>; })}</fieldset>; })}
+        <fieldset className="fch-group"><legend>💵 SIZE</legend><label><span>Max SOL per trade<em>0.1–10</em></span><NumInput value={size} onChange={e => setSize(e.target.value)} /></label>
+          {Object.keys(d.bounds || {}).filter(k => !RULE_GROUPS.some(([, ks]) => ks.includes(k))).map(k => { const [lo, hi] = d.bounds[k]; return <label key={k} data-tip={FEE_LABELS[k]?.[1] || ''}><span>{FEE_LABELS[k]?.[0] || k}<em>{lo}–{hi}</em></span>
+            <NumInput value={draft[k] ?? ''} onChange={e => setDraft(x => ({ ...x, [k]: Number(e.target.value) }))} /></label>; })}</fieldset></div>
+      <button type="button" className="m-btn m-go" disabled={busy} onClick={() => save({ strategyPreset: 'fast' })} data-testid="fch-save">Save my tuning</button>
     </details>
   </section>;
 }

@@ -10485,6 +10485,14 @@ async def _prime_tick_inner(now):
             if cert_:   # 🛡 a coin YOU certified is yours to hold — the desk's own swap / pull never touches it (only a pulled pool, −45%, your limits)
                 dec_ = [x for x in dec_ if x.get('pair') not in cert_ or any(h_ in str(x.get('why')) for h_ in ('R1 ', 'R5x', 'R5c', 'R5g', 'R9c', 'drain'))]
             g4p_ = {l.get('pairAddress'): l for l in cur.get('legs') or [] if l.get('aiSeat') and not l.get('placeholder')}
+            gs_ = _g4.pop('set', None)
+            if gs_ and gs_.get('pair') in g4p_ and _seat.fresh(gs_, now):   # 🎯 the holding model moved its own take / stop
+                for l in cur['legs']:
+                    if l.get('pairAddress') == gs_['pair'] and l.get('aiSeat'):
+                        ch_ = {k_: v_ for k_, v_ in (('aiTp', gs_.get('tp')), ('aiSl', gs_.get('sl'))) if v_ and v_ != l.get(k_)}
+                        l.update(ch_)
+                        if ch_:
+                            cur.setdefault('events', []).append({'at': now, 'kind': 'agent', 'move': 'lines', 'why': f"🎯 {gs_.get('by')} set ${l.get('symbol')}: " + ' · '.join(f"{'TP +' if k_ == 'aiTp' else 'SL −'}{v_:g}%" for k_, v_ in ch_.items())})
             if g4p_:   # 🧠 G4's seat: the agents only argue — a pulled pool, −45% and the creator's own limits still sell it
                 dec_ = [x for x in dec_ if x.get('pair') not in g4p_ or any(h_ in str(x.get('why')) for h_ in ('R1 ', 'R5x', 'R5c', 'R9c', 'drain'))]
                 w_ = _g4.get('want')
@@ -10686,7 +10694,7 @@ async def _prime_tick_inner(now):
                 _g4['want'] = None   # 🧠 G4's BUY joins the SAME fill path as every agent seat — the keeper's pre-check, the Warden's size, the keeper's own checks
                 gt_ = _tk.KERNEL.candidate(w_['mint'])
                 if gt_ and gt_.get('pair'):
-                    plan_, g4n_ = [{**gt_, 'g4': True, 'g4By': w_.get('by'), 'nearReady': f"🧠 {w_.get('model') or 'G4'}: {w_.get('why')}"}] + [t_ for t_ in plan_ if t_['mint'] != gt_['mint']], 1
+                    plan_, g4n_ = [{**gt_, 'g4': True, 'g4By': w_.get('by'), 'g4Tp': w_.get('tp'), 'g4Sl': w_.get('sl'), 'nearReady': f"🧠 {w_.get('model') or 'G4'}: {w_.get('why')}"}] + [t_ for t_ in plan_ if t_['mint'] != gt_['mint']], 1
                     _g4_fate(w_, 'sent to the seat check', now)
                 else:
                     _g4_fate(w_, 'coin left the desk before the buy', now)
@@ -10701,6 +10709,8 @@ async def _prime_tick_inner(now):
                 if g4_seat_ and not t_.get('g4') and ag_fill_ >= empty_n:   # 🧠 one empty seat stays G4's while its seat is on
                     break
                 if t_['mint'] in (_g4_blocked(cur, now) if t_.get('g4') else _agent_blocked(cur, now)):   # 🚫 banked / pulled / refused earlier in THIS tick (OSSY / G4: only the keeper's and your own blocks)
+                    if t_.get('g4'):   # 🧾 never silent: the board said "sent to the seat check" for good while the refusal sat here
+                        _g4_fate({'mint': t_['mint'], 'symbol': t_.get('symbol')}, 'keeper refused: ' + str((_agent_refused.get(t_['mint']) or (0, 'blocked by your rule / keeper bench'))[1])[:90] + ' — the model picks again next minute', now)
                     continue
                 if pre_ is not None:
                     if t_['mint'] not in pre_:   # 🛂 the keeper would refuse it: no seat, the next READY coin is tried
@@ -10731,6 +10741,9 @@ async def _prime_tick_inner(now):
                             if l.get('mint') == t_['mint']:
                                 l['aiSeat'] = True
                                 l['aiBy'] = t_.get('g4By')   # 🔁 whose trade this is: the turn moves only on a seat that really opened
+                                for k_, v_ in (('aiTp', t_.get('g4Tp')), ('aiSl', t_.get('g4Sl'))):
+                                    if v_:
+                                        l[k_] = v_
                                 l['bought'] = {**(l.get('bought') or {}), 'tag': '🤖 🧠 G4 seat'}
                         try:
                             m0_ = _g4_mem.get() or {}
@@ -13802,6 +13815,23 @@ def _g4_real_record():
     return _seat.record(rows_)
 
 
+_g4_les: dict = {'at': 0.0, 'v': None}
+
+
+def _g4_lessons():
+    """🎓 Real trades the two models learn from (60s cache): each model's own (by who opened it), the owner's picks, the agents' seats."""
+    if _g4_les['v'] is not None and time.time() - _g4_les['at'] < 60:
+        return _g4_les['v']
+    pos_ = [p_ for p_ in (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or [] if p_.get('realPct') is not None][-300:]
+    row_ = lambda p_: {'aiBy': p_.get('aiBy'), 'sym': p_.get('sym') or p_.get('symbol'), 'realPct': p_.get('realPct'), 'rule': str((p_.get('exit') or {}).get('rule') or '').split(' ')[0] or None}
+    line_ = lambda xs: (lambda r: f"{r['n']} real trades, {r['won']}% won, typical {r['med']}%, best {r['best']}%" if r.get('n') else None)(_seat.record([{'pct': x.get('realPct')} for x in xs]))
+    last_ = lambda xs: ', '.join(f"${x.get('sym') or x.get('symbol') or '?'} {_fuse._f(x['realPct']):+.1f}%" for x in xs[-3:][::-1])
+    own_ = [p_ for p_ in pos_ if p_.get('pick')]; ag_ = [p_ for p_ in pos_ if not p_.get('pick') and not p_.get('g4')]
+    v_ = _seat.lessons([row_(p_) for p_ in pos_ if p_.get('g4')], (line_(own_) or '') + (f' · last: {last_(own_)}' if own_ else '') or None, (line_(ag_[-60:]) or '') + (f' · last: {last_(ag_)}' if ag_ else '') or None)
+    _g4_les.update(at=time.time(), v=v_)
+    return v_
+
+
 async def _g4_tick(now, env, cfg):
     """🧠 G4's minute: one snapshot packet → one action for ITS seat (paper book here; real = `_g4['want']`, applied by the tier tick)."""
     if _g4['busy'] or not _seat.due(_g4['at'], now):
@@ -13831,6 +13861,16 @@ async def _g4_tick(now, env, cfg):
             held_ = _seat.held_row({'symbol': o_.get('symbol'), 'mint': o_['mint'], 'entry': o_['entry'], 'at': o_['at'], 'peakPct': o_.get('peak')}, px_of(o_['mint']), now, None, _g4_qwen(o_['mint']))
         else:
             held_ = None
+        if mode_ == 'real' and not held_:   # 🪑 no open seat on the card → the models WAIT for one (no call, one line per 5 min)
+            legs_r = [l for l in card_.get('legs') or [] if not l.get('placeholder') and _fuse._f(l.get('units')) > 0 and l.get('mint') != _fw.SOL_MINT]
+            if len(legs_r) >= int(_fuse._f(_prime_real_cfg(pr_).get('coins')) or 4) and not any(l.get('placeholder') for l in card_.get('legs') or []):
+                lw_ = next((r_ for r_ in reversed(st_['log']) if r_.get('seatWait')), None)
+                if not lw_ or now - (lw_.get('at') or 0) > 300:
+                    _g4_mem.put({**(_g4_mem.get() or {}), 'log': _seat.note(st_['log'], {'at': round(now), 'mode': mode_, 'model': 'SEAT', 'by': None, 'seatWait': True, 'action': 'WAIT',
+                                                                                         'why': f'every seat is full ({len(legs_r)}) — waiting for one to open, then it is back to their turn'})}, now)
+                _g4['phase'] = 'SEATS FULL'
+                return
+        _g4['phase'] = 'HOLDING' if held_ else 'HUNTING'
         rec_ = _g4_real_record() if mode_ == 'real' else _seat.record(book_.get('closed'))
         holder_ = (leg_ or {}).get('aiBy') if mode_ == 'real' else (book_.get('open') or {}).get('by')
         if mode_ == 'paper':
@@ -13841,7 +13881,8 @@ async def _g4_tick(now, env, cfg):
         rows_ = [_seat.cand_row(c_, _g4_qwen(c_['mint'])) for c_ in cands_]
         pick_ = _seat.agents_pick(rows_)
         says_ = _seat.talk_of(st_['log'], first_, since=_fuse._f((leg_ or {}).get('at')) or 0.0) if held_ else None
-        pk_ = _seat.packet(rows_, held_, _seat.record_words(rec_), _seat.partner_of(st_['log'], first_), (pick_ or {}).get('symbol'), says_)
+        learn_ = _seat.learn_block(_g4_lessons(), first_, second_, lambda k_: _air.model_name(env, k_))
+        pk_ = _seat.packet(rows_, held_, _seat.record_words(rec_), _seat.partner_of(st_['log'], first_), (pick_ or {}).get('symbol'), says_, learn_)
         _g4['live'] = {'by': _air.model_name(env, first_), 'at': now, 'pick': (pick_ or {}).get('symbol'), 'held': held_,
                        'cands': [{k_: r_c.get(k_) for k_ in ('symbol', 'status', 'trigger', 'move5m', 'buyers', 'germ', 'pool', 'cap', 'ageMin', 'rank')} for r_c in rows_[:6]]}   # 👁 what the deciding model is reading, live
         t0_ = time.perf_counter()
@@ -13857,6 +13898,8 @@ async def _g4_tick(now, env, cfg):
         ev_ = None
         if dec_ and mode_ == 'paper':
             book_, ev_ = _seat.paper_step(book_, dec_, by_, px_of, now, by_m)
+        if dec_ and mode_ == 'real' and held_ and leg_ and (dec_.get('tp') or dec_.get('sl')) and by_m != 'agents':   # 🎯 the holder sets its own lines on its own trade
+            _g4['set'] = {'pair': leg_.get('pairAddress'), 'tp': dec_.get('tp'), 'sl': dec_.get('sl'), 'at': time.time(), 'by': _air.model_name(env, by_m)}
         elif dec_ and mode_ == 'real' and dec_['action'] in ('BUY', 'SELL'):
             _g4['want'] = {**dec_, 'by': by_m, 'model': 'AGENTS' if by_m == 'agents' else _air.model_name(env, by_m), 'thinkAt': now, 'symbol': (by_.get(dec_['mint']) or {}).get('symbol') if dec_['action'] == 'BUY' else (leg_ or {}).get('symbol'), 'at': time.time(), 'pair': (by_.get(dec_['mint']) or {}).get('pair') if dec_['action'] == 'BUY' else (leg_ or {}).get('pairAddress')}   # ⏱ fresh from the ANSWER (a 30–90s think read as stale)
         focus_ = by_.get((dec_ or {}).get('mint')) if (dec_ or {}).get('action') == 'BUY' else None
@@ -16341,7 +16384,7 @@ async def _seat_precheck(plan, cfg_t, now, seat_usd=0.0, need=1):
     for t_ in plan:
         if len(out) >= need:   # enough coins for the open seats: the rest are not quoted this tick (Jupiter's free tier is shared with the keeper)
             break
-        o_ = {'side': 'buy', 'mint': t_.get('mint'), 'pair': t_.get('pair'), 'symbol': t_.get('symbol'), 'agent': True, 'trench': _uni.in_lane(t_.get('vitals') or {}),
+        o_ = {'side': 'buy', 'mint': t_.get('mint'), 'pair': t_.get('pair'), 'symbol': t_.get('symbol'), 'agent': not t_.get('g4'), **({'picked': True} if t_.get('g4') else {}), 'trench': _uni.in_lane(t_.get('vitals') or {}),
               'curve': bool((t_.get('vitals') or {}).get('curve') and cfg_t.get('agentCurve'))}
         ok_, why_, lv_ = _fw.live_buy_market(o_, live.get(t_.get('pair')), cfg)
         hold_ = AGENT_PRE_SEC
@@ -17855,7 +17898,10 @@ def _duo_view(env=None):
         nm = lambda k: _air.model_name(env, k)
         legs_ = [l for c_ in (((_json_load(FUSE_HQ_PATH, {}) or {}).get('prime') or {}).get('cards') or {}).values() if (c_ or {}).get('real') for l in c_.get('legs') or [] if l.get('aiSeat') and not l.get('placeholder')]
         first_, _s = _seat.turn(st_['log'], _duet.LEAD, _duet.SECOND, bool((st_['book'] or {}).get('open')) or bool(legs_), opener=st_.get('opener'), holder=(legs_[0].get('aiBy') if legs_ else ((st_['book'] or {}).get('open') or {}).get('by')))
+        held_l = legs_[0] if legs_ else None
         return {'mode': _oe.clean_policy(_prime_real_cfg())['agentAiSeat'], 'next': nm(first_), 'at': st_['at'], 'busy': _g4['busy'],
+                'phase': _g4.get('phase') or ('HOLDING' if held_l else 'HUNTING'), 'holder': nm(held_l.get('aiBy')) if held_l and held_l.get('aiBy') else None,
+                'holding': {'symbol': held_l.get('symbol'), 'since': held_l.get('at')} if held_l else None,
                 'rec': {nm(k): v for k, v in _seat.by_model((st_['book'] or {}).get('closed')).items() if k in (_duet.LEAD, _duet.SECOND)},
                 'open': (st_['book'] or {}).get('open'),
                 'agents': _seat.by_model((st_['book'] or {}).get('closed')).get('agents'), 'fate': _g4.get('fate'), 'live': _g4.get('live'),
@@ -19691,12 +19737,15 @@ async def wallet_badges(address: str):
     return out
 
 
+import chain_rpc as _chain_rpc_mod   # noqa: E402  (provider names for /health)
+
+
 @app.get('/api/reputation/health')
 async def health():
     store = _load()
     now = time.time()
     rpc_status = [{
-        'endpoint': _re.sub(r'(api[-_]?key=)[^&]+', r'\1•••', endpoint), 'dedicated': endpoint == _dedicated,
+        'endpoint': _chain_rpc_mod.provider_of(endpoint), 'dedicated': endpoint == _dedicated,
         'cooling_down': _rpc_cooldown_until.get(endpoint, 0) > now,
     } for endpoint in RPC_POOL]
     return {
@@ -22235,7 +22284,20 @@ async def admin_feecat_get(request: Request):
             'discipline': prof.get('discipline'), 'strength': prof.get('strength'), 'exits': (prof.get('exits') or [])[-12:],
             'scan': {k: sc_.get(k) for k in ('at', 'scanned', 'passed', 'rejections', 'top', 'brainRejects', 'safetyRejects')},
             'duo': {k: _feecat_ai.get(k) for k in ('read', 'avoid', 'exit', 'split', 'why', 'models')},   # 🤝 her one duo AI read per 10 min
-            'cat': {k: (prof.get('cat') or {}).get(k) for k in ('balanceSol', 'startingBalanceSol', 'realizedPnlSol', 'winRate', 'wins', 'losses', 'status', 'lastTick', 'positions', 'pnlHistory', 'level', 'xp')}}
+            'cat': {k: (prof.get('cat') or {}).get(k) for k in ('balanceSol', 'startingBalanceSol', 'realizedPnlSol', 'winRate', 'wins', 'losses', 'status', 'lastTick', 'positions', 'pnlHistory', 'level', 'xp')},
+            'fastTrench': _feecat_fast_trench()}
+
+
+def _feecat_fast_trench():
+    """⚡ FeeCat's ONE dial (owner, 2026-10-16: "one dial only and that's FAST trench, same configs as the agents tab to start"): her rules seeded
+    from the agents' live realCfg (MC floor, youngest age, pool floor, 1h volume, take / stop, seats). The page clamps each to her own bounds."""
+    c_ = _prime_real_cfg() or {}
+    f_ = lambda k_, d_: _fuse._f(c_.get(k_)) or d_
+    vol_ = f_('agentMinVol1h', 5000)
+    return {'minMarketCap': f_('agentMcMin', 12000), 'minAgeHours': max(0.05, f_('agentMinAgeH', 0.25)), 'minLiquidity': f_('agentPoolMin', 8000),
+            'minVolume24h': vol_ * 24, 'takeProfit1': f_('agentTp', 30), 'takeProfit2': f_('agentTp', 30) * 2.5, 'hardStop': -f_('agentSl', 25),
+            'runnerTrail': 20, 'maxHoldHours': 2, 'maxM5Chase': 4, 'maxPositions': 4, 'add1At': -15, 'add2At': -25, 'maxExposure': 0.4,
+            'from': {k_: c_.get(k_) for k_ in ('agentMcMin', 'agentMcMax', 'agentMinAgeH', 'agentPoolMin', 'agentMinVol1h', 'agentTp', 'agentSl')}}
 
 
 @app.post('/api/reputation/admin/feecat')

@@ -23,3 +23,8 @@ test("🐱 Fee's HQ desk: why she trades, the duo read, open trades — from one
   expect(box.querySelector('[data-testid="fch-open"]').textContent).toContain('$ILL');
   act(() => root.unmount());
 });
+
+test('⚡ fast trench dial: the agents\' values, clamped to her bounds, metadata dropped', () => {
+  const { fastValues } = require('./FeeCatDesk');
+  expect(fastValues({ minLiquidity: 8000, takeProfit1: 30, from: { a: 1 } }, { minLiquidity: [40000, 150000] })).toEqual({ minLiquidity: 40000, takeProfit1: 30 });
+});

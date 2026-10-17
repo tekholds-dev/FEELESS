@@ -747,8 +747,14 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             p['scaled'] = now
         if l.get('picked'):
             study_note(p, rule, act, st, pct, px, now, snap_of(ch, x, pct))   # 👤 your seat: every ruling change is filed — what the agents would have done, and when
+        if l.get('aiSeat') and not act and pct is not None:   # 🔁 the holding MODEL runs its trade: its own take / stop (set from its minute read) sell it
+            if _f(l.get('aiSl')) > 0 and pct <= -_f(l.get('aiSl')):
+                st, rule, ev, act = 'EXIT INVALIDATED', 'R5m model stop', f"{pct:+.1f}% ≤ −{_f(l.get('aiSl')):g}% — {l.get('aiBy') or 'the model'}'s own stop", 'pull'
+            elif _f(l.get('aiTp')) > 0 and pct >= _f(l.get('aiTp')):
+                st, rule, ev, act = 'TAKE', 'R6m model take', f"{pct:+.1f}% ≥ +{_f(l.get('aiTp')):g}% — {l.get('aiBy') or 'the model'}'s own take-profit", 'pull'
         if l.get('aiSeat'):   # 🧠 G4's OWN seat: the agents only argue — every soft exit is filed as pressure, only a pulled pool / −45% / your creator limits sell
             p['g4'] = True
+            p['aiBy'] = l.get('aiBy') or p.get('aiBy')   # 🔁 which model opened it — each model's real record + what the other learns
             if act and str(rule).split(' ')[0] not in G4_HARD:
                 pr_ = list(p.get('pressure') or [])
                 k_ = str(rule).split(' ')[0]
@@ -865,7 +871,7 @@ def scale_of(pol):
     return (SCALE_AT, SCALE_PCT) if v == 'default' else v
 
 
-G4_HARD = ('R1', 'R5x', 'R5c', 'R9c')   # 🧠 what may still sell G4's seat without it: a pulled pool, −45%, the creator's own limits
+G4_HARD = ('R1', 'R5x', 'R5c', 'R9c', 'R5m', 'R6m')   # + the holding model's own stop / take (it runs the trade)   # 🧠 what may still sell G4's seat without it: a pulled pool, −45%, the creator's own limits
 ASK_OK_SEC = 180.0     # an approval lets that rule sell for this long
 ASK_KEEP_SEC = 600.0   # "keep my line" quiets that rule this long
 
@@ -1226,7 +1232,7 @@ def file_position(arch, p, now):
            'wx': p.get('wx'), 'warden': p.get('warden'), 'launch': p.get('launch'), 'tag': p.get('tag'), 'owner': p.get('owner'), 'take': p.get('take'), 'exitStructure': p.get('chartNow'), 'windows': p.get('lastWin'),
            'liq': p.get('liq'), 'liqPct': p.get('liqPct'), 'top10': p.get('top10'), 'quality': p.get('quality'), 'dd': bool(p.get('dataDegraded') or p.get('dd')), 'vel': (p.get('vel') or {}).get('state') if isinstance(p.get('vel'), dict) else p.get('vel'),
            'thesis': None if not p.get('thesis') else {k: p['thesis'].get(k) for k in ('structure', 'call', 'triggerRule', 'support', 'invalidation', 'stopPct', 'expectedHoldWindows', 'at', 'pred', 'votes', 'flow', 'distHigh', 'germ', 'germDist')},
-           'li': p.get('li'), 'src': p.get('src'), 'gap': p.get('gap'), 'pick': bool(p.get('pick')), 'g4': bool(p.get('g4')), 'pressure': list(p.get('pressure') or [])[-12:], 'would': p.get('would'), 'study': list(p.get('study') or [])[-STUDY_KEEP:],
+           'li': p.get('li'), 'src': p.get('src'), 'gap': p.get('gap'), 'pick': bool(p.get('pick')), 'g4': bool(p.get('g4')), 'aiBy': p.get('aiBy'), 'pressure': list(p.get('pressure') or [])[-12:], 'would': p.get('would'), 'study': list(p.get('study') or [])[-STUDY_KEEP:],
            **({'snaps': {'entry': p.get('entrySnap'), 'would': list(p.get('wouldSnaps') or []), 'exit': p.get('lastSnap')}} if p.get('pick') else {})}   # 📸 your trade: entry · every would-sell moment · the last look before it left
     prev = ps[-1]['h'] if ps else a.get('posAnchor', '')
     rec['h'] = _hash(prev, {k: v for k, v in rec.items() if k != 'h'})
@@ -1829,7 +1835,7 @@ def fast_reap(legs, px_by_mint, pos, now, office=None, prev=None, ai_words=None)
             continue
         px, entry = _f((px_by_mint or {}).get(l.get('mint'))), _f(l.get('entry'))
         p = (pos or {}).get(l.get('mint')) or {}
-        stop = _f(l.get('sl')) if mine_ else _ci.CATASTROPHIC_STOP if l.get('aiSeat') else _f(p.get('stopNow'))   # 🧠 G4's seat: only −45% here
+        stop = _f(l.get('sl')) if mine_ else (min(_ci.CATASTROPHIC_STOP, _f(l.get('aiSl'))) if _f(l.get('aiSl')) > 0 else _ci.CATASTROPHIC_STOP) if l.get('aiSeat') else _f(p.get('stopNow'))   # 🧠 G4's seat: only −45% here
         if px <= 0 or entry <= 0 or stop <= 0:
             continue
         dd = (px / entry - 1) * 100

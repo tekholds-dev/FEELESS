@@ -1113,7 +1113,7 @@ async def internal_rules_set(request: Request):
         leader['risk']['maxPositionSol'] = max(0.1, min(10.0, float(body['maxPositionSol'])))
     if body.get('resetLearning'):
         leader.pop('learn', None)
-    if body.get('strategyPreset') in ('feecat', 'trench', 'meme', 'scalper'):
+    if body.get('strategyPreset') in ('feecat', 'trench', 'meme', 'scalper', 'fast'):   # ⚡ fast = the one dial (agents' configs)
         store['strategyPreset'] = body['strategyPreset']
     _apply_overrides(store)
     _save(store)
