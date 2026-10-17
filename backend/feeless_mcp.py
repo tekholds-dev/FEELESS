@@ -918,7 +918,7 @@ FEELESS_JS_EOF
 #  · com.feeless.awake  = caffeinate (no idle / system sleep while logged in; a closed laptop lid or a power-off still stops it)
 #  · com.feeless.lankeep = every 60s: LM Studio's server up on port $PORT + the model loaded; every hour: re-run this installer from
 #    FEELESS so the preset / prompt / these helpers update by themselves. Re-running this script replaces only its own files.
-PORT="${{FEELESS_LM_PORT:-1236}}"; MODEL="${{FEELESS_LM_MODEL:-{model or DESKTOP_MODEL}}}"; FALLBACK="{DESKTOP_FALLBACK}"; CTX="${{FEELESS_LM_CTX:-8192}}"
+PORT="${{FEELESS_LM_PORT:-1236}}"; MODEL="${{FEELESS_LM_MODEL:-{model or DESKTOP_MODEL}}}"; FALLBACK="{DESKTOP_FALLBACK}"; CTX="${{FEELESS_LM_CTX:-10240}}"; PAR="${{FEELESS_LM_PAR:-2}}"
 mkdir -p "$HOME/.feeless" "$HOME/Library/LaunchAgents"
 cat > "$HOME/.feeless/lan-keep.sh" <<FEELESS_KEEP_EOF
 #!/bin/bash
@@ -929,7 +929,7 @@ if ! "\\$LMS" ps 2>/dev/null | grep -q "$MODEL"; then
   "\\$LMS" ls 2>/dev/null | grep -q "$MODEL" || "\\$LMS" get "$MODEL" -y >/dev/null 2>&1   # ⬇ FEELESS picks the desktop model: downloaded once, by itself
   if "\\$LMS" ls 2>/dev/null | grep -q "$MODEL" && [ "\\$(cat "\\$FAILED" 2>/dev/null)" != "$MODEL" ]; then
     "\\$LMS" unload --all >/dev/null 2>&1   # 8 GB Mac: ONE model in memory
-    "\\$LMS" load "$MODEL" --context-length $CTX --gpu max -y >/dev/null 2>&1 || echo "$MODEL" > "\\$FAILED"   # a model that won't load is not retried every minute
+    "\\$LMS" load "$MODEL" --context-length $CTX --parallel $PAR --gpu max -y >/dev/null 2>&1 || echo "$MODEL" > "\\$FAILED"   # a model that won't load is not retried every minute
   fi
   "\\$LMS" ps 2>/dev/null | grep -q . || "\\$LMS" load "$FALLBACK" --context-length $CTX --gpu max -y >/dev/null 2>&1   # nothing loaded → the old model
 fi

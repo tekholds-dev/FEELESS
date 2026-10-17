@@ -26,8 +26,10 @@ import time
 import ai_keys as _aik
 
 # key → (label, key env var or None, model env var, base env var or None, fixed base, default model, timeout s, concurrency)
+LAN_PARALLEL = max(1, min(4, int(os.environ.get('LAN_LLM_PARALLEL') or 2)))   # 🖥 the desktop runs `lms load --parallel 2`: two requests at once (the seat call never waits behind a background read)
+
 PROVIDERS = {
-    'lan': ('LAN LM STUDIO', None, 'LAN_LLM_MODEL', 'LAN_LLM_BASE_URL', '', 'google/gemma-4-e2b', 150.0, 1),   # 🖥 (150s: a full agent case on the desktop's model ran past 60s, every read timed out → OFFLINE forever, 2026-10-15) LM Studio on the desktop Mac (LAN): asked FIRST — no GPU shared with the browser here
+    'lan': ('LAN LM STUDIO', None, 'LAN_LLM_MODEL', 'LAN_LLM_BASE_URL', '', 'qwen/qwen3-4b-2507', 150.0, LAN_PARALLEL),   # 🖥 (150s: a full agent case on the desktop's model ran past 60s, every read timed out → OFFLINE forever, 2026-10-15) LM Studio on the desktop Mac (LAN): asked FIRST — no GPU shared with the browser here
     'local': ('LOCAL LM STUDIO', None, 'LOCAL_LLM_MODEL', 'LOCAL_LLM_BASE_URL', 'http://127.0.0.1:1234/v1', 'qwen2.5-7b-instruct-mlx', 60.0, 1),   # the vitals answer took 16–31s on the owner's Mac (its own loop: nothing waits on it)
     'groq': ('GROQ', 'GROQ_API_KEY', 'GROQ_MODEL', None, 'https://api.groq.com/openai/v1', 'qwen/qwen3.8-27b', 8.0, 1),   # 2026-10-13: llama-3.1-8b-instant is gone from Groq (404 → the fallback never answered); this one answers the vitals schema in ~0.9s
     'openrouter': ('OPENROUTER', 'OPENROUTER_API_KEY', 'OPENROUTER_MODEL', None, 'https://openrouter.ai/api/v1', 'openrouter/auto', 20.0, 2),
@@ -1026,6 +1028,8 @@ class Router:
                     msgs = case_msgs
                     if key in LM and not general:   # 💻 fit the context the model is LOADED with (asked from LM Studio itself): the full brain when it fits, else its condensed twin
                         ctx_ = await self.local_ctx(http, p, env)
+                        if key == 'lan' and LAN_PARALLEL > 1:   # parallel slots SHARE the loaded context: each request fits its share
+                            ctx_ = ctx_ // LAN_PARALLEL
                         if role != 'owner' and urgency not in ('force', 'seat'):   # 🧈 a BACKGROUND local read always uses the condensed brain (~1K tokens, ~10s) — the
                             ctx_ = min(ctx_, LOCAL_BG_CTX)            # full 2.4K-token prompt kept the GPU the browser draws with busy ~30s a read ("horrible lag")
                         msgs = messages_local(case, role, ctx_)

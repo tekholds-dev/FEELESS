@@ -102,3 +102,10 @@ def test_seat_names_the_model_that_holds_it():
 def test_duo_update_is_a_stream_kind():
     from trench_kernel import events
     assert 'duo_update' in events.KINDS
+
+
+def test_desktop_runs_two_parallel_slots():
+    import feeless_mcp as f, ai_router as ar
+    t = f.install_script('http://x/mcp', 'T')
+    assert '--parallel $PAR' in t and 'FEELESS_LM_PAR:-2' in t and 'FEELESS_LM_CTX:-10240' in t
+    assert ar.PROVIDERS['lan'][7] == ar.LAN_PARALLEL == 2                                 # the router sends two at once to match

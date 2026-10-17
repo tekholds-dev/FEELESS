@@ -4904,3 +4904,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🔁 OSSY × G4 IS LIVE: stream kind `duo_update` (`_duo_push`: when a model starts thinking, after every minute tick, every idle read, every
   chime-in / vote) → `applyDelta` replaces `raw.duo`; the room's POST answer is applied at once (`hubApply`). Your line used to wait for the 20s
   page refresh. 🪪 Seat badge = the model that HOLDS it (`card_seats` → seat `model` from leg `aiBy`; it read "G4" on OSSY's $blocus).
+- 🖥 Desktop LM Studio = 2 parallel slots (`lms load --parallel 2`, context 10240 shared; `LAN_LLM_PARALLEL` 2 → the router sends two `lan` calls
+  at once and fits each to ctx ÷ 2). RAM, not disk, decides model size: the desktop is M1 · 8 GB (≈ 5 GB usable by the GPU); this MacBook Air is
+  M3 · 24 GB (why gpt-oss-20b at 12 GB runs here). No model that fits 8 GB is near a frontier model — say so before promising one.
