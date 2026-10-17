@@ -20,16 +20,26 @@ export function ChartCallPins({ calls, seriesRef, chartRef, container, ratio = 1
       const s = seriesRef.current?.series; const ch = chartRef.current; const box = container?.current;
       if (!s || !ch || !box) return;
       const top = box.offsetTop || 0; const h = box.clientHeight || 0; const w = box.clientWidth || 0;
+      const slots = [];   // pins on the same candle stack upward instead of covering each other
       els.forEach(o => {
         if (!o.el) return;
-        let x = null; let y = null;
-        try { x = ch.timeScale().timeToCoordinate(o.t); y = s.priceToCoordinate(o.v); } catch { x = null; }
-        const ok = x != null && y != null && x > 8 && x < w - 60 && y > 8 && y < h - 24;
-        const pos = ok ? `${x.toFixed(0)},${(y + top).toFixed(0)}` : 'x';
+        let x = null; let y = null; let yTop = null;
+        try {
+          x = ch.timeScale().timeToCoordinate(o.t); y = s.priceToCoordinate(o.v);
+          const lg = x != null ? ch.timeScale().coordinateToLogical(x) : null; const bar = lg != null && s.dataByIndex ? s.dataByIndex(Math.round(lg)) : null;
+          const hi = bar ? Number(bar.high ?? bar.value) : null; yTop = hi > 0 ? s.priceToCoordinate(hi) : null;
+        } catch { x = null; }
+        const ok = x != null && y != null && x > 8 && x < w - 60 && y > 8 && y < h - 8;
+        if (!ok) { if (o.last !== 'x') { o.last = 'x'; o.el.style.opacity = '0'; o.el.style.pointerEvents = 'none'; } return; }
+        const n = slots.filter(sx => Math.abs(sx - x) < 16).length; slots.push(x);
+        const above = Math.min(y, yTop ?? y) - 16 - n * 22;   // 📍 hover ABOVE the candle's high, a stem down to the call point
+        const py = Math.max(12, above); const stem = Math.max(0, y - py - 10);
+        const pos = `${x.toFixed(0)},${py.toFixed(0)},${stem.toFixed(0)}`;
         if (pos === o.last) return; o.last = pos;
-        o.el.style.opacity = ok ? '1' : '0'; o.el.style.pointerEvents = ok ? 'auto' : 'none';
-        if (ok) o.el.style.transform = `translate3d(${x.toFixed(0)}px, ${(y + top).toFixed(0)}px, 0)`;
-        if (ok) { o.el.classList.toggle('is-r', x > w * 0.55); o.el.classList.toggle('is-b', y > h * 0.6); }   // the card opens toward the free side
+        o.el.style.opacity = '1'; o.el.style.pointerEvents = 'auto';
+        o.el.style.transform = `translate3d(${x.toFixed(0)}px, ${(py + top).toFixed(0)}px, 0)`;
+        o.el.style.setProperty('--ccp-stem', `${stem.toFixed(0)}px`);
+        o.el.classList.toggle('is-r', x > w * 0.55); o.el.classList.toggle('is-b', py > h * 0.5);   // the card opens toward the free side, inside the chart
       });
     };
     return addChartJob(container, step);
