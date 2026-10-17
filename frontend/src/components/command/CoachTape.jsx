@@ -92,11 +92,17 @@ function LineReplay({ line }) {
   return <p className={`ctp-replay ${l.tone}`} data-testid="ctp-replay" data-tip="Every real trade's recorded path replayed with a tighter cut, against what really happened. It ships only when it clearly pays."><b>🧪 {l.head}</b> {l.text}</p>;
 }
 
+// 🏁 closed trades first, newest close on top; open ones after them, newest buy first (owner: "I can't see my recent closes")
+export function tapeOrder(rows) {
+  const t = r => Number(r.closedAt) || 0;
+  return [...(rows || [])].sort((a, b) => (!a.open !== !b.open ? (a.open ? 1 : -1) : a.open ? (Number(b.at) || 0) - (Number(a.at) || 0) : t(b) - t(a)));
+}
+
 export function TradeTape({ tape, mint, onPick }) {
   const [now, setNow] = useState(() => Date.now() / 1000);
   useEffect(() => { const t = setInterval(() => !document.hidden && setNow(Date.now() / 1000), 15000); return () => clearInterval(t); }, []);
   const [show, setShow] = useState('all');
-  const rows = useMemo(() => (tape?.rows || []).filter(r => show === 'all' || (show === 'open' ? r.open : show === 'won' ? (r.result?.pct ?? 0) > 0 : r.result && r.result.pct <= 0)), [tape, show]);
+  const rows = useMemo(() => tapeOrder((tape?.rows || []).filter(r => show === 'all' || (show === 'open' ? r.open : show === 'won' ? (r.result?.pct ?? 0) > 0 : r.result && r.result.pct <= 0))), [tape, show]);
   return <section className="m-card ctp" data-testid="ctp-tape">
     <header className="ctp-top"><span className="m-label">🎬 REAL TRADE TAPE</span><small className="ctp-line" data-testid="ctp-stats">{tapeLine(tape?.stats)}</small>
       <span className="m-seg ctp-filter" role="group" aria-label="Trades">{[['all', 'ALL'], ['open', 'OPEN'], ['won', 'WON'], ['lost', 'LOST']].map(([k, l]) =>

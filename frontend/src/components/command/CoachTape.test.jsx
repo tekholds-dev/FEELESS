@@ -63,3 +63,9 @@ test('🏁 recent results: a pill per closed trade (win / loss), the tally, your
   expect(r.won).toBe(1); expect(r.lost).toBe(1); expect(r.list.map(x => x.sym)).toEqual(['Macca', 'Nih']); expect(r.list[0].yours).toBe(true); expect(r.usd).toBeCloseTo(0.21);
   expect(snapChips({ chart: 'UPTREND', germ: 6, buyers: 61 }).map(c => c[2])).toEqual(['', 'is-good', 'is-good']);
 });
+
+test('🏁 Trades: closes first by close time, then open by buy time', () => {
+  const { tapeOrder } = require('./CoachTape');
+  const r = tapeOrder([{ id: 'o1', open: true, at: 9 }, { id: 'c1', closedAt: 5 }, { id: 'c2', closedAt: 7 }, { id: 'o2', open: true, at: 10 }]);
+  expect(r.map(x => x.id)).toEqual(['c2', 'c1', 'o2', 'o1']);
+});

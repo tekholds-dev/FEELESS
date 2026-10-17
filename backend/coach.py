@@ -286,6 +286,7 @@ def trade_tape(ledger, positions, reviews=None, ai_log=None, card=None, n=30):
                'state': 'held' if not ss and not (p and p.get('closedAt')) else 'part' if ss and p and not p.get('closedAt') else 'sold'}
         if row['state'] == 'part':
             row['open'] = True
+        row['closedAt'] = (_f(p.get('closedAt')) if p and p.get('closedAt') else (_f(ss[-1].get('confirmedAt') or ss[-1].get('at')) if ss and row['state'] == 'sold' else None)) or None   # 🏁 the Trades tab sorts closes by THIS
         if row['state'] == 'sold' and ss and not (p and p.get('realPct') is not None) and _f(b.get('usd')) > 0:
             # no archive record (your own picks have none): the result from the ledger's own fills
             usd, out_ = _f(b.get('usd')), sum(_f(s.get('usd')) for s in ss)
