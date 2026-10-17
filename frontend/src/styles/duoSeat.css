@@ -134,9 +134,9 @@ body.theme-day .dso-turn li { background: rgba(236, 246, 240, .8); } body.theme-
 .dso-roomhd span { color: var(--gold, #e8c46a); } .dso-roomhd em { font-style: normal; font-weight: 700; color: var(--m-mute, #8fb3a0); }
 .dso-room ol { display: flex; flex-direction: column; gap: 5px; margin: 0; padding: 0 2px; list-style: none; max-height: 260px; overflow-y: auto; scrollbar-width: thin; }
 .dsb { align-self: flex-start; display: grid; gap: 2px; width: fit-content; max-width: min(78%, 520px); animation: dsoIn .2s ease-out both; }
-.dsb.is-partner, .dsb.is-you { align-self: flex-end; justify-items: end; }
+.dsb.is-ossy, .dsb.is-you { align-self: flex-end; justify-items: end; }
 .dsb-msg { display: inline; padding: 5px 10px; border-radius: 14px 14px 14px 4px; font: 500 11px/1.4 var(--m-sans, system-ui); color: #eafff2; background: rgba(21, 209, 106, .14); border: 1px solid rgba(21, 209, 106, .28); overflow-wrap: anywhere; }
-.dsb.is-partner .dsb-msg { border-radius: 14px 14px 4px 14px; background: rgba(180, 140, 255, .14); border-color: rgba(180, 140, 255, .35); }
+.dsb.is-ossy .dsb-msg { border-radius: 14px 14px 4px 14px; background: rgba(180, 140, 255, .14); border-color: rgba(180, 140, 255, .35); }
 .dsb.is-you .dsb-msg { border-radius: 14px 14px 4px 14px; background: rgba(232, 196, 106, .14); border-color: rgba(232, 196, 106, .4); }
 .dsb-msg em { font: 800 9.5px var(--m-mono, monospace); font-style: normal; color: #9fe3ff; margin-right: 5px; }
 .dsb-msg b { font: 800 9.5px var(--m-mono, monospace); margin-right: 5px; } .dsb-msg b.a-hold, .dsb-msg b.a-buy { color: #45e486; } .dsb-msg b.a-sell { color: #ff8fa3; }
@@ -174,3 +174,5 @@ body.theme-day .dso-room { background: rgba(240, 234, 252, .8); } body.theme-day
 /* 🎯 the holder moved its own TP / SL — its own line in the trade room + log */
 .dsb-msg b.a-lines, .dso-log li.a-lines b { color: var(--gold, #f2c14e); }
 .dso-log li.a-lines { border-left: 2px solid rgba(242, 193, 78, .6); }
+.dsb.is-talk .dsb-msg { border-style: dashed; }   /* advice on the partner's trade */
+.dsb .dsb-av { display: inline-block; }

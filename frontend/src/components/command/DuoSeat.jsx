@@ -131,7 +131,7 @@ export function verdictDots(res) { return CK.map(([c, w]) => { const r = (res ||
 const dotWord = d => (d.ok == null ? d.w : `${d.w} ${d.move > 0 ? '+' : ''}${Math.round(d.move)}%${d.mine === true ? ' ✓' : d.mine === false ? ' ✗' : ''}`);
 const who = k => (k === 'lan' ? 'G4' : k === 'local' ? 'OSSY' : k);
 function Bubble({ r, onVote, busy }) {
-  const v = r.votes; const side = r.mine ? 'is-you' : r.talk ? 'is-partner' : 'is-holder';
+  const v = r.votes; const side = `${r.mine ? 'is-you' : r.model === 'OSSY' ? 'is-ossy' : 'is-g4'}${r.talk ? ' is-talk' : ''}`;   // 💬 one side per voice: G4 left, OSSY right, you gold on the right — never by role
   return <li className={`dsb ${side}`}>
     <span className="dsb-msg">{avatarOf(r.model) && !r.mine ? <img className="dsb-av" src={avatarOf(r.model)} alt="" loading="lazy" /> : null}<em>{r.mine ? 'You' : r.model}</em>{!r.mine ? <b className={`a-${String(r.talk ? r.view || '' : r.action).toLowerCase()}`}>{r.talk ? r.view || 'note' : r.action}</b> : null}
       {r.pct != null ? <i className={r.pct >= 0 ? 'm-pos' : 'm-neg'}>{r.pct >= 0 ? '+' : ''}{Number(r.pct).toFixed(1)}%</i> : null}<span>{String(r.why || '').replace(/^to (G4|OSSY): (HOLD|SELL) — /, '')}</span></span>
