@@ -23,6 +23,7 @@ PAPER_USD = 1.0           # the paper seat's size (record = %, the $ is for disp
 PAPER_COST_PCT = 1.5      # the measured cost of one swap on the real card — paper pays it both ways
 CAND_N = 8
 ACTIONS = ('BUY', 'HOLD', 'SELL', 'WAIT', 'TRIM')
+TP_MIN = 25.0
 
 SYSTEM = """You and one partner model take TURNS on ONE seat of a small real-money Solana trench card: one trade each — whoever buys runs that trade to its exit, then the other hunts the next one. It is your call now. PARTNER = your partner's last call and record: learn from it and beat it (each of you has your own record). The seat is YOURS on your turn: the agents are your helpers, they cannot stop your buy (only the keeper's money checks — route, honeypot, price gap — can). Ten rule-based agents (Tally, Sherlock, Trigger,
 Devil, Warden, Reaper …) and OSSY's earlier reads also cover these coins — their words are in the packet. You may follow them or overrule them.
@@ -228,7 +229,7 @@ def parse(text, cand_mints, holding, syms=None):
     if a == 'WAIT' and holding:
         a = 'HOLD'
     out = {'action': a, 'mint': mint if a == 'BUY' else '', 'why': why, 'conf': conf, 'watch': watch, **({'trim': j['_trim']} if a == 'TRIM' else {})}
-    for k, lo, hi in (('tp', 3.0, 500.0), ('sl', 3.0, 44.0)):   # 🎯 the holder runs its whole trade: its own take / stop (−45% stays the floor)
+    for k, lo, hi in (('tp', TP_MIN, 500.0), ('sl', 3.0, 44.0)):   # 🎯 a take under +25% cut runners short ($SEXCOIN banked at +15%, ran on)   # 🎯 the holder runs its whole trade: its own take / stop (−45% stays the floor)
         v = abs(_f(j.get(k), 0.0))
         if v > 0 and a in ('BUY', 'HOLD', 'TRIM'):
             out[k] = round(max(lo, min(hi, v)), 1)
@@ -449,7 +450,12 @@ def line_hold(dec, held, ch, sellers=False):
         return dec
     c = ch or {}
     sl, tp, pct = _f(held.get('sl') or held.get('yourSl') or 15), _f(held.get('tp') or held.get('yourTp') or 40), held.get('pct')
-    if pct is None or _f(pct) <= -0.8 * sl or _f(pct) >= tp:
+    if pct is None or _f(pct) <= -0.8 * sl:
+        return dec
+    broke = _f(c.get('ll') or 0) > 0 or str(c.get('germ') or '').lower().startswith('lost') or str(c.get('state') or '').upper() in ('DOWNTREND', 'COLLAPSING', 'FAILED BREAKOUT', 'LIQUIDITY FAILURE', 'DISTRIBUTION')
+    if _f(pct) >= min(tp, 20.0) and not broke:   # 🚀 a runner up 20%+ is SKIMMED, never dumped whole (owner: "up 39%, OSSY sold it")
+        return {**dec, 'action': 'TRIM', 'trim': 33, 'why': (f"(🚀 SELL → SKIM 33% at {_f(pct):+.1f}% — still running, the rest rides) " + str(dec.get('why') or ''))[:200]}
+    if _f(pct) >= tp:
         return dec
     if _f(c.get('ll') or 0) > 0 or str(c.get('germ') or '').lower().startswith('lost') or str(c.get('state') or '').upper() in ('DOWNTREND', 'COLLAPSING', 'FAILED BREAKOUT', 'LIQUIDITY FAILURE', 'DISTRIBUTION'):
         return dec

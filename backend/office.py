@@ -842,7 +842,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
 SCALE_AT = 10.0
 HOLD_SOFT = True   # ✋ agent coins: a soft exit needs OSSY / G4's TIGHTEN (tests of the older rules pin it False in conftest)
 HINT_SEC = 30 * 60.0   # ✋ your one-click HOLD / 👍 GOOD ENTRY on a seat holds its soft exits this long
-HINT_HARD = ('R1', 'R2', 'R3', 'R4', 'R4r', 'R4d', 'R4e', 'R5', 'R5x', 'R5c', 'R5m', 'R9c', 'R6', 'R6m', 'R5g')   # … these still act
+HINT_HARD = ('R1', 'R2', 'R3', 'R4', 'R4r', 'R4d', 'R4e', 'R5', 'R5x', 'R5c', 'R5m', 'R9c', 'R5g')   # (owner 2026-10-17, $SEXCOIN banked at the model's +15% after he said HOLD: your hold also holds the take lines R6 / R6m / R6h)   # … these still act
 SKIM_STRONG_PCT = 33.0   # 🚀 a breakout still accelerating / running: bank a third (skim) and let the rest run; a weak one banks the owner's scale-out share
 SCALE_PCT = 75.0   # 2026-10-15: 50% left too much on the table for rugs after the take (honest replay: half +3.1% avg · 75% +6.5% · real +4.3%)
 

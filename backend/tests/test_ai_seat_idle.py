@@ -87,3 +87,9 @@ def test_line_hold_lets_a_trade_hit_its_lines():
     assert s.line_hold(d, {'pct': -3, 'sl': 15, 'tp': 40}, {'germ': 'lost'})['action'] == 'SELL'
     assert s.line_hold(d, {'pct': -13, 'sl': 15, 'tp': 40}, {})['action'] == 'SELL'                # near its stop
     assert s.line_hold(d, {'pct': -3, 'sl': 15, 'tp': 40}, {}, sellers=True)['action'] == 'SELL'
+
+
+def test_a_runner_sell_becomes_a_skim():
+    d = s.line_hold({'action': 'SELL', 'why': 'x'}, {'pct': 39, 'sl': 15, 'tp': 40}, {'ll': 0})
+    assert d['action'] == 'TRIM' and d['trim'] == 33
+    assert s.line_hold({'action': 'SELL', 'why': 'x'}, {'pct': 39, 'sl': 15, 'tp': 40}, {'ll': 2})['action'] == 'SELL'

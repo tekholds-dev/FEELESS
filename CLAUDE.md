@@ -4854,3 +4854,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - ✋ AGENT COINS HOLD (owner, 2026-10-17: "they need to HOLD — no reason to be selling so fast"; `office.HOLD_SOFT` True, conftest pins it False
   for the older Reaper tests): on an agent coin every SOFT exit needs OSSY / G4's fresh exit read to say TIGHTEN; otherwise PROTECT and it plays
   to its stop / take. Stops, rug / dump / drain, pulled pool, −45%, the take line and the model's own lines always act.
+- 🚀 RUNNERS RIDE (owner, 2026-10-17, $SEXCOIN banked at the model's +15% after he said HOLD, then "up 39% OSSY sold"): `ai_seat.TP_MIN` 25 (a model
+  take under +25% is raised); your ✋ Hold now also holds the take lines (R6 / R6m out of `HINT_HARD`); `line_hold`: a model SELL at +20%+ with the
+  chart unbroken becomes TRIM 33% (skim), the rest rides — a lower low / germ lost / downtrend still lets it sell whole.

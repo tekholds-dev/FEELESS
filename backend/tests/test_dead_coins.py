@@ -81,7 +81,7 @@ def test_time_rules_never_sell_a_base():
 
 def test_your_hold_hint_never_blocks_a_stop_or_a_rug():
     import office as of
-    for hard in ('R1', 'R4r', 'R5', 'R5x', 'R6', 'R5m', 'R6m'):
+    for hard in ('R1', 'R4r', 'R5', 'R5x', 'R5m'):
         assert hard in of.HINT_HARD
     assert 'R9' not in of.HINT_HARD and of.HINT_SEC == 1800
 
