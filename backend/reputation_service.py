@@ -17965,6 +17965,19 @@ AGENTS_PAGE_SEC = 2
 _agents_page: dict = {'key': None, 'body': b'{}'}
 
 
+def _duo_holding(l):
+    """💹 the AI seat's live trade: coin, $ in, $ now, P&L % and $, peak, held minutes, its own TP / SL (live price from the shared cache)."""
+    px_ = _fuse._f((_jup_px_cache.get(l.get('mint')) or (0, 0))[1]) or _fuse._f(l.get('px'))
+    en_, u_ = _fuse._f(l.get('entry')), _fuse._f(l.get('units'))
+    cost_ = _fuse._f(l.get('costUsd')) or en_ * u_
+    now_v = u_ * px_ if px_ > 0 else None
+    pos_ = (_office_state().get('pos') or {}).get(l.get('mint')) or {}
+    return {'symbol': l.get('symbol'), 'mint': l.get('mint'), 'since': l.get('at'), 'tp': l.get('aiTp'), 'sl': l.get('aiSl'),
+            'inUsd': round(cost_, 3) if cost_ else None, 'nowUsd': round(now_v, 3) if now_v else None,
+            'pct': round((px_ / en_ - 1) * 100, 2) if en_ > 0 and px_ > 0 else None, 'pnlUsd': round(now_v - cost_, 3) if now_v and cost_ else None,
+            'peak': pos_.get('peak'), 'heldMin': round((time.time() - _fuse._f(l.get('at'))) / 60, 1) if l.get('at') else None}
+
+
 def _duo_view(env=None):
     """🔁 The G4 × OSSY seat for the Agents tab (small: mode, whose turn, each model's record, the open paper seat, the last 8 calls)."""
     try:
@@ -17976,7 +17989,7 @@ def _duo_view(env=None):
         held_l = legs_[0] if legs_ else None
         return {'mode': _oe.clean_policy(_prime_real_cfg())['agentAiSeat'], 'next': nm(first_), 'at': st_['at'], 'busy': _g4['busy'],
                 'phase': _g4.get('phase') or ('HOLDING' if held_l else 'HUNTING'), 'holder': nm(held_l.get('aiBy')) if held_l and held_l.get('aiBy') else None,
-                'holding': {'symbol': held_l.get('symbol'), 'since': held_l.get('at'), 'tp': held_l.get('aiTp'), 'sl': held_l.get('aiSl')} if held_l else None,
+                'holding': _duo_holding(held_l) if held_l else None,
                 'conf': {nm(k_): {'boost': _dv.confidence(_dv_mem.get() or {}, k_), 'words': _dv.words(_dv_mem.get() or {}, k_)} for k_ in (_duet.LEAD, _duet.SECOND, 'owner')},
                 'trade': [{**{k_: r_.get(k_) for k_ in ('at', 'model', 'action', 'view', 'why', 'conf', 'pct', 'talk')}, 'key': _dv_key(r_), 'mine': r_.get('by') == 'owner', 'votes': _dv.view(_dv_mem.get() or {}, _dv_key(r_))} for r_ in st_['log']
                           if held_l and r_.get('mint') == held_l.get('mint') and (r_.get('at') or 0) >= _fuse._f(held_l.get('at')) - 180][-14:][::-1],   # 💬 the conversation on THIS trade

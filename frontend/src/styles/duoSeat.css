@@ -152,3 +152,10 @@ body.theme-day .dso-turn li { background: rgba(236, 246, 240, .8); } body.theme-
 body.theme-day .dso-room { background: rgba(240, 234, 252, .8); } body.theme-day .dsb-msg { color: #10301d; }
 @media (max-width: 640px) { .dsb { max-width: 92%; } }
 .dsb-av { width: 16px; height: 16px; border-radius: 50%; object-fit: cover; vertical-align: -3px; margin-right: 5px; border: 1px solid rgba(255, 255, 255, .2); }
+/* 💹 live trade in the seat core */
+.dso-coin { font-size: .8em; } .dso-pnl { display: grid; justify-items: center; gap: 1px; }
+.dso-pnl strong { font: 900 20px var(--m-mono, 'JetBrains Mono', monospace); animation: dsoPop .5s ease-out; } .dso-pnl.is-up strong { color: #45e486; } .dso-pnl.is-dn strong { color: #ff8fa3; }
+.dso-pnl small { font: 600 9px var(--m-mono, monospace); color: var(--m-mute, #8fb3a0); }
+.dso-hex:has(.dso-pnl.is-up) .dso-ring { border-color: #15d16a; } .dso-hex:has(.dso-pnl.is-dn) .dso-ring { border-color: #ff8fa3; }
+@keyframes dsoPop { 0% { transform: scale(1.25); } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .dso-pnl strong { animation: none; } } body.fx-lite .dso-pnl strong { animation: none; }

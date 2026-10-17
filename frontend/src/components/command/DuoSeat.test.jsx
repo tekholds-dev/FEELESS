@@ -60,3 +60,10 @@ test('👍👎 verdict dots read the 5m / 1h / 24h settlements', () => {
   const { verdictDots } = require('./DuoSeat');
   expect(verdictDots([[300, 1, 12.5], [3600, null, null]])).toEqual([{ w: '5m', ok: 1, move: 12.5 }, { w: '1h', ok: null, move: null }, { w: '24h', ok: null, move: null }]);
 });
+
+test('💹 seat core words: P&L %, $ in → $ now, peak + held', () => {
+  const { seatWords } = require('./DuoSeat');
+  const w = seatWords({ pct: 4.48, inUsd: 0.5, nowUsd: 0.522, pnlUsd: 0.022, peak: 6.9, heldMin: 12.2 });
+  expect(w).toMatchObject({ pct: '+4.5%', tone: 'up', money: '$0.500 → $0.522 (+$0.022)', meta: 'peak +6.9% · 12m held' });
+  expect(seatWords(null)).toBe(null);
+});

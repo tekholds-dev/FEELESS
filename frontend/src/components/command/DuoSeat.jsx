@@ -36,6 +36,19 @@ export function sideOf(name, log) {
   };
 }
 
+// 💹 the live trade in the seat core: P&L % big (flashes on each move), $ in → $ now, peak, held — from the server's live read every few s
+export function seatWords(h) {
+  if (!h) return null;
+  const f = v => (v == null ? '—' : `$${Number(v).toFixed(Math.abs(v) < 1 ? 3 : 2)}`);
+  return { pct: h.pct == null ? '—' : `${h.pct >= 0 ? '+' : ''}${Number(h.pct).toFixed(1)}%`, tone: h.pct == null ? '' : h.pct >= 0 ? 'up' : 'dn',
+    money: `${f(h.inUsd)} → ${f(h.nowUsd)}${h.pnlUsd != null ? ` (${h.pnlUsd >= 0 ? '+' : '−'}${f(Math.abs(h.pnlUsd))})` : ''}`,
+    meta: [h.peak != null ? `peak ${Number(h.peak) >= 0 ? '+' : ''}${Number(h.peak).toFixed(1)}%` : null, h.heldMin != null ? `${Math.round(h.heldMin)}m held` : null].filter(Boolean).join(' · ') };
+}
+function SeatPnl({ h }) {
+  const w = seatWords(h);
+  return <span className={`dso-pnl is-${w.tone}`} data-testid="duo-pnl"><strong key={w.pct}>{w.pct}</strong><small>{w.money}</small><small>{w.meta}</small></span>;
+}
+
 function Side({ s, pod, turn, busy, side }) {
   return <section className={`dso-side ${side} ${turn ? 'is-turn' : ''} ${turn && busy ? 'is-busy' : ''}`} data-testid={`duo-pod-${s.name}`}>
     <i className="dso-scan" aria-hidden="true" />
@@ -158,8 +171,8 @@ function DuoSeatBody({ duo, call }) {
       <div className="dso-core" data-testid="duo-open">
         {last ? <i key={`${last.at}-${from}`} className={`dso-beam from-${from} a-${actKey(last.action)}`} aria-hidden="true" /> : null}
         <div className="dso-hex"><i className="dso-ring" aria-hidden="true" />
-          <small>SEAT</small><b>{duo.holding ? `$${duo.holding.symbol}` : duo.open ? `$${duo.open.symbol}` : 'EMPTY'}</b>
-          <small>{duo.open ? `${duo.open.by === 'local' ? 'OSSY' : duo.open.by === 'agents' ? 'agents' : 'G4'} · peak ${sgn(duo.open.peak || 0)}` : `${duo.next} calls next`}</small>
+          <small>{duo.holding ? `${duo.holder || '—'} HOLDS` : 'SEAT'}</small><b>{duo.holding ? <span className="dso-coin">🪙 {duo.holding.symbol}</span> : duo.open ? `$${duo.open.symbol}` : 'EMPTY'}</b>
+          {duo.holding ? <SeatPnl h={duo.holding} /> : <small>{duo.open ? `${duo.open.by === 'local' ? 'OSSY' : duo.open.by === 'agents' ? 'agents' : 'G4'} · peak ${sgn(duo.open.peak || 0)}` : `${duo.next} calls next`}</small>}
         </div>
         {duo.fate ? <small className={`dso-fate ${/^seated/.test(duo.fate.why) ? 'ok' : /sent/.test(duo.fate.why) ? 'go' : 'no'}`} data-testid="duo-fate" title="What happened to the newest model BUY">
           🧾 {duo.fate.symbol ? `$${duo.fate.symbol}` : 'buy'}: {duo.fate.why} · {ago(duo.fate.at)}</small> : null}
