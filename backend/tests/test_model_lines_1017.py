@@ -107,5 +107,12 @@ def test_duo_update_is_a_stream_kind():
 def test_desktop_runs_two_parallel_slots():
     import feeless_mcp as f, ai_router as ar
     t = f.install_script('http://x/mcp', 'T')
-    assert '--parallel $PAR' in t and 'FEELESS_LM_PAR:-2' in t and 'FEELESS_LM_CTX:-10240' in t
+    assert '--parallel $PAR' in t and 'FEELESS_LM_PAR:-2' in t and 'FEELESS_LM_CTX:-8704' in t
     assert ar.PROVIDERS['lan'][7] == ar.LAN_PARALLEL == 2                                 # the router sends two at once to match
+
+
+def test_both_models_get_the_voice_and_respect_the_boss():
+    for n in ('SYSTEM', 'ADVISE', 'IDLE'):
+        assert 'THE BOSS' in getattr(seat, n) and 'witty' in getattr(seat, n)
+    import fee_voice
+    assert 'THE BOSS' in fee_voice.PERSONA

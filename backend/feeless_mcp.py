@@ -865,7 +865,7 @@ def write_local_preset():
     return True
 
 
-DESKTOP_MODEL = os.environ.get('LAN_LLM_MODEL') or 'qwen/qwen3-4b-2507'   # 🖥 desktop = M1 · 8 GB: Qwen3-4B Instruct 2507 (MLX 4-bit ≈ 2.3 GB) — best JSON / instruction model that leaves room for an 8K context
+DESKTOP_MODEL = os.environ.get('LAN_LLM_MODEL') or 'google/gemma-4-e4b'   # 🖥 desktop = M1 · 8 GB: Gemma 4 E4B (4-bit ≈ 4–4.5 GB) — the owner's pick, ONE model, 2 predictions at once on ~8.7K context
 DESKTOP_FALLBACK = 'google/gemma-4-e2b'   # what it ran before — loaded when the new one can't be
 
 
@@ -918,7 +918,7 @@ FEELESS_JS_EOF
 #  · com.feeless.awake  = caffeinate (no idle / system sleep while logged in; a closed laptop lid or a power-off still stops it)
 #  · com.feeless.lankeep = every 60s: LM Studio's server up on port $PORT + the model loaded; every hour: re-run this installer from
 #    FEELESS so the preset / prompt / these helpers update by themselves. Re-running this script replaces only its own files.
-PORT="${{FEELESS_LM_PORT:-1236}}"; MODEL="${{FEELESS_LM_MODEL:-{model or DESKTOP_MODEL}}}"; FALLBACK="{DESKTOP_FALLBACK}"; CTX="${{FEELESS_LM_CTX:-10240}}"; PAR="${{FEELESS_LM_PAR:-2}}"
+PORT="${{FEELESS_LM_PORT:-1236}}"; MODEL="${{FEELESS_LM_MODEL:-{model or DESKTOP_MODEL}}}"; FALLBACK="{DESKTOP_FALLBACK}"; CTX="${{FEELESS_LM_CTX:-8704}}"; PAR="${{FEELESS_LM_PAR:-2}}"
 mkdir -p "$HOME/.feeless" "$HOME/Library/LaunchAgents"
 cat > "$HOME/.feeless/lan-keep.sh" <<FEELESS_KEEP_EOF
 #!/bin/bash
