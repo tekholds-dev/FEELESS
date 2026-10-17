@@ -4910,7 +4910,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🖥 Desktop LM Studio = 2 parallel slots (`lms load --parallel 2`, context 10240 shared; `LAN_LLM_PARALLEL` 2 → the router sends two `lan` calls
   at once and fits each to ctx ÷ 2). RAM, not disk, decides model size: the desktop is M1 · 8 GB (≈ 5 GB usable by the GPU); this MacBook Air is
   M3 · 24 GB (why gpt-oss-20b at 12 GB runs here). No model that fits 8 GB is near a frontier model — say so before promising one.
-- 🖥 Desktop G4 = **Gemma 4 E4B** (owner's pick): ONE model, `--parallel 2`, 8704 context (each call fits its 4352 share); fallback Gemma 4 E2B.
+- 🖥 Desktop G4 = **Qwen3-4B Instruct 2507** (MLX ≈ 2.3 GB, text only), `--parallel 2`, 8704 context, fallback Gemma 4 E2B, lan timeout 90s. Gemma 4 E4B
+  was tried 2026-10-17: the LM Studio download is the GGUF VISION build (Q4_K_M + image projector) — on the 8 GB M1 it swapped and 'say hi' took
+  > 150s, so every G4 call timed out (state OFFLINE, HTTP 400 / timeouts) and the agents covered its turns. "G4 BUGGING" ⇒ curl a 20-token chat to
+  the desktop first and read `/api/v0/models` (size, format) before touching prompts.
 - 🎙 OSSY / G4 VOICE (`ai_seat.VOICE` on SYSTEM / ADVISE / IDLE, `fee_voice.PERSONA`, `docs/lm_fee_prompt.txt`): witty trench degen, never dry, jabs
   at the partner, and the owner is THE BOSS — answered first, called boss, never sassed; numbers still decide every line.
 - 📸🏁 OSSY / G4 trade room (owner, 2026-10-17): a `SNAPSHOT` line on the live trade every `ai_seat.SNAP_EVERY` 5 min (no model call: P/L · peak ·

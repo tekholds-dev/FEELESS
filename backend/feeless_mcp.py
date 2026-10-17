@@ -860,7 +860,7 @@ def write_local_preset():
     return True
 
 
-DESKTOP_MODEL = os.environ.get('LAN_LLM_MODEL') or 'google/gemma-4-e4b'   # 🖥 desktop = M1 · 8 GB: Gemma 4 E4B (4-bit ≈ 4–4.5 GB) — the owner's pick, ONE model, 2 predictions at once on ~8.7K context
+DESKTOP_MODEL = os.environ.get('LAN_LLM_MODEL') or 'qwen/qwen3-4b-2507'   # 🖥 desktop = M1 · 8 GB: Qwen3-4B Instruct 2507 (MLX ≈ 2.3 GB, text only). Gemma 4 E4B GGUF (vision build) swapped the 8 GB Mac: 'say hi' took > 150s (2026-10-17)
 DESKTOP_FALLBACK = 'google/gemma-4-e2b'   # what it ran before — loaded when the new one can't be
 
 
