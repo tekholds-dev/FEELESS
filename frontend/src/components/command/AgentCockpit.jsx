@@ -356,11 +356,12 @@ function LiveDesk({ duo, matrix, tape, tapeN }) {
 // 📣 the Agents chart's comments (owner, 2026-10-17): ONLY Reaper, OSSY and G4 on THIS coin — a run of the same word = one pin, newest CHART_PINS
 const PIN_WHO = new Set(['REAPER', 'OSSY', 'G4']);
 export const CHART_PINS = 6;
-export function chartCalls(rows, mint) {
-  const keep = (rows || []).filter(r => r.mint && r.mint === mint && Number(r.cap) > 0 && PIN_WHO.has(String(r.model || '').toUpperCase()))
+export function chartCalls(rows, mint, liveCap) {
+  const capOf = r => (Number(r.cap) > 0 ? Number(r.cap) : Number(liveCap) > 0 ? Number(liveCap) : 0);   // a line with no cap of its own pins at the coin's live cap (history was hidden)
+  const keep = (rows || []).filter(r => r.mint && r.mint === mint && capOf(r) > 0 && PIN_WHO.has(String(r.model || '').toUpperCase()))
     .filter((r, i, a) => !i || a[i - 1].model !== r.model || (a[i - 1].view || a[i - 1].action) !== (r.view || r.action));
   return keep.slice(-CHART_PINS).map((r, i) => { const who = String(r.model).toUpperCase(); const reaper = who === 'REAPER';
-    return { id: `${r.at}-${i}`, at: r.at, cap: r.cap, who: reaper ? 'Reaper' : who, kind: reaper ? 'agent' : r.talk ? 'talk' : 'ai',
+    return { id: `${r.at}-${i}`, at: r.at, cap: capOf(r), who: reaper ? 'Reaper' : who, kind: reaper ? 'agent' : r.talk ? 'talk' : 'ai',
       action: reaper ? String(r.view || 'NOTE').toUpperCase() : r.talk ? 'TALK' : r.action, text: r.talk && !reaper ? `${r.view || ''} — ${r.why || ''}` : r.why, pct: r.pct,
       icon: who === 'OSSY' ? 'OS' : who === 'G4' ? 'G4' : undefined, img: avatarOf(who) || undefined }; });
 }
@@ -375,7 +376,7 @@ export function agentPins(markers) {
 }
 
 function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent, tid, call, isOwner, duo }) {
-  const calls = useMemo(() => [...agentPins(markers), ...chartCalls(duo?.chart, m?.mint)], [duo?.chart, m?.mint, markers]);
+  const calls = useMemo(() => [...agentPins(markers), ...chartCalls(duo?.chart, m?.mint, m?.mc)], [duo?.chart, m?.mint, m?.mc, markers]);
   const pair = useMemo(() => (m?.pair ? { chainId: 'solana', pairAddress: m.pair, baseToken: { address: m.mint, symbol: m.symbol }, priceUsd: m.price, marketCap: m.mc } : null), [m?.pair, m?.mint, m?.symbol, m?.price, m?.mc]);
   // ✋ YOUR LINES on an agent seat: its stop + take are grabbable on the chart; a drop asks, saves that coin's own TP / SL, Reaper obeys it,
   // and the position is filed as "your hand" so the record shows whether your adjustments helped
