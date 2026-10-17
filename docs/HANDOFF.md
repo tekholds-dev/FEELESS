@@ -1,3 +1,21 @@
+## 🔁 HANDOFF 2026-10-17 13:05 — read first (session "Ossy v G4 turn-based trading")
+Conserve usage · finish everything by priority · never dead-style.
+LIVE (backend restarted 13:05, one copy, all pushed to main, gate green):
+- Agent coins HOLD: a soft exit needs OSSY / G4's TIGHTEN (`office.HOLD_SOFT`); time rules never sell a base (`BASE_TIME_RULES`, `base_of`);
+  15-min breakout window; R11b dead-on-a-base holds; per-coin take `TAKE_ATR` 12× candle (≤ +200%); breakout skim 33% when accelerating.
+- Reaper partnered: `SNAP_N` 3 alone / 1 on TIGHTEN / 5 on RIDE; pending sells get the model's exit read first.
+- Owner one-click ✋ Hold / 👍 Good entry on every seat (`SeatHints` → `seatHint`, 30 min, graded by `_hint_grade`, also holds take lines).
+- OSSY / G4: strict turns (only the holder / hunter is asked; a 10-min empty hunt passes the turn), cook 4 min, `structure_hold`, `line_hold`
+  (SELL between SL/TP needs a chart reason; a +20% runner SELL → 33% skim), `TP_MIN` 25, read 1m + 5m charts every call, no gun-line coins,
+  6h no-repeat (`recent_ai_buys`), no look-alikes, chat merge (owner lines never lost), coin rooms, between-trade talk, idle comments.
+- Agents: models' BUY picks go first into agent seats, coins a model said SELL on are skipped; a coin left ≥3% red sits out 1h.
+- Night guard + night shift OFF (owner's call, `_night_off_fix_1017`).
+- Trades tab: model trades = 🔁 OSSY · G4 (orders carry `aiSeat`), never YOURS.
+NOT DONE / NEXT: (1) re-run the exit report split before/after 12:12 and 13:05 (agent_archive positions, by rule + start red/green) and
+tell the owner the numbers first; (2) find an entry reading that predicts a RED START (26% won vs 68% green) — none separated yet;
+(3) G4 (desktop LAN) answered WAIT 70× in 6h — check its packet / candidate list isn't empty after the gun-line filter.
+Restart rule: check no `pending` in fuse_wallet.db books, `pkill`-by-PID the reputation uvicorn, keep-alive restarts it, confirm count = 1.
+
 # HANDOFF — start here (any Claude account, any new session)
 
 Read this first (2 min), then only the parts of `CLAUDE.md` your task touches (`grep -n "<topic>" CLAUDE.md`). CLAUDE.md is the
