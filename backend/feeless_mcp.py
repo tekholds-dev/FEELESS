@@ -861,8 +861,8 @@ def write_local_preset():
     return True
 
 
-DESKTOP_MODEL = os.environ.get('LAN_LLM_MODEL') or 'google/gemma-4-e2b'   # 🖥 desktop = M1 · 8 GB: Qwen3-4B Instruct 2507 (MLX ≈ 2.3 GB, text only). Gemma 4 E4B GGUF (vision build) swapped the 8 GB Mac: 'say hi' took > 150s (2026-10-17)
-DESKTOP_FALLBACK = os.environ.get('LAN_LLM_FALLBACK_MODEL') or DESKTOP_MODEL   # 2026-10-17: the owner runs Gemma 4 E2B only — no second model is ever downloaded
+DESKTOP_MODEL = os.environ.get('LAN_LLM_MODEL') or 'qwen/qwen3-4b-2507'   # 🖥 desktop = M1 · 8 GB: Qwen3-4B Instruct 2507 (MLX ≈ 2.3 GB, text only). Gemma 4 E4B GGUF (vision build) swapped the 8 GB Mac: 'say hi' took > 150s (2026-10-17)
+DESKTOP_FALLBACK = os.environ.get('LAN_LLM_FALLBACK_MODEL') or 'google/gemma-4-e2b'   # already on the desktop: loaded only when nothing else is (the keeper never downloads it)
 
 
 def install_script(url, tok, preset_json=None, prompt=None, install_url=None, model=None):
